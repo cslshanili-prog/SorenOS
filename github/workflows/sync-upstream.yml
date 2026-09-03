@@ -1,0 +1,79 @@
+name: Sync with Upstream
+
+on:
+  schedule:
+    # 每周一 UTC 8:00 自动检查原作者的更新
+    - cron: '0 8 * * 1'
+  
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/qegj567-cloud/SullyOS.git || true
+          git remote update
+      
+      - name: Check for upstream changes
+        id: check
+        run: |
+          git fetch upstream master
+          if git merge-base --is-ancestor upstream/master HEAD; then
+            echo "status=up-to-date"
+          else
+            echo "status=behind"
+          fi >> $GITHUB_OUTPUT
+      
+      - name: Create sync branch
+        if: steps.check.outputs.status == 'behind'
+        run: |
+          git checkout -b sync/upstream-$(date +%Y%m%d)
+      
+      - name: Merge upstream changes
+        if: steps.check.outputs.status == 'behind'
+        run: |
+          git merge upstream/master --no-edit || echo "merge_conflict=true" >> $GITHUB_ENV
+      
+      - name: Push branch
+        if: steps.check.outputs.status == 'behind'
+        run: |
+          git push -u origin sync/upstream-$(date +%Y%m%d)
+      
+      - name: Create Pull Request
+        if: steps.check.outputs.status == 'behind'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Sync: merge upstream updates from qegj567-cloud/SullyOS"
+          title: "🔄 Sync: upstream updates available"
+          body: |
+            ## Upstream Sync
+            
+            新的上游更新已拉取，请审阅冲突（如有）并合并。
+            
+            - 来源: `qegj567-cloud/SullyOS`
+            - 目标: `master`
+            - 自动生成的同步 PR
+          branch: sync/upstream-$(date +%Y%m%d)
+          base: master
+          delete-branch: true
+          labels: |
+            🔄 sync
+            upstream
