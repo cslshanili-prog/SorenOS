@@ -1,8 +1,9 @@
+import { loadCharacterContextMessages } from './chatContextRange';
 // 人际关系系统 · 核心引擎
 // 查手机「人际关系」模块的纯逻辑 + LLM 链路：真假甄别、好感、双 LLM 私下对话（A 发 B 回）、AI 玩 AI。
 // UI 层（CheckPhone.tsx）负责把这里的结果落库 / 镜像到对方角色，本文件只产数据，不碰 React。
 
-import { CharacterProfile, PhoneContact, UserProfile, ConvTopic } from '../types';
+import { CharacterProfile, PhoneContact, UserProfile, ConvTopic, PhoneEvidence } from '../types';
 import { ContextBuilder } from './context';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { DB } from './db';
@@ -123,6 +124,55 @@ export function upsertContact(
     return next;
 }
 
+/** 把这一段真实对话合入最新手机状态，不能用发请求前的整份通讯录/记录覆盖。 */
+export function applyRealConversationToPhoneState(
+    current: CharacterProfile['phoneState'],
+    result: {
+        partnerName: string; partnerCharId: string; detail: string; delta: number;
+        partnerNote?: string; learnedNew?: string; seedIdentity?: string;
+        timestamp: number; recordId: string; systemMessageId?: number;
+    },
+): { phoneState: NonNullable<CharacterProfile['phoneState']>; broadcast: string } {
+    const matchesPartner = (c: PhoneContact) => c.linkedCharId === result.partnerCharId
+        || normName(c.name) === normName(result.partnerName);
+    const hadContact = current?.contacts?.some(matchesPartner);
+    let contacts = upsertContact(current?.contacts || [], {
+        name: result.partnerName, kind: 'real', linkedCharId: result.partnerCharId,
+        note: result.partnerNote, identity: hadContact ? undefined : result.seedIdentity,
+        lastInteraction: result.timestamp,
+    });
+    const contactId = contacts.find(matchesPartner)!.id;
+    let broadcast = '';
+    contacts = contacts.map(contact => {
+        if (contact.id !== contactId) return contact;
+        const affinity = clampAffinity(contact.affinity + result.delta);
+        let status = contact.status;
+        if (affinity <= -60 && status === 'friend') {
+            status = 'deleted';
+            broadcast = `（我把 ${contact.name} 删了，懒得再联系。）`;
+        } else if (affinity >= 60 && status !== 'friend' && status !== 'blocked') {
+            status = 'friend';
+            broadcast = `（我又把 ${contact.name} 加回来了。）`;
+        }
+        return { ...contact, affinity, status,
+            learned: result.learnedNew ? appendLearned(contact.learned, result.learnedNew) : contact.learned };
+    });
+    const records = current?.records || [];
+    const existing = records.find(record => record.type === 'chat'
+        && (record.contactId === contactId || (!record.contactId && normName(record.title) === normName(result.partnerName))));
+    const record: PhoneEvidence = {
+        ...(existing || { id: result.recordId, type: 'chat', title: result.partnerName }),
+        detail: result.detail, timestamp: result.timestamp, contactId,
+        systemMessageId: result.systemMessageId ?? existing?.systemMessageId,
+    };
+    return {
+        phoneState: { ...current, contacts, records: existing
+            ? records.map(item => item.id === existing.id ? record : item)
+            : [...records, record] },
+        broadcast,
+    };
+}
+
 /**
  * 把「我:/对方:」对话脚本解析成结构化气泡，**带前缀继承**：
  * 一条消息可能跨多行（模型连发几条 / 正文里有换行），后续没有「我:/对方:」前缀的行
@@ -190,14 +240,13 @@ async function chatCompletion(
     return (data?.choices?.[0]?.message?.content || '').trim();
 }
 
-/** 取某角色最近上下文（按 chatapp 设置的 contextLimit，默认 500），压成纯文本 */
+/** 取某角色的有效原文范围（自适应 / 手动），压成纯文本 */
 async function recentContextText(
     char: CharacterProfile,
     selfLabel: string,
     userName: string,
 ): Promise<string> {
-    const limit = char.contextLimit && char.contextLimit > 0 ? char.contextLimit : 500;
-    const msgs = await DB.getRecentMessagesByCharId(char.id, limit);
+    const msgs = await loadCharacterContextMessages(char);
     if (!msgs.length) return '（暂无最近聊天）';
     return msgs
         .map(m => {
@@ -219,10 +268,7 @@ async function buildSpeakerContext(
 ): Promise<string> {
     try {
         if (speaker.memoryPalaceEnabled) {
-            const recent = await DB.getRecentMessagesByCharId(
-                speaker.id,
-                speaker.contextLimit && speaker.contextLimit > 0 ? speaker.contextLimit : 500,
-            );
+            const recent = await loadCharacterContextMessages(speaker);
             await injectMemoryPalace(speaker, recent, otherName, user.name);
         }
     } catch {
@@ -307,7 +353,7 @@ interface RunRealConversationParams {
 
 /**
  * 双 LLM 私下对话：A 用 A 自己的人设/记忆/上下文发消息，B 用 B 自己的人设/记忆/上下文回。
- * 每一方都按用户指定的输入契约：buildCoreContext(true) + 记忆宫殿(query=对方名) + 最近上下文(contextLimit)。
+ * 每一方都按用户指定的输入契约：buildCoreContext(true) + 记忆宫殿(query=对方名) + 统一有效原文范围。
  */
 export async function runRealConversation(
     p: RunRealConversationParams,

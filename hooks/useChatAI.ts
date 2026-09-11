@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect, MutableRefObject } from 'react';
+import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
 import { DB } from '../utils/db';
 import { ChatPrompts } from '../utils/chatPrompts';
@@ -28,6 +28,8 @@ import { buildMcpOpenAITools, buildMcpRejectedToolsFallbackBody, buildMcpTextFal
 import { buildToolResultMessage, normalizeToolCallsForCompat } from '../utils/toolCallCompat';
 import { toolCallFingerprint } from '../utils/agenticToolFeedback';
 import { buildChatRequestPayload } from '../utils/chatRequestPayload';
+import { acquireChatReply, isChatReplyActive, subscribeChatReplies } from '../utils/chatReplyLock';
+import { withChatContinuation } from '../utils/chatContinuation';
 import {
     isInstantConfigReady,
     sendInstantPushAndAwaitReply,
@@ -44,7 +46,7 @@ import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { markAmsgStateDirty, startAmsgChatPresence, stopAmsgChatPresence } from '../utils/amsgStateSync';
 import { getLastRealUserMessageAt } from '../utils/amsg2ExpireGuard';
 import { getPendingTasks, hasActiveAiTask, isAmsg2EnabledForChar } from '../utils/amsg2Tasks';
-import { buildAmsg2NoticesText, buildAmsg2TaskContextText, collectAmsg2TaskContext } from '../utils/amsg2TaskContext';
+import { buildAmsg2NoticesText, buildAmsg2TaskContextText, collectAmsg2TaskContext, insertAmsg2TaskContextBlock } from '../utils/amsg2TaskContext';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { announceInstantChatRoute, getInstantChatPending, resolveInstantChatReadiness, sendInstantChatTurn, stageInstantChatExpiredNotices } from '../utils/amsgInstantChat';
 // worker 模块的常量叶子（零运行时依赖，前端引它不带进 worker 环境）：
@@ -484,7 +486,10 @@ export const useChatAI = ({
     // 音乐上下文 — 用于聊天时注入"user 正在听什么 + 当前歌词窗口"
     const music = useMusic();
 
-    const [isTyping, setIsTyping] = useState(false);
+    const [localTyping, setLocalTyping] = useState(false);
+    const characterTyping = useSyncExternalStore(subscribeChatReplies, () => isChatReplyActive(char?.id), () => false);
+    // 同一挂载实例仍串行使用流式预览状态；跨页面重进则读取角色的后台占位。
+    const isTyping = localTyping || characterTyping;
     // 流式预览气泡：stream 开启时，已完成行与安全尾句随增量以临时气泡上屏。
     // 流结束后由 applyAssistantPostProcessing 正常落库渲染，预览随即清空 —— 只影响体感，不改持久化。
     const [streamingBubbles, setStreamingBubbles] = useState<string[]>([]);
@@ -735,24 +740,21 @@ export const useChatAI = ({
             ? { ...char, buffInjection: '', activeBuffs: [] }
             : char;
 
-        setIsTyping(true);
-        setStreamingBubbles([]);
-        setStreamingThinking('');
-        setRecallStatus('');
-        // 全局横幅「xx 正在回应…」（ChatBroadcast）。isTyping 等 UI 状态随 Chat 卸载
-        // 一起销毁，但这个异步闭包会继续跑完并落库——横幅靠 window 事件与组件生命周期
-        // 解耦，用户切走 Chat 也能看到生成还活着。finally 里派发 end（两条路径都经过）。
-        announceChatGen(CHAT_GEN_EVENTS.replyStart, { charId: char.id, charName: char.name });
-
-        // Keep the Service Worker alive while we make potentially long AI calls
-        await KeepAlive.start();
-
-        // 本轮的 amsg2 工具会话：角色一轮里可能连着排/取消多个任务，任务清单要在这一轮内
-        // 累加，所以由 session 兜住最新 config，别从 char 快照上读写（char 是生成开始的
-        // 那份，updateCharacter 不回写它）。finally 里打脏也要读它，所以声明在 try 外面。
+        // 工具会话累加本轮新任务；finally 打脏时也要读这一份最新配置。
         const amsg2Session = createAmsg2ToolSession({
             char, userProfile, groups, realtimeConfig, apiConfig, updateCharacter,
         });
+        const releaseReply = acquireChatReply(char.id);
+        if (!releaseReply) { onInstantPosted?.(); return; }
+        setLocalTyping(true);
+        setStreamingBubbles([]);
+        setStreamingThinking('');
+        setRecallStatus('');
+        // 全局横幅「xx 正在回应…」（ChatBroadcast）。Chat 卸载后，生成占位和这个异步
+        // 闭包都会保留并继续落库——横幅靠 window 事件与组件生命周期
+        // 解耦，用户切走 Chat 也能看到生成还活着。finally 里派发 end（两条路径都经过）。
+        announceChatGen(CHAT_GEN_EVENTS.replyStart, { charId: char.id, charName: char.name });
+
         // 本轮里角色自己新排出来的任务。排程现状块每轮现算时靠它把这些点名标出来——不标
         // 的话角色分不清清单上哪条是自己刚排的，回头又排一条一模一样的。
         const amsg2CreatedThisTurn = new Set<string>();
@@ -778,6 +780,8 @@ export const useChatAI = ({
         };
 
         try {
+            // 初始化失败也必须经过 finally 释放本轮占位。
+            await KeepAlive.start();
             const baseUrl = effectiveApi.baseUrl.replace(/\/+$/, '');
             const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey || 'sk-none'}` };
 
@@ -978,7 +982,9 @@ export const useChatAI = ({
             }));
             const systemPrompt = payload.systemPrompt;
             const cleanedApiMessages = payload.cleanedApiMessages;
-            const fullMessages = payload.fullMessages;
+            const fullMessages = payload.flags.promptBuildSkipped
+                ? payload.fullMessages
+                : withChatContinuation(payload.fullMessages, userProfile.name);
             const promptBuildSkipped = payload.flags.promptBuildSkipped;
             if (payload.flags.mcdActive) {
                 console.log(`🍔 [MCD-MiniApp] 注入协同点餐上下文 step=${mcdMiniSnap?.step} cartItems=${mcdMiniSnap?.cart?.length || 0} menuItems=${mcdMiniSnap?.menuMeals ? Object.keys(mcdMiniSnap.menuMeals).length : 0} nutrition=${mcdMiniSnap?.nutritionData ? mcdMiniSnap.nutritionData.length : 0}字`);
@@ -1255,7 +1261,13 @@ export const useChatAI = ({
                     userProfile.name,
                 );
                 // 常驻简介让这一块总是非空：没任务时角色也得知道自己随时能排。
-                return [...messages, { role: 'system', content: text }];
+                const block = { role: 'system', content: text };
+                // 插在易变尾段**之前**，不贴数组尾巴：「回到你自己」钢印焊在 volatileTail 末尾，
+                // 靠 recency 抢模型开口前的最后一眼；一份带 promptHint 原文的清单摆在它后面，
+                // 排在今晚的事会被当成本轮就该催的事（「书看到哪了」每轮问一遍的由来）。
+                // 插入点在本轮用户消息之后，前缀缓存的断点更靠前，命中率一个 token 都不受影响。
+                // 工具循环的 loopMessages 是 baseReqBody.messages 追加尾巴，前缀没动，下标照用。
+                return insertAmsg2TaskContextBlock(messages, block, payload.volatileTailIndex);
             };
 
             // ─── Instant Push 分支 ───
@@ -2117,8 +2129,9 @@ export const useChatAI = ({
             }
             setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
         } finally {
+            releaseReply();
+            setLocalTyping(false);
             KeepAlive.stop();
-            setIsTyping(false);
             // 本轮生成结束（成功/失败/中断都经过）→ 停止本地续租；远端靠 45s TTL 自然失效。
             // 未开过租约（instant push / 非 amsg2 角色）时是幂等 no-op。
             stopAmsgChatPresence(char.id);

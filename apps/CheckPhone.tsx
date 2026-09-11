@@ -1,3 +1,4 @@
+import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
@@ -11,7 +12,7 @@ import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import {
     runRealConversation, runNpcConversation, upsertContact, matchRealChar,
     clampAffinity, normName, flipTranscript, parseTranscript, serializeTurns, appendLearned,
-    topicText, summarizeConversation,
+    topicText, summarizeConversation, applyRealConversationToPhoneState,
 } from '../utils/relationshipChat';
 import PersonaSim, { LifeLog, generatePersonaScript } from './PersonaSim';
 import { usePersonaSim, personaSimStore } from '../utils/personaSimStore';
@@ -706,7 +707,7 @@ const CheckPhone: React.FC = () => {
 
         try {
             await injectMemoryPalace(targetChar);
-            const msgs = await DB.getMessagesByCharId(targetChar.id);
+            const msgs = await loadCharacterContextMessages(targetChar);
             const lastMsg = msgs[msgs.length - 1];
 
             // 「距离上次联系多久」交给 buildCoreContext 统一注入（受时间感知开关管控、口径与聊天/见面一致）
@@ -715,11 +716,7 @@ const CheckPhone: React.FC = () => {
                 { lastInteractionTs: lastMsg?.timestamp },
             );
 
-            // 聊天/通讯录类按 chatapp 的上下文设置（默认 500）取，其它 App 维持轻量 50 条
-            const recentWindow = (type === 'chat' || type === 'contacts')
-                ? (targetChar.contextLimit && targetChar.contextLimit > 0 ? targetChar.contextLimit : 500)
-                : 50;
-            const recentMsgs = msgs.slice(-recentWindow).map(m => {
+            const recentMsgs = msgs.map(m => {
                 const roleName = m.role === 'user' ? userProfile.name : targetChar.name;
                 const content = m.type === 'text' ? m.content : `[${m.type}]`;
                 return `${roleName}: ${content}`;
@@ -978,12 +975,12 @@ ${realCharRule}
     // 组 context：跟 handleGenerate 一致（含记忆宫殿 + 时间感知 + 最近聊天），让偷看到的 AI 记录贴合真实近况
     const buildAiContext = async (char: CharacterProfile) => {
         await injectMemoryPalace(char);
-        const msgs = await DB.getMessagesByCharId(char.id);
+        const msgs = await loadCharacterContextMessages(char);
         const lastMsg = msgs[msgs.length - 1];
         const context = ContextBuilder.buildCoreContext(
             char, userProfile, true, undefined, undefined, { lastInteractionTs: lastMsg?.timestamp },
         );
-        const recentMsgs = msgs.slice(-50).map(m => {
+        const recentMsgs = msgs.map(m => {
             const roleName = m.role === 'user' ? userProfile.name : char.name;
             return `${roleName}: ${m.type === 'text' ? m.content : `[${m.type}]`}`;
         }).join('\n');
@@ -1674,32 +1671,14 @@ ${olderText}
         owner: CharacterProfile, partnerName: string, partnerCharId: string,
         detail: string, delta: number, partnerNote?: string, learnedNew?: string, seedIdentity?: string,
     ) => {
-        // 对方在我方通讯录里是否已存在——决定是否要「先建联系人」并给个起始备注名
-        const hadContact = (owner.phoneState?.contacts || []).some(
-            c => c.linkedCharId === partnerCharId || normName(c.name) === normName(partnerName),
-        );
-        // upsert 指向对方的真实联系人（不存在则在这里先建好，名字/头像/备注名都补上，再挂消息）
-        let contacts = upsertContact(owner.phoneState?.contacts || [], {
-            name: partnerName, kind: 'real', linkedCharId: partnerCharId, lastInteraction: Date.now(),
-            note: partnerNote,
-            // 仅新建时给个起始备注名（多数关系标签是对称的：网友↔网友、前任↔前任），已有则不动
-            identity: hadContact ? undefined : seedIdentity,
-        });
-        const cid = contacts.find(c => c.linkedCharId === partnerCharId || normName(c.name) === normName(partnerName))?.id;
-        // 好感增减 + 自动加删友 + 累积「了解」
-        let broadcast = '';
-        contacts = contacts.map(c => {
-            if (c.id !== cid) return c;
-            const newAff = clampAffinity(c.affinity + delta);
-            let status = c.status;
-            if (newAff <= -60 && c.status === 'friend') { status = 'deleted'; broadcast = `（我把 ${c.name} 删了，懒得再联系。）`; }
-            else if (newAff >= 60 && c.status !== 'friend' && c.status !== 'blocked') { status = 'friend'; broadcast = `（我又把 ${c.name} 加回来了。）`; }
-            const learned = learnedNew ? appendLearned(c.learned, learnedNew) : c.learned;
-            return { ...c, affinity: newAff, status, learned, lastInteraction: Date.now() };
-        });
-        // chat 记录（按联系人 upsert）
-        const recs = owner.phoneState?.records || [];
-        const existing = recs.find(r => r.type === 'chat' && (r.contactId === cid || (!r.contactId && normName(r.title) === normName(partnerName))));
+        const timestamp = Date.now();
+        const result = {
+            partnerName, partnerCharId, detail, delta, partnerNote, learnedNew, seedIdentity,
+            timestamp, recordId: `rec-${timestamp}-${Math.random()}`,
+        };
+        const contact = owner.phoneState?.contacts?.find(c => c.linkedCharId === partnerCharId || normName(c.name) === normName(partnerName));
+        const existing = owner.phoneState?.records?.find(r => r.type === 'chat'
+            && ((contact && r.contactId === contact.id) || (!r.contactId && normName(r.title) === normName(partnerName))));
         const ownerSendToChat = owner.phoneState?.sendToChat !== false;
         let msgId: number | undefined;
         if (ownerSendToChat) {
@@ -1711,15 +1690,14 @@ ${olderText}
                 metadata: { phoneCard: { app: '聊天软件', kind: 'chat', title: partnerName, detail } },
             } as any);
         }
-        const now = Date.now();
-        const nextRecs = existing
-            ? recs.map(r => r.id === existing.id ? { ...r, detail, timestamp: now, contactId: cid, systemMessageId: msgId ?? r.systemMessageId } : r)
-            : [...recs, { id: `rec-${now}-${Math.random()}`, type: 'chat', title: partnerName, detail, timestamp: now, contactId: cid, systemMessageId: msgId }];
         // 自动加删友播报：进机主与用户的私聊（同样受 sendToChat 控制）
+        const { broadcast } = applyRealConversationToPhoneState(owner.phoneState, result);
         if (broadcast && ownerSendToChat) {
             await DB.saveMessage({ charId: owner.id, role: 'assistant', type: 'text', content: broadcast } as any);
         }
-        updateCharacter(owner.id, (cur) => ({ phoneState: { ...cur.phoneState, contacts, records: nextRecs } }));
+        updateCharacter(owner.id, (cur) => ({
+            phoneState: applyRealConversationToPhoneState(cur.phoneState, { ...result, systemMessageId: msgId }).phoneState,
+        }));
     };
 
     // 聊满 100 条触发总结：把待归档的每 100 条原文，A/B 各自第一人称浓缩成一条话题盒记忆，推进水位线。

@@ -4,7 +4,7 @@ import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGrou
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
-import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, parseImageDataUrlForBackup, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
+import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { resolveBlobRefsInRequestBody } from '../utils/apiBlobRefs';
 import { collectBlobRefs, writeBlobsToZip, readBlobsIndex, restoreBlobsFromZip } from '../utils/backupBlobs';
@@ -34,7 +34,7 @@ import { isGlobalStreamEnabled, upgradeChatBodyToStream, assembleUpgradedRespons
 import { rewriteStaleWorkerUrl } from '../utils/proxyWorker';
 import { buildFetchFailureDetail, classifyFetchFailure, describeReachabilityProbe, parseTargetUrl, probeOriginReachability, shouldProbeReachability, summarizeFetchRequestBody } from '../utils/networkFailureDiagnosis';
 import { INSTALLED_APPS, HIDDEN_APP_NAMES } from '../constants';
-import { isAnalyticsRequestUrl, trackEvent, trackDataScaleOnce, trackCurrentAppearanceOnce, trackCurrentCharSettingsOnce, trackCurrentFeaturesOnce } from '../utils/analytics';
+import { isAnalyticsRequestUrl, trackEvent, shouldReportSnapshot, trackDataScaleOnce, trackCurrentAppearanceOnce, trackCurrentCharSettingsOnce, trackCurrentFeaturesOnce } from '../utils/analytics';
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
@@ -1040,6 +1040,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const scaleReportedRef = useRef(false);
   useEffect(() => {
       if (!isDataLoaded || scaleReportedRef.current) return;
+      // 四组快照轮流报，这次没轮到就连取数都别跑（要读 IndexedDB）。见 utils/analytics.ts。
+      if (!shouldReportSnapshot('data-scale')) return;
       scaleReportedRef.current = true;
       void (async () => {
           trackDataScaleOnce(await collectDataScale(characters));
@@ -1051,12 +1053,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 拿来决定砍哪个预设会砍反。取数和收敛都在 utils/analyticsSnapshot.ts 里，
   // 用户自己捏的主题、字体、白框 CSS 一律收敛成 custom / 用了，不带他起的名字。
   useEffect(() => {
-      if (!isDataLoaded) return;
+      if (!isDataLoaded || !shouldReportSnapshot('appearance')) return;
       trackCurrentAppearanceOnce(collectAppearance(theme, characters.find(c => c.id === activeCharacterId)));
   }, [isDataLoaded, characters, activeCharacterId, theme]);
 
   useEffect(() => {
       if (!isDataLoaded || characters.length === 0) return;
+      if (!shouldReportSnapshot('char-settings')) return;
       trackCurrentCharSettingsOnce(collectCharSettings(characters, activeCharacterId));
   }, [isDataLoaded, characters, activeCharacterId]);
 
@@ -1071,6 +1074,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const featuresReportedRef = useRef(false);
   useEffect(() => {
       if (!isDataLoaded || featuresReportedRef.current) return;
+      if (!shouldReportSnapshot('features')) return;
       featuresReportedRef.current = true;
       void (async () => {
           trackCurrentFeaturesOnce(await collectFeatureFlagsAsync({
@@ -1296,7 +1300,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   if (shouldProbeReachability(classifyFetchFailure({ url: urlStr, error: err }))) {
                       void (async () => {
                           const verdict = await probeOriginReachability(urlStr, originalFetch);
-                          const line = describeReachabilityProbe(verdict, parseTargetUrl(urlStr).host);
+                          const line = describeReachabilityProbe(verdict, parseTargetUrl(urlStr).host, method);
                           if (!line) return;
                           setSystemLogs(prev => prev.map(log => (
                               log.id === logId ? { ...log, detail: `${log.detail || ''}\n${line}` } : log
@@ -3765,27 +3769,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               : (s: string) => collectBlobRefs(s, referencedBlobTokens);
 
           // Strip Base64 Images (Recursive) - Used for Text Only Mode
-          const stripBase64 = (obj: any): any => {
-              if (typeof obj === 'string') {
-                  // text_only 模式剥掉所有图片：data:image 与 blobref 令牌（令牌无二进制随行，
-                  // 恢复端认不得，等同一张丢失的图）都清空。
-                  if (obj.startsWith('data:image') || obj.startsWith(BLOBREF_PREFIX)) return '';
-                  return obj;
-              }
-              if (Array.isArray(obj)) {
-                  return obj.map(item => stripBase64(item));
-              }
-              if (obj !== null && typeof obj === 'object') {
-                  const newObj: any = {};
-                  for (const key in obj) {
-                      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                          newObj[key] = stripBase64(obj[key]);
-                      }
-                  }
-                  return newObj;
-              }
-              return obj;
-          };
+          const stripBase64 = stripBackupImages;
 
           const stripTextOnlyMedia = (obj: any): any => {
               const stripped = stripBase64(obj);

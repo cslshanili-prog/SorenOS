@@ -1,3 +1,4 @@
+import { selectCharacterContextMessages } from './chatContextRange';
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
 import { ContextBuilder } from './context';
@@ -672,6 +673,7 @@ ${uname} 的化身正挂在《彼方》的【${roomName}】${act ? `，状态写
 3. **格式要求**:
    - 每行渲染为一个气泡；空格和标点不会拆泡。
    - 【严禁】在输出中包含时间戳、名字前缀或"[角色名]:"。
+   - **历史中的 \`[聊天]\`、\`[通话]\`、\`[约会]\` 只是消息来源标记，只用于理解上下文；严禁输出、翻译或仿写这些标签（包括 \`[聊chat]\` 等中英混写形式）。**
    - **【严禁】模仿历史记录中的系统日志格式（如"[你 发送了...]"）。**
    - **发送表情包**: 必须且只能使用命令: \`[[SEND_EMOJI: 表情名称]]\`。命令里只写下面方括号内的表情名称，不要带分类名。
    - **可用表情库 (按分类)**:
@@ -1112,11 +1114,8 @@ ${userProfile.name} 给你反馈时，别当成约束，当成信任——ta 在
     ) => {
         // Filter Logic
         // 新版上下文范围由 chatContextRange 先按「自适应/拉杆最大范围」取窗；
-        // 这里只应用用户额外断点。旧角色尚未完成迁移时才回退 hideBeforeMessageId。
-        const userStartMessageId = (char.contextRangePolicyVersion || 0) >= 1
-            ? char.contextUserStartMessageId
-            : char.hideBeforeMessageId;
-        let effectiveHistory = messages.filter(m => !userStartMessageId || m.id >= userStartMessageId);
+        // 这里再次校验统一边界，兼容只提供内存快照的入口。
+        let effectiveHistory = selectCharacterContextMessages(messages, char);
         // Memory Palace: 过滤已被记忆宫殿处理过的消息（由向量记忆替代，节省 token）
         if (processedExcludeIds && processedExcludeIds.size > 0) {
             effectiveHistory = effectiveHistory.filter(m => !processedExcludeIds.has(m.id));
