@@ -291,6 +291,10 @@ const CheckPhone: React.FC = () => {
     const [showContactModal, setShowContactModal] = useState(false);
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
+    // 添加联系人：NPC 分页的子模式（绑定既有 NPC / 随机产生，机主脑补）
+    const [ncNpcMode, setNcNpcMode] = useState<'existing' | 'random'>('existing');
+    const [ncRandomHint, setNcRandomHint] = useState('');
+    const [ncGenerating, setNcGenerating] = useState(false);
     // 改绑定弹窗（把联系人改绑到正确的真实角色 / 转为虚构）
     const [showRebindModal, setShowRebindModal] = useState(false);
     // 「允许虚构 NPC」开关的说明展开态
@@ -1667,8 +1671,44 @@ ${olderText}
         }
     };
 
+    const closeAddContactModal = () => {
+        setShowContactModal(false);
+        setNcKind('npc'); setNcLinkedId(''); setNcNpcMode('existing'); setNcRandomHint('');
+    };
+
+    // NPC 分页选「随机产生」：不绑定任何既有 NPC 档案，让 AI 现编一个纯虚构路人
+    // （名字 + 一句关系设定），设定写进 note——note 是「已确立事实」，之后聊天会严格遵守。
+    const handleCreateRandomNpcContact = async () => {
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        setNcGenerating(true);
+        try {
+            const hint = ncRandomHint.trim();
+            const prompt = `帮「${targetChar.name}」的通讯录里随机编一个纯虚构的路人联系人，跟神经链接里任何真实角色都无关。${hint ? `用户给的方向提示：${hint}。` : `不用管提示，自由发挥即可，选一个贴近${targetChar.name}生活范围的普通身份（同事/邻居/同学/网友之类）。`}
+只输出两行，不要多余文字或标点符号包裹：
+第一行：这个人的姓名或称呼（2-6个字）
+第二行：一句话说清楚TA是谁、跟「${targetChar.name}」什么关系（会被当成固定设定，之后聊天要严格遵守）`;
+            const raw = await callLLM(prompt, 0.95);
+            const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+            const name = (lines[0] || '神秘网友').replace(/^[\-\d.、：:]+/, '').slice(0, 16) || '神秘网友';
+            const note = lines.slice(1).join(' ').trim() || hint || undefined;
+            mutateContacts(cs => upsertContact(cs, {
+                name, kind: 'npc', linkedCharId: undefined, linkedNpcId: undefined, avatar: undefined,
+                note, affinity: 0, status: 'friend',
+            }));
+            closeAddContactModal();
+            addToast(`已添加联系人：${name}`, 'success');
+            trackEvent('手动添加一位联系人', { contactKind: 'npc' });
+        } catch (e) {
+            console.error(e);
+            addToast('生成失败，请重试', 'error');
+        } finally {
+            setNcGenerating(false);
+        }
+    };
+
     const handleCreateContact = () => {
         if (!targetChar) return;
+        if (ncKind === 'npc' && ncNpcMode === 'random') { handleCreateRandomNpcContact(); return; }
         let name: string;
         let linkedCharId: string | undefined;
         let linkedNpcId: string | undefined;
@@ -1683,8 +1723,7 @@ ${olderText}
             name = npc.name; linkedNpcId = npc.id; avatar = npc.avatar;
         }
         mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, linkedNpcId, avatar, affinity: 0, status: 'friend' }));
-        setShowContactModal(false);
-        setNcKind('npc'); setNcLinkedId('');
+        closeAddContactModal();
         addToast('已添加联系人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
     };
@@ -2569,7 +2608,7 @@ ${olderText}
                     onBack={() => { if (contactSelectMode) exitContactSelect(); else setActiveAppId('home'); }}
                     right={contactSelectMode
                         ? <button onClick={exitContactSelect} className="text-[12px] font-semibold text-white/80 active:scale-90 transition">取消</button>
-                        : <button onClick={() => setShowContactModal(true)} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
+                        : <button onClick={() => { setNcNpcMode(npcs.length > 0 ? 'existing' : 'random'); setShowContactModal(true); }} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
                 {/* 约束开关：是否允许虚构 NPC */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="w-full flex items-center gap-2 rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07]">
@@ -4036,8 +4075,8 @@ ${olderText}
             </Modal>
 
             {/* 新建联系人 / 智能体 Modal */}
-            <Modal isOpen={showContactModal} title="添加联系人" onClose={() => setShowContactModal(false)}
-                footer={<button onClick={handleCreateContact} className="w-full py-3 bg-pink-500 text-white font-bold rounded-2xl">添加</button>}>
+            <Modal isOpen={showContactModal} title="添加联系人" onClose={closeAddContactModal}
+                footer={<button onClick={handleCreateContact} disabled={ncGenerating} className="w-full py-3 bg-pink-500 text-white font-bold rounded-2xl disabled:opacity-60">{ncGenerating ? '生成中…' : '添加'}</button>}>
                 <div className="space-y-4">
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">类型</label>
@@ -4066,19 +4105,49 @@ ${olderText}
                             </select>
                             <p className="text-[9px] text-slate-400 mt-1">真人之间可发起双向对话，对话会同步进对方的手机。</p>
                         </div>
-                    ) : npcs.length > 0 ? (
-                        <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定 NPC</label>
-                            <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                <option value="">— 选择一个 NPC —</option>
-                                {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                            </select>
-                            <p className="text-[9px] text-slate-400 mt-1">对话仍是机主单方面脑补，但会参考这个 NPC 在「神经链接」里设定的人设和关系。</p>
-                        </div>
                     ) : (
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
-                            还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来绑定。
-                        </p>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                {([
+                                    { id: 'existing', name: '绑定既有 NPC', desc: '从「神经链接」里选一个' },
+                                    { id: 'random', name: '随机产生', desc: '机主脑补，AI 现编一个' },
+                                ] as const).map(opt => {
+                                    const active = ncNpcMode === opt.id;
+                                    const disabled = opt.id === 'existing' && npcs.length === 0;
+                                    return (
+                                        <button key={opt.id} type="button" disabled={disabled} onClick={() => setNcNpcMode(opt.id)}
+                                            className={`text-left rounded-xl p-2.5 border transition ${active ? 'border-transparent bg-pink-500 text-white' : 'border-slate-200 bg-slate-50 text-slate-600'} ${disabled ? 'opacity-40' : ''}`}>
+                                            <div className="text-[12px] font-bold leading-tight">{opt.name}</div>
+                                            <div className={`text-[9px] leading-tight ${active ? 'text-white/80' : 'text-slate-400'}`}>{opt.desc}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {ncNpcMode === 'existing' ? (
+                                npcs.length > 0 ? (
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定 NPC</label>
+                                        <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                            <option value="">— 选择一个 NPC —</option>
+                                            {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                        </select>
+                                        <p className="text-[9px] text-slate-400 mt-1">对话仍是机主单方面脑补，但会参考这个 NPC 在「神经链接」里设定的人设和关系。</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                        还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来绑定。
+                                    </p>
+                                )
+                            ) : (
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">简短提示方向（可选）</label>
+                                    <input value={ncRandomHint} onChange={e => setNcRandomHint(e.target.value)}
+                                        placeholder="不填就完全随机，比如：常来蹭饭的邻居阿姨"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                                    <p className="text-[9px] text-slate-400 mt-1">不绑定任何既有 NPC 档案，AI 会现编一个名字和身份，写进备注当固定设定。</p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </Modal>
