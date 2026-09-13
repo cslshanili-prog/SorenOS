@@ -3893,7 +3893,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const allStores = [
               // character_groups（角色分组定义）必须与 characters 同进退：
               // 角色身上的 groupId 指向这张表，漏导会让导入端全员回落「未分组」
-              'characters', 'character_groups', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
+              // npcs（神经链接「NPC」分页，独立于 characters）同理必须一起带走，否则整合导出
+              // 之后再导入，NPC 名单会清空——查手机联系人的 linkedNpcId 也会全部悬空。
+              'characters', 'character_groups', 'npcs', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
               'user_profile', 'diaries', 'tasks', 'anniversaries', 'room_todos',
               'room_notes', 'groups', 'journal_stickers', 'social_posts', 'courses', 'games', 'worldbooks', 'story_theaters', 'story_theater_presets', 'story_theater_masks', 'novels', 'songs',
               'bank_transactions', 'bank_data',
@@ -3924,7 +3926,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               storesToProcess = allStores.filter(s => s !== 'assets'); // Exclude raw assets store
           } else if (mode === 'media_only') {
               // media_only now includes themes/assets for complete media backup
-              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'messages', 'themes', 'assets', 'bank_data',
+              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'npcs', 'messages', 'themes', 'assets', 'bank_data',
                   'pixel_home_assets', 'pixel_home_layouts', 'daily_schedule', 'cc_custom_parts'];
           }
 
@@ -4243,6 +4245,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const textOnlyFieldByStore: Record<string, string> = {
               characters: 'characters',
               character_groups: 'characterGroups',
+              npcs: 'npcs',
               messages: 'messages',
               themes: 'customThemes',
               emojis: 'savedEmojis',
@@ -4480,6 +4483,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'characters': if(mode !== 'media_only') backupData.characters = processedData; break;
                   // 角色分组定义 —— 键名须与 importFullData 读取的字段（data.characterGroups）对齐
                   case 'character_groups': backupData.characterGroups = processedData; break;
+                  case 'npcs': backupData.npcs = processedData; break;
                   case 'messages': backupData.messages = processedData; break;
                   case 'themes': backupData.customThemes = processedData; break;
                   case 'emojis': backupData.savedEmojis = processedData; break;

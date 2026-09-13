@@ -2,7 +2,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig } from '../types';
+import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile } from '../types';
 import { ContextBuilder } from '../utils/context';
 import Modal from '../components/os/Modal';
 import TokenImg from '../components/os/TokenImg';
@@ -1559,7 +1559,7 @@ ${olderText}
     // 仔细处理各种情况：清掉旧的错绑镜像、给新角色建镜像、防自绑/重复绑/无变化。
     const handleRebindContact = async (
         contact: PhoneContact,
-        target: { kind: 'npc' } | { kind: 'real'; charId: string },
+        target: { kind: 'npc'; npcId?: string } | { kind: 'real'; charId: string },
     ) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
@@ -1570,8 +1570,15 @@ ${olderText}
         const newLinked = target.kind === 'real' ? target.charId : undefined;
 
         // 无变化的早退
-        if (target.kind === 'npc' && contact.kind === 'npc') { addToast('TA 已经是虚构联系人', 'info'); setShowRebindModal(false); return; }
+        if (target.kind === 'npc' && contact.kind === 'npc' && (target.npcId || undefined) === (contact.linkedNpcId || undefined)) {
+            addToast(target.npcId ? 'TA 已经绑定这个 NPC 了' : 'TA 已经是虚构联系人', 'info'); setShowRebindModal(false); return;
+        }
         if (target.kind === 'real' && contact.kind === 'real' && contact.linkedCharId === target.charId) { addToast('已经绑定 TA 了', 'info'); setShowRebindModal(false); return; }
+        let boundNpc: NPCProfile | undefined;
+        if (target.kind === 'npc' && target.npcId) {
+            boundNpc = npcs.find(n => n.id === target.npcId);
+            if (!boundNpc) { addToast('NPC 不存在', 'error'); return; }
+        }
 
         if (target.kind === 'real') {
             const d = characters.find(c => c.id === target.charId);
@@ -1632,14 +1639,27 @@ ${olderText}
                 });
             }
             addToast(`已改绑到「${d.name}」`, 'success');
-        } else {
-            // 目标=虚构：去掉真实绑定与真人头像，对话/备注/了解/好感都留着
+        } else if (boundNpc) {
+            // 目标=绑定到「神经链接 → NPC」分页里的某个既有 NPC：名字/头像跟着 NPC 走，
+            // 跟绑定真实角色是同一种语义，只是指向 npcs 而不是 characters。
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
                     records: cur.phoneState?.records || [],
                     contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id
-                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, avatar: undefined }
+                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, linkedNpcId: boundNpc!.id, name: boundNpc!.name, avatar: boundNpc!.avatar }
+                        : c),
+                },
+            }));
+            addToast(`已绑定到 NPC「${boundNpc.name}」`, 'success');
+        } else {
+            // 目标=纯虚构（不绑定任何既有 NPC）：去掉真实绑定/NPC 绑定与头像，对话/备注/了解/好感都留着
+            updateCharacter(targetChar.id, (cur) => ({
+                phoneState: {
+                    ...cur.phoneState,
+                    records: cur.phoneState?.records || [],
+                    contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id
+                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, linkedNpcId: undefined, avatar: undefined }
                         : c),
                 },
             }));
@@ -4070,15 +4090,15 @@ ${olderText}
                         <p className="text-[11.5px] text-slate-500 leading-relaxed">
                             甄别/绑定错了在这改。会保留这段对话、备注、了解和好感；改成真人会把对话同步进对方手机，原来错绑的角色那边会清掉。
                         </p>
-                        {/* 转为虚构 */}
+                        {/* 转为纯虚构（不绑定任何既有 NPC） */}
                         <button
                             onClick={() => handleRebindContact(selectedContact, { kind: 'npc' })}
-                            disabled={selectedContact.kind === 'npc'}
-                            className={`w-full flex items-center gap-2.5 rounded-xl p-3 border text-left transition ${selectedContact.kind === 'npc' ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
+                            disabled={selectedContact.kind === 'npc' && !selectedContact.linkedNpcId}
+                            className={`w-full flex items-center gap-2.5 rounded-xl p-3 border text-left transition ${selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                             <span className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0"><User size={16} weight="bold" /></span>
                             <div className="min-w-0">
-                                <div className="text-[13px] font-bold text-slate-700">转为虚构联系人</div>
-                                <div className="text-[10px] text-slate-400">不绑定真实角色 · 当成 NPC{selectedContact.kind === 'npc' ? '（当前就是）' : ''}</div>
+                                <div className="text-[13px] font-bold text-slate-700">转为纯虚构联系人</div>
+                                <div className="text-[10px] text-slate-400">不绑定真实角色 / NPC，机主脑补{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（当前就是）' : ''}</div>
                             </div>
                         </button>
                         {/* 绑定到真实角色 */}
@@ -4097,6 +4117,28 @@ ${olderText}
                                             className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                                             <TokenImg value={rc.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                                             <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{rc.name}</span>
+                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {/* 绑定到既有 NPC */}
+                        <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">绑定到 NPC</div>
+                            <div className="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar">
+                                {npcs.length === 0 && (
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">还没有 NPC，请先去「神经链接」→「NPC」分页建一个。</p>
+                                )}
+                                {npcs.map(n => {
+                                    const current = selectedContact.kind === 'npc' && selectedContact.linkedNpcId === n.id;
+                                    return (
+                                        <button key={n.id}
+                                            onClick={() => handleRebindContact(selectedContact, { kind: 'npc', npcId: n.id })}
+                                            disabled={current}
+                                            className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
+                                            <TokenImg value={n.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                            <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
                                             {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
                                         </button>
                                     );
