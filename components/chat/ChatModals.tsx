@@ -1263,17 +1263,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             <p className="text-[10px] text-slate-400 text-center mt-3 leading-relaxed">
                                 点击日程项可编辑 · 长按可删除
                             </p>
-
-                            {/* 情绪 / 意识流 API — 与日程强制同步 */}
-                            {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && onClearBuffs && (
-                                <EmotionSettingsPanel
-                                    char={activeCharacter}
-                                    apiPresets={apiPresets}
-                                    addApiPreset={onAddApiPreset}
-                                    onSave={onSaveEmotion}
-                                    onClearBuffs={onClearBuffs}
-                                />
-                            )}
                         </>
                     )}
 
@@ -1304,6 +1293,21 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 onGenerate={onGenerateAffinity}
                                 emptyHint="还没有好感度条目——点下面「+ 新增好感度」，填个标题和提示词试试。"
                             />
+                        </div>
+                    )}
+
+                    {/* 情绪 / 意识流 API — 与日程强制同步；预设一多这块会很长，收合起来放最下面 */}
+                    {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && onClearBuffs && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <ChatSettingsSection title="情绪 / 意识流 API" summary="副 API、我的预设与当前情绪状态">
+                                <EmotionSettingsPanel
+                                    char={activeCharacter}
+                                    apiPresets={apiPresets}
+                                    addApiPreset={onAddApiPreset}
+                                    onSave={onSaveEmotion}
+                                    onClearBuffs={onClearBuffs}
+                                />
+                            </ChatSettingsSection>
                         </div>
                     )}
                 </div>

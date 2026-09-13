@@ -70,7 +70,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
     const scheduleOn = isScheduleFeatureOn(char);
 
     return (
-        <div className="space-y-4 pt-4 border-t border-slate-100">
+        <div className="space-y-4">
             <div>
                 <div className="text-xs font-bold text-slate-700 mb-1">🎭 情绪 / 意识流 API</div>
                 <div className="text-[11px] text-slate-500 leading-relaxed space-y-1">
