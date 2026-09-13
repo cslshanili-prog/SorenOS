@@ -1711,6 +1711,7 @@ ${isInitialGeneration ? `
                                    charName={formData.name}
                                    value={formData.imageGenCharConfig}
                                    onChange={(v) => handleChange('imageGenCharConfig', v)}
+                                   globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
                                />
                            </div>
 

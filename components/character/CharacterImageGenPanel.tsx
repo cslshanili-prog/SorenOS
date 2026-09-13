@@ -9,9 +9,11 @@ interface CharacterImageGenPanelProps {
     charName: string;
     value: CharacterProfile['imageGenCharConfig'];
     onChange: (value: CharacterProfile['imageGenCharConfig']) => void;
+    /** 系统设置 → 生图API 的总开关（开启角色生图）现在是否打开；关着的话这里只能先配置，实际生图要等总开关打开。 */
+    globalImageGenEnabled: boolean;
 }
 
-const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange }) => {
+const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange, globalImageGenEnabled }) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const [showFaceCrop, setShowFaceCrop] = useState(false);
     const referenceImageUrl = useBlobRefUrl(value?.referenceImage);
@@ -51,9 +53,15 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v9m6.36-6.36a9 9 0 1 1-12.73 0" />
                         </svg>
-                        {referenceEnabled ? '關閉參考圖' : '開啟參考圖'}
+                        參考圖：{referenceEnabled ? '開啟' : '關閉'}
                     </button>
                 </div>
+
+                {!globalImageGenEnabled && (
+                    <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">
+                        「系統設置 → 生圖API」的總開關「開啟角色生圖」目前是關閉的，這裡可以先設定，但要等總開關打開才會真的生效。
+                    </div>
+                )}
 
                 <div className="mb-4">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">專屬人物特徵提示詞</label>

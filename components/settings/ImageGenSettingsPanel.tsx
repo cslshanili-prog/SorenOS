@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { APIConfig, ImageGenApiConfig } from '../../types';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '../../utils/apiConfigNormalize';
-import { extractModelIds } from '../../utils/modelList';
+import { extractModelIds, isLikelyImageModel } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { generateImage } from '../../utils/imageGeneration';
 
@@ -38,6 +38,8 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
     const [showModelModal, setShowModelModal] = useState(false);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
+    const [modelSearchQuery, setModelSearchQuery] = useState('');
+    const [showAllModels, setShowAllModels] = useState(false);
 
     const [testingConnection, setTestingConnection] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
@@ -92,8 +94,16 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
             const models = extractModelIds(data);
             if (models.length > 0) {
                 setAvailableModels(models);
+                setModelSearchQuery('');
+                const imageLikelyCount = models.filter(isLikelyImageModel).length;
+                // 猜不出任何生图模型时没必要默认过滤成空列表，直接退回显示全部。
+                setShowAllModels(imageLikelyCount === 0);
                 if (!models.includes(model)) setModel(models[0]);
-                setStatusMsg(`獲取到 ${models.length} 個模型`);
+                setStatusMsg(
+                    imageLikelyCount > 0
+                        ? `獲取到 ${models.length} 個模型，猜到 ${imageLikelyCount} 個可能是生圖模型`
+                        : `獲取到 ${models.length} 個模型`
+                );
                 setShowModelModal(true);
             } else {
                 setStatusMsg('模型列表為空或格式不兼容');
@@ -211,26 +221,58 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                         <bdi style={{ direction: 'ltr' }}>{model || '選擇模型...'}</bdi>
                     </span>
                 </button>
-                {showModelModal && (
-                    <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
-                        {availableModels.length === 0 ? (
-                            <div className="px-3 py-2 text-[11px] text-slate-400">
-                                列表為空，可手動輸入或點擊「刷新模型列表」拉取
+                {showModelModal && (() => {
+                    const imageLikelyModels = availableModels.filter(isLikelyImageModel);
+                    const hasImageLikely = imageLikelyModels.length > 0 && imageLikelyModels.length < availableModels.length;
+                    const baseList = showAllModels || !hasImageLikely ? availableModels : imageLikelyModels;
+                    const query = modelSearchQuery.trim().toLowerCase();
+                    const filteredList = query ? baseList.filter(m => m.toLowerCase().includes(query)) : baseList;
+                    return (
+                        <div className="mt-2 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                            {availableModels.length > 0 && (
+                                <div className="p-2 border-b border-slate-100 space-y-1.5">
+                                    <input
+                                        type="text"
+                                        value={modelSearchQuery}
+                                        onChange={e => setModelSearchQuery(e.target.value)}
+                                        placeholder="搜尋模型名稱..."
+                                        className="w-full bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-1.5 text-xs font-mono"
+                                    />
+                                    {hasImageLikely && (
+                                        <button
+                                            onClick={() => setShowAllModels(v => !v)}
+                                            className="text-[10px] text-primary font-bold"
+                                        >
+                                            {showAllModels ? '只看可能是生圖模型的' : `顯示全部模型（${availableModels.length}）`}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
+                                {availableModels.length === 0 ? (
+                                    <div className="px-3 py-2 text-[11px] text-slate-400">
+                                        列表為空，可手動輸入或點擊「刷新模型列表」拉取
+                                    </div>
+                                ) : filteredList.length === 0 ? (
+                                    <div className="px-3 py-2 text-[11px] text-slate-400">
+                                        沒有符合的模型
+                                    </div>
+                                ) : filteredList.map(m => (
+                                    <button
+                                        key={m}
+                                        onClick={() => { setModel(m); setShowModelModal(false); }}
+                                        className={`w-full text-left px-3 py-2 text-xs font-mono ${m === model ? 'text-primary font-bold' : 'text-slate-600'}`}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
                             </div>
-                        ) : availableModels.map(m => (
-                            <button
-                                key={m}
-                                onClick={() => { setModel(m); setShowModelModal(false); }}
-                                className={`w-full text-left px-3 py-2 text-xs font-mono ${m === model ? 'text-primary font-bold' : 'text-slate-600'}`}
-                            >
-                                {m}
+                            <button onClick={() => setShowModelModal(false)} className="w-full text-center px-3 py-2 text-[11px] text-slate-400 border-t border-slate-100">
+                                關閉
                             </button>
-                        ))}
-                        <button onClick={() => setShowModelModal(false)} className="w-full text-center px-3 py-2 text-[11px] text-slate-400">
-                            關閉
-                        </button>
-                    </div>
-                )}
+                        </div>
+                    );
+                })()}
                 <input
                     type="text"
                     value={model}
