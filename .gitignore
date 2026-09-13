@@ -60,3 +60,30 @@ xiaohongshu-skills/
 # TIAO-Capacitor local Android toolchain and caches (D: only, never committed)
 .android-sdk/
 .gradle-user-home/
+
+# Local fishing QA screenshots, cached existing Tailwind CDN script, isolated build.
+/output/fishing-qa/
+/output/fishing-build/
+
+# Local PNG share card QA and isolated build.
+/output/png-share-qa/
+/output/png-share-build/
+
+# Local SAR Three.js render QA and isolated production build.
+/output/sar-diorama-qa/
+/output/sar-diorama-build/
+/output/sar-diorama-*.log
+/output/dino-cafe-qa/
+/output/dino-cafe-build/
+
+/output/dino-garden-qa/
+/output/dino-garden-build/
+/output/sar-art-qa/
+/output/sar-art-build/
+
+# Local anniversary browser QA and build output.
+/output/anniversary-qa/
+/output/anniversary-build/
+
+# Local generated previews, browser QA and isolated build artifacts.
+/output/

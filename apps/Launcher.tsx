@@ -6,6 +6,7 @@ import AppIcon from '../components/os/AppIcon';
 import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl } from '../utils/blobRef';
 import { DB } from '../utils/db';
+import { isChatPreviewMessage } from '../utils/chatMessageVisibility';
 import { CharacterProfile, Anniversary, AppID, DailySchedule } from '../types';
 import { ScheduleHomeWidget, ScheduleFullscreenViewer } from '../components/schedule/ScheduleHomeWidget';
 import NowPlayingSquareWidget from '../components/os/NowPlayingSquareWidget';
@@ -605,6 +606,7 @@ const Launcher: React.FC = () => {
   useEffect(() => { activePageIndexRef.current = activePageIndex; }, [activePageIndex]);
 
   useEffect(() => {
+      let cancelled = false;
       const loadData = async () => {
           // SAFEGUARD: If characters array is empty, reset widget char
           if (!characters || characters.length === 0) {
@@ -618,20 +620,15 @@ const Launcher: React.FC = () => {
           setWidgetChar(targetChar);
 
           try {
-              const [msgs, annis] = await Promise.all([
-                  DB.getMessagesByCharId(targetChar.id),
+              const [recent, annis] = await Promise.all([
+                  DB.getRecentMessagesWithCount(targetChar.id, 1, isChatPreviewMessage),
                   DB.getAllAnniversaries()
               ]);
-              
-              if (msgs.length > 0) {
-                  const visibleMsgs = msgs.filter(m => m.role !== 'system');
-                  if (visibleMsgs.length > 0) {
-                      const last = visibleMsgs[visibleMsgs.length - 1];
-                      const cleanContent = last.content.replace(/\[.*?\]/g, '').trim();
-                      setLastMessage(cleanContent || (last.type === 'image' ? '[图片]' : '[消息]'));
-                  } else {
-                      setLastMessage(targetChar.description || "System Ready.");
-                  }
+              if (cancelled) return;
+              const last = recent.messages[0];
+              if (last) {
+                  const cleanContent = last.content.replace(/\[.*?\]/g, '').trim();
+                  setLastMessage(cleanContent || (last.type === 'image' ? '[图片]' : '[消息]'));
               } else {
                   setLastMessage(targetChar.description || "System Ready.");
               }
@@ -644,6 +641,7 @@ const Launcher: React.FC = () => {
       if (isDataLoaded) {
           loadData();
       }
+      return () => { cancelled = true; };
   }, [activeCharacterId, lastMsgTimestamp, isDataLoaded, characters]); // Trigger on characters change
 
   // Schedule widget data loading (shown below SpecialMoments icon)

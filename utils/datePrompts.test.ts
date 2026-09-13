@@ -104,6 +104,16 @@ describe('DatePrompts.buildSessionPayload', () => {
         const lastReroll = reroll.messages[reroll.messages.length - 1];
         expect(lastReroll.content).toContain('Reroll');
     });
+
+    it('没有模块状态时，Date system prompt 不增加 SAR 文本或输出容器', async () => {
+        const { messages } = await DatePrompts.buildSessionPayload({
+            ...baseInput(makeChar({ vrState: { enabled: true, intervalMinutes: 120 } })),
+            userProfile: { ...user, vrState: { enabled: true } },
+        });
+        const sys = sysOf(messages);
+        expect(sys).not.toContain('### SAR 临时模块');
+        expect(sys).not.toContain('<SAR_MODULE_OUTPUT>');
+    });
 });
 
 describe('OBSERVE 观测协议', () => {

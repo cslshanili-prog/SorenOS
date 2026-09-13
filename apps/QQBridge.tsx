@@ -52,6 +52,7 @@ const QQBridge: React.FC = () => {
     realtimeConfig,
     memoryPalaceConfig,
     updateCharacter,
+    updateUserProfile,
     closeApp,
   } = useOS();
   const [pickerGroupId, setPickerGroupId] = useState<string>(GROUP_FILTER_ALL); // 回复角色的分组筛选
@@ -97,6 +98,7 @@ const QQBridge: React.FC = () => {
     realtimeConfig,
     memoryPalaceConfig,
     updateCharacter,
+    updateUserProfile,
   });
 
   // Load history when char changes; mark existing assistant msgs as already-forwarded

@@ -1,3 +1,4 @@
+import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniversaryGifts';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
@@ -31,6 +32,9 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question } from '@phosphor-icons/react';
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import ChatInputArea from '../components/chat/ChatInputArea';
+import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
+import ChatInputSettings from '../components/chat/ChatInputSettings';
+import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl, isBlobRef, getBlobForRef, migrateDataUrlToRef } from '../utils/blobRef';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
@@ -307,6 +311,7 @@ const GroupMessageItem = React.memo(({
                 <>
                     <TokenImg
                         value={avatar}
+                        style={isAnniversaryFrame(styleConfig.avatarDecoration) ? { borderRadius: "50%" } : undefined}
                         className={`sully-chat-message-avatar-img w-full h-full ${avatarRadiusClass} object-cover shadow-sm ring-1 ring-black/5 relative z-0`}
                         alt="avatar"
                         loading="lazy"
@@ -316,13 +321,7 @@ const GroupMessageItem = React.memo(({
                         <TokenImg
                             value={styleConfig.avatarDecoration}
                             className="absolute pointer-events-none z-10 max-w-none"
-                            style={{
-                                left: `${styleConfig.avatarDecorationX ?? 50}%`,
-                                top: `${styleConfig.avatarDecorationY ?? 50}%`,
-                                width: `${avatarSizePx * (styleConfig.avatarDecorationScale ?? 1)}px`,
-                                height: 'auto',
-                                transform: `translate(-50%, -50%) rotate(${styleConfig.avatarDecorationRotate ?? 0}deg)`,
-                            }}
+                            style={avatarDecorationImageStyle(styleConfig, avatarSizePx)}
                             alt=""
                         />
                     )}
@@ -489,6 +488,9 @@ const GroupChat: React.FC = () => {
     const MESSAGE_PAGE_SIZE = 50;
     const [visibleCount, setVisibleCount] = useState(MESSAGE_PAGE_SIZE);
     const [input, setInput] = useState('');
+    const [inputPreferences, setInputPreferences] = useState(loadChatInputPreferences);
+    const [settingsInputPreferences, setSettingsInputPreferences] = useState(loadChatInputPreferences);
+    const [isInputFocused, setIsInputFocused] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [mcpStatus, setMcpStatus] = useState('');
     /** 群公共话题盒整理状态——非空时显示顶部胶囊状态条 */
@@ -550,6 +552,10 @@ const GroupChat: React.FC = () => {
     // Data State
     const [emojis, setEmojis] = useState<{name: string, url: string, categoryId?: string}[]>([]);
     const [categories, setCategories] = useState<EmojiCategory[]>([]); // New
+
+    useEffect(() => {
+        setInputPreferences(loadChatInputPreferences());
+    }, [activeGroup?.id]);
     
     // Create/Edit Group State
     const [tempGroupName, setTempGroupName] = useState('');
@@ -755,6 +761,7 @@ const GroupChat: React.FC = () => {
 
     const handleReroll = async () => {
         if (!canReroll) return;
+        autoReply.cancel();
         
         const lastMsg = messages[messages.length - 1];
         if (lastMsg.role !== 'assistant') return;
@@ -805,6 +812,8 @@ const GroupChat: React.FC = () => {
         };
         // 走 context 的 updateGroup：同步内存 groups + DB，避免退出后读回旧值
         await updateGroup(activeGroup.id, updates);
+        saveChatInputPreferences(settingsInputPreferences);
+        setInputPreferences(settingsInputPreferences);
         setActiveGroup({ ...activeGroup, ...updates });
         setModalType('none');
         addToast('群信息已更新', 'success');
@@ -896,52 +905,63 @@ const GroupChat: React.FC = () => {
     const handleSendMessage = async (content: string, type: MessageType = 'text', metadata?: any) => {
         if (!activeGroup) return;
         if (type === 'text' && !content.trim()) return;
-        // 借用户"发送"手势解锁音频上下文（移动端自动播放策略），稍后 AI 回复时提示音才响得了
-        unlockWhiteboxAudio();
+        const finishSend = autoReply.beginSend(activeGroup.id);
+        let sent = false;
+        try {
+            // 借用户"发送"手势解锁音频上下文（移动端自动播放策略），稍后 AI 回复时提示音才响得了
+            unlockWhiteboxAudio();
         
-        const newMessage: any = {
-            charId: 'user',
-            groupId: activeGroup.id,
-            role: 'user' as const,
-            type,
-            content,
-            metadata
-        };
-
-        // 引用回复：落快照（对齐私聊 Chat.tsx 的做法），发完清空。
-        // 图片 / 表情走占位符，不把 blobref 令牌原样存进快照。
-        if (replyTarget) {
-            newMessage.replyTo = {
-                id: replyTarget.id,
-                content: buildReplySnapshotContent(replyTarget),
-                name: replyTarget.role === 'user'
-                    ? '我'
-                    : (characters.find(c => c.id === replyTarget.charId)?.name || '成员'),
+            const newMessage: any = {
+                charId: 'user',
+                groupId: activeGroup.id,
+                role: 'user' as const,
+                type,
+                content,
+                metadata
             };
-            setReplyTarget(null);
+
+            // 引用回复：落快照（对齐私聊 Chat.tsx 的做法），发完清空。
+            // 图片 / 表情走占位符，不把 blobref 令牌原样存进快照。
+            if (replyTarget) {
+                newMessage.replyTo = {
+                    id: replyTarget.id,
+                    content: buildReplySnapshotContent(replyTarget),
+                    name: replyTarget.role === 'user'
+                        ? '我'
+                        : (characters.find(c => c.id === replyTarget.charId)?.name || '成员'),
+                };
+                setReplyTarget(null);
+            }
+
+            await DB.saveMessage(newMessage);
+            sent = true;
+            await refreshMessages(activeGroup.id);
+            markGroupMembersDirty(activeGroup.members);
+
+            // Close panels
+            if (type !== 'text' && !inputPreferences.autoReply) {
+                setShowPanel('none');
+            }
+            // 表情联想发送复用这里；表情发出后保留尚未发送的文字草稿。
+            if (type === 'text') setInput(current => current === content ? '' : current);
+
+        } finally {
+            finishSend(sent && ['text', 'image', 'emoji'].includes(type));
         }
-
-        await DB.saveMessage(newMessage);
-        await refreshMessages(activeGroup.id);
-        markGroupMembersDirty(activeGroup.members);
-
-        // Close panels
-        if (type !== 'text') {
-            setShowPanel('none');
-        }
-        setInput('');
-
-        // NOTE: No auto-trigger. User must click lightning button.
     };
 
     const handleImageFile = async (file: File) => {
+        const finishImage = autoReply.beginSend(activeGroup?.id || null);
         try {
             const base64 = await processImage(file, { maxWidth: 600, quality: 0.7, forceJpeg: true });
             // 群聊图消息存令牌，二进制单独躺在 blob_assets 里（省掉 base64 那 ~33% 的膨胀）。
             // 同一张图之前存过就复用它的令牌；转不动时原样还回这条 data URL，图不会丢。
-            handleSendMessage(await migrateDataUrlToRef(base64), 'image');
+            await handleSendMessage(await migrateDataUrlToRef(base64), 'image');
         } catch (err) {
             addToast('图片发送失败', 'error');
+        } finally {
+            // 实际发送由 handleSendMessage 标记；这里仅覆盖图片处理期间的等待。
+            finishImage(false);
         }
     };
 
@@ -1096,6 +1116,7 @@ const GroupChat: React.FC = () => {
     };
 
     const openGroupSettings = () => {
+        setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
@@ -1590,6 +1611,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
     // 触发入口：按群设置分发到导演/轮询；生成中再点 = 停止
     const triggerGroupAI = async (_msgs?: Message[]) => {
+        autoReply.cancel();
         unlockWhiteboxAudio();
         if (isTyping) {
             abortRef.current?.abort();
@@ -1608,6 +1630,16 @@ ${memberTimeline || '(暂无互动记录)'}
     };
 
     // --- Renderers ---
+
+    const autoReply = useChatAutoReply({
+        enabled: inputPreferences.autoReply,
+        conversationId: activeGroup?.id || null,
+        active: view === 'chat' && !!activeGroup,
+        blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
+            || selectionMode || isSummarizing,
+        generating: isTyping,
+        onGenerate: () => { void triggerGroupAI(); },
+    });
 
     if (view === 'list') {
         return (
@@ -1796,6 +1828,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     onClick: () => setModalType('help'),
                 }}
                 triggerIcon={isTyping ? 'stop' : 'lightning'}
+                hideTrigger={inputPreferences.sendButtonGenerates && !isTyping}
                 onClose={() => setView('list')}
                 onTriggerAI={() => triggerGroupAI(messages)}
                 onShowCharsPanel={openGroupSettings}
@@ -1810,7 +1843,7 @@ ${memberTimeline || '(暂无互动记录)'}
             />
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" ref={scrollRef} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }}>
                 {collapsedCount > 0 && activeGroup && (
                     <div className="flex justify-center mb-6">
                         <button onClick={async () => {
@@ -1898,9 +1931,19 @@ ${memberTimeline || '(暂无互动记录)'}
                 showPanel={showPanel}
                 setShowPanel={setShowPanel}
                 onSend={() => handleSendMessage(input)}
+                onGenerate={() => { void triggerGroupAI(); }}
+                sendButtonGenerates={inputPreferences.sendButtonGenerates}
+                enterToSend={inputPreferences.enterToSend}
+                autoReplyEnabled={inputPreferences.autoReply}
+                autoReplySeconds={autoReply.seconds}
+                onCancelAutoReply={autoReply.cancel}
+                onInputFocusChange={setIsInputFocused}
                 onDeleteSelected={deleteSelectedMessages}
                 selectedCount={selectedMsgIds.size}
                 emojis={filteredEmojis}
+                emojiSuggestionsEnabled={inputPreferences.emojiSuggestions}
+                suggestionEmojis={emojis}
+                activeCharacterId={activeGroup?.id || ''}
                 categories={categories}
                 activeCategory={activeEmojiCategory}
                 onPanelAction={handlePanelAction}
@@ -2001,6 +2044,11 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
                         <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                        <h3 className="mb-2 text-xs font-bold text-slate-600">输入与发送</h3>
+                        <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} scope="group" />
                     </div>
 
                     {/* Reply Mode */}

@@ -1,3 +1,4 @@
+import { avatarDecorationImageStyle } from '../utils/anniversaryGifts';
 
 
 
@@ -9,6 +10,7 @@ import { validateScopedCss, runCssRenderabilityCheck, CssValidationResult } from
 import { trackEvent } from '../utils/analytics';
 import { resolveBubbleCornerRadii, shouldHideBubbleTail } from '../utils/bubbleAppearance';
 import { shareOrDownloadFile } from '../utils/shareExport';
+import { readShareText } from '../utils/pngShare';
 import { migrateDataUrlToRef, resolveBlobRefsDeep, useBlobRefUrl } from '../utils/blobRef';
 import TokenImg from '../components/os/TokenImg';
 
@@ -656,7 +658,7 @@ const ThemeMaker: React.FC = () => {
     // 永远发新 id（防覆盖自己已有作品）；CSS 走与保存一致的可渲染性校验，坏 CSS 不入库。
     const importThemeFile = async (file: File) => {
         try {
-            const parsed = JSON.parse(await file.text());
+            const parsed = JSON.parse(await readShareText(file, 'chat-theme'));
             const raw = (parsed && typeof parsed === 'object' && parsed.kind === 'sullyos-chat-theme') ? parsed.theme : parsed;
             if (!raw || typeof raw !== 'object' || !raw.user || !raw.ai) {
                 addToast('导入失败：不是有效的气泡主题文件', 'error');
@@ -698,11 +700,13 @@ const ThemeMaker: React.FC = () => {
 
         try {
             const result = await shareOrDownloadFile({
+                card: { kind: 'chat-theme', title: theme.name || '自定义气泡' },
                 content: JSON.stringify({ kind: 'sullyos-chat-theme', version: 1, theme: portable }, null, 2),
                 fileName: `${(theme.name || '自定义气泡').replace(/[\\/:*?\"<>|]/g, '_')}.sully-bubble.json`,
                 mimeType: 'application/json;charset=utf-8',
                 shareTitle: `气泡主题：${theme.name || '自定义气泡'}`,
             });
+            if (result === 'cancelled') return;
             addToast(result === 'shared' ? `已打开「${theme.name}」分享面板` : `已导出「${theme.name}」`, 'success');
         } catch {
             addToast('导出失败：无法分享或下载文件', 'error');
@@ -1056,13 +1060,7 @@ const ThemeMaker: React.FC = () => {
                         <TokenImg
                             value={style.avatarDecoration}
                             className="absolute pointer-events-none z-10 max-w-none"
-                            style={{
-                                left: `${style.avatarDecorationX ?? 50}%`,
-                                top: `${style.avatarDecorationY ?? 50}%`,
-                                width: `${36 * (style.avatarDecorationScale ?? 1)}px`, 
-                                height: 'auto',
-                                transform: `translate(-50%, -50%) rotate(${style.avatarDecorationRotate ?? 0}deg)`,
-                            }}
+                            style={avatarDecorationImageStyle(style, 36)}
                         />
                     )}
                 </div>
@@ -1222,7 +1220,7 @@ const ThemeMaker: React.FC = () => {
                             type="file"
                             ref={themeImportInputRef}
                             className="hidden"
-                            accept=".json,application/json"
+                            accept=".json,.png,application/json,image/png"
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) importThemeFile(f); e.target.value = ''; }}
                         />
                         <button

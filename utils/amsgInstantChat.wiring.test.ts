@@ -28,7 +28,7 @@ const instantPushSettingsSrc = read('../components/settings/InstantPushSettingsM
 /** 即时对话分支的判定行（分支起点、也是排序基准）。 */
 const INSTANT_CHAT_BRANCH_HEAD = 'if (instantChatRoute)';
 /** Instant Push 分支的判定行（脏配置时它先接手）。 */
-const INSTANT_PUSH_BRANCH_HEAD = 'if (instantPushConfigured && !payload.flags.luckinChatActive';
+const INSTANT_PUSH_BRANCH_HEAD = 'if (instantPushRoute)';
 /** 路由判定那一段的起点（一回合只读一次 Instant Push 配置，就是从这行开始）。 */
 const ROUTING_HEAD = 'const instantPushConfigured =';
 
@@ -124,8 +124,9 @@ describe('useChatAI 的分流接缝', () => {
     expect(routingSrc()).toContain(`${ROUTING_HEAD} isInstantConfigReady()`);
     // 三个消费方都吃这一个 const（情绪评估的 cloudGenRoute 也在内，它决定评估在本地跑还是打包上云）。
     expect(chatAiSrc).toContain(INSTANT_PUSH_BRANCH_HEAD);
+    expect(chatAiSrc).toMatch(/const instantPushRoute = instantPushConfigured && !sarModulePlan\.hasActiveEffect && !sarModulePlan\.hasAfterglow && !payload\.flags\.luckinChatActive/);
     expect(chatAiSrc).toContain(INSTANT_CHAT_BRANCH_HEAD);
-    expect(chatAiSrc).toMatch(/const cloudGenRoute = instantPushConfigured \|\| instantChatRoute;/);
+    expect(chatAiSrc).toMatch(/const cloudGenRoute = instantPushRoute \|\| instantChatRoute;/);
   });
 
   it('分支只认 instantChatRoute，不拿原料重算一遍', () => {
@@ -246,7 +247,7 @@ describe('useChatAI 的分流接缝', () => {
     expect(branchSrc()).not.toContain('fireLocalEmotionEval');
     // 本地那一枪的开关也得认这条路：cloudGenRoute 把即时对话算进去，
     // 不然两边会同时跑评估（双扣费，而且后落的那份会盖掉先落的）。
-    expect(chatAiSrc).toMatch(/const cloudGenRoute = instantPushConfigured \|\| instantChatRoute;/);
+    expect(chatAiSrc).toMatch(/const cloudGenRoute = instantPushRoute \|\| instantChatRoute;/);
     expect(chatAiSrc).toMatch(/const fireLocalEmotionEval = \(emotionEvalEnabled && !cloudGenRoute/);
   });
 

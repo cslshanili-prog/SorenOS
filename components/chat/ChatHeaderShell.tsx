@@ -28,6 +28,8 @@ interface ChatHeaderShellProps {
     extraAction?: { label: string; icon: React.ReactNode; onClick: () => void };
     /** 触发按钮图标：生成中想显示"停止"时传 'stop'。不传 = 原行为（闪电） */
     triggerIcon?: 'lightning' | 'stop';
+    /** 私聊启用底部生成入口时隐藏顶栏闪电。 */
+    hideTrigger?: boolean;
     isEmotionEvaluating?: boolean;
     isInstantSending?: boolean;
     isMemoryPalaceProcessing?: boolean;
@@ -84,6 +86,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     statusText,
     extraAction,
     triggerIcon = 'lightning',
+    hideTrigger = false,
     hideBuffs = false,
     headerStyle = 'default',
     avatarShape = 'circle',
@@ -252,9 +255,8 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
           ? 'text-[#fff7ed] hover:bg-[#f8f0e0]/20 rounded-[4px] border-2 border-[#8f674a] bg-[#f8f0e0]/10'
           : 'text-indigo-500 hover:bg-indigo-50 rounded-full';
 
-    const onlineStatusNode = headerStyle === 'telegram'
-        ? null
-        : statusStyle === 'pill' ? (
+    // 在线状态由独立的外观设置决定，头部风格不能覆盖它。
+    const onlineStatusNode = statusStyle === 'pill' ? (
             <div className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${isDarkHeader ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20' : isPixelHeader ? 'bg-[#fff7ed] text-[#8f674a] border-[#8f674a]/25' : 'bg-emerald-50 text-emerald-500 border-emerald-100'}`}>
                 {statusText ?? 'online'}
             </div>
@@ -356,6 +358,9 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
         <div className="flex w-full min-w-0 max-w-full flex-col items-center text-center">
             <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="avatar" />
             <div className={`sully-chat-name mt-1 font-bold ${primaryTextClass}`}>{activeCharacter.name}</div>
+            <div className="sully-chat-status flex items-center justify-center gap-2 flex-wrap">
+                {onlineStatusNode}
+            </div>
             {buffs.length > 0 && (
                 <div className="mt-1 min-h-[18px] w-full">
                     {renderBuffRow(true)}
@@ -429,9 +434,9 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                         {renderCenteredInfo()}
                     </div>
 
-                    <button onClick={onTriggerAI} className={`sully-chat-trigger absolute right-0 bottom-2 p-2 ${actionButtonClass}`} title={triggerIcon === 'stop' ? '停止生成' : '触发 AI'}>
+                    {!hideTrigger && <button onClick={onTriggerAI} className={`sully-chat-trigger absolute right-0 bottom-2 p-2 ${actionButtonClass}`} title={triggerIcon === 'stop' ? '停止生成' : '触发 AI'}>
                         {triggerIconNode}
-                    </button>
+                    </button>}
                     {extraAction && (
                         <button onClick={extraAction.onClick} className={`absolute right-10 bottom-2 p-2 ${iconButtonClass}`} title={extraAction.label} aria-label={extraAction.label}>
                             {extraAction.icon}
@@ -454,9 +459,9 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
                             {extraAction.icon}
                         </button>
                     )}
-                    <button onClick={onTriggerAI} className={`sully-chat-trigger p-2 ${extraAction ? '' : 'ml-auto'} ${actionButtonClass}`} title={triggerIcon === 'stop' ? '停止生成' : '触发 AI'}>
+                    {!hideTrigger && <button onClick={onTriggerAI} className={`sully-chat-trigger p-2 ${extraAction ? '' : 'ml-auto'} ${actionButtonClass}`} title={triggerIcon === 'stop' ? '停止生成' : '触发 AI'}>
                         {triggerIconNode}
-                    </button>
+                    </button>}
                 </div>
             )}
 

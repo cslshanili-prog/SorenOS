@@ -27,6 +27,7 @@ import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { trackEvent } from '../utils/analytics';
 import { normalizeBuiltInRoomTemplateAssetsInPlace, toPortableBuiltinRoomAsset } from '../utils/roomTemplateAssets';
 import { shareOrDownloadFile } from '../utils/shareExport';
+import { readShareText } from '../utils/pngShare';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
@@ -1277,11 +1278,13 @@ ${!shouldGenerateTodo ? `(系统: 今日待办已存在，无需生成，请忽�
                 addToast('小屋 JSON 已复制到剪贴板', 'success');
             } else {
                 const result = await shareOrDownloadFile({
+                    card: { kind: 'room', title: template.name },
                     content: json,
                     fileName: `${template.name.replace(/[\\/:*?"<>|]/g, '_')}.room.json`,
                     mimeType: 'application/json;charset=utf-8',
                     shareTitle: `小屋样板房：${template.name}`,
                 });
+                if (result === 'cancelled') return;
                 addToast(result === 'shared' ? '已打开小屋样板房分享面板' : '小屋样板房已导出', 'success');
             }
             trackEvent('导出小屋样板房', { action });
@@ -1332,7 +1335,7 @@ ${!shouldGenerateTodo ? `(系统: 今日待办已存在，无需生成，请忽�
         e.target.value = '';
         if (!file) return;
         try {
-            const data = JSON.parse(await file.text());
+            const data = JSON.parse(await readShareText(file, 'room'));
             if (!data || !Array.isArray(data.items)) throw new Error('缺少 items，不是有效的小屋样板房文件');
             setPendingImport(data);
         } catch (err: any) {
@@ -2239,7 +2242,7 @@ ${!shouldGenerateTodo ? `(系统: 今日待办已存在，无需生成，请忽�
 
             {/* 批量导入素材 / 导入小屋样板房 的隐藏文件选择器（放顶层：工具栏和家具超市弹窗都会用到） */}
             <input type="file" ref={batchAssetInputRef} className="hidden" accept="image/*" multiple onChange={handleBatchAssetImport} />
-            <input type="file" ref={importRoomInputRef} className="hidden" accept=".json,application/json" onChange={handleImportRoomFile} />
+            <input type="file" ref={importRoomInputRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportRoomFile} />
 
             {/* Asset Library Modal（点选不再自动关闭，可连点批量摆放） */}
             <Modal isOpen={showLibrary} title="家具超市" onClose={() => setShowLibrary(false)}

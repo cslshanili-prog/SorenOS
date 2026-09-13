@@ -25,6 +25,8 @@ import { getVoiceFavorite, makeVoiceFavoriteId, removeVoiceFavorite, saveVoiceFa
 import { MEETING_CONTINUE_DISPLAY_TEXT } from '../../utils/meetingContinue';
 import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel, voiceLanguagePromptLabel } from '../../utils/voiceLanguage';
 import { trackEvent } from '../../utils/analytics';
+import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
+import { resolveSARDateSpeech } from '../../utils/sarDatePresentation';
 
 // 语音情绪标记 [v:xxx]：跟立绘情绪 [emotion] 分开的独立通道。立绘的 happy 是
 // 夸张的表情、语音的 happy 是音色情绪，两者强度/语义差异大，不能一概而论。
@@ -107,6 +109,11 @@ const parseDialogue = (fullText: string, initialEmotion: string = 'normal'): Dia
         }
     }
     return results;
+};
+
+const getSARSurface = (message: Message): string | undefined => {
+    const value = message.metadata?.sarModuleSurface?.surface;
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 };
 
 interface DateSessionProps {
@@ -226,6 +233,18 @@ const DateSession: React.FC<DateSessionProps> = ({
     const [showExitModal, setShowExitModal] = useState(false);
     // API 失败时本地记住本轮输入，不依赖父组件的 DB 刷新是否已经完成；用户可直接点重试。
     const [pendingRetryText, setPendingRetryText] = useState('');
+    const [sarTruthMessageIds, setSarTruthMessageIds] = useState<Set<number>>(new Set());
+    const [sarVisualTruth, setSarVisualTruth] = useState(false);
+
+    const currentSarPair = React.useMemo(() => {
+        const speech = messages.filter(message => message.role === 'assistant' && getSARSurface(message)).map(message => {
+            const parse = (text: string) => parseDialogue(extractObservation(text, { lenient: observeEnabled, custom: char.dateObserve?.custom }).rest);
+            return { id: message.id, moduleTitle: message.metadata?.sarModuleSurface?.moduleTitle || '临时模块',
+                surface: parse(getSARSurface(message)!), canonical: parse(message.content || '') };
+        });
+        return resolveSARDateSpeech(speech, dialogueBatch, dialogueQueue.length, currentText);
+    }, [messages, dialogueBatch, dialogueQueue.length, currentText, observeEnabled, char.dateObserve?.custom]);
+    const galShownText = currentSarPair ? (sarVisualTruth ? currentSarPair.canonical : currentSarPair.surface) : currentText;
 
     useEffect(() => {
         if (!getPendingReplyText(messages)) setPendingRetryText('');
@@ -307,7 +326,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     // GAL mode: auto-play voice only for dialogue lines (quoted text), stop previous on advance
     // Uses cache so replaying the same line doesn't re-fetch
     useEffect(() => {
-        if (!voiceEnabled || isNovelMode || !currentText || isTyping) return;
+        if (!voiceEnabled || isNovelMode || !galShownText || isTyping) return;
         // Stop any currently playing audio when text changes (advancing to next line)
         if (dateAudioRef.current) {
             dateAudioRef.current.pause();
@@ -317,9 +336,9 @@ const DateSession: React.FC<DateSessionProps> = ({
         setGalVoiceLoading(false);
         // Skip voice during opening phase and for non-dialogue lines
         if (isShowingOpening) return;
-        if (!isDialogueLine(currentText)) return;
+        if (!isDialogueLine(galShownText)) return;
         let cancelled = false;
-        const dialogueText = extractDialogueText(currentText);
+        const dialogueText = extractDialogueText(galShownText);
         const cacheKey = dialogueText;
         const play = async () => {
             // Check cache first
@@ -341,18 +360,18 @@ const DateSession: React.FC<DateSessionProps> = ({
         };
         play();
         return () => { cancelled = true; setGalVoiceLoading(false); if (dateAudioRef.current) { dateAudioRef.current.pause(); } };
-    }, [currentText, voiceEnabled, isNovelMode]);
+    }, [galShownText, voiceEnabled, isNovelMode]);
 
     // GAL mode: manual play/pause for the current dialogue line
     const handleGalVoiceToggle = async () => {
-        if (!currentText || !isDialogueLine(currentText)) return;
+        if (!galShownText || !isDialogueLine(galShownText)) return;
         // If playing, pause
         if (dateVoicePlaying && dateAudioRef.current) {
             dateAudioRef.current.pause();
             setDateVoicePlaying(false);
             return;
         }
-        const dialogueText = extractDialogueText(currentText);
+        const dialogueText = extractDialogueText(galShownText);
         const cacheKey = dialogueText;
         let speech: DateSpeechResult | undefined = voiceCacheRef.current[cacheKey];
         if (!speech) {
@@ -402,8 +421,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     };
 
     const resolveCurrentDateVoiceTarget = (): DateVoiceFavoriteTarget | null => {
-        if (!currentText || !isDialogueLine(currentText)) return null;
-        const originalText = extractDialogueText(currentText);
+        if (!galShownText || !isDialogueLine(galShownText)) return null;
+        const originalText = extractDialogueText(galShownText);
         for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex--) {
             const message = messages[messageIndex];
             if (message.role !== 'assistant') continue;
@@ -688,7 +707,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     // 位置），isTyping 时也跳过（新回复交给 handleSend / handleRerollClick 处理，避免重复解析）。
     const lastAssistantContent = React.useMemo(() => {
         for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i]?.role === 'assistant') return messages[i].content || '';
+            if (messages[i]?.role === 'assistant') return getSARSurface(messages[i]) || messages[i].content || '';
         }
         return '';
     }, [messages]);
@@ -955,7 +974,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" /></svg>
                     </button>
                     <div className="flex flex-col gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); setShowMenu(prev => !prev); setShowVoiceLangPicker(false); }} className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg active:scale-95 ${showMenu ? 'bg-white text-black border-white' : 'bg-black/30 backdrop-blur-md border-white/20 text-white hover:bg-white/20'}`}>
+                        <button aria-label={showMenu ? '收起见面菜单' : '打开见面菜单'} onClick={(e) => { e.stopPropagation(); setShowMenu(prev => !prev); setShowVoiceLangPicker(false); }} className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all shadow-lg active:scale-95 ${showMenu ? 'bg-white text-black border-white' : 'bg-black/30 backdrop-blur-md border-white/20 text-white hover:bg-white/20'}`}>
                             {showMenu ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                             ) : (
@@ -1150,9 +1169,15 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             {selectedMsgIds.has(msg.id) && <span className="text-white text-[10px]">✓</span>}
                                         </div>
                                     )}
-                                    {msg.role === 'user' ? (
+                                    {msg.role === 'user' ? (() => {
+                                        const sarSurface = getSARSurface(msg);
+                                        const sarRevealed = sarTruthMessageIds.has(msg.id);
+                                        const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
+                                        return (
                                         <div className="flex min-w-0 items-start justify-end gap-3">
-                                            <p className={`min-w-0 flex-1 whitespace-pre-wrap font-serif text-[16px] text-right leading-loose tracking-wide italic pr-4 ${char.dateLightReading ? 'text-stone-400 border-r-2 border-stone-300/50' : 'text-slate-400 border-r-2 border-slate-600/50'}`}>{cleanTextForDisplay(msg.content)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
+                                            <p
+                                                className={`min-w-0 flex-1 whitespace-pre-wrap font-serif text-[16px] text-right leading-loose tracking-wide italic pr-4 ${char.dateLightReading ? 'text-stone-400 border-r-2 border-stone-300/50' : 'text-slate-400 border-r-2 border-slate-600/50'}`}
+                                            >{cleanTextForDisplay(shown)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
                                             {char.dateReadingShowAvatars && (
                                                 <ReadingAvatar
                                                     src={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
@@ -1161,9 +1186,12 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                 />
                                             )}
                                         </div>
-                                    ) : (() => {
+                                        ); })() : (() => {
                                         // 观测协议：从这条回复里剥出观测块，正文上方渲染独立卡片，正文本身不显示块文本
-                                        const { observation: msgObs, rest: msgBody } = extractObservation(msg.content || '', { lenient: observeEnabled, custom: char.dateObserve?.custom });
+                                        const sarSurface = getSARSurface(msg);
+                                        const sarRevealed = sarTruthMessageIds.has(msg.id);
+                                        const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
+                                        const { observation: msgObs, rest: msgBody } = extractObservation(shown || '', { lenient: observeEnabled, custom: char.dateObserve?.custom });
                                         return (
                                         <div className="flex min-w-0 items-start gap-3">
                                             {char.dateReadingShowAvatars && (
@@ -1202,7 +1230,9 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                         onMouseDown={voiceEnabled && lineIsDialogue && !isOpeningMsg ? (e) => e.stopPropagation() : undefined}
                                                         onContextMenu={voiceEnabled && lineIsDialogue && !isOpeningMsg ? (e) => { e.preventDefault(); e.stopPropagation(); void openDateVoiceFavorite(voiceTarget); } : undefined}
                                                     >
-                                                        <p className={`flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 ${char.dateLightReading ? 'text-stone-700 border-l-2 border-stone-200' : 'text-slate-200 drop-shadow-md border-l-2 border-white/10'}`}>{cleanLine}</p>
+                                                        <p
+                                                            className={`flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 ${char.dateLightReading ? 'text-stone-700 border-l-2 border-stone-200' : 'text-slate-200 drop-shadow-md border-l-2 border-white/10'}`}
+                                                        >{cleanLine}</p>
                                                         {/* Voice button: only for dialogue lines, not opening */}
                                                         {voiceEnabled && lineIsDialogue && !isOpeningMsg && (
                                                             <button
@@ -1237,6 +1267,16 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             </div>
                                         </div>
                                         ); })()}
+                                    {getSARSurface(msg) && (
+                                        <div className="sar-date-speech-control" style={{ color: char.dateLightReading ? '#57534e' : '#cbd5e1' }}>
+                                            <SARSpeechSwitch truth={sarTruthMessageIds.has(msg.id)} moduleTitle={msg.metadata?.sarModuleSurface?.moduleTitle}
+                                                onToggle={() => setSarTruthMessageIds(previous => {
+                                                    const next = new Set(previous);
+                                                    if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id);
+                                                    return next;
+                                                })} />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -1254,15 +1294,15 @@ const DateSession: React.FC<DateSessionProps> = ({
                         <div className="absolute inset-x-0 bottom-8 z-30 flex justify-center">
                             <div
                                 className="w-[90%] max-w-lg bg-black/60 backdrop-blur-xl rounded-2xl border border-white/10 p-6 min-h-[140px] shadow-2xl animate-slide-up hover:bg-black/70 cursor-pointer"
-                                onTouchStart={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(currentText) ? (e) => startDateVoiceLongPress(e, resolveCurrentDateVoiceTarget()) : undefined}
-                                onTouchMove={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(currentText) ? endDateVoiceLongPress : undefined}
-                                onTouchEnd={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(currentText) ? endDateVoiceLongPress : undefined}
-                                onContextMenu={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(currentText) ? (e) => { e.preventDefault(); e.stopPropagation(); void openDateVoiceFavorite(resolveCurrentDateVoiceTarget()); } : undefined}
+                                onTouchStart={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(galShownText) ? (e) => startDateVoiceLongPress(e, resolveCurrentDateVoiceTarget()) : undefined}
+                                onTouchMove={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(galShownText) ? endDateVoiceLongPress : undefined}
+                                onTouchEnd={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(galShownText) ? endDateVoiceLongPress : undefined}
+                                onContextMenu={voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(galShownText) ? (e) => { e.preventDefault(); e.stopPropagation(); void openDateVoiceFavorite(resolveCurrentDateVoiceTarget()); } : undefined}
                             >
                                 <div className="absolute -top-3 left-6 flex items-center gap-2">
                                     <div className="bg-white/90 text-black px-4 py-1 rounded-sm text-xs font-bold tracking-widest uppercase shadow-[0_4px_10px_rgba(0,0,0,0.3)] transform -skew-x-12">{char.name}</div>
                                     {/* Voice play button next to name */}
-                                    {voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(currentText) && (
+                                    {voiceEnabled && !isTextAnimating && !isShowingOpening && isDialogueLine(galShownText) && (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -1286,7 +1326,16 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         </button>
                                     )}
                                 </div>
-                                <p className="text-white/90 text-[16px] leading-relaxed font-light tracking-wide drop-shadow-md mt-2">{displayedText}{isTextAnimating && <span className="inline-block w-2 h-4 bg-white/70 ml-1 animate-pulse align-middle"></span>}</p>
+                                {currentSarPair && (
+                                    <div className="sar-date-gal-speech-control">
+                                        <SARSpeechSwitch truth={sarVisualTruth} moduleTitle={currentSarPair.moduleTitle}
+                                            onToggle={() => setSarVisualTruth(value => !value)} />
+                                    </div>
+                                )}
+                                <p className="text-white/90 text-[16px] leading-relaxed font-light tracking-wide drop-shadow-md mt-2 whitespace-pre-wrap" data-sar-gal-text>
+                                    {galShownText === currentText ? displayedText : galShownText}
+                                    {isTextAnimating && galShownText === currentText && <span className="inline-block w-2 h-4 bg-white/70 ml-1 animate-pulse align-middle"></span>}
+                                </p>
                                 {!isTextAnimating && dialogueQueue.length > 0 && <div className="absolute bottom-3 right-4 animate-bounce opacity-70"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white"><path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" /></svg></div>}
                                 {!isTextAnimating && dialogueQueue.length === 0 && dialogueBatch.length > 0 && <div className="absolute bottom-3 right-4 opacity-50 text-[10px] text-white flex items-center gap-1 animate-pulse"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>Loop</div>}
                             </div>

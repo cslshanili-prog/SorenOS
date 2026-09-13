@@ -97,7 +97,8 @@ describe('CompanionHome touch request boundaries', () => {
     expect(source).toContain('data-testid="companion-hud-thought"');
     expect(source).toContain('data-testid="companion-hud-chat"');
     expect(source).toContain('data-testid="companion-hud-schedule"');
-    expect(source).toContain('DB.getRecentMessagesByCharId');
+    expect(source).toContain('DB.getRecentMessagesWithCount(character.id, 1');
+    expect(source).toContain('isChatPreviewMessage(message)');
     expect(source).toContain('getLastInnerState(character.id)');
     expect(source).toContain('getDailyScheduleForChar(character)');
     expect(source).toContain('data-ui-scale="medium"');

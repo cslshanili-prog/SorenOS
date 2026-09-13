@@ -16,7 +16,7 @@ function Probe({ charId = 'reply-test' }: { charId?: string }) {
     current = useChatAI({
         char: { id: charId, name: '甲' } as any, userProfile: { name: '用户' } as any,
         apiConfig: { baseUrl: 'https://example.test/v1' }, groups: [], emojis: [], categories: [],
-        realtimeConfig: {} as any, addToast: vi.fn(), setMessages: vi.fn(), updateCharacter: vi.fn(),
+        realtimeConfig: {} as any, addToast: vi.fn(), setMessages: vi.fn(), updateCharacter: vi.fn(), updateUserProfile: vi.fn(),
     });
     return null;
 }

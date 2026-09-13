@@ -24,6 +24,7 @@ import {
 } from '../../utils/journalAppearance';
 import { runCssRenderabilityCheck, validateScopedCss } from '../../utils/scopedCss';
 import { shareOrDownloadFile } from '../../utils/shareExport';
+import { readShareText } from '../../utils/pngShare';
 import { JournalThemeThumbnail } from './JournalThemeArtwork';
 
 const CSS_SNIPPETS = [
@@ -260,7 +261,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
         const file = event.target.files?.[0];
         if (!file) return;
         try {
-            const css = (await file.text()).replace(/^\uFEFF/, '').trim();
+            const css = (await readShareText(file, 'journal-css')).replace(/^\uFEFF/, '').trim();
             if (!css) {
                 addToast('CSS 文件是空的', 'error');
                 return;
@@ -295,11 +296,13 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
         const fileName = `sullyos-exchange-diary-${dateKey}.css`;
         try {
             const result = await shareOrDownloadFile({
+                card: { kind: 'journal-css', title: '交换日记样式' },
                 content: css,
                 fileName,
                 mimeType: 'text/css;charset=utf-8',
                 shareTitle: 'SullyOS 交换日记样式',
             });
+            if (result === 'cancelled') return;
             addToast(result === 'shared' ? '已打开 CSS 分享面板' : '完整 CSS 已导出', 'success');
         } catch (error: any) {
             if (error?.name !== 'AbortError') addToast('CSS 导出失败，请重试', 'error');
@@ -388,7 +391,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                             <input
                                 ref={cssImportRef}
                                 type="file"
-                                accept=".css,.txt,text/css,text/plain"
+                                accept=".png,.css,.txt,image/png,text/css,text/plain"
                                 className="hidden"
                                 onChange={importCss}
                             />
@@ -397,7 +400,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                                 className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2 text-[10px] font-bold text-slate-600"
                             >
                                 <UploadSimple size={14} />
-                                导入 CSS
+                                导入 PNG / CSS
                             </button>
                             <button
                                 onClick={exportCss}

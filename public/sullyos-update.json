@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "versionCode": 30409,
-  "versionName": "3.4.9",
-  "apkUrl": "https://github.com/qegj567-cloud/SullyOS/releases/download/android-v3.4.9/SullyOS-Android-v3.4.9.apk",
-  "sha256": "a9d3842325688c2657a5a00e4a5c5a8010d7a335a38c312fe2c6a32bd0c97257",
-  "sizeBytes": 37110087,
-  "publishedAt": "2026-08-30T05:31:52Z",
+  "versionCode": 30501,
+  "versionName": "3.5.1",
+  "apkUrl": "https://github.com/qegj567-cloud/SullyOS/releases/download/android-v3.5.1/SullyOS-Android-v3.5.1.apk",
+  "sha256": "e7053d4d3a88dd440142d191c7905425a601fe28e55df9c77b0a36d2712432d2",
+  "sizeBytes": 45878814,
+  "publishedAt": "2026-09-12T10:35:17Z",
   "releaseNotes": [
-    "修复更新缓存目录已存在时出现 DirectoryExists、无法继续下载的问题",
-    "重复更新会清理旧 APK、重新下载并校验摘要、包名、签名与版本",
-    "只忽略目录已存在状态，真实权限或文件系统错误仍会正常提示",
-    "3.4.8 用户若仍遇到旧错误，请从 Release 手动覆盖安装 3.4.9 一次",
-    "延续固定签名、UnifiedPush / ntfy、Android PDF 导入、Umami 与应用内更新"
+    "群聊接入输入偏好与表情建议，并保留自定义编辑器样式",
+    "Kanata 活动重新分组，支持自动排除配置",
+    "Kanata 图书馆支持分类整理与按分类阅读",
+    "修正 SAR 子页面在 iOS 与移动端安全区的布局",
+    "延续主动消息 2.0、UnifiedPush / ntfy、Android PDF 导入、Umami、应用内更新与 DirectoryExists 修复"
   ]
 }
