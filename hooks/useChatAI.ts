@@ -738,7 +738,8 @@ export const useChatAI = ({
         // 早退路径也要熄「发送准备中」灯: caller (Chat.tsx) 是先 setInstantSendingActive(true)
         // 再调 triggerAI 的, 这里 return 掉而不通知的话指示灯会永远亮着。
         if (isTyping || !char) { onInstantPosted?.(); return; }
-        const effectiveApi = overrideApiConfig || apiConfig;
+        // 显式传入的 override > 角色专属 API（聊天设置里的「对话模型」）> 全局 apiConfig。
+        const effectiveApi = overrideApiConfig || (char.chatApi?.baseUrl ? char.chatApi : apiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); onInstantPosted?.(); return; }
 
         // 重 roll（回溯重生）时不带入上一轮的情绪余波：清掉 buff 注入（buffInjection/activeBuffs）和

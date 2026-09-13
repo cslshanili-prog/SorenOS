@@ -3868,6 +3868,10 @@ const Chat: React.FC = () => {
                     updateCharacter(char.id, { activeBuffs: [], buffInjection: '' });
                     addToast('情绪状态已清除', 'info');
                 }}
+                onSaveChatApi={(chatApi) => {
+                    updateCharacter(char.id, { chatApi });
+                    addToast('对话模型设置已保存', 'success');
+                }}
              />
 
              {/* 小剧场播放器：窥视某个日程时段的角色行为演出 */}

@@ -3063,6 +3063,16 @@ export interface CharacterProfile {
     };
   };
 
+  /**
+   * 该角色主对话（Chat 私聊）专属 API 覆盖；不设或 baseUrl 为空则回落全局 apiConfig。
+   * 与 emotionConfig.api / proactiveConfig.secondaryApi 各管各的，互不影响。
+   */
+  chatApi?: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  };
+
   // 情绪Buff系统
   activeMsg2Config?: ActiveMsg2CharacterConfig;
   activeBuffs?: CharacterBuff[];

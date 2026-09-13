@@ -5,6 +5,7 @@ import TokenImg from '../os/TokenImg';
 import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, ApiPreset, APIConfig } from '../../types';
 import ScheduleCard from '../schedule/ScheduleCard';
 import EmotionSettingsPanel from './EmotionSettingsPanel';
+import ChatApiSettingsPanel from './ChatApiSettingsPanel';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
@@ -158,6 +159,7 @@ interface ChatModalsProps {
     apiPresets?: ApiPreset[];
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
+    onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
     onClearBuffs?: () => void;
 }
 
@@ -272,7 +274,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs,
+    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi,
 }) => {
     const bgInputRef = useRef<HTMLInputElement>(null);
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
@@ -391,6 +393,16 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<button onClick={onSaveSettings} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存设置</button>}
             >
                 <div className="space-y-3">
+                    {onSaveChatApi && (
+                        <ChatSettingsSection title="AI 模型" summary="这个角色用全局API还是单独配一个">
+                            <ChatApiSettingsPanel
+                                char={activeCharacter}
+                                apiPresets={apiPresets || []}
+                                addApiPreset={onAddApiPreset || (() => {})}
+                                onSave={onSaveChatApi}
+                            />
+                        </ChatSettingsSection>
+                    )}
                     <ChatSettingsSection title="输入与发送" summary="表情联想、回车与自动回复">
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} />
                     </ChatSettingsSection>
