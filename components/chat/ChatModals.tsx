@@ -5,6 +5,7 @@ import TokenImg from '../os/TokenImg';
 import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, ApiPreset, APIConfig } from '../../types';
 import ScheduleCard from '../schedule/ScheduleCard';
 import EmotionSettingsPanel from './EmotionSettingsPanel';
+import EmotionStatusPanel from './EmotionStatusPanel';
 import ChatApiSettingsPanel from './ChatApiSettingsPanel';
 import CustomMeterPanel from '../schedule/CustomMeterPanel';
 import type { CharacterCustomMeter } from '../../types';
@@ -1263,6 +1264,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             <p className="text-[10px] text-slate-400 text-center mt-3 leading-relaxed">
                                 点击日程项可编辑 · 长按可删除
                             </p>
+
+                            {/* 当前情绪状态 — 从下面收合的「情绪/意识流API」拆出来，单独常驻显示，放在日程和心声中间 */}
+                            {activeCharacter && onClearBuffs && (
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <EmotionStatusPanel char={activeCharacter} onClearBuffs={onClearBuffs} />
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -1297,15 +1305,14 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     )}
 
                     {/* 情绪 / 意识流 API — 与日程强制同步；预设一多这块会很长，收合起来放最下面 */}
-                    {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && onClearBuffs && (
+                    {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
-                            <ChatSettingsSection title="情绪 / 意识流 API" summary="副 API、我的预设与当前情绪状态">
+                            <ChatSettingsSection title="情绪 / 意识流 API" summary="副 API 配置与我的预设">
                                 <EmotionSettingsPanel
                                     char={activeCharacter}
                                     apiPresets={apiPresets}
                                     addApiPreset={onAddApiPreset}
                                     onSave={onSaveEmotion}
-                                    onClearBuffs={onClearBuffs}
                                 />
                             </ChatSettingsSection>
                         </div>
