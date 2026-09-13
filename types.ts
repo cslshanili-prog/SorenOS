@@ -2722,6 +2722,26 @@ export interface MemoryPalaceWaterlineConfig {
   bufferThreshold?: number;
 }
 
+/**
+ * 用户自定义「心声 / 好感度」条目的共同形状。
+ * content 给心声（文本）用，value 给好感度（0-100 数值）用，同一条目只填其中一个。
+ */
+export interface CharacterCustomMeter {
+  id: string;
+  /** 用户自己起的标题，如「今日心事」「对我的信任」 */
+  title: string;
+  /** 用户填的生成提示词，生成/重新生成时拼进 prompt */
+  prompt: string;
+  /** 新增时随机分配的粉嫩色调（hex），用于卡片着色 */
+  color: string;
+  /** 最近一次生成/编辑的时间戳 */
+  updatedAt?: number;
+  /** 心声正文（kind='text' 时使用） */
+  content?: string;
+  /** 好感度数值 0-100（kind='number' 时使用） */
+  value?: number;
+}
+
 export interface CharacterProfile {
   id: string;
   name: string;
@@ -3085,6 +3105,16 @@ export interface CharacterProfile {
       model: string;
     };
   };
+
+  /**
+   * 用户自定义「心声」：一段针对自定义标题生成的第一人称内心独白短文。
+   * 用户自己填标题 + 生成用的提示词，「日程/情绪」面板里点生成产出 content。
+   */
+  innerVoices?: CharacterCustomMeter[];
+  /**
+   * 用户自定义「好感度」：0-100 数值条，标题 + 提示词驱动生成/刷新出 value。
+   */
+  affinities?: CharacterCustomMeter[];
 
   // 记忆宫殿 (Memory Palace)
   memoryPalaceEnabled?: boolean;

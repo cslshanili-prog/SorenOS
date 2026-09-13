@@ -6,6 +6,8 @@ import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, 
 import ScheduleCard from '../schedule/ScheduleCard';
 import EmotionSettingsPanel from './EmotionSettingsPanel';
 import ChatApiSettingsPanel from './ChatApiSettingsPanel';
+import CustomMeterPanel from '../schedule/CustomMeterPanel';
+import type { CharacterCustomMeter } from '../../types';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
@@ -160,6 +162,10 @@ interface ChatModalsProps {
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
+    onSaveInnerVoices?: (entries: CharacterCustomMeter[]) => void;
+    onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<string | null>;
+    onSaveAffinities?: (entries: CharacterCustomMeter[]) => void;
+    onGenerateAffinity?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<number | null>;
     onClearBuffs?: () => void;
 }
 
@@ -275,6 +281,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
     apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi,
+    onSaveInnerVoices, onGenerateInnerVoice, onSaveAffinities, onGenerateAffinity,
 }) => {
     const bgInputRef = useRef<HTMLInputElement>(null);
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
@@ -1268,6 +1275,36 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 />
                             )}
                         </>
+                    )}
+
+                    {/* 心声 / 好感度 — 用户自定义标题 + 提示词，独立于日程总开关 */}
+                    {activeCharacter && onSaveInnerVoices && onGenerateInnerVoice && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <CustomMeterPanel
+                                kind="text"
+                                heading="心声"
+                                icon="💭"
+                                description="针对你自定义的标题，生成一段角色的第一人称内心独白。"
+                                entries={activeCharacter.innerVoices || []}
+                                onChange={onSaveInnerVoices}
+                                onGenerate={onGenerateInnerVoice}
+                                emptyHint="还没有心声条目——点下面「+ 新增心声」，填个标题和提示词试试。"
+                            />
+                        </div>
+                    )}
+                    {activeCharacter && onSaveAffinities && onGenerateAffinity && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <CustomMeterPanel
+                                kind="number"
+                                heading="好感度"
+                                icon="💗"
+                                description="针对你自定义的标题，评估一个 0-100 的数值条。"
+                                entries={activeCharacter.affinities || []}
+                                onChange={onSaveAffinities}
+                                onGenerate={onGenerateAffinity}
+                                emptyHint="还没有好感度条目——点下面「+ 新增好感度」，填个标题和提示词试试。"
+                            />
+                        </div>
                     )}
                 </div>
             </Modal>

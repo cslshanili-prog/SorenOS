@@ -15,6 +15,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // evolveFlowNarrative 保留为低频深刷新备用，日常意识流由副 API 的情绪评估同轮产出（innerState 字段）
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
 // UI 钩子工具 propose_cart_items。MCP 实际调用都在 McdMiniApp 组件内做, useChatAI
@@ -739,7 +740,7 @@ export const useChatAI = ({
         // 再调 triggerAI 的, 这里 return 掉而不通知的话指示灯会永远亮着。
         if (isTyping || !char) { onInstantPosted?.(); return; }
         // 显式传入的 override > 角色专属 API（聊天设置里的「对话模型」）> 全局 apiConfig。
-        const effectiveApi = overrideApiConfig || (char.chatApi?.baseUrl ? char.chatApi : apiConfig);
+        const effectiveApi = overrideApiConfig || resolveCharacterChatApi(char, apiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); onInstantPosted?.(); return; }
 
         // 重 roll（回溯重生）时不带入上一轮的情绪余波：清掉 buff 注入（buffInjection/activeBuffs）和

@@ -11,6 +11,8 @@ import ChatFineTunePanel from '../components/chat/ChatFineTunePanel';
 import TokenImg from '../components/os/TokenImg';
 import { FadersHorizontal } from '@phosphor-icons/react';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { generateInnerVoiceContent, generateAffinityValue } from '../utils/customMeterGenerator';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -3872,6 +3874,10 @@ const Chat: React.FC = () => {
                     updateCharacter(char.id, { chatApi });
                     addToast('对话模型设置已保存', 'success');
                 }}
+                onSaveInnerVoices={(innerVoices) => updateCharacter(char.id, { innerVoices })}
+                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, userProfile, resolveCharacterChatApi(char, apiConfig), entry)}
+                onSaveAffinities={(affinities) => updateCharacter(char.id, { affinities })}
+                onGenerateAffinity={(entry) => generateAffinityValue(char, userProfile, resolveCharacterChatApi(char, apiConfig), entry)}
              />
 
              {/* 小剧场播放器：窥视某个日程时段的角色行为演出 */}
