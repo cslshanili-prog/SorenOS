@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -312,6 +312,12 @@ interface OSContextType {
    * 「仍然删除」= 传 { force: true } 放行）。没有任务的角色维持本地直删的快路径。
    */
   deleteCharacter: (id: string, options?: { force?: boolean }) => Promise<DeleteCharacterResult>;
+
+  /** NPC 档案（神经链接「NPC」分页）。独立于 characters，不参与日程/情绪/主动消息/记忆宫殿。 */
+  npcs: NPCProfile[];
+  addNPC: () => Promise<NPCProfile>;
+  updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
+  deleteNPC: (id: string) => Promise<void>;
   setActiveCharacterId: (id: string) => void;
 
   // 角色分组（神经链接"文件夹"，与群聊 groups 无关）
@@ -901,6 +907,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
+  const [npcs, setNpcs] = useState<NPCProfile[]>([]);
   const [activeCharacterId, setActiveCharacterId] = useState<string>('');
 
   // 刷新后能恢复"上一次聊的角色"：所有调用方（聊天切换/通知 onclick/记忆宫殿 handleSwitchChar）
@@ -1585,7 +1592,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             }
         };
 
-        const [dbChars, dbThemes, dbUser, dbGroups, dbWorldbooks, dbNovels, dbSongs, dbCharGroups] = await Promise.all([
+        const [dbChars, dbThemes, dbUser, dbGroups, dbWorldbooks, dbNovels, dbSongs, dbCharGroups, dbNpcs] = await Promise.all([
             settle(DB.getAllCharacters(), 'characters', [] as CharacterProfile[]),
             settle(DB.getThemes(), 'themes', [] as ChatTheme[]),
             settle(DB.getUserProfile(), 'userProfile', null as UserProfile | null),
@@ -1593,8 +1600,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             settle(DB.getAllWorldbooks(), 'worldbooks', [] as Worldbook[]),
             settle(DB.getAllNovels(), 'novels', [] as NovelBook[]),
             settle(DB.getAllSongs(), 'songs', [] as SongSheet[]),
-            settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[])
+            settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[]),
+            settle(DB.getAllNPCs(), 'npcs', [] as NPCProfile[])
         ]);
+        setNpcs(dbNpcs);
 
         let finalChars = dbChars;
 
@@ -3266,6 +3275,41 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         console.warn('[deleteCharacter] 表情包残留清理失败（不影响角色删除）', err);
     }
     return { status: 'deleted' };
+  };
+
+  // NPC 档案（神经链接「NPC」分页）。刻意不带 amsg2/云端善后那一整套——NPC 没有
+  // 主动消息任务、没有云端 client_state，本地增删改直接落库即可。
+  const addNPC = async (): Promise<NPCProfile> => {
+    const name = '新 NPC';
+    const now = Date.now();
+    const newNpc: NPCProfile = {
+      id: `npc-${now}`,
+      name,
+      avatar: generateAvatar(name),
+      description: '',
+      relationships: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setNpcs(prev => [...prev, newNpc]);
+    await DB.saveNPC(newNpc);
+    return newNpc;
+  };
+
+  const updateNPC = (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => {
+    setNpcs(prev => {
+      const updated = prev.map(n => n.id === id
+        ? { ...n, ...(typeof updates === 'function' ? updates(n) : updates), updatedAt: Date.now() }
+        : n);
+      const target = updated.find(n => n.id === id);
+      if (target) DB.saveNPC(target);
+      return updated;
+    });
+  };
+
+  const deleteNPC = async (id: string) => {
+    setNpcs(prev => prev.filter(n => n.id !== id));
+    await DB.deleteNPC(id);
   };
 
   // 角色分组方法（神经链接"文件夹"）
@@ -5253,6 +5297,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateCharacter,
     deleteCharacter,
     setActiveCharacterId,
+    npcs,
+    addNPC,
+    updateNPC,
+    deleteNPC,
     characterGroups,
     createCharacterGroup,
     renameCharacterGroup,

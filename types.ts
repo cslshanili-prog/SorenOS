@@ -3290,6 +3290,38 @@ export interface CharacterGroup {
     createdAt?: number;
 }
 
+/**
+ * NPC 与某个对象（真实角色或用户）之间的一段关系。一个 NPC 可以同时对好几个
+ * 对象有完全不同的关系（比如同时是 A 的妹妹、B 的女友），所以做成清单而不是单一字段。
+ */
+export interface NPCRelationship {
+    id: string;
+    /** 关系对象：某个 CharacterProfile.id，或字面量 'user' 代表用户本人。 */
+    targetId: string;
+    /** 自由文字描述这段关系，如「妹妹，从小玩到大」。 */
+    description: string;
+}
+
+/**
+ * NPC 档案——神经链接「NPC」分页下的简化角色卡。
+ *
+ * 故意不复用 CharacterProfile：NPC 不参与日程生成、情绪评估、主动消息、记忆宫殿这些
+ * 背景任务，独立成一份精简结构，能避免在十几处背景逻辑里到处补「跳过 NPC」的判断。
+ * 目前只在群聊、查手机联系人、见面剧情三处被读取；没有立绘/生图/语音/印象/门牌/手办，
+ * 也没有好感度——好感度等以后 NPC 能开一对一聊天窗口时再回落到 CharacterProfile 同一套。
+ */
+export interface NPCProfile {
+    id: string;
+    name: string;
+    /** 头像，跟角色头像一样可以是 blob-ref token / url / dataURL。 */
+    avatar: string;
+    /** 性格与背景描述，注入进群聊/查手机/见面剧情的人设里。 */
+    description: string;
+    relationships: NPCRelationship[];
+    createdAt: number;
+    updatedAt: number;
+}
+
 export interface GroupProfile {
     id: string;
     name: string;
@@ -4012,6 +4044,7 @@ export interface FullBackupData {
     appearancePresets?: AppearancePreset[];
     characters?: CharacterProfile[];
     characterGroups?: CharacterGroup[];
+    npcs?: NPCProfile[];
     groups?: GroupProfile[];
     messages?: Message[];
     storyTheaters?: StoryTheaterEntry[];
