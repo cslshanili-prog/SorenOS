@@ -146,13 +146,25 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [description, setDescription] = useState(npc.description);
     const [worldview, setWorldview] = useState(npc.worldview || '');
     const [showWorldbookModal, setShowWorldbookModal] = useState(false);
+    const [apiMode, setApiMode] = useState<'shared' | 'custom'>(npc.chatApi?.baseUrl ? 'custom' : 'shared');
+    const [apiUrl, setApiUrl] = useState(npc.chatApi?.baseUrl || '');
+    const [apiKey, setApiKey] = useState(npc.chatApi?.apiKey || '');
+    const [apiModel, setApiModel] = useState(npc.chatApi?.model || '');
 
     // 切换编辑对象时把本地草稿同步回来，避免残留上一个 NPC 的文字。
     useEffect(() => {
         setName(npc.name);
         setDescription(npc.description);
         setWorldview(npc.worldview || '');
+        setApiMode(npc.chatApi?.baseUrl ? 'custom' : 'shared');
+        setApiUrl(npc.chatApi?.baseUrl || '');
+        setApiKey(npc.chatApi?.apiKey || '');
+        setApiModel(npc.chatApi?.model || '');
     }, [npc.id]);
+
+    const saveApiConfig = (mode: 'shared' | 'custom', url = apiUrl, key = apiKey, model = apiModel) => {
+        onChange({ chatApi: mode === 'custom' && url.trim() ? { baseUrl: url.trim(), apiKey: key.trim(), model: model.trim() } : undefined });
+    };
 
     const mountWorldbook = (bookId: string) => {
         const book = worldbooks.find(b => b.id === bookId);
@@ -352,6 +364,60 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* AI 模型：默认跟随查手机 App 的共用设定（跟真人联系人的关系对话共用同一组），可选自定义单独覆盖 */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
+                    <div>
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">AI 模型</label>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">默认跟查手机里其他联系人共用同一组设定；选「自定义」可以单独给这个 NPC 配一个不同的 API / 模型。</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setApiMode('shared'); saveApiConfig('shared'); }}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                                apiMode === 'shared' ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'
+                            }`}
+                        >
+                            查手机共用设定
+                        </button>
+                        <button
+                            onClick={() => setApiMode('custom')}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                                apiMode === 'custom' ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'
+                            }`}
+                        >
+                            自定义
+                        </button>
+                    </div>
+                    {apiMode === 'custom' && (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={apiUrl}
+                                onChange={e => setApiUrl(e.target.value)}
+                                onBlur={() => saveApiConfig('custom')}
+                                placeholder="URL，如 https://api.example.com/v1"
+                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-mono"
+                            />
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={e => setApiKey(e.target.value)}
+                                onBlur={() => saveApiConfig('custom')}
+                                placeholder="Key"
+                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-mono"
+                            />
+                            <input
+                                type="text"
+                                value={apiModel}
+                                onChange={e => setApiModel(e.target.value)}
+                                onBlur={() => saveApiConfig('custom')}
+                                placeholder="Model"
+                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-mono"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div>

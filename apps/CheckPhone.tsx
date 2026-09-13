@@ -1789,15 +1789,19 @@ ${olderText}
 
     // 与虚构 NPC 的对话（机主脑补，单 LLM，纯虚构、不镜像）
     const handleNpcConversation = async (contact: PhoneContact) => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!targetChar) return;
+        // 绑定了「神经链接 → NPC」分页里某个 NPC 的联系人：优先用这个 NPC 自己配的专属 API
+        // （神经链接 NPC 编辑页「AI 模型」选了「自定义」才会有），没配就跟查手机共用设定一样。
+        const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
+        const npcEffectiveApi = linkedNpc?.chatApi?.baseUrl ? linkedNpc.chatApi : effectiveApiConfig;
+        if (!npcEffectiveApi.apiKey) { addToast('请先配置 API', 'error'); return; }
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'npc' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
-            // 绑定了「神经链接 → NPC」分页里某个 NPC 的联系人：把 ta 的人设描述和跟这个角色/用户的
-            // 关系折进 note 一起喂给引擎，让脑补出来的对话有据可依，不再是纯凭一个名字瞎编。
-            // 不改 contact.note 本身——那是用户自己写的备注，落库前保持原样。
-            const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
+            // 把 NPC 的人设描述和跟这个角色/用户的关系折进 note 一起喂给引擎，让脑补出来的对话
+            // 有据可依，不再是纯凭一个名字瞎编。不改 contact.note 本身——那是用户自己写的备注，
+            // 落库前保持原样。
             const npcRelationshipNote = linkedNpc?.relationships
                 .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
                 .map(r => r.targetId === targetChar.id ? `对「${targetChar.name}」：${r.description}` : `对用户：${r.description}`)
@@ -1805,7 +1809,7 @@ ${olderText}
             const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
             const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
-                host: targetChar, user: userProfile, api: effectiveApiConfig as any,
+                host: targetChar, user: userProfile, api: npcEffectiveApi as any,
                 npcName: contact.name, identity: contact.identity, note: effectiveNote,
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });

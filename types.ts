@@ -3331,6 +3331,15 @@ export interface NPCProfile {
     dateTimeAwarenessEnabled?: boolean;
     /** 挂载的世界书（扩展设定），与角色卡同一种 MountedWorldbook 结构。 */
     mountedWorldbooks?: MountedWorldbook[];
+    /**
+     * 该 NPC 专属 API 覆盖；不设或 baseUrl 为空则回落查手机 App 的共用设定（跟真人联系人的
+     * 关系对话共用同一组）。字段形状跟 CharacterProfile.chatApi 一致。
+     */
+    chatApi?: {
+        baseUrl: string;
+        apiKey: string;
+        model: string;
+    };
     createdAt: number;
     updatedAt: number;
 }
