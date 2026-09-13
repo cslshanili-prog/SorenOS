@@ -1708,6 +1708,7 @@ ${isInitialGeneration ? `
                            {/* Image Generation Section — 该角色专属生图设定 */}
                            <div>
                                <CharacterImageGenPanel
+                                   charName={formData.name}
                                    value={formData.imageGenCharConfig}
                                    onChange={(v) => handleChange('imageGenCharConfig', v)}
                                />

@@ -3122,6 +3122,17 @@ export interface CharacterProfile {
     characterPrompt?: string;
     /** 参考图（blob-ref token，putImageBlob 存的原图）。 */
     referenceImage?: string;
+    /**
+     * 非自拍照（合照/他拍/风景/物件）不使用参考图，只用文字提示词生成；默认（缺省）为开启。
+     * 判断口径留给调用方（比如根据生成请求里的场景描述），这里只存开关状态。
+     */
+    nonSelfieSkipsReference?: boolean;
+    /** 参考图上锁定的脸部区域（相对参考图宽高的比例），发送参考图时按此裁切，减少服装/背景干扰。 */
+    referenceFaceBox?: {
+      x: number;
+      y: number;
+      size: number;
+    };
   };
 
   // 情绪Buff系统

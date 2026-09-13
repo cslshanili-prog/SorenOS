@@ -3081,9 +3081,9 @@ const Settings: React.FC = () => {
             </div>
         </SettingsSection>
 
-        {/* 生图 API 区域 */}
+        {/* 生圖 API 區域 */}
         <SettingsSection
-            title="生图API"
+            title="生圖API"
             icon={
                 <div className="p-2 bg-pink-100/50 rounded-xl text-pink-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
