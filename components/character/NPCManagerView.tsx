@@ -1,13 +1,17 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { CharacterProfile, NPCProfile, NPCRelationship } from '../../types';
+import { CharacterProfile, NPCProfile, NPCRelationship, Worldbook } from '../../types';
 import TokenImg from '../os/TokenImg';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
+import { toMountedWorldbook } from '../../utils/worldbook';
+import { COMMON_TIMEZONES } from '../../utils/timezone';
+import Modal from '../os/Modal';
 
 interface NPCManagerViewProps {
     npcs: NPCProfile[];
     characters: CharacterProfile[];
+    worldbooks: Worldbook[];
     addNPC: () => Promise<NPCProfile>;
     updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
     deleteNPC: (id: string) => Promise<void>;
@@ -17,7 +21,7 @@ interface NPCManagerViewProps {
 
 const genId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, addNPC, updateNPC, deleteNPC, onSwitchTab, closeApp }) => {
+const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, worldbooks, addNPC, updateNPC, deleteNPC, onSwitchTab, closeApp }) => {
     const [view, setView] = useState<'list' | 'detail'>('list');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -41,6 +45,7 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, addNP
             <NPCDetailView
                 npc={editingNpc}
                 characters={characters}
+                worldbooks={worldbooks}
                 onChange={(updates) => updateNPC(editingNpc.id, updates)}
                 onBack={() => { setView('list'); setEditingId(null); }}
                 onDelete={() => setDeleteConfirmId(editingNpc.id)}
@@ -129,21 +134,37 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, addNP
 interface NPCDetailViewProps {
     npc: NPCProfile;
     characters: CharacterProfile[];
+    worldbooks: Worldbook[];
     onChange: (updates: Partial<NPCProfile>) => void;
     onBack: () => void;
     onDelete: () => void;
 }
 
-const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, onChange, onBack, onDelete }) => {
+const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldbooks, onChange, onBack, onDelete }) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const [name, setName] = useState(npc.name);
     const [description, setDescription] = useState(npc.description);
+    const [worldview, setWorldview] = useState(npc.worldview || '');
+    const [showWorldbookModal, setShowWorldbookModal] = useState(false);
 
     // 切换编辑对象时把本地草稿同步回来，避免残留上一个 NPC 的文字。
     useEffect(() => {
         setName(npc.name);
         setDescription(npc.description);
+        setWorldview(npc.worldview || '');
     }, [npc.id]);
+
+    const mountWorldbook = (bookId: string) => {
+        const book = worldbooks.find(b => b.id === bookId);
+        if (!book) return;
+        const current = npc.mountedWorldbooks || [];
+        if (current.some(b => b.id === bookId)) return;
+        onChange({ mountedWorldbooks: [...current, toMountedWorldbook(book)] });
+    };
+
+    const unmountWorldbook = (bookId: string) => {
+        onChange({ mountedWorldbooks: (npc.mountedWorldbooks || []).filter(b => b.id !== bookId) });
+    };
 
     const handleAvatarUpload = async (file: File) => {
         const blob = await processImageToBlob(file, { skipCompression: true });
@@ -255,7 +276,133 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, onChange
                         </div>
                     )}
                 </div>
+
+                <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">世界观 / 设定补充</label>
+                    <textarea
+                        value={worldview}
+                        onChange={e => setWorldview(e.target.value)}
+                        onBlur={() => onChange({ worldview })}
+                        placeholder="在这个世界里，魔法是存在的..."
+                        rows={3}
+                        className="w-full bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm resize-none focus:bg-white transition-all"
+                    />
+                </div>
+
+                {/* 时间感知 & 时区：字段跟 CharacterProfile 同名，群聊/见面接入 NPC 后可以直接复用同一套时区工具函数 */}
+                <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
+                    <div>
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">时间感知 & 时区</label>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">两个开关相互独立，可任意组合。</p>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-700">时间感知强化</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。出现在群聊/见面里时，会贴近真实时间和作息。</p>
+                            </div>
+                            <button
+                                onClick={() => onChange({ timeAwarenessEnabled: npc.timeAwarenessEnabled === false })}
+                                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${npc.timeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${npc.timeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-700">自定义时区</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关（跟随本机）。适合设定在异国的 NPC。</p>
+                            </div>
+                            <button
+                                onClick={() => onChange({ customTimezoneEnabled: !npc.customTimezoneEnabled })}
+                                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${npc.customTimezoneEnabled ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${npc.customTimezoneEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                        {npc.customTimezoneEnabled && (
+                            <select
+                                value={npc.customTimezone || ''}
+                                onChange={e => onChange({ customTimezone: e.target.value })}
+                                className="mt-3 w-full bg-slate-50 rounded-xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-primary/30"
+                            >
+                                <option value="">请选择 NPC 所在时区…</option>
+                                {COMMON_TIMEZONES.map(tz => (
+                                    <option key={tz.id} value={tz.id}>{tz.label}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-700">线下时间感知（见面）</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。出现在见面剧情里时跟着现实时间走；关掉更适合纯架空。</p>
+                            </div>
+                            <button
+                                onClick={() => onChange({ dateTimeAwarenessEnabled: npc.dateTimeAwarenessEnabled === false ? undefined : false })}
+                                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${npc.dateTimeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${npc.dateTimeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-2 px-1">
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">扩展设定 (Worldbooks)</label>
+                        <button onClick={() => setShowWorldbookModal(true)} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 挂载</button>
+                    </div>
+                    {npc.mountedWorldbooks && npc.mountedWorldbooks.length > 0 ? (
+                        <div className="space-y-2">
+                            {npc.mountedWorldbooks.map(wb => (
+                                <div key={wb.id} className="flex items-center gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2.5">
+                                    <span className="min-w-0 flex-1 text-xs text-slate-600 truncate">{wb.title}</span>
+                                    <button onClick={() => unmountWorldbook(wb.id)} className="shrink-0 px-2 text-slate-400">×</button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                            暂未挂载任何世界书
+                        </div>
+                    )}
+                </div>
             </div>
+
+            <Modal isOpen={showWorldbookModal} title="挂载世界书" onClose={() => setShowWorldbookModal(false)}>
+                <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-2 p-1">
+                    {worldbooks.length === 0 ? (
+                        <div className="text-center text-slate-400 text-xs py-8">
+                            还没有世界书，请去桌面【世界书】App 创建。
+                        </div>
+                    ) : (
+                        worldbooks.map(wb => {
+                            const isMounted = npc.mountedWorldbooks?.some(m => m.id === wb.id);
+                            return (
+                                <button
+                                    key={wb.id}
+                                    onClick={() => !isMounted && mountWorldbook(wb.id)}
+                                    disabled={isMounted}
+                                    className={`w-full p-3 rounded-xl border text-left transition-all ${isMounted ? 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed' : 'bg-white border-indigo-100 hover:border-indigo-300 shadow-sm active:scale-95'}`}
+                                >
+                                    <div className="flex justify-between items-center gap-2">
+                                        <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
+                                        {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分类设定 (General)'}</div>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 };

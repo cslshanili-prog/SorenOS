@@ -1166,6 +1166,7 @@ ${isInitialGeneration ? `
            <NPCManagerView
                npcs={npcs}
                characters={characters}
+               worldbooks={worldbooks}
                addNPC={addNPC}
                updateNPC={updateNPC}
                deleteNPC={deleteNPC}

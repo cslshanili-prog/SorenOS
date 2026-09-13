@@ -3318,6 +3318,17 @@ export interface NPCProfile {
     /** 性格与背景描述，注入进群聊/查手机/见面剧情的人设里。 */
     description: string;
     relationships: NPCRelationship[];
+    /** 世界观 / 设定补充，跟 CharacterProfile.worldview 同一种用法。 */
+    worldview?: string;
+    /** 聊天场景的时间感知强化开关；缺省 = 开（与 CharacterProfile 同款语义，! == false 才算关）。 */
+    timeAwarenessEnabled?: boolean;
+    /** 自定义时区开关 + IANA 时区 id；字段名与 CharacterProfile 一致，可直接喂给 utils/timezone.ts 的 resolveCharTimeZone 等函数。 */
+    customTimezoneEnabled?: boolean;
+    customTimezone?: string;
+    /** 线下（见面剧情）时间感知开关；缺省 = 开。 */
+    dateTimeAwarenessEnabled?: boolean;
+    /** 挂载的世界书（扩展设定），与角色卡同一种 MountedWorldbook 结构。 */
+    mountedWorldbooks?: MountedWorldbook[];
     createdAt: number;
     updatedAt: number;
 }
