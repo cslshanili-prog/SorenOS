@@ -259,11 +259,30 @@ export interface VisionApiConfig {
   model: string;
 }
 
+/** 全局生图 API（系统设置 → 生图API）；OpenAI 兼容的 /images/generations 接口。 */
+export interface ImageGenApiConfig {
+  /** 总开关：允许调用生图 API（角色/用户手动生图都受它管）。 */
+  charImageGenEnabled?: boolean;
+  /** 允许角色在聊天中自主决定发图（预留字段，聊天管线的自动发图接入见后续版本）。 */
+  charImageSendEnabled?: boolean;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  /** 如 '1024x1024'，留空则不传给接口，用引擎默认值。 */
+  size?: string;
+  /** 如 'standard' / 'hd'，随引擎自定义，留空则不传。 */
+  quality?: string;
+  /** 补充提示词，拼在每次生成请求的正文提示词后面。 */
+  extraPrompt?: string;
+}
+
 export interface APIConfig {
   baseUrl: string;
   apiKey: string;
   // 可选识图中转：给不支持 image_url 的主模型补视觉能力。
   visionApi?: VisionApiConfig;
+  // 生图：角色/用户在聊天里生成图片用的独立引擎配置。
+  imageGenConfig?: ImageGenApiConfig;
   minimaxApiKey?: string;
   minimaxGroupId?: string;
   // 'domestic' → https://api.minimaxi.com (国内站)
@@ -3091,6 +3110,18 @@ export interface CharacterProfile {
     baseUrl: string;
     apiKey: string;
     model: string;
+  };
+
+  /**
+   * 该角色专属生图设定，只影响这个角色的生图效果；生图 API 引擎本身用全局 imageGenConfig。
+   */
+  imageGenCharConfig?: {
+    /** 开启后生成时会带上参考图（脸部锁定），具体是否真的传参考图取决于生图引擎是否支持。 */
+    referenceEnabled?: boolean;
+    /** 专属人物特征提示词，生成时拼进正文提示词。 */
+    characterPrompt?: string;
+    /** 参考图（blob-ref token，putImageBlob 存的原图）。 */
+    referenceImage?: string;
   };
 
   // 情绪Buff系统

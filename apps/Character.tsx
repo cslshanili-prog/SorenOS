@@ -11,6 +11,7 @@ import { ContextBuilder } from '../utils/context';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
+import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
@@ -1702,6 +1703,14 @@ ${isInitialGeneration ? `
                                        })}
                                    </div>
                                )}
+                           </div>
+
+                           {/* Image Generation Section — 该角色专属生图设定 */}
+                           <div>
+                               <CharacterImageGenPanel
+                                   value={formData.imageGenCharConfig}
+                                   onChange={(v) => handleChange('imageGenCharConfig', v)}
+                               />
                            </div>
 
                            {/* Worldbook Section */}
