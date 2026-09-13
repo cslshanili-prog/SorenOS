@@ -971,6 +971,8 @@ export interface PhoneContact {
     kind: 'real' | 'npc';
     /** kind==='real' 时绑定的真实角色 id（指向 characters 里的某个角色） */
     linkedCharId?: string;
+    /** kind==='npc' 且绑定了神经链接「NPC」分页里的某个 NPC 时，指向 NPCProfile.id；手动填名字的纯虚构联系人不设。 */
+    linkedNpcId?: string;
     /** 机主对此人的好感度，-100..100（负=厌恶，可触发自动删友；正=亲近） */
     affinity: number;
     /** 关系状态 */

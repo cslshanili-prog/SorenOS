@@ -258,7 +258,7 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, characterGroups } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, characterGroups, npcs } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
@@ -289,7 +289,6 @@ const CheckPhone: React.FC = () => {
     const [noteDraft, setNoteDraft] = useState('');
     const [editingNote, setEditingNote] = useState(false);
     const [showContactModal, setShowContactModal] = useState(false);
-    const [ncName, setNcName] = useState('');
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
     // 改绑定弹窗（把联系人改绑到正确的真实角色 / 转为虚构）
@@ -1650,18 +1649,22 @@ ${olderText}
 
     const handleCreateContact = () => {
         if (!targetChar) return;
-        let name = ncName.trim();
+        let name: string;
         let linkedCharId: string | undefined;
+        let linkedNpcId: string | undefined;
+        let avatar: string | undefined;
         if (ncKind === 'real') {
             const rc = characters.find(c => c.id === ncLinkedId);
             if (!rc) { addToast('请选择要绑定的真实角色', 'error'); return; }
             name = rc.name; linkedCharId = rc.id;
-        } else if (!name) {
-            addToast('请填写联系人名字', 'error'); return;
+        } else {
+            const npc = npcs.find(n => n.id === ncLinkedId);
+            if (!npc) { addToast('请选择一个 NPC', 'error'); return; }
+            name = npc.name; linkedNpcId = npc.id; avatar = npc.avatar;
         }
-        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, affinity: 0, status: 'friend' }));
+        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, linkedNpcId, avatar, affinity: 0, status: 'friend' }));
         setShowContactModal(false);
-        setNcName(''); setNcKind('npc'); setNcLinkedId('');
+        setNcKind('npc'); setNcLinkedId('');
         addToast('已添加联系人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
     };
@@ -1791,9 +1794,19 @@ ${olderText}
         trackEvent('生成一段与联系人的对话', { contactKind: 'npc' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
+            // 绑定了「神经链接 → NPC」分页里某个 NPC 的联系人：把 ta 的人设描述和跟这个角色/用户的
+            // 关系折进 note 一起喂给引擎，让脑补出来的对话有据可依，不再是纯凭一个名字瞎编。
+            // 不改 contact.note 本身——那是用户自己写的备注，落库前保持原样。
+            const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
+            const npcRelationshipNote = linkedNpc?.relationships
+                .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
+                .map(r => r.targetId === targetChar.id ? `对「${targetChar.name}」：${r.description}` : `对用户：${r.description}`)
+                .join('\n');
+            const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
+            const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
                 host: targetChar, user: userProfile, api: effectiveApiConfig as any,
-                npcName: contact.name, identity: contact.identity, note: contact.note,
+                npcName: contact.name, identity: contact.identity, note: effectiveNote,
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });
             if (!detail.trim()) { addToast('对方没有回应', 'error'); return; }
@@ -4029,8 +4042,19 @@ ${olderText}
                             </select>
                             <p className="text-[9px] text-slate-400 mt-1">真人之间可发起双向对话，对话会同步进对方的手机。</p>
                         </div>
+                    ) : npcs.length > 0 ? (
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定 NPC</label>
+                            <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                <option value="">— 选择一个 NPC —</option>
+                                {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                            </select>
+                            <p className="text-[9px] text-slate-400 mt-1">对话仍是机主单方面脑补，但会参考这个 NPC 在「神经链接」里设定的人设和关系。</p>
+                        </div>
                     ) : (
-                        <input value={ncName} onChange={e => setNcName(e.target.value)} placeholder="联系人名字（虚构）" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来绑定。
+                        </p>
                     )}
                 </div>
             </Modal>
