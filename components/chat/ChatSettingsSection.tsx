@@ -1,13 +1,14 @@
 import React, { useId, useState } from 'react';
 import { CaretDown } from '@phosphor-icons/react';
 
-/** Compact counterpart of the Settings app's sections; each group starts collapsed. */
-export default function ChatSettingsSection({ title, summary, children }: {
+/** Compact counterpart of the Settings app's sections; each group starts collapsed unless defaultOpen is set. */
+export default function ChatSettingsSection({ title, summary, children, defaultOpen }: {
     title: string;
     summary: string;
     children: React.ReactNode;
+    defaultOpen?: boolean;
 }) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(!!defaultOpen);
     const contentId = useId();
     return (
         <section className="rounded-2xl border border-slate-200/80 bg-white" data-chat-settings-section={title}>

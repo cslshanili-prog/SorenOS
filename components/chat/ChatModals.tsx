@@ -401,7 +401,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
             >
                 <div className="space-y-3">
                     {onSaveChatApi && (
-                        <ChatSettingsSection title="AI 模型" summary="这个角色用全局API还是单独配一个">
+                        <ChatSettingsSection title="🧠 AI 模型（可单独为这个角色配置）" summary="默认用全局API，也可以单独换一个模型" defaultOpen>
                             <ChatApiSettingsPanel
                                 char={activeCharacter}
                                 apiPresets={apiPresets || []}
