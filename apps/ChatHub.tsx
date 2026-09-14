@@ -6,6 +6,7 @@ import TokenImg from '../components/os/TokenImg';
 import { messageLogText } from '../utils/groupChat/format';
 import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
 import { ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass } from '@phosphor-icons/react';
 
@@ -101,6 +102,7 @@ const ChatHub: React.FC = () => {
     const openRow = (row: ChatRow) => {
         if (row.kind === 'private') {
             setActiveCharacterId(row.id);
+            chatReturnTarget.set(AppID.ChatHub);
             openApp(AppID.Chat);
         } else {
             openGroupChat(row.id);
@@ -134,6 +136,7 @@ const ChatHub: React.FC = () => {
     const openContact = (item: ContactRow) => {
         if (item.kind === 'character') {
             setActiveCharacterId(item.id);
+            chatReturnTarget.set(AppID.ChatHub);
             openApp(AppID.Chat);
         } else {
             // NPC 目前没有独立的一对一聊天入口（见 docs/relationship-system.md 的设计约束），
