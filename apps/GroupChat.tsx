@@ -5,8 +5,9 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { Message, GroupProfile, CharacterProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
+import { Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
+import { generateNpcGroupGuestLine } from '../utils/npcGroupGuestLine';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -29,7 +30,7 @@ import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 // 群聊输入区/表情面板已改用共享 ChatInputArea（其表情网格自带 useIncrementalReveal 增量渲染），
 // master 上给旧内联表情抽屉加的增量渲染随旧抽屉一并退役。
-import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question } from '@phosphor-icons/react';
+import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question, MaskHappy } from '@phosphor-icons/react';
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
@@ -145,7 +146,7 @@ const GroupMessageItem = React.memo(({
 }: {
     msg: Message,
     isUser: boolean,
-    char?: CharacterProfile,
+    char?: CharacterProfile | NPCProfile,
     userAvatar: string,
     onImageClick: (url: string) => void,
     selectionMode: boolean,
@@ -480,7 +481,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
+    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -573,7 +574,12 @@ const GroupChat: React.FC = () => {
     const [packetTargetId, setPacketTargetId] = useState<string>('');
     const [packetNote, setPacketNote] = useState('');
     const [selectedPacketId, setSelectedPacketId] = useState<number | null>(null);
-    
+    // NPC 客串：不是正式群成员，手动触发插一句话（不进轮询/记忆宫殿）
+    const [showNpcGuestModal, setShowNpcGuestModal] = useState(false);
+    const [npcGuestId, setNpcGuestId] = useState('');
+    const [npcGuestHint, setNpcGuestHint] = useState('');
+    const [npcGuestGenerating, setNpcGuestGenerating] = useState(false);
+
     // Refs
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -975,9 +981,40 @@ const GroupChat: React.FC = () => {
     // --- Logic: 红包 2.0 ---
 
     const nameOf = useCallback(
-        (id: string) => (id === 'user' ? userProfile.name : (characters.find(c => c.id === id)?.name || '成员')),
-        [characters, userProfile.name],
+        (id: string) => (id === 'user' ? userProfile.name : (characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '成员')),
+        [characters, npcs, userProfile.name],
     );
+
+    // NPC 客串：不是正式群成员，手动触发才插一句话，不进轮询/记忆宫殿/成员时间线。
+    const handleNpcGuestLine = async () => {
+        if (!activeGroup) return;
+        const npc = npcs.find(n => n.id === npcGuestId);
+        if (!npc) { addToast('请选择一个 NPC', 'error'); return; }
+        const guestApi = npc.chatApi?.baseUrl ? npc.chatApi : apiConfig;
+        if (!guestApi.apiKey) { addToast('请先配置 API', 'error'); return; }
+        setNpcGuestGenerating(true);
+        try {
+            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
+            const recentTranscript = messages.slice(-12)
+                .map(m => `${nameOf(m.charId)}: ${messageLogText(m, url => stickerNameFromUrl(emojis, url))}`)
+                .join('\n');
+            const line = await generateNpcGroupGuestLine({
+                npc, groupName: activeGroup.name, members: groupMembers, userName: userProfile.name,
+                recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
+            });
+            if (!line.trim()) { addToast('NPC 没接上话', 'error'); return; }
+            await DB.saveMessage({ charId: npc.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
+            await refreshMessages(activeGroup.id);
+            setShowNpcGuestModal(false);
+            setNpcGuestId(''); setNpcGuestHint('');
+            trackEvent('群聊 NPC 客串一句');
+        } catch (e) {
+            console.error(e);
+            addToast('生成失败，请重试', 'error');
+        } finally {
+            setNpcGuestGenerating(false);
+        }
+    };
 
     const handleSendPacket = () => {
         if (!activeGroup) return;
@@ -1859,7 +1896,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 )}
                 {displayMessages.map((m, i) => {
                     const isUser = m.role === 'user';
-                    const char = characters.find(c => c.id === m.charId);
+                    const char = characters.find(c => c.id === m.charId) || npcs.find(n => n.id === m.charId);
                     const prevMessage = i > 0 ? displayMessages[i - 1] : null;
                     const nextMessage = i < displayMessages.length - 1 ? displayMessages[i + 1] : null;
                     const messageGroupGapMs = 30 * 60 * 1000;
@@ -1977,6 +2014,13 @@ ${memberTimeline || '(暂无互动记录)'}
                                 <GearSix className="w-6 h-6" weight="bold" />
                             </div>
                             <span className="text-xs font-bold">群设置</span>
+                        </button>
+
+                        <button onClick={() => { setShowNpcGuestModal(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
+                                <MaskHappy className="w-6 h-6" weight="bold" />
+                            </div>
+                            <span className="text-xs font-bold">NPC 客串</span>
                         </button>
 
                         <button
@@ -2283,6 +2327,34 @@ ${memberTimeline || '(暂无互动记录)'}
             </Modal>
 
             {/* Transfer Modal — 红包 2.0：拼手气 / 专属 */}
+            {/* NPC 客串：不是正式群成员，手动触发插一句话 */}
+            <Modal isOpen={showNpcGuestModal} title="NPC 客串" onClose={() => setShowNpcGuestModal(false)}
+                footer={<button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句话'}</button>}>
+                <div className="space-y-4">
+                    {npcs.length > 0 ? (
+                        <>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">选一个 NPC</label>
+                                <select value={npcGuestId} onChange={e => setNpcGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                    <option value="">— 选择一个 NPC —</option>
+                                    {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                </select>
+                                <p className="text-[9px] text-slate-400 mt-1">TA 不是这个群的正式成员，只插这一句话，不会被拉进后续轮询。</p>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">这次客串的方向提示（可选）</label>
+                                <input value={npcGuestHint} onChange={e => setNpcGuestHint(e.target.value)} placeholder="不填就让 TA 自己接话"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                            </div>
+                        </>
+                    ) : (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来客串。
+                        </p>
+                    )}
+                </div>
+            </Modal>
+
             <Modal isOpen={modalType === 'transfer'} title="发送红包" onClose={() => setModalType('none')} footer={<button onClick={handleSendPacket} className="w-full py-3 bg-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200">塞进红包</button>}>
                 <div className="space-y-4">
                     {/* Tab 切换 */}
