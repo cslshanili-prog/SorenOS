@@ -81,7 +81,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
 export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Character, name: '神经链接', icon: 'Character', color: 'indigo' },
   { id: AppID.MemoryPalace, name: '记忆宫殿', icon: 'MemoryPalace', color: 'violet' },
-  { id: AppID.Chat, name: 'Message', icon: 'Chat', color: 'green' },
+  { id: AppID.ChatHub, name: 'Message', icon: 'Chat', color: 'green' },
   { id: AppID.Call, name: '电话', icon: 'Call', color: 'emerald' },
   { id: AppID.GroupChat, name: '群聊', icon: 'GroupChat', color: 'violet' },
   { id: AppID.Room, name: '小小窝', icon: 'Room', color: 'rose' },
@@ -124,4 +124,4 @@ export const HIDDEN_APP_NAMES: Partial<Record<AppID, string>> = {
   [AppID.WorldHome]: '家园',
 };
 
-export const DOCK_APPS = [AppID.Chat, AppID.GroupChat, AppID.Social, AppID.Settings];
+export const DOCK_APPS = [AppID.ChatHub, AppID.GroupChat, AppID.Social, AppID.Settings];

@@ -458,6 +458,11 @@ interface OSContextType {
   dateAutoStartCharId: string | null;
   openDateWithChar: (charId: string) => void;
   consumeDateAutoStart: () => void;
+  /** Chat 主页「消息」tab 点群聊行时用：GroupChat 自己的列表/详情态是内部 state，没有外部深链机制，
+   *  借这个字段告诉它"打开就直接进这个群"，消费掉即清空，不影响群内后续手动切换。 */
+  pendingGroupChatId: string | null;
+  openGroupChat: (groupId: string) => void;
+  consumePendingGroupChat: () => void;
 }
 
 const PREVIOUS_DEFAULT_WALLPAPER = [
@@ -988,6 +993,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [suspendedCall, setSuspendedCall] = useState<{ charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] } | null>(null);
   // 聊天「见面」按钮 → 见面：记录目标角色，DateApp 挂载后消费一次并自动进入见面
   const [dateAutoStartCharId, setDateAutoStartCharId] = useState<string | null>(null);
+  const [pendingGroupChatId, setPendingGroupChatId] = useState<string | null>(null);
 
   const sendProactiveNativeNotification = useCallback(async (charId: string, charName: string, body: string) => {
       if (!Capacitor.isNativePlatform()) return;
@@ -5286,6 +5292,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setActiveApp(AppID.Date);
   };
   const consumeDateAutoStart = () => setDateAutoStartCharId(null);
+  const openGroupChat = (groupId: string) => {
+    setPendingGroupChatId(groupId);
+    setActiveApp(AppID.GroupChat);
+  };
+  const consumePendingGroupChat = () => setPendingGroupChatId(null);
   const unlock = () => setIsLocked(false);
 
   const suspendCall = (info: { charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] }) => {
@@ -5425,7 +5436,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     clearSuspendedCall,
     dateAutoStartCharId,
     openDateWithChar,
-    consumeDateAutoStart
+    consumeDateAutoStart,
+    pendingGroupChatId,
+    openGroupChat,
+    consumePendingGroupChat
   };
 
   return (

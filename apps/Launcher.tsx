@@ -1034,7 +1034,7 @@ const Launcher: React.FC = () => {
                             char={widgetChar}
                             unreadCount={widgetUnread}
                             lastMessage={lastMessage}
-                            onClick={() => openApp(AppID.Chat)}
+                            onClick={() => openApp(AppID.ChatHub)}
                             contentColor={contentColor}
                             paper={paper}
                         />

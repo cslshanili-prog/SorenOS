@@ -98,8 +98,8 @@ const Character: React.FC = () => {
   const launchIntent = characterLaunch.peek();
   // 神经链接顶部「主角 / NPC」分页；NPC 那边是完全独立的列表+编辑流程（见 NPCManagerView），
   // 不共用下面这套角色专用的 view/formData 状态机。
-  const [topTab, setTopTab] = useState<'characters' | 'npcs'>('characters');
-  const [view, setView] = useState<'list' | 'detail'>(() => launchIntent ? 'detail' : 'list');
+  const [topTab, setTopTab] = useState<'characters' | 'npcs'>(() => launchIntent?.tab || 'characters');
+  const [view, setView] = useState<'list' | 'detail'>(() => launchIntent?.charId ? 'detail' : 'list');
   const [charPage, setCharPage] = useState(0); // 角色列表分页（每页 6 个，仅未建分组时）
   // 分组展开状态：存"已展开"的分组 id（未记录 = 收起）。跨会话记住，key 见下
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {

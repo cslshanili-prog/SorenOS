@@ -481,7 +481,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
+    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -693,6 +693,20 @@ const GroupChat: React.FC = () => {
         setTotalMsgCount(totalCount);
         return msgs;
     };
+
+    // Chat 主页「消息」tab 点某个群聊行时的深链：外部没法直接驱动这里的 view/activeGroup（都是本组件
+    // 内部 state），靠 context 那个一次性字段告诉这里"打开就直接进这个群"，消费掉即清空。
+    useEffect(() => {
+        if (!pendingGroupChatId) return;
+        const target = groups.find(g => g.id === pendingGroupChatId);
+        if (target) {
+            setActiveGroup(target);
+            setView('chat');
+            void refreshMessages(target.id);
+        }
+        consumePendingGroupChat();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingGroupChatId, groups]);
 
     // --- Logic: Selection & Deletion ---
 
