@@ -5,11 +5,14 @@ import { processImage } from '../utils/file';
 import { migrateDataUrlToRef } from '../utils/blobRef';
 import LifeRecordPanel from '../components/lifeRecord/LifeRecordPanel';
 import PerCharAvatarPicker from '../components/user/PerCharAvatarPicker';
+import UserPersonaPanel from '../components/user/UserPersonaPanel';
 import TokenImg from '../components/os/TokenImg';
 import { trackEvent } from '../utils/analytics';
 
 const UserApp: React.FC = () => {
-    const { closeApp, userProfile, updateUserProfile, addToast } = useOS();
+    // 这张卡片编辑的是「真实身份」，所以绑 userProfileBase（未套用身份卡的那份）——
+    // 不然身份卡生效时，这里会显示身份卡的名字，改了却是在悄悄覆盖真实身份，会搞混。
+    const { closeApp, userProfileBase: userProfile, updateUserProfile, addToast } = useOS();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
 
@@ -104,6 +107,9 @@ const UserApp: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* 身份卡：多套角色扮演身份，全局切换「目前身份」 */}
+                <UserPersonaPanel />
 
                 {/* 分角色聊天头像：上面的整体头像是宏观默认，这里可给每个角色的私聊单独换「你」的头像 */}
                 <PerCharAvatarPicker />

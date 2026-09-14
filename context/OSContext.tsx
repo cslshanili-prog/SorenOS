@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { applyActivePersona } from '../utils/userPersona';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -353,8 +354,15 @@ interface OSContextType {
   deleteGroup: (id: string) => void;
 
   // User Profile
+  /** 套用了"目前身份卡"之后的用户档案——全站聊天/提示词都读这份。 */
   userProfile: UserProfile;
+  /** 持久化的真实身份（未套用身份卡），只用于"我的档案"里编辑真实姓名/头像/简介，别处不要读这个。 */
+  userProfileBase: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => void;
+  addUserPersona: (name: string, avatar: string, bio: string) => Promise<UserPersona>;
+  updateUserPersona: (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteUserPersona: (id: string) => Promise<void>;
+  setActivePersonaId: (id: string | undefined) => Promise<void>;
 
   availableModels: string[];
   setAvailableModels: (models: string[]) => void;
@@ -924,8 +932,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [novels, setNovels] = useState<NovelBook[]>([]); // New
   const [songs, setSongs] = useState<SongSheet[]>([]);
 
-  const [userProfile, setUserProfile] = useState<UserProfile>(defaultUserProfile);
-  
+  // userProfileBase 是持久化的真实身份；userProfile（下面 useMemo）是套用了"目前身份卡"之后
+  // 全站实际读到的那份——两者只在 name/avatar/bio 上可能不同，其余字段永远一致。
+  const [userProfileBase, setUserProfileBase] = useState<UserProfile>(defaultUserProfile);
+  const userProfile = useMemo(() => applyActivePersona(userProfileBase), [userProfileBase]);
+
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [apiPresets, setApiPresets] = useState<ApiPreset[]>([]);
@@ -1712,7 +1723,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setNovels(dbNovels);
         setSongs(dbSongs);
         setCustomThemes(dbThemes);
-        if (dbUser) setUserProfile(dbUser);
+        if (dbUser) setUserProfileBase(dbUser);
 
         // amsg2 脏标记兜底补传：上次会话打了脏、但请求还没落地（在飞或躺在退避重排里）
         // 就被杀进程的角色，按 localStorage 底账用刚从 DB 读回的数据重建快照传一次。
@@ -1722,7 +1733,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const savedApiRaw = localStorage.getItem('os_api_config');
           resumePendingAmsgStateSync({
             characters: finalChars,
-            userProfile: dbUser ?? defaultUserProfile,
+            userProfile: applyActivePersona(dbUser ?? defaultUserProfile),
             groups: dbGroups,
             realtimeConfig: savedRealtime
               ? { ...defaultRealtimeConfig, ...JSON.parse(savedRealtime) }
@@ -3465,16 +3476,42 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => {
-       setUserProfile(prev => {
+       setUserProfileBase(prev => {
            const patch = typeof updates === 'function' ? updates(prev) : updates;
            const next = { ...prev, ...patch };
           // 用户资料是所有角色共享的素材（名字、人设直接烤进 fire_pack 模板），改完不打脏的话
           // 角色到点还按旧名字叫你。仿表情库：逐个打脏，没开 2.0 的角色被 markDirty 的门筛掉。
+          // 打脏用套用了"目前身份卡"之后的那份——云端主动消息也该看到你现在这张身份卡的名字。
           DB.saveUserProfile(next).then(() => {
-              markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
+              markAmsgStateDirtyForAll({ characters, userProfile: applyActivePersona(next), groups, realtimeConfig });
           });
           return next;
       });
+  };
+
+  const addUserPersona = async (name: string, avatar: string, bio: string): Promise<UserPersona> => {
+      const now = Date.now();
+      const persona: UserPersona = { id: `persona-${now}-${Math.random().toString(36).slice(2, 7)}`, name, avatar, bio, createdAt: now, updatedAt: now };
+      await updateUserProfile(prev => ({ personas: [...(prev.personas || []), persona] }));
+      return persona;
+  };
+
+  const updateUserPersona = async (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => {
+      await updateUserProfile(prev => ({
+          personas: (prev.personas || []).map(p => p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p),
+      }));
+  };
+
+  const deleteUserPersona = async (id: string) => {
+      await updateUserProfile(prev => ({
+          personas: (prev.personas || []).filter(p => p.id !== id),
+          // 删掉的正好是目前生效的身份卡时，回落到真实身份，别让 activePersonaId 悬空指向不存在的卡。
+          activePersonaId: prev.activePersonaId === id ? undefined : prev.activePersonaId,
+      }));
+  };
+
+  const setActivePersonaId = async (id: string | undefined) => {
+      await updateUserProfile({ activePersonaId: id });
   };
   const addCustomTheme = async (theme: ChatTheme) => { setCustomThemes(prev => { const exists = prev.find(t => t.id === theme.id); if (exists) return prev.map(t => t.id === theme.id ? theme : t); return [...prev, theme]; }); await DB.saveTheme(theme); };
   const removeCustomTheme = async (id: string) => { setCustomThemes(prev => prev.filter(t => t.id !== id)); await DB.deleteTheme(id); };
@@ -5183,7 +5220,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           if (groupsList.length > 0) setGroups(groupsList);
           if (themes.length > 0) setCustomThemes(themes);
-          if (user) setUserProfile(user);
+          if (user) setUserProfileBase(user);
           if (books.length > 0) setWorldbooks(books);
           if (novelList.length > 0) setNovels(novelList);
           if (songList.length > 0) setSongs(songList);
@@ -5210,7 +5247,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 有 AI 任务的角色才会真的上传（门在 markAmsgStateDirty 里）。
                   syncAmsgToolConfigAndPrompts(
                       data.realtimeConfig || realtimeConfig,
-                      { characters: importedChars, userProfile: user || userProfile, groups: groupsList },
+                      { characters: importedChars, userProfile: applyActivePersona(user || userProfile), groups: groupsList },
                   );
               }
           } catch (e) {
@@ -5328,7 +5365,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateGroup,
     deleteGroup,
     userProfile,
+    userProfileBase,
     updateUserProfile,
+    addUserPersona,
+    updateUserPersona,
+    deleteUserPersona,
+    setActivePersonaId,
     availableModels,
     setAvailableModels,
     apiPresets,

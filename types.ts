@@ -3430,6 +3430,22 @@ export interface UserProfile {
      * enabled=false（登出）时，聊天里给角色的"用户在彼方"提示词随之消失。
      */
     vrState?: UserVRState;
+    /** 身份卡：同一个人维护的多套角色扮演身份（名字/头像/简介）。 */
+    personas?: UserPersona[];
+    /**
+     * 当前生效的身份卡 id；undefined/找不到 = 用上面这份「真实身份」。
+     * 只是外显装扮——好感度/记忆/关系不跟着身份卡分开算，角色始终认得是同一个人。
+     */
+    activePersonaId?: string;
+}
+
+export interface UserPersona {
+    id: string;
+    name: string;
+    avatar: string;
+    bio: string;
+    createdAt: number;
+    updatedAt: number;
 }
 
 export interface UserVRState {
