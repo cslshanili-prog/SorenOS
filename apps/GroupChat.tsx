@@ -579,6 +579,8 @@ const GroupChat: React.FC = () => {
     const [npcGuestId, setNpcGuestId] = useState('');
     const [npcGuestHint, setNpcGuestHint] = useState('');
     const [npcGuestGenerating, setNpcGuestGenerating] = useState(false);
+    // 群设置里的成员管理：展开/收起"添加成员"候选列表
+    const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
 
     // Refs
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -823,6 +825,25 @@ const GroupChat: React.FC = () => {
         setActiveGroup({ ...activeGroup, ...updates });
         setModalType('none');
         addToast('群信息已更新', 'success');
+    };
+
+    // 成员管理：加人/移除即时生效（不走"保存修改"），跟下面话题盒整理方式的即时保存一致。
+    // 历史消息不删——移除只影响之后的生成范围，不影响 ta 说过的话。
+    const handleAddGroupMember = async (charId: string) => {
+        if (!activeGroup || activeGroup.members.includes(charId)) return;
+        const nextMembers = [...activeGroup.members, charId];
+        await updateGroup(activeGroup.id, { members: nextMembers });
+        setActiveGroup({ ...activeGroup, members: nextMembers });
+        trackEvent('群聊添加成员');
+    };
+
+    const handleRemoveGroupMember = async (charId: string) => {
+        if (!activeGroup) return;
+        if (activeGroup.members.length <= 2) { addToast('群里至少要留 2 位成员', 'error'); return; }
+        const nextMembers = activeGroup.members.filter(id => id !== charId);
+        await updateGroup(activeGroup.id, { members: nextMembers });
+        setActiveGroup({ ...activeGroup, members: nextMembers });
+        trackEvent('群聊移除成员');
     };
 
     const handleGroupAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1160,6 +1181,7 @@ const GroupChat: React.FC = () => {
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
         setTempUserBubbleThemeId(activeGroup?.userBubbleThemeId ?? '');
+        setShowAddMemberPicker(false);
         if (activeGroup) void loadTopicBoxStats(activeGroup);
         setModalType('settings');
         setShowPanel('none');
@@ -2088,6 +2110,52 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
                         <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                    </div>
+
+                    {/* 成员管理：新增/移除即时生效，历史消息不受影响 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">群成员 ({activeGroup?.members.length || 0})</label>
+                            <button onClick={() => setShowAddMemberPicker(v => !v)} className="text-[10px] text-violet-500 font-bold">
+                                {showAddMemberPicker ? '收起' : '+ 添加成员'}
+                            </button>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                            {(activeGroup?.members || []).map(memberId => {
+                                const c = characters.find(ch => ch.id === memberId);
+                                if (!c) return null;
+                                const canRemove = (activeGroup?.members.length || 0) > 2;
+                                return (
+                                    <div key={memberId} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                                        <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}</span>
+                                        <button
+                                            onClick={() => handleRemoveGroupMember(memberId)}
+                                            disabled={!canRemove}
+                                            title={canRemove ? '移出本群' : '群里至少要留 2 位成员'}
+                                            className="text-[10px] font-bold text-rose-500 disabled:text-slate-300 disabled:cursor-not-allowed"
+                                        >
+                                            移除
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {showAddMemberPicker && (
+                            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto no-scrollbar border-t border-slate-100 pt-2">
+                                {characters.filter(c => !(activeGroup?.members || []).includes(c.id)).length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">神经链接里没有其它角色可加了。</p>
+                                ) : characters.filter(c => !(activeGroup?.members || []).includes(c.id)).map(c => (
+                                    <button key={c.id} onClick={() => handleAddGroupMember(c.id)}
+                                        className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-left active:scale-[0.99] transition-all">
+                                        <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}</span>
+                                        <span className="text-[10px] font-bold text-violet-500">+ 加入</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即时生效；移除不会删掉 ta 说过的历史消息，只是之后不再参与生成。</p>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100">
