@@ -1431,7 +1431,13 @@ ${memberTimeline || '(暂无互动记录)'}
         addToast('话题盒和成员私聊卡片已删除', 'success');
     };
 
-    const triggerDirector = async (currentMsgs: Message[]) => {
+    // 隐身围观模式：把用户消息从喂给 AI 的历史里整个拿掉，让角色以为群里只有彼此——
+    // 不是"提示模型别理用户"（模型未必听话），是让用户的话在这份历史里根本不存在。
+    // 用户自己屏幕上的消息记录、以及 DB 里的原始存档完全不受影响，只影响这里取出来喂给 prompt 的这一份。
+    const filterLurkMsgs = (msgs: Message[]): Message[] =>
+        activeGroup?.userLurkMode ? msgs.filter(m => m.role !== 'user') : msgs;
+
+    const triggerDirector = async (rawMsgs: Message[]) => {
         if (!activeGroup) return;
         if (!apiConfig.apiKey) {
             addToast('请先在设置里填好 API', 'error');
@@ -1442,6 +1448,7 @@ ${memberTimeline || '(暂无互动记录)'}
         abortRef.current = abort;
 
         try {
+            const currentMsgs = filterLurkMsgs(rawMsgs);
             // 1. Prepare Group Context
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
             const { header, sharedScene } = buildGroupSystemHeader(currentMsgs, groupMembers);
@@ -1471,7 +1478,7 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr)}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode })}${htmlPromptExt}\n`;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1495,7 +1502,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     prompt: data.usage.prompt_tokens || 0,
                     completion: data.usage.completion_tokens || 0,
                     total: data.usage.total_tokens,
-                    msgCount: currentMsgs.length,
+                    msgCount: rawMsgs.length,
                     pass: 'director',
                 });
             }
@@ -1565,10 +1572,13 @@ ${memberTimeline || '(暂无互动记录)'}
             for (const member of groupMembers) {
                 if (abort.signal.aborted) break;
                 try {
-                    // 每位成员基于"此刻"的群历史构建上下文——包含本轮先发言成员的新消息
-                    const { header, sharedScene } = buildGroupSystemHeader(roundMsgs, groupMembers);
-                    const memberBlock = await buildMemberBlock(member, roundMsgs, sharedScene);
-                    const liveRoundMsgs = roundMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
+                    // 每位成员基于"此刻"的群历史构建上下文——包含本轮先发言成员的新消息。
+                    // 隐身围观模式只过滤喂给 prompt 的这份视图，不动 roundMsgs 本身
+                    // （后面的 vision 描述回写、DB 刷新都要基于完整消息列表）。
+                    const promptMsgs = filterLurkMsgs(roundMsgs);
+                    const { header, sharedScene } = buildGroupSystemHeader(promptMsgs, groupMembers);
+                    const memberBlock = await buildMemberBlock(member, promptMsgs, sharedScene);
+                    const liveRoundMsgs = promptMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
                     const historyWindow = liveRoundMsgs.slice(-contextLimit);
                     const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
                     const preparedById = new Map(preparedHistory.map(message => [message.id, message]));
@@ -1586,7 +1596,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr)}${htmlPromptExt}\n`;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode })}${htmlPromptExt}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -2156,6 +2166,28 @@ ${memberTimeline || '(暂无互动记录)'}
                             </div>
                         )}
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即时生效；移除不会删掉 ta 说过的历史消息，只是之后不再参与生成。</p>
+                    </div>
+
+                    {/* 隐身围观模式：用户消息不进 AI 的群历史，角色以为群里只有彼此 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">隐身围观模式</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">开启后角色们不知道用户在场：能聊平时不会让用户知道的事，不会主动搭理、回应或私聊用户，除非话题本来就自然提到这个人。用户自己发的消息仍会显示在自己屏幕上，但 AI 永远看不到、也不会回应。</p>
+                            </div>
+                            <div
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const next = !activeGroup.userLurkMode;
+                                    await updateGroup(activeGroup.id, { userLurkMode: next });
+                                    setActiveGroup({ ...activeGroup, userLurkMode: next });
+                                    trackEvent('切换群聊隐身围观模式', { enabled: next });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${activeGroup?.userLurkMode ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${activeGroup?.userLurkMode ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100">

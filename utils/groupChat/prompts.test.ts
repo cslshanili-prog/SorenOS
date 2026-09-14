@@ -92,3 +92,27 @@ describe('群聊中的 U 与关系连续性', () => {
         expect(prompt).toContain('按你自己和 U 的关系反应');
     });
 });
+
+describe('隐身围观模式：userLurking 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传 userLurking 时不注入围观说明（默认行为不变）', () => {
+        expect(buildDirectorInstruction(history, '无')).not.toContain('隐身围观模式');
+        expect(buildRoundRobinInstruction('小夏', history, '无')).not.toContain('隐身围观模式');
+    });
+
+    it('userLurking: true 时导演/轮询模式都注入"用户不在场"说明，且禁用 PRIVATE', () => {
+        const directorPrompt = buildDirectorInstruction(history, '无', { userLurking: true });
+        expect(directorPrompt).toContain('隐身围观模式');
+        expect(directorPrompt).toContain('用户没有出现在上面的聊天记录里');
+        expect(directorPrompt).toContain('本轮禁止使用 PRIVATE 私聊语法');
+
+        const roundRobinPrompt = buildRoundRobinInstruction('小夏', history, '无', { userLurking: true });
+        expect(roundRobinPrompt).toContain('隐身围观模式');
+        expect(roundRobinPrompt).toContain('本轮禁止使用 PRIVATE 私聊语法');
+    });
+
+    it('userLurking: false 等价于不传', () => {
+        expect(buildDirectorInstruction(history, '无', { userLurking: false })).not.toContain('隐身围观模式');
+    });
+});

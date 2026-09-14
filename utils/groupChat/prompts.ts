@@ -175,9 +175,22 @@ export function buildGroupHistoryBlock(
 /**
  * 导演模式任务指令（接在角色档案块之后）。模板原文照搬自 GroupChat.tsx，一字未改。
  */
+/** 隐身围观模式的框定说明：用户消息已经被从 history 里整个拿掉了（不是靠这段文字让模型"别理用户"），
+ *  这里只是防止模型凭 U还是U 等其它规则的惯性，主动呼唤/汇报/私聊一个理论上不在场的人。
+ *  director/roundRobin 共用同一段文案，只是缩进上下文不同。 */
+const buildLurkModeNote = (): string => `### 【隐身围观模式：这一刻用户不在场】
+- 用户没有出现在上面的聊天记录里，也听不到你们说话——把这当成角色们私下的场合，不用顾忌"会不会被用户看到"，不用维持平时那种随时可能被听到的分寸。
+- 不要主动提起、汇报、等待或呼唤用户；可以聊平时不会让用户知道的事、对用户的真实评价、瞒着用户的计划。
+- 只有某个话题本来就会自然带到这个人时，才像提起"不在场的第三者"一样简单带一句，不要表现出"知道 ta 在偷听"，也不要专门讲给 ta 听。
+- **本轮禁止使用 PRIVATE 私聊语法**——用户不在场，没有"私下悄悄说给 ta 听"这回事。
+- 关系记忆依然成立——你还是记得和这个人之间的一切，只是这一刻没把 ta 算进这场对话。
+
+`;
+
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
+    options?: { userLurking?: boolean },
 ): string {
     return `### 【AI 导演任务指令 (Director Mode)】
 当前场景：大家正在群里聊天。
@@ -185,7 +198,7 @@ export function buildDirectorInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-### 任务：生成一段精彩的群聊互动 (Conversation Flow)
+${options?.userLurking ? buildLurkModeNote() : ''}### 任务：生成一段精彩的群聊互动 (Conversation Flow)
 请作为导演，接管所有角色，让群聊**自然地流动起来**。
 
 ### 核心规则 (Strict Rules)
@@ -269,6 +282,7 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
+    options?: { userLurking?: boolean },
 ): string {
     return `### 【本轮任务：以「${memberName}」的身份在群里发言】
 当前场景：大家正在群里聊天。
@@ -276,7 +290,7 @@ export function buildRoundRobinInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-现在轮到你了。规则：
+${options?.userLurking ? buildLurkModeNote() : ''}现在轮到你了。规则：
 
 1. 你只是群里的一位普通成员，不是导演。只输出**你自己**要发的消息内容——不要替任何人说话，不要在开头加自己的名字或冒号前缀，不要解释、不要输出 JSON。如果此刻没有自然的话可说，只输出 \`[[SKIP]]\` 保持沉默；不要为了轮到自己就硬凑一句。
 2. 一行 = 一个气泡。短句多发几条 > 长句一坨；"嗯""哈哈哈"和单独一个表情包都是合法回复。

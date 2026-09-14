@@ -3388,6 +3388,12 @@ export interface GroupProfile {
     htmlModeEnabled?: boolean;
     /** HTML 模式自定义提示词（追加在内置提示词之后） */
     htmlModeCustomPrompt?: string;
+    /**
+     * 隐身围观模式：开启后用户消息不会进入喂给 AI 的群聊历史——角色们以为群里只有彼此，
+     * 可以聊平时不会让用户知道的事，也不会主动搭理/回应/私聊用户，除非话题本来就会自然提到这个人。
+     * 用户自己发的消息仍会存档、显示在自己屏幕上，只是 AI 端看不到、也永远不会回应。
+     */
+    userLurkMode?: boolean;
 }
 
 export interface GroupTopicBox {
