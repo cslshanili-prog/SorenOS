@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
+import { AppID, Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
 import { generateNpcGroupGuestLine } from '../utils/npcGroupGuestLine';
 import Modal from '../components/os/Modal';
@@ -22,6 +22,7 @@ import { parseDirectorActions, stripSkipMarker, parseGroupTopicBox } from '../ut
 import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effectivePacketStatus, makePacketMeta } from '../utils/groupChat/redpacket';
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
@@ -481,8 +482,11 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
+    // 从 Chat 主页深链进某个群时记一下"返回键该回哪"；本群列表内部正常点进/退出都不涉及它，
+    // 只有通过 pendingGroupChatId 深链进来的那次会话才设置，用一次就清空。
+    const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [totalMsgCount, setTotalMsgCount] = useState(0);
@@ -702,11 +706,24 @@ const GroupChat: React.FC = () => {
         if (target) {
             setActiveGroup(target);
             setView('chat');
+            setGroupChatBackTarget(chatReturnTarget.consume());
             void refreshMessages(target.id);
         }
         consumePendingGroupChat();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingGroupChatId, groups]);
+
+    // 群聊天视图的返回键：正常从本组件的群列表点进来时回群列表（原行为不变）；
+    // 从 Chat 主页深链进来的这次会话直接回 Chat 主页，不必先绕一趟群列表。
+    const handleGroupChatClose = () => {
+        if (groupChatBackTarget) {
+            const t = groupChatBackTarget;
+            setGroupChatBackTarget(null);
+            openApp(t);
+        } else {
+            setView('list');
+        }
+    };
 
     // --- Logic: Selection & Deletion ---
 
@@ -904,7 +921,7 @@ const GroupChat: React.FC = () => {
             }));
         }
         await deleteGroup(id);
-        if (activeGroup?.id === id) setView('list');
+        if (activeGroup?.id === id) { setView('list'); setGroupChatBackTarget(null); }
         addToast('群聊已解散', 'success');
     };
 
@@ -1744,7 +1761,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
                 <div className="p-4 space-y-3 overflow-y-auto">
                     {groups.map(g => (
-                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-violet-50/30">
+                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); setGroupChatBackTarget(null); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-violet-50/30">
                             {/* Group Avatar Logic */}
                             <div className="w-14 h-14 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 relative shadow-sm">
                                 {g.avatar ? (
@@ -1912,7 +1929,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 }}
                 triggerIcon={isTyping ? 'stop' : 'lightning'}
                 hideTrigger={inputPreferences.sendButtonGenerates && !isTyping}
-                onClose={() => setView('list')}
+                onClose={handleGroupChatClose}
                 onTriggerAI={() => triggerGroupAI(messages)}
                 onShowCharsPanel={openGroupSettings}
                 hideBuffs

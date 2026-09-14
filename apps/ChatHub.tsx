@@ -105,6 +105,7 @@ const ChatHub: React.FC = () => {
             chatReturnTarget.set(AppID.ChatHub);
             openApp(AppID.Chat);
         } else {
+            chatReturnTarget.set(AppID.ChatHub);
             openGroupChat(row.id);
         }
         trackEvent('Chat 主页打开对话', { kind: row.kind });
