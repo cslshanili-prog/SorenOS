@@ -3364,6 +3364,8 @@ export interface GroupProfile {
     members: string[];
     avatar?: string;
     createdAt: number;
+    /** 群公告：群主填写，显示在群聊顶部横幅，也会注入群聊 system 提示词让角色知道。 */
+    announcement?: string;
     /** 群聊公共话题盒：由热区以前的群消息总结而成，所有成员共享、可编辑/删除。 */
     topicBoxes?: GroupTopicBox[];
     /** 公共话题盒已覆盖到的最后一条群消息 ID；仅用于防止重复成盒，不与任何角色私聊水位混用。 */

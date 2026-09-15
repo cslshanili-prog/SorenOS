@@ -571,6 +571,7 @@ const GroupChat: React.FC = () => {
     
     // Create/Edit Group State
     const [tempGroupName, setTempGroupName] = useState('');
+    const [tempAnnouncement, setTempAnnouncement] = useState('');
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
@@ -849,6 +850,8 @@ const GroupChat: React.FC = () => {
         if (!activeGroup) return;
         const updates = {
             name: tempGroupName || activeGroup.name,
+            // 空串存 undefined，跟横幅/prompt 注入的"有没有公告"判断口径一致（trim 后为空就当没设）
+            announcement: tempAnnouncement.trim() || undefined,
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
             replyMode: tempReplyMode,
@@ -1225,6 +1228,7 @@ const GroupChat: React.FC = () => {
     const openGroupSettings = () => {
         setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
+        setTempAnnouncement(activeGroup?.announcement || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
@@ -1275,9 +1279,12 @@ const GroupChat: React.FC = () => {
         const liveMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const sharedScene = ContextBuilder.buildGroupSharedScene(groupMembers, groupUserProfile, liveMsgs);
 
+        const announcementLine = activeGroup?.announcement?.trim()
+            ? `群公告: "${activeGroup.announcement.trim()}"\n`
+            : '';
         const header = `【系统：群聊模拟器配置】
 当前群名: "${activeGroup?.name}"
-当前系统时间: ${currentTimeStr}
+${announcementLine}当前系统时间: ${currentTimeStr}
 时间流逝感知: ${timeGapInfo}
 
 ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
@@ -1960,6 +1967,17 @@ ${memberTimeline || '(暂无互动记录)'}
                 acnh={acnh}
             />
 
+            {/* 群公告横幅：设了才显示，点一下直接进群设置改 */}
+            {activeGroup?.announcement?.trim() && (
+                <button
+                    onClick={openGroupSettings}
+                    className="shrink-0 mx-4 mt-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2 text-left active:scale-[0.99] transition-transform"
+                >
+                    <span className="shrink-0 mt-0.5">📢</span>
+                    <p className="flex-1 min-w-0 text-[11px] text-amber-800 leading-relaxed whitespace-pre-wrap line-clamp-3">{activeGroup.announcement}</p>
+                </button>
+            )}
+
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" ref={scrollRef} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }}>
                 {collapsedCount > 0 && activeGroup && (
@@ -2169,6 +2187,17 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
                         <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群公告</label>
+                        <textarea
+                            value={tempAnnouncement}
+                            onChange={e => setTempAnnouncement(e.target.value)}
+                            placeholder="留空则不显示公告横幅；填写后角色也会知道公告内容"
+                            rows={3}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all resize-none placeholder:text-slate-300"
+                        />
                     </div>
 
                     {/* 切换用户身份：这个群单独用哪张身份卡，即时生效，不影响其他群或私聊 */}
