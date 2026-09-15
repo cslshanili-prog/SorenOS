@@ -3416,6 +3416,13 @@ export interface GroupProfile {
      * 用户自己发的消息仍会存档、显示在自己屏幕上，只是 AI 端看不到、也永远不会回应。
      */
     userLurkMode?: boolean;
+    /**
+     * 角色可以退群：开启后 AI 会被教 [[ACTION:LEAVE_GROUP]] 语法，可在觉得合适时（剧情需要、
+     * 关系破裂等）自己退出这个群。不设默认关闭——不开就不教这个语法，AI 无从触发。
+     * 退群不删历史消息，只从 members 里摘掉；群里会落一条 role:'system' 的退群公告消息。
+     * 群里至少留 2 位成员，跟手动移除成员的下限一致。
+     */
+    allowMemberLeave?: boolean;
 }
 
 export interface GroupTopicBox {

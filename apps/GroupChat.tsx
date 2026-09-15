@@ -1496,6 +1496,27 @@ ${memberTimeline || '(暂无互动记录)'}
     const filterLurkMsgs = (msgs: Message[]): Message[] =>
         activeGroup?.userLurkMode ? msgs.filter(m => m.role !== 'user') : msgs;
 
+    // 角色主动退群（[[ACTION:LEAVE_GROUP]]）的执行回调工厂：只在群开了 allowMemberLeave 时
+    // 才在触发生成前创建一个实例并塞进 DispatchContext；未开启就传 undefined，dispatch.ts
+    // 那边只会剥掉裸标记，不会有任何副作用（真正的开关判断点在这里，不在 prompts.ts）。
+    // 用工厂闭包住 liveMembers 而不是每次都读 activeGroup.members，是因为轮询模式一轮内
+    // 会连续调用多次 dispatchMemberActions——同一个 handler 实例要在整轮里被复用，
+    // 才能让"本轮已经有人退了"正确累加，不被后一次调用的 updates.members 覆盖回去。
+    const makeMemberLeaveHandler = (group: GroupProfile) => {
+        let liveMembers = [...group.members];
+        return async (charId: string, charName: string) => {
+            // 群里至少留 2 位成员，跟手动移除成员的下限一致
+            if (liveMembers.length <= 2 || !liveMembers.includes(charId)) return;
+            liveMembers = liveMembers.filter(id => id !== charId);
+            await updateGroup(group.id, { members: liveMembers });
+            setActiveGroup(prev => (prev && prev.id === group.id) ? { ...prev, members: liveMembers } : prev);
+            // 历史消息不删，只落一条系统消息公告退群，跟手动移除成员的语义一致
+            await DB.saveMessage({ charId, groupId: group.id, role: 'system', type: 'system', content: `${charName} 退出了群聊` });
+            await refreshMessages(group.id);
+            trackEvent('群聊角色主动退群');
+        };
+    };
+
     const triggerDirector = async (rawMsgs: Message[]) => {
         if (!activeGroup) return;
         if (!apiConfig.apiKey) {
@@ -1537,7 +1558,8 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages })}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
+            const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1588,6 +1610,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 resolveQuote,
                 userName: groupUserProfile.name,
                 htmlMode: !!activeGroup.htmlModeEnabled,
+                onMemberLeave: memberLeaveHandler,
             });
 
         } catch (e: any) {
@@ -1627,6 +1650,8 @@ ${memberTimeline || '(暂无互动记录)'}
         try {
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
             let roundMsgs = [...currentMsgs];
+            // 同一实例复用一整轮——见 makeMemberLeaveHandler 上面的注释
+            const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             for (const member of groupMembers) {
                 if (abort.signal.aborted) break;
@@ -1655,7 +1680,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode })}${htmlPromptExt}\n`;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1706,6 +1731,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         resolveQuote,
                         userName: groupUserProfile.name,
                         htmlMode: !!activeGroup.htmlModeEnabled,
+                        onMemberLeave: memberLeaveHandler,
                     });
 
                     // 刷新滚动历史给下一位成员
@@ -2300,6 +2326,28 @@ ${memberTimeline || '(暂无互动记录)'}
                                 className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${activeGroup?.userLurkMode ? 'bg-violet-500' : 'bg-slate-200'}`}
                             >
                                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${activeGroup?.userLurkMode ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 角色可以退群：开启后 AI 才会被教 [[ACTION:LEAVE_GROUP]] 语法 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">角色可以退群</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">开启后角色在关系破裂、剧情需要等足够重的理由下，可以自己选择退出这个群（极少触发，不是想退就退）。退群不删 ta 说过的历史消息，群里会有一条退群公告，之后要用「群成员」重新邀请回来。</p>
+                            </div>
+                            <div
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const next = !activeGroup.allowMemberLeave;
+                                    await updateGroup(activeGroup.id, { allowMemberLeave: next });
+                                    setActiveGroup({ ...activeGroup, allowMemberLeave: next });
+                                    trackEvent('切换群聊角色可退群', { enabled: next });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${activeGroup?.allowMemberLeave ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${activeGroup?.allowMemberLeave ? 'left-[22px]' : 'left-0.5'}`} />
                             </div>
                         </div>
                     </div>

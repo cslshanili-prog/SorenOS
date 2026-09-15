@@ -190,10 +190,18 @@ const buildLurkModeNote = (): string => `### 【隐身围观模式：这一刻�
 /** 导演模式一轮最多生成几条消息的默认上限；下限固定 1，"少即是多"不受这个值影响。 */
 export const DEFAULT_MAX_ROUND_MESSAGES = 5;
 
+/** 退群语法说明——director/roundRobin 共用同一段文案，只在群开了 allowMemberLeave 时才被教。 */
+const buildLeaveGroupNote = (): string => `
+
+#### 退群（仅在关系或剧情确实需要时使用，极其罕见）
+- 如果这个角色因为关系彻底破裂、剧情走向、或其它足够重的理由，认真想离开这个群，可以在 content 里单独一行输出 \`[[ACTION:LEAVE_GROUP]]\`——通常配一句告别或离场的话。
+- 这是不可逆操作：退群后 ta 会从群成员里移除，需要用户重新邀请才能回来。**绝大多数轮次都不该用这个**，不要因为一时拌嘴、开玩笑或者气氛尴尬就退群。
+`;
+
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; maxRoundMessages?: number },
+    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean },
 ): string {
     const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 导演任务指令 (Director Mode)】
@@ -257,7 +265,7 @@ ${options?.userLurking ? buildLurkModeNote() : ''}### 任务：生成一段精�
 - **严禁**把 PRIVATE 当"吐槽群友"的工具——这是低成本制造修罗场的来源，禁止。
 - **严禁**多个角色同一轮都发 PRIVATE。最多一个。
 - 格式: \`[[PRIVATE: 私聊内容]]\`。这条消息只进私聊频道，不在群里显示。
-
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}
 #### 七、表情和气泡
 - **表情包**: 必须使用格式 \`[[SEND_EMOJI: 表情名称]]\`。**可用表情 (按分类)**: ${emojiContextStr}
 - **气泡分段**: 在一条内容里用换行符分隔不同的气泡——一行一个气泡。短句多发几条 > 长句一坨。
@@ -286,7 +294,7 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean },
+    options?: { userLurking?: boolean; allowMemberLeave?: boolean },
 ): string {
     return `### 【本轮任务：以「${memberName}」的身份在群里发言】
 当前场景：大家正在群里聊天。
@@ -304,5 +312,5 @@ ${options?.userLurking ? buildLurkModeNote() : ''}现在轮到你了。规则：
 6. 对话质量沿用你的私聊标准：拒绝套路化反应；想表达在乎就提一个只有你们之间才有的具体细节，而不是空泛的关心句；把名字遮住也能从语气认出这句话是你说的；情绪要有层次。
 7. 角色之间可以互相接话、起哄，不必每句都对着用户说；也允许你只回应群里另一位成员刚说的话。但不要因为前面的人采用了某种态度，就自动复制同一种对 U 的态度——按你自己和 U 的关系反应。
 8. 引用回复（可选）：想针对记录里某条具体发言回复时，在你的内容开头加 \`[[QUOTE: 原话片段]]\`（片段取原话开头几个字即可）。偶尔用，别每条都引用。
-9. 红包（可选）：记录里有「拼手气红包…还剩 n 份可抢」且你想抢时，单独一行输出 \`[[GRAB_PACKET]]\` 并配一句真实反应；看到发给自己的专属红包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回并说明原因。你也可以主动发：拼手气 \`[[SEND_PACKET: lucky:总额:份数:祝福语]]\`，专属 \`[[SEND_PACKET: direct:对方名字:金额:祝福语]]\`。抢不抢由你的性格决定，金额别离谱。`;
+9. 红包（可选）：记录里有「拼手气红包…还剩 n 份可抢」且你想抢时，单独一行输出 \`[[GRAB_PACKET]]\` 并配一句真实反应；看到发给自己的专属红包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回并说明原因。你也可以主动发：拼手气 \`[[SEND_PACKET: lucky:总额:份数:祝福语]]\`，专属 \`[[SEND_PACKET: direct:对方名字:金额:祝福语]]\`。抢不抢由你的性格决定，金额别离谱。${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}`;
 }

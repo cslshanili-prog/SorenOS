@@ -114,6 +114,28 @@ describe('导演模式一轮最多几条：maxRoundMessages 选项', () => {
     });
 });
 
+describe('角色可以退群：allowMemberLeave 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传时不教 [[ACTION:LEAVE_GROUP]] 语法（默认关闭）', () => {
+        expect(buildDirectorInstruction(history, '无')).not.toContain('LEAVE_GROUP');
+        expect(buildRoundRobinInstruction('小夏', history, '无')).not.toContain('LEAVE_GROUP');
+    });
+
+    it('allowMemberLeave: true 时导演/轮询模式都教退群语法', () => {
+        const directorPrompt = buildDirectorInstruction(history, '无', { allowMemberLeave: true });
+        expect(directorPrompt).toContain('[[ACTION:LEAVE_GROUP]]');
+        expect(directorPrompt).toContain('极其罕见');
+
+        const roundRobinPrompt = buildRoundRobinInstruction('小夏', history, '无', { allowMemberLeave: true });
+        expect(roundRobinPrompt).toContain('[[ACTION:LEAVE_GROUP]]');
+    });
+
+    it('allowMemberLeave: false 等价于不传', () => {
+        expect(buildDirectorInstruction(history, '无', { allowMemberLeave: false })).not.toContain('LEAVE_GROUP');
+    });
+});
+
 describe('隐身围观模式：userLurking 选项', () => {
     const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
 
