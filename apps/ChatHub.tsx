@@ -74,10 +74,13 @@ const ChatHub: React.FC = () => {
                 Promise.all(groups.map(async (g): Promise<ChatRow | null> => {
                     const { messages } = await DB.getRecentGroupMessagesWithCount(g.id, 1);
                     const msg = messages[0];
-                    if (!msg) return null;
+                    // 刚建好、还没人说过话的群不能因为没有消息就从列表里消失——不然用户关掉
+                    // 建群后弹出的那个旧版列表，就再也找不回这个空群了（消息 tab 是目前唯一
+                    // 能回到具体某个群的入口）。没消息时用创建时间兜底排序，预览文案提示"还没人说话"。
                     return {
                         kind: 'group', id: g.id, name: g.name, avatar: g.avatar || '',
-                        preview: messageLogText(msg), timestamp: msg.timestamp, unread: 0,
+                        preview: msg ? messageLogText(msg) : '还没有人说话，点击开始',
+                        timestamp: msg ? msg.timestamp : g.createdAt, unread: 0,
                     };
                 })),
             ]);

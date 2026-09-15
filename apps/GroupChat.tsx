@@ -23,7 +23,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effective
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { resolveUserProfileForGroup } from '../utils/userPersona';
+import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
@@ -483,7 +483,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, userProfileBase, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     // 从 Chat 主页深链进某个群时记一下"返回键该回哪"；本群列表内部正常点进/退出都不涉及它，
     // 只有通过 pendingGroupChatId 深链进来的那次会话才设置，用一次就清空。
@@ -882,6 +882,17 @@ const GroupChat: React.FC = () => {
         await updateGroup(activeGroup.id, { members: nextMembers });
         setActiveGroup({ ...activeGroup, members: nextMembers });
         trackEvent('群聊移除成员');
+    };
+
+    // 切换这个群单独用哪张身份卡：即时生效（不走"保存修改"），跟成员增减、隐身围观模式
+    // 一样——这是 userProfile.perGroupPersonaIds 的写入点，不是群自己的数据，所以走
+    // updateUserProfile 而不是 updateGroup。
+    const handleSetGroupPersona = (personaId: string | undefined) => {
+        if (!activeGroup) return;
+        const next = { ...(userProfileBase.perGroupPersonaIds || {}) };
+        if (personaId) next[activeGroup.id] = personaId; else delete next[activeGroup.id];
+        updateUserProfile({ perGroupPersonaIds: next });
+        trackEvent('群聊身份指定', { choice: !personaId ? 'default' : personaId === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' });
     };
 
     const handleGroupAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2158,6 +2169,39 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
                         <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                    </div>
+
+                    {/* 切换用户身份：这个群单独用哪张身份卡，即时生效，不影响其他群或私聊 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">这个群里，你是</label>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            {(() => {
+                                const overrideId = activeGroup ? userProfileBase.perGroupPersonaIds?.[activeGroup.id] : undefined;
+                                const chip = (key: string | undefined, avatar: string, name: string, sub: string) => {
+                                    const active = overrideId === key || (!overrideId && key === undefined);
+                                    return (
+                                        <button
+                                            key={key || 'default'}
+                                            onClick={() => handleSetGroupPersona(key)}
+                                            className={`shrink-0 flex items-center gap-2 rounded-2xl border px-2.5 py-2 text-left transition-all active:scale-[0.98] ${active ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-400' : 'border-slate-200 bg-white'}`}
+                                        >
+                                            {avatar ? <TokenImg value={avatar} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
+                                                : <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 text-xs">∅</span>}
+                                            <div className="min-w-0">
+                                                <div className="text-[11px] font-bold text-slate-700 truncate max-w-[6rem]">{name}</div>
+                                                <div className="text-[8px] text-slate-400 whitespace-nowrap">{sub}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                };
+                                return [
+                                    chip(undefined, '', '跟随全域默认', '身份卡切换时一起变'),
+                                    chip(REAL_IDENTITY_PERSONA_ID, userProfileBase.avatar, userProfileBase.name || '真实身份', '固定真实身份'),
+                                    ...(userProfileBase.personas || []).map(p => chip(p.id, p.avatar, p.name, '固定这张卡')),
+                                ];
+                            })()}
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">只影响这个群；其他群和私聊不变。头像/名字是即时生效的当前状态，不会改写这个群里已经发出的消息内容。</p>
                     </div>
 
                     {/* 成员管理：新增/移除即时生效，历史消息不受影响 */}
