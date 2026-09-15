@@ -11,6 +11,8 @@ import { ContextBuilder } from '../utils/context';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
+import NPCManagerView from '../components/character/NPCManagerView';
+import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
@@ -92,9 +94,12 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile, worldbooks, addWorldbook } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, addApiPreset } = useOS();
   const launchIntent = characterLaunch.peek();
-  const [view, setView] = useState<'list' | 'detail'>(() => launchIntent ? 'detail' : 'list');
+  // 神经链接顶部「主角 / NPC」分页；NPC 那边是完全独立的列表+编辑流程（见 NPCManagerView），
+  // 不共用下面这套角色专用的 view/formData 状态机。
+  const [topTab, setTopTab] = useState<'characters' | 'npcs'>(() => launchIntent?.tab || 'characters');
+  const [view, setView] = useState<'list' | 'detail'>(() => launchIntent?.charId ? 'detail' : 'list');
   const [charPage, setCharPage] = useState(0); // 角色列表分页（每页 6 个，仅未建分组时）
   // 分组展开状态：存"已展开"的分组 id（未记录 = 收起）。跨会话记住，key 见下
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -1157,7 +1162,20 @@ ${isInitialGeneration ? `
 
   return (
     <div className="h-full w-full bg-slate-50/30 font-light relative">
-       {view === 'list' ? (
+       {topTab === 'npcs' ? (
+           <NPCManagerView
+               npcs={npcs}
+               characters={characters}
+               worldbooks={worldbooks}
+               apiPresets={apiPresets}
+               addApiPreset={addApiPreset}
+               addNPC={addNPC}
+               updateNPC={updateNPC}
+               deleteNPC={deleteNPC}
+               onSwitchTab={setTopTab}
+               closeApp={closeApp}
+           />
+       ) : view === 'list' ? (
            <div className="flex flex-col h-full animate-fade-in relative"
                 style={{ background: 'linear-gradient(180deg, #f5f2fb 0%, #ece6f6 100%)' }}>
                {/* safe-area: pt 用 max(3.5rem, 刘海高度)，保呼吸感同时更高刘海设备不被挡 */}
@@ -1184,6 +1202,20 @@ ${isInitialGeneration ? `
                         </ToolButton>
                         <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportCard} />
                    </div>
+               </div>
+               <div className="px-6 pb-3 shrink-0 flex gap-2">
+                   <button
+                       onClick={() => setTopTab('characters')}
+                       className="px-4 py-1.5 rounded-full text-xs font-bold bg-violet-600 text-white shadow-sm"
+                   >
+                       主角
+                   </button>
+                   <button
+                       onClick={() => setTopTab('npcs')}
+                       className="px-4 py-1.5 rounded-full text-xs font-bold bg-white/60 text-violet-500 border border-violet-200"
+                   >
+                       NPC{npcs.length > 0 ? ` (${npcs.length})` : ''}
+                   </button>
                </div>
                <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
                    {(() => {
@@ -1702,6 +1734,16 @@ ${isInitialGeneration ? `
                                        })}
                                    </div>
                                )}
+                           </div>
+
+                           {/* Image Generation Section — 该角色专属生图设定 */}
+                           <div>
+                               <CharacterImageGenPanel
+                                   charName={formData.name}
+                                   value={formData.imageGenCharConfig}
+                                   onChange={(v) => handleChange('imageGenCharConfig', v)}
+                                   globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
+                               />
                            </div>
 
                            {/* Worldbook Section */}

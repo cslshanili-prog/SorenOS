@@ -7,6 +7,7 @@ import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
+import ImageGenSettingsPanel from '../components/settings/ImageGenSettingsPanel';
 import { NotionManager, FeishuManager, RealtimeContextManager, fetchOwmWeather, fetchOpenMeteoWeather } from '../utils/realtimeContext';
 import { XhsMcpClient } from '../utils/xhsMcpClient';
 import { resolveXhsDeploymentMode } from '../utils/xhsMcpConfig';
@@ -140,7 +141,7 @@ const formatBackupBytes = (bytes: number): string => {
  * 设置大板块的折叠外壳：默认收起，标题行常显、点击开合；
  * actions 放右侧动作（配置按钮 / 状态 chip / 问号），点击不触发开合。
  */
-const SettingsSection: React.FC<{
+export const SettingsSection: React.FC<{
     icon: React.ReactNode;
     title: string;
     badge?: React.ReactNode;
@@ -3078,6 +3079,20 @@ const Settings: React.FC = () => {
                     {otherStatusMsg || '保存其他 API'}
                 </button>
             </div>
+        </SettingsSection>
+
+        {/* 生圖 API 區域 */}
+        <SettingsSection
+            title="生圖API"
+            icon={
+                <div className="p-2 bg-pink-100/50 rounded-xl text-pink-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 22.5H6a2.25 2.25 0 0 1-2.25-2.25V3.75A2.25 2.25 0 0 1 6 1.5h12a2.25 2.25 0 0 1 2.25 2.25v16.5A2.25 2.25 0 0 1 18 22.5ZM10.5 8.25a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+                    </svg>
+                </div>
+            }
+        >
+            <ImageGenSettingsPanel apiConfig={apiConfig} updateApiConfig={updateApiConfig} />
         </SettingsSection>
 
         {/* 实时感知配置区域 */}

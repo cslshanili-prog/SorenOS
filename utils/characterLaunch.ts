@@ -1,6 +1,8 @@
 export interface CharacterLaunchIntent {
-    charId: string;
+    charId?: string;
     openChibiStudio?: boolean;
+    /** Chat 主页「联系人」tab 点 NPC 行时用：直接停在 NPC 分页，不必挑角色。 */
+    tab?: 'characters' | 'npcs';
 }
 
 let pending: CharacterLaunchIntent | null = null;

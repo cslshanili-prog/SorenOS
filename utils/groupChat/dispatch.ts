@@ -35,6 +35,12 @@ export interface DispatchContext {
     userName: string;
     /** 群 HTML 模块模式开启时解析 [html] 块为 html_card 消息 */
     htmlMode?: boolean;
+    /**
+     * [[ACTION:LEAVE_GROUP]] 退群命令的执行回调——只有调用方（GroupChat.tsx）在群开了
+     * allowMemberLeave 时才会传入；不传时等于没被教过这个语法，dispatch 只负责把标记从
+     * 正文里剥掉，不会发生任何退群副作用（双重保险，不靠 AI 老实）。
+     */
+    onMemberLeave?: (charId: string, charName: string) => Promise<void>;
 }
 
 /**
@@ -51,8 +57,24 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         if (!targetId) continue;
         const charName = characters.find(c => c.id === targetId)?.name || '成员';
 
-        // 0. Check for Private Message Command (Regex updated for robustness)
+        // -0.1 退群命令：[[ACTION:LEAVE_GROUP]]。剥标记这一步始终执行（哪怕 onMemberLeave
+        // 没传，AI 也不该看到裸标记留在正文里）；真正的移除副作用只在 ctx.onMemberLeave 存在
+        // 时才触发——这是唯一的开关判断点，prompts.ts 那边只是不教这个语法，不是安全边界。
         let publicContent = action.content;
+        let wantsToLeave = false;
+        const leaveMatch = publicContent.match(/\[\[\s*ACTION\s*[:：]\s*LEAVE_GROUP\s*\]\]/i);
+        if (leaveMatch) {
+            wantsToLeave = true;
+            publicContent = publicContent.replace(leaveMatch[0], '').trim();
+        }
+        const fireLeaveIfWanted = async () => {
+            if (wantsToLeave && ctx.onMemberLeave) {
+                await ctx.onMemberLeave(targetId, charName);
+                wantsToLeave = false; // 防止同一条 action 的多个 continue 出口重复触发
+            }
+        };
+
+        // 0. Check for Private Message Command (Regex updated for robustness)
         const privateMatches: RegExpExecArray[] = [];
         // Handle multiple private messages in one block or mixed content
         const privateRegex = /\[\[PRIVATE\s*[:：]\s*([\s\S]*?)\]\]/g;
@@ -80,7 +102,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             publicContent = publicContent.trim();
 
             // If content is empty after stripping (pure private message), skip public rendering
-            if (!publicContent) continue;
+            if (!publicContent) { await fireLeaveIfWanted(); continue; }
         }
 
         // 0.5 [[QUOTE: 原话片段]]：AI 想针对某条具体发言回复。两层容错精神——
@@ -101,7 +123,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             await executePacketCommand(cmd, targetId, charName, ctx);
         }
 
-        if (!publicContent) continue;
+        if (!publicContent) { await fireLeaveIfWanted(); continue; }
 
         // 1. Check for Emoji Commands (handle multiple emojis)
         // Filter emojis by character visibility to prevent using hidden emoji packs
@@ -184,6 +206,9 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
                 await refresh();
             }
         }
+
+        // 退群副作用放最后——告别的话（如果有）先落成气泡，退群公告消息再跟上，顺序才读得通。
+        await fireLeaveIfWanted();
     }
 }
 

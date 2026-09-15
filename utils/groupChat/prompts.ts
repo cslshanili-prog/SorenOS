@@ -175,17 +175,42 @@ export function buildGroupHistoryBlock(
 /**
  * 导演模式任务指令（接在角色档案块之后）。模板原文照搬自 GroupChat.tsx，一字未改。
  */
+/** 隐身围观模式的框定说明：用户消息已经被从 history 里整个拿掉了（不是靠这段文字让模型"别理用户"），
+ *  这里只是防止模型凭 U还是U 等其它规则的惯性，主动呼唤/汇报/私聊一个理论上不在场的人。
+ *  director/roundRobin 共用同一段文案，只是缩进上下文不同。 */
+const buildLurkModeNote = (): string => `### 【隐身围观模式：这一刻用户不在场】
+- 用户没有出现在上面的聊天记录里，也听不到你们说话——把这当成角色们私下的场合，不用顾忌"会不会被用户看到"，不用维持平时那种随时可能被听到的分寸。
+- 不要主动提起、汇报、等待或呼唤用户；可以聊平时不会让用户知道的事、对用户的真实评价、瞒着用户的计划。
+- 只有某个话题本来就会自然带到这个人时，才像提起"不在场的第三者"一样简单带一句，不要表现出"知道 ta 在偷听"，也不要专门讲给 ta 听。
+- **本轮禁止使用 PRIVATE 私聊语法**——用户不在场，没有"私下悄悄说给 ta 听"这回事。
+- 关系记忆依然成立——你还是记得和这个人之间的一切，只是这一刻没把 ta 算进这场对话。
+
+`;
+
+/** 导演模式一轮最多生成几条消息的默认上限；下限固定 1，"少即是多"不受这个值影响。 */
+export const DEFAULT_MAX_ROUND_MESSAGES = 5;
+
+/** 退群语法说明——director/roundRobin 共用同一段文案，只在群开了 allowMemberLeave 时才被教。 */
+const buildLeaveGroupNote = (): string => `
+
+#### 退群（仅在关系或剧情确实需要时使用，极其罕见）
+- 如果这个角色因为关系彻底破裂、剧情走向、或其它足够重的理由，认真想离开这个群，可以在 content 里单独一行输出 \`[[ACTION:LEAVE_GROUP]]\`——通常配一句告别或离场的话。
+- 这是不可逆操作：退群后 ta 会从群成员里移除，需要用户重新邀请才能回来。**绝大多数轮次都不该用这个**，不要因为一时拌嘴、开玩笑或者气氛尴尬就退群。
+`;
+
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
+    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean },
 ): string {
+    const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 导演任务指令 (Director Mode)】
 当前场景：大家正在群里聊天。
 最近聊天记录：
 ${history.text}
 ${history.attachedImagesNote}
 
-### 任务：生成一段精彩的群聊互动 (Conversation Flow)
+${options?.userLurking ? buildLurkModeNote() : ''}### 任务：生成一段精彩的群聊互动 (Conversation Flow)
 请作为导演，接管所有角色，让群聊**自然地流动起来**。
 
 ### 核心规则 (Strict Rules)
@@ -229,7 +254,7 @@ ${history.attachedImagesNote}
 #### 五、互动结构
 - **去中心化**: 角色之间可以互相接话、回应、起哄，不要每个人都只对着用户说话。但**不强制 A 说了 B 必须回**——真群聊里有人发完没人接是常态。
 - **回应用户但不齐声表态**：用户刚说了值得回应的内容时，让最合适的一位角色自然接住；其他人可以回应彼此、补充不同角度或保持沉默。不要让所有人重复同一种态度。
-- **多轮对话**: 请一次性生成 **1 到 6 条** 消息。**少即是多**——如果本轮氛围是"安静摸鱼"，1-2 条就够。
+- **多轮对话**: 请一次性生成 **1 到 ${maxRoundMessages} 条** 消息。**少即是多**——如果本轮氛围是"安静摸鱼"，1-2 条就够。
 
 #### 六、私聊（PRIVATE）—— 罕见特例，默认 0 条
 - **绝大多数轮次本轮 PRIVATE 数量 = 0**。这是默认值。不要每轮都给 PRIVATE 找借口。
@@ -240,7 +265,7 @@ ${history.attachedImagesNote}
 - **严禁**把 PRIVATE 当"吐槽群友"的工具——这是低成本制造修罗场的来源，禁止。
 - **严禁**多个角色同一轮都发 PRIVATE。最多一个。
 - 格式: \`[[PRIVATE: 私聊内容]]\`。这条消息只进私聊频道，不在群里显示。
-
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}
 #### 七、表情和气泡
 - **表情包**: 必须使用格式 \`[[SEND_EMOJI: 表情名称]]\`。**可用表情 (按分类)**: ${emojiContextStr}
 - **气泡分段**: 在一条内容里用换行符分隔不同的气泡——一行一个气泡。短句多发几条 > 长句一坨。
@@ -269,6 +294,7 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
+    options?: { userLurking?: boolean; allowMemberLeave?: boolean },
 ): string {
     return `### 【本轮任务：以「${memberName}」的身份在群里发言】
 当前场景：大家正在群里聊天。
@@ -276,7 +302,7 @@ export function buildRoundRobinInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-现在轮到你了。规则：
+${options?.userLurking ? buildLurkModeNote() : ''}现在轮到你了。规则：
 
 1. 你只是群里的一位普通成员，不是导演。只输出**你自己**要发的消息内容——不要替任何人说话，不要在开头加自己的名字或冒号前缀，不要解释、不要输出 JSON。如果此刻没有自然的话可说，只输出 \`[[SKIP]]\` 保持沉默；不要为了轮到自己就硬凑一句。
 2. 一行 = 一个气泡。短句多发几条 > 长句一坨；"嗯""哈哈哈"和单独一个表情包都是合法回复。
@@ -286,5 +312,5 @@ ${history.attachedImagesNote}
 6. 对话质量沿用你的私聊标准：拒绝套路化反应；想表达在乎就提一个只有你们之间才有的具体细节，而不是空泛的关心句；把名字遮住也能从语气认出这句话是你说的；情绪要有层次。
 7. 角色之间可以互相接话、起哄，不必每句都对着用户说；也允许你只回应群里另一位成员刚说的话。但不要因为前面的人采用了某种态度，就自动复制同一种对 U 的态度——按你自己和 U 的关系反应。
 8. 引用回复（可选）：想针对记录里某条具体发言回复时，在你的内容开头加 \`[[QUOTE: 原话片段]]\`（片段取原话开头几个字即可）。偶尔用，别每条都引用。
-9. 红包（可选）：记录里有「拼手气红包…还剩 n 份可抢」且你想抢时，单独一行输出 \`[[GRAB_PACKET]]\` 并配一句真实反应；看到发给自己的专属红包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回并说明原因。你也可以主动发：拼手气 \`[[SEND_PACKET: lucky:总额:份数:祝福语]]\`，专属 \`[[SEND_PACKET: direct:对方名字:金额:祝福语]]\`。抢不抢由你的性格决定，金额别离谱。`;
+9. 红包（可选）：记录里有「拼手气红包…还剩 n 份可抢」且你想抢时，单独一行输出 \`[[GRAB_PACKET]]\` 并配一句真实反应；看到发给自己的专属红包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回并说明原因。你也可以主动发：拼手气 \`[[SEND_PACKET: lucky:总额:份数:祝福语]]\`，专属 \`[[SEND_PACKET: direct:对方名字:金额:祝福语]]\`。抢不抢由你的性格决定，金额别离谱。${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}`;
 }

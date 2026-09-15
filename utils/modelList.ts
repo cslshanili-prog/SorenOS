@@ -26,6 +26,17 @@ export function normalizeModelIds(value: unknown): string[] {
     return result;
 }
 
+/**
+ * 生图相关模型的名称启发式判断——/models 接口通常不会标注「这个模型能不能生图」，
+ * 只能靠模型 id 里常见的关键词猜。猜不中的话调用方应该留一个「显示全部模型」的退路，
+ * 不能让这个函数变成唯一入口。
+ */
+const IMAGE_MODEL_HINT = /image|imagen|dall-?e|stable-?diffusion|\bsdxl\b|\bsd3\b|flux|midjourney|kolors|cogview|wanx|万相|seedream|ideogram|recraft|playground-v|firefly|hunyuan.*(image|dit)|qwen.*image|grok.*image/i;
+
+export function isLikelyImageModel(modelId: string): boolean {
+    return IMAGE_MODEL_HINT.test(modelId);
+}
+
 /** Extract common OpenAI-compatible and nested model-list response shapes. */
 export function extractModelIds(data: unknown): string[] {
     if (Array.isArray(data)) return normalizeModelIds(data);

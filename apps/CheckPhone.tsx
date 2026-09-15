@@ -1,8 +1,8 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig } from '../types';
+import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile } from '../types';
 import { ContextBuilder } from '../utils/context';
 import Modal from '../components/os/Modal';
 import TokenImg from '../components/os/TokenImg';
@@ -21,6 +21,7 @@ import { trackEvent } from '../utils/analytics';
 import { buildPhoneEvidenceChatCard, normalizePhoneEvidence, phoneFieldToText } from '../utils/phoneEvidence';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 import {
     User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, Compass, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
@@ -258,11 +259,18 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, characterGroups } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
     const [targetChar, setTargetChar] = useState<CharacterProfile | null>(null);
+    // 分角色身份指定：正在查看的这部手机里，「你」该是哪张身份卡，按 targetChar.id 单独解析。
+    // 下面所有原本读 userProfile 的地方（生成偷看内容用的提示词、关系变动卡片……）都改吃
+    // 这份，而不是全域 userProfile——查 A 的手机和查 B 的手机，「你」可以是不同的身份卡。
+    const checkPhoneUserProfile = useMemo(
+        () => (targetChar ? resolveUserProfileForChar(userProfileBase, targetChar.id) : userProfile),
+        [targetChar, userProfileBase, userProfile],
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(0); // 0 = home, 1 = custom apps
     const [selectPage, setSelectPage] = useState(0); // Target Device 选人界面的翻页（每页 6 人）
@@ -289,9 +297,12 @@ const CheckPhone: React.FC = () => {
     const [noteDraft, setNoteDraft] = useState('');
     const [editingNote, setEditingNote] = useState(false);
     const [showContactModal, setShowContactModal] = useState(false);
-    const [ncName, setNcName] = useState('');
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
+    // 添加联系人：NPC 分页的子模式（绑定既有 NPC / 随机产生，机主脑补）
+    const [ncNpcMode, setNcNpcMode] = useState<'existing' | 'random'>('existing');
+    const [ncRandomHint, setNcRandomHint] = useState('');
+    const [ncGenerating, setNcGenerating] = useState(false);
     // 改绑定弹窗（把联系人改绑到正确的真实角色 / 转为虚构）
     const [showRebindModal, setShowRebindModal] = useState(false);
     // 「允许虚构 NPC」开关的说明展开态
@@ -386,7 +397,7 @@ const CheckPhone: React.FC = () => {
     const selectedAiSession = aiSessions.find(s => s.id === selectedAiSessionId) || null;
 
     // 人际关系里永远不出现「用户自己」——机主的通讯录是 TA 背着用户的社交圈，把 user 算进来逻辑很绕
-    const isUserName = (name?: string) => !!name && !!userProfile?.name && normName(name) === normName(userProfile.name);
+    const isUserName = (name?: string) => !!name && !!checkPhoneUserProfile?.name && normName(name) === normName(checkPhoneUserProfile.name);
     const linkedCharOf = (c: PhoneContact) => (c.linkedCharId ? characters.find(ch => ch.id === c.linkedCharId) : undefined);
     // 真人联系人复用其神经链接角色的头像，否则用联系人自带头像
     const contactAvatar = (c: PhoneContact): string | undefined => linkedCharOf(c)?.avatar || c.avatar;
@@ -712,12 +723,12 @@ const CheckPhone: React.FC = () => {
 
             // 「距离上次联系多久」交给 buildCoreContext 统一注入（受时间感知开关管控、口径与聊天/见面一致）
             const context = ContextBuilder.buildCoreContext(
-                targetChar, userProfile, true, undefined, undefined,
+                targetChar, checkPhoneUserProfile, true, undefined, undefined,
                 { lastInteractionTs: lastMsg?.timestamp },
             );
 
             const recentMsgs = msgs.map(m => {
-                const roleName = m.role === 'user' ? userProfile.name : targetChar.name;
+                const roleName = m.role === 'user' ? checkPhoneUserProfile.name : targetChar.name;
                 const content = m.type === 'text' ? m.content : `[${m.type}]`;
                 return `${roleName}: ${content}`;
             }).join('\n');
@@ -813,10 +824,10 @@ ${realCharRule}
             const perspectiveLock = `### [视角锁定 · 极重要]
 接下来要生成的是**你（${targetChar.name}）自己手机里的东西**——你自己的生活、社交、记录。
 - 完全用**你（${targetChar.name}）的第一人称视角**：这些是**你的**联系人、**你自己的**社交圈、**你对他们的**印象和备注。
-- **绝不是用户「${userProfile.name}」的社交关系**：不要生成用户的人脉圈，也不要从用户的角度/口吻写备注。
-- 用户「${userProfile.name}」只是在偷看你的手机，TA **不是**你的联系人、**不进**你的通讯录（下面「和用户的最近聊天」只是背景参考，不是要生成的对象，也别把用户的熟人搬进来）。`;
+- **绝不是用户「${checkPhoneUserProfile.name}」的社交关系**：不要生成用户的人脉圈，也不要从用户的角度/口吻写备注。
+- 用户「${checkPhoneUserProfile.name}」只是在偷看你的手机，TA **不是**你的联系人、**不进**你的通讯录（下面「和用户的最近聊天」只是背景参考，不是要生成的对象，也别把用户的熟人搬进来）。`;
 
-            const fullPrompt = `${context}\n\n### [你和用户「${userProfile.name}」的最近聊天（仅背景参考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n请结合上面的「当前时间 / 距离上次联系」和人设调整生成内容的时间戳和情绪。如果很久没联系，记录可能是近期的独处状态；如果刚聊过，记录可能与聊天内容相关。`;
+            const fullPrompt = `${context}\n\n### [你和用户「${checkPhoneUserProfile.name}」的最近聊天（仅背景参考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n请结合上面的「当前时间 / 距离上次联系」和人设调整生成内容的时间戳和情绪。如果很久没联系，记录可能是近期的独处状态；如果刚聊过，记录可能与聊天内容相关。`;
 
             const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
@@ -978,10 +989,10 @@ ${realCharRule}
         const msgs = await loadCharacterContextMessages(char);
         const lastMsg = msgs[msgs.length - 1];
         const context = ContextBuilder.buildCoreContext(
-            char, userProfile, true, undefined, undefined, { lastInteractionTs: lastMsg?.timestamp },
+            char, checkPhoneUserProfile, true, undefined, undefined, { lastInteractionTs: lastMsg?.timestamp },
         );
         const recentMsgs = msgs.map(m => {
-            const roleName = m.role === 'user' ? userProfile.name : char.name;
+            const roleName = m.role === 'user' ? checkPhoneUserProfile.name : char.name;
             return `${roleName}: ${m.type === 'text' ? m.content : `[${m.type}]`}`;
         }).join('\n');
         return { context, recentMsgs };
@@ -994,7 +1005,7 @@ ${realCharRule}
         trackEvent('偷看 AI 助手使用记录', { service });
         try {
             const { context, recentMsgs } = await buildAiContext(targetChar);
-            const userName = userProfile?.name || '用户';
+            const userName = checkPhoneUserProfile?.name || '用户';
             const pushToChat = targetChar.phoneState?.sendToChat !== false;
             const svcName = AI_SERVICES.find(s => s.id === service)?.name || 'AI';
 
@@ -1464,17 +1475,17 @@ ${olderText}
                 charId: targetChar.id,
                 role: 'assistant',
                 type: 'phone_card',
-                content: `[人际关系变动] ${userProfile.name} 在偷看你手机时，把你和「${contact.name}」的好友关系${verb}了。你察觉到是 TA 干的。`,
+                content: `[人际关系变动] ${checkPhoneUserProfile.name} 在偷看你手机时，把你和「${contact.name}」的好友关系${verb}了。你察觉到是 TA 干的。`,
                 metadata: {
                     phoneCard: {
                         app: '联系人',
                         kind: 'relationship',
                         action: status,          // 'deleted' | 'blocked'
                         actor: 'user',
-                        by: userProfile.name,
+                        by: checkPhoneUserProfile.name,
                         contactName: contact.name,
                         title: `好友被${verb}`,
-                        detail: `${userProfile.name} 把你和「${contact.name}」${verb}了。`,
+                        detail: `${checkPhoneUserProfile.name} 把你和「${contact.name}」${verb}了。`,
                     },
                 },
             } as any);
@@ -1560,7 +1571,7 @@ ${olderText}
     // 仔细处理各种情况：清掉旧的错绑镜像、给新角色建镜像、防自绑/重复绑/无变化。
     const handleRebindContact = async (
         contact: PhoneContact,
-        target: { kind: 'npc' } | { kind: 'real'; charId: string },
+        target: { kind: 'npc'; npcId?: string } | { kind: 'real'; charId: string },
     ) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
@@ -1571,8 +1582,15 @@ ${olderText}
         const newLinked = target.kind === 'real' ? target.charId : undefined;
 
         // 无变化的早退
-        if (target.kind === 'npc' && contact.kind === 'npc') { addToast('TA 已经是虚构联系人', 'info'); setShowRebindModal(false); return; }
+        if (target.kind === 'npc' && contact.kind === 'npc' && (target.npcId || undefined) === (contact.linkedNpcId || undefined)) {
+            addToast(target.npcId ? 'TA 已经绑定这个 NPC 了' : 'TA 已经是虚构联系人', 'info'); setShowRebindModal(false); return;
+        }
         if (target.kind === 'real' && contact.kind === 'real' && contact.linkedCharId === target.charId) { addToast('已经绑定 TA 了', 'info'); setShowRebindModal(false); return; }
+        let boundNpc: NPCProfile | undefined;
+        if (target.kind === 'npc' && target.npcId) {
+            boundNpc = npcs.find(n => n.id === target.npcId);
+            if (!boundNpc) { addToast('NPC 不存在', 'error'); return; }
+        }
 
         if (target.kind === 'real') {
             const d = characters.find(c => c.id === target.charId);
@@ -1633,14 +1651,27 @@ ${olderText}
                 });
             }
             addToast(`已改绑到「${d.name}」`, 'success');
-        } else {
-            // 目标=虚构：去掉真实绑定与真人头像，对话/备注/了解/好感都留着
+        } else if (boundNpc) {
+            // 目标=绑定到「神经链接 → NPC」分页里的某个既有 NPC：名字/头像跟着 NPC 走，
+            // 跟绑定真实角色是同一种语义，只是指向 npcs 而不是 characters。
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
                     records: cur.phoneState?.records || [],
                     contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id
-                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, avatar: undefined }
+                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, linkedNpcId: boundNpc!.id, name: boundNpc!.name, avatar: boundNpc!.avatar }
+                        : c),
+                },
+            }));
+            addToast(`已绑定到 NPC「${boundNpc.name}」`, 'success');
+        } else {
+            // 目标=纯虚构（不绑定任何既有 NPC）：去掉真实绑定/NPC 绑定与头像，对话/备注/了解/好感都留着
+            updateCharacter(targetChar.id, (cur) => ({
+                phoneState: {
+                    ...cur.phoneState,
+                    records: cur.phoneState?.records || [],
+                    contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id
+                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, linkedNpcId: undefined, avatar: undefined }
                         : c),
                 },
             }));
@@ -1648,20 +1679,59 @@ ${olderText}
         }
     };
 
+    const closeAddContactModal = () => {
+        setShowContactModal(false);
+        setNcKind('npc'); setNcLinkedId(''); setNcNpcMode('existing'); setNcRandomHint('');
+    };
+
+    // NPC 分页选「随机产生」：不绑定任何既有 NPC 档案，让 AI 现编一个纯虚构路人
+    // （名字 + 一句关系设定），设定写进 note——note 是「已确立事实」，之后聊天会严格遵守。
+    const handleCreateRandomNpcContact = async () => {
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        setNcGenerating(true);
+        try {
+            const hint = ncRandomHint.trim();
+            const prompt = `帮「${targetChar.name}」的通讯录里随机编一个纯虚构的路人联系人，跟神经链接里任何真实角色都无关。${hint ? `用户给的方向提示：${hint}。` : `不用管提示，自由发挥即可，选一个贴近${targetChar.name}生活范围的普通身份（同事/邻居/同学/网友之类）。`}
+只输出两行，不要多余文字或标点符号包裹：
+第一行：这个人的姓名或称呼（2-6个字）
+第二行：一句话说清楚TA是谁、跟「${targetChar.name}」什么关系（会被当成固定设定，之后聊天要严格遵守）`;
+            const raw = await callLLM(prompt, 0.95);
+            const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+            const name = (lines[0] || '神秘网友').replace(/^[\-\d.、：:]+/, '').slice(0, 16) || '神秘网友';
+            const note = lines.slice(1).join(' ').trim() || hint || undefined;
+            mutateContacts(cs => upsertContact(cs, {
+                name, kind: 'npc', linkedCharId: undefined, linkedNpcId: undefined, avatar: undefined,
+                note, affinity: 0, status: 'friend',
+            }));
+            closeAddContactModal();
+            addToast(`已添加联系人：${name}`, 'success');
+            trackEvent('手动添加一位联系人', { contactKind: 'npc' });
+        } catch (e) {
+            console.error(e);
+            addToast('生成失败，请重试', 'error');
+        } finally {
+            setNcGenerating(false);
+        }
+    };
+
     const handleCreateContact = () => {
         if (!targetChar) return;
-        let name = ncName.trim();
+        if (ncKind === 'npc' && ncNpcMode === 'random') { handleCreateRandomNpcContact(); return; }
+        let name: string;
         let linkedCharId: string | undefined;
+        let linkedNpcId: string | undefined;
+        let avatar: string | undefined;
         if (ncKind === 'real') {
             const rc = characters.find(c => c.id === ncLinkedId);
             if (!rc) { addToast('请选择要绑定的真实角色', 'error'); return; }
             name = rc.name; linkedCharId = rc.id;
-        } else if (!name) {
-            addToast('请填写联系人名字', 'error'); return;
+        } else {
+            const npc = npcs.find(n => n.id === ncLinkedId);
+            if (!npc) { addToast('请选择一个 NPC', 'error'); return; }
+            name = npc.name; linkedNpcId = npc.id; avatar = npc.avatar;
         }
-        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, affinity: 0, status: 'friend' }));
-        setShowContactModal(false);
-        setNcName(''); setNcKind('npc'); setNcLinkedId('');
+        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, linkedNpcId, avatar, affinity: 0, status: 'friend' }));
+        closeAddContactModal();
         addToast('已添加联系人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
     };
@@ -1757,7 +1827,7 @@ ${olderText}
             const archivedALines = aAllLines.slice(0, aArchived);            // 留着给用户看的原文
             const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
             const result = await runRealConversation({
-                a: targetChar, b, user: userProfile, api: effectiveApiConfig as any,
+                a: targetChar, b, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
                 affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
                 existingDetail: recentDetail,
                 // bNote = A 对 B 的备注（喂给 A）；aNote = B 对 A 的备注（喂给 B）。别接反。
@@ -1786,14 +1856,28 @@ ${olderText}
 
     // 与虚构 NPC 的对话（机主脑补，单 LLM，纯虚构、不镜像）
     const handleNpcConversation = async (contact: PhoneContact) => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!targetChar) return;
+        // 绑定了「神经链接 → NPC」分页里某个 NPC 的联系人：优先用这个 NPC 自己配的专属 API
+        // （神经链接 NPC 编辑页「AI 模型」选了「自定义」才会有），没配就跟查手机共用设定一样。
+        const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
+        const npcEffectiveApi = linkedNpc?.chatApi?.baseUrl ? linkedNpc.chatApi : effectiveApiConfig;
+        if (!npcEffectiveApi.apiKey) { addToast('请先配置 API', 'error'); return; }
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'npc' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
+            // 把 NPC 的人设描述和跟这个角色/用户的关系折进 note 一起喂给引擎，让脑补出来的对话
+            // 有据可依，不再是纯凭一个名字瞎编。不改 contact.note 本身——那是用户自己写的备注，
+            // 落库前保持原样。
+            const npcRelationshipNote = linkedNpc?.relationships
+                .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
+                .map(r => r.targetId === targetChar.id ? `对「${targetChar.name}」：${r.description}` : `对用户：${r.description}`)
+                .join('\n');
+            const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
+            const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
-                host: targetChar, user: userProfile, api: effectiveApiConfig as any,
-                npcName: contact.name, identity: contact.identity, note: contact.note,
+                host: targetChar, user: checkPhoneUserProfile, api: npcEffectiveApi as any,
+                npcName: contact.name, identity: contact.identity, note: effectiveNote,
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });
             if (!detail.trim()) { addToast('对方没有回应', 'error'); return; }
@@ -1949,7 +2033,7 @@ ${olderText}
         trackEvent('生成人格模拟演出', { mode: m });
         try {
             const generated = await generatePersonaScript({
-                char: targetChar, userProfile, apiConfig: effectiveApiConfig as any, mode: m, theme: t, userPresence: presence, tone,
+                char: targetChar, userProfile: checkPhoneUserProfile, apiConfig: effectiveApiConfig as any, mode: m, theme: t, userPresence: presence, tone,
             });
             personaSimStore.set({ status: 'ready', mode: m, theme: t, script: generated, charId: cid, charName: cname });
             addToast('演出已就绪', 'success');
@@ -2532,7 +2616,7 @@ ${olderText}
                     onBack={() => { if (contactSelectMode) exitContactSelect(); else setActiveAppId('home'); }}
                     right={contactSelectMode
                         ? <button onClick={exitContactSelect} className="text-[12px] font-semibold text-white/80 active:scale-90 transition">取消</button>
-                        : <button onClick={() => setShowContactModal(true)} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
+                        : <button onClick={() => { setNcNpcMode(npcs.length > 0 ? 'existing' : 'random'); setShowContactModal(true); }} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
                 {/* 约束开关：是否允许虚构 NPC */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="w-full flex items-center gap-2 rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07]">
@@ -3999,8 +4083,8 @@ ${olderText}
             </Modal>
 
             {/* 新建联系人 / 智能体 Modal */}
-            <Modal isOpen={showContactModal} title="添加联系人" onClose={() => setShowContactModal(false)}
-                footer={<button onClick={handleCreateContact} className="w-full py-3 bg-pink-500 text-white font-bold rounded-2xl">添加</button>}>
+            <Modal isOpen={showContactModal} title="添加联系人" onClose={closeAddContactModal}
+                footer={<button onClick={handleCreateContact} disabled={ncGenerating} className="w-full py-3 bg-pink-500 text-white font-bold rounded-2xl disabled:opacity-60">{ncGenerating ? '生成中…' : '添加'}</button>}>
                 <div className="space-y-4">
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">类型</label>
@@ -4030,7 +4114,48 @@ ${olderText}
                             <p className="text-[9px] text-slate-400 mt-1">真人之间可发起双向对话，对话会同步进对方的手机。</p>
                         </div>
                     ) : (
-                        <input value={ncName} onChange={e => setNcName(e.target.value)} placeholder="联系人名字（虚构）" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                {([
+                                    { id: 'existing', name: '绑定既有 NPC', desc: '从「神经链接」里选一个' },
+                                    { id: 'random', name: '随机产生', desc: '机主脑补，AI 现编一个' },
+                                ] as const).map(opt => {
+                                    const active = ncNpcMode === opt.id;
+                                    const disabled = opt.id === 'existing' && npcs.length === 0;
+                                    return (
+                                        <button key={opt.id} type="button" disabled={disabled} onClick={() => setNcNpcMode(opt.id)}
+                                            className={`text-left rounded-xl p-2.5 border transition ${active ? 'border-transparent bg-pink-500 text-white' : 'border-slate-200 bg-slate-50 text-slate-600'} ${disabled ? 'opacity-40' : ''}`}>
+                                            <div className="text-[12px] font-bold leading-tight">{opt.name}</div>
+                                            <div className={`text-[9px] leading-tight ${active ? 'text-white/80' : 'text-slate-400'}`}>{opt.desc}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {ncNpcMode === 'existing' ? (
+                                npcs.length > 0 ? (
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定 NPC</label>
+                                        <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                            <option value="">— 选择一个 NPC —</option>
+                                            {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                        </select>
+                                        <p className="text-[9px] text-slate-400 mt-1">对话仍是机主单方面脑补，但会参考这个 NPC 在「神经链接」里设定的人设和关系。</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                        还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来绑定。
+                                    </p>
+                                )
+                            ) : (
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">简短提示方向（可选）</label>
+                                    <input value={ncRandomHint} onChange={e => setNcRandomHint(e.target.value)}
+                                        placeholder="不填就完全随机，比如：常来蹭饭的邻居阿姨"
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                                    <p className="text-[9px] text-slate-400 mt-1">不绑定任何既有 NPC 档案，AI 会现编一个名字和身份，写进备注当固定设定。</p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </Modal>
@@ -4042,15 +4167,15 @@ ${olderText}
                         <p className="text-[11.5px] text-slate-500 leading-relaxed">
                             甄别/绑定错了在这改。会保留这段对话、备注、了解和好感；改成真人会把对话同步进对方手机，原来错绑的角色那边会清掉。
                         </p>
-                        {/* 转为虚构 */}
+                        {/* 转为纯虚构（不绑定任何既有 NPC） */}
                         <button
                             onClick={() => handleRebindContact(selectedContact, { kind: 'npc' })}
-                            disabled={selectedContact.kind === 'npc'}
-                            className={`w-full flex items-center gap-2.5 rounded-xl p-3 border text-left transition ${selectedContact.kind === 'npc' ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
+                            disabled={selectedContact.kind === 'npc' && !selectedContact.linkedNpcId}
+                            className={`w-full flex items-center gap-2.5 rounded-xl p-3 border text-left transition ${selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                             <span className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0"><User size={16} weight="bold" /></span>
                             <div className="min-w-0">
-                                <div className="text-[13px] font-bold text-slate-700">转为虚构联系人</div>
-                                <div className="text-[10px] text-slate-400">不绑定真实角色 · 当成 NPC{selectedContact.kind === 'npc' ? '（当前就是）' : ''}</div>
+                                <div className="text-[13px] font-bold text-slate-700">转为纯虚构联系人</div>
+                                <div className="text-[10px] text-slate-400">不绑定真实角色 / NPC，机主脑补{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（当前就是）' : ''}</div>
                             </div>
                         </button>
                         {/* 绑定到真实角色 */}
@@ -4069,6 +4194,28 @@ ${olderText}
                                             className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                                             <TokenImg value={rc.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                                             <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{rc.name}</span>
+                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {/* 绑定到既有 NPC */}
+                        <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">绑定到 NPC</div>
+                            <div className="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar">
+                                {npcs.length === 0 && (
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">还没有 NPC，请先去「神经链接」→「NPC」分页建一个。</p>
+                                )}
+                                {npcs.map(n => {
+                                    const current = selectedContact.kind === 'npc' && selectedContact.linkedNpcId === n.id;
+                                    return (
+                                        <button key={n.id}
+                                            onClick={() => handleRebindContact(selectedContact, { kind: 'npc', npcId: n.id })}
+                                            disabled={current}
+                                            className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
+                                            <TokenImg value={n.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                            <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
                                             {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
                                         </button>
                                     );

@@ -8,6 +8,7 @@ import { useBlobRefUrl } from '../utils/blobRef';
 import { DB } from '../utils/db';
 import { isChatPreviewMessage } from '../utils/chatMessageVisibility';
 import { CharacterProfile, Anniversary, AppID, DailySchedule } from '../types';
+import { anniversaryCharNames, nextOccurrenceDate } from '../utils/anniversary';
 import { ScheduleHomeWidget, ScheduleFullscreenViewer } from '../components/schedule/ScheduleHomeWidget';
 import NowPlayingSquareWidget from '../components/os/NowPlayingSquareWidget';
 import MobileGameHome from '../components/os/MobileGameHome';
@@ -374,8 +375,8 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
     const todayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const upcomingEvents = useMemo(
         () => [...(anniversaries as any[])]
-            .filter((a: any) => a.date >= todayStr)
-            .sort((a: any, b: any) => a.date.localeCompare(b.date)),
+            .filter((a: any) => nextOccurrenceDate(a, todayStr) >= todayStr)
+            .sort((a: any, b: any) => nextOccurrenceDate(a, todayStr).localeCompare(nextOccurrenceDate(b, todayStr))),
         [anniversaries, todayStr]
     );
     const EVENTS_PER_PAGE = 4;
@@ -406,7 +407,7 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                       {calendarDays.map(day => {
                           const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                           const isToday = day === now.getDate();
-                          const hasEvent = anniversaries.some((a: any) => a.date === dateStr);
+                          const hasEvent = anniversaries.some((a: any) => a.date === dateStr || (a.repeatAnnually && a.date.slice(5) === dateStr.slice(5)));
                           
                           return (
                               <div key={day} className="flex flex-col items-center justify-center h-8 relative">
@@ -459,7 +460,7 @@ const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characte
                               </div>
                               <div className="flex-1 min-w-0">
                                   <div className="text-sm font-bold truncate" style={{ color: contentColor }}>{anni.title}</div>
-                                  <div className="text-[10px] opacity-50 truncate" style={{ color: contentColor }}>{characters.find((c: any) => c.id === anni.charId)?.name || 'Unknown'}</div>
+                                  <div className="text-[10px] opacity-50 truncate" style={{ color: contentColor }}>{anniversaryCharNames(anni, characters)}</div>
                               </div>
                           </div>
                       )) : (
@@ -1034,7 +1035,7 @@ const Launcher: React.FC = () => {
                             char={widgetChar}
                             unreadCount={widgetUnread}
                             lastMessage={lastMessage}
-                            onClick={() => openApp(AppID.Chat)}
+                            onClick={() => openApp(AppID.ChatHub)}
                             contentColor={contentColor}
                             paper={paper}
                         />

@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, ChatTheme, Toast, FullBackupData, UserProfile, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { applyActivePersona } from '../utils/userPersona';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -312,6 +313,12 @@ interface OSContextType {
    * 「仍然删除」= 传 { force: true } 放行）。没有任务的角色维持本地直删的快路径。
    */
   deleteCharacter: (id: string, options?: { force?: boolean }) => Promise<DeleteCharacterResult>;
+
+  /** NPC 档案（神经链接「NPC」分页）。独立于 characters，不参与日程/情绪/主动消息/记忆宫殿。 */
+  npcs: NPCProfile[];
+  addNPC: () => Promise<NPCProfile>;
+  updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
+  deleteNPC: (id: string) => Promise<void>;
   setActiveCharacterId: (id: string) => void;
 
   // 角色分组（神经链接"文件夹"，与群聊 groups 无关）
@@ -347,8 +354,15 @@ interface OSContextType {
   deleteGroup: (id: string) => void;
 
   // User Profile
+  /** 套用了"目前身份卡"之后的用户档案——全站聊天/提示词都读这份。 */
   userProfile: UserProfile;
+  /** 持久化的真实身份（未套用身份卡），只用于"我的档案"里编辑真实姓名/头像/简介，别处不要读这个。 */
+  userProfileBase: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => void;
+  addUserPersona: (name: string, avatar: string, bio: string) => Promise<UserPersona>;
+  updateUserPersona: (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteUserPersona: (id: string) => Promise<void>;
+  setActivePersonaId: (id: string | undefined) => Promise<void>;
 
   availableModels: string[];
   setAvailableModels: (models: string[]) => void;
@@ -444,6 +458,11 @@ interface OSContextType {
   dateAutoStartCharId: string | null;
   openDateWithChar: (charId: string) => void;
   consumeDateAutoStart: () => void;
+  /** Chat 主页「消息」tab 点群聊行时用：GroupChat 自己的列表/详情态是内部 state，没有外部深链机制，
+   *  借这个字段告诉它"打开就直接进这个群"，消费掉即清空，不影响群内后续手动切换。 */
+  pendingGroupChatId: string | null;
+  openGroupChat: (groupId: string) => void;
+  consumePendingGroupChat: () => void;
 }
 
 const PREVIOUS_DEFAULT_WALLPAPER = [
@@ -901,6 +920,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
+  const [npcs, setNpcs] = useState<NPCProfile[]>([]);
   const [activeCharacterId, setActiveCharacterId] = useState<string>('');
 
   // 刷新后能恢复"上一次聊的角色"：所有调用方（聊天切换/通知 onclick/记忆宫殿 handleSwitchChar）
@@ -917,8 +937,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [novels, setNovels] = useState<NovelBook[]>([]); // New
   const [songs, setSongs] = useState<SongSheet[]>([]);
 
-  const [userProfile, setUserProfile] = useState<UserProfile>(defaultUserProfile);
-  
+  // userProfileBase 是持久化的真实身份；userProfile（下面 useMemo）是套用了"目前身份卡"之后
+  // 全站实际读到的那份——两者只在 name/avatar/bio 上可能不同，其余字段永远一致。
+  const [userProfileBase, setUserProfileBase] = useState<UserProfile>(defaultUserProfile);
+  const userProfile = useMemo(() => applyActivePersona(userProfileBase), [userProfileBase]);
+
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [apiPresets, setApiPresets] = useState<ApiPreset[]>([]);
@@ -970,6 +993,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [suspendedCall, setSuspendedCall] = useState<{ charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] } | null>(null);
   // 聊天「见面」按钮 → 见面：记录目标角色，DateApp 挂载后消费一次并自动进入见面
   const [dateAutoStartCharId, setDateAutoStartCharId] = useState<string | null>(null);
+  const [pendingGroupChatId, setPendingGroupChatId] = useState<string | null>(null);
 
   const sendProactiveNativeNotification = useCallback(async (charId: string, charName: string, body: string) => {
       if (!Capacitor.isNativePlatform()) return;
@@ -1585,7 +1609,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             }
         };
 
-        const [dbChars, dbThemes, dbUser, dbGroups, dbWorldbooks, dbNovels, dbSongs, dbCharGroups] = await Promise.all([
+        const [dbChars, dbThemes, dbUser, dbGroups, dbWorldbooks, dbNovels, dbSongs, dbCharGroups, dbNpcs] = await Promise.all([
             settle(DB.getAllCharacters(), 'characters', [] as CharacterProfile[]),
             settle(DB.getThemes(), 'themes', [] as ChatTheme[]),
             settle(DB.getUserProfile(), 'userProfile', null as UserProfile | null),
@@ -1593,8 +1617,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             settle(DB.getAllWorldbooks(), 'worldbooks', [] as Worldbook[]),
             settle(DB.getAllNovels(), 'novels', [] as NovelBook[]),
             settle(DB.getAllSongs(), 'songs', [] as SongSheet[]),
-            settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[])
+            settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[]),
+            settle(DB.getAllNPCs(), 'npcs', [] as NPCProfile[])
         ]);
+        setNpcs(dbNpcs);
 
         let finalChars = dbChars;
 
@@ -1703,7 +1729,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setNovels(dbNovels);
         setSongs(dbSongs);
         setCustomThemes(dbThemes);
-        if (dbUser) setUserProfile(dbUser);
+        if (dbUser) setUserProfileBase(dbUser);
 
         // amsg2 脏标记兜底补传：上次会话打了脏、但请求还没落地（在飞或躺在退避重排里）
         // 就被杀进程的角色，按 localStorage 底账用刚从 DB 读回的数据重建快照传一次。
@@ -1713,7 +1739,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const savedApiRaw = localStorage.getItem('os_api_config');
           resumePendingAmsgStateSync({
             characters: finalChars,
-            userProfile: dbUser ?? defaultUserProfile,
+            userProfile: applyActivePersona(dbUser ?? defaultUserProfile),
             groups: dbGroups,
             realtimeConfig: savedRealtime
               ? { ...defaultRealtimeConfig, ...JSON.parse(savedRealtime) }
@@ -3268,6 +3294,41 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return { status: 'deleted' };
   };
 
+  // NPC 档案（神经链接「NPC」分页）。刻意不带 amsg2/云端善后那一整套——NPC 没有
+  // 主动消息任务、没有云端 client_state，本地增删改直接落库即可。
+  const addNPC = async (): Promise<NPCProfile> => {
+    const name = '新 NPC';
+    const now = Date.now();
+    const newNpc: NPCProfile = {
+      id: `npc-${now}`,
+      name,
+      avatar: generateAvatar(name),
+      description: '',
+      relationships: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setNpcs(prev => [...prev, newNpc]);
+    await DB.saveNPC(newNpc);
+    return newNpc;
+  };
+
+  const updateNPC = (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => {
+    setNpcs(prev => {
+      const updated = prev.map(n => n.id === id
+        ? { ...n, ...(typeof updates === 'function' ? updates(n) : updates), updatedAt: Date.now() }
+        : n);
+      const target = updated.find(n => n.id === id);
+      if (target) DB.saveNPC(target);
+      return updated;
+    });
+  };
+
+  const deleteNPC = async (id: string) => {
+    setNpcs(prev => prev.filter(n => n.id !== id));
+    await DB.deleteNPC(id);
+  };
+
   // 角色分组方法（神经链接"文件夹"）
   const createCharacterGroup = async (name: string): Promise<CharacterGroup | null> => {
       const trimmed = name.trim();
@@ -3421,16 +3482,43 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => {
-       setUserProfile(prev => {
+       setUserProfileBase(prev => {
            const patch = typeof updates === 'function' ? updates(prev) : updates;
            const next = { ...prev, ...patch };
           // 用户资料是所有角色共享的素材（名字、人设直接烤进 fire_pack 模板），改完不打脏的话
           // 角色到点还按旧名字叫你。仿表情库：逐个打脏，没开 2.0 的角色被 markDirty 的门筛掉。
+          // 传 next（未套用任何身份的那份）——markAmsgStateDirtyForAll 会按每个角色自己的
+          // 分角色身份指定各自解析，云端主动消息才会看到那个角色该看到的那张身份卡的名字。
           DB.saveUserProfile(next).then(() => {
-              markAmsgStateDirtyForAll({ characters, userProfile: next, groups, realtimeConfig });
+              markAmsgStateDirtyForAll({ characters, userProfileBase: next, groups, realtimeConfig });
           });
           return next;
       });
+  };
+
+  const addUserPersona = async (name: string, avatar: string, bio: string): Promise<UserPersona> => {
+      const now = Date.now();
+      const persona: UserPersona = { id: `persona-${now}-${Math.random().toString(36).slice(2, 7)}`, name, avatar, bio, createdAt: now, updatedAt: now };
+      await updateUserProfile(prev => ({ personas: [...(prev.personas || []), persona] }));
+      return persona;
+  };
+
+  const updateUserPersona = async (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => {
+      await updateUserProfile(prev => ({
+          personas: (prev.personas || []).map(p => p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p),
+      }));
+  };
+
+  const deleteUserPersona = async (id: string) => {
+      await updateUserProfile(prev => ({
+          personas: (prev.personas || []).filter(p => p.id !== id),
+          // 删掉的正好是目前生效的身份卡时，回落到真实身份，别让 activePersonaId 悬空指向不存在的卡。
+          activePersonaId: prev.activePersonaId === id ? undefined : prev.activePersonaId,
+      }));
+  };
+
+  const setActivePersonaId = async (id: string | undefined) => {
+      await updateUserProfile({ activePersonaId: id });
   };
   const addCustomTheme = async (theme: ChatTheme) => { setCustomThemes(prev => { const exists = prev.find(t => t.id === theme.id); if (exists) return prev.map(t => t.id === theme.id ? theme : t); return [...prev, theme]; }); await DB.saveTheme(theme); };
   const removeCustomTheme = async (id: string) => { setCustomThemes(prev => prev.filter(t => t.id !== id)); await DB.deleteTheme(id); };
@@ -3849,7 +3937,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const allStores = [
               // character_groups（角色分组定义）必须与 characters 同进退：
               // 角色身上的 groupId 指向这张表，漏导会让导入端全员回落「未分组」
-              'characters', 'character_groups', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
+              // npcs（神经链接「NPC」分页，独立于 characters）同理必须一起带走，否则整合导出
+              // 之后再导入，NPC 名单会清空——查手机联系人的 linkedNpcId 也会全部悬空。
+              'characters', 'character_groups', 'npcs', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
               'user_profile', 'diaries', 'tasks', 'anniversaries', 'room_todos',
               'room_notes', 'groups', 'journal_stickers', 'social_posts', 'courses', 'games', 'worldbooks', 'story_theaters', 'story_theater_presets', 'story_theater_masks', 'novels', 'songs',
               'bank_transactions', 'bank_data',
@@ -3880,7 +3970,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               storesToProcess = allStores.filter(s => s !== 'assets'); // Exclude raw assets store
           } else if (mode === 'media_only') {
               // media_only now includes themes/assets for complete media backup
-              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'messages', 'themes', 'assets', 'bank_data',
+              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'npcs', 'messages', 'themes', 'assets', 'bank_data',
                   'pixel_home_assets', 'pixel_home_layouts', 'daily_schedule', 'cc_custom_parts'];
           }
 
@@ -4199,6 +4289,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const textOnlyFieldByStore: Record<string, string> = {
               characters: 'characters',
               character_groups: 'characterGroups',
+              npcs: 'npcs',
               messages: 'messages',
               themes: 'customThemes',
               emojis: 'savedEmojis',
@@ -4436,6 +4527,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'characters': if(mode !== 'media_only') backupData.characters = processedData; break;
                   // 角色分组定义 —— 键名须与 importFullData 读取的字段（data.characterGroups）对齐
                   case 'character_groups': backupData.characterGroups = processedData; break;
+                  case 'npcs': backupData.npcs = processedData; break;
                   case 'messages': backupData.messages = processedData; break;
                   case 'themes': backupData.customThemes = processedData; break;
                   case 'emojis': backupData.savedEmojis = processedData; break;
@@ -5135,7 +5227,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           if (groupsList.length > 0) setGroups(groupsList);
           if (themes.length > 0) setCustomThemes(themes);
-          if (user) setUserProfile(user);
+          if (user) setUserProfileBase(user);
           if (books.length > 0) setWorldbooks(books);
           if (novelList.length > 0) setNovels(novelList);
           if (songList.length > 0) setSongs(songList);
@@ -5162,7 +5254,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 有 AI 任务的角色才会真的上传（门在 markAmsgStateDirty 里）。
                   syncAmsgToolConfigAndPrompts(
                       data.realtimeConfig || realtimeConfig,
-                      { characters: importedChars, userProfile: user || userProfile, groups: groupsList },
+                      { characters: importedChars, userProfile: applyActivePersona(user || userProfile), groups: groupsList },
                   );
               }
           } catch (e) {
@@ -5201,6 +5293,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setActiveApp(AppID.Date);
   };
   const consumeDateAutoStart = () => setDateAutoStartCharId(null);
+  const openGroupChat = (groupId: string) => {
+    setPendingGroupChatId(groupId);
+    setActiveApp(AppID.GroupChat);
+  };
+  const consumePendingGroupChat = () => setPendingGroupChatId(null);
   const unlock = () => setIsLocked(false);
 
   const suspendCall = (info: { charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] }) => {
@@ -5253,6 +5350,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateCharacter,
     deleteCharacter,
     setActiveCharacterId,
+    npcs,
+    addNPC,
+    updateNPC,
+    deleteNPC,
     characterGroups,
     createCharacterGroup,
     renameCharacterGroup,
@@ -5276,7 +5377,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateGroup,
     deleteGroup,
     userProfile,
+    userProfileBase,
     updateUserProfile,
+    addUserPersona,
+    updateUserPersona,
+    deleteUserPersona,
+    setActivePersonaId,
     availableModels,
     setAvailableModels,
     apiPresets,
@@ -5331,7 +5437,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     clearSuspendedCall,
     dateAutoStartCharId,
     openDateWithChar,
-    consumeDateAutoStart
+    consumeDateAutoStart,
+    pendingGroupChatId,
+    openGroupChat,
+    consumePendingGroupChat
   };
 
   return (

@@ -15,6 +15,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // evolveFlowNarrative 保留为低频深刷新备用，日常意识流由副 API 的情绪评估同轮产出（innerState 字段）
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
 // UI 钩子工具 propose_cart_items。MCP 实际调用都在 McdMiniApp 组件内做, useChatAI
@@ -738,7 +739,8 @@ export const useChatAI = ({
         // 早退路径也要熄「发送准备中」灯: caller (Chat.tsx) 是先 setInstantSendingActive(true)
         // 再调 triggerAI 的, 这里 return 掉而不通知的话指示灯会永远亮着。
         if (isTyping || !char) { onInstantPosted?.(); return; }
-        const effectiveApi = overrideApiConfig || apiConfig;
+        // 显式传入的 override > 角色专属 API（聊天设置里的「对话模型」）> 全局 apiConfig。
+        const effectiveApi = overrideApiConfig || resolveCharacterChatApi(char, apiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); onInstantPosted?.(); return; }
 
         // 重 roll（回溯重生）时不带入上一轮的情绪余波：清掉 buff 注入（buffInjection/activeBuffs）和
@@ -992,6 +994,7 @@ export const useChatAI = ({
                 htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                 thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                 visionApiConfig: apiConfig.visionApi,
+                imageGenConfig: apiConfig.imageGenConfig,
                 mcdMiniSnap: mcdMiniOpen ? mcdMiniSnap : undefined,
                 luckinMiniSnap: luckinMiniOpen ? luckinMiniSnap : undefined,
                 luckinChat: luckinChatOn ? luckinChatRef?.current : undefined,
@@ -2100,6 +2103,7 @@ export const useChatAI = ({
                 emojis,
                 categories,
                 realtimeConfig,
+                imageGenConfig: apiConfig.imageGenConfig,
                 groups,
                 contextMsgs,
                 fullMessages,

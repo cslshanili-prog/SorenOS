@@ -2,6 +2,7 @@ import type {
     CharacterProfile,
     Message,
     MountedWorldbook,
+    NPCProfile,
     StoryTheaterEntry,
     StoryTheaterMask,
     StoryTheaterMaskSelection,
@@ -181,6 +182,7 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     openingMode: 'user',
     mask: { type: 'user' },
     characterIds: [],
+    npcIds: [],
     writesToCharacterMemory: false,
     characterMemoryDates: {},
     carryCharacterMemory: false,
@@ -211,6 +213,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
                 ? { type: 'custom', id: entry.mask.id }
                 : { type: 'user' },
         characterIds: Array.isArray(entry.characterIds) ? entry.characterIds.filter(Boolean) : [],
+        npcIds: Array.isArray(entry.npcIds) ? entry.npcIds.filter(Boolean) : [],
         writesToCharacterMemory: entry.writesToCharacterMemory === true,
         characterMemoryDates: entry.characterMemoryDates || {},
         carryCharacterMemory: entry.writesToCharacterMemory ? true : entry.carryCharacterMemory !== false,
@@ -1170,6 +1173,34 @@ export const buildBareTheaterActorContext = (char: CharacterProfile): string => 
     `- 核心指令：\n${char.systemPrompt || '无额外核心指令'}`,
     char.worldview?.trim() ? `- 世界观：\n${char.worldview.trim()}` : '',
 ].filter(Boolean).join('\n');
+
+/**
+ * 剧情客串 NPC 的轻量上下文块——不走 ContextBuilder.buildCoreContext（NPCProfile 没有
+ * systemPrompt/记忆宫殿/世界书这套），只取 NPCProfile 自身的设定字段，跟群聊「NPC 客串」
+ * (utils/npcGroupGuestLine.ts) 用的是同一种"轻量素材"思路。没有独立记忆输入输出、
+ * 不追踪好感度，标题特意跟 buildBareTheaterActorContext 的 `### 剧情角色：` 区分开，
+ * 让模型知道这是戏份更轻的客串，不用当成主角经营完整人物弧光。
+ */
+export const buildTheaterNpcContext = (
+    npc: NPCProfile,
+    userName: string,
+    sceneCharacters: Pick<CharacterProfile, 'id' | 'name'>[],
+): string => {
+    const relationshipNote = npc.relationships
+        .filter(r => r.targetId === 'user' || sceneCharacters.some(c => c.id === r.targetId))
+        .map(r => r.targetId === 'user'
+            ? `对「${userName}」：${r.description}`
+            : `对「${sceneCharacters.find(c => c.id === r.targetId)?.name || '在场角色'}」：${r.description}`)
+        .join('\n');
+    return [
+        `### 剧情客串角色：${npc.name}（非常驻演员，戏份比主角轻，按需自然出场即可）`,
+        `- 名字：${npc.name}`,
+        npc.description?.trim() ? `- 设定：\n${npc.description.trim()}` : '',
+        npc.worldview?.trim() ? `- 世界观：\n${npc.worldview.trim()}` : '',
+        relationshipNote ? `- 关系：\n${relationshipNote}` : '',
+        '- 这是客串角色：没有独立记忆输入输出、不追踪好感度，只按以上设定自然参与本场剧情即可。',
+    ].filter(Boolean).join('\n');
+};
 
 export const buildStoryActorMemoryEnvelope = (
     characterName: string,
