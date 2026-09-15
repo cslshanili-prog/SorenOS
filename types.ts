@@ -2286,6 +2286,14 @@ export interface StoryTheaterEntry {
     /** 本剧情中用户执笔的身份；缺省时使用真实用户档案。 */
     mask?: StoryTheaterMaskSelection;
     characterIds: string[];
+    /**
+     * 客串出场的 NPC（神经链接「NPC」分页的 NPCProfile.id，非 characterIds）。目前只有
+     * 「真实时间陪伴」（writesToCharacterMemory=true）的编辑器会露出选择入口，但读取侧
+     * 不按模式过滤——手改/导入数据时也能正常生效。NPC 没有独立记忆输入输出、不进
+     * applyActorMemoryPipeline / 好感度系统，只作为轻量客串角色注入 actorContext，
+     * 见 utils/storyTheater.ts 的 buildTheaterNpcContext。缺省 = 没有 NPC 客串。
+     */
+    npcIds?: string[];
     /** true=像【陪伴】一样，把第三人称正文分别写入每个角色的正常记忆流。 */
     writesToCharacterMemory: boolean;
     /** 每位演员各自的剧情时间锚点（datetime-local 字符串），允许跨时区/跨世界线。 */

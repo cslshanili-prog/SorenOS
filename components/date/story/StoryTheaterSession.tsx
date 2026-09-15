@@ -3,7 +3,7 @@ import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTI
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
-import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
+import type { CharacterProfile, Message, NPCProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
 import { DB } from '../../../utils/db';
 import { ContextBuilder } from '../../../utils/context';
 import { safeResponseJson, extractContent } from '../../../utils/safeApi';
@@ -20,6 +20,7 @@ import {
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,
     buildStoryWorldbookScanMessages,
+    buildTheaterNpcContext,
     buildTheaterPersona,
     buildTheaterWorldbookSlots,
     compileStoryPreset,
@@ -272,9 +273,13 @@ const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) => void
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onEntryChange }) => {
-    const { characters, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
+    const { characters, npcs, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
+    // 客串 NPC：只作为轻量补充出现在 actorContext / 名单类提示词里，不进记忆、好感度、
+    // 世界书挂载或归档——那些管道就是围绕 actors（真角色）设计的，见 buildActorContexts。
+    const npcActors = useMemo(() => npcs.filter(npc => (entry.npcIds || []).includes(npc.id)), [npcs, entry.npcIds]);
+    const sceneActorNames = useMemo(() => [...actors, ...npcActors].map(a => a.name), [actors, npcActors]);
     const memoryActors = useMemo(() => {
         const recipientIds = new Set(storyTheaterMemoryRecipientIds(entry));
         return characters.filter(char => recipientIds.has(char.id));
@@ -448,7 +453,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         setExporting(true);
         try {
             const result = await shareOrDownloadFile({
-                content: formatStoryTheaterExport(entry, mask.name, actors.map(actor => actor.name), messages),
+                content: formatStoryTheaterExport(entry, mask.name, sceneActorNames, messages),
                 fileName: makeStoryTheaterFileName(entry.title),
                 mimeType: 'text/plain;charset=utf-8',
                 shareTitle: `${entry.title || '未命名剧情'}的完整原文`,
@@ -460,7 +465,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setExporting(false);
         }
-    }, [actors, addToast, entry, exporting, mask.name, messages]);
+    }, [addToast, entry, exporting, mask.name, messages, sceneActorNames]);
 
     const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<string> => {
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true);
@@ -522,8 +527,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             }, { skipTimeAwareness: true });
             blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, mask.name)}`.trim());
         }
+        for (const npc of npcActors) blocks.push(buildTheaterNpcContext(npc, userProfile.name, actors));
         return blocks.join('\n\n---\n\n');
-    }, [actors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || !mask.characterId) return '';
@@ -709,11 +715,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 visibleHistory.map(message => ({ role: message.role, content: message.content })),
                 modelText,
             );
-            const worldbookSlots = buildTheaterWorldbookSlots(selectedBooks, worldbookScanMessages, promptIdentityName, actors.map(actor => actor.name));
+            const worldbookSlots = buildTheaterWorldbookSlots(selectedBooks, worldbookScanMessages, promptIdentityName, sceneActorNames);
             const compiled = compileStoryPreset({
                 preset: effectivePreset,
                 userName: promptIdentityName,
-                characterNames: actors.map(actor => actor.name),
+                characterNames: sceneActorNames,
                 slots: {
                     actors: actorContext,
                     persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
@@ -723,11 +729,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     history: textFromHistory(visibleHistory, promptIdentityName),
                 },
             });
-            const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, actors.map(actor => actor.name));
+            const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, sceneActorNames);
             const backstageAftermathReminder = buildStoryBackstageAftermathReminder(effectivePreset.document);
             const multiAffinityGuide = affinityEnabled ? buildStoryMultiAffinityGuide(actors.map(actor => ({ id: actor.id, name: actor.name }))) : '';
             const affinityAwarenessReminder = affinityInputs.map(item => buildStoryAffinityAwarenessReminder(item, item.characterName || '当前角色')).filter(Boolean).join('\n\n');
-            const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, actors.map(actor => actor.name));
+            const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, sceneActorNames);
             const modelInput = appendStoryAffinityInputs(modelText, affinityInputs);
             const payloadBeforeTurn = [
                 ...compiled.messages,
@@ -797,7 +803,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setSending(false);
             setRerollingId(null);
         }
-    }, [actors, addToast, affinityDrafts, affinityEnabled, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, selectedBooks, threadId]);
+    }, [actors, addToast, affinityDrafts, affinityEnabled, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, sceneActorNames, selectedBooks, threadId]);
 
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages);
@@ -821,8 +827,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             </div>
             <details className='group'>
                 <summary className='list-none cursor-pointer px-5 pb-3 flex items-center gap-3'>
-                    <span className='flex -space-x-1.5 shrink-0'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' /> : <span className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{mask.name.slice(0, 1)}</span>}{actors.slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
-                    <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{actors.map(actor => actor.name).join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真实时间陪伴' : '虚构剧场'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小剧场[｜·]?\s*/, '')}` : ''}</span></span>
+                    <span className='flex -space-x-1.5 shrink-0'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' /> : <span className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{mask.name.slice(0, 1)}</span>}{[...actors, ...npcActors].slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
+                    <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{sceneActorNames.join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真实时间陪伴' : '虚构剧场'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小剧场[｜·]?\s*/, '')}` : ''}</span></span>
                     <span className='shrink-0 text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本轮实际使用的完整上下文' : '按本轮完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
                     <CaretDown size={13} className='shrink-0 text-slate-400 transition-transform group-open:rotate-180' />
                 </summary>
