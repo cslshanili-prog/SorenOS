@@ -174,7 +174,7 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
             <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
                 <div className="min-w-0 flex-1 pr-3">
                     <p className="text-xs font-bold text-slate-700">允許角色發圖</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">角色在聊天裡自主決定發圖，暫未接入自動發送流程，後續版本再接。</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">角色在聊天裡自主決定發圖並直接發送。僅接入本地/前台聊天（含即時對話），主動消息 2.0 雲端背景生成暫未接入。</p>
                 </div>
                 <button
                     onClick={() => setCharImageSendEnabled(v => !v)}

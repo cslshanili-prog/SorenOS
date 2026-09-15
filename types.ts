@@ -264,7 +264,13 @@ export interface VisionApiConfig {
 export interface ImageGenApiConfig {
   /** 总开关：允许调用生图 API（角色/用户手动生图都受它管）。 */
   charImageGenEnabled?: boolean;
-  /** 允许角色在聊天中自主决定发图（预留字段，聊天管线的自动发图接入见后续版本）。 */
+  /**
+   * 允许角色在聊天中自主决定发图。开启后（且 baseUrl/model 都配好）会在聊天 system prompt 里
+   * 教角色 `[[ACTION:SEND_PHOTO|画面描述]]`，由 utils/chatParser.ts 执行：调生图 API、把结果
+   * 存成一条 'image' 消息发出去。目前只接入本地/前台聊天（含即时对话 worker 代理转发）路径；
+   * 主动消息 2.0 的云端后台生成（worker 自己把副作用结构化成 directives 重放那条路）
+   * 还没教这个动作，见 utils/activeMsgClient.ts 的 fire_pack 模板未传 imageGenConfig。
+   */
   charImageSendEnabled?: boolean;
   baseUrl?: string;
   apiKey?: string;

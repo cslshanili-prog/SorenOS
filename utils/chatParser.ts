@@ -1,11 +1,13 @@
 
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { CharacterProfile, CharPlaylistSong } from '../types';
+import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig } from '../types';
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
+import { generateImage, buildCharacterImagePrompt } from './imageGeneration';
+import { migrateDataUrlToRef } from './blobRef';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
     collaborationFileMessageMetadata,
@@ -161,6 +163,12 @@ export const ChatParser = {
          * 只有主动消息 2.0 的定时路径传，其余路径不传 = 取用户此刻在听的那首。
          */
         frozenMusicSong?: FrozenMusicSong,
+        /**
+         * 「系统设置 → 生图API」配置。传了且角色发图开关都开着，才会真的执行
+         * `[[ACTION:SEND_PHOTO|画面描述]]`；不传（或配置不全）时静默剥掉标签、不生成——
+         * 教没教角色这个动作是 chatPrompts.ts 的事，这里只负责「教了就要能兑现」。
+         */
+        imageGenConfig?: ImageGenApiConfig,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -209,6 +217,42 @@ export const ChatParser = {
         if (content.includes('[[ACTION:POKE]]')) {
             await persist({ charId, role: 'assistant', type: 'interaction', content: '[戳一戳]' });
             content = content.replace('[[ACTION:POKE]]', '').trim();
+        }
+
+        // SEND_PHOTO — 角色自主发图。教没教这个动作在 chatPrompts.ts（取决于生图开关+配置是否
+        // 齐全）；这里只要看到标签就按 imageGenConfig 有没有传、配得全不全来决定真生成还是
+        // 静默剥掉——没传等于「没接生图」，避免标签原样漏进气泡里。
+        const photoMatches = [...content.matchAll(/\[\[ACTION:SEND_PHOTO\s*\|\s*(.*?)\s*\]\]/g)];
+        if (photoMatches.length > 0) {
+            for (const m of photoMatches) content = content.replace(m[0], '').trim();
+            const canGenerate = !!(
+                imageGenConfig?.charImageGenEnabled && imageGenConfig?.charImageSendEnabled
+                && imageGenConfig?.baseUrl && imageGenConfig?.model
+            );
+            if (canGenerate) {
+                // 挨个顺序生成、发送——生图是要花钱的网络请求，不并发抢速度；一轮回复里
+                // 角色想发好几张也不至于同时炸出去一堆请求。
+                for (const m of photoMatches) {
+                    const description = m[1].trim();
+                    if (!description) continue;
+                    try {
+                        const chars = await DB.getAllCharacters();
+                        const charProfile = chars.find(c => c.id === charId);
+                        const prompt = charProfile ? buildCharacterImagePrompt(charProfile, description) : description;
+                        const { dataUrl } = await generateImage(imageGenConfig!, prompt);
+                        const storedContent = await migrateDataUrlToRef(dataUrl);
+                        await persist({
+                            charId, role: 'assistant', type: 'image', content: storedContent,
+                            metadata: { aiGenerated: true, imagePrompt: description },
+                        });
+                    } catch (error) {
+                        console.warn('[ChatParser] 角色发图失败:', error);
+                        addToast(`${charName} 想发张照片，但生成失败了`, 'error');
+                    }
+                }
+            } else {
+                console.warn('[ChatParser] 角色想发图，但生图未开启/未配置完整，已忽略标签', { charId });
+            }
         }
 
         // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一笔待处理的转账。
