@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useOS } from '../context/OSContext';
+import { AppID } from '../types';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
 import LifeRecordPanel from '../components/lifeRecord/LifeRecordPanel';
 import PerCharAvatarPicker from '../components/user/PerCharAvatarPicker';
 import PerCharPersonaPicker from '../components/user/PerCharPersonaPicker';
@@ -11,15 +13,22 @@ import { trackEvent } from '../utils/analytics';
 const UserApp: React.FC = () => {
     // userProfile 是套用了「目前身份」之后的那份——顶部这张卡只读显示当前生效的身份，
     // 编辑统一去下面「身份卡」（含真实身份自己的名字/头像/简介），选哪张就显示哪张。
-    const { closeApp, userProfile } = useOS();
+    const { closeApp, openApp, userProfile } = useOS();
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
+
+    // 从 Chat 主页「主页」tab 点进来的，返回键回 Chat 主页而不是无脑回桌面；
+    // 别的入口（设置里的快捷方式等）没设这个，行为不变。
+    const handleClose = useCallback(() => {
+        const target = chatReturnTarget.consume();
+        if (target) openApp(target); else closeApp();
+    }, [openApp, closeApp]);
 
     return (
         <div className="h-full w-full bg-slate-50 flex flex-col animate-fade-in">
             {/* Header */}
             <div className="bg-white/70 backdrop-blur-md border-b border-slate-100 shrink-0 sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center px-4 py-3 gap-2">
-                    <button onClick={closeApp} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
+                    <button onClick={handleClose} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-6 h-6 text-slate-600">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                         </svg>

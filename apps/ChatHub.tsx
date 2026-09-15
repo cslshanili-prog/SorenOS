@@ -168,7 +168,7 @@ const ChatHub: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                             </svg>
                         </button>
-                        <button onClick={() => openApp(AppID.User)} className="flex items-center gap-2.5 active:opacity-70 transition-opacity">
+                        <button onClick={() => { chatReturnTarget.set(AppID.ChatHub); openApp(AppID.User); }} className="flex items-center gap-2.5 active:opacity-70 transition-opacity">
                             <TokenImg value={userProfile.avatar} className="w-9 h-9 rounded-full object-cover bg-slate-100" alt="" />
                             <div className="text-left">
                                 <div className="text-sm font-bold text-slate-800 leading-tight">{userProfile.name || '未设置身份'}</div>
@@ -318,13 +318,12 @@ const ChatHub: React.FC = () => {
                 {tab === 'profile' && (
                     <div className="px-5 pt-4 pb-8 space-y-4">
                         <button
-                            onClick={() => openApp(AppID.User)}
+                            onClick={() => { chatReturnTarget.set(AppID.ChatHub); openApp(AppID.User); }}
                             className="w-full bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-5 flex items-center gap-4 text-left active:scale-[0.99] transition-transform"
                         >
                             <TokenImg value={userProfile.avatar} className="w-16 h-16 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
                             <div className="min-w-0 flex-1">
                                 <div className="text-base font-bold text-slate-800 truncate">{userProfile.name || '未设置身份'}</div>
-                                <div className="text-[11px] text-slate-400 truncate mt-0.5">{userProfile.bio || '点击进入个人档案 · 身份卡管理'}</div>
                             </div>
                             <UserCircle size={22} className="text-slate-300 shrink-0" />
                         </button>
