@@ -3460,6 +3460,14 @@ export interface UserProfile {
      * 删角色/删身份卡留下的孤儿键无害，读取端会自动回落到全域默认。
      */
     perCharPersonaIds?: Record<string, string>;
+    /**
+     * 群聊身份指定（档案 App「分角色身份指定」）：groupId → 身份卡 id，或
+     * utils/userPersona.ts 的 REAL_IDENTITY_PERSONA_ID。跟 perCharPersonaIds 是两个
+     * 独立的 map（群聊没有 perCharAvatars 那层——群聊头像本来就一直用整体默认，不因为
+     * 这个字段变），键是 groupId 不是 charId。解析统一走 resolveUserProfileForGroup()。
+     * 没有这个群的键 = 跟全域默认（activePersonaId）走。
+     */
+    perGroupPersonaIds?: Record<string, string>;
 }
 
 export interface UserPersona {

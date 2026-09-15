@@ -6,6 +6,7 @@ import { chatReturnTarget } from '../utils/chatReturnTarget';
 import LifeRecordPanel from '../components/lifeRecord/LifeRecordPanel';
 import PerCharAvatarPicker from '../components/user/PerCharAvatarPicker';
 import PerCharPersonaPicker from '../components/user/PerCharPersonaPicker';
+import PerGroupPersonaPicker from '../components/user/PerGroupPersonaPicker';
 import UserPersonaPanel from '../components/user/UserPersonaPanel';
 import TokenImg from '../components/os/TokenImg';
 import { trackEvent } from '../utils/analytics';
@@ -81,6 +82,9 @@ const UserApp: React.FC = () => {
 
                 {/* 分角色身份指定：给某个角色单独绑一张身份卡，不跟着上面的全域切换走 */}
                 <PerCharPersonaPicker />
+
+                {/* 群聊身份指定：跟分角色身份指定同一个概念，键换成 groupId */}
+                <PerGroupPersonaPicker />
 
                 {/* 分角色聊天头像：上面的头像是宏观默认，这里可给每个角色的私聊单独换「你」的头像 */}
                 <PerCharAvatarPicker />

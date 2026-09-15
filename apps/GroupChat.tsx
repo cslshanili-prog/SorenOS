@@ -23,6 +23,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effective
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
+import { resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
@@ -482,12 +483,18 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, userProfileBase, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     // 从 Chat 主页深链进某个群时记一下"返回键该回哪"；本群列表内部正常点进/退出都不涉及它，
     // 只有通过 pendingGroupChatId 深链进来的那次会话才设置，用一次就清空。
     const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
+    // 群聊身份指定：这个群里「你」该是哪张身份卡，按 activeGroup.id 单独解析——不看全域默认，
+    // 除非这个群没有单独指定。群聊没有 perCharAvatars 那层（群聊头像一直用整体默认）。
+    const groupUserProfile = useMemo(
+        () => (activeGroup ? resolveUserProfileForGroup(userProfileBase, activeGroup.id) : userProfile),
+        [activeGroup, userProfileBase, userProfile],
+    );
     const [messages, setMessages] = useState<Message[]>([]);
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const MESSAGE_PAGE_SIZE = 50;
@@ -517,9 +524,9 @@ const GroupChat: React.FC = () => {
     const markGroupMembersDirty = useCallback((memberIds: string[]) => {
         for (const memberId of memberIds) {
             const member = charactersRef.current.find(c => c.id === memberId);
-            if (member) markAmsgStateDirty({ char: member, userProfile, groups, realtimeConfig });
+            if (member) markAmsgStateDirty({ char: member, userProfile: groupUserProfile, groups, realtimeConfig });
         }
-    }, [userProfile, groups, realtimeConfig]);
+    }, [groupUserProfile, groups, realtimeConfig]);
 
     // Token 统计 — 对齐私聊 ChatHeader 的 token badge
     const [lastTokenUsage, setLastTokenUsage] = useState<number | null>(null);
@@ -1033,8 +1040,8 @@ const GroupChat: React.FC = () => {
     // --- Logic: 红包 2.0 ---
 
     const nameOf = useCallback(
-        (id: string) => (id === 'user' ? userProfile.name : (characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '成员')),
-        [characters, npcs, userProfile.name],
+        (id: string) => (id === 'user' ? groupUserProfile.name : (characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '成员')),
+        [characters, npcs, groupUserProfile.name],
     );
 
     // NPC 客串：不是正式群成员，手动触发才插一句话，不进轮询/记忆宫殿/成员时间线。
@@ -1051,7 +1058,7 @@ const GroupChat: React.FC = () => {
                 .map(m => `${nameOf(m.charId)}: ${messageLogText(m, url => stickerNameFromUrl(emojis, url))}`)
                 .join('\n');
             const line = await generateNpcGroupGuestLine({
-                npc, groupName: activeGroup.name, members: groupMembers, userName: userProfile.name,
+                npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
                 recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
             });
             if (!line.trim()) { addToast('NPC 没接上话', 'error'); return; }
@@ -1127,12 +1134,12 @@ const GroupChat: React.FC = () => {
             };
             addToast(reasonText[outcome.reason] || '操作失败', 'info');
         } else {
-            const senderName = msg.role === 'user' ? userProfile.name : nameOf(msg.charId);
+            const senderName = msg.role === 'user' ? groupUserProfile.name : nameOf(msg.charId);
             const receipt: PacketReceiptMeta = {
                 packetReceipt: outcome.action,
                 ref: msg.id,
                 amount: outcome.action === 'claimed' ? outcome.amount : undefined,
-                claimantName: userProfile.name,
+                claimantName: groupUserProfile.name,
                 senderName,
             };
             await DB.saveMessage({
@@ -1255,7 +1262,7 @@ const GroupChat: React.FC = () => {
         const weekNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
         const currentTimeStr = `${nowDate.getFullYear()}年${nowDate.getMonth() + 1}月${nowDate.getDate()}日 ${weekNames[nowDate.getDay()]} ${virtualTime.hours.toString().padStart(2, '0')}:${virtualTime.minutes.toString().padStart(2, '0')}`;
         const liveMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
-        const sharedScene = ContextBuilder.buildGroupSharedScene(groupMembers, userProfile, liveMsgs);
+        const sharedScene = ContextBuilder.buildGroupSharedScene(groupMembers, groupUserProfile, liveMsgs);
 
         const header = `【系统：群聊模拟器配置】
 当前群名: "${activeGroup?.name}"
@@ -1277,9 +1284,9 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // 角色应召回与"群里正聊的话题"相关的记忆，而不是私聊近况（旧行为，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
-        await injectMemoryPalace(member, palaceQueryMsgs, undefined, userProfile.name);
+        await injectMemoryPalace(member, palaceQueryMsgs, undefined, groupUserProfile.name);
         // 角色块：跳过共享场景已包含的部分（用户档案 / 共有 worldview / 共有世界书）
-        const coreContext = ContextBuilder.buildCoreContext(member, userProfile, true, undefined, {
+        const coreContext = ContextBuilder.buildCoreContext(member, groupUserProfile, true, undefined, {
             skipUserProfile: true,
             skipWorldview: sharedScene.worldviewIsShared,
             skipWorldbookIds: sharedScene.sharedWorldbookIds,
@@ -1336,7 +1343,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     id: m.id,
                     content: c,
                     name: m.role === 'user'
-                        ? userProfile.name
+                        ? groupUserProfile.name
                         : (characters.find(ch => ch.id === m.charId)?.name || '成员'),
                 };
             }
@@ -1370,7 +1377,7 @@ ${memberTimeline || '(暂无互动记录)'}
             }
             setGroupPalaceStatus(`正在把 ${batchPlan.messages.length} 条旧群聊整理成公共话题盒…`);
             setSummaryProgress(`正在整理 ${batchPlan.messages.length} 条旧群聊…`);
-            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, userProfile.name);
+            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, groupUserProfile.name);
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -1499,7 +1506,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 preparedHistory,
                 characters,
                 emojis,
-                userProfile.name,
+                groupUserProfile.name,
                 3,
                 { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
             );
@@ -1521,7 +1528,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     max_tokens: 8000
                 },
                 groupId: activeGroup.id,
-                userName: userProfile.name,
+                userName: groupUserProfile.name,
                 signal: abort.signal,
                 onStatus: setMcpStatus,
             });
@@ -1558,7 +1565,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 addToast,
                 signal: abort.signal,
                 resolveQuote,
-                userName: userProfile.name,
+                userName: groupUserProfile.name,
                 htmlMode: !!activeGroup.htmlModeEnabled,
             });
 
@@ -1619,7 +1626,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         preparedHistory,
                         characters,
                         emojis,
-                        userProfile.name,
+                        groupUserProfile.name,
                         3,
                         { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
                     );
@@ -1639,7 +1646,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             max_tokens: 2000
                         },
                         groupId: activeGroup.id,
-                        userName: userProfile.name,
+                        userName: groupUserProfile.name,
                         signal: abort.signal,
                         onStatus: status => setMcpStatus(status ? `${member.name}：${status}` : ''),
                     });
@@ -1676,7 +1683,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         addToast,
                         signal: abort.signal,
                         resolveQuote,
-                        userName: userProfile.name,
+                        userName: groupUserProfile.name,
                         htmlMode: !!activeGroup.htmlModeEnabled,
                     });
 
@@ -1978,7 +1985,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             msg={m}
                             isUser={isUser}
                             char={char}
-                            userAvatar={userProfile.avatar}
+                            userAvatar={groupUserProfile.avatar}
                             onImageClick={handleGroupImageClick}
                             selectionMode={selectionMode}
                             isSelected={selectedMsgIds.has(m.id)}
@@ -2539,7 +2546,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const meta = pMsg?.metadata as GroupPacketMeta | undefined;
                     if (!pMsg || !meta?.packet) return <div className="text-center text-xs text-slate-400 py-6">这个红包的数据不见了</div>;
                     const status = effectivePacketStatus(meta, Date.now());
-                    const senderName = pMsg.role === 'user' ? userProfile.name : nameOf(pMsg.charId);
+                    const senderName = pMsg.role === 'user' ? groupUserProfile.name : nameOf(pMsg.charId);
                     const userClaimed = meta.claims.some(c => c.claimantId === 'user');
                     const canGrabLucky = meta.packetType === 'lucky' && status === 'pending' && !userClaimed;
                     const canResolveDirect = meta.packetType === 'direct' && status === 'pending' && meta.targetId === 'user';
@@ -2561,7 +2568,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             {meta.claims.length > 0 && (
                                 <div className="space-y-2 max-h-44 overflow-y-auto">
                                     {meta.claims.map((c, i) => {
-                                        const avatar = c.claimantId === 'user' ? userProfile.avatar : characters.find(ch => ch.id === c.claimantId)?.avatar;
+                                        const avatar = c.claimantId === 'user' ? groupUserProfile.avatar : characters.find(ch => ch.id === c.claimantId)?.avatar;
                                         return (
                                             <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2">
                                                 <TokenImg value={avatar} className="w-8 h-8 rounded-full object-cover" />

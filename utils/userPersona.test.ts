@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from './userPersona';
+import { applyActivePersona, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -96,5 +96,47 @@ describe('resolveUserProfileForChar', () => {
 
         const noOverride: UserProfile = { ...baseProfile, perCharAvatars: { 'char-1': 'avatar-override.png' } };
         expect(resolveUserProfileForChar(noOverride, 'char-1').avatar).toBe('avatar-override.png');
+    });
+});
+
+describe('resolveUserProfileForGroup', () => {
+    it('没有任何指定时，回落全域默认（真实身份）', () => {
+        expect(resolveUserProfileForGroup(baseProfile, 'group-1').name).toBe('小柔');
+    });
+
+    it('没有群聊指定时，回落全域默认身份卡（activePersonaId）', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2' };
+        expect(resolveUserProfileForGroup(profile, 'group-1').name).toBe('阿凯');
+    });
+
+    it('群聊指定了某张身份卡时，不管全域默认是什么，这个群都用指定的那张；其他群不受影响', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perGroupPersonaIds: { 'group-1': 'p1' } };
+        expect(resolveUserProfileForGroup(profile, 'group-1').name).toBe('林特工');
+        expect(resolveUserProfileForGroup(profile, 'group-2').name).toBe('阿凯');
+    });
+
+    it('群聊指定 REAL_IDENTITY_PERSONA_ID 时，强制真实身份，不管全域默认是哪张卡', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perGroupPersonaIds: { 'group-1': REAL_IDENTITY_PERSONA_ID } };
+        expect(resolveUserProfileForGroup(profile, 'group-1').name).toBe('小柔');
+    });
+
+    it('群聊指定的身份卡已被删除时，回落全域默认（不崩溃）', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perGroupPersonaIds: { 'group-1': 'deleted-id' } };
+        expect(resolveUserProfileForGroup(profile, 'group-1').name).toBe('阿凯');
+    });
+
+    it('不受 perCharAvatars 影响——群聊没有那一层', () => {
+        const profile: UserProfile = { ...baseProfile, perCharAvatars: { 'group-1': 'avatar-override.png' } };
+        expect(resolveUserProfileForGroup(profile, 'group-1').avatar).toBe('avatar-real.png');
+    });
+
+    it('perCharPersonaIds 和 perGroupPersonaIds 是两个独立的 map，同一个 id 不会互相干扰', () => {
+        const profile: UserProfile = {
+            ...baseProfile,
+            perCharPersonaIds: { 'same-id': 'p1' },
+            perGroupPersonaIds: { 'same-id': 'p2' },
+        };
+        expect(resolveUserProfileForChar(profile, 'same-id').name).toBe('林特工');
+        expect(resolveUserProfileForGroup(profile, 'same-id').name).toBe('阿凯');
     });
 });
