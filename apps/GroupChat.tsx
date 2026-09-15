@@ -26,7 +26,7 @@ import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
-import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
+import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
@@ -574,6 +574,7 @@ const GroupChat: React.FC = () => {
     const [tempAnnouncement, setTempAnnouncement] = useState('');
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
+    const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(DEFAULT_MAX_ROUND_MESSAGES);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
     const [tempMemberBubbleIndependent, setTempMemberBubbleIndependent] = useState(false);
     const [tempUserBubbleThemeId, setTempUserBubbleThemeId] = useState<string>('');
@@ -854,6 +855,7 @@ const GroupChat: React.FC = () => {
             announcement: tempAnnouncement.trim() || undefined,
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
+            maxRoundMessages: tempMaxRoundMessages,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
             // 空串 = 默认紫，存 undefined 保持向后兼容语义
@@ -1231,6 +1233,7 @@ const GroupChat: React.FC = () => {
         setTempAnnouncement(activeGroup?.announcement || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
+        setTempMaxRoundMessages(activeGroup?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
         setTempUserBubbleThemeId(activeGroup?.userBubbleThemeId ?? '');
@@ -1534,7 +1537,7 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode })}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages })}${htmlPromptExt}\n`;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -2381,6 +2384,14 @@ ${memberTimeline || '(暂无互动记录)'}
                         <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>200 (完整)</span></div>
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">群里发言时，每位成员参考的"私聊+群聊合并时间线"条数。这条时间线让角色在群里的感情与私聊衔接。</p>
+                    </div>
+
+                    {/* 一轮最多几条：只影响导演模式，轮询模式每人本来就只发或跳过一次 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">导演模式一轮最多几条 ({tempMaxRoundMessages})</label>
+                        <input type="range" min="1" max="10" step="1" value={tempMaxRoundMessages} onChange={e => setTempMaxRoundMessages(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>1 (克制)</span><span>10 (热闹)</span></div>
+                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">下限固定 1 条（"少即是多"，冷场时角色允许只回 1-2 条），这里调的是上限，默认 5。只影响导演模式；轮询模式每位成员本来就只会发言或跳过一次。</p>
                     </div>
 
                     {/* 公共话题盒：一次总结，全群共享，并在成盒时送达所有成员私聊。 */}

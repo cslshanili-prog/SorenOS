@@ -187,11 +187,15 @@ const buildLurkModeNote = (): string => `### 【隐身围观模式：这一刻�
 
 `;
 
+/** 导演模式一轮最多生成几条消息的默认上限；下限固定 1，"少即是多"不受这个值影响。 */
+export const DEFAULT_MAX_ROUND_MESSAGES = 5;
+
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean },
+    options?: { userLurking?: boolean; maxRoundMessages?: number },
 ): string {
+    const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 导演任务指令 (Director Mode)】
 当前场景：大家正在群里聊天。
 最近聊天记录：
@@ -242,7 +246,7 @@ ${options?.userLurking ? buildLurkModeNote() : ''}### 任务：生成一段精�
 #### 五、互动结构
 - **去中心化**: 角色之间可以互相接话、回应、起哄，不要每个人都只对着用户说话。但**不强制 A 说了 B 必须回**——真群聊里有人发完没人接是常态。
 - **回应用户但不齐声表态**：用户刚说了值得回应的内容时，让最合适的一位角色自然接住；其他人可以回应彼此、补充不同角度或保持沉默。不要让所有人重复同一种态度。
-- **多轮对话**: 请一次性生成 **1 到 6 条** 消息。**少即是多**——如果本轮氛围是"安静摸鱼"，1-2 条就够。
+- **多轮对话**: 请一次性生成 **1 到 ${maxRoundMessages} 条** 消息。**少即是多**——如果本轮氛围是"安静摸鱼"，1-2 条就够。
 
 #### 六、私聊（PRIVATE）—— 罕见特例，默认 0 条
 - **绝大多数轮次本轮 PRIVATE 数量 = 0**。这是默认值。不要每轮都给 PRIVATE 找借口。

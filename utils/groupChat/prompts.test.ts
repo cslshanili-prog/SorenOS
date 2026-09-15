@@ -3,6 +3,7 @@ import {
     buildDirectorInstruction,
     buildGroupHistoryBlock,
     buildRoundRobinInstruction,
+    DEFAULT_MAX_ROUND_MESSAGES,
     GROUP_HISTORY_GAP_THRESHOLD_MS,
 } from './prompts';
 import type { Message, CharacterProfile } from '../../types';
@@ -90,6 +91,26 @@ describe('群聊中的 U 与关系连续性', () => {
         expect(prompt).toContain('U 还是 U');
         expect(prompt).toContain('不能因进入群聊就重置关系');
         expect(prompt).toContain('按你自己和 U 的关系反应');
+    });
+});
+
+describe('导演模式一轮最多几条：maxRoundMessages 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传时用默认值（DEFAULT_MAX_ROUND_MESSAGES）', () => {
+        const prompt = buildDirectorInstruction(history, '无');
+        expect(prompt).toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 条`);
+    });
+
+    it('传了 maxRoundMessages 时用群里配置的那个数，不用默认值', () => {
+        const prompt = buildDirectorInstruction(history, '无', { maxRoundMessages: 8 });
+        expect(prompt).toContain('1 到 8 条');
+        expect(prompt).not.toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 条`);
+    });
+
+    it('下限固定是 1，不受 maxRoundMessages 影响', () => {
+        const prompt = buildDirectorInstruction(history, '无', { maxRoundMessages: 2 });
+        expect(prompt).toContain('1 到 2 条');
     });
 });
 

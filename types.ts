@@ -3383,6 +3383,12 @@ export interface GroupProfile {
      */
     memberTimelineCap?: number;
     /**
+     * 导演模式一轮最多生成几条消息（下限固定 1，"少即是多"，只有上限可调）。
+     * 不设默认 5（utils/groupChat/prompts.ts 的 DEFAULT_MAX_ROUND_MESSAGES）。
+     * 只影响导演模式；轮询模式每位成员本来就只会发或跳过一次，没有这个上限概念。
+     */
+    maxRoundMessages?: number;
+    /**
      * 群回复生成模式：director = 一次调用生成整轮（默认，快、省 token）；
      * roundRobin = 每位成员单独调用一次 API，按成员顺序逐个发言（更真实、防串号，token ≈ 成员数倍）。
      */
