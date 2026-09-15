@@ -259,7 +259,7 @@ const ModuleTab: React.FC<{
 // ─── 主面板 ───
 
 const LifeRecordPanel: React.FC = () => {
-    const { addToast, characters, userProfile, groups, realtimeConfig } = useOS();
+    const { addToast, characters, userProfileBase, groups, realtimeConfig } = useOS();
     const [tab, setTab] = useState<LifeRecordModule>('period');
     const [records, setRecords] = useState<LifeRecord[]>([]);
     const [plans, setPlans] = useState<MedPlan[]>([]);
@@ -302,7 +302,7 @@ const LifeRecordPanel: React.FC = () => {
         setSettings(s);
         setTxs(t.sort((a, b) => b.timestamp - a.timestamp));
         setLoaded(true);
-        if (mutated) markAmsgStateDirtyForAll({ characters, userProfile, groups, realtimeConfig });
+        if (mutated) markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
     };
     useEffect(() => { reload(false); }, []);
 

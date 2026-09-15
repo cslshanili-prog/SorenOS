@@ -1389,10 +1389,12 @@ describe('头像上传：新存进去的就是令牌', () => {
         expect(body).not.toMatch(/handleChange\('avatar', processedBase64\)/);
     });
 
-    it('我的整体头像（个人档案）', () => {
-        const body = handlerBody(readSrc('../apps/UserApp.tsx'), 'const handleAvatarChange');
-        expect(body).toMatch(/avatar: await migrateDataUrlToRef\(/);
-        expect(body).not.toMatch(/updateUserProfile\(\{ avatar: base64 \}\)/);
+    it('我的整体头像（个人档案 · 身份卡，含真实身份）', () => {
+        // 个人档案页的整体头像编辑收进了「身份卡」面板（真实身份也走同一个编辑器），
+        // UserApp.tsx 本身不再直接处理头像上传。
+        const body = handlerBody(readSrc('../components/user/UserPersonaPanel.tsx'), 'const handleUpload');
+        expect(body).toMatch(/setDraftAvatar\(await migrateDataUrlToRef\(/);
+        expect(body).not.toMatch(/setDraftAvatar\(base64\)/);
     });
 
     it('群头像（群聊设置）', () => {

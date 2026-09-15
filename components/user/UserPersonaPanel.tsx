@@ -8,20 +8,21 @@ import { trackEvent } from '../../utils/analytics';
 /**
  * 档案 App「身份卡」：同一个人维护的多套角色扮演身份（名字/头像/简介），全局切换「目前身份」。
  * 只是外显装扮——好感度/记忆/关系不跟着身份卡分开算，角色始终认得是同一个人（见 utils/userPersona.ts）。
- * 「真实身份」= 不套用任何身份卡，就是上面那张档案卡片本身。
+ * 「真实身份」= 不套用任何身份卡，就是这张卡片本身——个人档案页顶部那张 Profile 卡只读显示
+ * 当前生效的身份，编辑统一收进这里（含真实身份自己的简介，原本单独一张「关于我/设定」卡）。
  */
 const UserPersonaPanel: React.FC = () => {
-    const { userProfileBase, addUserPersona, updateUserPersona, deleteUserPersona, setActivePersonaId, addToast } = useOS();
+    const { userProfileBase, updateUserProfile, addUserPersona, updateUserPersona, deleteUserPersona, setActivePersonaId, addToast } = useOS();
     const personas = userProfileBase.personas || [];
     const activeId = userProfileBase.activePersonaId;
 
-    const [editingId, setEditingId] = useState<string | null | 'new'>(null);
+    const [showInfo, setShowInfo] = useState(false);
+    const [editingId, setEditingId] = useState<string | null | 'new' | 'real'>(null);
     const [draftName, setDraftName] = useState('');
     const [draftBio, setDraftBio] = useState('');
     const [draftAvatar, setDraftAvatar] = useState('');
     const uploadRef = useRef<HTMLInputElement>(null);
 
-    const editingPersona = editingId && editingId !== 'new' ? personas.find(p => p.id === editingId) : null;
     const isEditorOpen = editingId !== null;
 
     const openNew = () => {
@@ -29,6 +30,13 @@ const UserPersonaPanel: React.FC = () => {
         setDraftName('');
         setDraftBio('');
         setDraftAvatar('');
+    };
+
+    const openEditReal = () => {
+        setEditingId('real');
+        setDraftName(userProfileBase.name);
+        setDraftBio(userProfileBase.bio);
+        setDraftAvatar(userProfileBase.avatar);
     };
 
     const openEdit = (id: string) => {
@@ -55,8 +63,11 @@ const UserPersonaPanel: React.FC = () => {
     };
 
     const handleSave = async () => {
-        if (!draftName.trim()) { addToast('请给身份卡起个名字', 'error'); return; }
-        if (editingId === 'new') {
+        if (!draftName.trim()) { addToast('请起个名字', 'error'); return; }
+        if (editingId === 'real') {
+            updateUserProfile({ name: draftName.trim(), avatar: draftAvatar, bio: draftBio.trim() });
+            addToast('真实身份已更新', 'success');
+        } else if (editingId === 'new') {
             const persona = await addUserPersona(draftName.trim(), draftAvatar, draftBio.trim());
             addToast('身份卡已建好', 'success');
             trackEvent('新建身份卡');
@@ -84,24 +95,40 @@ const UserPersonaPanel: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                     </svg>
                 </span>
-                <h2 className="text-sm font-bold text-slate-700">身份卡</h2>
+                <h2 className="text-sm font-bold text-slate-700 flex-1">身份卡</h2>
+                <button
+                    onClick={() => setShowInfo(v => !v)}
+                    aria-label="身份卡说明"
+                    className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center transition-colors ${showInfo ? 'bg-primary text-white' : 'bg-slate-100 text-slate-400'}`}
+                >
+                    i
+                </button>
             </div>
-            <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-                维护几套角色扮演身份，切换「目前身份」后全部聊天（私聊/群聊/查手机/见面）都会看到这张卡的名字、头像和简介。只是外显装扮——好感度、记忆和关系都不会分开算，角色始终认得是同一个你。
-            </p>
+            {showInfo && (
+                <p className="text-[11px] text-slate-400 mb-3 leading-relaxed bg-slate-50 rounded-xl px-3 py-2.5">
+                    维护几套角色扮演身份，切换「目前身份」后全部聊天（私聊/群聊/查手机/见面）都会看到这张卡的名字、头像和简介。只是外显装扮——好感度、记忆和关系都不会分开算，角色始终认得是同一个你。点击卡片切换身份，点击 ✎ 编辑名字/头像/简介（简介会发给 AI）。想让某个角色始终用某张身份卡、不跟着这里切换？去下面「分角色身份指定」。
+                </p>
+            )}
 
             <div className="grid grid-cols-2 gap-2.5">
                 {/* 真实身份：不套用任何身份卡 */}
-                <button
+                <div
                     onClick={() => setActivePersonaId(undefined)}
-                    className={`flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all active:scale-[0.98] ${!activeId ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-slate-200 bg-white'}`}
+                    className={`relative flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all active:scale-[0.98] cursor-pointer ${!activeId ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-slate-200 bg-white'}`}
                 >
                     <TokenImg value={userProfileBase.avatar} className="w-10 h-10 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                         <div className="text-[11px] font-bold text-slate-700 truncate">{userProfileBase.name || '真实身份'}</div>
                         <div className="text-[9px] text-slate-400">{!activeId ? '目前身份' : '真实身份'}</div>
                     </div>
-                </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); openEditReal(); }}
+                        className="shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-[10px] flex items-center justify-center active:scale-90 transition-transform"
+                        aria-label="编辑真实身份"
+                    >
+                        ✎
+                    </button>
+                </div>
 
                 {personas.map(p => {
                     const active = activeId === p.id;
@@ -138,7 +165,9 @@ const UserPersonaPanel: React.FC = () => {
                         style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
                         onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-start justify-between mb-3">
-                            <div className="text-sm font-bold text-slate-800">{editingId === 'new' ? '新增身份卡' : '编辑身份卡'}</div>
+                            <div className="text-sm font-bold text-slate-800">
+                                {editingId === 'new' ? '新增身份卡' : editingId === 'real' ? '编辑真实身份' : '编辑身份卡'}
+                            </div>
                             <button onClick={closeEditor} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">×</button>
                         </div>
 
@@ -154,19 +183,19 @@ const UserPersonaPanel: React.FC = () => {
                             <input
                                 value={draftName}
                                 onChange={(e) => setDraftName(e.target.value)}
-                                placeholder="这张身份卡的名字"
+                                placeholder={editingId === 'real' ? '你的名字' : '这张身份卡的名字'}
                                 className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-300"
                             />
                             <textarea
                                 value={draftBio}
                                 onChange={(e) => setDraftBio(e.target.value)}
-                                placeholder="这个身份的简介，会发给 AI（可留空）"
-                                className="w-full h-28 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                                placeholder={editingId === 'real' ? '关于我 / 设定：会发给 AI，让它更了解你（例如：大学生、喜欢吃辣、性格内向）' : '这个身份的简介，会发给 AI（可留空）'}
+                                className="w-full h-36 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                             />
                         </div>
 
                         <div className="flex gap-2 mt-4">
-                            {editingId !== 'new' && (
+                            {editingId !== 'new' && editingId !== 'real' && (
                                 <button
                                     onClick={() => editingId && handleDelete(editingId)}
                                     className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-500 active:scale-[0.98] transition-transform"

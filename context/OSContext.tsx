@@ -3487,9 +3487,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
            const next = { ...prev, ...patch };
           // 用户资料是所有角色共享的素材（名字、人设直接烤进 fire_pack 模板），改完不打脏的话
           // 角色到点还按旧名字叫你。仿表情库：逐个打脏，没开 2.0 的角色被 markDirty 的门筛掉。
-          // 打脏用套用了"目前身份卡"之后的那份——云端主动消息也该看到你现在这张身份卡的名字。
+          // 传 next（未套用任何身份的那份）——markAmsgStateDirtyForAll 会按每个角色自己的
+          // 分角色身份指定各自解析，云端主动消息才会看到那个角色该看到的那张身份卡的名字。
           DB.saveUserProfile(next).then(() => {
-              markAmsgStateDirtyForAll({ characters, userProfile: applyActivePersona(next), groups, realtimeConfig });
+              markAmsgStateDirtyForAll({ characters, userProfileBase: next, groups, realtimeConfig });
           });
           return next;
       });

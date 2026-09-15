@@ -3450,8 +3450,17 @@ export interface UserProfile {
     /**
      * 当前生效的身份卡 id；undefined/找不到 = 用上面这份「真实身份」。
      * 只是外显装扮——好感度/记忆/关系不跟着身份卡分开算，角色始终认得是同一个人。
+     * 这是「全域默认」——某个角色在 perCharPersonaIds 里指定了别的身份卡时，那个角色不看这个。
      */
     activePersonaId?: string;
+    /**
+     * 分角色身份指定（档案 App「分角色身份指定」）：charId → 身份卡 id，或 utils/userPersona.ts
+     * 的 REAL_IDENTITY_PERSONA_ID（强制这个角色始终用「真实身份」，不管全域默认是哪张卡）。
+     * 没有这个角色的键 = 跟全域默认（activePersonaId）走。解析统一走
+     * utils/userPersona.ts 的 resolveUserProfileForChar()，不要在别处手拼这段优先级逻辑。
+     * 删角色/删身份卡留下的孤儿键无害，读取端会自动回落到全域默认。
+     */
+    perCharPersonaIds?: Record<string, string>;
 }
 
 export interface UserPersona {

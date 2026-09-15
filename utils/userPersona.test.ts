@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona } from './userPersona';
+import { applyActivePersona, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -37,5 +37,64 @@ describe('applyActivePersona', () => {
     it('personas 为空数组时，activePersonaId 命中不了任何东西，原样返回', () => {
         const profile: UserProfile = { ...baseProfile, personas: [], activePersonaId: 'p1' };
         expect(applyActivePersona(profile)).toEqual(profile);
+    });
+});
+
+describe('resolveUserProfileForChar', () => {
+    it('没有任何指定时，回落全域默认（真实身份）', () => {
+        const result = resolveUserProfileForChar(baseProfile, 'char-1');
+        expect(result.name).toBe('小柔');
+        expect(result.avatar).toBe('avatar-real.png');
+    });
+
+    it('没有分角色指定时，回落全域默认身份卡（activePersonaId）', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2' };
+        const result = resolveUserProfileForChar(profile, 'char-1');
+        expect(result.name).toBe('阿凯');
+        expect(result.avatar).toBe('avatar-p2.png');
+    });
+
+    it('分角色指定了某张身份卡时，不管全域默认是什么，这个角色都用指定的那张', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perCharPersonaIds: { 'char-1': 'p1' } };
+        const result = resolveUserProfileForChar(profile, 'char-1');
+        expect(result.name).toBe('林特工');
+        expect(result.avatar).toBe('avatar-p1.png');
+        expect(result.bio).toBe('卧底特工人设');
+        // 没被指定的其他角色仍然吃全域默认，互不影响
+        expect(resolveUserProfileForChar(profile, 'char-2').name).toBe('阿凯');
+    });
+
+    it('分角色指定 REAL_IDENTITY_PERSONA_ID 时，强制真实身份，不管全域默认是哪张卡', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perCharPersonaIds: { 'char-1': REAL_IDENTITY_PERSONA_ID } };
+        const result = resolveUserProfileForChar(profile, 'char-1');
+        expect(result.name).toBe('小柔');
+        expect(result.avatar).toBe('avatar-real.png');
+    });
+
+    it('分角色指定的身份卡已被删除时，回落全域默认（不崩溃）', () => {
+        const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perCharPersonaIds: { 'char-1': 'deleted-id' } };
+        const result = resolveUserProfileForChar(profile, 'char-1');
+        expect(result.name).toBe('阿凯');
+    });
+
+    it('指定了具体身份卡时不叠加 perCharAvatars——一个身份只对应一个头像', () => {
+        const profile: UserProfile = {
+            ...baseProfile,
+            perCharAvatars: { 'char-1': 'avatar-override.png' },
+            perCharPersonaIds: { 'char-1': 'p1' },
+        };
+        expect(resolveUserProfileForChar(profile, 'char-1').avatar).toBe('avatar-p1.png');
+    });
+
+    it('强制真实身份或走全域默认时，仍然叠加 perCharAvatars（先于身份卡存在的机制）', () => {
+        const forcedReal: UserProfile = {
+            ...baseProfile,
+            perCharAvatars: { 'char-1': 'avatar-override.png' },
+            perCharPersonaIds: { 'char-1': REAL_IDENTITY_PERSONA_ID },
+        };
+        expect(resolveUserProfileForChar(forcedReal, 'char-1').avatar).toBe('avatar-override.png');
+
+        const noOverride: UserProfile = { ...baseProfile, perCharAvatars: { 'char-1': 'avatar-override.png' } };
+        expect(resolveUserProfileForChar(noOverride, 'char-1').avatar).toBe('avatar-override.png');
     });
 });

@@ -1,5 +1,5 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile } from '../types';
@@ -21,6 +21,7 @@ import { trackEvent } from '../utils/analytics';
 import { buildPhoneEvidenceChatCard, normalizePhoneEvidence, phoneFieldToText } from '../utils/phoneEvidence';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 import {
     User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, Compass, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
@@ -258,11 +259,18 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, characterGroups, npcs } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
     const [targetChar, setTargetChar] = useState<CharacterProfile | null>(null);
+    // 分角色身份指定：正在查看的这部手机里，「你」该是哪张身份卡，按 targetChar.id 单独解析。
+    // 下面所有原本读 userProfile 的地方（生成偷看内容用的提示词、关系变动卡片……）都改吃
+    // 这份，而不是全域 userProfile——查 A 的手机和查 B 的手机，「你」可以是不同的身份卡。
+    const checkPhoneUserProfile = useMemo(
+        () => (targetChar ? resolveUserProfileForChar(userProfileBase, targetChar.id) : userProfile),
+        [targetChar, userProfileBase, userProfile],
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(0); // 0 = home, 1 = custom apps
     const [selectPage, setSelectPage] = useState(0); // Target Device 选人界面的翻页（每页 6 人）
@@ -389,7 +397,7 @@ const CheckPhone: React.FC = () => {
     const selectedAiSession = aiSessions.find(s => s.id === selectedAiSessionId) || null;
 
     // 人际关系里永远不出现「用户自己」——机主的通讯录是 TA 背着用户的社交圈，把 user 算进来逻辑很绕
-    const isUserName = (name?: string) => !!name && !!userProfile?.name && normName(name) === normName(userProfile.name);
+    const isUserName = (name?: string) => !!name && !!checkPhoneUserProfile?.name && normName(name) === normName(checkPhoneUserProfile.name);
     const linkedCharOf = (c: PhoneContact) => (c.linkedCharId ? characters.find(ch => ch.id === c.linkedCharId) : undefined);
     // 真人联系人复用其神经链接角色的头像，否则用联系人自带头像
     const contactAvatar = (c: PhoneContact): string | undefined => linkedCharOf(c)?.avatar || c.avatar;
@@ -715,12 +723,12 @@ const CheckPhone: React.FC = () => {
 
             // 「距离上次联系多久」交给 buildCoreContext 统一注入（受时间感知开关管控、口径与聊天/见面一致）
             const context = ContextBuilder.buildCoreContext(
-                targetChar, userProfile, true, undefined, undefined,
+                targetChar, checkPhoneUserProfile, true, undefined, undefined,
                 { lastInteractionTs: lastMsg?.timestamp },
             );
 
             const recentMsgs = msgs.map(m => {
-                const roleName = m.role === 'user' ? userProfile.name : targetChar.name;
+                const roleName = m.role === 'user' ? checkPhoneUserProfile.name : targetChar.name;
                 const content = m.type === 'text' ? m.content : `[${m.type}]`;
                 return `${roleName}: ${content}`;
             }).join('\n');
@@ -816,10 +824,10 @@ ${realCharRule}
             const perspectiveLock = `### [视角锁定 · 极重要]
 接下来要生成的是**你（${targetChar.name}）自己手机里的东西**——你自己的生活、社交、记录。
 - 完全用**你（${targetChar.name}）的第一人称视角**：这些是**你的**联系人、**你自己的**社交圈、**你对他们的**印象和备注。
-- **绝不是用户「${userProfile.name}」的社交关系**：不要生成用户的人脉圈，也不要从用户的角度/口吻写备注。
-- 用户「${userProfile.name}」只是在偷看你的手机，TA **不是**你的联系人、**不进**你的通讯录（下面「和用户的最近聊天」只是背景参考，不是要生成的对象，也别把用户的熟人搬进来）。`;
+- **绝不是用户「${checkPhoneUserProfile.name}」的社交关系**：不要生成用户的人脉圈，也不要从用户的角度/口吻写备注。
+- 用户「${checkPhoneUserProfile.name}」只是在偷看你的手机，TA **不是**你的联系人、**不进**你的通讯录（下面「和用户的最近聊天」只是背景参考，不是要生成的对象，也别把用户的熟人搬进来）。`;
 
-            const fullPrompt = `${context}\n\n### [你和用户「${userProfile.name}」的最近聊天（仅背景参考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n请结合上面的「当前时间 / 距离上次联系」和人设调整生成内容的时间戳和情绪。如果很久没联系，记录可能是近期的独处状态；如果刚聊过，记录可能与聊天内容相关。`;
+            const fullPrompt = `${context}\n\n### [你和用户「${checkPhoneUserProfile.name}」的最近聊天（仅背景参考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n请结合上面的「当前时间 / 距离上次联系」和人设调整生成内容的时间戳和情绪。如果很久没联系，记录可能是近期的独处状态；如果刚聊过，记录可能与聊天内容相关。`;
 
             const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
@@ -981,10 +989,10 @@ ${realCharRule}
         const msgs = await loadCharacterContextMessages(char);
         const lastMsg = msgs[msgs.length - 1];
         const context = ContextBuilder.buildCoreContext(
-            char, userProfile, true, undefined, undefined, { lastInteractionTs: lastMsg?.timestamp },
+            char, checkPhoneUserProfile, true, undefined, undefined, { lastInteractionTs: lastMsg?.timestamp },
         );
         const recentMsgs = msgs.map(m => {
-            const roleName = m.role === 'user' ? userProfile.name : char.name;
+            const roleName = m.role === 'user' ? checkPhoneUserProfile.name : char.name;
             return `${roleName}: ${m.type === 'text' ? m.content : `[${m.type}]`}`;
         }).join('\n');
         return { context, recentMsgs };
@@ -997,7 +1005,7 @@ ${realCharRule}
         trackEvent('偷看 AI 助手使用记录', { service });
         try {
             const { context, recentMsgs } = await buildAiContext(targetChar);
-            const userName = userProfile?.name || '用户';
+            const userName = checkPhoneUserProfile?.name || '用户';
             const pushToChat = targetChar.phoneState?.sendToChat !== false;
             const svcName = AI_SERVICES.find(s => s.id === service)?.name || 'AI';
 
@@ -1467,17 +1475,17 @@ ${olderText}
                 charId: targetChar.id,
                 role: 'assistant',
                 type: 'phone_card',
-                content: `[人际关系变动] ${userProfile.name} 在偷看你手机时，把你和「${contact.name}」的好友关系${verb}了。你察觉到是 TA 干的。`,
+                content: `[人际关系变动] ${checkPhoneUserProfile.name} 在偷看你手机时，把你和「${contact.name}」的好友关系${verb}了。你察觉到是 TA 干的。`,
                 metadata: {
                     phoneCard: {
                         app: '联系人',
                         kind: 'relationship',
                         action: status,          // 'deleted' | 'blocked'
                         actor: 'user',
-                        by: userProfile.name,
+                        by: checkPhoneUserProfile.name,
                         contactName: contact.name,
                         title: `好友被${verb}`,
-                        detail: `${userProfile.name} 把你和「${contact.name}」${verb}了。`,
+                        detail: `${checkPhoneUserProfile.name} 把你和「${contact.name}」${verb}了。`,
                     },
                 },
             } as any);
@@ -1819,7 +1827,7 @@ ${olderText}
             const archivedALines = aAllLines.slice(0, aArchived);            // 留着给用户看的原文
             const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
             const result = await runRealConversation({
-                a: targetChar, b, user: userProfile, api: effectiveApiConfig as any,
+                a: targetChar, b, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
                 affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
                 existingDetail: recentDetail,
                 // bNote = A 对 B 的备注（喂给 A）；aNote = B 对 A 的备注（喂给 B）。别接反。
@@ -1868,7 +1876,7 @@ ${olderText}
             const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
             const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
-                host: targetChar, user: userProfile, api: npcEffectiveApi as any,
+                host: targetChar, user: checkPhoneUserProfile, api: npcEffectiveApi as any,
                 npcName: contact.name, identity: contact.identity, note: effectiveNote,
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });
@@ -2025,7 +2033,7 @@ ${olderText}
         trackEvent('生成人格模拟演出', { mode: m });
         try {
             const generated = await generatePersonaScript({
-                char: targetChar, userProfile, apiConfig: effectiveApiConfig as any, mode: m, theme: t, userPresence: presence, tone,
+                char: targetChar, userProfile: checkPhoneUserProfile, apiConfig: effectiveApiConfig as any, mode: m, theme: t, userPresence: presence, tone,
             });
             personaSimStore.set({ status: 'ready', mode: m, theme: t, script: generated, charId: cid, charName: cname });
             addToast('演出已就绪', 'success');
