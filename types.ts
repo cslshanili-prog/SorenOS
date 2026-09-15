@@ -3869,10 +3869,18 @@ export interface Task {
 export interface Anniversary {
     id: string;
     title: string;
+    /** 原始/锚点日期（YYYY-MM-DD），永远保留，不因"重复提醒"而改写——即将到来的计算另见 utils/anniversary.ts */
     date: string;
+    /** 兼容旧数据的单选关联对象；新数据里等价于 charIds[0]，读取一律走 utils/anniversary.ts 的 anniversaryCharIds() */
     charId: string;
+    /** 关联对象完整列表（多选）；旧数据没有这个字段，读取时兜底成 [charId] */
+    charIds?: string[];
     aiThought?: string;
     lastThoughtGeneratedAt?: number;
+    /** 让 TA 记住这一天：开启后角色每年这天会在聊天中自然提到（提示词注入部分尚未接入，见改动说明） */
+    charRemembers?: boolean;
+    /** 每年重复提醒：默认 false（仅这一次，过后不再出现在"即将到来"，但记录仍保留）；true = 每年都算即将到来 */
+    repeatAnnually?: boolean;
 }
 
 export interface SocialComment {

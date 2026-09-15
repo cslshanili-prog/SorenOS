@@ -11,6 +11,7 @@ import { safeResponseJson } from '../utils/safeApi';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCalendarDayDifference, getLocalDateKey } from '../utils/localDate';
+import { anniversaryCharIds, anniversaryCharNames, nextOccurrenceDate } from '../utils/anniversary';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
@@ -100,9 +101,12 @@ const ScheduleApp: React.FC = () => {
     const [newTaskSupervisor, setNewTaskSupervisor] = useState<string>(activeCharacterId || '');
     const [supervisorGroupId, setSupervisorGroupId] = useState<string>(GROUP_FILTER_ALL); // 选监督人的分组筛选
 
+    const [editingAnniId, setEditingAnniId] = useState<string | null>(null);
     const [newAnniTitle, setNewAnniTitle] = useState('');
     const [newAnniDate, setNewAnniDate] = useState('');
-    const [newAnniChar, setNewAnniChar] = useState<string>(activeCharacterId || '');
+    const [newAnniCharIds, setNewAnniCharIds] = useState<string[]>(activeCharacterId ? [activeCharacterId] : []);
+    const [newAnniRemembers, setNewAnniRemembers] = useState(false);
+    const [newAnniRepeat, setNewAnniRepeat] = useState(false);
     const [anniCharGroupId, setAnniCharGroupId] = useState<string>(GROUP_FILTER_ALL); // 纪念日关联对象的分组筛选
 
     useEffect(() => {
@@ -218,7 +222,9 @@ const ScheduleApp: React.FC = () => {
     };
 
     const generateAnniversaryThought = async (anni: Anniversary) => {
-        const char = characters.find(c => c.id === anni.charId);
+        // 多个关联对象时只让第一个来发表感想——避免变成"每个纪念日都要 N 次 API 调用"，
+        // 跟「让 TA 记住这一天」的实际聊天注入（还没接）是两回事，不冲突。
+        const char = characters.find(c => c.id === anniversaryCharIds(anni)[0]);
         if (!char || !apiConfig.apiKey) return;
 
         // Check cache (24h)
@@ -231,7 +237,9 @@ const ScheduleApp: React.FC = () => {
              addToast(`${char.name} 正在查阅日历...`, 'info');
         }
 
-        const daysDiff = getCalendarDayDifference(getLocalDateKey(), anni.date) ?? 0;
+        // 重复纪念日按"下一次到来的日期"算天数，否则历史锚点日期迟早会变成一个巨大的负数
+        const upcomingDate = nextOccurrenceDate(anni, getLocalDateKey());
+        const daysDiff = getCalendarDayDifference(getLocalDateKey(), upcomingDate) ?? 0;
         const dayText = daysDiff > 0 ? `还有 ${daysDiff} 天` : (daysDiff === 0 ? '就是今天!' : `已经过去 ${Math.abs(daysDiff)} 天了`);
 
         // RESTORED: Full context
@@ -331,20 +339,55 @@ const ScheduleApp: React.FC = () => {
         setTasks(prev => prev.filter(t => t.id !== id));
     };
 
-    const handleAddAnni = async () => {
+    // 新建 / 编辑共用一个弹窗：editingAnniId 为空 = 新建，否则更新那条既有记录（沿用原 id/aiThought 缓存）。
+    const openAnniModal = (anni?: Anniversary) => {
+        if (anni) {
+            setEditingAnniId(anni.id);
+            setNewAnniTitle(anni.title);
+            setNewAnniDate(anni.date);
+            setNewAnniCharIds(anniversaryCharIds(anni));
+            setNewAnniRemembers(!!anni.charRemembers);
+            setNewAnniRepeat(!!anni.repeatAnnually);
+        } else {
+            setEditingAnniId(null);
+            setNewAnniTitle('');
+            setNewAnniDate('');
+            setNewAnniCharIds(activeCharacterId ? [activeCharacterId] : []);
+            setNewAnniRemembers(false);
+            setNewAnniRepeat(false);
+        }
+        setAnniCharGroupId(GROUP_FILTER_ALL);
+        setShowAnniModal(true);
+    };
+
+    const toggleNewAnniChar = (charId: string) => {
+        setNewAnniCharIds(prev => prev.includes(charId) ? prev.filter(id => id !== charId) : [...prev, charId]);
+    };
+
+    const handleSaveAnni = async () => {
         if (!newAnniTitle.trim() || !newAnniDate) return;
+        const charIds = newAnniCharIds.length > 0 ? newAnniCharIds : (characters[0] ? [characters[0].id] : []);
+        const existing = editingAnniId ? anniversaries.find(a => a.id === editingAnniId) : undefined;
         const anni: Anniversary = {
-            id: `anni-${Date.now()}`,
+            ...existing,
+            id: editingAnniId || `anni-${Date.now()}`,
             title: newAnniTitle,
             date: newAnniDate,
-            charId: newAnniChar || characters[0]?.id
+            charId: charIds[0] || '',
+            charIds,
+            charRemembers: newAnniRemembers,
+            repeatAnnually: newAnniRepeat,
         };
         await DB.saveAnniversary(anni);
-        setAnniversaries(prev => [...prev, anni].sort((a, b) => a.date.localeCompare(b.date)));
+        setAnniversaries(prev => {
+            const next = editingAnniId ? prev.map(a => a.id === anni.id ? anni : a) : [...prev, anni];
+            return next.sort((a, b) => a.date.localeCompare(b.date));
+        });
         setShowAnniModal(false);
+        setEditingAnniId(null);
         setNewAnniTitle('');
         setNewAnniDate('');
-        
+
         // Remove immediate trigger to avoid double calls (useEffect will handle if it's upcoming)
     };
 
@@ -355,12 +398,15 @@ const ScheduleApp: React.FC = () => {
 
     // --- Render Helpers ---
 
-    const getDaysUntil = (dateStr: string) => {
-        return getCalendarDayDifference(localDateKey, dateStr) ?? Number.POSITIVE_INFINITY;
+    // 重复纪念日按"下一次到来的日期"算天数；非重复的就是原始锚点日期（过了就是负数，天然掉出即将到来）。
+    const getDaysUntil = (anni: Pick<Anniversary, 'date' | 'repeatAnnually'>) => {
+        return getCalendarDayDifference(localDateKey, nextOccurrenceDate(anni, localDateKey)) ?? Number.POSITIVE_INFINITY;
     };
 
     const upcomingAnni = useMemo(() => {
-        return anniversaries.filter(a => getDaysUntil(a.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
+        return [...anniversaries]
+            .filter(a => getDaysUntil(a) >= 0)
+            .sort((a, b) => nextOccurrenceDate(a, localDateKey).localeCompare(nextOccurrenceDate(b, localDateKey)))[0];
     }, [anniversaries, localDateKey]);
 
     // Trigger thoughts for upcoming anniversary on load
@@ -416,7 +462,7 @@ const ScheduleApp: React.FC = () => {
                     </button>
 
                     {/* Add Button */}
-                    <button onClick={() => { activeTab === 'quest' ? setShowTaskModal(true) : setShowAnniModal(true); trackEvent('打开新建条目弹窗', { kind: activeTab }); }} className={`p-2 rounded-full active:scale-90 transition-transform ${theme.accent} ${currentThemeMode === 'minimal' ? 'shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-white/10'}`}>
+                    <button onClick={() => { activeTab === 'quest' ? setShowTaskModal(true) : openAnniModal(); trackEvent('打开新建条目弹窗', { kind: activeTab }); }} className={`p-2 rounded-full active:scale-90 transition-transform ${theme.accent} ${currentThemeMode === 'minimal' ? 'shadow-[4px_4px_8px_#d1d9e6,-4px_-4px_8px_#ffffff]' : 'hover:bg-white/10'}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     </button>
                 </div>
@@ -434,13 +480,13 @@ const ScheduleApp: React.FC = () => {
                         <div className="relative z-10">
                             <div className="flex justify-between items-start mb-2">
                                 <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${currentThemeMode === 'minimal' ? 'text-slate-400' : 'text-white/80 bg-white/20'}`}>即将到来</div>
-                                <div className="text-3xl font-bold tracking-tighter">{getDaysUntil(upcomingAnni.date)} <span className="text-xs opacity-60 font-normal">天后</span></div>
+                                <div className="text-3xl font-bold tracking-tighter">{getDaysUntil(upcomingAnni)} <span className="text-xs opacity-60 font-normal">天后</span></div>
                             </div>
                             <div className="text-xl font-bold mb-4">{upcomingAnni.title}</div>
-                            
+
                             {/* AI Thought Bubble */}
                             <div className={`flex items-start gap-3 p-3 rounded-xl ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[5px_5px_10px_#d1d9e6,-5px_-5px_10px_#ffffff]' : 'bg-white/20 backdrop-blur-md'}`}>
-                                <TokenImg value={characters.find(c => c.id === upcomingAnni.charId)?.avatar} className="w-8 h-8 rounded-full object-cover" />
+                                <TokenImg value={characters.find(c => c.id === anniversaryCharIds(upcomingAnni)[0])?.avatar} className="w-8 h-8 rounded-full object-cover" />
                                 <div className={`text-xs font-medium leading-relaxed italic ${currentThemeMode === 'minimal' ? 'text-slate-500' : 'text-white/90'}`}>
                                     "{upcomingAnni.aiThought || "加载中..."}"
                                 </div>
@@ -525,12 +571,15 @@ const ScheduleApp: React.FC = () => {
                                  {anniversaries.map(a => (
                                      <div key={a.id} className="relative group">
                                          <div className={`absolute -left-[20px] top-4 w-2 h-2 rounded-full z-10 ${currentThemeMode === 'cyber' ? 'bg-black border border-purple-500' : 'bg-pink-400'}`}></div>
-                                         <div className={`${theme.card} p-4 flex justify-between items-center transition-colors`}>
-                                             <div>
-                                                 <div className={`text-sm font-bold ${theme.text}`}>{a.title}</div>
-                                                 <div className={`text-[10px] ${theme.textSub} font-mono mt-1`}>{a.date} · {characters.find(c => c.id === a.charId)?.name}</div>
+                                         <div onClick={() => openAnniModal(a)} className={`${theme.card} p-4 flex justify-between items-center transition-colors cursor-pointer`}>
+                                             <div className="min-w-0">
+                                                 <div className={`text-sm font-bold ${theme.text} flex items-center gap-1.5 flex-wrap`}>
+                                                     {a.title}
+                                                     {a.repeatAnnually && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${currentThemeMode === 'cyber' ? 'bg-cyan-900/50 text-cyan-400' : 'bg-pink-100 text-pink-500'}`}>每年</span>}
+                                                 </div>
+                                                 <div className={`text-[10px] ${theme.textSub} font-mono mt-1`}>{a.date} · {anniversaryCharNames(a, characters)}</div>
                                              </div>
-                                             <button onClick={() => handleDeleteAnni(a.id)} className="text-slate-400 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                                             <button onClick={(e) => { e.stopPropagation(); handleDeleteAnni(a.id); }} className="text-slate-400 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">×</button>
                                          </div>
                                      </div>
                                  ))}
@@ -577,12 +626,12 @@ const ScheduleApp: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* Anniversary Modal */}
-            <Modal isOpen={showAnniModal} title={currentThemeMode === 'cyber' ? "REGISTER EVENT" : "添加纪念日"} onClose={() => setShowAnniModal(false)} footer={<button onClick={handleAddAnni} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>保存记录</button>}>
+            {/* Anniversary Modal：新建/编辑共用，editingAnniId 非空时是编辑态 */}
+            <Modal isOpen={showAnniModal} title={editingAnniId ? (currentThemeMode === 'cyber' ? "EDIT EVENT" : "编辑纪念日") : (currentThemeMode === 'cyber' ? "REGISTER EVENT" : "添加纪念日")} onClose={() => setShowAnniModal(false)} footer={<button onClick={handleSaveAnni} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>{editingAnniId ? '保存修改' : '保存记录'}</button>}>
                 <div className={`space-y-4 ${currentThemeMode === 'minimal' ? 'p-2' : ''}`}>
                     <input value={newAnniTitle} onChange={e => setNewAnniTitle(e.target.value)} placeholder="事件名称 (例如: 第一次见面)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
                     <input type="date" value={newAnniDate} onChange={e => setNewAnniDate(e.target.value)} className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
-                    
+
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">关联对象</label>
                         {/* 分组筛选（没建分组时不渲染）。Modal 恒为白底，走浅色配色 */}
@@ -590,12 +639,39 @@ const ScheduleApp: React.FC = () => {
                             value={anniCharGroupId} onChange={setAnniCharGroupId} className="mb-2" />
                         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                             {filterCharactersByGroup(characters, characterGroups, anniCharGroupId).map(c => (
-                                <button key={c.id} onClick={() => setNewAnniChar(c.id)} className={`flex flex-col items-center gap-2 p-2 rounded-lg border transition-all min-w-[60px] ${newAnniChar === c.id ? `${currentThemeMode === 'minimal' ? 'shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : 'border-current'}` : 'border-transparent opacity-50'}`}>
+                                <button key={c.id} onClick={() => toggleNewAnniChar(c.id)} className={`flex flex-col items-center gap-2 p-2 rounded-lg border transition-all min-w-[60px] ${newAnniCharIds.includes(c.id) ? `${currentThemeMode === 'minimal' ? 'shadow-[inset_2px_2px_5px_#d1d9e6,inset_-2px_-2px_5px_#ffffff]' : 'border-current'}` : 'border-transparent opacity-50'}`}>
                                     <TokenImg value={c.avatar} className="w-10 h-10 rounded-md object-cover" />
                                     <span className={`text-[10px] font-bold whitespace-nowrap ${theme.text}`}>{c.name}</span>
                                 </button>
                             ))}
                         </div>
+                        <p className="text-[9px] text-slate-400 mt-1.5">可以多选——比如一个纪念日同时跟好几位角色有关。</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-3.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-700">让 TA 记住这一天</div>
+                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">每年这天 TA 会在聊天中自然提到（暂存设定，实际注入聊天还在开发中）</p>
+                        </div>
+                        <button
+                            onClick={() => setNewAnniRemembers(v => !v)}
+                            className={`w-11 h-6 rounded-full shrink-0 transition-colors relative ${newAnniRemembers ? 'bg-primary' : 'bg-slate-200'}`}
+                        >
+                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${newAnniRemembers ? 'left-[22px]' : 'left-0.5'}`} />
+                        </button>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-3.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-700">每年重复提醒</div>
+                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">关闭 = 仅一次：过后不再出现在「即将到来」（仍保留记录）</p>
+                        </div>
+                        <button
+                            onClick={() => setNewAnniRepeat(v => !v)}
+                            className={`w-11 h-6 rounded-full shrink-0 transition-colors relative ${newAnniRepeat ? 'bg-primary' : 'bg-slate-200'}`}
+                        >
+                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${newAnniRepeat ? 'left-[22px]' : 'left-0.5'}`} />
+                        </button>
                     </div>
                 </div>
             </Modal>
