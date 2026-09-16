@@ -3423,6 +3423,20 @@ export interface GroupProfile {
      * 群里至少留 2 位成员，跟手动移除成员的下限一致。
      */
     allowMemberLeave?: boolean;
+    /**
+     * 群主：纯标记/人设头衔，不带任何实际权限——不会门控任何功能开关或操作。
+     * 会写进群聊 system 提示词让角色知道"这位是群主"，添一点角色扮演的真实感。
+     * 值是某位成员的 charId，或 sentinel 'user'（用户自己当群主，跟红包 direct 目标同一套 sentinel）；
+     * 不设 = 没有群主。
+     */
+    ownerId?: string;
+    /**
+     * 被禁言的角色 id 列表：这些角色不参与生成——导演模式里既不进角色档案上下文，
+     * 也不进 dispatch 的 memberIds（万一 AI 还是给它们编了台词，会被静默丢弃）；
+     * 轮询模式直接跳过它们的回合，不发起调用。跟"退群"的区别是禁言可逆、角色还在
+     * members 名单里，只是这阵子不出声，随时可以在群成员管理里解除。
+     */
+    mutedMemberIds?: string[];
 }
 
 export interface GroupTopicBox {
