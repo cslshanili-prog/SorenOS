@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOS } from '../../context/OSContext';
 import { CharacterProfile, SpriteConfig, SkinSet, DateStyleConfig } from '../../types';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import { pickDateFallbackSprite } from '../../utils/dateSprites';
@@ -30,7 +31,7 @@ const Section: React.FC<{ title: string; defaultOpen?: boolean; children: React.
 );
 
 const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
-    const { updateCharacter, addToast, userProfile } = useOS();
+    const { updateCharacter, addToast, userProfileBase } = useOS();
     const fileInputRef = useRef<HTMLInputElement>(null);
     // 背景字段存的是 blobref 令牌（二进制在 IndexedDB），CSS url() 喂不了令牌，
     // 先在这里解析成能直接用的地址。非令牌值（旧 data: / 外链）原样透传。
@@ -49,7 +50,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         patchStyleConfig({ extra: trimmed || undefined });
         addToast(trimmed ? '补充要求已保存' : '补充要求已清空', 'success');
     };
-    const userName = userProfile?.name || '用户';
+    // 只是 POV 预览文案里的示例名字，跟见面走同一套「个人档案 → 分角色身份指定」
+    const userName = resolveUserProfileForChar(userProfileBase, char.id).name || '用户';
     const POV_OPTIONS: { id: DateStyleConfig['pov']; label: string; example: string }[] = [
         { id: undefined, label: '默认', example: '不额外指定，随模型发挥' },
         { id: 'third-name', label: '第三人称 · 称名字', example: `${char.name}看着${userName}` },
