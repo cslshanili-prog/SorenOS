@@ -289,6 +289,8 @@ const CheckPhone: React.FC = () => {
     const [selectedEvidenceRecord, setSelectedEvidenceRecord] = useState<PhoneEvidence | null>(null);
     const [evidenceBackAppId, setEvidenceBackAppId] = useState<string>('home');
     const [evidenceMenu, setEvidenceMenu] = useState<{ record: PhoneEvidence; backAppId: string } | null>(null);
+    // 记录编辑（title/detail/value）：任意 App 的记录都能改，不再只能删
+    const [evidenceEdit, setEvidenceEdit] = useState<{ record: PhoneEvidence; title: string; detail: string; value: string } | null>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const contactEndRef = useRef<HTMLDivElement>(null);
 
@@ -614,6 +616,33 @@ const CheckPhone: React.FC = () => {
         }
 
         addToast('记录已删除', 'success');
+    };
+
+    const openEditRecord = (record: PhoneEvidence) => {
+        setEvidenceEdit({ record, title: record.title, detail: record.detail, value: record.value || '' });
+        setEvidenceMenu(null);
+    };
+
+    const handleUpdateRecord = () => {
+        if (!targetChar || !evidenceEdit) return;
+        const { record } = evidenceEdit;
+        const nextTitle = evidenceEdit.title.trim() || record.title;
+        const nextDetail = evidenceEdit.detail;
+        const nextValue = evidenceEdit.value.trim() || undefined;
+        // 编辑过的记录，原有的 HTML 卡片（模板替换/AI 生成）跟新文字对不上了——没法安全重绘就清掉，
+        // 落回纯文字展示；下次点「刷新数据」AI 会按最新指令重新配一张新卡片。
+        const newRecords = (targetChar.phoneState?.records || []).map(r => r.id === record.id
+            ? { ...r, title: nextTitle, detail: nextDetail, value: nextValue, html: undefined }
+            : r);
+        updateCharacter(targetChar.id, { phoneState: { ...targetChar.phoneState, records: newRecords } });
+
+        const updated = { ...record, title: nextTitle, detail: nextDetail, value: nextValue, html: undefined };
+        if (selectedEvidenceRecord?.id === record.id) setSelectedEvidenceRecord(updated);
+        if (selectedChatRecord?.id === record.id) setSelectedChatRecord(updated);
+
+        setEvidenceEdit(null);
+        addToast('记录已更新', 'success');
+        trackEvent('编辑查手机记录');
     };
 
     // 一键清空 Messages 归档里的全部聊天记录（含其在角色私聊里落的卡片）
@@ -2490,6 +2519,10 @@ ${olderText}
                         <div className="flex justify-between gap-4"><dt className="text-white/30">记录编号</dt><dd className="text-white/40 text-right font-mono">#{r.id.slice(-8).toUpperCase()}</dd></div>
                     </dl>
 
+                    <button onClick={() => openEditRecord(r)}
+                        className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-white/80 bg-white/[0.04] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
+                        <PencilSimple size={15} weight="bold" /> 编辑这条记录
+                    </button>
                     <button onClick={() => void syncEvidenceRecordToChat(r)} disabled={!!r.systemMessageId}
                         className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-sky-100 bg-sky-400/10 border border-sky-300/20 active:scale-[0.99] transition flex items-center justify-center gap-2 disabled:text-white/30 disabled:bg-white/[0.03] disabled:border-white/[0.06]">
                         <PaperPlaneTilt size={15} weight="bold" /> {r.systemMessageId ? '已同步到私聊' : '同步这条到私聊'}
@@ -3958,10 +3991,17 @@ ${olderText}
                     <div className="relative w-full max-w-sm m-3 mb-6 space-y-2" onClick={event => event.stopPropagation()}>
                         <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
                             <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">查手机记录：{evidenceMenu.record.title}</div>
+                            {/* 聊天归档（type: chat）是旧版归档，标了"只读"——detail 是 parseTranscript
+                                依赖的"我:.../对方:..."结构，自由文本编辑会把格式改坏，不接这个入口 */}
+                            {evidenceMenu.record.type !== 'chat' && (
+                                <button onClick={() => openEditRecord(evidenceMenu.record)}
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"
+                                ><PencilSimple size={17} /> 编辑</button>
+                            )}
                             <button
                                 onClick={() => void syncEvidenceRecordToChat(evidenceMenu.record)}
                                 disabled={!!evidenceMenu.record.systemMessageId}
-                                className="w-full px-4 py-3.5 text-left text-[14px] text-sky-300 active:bg-white/5 transition flex items-center gap-3 disabled:text-white/30"
+                                className="w-full px-4 py-3.5 text-left text-[14px] text-sky-300 active:bg-white/5 transition flex items-center gap-3 disabled:text-white/30 border-t border-white/10"
                             ><PaperPlaneTilt size={17} /> {evidenceMenu.record.systemMessageId ? '已同步到私聊' : '同步到私聊'}</button>
                             <button onClick={() => {
                                 const record = evidenceMenu.record;
@@ -3973,6 +4013,34 @@ ${olderText}
                     </div>
                 </div>
             )}
+
+            {/* 查手机记录 · 编辑（任意 App 的任意记录都能改，不再只能删） */}
+            <Modal isOpen={!!evidenceEdit} title="编辑记录" onClose={() => setEvidenceEdit(null)}
+                footer={<button onClick={handleUpdateRecord} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">保存修改</button>}>
+                {evidenceEdit && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">标题</label>
+                            <input value={evidenceEdit.title} onChange={e => setEvidenceEdit({ ...evidenceEdit, title: e.target.value })}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">数值/状态（可选）</label>
+                            <input value={evidenceEdit.value} onChange={e => setEvidenceEdit({ ...evidenceEdit, value: e.target.value })}
+                                placeholder="如 ¥129.00 / 未接 (5分钟)"
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">详细内容</label>
+                            <textarea value={evidenceEdit.detail} onChange={e => setEvidenceEdit({ ...evidenceEdit, detail: e.target.value })}
+                                className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
+                        </div>
+                        {evidenceEdit.record.html && (
+                            <p className="text-[9px] text-slate-400 leading-relaxed">这条记录原本有一张生成的 HTML 卡片，保存修改后会先回退成纯文字展示（内容跟卡片对不上就不硬凑），下次点「刷新数据」会按最新文字重新配一张。</p>
+                        )}
+                    </div>
+                )}
+            </Modal>
 
             {/* 自定义 App 图标 · 长按动作菜单（编辑设置 / 卸载） */}
             {customAppMenu && (() => {
