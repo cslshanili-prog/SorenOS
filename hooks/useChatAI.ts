@@ -8,6 +8,7 @@ import { KeepAlive } from '../utils/keepAlive';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { ContextBuilder } from '../utils/context';
 import { ChatParser } from '../utils/chatParser';
+import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
 // 思考链 / HTML / MCD / memoryPalace 注入已下沉到 chatRequestPayload；这里不再直接调用
 import { useMusic, loadMusicHooks } from '../context/MusicContext';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
@@ -2104,6 +2105,15 @@ export const useChatAI = ({
                 categories,
                 realtimeConfig,
                 imageGenConfig: apiConfig.imageGenConfig,
+                // 角色退回用户发起的转账时退款回 Real Balance——钱在 Chat.tsx 的 onTransfer
+                // 发送那一刻就已经扣走了。只在这条前台路径传，主动消息 2.0 的 push 路径上
+                // TRANSFER_RETURN 标签本来就传不到 chatParser（worker 侧已知缺口），传了也白传。
+                onUserTransferReturned: async (amount: number) => {
+                    updateUserProfile(prev => {
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `${char.name} 退回了转账`);
+                        return result.ok ? { realBalance: result.state } : {};
+                    });
+                },
                 groups,
                 contextMsgs,
                 fullMessages,

@@ -169,6 +169,19 @@ export const ChatParser = {
          * 教没教角色这个动作是 chatPrompts.ts 的事，这里只负责「教了就要能兑现」。
          */
         imageGenConfig?: ImageGenApiConfig,
+        /**
+         * 角色退回用户发起的转账（`[[ACTION:TRANSFER_RETURN]]`，resolveUserTransfer 的
+         * 'returned' 分支）时调用，退款回 Real Balance——钱在用户发送那一刻就已经从
+         * Real Balance 扣走了（apps/Chat.tsx 的 onTransfer），退回等于这笔钱没花出去，
+         * 得还回去。'accepted' 分支不用回调：钱已经在发送时结清，收下不再改动余额。
+         * 不传就静默不退款（旧调用方 / 用不到 Real Balance 的场景）。
+         *
+         * 只在前台实时聊天路径传（useChatAI.ts）：TRANSFER_ACCEPT/TRANSFER_RETURN 这两个
+         * 标签没被 worker 的 SIDE_EFFECT_TAGS 收录，主动消息 2.0 的 push 路径上会被当成
+         * 普通文本剥掉，根本传不到这里、这个回调在那条路径上永远不会被调用（worker 侧的
+         * 已知缺口，见 worker/instant-push/src/classifier.ts 的 transfer_accept/return 注释）。
+         */
+        onUserTransferReturned?: (amount: number) => Promise<void> | void,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -305,6 +318,14 @@ export const ChatParser = {
                 content: action === 'accepted' ? '[已收款]' : '[已退回]',
                 metadata: { receipt: action, amount, ref: refId },
             });
+            // 退回：钱在用户发送那一刻就已经从 Real Balance 扣走了，角色退回等于这笔钱
+            // 没真的花出去，得退款回去。收下不用管——发送时已经结清，不再改动余额。
+            if (action === 'returned' && onUserTransferReturned) {
+                const numericAmount = Number(amount);
+                if (Number.isFinite(numericAmount) && numericAmount > 0) {
+                    await onUserTransferReturned(numericAmount);
+                }
+            }
         };
 
         // TRANSFER — 规范标签 + 模仿历史日志的口语形态一起解析，见 utils/transferFormat.ts。

@@ -27,6 +27,7 @@ import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
 import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl } from '../utils/blobRef';
 import { resolveUserProfileForChar } from '../utils/userPersona';
+import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { resolveLifeRecordCard } from '../utils/lifeRecords';
 import { isMcdConfigured } from '../utils/mcdMcpClient';
@@ -1676,8 +1677,37 @@ const Chat: React.FC = () => {
             content: action === 'accepted' ? '[已收款]' : '[已退回]',
             metadata: { receipt: action, amount: msg.metadata?.amount, ref: msg.id },
         });
+        // 收下角色发来的转账才真的入账 Real Balance；退回等于这笔钱从没到手，不用动余额。
+        if (action === 'accepted') {
+            const amount = Number(msg.metadata?.amount);
+            if (Number.isFinite(amount) && amount > 0) {
+                updateUserProfile(prev => {
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `收到 ${char.name} 的转账`);
+                    return result.ok ? { realBalance: result.state } : {};
+                });
+            }
+        }
         await reloadMessages(visibleCountRef.current);
-    }, [char, reloadMessages]);
+    }, [char, reloadMessages, updateUserProfile]);
+
+    // 用户主动发起转账：先扣 Real Balance 再落待处理转账卡——在发送这一刻结清，
+    // 而不是等角色事后「收下」才扣（那样等于允许承诺一笔当下就已经不存在的钱，
+    // 角色收下时才发现余额不够会造成账目和聊天记录对不上）。余额不够直接拦下，不发。
+    // 角色之后「退回」这笔钱走 utils/chatParser.ts 的 onUserTransferReturned 退款回来。
+    // 跟原来的内联 onTransfer 一样不用 useCallback：handleSendText 每次渲染都重新定义，
+    // 记成 memo 反而会捕到一份过期的它。
+    const handleSendTransfer = () => {
+        if (!char || !transferAmt) return;
+        const amount = Number(transferAmt);
+        if (!Number.isFinite(amount) || amount <= 0) { addToast('请输入有效金额', 'error'); return; }
+        const current = ensureRealBalanceState(userProfileBase.realBalance);
+        const result = applyRealBalanceDelta(current, -amount, `转账给 ${char.name}`);
+        if (!result.ok) { addToast(result.reason, 'error'); return; }
+        updateUserProfile({ realBalance: result.state });
+        handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' });
+        setTransferNote('');
+        setModalType('none');
+    };
 
     // 用户点「生活记录」代记卡选择确认 / 否决：
     // 否决 → 记录标记 rejected（不再计入注入摘要）+ 回滚银行流水（expense）+
@@ -3803,7 +3833,7 @@ const Chat: React.FC = () => {
                 newEmojiName={newEmojiName} setNewEmojiName={setNewEmojiName} onRenameEmoji={handleRenameEmoji}
                 selectedCategory={selectedCategory}
 
-                onTransfer={() => { if(transferAmt) handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' }); setTransferNote(''); setModalType('none'); }}
+                onTransfer={handleSendTransfer}
                 onImportEmoji={handleImportEmoji}
                 onSaveSettings={saveSettings} onBgUpload={handleBgUpload} onRemoveBg={() => updateCharacter(char.id, { chatBackground: undefined })}
                 onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }} onArchive={handleFullArchive}
