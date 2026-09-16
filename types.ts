@@ -3569,6 +3569,36 @@ export interface RealBalanceState {
     transactions: RealBalanceTransaction[];
 }
 
+/**
+ * 购物中心（apps/Chat.tsx 聊天工具栏里的 mini-app，见 utils/shoppingMall.ts）。
+ * 商品/外卖目录是用户自己维护的一份本地资料，独立于账号全局设置的导入导出——
+ * 不进 utils/db.ts 的 exportSettings/importSettings 打包范围，自己另有一套按分类的
+ * 导入导出（跟世界书 apps/WorldbookApp.tsx 的按分组导入导出同一个路数）。
+ * 购物、外卖各自一套分类/商品，用 kind 区分，存在同一对 IndexedDB store 里。
+ */
+export type MallKind = 'shop' | 'food';
+
+export interface MallCategory {
+    id: string;
+    kind: MallKind;
+    name: string;
+    /** 展示顺序，小的排前面 */
+    order: number;
+}
+
+export interface MallProduct {
+    id: string;
+    kind: MallKind;
+    categoryId: string;
+    name: string;
+    price: number;
+    /** 卡面图标——纯 emoji，没有真图片 */
+    emoji: string;
+    /** 商品/外卖详情页里的说明文字 */
+    detail?: string;
+    createdAt: number;
+}
+
 export interface UserPersona {
     id: string;
     name: string;

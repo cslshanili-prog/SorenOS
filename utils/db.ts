@@ -10,7 +10,8 @@ import {
     LifeSimState, HandbookEntry, Tracker, TrackerEntry, HotNewsSnapshot,
     LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup, NPCProfile,
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
-    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask
+    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask,
+    MallCategory, MallProduct
 } from '../types';
 import { exportPostOfficeLocal, importPostOfficeLocal } from './vrWorld/postOffice';
 import { exportSignalLocal, importSignalLocal } from './vrWorld/signal';
@@ -31,7 +32,9 @@ const DB_NAME = 'AetherOS_Data';
 // v71：角色小红书伪主页；发帖归属与可删除的自由活动日志分离。
 // v72：NPC 档案（独立于 characters，见 types.ts NPCProfile）——群聊/查手机联系人/见面剧情
 //       三处读取，不参与日程/情绪/主动消息/记忆宫殿等背景任务。
-const DB_VERSION = 72;
+// v73：购物中心（商品/外卖目录）——用户自己维护的商品库，独立于全局设置导入导出，
+//      不进 exportSettings/importSettings 的打包范围（见 utils/shoppingMall.ts）。
+const DB_VERSION = 73;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分组定义（角色通过 groupId 指向；与群聊 groups 无关）
@@ -90,6 +93,8 @@ const STORE_LIFE_SETTINGS = 'life_record_settings'; // 生活记录设置单例�
 const STORE_STORY_THEATERS = 'story_theaters';       // 见面·剧情条目（消息用 story-theater:${id}）
 const STORE_STORY_THEATER_PRESETS = 'story_theater_presets'; // 糯米机原生剧情预设
 const STORE_STORY_THEATER_MASKS = 'story_theater_masks'; // 剧场原创人物面具
+const STORE_MALL_CATEGORIES = 'mall_categories';     // 购物中心·分类（购物/外卖各自一套，用 kind 区分）
+const STORE_MALL_PRODUCTS = 'mall_products';          // 购物中心·商品/外卖条目
 
 // API 调用记录：保留近 5 天，超期丢弃；再加一个硬上限防止异常情况撑爆
 const API_CALL_LOG_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -475,6 +480,10 @@ export const openDB = (): Promise<IDBDatabase> => {
           const phlStore = db.createObjectStore('pixel_home_layouts', { keyPath: ['charId', 'roomId'] });
           phlStore.createIndex('charId', 'charId', { unique: false });
       }
+
+      // ─── 购物中心（商品/外卖目录）v73 ───────────────
+      createStore(STORE_MALL_CATEGORIES, { keyPath: 'id' });
+      createStore(STORE_MALL_PRODUCTS, { keyPath: 'id' });
     };
   });
 
@@ -3151,6 +3160,53 @@ export const DB = {
       const db = await openDB();
       const transaction = db.transaction(STORE_GUIDEBOOK, 'readwrite');
       transaction.objectStore(STORE_GUIDEBOOK).delete(id);
+  },
+
+  // --- 购物中心（商品/外卖目录，用户本地维护，不随全局设置导入导出走）---
+  getAllMallCategories: async (): Promise<MallCategory[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_CATEGORIES)) return [];
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_CATEGORIES).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveMallCategory: async (category: MallCategory): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readwrite');
+      transaction.objectStore(STORE_MALL_CATEGORIES).put(category);
+  },
+
+  deleteMallCategory: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readwrite');
+      transaction.objectStore(STORE_MALL_CATEGORIES).delete(id);
+  },
+
+  getAllMallProducts: async (): Promise<MallProduct[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_PRODUCTS)) return [];
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_PRODUCTS).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveMallProduct: async (product: MallProduct): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readwrite');
+      transaction.objectStore(STORE_MALL_PRODUCTS).put(product);
+  },
+
+  deleteMallProduct: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readwrite');
+      transaction.objectStore(STORE_MALL_PRODUCTS).delete(id);
   },
 
   // ── LifeSim (模拟人生) ────────────────────────────────────
