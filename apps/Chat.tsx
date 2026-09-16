@@ -37,6 +37,7 @@ import { isLuckinActivatedInMessages, LUCKIN_ACTIVATE_TRIGGER, LUCKIN_DEACTIVATE
 import MessageItem, { ThinkingChainBlock } from '../components/chat/MessageItem';
 import McdMiniApp from '../components/mcd/McdMiniApp';
 import LuckinMiniApp from '../components/luckin/LuckinMiniApp';
+import ShoppingMallMiniApp from '../components/mall/ShoppingMallMiniApp';
 import LuckinLocationModal from '../components/luckin/LuckinLocationModal';
 import LuckinHelpModal from '../components/luckin/LuckinHelpModal';
 import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
@@ -1718,6 +1719,37 @@ const Chat: React.FC = () => {
         setModalType('none');
     };
 
+    // 购物中心 mini-app 送出订单卡片：
+    // - gift（送给TA / 为TA点单 / 发小票）：跟转账一样发送即结清，先扣用户 Real Balance，
+    //   再走 handleSendText 正常触发角色的一轮回复（角色收到礼物/外卖该有反应）。
+    // - daifu（外卖代付请求）：先不动余额——真正付不付款要看角色收到请求后的选择，那条走
+    //   utils/chatParser.ts 的 AI 收发（跟 TRANSFER_ACCEPT/RETURN 同一个位置，还没接，接了才会
+    //   真的扣角色的 Real Balance），这里只负责把待处理卡片发出去、触发角色这轮回复。
+    // - manual（「TA主动给我买/点外卖」手动模拟卡）：纯摆设，角色没有真的做这件事、也不用回复，
+    //   直接落库成 role:'assistant' 的既成事实，不走 handleSendText（不触发 AI 生成）。
+    const handleSendMallOrder = async (order: import('../components/mall/ShoppingMallMiniApp').MallSendOrderInput) => {
+        if (!char) return;
+        const metadata = {
+            mallKind: order.mallKind, mode: order.mode, items: order.items, note: order.note,
+            total: order.total, title: order.title,
+            status: order.mode === 'daifu' ? 'pending' as const : 'sent' as const,
+        };
+        if (order.mode === 'manual') {
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]', metadata });
+            await reloadMessages(visibleCountRef.current);
+            trackEvent('购物中心手动模拟卡', { mallKind: order.mallKind });
+            return;
+        }
+        if (order.mode === 'gift') {
+            const current = ensureRealBalanceState(userProfileBase.realBalance);
+            const result = applyRealBalanceDelta(current, -order.total, order.title || (order.mallKind === 'food' ? `为${char.name}点了外卖` : `送给${char.name}的购物礼物`));
+            if (!result.ok) { addToast(result.reason, 'error'); return; }
+            updateUserProfile({ realBalance: result.state });
+        }
+        handleSendText('[购物中心卡片]', 'mall_order', metadata);
+        trackEvent('购物中心发送订单卡片', { mallKind: order.mallKind, mode: order.mode });
+    };
+
     // 用户点「生活记录」代记卡选择确认 / 否决：
     // 否决 → 记录标记 rejected（不再计入注入摘要）+ 回滚银行流水（expense）+
     // 给代记角色挂一条一次性反馈，下一轮 system prompt 会告诉角色它弄错了。
@@ -1800,7 +1832,7 @@ const Chat: React.FC = () => {
         // 选表情、选分类之类的动作不上报。
         if ([
             'transfer', 'archive', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
-            'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request',
+            'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request', 'mall-open',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
             // send-emoji / select-category 这些是「挑哪一个」，不进名单。
@@ -1873,12 +1905,17 @@ const Chat: React.FC = () => {
                 setShowThinkingChainModal(true);
                 break;
             }
+            case 'mall-open':
+                setMallOpen(true);
+                break;
         }
     };
 
     // 当前会话麦请求是否激活 (从消息历史推导, 无新存储)
     const mcdActivated = useMemo(() => isMcdActivatedInMessages(messages), [messages]);
     const [mcdAppOpen, setMcdAppOpen] = useState(false);
+    // 购物中心 mini-app：跟麦当劳小程序同构的本地 mini-app 壳，见 components/mall/ShoppingMallMiniApp.tsx
+    const [mallOpen, setMallOpen] = useState(false);
     // mcdMiniAppRef 声明在文件靠前 (传给 useChatAI), 这里仅占位
     const mcdConfiguredFlag = useMemo(() => isMcdConfigured(), [showPanel, mcdActivated]);
 
@@ -3512,7 +3549,7 @@ const Chat: React.FC = () => {
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || fineTunePanelOpen || showProactiveModal || showActiveMsg2Modal || showThinkingChainModal
-            || mcdAppOpen || luckinAppOpen || showForwardModal,
+            || mcdAppOpen || luckinAppOpen || showForwardModal || mallOpen,
         generating: isTyping || instantChatPending || isProactiveComposing,
         onGenerate: handleManualTrigger,
     });
@@ -4778,6 +4815,15 @@ const Chat: React.FC = () => {
                 onSendMessage={handleMcdMiniAppSend}
                 onStateChange={handleMcdMiniAppStateChange}
                 onConfirmOrder={handleMcdAppConfirm}
+            />
+
+            {/* 购物中心 mini-app */}
+            <ShoppingMallMiniApp
+                open={mallOpen}
+                onClose={() => setMallOpen(false)}
+                charName={char?.name || ''}
+                onSendOrder={handleSendMallOrder}
+                addToast={addToast}
             />
 
             {/* 🦌 瑞幸小程序 - 与麦当劳同构 */}
