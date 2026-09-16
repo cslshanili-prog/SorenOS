@@ -3518,6 +3518,47 @@ export interface UserProfile {
      * 没有这个群的键 = 跟全域默认（activePersonaId）走。
      */
     perGroupPersonaIds?: Record<string, string>;
+    /**
+     * Real Balance 钱包（Chat 主页「主页」栏卡片）：用户全局的一个模拟钱包，
+     * 不跟任何角色绑定。undefined = 还没打开过，首次进「主页」栏时
+     * utils/realBalance.ts 的 ensureRealBalanceState() 负责生成初始状态并写回来。
+     * 跟 utils/db.ts 的 BankTransaction/存钱罐游戏是两套完全独立的账本，不要混。
+     */
+    realBalance?: RealBalanceState;
+}
+
+/** Real Balance 钱包旗下的一张银行卡——跟 Real Balance 之间可以互转，卡本身的余额不计入 Real Balance。 */
+export interface BankCard {
+    id: string;
+    name: string;
+    /** 卡号后四位，纯展示用 */
+    lastFour: string;
+    balance: number;
+    color: 'gold' | 'graphite' | 'silver';
+    createdAt: number;
+}
+
+/** Real Balance 流水的一条记录——只记录会改变 Real Balance 本身余额的事件（银行卡转入/转出、聊天转账等），
+ *  银行卡自己的余额变动（比如开卡时的初始余额）不算在内，因为那笔钱压根没经过 Real Balance。 */
+export interface RealBalanceTransaction {
+    id: string;
+    /** 简短标签，如"初始余额"/"转入账户"/"转出账户"/"转账给 XX"/"收到 XX 的转账" */
+    label: string;
+    /** 带符号：正 = 入账，负 = 出账 */
+    amount: number;
+    /** 流水行的补充说明（卡名 + 完整金额等） */
+    detail?: string;
+    timestamp: number;
+    /** 这笔交易结算后的 Real Balance 余额，流水行直接显示用，不用每次重新求和 */
+    balanceAfter: number;
+    /** 关联的银行卡（转入/转出账户时才有） */
+    cardId?: string;
+}
+
+export interface RealBalanceState {
+    balance: number;
+    cards: BankCard[];
+    transactions: RealBalanceTransaction[];
 }
 
 export interface UserPersona {
