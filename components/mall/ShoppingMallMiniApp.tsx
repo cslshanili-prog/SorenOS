@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DB } from '../../utils/db';
 import Modal from '../os/Modal';
-import type { MallCategory, MallProduct, MallKind } from '../../types';
+import type { MallCategory, MallProduct, MallKind, APIConfig, ApiPreset } from '../../types';
 import {
     buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
     resolveCartLines, cartTotal, addToCart, removeFromCart, MallCartLine,
+    buildMallRestockPrompt, parseMallRestockItems,
 } from '../../utils/shoppingMall';
+import { getMallApi, setMallApi, resolveMallApi } from '../../utils/mallApi';
+import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
+import { shareOrDownloadFile } from '../../utils/shareExport';
 import type { MallOrderItem } from '../chat/MallOrderCard';
 import {
     CaretLeft, Plus, Minus, Trash, ShoppingCart, PaperPlaneTilt, Gift, PencilSimple,
@@ -26,12 +30,12 @@ interface ShoppingMallMiniAppProps {
     charName: string;
     onSendOrder: (order: MallSendOrderInput) => void;
     addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
+    /** 聊天默认 API，购物中心没有独立配置时跟随这个。 */
+    apiConfig: APIConfig;
+    apiPresets: ApiPreset[];
 }
 
-const notReady = (addToast: ShoppingMallMiniAppProps['addToast'], label: string) =>
-    addToast(`${label}规划中，还没做好`, 'info');
-
-const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charName, onSendOrder, addToast }) => {
+const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charName, onSendOrder, addToast, apiConfig, apiPresets }) => {
     const [tab, setTab] = useState<MallKind>('shop');
     const [categories, setCategories] = useState<MallCategory[]>([]);
     const [products, setProducts] = useState<MallProduct[]>([]);
@@ -55,6 +59,21 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     const [manualName, setManualName] = useState('');
     const [manualPrice, setManualPrice] = useState('');
     const [manualNote, setManualNote] = useState('');
+
+    // 独立 API（AI 补货用，null = 跟随聊天默认），跟 utils/checkPhoneApi.ts 同一个路数。
+    const [mallApiConfig, setMallApiConfigState] = useState<APIConfig | null>(() => getMallApi());
+    useEffect(() => {
+        const sync = () => setMallApiConfigState(getMallApi());
+        window.addEventListener('mall-api-changed', sync);
+        return () => window.removeEventListener('mall-api-changed', sync);
+    }, []);
+    const effectiveApiConfig = resolveMallApi(mallApiConfig, apiConfig);
+    const [showApiModal, setShowApiModal] = useState(false);
+    const [restocking, setRestocking] = useState(false);
+
+    // 本地导入导出（数据）
+    const [showDataModal, setShowDataModal] = useState(false);
+    const importInputRef = React.useRef<HTMLInputElement>(null);
 
     // 首次打开才拉取；某个 kind 还没有分类时现场生成默认分类 + 种子商品并落库，
     // 不在每次打开都重复播种（categories 非空就说明种过了）。
@@ -140,6 +159,99 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
         setProducts(prev => prev.filter(p => p.id !== id));
         setCarts(prev => ({ shop: prev.shop.filter(l => l.productId !== id), food: prev.food.filter(l => l.productId !== id) }));
         addToast('已删除商品', 'success');
+    };
+
+    // AI 补货：照 apps/CheckPhone.tsx handleGenerate 的骨架——prompt（带防重复提示）→
+    // 裸 fetch chat/completions → extractContent/extractJson 容错解析 → 逐条落库。
+    // 按当前选中的分类生成；选的是"全部"就用当前 tab 的第一个分类。
+    const handleAiRestock = async () => {
+        if (!effectiveApiConfig?.baseUrl || !effectiveApiConfig?.apiKey) {
+            addToast('先在"API"里配置好补货用的 API', 'info');
+            return;
+        }
+        const categoryId = activeCategoryId !== 'all' ? activeCategoryId : tabCategories[0]?.id;
+        const category = tabCategories.find(c => c.id === categoryId);
+        if (!category) { addToast('先新增一个分类', 'info'); return; }
+
+        setRestocking(true);
+        try {
+            const existingInCategory = tabProducts.filter(p => p.categoryId === category.id);
+            const prompt = buildMallRestockPrompt(tab, category.name, existingInCategory);
+            const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiConfig.apiKey}` },
+                body: JSON.stringify({
+                    model: effectiveApiConfig.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.9,
+                }),
+            });
+            if (!response.ok) throw new Error(`API Error ${response.status}`);
+            const data = await safeResponseJson(response);
+            const content = extractContent(data);
+            const json = extractJson(content) || [];
+            const newProducts = parseMallRestockItems(tab, category.id, json);
+            if (newProducts.length === 0) { addToast('这次没解析出商品，换个分类再试试', 'error'); return; }
+            await Promise.all(newProducts.map(p => DB.saveMallProduct(p)));
+            setProducts(prev => [...prev, ...newProducts]);
+            addToast(`补了 ${newProducts.length} 件商品`, 'success');
+        } catch (e) {
+            console.warn('[Mall] AI 补货失败:', e);
+            addToast('补货失败，稍后再试', 'error');
+        } finally {
+            setRestocking(false);
+        }
+    };
+
+    // 本地导入导出：跟世界书 apps/WorldbookApp.tsx 的按分类导出同一个路数，独立于全局设置的
+    // 导入导出——只导出/导入购物中心自己的分类+商品，不影响别的东西。落盘统一走
+    // shareOrDownloadFile（原生分享 / Web 分享 / 浏览器下载三级兜底），不直接碰 anchor.download。
+    const handleExportCatalog = async () => {
+        const payload = {
+            exportedAt: Date.now(),
+            categories: categories.map(({ id, kind, name, order }) => ({ id, kind, name, order })),
+            products: products.map(({ id, kind, categoryId, name, price, emoji, detail }) => ({ id, kind, categoryId, name, price, emoji, detail })),
+        };
+        try {
+            await shareOrDownloadFile({
+                content: JSON.stringify(payload, null, 2),
+                fileName: `购物中心-${new Date().toISOString().slice(0, 10)}.json`,
+                mimeType: 'application/json',
+                shareTitle: '购物中心数据',
+            });
+            addToast('已导出', 'success');
+        } catch (e) {
+            console.warn('[Mall] 导出失败:', e);
+            addToast('导出失败', 'error');
+        }
+    };
+
+    const handleImportFile = async (file: File) => {
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const importedCategories: MallCategory[] = Array.isArray(parsed?.categories) ? parsed.categories : [];
+            const importedProducts: MallProduct[] = Array.isArray(parsed?.products) ? parsed.products : [];
+            if (importedCategories.length === 0 && importedProducts.length === 0) {
+                addToast('这个文件里没有可导入的内容', 'error');
+                return;
+            }
+            // id 冲突（比如重复导入同一份）就跳过已存在的，不覆盖本地已有数据。
+            const existingCatIds = new Set(categories.map(c => c.id));
+            const existingProdIds = new Set(products.map(p => p.id));
+            const catsToAdd = importedCategories.filter(c => c?.id && c?.kind && c?.name && !existingCatIds.has(c.id));
+            const prodsToAdd = importedProducts.filter(p => p?.id && p?.kind && p?.categoryId && p?.name && !existingProdIds.has(p.id));
+            await Promise.all([
+                ...catsToAdd.map(c => DB.saveMallCategory(c)),
+                ...prodsToAdd.map(p => DB.saveMallProduct(p)),
+            ]);
+            setCategories(prev => [...prev, ...catsToAdd]);
+            setProducts(prev => [...prev, ...prodsToAdd]);
+            addToast(`已导入 ${catsToAdd.length} 个分类、${prodsToAdd.length} 件商品`, 'success');
+        } catch (e) {
+            console.warn('[Mall] 导入失败:', e);
+            addToast('文件格式不对，导入失败', 'error');
+        }
     };
 
     const cartAsOrderItems = (): MallOrderItem[] => cartLines.map(l => ({
@@ -228,9 +340,11 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
 
                     {/* 工具栏 */}
                     <div className="flex items-center gap-4 px-4 pb-2.5 text-[11px] text-slate-400">
-                        <button onClick={() => notReady(addToast, 'API')}>API</button>
-                        <button onClick={() => notReady(addToast, '数据导入导出')}>数据</button>
-                        <button onClick={() => notReady(addToast, 'AI 补货')} className="text-rose-400 font-bold">✦ AI补货</button>
+                        <button onClick={() => setShowApiModal(true)}>API</button>
+                        <button onClick={() => setShowDataModal(true)}>数据</button>
+                        <button onClick={handleAiRestock} disabled={restocking} className="text-rose-400 font-bold disabled:opacity-50">
+                            {restocking ? '补货中…' : '✦ AI补货'}
+                        </button>
                         <button onClick={() => setShowManage(true)}>管理</button>
                         <button onClick={() => setShowAddProduct(true)} className="ml-auto text-rose-500 font-bold flex items-center gap-1">
                             <Plus size={12} weight="bold" /> 加商品
@@ -374,6 +488,46 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                     <input value={manualNote} onChange={e => setManualNote(e.target.value)} placeholder="备注"
                         className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
                     <div className="text-[10px] text-slate-400">纯摆设卡片，不会动 Real Balance——如果想要真的花{charName}的钱，用「发起代付请求」那条走 AI 流程。</div>
+                </div>
+            </Modal>
+
+            {/* AI 补货用的 API：独立配置，不填就跟随聊天默认 */}
+            <Modal isOpen={showApiModal} title="AI 补货用哪个 API" onClose={() => setShowApiModal(false)}>
+                <div className="space-y-2">
+                    <button onClick={() => { setMallApi(null); setMallApiConfigState(null); addToast('已改为跟随聊天默认', 'success'); }}
+                        className={`w-full rounded-2xl border p-3 text-left transition ${!mallApiConfig ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                        <div className="text-[12px] font-bold text-slate-800">跟随聊天默认</div>
+                        <div className="text-[10px] text-slate-400 truncate">{apiConfig?.model || '未配置'}</div>
+                        {!mallApiConfig && <div className="text-[10px] font-bold text-rose-500 mt-0.5">✓ 使用中</div>}
+                    </button>
+                    {apiPresets.length === 0 ? (
+                        <p className="px-1 text-[10.5px] leading-relaxed text-slate-400">"设置"里还没有保存的 API 预设。先保存预设，这里就能单独选择。</p>
+                    ) : apiPresets.map(preset => {
+                        const active = mallApiConfig?.baseUrl === preset.config.baseUrl && mallApiConfig?.model === preset.config.model && mallApiConfig?.apiKey === preset.config.apiKey;
+                        return (
+                            <button key={preset.id} onClick={() => { setMallApi(preset.config); setMallApiConfigState(preset.config); addToast(`已切换到「${preset.name}」`, 'success'); }}
+                                className={`w-full rounded-2xl border p-3 text-left transition ${active ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
+                                <div className="text-[12px] font-bold text-slate-800 truncate">{preset.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{preset.config.model || '未配置'}</div>
+                                {active && <div className="text-[10px] font-bold text-rose-500 mt-0.5">✓ 使用中</div>}
+                            </button>
+                        );
+                    })}
+                </div>
+            </Modal>
+
+            {/* 本地导入导出：只管购物中心自己的分类+商品，独立于全局设置的导入导出 */}
+            <Modal isOpen={showDataModal} title="购物中心数据" onClose={() => setShowDataModal(false)}>
+                <div className="space-y-3">
+                    <button onClick={handleExportCatalog} className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl active:scale-95 transition-transform">
+                        导出全部分类+商品
+                    </button>
+                    <button onClick={() => importInputRef.current?.click()} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">
+                        导入 JSON 文件
+                    </button>
+                    <input ref={importInputRef} type="file" accept="application/json" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }} />
+                    <div className="text-[10px] text-slate-400 leading-relaxed">跟账号的整体设置导入导出是两回事——这里只导出/导入购物中心自己的分类和商品，不影响其它任何东西。重复导入同一份不会覆盖已有数据（按 id 跳过已存在的）。</div>
                 </div>
             </Modal>
         </div>

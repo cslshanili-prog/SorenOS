@@ -80,6 +80,48 @@ export function createMallProduct(kind: MallKind, categoryId: string, input: { n
     };
 }
 
+// ─── AI 补货：跟 apps/CheckPhone.tsx 的 handleGenerate 同一个骨架（context 由调用方拼，
+// 这里只管纯文本的 prompt/防重复提示 + 解析结果落地），调用方负责 fetch + extractContent/
+// extractJson，解析完的数组丢进 parseMallRestockItems 转成可以直接 saveMallProduct 的对象。───
+
+/**
+ * 防重复：把这个分类下已有的商品名喂回去，让 AI 这次刷新换一批新东西，而不是原地重复
+ * （比如已经有一款"草莓小蛋糕"，这次别又刷一款换皮的"草莓慕斯"）。没有历史时返回空串。
+ */
+export function buildMallAntiRepeatNote(existingInCategory: MallProduct[]): string {
+    if (existingInCategory.length === 0) return '';
+    const names = existingInCategory.map(p => p.name).join('、');
+    return `\n\n这个分类下已经有这些商品了，这次补货请换一批新的，别跟它们重复或换皮重名：${names}`;
+}
+
+export function buildMallRestockPrompt(kind: MallKind, categoryName: string, existingInCategory: MallProduct[], count = 4): string {
+    const noun = kind === 'food' ? '外卖' : '购物';
+    return `生成 ${count} 件「${categoryName}」分类下的${noun}商品，适合在情侣/朋友之间当${kind === 'food' ? '点单' : '送礼'}用的日常小商品，价格控制在合理区间（几元到几十元）。` +
+        `${buildMallAntiRepeatNote(existingInCategory)}\n\n` +
+        `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 数组，"name"/"detail"/"emoji" 必须是字符串，"price" 必须是数字，不能是对象或数组：\n` +
+        `[{ "name": "商品名", "price": 19.9, "emoji": "一个最能代表这个商品的 emoji", "detail": "一句简短说明，不超过20字" }, ...]`;
+}
+
+/** 把 AI 返回的松散 JSON 数组过滤/纠错成能直接 DB.saveMallProduct 的商品对象。 */
+export function parseMallRestockItems(kind: MallKind, categoryId: string, json: unknown): MallProduct[] {
+    if (!Array.isArray(json)) return [];
+    const out: MallProduct[] = [];
+    for (const item of json) {
+        if (!item || typeof item !== 'object') continue;
+        const name = String((item as any).name ?? '').trim();
+        if (!name) continue;
+        const rawPrice = (item as any).price;
+        const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice ?? '')) || 0;
+        out.push(createMallProduct(kind, categoryId, {
+            name,
+            price,
+            emoji: typeof (item as any).emoji === 'string' ? (item as any).emoji : undefined,
+            detail: typeof (item as any).detail === 'string' ? (item as any).detail : undefined,
+        }));
+    }
+    return out;
+}
+
 // ─── 购物车 / 外卖篮（纯计算，状态本身是 mini-app 里的临时 UI state，不落库）───
 
 export interface MallCartLine {

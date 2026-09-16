@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
     resolveCartLines, cartTotal, addToCart, removeFromCart, clearCartLine,
-    DEFAULT_MALL_CATEGORIES,
+    DEFAULT_MALL_CATEGORIES, buildMallAntiRepeatNote, buildMallRestockPrompt, parseMallRestockItems,
 } from './shoppingMall';
 
 describe('buildDefaultCategories', () => {
@@ -103,5 +103,44 @@ describe('购物车纯函数', () => {
 
     it('cartTotal 空购物车为 0', () => {
         expect(cartTotal([], products)).toBe(0);
+    });
+});
+
+describe('AI 补货：防重复提示 / prompt / 结果解析', () => {
+    const existing: any[] = [
+        { id: 'p1', kind: 'shop', categoryId: 'c1', name: '草莓小蛋糕', price: 23, emoji: '🍰', createdAt: 0 },
+    ];
+
+    it('buildMallAntiRepeatNote 没有已有商品时返回空串', () => {
+        expect(buildMallAntiRepeatNote([])).toBe('');
+    });
+
+    it('buildMallAntiRepeatNote 把已有商品名拼进提示', () => {
+        expect(buildMallAntiRepeatNote(existing)).toContain('草莓小蛋糕');
+    });
+
+    it('buildMallRestockPrompt 带上分类名、kind 对应的用途词、防重复提示和字段约束', () => {
+        const prompt = buildMallRestockPrompt('food', '甜品饮料', existing, 3);
+        expect(prompt).toContain('甜品饮料');
+        expect(prompt).toContain('外卖');
+        expect(prompt).toContain('草莓小蛋糕');
+        expect(prompt).toContain('"price"');
+    });
+
+    it('parseMallRestockItems 过滤掉没有 name 的条目，price 非数字时兜底成 0', () => {
+        const items = parseMallRestockItems('shop', 'cat-1', [
+            { name: '手写卡片', price: 12, emoji: '💌', detail: '一张手写的小卡片' },
+            { name: '', price: 10 }, // 没 name，跳过
+            { name: '无价商品', price: 'abc' }, // price 解析不出来，兜底 0
+            null, // 非对象，跳过
+        ]);
+        expect(items).toHaveLength(2);
+        expect(items[0]).toMatchObject({ name: '手写卡片', price: 12, emoji: '💌', categoryId: 'cat-1', kind: 'shop' });
+        expect(items[1]).toMatchObject({ name: '无价商品', price: 0 });
+    });
+
+    it('parseMallRestockItems 非数组输入返回空数组，不崩', () => {
+        expect(parseMallRestockItems('shop', 'cat-1', null)).toEqual([]);
+        expect(parseMallRestockItems('shop', 'cat-1', { foo: 'bar' })).toEqual([]);
     });
 });

@@ -4824,6 +4824,8 @@ const Chat: React.FC = () => {
                 charName={char?.name || ''}
                 onSendOrder={handleSendMallOrder}
                 addToast={addToast}
+                apiConfig={apiConfig}
+                apiPresets={apiPresets}
             />
 
             {/* 🦌 瑞幸小程序 - 与麦当劳同构 */}
