@@ -19,6 +19,8 @@ import { usePersonaSim, personaSimStore } from '../utils/personaSimStore';
 import { getLastInnerState } from '../utils/emotionApply';
 import { trackEvent } from '../utils/analytics';
 import { buildPhoneEvidenceChatCard, normalizePhoneEvidence, phoneFieldToText } from '../utils/phoneEvidence';
+import { resolveCustomAppRecordHtml, composeCustomAppCardHtml, buildCustomAppHtmlCardNote, buildCustomAppAntiRepeatNote } from '../utils/phoneCustomAppCard';
+import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { resolveUserProfileForChar } from '../utils/userPersona';
@@ -320,13 +322,20 @@ const CheckPhone: React.FC = () => {
     const [msgSelectMode, setMsgSelectMode] = useState(false);
     const [selectedMsgIdx, setSelectedMsgIdx] = useState<number[]>([]);
 
-    // Custom App Creation State
+    // Custom App Creation State（editingAppId 非空时同一个弹窗改走"编辑"分支，见 handleSaveCustomApp）
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingAppId, setEditingAppId] = useState<string | null>(null);
     const [newAppName, setNewAppName] = useState('');
     const [newAppIcon, setNewAppIcon] = useState('✨');
     const [newAppColor, setNewAppColor] = useState('#8b9cff');
     const [newAppPrompt, setNewAppPrompt] = useState('');
     const [newAppLayout, setNewAppLayout] = useState<NonNullable<PhoneCustomApp['layout']>>('generic');
+    const [newAppHtmlEnabled, setNewAppHtmlEnabled] = useState(false);
+    const [newAppHtmlPrompt, setNewAppHtmlPrompt] = useState('');
+    const [newAppCssEnabled, setNewAppCssEnabled] = useState(false);
+    const [newAppCss, setNewAppCss] = useState('');
+    // 自定义 App 图标 · 长按动作菜单（编辑 / 卸载），跟 aiMenu 同一套交互
+    const [customAppMenu, setCustomAppMenu] = useState<string | null>(null);
 
     // 智能体 App State（「TA 的小手机」偷看）
     const [aiService, setAiService] = useState<AiServiceKind>('assistant'); // 智能体首页当前选中的服务 tab
@@ -678,30 +687,65 @@ const CheckPhone: React.FC = () => {
         addToast('App 已卸载', 'success');
     };
 
-    const handleCreateCustomApp = () => {
+    // 弹窗里的字段状态清空，创建/编辑共用一个弹窗，关掉时统一复位，避免下次打开"创建"带出上次编辑的残留值
+    const closeCreateAppModal = () => {
+        setShowCreateModal(false);
+        setEditingAppId(null);
+        setNewAppName('');
+        setNewAppIcon('✨');
+        setNewAppColor('#8b9cff');
+        setNewAppPrompt('');
+        setNewAppLayout('generic');
+        setNewAppHtmlEnabled(false);
+        setNewAppHtmlPrompt('');
+        setNewAppCssEnabled(false);
+        setNewAppCss('');
+    };
+
+    // 长按已安装的 App 图标 → "编辑"：把弹窗字段填成这个 App 现在的配置，走 handleSaveCustomApp 的编辑分支
+    const openEditCustomApp = (app: PhoneCustomApp) => {
+        setEditingAppId(app.id);
+        setNewAppName(app.name);
+        setNewAppIcon(app.icon);
+        setNewAppColor(app.color);
+        setNewAppPrompt(app.prompt);
+        setNewAppLayout(app.layout || 'generic');
+        setNewAppHtmlEnabled(!!app.htmlCardEnabled);
+        setNewAppHtmlPrompt(app.htmlCardPrompt || '');
+        setNewAppCssEnabled(!!app.htmlCardCssEnabled);
+        setNewAppCss(app.htmlCardCss || '');
+        setCustomAppMenu(null);
+        setShowCreateModal(true);
+    };
+
+    const handleSaveCustomApp = () => {
         if (!targetChar || !newAppName || !newAppPrompt) return;
 
-        const newApp: PhoneCustomApp = {
-            id: `app-${Date.now()}`,
+        const patch: Omit<PhoneCustomApp, 'id'> = {
             name: newAppName,
             icon: newAppIcon,
             color: newAppColor,
             prompt: newAppPrompt,
-            layout: newAppLayout
+            layout: newAppLayout,
+            htmlCardEnabled: newAppHtmlEnabled,
+            htmlCardPrompt: newAppHtmlPrompt.trim() || undefined,
+            htmlCardCssEnabled: newAppCssEnabled,
+            htmlCardCss: newAppCss.trim() || undefined,
         };
 
         const currentApps = targetChar.phoneState?.customApps || [];
+        const nextApps = editingAppId
+            ? currentApps.map(a => a.id === editingAppId ? { ...a, ...patch } : a)
+            : [...currentApps, { id: `app-${Date.now()}`, ...patch }];
         updateCharacter(targetChar.id, {
-            phoneState: { records: targetChar.phoneState?.records || [], ...targetChar.phoneState, customApps: [...currentApps, newApp] }
+            phoneState: { records: targetChar.phoneState?.records || [], ...targetChar.phoneState, customApps: nextApps }
         });
 
-        setShowCreateModal(false);
-        setNewAppName('');
-        setNewAppPrompt('');
-        setNewAppLayout('generic');
-        setPage(1);
-        addToast(`已安装 ${newAppName}`, 'success');
-        trackEvent('安装自定义 App', { layout: newAppLayout });
+        const wasEditing = !!editingAppId;
+        closeCreateAppModal();
+        if (!wasEditing) setPage(1);
+        addToast(wasEditing ? `已保存 ${newAppName} 的设置` : `已安装 ${newAppName}`, 'success');
+        trackEvent(wasEditing ? '编辑自定义 App' : '安装自定义 App', { layout: newAppLayout, htmlCard: newAppHtmlEnabled });
     };
 
     // --- Core Generation Logic ---
@@ -715,6 +759,9 @@ const CheckPhone: React.FC = () => {
         trackEvent('刷新生成手机 App 数据', {
             appType: ['call', 'order', 'delivery', 'social', 'contacts'].includes(type) ? type : 'custom',
         });
+
+        // 提到函数级作用域：解析阶段（构建 record.html）也要用到，不能只留在 if (customPrompt) 分支里
+        const customApp = customApps.find(a => a.id === type);
 
         try {
             await injectMemoryPalace(targetChar);
@@ -778,8 +825,11 @@ ${rosterInfo}
 该 App 的功能/用户想看的内容是: "${customPrompt}"。
 请生成 2-4 条符合该 App 功能的记录，必须符合你的人设。
 ${layoutHint[layout || 'generic']}`;
-                const customApp = customApps.find(a => a.id === type);
                 logPrefix = customApp ? customApp.name : type;
+                // 防重复：把这个 App 最近生成过的记录喂回去，避免刷新总是同一个主题换皮重复
+                promptInstruction += buildCustomAppAntiRepeatNote((targetChar.phoneState?.records || []).filter(r => r.type === type));
+                // HTML 卡片：只有开关开着且指令非空时才教这段语法（关闭/空指令返回空串，不占 prompt）
+                if (customApp) promptInstruction += buildCustomAppHtmlCardNote(customApp);
             } else {
                 if (type === 'chat') {
                     promptInstruction = `生成 3 个**你（${targetChar.name}）自己**手机聊天软件(Message/Line)里的**对话片段**（你和你自己联系人的对话，第一人称视角，不是用户的社交）。
@@ -923,6 +973,12 @@ ${realCharRule}
                         } as any);
                     }
 
+                    // HTML 卡片只在自定义 App 开了这个开关时才算——同步进聊天的 card 上面已经落库，
+                    // 只用了 title/detail/value；这里另外算的 html 只挂在本地记录上，给 App 界面自己用
+                    const recordHtml = customApp
+                        ? resolveCustomAppRecordHtml(customApp, item, { title: recordTitle, detail: recordDetail, value: recordValue })
+                        : undefined;
+
                     newRecordsToAdd.push({
                         id: `rec-${Date.now()}-${Math.random()}`,
                         type: type,
@@ -932,6 +988,7 @@ ${realCharRule}
                         timestamp: Date.now(),
                         systemMessageId: savedMsgId,
                         contactId,
+                        html: recordHtml,
                     });
 
                     await new Promise(r => setTimeout(r, 50));
@@ -2359,7 +2416,11 @@ ${olderText}
                     onBack={() => { setSelectedEvidenceRecord(null); setActiveAppId(evidenceBackAppId); }}
                     right={<span style={{ color: accent }}>{detailIcon}</span>} />
                 <div className="flex-1 overflow-y-auto no-scrollbar overscroll-contain px-5 pt-3 pb-10">
-                    {isSocial ? (
+                    {customApp?.htmlCardEnabled && r.html ? (
+                        <div className="pb-6 border-b border-white/[0.07] flex justify-center">
+                            <HtmlCard html={composeCustomAppCardHtml(customApp, r.html)} />
+                        </div>
+                    ) : isSocial ? (
                         <article>
                             <div className="flex items-center gap-3 pb-4 border-b border-white/[0.07]">
                                 {targetChar?.avatar
@@ -3317,6 +3378,16 @@ ${olderText}
     };
 
     const renderCustomItem = (r: PhoneEvidence, idx: number, total: number, accent: string, layout: LayoutId, app: PhoneCustomApp) => {
+        // HTML 卡片：只有这个 App 开着开关、且这条记录确实生成出 html 时才走这条路；
+        // 没生成出来（指令为空/关闭/LLM 没给）自动落回下面按 layout 分支的纯文字渲染，不用额外判断。
+        if (app.htmlCardEnabled && r.html) {
+            return (
+                <div key={r.id} {...evidenceEntryProps(r, app.id)} className="group relative animate-slide-up focus:outline-none">
+                    <HtmlCard html={composeCustomAppCardHtml(app, r.html)} />
+                    <DelBtn onDelete={() => handleDeleteRecord(r)} />
+                </div>
+            );
+        }
         switch (layout) {
             case 'shop':
                 return (
@@ -3575,7 +3646,10 @@ ${olderText}
                     const count = records.filter(r => r.type === app.id).length;
                     return (
                         <div key={app.id} className="relative group">
-                            <button onClick={() => setActiveAppId(app.id)}
+                            {/* 长按编辑/卸载，跟 aiMenu 那套动作菜单同一个交互 */}
+                            <button
+                                {...longPress(() => setCustomAppMenu(app.id))}
+                                onClick={() => { if (lpFired.current) { lpFired.current = false; return; } setActiveAppId(app.id); }}
                                 className="w-full rounded-[24px] p-4 text-left overflow-hidden border border-white/[0.07] bg-white/[0.035] backdrop-blur-xl active:scale-[0.98] transition min-h-[130px] flex flex-col justify-between">
                                 <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl opacity-50 pointer-events-none"
                                     style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }} />
@@ -3585,12 +3659,10 @@ ${olderText}
                                 </div>
                                 <div className="relative z-10">
                                     <div className="text-[14px] font-semibold text-white truncate">{app.name}</div>
-                                    <div className="text-[10.5px] text-white/40 mt-0.5">{count} 条记录</div>
+                                    <div className="text-[10.5px] text-white/40 mt-0.5">{count} 条记录 · 长按编辑/卸载</div>
                                     <div className="h-[3px] w-8 rounded-full mt-2" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
                                 </div>
                             </button>
-                            <button onClick={() => handleDeleteApp(app.id)}
-                                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[12px] leading-none opacity-0 group-hover:opacity-100 transition z-20 shadow-md">×</button>
                         </div>
                     );
                 })}
@@ -3902,6 +3974,32 @@ ${olderText}
                 </div>
             )}
 
+            {/* 自定义 App 图标 · 长按动作菜单（编辑设置 / 卸载） */}
+            {customAppMenu && (() => {
+                const app = customApps.find(a => a.id === customAppMenu);
+                if (!app) return null;
+                return (
+                    <div className="fixed inset-0 z-[120] flex items-end justify-center animate-fade-in" onClick={() => setCustomAppMenu(null)}>
+                        <div className="absolute inset-0 bg-black/50" />
+                        <div className="relative w-full max-w-sm m-3 mb-6 space-y-2" onClick={event => event.stopPropagation()}>
+                            <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
+                                <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">{app.icon} {app.name}</div>
+                                <button onClick={() => openEditCustomApp(app)}
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 编辑设置</button>
+                                <button onClick={() => {
+                                    setCustomAppMenu(null);
+                                    askConfirm({
+                                        title: `卸载「${app.name}」？`, desc: '已生成的记录不会被立即删掉，但卸载后这个 App 从桌面消失，就再也打不开、也看不到它们了。', confirmLabel: '卸载', danger: true,
+                                        onConfirm: () => handleDeleteApp(app.id),
+                                    });
+                                }} className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 卸载</button>
+                            </div>
+                            <button onClick={() => setCustomAppMenu(null)} className="w-full rounded-2xl bg-[#1c1d22] border border-white/10 py-3.5 text-[14px] font-semibold text-white/80">取消</button>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* 智能体 · 长按动作菜单（会话/卡片：编辑 / 删除） */}
             {aiMenu && (() => {
                 const isSession = aiMenu.kind === 'session';
@@ -4034,8 +4132,8 @@ ${olderText}
             })()}
 
             {/* Create App Modal */}
-            <Modal isOpen={showCreateModal} title="安装自定义 App" onClose={() => setShowCreateModal(false)}
-                footer={<button onClick={handleCreateCustomApp} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">安装到桌面</button>}>
+            <Modal isOpen={showCreateModal} title={editingAppId ? '编辑自定义 App' : '安装自定义 App'} onClose={closeCreateAppModal}
+                footer={<button onClick={handleSaveCustomApp} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">{editingAppId ? '保存修改' : '安装到桌面'}</button>}>
                 <div className="space-y-4">
                     <div className="flex gap-4">
                         <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-md border border-white/10 shrink-0"
@@ -4060,6 +4158,58 @@ ${olderText}
                         />
                         <p className="text-[9px] text-slate-400 mt-1">AI 将根据此指令生成该 App 内部的数据。</p>
                     </div>
+
+                    {/* HTML 卡片：关闭=原版纯文字（现状）；开启后用下面的指令额外生成卡片视觉，
+                        发进聊天上下文的内容永远只有 title/detail/value 纯文字，不受这个开关影响 */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="text-[12px] font-bold text-slate-700">HTML 卡片</div>
+                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">关闭时就是原版纯文字；打开后才使用下面的 HTML 卡片指令。</p>
+                            </div>
+                            <button type="button" onClick={() => setNewAppHtmlEnabled(v => !v)}
+                                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${newAppHtmlEnabled ? 'bg-violet-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                {newAppHtmlEnabled ? '开' : '关'}
+                            </button>
+                        </div>
+                        {newAppHtmlEnabled && (
+                            <>
+                                <textarea
+                                    value={newAppHtmlPrompt}
+                                    onChange={e => setNewAppHtmlPrompt(e.target.value)}
+                                    placeholder="可以写自然语言卡片指令，也可以粘贴固定 HTML 模板；模板可用 {{title}}、{{detail}}、{{value}} 或自定义占位符。"
+                                    className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs resize-none mt-3"
+                                />
+                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">打开但不填写时不会生成卡片，会自动回到原版纯文字。固定 HTML 模板会比普通描述更稳定。</p>
+                            </>
+                        )}
+                    </div>
+
+                    {/* CSS 样式：只在渲染卡片的沙盒 iframe 内生效，出不了这个卡片区域 */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="text-[12px] font-bold text-slate-700">CSS 样式</div>
+                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">高级样式。开启并填写 CSS 后优先使用；CSS 为空时继续按 HTML 卡片指令处理。</p>
+                            </div>
+                            <button type="button" onClick={() => setNewAppCssEnabled(v => !v)}
+                                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${newAppCssEnabled ? 'bg-fuchsia-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                {newAppCssEnabled ? '开' : '关'}
+                            </button>
+                        </div>
+                        {newAppCssEnabled && (
+                            <>
+                                <textarea
+                                    value={newAppCss}
+                                    onChange={e => setNewAppCss(e.target.value)}
+                                    placeholder={'例如：\n.phone-card { padding: 16px; border-radius: 20px; background: rgba(15,23,42,.88); color: white; }\n.phone-card-title { font-size: 18px; font-weight: 800; }'}
+                                    className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono resize-none mt-3"
+                                />
+                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">建议用 .phone-card、.phone-card-title、.phone-card-section 等类名；系统会把 CSS 限制在这个 App 卡片区域里。</p>
+                            </>
+                        )}
+                    </div>
+
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">界面样板 (UI Style)</label>
                         <div className="grid grid-cols-2 gap-2">

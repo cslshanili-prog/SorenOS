@@ -922,6 +922,21 @@ export interface PhoneCustomApp {
     color: string;
     prompt: string;
     layout?: 'generic' | 'shop' | 'feed' | 'forum' | 'novel'; // 参考样板 UI 风格，默认 generic
+    /** HTML 卡片模式：关闭=原版纯文字（现状）；开启后按 htmlCardPrompt 额外生成/渲染卡片，纯文字仍是发进聊天上下文的那份 */
+    htmlCardEnabled?: boolean;
+    /**
+     * HTML 卡片指令。可以是自然语言描述（LLM 按描述生成每条记录的 HTML），
+     * 也可以是带 {{title}}/{{detail}}/{{value}} 或自定义占位符的固定 HTML 模板
+     * （客户端本地做字符串替换，不经过 LLM，更稳定）。留空时即使开关开着也不生成卡片。
+     */
+    htmlCardPrompt?: string;
+    /** CSS 样式开关：配合 htmlCardCss 使用 */
+    htmlCardCssEnabled?: boolean;
+    /**
+     * 卡片 CSS。只在渲染卡片的沙盒 iframe 内生效（HtmlCard 组件），
+     * 不会影响 App 外部任何界面；建议用 .phone-card 等类名，配合 htmlCardPrompt 里 class 一致。
+     */
+    htmlCardCss?: string;
 }
 
 export interface PhoneEvidence {
@@ -934,6 +949,12 @@ export interface PhoneEvidence {
     value?: string;
     /** 人际关系系统：本条记录归属的联系人（phoneState.contacts 里的 id） */
     contactId?: string;
+    /**
+     * 自定义 App 生成的 HTML 卡片（仅 App 界面内渲染用）。同步到私聊时永远只用
+     * title/detail/value 纯文字（见 utils/phoneEvidence.ts buildPhoneEvidenceChatCard），
+     * 这个字段不会进聊天上下文，避免把 HTML/CSS 代码塞给角色读。
+     */
+    html?: string;
 }
 
 /**
