@@ -300,6 +300,9 @@ const CheckPhone: React.FC = () => {
     const [editingIdentity, setEditingIdentity] = useState(false);
     const [noteDraft, setNoteDraft] = useState('');
     const [editingNote, setEditingNote] = useState(false);
+    // 虚构 NPC 联系人没有"真名"兜底，姓名本身就得能编辑（真人联系人改的是 identity 备注名，不是这个）
+    const [nameDraft, setNameDraft] = useState('');
+    const [editingName, setEditingName] = useState(false);
     const [showContactModal, setShowContactModal] = useState(false);
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
@@ -1600,6 +1603,16 @@ ${olderText}
         } : c));
         setEditingIdentity(false);
         addToast(identity ? '备注名已保存' : '已恢复显示真名', 'success');
+    };
+
+    // 虚构 NPC 联系人：直接改姓名本身（没有真人那种"真名兜底"，这是唯一的名字来源）。
+    // 名字同时是好感变化播报、扫描通讯录去重匹配用的 key，改名不影响已有好感/备注/话题盒。
+    const handleSaveContactName = (contact: PhoneContact) => {
+        const name = nameDraft.trim();
+        if (!name) { addToast('姓名不能为空', 'error'); return; }
+        mutateContacts(cs => cs.map(c => c.id === contact.id ? { ...c, name } : c));
+        setEditingName(false);
+        addToast('姓名已保存', 'success');
     };
 
     // 彻底移除联系人：连同 TA 的聊天记录 + 私聊里的 phone_card 一起清；
@@ -3143,7 +3156,7 @@ ${olderText}
         const statusLabel = c.status === 'friend' ? '好友' : c.status === 'deleted' ? '已删除' : c.status === 'blocked' ? '已拉黑' : '待定';
         const aff = affinityDraft ?? c.affinity;
         const commitAff = () => { if (affinityDraft != null) { handleSetAffinity(c, affinityDraft); setAffinityDraft(null); } };
-        const closeProfile = () => { setShowProfile(false); setEditingIdentity(false); setEditingNote(false); };
+        const closeProfile = () => { setShowProfile(false); setEditingIdentity(false); setEditingNote(false); setEditingName(false); };
         const avatarNode = (size: string, txt: string) => av
             ? <TokenImg value={av} alt="" className={`${size} rounded-2xl object-cover shrink-0`} />
             : <div className={`${size} rounded-2xl flex items-center justify-center shrink-0 text-white font-semibold ${txt}`} style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)` }}>{c.name[0]}</div>;
@@ -3277,16 +3290,22 @@ ${olderText}
                                 </div>
                             </div>
 
-                            {/* 真人联系人列表里显示的备注名 / 关系（可人工锁定，后续扫描不覆盖） */}
-                            {isReal && (
-                                <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.06]">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">备注名 / 关系</span>
-                                        <button onClick={() => { setEditingIdentity(!editingIdentity); setIdentityDraft(c.identity || ''); }} className="text-white/50 active:scale-90 transition" aria-label="编辑备注名">
-                                            <PencilSimple size={14} weight="bold" />
-                                        </button>
-                                    </div>
-                                    {editingIdentity ? (
+                            {/* 真人：备注名 / 关系（identity，可人工锁定，后续扫描不覆盖）；
+                                虚构 NPC：没有"真名"兜底，直接编辑姓名本身——这是唯一的名字来源 */}
+                            <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.06]">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">{isReal ? '备注名 / 关系' : '姓名'}</span>
+                                    <button
+                                        onClick={() => {
+                                            if (isReal) { setEditingIdentity(!editingIdentity); setIdentityDraft(c.identity || ''); }
+                                            else { setEditingName(!editingName); setNameDraft(c.name); }
+                                        }}
+                                        className="text-white/50 active:scale-90 transition" aria-label={isReal ? '编辑备注名' : '编辑姓名'}>
+                                        <PencilSimple size={14} weight="bold" />
+                                    </button>
+                                </div>
+                                {isReal ? (
+                                    editingIdentity ? (
                                         <div className="space-y-2">
                                             <input value={identityDraft} onChange={e => setIdentityDraft(e.target.value)} placeholder="例如：学长、前任、彼方网友"
                                                 className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90" />
@@ -3295,9 +3314,19 @@ ${olderText}
                                         </div>
                                     ) : (
                                         <p className="text-[12.5px] text-white/70 leading-relaxed">{c.identity || `（显示真名：${linkedCharOf(c)?.name || c.name}）`}</p>
-                                    )}
-                                </div>
-                            )}
+                                    )
+                                ) : (
+                                    editingName ? (
+                                        <div className="space-y-2">
+                                            <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} placeholder="联系人姓名"
+                                                className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90" />
+                                            <button onClick={() => handleSaveContactName(c)} className="w-full py-2 rounded-xl text-[12px] font-semibold text-white" style={{ background: accent }}>保存</button>
+                                        </div>
+                                    ) : (
+                                        <p className="text-[12.5px] text-white/70 leading-relaxed">{c.name}</p>
+                                    )
+                                )}
+                            </div>
 
                             {/* 备注（事实，可编辑） */}
                             <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.06]">
