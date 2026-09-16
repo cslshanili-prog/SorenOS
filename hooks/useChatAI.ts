@@ -2098,6 +2098,11 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
+            // onCharTransferSend 同一轮回复里可能被连续调用好几次（角色一口气发了不止一笔
+            // 转账）；char.phoneState.realBalance 是这一轮拿到手时的快照，整轮期间不会跟着
+            // 前一笔转账的扣款更新。这个变量在每笔转账后手动往前滚，让同一轮内的后一笔
+            // 转账查到的是「已经扣过前一笔」的余额，不会拿同一份起始余额重复通过检查。
+            let charRealBalanceSnapshot: ReturnType<typeof ensureRealBalanceState> | undefined;
             await applyAssistantPostProcessing(sarReply.canonical, {
                 char,
                 userProfile,
@@ -2125,15 +2130,23 @@ export const useChatAI = ({
                 },
                 // 角色主动发起转账：发送即结清，先从角色 Real Balance 扣款；扣不出来返回 false，
                 // chatParser 会拦下这笔转账不落卡（跟用户侧发起转账时的余额检查对称）。
+                //
+                // 检查结果必须同步算出来再 return——不能像 onUserTransferAccepted 那样把 ok
+                // 塞进 updateCharacter 的函数式 updater 里再读出来：updater 传给 setState 后
+                // 何时真的执行是 React 调度决定的，不保证在 updateCharacter() 这行返回前跑完
+                // （尤其是从 await 链后半段调用时）。踩过的坑：updater 没来得及跑，ok 停在
+                // 初始值 false，导致明明有余额也被判定「不足」而拦下整笔转账。
+                // 所以直接拿这一轮拿到手的 char（本次渲染的快照，够新）同步算好 ok/result，
+                // updateCharacter 只管照着算好的结果落库，不再依赖 updater 的执行时机。
                 onCharTransferSend: async (amount: number) => {
-                    let ok = false;
-                    updateCharacter(char.id, previous => {
-                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), -amount, `转账给${userProfile.name}`);
-                        ok = result.ok;
-                        if (!result.ok) return {};
-                        return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
-                    });
-                    return ok;
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `转账给${userProfile.name}`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
                 },
                 groups,
                 contextMsgs,
