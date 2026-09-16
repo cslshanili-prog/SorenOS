@@ -2114,6 +2114,27 @@ export const useChatAI = ({
                         return result.ok ? { realBalance: result.state } : {};
                     });
                 },
+                // 角色收下用户发起的转账：这笔钱这时才真的到账角色，记入角色自己的 Real Balance
+                // （跟用户侧 apps/Chat.tsx 的 handleResolveTransfer 'accepted' 分支对称）。
+                onUserTransferAccepted: async (amount: number) => {
+                    updateCharacter(char.id, previous => {
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, '收到用户的转账');
+                        if (!result.ok) return {};
+                        return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
+                    });
+                },
+                // 角色主动发起转账：发送即结清，先从角色 Real Balance 扣款；扣不出来返回 false，
+                // chatParser 会拦下这笔转账不落卡（跟用户侧发起转账时的余额检查对称）。
+                onCharTransferSend: async (amount: number) => {
+                    let ok = false;
+                    updateCharacter(char.id, previous => {
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), -amount, '转账给用户');
+                        ok = result.ok;
+                        if (!result.ok) return {};
+                        return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
+                    });
+                    return ok;
+                },
                 groups,
                 contextMsgs,
                 fullMessages,

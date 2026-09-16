@@ -182,6 +182,22 @@ export const ChatParser = {
          * 已知缺口，见 worker/instant-push/src/classifier.ts 的 transfer_accept/return 注释）。
          */
         onUserTransferReturned?: (amount: number) => Promise<void> | void,
+        /**
+         * 角色收下用户发起的转账（resolveUserTransfer 的 'accepted' 分支）时调用，
+         * 把这笔钱记入角色自己的 Real Balance（跟 onUserTransferReturned 是同一枚硬币的
+         * 两面：退回款回用户，收下入账角色）。不传就静默不入账。同样只在前台路径有意义，
+         * 原因见 onUserTransferReturned 的注释。
+         */
+        onUserTransferAccepted?: (amount: number) => Promise<void> | void,
+        /**
+         * 角色主动发起转账（`[[ACTION:TRANSFER|...]]`，即 transferEvents 里 kind === 'send'）
+         * 落卡之前调用，从角色自己的 Real Balance 扣款——跟用户发起转账时"发送即结清"
+         * （apps/Chat.tsx 的 onTransfer）对称：钱在角色说出口那一刻就已经离开角色账户，
+         * 而不是等用户"收下"才发现角色余额不够。返回 false 时余额不够，跳过这笔转账
+         * （不落待处理转账卡，等于角色这句"转给你"没真的发生）。不传则不做余额检查，
+         * 按老行为直接落卡（旧调用方 / 用不到 Real Balance 的场景）。
+         */
+        onCharTransferSend?: (amount: number) => Promise<boolean>,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -319,11 +335,13 @@ export const ChatParser = {
                 metadata: { receipt: action, amount, ref: refId },
             });
             // 退回：钱在用户发送那一刻就已经从 Real Balance 扣走了，角色退回等于这笔钱
-            // 没真的花出去，得退款回去。收下不用管——发送时已经结清，不再改动余额。
-            if (action === 'returned' && onUserTransferReturned) {
-                const numericAmount = Number(amount);
-                if (Number.isFinite(numericAmount) && numericAmount > 0) {
+            // 没真的花出去，得退款回去。收下：钱这时才真的到账角色，记入角色的 Real Balance。
+            const numericAmount = Number(amount);
+            if (Number.isFinite(numericAmount) && numericAmount > 0) {
+                if (action === 'returned' && onUserTransferReturned) {
                     await onUserTransferReturned(numericAmount);
+                } else if (action === 'accepted' && onUserTransferAccepted) {
+                    await onUserTransferAccepted(numericAmount);
                 }
             }
         };
@@ -334,6 +352,16 @@ export const ChatParser = {
         if (transferConsumed > 0) content = transferCleanedText;
         for (const ev of transferEvents) {
             if (ev.kind === 'send') {
+                // 发送即结清：先从角色 Real Balance 扣款，扣不出来就不落卡（等于这句「转给你」
+                // 没真的发生）。不传检查回调则维持老行为，直接落卡。
+                const sendAmount = Number(ev.amount);
+                const ok = onCharTransferSend && Number.isFinite(sendAmount) && sendAmount > 0
+                    ? await onCharTransferSend(sendAmount)
+                    : true;
+                if (!ok) {
+                    console.warn('[Transfer] 角色 Real Balance 不足，跳过这笔主动转账:', { charId, amount: ev.amount });
+                    continue;
+                }
                 // role 固定 'assistant' —— 方向不由文本决定，文本里的方向信息只在
                 // transferFormat 里做过校验（伪造的已被丢弃）。
                 await persist({ charId, role: 'assistant', type: 'transfer', content: '[转账]', metadata: { amount: ev.amount, status: 'pending' } });

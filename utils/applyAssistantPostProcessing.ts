@@ -516,6 +516,16 @@ export interface PostProcessCtx {
      * push 路径（worker 侧已知缺口），传了也用不上。
      */
     onUserTransferReturned?: (amount: number) => Promise<void> | void;
+    /**
+     * 角色收下用户发起的转账时入账角色自己的 Real Balance（见 chatParser.ts 同名参数的注释）。
+     * 跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onUserTransferAccepted?: (amount: number) => Promise<void> | void;
+    /**
+     * 角色主动发起转账时先从角色自己的 Real Balance 扣款、余额不够则拦下这笔转账
+     * （见 chatParser.ts 同名参数的注释）。跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onCharTransferSend?: (amount: number) => Promise<boolean>;
     /** 日程被角色改写后刷新主动消息 fire_pack；旧调用方可不传。 */
     groups?: GroupProfile[];
     /**
@@ -609,6 +619,8 @@ export async function applyAssistantPostProcessing(
         realtimeConfig,
         imageGenConfig,
         onUserTransferReturned,
+        onUserTransferAccepted,
+        onCharTransferSend,
         groups,
         spokenAt,
         contextMsgs,
@@ -2265,7 +2277,7 @@ export async function applyAssistantPostProcessing(
         (d): d is Extract<PostProcessDirective, { type: 'music_action' }> =>
             d.type === 'music_action' && !!d.song,
     )?.song;
-    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned);
+    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend);
 
     // ─── Step 4: thinking chain 抽取 (本轮末尾展示用) ───
     // 跑过二轮 (data !== initialData) → 取二轮 data 的 reasoning; 没跑二轮 → 取一轮 (round1ThinkingChain,

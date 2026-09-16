@@ -3059,6 +3059,14 @@ export interface CharacterProfile {
           sessions: AiSession[];
           cards?: TavernCard[];  // 酒馆里建的角色卡
       };
+      /**
+       * 角色端的 Real Balance 钱包，跟用户 UserProfile.realBalance 结构一致、账本各自独立。
+       * undefined = 还没打开过；utils/realBalance.ts 的 ensureRealBalanceState() 负责生成初始状态。
+       * 私聊转账走「发送时结清」的托管模型：用户/角色任一方发起转账时即从发起方账户扣款，
+       * 对方「收下」时才真正入账到对方账户，「退回」时把钱退回发起方——两边各自的 Real Balance
+       * 由 utils/chatParser.ts 的 onUserTransferAccepted/onCharTransferSend 等回调驱动更新。
+       */
+      realBalance?: RealBalanceState;
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）

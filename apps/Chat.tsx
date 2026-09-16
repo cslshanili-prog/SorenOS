@@ -1677,18 +1677,27 @@ const Chat: React.FC = () => {
             content: action === 'accepted' ? '[已收款]' : '[已退回]',
             metadata: { receipt: action, amount: msg.metadata?.amount, ref: msg.id },
         });
-        // 收下角色发来的转账才真的入账 Real Balance；退回等于这笔钱从没到手，不用动余额。
-        if (action === 'accepted') {
-            const amount = Number(msg.metadata?.amount);
-            if (Number.isFinite(amount) && amount > 0) {
+        // 角色发起转账走「发送即结清」：钱在角色说出口那一刻就已经从角色 Real Balance 扣走了
+        // （chatParser.ts 的 onCharTransferSend）。收下才真的到用户账户；退回等于这笔钱从没
+        // 到手，得还回角色账户——不是不动余额，是把它退回发起方，跟用户侧转账被角色退回时
+        // 退回用户账户（onUserTransferReturned）对称。
+        const amount = Number(msg.metadata?.amount);
+        if (Number.isFinite(amount) && amount > 0) {
+            if (action === 'accepted') {
                 updateUserProfile(prev => {
                     const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `收到 ${char.name} 的转账`);
                     return result.ok ? { realBalance: result.state } : {};
                 });
+            } else {
+                updateCharacter(char.id, previous => {
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, '用户退回了转账');
+                    if (!result.ok) return {};
+                    return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
+                });
             }
         }
         await reloadMessages(visibleCountRef.current);
-    }, [char, reloadMessages, updateUserProfile]);
+    }, [char, reloadMessages, updateUserProfile, updateCharacter]);
 
     // 用户主动发起转账：先扣 Real Balance 再落待处理转账卡——在发送这一刻结清，
     // 而不是等角色事后「收下」才扣（那样等于允许承诺一笔当下就已经不存在的钱，

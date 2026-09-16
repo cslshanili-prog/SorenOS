@@ -24,12 +24,14 @@ import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { resolveUserProfileForChar } from '../utils/userPersona';
+import { ensureRealBalanceState } from '../utils/realBalance';
+import RealBalancePanel from '../components/bank/RealBalancePanel';
 import {
     User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, Compass, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
     Storefront, Heart, ArrowsClockwise, Tray, DotsThree, ClockCounterClockwise, Sparkle,
     UsersThree, UserPlus, Prohibit, LinkSimple, PaperPlaneTilt, PencilSimple, Trash,
-    Robot, Brain, MaskHappy, Question, PaintBrush
+    Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard
 } from '@phosphor-icons/react';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
@@ -396,6 +398,18 @@ const CheckPhone: React.FC = () => {
     const customApps = targetChar?.phoneState?.customApps || [];
     const contacts = targetChar?.phoneState?.contacts || [];
     const allowFictional = targetChar?.phoneState?.allowFictionalContacts !== false;
+
+    // 角色端 Real Balance：跟用户 ChatHub 的主页栏是同一套 utils/realBalance.ts，账本各自独立
+    // （不是同一份数据，是同一份实现）。undefined = 还没打开过，进「银行」App 才生成种子状态并落库。
+    const realBalanceState = useMemo(() => ensureRealBalanceState(targetChar?.phoneState?.realBalance), [targetChar?.phoneState?.realBalance]);
+    useEffect(() => {
+        if (targetChar && activeAppId === 'balance' && !targetChar.phoneState?.realBalance) {
+            updateCharacter(targetChar.id, (cur) => ({
+                phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], realBalance: realBalanceState },
+            }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [targetChar?.id, activeAppId, targetChar?.phoneState?.realBalance]);
     // Keep the contact-chat scroll effect tied to this conversation's actual
     // content. `records` is normalized into a fresh array on every render, so
     // depending on the array itself makes unrelated renders snap the user back
@@ -2292,6 +2306,7 @@ ${olderText}
     const contactCount = contacts.filter(c => !isUserName(c.name)).length;
     const contactsSub = contactCount ? `${contactCount} 位联系人` : 'tap to scan';
     const aiSub = aiSessions.length ? `${aiSessions.length} 段对话 · TA 的小手机` : 'tap to peek';
+    const realBalanceSub = `¥${realBalanceState.balance.toFixed(2)} · ${realBalanceState.cards.length} 张银行卡`;
 
     // pseudo screen-time + weather (decorative, deterministic per char)
     const seed = charName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -3640,6 +3655,8 @@ ${olderText}
                     onClick={() => { setActiveAppId('waimai'); trackEvent('打开查手机子应用', { subApp: 'waimai' }); }} />
                 <HomeCard icon={<ShoppingBag size={24} weight="light" />} label="Taobao" sub={taobaoSub} accent="#ff7a45"
                     onClick={() => { setActiveAppId('taobao'); trackEvent('打开查手机子应用', { subApp: 'taobao' }); }} />
+                <HomeCard icon={<CreditCard size={24} weight="light" />} label="Real Balance" sub={realBalanceSub} accent="#38bdf8" spanFull
+                    onClick={() => { setActiveAppId('balance'); trackEvent('打开查手机子应用', { subApp: 'balance' }); }} />
             </div>
 
             {/* 智能体：偷看「TA 的小手机」 —— 给个抢眼的横条入口 */}
@@ -3991,6 +4008,18 @@ ${olderText}
                     {activeAppId === 'social' && renderMoments()}
                     {activeAppId === 'aiagent' && renderAiAgent()}
                     {activeAppId === 'ai_session' && renderAiSession()}
+                    {activeAppId === 'balance' && targetChar && (
+                        <div className="absolute inset-0 w-full h-full bg-slate-50 overflow-y-auto no-scrollbar overscroll-contain z-[60]">
+                            <RealBalancePanel
+                                state={realBalanceState}
+                                onCommit={next => updateCharacter(targetChar.id, (cur) => ({
+                                    phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], realBalance: next },
+                                }))}
+                                onBack={() => setActiveAppId('home')}
+                                addToast={addToast}
+                            />
+                        </div>
+                    )}
                     {activeAppId === 'persona' && targetChar && (
                         <PersonaSim targetChar={targetChar} onExit={() => setActiveAppId('home')} openLifeLog={() => setActiveAppId('lifelog')}
                             sim={sim} onStart={runSim} onConsumed={() => personaSimStore.reset()} />
