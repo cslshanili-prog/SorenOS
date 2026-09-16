@@ -326,6 +326,8 @@ const CheckPhone: React.FC = () => {
     // 聊天气泡：长按进入多选，删选中的几条（不满这轮生成时挑掉重来）
     const [msgSelectMode, setMsgSelectMode] = useState(false);
     const [selectedMsgIdx, setSelectedMsgIdx] = useState<number[]>([]);
+    // 联系人聊天记录：单条编辑（index 是完整脚本里的下标，跟 selectedMsgIdx 用同一套坐标）
+    const [msgEdit, setMsgEdit] = useState<{ index: number; text: string } | null>(null);
 
     // Custom App Creation State（editingAppId 非空时同一个弹窗改走"编辑"分支，见 handleSaveCustomApp）
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -2122,6 +2124,24 @@ ${olderText}
         exitMsgSelect();
     };
 
+    // 改聊天记录里的某一条内容（按完整脚本下标定位，说话人不变，只换文字），重排回脚本落库
+    const handleUpdateMessage = async () => {
+        if (!targetChar || !selectedContact || !msgEdit) return;
+        const c = selectedContact;
+        const rec = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === c.id || normName(r.title) === normName(c.name)));
+        if (!rec) { setMsgEdit(null); return; }
+        const turns = parseTranscript(rec.detail);
+        if (!turns[msgEdit.index]) { setMsgEdit(null); return; }
+        const trimmed = msgEdit.text.trim();
+        if (!trimmed) { addToast('内容不能为空，删除请用「删除选中」', 'error'); return; }
+        turns[msgEdit.index] = { ...turns[msgEdit.index], text: trimmed };
+        await saveEditedConversation(c, serializeTurns(turns), c.archivedThru ?? 0);
+        setMsgEdit(null);
+        exitMsgSelect();
+        addToast('消息已更新', 'success');
+        trackEvent('编辑联系人聊天记录');
+    };
+
     // ----- 人格模拟：后台生成（生成期间用户可离开本 App 去别处逛） -----
     const runSim = async (m: 'daily' | 'event', t: string, presence: 'default' | 'light' | 'none' = 'default', tone: 'mix' | 'depressive' | 'darkhumor' | 'cute' = 'mix') => {
         if (!targetChar) return;
@@ -3236,6 +3256,13 @@ ${olderText}
                         <div className="flex gap-2">
                             <button onClick={exitMsgSelect}
                                 className="px-5 py-3 rounded-2xl text-[13px] font-semibold text-white/75 bg-white/[0.06] border border-white/[0.08] active:scale-[0.99] transition">取消</button>
+                            {/* 只选中一条时才能编辑——编辑是改单条内容，多选改不出"这条要改成什么" */}
+                            {selectedMsgIdx.length === 1 && (
+                                <button onClick={() => setMsgEdit({ index: selectedMsgIdx[0], text: parsed[selectedMsgIdx[0]]?.content || '' })}
+                                    className="px-5 py-3 rounded-2xl text-[13px] font-semibold text-white/90 bg-white/[0.08] border border-white/[0.1] active:scale-[0.99] transition flex items-center justify-center gap-2">
+                                    <PencilSimple size={16} weight="bold" /> 编辑
+                                </button>
+                            )}
                             <button disabled={!selectedMsgIdx.length}
                                 onClick={() => askConfirm({
                                     title: `删除选中的 ${selectedMsgIdx.length} 条消息？`,
@@ -4068,6 +4095,15 @@ ${olderText}
                             <p className="text-[9px] text-slate-400 leading-relaxed">这条记录原本有一张生成的 HTML 卡片，保存修改后会先回退成纯文字展示（内容跟卡片对不上就不硬凑），下次点「刷新数据」会按最新文字重新配一张。</p>
                         )}
                     </div>
+                )}
+            </Modal>
+
+            {/* 联系人聊天记录 · 编辑单条消息（长按选中一条后，多选操作栏的「编辑」按钮打开） */}
+            <Modal isOpen={!!msgEdit} title="编辑这条消息" onClose={() => setMsgEdit(null)}
+                footer={<button onClick={handleUpdateMessage} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">保存修改</button>}>
+                {msgEdit && (
+                    <textarea value={msgEdit.text} onChange={e => setMsgEdit({ ...msgEdit, text: e.target.value })}
+                        className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm resize-none" autoFocus />
                 )}
             </Modal>
 
