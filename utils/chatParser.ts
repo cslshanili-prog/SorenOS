@@ -4,6 +4,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig } from '../types';
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
+import { extractMallOrderCommands } from './mallOrderFormat';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
 import { generateImage, buildCharacterImagePrompt } from './imageGeneration';
@@ -198,6 +199,14 @@ export const ChatParser = {
          * 按老行为直接落卡（旧调用方 / 用不到 Real Balance 的场景）。
          */
         onCharTransferSend?: (amount: number) => Promise<boolean>,
+        /**
+         * 角色收到「外卖代付请求」（购物中心 mini-app 发起，见 utils/mallOrderFormat.ts）后
+         * 选择支付（`[[ACTION:DAIFU_ACCEPT]]`）时调用，从角色自己的 Real Balance 扣这笔钱——
+         * 这是消费性的单向支出（角色替用户付了这顿饭），不是转账，用户这边不会有对应入账。
+         * 返回 false 表示余额不够，这种情况会把这张卡自动改判成"已拒绝"（附系统生成的原因），
+         * 不会让卡片卡死在"待处理"。不传就静默不结算（旧调用方 / 用不到 Real Balance 的场景）。
+         */
+        onCharDaifuAccept?: (amount: number) => Promise<boolean>,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -368,6 +377,66 @@ export const ChatParser = {
             } else {
                 await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
             }
+        }
+
+        // MALL DAIFU — 角色对「外卖代付请求」支付或拒绝。跟 resolveUserTransfer 结构相同：
+        // 找最近一条 user 发出、还 pending 的 mall_order(mode=daifu)，标记状态。跟转账不同的是
+        // 这不是两方账本的转移，是角色单方面的支出（角色替用户付了这顿饭），所以只更新原卡
+        // 自己的 status，不另外落一张回执小卡——MallOrderCard 本身就靠 status 字段切换四种展示。
+        const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
+            let amount: number | undefined;
+            let refId: number | undefined;
+            try {
+                const all = await DB.getMessagesByCharId(charId, true);
+                const pendings = all.filter(
+                    x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
+                );
+                // 跟 resolveUserTransfer 同一个理由：按「这句话说出口那一刻」看得到的最新一笔结算，
+                // 离线补收拉开生成/重放的时间差时不会让半夜那句话结了早上才发的请求。
+                let pending = messageTimestamp != null
+                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
+                    : undefined;
+                if (!pending) {
+                    if (messageTimestamp != null && pendings.length > 0) {
+                        console.warn('[MallDaifu] 这条消息发出时并没有待处理的代付请求，按最新一笔结算:', { charId, messageTimestamp, pendingCount: pendings.length });
+                    }
+                    pending = pendings[pendings.length - 1];
+                }
+                if (pending) {
+                    amount = Number(pending.metadata?.total);
+                    refId = pending.id;
+                }
+            } catch (e) {
+                console.warn('[MallDaifu] 查待处理代付请求失败，跳过:', e);
+                return;
+            }
+            if (refId === undefined) {
+                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒绝'}代付请求，但没有待处理的请求，已忽略`);
+                return;
+            }
+            let finalAction = action;
+            let finalReason = action === 'declined' ? reason : undefined;
+            if (action === 'accepted' && Number.isFinite(amount) && (amount as number) > 0 && onCharDaifuAccept) {
+                const ok = await onCharDaifuAccept(amount as number);
+                if (!ok) {
+                    finalAction = 'declined';
+                    finalReason = '余额不够，付不出这笔钱';
+                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付请求自动改判拒绝:', { charId, amount });
+                }
+            }
+            await DB.updateMessageMetadata(refId, (prev) => ({
+                ...(prev || {}),
+                status: finalAction,
+                ...(finalReason ? { declineReason: finalReason } : {}),
+                resolvedAt: Date.now(),
+            }));
+        };
+
+        // MALL — 购物中心「外卖代付请求」的 accept/decline，见 utils/mallOrderFormat.ts。
+        const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
+        if (mallOrderConsumed > 0) content = mallCleanedText;
+        for (const ev of mallOrderEvents) {
+            await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
         }
 
         // MUSIC_ACTION — char 对 user 正在听的歌表态（只处理第一次出现，每条消息最多一次插卡）

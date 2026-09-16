@@ -9,6 +9,7 @@ import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
 import { formatTransferRecord } from './transferFormat';
+import { formatMallOrderRecord } from './mallOrderFormat';
 import { computeCurrentListening, getCurrentSlot } from './charMusicSchedule';
 import { getCharLyricSnippet } from './charLyricCache';
 import { MusicCfg, loadMusicCfgStandalone } from '../context/MusicContext';
@@ -709,7 +710,8 @@ ${uname} 的化身正挂在《彼方》的【${roomName}】${act ? `，状态写
    - 回戳用户: \`[[ACTION:POKE]]\`
    - 转账: 必须使用且只使用 \`[[ACTION:TRANSFER|to=user|amount=100]]\`（to 固定写 user，金额只写数字）；不要写成 \`[系统: 你向某人转账 100]\` 等系统日志文本。
    - **处理用户转账**: 当历史里出现 \`[[记录:TRANSFER|to=char|...|status=待处理]]\`（用户转给你、还没处理）时，你可以决定收下或退回。收下: \`[[ACTION:TRANSFER_ACCEPT]]\`；退回: \`[[ACTION:TRANSFER_RETURN]]\`。请结合人设和情境自然选择（比如害羞地退回、开心地收下），并配上一句话。
-   - **【重要】\`[[记录:...]]\` 是系统日志**: 历史里以 \`[[记录:\` 开头的标签是已经发生的事实（谁转给谁、什么状态），只供你了解，**严禁**在回复里照抄输出。你要做动作时只能用 \`[[ACTION:...]]\`。
+   - **处理外卖代付请求**: 当历史里出现 \`[[记录:MALL|...|mode=daifu|...|status=待处理]]\`（用户在购物中心发起的外卖代付请求，想让你帮TA付这顿钱）时，你可以决定支付或拒绝。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒绝: \`[[ACTION:DAIFU_DECLINE|reason=简短原因]]\`（reason 选填，比如"说好的减肥呢"）。请结合人设、当下关系和这笔钱是否值当自然选择，并配上一句话。购物中心的其它卡片（送礼物/点外卖/对方主动买的）都是已经发生的既成事实，纯粹让你知道，不用你处理。
+   - **【重要】\`[[记录:...]]\` 是系统日志**: 历史里以 \`[[记录:\` 开头的标签是已经发生的事实（谁转给谁、什么状态；购物中心卡片什么状态），只供你了解，**严禁**在回复里照抄输出。你要做动作时只能用 \`[[ACTION:...]]\`。
    - 调取记忆: \`[[RECALL: YYYY-MM]]\`，请注意，当用户提及具体某个月份时，或者当你想仔细想某个月份的事情时，欢迎你随时使该动作
    - **添加纪念日**: 如果你觉得今天是个值得纪念的日子（或者你们约定了某天），你可以**主动**将它添加到用户的日历中。单独起一行输出: \`[[ACTION:ADD_EVENT | 标题(Title) | YYYY-MM-DD]]\`。
 ${photoSendEnabled ? `   - **发照片**: 如果你想在聊天里发一张照片/自拍/图片给对方，单独起一行输出: \`[[ACTION:SEND_PHOTO|画面描述]]\`。画面描述用简短的关键词描述你想发的画面（场景、你在做什么、表情、构图），系统会照这段描述直接生成图片发出去——描述本身不会展示给对方看，只管写清楚要生成什么画面就行。视场景自然地用，别一句话一张图地刷屏。` : ''}
@@ -1248,6 +1250,19 @@ ${userProfile.name} 给你反馈时，别当成约束，当成信任——ta 在
                         amount: tMeta.amount,
                         receipt: tMeta.receipt,
                         status: tMeta.status,
+                    })}`;
+                }
+                else if (m.type === 'mall_order') {
+                    // 购物中心卡片的记录形态，跟转账同一个路数（见 utils/mallOrderFormat.ts 头注）；
+                    // gift/manual 纯信息、不需要角色回应；daifu 处于 status=待处理 时角色要决定
+                    // 支付还是拒绝（教学见下方「可用动作」小节）。
+                    const mMeta = m.metadata || {};
+                    content = `${timeStr} ${formatMallOrderRecord({
+                        kind: mMeta.mallKind === 'food' ? 'food' : 'shop',
+                        mode: mMeta.mode === 'daifu' ? 'daifu' : mMeta.mode === 'manual' ? 'manual' : 'gift',
+                        items: Array.isArray(mMeta.items) ? mMeta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
+                        amount: Number(mMeta.total) || 0,
+                        status: mMeta.status === 'pending' || mMeta.status === 'accepted' || mMeta.status === 'declined' ? mMeta.status : 'sent',
                     })}`;
                 }
                 else if (m.type === 'social_card') {

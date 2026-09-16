@@ -2148,6 +2148,20 @@ export const useChatAI = ({
                     }));
                     return true;
                 },
+                // 角色支付购物中心「外卖代付请求」：单向支出（角色替用户付了这顿钱），不是转账，
+                // 所以只扣角色自己的 Real Balance，没有对应的用户入账。跟 onCharTransferSend 共用
+                // 同一份 charRealBalanceSnapshot——一轮回复里角色可能既转账又付了笔代付，两边
+                // 得算在同一份"从这轮开始算起"的余额上，不能各自拿同一份起始快照重复通过检查。
+                onCharDaifuAccept: async (amount: number) => {
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `代付给${userProfile.name}的外卖`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
+                },
                 groups,
                 contextMsgs,
                 fullMessages,

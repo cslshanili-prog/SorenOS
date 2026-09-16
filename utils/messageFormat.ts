@@ -15,6 +15,7 @@ import type { Message, Emoji } from '../types';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { formatTransferRecord } from './transferFormat';
+import { formatMallOrderRecord } from './mallOrderFormat';
 import { formatStatCount } from './videoParser';
 import { formatSARModuleEventsForContext } from './vrWorld/sarModuleRuntime';
 
@@ -136,6 +137,19 @@ export function normalizeMessageContent(
             amount: meta.amount,
             receipt: meta.receipt,
             status: meta.status,
+        });
+    }
+
+    if (type === 'mall_order') {
+        // 跟转账一样是全链路一副面孔：私聊历史 (chatPrompts.buildMessageHistory) 与
+        // 归档/记忆宫殿总结器共用同一渲染，见 utils/mallOrderFormat.ts 头注。
+        const meta = msg.metadata || {};
+        return formatMallOrderRecord({
+            kind: meta.mallKind === 'food' ? 'food' : 'shop',
+            mode: meta.mode === 'daifu' ? 'daifu' : meta.mode === 'manual' ? 'manual' : 'gift',
+            items: Array.isArray(meta.items) ? meta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
+            amount: Number(meta.total) || 0,
+            status: meta.status === 'pending' || meta.status === 'accepted' || meta.status === 'declined' ? meta.status : 'sent',
         });
     }
 
