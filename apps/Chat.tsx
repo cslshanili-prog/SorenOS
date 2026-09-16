@@ -1690,14 +1690,14 @@ const Chat: React.FC = () => {
                 });
             } else {
                 updateCharacter(char.id, previous => {
-                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, '用户退回了转账');
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `${chatUserProfile.name}退回了转账`);
                     if (!result.ok) return {};
                     return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
                 });
             }
         }
         await reloadMessages(visibleCountRef.current);
-    }, [char, reloadMessages, updateUserProfile, updateCharacter]);
+    }, [char, reloadMessages, updateUserProfile, updateCharacter, chatUserProfile]);
 
     // 用户主动发起转账：先扣 Real Balance 再落待处理转账卡——在发送这一刻结清，
     // 而不是等角色事后「收下」才扣（那样等于允许承诺一笔当下就已经不存在的钱，

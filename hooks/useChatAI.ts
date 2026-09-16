@@ -2118,7 +2118,7 @@ export const useChatAI = ({
                 // （跟用户侧 apps/Chat.tsx 的 handleResolveTransfer 'accepted' 分支对称）。
                 onUserTransferAccepted: async (amount: number) => {
                     updateCharacter(char.id, previous => {
-                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, '收到用户的转账');
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `收到${userProfile.name}的转账`);
                         if (!result.ok) return {};
                         return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
                     });
@@ -2128,7 +2128,7 @@ export const useChatAI = ({
                 onCharTransferSend: async (amount: number) => {
                     let ok = false;
                     updateCharacter(char.id, previous => {
-                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), -amount, '转账给用户');
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), -amount, `转账给${userProfile.name}`);
                         ok = result.ok;
                         if (!result.ok) return {};
                         return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
