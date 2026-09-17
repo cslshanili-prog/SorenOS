@@ -1,4 +1,4 @@
-import { CharacterTrajectoryProfile, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective, TrajectoryOotdPost } from '../types';
+import { CharacterProfile, CharacterTrajectoryProfile, SocialPost, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective, TrajectoryOotdPost } from '../types';
 
 function genId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -163,4 +163,25 @@ export function groupTrajectoryOotdByDate(posts: TrajectoryOotdPost[]): { dateKe
     return Array.from(groups.entries())
         .sort((a, b) => b[0].localeCompare(a[0]))
         .map(([dateKey, posts]) => ({ dateKey, posts }));
+}
+
+/**
+ * 「軌跡」Moments 分页的可见性判断——这支手机是 char 的，只应该看到 TA 认识的人发的动态：
+ * 用户本人的贴文、char 自己发的贴文、陌生人（公开网络路人）贴文，一律可见；
+ * 另一个角色的贴文，只有 char 的查手机联系人里存在一条指向那个角色、状态为 friend 的记录才可见。
+ * 没有 authorType 的旧数据（迁移前）不管按 user 还是 stranger 解读都可见，直接放行。
+ */
+export function filterMomentsVisibleToChar(posts: SocialPost[], char: Pick<CharacterProfile, 'id' | 'phoneState'>): SocialPost[] {
+    const friendCharIds = new Set(
+        (char.phoneState?.contacts || [])
+            .filter(c => c.kind === 'real' && c.status === 'friend' && c.linkedCharId)
+            .map(c => c.linkedCharId as string),
+    );
+    return posts.filter(post => {
+        // 没有 authorType 的旧数据，不管按 user 还是 stranger 解读都可见，直接放行
+        if (!post.authorType || post.authorType === 'user' || post.authorType === 'stranger') return true;
+        // character：自己发的必然可见；别的角色要先是这支手机通讯录里的 friend 才可见
+        if (post.authorCharId === char.id) return true;
+        return !!(post.authorCharId && friendCharIds.has(post.authorCharId));
+    });
 }

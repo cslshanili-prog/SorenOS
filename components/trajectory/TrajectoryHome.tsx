@@ -4,6 +4,7 @@ import type { CharacterProfile, ImageGenApiConfig } from '../../types';
 import { TermHeader } from '../../apps/CheckPhone';
 import TrajectoryProfileTab from './TrajectoryProfileTab';
 import TrajectoryOotdTab from './TrajectoryOotdTab';
+import TrajectoryMomentsTab from './TrajectoryMomentsTab';
 
 type TrajectoryTab = 'backstage' | 'moments' | 'ootd' | 'profile' | 'journey';
 
@@ -42,8 +43,17 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, onBack, updateCharacter, 
             <TermHeader title={activeTabLabel} sub="生活軌跡" accent={ACCENT} onBack={onBack} />
 
             {tab === 'backstage' && <ComingSoon label="后台生活" />}
-            {tab === 'moments' && <ComingSoon label="朋友圈" />}
             {tab === 'journey' && <ComingSoon label="行程" />}
+            {tab === 'moments' && (
+                <TrajectoryMomentsTab
+                    char={targetChar}
+                    cover={targetChar.phoneState?.trajectoryMomentsCover}
+                    onCommitCover={(next) => updateCharacter(targetChar.id, (cur) => ({
+                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryMomentsCover: next },
+                    }))}
+                    addToast={addToast}
+                />
+            )}
             {tab === 'ootd' && (
                 <TrajectoryOotdTab
                     char={targetChar}

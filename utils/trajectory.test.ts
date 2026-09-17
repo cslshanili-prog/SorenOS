@@ -3,7 +3,9 @@ import {
     buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
     buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
+    filterMomentsVisibleToChar,
 } from './trajectory';
+import type { SocialPost, PhoneContact } from '../types';
 
 describe('buildTrajectoryProfilePrompt', () => {
     it('不带 existing 时不出现"已经有这些条目"提示', () => {
@@ -169,5 +171,71 @@ describe('groupTrajectoryOotdByDate', () => {
 
     it('空数组返回空分组', () => {
         expect(groupTrajectoryOotdByDate([])).toEqual([]);
+    });
+});
+
+describe('filterMomentsVisibleToChar', () => {
+    const makePost = (overrides: Partial<SocialPost>): SocialPost => ({
+        id: `p-${Math.random()}`, authorName: 'x', authorAvatar: '', title: '', content: '',
+        images: [], likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(), tags: [],
+        ...overrides,
+    });
+    const makeContact = (overrides: Partial<PhoneContact>): PhoneContact => ({
+        id: `c-${Math.random()}`, name: 'x', avatar: '', kind: 'real', affinity: 0, status: 'friend', createdAt: Date.now(),
+        ...overrides,
+    });
+    const char = (contacts: PhoneContact[]) => ({ id: 'char-me', phoneState: { records: [], contacts } });
+
+    it('用户本人的贴文一律可见', () => {
+        const posts = [makePost({ authorType: 'user' })];
+        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    });
+
+    it('陌生人（stranger）贴文一律可见', () => {
+        const posts = [makePost({ authorType: 'stranger' })];
+        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    });
+
+    it('char 自己发的贴文一律可见', () => {
+        const posts = [makePost({ authorType: 'character', authorCharId: 'char-me' })];
+        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    });
+
+    it('另一角色的贴文：通讯录里有对应 friend 联系人才可见', () => {
+        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
+        const contacts = [makeContact({ kind: 'real', linkedCharId: 'char-other', status: 'friend' })];
+        expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(1);
+    });
+
+    it('另一角色的贴文：通讯录里没有这个人时不可见', () => {
+        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
+        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(0);
+    });
+
+    it('另一角色的贴文：联系人状态不是 friend（拉黑/待处理/已删除）时不可见', () => {
+        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
+        for (const status of ['blocked', 'pending', 'deleted'] as const) {
+            const contacts = [makeContact({ kind: 'real', linkedCharId: 'char-other', status })];
+            expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(0);
+        }
+    });
+
+    it('联系人是 npc 类型（不是 real）时不会误判为认识那个角色', () => {
+        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
+        const contacts = [makeContact({ kind: 'npc', linkedNpcId: 'npc-1', status: 'friend', linkedCharId: undefined })];
+        expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(0);
+    });
+
+    it('没有 authorType 的旧数据一律可见', () => {
+        const posts = [makePost({ authorType: undefined })];
+        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    });
+
+    it('混合列表：只保留可见的那些，顺序不变', () => {
+        const visible1 = makePost({ id: 'a', authorType: 'user' });
+        const hidden = makePost({ id: 'b', authorType: 'character', authorCharId: 'char-other' });
+        const visible2 = makePost({ id: 'c', authorType: 'stranger' });
+        const result = filterMomentsVisibleToChar([visible1, hidden, visible2], char([]));
+        expect(result.map(p => p.id)).toEqual(['a', 'c']);
     });
 });

@@ -3130,6 +3130,8 @@ export interface CharacterProfile {
       trajectoryProfile?: CharacterTrajectoryProfile;
       /** 「軌跡」OOTD 分页：每次生成追加一条，按 timestamp 排前端自己分组/排序。 */
       trajectoryOotd?: TrajectoryOotdPost[];
+      /** 「軌跡」Moments 分页的封面图（点大图换背景），blob-ref 令牌；undefined = 用默认渐变。 */
+      trajectoryMomentsCover?: string;
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）
