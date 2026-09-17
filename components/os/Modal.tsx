@@ -13,7 +13,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
             <div className="absolute inset-0 bg-black/40" onClick={onClose} />
             <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden animate-slide-up">
                 <div className="px-6 pt-6 pb-2">
