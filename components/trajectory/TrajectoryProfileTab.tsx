@@ -68,7 +68,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
     const empty = !profile || (!profile.archives.length && !profile.objectives.length && !profile.checklist.length);
 
     return (
-        <div className="flex-1 min-h-0 flex flex-col" style={{ background: '#120f1a', color: '#e8e3f5' }}>
+        <div className="flex-1 min-h-0 flex flex-col" style={{ color: '#e8e3f5' }}>
             <div className="shrink-0 flex items-center justify-between px-5 pt-3 pb-2">
                 <div className="flex items-center gap-4">
                     {SUB_TABS.map(t => (
@@ -89,7 +89,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-8 space-y-3">
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-28 space-y-3">
                 {empty && (
                     <div className="text-center pt-16 text-[12px]" style={{ color: 'rgba(232,227,245,0.4)' }}>
                         还没有内容，点右上角刷新生成 {char.name} 的 Profile

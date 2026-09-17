@@ -166,7 +166,7 @@ const TAVERN_STYLES: TavernStyle[] = [
 //   on every render, which remounted whole sub-app subtrees → list items kept
 //   re-playing their entrance animation (闪烁) and chat scroll snapped back.)
 // ============================================================
-const StatusStrip: React.FC = () => {
+export const StatusStrip: React.FC = () => {
     const clock = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     return (
         <div className="shrink-0" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -182,7 +182,7 @@ const StatusStrip: React.FC = () => {
     );
 };
 
-const TermHeader: React.FC<{ title: string; sub?: string; accent: string; onBack: () => void; right?: React.ReactNode }> =
+export const TermHeader: React.FC<{ title: string; sub?: string; accent: string; onBack: () => void; right?: React.ReactNode }> =
     ({ title, sub, accent, onBack, right }) => (
         <div className="shrink-0 z-20">
             <StatusStrip />
@@ -4031,7 +4031,6 @@ ${olderText}
                     {activeAppId === 'trajectory' && targetChar && (
                         <TrajectoryHome
                             targetChar={targetChar}
-                            characters={characters}
                             onBack={() => setActiveAppId('home')}
                             updateCharacter={updateCharacter}
                             apiConfig={effectiveApiConfig}
