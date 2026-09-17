@@ -1,0 +1,180 @@
+import React, { useMemo, useState } from 'react';
+import { CalendarBlank, CircleNotch, Sparkle, X } from '@phosphor-icons/react';
+import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
+import TokenImg from '../os/TokenImg';
+import {
+    buildTrajectoryOotdPrompt, createTrajectoryOotdPost, groupTrajectoryOotdByDate, parseTrajectoryOotdDraft,
+} from '../../utils/trajectory';
+import { ContextBuilder } from '../../utils/context';
+import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
+import { generateImage, buildCharacterImagePrompt } from '../../utils/imageGeneration';
+import { migrateDataUrlToRef } from '../../utils/blobRef';
+
+interface Props {
+    char: CharacterProfile;
+    posts: TrajectoryOotdPost[];
+    onCommit: (next: TrajectoryOotdPost[]) => void;
+    apiConfig: { baseUrl: string; apiKey: string; model: string } | null | undefined;
+    imageGenConfig: ImageGenApiConfig | undefined;
+    addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+}
+
+const formatDateHeading = (dateKey: string): string => {
+    const [, m, d] = dateKey.split('-');
+    return `${parseInt(m, 10)}月${parseInt(d, 10)}日`;
+};
+
+const formatTime = (ts: number): string => {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, imageGenConfig, addToast }) => {
+    const [dateFilter, setDateFilter] = useState<string>('all');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [generating, setGenerating] = useState(false);
+    const [detailPost, setDetailPost] = useState<TrajectoryOotdPost | null>(null);
+
+    const grouped = useMemo(() => groupTrajectoryOotdByDate(posts), [posts]);
+    const visibleGroups = dateFilter === 'all' ? grouped : grouped.filter(g => g.dateKey === dateFilter);
+
+    const handleGenerate = async () => {
+        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在设置里配置好 API', 'info'); return; }
+        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
+            addToast('先在设置里开启并配置好生图 API', 'info');
+            return;
+        }
+        setGenerating(true);
+        try {
+            const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
+            const prompt = buildTrajectoryOotdPrompt(roleSettingsBlock, posts);
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
+                    temperature: 0.95,
+                }),
+            });
+            if (!response.ok) throw new Error(`API Error ${response.status}`);
+            const data = await safeResponseJson(response);
+            const draft = parseTrajectoryOotdDraft(extractJson(extractContent(data)));
+            if (!draft) { addToast('这次没解析出穿搭内容，再试一次', 'error'); return; }
+
+            const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const image = await migrateDataUrlToRef(dataUrl);
+
+            const post = createTrajectoryOotdPost(draft, image);
+            onCommit([post, ...posts]);
+            addToast('今天的穿搭生成好了', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] OOTD 生成失败:', e);
+            addToast('生成失败，稍后再试', 'error');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    return (
+        <div className="flex-1 min-h-0 flex flex-col text-white/90">
+            <div className="shrink-0 flex items-center justify-between px-5 pt-3 pb-2">
+                <div className="text-[11px] tracking-widest text-white/40">
+                    {dateFilter === 'all' ? `共 ${posts.length} 条` : formatDateHeading(dateFilter)}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setShowDatePicker(v => !v)} aria-label="按日期筛选"
+                        className="w-8 h-8 rounded-full flex items-center justify-center transition"
+                        style={{ color: dateFilter !== 'all' ? '#a78bfa' : 'rgba(255,255,255,0.6)', background: dateFilter !== 'all' ? 'rgba(167,139,250,0.12)' : 'transparent' }}>
+                        <CalendarBlank size={17} weight={dateFilter !== 'all' ? 'fill' : 'light'} />
+                    </button>
+                    <button onClick={handleGenerate} disabled={generating} aria-label="生成今天的穿搭"
+                        className="w-8 h-8 rounded-full flex items-center justify-center transition disabled:opacity-50"
+                        style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.12)' }}>
+                        {generating ? <CircleNotch size={16} weight="bold" className="animate-spin" /> : <Sparkle size={16} weight="bold" />}
+                    </button>
+                </div>
+            </div>
+
+            {showDatePicker && (
+                <div className="shrink-0 px-5 pb-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    <button onClick={() => { setDateFilter('all'); setShowDatePicker(false); }}
+                        className="shrink-0 px-3 py-1 rounded-full text-[11px] font-bold"
+                        style={{ background: dateFilter === 'all' ? '#a78bfa' : 'rgba(255,255,255,0.08)', color: dateFilter === 'all' ? '#15111f' : 'rgba(255,255,255,0.6)' }}>
+                        全部
+                    </button>
+                    {grouped.map(g => (
+                        <button key={g.dateKey} onClick={() => { setDateFilter(g.dateKey); setShowDatePicker(false); }}
+                            className="shrink-0 px-3 py-1 rounded-full text-[11px] font-bold"
+                            style={{ background: dateFilter === g.dateKey ? '#a78bfa' : 'rgba(255,255,255,0.08)', color: dateFilter === g.dateKey ? '#15111f' : 'rgba(255,255,255,0.6)' }}>
+                            {formatDateHeading(g.dateKey)}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-28 space-y-5">
+                {posts.length === 0 && (
+                    <div className="text-center pt-16 text-[12px] text-white/40">
+                        还没有穿搭记录，点右上角 ✦ 生成 {char.name} 今天的穿搭
+                    </div>
+                )}
+                {visibleGroups.map(g => (
+                    <div key={g.dateKey}>
+                        <div className="text-[11px] text-white/35 mb-2 tracking-wide">{formatDateHeading(g.dateKey)}</div>
+                        <div className="grid grid-cols-3 gap-2.5">
+                            {g.posts.map(p => (
+                                <button key={p.id} onClick={() => setDetailPost(p)} className="text-left">
+                                    <div className="aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
+                                        <TokenImg value={p.image} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="text-[9px] text-white/40 mt-1">{formatTime(p.timestamp)}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {detailPost && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setDetailPost(null)}>
+                    <div className="absolute inset-0 bg-black/60" />
+                    <div className="relative w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl"
+                        style={{ background: '#1a1626' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setDetailPost(null)} aria-label="关闭"
+                            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">
+                            <X size={14} weight="bold" />
+                        </button>
+                        <div className="aspect-[4/5] bg-white/5">
+                            <TokenImg value={detailPost.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="px-5 pt-4 pb-2">
+                            <div className="text-[10px] tracking-[0.2em] text-white/40 uppercase">Outfit of the Day</div>
+                            <div className="text-[12px] text-white/60 mt-0.5">
+                                {new Date(detailPost.timestamp).getMonth() + 1}/{new Date(detailPost.timestamp).getDate()} {formatTime(detailPost.timestamp)}
+                            </div>
+                        </div>
+                        <div className="px-5 pb-5 pt-1 space-y-2 text-[11.5px]">
+                            {[
+                                ['STYLE', detailPost.style],
+                                ['COLOR', detailPost.colors.join('、') || '—'],
+                                ['TOPS', detailPost.tops || '—'],
+                                ['BOTTOMS', detailPost.bottoms || '—'],
+                                ['SHOE', detailPost.shoes || '—'],
+                                ['ACCESSORY', detailPost.accessories.join('、') || '—'],
+                            ].map(([label, value]) => (
+                                <div key={label} className="flex items-start justify-between gap-3 py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <span className="text-white/35 tracking-widest text-[9px] shrink-0 pt-0.5">{label}</span>
+                                    <span className="text-white/85 text-right">{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default TrajectoryOotdTab;

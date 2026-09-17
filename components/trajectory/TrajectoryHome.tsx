@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Broadcast, ImagesSquare, TShirt, IdentificationCard, Footprints, type Icon } from '@phosphor-icons/react';
-import type { CharacterProfile } from '../../types';
+import type { CharacterProfile, ImageGenApiConfig } from '../../types';
 import { TermHeader } from '../../apps/CheckPhone';
 import TrajectoryProfileTab from './TrajectoryProfileTab';
+import TrajectoryOotdTab from './TrajectoryOotdTab';
 
 type TrajectoryTab = 'backstage' | 'moments' | 'ootd' | 'profile' | 'journey';
 
@@ -27,21 +28,34 @@ interface Props {
     onBack: () => void;
     updateCharacter: (id: string, updater: (prev: CharacterProfile) => Partial<CharacterProfile>) => void;
     apiConfig: { baseUrl: string; apiKey: string; model: string } | null | undefined;
+    imageGenConfig: ImageGenApiConfig | undefined;
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const TrajectoryHome: React.FC<Props> = ({ targetChar, onBack, updateCharacter, apiConfig, addToast }) => {
+const TrajectoryHome: React.FC<Props> = ({ targetChar, onBack, updateCharacter, apiConfig, imageGenConfig, addToast }) => {
     const [tab, setTab] = useState<TrajectoryTab>('profile');
+    const activeTabLabel = TABS.find(t => t.key === tab)!.label;
 
     return (
         <div className="absolute inset-0 w-full h-full flex flex-col z-[60] overflow-hidden text-white"
             style={{ background: 'radial-gradient(140% 90% at 50% 0%, #15171d 0%, #0a0b0f 70%)' }}>
-            <TermHeader title={targetChar.name} sub="生活軌跡" accent={ACCENT} onBack={onBack} />
+            <TermHeader title={activeTabLabel} sub="生活軌跡" accent={ACCENT} onBack={onBack} />
 
             {tab === 'backstage' && <ComingSoon label="后台生活" />}
             {tab === 'moments' && <ComingSoon label="朋友圈" />}
-            {tab === 'ootd' && <ComingSoon label="今日穿搭" />}
             {tab === 'journey' && <ComingSoon label="行程" />}
+            {tab === 'ootd' && (
+                <TrajectoryOotdTab
+                    char={targetChar}
+                    posts={targetChar.phoneState?.trajectoryOotd || []}
+                    onCommit={(next) => updateCharacter(targetChar.id, (cur) => ({
+                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryOotd: next },
+                    }))}
+                    apiConfig={apiConfig}
+                    imageGenConfig={imageGenConfig}
+                    addToast={addToast}
+                />
+            )}
             {tab === 'profile' && (
                 <TrajectoryProfileTab
                     char={targetChar}

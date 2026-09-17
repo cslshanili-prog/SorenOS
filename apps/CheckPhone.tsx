@@ -4034,6 +4034,7 @@ ${olderText}
                             onBack={() => setActiveAppId('home')}
                             updateCharacter={updateCharacter}
                             apiConfig={effectiveApiConfig}
+                            imageGenConfig={apiConfig.imageGenConfig}
                             addToast={addToast}
                         />
                     )}

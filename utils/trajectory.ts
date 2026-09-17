@@ -1,4 +1,4 @@
-import { CharacterTrajectoryProfile, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective } from '../types';
+import { CharacterTrajectoryProfile, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective, TrajectoryOotdPost } from '../types';
 
 function genId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -81,4 +81,86 @@ export function toggleTrajectoryChecklistItem(profile: CharacterTrajectoryProfil
         ...profile,
         checklist: profile.checklist.map(c => c.id === itemId ? { ...c, done: !c.done } : c),
     };
+}
+
+/** OOTD 生成结果里还没落成 TrajectoryOotdPost 的部分——多一个 imagePrompt 给生图管线用，不落库。 */
+export interface TrajectoryOotdDraft {
+    style: string;
+    colors: string[];
+    tops: string;
+    bottoms: string;
+    shoes: string;
+    accessories: string[];
+    imagePrompt: string;
+}
+
+/**
+ * OOTD 穿搭描述的生成提示词——只管文字部分（风格/配色/上衣/下装/鞋/配饰 + 一段给生图用的
+ * 画面描述），图片由调用方另外拿 imagePrompt 去跑生图管线。roleSettingsBlock 同 Profile，
+ * 传 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
+ */
+export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: TrajectoryOotdPost[]): string {
+    let antiRepeat = '';
+    if (existing && existing.length) {
+        const recent = existing.slice(0, 5).map(p => `${p.tops}+${p.bottoms}`);
+        antiRepeat = `\n\n最近穿过这些搭配了，这次换一身不一样的：${recent.join('、')}`;
+    }
+    return `依照上面这份角色设定，自由发挥生成这个角色此刻的一身穿搭（OOTD），越贴合TA的人设/生活场景越好。${antiRepeat}\n\n` +
+        `生成：\n` +
+        `- style：风格标签（如"休闲"、"通勤"、"运动"，2-4 字）\n` +
+        `- colors：这身搭配的主色调，1-3 个颜色词的数组\n` +
+        `- tops：上衣的具体描述（如"杏色亚麻衬衫"）\n` +
+        `- bottoms：下装的具体描述（如"米白亚麻裤"）\n` +
+        `- shoes：鞋子的具体描述\n` +
+        `- accessories：配饰，0-3 项的数组（可以是空数组）\n` +
+        `- imagePrompt：给 AI 生图用的一段英文画面描述，描述这个人此刻穿着这身搭配的样子（半身或全身、场景可以简单带一句），不要出现角色的真实姓名\n\n` +
+        `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 对象，colors/accessories 必须是字符串数组，其余字段必须是字符串：\n` +
+        `{ "style": "休闲", "colors": ["米白色", "杏色"], "tops": "杏色亚麻衬衫", "bottoms": "米白亚麻裤", "shoes": "小白鞋", "accessories": ["帆布包"], "imagePrompt": "a young woman in a beige linen shirt..." }`;
+}
+
+/** 把 AI 返回的松散 JSON 对象过滤/纠错成 TrajectoryOotdDraft；字段不完整（缺 imagePrompt 等）时返回 null。 */
+export function parseTrajectoryOotdDraft(json: unknown): TrajectoryOotdDraft | null {
+    if (!json || typeof json !== 'object') return null;
+    const obj = json as any;
+    const imagePrompt = typeof obj.imagePrompt === 'string' ? obj.imagePrompt.trim() : '';
+    if (!imagePrompt) return null;
+    const toStringArray = (v: unknown): string[] => Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()) : [];
+    return {
+        style: typeof obj.style === 'string' && obj.style.trim() ? obj.style.trim() : '日常',
+        colors: toStringArray(obj.colors),
+        tops: typeof obj.tops === 'string' ? obj.tops.trim() : '',
+        bottoms: typeof obj.bottoms === 'string' ? obj.bottoms.trim() : '',
+        shoes: typeof obj.shoes === 'string' ? obj.shoes.trim() : '',
+        accessories: toStringArray(obj.accessories),
+        imagePrompt,
+    };
+}
+
+/** draft + 生图结果的 image token 拼成一条可以直接存进 phoneState.trajectoryOotd 的记录。 */
+export function createTrajectoryOotdPost(draft: TrajectoryOotdDraft, image: string): TrajectoryOotdPost {
+    return {
+        id: genId('traj-ootd'),
+        timestamp: Date.now(),
+        image,
+        style: draft.style,
+        colors: draft.colors,
+        tops: draft.tops,
+        bottoms: draft.bottoms,
+        shoes: draft.shoes,
+        accessories: draft.accessories,
+    };
+}
+
+/** 按「日」分组，组内新到旧；组间按日期新到旧——feed 视图直接吃这个结构。 */
+export function groupTrajectoryOotdByDate(posts: TrajectoryOotdPost[]): { dateKey: string; posts: TrajectoryOotdPost[] }[] {
+    const groups = new Map<string, TrajectoryOotdPost[]>();
+    for (const p of [...posts].sort((a, b) => b.timestamp - a.timestamp)) {
+        const d = new Date(p.timestamp);
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const bucket = groups.get(dateKey);
+        if (bucket) bucket.push(p); else groups.set(dateKey, [p]);
+    }
+    return Array.from(groups.entries())
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([dateKey, posts]) => ({ dateKey, posts }));
 }

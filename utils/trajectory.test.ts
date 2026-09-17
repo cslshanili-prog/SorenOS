@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
+    buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
 } from './trajectory';
 
 describe('buildTrajectoryProfilePrompt', () => {
@@ -105,5 +106,68 @@ describe('toggleTrajectoryChecklistItem', () => {
         const profile = { archives: [], objectives: [], checklist: [item1], updatedAt: Date.now() };
         const result = toggleTrajectoryChecklistItem(profile, 'not-exist');
         expect(result.checklist).toEqual(profile.checklist);
+    });
+});
+
+describe('buildTrajectoryOotdPrompt', () => {
+    it('不带 existing 时不出现"最近穿过"提示', () => {
+        const prompt = buildTrajectoryOotdPrompt('角色设定块');
+        expect(prompt).not.toContain('最近穿过');
+        expect(prompt).toContain('imagePrompt');
+    });
+
+    it('带 existing 时列出最近的搭配防重复', () => {
+        const existing = [createTrajectoryOotdPost({ style: '休闲', colors: [], tops: '白衬衫', bottoms: '牛仔裤', shoes: '', accessories: [], imagePrompt: 'x' }, 'img-token')];
+        const prompt = buildTrajectoryOotdPrompt('角色设定块', existing);
+        expect(prompt).toContain('最近穿过这些搭配了');
+        expect(prompt).toContain('白衬衫+牛仔裤');
+    });
+});
+
+describe('parseTrajectoryOotdDraft', () => {
+    it('解析完整合法 JSON', () => {
+        const draft = parseTrajectoryOotdDraft({
+            style: '休闲', colors: ['米白色', '杏色'], tops: '杏色亚麻衬衫', bottoms: '米白亚麻裤',
+            shoes: '小白鞋', accessories: ['帆布包'], imagePrompt: 'a young woman in linen shirt',
+        });
+        expect(draft).toMatchObject({ style: '休闲', colors: ['米白色', '杏色'], tops: '杏色亚麻衬衫', bottoms: '米白亚麻裤', shoes: '小白鞋', accessories: ['帆布包'], imagePrompt: 'a young woman in linen shirt' });
+    });
+
+    it('缺 imagePrompt 时返回 null（没法生图，整条作废）', () => {
+        expect(parseTrajectoryOotdDraft({ style: '休闲', tops: '白衬衫' })).toBeNull();
+        expect(parseTrajectoryOotdDraft({ imagePrompt: '' })).toBeNull();
+    });
+
+    it('style 缺省时兜底"日常"，colors/accessories 不是数组时当空数组', () => {
+        const draft = parseTrajectoryOotdDraft({ imagePrompt: 'x', colors: 'not array', accessories: null });
+        expect(draft).toMatchObject({ style: '日常', colors: [], accessories: [] });
+    });
+
+    it('不是对象/null 时返回 null', () => {
+        expect(parseTrajectoryOotdDraft(null)).toBeNull();
+        expect(parseTrajectoryOotdDraft('garbage')).toBeNull();
+        expect(parseTrajectoryOotdDraft(undefined)).toBeNull();
+    });
+});
+
+describe('groupTrajectoryOotdByDate', () => {
+    it('同一天的多条按时间新到旧分在一组，组间按日期新到旧排', () => {
+        const day1 = new Date('2026-09-15T09:32:00').getTime();
+        const day1Later = new Date('2026-09-15T21:22:00').getTime();
+        const day2 = new Date('2026-09-14T10:02:00').getTime();
+        const posts = [
+            { ...createTrajectoryOotdPost({ style: 'a', colors: [], tops: '', bottoms: '', shoes: '', accessories: [], imagePrompt: 'x' }, 'i1'), timestamp: day1 },
+            { ...createTrajectoryOotdPost({ style: 'b', colors: [], tops: '', bottoms: '', shoes: '', accessories: [], imagePrompt: 'x' }, 'i2'), timestamp: day1Later },
+            { ...createTrajectoryOotdPost({ style: 'c', colors: [], tops: '', bottoms: '', shoes: '', accessories: [], imagePrompt: 'x' }, 'i3'), timestamp: day2 },
+        ];
+        const grouped = groupTrajectoryOotdByDate(posts);
+        expect(grouped).toHaveLength(2);
+        expect(grouped[0].dateKey).toBe('2026-09-15');
+        expect(grouped[0].posts.map(p => p.timestamp)).toEqual([day1Later, day1]);
+        expect(grouped[1].dateKey).toBe('2026-09-14');
+    });
+
+    it('空数组返回空分组', () => {
+        expect(groupTrajectoryOotdByDate([])).toEqual([]);
     });
 });

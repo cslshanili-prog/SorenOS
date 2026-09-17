@@ -1049,6 +1049,23 @@ export interface CharacterTrajectoryProfile {
 }
 
 /**
+ * 「軌跡」OOTD 分页：一条穿搭记录，图片走跟聊天图片同一套 blob-ref 令牌（migrateDataUrlToRef
+ * 之后的结果），不存原始 base64。每次点「生成」在这天的时间线上追加新节点，模拟角色
+ * 换了一身新装扮。
+ */
+export interface TrajectoryOotdPost {
+    id: string;
+    timestamp: number;
+    image: string;
+    style: string;
+    colors: string[];
+    tops: string;
+    bottoms: string;
+    shoes: string;
+    accessories: string[];
+}
+
+/**
  * 智能体 App · AI 服务种类。机主（被查手机的角色）自己也在玩 AI：
  * - assistant：工具型 AI 助手（豆包/通义/ChatGPT 那种），问实用 & 尴尬问题。
  * - claude：树洞型深度对话 AI（Claude 那种），说当面不会说的真心话。
@@ -3111,6 +3128,8 @@ export interface CharacterProfile {
        * undefined = 还没生成过；点「刷新」调 utils/trajectory.ts 整段重生成替换。
        */
       trajectoryProfile?: CharacterTrajectoryProfile;
+      /** 「軌跡」OOTD 分页：每次生成追加一条，按 timestamp 排前端自己分组/排序。 */
+      trajectoryOotd?: TrajectoryOotdPost[];
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）
