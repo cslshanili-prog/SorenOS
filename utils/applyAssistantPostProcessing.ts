@@ -532,6 +532,11 @@ export interface PostProcessCtx {
      * 前台聊天路径传。
      */
     onCharDaifuAccept?: (amount: number) => Promise<boolean>;
+    /**
+     * 角色主动送用户一份礼物/外卖时从角色自己的 Real Balance 扣款、余额不够则跳过这份礼物
+     * （见 chatParser.ts 同名参数的注释）。跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onCharGiftSend?: (amount: number) => Promise<boolean>;
     /** 日程被角色改写后刷新主动消息 fire_pack；旧调用方可不传。 */
     groups?: GroupProfile[];
     /**
@@ -628,6 +633,7 @@ export async function applyAssistantPostProcessing(
         onUserTransferAccepted,
         onCharTransferSend,
         onCharDaifuAccept,
+        onCharGiftSend,
         groups,
         spokenAt,
         contextMsgs,
@@ -2284,7 +2290,7 @@ export async function applyAssistantPostProcessing(
         (d): d is Extract<PostProcessDirective, { type: 'music_action' }> =>
             d.type === 'music_action' && !!d.song,
     )?.song;
-    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend, onCharDaifuAccept);
+    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend, onCharDaifuAccept, onCharGiftSend);
 
     // ─── Step 4: thinking chain 抽取 (本轮末尾展示用) ───
     // 跑过二轮 (data !== initialData) → 取二轮 data 的 reasoning; 没跑二轮 → 取一轮 (round1ThinkingChain,

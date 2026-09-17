@@ -3645,6 +3645,12 @@ ${olderText}
                 </div>
             </button>
 
+            {/* Real Balance：提到联系人/Moments 那组卡片上面，跟见面演出一样是「常用」级别的入口 */}
+            <div className="grid grid-cols-2 gap-3.5 mb-3.5">
+                <HomeCard icon={<CreditCard size={24} weight="light" />} label="Real Balance" sub={realBalanceSub} accent="#38bdf8" spanFull
+                    onClick={() => { setActiveAppId('balance'); trackEvent('打开查手机子应用', { subApp: 'balance' }); }} />
+            </div>
+
             {/* App cards —— 「联系人」占据原 Message 的主位（Message 已废弃，收进联系人里做不起眼入口） */}
             <div className="grid grid-cols-2 gap-3.5 mb-3.5">
                 <HomeCard icon={<UsersThree size={24} weight="light" />} label="联系人" sub={contactsSub} accent="#f472b6"
@@ -3655,8 +3661,6 @@ ${olderText}
                     onClick={() => { setActiveAppId('waimai'); trackEvent('打开查手机子应用', { subApp: 'waimai' }); }} />
                 <HomeCard icon={<ShoppingBag size={24} weight="light" />} label="Taobao" sub={taobaoSub} accent="#ff7a45"
                     onClick={() => { setActiveAppId('taobao'); trackEvent('打开查手机子应用', { subApp: 'taobao' }); }} />
-                <HomeCard icon={<CreditCard size={24} weight="light" />} label="Real Balance" sub={realBalanceSub} accent="#38bdf8" spanFull
-                    onClick={() => { setActiveAppId('balance'); trackEvent('打开查手机子应用', { subApp: 'balance' }); }} />
             </div>
 
             {/* 智能体：偷看「TA 的小手机」 —— 给个抢眼的横条入口 */}

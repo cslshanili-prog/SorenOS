@@ -2162,6 +2162,18 @@ export const useChatAI = ({
                     }));
                     return true;
                 },
+                // 角色主动送用户一份购物中心礼物/外卖：跟 onCharTransferSend 对称的「发送即结清」，
+                // 也共用同一份 charRealBalanceSnapshot（同一轮回复里角色可能转账/代付/送礼齐上）。
+                onCharGiftSend: async (amount: number) => {
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `送给${userProfile.name}的礼物`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
+                },
                 groups,
                 contextMsgs,
                 fullMessages,

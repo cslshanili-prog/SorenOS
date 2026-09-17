@@ -207,6 +207,13 @@ export const ChatParser = {
          * 不会让卡片卡死在"待处理"。不传就静默不结算（旧调用方 / 用不到 Real Balance 的场景）。
          */
         onCharDaifuAccept?: (amount: number) => Promise<boolean>,
+        /**
+         * 角色主动送用户一份礼物/外卖（`[[ACTION:GIFT|item=|price=|note=]]`）落卡之前调用，
+         * 从角色自己的 Real Balance 扣款——跟 onCharTransferSend 对称的"发送即结清"：钱在
+         * 角色说出口那一刻就已经离开角色账户。返回 false 时余额不够，跳过这份礼物（不落卡，
+         * 等于角色这句"给你带了个礼物"没真的发生）。不传则不做余额检查，直接落卡。
+         */
+        onCharGiftSend?: (amount: number) => Promise<boolean>,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -432,11 +439,44 @@ export const ChatParser = {
             }));
         };
 
-        // MALL — 购物中心「外卖代付请求」的 accept/decline，见 utils/mallOrderFormat.ts。
+        // MALL — 购物中心的 GIFT send / DAIFU accept-decline，见 utils/mallOrderFormat.ts。
         const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
         if (mallOrderConsumed > 0) content = mallCleanedText;
         for (const ev of mallOrderEvents) {
-            await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
+            if (ev.kind === 'send') {
+                const price = Number(ev.price);
+                const ok = onCharGiftSend && Number.isFinite(price) && price > 0
+                    ? await onCharGiftSend(price)
+                    : true;
+                if (!ok) {
+                    console.warn('[Mall] 角色 Real Balance 不足，跳过这份主动送出的礼物:', { charId, item: ev.item, price: ev.price });
+                    continue;
+                }
+                await persist({
+                    charId, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]',
+                    metadata: { mode: 'gift', items: [{ name: ev.item, price, qty: 1 }], total: price, note: ev.note, status: 'sent' },
+                });
+            } else {
+                await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
+            }
+        }
+
+        // MALL GIFT ACK — 用户送的礼物是「发送即结清」，没有 accept 步骤，但完全没反馈不好；
+        // 角色这一轮既然生成了回复，就说明已经看到了这份礼物，顺手标一个 acknowledged，
+        // 让 MallOrderCard 在"已送出"旁边多显示一句"TA已收下"。不用教模型专门喊一个标签——
+        // 这是纯摆设确认，说不说都不影响结算，没必要为这个引入"想做≠做了"的标签遗忘风险；
+        // 直接按"角色这轮说话了 = 已经看到最新一条历史"这个必然成立的事实来标记，更稳。
+        // 只标最新一条：老的已经错过时机，不用倒着一次性全标。
+        try {
+            const allMsgs = await DB.getMessagesByCharId(charId, true);
+            const unacked = allMsgs
+                .filter(x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'gift' && x.metadata?.status === 'sent' && !x.metadata?.acknowledged)
+                .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+            if (unacked[0]) {
+                await DB.updateMessageMetadata(unacked[0].id, (prev) => ({ ...(prev || {}), acknowledged: true }));
+            }
+        } catch (e) {
+            console.warn('[Mall] 标记礼物已读失败，跳过:', e);
         }
 
         // MUSIC_ACTION — char 对 user 正在听的歌表态（只处理第一次出现，每条消息最多一次插卡）

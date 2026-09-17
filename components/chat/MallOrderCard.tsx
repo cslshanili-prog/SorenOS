@@ -22,6 +22,12 @@ export interface MallOrderMeta {
     declineReason?: string;
     /** 不传则用 buildTitle 按 mode/方向自动生成；「发小票」这种不想被念成"送给TA"的场景会显式传。 */
     title?: string;
+    /**
+     * 礼物/外卖是「发送即结清」，没有 accept 步骤，但完全没反馈不好——角色收到礼物后的
+     * 下一轮回复会顺手标一个 acknowledged（见 utils/chatParser.ts 的 GIFT ACK 逻辑），
+     * 卡片上多显示一句"TA已收下"，纯展示用，不影响任何结算。
+     */
+    acknowledged?: boolean;
 }
 
 const KIND_ICON: Record<MallOrderMeta['mallKind'], string> = { shop: '🛍️', food: '🥡' };
@@ -99,6 +105,11 @@ const MallOrderCard: React.FC<{
             {status === 'pending' && (
                 <div className="px-4 pb-3 text-[10px] text-amber-600 text-center">
                     等待{isUser ? charName : '你'}在回复中选择支付或拒绝
+                </div>
+            )}
+            {status === 'sent' && meta.mode === 'gift' && isUser && meta.acknowledged && (
+                <div className="px-4 pb-3 text-[10px] text-emerald-500 text-center">
+                    {charName}已收下
                 </div>
             )}
         </div>

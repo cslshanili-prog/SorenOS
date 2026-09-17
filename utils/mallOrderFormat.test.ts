@@ -17,6 +17,30 @@ describe('formatMallOrderRecord', () => {
     });
 });
 
+describe('extractMallOrderCommands · GIFT（角色主动送礼）', () => {
+    it('[[ACTION:GIFT|item=|price=|note=]] 解析出 send 事件', () => {
+        const r = extractMallOrderCommands('给你带了个小礼物~[[ACTION:GIFT|item=草莓蛋糕|price=23|note=路过甜品店顺手买的]]');
+        expect(r.events).toEqual([{ kind: 'send', item: '草莓蛋糕', price: '23', note: '路过甜品店顺手买的' }]);
+        expect(r.text).toBe('给你带了个小礼物~');
+    });
+
+    it('没有 note 时 note 为 undefined', () => {
+        const r = extractMallOrderCommands('[[ACTION:GIFT|item=咖啡|price=18]]');
+        expect(r.events).toEqual([{ kind: 'send', item: '咖啡', price: '18', note: undefined }]);
+    });
+
+    it('缺 item 或 price 时当无效标签剥掉、不产生事件', () => {
+        expect(extractMallOrderCommands('[[ACTION:GIFT|price=18]]').events).toEqual([]);
+        expect(extractMallOrderCommands('[[ACTION:GIFT|item=咖啡]]').events).toEqual([]);
+    });
+
+    it('price 不是纯数字时当无效标签剥掉、不产生事件', () => {
+        const r = extractMallOrderCommands('[[ACTION:GIFT|item=咖啡|price=十八元]]');
+        expect(r.events).toEqual([]);
+        expect(r.text).toBe('');
+    });
+});
+
 describe('extractMallOrderCommands', () => {
     it('[[ACTION:DAIFU_ACCEPT]] 解析出 accept 事件', () => {
         const r = extractMallOrderCommands('行，这顿我请了。[[ACTION:DAIFU_ACCEPT]]');
