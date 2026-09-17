@@ -2282,7 +2282,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     {/* 切换用户身份：这个群单独用哪张身份卡，即时生效，不影响其他群或私聊 */}
                     <div className="pt-2 border-t border-slate-100">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">这个群里，你是</label>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <div className="flex flex-wrap gap-2">
                             {(() => {
                                 const overrideId = activeGroup ? userProfileBase.perGroupPersonaIds?.[activeGroup.id] : undefined;
                                 const chip = (key: string | undefined, avatar: string, name: string, sub: string) => {
