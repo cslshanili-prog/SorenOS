@@ -4031,6 +4031,8 @@ ${olderText}
                     {activeAppId === 'trajectory' && targetChar && (
                         <TrajectoryHome
                             targetChar={targetChar}
+                            characters={characters}
+                            npcs={npcs}
                             onBack={() => setActiveAppId('home')}
                             updateCharacter={updateCharacter}
                             apiConfig={effectiveApiConfig}

@@ -1,4 +1,4 @@
-import { CharacterProfile, CharacterTrajectoryProfile, SocialPost, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective, TrajectoryOotdPost } from '../types';
+import { CharacterProfile, CharacterTrajectoryProfile, SocialPost, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryJourneyEntry, TrajectoryObjective, TrajectoryOotdPost } from '../types';
 
 function genId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -184,4 +184,43 @@ export function filterMomentsVisibleToChar(posts: SocialPost[], char: Pick<Chara
         if (post.authorCharId === char.id) return true;
         return !!(post.authorCharId && friendCharIds.has(post.authorCharId));
     });
+}
+
+/**
+ * Journey 行程叙事的生成提示词——纯第三人称叙事，不含用户/玩家、不写成对话脚本。
+ * roleSettingsBlock 同 Profile/OOTD，传 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
+ * 输出直接是叙事正文（不是 JSON），调用方拿 extractContent(data).trim() 就是 story。
+ */
+export function buildTrajectoryJourneyPrompt(
+    roleSettingsBlock: string,
+    input: { kind: '日常' | '事件'; time: string; location: string; participants: { name: string; description: string }[]; detail?: string },
+): string {
+    const participantLines = input.participants.length
+        ? input.participants.map(p => `- ${p.name}${p.description ? `：${p.description}` : ''}`).join('\n')
+        : '（没有指定见面对象，就写TA独自经历的一段）';
+    return `依照上面这份角色设定，写一段第三人称的短篇叙事——这是TA手机「軌跡」App 里的一段私人行程，` +
+        `記錄的是TA自己的生活，不是跟用户的互动，正文里绝对不能出现用户/玩家，也不要写成对话脚本或问答，` +
+        `就是一段完整流畅的叙事文字。\n\n` +
+        `- 类型：${input.kind}\n` +
+        `- 时间：${input.time || '（未指定，自行安排）'}\n` +
+        `- 地点/场景：${input.location || '（未指定，自行安排）'}\n` +
+        `- 见面对象：\n${participantLines}\n` +
+        `${input.detail?.trim() ? `- 补充细节：${input.detail.trim()}\n` : ''}\n` +
+        `直接输出这段叙事正文本身，300-500 字左右，不要标题、不要 markdown 标记、不要任何额外说明或前后缀。`;
+}
+
+export function createTrajectoryJourneyEntry(input: {
+    kind: '日常' | '事件'; time: string; location: string; participantNames: string[]; detail?: string; story: string; syncedToChat: boolean;
+}): TrajectoryJourneyEntry {
+    return {
+        id: genId('traj-jn'),
+        kind: input.kind,
+        time: input.time,
+        location: input.location,
+        participantNames: input.participantNames,
+        detail: input.detail?.trim() || undefined,
+        story: input.story,
+        syncedToChat: input.syncedToChat,
+        createdAt: Date.now(),
+    };
 }

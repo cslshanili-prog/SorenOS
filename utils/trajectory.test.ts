@@ -3,7 +3,7 @@ import {
     buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
     buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
-    filterMomentsVisibleToChar,
+    filterMomentsVisibleToChar, buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry,
 } from './trajectory';
 import type { SocialPost, PhoneContact } from '../types';
 
@@ -237,5 +237,53 @@ describe('filterMomentsVisibleToChar', () => {
         const visible2 = makePost({ id: 'c', authorType: 'stranger' });
         const result = filterMomentsVisibleToChar([visible1, hidden, visible2], char([]));
         expect(result.map(p => p.id)).toEqual(['a', 'c']);
+    });
+});
+
+describe('buildTrajectoryJourneyPrompt', () => {
+    it('列出参与者名字与描述，正文不出现"用户"字样的硬编码提示之外的用户身份', () => {
+        const prompt = buildTrajectoryJourneyPrompt('角色设定块', {
+            kind: '日常', time: '今晚八点', location: '老城区咖啡馆',
+            participants: [{ name: 'Miles', description: '爵士乐手，TA 的老朋友' }],
+            detail: '聊起了即兴专场',
+        });
+        expect(prompt).toContain('Miles');
+        expect(prompt).toContain('爵士乐手，TA 的老朋友');
+        expect(prompt).toContain('今晚八点');
+        expect(prompt).toContain('老城区咖啡馆');
+        expect(prompt).toContain('聊起了即兴专场');
+        expect(prompt).toContain('绝对不能出现用户');
+    });
+
+    it('没有参与者时给出独自经历的兜底措辞', () => {
+        const prompt = buildTrajectoryJourneyPrompt('角色设定块', { kind: '事件', time: '', location: '', participants: [] });
+        expect(prompt).toContain('独自经历');
+    });
+
+    it('没有补充细节时不出现"补充细节"这行', () => {
+        const prompt = buildTrajectoryJourneyPrompt('角色设定块', { kind: '日常', time: 'x', location: 'y', participants: [] });
+        expect(prompt).not.toContain('补充细节');
+    });
+});
+
+describe('createTrajectoryJourneyEntry', () => {
+    it('组装出完整的记录，补充细节的首尾空白被裁掉', () => {
+        const entry = createTrajectoryJourneyEntry({
+            kind: '事件', time: '明天', location: '海边', participantNames: ['Aven', 'Swan'],
+            detail: '  聊聊新专辑  ', story: '这是一段生成的叙事。', syncedToChat: true,
+        });
+        expect(entry).toMatchObject({
+            kind: '事件', time: '明天', location: '海边', participantNames: ['Aven', 'Swan'],
+            detail: '聊聊新专辑', story: '这是一段生成的叙事。', syncedToChat: true,
+        });
+        expect(entry.id).toMatch(/^traj-jn-/);
+        expect(entry.createdAt).toBeGreaterThan(0);
+    });
+
+    it('没有补充细节（空字符串/未传）时 detail 是 undefined', () => {
+        const entry1 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x', syncedToChat: false, detail: '  ' });
+        expect(entry1.detail).toBeUndefined();
+        const entry2 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x', syncedToChat: false });
+        expect(entry2.detail).toBeUndefined();
     });
 });

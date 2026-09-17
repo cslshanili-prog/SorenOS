@@ -1066,6 +1066,23 @@ export interface TrajectoryOotdPost {
 }
 
 /**
+ * 「軌跡」Journey 分页的一段私人行程——角色与另一角色/NPC 见面的无互动叙事，用户不参与。
+ * participantNames 是生成时的快照（不存 id），角色/NPC 后续改名或删除都不影响这条历史记录的展示。
+ */
+export interface TrajectoryJourneyEntry {
+    id: string;
+    kind: '日常' | '事件';
+    time: string;
+    location: string;
+    participantNames: string[];
+    detail?: string;
+    story: string;
+    /** 生成当下是否同步进了私聊（phone_card 消息），纯展示用，不影响这条记录本身 */
+    syncedToChat: boolean;
+    createdAt: number;
+}
+
+/**
  * 智能体 App · AI 服务种类。机主（被查手机的角色）自己也在玩 AI：
  * - assistant：工具型 AI 助手（豆包/通义/ChatGPT 那种），问实用 & 尴尬问题。
  * - claude：树洞型深度对话 AI（Claude 那种），说当面不会说的真心话。
@@ -3132,6 +3149,8 @@ export interface CharacterProfile {
       trajectoryOotd?: TrajectoryOotdPost[];
       /** 「軌跡」Moments 分页的封面图（点大图换背景），blob-ref 令牌；undefined = 用默认渐变。 */
       trajectoryMomentsCover?: string;
+      /** 「軌跡」Journey 分页：每次生成追加一条，最新的排前面。 */
+      trajectoryJourney?: TrajectoryJourneyEntry[];
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Broadcast, ImagesSquare, TShirt, IdentificationCard, Footprints, type Icon } from '@phosphor-icons/react';
-import type { CharacterProfile, ImageGenApiConfig } from '../../types';
+import type { CharacterProfile, ImageGenApiConfig, NPCProfile } from '../../types';
 import { TermHeader } from '../../apps/CheckPhone';
 import TrajectoryProfileTab from './TrajectoryProfileTab';
 import TrajectoryOotdTab from './TrajectoryOotdTab';
 import TrajectoryMomentsTab from './TrajectoryMomentsTab';
+import TrajectoryJourneyTab from './TrajectoryJourneyTab';
 
 type TrajectoryTab = 'backstage' | 'moments' | 'ootd' | 'profile' | 'journey';
 
@@ -26,6 +27,8 @@ const ComingSoon: React.FC<{ label: string }> = ({ label }) => (
 
 interface Props {
     targetChar: CharacterProfile;
+    characters: CharacterProfile[];
+    npcs: NPCProfile[];
     onBack: () => void;
     updateCharacter: (id: string, updater: (prev: CharacterProfile) => Partial<CharacterProfile>) => void;
     apiConfig: { baseUrl: string; apiKey: string; model: string } | null | undefined;
@@ -33,7 +36,7 @@ interface Props {
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const TrajectoryHome: React.FC<Props> = ({ targetChar, onBack, updateCharacter, apiConfig, imageGenConfig, addToast }) => {
+const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack, updateCharacter, apiConfig, imageGenConfig, addToast }) => {
     const [tab, setTab] = useState<TrajectoryTab>('profile');
     const activeTabLabel = TABS.find(t => t.key === tab)!.label;
 
@@ -43,7 +46,19 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, onBack, updateCharacter, 
             <TermHeader title={activeTabLabel} sub="生活軌跡" accent={ACCENT} onBack={onBack} />
 
             {tab === 'backstage' && <ComingSoon label="后台生活" />}
-            {tab === 'journey' && <ComingSoon label="行程" />}
+            {tab === 'journey' && (
+                <TrajectoryJourneyTab
+                    char={targetChar}
+                    characters={characters}
+                    npcs={npcs}
+                    entries={targetChar.phoneState?.trajectoryJourney || []}
+                    onCommit={(next) => updateCharacter(targetChar.id, (cur) => ({
+                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryJourney: next },
+                    }))}
+                    apiConfig={apiConfig}
+                    addToast={addToast}
+                />
+            )}
             {tab === 'moments' && (
                 <TrajectoryMomentsTab
                     char={targetChar}
