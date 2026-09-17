@@ -1010,6 +1010,45 @@ export interface PhoneContact {
 }
 
 /**
+ * 「軌跡」Profile 子页 · 档案资料：按角色人设自由生成的个人文件（授权书/合同/产权书等），
+ * 纯展示用的角色深度设定，不参与聊天上下文。
+ */
+export interface TrajectoryArchiveDoc {
+    id: string;
+    title: string;
+    /** 文件类型标签，展示在标题下方，如 "PERSONAL DOCUMENT"，自由生成 */
+    category: string;
+    content: string;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页 · 阶段目标：某项任务/作品/计划的进度，0-100。 */
+export interface TrajectoryObjective {
+    id: string;
+    title: string;
+    progress: number;
+    detail: string;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页 · 待办日程：checklist，时间是展示用的自由文本，不强求可解析。 */
+export interface TrajectoryChecklistItem {
+    id: string;
+    title: string;
+    dueLabel: string;
+    done: boolean;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页三段合一，AI 一次性生成/刷新，各角色独立存一份。 */
+export interface CharacterTrajectoryProfile {
+    archives: TrajectoryArchiveDoc[];
+    objectives: TrajectoryObjective[];
+    checklist: TrajectoryChecklistItem[];
+    updatedAt: number;
+}
+
+/**
  * 智能体 App · AI 服务种类。机主（被查手机的角色）自己也在玩 AI：
  * - assistant：工具型 AI 助手（豆包/通义/ChatGPT 那种），问实用 & 尴尬问题。
  * - claude：树洞型深度对话 AI（Claude 那种），说当面不会说的真心话。
@@ -3067,6 +3106,11 @@ export interface CharacterProfile {
        * 由 utils/chatParser.ts 的 onUserTransferAccepted/onCharTransferSend 等回调驱动更新。
        */
       realBalance?: RealBalanceState;
+      /**
+       * 「軌跡」Profile 子页（档案资料/阶段目标/待办日程）三段合一的生成结果。
+       * undefined = 还没生成过；点「刷新」调 utils/trajectory.ts 整段重生成替换。
+       */
+      trajectoryProfile?: CharacterTrajectoryProfile;
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）

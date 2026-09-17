@@ -26,12 +26,13 @@ import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../uti
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState } from '../utils/realBalance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
+import TrajectoryHome from '../components/trajectory/TrajectoryHome';
 import {
     User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, Compass, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
     Storefront, Heart, ArrowsClockwise, Tray, DotsThree, ClockCounterClockwise, Sparkle,
     UsersThree, UserPlus, Prohibit, LinkSimple, PaperPlaneTilt, PencilSimple, Trash,
-    Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard
+    Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold
 } from '@phosphor-icons/react';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
@@ -3857,6 +3858,9 @@ ${olderText}
                         <button onClick={() => setActiveAppId('social')} className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
                             <Compass size={22} weight="light" />
                         </button>
+                        <button onClick={() => { setActiveAppId('trajectory'); trackEvent('打开查手机子应用', { subApp: 'trajectory' }); }} aria-label="軌跡" className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
+                            <MapTrifold size={22} weight="light" />
+                        </button>
                         <button onClick={toggleSendToChat} aria-label="同步到私聊"
                             className="relative flex items-center justify-center p-2.5 hover:text-white rounded-2xl transition active:scale-90"
                             style={{ color: sendToChat ? '#7dd3fc' : 'rgba(255,255,255,0.4)' }}>
@@ -4023,6 +4027,16 @@ ${olderText}
                                 addToast={addToast}
                             />
                         </div>
+                    )}
+                    {activeAppId === 'trajectory' && targetChar && (
+                        <TrajectoryHome
+                            targetChar={targetChar}
+                            characters={characters}
+                            onBack={() => setActiveAppId('home')}
+                            updateCharacter={updateCharacter}
+                            apiConfig={effectiveApiConfig}
+                            addToast={addToast}
+                        />
                     )}
                     {activeAppId === 'persona' && targetChar && (
                         <PersonaSim targetChar={targetChar} onExit={() => setActiveAppId('home')} openLifeLog={() => setActiveAppId('lifelog')}
