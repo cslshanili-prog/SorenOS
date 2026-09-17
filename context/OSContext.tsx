@@ -359,7 +359,7 @@ interface OSContextType {
   /** 持久化的真实身份（未套用身份卡），只用于"我的档案"里编辑真实姓名/头像/简介，别处不要读这个。 */
   userProfileBase: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => void;
-  addUserPersona: (name: string, avatar: string, bio: string) => Promise<UserPersona>;
+  addUserPersona: (input: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt'>) => Promise<UserPersona>;
   updateUserPersona: (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => Promise<void>;
   deleteUserPersona: (id: string) => Promise<void>;
   setActivePersonaId: (id: string | undefined) => Promise<void>;
@@ -3496,9 +3496,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       });
   };
 
-  const addUserPersona = async (name: string, avatar: string, bio: string): Promise<UserPersona> => {
+  const addUserPersona = async (input: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserPersona> => {
       const now = Date.now();
-      const persona: UserPersona = { id: `persona-${now}-${Math.random().toString(36).slice(2, 7)}`, name, avatar, bio, createdAt: now, updatedAt: now };
+      const persona: UserPersona = { ...input, id: `persona-${now}-${Math.random().toString(36).slice(2, 7)}`, createdAt: now, updatedAt: now };
       await updateUserProfile(prev => ({ personas: [...(prev.personas || []), persona] }));
       return persona;
   };

@@ -3493,6 +3493,12 @@ export interface UserProfile {
     name: string;
     avatar: string;
     bio: string;
+    /** 真实身份的性别，选填，跟身份卡的 UserGender 是同一套枚举 */
+    gender?: UserGender;
+    /** 真实身份的自定义设定：比 bio 更深一层的补充说明，会发给 AI */
+    customSetting?: string;
+    /** 真实身份的其他补充：兜底的自由文本栏位，会发给 AI */
+    otherDetails?: string;
     /** 分角色聊天头像（档案 App 设置）：charId → 头像（http(s) URL 或 data:image）。
      *  私聊里「你」的头像取 perCharAvatars[charId] || avatar（上面的整体头像作宏观默认）；
      *  群聊/其他场合仍用整体头像。删角色留下的孤儿键无害，读取端永远按当前 charId 取。 */
@@ -3599,11 +3605,19 @@ export interface MallProduct {
     createdAt: number;
 }
 
+/** 身份卡/真实身份的性别选项，纯展示 + 会发给 AI，跟 SimGender（彼方小人）是两套独立的枚举。 */
+export type UserGender = '男' | '女' | '保密' | '二次元' | '其他';
+
 export interface UserPersona {
     id: string;
     name: string;
     avatar: string;
     bio: string;
+    gender?: UserGender;
+    /** 自定义设定：比 bio 更深一层的补充说明，会发给 AI */
+    customSetting?: string;
+    /** 其他补充：兜底的自由文本栏位，会发给 AI */
+    otherDetails?: string;
     createdAt: number;
     updatedAt: number;
 }

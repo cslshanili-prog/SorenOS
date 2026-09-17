@@ -4,6 +4,9 @@ import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 import { trackEvent } from '../../utils/analytics';
+import type { UserGender } from '../../types';
+
+const GENDER_OPTIONS: UserGender[] = ['男', '女', '保密', '二次元', '其他'];
 
 /**
  * 档案 App「身份卡」：同一个人维护的多套角色扮演身份（名字/头像/简介），全局切换「目前身份」。
@@ -21,31 +24,39 @@ const UserPersonaPanel: React.FC = () => {
     const [draftName, setDraftName] = useState('');
     const [draftBio, setDraftBio] = useState('');
     const [draftAvatar, setDraftAvatar] = useState('');
+    const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
+    const [draftGender, setDraftGender] = useState<UserGender | ''>('');
+    const [draftCustomSetting, setDraftCustomSetting] = useState('');
+    const [draftOtherDetails, setDraftOtherDetails] = useState('');
     const uploadRef = useRef<HTMLInputElement>(null);
 
     const isEditorOpen = editingId !== null;
 
+    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string }) => {
+        setDraftName(source.name);
+        setDraftBio(source.bio);
+        setDraftAvatar(source.avatar);
+        setDraftAvatarUrl(/^https?:\/\//i.test(source.avatar) ? source.avatar : '');
+        setDraftGender(source.gender || '');
+        setDraftCustomSetting(source.customSetting || '');
+        setDraftOtherDetails(source.otherDetails || '');
+    };
+
     const openNew = () => {
         setEditingId('new');
-        setDraftName('');
-        setDraftBio('');
-        setDraftAvatar('');
+        loadDraft({ name: '', avatar: '', bio: '' });
     };
 
     const openEditReal = () => {
         setEditingId('real');
-        setDraftName(userProfileBase.name);
-        setDraftBio(userProfileBase.bio);
-        setDraftAvatar(userProfileBase.avatar);
+        loadDraft(userProfileBase);
     };
 
     const openEdit = (id: string) => {
         const p = personas.find(pp => pp.id === id);
         if (!p) return;
         setEditingId(id);
-        setDraftName(p.name);
-        setDraftBio(p.bio);
-        setDraftAvatar(p.avatar);
+        loadDraft(p);
     };
 
     const closeEditor = () => setEditingId(null);
@@ -57,24 +68,49 @@ const UserPersonaPanel: React.FC = () => {
         try {
             const base64 = await processImage(file);
             setDraftAvatar(await migrateDataUrlToRef(base64));
+            setDraftAvatarUrl('');
         } catch (err: any) {
             addToast(err.message, 'error');
         }
     };
 
+    const commitAvatarUrl = () => {
+        const v = draftAvatarUrl.trim();
+        if (!v) {
+            if (/^https?:\/\//i.test(draftAvatar)) setDraftAvatar('');
+            return;
+        }
+        try {
+            const u = new URL(v);
+            if (!/^https?:$/.test(u.protocol)) throw new Error();
+        } catch {
+            addToast('请填写有效的 http(s) 图片链接', 'error');
+            return;
+        }
+        setDraftAvatar(v);
+    };
+
     const handleSave = async () => {
         if (!draftName.trim()) { addToast('请起个名字', 'error'); return; }
+        const fields = {
+            name: draftName.trim(),
+            avatar: draftAvatar,
+            bio: draftBio.trim(),
+            gender: draftGender || undefined,
+            customSetting: draftCustomSetting.trim() || undefined,
+            otherDetails: draftOtherDetails.trim() || undefined,
+        };
         if (editingId === 'real') {
-            updateUserProfile({ name: draftName.trim(), avatar: draftAvatar, bio: draftBio.trim() });
+            updateUserProfile(fields);
             addToast('真实身份已更新', 'success');
         } else if (editingId === 'new') {
-            const persona = await addUserPersona(draftName.trim(), draftAvatar, draftBio.trim());
+            const persona = await addUserPersona(fields);
             addToast('身份卡已建好', 'success');
             trackEvent('新建身份卡');
             // 新建的卡默认不自动切换，用户自己决定要不要马上套用
             void persona;
         } else if (editingId) {
-            await updateUserPersona(editingId, { name: draftName.trim(), avatar: draftAvatar, bio: draftBio.trim() });
+            await updateUserPersona(editingId, fields);
             addToast('身份卡已更新', 'success');
         }
         closeEditor();
@@ -160,53 +196,100 @@ const UserPersonaPanel: React.FC = () => {
             </div>
 
             {isEditorOpen && (
-                <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in" onClick={closeEditor}>
-                    <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 animate-slide-up sm:animate-pop-in"
-                        style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
-                        onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="text-sm font-bold text-slate-800">
-                                {editingId === 'new' ? '新增身份卡' : editingId === 'real' ? '编辑真实身份' : '编辑身份卡'}
-                            </div>
-                            <button onClick={closeEditor} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">×</button>
+                <div className="fixed inset-0 z-[120] flex flex-col bg-white animate-fade-in">
+                    <div className="flex items-center justify-between px-4 border-b border-slate-100 shrink-0"
+                        style={{ paddingTop: 'calc(0.75rem + var(--safe-top))', paddingBottom: '0.75rem' }}>
+                        <button onClick={closeEditor} className="w-8 h-8 flex items-center justify-center text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
+                        <div className="text-sm font-bold text-slate-800">
+                            {editingId === 'new' ? '添加身份' : editingId === 'real' ? '编辑真实身份' : '编辑身份卡'}
                         </div>
+                        <button onClick={handleSave} className="w-8 h-8 flex items-center justify-center text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.4} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                        </button>
+                    </div>
 
-                        <div className="flex justify-center mb-4">
-                            <div onClick={() => uploadRef.current?.click()} className="relative w-20 h-20 rounded-full cursor-pointer group">
+                    <div className="flex-1 overflow-y-auto px-5 py-5" style={{ paddingBottom: 'calc(1.5rem + var(--safe-bottom))' }}>
+                        <div className="flex flex-col items-center mb-5">
+                            <div onClick={() => uploadRef.current?.click()} className="relative w-20 h-20 rounded-full cursor-pointer group mb-2.5">
                                 <TokenImg value={draftAvatar} className="w-full h-full rounded-full object-cover bg-slate-100 group-hover:opacity-80 transition-opacity" alt="" />
                                 <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center ring-2 ring-white text-[10px]">✎</div>
                             </div>
                             <input type="file" ref={uploadRef} className="hidden" accept="image/*" onChange={handleUpload} />
-                        </div>
-
-                        <div className="space-y-2.5">
                             <input
-                                value={draftName}
-                                onChange={(e) => setDraftName(e.target.value)}
-                                placeholder={editingId === 'real' ? '你的名字' : '这张身份卡的名字'}
-                                className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-300"
-                            />
-                            <textarea
-                                value={draftBio}
-                                onChange={(e) => setDraftBio(e.target.value)}
-                                placeholder={editingId === 'real' ? '关于我 / 设定：会发给 AI，让它更了解你（例如：大学生、喜欢吃辣、性格内向）' : '这个身份的简介，会发给 AI（可留空）'}
-                                className="w-full h-36 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                                type="url"
+                                value={draftAvatarUrl}
+                                onChange={(e) => setDraftAvatarUrl(e.target.value)}
+                                onBlur={commitAvatarUrl}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                placeholder="或粘贴图片 URL（回车确认）"
+                                className="w-full max-w-xs bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2 text-xs text-slate-500 outline-none transition-all placeholder:text-slate-300 text-center"
                             />
                         </div>
 
-                        <div className="flex gap-2 mt-4">
-                            {editingId !== 'new' && editingId !== 'real' && (
-                                <button
-                                    onClick={() => editingId && handleDelete(editingId)}
-                                    className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-500 active:scale-[0.98] transition-transform"
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">名字 (Name)</label>
+                                <input
+                                    value={draftName}
+                                    onChange={(e) => setDraftName(e.target.value)}
+                                    placeholder={editingId === 'real' ? '你的名字' : '这张身份卡的名字'}
+                                    className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">性别</label>
+                                <select
+                                    value={draftGender}
+                                    onChange={(e) => setDraftGender(e.target.value as UserGender | '')}
+                                    className="w-full bg-slate-50 border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all appearance-none"
                                 >
-                                    删除
-                                </button>
-                            )}
-                            <button onClick={handleSave} className="flex-1 rounded-2xl bg-primary px-4 py-2.5 text-[11px] font-bold text-white active:scale-[0.98] transition-transform">
-                                保存
-                            </button>
+                                    <option value="">不设置</option>
+                                    {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">简介 (Bio)</label>
+                                <textarea
+                                    value={draftBio}
+                                    onChange={(e) => setDraftBio(e.target.value)}
+                                    placeholder={editingId === 'real' ? '关于我 / 设定：会发给 AI，让它更了解你（例如：大学生、喜欢吃辣、性格内向）' : '这个身份的简介，会发给 AI（可留空）'}
+                                    className="w-full h-28 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">自定义设定 (Custom Setting)</label>
+                                <textarea
+                                    value={draftCustomSetting}
+                                    onChange={(e) => setDraftCustomSetting(e.target.value)}
+                                    placeholder="比简介更深度的补充，会发给 AI（可留空）"
+                                    className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">其他补充 (Other Details)</label>
+                                <textarea
+                                    value={draftOtherDetails}
+                                    onChange={(e) => setDraftOtherDetails(e.target.value)}
+                                    placeholder="任何想让 AI 知道的其他信息（可留空）"
+                                    className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                                />
+                            </div>
                         </div>
+
+                        {editingId !== 'new' && editingId !== 'real' && (
+                            <button
+                                onClick={() => editingId && handleDelete(editingId)}
+                                className="w-full mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-500 active:scale-[0.98] transition-transform"
+                            >
+                                删除这张身份卡
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
