@@ -12,11 +12,11 @@ type TrajectoryTab = 'backstage' | 'moments' | 'ootd' | 'profile' | 'journey';
 const ACCENT = '#a78bfa';
 
 const TABS: { key: TrajectoryTab; label: string; Icon: Icon }[] = [
-    { key: 'backstage', label: '后台生活', Icon: Broadcast },
-    { key: 'moments', label: '朋友圈', Icon: ImagesSquare },
-    { key: 'ootd', label: '今日穿搭', Icon: TShirt },
+    { key: 'backstage', label: 'Backstage', Icon: Broadcast },
+    { key: 'moments', label: 'Moments', Icon: ImagesSquare },
+    { key: 'ootd', label: 'OOTD', Icon: TShirt },
     { key: 'profile', label: 'Profile', Icon: IdentificationCard },
-    { key: 'journey', label: '行程', Icon: Footprints },
+    { key: 'journey', label: 'Journey', Icon: Footprints },
 ];
 
 const ComingSoon: React.FC<{ label: string }> = ({ label }) => (
@@ -45,7 +45,7 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack,
             style={{ background: 'radial-gradient(140% 90% at 50% 0%, #15171d 0%, #0a0b0f 70%)' }}>
             <TermHeader title={activeTabLabel} sub="生活軌跡" accent={ACCENT} onBack={onBack} />
 
-            {tab === 'backstage' && <ComingSoon label="后台生活" />}
+            {tab === 'backstage' && <ComingSoon label="Backstage" />}
             {tab === 'journey' && (
                 <TrajectoryJourneyTab
                     char={targetChar}
@@ -62,10 +62,16 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack,
             {tab === 'moments' && (
                 <TrajectoryMomentsTab
                     char={targetChar}
+                    posts={targetChar.phoneState?.trajectoryMoments || []}
+                    onCommit={(next) => updateCharacter(targetChar.id, (cur) => ({
+                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryMoments: next },
+                    }))}
                     cover={targetChar.phoneState?.trajectoryMomentsCover}
                     onCommitCover={(next) => updateCharacter(targetChar.id, (cur) => ({
                         phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryMomentsCover: next },
                     }))}
+                    apiConfig={apiConfig}
+                    imageGenConfig={imageGenConfig}
                     addToast={addToast}
                 />
             )}

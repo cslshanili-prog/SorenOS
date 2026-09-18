@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarBlank, CircleNotch, Sparkle, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, CalendarBlank, CircleNotch, DownloadSimple, PaperPlaneTilt, Sparkle, X } from '@phosphor-icons/react';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
 import TokenImg from '../os/TokenImg';
 import {
@@ -8,7 +8,9 @@ import {
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
 import { generateImage, buildCharacterImagePrompt } from '../../utils/imageGeneration';
-import { migrateDataUrlToRef } from '../../utils/blobRef';
+import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
+import { shareOrDownloadBlob } from '../../utils/shareExport';
+import { DB } from '../../utils/db';
 
 interface Props {
     char: CharacterProfile;
@@ -34,6 +36,9 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [detailPost, setDetailPost] = useState<TrajectoryOotdPost | null>(null);
+    const [regeneratingPhoto, setRegeneratingPhoto] = useState(false);
+    const [savingPhoto, setSavingPhoto] = useState(false);
+    const [syncingToChat, setSyncingToChat] = useState(false);
 
     const grouped = useMemo(() => groupTrajectoryOotdByDate(posts), [posts]);
     const visibleGroups = dateFilter === 'all' ? grouped : grouped.filter(g => g.dateKey === dateFilter);
@@ -74,6 +79,74 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             addToast('生成失败，稍后再试', 'error');
         } finally {
             setGenerating(false);
+        }
+    };
+
+    // 只重生成照片，文案（风格/配色/上下装等）原样不动——复用生成当下存下来的 imagePrompt，
+    // 保证新照片还是贴合这身穿搭的文字描述，不会图文不符。
+    const handleRegeneratePhoto = async (post: TrajectoryOotdPost) => {
+        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
+            addToast('先在设置里开启并配置好生图 API', 'info');
+            return;
+        }
+        setRegeneratingPhoto(true);
+        try {
+            const imagePrompt = buildCharacterImagePrompt(char, post.imagePrompt);
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const image = await migrateDataUrlToRef(dataUrl);
+            const next = posts.map(p => p.id === post.id ? { ...p, image } : p);
+            onCommit(next);
+            setDetailPost(prev => prev && prev.id === post.id ? { ...prev, image } : prev);
+            void deleteBlobRefIfUnreferenced(post.image);
+            addToast('照片已重新生成', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] OOTD 照片重新生成失败:', e);
+            addToast('生成失败，稍后再试', 'error');
+        } finally {
+            setRegeneratingPhoto(false);
+        }
+    };
+
+    const handleSavePhoto = async (post: TrajectoryOotdPost) => {
+        setSavingPhoto(true);
+        try {
+            const blob = await getBlobForRef(post.image);
+            if (!blob) { addToast('图片已丢失，无法保存', 'error'); return; }
+            const result = await shareOrDownloadBlob({ blob, fileName: `OOTD-${post.id}.png`, shareTitle: `${char.name} 的穿搭` });
+            if (result !== 'cancelled') addToast(result === 'shared' ? '已打开保存面板' : '已保存到本地', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] OOTD 照片保存失败:', e);
+            addToast('保存失败，稍后再试', 'error');
+        } finally {
+            setSavingPhoto(false);
+        }
+    };
+
+    const handleSyncToChat = async (post: TrajectoryOotdPost) => {
+        setSyncingToChat(true);
+        try {
+            const detailLines = [
+                `风格：${post.style}`,
+                post.colors.length ? `配色：${post.colors.join('、')}` : null,
+                post.tops ? `上装：${post.tops}` : null,
+                post.bottoms ? `下装：${post.bottoms}` : null,
+                post.shoes ? `鞋履：${post.shoes}` : null,
+                post.accessories.length ? `配饰：${post.accessories.join('、')}` : null,
+            ].filter(Boolean).join('\n');
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'phone_card',
+                content: `[你手机的 OOTD App] ${post.style} · ${post.tops || post.bottoms || '今天的穿搭'}`,
+                metadata: { phoneCard: { app: 'OOTD', title: `${post.style} 穿搭`, detail: detailLines, image: post.image } },
+            } as any);
+            const next = posts.map(p => p.id === post.id ? { ...p, syncedMessageId: messageId } : p);
+            onCommit(next);
+            setDetailPost(prev => prev && prev.id === post.id ? { ...prev, syncedMessageId: messageId } : prev);
+            addToast('已同步到私聊', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] OOTD 同步私聊失败:', e);
+            addToast('同步失败，稍后再试', 'error');
+        } finally {
+            setSyncingToChat(false);
         }
     };
 
@@ -146,6 +219,16 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                             className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">
                             <X size={14} weight="bold" />
                         </button>
+                        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                            <button onClick={() => void handleSavePhoto(detailPost)} disabled={savingPhoto} aria-label="保存照片"
+                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
+                                <DownloadSimple size={14} weight="bold" />
+                            </button>
+                            <button onClick={() => void handleRegeneratePhoto(detailPost)} disabled={regeneratingPhoto} aria-label="重新生成照片"
+                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
+                                <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
                         <div className="aspect-[4/5] bg-white/5">
                             <TokenImg value={detailPost.image} alt="" className="w-full h-full object-cover" />
                         </div>
@@ -169,6 +252,12 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                                     <span className="text-white/85 text-right">{value}</span>
                                 </div>
                             ))}
+                            <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat || !!detailPost.syncedMessageId}
+                                className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                                style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                                <PaperPlaneTilt size={15} weight="bold" />
+                                {detailPost.syncedMessageId ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步到私聊')}
+                            </button>
                         </div>
                     </div>
                 </div>

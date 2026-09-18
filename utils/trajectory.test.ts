@@ -3,9 +3,9 @@ import {
     buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
     buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
-    filterMomentsVisibleToChar, buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry,
+    buildTrajectoryMomentsPrompt, parseTrajectoryMomentDraft, createTrajectoryMomentPost,
+    buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry,
 } from './trajectory';
-import type { SocialPost, PhoneContact } from '../types';
 
 describe('buildTrajectoryProfilePrompt', () => {
     it('不带 existing 时不出现"已经有这些条目"提示', () => {
@@ -174,69 +174,74 @@ describe('groupTrajectoryOotdByDate', () => {
     });
 });
 
-describe('filterMomentsVisibleToChar', () => {
-    const makePost = (overrides: Partial<SocialPost>): SocialPost => ({
-        id: `p-${Math.random()}`, authorName: 'x', authorAvatar: '', title: '', content: '',
-        images: [], likes: 0, isCollected: false, isLiked: false, comments: [], timestamp: Date.now(), tags: [],
-        ...overrides,
-    });
-    const makeContact = (overrides: Partial<PhoneContact>): PhoneContact => ({
-        id: `c-${Math.random()}`, name: 'x', avatar: '', kind: 'real', affinity: 0, status: 'friend', createdAt: Date.now(),
-        ...overrides,
-    });
-    const char = (contacts: PhoneContact[]) => ({ id: 'char-me', phoneState: { records: [], contacts } });
-
-    it('用户本人的贴文一律可见', () => {
-        const posts = [makePost({ authorType: 'user' })];
-        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+describe('buildTrajectoryMomentsPrompt', () => {
+    it('带上最近发过的内容做防重复提示', () => {
+        const existing = [
+            createTrajectoryMomentPost({ content: '今天去海边了，风好大', likes: 10, comments: [], imagePrompt: 'x' }, 'i1'),
+        ];
+        const prompt = buildTrajectoryMomentsPrompt('role block', existing);
+        expect(prompt).toContain('今天去海边了，风好大');
     });
 
-    it('陌生人（stranger）贴文一律可见', () => {
-        const posts = [makePost({ authorType: 'stranger' })];
-        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    it('没有历史记录时不含防重复提示', () => {
+        const prompt = buildTrajectoryMomentsPrompt('role block');
+        expect(prompt).not.toContain('最近发过这些内容了');
+    });
+});
+
+describe('parseTrajectoryMomentDraft', () => {
+    it('正常解析全部字段', () => {
+        const draft = parseTrajectoryMomentDraft({
+            content: '今天天气正好', likes: 128,
+            comments: [{ authorName: '路人甲', content: '好美的天气！' }],
+            imagePrompt: 'a sunny street scene',
+        });
+        expect(draft).toEqual({
+            content: '今天天气正好', likes: 128,
+            comments: [{ authorName: '路人甲', content: '好美的天气！' }],
+            imagePrompt: 'a sunny street scene',
+        });
     });
 
-    it('char 自己发的贴文一律可见', () => {
-        const posts = [makePost({ authorType: 'character', authorCharId: 'char-me' })];
-        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
+    it('缺 content 或 imagePrompt 时返回 null', () => {
+        expect(parseTrajectoryMomentDraft({ imagePrompt: 'x' })).toBeNull();
+        expect(parseTrajectoryMomentDraft({ content: 'x' })).toBeNull();
     });
 
-    it('另一角色的贴文：通讯录里有对应 friend 联系人才可见', () => {
-        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
-        const contacts = [makeContact({ kind: 'real', linkedCharId: 'char-other', status: 'friend' })];
-        expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(1);
+    it('likes 不是数字、comments 不是数组时兜底', () => {
+        const draft = parseTrajectoryMomentDraft({ content: 'x', imagePrompt: 'x', likes: 'not a number', comments: 'not array' });
+        expect(draft).toMatchObject({ likes: 0, comments: [] });
     });
 
-    it('另一角色的贴文：通讯录里没有这个人时不可见', () => {
-        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
-        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(0);
+    it('comments 里缺 authorName 的兜底"路人"，缺 content 的条目被过滤掉', () => {
+        const draft = parseTrajectoryMomentDraft({
+            content: 'x', imagePrompt: 'x',
+            comments: [{ content: '有内容没名字' }, { authorName: '只有名字没内容' }],
+        });
+        expect(draft?.comments).toEqual([{ authorName: '路人', content: '有内容没名字' }]);
     });
 
-    it('另一角色的贴文：联系人状态不是 friend（拉黑/待处理/已删除）时不可见', () => {
-        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
-        for (const status of ['blocked', 'pending', 'deleted'] as const) {
-            const contacts = [makeContact({ kind: 'real', linkedCharId: 'char-other', status })];
-            expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(0);
-        }
+    it('不是对象/null 时返回 null', () => {
+        expect(parseTrajectoryMomentDraft(null)).toBeNull();
+        expect(parseTrajectoryMomentDraft('garbage')).toBeNull();
+        expect(parseTrajectoryMomentDraft(undefined)).toBeNull();
     });
+});
 
-    it('联系人是 npc 类型（不是 real）时不会误判为认识那个角色', () => {
-        const posts = [makePost({ authorType: 'character', authorCharId: 'char-other' })];
-        const contacts = [makeContact({ kind: 'npc', linkedNpcId: 'npc-1', status: 'friend', linkedCharId: undefined })];
-        expect(filterMomentsVisibleToChar(posts, char(contacts))).toHaveLength(0);
-    });
-
-    it('没有 authorType 的旧数据一律可见', () => {
-        const posts = [makePost({ authorType: undefined })];
-        expect(filterMomentsVisibleToChar(posts, char([]))).toHaveLength(1);
-    });
-
-    it('混合列表：只保留可见的那些，顺序不变', () => {
-        const visible1 = makePost({ id: 'a', authorType: 'user' });
-        const hidden = makePost({ id: 'b', authorType: 'character', authorCharId: 'char-other' });
-        const visible2 = makePost({ id: 'c', authorType: 'stranger' });
-        const result = filterMomentsVisibleToChar([visible1, hidden, visible2], char([]));
-        expect(result.map(p => p.id)).toEqual(['a', 'c']);
+describe('createTrajectoryMomentPost', () => {
+    it('draft + image 拼成完整记录，每条评论都分配了 id', () => {
+        const post = createTrajectoryMomentPost({
+            content: '今天天气正好', likes: 128,
+            comments: [{ authorName: '路人甲', content: '好美的天气！' }],
+            imagePrompt: 'x',
+        }, 'image-token');
+        expect(post.content).toBe('今天天气正好');
+        expect(post.image).toBe('image-token');
+        expect(post.likes).toBe(128);
+        expect(post.comments).toHaveLength(1);
+        expect(post.comments[0].id).toBeTruthy();
+        expect(post.comments[0].authorName).toBe('路人甲');
+        expect(post.syncedMessageId).toBeUndefined();
     });
 });
 
