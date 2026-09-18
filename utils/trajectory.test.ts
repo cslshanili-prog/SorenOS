@@ -292,4 +292,15 @@ describe('createTrajectoryJourneyEntry', () => {
         const entry2 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x' });
         expect(entry2.detail).toBeUndefined();
     });
+
+    it('participantCharIds 有值时原样带上；未传或空数组时是 undefined（不落一个空数组）', () => {
+        const withIds = createTrajectoryJourneyEntry({
+            kind: '日常', time: '', location: '', participantNames: ['Aven'], participantCharIds: ['char-aven'], story: 'x',
+        });
+        expect(withIds.participantCharIds).toEqual(['char-aven']);
+        const withoutIds = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x' });
+        expect(withoutIds.participantCharIds).toBeUndefined();
+        const emptyIds = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], participantCharIds: [], story: 'x' });
+        expect(emptyIds.participantCharIds).toBeUndefined();
+    });
 });

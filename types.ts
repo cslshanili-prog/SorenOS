@@ -1032,9 +1032,16 @@ export interface TrajectoryJourneyEntry {
     time: string;
     location: string;
     participantNames: string[];
+    /**
+     * participantNames 里属于真实角色（不是 NPC）的那些，对应的角色 id——「同步到私聊」时
+     * 也各发一份给这些角色自己的私聊，避免角色A有这段记忆、角色B/C却没有，导致后续对话
+     * （尤其是群聊）里「我们昨天不是约好了」对上「我们哪有约」这种打架。NPC 没有自己的手机/
+     * 私聊，不收在这份里。
+     */
+    participantCharIds?: string[];
     detail?: string;
     story: string;
-    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    /** 「同步到私聊」写入的 DB 消息 id（角色自己那份）；有值＝已同步，按钮据此置灰防重复发送。 */
     syncedMessageId?: number;
     createdAt: number;
 }

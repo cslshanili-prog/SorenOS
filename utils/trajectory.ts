@@ -255,7 +255,7 @@ export function buildTrajectoryJourneyPrompt(
 }
 
 export function createTrajectoryJourneyEntry(input: {
-    kind: '日常' | '事件'; time: string; location: string; participantNames: string[]; detail?: string; story: string;
+    kind: '日常' | '事件'; time: string; location: string; participantNames: string[]; participantCharIds?: string[]; detail?: string; story: string;
 }): TrajectoryJourneyEntry {
     return {
         id: genId('traj-jn'),
@@ -263,6 +263,7 @@ export function createTrajectoryJourneyEntry(input: {
         time: input.time,
         location: input.location,
         participantNames: input.participantNames,
+        participantCharIds: input.participantCharIds?.length ? input.participantCharIds : undefined,
         detail: input.detail?.trim() || undefined,
         story: input.story,
         createdAt: Date.now(),
