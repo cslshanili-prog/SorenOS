@@ -1,4 +1,5 @@
 import { toMountedWorldbook } from './worldbook';
+import { orderWorldEpisodes } from './worldHome/episodeOrder';
 
 
 
@@ -116,10 +117,22 @@ const SULLY_PRESET_EMOJIS = [
 // 单例连接缓存。openDB 原本每次调用都新开一条 IDB 连接, 既不复用也不 close ——
 // 在记忆管线 (hybridSearch / touchAccess 等) 并发读写下会瞬间堆出几十条 AetherOS_Data
 // 连接, 撑爆 Chromium 底层 backing store; 一旦底层报错, 整个 origin 的 IndexedDB
-// (含 Service Worker 的 dedupe / inbox 库) 可能跟着开不了或被强关, Instant Push 因此确认超时。
+// (含 Service Worker 的 dedupe / inbox 库) 可能跟着开不了或被强关, 推送消息因此确认超时。
 // 改成复用同一条连接, 并在连接被外部失效 (另一 tab 升级版本 / 浏览器强制关闭) 时
 // 清掉缓存, 下次 openDB 自动重开 —— 一处改, 全部 ~165 个调用点受益。
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+/** 和新消息同事务失效镜像，防止后台把刚清掉的旧水位重新恢复。 */
+function clearStaleMemoryMirror(transaction: IDBTransaction, charId: string, newId: number): void {
+    const assets = transaction.objectStore(STORE_ASSETS);
+    const key = `mp_hwm_v1_${charId}`;
+    const request = assets.get(key);
+    request.onsuccess = () => {
+        const mirror = request.result?.data;
+        const hwm = typeof mirror === 'number' ? mirror : Number(mirror?.msgId);
+        if (Number.isFinite(hwm) && hwm >= newId) assets.delete(key);
+    };
+}
 
 export const openDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
@@ -785,19 +798,19 @@ export const DB = {
   saveMessage: async (msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
+        const transaction = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
         const store = transaction.objectStore(STORE_MESSAGES);
         const timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
         const { timestamp: _ignored, ...payload } = msg;
         const request = store.add({ ...payload, timestamp });
+        request.onsuccess = () => clearStaleMemoryMirror(transaction, msg.charId, request.result as number);
         // request 成功后事务仍可能回滚。主动消息通知和定时任务销账都必须等提交。
         transaction.oncomplete = () => {
             const newId = request.result as number;
             // 水位线自愈：新消息的自增 id 必然大于既有一切消息 id，也就必然大于水位线
-            // （水位线本身是某条旧消息的 id）。出现 newId ≤ 水位线，只有一种可能——
-            // IndexedDB 被浏览器清过、自增计数器归零，而 localStorage 里的记忆宫殿水位
-            // 是清库前残留的。不清掉它，该角色所有新消息都会被 hwm 过滤挡在 AI 上下文
-            // 之外（请求只剩 system → 上游 400）。此处直接移除失效水位。
+            // （水位线本身是某条旧消息的 id）。出现 newId ≤ 水位线，说明水位与消息
+            // ID 序列不一致（例如清库/恢复后的残留）。镜像已在同事务内清理，提交后
+            // 再清本地值，避免新消息从 AI 上下文消失（请求只剩 system → 上游 400）。
             try {
                 const staleKeys = [`mp_lastMsgId_${msg.charId}`];
                 if (msg.groupId) staleKeys.push(`mp_lastMsgId_group_${msg.groupId}`);
@@ -818,7 +831,7 @@ export const DB = {
   saveMessageOnce: async (deliveryId: string, msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_MESSAGES, 'readwrite');
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
       const store = tx.objectStore(STORE_MESSAGES);
       let savedId = 0;
       let inserted = false;
@@ -830,7 +843,11 @@ export const DB = {
           cursor.continue(); return;
         }
         const request = store.add({ ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } });
-        request.onsuccess = () => { savedId = request.result as number; inserted = true; };
+        request.onsuccess = () => {
+          savedId = request.result as number;
+          inserted = true;
+          clearStaleMemoryMirror(tx, msg.charId, savedId);
+        };
       };
       tx.oncomplete = () => {
         if (inserted) {
@@ -2762,6 +2779,24 @@ export const DB = {
       });
   },
 
+  /** Apply UI changes against the latest persisted world without rolling back engine progress. */
+  updateWorld: async (id: string, patch: Partial<WorldProfile> | ((current: WorldProfile) => Partial<WorldProfile>)): Promise<void> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_WORLDS, 'readwrite');
+          const store = tx.objectStore(STORE_WORLDS);
+          const request = store.get(id);
+          request.onsuccess = () => {
+              if (!request.result) return;
+              const current = request.result as WorldProfile;
+              store.put({ ...current, ...(typeof patch === 'function' ? patch(current) : patch), id });
+          };
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error);
+      });
+  },
+
   deleteWorld: async (id: string): Promise<void> => {
       const db = await openDB();
       // 连带删掉该世界的全部演绎历史
@@ -2786,7 +2821,7 @@ export const DB = {
           const index = db.transaction(STORE_WORLD_EPISODES, 'readonly').objectStore(STORE_WORLD_EPISODES).index('worldId');
           const request = index.getAll(IDBKeyRange.only(worldId));
           request.onsuccess = () => {
-              const all = (request.result || []).sort((a: WorldEpisode, b: WorldEpisode) => b.round - a.round);
+              const all = orderWorldEpisodes(request.result || []);
               resolve(all.slice(0, limit));
           };
           request.onerror = () => reject(request.error);
@@ -2796,7 +2831,8 @@ export const DB = {
   saveWorldEpisode: async (episode: WorldEpisode): Promise<void> => {
       const db = await openDB();
       const tx = db.transaction(STORE_WORLD_EPISODES, 'readwrite');
-      tx.objectStore(STORE_WORLD_EPISODES).put(episode);
+      const { observationNumber: _displayOnly, ...stored } = episode;
+      tx.objectStore(STORE_WORLD_EPISODES).put(stored);
       return new Promise((resolve, reject) => {
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);

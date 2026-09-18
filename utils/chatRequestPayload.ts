@@ -1,4 +1,4 @@
-import { selectCharacterContextMessages } from './chatContextRange';
+import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
 /**
  * 聊天请求载荷统一构造器
  *
@@ -40,6 +40,7 @@ import { cleanApiMessages, flattenImageContentParts } from './promptMessageClean
 import { materializeVisionDescriptions } from './visionApi';
 import type { RecallEntryPoint, RecallTrace } from './memoryPalace/trace';
 import { loadCollaborationFileCabinetBlock } from '../features/collaboration/chatLibrary';
+import { buildSARUserSurfaceRequest, selectSARUserSurfaceTargets } from './vrWorld/sarUserSurface';
 import { getSARModuleRuntimePlan } from './vrWorld/sarModuleRuntime';
 
 export { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
@@ -65,6 +66,8 @@ export interface BuildChatPayloadInput {
      */
     recentMsgsHint?: Message[];
     contextLimit: number;
+    /** 本轮加载原文时的归档水位快照，避免异步构建期间再次读取变化中的水位。 */
+    contextHighWaterMark?: number;
     /**
      * 额外的记忆召回提示词（拼进向量/BM25 检索的 context query）。
      * 用途：彼方等场景下，把"此刻在场的其他玩家名字 / 房间上下文"塞进召回 query，
@@ -235,7 +238,8 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         char.id,
     );
     // 正文、召回、世界书扫描和识图共用可见范围；UI 近窗可能仍缓存着范围外旧消息。
-    const selectedHistory = selectCharacterContextMessages(historyMsgs, char);
+    const contextHighWaterMark = input.contextHighWaterMark ?? getMemoryPalaceHighWaterMarkForContext(char.id);
+    const selectedHistory = selectCharacterContextMessages(historyMsgs, char, contextHighWaterMark);
     const visibleIds = new Set(selectedHistory.map(message => message.id));
     const rawRecentMsgsHint = input.recentMsgsHint
         ? input.recentMsgsHint.filter(message => visibleIds.has(message.id))
@@ -267,7 +271,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
             userProfile,
             emojis,
             undefined,
-            { useVisionDescriptions },
+            { useVisionDescriptions, contextHighWaterMark },
         );
         const cleanedApiMessages = cleanApiMessages(input.stripImages ? flattenImageContentParts(apiMessages) : apiMessages);
         console.warn('[DevDebug] Prompt Build skipped: sending chat history without system prompt injection.');
@@ -402,7 +406,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         userProfile,
         emojis,
         undefined,
-        { useVisionDescriptions },
+        { useVisionDescriptions, contextHighWaterMark },
     );
 
     // ── 8. 剥离历史里旧的双语标签（stripImages 时先压平 image_url → 纯文本占位） ──
@@ -491,7 +495,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     // 结构：[稳定 system] + [历史消息] + [易变状态 system] (+ 末尾 reminder)。
     // 稳定前缀不再包含分钟级时间戳等易变内容 → 支持前缀缓存的中转能跨轮命中；
     // 易变状态贴着生成点注入，时间/情绪/日程反而拿到最强 recency 注意力。
-    // 注意：instant push 的 worker 端情绪评估把 messages[0] 当 system、messages[1..]
+    // 注意：即时对话的 worker 端情绪评估把 messages[0] 当 system、messages[1..]
     // 展平为对话历史 —— 易变尾段会以「[系统]: …」行出现在历史末尾，信息不丢。
     const fullMessages: Array<{ role: string; content: any }> = [
         { role: 'system', content: systemPrompt },
@@ -514,6 +518,12 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
             role: 'system',
             content: '[SAR MODULE REMINDER: 模块是角色在彼方能感知、能记得的外来装置，不是幕后文风要求；CHAR_TRUE 必须包含角色对异常的当下反应，不能若无其事。生效时最终只输出 <SAR_MODULE_OUTPUT> 容器。聊天的 CHAR_TRUE / CHAR_SURFACE 必须逐气泡对齐；纯括号动作原位逐字复制，禁止删泡、合并或新增气泡。内置翻译要在两字段中分别保留完整翻译标签；语音要保留 <语音>/<字幕> 结构并同步改写口播与字幕；“日文（中文翻译）”一类同泡格式不可把括号译文误判成动作。真实语义写 CHAR_TRUE，临时外显写 CHAR_SURFACE，用户外显写 USER_SURFACE，不得把外显当作内心。]',
         });
+    }
+
+    if (sarModulePlan?.user?.phase === 'active') {
+        fullMessages.push({ role: 'system', content: buildSARUserSurfaceRequest(
+            selectSARUserSurfaceTargets(input.historyMsgs, char.id, sarModulePlan.user),
+        ) });
     }
 
     // Dev 开关：多条 system 合并成开头一条，A/B 对照中转适配层对多 system 的计量行为。

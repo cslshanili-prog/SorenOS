@@ -241,7 +241,7 @@ const SNAPSHOT_SLOTS = ['data-scale', 'appearance', 'char-settings', 'features',
 export type SnapshotSlot = (typeof SNAPSHOT_SLOTS)[number];
 
 /**
- * 五组快照随机选一组：数据规模最多 8、外观 36、角色设置 36、功能 33、SAR 8 个属性。
+ * 五组快照随机选一组：数据规模最多 8、外观 36、角色设置 36、功能 33、SAR 10 个属性。
  * 每次平均约 24 行，避免加宽已有功能事件；未选中的组也不读取数据。
  * 轮转与上报标记只留在内存，不在用户设备保存统计账本。样本量足够时各组均匀出现；
  * 跨组关联仍需要同一 session 多次冷启动，不把多组重新合成一条事件。
