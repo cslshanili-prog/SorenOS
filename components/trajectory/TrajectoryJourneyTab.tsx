@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CaretLeft, CheckCircle, Circle, MapPin, Plus, X } from '@phosphor-icons/react';
+import { CaretLeft, CheckCircle, Circle, MapPin, PaperPlaneTilt, Plus, X } from '@phosphor-icons/react';
 import type { CharacterProfile, NPCProfile, TrajectoryJourneyEntry } from '../../types';
 import { buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
@@ -31,8 +31,8 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     const [location, setLocation] = useState('');
     const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
     const [detail, setDetail] = useState('');
-    const [syncToChat, setSyncToChat] = useState(true);
     const [generating, setGenerating] = useState(false);
+    const [syncingToChat, setSyncingToChat] = useState(false);
 
     const pool: Participant[] = [
         ...characters.filter(c => c.id !== char.id).map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '' })),
@@ -44,7 +44,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     };
 
     const resetForm = () => {
-        setKind('日常'); setTime(''); setLocation(''); setSelectedKeys([]); setDetail(''); setSyncToChat(true);
+        setKind('日常'); setTime(''); setLocation(''); setSelectedKeys([]); setDetail('');
     };
 
     const handleGenerate = async () => {
@@ -68,16 +68,8 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
             const story = extractContent(data).trim();
             if (!story) { addToast('这次没生成出内容，再试一次', 'error'); return; }
 
-            if (syncToChat) {
-                await DB.saveMessage({
-                    charId: char.id, role: 'assistant', type: 'phone_card',
-                    content: `[你手机的軌跡 App] ${story}`,
-                    metadata: { phoneCard: { app: '軌跡', title: `${kind} · ${location || time || '一段行程'}`, value: participants.map(p => p.name).join('、') || undefined, detail: story } },
-                } as any);
-            }
-
             const entry = createTrajectoryJourneyEntry({
-                kind, time, location, participantNames: participants.map(p => p.name), detail, story, syncedToChat: syncToChat,
+                kind, time, location, participantNames: participants.map(p => p.name), detail, story,
             });
             onCommit([entry, ...entries]);
             addToast('这段行程生成好了', 'success');
@@ -89,6 +81,27 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
             addToast('生成失败，稍后再试', 'error');
         } finally {
             setGenerating(false);
+        }
+    };
+
+    // 是否同步进私聊留给生成完之后由用户自己决定（详情面板里的按钮），生成本身不带副作用。
+    const handleSyncToChat = async (entry: TrajectoryJourneyEntry) => {
+        setSyncingToChat(true);
+        try {
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'phone_card',
+                content: `[你手机的軌跡 App] ${entry.story}`,
+                metadata: { phoneCard: { app: '軌跡', title: `${entry.kind} · ${entry.location || entry.time || '一段行程'}`, value: entry.participantNames.join('、') || undefined, detail: entry.story } },
+            } as any);
+            const next = entries.map(e => e.id === entry.id ? { ...e, syncedMessageId: messageId } : e);
+            onCommit(next);
+            setDetailEntry(prev => prev && prev.id === entry.id ? { ...prev, syncedMessageId: messageId } : prev);
+            addToast('已同步到私聊', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] Journey 同步私聊失败:', e);
+            addToast('同步失败，稍后再试', 'error');
+        } finally {
+            setSyncingToChat(false);
         }
     };
 
@@ -154,11 +167,6 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
                             className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] outline-none resize-none placeholder:text-white/25" />
                     </div>
 
-                    <button onClick={() => setSyncToChat(v => !v)} className="flex items-center gap-2 text-[12px] text-white/70">
-                        {syncToChat ? <CheckCircle size={16} weight="fill" style={{ color: '#a78bfa' }} /> : <Circle size={16} weight="light" />}
-                        同步到私聊
-                    </button>
-
                     <button onClick={handleGenerate} disabled={generating}
                         className="w-full py-3 rounded-2xl text-[13px] font-bold disabled:opacity-50"
                         style={{ background: '#a78bfa', color: '#15111f' }}>
@@ -220,6 +228,12 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
                             <div>见面对象：{detailEntry.participantNames.join('、') || '独自一人'}</div>
                         </div>
                         <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-white/85">{detailEntry.story}</p>
+                        <button onClick={() => void handleSyncToChat(detailEntry)} disabled={syncingToChat || !!detailEntry.syncedMessageId}
+                            className="w-full mt-4 py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                            style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                            <PaperPlaneTilt size={15} weight="bold" />
+                            {detailEntry.syncedMessageId ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步到私聊')}
+                        </button>
                     </div>
                 </div>
             )}
