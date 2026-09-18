@@ -28,7 +28,7 @@ import { ensureRealBalanceState } from '../utils/realBalance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
 import TrajectoryHome from '../components/trajectory/TrajectoryHome';
 import {
-    User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, Compass, GearSix,
+    User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
     Storefront, Heart, ArrowsClockwise, Tray, DotsThree, ClockCounterClockwise, Sparkle,
     UsersThree, UserPlus, Prohibit, LinkSimple, PaperPlaneTilt, PencilSimple, Trash,
@@ -3854,9 +3854,6 @@ ${olderText}
                             className="relative flex items-center justify-center w-14 h-14 rounded-full active:scale-90 transition -my-1"
                             style={{ background: 'radial-gradient(circle at 35% 30%, #b89bff, #6d5bd6 55%, #2a2150 100%)', boxShadow: '0 0 24px rgba(157,124,255,0.55), inset 0 0 18px rgba(255,255,255,0.25)' }}>
                             <SignOut size={22} weight="bold" className="text-white" />
-                        </button>
-                        <button onClick={() => setActiveAppId('social')} className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
-                            <Compass size={22} weight="light" />
                         </button>
                         <button onClick={() => { setActiveAppId('trajectory'); trackEvent('打开查手机子应用', { subApp: 'trajectory' }); }} aria-label="軌跡" className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
                             <MapTrifold size={22} weight="light" />
