@@ -5,7 +5,7 @@ const out='output/app-icon-choice';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const manifest=()=>page.locator('link[rel="manifest"]').getAttribute('href');
-const checkName=async()=>{const data=await page.evaluate(async()=>{const link=document.querySelector('link[rel="manifest"]');return (await fetch(link.href)).json();});assert.equal(data.name,'SullyOS·糯米机');assert.equal(data.short_name,'SullyOS·糯米机');};
+const checkName=async()=>{const data=await page.evaluate(async()=>{const link=document.querySelector('link[rel="manifest"]');return (await fetch(link.href)).json();});assert.equal(data.name,'Soren');assert.equal(data.short_name,'Soren');};
 try{
     await page.goto('http://127.0.0.1:5183/test/fixtures/app-icon-choice.html');
     await page.getByRole('button',{name:'水母 · 已选',exact:true}).waitFor();
