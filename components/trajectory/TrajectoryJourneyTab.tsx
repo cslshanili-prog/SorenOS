@@ -16,7 +16,7 @@ interface Props {
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-type Participant = { key: string; name: string; description: string };
+type Participant = { key: string; name: string; description: string; charId?: string };
 
 const formatDate = (ts: number): string => {
     const d = new Date(ts);
@@ -35,7 +35,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     const [syncingToChat, setSyncingToChat] = useState(false);
 
     const pool: Participant[] = [
-        ...characters.filter(c => c.id !== char.id).map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '' })),
+        ...characters.filter(c => c.id !== char.id).map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '', charId: c.id })),
         ...npcs.map(n => ({ key: `npc:${n.id}`, name: n.name, description: n.description?.trim().slice(0, 60) || '' })),
     ];
 
@@ -68,8 +68,9 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
             const story = extractContent(data).trim();
             if (!story) { addToast('这次没生成出内容，再试一次', 'error'); return; }
 
+            const participantCharIds = pool.filter(p => selectedKeys.includes(p.key) && p.charId).map(p => p.charId!);
             const entry = createTrajectoryJourneyEntry({
-                kind, time, location, participantNames: participants.map(p => p.name), detail, story,
+                kind, time, location, participantNames: participants.map(p => p.name), participantCharIds, detail, story,
             });
             onCommit([entry, ...entries]);
             addToast('这段行程生成好了', 'success');
@@ -85,18 +86,25 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     };
 
     // 是否同步进私聊留给生成完之后由用户自己决定（详情面板里的按钮），生成本身不带副作用。
+    // 同一条记录同时发给「见面对象」里所有真实角色自己的私聊——不然角色A有这段记忆、
+    // 一起出现的角色B/C却没有，后面聊起来会对不上（"我们昨天不是约好了"／"我们哪有约"）。
+    // 内容原样复用（third-person 叙事本来就中立），不用另外分视角改写。NPC 没有自己的
+    // 私聊，跳过。
     const handleSyncToChat = async (entry: TrajectoryJourneyEntry) => {
         setSyncingToChat(true);
         try {
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const buildMessage = (charId: string) => DB.saveMessage({
+                charId, role: 'assistant', type: 'phone_card',
                 content: `[你手机的軌跡 App] ${entry.story}`,
                 metadata: { phoneCard: { app: '軌跡', title: `${entry.kind} · ${entry.location || entry.time || '一段行程'}`, value: entry.participantNames.join('、') || undefined, detail: entry.story } },
             } as any);
+            const messageId = await buildMessage(char.id);
+            await Promise.all((entry.participantCharIds || []).map(id => buildMessage(id)));
             const next = entries.map(e => e.id === entry.id ? { ...e, syncedMessageId: messageId } : e);
             onCommit(next);
             setDetailEntry(prev => prev && prev.id === entry.id ? { ...prev, syncedMessageId: messageId } : prev);
-            addToast('已同步到私聊', 'success');
+            const others = entry.participantCharIds?.length || 0;
+            addToast(others ? `已同步到私聊（含见面的 ${others} 位角色）` : '已同步到私聊', 'success');
         } catch (e) {
             console.warn('[Trajectory] Journey 同步私聊失败:', e);
             addToast('同步失败，稍后再试', 'error');
