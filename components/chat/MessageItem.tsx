@@ -2622,6 +2622,7 @@ const MessageItem = React.memo(({
             by: phoneFieldToText(rawPhoneCard.by),
             contactName: phoneFieldToText(rawPhoneCard.contactName),
             action: phoneFieldToText(rawPhoneCard.action),
+            image: phoneFieldToText(rawPhoneCard.image),
         };
         const timeStr = new Date(m.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -2711,6 +2712,12 @@ const MessageItem = React.memo(({
                         </div>
                         <span className="text-[9px] text-white/35">{timeStr}</span>
                     </div>
+                    {/* 配图：目前只有「軌跡」OOTD/Moments 同步过来的卡片会带 */}
+                    {pc.image && (
+                        <div className="relative aspect-[4/5] bg-black/20">
+                            <TokenImg value={pc.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                    )}
                     {/* 正文 */}
                     <div className="relative px-3 py-2.5">
                         {pc.value && (

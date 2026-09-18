@@ -1,4 +1,4 @@
-import { CharacterProfile, CharacterTrajectoryProfile, SocialPost, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryJourneyEntry, TrajectoryObjective, TrajectoryOotdPost } from '../types';
+import { CharacterTrajectoryProfile, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryJourneyEntry, TrajectoryMomentPost, TrajectoryObjective, TrajectoryOotdPost } from '../types';
 
 function genId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -142,6 +142,7 @@ export function createTrajectoryOotdPost(draft: TrajectoryOotdDraft, image: stri
         id: genId('traj-ootd'),
         timestamp: Date.now(),
         image,
+        imagePrompt: draft.imagePrompt,
         style: draft.style,
         colors: draft.colors,
         tops: draft.tops,
@@ -165,25 +166,69 @@ export function groupTrajectoryOotdByDate(posts: TrajectoryOotdPost[]): { dateKe
         .map(([dateKey, posts]) => ({ dateKey, posts }));
 }
 
+/** Moments 生成结果里还没落成 TrajectoryMomentPost 的部分——多一个 imagePrompt 给生图管线用，不落库。 */
+export interface TrajectoryMomentDraft {
+    content: string;
+    likes: number;
+    comments: { authorName: string; content: string }[];
+    imagePrompt: string;
+}
+
 /**
- * 「軌跡」Moments 分页的可见性判断——这支手机是 char 的，只应该看到 TA 认识的人发的动态：
- * 用户本人的贴文、char 自己发的贴文、陌生人（公开网络路人）贴文，一律可见；
- * 另一个角色的贴文，只有 char 的查手机联系人里存在一条指向那个角色、状态为 friend 的记录才可见。
- * 没有 authorType 的旧数据（迁移前）不管按 user 还是 stranger 解读都可见，直接放行。
+ * 「軌跡」Moments 分页的生成提示词——角色专属动态，自己发自己的，不读任何共享动态池。
+ * 文字部分（正文 + 点赞数 + 几条点缀用评论）+ 一段给生图用的画面描述，图片由调用方另外
+ * 拿 imagePrompt 去跑生图管线。roleSettingsBlock 同 Profile/OOTD，
+ * 传 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
  */
-export function filterMomentsVisibleToChar(posts: SocialPost[], char: Pick<CharacterProfile, 'id' | 'phoneState'>): SocialPost[] {
-    const friendCharIds = new Set(
-        (char.phoneState?.contacts || [])
-            .filter(c => c.kind === 'real' && c.status === 'friend' && c.linkedCharId)
-            .map(c => c.linkedCharId as string),
-    );
-    return posts.filter(post => {
-        // 没有 authorType 的旧数据，不管按 user 还是 stranger 解读都可见，直接放行
-        if (!post.authorType || post.authorType === 'user' || post.authorType === 'stranger') return true;
-        // character：自己发的必然可见；别的角色要先是这支手机通讯录里的 friend 才可见
-        if (post.authorCharId === char.id) return true;
-        return !!(post.authorCharId && friendCharIds.has(post.authorCharId));
-    });
+export function buildTrajectoryMomentsPrompt(roleSettingsBlock: string, existing?: TrajectoryMomentPost[]): string {
+    let antiRepeat = '';
+    if (existing && existing.length) {
+        const recent = existing.slice(0, 5).map(p => p.content.slice(0, 20));
+        antiRepeat = `\n\n最近发过这些内容了，这次换个不一样的场景/心情：${recent.join('、')}`;
+    }
+    return `依照上面这份角色设定，自由发挥生成这个角色此刻发的一条朋友圈动态，越贴合TA的人设/生活场景越好，` +
+        `第一人称语气，像真的在发朋友圈。${antiRepeat}\n\n` +
+        `生成：\n` +
+        `- content：动态正文（1-3 句话，口语化，可以带点情绪/心情）\n` +
+        `- likes：这条动态收到的点赞数，10-500 之间的整数，符合这条内容的分量\n` +
+        `- comments：0-3 条别人（陌生网友/路人）的评论，每条给 authorName（随意起的网名）和 content（简短评论）\n` +
+        `- imagePrompt：给 AI 生图用的一段英文画面描述，描述这条动态配的照片长什么样（呼应正文内容），不要出现角色的真实姓名\n\n` +
+        `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 对象，comments 必须是对象数组，likes 必须是数字，其余字段必须是字符串：\n` +
+        `{ "content": "今天天气正好，出来走走", "likes": 128, "comments": [{ "authorName": "路人甲", "content": "好美的天气！" }], "imagePrompt": "a sunny street scene..." }`;
+}
+
+/** 把 AI 返回的松散 JSON 对象过滤/纠错成 TrajectoryMomentDraft；字段不完整（缺 content/imagePrompt 等）时返回 null。 */
+export function parseTrajectoryMomentDraft(json: unknown): TrajectoryMomentDraft | null {
+    if (!json || typeof json !== 'object') return null;
+    const obj = json as any;
+    const content = typeof obj.content === 'string' ? obj.content.trim() : '';
+    const imagePrompt = typeof obj.imagePrompt === 'string' ? obj.imagePrompt.trim() : '';
+    if (!content || !imagePrompt) return null;
+    const comments = Array.isArray(obj.comments) ? obj.comments
+        .filter((c: any) => c && typeof c === 'object' && String(c.content ?? '').trim())
+        .map((c: any) => ({
+            authorName: typeof c.authorName === 'string' && c.authorName.trim() ? c.authorName.trim() : '路人',
+            content: String(c.content).trim(),
+        })) : [];
+    return {
+        content,
+        likes: typeof obj.likes === 'number' ? Math.max(0, Math.round(obj.likes)) : parseInt(String(obj.likes ?? ''), 10) || 0,
+        comments,
+        imagePrompt,
+    };
+}
+
+/** draft + 生图结果的 image token 拼成一条可以直接存进 phoneState.trajectoryMoments 的记录。 */
+export function createTrajectoryMomentPost(draft: TrajectoryMomentDraft, image: string): TrajectoryMomentPost {
+    return {
+        id: genId('traj-mom'),
+        timestamp: Date.now(),
+        content: draft.content,
+        image,
+        imagePrompt: draft.imagePrompt,
+        likes: draft.likes,
+        comments: draft.comments.map(c => ({ id: genId('traj-mom-cm'), authorName: c.authorName, content: c.content })),
+    };
 }
 
 /**

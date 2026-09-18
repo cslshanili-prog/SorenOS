@@ -987,12 +987,39 @@ export interface TrajectoryOotdPost {
     id: string;
     timestamp: number;
     image: string;
+    /** 生图用的英文画面描述，重新生成照片时复用，保证新照片仍贴合这身穿搭的文字描述。 */
+    imagePrompt: string;
     style: string;
     colors: string[];
     tops: string;
     bottoms: string;
     shoes: string;
     accessories: string[];
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
+}
+
+export interface TrajectoryMomentComment {
+    id: string;
+    authorName: string;
+    content: string;
+}
+
+/**
+ * 「軌跡」Moments 分页的一条角色专属动态——AI 生成文案 + 一张生图 + 点缀用的点赞数/评论
+ * （纯展示，不可互动；互动式点赞评论是另一个量级的功能，先不做）。
+ */
+export interface TrajectoryMomentPost {
+    id: string;
+    timestamp: number;
+    content: string;
+    image: string;
+    /** 生图用的英文画面描述，重新生成照片时复用，保证新照片仍贴合文案描述的场景。 */
+    imagePrompt: string;
+    likes: number;
+    comments: TrajectoryMomentComment[];
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
 }
 
 /**
@@ -3084,6 +3111,8 @@ export interface CharacterProfile {
       trajectoryOotd?: TrajectoryOotdPost[];
       /** 「軌跡」Moments 分页的封面图（点大图换背景），blob-ref 令牌；undefined = 用默认渐变。 */
       trajectoryMomentsCover?: string;
+      /** 「軌跡」Moments 分页：角色专属动态，每次生成追加一条，最新的排前面。不再读 SocialApp 共享动态池。 */
+      trajectoryMoments?: TrajectoryMomentPost[];
       /** 「軌跡」Journey 分页：每次生成追加一条，最新的排前面。 */
       trajectoryJourney?: TrajectoryJourneyEntry[];
   };

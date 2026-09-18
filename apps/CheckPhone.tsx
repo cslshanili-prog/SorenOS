@@ -27,12 +27,13 @@ import { resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState } from '../utils/realBalance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
 import TrajectoryHome from '../components/trajectory/TrajectoryHome';
+import TrajectoryAlbum from '../components/trajectory/TrajectoryAlbum';
 import {
     User, Phone, ChatCircleDots, ChatCircle, ShoppingBag, Hamburger, GearSix,
     Plus, SignOut, CaretLeft, CaretRight, Cloud, ImagesSquare, LockSimple, Package,
     Storefront, Heart, ArrowsClockwise, Tray, DotsThree, ClockCounterClockwise, Sparkle,
     UsersThree, UserPlus, Prohibit, LinkSimple, PaperPlaneTilt, PencilSimple, Trash,
-    Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold
+    Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold, Stack
 } from '@phosphor-icons/react';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
@@ -3847,8 +3848,8 @@ ${olderText}
                         <button onClick={() => setActiveAppId('call')} className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
                             <Phone size={22} weight="light" />
                         </button>
-                        <button onClick={() => setActiveAppId('contacts')} aria-label="联系人" className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
-                            <UsersThree size={22} weight="light" />
+                        <button onClick={() => { setActiveAppId('album'); trackEvent('打开查手机子应用', { subApp: 'album' }); }} aria-label="相簿" className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
+                            <Stack size={22} weight="light" />
                         </button>
                         <button onClick={handleExitPhone} aria-label="断开连接"
                             className="relative flex items-center justify-center w-14 h-14 rounded-full active:scale-90 transition -my-1"
@@ -4036,6 +4037,9 @@ ${olderText}
                             imageGenConfig={apiConfig.imageGenConfig}
                             addToast={addToast}
                         />
+                    )}
+                    {activeAppId === 'album' && targetChar && (
+                        <TrajectoryAlbum targetChar={targetChar} onBack={() => setActiveAppId('home')} addToast={addToast} />
                     )}
                     {activeAppId === 'persona' && targetChar && (
                         <PersonaSim targetChar={targetChar} onExit={() => setActiveAppId('home')} openLifeLog={() => setActiveAppId('lifelog')}
