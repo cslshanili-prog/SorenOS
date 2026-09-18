@@ -1034,8 +1034,8 @@ export interface TrajectoryJourneyEntry {
     participantNames: string[];
     detail?: string;
     story: string;
-    /** 生成当下是否同步进了私聊（phone_card 消息），纯展示用，不影响这条记录本身 */
-    syncedToChat: boolean;
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
     createdAt: number;
 }
 

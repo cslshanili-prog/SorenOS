@@ -255,7 +255,7 @@ export function buildTrajectoryJourneyPrompt(
 }
 
 export function createTrajectoryJourneyEntry(input: {
-    kind: '日常' | '事件'; time: string; location: string; participantNames: string[]; detail?: string; story: string; syncedToChat: boolean;
+    kind: '日常' | '事件'; time: string; location: string; participantNames: string[]; detail?: string; story: string;
 }): TrajectoryJourneyEntry {
     return {
         id: genId('traj-jn'),
@@ -265,7 +265,6 @@ export function createTrajectoryJourneyEntry(input: {
         participantNames: input.participantNames,
         detail: input.detail?.trim() || undefined,
         story: input.story,
-        syncedToChat: input.syncedToChat,
         createdAt: Date.now(),
     };
 }

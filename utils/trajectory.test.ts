@@ -275,20 +275,21 @@ describe('createTrajectoryJourneyEntry', () => {
     it('组装出完整的记录，补充细节的首尾空白被裁掉', () => {
         const entry = createTrajectoryJourneyEntry({
             kind: '事件', time: '明天', location: '海边', participantNames: ['Aven', 'Swan'],
-            detail: '  聊聊新专辑  ', story: '这是一段生成的叙事。', syncedToChat: true,
+            detail: '  聊聊新专辑  ', story: '这是一段生成的叙事。',
         });
         expect(entry).toMatchObject({
             kind: '事件', time: '明天', location: '海边', participantNames: ['Aven', 'Swan'],
-            detail: '聊聊新专辑', story: '这是一段生成的叙事。', syncedToChat: true,
+            detail: '聊聊新专辑', story: '这是一段生成的叙事。',
         });
         expect(entry.id).toMatch(/^traj-jn-/);
         expect(entry.createdAt).toBeGreaterThan(0);
+        expect(entry.syncedMessageId).toBeUndefined();
     });
 
     it('没有补充细节（空字符串/未传）时 detail 是 undefined', () => {
-        const entry1 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x', syncedToChat: false, detail: '  ' });
+        const entry1 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x', detail: '  ' });
         expect(entry1.detail).toBeUndefined();
-        const entry2 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x', syncedToChat: false });
+        const entry2 = createTrajectoryJourneyEntry({ kind: '日常', time: '', location: '', participantNames: [], story: 'x' });
         expect(entry2.detail).toBeUndefined();
     });
 });
