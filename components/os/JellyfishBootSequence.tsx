@@ -91,7 +91,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); skip(); } }}
       role="button"
       tabIndex={0}
-      aria-label="SullyOS·糯米机，轻触进入"
+      aria-label="Soren，轻触进入"
       style={{ opacity: exiting ? 0 : 1, transition: 'opacity ' + EXIT + 'ms ease-in' }}
     >
       <div className="sully-boot-scene">
@@ -112,7 +112,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
           <i className="sully-boot-planet planet-one" /><i className="sully-boot-planet planet-two" /><i className="sully-boot-planet planet-three" />
           <i className="sully-boot-spark spark-one" /><i className="sully-boot-spark spark-two" /><i className="sully-boot-spark spark-three" />
         </div>
-        <div className="sully-boot-wordmark">Sully<span>OS<i /></span><small>糯米机</small></div>
+        <div className="sully-boot-wordmark">Soren</div>
         <div className="sully-boot-rule" aria-hidden="true" />
         <p className="sully-boot-greeting">欢迎回家</p>
       </div>

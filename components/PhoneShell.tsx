@@ -27,6 +27,7 @@ const lazyApp = createPreloadableLazy;
 const Settings = lazyApp(() => import('../apps/Settings'));
 const Character = lazyApp(() => import('../apps/Character'));
 const Chat = lazyApp(() => import('../apps/Chat'));
+const ChatHub = lazyApp(() => import('../apps/ChatHub'));
 const GroupChat = lazyApp(() => import('../apps/GroupChat'));
 const ThemeMaker = lazyApp(() => import('../apps/ThemeMaker'));
 const Appearance = lazyApp(() => import('../apps/Appearance'));
@@ -65,7 +66,7 @@ const SpecialMomentsApp = lazyApp(() => import('./ValentineEvent').then(m => ({ 
 // 仅供「桌面稳定后的空闲串行预热」。严格 await 前一个再取下一个，且任何用户操作都会停止队列。
 // 高频 App 在前；低端设备/省流量/2G 由 shouldUseIdleAppPreload 整体跳过。
 const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
-  Chat, Character, Settings, Appearance, GroupChat, RoomApp, CheckPhone,
+  ChatHub, Chat, Character, Settings, Appearance, GroupChat, RoomApp, CheckPhone,
   JournalApp, ScheduleApp, SocialApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
   StudyApp, GameApp, NovelApp, BankApp, WorldbookApp, MemoryPalaceApp, HandbookApp,
   VRWorldApp, WorldHomeApp, LifeSimApp, SongwritingApp, GuidebookApp, FAQApp, HotNewsApp,
@@ -80,7 +81,7 @@ let idlePreloadCursor = 0;
 // AppID → 懒加载组件，供「按下即预取」复用同一个模块 Promise。
 // AppID 由下方 import 引入，ES 模块提升后全模块可用。
 const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
-  [AppID.Settings]: Settings, [AppID.Character]: Character, [AppID.Chat]: Chat,
+  [AppID.Settings]: Settings, [AppID.Character]: Character, [AppID.Chat]: Chat, [AppID.ChatHub]: ChatHub,
   [AppID.GroupChat]: GroupChat, [AppID.ThemeMaker]: ThemeMaker, [AppID.Appearance]: Appearance,
   [AppID.Gallery]: Gallery, [AppID.Date]: DateApp, [AppID.User]: UserApp,
   [AppID.Journal]: JournalApp, [AppID.Schedule]: ScheduleApp, [AppID.Room]: RoomApp,
@@ -276,13 +277,13 @@ const DisclaimerPopup: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
       <div className="pt-7 pb-3 px-6 text-center">
         <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4e2.png" alt="announcement" className="w-8 h-8 mb-2" />
         <h2 className="text-lg font-extrabold text-slate-800">免责声明</h2>
-        <p className="text-[11px] text-slate-400 mt-1">Disclaimer · SullyOS·糯米机</p>
+        <p className="text-[11px] text-slate-400 mt-1">Disclaimer · 手抓糯米机 (Soren)</p>
       </div>
 
       {/* Content */}
       <div className="px-6 pb-4 max-h-[55vh] overflow-y-auto no-scrollbar space-y-3">
         <p className="text-[13px] text-slate-600 leading-relaxed">
-          本项目「SullyOS·糯米机」是一个<strong className="text-slate-800">完全开源、免费</strong>的软件，仅供个人学习、研究与技术交流使用。
+          本项目「手抓糯米机 (Soren)」是一个<strong className="text-slate-800">完全开源、免费</strong>的软件，仅供个人学习、研究与技术交流使用。
         </p>
         <ul className="text-[12px] text-slate-500 leading-relaxed space-y-1.5 list-none">
           <li className="flex gap-2"><span className="shrink-0">•</span><span>本软件不提供任何明示或暗示的担保，作者不对使用本软件产生的任何后果承担责任。</span></li>
@@ -895,7 +896,7 @@ const PhoneShell: React.FC = () => {
                    <span>🍃</span><span>无人岛生活</span><span>🍃</span>
                </div>
            ) : (
-               <div className="text-lg tracking-widest opacity-90 mt-2 uppercase text-xs font-bold">SullyOS·糯米机 Simulation</div>
+               <div className="text-lg tracking-widest opacity-90 mt-2 uppercase text-xs font-bold">Soren Simulation</div>
            )}
         </div>}
 
@@ -931,6 +932,7 @@ const PhoneShell: React.FC = () => {
       case AppID.Settings: return <Settings />;
       case AppID.Character: return <Character />;
       case AppID.Chat: return <Chat />;
+      case AppID.ChatHub: return <ChatHub />;
       case AppID.GroupChat: return <GroupChat />; 
       case AppID.ThemeMaker: return <ThemeMaker />;
       case AppID.Appearance: return <Appearance />;

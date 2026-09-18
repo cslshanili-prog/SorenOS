@@ -9,9 +9,10 @@ import {
     GalleryImage, FullBackupData, GroupProfile, SocialPost, StudyCourse, GameSession, Worldbook, NovelBook, Emoji, EmojiCategory,
     BankTransaction, SavingsGoal, BankFullState, DollhouseState, XhsStockImage, XhsActivityRecord, XhsOwnedPost, SongSheet, QuizSession, GuidebookSession,
     LifeSimState, HandbookEntry, Tracker, TrackerEntry, HotNewsSnapshot,
-    LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup,
+    LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup, NPCProfile,
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
-    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask
+    WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask,
+    MallCategory, MallProduct
 } from '../types';
 import { exportPostOfficeLocal, importPostOfficeLocal } from './vrWorld/postOffice';
 import { exportSignalLocal, importSignalLocal } from './vrWorld/signal';
@@ -30,10 +31,15 @@ const DB_NAME = 'AetherOS_Data';
 // v69：见面·剧情条目与糯米机原生预设。正文继续复用 messages 表，避免再造会话存储。
 // v70：剧场面具箱（原创人物面具）；角色面具仍只存 characterId，不复制神经链接资料。
 // v71：角色小红书伪主页；发帖归属与可删除的自由活动日志分离。
-const DB_VERSION = 71;
+// v72：NPC 档案（独立于 characters，见 types.ts NPCProfile）——群聊/查手机联系人/见面剧情
+//       三处读取，不参与日程/情绪/主动消息/记忆宫殿等背景任务。
+// v73：购物中心（商品/外卖目录）——用户自己维护的商品库，独立于全局设置导入导出，
+//      不进 exportSettings/importSettings 的打包范围（见 utils/shoppingMall.ts）。
+const DB_VERSION = 73;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分组定义（角色通过 groupId 指向；与群聊 groups 无关）
+const STORE_NPCS = 'npcs';
 const STORE_MESSAGES = 'messages';
 const STORE_EMOJIS = 'emojis';
 const STORE_EMOJI_CATEGORIES = 'emoji_categories'; 
@@ -88,6 +94,8 @@ const STORE_LIFE_SETTINGS = 'life_record_settings'; // 生活记录设置单例�
 const STORE_STORY_THEATERS = 'story_theaters';       // 见面·剧情条目（消息用 story-theater:${id}）
 const STORE_STORY_THEATER_PRESETS = 'story_theater_presets'; // 糯米机原生剧情预设
 const STORE_STORY_THEATER_MASKS = 'story_theater_masks'; // 剧场原创人物面具
+const STORE_MALL_CATEGORIES = 'mall_categories';     // 购物中心·分类（购物/外卖各自一套，用 kind 区分）
+const STORE_MALL_PRODUCTS = 'mall_products';          // 购物中心·商品/外卖条目
 
 // API 调用记录：保留近 5 天，超期丢弃；再加一个硬上限防止异常情况撑爆
 const API_CALL_LOG_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -234,6 +242,7 @@ export const openDB = (): Promise<IDBDatabase> => {
 
       createStore(STORE_CHARACTERS, { keyPath: 'id' });
       createStore(STORE_CHAR_GROUPS, { keyPath: 'id' }); // v68: 角色分组
+      createStore(STORE_NPCS, { keyPath: 'id' }); // v72: NPC 档案
 
       if (!db.objectStoreNames.contains(STORE_MESSAGES)) {
         const msgStore = db.createObjectStore(STORE_MESSAGES, { keyPath: 'id', autoIncrement: true });
@@ -484,6 +493,10 @@ export const openDB = (): Promise<IDBDatabase> => {
           const phlStore = db.createObjectStore('pixel_home_layouts', { keyPath: ['charId', 'roomId'] });
           phlStore.createIndex('charId', 'charId', { unique: false });
       }
+
+      // ─── 购物中心（商品/外卖目录）v73 ───────────────
+      createStore(STORE_MALL_CATEGORIES, { keyPath: 'id' });
+      createStore(STORE_MALL_PRODUCTS, { keyPath: 'id' });
     };
   });
 
@@ -563,6 +576,36 @@ export const DB = {
     const db = await openDB();
     const transaction = db.transaction(STORE_CHARACTERS, 'readwrite');
     transaction.objectStore(STORE_CHARACTERS).delete(id);
+  },
+
+  // ---- NPC 档案（神经链接「NPC」分页，独立于 characters）----
+
+  getAllNPCs: async (): Promise<NPCProfile[]> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NPCS, 'readonly');
+      const store = transaction.objectStore(STORE_NPCS);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  saveNPC: async (npc: NPCProfile): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NPCS, 'readwrite');
+      transaction.objectStore(STORE_NPCS).put(npc);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('saveNPC aborted'));
+    });
+  },
+
+  deleteNPC: async (id: string): Promise<void> => {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NPCS, 'readwrite');
+    transaction.objectStore(STORE_NPCS).delete(id);
   },
 
   // ---- 角色分组（神经链接"文件夹"，与群聊 groups 无关）----
@@ -3155,6 +3198,53 @@ export const DB = {
       transaction.objectStore(STORE_GUIDEBOOK).delete(id);
   },
 
+  // --- 购物中心（商品/外卖目录，用户本地维护，不随全局设置导入导出走）---
+  getAllMallCategories: async (): Promise<MallCategory[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_CATEGORIES)) return [];
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_CATEGORIES).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveMallCategory: async (category: MallCategory): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readwrite');
+      transaction.objectStore(STORE_MALL_CATEGORIES).put(category);
+  },
+
+  deleteMallCategory: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_CATEGORIES, 'readwrite');
+      transaction.objectStore(STORE_MALL_CATEGORIES).delete(id);
+  },
+
+  getAllMallProducts: async (): Promise<MallProduct[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_PRODUCTS)) return [];
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_PRODUCTS).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveMallProduct: async (product: MallProduct): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readwrite');
+      transaction.objectStore(STORE_MALL_PRODUCTS).put(product);
+  },
+
+  deleteMallProduct: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readwrite');
+      transaction.objectStore(STORE_MALL_PRODUCTS).delete(id);
+  },
+
   // ── LifeSim (模拟人生) ────────────────────────────────────
   getLifeSimState: async (): Promise<LifeSimState | null> => {
       const db = await openDB();
@@ -3303,9 +3393,10 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings] = await Promise.all([
+      const [characters, characterGroups, npcs, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
+          getAllFromStore(STORE_NPCS),
           getAllFromStore(STORE_MESSAGES),
           getAllFromStore(STORE_THEMES),
           getAllFromStore(STORE_EMOJIS),
@@ -3369,7 +3460,7 @@ export const DB = {
       const dollhouseRecord = bankData.find((d: any) => d.id === 'dollhouse_state');
 
       return {
-          characters, characterGroups, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
+          characters, characterGroups, npcs, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
           bankState: mainState ? { ...mainState, id: undefined } : undefined,
           bankDollhouse: dollhouseRecord?.data || undefined,
           bankTransactions: bankTx,
@@ -3428,7 +3519,7 @@ export const DB = {
       const db = await openDB();
       
       const availableStores = [
-          STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
+          STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_NPCS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
           STORE_ASSETS, STORE_GALLERY, STORE_USER, STORE_DIARIES,
           STORE_TASKS, STORE_ANNIVERSARIES, STORE_ROOM_TODOS, STORE_ROOM_NOTES,
           STORE_GROUPS, STORE_JOURNAL_STICKERS, STORE_SOCIAL_POSTS, STORE_COURSES, STORE_GAMES, STORE_WORLDBOOKS, STORE_STORY_THEATERS, STORE_STORY_THEATER_PRESETS, STORE_STORY_THEATER_MASKS, STORE_NOVELS, STORE_SONGS,
@@ -3488,6 +3579,7 @@ export const DB = {
       const plannedSections = [
           data.characters !== undefined || data.mediaAssets !== undefined,
           data.characterGroups !== undefined,
+          data.npcs !== undefined,
           data.messages !== undefined,
           data.customThemes !== undefined,
           data.savedEmojis !== undefined,
@@ -3705,6 +3797,11 @@ export const DB = {
           await mergeStore(STORE_CHAR_GROUPS, data.characterGroups, '角色分组', false);
           data.characterGroups = undefined as any;
       }, data.characterGroups?.length || 0);
+
+      await runSection('NPC 档案', data.npcs !== undefined, async () => {
+          await mergeStore(STORE_NPCS, data.npcs, 'NPC 档案', false);
+          data.npcs = undefined as any;
+      }, data.npcs?.length || 0);
 
       await runSection('聊天记录', data.messages !== undefined, async () => {
           if (!hasStore(STORE_MESSAGES)) return;

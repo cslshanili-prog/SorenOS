@@ -14,6 +14,20 @@ import {
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 
 /**
+ * 「互动对象 (User)」块的唯一拼装口径，私聊/群聊共用——名字/设定/备注永远显示（备注留空显示"无"），
+ * 性别/自定义设定/其他补充是新加的深度字段，选填，留空就不占提示词篇幅。
+ */
+function formatUserProfileBlock(user: UserProfile): string {
+    let block = `### 互动对象 (User)\n`;
+    block += `- 名字: ${user.name}\n`;
+    if (user.gender) block += `- 性别: ${user.gender}\n`;
+    block += `- 设定/备注: ${user.bio || '无'}\n`;
+    if (user.customSetting?.trim()) block += `- 自定义设定: ${user.customSetting.trim()}\n`;
+    if (user.otherDetails?.trim()) block += `- 其他补充: ${user.otherDetails.trim()}\n`;
+    return block + `\n`;
+}
+
+/**
  * Memory Central
  * 负责统一构建所有 App 共用的基础角色上下文 (System Prompt)。
  * 包含：身份设定、用户画像、世界观、核心记忆、详细记忆、以及角色内心看法。
@@ -197,9 +211,7 @@ export const ContextBuilder = {
         // 3. 用户画像 (User Profile)
         // 群聊场景下：用户画像已在共享场景块顶部，这里跳过避免重复
         if (!groupOptions?.skipUserProfile) {
-            context += `### 互动对象 (User)\n`;
-            context += `- 名字: ${user.name}\n`;
-            context += `- 设定/备注: ${user.bio || '无'}\n\n`;
+            context += formatUserProfileBlock(user);
         }
 
         // 4. [NEW] 印象档案 (Private Impression)
@@ -480,9 +492,7 @@ export const ContextBuilder = {
         let text = `[System: 群聊场景共享设定 (Group Scene)]\n`;
         text += `（以下是群里所有角色都共同感知到的"舞台"——用户是谁、共有的世界设定。每位角色的个人卡、印象、记忆等仍在各自的"角色档案"块中保持完整。）\n\n`;
 
-        text += `### 互动对象 (User)\n`;
-        text += `- 名字: ${user.name}\n`;
-        text += `- 设定/备注: ${user.bio || '无'}\n\n`;
+        text += formatUserProfileBlock(user);
 
         if (worldviewIsShared) {
             text += `### 共有世界观 (Shared World Settings)\n${members[0].worldview!.trim()}\n\n`;

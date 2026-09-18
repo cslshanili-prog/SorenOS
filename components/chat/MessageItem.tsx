@@ -18,6 +18,7 @@ import { stripLeakedSourceTags } from '../../utils/sanitize';
 import TokenImg from '../os/TokenImg';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import McdCard from './McdCard';
+import MallOrderCard from './MallOrderCard';
 import HtmlCard from './HtmlCard';
 import LuckinCard from './LuckinCard';
 import LuckinCheckoutCard from './LuckinCheckoutCard';
@@ -3299,6 +3300,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'transfer') {
         return <TransferCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveTransfer={onResolveTransfer} />;
+    }
+
+    if (m.type === 'mall_order') {
+        return <MallOrderCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} />;
     }
 
     if (m.type === 'life_card') {

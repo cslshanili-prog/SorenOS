@@ -4,12 +4,15 @@ import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
 import { processImage, processImageToBlob } from '../utils/file';
 import { safeResponseJson, extractContent } from '../utils/safeApi';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
 import TokenImg from '../components/os/TokenImg';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { generateInnerVoiceContent, generateAffinityValue } from '../utils/customMeterGenerator';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -22,6 +25,8 @@ import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsSha
 import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
 import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl } from '../utils/blobRef';
+import { resolveUserProfileForChar } from '../utils/userPersona';
+import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { resolveLifeRecordCard } from '../utils/lifeRecords';
 import { isMcdConfigured } from '../utils/mcdMcpClient';
@@ -31,6 +36,7 @@ import { isLuckinActivatedInMessages, LUCKIN_ACTIVATE_TRIGGER, LUCKIN_DEACTIVATE
 import MessageItem, { ThinkingChainBlock } from '../components/chat/MessageItem';
 import McdMiniApp from '../components/mcd/McdMiniApp';
 import LuckinMiniApp from '../components/luckin/LuckinMiniApp';
+import ShoppingMallMiniApp from '../components/mall/ShoppingMallMiniApp';
 import LuckinLocationModal from '../components/luckin/LuckinLocationModal';
 import LuckinHelpModal from '../components/luckin/LuckinHelpModal';
 import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
@@ -128,8 +134,14 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
-    const { activeApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, openApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
+    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
+    // 从 Chat 主页（消息/联系人 tab）点进来的私聊，返回键回 Chat 主页而不是无脑回桌面；
+    // 别的入口（角色卡「发消息」、伴侣桌面皮肤的「对话」按钮等）没设这个，行为不变。
+    const handleChatClose = useCallback(() => {
+        const target = chatReturnTarget.consume();
+        if (target) openApp(target); else closeApp();
+    }, [openApp, closeApp]);
     const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
 
@@ -285,6 +297,13 @@ const Chat: React.FC = () => {
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    // 分角色身份指定：这个私聊里「你」该是哪张身份卡，按 char.id 单独解析——不看全域默认，
+    // 除非这个角色没有单独指定。下面所有原本读 userProfile 的地方（AI 提示词/气泡头像/
+    // 主动消息打脏快照……）只要是「这个聊天窗口里的你」，都改吃这份，而不是全域 userProfile。
+    const chatUserProfile = useMemo(
+        () => (char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile),
+        [char, userProfileBase, userProfile],
+    );
     const memoryRepairRound = useMemo(() => {
         let assistantIndex = -1;
         for (let i = messages.length - 1; i >= 0; i--) {
@@ -403,7 +422,7 @@ const Chat: React.FC = () => {
     // --- Initialize Hook ---
     const { isTyping, streamingBubbles, streamingThinking, streamingHandoverIds, recallStatus, searchStatus, diaryStatus, emotionStatus, memoryPalaceStatus, memoryPalaceResult, setMemoryPalaceResult, lastDigestResult, setLastDigestResult, lastTokenUsage, tokenBreakdown, setLastTokenUsage, triggerAI, startProactiveChat, stopProactiveChat, isProactiveActive } = useChatAI({
         char,
-        userProfile,
+        userProfile: chatUserProfile,
         apiConfig,
         groups,
         emojis: aiVisibleEmojis,
@@ -1373,7 +1392,7 @@ const Chat: React.FC = () => {
 
         const imageChatContext = type === 'image'
             ? messages.slice(-10).map(m => {
-                const sender = m.role === 'user' ? userProfile.name : char.name;
+                const sender = m.role === 'user' ? chatUserProfile.name : char.name;
                 const isMedia = m.type === 'image' || m.type === 'emoji' || isImageValue(m.content);
                 const preview = isMedia
                     ? buildReplySnapshotContent(m)
@@ -1493,7 +1512,7 @@ const Chat: React.FC = () => {
                         console.log('[卡片调试] 小红书卡片·metadata =', note);
                         console.log('[卡片调试] 小红书卡片·角色将读到 =\n' + normalizeMessageContent(
                             { type: 'xhs_card', role: 'user', content: note.title || '小红书笔记', metadata: { xhsNote: note } } as any,
-                            char.name, userProfile.name,
+                            char.name, chatUserProfile.name,
                         ));
                     }
                     xhsCardCreated = true;
@@ -1539,7 +1558,7 @@ const Chat: React.FC = () => {
                         console.log('[卡片调试] 网页卡片·metadata =', webpage);
                         console.log('[卡片调试] 网页卡片·角色将读到 =\n' + normalizeMessageContent(
                             { type: 'webpage_card', role: 'user', content: webpage.title, metadata: { webpage } } as any,
-                            char.name, userProfile.name,
+                            char.name, chatUserProfile.name,
                         ));
                     }
                     webpageCardCreated = true;
@@ -1585,8 +1604,77 @@ const Chat: React.FC = () => {
             content: action === 'accepted' ? '[已收款]' : '[已退回]',
             metadata: { receipt: action, amount: msg.metadata?.amount, ref: msg.id },
         });
+        // 角色发起转账走「发送即结清」：钱在角色说出口那一刻就已经从角色 Real Balance 扣走了
+        // （chatParser.ts 的 onCharTransferSend）。收下才真的到用户账户；退回等于这笔钱从没
+        // 到手，得还回角色账户——不是不动余额，是把它退回发起方，跟用户侧转账被角色退回时
+        // 退回用户账户（onUserTransferReturned）对称。
+        const amount = Number(msg.metadata?.amount);
+        if (Number.isFinite(amount) && amount > 0) {
+            if (action === 'accepted') {
+                updateUserProfile(prev => {
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `收到 ${char.name} 的转账`);
+                    return result.ok ? { realBalance: result.state } : {};
+                });
+            } else {
+                updateCharacter(char.id, previous => {
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `${chatUserProfile.name}退回了转账`);
+                    if (!result.ok) return {};
+                    return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
+                });
+            }
+        }
         await reloadMessages(visibleCountRef.current);
-    }, [char, reloadMessages]);
+    }, [char, reloadMessages, updateUserProfile, updateCharacter, chatUserProfile]);
+
+    // 用户主动发起转账：先扣 Real Balance 再落待处理转账卡——在发送这一刻结清，
+    // 而不是等角色事后「收下」才扣（那样等于允许承诺一笔当下就已经不存在的钱，
+    // 角色收下时才发现余额不够会造成账目和聊天记录对不上）。余额不够直接拦下，不发。
+    // 角色之后「退回」这笔钱走 utils/chatParser.ts 的 onUserTransferReturned 退款回来。
+    // 跟原来的内联 onTransfer 一样不用 useCallback：handleSendText 每次渲染都重新定义，
+    // 记成 memo 反而会捕到一份过期的它。
+    const handleSendTransfer = () => {
+        if (!char || !transferAmt) return;
+        const amount = Number(transferAmt);
+        if (!Number.isFinite(amount) || amount <= 0) { addToast('请输入有效金额', 'error'); return; }
+        const current = ensureRealBalanceState(userProfileBase.realBalance);
+        const result = applyRealBalanceDelta(current, -amount, `转账给 ${char.name}`);
+        if (!result.ok) { addToast(result.reason, 'error'); return; }
+        updateUserProfile({ realBalance: result.state });
+        handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' });
+        setTransferNote('');
+        setModalType('none');
+    };
+
+    // 购物中心 mini-app 送出订单卡片：
+    // - gift（送给TA / 为TA点单 / 发小票）：跟转账一样发送即结清，先扣用户 Real Balance，
+    //   再走 handleSendText 正常触发角色的一轮回复（角色收到礼物/外卖该有反应）。
+    // - daifu（外卖代付请求）：先不动余额——真正付不付款要看角色收到请求后的选择，那条走
+    //   utils/chatParser.ts 的 AI 收发（跟 TRANSFER_ACCEPT/RETURN 同一个位置，还没接，接了才会
+    //   真的扣角色的 Real Balance），这里只负责把待处理卡片发出去、触发角色这轮回复。
+    // - manual（「TA主动给我买/点外卖」手动模拟卡）：纯摆设，角色没有真的做这件事、也不用回复，
+    //   直接落库成 role:'assistant' 的既成事实，不走 handleSendText（不触发 AI 生成）。
+    const handleSendMallOrder = async (order: import('../components/mall/ShoppingMallMiniApp').MallSendOrderInput) => {
+        if (!char) return;
+        const metadata = {
+            mallKind: order.mallKind, mode: order.mode, items: order.items, note: order.note,
+            total: order.total, title: order.title,
+            status: order.mode === 'daifu' ? 'pending' as const : 'sent' as const,
+        };
+        if (order.mode === 'manual') {
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]', metadata });
+            await reloadMessages(visibleCountRef.current);
+            trackEvent('购物中心手动模拟卡', { mallKind: order.mallKind });
+            return;
+        }
+        if (order.mode === 'gift') {
+            const current = ensureRealBalanceState(userProfileBase.realBalance);
+            const result = applyRealBalanceDelta(current, -order.total, order.title || (order.mallKind === 'food' ? `为${char.name}点了外卖` : `送给${char.name}的购物礼物`));
+            if (!result.ok) { addToast(result.reason, 'error'); return; }
+            updateUserProfile({ realBalance: result.state });
+        }
+        handleSendText('[购物中心卡片]', 'mall_order', metadata);
+        trackEvent('购物中心发送订单卡片', { mallKind: order.mallKind, mode: order.mode });
+    };
 
     // 用户点「生活记录」代记卡选择确认 / 否决：
     // 否决 → 记录标记 rejected（不再计入注入摘要）+ 回滚银行流水（expense）+
@@ -1599,13 +1687,13 @@ const Chat: React.FC = () => {
             await resolveLifeRecordCard(msg, action);
             // 否决会把这条记录踢出注入摘要、回滚银行流水，生活记录是注入给所有开了开关的
             // 角色的共享素材，所以逐个打脏（同表情库）。
-            markAmsgStateDirtyForAll({ characters, userProfile, groups, realtimeConfig });
+            markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
             addToast(action === 'confirmed' ? '已确认记录' : '已否决，记录撤销', action === 'confirmed' ? 'success' : 'info');
         } catch (e) {
             console.error('[LifeRecord] resolve failed:', e);
         }
         await reloadMessages(visibleCountRef.current);
-    }, [char, reloadMessages, addToast, characters, userProfile, groups, realtimeConfig]);
+    }, [char, reloadMessages, addToast, characters, userProfileBase, groups, realtimeConfig]);
 
     // 顶栏 ⚡ 手动触发（也是「发完后自动生成」到点时调的那一下）。
     const handleManualTrigger = () => {
@@ -1634,7 +1722,7 @@ const Chat: React.FC = () => {
         discardVoiceForMessages(toDeleteIds);
         // 重 roll 也删了消息：正常路径下这轮生成结束会再打脏一次，这里先打是兜住
         // 「触发失败没走到生成收尾」的路径，云端 fire_pack 不能停在删除前。
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         const newHistory = messages.slice(0, index + 1);
         setMessages(newHistory);
         addToast('回溯对话中...', 'info');
@@ -1663,7 +1751,7 @@ const Chat: React.FC = () => {
         // 选表情、选分类之类的动作不上报。
         if ([
             'transfer', 'archive', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
-            'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request',
+            'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request', 'mall-open',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
             // send-emoji / select-category 这些是「挑哪一个」，不进名单。
@@ -1736,12 +1824,17 @@ const Chat: React.FC = () => {
                 setShowThinkingChainModal(true);
                 break;
             }
+            case 'mall-open':
+                setMallOpen(true);
+                break;
         }
     };
 
     // 当前会话麦请求是否激活 (从消息历史推导, 无新存储)
     const mcdActivated = useMemo(() => isMcdActivatedInMessages(messages), [messages]);
     const [mcdAppOpen, setMcdAppOpen] = useState(false);
+    // 购物中心 mini-app：跟麦当劳小程序同构的本地 mini-app 壳，见 components/mall/ShoppingMallMiniApp.tsx
+    const [mallOpen, setMallOpen] = useState(false);
     // mcdMiniAppRef 声明在文件靠前 (传给 useChatAI), 这里仅占位
     const mcdConfiguredFlag = useMemo(() => isMcdConfigured(), [showPanel, mcdActivated]);
 
@@ -1985,7 +2078,7 @@ const Chat: React.FC = () => {
         const updated = { ...scheduleData, slots: newSlots };
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
     };
 
     const handleScheduleDelete = async (index: number) => {
@@ -1994,7 +2087,7 @@ const Chat: React.FC = () => {
         const updated = { ...scheduleData, slots: newSlots };
         setScheduleData(updated);
         await DB.saveDailySchedule(updated);
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
     };
 
     const handleScheduleCoverChange = async (dataUrl: string) => {
@@ -2018,7 +2111,7 @@ const Chat: React.FC = () => {
         setTheaterSlotIdx(index);
         setIsTheaterGenerating(true);
         try {
-            const updated = await generateSlotTheater(char, userProfile, scheduleData, index, apiConfig, forceRegenerate);
+            const updated = await generateSlotTheater(char, chatUserProfile, scheduleData, index, apiConfig, forceRegenerate);
             if (updated) {
                 setScheduleData(updated);
             } else {
@@ -2070,11 +2163,11 @@ const Chat: React.FC = () => {
         if (!targetChar || isScheduleGenerating) return;
         setIsScheduleGenerating(true);
         try {
-            const result = await generateDailyScheduleForChar(targetChar, userProfile, apiConfig, forceRegenerate);
+            const result = await generateDailyScheduleForChar(targetChar, chatUserProfile, apiConfig, forceRegenerate);
             if (result) {
                 setScheduleData(result);
                 // 跨天后台重新生成也要刷云端：不刷的话角色到点照着昨天的作息表说话
-                markAmsgStateDirty({ char: targetChar, userProfile, groups, realtimeConfig });
+                markAmsgStateDirty({ char: targetChar, userProfile: chatUserProfile, groups, realtimeConfig });
             }
         } catch (e) {
             console.error('[Schedule] Generation error:', e);
@@ -2094,7 +2187,7 @@ const Chat: React.FC = () => {
         if (!isScheduleFeatureOn(updatedChar)) return;
         setIsScheduleGenerating(true);
         try {
-            const result = await generateDailyScheduleForChar(updatedChar, userProfile, apiConfig, true);
+            const result = await generateDailyScheduleForChar(updatedChar, chatUserProfile, apiConfig, true);
             if (result) setScheduleData(result);
         } catch (e) {
             console.error('[Schedule] Regeneration after style change failed:', e);
@@ -2147,7 +2240,7 @@ const Chat: React.FC = () => {
      * 那份表情清单过期。角色到点照旧清单发 [[SEND_EMOJI]]，客户端反查不到就只能落降级
      * 文本气泡——所以这几个入口都要重新打包。
      */
-    const markEmojiLibraryChanged = () => markAmsgStateDirtyForAll({ characters, userProfile, groups, realtimeConfig });
+    const markEmojiLibraryChanged = () => markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
 
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) {
@@ -2370,7 +2463,7 @@ const Chat: React.FC = () => {
 
     const handleHistoryCleanupDone = async (plan: ChatCleanupPlan) => {
         trackEvent('清空聊天记录');
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         if (activeCharIdRef.current !== plan.charId) return;
         discardVoiceForMessages(plan.ids, false);
         setAllHistoryMessages([]);
@@ -2445,7 +2538,7 @@ const Chat: React.FC = () => {
                 char.name,
                 mpEmb,
                 mpLLM,
-                userProfile?.name || '',
+                chatUserProfile?.name || '',
                 true,
                 setVectorizeProgress,
                 {
@@ -2723,15 +2816,15 @@ const Chat: React.FC = () => {
                 setArchiveProgress(`归档中 ${dateStr} (${idx + 1}/${datesToProcess.length})`);
                 const dayMsgs = msgsByDate[dateStr];
                 const rawLog = dayMsgs
-                    .map(m => formatMessageWithTime(m, char.name, userProfile.name, formatTime))
+                    .map(m => formatMessageWithTime(m, char.name, chatUserProfile.name, formatTime))
                     .join('\n');
-                
+
                 let prompt = template;
                 const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(rawLog);
                 if (sarMemoryBoundary) prompt = `${sarMemoryBoundary}\n\n${prompt}`;
                 prompt = prompt.replace(/\$\{dateStr\}/g, dateStr);
                 prompt = prompt.replace(/\$\{char\.name\}/g, char.name);
-                prompt = prompt.replace(/\$\{userProfile\.name\}/g, userProfile.name);
+                prompt = prompt.replace(/\$\{userProfile\.name\}/g, chatUserProfile.name);
                 prompt = prompt.replace(/\$\{rawLog.*?\}/g, rawLog.substring(0, 200000));
 
                 const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -2824,7 +2917,7 @@ const Chat: React.FC = () => {
         discardVoiceForMessages([deletedId]);
         // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
         // 还会提起这条已经不存在的消息（快照的消息在 flush 时从 DB 重读，这里只管打脏）。
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         setMessages(prev => prev.filter(m => m.id !== deletedId));
         setTotalMsgCount(prev => Math.max(0, prev - 1));
         setModalType('none');
@@ -2840,7 +2933,7 @@ const Chat: React.FC = () => {
         // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
         // 同 handleDeleteMessage：正文改了要让云端 fire_pack 跟上。
-        if (contentChanged) markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        if (contentChanged) markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         setMessages(prev => prev.map(m => m.id === selectedMessage.id ? { ...m, content: editContent } : m));
         setModalType('none');
         setSelectedMessage(null);
@@ -3034,14 +3127,14 @@ const Chat: React.FC = () => {
 
         // Build preview text (first few messages)
         const previewLines = selectedMsgs.slice(0, 4).map(m => {
-            const sender = m.role === 'user' ? userProfile.name : char.name;
+            const sender = m.role === 'user' ? chatUserProfile.name : char.name;
             const text = m.type === 'text' ? m.content.slice(0, 30) : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
             return `${sender}: ${text}`;
         });
         if (selectedMsgs.length > 4) previewLines.push(`... 共 ${selectedMsgs.length} 条消息`);
 
         const forwardData = {
-            fromUserName: userProfile.name,
+            fromUserName: chatUserProfile.name,
             fromCharName: char.name,
             count: selectedMsgs.length,
             preview: previewLines,
@@ -3125,12 +3218,12 @@ const Chat: React.FC = () => {
     ) => {
         if (!char || transferredMessages.length === 0) return;
         const preview = transferredMessages.slice(0, 4).map(message => {
-            const sender = message.role === 'user' ? userProfile.name : char.name;
+            const sender = message.role === 'user' ? chatUserProfile.name : char.name;
             return `${sender}: ${message.content.replace(/\s+/g, ' ').slice(0, 36)}`;
         });
         if (transferredMessages.length > 4) preview.push(`… 共 ${transferredMessages.length} 条消息`);
         const forwardData = {
-            fromUserName: userProfile.name,
+            fromUserName: chatUserProfile.name,
             fromCharName: `${char.name} · 协同工作`,
             count: transferredMessages.length,
             preview,
@@ -3147,9 +3240,9 @@ const Chat: React.FC = () => {
                 collaborationTitle: sessionTitle,
             },
         });
-        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         await reloadMessages(visibleCountRef.current);
-    }, [char, userProfile, groups, realtimeConfig, reloadMessages]);
+    }, [char, chatUserProfile, groups, realtimeConfig, reloadMessages]);
 
     const handleCollaborationNotify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
         addToast(message, type);
@@ -3178,7 +3271,7 @@ const Chat: React.FC = () => {
                 char.name,
                 embedding,
                 lightLLM,
-                userProfile.name,
+                chatUserProfile.name,
             );
             if (imported.error && imported.error !== 'no_memories') {
                 throw new Error(`记忆宫殿没有存好：${imported.error}`);
@@ -3212,7 +3305,7 @@ const Chat: React.FC = () => {
                 : [...(current.memories || []), archiveFragment],
         }));
         return `已把这次协作的一条总结存入 ${char.name} 的神经链接`;
-    }, [char, memoryPalaceConfig.embedding, memoryPalaceConfig.lightLLM, updateCharacter, userProfile.name]);
+    }, [char, memoryPalaceConfig.embedding, memoryPalaceConfig.lightLLM, updateCharacter, chatUserProfile.name]);
 
     const handleCollaborationInstall = useCallback(async (
         artifact: CollaborationInstallableArtifact,
@@ -3394,7 +3487,7 @@ const Chat: React.FC = () => {
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
             || selectionMode || isSummarizing || collaborationOpen || memoryRepairOpen || favoritesOpen
             || showProactiveModal || showActiveMsg2Modal || showThinkingChainModal
-            || mcdAppOpen || luckinAppOpen || showForwardModal,
+            || mcdAppOpen || luckinAppOpen || showForwardModal || mallOpen,
         generating: isTyping || instantChatPending || isProactiveComposing,
         onGenerate: handleManualTrigger,
     });
@@ -3646,7 +3739,7 @@ const Chat: React.FC = () => {
                                      windowsill: { label: '窗台', color: '#14b8a6' },
                                  };
                                  const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
-                                 const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
+                                 const roomLabel = getRoomLabel(m.room as any, chatUserProfile?.name) || meta.label;
                                  return (
                                      <div
                                          key={i}
@@ -3728,7 +3821,7 @@ const Chat: React.FC = () => {
                 newEmojiName={newEmojiName} setNewEmojiName={setNewEmojiName} onRenameEmoji={handleRenameEmoji}
                 selectedCategory={selectedCategory}
 
-                onTransfer={() => { if(transferAmt) handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' }); setTransferNote(''); setModalType('none'); }}
+                onTransfer={handleSendTransfer}
                 onImportEmoji={handleImportEmoji}
                 onSaveSettings={saveSettings}
                 onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }} onArchive={handleFullArchive}
@@ -3810,6 +3903,14 @@ const Chat: React.FC = () => {
                     updateCharacter(char.id, { activeBuffs: [], buffInjection: '' });
                     addToast('情绪状态已清除', 'info');
                 }}
+                onSaveChatApi={(chatApi) => {
+                    updateCharacter(char.id, { chatApi });
+                    addToast('对话模型设置已保存', 'success');
+                }}
+                onSaveInnerVoices={(innerVoices) => updateCharacter(char.id, { innerVoices })}
+                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)}
+                onSaveAffinities={(affinities) => updateCharacter(char.id, { affinities })}
+                onGenerateAffinity={(entry) => generateAffinityValue(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)}
              />
 
              {/* 小剧场播放器：窥视某个日程时段的角色行为演出 */}
@@ -3838,7 +3939,7 @@ const Chat: React.FC = () => {
                 memoryPalaceStatusText={memoryPalaceStatus}
                 lastTokenUsage={lastTokenUsage}
                 tokenBreakdown={tokenBreakdown}
-                onClose={closeApp}
+                onClose={handleChatClose}
                 onTriggerAI={handleManualTrigger}
                 hideTrigger={inputPreferences.sendButtonGenerates}
                 onShowCharsPanel={() => setShowPanel('chars')}
@@ -4057,7 +4158,7 @@ const Chat: React.FC = () => {
                             activeTheme={activeTheme}
                             charAvatar={char.avatar}
                             charName={char.name}
-                            userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
+                            userAvatar={chatUserProfile.avatar}
                             isLatestMessage={!nextMessage}
                             onMediaLoad={handleMessageMediaLoad}
                             moduleAlign={mergedFineTune.chatModuleAlign || 'center'}
@@ -4150,7 +4251,7 @@ const Chat: React.FC = () => {
                                     activeTheme={activeTheme}
                                     charAvatar={char.avatar}
                                     charName={char.name}
-                                    userAvatar={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
+                                    userAvatar={chatUserProfile.avatar}
                                     onLongPress={() => {}}
                                     onReply={() => {}}
                                     selectionMode={false}
@@ -4343,7 +4444,7 @@ const Chat: React.FC = () => {
                     onClose={() => setShowActiveMsg2Modal(false)}
                     char={char}
                     apiConfig={apiConfig}
-                    userProfile={userProfile}
+                    userProfile={chatUserProfile}
                     groups={groups}
                     realtimeConfig={realtimeConfig}
                     // updater 形态：merge 在 setCharacters 的函数式 updater 里发生，
@@ -4399,7 +4500,7 @@ const Chat: React.FC = () => {
             {memoryRepairOpen && char && (
                 <MemoryRepairPortal
                     char={char}
-                    user={userProfile}
+                    user={chatUserProfile}
                     apiConfig={apiConfig}
                     embeddingConfig={memoryPalaceConfig.embedding}
                     remoteVectorConfig={remoteVectorConfig}
@@ -4425,7 +4526,7 @@ const Chat: React.FC = () => {
                     <CollaborationWindow
                         open={collaborationOpen}
                         character={char}
-                        user={userProfile}
+                        user={chatUserProfile}
                         theme={activeTheme}
                         backgroundUrl={resolvedChatBackground}
                         chatApi={apiConfig}
@@ -4454,7 +4555,7 @@ const Chat: React.FC = () => {
                 open={mcdAppOpen}
                 onClose={() => setMcdAppOpen(false)}
                 char={char}
-                userProfile={userProfile}
+                userProfile={chatUserProfile}
                 messages={messages}
                 isTyping={isTyping}
                 onSendMessage={handleMcdMiniAppSend}
@@ -4462,12 +4563,23 @@ const Chat: React.FC = () => {
                 onConfirmOrder={handleMcdAppConfirm}
             />
 
+            {/* 购物中心 mini-app */}
+            <ShoppingMallMiniApp
+                open={mallOpen}
+                onClose={() => setMallOpen(false)}
+                charName={char?.name || ''}
+                onSendOrder={handleSendMallOrder}
+                addToast={addToast}
+                apiConfig={apiConfig}
+                apiPresets={apiPresets}
+            />
+
             {/* 🦌 瑞幸小程序 - 与麦当劳同构 */}
             <LuckinMiniApp
                 open={luckinAppOpen}
                 onClose={() => setLuckinAppOpen(false)}
                 char={char}
-                userProfile={userProfile}
+                userProfile={chatUserProfile}
                 messages={messages}
                 isTyping={isTyping}
                 onSendMessage={handleLuckinMiniAppSend}

@@ -43,6 +43,7 @@ import {
 } from './amsgLlmCredentials';
 import { trackEvent } from './analytics';
 import { DB } from './db';
+import { resolveUserProfileForChar } from './userPersona';
 
 /** 失败重试的退避起点，逐次翻倍（30s → 60s → 120s）。 */
 const RETRY_BASE_MS = 30_000;
@@ -158,17 +159,22 @@ export const markAmsgStateDirty = (snapshot: AmsgSyncSnapshot) => {
  *
  * 表情库尤其要紧：角色到点发的 [[SEND_EMOJI]] 引用的是包里那份清单，用户删了 / 改了名字
  * 之后云端还照着旧清单说话，客户端反查不到就只能落降级文本气泡。
+ *
+ * 传的是 userProfileBase（没套用任何身份的那份），不是已经套用好的 userProfile——不同角色
+ * 可能在「分角色身份指定」里各自绑了不同的身份卡（见 utils/userPersona.ts 的
+ * resolveUserProfileForChar），一份套死的 userProfile 会让没绑自己那张卡的角色全部
+ * 打脏成同一个名字。这里逐个角色按自己的绑定重新解析。
  */
 export const markAmsgStateDirtyForAll = (scope: {
   characters: CharacterProfile[];
-  userProfile: UserProfile;
+  userProfileBase: UserProfile;
   groups: GroupProfile[];
   realtimeConfig: RealtimeConfig;
 }) => {
   for (const char of scope.characters) {
     markAmsgStateDirty({
       char,
-      userProfile: scope.userProfile,
+      userProfile: resolveUserProfileForChar(scope.userProfileBase, char.id),
       groups: scope.groups,
       realtimeConfig: scope.realtimeConfig,
     });

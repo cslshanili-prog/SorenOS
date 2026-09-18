@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -467,18 +467,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
     // Keep one ordered list so removed or added entries cannot leave holes between pages.
     const actionTiles = [
-        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
-                <Briefcase className="w-6 h-6" weight="fill" />
-            </div>
-            <span className="text-xs font-bold">协同工作</span>
-        </button>,
-        <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-violet-300 border-violet-400/20' : 'bg-violet-50 text-violet-500 border-violet-100'}`}>
-                <Sparkle className="w-6 h-6" weight="fill" />
-            </div>
-            <span className="text-xs font-bold">见面</span>
-        </button>,
         <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-orange-300 border-orange-400/20' : 'bg-orange-50 text-orange-400 border-orange-100'}`}>
@@ -491,18 +479,26 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 border-sky-400/20' : 'bg-sky-50 border-sky-100'}`}><img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f449.png" alt="poke" className="w-6 h-6" /></div>)}
             <span className="text-xs font-bold">戳一戳</span>
         </button>,
+        <button key="image" onClick={() => chatImageInputRef.current?.click()} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            {acnh ? <AcnhActionTile kind="image" /> : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-400 border-pink-100'}`}>
+                <Image className="w-6 h-6" weight="bold" />
+            </div>)}
+            <span className="text-xs font-bold">相册</span>
+        </button>,
+        <button key="mall-open" onClick={() => onPanelAction('mall-open')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            {acnh ? <AcnhActionTile kind="transfer" /> : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-rose-300 border-rose-400/20' : 'bg-rose-50 text-rose-400 border-rose-100'}`}>
+                <ShoppingBag className="w-6 h-6" weight="bold" />
+            </div>)}
+            <span className="text-xs font-bold">购物中心</span>
+        </button>,
         <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="archive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-400 border-indigo-100'}`}>
                 <BookOpenText className="w-6 h-6" weight="bold" />
             </div>)}
             <span className="text-xs font-bold">{isSummarizing ? '归档中...' : '记忆归档'}</span>
-        </button>,
-        <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            {acnh ? <AcnhActionTile kind="settings" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-slate-300 border-white/10' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                <GearSix className="w-6 h-6" weight="bold" /></div>)}
-            <span className="text-xs font-bold">设置</span>
         </button>,
         <button key="reroll" onClick={onReroll} disabled={!canReroll} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? (isDiscordStyle ? 'text-slate-200' : 'text-slate-600') : 'text-slate-300 opacity-50'}`}>
             {acnh ? <AcnhActionTile kind="regenerate" /> : (
@@ -517,6 +513,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <CalendarBlank className="w-6 h-6" weight="bold" />
             </div>)}
             <span className="text-xs font-bold">日程/情绪</span>
+        </button>,
+        <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            {acnh ? <AcnhActionTile kind="settings" /> : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-slate-300 border-white/10' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                <GearSix className="w-6 h-6" weight="bold" /></div>)}
+            <span className="text-xs font-bold">设置</span>
         </button>,
         <button key="proactive" onClick={() => onPanelAction('proactive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="proactive" /> : (
@@ -599,6 +601,15 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           </div>)}
           <span className="text-xs font-bold">{showThinkingChain ? '思考已开' : '展示思考'}</span>
         </button>,
+        <button key="fine-tune"
+          onClick={() => onPanelAction('fine-tune')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#5fae6e]' : isDiscordStyle ? 'bg-slate-800 text-teal-300 border-teal-400/20' : 'bg-teal-50 text-teal-500 border-teal-100'}`}>
+              <FadersHorizontal className="w-6 h-6" weight="bold" />
+          </div>
+          <span className="text-xs font-bold">聊天装扮</span>
+        </button>,
         <button key="chrome-css"
           onClick={() => onPanelAction('chrome-css')}
           className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
@@ -606,14 +617,28 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#b77dee]' : isDiscordStyle ? 'bg-slate-800 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-500 border-pink-100'}`}>
               <PencilSimple className="w-6 h-6" weight="bold" />
           </div>
-          <span className="text-xs font-bold">聊天装扮</span>
+          <span className="text-xs font-bold">白框</span>
         </button>,
-        <button key="image" onClick={() => chatImageInputRef.current?.click()} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            {acnh ? <AcnhActionTile kind="image" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-400 border-pink-100'}`}>
-                <Image className="w-6 h-6" weight="bold" />
-            </div>)}
-            <span className="text-xs font-bold">相册</span>
+        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
+                <Briefcase className="w-6 h-6" weight="fill" />
+            </div>
+            <span className="text-xs font-bold">协同工作</span>
+        </button>,
+        <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-violet-300 border-violet-400/20' : 'bg-violet-50 text-violet-500 border-violet-100'}`}>
+                <Sparkle className="w-6 h-6" weight="fill" />
+            </div>
+            <span className="text-xs font-bold">见面</span>
+        </button>,
+        <button key="chrome-sound"
+          onClick={() => onPanelAction('chrome-sound')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#e0994a]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-500 border-amber-100'}`}>
+              <BellSimpleRinging className="w-6 h-6" weight="bold" />
+          </div>
+          <span className="text-xs font-bold">提示音</span>
         </button>,
         <button key="memory-link"
           onClick={() => onPanelAction('memory-link')}

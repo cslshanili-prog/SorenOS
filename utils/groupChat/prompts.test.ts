@@ -3,6 +3,7 @@ import {
     buildDirectorInstruction,
     buildGroupHistoryBlock,
     buildRoundRobinInstruction,
+    DEFAULT_MAX_ROUND_MESSAGES,
     GROUP_HISTORY_GAP_THRESHOLD_MS,
 } from './prompts';
 import type { Message, CharacterProfile } from '../../types';
@@ -90,5 +91,71 @@ describe('群聊中的 U 与关系连续性', () => {
         expect(prompt).toContain('U 还是 U');
         expect(prompt).toContain('不能因进入群聊就重置关系');
         expect(prompt).toContain('按你自己和 U 的关系反应');
+    });
+});
+
+describe('导演模式一轮最多几条：maxRoundMessages 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传时用默认值（DEFAULT_MAX_ROUND_MESSAGES）', () => {
+        const prompt = buildDirectorInstruction(history, '无');
+        expect(prompt).toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 条`);
+    });
+
+    it('传了 maxRoundMessages 时用群里配置的那个数，不用默认值', () => {
+        const prompt = buildDirectorInstruction(history, '无', { maxRoundMessages: 8 });
+        expect(prompt).toContain('1 到 8 条');
+        expect(prompt).not.toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 条`);
+    });
+
+    it('下限固定是 1，不受 maxRoundMessages 影响', () => {
+        const prompt = buildDirectorInstruction(history, '无', { maxRoundMessages: 2 });
+        expect(prompt).toContain('1 到 2 条');
+    });
+});
+
+describe('角色可以退群：allowMemberLeave 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传时不教 [[ACTION:LEAVE_GROUP]] 语法（默认关闭）', () => {
+        expect(buildDirectorInstruction(history, '无')).not.toContain('LEAVE_GROUP');
+        expect(buildRoundRobinInstruction('小夏', history, '无')).not.toContain('LEAVE_GROUP');
+    });
+
+    it('allowMemberLeave: true 时导演/轮询模式都教退群语法', () => {
+        const directorPrompt = buildDirectorInstruction(history, '无', { allowMemberLeave: true });
+        expect(directorPrompt).toContain('[[ACTION:LEAVE_GROUP]]');
+        expect(directorPrompt).toContain('极其罕见');
+
+        const roundRobinPrompt = buildRoundRobinInstruction('小夏', history, '无', { allowMemberLeave: true });
+        expect(roundRobinPrompt).toContain('[[ACTION:LEAVE_GROUP]]');
+    });
+
+    it('allowMemberLeave: false 等价于不传', () => {
+        expect(buildDirectorInstruction(history, '无', { allowMemberLeave: false })).not.toContain('LEAVE_GROUP');
+    });
+});
+
+describe('隐身围观模式：userLurking 选项', () => {
+    const history = { text: '小夏: 今天天气不错', attachedImages: [], attachedImagesNote: '' };
+
+    it('不传 userLurking 时不注入围观说明（默认行为不变）', () => {
+        expect(buildDirectorInstruction(history, '无')).not.toContain('隐身围观模式');
+        expect(buildRoundRobinInstruction('小夏', history, '无')).not.toContain('隐身围观模式');
+    });
+
+    it('userLurking: true 时导演/轮询模式都注入"用户不在场"说明，且禁用 PRIVATE', () => {
+        const directorPrompt = buildDirectorInstruction(history, '无', { userLurking: true });
+        expect(directorPrompt).toContain('隐身围观模式');
+        expect(directorPrompt).toContain('用户没有出现在上面的聊天记录里');
+        expect(directorPrompt).toContain('本轮禁止使用 PRIVATE 私聊语法');
+
+        const roundRobinPrompt = buildRoundRobinInstruction('小夏', history, '无', { userLurking: true });
+        expect(roundRobinPrompt).toContain('隐身围观模式');
+        expect(roundRobinPrompt).toContain('本轮禁止使用 PRIVATE 私聊语法');
+    });
+
+    it('userLurking: false 等价于不传', () => {
+        expect(buildDirectorInstruction(history, '无', { userLurking: false })).not.toContain('隐身围观模式');
     });
 });

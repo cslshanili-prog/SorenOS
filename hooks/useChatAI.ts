@@ -8,6 +8,7 @@ import { KeepAlive } from '../utils/keepAlive';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { ContextBuilder } from '../utils/context';
 import { ChatParser } from '../utils/chatParser';
+import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
 // 思考链 / HTML / MCD / memoryPalace 注入已下沉到 chatRequestPayload；这里不再直接调用
 import { useMusic, loadMusicHooks } from '../context/MusicContext';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
@@ -15,6 +16,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // evolveFlowNarrative 保留为低频深刷新备用，日常意识流由副 API 的情绪评估同轮产出（innerState 字段）
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
 // UI 钩子工具 propose_cart_items。MCP 实际调用都在 McdMiniApp 组件内做, useChatAI
@@ -612,7 +614,8 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean },
     ) => {
         if (isTyping || !char) return;
-        const effectiveApi = overrideApiConfig || apiConfig;
+        // 显式传入的 override > 角色专属 API（聊天设置里的「对话模型」）> 全局 apiConfig。
+        const effectiveApi = overrideApiConfig || resolveCharacterChatApi(char, apiConfig);
         if (!effectiveApi.baseUrl) { alert("请先在设置中配置 API URL"); return; }
 
         // 重 roll（回溯重生）时不带入上一轮的情绪余波：清掉 buff 注入（buffInjection/activeBuffs）和
@@ -863,6 +866,7 @@ export const useChatAI = ({
                 htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                 thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                 visionApiConfig: apiConfig.visionApi,
+                imageGenConfig: apiConfig.imageGenConfig,
                 mcdMiniSnap: mcdMiniOpen ? mcdMiniSnap : undefined,
                 luckinMiniSnap: luckinMiniOpen ? luckinMiniSnap : undefined,
                 luckinChat: luckinChatOn ? luckinChatRef?.current : undefined,
@@ -1895,12 +1899,82 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
+            // onCharTransferSend 同一轮回复里可能被连续调用好几次（角色一口气发了不止一笔
+            // 转账）；char.phoneState.realBalance 是这一轮拿到手时的快照，整轮期间不会跟着
+            // 前一笔转账的扣款更新。这个变量在每笔转账后手动往前滚，让同一轮内的后一笔
+            // 转账查到的是「已经扣过前一笔」的余额，不会拿同一份起始余额重复通过检查。
+            let charRealBalanceSnapshot: ReturnType<typeof ensureRealBalanceState> | undefined;
             await applyAssistantPostProcessing(sarReply.canonical, {
                 char,
                 userProfile,
                 emojis,
                 categories,
                 realtimeConfig,
+                imageGenConfig: apiConfig.imageGenConfig,
+                // 角色退回用户发起的转账时退款回 Real Balance——钱在 Chat.tsx 的 onTransfer
+                // 发送那一刻就已经扣走了。只在这条前台路径传，主动消息 2.0 的 push 路径上
+                // TRANSFER_RETURN 标签本来就传不到 chatParser（worker 侧已知缺口），传了也白传。
+                onUserTransferReturned: async (amount: number) => {
+                    updateUserProfile(prev => {
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `${char.name} 退回了转账`);
+                        return result.ok ? { realBalance: result.state } : {};
+                    });
+                },
+                // 角色收下用户发起的转账：这笔钱这时才真的到账角色，记入角色自己的 Real Balance
+                // （跟用户侧 apps/Chat.tsx 的 handleResolveTransfer 'accepted' 分支对称）。
+                onUserTransferAccepted: async (amount: number) => {
+                    updateCharacter(char.id, previous => {
+                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `收到${userProfile.name}的转账`);
+                        if (!result.ok) return {};
+                        return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
+                    });
+                },
+                // 角色主动发起转账：发送即结清，先从角色 Real Balance 扣款；扣不出来返回 false，
+                // chatParser 会拦下这笔转账不落卡（跟用户侧发起转账时的余额检查对称）。
+                //
+                // 检查结果必须同步算出来再 return——不能像 onUserTransferAccepted 那样把 ok
+                // 塞进 updateCharacter 的函数式 updater 里再读出来：updater 传给 setState 后
+                // 何时真的执行是 React 调度决定的，不保证在 updateCharacter() 这行返回前跑完
+                // （尤其是从 await 链后半段调用时）。踩过的坑：updater 没来得及跑，ok 停在
+                // 初始值 false，导致明明有余额也被判定「不足」而拦下整笔转账。
+                // 所以直接拿这一轮拿到手的 char（本次渲染的快照，够新）同步算好 ok/result，
+                // updateCharacter 只管照着算好的结果落库，不再依赖 updater 的执行时机。
+                onCharTransferSend: async (amount: number) => {
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `转账给${userProfile.name}`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
+                },
+                // 角色支付购物中心「外卖代付请求」：单向支出（角色替用户付了这顿钱），不是转账，
+                // 所以只扣角色自己的 Real Balance，没有对应的用户入账。跟 onCharTransferSend 共用
+                // 同一份 charRealBalanceSnapshot——一轮回复里角色可能既转账又付了笔代付，两边
+                // 得算在同一份"从这轮开始算起"的余额上，不能各自拿同一份起始快照重复通过检查。
+                onCharDaifuAccept: async (amount: number) => {
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `代付给${userProfile.name}的外卖`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
+                },
+                // 角色主动送用户一份购物中心礼物/外卖：跟 onCharTransferSend 对称的「发送即结清」，
+                // 也共用同一份 charRealBalanceSnapshot（同一轮回复里角色可能转账/代付/送礼齐上）。
+                onCharGiftSend: async (amount: number) => {
+                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
+                    const result = applyRealBalanceDelta(before, -amount, `送给${userProfile.name}的礼物`);
+                    if (!result.ok) return false;
+                    charRealBalanceSnapshot = result.state;
+                    updateCharacter(char.id, previous => ({
+                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
+                    }));
+                    return true;
+                },
                 groups,
                 contextMsgs,
                 fullMessages,

@@ -93,6 +93,7 @@ export function upsertContact(
             avatar: incoming.avatar,
             kind: incoming.kind || 'npc',
             linkedCharId: incoming.linkedCharId,
+            linkedNpcId: incoming.linkedNpcId,
             affinity: clampAffinity(incoming.affinity ?? 0),
             status: incoming.status || 'friend',
             lastInteraction: incoming.lastInteraction,

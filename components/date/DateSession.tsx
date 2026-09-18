@@ -1180,7 +1180,10 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             >{cleanTextForDisplay(shown)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
                                             {char.dateReadingShowAvatars && (
                                                 <ReadingAvatar
-                                                    src={userProfile.perCharAvatars?.[char.id] || userProfile.avatar}
+                                                    // userProfile 传进来时已经按角色分身份卡解析过（resolveUserProfileForChar），
+                                                    // .avatar 已经是该叠的都叠好的最终结果——这里不能再叠一次 perCharAvatars，
+                                                    // 否则指定了具体身份卡时会被原始整体头像覆盖回去。
+                                                    src={userProfile.avatar}
                                                     name={userProfile.name}
                                                     light={!!char.dateLightReading}
                                                 />

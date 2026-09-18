@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
+import type { CharacterProfile, Message, NPCProfile, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
 import {
     appendStoryAffinityInput,
@@ -16,6 +16,7 @@ import {
     buildStoryPrefillInstruction,
     buildStoryMultiAffinityGuide,
     buildStoryWorldbookScanMessages,
+    buildTheaterNpcContext,
     buildTheaterWorldbookSlots,
     compileStoryPreset,
     prepareStoryGenerationSettings,
@@ -389,6 +390,14 @@ describe('剧情沙盒辅助逻辑', () => {
         expect(REAL_COMPANION_MEMORY_GUARD).toContain('不得添油加醋');
     });
 
+    it('新剧情草稿自带空的客串 NPC 列表；老数据（没有 npcIds 字段）归一化后也补成空数组', () => {
+        expect(createStoryTheaterDraft(1).npcIds).toEqual([]);
+        const legacyEntry = { ...createStoryTheaterDraft(1) } as any;
+        delete legacyEntry.npcIds;
+        expect(normalizeStoryTheater(legacyEntry).npcIds).toEqual([]);
+        expect(normalizeStoryTheater({ ...createStoryTheaterDraft(1), npcIds: ['n1', '', 'n2'] as any }).npcIds).toEqual(['n1', 'n2']);
+    });
+
     it('按世界书 id 去重且不修改角色挂载', () => {
         const first = { id: 'a', title: 'A', content: '一', category: '共同' };
         const duplicate = { id: 'a', title: 'A copy', content: '二', category: '共同' };
@@ -701,5 +710,42 @@ describe('本轮关系备注', () => {
         expect(reconciled).toContain('<c_to_u_score>71</c_to_u_score>');
         expect(reconciled).toContain('<u_to_c_score>80</u_to_c_score>');
         expect(reconciled).toContain('<u_to_c_delta>+0</u_to_c_delta>');
+    });
+});
+
+describe('剧情客串 NPC', () => {
+    const npc = (overrides: Partial<NPCProfile> = {}): NPCProfile => ({
+        id: 'npc-1', name: '阿宅', avatar: '', description: '楼下便利店店员，嘴硬心软。',
+        relationships: [], worldview: '', createdAt: 0, updatedAt: 0, ...overrides,
+    });
+
+    it('客串标题跟正式演员的 `### 剧情角色：` 区分开，且带上设定/世界观', () => {
+        const context = buildTheaterNpcContext(npc({ worldview: '本剧发生在同一个小镇上。' }), '林夕', []);
+        expect(context).toContain('### 剧情客串角色：阿宅');
+        expect(context).not.toContain('### 剧情角色：阿宅');
+        expect(context).toContain('楼下便利店店员，嘴硬心软。');
+        expect(context).toContain('本剧发生在同一个小镇上。');
+        expect(context).toContain('没有独立记忆输入输出、不追踪好感度');
+    });
+
+    it('只带上对用户和「本场在场角色」的关系，滤掉不在场的关系对象', () => {
+        const withRelationships = npc({
+            relationships: [
+                { id: 'r1', targetId: 'user', description: '常客，认识好几年了' },
+                { id: 'r2', targetId: 'c-onstage', description: '同班同学' },
+                { id: 'r3', targetId: 'c-offstage', description: '不喜欢这个人' },
+            ],
+        });
+        const context = buildTheaterNpcContext(withRelationships, '林夕', [{ id: 'c-onstage', name: '小满' }]);
+        expect(context).toContain('对「林夕」：常客，认识好几年了');
+        expect(context).toContain('对「小满」：同班同学');
+        expect(context).not.toContain('不喜欢这个人');
+    });
+
+    it('没有设定/世界观/关系时仍能生成一个干净的最小上下文', () => {
+        const context = buildTheaterNpcContext(npc({ description: '', worldview: '' }), '林夕', []);
+        expect(context).toContain('### 剧情客串角色：阿宅');
+        expect(context).toContain('- 名字：阿宅');
+        expect(context).not.toContain('undefined');
     });
 });

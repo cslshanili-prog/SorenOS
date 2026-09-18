@@ -13,7 +13,7 @@ import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages 
  * 等价。新增 caller（runProactive）只是补齐了过去缺的字段。
  */
 
-import type { CharacterProfile, UserProfile, GroupProfile, Emoji, EmojiCategory, Message, RealtimeConfig, TranslationConfig, VisionApiConfig } from '../types';
+import type { CharacterProfile, UserProfile, GroupProfile, Emoji, EmojiCategory, Message, RealtimeConfig, TranslationConfig, VisionApiConfig, ImageGenApiConfig } from '../types';
 import { ChatPrompts, detectChatModeTransition } from './chatPrompts';
 import { ContextBuilder } from './context';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
@@ -97,6 +97,8 @@ export interface BuildChatPayloadInput {
     thinkingChain?: { enabled: boolean; customPrompt?: string };
     /** 可选识图 API：开启后先把图片持久化转写为 [图片：描述]，主模型只接收文字。 */
     visionApiConfig?: VisionApiConfig;
+    /** 生图 API 配置；开着角色自主发图时才会教 [[ACTION:SEND_PHOTO|...]]，见 chatPrompts.ts PromptBuildOptions。 */
+    imageGenConfig?: ImageGenApiConfig;
     mcdMiniSnap?: McdMiniAppSnapshot;
     luckinMiniSnap?: LuckinMiniAppSnapshot;
     /** 瑞幸聊天点单模式 (点"瑞一杯"激活, 角色直接调真实工具) */
@@ -334,9 +336,10 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         !!isListeningTogether,
         musicCfg,
         recentTrackSwitch,
-        (input.timelyByWorker || returningFromMode) ? {
+        (input.timelyByWorker || returningFromMode || input.imageGenConfig) ? {
             timelyByWorker: input.timelyByWorker === true,
             returningFromMode: returningFromMode || undefined,
+            imageGenConfig: input.imageGenConfig,
         } : undefined,
     );
     let systemPrompt = parts.stable;

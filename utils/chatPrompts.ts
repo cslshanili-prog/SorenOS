@@ -2,13 +2,14 @@ import { sarPublicContext } from './vrWorld/kanataPublicContext';
 import { kanataTitleContext } from './vrWorld/kanataTitle';
 import { selectCharacterContextMessages } from './chatContextRange';
 
-import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule } from '../types';
+import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule, ImageGenApiConfig } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
 import { formatTransferRecord } from './transferFormat';
+import { formatMallOrderRecord } from './mallOrderFormat';
 import { computeCurrentListening, getCurrentSlot } from './charMusicSchedule';
 import { getCharLyricSnippet } from './charLyricCache';
 import { MusicCfg, loadMusicCfgStandalone } from '../context/MusicContext';
@@ -164,6 +165,14 @@ export interface PromptBuildOptions {
      * scheduleMessageTagEnabled 处的说明。
      */
     timelyByWorker?: boolean;
+    /**
+     * 「系统设置 → 生图API」的配置。只有 charImageGenEnabled + charImageSendEnabled 都开、
+     * 且 baseUrl/model 配完整时，才会教角色 `[[ACTION:SEND_PHOTO|画面描述]]` 这个动作
+     * （见下方「可用动作」）；执行侧在 utils/chatParser.ts。调用方（chatRequestPayload）
+     * 只在本地/前台聊天路径传这个字段——主动消息 2.0 的 fire_pack 模板（activeMsgClient.ts）
+     * 故意不传，避免云端 worker 生成的正文里出现一个客户端接不住的标签。
+     */
+    imageGenConfig?: ImageGenApiConfig;
 }
 
 export const ChatPrompts = {
@@ -658,6 +667,11 @@ ${uname} 的化身正挂在《彼方》的【${roomName}】${act ? `，状态写
         // - 本地生成：worker 不参与 → 照教。
         const scheduleMessageTagEnabled = !forFirePack
             && !(timelyByWorker && isAmsg2EnabledForChar(char));
+        const imageGenCfg = promptOptions?.imageGenConfig;
+        const photoSendEnabled = !!(
+            imageGenCfg?.charImageGenEnabled && imageGenCfg?.charImageSendEnabled
+            && imageGenCfg?.baseUrl && imageGenCfg?.model
+        );
 
         baseSystemPrompt += `### 聊天 App 行为规范 (Chat App Rules)
 **TOP 1｜ChatApp 格式（本节最高优先级）**：你是发消息的真实存在，以自然短句、短气泡为主；一个气泡一行，气泡间直接另起一行（实际换行，不要输出“\\n”字样）。
@@ -696,9 +710,12 @@ ${uname} 的化身正挂在《彼方》的【${roomName}】${act ? `，状态写
    - 回戳用户: \`[[ACTION:POKE]]\`
    - 转账: 必须使用且只使用 \`[[ACTION:TRANSFER|to=user|amount=100]]\`（to 固定写 user，金额只写数字）；不要写成 \`[系统: 你向某人转账 100]\` 等系统日志文本。
    - **处理用户转账**: 当历史里出现 \`[[记录:TRANSFER|to=char|...|status=待处理]]\`（用户转给你、还没处理）时，你可以决定收下或退回。收下: \`[[ACTION:TRANSFER_ACCEPT]]\`；退回: \`[[ACTION:TRANSFER_RETURN]]\`。请结合人设和情境自然选择（比如害羞地退回、开心地收下），并配上一句话。
-   - **【重要】\`[[记录:...]]\` 是系统日志**: 历史里以 \`[[记录:\` 开头的标签是已经发生的事实（谁转给谁、什么状态），只供你了解，**严禁**在回复里照抄输出。你要做动作时只能用 \`[[ACTION:...]]\`。
+   - **主动送礼物/点外卖**: 如果你想给用户送一份小礼物或点个外卖（购物中心那套系统），单独起一行输出: \`[[ACTION:GIFT|item=礼物或菜品名|price=数字|note=可选备注]]\`（item/price 必填，price 只写数字；note 选填）。这笔钱从你自己的 Real Balance 里出，量力而为、别乱花，符合你的性格和当下情境就好；如果你手头紧（余额不够），系统会静默拦下这份礼物，别在正文里硬凑一句"钱包空了"之类的圆场话——正常往下接话就行。
+   - **处理外卖代付请求**: 当历史里出现 \`[[记录:MALL|...|mode=daifu|...|status=待处理]]\`（用户在购物中心发起的外卖代付请求，想让你帮TA付这顿钱）时，你可以决定支付或拒绝。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒绝: \`[[ACTION:DAIFU_DECLINE|reason=简短原因]]\`（reason 选填，比如"说好的减肥呢"）。请结合人设、当下关系和这笔钱是否值当自然选择，并配上一句话。购物中心的其它卡片（用户送的礼物/点的外卖/对方主动买的）都是已经发生的既成事实，纯粹让你知道，不用你处理。
+   - **【重要】\`[[记录:...]]\` 是系统日志**: 历史里以 \`[[记录:\` 开头的标签是已经发生的事实（谁转给谁、什么状态；购物中心卡片什么状态），只供你了解，**严禁**在回复里照抄输出。你要做动作时只能用 \`[[ACTION:...]]\`。
    - 调取记忆: \`[[RECALL: YYYY-MM]]\`，请注意，当用户提及具体某个月份时，或者当你想仔细想某个月份的事情时，欢迎你随时使该动作
    - **添加纪念日**: 如果你觉得今天是个值得纪念的日子（或者你们约定了某天），你可以**主动**将它添加到用户的日历中。单独起一行输出: \`[[ACTION:ADD_EVENT | 标题(Title) | YYYY-MM-DD]]\`。
+${photoSendEnabled ? `   - **发照片**: 如果你想在聊天里发一张照片/自拍/图片给对方，单独起一行输出: \`[[ACTION:SEND_PHOTO|画面描述]]\`。画面描述用简短的关键词描述你想发的画面（场景、你在做什么、表情、构图），系统会照这段描述直接生成图片发出去——描述本身不会展示给对方看，只管写清楚要生成什么画面就行。视场景自然地用，别一句话一张图地刷屏。` : ''}
 ${scheduleMessageTagEnabled ? `   - **定时发送消息**: 如果你想在未来某个时间主动发消息（比如晚安、早安或提醒），请单独起一行输出: \`[schedule_message | YYYY-MM-DD HH:MM:SS | fixed | 消息内容]\`，分行可以多输出很多该类消息。` : ''}
 ${notionEnabled ? `   - **翻阅日记(Notion)**: 你的记忆本身是完整可靠的，回忆过去优先靠记忆和 \`[[RECALL]]\`，**不需要**靠翻日记来"想起"事情。只有当你**自己**特别想重温那天日记里写下的心情、措辞或私密小细节时，才翻阅: \`[[READ_DIARY: 日期]]\`。支持格式: \`昨天\`、\`前天\`、\`3天前\`、\`1月15日\`、\`2024-01-15\`。` : ''}${feishuEnabled ? `
    - **翻阅日记(飞书)**: 同上——回忆优先靠记忆和 \`[[RECALL]]\`，只有你自己想重温那天日记的内容时才用: \`[[FS_READ_DIARY: 日期]]\`。支持格式同上。` : ''}${notionNotesEnabled ? `
@@ -1234,6 +1251,19 @@ ${userProfile.name} 给你反馈时，别当成约束，当成信任——ta 在
                         amount: tMeta.amount,
                         receipt: tMeta.receipt,
                         status: tMeta.status,
+                    })}`;
+                }
+                else if (m.type === 'mall_order') {
+                    // 购物中心卡片的记录形态，跟转账同一个路数（见 utils/mallOrderFormat.ts 头注）；
+                    // gift/manual 纯信息、不需要角色回应；daifu 处于 status=待处理 时角色要决定
+                    // 支付还是拒绝（教学见下方「可用动作」小节）。
+                    const mMeta = m.metadata || {};
+                    content = `${timeStr} ${formatMallOrderRecord({
+                        kind: mMeta.mallKind === 'food' ? 'food' : 'shop',
+                        mode: mMeta.mode === 'daifu' ? 'daifu' : mMeta.mode === 'manual' ? 'manual' : 'gift',
+                        items: Array.isArray(mMeta.items) ? mMeta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
+                        amount: Number(mMeta.total) || 0,
+                        status: mMeta.status === 'pending' || mMeta.status === 'accepted' || mMeta.status === 'declined' ? mMeta.status : 'sent',
                     })}`;
                 }
                 else if (m.type === 'social_card') {

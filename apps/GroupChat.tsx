@@ -5,8 +5,9 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { Message, GroupProfile, CharacterProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
+import { AppID, Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
+import { generateNpcGroupGuestLine } from '../utils/npcGroupGuestLine';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -21,15 +22,17 @@ import { parseDirectorActions, stripSkipMarker, parseGroupTopicBox } from '../ut
 import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effectivePacketStatus, makePacketMeta } from '../utils/groupChat/redpacket';
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
+import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
-import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock } from '../utils/groupChat/prompts';
+import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 // 群聊输入区/表情面板已改用共享 ChatInputArea（其表情网格自带 useIncrementalReveal 增量渲染），
 // master 上给旧内联表情抽屉加的增量渲染随旧抽屉一并退役。
-import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question } from '@phosphor-icons/react';
+import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question, MaskHappy, Crown, SpeakerSlash } from '@phosphor-icons/react';
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
@@ -145,7 +148,7 @@ const GroupMessageItem = React.memo(({
 }: {
     msg: Message,
     isUser: boolean,
-    char?: CharacterProfile,
+    char?: CharacterProfile | NPCProfile,
     userAvatar: string,
     onImageClick: (url: string) => void,
     selectionMode: boolean,
@@ -480,9 +483,18 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, groups, createGroup, updateGroup, deleteGroup, characters, apiConfig, addToast, userProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
+    // 从 Chat 主页深链进某个群时记一下"返回键该回哪"；本群列表内部正常点进/退出都不涉及它，
+    // 只有通过 pendingGroupChatId 深链进来的那次会话才设置，用一次就清空。
+    const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
+    // 群聊身份指定：这个群里「你」该是哪张身份卡，按 activeGroup.id 单独解析——不看全域默认，
+    // 除非这个群没有单独指定。群聊没有 perCharAvatars 那层（群聊头像一直用整体默认）。
+    const groupUserProfile = useMemo(
+        () => (activeGroup ? resolveUserProfileForGroup(userProfileBase, activeGroup.id) : userProfile),
+        [activeGroup, userProfileBase, userProfile],
+    );
     const [messages, setMessages] = useState<Message[]>([]);
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const MESSAGE_PAGE_SIZE = 50;
@@ -512,9 +524,9 @@ const GroupChat: React.FC = () => {
     const markGroupMembersDirty = useCallback((memberIds: string[]) => {
         for (const memberId of memberIds) {
             const member = charactersRef.current.find(c => c.id === memberId);
-            if (member) markAmsgStateDirty({ char: member, userProfile, groups, realtimeConfig });
+            if (member) markAmsgStateDirty({ char: member, userProfile: groupUserProfile, groups, realtimeConfig });
         }
-    }, [userProfile, groups, realtimeConfig]);
+    }, [groupUserProfile, groups, realtimeConfig]);
 
     // Token 统计 — 对齐私聊 ChatHeader 的 token badge
     const [lastTokenUsage, setLastTokenUsage] = useState<number | null>(null);
@@ -559,8 +571,10 @@ const GroupChat: React.FC = () => {
     
     // Create/Edit Group State
     const [tempGroupName, setTempGroupName] = useState('');
+    const [tempAnnouncement, setTempAnnouncement] = useState('');
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
+    const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(DEFAULT_MAX_ROUND_MESSAGES);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
     const [tempMemberBubbleIndependent, setTempMemberBubbleIndependent] = useState(false);
     const [tempUserBubbleThemeId, setTempUserBubbleThemeId] = useState<string>('');
@@ -573,7 +587,14 @@ const GroupChat: React.FC = () => {
     const [packetTargetId, setPacketTargetId] = useState<string>('');
     const [packetNote, setPacketNote] = useState('');
     const [selectedPacketId, setSelectedPacketId] = useState<number | null>(null);
-    
+    // NPC 客串：不是正式群成员，手动触发插一句话（不进轮询/记忆宫殿）
+    const [showNpcGuestModal, setShowNpcGuestModal] = useState(false);
+    const [npcGuestId, setNpcGuestId] = useState('');
+    const [npcGuestHint, setNpcGuestHint] = useState('');
+    const [npcGuestGenerating, setNpcGuestGenerating] = useState(false);
+    // 群设置里的成员管理：展开/收起"添加成员"候选列表
+    const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
+
     // Refs
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -684,6 +705,33 @@ const GroupChat: React.FC = () => {
         setMessages(msgs);
         setTotalMsgCount(totalCount);
         return msgs;
+    };
+
+    // Chat 主页「消息」tab 点某个群聊行时的深链：外部没法直接驱动这里的 view/activeGroup（都是本组件
+    // 内部 state），靠 context 那个一次性字段告诉这里"打开就直接进这个群"，消费掉即清空。
+    useEffect(() => {
+        if (!pendingGroupChatId) return;
+        const target = groups.find(g => g.id === pendingGroupChatId);
+        if (target) {
+            setActiveGroup(target);
+            setView('chat');
+            setGroupChatBackTarget(chatReturnTarget.consume());
+            void refreshMessages(target.id);
+        }
+        consumePendingGroupChat();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingGroupChatId, groups]);
+
+    // 群聊天视图的返回键：正常从本组件的群列表点进来时回群列表（原行为不变）；
+    // 从 Chat 主页深链进来的这次会话直接回 Chat 主页，不必先绕一趟群列表。
+    const handleGroupChatClose = () => {
+        if (groupChatBackTarget) {
+            const t = groupChatBackTarget;
+            setGroupChatBackTarget(null);
+            openApp(t);
+        } else {
+            setView('list');
+        }
     };
 
     // --- Logic: Selection & Deletion ---
@@ -803,8 +851,11 @@ const GroupChat: React.FC = () => {
         if (!activeGroup) return;
         const updates = {
             name: tempGroupName || activeGroup.name,
+            // 空串存 undefined，跟横幅/prompt 注入的"有没有公告"判断口径一致（trim 后为空就当没设）
+            announcement: tempAnnouncement.trim() || undefined,
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
+            maxRoundMessages: tempMaxRoundMessages,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
             // 空串 = 默认紫，存 undefined 保持向后兼容语义
@@ -817,6 +868,62 @@ const GroupChat: React.FC = () => {
         setActiveGroup({ ...activeGroup, ...updates });
         setModalType('none');
         addToast('群信息已更新', 'success');
+    };
+
+    // 成员管理：加人/移除即时生效（不走"保存修改"），跟下面话题盒整理方式的即时保存一致。
+    // 历史消息不删——移除只影响之后的生成范围，不影响 ta 说过的话。
+    const handleAddGroupMember = async (charId: string) => {
+        if (!activeGroup || activeGroup.members.includes(charId)) return;
+        const nextMembers = [...activeGroup.members, charId];
+        await updateGroup(activeGroup.id, { members: nextMembers });
+        setActiveGroup({ ...activeGroup, members: nextMembers });
+        trackEvent('群聊添加成员');
+    };
+
+    const handleRemoveGroupMember = async (charId: string) => {
+        if (!activeGroup) return;
+        if (activeGroup.members.length <= 2) { addToast('群里至少要留 2 位成员', 'error'); return; }
+        const nextMembers = activeGroup.members.filter(id => id !== charId);
+        // 人都不在群里了，群主头衔、禁言状态跟着一起清掉，不留悬空引用
+        const updates: Partial<GroupProfile> = { members: nextMembers };
+        if (activeGroup.ownerId === charId) updates.ownerId = undefined;
+        if (activeGroup.mutedMemberIds?.includes(charId)) updates.mutedMemberIds = activeGroup.mutedMemberIds.filter(id => id !== charId);
+        await updateGroup(activeGroup.id, updates);
+        setActiveGroup({ ...activeGroup, ...updates });
+        trackEvent('群聊移除成员');
+    };
+
+    // 群主：纯标记/人设头衔，不带任何权限，即时生效——跟成员增减、隐身围观模式同一种即时保存风格。
+    // 值可以是某位成员，也可以是 'user'（自己当群主）；再点一次同一个人 = 取消群主。
+    const handleSetGroupOwner = async (ownerId: string | undefined) => {
+        if (!activeGroup) return;
+        await updateGroup(activeGroup.id, { ownerId });
+        setActiveGroup({ ...activeGroup, ownerId });
+        trackEvent('设置群聊群主', { choice: !ownerId ? 'none' : ownerId === 'user' ? 'user' : 'char' });
+    };
+
+    // 禁言：即时生效。被禁言的角色仍在 members 名单里，只是不参与生成（导演/轮询模式的
+    // 过滤逻辑见 triggerDirector/triggerRoundRobin），历史消息、私聊都不受影响，随时可解除。
+    const handleToggleMemberMute = async (charId: string) => {
+        if (!activeGroup) return;
+        const muted = new Set(activeGroup.mutedMemberIds || []);
+        const willMute = !muted.has(charId);
+        if (willMute) muted.add(charId); else muted.delete(charId);
+        const nextMuted = Array.from(muted);
+        await updateGroup(activeGroup.id, { mutedMemberIds: nextMuted });
+        setActiveGroup({ ...activeGroup, mutedMemberIds: nextMuted });
+        trackEvent('切换群聊角色禁言', { enabled: willMute });
+    };
+
+    // 切换这个群单独用哪张身份卡：即时生效（不走"保存修改"），跟成员增减、隐身围观模式
+    // 一样——这是 userProfile.perGroupPersonaIds 的写入点，不是群自己的数据，所以走
+    // updateUserProfile 而不是 updateGroup。
+    const handleSetGroupPersona = (personaId: string | undefined) => {
+        if (!activeGroup) return;
+        const next = { ...(userProfileBase.perGroupPersonaIds || {}) };
+        if (personaId) next[activeGroup.id] = personaId; else delete next[activeGroup.id];
+        updateUserProfile({ perGroupPersonaIds: next });
+        trackEvent('群聊身份指定', { choice: !personaId ? 'default' : personaId === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' });
     };
 
     const handleGroupAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -863,7 +970,7 @@ const GroupChat: React.FC = () => {
             }));
         }
         await deleteGroup(id);
-        if (activeGroup?.id === id) setView('list');
+        if (activeGroup?.id === id) { setView('list'); setGroupChatBackTarget(null); }
         addToast('群聊已解散', 'success');
     };
 
@@ -975,9 +1082,40 @@ const GroupChat: React.FC = () => {
     // --- Logic: 红包 2.0 ---
 
     const nameOf = useCallback(
-        (id: string) => (id === 'user' ? userProfile.name : (characters.find(c => c.id === id)?.name || '成员')),
-        [characters, userProfile.name],
+        (id: string) => (id === 'user' ? groupUserProfile.name : (characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '成员')),
+        [characters, npcs, groupUserProfile.name],
     );
+
+    // NPC 客串：不是正式群成员，手动触发才插一句话，不进轮询/记忆宫殿/成员时间线。
+    const handleNpcGuestLine = async () => {
+        if (!activeGroup) return;
+        const npc = npcs.find(n => n.id === npcGuestId);
+        if (!npc) { addToast('请选择一个 NPC', 'error'); return; }
+        const guestApi = npc.chatApi?.baseUrl ? npc.chatApi : apiConfig;
+        if (!guestApi.apiKey) { addToast('请先配置 API', 'error'); return; }
+        setNpcGuestGenerating(true);
+        try {
+            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
+            const recentTranscript = messages.slice(-12)
+                .map(m => `${nameOf(m.charId)}: ${messageLogText(m, url => stickerNameFromUrl(emojis, url))}`)
+                .join('\n');
+            const line = await generateNpcGroupGuestLine({
+                npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
+                recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
+            });
+            if (!line.trim()) { addToast('NPC 没接上话', 'error'); return; }
+            await DB.saveMessage({ charId: npc.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
+            await refreshMessages(activeGroup.id);
+            setShowNpcGuestModal(false);
+            setNpcGuestId(''); setNpcGuestHint('');
+            trackEvent('群聊 NPC 客串一句');
+        } catch (e) {
+            console.error(e);
+            addToast('生成失败，请重试', 'error');
+        } finally {
+            setNpcGuestGenerating(false);
+        }
+    };
 
     const handleSendPacket = () => {
         if (!activeGroup) return;
@@ -1038,12 +1176,12 @@ const GroupChat: React.FC = () => {
             };
             addToast(reasonText[outcome.reason] || '操作失败', 'info');
         } else {
-            const senderName = msg.role === 'user' ? userProfile.name : nameOf(msg.charId);
+            const senderName = msg.role === 'user' ? groupUserProfile.name : nameOf(msg.charId);
             const receipt: PacketReceiptMeta = {
                 packetReceipt: outcome.action,
                 ref: msg.id,
                 amount: outcome.action === 'claimed' ? outcome.amount : undefined,
-                claimantName: userProfile.name,
+                claimantName: groupUserProfile.name,
                 senderName,
             };
             await DB.saveMessage({
@@ -1118,11 +1256,14 @@ const GroupChat: React.FC = () => {
     const openGroupSettings = () => {
         setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
+        setTempAnnouncement(activeGroup?.announcement || '');
         setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
+        setTempMaxRoundMessages(activeGroup?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
         setTempUserBubbleThemeId(activeGroup?.userBubbleThemeId ?? '');
+        setShowAddMemberPicker(false);
         if (activeGroup) void loadTopicBoxStats(activeGroup);
         setModalType('settings');
         setShowPanel('none');
@@ -1165,11 +1306,28 @@ const GroupChat: React.FC = () => {
         const weekNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
         const currentTimeStr = `${nowDate.getFullYear()}年${nowDate.getMonth() + 1}月${nowDate.getDate()}日 ${weekNames[nowDate.getDay()]} ${virtualTime.hours.toString().padStart(2, '0')}:${virtualTime.minutes.toString().padStart(2, '0')}`;
         const liveMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
-        const sharedScene = ContextBuilder.buildGroupSharedScene(groupMembers, userProfile, liveMsgs);
+        const sharedScene = ContextBuilder.buildGroupSharedScene(groupMembers, groupUserProfile, liveMsgs);
 
+        const announcementLine = activeGroup?.announcement?.trim()
+            ? `群公告: "${activeGroup.announcement.trim()}"\n`
+            : '';
+        // 群主：纯头衔标记，不带权限，只是让角色扮演时能自然体现一点被尊重/依赖的氛围
+        const ownerName = activeGroup?.ownerId
+            ? (activeGroup.ownerId === 'user' ? groupUserProfile.name : characters.find(c => c.id === activeGroup.ownerId)?.name)
+            : undefined;
+        const ownerLine = ownerName
+            ? `群主: ${ownerName}（纯头衔，不代表有特殊权限，不用刻意强调，自然带一点点被尊重/依赖的氛围即可）\n`
+            : '';
+        // 禁言：这些成员这一轮不参与生成，但其他人可以照常提到/调侃 ta
+        const mutedNames = (activeGroup?.mutedMemberIds || [])
+            .map(id => characters.find(c => c.id === id)?.name)
+            .filter((n): n is string => !!n);
+        const mutedLine = mutedNames.length > 0
+            ? `本轮被禁言、不会发言的成员: ${mutedNames.join('、')}（其他人可以照常提到/调侃 ta，只是 ta 这阵子不会自己说话）\n`
+            : '';
         const header = `【系统：群聊模拟器配置】
 当前群名: "${activeGroup?.name}"
-当前系统时间: ${currentTimeStr}
+${announcementLine}${ownerLine}${mutedLine}当前系统时间: ${currentTimeStr}
 时间流逝感知: ${timeGapInfo}
 
 ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
@@ -1187,9 +1345,9 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // 角色应召回与"群里正聊的话题"相关的记忆，而不是私聊近况（旧行为，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
-        await injectMemoryPalace(member, palaceQueryMsgs, undefined, userProfile.name);
+        await injectMemoryPalace(member, palaceQueryMsgs, undefined, groupUserProfile.name);
         // 角色块：跳过共享场景已包含的部分（用户档案 / 共有 worldview / 共有世界书）
-        const coreContext = ContextBuilder.buildCoreContext(member, userProfile, true, undefined, {
+        const coreContext = ContextBuilder.buildCoreContext(member, groupUserProfile, true, undefined, {
             skipUserProfile: true,
             skipWorldview: sharedScene.worldviewIsShared,
             skipWorldbookIds: sharedScene.sharedWorldbookIds,
@@ -1246,7 +1404,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     id: m.id,
                     content: c,
                     name: m.role === 'user'
-                        ? userProfile.name
+                        ? groupUserProfile.name
                         : (characters.find(ch => ch.id === m.charId)?.name || '成员'),
                 };
             }
@@ -1280,7 +1438,7 @@ ${memberTimeline || '(暂无互动记录)'}
             }
             setGroupPalaceStatus(`正在把 ${batchPlan.messages.length} 条旧群聊整理成公共话题盒…`);
             setSummaryProgress(`正在整理 ${batchPlan.messages.length} 条旧群聊…`);
-            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, userProfile.name);
+            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, groupUserProfile.name);
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -1372,7 +1530,40 @@ ${memberTimeline || '(暂无互动记录)'}
         addToast('话题盒和成员私聊卡片已删除', 'success');
     };
 
-    const triggerDirector = async (currentMsgs: Message[]) => {
+    // 隐身围观模式：把用户消息从喂给 AI 的历史里整个拿掉，让角色以为群里只有彼此——
+    // 不是"提示模型别理用户"（模型未必听话），是让用户的话在这份历史里根本不存在。
+    // 用户自己屏幕上的消息记录、以及 DB 里的原始存档完全不受影响，只影响这里取出来喂给 prompt 的这一份。
+    const filterLurkMsgs = (msgs: Message[]): Message[] =>
+        activeGroup?.userLurkMode ? msgs.filter(m => m.role !== 'user') : msgs;
+
+    // 角色主动退群（[[ACTION:LEAVE_GROUP]]）的执行回调工厂：只在群开了 allowMemberLeave 时
+    // 才在触发生成前创建一个实例并塞进 DispatchContext；未开启就传 undefined，dispatch.ts
+    // 那边只会剥掉裸标记，不会有任何副作用（真正的开关判断点在这里，不在 prompts.ts）。
+    // 用工厂闭包住 liveMembers 而不是每次都读 activeGroup.members，是因为轮询模式一轮内
+    // 会连续调用多次 dispatchMemberActions——同一个 handler 实例要在整轮里被复用，
+    // 才能让"本轮已经有人退了"正确累加，不被后一次调用的 updates.members 覆盖回去。
+    const makeMemberLeaveHandler = (group: GroupProfile) => {
+        let liveMembers = [...group.members];
+        let liveOwnerId = group.ownerId;
+        let liveMuted = [...(group.mutedMemberIds || [])];
+        return async (charId: string, charName: string) => {
+            // 群里至少留 2 位成员，跟手动移除成员的下限一致
+            if (liveMembers.length <= 2 || !liveMembers.includes(charId)) return;
+            liveMembers = liveMembers.filter(id => id !== charId);
+            // 人都走了，群主头衔、禁言状态跟着一起清掉，不留悬空引用——跟手动移除成员一致
+            const updates: Partial<GroupProfile> = { members: liveMembers };
+            if (liveOwnerId === charId) { liveOwnerId = undefined; updates.ownerId = undefined; }
+            if (liveMuted.includes(charId)) { liveMuted = liveMuted.filter(id => id !== charId); updates.mutedMemberIds = liveMuted; }
+            await updateGroup(group.id, updates);
+            setActiveGroup(prev => (prev && prev.id === group.id) ? { ...prev, ...updates } : prev);
+            // 历史消息不删，只落一条系统消息公告退群，跟手动移除成员的语义一致
+            await DB.saveMessage({ charId, groupId: group.id, role: 'system', type: 'system', content: `${charName} 退出了群聊` });
+            await refreshMessages(group.id);
+            trackEvent('群聊角色主动退群');
+        };
+    };
+
+    const triggerDirector = async (rawMsgs: Message[]) => {
         if (!activeGroup) return;
         if (!apiConfig.apiKey) {
             addToast('请先在设置里填好 API', 'error');
@@ -1383,8 +1574,9 @@ ${memberTimeline || '(暂无互动记录)'}
         abortRef.current = abort;
 
         try {
-            // 1. Prepare Group Context
-            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
+            const currentMsgs = filterLurkMsgs(rawMsgs);
+            // 1. Prepare Group Context（被禁言的成员不参与——不进上下文，也不占 memberIds 名额）
+            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
             const { header, sharedScene } = buildGroupSystemHeader(currentMsgs, groupMembers);
 
             let context = header;
@@ -1402,7 +1594,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 preparedHistory,
                 characters,
                 emojis,
-                userProfile.name,
+                groupUserProfile.name,
                 3,
                 { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
             );
@@ -1412,7 +1604,8 @@ ${memberTimeline || '(暂无互动记录)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 适配】[html]...[/html] 块要写在某个角色自己的 content 字符串内部；HTML 属性一律用单引号（如 <div style='...'>），避免双引号破坏外层 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr)}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
+            const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             const data = await completeGroupChatWithMcp({
                 url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1424,7 +1617,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     max_tokens: 8000
                 },
                 groupId: activeGroup.id,
-                userName: userProfile.name,
+                userName: groupUserProfile.name,
                 signal: abort.signal,
                 onStatus: setMcpStatus,
             });
@@ -1436,7 +1629,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     prompt: data.usage.prompt_tokens || 0,
                     completion: data.usage.completion_tokens || 0,
                     total: data.usage.total_tokens,
-                    msgCount: currentMsgs.length,
+                    msgCount: rawMsgs.length,
                     pass: 'director',
                 });
             }
@@ -1451,9 +1644,11 @@ ${memberTimeline || '(暂无互动记录)'}
             }
 
             // Execute Actions（PRIVATE 侧信道/表情/气泡分段/打字延迟在 utils/groupChat/dispatch.ts）
+            // memberIds 只给非禁言成员：万一 AI 还是替被禁言的角色编了台词，dispatch 会按"不在
+            // memberIds 里"的规则静默丢弃这条 action（复用退群同一套丢弃机制，不用额外校验）。
             await dispatchMemberActions(actions, {
                 groupId: activeGroup.id,
-                memberIds: activeGroup.members,
+                memberIds: groupMembers.map(c => c.id),
                 characters,
                 emojis,
                 categories,
@@ -1461,8 +1656,9 @@ ${memberTimeline || '(暂无互动记录)'}
                 addToast,
                 signal: abort.signal,
                 resolveQuote,
-                userName: userProfile.name,
+                userName: groupUserProfile.name,
                 htmlMode: !!activeGroup.htmlModeEnabled,
+                onMemberLeave: memberLeaveHandler,
             });
 
         } catch (e: any) {
@@ -1500,16 +1696,23 @@ ${memberTimeline || '(暂无互动记录)'}
         let tokenCompletion = 0;
 
         try {
-            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
+            // 被禁言的成员直接不进这份名单——轮询模式是逐个发起 API 调用，不在名单里就是
+            // 连调用都不发起，比"生成了再丢弃"更省 token。
+            const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
             let roundMsgs = [...currentMsgs];
+            // 同一实例复用一整轮——见 makeMemberLeaveHandler 上面的注释
+            const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             for (const member of groupMembers) {
                 if (abort.signal.aborted) break;
                 try {
-                    // 每位成员基于"此刻"的群历史构建上下文——包含本轮先发言成员的新消息
-                    const { header, sharedScene } = buildGroupSystemHeader(roundMsgs, groupMembers);
-                    const memberBlock = await buildMemberBlock(member, roundMsgs, sharedScene);
-                    const liveRoundMsgs = roundMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
+                    // 每位成员基于"此刻"的群历史构建上下文——包含本轮先发言成员的新消息。
+                    // 隐身围观模式只过滤喂给 prompt 的这份视图，不动 roundMsgs 本身
+                    // （后面的 vision 描述回写、DB 刷新都要基于完整消息列表）。
+                    const promptMsgs = filterLurkMsgs(roundMsgs);
+                    const { header, sharedScene } = buildGroupSystemHeader(promptMsgs, groupMembers);
+                    const memberBlock = await buildMemberBlock(member, promptMsgs, sharedScene);
+                    const liveRoundMsgs = promptMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
                     const historyWindow = liveRoundMsgs.slice(-contextLimit);
                     const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
                     const preparedById = new Map(preparedHistory.map(message => [message.id, message]));
@@ -1519,7 +1722,7 @@ ${memberTimeline || '(暂无互动记录)'}
                         preparedHistory,
                         characters,
                         emojis,
-                        userProfile.name,
+                        groupUserProfile.name,
                         3,
                         { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
                     );
@@ -1527,7 +1730,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr)}${htmlPromptExt}\n`;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
 
                     const data = await completeGroupChatWithMcp({
                         url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -1539,7 +1742,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             max_tokens: 2000
                         },
                         groupId: activeGroup.id,
-                        userName: userProfile.name,
+                        userName: groupUserProfile.name,
                         signal: abort.signal,
                         onStatus: status => setMcpStatus(status ? `${member.name}：${status}` : ''),
                     });
@@ -1568,7 +1771,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
                     await dispatchMemberActions([{ charId: member.id, content }], {
                         groupId: activeGroup.id,
-                        memberIds: activeGroup.members,
+                        memberIds: groupMembers.map(c => c.id),
                         characters,
                         emojis,
                         categories,
@@ -1576,8 +1779,9 @@ ${memberTimeline || '(暂无互动记录)'}
                         addToast,
                         signal: abort.signal,
                         resolveQuote,
-                        userName: userProfile.name,
+                        userName: groupUserProfile.name,
                         htmlMode: !!activeGroup.htmlModeEnabled,
+                        onMemberLeave: memberLeaveHandler,
                     });
 
                     // 刷新滚动历史给下一位成员
@@ -1661,7 +1865,7 @@ ${memberTimeline || '(暂无互动记录)'}
 
                 <div className="p-4 space-y-3 overflow-y-auto">
                     {groups.map(g => (
-                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-violet-50/30">
+                        <div key={g.id} onClick={() => { setActiveGroup(g); setView('chat'); setGroupChatBackTarget(null); }} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group hover:bg-violet-50/30">
                             {/* Group Avatar Logic */}
                             <div className="w-14 h-14 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 relative shadow-sm">
                                 {g.avatar ? (
@@ -1829,7 +2033,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 }}
                 triggerIcon={isTyping ? 'stop' : 'lightning'}
                 hideTrigger={inputPreferences.sendButtonGenerates && !isTyping}
-                onClose={() => setView('list')}
+                onClose={handleGroupChatClose}
                 onTriggerAI={() => triggerGroupAI(messages)}
                 onShowCharsPanel={openGroupSettings}
                 hideBuffs
@@ -1841,6 +2045,17 @@ ${memberTimeline || '(暂无互动记录)'}
                 chromeStyle={osTheme.chatChromeStyle}
                 acnh={acnh}
             />
+
+            {/* 群公告横幅：设了才显示，点一下直接进群设置改 */}
+            {activeGroup?.announcement?.trim() && (
+                <button
+                    onClick={openGroupSettings}
+                    className="shrink-0 mx-4 mt-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2 text-left active:scale-[0.99] transition-transform"
+                >
+                    <span className="shrink-0 mt-0.5">📢</span>
+                    <p className="flex-1 min-w-0 text-[11px] text-amber-800 leading-relaxed whitespace-pre-wrap line-clamp-3">{activeGroup.announcement}</p>
+                </button>
+            )}
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden pt-6 pb-6 no-scrollbar" ref={scrollRef} onClick={() => { if (inputPreferences.autoReply) setShowPanel('none'); }}>
@@ -1859,7 +2074,7 @@ ${memberTimeline || '(暂无互动记录)'}
                 )}
                 {displayMessages.map((m, i) => {
                     const isUser = m.role === 'user';
-                    const char = characters.find(c => c.id === m.charId);
+                    const char = characters.find(c => c.id === m.charId) || npcs.find(n => n.id === m.charId);
                     const prevMessage = i > 0 ? displayMessages[i - 1] : null;
                     const nextMessage = i < displayMessages.length - 1 ? displayMessages[i + 1] : null;
                     const messageGroupGapMs = 30 * 60 * 1000;
@@ -1878,7 +2093,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             msg={m}
                             isUser={isUser}
                             char={char}
-                            userAvatar={userProfile.avatar}
+                            userAvatar={groupUserProfile.avatar}
                             onImageClick={handleGroupImageClick}
                             selectionMode={selectionMode}
                             isSelected={selectedMsgIds.has(m.id)}
@@ -1979,6 +2194,13 @@ ${memberTimeline || '(暂无互动记录)'}
                             <span className="text-xs font-bold">群设置</span>
                         </button>
 
+                        <button onClick={() => { setShowNpcGuestModal(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
+                                <MaskHappy className="w-6 h-6" weight="bold" />
+                            </div>
+                            <span className="text-xs font-bold">NPC 客串</span>
+                        </button>
+
                         <button
                             onClick={() => { if (canReroll) { setShowPanel('none'); handleReroll(); } }}
                             disabled={!canReroll}
@@ -2044,6 +2266,165 @@ ${memberTimeline || '(暂无互动记录)'}
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群名称</label>
                         <input value={tempGroupName} onChange={e => setTempGroupName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all" />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群公告</label>
+                        <textarea
+                            value={tempAnnouncement}
+                            onChange={e => setTempAnnouncement(e.target.value)}
+                            placeholder="留空则不显示公告横幅；填写后角色也会知道公告内容"
+                            rows={3}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all resize-none placeholder:text-slate-300"
+                        />
+                    </div>
+
+                    {/* 切换用户身份：这个群单独用哪张身份卡，即时生效，不影响其他群或私聊 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">这个群里，你是</label>
+                        <div className="flex flex-wrap gap-2">
+                            {(() => {
+                                const overrideId = activeGroup ? userProfileBase.perGroupPersonaIds?.[activeGroup.id] : undefined;
+                                const chip = (key: string | undefined, avatar: string, name: string, sub: string) => {
+                                    const active = overrideId === key || (!overrideId && key === undefined);
+                                    return (
+                                        <button
+                                            key={key || 'default'}
+                                            onClick={() => handleSetGroupPersona(key)}
+                                            className={`shrink-0 flex items-center gap-2 rounded-2xl border px-2.5 py-2 text-left transition-all active:scale-[0.98] ${active ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-400' : 'border-slate-200 bg-white'}`}
+                                        >
+                                            {avatar ? <TokenImg value={avatar} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
+                                                : <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 text-xs">∅</span>}
+                                            <div className="min-w-0">
+                                                <div className="text-[11px] font-bold text-slate-700 truncate max-w-[6rem]">{name}</div>
+                                                <div className="text-[8px] text-slate-400 whitespace-nowrap">{sub}</div>
+                                            </div>
+                                        </button>
+                                    );
+                                };
+                                return [
+                                    chip(undefined, '', '跟随全域默认', '身份卡切换时一起变'),
+                                    chip(REAL_IDENTITY_PERSONA_ID, userProfileBase.avatar, userProfileBase.name || '真实身份', '固定真实身份'),
+                                    ...(userProfileBase.personas || []).map(p => chip(p.id, p.avatar, p.name, '固定这张卡')),
+                                ];
+                            })()}
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">只影响这个群；其他群和私聊不变。头像/名字是即时生效的当前状态，不会改写这个群里已经发出的消息内容。</p>
+                    </div>
+
+                    {/* 成员管理：新增/移除即时生效，历史消息不受影响 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">群成员 ({activeGroup?.members.length || 0})</label>
+                            <button onClick={() => setShowAddMemberPicker(v => !v)} className="text-[10px] text-violet-500 font-bold">
+                                {showAddMemberPicker ? '收起' : '+ 添加成员'}
+                            </button>
+                        </div>
+                        {/* 群主：我自己也能当，纯头衔标记，不带任何权限 */}
+                        <button
+                            onClick={() => handleSetGroupOwner(activeGroup?.ownerId === 'user' ? undefined : 'user')}
+                            className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 mb-1.5 border text-left transition-colors ${activeGroup?.ownerId === 'user' ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}`}
+                        >
+                            <Crown size={16} weight={activeGroup?.ownerId === 'user' ? 'fill' : 'regular'} className={activeGroup?.ownerId === 'user' ? 'text-amber-500' : 'text-slate-300'} />
+                            <span className="text-xs font-semibold text-slate-700 flex-1">我自己</span>
+                            <span className={`text-[9px] font-bold ${activeGroup?.ownerId === 'user' ? 'text-amber-600' : 'text-slate-400'}`}>{activeGroup?.ownerId === 'user' ? '群主' : '设为群主'}</span>
+                        </button>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                            {(activeGroup?.members || []).map(memberId => {
+                                const c = characters.find(ch => ch.id === memberId);
+                                if (!c) return null;
+                                const canRemove = (activeGroup?.members.length || 0) > 2;
+                                const isOwner = activeGroup?.ownerId === memberId;
+                                const isMuted = !!activeGroup?.mutedMemberIds?.includes(memberId);
+                                return (
+                                    <div key={memberId} className={`flex items-center gap-2 border rounded-xl px-3 py-2 ${isMuted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-slate-50 border-slate-200'}`}>
+                                        <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}{isMuted && <span className="ml-1 text-[9px] font-bold text-rose-400">已禁言</span>}</span>
+                                        <button
+                                            onClick={() => handleSetGroupOwner(isOwner ? undefined : memberId)}
+                                            title={isOwner ? '取消群主' : '设为群主（纯头衔，不带权限）'}
+                                            className="p-1 shrink-0"
+                                        >
+                                            <Crown size={15} weight={isOwner ? 'fill' : 'regular'} className={isOwner ? 'text-amber-500' : 'text-slate-300'} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleToggleMemberMute(memberId)}
+                                            title={isMuted ? '取消禁言' : '禁言（这段时间不参与生成，可随时解除）'}
+                                            className="p-1 shrink-0"
+                                        >
+                                            <SpeakerSlash size={15} weight={isMuted ? 'fill' : 'regular'} className={isMuted ? 'text-rose-500' : 'text-slate-300'} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemoveGroupMember(memberId)}
+                                            disabled={!canRemove}
+                                            title={canRemove ? '移出本群' : '群里至少要留 2 位成员'}
+                                            className="text-[10px] font-bold text-rose-500 disabled:text-slate-300 disabled:cursor-not-allowed shrink-0"
+                                        >
+                                            移除
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {showAddMemberPicker && (
+                            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto no-scrollbar border-t border-slate-100 pt-2">
+                                {characters.filter(c => !(activeGroup?.members || []).includes(c.id)).length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">神经链接里没有其它角色可加了。</p>
+                                ) : characters.filter(c => !(activeGroup?.members || []).includes(c.id)).map(c => (
+                                    <button key={c.id} onClick={() => handleAddGroupMember(c.id)}
+                                        className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-left active:scale-[0.99] transition-all">
+                                        <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}</span>
+                                        <span className="text-[10px] font-bold text-violet-500">+ 加入</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即时生效；移除不会删掉 ta 说过的历史消息，只是之后不再参与生成。群主只是头衔标记，不带权限。禁言的角色仍在群里，只是暂时不参与生成，随时可以取消。</p>
+                    </div>
+
+                    {/* 隐身围观模式：用户消息不进 AI 的群历史，角色以为群里只有彼此 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">隐身围观模式</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">开启后角色们不知道用户在场：能聊平时不会让用户知道的事，不会主动搭理、回应或私聊用户，除非话题本来就自然提到这个人。用户自己发的消息仍会显示在自己屏幕上，但 AI 永远看不到、也不会回应。</p>
+                            </div>
+                            <div
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const next = !activeGroup.userLurkMode;
+                                    await updateGroup(activeGroup.id, { userLurkMode: next });
+                                    setActiveGroup({ ...activeGroup, userLurkMode: next });
+                                    trackEvent('切换群聊隐身围观模式', { enabled: next });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${activeGroup?.userLurkMode ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${activeGroup?.userLurkMode ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 角色可以退群：开启后 AI 才会被教 [[ACTION:LEAVE_GROUP]] 语法 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">角色可以退群</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">开启后角色在关系破裂、剧情需要等足够重的理由下，可以自己选择退出这个群（极少触发，不是想退就退）。退群不删 ta 说过的历史消息，群里会有一条退群公告，之后要用「群成员」重新邀请回来。</p>
+                            </div>
+                            <div
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const next = !activeGroup.allowMemberLeave;
+                                    await updateGroup(activeGroup.id, { allowMemberLeave: next });
+                                    setActiveGroup({ ...activeGroup, allowMemberLeave: next });
+                                    trackEvent('切换群聊角色可退群', { enabled: next });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${activeGroup?.allowMemberLeave ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${activeGroup?.allowMemberLeave ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100">
@@ -2126,6 +2507,14 @@ ${memberTimeline || '(暂无互动记录)'}
                         <input type="range" min="20" max="200" step="10" value={tempMemberTimelineCap} onChange={e => setTempMemberTimelineCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
                         <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>200 (完整)</span></div>
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">群里发言时，每位成员参考的"私聊+群聊合并时间线"条数。这条时间线让角色在群里的感情与私聊衔接。</p>
+                    </div>
+
+                    {/* 一轮最多几条：只影响导演模式，轮询模式每人本来就只发或跳过一次 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">导演模式一轮最多几条 ({tempMaxRoundMessages})</label>
+                        <input type="range" min="1" max="10" step="1" value={tempMaxRoundMessages} onChange={e => setTempMaxRoundMessages(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>1 (克制)</span><span>10 (热闹)</span></div>
+                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">下限固定 1 条（"少即是多"，冷场时角色允许只回 1-2 条），这里调的是上限，默认 5。只影响导演模式；轮询模式每位成员本来就只会发言或跳过一次。</p>
                     </div>
 
                     {/* 公共话题盒：一次总结，全群共享，并在成盒时送达所有成员私聊。 */}
@@ -2283,6 +2672,34 @@ ${memberTimeline || '(暂无互动记录)'}
             </Modal>
 
             {/* Transfer Modal — 红包 2.0：拼手气 / 专属 */}
+            {/* NPC 客串：不是正式群成员，手动触发插一句话 */}
+            <Modal isOpen={showNpcGuestModal} title="NPC 客串" onClose={() => setShowNpcGuestModal(false)}
+                footer={<button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句话'}</button>}>
+                <div className="space-y-4">
+                    {npcs.length > 0 ? (
+                        <>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">选一个 NPC</label>
+                                <select value={npcGuestId} onChange={e => setNpcGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                    <option value="">— 选择一个 NPC —</option>
+                                    {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                </select>
+                                <p className="text-[9px] text-slate-400 mt-1">TA 不是这个群的正式成员，只插这一句话，不会被拉进后续轮询。</p>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">这次客串的方向提示（可选）</label>
+                                <input value={npcGuestHint} onChange={e => setNpcGuestHint(e.target.value)} placeholder="不填就让 TA 自己接话"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                            </div>
+                        </>
+                    ) : (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来客串。
+                        </p>
+                    )}
+                </div>
+            </Modal>
+
             <Modal isOpen={modalType === 'transfer'} title="发送红包" onClose={() => setModalType('none')} footer={<button onClick={handleSendPacket} className="w-full py-3 bg-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200">塞进红包</button>}>
                 <div className="space-y-4">
                     {/* Tab 切换 */}
@@ -2336,7 +2753,7 @@ ${memberTimeline || '(暂无互动记录)'}
                     const meta = pMsg?.metadata as GroupPacketMeta | undefined;
                     if (!pMsg || !meta?.packet) return <div className="text-center text-xs text-slate-400 py-6">这个红包的数据不见了</div>;
                     const status = effectivePacketStatus(meta, Date.now());
-                    const senderName = pMsg.role === 'user' ? userProfile.name : nameOf(pMsg.charId);
+                    const senderName = pMsg.role === 'user' ? groupUserProfile.name : nameOf(pMsg.charId);
                     const userClaimed = meta.claims.some(c => c.claimantId === 'user');
                     const canGrabLucky = meta.packetType === 'lucky' && status === 'pending' && !userClaimed;
                     const canResolveDirect = meta.packetType === 'direct' && status === 'pending' && meta.targetId === 'user';
@@ -2358,7 +2775,7 @@ ${memberTimeline || '(暂无互动记录)'}
                             {meta.claims.length > 0 && (
                                 <div className="space-y-2 max-h-44 overflow-y-auto">
                                     {meta.claims.map((c, i) => {
-                                        const avatar = c.claimantId === 'user' ? userProfile.avatar : characters.find(ch => ch.id === c.claimantId)?.avatar;
+                                        const avatar = c.claimantId === 'user' ? groupUserProfile.avatar : characters.find(ch => ch.id === c.claimantId)?.avatar;
                                         return (
                                             <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2">
                                                 <TokenImg value={avatar} className="w-8 h-8 rounded-full object-cover" />

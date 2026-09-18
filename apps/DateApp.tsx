@@ -25,6 +25,7 @@ import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 import {
     advanceSARModuleAfterReply,
     createSARModuleEventMeta,
@@ -44,7 +45,7 @@ import {
 } from '../utils/dateHistory';
 
 const DateApp: React.FC = () => {
-    const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, updateUserProfile, virtualTime, userProfile, memoryPalaceConfig, dateAutoStartCharId, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
 
     // 是否由聊天「见面」按钮进入：为真时，退出见面流程回到聊天而非见面选择页/桌面。
     // 用本地 state（而非 context）承载：DateApp 切走即卸载，标记随之消失，不会泄漏到
@@ -137,6 +138,12 @@ const DateApp: React.FC = () => {
     const [editContent, setEditContent] = useState('');
 
     const char = characters.find(c => c.id === activeCharacterId);
+    // 见面跟随「个人档案 → 分角色身份指定」——见面跟私聊/查手机/记忆宫殿是同一种
+    // "你与这个角色的关系"，不单独开一套指定入口，避免同一个角色在不同场景里认出不同的你。
+    const dateUserProfile = useMemo(
+        () => char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile,
+        [char, userProfileBase, userProfile],
+    );
     const historyGroups = useMemo(
         () => buildDateHistoryGroups(historyMessages, historyView, historySortOrder),
         [historyMessages, historyView, historySortOrder],
@@ -147,7 +154,7 @@ const DateApp: React.FC = () => {
     // 内容也不会被角色到点又提一遍。快照里的消息在上传时从 DB 重读，打脏本身很便宜。
     const markDateTurnDirty = (target = char) => {
         if (!target) return;
-        markAmsgStateDirty({ char: target, userProfile, groups, realtimeConfig });
+        markAmsgStateDirty({ char: target, userProfile: resolveUserProfileForChar(userProfileBase, target.id), groups, realtimeConfig });
     };
 
     const loadRecentDateMessages = async (charId: string, limit = DATE_SESSION_MESSAGE_LIMIT) => {
@@ -340,7 +347,9 @@ const DateApp: React.FC = () => {
             const emojis = await DB.getEmojis();
             const { messages } = DatePrompts.buildPeekPayload({
                 char: c,
-                userProfile,
+                // 这里不能用上面的 dateUserProfile：c 是刚传入的目标角色，setActiveCharacterId(c.id)
+                // 还没被 React 提交，char/dateUserProfile 这一轮渲染仍是切换前的旧值。
+                userProfile: resolveUserProfileForChar(userProfileBase, c.id),
                 allMsgs: preparedMsgs,
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
@@ -369,6 +378,8 @@ const DateApp: React.FC = () => {
             : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
         if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM.baseUrl) return;
 
+        // charForHook 未必等于当前渲染的 char（回调可能在切换角色后才跑完），按它自己的 id 单独解析
+        const hookUserName = resolveUserProfileForChar(userProfileBase, charForHook.id).name;
         const recentMsgs = await DB.getRecentMessagesByCharId(charForHook.id, 50);
         try {
             const pipelineResult = await processNewMessagesWithAutoArchive(
@@ -377,7 +388,7 @@ const DateApp: React.FC = () => {
                 charForHook.name,
                 mpEmb,
                 mpLLM,
-                userProfile?.name || '',
+                hookUserName || '',
                 false,
                 (stage) => setMemoryPalaceStatus(stage),
             );
@@ -395,7 +406,7 @@ const DateApp: React.FC = () => {
             if (shouldAutoDigest) {
                 setMemoryPalaceStatus(`${charForHook.name}闭上眼睛，开始整理内心…`);
                 const persona = [liveAfter.systemPrompt || '', liveAfter.worldview || ''].filter(Boolean).join('\n');
-                await runCognitiveDigestion(charForHook.id, charForHook.name, persona, mpLLM, false, userProfile?.name, mpEmb);
+                await runCognitiveDigestion(charForHook.id, charForHook.name, persona, mpLLM, false, hookUserName, mpEmb);
             }
         } catch (e: any) {
             console.error('❌ [DateApp MemoryPalace] 后台处理异常:', e?.message || e);
@@ -407,12 +418,12 @@ const DateApp: React.FC = () => {
             }
             setMemoryPalaceStatus('');
         }
-    }, [memoryPalaceConfig, apiConfig, userProfile?.name, updateCharacter, addToast]);
+    }, [memoryPalaceConfig, apiConfig, userProfileBase, updateCharacter, addToast]);
 
     // --- Session API Logic ---
     const handleSendMessage = async (text: string, kind?: 'continue'): Promise<string> => {
         if (!char) throw new Error("No char");
-        const sarModulePlan = getSARModuleRuntimePlan(char, userProfile);
+        const sarModulePlan = getSARModuleRuntimePlan(char, dateUserProfile);
 
         // 重发场景：如果 DB 里最后一条已经是这条 user 消息（上一轮发送后 API 失败 / 网络抖动等），
         // 就跳过重复落库，直接走 API。与 chat app 行为对齐，让用户按发送键即可重新触发 LLM。
@@ -449,11 +460,11 @@ const DateApp: React.FC = () => {
 
         const emojis = await DB.getEmojis();
         const modelText = isContinueTurn
-            ? buildInPersonContinueInstruction(userProfile?.name, char.name)
+            ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
             : text;
         const { messages } = await DatePrompts.buildSessionPayload({
             char,
-            userProfile,
+            userProfile: dateUserProfile,
             allMsgs: preparedAllMsgs,
             emojis,
             userText: modelText,
@@ -520,7 +531,7 @@ const DateApp: React.FC = () => {
         if (lastMsg.metadata?.isOpening === true) {
             const { messages } = DatePrompts.buildPeekPayload({
                 char,
-                userProfile,
+                userProfile: dateUserProfile,
                 allMsgs: preparedValidMsgs,
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
@@ -549,7 +560,7 @@ const DateApp: React.FC = () => {
         // 「待重发的最后一条」砍掉，同时 date user 又被追加一次（丢一条、重一条）。
         const { messages } = await DatePrompts.buildSessionPayload({
             char,
-            userProfile,
+            userProfile: dateUserProfile,
             allMsgs: trimHistoryThrough(preparedValidMsgs, lastUserMsg.id),
             emojis,
             userText: lastUserMsg.content,
@@ -558,7 +569,7 @@ const DateApp: React.FC = () => {
         });
         // Reroll 略调高温度求多样性，但绝不低于用户配置的基线。
         const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
-        const sarPlan = getSARModuleRuntimePlan(char, userProfile);
+        const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);
         const parsed = parseSARModuleReply(rawContent, sarPlan);
         const sarModuleEvents = createSARModuleEventMeta(sarPlan);
         const userSurface = sarPlan.user?.phase === 'active' && parsed.userSurface
@@ -1104,7 +1115,7 @@ const DateApp: React.FC = () => {
             <>
                 <DateSession
                     char={char}
-                    userProfile={userProfile}
+                    userProfile={dateUserProfile}
                     messages={dateMessages}
                     peekStatus={peekStatus}
                     initialState={char.savedDateState}
@@ -1202,7 +1213,7 @@ const DateApp: React.FC = () => {
                                         windowsill: { label: '窗台', color: '#14b8a6' },
                                     };
                                     const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
-                                    const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
+                                    const roomLabel = getRoomLabel(m.room as any, dateUserProfile?.name) || meta.label;
                                     return (
                                         <div
                                             key={i}

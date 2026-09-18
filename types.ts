@@ -38,6 +38,7 @@ export enum AppID {
   VRWorld = 'vrworld', // 彼方 — 角色自主登入的虚拟世界（定时驱动，房间里看小说/听歌/留言，产出活动卡注入聊天+记忆）
   CharCreatorDev = 'char_creator_dev', // 捏脸系统开发模式 — 仅开发模式可见，向捏人器指定类目追加自定义部件
   WorldHome = 'world_home', // 家园 — 同世界观多角色共同生活的大世界（观测驱动演绎，每角色独立 LLM 调用 + NPC 世界引擎）
+  ChatHub = 'chat_hub', // Chat 主页 — 消息/联系人/动态/主页四栏导航壳，取代原本直接开 Chat 的入口
 }
 
 export interface SystemLog {
@@ -261,11 +262,36 @@ export interface VisionApiConfig {
   model: string;
 }
 
+/** 全局生图 API（系统设置 → 生图API）；OpenAI 兼容的 /images/generations 接口。 */
+export interface ImageGenApiConfig {
+  /** 总开关：允许调用生图 API（角色/用户手动生图都受它管）。 */
+  charImageGenEnabled?: boolean;
+  /**
+   * 允许角色在聊天中自主决定发图。开启后（且 baseUrl/model 都配好）会在聊天 system prompt 里
+   * 教角色 `[[ACTION:SEND_PHOTO|画面描述]]`，由 utils/chatParser.ts 执行：调生图 API、把结果
+   * 存成一条 'image' 消息发出去。目前只接入本地/前台聊天（含即时对话 worker 代理转发）路径；
+   * 主动消息 2.0 的云端后台生成（worker 自己把副作用结构化成 directives 重放那条路）
+   * 还没教这个动作，见 utils/activeMsgClient.ts 的 fire_pack 模板未传 imageGenConfig。
+   */
+  charImageSendEnabled?: boolean;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  /** 如 '1024x1024'，留空则不传给接口，用引擎默认值。 */
+  size?: string;
+  /** 如 'standard' / 'hd'，随引擎自定义，留空则不传。 */
+  quality?: string;
+  /** 补充提示词，拼在每次生成请求的正文提示词后面。 */
+  extraPrompt?: string;
+}
+
 export interface APIConfig {
   baseUrl: string;
   apiKey: string;
   // 可选识图中转：给不支持 image_url 的主模型补视觉能力。
   visionApi?: VisionApiConfig;
+  // 生图：角色/用户在聊天里生成图片用的独立引擎配置。
+  imageGenConfig?: ImageGenApiConfig;
   minimaxApiKey?: string;
   minimaxGroupId?: string;
   // 'domestic' → https://api.minimaxi.com (国内站)
@@ -826,6 +852,21 @@ export interface PhoneCustomApp {
     color: string;
     prompt: string;
     layout?: 'generic' | 'shop' | 'feed' | 'forum' | 'novel'; // 参考样板 UI 风格，默认 generic
+    /** HTML 卡片模式：关闭=原版纯文字（现状）；开启后按 htmlCardPrompt 额外生成/渲染卡片，纯文字仍是发进聊天上下文的那份 */
+    htmlCardEnabled?: boolean;
+    /**
+     * HTML 卡片指令。可以是自然语言描述（LLM 按描述生成每条记录的 HTML），
+     * 也可以是带 {{title}}/{{detail}}/{{value}} 或自定义占位符的固定 HTML 模板
+     * （客户端本地做字符串替换，不经过 LLM，更稳定）。留空时即使开关开着也不生成卡片。
+     */
+    htmlCardPrompt?: string;
+    /** CSS 样式开关：配合 htmlCardCss 使用 */
+    htmlCardCssEnabled?: boolean;
+    /**
+     * 卡片 CSS。只在渲染卡片的沙盒 iframe 内生效（HtmlCard 组件），
+     * 不会影响 App 外部任何界面；建议用 .phone-card 等类名，配合 htmlCardPrompt 里 class 一致。
+     */
+    htmlCardCss?: string;
 }
 
 export interface PhoneEvidence {
@@ -838,6 +879,12 @@ export interface PhoneEvidence {
     value?: string;
     /** 人际关系系统：本条记录归属的联系人（phoneState.contacts 里的 id） */
     contactId?: string;
+    /**
+     * 自定义 App 生成的 HTML 卡片（仅 App 界面内渲染用）。同步到私聊时永远只用
+     * title/detail/value 纯文字（见 utils/phoneEvidence.ts buildPhoneEvidenceChatCard），
+     * 这个字段不会进聊天上下文，避免把 HTML/CSS 代码塞给角色读。
+     */
+    html?: string;
 }
 
 /**
@@ -882,11 +929,86 @@ export interface PhoneContact {
     kind: 'real' | 'npc';
     /** kind==='real' 时绑定的真实角色 id（指向 characters 里的某个角色） */
     linkedCharId?: string;
+    /** kind==='npc' 且绑定了神经链接「NPC」分页里的某个 NPC 时，指向 NPCProfile.id；手动填名字的纯虚构联系人不设。 */
+    linkedNpcId?: string;
     /** 机主对此人的好感度，-100..100（负=厌恶，可触发自动删友；正=亲近） */
     affinity: number;
     /** 关系状态 */
     status: 'friend' | 'pending' | 'blocked' | 'deleted';
     lastInteraction?: number;
+    createdAt: number;
+}
+
+/**
+ * 「軌跡」Profile 子页 · 档案资料：按角色人设自由生成的个人文件（授权书/合同/产权书等），
+ * 纯展示用的角色深度设定，不参与聊天上下文。
+ */
+export interface TrajectoryArchiveDoc {
+    id: string;
+    title: string;
+    /** 文件类型标签，展示在标题下方，如 "PERSONAL DOCUMENT"，自由生成 */
+    category: string;
+    content: string;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页 · 阶段目标：某项任务/作品/计划的进度，0-100。 */
+export interface TrajectoryObjective {
+    id: string;
+    title: string;
+    progress: number;
+    detail: string;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页 · 待办日程：checklist，时间是展示用的自由文本，不强求可解析。 */
+export interface TrajectoryChecklistItem {
+    id: string;
+    title: string;
+    dueLabel: string;
+    done: boolean;
+    createdAt: number;
+}
+
+/** 「軌跡」Profile 子页三段合一，AI 一次性生成/刷新，各角色独立存一份。 */
+export interface CharacterTrajectoryProfile {
+    archives: TrajectoryArchiveDoc[];
+    objectives: TrajectoryObjective[];
+    checklist: TrajectoryChecklistItem[];
+    updatedAt: number;
+}
+
+/**
+ * 「軌跡」OOTD 分页：一条穿搭记录，图片走跟聊天图片同一套 blob-ref 令牌（migrateDataUrlToRef
+ * 之后的结果），不存原始 base64。每次点「生成」在这天的时间线上追加新节点，模拟角色
+ * 换了一身新装扮。
+ */
+export interface TrajectoryOotdPost {
+    id: string;
+    timestamp: number;
+    image: string;
+    style: string;
+    colors: string[];
+    tops: string;
+    bottoms: string;
+    shoes: string;
+    accessories: string[];
+}
+
+/**
+ * 「軌跡」Journey 分页的一段私人行程——角色与另一角色/NPC 见面的无互动叙事，用户不参与。
+ * participantNames 是生成时的快照（不存 id），角色/NPC 后续改名或删除都不影响这条历史记录的展示。
+ */
+export interface TrajectoryJourneyEntry {
+    id: string;
+    kind: '日常' | '事件';
+    time: string;
+    location: string;
+    participantNames: string[];
+    detail?: string;
+    story: string;
+    /** 生成当下是否同步进了私聊（phone_card 消息），纯展示用，不影响这条记录本身 */
+    syncedToChat: boolean;
     createdAt: number;
 }
 
@@ -2190,6 +2312,13 @@ export interface StoryTheaterEntry {
     /** 本剧情中用户执笔的身份；缺省时使用真实用户档案。 */
     mask?: StoryTheaterMaskSelection;
     characterIds: string[];
+    /**
+     * 客串出场的 NPC（神经链接「NPC」分页的 NPCProfile.id，非 characterIds）。真实时间陪伴、
+     * 虚构剧场的编辑器都会露出选择入口；读取侧也不按模式过滤。NPC 没有独立记忆输入输出、
+     * 不进 applyActorMemoryPipeline / 好感度系统，只作为轻量客串角色注入 actorContext，
+     * 见 utils/storyTheater.ts 的 buildTheaterNpcContext。缺省 = 没有 NPC 客串。
+     */
+    npcIds?: string[];
     /** true=像【陪伴】一样，把第三人称正文分别写入每个角色的正常记忆流。 */
     writesToCharacterMemory: boolean;
     /** 每位演员各自的剧情时间锚点（datetime-local 字符串），允许跨时区/跨世界线。 */
@@ -2654,6 +2783,26 @@ export interface MemoryPalaceWaterlineConfig {
   bufferThreshold?: number;
 }
 
+/**
+ * 用户自定义「心声 / 好感度」条目的共同形状。
+ * content 给心声（文本）用，value 给好感度（0-100 数值）用，同一条目只填其中一个。
+ */
+export interface CharacterCustomMeter {
+  id: string;
+  /** 用户自己起的标题，如「今日心事」「对我的信任」 */
+  title: string;
+  /** 用户填的生成提示词，生成/重新生成时拼进 prompt */
+  prompt: string;
+  /** 新增时随机分配的粉嫩色调（hex），用于卡片着色 */
+  color: string;
+  /** 最近一次生成/编辑的时间戳 */
+  updatedAt?: number;
+  /** 心声正文（kind='text' 时使用） */
+  content?: string;
+  /** 好感度数值 0-100（kind='number' 时使用） */
+  value?: number;
+}
+
 export interface CharacterProfile {
   id: string;
   name: string;
@@ -2918,6 +3067,25 @@ export interface CharacterProfile {
           sessions: AiSession[];
           cards?: TavernCard[];  // 酒馆里建的角色卡
       };
+      /**
+       * 角色端的 Real Balance 钱包，跟用户 UserProfile.realBalance 结构一致、账本各自独立。
+       * undefined = 还没打开过；utils/realBalance.ts 的 ensureRealBalanceState() 负责生成初始状态。
+       * 私聊转账走「发送时结清」的托管模型：用户/角色任一方发起转账时即从发起方账户扣款，
+       * 对方「收下」时才真正入账到对方账户，「退回」时把钱退回发起方——两边各自的 Real Balance
+       * 由 utils/chatParser.ts 的 onUserTransferAccepted/onCharTransferSend 等回调驱动更新。
+       */
+      realBalance?: RealBalanceState;
+      /**
+       * 「軌跡」Profile 子页（档案资料/阶段目标/待办日程）三段合一的生成结果。
+       * undefined = 还没生成过；点「刷新」调 utils/trajectory.ts 整段重生成替换。
+       */
+      trajectoryProfile?: CharacterTrajectoryProfile;
+      /** 「軌跡」OOTD 分页：每次生成追加一条，按 timestamp 排前端自己分组/排序。 */
+      trajectoryOotd?: TrajectoryOotdPost[];
+      /** 「軌跡」Moments 分页的封面图（点大图换背景），blob-ref 令牌；undefined = 用默认渐变。 */
+      trajectoryMomentsCover?: string;
+      /** 「軌跡」Journey 分页：每次生成追加一条，最新的排前面。 */
+      trajectoryJourney?: TrajectoryJourneyEntry[];
   };
 
   // 「梦的残页」：在小屋里偷看到的梦境演出留存（角色不记得，仅供用户回看）
@@ -2998,6 +3166,39 @@ export interface CharacterProfile {
     };
   };
 
+  /**
+   * 该角色主对话（Chat 私聊）专属 API 覆盖；不设或 baseUrl 为空则回落全局 apiConfig。
+   * 与 emotionConfig.api / proactiveConfig.secondaryApi 各管各的，互不影响。
+   */
+  chatApi?: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  };
+
+  /**
+   * 该角色专属生图设定，只影响这个角色的生图效果；生图 API 引擎本身用全局 imageGenConfig。
+   */
+  imageGenCharConfig?: {
+    /** 开启后生成时会带上参考图（脸部锁定），具体是否真的传参考图取决于生图引擎是否支持。 */
+    referenceEnabled?: boolean;
+    /** 专属人物特征提示词，生成时拼进正文提示词。 */
+    characterPrompt?: string;
+    /** 参考图（blob-ref token，putImageBlob 存的原图）。 */
+    referenceImage?: string;
+    /**
+     * 非自拍照（合照/他拍/风景/物件）不使用参考图，只用文字提示词生成；默认（缺省）为开启。
+     * 判断口径留给调用方（比如根据生成请求里的场景描述），这里只存开关状态。
+     */
+    nonSelfieSkipsReference?: boolean;
+    /** 参考图上锁定的脸部区域（相对参考图宽高的比例），发送参考图时按此裁切，减少服装/背景干扰。 */
+    referenceFaceBox?: {
+      x: number;
+      y: number;
+      size: number;
+    };
+  };
+
   // 情绪Buff系统
   activeMsg2Config?: ActiveMsg2CharacterConfig;
   activeBuffs?: CharacterBuff[];
@@ -3010,6 +3211,16 @@ export interface CharacterProfile {
       model: string;
     };
   };
+
+  /**
+   * 用户自定义「心声」：一段针对自定义标题生成的第一人称内心独白短文。
+   * 用户自己填标题 + 生成用的提示词，「日程/情绪」面板里点生成产出 content。
+   */
+  innerVoices?: CharacterCustomMeter[];
+  /**
+   * 用户自定义「好感度」：0-100 数值条，标题 + 提示词驱动生成/刷新出 value。
+   */
+  affinities?: CharacterCustomMeter[];
 
   // 记忆宫殿 (Memory Palace)
   memoryPalaceEnabled?: boolean;
@@ -3143,12 +3354,66 @@ export interface CharacterGroup {
     createdAt?: number;
 }
 
+/**
+ * NPC 与某个对象（真实角色或用户）之间的一段关系。一个 NPC 可以同时对好几个
+ * 对象有完全不同的关系（比如同时是 A 的妹妹、B 的女友），所以做成清单而不是单一字段。
+ */
+export interface NPCRelationship {
+    id: string;
+    /** 关系对象：某个 CharacterProfile.id，或字面量 'user' 代表用户本人。 */
+    targetId: string;
+    /** 自由文字描述这段关系，如「妹妹，从小玩到大」。 */
+    description: string;
+}
+
+/**
+ * NPC 档案——神经链接「NPC」分页下的简化角色卡。
+ *
+ * 故意不复用 CharacterProfile：NPC 不参与日程生成、情绪评估、主动消息、记忆宫殿这些
+ * 背景任务，独立成一份精简结构，能避免在十几处背景逻辑里到处补「跳过 NPC」的判断。
+ * 目前只在群聊、查手机联系人、见面剧情三处被读取；没有立绘/生图/语音/印象/门牌/手办，
+ * 也没有好感度——好感度等以后 NPC 能开一对一聊天窗口时再回落到 CharacterProfile 同一套。
+ */
+export interface NPCProfile {
+    id: string;
+    name: string;
+    /** 头像，跟角色头像一样可以是 blob-ref token / url / dataURL。 */
+    avatar: string;
+    /** 性格与背景描述，注入进群聊/查手机/见面剧情的人设里。 */
+    description: string;
+    relationships: NPCRelationship[];
+    /** 世界观 / 设定补充，跟 CharacterProfile.worldview 同一种用法。 */
+    worldview?: string;
+    /** 聊天场景的时间感知强化开关；缺省 = 开（与 CharacterProfile 同款语义，! == false 才算关）。 */
+    timeAwarenessEnabled?: boolean;
+    /** 自定义时区开关 + IANA 时区 id；字段名与 CharacterProfile 一致，可直接喂给 utils/timezone.ts 的 resolveCharTimeZone 等函数。 */
+    customTimezoneEnabled?: boolean;
+    customTimezone?: string;
+    /** 线下（见面剧情）时间感知开关；缺省 = 开。 */
+    dateTimeAwarenessEnabled?: boolean;
+    /** 挂载的世界书（扩展设定），与角色卡同一种 MountedWorldbook 结构。 */
+    mountedWorldbooks?: MountedWorldbook[];
+    /**
+     * 该 NPC 专属 API 覆盖；不设或 baseUrl 为空则回落查手机 App 的共用设定（跟真人联系人的
+     * 关系对话共用同一组）。字段形状跟 CharacterProfile.chatApi 一致。
+     */
+    chatApi?: {
+        baseUrl: string;
+        apiKey: string;
+        model: string;
+    };
+    createdAt: number;
+    updatedAt: number;
+}
+
 export interface GroupProfile {
     id: string;
     name: string;
     members: string[];
     avatar?: string;
     createdAt: number;
+    /** 群公告：群主填写，显示在群聊顶部横幅，也会注入群聊 system 提示词让角色知道。 */
+    announcement?: string;
     /** 群聊公共话题盒：由热区以前的群消息总结而成，所有成员共享、可编辑/删除。 */
     topicBoxes?: GroupTopicBox[];
     /** 公共话题盒已覆盖到的最后一条群消息 ID；仅用于防止重复成盒，不与任何角色私聊水位混用。 */
@@ -3165,6 +3430,12 @@ export interface GroupProfile {
      * 不设默认 40。这条时间线是角色群聊表现与私聊感情衔接的关键上下文。
      */
     memberTimelineCap?: number;
+    /**
+     * 导演模式一轮最多生成几条消息（下限固定 1，"少即是多"，只有上限可调）。
+     * 不设默认 5（utils/groupChat/prompts.ts 的 DEFAULT_MAX_ROUND_MESSAGES）。
+     * 只影响导演模式；轮询模式每位成员本来就只会发或跳过一次，没有这个上限概念。
+     */
+    maxRoundMessages?: number;
     /**
      * 群回复生成模式：director = 一次调用生成整轮（默认，快、省 token）；
      * roundRobin = 每位成员单独调用一次 API，按成员顺序逐个发言（更真实、防串号，token ≈ 成员数倍）。
@@ -3187,6 +3458,33 @@ export interface GroupProfile {
     htmlModeEnabled?: boolean;
     /** HTML 模式自定义提示词（追加在内置提示词之后） */
     htmlModeCustomPrompt?: string;
+    /**
+     * 隐身围观模式：开启后用户消息不会进入喂给 AI 的群聊历史——角色们以为群里只有彼此，
+     * 可以聊平时不会让用户知道的事，也不会主动搭理/回应/私聊用户，除非话题本来就会自然提到这个人。
+     * 用户自己发的消息仍会存档、显示在自己屏幕上，只是 AI 端看不到、也永远不会回应。
+     */
+    userLurkMode?: boolean;
+    /**
+     * 角色可以退群：开启后 AI 会被教 [[ACTION:LEAVE_GROUP]] 语法，可在觉得合适时（剧情需要、
+     * 关系破裂等）自己退出这个群。不设默认关闭——不开就不教这个语法，AI 无从触发。
+     * 退群不删历史消息，只从 members 里摘掉；群里会落一条 role:'system' 的退群公告消息。
+     * 群里至少留 2 位成员，跟手动移除成员的下限一致。
+     */
+    allowMemberLeave?: boolean;
+    /**
+     * 群主：纯标记/人设头衔，不带任何实际权限——不会门控任何功能开关或操作。
+     * 会写进群聊 system 提示词让角色知道"这位是群主"，添一点角色扮演的真实感。
+     * 值是某位成员的 charId，或 sentinel 'user'（用户自己当群主，跟红包 direct 目标同一套 sentinel）；
+     * 不设 = 没有群主。
+     */
+    ownerId?: string;
+    /**
+     * 被禁言的角色 id 列表：这些角色不参与生成——导演模式里既不进角色档案上下文，
+     * 也不进 dispatch 的 memberIds（万一 AI 还是给它们编了台词，会被静默丢弃）；
+     * 轮询模式直接跳过它们的回合，不发起调用。跟"退群"的区别是禁言可逆、角色还在
+     * members 名单里，只是这阵子不出声，随时可以在群成员管理里解除。
+     */
+    mutedMemberIds?: string[];
 }
 
 export interface GroupTopicBox {
@@ -3214,6 +3512,12 @@ export interface UserProfile {
     name: string;
     avatar: string;
     bio: string;
+    /** 真实身份的性别，选填，跟身份卡的 UserGender 是同一套枚举 */
+    gender?: UserGender;
+    /** 真实身份的自定义设定：比 bio 更深一层的补充说明，会发给 AI */
+    customSetting?: string;
+    /** 真实身份的其他补充：兜底的自由文本栏位，会发给 AI */
+    otherDetails?: string;
     /** 分角色聊天头像（档案 App 设置）：charId → 头像（http(s) URL 或 data:image）。
      *  私聊里「你」的头像取 perCharAvatars[charId] || avatar（上面的整体头像作宏观默认）；
      *  群聊/其他场合仍用整体头像。删角色留下的孤儿键无害，读取端永远按当前 charId 取。 */
@@ -3223,6 +3527,118 @@ export interface UserProfile {
      * enabled=false（登出）时，聊天里给角色的"用户在彼方"提示词随之消失。
      */
     vrState?: UserVRState;
+    /** 身份卡：同一个人维护的多套角色扮演身份（名字/头像/简介）。 */
+    personas?: UserPersona[];
+    /**
+     * 当前生效的身份卡 id；undefined/找不到 = 用上面这份「真实身份」。
+     * 只是外显装扮——好感度/记忆/关系不跟着身份卡分开算，角色始终认得是同一个人。
+     * 这是「全域默认」——某个角色在 perCharPersonaIds 里指定了别的身份卡时，那个角色不看这个。
+     */
+    activePersonaId?: string;
+    /**
+     * 分角色身份指定（档案 App「分角色身份指定」）：charId → 身份卡 id，或 utils/userPersona.ts
+     * 的 REAL_IDENTITY_PERSONA_ID（强制这个角色始终用「真实身份」，不管全域默认是哪张卡）。
+     * 没有这个角色的键 = 跟全域默认（activePersonaId）走。解析统一走
+     * utils/userPersona.ts 的 resolveUserProfileForChar()，不要在别处手拼这段优先级逻辑。
+     * 删角色/删身份卡留下的孤儿键无害，读取端会自动回落到全域默认。
+     */
+    perCharPersonaIds?: Record<string, string>;
+    /**
+     * 群聊身份指定（档案 App「分角色身份指定」）：groupId → 身份卡 id，或
+     * utils/userPersona.ts 的 REAL_IDENTITY_PERSONA_ID。跟 perCharPersonaIds 是两个
+     * 独立的 map（群聊没有 perCharAvatars 那层——群聊头像本来就一直用整体默认，不因为
+     * 这个字段变），键是 groupId 不是 charId。解析统一走 resolveUserProfileForGroup()。
+     * 没有这个群的键 = 跟全域默认（activePersonaId）走。
+     */
+    perGroupPersonaIds?: Record<string, string>;
+    /**
+     * Real Balance 钱包（Chat 主页「主页」栏卡片）：用户全局的一个模拟钱包，
+     * 不跟任何角色绑定。undefined = 还没打开过，首次进「主页」栏时
+     * utils/realBalance.ts 的 ensureRealBalanceState() 负责生成初始状态并写回来。
+     * 跟 utils/db.ts 的 BankTransaction/存钱罐游戏是两套完全独立的账本，不要混。
+     */
+    realBalance?: RealBalanceState;
+}
+
+/** Real Balance 钱包旗下的一张银行卡——跟 Real Balance 之间可以互转，卡本身的余额不计入 Real Balance。 */
+export interface BankCard {
+    id: string;
+    name: string;
+    /** 卡号后四位，纯展示用 */
+    lastFour: string;
+    balance: number;
+    color: 'gold' | 'graphite' | 'silver';
+    createdAt: number;
+}
+
+/** Real Balance 流水的一条记录——只记录会改变 Real Balance 本身余额的事件（银行卡转入/转出、聊天转账等），
+ *  银行卡自己的余额变动（比如开卡时的初始余额）不算在内，因为那笔钱压根没经过 Real Balance。 */
+export interface RealBalanceTransaction {
+    id: string;
+    /** 简短标签，如"初始余额"/"转入账户"/"转出账户"/"转账给 XX"/"收到 XX 的转账" */
+    label: string;
+    /** 带符号：正 = 入账，负 = 出账 */
+    amount: number;
+    /** 流水行的补充说明（卡名 + 完整金额等） */
+    detail?: string;
+    timestamp: number;
+    /** 这笔交易结算后的 Real Balance 余额，流水行直接显示用，不用每次重新求和 */
+    balanceAfter: number;
+    /** 关联的银行卡（转入/转出账户时才有） */
+    cardId?: string;
+}
+
+export interface RealBalanceState {
+    balance: number;
+    cards: BankCard[];
+    transactions: RealBalanceTransaction[];
+}
+
+/**
+ * 购物中心（apps/Chat.tsx 聊天工具栏里的 mini-app，见 utils/shoppingMall.ts）。
+ * 商品/外卖目录是用户自己维护的一份本地资料，独立于账号全局设置的导入导出——
+ * 不进 utils/db.ts 的 exportSettings/importSettings 打包范围，自己另有一套按分类的
+ * 导入导出（跟世界书 apps/WorldbookApp.tsx 的按分组导入导出同一个路数）。
+ * 购物、外卖各自一套分类/商品，用 kind 区分，存在同一对 IndexedDB store 里。
+ */
+export type MallKind = 'shop' | 'food';
+
+export interface MallCategory {
+    id: string;
+    kind: MallKind;
+    name: string;
+    /** 展示顺序，小的排前面 */
+    order: number;
+}
+
+export interface MallProduct {
+    id: string;
+    kind: MallKind;
+    categoryId: string;
+    name: string;
+    price: number;
+    /** 卡面图标——纯 emoji，没有真图片 */
+    emoji: string;
+    /** 商品/外卖详情页里的说明文字 */
+    detail?: string;
+    createdAt: number;
+}
+
+/** 身份卡/真实身份的性别选项，纯展示 + 会发给 AI，跟 SimGender（彼方小人）是两套独立的枚举。 */
+export type UserGender = '男' | '女' | '保密' | '二次元' | '其他';
+
+export interface UserPersona {
+    id: string;
+    name: string;
+    avatar: string;
+    bio: string;
+    gender?: UserGender;
+    /** 自定义设定：比 bio 更深一层的补充说明，会发给 AI */
+    customSetting?: string;
+    /** 其他补充：兜底的自由文本栏位，会发给 AI */
+    otherDetails?: string;
+    createdAt: number;
+    updatedAt: number;
 }
 
 export interface UserVRState {
@@ -3645,10 +4061,18 @@ export interface Task {
 export interface Anniversary {
     id: string;
     title: string;
+    /** 原始/锚点日期（YYYY-MM-DD），永远保留，不因"重复提醒"而改写——即将到来的计算另见 utils/anniversary.ts */
     date: string;
+    /** 兼容旧数据的单选关联对象；新数据里等价于 charIds[0]，读取一律走 utils/anniversary.ts 的 anniversaryCharIds() */
     charId: string;
+    /** 关联对象完整列表（多选）；旧数据没有这个字段，读取时兜底成 [charId] */
+    charIds?: string[];
     aiThought?: string;
     lastThoughtGeneratedAt?: number;
+    /** 让 TA 记住这一天：开启后角色每年这天会在聊天中自然提到（提示词注入部分尚未接入，见改动说明） */
+    charRemembers?: boolean;
+    /** 每年重复提醒：默认 false（仅这一次，过后不再出现在"即将到来"，但记录仍保留）；true = 每年都算即将到来 */
+    repeatAnnually?: boolean;
 }
 
 export interface SocialComment {
@@ -3811,7 +4235,7 @@ export interface GameSession {
     lastPlayedAt: number;
 }
 
-export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card';
+export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card' | 'mall_order';
 
 export interface Message {
     id: number;
@@ -3864,6 +4288,7 @@ export interface FullBackupData {
     appearancePresets?: AppearancePreset[];
     characters?: CharacterProfile[];
     characterGroups?: CharacterGroup[];
+    npcs?: NPCProfile[];
     groups?: GroupProfile[];
     messages?: Message[];
     storyTheaters?: StoryTheaterEntry[];

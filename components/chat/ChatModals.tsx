@@ -5,6 +5,10 @@ import TokenImg from '../os/TokenImg';
 import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, ApiPreset, APIConfig } from '../../types';
 import ScheduleCard from '../schedule/ScheduleCard';
 import EmotionSettingsPanel from './EmotionSettingsPanel';
+import EmotionStatusPanel from './EmotionStatusPanel';
+import ChatApiSettingsPanel from './ChatApiSettingsPanel';
+import CustomMeterPanel from '../schedule/CustomMeterPanel';
+import type { CharacterCustomMeter } from '../../types';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
@@ -158,6 +162,11 @@ interface ChatModalsProps {
     apiPresets?: ApiPreset[];
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
+    onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
+    onSaveInnerVoices?: (entries: CharacterCustomMeter[]) => void;
+    onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<string | null>;
+    onSaveAffinities?: (entries: CharacterCustomMeter[]) => void;
+    onGenerateAffinity?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<number | null>;
     onClearBuffs?: () => void;
 }
 
@@ -272,7 +281,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs,
+    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi,
+    onSaveInnerVoices, onGenerateInnerVoice, onSaveAffinities, onGenerateAffinity,
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
@@ -390,6 +400,16 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 footer={<button onClick={onSaveSettings} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存设置</button>}
             >
                 <div className="space-y-3">
+                    {onSaveChatApi && (
+                        <ChatSettingsSection title="🧠 AI 模型（可单独为这个角色配置）" summary="默认用全局API，也可以单独换一个模型" defaultOpen>
+                            <ChatApiSettingsPanel
+                                char={activeCharacter}
+                                apiPresets={apiPresets || []}
+                                addApiPreset={onAddApiPreset || (() => {})}
+                                onSave={onSaveChatApi}
+                            />
+                        </ChatSettingsSection>
+                    )}
                     <ChatSettingsSection title="输入与发送" summary="表情联想、回车与自动回复">
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} />
                     </ChatSettingsSection>
@@ -1244,17 +1264,57 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 点击日程项可编辑 · 长按可删除
                             </p>
 
-                            {/* 情绪 / 意识流 API — 与日程强制同步 */}
-                            {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && onClearBuffs && (
+                            {/* 当前情绪状态 — 从下面收合的「情绪/意识流API」拆出来，单独常驻显示，放在日程和心声中间 */}
+                            {activeCharacter && onClearBuffs && (
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <EmotionStatusPanel char={activeCharacter} onClearBuffs={onClearBuffs} />
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* 心声 / 好感度 — 用户自定义标题 + 提示词，独立于日程总开关 */}
+                    {activeCharacter && onSaveInnerVoices && onGenerateInnerVoice && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <CustomMeterPanel
+                                kind="text"
+                                heading="心声"
+                                icon="💭"
+                                description="针对你自定义的标题，生成一段角色的第一人称内心独白。"
+                                entries={activeCharacter.innerVoices || []}
+                                onChange={onSaveInnerVoices}
+                                onGenerate={onGenerateInnerVoice}
+                                emptyHint="还没有心声条目——点下面「+ 新增心声」，填个标题和提示词试试。"
+                            />
+                        </div>
+                    )}
+                    {activeCharacter && onSaveAffinities && onGenerateAffinity && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <CustomMeterPanel
+                                kind="number"
+                                heading="好感度"
+                                icon="💗"
+                                description="针对你自定义的标题，评估一个 0-100 的数值条。"
+                                entries={activeCharacter.affinities || []}
+                                onChange={onSaveAffinities}
+                                onGenerate={onGenerateAffinity}
+                                emptyHint="还没有好感度条目——点下面「+ 新增好感度」，填个标题和提示词试试。"
+                            />
+                        </div>
+                    )}
+
+                    {/* 情绪 / 意识流 API — 与日程强制同步；预设一多这块会很长，收合起来放最下面 */}
+                    {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && (
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <ChatSettingsSection title="情绪 / 意识流 API" summary="副 API 配置与我的预设">
                                 <EmotionSettingsPanel
                                     char={activeCharacter}
                                     apiPresets={apiPresets}
                                     addApiPreset={onAddApiPreset}
                                     onSave={onSaveEmotion}
-                                    onClearBuffs={onClearBuffs}
                                 />
-                            )}
-                        </>
+                            </ChatSettingsSection>
+                        </div>
                     )}
                 </div>
             </Modal>

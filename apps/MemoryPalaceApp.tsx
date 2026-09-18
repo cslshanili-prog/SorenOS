@@ -5,6 +5,7 @@ import { MemoryContentEditor } from '../components/MemoryContentEditor';
 import { DB } from '../utils/db';
 import { askLinkedArchiveDeletion, deleteNodeAndLinkedArchive } from '../utils/memoryPalace/linkedArchiveDeletion';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 import { loadRangeMessagePage, formatRangeTimestamp } from '../utils/memoryPalace/rangeMessagePage';
 import { MainApiMemoryChoice, SkipVectorMemoryChoice } from '../components/MemoryGuideActions';
 import { useFirstUseGuideStep, GUIDE_SULLY_ID } from '../utils/firstUseGuide';
@@ -663,8 +664,15 @@ const MemoryWaterlineEditor: React.FC<{
 
 export default function MemoryPalaceApp() {
     const guideStep = useFirstUseGuideStep();
-    const { activeCharacterId, characters, updateCharacter, setActiveCharacterId, closeApp, apiPresets, userProfile, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, updateRemoteVectorConfig, addToast, apiConfig, characterGroups, groups, realtimeConfig } = useOS();
+    const { activeCharacterId, characters, updateCharacter, setActiveCharacterId, closeApp, apiPresets, userProfile, userProfileBase, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, updateRemoteVectorConfig, addToast, apiConfig, characterGroups, groups, realtimeConfig } = useOS();
     const char = characters.find(c => c.id === activeCharacterId);
+    // 分角色身份指定：记忆宫殿这一页始终只围着 activeCharacterId 转，按它单独解析——
+    // 「picker 选人页」触发的追平（handleToggleAutoArchiveFromPicker/runAutoArchiveCatchUp）
+    // 走的是别的角色，那两处单独按各自的 charId 解析，不用这份。
+    const memoryPalaceUserProfile = useMemo(
+        () => (char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile),
+        [char, userProfileBase, userProfile],
+    );
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 选角色页的分组筛选
 
     const [view, setView] = useState<'picker' | 'palace' | 'room' | 'memory' | 'settings' | 'globalSettings' | 'all' | 'boxes'>(() => guideStep === 1 ? 'globalSettings' : 'picker');
@@ -791,7 +799,7 @@ export default function MemoryPalaceApp() {
             // 每按一次只清一小段（断点续传）：上千条记忆的用户不会被一长串批次吓到，
             // 也随时可以停——进度存在本地，下次按继续
             const MANUAL_BATCHES_PER_PRESS = 5;
-            const result = await bootstrapPlatesFromHistory(char.id, char.name, userProfile?.name, lightApi, {
+            const result = await bootstrapPlatesFromHistory(char.id, char.name, memoryPalaceUserProfile?.name, lightApi, {
                 startBatch: getBootstrapResume(char.id),
                 maxBatches: MANUAL_BATCHES_PER_PRESS,
                 onProgress: (done, total) => setBootstrapStatus(`正在整理第 ${done}/${total} 批历史记忆…（请留在本页）`),
@@ -1263,7 +1271,7 @@ export default function MemoryPalaceApp() {
                 lightApi,
                 embedding,
                 char.name,
-                userProfile?.name,
+                memoryPalaceUserProfile?.name,
                 remoteVectorConfig,
             );
 
@@ -1701,7 +1709,9 @@ export default function MemoryPalaceApp() {
                 setAutoArchiveSyncProgress(`第 ${round} 轮：剩余 ${remaining} 条`);
 
                 // processNewMessages 忽略首个参数（内部直接从 DB 加载），传 [] 即可
-                const result = await processNewMessages([], charId, charName, mpEmb, mpLLM, userProfile.name, true);
+                // 这条追平走的是 picker 选人页传进来的 charId，不一定是当前打开的 activeCharacterId，
+                // 所以单独按 charId 解析身份卡，不用上面按 activeCharacterId 算的 memoryPalaceUserProfile。
+                const result = await processNewMessages([], charId, charName, mpEmb, mpLLM, resolveUserProfileForChar(userProfileBase, charId).name, true);
 
                 // 软跳过：缓冲区没到阈值 / 热区还没被挤出 / 已有任务在跑 —— 不是 palace 失败
                 if (result?.skipReason) {
@@ -1865,7 +1875,7 @@ export default function MemoryPalaceApp() {
         try {
             const { processMessageRange } = await import('../utils/memoryPalace/pipeline');
             const r = await processMessageRange(
-                char.id, char.name, emb, llm, lo, hi, userProfile?.name || '',
+                char.id, char.name, emb, llm, lo, hi, memoryPalaceUserProfile?.name || '',
                 (s) => setRangeProgress(s),
             );
             if (r.error === 'lock') {
@@ -1919,7 +1929,7 @@ export default function MemoryPalaceApp() {
 
         try {
             const { ContextBuilder } = await import('../utils/context');
-            const charContext = ContextBuilder.buildCoreContext(char, userProfile, false);
+            const charContext = ContextBuilder.buildCoreContext(char, memoryPalaceUserProfile, false);
             // selectedMonths 现在存的是分块 key（如 "2026-03 上旬"）
             const monthsToProcess = selectedMonths.size > 0 ? Array.from(selectedMonths) : undefined;
             const result = await migrateOldMemories(
@@ -1932,7 +1942,7 @@ export default function MemoryPalaceApp() {
                 (p) => setMigrationProgress(p),
                 charContext,
                 monthsToProcess,
-                userProfile?.name,
+                memoryPalaceUserProfile?.name,
                 remoteVectorConfig,
             );
             setMigrationResult(`[ok]迁移完成：${result.months} 个月 → ${result.migrated} 条记忆，${result.skipped} 条去重跳过`);
@@ -1961,7 +1971,7 @@ export default function MemoryPalaceApp() {
             const persona = [char.systemPrompt || '', char.worldview || ''].filter(Boolean).join('\n');
             const embApi = memoryPalaceConfig.embedding;
             const result = await runCognitiveDigestion(
-                char.id, char.name, persona, lightApi, true, userProfile?.name, embApi,
+                char.id, char.name, persona, lightApi, true, memoryPalaceUserProfile?.name, embApi,
                 (stage) => setDigestResult(stage), // 审视→回填续传→整理门牌, 逐阶段刷给用户看
             );
             if (!result) {
@@ -2245,7 +2255,7 @@ export default function MemoryPalaceApp() {
                 target.name,
                 emb,
                 llm,
-                userProfile?.name || '',
+                memoryPalaceUserProfile?.name || '',
                 stage => setExternalImportProgress(stage),
             );
             if (result.error === 'lock') {
@@ -4041,7 +4051,7 @@ create table if not exists memory_vectors (
                     <p className="mt-2 text-center text-xs text-slate-500">不需要副 API。永久删除前会有两次确认。</p>
                     {showHistoryCleanup && <ChatHistoryCleanupModal key={char.id} character={char} onClose={() => setShowHistoryCleanup(false)} onDeleted={() => {
                         trackEvent('清空聊天记录');
-                        markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
+                        markAmsgStateDirty({ char, userProfile: memoryPalaceUserProfile, groups, realtimeConfig });
                         setRangeModalOpen(false); setRangeMessages([]); setRangeStartId(null); setRangeEndId(null);
                         addToast('选中的聊天原文已清理，已有记忆保留', 'success');
                     }} />}
@@ -4312,7 +4322,7 @@ create table if not exists memory_vectors (
                                         windowsill: { label: '窗台', color: '#14b8a6' },
                                     };
                                     const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
-                                    const roomLabel = getRoomLabel(m.room as any, userProfile?.name) || meta.label;
+                                    const roomLabel = getRoomLabel(m.room as any, memoryPalaceUserProfile?.name) || meta.label;
                                     return (
                                         <div key={i} style={{
                                             padding: 12, borderRadius: 16,
@@ -5103,7 +5113,7 @@ create table if not exists memory_vectors (
                                         </div>
                                         <div style={{ fontSize: 10, color: '#92400e', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                             <RoomIcon room={node.room} size={12} style={{ color: ROOM_COLORS[node.room] }} />
-                                            <span>{getRoomLabel(node.room, userProfile?.name)} · 剩余 {daysLeft} 天</span>
+                                            <span>{getRoomLabel(node.room, memoryPalaceUserProfile?.name)} · 剩余 {daysLeft} 天</span>
                                         </div>
                                     </div>
                                     <button
@@ -5152,7 +5162,7 @@ create table if not exists memory_vectors (
                                     <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                             <RoomIcon room={node.room} size={12} style={{ color: ROOM_COLORS[node.room] }} />
-                                            {getRoomLabel(node.room, userProfile?.name)}
+                                            {getRoomLabel(node.room, memoryPalaceUserProfile?.name)}
                                         </span>
                                         <span>{new Date(node.createdAt).toLocaleDateString('zh-CN')}</span>
                                         <span style={{ color }}>{'★'.repeat(Math.min(node.importance, 5))}</span>
@@ -5194,7 +5204,7 @@ create table if not exists memory_vectors (
                                         }}
                                     >
                                         <div style={{ marginBottom: 6, color }}><RoomIcon room={room} size={26} /></div>
-                                        <div style={{ fontSize: 14, fontWeight: 600, color }}>{getRoomLabel(room, userProfile?.name)}</div>
+                                        <div style={{ fontSize: 14, fontWeight: 600, color }}>{getRoomLabel(room, memoryPalaceUserProfile?.name)}</div>
                                         <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{config.description}</div>
                                         <div style={{ fontSize: 20, fontWeight: 700, marginTop: 8, color }}>
                                             {count}
@@ -5420,7 +5430,7 @@ create table if not exists memory_vectors (
                             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                     <RoomIcon room={node.room} size={12} style={{ color: ROOM_COLORS[node.room] }} />
-                                    {getRoomLabel(node.room, userProfile?.name)}
+                                    {getRoomLabel(node.room, memoryPalaceUserProfile?.name)}
                                 </span>
                                 <span>重要性: {node.importance}</span>
                                 <span>{node.mood}</span>
@@ -5676,7 +5686,7 @@ create table if not exists memory_vectors (
                                                         </div>
                                                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                             <RoomIcon room={n.room} size={11} style={{ color: ROOM_COLORS[n.room] }} />
-                                                            <span>{getRoomLabel(n.room, userProfile?.name)} · {new Date(n.createdAt).toLocaleDateString('zh-CN')}</span>
+                                                            <span>{getRoomLabel(n.room, memoryPalaceUserProfile?.name)} · {new Date(n.createdAt).toLocaleDateString('zh-CN')}</span>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -5705,7 +5715,7 @@ create table if not exists memory_vectors (
                                                         </div>
                                                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                             <RoomIcon room={n.room} size={11} style={{ color: ROOM_COLORS[n.room] }} />
-                                                            <span>{getRoomLabel(n.room, userProfile?.name)} · {new Date(n.createdAt).toLocaleDateString('zh-CN')}</span>
+                                                            <span>{getRoomLabel(n.room, memoryPalaceUserProfile?.name)} · {new Date(n.createdAt).toLocaleDateString('zh-CN')}</span>
                                                         </div>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleReviveArchived(box, n); }}
@@ -5745,7 +5755,7 @@ create table if not exists memory_vectors (
     // ─── 房间详情视图 ────────────────────────────────
 
     if (view === 'room' && selectedRoom) {
-        const roomLabel = getRoomLabel(selectedRoom, userProfile?.name);
+        const roomLabel = getRoomLabel(selectedRoom, memoryPalaceUserProfile?.name);
         const roomColor = ROOM_COLORS[selectedRoom];
 
         return (
@@ -5860,7 +5870,7 @@ create table if not exists memory_vectors (
                         onClick={() => { setView(prevView); setSelectedNode(null); setEditing(false); }}
                         style={{ fontSize: 13, color: '#6b7280', cursor: 'pointer' }}
                     >
-                        ← 返回 {prevView === 'all' ? '全部记忆' : prevView === 'boxes' ? '事件盒' : getRoomLabel(selectedRoom || selectedNode.room, userProfile?.name)}
+                        ← 返回 {prevView === 'all' ? '全部记忆' : prevView === 'boxes' ? '事件盒' : getRoomLabel(selectedRoom || selectedNode.room, memoryPalaceUserProfile?.name)}
                     </div>
                     {!editing && (
                         <div
@@ -5895,7 +5905,7 @@ create table if not exists memory_vectors (
                                         style={{ fontFamily: 'inherit' }}
                                     >
                                         {(Object.keys(ROOM_CONFIGS) as MemoryRoom[]).map(r => (
-                                            <option key={r} value={r}>{getRoomLabel(r, userProfile?.name)}</option>
+                                            <option key={r} value={r}>{getRoomLabel(r, memoryPalaceUserProfile?.name)}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -5974,7 +5984,7 @@ create table if not exists memory_vectors (
                             <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.8 }}>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                                     <RoomIcon room={selectedNode.room} size={14} style={{ color: ROOM_COLORS[selectedNode.room] }} />
-                                    <span>{getRoomLabel(selectedNode.room, userProfile?.name)}</span>
+                                    <span>{getRoomLabel(selectedNode.room, memoryPalaceUserProfile?.name)}</span>
                                 </div>
                                 <div>重要性: {'★'.repeat(selectedNode.importance)}{'☆'.repeat(10 - selectedNode.importance)}</div>
                                 <div>情绪: {selectedNode.mood}</div>
@@ -6060,7 +6070,7 @@ create table if not exists memory_vectors (
                                                         </div>
                                                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                             <RoomIcon room={node.room} size={11} style={{ color: ROOM_COLORS[node.room] }} />
-                                                            <span>{getRoomLabel(node.room, userProfile?.name)} · {new Date(node.createdAt).toLocaleDateString('zh-CN')}</span>
+                                                            <span>{getRoomLabel(node.room, memoryPalaceUserProfile?.name)} · {new Date(node.createdAt).toLocaleDateString('zh-CN')}</span>
                                                         </div>
                                                     </div>
                                                     <button
@@ -6149,7 +6159,7 @@ create table if not exists memory_vectors (
                                                 </div>
                                                 <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                                     <RoomIcon room={linkedNode.room} size={11} style={{ color: ROOM_COLORS[linkedNode.room] }} />
-                                                    <span>{getRoomLabel(linkedNode.room, userProfile?.name)} · {new Date(linkedNode.createdAt).toLocaleDateString('zh-CN')}</span>
+                                                    <span>{getRoomLabel(linkedNode.room, memoryPalaceUserProfile?.name)} · {new Date(linkedNode.createdAt).toLocaleDateString('zh-CN')}</span>
                                                 </div>
                                             </div>
                                             <button

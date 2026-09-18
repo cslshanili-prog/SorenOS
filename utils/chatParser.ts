@@ -1,11 +1,14 @@
 
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { CharacterProfile, CharPlaylistSong } from '../types';
+import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig } from '../types';
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
+import { extractMallOrderCommands } from './mallOrderFormat';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
+import { generateImage, buildCharacterImagePrompt } from './imageGeneration';
+import { migrateDataUrlToRef } from './blobRef';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
     collaborationFileMessageMetadata,
@@ -161,6 +164,56 @@ export const ChatParser = {
          * 只有主动消息 2.0 的定时路径传，其余路径不传 = 取用户此刻在听的那首。
          */
         frozenMusicSong?: FrozenMusicSong,
+        /**
+         * 「系统设置 → 生图API」配置。传了且角色发图开关都开着，才会真的执行
+         * `[[ACTION:SEND_PHOTO|画面描述]]`；不传（或配置不全）时静默剥掉标签、不生成——
+         * 教没教角色这个动作是 chatPrompts.ts 的事，这里只负责「教了就要能兑现」。
+         */
+        imageGenConfig?: ImageGenApiConfig,
+        /**
+         * 角色退回用户发起的转账（`[[ACTION:TRANSFER_RETURN]]`，resolveUserTransfer 的
+         * 'returned' 分支）时调用，退款回 Real Balance——钱在用户发送那一刻就已经从
+         * Real Balance 扣走了（apps/Chat.tsx 的 onTransfer），退回等于这笔钱没花出去，
+         * 得还回去。'accepted' 分支不用回调：钱已经在发送时结清，收下不再改动余额。
+         * 不传就静默不退款（旧调用方 / 用不到 Real Balance 的场景）。
+         *
+         * 只在前台实时聊天路径传（useChatAI.ts）：TRANSFER_ACCEPT/TRANSFER_RETURN 这两个
+         * 标签没被 worker 的 SIDE_EFFECT_TAGS 收录，主动消息 2.0 的 push 路径上会被当成
+         * 普通文本剥掉，根本传不到这里、这个回调在那条路径上永远不会被调用（worker 侧的
+         * 已知缺口，见 worker/instant-push/src/classifier.ts 的 transfer_accept/return 注释）。
+         */
+        onUserTransferReturned?: (amount: number) => Promise<void> | void,
+        /**
+         * 角色收下用户发起的转账（resolveUserTransfer 的 'accepted' 分支）时调用，
+         * 把这笔钱记入角色自己的 Real Balance（跟 onUserTransferReturned 是同一枚硬币的
+         * 两面：退回款回用户，收下入账角色）。不传就静默不入账。同样只在前台路径有意义，
+         * 原因见 onUserTransferReturned 的注释。
+         */
+        onUserTransferAccepted?: (amount: number) => Promise<void> | void,
+        /**
+         * 角色主动发起转账（`[[ACTION:TRANSFER|...]]`，即 transferEvents 里 kind === 'send'）
+         * 落卡之前调用，从角色自己的 Real Balance 扣款——跟用户发起转账时"发送即结清"
+         * （apps/Chat.tsx 的 onTransfer）对称：钱在角色说出口那一刻就已经离开角色账户，
+         * 而不是等用户"收下"才发现角色余额不够。返回 false 时余额不够，跳过这笔转账
+         * （不落待处理转账卡，等于角色这句"转给你"没真的发生）。不传则不做余额检查，
+         * 按老行为直接落卡（旧调用方 / 用不到 Real Balance 的场景）。
+         */
+        onCharTransferSend?: (amount: number) => Promise<boolean>,
+        /**
+         * 角色收到「外卖代付请求」（购物中心 mini-app 发起，见 utils/mallOrderFormat.ts）后
+         * 选择支付（`[[ACTION:DAIFU_ACCEPT]]`）时调用，从角色自己的 Real Balance 扣这笔钱——
+         * 这是消费性的单向支出（角色替用户付了这顿饭），不是转账，用户这边不会有对应入账。
+         * 返回 false 表示余额不够，这种情况会把这张卡自动改判成"已拒绝"（附系统生成的原因），
+         * 不会让卡片卡死在"待处理"。不传就静默不结算（旧调用方 / 用不到 Real Balance 的场景）。
+         */
+        onCharDaifuAccept?: (amount: number) => Promise<boolean>,
+        /**
+         * 角色主动送用户一份礼物/外卖（`[[ACTION:GIFT|item=|price=|note=]]`）落卡之前调用，
+         * 从角色自己的 Real Balance 扣款——跟 onCharTransferSend 对称的"发送即结清"：钱在
+         * 角色说出口那一刻就已经离开角色账户。返回 false 时余额不够，跳过这份礼物（不落卡，
+         * 等于角色这句"给你带了个礼物"没真的发生）。不传则不做余额检查，直接落卡。
+         */
+        onCharGiftSend?: (amount: number) => Promise<boolean>,
     ) => {
         let content = aiContent;
         /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
@@ -209,6 +262,42 @@ export const ChatParser = {
         if (content.includes('[[ACTION:POKE]]')) {
             await persist({ charId, role: 'assistant', type: 'interaction', content: '[戳一戳]' });
             content = content.replace('[[ACTION:POKE]]', '').trim();
+        }
+
+        // SEND_PHOTO — 角色自主发图。教没教这个动作在 chatPrompts.ts（取决于生图开关+配置是否
+        // 齐全）；这里只要看到标签就按 imageGenConfig 有没有传、配得全不全来决定真生成还是
+        // 静默剥掉——没传等于「没接生图」，避免标签原样漏进气泡里。
+        const photoMatches = [...content.matchAll(/\[\[ACTION:SEND_PHOTO\s*\|\s*(.*?)\s*\]\]/g)];
+        if (photoMatches.length > 0) {
+            for (const m of photoMatches) content = content.replace(m[0], '').trim();
+            const canGenerate = !!(
+                imageGenConfig?.charImageGenEnabled && imageGenConfig?.charImageSendEnabled
+                && imageGenConfig?.baseUrl && imageGenConfig?.model
+            );
+            if (canGenerate) {
+                // 挨个顺序生成、发送——生图是要花钱的网络请求，不并发抢速度；一轮回复里
+                // 角色想发好几张也不至于同时炸出去一堆请求。
+                for (const m of photoMatches) {
+                    const description = m[1].trim();
+                    if (!description) continue;
+                    try {
+                        const chars = await DB.getAllCharacters();
+                        const charProfile = chars.find(c => c.id === charId);
+                        const prompt = charProfile ? buildCharacterImagePrompt(charProfile, description) : description;
+                        const { dataUrl } = await generateImage(imageGenConfig!, prompt);
+                        const storedContent = await migrateDataUrlToRef(dataUrl);
+                        await persist({
+                            charId, role: 'assistant', type: 'image', content: storedContent,
+                            metadata: { aiGenerated: true, imagePrompt: description },
+                        });
+                    } catch (error) {
+                        console.warn('[ChatParser] 角色发图失败:', error);
+                        addToast(`${charName} 想发张照片，但生成失败了`, 'error');
+                    }
+                }
+            } else {
+                console.warn('[ChatParser] 角色想发图，但生图未开启/未配置完整，已忽略标签', { charId });
+            }
         }
 
         // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一笔待处理的转账。
@@ -261,6 +350,16 @@ export const ChatParser = {
                 content: action === 'accepted' ? '[已收款]' : '[已退回]',
                 metadata: { receipt: action, amount, ref: refId },
             });
+            // 退回：钱在用户发送那一刻就已经从 Real Balance 扣走了，角色退回等于这笔钱
+            // 没真的花出去，得退款回去。收下：钱这时才真的到账角色，记入角色的 Real Balance。
+            const numericAmount = Number(amount);
+            if (Number.isFinite(numericAmount) && numericAmount > 0) {
+                if (action === 'returned' && onUserTransferReturned) {
+                    await onUserTransferReturned(numericAmount);
+                } else if (action === 'accepted' && onUserTransferAccepted) {
+                    await onUserTransferAccepted(numericAmount);
+                }
+            }
         };
 
         // TRANSFER — 规范标签 + 模仿历史日志的口语形态一起解析，见 utils/transferFormat.ts。
@@ -269,12 +368,115 @@ export const ChatParser = {
         if (transferConsumed > 0) content = transferCleanedText;
         for (const ev of transferEvents) {
             if (ev.kind === 'send') {
+                // 发送即结清：先从角色 Real Balance 扣款，扣不出来就不落卡（等于这句「转给你」
+                // 没真的发生）。不传检查回调则维持老行为，直接落卡。
+                const sendAmount = Number(ev.amount);
+                const ok = onCharTransferSend && Number.isFinite(sendAmount) && sendAmount > 0
+                    ? await onCharTransferSend(sendAmount)
+                    : true;
+                if (!ok) {
+                    console.warn('[Transfer] 角色 Real Balance 不足，跳过这笔主动转账:', { charId, amount: ev.amount });
+                    continue;
+                }
                 // role 固定 'assistant' —— 方向不由文本决定，文本里的方向信息只在
                 // transferFormat 里做过校验（伪造的已被丢弃）。
                 await persist({ charId, role: 'assistant', type: 'transfer', content: '[转账]', metadata: { amount: ev.amount, status: 'pending' } });
             } else {
                 await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
             }
+        }
+
+        // MALL DAIFU — 角色对「外卖代付请求」支付或拒绝。跟 resolveUserTransfer 结构相同：
+        // 找最近一条 user 发出、还 pending 的 mall_order(mode=daifu)，标记状态。跟转账不同的是
+        // 这不是两方账本的转移，是角色单方面的支出（角色替用户付了这顿饭），所以只更新原卡
+        // 自己的 status，不另外落一张回执小卡——MallOrderCard 本身就靠 status 字段切换四种展示。
+        const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
+            let amount: number | undefined;
+            let refId: number | undefined;
+            try {
+                const all = await DB.getMessagesByCharId(charId, true);
+                const pendings = all.filter(
+                    x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
+                );
+                // 跟 resolveUserTransfer 同一个理由：按「这句话说出口那一刻」看得到的最新一笔结算，
+                // 离线补收拉开生成/重放的时间差时不会让半夜那句话结了早上才发的请求。
+                let pending = messageTimestamp != null
+                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
+                    : undefined;
+                if (!pending) {
+                    if (messageTimestamp != null && pendings.length > 0) {
+                        console.warn('[MallDaifu] 这条消息发出时并没有待处理的代付请求，按最新一笔结算:', { charId, messageTimestamp, pendingCount: pendings.length });
+                    }
+                    pending = pendings[pendings.length - 1];
+                }
+                if (pending) {
+                    amount = Number(pending.metadata?.total);
+                    refId = pending.id;
+                }
+            } catch (e) {
+                console.warn('[MallDaifu] 查待处理代付请求失败，跳过:', e);
+                return;
+            }
+            if (refId === undefined) {
+                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒绝'}代付请求，但没有待处理的请求，已忽略`);
+                return;
+            }
+            let finalAction = action;
+            let finalReason = action === 'declined' ? reason : undefined;
+            if (action === 'accepted' && Number.isFinite(amount) && (amount as number) > 0 && onCharDaifuAccept) {
+                const ok = await onCharDaifuAccept(amount as number);
+                if (!ok) {
+                    finalAction = 'declined';
+                    finalReason = '余额不够，付不出这笔钱';
+                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付请求自动改判拒绝:', { charId, amount });
+                }
+            }
+            await DB.updateMessageMetadata(refId, (prev) => ({
+                ...(prev || {}),
+                status: finalAction,
+                ...(finalReason ? { declineReason: finalReason } : {}),
+                resolvedAt: Date.now(),
+            }));
+        };
+
+        // MALL — 购物中心的 GIFT send / DAIFU accept-decline，见 utils/mallOrderFormat.ts。
+        const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
+        if (mallOrderConsumed > 0) content = mallCleanedText;
+        for (const ev of mallOrderEvents) {
+            if (ev.kind === 'send') {
+                const price = Number(ev.price);
+                const ok = onCharGiftSend && Number.isFinite(price) && price > 0
+                    ? await onCharGiftSend(price)
+                    : true;
+                if (!ok) {
+                    console.warn('[Mall] 角色 Real Balance 不足，跳过这份主动送出的礼物:', { charId, item: ev.item, price: ev.price });
+                    continue;
+                }
+                await persist({
+                    charId, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]',
+                    metadata: { mode: 'gift', items: [{ name: ev.item, price, qty: 1 }], total: price, note: ev.note, status: 'sent' },
+                });
+            } else {
+                await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
+            }
+        }
+
+        // MALL GIFT ACK — 用户送的礼物是「发送即结清」，没有 accept 步骤，但完全没反馈不好；
+        // 角色这一轮既然生成了回复，就说明已经看到了这份礼物，顺手标一个 acknowledged，
+        // 让 MallOrderCard 在"已送出"旁边多显示一句"TA已收下"。不用教模型专门喊一个标签——
+        // 这是纯摆设确认，说不说都不影响结算，没必要为这个引入"想做≠做了"的标签遗忘风险；
+        // 直接按"角色这轮说话了 = 已经看到最新一条历史"这个必然成立的事实来标记，更稳。
+        // 只标最新一条：老的已经错过时机，不用倒着一次性全标。
+        try {
+            const allMsgs = await DB.getMessagesByCharId(charId, true);
+            const unacked = allMsgs
+                .filter(x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'gift' && x.metadata?.status === 'sent' && !x.metadata?.acknowledged)
+                .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+            if (unacked[0]) {
+                await DB.updateMessageMetadata(unacked[0].id, (prev) => ({ ...(prev || {}), acknowledged: true }));
+            }
+        } catch (e) {
+            console.warn('[Mall] 标记礼物已读失败，跳过:', e);
         }
 
         // MUSIC_ACTION — char 对 user 正在听的歌表态（只处理第一次出现，每条消息最多一次插卡）

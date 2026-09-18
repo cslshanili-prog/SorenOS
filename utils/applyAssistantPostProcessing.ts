@@ -24,7 +24,7 @@
  * directives 传过来, 这里只重放。
  */
 
-import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, RealtimeConfig, GroupProfile } from '../types';
+import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, RealtimeConfig, GroupProfile, ImageGenApiConfig } from '../types';
 import { DB } from './db';
 import { ChatParser, type FrozenMusicSong } from './chatParser';
 import { resolveCharTimeZone } from './timezone';
@@ -503,6 +503,39 @@ export interface PostProcessCtx {
     /** 已按当前角色可见性过滤的分类；用于容错解析“分类名: 表情名”。 */
     categories?: EmojiCategory[];
     realtimeConfig?: RealtimeConfig;
+    /**
+     * 生图 API 配置；只有传了、且角色发图开关都打开时，ChatParser.parseAndExecuteActions
+     * 才会真的执行 `[[ACTION:SEND_PHOTO|...]]`（有没有教过角色这个动作是 chatPrompts.ts
+     * 那边的事，这里只管执行）。不传 = 遇到这个标签当无效标签一样静默剥掉、不生成。
+     */
+    imageGenConfig?: ImageGenApiConfig;
+    /**
+     * 角色退回用户发起的转账时退款回 Real Balance（见 chatParser.ts 同名参数的注释）。
+     * 只在前台聊天路径传——TRANSFER_ACCEPT/TRANSFER_RETURN 标签过不了主动消息 2.0 的
+     * push 路径（worker 侧已知缺口），传了也用不上。
+     */
+    onUserTransferReturned?: (amount: number) => Promise<void> | void;
+    /**
+     * 角色收下用户发起的转账时入账角色自己的 Real Balance（见 chatParser.ts 同名参数的注释）。
+     * 跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onUserTransferAccepted?: (amount: number) => Promise<void> | void;
+    /**
+     * 角色主动发起转账时先从角色自己的 Real Balance 扣款、余额不够则拦下这笔转账
+     * （见 chatParser.ts 同名参数的注释）。跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onCharTransferSend?: (amount: number) => Promise<boolean>;
+    /**
+     * 角色支付购物中心「外卖代付请求」时从角色自己的 Real Balance 扣款、余额不够则把这张卡
+     * 自动改判成拒绝（见 chatParser.ts 同名参数的注释）。跟 onUserTransferReturned 一样只在
+     * 前台聊天路径传。
+     */
+    onCharDaifuAccept?: (amount: number) => Promise<boolean>;
+    /**
+     * 角色主动送用户一份礼物/外卖时从角色自己的 Real Balance 扣款、余额不够则跳过这份礼物
+     * （见 chatParser.ts 同名参数的注释）。跟 onUserTransferReturned 一样只在前台聊天路径传。
+     */
+    onCharGiftSend?: (amount: number) => Promise<boolean>;
     /** 日程被角色改写后刷新主动消息 fire_pack；旧调用方可不传。 */
     groups?: GroupProfile[];
     /**
@@ -593,6 +626,12 @@ export async function applyAssistantPostProcessing(
         userProfile,
         emojis,
         realtimeConfig,
+        imageGenConfig,
+        onUserTransferReturned,
+        onUserTransferAccepted,
+        onCharTransferSend,
+        onCharDaifuAccept,
+        onCharGiftSend,
         groups,
         spokenAt,
         contextMsgs,
@@ -2249,7 +2288,7 @@ export async function applyAssistantPostProcessing(
         (d): d is Extract<PostProcessDirective, { type: 'music_action' }> =>
             d.type === 'music_action' && !!d.song,
     )?.song;
-    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong);
+    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend, onCharDaifuAccept, onCharGiftSend);
 
     // ─── Step 4: thinking chain 抽取 (本轮末尾展示用) ───
     // 跑过二轮 (data !== initialData) → 取二轮 data 的 reasoning; 没跑二轮 → 取一轮 (round1ThinkingChain,

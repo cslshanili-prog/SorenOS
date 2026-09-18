@@ -3,7 +3,7 @@
 // worker/amsg/src/index.ts
 import { DurableObject } from "cloudflare:workers";
 
-// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.28_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-GN44PST5.mjs
+// node_modules/.pnpm/@rei-standard+amsg-server@2_ea16286aaa16251b49227e44a96f6568/node_modules/@rei-standard/amsg-server/dist/chunk-GN44PST5.mjs
 var UPDATABLE_COLUMNS = /* @__PURE__ */ new Set([
   "user_id",
   "uuid",
@@ -22,7 +22,7 @@ var UPDATABLE_COLUMNS = /* @__PURE__ */ new Set([
 var TASK_DELIVERY_COLUMNS = "id, user_id, uuid, encrypted_payload, message_type, next_send_at, retry_after, status, retry_count";
 var TASK_DETAIL_COLUMNS = "id, user_id, uuid, encrypted_payload, message_type, next_send_at, status, retry_count, last_error, created_at, updated_at";
 
-// node_modules/.pnpm/@rei-standard+amsg-shared@0.4.0-next.10/node_modules/@rei-standard/amsg-shared/dist/index.mjs
+// node_modules/.pnpm/@rei-standard+amsg-shared@0.4.0-next.9/node_modules/@rei-standard/amsg-shared/dist/index.mjs
 var TEXT_ENCODER = new TextEncoder();
 var TEXT_DECODER = new TextDecoder("utf-8", { fatal: false });
 function toUint8(buf) {
@@ -195,24 +195,8 @@ async function callLlm(payload, options = {}) {
       detail
     );
   }
-  const okStatus = Number.isInteger(aiResponse.status) ? aiResponse.status : 200;
-  const body = await readCompletionBody(aiResponse);
-  if (!body.parsed) {
-    throw buildUpstreamError(
-      `AI API error: HTTP ${okStatus} but body is not valid JSON. Request URL: ${normalizedApiUrl}`,
-      okStatus,
-      describeUnparsableBody(body.raw)
-    );
-  }
-  const aiData = body.data;
-  if (!isChatCompletionShape(aiData)) {
-    throw buildUpstreamError(
-      `AI API error: HTTP ${okStatus} but body is not a chat completion (no choices). Request URL: ${normalizedApiUrl}`,
-      okStatus,
-      describeNonCompletionBody(aiData)
-    );
-  }
-  const rawContent = aiData.choices[0]?.message?.content;
+  const aiData = await aiResponse.json();
+  const rawContent = aiData?.choices?.[0]?.message?.content;
   if (requireContent && (typeof rawContent !== "string" || !rawContent.trim())) {
     throw new Error("AI API error: response missing choices[0].message.content");
   }
@@ -306,9 +290,6 @@ async function readUpstreamErrorDetail(response) {
     }
     return { message: clampDetail(raw), code: "" };
   }
-  return extractErrorEnvelopeDetail(body, { fallbackMessage: raw });
-}
-function extractErrorEnvelopeDetail(body, { fallbackMessage = "", keepNumericCode = false } = {}) {
   const envelope = body && typeof body === "object" ? body : {};
   const inner = envelope.error && typeof envelope.error === "object" ? envelope.error : {};
   const message = firstNonEmptyString(
@@ -318,11 +299,9 @@ function extractErrorEnvelopeDetail(body, { fallbackMessage = "", keepNumericCod
     // `{ error: "unauthorized" }`
     envelope.message,
     // 一批中转把 message 放最外层
-    envelope.msg,
-    // 国内中转的 `{ code, msg }`
     envelope.detail
     // FastAPI 风格的自建中转
-  ) || fallbackMessage;
+  ) || raw;
   const code = firstNonEmptyString(
     inner.code,
     // OpenAI：invalid_api_key / insufficient_quota / context_length_exceeded
@@ -331,60 +310,8 @@ function extractErrorEnvelopeDetail(body, { fallbackMessage = "", keepNumericCod
     inner.type,
     // Anthropic：invalid_request_error / overloaded_error
     envelope.code
-  ) || (keepNumericCode ? firstIntegerString(inner.code, envelope.code) : "");
+  );
   return { message: clampDetail(message), code: clampCode(code) };
-}
-var EMPTY_BODY_NOTE = "response body is empty";
-var NON_COMPLETION_KEYS_MAX = 10;
-async function readCompletionBody(response) {
-  if (typeof response.text === "function") {
-    const raw = await response.text();
-    try {
-      return { parsed: true, data: JSON.parse(raw) };
-    } catch {
-      return { parsed: false, raw: typeof raw === "string" ? raw : null };
-    }
-  }
-  try {
-    return { parsed: true, data: await response.json() };
-  } catch (error) {
-    if (error && /** @type {any} */
-    error.name === "SyntaxError") return { parsed: false, raw: null };
-    throw error;
-  }
-}
-function isChatCompletionShape(data) {
-  return !!data && typeof data === "object" && Array.isArray(
-    /** @type {any} */
-    data.choices
-  ) && /** @type {any} */
-  data.choices.length > 0;
-}
-function describeUnparsableBody(raw) {
-  if (raw === null) return { message: "", code: "" };
-  const trimmed = raw.trim();
-  if (!trimmed) return { message: EMPTY_BODY_NOTE, code: "" };
-  if (looksLikeSseStream(trimmed)) return { message: SSE_BODY_NOTE, code: "" };
-  return { message: clampDetail(raw), code: "" };
-}
-function looksLikeSseStream(trimmed) {
-  return trimmed.startsWith(":") || SSE_FIELD_LINE.test(trimmed);
-}
-var SSE_FIELD_LINE = /^(?:data|event|id|retry):/im;
-var SSE_BODY_NOTE = "response body looks like an SSE stream (the endpoint ignored stream: false)";
-function describeNonCompletionBody(data) {
-  const detail = extractErrorEnvelopeDetail(data, { keepNumericCode: true });
-  if (detail.message || detail.code) return detail;
-  let shape;
-  if (Array.isArray(data)) {
-    shape = "response body is a JSON array";
-  } else if (data && typeof data === "object") {
-    const keys = Object.keys(data);
-    shape = keys.length === 0 ? "response body is an empty object" : `top-level keys: ${keys.slice(0, NON_COMPLETION_KEYS_MAX).join(", ")}` + (keys.length > NON_COMPLETION_KEYS_MAX ? ", \u2026" : "");
-  } else {
-    shape = `response body is ${data === null ? "null" : `a JSON ${typeof data}`}`;
-  }
-  return { message: clampDetail(shape), code: "" };
 }
 async function readBoundedBody(response) {
   const body = response && response.body;
@@ -507,12 +434,6 @@ function redactCredentials(text) {
 function firstNonEmptyString(...values) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value;
-  }
-  return "";
-}
-function firstIntegerString(...values) {
-  for (const value of values) {
-    if (Number.isInteger(value)) return String(value);
   }
   return "";
 }
@@ -1215,7 +1136,7 @@ function stringifyDecisionForError(value) {
   }
 }
 
-// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.28_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-YBBXKK7U.mjs
+// node_modules/.pnpm/@rei-standard+amsg-server@2_ea16286aaa16251b49227e44a96f6568/node_modules/@rei-standard/amsg-server/dist/chunk-FPVXATA4.mjs
 var DAY_MS = 24 * 60 * 60 * 1e3;
 var MAX_LISTED_SKIPPED_OCCURRENCES = 32;
 var MAX_ADJUST_STEPS = 32;
@@ -6507,7 +6428,7 @@ function createClientStateHandler(ctx) {
   }
   return { PUT, GET, DELETE };
 }
-var SERVER_VERSION = true ? "2.6.0-next.28" : "0.0.0-dev";
+var SERVER_VERSION = true ? "2.6.0-next.27" : "0.0.0-dev";
 var SERVER_FEATURES = Object.freeze([
   "client-state",
   "client-state-chunking",
@@ -7076,8 +6997,101 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
   return { fetch: fetch2, scheduled, runTask: runTask2, getSchemaVersion: getSchemaVersion2, ensureSchema: ensureSchema2 };
 }
 
+// node_modules/.pnpm/@rei-standard+amsg-shared@0.4.0-next.8/node_modules/@rei-standard/amsg-shared/dist/index.mjs
+var TEXT_ENCODER2 = new TextEncoder();
+var TEXT_DECODER2 = new TextDecoder("utf-8", { fatal: false });
+function utf83(str) {
+  return TEXT_ENCODER2.encode(String(str));
+}
+var LLM_MESSAGES_ERROR2 = Object.freeze({
+  MESSAGES_NOT_ARRAY: "MESSAGES_NOT_ARRAY",
+  MESSAGE_NOT_OBJECT: "MESSAGE_NOT_OBJECT",
+  INVALID_ROLE: "INVALID_ROLE",
+  TOOL_CALL_MALFORMED: "TOOL_CALL_MALFORMED",
+  TOOL_CONTENT_INVALID: "TOOL_CONTENT_INVALID",
+  TOOL_CALL_ID_MISSING: "TOOL_CALL_ID_MISSING",
+  CONTENT_EMPTY_STRING: "CONTENT_EMPTY_STRING",
+  CONTENT_EMPTY_ARRAY: "CONTENT_EMPTY_ARRAY",
+  CONTENT_INVALID_TYPE: "CONTENT_INVALID_TYPE"
+});
+var UPSTREAM_ERROR_BODY_MAX_BYTES2 = 16 * 1024;
+var KEY_INFO_PREFIX2 = utf83("WebPush: info\0");
+var CEK_INFO2 = utf83("Content-Encoding: aes128gcm\0");
+var NONCE_INFO2 = utf83("Content-Encoding: nonce\0");
+var VAPID_TOKEN_LIFETIME2 = 12 * 3600;
+var REI_SW_EVENT2 = Object.freeze({
+  CONTENT_RECEIVED: "rei-amsg-content-received",
+  REASONING_RECEIVED: "rei-amsg-reasoning-received",
+  TOOL_REQUEST_RECEIVED: "rei-amsg-tool-request-received",
+  ERROR_RECEIVED: "rei-amsg-error-received",
+  /** 宿主自定义的一条结果（`messageKind: 'result'`），不是聊天内容。 */
+  RESULT_RECEIVED: "rei-amsg-result-received",
+  MULTIPART_EXPIRED: "rei-amsg-multipart-expired",
+  UNKNOWN_RECEIVED: "rei-amsg-unknown-received"
+});
+var MULTIPART_FAILURE_REASON2 = Object.freeze({
+  /** TTL 到期仍未收齐，或收到的分片本身已经过期。 */
+  TTL_EXPIRED: "ttl-expired",
+  /** 分片信封不合规：version / encoding 对不上、index 越界、chunk 不是合法 base64url。 */
+  INVALID_CHUNK: "invalid-chunk",
+  /** 同一个 id 的分片报了不一样的 total / encoding，已收的部分拼不回去。 */
+  CHUNK_CONFLICT: "chunk-conflict",
+  /** 累计字节数超过 maxTotalBytes。 */
+  SIZE_LIMIT_EXCEEDED: "size-limit-exceeded",
+  /** 收齐了但拼不回原 payload（缺片、超限、JSON 解不开）。 */
+  RESTORE_FAILED: "restore-failed",
+  /** 分片仓库（IndexedDB）读写失败。 */
+  STORAGE_FAILED: "storage-failed",
+  /** 接收端把 multipart 关了（`multipart.enabled === false`），分片没法重组。 */
+  DISABLED: "disabled"
+});
+var REI_SW_MESSAGE_TYPE2 = Object.freeze({
+  ENQUEUE_REQUEST: "REI_ENQUEUE_REQUEST",
+  DELIVER: "REI_AMSG_DELIVER",
+  FLUSH_QUEUE: "REI_FLUSH_QUEUE",
+  /**
+   * 入队的点对点回执：谁发的 ENQUEUE_REQUEST 就回给谁一条，一次一条。
+   * 没转 MessagePort 过来时会落到全局的 `navigator.serviceWorker` message
+   * 监听器上。
+   */
+  QUEUE_RESULT: "REI_QUEUE_RESULT",
+  /**
+   * 队列请求被永久拒绝、即将从队列里删掉时广播给所有窗口的一条。
+   *
+   * 跟 QUEUE_RESULT 分开是因为两者的收信人不是一回事：这条是广播，可能来自后台
+   * `sync` 冲刷、说的也可能是另一条八竿子打不着的旧请求。共用一个 type 的话，
+   * 页面等自己那条入队回执时会先收到这一条、当成自己的结果处理。
+   */
+  QUEUE_DROPPED: "REI_QUEUE_DROPPED"
+});
+var REI_AMSG_DELIVER_MESSAGE_TYPE2 = REI_SW_MESSAGE_TYPE2.DELIVER;
+var MESSAGE_KIND2 = Object.freeze({
+  CONTENT: "content",
+  REASONING: "reasoning",
+  TOOL_REQUEST: "tool_request",
+  ERROR: "error",
+  RESULT: "result"
+});
+var MESSAGE_TYPE2 = Object.freeze({
+  INSTANT: "instant",
+  FIXED: "fixed",
+  PROMPTED: "prompted",
+  AUTO: "auto"
+});
+var PUSH_SOURCE2 = Object.freeze({
+  INSTANT: "instant",
+  SCHEDULED: "scheduled"
+});
+var REASONING_CHUNK_ENCODER2 = new TextEncoder();
+var REASONING_CHUNK_DECODER2 = new TextDecoder("utf-8", { fatal: true });
+var REASONING_TAG_RE_G2 = /<(think|thinking|thought)>[\s\S]*?<\/\1>/gi;
+function stripReasoningTags2(content) {
+  if (typeof content !== "string" || !content.includes("<")) return content;
+  return content.replace(REASONING_TAG_RE_G2, "").trim();
+}
+
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-09-18";
+var AMSG_BUNDLE_VERSION = "2026-09-02";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -7813,123 +7827,6 @@ var parseFirePack = (value) => {
   return null;
 };
 
-// worker/amsg/src/skipDiagnostics.ts
-var BODY_ERROR_MAX_CHARS = 200;
-var CONTENT_EXCERPT_CHARS = 300;
-var REASONING_TAIL_CHARS = 200;
-var BODY_EXCERPT_CHARS = 500;
-var asRecord = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var numberOrNull = (value) => typeof value === "number" && Number.isFinite(value) ? value : null;
-var clip = (text, max) => text.length > max ? `${text.slice(0, max)}\u2026` : text;
-var safeStringify = (value) => {
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
-};
-var readFirstMessage = (body) => {
-  const choices = Array.isArray(body?.choices) ? body.choices : [];
-  const choice = asRecord(choices[0]);
-  return { choice, message: asRecord(choice?.message) };
-};
-var readReasoning = (message) => {
-  const value = message?.reasoning_content ?? message?.reasoning ?? message?.thinking;
-  return typeof value === "string" ? value : "";
-};
-var readBodyError = (body, hasChoices) => {
-  if (!body) return null;
-  let text = "";
-  const error = body.error;
-  if (typeof error === "string") {
-    text = error;
-  } else {
-    const record = asRecord(error);
-    if (record) {
-      const code = typeof record.code === "string" || typeof record.code === "number" ? String(record.code) : typeof record.type === "string" ? record.type : "";
-      const message = typeof record.message === "string" ? record.message : "";
-      text = [code && `[${code}]`, message].filter(Boolean).join(" ") || safeStringify(record);
-    }
-  }
-  if (!text && !hasChoices) {
-    const topLevel = body.message ?? body.msg;
-    if (typeof topLevel === "string") text = topLevel;
-  }
-  return text ? clip(redactCredentials(text), BODY_ERROR_MAX_CHARS) : null;
-};
-var describeLlmResponseShape = (llmResponse, llmOutputText) => {
-  const body = asRecord(llmResponse);
-  const hasChoices = Array.isArray(body?.choices) && body.choices.length > 0;
-  const { choice, message } = readFirstMessage(body);
-  const content = message?.content;
-  const contentType = content === void 0 ? "missing" : content === null ? "null" : typeof content === "string" ? "string" : Array.isArray(content) ? "array" : "other";
-  const contentChars = typeof content === "string" ? content.length : Array.isArray(content) ? content.reduce((sum, part) => {
-    const text = asRecord(part)?.text;
-    return sum + (typeof text === "string" ? text.length : 0);
-  }, 0) : 0;
-  const usage = asRecord(body?.usage);
-  const usageDetails = asRecord(usage?.completion_tokens_details);
-  return {
-    model: typeof body?.model === "string" ? body.model : null,
-    hasChoices,
-    finishReason: typeof choice?.finish_reason === "string" ? choice.finish_reason : null,
-    contentType,
-    contentChars,
-    ...Array.isArray(content) ? { contentParts: content.length } : {},
-    visibleChars: stripReasoningTags(llmOutputText || "").trim().length,
-    reasoningChars: readReasoning(message).length,
-    toolCalls: Array.isArray(message?.tool_calls) ? message.tool_calls.length : 0,
-    usage: usage ? {
-      promptTokens: numberOrNull(usage.prompt_tokens),
-      completionTokens: numberOrNull(usage.completion_tokens),
-      reasoningTokens: numberOrNull(usageDetails?.reasoning_tokens)
-    } : null,
-    bodyError: readBodyError(body, hasChoices)
-  };
-};
-var excerptLlmResponse = (llmResponse) => {
-  const body = asRecord(llmResponse);
-  const hasChoices = Array.isArray(body?.choices) && body.choices.length > 0;
-  if (!hasChoices) {
-    return { body: clip(redactCredentials(safeStringify(llmResponse)), BODY_EXCERPT_CHARS) };
-  }
-  const { message } = readFirstMessage(body);
-  const excerpt = {};
-  const content = message?.content;
-  if (typeof content === "string") {
-    if (content) excerpt.content = clip(redactCredentials(content), CONTENT_EXCERPT_CHARS);
-  } else if (content != null) {
-    excerpt.content = clip(redactCredentials(safeStringify(content)), CONTENT_EXCERPT_CHARS);
-  }
-  const reasoning = readReasoning(message);
-  if (reasoning) {
-    const tail = reasoning.length > REASONING_TAIL_CHARS ? `\u2026${reasoning.slice(-REASONING_TAIL_CHARS)}` : reasoning;
-    excerpt.reasoningTail = redactCredentials(tail);
-  }
-  if (Array.isArray(message?.tool_calls) && message.tool_calls.length > 0) {
-    excerpt.toolCalls = clip(redactCredentials(safeStringify(message.tool_calls)), CONTENT_EXCERPT_CHARS);
-  }
-  return excerpt;
-};
-var rawExcerptEnabled = false;
-var configureSkipDiagnostics = (options) => {
-  rawExcerptEnabled = options.rawExcerpt;
-};
-var isDebugFlagOn = (value) => typeof value === "string" && ["1", "true"].includes(value.trim().toLowerCase());
-var logSkipDiagnostic = (input) => {
-  try {
-    console.warn("[amsg:skip-diag]", {
-      sessionId: input.sessionId ?? null,
-      reason: input.reason,
-      iteration: input.iteration ?? null,
-      ...describeLlmResponseShape(input.llmResponse, input.llmOutputText ?? ""),
-      ...rawExcerptEnabled ? { raw: excerptLlmResponse(input.llmResponse) } : {}
-    });
-  } catch (error) {
-    console.warn("[amsg:skip-diag] \u8BCA\u65AD\u65E5\u5FD7\u6CA1\u8BB0\u4E0B\u6765\uFF08\u8DF3\u8FC7\u7167\u5E38\u751F\u6548\uFF09", error);
-  }
-};
-
 // worker/amsg/src/plateFire.ts
 var discardJob = async (writeState, jobId) => {
   if (!writeState) return;
@@ -7983,13 +7880,6 @@ var plateConsolidateHandler = {
     const items = parsePlateLlmReply(ctx.llmOutputText || "");
     if (items.length === 0) {
       console.warn("[amsg:plate] LLM \u6CA1\u8FD4\u56DE\u6709\u6548\u6761\u76EE\uFF0C\u95E8\u724C\u4FDD\u6301\u4E0D\u52A8", jobId);
-      logSkipDiagnostic({
-        sessionId: ctx.sessionId,
-        reason: "plate-empty-generation",
-        iteration: ctx.iteration,
-        llmResponse: ctx.llmResponse,
-        llmOutputText: ctx.llmOutputText
-      });
       await discardJob(ctx.writeState, jobId);
       return { decision: "skip-push", reason: "plate-empty-generation" };
     }
@@ -12351,7 +12241,7 @@ var extractScheduleChangeDirectives = (text) => {
   };
 };
 
-// worker/amsg/src/classifier.ts
+// worker/instant-push/src/classifier.ts
 var DATA_TAGS = [
   // [[RECALL: 2024-05]] / [[RECALL: 2024年5]]
   {
@@ -12902,312 +12792,15 @@ function buildScheduleChangeResult(args) {
   };
 }
 
-// utils/amsgTickReport.ts
-var TICK_STALL_MS = 5 * 6e4;
-var LATE_START_MS = 3 * 6e4;
-var SAME_WRITE_TOLERANCE_MS = 5e3;
-var TICK_FAILURE_SERIES_GAP_MS = 3 * 6e4;
-var classifyOverdueTasks = (tasks, nowMs) => {
-  const verdicts = tasks.map((task) => {
-    const state = task.leaseUntilMs !== null && task.leaseUntilMs > nowMs ? "sending" : task.retryAfterMs !== null && task.retryAfterMs > nowMs ? "retry-wait" : "ready";
-    const readySinceMs = Math.max(task.nextSendAtMs, task.retryAfterMs ?? -Infinity);
-    const lastSettledMs = Math.max(
-      task.nextSendAtMs,
-      (task.createdAtMs ?? -Infinity) + SAME_WRITE_TOLERANCE_MS,
-      (task.currentErrorAtMs ?? -Infinity) + SAME_WRITE_TOLERANCE_MS
-    );
-    const lastStartedAtMs = task.updatedAtMs !== null && task.updatedAtMs > lastSettledMs ? task.updatedAtMs : null;
-    const unfinishedAttempt = state === "ready" && lastStartedAtMs !== null;
-    const lateStart = state === "sending" && lastStartedAtMs !== null && lastStartedAtMs - readySinceMs > LATE_START_MS;
-    const waitedTooLong = state === "ready" && nowMs - readySinceMs >= TICK_STALL_MS;
-    return {
-      state,
-      readySinceMs,
-      lastStartedAtMs,
-      unfinishedAttempt,
-      lateStart,
-      queuedBehind: false,
-      stuck: unfinishedAttempt || waitedTooLong
-    };
-  });
-  return verdicts.map(({ readySinceMs: _readySinceMs, ...verdict }, index) => {
-    if (verdict.state !== "ready" || verdict.unfinishedAttempt) return verdict;
-    const key = tasks[index].serializeKey;
-    if (!key) return verdict;
-    const blocked = verdicts.some((other, otherIndex) => otherIndex !== index && other.state === "sending" && tasks[otherIndex].serializeKey === key);
-    return blocked ? { ...verdict, queuedBehind: true, stuck: false } : verdict;
-  });
-};
-var judgeOverdueTasks = (tasks) => {
-  if (tasks.some((task) => task.verdict.stuck)) return "stalled";
-  if (tasks.some((task) => task.hasCurrentError || task.verdict.lateStart)) return "failing";
-  return "healthy";
-};
-
-// worker/amsg/src/tickReport.ts
-var MAX_OVERDUE_TASKS = 50;
-var MAX_RECENT_FAILURES = 10;
-var RECENT_FAILURE_WINDOW_MS = 24 * 60 * 6e4;
-var TASK_COLUMNS = `uuid, user_id, encrypted_payload, message_type, status, next_send_at,
-       retry_count, retry_after, lease_until, created_at, updated_at, last_error`;
-var parseMs = (value) => {
-  if (!value) return null;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : null;
-};
-var toIso = (ms) => ms === null ? null : new Date(ms).toISOString();
-var parseLastError = (raw) => {
-  if (!raw) return null;
-  let value = null;
-  try {
-    const parsed = JSON.parse(raw);
-    value = parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return { at: null, occurrence: null, reason: raw, errorCode: null, pushStatus: null };
-  }
-  if (!value) return null;
-  const pick = (key) => typeof value?.[key] === "string" && value[key] ? value[key] : null;
-  const pushStatus = Number(value.pushStatus);
-  return {
-    at: pick("at"),
-    occurrence: pick("occurrence"),
-    reason: pick("reason") || "",
-    errorCode: pick("errorCode"),
-    pushStatus: Number.isFinite(pushStatus) && pushStatus > 0 ? pushStatus : null
-  };
-};
-var isCurrentOccurrence = (error, nextSendAtMs) => {
-  const occurrenceMs = parseMs(error.occurrence);
-  if (occurrenceMs !== null) return occurrenceMs === nextSendAtMs;
-  const atMs = parseMs(error.at);
-  return atMs !== null && atMs >= nextSendAtMs;
-};
-var createIdentityReader = (masterKey, serializeKeyOf) => {
-  const userKeys = /* @__PURE__ */ new Map();
-  return async (row) => {
-    const unknown = { charId: null, contactName: null, kind: null, serializeKey: null };
-    if (!masterKey || !row.user_id || !row.encrypted_payload) return unknown;
-    try {
-      let userKey = userKeys.get(row.user_id);
-      if (!userKey) {
-        userKey = deriveUserEncryptionKey(row.user_id, masterKey);
-        userKeys.set(row.user_id, userKey);
-      }
-      const payload = JSON.parse(await decryptFromStorage(row.encrypted_payload, await userKey));
-      const metadata = payload.metadata && typeof payload.metadata === "object" ? payload.metadata : null;
-      return {
-        charId: typeof metadata?.charId === "string" ? metadata.charId : null,
-        contactName: typeof payload.contactName === "string" && payload.contactName ? payload.contactName : null,
-        kind: readTaskKind(metadata),
-        serializeKey: serializeKeyOf({ metadata })
-      };
-    } catch {
-      return unknown;
-    }
-  };
-};
-var readOverdueTasks = async (db, options) => {
-  const nowMs = options.nowMs ?? Date.now();
-  const rows = (await db.prepare(
-    `SELECT ${TASK_COLUMNS}
-         FROM scheduled_messages
-        WHERE status = 'pending' AND next_send_at <= ?
-        ORDER BY next_send_at ASC
-        LIMIT ?`
-  ).bind(new Date(nowMs).toISOString(), MAX_OVERDUE_TASKS + 1).all()).results || [];
-  const truncated = rows.length > MAX_OVERDUE_TASKS;
-  const readIdentity = createIdentityReader(options.masterKey, options.serializeKeyOf);
-  const prepared = (await Promise.all(rows.slice(0, MAX_OVERDUE_TASKS).map(async (row) => {
-    const nextSendAtMs = parseMs(row.next_send_at);
-    if (!row.uuid || nextSendAtMs === null) return null;
-    const lastError = parseLastError(row.last_error);
-    const currentError = lastError && isCurrentOccurrence(lastError, nextSendAtMs) ? lastError : null;
-    const identity = await readIdentity(row);
-    const facts = {
-      nextSendAtMs,
-      createdAtMs: parseMs(row.created_at),
-      updatedAtMs: parseMs(row.updated_at),
-      retryAfterMs: parseMs(row.retry_after),
-      leaseUntilMs: parseMs(row.lease_until),
-      currentErrorAtMs: currentError ? parseMs(currentError.at) : null,
-      serializeKey: identity.serializeKey
-    };
-    return { row: { ...row, uuid: row.uuid }, nextSendAtMs, currentError, identity, facts };
-  }))).filter((item) => item !== null);
-  const verdicts = classifyOverdueTasks(prepared.map((item) => item.facts), nowMs);
-  const tasks = prepared.map(({ row, nextSendAtMs, currentError, identity, facts }, index) => {
-    const verdict = verdicts[index];
-    return {
-      uuid: row.uuid,
-      charId: identity.charId,
-      contactName: identity.contactName,
-      kind: identity.kind,
-      messageType: row.message_type,
-      nextSendAt: new Date(nextSendAtMs).toISOString(),
-      state: verdict.state,
-      stuck: verdict.stuck,
-      retryCount: Number(row.retry_count) || 0,
-      retryAfter: toIso(facts.retryAfterMs),
-      lastStartedAt: toIso(verdict.lastStartedAtMs),
-      unfinishedAttempt: verdict.unfinishedAttempt,
-      lateStart: verdict.lateStart,
-      queuedBehind: verdict.queuedBehind,
-      lastError: currentError
-    };
-  });
-  return {
-    tasks,
-    truncated,
-    verdict: judgeOverdueTasks(tasks.map((task, index) => ({
-      verdict: verdicts[index],
-      hasCurrentError: task.lastError !== null
-    })))
-  };
-};
-var readRecentFailures = async (db, options) => {
-  const nowMs = options.nowMs ?? Date.now();
-  const sinceMs = nowMs - RECENT_FAILURE_WINDOW_MS;
-  const rows = (await db.prepare(
-    `SELECT ${TASK_COLUMNS}
-         FROM scheduled_messages
-        WHERE last_error IS NOT NULL
-          AND updated_at >= ?
-          AND message_type != 'instant'
-          AND (status = 'failed' OR (status = 'pending' AND next_send_at > ?))
-        ORDER BY updated_at DESC
-        LIMIT ?`
-  ).bind(new Date(sinceMs).toISOString(), new Date(nowMs).toISOString(), MAX_RECENT_FAILURES).all()).results || [];
-  const readIdentity = createIdentityReader(options.masterKey, options.serializeKeyOf);
-  const failures = await Promise.all(rows.map(async (row) => {
-    const error = parseLastError(row.last_error);
-    const atMs = parseMs(error?.at);
-    if (!row.uuid || !error || atMs === null || atMs < sinceMs) return null;
-    const identity = await readIdentity(row);
-    return {
-      uuid: row.uuid,
-      charId: identity.charId,
-      contactName: identity.contactName,
-      kind: identity.kind,
-      messageType: row.message_type,
-      outcome: row.status === "failed" ? "failed" : "skipped",
-      error
-    };
-  }));
-  return failures.filter((item) => item !== null);
-};
-var DIAGNOSTICS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS worker_diagnostics (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL,
-  updated_at INTEGER NOT NULL
-)`;
-var TICK_FAILURE_KEY = "tick_failure";
-var TASK_WRITE_FAILURE_STATUSES = /* @__PURE__ */ new Set([
-  "claim_failed",
-  "retry_update_failed",
-  "stale_update_failed",
-  "post_send_cleanup_failed"
-]);
-var pickTickFailure = (outcome) => {
-  const value = outcome;
-  if (!value || typeof value !== "object") return null;
-  if (value.ok === false) {
-    const cause2 = value.cause;
-    return {
-      stage: typeof cause2?.stage === "string" && cause2.stage ? cause2.stage : "tick",
-      name: typeof cause2?.name === "string" && cause2.name ? cause2.name : "Error",
-      message: typeof cause2?.message === "string" ? cause2.message : "",
-      code: typeof cause2?.code === "string" && cause2.code ? cause2.code : null
-    };
-  }
-  const failedTasks = value.summary?.details?.failedTasks;
-  if (!Array.isArray(failedTasks)) return null;
-  const hit = failedTasks.find((entry) => TASK_WRITE_FAILURE_STATUSES.has(entry?.status));
-  if (!hit) return null;
-  const reason = typeof hit.reason === "string" ? hit.reason : "";
-  const updateError = typeof hit.updateError === "string" ? hit.updateError : "";
-  const rawMessage = updateError ? `${updateError}\uFF08\u672C\u6765\u8981\u8BB0\u4E0B\u7684\u5931\u8D25\u539F\u56E0\uFF1A${reason || "\u65E0"}\uFF09` : reason;
-  const cause = summarizeErrorCause({ name: "TaskWriteFailed", message: rawMessage }, "tick");
-  return { stage: hit.status, name: cause.name, message: cause.message ?? "", code: null };
-};
-var recordTickOutcome = async (db, outcome, nowMs = Date.now()) => {
-  const failure = pickTickFailure(outcome);
-  if (!failure || typeof db?.prepare !== "function") return;
-  try {
-    await db.prepare(DIAGNOSTICS_TABLE_SQL).run();
-    const existing = await db.prepare("SELECT value FROM worker_diagnostics WHERE key = ?").bind(TICK_FAILURE_KEY).first();
-    const previous = parseStoredTickFailure(existing?.value);
-    const sameSeries = previous && previous.stage === failure.stage && previous.name === failure.name && nowMs - Date.parse(previous.lastAt) <= TICK_FAILURE_SERIES_GAP_MS;
-    const nowIso = new Date(nowMs).toISOString();
-    const record = {
-      ...failure,
-      firstAt: sameSeries ? previous.firstAt : nowIso,
-      lastAt: nowIso,
-      count: sameSeries ? previous.count + 1 : 1
-    };
-    await db.prepare(
-      `INSERT INTO worker_diagnostics (key, value, updated_at) VALUES (?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).bind(TICK_FAILURE_KEY, JSON.stringify(record), nowMs).run();
-  } catch (error) {
-    console.warn("[amsg:tick-report] \u8FD9\u4E00\u8DF3\u7684\u62A5\u9519\u6CA1\u8BB0\u8FDB\u5E93", error);
-  }
-};
-var parseStoredTickFailure = (raw) => {
-  if (!raw) return null;
-  try {
-    const value = JSON.parse(raw);
-    if (!value || typeof value.stage !== "string" || typeof value.firstAt !== "string" || typeof value.lastAt !== "string") {
-      return null;
-    }
-    return {
-      stage: value.stage,
-      name: typeof value.name === "string" ? value.name : "Error",
-      message: typeof value.message === "string" ? value.message : "",
-      code: typeof value.code === "string" ? value.code : null,
-      firstAt: value.firstAt,
-      lastAt: value.lastAt,
-      count: Number(value.count) || 1
-    };
-  } catch {
-    return null;
-  }
-};
-var readTickFailure = async (db, nowMs = Date.now()) => {
-  try {
-    const row = await db.prepare("SELECT value FROM worker_diagnostics WHERE key = ?").bind(TICK_FAILURE_KEY).first();
-    const record = parseStoredTickFailure(row?.value);
-    if (!record) return null;
-    return { ...record, ongoing: nowMs - Date.parse(record.lastAt) <= TICK_FAILURE_SERIES_GAP_MS };
-  } catch {
-    return null;
-  }
-};
-var buildTickReport = async (db, options) => {
-  const nowMs = options.nowMs ?? Date.now();
-  const scoped = { ...options, nowMs };
-  const [overdue, recentFailures, tickFailure] = await Promise.all([
-    readOverdueTasks(db, scoped),
-    readRecentFailures(db, scoped),
-    readTickFailure(db, nowMs)
-  ]);
-  return {
-    now: new Date(nowMs).toISOString(),
-    tasks: overdue.tasks,
-    recentFailures,
-    tickFailure,
-    truncated: overdue.truncated
-  };
-};
-
 // worker/amsg/src/nativeFcm.ts
 var accessTokenCache = null;
-var utf83 = new TextEncoder();
+var utf84 = new TextEncoder();
 var bytesToB64u = (bytes) => {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 };
-var textToB64u = (value) => bytesToB64u(utf83.encode(value));
+var textToB64u = (value) => bytesToB64u(utf84.encode(value));
 var pemToPkcs8 = (raw) => {
   const base64 = raw.replace(/\\n/g, "\n").replace(/-----BEGIN PRIVATE KEY-----/g, "").replace(/-----END PRIVATE KEY-----/g, "").replace(/\s+/g, "");
   if (!base64) throw new Error("FCM_SERVICE_ACCOUNT_PRIVATE_KEY \u4E0D\u662F\u6709\u6548\u7684 PKCS#8 PEM");
@@ -13244,7 +12837,7 @@ var fetchFcmAccessToken = async (env) => {
     false,
     ["sign"]
   );
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, utf83.encode(unsigned));
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, utf84.encode(unsigned));
   const assertion = `${unsigned}.${bytesToB64u(new Uint8Array(signature))}`;
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -13297,7 +12890,7 @@ var buildFcmMessage = (token, rawPayload) => {
       }
     }
   };
-  const bytes = utf83.encode(JSON.stringify(result)).byteLength;
+  const bytes = utf84.encode(JSON.stringify(result)).byteLength;
   if (bytes > 4e3) throw new Error(`FCM_PAYLOAD_TOO_LARGE: ${bytes} bytes\uFF08\u5B89\u5168\u4E0A\u9650 4000\uFF09`);
   return result;
 };
@@ -14200,7 +13793,7 @@ var amsgHooks = {
       }
       return handler.llmOutput({ ctx, state: kindFire.state });
     }
-    const content = stripReasoningTags(ctx.llmOutputText || "").trim();
+    const content = stripReasoningTags2(ctx.llmOutputText || "").trim();
     const taskId = ctx.taskId != null ? String(ctx.taskId) : null;
     if (taskId == null) {
       console.warn("[amsg:agentic] ctx \u4E0A\u6CA1\u6709 taskId\uFF0C\u9001\u8FBE\u5F52\u5C5E\u4F1A\u5931\u6548", ctx.sessionId);
@@ -14272,13 +13865,6 @@ var amsgHooks = {
       });
     }
     if (decision.decision === "skip-push") {
-      logSkipDiagnostic({
-        sessionId: ctx.sessionId,
-        reason: decision.reason,
-        iteration: ctx.iteration,
-        llmResponse: ctx.llmResponse,
-        llmOutputText: ctx.llmOutputText
-      });
       if (decision.scheduleChanges?.length) {
         if (typeof ctx.emitResult === "function") {
           try {
@@ -14473,7 +14059,6 @@ var buildWorkerConfig = (env) => {
   const effectiveVapid = nativeFcmReady && (!vapid.publicKey?.trim() || !vapid.privateKey?.trim()) ? { email: vapid.email, publicKey: "native-fcm", privateKey: "native-fcm" } : vapid;
   const webpush = createHybridPushTransport(env, createWebCryptoWebPush(effectiveVapid));
   configureInstantErrorPush(env.DB && env.AMSG_MASTER_KEY ? { webpush, db: env.DB, masterKey: env.AMSG_MASTER_KEY } : null);
-  configureSkipDiagnostics({ rawExcerpt: isDebugFlagOn(env.AMSG_DEBUG_LLM_RAW) });
   return {
     // db 缺省时 factory 自动用 createD1Adapter(env.DB)
     masterKey: env.AMSG_MASTER_KEY,
@@ -14514,14 +14099,13 @@ var buildWorkerConfig = (env) => {
     // 门牌整理最长占住这个角色 120 秒，而它恰恰是在一轮对话刚结束时起跑的：用户下一句话
     // 的即时对话任务排在它后面，人就干等着「正在输入…」。同种后台任务之间仍按角色串行
     // ——同一角色两份整理并发落地，就是拿两份旧快照互相盖。
-    serializeBy: amsgSerializeKey
+    serializeBy: (task) => {
+      const charId = typeof task.metadata?.charId === "string" ? task.metadata.charId : null;
+      if (!charId) return null;
+      const kind = readTaskKind(task.metadata);
+      return kind ? `${charId}#${kind}` : charId;
+    }
   };
-};
-var amsgSerializeKey = (task) => {
-  const charId = typeof task.metadata?.charId === "string" ? task.metadata.charId : null;
-  if (!charId) return null;
-  const kind = readTaskKind(task.metadata);
-  return kind ? `${charId}#${kind}` : charId;
 };
 var REQUIRED_ENV = [
   {
@@ -14586,6 +14170,7 @@ var jsonWithCors = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { "Content-Type": "application/json; charset=utf-8", ...CORS_HEADERS }
 });
+var TICK_STALL_MINUTES = 5;
 var classifySchemaProbeError = (error) => {
   const message = error instanceof Error ? error.message : String(error ?? "");
   const name = error instanceof Error ? error.name : "";
@@ -14647,13 +14232,6 @@ var inspectStorage = async (env, probe) => {
            FROM scheduled_messages WHERE status = 'pending'`
     ).bind(nowIso, nowIso).first();
     const pushRow = present.has("push_subscriptions") ? await db.prepare("SELECT COUNT(*) AS n, MAX(updated_at) AS updatedAt FROM push_subscriptions").first() : null;
-    const overdue = stats?.overdue ? await readOverdueTasks(db, {
-      masterKey: env.AMSG_MASTER_KEY?.trim() || void 0,
-      serializeKeyOf: amsgSerializeKey
-    }).catch((error) => {
-      console.warn("[amsg:debug] \u8FC7\u671F\u4EFB\u52A1\u7684\u7EC6\u8D26\u8BFB\u4E0D\u4E86\uFF0C\u5B9A\u65F6\u4EFB\u52A1\u4E00\u9879\u9000\u56DE\u53EA\u770B\u665A\u4E86\u591A\u4E45", error);
-      return null;
-    }) : null;
     return {
       reachable: true,
       schemaReady,
@@ -14667,11 +14245,7 @@ var inspectStorage = async (env, probe) => {
       pushDelivery: await inspectPushDelivery(db, pushRow?.updatedAt ?? null),
       pendingTasks: stats?.pending ?? 0,
       overdueTasks: stats?.overdue ?? 0,
-      oldestOverdueMinutes: stats?.oldest ? Math.floor((Date.now() - Date.parse(stats.oldest)) / 6e4) : null,
-      // 过期任务里真卡住的、在失败重试的各几条，以及合起来的结论。null = 这次没判出来。
-      stuckTasks: overdue ? overdue.tasks.filter((task) => task.stuck).length : null,
-      retryingTasks: overdue ? overdue.tasks.filter((task) => task.lastError !== null).length : null,
-      overdueVerdict: overdue?.verdict ?? null
+      oldestOverdueMinutes: stats?.oldest ? Math.floor((Date.now() - Date.parse(stats.oldest)) / 6e4) : null
     };
   } catch (error) {
     return { reachable: false, error: error?.name || "QueryFailed" };
@@ -14680,9 +14254,8 @@ var inspectStorage = async (env, probe) => {
 var judgeTick = (storage) => {
   if (!storage.reachable || !("pendingTasks" in storage)) return "unknown";
   if (!storage.pendingTasks) return "idle";
-  if (storage.overdueVerdict) return storage.overdueVerdict;
   const overdueMinutes = storage.oldestOverdueMinutes;
-  if (overdueMinutes === null || overdueMinutes * 6e4 < TICK_STALL_MS) return "healthy";
+  if (overdueMinutes === null || overdueMinutes < TICK_STALL_MINUTES) return "healthy";
   return "stalled";
 };
 var INSTANT_TICK_UUID_KEY = "taskUuid";
@@ -14852,36 +14425,6 @@ var src_default = {
         error: { code: "WORKER_CONFIG_MISSING", message: report.message, missing: report.missing }
       });
     }
-    if (pathname.endsWith("/tick-report")) {
-      if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-      if (method !== "GET") {
-        return jsonWithCors(405, {
-          success: false,
-          error: { code: "METHOD_NOT_ALLOWED", message: "/tick-report \u53EA\u63A5\u53D7 GET" }
-        });
-      }
-      const token = env.AMSG_SERVER_TOKEN?.trim() ?? "";
-      const clientToken = request.headers.get("X-Client-Token") ?? "";
-      if (token && (!clientToken || !await constantTimeEqual2(clientToken, token))) {
-        return jsonWithCors(401, {
-          success: false,
-          error: { code: "INVALID_CLIENT_TOKEN", message: "\u5171\u4EAB\u5BC6\u94A5\u65E0\u6548\u6216\u7F3A\u5931" }
-        });
-      }
-      try {
-        const report2 = await buildTickReport(env.DB, {
-          masterKey: env.AMSG_MASTER_KEY?.trim(),
-          serializeKeyOf: amsgSerializeKey
-        });
-        return jsonWithCors(200, { success: true, data: report2 });
-      } catch (error) {
-        const cause = summarizeErrorCause(error, "request");
-        return jsonWithCors(500, {
-          success: false,
-          error: { code: "TICK_REPORT_FAILED", message: cause.message ? `${cause.name}: ${cause.message}` : cause.name }
-        });
-      }
-    }
     if (pathname.endsWith("/instant-chat")) {
       if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
       if (method !== "POST") {
@@ -14900,8 +14443,7 @@ var src_default = {
       console.error(`[amsg] \u5B9A\u65F6\u4EFB\u52A1\u6574\u8F6E\u8DF3\u8FC7\uFF1A${report.message}`);
       return;
     }
-    const outcome = await upstream.scheduled(event, env);
-    await recordTickOutcome(env.DB, outcome);
+    await upstream.scheduled(event, env);
   }
 };
 export {
@@ -14909,7 +14451,6 @@ export {
   amsgFireSettled,
   amsgHooks,
   amsgReasoningKey,
-  amsgSerializeKey,
   amsgStaleSkip,
   attachScheduledTasks,
   buildWorkerConfig,

@@ -39,15 +39,21 @@ export function phoneFieldToText(input: unknown, fallback: string = ''): string 
 export function normalizePhoneEvidence(record: PhoneEvidence): PhoneEvidence {
     const raw = record as unknown as Record<string, unknown>;
     const value = phoneFieldToText(raw.value);
+    const html = phoneFieldToText(raw.html);
     return {
         ...record,
         title: phoneFieldToText(raw.title, 'Unknown'),
         detail: phoneFieldToText(raw.detail, '...'),
         value: value || undefined,
+        html: html || undefined,
     };
 }
 
-/** 生成首次同步与事后补同步共用的私聊卡片载荷。 */
+/**
+ * 生成首次同步与事后补同步共用的私聊卡片载荷。
+ * 故意只读 title/detail/value：record.html（自定义 App 的卡片渲染，见 PhoneEvidence 类型注释）
+ * 是 App 界面专用的展示层，绝不能进这里——否则 HTML/CSS 代码会被当成正文塞进角色的聊天上下文。
+ */
 export function buildPhoneEvidenceChatCard(record: PhoneEvidence, appName: string): {
     content: string;
     metadata: { phoneCard: { app: string; kind: string; title: string; detail: string; value?: string } };
