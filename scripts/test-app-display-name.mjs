@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {syncNativeAppName} from './sync-native-app-name.mjs';
-const name='SullyOS·糯米机';
+const name='Soren';
 for(const file of ['public/manifest.webmanifest','public/manifest-classic.webmanifest']){const data=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(data.name,name);assert.equal(data.short_name,name);assert.equal(data.start_url,'./');assert.equal(data.scope,'./');}
 const config=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));assert.equal(config.appId,'com.aetheros.simulator');assert.equal(config.appName,name);assert.equal(JSON.parse(fs.readFileSync('metadata.json','utf8')).name,name);
 const html=fs.readFileSync('index.html','utf8');assert(html.includes('<title>'+name+'</title>'));assert(html.includes('name="apple-mobile-web-app-title" content="'+name+'"'));assert(html.includes('name="application-name" content="'+name+'"'));
