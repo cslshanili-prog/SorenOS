@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { DB } from '../../utils/db';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import { readShareText } from '../../utils/pngShare';
+import { FileOrImageImport } from '../share/FileOrImageImport';
 
 // 聊天「白框」自定义 CSS 编辑器（Appearance 全局默认 与 单角色定制 共用）。
 // 选择器钩子覆盖顶栏、输入栏、整屏背景与普通消息布局；完整清单见下方 AI_PROMPT。
@@ -9,7 +10,7 @@ import { readShareText } from '../../utils/pngShare';
 const PRESET_STORE_KEY = 'sully_chrome_css_presets_v1';
 
 // 丢给别的 AI 的提示词（让它按想要的风格生成整段 CSS）。
-const AI_PROMPT = `你是一个 CSS 设计师。我在用一个叫 SullyOS 的「浏览器里的虚拟手机」聊天 App，
+const AI_PROMPT = `你是一个 CSS 设计师。我在用一个叫 SullyOS·糯米机 的「浏览器里的虚拟手机」聊天 App，
 它允许我用一段自定义 CSS 来重新设计聊天外壳与消息布局。
 这段 CSS 会被注入到聊天界面里，通过下面这些固定类名生效。请帮我写一整段 CSS，
 实现我想要的风格——你有很高的自由度，不要只改颜色，可以大胆重构整个顶栏的视觉。
@@ -293,7 +294,6 @@ const copyText = async (text: string): Promise<boolean> => {
 const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void }> = ({ value, onChange }) => {
     const [copied, setCopied] = useState(false);
     const [custom, setCustom] = useState<Preset[]>([]);
-    const txtImportRef = useRef<HTMLInputElement>(null);
     const presetImageRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -309,7 +309,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
     };
     const handleSavePreset = () => {
         if (!value.trim() || typeof window === 'undefined') return;
-        const name = window.prompt('给这套白框预设起个名字（所有角色通用）：', '我的预设')?.trim();
+        const name = window.prompt('给这套装扮 CSS 预设起个名字（所有角色通用）：', '我的预设')?.trim();
         if (!name) return;
         commitCustom([...custom.filter((p) => p.name !== name), { name, code: value }]);
     };
@@ -346,7 +346,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
                 content: value,
                 fileName,
                 mimeType: 'text/plain;charset=utf-8',
-                shareTitle: 'SullyOS 白框样式',
+                shareTitle: 'SullyOS·糯米机 白框样式',
             });
         } catch (error: any) {
             if (error?.name !== 'AbortError') window.alert('TXT 导出失败，请重试。');
@@ -446,8 +446,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[11px] font-bold text-slate-500">CSS 代码 <span className="font-normal text-slate-400">· 可手改 / 粘贴</span></span>
                     <div className="flex items-center gap-1">
-                        <input ref={txtImportRef} type="file" accept=".png,.css,.txt,image/png,text/css,text/plain" className="hidden" onChange={handleTxtImport} />
-                        <button onClick={() => txtImportRef.current?.click()} className="rounded-lg px-2 py-1 text-[10px] font-semibold text-indigo-500 hover:bg-indigo-50">导入 PNG / CSS</button>
+                        <FileOrImageImport onChange={handleTxtImport} className="rounded-lg px-2 py-1 text-[10px] font-semibold text-indigo-500 hover:bg-indigo-50" />
                         <button onClick={handleTxtExport} disabled={!value.trim()} className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${value.trim() ? 'text-indigo-500 hover:bg-indigo-50' : 'text-slate-300'}`}>导出分享</button>
                         {value && <button onClick={() => onChange('')} className="rounded-lg px-2 py-1 text-[10px] font-semibold text-rose-400 hover:bg-rose-50 hover:text-rose-500">清空</button>}
                     </div>

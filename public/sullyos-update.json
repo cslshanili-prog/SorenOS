@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "versionCode": 30501,
-  "versionName": "3.5.1",
-  "apkUrl": "https://github.com/qegj567-cloud/SullyOS/releases/download/android-v3.5.1/SullyOS-Android-v3.5.1.apk",
-  "sha256": "e7053d4d3a88dd440142d191c7905425a601fe28e55df9c77b0a36d2712432d2",
-  "sizeBytes": 45878814,
-  "publishedAt": "2026-09-12T10:35:17Z",
+  "versionCode": 30502,
+  "versionName": "3.5.2",
+  "apkUrl": "https://github.com/qegj567-cloud/SullyOS/releases/download/android-v3.5.2/SullyOS-Android-v3.5.2.apk",
+  "sha256": "4ad90712105232b75000b463cdde7b32b4cd679d46266bfcf95af8b611903edd",
+  "sizeBytes": 46337288,
+  "publishedAt": "2026-09-16T15:11:57Z",
   "releaseNotes": [
-    "群聊接入输入偏好与表情建议，并保留自定义编辑器样式",
-    "Kanata 活动重新分组，支持自动排除配置",
-    "Kanata 图书馆支持分类整理与按分类阅读",
-    "修正 SAR 子页面在 iOS 与移动端安全区的布局",
-    "延续主动消息 2.0、UnifiedPush / ntfy、Android PDF 导入、Umami、应用内更新与 DirectoryExists 修复"
+    "同步 master 7a26f52c：表情包导出、鱼市、记忆归档与聊天装扮等更新",
+    "支持网页版格式 3 备份及图片二进制恢复，继续兼容格式 2；请先更新 APK 再导入原始备份",
+    "同步主动消息 2.0 最新后端与诊断更新",
+    "应用显示名称对齐为 SullyOS·糯米机",
+    "保留 UnifiedPush / ntfy、Android PDF 导入、Umami、应用内更新与 DirectoryExists 修复；沿用固定签名覆盖升级"
   ]
 }

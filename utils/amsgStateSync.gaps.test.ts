@@ -119,7 +119,7 @@ describe('其余打脏入口接线', () => {
       // 世界书同步角色缓存那两处绕开了 updateCharacter 的汇聚点
       ['const updateWorldbook', 'const deleteWorldbook'],
       ['const deleteWorldbook', '// Novel Methods'],
-      // 情绪 buff 广播：一个点堵住 emotionApply / memoryDive / instant push 三个上游
+      // 情绪 buff 广播：一个点堵住 emotionApply / memoryDive 等几个上游
       ['const buffSyncHandler', '// 本地 fetch 聊天回复的全局回落'],
     ] as const) {
       expect(sliceBetween(src, start, end), `${start} 里少了打脏调用`).toMatch(/markAmsgStateDirty(ForAll)?\(/);

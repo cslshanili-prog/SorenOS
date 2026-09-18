@@ -16,6 +16,7 @@ import worker, {
 } from './index';
 import * as workerEntry from './index';
 import { DEFAULT_TOOL_ITERATIONS, MCP_MAX_TOOL_ITERATIONS } from './agentic';
+import { configureSkipDiagnostics } from './skipDiagnostics';
 import { MAX_PUSH_PAYLOAD_BYTES } from '@rei-standard/amsg-server/cloudflare';
 import { amsgEmotionUpdateKey, EMOTION_EVAL_RIDE_ALONG_MS } from './emotionEval';
 import { INSTANT_TOTAL_TIMEOUT_MS } from './instantChat';
@@ -774,7 +775,7 @@ describe('onBeforeFire 注入通用 MCP', () => {
 // scheduled() 在 !vapid.email 时会 console.error 后直接 return——整个 tick 一条任务都不处理。
 // 而「推送凭据」面板复制出来的 env 里 VAPID_EMAIL 是注释掉的可选项，照着部署必然缺它，
 // 表现是「到点了什么都不发、前端没有任何报错」。email 只是 VAPID JWT 的 sub（联系方式），
-// 不影响签名有效性，缺省给一个合法 mailto 即可——instant-push worker 一直就是这么做的。
+// 不影响签名有效性，缺省给一个合法 mailto 即可。
 describe('VAPID 配置', () => {
   const baseEnv = {
     AMSG_MASTER_KEY: 'k'.repeat(64),
@@ -2746,6 +2747,66 @@ describe('没发出去时写 last_skip', () => {
     expect(call).toBeFalsy();
   });
 
+  // 回归守卫：跳过那一刻要留一行形状诊断，不然「为什么没说话」又只能靠猜。正文默认不进日志，
+  // 原文片段只在 Worker 配了 AMSG_DEBUG_LLM_RAW 时才带——这条接线断了，开关就是个摆设。
+  describe('跳过时记一行诊断', () => {
+    const THINK_ONLY = '<think>在想要不要回</think>';
+    const thinkOnlyResponse = {
+      model: 'm-1',
+      choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: THINK_ONLY } }],
+    };
+    const runFireCapturingDiag = async (llmOutputText: string, llmResponse: unknown) => {
+      const { ctx, scratch, writeState } = makeCtx({});
+      await amsgHooks.onBeforeFire(ctx);
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        await amsgHooks.onLLMOutput({
+          sessionId: 'sess_task_42',
+          iteration: 0,
+          llmResponse,
+          llmOutputText,
+          contactName: 'Nyah',
+          metadata: { charId: CHAR_ID, amsgClientTaskId: 'client-task-1', amsgMode: 'auto' },
+          scratch,
+          writeState,
+        } as any);
+        return warn.mock.calls.find(([tag]) => tag === '[amsg:skip-diag]')?.[1];
+      } finally {
+        warn.mockRestore();
+      }
+    };
+
+    afterEach(() => {
+      configureSkipDiagnostics({ rawExcerpt: false });
+      configureInstantErrorPush(null);
+    });
+
+    it('正文全在思考块里 → 记下 reason 和形状，不带正文', async () => {
+      const diag = await runFireCapturingDiag(THINK_ONLY, thinkOnlyResponse);
+      expect(diag, '跳过时应该记一行 [amsg:skip-diag]').toMatchObject({
+        sessionId: 'sess_task_42', reason: 'empty-generation', model: 'm-1', contentType: 'string', visibleChars: 0,
+      });
+      expect(JSON.stringify(diag)).not.toContain('在想要不要回');
+    });
+
+    it('Worker 配了 AMSG_DEBUG_LLM_RAW=1 → 诊断带上原文片段', async () => {
+      buildWorkerConfig({
+        AMSG_MASTER_KEY: 'k'.repeat(64),
+        VAPID_EMAIL: 'mailto:a@b.c',
+        VAPID_PUBLIC_KEY: 'pub',
+        VAPID_PRIVATE_KEY: 'priv',
+        DB: {},
+        AMSG_DEBUG_LLM_RAW: '1',
+      } as any);
+      const diag = await runFireCapturingDiag(THINK_ONLY, thinkOnlyResponse);
+      expect(diag?.raw?.content).toContain('在想要不要回');
+    });
+
+    it('正常出正文不记诊断', async () => {
+      expect(await runFireCapturingDiag('在干嘛呢', {})).toBeUndefined();
+    });
+  });
+
   it('正常出正文的 fire 不写 empty-generation', async () => {
     const { ctx, scratch, writeState } = makeCtx({});
     await amsgHooks.onBeforeFire(ctx);
@@ -3342,7 +3403,9 @@ describe('/debug — 只读诊断', () => {
     expect(data.schema).toBeNull();
   });
 
-  it('任务到点很久还挂着 pending → cron 那侧有问题', async () => {
+  // 这个假库只答得上计数，逐条细账那条查询会失败——下面两条测的正是那时的退路：
+  // 只看最老那条晚了多久。逐条判定（重试中不算卡住之类）在 tickReport.test.ts 里用真 SQLite 测。
+  it('细账读不了时退回老判据：任务到点很久还挂着 pending → cron 那侧有问题', async () => {
     const data = await debug(fakeDb({
       tables: ALL_TABLES,
       pending: [{ next_send_at: minutesAgo(47) }],
@@ -3351,7 +3414,7 @@ describe('/debug — 只读诊断', () => {
     expect(data.storage.oldestOverdueMinutes).toBeGreaterThanOrEqual(47);
   });
 
-  it('刚到点一两分钟不算挂——cron 一分钟一跳，得留重试余量', async () => {
+  it('细账读不了时退回老判据：刚到点一两分钟不算挂——cron 一分钟一跳，得留重试余量', async () => {
     const data = await debug(fakeDb({
       tables: ALL_TABLES,
       pending: [{ next_send_at: minutesAgo(1) }],
