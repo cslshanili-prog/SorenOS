@@ -1579,7 +1579,7 @@ async function removeQueuedRequest(id) {
 }
 
 // worker/sw-keep-alive.ts
-var SW_VERSION = "1.18.0";
+var SW_VERSION = "1.19.0";
 var PING_INTERVAL = 15e3;
 var MAX_MANUAL_ALIVE_MS = 5 * 6e4;
 var ACTIVE_MSG_DB_NAME = "ActiveMsg";
@@ -1604,8 +1604,7 @@ function summarizeAmsgPayload(payload) {
     sessionId: payload?.sessionId,
     charId: payload?.metadata?.charId,
     chunk: payload?.messageIndex,
-    total: payload?.totalMessages,
-    hasBlob: payload?._blob === true
+    total: payload?.totalMessages
   };
 }
 var SW_TRACE_DB_NAME = "ActiveMsgSwTrace";
@@ -1936,8 +1935,8 @@ async function saveContentToInbox(payload) {
       taskUuid: payload?.taskUuid ?? null,
       recurrenceType: payload?.recurrenceType ?? null,
       occurrenceMs: payload?.occurrenceMs ?? null,
-      // sessionId / messageIndex 放到 metadata 里, 主线程 flushInboxToChat 反查 reasoning_buffer
-      // + 标记是第几条 (第 1 条才挂 metadata.thinkingChain).
+      // sessionId / messageIndex 放到 metadata 里, 主线程 flushInboxToChat 据此标记是第几条
+      // (第 1 条才挂 metadata.thinkingChain).
       metadata: {
         ...payload?.metadata || {},
         sessionId: payload?.sessionId,
@@ -1957,80 +1956,6 @@ async function saveContentToInbox(payload) {
     avatarUrl: payload?.avatarUrl,
     sentAt
   });
-}
-async function saveReasoningToBuffer(payload) {
-  const sessionId = payload?.sessionId;
-  const charId = payload?.metadata?.charId;
-  const reasoningContent = String(payload?.reasoningContent ?? "");
-  if (!sessionId || !charId || !reasoningContent) {
-    traceSw("reasoning-drop-incomplete", payload, {
-      hasSessionId: !!sessionId,
-      hasCharId: !!charId,
-      chars: reasoningContent.length
-    });
-    return;
-  }
-  await withInboxTx(ACTIVE_MSG_REASONING_BUFFER_STORE, "readwrite", (store) => {
-    store.put({
-      sessionId,
-      charId,
-      reasoningContent,
-      receivedAt: Date.now()
-    });
-  });
-  traceSw("reasoning-buffer-saved", payload, { chars: reasoningContent.length });
-  await notifyClients({ type: "active-msg-reasoning", sessionId, charId });
-}
-async function clearReasoningBuffer(sessionId) {
-  if (!sessionId) return;
-  await withInboxTx(ACTIVE_MSG_REASONING_BUFFER_STORE, "readwrite", (store) => {
-    store.delete(sessionId);
-  });
-}
-async function savePendingToolCall(payload) {
-  const sessionId = payload?.sessionId;
-  const charId = payload?.metadata?.charId;
-  const toolCalls = Array.isArray(payload?.toolCalls) ? payload.toolCalls : [];
-  if (!sessionId || !charId || toolCalls.length === 0) return;
-  await clearReasoningBuffer(sessionId).catch((e) => {
-    console.warn("[amsg] clearReasoningBuffer before tool_request failed", e);
-  });
-  const iteration = Number.isFinite(payload?.metadata?.iteration) ? Number(payload.metadata.iteration) : 0;
-  await withInboxTx(ACTIVE_MSG_PENDING_TOOL_CALLS_STORE, "readwrite", (store) => {
-    store.put({
-      sessionId,
-      charId,
-      toolCalls,
-      llmOutputText: String(payload?.message || ""),
-      iteration,
-      createdAt: Date.now()
-    });
-  });
-}
-async function notifyVisibleClientForToolRequest(payload) {
-  const clients = await sw.clients.matchAll({ type: "window", includeUncontrolled: true });
-  const visibleClient = clients.find((c) => c.visibilityState === "visible");
-  if (visibleClient) {
-    visibleClient.postMessage({
-      type: "instant-tool-request",
-      sessionId: payload?.sessionId,
-      charId: payload?.metadata?.charId
-    });
-    return;
-  }
-  const charName = payload?.contactName || payload?.metadata?.charName || "\u4E3B\u52A8\u6D88\u606F";
-  const preview = String(payload?.message || "").slice(0, 40);
-  try {
-    await sw.registration.showNotification(charName, {
-      body: preview ? `${preview}\u2026  (\u70B9\u5F00\u7EE7\u7EED)` : "\u6211\u60F3\u67E5\u70B9\u4E1C\u897F\uFF0C\u70B9\u5F00\u7EE7\u7EED",
-      icon: payload?.avatarUrl || "./icons/icon-192.png",
-      badge: "./icons/icon-192.png",
-      data: { payload, kind: "tool_request" },
-      tag: `instant-tool-${payload?.sessionId}`
-    });
-  } catch (e) {
-    console.warn("[amsg] tool_request notification failed", e);
-  }
 }
 async function saveEmotionUpdateToInbox(payload) {
   const charId = payload?.metadata?.charId;
@@ -2055,50 +1980,15 @@ async function saveEmotionUpdateToInbox(payload) {
   traceSw("inbox-emotion-saved", payload, { emotionChars: String(emotionRaw).length });
   await notifyClients({ type: "active-msg-received", charId, charName: payload?.contactName || "", body: "", emotionUpdate: true });
 }
-async function fetchBlobEnvelope(payload) {
-  const url = payload?.url;
-  if (typeof url !== "string" || !url) return null;
-  traceSw("blob-fetch-start", payload);
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      traceSw("blob-fetch-http-failed", payload, { status: res.status });
-      console.warn("[amsg] blob fetch returned", res.status, url);
-      return null;
-    }
-    const real = await res.json();
-    traceSw("blob-fetch-ok", real);
-    return real;
-  } catch (e) {
-    traceSw("blob-fetch-error", payload, {
-      error: e instanceof Error ? e.message : String(e)
-    });
-    console.warn("[amsg] blob fetch failed", url, e);
-    return null;
-  }
-}
 async function saveIncomingActiveMessage(payload) {
-  if (payload?._blob === true) {
-    const real = await fetchBlobEnvelope(payload);
-    if (!real) return;
-    return saveIncomingActiveMessage(real);
-  }
   const messageKind = payload?.messageKind ?? "content";
   traceSw("route-payload", payload, { route: messageKind });
   switch (messageKind) {
     case "content":
       await saveContentToInbox(payload);
       return;
-    case "reasoning":
-      await saveReasoningToBuffer(payload);
-      return;
     case "emotion_update":
       await saveEmotionUpdateToInbox(payload);
-      return;
-    case "tool_request":
-      await savePendingToolCall(payload);
-      if (payload?.message) await saveContentToInbox(payload);
-      await notifyVisibleClientForToolRequest(payload);
       return;
     case "error":
       console.error("[amsg] error push", payload?.code, payload?.message, payload?.metadata?.reason);

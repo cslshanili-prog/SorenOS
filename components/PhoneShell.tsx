@@ -1,3 +1,5 @@
+import FirstUseGuide from './FirstUseGuide';
+import { useFirstUseGuideStep } from '../utils/firstUseGuide';
 import AnniversaryGiftPopup from './os/AnniversaryGiftPopup';
 import { shouldShowAnniversaryGift, markAnniversaryGiftSeen } from '../utils/anniversaryGifts';
 
@@ -100,9 +102,6 @@ import { Like520Controller, shouldShowLike520Popup } from './Like520Event';
 import { QixiLaunchPopup } from './QixiLaunchPopup';
 import { shouldShowQixiLaunchPopup } from '../utils/qixiLaunchPopup';
 import { UpdateNotificationController, shouldShowUpdateNotification } from './UpdateNotificationEvent';
-import { WorkerUpdateReminderController, shouldShowWorkerUpdateReminder, rearmWorkerUpdateReminder } from './WorkerUpdateReminderEvent';
-import { InstantPushSunsetController, shouldShowInstantPushSunsetNotice } from './InstantPushSunsetEvent';
-import { loadInstantConfig, probeInstantWorkerVersion } from '../utils/instantPushClient';
 import { BackupReminderController } from './BackupReminderEvent';
 import { shouldShowBackupReminder, markBackupReminderShown, daysSinceLastBackup } from '../utils/backupReminder';
 import { formatBytes } from '../utils/format';
@@ -612,9 +611,11 @@ const PhoneShell: React.FC = () => {
   // Ta-da 周年赠礼先于更新公告，等基础启动提示、开机动画与解锁完成。
   const [showAnniversaryGift, setShowAnniversaryGift] = useState(false);
   const anniversaryAsked = useRef(false);
-  const anniversaryBlocked = showDisclaimer || showImportRecoveryPrompt || showAuthorLetter;
+  const firstUseGuideActive = useFirstUseGuideStep() !== null;
+  const anniversaryBlocked = firstUseGuideActive || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter;
   // 待展示也占住顺序，避免同一轮 effects 同时开启赠礼和更新公告。
-  const anniversaryHasPriority = showAnniversaryGift || (!anniversaryAsked.current && shouldShowAnniversaryGift());
+  // Complete setup before promotional/release popups; disclaimer/recovery still have priority.
+  const anniversaryHasPriority = firstUseGuideActive || showAnniversaryGift || (!anniversaryAsked.current && shouldShowAnniversaryGift());
   useEffect(() => {
     if (anniversaryAsked.current || anniversaryBlocked || !isDataLoaded || isLocked || (!bootDone && bootAnimationEnabled)) return;
     if (shouldShowAnniversaryGift()) {
@@ -668,58 +669,17 @@ const PhoneShell: React.FC = () => {
     if (shouldShowLike520Popup()) setShowLike520Popup(true);
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, isDataLoaded]);
 
-  // Instant Push 下线通知 — 只对现在开着它的人弹，每天最多一次。
-  // 排在 Worker 更新提醒前面：这两条都只找同一批人，而「这功能要没了」比
-  // 「去把它更新到最新版」重要，同一天里先说前者。
-  const [showInstantPushSunset, setShowInstantPushSunset] = useState(false);
-  useEffect(() => {
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup) return;
-    if (!isDataLoaded) return;
-    if (shouldShowInstantPushSunsetNotice()) setShowInstantPushSunset(true);
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, isDataLoaded]);
-
-  // Worker 后端更新提醒 — 只对启用了 Instant Push 的用户弹，且当前 worker 版本未确认过
-  const [showWorkerUpdateReminder, setShowWorkerUpdateReminder] = useState(false);
-  useEffect(() => {
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup || showInstantPushSunset) return;
-    if (!isDataLoaded) return;
-    if (shouldShowWorkerUpdateReminder()) setShowWorkerUpdateReminder(true);
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, showInstantPushSunset, isDataLoaded]);
-
-  // 部署漂移自检：启动后异步 GET {workerUrl}/version（每 24h 最多一次）。
-  // 常量比对只能发现「前端更新了」，发现不了「用户 seen 过但实际没部署 / 部署的是更老的包」——
-  // 前端托管自动更新、worker 停在用户上次贴代码那天，这种漂移正是 instant 各类
-  // 「时灵时不灵」反馈的温床。确认 worker 有应答且版本不对（reachable && !ok）才重新
-  // 武装提醒；网络不通/没配不算数，贪睡窗口照常生效，不会轰炸。
-  useEffect(() => {
-    if (!isDataLoaded) return;
-    const cfg = loadInstantConfig();
-    if (!cfg.enabled || !cfg.workerUrl) return;
-    const PROBE_AT_KEY = 'sullyos_worker_version_probe_at';
-    try {
-      const last = Number(localStorage.getItem(PROBE_AT_KEY) || 0);
-      if (Date.now() - last < 86_400_000) return;
-    } catch { /* ignore */ }
-    void probeInstantWorkerVersion(cfg).then((r) => {
-      try { localStorage.setItem(PROBE_AT_KEY, String(Date.now())); } catch { /* ignore */ }
-      if (!r.ok && r.reachable) {
-        rearmWorkerUpdateReminder();
-        if (shouldShowWorkerUpdateReminder()) setShowWorkerUpdateReminder(true);
-      }
-    }).catch(() => { /* 探测失败不打扰 */ });
-  }, [isDataLoaded]);
-
   // 「该备份啦」提醒 — local-first 数据只在本机，隔 N 天（默认 7，可在设置里改）没导出就弹一次
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   useEffect(() => {
-    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup || showInstantPushSunset || showWorkerUpdateReminder) return;
+    if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup) return;
     if (!isDataLoaded || isLocked) return;
     if (shouldShowBackupReminder()) {
       setShowBackupReminder(true);
       // 只报「从未备份 / 已过期」这一个二选一，不报具体天数、也不报用户设的提醒间隔。
       trackEvent('弹出该备份啦提醒', { state: daysSinceLastBackup() == null ? '从未备份' : '已过期' });
     }
-  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, showInstantPushSunset, showWorkerUpdateReminder, isDataLoaded, isLocked]);
+  }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, isDataLoaded, isLocked]);
 
   const dismissBackupReminder = () => {
     markBackupReminderShown();
@@ -859,7 +819,7 @@ const PhoneShell: React.FC = () => {
   // 冷启动：先放「世界入场」cinematic（数据没就绪时它持续呼吸等待，绝不出现 spinner）。
   // BootSequence 在「数据就绪 + 停留够时长」后推进退场，再交还控制权给下方的锁屏/桌面。
   if (!bootDone && bootAnimationEnabled) {
-    return <BootSequence dataReady={isDataLoaded} wallpaper={theme.wallpaper} onDone={() => setBootDone(true)} />;
+    return <BootSequence dataReady={isDataLoaded} wallpaper={theme.wallpaper} style={theme.bootAnimationStyle} onDone={() => setBootDone(true)} />;
   }
 
   // 兜底：理论上 bootDone 时数据已就绪；万一未就绪（极端慢）退化为最简静态深色屏，不闪 spinner。
@@ -1049,6 +1009,7 @@ const PhoneShell: React.FC = () => {
             : { bottom: 'var(--standalone-safe-area-bottom, 0px)' }
         }
       >
+          <FirstUseGuide />
           {/* App Container */}
           <div className="flex-1 relative overflow-hidden" style={{ contain: useIOSStandaloneLayout ? undefined : 'layout style paint' }}>
             <AppErrorBoundary onCloseApp={closeApp} resetKey={`${activeApp}:${activeCharacterId || 'none'}`}>
@@ -1153,22 +1114,8 @@ const PhoneShell: React.FC = () => {
          />
        )}
 
-       {/* Instant Push 下线通知（仅现在开着它的用户，每天最多一次） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && showInstantPushSunset && (
-         <InstantPushSunsetController
-           onClose={() => setShowInstantPushSunset(false)}
-         />
-       )}
-
-       {/* Worker 后端更新提醒（仅启用 Instant Push 的用户，每个 worker 版本一次） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && !showInstantPushSunset && showWorkerUpdateReminder && (
-         <WorkerUpdateReminderController
-           onClose={() => setShowWorkerUpdateReminder(false)}
-         />
-       )}
-
        {/* 「该备份啦」提醒（local-first 数据只在本机，隔 N 天没导出弹一次） */}
-       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && !showInstantPushSunset && !showWorkerUpdateReminder && showBackupReminder && (
+       {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && showBackupReminder && (
          <BackupReminderController
            onDismiss={dismissBackupReminder}
            onGoBackup={goBackupFromReminder}

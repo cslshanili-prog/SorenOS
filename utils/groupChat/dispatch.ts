@@ -13,6 +13,7 @@ import {
     extractPacketCommands,
     makePacketMeta,
 } from './redpacket';
+import { normalizeAssistantEmojiFormatting } from '../assistantActionFormat';
 import { extractHtmlBlocks } from '../htmlPrompt';
 
 interface EmojiItem { name: string; url: string; categoryId?: string }
@@ -124,6 +125,8 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         }
 
         if (!publicContent) { await fireLeaveIfWanted(); continue; }
+
+        publicContent = normalizeAssistantEmojiFormatting(publicContent);
 
         // 1. Check for Emoji Commands (handle multiple emojis)
         // Filter emojis by character visibility to prevent using hidden emoji packs
