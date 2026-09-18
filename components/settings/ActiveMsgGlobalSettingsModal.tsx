@@ -3,23 +3,19 @@ import Modal from '../os/Modal';
 import ConfirmDialog from '../os/ConfirmDialog';
 import { ActiveMsg2GlobalConfig, RealtimeConfig } from '../../types';
 import {
-  ActiveMsgClient, ActiveMsg2PushStatus, fetchWorkerDiagnostics, readAmsgFailKind,
+  ActiveMsgClient, ActiveMsg2PushStatus, fetchWorkerDiagnostics, fetchWorkerTickReport, readAmsgFailKind,
   type AmsgCronTriggerState,
 } from '../../utils/activeMsgClient';
 import {
-  AmsgDiagnosticLevel, AmsgDiagnosticsProbe,
+  AmsgDiagnosticLevel, AmsgDiagnosticsProbe, type AmsgTickReportResult,
   buildAmsgDiagnosticRows, summarizeAmsgDiagnostics,
   INSTANT_CHAT_BLOCKER_HINTS, resolveInstantChatBlocker,
   type InstantChatGateInput,
 } from '../../utils/amsgDiagnostics';
 import { ActiveMsgStore, maskActiveMsgUserId } from '../../utils/activeMsgStore';
+import { formatTaskTime } from '../../utils/amsg2Tasks';
 import { cancelAllRemoteAmsgTasks, isWorkerUrlCleared, wipeAmsgCloudData } from '../../utils/amsgStateSync';
-import {
-  buildCloudflareDashboardUrl,
-  isInstantConfigReady,
-  loadInstantConfig,
-  saveInstantConfig,
-} from '../../utils/instantPushClient';
+import { buildCloudflareDashboardUrl } from '../../utils/workerDeploy';
 import { generateClientToken } from '../../utils/vapidGen';
 import { loadPushVapid, savePushVapid } from '../../utils/pushVapid';
 import {
@@ -126,8 +122,13 @@ const REQUIRED_WORKER_FEATURES = [
 //            内容后把那行真的删掉，不再留空壳（即时对话每轮的键都是新的，空壳只涨不
 //            跌，worker 每次生成都要把整个角色命名空间读一遍）。前端接入见
 //            utils/activeMsgClient.ts 的 clearClientStateValue 与存量空壳清理。
+//   next.28 — 跟着 amsg-shared 0.4.0-next.10 一起升：中转站回 HTTP 200、响应体里却是
+//            报错时，按模型调用失败处理，原话写进 last_error、任务照常重试。旧 worker
+//            上这类响应被当成模型「这轮没说话」静默跳过，面板上只写「没写出要说的话」，
+//            看不出是中转站在报错。同一批还带上 0.4.0-next.9 的脱敏补漏：形状像模型名
+//            的自建网关 Key 不再明文进 last_error。
 // 不比版本的话，旧粘贴部署会被误判为最新，问题全在 worker 侧静默发生。
-const REQUIRED_WORKER_VERSION = '2.6.0-next.27';
+const REQUIRED_WORKER_VERSION = '2.6.0-next.28';
 
 /** 装着打包好的 worker 代码的部署仓库：fork 它 → 在 Cloudflare 连上 → 以后点 Sync fork 更新。 */
 const WORKERS_REPO_URL = 'https://github.com/Tosd0/sullyos-workers';
@@ -213,6 +214,8 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   // 有没有停」都算好了，但入口一直只有手拼 URL——而这几样恰恰是「界面上一切正常、
   // 就是一条都不发」的全部原因。存原始探测结果，红绿灯在渲染时算（推送状态一变就跟着走）。
   const [diagnosticsProbe, setDiagnosticsProbe] = useState<AmsgDiagnosticsProbe | null>(null);
+  // 定时任务的逐条细账（GET /tick-report）。/debug 只知道「几条到点没发」，为什么没发要看这份。
+  const [tickReportResult, setTickReportResult] = useState<AmsgTickReportResult | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
   // 体检摆在最上面，但默认收着：装好之后它天天是「都正常」，摊开占掉半屏。
   // 标题那一行已经把结论说了，要看是哪一项才需要点开。
@@ -238,9 +241,6 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   >(null);
   /** 「暂停后台任务」的确认框开着没有。恢复不用确认。 */
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
-  // Instant Push 也开着：聊天会走它，2.0 挂在本地那条路上的几样东西全静默失效——设置页
-  // 两道双向门通常已经拦住这种组合，这里读一次是给漏网脏配置兜底，关掉后立刻更新。
-  const [instantOn, setInstantOn] = useState(false);
   // 这台 worker 认不认 /instant-chat。即时对话的**唯一**版本门槛就在这儿，
   // 别处不做逐调用预检——每发一条消息多探一次网络，探失败还分不清是旧版还是网抖。
   const [instantChatSupported, setInstantChatSupported] = useState(false);
@@ -282,7 +282,10 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   const runDiagnostics = async () => {
     setDiagnosing(true);
     try {
-      setDiagnosticsProbe(await fetchWorkerDiagnostics());
+      // 两个端点互不依赖，并排拉；细账那边失败不抛，不会拖垮体检本身。
+      const [probe, tickReport] = await Promise.all([fetchWorkerDiagnostics(), fetchWorkerTickReport()]);
+      setDiagnosticsProbe(probe);
+      setTickReportResult(tickReport);
     } finally {
       setDiagnosing(false);
     }
@@ -331,7 +334,6 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
     savedWorkerUrlRef.current = nextConfig.workerUrl || '';
     setConfig(nextConfig);
     setPushStatus(nextPushStatus);
-    setInstantOn(isInstantConfigReady());
     void probeWorkerCaps(Boolean(nextConfig.workerUrl?.trim()));
     if (nextConfig.workerUrl?.trim()) {
       void ActiveMsgClient.probeWorkerVersion().then(setWorkerVersion);
@@ -341,7 +343,6 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
           connected: Boolean(nextConfig.initializedAt),
           pushSubscribed: Boolean(nextPushStatus?.hasSubscription),
           workerSupportsInstantChat: supported,
-          instantPushOn: isInstantConfigReady(),
         }, Boolean(nextConfig.instantChatEnabled));
       });
       void runDiagnostics();
@@ -351,16 +352,10 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
     } else {
       setInstantChatSupported(false);
       setDiagnosticsProbe(null);
+      setTickReportResult(null);
       setWorkerVersion(null);
       setCronState(null);
     }
-  };
-
-  /** 关掉 Instant Push 的开关，worker 地址等配置留着——以后想切回去不用重填。 */
-  const disableInstantPush = () => {
-    saveInstantConfig({ ...loadInstantConfig(), enabled: false });
-    setInstantOn(false);
-    addToast('已关闭 Instant Push，聊天回到本地直连。', 'success');
   };
 
   useEffect(() => {
@@ -903,6 +898,11 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
     ? buildAmsgDiagnosticRows({
       probe: diagnosticsProbe,
       localPushSubscribed: Boolean(pushStatus?.hasSubscription),
+      // 跟任务卡片同一种写法：cron 一分钟一跳，秒位没有意义。
+      formatTime: (atMs) => formatTaskTime(atMs),
+      tickReport: tickReportResult,
+      // 用户自己暂停了后台任务的话，任务攒着是意料之中，那一行不能报成触发器坏了。
+      cronPaused: cronState?.kind === 'known' && !cronState.enabled,
     })
     : [];
   const diagnosticLevel = diagnosticRows.length ? summarizeAmsgDiagnostics(diagnosticRows) : 'unknown';
@@ -911,7 +911,6 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
     connected: isConnected,
     pushSubscribed: Boolean(pushStatus?.hasSubscription),
     workerSupportsInstantChat: instantChatSupported,
-    instantPushOn: instantOn,
   });
   const instantChatBlockedReason = instantChatBlocker ? INSTANT_CHAT_BLOCKER_HINTS[instantChatBlocker] : '';
 
@@ -989,6 +988,25 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                           {row.detail}
                         </p>
                       )}
+                      {/* 逐条细目（比如每条到点没发的任务现在算哪种情况）。报错原文默认收着：
+                          多半很长，摊开会把整块体检撑满，但排查时又必须看得到原话。 */}
+                      {row.level === 'ok' || !row.items?.length ? null : (
+                        <div className="mt-1.5 pl-3.5 space-y-1.5">
+                          {row.items.map((item, index) => (
+                            <div key={index} className="border-l-2 border-slate-100 pl-2 text-[11px] leading-relaxed text-slate-500">
+                              <p className="whitespace-pre-line">{item.text}</p>
+                              {item.raw ? (
+                                <details className="mt-0.5">
+                                  <summary className="cursor-pointer text-[10px] font-bold text-slate-400">原文</summary>
+                                  <pre className="mt-1 whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-slate-500 bg-slate-50 rounded-lg p-2 select-text">
+                                    {item.raw}
+                                  </pre>
+                                </details>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -998,25 +1016,6 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 {diagnosing ? '正在问 Worker…' : '还没有结果，点右上角检查一次。'}
               </p>
             )}
-          </div>
-        ) : null}
-
-        {/* 正常情况下两道双向门会拦住「两个都开」，能走到这儿全是脏配置遗留。
-            脏配置照样会让聊天悄悄走 Instant，2.0 挂在本地那条路上的东西全静默失效——
-            没有报错也没有提示，只会表现成「这功能怎么不响」，这张卡就是收拾它的入口。 */}
-        {instantOn ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
-            <div className="font-bold text-amber-900 text-sm">Instant Push 也开着</div>
-            <p className="text-xs leading-relaxed text-amber-800">
-              检测到 Instant Push 还开着。即时对话已经覆盖了它的能力（发完就自由、云端跑工具、断网补收），两条路只能留一条。点下面把 Instant Push 关掉，聊天就交给 2.0。
-            </p>
-            <button
-              type="button"
-              onClick={disableInstantPush}
-              className="w-full py-2.5 bg-amber-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform"
-            >
-              关掉 Instant Push（保留它的配置）
-            </button>
           </div>
         ) : null}
 
@@ -1241,7 +1240,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                     ) : null}
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    必须和「推送凭据 (VAPID)」面板里的是<strong>同一对</strong>（和 Instant Push 共用）——
+                    必须和「推送凭据 (VAPID)」面板里的是<strong>同一对</strong>——
                     整个站点只有一个浏览器推送订阅，Worker 用别的密钥对签推送会 403。
                   </p>
                 </div>
@@ -1516,7 +1515,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                   <p className="text-[11px] font-bold text-slate-600">给这台后端补一把更新用的钥匙</p>
                   <p className="text-[11px] leading-relaxed text-slate-500">
                     建一枚只勾 <strong>Account → Workers Scripts : Edit</strong> 的 Cloudflare API Token
-                    粘进来（<strong>Start Date 留空</strong>），SullyOS 会把它写进你这台 Worker。
+                    粘进来（<strong>Start Date 留空</strong>），SullyOS·糯米机 会把它写进你这台 Worker。
                     做完一次以后更新就都是点上面那个按钮了。
                   </p>
                   <a

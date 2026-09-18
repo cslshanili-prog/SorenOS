@@ -1412,10 +1412,6 @@ interface MessageItemProps {
     moduleAlign?: 'anchor' | 'center';
     /** 流式预览无缝接棒时，正式消息首帧已经可见，不应再次从透明态淡入。 */
     suppressEntranceAnimation?: boolean;
-    /** Instant Push 准备中：在用户气泡左侧渲染 dot pulse */
-    isPending?: boolean;
-    /** 是否开启 dot pulse 指示。关掉则 pending 期间不显示任何视觉 */
-    pendingIndicator?: boolean;
     /** 麦当劳菜单卡里点了"发送给角色"时调用 */
     onMcdSendCart?: (items: import('./McdCard').McdCartItem[]) => void;
     onMcdCandidate?: (item: import('./McdCard').McdCartItem) => void;
@@ -1469,8 +1465,6 @@ const MessageItem = React.memo(({
     showTimestamp = 'always',
     moduleAlign = 'center',
     suppressEntranceAnimation = false,
-    isPending = false,
-    pendingIndicator = true,
     onMcdSendCart,
     onMcdCandidate,
     onLuckinSendCart,
@@ -1894,7 +1888,6 @@ const MessageItem = React.memo(({
         );
     }
 
-    const showPendingDots = isUser && isPending && pendingIndicator;
     // HTML 卡片（280px 定宽模块）默认位置就是"视觉居中"的约定：包装层打上 sully-html-wrap，
     // 让「聊天细节微调」的贴边/缩进规则 :not() 绕开它——美化怎么开卡片都不挪窝。
     const isHtmlCard = m.type === 'html_card';
@@ -1970,18 +1963,6 @@ const MessageItem = React.memo(({
                     <div className={`sully-chat-message-avatar-slot absolute bottom-0 z-0 ${selectionMode ? 'left-14' : 'left-3'} transition-[left] duration-300`}>
                         {renderAvatar(charAvatar, { className: 'sully-chat-message-avatar' })}
                     </div>
-                )}
-
-                {showPendingDots && (
-                    <span
-                        className="inline-flex items-center gap-[3px] mb-2 mr-0.5 select-none pointer-events-none"
-                        aria-label="发送准备中"
-                        role="status"
-                    >
-                        <span className="w-1 h-1 rounded-full bg-slate-400/70 animate-dot-pulse" />
-                        <span className="w-1 h-1 rounded-full bg-slate-400/70 animate-dot-pulse" style={{ animationDelay: '0.15s' }} />
-                        <span className="w-1 h-1 rounded-full bg-slate-400/70 animate-dot-pulse" style={{ animationDelay: '0.3s' }} />
-                    </span>
                 )}
 
                 {/*
@@ -3021,7 +3002,7 @@ const MessageItem = React.memo(({
                     {/* 报头 */}
                     <div className="px-3 pt-2 pb-1.5 border-b-2 border-double border-stone-500/60">
                         <div className="flex items-center justify-between text-stone-500">
-                            <span className="text-[8.5px] tracking-[0.3em] uppercase font-bold">SullyOS Daily</span>
+                            <span className="text-[8.5px] tracking-[0.3em] uppercase font-bold">SullyOS·糯米机 Daily</span>
                             <span className="text-[8.5px] tracking-wide">{dateStr} · 号外</span>
                         </div>
                     </div>
