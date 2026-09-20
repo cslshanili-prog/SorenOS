@@ -42,7 +42,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-700 truncate">{charName} · 專屬生圖設定</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">只影響這個角色，不會改動角色卡正文。</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">只影響這個角色，不會改動角色卡正文。（參考圖／臉部鎖定目前只有本機聊天生效，主動消息 2.0 的雲端生成對話暫不支援。）</p>
                     </div>
                     <button
                         onClick={() => patch({ referenceEnabled: !referenceEnabled })}

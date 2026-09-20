@@ -7,7 +7,7 @@ import { extractTransferCommands } from './transferFormat';
 import { extractMallOrderCommands } from './mallOrderFormat';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
-import { generateImage, buildCharacterImagePrompt } from './imageGeneration';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from './imageGeneration';
 import { migrateDataUrlToRef } from './blobRef';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
@@ -284,7 +284,8 @@ export const ChatParser = {
                         const chars = await DB.getAllCharacters();
                         const charProfile = chars.find(c => c.id === charId);
                         const prompt = charProfile ? buildCharacterImagePrompt(charProfile, description) : description;
-                        const { dataUrl } = await generateImage(imageGenConfig!, prompt);
+                        const referenceBlob = charProfile ? await resolveCharacterReferenceImage(charProfile, { description }) : null;
+                        const { dataUrl } = await generateImage(imageGenConfig!, prompt, referenceBlob || undefined);
                         const storedContent = await migrateDataUrlToRef(dataUrl);
                         await persist({
                             charId, role: 'assistant', type: 'image', content: storedContent,
