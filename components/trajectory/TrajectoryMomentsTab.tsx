@@ -7,7 +7,7 @@ import {
 } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
-import { generateImage, buildCharacterImagePrompt } from '../../utils/imageGeneration';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
 import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { processImage } from '../../utils/file';
@@ -74,7 +74,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
             if (!draft) { addToast('这次没解析出动态内容，再试一次', 'error'); return; }
 
             const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { description: draft.content });
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(dataUrl);
 
             const post = createTrajectoryMomentPost(draft, image);
@@ -98,7 +99,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
         setRegeneratingPhoto(true);
         try {
             const imagePrompt = buildCharacterImagePrompt(char, post.imagePrompt);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { description: post.content });
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(dataUrl);
             const next = posts.map(p => p.id === post.id ? { ...p, image } : p);
             onCommit(next);

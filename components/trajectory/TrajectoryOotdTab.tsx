@@ -7,7 +7,7 @@ import {
 } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
-import { generateImage, buildCharacterImagePrompt } from '../../utils/imageGeneration';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
 import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { DB } from '../../utils/db';
@@ -68,7 +68,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             if (!draft) { addToast('这次没解析出穿搭内容，再试一次', 'error'); return; }
 
             const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(dataUrl);
 
             const post = createTrajectoryOotdPost(draft, image);
@@ -92,7 +93,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
         setRegeneratingPhoto(true);
         try {
             const imagePrompt = buildCharacterImagePrompt(char, post.imagePrompt);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(dataUrl);
             const next = posts.map(p => p.id === post.id ? { ...p, image } : p);
             onCommit(next);
