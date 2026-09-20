@@ -178,10 +178,14 @@ export async function generateImage(
 
   if (!referenceImageBlob) return generateTextOnly();
 
+  // 光传参考图很多生图引擎只当成弱风格参考，脸型/五官比例照样会飘；显式用文字提要求
+  // 「照着参考图的脸」，实测能明显收紧一致性。只加在带参考图这条路，不影响纯文字生成。
+  const referencePrompt = `${fullPrompt}\n\n[参考图约束] 人物的脸型、五官比例、肤色、发型需与所附参考图保持高度一致，不要更改容貌特征；只按提示词调整场景、姿势、服装、表情等其余部分。`;
+
   try {
     const form = new FormData();
     form.append('model', config.model);
-    form.append('prompt', fullPrompt);
+    form.append('prompt', referencePrompt);
     form.append('n', '1');
     if (config.size) form.append('size', config.size);
     form.append('image', referenceImageBlob, 'reference.png');
