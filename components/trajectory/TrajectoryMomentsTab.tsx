@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { ArrowsClockwise, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, Sparkle, X } from '@phosphor-icons/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowsClockwise, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryMomentPost } from '../../types';
 import TokenImg from '../os/TokenImg';
 import {
@@ -36,6 +36,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
     const [regeneratingPhoto, setRegeneratingPhoto] = useState(false);
     const [savingPhoto, setSavingPhoto] = useState(false);
     const [syncingToChat, setSyncingToChat] = useState(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+    useEffect(() => { setConfirmDeleteOpen(false); }, [detailPost?.id]);
 
     const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -128,6 +131,13 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
         } finally {
             setSavingPhoto(false);
         }
+    };
+
+    const handleDelete = (post: TrajectoryMomentPost) => {
+        onCommit(posts.filter(p => p.id !== post.id));
+        void deleteBlobRefIfUnreferenced(post.image);
+        setDetailPost(null);
+        addToast('已删除', 'success');
     };
 
     const handleSyncToChat = async (post: TrajectoryMomentPost) => {
@@ -230,7 +240,29 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
                                 <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
                             </button>
+                            <button onClick={() => setConfirmDeleteOpen(true)} aria-label="删除"
+                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-rose-200">
+                                <Trash size={14} weight="bold" />
+                            </button>
                         </div>
+                        {confirmDeleteOpen && (
+                            <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
+                                <div className="text-center">
+                                    <div className="text-[13px] font-bold text-white/90 mb-1">删除这条朋友圈？</div>
+                                    <div className="text-[11px] text-white/45 mb-4">删除后无法恢复</div>
+                                    <div className="flex gap-2 justify-center">
+                                        <button onClick={() => setConfirmDeleteOpen(false)}
+                                            className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
+                                            取消
+                                        </button>
+                                        <button onClick={() => handleDelete(detailPost)}
+                                            className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>
+                                            确认删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="aspect-[4/5] bg-white/5">
                             <TokenImg value={detailPost.image} alt="" className="w-full h-full object-cover" />
                         </div>
