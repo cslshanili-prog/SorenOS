@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem,
+    buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem, groupTrajectoryChecklistByBatch,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
     buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
     buildTrajectoryMomentsPrompt, parseTrajectoryMomentDraft, createTrajectoryMomentPost,
@@ -108,6 +108,28 @@ describe('toggleTrajectoryChecklistItem', () => {
         const profile = { archives: [], objectives: [], checklist: [item1], updatedAt: Date.now() };
         const result = toggleTrajectoryChecklistItem(profile, 'not-exist');
         expect(result.checklist).toEqual(profile.checklist);
+    });
+});
+
+describe('groupTrajectoryChecklistByBatch', () => {
+    it('同一分钟内生成的几条归为一批，批次间按时间新到旧排', () => {
+        const batch1a = new Date('2026-09-20T09:00:12').getTime();
+        const batch1b = new Date('2026-09-20T09:00:47').getTime();
+        const batch2 = new Date('2026-09-19T15:30:00').getTime();
+        const items = [
+            { ...createTrajectoryChecklistItem({ title: 'A', dueLabel: '今天' }), createdAt: batch1a },
+            { ...createTrajectoryChecklistItem({ title: 'B', dueLabel: '明天' }), createdAt: batch1b },
+            { ...createTrajectoryChecklistItem({ title: 'C', dueLabel: '后天' }), createdAt: batch2 },
+        ];
+        const grouped = groupTrajectoryChecklistByBatch(items);
+        expect(grouped).toHaveLength(2);
+        expect(grouped[0].items.map(i => i.title)).toEqual(['B', 'A']);
+        expect(grouped[1].items.map(i => i.title)).toEqual(['C']);
+        expect(grouped[0].timestamp).toBeGreaterThan(grouped[1].timestamp);
+    });
+
+    it('空数组返回空分组', () => {
+        expect(groupTrajectoryChecklistByBatch([])).toEqual([]);
     });
 });
 

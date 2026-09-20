@@ -950,6 +950,8 @@ export interface TrajectoryArchiveDoc {
     category: string;
     content: string;
     createdAt: number;
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
 }
 
 /** 「軌跡」Profile 子页 · 阶段目标：某项任务/作品/计划的进度，0-100。 */
@@ -959,6 +961,8 @@ export interface TrajectoryObjective {
     progress: number;
     detail: string;
     createdAt: number;
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
 }
 
 /** 「軌跡」Profile 子页 · 待办日程：checklist，时间是展示用的自由文本，不强求可解析。 */
@@ -968,6 +972,8 @@ export interface TrajectoryChecklistItem {
     dueLabel: string;
     done: boolean;
     createdAt: number;
+    /** 「同步到私聊」写入的 DB 消息 id；有值＝已同步，按钮据此置灰防重复发送。 */
+    syncedMessageId?: number;
 }
 
 /** 「軌跡」Profile 子页三段合一，AI 一次性生成/刷新，各角色独立存一份。 */

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CaretLeft, CheckCircle, Circle, MapPin, PaperPlaneTilt, Plus, X } from '@phosphor-icons/react';
+import React, { useEffect, useState } from 'react';
+import { CaretLeft, CheckCircle, Circle, MapPin, PaperPlaneTilt, Plus, Trash, X } from '@phosphor-icons/react';
 import type { CharacterProfile, NPCProfile, TrajectoryJourneyEntry } from '../../types';
 import { buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
@@ -33,6 +33,9 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     const [detail, setDetail] = useState('');
     const [generating, setGenerating] = useState(false);
     const [syncingToChat, setSyncingToChat] = useState(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+    useEffect(() => { setConfirmDeleteOpen(false); }, [detailEntry?.id]);
 
     const pool: Participant[] = [
         ...characters.filter(c => c.id !== char.id).map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '', charId: c.id })),
@@ -83,6 +86,12 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
         } finally {
             setGenerating(false);
         }
+    };
+
+    const handleDelete = (entry: TrajectoryJourneyEntry) => {
+        onCommit(entries.filter(e => e.id !== entry.id));
+        setDetailEntry(null);
+        addToast('已删除', 'success');
     };
 
     // 是否同步进私聊留给生成完之后由用户自己决定（详情面板里的按钮），生成本身不带副作用。
@@ -226,6 +235,28 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
                             className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">
                             <X size={14} weight="bold" />
                         </button>
+                        <button onClick={() => setConfirmDeleteOpen(true)} aria-label="删除"
+                            className="absolute top-3 left-3 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-rose-200">
+                            <Trash size={14} weight="bold" />
+                        </button>
+                        {confirmDeleteOpen && (
+                            <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
+                                <div className="text-center">
+                                    <div className="text-[13px] font-bold text-white/90 mb-1">删除这段行程记录？</div>
+                                    <div className="text-[11px] text-white/45 mb-4">删除后无法恢复</div>
+                                    <div className="flex gap-2 justify-center">
+                                        <button onClick={() => setConfirmDeleteOpen(false)}
+                                            className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
+                                            取消
+                                        </button>
+                                        <button onClick={() => handleDelete(detailEntry)}
+                                            className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>
+                                            确认删除
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(167,139,250,0.15)', color: '#c4b5fd' }}>{detailEntry.kind}</span>
                             <span className="text-[10px] text-white/40">{formatDate(detailEntry.createdAt)}</span>
