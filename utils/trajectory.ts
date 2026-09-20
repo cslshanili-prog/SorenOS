@@ -83,6 +83,23 @@ export function toggleTrajectoryChecklistItem(profile: CharacterTrajectoryProfil
     };
 }
 
+/**
+ * 按「生成批次」分组 checklist：同一次刷新里 AI 一口气生成的几条，createdAt 几乎同一毫秒，
+ * 归到同一批（精度按分钟取整，够用且不用额外落一个 batchId 字段）；批次间新到旧排列，
+ * 批内保持原始（新到旧）顺序。展示时每批顶上放一条「9月20日 9:00」式的时间标题。
+ */
+export function groupTrajectoryChecklistByBatch(items: TrajectoryChecklistItem[]): { timestamp: number; items: TrajectoryChecklistItem[] }[] {
+    const groups = new Map<number, TrajectoryChecklistItem[]>();
+    for (const item of [...items].sort((a, b) => b.createdAt - a.createdAt)) {
+        const bucketTs = Math.floor(item.createdAt / 60000) * 60000;
+        const bucket = groups.get(bucketTs);
+        if (bucket) bucket.push(item); else groups.set(bucketTs, [item]);
+    }
+    return Array.from(groups.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([timestamp, items]) => ({ timestamp, items }));
+}
+
 /** OOTD 生成结果里还没落成 TrajectoryOotdPost 的部分——多一个 imagePrompt 给生图管线用，不落库。 */
 export interface TrajectoryOotdDraft {
     style: string;

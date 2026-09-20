@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { CaretDown, CircleNotch, ClockCountdown } from '@phosphor-icons/react';
-import type { CharacterProfile, CharacterTrajectoryProfile } from '../../types';
-import { buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem } from '../../utils/trajectory';
+import React, { useMemo, useState } from 'react';
+import { CaretDown, CircleNotch, ClockCountdown, PaperPlaneTilt } from '@phosphor-icons/react';
+import type { CharacterProfile, CharacterTrajectoryProfile, TrajectoryArchiveDoc, TrajectoryChecklistItem, TrajectoryObjective } from '../../types';
+import { buildTrajectoryProfilePrompt, groupTrajectoryChecklistByBatch, parseTrajectoryProfile, toggleTrajectoryChecklistItem } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
+import { DB } from '../../utils/db';
 
 type ProfileSubTab = 'archives' | 'objective' | 'checklist';
 
@@ -21,10 +22,18 @@ interface Props {
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+const formatBatchHeading = (ts: number): string => {
+    const d = new Date(ts);
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
 const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiConfig, addToast }) => {
     const [subTab, setSubTab] = useState<ProfileSubTab>('archives');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [syncingId, setSyncingId] = useState<string | null>(null);
+
+    const checklistBatches = useMemo(() => groupTrajectoryChecklistByBatch(profile?.checklist || []), [profile?.checklist]);
 
     const handleRefresh = async () => {
         if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在设置里配置好 API', 'info'); return; }
@@ -65,6 +74,63 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         onCommit(toggleTrajectoryChecklistItem(profile, itemId));
     };
 
+    const handleSyncArchive = async (doc: TrajectoryArchiveDoc) => {
+        if (!profile) return;
+        setSyncingId(doc.id);
+        try {
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'phone_card',
+                content: `[你手机的 軌跡 App · Archives] ${doc.title}`,
+                metadata: { phoneCard: { app: '軌跡 · Archives', title: doc.title, value: doc.category, detail: doc.content } },
+            } as any);
+            onCommit({ ...profile, archives: profile.archives.map(d => d.id === doc.id ? { ...d, syncedMessageId: messageId } : d) });
+            addToast('已同步到私聊', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] Profile Archives 同步私聊失败:', e);
+            addToast('同步失败，稍后再试', 'error');
+        } finally {
+            setSyncingId(null);
+        }
+    };
+
+    const handleSyncObjective = async (obj: TrajectoryObjective) => {
+        if (!profile) return;
+        setSyncingId(obj.id);
+        try {
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'phone_card',
+                content: `[你手机的 軌跡 App · Objective] ${obj.title}（进度 ${obj.progress}%）`,
+                metadata: { phoneCard: { app: '軌跡 · Objective', title: obj.title, value: `进度 ${obj.progress}%`, detail: obj.detail } },
+            } as any);
+            onCommit({ ...profile, objectives: profile.objectives.map(o => o.id === obj.id ? { ...o, syncedMessageId: messageId } : o) });
+            addToast('已同步到私聊', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] Profile Objective 同步私聊失败:', e);
+            addToast('同步失败，稍后再试', 'error');
+        } finally {
+            setSyncingId(null);
+        }
+    };
+
+    const handleSyncChecklistItem = async (item: TrajectoryChecklistItem) => {
+        if (!profile) return;
+        setSyncingId(item.id);
+        try {
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'phone_card',
+                content: `[你手机的 軌跡 App · Checklist] ${item.title}`,
+                metadata: { phoneCard: { app: '軌跡 · Checklist', title: item.title, value: item.dueLabel, detail: item.done ? '已完成' : '待完成' } },
+            } as any);
+            onCommit({ ...profile, checklist: profile.checklist.map(c => c.id === item.id ? { ...c, syncedMessageId: messageId } : c) });
+            addToast('已同步到私聊', 'success');
+        } catch (e) {
+            console.warn('[Trajectory] Profile Checklist 同步私聊失败:', e);
+            addToast('同步失败，稍后再试', 'error');
+        } finally {
+            setSyncingId(null);
+        }
+    };
+
     const empty = !profile || (!profile.archives.length && !profile.objectives.length && !profile.checklist.length);
 
     return (
@@ -99,22 +165,31 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                 {subTab === 'archives' && profile?.archives.map(doc => {
                     const isOpen = expandedId === doc.id;
                     return (
-                        <button key={doc.id} onClick={() => setExpandedId(isOpen ? null : doc.id)}
-                            className="w-full text-left rounded-2xl px-4 py-3.5 transition"
+                        <div key={doc.id} className="w-full rounded-2xl px-4 py-3.5 transition"
                             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <div className="text-[13px] font-bold leading-snug">{doc.title}</div>
-                                    <div className="text-[9px] tracking-widest mt-1" style={{ color: 'rgba(196,181,253,0.6)' }}>{doc.category}</div>
+                            <button onClick={() => setExpandedId(isOpen ? null : doc.id)} className="w-full text-left">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="text-[13px] font-bold leading-snug">{doc.title}</div>
+                                        <div className="text-[9px] tracking-widest mt-1" style={{ color: 'rgba(196,181,253,0.6)' }}>{doc.category}</div>
+                                    </div>
+                                    <CaretDown size={14} weight="bold" style={{ color: 'rgba(232,227,245,0.4)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0, marginTop: 2 }} />
                                 </div>
-                                <CaretDown size={14} weight="bold" style={{ color: 'rgba(232,227,245,0.4)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s', flexShrink: 0, marginTop: 2 }} />
-                            </div>
-                            {isOpen && doc.content && (
-                                <div className="mt-3 pt-3 text-[12px] leading-relaxed whitespace-pre-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,227,245,0.8)' }}>
-                                    {doc.content}
-                                </div>
+                                {isOpen && doc.content && (
+                                    <div className="mt-3 pt-3 text-[12px] leading-relaxed whitespace-pre-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'rgba(232,227,245,0.8)' }}>
+                                        {doc.content}
+                                    </div>
+                                )}
+                            </button>
+                            {isOpen && (
+                                <button onClick={() => void handleSyncArchive(doc)} disabled={syncingId === doc.id || !!doc.syncedMessageId}
+                                    className="w-full mt-3 py-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                                    style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                                    <PaperPlaneTilt size={13} weight="bold" />
+                                    {doc.syncedMessageId ? '已同步到私聊' : (syncingId === doc.id ? '同步中…' : '同步到私聊')}
+                                </button>
                             )}
-                        </button>
+                        </div>
                     );
                 })}
 
@@ -136,24 +211,46 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                 {obj.detail}
                             </div>
                         )}
+                        <button onClick={() => void handleSyncObjective(obj)} disabled={syncingId === obj.id || !!obj.syncedMessageId}
+                            className="w-full mt-3 py-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                            style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
+                            <PaperPlaneTilt size={13} weight="bold" />
+                            {obj.syncedMessageId ? '已同步到私聊' : (syncingId === obj.id ? '同步中…' : '同步到私聊')}
+                        </button>
                     </div>
                 ))}
 
-                {subTab === 'checklist' && profile?.checklist.map(item => (
-                    <button key={item.id} onClick={() => handleToggleChecklist(item.id)}
-                        className="w-full text-left rounded-2xl px-4 py-3 flex items-center gap-3 transition"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', opacity: item.done ? 0.55 : 1 }}>
-                        <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-                            style={{ border: `1.5px solid ${item.done ? '#c4b5fd' : 'rgba(232,227,245,0.3)'}`, background: item.done ? '#c4b5fd' : 'transparent' }}>
-                            {item.done && <span style={{ color: '#120f1a', fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                            <div className="text-[13px] font-bold" style={{ textDecoration: item.done ? 'line-through' : 'none' }}>{item.title}</div>
-                            <div className="flex items-center gap-1 text-[10px] mt-0.5" style={{ color: 'rgba(232,227,245,0.4)' }}>
-                                <ClockCountdown size={11} weight="bold" /> {item.dueLabel}
-                            </div>
+                {subTab === 'checklist' && checklistBatches.map(batch => (
+                    <div key={batch.timestamp}>
+                        <div className="text-[11px] mb-2 tracking-wide" style={{ color: 'rgba(232,227,245,0.4)' }}>{formatBatchHeading(batch.timestamp)}</div>
+                        <div className="space-y-2">
+                            {batch.items.map(item => (
+                                <div key={item.id} className="w-full rounded-2xl px-4 py-3 flex items-center gap-3 transition"
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', opacity: item.done ? 0.55 : 1 }}>
+                                    <button onClick={() => handleToggleChecklist(item.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                                        <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+                                            style={{ border: `1.5px solid ${item.done ? '#c4b5fd' : 'rgba(232,227,245,0.3)'}`, background: item.done ? '#c4b5fd' : 'transparent' }}>
+                                            {item.done && <span style={{ color: '#120f1a', fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-[13px] font-bold" style={{ textDecoration: item.done ? 'line-through' : 'none' }}>{item.title}</div>
+                                            <div className="flex items-center gap-1 text-[10px] mt-0.5" style={{ color: 'rgba(232,227,245,0.4)' }}>
+                                                <ClockCountdown size={11} weight="bold" /> {item.dueLabel}
+                                            </div>
+                                        </div>
+                                    </button>
+                                    <button onClick={() => void handleSyncChecklistItem(item)} disabled={syncingId === item.id || !!item.syncedMessageId}
+                                        aria-label="同步到私聊" title={item.syncedMessageId ? '已同步到私聊' : '同步到私聊'}
+                                        className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-60"
+                                        style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd' }}>
+                                        {syncingId === item.id
+                                            ? <CircleNotch size={13} weight="bold" className="animate-spin" />
+                                            : <PaperPlaneTilt size={13} weight="bold" />}
+                                    </button>
+                                </div>
+                            ))}
                         </div>
-                    </button>
+                    </div>
                 ))}
             </div>
         </div>
