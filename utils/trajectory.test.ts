@@ -140,6 +140,12 @@ describe('buildTrajectoryOotdPrompt', () => {
         expect(prompt).toContain('imagePrompt');
     });
 
+    it('imagePrompt 说明统一走镜子自拍风格，但要求细节每次不同', () => {
+        const prompt = buildTrajectoryOotdPrompt('角色设定块');
+        expect(prompt).toContain('穿衣镜前用手机自拍');
+        expect(prompt).toContain('每次都要不一样');
+    });
+
     it('带 existing 时列出最近的搭配防重复', () => {
         const existing = [createTrajectoryOotdPost({ style: '休闲', colors: [], tops: '白衬衫', bottoms: '牛仔裤', shoes: '', accessories: [], imagePrompt: 'x' }, 'img-token')];
         const prompt = buildTrajectoryOotdPrompt('角色设定块', existing);

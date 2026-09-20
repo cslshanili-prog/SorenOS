@@ -130,7 +130,7 @@ export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: 
         `- bottoms：下装的具体描述（如"米白亚麻裤"）\n` +
         `- shoes：鞋子的具体描述\n` +
         `- accessories：配饰，0-3 项的数组（可以是空数组）\n` +
-        `- imagePrompt：给 AI 生图用的一段英文画面描述，描述这个人此刻穿着这身搭配的样子（半身或全身、场景可以简单带一句），不要出现角色的真实姓名\n\n` +
+        `- imagePrompt：给 AI 生图用的一段英文画面描述，统一走"站在穿衣镜前用手机自拍"这个路子——地点是全身镜前，手里举着手机在拍这身穿搭，构图半身或全身都行，视线不一定看镜头（可以低头看手机屏幕、侧脸、看别处），偶尔可以让举着的手机或手臂挡住部分脸，营造真实生活感的镜子自拍。但站姿、镜头远近、身体朝向、手机遮脸与否这些细节每次都要不一样，不要写成同一个姿势，不要出现角色的真实姓名\n\n` +
         `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 对象，colors/accessories 必须是字符串数组，其余字段必须是字符串：\n` +
         `{ "style": "休闲", "colors": ["米白色", "杏色"], "tops": "杏色亚麻衬衫", "bottoms": "米白亚麻裤", "shoes": "小白鞋", "accessories": ["帆布包"], "imagePrompt": "a young woman in a beige linen shirt..." }`;
 }
