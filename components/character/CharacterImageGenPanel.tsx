@@ -68,11 +68,16 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                     <textarea
                         value={value?.characterPrompt || ''}
                         onChange={e => patch({ characterPrompt: e.target.value })}
-                        placeholder="例如：黑色長捲髮、灰藍色眼睛、左眼下有一顆小痣、清冷氣質……"
+                        placeholder={referenceEnabled ? '例如：清冷氣質、偏好簡約穿搭、說話慢條斯理……' : '例如：黑色長捲髮、灰藍色眼睛、左眼下有一顆小痣、清冷氣質……'}
                         rows={3}
                         className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5 text-xs resize-none focus:bg-white transition-all"
                     />
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">生成該角色圖片時自動追加。</p>
+                    {referenceEnabled && (
+                        <p className="text-[10px] text-amber-600 mt-1 leading-relaxed">
+                            已開啟參考圖：這裡如果寫了具體的臉型／五官／膚色描述，容易跟參考圖「打架」——多數生圖引擎在文字和圖片衝突時會優先服從文字，反而蓋掉參考圖的鎖臉效果。建議臉部細節交給參考圖，這裡只寫氣質、穿衣偏好等非外貌設定。
+                        </p>
+                    )}
                 </div>
 
                 <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 mb-4">
