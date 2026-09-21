@@ -11,7 +11,7 @@ import { safeResponseJson, extractContent } from '../utils/safeApi';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
 import TokenImg from '../components/os/TokenImg';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
-import { generateInnerVoiceContent, generateAffinityValue } from '../utils/customMeterGenerator';
+import { generateInnerVoiceContent, generateAffinityValue, checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
 import { resolveCharacterChatApi } from '../utils/characterApi';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
@@ -1128,6 +1128,20 @@ const Chat: React.FC = () => {
             }
         }).catch(() => {});
     }, [activeCharacterId, char?.scheduleFeatureEnabled, char?.customTimezoneEnabled, char?.customTimezone, charDateKey]);
+
+    // 心声/好感度里设了「每隔 N 小时」节奏的条目，进聊天时顺手检查一遍是否到期——
+    // 跟日程同一个触发时机；到期的在后台重新生成，不阻塞聊天。turns 节奏另外在每轮发消息时推进
+    // （见 useChatAI 里 checkCustomMeterAutoUpdate 的调用点），这里不传 tickTurns。
+    useEffect(() => {
+        if (!char || !apiConfig.apiKey) return;
+        const charApi = resolveCharacterChatApi(char, apiConfig);
+        checkCustomMeterAutoUpdate('text', char, chatUserProfile, charApi, char.innerVoices || [])
+            .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
+            .catch(e => console.warn('[CustomMeter] 心声按小时自动更新失败:', e));
+        checkCustomMeterAutoUpdate('number', char, chatUserProfile, charApi, char.affinities || [])
+            .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
+            .catch(e => console.warn('[CustomMeter] 好感度按小时自动更新失败:', e));
+    }, [activeCharacterId]);
 
     // 每次真正打开聊天设置时从角色持久化值重新初始化；避免用户在记忆宫殿页
     // 切换全自动模式后，隐藏着的 Chat 组件仍带着旧拉杆状态。
