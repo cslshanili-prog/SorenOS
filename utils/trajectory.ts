@@ -115,14 +115,18 @@ export interface TrajectoryOotdDraft {
  * OOTD 穿搭描述的生成提示词——只管文字部分（风格/配色/上衣/下装/鞋/配饰 + 一段给生图用的
  * 画面描述），图片由调用方另外拿 imagePrompt 去跑生图管线。roleSettingsBlock 同 Profile，
  * 传 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
+ * timeContext：调用方拼好的「现在几点/正在做什么」文本（ContextBuilder.buildTimeAwarenessBlock +
+ * 可选的 ContextBuilder.buildScheduleInjection），让穿搭贴合当下时间和日程，不传就不提时间。
  */
-export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: TrajectoryOotdPost[]): string {
+export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: TrajectoryOotdPost[], timeContext?: string): string {
     let antiRepeat = '';
     if (existing && existing.length) {
         const recent = existing.slice(0, 5).map(p => `${p.tops}+${p.bottoms}`);
         antiRepeat = `\n\n最近穿过这些搭配了，这次换一身不一样的：${recent.join('、')}`;
     }
-    return `依照上面这份角色设定，自由发挥生成这个角色此刻的一身穿搭（OOTD），越贴合TA的人设/生活场景越好。${antiRepeat}\n\n` +
+    const timeBlock = timeContext?.trim() ? `\n\n${timeContext.trim()}` : '';
+    return `依照上面这份角色设定，自由发挥生成这个角色此刻的一身穿搭（OOTD），越贴合TA的人设/生活场景越好。${antiRepeat}${timeBlock}\n\n` +
+        `这身穿搭必须符合上面给出的当下时间和TA此刻正在做的事——工作/通勤时段该是正装或职业装，深夜/睡前该是睡衣或家居服，运动时段该是运动服，纯休息/在家该是居家休闲服，不要出现"深夜穿正装""运动时段穿西装"这种不合常理的搭配；如果角色人设或专属人物提示词里提到了作息习惯（比如"上班穿正装、下班换休闲"），也要对上当下到底是哪个时段。\n\n` +
         `生成：\n` +
         `- style：风格标签（如"休闲"、"通勤"、"运动"，2-4 字）\n` +
         `- colors：这身搭配的主色调，1-3 个颜色词的数组\n` +
@@ -130,7 +134,7 @@ export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: 
         `- bottoms：下装的具体描述（如"米白亚麻裤"）\n` +
         `- shoes：鞋子的具体描述\n` +
         `- accessories：配饰，0-3 项的数组（可以是空数组）\n` +
-        `- imagePrompt：给 AI 生图用的一段英文画面描述，统一走"站在穿衣镜前用手机自拍"这个路子——地点是全身镜前，手里举着手机在拍这身穿搭，构图半身或全身都行，视线不一定看镜头（可以低头看手机屏幕、侧脸、看别处），偶尔可以让举着的手机或手臂挡住部分脸，营造真实生活感的镜子自拍。但站姿、镜头远近、身体朝向、手机遮脸与否这些细节每次都要不一样，不要写成同一个姿势，不要出现角色的真实姓名\n\n` +
+        `- imagePrompt：给 AI 生图用的一段英文画面描述，统一走"站在穿衣镜前用手机自拍"这个路子——地点是全身镜前，手里举着手机在拍这身穿搭，构图半身或全身都行，视线不一定看镜头（可以低头看手机屏幕、侧脸、看别处），偶尔可以让举着的手机或手臂挡住部分脸，营造真实生活感的镜子自拍；背景光线/氛围也要跟当下是白天还是深夜对上，不要写成跟时间矛盾的场景。但站姿、镜头远近、身体朝向、手机遮脸与否这些细节每次都要不一样，不要写成同一个姿势，不要出现角色的真实姓名\n\n` +
         `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 对象，colors/accessories 必须是字符串数组，其余字段必须是字符串：\n` +
         `{ "style": "休闲", "colors": ["米白色", "杏色"], "tops": "杏色亚麻衬衫", "bottoms": "米白亚麻裤", "shoes": "小白鞋", "accessories": ["帆布包"], "imagePrompt": "a young woman in a beige linen shirt..." }`;
 }
