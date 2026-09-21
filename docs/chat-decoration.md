@@ -34,4 +34,12 @@
 
 CSS 编辑器的旧预设及分享格式不迁移。CSS 分类保留 body portal 的 `#sully-safe-reset`，标注还原角色或全局；收起面板时也能还原。全局编辑在聊天装扮中切换「全局默认」；角色切换处的气泡快捷入口继续可用。
 
+## 转账和头像框 CSS
+
+协同「白框制作」的稳定选择器清单与 CSS 编辑器的复制提示词必须同步维护。`features/collaboration/makers.ts` 已收录下述转账和头像框选择器，制作提示词和作品校验使用同一清单，避免模型误判这些类名未开放。
+
+进阶 CSS 的复制提示词包含 `.sully-chat-transfer-*`：主卡 `card`、回执 `receipt`、金额 `amount`、备注 `note`、状态 `status`、收款方 `recipient`、标题 `header`、图标 `icon`、品牌 `brand`、水印 `watermark`，以及详情弹窗 `overlay` / `dialog`、操作按钮 `accept` / `return`。主卡和回执带 `data-status`，用于区分 pending / accepted / returned（回执没有 pending）。
+
+消息头像通用容器 `.sully-chat-avatar-wrap` 仅在该头像可见时提供，含普通消息头像及组首头像。用它的 `::after` 配合透明背景图绘制外框，设置 `pointer-events:none`；容器保持 overflow:visible，图片形状单独通过 `.sully-chat-message-avatar-img` 的圆角或 clip-path 控制。气泡工坊已有框图是 `.sully-chat-avatar-frame`，可按需隐藏以避免叠加。以上 CSS 随原有 CSS 预设保存、分享和切换，不要求额外配置气泡贴图。
+
 已确认过旧版 `v1:decoration` 公告的用户不会重复弹出。装扮面板本身不再挂公告。聊天加号功能按单一顺序列表每页 8 项自动分页，第二页补入相册；各页固定两行，避免第三页内容少导致面板和翻页圆点跳动。

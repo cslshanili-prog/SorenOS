@@ -2828,6 +2828,55 @@ export const DB = {
       });
   },
 
+  /** 重演的正文与副作用同事务提交；请求期间的世界编辑不被旧快照覆盖。 */
+  replaceWorldBeat: async (
+      world: WorldProfile, episode: WorldEpisode, charId: string,
+      card: { content: string; metadata: Message['metadata']; insertIfMissing: boolean },
+      expectedWorld: WorldProfile, expectedEpisode: WorldEpisode,
+  ): Promise<void> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_WORLDS, STORE_WORLD_EPISODES, STORE_MESSAGES], 'readwrite');
+          const worlds = tx.objectStore(STORE_WORLDS);
+          const episodes = tx.objectStore(STORE_WORLD_EPISODES);
+          const messages = tx.objectStore(STORE_MESSAGES);
+          let failure: Error | undefined;
+          const abort = () => { failure = new Error('重演期间家园记录已变化，请重新重演'); tx.abort(); };
+          const request = worlds.get(world.id);
+          request.onsuccess = () => {
+              const current = request.result as WorldProfile | undefined;
+              const fields = ['storyClock', 'threads', 'seeds', 'relationships', 'feedReactions'] as const;
+              if (!current || fields.some(key => JSON.stringify(current[key]) !== JSON.stringify(expectedWorld[key]))) { abort(); return; }
+              worlds.put({ ...current, threads: world.threads, seeds: world.seeds, relationships: world.relationships, feedReactions: world.feedReactions, updatedAt: Date.now() });
+          };
+          const epRequest = episodes.get(episode.id);
+          epRequest.onsuccess = () => {
+              if (!epRequest.result || JSON.stringify(epRequest.result.beats) !== JSON.stringify(expectedEpisode.beats)) { abort(); return; }
+              const { observationNumber: _display, ...stored } = episode;
+              episodes.put(stored);
+          };
+          let found = false;
+          const cursorRequest = messages.index('charId').openCursor(IDBKeyRange.only(charId));
+          cursorRequest.onsuccess = () => {
+              const cursor = cursorRequest.result;
+              if (cursor) {
+                  const message = cursor.value as Message;
+                  const meta = message.metadata as any;
+                  if (message.type === 'world_card' && meta?.worldId === world.id && meta.round === episode.round && meta.storyTime === episode.storyTime) {
+                      found = true;
+                      cursor.update({ ...message, content: card.content, metadata: card.metadata });
+                  }
+                  cursor.continue();
+              } else if (!found && card.insertIfMissing) {
+                  messages.add({ charId, role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
+              }
+          };
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(failure || tx.error);
+          tx.onabort = () => reject(failure || tx.error || new Error('重演保存失败'));
+      });
+  },
+
   saveWorldEpisode: async (episode: WorldEpisode): Promise<void> => {
       const db = await openDB();
       const tx = db.transaction(STORE_WORLD_EPISODES, 'readwrite');
@@ -3287,7 +3336,9 @@ export const DB = {
       }
   },
 
-  exportFullData: async (): Promise<Partial<FullBackupData>> => {
+  exportFullData: async (
+      options: { includeBackendConnection?: boolean } = {},
+  ): Promise<Partial<FullBackupData>> => {
       const db = await openDB();
       
       const getAllFromStore = (storeName: string): Promise<any[]> => {
@@ -3406,7 +3457,7 @@ export const DB = {
           luckinLocal: exportLuckinLocal(),       // 瑞幸 token + 启用状态（存 localStorage）
           mcdLocal: exportMcdLocal(),             // 麦当劳 token + 启用状态（存 localStorage）
           mcpLocal: exportMcpLocal(),             // 通用 MCP 服务器配置（存 localStorage）
-          amsg2GlobalConfig: await exportAmsg2GlobalConfig(), // 主动消息 2.0 全局配置（存独立的 ActiveMsg 库）
+          amsg2GlobalConfig: await exportAmsg2GlobalConfig(options), // 主动消息 2.0 全局配置（存独立的 ActiveMsg 库；后端连接默认不带走）
           desktopSkinLocal: await exportDesktopSkinLocal(), // 桌面皮肤：界面配色 + 看板 banner（看板图令牌解析为 data URL）
       };
   },
@@ -3423,6 +3474,11 @@ export const DB = {
               itemDone?: number;
               itemTotal?: number;
           }) => void;
+          /**
+           * 让备份里带的 Worker 地址 / 密钥 / 用户 id 落地。默认不落：导入者未必知道
+           * 这份文件是谁的，静默连上去的话，ta 的 API 凭据和聊天上下文会写进别人那台 D1。
+           */
+          allowBackendConnection?: boolean;
       } = {}
   ): Promise<void> => {
       const db = await openDB();
@@ -3877,7 +3933,10 @@ export const DB = {
           // 必须在 OSContext 那段「导入后跟云端对一次账」之前落地：那段的第一道门是
           // 「本机有没有 Worker 地址」，地址还没写回去的话它会整段跳过，旧档角色留在
           // 云端的无主任务就没人取消，等用户手填回地址时照样到点推送。
-          await importAmsg2GlobalConfig((data as any).amsg2GlobalConfig);
+          await importAmsg2GlobalConfig(
+              (data as any).amsg2GlobalConfig,
+              { allowBackendConnection: options.allowBackendConnection },
+          );
           (data as any).amsg2GlobalConfig = undefined;
       }, 1);
       await runSection('桌面皮肤偏好', (data as any).desktopSkinLocal !== undefined, async () => {

@@ -3159,6 +3159,73 @@ export const ActiveMsgClient = {
   },
 
   /**
+   * 列出云端 client_state 里有哪些命名空间，各占多少。给「云端数据」清点用。
+   *
+   * 这是唯一一条能发现「本地已经没有、云端只剩一份上下文」的角色的线索：任务表和凭据
+   * 表都问不到它们（没排过任务、没配过单独 API），而角色命名空间在 worker 侧没有 TTL，
+   * 不主动去看就永远不知道它在那儿。
+   *
+   * 要用户那台 worker 更新到带 `client-state-namespaces` 的版本。老 worker 上那条路由
+   * 不存在，直接问会拿到一句没法解释的 404——所以先问 capabilities，缺能力时抛一句
+   * 说得清的话，界面照它提示「更新 Worker 之后清单会更全」。
+   *
+   * 这一趟要在 worker 上按用户扫一遍 client_state，所以只在用户点开清点界面时调，
+   * 别塞进体检或者任何定时路径（每分钟白扫一遍 D1 就是 rows read 被扫穿的来由）。
+   */
+  async listCloudNamespaces(): Promise<Array<{
+    namespace: string; entryCount: number; byteSize: number; updatedAt: number | null;
+  }>> {
+    const config = await ensureWorkerReady();
+    const client = await initializeClient(config);
+    const features = await this.getCapabilities().then((c) => c?.features ?? null).catch(() => null);
+    if (!features?.includes('client-state-namespaces')) {
+      throw new Error('这台 Worker 还没有「列出云端命名空间」的能力，更新 Worker 之后清单会更全。');
+    }
+    const response = await fetchWithAuth('client-state/namespaces', config, {
+      method: 'GET',
+      headers: {
+        'X-Response-Encrypted': 'true',
+        'X-Encryption-Version': '1',
+      },
+    }, '读取云端命名空间清单');
+    if (!response?.success) {
+      throw new Error(response?.error?.message || '读取云端命名空间清单失败。');
+    }
+    const payload = await decryptPayload(client, response.data) as {
+      namespaces?: Array<{ namespace?: unknown; entryCount?: unknown; byteSize?: unknown; updatedAt?: unknown }>;
+    };
+    return (payload?.namespaces ?? [])
+      .filter((row): row is { namespace: string } & Record<string, unknown> => typeof row?.namespace === 'string' && !!row.namespace)
+      .map((row) => ({
+        namespace: row.namespace,
+        entryCount: Number(row.entryCount ?? 0) || 0,
+        byteSize: Number(row.byteSize ?? 0) || 0,
+        updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : null,
+      }));
+  },
+
+  /**
+   * 列出云端登记着哪些凭据行。上游只回 credId 和更新时间，**不回凭据本体**。
+   *
+   * credId 的形状是 `char:<charId>/<用途>`，角色身份就编在这个字符串里——所以这是眼下
+   * 唯一一个「不靠本地记录，直接问云端还记着哪些角色」的口子。任务表那边角色 id 埋在
+   * 密文里，要把全部任务拉回来逐条解密才看得见；client_state 则要等用户那台 worker
+   * 更新到带命名空间清单的那一版。
+   */
+  async listLlmCredentials(): Promise<Array<{ credId: string; updatedAt?: number }>> {
+    const config = await ensureWorkerReady();
+    const client = await initializeClient(config);
+    const response = await client.listLlmCredentials();
+    if (!response?.success) {
+      throw new Error(response?.error?.message || '读取云端凭据清单失败。');
+    }
+    const rows = (response.data as { credentials?: Array<{ credId?: unknown; updatedAt?: unknown }> })?.credentials ?? [];
+    return rows
+      .filter((row): row is { credId: string; updatedAt?: number } => typeof row?.credId === 'string' && !!row.credId)
+      .map((row) => ({ credId: row.credId, updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : undefined }));
+  },
+
+  /**
    * 删掉云端登记的凭据行。`credIds` 删指定几行（删角色时清它名下的），
    * `all` 全删（「清空云端数据」）。本地指纹底账同步划掉，不然下次「没变过」会拦住重传。
    */
@@ -3564,9 +3631,13 @@ export const ActiveMsgClient = {
    * 「任务还活着、凭据却没了」的唯一入口，堵住这里就够。
    *
    * 补传失败不算清空失败（清空确实成功了），返回值把结果交给调用方去提示。
+   *
+   * `restoreToolConfig: false` 用在「重置全部数据」那条路上：那时用户要的是一切归零，
+   * 本地紧接着就要删库，补传只会在刚清空的库里重新留下一行谁也不会再读的凭据。
    */
   async clearClientState(
     realtimeConfig: RealtimeConfig | undefined,
+    options: { restoreToolConfig?: boolean } = {},
   ): Promise<{ deleted: number; toolConfigRestored: boolean }> {
     const config = await ensureWorkerReady();
     // 清云端状态可能连用户密钥一起换代：握手缓存作废，之后的第一次调用重新 init。
@@ -3577,6 +3648,7 @@ export const ActiveMsgClient = {
       throw new Error(response?.error?.message || '清除云端状态失败。');
     }
     const { deleted } = response.data as { deleted: number };
+    if (options.restoreToolConfig === false) return { deleted, toolConfigRestored: false };
 
     let toolConfigRestored = true;
     try {

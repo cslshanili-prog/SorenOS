@@ -17,6 +17,7 @@ import { ActiveMsgStore } from '../../utils/activeMsgStore';
 import { type AmsgLastSkip, DEFAULT_MAX_UNANSWERED_SENDS, describeLastSkip } from '../../utils/amsgFirePack';
 import { isInstantChatReady } from '../../utils/amsgInstantChat';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
+import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
 import { trackEvent } from '../../utils/analytics';
 import {
@@ -360,6 +361,21 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // 一堆没人会兑现的承诺。留在清单里的（取消失败 / 期间新出现的）不写——它们还会响。
         await writeCancelledNotices(tasks.filter((t) =>
           attempted.has(t.taskUuid) && !failed.has(t.taskUuid)));
+        // 任务取消掉了，云端还留着这个角色的上下文（fire_pack 是完整角色卡加最近
+        // 30 条对话原文，一个角色 32KB 起步）和那行主动消息用的 API 凭据。不清的话
+        // 它们会永久留在 D1 里：关掉之后打脏那道门（见 amsgStateSync 的 hasActiveAiTask）
+        // 把这个角色永久挡在外面，既不会再刷新，也不会再被清掉，永远冻在此刻这份原文上。
+        //
+        // 清多少要看还有谁在用：即时对话还生效的话，云端那份上下文每轮聊天都会重写，
+        // 这时候清只是白清一次；记忆宫殿的后台活儿走的是另一条路，它那行凭据不能动。
+        const cleanup = await purgeCharCloudState(
+          char,
+          disableScheduleCharPurge(globalInstantChatOn && instantChatOn),
+        );
+        if (cleanup.status === 'failed') {
+          console.warn('[ActiveMsg2Settings] 关闭 2.0 时清云端上下文失败', cleanup.error);
+          addToast('ta 在云端的聊天上下文没能清掉，可以稍后重开面板再关一次。', 'error');
+        }
         onSave((prev) => buildConfig(
           prev,
           (list) => keepUncancelledTasks(list, attempted, failed, {

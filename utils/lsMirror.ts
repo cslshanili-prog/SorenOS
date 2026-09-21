@@ -25,6 +25,7 @@ import { DB } from './db';
  * exportFullData / importFullData），新增备份键时记得两边同步。
  */
 export const MIRRORED_KEYS: readonly string[] = [
+    'sullyos_feedback_invitation_v1',     // 邀请资格/已显示状态；避免局部清理后重复提醒
     'os_theme',                          // 外观主题（丢了 = 回初始主题）
     'os_api_config',                     // 全局 API（丢了 = 一切生成静默失效）
     'os_api_presets',

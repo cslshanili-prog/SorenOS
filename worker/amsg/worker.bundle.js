@@ -3,7 +3,7 @@
 // worker/amsg/src/index.ts
 import { DurableObject } from "cloudflare:workers";
 
-// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.28_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-GN44PST5.mjs
+// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.29_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-GN44PST5.mjs
 var UPDATABLE_COLUMNS = /* @__PURE__ */ new Set([
   "user_id",
   "uuid",
@@ -563,12 +563,12 @@ async function sendWebPush({ subscription, payload, vapid, ttl, fetch: fetchImpl
   });
   if (!res.ok) {
     const text = await safeReadText(res);
-    const err5 = new Error(
+    const err6 = new Error(
       `Web Push delivery failed: ${res.status} ${res.statusText || ""}${text ? ` \u2014 ${text}` : ""}`
     );
-    err5.code = "PUSH_SEND_FAILED";
-    err5.statusCode = res.status;
-    throw err5;
+    err6.code = "PUSH_SEND_FAILED";
+    err6.statusCode = res.status;
+    throw err6;
   }
   return {
     statusCode: res.status,
@@ -1215,7 +1215,7 @@ function stringifyDecisionForError(value) {
   }
 }
 
-// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.28_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-YBBXKK7U.mjs
+// node_modules/.pnpm/@rei-standard+amsg-server@2.6.0-next.29_@neondatabase+serverless@1.1.0_pg@8.22.0/node_modules/@rei-standard/amsg-server/dist/chunk-IDQPG2GZ.mjs
 var DAY_MS = 24 * 60 * 60 * 1e3;
 var MAX_LISTED_SKIPPED_OCCURRENCES = 32;
 var MAX_ADJUST_STEPS = 32;
@@ -1568,9 +1568,9 @@ function validateSplitPattern(value) {
   return null;
 }
 function validateLlmMessagesArray(messages) {
-  const err5 = validateLlmMessagesShape(messages);
-  if (!err5) return null;
-  const { code, index: i, toolCallIndex: j } = err5;
+  const err6 = validateLlmMessagesShape(messages);
+  if (!err6) return null;
+  const { code, index: i, toolCallIndex: j } = err6;
   switch (code) {
     case "MESSAGES_NOT_ARRAY":
       return "messages must be a non-empty array";
@@ -1683,10 +1683,10 @@ function validateScheduleMessagePayload(payload) {
       };
     }
     if (hasMessages) {
-      const err5 = validateLlmMessagesArray(payload.messages);
-      if (err5) {
+      const err6 = validateLlmMessagesArray(payload.messages);
+      if (err6) {
         return {
-          error: { code: "INVALID_PARAMETERS", message: err5, details: { invalidFields: ["messages"] } },
+          error: { code: "INVALID_PARAMETERS", message: err6, details: { invalidFields: ["messages"] } },
           hasCompletePrompt: false,
           hasMessages: true
         };
@@ -1952,13 +1952,13 @@ async function sendWebPush2(args) {
   if (typeof payload === "string") {
     const size = measurePushPayload(payload);
     if (!size.withinLimit) {
-      const err5 = new Error(
+      const err6 = new Error(
         `sendWebPush: payload is ${size.bytes} bytes, over the ${MAX_PUSH_PAYLOAD_BYTES}-byte limit (push services cap the encrypted body at ${WEB_PUSH_MAX_BODY_BYTES} bytes; aes128gcm adds ${WEB_PUSH_ENCRYPTION_OVERHEAD_BYTES} bytes)`
       );
-      err5.code = "PUSH_PAYLOAD_TOO_LARGE";
-      err5.bytes = size.bytes;
-      err5.maxBytes = MAX_PUSH_PAYLOAD_BYTES;
-      throw err5;
+      err6.code = "PUSH_PAYLOAD_TOO_LARGE";
+      err6.bytes = size.bytes;
+      err6.maxBytes = MAX_PUSH_PAYLOAD_BYTES;
+      throw err6;
     }
   }
   return sendWebPush(args);
@@ -2113,6 +2113,7 @@ var INTERNAL_STATE_CHAR_RE = /[\u0000-\u001f]/;
 var SEP = "";
 var CHUNK_NS_PREFIX = `${SEP}amsg-chunks${SEP}`;
 var ROOT_MARKER_PREFIX = `${SEP}amsg-chunked${SEP}v1${SEP}`;
+var CHUNK_NAMESPACE_PREFIX = CHUNK_NS_PREFIX;
 function chunkNamespaceFor(namespace) {
   return CHUNK_NS_PREFIX + namespace;
 }
@@ -5115,20 +5116,41 @@ function createLlmCredentialsHandler(ctx) {
     if (!isPlainObject(payload)) return err2(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
     const wantsAll = payload.all === true;
     const credIds = payload.credIds;
-    if (!wantsAll && (!Array.isArray(credIds) || credIds.length === 0)) {
-      return err2(400, "INVALID_PARAMETERS", "\u8981\u4E48 { all: true }\uFF0C\u8981\u4E48 credIds \u975E\u7A7A\u6570\u7EC4", { invalidFields: ["credIds"] });
+    const credIdPrefix = payload.credIdPrefix;
+    const given = [
+      wantsAll ? "all" : null,
+      credIds !== void 0 ? "credIds" : null,
+      credIdPrefix !== void 0 ? "credIdPrefix" : null
+    ].filter(Boolean);
+    if (given.length === 0) {
+      return err2(400, "INVALID_PARAMETERS", "\u8981\u4E48 { all: true }\uFF0C\u8981\u4E48 credIds \u975E\u7A7A\u6570\u7EC4\uFF0C\u8981\u4E48 credIdPrefix \u524D\u7F00", { invalidFields: ["credIds", "credIdPrefix"] });
     }
-    if (wantsAll && credIds !== void 0) {
-      return err2(400, "INVALID_PARAMETERS", "all \u4E0E credIds \u4E0D\u80FD\u540C\u65F6\u51FA\u73B0", { invalidFields: ["all", "credIds"] });
+    if (given.length > 1) {
+      return err2(400, "INVALID_PARAMETERS", `all / credIds / credIdPrefix \u4E00\u6B21\u53EA\u80FD\u7ED9\u4E00\u4E2A\uFF08\u8FD9\u6B21\u7ED9\u4E86 ${given.join(" + ")}\uFF09`, { invalidFields: given });
     }
-    if (!wantsAll) {
+    if (credIds !== void 0) {
+      if (!Array.isArray(credIds) || credIds.length === 0) {
+        return err2(400, "INVALID_PARAMETERS", "credIds \u5FC5\u987B\u662F\u975E\u7A7A\u6570\u7EC4", { invalidFields: ["credIds"] });
+      }
       for (let i = 0; i < credIds.length; i++) {
         if (!isValidCredId(credIds[i])) {
           return err2(400, "INVALID_PARAMETERS", `credIds[${i}] \u4E0D\u662F\u5408\u6CD5 cred_id`, { invalidFields: [`credIds[${i}]`] });
         }
       }
     }
+    if (credIdPrefix !== void 0) {
+      if (!isValidCredId(credIdPrefix)) {
+        return err2(400, "INVALID_PARAMETERS", `credIdPrefix \u5FC5\u987B\u662F 1\u2013${CRED_ID_MAX_LENGTH} \u5B57\u7B26\u3001\u4E0D\u542B\u63A7\u5236\u5B57\u7B26\u7684\u5B57\u7B26\u4E32\uFF08\u8981\u5168\u6E05\u7528 { all: true }\uFF09`, { invalidFields: ["credIdPrefix"] });
+      }
+    }
     if (!supportsLlmCredentialsStore(db)) return UNSUPPORTED2;
+    if (credIdPrefix !== void 0) {
+      if (typeof db.deleteLlmCredentialsByPrefix !== "function") {
+        return err2(501, "LLM_CREDENTIALS_PREFIX_DELETE_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301\u6309\u524D\u7F00\u5220\u9664\u51ED\u636E");
+      }
+      const deleted2 = await db.deleteLlmCredentialsByPrefix(userId, credIdPrefix);
+      return { status: 200, body: { success: true, data: { deleted: deleted2 } } };
+    }
     const deleted = await db.deleteLlmCredentials(userId, wantsAll ? null : [...new Set(credIds)]);
     return { status: 200, body: { success: true, data: { deleted } } };
   }
@@ -5969,6 +5991,108 @@ var D1Adapter = class {
     const res = await this._db.prepare("DELETE FROM client_state WHERE user_id = ?").bind(userId).run();
     return res.meta.changes || 0;
   }
+  /**
+   * 这个用户名下有哪些命名空间，各自几条、占多少字节、最后更新是什么时候
+   * （宿主对账「云端到底存了什么」用）。
+   *
+   * `foldPrefix` 传进来的是大值分块那个保留命名空间的前缀（见
+   * lib/state-chunks.js）：以它开头的行不单独成一个命名空间，而是折算进
+   * 去掉前缀之后的那个原命名空间——保留命名空间是库的存储实现细节，宿主眼里
+   * 那些切片行就是原命名空间占掉的地方。折算口径：
+   *   - `byte_size` / `updated_at` 算进去（存储确实占着、写入确实发生过）；
+   *   - `entry_count` 不算（切片是一个逻辑条目的几段，不是几个条目）。
+   * 不传 `foldPrefix` = 不折算，保留命名空间按普通命名空间原样列出来。
+   *
+   * 前缀由调用方传、不由适配器自己知道：分块是 lib 层的约定，适配器只照着折。
+   *
+   * 折算写在 SQL 里而不是取回来在 JS 里合，是因为有 `limit`：保留命名空间以
+   * \u001f 开头，BINARY 排序下排在所有正常命名空间前面，先取 limit 条再折算
+   * 的话额度会被切片命名空间吃光，正常命名空间一条都露不出来。
+   *
+   * `LENGTH(CAST(value AS BLOB))` 数的是字节不是字符——TEXT 上的 `LENGTH()`
+   * 按字符算，密文虽然是 ASCII 十六进制、两者相同，但换个存法就悄悄差一截。
+   *
+   * 这条语句要把该用户的 client_state 全扫一遍（GROUP BY 本来就得看每一行），
+   * 所以没为它单独加索引：它是宿主按需点开的对账口，不在 cron 路径上。别把它
+   * 塞进每分钟跑的东西里（理由见 adapters/schema.sqlite.js 的 CLIENT_STATE_INDEXES）。
+   *
+   * @param {string} userId
+   * @param {{ limit?: number, foldPrefix?: string|null }} [opts]
+   * @returns {Promise<Array<{ namespace: string, entry_count: number, byte_size: number, updated_at: number }>>}
+   *   按 namespace 升序，最多 `limit` 条。
+   */
+  async listClientStateNamespaces(userId, { limit = 200, foldPrefix = null } = {}) {
+    const stmt = foldPrefix ? this._db.prepare(
+      `SELECT
+           CASE WHEN substr(namespace, 1, ?) = ? THEN substr(namespace, ?) ELSE namespace END AS ns,
+           SUM(CASE WHEN substr(namespace, 1, ?) = ? THEN 0 ELSE 1 END) AS entry_count,
+           SUM(LENGTH(CAST(value AS BLOB))) AS byte_size,
+           MAX(updated_at) AS updated_at
+         FROM client_state
+         WHERE user_id = ?
+         GROUP BY ns
+         ORDER BY ns ASC
+         LIMIT ?`
+    ).bind(
+      foldPrefix.length,
+      foldPrefix,
+      foldPrefix.length + 1,
+      foldPrefix.length,
+      foldPrefix,
+      userId,
+      limit
+    ) : this._db.prepare(
+      `SELECT
+           namespace AS ns,
+           COUNT(*) AS entry_count,
+           SUM(LENGTH(CAST(value AS BLOB))) AS byte_size,
+           MAX(updated_at) AS updated_at
+         FROM client_state
+         WHERE user_id = ?
+         GROUP BY namespace
+         ORDER BY namespace ASC
+         LIMIT ?`
+    ).bind(userId, limit);
+    const res = await stmt.all();
+    return (res.results || []).map((row) => ({
+      namespace: row.ns,
+      entry_count: Number(row.entry_count || 0),
+      byte_size: Number(row.byte_size || 0),
+      updated_at: Number(row.updated_at || 0)
+    }));
+  }
+  /**
+   * 把这几个命名空间下这个用户的行一次删光（一次 batch = 一次事务）。
+   *
+   * 调用方传的是「原命名空间 + 它的切片保留命名空间」两个（见
+   * lib/state-chunks.js 的 chunkNamespaceFor）：只删前者的话，大值那几行切片
+   * 留在库里成孤儿——读不出来、也不会被别的路径清掉。哪些命名空间算一组由调
+   * 用方决定，适配器只负责它们在同一个事务里删完。
+   *
+   * 条件是 `user_id = ? AND namespace = ?`，吃的是主键
+   * (user_id, namespace, key) 的前两列，不扫表。
+   *
+   * @param {string} userId
+   * @param {string[]} namespaces
+   * @returns {Promise<number>} 删掉的行数合计（含切片行）
+   */
+  async deleteClientStateNamespaces(userId, namespaces) {
+    if (!namespaces || namespaces.length === 0) return 0;
+    const SQL = "DELETE FROM client_state WHERE user_id = ? AND namespace = ?";
+    const statements = namespaces.map((namespace) => this._db.prepare(SQL).bind(userId, namespace));
+    if (statements.length === 1) {
+      const res = await statements[0].run();
+      return res.meta.changes || 0;
+    }
+    let results;
+    if (typeof this._db.batch === "function") {
+      results = await this._db.batch(statements);
+    } else {
+      results = [];
+      for (const stmt of statements) results.push(await stmt.run());
+    }
+    return results.reduce((n, res) => n + (res.meta.changes || 0), 0);
+  }
   // ── push_subscriptions (user-level Web Push subscription) ──────────────
   /**
    * 这个用户当前登记的推送订阅（密文原样返回，解密在上层）。
@@ -6098,6 +6222,39 @@ var D1Adapter = class {
       [userId],
       credIds
     );
+  }
+  /**
+   * 按 cred_id 前缀删这个用户的凭据（宿主按角色清理：`char:<charId>/` 一把清
+   * 掉该角色名下的 chat / instant / emotion 几行）。
+   *
+   * **不用 LIKE。** 两条 D1 的限制在这儿各埋一个雷：
+   *   - LIKE / GLOB 的 pattern 在 D1 上最长 50 字节（SQLite 默认 50000，官方文
+   *     档没写这一条）。`char:<uuid>/` 就是 42 字节，前缀里再多点东西、或者
+   *     cred_id 用上契约允许的 128 字符，pattern 当场超限，整条语句报
+   *     `LIKE or GLOB pattern too complex`——本地 better-sqlite3 上永远复现不
+   *     了，只有真实 D1 才炸。
+   *   - 退一步「先 SELECT 出匹配的 cred_id 再按 id 批量删」也不是好路：单条语
+   *     句最多 100 个绑定参数，得自己切批，还平白多一个来回和一个「查完到删完
+   *     之间又写进来一行」的窗口。
+   * 走字典序范围（`cred_id >= 前缀 AND cred_id < 上界`）两条都绕开了：没有长度
+   * 上限，前缀里的 `%` `_` `\` 只是普通字符，一条语句三个绑定参数，而且直接吃
+   * (user_id, cred_id) 主键索引。上界算法见本文件顶部的 prefixRangeEnd。
+   *
+   * 前缀没有字典序上界时（prefixRangeEnd 返回空串，实际用不到——见那个函数的
+   * 说明）范围条件一行都匹配不上，删 0 行。宁可少删，也不能把别人的行带走。
+   *
+   * @param {string} userId
+   * @param {string} credIdPrefix - 非空前缀，空串由上层拒掉（空前缀 = 删全部，
+   *   那是 `deleteLlmCredentials(userId, null)` 的活儿，不能从这个口误伤进来）
+   * @returns {Promise<number>} 删掉的行数
+   */
+  async deleteLlmCredentialsByPrefix(userId, credIdPrefix) {
+    if (typeof credIdPrefix !== "string" || credIdPrefix.length === 0) return 0;
+    const res = await this._db.prepare(
+      `DELETE FROM llm_credentials
+       WHERE user_id = ? AND cred_id >= ? AND cred_id < ?`
+    ).bind(userId, credIdPrefix, prefixRangeEnd(credIdPrefix)).run();
+    return res.meta.changes || 0;
   }
   // ── message_outbox（服务端消息收件箱，客户端 ack）────────────────────────
   /**
@@ -6233,6 +6390,36 @@ var D1Adapter = class {
       (placeholders) => `UPDATE message_outbox SET acked_at = ?
          WHERE user_id = ? AND acked_at IS NULL AND message_id IN (${placeholders})`,
       [ackedAt, userId],
+      messageIds
+    );
+  }
+  /**
+   * 主动删 outbox 的行：数组删指定那几条，传 null 删这个用户的全部。
+   *
+   * 跟 `discardOutboxMessages` 是两件事：那个只撤「还没发出去的」，是取消 / 顶
+   * 替时的收尾；这个不看 delivered_at / acked_at，是宿主的清理口（对完账之后
+   * 把某几条、或者整个收件箱清掉）。在此之前 message_outbox 只能等 cron 的
+   * TTL（已签收 7 天 / 任何行 28 天）自己老化。
+   *
+   * 数组形态走 `_runInClauseWrite`：D1 单条语句最多 100 个绑定参数，`user_id`
+   * 占掉 1 个，所以一批最多 99 个 id，多了自动切批、整组仍在一个事务里（切开
+   * 之后「只删掉前 99 个」那种中间态比原问题更难查）。
+   *
+   * @param {string} userId
+   * @param {string[]|null} messageIds - null = 这个用户的全部
+   * @returns {Promise<number>} 删掉的行数
+   */
+  async deleteOutboxMessages(userId, messageIds = null) {
+    if (messageIds !== null && (!messageIds || messageIds.length === 0)) return 0;
+    if (messageIds === null) {
+      const res = await this._db.prepare(
+        "DELETE FROM message_outbox WHERE user_id = ?"
+      ).bind(userId).run();
+      return res.meta.changes || 0;
+    }
+    return this._runInClauseWrite(
+      (placeholders) => `DELETE FROM message_outbox WHERE user_id = ? AND message_id IN (${placeholders})`,
+      [userId],
       messageIds
     );
   }
@@ -6499,6 +6686,20 @@ function createClientStateHandler(ctx) {
     const gate = requireUserId(headers);
     if (gate.error) return gate.error;
     const { userId } = gate;
+    const namespace = new URL(url, "https://dummy").searchParams.get("namespace");
+    if (namespace !== null) {
+      if (!namespace.trim()) {
+        return err3(400, "INVALID_STATE_NAMESPACE", "namespace \u4F20\u4E86\u5C31\u4E0D\u80FD\u662F\u7A7A\u7684\uFF08\u8981\u6574\u8868\u5168\u6E05\u5C31\u522B\u5E26\u8FD9\u4E2A\u53C2\u6570\uFF09");
+      }
+      if (INTERNAL_STATE_CHAR_RE.test(namespace)) {
+        return err3(400, "INVALID_STATE_NAMESPACE", "namespace \u4E0D\u80FD\u5305\u542B\u63A7\u5236\u5B57\u7B26\uFF08\\u0000-\\u001f \u4E3A\u5E93\u5185\u90E8\u4FDD\u7559\uFF09");
+      }
+      if (typeof db.deleteClientStateNamespaces !== "function") {
+        return err3(501, "CLIENT_STATE_NAMESPACE_DELETE_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301\u6309\u547D\u540D\u7A7A\u95F4\u5220\u9664 client_state");
+      }
+      const deleted2 = await db.deleteClientStateNamespaces(userId, [namespace, chunkNamespaceFor(namespace)]);
+      return { status: 200, body: { success: true, data: { deleted: deleted2, namespace } } };
+    }
     if (typeof db.clearClientState !== "function") {
       return err3(501, "CLIENT_STATE_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301 client_state");
     }
@@ -6507,7 +6708,46 @@ function createClientStateHandler(ctx) {
   }
   return { PUT, GET, DELETE };
 }
-var SERVER_VERSION = true ? "2.6.0-next.28" : "0.0.0-dev";
+var MAX_CLIENT_STATE_NAMESPACES = 200;
+function err4(status, code, message, details) {
+  const error = details === void 0 ? { code, message } : { code, message, details };
+  return { status, body: { success: false, error } };
+}
+function createClientStateNamespacesHandler(ctx) {
+  async function GET(url, headers) {
+    const tenantResult = await ctx.tenantManager.resolveTenant(headers);
+    if (!tenantResult.ok) return tenantResult.error;
+    const { db, masterKey } = tenantResult.context;
+    const gate = requireUserId(headers);
+    if (gate.error) return gate.error;
+    const { userId } = gate;
+    const limitRaw = new URL(url, "https://dummy").searchParams.get("limit");
+    let limit = limitRaw == null || limitRaw === "" ? MAX_CLIENT_STATE_NAMESPACES : Number(limitRaw);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return err4(400, "INVALID_NAMESPACE_LIMIT", `limit \u5FC5\u987B\u662F 1-${MAX_CLIENT_STATE_NAMESPACES} \u7684\u6574\u6570`);
+    }
+    limit = Math.min(limit, MAX_CLIENT_STATE_NAMESPACES);
+    if (typeof db.listClientStateNamespaces !== "function") {
+      return err4(501, "CLIENT_STATE_NAMESPACES_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301\u6309\u547D\u540D\u7A7A\u95F4\u7EDF\u8BA1 client_state");
+    }
+    const rows = await db.listClientStateNamespaces(userId, {
+      limit: limit + 1,
+      foldPrefix: CHUNK_NAMESPACE_PREFIX
+    });
+    const truncated = rows.length > limit;
+    const namespaces = rows.slice(0, limit).map((row) => ({
+      namespace: row.namespace,
+      entryCount: Number(row.entry_count || 0),
+      byteSize: Number(row.byte_size || 0),
+      updatedAt: Number(row.updated_at || 0)
+    }));
+    const userKey = await deriveUserEncryptionKey(userId, masterKey);
+    const encryptedResponse = await encryptPayload({ namespaces, truncated, limit }, userKey);
+    return { status: 200, body: { success: true, encrypted: true, version: 1, data: encryptedResponse } };
+  }
+  return { GET };
+}
+var SERVER_VERSION = true ? "2.6.0-next.29" : "0.0.0-dev";
 var SERVER_FEATURES = Object.freeze([
   "client-state",
   "client-state-chunking",
@@ -6594,7 +6834,19 @@ var SERVER_FEATURES = Object.freeze([
   "emit-result",
   // PUT /client-state 的 entry 认 value: null（删掉这个 key，连切片行一起；同一套
   // last-write-wins，被拦下的进 skippedEntries；删掉的条数在 data.deleted）。
-  "client-state-delete"
+  "client-state-delete",
+  // GET /client-state/namespaces：云端有哪些命名空间 + 每个几条 / 占多少字节 /
+  // 最后更新是什么时候（大值切片的保留命名空间折算进原命名空间，不单独列）。
+  "client-state-namespaces",
+  // DELETE /client-state?namespace=<ns>：只清这一个命名空间（连它的切片行一起）。
+  // 不带参数仍是整表全清。
+  "client-state-delete-namespace",
+  // DELETE /llm-credentials 认 credIdPrefix：按 cred_id 前缀删（`char:<charId>/`
+  // 一把清掉一个角色名下的几行）。
+  "llm-credentials-delete-prefix",
+  // DELETE /outbox：主动删收件箱的行（{ messageIds } 或 { all: true }），不再只能
+  // 等 cron 的 TTL 老化。
+  "outbox-delete"
 ]);
 function createCapabilitiesHandler(ctx) {
   async function GET(url, headers) {
@@ -6613,7 +6865,8 @@ function createCapabilitiesHandler(ctx) {
 var MAX_OUTBOX_PAGE_SIZE = 100;
 var DEFAULT_OUTBOX_PAGE_SIZE = 50;
 var MAX_OUTBOX_ACK_IDS = 200;
-function err4(status, code, message, details) {
+var MAX_OUTBOX_DELETE_IDS = 200;
+function err5(status, code, message, details) {
   const error = details === void 0 ? { code, message } : { code, message, details };
   return { status, body: { success: false, error } };
 }
@@ -6626,18 +6879,18 @@ function createOutboxHandler(ctx) {
     if (gate.error) return gate.error;
     const { userId } = gate;
     if (typeof db.listUnackedOutbox !== "function") {
-      return err4(501, "OUTBOX_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301 message_outbox");
+      return err5(501, "OUTBOX_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301 message_outbox");
     }
     const params = new URL(url, "https://dummy").searchParams;
     const sinceRaw = params.get("since");
     const since = sinceRaw == null || sinceRaw === "" ? 0 : Number(sinceRaw);
     if (!Number.isInteger(since) || since < 0) {
-      return err4(400, "INVALID_OUTBOX_CURSOR", "since \u5FC5\u987B\u662F\u975E\u8D1F\u6574\u6570\uFF08\u4E0A\u4E00\u9875\u54CD\u5E94\u91CC\u7684 cursor\uFF09");
+      return err5(400, "INVALID_OUTBOX_CURSOR", "since \u5FC5\u987B\u662F\u975E\u8D1F\u6574\u6570\uFF08\u4E0A\u4E00\u9875\u54CD\u5E94\u91CC\u7684 cursor\uFF09");
     }
     const limitRaw = params.get("limit");
     let limit = limitRaw == null || limitRaw === "" ? DEFAULT_OUTBOX_PAGE_SIZE : Number(limitRaw);
     if (!Number.isInteger(limit) || limit <= 0) {
-      return err4(400, "INVALID_OUTBOX_LIMIT", `limit \u5FC5\u987B\u662F 1-${MAX_OUTBOX_PAGE_SIZE} \u7684\u6574\u6570`);
+      return err5(400, "INVALID_OUTBOX_LIMIT", `limit \u5FC5\u987B\u662F 1-${MAX_OUTBOX_PAGE_SIZE} \u7684\u6574\u6570`);
     }
     limit = Math.min(limit, MAX_OUTBOX_PAGE_SIZE);
     const userKey = await deriveUserEncryptionKey(userId, masterKey);
@@ -6679,13 +6932,13 @@ function createOutboxHandler(ctx) {
     if (!tenantResult.ok) return tenantResult.error;
     const { db, masterKey } = tenantResult.context;
     if (getHeader(headers, "x-payload-encrypted") !== "true") {
-      return err4(400, "ENCRYPTION_REQUIRED", "\u8BF7\u6C42\u4F53\u5FC5\u987B\u52A0\u5BC6");
+      return err5(400, "ENCRYPTION_REQUIRED", "\u8BF7\u6C42\u4F53\u5FC5\u987B\u52A0\u5BC6");
     }
     const gate = requireUserId(headers);
     if (gate.error) return gate.error;
     const { userId } = gate;
     if (getHeader(headers, "x-encryption-version") !== "1") {
-      return err4(400, "UNSUPPORTED_ENCRYPTION_VERSION", "\u52A0\u5BC6\u7248\u672C\u4E0D\u652F\u6301");
+      return err5(400, "UNSUPPORTED_ENCRYPTION_VERSION", "\u52A0\u5BC6\u7248\u672C\u4E0D\u652F\u6301");
     }
     const parsedBody = parseEncryptedBody(body);
     if (!parsedBody.ok) return { status: 400, body: { success: false, error: parsedBody.error } };
@@ -6695,28 +6948,76 @@ function createOutboxHandler(ctx) {
       payload = await decryptPayload(parsedBody.data, userKey);
     } catch (error) {
       if (error instanceof SyntaxError) {
-        return err4(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u4E0D\u662F\u6709\u6548 JSON");
+        return err5(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u4E0D\u662F\u6709\u6548 JSON");
       }
-      return err4(400, "DECRYPTION_FAILED", "\u8BF7\u6C42\u4F53\u89E3\u5BC6\u5931\u8D25");
+      return err5(400, "DECRYPTION_FAILED", "\u8BF7\u6C42\u4F53\u89E3\u5BC6\u5931\u8D25");
     }
-    if (!isPlainObject(payload)) return err4(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+    if (!isPlainObject(payload)) return err5(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
     const messageIds = payload.messageIds;
     if (!Array.isArray(messageIds) || messageIds.length === 0) {
-      return err4(400, "INVALID_OUTBOX_ACK", "messageIds \u5FC5\u987B\u662F\u975E\u7A7A\u6570\u7EC4");
+      return err5(400, "INVALID_OUTBOX_ACK", "messageIds \u5FC5\u987B\u662F\u975E\u7A7A\u6570\u7EC4");
     }
     if (messageIds.length > MAX_OUTBOX_ACK_IDS) {
-      return err4(400, "TOO_MANY_OUTBOX_ACK_IDS", `\u5355\u6B21\u6700\u591A ack ${MAX_OUTBOX_ACK_IDS} \u6761`, { count: messageIds.length });
+      return err5(400, "TOO_MANY_OUTBOX_ACK_IDS", `\u5355\u6B21\u6700\u591A ack ${MAX_OUTBOX_ACK_IDS} \u6761`, { count: messageIds.length });
     }
     if (!messageIds.every((id) => typeof id === "string" && id.trim())) {
-      return err4(400, "INVALID_OUTBOX_ACK", "messageIds \u7684\u6BCF\u4E00\u9879\u5FC5\u987B\u662F\u975E\u7A7A\u5B57\u7B26\u4E32");
+      return err5(400, "INVALID_OUTBOX_ACK", "messageIds \u7684\u6BCF\u4E00\u9879\u5FC5\u987B\u662F\u975E\u7A7A\u5B57\u7B26\u4E32");
     }
     if (typeof db.ackOutboxMessages !== "function") {
-      return err4(501, "OUTBOX_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301 message_outbox");
+      return err5(501, "OUTBOX_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301 message_outbox");
     }
     const acked = await db.ackOutboxMessages(userId, messageIds, Date.now());
     return { status: 200, body: { success: true, data: { acked } } };
   }
-  return { GET, POST };
+  async function DELETE(url, headers, body) {
+    const tenantResult = await ctx.tenantManager.resolveTenant(headers);
+    if (!tenantResult.ok) return tenantResult.error;
+    const { db, masterKey } = tenantResult.context;
+    if (getHeader(headers, "x-payload-encrypted") !== "true") {
+      return err5(400, "ENCRYPTION_REQUIRED", "\u8BF7\u6C42\u4F53\u5FC5\u987B\u52A0\u5BC6");
+    }
+    const gate = requireUserId(headers);
+    if (gate.error) return gate.error;
+    const { userId } = gate;
+    if (getHeader(headers, "x-encryption-version") !== "1") {
+      return err5(400, "UNSUPPORTED_ENCRYPTION_VERSION", "\u52A0\u5BC6\u7248\u672C\u4E0D\u652F\u6301");
+    }
+    const parsedBody = parseEncryptedBody(body);
+    if (!parsedBody.ok) return { status: 400, body: { success: false, error: parsedBody.error } };
+    const userKey = await deriveUserEncryptionKey(userId, masterKey);
+    let payload;
+    try {
+      payload = await decryptPayload(parsedBody.data, userKey);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        return err5(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u4E0D\u662F\u6709\u6548 JSON");
+      }
+      return err5(400, "DECRYPTION_FAILED", "\u8BF7\u6C42\u4F53\u89E3\u5BC6\u5931\u8D25");
+    }
+    if (!isPlainObject(payload)) return err5(400, "INVALID_PAYLOAD_FORMAT", "\u89E3\u5BC6\u540E\u7684\u6570\u636E\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+    const wantsAll = payload.all === true;
+    const messageIds = payload.messageIds;
+    if (wantsAll && messageIds !== void 0) {
+      return err5(400, "INVALID_OUTBOX_DELETE", "all \u4E0E messageIds \u4E0D\u80FD\u540C\u65F6\u51FA\u73B0");
+    }
+    if (!wantsAll) {
+      if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return err5(400, "INVALID_OUTBOX_DELETE", "\u8981\u4E48 { all: true }\uFF0C\u8981\u4E48 messageIds \u975E\u7A7A\u6570\u7EC4");
+      }
+      if (messageIds.length > MAX_OUTBOX_DELETE_IDS) {
+        return err5(400, "TOO_MANY_OUTBOX_DELETE_IDS", `\u5355\u6B21\u6700\u591A\u5220 ${MAX_OUTBOX_DELETE_IDS} \u6761`, { count: messageIds.length });
+      }
+      if (!messageIds.every((id) => typeof id === "string" && id.trim())) {
+        return err5(400, "INVALID_OUTBOX_DELETE", "messageIds \u7684\u6BCF\u4E00\u9879\u5FC5\u987B\u662F\u975E\u7A7A\u5B57\u7B26\u4E32");
+      }
+    }
+    if (typeof db.deleteOutboxMessages !== "function") {
+      return err5(501, "OUTBOX_DELETE_NOT_SUPPORTED", "\u5F53\u524D\u6570\u636E\u5E93\u9002\u914D\u5668\u4E0D\u652F\u6301\u5220\u9664 message_outbox \u7684\u884C");
+    }
+    const deleted = await db.deleteOutboxMessages(userId, wantsAll ? null : [...new Set(messageIds)]);
+    return { status: 200, body: { success: true, data: { deleted } } };
+  }
+  return { GET, POST, DELETE };
 }
 function createSingleUserServer(config) {
   if (!config || !config.db) throw new Error("[amsg-server single-user] config.db is required");
@@ -6765,6 +7066,7 @@ function createSingleUserServer(config) {
       getMessage: createGetMessageHandler(ctx),
       vapidPublicKey: createVapidPublicKeyHandler(ctx),
       clientState: createClientStateHandler(ctx),
+      clientStateNamespaces: createClientStateNamespacesHandler(ctx),
       pushSubscription: createPushSubscriptionHandler(ctx),
       llmCredentials: createLlmCredentialsHandler(ctx),
       capabilities: createCapabilitiesHandler(ctx),
@@ -7000,6 +7302,8 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
         result = await server.handlers.capabilities.GET(url, headers);
       } else if (method === "PUT" && pathname.endsWith("/client-state")) {
         result = await server.handlers.clientState.PUT(headers, body);
+      } else if (method === "GET" && pathname.endsWith("/client-state/namespaces")) {
+        result = await server.handlers.clientStateNamespaces.GET(url, headers);
       } else if (method === "GET" && pathname.endsWith("/client-state")) {
         result = await server.handlers.clientState.GET(url, headers);
       } else if (method === "DELETE" && pathname.endsWith("/client-state")) {
@@ -7008,6 +7312,8 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
         result = await server.handlers.outbox.GET(url, headers);
       } else if (method === "POST" && pathname.endsWith("/outbox/ack")) {
         result = await server.handlers.outbox.POST(headers, body);
+      } else if (method === "DELETE" && pathname.endsWith("/outbox")) {
+        result = await server.handlers.outbox.DELETE(url, headers, body);
       } else if (method === "PUT" && pathname.endsWith("/push-subscription")) {
         result = await server.handlers.pushSubscription.PUT(headers, body);
       } else if (method === "GET" && pathname.endsWith("/push-subscription")) {
@@ -7077,7 +7383,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-09-18";
+var AMSG_BUNDLE_VERSION = "2026-09-21";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -9203,8 +9509,8 @@ async function cf(token, path, init = {}) {
       headers: { Authorization: `Bearer ${token}`, ...init.headers },
       body: init.body
     });
-  } catch (err5) {
-    return { ok: false, detail: `\u8FDE\u4E0D\u4E0A Cloudflare API\uFF1A${err5.message}` };
+  } catch (err6) {
+    return { ok: false, detail: `\u8FDE\u4E0D\u4E0A Cloudflare API\uFF1A${err6.message}` };
   }
   const text = await res.text();
   let payload;
@@ -9278,8 +9584,8 @@ async function fetchLatestBundle() {
   let res;
   try {
     res = await fetch(BUNDLE_URL, { headers: { "User-Agent": "sullyos-amsg-self-update" } });
-  } catch (err5) {
-    return { ok: false, message: `\u53D6\u4E0D\u5230\u6700\u65B0\u4EE3\u7801\uFF1A${err5.message}` };
+  } catch (err6) {
+    return { ok: false, message: `\u53D6\u4E0D\u5230\u6700\u65B0\u4EE3\u7801\uFF1A${err6.message}` };
   }
   if (!res.ok) return { ok: false, message: `\u53D6\u6700\u65B0\u4EE3\u7801\u5931\u8D25\uFF08HTTP ${res.status}\uFF09` };
   const code = await res.text();
