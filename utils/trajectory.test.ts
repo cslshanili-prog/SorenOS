@@ -146,6 +146,23 @@ describe('buildTrajectoryOotdPrompt', () => {
         expect(prompt).toContain('每次都要不一样');
     });
 
+    it('不传 timeContext 时不出现时间相关提示', () => {
+        const prompt = buildTrajectoryOotdPrompt('角色设定块');
+        expect(prompt).not.toContain('现在是');
+        expect(prompt).toContain('必须符合上面给出的当下时间');
+    });
+
+    it('传了 timeContext 时原样带上，且要求穿搭符合当下时间/日程', () => {
+        const prompt = buildTrajectoryOotdPrompt('角色设定块', undefined, '### 当前时间 (Now)\n现在是 2026年9月21日 周一 深夜 23:40。');
+        expect(prompt).toContain('现在是 2026年9月21日 周一 深夜 23:40');
+        expect(prompt).toContain('不合常理的搭配');
+    });
+
+    it('timeContext 是空字符串/全空白时当作没传', () => {
+        expect(buildTrajectoryOotdPrompt('角色设定块', undefined, '')).not.toContain('现在是');
+        expect(buildTrajectoryOotdPrompt('角色设定块', undefined, '   ')).not.toContain('现在是');
+    });
+
     it('带 existing 时列出最近的搭配防重复', () => {
         const existing = [createTrajectoryOotdPost({ style: '休闲', colors: [], tops: '白衬衫', bottoms: '牛仔裤', shoes: '', accessories: [], imagePrompt: 'x' }, 'img-token')];
         const prompt = buildTrajectoryOotdPrompt('角色设定块', existing);

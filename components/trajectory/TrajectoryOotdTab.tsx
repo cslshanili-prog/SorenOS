@@ -11,6 +11,9 @@ import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImag
 import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { DB } from '../../utils/db';
+import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
+import { getDailyScheduleForChar } from '../../utils/dailySchedule';
+import { resolveCharTimeZone, nowInTimeZone } from '../../utils/timezone';
 
 interface Props {
     char: CharacterProfile;
@@ -29,6 +32,29 @@ const formatDateHeading = (dateKey: string): string => {
 const formatTime = (ts: number): string => {
     const d = new Date(ts);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+/**
+ * 拼「现在几点／正在做什么」给 OOTD 生成用，让穿搭贴合当下时间和日程——不然模型不知道
+ * 现在是深夜还是工作时段，穿搭跟时间/日程对不上（深夜穿正装、运动时段穿西装这类）。
+ * 日程总开关关着（isScheduleFeatureOn=false）或读取失败时，退化成只给基础时间块。
+ */
+const buildOotdTimeContext = async (char: CharacterProfile): Promise<string> => {
+    const timeAwareness = ContextBuilder.buildTimeAwarenessBlock(char);
+    if (!isScheduleFeatureOn(char)) return timeAwareness;
+    try {
+        const schedule = await getDailyScheduleForChar(char);
+        if (!schedule) return timeAwareness;
+        const charNow = nowInTimeZone(resolveCharTimeZone(char));
+        const scheduleNote = ContextBuilder.buildScheduleInjection(schedule, undefined, charNow, {
+            includeFullDay: false,
+            includeClock: char.timeAwarenessEnabled !== false,
+        });
+        return `${timeAwareness}${scheduleNote}`;
+    } catch (e) {
+        console.warn('[Trajectory] OOTD 读取日程失败，跳过日程上下文:', e);
+        return timeAwareness;
+    }
 };
 
 const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, imageGenConfig, addToast }) => {
@@ -55,7 +81,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
         setGenerating(true);
         try {
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
-            const prompt = buildTrajectoryOotdPrompt(roleSettingsBlock, posts);
+            const timeContext = await buildOotdTimeContext(char);
+            const prompt = buildTrajectoryOotdPrompt(roleSettingsBlock, posts, timeContext);
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -225,7 +252,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             {detailPost && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setDetailPost(null)}>
                     <div className="absolute inset-0 bg-black/60" />
-                    <div className="relative w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl"
+                    <div className="relative w-full max-w-xs max-h-[85vh] overflow-y-auto no-scrollbar rounded-[2rem] shadow-2xl"
                         style={{ background: '#1a1626' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => setDetailPost(null)} aria-label="关闭"
                             className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">

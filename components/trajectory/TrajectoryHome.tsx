@@ -37,7 +37,7 @@ interface Props {
 }
 
 const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack, updateCharacter, apiConfig, imageGenConfig, addToast }) => {
-    const [tab, setTab] = useState<TrajectoryTab>('profile');
+    const [tab, setTab] = useState<TrajectoryTab>('ootd');
     const activeTabLabel = TABS.find(t => t.key === tab)!.label;
 
     return (
