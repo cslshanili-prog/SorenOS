@@ -2841,6 +2841,14 @@ export interface CharacterCustomMeter {
   content?: string;
   /** 好感度数值 0-100（kind='number' 时使用） */
   value?: number;
+  /**
+   * 自动更新节奏；不设置＝保持纯手动（现状默认），只能自己点「重新生成」。
+   * - {mode:'hours', interval: N} 每隔 N 小时自动重新生成一次（"一天一更"＝N=24）
+   * - {mode:'turns', interval: N} 每隔 N 轮对话（角色回复计数，仅本机聊天路径）自动重新生成一次
+   */
+  autoUpdate?: { mode: 'hours' | 'turns'; interval: number };
+  /** mode='turns' 时：距上次自动触发已经过去几轮角色回复；达到 autoUpdate.interval 时触发并清零。 */
+  turnsSinceAutoUpdate?: number;
 }
 
 export interface CharacterProfile {

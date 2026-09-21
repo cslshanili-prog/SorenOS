@@ -17,6 +17,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { resolveCharacterChatApi } from '../utils/characterApi';
+import { checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
 // UI 钩子工具 propose_cart_items。MCP 实际调用都在 McdMiniApp 组件内做, useChatAI
@@ -1288,6 +1289,17 @@ export const useChatAI = ({
 
             // 主请求即将发出 → 立即并行发射情绪评估（错峰延迟已按用户要求取消，见定义处注释）。
             fireLocalEmotionEval?.();
+
+            // 心声/好感度里设了「每几轮对话」节奏的条目，本地路径每发一次请求算一轮——
+            // 到这里说明 instantChatRoute 已经在上面 return 过了，走的一定是本地路径，
+            // 跟云端即时对话共用同一份节奏计数会因为「客户端看不见 worker 何时真的跑」而
+            // 数不准，所以这条节奏暂时只接本机聊天。fire-and-forget，不影响主回复。
+            void checkCustomMeterAutoUpdate('text', char, userProfile, effectiveApi, char.innerVoices || [], { tickTurns: true })
+                .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
+                .catch(e => console.warn('[CustomMeter] 心声按轮自动更新失败:', e));
+            void checkCustomMeterAutoUpdate('number', char, userProfile, effectiveApi, char.affinities || [], { tickTurns: true })
+                .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
+                .catch(e => console.warn('[CustomMeter] 好感度按轮自动更新失败:', e));
 
             // 同角色活跃会话租约：本地 fetch 路径本轮真实消息已落库、模型请求即将发出，
             // 启动心跳告诉 worker「正在和这个角色聊」——到点的 expire AI 任务据此 skip，

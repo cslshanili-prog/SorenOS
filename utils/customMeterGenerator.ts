@@ -11,6 +11,7 @@ import { safeResponseJson, extractContent } from './safeApi';
 import { loadCharacterContextRange } from './chatContextRange';
 import { formatChatHistoryForSchedule } from './scheduleGenerator';
 import { DB } from './db';
+import { isCustomMeterHoursDue, tickCustomMeterTurns } from './customMeterAutoUpdate';
 
 interface ApiConfig {
   baseUrl: string;
@@ -103,4 +104,53 @@ ${entry.prompt}
   const num = Math.round(parseFloat(match[0]));
   if (Number.isNaN(num)) return null;
   return Math.max(0, Math.min(100, num));
+}
+
+/**
+ * 单条 entry 按 kind 实际调一次生成，成功则带上新内容 + updatedAt 返回；失败原样返回
+ * （不动 content/value，也不刷新 updatedAt——下次到期检查会再试一次，不会因为一次失败
+ * 就卡住不再触发）。
+ */
+async function refreshCustomMeterEntry(
+  kind: 'text' | 'number',
+  char: CharacterProfile,
+  user: UserProfile,
+  apiConfig: ApiConfig,
+  entry: CharacterCustomMeter,
+): Promise<CharacterCustomMeter> {
+  const result = kind === 'text'
+    ? await generateInnerVoiceContent(char, user, apiConfig, entry)
+    : await generateAffinityValue(char, user, apiConfig, entry);
+  if (result === null) return entry;
+  const patch = kind === 'text' ? { content: String(result) } : { value: Number(result) };
+  return { ...entry, ...patch, updatedAt: Date.now() };
+}
+
+/**
+ * 自动更新一轮检查——同时处理「hours」和「turns」两种节奏：
+ * - tickTurns=true 时先按 turns 节奏推进一格（本地聊天每发一次请求算一轮；不到期只加计数、不生成）；
+ * - 不管 tickTurns 是否传，都会顺带检查 hours 节奏是否到期——这样同一个聊天窗口里连续聊很久
+ *   不切换角色，到点了也能在下一轮顺手触发，不用非得重新进一次聊天页才检查。
+ * 到期的条目在这里同步调完 API 才返回（调用方自己决定 fire-and-forget，别 await 卡住主流程）。
+ * 返回 null＝这组 entries 完全没变化（没有到期的，turns 计数也没变），调用方可以跳过落库。
+ */
+export async function checkCustomMeterAutoUpdate(
+  kind: 'text' | 'number',
+  char: CharacterProfile,
+  user: UserProfile,
+  apiConfig: ApiConfig,
+  entries: CharacterCustomMeter[],
+  options: { tickTurns?: boolean } = {},
+): Promise<CharacterCustomMeter[] | null> {
+  if (entries.length === 0) return null;
+  const hasTurnsMode = !!options.tickTurns && entries.some(e => e.autoUpdate?.mode === 'turns');
+  const { entries: ticked, due: dueByTurns } = hasTurnsMode
+    ? tickCustomMeterTurns(entries)
+    : { entries, due: [] as CharacterCustomMeter[] };
+  const dueByHours = ticked.filter(e => !dueByTurns.some(d => d.id === e.id) && isCustomMeterHoursDue(e));
+  const due = [...dueByTurns, ...dueByHours];
+  if (due.length === 0) return hasTurnsMode ? ticked : null;
+  const refreshed = await Promise.all(due.map(e => refreshCustomMeterEntry(kind, char, user, apiConfig, e)));
+  const byId = new Map(refreshed.map(e => [e.id, e]));
+  return ticked.map(e => byId.get(e.id) || e);
 }
