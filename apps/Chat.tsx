@@ -12,7 +12,7 @@ import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCs
 import TokenImg from '../components/os/TokenImg';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { generateInnerVoiceContent, generateAffinityValue, checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
-import { resolveCharacterChatApi } from '../utils/characterApi';
+import { resolveCharacterMeterApi } from '../utils/characterApi';
 import { getDailyScheduleForChar } from '../utils/dailySchedule';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -1135,11 +1135,11 @@ const Chat: React.FC = () => {
     // （见 useChatAI 里 checkCustomMeterAutoUpdate 的调用点），这里不传 tickTurns。
     useEffect(() => {
         if (!char || !apiConfig.apiKey) return;
-        const charApi = resolveCharacterChatApi(char, apiConfig);
-        checkCustomMeterAutoUpdate('text', char, chatUserProfile, charApi, char.innerVoices || [])
+        const meterApi = resolveCharacterMeterApi(char, apiConfig);
+        checkCustomMeterAutoUpdate('text', char, chatUserProfile, meterApi, char.innerVoices || [])
             .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
             .catch(e => console.warn('[CustomMeter] 心声按小时自动更新失败:', e));
-        checkCustomMeterAutoUpdate('number', char, chatUserProfile, charApi, char.affinities || [])
+        checkCustomMeterAutoUpdate('number', char, chatUserProfile, meterApi, char.affinities || [])
             .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
             .catch(e => console.warn('[CustomMeter] 好感度按小时自动更新失败:', e));
     }, [activeCharacterId]);
@@ -3978,10 +3978,10 @@ const Chat: React.FC = () => {
                     addToast('对话模型设置已保存', 'success');
                 }}
                 onSaveInnerVoices={(innerVoices) => updateCharacter(char.id, { innerVoices })}
-                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)
+                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterMeterApi(char, apiConfig), entry)
                     .then(content => content === null ? null : { content })}
                 onSaveAffinities={(affinities) => updateCharacter(char.id, { affinities })}
-                onGenerateAffinity={(entry) => generateAffinityValue(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)
+                onGenerateAffinity={(entry) => generateAffinityValue(char, chatUserProfile, resolveCharacterMeterApi(char, apiConfig), entry)
                     .then(result => result === null ? null : { value: result.value, statusNote: result.note })}
              />
 
