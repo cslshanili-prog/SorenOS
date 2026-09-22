@@ -2688,8 +2688,9 @@ ${memberTimeline || '(暂无互动记录)'}
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">这次客串的方向提示（可选）</label>
-                                <input value={npcGuestHint} onChange={e => setNpcGuestHint(e.target.value)} placeholder="不填就让 TA 自己接话"
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                                <textarea value={npcGuestHint} onChange={e => setNpcGuestHint(e.target.value)} placeholder="不填就让 TA 自己接话"
+                                    rows={3}
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm resize-y" />
                             </div>
                         </>
                     ) : (
