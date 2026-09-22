@@ -168,9 +168,9 @@ interface ChatModalsProps {
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
     onSaveInnerVoices?: (entries: CharacterCustomMeter[]) => void;
-    onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<string | null>;
+    onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     onSaveAffinities?: (entries: CharacterCustomMeter[]) => void;
-    onGenerateAffinity?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<number | null>;
+    onGenerateAffinity?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     onClearBuffs?: () => void;
 }
 

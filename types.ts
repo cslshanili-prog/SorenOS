@@ -2839,6 +2839,8 @@ export interface CharacterCustomMeter {
   updatedAt?: number;
   /** 心声正文（kind='text' 时使用） */
   content?: string;
+  /** 数值旁的一句第一人称状态说明（kind='number' 好感度专属），跟数值同一次生成更新 */
+  statusNote?: string;
   /** 好感度数值 0-100（kind='number' 时使用） */
   value?: number;
   /**
