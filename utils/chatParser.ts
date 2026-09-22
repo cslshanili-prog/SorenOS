@@ -9,6 +9,7 @@ import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from './imageGeneration';
 import { migrateDataUrlToRef } from './blobRef';
+import { getLocalDateKey } from './localDate';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
     collaborationFileMessageMetadata,
@@ -287,10 +288,23 @@ export const ChatParser = {
                         const referenceBlob = charProfile ? await resolveCharacterReferenceImage(charProfile, { description }) : null;
                         const { dataUrl } = await generateImage(imageGenConfig!, prompt, referenceBlob || undefined);
                         const storedContent = await migrateDataUrlToRef(dataUrl);
-                        await persist({
+                        const sentMessageId = await persist({
                             charId, role: 'assistant', type: 'image', content: storedContent,
                             metadata: { aiGenerated: true, imagePrompt: description },
                         });
+                        // 相册是消息的附带记录，见 apps/Chat.tsx 用户发图那份同款逻辑——角色自己发的
+                        // 图之前只落消息，不进相册，「相册」App 里翻不到角色发过的照片。写入失败不影响
+                        // 已经落库的聊天消息。
+                        try {
+                            await DB.saveGalleryImage({
+                                id: `img-${Date.now()}-${Math.random()}`,
+                                charId, url: storedContent, timestamp: Date.now(),
+                                sourceMessageId: sentMessageId, sender: 'char',
+                                savedDate: getLocalDateKey(new Date()),
+                            });
+                        } catch (galleryError) {
+                            console.warn('[ChatParser] 角色发的图存相册失败:', galleryError);
+                        }
                     } catch (error) {
                         console.warn('[ChatParser] 角色发图失败:', error);
                         addToast(`${charName} 想发张照片，但生成失败了`, 'error');

@@ -1384,6 +1384,8 @@ interface MessageItemProps {
     isLatestMessage?: boolean;
     /** 图片完成解码并确定高度后，通知聊天列表重新校准贴底位置。 */
     onMediaLoad?: (messageId: number) => void;
+    /** 点击图片消息本身（非长按菜单）→ 打开全屏放大预览，支持下载/AI 生图重新生成。 */
+    onImageClick?: (m: Message) => void;
     onLongPress: (m: Message) => void;
     onReply: (m: Message) => void;
     selectionMode: boolean;
@@ -1443,6 +1445,7 @@ const MessageItem = React.memo(({
     userAvatar,
     isLatestMessage = false,
     onMediaLoad,
+    onImageClick,
     onLongPress,
     onReply,
     selectionMode,
@@ -3403,11 +3406,12 @@ const MessageItem = React.memo(({
                 {m.content ? (
                     <TokenImg
                         value={m.content}
-                        className="max-w-[200px] max-h-[300px] rounded-2xl"
+                        className={`max-w-[200px] max-h-[300px] rounded-2xl${onImageClick ? ' cursor-pointer active:opacity-80 transition-opacity' : ''}`}
                         alt="Uploaded"
                         loading={isLatestMessage ? 'eager' : 'lazy'}
                         decoding="async"
                         onLoad={() => onMediaLoad?.(m.id)}
+                        onClick={onImageClick ? () => onImageClick(m) : undefined}
                     />
                 ) : (
                     <div className="px-4 py-6 rounded-2xl bg-slate-100 text-slate-400 text-xs italic text-center min-w-[120px]">[图片已丢失]</div>
