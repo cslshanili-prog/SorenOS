@@ -16,7 +16,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // evolveFlowNarrative 保留为低频深刷新备用，日常意识流由副 API 的情绪评估同轮产出（innerState 字段）
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
-import { resolveCharacterChatApi } from '../utils/characterApi';
+import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麦当劳: useChatAI 现在只读 McdMiniApp 当前快照注入 system prompt + 给 LLM 一个
@@ -1294,10 +1294,13 @@ export const useChatAI = ({
             // 到这里说明 instantChatRoute 已经在上面 return 过了，走的一定是本地路径，
             // 跟云端即时对话共用同一份节奏计数会因为「客户端看不见 worker 何时真的跑」而
             // 数不准，所以这条节奏暂时只接本机聊天。fire-and-forget，不影响主回复。
-            void checkCustomMeterAutoUpdate('text', char, userProfile, effectiveApi, char.innerVoices || [], { tickTurns: true })
+            // API 故意不跟主回复共用 effectiveApi：心声/好感度走「情绪/意识流 API」（通常配便宜
+            // 模型），主回复才走角色专属对话模型（通常更贵），两笔账混一起用户的 token 会烧很快。
+            const meterApi = resolveCharacterMeterApi(char, apiConfig);
+            void checkCustomMeterAutoUpdate('text', char, userProfile, meterApi, char.innerVoices || [], { tickTurns: true })
                 .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
                 .catch(e => console.warn('[CustomMeter] 心声按轮自动更新失败:', e));
-            void checkCustomMeterAutoUpdate('number', char, userProfile, effectiveApi, char.affinities || [], { tickTurns: true })
+            void checkCustomMeterAutoUpdate('number', char, userProfile, meterApi, char.affinities || [], { tickTurns: true })
                 .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
                 .catch(e => console.warn('[CustomMeter] 好感度按轮自动更新失败:', e));
 
