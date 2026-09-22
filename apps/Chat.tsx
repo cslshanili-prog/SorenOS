@@ -4483,6 +4483,8 @@ const Chat: React.FC = () => {
                     onClose={() => setShowProactiveModal(false)}
                     char={char}
                     isProactiveActive={isProactiveActive}
+                    apiPresets={apiPresets}
+                    onAddApiPreset={addApiPreset}
                     onSave={(config) => {
                         updateCharacter(char.id, { proactiveConfig: config });
                         if (config.enabled) {
