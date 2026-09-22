@@ -8,6 +8,7 @@ import Modal from '../components/os/Modal';
 import { processImage } from '../utils/file';
 import { DB } from '../utils/db';
 import { ContextBuilder } from '../utils/context';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
@@ -516,8 +517,11 @@ const Character: React.FC = () => {
   };
   
   const handleRefineMonth = async (year: string, month: string, rawText: string, formattedPrompt?: string) => {
-      if (!apiConfig.apiKey) { addToast('请先配置 API Key', 'error'); return; }
       if (!formData) return;
+      // 优先用这个角色自己的对话模型 API（角色专属 chatApi），没设才退回全局主 API——
+      // 之前是直接打全局，角色明明配了专属 API，全局一挂这个角色的月度总结也跟着挂。
+      const refineApi = resolveCharacterChatApi(formData, apiConfig);
+      if (!refineApi.apiKey) { addToast('请先配置 API Key', 'error'); return; }
 
       const targetId = formData.id; // LOCK ID
       trackEvent('提炼当月核心记忆');
@@ -546,14 +550,14 @@ const Character: React.FC = () => {
           : `${taskPreamble}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}\n\n### 角色视角（仅供写作口吻参考）\n${identityContext}### 详细规则\n以该角色的第一人称写作，使用与日记相同的语言（中文），输出一段精简的月度核心记忆。`;
       const userContent = rawText;
 
-      const refineUrl = `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+      const refineUrl = `${refineApi.baseUrl.replace(/\/+$/, '')}/chat/completions`;
       const t0 = performance.now();
       try {
           const data = await safeFetchJson(refineUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${refineApi.apiKey}` },
               body: JSON.stringify({
-                  model: apiConfig.model,
+                  model: refineApi.model,
                   messages: [
                       { role: 'system', content: systemContent },
                       { role: 'user', content: userContent },

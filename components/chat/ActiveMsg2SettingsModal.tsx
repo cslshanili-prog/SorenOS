@@ -7,11 +7,15 @@ import {
   ActiveMsg2Recurrence,
   ActiveMsg2TaskRecord,
   APIConfig,
+  ApiPreset,
   CharacterProfile,
   GroupProfile,
   RealtimeConfig,
   UserProfile,
 } from '../../types';
+import { normalizeApiBaseUrl, normalizeApiCredential } from '../../utils/apiConfigNormalize';
+import { extractModelIds } from '../../utils/modelList';
+import { safeResponseJson } from '../../utils/safeApi';
 import { ActiveMsgClient, getDefaultActiveMsgFirstSendTime } from '../../utils/activeMsgClient';
 import { ActiveMsgStore } from '../../utils/activeMsgStore';
 import { type AmsgLastSkip, DEFAULT_MAX_UNANSWERED_SENDS, describeLastSkip } from '../../utils/amsgFirePack';
@@ -51,6 +55,8 @@ interface ActiveMsg2SettingsModalProps {
   userProfile: UserProfile;
   groups: GroupProfile[];
   realtimeConfig: RealtimeConfig;
+  apiPresets: ApiPreset[];
+  onAddApiPreset: (name: string, config: APIConfig) => void;
   /**
    * 落盘任务清单与角色级设置。
    *
@@ -85,6 +91,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   userProfile,
   groups,
   realtimeConfig,
+  apiPresets,
+  onAddApiPreset,
   onSave,
   addToast,
 }) => {
@@ -113,6 +121,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [secUrl, setSecUrl] = useState(saved?.secondaryApi?.baseUrl ?? '');
   const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
   const [secModel, setSecModel] = useState(saved?.secondaryApi?.model ?? '');
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [showModelModal, setShowModelModal] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [modelStatusMsg, setModelStatusMsg] = useState('');
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
   const [globalReady, setGlobalReady] = useState(false);
   const [pushSummary, setPushSummary] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,6 +167,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setSecUrl(config?.secondaryApi?.baseUrl ?? '');
     setSecKey(config?.secondaryApi?.apiKey ?? '');
     setSecModel(config?.secondaryApi?.model ?? '');
+    setShowSavePreset(false);
+    setNewPresetName('');
+    setTestConnectionResult(null);
 
     const editing = editingTaskUuid ? list.find((t) => t.taskUuid === editingTaskUuid) : undefined;
     if (editing) {
@@ -257,6 +277,72 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     lastSyncedAt: prev?.lastSyncedAt,
     ...extra,
   });
+
+  const loadPreset = (preset: ApiPreset) => {
+    setSecUrl(preset.config.baseUrl);
+    setSecKey(preset.config.apiKey);
+    setSecModel(preset.config.model);
+    setTestConnectionResult(null);
+  };
+
+  const handleSavePreset = () => {
+    if (!newPresetName.trim()) return;
+    onAddApiPreset(newPresetName.trim(), { baseUrl: secUrl, apiKey: secKey, model: secModel });
+    setNewPresetName('');
+    setShowSavePreset(false);
+  };
+
+  const fetchModels = async () => {
+    const baseUrl = normalizeApiBaseUrl(secUrl);
+    const key = normalizeApiCredential(secKey);
+    if (!baseUrl) { setModelStatusMsg('请先填写 URL'); return; }
+    setIsLoadingModels(true);
+    setModelStatusMsg('正在连接...');
+    try {
+      const response = await fetch(`${baseUrl}/models`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await safeResponseJson(response);
+      const models = extractModelIds(data);
+      if (models.length > 0) {
+        setAvailableModels(models);
+        setModelSearchQuery('');
+        setModelStatusMsg(`获取到 ${models.length} 个模型`);
+        setShowModelModal(true);
+      } else {
+        setModelStatusMsg('模型列表为空或格式不兼容');
+      }
+    } catch (error: any) {
+      setModelStatusMsg(`连接失败${error?.message ? `：${error.message}` : ''}`);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    const baseUrl = normalizeApiBaseUrl(secUrl);
+    if (!baseUrl) return;
+    setTestingConnection(true);
+    setTestConnectionResult(null);
+    try {
+      const response = await fetch(`${baseUrl}/models`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        setTestConnectionResult('✅ 连接成功');
+      } else {
+        const text = await response.text().catch(() => '');
+        setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
+      }
+    } catch (error: any) {
+      setTestConnectionResult(`❌ 连接失败${error?.message ? `：${error.message}` : ''}`);
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   /**
    * 拨开关本身就算一次保存。
@@ -744,7 +830,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="font-bold text-slate-700">使用单独 API</div>
-                  <div className="text-xs text-slate-400 mt-1">不开启则复用当前聊天主 API。</div>
+                  <div className="text-xs text-slate-400 mt-1">不开启则依次退回：角色自己的对话模型 API → 全局主 API。</div>
                 </div>
                 <button
                   onClick={() => setUseSecondaryApi(!useSecondaryApi)}
@@ -755,13 +841,104 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               </div>
 
               {useSecondaryApi ? (
-                <div className="space-y-3 bg-slate-50 rounded-2xl p-3">
-                  <input value={secUrl} onChange={(event) => setSecUrl(event.target.value)} placeholder="API URL" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
-                  <input type="password" value={secKey} onChange={(event) => setSecKey(event.target.value)} placeholder="API Key" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
-                  <input value={secModel} onChange={(event) => setSecModel(event.target.value)} placeholder="Model" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                <div className="space-y-2 bg-slate-50 rounded-2xl p-3">
+                  {apiPresets.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的预设</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {apiPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => loadPreset(preset)}
+                            className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-sm text-xs font-medium text-slate-600 hover:text-fuchsia-500 hover:border-fuchsia-200 active:scale-95 transition-all"
+                          >
+                            {preset.name}
+                            <span className="ml-1.5 text-slate-300">{preset.config.model}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <input value={secUrl} onChange={(event) => { setSecUrl(event.target.value); setTestConnectionResult(null); }} placeholder="API URL" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                  <input type="password" value={secKey} onChange={(event) => { setSecKey(event.target.value); setTestConnectionResult(null); }} placeholder="API Key" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Model</span>
+                      <button onClick={fetchModels} disabled={isLoadingModels} className="text-[10px] text-fuchsia-500 font-bold">
+                        {isLoadingModels ? '拉取中...' : '刷新模型列表'}
+                      </button>
+                    </div>
+                    <input value={secModel} onChange={(event) => setSecModel(event.target.value)} placeholder="Model，或点右上角刷新拉取" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                    {modelStatusMsg && <p className="text-[10px] text-slate-400 mt-1">{modelStatusMsg}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={handleTestConnection}
+                      disabled={testingConnection || !secUrl.trim()}
+                      className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 disabled:opacity-50 active:scale-95 transition-transform"
+                    >
+                      {testingConnection ? '测试中...' : '🧪 测试连接'}
+                    </button>
+                    <button
+                      onClick={() => setShowSavePreset((v) => !v)}
+                      className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
+                    >
+                      保存为预设
+                    </button>
+                  </div>
+                  {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
+                  {showSavePreset && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newPresetName}
+                        onChange={(event) => setNewPresetName(event.target.value)}
+                        onKeyDown={(event) => event.key === 'Enter' && handleSavePreset()}
+                        placeholder="预设名称..."
+                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                        autoFocus
+                      />
+                      <button onClick={handleSavePreset} className="px-4 py-2 bg-fuchsia-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform">
+                        保存
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
+
+            {showModelModal && (() => {
+              const query = modelSearchQuery.trim().toLowerCase();
+              const filteredList = query ? availableModels.filter((m) => m.toLowerCase().includes(query)) : availableModels;
+              return (
+                <Modal isOpen title="选择模型" onClose={() => setShowModelModal(false)}>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={modelSearchQuery}
+                      onChange={(event) => setModelSearchQuery(event.target.value)}
+                      placeholder="搜索模型..."
+                      className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-mono"
+                      autoFocus
+                    />
+                    <div className="max-h-72 overflow-y-auto space-y-1 no-scrollbar">
+                      {filteredList.length === 0 && (
+                        <p className="text-[11px] text-slate-400 text-center py-4">没有匹配的模型</p>
+                      )}
+                      {filteredList.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => { setSecModel(m); setShowModelModal(false); }}
+                          className="w-full text-left px-3 py-2 rounded-xl text-xs font-mono bg-slate-50 hover:bg-fuchsia-50 hover:text-fuchsia-600 transition-colors"
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </Modal>
+              );
+            })()}
           </>
         ) : null}
       </div>
