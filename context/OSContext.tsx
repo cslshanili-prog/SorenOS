@@ -23,6 +23,7 @@ import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '..
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import { VRScheduler, type VRSessionOutcome } from '../utils/vrWorld/scheduler';
 import { runVRSession } from '../utils/vrWorld/runSession';
 import { allowsAutomaticVR } from '../utils/vrWorld/participation';
@@ -2277,10 +2278,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return;
           }
 
-          // Determine which API to use
+          // 生效凭据优先级：角色开了「使用副 API」→ 那份副 API；否则 → 角色自己的对话模型
+          // chatApi；否则 → 全局主 API。跟 activeMsgClient.ts 的 resolveApiConfig 同一个口径——
+          // 之前这里直接跳到 currentApiConfig，角色明明设了专属 chatApi，全局 API 一挂
+          // 这里的本地主动消息照样全灭。
           const pCfg = char.proactiveConfig;
           const useSecondary = pCfg?.useSecondaryApi && pCfg.secondaryApi?.baseUrl;
-          const api = useSecondary ? pCfg!.secondaryApi! : currentApiConfig;
+          const api = useSecondary ? pCfg!.secondaryApi! : resolveCharacterChatApi(char, currentApiConfig);
           if (!api.baseUrl) {
               drainQueuedProactive();
               return;
