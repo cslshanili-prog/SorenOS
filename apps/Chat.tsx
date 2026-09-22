@@ -3978,9 +3978,11 @@ const Chat: React.FC = () => {
                     addToast('对话模型设置已保存', 'success');
                 }}
                 onSaveInnerVoices={(innerVoices) => updateCharacter(char.id, { innerVoices })}
-                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)}
+                onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)
+                    .then(content => content === null ? null : { content })}
                 onSaveAffinities={(affinities) => updateCharacter(char.id, { affinities })}
-                onGenerateAffinity={(entry) => generateAffinityValue(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)}
+                onGenerateAffinity={(entry) => generateAffinityValue(char, chatUserProfile, resolveCharacterChatApi(char, apiConfig), entry)
+                    .then(result => result === null ? null : { value: result.value, statusNote: result.note })}
              />
 
              {/* 小剧场播放器：窥视某个日程时段的角色行为演出 */}

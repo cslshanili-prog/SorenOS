@@ -81,13 +81,13 @@ ${entry.prompt}
   return content ? content.trim() : null;
 }
 
-/** 生成/刷新一个 0-100 的好感度数值（用户自定义标题 + 提示词驱动）。 */
+/** 生成/刷新一个 0-100 的好感度数值 + 一句第一人称状态心声（用户自定义标题 + 提示词驱动）。 */
 export async function generateAffinityValue(
   char: CharacterProfile,
   user: UserProfile,
   apiConfig: ApiConfig,
   entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>,
-): Promise<number | null> {
+): Promise<{ value: number; note: string } | null> {
   const contextBlock = await buildPersonaAndHistoryBlock(char, user);
   const prompt = `${contextBlock}
 ## Task: 评估一个好感度数值——「${entry.title}」
@@ -96,14 +96,21 @@ export async function generateAffinityValue(
 
 ${entry.prompt}
 
-只输出一个 0-100 的整数，不要任何文字说明、不要百分号、不要标点。`;
+同时以${char.name}的第一人称语气，写一句此刻的心声——像一句贴合这个分数当下心理状态的内心独白，不要出现"分数""好感度"这几个字本身，不要用引号包起来。
+
+只按下面这个格式输出，不要任何多余文字或标题：
+第一行：分数（0-100 的整数，不要百分号不要标点）
+第二行：那句心声（一句话，20 字以内）`;
   const content = await callCustomMeterApi(apiConfig, char, prompt, `评估好感度：${entry.title}`);
   if (!content) return null;
-  const match = content.match(/-?\d+(\.\d+)?/);
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  const match = (lines[0] || '').match(/-?\d+(\.\d+)?/) || content.match(/-?\d+(\.\d+)?/);
   if (!match) return null;
   const num = Math.round(parseFloat(match[0]));
   if (Number.isNaN(num)) return null;
-  return Math.max(0, Math.min(100, num));
+  const value = Math.max(0, Math.min(100, num));
+  const note = (lines[1] || '').replace(/^[“"'「]|[”"'」]$/g, '').trim();
+  return { value, note };
 }
 
 /**
@@ -118,12 +125,14 @@ async function refreshCustomMeterEntry(
   apiConfig: ApiConfig,
   entry: CharacterCustomMeter,
 ): Promise<CharacterCustomMeter> {
-  const result = kind === 'text'
-    ? await generateInnerVoiceContent(char, user, apiConfig, entry)
-    : await generateAffinityValue(char, user, apiConfig, entry);
+  if (kind === 'text') {
+    const content = await generateInnerVoiceContent(char, user, apiConfig, entry);
+    if (content === null) return entry;
+    return { ...entry, content, updatedAt: Date.now() };
+  }
+  const result = await generateAffinityValue(char, user, apiConfig, entry);
   if (result === null) return entry;
-  const patch = kind === 'text' ? { content: String(result) } : { value: Number(result) };
-  return { ...entry, ...patch, updatedAt: Date.now() };
+  return { ...entry, value: result.value, statusNote: result.note, updatedAt: Date.now() };
 }
 
 /**

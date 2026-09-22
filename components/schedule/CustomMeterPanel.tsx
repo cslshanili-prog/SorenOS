@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { ArrowsClockwise, PencilSimple, Trash } from '@phosphor-icons/react';
 import { CharacterCustomMeter } from '../../types';
 
 interface CustomMeterPanelProps {
@@ -10,7 +11,7 @@ interface CustomMeterPanelProps {
     description: string;
     entries: CharacterCustomMeter[];
     onChange: (entries: CharacterCustomMeter[]) => void;
-    onGenerate: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<string | number | null>;
+    onGenerate: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     emptyHint: string;
 }
 
@@ -65,9 +66,8 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
     const regenerate = async (entry: CharacterCustomMeter) => {
         setBusyId(entry.id);
         try {
-            const result = await onGenerate({ title: entry.title, prompt: entry.prompt });
-            if (result === null) return;
-            const patch = kind === 'text' ? { content: String(result) } : { value: Number(result) };
+            const patch = await onGenerate({ title: entry.title, prompt: entry.prompt });
+            if (patch === null) return;
             onChange(entriesRef.current.map(e => e.id === entry.id ? { ...e, ...patch, updatedAt: Date.now() } : e));
         } finally {
             setBusyId(null);
@@ -195,12 +195,22 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                             <>
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
                                     <span className="text-xs font-bold" style={{ color: entry.color }}>{entry.title}</span>
-                                    <div className="flex items-center gap-2 shrink-0 text-[10px] font-bold text-slate-400">
-                                        <button onClick={() => regenerate(entry)} disabled={busyId === entry.id} className="hover:text-pink-500 transition-colors disabled:opacity-50">
-                                            {busyId === entry.id ? '生成中…' : '重新生成'}
+                                    <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                                        <button
+                                            onClick={() => regenerate(entry)}
+                                            disabled={busyId === entry.id}
+                                            aria-label="重新生成"
+                                            title="重新生成"
+                                            className="w-6 h-6 grid place-items-center rounded-full hover:text-pink-500 hover:bg-pink-500/10 transition-colors disabled:opacity-50"
+                                        >
+                                            <ArrowsClockwise size={13} weight="bold" className={busyId === entry.id ? 'animate-spin' : ''} />
                                         </button>
-                                        <button onClick={() => startEdit(entry)} className="hover:text-pink-500 transition-colors">编辑</button>
-                                        <button onClick={() => handleDelete(entry.id)} className="hover:text-red-400 transition-colors">删除</button>
+                                        <button onClick={() => startEdit(entry)} aria-label="编辑" title="编辑" className="w-6 h-6 grid place-items-center rounded-full hover:text-pink-500 hover:bg-pink-500/10 transition-colors">
+                                            <PencilSimple size={13} weight="bold" />
+                                        </button>
+                                        <button onClick={() => handleDelete(entry.id)} aria-label="删除" title="删除" className="w-6 h-6 grid place-items-center rounded-full hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                                            <Trash size={13} weight="bold" />
+                                        </button>
                                     </div>
                                 </div>
                                 {kind === 'text' ? (
@@ -209,6 +219,11 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                     </p>
                                 ) : (
                                     <div>
+                                        {(entry.statusNote || busyId === entry.id) && (
+                                            <div className="text-[9px] text-slate-500 truncate mb-1">
+                                                {busyId === entry.id ? '生成中…' : entry.statusNote}
+                                            </div>
+                                        )}
                                         <div className="h-2 w-full rounded-full bg-white/70 overflow-hidden">
                                             <div
                                                 className="h-full rounded-full transition-all"
