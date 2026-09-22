@@ -16,6 +16,7 @@ import {
   UserProfile,
 } from '../types';
 import { getLastRealUserMessageAt } from './amsg2ExpireGuard';
+import { resolveCharacterChatApi } from './characterApi';
 import { AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
 import { buildTaskInstruction, resolveSendAtMs } from './amsgFireSchedule';
 import {
@@ -538,9 +539,15 @@ const initializeClient = (config: ActiveMsg2GlobalConfig) => {
   return promise;
 };
 
+/**
+ * 生效凭据优先级：角色自己开了「使用单独 API」→ 那份单独 API；否则 → 角色自己的
+ * 对话模型 chatApi（跟私聊用的是同一份，角色没单独设过就是 undefined）；否则 → 全局主 API。
+ * 中间这层是补的——之前直接跳到全局主 API，角色明明设了专属 chatApi，全局 API 一挂
+ * 该角色的主动消息照样全灭，跟下面这句 UI 文案「复用当前聊天主 API」对不上。
+ */
 const resolveApiConfig = (char: CharacterProfile, config: ActiveMsg2CharacterConfig, apiConfig: APIConfig) => {
   const useSecondary = config.useSecondaryApi && config.secondaryApi?.baseUrl;
-  const source = useSecondary ? config.secondaryApi! : apiConfig;
+  const source = useSecondary ? config.secondaryApi! : resolveCharacterChatApi(char, apiConfig);
 
   if (!source.baseUrl || !source.apiKey || !source.model) {
     throw new Error('主动消息 2.0 缺少可用的 API URL / Key / Model。');
@@ -551,8 +558,8 @@ const resolveApiConfig = (char: CharacterProfile, config: ActiveMsg2CharacterCon
 
 /**
  * 一个角色的 AI 任务此刻该用的凭据补丁（update-message 载荷）。
- * 生效凭据的算法与排程时同一份 resolveApiConfig：角色开了单独 API 就写单独 API 的值，
- * 没开才用全局聊天 API——凭据刷新绝不能把单独 API 的任务盖成全局凭据。
+ * 生效凭据的算法与排程时同一份 resolveApiConfig：单独 API → 角色自己的 chatApi → 全局主
+ * API——凭据刷新绝不能把单独 API / 角色专属 API 的任务盖成全局凭据。
  * 凭据配不齐（比如单独 API 缺字段）沿用 resolveApiConfig 的抛错，调用方按角色记失败。
  */
 const resolveTaskCredentialUpdates = (
@@ -3387,7 +3394,8 @@ export const ActiveMsgClient = {
    * 范围：开着 2.0（enabled:true）且有 pending AI 任务（mode !== 'fixed'）的
    * 角色。fixed 不走 LLM 用不到凭据；关掉 2.0 的角色残留任务是「待取消」而不是
    * 「待续命」，不给它们续新凭据。生效凭据按 resolveTaskCredentialUpdates 算——
-   * 开了单独 API 的角色写的是单独 API 的值，不会被全局配置覆盖。
+   * 开了单独 API 的角色写的是单独 API 的值，设了角色专属 chatApi 的写那份，
+   * 两个都没设的角色才会真的被这次全局配置变更覆盖到。
    */
   async refreshApiCredentialsForPendingTasks(apiConfig: APIConfig): Promise<{
     status: 'no-tasks' | 'ok' | 'partial';

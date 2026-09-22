@@ -1450,6 +1450,49 @@ describe('ActiveMsgClient.refreshApiCredentialsForPendingTasks（③ 凭据变�
     });
   });
 
+  it('角色设了专属 chatApi、没开单独 API → 用角色自己的 chatApi，不是传入的全局 API', async () => {
+    vi.spyOn(DB, 'getAllCharacters').mockResolvedValue([
+      {
+        id: 'char-d',
+        chatApi: { baseUrl: 'https://char-d.example.com', apiKey: 'char-d-key', model: 'char-d-model' },
+        activeMsg2Config: { enabled: true, tasks: [remoteTask('d1')] },
+      },
+    ] as any);
+
+    const result = await ActiveMsgClient.refreshApiCredentialsForPendingTasks(API);
+
+    expect(result).toEqual({ status: 'ok', updated: 1, failed: 0 });
+    expect(reiClient.updateMessage).toHaveBeenCalledWith('d1', {
+      apiUrl: 'https://char-d.example.com/chat/completions',
+      apiKey: 'char-d-key',
+      primaryModel: 'char-d-model',
+    });
+  });
+
+  it('角色同时设了专属 chatApi 和单独 API（useSecondaryApi）→ 单独 API 优先级更高', async () => {
+    vi.spyOn(DB, 'getAllCharacters').mockResolvedValue([
+      {
+        id: 'char-e',
+        chatApi: { baseUrl: 'https://char-e.example.com', apiKey: 'char-e-key', model: 'char-e-model' },
+        activeMsg2Config: {
+          enabled: true,
+          useSecondaryApi: true,
+          secondaryApi: { baseUrl: 'https://sec.example.com', apiKey: 'sec-key', model: 'sec-model' },
+          tasks: [remoteTask('e1')],
+        },
+      },
+    ] as any);
+
+    const result = await ActiveMsgClient.refreshApiCredentialsForPendingTasks(API);
+
+    expect(result).toEqual({ status: 'ok', updated: 1, failed: 0 });
+    expect(reiClient.updateMessage).toHaveBeenCalledWith('e1', {
+      apiUrl: 'https://sec.example.com/chat/completions',
+      apiKey: 'sec-key',
+      primaryModel: 'sec-model',
+    });
+  });
+
   it('没有 pending AI 任务（只剩 fixed / 全关掉）→ no-tasks，一个请求都不发', async () => {
     vi.spyOn(DB, 'getAllCharacters').mockResolvedValue([
       { id: 'char-a', activeMsg2Config: { enabled: true, tasks: [remoteTask('a2', { mode: 'fixed' })] } },
@@ -1503,6 +1546,38 @@ describe('ActiveMsgClient.refreshCharPendingAiTaskCredentials（③ 面板保存
       apiUrl: 'https://sec.example.com/chat/completions',
       apiKey: 'sec-key',
       primaryModel: 'sec-model',
+    });
+  });
+
+  it('没开单独 API、角色设了专属 chatApi → 用角色的 chatApi，不是传入的 apiConfig', async () => {
+    const result = await ActiveMsgClient.refreshCharPendingAiTaskCredentials({
+      char: { id: 'char-b', chatApi: { baseUrl: 'https://char-b.example.com', apiKey: 'char-b-key', model: 'char-b-model' } } as any,
+      config: { enabled: true } as any,
+      apiConfig: { baseUrl: 'https://api.example.com', apiKey: 'k', model: 'm' } as any,
+      tasks: [remoteTask('t3')] as any,
+    });
+
+    expect(result).toEqual({ status: 'ok', updated: 1, failed: 0 });
+    expect(reiClient.updateMessage).toHaveBeenCalledWith('t3', {
+      apiUrl: 'https://char-b.example.com/chat/completions',
+      apiKey: 'char-b-key',
+      primaryModel: 'char-b-model',
+    });
+  });
+
+  it('没开单独 API、角色也没设专属 chatApi → 退回传入的 apiConfig（全局主 API）', async () => {
+    const result = await ActiveMsgClient.refreshCharPendingAiTaskCredentials({
+      char: { id: 'char-c' } as any,
+      config: { enabled: true } as any,
+      apiConfig: { baseUrl: 'https://api.example.com', apiKey: 'k', model: 'm' } as any,
+      tasks: [remoteTask('t4')] as any,
+    });
+
+    expect(result).toEqual({ status: 'ok', updated: 1, failed: 0 });
+    expect(reiClient.updateMessage).toHaveBeenCalledWith('t4', {
+      apiUrl: 'https://api.example.com/chat/completions',
+      apiKey: 'k',
+      primaryModel: 'm',
     });
   });
 

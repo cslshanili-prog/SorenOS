@@ -4461,6 +4461,8 @@ const Chat: React.FC = () => {
                     userProfile={chatUserProfile}
                     groups={groups}
                     realtimeConfig={realtimeConfig}
+                    apiPresets={apiPresets}
+                    onAddApiPreset={addApiPreset}
                     // updater 形态：merge 在 setCharacters 的函数式 updater 里发生，
                     // 拿到的 prev 是最新排队后的状态，不会被面板的渲染时快照盖掉
                     // （角色在聊天里用工具排的任务就是这么丢的）。
