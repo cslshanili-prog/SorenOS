@@ -3738,6 +3738,10 @@ export interface GalleryImage {
     timestamp: number;
     /** 原图来自聊天时指向消息主键；相册与收藏只关联，不再复制第三份图片。 */
     sourceMessageId?: number;
+    /** 这张图是谁发的；缺省＝'user'（老数据全是用户发的照片，相册最初只收这类）。
+     * 'char' 是角色自己生成发出的（SEND_PHOTO），没有"用户发的照片"这个前提，
+     * 相册详情页的"让角色点评这张照片"功能只对 'user' 的图有意义，char 的图要跳过。 */
+    sender?: 'user' | 'char';
     review?: string;
     reviewTimestamp?: number;
     savedDate?: string; // YYYY-MM-DD format

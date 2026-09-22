@@ -1,5 +1,6 @@
 
 import React, { useRef, useState } from 'react';
+import { ArrowsClockwise, DownloadSimple, X } from '@phosphor-icons/react';
 import Modal from '../os/Modal';
 import TokenImg from '../os/TokenImg';
 import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, ApiPreset, APIConfig } from '../../types';
@@ -91,6 +92,9 @@ interface ChatModalsProps {
     onCopyMessage: () => void;
     onToggleMessageFavorite?: () => void;
     messageFavorited?: boolean;
+    onDownloadImage?: (msg: Message) => void;
+    onRegenerateImage?: (msg: Message) => void;
+    regeneratingImageId?: number | null;
     onDeleteEmoji: () => void;
     onDeleteCategory: () => void;
     onRenameCategory: () => void;
@@ -269,7 +273,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     onTransfer, onImportEmoji, onSaveSettings,
     onOpenHistoryCleanup,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
-    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
+    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
     translationEnabled, onToggleTranslation, translationExpanded, onToggleTranslationExpanded, translateSourceLang, translateTargetLang, onSetTranslateSourceLang, onSetTranslateLang,
     xhsEnabled, onToggleXhs,
@@ -1028,7 +1032,46 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     </button>
                 </div>
             </Modal>
-            
+
+            {/* 图片全屏放大预览（点图片本身打开，跟长按的"消息操作"菜单分开） */}
+            {modalType === 'image-zoom' && selectedMessage?.type === 'image' && selectedMessage.content && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85" onClick={() => setModalType('none')}>
+                    <button
+                        type="button"
+                        onClick={() => setModalType('none')}
+                        aria-label="关闭"
+                        className="absolute z-10 w-10 h-10 grid place-items-center rounded-full bg-white/10 text-white"
+                        style={{ top: 'max(16px, env(safe-area-inset-top))', right: 16 }}
+                    >
+                        <X size={22} />
+                    </button>
+                    <div className="absolute z-10 flex items-center gap-2" style={{ top: 'max(16px, env(safe-area-inset-top))', left: 16 }}>
+                        {onRegenerateImage && selectedMessage.role === 'assistant' && typeof selectedMessage.metadata?.imagePrompt === 'string' && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); onRegenerateImage(selectedMessage); }}
+                                disabled={regeneratingImageId === selectedMessage.id}
+                                aria-label="重新生成"
+                                className="w-10 h-10 grid place-items-center rounded-full bg-white/10 text-white disabled:opacity-50"
+                            >
+                                <ArrowsClockwise size={18} weight="bold" className={regeneratingImageId === selectedMessage.id ? 'animate-spin' : ''} />
+                            </button>
+                        )}
+                        {onDownloadImage && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); onDownloadImage(selectedMessage); }}
+                                aria-label="下载"
+                                className="w-10 h-10 grid place-items-center rounded-full bg-white/10 text-white"
+                            >
+                                <DownloadSimple size={18} weight="bold" />
+                            </button>
+                        )}
+                    </div>
+                    <TokenImg value={selectedMessage.content} alt="" className="max-w-full max-h-full object-contain" onClick={(event) => event.stopPropagation()} />
+                </div>
+            )}
+
              <Modal
                 isOpen={modalType === 'delete-emoji'} title="删除表情包" onClose={() => setModalType('none')}
                 footer={<><button onClick={() => setModalType('none')} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={onDeleteEmoji} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl">删除</button></>}

@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { GalleryImage, Message } from '../types';
 import { DB } from './db';
+import { putImageBlob, dataUrlToBlob } from './blobRef';
 import {
     CONTENT_FAVORITES_INDEX_ASSET_ID,
     contentFavoriteIdForMessage,
     favoriteImageAssetId,
     listContentFavorites,
+    makeImageContentFavoriteId,
     removeContentFavoriteById,
     resolveContentFavorite,
     saveGalleryImageContentFavorite,
     saveMessageContentFavorite,
 } from './contentFavorites';
+
+const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 const CHAR_ID = 'content-favorite-test-char';
 
@@ -110,5 +114,22 @@ describe('content favorites reference index', () => {
 
         await removeContentFavoriteById(retained.id);
         expect(await DB.getAssetRaw(retainedAssetId)).toBeNull();
+    });
+
+    it('收藏的图片存的是 blobref 令牌时，resolveContentFavorite 给回真的能渲染的 data URL', async () => {
+        // 令牌本身不是能直接喂给 <img src> 的东西——之前 resolveContentFavorite 原样把令牌
+        // 当 imageUrl 返回，收藏夹里的图就是一张挂掉的图（alt 文字顶替显示）。
+        const token = await putImageBlob(dataUrlToBlob(TINY_PNG));
+        const sourceMessageId = await DB.saveMessage({
+            charId: CHAR_ID, role: 'assistant', type: 'image', content: token,
+        });
+        const sourceMessage = message({ id: sourceMessageId, type: 'image', content: token });
+        await saveMessageContentFavorite(sourceMessage, 'Sully');
+
+        const favorite = (await listContentFavorites())[0];
+        expect(favorite.id).toBe(makeImageContentFavoriteId(token));
+
+        const resolved = await resolveContentFavorite(favorite);
+        expect('imageUrl' in resolved ? resolved.imageUrl : null).toBe(TINY_PNG);
     });
 });

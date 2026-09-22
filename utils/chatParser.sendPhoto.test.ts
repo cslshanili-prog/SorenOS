@@ -74,6 +74,29 @@ describe('[[ACTION:SEND_PHOTO]]', () => {
         expect(msgs.some(m => m.type === 'image')).toBe(false);
     });
 
+    it('配置齐全 → 图片同时存进这个角色的相册（sender=char，指向刚落的消息）', async () => {
+        const charId = `c-photo-gallery-${Date.now()}`;
+        vi.spyOn(imageGeneration, 'generateImage').mockResolvedValue({
+            dataUrl: 'data:image/png;base64,AAAA',
+        });
+
+        await ChatParser.parseAndExecuteActions(
+            '给你看张照片\n[[ACTION:SEND_PHOTO|窗边的猫]]',
+            charId, '阿一', noop, undefined, undefined, undefined, undefined, undefined,
+            TEST_IMAGE_GEN_CONFIG,
+        );
+
+        const msgs = await DB.getRecentMessagesByCharId(charId, 50);
+        const imgMsg = msgs.find(m => m.type === 'image');
+        expect(imgMsg).toBeDefined();
+
+        const galleryImages = await DB.getGalleryImages(charId);
+        expect(galleryImages).toHaveLength(1);
+        expect(galleryImages[0]).toMatchObject({
+            charId, sender: 'char', sourceMessageId: imgMsg!.id, url: imgMsg!.content,
+        });
+    });
+
     it('一轮里两个标签 → 顺序生成两张，都落库', async () => {
         const charId = `c-photo-multi-${Date.now()}`;
         const gen = vi.spyOn(imageGeneration, 'generateImage').mockResolvedValue({

@@ -1,5 +1,6 @@
 import type { GalleryImage, Message } from '../types';
 import { DB } from './db';
+import { resolveRefToDataUrl } from './blobRef';
 
 export const CONTENT_FAVORITES_INDEX_ASSET_ID = 'content_favorites_index_v1';
 export const CONTENT_FAVORITES_CHANGED_EVENT = 'sully:content-favorites-changed';
@@ -435,9 +436,13 @@ export const resolveContentFavorite = async (favorite: ContentFavorite): Promise
         Number(b.source === 'gallery') - Number(a.source === 'gallery')
     ));
     for (const reference of references) {
-        const imageUrl = await resolveImageReference(reference);
-        if (imageUrl && makeImageContentFavoriteId(imageUrl) === favorite.id) {
-            return { favorite, imageUrl, reference };
+        const rawUrl = await resolveImageReference(reference);
+        if (rawUrl && makeImageContentFavoriteId(rawUrl) === favorite.id) {
+            // resolveImageReference 给回的是 blobref:<id> 令牌（消息/相册/收藏保留资产存的
+            // 都是令牌，不是能直接喂给 <img src> 的东西）——指纹必须按令牌算（收藏时就是这么
+            // 算的 id），但真正拿去渲染的这份要转成 data URL，不然图会直接挂空。
+            const imageUrl = await resolveRefToDataUrl(rawUrl);
+            return { favorite, imageUrl: imageUrl || null, reference };
         }
     }
     return { favorite, imageUrl: null, reference: null };

@@ -24,7 +24,8 @@ import { XhsMcpClient, extractNotesFromMcpData, normalizeXhsLiteDetail } from '.
 import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsShareTitle, isXhsUrl, extractXhsNoteLink, expandShortUrl, type ExtractedWebpage } from '../utils/webpageExtractor';
 import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
-import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl } from '../utils/blobRef';
+import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl, getBlobForRef, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../utils/imageGeneration';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
@@ -213,7 +214,7 @@ const Chat: React.FC = () => {
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
 
-    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result'>('none');
+    const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'image-zoom'>('none');
     // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
     const [decorationTab, setDecorationTab] = useState<DecorationTab>('layout');
     // 切换角色时收掉装扮气泡：定制是 per-character 的，避免误改到下一个角色
@@ -2750,6 +2751,58 @@ const Chat: React.FC = () => {
         }
     };
 
+    // 点图片本身（非长按菜单）→ 全屏放大预览，支持下载/重新生成（见 ChatModals 的 'image-zoom'）。
+    const handleImageClick = (msg: Message) => {
+        setSelectedMessage(msg);
+        setModalType('image-zoom');
+    };
+
+    const handleDownloadImage = async (msg: Message) => {
+        if (!msg.content) { addToast('图片已丢失，无法保存', 'error'); return; }
+        try {
+            const blob = (await getBlobForRef(msg.content)) || (await fetchBlobForShare(msg.content).catch(() => null));
+            if (!blob) { addToast('图片已丢失，无法保存', 'error'); return; }
+            const result = await shareOrDownloadBlob({ blob, fileName: `chat-image-${msg.id}.png`, shareTitle: `${char?.name || '角色'}的图片` });
+            if (result !== 'cancelled') addToast(result === 'shared' ? '已打开保存面板' : '已保存到本地', 'success');
+        } catch (error) {
+            console.warn('[Chat] 图片保存失败', error);
+            addToast('保存失败，稍后再试', 'error');
+        }
+    };
+
+    const [regeneratingImageId, setRegeneratingImageId] = useState<number | null>(null);
+
+    // 只对角色自己生成的图（SEND_PHOTO 落的 metadata.imagePrompt）有意义——用户自己发的照片没有
+    // 画面描述可重跑。复用当时存下的 imagePrompt，保证新图还是同一个场景描述，不会图文不符。
+    const handleRegenerateImage = async (msg: Message) => {
+        if (!char) return;
+        const description = typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '';
+        if (!description) { addToast('这张图片没有可重新生成的描述', 'error'); return; }
+        const imageGenConfig = apiConfig.imageGenConfig;
+        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
+            addToast('先在设置里开启并配置好生图 API', 'info');
+            return;
+        }
+        setRegeneratingImageId(msg.id);
+        try {
+            const prompt = buildCharacterImagePrompt(char, description);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { description });
+            const { dataUrl } = await generateImage(imageGenConfig, prompt, referenceBlob || undefined);
+            const nextContent = await migrateDataUrlToRef(dataUrl);
+            const oldContent = msg.content;
+            await DB.updateMessage(msg.id, nextContent);
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: nextContent } : m));
+            setSelectedMessage(prev => prev && prev.id === msg.id ? { ...prev, content: nextContent } : prev);
+            void deleteBlobRefIfUnreferenced(oldContent);
+            addToast('图片已重新生成', 'success');
+        } catch (error) {
+            console.warn('[Chat] 图片重新生成失败', error);
+            addToast('生成失败，稍后再试', 'error');
+        } finally {
+            setRegeneratingImageId(null);
+        }
+    };
+
     const handleOpenFavoriteMessage = (charId: string, messageId: number) => {
         setFavoritesOpen(false);
         if (activeCharIdRef.current === charId) {
@@ -3845,6 +3898,9 @@ const Chat: React.FC = () => {
                 onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onCopyMessage={handleCopyMessage}
                 messageFavorited={!!(selectedMessage && contentFavoriteIds.has(contentFavoriteIdForMessage(selectedMessage)))}
                 onToggleMessageFavorite={selectedMessage ? () => handleToggleContentFavorite(selectedMessage) : undefined}
+                onDownloadImage={handleDownloadImage}
+                onRegenerateImage={handleRegenerateImage}
+                regeneratingImageId={regeneratingImageId}
                 onDeleteEmoji={handleDeleteEmoji} onDeleteCategory={handleDeleteCategory} onRenameCategory={handleRenameCategory} onDownloadCategory={handleDownloadCategory}
                 allCharacters={characters} onSaveCategoryVisibility={handleSaveCategoryVisibility}
                 translationEnabled={translationEnabled}
@@ -4175,6 +4231,7 @@ const Chat: React.FC = () => {
                             userAvatar={chatUserProfile.avatar}
                             isLatestMessage={!nextMessage}
                             onMediaLoad={handleMessageMediaLoad}
+                            onImageClick={handleImageClick}
                             moduleAlign={mergedFineTune.chatModuleAlign || 'center'}
                             onLongPress={handleMessageLongPress}
                             onReply={handleQuickReply}

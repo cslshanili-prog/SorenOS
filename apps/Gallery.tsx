@@ -347,6 +347,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             {/* 相册图存的是 blobref 令牌（见 utils/blobRef.ts），TokenImg 会解析成 objectURL；
                                 旧的 base64 / http 图原样透传，两种都显示得出来 */}
                             <TokenImg value={img.url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
+                            {img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 发的</div>}
                             {img.review && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white shadow-sm"></div>}
                             {img.savedDate && <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3"><span className="text-[8px] text-white/80 font-mono">{img.savedDate}</span></div>}
                         </div>
@@ -389,7 +390,9 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                 />
             </div>
 
-            {/* Review & Context Section */}
+            {/* Review & Context Section —— "让 TA 点评照片" 建立在"用户发了张照片给角色看"这个前提上，
+                角色自己生成发出的图（sender === 'char'）没有这个前提，跳过整个区块 */}
+            {selectedImage.sender !== 'char' && (
             <div className="shrink-0 w-full bg-[#161616] border-t border-white/10 z-40 pb-safe">
                 {selectedImage.review ? (
                     <div className="p-5 animate-slide-up">
@@ -451,6 +454,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     </div>
                 )}
             </div>
+            )}
         </div>
     );
 
