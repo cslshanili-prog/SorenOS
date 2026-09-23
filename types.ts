@@ -4125,7 +4125,7 @@ export interface Anniversary {
     charIds?: string[];
     aiThought?: string;
     lastThoughtGeneratedAt?: number;
-    /** 让 TA 记住这一天：开启后角色每年这天会在聊天中自然提到（提示词注入部分尚未接入，见改动说明） */
+    /** 让 TA 记住这一天：开启后角色每年这天会在聊天中自然提到（注入见 utils/anniversary.ts 的 buildAnniversaryInjection） */
     charRemembers?: boolean;
     /** 每年重复提醒：默认 false（仅这一次，过后不再出现在"即将到来"，但记录仍保留）；true = 每年都算即将到来 */
     repeatAnnually?: boolean;

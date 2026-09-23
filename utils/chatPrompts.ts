@@ -21,6 +21,7 @@ import { getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from './tt
 import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { buildLifeRecordInjection } from './lifeRecords';
+import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById } from './charNameRegistry';
@@ -517,7 +518,17 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText] =
+        // 8. 時光契約「讓 TA 記住這一天」：按角色當地日期挑出近幾天的紀念日。
+        const anniversaryPromise: Promise<string> = (async () => {
+            try {
+                return buildAnniversaryInjection(await DB.getAllAnniversaries(), char.id, today, { forFirePack });
+            } catch (e) {
+                console.error('Failed to inject anniversary context:', e);
+                return '';
+            }
+        })();
+
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -526,6 +537,7 @@ ${groupLogStr}\n`;
                 timed('feishuDiary', feishuDiaryPromise),
                 timed('notionNotes', notionNotesPromise),
                 timed('lifeRecord', lifeRecordPromise),
+                timed('anniversary', anniversaryPromise),
             ]);
 
         // ── 拼接：易变的进 volatileState，稳定的进 baseSystemPrompt ──
@@ -601,7 +613,9 @@ ${groupLogStr}\n`;
         }
 
         // 群聊背景带时间戳、随群消息实时滚动 → 易变；日记标题/生活记录变化很慢 → 稳定。
+        // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
+        volatileState += anniversaryText;
         baseSystemPrompt += notionDiaryText;
         baseSystemPrompt += feishuDiaryText;
         baseSystemPrompt += notionNotesText;

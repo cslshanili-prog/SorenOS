@@ -1,11 +1,8 @@
 name: Sync with Upstream
 
 on:
-  schedule:
-    # 每周一 UTC 8:00 自动检查原作者的更新
-    - cron: '0 8 * * 1'
-  
-  workflow_dispatch: # 允许手动触发
+  # 以 Soren 為主後不再定期跟上游（見 plans/soren-roadmap.md），只留手動觸發
+  workflow_dispatch:
 
 jobs:
   sync-upstream:

@@ -10,6 +10,7 @@
 
 | 主题 | 文档 | 什么时候看 |
 |------|------|-----------|
+| **Soren 路線圖** | [`plans/soren-roadmap.md`](./plans/soren-roadmap.md) | **開始任何新功能前先看**：以 Soren 為主不再跟上游、全部轉繁體、NPC 走獨立表（群聊＋輕量記憶）、單一貼文池、生圖補生成、聊天設置全螢幕等已定案的設計決定與開發順序 |
 | **世界书分组与角色绑定** | [`docs/worldbook-management.md`](./docs/worldbook-management.md) | 改世界书触发方式、整组编辑／删除、神经链接挂载前必读；绑定按 ID，库与角色缓存同事务更新 |
 | **协同工作私聊衔接与转发** | [`docs/collaboration-chat-bridge.md`](./docs/collaboration-chat-bridge.md) | 改协同读取 ChatApp 范围或转发消息前必读；每轮读 DB，空范围不回退，多选只发当前窗口 |
 | **开发调试面板 / 开关** | [`docs/dev-debug.md`](./docs/dev-debug.md) | 加 dev-only 开关、加调试日志、排查"角色怎么又不说话了"。含逐步指南 |
