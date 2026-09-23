@@ -717,6 +717,24 @@ export const DB = {
     });
   },
 
+  /** 這個角色最早一則私聊訊息的時間；沒有訊息回 null。聊天設定頁「相識 N 天」沒自訂起點時用它。 */
+  getFirstMessageTimestamp: async (charId: string): Promise<number | null> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MESSAGES, 'readonly');
+      const index = transaction.objectStore(STORE_MESSAGES).index('charId');
+      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'next');
+      cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (!cursor) { resolve(null); return; }
+          const m = cursor.value as Message;
+          if (!m.groupId && typeof m.timestamp === 'number') { resolve(m.timestamp); return; }
+          cursor.continue();
+      };
+      cursorReq.onerror = () => reject(cursorReq.error);
+    });
+  },
+
   // DateApp 等按來源展示的輕量歷史讀取：用 charId 索引倒序掃，只收集目標 source 的最近 N 條。
   // 這樣不會為了渲染見面閱讀模式，把該角色全量聊天（含圖片/base64消息）一次性 getAll 進內存。
   getRecentMessagesByCharIdAndSource: async (charId: string, source: string, limit: number): Promise<Message[]> => {

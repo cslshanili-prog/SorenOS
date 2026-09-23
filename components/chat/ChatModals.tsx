@@ -12,6 +12,7 @@ import CustomMeterPanel from '../schedule/CustomMeterPanel';
 import type { CharacterCustomMeter } from '../../types';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
+import ChatSettingsPage, { type ChatRelationshipPatch } from './ChatSettingsPage';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
 import { isTranslationLangPreset, normalizeTranslationLangLabel, TRANSLATION_LANG_MAX_LENGTH, TRANSLATION_LANG_PRESETS } from '../../utils/translationLang';
 import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatContextRange';
@@ -74,7 +75,9 @@ interface ChatModalsProps {
     // Handlers
     onTransfer: () => void;
     onImportEmoji: () => void;
-    onSaveSettings: () => void;
+    onSaveSettings: (relationship?: ChatRelationshipPatch) => void;
+    /** 這個私聊裡生效的「你」（名字、頭像），聊天設定頁頂部用。 */
+    chatUser: { name: string; avatar: string };
     onOpenHistoryCleanup?: () => void;
     onArchive: () => void;
     onCreatePrompt: () => void;
@@ -270,7 +273,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     selectedMessage, selectedEmoji, selectedCategory, activeCharacter, messages,
     allHistoryMessages = [],
     contextRangeSnapshot,
-    onTransfer, onImportEmoji, onSaveSettings,
+    onTransfer, onImportEmoji, onSaveSettings, chatUser,
     onOpenHistoryCleanup,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
     onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
@@ -399,11 +402,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 </div>
             </Modal>
 
-            <Modal 
-                isOpen={modalType === 'chat-settings'} title="聊天設置" onClose={() => setModalType('none')}
-                footer={<button onClick={onSaveSettings} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存設置</button>}
+            <ChatSettingsPage
+                isOpen={modalType === 'chat-settings'}
+                char={activeCharacter}
+                chatUser={chatUser}
+                onClose={() => setModalType('none')}
+                onSave={onSaveSettings}
             >
-                <div className="space-y-3">
                     {onSaveChatApi && (
                         <ChatSettingsSection title="🧠 AI 模型（可單獨為這個角色配置）" summary="默認用全局API，也可以單獨換一個模型" defaultOpen>
                             <ChatApiSettingsPanel
@@ -714,8 +719,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             <p className="mt-2 text-center text-[10px] text-slate-400">按頁選擇記錄，永久刪除前需要兩次確認。</p>
                         </div>}
                     </ChatSettingsSection>
-                </div>
-            </Modal>
+            </ChatSettingsPage>
 
             <Modal
                 isOpen={modalType === 'memory-vectorize-confirm'}

@@ -52,6 +52,7 @@ import { getLocalDateKey } from './localDate';
 import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
+import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
 import { isBlobRef } from './blobRef';
 import { consumeSARChatSurfaceChunk, type SARModuleSurfaceMeta } from './vrWorld/sarModuleRuntime';
 import { stripLeakedSourceTags } from './sanitize';
@@ -783,11 +784,36 @@ export async function applyAssistantPostProcessing(
         return result.cleanedText;
     };
 
+    /**
+     * 角色改「角色認為的關係」[[ACTION:RELATIONSHIP|新關係]]：標籤一律剝掉；只有聊天設定裡
+     * 開了「允許角色自主更改關係」、而且真的換了一個說法才落地——寫一條系統提示，並發事件讓
+     * OSContext 把新關係寫回角色（這裡拿不到 updateCharacter）。跟日程一樣要在任何渲染之前消費。
+     */
+    let lastAppliedRelationship = char.charViewRelationship?.trim() || '';
+    const consumeRelationshipChange = async (content: string): Promise<string> => {
+        const { cleanedText, relationship } = extractRelationshipChange(content);
+        if (relationship && char.allowCharChangeRelationship && relationship !== lastAppliedRelationship) {
+            lastAppliedRelationship = relationship;
+            await persistMessage({
+                charId: char.id, role: 'system', type: 'text',
+                content: `[系統: ${char.name} 把你們的關係改成了「${relationship}」]`,
+                ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
+            });
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent<CharRelationshipChangeDetail>(CHAR_RELATIONSHIP_CHANGE_EVENT, {
+                    detail: { charId: char.id, relationship },
+                }));
+            }
+        }
+        return cleanedText;
+    };
+
     // ─── Step 1: 初次粗洗 ───
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
     aiContent = normalizeAiContent(aiContent);
     // 先於 lead-in / 二輪渲染消費：否則控制標籤會作為普通氣泡短暫閃給用戶看。
     aiContent = await consumeScheduleChanges(aiContent, utteranceAt);
+    aiContent = await consumeRelationshipChange(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2277,6 +2303,7 @@ export async function applyAssistantPostProcessing(
     // 這一段是剛剛生成的，所以按「現在」判時段，不跟著首輪那句的 spokenAt 走：兩者之間
     // 隔著 RECALL / SEARCH / XHS 幾趟往返，隔夜補收的 spokenAt 會把新寫的改動整批作廢。
     aiContent = await consumeScheduleChanges(aiContent, new Date());
+    aiContent = await consumeRelationshipChange(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡

@@ -70,7 +70,7 @@ const ChatHub: React.FC = () => {
                     const [msg] = await DB.getRecentMessagesByCharId(c.id, 1, true);
                     if (!msg) return null;
                     return {
-                        kind: 'private', id: c.id, name: c.name, avatar: c.avatar,
+                        kind: 'private', id: c.id, name: c.chatNickname?.trim() || c.name, avatar: c.avatar,
                         preview: messageLogText(msg), timestamp: msg.timestamp,
                         unread: unreadMessages[c.id] || 0,
                     };
