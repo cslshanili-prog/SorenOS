@@ -223,7 +223,7 @@ const ScheduleApp: React.FC = () => {
 
     const generateAnniversaryThought = async (anni: Anniversary) => {
         // 多个关联对象时只让第一个来发表感想——避免变成"每个纪念日都要 N 次 API 调用"，
-        // 跟「让 TA 记住这一天」的实际聊天注入（还没接）是两回事，不冲突。
+        // 跟「让 TA 记住这一天」的聊天注入（utils/anniversary.ts 的 buildAnniversaryInjection）是两回事，不冲突。
         const char = characters.find(c => c.id === anniversaryCharIds(anni)[0]);
         if (!char || !apiConfig.apiKey) return;
 
@@ -651,7 +651,7 @@ const ScheduleApp: React.FC = () => {
                     <div className="rounded-2xl bg-slate-50 p-3.5 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                             <div className="text-xs font-bold text-slate-700">让 TA 记住这一天</div>
-                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">每年这天 TA 会在聊天中自然提到（暂存设定，实际注入聊天还在开发中）</p>
+                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">每年这天 TA 会在聊天中自然提到，前三天起就会放在心上</p>
                         </div>
                         <button
                             onClick={() => setNewAnniRemembers(v => !v)}
