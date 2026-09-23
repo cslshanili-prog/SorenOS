@@ -1617,7 +1617,9 @@ const Chat: React.FC = () => {
             finish(replyable);
             // 延遲自動回覆：排好這個角色什麼時候回（已經排著的不動），到點由下面的監聽或 OSContext 背景生成接手
             // 開了主動消息 2.0 的角色再交一份給雲端，App 關著也回得來（見 utils/delayedReplyCloud.ts）
-            if (replyable && char?.delayedReply?.enabled) {
+            // 戳一下不算進全域自動回覆，但延遲回覆要算：被戳了、晚點看到再回一句，像真人
+            const pokeForDelayed = sent === true && customType === 'interaction';
+            if ((replyable || pokeForDelayed) && char?.delayedReply?.enabled) {
                 void scheduleDelayedReplyFor(char)
                     .then(entry => entry && handoffDelayedReplyToCloud({
                         char, entry, userProfile: chatUserProfile, groups, realtimeConfig, apiConfig,

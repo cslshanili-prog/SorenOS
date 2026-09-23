@@ -95,6 +95,7 @@
 
 - 設定存在角色的 `delayedReply`（`DelayedReplySettings`：開關、回覆時間最短／最長分鐘），介面是 `components/chat/DelayedReplySettings.tsx`。開了的角色不套用「輸入與發送」的全域 2 秒自動回覆。
 - 等多久（`utils/delayedReply.ts` 的 `computeReplyDelayMs`，有單測）：範圍內落在哪一段看日程——睡覺在最後兩成、在忙在後半、空閒在前六成、正聊得起勁（上一則角色訊息在 10 分鐘內）又空閒在前兩成五。
+- 會觸發延遲回覆的：文字、圖片、貼圖，以及戳一下（全域 2 秒自動回覆不回戳一下，延遲回覆會）。轉帳、購物卡片這類不觸發。
 - 待回清單存 localStorage（每個角色一筆，後面連發的訊息不會把時間往後推）。用戶送出訊息時由 `utils/delayedReplyRuntime.ts` 排好；`triggerAI` 一開始就取消排著的那筆（手動 ⚡、重新生成都算回過了）。
 - 到點：OSContext 每 10 秒、切回前台、清單變動時檢查。用戶正看著這個角色的聊天頁 → 發 `DELAYED_REPLY_DUE_EVENT` 讓聊天頁走完整管線；否則走主動消息 1.0 的背景路徑「回覆模式」（提示改成「對方 N 分鐘前傳了訊息，你現在才看到」、用角色的對話模型、不看主動消息開關）。App 關掉期間過了點的，重新打開時補回。
 - 背景回覆模式也處理已讀不回：強制的只落自動回覆；由角色決定時認 `NO_REPLY`。順帶這條背景路徑也認 `RELATIONSHIP` 標籤（它不經過 `applyAssistantPostProcessing`）。
