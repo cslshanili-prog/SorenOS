@@ -46,7 +46,8 @@ import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormal
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { extractNoReplyDirective } from '../utils/readNoReply';
 import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
-import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT, takeDueDelayedReplies } from '../utils/delayedReply';
+import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
+import { resolveOverdueCloudDelayedReplies, takeDueDelayedRepliesForLocal } from '../utils/delayedReplyCloud';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
 import { collectSARLocalBackup, restoreSARLocalBackup } from '../utils/vrWorld/sarBackup';
@@ -2705,15 +2706,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 待回清單在 localStorage（utils/delayedReply.ts），每 10 秒、切回前台、清單有變時各看一次。
       // 到點時用戶正看著這個角色的聊天頁 → 發事件讓聊天頁自己回（完整管線）；
       // 否則用上面這條背景路徑的回覆模式。App 被關掉期間過了點的，重新打開時第一次檢查就補回。
+      // 交給了主動消息 2.0 雲端的那些（utils/delayedReplyCloud.ts）：頁面看得見時本地照樣到點先回、
+      // 取消雲端那條；頁面在背景就留給雲端推播。雲端過點好一陣子還沒回，問過雲端再決定要不要本地補。
+      const replyLocally = (charId: string) => {
+          const target = charactersRef.current.find(c => c.id === charId);
+          if (!target?.delayedReply?.enabled) return;
+          if (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) {
+              window.dispatchEvent(new CustomEvent(DELAYED_REPLY_DUE_EVENT, { detail: { charId } }));
+          } else {
+              void runProactive(charId, 'reply');
+          }
+      };
       const runDueDelayedReplies = () => {
-          for (const charId of takeDueDelayedReplies()) {
-              const target = charactersRef.current.find(c => c.id === charId);
-              if (!target?.delayedReply?.enabled) continue;
-              if (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) {
-                  window.dispatchEvent(new CustomEvent(DELAYED_REPLY_DUE_EVENT, { detail: { charId } }));
-              } else {
-                  void runProactive(charId, 'reply');
-              }
+          const visible = document.visibilityState === 'visible';
+          takeDueDelayedRepliesForLocal(visible).forEach(replyLocally);
+          if (visible) {
+              void resolveOverdueCloudDelayedReplies(charactersRef.current)
+                  .then(ids => ids.forEach(replyLocally))
+                  .catch(e => console.warn('[延遲自動回覆] 檢查雲端回覆失敗', e));
           }
       };
       const delayedReplyTimer = window.setInterval(runDueDelayedReplies, 10_000);

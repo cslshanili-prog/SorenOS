@@ -2370,6 +2370,13 @@ export const ActiveMsgClient = {
       expirePolicy?: ActiveMsg2ExpirePolicy;
       /** 角色自己排的（工具橋傳 true）。帶上 metadata 標記，連發上限的到點兜底閘只攔它。 */
       selfScheduled?: boolean;
+      /**
+       * 任務行的 messageSubtype，不傳就是 'chat'。借這條路排、但不是主動消息的任務
+       * （延遲自動回覆）靠它在面板對帳時擋在清單外面。
+       */
+      subtype?: string;
+      /** 「本次任務」指令的整段替換，不傳就按 mode / promptHint 生成。 */
+      instruction?: string;
     };
     /** 編輯/續期時傳舊任務 uuid：先取消它再新建（不傳 = 純新建）。 */
     replaceTaskUuid?: string;
@@ -2415,7 +2422,7 @@ export const ActiveMsgClient = {
       // 本地 base64 頭像過不了 worker 的校驗，不合格乾脆不帶這個字段（見 toRemoteAvatarUrl）。
       ...(remoteAvatarUrl ? { avatarUrl: remoteAvatarUrl } : {}),
       messageType: task.mode,
-      messageSubtype: 'chat',
+      messageSubtype: task.subtype || 'chat',
       firstSendTime,
       recurrenceType: task.recurrenceType,
       // 角色的時間參照系（與 fire_pack 同一份）。daily / weekly 由 worker 按這個時區的
@@ -2451,7 +2458,7 @@ export const ActiveMsgClient = {
     } else {
       const activeApi = resolveApiConfig(char, config, apiConfig);
       // 「本次任務」指令隨任務 metadata 走，worker 到點拿它填 fire_pack 的指令槽。
-      payload.metadata.amsgTaskInstruction = buildTaskInstruction(task.mode, task.promptHint);
+      payload.metadata.amsgTaskInstruction = task.instruction?.trim() || buildTaskInstruction(task.mode, task.promptHint);
       // 服務端要求「completePrompt 或 messages」二選一，且 messages 必須非空、
       // content 必須非空字符串，所以這裡給一條佔位。到點真正發給 LLM 的 messages 由
       // worker 的 onBeforeFire 返回值覆蓋（庫用 { ...payload, messages } 調 LLM），

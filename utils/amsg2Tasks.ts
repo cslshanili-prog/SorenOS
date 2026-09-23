@@ -22,7 +22,7 @@ import {
 } from '../types';
 import { FIRE_GRACE_MS, recurrencePeriodMs } from './amsg2ExpireGuard';
 import { AMSG_INSTANT_CHAT_SUBTYPE, type AmsgTzRef, formatFireTimeShort } from './amsgFirePack';
-import { AMSG_BACKGROUND_JOB_SUBTYPE } from './amsgTaskKinds';
+import { AMSG_BACKGROUND_JOB_SUBTYPE, AMSG_DELAYED_REPLY_SUBTYPE } from './amsgTaskKinds';
 
 export const MAX_ACTIVE_TASKS_PER_CHAR = 5;
 
@@ -561,13 +561,15 @@ export const reconcileTasksWithRemote = (
     // 已經失敗的行也不補：它不會再響，補進來就是清單上一條永遠等不到的幽靈任務。
     // 即時對話的行同樣不補：那是用戶此刻正等著的一輪聊天，不是排程，進了清單會顯示成
     // 「待觸發的任務」，還可能被「取消全部」順手掐掉。後台任務（門牌整理這類不說話的
-    // 活兒）同理——它們跟聊天任務共用調度器，但不是用戶排的主動消息。
+    // 活兒）同理——它們跟聊天任務共用調度器，但不是用戶排的主動消息。交給雲端的延遲自動
+    // 回覆也一樣，它是在回用戶的話，不是排程。
     .filter((row) => (
       !known.has(row.uuid)
       && row.nextSendAt && row.recurrenceType && row.messageType
       && row.status !== 'failed'
       && row.messageSubtype !== AMSG_INSTANT_CHAT_SUBTYPE
       && row.messageSubtype !== AMSG_BACKGROUND_JOB_SUBTYPE
+      && row.messageSubtype !== AMSG_DELAYED_REPLY_SUBTYPE
     ))
     .map((row): ActiveMsg2TaskRecord => ({
       taskUuid: row.uuid,

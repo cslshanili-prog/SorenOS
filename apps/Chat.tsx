@@ -104,6 +104,7 @@ import {
 import { SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
 import { DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
 import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
+import { cancelDelayedReplyEverywhere, handoffDelayedReplyToCloud } from '../utils/delayedReplyCloud';
 import {
     CONTEXT_RANGE_POLICY_VERSION,
     computeContextRangeSnapshot,
@@ -1615,8 +1616,13 @@ const Chat: React.FC = () => {
             const replyable = sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType));
             finish(replyable);
             // 延遲自動回覆：排好這個角色什麼時候回（已經排著的不動），到點由下面的監聽或 OSContext 背景生成接手
+            // 開了主動消息 2.0 的角色再交一份給雲端，App 關著也回得來（見 utils/delayedReplyCloud.ts）
             if (replyable && char?.delayedReply?.enabled) {
-                void scheduleDelayedReplyFor(char).catch(e => console.warn('[延遲自動回覆] 排程失敗', e));
+                void scheduleDelayedReplyFor(char)
+                    .then(entry => entry && handoffDelayedReplyToCloud({
+                        char, entry, userProfile: chatUserProfile, groups, realtimeConfig, apiConfig,
+                    }))
+                    .catch(e => console.warn('[延遲自動回覆] 排程失敗', e));
             }
         } catch (error) {
             finish(false);
@@ -2451,6 +2457,8 @@ const Chat: React.FC = () => {
             htmlModeCustomPrompt: settingsHtmlModeCustomPrompt,
             ...(pagePatch || {}),
         } as any);
+        // 關掉延遲自動回覆：排著的那筆（連同交給雲端的）一起作廢，不然到點還是會回
+        if (pagePatch?.delayedReply && !pagePatch.delayedReply.enabled) cancelDelayedReplyEverywhere(char.id);
         setInputPreferences(settingsInputPreferences);
         saveChatInputPreferences(settingsInputPreferences);
         setModalType('none');
