@@ -1765,7 +1765,7 @@ const Chat: React.FC = () => {
         // 只统计「打开某个面板 / 开关某个能力」这几个固定入口，名单写死在这里；
         // 选表情、选分类之类的动作不上报。
         if ([
-            'transfer', 'archive', 'settings', 'chrome-css', 'chrome-sound', 'fine-tune',
+            'transfer', 'archive', 'settings', 'fine-tune',
             'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request', 'mall-open',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
@@ -1782,8 +1782,6 @@ const Chat: React.FC = () => {
             case 'poke': handleSendText('[戳一戳]', 'interaction'); break;
             case 'archive': setModalType('archive-settings'); break;
             case 'settings': setModalType('chat-settings'); break;
-            case 'chrome-css': setShowPanel('none'); setDecorationTab('layout'); setModalType('chrome-css'); break;
-            case 'chrome-sound': setShowPanel('none'); setDecorationTab('sound'); setModalType('chrome-css'); break;
             case 'fine-tune': setShowPanel('none'); setDecorationTab('layout'); setModalType('chrome-css'); break;
             case 'emoji-import': setModalType('emoji-import'); break;
             case 'send-emoji': if (payload) handleSendText(payload.url, 'emoji'); break;
