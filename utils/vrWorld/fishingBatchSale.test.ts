@@ -9,7 +9,7 @@ const init = () => ['one', 'two', 'keep'].reduce((s, id) => M.addCatchToState(s,
 beforeEach(() => localStorage.clear());
 it('settles many fish as ONE transaction with ONE Aiven reply and the sum of market prices', () => {
     const state = init(), original = JSON.stringify(state);
-    const next = M.sellFishBatchToAiven(state, actor, ['one', 'two'], at, '这两条一起卖。');
+    const next = M.sellFishBatchToAiven(state, actor, ['one', 'two'], at, '這兩條一起賣。');
     const total = M.catchValue(state, state.inventory[0]) + M.catchValue(state, state.inventory[1]);
     expect(next.accounts.char).toBe(state.accounts.char + total);
     expect(next.inventory.map(c => c.id)).toEqual(['keep']);
@@ -17,7 +17,7 @@ it('settles many fish as ONE transaction with ONE Aiven reply and the sum of mar
     expect(next.ledger).toHaveLength(state.ledger.length + 1);
     expect(next.ledger.at(-1)?.quotes?.filter(q => q.name === '艾文')).toHaveLength(1);
     expect(next.ledger.at(-1)?.aivenSale?.amount).toBe(total);
-    expect(next.ledger.at(-1)?.text).toContain('2 条鱼');
+    expect(next.ledger.at(-1)?.text).toContain('2 條魚');
     expect(next.buybackBudgets?.char.earned).toBe(total);
     expect(JSON.stringify(state)).toBe(original);
     expect(() => M.sellFishBatchToAiven(next, actor, ['one', 'two'], at)).toThrow();
@@ -50,9 +50,9 @@ it('checks combined quota and wallet capacity before removing any fish', () => {
     }
 });
 it('routes a structured board sell plan and refuses malformed batches', () => {
-    const plan = parseMarketPlan('<ACTION>sell</ACTION><CATCHES>["one","two"]</CATCHES><NOTE>打算一起卖。</NOTE>')!;
+    const plan = parseMarketPlan('<ACTION>sell</ACTION><CATCHES>["one","two"]</CATCHES><NOTE>打算一起賣。</NOTE>')!;
     expect(plan.catchIds).toEqual(['one', 'two']);
     expect(applyMarketPlan(init(), actor, plan).inventory.map(c => c.id)).toEqual(['keep']);
-    for (const ids of ['[]', '["one","one"]', '[1]', 'all']) expect(parseMarketPlan(`<ACTION>sell</ACTION><CATCHES>${ids}</CATCHES><NOTE>卖鱼</NOTE>`)).toBeNull();
+    for (const ids of ['[]', '["one","one"]', '[1]', 'all']) expect(parseMarketPlan(`<ACTION>sell</ACTION><CATCHES>${ids}</CATCHES><NOTE>賣魚</NOTE>`)).toBeNull();
     expect(buildMarketTurn(actor, init())).toContain('buybackRemaining');
 });

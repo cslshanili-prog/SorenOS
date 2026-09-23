@@ -12,27 +12,27 @@ const ChatInputSettings: React.FC<ChatInputSettingsProps> = ({ value, onChange, 
     const [openHelp, setOpenHelp] = useState<keyof ChatInputPreferences | null>(null);
     return (
         <div className="space-y-1">
-            <p className="mb-2 text-[10px] text-slate-400">以下输入习惯对当前设备的私聊和群聊生效</p>
+            <p className="mb-2 text-[10px] text-slate-400">以下輸入習慣對當前設備的私聊和群聊生效</p>
             {([
                 {
                     key: 'sendButtonGenerates',
-                    label: '发送按钮代替生成按钮',
-                    help: '开启后，不用够右上角的闪电了。输入框里有光标时，右下角发文字；点一下聊天空白处，右下角就变成闪电，让对方回复已发送的消息。只收起键盘可能还留着光标，点一下空白处就好。没发出的草稿会保留。',
+                    label: '發送按鈕代替生成按鈕',
+                    help: '開啟後，不用夠右上角的閃電了。輸入框裡有光標時，右下角發文字；點一下聊天空白處，右下角就變成閃電，讓對方回覆已發送的消息。只收起鍵盤可能還留著光標，點一下空白處就好。沒發出的草稿會保留。',
                 },
                 {
                     key: 'enterToSend',
-                    label: '回车发送文字',
-                    help: '勾选时，按回车发送文字，Shift + 回车换行；不勾选时，回车只换行，点发送按钮发出文字。输入法选字时按回车不会误发。',
+                    label: '回車發送文字',
+                    help: '勾選時，按回車發送文字，Shift + 回車換行；不勾選時，回車只換行，點發送按鈕發出文字。輸入法選字時按回車不會誤發。',
                 },
                 {
                     key: 'autoReply',
-                    label: '发完后自动生成回复',
-                    help: '发过文字、图片或表情后，等输入框没有草稿和光标、加号等底部面板全部收起，再等 2 秒让对方回复。继续输入、打开面板或发送新消息，就重新等待。倒计时可以取消。' + (scope === 'group' ? '群聊沿用本群的导演或轮询模式；退出群聊会取消等待。' : ''),
+                    label: '發完後自動生成回覆',
+                    help: '發過文字、圖片或表情後，等輸入框沒有草稿和光標、加號等底部面板全部收起，再等 2 秒讓對方回覆。繼續輸入、打開面板或發送新消息，就重新等待。倒計時可以取消。' + (scope === 'group' ? '群聊沿用本群的導演或輪詢模式；退出群聊會取消等待。' : ''),
                 },
                 {
                     key: 'emojiSuggestions',
                     label: '表情包智能匹配',
-                    help: '输入“抱”就会联想名称里有“抱”的表情包，点击候选即可发送。私聊匹配当前角色可见的所有分类，群聊匹配群聊表情库的所有分类，文字草稿会保留。两者共用开关，默认关闭。',
+                    help: '輸入“抱”就會聯想名稱裡有“抱”的表情包，點擊候選即可發送。私聊匹配當前角色可見的所有分類，群聊匹配群聊表情庫的所有分類，文字草稿會保留。兩者共用開關，默認關閉。',
                 },
             ] as const).map(({ key, label, help }) => (
                 <div key={key}>
@@ -48,7 +48,7 @@ const ChatInputSettings: React.FC<ChatInputSettingsProps> = ({ value, onChange, 
                         </label>
                         <button
                             type="button"
-                            aria-label={`${label}说明`}
+                            aria-label={`${label}說明`}
                             aria-expanded={openHelp === key}
                             aria-controls={`chat-input-help-${key}`}
                             onClick={() => setOpenHelp(openHelp === key ? null : key)}

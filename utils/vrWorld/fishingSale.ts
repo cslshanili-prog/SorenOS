@@ -1,11 +1,11 @@
 import type { AivenExpression } from './sarArt';
 
 export const AIVEN_FISH_SALE_REPLIES = [
-    { text: '感谢惠顾。', expression: 'happy' },
-    { text: '看来今天没空军。', expression: 'interested' },
-    { text: '鱼在唱歌。', expression: 'interested' },
+    { text: '感謝惠顧。', expression: 'happy' },
+    { text: '看來今天沒空軍。', expression: 'interested' },
+    { text: '魚在唱歌。', expression: 'interested' },
     { text: '嗯。', expression: 'normal' },
-    { text: '它看起来很开心。你也是。', expression: 'happy' },
+    { text: '它看起來很開心。你也是。', expression: 'happy' },
 ] as const satisfies readonly { text: string; expression: AivenExpression }[];
 
 /** The program chooses and saves the reply once, together with the actual payment. */

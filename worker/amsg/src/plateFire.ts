@@ -1,15 +1,15 @@
 /**
- * 门牌整理任务在 worker 这一侧。
+ * 門牌整理任務在 worker 這一側。
  *
- * 客户端把「现有条目 + 新材料 + 身份上下文」装成一份 job 写进 client_state，再建一条
- * 标了 `amsgKind: 'plate-consolidate'` 的任务。到点这里把 job 读回来拼提示词，LLM 跑完
- * 把整理结果原样送回客户端——合并语义（basedOn 继承来历、没被重新输出的条目淘汰）留在
- * 客户端做，因为要合并进去的门牌本体在浏览器的 IndexedDB 里，云端够不着。
+ * 客戶端把「現有條目 + 新材料 + 身份上下文」裝成一份 job 寫進 client_state，再建一條
+ * 標了 `amsgKind: 'plate-consolidate'` 的任務。到點這裡把 job 讀回來拼提示詞，LLM 跑完
+ * 把整理結果原樣送回客戶端——合併語義（basedOn 繼承來歷、沒被重新輸出的條目淘汰）留在
+ * 客戶端做，因為要合併進去的門牌本體在瀏覽器的 IndexedDB 裡，雲端夠不著。
  *
- * 结果走 `ctx.emitResult`：落进服务端收件箱，客户端下次上线 `GET /outbox?since=` 一定
- * 拿得到。刻意**不弹通知**（`notification: { show: false }`）——门牌整理是背景工作，
- * 整理完了不该把人叫回来看；带 `show: false` 的 payload 上游只落行不推送，也就不会
- * 白占一次推送配额（订阅是按 userVisibleOnly 建的，收了 push 不弹通知浏览器要记账）。
+ * 結果走 `ctx.emitResult`：落進服務端收件箱，客戶端下次上線 `GET /outbox?since=` 一定
+ * 拿得到。刻意**不彈通知**（`notification: { show: false }`）——門牌整理是背景工作，
+ * 整理完了不該把人叫回來看；帶 `show: false` 的 payload 上游只落行不推送，也就不會
+ * 白佔一次推送配額（訂閱是按 userVisibleOnly 建的，收了 push 不彈通知瀏覽器要記帳）。
  */
 
 import { AMSG_JOB_ID_KEY, AMSG_JOB_NAMESPACE } from '../../../utils/amsgTaskKinds';
@@ -33,28 +33,28 @@ export interface PlateFireState {
 }
 
 /**
- * 把 job 那行删掉：它是一次性输入，走完这一轮就再没人会读它。
+ * 把 job 那行刪掉：它是一次性輸入，走完這一輪就再沒人會讀它。
  *
- * 两种时机要删：
- *   - **LLM 已经跑过之后**，不管结果好坏。这一轮无论成没成，上游都把这条
- *     `recurrenceType: 'none'` 的任务当办完了（skip-push 在上游是 `status: 'skipped'`
- *     的成功态），再没有第二次机会来读这行。
- *   - **beforeFire 认定这份输入坏了/不对版的时候**。那几种失败是确定性的（解压不出来、
- *     形状对不上、charId 对不上号），重试梯子再跑两遍也是同样的结果，行留着纯粹是占地方。
- *     注意别把「读进来到 LLM 跑完之间」的失败也算进去——那种还会重试，重试时得再读一遍。
+ * 兩種時機要刪：
+ *   - **LLM 已經跑過之後**，不管結果好壞。這一輪無論成沒成，上游都把這條
+ *     `recurrenceType: 'none'` 的任務當辦完了（skip-push 在上游是 `status: 'skipped'`
+ *     的成功態），再沒有第二次機會來讀這行。
+ *   - **beforeFire 認定這份輸入壞了/不對版的時候**。那幾種失敗是確定性的（解壓不出來、
+ *     形狀對不上、charId 對不上號），重試梯子再跑兩遍也是同樣的結果，行留著純粹是佔地方。
+ *     注意別把「讀進來到 LLM 跑完之間」的失敗也算進去——那種還會重試，重試時得再讀一遍。
  *
- * 不删的话每次失败都留一行孤儿，一行装着一个角色的整块门牌原文 + 蒸馏材料 + 身份上下文，
- * 在同一个共用命名空间里跨角色越攒越多，而 beforeFire 每次后台 fire 都要把这个命名空间
- * 整个读出来解密（上游没有按 key 点名的接口）。
+ * 不刪的話每次失敗都留一行孤兒，一行裝著一個角色的整塊門牌原文 + 蒸餾材料 + 身份上下文，
+ * 在同一個共用命名空間裡跨角色越攢越多，而 beforeFire 每次後台 fire 都要把這個命名空間
+ * 整個讀出來解密（上游沒有按 key 點名的接口）。
  *
- * 删失败只记日志：命名空间上配了 clientStateTtl，cron 每跳会兜底清过期的。
+ * 刪失敗只記日誌：命名空間上配了 clientStateTtl，cron 每跳會兜底清過期的。
  */
 const discardJob = async (writeState: KindWriteState | undefined, jobId: string): Promise<void> => {
   if (!writeState) return;
   try {
     await writeState(AMSG_JOB_NAMESPACE, [{ key: plateJobKey(jobId), value: null }]);
   } catch (error) {
-    console.warn('[amsg:plate] job 行没删掉（等 TTL 兜底）', jobId, error);
+    console.warn('[amsg:plate] job 行沒刪掉（等 TTL 兜底）', jobId, error);
   }
 };
 
@@ -62,51 +62,51 @@ export const plateConsolidateHandler: FireKindHandler = {
   async beforeFire({ ctx, charId, taskMeta }) {
     const jobId = taskMeta[AMSG_JOB_ID_KEY];
     if (typeof jobId !== 'string' || !jobId) {
-      throw new Error(`门牌整理任务的 metadata 里没有 ${AMSG_JOB_ID_KEY}`);
+      throw new Error(`門牌整理任務的 metadata 裡沒有 ${AMSG_JOB_ID_KEY}`);
     }
 
-    // 只能整个命名空间读回来再挑：`readState` 按 namespace 取，上游没有按 key 点名的
-    // 接口。同一角色同时只许一份整理在飞、跑完立刻删行，所以这里通常只有个位数条。
+    // 只能整個命名空間讀回來再挑：`readState` 按 namespace 取，上游沒有按 key 點名的
+    // 接口。同一角色同時只許一份整理在飛、跑完立刻刪行，所以這裡通常只有個位數條。
     const rows = await ctx.readState(AMSG_JOB_NAMESPACE);
     const row = rows.find((r) => r.key === plateJobKey(jobId));
     if (!row?.value) {
-      // 行不在了 = 躺太久被 TTL 清了；行在但值是空的 = 客户端主动撤了这份输入（删角色
-      // 时会把它写成空壳——HTTP 那侧没有删除语义）。两种都不是「坏了」，重试也不会长
-      // 出来：安静跳过，该重来的下一轮消化会重新提交一份。
-      return { skip: true, reason: `门牌整理 job ${jobId} 的输入已不在（过期或已撤销）` };
+      // 行不在了 = 躺太久被 TTL 清了；行在但值是空的 = 客戶端主動撤了這份輸入（刪角色
+      // 時會把它寫成空殼——HTTP 那側沒有刪除語義）。兩種都不是「壞了」，重試也不會長
+      // 出來：安靜跳過，該重來的下一輪消化會重新提交一份。
+      return { skip: true, reason: `門牌整理 job ${jobId} 的輸入已不在（過期或已撤銷）` };
     }
 
-    // 下面这几种失败都是确定性的：重试再读一遍还是同一份坏数据。所以认定的同时就把行
-    // 删掉，别让它在共用命名空间里躺满 TTL——每一份都是一个角色的整块门牌原文，而每次
-    // 后台 fire 都要把整个命名空间读出来解密才能挑出自己那一行。
+    // 下面這幾種失敗都是確定性的：重試再讀一遍還是同一份壞數據。所以認定的同時就把行
+    // 刪掉，別讓它在共用命名空間裡躺滿 TTL——每一份都是一個角色的整塊門牌原文，而每次
+    // 後台 fire 都要把整個命名空間讀出來解密才能挑出自己那一行。
     const discardAndFail = async (message: string): Promise<never> => {
       await discardJob(ctx.writeState, jobId);
       throw new Error(message);
     };
 
-    // 上传时压过（gz1: 前缀），跟 fire_pack 同一套；没压过的原样穿过去。
+    // 上傳時壓過（gz1: 前綴），跟 fire_pack 同一套；沒壓過的原樣穿過去。
     let json: string;
     try {
       json = await unpackStateValue(row.value);
     } catch (error) {
-      return discardAndFail(`门牌整理 job ${jobId} 的输入解压失败（数据损坏）：${String(error)}`);
+      return discardAndFail(`門牌整理 job ${jobId} 的輸入解壓失敗（數據損壞）：${String(error)}`);
     }
 
     const job = parsePlateJobInput(json);
-    if (!job) return discardAndFail(`门牌整理 job ${jobId} 的输入解析失败（数据损坏）`);
+    if (!job) return discardAndFail(`門牌整理 job ${jobId} 的輸入解析失敗（數據損壞）`);
     if (job.charId !== charId) {
-      return discardAndFail(`门牌整理 job ${jobId} 的 charId 与任务对不上`);
+      return discardAndFail(`門牌整理 job ${jobId} 的 charId 與任務對不上`);
     }
     if (job.rooms.length === 0) {
       await discardJob(ctx.writeState, jobId);
-      return { skip: true, reason: `门牌整理 job ${jobId} 没有要整理的房间` };
+      return { skip: true, reason: `門牌整理 job ${jobId} 沒有要整理的房間` };
     }
 
     return {
       messages: buildPlateJobMessages(job),
-      // 跟浏览器那条路同一个超时（叶子里那个常量）。不显式交上去的话这一次 fire 会落到
-      // 库自己的默认值（四分钟），同一件活儿两条路的耐心不一样，而且改那个常量对云端
-      // 毫无影响——「本地什么样云端就什么样」这条线得自己拉齐。
+      // 跟瀏覽器那條路同一個超時（葉子裡那個常量）。不顯式交上去的話這一次 fire 會落到
+      // 庫自己的默認值（四分鐘），同一件活兒兩條路的耐心不一樣，而且改那個常量對雲端
+      // 毫無影響——「本地什麼樣雲端就什麼樣」這條線得自己拉齊。
       totalTimeoutMs: PLATE_LLM_TIMEOUT_MS,
       state: { jobId, job } satisfies PlateFireState,
     };
@@ -117,10 +117,10 @@ export const plateConsolidateHandler: FireKindHandler = {
     const items = parsePlateLlmReply(ctx.llmOutputText || '');
 
     if (items.length === 0) {
-      // 一条都没解析出来（模型跑偏 / 输出被截断）。不送空结果——客户端收到空列表会
-      // 按「LLM 决定清空」处理，把整块门牌抹掉。什么都不送，门牌保持不动，
-      // 下一轮消化会重新提交一份新的 job 再整理。
-      console.warn('[amsg:plate] LLM 没返回有效条目，门牌保持不动', jobId);
+      // 一條都沒解析出來（模型跑偏 / 輸出被截斷）。不送空結果——客戶端收到空列表會
+      // 按「LLM 決定清空」處理，把整塊門牌抹掉。什麼都不送，門牌保持不動，
+      // 下一輪消化會重新提交一份新的 job 再整理。
+      console.warn('[amsg:plate] LLM 沒返回有效條目，門牌保持不動', jobId);
       logSkipDiagnostic({
         sessionId: ctx.sessionId,
         reason: 'plate-empty-generation',
@@ -133,9 +133,9 @@ export const plateConsolidateHandler: FireKindHandler = {
     }
 
     if (typeof ctx.emitResult !== 'function') {
-      // 老部署（amsg-server < 2.6.0-next.21）没有这个能力。整理白跑了，但说清楚原因，
-      // 否则用户只会看到「门牌一直不更新」而面板上一片正常。
-      console.warn('[amsg:plate] 这台 worker 不支持 emitResult，整理结果送不回去', jobId);
+      // 老部署（amsg-server < 2.6.0-next.21）沒有這個能力。整理白跑了，但說清楚原因，
+      // 否則用戶只會看到「門牌一直不更新」而面板上一片正常。
+      console.warn('[amsg:plate] 這台 worker 不支持 emitResult，整理結果送不回去', jobId);
       await discardJob(ctx.writeState, jobId);
       return { decision: 'skip-push', reason: 'plate-emit-result-unsupported' };
     }
@@ -143,20 +143,20 @@ export const plateConsolidateHandler: FireKindHandler = {
     try {
       await ctx.emitResult({
         ...buildPlateConsolidateResult({ jobId, charId: job.charId, items, rooms: job.rooms }),
-        // 背景工作，整理完不该把人叫回来看。show:false 的 payload 上游只落收件箱、
-        // 不发推送，客户端下次上线补收。
+        // 背景工作，整理完不該把人叫回來看。show:false 的 payload 上游只落收件箱、
+        // 不發推送，客戶端下次上線補收。
         notification: { show: false },
       });
     } catch (error) {
-      // 方法在、调用却炸了：收件箱那张表缺列/缺表（升级 worker 后不跑 init-tenant 就是
-      // 这个样子），或者上游自己判定不支持。抛出去的话这一轮算失败，重试梯子会**再跑
-      // 两次完整生成**——LLM 已经烧过一次了，而下两次注定同样送不回来。所以就地收成
-      // 跳过：这一轮整理白跑，但只白跑一次，门牌保持不动等下轮消化重来。
-      console.warn('[amsg:plate] 整理结果送不进收件箱（多半是收件箱表没建全，去设置页点一次「重新连接并验证」）', jobId, error);
+      // 方法在、調用卻炸了：收件箱那張表缺列/缺表（升級 worker 後不跑 init-tenant 就是
+      // 這個樣子），或者上游自己判定不支持。拋出去的話這一輪算失敗，重試梯子會**再跑
+      // 兩次完整生成**——LLM 已經燒過一次了，而下兩次註定同樣送不回來。所以就地收成
+      // 跳過：這一輪整理白跑，但只白跑一次，門牌保持不動等下輪消化重來。
+      console.warn('[amsg:plate] 整理結果送不進收件箱（多半是收件箱表沒建全，去設置頁點一次「重新連接並驗證」）', jobId, error);
       await discardJob(ctx.writeState, jobId);
       return { decision: 'skip-push', reason: 'plate-emit-result-failed' };
     }
-    console.log('[amsg:plate] 整理结果已送进收件箱', {
+    console.log('[amsg:plate] 整理結果已送進收件箱', {
       jobId, charId: job.charId, items: items.length, resultKind: PLATE_CONSOLIDATE_RESULT_KIND,
     });
 
@@ -165,5 +165,5 @@ export const plateConsolidateHandler: FireKindHandler = {
   },
 };
 
-/** 只为单测导出：让测试能不经 index.ts 直接喂一份 ctx。 */
+/** 只為單測導出：讓測試能不經 index.ts 直接喂一份 ctx。 */
 export type { KindFireCtx, KindSessionCtx };

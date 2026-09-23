@@ -3,7 +3,7 @@ import { openDB } from './db';
 import { getMemoryPalaceHighWaterMarkForContext } from './chatContextRange';
 import { preserveContentFavoritesBeforeMessageDeletion } from './contentFavorites';
 
-export const CHAT_CLEANUP_CONFIRMATION = '我确定永久删除我选中的内容';
+export const CHAT_CLEANUP_CONFIRMATION = '我確定永久刪除我選中的內容';
 export type ChatCleanupSelection = { fromId: number; toId: number } | { keepRecent: number };
 export interface ChatCleanupPlan {
     charId: string;
@@ -14,7 +14,7 @@ export interface ChatCleanupPlan {
     afterWaterlineCount: number;
 }
 
-// 只保存 ID 和记录指纹，不把整个待删区间的正文/图片留在内存里。
+// 只保存 ID 和記錄指紋，不把整個待刪區間的正文/圖片留在內存裡。
 const fingerprint = (message: Message): number => {
     const text = JSON.stringify(message);
     let hash = 2166136261;
@@ -23,11 +23,11 @@ const fingerprint = (message: Message): number => {
 };
 const validId = (id: number): boolean => Number.isSafeInteger(id) && id > 0;
 
-/** 预览固定当前选区；确认期间新增消息不会被带入删除。 */
+/** 預覽固定當前選區；確認期間新增消息不會被帶入刪除。 */
 export async function prepareChatHistoryCleanup(charId: string, selection: ChatCleanupSelection, signal?: AbortSignal): Promise<ChatCleanupPlan> {
-    if (!charId) throw new Error('请选择角色');
+    if (!charId) throw new Error('請選擇角色');
     if ('keepRecent' in selection ? !Number.isSafeInteger(selection.keepRecent) || selection.keepRecent < 1 : !validId(selection.fromId) || !validId(selection.toId)) {
-        throw new Error('请选择有效的起止消息，或输入至少 1 条保留记录');
+        throw new Error('請選擇有效的起止消息，或輸入至少 1 條保留記錄');
     }
     const lower = 'fromId' in selection ? Math.min(selection.fromId, selection.toId) : 1;
     const upper = 'fromId' in selection ? Math.max(selection.fromId, selection.toId) : undefined;
@@ -38,7 +38,7 @@ export async function prepareChatHistoryCleanup(charId: string, selection: ChatC
     return new Promise((resolve, reject) => {
         const tx = db.transaction('messages', 'readonly');
         const store = tx.objectStore('messages');
-        // 先取轻量主键，再分批读取；不在重复 charId 索引上逐条移动游标。
+        // 先取輕量主鍵，再分批讀取；不在重複 charId 索引上逐條移動游標。
         const request = store.index('charId').getAllKeys(IDBKeyRange.only(charId));
         const plan: ChatCleanupPlan = { charId, ids: [], fingerprints: [], firstTimestamp: 0, lastTimestamp: 0, afterWaterlineCount: 0 };
         let retained = 0;
@@ -76,10 +76,10 @@ export async function prepareChatHistoryCleanup(charId: string, selection: ChatC
     });
 }
 
-/** 两次确认后原子删除；任何选中正文发生变化都回滚，重新预览再确认。 */
+/** 兩次確認後原子刪除；任何選中正文發生變化都回滾，重新預覽再確認。 */
 export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmation: { reviewed: boolean; text: string }): Promise<number> {
-    if (!confirmation.reviewed || confirmation.text !== CHAT_CLEANUP_CONFIRMATION) throw new Error('请完成两次确认并输入完整确认文字');
-    if (!plan.charId || !plan.ids.length || plan.ids.length !== plan.fingerprints.length || plan.ids.some((id, index) => !validId(id) || (index > 0 && id <= plan.ids[index - 1]))) throw new Error('删除范围无效，请重新选择');
+    if (!confirmation.reviewed || confirmation.text !== CHAT_CLEANUP_CONFIRMATION) throw new Error('請完成兩次確認並輸入完整確認文字');
+    if (!plan.charId || !plan.ids.length || plan.ids.length !== plan.fingerprints.length || plan.ids.some((id, index) => !validId(id) || (index > 0 && id <= plan.ids[index - 1]))) throw new Error('刪除範圍無效，請重新選擇');
     const expected = new Map(plan.ids.map((id, index) => [id, plan.fingerprints[index]]));
     await preserveContentFavoritesBeforeMessageDeletion({ ids: plan.ids });
     const db = await openDB();
@@ -89,12 +89,12 @@ export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmati
         const assets = tx.objectStore('assets');
         let deleted = 0;
         let failure: Error | undefined;
-        const fail = () => { failure = new Error('选中的记录已变化，请重新选择范围并完成两次确认'); tx.abort(); };
+        const fail = () => { failure = new Error('選中的記錄已變化，請重新選擇範圍並完成兩次確認'); tx.abort(); };
         tx.oncomplete = () => resolve(deleted);
         tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(failure || tx.error || new Error('清理未完成，选中记录已保留'));
+        tx.onabort = () => reject(failure || tx.error || new Error('清理未完成，選中記錄已保留'));
         const applyDeletion = () => {
-            // 只有主键完全相邻才合并删除；中间的其他角色、群聊或新记录不会被跨过去。
+            // 只有主鍵完全相鄰才合併刪除；中間的其他角色、群聊或新記錄不會被跨過去。
             let index = 0;
             const deleteBatch = () => {
                 let lastRequest: IDBRequest | undefined;
@@ -107,7 +107,7 @@ export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmati
                 if (lastRequest && index < plan.ids.length) lastRequest.onsuccess = deleteBatch;
             };
             deleteBatch();
-            // 只访问实际存在的语音缓存，避免为十万条文字记录创建十万个空删除请求。
+            // 只訪問實際存在的語音緩存，避免為十萬條文字記錄創建十萬個空刪除請求。
             const voices = assets.openKeyCursor(IDBKeyRange.bound('voice_msg_', 'voice_msg_\uffff'));
             voices.onsuccess = () => {
                 const cursor = voices.result;
@@ -128,8 +128,8 @@ export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmati
                     if (failure) return;
                     const message = read.result as Message | undefined;
                     if (!message || message.charId !== plan.charId || message.groupId || expected.get(id) !== fingerprint(message)) { fail(); return; }
-                    // 清理角色的剧情副本时，只解除中央正文对这个副本的引用。
-                    // 中央剧情和其他角色副本保留，避免后续重写因悬空镜像 ID 失败。
+                    // 清理角色的劇情副本時，只解除中央正文對這個副本的引用。
+                    // 中央劇情和其他角色副本保留，避免後續重寫因懸空鏡像 ID 失敗。
                     const centralId = Number(message.metadata?.theaterCentralId);
                     if (message.metadata?.source === 'story_theater_memory' && validId(centralId)) {
                         const centralRequest = store.get(centralId);

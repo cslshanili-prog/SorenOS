@@ -1,45 +1,45 @@
 /**
- * amsg 的 Deno 门面 —— 给 Cloudflare worker 换一个国内能直连的地址。
+ * amsg 的 Deno 門面 —— 給 Cloudflare worker 換一個國內能直連的地址。
  *
- * 主动消息的 worker 跑在 Cloudflare 上，默认地址是 `*.workers.dev`，这个域名
- * 在国内连不上。这份脚本部署到 Deno Deploy 之后会拿到一个 `*.deno.net` 地址，
- * 它只做一件事：把收到的请求原样转给你自己的 Cloudflare worker，再把响应原样
- * 送回来。业务逻辑、D1 数据库、Cron 定时任务全都还留在 Cloudflare，这一层不存
- * 任何数据、不认任何业务端点。
+ * 主動消息的 worker 跑在 Cloudflare 上，默認地址是 `*.workers.dev`，這個域名
+ * 在國內連不上。這份腳本部署到 Deno Deploy 之後會拿到一個 `*.deno.net` 地址，
+ * 它只做一件事：把收到的請求原樣轉給你自己的 Cloudflare worker，再把響應原樣
+ * 送回來。業務邏輯、D1 數據庫、Cron 定時任務全都還留在 Cloudflare，這一層不存
+ * 任何數據、不認任何業務端點。
  *
- * 怎么用：
- *   1. 打开 console.deno.com，点右上角「New Playground」
- *   2. 把这份文件整个贴进去
+ * 怎麼用：
+ *   1. 打開 console.deno.com，點右上角「New Playground」
+ *   2. 把這份文件整個貼進去
  *   3. 改下面 `UPSTREAM` 那一行，填你自己的 Cloudflare worker 地址
- *   4. 部署后拿到的 `https://xxx.deno.net` 地址，填进 SullyOS
- *      「设置 → 主动消息 → Worker 地址」，替换原来的 workers.dev 地址
+ *   4. 部署後拿到的 `https://xxx.deno.net` 地址，填進 SullyOS
+ *      「設置 → 主動消息 → Worker 地址」，替換原來的 workers.dev 地址
  *
- * 两件值得先知道的事：
- *   - 推送不走这条路。Cloudflare worker 是直接把消息发给 FCM / APNs 的，
- *     跟浏览器怎么访问 worker 是两条独立的路。所以这层挂了不影响收消息，
- *     只影响你打开设置面板改配置。
- *   - 设置页里「去 Cloudflare 控制台」那个链接靠 workers.dev 域名反推 worker
- *     名字，换成 deno.net 之后会退化成跳 worker 列表页，得自己再点一下。
+ * 兩件值得先知道的事：
+ *   - 推送不走這條路。Cloudflare worker 是直接把消息發給 FCM / APNs 的，
+ *     跟瀏覽器怎麼訪問 worker 是兩條獨立的路。所以這層掛了不影響收消息，
+ *     只影響你打開設置面板改配置。
+ *   - 設置頁裡「去 Cloudflare 控制台」那個鏈接靠 workers.dev 域名反推 worker
+ *     名字，換成 deno.net 之後會退化成跳 worker 列表頁，得自己再點一下。
  */
 
 /**
- * 你自己的 Cloudflare amsg worker 地址（就是原来填在 SullyOS 设置里的那个）。
- * 不想把地址写在代码里的话，可以留空不动，改在 Deno 的 Settings → Environment
- * Variables 里加一个 `AMSG_UPSTREAM`，那边的值优先。
+ * 你自己的 Cloudflare amsg worker 地址（就是原來填在 SullyOS 設置裡的那個）。
+ * 不想把地址寫在代碼裡的話，可以留空不動，改在 Deno 的 Settings → Environment
+ * Variables 里加一個 `AMSG_UPSTREAM`，那邊的值優先。
  */
-const UPSTREAM = 'https://sullyos-amsg.你的账号.workers.dev';
+const UPSTREAM = 'https://sullyos-amsg.你的帳號.workers.dev';
 
 /**
- * 代理自己的自检端点，跟上游无关。部署完直接在浏览器打开它，能看到 JSON 就说明
- * 这一层活着、上游地址也填对了。amsg 的端点都是 `/init-tenant` 这种单词形式，
- * 不会跟双下划线开头的路径撞车。
+ * 代理自己的自檢端點，跟上游無關。部署完直接在瀏覽器打開它，能看到 JSON 就說明
+ * 這一層活著、上游地址也填對了。amsg 的端點都是 `/init-tenant` 這種單詞形式，
+ * 不會跟雙下劃線開頭的路徑撞車。
  */
 const HEALTH_PATH = '/__proxy-health';
 
 /**
- * 改完这份脚本请顺手把这里 +1。自检端点会把它报出来，是唯一能确认
- * 「Playground 里跑的到底是哪一版」的办法 —— 版本号不动的话，
- * 贴没贴成功、部署有没有生效，全靠猜。
+ * 改完這份腳本請順手把這裡 +1。自檢端點會把它報出來，是唯一能確認
+ * 「Playground 裡跑的到底是哪一版」的辦法 —— 版本號不動的話，
+ * 貼沒貼成功、部署有沒有生效，全靠猜。
  */
 const PROXY_REVISION = 'amsg-deno-proxy-v2';
 
@@ -49,13 +49,13 @@ declare const Deno: {
 };
 
 /**
- * 转发响应时必须摘掉的头。
+ * 轉發響應時必須摘掉的頭。
  *
- * 前四个是逐跳（hop-by-hop）头：只描述「这一段 TCP 连接」，跨代理带过去没有意义。
- * `content-encoding` / `content-length` 是更要命的一对 —— fetch 拿到 gzip 响应时
- * 会自动解压，但这两个头描述的还是压缩前的状态。原样带回浏览器的话，浏览器会拿
- * 已经解开的 body 再解一次压，直接读失败。摘掉之后 Deno Deploy 出口会按浏览器的
- * accept-encoding 重新压一遍，端到端的压缩收益不会丢。
+ * 前四個是逐跳（hop-by-hop）頭：只描述「這一段 TCP 連接」，跨代理帶過去沒有意義。
+ * `content-encoding` / `content-length` 是更要命的一對 —— fetch 拿到 gzip 響應時
+ * 會自動解壓，但這兩個頭描述的還是壓縮前的狀態。原樣帶回瀏覽器的話，瀏覽器會拿
+ * 已經解開的 body 再解一次壓，直接讀失敗。摘掉之後 Deno Deploy 出口會按瀏覽器的
+ * accept-encoding 重新壓一遍，端到端的壓縮收益不會丟。
  */
 const STRIPPED_RESPONSE_HEADERS = [
   'content-encoding',
@@ -66,34 +66,34 @@ const STRIPPED_RESPONSE_HEADERS = [
   'upgrade',
 ];
 
-/** 上游地址：环境变量优先，都没有就用文件顶上那个常量。统一去掉尾斜杠。 */
+/** 上游地址：環境變量優先，都沒有就用文件頂上那個常量。統一去掉尾斜槓。 */
 const resolveUpstream = (): string =>
   (Deno.env.get('AMSG_UPSTREAM') || UPSTREAM).trim().replace(/\/+$/, '');
 
-/** 占位符没改就算没配 —— 与其闷头往一个不存在的域名转发，不如直接说清楚。 */
+/** 佔位符沒改就算沒配 —— 與其悶頭往一個不存在的域名轉發，不如直接說清楚。 */
 export const isConfigured = (upstream: string): boolean =>
-  /^https?:\/\//i.test(upstream) && !upstream.includes('你的账号');
+  /^https?:\/\//i.test(upstream) && !upstream.includes('你的帳號');
 
-/** 把进来的请求改写成打给上游的请求：换掉 host，路径和查询串原样保留。 */
+/** 把進來的請求改寫成打給上游的請求：換掉 host，路徑和查詢串原樣保留。 */
 export const buildUpstreamRequest = (request: Request, upstream: string): Request => {
   const incoming = new URL(request.url);
   const target = new URL(upstream);
-  // 上游地址允许带路径前缀（少见但合法），拼接时不要把它吃掉。
+  // 上游地址允許帶路徑前綴（少見但合法），拼接時不要把它吃掉。
   target.pathname = `${target.pathname.replace(/\/+$/, '')}${incoming.pathname}`;
   target.search = incoming.search;
 
   const headers = new Headers(request.headers);
-  // host 交给 fetch 按目标地址自己填，否则上游会收到 deno.net 的 host。
+  // host 交給 fetch 按目標地址自己填，否則上游會收到 deno.net 的 host。
   headers.delete('host');
-  // 压缩协商也交给 fetch 自己做，别把浏览器那份原样转过去。
+  // 壓縮協商也交給 fetch 自己做，別把瀏覽器那份原樣轉過去。
   //
-  // 浏览器会要 zstd，上游就用 zstd 压着回来；而 fetch 只自动解开它自己协商的那几种
-  // （gzip / deflate / br），zstd 不在内，body 于是还是压缩态。下面 relayResponse 又
-  // 按「已经解开了」把 content-encoding 摘掉，出口便拿这坨压缩字节当明文再压一层，
-  // 浏览器解完外层拿到的还是压缩数据 —— 页面上就是一片乱码。
+  // 瀏覽器會要 zstd，上游就用 zstd 壓著回來；而 fetch 只自動解開它自己協商的那幾種
+  // （gzip / deflate / br），zstd 不在內，body 於是還是壓縮態。下面 relayResponse 又
+  // 按「已經解開了」把 content-encoding 摘掉，出口便拿這坨壓縮字節當明文再壓一層，
+  // 瀏覽器解完外層拿到的還是壓縮數據 —— 頁面上就是一片亂碼。
   //
-  // 删掉之后 fetch 用自己认得的编码去协商、拿回明文，摘头才名副其实，
-  // 出口再按浏览器的 accept-encoding 重新压一遍，端到端的压缩收益一点不少。
+  // 刪掉之後 fetch 用自己認得的編碼去協商、拿回明文，摘頭才名副其實，
+  // 出口再按瀏覽器的 accept-encoding 重新壓一遍，端到端的壓縮收益一點不少。
   headers.delete('accept-encoding');
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
@@ -101,17 +101,17 @@ export const buildUpstreamRequest = (request: Request, upstream: string): Reques
     method: request.method,
     headers,
     body: hasBody ? request.body : undefined,
-    // 上游返回 3xx 时不要自动跟过去，原样交给浏览器判断。
+    // 上游返回 3xx 時不要自動跟過去，原樣交給瀏覽器判斷。
     redirect: 'manual',
   };
-  // 流式转发请求体（配置上云可能不小）时，fetch 标准要求显式声明 duplex。
-  // TS 的 RequestInit 还没收录这个字段，所以在这里单独挂上去。
+  // 流式轉發請求體（配置上雲可能不小）時，fetch 標準要求顯式聲明 duplex。
+  // TS 的 RequestInit 還沒收錄這個字段，所以在這裡單獨掛上去。
   if (hasBody) (init as { duplex?: string }).duplex = 'half';
 
   return new Request(target.toString(), init);
 };
 
-/** 原样回传上游响应，只摘掉那些跨代理会出问题的头。 */
+/** 原樣回傳上游響應，只摘掉那些跨代理會出問題的頭。 */
 export const relayResponse = (upstreamResponse: Response): Response => {
   const headers = new Headers(upstreamResponse.headers);
   for (const name of STRIPPED_RESPONSE_HEADERS) headers.delete(name);
@@ -123,12 +123,12 @@ export const relayResponse = (upstreamResponse: Response): Response => {
 };
 
 /**
- * 代理层自己造的响应（自检、错误回执）必须带 CORS 头。
+ * 代理層自己造的響應（自檢、錯誤回執）必須帶 CORS 頭。
  *
- * 不带的话，上游连不上、地址没配这类错误在浏览器里全部显示成
- * 「No 'Access-Control-Allow-Origin' header is present」—— 真正的原因连同
- * 状态码一起被挡在外面，排查的人只能看见一个跟病因毫不相干的 CORS 报错。
- * 转发回来的响应不用管，CF 那边自带 CORS 头。
+ * 不帶的話，上游連不上、地址沒配這類錯誤在瀏覽器裡全部顯示成
+ * 「No 'Access-Control-Allow-Origin' header is present」—— 真正的原因連同
+ * 狀態碼一起被擋在外面，排查的人只能看見一個跟病因毫不相干的 CORS 報錯。
+ * 轉發回來的響應不用管，CF 那邊自帶 CORS 頭。
  */
 const SELF_RESPONSE_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -143,7 +143,7 @@ const json = (body: unknown, status: number): Response =>
     headers: SELF_RESPONSE_HEADERS,
   });
 
-/** 抽出来是为了能在测试里直接调，不必真起一个服务。 */
+/** 抽出來是為了能在測試裡直接調，不必真起一個服務。 */
 export const handleRequest = async (request: Request): Promise<Response> => {
   const upstream = resolveUpstream();
   const pathname = new URL(request.url).pathname;
@@ -155,25 +155,25 @@ export const handleRequest = async (request: Request): Promise<Response> => {
         revision: PROXY_REVISION,
         upstream: isConfigured(upstream) ? upstream : null,
         hint: isConfigured(upstream)
-          ? '这一层活着。把当前 deno.net 地址填进 SullyOS 的主动消息设置即可。'
-          : '还没填上游地址：改脚本里的 UPSTREAM 常量，或加一个 AMSG_UPSTREAM 环境变量。',
+          ? '這一層活著。把當前 deno.net 地址填進 SullyOS 的主動消息設置即可。'
+          : '還沒填上游地址：改腳本里的 UPSTREAM 常量，或加一個 AMSG_UPSTREAM 環境變量。',
       },
       isConfigured(upstream) ? 200 : 503,
     );
   }
 
   if (!isConfigured(upstream)) {
-    return json({ error: `代理没配上游地址，打开 ${HEALTH_PATH} 看说明。` }, 503);
+    return json({ error: `代理沒配上游地址，打開 ${HEALTH_PATH} 看說明。` }, 503);
   }
 
   try {
     return relayResponse(await fetch(buildUpstreamRequest(request, upstream)));
   } catch (error) {
-    // 上游连不上（地址填错、Cloudflare 那边挂了）时给个能看懂的回执，
-    // 别让前端只拿到一个没有上下文的 500。
+    // 上游連不上（地址填錯、Cloudflare 那邊掛了）時給個能看懂的回執，
+    // 別讓前端只拿到一個沒有上下文的 500。
     return json(
       {
-        error: '连不上 Cloudflare worker',
+        error: '連不上 Cloudflare worker',
         upstream,
         detail: error instanceof Error ? error.message : String(error),
       },

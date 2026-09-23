@@ -21,7 +21,7 @@ const resolveMinimaxUrls = (req: IncomingMessage, bodyRegion: unknown): MinimaxU
   };
 };
 
-const CLONE_SOURCE_TEXT = '在一个阳光明媚的早晨，小鸟在枝头欢快地歌唱，微风轻轻拂过脸庞，带来了花朵的芬芳。远处的山峦在薄雾中若隐若现，宛如一幅水墨画。人们漫步在林荫小道上，享受着这难得的宁静时光。孩子们在草地上奔跑嬉戏，笑声回荡在空气中，让人感到无比温暖和幸福。';
+const CLONE_SOURCE_TEXT = '在一個陽光明媚的早晨，小鳥在枝頭歡快地歌唱，微風輕輕拂過臉龐，帶來了花朵的芬芳。遠處的山巒在薄霧中若隱若現，宛如一幅水墨畫。人們漫步在林蔭小道上，享受著這難得的寧靜時光。孩子們在草地上奔跑嬉戲，笑聲迴盪在空氣中，讓人感到無比溫暖和幸福。';
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -149,7 +149,7 @@ export async function bakeVoiceMiddleware(req: IncomingMessage, res: ServerRespo
         file_id: fileId,
         voice_id: voiceId,
         model: model || 'speech-2.8-hd',
-        text: '你好，这是固定后的声音，听听看效果怎么样？',
+        text: '你好，這是固定後的聲音，聽聽看效果怎麼樣？',
         need_noise_reduction: false,
         need_volumn_normalization: true,
       }),

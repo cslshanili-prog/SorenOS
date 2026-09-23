@@ -4,25 +4,25 @@ import { assembleImagePdf, createDocxBlob, isCollaborationImageFile, parseArtifa
 
 describe('collaboration artifact files', () => {
   it('accepts common reference-image MIME types and extension-only mobile files', () => {
-    expect(isCollaborationImageFile({ name: '参考图.png', type: 'image/png' } as File)).toBe(true);
-    expect(isCollaborationImageFile({ name: '鸿蒙相册.JPG', type: '' } as File)).toBe(true);
-    expect(isCollaborationImageFile({ name: '论文.pdf', type: 'application/pdf' } as File)).toBe(false);
+    expect(isCollaborationImageFile({ name: '參考圖.png', type: 'image/png' } as File)).toBe(true);
+    expect(isCollaborationImageFile({ name: '鴻蒙相冊.JPG', type: '' } as File)).toBe(true);
+    expect(isCollaborationImageFile({ name: '論文.pdf', type: 'application/pdf' } as File)).toBe(false);
   });
 
   it('parses the resilient header-based artifact protocol', () => {
-    const parsed = parseArtifactBlocks(`我整理好了。\n\n\`\`\`artifact\ntitle: 项目提案
+    const parsed = parseArtifactBlocks(`我整理好了。\n\n\`\`\`artifact\ntitle: 項目提案
 format: docx
 ---
-# 项目提案
+# 項目提案
 
-- 第一项
-- 第二项
+- 第一項
+- 第二項
 \`\`\``);
     expect(parsed.visibleText).toBe('我整理好了。');
     expect(parsed.artifacts).toEqual([{
-      title: '项目提案',
+      title: '項目提案',
       format: 'docx',
-      content: '# 项目提案\n\n- 第一项\n- 第二项',
+      content: '# 項目提案\n\n- 第一項\n- 第二項',
     }]);
   });
 
@@ -34,12 +34,12 @@ format: docx
   });
 
   it('creates a real docx zip with readable document XML', async () => {
-    const blob = await createDocxBlob('# 标题\n\n你好，**世界**。\n\n* [x] 已完成\n\n```js\nconst ok = true;\n```', '测试文档');
+    const blob = await createDocxBlob('# 標題\n\n你好，**世界**。\n\n* [x] 已完成\n\n```js\nconst ok = true;\n```', '測試文檔');
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     const documentXml = await zip.file('word/document.xml')?.async('string');
     const visibleText = documentXml?.replace(/<[^>]+>/g, '') || '';
     expect(blob.type).toContain('wordprocessingml.document');
-    expect(documentXml).toContain('标题');
+    expect(documentXml).toContain('標題');
     expect(visibleText).toContain('你好，世界。');
     expect(documentXml).toContain('<w:b/>');
     expect(documentXml).toContain('☒');

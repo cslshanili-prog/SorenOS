@@ -1,9 +1,9 @@
 /**
- * Pixel Home — 像素小人捏人器（图层素材版）
+ * Pixel Home — 像素小人捏人器（圖層素材版）
  *
- * 选前发/后发/眼型 + 发色/眼色/肤色/衣服/裤子 → 实时预览 → 保存
- * 颜色支持预设色块 + 自定义取色器（HTML5 color input）
- * 支持在合成结果上二次手绘（customPixels）
+ * 選前發/後發/眼型 + 髮色/眼色/膚色/衣服/褲子 → 實時預覽 → 保存
+ * 顏色支持預設色塊 + 自定義取色器（HTML5 color input）
+ * 支持在合成結果上二次手繪（customPixels）
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
@@ -25,7 +25,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const PAINT_SCALE = 6; // 画布上每个像素点放大倍数
+const PAINT_SCALE = 6; // 畫布上每個像素點放大倍數
 
 const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabel, onSave, onCancel }) => {
   const [config, setConfig] = useState<PixelCharConfig>(() => ({
@@ -47,7 +47,7 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
     setConfig(prev => ({ ...prev, ...partial }));
   }, []);
 
-  // 每次 config 变化异步重新生成预览
+  // 每次 config 變化異步重新生成預覽
   useEffect(() => {
     let cancelled = false;
     setGenerating(true);
@@ -63,14 +63,14 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
     return () => { cancelled = true; };
   }, [config]);
 
-  // 画布模式下绘制底图（合成结果放大 + 棋盘格）
+  // 畫布模式下繪製底圖（合成結果放大 + 棋盤格）
   useEffect(() => {
     if (!drawMode || !canvasRef.current || !previewUri) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
 
-    // 棋盘背景
+    // 棋盤背景
     for (let y = 0; y < ASSET_SIZE.h; y++) {
       for (let x = 0; x < ASSET_SIZE.w; x++) {
         ctx.fillStyle = (x + y) % 2 === 0 ? '#2a2a3a' : '#323248';
@@ -81,7 +81,7 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      // 网格
+      // 網格
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= ASSET_SIZE.w; i++) {
@@ -133,16 +133,16 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
   const handleUploadSprite = useCallback(async (file: File) => {
     setUploadError(null);
     try {
-      // 统一走 processImage 而不是直接 readAsDataURL：
-      //  · 手机原图动辄 5~10MB，base64 后更大，整段塞进配置 JSON 会撑爆 iOS Safari 的
-      //    IndexedDB 配额和内存（保存静默失败 / 渲染裂图）。小人展示尺寸只有 24~40px，
-      //    压到 ≤256px 绰绰有余，透明通道（PNG/WebP）会保留。
-      //  · 不支持的格式（如 HEIC）解码失败会抛可读错误，不再静默没反应。
-      //  · GIF 原样保留（不压缩，动图不丢帧）。
+      // 統一走 processImage 而不是直接 readAsDataURL：
+      //  · 手機原圖動輒 5~10MB，base64 後更大，整段塞進配置 JSON 會撐爆 iOS Safari 的
+      //    IndexedDB 配額和內存（保存靜默失敗 / 渲染裂圖）。小人展示尺寸只有 24~40px，
+      //    壓到 ≤256px 綽綽有餘，透明通道（PNG/WebP）會保留。
+      //  · 不支持的格式（如 HEIC）解碼失敗會拋可讀錯誤，不再靜默沒反應。
+      //  · GIF 原樣保留（不壓縮，動圖不丟幀）。
       const dataUri = await processImage(file, { maxWidth: 256, quality: 0.92 });
       setConfig(prev => ({ ...prev, customSprite: dataUri }));
     } catch (e: any) {
-      setUploadError(e?.message || '图片处理失败，请换一张试试');
+      setUploadError(e?.message || '圖片處理失敗，請換一張試試');
     }
   }, []);
 
@@ -159,8 +159,8 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
   }, [config, previewUri, onSave]);
 
   const styleItems = useMemo(() => ({
-    frontHair: Array.from({ length: FRONT_HAIR_COUNT }, (_, i) => ({ value: i + 1, label: FRONT_HAIR_NAMES[i] || `前发${i + 1}` })),
-    backHair: Array.from({ length: BACK_HAIR_COUNT }, (_, i) => ({ value: i + 1, label: BACK_HAIR_NAMES[i] || `后发${i + 1}` })),
+    frontHair: Array.from({ length: FRONT_HAIR_COUNT }, (_, i) => ({ value: i + 1, label: FRONT_HAIR_NAMES[i] || `前發${i + 1}` })),
+    backHair: Array.from({ length: BACK_HAIR_COUNT }, (_, i) => ({ value: i + 1, label: BACK_HAIR_NAMES[i] || `後發${i + 1}` })),
     eyes: Array.from({ length: EYE_COUNT }, (_, i) => ({ value: i + 1, label: EYE_NAMES[i] || `眼型${i + 1}` })),
   }), []);
 
@@ -175,7 +175,7 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
         </div>
       )}
 
-      {/* 预览 / 画布 */}
+      {/* 預覽 / 畫布 */}
       <div className="flex flex-col items-center gap-2">
         {config.customSprite ? (
           <>
@@ -186,15 +186,15 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
               }}>
               <img src={config.customSprite} alt="uploaded" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} draggable={false} />
             </div>
-            <span className="text-[10px] text-emerald-400 font-medium">已导入自定义像素小人</span>
+            <span className="text-[10px] text-emerald-400 font-medium">已導入自定義像素小人</span>
             <div className="flex gap-2">
               <button onClick={() => uploadRef.current?.click()}
                 className="text-[10px] text-slate-400 hover:text-slate-200 underline">
-                重新上传
+                重新上傳
               </button>
               <button onClick={clearCustomSprite}
                 className="text-[10px] text-slate-400 hover:text-red-400 underline">
-                清除，恢复捏人
+                清除，恢復捏人
               </button>
             </div>
           </>
@@ -215,21 +215,21 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
             <div className="flex items-center gap-2 flex-wrap justify-center">
               <button onClick={() => setIsEraser(false)}
                 className={`px-2 py-1 rounded text-[10px] font-bold ${!isEraser ? 'bg-amber-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                画笔
+                畫筆
               </button>
               <button onClick={() => setIsEraser(true)}
                 className={`px-2 py-1 rounded text-[10px] font-bold ${isEraser ? 'bg-amber-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
                 橡皮
               </button>
               <label className="relative w-6 h-6 rounded border border-slate-500 overflow-hidden cursor-pointer"
-                title="画笔颜色" style={{ background: drawColor }}>
+                title="畫筆顏色" style={{ background: drawColor }}>
                 <input type="color" value={drawColor}
                   onChange={e => { setDrawColor(e.target.value); setIsEraser(false); }}
                   className="absolute inset-0 opacity-0 cursor-pointer" />
               </label>
               <button onClick={clearCustomPixels}
                 className="px-2 py-1 rounded text-[10px] font-bold bg-slate-700 text-slate-300">
-                清除手绘
+                清除手繪
               </button>
             </div>
           </>
@@ -242,7 +242,7 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
               }}>
               {previewUri
                 ? <img src={previewUri} alt="preview" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} draggable={false} />
-                : <span className="text-[10px] text-slate-500">加载中…</span>}
+                : <span className="text-[10px] text-slate-500">加載中…</span>}
               {generating && previewUri && (
                 <span className="absolute top-1 right-1 text-[9px] text-slate-500">…</span>
               )}
@@ -254,33 +254,33 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
           <div className="flex items-center gap-3">
             <button onClick={() => setDrawMode(!drawMode)}
               className="text-[10px] text-slate-400 hover:text-slate-200 underline">
-              {drawMode ? '返回参数调整' : '打开画布手绘'}
+              {drawMode ? '返回參數調整' : '打開畫布手繪'}
             </button>
             {!drawMode && (
               <button onClick={() => uploadRef.current?.click()}
                 className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">
-                直接上传像素小人
+                直接上傳像素小人
               </button>
             )}
           </div>
         )}
         {uploadError && (
-          <span className="text-[10px] text-red-400">上传失败：{uploadError}</span>
+          <span className="text-[10px] text-red-400">上傳失敗：{uploadError}</span>
         )}
         <input ref={uploadRef} type="file" accept="image/png,image/webp,image/jpeg,image/gif" className="hidden"
           onChange={e => { if (e.target.files?.[0]) { handleUploadSprite(e.target.files[0]); e.target.value = ''; } }} />
       </div>
 
-      {/* 参数区（画布模式 / 自定义精灵下折叠） */}
+      {/* 參數區（畫布模式 / 自定義精靈下摺疊） */}
       {!drawMode && !config.customSprite && (
         <>
-          <Section title="前发">
-            <StylePicker items={[{ value: 0, label: '无' }, ...styleItems.frontHair]}
+          <Section title="前發">
+            <StylePicker items={[{ value: 0, label: '無' }, ...styleItems.frontHair]}
               selected={config.frontHair} onSelect={v => update({ frontHair: v })} />
           </Section>
 
-          <Section title="后发">
-            <StylePicker items={[{ value: 0, label: '无' }, ...styleItems.backHair]}
+          <Section title="後發">
+            <StylePicker items={[{ value: 0, label: '無' }, ...styleItems.backHair]}
               selected={config.backHair} onSelect={v => update({ backHair: v })} />
           </Section>
 
@@ -289,15 +289,15 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
               selected={config.eyes} onSelect={v => update({ eyes: v })} />
           </Section>
 
-          <Section title="发色">
+          <Section title="髮色">
             <ColorPicker colors={HAIR_COLORS} selected={config.hairColor} onSelect={c => update({ hairColor: c })} />
           </Section>
 
-          <Section title="眼睛颜色">
+          <Section title="眼睛顏色">
             <ColorPicker colors={EYE_COLORS} selected={config.eyeColor} onSelect={c => update({ eyeColor: c })} />
           </Section>
 
-          <Section title="肤色">
+          <Section title="膚色">
             <ColorPicker colors={SKIN_TONES} selected={config.skinTone} onSelect={c => update({ skinTone: c })} />
           </Section>
 
@@ -305,7 +305,7 @@ const PixelCharEditor: React.FC<Props> = ({ initial, target = 'char', targetLabe
             <ColorPicker colors={OUTFIT_COLORS} selected={config.outfitColor} onSelect={c => update({ outfitColor: c })} />
           </Section>
 
-          <Section title="裤子">
+          <Section title="褲子">
             <ColorPicker colors={OUTFIT_COLORS} selected={config.outfitColor2} onSelect={c => update({ outfitColor2: c })} />
           </Section>
         </>
@@ -365,10 +365,10 @@ const ColorPicker: React.FC<{
           style={{ backgroundColor: c }}
         />
       ))}
-      {/* 自定义取色器 */}
+      {/* 自定義取色器 */}
       <label className={`relative w-6 h-6 rounded-lg border-2 cursor-pointer overflow-hidden ${
         !inPalette ? 'border-white scale-110' : 'border-slate-500'
-      }`} title="自定义颜色">
+      }`} title="自定義顏色">
         <span className="absolute inset-0 pointer-events-none"
           style={{
             background: inPalette

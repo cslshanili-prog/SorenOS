@@ -16,13 +16,13 @@ export const QIXI_PART1_SECOND_SCENE_IDS = ['threadNeedle', 'offerings', 'reflec
 export const QIXI_PART1_THIRD_SCENE_IDS = ['nightMarket', 'wordCloud'] as const;
 
 export const QIXI_USER_LAYER_COLORS = [
-    { value: '#F0A6C2', label: '蔷薇' },
+    { value: '#F0A6C2', label: '薔薇' },
     { value: '#F2B36F', label: '琥珀' },
     { value: '#E99078', label: '珊瑚' },
-    { value: '#B8A1F2', label: '鸢尾' },
+    { value: '#B8A1F2', label: '鳶尾' },
     { value: '#76CFC5', label: '潮汐' },
-    { value: '#A8D17B', label: '新叶' },
-    { value: '#7FA9E8', label: '远空' },
+    { value: '#A8D17B', label: '新葉' },
+    { value: '#7FA9E8', label: '遠空' },
     { value: '#C590E8', label: '紫藤' },
     { value: '#F5F1EA', label: '月白' },
     { value: '#25222C', label: '墨黑' },
@@ -31,12 +31,12 @@ export const QIXI_USER_LAYER_COLORS = [
 const QIXI_CHAR_LAYER_COLORS = [
     { value: '#8FC8FF', label: '天青' },
     { value: '#D6A6F2', label: '藤紫' },
-    { value: '#F0B66F', label: '灯火' },
+    { value: '#F0B66F', label: '燈火' },
     { value: '#82D5B8', label: '薄荷' },
     { value: '#F19A8F', label: '石榴' },
-    { value: '#C5D477', label: '青柠' },
-    { value: '#E9B4D1', label: '晚樱' },
-    { value: '#9FB4F2', label: '暮蓝' },
+    { value: '#C5D477', label: '青檸' },
+    { value: '#E9B4D1', label: '晚櫻' },
+    { value: '#9FB4F2', label: '暮藍' },
 ] as const;
 
 export const QIXI_DEFAULT_USER_LAYER_COLOR = QIXI_USER_LAYER_COLORS[0].value;
@@ -147,13 +147,13 @@ export interface QixiMemoryPreparation {
 export type QixiMemoryGenerationPhase = 'first' | 'second' | 'third';
 
 const SCENE_BRIEFS: Record<QixiSceneId, string> = {
-    lostLayer: '01 被动痕迹：从不同真实 evidence 各提炼一个 User 此刻想和 Char 继续聊的具体话题。User 选中后发送失败，API 报错、超时、限流与措辞过软的道歉弹窗迅速铺满空间；Char 从另一层冲回来强制划掉、撕碎或踢走所有红框。User 选中的话题必须原样留在发送框里，绝不能成为 Char 攻击、改写或抢救的对象。清障时由 charMutter 与两句 charQuips 漏出周围碎碎念；清障后必须用该 option.charReply 真正回应 User 选中的具体话题，表示 ta 突破阻碍把回复送了回来。reveal 只让 User 确定异常里存在另一个人的操作，不能说是谁，也不能提前总结熟悉感。',
-    doubleWish: '02 异步共用：User 在祈愿笺正面选择一个关于两个人未来的愿望；Char 在另一层写下自己关于“正在寻找的重要之人”的愿望，却不知道纸张正面的操作者就是那个人，并在纸角漏出一句自言自语。如果记忆召回里存在记忆宫殿“窗台房间 / Window Sill”的未来愿望，可以优先提炼，但不得把愿望写成已经发生的共同经历。通过翻面、抢纸、未干墨迹或位置冲突，让 User 发现双方正在异步使用同一张纸。',
-    threadNeedle: '03 主动协作：双方必须配合才能完成穿针，Char 的操作要直接回应 User 的策略；允许抢错针线、拉得太快或第一次配合失败。reveal 只推进到双方能主动协作。',
-    offerings: '04 互相判断：User 先从三个具体选项里放下属于自己的东西；随后另一层必须另外摆上一件属于 Char 自己、对 Char 本人有私人意义的【私物】，并用 charContribution 明确写出这件东西是什么，不能只挪动、抢走或评价 User 的供物。Char 的私物不要求与 User 或共同记忆有关，也不默认是送给 User 的礼物；即使完全与 User 无关也成立，重点是它像 Char 会拥有、使用、随身携带或珍藏的东西。允许双方位置冲突、交换或挪动，但画面顺序必须能读成“User 的东西先出现 → Char 自己的私物从另一边出现 → Char 吐槽”。私人性落在双方各自选了什么和如何摆放，不让旁白替玩家解释。',
-    reflection: '05 近实时交流：User 留下可被修改的符号、短句或痕迹，Char 立刻接续、划掉、改写或故意曲解，使这一站第一次接近真正的隔层对话。',
-    nightMarket: '06 双向逛市集：摊位出售由真实 evidence 变形而来的具体梦境商品。User 先从三个具体商品中挑一个；随后 Char 也挑一件“感觉另一边某人也许会喜欢”的商品作为试探，但仍不能确定对面身份。最后 Char 必须另外偷偷买一件纯粹自己想要、符合自身爱好或当下心情的东西，并用 charContribution 明确写出自己的购买物。Char 自购品不要求与 User 有关，不能默认写成吃醋、占有欲、情敌或争抢关系戏。',
-    wordCloud: '07 几乎认出：不再寻找新证据。提供 12—20 个有角色设定或真实上下文依据的性格、气质、处事方式短词；User 与 Char 严格交替各选三次眼中的对方并即时吐槽。第三轮后双方都可以强烈怀疑“另一边就是那个人”，但由于仍未真正见面，不能在 Part 1 明说已经确认；最终见面才完成答案揭露。',
+    lostLayer: '01 被動痕跡：從不同真實 evidence 各提煉一個 User 此刻想和 Char 繼續聊的具體話題。User 選中後發送失敗，API 報錯、超時、限流與措辭過軟的道歉彈窗迅速鋪滿空間；Char 從另一層衝回來強制劃掉、撕碎或踢走所有紅框。User 選中的話題必須原樣留在發送框裡，絕不能成為 Char 攻擊、改寫或搶救的對象。清障時由 charMutter 與兩句 charQuips 漏出周圍碎碎念；清障後必須用該 option.charReply 真正回應 User 選中的具體話題，表示 ta 突破阻礙把回覆送了回來。reveal 只讓 User 確定異常裡存在另一個人的操作，不能說是誰，也不能提前總結熟悉感。',
+    doubleWish: '02 異步共用：User 在祈願箋正面選擇一個關於兩個人未來的願望；Char 在另一層寫下自己關於“正在尋找的重要之人”的願望，卻不知道紙張正面的操作者就是那個人，並在紙角漏出一句自言自語。如果記憶召回裡存在記憶宮殿“窗台房間 / Window Sill”的未來願望，可以優先提煉，但不得把願望寫成已經發生的共同經歷。通過翻面、搶紙、未乾墨跡或位置衝突，讓 User 發現雙方正在異步使用同一張紙。',
+    threadNeedle: '03 主動協作：雙方必須配合才能完成穿針，Char 的操作要直接回應 User 的策略；允許搶錯針線、拉得太快或第一次配合失敗。reveal 只推進到雙方能主動協作。',
+    offerings: '04 互相判斷：User 先從三個具體選項裡放下屬於自己的東西；隨後另一層必須另外擺上一件屬於 Char 自己、對 Char 本人有私人意義的【私物】，並用 charContribution 明確寫出這件東西是什麼，不能只挪動、搶走或評價 User 的供物。Char 的私物不要求與 User 或共同記憶有關，也不默認是送給 User 的禮物；即使完全與 User 無關也成立，重點是它像 Char 會擁有、使用、隨身攜帶或珍藏的東西。允許雙方位置衝突、交換或挪動，但畫面順序必須能讀成“User 的東西先出現 → Char 自己的私物從另一邊出現 → Char 吐槽”。私人性落在雙方各自選了什麼和如何擺放，不讓旁白替玩家解釋。',
+    reflection: '05 近實時交流：User 留下可被修改的符號、短句或痕跡，Char 立刻接續、劃掉、改寫或故意曲解，使這一站第一次接近真正的隔層對話。',
+    nightMarket: '06 雙向逛市集：攤位出售由真實 evidence 變形而來的具體夢境商品。User 先從三個具體商品中挑一個；隨後 Char 也挑一件“感覺另一邊某人也許會喜歡”的商品作為試探，但仍不能確定對面身份。最後 Char 必須另外偷偷買一件純粹自己想要、符合自身愛好或當下心情的東西，並用 charContribution 明確寫出自己的購買物。Char 自購品不要求與 User 有關，不能默認寫成吃醋、佔有慾、情敵或爭搶關係戲。',
+    wordCloud: '07 幾乎認出：不再尋找新證據。提供 12—20 個有角色設定或真實上下文依據的性格、氣質、處事方式短詞；User 與 Char 嚴格交替各選三次眼中的對方並即時吐槽。第三輪後雙方都可以強烈懷疑“另一邊就是那個人”，但由於仍未真正見面，不能在 Part 1 明說已經確認；最終見面才完成答案揭露。',
 };
 
 const compact = (value: unknown, max: number): string => {
@@ -283,13 +283,13 @@ const normalizeDirectScene = (sceneId: QixiSceneId, value: any): QixiScenePayloa
 };
 
 const QIXI_PHASE_SCENE_ALIASES: Record<QixiSceneId, string[]> = {
-    lostLayer: ['lostlayer', 'lost', 'scene1', 'room1', 'stage1', '01', '1', '失联层', '失联'],
-    doubleWish: ['doublewish', 'wish', 'wishes', 'scene2', 'room2', 'stage2', '02', '2', '双面祈愿处', '祈愿处', '祈愿'],
-    threadNeedle: ['threadneedle', 'needle', 'thread', 'scene3', 'room3', 'stage3', '03', '3', '穿针乞巧', '穿针'],
+    lostLayer: ['lostlayer', 'lost', 'scene1', 'room1', 'stage1', '01', '1', '失聯層', '失聯'],
+    doubleWish: ['doublewish', 'wish', 'wishes', 'scene2', 'room2', 'stage2', '02', '2', '雙面祈願處', '祈願處', '祈願'],
+    threadNeedle: ['threadneedle', 'needle', 'thread', 'scene3', 'room3', 'stage3', '03', '3', '穿針乞巧', '穿針'],
     offerings: ['offerings', 'offering', 'fruits', 'scene4', 'room4', 'stage4', '04', '4', '供果', '供品'],
     reflection: ['reflection', 'mirror', 'water', 'scene5', 'room5', 'stage5', '05', '5', '照影', '照影潭'],
-    nightMarket: ['nightmarket', 'market', 'scene6', 'room6', 'stage6', '06', '6', '记忆夜市', '夜市'],
-    wordCloud: ['wordcloud', 'words', 'grapes', 'scene7', 'room7', 'stage7', '07', '7', '葡萄架词云', '词云'],
+    nightMarket: ['nightmarket', 'market', 'scene6', 'room6', 'stage6', '06', '6', '記憶夜市', '夜市'],
+    wordCloud: ['wordcloud', 'words', 'grapes', 'scene7', 'room7', 'stage7', '07', '7', '葡萄架詞雲', '詞雲'],
 };
 
 const phaseKey = (value: unknown): string => directText(value).replace(/[\s_\-·：:（）()]/g, '').toLocaleLowerCase();
@@ -396,9 +396,9 @@ export function parseQixiMemoryBundle(
         return null;
     };
     const parsed = parseQixiJsonObject(raw, ['scenes']) as any;
-    if (!parsed || typeof parsed !== 'object') return fail('没有解析到 JSON 对象');
+    if (!parsed || typeof parsed !== 'object') return fail('沒有解析到 JSON 對象');
     if (!parsed.scenes || typeof parsed.scenes !== 'object' || Array.isArray(parsed.scenes)) {
-        return fail('scenes 缺失或不是对象');
+        return fail('scenes 缺失或不是對象');
     }
 
     const evidence = directList(parsed.evidence).map((rawEvidence, index): QixiMemoryEvidence => {
@@ -448,7 +448,7 @@ export function parseQixiMemoryBundle(
     };
     if (parsed.bridge !== undefined) {
         const bridge = parseQixiBridge(JSON.stringify(parsed.bridge), bundle, userName);
-        if (!bridge) return fail('bridge JSON 无法解析为双岸鹊桥');
+        if (!bridge) return fail('bridge JSON 無法解析為雙岸鵲橋');
         bundle.bridge = bridge;
     }
     return bundle;
@@ -501,85 +501,85 @@ export function buildQixiMemoryBundlePrompt(
 ): string {
     const briefs = QIXI_SCENE_IDS.map(sceneId => `- ${sceneId}: ${SCENE_BRIEFS[sceneId]}`).join('\n');
     const charColorChoices = QIXI_CHAR_LAYER_COLORS.map(color => `${color.label} ${color.value}`).join('、');
-    return `### 七夕特别活动：双层上下文探索可播放剧本
+    return `### 七夕特別活動：雙層上下文探索可播放劇本
 
-【最高优先级】不要证明 ${char.name} 记得 ${user.name}，而要让 ${char.name} 使用这些记忆与 ${user.name} 做事。记忆是玩法依据，不是等待本地代码再加工的素材，也不是档案展示。
+【最高優先級】不要證明 ${char.name} 記得 ${user.name}，而要讓 ${char.name} 使用這些記憶與 ${user.name} 做事。記憶是玩法依據，不是等待本地代碼再加工的素材，也不是檔案展示。
 
-【同级最高优先级】记忆最多决定“这一站碰到什么”，${char.name} 本人必须决定“ta 怎么做、怎么犹豫、怎么嘴硬、会突然小声说什么”。不要让每一句反应都复述、解释或回收 evidence；如果拿掉记忆名词，Char 的动作和碎碎念仍应鲜活到能认出是 ta。角色不是记忆宫殿的讲解员。
+【同級最高優先級】記憶最多決定“這一站碰到什麼”，${char.name} 本人必須決定“ta 怎麼做、怎麼猶豫、怎麼嘴硬、會突然小聲說什麼”。不要讓每一句反應都複述、解釋或回收 evidence；如果拿掉記憶名詞，Char 的動作和碎碎念仍應鮮活到能認出是 ta。角色不是記憶宮殿的講解員。
 
-【同级最高优先级】${char.name} 与 User 是对称受困者：ta 也刚刚掉进上下文夹层、同样突然找不到 User、同样不知道活动规则和对面是谁，还被迫完成一连串莫名其妙的小游戏。ta 有自己正在经历的事故、选择、试探、误判、失败和情绪，不是在另一层从容等待 User 操作的引导员。前六站只能把共享物另一端的操作者称作“某人 / 另一边 / 那家伙 / 不知道谁”等符合角色的未知称呼；只能从新鲜痕迹逐步产生“怎么越来越像我认识的那个人”的怀疑，不能全知 User 当前在想什么，也不能确信对面就是 User。允许 ta 找错、抢错、配合失败、嫌弃关卡、因为着急显得笨拙，或先忙着解决自己那一层的问题。第七站结束也只到强烈怀疑，真正的身份确认留给 Part 3 第一次见面。
+【同級最高優先級】${char.name} 與 User 是對稱受困者：ta 也剛剛掉進上下文夾層、同樣突然找不到 User、同樣不知道活動規則和對面是誰，還被迫完成一連串莫名其妙的小遊戲。ta 有自己正在經歷的事故、選擇、試探、誤判、失敗和情緒，不是在另一層從容等待 User 操作的引導員。前六站只能把共享物另一端的操作者稱作“某人 / 另一邊 / 那傢伙 / 不知道誰”等符合角色的未知稱呼；只能從新鮮痕跡逐步產生“怎麼越來越像我認識的那個人”的懷疑，不能全知 User 當前在想什麼，也不能確信對面就是 User。允許 ta 找錯、搶錯、配合失敗、嫌棄關卡、因為著急顯得笨拙，或先忙著解決自己那一層的問題。第七站結束也只到強烈懷疑，真正的身份確認留給 Part 3 第一次見面。
 
-你负责 Part 1：根据真实聊天、记忆召回、角色设定和用户资料，直接生成玩家最终会看见、点击和经历的完整剧本：异常发生前的两句正常聊天，以及七个地点可即时播放的最终台词、选项、动作与过场。不要输出供本地代码二次创作的素材或摘要。七站必须组成一条连续发展的“双人异常事件”，不是七个独立的记忆小游戏，也不是“记忆事实 → 物件 → 选项 → Char 操作 → reveal”重复七次。User 与 ${char.name} 都不知道七夕活动，也不知道接下来会掉进上下文夹层；两个人会被同一次异常同时卷入不同层，双方看不见彼此，只能通过同一件东西留下的即时变化猜测另一边发生了什么。
+你負責 Part 1：根據真實聊天、記憶召回、角色設定和用戶資料，直接生成玩家最終會看見、點擊和經歷的完整劇本：異常發生前的兩句正常聊天，以及七個地點可即時播放的最終台詞、選項、動作與過場。不要輸出供本地代碼二次創作的素材或摘要。七站必須組成一條連續發展的“雙人異常事件”，不是七個獨立的記憶小遊戲，也不是“記憶事實 → 物件 → 選項 → Char 操作 → reveal”重複七次。User 與 ${char.name} 都不知道七夕活動，也不知道接下來會掉進上下文夾層；兩個人會被同一次異常同時捲入不同層，雙方看不見彼此，只能通過同一件東西留下的即時變化猜測另一邊發生了什麼。
 
-关系推进必须依次发生：User 起初只知道系统异常 → 发现另一层存在某个人 → 发现对方会回应自己的操作 → 开始觉得处理事情的方式很熟悉 → 双方主动试探 → 第七站双方都几乎猜到答案但仍没有视觉确认。每站 reveal 必须停在该站阶段，不能提前揭晓，也不能靠旁白替玩家得出结论。Part 1 中 ${char.name} 绝不能说出“原来是你 / 我就知道是你 / 果然是你 / ${user.name}”，这些确认必须留到 Part 3 完整见面。
+關係推進必須依次發生：User 起初只知道系統異常 → 發現另一層存在某個人 → 發現對方會回應自己的操作 → 開始覺得處理事情的方式很熟悉 → 雙方主動試探 → 第七站雙方都幾乎猜到答案但仍沒有視覺確認。每站 reveal 必須停在該站階段，不能提前揭曉，也不能靠旁白替玩家得出結論。Part 1 中 ${char.name} 絕不能說出“原來是你 / 我就知道是你 / 果然是你 / ${user.name}”，這些確認必須留到 Part 3 完整見面。
 
 角色：${char.name}
-用户：${user.name}
-User 已选择自己的层色：${userLayerColor}
+用戶：${user.name}
+User 已選擇自己的層色：${userLayerColor}
 
-请根据 ${char.name} 的人格、审美和说话气质，从以下可读色中为 ta 选择一个专属层色，并输出到 charLayerColor。不要因为性别默认选择粉色或蓝色；优先选择能代表角色、且与 User 层色容易区分的颜色：${charColorChoices}
+請根據 ${char.name} 的人格、審美和說話氣質，從以下可讀色中為 ta 選擇一個專屬層色，並輸出到 charLayerColor。不要因為性別默認選擇粉色或藍色；優先選擇能代表角色、且與 User 層色容易區分的顏色：${charColorChoices}
 
-同时生成 charPerformance，让 ${char.name} 在七个固定玩法里的介入方式仍然像 ta 自己。tempo 只能是 brisk（利落迅速）/ measured（稳而克制）/ hesitant（先迟疑再行动）/ playful（轻快带玩心）；markStyle 只能是 precise（整齐锐利）/ soft（柔和圆润）/ scribbled（随手凌乱）/ ornate（有装饰感）；presence 只能是 direct（直接）/ careful（小心照顾）/ teasing（爱逗人）/ quiet（安静少言）。必须根据角色设定选择，不能所有角色都使用默认组合。
+同時生成 charPerformance，讓 ${char.name} 在七個固定玩法裡的介入方式仍然像 ta 自己。tempo 只能是 brisk（利落迅速）/ measured（穩而克制）/ hesitant（先遲疑再行動）/ playful（輕快帶玩心）；markStyle 只能是 precise（整齊銳利）/ soft（柔和圓潤）/ scribbled（隨手凌亂）/ ornate（有裝飾感）；presence 只能是 direct（直接）/ careful（小心照顧）/ teasing（愛逗人）/ quiet（安靜少言）。必須根據角色設定選擇，不能所有角色都使用默認組合。
 
-事实、演出与互动规则：
-1. 事实不可虚构，演出可以虚构。只使用上下文明示的过去事实；不得补造共同经历、日期、礼物、原话、争吵、承诺或关系身份，没有准确原话时只能转述。允许把真实 evidence 演成新的超现实设施、故障、商品、空间反应、物件变形或互动事故。不能创造假的过去，可以创造新的现在。
-2. 资料充足时提取 20 条互不重复的事实证据，最多 24 条；资料不足就少写，绝对不能为了数量编造。20 条要尽量跨不同时间、不同主题和不同记忆类型，不能把同一事件换个说法重复占位。每条 evidence 必须具体、可辨认，object 是事实里真实出现的词、物件或动作。
-3. artifacts 必须从 evidence 派生，每一项都引用有效 evidenceIds。wordCloud 使用的性格词必须标为 kind="trait"。同一 evidence 原则上最多服务两个场景，每站尽量使用不同证据。每站只选一个最有效的记忆锚点做主角，不要把多个 facts 塞进同一段旁白；其余生命力来自当下的新事故和两个人的即时反应。
-4. evidence 不能只被摆出来供人参观，必须成为当下事件中可被拿走、交换、破坏、修改、误用、抢先购买或用来试探身份的玩法材料。目标不是“游戏记得这件事”，而是“这种东西居然也被这里拿来玩了”。
-5. 禁止连续使用低信息量陈列演出，例如“某个熟悉的东西浮现 / 某段记忆出现在眼前 / 水面泛起涟漪 / 纸面微微发亮 / 线轻轻颤动”。transitionLines、memoryLine、result、charAction 必须写具体发生了什么。
-6. 前六站必须各提供恰好 3 个完整 options，不能少于或多于 3 个；wordCloud 的 options 必须为空。每个 option 都必须包含 id、label、result、evidenceIds，并且每个 option 自己都必须引用至少一个有效 evidence；不能只让整个场景笼统引用 evidence。
-7. lostLayer 的每一个 option.label 都必须直接从它自己的 evidenceIds 所指向的具体事实、物件或未完话题提炼，让 User 选择“接着和 ${char.name} 聊哪段真实记忆”。禁止脱离 evidence 的泛泛问候，也不能生成开发、运维、代码或故障处理任务。可以让态度不同，例如不信邪重发、只丢一个问号试探、故意换个说法，但选项中必须看得出在聊哪条真实记忆。lostLayer 每个 option 还必须额外提供 charReply：这是清掉满屏报错之后，${char.name} 针对这个选项所代表话题真正送回来的 4—48 字回复；必须回应具体话题并像角色本人，不能继续谈报错、只写动作说明或泛泛说“我在”。所有玩家可见文案绝不能出现 e1、e2、evidenceId 等内部编号。
-8. 选项要表现 User 的策略、态度或意图，减少只有“拿起 / 放下 / 点击 / 查看 / 写下 / 等待”的机械动作。即使前端最终仍是按钮，七站文本也不能像连续做七次同一种选择题。
-9. result 不能只是“发光、颤动、出现反馈”，必须让 User 的具体选择改变这一轮互动：东西被抽走、位置被占、内容被改、双方撞车、配合失败后重来、某件商品提前售出等。
-10. charAction 必须通过 ${char.name} 处理事情的方式暴露人格，至少体现一种具体特征：动作习惯、耐心、抢先、嘴硬、故意逗人、临时改主意、无意识的小动作、怪比喻、歪理或冷幽默。charPerformance 只是辅助参数，不能代替具体人格演出。遮掉角色名字和所有记忆名词后，仍应能凭动作与吐槽猜出是谁。Char 的动作必须同时像“ta 正在处理自己那一层的遭遇”，不能全部写成专程过来帮助 User；至少三站先写出 Char 自己的目的，再让双方动作意外相撞或接上。
-11. 七站中至少四站要出现一次意外、失败、抢夺、擅自修改、互相妨碍或故意不配合；两层不能永远温柔顺利地用另一色光芒回应。
-12. 前六站禁止频繁写“对方似乎很了解你 / 你感到熟悉 / 某种默契形成 / 你意识到彼此存在联系”这类爱情或关系总结。展示动作证据，不替玩家解释证据。
-13. 七站玩法职责必须不同：lostLayer 是话题发送失败后报错红框铺满空间，Char 只攻击并毁掉报错，再真正回复所选话题；doubleWish 是异步共用同一张纸并分别写下各自的愿望；threadNeedle 是被迫摸索动作顺序并与未知另一层协作；offerings 是双方先后各自放下一件东西；reflection 是能被实时修改的痕迹；nightMarket 是双方各自逛摊、选购和试探；wordCloud 是双方严格交替选词并把身份怀疑推到最高，但不完成最终确认。
-14. wordCloud 的 artifactIds 必须提供 12—20 个短小、好选择的性格/气质/处事方式词，用来回答“你想到的那个人是什么性格”；User 会从中选 3 个最像 ${char.name} 的词。不要放物件、日期、话题、称呼、愿望或“开心/难过”这类瞬时情绪。charSelectionIds 选择 3—6 个 ${char.name} 眼里“最像 User”的性格词。
-15. openingChat 必须恰好两句，完全使用 ${char.name} 的说话方式。语义是：${char.name} 怀疑 ${user.name} 刚刚回复过，但自己没有收到。不能提活动、七夕、梦境、夹层、邀请、准备惊喜或“点击输入框”。
-16. 每个场景必须提供 transitionLines 1—2 句，把上一站真实发生的具体结果变成下一站入口，让七站保持因果连续。每句用 12—38 个中文字符，只写 User 能直接看到、听到或碰到的普通感官变化，不能总结主题、解释身份或写成任务说明。严禁“数据流 / 字符化 / 上下文 / 协议 / 接口 / 系统指令”等技术隐喻，严禁输出世界书标签、英文品牌名或“【CYBERORDER】”这类方括号设定名。
-17. lostLayer 与 doubleWish 必须提供 charVisibleText，其他五站填空字符串。lostLayer 的 charVisibleText 是 ${char.name} 毁掉报错时留在原地的 2—36 字短句，矛头必须指向报错、弹窗或挡路的错误，不能评价、改写或抢救 User 的话题；doubleWish 的 charVisibleText 必须直接写成 Char 第一人称许下的完整愿望句（例如“希望我正在找的那个人平安，也希望以后还能一起期待明天”），不能回应 User 正面的愿望，也不能暗示已经知道纸张另一面是谁。
-18. lostLayer 必须提供 charMutter：2—18 字，是 ${char.name} 冲回来毁掉报错时脱口而出的短促碎念。既有演出顺序不可改：“User 选择记忆相关话题 → 尝试发送 → DELIVERY FAILED、API 限流、超时与软道歉红框铺满空间 → Char 从另一层冲回来划掉、撕碎或踢走全部报错 → 对应 option.charReply 穿过清出的空隙出现 → User 的话题原样留在发送框”。Char 的视觉动作、charVisibleText、charMutter 与 charQuips 只能攻击报错，绝不能攻击、改写、删除、划掉或抢救 User 的话题；真正回应话题只写在 option.charReply。
-19. lostLayer 恰好提供 2 句环绕报错墙出现的 charQuips；doubleWish、threadNeedle、offerings、reflection、nightMarket 各提供 1—2 句 charQuips，wordCloud 恰好 3 句。它们是 ${char.name} 在当下漏出来的私人碎碎念，不是动作说明、记忆总结或系统旁白；每句 4—26 字，可以暴露一瞬间的私心、害羞、嫌弃、得意、犹豫、被迫玩奇怪小游戏的不耐烦、想藏起来的小愿望、对失踪之人的担心、对另一层身份的迟疑，或只有 ta 才会冒出的怪念头。Part 1 全程不能直接叫 User 名字，前六站不能把另一层称作已知的“你”，只能用“某人 / 另一边 / 那家伙 / 不知道谁”等未知称呼；第七站可以写“不会真是……”这种猜测，但不能确认。可爱来自受困时具体的小别扭、误会和意外，不来自统一卖萌、网络梗或随机发疯。在不违背设定时把电波感开到约 7/10。至少三站的碎碎念不直接提 evidence，而是只回应眼前正在发生的事。wordCloud 严格执行 User 选一个 → Char 立刻选一个并吐槽，共三轮，不能最后一次性揭晓。
-20. doubleWish 的 User 三个愿望可以是对“两个人以后”的真实期盼。${char.name} 的 charVisibleText 则是 ta 在自己那一层写给“正在寻找的重要之人”的私人愿望，并不知道共享同一张纸的操作者就是那个人；不能直接对另一层说“你”，不能写成回应 User 正面的愿望。若记忆宫殿召回内容中出现“窗台房间 / Window Sill”里的未来愿望、计划或期盼，可以从中提炼，但不得把愿望写成已经发生的共同经历。charQuips 是纸角漏出来的自言自语，可以嫌弃这关奇怪、想遮住自己写得太认真，或担心那个人现在在哪里。
-21. offerings 必须提供 charContribution：2—24 字，只写 ${char.name} 从自己那一层放上供桌的具体【私物】。它必须是属于 ${char.name}、对 ${char.name} 本人有意义、像 ta 会拥有/使用/随身携带/珍藏的东西；不要求来自共同记忆，不要求与 User 有关，也绝不能默认写成特意送给 User 的礼物。可以让 charQuips 用角色自己的口吻极短暴露为什么舍不得、常用或看重它，但不要写档案式说明。charContribution 不能是动作、旁白、对 User 供物的评价或“另一样东西”这种占位语。演出顺序固定为“User 选择并放下自己的东西 → 另一侧空位出现变化 → charContribution 对应的 Char 私物滑入 → charQuips 在私物旁出现”。charAction 可以描述随后发生的挪动、交换、抢位或碰撞，但不能替代 Char 自己的私物。
-22. nightMarket 的三个 option.label 必须分别是 User 真能挑选购买的具体梦境商品，并由有效 evidence 变形而来；不要再写“试探一下 / 抢先 / 等待”这种抽象策略。User 选中后，charAction 必须按顺序写清：${char.name} 也挑了一件“某人也许会喜欢”的不同商品作为身份试探 → 随后避开另一层视线，偷偷把纯粹自己想买的 charContribution 塞进纸袋。charContribution 为 2—24 字具体商品，体现角色自己的喜好，不要求与 User 有关。charQuips 可以嘴硬掩饰自购品，但默认禁止吃醋、嫉妒、情敌、占有欲宣言和围绕 User 争抢商品；除非真实设定与 evidence 明确支持，否则不要生成这类内容。
-23. 叙事视角必须分开。系统旁白、transitionLines、memoryLine、options.label、options.result 面向玩家时，用第二人称“你 / 你的”，禁止写“User / 用户 / 玩家 / 该用户 / ta / 他 / 她”。但 ${char.name} 自己说出或漏出的 charVisibleText、charMutter、charQuips、charReply，以及描述 ta 主观判断的 charAction，在 Part 1 不能知道另一层就是 User：应按场景使用“某人 / 另一边 / 那家伙 / 不知道谁”，不能叫 ${user.name}，也不能用带有身份确认含义的“你”。内部 evidence 与 artifact 的事实字段不受这条叙述人称限制。
+事實、演出與互動規則：
+1. 事實不可虛構，演出可以虛構。只使用上下文明示的過去事實；不得補造共同經歷、日期、禮物、原話、爭吵、承諾或關係身份，沒有準確原話時只能轉述。允許把真實 evidence 演成新的超現實設施、故障、商品、空間反應、物件變形或互動事故。不能創造假的過去，可以創造新的現在。
+2. 資料充足時提取 20 條互不重複的事實證據，最多 24 條；資料不足就少寫，絕對不能為了數量編造。20 條要儘量跨不同時間、不同主題和不同記憶類型，不能把同一事件換個說法重複佔位。每條 evidence 必須具體、可辨認，object 是事實裡真實出現的詞、物件或動作。
+3. artifacts 必須從 evidence 派生，每一項都引用有效 evidenceIds。wordCloud 使用的性格詞必須標為 kind="trait"。同一 evidence 原則上最多服務兩個場景，每站儘量使用不同證據。每站只選一個最有效的記憶錨點做主角，不要把多個 facts 塞進同一段旁白；其餘生命力來自當下的新事故和兩個人的即時反應。
+4. evidence 不能只被擺出來供人參觀，必須成為當下事件中可被拿走、交換、破壞、修改、誤用、搶先購買或用來試探身份的玩法材料。目標不是“遊戲記得這件事”，而是“這種東西居然也被這裡拿來玩了”。
+5. 禁止連續使用低信息量陳列演出，例如“某個熟悉的東西浮現 / 某段記憶出現在眼前 / 水面泛起漣漪 / 紙面微微發亮 / 線輕輕顫動”。transitionLines、memoryLine、result、charAction 必須寫具體發生了什麼。
+6. 前六站必須各提供恰好 3 個完整 options，不能少於或多於 3 個；wordCloud 的 options 必須為空。每個 option 都必須包含 id、label、result、evidenceIds，並且每個 option 自己都必須引用至少一個有效 evidence；不能只讓整個場景籠統引用 evidence。
+7. lostLayer 的每一個 option.label 都必須直接從它自己的 evidenceIds 所指向的具體事實、物件或未完話題提煉，讓 User 選擇“接著和 ${char.name} 聊哪段真實記憶”。禁止脫離 evidence 的泛泛問候，也不能生成開發、運維、代碼或故障處理任務。可以讓態度不同，例如不信邪重發、只丟一個問號試探、故意換個說法，但選項中必須看得出在聊哪條真實記憶。lostLayer 每個 option 還必須額外提供 charReply：這是清掉滿屏報錯之後，${char.name} 針對這個選項所代表話題真正送回來的 4—48 字回覆；必須回應具體話題並像角色本人，不能繼續談報錯、只寫動作說明或泛泛說“我在”。所有玩家可見文案絕不能出現 e1、e2、evidenceId 等內部編號。
+8. 選項要表現 User 的策略、態度或意圖，減少只有“拿起 / 放下 / 點擊 / 查看 / 寫下 / 等待”的機械動作。即使前端最終仍是按鈕，七站文本也不能像連續做七次同一種選擇題。
+9. result 不能只是“發光、顫動、出現反饋”，必須讓 User 的具體選擇改變這一輪互動：東西被抽走、位置被佔、內容被改、雙方撞車、配合失敗後重來、某件商品提前售出等。
+10. charAction 必須通過 ${char.name} 處理事情的方式暴露人格，至少體現一種具體特徵：動作習慣、耐心、搶先、嘴硬、故意逗人、臨時改主意、無意識的小動作、怪比喻、歪理或冷幽默。charPerformance 只是輔助參數，不能代替具體人格演出。遮掉角色名字和所有記憶名詞後，仍應能憑動作與吐槽猜出是誰。Char 的動作必須同時像“ta 正在處理自己那一層的遭遇”，不能全部寫成專程過來幫助 User；至少三站先寫出 Char 自己的目的，再讓雙方動作意外相撞或接上。
+11. 七站中至少四站要出現一次意外、失敗、搶奪、擅自修改、互相妨礙或故意不配合；兩層不能永遠溫柔順利地用另一色光芒回應。
+12. 前六站禁止頻繁寫“對方似乎很瞭解你 / 你感到熟悉 / 某種默契形成 / 你意識到彼此存在聯繫”這類愛情或關係總結。展示動作證據，不替玩家解釋證據。
+13. 七站玩法職責必須不同：lostLayer 是話題發送失敗後報錯紅框鋪滿空間，Char 只攻擊並毀掉報錯，再真正回覆所選話題；doubleWish 是異步共用同一張紙並分別寫下各自的願望；threadNeedle 是被迫摸索動作順序並與未知另一層協作；offerings 是雙方先後各自放下一件東西；reflection 是能被實時修改的痕跡；nightMarket 是雙方各自逛攤、選購和試探；wordCloud 是雙方嚴格交替選詞並把身份懷疑推到最高，但不完成最終確認。
+14. wordCloud 的 artifactIds 必須提供 12—20 個短小、好選擇的性格/氣質/處事方式詞，用來回答“你想到的那個人是什麼性格”；User 會從中選 3 個最像 ${char.name} 的詞。不要放物件、日期、話題、稱呼、願望或“開心/難過”這類瞬時情緒。charSelectionIds 選擇 3—6 個 ${char.name} 眼裡“最像 User”的性格詞。
+15. openingChat 必須恰好兩句，完全使用 ${char.name} 的說話方式。語義是：${char.name} 懷疑 ${user.name} 剛剛回復過，但自己沒有收到。不能提活動、七夕、夢境、夾層、邀請、準備驚喜或“點擊輸入框”。
+16. 每個場景必須提供 transitionLines 1—2 句，把上一站真實發生的具體結果變成下一站入口，讓七站保持因果連續。每句用 12—38 個中文字符，只寫 User 能直接看到、聽到或碰到的普通感官變化，不能總結主題、解釋身份或寫成任務說明。嚴禁“數據流 / 字符化 / 上下文 / 協議 / 接口 / 系統指令”等技術隱喻，嚴禁輸出世界書標籤、英文品牌名或“【CYBERORDER】”這類方括號設定名。
+17. lostLayer 與 doubleWish 必須提供 charVisibleText，其他五站填空字符串。lostLayer 的 charVisibleText 是 ${char.name} 毀掉報錯時留在原地的 2—36 字短句，矛頭必須指向報錯、彈窗或擋路的錯誤，不能評價、改寫或搶救 User 的話題；doubleWish 的 charVisibleText 必須直接寫成 Char 第一人稱許下的完整願望句（例如“希望我正在找的那個人平安，也希望以後還能一起期待明天”），不能回應 User 正面的願望，也不能暗示已經知道紙張另一面是誰。
+18. lostLayer 必須提供 charMutter：2—18 字，是 ${char.name} 衝回來毀掉報錯時脫口而出的短促碎念。既有演出順序不可改：“User 選擇記憶相關話題 → 嘗試發送 → DELIVERY FAILED、API 限流、超時與軟道歉紅框鋪滿空間 → Char 從另一層衝回來劃掉、撕碎或踢走全部報錯 → 對應 option.charReply 穿過清出的空隙出現 → User 的話題原樣留在發送框”。Char 的視覺動作、charVisibleText、charMutter 與 charQuips 只能攻擊報錯，絕不能攻擊、改寫、刪除、劃掉或搶救 User 的話題；真正回應話題只寫在 option.charReply。
+19. lostLayer 恰好提供 2 句環繞報錯牆出現的 charQuips；doubleWish、threadNeedle、offerings、reflection、nightMarket 各提供 1—2 句 charQuips，wordCloud 恰好 3 句。它們是 ${char.name} 在當下漏出來的私人碎碎念，不是動作說明、記憶總結或系統旁白；每句 4—26 字，可以暴露一瞬間的私心、害羞、嫌棄、得意、猶豫、被迫玩奇怪小遊戲的不耐煩、想藏起來的小願望、對失蹤之人的擔心、對另一層身份的遲疑，或只有 ta 才會冒出的怪念頭。Part 1 全程不能直接叫 User 名字，前六站不能把另一層稱作已知的“你”，只能用“某人 / 另一邊 / 那傢伙 / 不知道誰”等未知稱呼；第七站可以寫“不會真是……”這種猜測，但不能確認。可愛來自受困時具體的小別扭、誤會和意外，不來自統一賣萌、網絡梗或隨機發瘋。在不違背設定時把電波感開到約 7/10。至少三站的碎碎念不直接提 evidence，而是只回應眼前正在發生的事。wordCloud 嚴格執行 User 選一個 → Char 立刻選一個並吐槽，共三輪，不能最後一次性揭曉。
+20. doubleWish 的 User 三個願望可以是對“兩個人以後”的真實期盼。${char.name} 的 charVisibleText 則是 ta 在自己那一層寫給“正在尋找的重要之人”的私人願望，並不知道共享同一張紙的操作者就是那個人；不能直接對另一層說“你”，不能寫成回應 User 正面的願望。若記憶宮殿召回內容中出現“窗台房間 / Window Sill”裡的未來願望、計劃或期盼，可以從中提煉，但不得把願望寫成已經發生的共同經歷。charQuips 是紙角漏出來的自言自語，可以嫌棄這關奇怪、想遮住自己寫得太認真，或擔心那個人現在在哪裡。
+21. offerings 必須提供 charContribution：2—24 字，只寫 ${char.name} 從自己那一層放上供桌的具體【私物】。它必須是屬於 ${char.name}、對 ${char.name} 本人有意義、像 ta 會擁有/使用/隨身攜帶/珍藏的東西；不要求來自共同記憶，不要求與 User 有關，也絕不能默認寫成特意送給 User 的禮物。可以讓 charQuips 用角色自己的口吻極短暴露為什麼捨不得、常用或看重它，但不要寫檔案式說明。charContribution 不能是動作、旁白、對 User 供物的評價或“另一樣東西”這種佔位語。演出順序固定為“User 選擇並放下自己的東西 → 另一側空位出現變化 → charContribution 對應的 Char 私物滑入 → charQuips 在私物旁出現”。charAction 可以描述隨後發生的挪動、交換、搶位或碰撞，但不能替代 Char 自己的私物。
+22. nightMarket 的三個 option.label 必須分別是 User 真能挑選購買的具體夢境商品，並由有效 evidence 變形而來；不要再寫“試探一下 / 搶先 / 等待”這種抽象策略。User 選中後，charAction 必須按順序寫清：${char.name} 也挑了一件“某人也許會喜歡”的不同商品作為身份試探 → 隨後避開另一層視線，偷偷把純粹自己想買的 charContribution 塞進紙袋。charContribution 為 2—24 字具體商品，體現角色自己的喜好，不要求與 User 有關。charQuips 可以嘴硬掩飾自購品，但默認禁止吃醋、嫉妒、情敵、佔有慾宣言和圍繞 User 爭搶商品；除非真實設定與 evidence 明確支持，否則不要生成這類內容。
+23. 敘事視角必須分開。系統旁白、transitionLines、memoryLine、options.label、options.result 面向玩家時，用第二人稱“你 / 你的”，禁止寫“User / 用戶 / 玩家 / 該用戶 / ta / 他 / 她”。但 ${char.name} 自己說出或漏出的 charVisibleText、charMutter、charQuips、charReply，以及描述 ta 主觀判斷的 charAction，在 Part 1 不能知道另一層就是 User：應按場景使用“某人 / 另一邊 / 那傢伙 / 不知道誰”，不能叫 ${user.name}，也不能用帶有身份確認含義的“你”。內部 evidence 與 artifact 的事實字段不受這條敘述人稱限制。
 
-场景要求：
+場景要求：
 ${briefs}
 
-只输出一个 JSON 对象，不要 Markdown，不要解释：
+只輸出一個 JSON 對象，不要 Markdown，不要解釋：
 {
-  "openingChat": ["角色察觉可能漏收消息", "角色困惑地确认异常"],
-  "charLayerColor": "从允许色表中选择的十六进制颜色",
+  "openingChat": ["角色察覺可能漏收消息", "角色困惑地確認異常"],
+  "charLayerColor": "從允許色表中選擇的十六進制顏色",
   "charPerformance": { "tempo": "brisk|measured|hesitant|playful", "markStyle": "precise|soft|scribbled|ornate", "presence": "direct|careful|teasing|quiet" },
   "evidence": [
-    { "id": "e1", "fact": "一条具体可核对的事实", "object": "真实物件或词", "tags": ["日常", "饮料"] }
+    { "id": "e1", "fact": "一條具體可核對的事實", "object": "真實物件或詞", "tags": ["日常", "飲料"] }
   ],
   "artifacts": [
-    { "id": "a1", "label": "一个短词或物件", "kind": "object|phrase|nickname|topic|date|emotion|wish|symbol|trait", "evidenceIds": ["e1"] }
+    { "id": "a1", "label": "一個短詞或物件", "kind": "object|phrase|nickname|topic|date|emotion|wish|symbol|trait", "evidenceIds": ["e1"] }
   ],
   "scenes": {
     "lostLayer": {
-      "transitionLines": ["上一空间留下的痕迹开始变化", "下一空间从痕迹中浮现"],
-      "sharedObject": "一个停在发送前的话题框",
-      "memoryLine": "两个真实的未完话题卡在发送框里",
-      "options": [{ "id": "topic-1", "label": "把那件只说了一半的小事继续说完", "result": "这句追问尝试发送后变成 DELIVERY FAILED。", "charReply": "针对这件小事真正送回来的角色回复", "evidenceIds": ["e1"] }, { "id": "topic-2", "label": "问问那个真实目标后来到了没有", "result": "这个话题离开发送框后被退回。", "charReply": "针对那个真实目标的角色回复", "evidenceIds": ["e2"] }, { "id": "topic-3", "label": "拿另一个真实记忆细节重新发一次", "result": "第三个话题被超时弹窗拦住。", "charReply": "针对第三个记忆话题的角色回复", "evidenceIds": ["e3"] }],
-      "charAction": "API 报错、限流、超时和软道歉红框铺满空间；另一色字迹从另一层冲来，把所有红框划掉、撕碎并踢走，你选中的话题原样留在原处",
-      "charMutter": "角色毁掉报错时脱口而出的短促碎念",
-      "charVisibleText": "挡路的，删掉。",
-      "charQuips": ["道歉留着自己看。", "这次不许再吞。"],
-      "reveal": "只推进到：报错后面确实有另一个人在操作",
+      "transitionLines": ["上一空間留下的痕跡開始變化", "下一空間從痕跡中浮現"],
+      "sharedObject": "一個停在發送前的話題框",
+      "memoryLine": "兩個真實的未完話題卡在發送框裡",
+      "options": [{ "id": "topic-1", "label": "把那件只說了一半的小事繼續說完", "result": "這句追問嘗試發送後變成 DELIVERY FAILED。", "charReply": "針對這件小事真正送回來的角色回覆", "evidenceIds": ["e1"] }, { "id": "topic-2", "label": "問問那個真實目標後來到了沒有", "result": "這個話題離開發送框後被退回。", "charReply": "針對那個真實目標的角色回覆", "evidenceIds": ["e2"] }, { "id": "topic-3", "label": "拿另一個真實記憶細節重新發一次", "result": "第三個話題被超時彈窗攔住。", "charReply": "針對第三個記憶話題的角色回覆", "evidenceIds": ["e3"] }],
+      "charAction": "API 報錯、限流、超時和軟道歉紅框鋪滿空間；另一色字跡從另一層衝來，把所有紅框劃掉、撕碎並踢走，你選中的話題原樣留在原處",
+      "charMutter": "角色毀掉報錯時脫口而出的短促碎念",
+      "charVisibleText": "擋路的，刪掉。",
+      "charQuips": ["道歉留著自己看。", "這次不許再吞。"],
+      "reveal": "只推進到：報錯後面確實有另一個人在操作",
       "artifactIds": ["a1"],
       "charSelectionIds": []
     },
-    "doubleWish": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "doubleWish-1", "label": "关于两个人未来的愿望一", "result": "愿望写上正面的即时反馈", "evidenceIds": ["e4"] }, { "id": "doubleWish-2", "label": "关于两个人未来的愿望二", "result": "愿望写上正面的即时反馈", "evidenceIds": ["e5"] }, { "id": "doubleWish-3", "label": "关于两个人未来的愿望三", "result": "第三个愿望改变纸面的具体反馈", "evidenceIds": ["e6"] }], "charAction": "纸笺被另一边翻到背面，某人写下关于正在寻找之人的愿望", "charVisibleText": "希望我正在找的那个人平安，也希望以后还能一起期待明天。", "charQuips": ["这关为什么非要看别人写愿望……"], "reveal": "...", "artifactIds": [], "charSelectionIds": [] },
-    "threadNeedle": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "threadNeedle-1", "label": "先把线头压低，等另一边稳住针孔", "result": "会改变配合过程的具体结果", "evidenceIds": ["e7"] }, { "id": "threadNeedle-2", "label": "故意停半拍，让另一边先选", "result": "不同的碰撞或配合结果", "evidenceIds": ["e8"] }, { "id": "threadNeedle-3", "label": "同时松手，看另一边会不会接住", "result": "第三种失败或配合结果", "evidenceIds": ["e9"] }], "charAction": "带角色人格的直接回应", "charVisibleText": "", "charQuips": ["角色即时吐槽"], "reveal": "只推进到主动协作", "artifactIds": [], "charSelectionIds": [] },
-    "offerings": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "offerings-1", "label": "放下属于你的第一件东西", "result": "你的供物落在左侧空位", "evidenceIds": ["e10"] }, { "id": "offerings-2", "label": "把自己的东西先放在正中间", "result": "你的供物占住最显眼的位置", "evidenceIds": ["e11"] }, { "id": "offerings-3", "label": "故意把自己的东西贴着边缘放", "result": "你的供物为另一侧留出空位", "evidenceIds": ["e12"] }], "charAction": "另一层自己的私物滑入空位，随后发生带私人判断的挪动或碰撞", "charContribution": "属于 Char 且对 Char 本人有意义的具体私物", "charVisibleText": "", "charQuips": ["用角色口吻泄露这件私物为何被看重"], "reveal": "只展示双方各自放下东西与互相判断的证据", "artifactIds": [], "charSelectionIds": [] },
-    "reflection": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "reflection-1", "label": "留半句话，故意不写完", "result": "另一层可以立即接续的具体结果", "evidenceIds": ["e13"] }, { "id": "reflection-2", "label": "画一个会被另一边改坏的符号", "result": "另一层修改或曲解后的结果", "evidenceIds": ["e14"] }, { "id": "reflection-3", "label": "先擦掉一笔再看另一边怎么补", "result": "第三种实时接续结果", "evidenceIds": ["e15"] }], "charAction": "另一层近实时修改你留下的内容", "charVisibleText": "", "charQuips": ["角色即时吐槽"], "reveal": "只推进到近实时交流", "artifactIds": [], "charSelectionIds": [] },
-    "nightMarket": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "nightMarket-1", "label": "由 e16 变形成的具体可买商品", "result": "你把商品放进自己的纸袋", "evidenceIds": ["e16"] }, { "id": "nightMarket-2", "label": "由 e17 变形成的另一件具体商品", "result": "摊主把你选的东西包起来", "evidenceIds": ["e17"] }, { "id": "nightMarket-3", "label": "由 e18 变形成的第三件具体商品", "result": "你的购买券落到对应商品前", "evidenceIds": ["e18"] }], "charAction": "另一边先挑走一件觉得某人可能喜欢的商品，停顿后又偷偷把自己的东西塞进纸袋", "charContribution": "Char 单纯为自己买的具体商品", "charVisibleText": "", "charQuips": ["只是我自己想要，别乱猜。"], "reveal": "双方都觉得购物习惯异常熟悉，但谁也没有确认身份", "artifactIds": [], "charSelectionIds": [] },
-    "wordCloud": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [], "charAction": "...", "charVisibleText": "", "charQuips": ["第一轮吐槽", "第二轮吐槽", "第三轮吐槽"], "reveal": "...", "artifactIds": ["a1"], "charSelectionIds": ["a1"] }
+    "doubleWish": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "doubleWish-1", "label": "關於兩個人未來的願望一", "result": "願望寫上正面的即時反饋", "evidenceIds": ["e4"] }, { "id": "doubleWish-2", "label": "關於兩個人未來的願望二", "result": "願望寫上正面的即時反饋", "evidenceIds": ["e5"] }, { "id": "doubleWish-3", "label": "關於兩個人未來的願望三", "result": "第三個願望改變紙面的具體反饋", "evidenceIds": ["e6"] }], "charAction": "紙箋被另一邊翻到背面，某人寫下關於正在尋找之人的願望", "charVisibleText": "希望我正在找的那個人平安，也希望以後還能一起期待明天。", "charQuips": ["這關為什麼非要看別人寫願望……"], "reveal": "...", "artifactIds": [], "charSelectionIds": [] },
+    "threadNeedle": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "threadNeedle-1", "label": "先把線頭壓低，等另一邊穩住針孔", "result": "會改變配合過程的具體結果", "evidenceIds": ["e7"] }, { "id": "threadNeedle-2", "label": "故意停半拍，讓另一邊先選", "result": "不同的碰撞或配合結果", "evidenceIds": ["e8"] }, { "id": "threadNeedle-3", "label": "同時鬆手，看另一邊會不會接住", "result": "第三種失敗或配合結果", "evidenceIds": ["e9"] }], "charAction": "帶角色人格的直接回應", "charVisibleText": "", "charQuips": ["角色即時吐槽"], "reveal": "只推進到主動協作", "artifactIds": [], "charSelectionIds": [] },
+    "offerings": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "offerings-1", "label": "放下屬於你的第一件東西", "result": "你的供物落在左側空位", "evidenceIds": ["e10"] }, { "id": "offerings-2", "label": "把自己的東西先放在正中間", "result": "你的供物佔住最顯眼的位置", "evidenceIds": ["e11"] }, { "id": "offerings-3", "label": "故意把自己的東西貼著邊緣放", "result": "你的供物為另一側留出空位", "evidenceIds": ["e12"] }], "charAction": "另一層自己的私物滑入空位，隨後發生帶私人判斷的挪動或碰撞", "charContribution": "屬於 Char 且對 Char 本人有意義的具體私物", "charVisibleText": "", "charQuips": ["用角色口吻洩露這件私物為何被看重"], "reveal": "只展示雙方各自放下東西與互相判斷的證據", "artifactIds": [], "charSelectionIds": [] },
+    "reflection": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "reflection-1", "label": "留半句話，故意不寫完", "result": "另一層可以立即接續的具體結果", "evidenceIds": ["e13"] }, { "id": "reflection-2", "label": "畫一個會被另一邊改壞的符號", "result": "另一層修改或曲解後的結果", "evidenceIds": ["e14"] }, { "id": "reflection-3", "label": "先擦掉一筆再看另一邊怎麼補", "result": "第三種實時接續結果", "evidenceIds": ["e15"] }], "charAction": "另一層近實時修改你留下的內容", "charVisibleText": "", "charQuips": ["角色即時吐槽"], "reveal": "只推進到近實時交流", "artifactIds": [], "charSelectionIds": [] },
+    "nightMarket": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [{ "id": "nightMarket-1", "label": "由 e16 變形成的具體可買商品", "result": "你把商品放進自己的紙袋", "evidenceIds": ["e16"] }, { "id": "nightMarket-2", "label": "由 e17 變形成的另一件具體商品", "result": "攤主把你選的東西包起來", "evidenceIds": ["e17"] }, { "id": "nightMarket-3", "label": "由 e18 變形成的第三件具體商品", "result": "你的購買券落到對應商品前", "evidenceIds": ["e18"] }], "charAction": "另一邊先挑走一件覺得某人可能喜歡的商品，停頓後又偷偷把自己的東西塞進紙袋", "charContribution": "Char 單純為自己買的具體商品", "charVisibleText": "", "charQuips": ["只是我自己想要，別亂猜。"], "reveal": "雙方都覺得購物習慣異常熟悉，但誰也沒有確認身份", "artifactIds": [], "charSelectionIds": [] },
+    "wordCloud": { "transitionLines": ["..."], "sharedObject": "...", "memoryLine": "...", "options": [], "charAction": "...", "charVisibleText": "", "charQuips": ["第一輪吐槽", "第二輪吐槽", "第三輪吐槽"], "reveal": "...", "artifactIds": ["a1"], "charSelectionIds": ["a1"] }
   }
 }`;
 }
@@ -595,60 +595,60 @@ export function buildQixiMemoryBundlePhasePrompt(
     if (phase === 'first') {
         return `${basePrompt}
 
-【本轮输出范围覆盖上面的完整示例】
-这是 Part 1 的第一段生成。只生成公共上下文与前两站的最终可播放内容，降低一次性输出负担。
-最终 JSON 顶层必须包含 openingChat、charLayerColor、charPerformance、evidence、artifacts、scenes；scenes 必须且只能包含 lostLayer、doubleWish 两个 key。
-不要输出其余五站，也不要用省略号代替任何字段。后续两段会接在本轮结果后面。`;
+【本輪輸出範圍覆蓋上面的完整示例】
+這是 Part 1 的第一段生成。只生成公共上下文與前兩站的最終可播放內容，降低一次性輸出負擔。
+最終 JSON 頂層必須包含 openingChat、charLayerColor、charPerformance、evidence、artifacts、scenes；scenes 必須且只能包含 lostLayer、doubleWish 兩個 key。
+不要輸出其餘五站，也不要用省略號代替任何字段。後續兩段會接在本輪結果後面。`;
     }
 
     if (phase === 'second') {
         return `${basePrompt}
 
-【上一段已通过基础结构检查的唯一底稿】
+【上一段已通過基礎結構檢查的唯一底稿】
 ${continuationSeed}
 
-【本轮输出范围覆盖上面的完整示例】
-这是 Part 1 的第二段生成。不要重写 openingChat、charLayerColor、charPerformance、evidence 或 artifacts，也不要改写前两站。
-只输出一个 JSON 对象，唯一顶层 key 为 scenes；scenes 必须且只能包含 threadNeedle、offerings、reflection 三个完整场景。
-这三站必须沿用上面底稿的 evidence id、artifact id、角色行为方式与前两站事件结果，形成同一条连续事件；不得发明底稿之外的过去事实。不要输出 Markdown，不要解释，不要使用省略号。`;
+【本輪輸出範圍覆蓋上面的完整示例】
+這是 Part 1 的第二段生成。不要重寫 openingChat、charLayerColor、charPerformance、evidence 或 artifacts，也不要改寫前兩站。
+只輸出一個 JSON 對象，唯一頂層 key 為 scenes；scenes 必須且只能包含 threadNeedle、offerings、reflection 三個完整場景。
+這三站必須沿用上面底稿的 evidence id、artifact id、角色行為方式與前兩站事件結果，形成同一條連續事件；不得發明底稿之外的過去事實。不要輸出 Markdown，不要解釋，不要使用省略號。`;
     }
 
     return `${basePrompt}
 
-【上一段已通过基础结构检查的唯一底稿】
+【上一段已通過基礎結構檢查的唯一底稿】
 ${continuationSeed}
 
-【本轮输出范围覆盖上面的完整示例】
-这是 Part 1 的第三段生成。不要重写 openingChat、charLayerColor、charPerformance、evidence 或 artifacts，也不要改写前五站。
-只输出一个 JSON 对象，顶层必须且只能有 scenes 与 bridge 两个 key。scenes 必须且只能包含 nightMarket、wordCloud 两个完整场景。
-最后两站必须沿用上面底稿的 evidence id、artifact id、角色行为方式与前五站事件结果，形成同一条连续事件；不得发明底稿之外的过去事实。
+【本輪輸出範圍覆蓋上面的完整示例】
+這是 Part 1 的第三段生成。不要重寫 openingChat、charLayerColor、charPerformance、evidence 或 artifacts，也不要改寫前五站。
+只輸出一個 JSON 對象，頂層必須且只能有 scenes 與 bridge 兩個 key。scenes 必須且只能包含 nightMarket、wordCloud 兩個完整場景。
+最後兩站必須沿用上面底稿的 evidence id、artifact id、角色行為方式與前五站事件結果，形成同一條連續事件；不得發明底稿之外的過去事實。
 
-同一次响应中的 bridge 负责八地点结束后的鹊桥最终可播放内容。它必须复用上面底稿中已经召回的真实 evidence，不重新发明共同经历：
-- userMagpies：选择 User 会由此想到 Char 的记忆；charMagpies：选择 Char 会由此想到 User 的记忆。
-- 每侧根据有效证据选择 1—6 只，宁可少而准确；同一侧 evidenceId 不得重复，两侧允许从不同角度引用同一条证据。
-- 每只鹊必须包含 evidenceId、极短 name、一句私人具体的 memory、只做视觉抽象且不新增事实的 visualHint。
-- finalMagpie.name 固定为“${user.name}”，代表系统把 Char 一路怀疑的名字带向中央；line 只能表达“越来越像某人 / 希望没有认错”的近乎确定，不能说已经亲眼确认身份。真正的“果然是你”留给 Part 3 见面。visualHint 是极短视觉意象。
-- 禁止直接解释“思念就是鹊桥”“记忆让我们相见”等中心思想，交给后续动画表达。
+同一次響應中的 bridge 負責八地點結束後的鵲橋最終可播放內容。它必須複用上面底稿中已經召回的真實 evidence，不重新發明共同經歷：
+- userMagpies：選擇 User 會由此想到 Char 的記憶；charMagpies：選擇 Char 會由此想到 User 的記憶。
+- 每側根據有效證據選擇 1—6 只，寧可少而準確；同一側 evidenceId 不得重複，兩側允許從不同角度引用同一條證據。
+- 每隻鵲必須包含 evidenceId、極短 name、一句私人具體的 memory、只做視覺抽象且不新增事實的 visualHint。
+- finalMagpie.name 固定為“${user.name}”，代表系統把 Char 一路懷疑的名字帶向中央；line 只能表達“越來越像某人 / 希望沒有認錯”的近乎確定，不能說已經親眼確認身份。真正的“果然是你”留給 Part 3 見面。visualHint 是極短視覺意象。
+- 禁止直接解釋“思念就是鵲橋”“記憶讓我們相見”等中心思想，交給後續動畫表達。
 
-输出结构必须是：
+輸出結構必須是：
 {
   "scenes": {
-    "nightMarket": { "完整字段": "按上方场景规范生成" },
-    "wordCloud": { "完整字段": "按上方场景规范生成" }
+    "nightMarket": { "完整字段": "按上方場景規範生成" },
+    "wordCloud": { "完整字段": "按上方場景規範生成" }
   },
   "bridge": {
-    "userMagpies": [{ "evidenceId": "e1", "name": "记忆名称", "memory": "一句极短真实记忆", "visualHint": "极短视觉意象" }],
-    "charMagpies": [{ "evidenceId": "e2", "name": "记忆名称", "memory": "一句极短真实记忆", "visualHint": "极短视觉意象" }],
-    "finalMagpie": { "name": "${user.name}", "line": "Char 几乎猜到但还不敢确认的极短反应", "visualHint": "从对岸飞来的名字" }
+    "userMagpies": [{ "evidenceId": "e1", "name": "記憶名稱", "memory": "一句極短真實記憶", "visualHint": "極短視覺意象" }],
+    "charMagpies": [{ "evidenceId": "e2", "name": "記憶名稱", "memory": "一句極短真實記憶", "visualHint": "極短視覺意象" }],
+    "finalMagpie": { "name": "${user.name}", "line": "Char 幾乎猜到但還不敢確認的極短反應", "visualHint": "從對岸飛來的名字" }
   }
 }
-不要输出 Markdown，不要解释，不要使用省略号。`;
+不要輸出 Markdown，不要解釋，不要使用省略號。`;
 }
 
 const formatRecentMessages = (messages: Message[]): string => messages
     .slice(-160)
     .map(message => {
-        const content = message.type === 'image' ? '[图片]' : message.content;
+        const content = message.type === 'image' ? '[圖片]' : message.content;
         return `${message.role}: ${content}`;
     })
     .join('\n')
@@ -677,22 +677,22 @@ export async function prepareQixiMemoryBundle(
     }
 
     if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) {
-        throw new Error('Part 1 无法生成：请先配置可用的模型 API。');
+        throw new Error('Part 1 無法生成：請先配置可用的模型 API。');
     }
 
     try {
         const recallQuery = [
-            `七夕活动专用跨主题召回：目标返回 ${QIXI_RECALL_MAX_OUTPUT_ITEMS} 条互不重复、真实可核对的共同记忆。`,
-            '想念、寻找对方、联系、分享、没说完的话、撤回、沉默、等待、失联；',
-            '礼物、食物、饮料、日常物件、日期时间、称呼昵称、口头禅、截图图片、梗；',
-            '学习、工作、创作、为对方做成的事、愿望目标、未来、彼此印象；',
-            '记忆宫殿的窗台房间 / Window Sill / 窗边记录里的未来愿望、未完成计划、想去的地方、对以后生活的期盼；若存在，优先保留至少两条；',
-            '安慰、害怕、难过、烦恼、负面情绪、陪伴、和好、需要、喜欢、自由、休息。',
-            '尽量跨不同时间、主题和记忆类型；不要让同一事件换说法重复占位。优先返回私人、具体、可核对的记忆。',
+            `七夕活動專用跨主題召回：目標返回 ${QIXI_RECALL_MAX_OUTPUT_ITEMS} 條互不重複、真實可核對的共同記憶。`,
+            '想念、尋找對方、聯繫、分享、沒說完的話、撤回、沉默、等待、失聯；',
+            '禮物、食物、飲料、日常物件、日期時間、稱呼暱稱、口頭禪、截圖圖片、梗；',
+            '學習、工作、創作、為對方做成的事、願望目標、未來、彼此印象；',
+            '記憶宮殿的窗台房間 / Window Sill / 窗邊記錄裡的未來願望、未完成計劃、想去的地方、對以後生活的期盼；若存在，優先保留至少兩條；',
+            '安慰、害怕、難過、煩惱、負面情緒、陪伴、和好、需要、喜歡、自由、休息。',
+            '儘量跨不同時間、主題和記憶類型；不要讓同一事件換說法重複佔位。優先返回私人、具體、可核對的記憶。',
         ].join('\n');
         const recallChar = { ...char, memoryPalaceInjection: '', roomPlatesInjection: '' };
-        // 七夕召回只用活动 query 扩散；聊天上下文留给后面的生成器作事实来源，
-        // 不参与检索打分，避免最近话题把 20 条记忆挤成同一类。
+        // 七夕召回只用活動 query 擴散；聊天上下文留給後面的生成器作事實來源，
+        // 不參與檢索打分，避免最近話題把 20 條記憶擠成同一類。
         await injectMemoryPalace(recallChar, [], recallQuery, user.name, {
             entryPoint: 'direct',
             formatterMaxOutputItems: QIXI_RECALL_MAX_OUTPUT_ITEMS,
@@ -720,8 +720,8 @@ export async function prepareQixiMemoryBundle(
                         ],
                         temperature: 0.68,
                         max_tokens: 32000,
-                        // 七夕首轮内容较长。强制使用流式传输，让上游尽早返回响应头/数据片段，
-                        // 避免 Claude 在完整生成结束前触发 Cloudflare 524。
+                        // 七夕首輪內容較長。強制使用流式傳輸，讓上游儘早返回響應頭/數據片段，
+                        // 避免 Claude 在完整生成結束前觸發 Cloudflare 524。
                         stream: true,
                     }),
                 },
@@ -733,7 +733,7 @@ export async function prepareQixiMemoryBundle(
             const content = data?.choices?.[0]?.message?.content;
             const finishReason = data?.choices?.[0]?.finish_reason || 'unknown';
             if (typeof content !== 'string') {
-                throw new Error(`Part 1 ${phase === 'first' ? '前两站' : phase === 'second' ? '中三站' : '后两站与鹊桥'}响应正文不是字符串（finish_reason=${finishReason}, output_chars=0）`);
+                throw new Error(`Part 1 ${phase === 'first' ? '前兩站' : phase === 'second' ? '中三站' : '後兩站與鵲橋'}響應正文不是字符串（finish_reason=${finishReason}, output_chars=0）`);
             }
             return { content, finishReason };
         };
@@ -743,19 +743,19 @@ export async function prepareQixiMemoryBundle(
         );
         const firstResponse = await requestPhase(
             'first',
-            `[最近聊天片段，仅作事实来源]\n${recent || '（没有可用的最近聊天片段）'}\n\n${buildQixiMemoryBundlePhasePrompt(char, user, options.userLayerColor, 'first')}`,
+            `[最近聊天片段，僅作事實來源]\n${recent || '（沒有可用的最近聊天片段）'}\n\n${buildQixiMemoryBundlePhasePrompt(char, user, options.userLayerColor, 'first')}`,
         );
         const firstChunk = normalizeQixiPhaseChunk(
             parseQixiJsonObject(firstResponse.content),
             QIXI_PART1_FIRST_SCENE_IDS,
         );
         if (!firstChunk || !hasPlayablePhaseScenes(firstChunk, QIXI_PART1_FIRST_SCENE_IDS)) {
-            throw new Error(`Part 1 前两站正文无法读取（finish_reason=${firstResponse.finishReason}, output_chars=${firstResponse.content.length}）`);
+            throw new Error(`Part 1 前兩站正文無法讀取（finish_reason=${firstResponse.finishReason}, output_chars=${firstResponse.content.length}）`);
         }
-        let firstParseFailure = '未知结构错误';
+        let firstParseFailure = '未知結構錯誤';
         const firstBundle = parseQixiProgressiveMemoryBundle(firstChunk, firstChunk.scenes, contextSignature, user.name, reason => { firstParseFailure = reason; });
         if (!firstBundle) {
-            throw new Error(`Part 1 前两站内容无效（finish_reason=${firstResponse.finishReason}, output_chars=${firstResponse.content.length}, schema=${firstParseFailure}）`);
+            throw new Error(`Part 1 前兩站內容無效（finish_reason=${firstResponse.finishReason}, output_chars=${firstResponse.content.length}, schema=${firstParseFailure}）`);
         }
         // The first playable slice is ready. Deliver it before opening the next
         // serial request so Flappy never waits for all three generations.
@@ -778,13 +778,13 @@ export async function prepareQixiMemoryBundle(
             QIXI_PART1_SECOND_SCENE_IDS,
         );
         if (!secondChunk || !hasPlayablePhaseScenes(secondChunk, QIXI_PART1_SECOND_SCENE_IDS)) {
-            throw new Error(`Part 1 中三站正文无法读取（finish_reason=${secondResponse.finishReason}, output_chars=${secondResponse.content.length}）`);
+            throw new Error(`Part 1 中三站正文無法讀取（finish_reason=${secondResponse.finishReason}, output_chars=${secondResponse.content.length}）`);
         }
         const secondScenes = { ...firstChunk.scenes, ...secondChunk.scenes };
-        let secondParseFailure = '未知结构错误';
+        let secondParseFailure = '未知結構錯誤';
         const secondBundle = parseQixiProgressiveMemoryBundle(firstChunk, secondScenes, contextSignature, user.name, reason => { secondParseFailure = reason; });
         if (!secondBundle) {
-            throw new Error(`Part 1 中三站内容无效（finish_reason=${secondResponse.finishReason}, output_chars=${secondResponse.content.length}, schema=${secondParseFailure}）`);
+            throw new Error(`Part 1 中三站內容無效（finish_reason=${secondResponse.finishReason}, output_chars=${secondResponse.content.length}, schema=${secondParseFailure}）`);
         }
         // Call 3 is still strictly downstream of Call 2, but React receives the
         // accepted middle rooms before the third request starts.
@@ -813,7 +813,7 @@ export async function prepareQixiMemoryBundle(
             || !hasCollection(thirdChunk.bridge?.userMagpies)
             || !hasCollection(thirdChunk.bridge?.charMagpies)
             || !thirdChunk.bridge?.finalMagpie) {
-            throw new Error(`Part 1 后两站与鹊桥结构无效（finish_reason=${thirdResponse.finishReason}, output_chars=${thirdResponse.content.length}）`);
+            throw new Error(`Part 1 後兩站與鵲橋結構無效（finish_reason=${thirdResponse.finishReason}, output_chars=${thirdResponse.content.length}）`);
         }
 
         const mergedContent = JSON.stringify({
@@ -821,16 +821,16 @@ export async function prepareQixiMemoryBundle(
             scenes: { ...firstChunk.scenes, ...secondChunk.scenes, ...thirdChunk.scenes },
             bridge: thirdChunk.bridge,
         });
-        let parseFailureReason = '未知结构错误';
+        let parseFailureReason = '未知結構錯誤';
         const bundle = parseQixiMemoryBundle(mergedContent, contextSignature, reason => { parseFailureReason = reason; }, user.name);
         if (!bundle?.bridge) {
-            throw new Error(`模型返回的七夕可播放剧本无法读取（phase=merge, finish_reason=${firstResponse.finishReason}+${secondResponse.finishReason}+${thirdResponse.finishReason}, output_chars=${firstResponse.content.length}+${secondResponse.content.length}+${thirdResponse.content.length}, schema=${parseFailureReason}）`);
+            throw new Error(`模型返回的七夕可播放劇本無法讀取（phase=merge, finish_reason=${firstResponse.finishReason}+${secondResponse.finishReason}+${thirdResponse.finishReason}, output_chars=${firstResponse.content.length}+${secondResponse.content.length}+${thirdResponse.content.length}, schema=${parseFailureReason}）`);
         }
         options.onPhaseReady?.('third', bundle);
         saveQixiMemoryBundle(char.id, bundle);
         return { bundle, usedFallback: false };
     } catch (error: any) {
         console.warn('[Qixi] direct script generation failed:', error?.message || error);
-        throw new Error(error?.message || 'Part 1 生成失败，请手动重新生成。');
+        throw new Error(error?.message || 'Part 1 生成失敗，請手動重新生成。');
     }
 }

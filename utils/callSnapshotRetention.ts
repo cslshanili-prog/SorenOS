@@ -9,7 +9,7 @@ export interface ExpiredCallSnapshot {
 
 /**
  * A video-call session keeps only its newest user snapshots. Older turns retain
- * a lightweight marker so the transcript can render `[图片]` without keeping
+ * a lightweight marker so the transcript can render `[圖片]` without keeping
  * an ever-growing camera-image archive.
  */
 export const findExpiredCallSnapshots = (

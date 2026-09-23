@@ -13,18 +13,18 @@ dist
 dist-ssr
 *.local
 
-# build artifact — `pnpm run build:workers` 原样复制过来的，与源文件逐字节相同；
+# build artifact — `pnpm run build:workers` 原樣複製過來的，與源文件逐字節相同；
 # 提交的那份在 worker/amsg/deno-proxy.ts
 public/amsg-deno-proxy.ts
 
-# build artifact — 每次 `pnpm run build` 都会重新打，跟着提交只会让跑完构建的人
-# 平白多一条 diff。提交的那份在 worker/amsg/worker.bundle.js（wrangler.toml 的
-# main 指着它，手动 wrangler deploy 要用）。
+# build artifact — 每次 `pnpm run build` 都會重新打，跟著提交只會讓跑完構建的人
+# 平白多一條 diff。提交的那份在 worker/amsg/worker.bundle.js（wrangler.toml 的
+# main 指著它，手動 wrangler deploy 要用）。
 #
-# 发布链路都会自己生成，不会因为仓库里没有它就少东西：
+# 發佈鏈路都會自己生成，不會因為倉庫裡沒有它就少東西：
 #   - GitHub Pages：deploy-pages.yml 跑 `pnpm run build`
-#   - Netlify：本地构建后上传 dist
-#   - 用户自部署的 worker 仓库：sync-workers-repo.yml 跑 `pnpm build:workers`
+#   - Netlify：本地構建後上傳 dist
+#   - 用戶自部署的 worker 倉庫：sync-workers-repo.yml 跑 `pnpm build:workers`
 public/amsg-worker.bundle.js
 
 # Editor directories and files
@@ -41,8 +41,8 @@ public/amsg-worker.bundle.js
 # xiaohongshu-skills (cloned dependency)
 xiaohongshu-skills/
 
-# wrangler 本地开发：.dev.vars 装的是 worker secrets（master key / VAPID 私钥），
-# .wrangler/ 是本地 D1 数据与缓存，两样都不进仓库。
+# wrangler 本地開發：.dev.vars 裝的是 worker secrets（master key / VAPID 私鑰），
+# .wrangler/ 是本地 D1 數據與緩存，兩樣都不進倉庫。
 **/.dev.vars
 **/.dev.vars.*
 !**/.dev.vars.example

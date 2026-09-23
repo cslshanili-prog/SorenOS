@@ -17,7 +17,7 @@ const revokeObjectURL = vi.fn();
 let container: HTMLDivElement;
 let root: Root;
 const onPanelAction = vi.fn();
-const categories = [{ id: 'a', name: '分组 A' }, { id: 'b', name: '分组 B' }];
+const categories = [{ id: 'a', name: '分組 A' }, { id: 'b', name: '分組 B' }];
 
 function Panel({ emojis }: { emojis: Emoji[] }) {
     const [activeCategory, setActiveCategory] = useState('a');
@@ -62,25 +62,25 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('表情面板的记录身份与图片复用', () => {
-    it('共用图片令牌的表情反复切分组、重新读取后，都不残留或复制旧格子', async () => {
+describe('表情面板的記錄身份與圖片複用', () => {
+    it('共用圖片令牌的表情反覆切分組、重新讀取後，都不殘留或複製舊格子', async () => {
         const sharedRef = await putImageBlob(dataUrlToBlob(PNG));
         const emojis: Emoji[] = [
-            { name: '我吗', url: sharedRef, categoryId: 'a' },
-            { name: '疑问', url: sharedRef, categoryId: 'a' },
-            { name: '开心', url: 'https://example.com/happy.png', categoryId: 'a' },
+            { name: '我嗎', url: sharedRef, categoryId: 'a' },
+            { name: '疑問', url: sharedRef, categoryId: 'a' },
+            { name: '開心', url: 'https://example.com/happy.png', categoryId: 'a' },
             { name: '你好', url: 'https://example.com/hello.png', categoryId: 'b' },
-            { name: '问号', url: sharedRef, categoryId: 'b' },
+            { name: '問號', url: sharedRef, categoryId: 'b' },
         ];
         for (const e of emojis) await DB.saveEmoji(e.name, e.url, e.categoryId);
         const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
         for (let reopen = 0; reopen < 2; reopen++) {
             await render(await DB.getEmojis());
             for (let i = 0; i < 5; i++) {
-                expect(names().sort()).toEqual(['我吗', '疑问', '开心'].sort());
-                clickGroup('分组 B');
-                expect(names().sort()).toEqual(['你好', '问号'].sort());
-                clickGroup('分组 A');
+                expect(names().sort()).toEqual(['我嗎', '疑問', '開心'].sort());
+                clickGroup('分組 B');
+                expect(names().sort()).toEqual(['你好', '問號'].sort());
+                clickGroup('分組 A');
             }
             await act(async () => { root.render(null); });
         }
@@ -88,7 +88,7 @@ describe('表情面板的记录身份与图片复用', () => {
         expect(await DB.getEmojis()).toEqual(expect.arrayContaining(emojis));
     });
 
-    it('大量共用 URL 的表情仍每页最多挂载 40 张，翻页和换组数量准确', async () => {
+    it('大量共用 URL 的表情仍每頁最多掛載 40 張，翻頁和換組數量準確', async () => {
         const emojis: Emoji[] = ['a', 'b'].flatMap(categoryId => Array.from({ length: 85 }, (_, i) => ({
             name: `${categoryId}-${i}`, categoryId, url: `https://example.com/shared-${i % 3}.png`,
         })));
@@ -102,21 +102,21 @@ describe('表情面板的记录身份与图片复用', () => {
             }
         };
         expectPage('a', 0, 40);
-        clickLabel('下一页表情');
+        clickLabel('下一頁表情');
         expectPage('a', 40, 80);
-        clickLabel('下一页表情');
+        clickLabel('下一頁表情');
         expectPage('a', 80, 85);
-        clickGroup('分组 B');
+        clickGroup('分組 B');
         expectPage('b', 0, 40);
-        clickLabel('下一页表情');
+        clickLabel('下一頁表情');
         expectPage('b', 40, 80);
-        clickLabel('上一页表情');
+        clickLabel('上一頁表情');
         expectPage('b', 0, 40);
-        clickGroup('分组 A');
+        clickGroup('分組 A');
         expectPage('a', 0, 40);
     });
 
-    it('同一表情未换图时复用节点，换图时重建图片节点以免保留旧位图', async () => {
+    it('同一表情未換圖時複用節點，換圖時重建圖片節點以免保留舊位圖', async () => {
         const original: Emoji = { name: '你好', categoryId: 'a', url: 'https://example.com/old.png' };
         await render([original]);
         const oldImage = thumbnails()[0];
@@ -127,8 +127,8 @@ describe('表情面板的记录身份与图片复用', () => {
         expect(thumbnails()[0].getAttribute('src')).toBe('https://example.com/new.png');
     });
 
-    it('同图不同名的表情可分别选择，删除只提交实际选中的记录', async () => {
-        const emojis: Emoji[] = ['我吗', '疑问'].map(name => ({
+    it('同圖不同名的表情可分別選擇，刪除只提交實際選中的記錄', async () => {
+        const emojis: Emoji[] = ['我嗎', '疑問'].map(name => ({
             name, categoryId: 'a', url: 'https://example.com/shared.png',
         }));
         await render(emojis);
@@ -140,7 +140,7 @@ describe('表情面板的记录身份与图片复用', () => {
         expect(buttons.map(b => b.getAttribute('aria-pressed'))).toEqual(['true', 'true']);
         act(() => buttons[0].click());
         expect(buttons.map(b => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
-        clickLabel('删除选中的表情');
+        clickLabel('刪除選中的表情');
         expect(onPanelAction).toHaveBeenLastCalledWith('delete-emoji-req', [emojis[1]]);
     });
 });

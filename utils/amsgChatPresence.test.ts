@@ -16,17 +16,17 @@ const presence = (over: Partial<AmsgChatPresence> = {}): AmsgChatPresence => ({
 });
 
 describe('parseAmsgChatPresence', () => {
-  it('合法 JSON → 还原对象', () => {
+  it('合法 JSON → 還原對象', () => {
     const raw = JSON.stringify(presence());
     expect(parseAmsgChatPresence(raw)).toEqual(presence());
   });
 
-  it('lastUserMessageAt 允许为 null', () => {
+  it('lastUserMessageAt 允許為 null', () => {
     const raw = JSON.stringify(presence({ lastUserMessageAt: null }));
     expect(parseAmsgChatPresence(raw)).toEqual(presence({ lastUserMessageAt: null }));
   });
 
-  it('损坏 JSON → null', () => {
+  it('損壞 JSON → null', () => {
     expect(parseAmsgChatPresence('{ not json')).toBeNull();
   });
 
@@ -35,7 +35,7 @@ describe('parseAmsgChatPresence', () => {
     expect(parseAmsgChatPresence('')).toBeNull();
   });
 
-  it('版本号不对 / 字段类型不对 → null', () => {
+  it('版本號不對 / 字段類型不對 → null', () => {
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), v: 2 }))).toBeNull();
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), charId: 123 }))).toBeNull();
     expect(parseAmsgChatPresence(JSON.stringify({ ...presence(), activeAt: 'x' }))).toBeNull();
@@ -46,7 +46,7 @@ describe('parseAmsgChatPresence', () => {
 describe('isFreshChatPresence', () => {
   const now = 2_000_000;
 
-  it('同角色 + 未过期 → true', () => {
+  it('同角色 + 未過期 → true', () => {
     expect(isFreshChatPresence(presence({ activeAt: now - 1000 }), 'char-1', now)).toBe(true);
   });
 
@@ -59,19 +59,19 @@ describe('isFreshChatPresence', () => {
     expect(isFreshChatPresence(presence({ activeAt: now - 1000 }), 'char-2', now)).toBe(false);
   });
 
-  it('超过 TTL 过期 → false', () => {
+  it('超過 TTL 過期 → false', () => {
     expect(isFreshChatPresence(presence({ activeAt: now - CHAT_PRESENCE_TTL_MS - 1 }), 'char-1', now)).toBe(false);
   });
 
-  it('刚好落在 TTL 边界内 → true', () => {
+  it('剛好落在 TTL 邊界內 → true', () => {
     expect(isFreshChatPresence(presence({ activeAt: now - CHAT_PRESENCE_TTL_MS }), 'char-1', now)).toBe(true);
   });
 
-  it('未来时钟偏移过大（超过 10s 宽限）→ false', () => {
+  it('未來時鐘偏移過大（超過 10s 寬限）→ false', () => {
     expect(isFreshChatPresence(presence({ activeAt: now + 10_001 }), 'char-1', now)).toBe(false);
   });
 
-  it('小幅未来偏移（10s 宽限内）→ true', () => {
+  it('小幅未來偏移（10s 寬限內）→ true', () => {
     expect(isFreshChatPresence(presence({ activeAt: now + 5_000 }), 'char-1', now)).toBe(true);
   });
 });

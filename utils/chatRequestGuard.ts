@@ -1,6 +1,6 @@
 type ChatRequestMessage = { role: string; content?: unknown };
 
-/** 只验证本轮可见消息，不扩张用户范围，也不伪造用于绕过上游校验的用户消息。 */
+/** 只驗證本輪可見消息，不擴張用戶範圍，也不偽造用於繞過上游校驗的用戶消息。 */
 export function assertChatHasDialogue(messages: readonly ChatRequestMessage[]): void {
     const hasDialogue = messages.some(message => {
         if (message.role !== 'user' && message.role !== 'assistant') return false;
@@ -14,6 +14,6 @@ export function assertChatHasDialogue(messages: readonly ChatRequestMessage[]): 
         });
     });
     if (!hasDialogue) {
-        throw new Error('暂时没有找到可以回复的聊天内容，请再发一条消息。已有聊天和记忆均保留。');
+        throw new Error('暫時沒有找到可以回覆的聊天內容，請再發一條消息。已有聊天和記憶均保留。');
     }
 }

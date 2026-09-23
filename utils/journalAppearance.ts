@@ -21,7 +21,7 @@ export const JOURNAL_CSS_SCOPE_HINT = '.sully-journal-root / .sully-journal-*';
  */
 export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
     {
-        label: 'App 与页面状态',
+        label: 'App 與頁面狀態',
         selectors: [
             '.sully-journal-root', '.sully-journal-select', '.sully-journal-calendar',
             '.sully-journal-write', '.sully-journal-designed',
@@ -30,14 +30,14 @@ export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
         ],
     },
     {
-        label: '顶部与导航',
+        label: '頂部與導航',
         selectors: [
             '.sully-journal-header', '.sully-journal-header-title', '.sully-journal-back',
             '.sully-journal-appearance-button', '.sully-journal-group-filter',
         ],
     },
     {
-        label: '日记本选择页',
+        label: '日記本選擇頁',
         selectors: [
             '.sully-journal-notebook-grid', '.sully-journal-notebook',
             '.sully-journal-notebook-avatar', '.sully-journal-notebook-name',
@@ -45,7 +45,7 @@ export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
         ],
     },
     {
-        label: '日记列表页',
+        label: '日記列表頁',
         selectors: [
             '.sully-journal-calendar-hero', '.sully-journal-calendar-heading',
             '.sully-journal-calendar-kicker', '.sully-journal-calendar-title',
@@ -57,7 +57,7 @@ export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
         ],
     },
     {
-        label: '书写与双页',
+        label: '書寫與雙頁',
         selectors: [
             '.sully-journal-editor-header', '.sully-journal-editor-stage',
             '.sully-journal-spread', '.sully-journal-spread-page',
@@ -79,7 +79,7 @@ export const JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS = [
         ],
     },
     {
-        label: '主题装饰层',
+        label: '主題裝飾層',
         selectors: [
             '.sully-journal-theme-art', '.sully-journal-theme-art-letterpress',
             '.sully-journal-theme-art-sakura', '.sully-journal-theme-art-forest',
@@ -107,20 +107,20 @@ const journalSelectorPrompt = JOURNAL_CUSTOM_CSS_SELECTOR_GROUPS
     .map(group => `${group.label}：\n${group.selectors.join('、')}`)
     .join('\n\n');
 
-export const JOURNAL_AI_CSS_PROMPT = `你是 CSS 设计师，请为 Soren 的「交换日记」App 写一段完整的自定义 CSS。
+export const JOURNAL_AI_CSS_PROMPT = `你是 CSS 設計師，請為 Soren 的「交換日記」App 寫一段完整的自定義 CSS。
 
 要求：
-1. 只能使用下列公开选择器；每条普通规则都必须以 .sully-journal-root 或 .sully-journal-* 开头。
-2. 可以组合后代、子元素、伪类、伪元素和媒体查询，覆盖原样式时可使用 !important；不要输出 JavaScript、HTML 或全局 body/html 规则。
-3. 顶部返回键和美化入口是安全出口，不得用 display:none、visibility:hidden、opacity:0、pointer-events:none 或移出屏幕的方式隐藏。
-4. 同时适配手机单页与较宽屏幕；正文、日期、返回键、新建按钮、输入区和底部工具必须清晰可操作。
-5. 请做成一套完整的实体手账界面，不只是换颜色。可以设计纸张层次、装订、贴纸、胶带、日期标签、角色照片与轻量动画，但装饰层必须 pointer-events:none，不能遮住正文和按钮。
+1. 只能使用下列公開選擇器；每條普通規則都必須以 .sully-journal-root 或 .sully-journal-* 開頭。
+2. 可以組合後代、子元素、偽類、偽元素和媒體查詢，覆蓋原樣式時可使用 !important；不要輸出 JavaScript、HTML 或全局 body/html 規則。
+3. 頂部返回鍵和美化入口是安全出口，不得用 display:none、visibility:hidden、opacity:0、pointer-events:none 或移出屏幕的方式隱藏。
+4. 同時適配手機單頁與較寬屏幕；正文、日期、返回鍵、新建按鈕、輸入區和底部工具必須清晰可操作。
+5. 請做成一套完整的實體手帳界面，不只是換顏色。可以設計紙張層次、裝訂、貼紙、膠帶、日期標籤、角色照片與輕量動畫，但裝飾層必須 pointer-events:none，不能遮住正文和按鈕。
 
-全部可用选择器：
+全部可用選擇器：
 ${journalSelectorPrompt}
 
-请直接输出一整段可粘贴的 CSS，可以带少量注释，不要长篇解释。
-我想要的风格是：______`;
+請直接輸出一整段可粘貼的 CSS，可以帶少量註釋，不要長篇解釋。
+我想要的風格是：______`;
 
 /**
  * Written after preset/custom CSS. A broken imported skin may restyle the
@@ -166,7 +166,7 @@ html body .sully-journal-root.sully-journal-root .sully-journal-appearance-butto
   z-index:2147483000!important;
 }`;
 
-/* 邮局档案：横向信封、打字机索引卡、航空邮路。 */
+/* 郵局檔案：橫向信封、打字機索引卡、航空郵路。 */
 const LETTERPRESS_CSS = `.sully-journal-theme-letterpress{
   --postal-red:#a34e3d;--postal-blue:#355d65;--postal-ink:#352a24;--postal-paper:#f4e7cb;--postal-desk:#44362e;
   background:#dfcfaf!important;color:var(--postal-ink)!important;font-family:ui-monospace,"SFMono-Regular","Songti SC",serif!important;
@@ -217,7 +217,7 @@ const LETTERPRESS_CSS = `.sully-journal-theme-letterpress{
 @media(max-width:719px){.sully-journal-theme-letterpress .sully-journal-notebook-grid{grid-template-columns:1fr!important;padding-inline:18px!important}.sully-journal-theme-letterpress .sully-journal-spread{display:block;padding:12px 10px 20px}.sully-journal-theme-letterpress .sully-journal-spread-page.is-inactive{display:none}.sully-journal-theme-letterpress .sully-journal-spread-user,.sully-journal-theme-letterpress .sully-journal-spread-char{transform:rotate(-.25deg)}.sully-journal-theme-letterpress .sully-journal-page-content{padding:28px 24px!important}}
 `;
 
-/* 星夜角色相册：深蓝硬壳、金属装订、巨幅拍立得与星盘。 */
+/* 星夜角色相冊：深藍硬殼、金屬裝訂、巨幅拍立得與星盤。 */
 const SAKURA_CSS = `.sully-journal-theme-sakura{
   --album-night:#11172b;--album-blue:#27345d;--album-violet:#5965cb;--album-gold:#d7b46d;--album-paper:#f5f0e6;
   background:radial-gradient(circle at 60% 20%,#29345d 0,#151b33 45%,#0c1020 100%)!important;color:var(--album-paper)!important;font-family:"Songti SC",serif!important;
@@ -237,7 +237,7 @@ const SAKURA_CSS = `.sully-journal-theme-sakura{
 @media(max-width:719px){.sully-journal-theme-sakura .sully-journal-notebook-grid{grid-template-columns:1fr 1fr!important;padding:20px 16px 90px!important;gap:15px!important}.sully-journal-theme-sakura .sully-journal-notebook:first-child{grid-column:1/-1;min-height:245px}.sully-journal-theme-sakura .sully-journal-notebook{min-height:210px;padding-inline:12px!important}.sully-journal-theme-sakura .sully-journal-notebook-avatar{width:88%!important}.sully-journal-theme-sakura .sully-journal-calendar-list>div{grid-template-columns:1fr}.sully-journal-theme-sakura .sully-journal-calendar-hero{min-height:190px}.sully-journal-theme-sakura .sully-journal-spread{display:block;padding:12px 10px 20px;border-width:1px}.sully-journal-theme-sakura .sully-journal-spread::before{display:none}.sully-journal-theme-sakura .sully-journal-spread-page.is-inactive{display:none}.sully-journal-theme-sakura .sully-journal-paper-user,.sully-journal-theme-sakura .sully-journal-paper-char{transform:rotate(-.2deg)}.sully-journal-theme-sakura .sully-journal-page-content{padding:27px 24px!important}}
 `;
 
-/* 野外观察手册：皮革框、活页环、索引耳与标本图。 */
+/* 野外觀察手冊：皮革框、活頁環、索引耳與標本圖。 */
 const FOREST_CSS = `.sully-journal-theme-forest{
   --field-leather:#7b482e;--field-orange:#b85f3d;--field-paper:#f0d3a2;--field-green:#687849;--field-ink:#5a3525;
   background:#ca8c58!important;color:var(--field-ink)!important;font-family:"Kaiti SC","STKaiti",serif!important;box-shadow:inset 0 0 0 9px #73452e,inset 0 0 0 12px #dda66f!important;
@@ -251,7 +251,7 @@ const FOREST_CSS = `.sully-journal-theme-forest{
 @media(max-width:719px){.sully-journal-theme-forest{box-shadow:inset 0 0 0 5px #73452e!important}.sully-journal-theme-forest .sully-journal-header,.sully-journal-theme-forest .sully-journal-notebook-grid,.sully-journal-theme-forest .sully-journal-calendar-hero,.sully-journal-theme-forest .sully-journal-calendar-list{margin-inline:6px}.sully-journal-theme-forest .sully-journal-notebook-grid{padding:18px 16px 90px!important}.sully-journal-theme-forest .sully-journal-notebook{grid-template-columns:76px 1fr auto!important;padding-inline:14px!important;gap-x:12px!important}.sully-journal-theme-forest .sully-journal-notebook-avatar{width:68px!important;height:68px!important}.sully-journal-theme-forest .sully-journal-field-rings{display:none}.sully-journal-theme-forest .sully-journal-spread{display:block;padding:12px 10px 20px}.sully-journal-theme-forest .sully-journal-spread::before{display:none}.sully-journal-theme-forest .sully-journal-spread-page.is-inactive{display:none}.sully-journal-theme-forest .sully-journal-paper-user,.sully-journal-theme-forest .sully-journal-paper-char{transform:rotate(-.15deg)}.sully-journal-theme-forest .sully-journal-page-content{padding:27px 24px!important}}
 `;
 
-/* 午夜记忆编辑器：不是纸本，整套界面变成复古蓝紫桌面程序。 */
+/* 午夜記憶編輯器：不是紙本，整套界面變成復古藍紫桌面程序。 */
 const MIDNIGHT_CSS = `.sully-journal-theme-midnight{
   --memory-blue:#718bd4;--memory-line:#a8b9ea;--memory-paper:#fbfcff;--memory-bg:#e3e9fb;--memory-ink:#405487;
   background:var(--memory-bg)!important;color:var(--memory-ink)!important;font-family:ui-monospace,"SFMono-Regular","Microsoft YaHei",sans-serif!important;
@@ -268,39 +268,39 @@ export const JOURNAL_APPEARANCE_PRESETS: JournalAppearancePreset[] = [
     {
         id: 'original',
         name: '原本琥珀',
-        description: '保留现在的交换日记界面',
+        description: '保留現在的交換日記界面',
         colors: ['#f59e0b', '#fffbeb', '#1a1a1a'],
         layout: 'classic',
         css: '',
     },
     {
         id: 'letterpress',
-        name: '邮局档案册',
-        description: '横向信封、邮戳与打字机索引卡',
+        name: '郵局檔案冊',
+        description: '橫向信封、郵戳與打字機索引卡',
         colors: ['#a34e3d', '#f4e7cb', '#355d65'],
         layout: 'postal-archive',
         css: LETTERPRESS_CSS,
     },
     {
         id: 'sakura',
-        name: '星夜角色相册',
-        description: '深蓝硬壳、金属星盘与大幅拍立得',
+        name: '星夜角色相冊',
+        description: '深藍硬殼、金屬星盤與大幅拍立得',
         colors: ['#5965cb', '#11172b', '#d7b46d'],
         layout: 'celestial-album',
         css: SAKURA_CSS,
     },
     {
         id: 'forest',
-        name: '野外观察手册',
-        description: '皮革包角、活页装订与标本索引',
+        name: '野外觀察手冊',
+        description: '皮革包角、活頁裝訂與標本索引',
         colors: ['#687849', '#f0d3a2', '#b85f3d'],
         layout: 'field-dossier',
         css: FOREST_CSS,
     },
     {
         id: 'midnight',
-        name: '午夜记忆编辑器',
-        description: '蓝紫复古窗口、线路与对象检查器',
+        name: '午夜記憶編輯器',
+        description: '藍紫復古窗口、線路與對象檢查器',
         colors: ['#718bd4', '#fbfcff', '#405487'],
         layout: 'memory-editor',
         css: MIDNIGHT_CSS,
@@ -317,7 +317,7 @@ export const resolveJournalAppearanceCss = (appearance?: JournalAppearance) => {
     return [presetCss, customCss].filter(Boolean).join('\n');
 };
 
-/** 将“内置主题 + 用户覆盖”拍平成一份不依赖主题 ID 的独立 CSS。 */
+/** 將“內置主題 + 用戶覆蓋”拍平成一份不依賴主題 ID 的獨立 CSS。 */
 export const flattenJournalAppearance = (appearance?: JournalAppearance): JournalAppearance => ({
     preset: 'original',
     customCss: resolveJournalAppearanceCss(appearance),

@@ -30,7 +30,7 @@ const clampBox = (box: FaceBox): FaceBox => {
     };
 };
 
-/** 在正方形预览框里拖一个方框锁定脸部区域；预览图用 object-fit: cover 裁成正方形，避免非方形照片的宽高换算。 */
+/** 在正方形預覽框裡拖一個方框鎖定臉部區域；預覽圖用 object-fit: cover 裁成正方形，避免非方形照片的寬高換算。 */
 const FaceCropModal: React.FC<FaceCropModalProps> = ({ isOpen, imageUrl, initialBox, onCancel, onSave }) => {
     const [box, setBox] = useState<FaceBox>(() => clampBox(initialBox || DEFAULT_BOX));
     const containerRef = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ const FaceCropModal: React.FC<FaceCropModalProps> = ({ isOpen, imageUrl, initial
             }
         >
             <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                拖動方框覆蓋角色臉部；發送參考圖時只會截取這個區域，減少服裝和背景干擾。
+                拖動方框覆蓋角色臉部；發送參考圖時只會截取這個區域，減少服裝和背景幹擾。
             </p>
 
             <div

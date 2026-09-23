@@ -1,19 +1,19 @@
 /**
- * mcpFireCore — 通用 MCP 的环境无关核心（浏览器 / amsg worker 共用叶子）。
+ * mcpFireCore — 通用 MCP 的環境無關核心（瀏覽器 / amsg worker 共用葉子）。
  *
- * mcpClient.ts 管浏览器侧的事（localStorage 配置、代理包装、发现流程）；
- * 这里只放两端都要跑的纯逻辑：工具名映射、JSON-RPC 传输、正文假调用解析、
- * 结果格式化、后台 fire 的提示词块与 tools 数组。
+ * mcpClient.ts 管瀏覽器側的事（localStorage 配置、代理包裝、發現流程）；
+ * 這裡只放兩端都要跑的純邏輯：工具名映射、JSON-RPC 傳輸、正文假調用解析、
+ * 結果格式化、後台 fire 的提示詞塊與 tools 數組。
  *
- * 段落顺序是固定的，新东西插进对应分区，别随手往文件尾巴追加：
- *   共用类型 → 工具名与长度预算（含名映射）→ 工具结果回填
- *   → 正文假调用解析 → JSON-RPC 传输层 → 后台 fire 专用
- * 传输层是底座、fire 层是它的消费方，所以 fire 那几个函数收在最后一个分区里。
+ * 段落順序是固定的，新東西插進對應分區，別隨手往文件尾巴追加：
+ *   共用類型 → 工具名與長度預算（含名映射）→ 工具結果回填
+ *   → 正文假調用解析 → JSON-RPC 傳輸層 → 後台 fire 專用
+ * 傳輸層是底座、fire 層是它的消費方，所以 fire 那幾個函數收在最後一個分區裡。
  *
- * 环境无关叶子模块：不 import 任何带浏览器依赖的东西（会进 worker bundle）。
+ * 環境無關葉子模塊：不 import 任何帶瀏覽器依賴的東西（會進 worker bundle）。
  */
 
-// ========== 共用类型 ==========
+// ========== 共用類型 ==========
 
 export interface McpFireToolDef {
     name: string;
@@ -21,7 +21,7 @@ export interface McpFireToolDef {
     description?: string;
     inputSchema?: any;
     outputSchema?: any;
-    /** MCP 2025-03-26+ 的工具行为提示；只把它当安全提示，不能当权限证明。 */
+    /** MCP 2025-03-26+ 的工具行為提示；只把它當安全提示，不能當權限證明。 */
     annotations?: {
         title?: string;
         readOnlyHint?: boolean;
@@ -32,17 +32,17 @@ export interface McpFireToolDef {
 }
 
 /**
- * 上云 / 进 worker 的服务器形状：McpServerConfig 的结构子集
- * （没有 proxyUrl/proxyKey——worker 侧 fetch 没有 CORS，直连 url）。
+ * 上雲 / 進 worker 的服務器形狀：McpServerConfig 的結構子集
+ * （沒有 proxyUrl/proxyKey——worker 側 fetch 沒有 CORS，直連 url）。
  */
 export interface McpFireServer {
     id: string;
     name: string;
     url: string;
-    /** Bearer Token，可选（Authorization: Bearer <token>） */
+    /** Bearer Token，可選（Authorization: Bearer <token>） */
     token?: string;
     customHeaders?: Array<{ name: string; value: string }>;
-    /** 空/缺省 = 通用；非空 = 只有这些角色可见（与 mcpClient.getEnabledMcpServers 同语义） */
+    /** 空/缺省 = 通用；非空 = 只有這些角色可見（與 mcpClient.getEnabledMcpServers 同語義） */
     charIds?: string[];
     tools?: McpFireToolDef[];
 }
@@ -50,34 +50,34 @@ export interface McpFireServer {
 export interface McpResolvedToolCore<S extends McpFireServer = McpFireServer> {
     server: S;
     toolName: string;
-    /** 工具定义本体，建映射时一并带出，省得调用方再按名字回服务器里反查 */
+    /** 工具定義本體，建映射時一併帶出，省得調用方再按名字回服務器裡反查 */
     tool: McpFireToolDef;
 }
 
-// ========== 工具名与长度预算 ==========
+// ========== 工具名與長度預算 ==========
 
-/** OpenAI 工具名的长度上限。 */
+/** OpenAI 工具名的長度上限。 */
 const DEFAULT_MAX_TOOL_NAME_LEN = 64;
 
-/** worker 侧 MCP 工具的暴露名前缀（native 声明与正文解析统一用它路由）。 */
+/** worker 側 MCP 工具的暴露名前綴（native 聲明與正文解析統一用它路由）。 */
 export const MCP_FIRE_NAME_PREFIX = 'mcp__';
-/** fire 侧名映射的长度预算：拼前缀后不超 OpenAI 工具名 64 上限。 */
+/** fire 側名映射的長度預算：拼前綴後不超 OpenAI 工具名 64 上限。 */
 export const MCP_FIRE_NAME_BUDGET = DEFAULT_MAX_TOOL_NAME_LEN - MCP_FIRE_NAME_PREFIX.length;
 
-// OpenAI 工具名只允许 [A-Za-z0-9_-]，最长 64；MCP 工具名可能带点号等。
-// maxLen 可收紧：worker 侧要在暴露名前面拼 `mcp__` 前缀，得先给前缀留出位置。
-// 预算是算出来的（上限减前缀长度），万一算成 0 或负数，这里兜到至少留 1 个字符，
-// 免得返回空串或者被 slice 的负数下标倒着截。
+// OpenAI 工具名只允許 [A-Za-z0-9_-]，最長 64；MCP 工具名可能帶點號等。
+// maxLen 可收緊：worker 側要在暴露名前面拼 `mcp__` 前綴，得先給前綴留出位置。
+// 預算是算出來的（上限減前綴長度），萬一算成 0 或負數，這裡兜到至少留 1 個字符，
+// 免得返回空串或者被 slice 的負數下標倒著截。
 export const sanitizeMcpToolName = (name: string, maxLen = DEFAULT_MAX_TOOL_NAME_LEN): string => {
     const len = Math.max(1, maxLen);
     return (name || 'tool').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, len);
 };
 
-/** 重名兜底后缀：基名先截到给 `_<i>` 留位的长度，避免截断吃掉计数器后候选名不再变化。 */
+/** 重名兜底後綴：基名先截到給 `_<i>` 留位的長度，避免截斷吃掉計數器後候選名不再變化。 */
 export const withMcpDedupeSuffix = (base: string, i: number, maxLen = DEFAULT_MAX_TOOL_NAME_LEN): string => {
     const suffix = `_${i}`;
-    // 预算比后缀本身还短时，留位长度会变负数，slice 会从尾巴倒着截、反而吐出一长串；
-    // 夹到 0 之后这种极端情况拿到的是纯后缀，长度仍然可控，计数器也照样能区分。
+    // 預算比後綴本身還短時，留位長度會變負數，slice 會從尾巴倒著截、反而吐出一長串；
+    // 夾到 0 之後這種極端情況拿到的是純後綴，長度仍然可控，計數器也照樣能區分。
     return base.slice(0, Math.max(0, maxLen - suffix.length)) + suffix;
 };
 
@@ -85,12 +85,12 @@ const serverSlug = (server: McpFireServer, maxLen = DEFAULT_MAX_TOOL_NAME_LEN): 
     sanitizeMcpToolName(server.name, maxLen).slice(0, 20);
 
 /**
- * 暴露名 → 真实工具 的映射。暴露名默认用工具原名（sanitize 后）；
- * 跨服务器重名时后者加 <服务器名>_ 前缀。前台 buildMcpOpenAITools 与
- * worker fire 路径都用这一份，保证两端看到同一套名字。
+ * 暴露名 → 真實工具 的映射。暴露名默認用工具原名（sanitize 後）；
+ * 跨服務器重名時後者加 <服務器名>_ 前綴。前台 buildMcpOpenAITools 與
+ * worker fire 路徑都用這一份，保證兩端看到同一套名字。
  *
- * maxNameLen：暴露名的长度预算，缺省 64（OpenAI 上限）。worker 侧传更小的值，
- * 好给后面要拼的 `mcp__` 前缀留位。
+ * maxNameLen：暴露名的長度預算，缺省 64（OpenAI 上限）。worker 側傳更小的值，
+ * 好給後面要拼的 `mcp__` 前綴留位。
  */
 export const buildMcpNameMap = <S extends McpFireServer>(
     servers: S[],
@@ -102,7 +102,7 @@ export const buildMcpNameMap = <S extends McpFireServer>(
         for (const t of server.tools || []) {
             let exposed = sanitizeMcpToolName(t.name, maxLen);
             if (resolve.has(exposed)) {
-                // 带服务器前缀再试；还撞就在后面挂计数器（计数器由 withMcpDedupeSuffix 保位）
+                // 帶服務器前綴再試；還撞就在後面掛計數器（計數器由 withMcpDedupeSuffix 保位）
                 const prefixed = sanitizeMcpToolName(`${serverSlug(server, maxLen)}_${t.name}`, maxLen);
                 exposed = prefixed;
                 let i = 2;
@@ -114,12 +114,12 @@ export const buildMcpNameMap = <S extends McpFireServer>(
     return resolve;
 };
 
-// ========== 工具结果回填 ==========
+// ========== 工具結果回填 ==========
 
 /**
- * MCP 结果（记忆检索、网页抓取等）体量远超瑞幸商品列表，1500 字符会把一条
- * 完整结果拦腰截断。上限放到 20000 只防病态超长结果炸上下文——工具循环每轮
- * 会全量重发消息，真有兆级 JSON 混进来会直接 4xx 或 token 起飞。
+ * MCP 結果（記憶檢索、網頁抓取等）體量遠超瑞幸商品列表，1500 字符會把一條
+ * 完整結果攔腰截斷。上限放到 20000 只防病態超長結果炸上下文——工具循環每輪
+ * 會全量重發消息，真有兆級 JSON 混進來會直接 4xx 或 token 起飛。
  */
 export const MCP_RESULT_MAX_CHARS = 20000;
 
@@ -127,20 +127,20 @@ export const formatMcpToolResult = (data: any): string => {
     let s: string;
     try { s = typeof data === 'string' ? data : JSON.stringify(data); } catch { s = String(data); }
     return s.length > MCP_RESULT_MAX_CHARS
-        ? `${s.slice(0, MCP_RESULT_MAX_CHARS)}…[结果过长已截断, 全文共 ${s.length} 字符]`
+        ? `${s.slice(0, MCP_RESULT_MAX_CHARS)}…[結果過長已截斷, 全文共 ${s.length} 字符]`
         : s;
 };
 
-// ========== 掉格式容错: 正文里的"假工具调用" ==========
+// ========== 掉格式容錯: 正文裡的"假工具調用" ==========
 //
-// 不支持 function calling 的模型（或被中转剥了 tools 参数的）看到系统块里的
-// 工具清单后, 会把调用直接"演"在正文里, 常见形态:
-//   ask_question("SullyOS")           ← 括号传参
-//   ask_question: SullyOS             ← 冒号传参（整行）
-//   get_weather({"city": "上海"})     ← 括号传 JSON
-// 与见面观测协议同款思路的两层容错: FC 通道是第一层, 这里兜第二层。
-// 只认已启用服务器的真实工具名（暴露名/原名都认, 后台还可以额外认带前缀的写法）,
-// 避免误伤普通文字。
+// 不支持 function calling 的模型（或被中轉剝了 tools 參數的）看到系統塊裡的
+// 工具清單後, 會把調用直接"演"在正文裡, 常見形態:
+//   ask_question("SullyOS")           ← 括號傳參
+//   ask_question: SullyOS             ← 冒號傳參（整行）
+//   get_weather({"city": "上海"})     ← 括號傳 JSON
+// 與見面觀測協議同款思路的兩層容錯: FC 通道是第一層, 這裡兜第二層。
+// 只認已啟用服務器的真實工具名（暴露名/原名都認, 後台還可以額外認帶前綴的寫法）,
+// 避免誤傷普通文字。
 
 export interface FakedMcpCall<S extends McpFireServer = McpFireServer> {
     exposedName: string;
@@ -150,7 +150,7 @@ export interface FakedMcpCall<S extends McpFireServer = McpFireServer> {
     matched: string;
 }
 
-/** 从正文兼容调用中剥掉调用语法，只留下可以先展示给用户的角色文字。 */
+/** 從正文兼容調用中剝掉調用語法，只留下可以先展示給用戶的角色文字。 */
 export const stripTextFakedMcpCalls = (content: string, calls: Array<{ matched: string }>): string => {
     let cleaned = content;
     for (const call of calls) cleaned = cleaned.split(call.matched).join('');
@@ -165,7 +165,7 @@ const stripQuotes = (s: string): string => {
     return m ? m[2] : t;
 };
 
-/** schema 的参数名顺序: required 优先, 其余按声明序 —— 用于位置参数落位 */
+/** schema 的參數名順序: required 優先, 其餘按聲明序 —— 用於位置參數落位 */
 const positionalKeys = (schema: any): string[] => {
     const props = schema?.properties ? Object.keys(schema.properties) : [];
     const req = Array.isArray(schema?.required) ? schema.required.filter((k: string) => props.includes(k)) : [];
@@ -180,13 +180,13 @@ const coerceBySchema = (value: string, schema: any, key: string): any => {
         if (Number.isFinite(n)) return type === 'integer' ? Math.trunc(n) : n;
     }
     if (type === 'boolean') {
-        if (/^(true|是|开)$/i.test(v)) return true;
-        if (/^(false|否|关)$/i.test(v)) return false;
+        if (/^(true|是|[开開])$/i.test(v)) return true;
+        if (/^(false|否|[关關])$/i.test(v)) return false;
     }
     return v;
 };
 
-/** 顶层逗号切分（尊重引号与花括号嵌套） */
+/** 頂層逗號切分（尊重引號與花括號嵌套） */
 const splitTopLevel = (s: string): string[] => {
     const out: string[] = [];
     let depth = 0, cur = '', quote = '';
@@ -206,22 +206,22 @@ const splitTopLevel = (s: string): string[] => {
     return out;
 };
 
-/** 把括号里的原始文本解析成 args 对象（JSON / kwargs / 位置参数三种形态） */
+/** 把括號裡的原始文本解析成 args 對象（JSON / kwargs / 位置參數三種形態） */
 const parseFakedArgs = (inner: string, schema: any): Record<string, any> => {
     const t = inner.trim();
     if (!t) return {};
-    // JSON 形态
+    // JSON 形態
     if (t.startsWith('{')) {
-        try { return JSON.parse(t); } catch { /* 尝试宽松修复 */ }
+        try { return JSON.parse(t); } catch { /* 嘗試寬鬆修復 */ }
         try {
             return JSON.parse(t
                 .replace(/,\s*([}\]])/g, '$1')
                 .replace(/'/g, '"')
                 .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":'));
-        } catch { /* 落回单参数 */ }
+        } catch { /* 落回單參數 */ }
     }
     const parts = splitTopLevel(t);
-    // kwargs 形态: key=value / key: value
+    // kwargs 形態: key=value / key: value
     if (parts.every(p => /^\s*[A-Za-z_]\w*\s*[=:]/.test(p))) {
         const args: Record<string, any> = {};
         for (const p of parts) {
@@ -230,7 +230,7 @@ const parseFakedArgs = (inner: string, schema: any): Record<string, any> => {
         }
         return args;
     }
-    // 位置参数形态: 按 schema 声明顺序落位
+    // 位置參數形態: 按 schema 聲明順序落位
     const keys = positionalKeys(schema);
     const args: Record<string, any> = {};
     parts.forEach((p, i) => {
@@ -241,13 +241,13 @@ const parseFakedArgs = (inner: string, schema: any): Record<string, any> => {
 };
 
 /**
- * 从 AI 正文里提取"假工具调用"。只匹配 resolve 里已知的工具名（暴露名/真实名）。
- * 返回按出现位置排序、按 matched 文本去重的调用列表。
+ * 從 AI 正文裡提取"假工具調用"。只匹配 resolve 裡已知的工具名（暴露名/真實名）。
+ * 返回按出現位置排序、按 matched 文本去重的調用列表。
  *
- * alsoMatchPrefix：额外认「前缀 + 暴露名」这种写法。后台 fire 的 native 模式里，
- * tools 数组给模型看的名字是带 `mcp__` 前缀的（见 buildMcpFireTools），模型掉格式
- * 把调用演进正文时写的多半也是带前缀那个，不认就只能把调用语法原样推给用户。
- * 认出来之后 exposedName 仍然回裸名，下游按暴露名查表的逻辑不用改。
+ * alsoMatchPrefix：額外認「前綴 + 暴露名」這種寫法。後台 fire 的 native 模式裡，
+ * tools 數組給模型看的名字是帶 `mcp__` 前綴的（見 buildMcpFireTools），模型掉格式
+ * 把調用演進正文時寫的多半也是帶前綴那個，不認就只能把調用語法原樣推給用戶。
+ * 認出來之後 exposedName 仍然回裸名，下游按暴露名查表的邏輯不用改。
  */
 export const extractTextFakedMcpCalls = <S extends McpFireServer>(
     content: string,
@@ -256,7 +256,7 @@ export const extractTextFakedMcpCalls = <S extends McpFireServer>(
 ): FakedMcpCall<S>[] => {
     if (!content || !resolve.size) return [];
 
-    // 名字查找表: 暴露名和真实工具名都认（模型两种都可能写）
+    // 名字查找表: 暴露名和真實工具名都認（模型兩種都可能寫）
     const lookup = new Map<string, { exposed: string; hit: McpResolvedToolCore<S> }>();
     for (const [exposed, hit] of resolve) {
         lookup.set(exposed, { exposed, hit });
@@ -271,7 +271,7 @@ export const extractTextFakedMcpCalls = <S extends McpFireServer>(
         const schema = hit.tool.inputSchema;
         const esc = escapeRegExp(name);
 
-        // 形态1: name(args) —— 前面不能是单词字符/点/斜杠（防止匹配到更长标识符的一部分）
+        // 形態1: name(args) —— 前面不能是單詞字符/點/斜槓（防止匹配到更長標識符的一部分）
         const parenRe = new RegExp(`(^|[^\\w./])${esc}\\s*\\(([^)]*)\\)`, 'g');
         for (const m of content.matchAll(parenRe)) {
             const matched = m[0].slice(m[1].length);
@@ -288,7 +288,7 @@ export const extractTextFakedMcpCalls = <S extends McpFireServer>(
             });
         }
 
-        // 形态2: 行首 name: 值 —— 限定行首, 避免误伤句中"提到"工具名的普通文字
+        // 形態2: 行首 name: 值 —— 限定行首, 避免誤傷句中"提到"工具名的普通文字
         const colonRe = new RegExp(`(^|\\n)\\s*[>*-]*\\s*\`?${esc}\`?\\s*[:：]\\s*([^\\n]+)`, 'g');
         for (const m of content.matchAll(colonRe)) {
             const matched = m[0].slice(m[1].length);
@@ -313,16 +313,16 @@ export const extractTextFakedMcpCalls = <S extends McpFireServer>(
         .map(({ index: _index, ...call }) => call);
 };
 
-// ========== JSON-RPC 传输层 ==========
+// ========== JSON-RPC 傳輸層 ==========
 //
 // Streamable HTTP：握手 initialize → 通知 notifications/initialized → tools/list / tools/call。
-// 会话状态和请求目标都是显式传参，所以浏览器（配置在 localStorage、请求包代理）
-// 和 worker（配置随 tool_config 上云、直连服务器）能共用同一套收发逻辑。
+// 會話狀態和請求目標都是顯式傳參，所以瀏覽器（配置在 localStorage、請求包代理）
+// 和 worker（配置隨 tool_config 上雲、直連服務器）能共用同一套收發邏輯。
 
 /**
- * SullyOS 现在使用的是单端点 Streamable HTTP，所以不能再宣称只属于旧 HTTP+SSE
- * 双端点时代的 2024-11-05。2026-07-28 是另一套无握手协议；本客户端先把成熟且
- * 广泛部署的 handshake era 做完整，modern era 后续单独接入，不能只换日期冒充支持。
+ * SullyOS 現在使用的是單端點 Streamable HTTP，所以不能再宣稱只屬於舊 HTTP+SSE
+ * 雙端點時代的 2024-11-05。2026-07-28 是另一套無握手協議；本客戶端先把成熟且
+ * 廣泛部署的 handshake era 做完整，modern era 後續單獨接入，不能只換日期冒充支持。
  */
 export const MCP_LATEST_HANDSHAKE_PROTOCOL_VERSION = '2025-11-25';
 export const MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS = [
@@ -331,8 +331,8 @@ export const MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS = [
     '2025-03-26',
 ] as const;
 
-// 远端 MCP / 用户自建代理都可能保持连接不结束。不能让一次 tools/call
-// 永久卡住整条聊天链路（外层 isTyping 只有等 Promise 结束后才会清掉）。
+// 遠端 MCP / 用戶自建代理都可能保持連接不結束。不能讓一次 tools/call
+// 永久卡住整條聊天鏈路（外層 isTyping 只有等 Promise 結束後才會清掉）。
 export const MCP_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface McpToolResult {
@@ -357,19 +357,19 @@ interface McpJsonRpcResponse {
 }
 
 /**
- * 一个 MCP 服务器连接的会话状态。持有者自己决定生命周期：
- * 浏览器 = 模块级 Map（跨轮复用）；worker = 挂在单次 fire 的 stash 上。
+ * 一個 MCP 服務器連接的會話狀態。持有者自己決定生命週期：
+ * 瀏覽器 = 模塊級 Map（跨輪複用）；worker = 掛在單次 fire 的 stash 上。
  */
 export interface McpSessionState {
     sessionId: string | null;
     initialized: boolean;
     initPromise: Promise<void> | null;
-    /** initialize 由服务端确认的版本；后续 HTTP 请求必须带 MCP-Protocol-Version。 */
+    /** initialize 由服務端確認的版本；後續 HTTP 請求必須帶 MCP-Protocol-Version。 */
     protocolVersion: string | null;
-    /** 只用于接线台诊断展示，不参与权限或行为判断。 */
+    /** 只用於接線台診斷展示，不參與權限或行為判斷。 */
     serverInfo: { name?: string; title?: string; version?: string } | null;
     serverCapabilities: Record<string, any> | null;
-    /** JSON-RPC 请求 id，每个会话各数各的 */
+    /** JSON-RPC 請求 id，每個會話各數各的 */
     nextId: number;
 }
 
@@ -384,7 +384,7 @@ export const createMcpSessionState = (): McpSessionState =>
         nextId: 0,
     });
 
-/** 一次请求的目标：最终 URL + 请求头构造。浏览器侧包代理，worker 侧直连。 */
+/** 一次請求的目標：最終 URL + 請求頭構造。瀏覽器側包代理，worker 側直連。 */
 export interface McpTransportTarget {
     url: string;
     headers: (
@@ -392,8 +392,8 @@ export interface McpTransportTarget {
         protocolVersion: string | null,
     ) => Headers | Record<string, string>;
     /**
-     * fetch 当场抛异常（连不上 / 被浏览器拦下）时，附在报错后面的排查提示。
-     * 代理和 CORS 都是浏览器侧才有的概念，话术由调用方给；worker 直连可以不传。
+     * fetch 當場拋異常（連不上 / 被瀏覽器攔下）時，附在報錯後面的排查提示。
+     * 代理和 CORS 都是瀏覽器側才有的概念，話術由調用方給；worker 直連可以不傳。
      */
     fetchErrorHint?: string;
 }
@@ -429,11 +429,11 @@ const parseResp = (text: string, contentType: string): McpJsonRpcResponse => {
     try { return JSON.parse(text); } catch {
         const m = text.match(/\{[\s\S]*\}/);
         if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
-        throw new Error(`MCP: 无法解析响应: ${text.slice(0, 300)}`);
+        throw new Error(`MCP: 無法解析響應: ${text.slice(0, 300)}`);
     }
 };
 
-/** Streamable HTTP 的 SSE 可能保持连接；读到当前 JSON-RPC id 的结果即可返回。 */
+/** Streamable HTTP 的 SSE 可能保持連接；讀到當前 JSON-RPC id 的結果即可返回。 */
 const readSseResponse = async (resp: Response, expectedId: number | string | undefined): Promise<McpJsonRpcResponse> => {
     const reader = resp.body?.getReader();
     if (!reader) return parseResp(await resp.text(), 'text/event-stream');
@@ -463,11 +463,11 @@ const readSseResponse = async (resp: Response, expectedId: number | string | und
             if (done) {
                 const parsed = parseEvent(buffer);
                 if (parsed) return parsed;
-                throw new Error('MCP SSE 流结束，但没有收到本次请求的响应');
+                throw new Error('MCP SSE 流結束，但沒有收到本次請求的響應');
             }
         }
     } finally {
-        await reader.cancel().catch(() => { /* 已结束或已 abort */ });
+        await reader.cancel().catch(() => { /* 已結束或已 abort */ });
     }
 };
 
@@ -490,19 +490,19 @@ const postCore = async (
             });
         } catch (e: any) {
             if (controller.signal.aborted) {
-                throw new Error(`MCP 请求超时（${Math.round(timeoutMs / 1000)} 秒）`);
+                throw new Error(`MCP 請求超時（${Math.round(timeoutMs / 1000)} 秒）`);
             }
             const hint = target.fetchErrorHint || '';
-            throw new Error(`MCP 请求失败: ${e?.message || e}。${hint}`);
+            throw new Error(`MCP 請求失敗: ${e?.message || e}。${hint}`);
         }
 
-        // fetch 拿到响应头不代表 SSE 响应体已经结束；DeepWiki / 代理若一直不关流，
-        // resp.text() 同样必须受同一个超时控制。
+        // fetch 拿到響應頭不代表 SSE 響應體已經結束；DeepWiki / 代理若一直不關流，
+        // resp.text() 同樣必須受同一個超時控制。
         const readText = async (): Promise<string> => {
             try { return await resp.text(); }
             catch (e) {
                 if (controller.signal.aborted) {
-                    throw new Error(`MCP 请求超时（${Math.round(timeoutMs / 1000)} 秒）`);
+                    throw new Error(`MCP 請求超時（${Math.round(timeoutMs / 1000)} 秒）`);
                 }
                 throw e;
             }
@@ -513,7 +513,7 @@ const postCore = async (
 
         if (resp.status === 401 || resp.status === 403) {
             const txt = await readText().catch(() => '');
-            throw new Error(`MCP 鉴权失败 (${resp.status}): Token 可能无效或过期。${txt.slice(0, 120)}`);
+            throw new Error(`MCP 鑑權失敗 (${resp.status}): Token 可能無效或過期。${txt.slice(0, 120)}`);
         }
         if (resp.status === 202) return { response: null };
         if (!resp.ok) {
@@ -531,7 +531,7 @@ const postCore = async (
             return { response: parseResp(text, ct) };
         } catch (e) {
             if (controller.signal.aborted) {
-                throw new Error(`MCP 请求超时（${Math.round(timeoutMs / 1000)} 秒）`);
+                throw new Error(`MCP 請求超時（${Math.round(timeoutMs / 1000)} 秒）`);
             }
             throw e;
         }
@@ -551,26 +551,26 @@ const initializeCore = async (
         clientInfo: { name: 'sullyos', title: 'SullyOS', version: '1.0.0' },
     });
     const { response } = await postCore(target, session, initReq, timeoutMs);
-    if (response?.error) throw new Error(`Initialize 失败: ${response.error.message}`);
+    if (response?.error) throw new Error(`Initialize 失敗: ${response.error.message}`);
 
     const negotiated = String(
         response?.result?.protocolVersion || MCP_LATEST_HANDSHAKE_PROTOCOL_VERSION,
     );
     if (!(MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS as readonly string[]).includes(negotiated)) {
         throw new Error(
-            `MCP 协议版本不兼容：服务器选择了 ${negotiated}。` +
-            `SullyOS 的 Streamable HTTP 接线支持 ${MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS.join(' / ')}；` +
-            `2024-11-05 属于旧 HTTP+SSE 双端点，2026-07-28 则需要新的无握手生命周期。`,
+            `MCP 協議版本不兼容：服務器選擇了 ${negotiated}。` +
+            `SullyOS 的 Streamable HTTP 接線支持 ${MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS.join(' / ')}；` +
+            `2024-11-05 屬於舊 HTTP+SSE 雙端點，2026-07-28 則需要新的無握手生命週期。`,
         );
     }
     session.protocolVersion = negotiated;
     session.serverInfo = response?.result?.serverInfo || null;
     session.serverCapabilities = response?.result?.capabilities || null;
 
-    // 直连模式下读不到 Session-Id 说明 CORS 没暴露响应头（服务器可能有会话但我们拿不到），
-    // Streamable HTTP 无状态服务器也可能压根不发。这里不硬报错：tools/list 能通就算能用。
+    // 直連模式下讀不到 Session-Id 說明 CORS 沒暴露響應頭（服務器可能有會話但我們拿不到），
+    // Streamable HTTP 無狀態服務器也可能壓根不發。這裡不硬報錯：tools/list 能通就算能用。
     const notif = buildRpcRequest(session, 'notifications/initialized', {}, true);
-    await postCore(target, session, notif, timeoutMs, false).catch(() => { /* notification 失败不阻塞 */ });
+    await postCore(target, session, notif, timeoutMs, false).catch(() => { /* notification 失敗不阻塞 */ });
 
     session.initialized = true;
 };
@@ -591,8 +591,8 @@ const ensureInitializedCore = async (
 };
 
 /**
- * 握手 + tools/list，返回的工具清单由调用方负责持久化。
- * 浏览器的「发现工具」按钮走这里；worker 不需要——工具清单随 tool_config 上云。
+ * 握手 + tools/list，返回的工具清單由調用方負責持久化。
+ * 瀏覽器的「發現工具」按鈕走這裡；worker 不需要——工具清單隨 tool_config 上雲。
  */
 export const discoverMcpToolsCore = async (
     target: McpTransportTarget,
@@ -604,7 +604,7 @@ export const discoverMcpToolsCore = async (
     await ensureInitializedCore(target, session, timeoutMs);
     opts.onStage?.('tools');
     const { response } = await postCore(target, session, buildRpcRequest(session, 'tools/list'), timeoutMs);
-    if (response?.error) throw new Error(`tools/list 失败: ${response.error.message}`);
+    if (response?.error) throw new Error(`tools/list 失敗: ${response.error.message}`);
     const tools = response?.result?.tools;
     if (!Array.isArray(tools)) return [];
     return tools.map((t: any) => ({
@@ -639,8 +639,8 @@ const schemaAccepts = (schema: any, kind: 'object' | 'array'): boolean => {
 };
 
 /**
- * 部分 OpenAI 兼容中转会把 schema 中的 object / array 再编码成 JSON 字符串。
- * 只在 schema 明确要求结构类型时还原，避免把 URL、文本等合法 string 误解析。
+ * 部分 OpenAI 兼容中轉會把 schema 中的 object / array 再編碼成 JSON 字符串。
+ * 只在 schema 明確要求結構類型時還原，避免把 URL、文本等合法 string 誤解析。
  */
 const normalizeMcpValueBySchema = (value: any, rawSchema: any, rootSchema: any, depth: number): any => {
     if (!rawSchema || depth > 20) return value;
@@ -650,7 +650,7 @@ const normalizeMcpValueBySchema = (value: any, rawSchema: any, rootSchema: any, 
     let normalized = value;
 
     if (typeof normalized === 'string' && (acceptsObject || acceptsArray)) {
-        // 最多解三层，兼容整个 arguments 双重编码与嵌套字段额外编码。
+        // 最多解三層，兼容整個 arguments 雙重編碼與嵌套字段額外編碼。
         for (let i = 0; i < 3 && typeof normalized === 'string'; i++) {
             const text = normalized.trim();
             if (!text) break;
@@ -699,14 +699,14 @@ const normalizeMcpValueBySchema = (value: any, rawSchema: any, rootSchema: any, 
 export const normalizeMcpToolArguments = (args: any, inputSchema: any): any =>
     normalizeMcpValueBySchema(args, inputSchema, inputSchema, 0);
 
-/** 日志里只留主机名：够定位是哪台服务器，又不至于把完整地址打出来。 */
+/** 日誌裡只留主機名：夠定位是哪台服務器，又不至於把完整地址打出來。 */
 const targetHost = (url: string): string => {
     try { return new URL(url).host; } catch { return ''; }
 };
 
 /**
- * 调一个工具（会自动补握手；HTTP 400/404 视为 session 失效，就地重置会话再试一次）。
- * 重置是原地改传进来的那个 session 对象，持有者手里的引用会跟着更新。
+ * 調一個工具（會自動補握手；HTTP 400/404 視為 session 失效，就地重置會話再試一次）。
+ * 重置是原地改傳進來的那個 session 對象，持有者手裡的引用會跟著更新。
  */
 export const callMcpToolCore = async (
     target: McpTransportTarget,
@@ -716,7 +716,7 @@ export const callMcpToolCore = async (
     opts: {
         timeoutMs?: number;
         inputSchema?: any;
-        /** 日志里显示的服务器名，缺省用目标 URL 的主机名 */
+        /** 日誌裡顯示的服務器名，缺省用目標 URL 的主機名 */
         serverLabel?: string;
     } = {},
 ): Promise<McpToolResult> => {
@@ -728,7 +728,7 @@ export const callMcpToolCore = async (
             try { resultPreview = JSON.stringify(result.data).slice(0, 800); }
             catch { resultPreview = String(result.data).slice(0, 800); }
         }
-        // 不记录 URL / Token，只证明真实 tools/call 的目标、参数与服务端返回。
+        // 不記錄 URL / Token，只證明真實 tools/call 的目標、參數與服務端返回。
         console.info('🔌 [MCP] tools/call 完成', {
             server: opts.serverLabel ?? targetHost(target.url),
             tool: toolName,
@@ -745,7 +745,7 @@ export const callMcpToolCore = async (
         try {
             ({ response } = await postCore(target, session, body, timeoutMs));
         } catch (e: any) {
-            // 404/400 常见于服务器重启后 session 失效，重握手再试一次
+            // 404/400 常見於服務器重啟後 session 失效，重握手再試一次
             if (/HTTP (400|404)/.test(e?.message || '')) {
                 Object.assign(session, createMcpSessionState());
                 await ensureInitializedCore(target, session, timeoutMs);
@@ -758,21 +758,21 @@ export const callMcpToolCore = async (
                 throw e;
             }
         }
-        if (!response) return finish({ success: false, error: '空响应' });
-        if (response.error) return finish({ success: false, error: `MCP 错误 [${response.error.code}]: ${response.error.message}` });
+        if (!response) return finish({ success: false, error: '空響應' });
+        if (response.error) return finish({ success: false, error: `MCP 錯誤 [${response.error.code}]: ${response.error.message}` });
 
         const result = response.result;
         if (result?.resultType === 'input_required') {
             return finish({
                 success: false,
-                error: '这个工具需要在执行途中补充确认或输入；SullyOS 当前不会替你自动回答，请回到聊天中明确要求后重试。',
+                error: '這個工具需要在執行途中補充確認或輸入；SullyOS 當前不會替你自動回答，請回到聊天中明確要求後重試。',
                 data: result,
             });
         }
         if (result?.content && Array.isArray(result.content)) {
             const textParts = result.content.filter((c: any) => c?.type === 'text').map((c: any) => c.text || '');
             const fullText = textParts.join('\n').trim();
-            if (result.isError) return finish({ success: false, error: fullText || 'MCP 工具执行失败', rawText: fullText });
+            if (result.isError) return finish({ success: false, error: fullText || 'MCP 工具執行失敗', rawText: fullText });
             try {
                 return finish({ success: true, data: JSON.parse(fullText), rawText: fullText });
             } catch {
@@ -785,7 +785,7 @@ export const callMcpToolCore = async (
     }
 };
 
-/** worker 直连的请求头（浏览器侧那套代理头逻辑留在 mcpClient.buildMcpRequestHeaders）。 */
+/** worker 直連的請求頭（瀏覽器側那套代理頭邏輯留在 mcpClient.buildMcpRequestHeaders）。 */
 export const buildMcpDirectHeaders = (
     server: McpFireServer,
     sessionId: string | null,
@@ -806,15 +806,15 @@ export const buildMcpDirectHeaders = (
     return headers;
 };
 
-// ========== 后台 fire 专用 ==========
+// ========== 後台 fire 專用 ==========
 //
-// amsg2 的 worker 到点自己调 LLM，这一段就是那时候要用的三块料：
-// 挑出这个角色能看见的服务器 → 拼 tools 数组 → 拼提示词块。
+// amsg2 的 worker 到點自己調 LLM，這一段就是那時候要用的三塊料：
+// 挑出這個角色能看見的服務器 → 拼 tools 數組 → 拼提示詞塊。
 
 /**
- * fire 时按角色过滤可见服务器（charIds 语义与 getEnabledMcpServers 一致）。
- * 只管 url / tools / charIds 三项：服务器有没有启用由上云侧的
- * collectMcpFireServers 把关，传到这里的清单已经只剩启用的。
+ * fire 時按角色過濾可見服務器（charIds 語義與 getEnabledMcpServers 一致）。
+ * 只管 url / tools / charIds 三項：服務器有沒有啟用由上雲側的
+ * collectMcpFireServers 把關，傳到這裡的清單已經只剩啟用的。
  */
 export const filterMcpServersForChar = <S extends McpFireServer>(
     servers: S[] | undefined,
@@ -831,17 +831,17 @@ export interface McpFireOpenAITool {
 }
 
 /**
- * fire 请求的 tools 数组（native 模式）。暴露名直接带 MCP_FIRE_NAME_PREFIX——模型按
- * 这个名字调回来，executeToolCalls 零歧义分流，不会撞内置工具（recall/search/…）的名字。
- * resolve 必须是用 { maxNameLen: MCP_FIRE_NAME_BUDGET } 建的（预算 + 前缀正好是
+ * fire 請求的 tools 數組（native 模式）。暴露名直接帶 MCP_FIRE_NAME_PREFIX——模型按
+ * 這個名字調回來，executeToolCalls 零歧義分流，不會撞內置工具（recall/search/…）的名字。
+ * resolve 必須是用 { maxNameLen: MCP_FIRE_NAME_BUDGET } 建的（預算 + 前綴正好是
  * OpenAI 工具名的 64 上限）。
  */
 export const buildMcpFireTools = <S extends McpFireServer>(
     resolve: Map<string, McpResolvedToolCore<S>>,
 ): McpFireOpenAITool[] => {
-    // 只有跨服务器时才标来源（同一台服务器的多个工具之间不需要区分来源），
-    // 与前台 buildMcpOpenAITools 的 servers.length > 1 同判据。按 server.id 去重
-    // ——全仓服务器身份以 id 为准（会话 Map / resetMcpSession 同源）。
+    // 只有跨服務器時才標來源（同一台服務器的多個工具之間不需要區分來源），
+    // 與前台 buildMcpOpenAITools 的 servers.length > 1 同判據。按 server.id 去重
+    // ——全倉服務器身份以 id 為準（會話 Map / resetMcpSession 同源）。
     const multiServer = new Set([...resolve.values()].map(({ server }) => server.id)).size > 1;
     const tools: McpFireOpenAITool[] = [];
     for (const [exposed, { server, tool }] of resolve) {
@@ -859,46 +859,46 @@ export const buildMcpFireTools = <S extends McpFireServer>(
 };
 
 /**
- * 后台 fire 的 MCP 工具说明块（worker 到点拼进 user prompt 尾部）。
+ * 後台 fire 的 MCP 工具說明塊（worker 到點拼進 user prompt 尾部）。
  *
- * native 模式（默认）：tools 参数已随请求声明，这里只列来源和纪律——与前台
- * buildMcpSystemBlock 的口径一致，不教正文语法（教了反而勾引模型往正文里写）。
- * text 模式（用户在设置里关掉「原生 tools」开关 = 中转拒 tools 时）：请求不带
- * tools 参数，这里教正文协议 tool_name({...})，签名格式与前台
- * buildMcpRejectedToolsFallbackBody 对齐——同一个模型两端见到的长一个样。
+ * native 模式（默認）：tools 參數已隨請求聲明，這裡只列來源和紀律——與前台
+ * buildMcpSystemBlock 的口徑一致，不教正文語法（教了反而勾引模型往正文裡寫）。
+ * text 模式（用戶在設置裡關掉「原生 tools」開關 = 中轉拒 tools 時）：請求不帶
+ * tools 參數，這裡教正文協議 tool_name({...})，簽名格式與前台
+ * buildMcpRejectedToolsFallbackBody 對齊——同一個模型兩端見到的長一個樣。
  */
 export const buildMcpFireBlock = <S extends McpFireServer>(
     resolve: Map<string, McpResolvedToolCore<S>>,
     opts: { mode: 'native' | 'text'; userName?: string },
 ): string => {
     if (!resolve.size) return '';
-    const userName = opts.userName || '用户';
-    // 来源标注的判据同 buildMcpFireTools：只有跨服务器时才标（各算各的，不共享状态）
+    const userName = opts.userName || '用戶';
+    // 來源標註的判據同 buildMcpFireTools：只有跨服務器時才標（各算各的，不共享狀態）
     const multiServer = new Set([...resolve.values()].map(({ server }) => server.id)).size > 1;
     const lines: string[] = [];
     for (const [exposed, { server, tool }] of resolve) {
         const desc = (tool.description || '').trim();
         if (opts.mode === 'native') {
-            lines.push(`- ${exposed}${desc ? `：${desc}` : ''}${multiServer ? `（来源: ${server.name}）` : ''}`);
+            lines.push(`- ${exposed}${desc ? `：${desc}` : ''}${multiServer ? `（來源: ${server.name}）` : ''}`);
             continue;
         }
         const schema = tool.inputSchema || {};
         const required = new Set<string>(Array.isArray(schema.required) ? schema.required : []);
         const args = Object.entries(schema.properties || {}).map(([name, d]: [string, any]) =>
             `${name}${required.has(name) ? '*' : ''}:${d?.type || 'any'}`);
-        lines.push(`- ${exposed}(${args.join(', ')})${desc ? `：${desc}` : ''}${multiServer ? `（来源: ${server.name}）` : ''}`);
+        lines.push(`- ${exposed}(${args.join(', ')})${desc ? `：${desc}` : ''}${multiServer ? `（來源: ${server.name}）` : ''}`);
     }
     const howTo = opts.mode === 'native'
-        ? '需要时直接通过系统的工具调用接口发起（系统会自动执行并把结果给你），不要把工具名和参数写进正文。'
-        : '需要工具时，单独输出一行 tool_name({"参数":"值"})，系统会代为执行并把结果给你，然后你继续写。* 表示必填参数。';
+        ? '需要時直接通過系統的工具調用接口發起（系統會自動執行並把結果給你），不要把工具名和參數寫進正文。'
+        : '需要工具時，單獨輸出一行 tool_name({"參數":"值"})，系統會代為執行並把結果給你，然後你繼續寫。* 表示必填參數。';
     return [
         '',
         '---',
-        `【外部工具 —— ${userName} 在设置里给你连了 MCP 工具服务器，主动消息里也可以用】`,
+        `【外部工具 —— ${userName} 在設置裡給你連了 MCP 工具服務器，主動消息裡也可以用】`,
         howTo,
-        '纪律：不需要就别硬调；没收到系统返回前不要声称工具成功，也不要编造结果；工具失败就换个方式或如实带过；结果只挑相关部分用角色语气转述，别复读 JSON。',
-        '多步任务：先做必要检查，随后立刻调用能推进目标的动作工具；不要反复读取同一份说明或状态。执行动作后可以再次检查新状态，并继续到目标完成或工具明确失败。',
-        `副作用操作：${userName} 本轮已经明确要求执行的视为已确认；没有明确要求时才先确认。`,
+        '紀律：不需要就別硬調；沒收到系統返回前不要聲稱工具成功，也不要編造結果；工具失敗就換個方式或如實帶過；結果只挑相關部分用角色語氣轉述，別復讀 JSON。',
+        '多步任務：先做必要檢查，隨後立刻調用能推進目標的動作工具；不要反覆讀取同一份說明或狀態。執行動作後可以再次檢查新狀態，並繼續到目標完成或工具明確失敗。',
+        `副作用操作：${userName} 本輪已經明確要求執行的視為已確認；沒有明確要求時才先確認。`,
         '可用工具：',
         ...lines,
         '---',

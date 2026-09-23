@@ -14,12 +14,12 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-describe('查手机独立 API', () => {
-    it('未设置时跟随聊天默认', () => {
+describe('查手機獨立 API', () => {
+    it('未設置時跟隨聊天默認', () => {
         expect(resolveCheckPhoneApi(null, chatDefault)).toBe(chatDefault);
     });
 
-    it('保存独立配置后优先使用，并清理复制进来的边缘空白', () => {
+    it('保存獨立配置後優先使用，並清理複製進來的邊緣空白', () => {
         const values = new Map<string, string>();
         vi.stubGlobal('localStorage', {
             getItem: (key: string) => values.get(key) ?? null,
@@ -36,7 +36,7 @@ describe('查手机独立 API', () => {
         expect(resolveCheckPhoneApi(saved, chatDefault)).toBe(saved);
     });
 
-    it('切回默认会删除独立配置', () => {
+    it('切回默認會刪除獨立配置', () => {
         const values = new Map<string, string>([['check_phone_api', JSON.stringify(chatDefault)]]);
         vi.stubGlobal('localStorage', {
             getItem: (key: string) => values.get(key) ?? null,

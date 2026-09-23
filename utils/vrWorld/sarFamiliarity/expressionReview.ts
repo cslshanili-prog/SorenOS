@@ -35,7 +35,7 @@ const EXPRESSION_REVIEW_EVENT = 'sullyos-sar-expression-review-change';
 export const isExpressionReviewAvailable = isSARExpressionReviewEnabled;
 
 function assertAvailable(): void {
-    if (!isExpressionReviewAvailable()) throw new Error('表情修改器仅在本地开发模式可用。');
+    if (!isExpressionReviewAvailable()) throw new Error('表情修改器僅在本地開發模式可用。');
 }
 
 function isAddress(value: unknown): value is ExpressionAddress {
@@ -84,11 +84,11 @@ export function expressionEditSource(address: ExpressionAddress): ExpressionSour
 }
 
 export function expressionEditStaleReason(edit: ExpressionEdit): string | null {
-    if (!isEdit(edit)) return '修改记录的地址或表情无效。';
+    if (!isEdit(edit)) return '修改記錄的地址或表情無效。';
     const source = expressionEditSource(edit);
-    if (!source) return '原稿中的场景、行或句子已不存在。';
-    if (source.text !== edit.text) return '原稿台词已变化，需要人工核对。';
-    if (source.sentenceText !== edit.sentenceText) return '原稿分句已变化，需要人工核对。';
+    if (!source) return '原稿中的場景、行或句子已不存在。';
+    if (source.text !== edit.text) return '原稿台詞已變化，需要人工核對。';
+    if (source.sentenceText !== edit.sentenceText) return '原稿分句已變化，需要人工核對。';
     return null;
 }
 
@@ -103,11 +103,11 @@ function copyEdit(e: ExpressionEdit): ExpressionEdit {
 }
 
 function validateEdits(value: unknown): ExpressionEdit[] {
-    if (!Array.isArray(value)) throw new Error('表情修改记录格式损坏，请先备份原记录再处理。');
+    if (!Array.isArray(value)) throw new Error('表情修改記錄格式損壞，請先備份原記錄再處理。');
     const keys = new Set<string>();
     return value.map(edit => {
         if (!isEdit(edit) || keys.has(expressionEditKey(edit))) {
-            throw new Error('表情修改记录包含无效或重复条目，请先备份原记录再处理。');
+            throw new Error('表情修改記錄包含無效或重複條目，請先備份原記錄再處理。');
         }
         keys.add(expressionEditKey(edit));
         return copyEdit(edit);
@@ -118,13 +118,13 @@ export function readExpressionEdits(): ExpressionEdit[] {
     if (!isExpressionReviewAvailable()) return [];
     let raw: string | null;
     try { raw = localStorage.getItem(EXPRESSION_REVIEW_STORAGE_KEY); }
-    catch { throw new Error('无法读取本地表情修改记录，请检查浏览器存储权限。'); }
+    catch { throw new Error('無法讀取本地表情修改記錄，請檢查瀏覽器存儲權限。'); }
     if (raw === null) return [];
     let saved: unknown;
     try { saved = JSON.parse(raw); }
-    catch { throw new Error('表情修改记录格式损坏，请先备份原记录再处理。'); }
+    catch { throw new Error('表情修改記錄格式損壞，請先備份原記錄再處理。'); }
     if (!saved || typeof saved !== 'object' || (saved as { version?: unknown }).version !== 1) {
-        throw new Error('表情修改记录版本无效，请先备份原记录再处理。');
+        throw new Error('表情修改記錄版本無效，請先備份原記錄再處理。');
     }
     // Stale but well-formed entries remain available for export and targeted reset.
     return validateEdits((saved as { edits?: unknown }).edits);
@@ -132,19 +132,19 @@ export function readExpressionEdits(): ExpressionEdit[] {
 
 function persist(edits: ExpressionEdit[]): void {
     try { localStorage.setItem(EXPRESSION_REVIEW_STORAGE_KEY, JSON.stringify({ version: 1, edits })); }
-    catch { throw new Error('表情修改保存失败，请检查浏览器存储权限或剩余空间。'); }
+    catch { throw new Error('表情修改保存失敗，請檢查瀏覽器存儲權限或剩餘空間。'); }
     if (typeof window !== 'undefined') window.dispatchEvent(new Event(EXPRESSION_REVIEW_EVENT));
 }
 
 export function writeExpressionEdit(address: ExpressionAddress, before: SARExpression, after: SARExpression): void {
     assertAvailable();
-    if (!isAddress(address)) throw new Error('表情修改的句子地址无效。');
-    if (!isAllowed(address.npc, before) || !isAllowed(address.npc, after)) throw new Error('该角色没有这个表情。');
+    if (!isAddress(address)) throw new Error('表情修改的句子地址無效。');
+    if (!isAllowed(address.npc, before) || !isAllowed(address.npc, after)) throw new Error('該角色沒有這個表情。');
     const source = expressionEditSource(address);
-    if (!source) throw new Error('原稿句子不存在，请重新打开回忆。');
+    if (!source) throw new Error('原稿句子不存在，請重新打開回憶。');
     const edits = readExpressionEdits();
     const existing = edits.find(edit => addressEquals(edit, address));
-    if (existing && isExpressionEditStale(existing)) throw new Error('此处的旧修改已过期，请先导出并撤回，再修改新原稿。');
+    if (existing && isExpressionEditStale(existing)) throw new Error('此處的舊修改已過期，請先導出並撤回，再修改新原稿。');
     const original = existing?.before ?? before;
     const remaining = edits.filter(edit => !addressEquals(edit, address));
     if (after !== original) remaining.push(copyEdit({ ...address, text: source.text, sentenceText: source.sentenceText, before: original, after }));
@@ -153,7 +153,7 @@ export function writeExpressionEdit(address: ExpressionAddress, before: SARExpre
 
 export function resetExpressionEdit(address: ExpressionAddress): void {
     assertAvailable();
-    if (!isAddress(address)) throw new Error('表情修改的句子地址无效。');
+    if (!isAddress(address)) throw new Error('表情修改的句子地址無效。');
     const edits = readExpressionEdits();
     const remaining = edits.filter(edit => !addressEquals(edit, address));
     if (remaining.length !== edits.length) persist(remaining);

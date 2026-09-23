@@ -1,5 +1,5 @@
-// 按角色同步占位，跨 Chat 卸载保留：异步回复仍会在后台继续落库。
-// React state 要等下一次 render 才更新，不能拿来挡同一帧的重复点击。
+// 按角色同步佔位，跨 Chat 卸載保留：異步回覆仍會在後台繼續落庫。
+// React state 要等下一次 render 才更新，不能拿來擋同一幀的重複點擊。
 const activeReplies = new Set<string>();
 const listeners = new Set<() => void>();
 

@@ -2,7 +2,7 @@
  * WebDAV Proxy for Cloud Backup
  *
  * Bypasses CORS restrictions for web clients by proxying WebDAV requests
- * to user-configured cloud storage (坚果云, Nextcloud, Synology, etc.)
+ * to user-configured cloud storage (堅果雲, Nextcloud, Synology, etc.)
  *
  * The client sends a POST with:
  *   - Query param: ?url=<encoded target URL>

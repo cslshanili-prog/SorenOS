@@ -7,8 +7,8 @@ export const formatBytes = (bytes?: number): string => {
 };
 
 /**
- * 金额按「分」收敛：浮点相加会攒出 49.85999999999999 这样的尾巴，
- * 展示或写进文本前都先过这里，保证只到分位。
+ * 金額按「分」收斂：浮點相加會攢出 49.85999999999999 這樣的尾巴，
+ * 展示或寫進文本前都先過這裡，保證只到分位。
  */
 export const roundMoney = (value: number): number => {
   const n = Number(value);
@@ -16,16 +16,16 @@ export const roundMoney = (value: number): number => {
   return Math.round(n * 100) / 100;
 };
 
-/** 一串金额求和，结果已收敛到分位 */
+/** 一串金額求和，結果已收斂到分位 */
 export const sumMoney = (values: number[]): number =>
   roundMoney(values.reduce((sum, v) => sum + (Number(v) || 0), 0));
 
-/** 金额显示：整数不带小数点，小数最多两位（49.859999… → 49.86，100 → 100） */
+/** 金額顯示：整數不帶小數點，小數最多兩位（49.859999… → 49.86，100 → 100） */
 export const formatMoney = (value: number): string => String(roundMoney(value));
 
 /**
- * 分钟按小时显示：界面上给的是整档，但持久化里的值可能是导入的备份、
- * 老版本写进去的任意整数，除以 60 会拖出 1.6666666666666667。
+ * 分鐘按小時顯示：界面上給的是整檔，但持久化裡的值可能是導入的備份、
+ * 老版本寫進去的任意整數，除以 60 會拖出 1.6666666666666667。
  */
 export const formatHours = (minutes: number): string => {
   const n = Number(minutes);

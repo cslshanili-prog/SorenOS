@@ -7,7 +7,7 @@ describe('Live2D update notification references', () => {
     const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
     expect(source).toContain('CollaborationUpdatePopup');
     expect(source).toContain("UPDATE_NOTIFICATION_KEY_2026_08_30 = 'sullyos_update_2026_08_30_collaboration_seen'");
-    expect(source).toContain('点输入框左侧的 <b>＋</b>');
+    expect(source).toContain('點輸入框左側的 <b>＋</b>');
     expect(source.indexOf('UPDATE_NOTIFICATION_KEY_2026_08_30, render')).toBeLessThan(source.indexOf('NETWORK_TRANSIT_NOTICE_KEY_2026_08, render'));
   });
 
@@ -28,7 +28,7 @@ describe('Live2D update notification references', () => {
     expect(source).not.toContain('STORY_FEATURES');
     expect(source).toContain('Live2DUpdatePopup');
     expect(source).toContain("UPDATE_NOTIFICATION_KEY_2026_08_10 = 'sullyos_update_2026_08_10_live2d_seen'");
-    expect(source).toContain("eyebrow: '视频通话'");
+    expect(source).toContain("eyebrow: '視頻通話'");
     expect(source).toContain("eyebrow: 'L2D 陪伴桌面'");
     expect(source).toContain('sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, CHANGELOG_2026_08_10)');
   });

@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { buildPhoneEvidenceChatCard, normalizePhoneEvidence, phoneFieldToText } from './phoneEvidence';
 
 describe('phone evidence safety', () => {
-    it('把 LLM 返回的对象字段转成可读文本，而不是 React 对象子节点', () => {
-        const value = phoneFieldToText({ tags: ['悬疑', '连载'], reading_progress: 42 });
-        expect(value).toBe('tags: 悬疑\n连载\nreading_progress: 42');
+    it('把 LLM 返回的對象字段轉成可讀文本，而不是 React 對象子節點', () => {
+        const value = phoneFieldToText({ tags: ['懸疑', '連載'], reading_progress: 42 });
+        expect(value).toBe('tags: 懸疑\n連載\nreading_progress: 42');
     });
 
-    it('处理数组、空值和循环引用时不会抛错', () => {
+    it('處理數組、空值和循環引用時不會拋錯', () => {
         const cyclic: any = { excerpt: '片段' };
         cyclic.self = cyclic;
-        expect(phoneFieldToText(cyclic)).toContain('self: [循环引用]');
+        expect(phoneFieldToText(cyclic)).toContain('self: [循環引用]');
         expect(phoneFieldToText(null, '缺省')).toBe('缺省');
     });
 
-    it('能修复已经存进 phoneState 的旧记录供 UI 安全渲染', () => {
+    it('能修復已經存進 phoneState 的舊記錄供 UI 安全渲染', () => {
         const record = normalizePhoneEvidence({
             id: 'bad-record',
             type: 'novel',
@@ -28,16 +28,16 @@ describe('phone evidence safety', () => {
         expect(record.value).toBe('reading_progress: 70%');
     });
 
-    it('事后同步复用首次生成时的 phone_card 内容和元数据', () => {
+    it('事後同步複用首次生成時的 phone_card 內容和元數據', () => {
         const card = buildPhoneEvidenceChatCard({
             id: 'record-1',
             type: 'novel',
             title: '第三章 夜航',
-            detail: '她把没发出去的话藏进草稿箱。',
-            value: '1.2万字',
+            detail: '她把沒發出去的話藏進草稿箱。',
+            value: '1.2萬字',
             timestamp: 1,
-        }, '阅读');
-        expect(card.content).toBe('[你手机的阅读] 第三章 夜航 · 1.2万字 — 她把没发出去的话藏进草稿箱。');
-        expect(card.metadata.phoneCard).toMatchObject({ app: '阅读', kind: 'novel', title: '第三章 夜航' });
+        }, '閱讀');
+        expect(card.content).toBe('[你手機的閱讀] 第三章 夜航 · 1.2萬字 — 她把沒發出去的話藏進草稿箱。');
+        expect(card.metadata.phoneCard).toMatchObject({ app: '閱讀', kind: 'novel', title: '第三章 夜航' });
     });
 });

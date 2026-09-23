@@ -1,11 +1,11 @@
 /**
- * Memory Dive — 对话框（纯粹的像素框 + 分页 + 打字机）
+ * Memory Dive — 對話框（純粹的像素框 + 分頁 + 打字機）
  *
- * 本组件只负责一个像素边框的小对话框。外层容器（位置、宽高、
- * 背景、加载态浮层）由父组件负责——现在对话框悬浮在上屏房间
- * 的下沿，而下屏是独立的氛围面板。
+ * 本組件只負責一個像素邊框的小對話框。外層容器（位置、寬高、
+ * 背景、加載態浮層）由父組件負責——現在對話框懸浮在上屏房間
+ * 的下沿，而下屏是獨立的氛圍面板。
  *
- * 选项出现 / 加载中 / 无内容时，父组件不渲染本组件。
+ * 選項出現 / 加載中 / 無內容時，父組件不渲染本組件。
  */
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -15,9 +15,9 @@ import TokenImg from '../../components/os/TokenImg';
 
 interface Props {
   current: DiveDialogue | null;
-  /** 本句后还有多少条在排队（仅影响 ▼/◆ 提示） */
+  /** 本句後還有多少條在排隊（僅影響 ▼/◆ 提示） */
   queueRemaining: number;
-  /** 这条说完后是否会立刻出选项（影响 ▼/◆ 提示） */
+  /** 這條說完後是否會立刻出選項（影響 ▼/◆ 提示） */
   choicesPending: boolean;
   charName: string;
   charAvatar?: string;
@@ -26,15 +26,15 @@ interface Props {
 }
 
 const TYPE_SPEED_MS = 22;
-// 每页允许的最多视觉行数（超过就硬切）——保守估计 3 行
+// 每頁允許的最多視覺行數（超過就硬切）——保守估計 3 行
 const PAGE_MAX_LINES = 3;
-// 窄屏中文每行大约能容的字数（头像右侧 ~260px / 13px ≈ 20 字）
+// 窄屏中文每行大約能容的字數（頭像右側 ~260px / 13px ≈ 20 字）
 const CHARS_PER_LINE = 20;
-// 每页字符硬上限。作为 line-based 限制之外的保险丝，防止单页过长；
-// 取 CHARS_PER_LINE * PAGE_MAX_LINES，也就是 3 行能装满的理论极限。
+// 每頁字符硬上限。作為 line-based 限制之外的保險絲，防止單頁過長；
+// 取 CHARS_PER_LINE * PAGE_MAX_LINES，也就是 3 行能裝滿的理論極限。
 const PAGE_CHAR_LIMIT = CHARS_PER_LINE * PAGE_MAX_LINES;
 
-/** 估计一段文本渲染成几行（考虑显式 \n） */
+/** 估計一段文本渲染成幾行（考慮顯式 \n） */
 function estimateLines(s: string): number {
   if (!s) return 0;
   const segs = s.split('\n');
@@ -46,9 +46,9 @@ function estimateLines(s: string): number {
 }
 
 /**
- * 按"段落 → 限定字数 & 限定行数"两步切页：
- *   1. 先按 \n\n 切成段落（绝对页边界）
- *   2. 段落内按字数上限 + 估算行数两路限制切
+ * 按"段落 → 限定字數 & 限定行數"兩步切頁：
+ *   1. 先按 \n\n 切成段落（絕對頁邊界）
+ *   2. 段落內按字數上限 + 估算行數兩路限制切
  */
 function paginate(text: string, charLimit: number): string[] {
   if (!text) return [];
@@ -62,17 +62,17 @@ function paginate(text: string, charLimit: number): string[] {
 
 function paginateParagraph(text: string, limit: number): string[] {
   if (!text) return [];
-  // 只要能在 PAGE_MAX_LINES 行内塞下，就保持单页——字符数不再是独立门槛，
-  // 避免 40 字左右的句子被多余地劈成两页
+  // 只要能在 PAGE_MAX_LINES 行內塞下，就保持單頁——字符數不再是獨立門檻，
+  // 避免 40 字左右的句子被多餘地劈成兩頁
   if (estimateLines(text) <= PAGE_MAX_LINES && text.length <= limit) return [text];
 
-  // 单字符断句点（中英文标点 + 换行 + 单个 em dash）；'——' 连字会在循环里特殊处理
+  // 單字符斷句點（中英文標點 + 換行 + 單個 em dash）；'——' 連字會在循環裡特殊處理
   const breakChars = new Set(['。', '！', '？', '；', '\n', '，', '、', ',', '.', '!', '?', '—', '-']);
   const pages: string[] = [];
   let i = 0;
   while (i < text.length) {
     let end = Math.min(i + limit, text.length);
-    // 在合理窗口里找最近的标点/换行断开
+    // 在合理窗口裡找最近的標點/換行斷開
     if (end < text.length) {
       let found = -1;
       const minEnd = i + Math.floor(limit * 0.55);
@@ -82,16 +82,16 @@ function paginateParagraph(text: string, limit: number): string[] {
       if (found > 0) end = found;
     }
     let piece = text.slice(i, end).replace(/^\s+/, '');
-    // 若估算行数超限，继续缩短
+    // 若估算行數超限，繼續縮短
     while (estimateLines(piece) > PAGE_MAX_LINES && piece.length > 1) {
       piece = piece.slice(0, piece.length - 1);
       end = i + piece.length + (text.slice(i, end).length - piece.length);
     }
-    // 重新定位 end（以保留字符数为准）
+    // 重新定位 end（以保留字符數為準）
     end = i + piece.length;
     if (piece) pages.push(piece);
     i = end;
-    // 吃掉紧跟的空白，防止下一页开头是空格/换行
+    // 吃掉緊跟的空白，防止下一頁開頭是空格/換行
     while (i < text.length && /\s/.test(text[i])) i++;
   }
   return pages;
@@ -154,11 +154,11 @@ const MemoryDiveDialogue: React.FC<Props> = ({
           'inset 0 0 0 2px #1e293b, inset 0 0 0 4px #475569, 0 0 0 1px #0f172a, 0 4px 18px rgba(0,0,0,0.55)',
       }}
     >
-      {/* 只保留右上/左上两个装饰像素，底部让位给右下的推进指示器
-          （之前 bl/br 两颗会和 ▼/◆ 混淆） */}
+      {/* 只保留右上/左上兩個裝飾像素，底部讓位給右下的推進指示器
+          （之前 bl/br 兩顆會和 ▼/◆ 混淆） */}
       <CornerPx pos="tl" /><CornerPx pos="tr" />
 
-      {/* 头像 + 说话人名字（作为整体竖直居中） */}
+      {/* 頭像 + 說話人名字（作為整體豎直居中） */}
       <div className="absolute left-1.5 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 w-16">
         <div className="w-16 h-16">
           {current?.speaker === 'character' && (
@@ -182,7 +182,7 @@ const MemoryDiveDialogue: React.FC<Props> = ({
         )}
       </div>
 
-      {/* 文本区 —— 名字已上移到头像下方的小框里，这里只放台词 */}
+      {/* 文本區 —— 名字已上移到頭像下方的小框裡，這裡只放台詞 */}
       <button
         type="button"
         onClick={handleTap}
@@ -201,7 +201,7 @@ const MemoryDiveDialogue: React.FC<Props> = ({
         </div>
       </button>
 
-      {/* 右下角：页码 + 推进箭头（绝对定位，保证永远贴在框右下） */}
+      {/* 右下角：頁碼 + 推進箭頭（絕對定位，保證永遠貼在框右下） */}
       <div className="absolute right-2 bottom-1 flex items-center gap-1.5 pointer-events-none">
         {current && pages.length > 1 && (
           <span className="text-[9px] text-slate-600">{pageIdx + 1}/{pages.length}</span>

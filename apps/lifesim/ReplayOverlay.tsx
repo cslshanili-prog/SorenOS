@@ -1,5 +1,5 @@
 /**
- * NarrativeReplayOverlay — 叙事回放 (retro window style)
+ * NarrativeReplayOverlay — 敘事回放 (retro window style)
  * Looks like a retro OS notification/dialog window
  */
 
@@ -14,13 +14,13 @@ import { isImageValue } from '../../utils/blobRef';
 import TokenImg from '../../components/os/TokenImg';
 
 const TONE_STYLES: Record<string, { accent: string; label: string }> = {
-    vengeful: { accent: '#b85050', label: '复仇' },
+    vengeful: { accent: '#b85050', label: '復仇' },
     romantic: { accent: '#c06090', label: '浪漫' },
-    scheming: { accent: '#8b6bb8', label: '阴谋' },
-    chaotic:  { accent: '#c07040', label: '混乱' },
+    scheming: { accent: '#8b6bb8', label: '陰謀' },
+    chaotic:  { accent: '#c07040', label: '混亂' },
     peaceful: { accent: '#5b9b6b', label: '平和' },
     amused:   { accent: '#b89840', label: '有趣' },
-    anxious:  { accent: '#5070b0', label: '焦虑' },
+    anxious:  { accent: '#5070b0', label: '焦慮' },
 };
 
 const NarrativeReplayOverlay: React.FC<{
@@ -36,11 +36,11 @@ const NarrativeReplayOverlay: React.FC<{
     const tone = narrative?.emotionalTone;
     const toneStyle = tone ? TONE_STYLES[tone] : null;
     const storyLabel = action.storyKind === 'main_plot'
-        ? '主线剧情'
+        ? '主線劇情'
         : action.storyKind === 'character_drama'
-            ? '角色剧情'
+            ? '角色劇情'
             : action.storyKind === 'system'
-                ? '系统播报'
+                ? '系統播報'
                 : null;
     const accent = action.storyKind === 'main_plot'
         ? '#b86c3d'
@@ -125,7 +125,7 @@ const NarrativeReplayOverlay: React.FC<{
                     {action.headline && (
                         <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: 8 }}>
                             <p style={{ fontSize: 9, fontWeight: 600, color: accent, marginBottom: 3 }}>
-                                剧情标题
+                                劇情標題
                             </p>
                             <p style={{ fontSize: 12, color: '#403847', lineHeight: 1.45, fontWeight: 700 }}>
                                 {action.headline}
@@ -137,7 +137,7 @@ const NarrativeReplayOverlay: React.FC<{
                     {(narrative?.innerThought || action.reasoning) && (
                         <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: 8 }}>
                             <p style={{ fontSize: 9, fontWeight: 600, color: '#b89840', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                                <ChatCircleDots size={10} weight="bold" /> 内心独白
+                                <ChatCircleDots size={10} weight="bold" /> 內心獨白
                             </p>
                             <p style={{ fontSize: 10, color: '#887750', lineHeight: 1.5, fontStyle: 'italic' }}>
                                 "{narrative?.innerThought || action.reasoning}"
@@ -149,7 +149,7 @@ const NarrativeReplayOverlay: React.FC<{
                     {narrative?.dialogue && (
                         <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: 8 }}>
                             <p style={{ fontSize: 9, fontWeight: 600, color: '#888', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                                <BookOpen size={10} weight="bold" /> 场景
+                                <BookOpen size={10} weight="bold" /> 場景
                             </p>
                             <p style={{ fontSize: 10, color: '#555', lineHeight: 1.5 }}>{narrative.dialogue}</p>
                         </div>
@@ -163,7 +163,7 @@ const NarrativeReplayOverlay: React.FC<{
                     {/* Result */}
                     <div className="retro-inset" style={{ padding: '6px 8px' }}>
                         <p style={{ fontSize: 9, fontWeight: 600, color: '#888', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Lightning size={10} weight="bold" /> 结果
+                            <Lightning size={10} weight="bold" /> 結果
                         </p>
                         <p style={{ fontSize: 11, color: '#444', lineHeight: 1.4 }}>{action.immediateResult}</p>
                     </div>
@@ -190,7 +190,7 @@ const NarrativeReplayOverlay: React.FC<{
                     <button onClick={onNext}
                         className="retro-btn retro-btn-primary w-full flex items-center justify-center gap-1"
                         style={{ padding: '7px 12px', background: `linear-gradient(180deg, ${accent}cc, ${accent})`, borderColor: accent }}>
-                        {isLast ? <><WarningCircle size={12} weight="bold" /> 回到游戏</> : '下一条 →'}
+                        {isLast ? <><WarningCircle size={12} weight="bold" /> 回到遊戲</> : '下一條 →'}
                     </button>
                 </div>
             </div>

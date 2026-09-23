@@ -1,20 +1,21 @@
 /**
- * 麦当劳 MCP 客户端 (Model Context Protocol over HTTP+SSE)
+ * 麥當勞 MCP 客戶端 (Model Context Protocol over HTTP+SSE)
  *
- * 上游: https://mcp.mcd.cn  (官方麦当劳中国 MCP server)
- * 文档: https://open.mcd.cn/mcp/doc
- * Token: https://open.mcd.cn/mcp 申请, 每个用户独立, 存 localStorage
+ * 上游: https://mcp.mcd.cn  (官方麥當勞中國 MCP server)
+ * 文檔: https://open.mcd.cn/mcp/doc
+ * Token: https://open.mcd.cn/mcp 申請, 每個用戶獨立, 存 localStorage
  *
- * 浏览器无法直连 mcd.cn (CORS), 走中心配置的 Cloudflare Worker 透传 (默认
- * https://sullymeow.ccwu.cc, 用户可在「设置 → 自定义网络代理」里改):
+ * 瀏覽器無法直連 mcd.cn (CORS), 走中心配置的 Cloudflare Worker 透傳 (默認
+ * https://sullymeow.ccwu.cc, 用戶可在「設置 → 自定義網絡代理」裡改):
  *   POST  <worker>/mcp/mcd
  *   Authorization: Bearer <user_mcp_token>
- *   body: 标准 JSON-RPC 2.0 报文
+ *   body: 標準 JSON-RPC 2.0 報文
  */
 
 import { getProxyWorkerUrl } from './proxyWorker';
+import { equalsAnyScript } from './scriptKey';
 
-// 走中心配置的主代理 worker（用户可在设置里换成自部署实例）
+// 走中心配置的主代理 worker（用戶可在設置裡換成自部署實例）
 const mcpProxyUrl = (): string => `${getProxyWorkerUrl()}/mcp/mcd`;
 const MCP_TOKEN_KEY = 'aetheros.mcd.mcpToken';
 const MCP_ENABLED_KEY = 'aetheros.mcd.mcpEnabled';
@@ -36,19 +37,19 @@ export const normalizeMcdToolName = (toolName: string): string => {
     const raw = (toolName || '').trim();
     if (!raw) return raw;
     let s = raw;
-    // 模型经常给工具名加"命名空间前缀"幻觉:
-    //   mcd_goodies.query-meal-detail  (像 OpenAI Realtime / Cursor 风格)
+    // 模型經常給工具名加"命名空間前綴"幻覺:
+    //   mcd_goodies.query-meal-detail  (像 OpenAI Realtime / Cursor 風格)
     //   mcd.calculate-price
     //   functions.query-meals
-    // 真实麦当劳 MCP 工具名都是纯 kebab-case, 不含点号, 所以遇到点直接取最后一段。
+    // 真實麥當勞 MCP 工具名都是純 kebab-case, 不含點號, 所以遇到點直接取最後一段。
     const lastDot = s.lastIndexOf('.');
     if (lastDot >= 0 && lastDot < s.length - 1) {
         s = s.slice(lastDot + 1);
     }
-    // 旧规则: 剥 mcd_tools_ / mcd_tool_ / mcd-tools- 这种下划线 / 短横线前缀
+    // 舊規則: 剝 mcd_tools_ / mcd_tool_ / mcd-tools- 這種下劃線 / 短橫線前綴
     s = s
         .replace(/^mcd[_-]?tools?[_-]/i, '')
-        .replace(/^mcd[_-]?goodies[_-]/i, '') // 同义前缀, 兼容点号被换成下划线的情况
+        .replace(/^mcd[_-]?goodies[_-]/i, '') // 同義前綴, 兼容點號被換成下劃線的情況
         .trim();
     return s || raw;
 };
@@ -67,7 +68,7 @@ interface McpJsonRpcResponse {
     error?: { code: number; message: string; data?: any };
 }
 
-// ========== Token / 启用状态 (持久化在 localStorage) ==========
+// ========== Token / 啟用狀態 (持久化在 localStorage) ==========
 
 export const getMcdToken = (): string => {
     try { return localStorage.getItem(MCP_TOKEN_KEY) || ''; } catch { return ''; }
@@ -89,7 +90,7 @@ export const isMcdConfigured = (): boolean => {
     return isMcdEnabled() && getMcdToken().length > 0;
 };
 
-// ── 备份用：把麦当劳的 token + 启用状态随「设置 → 导出/导入备份」一起带走（存 localStorage） ──
+// ── 備份用：把麥當勞的 token + 啟用狀態隨「設置 → 導出/導入備份」一起帶走（存 localStorage） ──
 export function exportMcdLocal(): Record<string, string> | undefined {
     try {
         const out: Record<string, string> = {};
@@ -106,7 +107,7 @@ export function importMcdLocal(data: Record<string, string> | null | undefined):
     } catch { /* ignore */ }
 }
 
-// ========== JSON-RPC 会话状态 (内存, 进程级) ==========
+// ========== JSON-RPC 會話狀態 (內存, 進程級) ==========
 
 let requestIdCounter = 0;
 let sessionId: string | null = null;
@@ -140,7 +141,7 @@ const parseResp = (text: string, contentType: string): McpJsonRpcResponse => {
     try { return JSON.parse(text); } catch {
         const m = text.match(/\{[\s\S]*\}/);
         if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
-        throw new Error(`MCP: 无法解析响应: ${text.slice(0, 300)}`);
+        throw new Error(`MCP: 無法解析響應: ${text.slice(0, 300)}`);
     }
 };
 
@@ -149,7 +150,7 @@ const post = async (
     expectResponse = true
 ): Promise<{ response: McpJsonRpcResponse | null }> => {
     const token = getMcdToken();
-    if (!token) throw new Error('未配置麦当劳 MCP Token，请到设置 → 麦当劳填入');
+    if (!token) throw new Error('未配置麥當勞 MCP Token，請到設置 → 麥當勞填入');
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -168,7 +169,7 @@ const post = async (
 
     if (resp.status === 401 || resp.status === 403) {
         const txt = await resp.text().catch(() => '');
-        throw new Error(`MCP 鉴权失败 (${resp.status}): Token 可能已过期或无效。${txt.slice(0, 120)}`);
+        throw new Error(`MCP 鑑權失敗 (${resp.status}): Token 可能已過期或無效。${txt.slice(0, 120)}`);
     }
     if (resp.status === 202) return { response: null };
     if (!resp.ok) {
@@ -189,13 +190,13 @@ const doInitialize = async (): Promise<void> => {
         clientInfo: { name: 'AetherOS-Aetheros', version: '1.0.0' },
     });
     const { response } = await post(initReq);
-    if (response?.error) throw new Error(`Initialize 失败: ${response.error.message}`);
+    if (response?.error) throw new Error(`Initialize 失敗: ${response.error.message}`);
 
-    // 通知 server 初始化完成 (协议要求)
+    // 通知 server 初始化完成 (協議要求)
     const notif = buildRequest('notifications/initialized', {}, true);
-    await post(notif, false).catch(() => { /* notification 失败不阻塞 */ });
+    await post(notif, false).catch(() => { /* notification 失敗不阻塞 */ });
 
-    // 拉取工具清单
+    // 拉取工具清單
     try {
         const { response: toolsResp } = await post(buildRequest('tools/list'));
         if (toolsResp?.result?.tools && Array.isArray(toolsResp.result.tools)) {
@@ -204,10 +205,10 @@ const doInitialize = async (): Promise<void> => {
                 description: t.description || '',
                 inputSchema: t.inputSchema || t.input_schema || { type: 'object', properties: {} },
             }));
-            console.log('[MCD-MCP] 工具清单:', cachedTools.map(t => t.name).join(', '));
+            console.log('[MCD-MCP] 工具清單:', cachedTools.map(t => t.name).join(', '));
         }
     } catch (e) {
-        console.warn('[MCD-MCP] tools/list 失败:', e);
+        console.warn('[MCD-MCP] tools/list 失敗:', e);
     }
 
     initialized = true;
@@ -224,9 +225,9 @@ const ensureInitialized = async (): Promise<void> => {
     await initPromise;
 };
 
-// ========== 公开 API ==========
+// ========== 公開 API ==========
 
-/** 拉取工具清单 (会触发首次 initialize, 之后内存缓存) */
+/** 拉取工具清單 (會觸發首次 initialize, 之後內存緩存) */
 export const listMcdTools = async (forceRefresh = false): Promise<McdToolDef[]> => {
     if (forceRefresh) {
         initialized = false;
@@ -248,11 +249,11 @@ const hasAnyCodeArg = (args: Record<string, any>, keys: string[]): boolean => {
 };
 
 /**
- * 修复模型常犯的参数形态错误:
- *  - orderType 应该是整数 1 (到店) / 2 (外送), 模型经常给字符串 "1" / "delivery" / "DINE_IN"
- *  - items[].quantity 应该是整数, 模型经常给字符串 "1"
- *  - 到店 (orderType=1) 时 beCode 必须为 null/不传, 模型会顺手带上空串
- * 在客户端做一次温和的归一化, 避免上游 API 因为 1 vs "1" 类型不匹配返回空信封。
+ * 修復模型常犯的參數形態錯誤:
+ *  - orderType 應該是整數 1 (到店) / 2 (外送), 模型經常給字符串 "1" / "delivery" / "DINE_IN"
+ *  - items[].quantity 應該是整數, 模型經常給字符串 "1"
+ *  - 到店 (orderType=1) 時 beCode 必須為 null/不傳, 模型會順手帶上空串
+ * 在客戶端做一次溫和的歸一化, 避免上游 API 因為 1 vs "1" 類型不匹配返回空信封。
  */
 const normalizeMcdArgs = (toolName: string, args: Record<string, any>): Record<string, any> => {
     if (!/calculate[-_]?price|create[-_]?order|submit[-_]?order/i.test(toolName)) return args;
@@ -262,7 +263,7 @@ const normalizeMcdArgs = (toolName: string, args: Record<string, any>): Record<s
         if (typeof t === 'string') {
             const s = t.trim().toLowerCase();
             if (s === '1' || s === 'pickup' || s === 'dine-in' || s === 'dine_in' || s === 'carryout' || s === 'in-store') out.orderType = 1;
-            else if (s === '2' || s === 'delivery' || s === '麦乐送' || s === '外送') out.orderType = 2;
+            else if (s === '2' || s === 'delivery' || equalsAnyScript(s, '麦乐送') || s === '外送') out.orderType = 2;
             else if (/^\d+$/.test(s)) out.orderType = parseInt(s, 10);
         }
     }
@@ -273,7 +274,7 @@ const normalizeMcdArgs = (toolName: string, args: Record<string, any>): Record<s
             if (ni.quantity != null && typeof ni.quantity === 'string' && /^\d+$/.test(ni.quantity.trim())) {
                 ni.quantity = parseInt(ni.quantity.trim(), 10);
             }
-            // 同义字段: code / sku → productCode (模型偶尔会用错字段名)
+            // 同義字段: code / sku → productCode (模型偶爾會用錯字段名)
             if (!ni.productCode) {
                 if (ni.code) ni.productCode = ni.code;
                 else if (ni.skuCode) ni.productCode = ni.skuCode;
@@ -282,84 +283,84 @@ const normalizeMcdArgs = (toolName: string, args: Record<string, any>): Record<s
             return ni;
         });
     }
-    // 到店模式时 beCode 必须为 null/不传, 否则上游会按外送匹配走错路径
+    // 到店模式時 beCode 必須為 null/不傳, 否則上游會按外送匹配走錯路徑
     if (out.orderType === 1 && out.beCode === '') delete out.beCode;
     return out;
 };
 
-/** 调用一个工具 */
+/** 調用一個工具 */
 export const callMcdTool = async (toolName: string, args: Record<string, any> = {}): Promise<McdToolResult> => {
     try {
         const normalizedToolName = normalizeMcdToolName(toolName);
-        // 某些工具是“按 code 查详情”，空参几乎必定返回“成功但无数据”的空信封，容易误导模型和用户。
-        // 在客户端前置兜底成明确错误，引导先走 query/list 拿 code 再查详情。
-        // 注意工具名: 上游官方文档列表里只有 `query-meal-detail` 和 `mall-product-detail`,
-        //            没有泛 `product-detail`; 而 mall-product-detail 用 spuId, 不是 productCodes,
-        //            所以这里精确匹配, 不要再用宽泛的 /product[-_]?detail/。
-        // query-meal-detail 入参是单数 string `code`, 不是数组。
-        // list-nutrition-foods 按官方文档无需入参 (返回全量), 不要再拦它。
+        // 某些工具是“按 code 查詳情”，空參幾乎必定返回“成功但無數據”的空信封，容易誤導模型和用戶。
+        // 在客戶端前置兜底成明確錯誤，引導先走 query/list 拿 code 再查詳情。
+        // 注意工具名: 上游官方文檔列表裡只有 `query-meal-detail` 和 `mall-product-detail`,
+        //            沒有泛 `product-detail`; 而 mall-product-detail 用 spuId, 不是 productCodes,
+        //            所以這裡精確匹配, 不要再用寬泛的 /product[-_]?detail/。
+        // query-meal-detail 入參是單數 string `code`, 不是數組。
+        // list-nutrition-foods 按官方文檔無需入參 (返回全量), 不要再攔它。
         const codeLookupRules: Array<{ pattern: RegExp; argKeys: string[]; hint: string }> = [
-            { pattern: /^query[-_]?meal[-_]?detail$/i, argKeys: ['code', 'productCode', 'mealCode'], hint: 'code (单个餐品编码 string)' },
+            { pattern: /^query[-_]?meal[-_]?detail$/i, argKeys: ['code', 'productCode', 'mealCode'], hint: 'code (單個餐品編碼 string)' },
         ];
         const hit = codeLookupRules.find((r) => r.pattern.test(normalizedToolName));
         if (hit && !hasAnyCodeArg(args, hit.argKeys)) {
             return {
                 success: false,
-                error: `工具 ${normalizedToolName} 需要先提供餐品 code（参数: ${hit.hint}）。请先调用 query-meals 拿到 code 后再查。`,
+                error: `工具 ${normalizedToolName} 需要先提供餐品 code（參數: ${hit.hint}）。請先調用 query-meals 拿到 code 後再查。`,
             };
         }
 
-        // calculate-price / create-order 的参数前置校验:
-        // 文档要求 items 数组每项至少有 productCode + quantity, 没有就直接报错引导模型修正,
-        // 而不是让上游静默返回空信封后用户对着空卡片发呆。
+        // calculate-price / create-order 的參數前置校驗:
+        // 文檔要求 items 數組每項至少有 productCode + quantity, 沒有就直接報錯引導模型修正,
+        // 而不是讓上游靜默返回空信封后用戶對著空卡片發呆。
         if (/calculate[-_]?price|create[-_]?order|submit[-_]?order/i.test(normalizedToolName)) {
             const items = (args as any)?.items;
             if (!Array.isArray(items) || items.length === 0) {
                 return {
                     success: false,
-                    error: `工具 ${normalizedToolName} 需要 items 数组（每项至少有 productCode + quantity）。请先 query-meals / list-products 拿到商品 code 再调用。`,
+                    error: `工具 ${normalizedToolName} 需要 items 數組（每項至少有 productCode + quantity）。請先 query-meals / list-products 拿到商品 code 再調用。`,
                 };
             }
             const bad = items.find((it: any) => !it || !it.productCode || it.quantity == null);
             if (bad) {
                 return {
                     success: false,
-                    error: `工具 ${normalizedToolName} 的 items 形态不对。每项必须有 productCode (商品编码) 和 quantity (数量)。当前传入: ${JSON.stringify(items).slice(0, 200)}`,
+                    error: `工具 ${normalizedToolName} 的 items 形態不對。每項必須有 productCode (商品編碼) 和 quantity (數量)。當前傳入: ${JSON.stringify(items).slice(0, 200)}`,
                 };
             }
             if (!(args as any)?.storeCode) {
                 return {
                     success: false,
-                    error: `工具 ${normalizedToolName} 需要 storeCode (门店编码)。到店场景用 query-nearby-stores 找门店, 外送场景用 delivery-query-addresses 拿地址里的 storeCode + beCode。`,
+                    error: `工具 ${normalizedToolName} 需要 storeCode (門店編碼)。到店場景用 query-nearby-stores 找門店, 外送場景用 delivery-query-addresses 拿地址裡的 storeCode + beCode。`,
                 };
             }
             const ot = (args as any)?.orderType;
             if (ot == null || (typeof ot !== 'number' && !/^[12]$/.test(String(ot).trim()))) {
                 return {
                     success: false,
-                    error: `工具 ${normalizedToolName} 的 orderType 必须是整数 1 (到店) 或 2 (外送)。当前: ${JSON.stringify(ot)}`,
+                    error: `工具 ${normalizedToolName} 的 orderType 必須是整數 1 (到店) 或 2 (外送)。當前: ${JSON.stringify(ot)}`,
                 };
             }
         }
 
-        // 类型/字段归一化, 修掉 string vs int / 字段名小写差异这类坑
+        // 類型/字段歸一化, 修掉 string vs int / 字段名小寫差異這類坑
         args = normalizeMcdArgs(normalizedToolName, args);
 
         await ensureInitialized();
         const body = buildRequest('tools/call', { name: normalizedToolName, arguments: args });
         const { response } = await post(body);
-        if (!response) return { success: false, error: '空响应' };
-        if (response.error) return { success: false, error: `MCP 错误 [${response.error.code}]: ${response.error.message}` };
+        if (!response) return { success: false, error: '空響應' };
+        if (response.error) return { success: false, error: `MCP 錯誤 [${response.error.code}]: ${response.error.message}` };
 
         const result = response.result;
         if (result?.content && Array.isArray(result.content)) {
             const textParts = result.content.filter((c: any) => c?.type === 'text').map((c: any) => c.text || '');
             const fullText = textParts.join('\n').trim();
-            if (result.isError) return { success: false, error: fullText || '麦当劳工具执行失败', rawText: fullText };
+            if (result.isError) return { success: false, error: fullText || '麥當勞工具執行失敗', rawText: fullText };
 
-            // 在混合文本(markdown 说明 + JSON)里挖出 JSON。
-            // 麦当劳 MCP 习惯在每个响应前塞一段 "## Response Structure" 渲染规范, 然后才接真数据。
-            // 数据里有时会有未转义的真换行符 / 制表符, JSON.parse 会直接失败 → 加一道修复尝试。
+            // 在混合文本(markdown 說明 + JSON)裡挖出 JSON。
+            // 麥當勞 MCP 習慣在每個響應前塞一段 "## Response Structure" 渲染規範, 然後才接真數據。
+            // 數據裡有時會有未轉義的真換行符 / 製表符, JSON.parse 會直接失敗 → 加一道修復嘗試。
             const repairJson = (s: string): string => {
                 let inStr = false, esc = false, out = '';
                 for (let i = 0; i < s.length; i++) {
@@ -383,13 +384,13 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                 // 1) 整段直接是 JSON
                 const direct = safeParse(text);
                 if (direct !== undefined) return direct;
-                // 2) ```json 围栏
+                // 2) ```json 圍欄
                 const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
                 if (fenceMatch) {
                     const fenced = safeParse(fenceMatch[1].trim());
                     if (fenced !== undefined) return fenced;
                 }
-                // 3) 扫描所有 { 和 [ 起点, 用括号配平找完整结构, 选择最大的那个
+                // 3) 掃描所有 { 和 [ 起點, 用括號配平找完整結構, 選擇最大的那個
                 const candidates: any[] = [];
                 const tryBalanced = (start: number, open: string, close: string) => {
                     let depth = 0, inStr = false, esc = false;
@@ -408,7 +409,7 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                                 if (parsed && typeof parsed === 'object') {
                                     candidates.push({ parsed, len: slice.length });
                                 }
-                                return; // 找到一个合法的就回主循环找下一个起点
+                                return; // 找到一個合法的就回主循環找下一個起點
                             }
                         }
                     }
@@ -419,16 +420,16 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                 }
                 if (candidates.length) {
                     const scoreCandidate = (obj: any, len: number): number => {
-                        let score = Math.min(len, 4000) / 4000; // 轻微偏好更完整的片段，但不绝对
+                        let score = Math.min(len, 4000) / 4000; // 輕微偏好更完整的片段，但不絕對
                         if (!obj || typeof obj !== 'object') return score;
                         if (Array.isArray(obj)) return score + (obj.length > 0 ? 2 : 0);
                         const keys = Object.keys(obj);
-                        // 识别麦当劳信封
+                        // 識別麥當勞信封
                         const envKeys = ['success', 'code', 'message', 'datetime', 'traceId', 'data'];
                         const envHits = envKeys.filter(k => k in obj).length;
                         if (envHits >= 4) score += 2;
                         const data = (obj as any).data;
-                        // 强烈偏好“有实际 data”的候选，避开 Response Structure 示例壳
+                        // 強烈偏好“有實際 data”的候選，避開 Response Structure 示例殼
                         if (Array.isArray(data)) score += data.length > 0 ? 8 : -2;
                         else if (data && typeof data === 'object') score += Object.keys(data).length > 0 ? 8 : -2;
                         else if (typeof data === 'string') {
@@ -437,7 +438,7 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                         } else if (data == null) {
                             score -= 3;
                         }
-                        // JSON Schema / Response Structure 片段常见字段，适度降权
+                        // JSON Schema / Response Structure 片段常見字段，適度降權
                         if ('properties' in obj || '$schema' in obj || 'required' in obj) score -= 3;
                         return score;
                     };
@@ -446,8 +447,8 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                 }
                 return undefined;
             };
-            // 解析: 上游有时把数据再次 stringify 装进 {data: "..."} / {result: "..."} 这类外壳,
-            // 这里递归剥一层, 让卡片拿到真正的对象/数组
+            // 解析: 上游有時把數據再次 stringify 裝進 {data: "..."} / {result: "..."} 這類外殼,
+            // 這裡遞歸剝一層, 讓卡片拿到真正的對象/數組
             const tryDeepParse = (v: any): any => {
                 if (typeof v === 'string') {
                     const s = v.trim();
@@ -457,34 +458,34 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                     return v;
                 }
                 if (v && typeof v === 'object' && !Array.isArray(v)) {
-                    // 麦当劳响应都套一层信封: {success, code, message, datetime, traceId, data: {...}}
-                    // 自动剥掉, 直接把 data 字段当成数据本体
+                    // 麥當勞響應都套一層信封: {success, code, message, datetime, traceId, data: {...}}
+                    // 自動剝掉, 直接把 data 字段當成數據本體
                     const envelopeKeys = ['success', 'code', 'message', 'datetime', 'traceId', 'msg', 'errorCode', 'errMsg'];
                     if ('data' in v && envelopeKeys.some(k => k in v)) {
                         const inner = v.data;
                         if (inner && typeof inner === 'object') return tryDeepParse(inner);
                         if (typeof inner === 'string') {
                             const s = inner.trim();
-                            // 优先尝试当 JSON 解; 解不开就当成普通文本/toon 紧凑字符串直接返回。
-                            // 关键: list-nutrition-foods / campaign-calendar / available-coupons 这类工具
-                            // data 是 toon 表 / markdown 文本, 不是 JSON, 之前会"剥不掉信封"导致前端
-                            // 误判'无数据'。这里无论解不解得开 JSON, 都返回 inner 字符串本体。
+                            // 優先嘗試當 JSON 解; 解不開就當成普通文本/toon 緊湊字符串直接返回。
+                            // 關鍵: list-nutrition-foods / campaign-calendar / available-coupons 這類工具
+                            // data 是 toon 表 / markdown 文本, 不是 JSON, 之前會"剝不掉信封"導致前端
+                            // 誤判'無數據'。這裡無論解不解得開 JSON, 都返回 inner 字符串本體。
                             if (s.startsWith('{') || s.startsWith('[')) {
                                 try { return tryDeepParse(JSON.parse(s)); } catch { /* fall through to return string */ }
                             }
                             return s;
                         }
-                        // null / undefined / number / boolean 等原始类型也直接返回 inner, 不要把信封带回去
+                        // null / undefined / number / boolean 等原始類型也直接返回 inner, 不要把信封帶回去
                         return inner;
                     }
-                    // 单字段壳: {data: "..."} / {result: "..."} 等
+                    // 單字段殼: {data: "..."} / {result: "..."} 等
                     const keys = Object.keys(v);
                     const wrapKeys = ['data', 'result', 'response', 'body', 'payload'];
                     if (keys.length === 1 && wrapKeys.includes(keys[0]) && typeof v[keys[0]] === 'string') {
                         const inner = tryDeepParse(v[keys[0]]);
                         if (inner && typeof inner === 'object') return inner;
                     }
-                    // 否则对每个 string 字段尝试解 (一层即可, 避免无限递归)
+                    // 否則對每個 string 字段嘗試解 (一層即可, 避免無限遞歸)
                     const out: any = Array.isArray(v) ? [] : {};
                     for (const k of keys) {
                         const cv = v[k];
@@ -500,7 +501,7 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                 }
                 return v;
             };
-            // 先尝试整段直接 parse, 不行再扫描混合文本
+            // 先嘗試整段直接 parse, 不行再掃描混合文本
             let parsed: any = undefined;
             let parseRoute = 'none';
             try {
@@ -512,22 +513,22 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
             }
             if (parsed !== undefined) {
                 const finalData = tryDeepParse(parsed);
-                // 诊断日志: 让用户能看到工具到底返回了什么形态
+                // 診斷日誌: 讓用戶能看到工具到底返回了什麼形態
                 try {
                     const topKeys = finalData && typeof finalData === 'object' && !Array.isArray(finalData)
                         ? Object.keys(finalData).slice(0, 10).join(',')
                         : (Array.isArray(finalData) ? `[Array len=${finalData.length}]` : typeof finalData);
-                    console.log(`🍔 [MCD-MCP] 工具结果 ${parseRoute} | rawLen=${fullText.length} | topKeys=${topKeys}`);
+                    console.log(`🍔 [MCD-MCP] 工具結果 ${parseRoute} | rawLen=${fullText.length} | topKeys=${topKeys}`);
                 } catch { /* ignore log errors */ }
-                // calculate-price 按文档应返回对象 (含 productList / price 等), 永远不应是空数组。
-                // 一旦上游回了空数组, 几乎可以确定是 storeCode/productCode/orderType/beCode 组合不被接受,
-                // 把它显式翻成错误, 让模型在工具循环里能看到并自我纠正, 而不是闷头继续走下单流程。
+                // calculate-price 按文檔應返回對象 (含 productList / price 等), 永遠不應是空數組。
+                // 一旦上游回了空數組, 幾乎可以確定是 storeCode/productCode/orderType/beCode 組合不被接受,
+                // 把它顯式翻成錯誤, 讓模型在工具循環裡能看到並自我糾正, 而不是悶頭繼續走下單流程。
                 if (Array.isArray(finalData) && finalData.length === 0
                     && /calculate[-_]?price|query[-_]?meals/i.test(normalizedToolName)) {
                     let argsEcho = '';
-                    try { argsEcho = `\n你这次传的参数: ${JSON.stringify(args)}`; } catch { /* ignore */ }
+                    try { argsEcho = `\n你這次傳的參數: ${JSON.stringify(args)}`; } catch { /* ignore */ }
                     const isCalc = /calculate[-_]?price/i.test(normalizedToolName);
-                    // 基于 args 真实形态智能猜根因, 不要写死"到店带了 beCode"这种死结论
+                    // 基於 args 真實形態智能猜根因, 不要寫死"到店帶了 beCode"這種死結論
                     const ot = (args as any)?.orderType;
                     const beCode = (args as any)?.beCode;
                     const hasBeCode = !!(beCode && String(beCode).trim());
@@ -535,27 +536,27 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                     const itemArr = Array.isArray(items) ? items : [];
                     let smartHint = '';
                     if (ot === 1 && hasBeCode) {
-                        smartHint = ` 看你 args 形态: 到店模式 (orderType=1) 但带了 beCode='${beCode}'。这是错配, 到店模式 beCode 必须不传 / 留空。移除 beCode 重试。`;
+                        smartHint = ` 看你 args 形態: 到店模式 (orderType=1) 但帶了 beCode='${beCode}'。這是錯配, 到店模式 beCode 必須不傳 / 留空。移除 beCode 重試。`;
                     } else if (ot === 2 && !hasBeCode) {
-                        smartHint = ` 看你 args 形态: 外送模式 (orderType=2) 但没传 beCode。外送必须传 beCode (跟 storeCode 同来自 delivery-query-addresses 的同一行)。`;
+                        smartHint = ` 看你 args 形態: 外送模式 (orderType=2) 但沒傳 beCode。外送必須傳 beCode (跟 storeCode 同來自 delivery-query-addresses 的同一行)。`;
                     } else if (itemArr.length === 0) {
-                        smartHint = ` 看你 args 形态: items 数组为空。`;
+                        smartHint = ` 看你 args 形態: items 數組為空。`;
                     } else if (isCalc) {
-                        // args 表面看没问题, 重点查 productCode 形态
+                        // args 表面看沒問題, 重點查 productCode 形態
                         const codes = itemArr.map((i: any) => i?.productCode).filter(Boolean);
-                        const suspect = codes.find((c: string) => /^[A-Za-z]/.test(c)); // 真实麦当劳 productCode 全是数字, 字母开头多半是券 code
+                        const suspect = codes.find((c: string) => /^[A-Za-z]/.test(c)); // 真實麥當勞 productCode 全是數字, 字母開頭多半是券 code
                         if (suspect) {
-                            smartHint = ` 看你 args 形态: productCode='${suspect}' 以字母开头, 真实麦当劳商品 code 都是纯数字; 字母开头通常是优惠券商品 spu code, 那种 code 必须**配对 couponId + couponCode** 一起传 (在 items 同一项里), 否则上游不认。要么换成 query-meals 返回的纯数字 code, 要么补上 couponId + couponCode。`;
+                            smartHint = ` 看你 args 形態: productCode='${suspect}' 以字母開頭, 真實麥當勞商品 code 都是純數字; 字母開頭通常是優惠券商品 spu code, 那種 code 必須**配對 couponId + couponCode** 一起傳 (在 items 同一項裡), 否則上游不認。要麼換成 query-meals 返回的純數字 code, 要麼補上 couponId + couponCode。`;
                         } else {
-                            smartHint = ` 看你 args 形态没明显错 (storeCode=${(args as any)?.storeCode}, orderType=${ot}, ${hasBeCode ? 'beCode='+beCode : '无 beCode'}, items=${JSON.stringify(itemArr)})。最可能的根因: productCode 不在该 storeCode 当前模式的菜单里。先用同一组 (storeCode, orderType${ot===2?', beCode':''}) 调一次 query-meals 看实际有什么 code 再回来。`;
+                            smartHint = ` 看你 args 形態沒明顯錯 (storeCode=${(args as any)?.storeCode}, orderType=${ot}, ${hasBeCode ? 'beCode='+beCode : '無 beCode'}, items=${JSON.stringify(itemArr)})。最可能的根因: productCode 不在該 storeCode 當前模式的菜單裡。先用同一組 (storeCode, orderType${ot===2?', beCode':''}) 調一次 query-meals 看實際有什麼 code 再回來。`;
                         }
                     } else {
                         // query-meals 空表
-                        smartHint = ` 看你 args: storeCode=${(args as any)?.storeCode}, orderType=${ot}, ${hasBeCode ? 'beCode='+beCode : '无 beCode'}。如果 storeCode/beCode 来自不同 address 就会空, 必须用同一行的成对值。`;
+                        smartHint = ` 看你 args: storeCode=${(args as any)?.storeCode}, orderType=${ot}, ${hasBeCode ? 'beCode='+beCode : '無 beCode'}。如果 storeCode/beCode 來自不同 address 就會空, 必須用同一行的成對值。`;
                     }
                     const errBody = isCalc
-                        ? `calculate-price 上游返回空列表 (按文档应返回对象, 空说明上游拒绝了这组参数)。${smartHint}`
-                        : `query-meals 上游返回空列表 (按文档应返回 {categories, meals} 对象, 空说明 storeCode + beCode + orderType 三元组上游不接受)。${smartHint}`;
+                        ? `calculate-price 上游返回空列表 (按文檔應返回對象, 空說明上游拒絕了這組參數)。${smartHint}`
+                        : `query-meals 上游返回空列表 (按文檔應返回 {categories, meals} 對象, 空說明 storeCode + beCode + orderType 三元組上游不接受)。${smartHint}`;
                     return {
                         success: false,
                         error: `${errBody}${argsEcho}`,
@@ -564,8 +565,8 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
                 }
                 return { success: true, data: finalData, rawText: fullText };
             }
-            console.warn(`🍔 [MCD-MCP] 工具结果 parse 全失败, rawLen=${fullText.length}, 前 200 字: ${fullText.slice(0, 200)}`);
-            // 实在挖不到 JSON 就当成纯文本
+            console.warn(`🍔 [MCD-MCP] 工具結果 parse 全失敗, rawLen=${fullText.length}, 前 200 字: ${fullText.slice(0, 200)}`);
+            // 實在挖不到 JSON 就當成純文本
             return { success: true, data: fullText, rawText: fullText };
         }
         return { success: true, data: result };
@@ -574,23 +575,23 @@ export const callMcdTool = async (toolName: string, args: Record<string, any> = 
     }
 };
 
-/** 测试连接: 仅验证 token 是否能成功 initialize + 拿到 tools */
+/** 測試連接: 僅驗證 token 是否能成功 initialize + 拿到 tools */
 export const testMcdConnection = async (): Promise<{ ok: boolean; message: string; tools?: McdToolDef[] }> => {
     try {
-        // 重置状态以避免缓存的旧 session
+        // 重置狀態以避免緩存的舊 session
         initialized = false;
         sessionId = null;
         cachedTools = [];
         initPromise = null;
         const tools = await listMcdTools(false);
-        if (!tools.length) return { ok: true, message: '已连接, 但工具清单为空 (可能服务侧未挂载工具)', tools };
-        return { ok: true, message: `已连接, 拿到 ${tools.length} 个工具`, tools };
+        if (!tools.length) return { ok: true, message: '已連接, 但工具清單為空 (可能服務側未掛載工具)', tools };
+        return { ok: true, message: `已連接, 拿到 ${tools.length} 個工具`, tools };
     } catch (e: any) {
         return { ok: false, message: e?.message || String(e) };
     }
 };
 
-/** 强制重置会话 (token 改变 / 退出登录时调用) */
+/** 強制重置會話 (token 改變 / 退出登錄時調用) */
 export const resetMcdSession = (): void => {
     initialized = false;
     sessionId = null;

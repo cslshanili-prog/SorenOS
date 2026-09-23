@@ -1,13 +1,13 @@
 import { expect, it, vi } from 'vitest';
 import { DB } from '../db';
 it('concurrent retry writes exactly one ordinary chat message per delivery key',async()=>{
-    const id='delivery-test-'+crypto.randomUUID();const message={charId:id,role:'assistant' as const,type:'text' as const,content:'鱼放回去了。'};
+    const id='delivery-test-'+crypto.randomUUID();const message={charId:id,role:'assistant' as const,type:'text' as const,content:'魚放回去了。'};
     const ids=await Promise.all([DB.saveMessageOnce('one',message),DB.saveMessageOnce('one',message),DB.saveMessageOnce('two',message)]);
     expect(ids[0]).toBe(ids[1]);expect(ids[2]).not.toBe(ids[0]);
-    expect((await DB.getMessagesByCharId(id,true)).map(m=>m.content)).toEqual(['鱼放回去了。','鱼放回去了。']);
+    expect((await DB.getMessagesByCharId(id,true)).map(m=>m.content)).toEqual(['魚放回去了。','魚放回去了。']);
 });
 it('concurrent board posts and unlock retries append without lost updates or duplicate announcements',async()=>{
-    const id=crypto.randomUUID();const a={id:id+'a',authorId:'a',authorName:'A',content:'hello',createdAt:1};const b={...a,id:id+'b',authorId:'sar-discovery',authorName:'彼方播报',kind:'collection-unlock' as const,content:'解锁'};
+    const id=crypto.randomUUID();const a={id:id+'a',authorId:'a',authorName:'A',content:'hello',createdAt:1};const b={...a,id:id+'b',authorId:'sar-discovery',authorName:'彼方播報',kind:'collection-unlock' as const,content:'解鎖'};
     await Promise.all([DB.appendVRGuestbookMessages([a]),DB.appendVRGuestbookMessages([b]),DB.appendVRGuestbookMessages([b])]);
     expect((await DB.getVRGuestbook())!.messages.filter(m=>m.id.startsWith(id))).toHaveLength(2);
 });

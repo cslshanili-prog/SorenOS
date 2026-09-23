@@ -5,26 +5,26 @@ import { OBSERVE_DIMENSIONS } from '../../utils/datePrompts';
 import ObserveHUD, { OBSERVE_STYLES } from './ObserveHUD';
 
 /**
- * 见面设置里的「观测协议 OBSERVE」配置块（默认折叠）：
- *   - 总开关
- *   - HUD 样式选择（全息 / 水墨 / 霓虹 / 水晶 / 终端），带实时预览
- *   - 四个默认维度（时间/地点/状态/细节）：启用开关、HUD 显示标签、生成提示
- *   - 追加自定义维度（最多 6 个）：标签 + 生成提示 + 启用 + 删除
- *   - 一键重置（样式 + 全部字段自定义 + 自定义维度回默认）
+ * 見面設置裡的「觀測協議 OBSERVE」配置塊（默認摺疊）：
+ *   - 總開關
+ *   - HUD 樣式選擇（全息 / 水墨 / 霓虹 / 水晶 / 終端），帶實時預覽
+ *   - 四個默認維度（時間/地點/狀態/細節）：啟用開關、HUD 顯示標籤、生成提示
+ *   - 追加自定義維度（最多 6 個）：標籤 + 生成提示 + 啟用 + 刪除
+ *   - 一鍵重置（樣式 + 全部字段自定義 + 自定義維度回默認）
  *
- * 所有改动即时写回 char.dateObserve，下一条回复 / 下次渲染生效。
+ * 所有改動即時寫回 char.dateObserve，下一條回覆 / 下次渲染生效。
  */
 
 interface ObserveSettingsProps {
     char: CharacterProfile;
 }
 
-// 预览用的示例观测（不发请求，纯展示样式）
+// 預覽用的示例觀測（不發請求，純展示樣式）
 const SAMPLE: DateObservation = {
-    time: '傍晚六点过，天刚擦黑',
-    place: '便利店门口的塑料凳上',
-    state: '有点疲惫，但见到你眼神亮了一下',
-    detail: '指尖无意识地敲着关东煮的纸杯',
+    time: '傍晚六點過，天剛擦黑',
+    place: '便利店門口的塑料凳上',
+    state: '有點疲憊，但見到你眼神亮了一下',
+    detail: '指尖無意識地敲著關東煮的紙杯',
 };
 
 const MAX_CUSTOM = 6;
@@ -51,7 +51,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
     const fields = char.dateObserve?.fields || {};
     const customs = char.dateObserve?.custom || [];
 
-    const [open, setOpen] = useState(false); // 默认折叠
+    const [open, setOpen] = useState(false); // 默認摺疊
     const [draft, setDraft] = useState<FieldDraft>(() => buildFieldDraft(char));
     const [customDraft, setCustomDraft] = useState<FieldDraft>(() => buildCustomDraft(char));
     useEffect(() => { setDraft(buildFieldDraft(char)); setCustomDraft(buildCustomDraft(char)); }, [char.id]);
@@ -59,7 +59,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
     const patchObserve = (patch: Partial<DateObserveConfig>) =>
         updateCharacter(char.id, { dateObserve: { ...char.dateObserve, ...patch } });
 
-    // —— 默认维度 ——
+    // —— 默認維度 ——
     const patchField = (key: keyof DateObservation, partial: Record<string, unknown>) =>
         patchObserve({ fields: { ...fields, [key]: { ...(fields[key] || {}), ...partial } } });
     const commitField = (key: keyof DateObservation, which: 'label' | 'hint') => {
@@ -68,9 +68,9 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
         patchField(key, { [which]: v || undefined });
     };
 
-    // —— 自定义维度 ——
+    // —— 自定義維度 ——
     const addCustom = () => {
-        if (customs.length >= MAX_CUSTOM) { addToast(`最多 ${MAX_CUSTOM} 个自定义维度`, 'info'); return; }
+        if (customs.length >= MAX_CUSTOM) { addToast(`最多 ${MAX_CUSTOM} 個自定義維度`, 'info'); return; }
         const id = genId();
         patchObserve({ custom: [...customs, { id, label: '', hint: '', enabled: true }] });
         setCustomDraft(d => ({ ...d, [id]: { label: '', hint: '' } }));
@@ -89,14 +89,14 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
         updateCharacter(char.id, { dateObserve: { enabled: char.dateObserve?.enabled, style: undefined, fields: undefined, custom: undefined } });
         setDraft(buildFieldDraft({ ...char, dateObserve: { enabled } }));
         setCustomDraft({});
-        addToast('观测样式与提示词已重置为默认', 'success');
+        addToast('觀測樣式與提示詞已重置為默認', 'success');
     };
 
-    // 预览：默认四维用示例文案，自定义维度塞占位内容，让样式预览也能看到追加的格子
+    // 預覽：默認四維用示例文案，自定義維度塞佔位內容，讓樣式預覽也能看到追加的格子
     const previewObs: DateObservation = {
         ...SAMPLE,
         extra: Object.fromEntries(
-            customs.filter(c => c.enabled !== false && (c.label || '').trim()).map(c => [c.id, '此处显示生成的内容']),
+            customs.filter(c => c.enabled !== false && (c.label || '').trim()).map(c => [c.id, '此處顯示生成的內容']),
         ),
     };
 
@@ -106,8 +106,8 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                 <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 min-w-0 text-left active:opacity-70">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 text-slate-300 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`}><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" /></svg>
                     <div className="min-w-0">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase">观测协议 · OBSERVE</h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed truncate">每条回复附上 {char.name} 此刻的状态，渲染成可独立查看的观测面板。{enabled ? '已开启。' : '已关闭。'}</p>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase">觀測協議 · OBSERVE</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed truncate">每條回覆附上 {char.name} 此刻的狀態，渲染成可獨立查看的觀測面板。{enabled ? '已開啟。' : '已關閉。'}</p>
                     </div>
                 </button>
                 <button
@@ -120,14 +120,14 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
 
             {open && (
                 !enabled ? (
-                    <p className="px-4 pb-4 -mt-1 text-[11px] text-slate-400">先打开右上角开关，即可选择面板样式、自定义每格生成什么、追加观察维度。</p>
+                    <p className="px-4 pb-4 -mt-1 text-[11px] text-slate-400">先打開右上角開關，即可選擇面板樣式、自定義每格生成什麼、追加觀察維度。</p>
                 ) : (
                 <div className="px-4 pb-4 space-y-4">
-                    {/* ── 样式选择 ── */}
+                    {/* ── 樣式選擇 ── */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-[11px] font-bold text-slate-500">面板样式</h4>
-                            <button onClick={resetAll} className="text-[10px] font-bold text-primary/80 hover:text-primary px-2 py-0.5 rounded-full bg-primary/5 active:scale-95 transition-transform">一键重置</button>
+                            <h4 className="text-[11px] font-bold text-slate-500">面板樣式</h4>
+                            <button onClick={resetAll} className="text-[10px] font-bold text-primary/80 hover:text-primary px-2 py-0.5 rounded-full bg-primary/5 active:scale-95 transition-transform">一鍵重置</button>
                         </div>
                         <div className="grid grid-cols-5 gap-1.5">
                             {OBSERVE_STYLES.map(s => (
@@ -145,9 +145,9 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                         <p className="text-[10px] text-slate-400 mt-1.5 leading-snug">{OBSERVE_STYLES.find(s => s.id === style)?.desc}</p>
                     </div>
 
-                    {/* ── 实时预览 ── */}
+                    {/* ── 實時預覽 ── */}
                     <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 mb-2">预览</h4>
+                        <h4 className="text-[11px] font-bold text-slate-500 mb-2">預覽</h4>
                         <div className="rounded-xl p-4 flex justify-center" style={{ background: style === 'ink' ? '#e9e0cd' : 'radial-gradient(circle at 30% 20%, #1e2433, #0a0d16)' }}>
                             <div className="w-full max-w-[260px]">
                                 <ObserveHUD observation={previewObs} variant="card" charName={char.name} config={char.dateObserve} />
@@ -155,10 +155,10 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                         </div>
                     </div>
 
-                    {/* ── 每个维度的提示词与标签自定义 ── */}
+                    {/* ── 每個維度的提示詞與標籤自定義 ── */}
                     <div>
-                        <h4 className="text-[11px] font-bold text-slate-500 mb-1">每个部分生成什么（自定义提示词）</h4>
-                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">「显示标签」只改面板上的字样；「生成提示」决定这一格让 AI 写什么。留空即用默认。关掉的维度不会生成、面板上也不显示。</p>
+                        <h4 className="text-[11px] font-bold text-slate-500 mb-1">每個部分生成什麼（自定義提示詞）</h4>
+                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">「顯示標籤」只改面板上的字樣；「生成提示」決定這一格讓 AI 寫什麼。留空即用默認。關掉的維度不會生成、面板上也不顯示。</p>
                         <div className="space-y-2.5">
                             {OBSERVE_DIMENSIONS.map(dim => {
                                 const on = fields[dim.key]?.enabled !== false;
@@ -180,14 +180,14 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                                     value={draft[dim.key]?.label || ''}
                                                     onChange={e => setDraft(d => ({ ...d, [dim.key]: { ...d[dim.key], label: e.target.value } }))}
                                                     onBlur={() => commitField(dim.key, 'label')}
-                                                    placeholder={`显示标签（默认「${dim.label}」）`}
+                                                    placeholder={`顯示標籤（默認「${dim.label}」）`}
                                                     className="w-full text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-200 focus:border-primary focus:outline-none bg-white"
                                                 />
                                                 <textarea
                                                     value={draft[dim.key]?.hint || ''}
                                                     onChange={e => setDraft(d => ({ ...d, [dim.key]: { ...d[dim.key], hint: e.target.value } }))}
                                                     onBlur={() => commitField(dim.key, 'hint')}
-                                                    placeholder={`生成提示（默认：${defHint}）`}
+                                                    placeholder={`生成提示（默認：${defHint}）`}
                                                     rows={2}
                                                     className="w-full text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-200 focus:border-primary focus:outline-none bg-white leading-relaxed resize-none"
                                                 />
@@ -199,19 +199,19 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                         </div>
                     </div>
 
-                    {/* ── 追加自定义维度 ── */}
+                    {/* ── 追加自定義維度 ── */}
                     <div>
                         <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-[11px] font-bold text-slate-500">追加维度</h4>
+                            <h4 className="text-[11px] font-bold text-slate-500">追加維度</h4>
                             <button
                                 onClick={addCustom}
                                 disabled={customs.length >= MAX_CUSTOM}
                                 className="text-[10px] font-bold text-primary px-2.5 py-1 rounded-full bg-primary/5 hover:bg-primary/10 disabled:opacity-40 active:scale-95 transition-all"
                             >+ 添加（{customs.length}/{MAX_CUSTOM}）</button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">在四个默认维度之外，自己开观察项（如「穿着」「天气」「和你的距离」）。标签同时用于 AI 输出与面板显示。</p>
+                        <p className="text-[10px] text-slate-400 mb-2.5 leading-snug">在四個默認維度之外，自己開觀察項（如「穿著」「天氣」「和你的距離」）。標籤同時用於 AI 輸出與面板顯示。</p>
                         {customs.length === 0 ? (
-                            <div className="text-[11px] text-slate-300 text-center py-3 border border-dashed border-slate-200 rounded-xl">还没有自定义维度，点「+ 添加」开一格</div>
+                            <div className="text-[11px] text-slate-300 text-center py-3 border border-dashed border-slate-200 rounded-xl">還沒有自定義維度，點「+ 添加」開一格</div>
                         ) : (
                             <div className="space-y-2.5">
                                 {customs.map(c => {
@@ -223,7 +223,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                                     value={customDraft[c.id]?.label || ''}
                                                     onChange={e => setCustomDraft(d => ({ ...d, [c.id]: { ...d[c.id], label: e.target.value } }))}
                                                     onBlur={() => commitCustom(c.id, 'label')}
-                                                    placeholder="维度名（如 穿着 / 天气）"
+                                                    placeholder="維度名（如 穿著 / 天氣）"
                                                     className="flex-1 min-w-0 text-[12px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 focus:border-primary focus:outline-none bg-white"
                                                 />
                                                 <button
@@ -232,7 +232,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                                 >
                                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`}></div>
                                                 </button>
-                                                <button onClick={() => delCustom(c.id)} title="删除" className="text-slate-300 hover:text-red-400 transition-colors shrink-0 p-0.5">
+                                                <button onClick={() => delCustom(c.id)} title="刪除" className="text-slate-300 hover:text-red-400 transition-colors shrink-0 p-0.5">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                                 </button>
                                             </div>
@@ -241,7 +241,7 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char }) => {
                                                     value={customDraft[c.id]?.hint || ''}
                                                     onChange={e => setCustomDraft(d => ({ ...d, [c.id]: { ...d[c.id], hint: e.target.value } }))}
                                                     onBlur={() => commitCustom(c.id, 'hint')}
-                                                    placeholder="生成提示：这一格让 AI 写什么（留空给个通用默认）"
+                                                    placeholder="生成提示：這一格讓 AI 寫什麼（留空給個通用默認）"
                                                     rows={2}
                                                     className="w-full text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-200 focus:border-primary focus:outline-none bg-white leading-relaxed resize-none"
                                                 />

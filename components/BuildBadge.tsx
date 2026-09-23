@@ -3,23 +3,23 @@ import { querySwVersion } from '../utils/swVersion';
 import { BUILD_LABEL } from '../utils/buildInfo';
 
 /**
- * 构建版本指示器：右下角阶梯式堆三行
+ * 構建版本指示器：右下角階梯式堆三行
  *   sw@<SW_VERSION>
  *   <branch>@<shortHash>
- *   开发中内容，不代表最终效果
+ *   開發中內容，不代表最終效果
  *
- * - 右侧贴齐成竖直线；左侧每行根据实测宽度动态决定圆角（仅在"伸出邻行"一侧）。
- *   分支名长度可变，所以行宽顺序不固定，需要 useLayoutEffect 在 paint 前测量。
- * - 仅当 vite.config 注入的 __BUILD_BADGE_VISIBLE__ 为 true 时挂载
- *   （VITE_HIDE_BUILD_BADGE=1 时构建会把它编译成 false → 树摇掉）
- * - SW 版本通过 utils/swVersion 的 GET_SW_VERSION 协议查询；SW 未注册 /
- *   不响应时显示 sw@?
- * - pointer-events-none + select-none：不可点、不可选、不影响下层交互
- * - z-[2147483647]：保证盖在所有 modal / 动画 / 全屏覆盖层之上
- * - safe-area-inset：iOS PWA 底部 home indicator 区域避让
+ * - 右側貼齊成豎直線；左側每行根據實測寬度動態決定圓角（僅在"伸出鄰行"一側）。
+ *   分支名長度可變，所以行寬順序不固定，需要 useLayoutEffect 在 paint 前測量。
+ * - 僅當 vite.config 注入的 __BUILD_BADGE_VISIBLE__ 為 true 時掛載
+ *   （VITE_HIDE_BUILD_BADGE=1 時構建會把它編譯成 false → 樹搖掉）
+ * - SW 版本通過 utils/swVersion 的 GET_SW_VERSION 協議查詢；SW 未註冊 /
+ *   不響應時顯示 sw@?
+ * - pointer-events-none + select-none：不可點、不可選、不影響下層交互
+ * - z-[2147483647]：保證蓋在所有 modal / 動畫 / 全屏覆蓋層之上
+ * - safe-area-inset：iOS PWA 底部 home indicator 區域避讓
  *
- * 注：这是 dev / fork 专用的醒目角标。正式版（main/master）会被树摇掉，
- * 但构建 / SW 版本仍通过 Settings 底部的 VersionInfo 低调展示，方便用户报障。
+ * 注：這是 dev / fork 專用的醒目角標。正式版（main/master）會被樹搖掉，
+ * 但構建 / SW 版本仍通過 Settings 底部的 VersionInfo 低調展示，方便用戶報障。
  */
 const BuildBadge: React.FC = () => {
     if (!__BUILD_BADGE_VISIBLE__) return null;
@@ -35,13 +35,13 @@ const BuildBadge: React.FC = () => {
         return () => { cancelled = true; };
     }, []);
 
-    // 右侧贴齐 (rounded-tr 仅顶行, rounded-br 仅末行)。
-    // 左侧逐行测宽: 仅当当前行严格宽于上 / 下邻行时, 该侧伸出, 才给圆角;
-    // 等宽 / 更窄时, 邻行会覆盖到当前行外侧, 圆角会形成凹缝, 所以给方角让它们贴上。
+    // 右側貼齊 (rounded-tr 僅頂行, rounded-br 僅末行)。
+    // 左側逐行測寬: 僅當當前行嚴格寬於上 / 下鄰行時, 該側伸出, 才給圓角;
+    // 等寬 / 更窄時, 鄰行會覆蓋到當前行外側, 圓角會形成凹縫, 所以給方角讓它們貼上。
     const lines: Array<{ text: string; cls: string }> = [
         { text: `sw@${swVersion}`, cls: 'text-[9px] tracking-wider' },
         { text: buildLabel, cls: 'text-[9px] tracking-wider' },
-        { text: '开发中内容，不代表最终效果', cls: 'text-[8px] tracking-normal text-white/35' },
+        { text: '開發中內容，不代表最終效果', cls: 'text-[8px] tracking-normal text-white/35' },
     ];
     const lastIdx = lines.length - 1;
 

@@ -79,6 +79,7 @@ import {
   DEFAULT_COLLABORATION_SETTINGS,
   collaborationId,
 } from './types';
+import { equalsAnyScript } from '../../utils/scriptKey';
 
 interface CollaborationWindowProps {
   open: boolean;
@@ -110,12 +111,12 @@ type PendingAttachment = { attachment: CollaborationAttachment; blob: Blob };
 type SessionFilter = 'active' | 'archived';
 
 const OUTPUT_FORMAT_OPTIONS: Array<{ value: '' | CollaborationArtifactFormat; label: string }> = [
-  { value: '', label: '格式：自动' },
+  { value: '', label: '格式：自動' },
   { value: 'docx', label: 'Word (.docx)' },
   { value: 'pdf', label: 'PDF (.pdf)' },
   { value: 'md', label: 'Markdown (.md)' },
-  { value: 'txt', label: '纯文本 (.txt)' },
-  { value: 'html', label: '网页 (.html)' },
+  { value: 'txt', label: '純文本 (.txt)' },
+  { value: 'html', label: '網頁 (.html)' },
   { value: 'json', label: 'JSON (.json)' },
 ];
 
@@ -124,20 +125,20 @@ const OUTPUT_FORMAT_LABELS = Object.fromEntries(
 ) as Record<CollaborationArtifactFormat, string>;
 
 const MODE_LABELS: Record<CollaborationMode, string> = {
-  immersive: '沉浸式协同',
-  focused: '中度协同',
+  immersive: '沉浸式協同',
+  focused: '中度協同',
 };
 
 const MODE_DESCRIPTIONS: Record<CollaborationMode, string> = {
-  immersive: '和日常聊天使用同一整套角色上下文；最近聊天按设置逐轮实时读取。',
-  focused: '保留核心人设、5 条相关记忆；也可只带 10～20 条最近聊天。',
+  immersive: '和日常聊天使用同一整套角色上下文；最近聊天按設置逐輪實時讀取。',
+  focused: '保留核心人設、5 條相關記憶；也可只帶 10～20 條最近聊天。',
 };
 
 const CHAT_CONTEXT_OPTIONS: Array<{ value: CollaborationChatContextChoice; label: string; hint: string }> = [
-  { value: 0, label: '不读取', hint: '只看协同窗口' },
-  { value: 10, label: '最近 10 条', hint: '更省上下文' },
-  { value: 20, label: '最近 20 条', hint: '衔接更完整' },
-  { value: 'configured', label: '用户设定范围', hint: '跟随 ChatApp' },
+  { value: 0, label: '不讀取', hint: '只看協同窗口' },
+  { value: 10, label: '最近 10 條', hint: '更省上下文' },
+  { value: 20, label: '最近 20 條', hint: '銜接更完整' },
+  { value: 'configured', label: '用戶設定範圍', hint: '跟隨 ChatApp' },
 ];
 
 const ANALYTICS_UI_THEMES: readonly CollaborationUiTheme[] = ['sully', 'gpt', 'claude', 'gemini', 'kimi', 'deepseek'];
@@ -161,12 +162,12 @@ const COLLABORATION_UI_THEMES: Array<{
   emptyDescription: string;
   swatches: [string, string, string];
 }> = [
-  { id: 'sully', label: '角色气泡', caption: 'SullyOS 原生布局', presence: '默认双方头像', emptyTitle: '从一件具体的事开始', emptyDescription: '上传资料或参考图，也可以直接告诉角色想完成什么。', swatches: ['#f4f6fa', '#ffffff', '#6366f1'] },
-  { id: 'gpt', label: '黑白助手', caption: '克制的 AI 对话布局', presence: '默认不显示头像', emptyTitle: '有什么可以帮忙完成？', emptyDescription: '输入任务、上传文件或图片，或者选择一个制作能力开始。', swatches: ['#ffffff', '#f4f4f4', '#000000'] },
-  { id: 'claude', label: '暖纸长文', caption: '适合阅读与写作', presence: '默认不显示头像', emptyTitle: '今天想一起做些什么？', emptyDescription: '把资料和目标交给角色，适合整理、写作与长文制作。', swatches: ['#f7f6f2', '#eee9df', '#d97757'] },
-  { id: 'gemini', label: '渐光协作', caption: '轻盈的助手工作台', presence: '默认只显示角色', emptyTitle: '你好，今天一起完成什么？', emptyDescription: '角色会带着最近聊天里的连续感，在这里专心处理任务。', swatches: ['#ffffff', '#eef3ff', '#4d75e8'] },
-  { id: 'kimi', label: '轻量资料', caption: '资料与文档优先', presence: '默认不显示头像', emptyTitle: '嗨，想从什么任务开始？', emptyDescription: '上传长文档、参考图或直接描述目标，角色会整理好再交付。', swatches: ['#f6f8fc', '#ffffff', '#2864ff'] },
-  { id: 'deepseek', label: '理性工作台', caption: '清楚的推理分区', presence: '默认不显示头像', emptyTitle: '有什么可以帮到你？', emptyDescription: '描述问题或上传资料、图片，角色会按步骤分析并完成。', swatches: ['#f5f7fb', '#ffffff', '#4d6bfe'] },
+  { id: 'sully', label: '角色氣泡', caption: 'SullyOS 原生布局', presence: '默認雙方頭像', emptyTitle: '從一件具體的事開始', emptyDescription: '上傳資料或參考圖，也可以直接告訴角色想完成什麼。', swatches: ['#f4f6fa', '#ffffff', '#6366f1'] },
+  { id: 'gpt', label: '黑白助手', caption: '克制的 AI 對話佈局', presence: '默認不顯示頭像', emptyTitle: '有什麼可以幫忙完成？', emptyDescription: '輸入任務、上傳文件或圖片，或者選擇一個製作能力開始。', swatches: ['#ffffff', '#f4f4f4', '#000000'] },
+  { id: 'claude', label: '暖紙長文', caption: '適合閱讀與寫作', presence: '默認不顯示頭像', emptyTitle: '今天想一起做些什麼？', emptyDescription: '把資料和目標交給角色，適合整理、寫作與長文製作。', swatches: ['#f7f6f2', '#eee9df', '#d97757'] },
+  { id: 'gemini', label: '漸光協作', caption: '輕盈的助手工作台', presence: '默認只顯示角色', emptyTitle: '你好，今天一起完成什麼？', emptyDescription: '角色會帶著最近聊天裡的連續感，在這裡專心處理任務。', swatches: ['#ffffff', '#eef3ff', '#4d75e8'] },
+  { id: 'kimi', label: '輕量資料', caption: '資料與文檔優先', presence: '默認不顯示頭像', emptyTitle: '嗨，想從什麼任務開始？', emptyDescription: '上傳長文檔、參考圖或直接描述目標，角色會整理好再交付。', swatches: ['#f6f8fc', '#ffffff', '#2864ff'] },
+  { id: 'deepseek', label: '理性工作台', caption: '清楚的推理分區', presence: '默認不顯示頭像', emptyTitle: '有什麼可以幫到你？', emptyDescription: '描述問題或上傳資料、圖片，角色會按步驟分析並完成。', swatches: ['#f5f7fb', '#ffffff', '#4d6bfe'] },
 ];
 type CollaborationUiThemeSpec = (typeof COLLABORATION_UI_THEMES)[number];
 
@@ -353,11 +354,11 @@ const collaborationMessagePreview = (message?: CollaborationMessage): string | u
   if (message.role === 'assistant') {
     const rich = parseCollaborationRichOutput(message.content);
     const label = rich.text
-      || (rich.voice ? '[语音]' : '')
+      || (rich.voice ? '[語音]' : '')
       || (rich.emojiNames.length > 0 ? `[表情包：${rich.emojiNames[0]}]` : '');
     return shortPreview(label || message.attachments?.[0]?.name || '已完成');
   }
-  return shortPreview(message.content || message.attachments?.[0]?.name || (message.role === 'system' ? '系统提示' : '上传了文件'));
+  return shortPreview(message.content || message.attachments?.[0]?.name || (message.role === 'system' ? '系統提示' : '上傳了文件'));
 };
 
 const copyCollaborationText = async (text: string): Promise<boolean> => {
@@ -421,7 +422,7 @@ const CollaborationActionDialog: React.FC<{
   const warning = dialog.tone === 'warning';
   return (
     <div className="absolute inset-0 z-[140] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-labelledby="collaboration-dialog-title">
-      <button type="button" aria-label="关闭确认弹窗" onClick={() => onResolve('cancel')} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] animate-[collabFade_.16s_ease-out]" />
+      <button type="button" aria-label="關閉確認彈窗" onClick={() => onResolve('cancel')} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px] animate-[collabFade_.16s_ease-out]" />
       <section className="collab-action-dialog relative mx-3 mb-[max(.75rem,env(safe-area-inset-bottom))] w-[calc(100%-1.5rem)] max-w-[430px] overflow-hidden rounded-[26px] border border-white/65 bg-white/96 shadow-[0_28px_90px_rgba(15,23,42,.28)] backdrop-blur-2xl animate-[collabSheetIn_.22s_cubic-bezier(.2,.8,.2,1)] sm:mb-0">
         <div className="px-6 pb-5 pt-6 text-left">
           <span className={`grid h-11 w-11 place-items-center rounded-[15px] ${danger ? 'bg-rose-50 text-rose-600' : warning ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-700'}`}>
@@ -468,11 +469,11 @@ const CollaborationMessageEditor: React.FC<{
   const regenerates = message.role === 'user';
   return (
     <div className="absolute inset-0 z-[140] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-labelledby="collaboration-message-editor-title">
-      <button type="button" aria-label="关闭消息编辑" onClick={onCancel} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" />
+      <button type="button" aria-label="關閉消息編輯" onClick={onCancel} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" />
       <section className="relative mx-3 mb-[max(.75rem,env(safe-area-inset-bottom))] w-[calc(100%-1.5rem)] max-w-[520px] rounded-[26px] border border-white/70 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.28)] sm:mb-0">
-        <h2 id="collaboration-message-editor-title" className="text-[17px] font-semibold text-slate-900">编辑{regenerates ? '自己的消息' : '这条回复'}</h2>
+        <h2 id="collaboration-message-editor-title" className="text-[17px] font-semibold text-slate-900">編輯{regenerates ? '自己的消息' : '這條回覆'}</h2>
         <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
-          {regenerates ? '保存后会从这里重新生成，后面的旧回复与后续分支会移除。' : '只修改显示内容，不会重新调用模型。'}
+          {regenerates ? '保存後會從這裡重新生成，後面的舊回覆與後續分支會移除。' : '只修改顯示內容，不會重新調用模型。'}
         </p>
         <textarea
           autoFocus
@@ -483,7 +484,7 @@ const CollaborationMessageEditor: React.FC<{
         <div className="mt-4 flex gap-2.5">
           <button type="button" onClick={onCancel} disabled={saving} className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-700 disabled:opacity-45">取消</button>
           <button type="button" onClick={onSave} disabled={saving || !value.trim()} className="flex-[1.5] rounded-2xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white disabled:opacity-45">
-            {saving ? '保存中…' : regenerates ? '保存并重新生成' : '保存修改'}
+            {saving ? '保存中…' : regenerates ? '保存並重新生成' : '保存修改'}
           </button>
         </div>
       </section>
@@ -506,8 +507,8 @@ const CollaborationEntryChooser: React.FC<{
           <TokenImg value={character.avatar} alt={character.name} className="collab-mode-avatar h-16 w-16 rounded-[22px] object-cover shadow-sm ring-1 ring-black/5" />
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Collaboration</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-800">这次要做什么？</h2>
-            <p className="mt-1 text-sm text-slate-500">新任务不会继承旧窗口的上下文。</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-800">這次要做什麼？</h2>
+            <p className="mt-1 text-sm text-slate-500">新任務不會繼承舊窗口的上下文。</p>
           </div>
         </div>
 
@@ -515,21 +516,21 @@ const CollaborationEntryChooser: React.FC<{
           <button type="button" onClick={onNew} className="group flex w-full items-center gap-4 border-b border-slate-200/80 py-6 text-left transition-colors hover:bg-white/55 active:bg-white/80">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-white shadow-[0_10px_28px_rgba(79,70,229,.22)]"><Plus size={22} weight="bold" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[17px] font-semibold text-slate-800">新建协同</span>
-              <span className="mt-1 block text-sm text-slate-500">从空白窗口开始，再选择沉浸式或中度协同。</span>
+              <span className="block text-[17px] font-semibold text-slate-800">新建協同</span>
+              <span className="mt-1 block text-sm text-slate-500">從空白窗口開始，再選擇沉浸式或中度協同。</span>
             </span>
             <span className="text-xl text-slate-300 transition-transform group-hover:translate-x-1">→</span>
           </button>
           <button type="button" onClick={onHistory} className="group flex w-full items-center gap-4 py-6 text-left transition-colors hover:bg-white/55 active:bg-white/80">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-200 text-slate-600"><List size={22} weight="bold" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[17px] font-semibold text-slate-800">选择旧记录</span>
-              <span className="mt-1 block text-sm text-slate-500">{activeCount} 个进行中{archivedCount > 0 ? ` · ${archivedCount} 个已归档` : ''}</span>
+              <span className="block text-[17px] font-semibold text-slate-800">選擇舊記錄</span>
+              <span className="mt-1 block text-sm text-slate-500">{activeCount} 個進行中{archivedCount > 0 ? ` · ${archivedCount} 個已歸檔` : ''}</span>
             </span>
             <span className="text-xl text-slate-300 transition-transform group-hover:translate-x-1">→</span>
           </button>
         </div>
-        <p className="mt-6 text-xs leading-relaxed text-slate-400">只有你亲自选择旧记录后，才会重新进入那个窗口。</p>
+        <p className="mt-6 text-xs leading-relaxed text-slate-400">只有你親自選擇舊記錄後，才會重新進入那個窗口。</p>
       </div>
     </div>
   );
@@ -542,23 +543,23 @@ const ModePicker: React.FC<{
 }> = ({ character, onChoose, onBack }) => (
     <div className="collab-mode-picker flex flex-1 flex-col overflow-y-auto px-6 pb-8 pt-10 sm:px-10">
     <div className="mx-auto w-full max-w-xl">
-       {onBack && <button type="button" onClick={onBack} className="mb-6 flex items-center gap-1 text-[11px] font-semibold text-slate-400 active:text-slate-700"><CaretLeft size={14} />返回新建 / 旧记录</button>}
+       {onBack && <button type="button" onClick={onBack} className="mb-6 flex items-center gap-1 text-[11px] font-semibold text-slate-400 active:text-slate-700"><CaretLeft size={14} />返回新建 / 舊記錄</button>}
        <div className="collab-mode-hero flex items-center gap-4">
         <TokenImg value={character.avatar} alt={character.name} className="collab-mode-avatar h-16 w-16 rounded-[22px] object-cover shadow-sm ring-1 ring-black/5" />
         <div className="min-w-0">
           <p className="collab-mode-kicker text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Collaboration</p>
           <h2 className="collab-mode-role-title mt-1 text-2xl font-semibold tracking-tight text-slate-800">和 {character.name} 一起做</h2>
-          <p className="collab-mode-subtitle mt-1 text-sm text-slate-500">选择这个窗口携带多少陪伴上下文。</p>
+          <p className="collab-mode-subtitle mt-1 text-sm text-slate-500">選擇這個窗口攜帶多少陪伴上下文。</p>
         </div>
        </div>
 
        <section className="collab-mode-explanation mt-8 border-l-2 border-indigo-200 pl-4 text-left">
-         <p className="text-[13px] font-medium leading-6 text-slate-700">“你好。这里是我和你单独办正事的地方，先把规则说直白一点。”</p>
+         <p className="text-[13px] font-medium leading-6 text-slate-700">“你好。這裡是我和你單獨辦正事的地方，先把規則說直白一點。”</p>
          <dl className="mt-4 space-y-3 text-[11px] leading-5 text-slate-500">
-           <div><dt className="font-semibold text-slate-700">这是什么？</dt><dd>独立在 ChatApp 外围的工作窗口。我仍然是 {character.name}，但会把更多注意力放在拆解、制作、检查和交付上。</dd></div>
-           <div><dt className="font-semibold text-slate-700">两个模式差在哪？</dt><dd><b>沉浸式</b>会带日常聊天同款完整上下文和最近聊天，最像刚从聊天里一起过来；<b>中度</b>只记得我们是谁和最多 5 条相关记忆，更轻、更专心办事。</dd></div>
-           <div><dt className="font-semibold text-slate-700">会进入角色记忆吗？</dt><dd>默认不会。你可以手动把内容发回聊天，让它走日常聊天自己的记忆流程；也可以在归档窗口时选择只写入一条总结。</dd></div>
-           <div><dt className="font-semibold text-slate-700">“让角色在日常聊天中知道协同功能”有什么用？</dt><dd>开启后，{character.name} 会知道你们另有一个独立工作区，也能读取并发送文件柜里已有的文件。普通聊天不会变成工作模式，不能在那里新建、修改或整理文件；真正干活仍要进入这里。</dd></div>
+           <div><dt className="font-semibold text-slate-700">這是什麼？</dt><dd>獨立在 ChatApp 外圍的工作窗口。我仍然是 {character.name}，但會把更多注意力放在拆解、製作、檢查和交付上。</dd></div>
+           <div><dt className="font-semibold text-slate-700">兩個模式差在哪？</dt><dd><b>沉浸式</b>會帶日常聊天同款完整上下文和最近聊天，最像剛從聊天裡一起過來；<b>中度</b>只記得我們是誰和最多 5 條相關記憶，更輕、更專心辦事。</dd></div>
+           <div><dt className="font-semibold text-slate-700">會進入角色記憶嗎？</dt><dd>默認不會。你可以手動把內容發回聊天，讓它走日常聊天自己的記憶流程；也可以在歸檔窗口時選擇只寫入一條總結。</dd></div>
+           <div><dt className="font-semibold text-slate-700">“讓角色在日常聊天中知道協同功能”有什麼用？</dt><dd>開啟後，{character.name} 會知道你們另有一個獨立工作區，也能讀取併發送文件櫃裡已有的文件。普通聊天不會變成工作模式，不能在那裡新建、修改或整理文件；真正幹活仍要進入這裡。</dd></div>
          </dl>
        </section>
 
@@ -583,7 +584,7 @@ const ModePicker: React.FC<{
       </div>
 
       <p className="collab-mode-footnote mt-6 text-xs leading-relaxed text-slate-400">
-        每个窗口都有独立上下文，不会读取其它协同窗口，也不会自动写回日常聊天。
+        每個窗口都有獨立上下文，不會讀取其它協同窗口，也不會自動寫回日常聊天。
       </p>
     </div>
   </div>
@@ -624,7 +625,7 @@ const ApiSettingsPanel: React.FC<{
       [mode]: {
         ...previous[mode],
         ...patch,
-        ...(detach ? { source: 'custom' as const, sourceId: undefined, sourceName: '协同专用配置' } : {}),
+        ...(detach ? { source: 'custom' as const, sourceId: undefined, sourceName: '協同專用配置' } : {}),
       },
     }));
   };
@@ -636,7 +637,7 @@ const ApiSettingsPanel: React.FC<{
       ...previous,
       [mode]: source === 'chat' ? availableModels : [],
     }));
-    setModelStatus(previous => ({ ...previous, [mode]: `已载入「${name}」` }));
+    setModelStatus(previous => ({ ...previous, [mode]: `已載入「${name}」` }));
   };
 
   const fetchModels = async () => {
@@ -645,9 +646,9 @@ const ApiSettingsPanel: React.FC<{
     try {
       const models = await fetchCollaborationModels(profile);
       setModelOptions(previous => ({ ...previous, [mode]: models }));
-      setModelStatus(previous => ({ ...previous, [mode]: `获取到 ${models.length} 个模型，点列表即可选择` }));
+      setModelStatus(previous => ({ ...previous, [mode]: `獲取到 ${models.length} 個模型，點列表即可選擇` }));
     } catch (error: any) {
-      setModelStatus(previous => ({ ...previous, [mode]: `拉取失败：${error?.message || '未知错误'}` }));
+      setModelStatus(previous => ({ ...previous, [mode]: `拉取失敗：${error?.message || '未知錯誤'}` }));
     } finally {
       setFetchingMode(null);
     }
@@ -670,8 +671,8 @@ const ApiSettingsPanel: React.FC<{
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0 flex-1 px-2">
-          <h2 className="text-[15px] font-semibold text-slate-800">协同设置</h2>
-          <p className="text-[10px] text-slate-400">界面与聊天感知全局生效；API 按协同模式独立配置</p>
+          <h2 className="text-[15px] font-semibold text-slate-800">協同設置</h2>
+          <p className="text-[10px] text-slate-400">界面與聊天感知全局生效；API 按協同模式獨立配置</p>
         </div>
         <button type="button" onClick={save} disabled={saving} className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
           {saving ? '保存中' : '保存'}
@@ -697,8 +698,8 @@ const ApiSettingsPanel: React.FC<{
         <div className="mx-auto max-w-xl space-y-6">
           <section>
             <div className="mb-3">
-              <h3 className="text-xs font-semibold text-slate-600">协同界面</h3>
-              <p className="mt-0.5 text-[10px] text-slate-400">只改变这个工作窗口，不影响 ChatApp 和角色数据</p>
+              <h3 className="text-xs font-semibold text-slate-600">協同界面</h3>
+              <p className="mt-0.5 text-[10px] text-slate-400">只改變這個工作窗口，不影響 ChatApp 和角色數據</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {COLLABORATION_UI_THEMES.map(item => {
@@ -724,17 +725,17 @@ const ApiSettingsPanel: React.FC<{
 
           <section>
             <div className="mb-3">
-              <h3 className="text-xs font-semibold text-slate-600">头像显示</h3>
-              <p className="mt-0.5 text-[10px] text-slate-400">独立于界面风格；可以保留角色感，也可以排成纯 AI 对话</p>
+              <h3 className="text-xs font-semibold text-slate-600">頭像顯示</h3>
+              <p className="mt-0.5 text-[10px] text-slate-400">獨立於界面風格；可以保留角色感，也可以排成純 AI 對話</p>
             </div>
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <div className="grid grid-cols-5 border-b border-slate-100">
                 {([
-                  ['theme', '跟随风格'],
-                  ['both', '双方'],
+                  ['theme', '跟隨風格'],
+                  ['both', '雙方'],
                   ['character', '只角色'],
                   ['user', '只自己'],
-                  ['none', '不显示'],
+                  ['none', '不顯示'],
                 ] as Array<[CollaborationAvatarMode, string]>).map(([value, label]) => {
                   const active = (draft.avatarMode || 'theme') === value;
                   return (
@@ -751,8 +752,8 @@ const ApiSettingsPanel: React.FC<{
               </div>
               <div className="grid grid-cols-3 gap-px bg-slate-100">
                 {([
-                  ['circle', '圆形', 'rounded-full', 'h-8 w-8'],
-                  ['rounded', '圆角', 'rounded-[9px]', 'h-8 w-8'],
+                  ['circle', '圓形', 'rounded-full', 'h-8 w-8'],
+                  ['rounded', '圓角', 'rounded-[9px]', 'h-8 w-8'],
                   ['portrait', '半身卡面', 'rounded-[9px]', 'h-10 w-8'],
                 ] as Array<[CollaborationAvatarStyle, string, string, string]>).map(([value, label, radius, size]) => {
                   const active = (draft.avatarStyle || 'circle') === value;
@@ -773,13 +774,13 @@ const ApiSettingsPanel: React.FC<{
                 })}
               </div>
             </div>
-            <p className="mt-2 text-[9px] leading-4 text-slate-400">“跟随风格”只决定默认显示谁；头像形状仍由你选择。界面内不会显示第三方品牌 Logo。</p>
+            <p className="mt-2 text-[9px] leading-4 text-slate-400">“跟隨風格”只決定默認顯示誰；頭像形狀仍由你選擇。界面內不會顯示第三方品牌 Logo。</p>
           </section>
 
           <section>
             <div className="mb-3">
               <h3 className="text-xs font-semibold text-slate-700">ChatApp 最近聊天</h3>
-              <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">每次生成前重新读取当前角色的最新私聊，不会冻结在刚进入协同工作时。只读取你选择的数量，避免无关闲聊长期占用上下文。</p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">每次生成前重新讀取當前角色的最新私聊，不會凍結在剛進入協同工作時。只讀取你選擇的數量，避免無關閒聊長期佔用上下文。</p>
             </div>
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2">
               {CHAT_CONTEXT_OPTIONS.map(option => {
@@ -797,13 +798,13 @@ const ApiSettingsPanel: React.FC<{
                 );
               })}
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-600">“用户设定范围”会直接读取 ChatApp 当前实际使用的上下文范围（含自适应范围和手动断点）。最近 10／20 条也只在这个范围内选取，不会越过手动断点或记忆水位。沉浸式会沿用 ChatApp 的完整角色上下文；中度协同只附加这些最新对话。修改后会从下一次生成开始生效，包括已有窗口。</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-600">“用戶設定範圍”會直接讀取 ChatApp 當前實際使用的上下文範圍（含自適應範圍和手動斷點）。最近 10／20 條也只在這個範圍內選取，不會越過手動斷點或記憶水位。沉浸式會沿用 ChatApp 的完整角色上下文；中度協同只附加這些最新對話。修改後會從下一次生成開始生效，包括已有窗口。</p>
           </section>
 
           <section>
             <div className="mb-3">
               <h3 className="text-xs font-semibold text-slate-600">日常聊天感知</h3>
-              <p className="mt-0.5 text-[10px] text-slate-400">决定角色在普通聊天里是否知道协同入口和文件柜</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">決定角色在普通聊天裡是否知道協同入口和文件櫃</p>
             </div>
             <button
               type="button"
@@ -811,8 +812,8 @@ const ApiSettingsPanel: React.FC<{
               className="flex w-full items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left active:bg-slate-50"
             >
               <span>
-                <span className="block text-sm font-semibold text-slate-700">让角色知道自己有协同功能</span>
-                <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">开启后，角色会知道可以引导你从 ChatApp 加号页进入协同工作，也能读取、发送文件柜里已有的文件。不会向普通聊天注入制作规则，也不能在那里干活。</span>
+                <span className="block text-sm font-semibold text-slate-700">讓角色知道自己有協同功能</span>
+                <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">開啟後，角色會知道可以引導你從 ChatApp 加號頁進入協同工作，也能讀取、發送文件櫃裡已有的文件。不會向普通聊天注入製作規則，也不能在那裡幹活。</span>
               </span>
               <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${chatCollaborationEnabled ? 'bg-indigo-600' : 'bg-slate-200'}`}>
                 <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${chatCollaborationEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
@@ -823,23 +824,23 @@ const ApiSettingsPanel: React.FC<{
           <section>
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
-                <h3 className="text-xs font-semibold text-slate-600">使用已保存的连接</h3>
-                <p className="mt-0.5 text-[10px] text-slate-400">Key 会直接带入，不需要重新填写</p>
+                <h3 className="text-xs font-semibold text-slate-600">使用已保存的連接</h3>
+                <p className="mt-0.5 text-[10px] text-slate-400">Key 會直接帶入，不需要重新填寫</p>
               </div>
-              <span className="max-w-[45%] truncate text-[10px] font-medium text-indigo-500">{profile.sourceName || '协同专用配置'}</span>
+              <span className="max-w-[45%] truncate text-[10px] font-medium text-indigo-500">{profile.sourceName || '協同專用配置'}</span>
             </div>
             <div className="max-h-56 overflow-y-auto border-y border-slate-200 bg-white">
               <button
                 type="button"
-                onClick={() => useSavedConnection(chatApi, 'chat', '当前 ChatApp')}
+                onClick={() => useSavedConnection(chatApi, 'chat', '當前 ChatApp')}
                 className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-3 text-left active:bg-slate-50"
               >
                 <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${profile.source === 'chat' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
                   {profile.source === 'chat' ? <Check size={15} weight="bold" /> : <GearSix size={16} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-slate-700">当前 ChatApp</span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-400">{chatApi.model || '尚未选择模型'} · {chatApi.baseUrl || '尚未配置连接'}</span>
+                  <span className="block text-xs font-semibold text-slate-700">當前 ChatApp</span>
+                  <span className="mt-0.5 block truncate text-[10px] text-slate-400">{chatApi.model || '尚未選擇模型'} · {chatApi.baseUrl || '尚未配置連接'}</span>
                 </span>
               </button>
               {apiPresets.map(preset => {
@@ -856,18 +857,18 @@ const ApiSettingsPanel: React.FC<{
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-semibold text-slate-700">{preset.name}</span>
-                      <span className="mt-0.5 block truncate text-[10px] text-slate-400">{preset.config.model || '尚未选择模型'} · {preset.config.baseUrl || '尚未配置连接'}</span>
+                      <span className="mt-0.5 block truncate text-[10px] text-slate-400">{preset.config.model || '尚未選擇模型'} · {preset.config.baseUrl || '尚未配置連接'}</span>
                     </span>
                   </button>
                 );
               })}
-              {apiPresets.length === 0 && <p className="px-4 py-3 text-[10px] leading-relaxed text-slate-400">其它连接可以先在「设置 → API 预设」保存，之后会出现在这里。</p>}
+              {apiPresets.length === 0 && <p className="px-4 py-3 text-[10px] leading-relaxed text-slate-400">其它連接可以先在「設置 → API 預設」保存，之後會出現在這裡。</p>}
             </div>
           </section>
 
           <section className="border-t border-slate-200 pt-5">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <label htmlFor={`collaboration-model-${mode}`} className="text-xs font-semibold text-slate-600">这个模式使用的模型</label>
+              <label htmlFor={`collaboration-model-${mode}`} className="text-xs font-semibold text-slate-600">這個模式使用的模型</label>
               <button type="button" onClick={fetchModels} disabled={fetchingMode !== null} className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 disabled:opacity-45">
                 {fetchingMode === mode && <SpinnerGap size={13} className="animate-spin" />}
                 {fetchingMode === mode ? '拉取中' : '拉取模型'}
@@ -880,22 +881,22 @@ const ApiSettingsPanel: React.FC<{
               onChange={event => patchProfile({ model: event.target.value }, true)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400"
             >
-              <option value="">请选择模型</option>
+              <option value="">請選擇模型</option>
               {selectableModels.map(modelId => <option key={modelId} value={modelId}>{modelId}</option>)}
             </select>
-            <p className={`mt-2 min-h-4 text-[10px] ${modelStatus[mode].startsWith('拉取失败') ? 'text-rose-500' : 'text-slate-400'}`}>
-              {modelStatus[mode] || (profile.model ? `当前：${profile.model}` : '选择连接后可直接沿用其模型，或现场拉取列表。')}
+            <p className={`mt-2 min-h-4 text-[10px] ${modelStatus[mode].startsWith('拉取失敗') ? 'text-rose-500' : 'text-slate-400'}`}>
+              {modelStatus[mode] || (profile.model ? `當前：${profile.model}` : '選擇連接後可直接沿用其模型，或現場拉取列表。')}
             </p>
           </section>
 
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
-              <span className="mb-2 block text-xs font-semibold text-slate-500">温度</span>
+              <span className="mb-2 block text-xs font-semibold text-slate-500">溫度</span>
               <input type="number" min="0" max="2" step="0.05" value={profile.temperature} onChange={event => patchProfile({ temperature: Number(event.target.value) })} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400" />
             </label>
             <label className="flex items-end">
               <button type="button" onClick={() => patchProfile({ stream: !profile.stream })} className="flex h-[46px] w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-600">
-                流式输出
+                流式輸出
                 <span className={`grid h-5 w-5 place-items-center rounded-md ${profile.stream ? 'bg-slate-900 text-white' : 'bg-slate-100 text-transparent'}`}><Check size={13} weight="bold" /></span>
               </button>
             </label>
@@ -905,11 +906,11 @@ const ApiSettingsPanel: React.FC<{
             onClick={() => setDraft(previous => ({ ...previous, [mode === 'immersive' ? 'focused' : 'immersive']: { ...profile } }))}
             className="text-xs font-medium text-indigo-600"
           >
-            将此配置复制到{mode === 'immersive' ? '中度协同' : '沉浸式协同'}
+            將此配置複製到{mode === 'immersive' ? '中度協同' : '沉浸式協同'}
           </button>
 
           <details className="border-t border-slate-200 pt-5">
-            <summary className="cursor-pointer text-xs font-semibold text-slate-500">高级 · 手动填写连接</summary>
+            <summary className="cursor-pointer text-xs font-semibold text-slate-500">高級 · 手動填寫連接</summary>
             <div className="mt-4 space-y-4">
               <label className="block">
                 <span className="mb-2 block text-xs font-semibold text-slate-500">API 地址</span>
@@ -920,13 +921,13 @@ const ApiSettingsPanel: React.FC<{
                 <input type="password" value={profile.apiKey} onChange={event => patchProfile({ apiKey: event.target.value }, true)} placeholder="sk-…（本地模型可留空）" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400" />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-slate-500">手动模型名</span>
-                <input value={profile.model} onChange={event => patchProfile({ model: event.target.value }, true)} placeholder="仅在接口无法拉取模型时使用" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400" />
+                <span className="mb-2 block text-xs font-semibold text-slate-500">手動模型名</span>
+                <input value={profile.model} onChange={event => patchProfile({ model: event.target.value }, true)} placeholder="僅在接口無法拉取模型時使用" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-400" />
               </label>
             </div>
           </details>
           <p className="text-xs leading-relaxed text-slate-400">
-            每个模式只保存自己的选择，不会修改 ChatApp、见面或通用 API 预设。
+            每個模式只保存自己的選擇，不會修改 ChatApp、見面或通用 API 預設。
           </p>
         </div>
       </div>
@@ -947,7 +948,7 @@ const AttachmentButton: React.FC<{
     </span>
     <span className="min-w-0 flex-1">
       <span className="block truncate text-xs font-semibold">{attachment.name}</span>
-      <span className="mt-0.5 block text-[10px] text-slate-400">{attachment.kind === 'installable' ? `${attachment.installableKind ? COLLABORATION_MAKER_MAP[attachment.installableKind].label : '可安装作品'} · 点击预览` : `${isImage ? '参考图 · ' : ''}${readableSize(attachment.size)}${attachment.pageCount ? ` · ${attachment.pageCount} 页` : ''}`}</span>
+      <span className="mt-0.5 block text-[10px] text-slate-400">{attachment.kind === 'installable' ? `${attachment.installableKind ? COLLABORATION_MAKER_MAP[attachment.installableKind].label : '可安裝作品'} · 點擊預覽` : `${isImage ? '參考圖 · ' : ''}${readableSize(attachment.size)}${attachment.pageCount ? ` · ${attachment.pageCount} 頁` : ''}`}</span>
     </span>
     {attachment.kind === 'installable' ? <Eye size={17} className="shrink-0 text-slate-400" /> : <DownloadSimple size={17} className="shrink-0 text-slate-400" />}
   </button>
@@ -962,7 +963,7 @@ const MakerStudio: React.FC<{
   <div className="absolute inset-0 z-[70] flex flex-col bg-[#f7f8fb] animate-[collabFade_.18s_ease-out]">
     <header className="collab-safe-header flex h-16 shrink-0 items-center border-b border-slate-200/80 bg-white/90 px-3 backdrop-blur-xl">
       <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100" aria-label="返回"><ArrowLeft size={22} /></button>
-      <div className="min-w-0 flex-1 px-2"><h2 className="text-[15px] font-semibold text-slate-800">和角色一起制作</h2><p className="text-[10px] text-slate-400">选择后只给当前协同窗口注入对应制作规范</p></div>
+      <div className="min-w-0 flex-1 px-2"><h2 className="text-[15px] font-semibold text-slate-800">和角色一起製作</h2><p className="text-[10px] text-slate-400">選擇後只給當前協同窗口注入對應制作規範</p></div>
     </header>
     <div className="flex-1 overflow-y-auto px-5 pb-10 pt-7">
       <div className="mx-auto max-w-xl">
@@ -971,12 +972,12 @@ const MakerStudio: React.FC<{
           {COLLABORATION_MAKERS.map((maker, index) => (
             <button key={maker.kind} type="button" onClick={() => onChoose(maker.kind)} className={`group flex w-full items-center gap-4 py-4 text-left transition-colors active:bg-white ${index < COLLABORATION_MAKERS.length - 1 ? 'border-b border-slate-200/70' : ''}`}>
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-sm font-bold text-white shadow-sm" style={{ background: maker.accent }}>{maker.shortLabel.slice(0, 1)}</span>
-              <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800">{maker.label}{activeKind === maker.kind && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] text-indigo-600">当前</span>}</span><span className="mt-1 block text-[11px] leading-relaxed text-slate-400">{maker.description}</span></span>
+              <span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-sm font-semibold text-slate-800">{maker.label}{activeKind === maker.kind && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] text-indigo-600">當前</span>}</span><span className="mt-1 block text-[11px] leading-relaxed text-slate-400">{maker.description}</span></span>
               <span className="text-slate-300 transition-transform group-hover:translate-x-1">→</span>
             </button>
           ))}
         </div>
-        <p className="mt-5 text-[10px] leading-relaxed text-slate-400">作品会先留在协同窗口里。只有你点「预览」并确认「使用该作品」后，才会写入角色或对应的原生预设。</p>
+        <p className="mt-5 text-[10px] leading-relaxed text-slate-400">作品會先留在協同窗口裡。只有你點「預覽」並確認「使用該作品」後，才會寫入角色或對應的原生預設。</p>
       </div>
     </div>
   </div>
@@ -1022,12 +1023,12 @@ const CharacterTargetPicker: React.FC<{
 
   if (!open) return null;
   return (
-    <div className="absolute inset-0 z-[100] flex items-end justify-center bg-slate-950/55 px-3 pt-10 backdrop-blur-[2px] animate-[collabFade_.16s_ease-out]" role="dialog" aria-modal="true" aria-label="选择角色">
-      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="关闭角色选择" />
+    <div className="absolute inset-0 z-[100] flex items-end justify-center bg-slate-950/55 px-3 pt-10 backdrop-blur-[2px] animate-[collabFade_.16s_ease-out]" role="dialog" aria-modal="true" aria-label="選擇角色">
+      <button type="button" className="absolute inset-0" onClick={onClose} aria-label="關閉角色選擇" />
       <section className="relative z-10 flex max-h-[88%] w-full max-w-[520px] flex-col overflow-hidden rounded-t-[28px] bg-[#f8f9fc] text-slate-800 shadow-2xl animate-[collabEnter_.2s_ease-out]">
         <header className="flex shrink-0 items-center gap-3 border-b border-slate-200/80 px-4 py-3.5">
-          <div className="min-w-0 flex-1"><h3 className="text-[16px] font-semibold">选择角色</h3><p className="mt-0.5 text-[10px] text-slate-400">每页显示 5 位，可按名字或简介搜索</p></div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full text-slate-400 active:bg-slate-200/70" aria-label="关闭"><X size={19} /></button>
+          <div className="min-w-0 flex-1"><h3 className="text-[16px] font-semibold">選擇角色</h3><p className="mt-0.5 text-[10px] text-slate-400">每頁顯示 5 位，可按名字或簡介搜索</p></div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full text-slate-400 active:bg-slate-200/70" aria-label="關閉"><X size={19} /></button>
         </header>
 
         <div className="shrink-0 px-4 pb-2 pt-3">
@@ -1038,7 +1039,7 @@ const CharacterTargetPicker: React.FC<{
           </label>
           {allowEmpty && (
             <button type="button" onClick={() => onChoose('')} className={`mt-2 flex h-10 w-full items-center justify-between rounded-xl px-3 text-left text-xs transition-colors ${!selectedId ? 'bg-emerald-50 font-semibold text-emerald-700' : 'text-slate-500 active:bg-slate-100'}`}>
-              <span>只保存到作品库，不挂载角色</span>{!selectedId && <Check size={16} weight="bold" />}
+              <span>只保存到作品庫，不掛載角色</span>{!selectedId && <Check size={16} weight="bold" />}
             </button>
           )}
         </div>
@@ -1049,19 +1050,19 @@ const CharacterTargetPicker: React.FC<{
             return (
               <button key={item.id} type="button" onClick={() => onChoose(item.id)} className={`flex h-[62px] w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors ${selected ? 'bg-white shadow-sm ring-1 ring-slate-200/80' : 'active:bg-slate-100'}`} aria-current={selected ? 'true' : undefined}>
                 <TokenImg value={item.avatar} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-black/5" />
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-700">{item.name}</span><span className="mt-0.5 block truncate text-[10px] text-slate-400">{item.description || '暂无角色简介'}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-700">{item.name}</span><span className="mt-0.5 block truncate text-[10px] text-slate-400">{item.description || '暫無角色簡介'}</span></span>
                 <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${selected ? 'bg-slate-900 text-white' : 'border border-slate-200 text-transparent'}`}><Check size={13} weight="bold" /></span>
               </button>
             );
           })}
-          {shownCharacters.length === 0 && <div className="grid h-[180px] place-items-center text-xs text-slate-400">没有找到匹配的角色</div>}
+          {shownCharacters.length === 0 && <div className="grid h-[180px] place-items-center text-xs text-slate-400">沒有找到匹配的角色</div>}
         </div>
 
         <footer className="flex shrink-0 items-center justify-between border-t border-slate-200/80 bg-white/80 px-4 pb-[max(.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <span className="text-[10px] tabular-nums text-slate-400">{filteredCharacters.length} 位角色 · 第 {safePage + 1}/{pageCount} 页</span>
+          <span className="text-[10px] tabular-nums text-slate-400">{filteredCharacters.length} 位角色 · 第 {safePage + 1}/{pageCount} 頁</span>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setPage(value => Math.max(0, value - 1))} disabled={safePage === 0} className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-600 disabled:opacity-30" aria-label="上一页"><CaretLeft size={17} /></button>
-            <button type="button" onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))} disabled={safePage >= pageCount - 1} className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white disabled:opacity-30" aria-label="下一页"><CaretRight size={17} /></button>
+            <button type="button" onClick={() => setPage(value => Math.max(0, value - 1))} disabled={safePage === 0} className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-600 disabled:opacity-30" aria-label="上一頁"><CaretLeft size={17} /></button>
+            <button type="button" onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))} disabled={safePage >= pageCount - 1} className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white disabled:opacity-30" aria-label="下一頁"><CaretRight size={17} /></button>
           </div>
         </footer>
       </section>
@@ -1090,25 +1091,25 @@ const InstallablePreview: React.FC<{
   return (
     <div className="absolute inset-0 z-[80] flex flex-col bg-[#11131a] text-white animate-[collabFade_.18s_ease-out]">
       <header className="collab-safe-header flex h-16 shrink-0 items-center border-b border-white/10 px-3">
-        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-white/75 active:bg-white/10" aria-label="关闭预览"><X size={21} /></button>
+        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-white/75 active:bg-white/10" aria-label="關閉預覽"><X size={21} /></button>
         <div className="min-w-0 flex-1 px-2"><p className="text-[9px] uppercase tracking-[.18em] text-white/40">{definition.label} · Preview</p><h2 className="truncate text-sm font-semibold">{artifact.title}</h2></div>
       </header>
       <div className="min-h-0 flex-1 bg-[#1a1d26] p-3 sm:p-5">
-        <iframe title={`${artifact.title}预览`} sandbox="" srcDoc={buildInstallablePreviewDocument(artifact)} className="h-full w-full rounded-[24px] border-0 bg-white shadow-2xl" />
+        <iframe title={`${artifact.title}預覽`} sandbox="" srcDoc={buildInstallablePreviewDocument(artifact)} className="h-full w-full rounded-[24px] border-0 bg-white shadow-2xl" />
       </div>
       <div className="shrink-0 border-t border-white/10 bg-[#11131a] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
         {errors.length > 0 ? <div className="mb-3 rounded-xl bg-rose-500/12 px-3 py-2 text-[11px] leading-relaxed text-rose-200">{errors[0]}</div> : null}
         {(definition.target === 'character' || definition.target === 'optional-character') && (
           <div className="mb-3">
-            <span className="mb-1.5 block text-[10px] text-white/45">{definition.target === 'optional-character' ? '挂载给角色（可选）' : '使用这件作品的角色'}</span>
+            <span className="mb-1.5 block text-[10px] text-white/45">{definition.target === 'optional-character' ? '掛載給角色（可選）' : '使用這件作品的角色'}</span>
             <button type="button" onClick={() => setTargetPickerOpen(true)} className="flex h-12 w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/8 px-3 text-left transition-colors active:bg-white/12">
               {selectedCharacter ? <TokenImg value={selectedCharacter.avatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/15" /> : <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-xs text-white/35">＋</span>}
-              <span className={`min-w-0 flex-1 truncate text-sm ${selectedCharacter ? 'text-white' : 'text-white/50'}`}>{selectedCharacter?.name || (definition.target === 'optional-character' ? '点击选择角色，或只保存到作品库' : '点击选择角色')}</span>
+              <span className={`min-w-0 flex-1 truncate text-sm ${selectedCharacter ? 'text-white' : 'text-white/50'}`}>{selectedCharacter?.name || (definition.target === 'optional-character' ? '點擊選擇角色，或只保存到作品庫' : '點擊選擇角色')}</span>
               <CaretRight size={16} className="shrink-0 text-white/35" />
             </button>
           </div>
         )}
-        <button type="button" onClick={() => void install()} disabled={errors.length > 0 || installing || (definition.target === 'character' && !targetId)} className="flex h-12 w-full items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950 disabled:opacity-35 active:scale-[.99]">{installing ? '正在保存…' : definition.target === 'new-character' ? '创建这个角色' : '使用该作品'}</button>
+        <button type="button" onClick={() => void install()} disabled={errors.length > 0 || installing || (definition.target === 'character' && !targetId)} className="flex h-12 w-full items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950 disabled:opacity-35 active:scale-[.99]">{installing ? '正在保存…' : definition.target === 'new-character' ? '創建這個角色' : '使用該作品'}</button>
       </div>
       <CharacterTargetPicker
         open={targetPickerOpen}
@@ -1185,7 +1186,7 @@ const CollaborationThinkingBlock: React.FC<{ chain: string }> = ({ chain }) => {
       <button type="button" onClick={() => setExpanded(value => !value)} aria-expanded={expanded} className="flex w-full items-center gap-2 px-3 py-2.5 text-left active:bg-slate-100/80">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white text-[12px] shadow-sm">💭</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-semibold tracking-[.08em] text-slate-500">思考过程</span>
+          <span className="block text-[10px] font-semibold tracking-[.08em] text-slate-500">思考過程</span>
           {!expanded && <span className="mt-0.5 block truncate text-[10px] text-slate-400">{preview}{text.length > 44 ? '…' : ''}</span>}
         </span>
         <CaretDown size={14} className={`shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -1211,15 +1212,15 @@ const CollaborationVoiceBar: React.FC<{
   return (
     <div className="collab-voice mt-2.5 max-w-[280px] overflow-hidden rounded-[17px] border border-black/5 bg-black/[.035]">
       <div className="flex w-full items-center gap-2 px-2.5 py-2">
-        <button type="button" onClick={onPlay} disabled={state?.loading} aria-label={state?.playing ? '暂停语音' : '播放语音'} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/85 text-[12px] text-slate-600 shadow-sm active:scale-95 disabled:opacity-70">
+        <button type="button" onClick={onPlay} disabled={state?.loading} aria-label={state?.playing ? '暫停語音' : '播放語音'} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/85 text-[12px] text-slate-600 shadow-sm active:scale-95 disabled:opacity-70">
           {state?.loading ? <SpinnerGap size={15} className="animate-spin" /> : state?.playing ? 'Ⅱ' : '▶'}
         </button>
-        <button type="button" onClick={onPlay} disabled={state?.loading} aria-label={state?.playing ? '暂停语音' : '播放语音'} className="flex h-8 min-w-0 flex-1 items-center gap-[3px] disabled:opacity-70">
+        <button type="button" onClick={onPlay} disabled={state?.loading} aria-label={state?.playing ? '暫停語音' : '播放語音'} className="flex h-8 min-w-0 flex-1 items-center gap-[3px] disabled:opacity-70">
           {[5, 11, 7, 16, 9, 13, 6, 15, 8, 12, 5, 10, 7, 14, 6, 9].map((height, index) => (
             <span key={index} className={`w-[2.5px] rounded-full bg-current opacity-35 ${state?.playing ? 'animate-pulse' : ''}`} style={{ height, animationDelay: `${index * 55}ms` }} />
           ))}
         </button>
-        <button type="button" onClick={() => setShowText(value => !value)} className="shrink-0 rounded-lg bg-black/[.045] px-2 py-1 text-[9px] font-medium text-slate-500">{showText ? '收起' : '转文字'}</button>
+        <button type="button" onClick={() => setShowText(value => !value)} className="shrink-0 rounded-lg bg-black/[.045] px-2 py-1 text-[9px] font-medium text-slate-500">{showText ? '收起' : '轉文字'}</button>
       </div>
       {showText && (
         <div className="border-t border-black/5 px-3.5 py-3 text-[11px] leading-relaxed text-slate-600">
@@ -1393,7 +1394,7 @@ const CollaborationLibraryRow: React.FC<{
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-semibold text-slate-700">{file.name}</span>
-        <span className="mt-1 block truncate text-[10px] text-slate-400">{file.kind === 'installable' && file.installableKind ? COLLABORATION_MAKER_MAP[file.installableKind]?.label || '可安装作品' : file.sessionTitle} · {collaborationFileSize(file.size)} · {new Date(file.createdAt).toLocaleDateString()}</span>
+        <span className="mt-1 block truncate text-[10px] text-slate-400">{file.kind === 'installable' && file.installableKind ? COLLABORATION_MAKER_MAP[file.installableKind]?.label || '可安裝作品' : file.sessionTitle} · {collaborationFileSize(file.size)} · {new Date(file.createdAt).toLocaleDateString()}</span>
       </span>
       {file.kind === 'installable' ? <Eye size={18} className="shrink-0 text-slate-300" /> : <DownloadSimple size={18} className="shrink-0 text-slate-300" />}
     </button>
@@ -1427,24 +1428,24 @@ const CollaborationFileLibrary: React.FC<{
   return (
     <div className="collab-file-library absolute inset-0 z-[70] flex flex-col bg-[#f8f9fc]">
       <header className="collab-safe-header flex h-16 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/92 px-3 backdrop-blur-xl">
-        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100" aria-label="关闭文件库"><ArrowLeft size={21} /></button>
+        <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100" aria-label="關閉文件庫"><ArrowLeft size={21} /></button>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[16px] font-semibold text-slate-800">协同文件与作品</h2>
-          <p className="text-[10px] text-slate-400">{files.length} 份 · 来自全部协同窗口</p>
+          <h2 className="text-[16px] font-semibold text-slate-800">協同文件與作品</h2>
+          <p className="text-[10px] text-slate-400">{files.length} 份 · 來自全部協同窗口</p>
         </div>
       </header>
 
       <div className="border-b border-slate-200/70 bg-white px-4 py-3">
         <label className="flex items-center gap-2 rounded-[14px] bg-slate-100 px-3 py-2.5">
           <MagnifyingGlass size={16} className="text-slate-400" />
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索文件名或协同窗口" className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-slate-400" />
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索文件名或協同窗口" className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder:text-slate-400" />
           {query && <button type="button" onClick={() => setQuery('')} className="text-slate-400" aria-label="清空搜索"><X size={15} /></button>}
         </label>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 px-6 py-20 text-xs text-slate-400"><SpinnerGap size={17} className="animate-spin" />正在读取文件库</div>
+          <div className="flex items-center justify-center gap-2 px-6 py-20 text-xs text-slate-400"><SpinnerGap size={17} className="animate-spin" />正在讀取文件庫</div>
         ) : shown.length > 0 ? (
           <div>
             {grouped.map(section => (
@@ -1459,22 +1460,22 @@ const CollaborationFileLibrary: React.FC<{
         ) : (
           <div className="px-8 py-20 text-center">
             <Folder size={38} weight="duotone" className="mx-auto text-slate-300" />
-            <p className="mt-4 text-sm font-semibold text-slate-500">{query ? '没有找到对应内容' : '还没有协同文件或作品'}</p>
-            <p className="mt-1 text-[11px] leading-5 text-slate-400">制作或上传并发送后的文档、美化和角色资料会收在这里。</p>
+            <p className="mt-4 text-sm font-semibold text-slate-500">{query ? '沒有找到對應內容' : '還沒有協同文件或作品'}</p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">製作或上傳併發送後的文檔、美化和角色資料會收在這裡。</p>
           </div>
         )}
-        {!loading && files.length > 0 && <p className="px-5 py-4 text-center text-[10px] text-slate-400">点击预览 / 分享 / 导出 · 长按管理文件或作品</p>}
+        {!loading && files.length > 0 && <p className="px-5 py-4 text-center text-[10px] text-slate-400">點擊預覽 / 分享 / 導出 · 長按管理文件或作品</p>}
       </div>
 
       {actionFile && (
         <>
-          <button type="button" aria-label="关闭文件操作" onClick={() => setActionFile(null)} className="absolute inset-0 z-10 bg-slate-950/25" />
+          <button type="button" aria-label="關閉文件操作" onClick={() => setActionFile(null)} className="absolute inset-0 z-10 bg-slate-950/25" />
           <div className="absolute inset-x-3 bottom-[max(.75rem,env(safe-area-inset-bottom))] z-20 overflow-hidden rounded-[22px] bg-white shadow-[0_20px_60px_rgba(15,23,42,.22)]">
             <div className="border-b border-slate-100 px-5 py-4">
               <p className="truncate text-[12px] font-semibold text-slate-700">{actionFile.name}</p>
-              <p className="mt-1 text-[10px] text-slate-400">删除后，聊天里已经发出的同一文件或作品也将无法再次打开。</p>
+              <p className="mt-1 text-[10px] text-slate-400">刪除後，聊天裡已經發出的同一文件或作品也將無法再次打開。</p>
             </div>
-            <button type="button" onClick={() => { const file = actionFile; setActionFile(null); onDelete(file); }} className="flex w-full items-center justify-center gap-2 px-4 py-4 text-[13px] font-semibold text-rose-600 active:bg-rose-50"><Trash size={17} />删除这项内容</button>
+            <button type="button" onClick={() => { const file = actionFile; setActionFile(null); onDelete(file); }} className="flex w-full items-center justify-center gap-2 px-4 py-4 text-[13px] font-semibold text-rose-600 active:bg-rose-50"><Trash size={17} />刪除這項內容</button>
             <button type="button" onClick={() => setActionFile(null)} className="w-full border-t border-slate-100 px-4 py-3.5 text-[12px] font-semibold text-slate-500 active:bg-slate-50">取消</button>
           </div>
         </>
@@ -1513,12 +1514,12 @@ const SessionDrawer: React.FC<{
   });
   return (
     <>
-      <button type="button" aria-label="关闭会话列表" onClick={onClose} className={`absolute inset-0 z-40 bg-slate-950/25 transition-opacity ${open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} />
+      <button type="button" aria-label="關閉會話列表" onClick={onClose} className={`absolute inset-0 z-40 bg-slate-950/25 transition-opacity ${open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} />
       <aside className={`absolute inset-y-0 left-0 z-50 flex w-[88%] max-w-[340px] flex-col bg-[#f8f9fc] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
         <header className="collab-safe-header flex h-16 shrink-0 items-center border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[16px] font-semibold text-slate-800">协同窗口</h2>
-            <p className="text-[10px] text-slate-400">每个窗口的上下文彼此独立</p>
+            <h2 className="text-[16px] font-semibold text-slate-800">協同窗口</h2>
+            <p className="text-[10px] text-slate-400">每個窗口的上下文彼此獨立</p>
           </div>
           <button type="button" onClick={onNew} className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white active:scale-95" aria-label="新建窗口"><Plus size={18} weight="bold" /></button>
         </header>
@@ -1526,7 +1527,7 @@ const SessionDrawer: React.FC<{
         <div className="flex gap-5 border-b border-slate-200/70 bg-white px-4 pt-3">
           {(['active', 'archived'] as SessionFilter[]).map(value => (
             <button key={value} type="button" onClick={() => onFilter(value)} className={`border-b-2 pb-2.5 text-xs font-semibold ${filter === value ? 'border-slate-900 text-slate-800' : 'border-transparent text-slate-400'}`}>
-              {value === 'active' ? '进行中' : '已归档'}
+              {value === 'active' ? '進行中' : '已歸檔'}
             </button>
           ))}
         </div>
@@ -1551,20 +1552,20 @@ const SessionDrawer: React.FC<{
               </button>
               <div className="mt-2 flex items-center gap-2 pl-4">
                 <select value={session.categoryId || ''} onChange={event => onMove(session, event.target.value || undefined)} className="max-w-[120px] bg-transparent text-[10px] text-slate-400 outline-none">
-                  <option value="">未分类</option>
+                  <option value="">未分類</option>
                   {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
                 <span className="flex-1" />
-                <button type="button" onClick={() => onArchive(session, !session.archivedAt)} className="text-[10px] text-slate-400 hover:text-slate-700">{session.archivedAt ? '撤销归档' : '归档'}</button>
-                <button type="button" onClick={() => onDelete(session)} className="text-[10px] text-rose-400 hover:text-rose-600">删除</button>
+                <button type="button" onClick={() => onArchive(session, !session.archivedAt)} className="text-[10px] text-slate-400 hover:text-slate-700">{session.archivedAt ? '撤銷歸檔' : '歸檔'}</button>
+                <button type="button" onClick={() => onDelete(session)} className="text-[10px] text-rose-400 hover:text-rose-600">刪除</button>
               </div>
             </div>
           ))}
-          {shown.length === 0 && <div className="px-6 py-16 text-center text-xs text-slate-400">这里还没有窗口</div>}
+          {shown.length === 0 && <div className="px-6 py-16 text-center text-xs text-slate-400">這裡還沒有窗口</div>}
         </div>
 
         <form onSubmit={event => { event.preventDefault(); const value = categoryName.trim(); if (!value) return; onCreateCategory(value); setCategoryName(''); }} className="flex shrink-0 gap-2 border-t border-slate-200 bg-white p-3">
-          <input value={categoryName} onChange={event => setCategoryName(event.target.value)} placeholder="新分类" className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs outline-none" />
+          <input value={categoryName} onChange={event => setCategoryName(event.target.value)} placeholder="新分類" className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs outline-none" />
           <button type="submit" className="rounded-xl px-3 text-xs font-semibold text-slate-600">添加</button>
         </form>
       </aside>
@@ -1692,13 +1693,13 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         const blob = await CollaborationStore.getAsset(requestedPreviewAssetId);
         if (!blob) throw new Error('原始作品已不存在');
         const parsed = JSON.parse(await blob.text()) as CollaborationInstallableArtifact;
-        if (!COLLABORATION_MAKER_MAP[parsed.kind]) throw new Error('未知作品类型');
+        if (!COLLABORATION_MAKER_MAP[parsed.kind]) throw new Error('未知作品類型');
         if (!cancelled) {
           setPreviewArtifact(parsed);
           trackEvent('预览协同作品', { 类型: analyticsMakerKind(parsed.kind), 来源: '普通聊天' });
         }
       } catch (error: any) {
-        if (!cancelled) notifyRef.current(`作品无法预览：${error?.message || '数据损坏'}`, 'error');
+        if (!cancelled) notifyRef.current(`作品無法預覽：${error?.message || '數據損壞'}`, 'error');
       } finally {
         if (!cancelled) onRequestedPreviewHandled?.();
       }
@@ -1709,7 +1710,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
 
   useEffect(() => {
     if (open) return;
-    abortCollaborationRequest(abortRef.current, '协同窗口已关闭');
+    abortCollaborationRequest(abortRef.current, '協同窗口已關閉');
     collaborationAudioRef.current?.pause();
     setPlayingVoiceId(null);
     actionDialogRef.current?.resolve('cancel');
@@ -1720,7 +1721,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
   // Only an actual character switch / sidecar unmount may stop an in-flight
   // request. Ordinary OSContext rerenders (including API call logging) must not.
   useEffect(() => () => {
-    abortCollaborationRequest(abortRef.current, '协同窗口已关闭');
+    abortCollaborationRequest(abortRef.current, '協同窗口已關閉');
     actionDialogRef.current?.resolve('cancel');
     actionDialogRef.current = null;
   }, [character.id]);
@@ -1765,13 +1766,13 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         await audio.play();
         setPlayingVoiceId(message.id);
       } catch {
-        notify('语音播放被浏览器拦截，请再点一次', 'info');
+        notify('語音播放被瀏覽器攔截，請再點一次', 'info');
       }
       return;
     }
     if (voiceLoadingIds.has(message.id)) return;
     if (!canSynthesizeSpeech(character, chatApi)) {
-      notify('这个角色还没有配好当前语音服务的音色或 API Key，可点“转文字”查看台词', 'info');
+      notify('這個角色還沒有配好當前語音服務的音色或 API Key，可點“轉文字”查看台詞', 'info');
       return;
     }
     setVoiceLoadingIds(previous => new Set(previous).add(message.id));
@@ -1790,7 +1791,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setPlayingVoiceId(message.id);
       trackEvent('播放协同语音条');
     } catch (error: any) {
-      notify(`语音生成失败：${error?.message || '请检查语音设置'}`, 'error');
+      notify(`語音生成失敗：${error?.message || '請檢查語音設置'}`, 'error');
     } finally {
       setVoiceLoadingIds(previous => {
         const next = new Set(previous);
@@ -1806,7 +1807,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setLibraryFiles(await CollaborationStore.listLibraryFiles(character.id));
     } catch (error) {
       console.error('[Collaboration] file library load failed', error);
-      notifyRef.current('协同文件库读取失败', 'error');
+      notifyRef.current('協同文件庫讀取失敗', 'error');
     } finally {
       setLibraryLoading(false);
     }
@@ -1849,7 +1850,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setLoaded(true);
     }).catch(error => {
       console.error('[Collaboration] load failed', error);
-      notifyRef.current('协同工作数据加载失败', 'error');
+      notifyRef.current('協同工作數據加載失敗', 'error');
       setLoaded(true);
       setShowEntryChooser(false);
       setShowModePicker(true);
@@ -1871,7 +1872,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       if (!cancelled) setMessages(rows);
     }).catch(error => {
       console.error('[Collaboration] messages load failed', error);
-      notifyRef.current('这个协同窗口暂时无法读取', 'error');
+      notifyRef.current('這個協同窗口暫時無法讀取', 'error');
     });
     return () => { cancelled = true; };
   }, [activeSessionId]);
@@ -1887,7 +1888,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     const session: CollaborationSession = {
       id: collaborationId('session'),
       charId: character.id,
-      title: '新的协同',
+      title: '新的協同',
       mode,
       createdAt: now,
       updatedAt: now,
@@ -1910,7 +1911,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
   };
 
   const archiveSession = async (session: CollaborationSession, archived: boolean) => {
-    let memoryAction = archived ? (session.memoryArchivedAt ? '已有' : '跳过') : '不适用';
+    let memoryAction = archived ? (session.memoryArchivedAt ? '已有' : '跳過') : '不適用';
     let memoryArchivePatch: Pick<CollaborationSession, 'memoryArchivedAt' | 'memoryArchiveSummary'> = {
       memoryArchivedAt: session.memoryArchivedAt,
       memoryArchiveSummary: session.memoryArchiveSummary,
@@ -1920,18 +1921,18 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       const semanticMessages = sessionMessages.filter(message => message.role === 'user' || message.role === 'assistant');
       if (semanticMessages.length > 0) {
         const archiveChoice = await requestActionDialog({
-          title: '归档这次协同？',
-          description: `“${session.title}”归档后仍可在旧记录里找到。要不要把这次一起做的事整理进 ${character.name} 的记忆？`,
-          detail: `总结会生成 1 条日期范围记忆，写入神经链接${character.memoryPalaceEnabled ? '，并同时存入记忆宫殿' : ''}。协同原文不会整段塞进记忆。`,
-          confirmLabel: '总结并归档',
-          secondaryLabel: '仅归档，不写记忆',
-          cancelLabel: '先不归档',
+          title: '歸檔這次協同？',
+          description: `“${session.title}”歸檔後仍可在舊記錄裡找到。要不要把這次一起做的事整理進 ${character.name} 的記憶？`,
+          detail: `總結會生成 1 條日期範圍記憶，寫入神經鏈接${character.memoryPalaceEnabled ? '，並同時存入記憶宮殿' : ''}。協同原文不會整段塞進記憶。`,
+          confirmLabel: '總結並歸檔',
+          secondaryLabel: '僅歸檔，不寫記憶',
+          cancelLabel: '先不歸檔',
           tone: 'warning',
         });
         if (archiveChoice === 'cancel') return;
         const shouldRemember = archiveChoice === 'confirm';
         if (shouldRemember) {
-          notify('正在把这次协作整理成一条记忆…', 'info');
+          notify('正在把這次協作整理成一條記憶…', 'info');
           try {
             const rawSummary = await summarizeCollaborationForMemory({
               profile: settings[session.mode],
@@ -1945,10 +1946,10 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
             const memorySummary = `【${collaborationDateRange(firstAt, lastAt)}，${rawSummary}】`;
             const memoryResult = await onArchiveToMemory(memorySummary, lastAt, session.id);
             memoryArchivePatch = { memoryArchivedAt: Date.now(), memoryArchiveSummary: memorySummary };
-            memoryAction = '写入';
+            memoryAction = '寫入';
             notify(memoryResult, 'success');
           } catch (error: any) {
-            notify(`记忆总结没有完成：${error?.message || '未知错误'}。窗口尚未归档，你可以重试或选择不写入记忆。`, 'error');
+            notify(`記憶總結沒有完成：${error?.message || '未知錯誤'}。窗口尚未歸檔，你可以重試或選擇不寫入記憶。`, 'error');
             return;
           }
         }
@@ -1963,15 +1964,15 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setShowModePicker(false);
       setShowEntryChooser(true);
     }
-    notify(archived ? '窗口已归档' : '已撤销归档', 'success');
+    notify(archived ? '窗口已歸檔' : '已撤銷歸檔', 'success');
   };
 
   const deleteSession = async (session: CollaborationSession) => {
     const choice = await requestActionDialog({
-      title: '删除这个协同窗口？',
-      description: `“${session.title}”的窗口和消息会被永久删除。`,
-      detail: '窗口里的文件会从协同文件柜列表移除；已经发到 ChatApp 的文件附件仍可打开。此操作不可撤销。',
-      confirmLabel: '永久删除窗口',
+      title: '刪除這個協同窗口？',
+      description: `“${session.title}”的窗口和消息會被永久刪除。`,
+      detail: '窗口裡的文件會從協同文件櫃列表移除；已經發到 ChatApp 的文件附件仍可打開。此操作不可撤銷。',
+      confirmLabel: '永久刪除窗口',
       cancelLabel: '保留窗口',
       tone: 'danger',
     });
@@ -1986,7 +1987,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setShowEntryChooser(next.length > 0);
       setShowModePicker(next.length === 0);
     }
-    notify('协同窗口已删除', 'success');
+    notify('協同窗口已刪除', 'success');
   };
 
   const moveSession = async (session: CollaborationSession, categoryId?: string) => {
@@ -2001,11 +2002,11 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
 
   const deleteCategory = async (category: CollaborationCategory) => {
     const choice = await requestActionDialog({
-      title: '删除这个分类？',
-      description: `分类“${category.name}”会被删除，但里面的协同窗口都会保留。`,
-      detail: '这些窗口会回到“未分类”，不会删除消息、文件或记忆。',
-      confirmLabel: '删除分类',
-      cancelLabel: '保留分类',
+      title: '刪除這個分類？',
+      description: `分類“${category.name}”會被刪除，但裡面的協同窗口都會保留。`,
+      detail: '這些窗口會回到“未分類”，不會刪除消息、文件或記憶。',
+      confirmLabel: '刪除分類',
+      cancelLabel: '保留分類',
       tone: 'danger',
     });
     if (choice !== 'confirm') return;
@@ -2033,7 +2034,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       });
     }
     setSettings(next);
-    notify('协同设置已保存', 'success');
+    notify('協同設置已保存', 'success');
   };
 
   const handleFiles = async (files: FileList | null) => {
@@ -2041,11 +2042,11 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     let acceptedCount = 0;
     for (const file of Array.from(files)) {
       if (file.size > 30 * 1024 * 1024) {
-        notify(`${file.name} 超过 30MB，暂时无法读取`, 'error');
+        notify(`${file.name} 超過 30MB，暫時無法讀取`, 'error');
         continue;
       }
       try {
-        setUploadStatus(`正在读取 ${file.name}`);
+        setUploadStatus(`正在讀取 ${file.name}`);
         const isImage = isCollaborationImageFile(file);
         const inferredImageType = file.type || (/\.png$/i.test(file.name)
           ? 'image/png'
@@ -2065,14 +2066,14 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         if (isImage) {
           if (chatApi.visionApi?.enabled) {
             try {
-              setUploadStatus(`正在识别 ${file.name}`);
+              setUploadStatus(`正在識別 ${file.name}`);
               const description = await describeImageWithVisionApi(
                 await collaborationBlobToDataUrl(blob),
                 chatApi.visionApi,
               );
-              extractedText = `[参考图片视觉描述]\n${description}`;
+              extractedText = `[參考圖片視覺描述]\n${description}`;
             } catch (error: any) {
-              notify(`${file.name} 的独立识图暂不可用，将交给当前协同模型直接看图：${error?.message || '识别失败'}`, 'info');
+              notify(`${file.name} 的獨立識圖暫不可用，將交給當前協同模型直接看圖：${error?.message || '識別失敗'}`, 'info');
             }
           }
         } else {
@@ -2094,7 +2095,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         setPendingAttachments(previous => [...previous, { attachment, blob }]);
         acceptedCount += 1;
       } catch (error: any) {
-        notify(`${file.name}：${error?.message || '读取失败'}`, 'error');
+        notify(`${file.name}：${error?.message || '讀取失敗'}`, 'error');
       } finally {
         setUploadStatus('');
       }
@@ -2106,17 +2107,17 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
   const openAttachment = async (attachment: CollaborationAttachment) => {
     const blob = await CollaborationStore.getAsset(attachment.assetId);
     if (!blob) {
-      notify('文件已经不存在', 'error');
+      notify('文件已經不存在', 'error');
       return;
     }
     if (attachment.kind === 'installable') {
       try {
         const parsed = JSON.parse(await blob.text()) as CollaborationInstallableArtifact;
-        if (!COLLABORATION_MAKER_MAP[parsed.kind]) throw new Error('未知作品类型');
+        if (!COLLABORATION_MAKER_MAP[parsed.kind]) throw new Error('未知作品類型');
         setPreviewArtifact(parsed);
         trackEvent('预览协同作品', { 类型: analyticsMakerKind(parsed.kind) });
       } catch (error: any) {
-        notify(`作品无法预览：${error?.message || '数据损坏'}`, 'error');
+        notify(`作品無法預覽：${error?.message || '數據損壞'}`, 'error');
       }
       return;
     }
@@ -2126,20 +2127,20 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         fileName: attachment.name,
         shareTitle: attachment.name,
       });
-      if (result === 'shared') notify('已打开系统分享面板', 'success');
-      else if (result === 'downloaded') notify('文件已下载', 'success');
+      if (result === 'shared') notify('已打開系統分享面板', 'success');
+      else if (result === 'downloaded') notify('文件已下載', 'success');
       if (result !== 'cancelled') trackEvent('打开协同文件', { 方式: result === 'shared' ? '分享' : '下载' });
     } catch (error: any) {
-      notify(error?.message || '无法分享或导出这个文件', 'error');
+      notify(error?.message || '無法分享或導出這個文件', 'error');
     }
   };
 
   const deleteLibraryFile = async (file: CollaborationLibraryFile) => {
     const choice = await requestActionDialog({
-      title: '永久删除这个文件？',
-      description: `“${file.name}”的文件本体会被删除。`,
-      detail: '协同窗口和 ChatApp 中引用它的附件都将无法再次打开。此操作不可撤销。',
-      confirmLabel: '永久删除文件',
+      title: '永久刪除這個文件？',
+      description: `“${file.name}”的文件本體會被刪除。`,
+      detail: '協同窗口和 ChatApp 中引用它的附件都將無法再次打開。此操作不可撤銷。',
+      confirmLabel: '永久刪除文件',
       cancelLabel: '保留文件',
       tone: 'danger',
     });
@@ -2152,9 +2153,9 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         attachments: message.attachments?.filter(attachment => attachment.assetId !== file.assetId),
       })));
       trackEvent('删除协同文件');
-      notify('文件已删除', 'success');
+      notify('文件已刪除', 'success');
     } catch (error: any) {
-      notify(error?.message || '文件删除失败', 'error');
+      notify(error?.message || '文件刪除失敗', 'error');
     }
   };
 
@@ -2163,7 +2164,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     await updateSession({ ...activeSession, makerKind: kind, updatedAt: Date.now() });
     trackEvent('选择协同制作类型', { 类型: analyticsMakerKind(kind) });
     setMakerOpen(false);
-    if (!draft.trim()) setDraft(`请和我一起做「${COLLABORATION_MAKER_MAP[kind].label}」。我希望它的感觉是：`);
+    if (!draft.trim()) setDraft(`請和我一起做「${COLLABORATION_MAKER_MAP[kind].label}」。我希望它的感覺是：`);
   };
 
   const toggleChatCollaboration = async (enabled: boolean) => {
@@ -2173,11 +2174,11 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       return;
     }
     const choice = await requestActionDialog({
-      title: `让 ${character.name} 在日常聊天中知道协同功能？`,
-      description: `${character.name} 会知道你们另有一个独立工作区，也能读取并发送文件柜里已经做好的文件。`,
-      detail: '普通聊天不会因此变成工作模式：不能在那里新建、修改、整理或重新导出 Word、PDF、美化和可安装作品。真正干活仍要进入「协同工作」。',
-      confirmLabel: '仍然开启',
-      cancelLabel: '暂不开启',
+      title: `讓 ${character.name} 在日常聊天中知道協同功能？`,
+      description: `${character.name} 會知道你們另有一個獨立工作區，也能讀取併發送文件櫃裡已經做好的文件。`,
+      detail: '普通聊天不會因此變成工作模式：不能在那裡新建、修改、整理或重新導出 Word、PDF、美化和可安裝作品。真正幹活仍要進入「協同工作」。',
+      confirmLabel: '仍然開啟',
+      cancelLabel: '暫不開啟',
       tone: 'warning',
     });
     if (choice !== 'confirm') return;
@@ -2201,7 +2202,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     const profile = settings[sessionAtStart.mode];
     if (!isCollaborationApiConfigured(profile)) {
       setSettingsOpen(true);
-      notify(`请先配置${MODE_LABELS[sessionAtStart.mode]}使用的 API`, 'info');
+      notify(`請先配置${MODE_LABELS[sessionAtStart.mode]}使用的 API`, 'info');
       return;
     }
 
@@ -2247,7 +2248,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
             realtimeConfig,
           });
           liveChatContext = [
-            { role: 'system', content: `### ChatApp 实时聊天衔接\n以下是每次生成前重新读取的 ${chatContextChoice === 'configured' ? `ChatApp 用户设定范围（本次 ${chatContextLimit} 条）` : `最近 ${chatContextLimit} 条私聊`}；它们只用于理解当前工作来龙去脉，不属于本协同窗口的对话。` },
+            { role: 'system', content: `### ChatApp 實時聊天銜接\n以下是每次生成前重新讀取的 ${chatContextChoice === 'configured' ? `ChatApp 用戶設定範圍（本次 ${chatContextLimit} 條）` : `最近 ${chatContextLimit} 條私聊`}；它們只用於理解當前工作來龍去脈，不屬於本協同窗口的對話。` },
             ...focusedChatContext.chatContextSnapshot,
           ];
         }
@@ -2269,8 +2270,8 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         messages: requestMessages,
         taskText,
       });
-      const nextTitle = sessionAtStart.title === '新的协同'
-        ? shortPreview(latestUserMessage.content || latestUserMessage.attachments?.[0]?.name || '新的协同', 28)
+      const nextTitle = equalsAnyScript(sessionAtStart.title, '新的協同')
+        ? shortPreview(latestUserMessage.content || latestUserMessage.attachments?.[0]?.name || '新的協同', 28)
         : sessionAtStart.title;
       startedSession = {
         ...sessionAtStart,
@@ -2321,7 +2322,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         id: collaborationId('message'),
         sessionId: sessionAtStart.id,
         role: 'assistant',
-        content: visibleReply || (generatedAttachments.length ? '我做好了，作品放在这里。' : sanitizeCollaborationRichOutputSource(normalizeCollaborationVisibleText(reply.content))),
+        content: visibleReply || (generatedAttachments.length ? '我做好了，作品放在這裡。' : sanitizeCollaborationRichOutputSource(normalizeCollaborationVisibleText(reply.content))),
         thinkingChain: reply.thinkingChain,
         createdAt: Date.now(),
         attachments: generatedAttachments,
@@ -2340,7 +2341,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         id: collaborationId('message'),
         sessionId: sessionAtStart.id,
         role: 'system',
-        content: stopped ? '已停止这次生成。' : `这次没有完成：${error?.message || 'API 请求失败'}`,
+        content: stopped ? '已停止這次生成。' : `這次沒有完成：${error?.message || 'API 請求失敗'}`,
         createdAt: Date.now(),
       };
       await CollaborationStore.saveMessage(systemMessage);
@@ -2350,7 +2351,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         updatedAt: systemMessage.createdAt,
         lastMessagePreview: collaborationMessagePreview(systemMessage),
       });
-      if (!stopped) notify(error?.message || '协同请求失败', 'error');
+      if (!stopped) notify(error?.message || '協同請求失敗', 'error');
     } finally {
       if (abortRef.current === abortController) abortRef.current = null;
       setIsGenerating(false);
@@ -2365,7 +2366,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     const profile = settings[activeSession.mode];
     if (!isCollaborationApiConfigured(profile)) {
       setSettingsOpen(true);
-      notify(`请先配置${MODE_LABELS[activeSession.mode]}使用的 API`, 'info');
+      notify(`請先配置${MODE_LABELS[activeSession.mode]}使用的 API`, 'info');
       return;
     }
 
@@ -2400,13 +2401,13 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       }
     }
     if (lastUserIndex < 0) {
-      notify('还没有可以重新生成的用户消息', 'info');
+      notify('還沒有可以重新生成的用戶消息', 'info');
       return;
     }
     const profile = settings[activeSession.mode];
     if (!isCollaborationApiConfigured(profile)) {
       setSettingsOpen(true);
-      notify(`请先配置${MODE_LABELS[activeSession.mode]}使用的 API`, 'info');
+      notify(`請先配置${MODE_LABELS[activeSession.mode]}使用的 API`, 'info');
       return;
     }
     const requestMessages = messages.slice(0, lastUserIndex + 1);
@@ -2423,12 +2424,12 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
   const copyMessage = async (message: CollaborationMessage) => {
     const copied = await copyCollaborationText(message.content);
     trackEvent('复制协同消息', { 结果: copied ? '成功' : '失败', 角色: message.role });
-    notify(copied ? '内容已复制' : '复制失败，请稍后重试', copied ? 'success' : 'error');
+    notify(copied ? '內容已複製' : '複製失敗，請稍後重試', copied ? 'success' : 'error');
   };
 
   const beginMessageEdit = (message: CollaborationMessage) => {
     if (message.role === 'system' || !message.content.trim()) {
-      notify('这条内容不支持编辑', 'info');
+      notify('這條內容不支持編輯', 'info');
       return;
     }
     setEditingMessage(message);
@@ -2443,7 +2444,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     if (messageIndex < 0) {
       setEditingMessage(null);
       setEditDraft('');
-      notify('这条消息已经不存在了', 'error');
+      notify('這條消息已經不存在了', 'error');
       return;
     }
     setEditSaving(true);
@@ -2481,9 +2482,9 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setEditingMessage(null);
       setEditDraft('');
       trackEvent('编辑协同消息', { 角色: updatedMessage.role });
-      notify('内容已修改', 'success');
+      notify('內容已修改', 'success');
     } catch (error: any) {
-      notify(error?.message || '消息修改失败', 'error');
+      notify(error?.message || '消息修改失敗', 'error');
     } finally {
       setEditSaving(false);
     }
@@ -2491,7 +2492,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
 
   const deleteMessage = async (message: CollaborationMessage) => {
     if (!activeSession || isGenerating) {
-      if (isGenerating) notify('请先停止这次生成，再删除消息', 'info');
+      if (isGenerating) notify('請先停止這次生成，再刪除消息', 'info');
       return;
     }
     const messageIndex = messages.findIndex(item => item.id === message.id);
@@ -2502,15 +2503,15 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     }
     const rowsToDelete = messages.slice(messageIndex, deleteEnd);
     const choice = await requestActionDialog({
-      title: message.role === 'user' ? '删除这一轮协同？' : message.role === 'assistant' ? '删除这条回复？' : '删除这条提示？',
+      title: message.role === 'user' ? '刪除這一輪協同？' : message.role === 'assistant' ? '刪除這條回覆？' : '刪除這條提示？',
       description: message.role === 'user'
-        ? `这条用户消息和 ${character.name} 紧随其后的回复会一起删除。`
-        : '只会删除你刚刚长按的这一条内容。',
+        ? `這條用戶消息和 ${character.name} 緊隨其後的回覆會一起刪除。`
+        : '只會刪除你剛剛長按的這一條內容。',
       detail: rowsToDelete.some(row => (row.attachments || []).length > 0)
-        ? '消息中的文件会从协同文件柜列表移除；已经发到 ChatApp 的附件仍可打开。此操作不可撤销。'
-        : '删除后不会影响其它协同窗口，也不会改动普通聊天与角色记忆。此操作不可撤销。',
-      confirmLabel: message.role === 'user' ? '永久删除这一轮' : '永久删除这条内容',
-      cancelLabel: '保留内容',
+        ? '消息中的文件會從協同文件櫃列表移除；已經發到 ChatApp 的附件仍可打開。此操作不可撤銷。'
+        : '刪除後不會影響其它協同窗口，也不會改動普通聊天與角色記憶。此操作不可撤銷。',
+      confirmLabel: message.role === 'user' ? '永久刪除這一輪' : '永久刪除這條內容',
+      cancelLabel: '保留內容',
       tone: 'danger',
     });
     if (choice !== 'confirm') return;
@@ -2526,25 +2527,25 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     });
     if (libraryOpen) void refreshLibrary();
     trackEvent('删除协同消息', { 范围: message.role === 'user' ? '整轮' : '单条' });
-    notify(message.role === 'user' ? '这一轮协同已删除' : '这条内容已删除', 'success');
+    notify(message.role === 'user' ? '這一輪協同已刪除' : '這條內容已刪除', 'success');
   };
 
   const openMessageActions = async (message: CollaborationMessage) => {
     if (isGenerating) {
-      notify('请先停止这次生成，再处理消息', 'info');
+      notify('請先停止這次生成，再處理消息', 'info');
       return;
     }
     const canEdit = message.role !== 'system' && !!message.content.trim();
     const canCopy = !!message.content.trim();
     const choice = await requestActionDialog({
-      title: message.role === 'user' ? '处理自己的消息' : message.role === 'assistant' ? `处理 ${character.name} 的回复` : '处理这条提示',
+      title: message.role === 'user' ? '處理自己的消息' : message.role === 'assistant' ? `處理 ${character.name} 的回覆` : '處理這條提示',
       description: canEdit && message.role === 'user'
-        ? '可以修改后从这一条重新生成，也可以复制或删除。'
-        : '选择要对刚刚长按的这条内容执行的操作。',
-      detail: (message.attachments || []).length > 0 ? '编辑正文不会移除这条消息里已有的附件。' : undefined,
-      confirmLabel: canEdit ? (message.role === 'user' ? '编辑并重新生成' : '编辑内容') : canCopy ? '复制内容' : undefined,
-      secondaryLabel: canEdit && canCopy ? '复制内容' : undefined,
-      destructiveLabel: message.role === 'user' ? '删除这一轮' : '删除这条内容',
+        ? '可以修改後從這一條重新生成，也可以複製或刪除。'
+        : '選擇要對剛剛長按的這條內容執行的操作。',
+      detail: (message.attachments || []).length > 0 ? '編輯正文不會移除這條消息裡已有的附件。' : undefined,
+      confirmLabel: canEdit ? (message.role === 'user' ? '編輯並重新生成' : '編輯內容') : canCopy ? '複製內容' : undefined,
+      secondaryLabel: canEdit && canCopy ? '複製內容' : undefined,
+      destructiveLabel: message.role === 'user' ? '刪除這一輪' : '刪除這條內容',
       cancelLabel: '取消',
     });
     if (choice === 'confirm') {
@@ -2564,7 +2565,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
     if (transferring) return;
     const transferable = selectCollaborationTransfer(messages, activeSession.id, transferIds);
     if (transferable.length === 0) {
-      notify('这个窗口还没有可以发送的上下文', 'info');
+      notify('這個窗口還沒有可以發送的上下文', 'info');
       return;
     }
     setTransferring(true);
@@ -2573,13 +2574,13 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       setTransferOpen(false);
       setTransferIds(new Set());
     } catch (error: any) {
-      notify(error?.message || '发送失败，请重试', 'error');
+      notify(error?.message || '發送失敗，請重試', 'error');
       return;
     } finally { setTransferring(false); }
     trackEvent('发送协同上下文到聊天', {
       模式: analyticsEnum(activeSession.mode, ['immersive', 'focused'], 'custom'),
     });
-    notify('已将选中的 ' + transferable.length + ' 条消息发给 ChatApp', 'success');
+    notify('已將選中的 ' + transferable.length + ' 條消息發給 ChatApp', 'success');
   };
 
   const backgroundStyle: React.CSSProperties = backgroundUrl
@@ -2592,19 +2593,19 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
   const avatarStyle = settings.avatarStyle || 'circle';
   const chatContextChoice = settings.recentChatContextCount ?? 'configured';
   const chatContextLabel = chatContextChoice === 'configured'
-    ? 'Chat 实时 · 用户设定范围'
+    ? 'Chat 實時 · 用戶設定範圍'
     : chatContextChoice > 0
-      ? `Chat 实时 ${chatContextChoice} 条`
-      : '不读取 Chat';
+      ? `Chat 實時 ${chatContextChoice} 條`
+      : '不讀取 Chat';
   const streamingArtifactText = streamingText
     ? parseInstallableArtifactBlocks(parseArtifactBlocks(streamingText).visibleText).visibleText
     : '';
   const streamingRichOutput = parseCollaborationRichOutput(streamingArtifactText);
   const streamingRichLabel = streamingRichOutput.voice
-    ? '正在准备语音…'
+    ? '正在準備語音…'
     : streamingRichOutput.emojiNames.length > 0
-      ? '正在发送表情包…'
-      : '正在制作作品…';
+      ? '正在發送表情包…'
+      : '正在製作作品…';
 
   if (!open) return null;
 
@@ -2624,21 +2625,21 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
 
       <header className="collab-safe-header collab-ui-header relative z-20 flex h-16 shrink-0 items-center border-b border-white/60 bg-white/78 px-2 shadow-[0_1px_0_rgba(15,23,42,.04)] backdrop-blur-xl">
         <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="返回 ChatApp"><ArrowLeft size={22} /></button>
-        <button type="button" onClick={() => setDrawerOpen(true)} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="协同窗口列表"><List size={21} /></button>
+        <button type="button" onClick={() => setDrawerOpen(true)} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="協同窗口列表"><List size={21} /></button>
         <div className="collab-header-identity flex min-w-0 flex-1 items-center justify-center gap-2 px-2">
           <TokenImg value={character.avatar} alt={character.name} className="collab-header-avatar h-9 w-9 rounded-full object-cover shadow-sm ring-1 ring-black/5" />
           <div className="collab-header-copy min-w-0 text-left">
             <div className="flex items-center gap-1.5">
-              <span className="collab-session-title truncate text-[13px] font-semibold text-slate-800">{activeSession?.title || (showEntryChooser ? '协同工作' : '新的协同')}</span>
+              <span className="collab-session-title truncate text-[13px] font-semibold text-slate-800">{activeSession?.title || (showEntryChooser ? '協同工作' : '新的協同')}</span>
               {activeSession && <span className={`collab-session-dot h-1.5 w-1.5 shrink-0 rounded-full ${activeSession.mode === 'immersive' ? 'bg-indigo-500' : 'bg-slate-400'}`} />}
             </div>
-            <p className="collab-header-meta truncate text-[9px] text-slate-500">{activeSession ? `${character.name} · ${MODE_LABELS[activeSession.mode]} · ${chatContextLabel}${chatReadReceipt?.sessionId === activeSession.id ? ` · 本次读取 ${chatReadReceipt.count} 条` : ''}${activeSession.makerKind ? ` · ${COLLABORATION_MAKER_MAP[activeSession.makerKind].shortLabel}` : ''}` : showEntryChooser ? '新建或继续一项协同' : '选择协同模式'}</p>
+            <p className="collab-header-meta truncate text-[9px] text-slate-500">{activeSession ? `${character.name} · ${MODE_LABELS[activeSession.mode]} · ${chatContextLabel}${chatReadReceipt?.sessionId === activeSession.id ? ` · 本次讀取 ${chatReadReceipt.count} 條` : ''}${activeSession.makerKind ? ` · ${COLLABORATION_MAKER_MAP[activeSession.makerKind].shortLabel}` : ''}` : showEntryChooser ? '新建或繼續一項協同' : '選擇協同模式'}</p>
           </div>
         </div>
-        <button type="button" onClick={() => void rerollLatestReply()} disabled={!activeSession || isGenerating || !messages.some(message => message.role === 'user')} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 disabled:opacity-25 active:bg-slate-100/80" aria-label="重新生成上一条回复" title="重新生成上一条回复"><ArrowCounterClockwise size={20} /></button>
-        <button type="button" onClick={() => { setTransferIds(new Set()); setTransferOpen(true); }} disabled={!activeSession || messages.length === 0} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 disabled:opacity-25 active:bg-slate-100/80" aria-label="选择消息发送到 ChatApp" title="选择消息发送到 ChatApp"><PaperPlaneRight size={20} /></button>
-        <button type="button" onClick={() => { setLibraryOpen(true); trackEvent('打开协同文件库'); }} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="协同文件库"><Folder size={20} /></button>
-        <button type="button" onClick={() => setSettingsOpen(true)} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="协同设置"><GearSix size={20} /></button>
+        <button type="button" onClick={() => void rerollLatestReply()} disabled={!activeSession || isGenerating || !messages.some(message => message.role === 'user')} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 disabled:opacity-25 active:bg-slate-100/80" aria-label="重新生成上一條回覆" title="重新生成上一條回覆"><ArrowCounterClockwise size={20} /></button>
+        <button type="button" onClick={() => { setTransferIds(new Set()); setTransferOpen(true); }} disabled={!activeSession || messages.length === 0} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 disabled:opacity-25 active:bg-slate-100/80" aria-label="選擇消息發送到 ChatApp" title="選擇消息發送到 ChatApp"><PaperPlaneRight size={20} /></button>
+        <button type="button" onClick={() => { setLibraryOpen(true); trackEvent('打开协同文件库'); }} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="協同文件庫"><Folder size={20} /></button>
+        <button type="button" onClick={() => setSettingsOpen(true)} className="grid h-10 w-10 place-items-center rounded-full text-slate-600 active:bg-slate-100/80" aria-label="協同設置"><GearSix size={20} /></button>
       </header>
 
       {showEntryChooser ? (
@@ -2665,10 +2666,10 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
                 <h2 className="mt-5 text-xl font-semibold tracking-tight text-slate-800">{uiThemeSpec.emptyTitle}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">{uiThemeSpec.emptyDescription.replace('角色', character.name)}</p>
                 <div className="collab-empty-starters mt-8 flex flex-wrap justify-center gap-2">
-                  {['帮我整理这份文件', '制作一份 PDF'].map(starter => (
+                  {['幫我整理這份文件', '製作一份 PDF'].map(starter => (
                     <button key={starter} type="button" onClick={() => setDraft(starter)} className="collab-empty-starter rounded-full border border-white/80 bg-white/70 px-3.5 py-2 text-[11px] text-slate-600 shadow-sm backdrop-blur-sm active:scale-95">{starter}</button>
                   ))}
-                  <button type="button" onClick={() => setMakerOpen(true)} className="collab-empty-starter collab-accent-chip rounded-full border border-indigo-200 bg-indigo-50/90 px-3.5 py-2 text-[11px] font-semibold text-indigo-600 shadow-sm active:scale-95">制作可安装作品</button>
+                  <button type="button" onClick={() => setMakerOpen(true)} className="collab-empty-starter collab-accent-chip rounded-full border border-indigo-200 bg-indigo-50/90 px-3.5 py-2 text-[11px] font-semibold text-indigo-600 shadow-sm active:scale-95">製作可安裝作品</button>
                 </div>
               </div>
             )}
@@ -2700,7 +2701,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
                     ? streamingRichOutput.text
                       ? <CollaborationMarkdownView content={streamingRichOutput.text} />
                       : <span className="flex items-center gap-2 text-sm text-slate-400"><SpinnerGap size={16} className="animate-spin" />{streamingRichLabel}</span>
-                    : <span className="flex items-center gap-2 text-sm text-slate-400"><SpinnerGap size={16} className="animate-spin" />{character.name} 正在处理</span>}
+                    : <span className="flex items-center gap-2 text-sm text-slate-400"><SpinnerGap size={16} className="animate-spin" />{character.name} 正在處理</span>}
                 </div>
               </div>
             )}
@@ -2708,13 +2709,13 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
 
           <div className="collab-ui-composer relative z-20 shrink-0 border-t border-white/70 bg-white/82 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
             <div className="collab-composer-tools mb-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <button type="button" onClick={() => setMakerOpen(true)} disabled={isGenerating} className="collab-primary-action flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40"><Plus size={12} weight="bold" />制作</button>
+              <button type="button" onClick={() => setMakerOpen(true)} disabled={isGenerating} className="collab-primary-action flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-[10px] font-semibold text-white disabled:opacity-40"><Plus size={12} weight="bold" />製作</button>
               <select
                 value={requestedOutputFormat || ''}
                 onChange={event => setRequestedOutputFormat((event.target.value || null) as CollaborationArtifactFormat | null)}
                 disabled={isGenerating}
-                aria-label="选择文件交付格式"
-                title="支持 Word、PDF、Markdown、纯文本、HTML 和 JSON"
+                aria-label="選擇文件交付格式"
+                title="支持 Word、PDF、Markdown、純文本、HTML 和 JSON"
                 className="h-7 shrink-0 rounded-full border-0 bg-slate-100 px-3 text-[10px] font-medium text-slate-600 outline-none disabled:opacity-40"
               >
                 {OUTPUT_FORMAT_OPTIONS.map(option => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
@@ -2736,7 +2737,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
               </div>
             )}
             <div className="collab-composer-field flex items-end gap-2 rounded-[24px] border border-slate-200/90 bg-white px-2 py-2 shadow-[0_8px_30px_rgba(15,23,42,.08)]">
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isGenerating || !!uploadStatus} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 active:bg-slate-100 disabled:opacity-40" aria-label="上传文件或参考图片" title="支持图片、PDF、Word 与文本资料"><FileArrowUp size={21} /></button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isGenerating || !!uploadStatus} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 active:bg-slate-100 disabled:opacity-40" aria-label="上傳文件或參考圖片" title="支持圖片、PDF、Word 與文本資料"><FileArrowUp size={21} /></button>
               <input ref={fileInputRef} type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,.pdf,.docx,.doc,.txt,.md,.markdown,.json,.csv,.tsv,.html,.htm,.xml,.yaml,.yml" className="hidden" onChange={event => void handleFiles(event.target.files)} />
               <textarea
                 value={draft}
@@ -2747,34 +2748,34 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
                     void send();
                   }
                 }}
-                placeholder={`告诉 ${character.name} 要完成什么…`}
+                placeholder={`告訴 ${character.name} 要完成什麼…`}
                 rows={1}
                 className="max-h-32 min-h-9 min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-5 text-slate-800 outline-none placeholder:text-slate-400"
               />
               {isGenerating ? (
-                <button type="button" onClick={() => abortCollaborationRequest(abortRef.current, '用户已停止生成')} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white active:scale-95" aria-label="停止生成"><Stop size={15} weight="fill" /></button>
+                <button type="button" onClick={() => abortCollaborationRequest(abortRef.current, '用戶已停止生成')} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white active:scale-95" aria-label="停止生成"><Stop size={15} weight="fill" /></button>
               ) : (
-                <button type="button" onClick={() => void send()} disabled={(!draft.trim() && pendingAttachments.length === 0) || !!uploadStatus} className="collab-primary-action grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white disabled:bg-slate-200 disabled:text-slate-400 active:scale-95" aria-label="发送"><PaperPlaneRight size={18} weight="fill" /></button>
+                <button type="button" onClick={() => void send()} disabled={(!draft.trim() && pendingAttachments.length === 0) || !!uploadStatus} className="collab-primary-action grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white disabled:bg-slate-200 disabled:text-slate-400 active:scale-95" aria-label="發送"><PaperPlaneRight size={18} weight="fill" /></button>
               )}
             </div>
           </div>
         </>
       )}
 
-      {transferOpen && activeSession && <div className="absolute inset-0 z-[180] flex flex-col bg-slate-50" role="dialog" aria-modal="true" aria-label="选择发送到 ChatApp 的消息" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
+      {transferOpen && activeSession && <div className="absolute inset-0 z-[180] flex flex-col bg-slate-50" role="dialog" aria-modal="true" aria-label="選擇發送到 ChatApp 的消息" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}>
         <header className="flex items-center justify-between gap-2 border-b border-slate-200 p-4">
           <button disabled={transferring} onClick={() => setTransferOpen(false)} className="text-sm text-slate-500">取消</button>
-          <h2 className="text-sm font-semibold">选择消息</h2>
-          <button onClick={() => setTransferIds(new Set(messages.filter(message => message.sessionId === activeSession.id && (message.role === 'user' || message.role === 'assistant')).map(message => message.id)))} className="text-sm text-indigo-500">全选</button>
+          <h2 className="text-sm font-semibold">選擇消息</h2>
+          <button onClick={() => setTransferIds(new Set(messages.filter(message => message.sessionId === activeSession.id && (message.role === 'user' || message.role === 'assistant')).map(message => message.id)))} className="text-sm text-indigo-500">全選</button>
         </header>
-        <p className="px-4 py-3 text-xs text-slate-500">只发送勾选的正文和附件文字，不包含思考过程。</p>
+        <p className="px-4 py-3 text-xs text-slate-500">只發送勾選的正文和附件文字，不包含思考過程。</p>
         <div className="min-h-0 flex-1 overflow-y-auto px-4">
           {messages.filter(message => message.sessionId === activeSession.id && (message.role === 'user' || message.role === 'assistant')).map(message => <label key={message.id} className="mb-3 flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
             <input type="checkbox" className="mt-1" checked={transferIds.has(message.id)} onChange={() => setTransferIds(prev => { const next = new Set(prev); if (next.has(message.id)) next.delete(message.id); else next.add(message.id); return next; })}/>
             <span className="min-w-0 flex-1"><span className="block text-[10px] font-semibold text-slate-400">{message.role === 'user' ? user.name : character.name}</span><span className="mt-1 block whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700">{message.content || '附件消息'}</span>{message.attachments?.map(attachment => <span key={attachment.id} className="mt-2 block break-all text-[10px] text-indigo-500">文件：{attachment.name}</span>)}</span>
           </label>)}
         </div>
-        <footer className="flex items-center gap-3 border-t border-slate-200 p-4"><button onClick={() => setTransferIds(new Set())} className="text-xs text-slate-400">清空选择</button><button onClick={() => void transferToChat()} disabled={!transferIds.size || transferring} className="flex-1 rounded-xl bg-slate-900 py-3 text-sm text-white disabled:opacity-40">{transferring ? '发送中…' : '发送 ' + transferIds.size + ' 条到 ChatApp'}</button></footer>
+        <footer className="flex items-center gap-3 border-t border-slate-200 p-4"><button onClick={() => setTransferIds(new Set())} className="text-xs text-slate-400">清空選擇</button><button onClick={() => void transferToChat()} disabled={!transferIds.size || transferring} className="flex-1 rounded-xl bg-slate-900 py-3 text-sm text-white disabled:opacity-40">{transferring ? '發送中…' : '發送 ' + transferIds.size + ' 條到 ChatApp'}</button></footer>
       </div>}
 
       <SessionDrawer

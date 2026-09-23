@@ -19,7 +19,7 @@ try {
             const box = await page.locator('.sar-release-next').boundingBox();
             assert(box && box.y+box.height < height && box.height >= 44);
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true);
-            if (index<2) await page.getByRole('button', { name:'下一页', exact:true }).click();
+            if (index<2) await page.getByRole('button', { name:'下一頁', exact:true }).click();
         }
         assert.equal(await page.evaluate(() => localStorage.getItem('sullyos_update_2026_09_11_sar_seen')),null);
         await page.getByRole('button',{name:'去彼方看看'}).click();
@@ -37,13 +37,13 @@ try {
         if (width === 390) {
             await page.evaluate(() => localStorage.removeItem('sullyos_update_2026_09_11_sar_seen'));
             await page.reload();
-            await page.getByRole('button',{name:'完整更新说明'}).click();
+            await page.getByRole('button',{name:'完整更新說明'}).click();
             assert.equal(await page.evaluate(() => sessionStorage.getItem('sullyos_faq_target_section')),'changelog-2026-09-11');
             assert.equal(await page.evaluate(() => window.releaseQA.activeApp),'faq');
             await page.evaluate(() => localStorage.removeItem('sullyos_update_2026_09_11_sar_seen'));
             await page.reload();
-            await page.getByRole('button',{name:'下一页',exact:true}).click();
-            await page.getByRole('button',{name:'下一页',exact:true}).click();
+            await page.getByRole('button',{name:'下一頁',exact:true}).click();
+            await page.getByRole('button',{name:'下一頁',exact:true}).click();
             await page.getByRole('button',{name:'去彼方看看'}).click();
             assert.equal(await page.evaluate(() => window.releaseQA.activeApp),'vrworld');
             assert.equal(await page.evaluate(async () => (await import('/utils/sarUpdate.ts')).sarLaunch.peek()),true);

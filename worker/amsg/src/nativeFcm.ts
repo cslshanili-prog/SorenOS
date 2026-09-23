@@ -1,4 +1,4 @@
-/** Capacitor 原生 FCM 通道；普通 Web Push endpoint 完整委托给既有发送器。 */
+/** Capacitor 原生 FCM 通道；普通 Web Push endpoint 完整委託給既有發送器。 */
 
 export interface NativeFcmEnv {
   FCM_PROJECT_ID?: string;
@@ -73,7 +73,7 @@ const fetchFcmAccessToken = async (env: NativeFcmEnv): Promise<string> => {
     access_token?: string; expires_in?: number; error_description?: string;
   };
   if (!response.ok || !body.access_token) {
-    throw new Error(`FCM OAuth 失败 (${response.status})：${body.error_description || '没有 access_token'}`);
+    throw new Error(`FCM OAuth 失敗 (${response.status})：${body.error_description || '沒有 access_token'}`);
   }
   accessTokenCache = {
     key: cacheKey,
@@ -88,7 +88,7 @@ export const fcmTokenFromEndpoint = (endpoint: unknown): string | null => {
   return endpoint.slice(4).trim() || null;
 };
 
-/** notification 承载正文、data 承载其余 AMSG2 结构，避免正文重复两份顶穿 4KB。 */
+/** notification 承載正文、data 承載其餘 AMSG2 結構，避免正文重複兩份頂穿 4KB。 */
 export const buildFcmMessage = (token: string, rawPayload: string) => {
   const payload = JSON.parse(rawPayload) as Record<string, any>;
   const actualBody = String(payload.message ?? payload.body ?? '');
@@ -101,8 +101,8 @@ export const buildFcmMessage = (token: string, rawPayload: string) => {
     message: {
       token,
       notification: {
-        title: String(payload.contactName ?? payload.metadata?.charName ?? '主动消息'),
-        body: String(payload.notification?.body ?? actualBody).trim() || '有一条新消息',
+        title: String(payload.contactName ?? payload.metadata?.charName ?? '主動消息'),
+        body: String(payload.notification?.body ?? actualBody).trim() || '有一條新消息',
       },
       data: {
         amsgPayload: JSON.stringify(portable),

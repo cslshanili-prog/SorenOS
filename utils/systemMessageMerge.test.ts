@@ -2,25 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { mergeSystemMessages } from './systemMessageMerge';
 
 describe('mergeSystemMessages', () => {
-    it('三段式请求：稳定前缀 + 易变尾段 + 提醒条合并成开头一条，历史顺序不动', () => {
+    it('三段式請求：穩定前綴 + 易變尾段 + 提醒條合併成開頭一條，歷史順序不動', () => {
         const messages = [
-            { role: 'system', content: '稳定前缀' },
+            { role: 'system', content: '穩定前綴' },
             { role: 'user', content: '你好' },
             { role: 'assistant', content: '嗨' },
-            { role: 'system', content: '易变尾段' },
+            { role: 'system', content: '易變尾段' },
             { role: 'system', content: '[MCP 提醒]' },
         ];
         const merged = mergeSystemMessages(messages);
         expect(merged).toEqual([
-            { role: 'system', content: '稳定前缀\n\n易变尾段\n\n[MCP 提醒]' },
+            { role: 'system', content: '穩定前綴\n\n易變尾段\n\n[MCP 提醒]' },
             { role: 'user', content: '你好' },
             { role: 'assistant', content: '嗨' },
         ]);
-        // 原数组不被改动
+        // 原數組不被改動
         expect(messages).toHaveLength(5);
     });
 
-    it('只有一条 system 时原样返回（同一引用，不重建）', () => {
+    it('只有一條 system 時原樣返回（同一引用，不重建）', () => {
         const messages = [
             { role: 'system', content: '唯一 system' },
             { role: 'user', content: 'hi' },
@@ -28,12 +28,12 @@ describe('mergeSystemMessages', () => {
         expect(mergeSystemMessages(messages)).toBe(messages);
     });
 
-    it('没有 system 时原样返回', () => {
+    it('沒有 system 時原樣返回', () => {
         const messages = [{ role: 'user', content: 'hi' }];
         expect(mergeSystemMessages(messages)).toBe(messages);
     });
 
-    it('空白 system 段被丢弃，不产生多余空行', () => {
+    it('空白 system 段被丟棄，不產生多餘空行', () => {
         const messages = [
             { role: 'system', content: 'A' },
             { role: 'system', content: '   ' },

@@ -2,19 +2,19 @@ import type { CharacterProfile, VRRoomId, VRSARActivity } from '../../types';
 
 /** Only executable activities belong here; user-only collections/NPC stories are not destinations. */
 export const ORDINARY_ACTIVITIES: { id: VRRoomId; name: string; description: string }[] = [
-    { id:'library', name:'图书馆', description:'读书、留下批注' },
-    { id:'theater', name:'剧院', description:'即兴写剧本投稿' },
-    { id:'music', name:'听歌房', description:'点歌、听歌与锐评' },
-    { id:'guestbook', name:'留言簿', description:'发帖、回复和版聊' },
-    { id:'gym', name:'娱乐室', description:'游戏、学习或随意玩耍' },
-    { id:'postoffice', name:'邮局', description:'写信、读信与回信' },
+    { id:'library', name:'圖書館', description:'讀書、留下批註' },
+    { id:'theater', name:'劇院', description:'即興寫劇本投稿' },
+    { id:'music', name:'聽歌房', description:'點歌、聽歌與銳評' },
+    { id:'guestbook', name:'留言簿', description:'發帖、回覆和版聊' },
+    { id:'gym', name:'娛樂室', description:'遊戲、學習或隨意玩耍' },
+    { id:'postoffice', name:'郵局', description:'寫信、讀信與回信' },
 ];
 export const SAR_ACTIVITIES: { id: VRSARActivity; name: string; description: string }[] = [
-    { id:'cabinet', name:'抽芯片演绎', description:'抽临时芯片，推演故事并写随笔' },
-    { id:'module-shop', name:'模块商店', description:'研究、购买或装载模块' },
-    { id:'fishing', name:'水域钓鱼', description:'钓一竿，决定鱼获去留' },
-    { id:'market', name:'布告板', description:'看行情、交易、发需求或留言' },
-    { id:'garden', name:'恐龙箱庭', description:'摆弄庭院、续写小剧场与留便签' },
+    { id:'cabinet', name:'抽芯片演繹', description:'抽臨時芯片，推演故事並寫隨筆' },
+    { id:'module-shop', name:'模塊商店', description:'研究、購買或裝載模塊' },
+    { id:'fishing', name:'水域釣魚', description:'釣一竿，決定魚獲去留' },
+    { id:'market', name:'佈告板', description:'看行情、交易、發需求或留言' },
+    { id:'garden', name:'恐龍箱庭', description:'擺弄庭院、續寫小劇場與留便籤' },
 ];
 
 export function sarActivityPool(char: Pick<CharacterProfile,'vrState'>, gardenAvailable: boolean, manual = false): { id: VRSARActivity; weight: number }[] {

@@ -1,6 +1,6 @@
 {
   "schema": "sullyos.room-template.v1",
-  "name": "蓝色系简约风",
+  "name": "藍色系簡約風",
   "description": "",
   "exportedAt": "2026-07-08T14:32:25.902Z",
   "room": {
@@ -42,7 +42,7 @@
       "description": ""
     },
     {
-      "name": "矮柜",
+      "name": "矮櫃",
       "type": "furniture",
       "image": "assets/item-04.png",
       "x": 21.442830163224105,
@@ -53,7 +53,7 @@
       "description": ""
     },
     {
-      "name": "电脑桌",
+      "name": "電腦桌",
       "type": "furniture",
       "image": "assets/item-05.png",
       "x": 74.00279610809802,
@@ -75,7 +75,7 @@
       "description": ""
     },
     {
-      "name": "沙发",
+      "name": "沙發",
       "type": "furniture",
       "image": "assets/item-07.png",
       "x": 30.559998424388436,

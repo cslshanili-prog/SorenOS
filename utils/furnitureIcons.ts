@@ -1,16 +1,16 @@
 /**
- * furnitureIcons — SVG 家具图标 Data URI
+ * furnitureIcons — SVG 傢俱圖標 Data URI
  *
- * 将手绘风格的 SVG 家具图标编码为 data URI，
- * 供 RoomApp 等需要 image URL 的场景使用。
- * 比 Twemoji 更精致、更有设计感。
+ * 將手繪風格的 SVG 傢俱圖標編碼為 data URI，
+ * 供 RoomApp 等需要 image URL 的場景使用。
+ * 比 Twemoji 更精緻、更有設計感。
  */
 
 function svgToDataUri(svg: string): string {
     return 'data:image/svg+xml,' + encodeURIComponent(svg.trim());
 }
 
-// ── 家具 SVG ──────────────────────────────────
+// ── 傢俱 SVG ──────────────────────────────────
 
 const bedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" fill="none">
   <defs>
@@ -223,7 +223,7 @@ const roundRugSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="
   <ellipse cx="36" cy="38" rx="7" ry="4" fill="#cffafe" opacity="0.7"/>
 </svg>`;
 
-// ── 导出 Data URI ──────────────────────────────────
+// ── 導出 Data URI ──────────────────────────────────
 
 export const FURNITURE_ICONS = {
     bed: svgToDataUri(bedSvg),

@@ -16,7 +16,7 @@ it('reproduces the old stump/grid mismatch and proposes a paired preview instead
  expect(JSON.stringify(s)).toBe(before);expect(preview.dinosaurGarden!.events).toEqual(s.dinosaurGarden!.events);
  const next=confirmGardenPlacement(s,user,plan.draft!);expect(buildGardenActivities(activeGardenMap(next.dinosaurGarden!),gardenResidents(next))[id].propId).toBe(p.id);
  expect(next.dinosaurGarden!.maps[0].props.map(p=>p.id)).toEqual(map.props.map(p=>p.id));expect(next.dinosaurGarden!.toys[id].paint).toEqual(s.dinosaurGarden!.toys[id].paint);
- expect(()=>confirmGardenPlacement(next,user,plan.draft!)).toThrow('新变化');
+ expect(()=>confirmGardenPlacement(next,user,plan.draft!)).toThrow('新變化');
 });
 it('every default interactive prop on all three maps has a playable confirmed arrangement',()=>{
  const seed=fresh(),id=gardenResidents(seed)[0].catchId;
@@ -33,14 +33,14 @@ it('keeps a usable prop in place and searches all eight facings',()=>{
 });
 it('explains occupied props and static collectibles rather than saying there is no nearby cell',()=>{
  let s=fresh();s=ensureDinosaurGarden(addCatchToState(s,{...s.inventory[0],id:'second',speciesId:'triceratops'}),user);
- expect(planGardenPlay(s,'second','picnic-a').reason).toContain('正在玩这个');
+ expect(planGardenPlay(s,'second','picnic-a').reason).toContain('正在玩這個');
  s=ensureDinosaurGarden(addCatchToState(s,{...s.inventory[0],id:'egg',speciesId:'dinosaur-egg'}),user);
- expect(planGardenPlay(s,'egg','stump-a').reason).toContain('静态藏品');expect(planGardenPlay(s,'second','missing').reason).toContain('不在庭院');
+ expect(planGardenPlay(s,'egg','stump-a').reason).toContain('靜態藏品');expect(planGardenPlay(s,'second','missing').reason).toContain('不在庭院');
 });
 it('does not move anyone or the prop to bypass six-resident capacity, and invalidates a stale paired draft',()=>{
  let s=fresh(),id=gardenResidents(s)[0].catchId;
  s={...s,dinosaurGarden:{...s.dinosaurGarden!,maps:s.dinosaurGarden!.maps.map(m=>({...m,props:m.props.filter(p=>p.kind==='stump')}))}};
  for(let i=0;i<6;i++){const key='new-'+i;s=ensureDinosaurGarden(addCatchToState(s,{...s.inventory[0],id:key,speciesId:'triceratops'}),user);if(i<5)s=editDino(s,user,key,{pose:findGardenSpace(s,key)});}
- const before=JSON.stringify(s);expect(planGardenPlay(s,'new-5','stump-a').reason).toContain('住满六只');expect(JSON.stringify(s)).toBe(before);
- const plan=planGardenPlay(fresh(),id,'stump-a');const changed=editDino(fresh(),user,id,{stage:{text:'新消息'}});expect(()=>confirmGardenPlacement(changed,user,plan.draft!)).toThrow('新变化');
+ const before=JSON.stringify(s);expect(planGardenPlay(s,'new-5','stump-a').reason).toContain('住滿六隻');expect(JSON.stringify(s)).toBe(before);
+ const plan=planGardenPlay(fresh(),id,'stump-a');const changed=editDino(fresh(),user,id,{stage:{text:'新消息'}});expect(()=>confirmGardenPlacement(changed,user,plan.draft!)).toThrow('新變化');
 });

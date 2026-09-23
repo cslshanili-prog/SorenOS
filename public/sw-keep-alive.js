@@ -1777,7 +1777,7 @@ async function notifyClients(data) {
       path: tracePathOf(client.url),
       visibility: client.visibilityState,
       focused: client.focused,
-      // 冻结的页面收得下 postMessage，但要等解冻才会处理——只有部分浏览器报这个字段。
+      // 凍結的頁面收得下 postMessage，但要等解凍才會處理——只有部分瀏覽器報這個字段。
       frozen: client.frozen
     })),
     ...failures.length > 0 ? { failures } : {},
@@ -1905,7 +1905,7 @@ async function withInboxTx(storeName, mode, run) {
 }
 async function saveContentToInbox(payload) {
   const charId = payload?.metadata?.charId;
-  const charName = payload?.contactName || payload?.metadata?.charName || "\u4E3B\u52A8\u6D88\u606F";
+  const charName = payload?.contactName || payload?.metadata?.charName || "\u4E3B\u52D5\u6D88\u606F";
   const body = String(payload?.message || payload?.body || "").trim();
   const notificationBody = typeof payload?.notification?.body === "string" ? payload.notification.body.trim() : "";
   const previewBody = notificationBody || body;
@@ -1928,15 +1928,15 @@ async function saveContentToInbox(payload) {
       source: payload?.source,
       messageType: payload?.messageType,
       messageSubtype: payload?.messageSubtype,
-      // 任务身份由库盖在 push 顶层 (taskId / taskUuid / recurrenceType / occurrenceMs),
-      // 客户端端的防穿帮闸与任务认领都读这几个——两条排程路径 (用户排 / 角色自排) 走的
-      // 是同一份, 不会像各自往 metadata 抄那样抄漏一个就判错。
+      // 任務身份由庫蓋在 push 頂層 (taskId / taskUuid / recurrenceType / occurrenceMs),
+      // 客戶端端的防穿幫閘與任務認領都讀這幾個——兩條排程路徑 (用戶排 / 角色自排) 走的
+      // 是同一份, 不會像各自往 metadata 抄那樣抄漏一個就判錯。
       taskId: payload?.taskId ?? null,
       taskUuid: payload?.taskUuid ?? null,
       recurrenceType: payload?.recurrenceType ?? null,
       occurrenceMs: payload?.occurrenceMs ?? null,
-      // sessionId / messageIndex 放到 metadata 里, 主线程 flushInboxToChat 据此标记是第几条
-      // (第 1 条才挂 metadata.thinkingChain).
+      // sessionId / messageIndex 放到 metadata 裡, 主線程 flushInboxToChat 據此標記是第幾條
+      // (第 1 條才掛 metadata.thinkingChain).
       metadata: {
         ...payload?.metadata || {},
         sessionId: payload?.sessionId,
@@ -2022,7 +2022,7 @@ sw.addEventListener("pushsubscriptionchange", (event) => {
         resubscribed = true;
       }
     } catch (err) {
-      console.warn("[amsg] pushsubscriptionchange \u91CD\u8BA2\u5931\u8D25\uFF08\u4E3B\u7EBF\u7A0B\u7A0D\u540E\u4F1A\u8D70\u5B8C\u6574\u8BA2\u9605\u6D41\u7A0B\uFF09", err);
+      console.warn("[amsg] pushsubscriptionchange \u91CD\u8A02\u5931\u6557\uFF08\u4E3B\u7DDA\u7A0B\u7A0D\u5F8C\u6703\u8D70\u5B8C\u6574\u8A02\u95B1\u6D41\u7A0B\uFF09", err);
     }
     try {
       await withInboxTx(ACTIVE_MSG_KV_STORE, "readwrite", (store) => {
@@ -2032,7 +2032,7 @@ sw.addEventListener("pushsubscriptionchange", (event) => {
         });
       });
     } catch (err) {
-      console.warn("[amsg] \u5199\u8BA2\u9605\u53D8\u5316\u6807\u8BB0\u5931\u8D25", err);
+      console.warn("[amsg] \u5BEB\u8A02\u95B1\u8B8A\u5316\u6A19\u8A18\u5931\u6557", err);
     }
     await notifyClients({ type: "active-msg-subscription-change", resubscribed });
   })());

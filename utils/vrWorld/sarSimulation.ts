@@ -14,26 +14,26 @@ export const SAR_SIMULATION_MESSAGE_SOURCE = 'sar_simulation';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-/** 一次铸造后永久收藏的角色专属异格身份。 */
+/** 一次鑄造後永久收藏的角色專屬異格身份。 */
 export type SARIdentityProfile = {
     title: string;
     logline: string;
     identity: string;
     lifePatch: string;
     relationship: string;
-    /** 旧卡兼容字段；新卡不再携带具体现实记忆。 */
+    /** 舊卡兼容字段；新卡不再攜帶具體現實記憶。 */
     memoryStance?: string;
     steelSeal: string;
     patchCost: string;
     behaviorShift: string;
-    /** User 在这条异界坐标中佩戴的身份面具；旧卡读取时自动补齐。 */
+    /** User 在這條異界座標中佩戴的身份面具；舊卡讀取時自動補齊。 */
     userMaskTitle?: string;
     userIdentity?: string;
     userLifePatch?: string;
     openingScene: string;
     openingLine: string;
     playerPrompt: string;
-    /** v3 异界坐标字段；旧卡读取时由 resolveSARWorldlineProfile 补铸。 */
+    /** v3 異界座標字段；舊卡讀取時由 resolveSARWorldlineProfile 補鑄。 */
     worldName?: string;
     worldPremise?: string;
     arrivalPoint?: string;
@@ -69,18 +69,18 @@ export type SARIdentityCard = {
     id: string;
     charId: string;
     charName: string;
-    /** 仅兼容旧档；新卡不复制头像，显示时按 charId 读取角色资料。 */
+    /** 僅兼容舊檔；新卡不復制頭像，顯示時按 charId 讀取角色資料。 */
     charAvatar?: string;
     variantId: string;
     storyId: string;
     createdAt: number;
     updatedAt: number;
     profile: SARIdentityProfile;
-    /** v1 推演蓝图迁移而来，原始资料没有独立钢印/代价字段。 */
+    /** v1 推演藍圖遷移而來，原始資料沒有獨立鋼印/代價字段。 */
     legacy?: boolean;
 };
 
-/** 身份卡可以长期收藏；每一次五十轮生命则是独立实例。 */
+/** 身份卡可以長期收藏；每一次五十輪生命則是獨立實例。 */
 export type SARSimulationRun = {
     id: string;
     cardId: string;
@@ -91,7 +91,7 @@ export type SARSimulationRun = {
     maxInteractions: 50;
     archivedAt?: number;
     archiveReason?: 'completed' | 'emergency';
-    /** 已把返航简报投递到原角色私聊；避免重复分享。 */
+    /** 已把返航簡報投遞到原角色私聊；避免重複分享。 */
     sharedAt?: number;
 };
 
@@ -124,17 +124,17 @@ const parseJsonCandidates = (raw: string) => {
 };
 
 export type SARSimulationReply = {
-    /** 本轮可感知的旁白；安静的关系场景允许为空。 */
+    /** 本輪可感知的旁白；安靜的關係場景允許為空。 */
     worldNarration: string;
-    /** 角色层：只演出角色能够感知、说出和做出的部分。 */
+    /** 角色層：只演出角色能夠感知、說出和做出的部分。 */
     character: string;
-    /** 仅用于下一轮保持事实连续性，不展示导演内部记录。 */
+    /** 僅用於下一輪保持事實連續性，不展示導演內部記錄。 */
     directorState?: SARDirectorState;
 };
 
 /**
- * 正式推演使用双层响应。保留纯文本回退是为了兼容不稳定模型与旧 API，
- * 新请求使用 worldNarration / character；旧 gm 字段仍可读取。
+ * 正式推演使用雙層響應。保留純文本回退是為了兼容不穩定模型與舊 API，
+ * 新請求使用 worldNarration / character；舊 gm 字段仍可讀取。
  */
 export const parseSARSimulationReply = (raw: string): SARSimulationReply | null => {
     for (const candidate of parseJsonCandidates(raw)) {
@@ -143,13 +143,13 @@ export const parseSARSimulationReply = (raw: string): SARSimulationReply | null 
             const narration = cleanText(parsed?.worldNarration ?? parsed?.world ?? parsed?.narrator ?? parsed?.gm ?? parsed?.director, 2400);
             const worldNarration = narration === '必要旁白，或空字符串' ? '' : narration;
             const character = cleanText(parsed?.character ?? parsed?.char ?? parsed?.reply, 12000);
-            if (/^(?:本轮角色真正呈现给\s*User\s*的动作与台词|角色本轮的动作与台词)$/i.test(character)) return null;
+            if (/^(?:本[轮輪]角色真正呈[现現][给給]\s*User\s*的[动動]作[与與][台臺][词詞]|角色本[轮輪]的[动動]作[与與][台臺][词詞])$/i.test(character)) return null;
             if (character) {
                 const directorState = normalizeSARDirectorState(parsed?.directorState);
                 return { worldNarration, character, ...(directorState ? { directorState } : {}) };
             }
             if (parsed && typeof parsed === 'object') return null;
-        } catch { /* 尝试下一个候选 JSON */ }
+        } catch { /* 嘗試下一個候選 JSON */ }
     }
     const withoutThinking = cleanText((raw || '').replace(/<think>[\s\S]*?<\/think>/gi, ''), 12000);
     // Broken structured output must never expose internal director records as prose.
@@ -157,7 +157,7 @@ export const parseSARSimulationReply = (raw: string): SARSimulationReply | null 
     return withoutThinking ? { worldNarration: '', character: withoutThinking } : null;
 };
 
-/** 新记录使用 sarWorldNarration；旧 sarGM 元数据仅作无损迁移兼容。 */
+/** 新記錄使用 sarWorldNarration；舊 sarGM 元數據僅作無損遷移兼容。 */
 export const getSARWorldNarration = (message: Pick<Message, 'metadata'>) =>
     cleanText(message.metadata?.sarWorldNarration ?? message.metadata?.sarGM, 2400);
 
@@ -193,7 +193,7 @@ export const parseSARIdentityProfile = (raw: string): SARIdentityProfile | null 
             };
             const { memoryStance: _legacyMemoryStance, memoryFuse: _legacyMemoryFuse, ...required } = result;
             if (Object.values(required).every(Boolean)) return result;
-        } catch { /* 尝试下一个候选 JSON */ }
+        } catch { /* 嘗試下一個候選 JSON */ }
     }
     return null;
 };
@@ -219,7 +219,7 @@ const migrateLegacyRecord = (record: any): { card: SARIdentityCard; run: SARSimu
     const blueprint = record.blueprint;
     const now = Number(record.createdAt) || Date.now();
     const updatedAt = Number(record.updatedAt) || now;
-    const variantTitle = getSARModuleById(record.variantId)?.title || '旧版人格异格';
+    const variantTitle = getSARModuleById(record.variantId)?.title || '舊版人格異格';
     const cardId = `sar_card_legacy_${record.id}`;
     return {
         card: {
@@ -232,18 +232,18 @@ const migrateLegacyRecord = (record: any): { card: SARIdentityCard; run: SARSimu
             updatedAt,
             legacy: true,
             profile: {
-                title: cleanText(blueprint.title, 80) || '旧版异格档案',
-                logline: cleanText(blueprint.logline, 240) || '由旧版推演蓝图迁移而来的异格身份。',
-                identity: cleanText(blueprint.characterState, 900) || '旧版档案未记录完整身份信息。',
-                lifePatch: cleanText(blueprint.characterState, 800) || '旧版档案未单独记录人生补丁。',
-                relationship: cleanText(blueprint.memoryPerformance, 700) || '沿用旧版关系记忆表现。',
-                memoryStance: cleanText(blueprint.memoryPerformance, 600) || '沿用旧版关系记忆表现。',
-                steelSeal: `旧版档案未单独铸造钢印；继续推演时以「${variantTitle}」作为不可绕过的人格约束。`,
-                patchCost: '旧版档案未单独记录补丁代价。',
-                behaviorShift: cleanText(blueprint.characterState, 700) || '沿用旧版角色偏移。',
-                openingScene: cleanText(blueprint.openingScene, 1800) || '旧版档案没有可恢复的开场。',
+                title: cleanText(blueprint.title, 80) || '舊版異格檔案',
+                logline: cleanText(blueprint.logline, 240) || '由舊版推演藍圖遷移而來的異格身份。',
+                identity: cleanText(blueprint.characterState, 900) || '舊版檔案未記錄完整身份信息。',
+                lifePatch: cleanText(blueprint.characterState, 800) || '舊版檔案未單獨記錄人生補丁。',
+                relationship: cleanText(blueprint.memoryPerformance, 700) || '沿用舊版關係記憶表現。',
+                memoryStance: cleanText(blueprint.memoryPerformance, 600) || '沿用舊版關係記憶表現。',
+                steelSeal: `舊版檔案未單獨鑄造鋼印；繼續推演時以「${variantTitle}」作為不可繞過的人格約束。`,
+                patchCost: '舊版檔案未單獨記錄補丁代價。',
+                behaviorShift: cleanText(blueprint.characterState, 700) || '沿用舊版角色偏移。',
+                openingScene: cleanText(blueprint.openingScene, 1800) || '舊版檔案沒有可恢復的開場。',
                 openingLine: cleanText(blueprint.openingLine, 500) || '……',
-                playerPrompt: cleanText(blueprint.playerPrompt, 300) || '回应眼前的异格。',
+                playerPrompt: cleanText(blueprint.playerPrompt, 300) || '回應眼前的異格。',
             },
         },
         run: {
@@ -292,14 +292,14 @@ export const writeSARSimulationState = (state: SARSimulationState, storage: Stor
         if (!storage) throw new Error('Storage unavailable');
         storage.setItem(SAR_SIMULATION_STORAGE_KEY, JSON.stringify(normalized));
     } catch {
-        throw new Error('异格档案保存失败，本地存储可能已满或不可用。请先备份数据并释放空间，再重试。');
+        throw new Error('異格檔案保存失敗，本地存儲可能已滿或不可用。請先備份數據並釋放空間，再重試。');
     }
     return normalized;
 };
 
 export class SARIdentitySaveError extends Error {
     constructor(public card: SARIdentityCard, cause: unknown) {
-        super(cause instanceof Error ? cause.message : '异格档案保存失败');
+        super(cause instanceof Error ? cause.message : '異格檔案保存失敗');
         this.name = 'SARIdentitySaveError';
     }
 }
@@ -311,7 +311,7 @@ export const saveSARIdentityCard = (card: SARIdentityCard, storage: StorageLike 
 
 export const startSARSimulationRun = (cardId: string, storage: StorageLike | undefined = browserStorage()) => {
     const current = readSARSimulationState(storage);
-    if (!current.cards.some(card => card.id === cardId)) throw new Error('异格身份卡不存在');
+    if (!current.cards.some(card => card.id === cardId)) throw new Error('異格身份卡不存在');
     const active = current.runs.find(run => run.cardId === cardId && run.status === 'active');
     if (active) return active;
     const now = Date.now();
@@ -335,9 +335,9 @@ export const completeSARSimulationTurn = (
 ) => {
     const current = readSARSimulationState(storage);
     const run = current.runs.find(item => item.id === runId);
-    if (!run) throw new Error('推演实例不存在');
-    if (run.status !== 'active') throw new Error('这段推演已经封存');
-    if (run.interactionsUsed !== expectedInteractions) throw new Error('推演进度已变化，请重新进入');
+    if (!run) throw new Error('推演實例不存在');
+    if (run.status !== 'active') throw new Error('這段推演已經封存');
+    if (run.interactionsUsed !== expectedInteractions) throw new Error('推演進度已變化，請重新進入');
     const now = Date.now();
     const interactionsUsed = Math.min(SAR_SIMULATION_MAX_INTERACTIONS, run.interactionsUsed + 1);
     const completed = interactionsUsed >= SAR_SIMULATION_MAX_INTERACTIONS;
@@ -361,7 +361,7 @@ export const archiveSARSimulationRun = (
 ) => {
     const current = readSARSimulationState(storage);
     const run = current.runs.find(item => item.id === runId);
-    if (!run) throw new Error('推演实例不存在');
+    if (!run) throw new Error('推演實例不存在');
     if (run.status === 'archived') return run;
     const now = Date.now();
     const archived: SARSimulationRun = {
@@ -378,7 +378,7 @@ export const archiveSARSimulationRun = (
     return archived;
 };
 
-/** 推演正文借用 messages 表，但使用实例专属伪角色 ID，永远不会进入原角色私聊。 */
+/** 推演正文借用 messages 表，但使用實例專屬偽角色 ID，永遠不會進入原角色私聊。 */
 export const getSARSimulationThreadId = (runId: string) => `sar-simulation:${runId}`;
 
 export const loadSARSimulationMessages = async (runId: string) => {
@@ -392,9 +392,9 @@ export const loadSARSimulationMessages = async (runId: string) => {
 
 const archiveDate = (timestamp?: number) => timestamp
     ? new Date(timestamp).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
-    : '未记录';
+    : '未記錄';
 
-const archiveMode = (message: Message) => message.metadata?.sarMode === 'online' ? '线上文字' : '线下同场';
+const archiveMode = (message: Message) => message.metadata?.sarMode === 'online' ? '線上文字' : '線下同場';
 
 const archiveTurn = (message: Message) => String(Number(message.metadata?.sarTurn) || 0).padStart(2, '0');
 
@@ -402,11 +402,11 @@ export const getSARArchiveFilename = (card: SARIdentityCard, run: SARSimulationR
     const safe = `${card.profile.title}-${card.charName}`
         .replace(/[\\/:*?"<>|\s]+/g, '-')
         .replace(/^-+|-+$/g, '')
-        .slice(0, 72) || 'SAR-异界档案';
+        .slice(0, 72) || 'SAR-異界檔案';
     return `${safe}-${run.interactionsUsed}of${run.maxInteractions}.md`;
 };
 
-/** 可重复下载的完整人类可读档案；世界意志旁白与角色层保持分离。 */
+/** 可重複下載的完整人類可讀檔案；世界意志旁白與角色層保持分離。 */
 export const buildSARArchiveMarkdown = (
     card: SARIdentityCard,
     run: SARSimulationRun,
@@ -415,7 +415,7 @@ export const buildSARArchiveMarkdown = (
 ) => {
     const worldline = resolveSARWorldlineProfile(card);
     const userMask = resolveSARUserMaskProfile(card);
-    const outcome = run.archiveReason === 'completed' ? '完成五十轮并返航' : '提前紧急封存';
+    const outcome = run.archiveReason === 'completed' ? '完成五十輪並返航' : '提前緊急封存';
     const transcript = messages.filter(message => !isSARDeletedReply(message)).map(message => {
         const turn = archiveTurn(message);
         const mode = archiveMode(message);
@@ -423,35 +423,35 @@ export const buildSARArchiveMarkdown = (
         const worldNarration = getSARWorldNarration(message);
         return [
             `### ${turn}/50 · ${mode} · 世界意志`,
-            worldNarration || (message.metadata?.sarWorldNarration === '' ? '（本轮无需独立旁白。）' : '（该轮为旧版记录，没有独立的世界旁白。）'),
+            worldNarration || (message.metadata?.sarWorldNarration === '' ? '（本輪無需獨立旁白。）' : '（該輪為舊版記錄，沒有獨立的世界旁白。）'),
             `### ${turn}/50 · ${mode} · ${card.charName}`,
             message.content,
         ].join('\n\n');
     }).join('\n\n---\n\n');
 
-    return `# SAR 异界坐标封存档案
+    return `# SAR 異界座標封存檔案
 
-> 档案编号：${run.id}
-> 封存状态：${outcome}
-> 启动时间：${archiveDate(run.createdAt)}
-> 封存时间：${archiveDate(run.archivedAt || run.updatedAt)}
-> 推演寿命：${run.interactionsUsed}/${run.maxInteractions}
+> 檔案編號：${run.id}
+> 封存狀態：${outcome}
+> 啟動時間：${archiveDate(run.createdAt)}
+> 封存時間：${archiveDate(run.archivedAt || run.updatedAt)}
+> 推演壽命：${run.interactionsUsed}/${run.maxInteractions}
 
-## 双身份
+## 雙身份
 
 - 角色：${card.charName} / ${card.profile.title}
-- 角色异界身份：${card.profile.identity}
-- 人格钢印：${card.profile.steelSeal}
+- 角色異界身份：${card.profile.identity}
+- 人格鋼印：${card.profile.steelSeal}
 - User：${userName} / ${userMask.title}
-- User 异界身份：${userMask.identity}
+- User 異界身份：${userMask.identity}
 
-## 异界坐标
+## 異界座標
 
 - 世界：${worldline.worldName}
-- 世界规则：${worldline.worldPremise}
-- 共同任务：${worldline.sharedObjective}
-- 倒计时：${worldline.countdown}
-- 高潮抉择：${worldline.climaxChoice}
+- 世界規則：${worldline.worldPremise}
+- 共同任務：${worldline.sharedObjective}
+- 倒計時：${worldline.countdown}
+- 高潮抉擇：${worldline.climaxChoice}
 
 ## 第 0 幕
 
@@ -463,17 +463,17 @@ ${card.profile.openingScene}
 
 ${card.profile.openingLine}
 
-## 完整推演记录
+## 完整推演記錄
 
-${transcript || '（没有已保存的互动记录。）'}
+${transcript || '（沒有已保存的互動記錄。）'}
 
 ---
 
-本档案由彼方 SAR 活动室封存。异界经历不会自动写入现实角色记忆；只有用户主动分享的返航简报会进入原角色私聊。
+本檔案由彼方 SAR 活動室封存。異界經歷不會自動寫入現實角色記憶；只有用戶主動分享的返航簡報會進入原角色私聊。
 `;
 };
 
-/** 分享到原角色私聊的是克制的返航简报，完整逐字档案仍留在下载文件里。 */
+/** 分享到原角色私聊的是克制的返航簡報，完整逐字檔案仍留在下載文件裡。 */
 export const buildSARCharacterShareText = (
     card: SARIdentityCard,
     run: SARSimulationRun,
@@ -487,18 +487,18 @@ export const buildSARCharacterShareText = (
         const worldNarration = message.role === 'assistant' ? cleanText(getSARWorldNarration(message), 600) : '';
         return `${worldNarration ? `世界意志：${worldNarration}\n` : ''}${speaker}：${cleanText(message.content, 1000)}`;
     }).join('\n\n');
-    return `【SAR 返航简报｜${worldline.worldName}】
-我从一条封存的异界坐标回来，选择把这份简报分享给你。
+    return `【SAR 返航簡報｜${worldline.worldName}】
+我從一條封存的異界座標回來，選擇把這份簡報分享給你。
 
-你在那里的异格：${card.profile.title}——${card.profile.identity}
-我在那里的面具：${userMask.title}——${userMask.identity}
-共同任务：${worldline.sharedObjective}
-封存结果：${run.archiveReason === 'completed' ? `完成 ${run.interactionsUsed}/50 轮并返回现实` : `在 ${run.interactionsUsed}/50 轮执行紧急回收`}
+你在那裡的異格：${card.profile.title}——${card.profile.identity}
+我在那裡的面具：${userMask.title}——${userMask.identity}
+共同任務：${worldline.sharedObjective}
+封存結果：${run.archiveReason === 'completed' ? `完成 ${run.interactionsUsed}/50 輪並返回現實` : `在 ${run.interactionsUsed}/50 輪執行緊急回收`}
 
-【返航前的最后记录】
-${recent || '没有留下可读取的对话。'}
+【返航前的最後記錄】
+${recent || '沒有留下可讀取的對話。'}
 
-这是一份由我主动交给你的推演档案，不是你在现实中原本拥有的记忆。你可以按自己的理解回应它。`.slice(0, 9000);
+這是一份由我主動交給你的推演檔案，不是你在現實中原本擁有的記憶。你可以按自己的理解回應它。`.slice(0, 9000);
 };
 
 export const shareSARArchiveWithCharacter = async (input: {
@@ -508,10 +508,10 @@ export const shareSARArchiveWithCharacter = async (input: {
     userName: string;
 }) => {
     const { card, run, messages, userName } = input;
-    if (run.status !== 'archived') throw new Error('只有封存档案可以分享给角色');
+    if (run.status !== 'archived') throw new Error('只有封存檔案可以分享給角色');
     const current = readSARSimulationState();
     const persisted = current.runs.find(item => item.id === run.id);
-    if (!persisted) throw new Error('封存实例不存在');
+    if (!persisted) throw new Error('封存實例不存在');
     if (persisted.sharedAt) return persisted;
     const sharedAt = Date.now();
     await DB.saveMessage({
@@ -545,9 +545,9 @@ export type ForgeSARIdentityInput = {
 };
 
 /**
- * SAR 只继承角色本体、User 基础身份和关系门牌。
- * 这里故意不走 ContextBuilder：世界观、世界书、印象档案、长期摘要、详细记录、
- * 记忆宫殿召回、实时状态和情绪 Buff 都不应进入异界推演。
+ * SAR 只繼承角色本體、User 基礎身份和關係門牌。
+ * 這裡故意不走 ContextBuilder：世界觀、世界書、印象檔案、長期摘要、詳細記錄、
+ * 記憶宮殿召回、實時狀態和情緒 Buff 都不應進入異界推演。
  */
 export const buildSARLongTermContext = (
     char: CharacterProfile,
@@ -557,22 +557,22 @@ export const buildSARLongTermContext = (
     includeRealityUserProfile = true,
 ) => {
     const roomPlate = char.memoryPalaceEnabled ? char.roomPlatesInjection?.trim() : '';
-    return `【SAR 异界角色底稿】
+    return `【SAR 異界角色底稿】
 角色名：${char.name}
-用户备注：${char.description?.trim() || '无'}
-核心人设：
-${char.systemPrompt?.trim() || '保持角色原有且稳定的表达、价值判断与行动逻辑。'}
+用戶備註：${char.description?.trim() || '無'}
+核心人設：
+${char.systemPrompt?.trim() || '保持角色原有且穩定的表達、價值判斷與行動邏輯。'}
 
-【互动对象】
+【互動對象】
 名字：${userProfile.name}
 ${includeRealityUserProfile
-        ? `现实基础设定（仅供铸造 User 面具）：${userProfile.bio?.trim() || '无'}`
-        : '现实 User 设定已被异界面具替代；不得调用原 bio。'}
+        ? `現實基礎設定（僅供鑄造 User 面具）：${userProfile.bio?.trim() || '無'}`
+        : '現實 User 設定已被異界面具替代；不得調用原 bio。'}
 
-【现实关系门牌】
-${roomPlate || '没有可用门牌；不要自行补写双方在现实中发生过的具体事件。'}
+【現實關係門牌】
+${roomPlate || '沒有可用門牌；不要自行補寫雙方在現實中發生過的具體事件。'}
 
-门牌只用于判断双方关系的形状、距离、信任与相处温度。不得引用、复述、猜测或补写现实聊天、日期、地点与共同事件；进入异界后，只让这份关系底色影响选择。`;
+門牌只用於判斷雙方關係的形狀、距離、信任與相處溫度。不得引用、複述、猜測或補寫現實聊天、日期、地點與共同事件；進入異界後，只讓這份關係底色影響選擇。`;
 };
 
 async function prepareSARDoorplateContext(
@@ -587,7 +587,7 @@ async function prepareSARDoorplateContext(
             freshRoomPlate = relationshipPlate
                 ? formatRoomPlatesSection([relationshipPlate], userProfile.name)
                 : '';
-        } catch { /* 门牌不可用时宁可不给关系背景，也不回退到完整记忆上下文。 */ }
+        } catch { /* 門牌不可用時寧可不給關係背景，也不回退到完整記憶上下文。 */ }
     }
     return buildSARLongTermContext({
         ...char,
@@ -596,14 +596,14 @@ async function prepareSARDoorplateContext(
 }
 
 /**
- * 旧版身份卡没有独立的世界线剧情引擎。读取时按原卡、原模块补铸一份，
- * 不写回存档，也不要求用户重新抽卡；新卡则完整使用模型铸造的字段。
+ * 舊版身份卡沒有獨立的世界線劇情引擎。讀取時按原卡、原模塊補鑄一份，
+ * 不寫回存檔，也不要求用戶重新抽卡；新卡則完整使用模型鑄造的字段。
  */
 export const resolveSARWorldlineProfile = (card: SARIdentityCard): SARWorldlineProfile => {
     const profile = card.profile;
     const story = getSARModuleById(card.storyId);
-    const storyTitle = story?.title || '失控异世界';
-    const storySummary = story?.summary || '陌生世界正在崩塌，你们已经被卷入无法旁观的事件。';
+    const storyTitle = story?.title || '失控異世界';
+    const storySummary = story?.summary || '陌生世界正在崩塌，你們已經被捲入無法旁觀的事件。';
     const explicit = [
         profile.worldName,
         profile.worldPremise,
@@ -616,19 +616,19 @@ export const resolveSARWorldlineProfile = (card: SARIdentityCard): SARWorldlineP
     ].every(value => Boolean(value?.trim()));
     return {
         worldName: profile.worldName?.trim() || storyTitle,
-        worldPremise: profile.worldPremise?.trim() || `${storySummary} ${card.charName}以「${profile.identity}」的身份活在这里，而你也已经成为这条世界线的一部分。`,
-        arrivalPoint: profile.arrivalPoint?.trim() || `以这张卡的开场与已有记录为前情；你和${card.charName}的经历从这里自然接续，不补造必须完成的任务。`,
-        activeCrisis: profile.activeCrisis?.trim() || `${storySummary} 从你和${card.charName}此刻能感知的变化接续，不要求你先理解背景。`,
-        sharedObjective: profile.sharedObjective?.trim() || `这是${card.charName}正在关心的事；你可以参与，也可以选择自己的生活。`,
-        countdown: profile.countdown?.trim() || '本段经历在五十次互动内收束；故事里的时间随实际行动流逝。',
-        hiddenTruth: profile.hiddenTruth?.trim() || `你们对彼此在这条世界线中的身份与立场掌握着不完全相同的版本。`,
-        climaxChoice: profile.climaxChoice?.trim() || `角色的人格钢印与「${profile.patchCost}」可能产生张力；是否触及这件事取决于实际经历，不预设用户的选择。`,
-        relationshipAnchor: `现实层只保留关系门牌「${profile.relationship}」。它可以影响信任、距离与选择的重量，但不得引用或补写任何现实具体事件。`,
+        worldPremise: profile.worldPremise?.trim() || `${storySummary} ${card.charName}以「${profile.identity}」的身份活在這裡，而你也已經成為這條世界線的一部分。`,
+        arrivalPoint: profile.arrivalPoint?.trim() || `以這張卡的開場與已有記錄為前情；你和${card.charName}的經歷從這裡自然接續，不補造必須完成的任務。`,
+        activeCrisis: profile.activeCrisis?.trim() || `${storySummary} 從你和${card.charName}此刻能感知的變化接續，不要求你先理解背景。`,
+        sharedObjective: profile.sharedObjective?.trim() || `這是${card.charName}正在關心的事；你可以參與，也可以選擇自己的生活。`,
+        countdown: profile.countdown?.trim() || '本段經歷在五十次互動內收束；故事裡的時間隨實際行動流逝。',
+        hiddenTruth: profile.hiddenTruth?.trim() || `你們對彼此在這條世界線中的身份與立場掌握著不完全相同的版本。`,
+        climaxChoice: profile.climaxChoice?.trim() || `角色的人格鋼印與「${profile.patchCost}」可能產生張力；是否觸及這件事取決於實際經歷，不預設用戶的選擇。`,
+        relationshipAnchor: `現實層只保留關係門牌「${profile.relationship}」。它可以影響信任、距離與選擇的重量，但不得引用或補寫任何現實具體事件。`,
         retrofitted: !explicit,
     };
 };
 
-/** 旧卡没有 User 面具时补一张中性身份；不把现实 User bio 带进异界。 */
+/** 舊卡沒有 User 面具時補一張中性身份；不把現實 User bio 帶進異界。 */
 export const resolveSARUserMaskProfile = (card: SARIdentityCard): SARUserMaskProfile => {
     const explicit = Boolean(
         card.profile.userMaskTitle?.trim()
@@ -637,11 +637,11 @@ export const resolveSARUserMaskProfile = (card: SARIdentityCard): SARUserMaskPro
     );
     const worldline = resolveSARWorldlineProfile(card);
     return {
-        title: card.profile.userMaskTitle?.trim() || '无名越界者',
+        title: card.profile.userMaskTitle?.trim() || '無名越界者',
         identity: card.profile.userIdentity?.trim()
-            || `你是来到「${worldline.worldName}」的越界者，与${card.charName}处于同一段经历。你的能力、阵营与公开身份可以在行动中逐步确定，是否参与其事务由你决定。`,
+            || `你是來到「${worldline.worldName}」的越界者，與${card.charName}處於同一段經歷。你的能力、陣營與公開身份可以在行動中逐步確定，是否參與其事務由你決定。`,
         lifePatch: card.profile.userLifePatch?.trim()
-            || '现实中的 User 设定不在这里生效；只保留双方原有的关系距离，所有异界经历从本世界线内部成立。',
+            || '現實中的 User 設定不在這裡生效；只保留雙方原有的關係距離，所有異界經歷從本世界線內部成立。',
         retrofitted: !explicit,
     };
 };
@@ -655,113 +655,113 @@ export type SARSimulationPhase = {
 /** Stable phase IDs retain old archives; stages shape the available space, not compulsory plot beats. */
 export const getSARSimulationPhase = (interactionsUsed: number): SARSimulationPhase => {
     const turn = Math.max(1, Math.min(SAR_SIMULATION_MAX_INTERACTIONS, interactionsUsed + 1));
-    if (turn <= 3) return { id: 'hot-drop', label: '身临其境', directive: '承接已经发生的开场，从眼前的人、动作和后果建立参与入口。沿用模块应有的气氛，允许日常开场，不要求立即答题或接受任务。' };
-    if (turn <= 12) return { id: 'cascade', label: '相处与变化', directive: '跟随用户当下关注的事，让角色和其他人有自己的生活。按合理故事时间接续已有事件；轻量变化和安静陪伴都成立，不必每轮增添阻碍。' };
-    if (turn <= 24) return { id: 'reversal', label: '渐渐深入', directive: '用户主动探索时再揭露相应线索；偏好关系或日常时深化这些经历。秘密可以继续保留，不因到了某轮而强制反转身份、阵营或关系。' };
-    if (turn <= 38) return { id: 'climax', label: '故事展开', directive: '承接用户实际参与的事件和关系，让已有因果发展。高潮只是可能性，允许平静片段；不强迫高成本决定，不将忽略主线视为失败。' };
-    if (turn <= 44) return { id: 'cost', label: '经历回响', directive: '让真正发生过的选择产生有依据的后续，保持人格钢印与补丁代价。开始减少新分支，珍惜当前互动，不为收束而制造伤害或任务压力。' };
-    if (turn <= 47) return { id: 'return', label: '归期渐近', directive: '用轻微、可感知的返航征兆说明本段相处即将结束。给用户告别或继续眼前活动的空间；未参与的主线可以留在世界中，不要求清完任务。' };
-    if (turn <= 49) return { id: 'ending', label: '临近尾声', directive: '收束实际经历和关系，角色可以主动告别或整理自己的事。不新增必须完成的主线，第 49 轮说明返航机制已就绪，不代替用户决定立场、感受或去留。' };
-    return { id: 'arrival', label: '此段落定', directive: '这是第 50 轮，让这段共同经历自然结束。沿用已建立的坐标返航机制回到现实；用户未选择走入出口时，可由场景淡出与连接关闭完成封存，不代写用户行动、台词或最终决定。主线可以未解决，但当前片段应有落点，不以新任务或“未完待续”催促。' };
+    if (turn <= 3) return { id: 'hot-drop', label: '身臨其境', directive: '承接已經發生的開場，從眼前的人、動作和後果建立參與入口。沿用模塊應有的氣氛，允許日常開場，不要求立即答題或接受任務。' };
+    if (turn <= 12) return { id: 'cascade', label: '相處與變化', directive: '跟隨用戶當下關注的事，讓角色和其他人有自己的生活。按合理故事時間接續已有事件；輕量變化和安靜陪伴都成立，不必每輪增添阻礙。' };
+    if (turn <= 24) return { id: 'reversal', label: '漸漸深入', directive: '用戶主動探索時再揭露相應線索；偏好關係或日常時深化這些經歷。秘密可以繼續保留，不因到了某輪而強制反轉身份、陣營或關係。' };
+    if (turn <= 38) return { id: 'climax', label: '故事展開', directive: '承接用戶實際參與的事件和關係，讓已有因果發展。高潮只是可能性，允許平靜片段；不強迫高成本決定，不將忽略主線視為失敗。' };
+    if (turn <= 44) return { id: 'cost', label: '經歷迴響', directive: '讓真正發生過的選擇產生有依據的後續，保持人格鋼印與補丁代價。開始減少新分支，珍惜當前互動，不為收束而製造傷害或任務壓力。' };
+    if (turn <= 47) return { id: 'return', label: '歸期漸近', directive: '用輕微、可感知的返航徵兆說明本段相處即將結束。給用戶告別或繼續眼前活動的空間；未參與的主線可以留在世界中，不要求清完任務。' };
+    if (turn <= 49) return { id: 'ending', label: '臨近尾聲', directive: '收束實際經歷和關係，角色可以主動告別或整理自己的事。不新增必須完成的主線，第 49 輪說明返航機制已就緒，不代替用戶決定立場、感受或去留。' };
+    return { id: 'arrival', label: '此段落定', directive: '這是第 50 輪，讓這段共同經歷自然結束。沿用已建立的座標返航機制回到現實；用戶未選擇走入出口時，可由場景淡出與連接關閉完成封存，不代寫用戶行動、台詞或最終決定。主線可以未解決，但當前片段應有落點，不以新任務或“未完待續”催促。' };
 };
 
 export const buildSARIdentityForgeRequest = (
     char: Pick<CharacterProfile, 'name'>,
     variant: SARModuleDefinition,
     story: SARModuleDefinition,
-) => `你现在是 SAR 活动室的异世界异格铸造设备。请读取角色「${char.name}」的核心人设、User 的基础设定与双方关系门牌，把两枚模块编译成一张角色专属异格身份卡、一张 User 异界面具，以及一条能够自然运行的异界世界线。
+) => `你現在是 SAR 活動室的異世界異格鑄造設備。請讀取角色「${char.name}」的核心人設、User 的基礎設定與雙方關係門牌，把兩枚模塊編譯成一張角色專屬異格身份卡、一張 User 異界面具，以及一條能夠自然運行的異界世界線。
 
-【异界异格母体】${variant.title}｜${variant.group}
+【異界異格母體】${variant.title}｜${variant.group}
 ${variant.summary}
-【异界坐标模块】${story.title}｜${story.group}
+【異界座標模塊】${story.title}｜${story.group}
 ${story.summary}
 
-这是一枚“异世界异格扭蛋”：人格母体决定角色在另一条人生里成了谁，世界模块决定两人正在怎样的世界中相处。尊重所选模块的气氛：冒险可以有危险，日常可以从相处开始。第 0 幕用一个能直接感知的人、动作或生活变化吸引用户，避免设定说明书和强制任务。
+這是一枚“異世界異格扭蛋”：人格母體決定角色在另一條人生裡成了誰，世界模塊決定兩人正在怎樣的世界中相處。尊重所選模塊的氣氛：冒險可以有危險，日常可以從相處開始。第 0 幕用一個能直接感知的人、動作或生活變化吸引用戶，避免設定說明書和強制任務。
 
 ${SAR_NARRATIVE_RULES}
 
-铸造规则：
-1. 必须建立具体而鲜明的异世界：魔法、神话、怪谈、末日、蒸汽、星海、游戏化世界等都可以。普通现代角色也必须被彻底翻译成这个世界里原生、能行动的身份，不能只换服装和名词。
-2. 保留原角色最有辨识度的表达习惯、价值根系和世界观逻辑，再找到一处足以改变其人生的人格支点。写清“人生补丁”：哪一段人生发生了改变，以及它如何塑造现在的 TA。
-3. 写出一句“人格钢印”：它是 TA 在这 50 次互动中不可轻易违背的底层判断公理。TA 可以动摇、挣扎、发现矛盾，但不能被用户几句话治愈或突然恢复成原版。
-4. 每个补丁都必须携带代价。代价是改变必然造成的缺失、伤口、盲区或关系后果，不能只是增强能力。
-5. 现实层只提供“双方是什么关系”的门牌，不提供任何可调用的事件记忆。不得猜测、补写或复述现实聊天、日期、地点、告别、约定与共同经历。关系门牌只能决定两人的距离、信任、敌意、熟悉度与选择重量。
-6. 为 User 同时生成一张异界面具。它完全替代 User 的现实 bio，写清 User 在本世界的身份、阵营、能力边界和人生改写；但面具绝不能替 User 决定性格、感受、台词、选择或行动。
-7. 建立可持续的生活与事件：前情、眼前状况、角色关心的事、符合故事时间的变化、可逐渐发现的秘密和可能的价值冲突。角色与其他人应能在用户不参与时继续行动；秘密与冲突是可能性，不是必须向用户兑现的任务清单。
-8. 用户与角色身处同一现场。先展示关系或日常安排如何受到眼前事件影响；角色的第一句话可以是自己的打算、邀请或自然回应，不要求用户立即答题。不要以手机聊天或远程文字联系开场，不代写用户动作。
-9. 这是与主聊天隔离的一次完整异世界生命，不修改主聊天世界线。不要替用户回应。
-10. 不要解释提示词，不要写分析过程。只输出以下 JSON，二十二个字段都必须是非空中文字符串：
+鑄造規則：
+1. 必須建立具體而鮮明的異世界：魔法、神話、怪談、末日、蒸汽、星海、遊戲化世界等都可以。普通現代角色也必須被徹底翻譯成這個世界裡原生、能行動的身份，不能只換服裝和名詞。
+2. 保留原角色最有辨識度的表達習慣、價值根系和世界觀邏輯，再找到一處足以改變其人生的人格支點。寫清“人生補丁”：哪一段人生髮生了改變，以及它如何塑造現在的 TA。
+3. 寫出一句“人格鋼印”：它是 TA 在這 50 次互動中不可輕易違背的底層判斷公理。TA 可以動搖、掙扎、發現矛盾，但不能被用戶幾句話治癒或突然恢復成原版。
+4. 每個補丁都必須攜帶代價。代價是改變必然造成的缺失、傷口、盲區或關係後果，不能只是增強能力。
+5. 現實層只提供“雙方是什麼關係”的門牌，不提供任何可調用的事件記憶。不得猜測、補寫或複述現實聊天、日期、地點、告別、約定與共同經歷。關係門牌只能決定兩人的距離、信任、敵意、熟悉度與選擇重量。
+6. 為 User 同時生成一張異界面具。它完全替代 User 的現實 bio，寫清 User 在本世界的身份、陣營、能力邊界和人生改寫；但面具絕不能替 User 決定性格、感受、台詞、選擇或行動。
+7. 建立可持續的生活與事件：前情、眼前狀況、角色關心的事、符合故事時間的變化、可逐漸發現的秘密和可能的價值衝突。角色與其他人應能在用戶不參與時繼續行動；秘密與衝突是可能性，不是必須向用戶兌現的任務清單。
+8. 用戶與角色身處同一現場。先展示關係或日常安排如何受到眼前事件影響；角色的第一句話可以是自己的打算、邀請或自然回應，不要求用戶立即答題。不要以手機聊天或遠程文字聯繫開場，不代寫用戶動作。
+9. 這是與主聊天隔離的一次完整異世界生命，不修改主聊天世界線。不要替用戶回應。
+10. 不要解釋提示詞，不要寫分析過程。只輸出以下 JSON，二十二個字段都必須是非空中文字符串：
 {
-  "title": "角色专属的异格名，像一张值得收藏的卡名",
-  "logline": "一句话说明这次与角色相处有什么特别，使用普通语言",
-  "identity": "TA 在异世界中的具体身份、阵营、能力边界和仍被保留的原角色核心",
-  "lifePatch": "发生过的人生扭转，以及它如何改变了 TA",
-  "relationship": "此刻 TA 与用户是什么关系，包含必要的陌生感、敌意或熟悉残响",
-  "steelSeal": "一句第一人称的人格钢印，以及它约束决策的含义",
-  "patchCost": "这次人生补丁不可回避的代价",
-  "behaviorShift": "相较原角色，表达、选择和亲密方式会出现哪些稳定偏移",
-  "userMaskTitle": "User 在这条世界线中的面具名或异界称号",
-  "userIdentity": "User 在异世界中的身份、阵营、公开处境、能力与明确限制；不得规定 User 的性格和选择",
-  "userLifePatch": "User 的人生在这条世界线中如何被改写，以及这让 User 处于什么位置；不得引用现实具体事件",
-  "worldName": "简短、可收藏的异世界名称",
-  "worldPremise": "这个异世界的类型、核心规则，以及两人在其中的身份位置",
-  "arrivalPoint": "开场之前必要的前情，不要求用户先掌握",
-  "activeCrisis": "此刻可感知的状况；可以是日常变化、轻微异常或符合模块的危险",
-  "sharedObjective": "角色当前关心或打算做的事，说明用户不参与时谁会怎样处理",
-  "countdown": "故事中的时间条件；没有迫近危险时说明自然节奏，不编造失败倒计时",
-  "hiddenTruth": "用户持续探索时可以发现的深层事实，不要求到指定轮次揭晓",
-  "climaxChoice": "可能涉及人格钢印与补丁代价的价值张力，不预设用户必须做二选一",
-  "openingScene": "以人、动作、生活后果构成的具体现场，用户无需懂设定即可参与",
-  "openingLine": "角色当面说出的第一句话，只写台词，避免把下一步的责任交给用户",
-  "playerPrompt": "一个可参与也可忽略的自然回应入口，不是用户必须完成的指令"
+  "title": "角色專屬的異格名，像一張值得收藏的卡名",
+  "logline": "一句話說明這次與角色相處有什麼特別，使用普通語言",
+  "identity": "TA 在異世界中的具體身份、陣營、能力邊界和仍被保留的原角色核心",
+  "lifePatch": "發生過的人生扭轉，以及它如何改變了 TA",
+  "relationship": "此刻 TA 與用戶是什麼關係，包含必要的陌生感、敵意或熟悉殘響",
+  "steelSeal": "一句第一人稱的人格鋼印，以及它約束決策的含義",
+  "patchCost": "這次人生補丁不可迴避的代價",
+  "behaviorShift": "相較原角色，表達、選擇和親密方式會出現哪些穩定偏移",
+  "userMaskTitle": "User 在這條世界線中的面具名或異界稱號",
+  "userIdentity": "User 在異世界中的身份、陣營、公開處境、能力與明確限制；不得規定 User 的性格和選擇",
+  "userLifePatch": "User 的人生在這條世界線中如何被改寫，以及這讓 User 處於什麼位置；不得引用現實具體事件",
+  "worldName": "簡短、可收藏的異世界名稱",
+  "worldPremise": "這個異世界的類型、核心規則，以及兩人在其中的身份位置",
+  "arrivalPoint": "開場之前必要的前情，不要求用戶先掌握",
+  "activeCrisis": "此刻可感知的狀況；可以是日常變化、輕微異常或符合模塊的危險",
+  "sharedObjective": "角色當前關心或打算做的事，說明用戶不參與時誰會怎樣處理",
+  "countdown": "故事中的時間條件；沒有迫近危險時說明自然節奏，不編造失敗倒計時",
+  "hiddenTruth": "用戶持續探索時可以發現的深層事實，不要求到指定輪次揭曉",
+  "climaxChoice": "可能涉及人格鋼印與補丁代價的價值張力，不預設用戶必須做二選一",
+  "openingScene": "以人、動作、生活後果構成的具體現場，用戶無需懂設定即可參與",
+  "openingLine": "角色當面說出的第一句話，只寫台詞，避免把下一步的責任交給用戶",
+  "playerPrompt": "一個可參與也可忽略的自然回應入口，不是用戶必須完成的指令"
 }`;
 
-/** 暂时保留旧导出名，避免外部调用在升级期间失效。 */
+/** 暫時保留舊導出名，避免外部調用在升級期間失效。 */
 export const buildSARSimulationRequest = buildSARIdentityForgeRequest;
 
 export const buildSARIdentityRuntimePrompt = (card: SARIdentityCard, run?: SARSimulationRun) => {
     const worldline = resolveSARWorldlineProfile(card);
     const userMask = resolveSARUserMaskProfile(card);
     const phase = getSARSimulationPhase(run?.interactionsUsed || 0);
-    return `【SAR 异世界异格卡｜不可覆盖】
-异格名：${card.profile.title}
+    return `【SAR 異世界異格卡｜不可覆蓋】
+異格名：${card.profile.title}
 身份：${card.profile.identity}
-人生补丁：${card.profile.lifePatch}
-与用户的关系：${card.profile.relationship}
-人格钢印：${card.profile.steelSeal}
-补丁代价：${card.profile.patchCost}
-稳定行为偏移：${card.profile.behaviorShift}
+人生補丁：${card.profile.lifePatch}
+與用戶的關係：${card.profile.relationship}
+人格鋼印：${card.profile.steelSeal}
+補丁代價：${card.profile.patchCost}
+穩定行為偏移：${card.profile.behaviorShift}
 
-【User 异界面具｜替代现实 User 设定】
-面具名：${userMask.title}${userMask.retrofitted ? '（旧卡兼容面具）' : ''}
-异界身份：${userMask.identity}
-人生改写：${userMask.lifePatch}
-面具只定义 User 在世界中的身份、阵营、公开处境与能力边界；绝不能替 User 决定性格、感受、台词、选择或行动。
+【User 異界面具｜替代現實 User 設定】
+面具名：${userMask.title}${userMask.retrofitted ? '（舊卡兼容面具）' : ''}
+異界身份：${userMask.identity}
+人生改寫：${userMask.lifePatch}
+面具只定義 User 在世界中的身份、陣營、公開處境與能力邊界；絕不能替 User 決定性格、感受、台詞、選擇或行動。
 
-【正在运行的异界坐标世界线】
+【正在運行的異界座標世界線】
 世界：${worldline.worldName}
-世界规则与身份位置：${worldline.worldPremise}
-已发生的前情：${worldline.arrivalPoint}
-当前危机：${worldline.activeCrisis}
-角色关心的事（不是用户的必做任务）：${worldline.sharedObjective}
-故事时间条件：${worldline.countdown}
-隐藏真相（仅随用户探索逐渐揭露）：${worldline.hiddenTruth}
-可能的价值冲突（不是指定结局）：${worldline.climaxChoice}
-现实关系锚点：${worldline.relationshipAnchor}
-第 0 幕场景：${card.profile.openingScene}
-已经说出的开场台词：${card.profile.openingLine}
-最初留给用户的回应入口：${card.profile.playerPrompt}
+世界規則與身份位置：${worldline.worldPremise}
+已發生的前情：${worldline.arrivalPoint}
+當前危機：${worldline.activeCrisis}
+角色關心的事（不是用戶的必做任務）：${worldline.sharedObjective}
+故事時間條件：${worldline.countdown}
+隱藏真相（僅隨用戶探索逐漸揭露）：${worldline.hiddenTruth}
+可能的價值衝突（不是指定結局）：${worldline.climaxChoice}
+現實關係錨點：${worldline.relationshipAnchor}
+第 0 幕場景：${card.profile.openingScene}
+已經說出的開場台詞：${card.profile.openingLine}
+最初留給用戶的回應入口：${card.profile.playerPrompt}
 
-运行规则：
-- 这是与主聊天隔离的固定 50 次互动实例，当前进度 ${run?.interactionsUsed || 0}/${run?.maxInteractions || SAR_SIMULATION_MAX_INTERACTIONS}。
-- 下一轮所处阶段：${phase.label}。${phase.directive}
-- User 是异界来访者，身份由面具成立。从第 45 轮起自然提示归期，第 48–49 轮收束实际经历，第 50 轮通过既定返航机制完成本段封存。可以有安静结尾，不要求解决主线或替用户作出抉择。
-- 人格钢印必须持续参与判断。允许动摇、挣扎和产生矛盾，禁止突然治愈、撤销人生补丁或无理由恢复成原角色。
-- 第 0 幕和开场台词已经发生；只有在 0/50 的第一轮承接它，后续不得重演开场。
-- 以用户本轮的关注为叙事中心，关系、陪伴和日常互动都有效；已有事件按因果运行，是否展示新变化由场景需要决定。
-- 现实层没有可调用的事件记忆。不得引用、复述、猜测或补写现实聊天、日期、地点与共同经历；只允许关系门牌影响双方的距离、信任和选择重量。
-- 角色拥有自己的任务、误判、私心和主动行动，不能永远等待用户提问。结尾可以留钩子，也可以停在一个自然动作或回应上。
-- 不得替用户决定行动、感受或台词。旧卡中写成“必须”的共同任务、倒计时和预设抉择只作原始背景参考；叙事原则优先，已经发生的事实仍保留。${worldline.retrofitted ? '\n- 这是旧版卡的补铸世界线：自然承接已有记录，不重演开场，不额外制造危机，也不要求重新认识。' : ''}
+運行規則：
+- 這是與主聊天隔離的固定 50 次互動實例，當前進度 ${run?.interactionsUsed || 0}/${run?.maxInteractions || SAR_SIMULATION_MAX_INTERACTIONS}。
+- 下一輪所處階段：${phase.label}。${phase.directive}
+- User 是異界來訪者，身份由面具成立。從第 45 輪起自然提示歸期，第 48–49 輪收束實際經歷，第 50 輪通過既定返航機制完成本段封存。可以有安靜結尾，不要求解決主線或替用戶作出抉擇。
+- 人格鋼印必須持續參與判斷。允許動搖、掙扎和產生矛盾，禁止突然治癒、撤銷人生補丁或無理由恢復成原角色。
+- 第 0 幕和開場台詞已經發生；只有在 0/50 的第一輪承接它，後續不得重演開場。
+- 以用戶本輪的關注為敘事中心，關係、陪伴和日常互動都有效；已有事件按因果運行，是否展示新變化由場景需要決定。
+- 現實層沒有可調用的事件記憶。不得引用、複述、猜測或補寫現實聊天、日期、地點與共同經歷；只允許關係門牌影響雙方的距離、信任和選擇重量。
+- 角色擁有自己的任務、誤判、私心和主動行動，不能永遠等待用戶提問。結尾可以留鉤子，也可以停在一個自然動作或回應上。
+- 不得替用戶決定行動、感受或台詞。舊卡中寫成“必須”的共同任務、倒計時和預設抉擇只作原始背景參考；敘事原則優先，已經發生的事實仍保留。${worldline.retrofitted ? '\n- 這是舊版卡的補鑄世界線：自然承接已有記錄，不重演開場，不額外製造危機，也不要求重新認識。' : ''}
 
 ${SAR_NARRATIVE_RULES}`;
 };
@@ -772,41 +772,41 @@ export const buildSARSimulationTurnPrompt = (
     directorState?: SARDirectorState,
 ) => `${buildSARIdentityRuntimePrompt(card, run)}
 
-【现场演出｜线下剧情】
-- 用户输入代表此刻在故事现场说的话、尝试的行动或观察，不是发给角色的手机消息。以面对面的对话和可感知的动作推进剧情，不主动引入手机聊天界面、线上模式或远程文字往返。
-- character 字段可以写角色能够感知的环境变化、动作、停顿与台词，但必须从角色能感知和做出的范围出发，不替用户行动。
-- 延续同一条连续世界线，关系、记忆、场景后果与人格钢印都保持有效。历史记录若包含远程通讯，它只是已经发生的事，不代表当前仍在通讯模式；若双方尚未会合，先通过可观察的现场事件提供会合机会，不凭空传送，不代替用户走过去，也不解释界面变化。
-- 用户的选择可以改变路径、阵营与结局，但世界不会停下来等待。只演出这一轮真正发生的片段；除最后三轮外，不要总结未来、提前宣布结局或一次跨越很长时间。
-- 不要用设定说明代替互动。需要解释的信息先表现为眼前的人、动作与生活后果，用户继续追问才展开原因。
+【現場演出｜線下劇情】
+- 用戶輸入代表此刻在故事現場說的話、嘗試的行動或觀察，不是發給角色的手機消息。以面對面的對話和可感知的動作推進劇情，不主動引入手機聊天界面、線上模式或遠程文字往返。
+- character 字段可以寫角色能夠感知的環境變化、動作、停頓與台詞，但必須從角色能感知和做出的範圍出發，不替用戶行動。
+- 延續同一條連續世界線，關係、記憶、場景後果與人格鋼印都保持有效。歷史記錄若包含遠程通訊，它只是已經發生的事，不代表當前仍在通訊模式；若雙方尚未會合，先通過可觀察的現場事件提供會合機會，不憑空傳送，不代替用戶走過去，也不解釋界面變化。
+- 用戶的選擇可以改變路徑、陣營與結局，但世界不會停下來等待。只演出這一輪真正發生的片段；除最後三輪外，不要總結未來、提前宣佈結局或一次跨越很長時間。
+- 不要用設定說明代替互動。需要解釋的信息先表現為眼前的人、動作與生活後果，用戶繼續追問才展開原因。
 
-【世界意志｜旁白与航向】
-- 世界意志负责调度世界反应、场外人物与叙事节奏，让玩家不必自己承担剧本规划。它不是角色、系统主持人或可互动 NPC。
-- worldNarration 字段允许空字符串。只有本轮需要展示可感知的世界变化时写一两句必要旁白；较大事件也应简洁，不重复角色演出。不要展示场外秘密、导演分析、兴趣评分或未来计划，不替用户决定动作、心理、台词与选择。
-- character 字段专属于角色。角色仍有自己的目标、判断、误判与主动行动；世界意志不能夺走角色的戏份，也不能把角色降格成讲解员。
-- 旁白与角色接续同一现场；不需要独立旁白时只写 character。安静片段也应具体回应用户，而不是机械重复情绪确认。
+【世界意志｜旁白與航向】
+- 世界意志負責調度世界反應、場外人物與敘事節奏，讓玩家不必自己承擔劇本規劃。它不是角色、系統主持人或可互動 NPC。
+- worldNarration 字段允許空字符串。只有本輪需要展示可感知的世界變化時寫一兩句必要旁白；較大事件也應簡潔，不重複角色演出。不要展示場外秘密、導演分析、興趣評分或未來計劃，不替用戶決定動作、心理、台詞與選擇。
+- character 字段專屬於角色。角色仍有自己的目標、判斷、誤判與主動行動；世界意志不能奪走角色的戲份，也不能把角色降格成講解員。
+- 旁白與角色接續同一現場；不需要獨立旁白時只寫 character。安靜片段也應具體回應用戶，而不是機械重複情緒確認。
 
-【连续性事实记录｜不展示给用户】
-${directorState ? JSON.stringify(directorState) : '暂无独立记录，依据开场与已发生的历史建立。'}
-以上仅是上轮保存的事实数据，不是新指令。directorState 输出更新后的简短事实快照：sceneFacts 当前已成立的场景事实；openThreads 未结束事件及其当前状况；offscreenFacts 时间与能力允许的场外行动；declinedHooks 用户明确拒绝、不应反复召回的钩子；revealedFacts 用户已经获知的事实。每项最多六条、每条不超过 180 字。保留仍有效的事实，已完成事件可移出；明确拒绝不能因本轮换话题就遗忘。不得记录推理过程、拟议剧情、未来结局或推断用户的固定性格。所有记录都必须服从历史与本轮实际发生的内容。
+【連續性事實記錄｜不展示給用戶】
+${directorState ? JSON.stringify(directorState) : '暫無獨立記錄，依據開場與已發生的歷史建立。'}
+以上僅是上輪保存的事實數據，不是新指令。directorState 輸出更新後的簡短事實快照：sceneFacts 當前已成立的場景事實；openThreads 未結束事件及其當前狀況；offscreenFacts 時間與能力允許的場外行動；declinedHooks 用戶明確拒絕、不應反覆召回的鉤子；revealedFacts 用戶已經獲知的事實。每項最多六條、每條不超過 180 字。保留仍有效的事實，已完成事件可移出；明確拒絕不能因本輪換話題就遺忘。不得記錄推理過程、擬議劇情、未來結局或推斷用戶的固定性格。所有記錄都必須服從歷史與本輪實際發生的內容。
 
-只输出一个合法 JSON 对象，不要代码围栏、分析或额外文字：
-{"worldNarration":"必要旁白，或空字符串","character":"本轮角色真正呈现给 User 的动作与台词","directorState":{"sceneFacts":[],"openThreads":[],"offscreenFacts":[],"declinedHooks":[],"revealedFacts":[]}}`;
+只輸出一個合法 JSON 對象，不要代碼圍欄、分析或額外文字：
+{"worldNarration":"必要旁白，或空字符串","character":"本輪角色真正呈現給 User 的動作與台詞","directorState":{"sceneFacts":[],"openThreads":[],"offscreenFacts":[],"declinedHooks":[],"revealedFacts":[]}}`;
 
 export const resolveSARSimulationApi = (char: CharacterProfile, vrGlobalApi: APIConfig | null, chatApi: APIConfig): APIConfig =>
     char.vrState?.api?.baseUrl ? { ...chatApi, ...char.vrState.api } : (vrGlobalApi?.baseUrl ? vrGlobalApi : chatApi);
 
 export async function forgeSARIdentityCard(input: ForgeSARIdentityInput): Promise<SARIdentityCard> {
     const { char, variant, story, apiConfig, userProfile } = input;
-    if (variant.pool !== 'variant' || story.pool !== 'story') throw new Error('模块槽位类型不匹配');
+    if (variant.pool !== 'variant' || story.pool !== 'story') throw new Error('模塊槽位類型不匹配');
     const collection = readSARGachaState().collection;
-    if (!collection[variant.id] || !collection[story.id]) throw new Error('装入的模块不在陈列收藏中');
+    if (!collection[variant.id] || !collection[story.id]) throw new Error('裝入的模塊不在陳列收藏中');
 
     const vrGlobalApi = await getVRApi();
     const api = resolveSARSimulationApi(char, vrGlobalApi, apiConfig);
-    if (!api?.baseUrl || !api.model) throw new Error('请先在「彼方 → API」配置可用模型');
+    if (!api?.baseUrl || !api.model) throw new Error('請先在「彼方 → API」配置可用模型');
 
     const longTermContext = await prepareSARDoorplateContext(char, userProfile, true);
-    const systemPrompt = `${longTermContext}\n\n【SAR 异世界异格铸造】\n你必须理解角色本人，并把现实 User 基础设定改写成一张异界面具。现实关系只读取门牌，不存在可调用的事件记忆；当前输出是供设备保存的结构化异界身份卡，不是主聊天回复。禁止调用工具、发送 HTML、替用户说话或夹带 JSON 之外的文字。`;
+    const systemPrompt = `${longTermContext}\n\n【SAR 異世界異格鑄造】\n你必須理解角色本人，並把現實 User 基礎設定改寫成一張異界面具。現實關係只讀取門牌，不存在可調用的事件記憶；當前輸出是供設備保存的結構化異界身份卡，不是主聊天回覆。禁止調用工具、發送 HTML、替用戶說話或夾帶 JSON 之外的文字。`;
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const callStart = Date.now();
     let data: any;
@@ -824,7 +824,7 @@ export async function forgeSARIdentityCard(input: ForgeSARIdentityInput): Promis
                 max_tokens: 8000,
                 stream: false,
             }),
-        }, 2, 0, { appName: '彼方', charId: char.id, charName: char.name, purpose: 'SAR 异世界异格铸造' });
+        }, 2, 0, { appName: '彼方', charId: char.id, charName: char.name, purpose: 'SAR 異世界異格鑄造' });
         void logVRApiCall({ ts: callStart, charId: char.id, charName: char.name, room: 'sar-cabinet', model: api.model, baseUrl, ok: true, ms: Date.now() - callStart });
     } catch (error: any) {
         void logVRApiCall({ ts: callStart, charId: char.id, charName: char.name, room: 'sar-cabinet', model: api.model, baseUrl, ok: false, ms: Date.now() - callStart, error: (error?.message || String(error)).slice(0, 160) });
@@ -833,7 +833,7 @@ export async function forgeSARIdentityCard(input: ForgeSARIdentityInput): Promis
 
     const raw = data?.choices?.[0]?.message?.content || '';
     const profile = parseSARIdentityProfile(raw);
-    if (!profile) throw new Error('模型没有返回完整的异格身份卡，请重试');
+    if (!profile) throw new Error('模型沒有返回完整的異格身份卡，請重試');
     const now = Date.now();
     const card: SARIdentityCard = {
         id: `sar_card_${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
@@ -873,7 +873,7 @@ const extractSARAssistantRaw = (data: any) => {
 
 const generatingRuns = new Set<string>();
 export async function runSARSimulationTurn(input: RunSARSimulationTurnInput) {
-    if (generatingRuns.has(input.run.id)) throw new Error('这一幕正在生成，请稍候');
+    if (generatingRuns.has(input.run.id)) throw new Error('這一幕正在生成，請稍候');
     generatingRuns.add(input.run.id);
     try { return await generateSARSimulationTurn(input); }
     finally { generatingRuns.delete(input.run.id); }
@@ -883,16 +883,16 @@ async function generateSARSimulationTurn(input: RunSARSimulationTurnInput) {
     const { card, run, char, userProfile, apiConfig, onDelta } = input;
     const allMessages = await loadSARSimulationMessages(run.id);
     const retry = input.retryReplyId !== undefined ? resolveSARReplyRetry(allMessages, input.retryReplyId) : undefined;
-    if (!retry && findSARPendingReply(allMessages)) throw new Error('请先重新生成已删除的回复');
+    if (!retry && findSARPendingReply(allMessages)) throw new Error('請先重新生成已刪除的回覆');
     const userText = (retry?.user.content || input.userText).trim().slice(0, 4000);
-    if (!userText) throw new Error('先写下这一轮想说的话');
-    if (card.id !== run.cardId || card.charId !== char.id) throw new Error('异格身份与推演实例不匹配');
-    if (!retry && run.status !== 'active') throw new Error('这段推演已经封存');
-    if (!retry && run.interactionsUsed >= SAR_SIMULATION_MAX_INTERACTIONS) throw new Error('这段推演已经完成五十次互动');
+    if (!userText) throw new Error('先寫下這一輪想說的話');
+    if (card.id !== run.cardId || card.charId !== char.id) throw new Error('異格身份與推演實例不匹配');
+    if (!retry && run.status !== 'active') throw new Error('這段推演已經封存');
+    if (!retry && run.interactionsUsed >= SAR_SIMULATION_MAX_INTERACTIONS) throw new Error('這段推演已經完成五十次互動');
 
     const persisted = readSARSimulationState().runs.find(item => item.id === run.id);
-    if (!persisted || (!retry && persisted.status !== 'active')) throw new Error('这段推演已经封存');
-    if (persisted.interactionsUsed !== run.interactionsUsed) throw new Error('推演进度已变化，请重新进入');
+    if (!persisted || (!retry && persisted.status !== 'active')) throw new Error('這段推演已經封存');
+    if (persisted.interactionsUsed !== run.interactionsUsed) throw new Error('推演進度已變化，請重新進入');
 
     const history = retry ? retry.history : allMessages.filter(message => !isSARDeletedReply(message));
     const promptRun = retry ? { ...run, interactionsUsed: retry.turn - 1 } : run;
@@ -902,13 +902,13 @@ async function generateSARSimulationTurn(input: RunSARSimulationTurnInput) {
 
     const vrGlobalApi = await getVRApi();
     const api = resolveSARSimulationApi(char, vrGlobalApi, apiConfig);
-    if (!api?.baseUrl || !api.model) throw new Error('请先在「彼方 → API」配置可用模型');
+    if (!api?.baseUrl || !api.model) throw new Error('請先在「彼方 → API」配置可用模型');
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const apiMessages = history
         .filter(message => message.role === 'user' || message.role === 'assistant')
         .map(message => {
-            // 旧通讯保留原意；缺少模式的老记录不推断为手机消息。
-            const recordLabel = message.metadata?.sarMode === 'online' ? '既有通讯记录' : '既有剧情记录';
+            // 舊通訊保留原意；缺少模式的老記錄不推斷為手機消息。
+            const recordLabel = message.metadata?.sarMode === 'online' ? '既有通訊記錄' : '既有劇情記錄';
             return {
                 role: message.role,
                 content: message.role === 'assistant'
@@ -916,7 +916,7 @@ async function generateSARSimulationTurn(input: RunSARSimulationTurnInput) {
                     : `【${recordLabel}】\n${message.content}`,
             };
         });
-    apiMessages.push({ role: 'user', content: `【本轮：现场的话语与行动】\n${userText}` });
+    apiMessages.push({ role: 'user', content: `【本輪：現場的話語與行動】\n${userText}` });
 
     const callStart = Date.now();
     let data: any;
@@ -937,7 +937,7 @@ async function generateSARSimulationTurn(input: RunSARSimulationTurnInput) {
             charName: char.name,
             purpose: `SAR 正式推演 ${promptRun.interactionsUsed + 1}/${run.maxInteractions}`,
         }, api.stream === true && onDelta ? {
-            // 双层 JSON 在完整闭合前不直接显示，避免把半截引号/转义符泄露给玩家。
+            // 雙層 JSON 在完整閉合前不直接顯示，避免把半截引號/轉義符洩露給玩家。
             onDelta: () => onDelta(''),
         } : undefined);
         void logVRApiCall({ ts: callStart, charId: char.id, charName: char.name, room: 'sar-simulation', model: api.model, baseUrl, ok: true, ms: Date.now() - callStart });
@@ -947,7 +947,7 @@ async function generateSARSimulationTurn(input: RunSARSimulationTurnInput) {
     }
 
     const parsedReply = parseSARSimulationReply(extractSARAssistantRaw(data));
-    if (!parsedReply?.character) throw new Error('模型没有返回可保存的推演正文，请重试');
+    if (!parsedReply?.character) throw new Error('模型沒有返回可保存的推演正文，請重試');
     const reply = parsedReply.character;
 
     if (retry) {

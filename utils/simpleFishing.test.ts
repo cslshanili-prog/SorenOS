@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { castSimpleFishingGame, createSimpleFishingGame, simpleFishingShadow, stepFishingGame } from './vrWorld/fishingGame';
-it('鱼影有停留与游走的间歇，坐标留在水面内', () => {
+it('魚影有停留與遊走的間歇，座標留在水面內', () => {
     expect(simpleFishingShadow(0).visible).toBe(true);
     expect(simpleFishingShadow(6).visible).toBe(false);
     expect(simpleFishingShadow(8).visible).toBe(true);
@@ -10,7 +10,7 @@ it('鱼影有停留与游走的间歇，坐标留在水面内', () => {
         expect(shadow.y).toBeGreaterThan(.3); expect(shadow.y).toBeLessThan(.7);
     }
 });
-it('鱼影附近宽容判定，离得远或看不到时仍可能空军', () => {
+it('魚影附近寬容判定，離得遠或看不到時仍可能空軍', () => {
     const idle = createSimpleFishingGame(), shadow = simpleFishingShadow(0);
     expect(castSimpleFishingGame(idle, .85, { x: shadow.x + .2, y: shadow.y }).simpleCast?.success).toBe(true);
     expect(castSimpleFishingGame(idle, .95).simpleCast?.success).toBe(false);
@@ -18,7 +18,7 @@ it('鱼影附近宽容判定，离得远或看不到时仍可能空军', () => {
     idle.elapsed = 6;
     expect(castSimpleFishingGame(idle, .5).simpleCast?.success).toBe(false);
 });
-it.each([30, 60, 120])('%s fps 都先抛竿等待，再收线结算', fps => {
+it.each([30, 60, 120])('%s fps 都先拋竿等待，再收線結算', fps => {
     const state = castSimpleFishingGame(createSimpleFishingGame(), .1);
     for (let i = 0; i < fps * 2; i++) stepFishingGame(state, 1 / fps);
     expect(state.phase).toBe('waiting');

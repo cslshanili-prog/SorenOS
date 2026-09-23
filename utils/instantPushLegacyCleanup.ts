@@ -1,14 +1,14 @@
 /**
- * 启动时清一次 Instant Push 留在本机的旧数据。
+ * 啟動時清一次 Instant Push 留在本機的舊數據。
  *
- * 要清的东西：
- *  - localStorage 里的旧配置（含 Worker 地址和 client token）、Worker 更新提醒 / 版本探测 /
- *    下线通知的记账、每个角色的工具调用状态；
- *  - ActiveMsg 库里三张闲置表：outbound_sessions（存着 API key 副本和整段消息快照）、
+ * 要清的東西：
+ *  - localStorage 裡的舊配置（含 Worker 地址和 client token）、Worker 更新提醒 / 版本探測 /
+ *    下線通知的記帳、每個角色的工具調用狀態；
+ *  - ActiveMsg 庫裡三張閒置表：outbound_sessions（存著 API key 副本和整段消息快照）、
  *    pending_tool_calls、reasoning_buffer。
  *
- * 只跑一次：清完写标记，之后启动直接返回。IDB 清表失败就不写标记，下次启动再试；
- * localStorage 那几项反正每次都能重删，不影响。任何一步出错都只 warn，不拦启动。
+ * 只跑一次：清完寫標記，之後啟動直接返回。IDB 清表失敗就不寫標記，下次啟動再試；
+ * localStorage 那幾項反正每次都能重刪，不影響。任何一步出錯都只 warn，不攔啟動。
  */
 import { ActiveMsgStore } from './activeMsgStore';
 
@@ -26,7 +26,7 @@ const LEGACY_LOCAL_STORAGE_PREFIXES = ['instant_tool_status_'];
 
 const removeLegacyLocalStorage = (): void => {
   for (const key of LEGACY_LOCAL_STORAGE_KEYS) localStorage.removeItem(key);
-  // 先收集再删：边遍历边删会让 key(i) 的下标错位、漏掉一半。
+  // 先收集再刪：邊遍歷邊刪會讓 key(i) 的下標錯位、漏掉一半。
   const prefixed: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -41,23 +41,23 @@ export async function cleanupInstantPushLegacyData(): Promise<void> {
   try {
     if (localStorage.getItem(INSTANT_PUSH_LEGACY_CLEANUP_DONE_KEY)) return;
   } catch {
-    return; // localStorage 用不了，这一趟什么都做不成
+    return; // localStorage 用不了，這一趟什麼都做不成
   }
 
   try {
     removeLegacyLocalStorage();
   } catch (e) {
-    console.warn('[legacy-cleanup] 清理 Instant Push 旧配置失败', e);
+    console.warn('[legacy-cleanup] 清理 Instant Push 舊配置失敗', e);
   }
 
   try {
     await ActiveMsgStore.clearLegacyInstantPushStores();
   } catch (e) {
-    console.warn('[legacy-cleanup] 清理 Instant Push 旧会话表失败，下次启动再试', e);
+    console.warn('[legacy-cleanup] 清理 Instant Push 舊會話表失敗，下次啟動再試', e);
     return;
   }
 
   try {
     localStorage.setItem(INSTANT_PUSH_LEGACY_CLEANUP_DONE_KEY, String(Date.now()));
-  } catch { /* 写不进标记就下次再清一遍，无害 */ }
+  } catch { /* 寫不進標記就下次再清一遍，無害 */ }
 }

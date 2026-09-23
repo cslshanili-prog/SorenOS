@@ -16,7 +16,7 @@ describe('portable chat decoration',()=>{
   const p=await exportDecoration('Test',base,{...char,chatBackground:'blobref:picture'},PRESET_THEMES.dream);
   expect(Object.keys(p.parts)).toHaveLength(5);expect(p.parts.layout).toMatchObject({chatHeaderStyle:'telegram',chatBubbleFontSize:18});expect(p.parts.css).toContain('.base');expect(p.parts.background?.image).toMatch(/^data:image/);expect(JSON.stringify(p)).not.toMatch(/SECRET|Private name|blobref:/);
  });
- it('fails instead of sharing a dead local asset',async()=>{await expect(exportDecoration('x',base,{...char,chatBackground:'blobref:missing'},PRESET_THEMES.default)).rejects.toThrow('丢失');});
+ it('fails instead of sharing a dead local asset',async()=>{await expect(exportDecoration('x',base,{...char,chatBackground:'blobref:missing'},PRESET_THEMES.default)).rejects.toThrow('丟失');});
  it('never interprets leading CSS comments as image URLs',async()=>{const p=await exportDecoration('x',{...base,chatChromeCustomCss:'/* comment */ .x{color:red}'},undefined,PRESET_THEMES.default);expect(p.parts.css).toContain('/* comment */');});
  it('rejects unknown versions, foreign JSON, invalid enum and script markup',()=>{
   expect(()=>validateDecoration({...wrap({css:'.x{}'}),version:2})).toThrow();expect(()=>parseDecorationText('{"apiKey":"secret"}')).toThrow();expect(()=>validateDecoration(wrap({layout:{chatHeaderStyle:'fake'}}))).toThrow();expect(()=>parseDecorationText('<script>alert(1)</script>')).toThrow();

@@ -3,7 +3,7 @@ import { normalizeApiConfig } from './apiConfigNormalize';
 
 const STORAGE_KEY = 'mall_api';
 
-/** 购物中心 AI 补货独立 API；null 表示跟随聊天默认。跟 utils/checkPhoneApi.ts 同一个路数。 */
+/** 購物中心 AI 補貨獨立 API；null 表示跟隨聊天默認。跟 utils/checkPhoneApi.ts 同一個路數。 */
 export function getMallApi(): APIConfig | null {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);

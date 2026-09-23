@@ -27,7 +27,7 @@ describe('safeFetchJson API log fallback', () => {
             JSON.stringify(responseBody),
             { status: 200, headers: { 'content-type': 'application/json' } },
         ));
-        const meta = { appName: '消息', purpose: '聊天回复' };
+        const meta = { appName: '消息', purpose: '聊天回覆' };
 
         await safeFetchJson(
             'https://api.test/v1/chat/completions',

@@ -32,7 +32,7 @@ describe('collaboration sidecar wiring', () => {
     const makerStart = windowSource.indexOf('const MakerStudio');
     const makerEnd = windowSource.indexOf('const CHARACTER_PICKER_PAGE_SIZE');
     expect(windowSource.slice(settingsStart, makerStart)).toContain('日常聊天感知');
-    expect(windowSource.slice(settingsStart, makerStart)).toContain('让角色知道自己有协同功能');
+    expect(windowSource.slice(settingsStart, makerStart)).toContain('讓角色知道自己有協同功能');
     expect(windowSource.slice(makerStart, makerEnd)).not.toContain('日常聊天感知');
     expect(windowSource.slice(makerStart, makerEnd)).not.toContain('chatCollaborationEnabled');
   });
@@ -40,15 +40,15 @@ describe('collaboration sidecar wiring', () => {
   it('injects only capability/file awareness into normal chat, not collaboration execution rules', () => {
     const prompts = read('utils/chatPrompts.ts');
     const context = read('features/collaboration/context.ts');
-    const awarenessStart = prompts.indexOf('### 协同功能');
+    const awarenessStart = prompts.indexOf('### 協同功能');
     const awarenessEnd = prompts.indexOf('`;', awarenessStart);
     const awareness = prompts.slice(awarenessStart, awarenessEnd);
-    expect(awareness).toContain('从 ChatApp 加号页进入');
-    expect(awareness).toContain('${userProfile.name}从 ChatApp 加号页进入');
-    expect(awareness).toContain('不要在这里假装制作');
-    expect(awareness).not.toContain('主动拆解');
+    expect(awareness).toContain('從 ChatApp 加號頁進入');
+    expect(awareness).toContain('${userProfile.name}從 ChatApp 加號頁進入');
+    expect(awareness).toContain('不要在這裡假裝製作');
+    expect(awareness).not.toContain('主動拆解');
     expect(awareness).not.toContain('artifact');
-    expect(context).toContain('const COLLABORATION_PROTOCOL = `### 协同工作规则');
+    expect(context).toContain('const COLLABORATION_PROTOCOL = `### 協同工作規則');
     expect(context).toContain('chatCollaborationEnabled: false');
   });
 
@@ -85,7 +85,7 @@ describe('collaboration sidecar wiring', () => {
     expect(parser).toContain('collaborationFileMessageMetadata(file)');
     expect(parser).not.toContain('saveAsset({ id: file.assetId');
     expect(item).toContain('sully-collaboration-file');
-    expect(item).toContain('可安装作品');
+    expect(item).toContain('可安裝作品');
     expect(read('apps/Chat.tsx')).toContain('requestedPreviewAssetId={collaborationPreviewAssetId}');
     expect(types).toContain("'collaboration_file'");
   });
@@ -96,15 +96,15 @@ describe('collaboration sidecar wiring', () => {
     expect(windowSource).toContain("import { shareOrDownloadBlob } from '../../utils/shareExport'");
     expect(settings).toContain("import { shareOrDownloadBlob } from '../utils/shareExport'");
     expect(windowSource).not.toContain('preferDownloadOnWeb: true');
-    expect(windowSource).toContain("notify('已打开系统分享面板', 'success')");
+    expect(windowSource).toContain("notify('已打開系統分享面板', 'success')");
   });
 
   it('offers a searchable all-session file library with long-press deletion', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     const store = read('features/collaboration/store.ts');
     expect(windowSource).toContain('CollaborationFileLibrary');
-    expect(windowSource).toContain('来自全部协同窗口');
-    expect(windowSource).toContain('长按管理文件');
+    expect(windowSource).toContain('來自全部協同窗口');
+    expect(windowSource).toContain('長按管理文件');
     expect(windowSource).toContain('onPointerDown={startPress}');
     expect(store).toContain('deleteLibraryFile');
     expect(store).toContain('transaction.objectStore(STORE_ASSETS).delete(assetId)');
@@ -126,12 +126,12 @@ describe('collaboration sidecar wiring', () => {
       expect(windowSource).toContain(`id: '${id}'`);
       expect(windowSource).toContain(`collab-ui-${id}`);
     }
-    expect(windowSource).toContain('只改变这个工作窗口，不影响 ChatApp 和角色数据');
+    expect(windowSource).toContain('只改變這個工作窗口，不影響 ChatApp 和角色數據');
     for (const brand of ['ChatGPT', 'Claude', 'Gemini', 'Kimi', 'DeepSeek']) {
       expect(windowSource).not.toContain(brand);
     }
     expect(windowSource).toContain("label: '黑白助手'");
-    expect(windowSource).toContain("label: '渐光协作'");
+    expect(windowSource).toContain("label: '漸光協作'");
     expect(windowSource).toContain('collab-message-bubble-assistant');
   });
 
@@ -140,12 +140,12 @@ describe('collaboration sidecar wiring', () => {
     const types = read('features/collaboration/types.ts');
     expect(types).toContain("CollaborationAvatarMode = 'theme' | 'both' | 'character' | 'user' | 'none'");
     expect(types).toContain("CollaborationAvatarStyle = 'circle' | 'rounded' | 'portrait'");
-    expect(windowSource).toContain('头像显示');
-    expect(windowSource).toContain('跟随风格');
+    expect(windowSource).toContain('頭像顯示');
+    expect(windowSource).toContain('跟隨風格');
     expect(windowSource).toContain('只角色');
     expect(windowSource).toContain('半身卡面');
     expect(windowSource).toContain('collab-avatar-${avatarMode}');
-    expect(windowSource).toContain('界面内不会显示第三方品牌 Logo');
+    expect(windowSource).toContain('界面內不會顯示第三方品牌 Logo');
   });
 
   it('cleans leaked ChatApp transcript prefixes from streamed and stored replies', () => {
@@ -169,9 +169,9 @@ describe('collaboration sidecar wiring', () => {
     expect(windowSource).toContain('chatContextSnapshot: liveChatContext');
     expect(windowSource).toContain('chatContextSnapshot: undefined');
     expect(windowSource).toContain('ChatApp 最近聊天');
-    expect(windowSource).toContain('最近 10 条');
-    expect(windowSource).toContain('最近 20 条');
-    expect(windowSource).toContain('用户设定范围');
+    expect(windowSource).toContain('最近 10 條');
+    expect(windowSource).toContain('最近 20 條');
+    expect(windowSource).toContain('用戶設定範圍');
     expect(types).toContain('chatContextSnapshot?: CollaborationContextMessage[]');
     expect(types).toContain('recentChatContextCount?: CollaborationChatContextChoice');
   });
@@ -199,8 +199,8 @@ describe('collaboration sidecar wiring', () => {
     const context = read('features/collaboration/context.ts');
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     const richOutput = read('features/collaboration/richOutput.ts');
-    expect(context).toContain('协同窗口可交付的消息形态');
-    expect(context).toContain('[[SEND_EMOJI: 表情名称]]');
+    expect(context).toContain('協同窗口可交付的消息形態');
+    expect(context).toContain('[[SEND_EMOJI: 表情名稱]]');
     expect(windowSource).toContain('CollaborationEmojiCard');
     expect(windowSource).toContain('CollaborationVoiceBar');
     expect(windowSource).toContain('synthesizeSpeechDetailed');
@@ -209,18 +209,18 @@ describe('collaboration sidecar wiring', () => {
 
   it('explains the collaboration boundary before mode selection', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
-    expect(windowSource).toContain('这是什么？');
-    expect(windowSource).toContain('两个模式差在哪？');
-    expect(windowSource).toContain('会进入角色记忆吗？');
-    expect(windowSource).toContain('普通聊天不会变成工作模式');
-    expect(windowSource).toContain('真正干活仍要进入这里');
+    expect(windowSource).toContain('這是什麼？');
+    expect(windowSource).toContain('兩個模式差在哪？');
+    expect(windowSource).toContain('會進入角色記憶嗎？');
+    expect(windowSource).toContain('普通聊天不會變成工作模式');
+    expect(windowSource).toContain('真正幹活仍要進入這裡');
   });
 
   it('opens on a new-or-history chooser when records exist instead of resuming the latest one', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     expect(windowSource).toContain('CollaborationEntryChooser');
-    expect(windowSource).toContain('新建协同');
-    expect(windowSource).toContain('选择旧记录');
+    expect(windowSource).toContain('新建協同');
+    expect(windowSource).toContain('選擇舊記錄');
     expect(windowSource).toContain('setActiveSessionId(null)');
     expect(windowSource).toContain('setShowEntryChooser(sessionRows.length > 0)');
     expect(windowSource).toContain('setShowModePicker(sessionRows.length === 0)');
@@ -229,17 +229,17 @@ describe('collaboration sidecar wiring', () => {
   it('uses themed in-app action dialogs and no native confirms inside collaboration', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     expect(windowSource).toContain('CollaborationActionDialog');
-    expect(windowSource).toContain('总结并归档');
-    expect(windowSource).toContain('仅归档，不写记忆');
-    expect(windowSource).toContain('永久删除窗口');
-    expect(windowSource).toContain('永久删除文件');
+    expect(windowSource).toContain('總結並歸檔');
+    expect(windowSource).toContain('僅歸檔，不寫記憶');
+    expect(windowSource).toContain('永久刪除窗口');
+    expect(windowSource).toContain('永久刪除文件');
     expect(windowSource).not.toMatch(/window\.(confirm|prompt|alert)\s*\(/);
   });
 
   it('rerolls the latest user turn after an API switch without duplicating its uploaded file', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     const store = read('features/collaboration/store.ts');
-    expect(windowSource).toContain('重新生成上一条回复');
+    expect(windowSource).toContain('重新生成上一條回覆');
     expect(windowSource).toContain('const rerollLatestReply = async () =>');
     expect(windowSource).toContain('const requestMessages = messages.slice(0, lastUserIndex + 1)');
     expect(windowSource).toContain('await CollaborationStore.deleteMessages(replacedMessages.map(message => message.id))');
@@ -252,11 +252,11 @@ describe('collaboration sidecar wiring', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     expect(windowSource).toContain('useCollaborationLongPress');
     expect(windowSource).toContain('onLongPress={openMessageActions}');
-    expect(windowSource).toContain("secondaryLabel: canEdit && canCopy ? '复制内容'");
-    expect(windowSource).toContain("destructiveLabel: message.role === 'user' ? '删除这一轮'");
-    expect(windowSource).toContain('保存并重新生成');
+    expect(windowSource).toContain("secondaryLabel: canEdit && canCopy ? '複製內容'");
+    expect(windowSource).toContain("destructiveLabel: message.role === 'user' ? '刪除這一輪'");
+    expect(windowSource).toContain('保存並重新生成');
     expect(windowSource).toContain('await CollaborationStore.saveMessage(updatedMessage)');
-    expect(windowSource).toContain("message.role === 'user' ? '删除这一轮协同？'");
+    expect(windowSource).toContain("message.role === 'user' ? '刪除這一輪協同？'");
     expect(windowSource).toContain("tone: 'danger'");
     expect(windowSource).toContain('while (deleteEnd < messages.length');
     expect(windowSource).toContain('text-slate-700 active:bg-slate-100');
@@ -277,7 +277,7 @@ describe('collaboration sidecar wiring', () => {
   it('asks before archive memory writes and dual-writes when memory palace is enabled', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     const chat = read('apps/Chat.tsx');
-    expect(windowSource).toContain('要不要把这次一起做的事整理进');
+    expect(windowSource).toContain('要不要把這次一起做的事整理進');
     expect(windowSource).toContain('summarizeCollaborationForMemory');
     expect(windowSource).toContain('memoryArchivedAt');
     expect(chat).toContain('handleCollaborationArchiveToMemory');
@@ -289,7 +289,7 @@ describe('collaboration sidecar wiring', () => {
   it('does not abort generation when OSContext callback identities refresh', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     expect(windowSource).toContain('const notifyRef = useRef(notify)');
-    expect(windowSource).toContain("abortCollaborationRequest(abortRef.current, '协同窗口已关闭')");
+    expect(windowSource).toContain("abortCollaborationRequest(abortRef.current, '協同窗口已關閉')");
     expect(windowSource).not.toContain('return () => { cancelled = true; abortRef.current?.abort(); };');
   });
 
@@ -298,9 +298,9 @@ describe('collaboration sidecar wiring', () => {
     const types = read('types.ts');
     expect(types).toContain('chatCollaborationEnabled?: boolean');
     expect(prompts).toContain('if (char.chatCollaborationEnabled)');
-    expect(prompts).toContain('不要在这里假装制作');
+    expect(prompts).toContain('不要在這裡假裝製作');
     expect(windowSourceForDailyMode()).toContain('日常聊天感知');
-    expect(windowSourceForDailyMode()).toContain('不会向普通聊天注入制作规则，也不能在那里干活');
+    expect(windowSourceForDailyMode()).toContain('不會向普通聊天注入製作規則，也不能在那裡幹活');
   });
 
   it('uses the same iOS safe-top contract as ChatApp for every collaboration header', () => {

@@ -1,10 +1,10 @@
 /**
- * 全局悬浮 Mini 播放器
- * 仅在 非 Music / 非 Launcher 应用里 显示，表示「后台正在放歌」。
- * Launcher 页让位给已有的 Dock，Music 页让位给页面内自带的 MiniPlayer。
+ * 全局懸浮 Mini 播放器
+ * 僅在 非 Music / 非 Launcher 應用裡 顯示，表示「後台正在放歌」。
+ * Launcher 頁讓位給已有的 Dock，Music 頁讓位給頁面內自帶的 MiniPlayer。
  *
- * 默认折叠：只显示一个带封面的小圆球，点开才展开完整控制条；
- * 小球可拖动、可长按隐藏；切到新歌时会自动再出现。
+ * 默認摺疊：只顯示一個帶封面的小圓球，點開才展開完整控制條；
+ * 小球可拖動、可長按隱藏；切到新歌時會自動再出現。
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Play, Pause, SkipForward, SkipBack, CaretDown, X } from '@phosphor-icons/react';
@@ -23,7 +23,7 @@ import TokenImg from './TokenImg';
 const STORAGE_KEY = 'globalMiniPlayer.bubblePos.v1';
 const HIDDEN_KEY = 'globalMiniPlayer.hidden.v1';
 const EXPANDED_BOTTOM_KEY = 'globalMiniPlayer.expandedBottom.v1';
-const DRAG_THRESHOLD = 4; // 像素：超过这个位移算拖动，不触发点击
+const DRAG_THRESHOLD = 4; // 像素：超過這個位移算拖動，不觸發點擊
 
 type Pos = { x: number; y: number } | null;
 
@@ -54,8 +54,8 @@ const parsePx = (value: string): number => {
 const readSafeTopInset = (): number => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return 0;
 
-  // 优先复用 iosStandalone.ts 写到 :root 的值：iOS standalone 冷启动时 raw env/probe
-  // 可能先给 0，但 --standalone-safe-area-top 已经有 44px 兜底。
+  // 優先複用 iosStandalone.ts 寫到 :root 的值：iOS standalone 冷啟動時 raw env/probe
+  // 可能先給 0，但 --standalone-safe-area-top 已經有 44px 兜底。
   const standaloneSafeTop = parsePx(
     window.getComputedStyle(document.documentElement).getPropertyValue('--standalone-safe-area-top'),
   );
@@ -68,9 +68,9 @@ const readSafeTopInset = (): number => {
   });
 };
 
-// 把父容器（PhoneShell 外壳）的 padding 与安全区合成球要让出的高度。
-// 只在每次拖拽手势开始（pointerdown）时调一次并缓存进 dragState：
-// safe-area 读取可能触发样式计算 / 探针读取，放进高频 pointermove 会抖。
+// 把父容器（PhoneShell 外殼）的 padding 與安全區合成球要讓出的高度。
+// 只在每次拖拽手勢開始（pointerdown）時調一次並緩存進 dragState：
+// safe-area 讀取可能觸發樣式計算 / 探針讀取，放進高頻 pointermove 會抖。
 const computeInsets = (parent: HTMLElement): { insetTop: number; insetBottom: number } => {
   const cs = window.getComputedStyle(parent);
   return resolveInsets({
@@ -84,9 +84,9 @@ const GlobalMiniPlayer: React.FC = () => {
   const { activeApp } = useOS();
   const { current, playing, togglePlay, nextSong, prevSong, progress, duration } = useMusic();
 
-  const [expanded, setExpanded] = useState(false); // 默认折叠
-  const [pos, setPos] = useState<Pos>(() => readPos()); // null = 默认右下
-  const [expandedBottom, setExpandedBottom] = useState<number | null>(() => readExpandedBottom()); // 展开态距底部像素
+  const [expanded, setExpanded] = useState(false); // 默認摺疊
+  const [pos, setPos] = useState<Pos>(() => readPos()); // null = 默認右下
+  const [expandedBottom, setExpandedBottom] = useState<number | null>(() => readExpandedBottom()); // 展開態距底部像素
   const [hidden, setHidden] = useState<boolean>(() => {
     try { return sessionStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; }
   });
@@ -114,15 +114,15 @@ const GlobalMiniPlayer: React.FC = () => {
   } | null>(null);
   const longPressTimer = useRef<number | null>(null);
 
-  // 只有用户真正"重新按下播放"（playing 从 false → true）才自动取消隐藏。
-  // 仅靠 current.id 判断会让组件每次挂载（比如打开聊天 App）就把上一首歌"复活"显示出来——
-  // 即使用户上次已经手动关掉了球、并且当下并没有在听歌。
-  // ref 初始化为当前 playing 值：避免挂载瞬间被误判为 false→true 跳变。
+  // 只有用戶真正"重新按下播放"（playing 從 false → true）才自動取消隱藏。
+  // 僅靠 current.id 判斷會讓組件每次掛載（比如打開聊天 App）就把上一首歌"復活"顯示出來——
+  // 即使用戶上次已經手動關掉了球、並且當下並沒有在聽歌。
+  // ref 初始化為當前 playing 值：避免掛載瞬間被誤判為 false→true 跳變。
   const prevPlayingRef = useRef(playing);
-  // 本次会话是否真正播放过。冷启动/重新进入项目时，MusicContext 会从 localStorage
-  // 恢复 queue+idx（于是 current 非空），但新建的 <audio> 尚未播放（playing=false）。
-  // 这种"恢复出来但没在放"的暂停态不应该弹出悬浮球——只有真正播放过之后，
-  // 会话内的手动暂停才保留显示。
+  // 本次會話是否真正播放過。冷啟動/重新進入項目時，MusicContext 會從 localStorage
+  // 恢復 queue+idx（於是 current 非空），但新建的 <audio> 尚未播放（playing=false）。
+  // 這種"恢復出來但沒在放"的暫停態不應該彈出懸浮球——只有真正播放過之後，
+  // 會話內的手動暫停才保留顯示。
   const [everPlayed, setEverPlayed] = useState(playing);
   useEffect(() => {
     if (playing) {
@@ -146,7 +146,7 @@ const GlobalMiniPlayer: React.FC = () => {
     try { localStorage.setItem(EXPANDED_BOTTOM_KEY, String(expandedBottom)); } catch {}
   }, [expandedBottom]);
 
-  // 展开态：拖把手垂直拖动；点击则收起
+  // 展開態：拖把手垂直拖動；點擊則收起
   const onExpandedHandleDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const el = expandedRef.current;
     if (!el) return;
@@ -189,7 +189,7 @@ const GlobalMiniPlayer: React.FC = () => {
     expandedDragState.current = null;
     try { (e.currentTarget as any).releasePointerCapture?.(e.pointerId); } catch {}
     if (ds && !ds.moved) {
-      // 当作"收起到小球"
+      // 當作"收起到小球"
       setExpanded(false);
     }
   }, []);
@@ -222,7 +222,7 @@ const GlobalMiniPlayer: React.FC = () => {
       pointerId: e.pointerId,
     };
 
-    // 长按隐藏
+    // 長按隱藏
     if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(() => {
       if (dragState.current && !dragState.current.moved) {
@@ -272,7 +272,7 @@ const GlobalMiniPlayer: React.FC = () => {
       longPressTimer.current = null;
     }
     if (ds && !ds.moved) {
-      // 算作点击 → 展开
+      // 算作點擊 → 展開
       setExpanded(true);
     }
     dragState.current = null;
@@ -280,16 +280,16 @@ const GlobalMiniPlayer: React.FC = () => {
   }, []);
 
   if (!current) return null;
-  // 重新进入项目时音乐是暂停的（从未真正播放过本次会话）→ 不显示悬浮球
+  // 重新進入項目時音樂是暫停的（從未真正播放過本次會話）→ 不顯示懸浮球
   if (!everPlayed && !playing) return null;
   if (activeApp === AppID.Music) return null;
-  if (activeApp === AppID.Launcher) return null; // Launcher 的 dock 够用了
-  if (activeApp === AppID.Call) return null;     // 通话中不打扰
+  if (activeApp === AppID.Launcher) return null; // Launcher 的 dock 夠用了
+  if (activeApp === AppID.Call) return null;     // 通話中不打擾
   if (hidden) return null;
 
   const pct = duration > 0 ? (progress / duration) * 100 : 0;
 
-  // 折叠态：小圆球（可拖动、长按隐藏、单击展开）
+  // 摺疊態：小圓球（可拖動、長按隱藏、單擊展開）
   if (!expanded) {
     const positional: React.CSSProperties = pos
       ? { left: pos.x, top: pos.y }
@@ -311,8 +311,8 @@ const GlobalMiniPlayer: React.FC = () => {
             boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
             border: '1px solid rgba(255,255,255,0.25)',
           }}
-          aria-label="音乐播放器（点击展开，拖动移位，长按隐藏）"
-          title="点击展开 · 拖动移位 · 长按隐藏"
+          aria-label="音樂播放器（點擊展開，拖動移位，長按隱藏）"
+          title="點擊展開 · 拖動移位 · 長按隱藏"
         >
           <TokenImg
             value={current.albumPic}
@@ -320,7 +320,7 @@ const GlobalMiniPlayer: React.FC = () => {
             draggable={false}
             className="w-full h-full object-cover pointer-events-none"
           />
-          {/* 播放/暂停小指示 */}
+          {/* 播放/暫停小指示 */}
           <div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{ background: 'rgba(0,0,0,0.25)' }}
@@ -329,7 +329,7 @@ const GlobalMiniPlayer: React.FC = () => {
               ? <Pause size={14} weight="fill" color="#fff" />
               : <Play size={14} weight="fill" color="#fff" />}
           </div>
-          {/* 进度细条 */}
+          {/* 進度細條 */}
           <div className="absolute left-0 bottom-0 w-full h-[2px] bg-white/20 pointer-events-none">
             <div
               className="h-full bg-gradient-to-r from-sky-400 to-indigo-400 transition-all duration-150"
@@ -341,9 +341,9 @@ const GlobalMiniPlayer: React.FC = () => {
     );
   }
 
-  // 展开态：原来的完整 Mini 播放器
-  // 刻意不给外层 wrapper 绑 onClick —— 在别的 App 里点它不应该跳到 Music App
-  // （会把用户正在做的事情弄丢），只有里面的按钮生效。
+  // 展開態：原來的完整 Mini 播放器
+  // 刻意不給外層 wrapper 綁 onClick —— 在別的 App 裡點它不應該跳到 Music App
+  // （會把用戶正在做的事情弄丟），只有裡面的按鈕生效。
   return (
     <div
       ref={expandedRef}
@@ -360,7 +360,7 @@ const GlobalMiniPlayer: React.FC = () => {
           boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
         }}
       >
-        {/* 拖动把手 — 垂直拖动整个条；点击则收起 */}
+        {/* 拖動把手 — 垂直拖動整個條；點擊則收起 */}
         <div
           onPointerDown={onExpandedHandleDown}
           onPointerMove={onExpandedHandleMove}
@@ -368,8 +368,8 @@ const GlobalMiniPlayer: React.FC = () => {
           onPointerCancel={onExpandedHandleUp}
           className="shrink-0 flex items-center justify-center px-1 cursor-grab active:cursor-grabbing touch-none select-none"
           style={{ alignSelf: 'stretch' }}
-          aria-label="拖动调整位置（点击收起）"
-          title="上下拖动 · 点击收起"
+          aria-label="拖動調整位置（點擊收起）"
+          title="上下拖動 · 點擊收起"
         >
           <div className="w-1 h-7 rounded-full" style={{ background: 'rgba(255,255,255,0.25)' }} />
         </div>
@@ -408,7 +408,7 @@ const GlobalMiniPlayer: React.FC = () => {
           >
             <SkipForward size={14} weight="fill" />
           </button>
-          {/* 折叠按钮 */}
+          {/* 摺疊按鈕 */}
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
             className="p-1.5 rounded-full text-white/70 active:scale-95 transition-transform ml-0.5"
@@ -417,18 +417,18 @@ const GlobalMiniPlayer: React.FC = () => {
           >
             <CaretDown size={14} weight="bold" />
           </button>
-          {/* 隐藏按钮 */}
+          {/* 隱藏按鈕 */}
           <button
             onClick={(e) => { e.stopPropagation(); hide(); }}
             className="p-1.5 rounded-full text-white/70 active:scale-95 transition-transform"
-            aria-label="隐藏播放器（切到下一首时会再出现）"
-            title="隐藏（下一首会再出现）"
+            aria-label="隱藏播放器（切到下一首時會再出現）"
+            title="隱藏（下一首會再出現）"
           >
             <X size={14} weight="bold" />
           </button>
         </div>
 
-        {/* 底部细进度条 */}
+        {/* 底部細進度條 */}
         <div className="absolute left-0 bottom-0 h-[2px] bg-gradient-to-r from-sky-400 to-indigo-400 transition-all duration-150"
           style={{ width: `${pct}%` }} />
       </div>

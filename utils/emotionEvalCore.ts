@@ -1,25 +1,25 @@
 /**
- * 云端情绪评估的共用内核：占位符还原 + 副 API 请求 + 失败文案（先打码后截断）。
+ * 雲端情緒評估的共用內核：佔位符還原 + 副 API 請求 + 失敗文案（先打碼後截斷）。
  *
- * amsg worker 的即时对话路径吃的是前端 `buildEmotionEvalPrompt(..., includeContext=false, ...)`
- * 生成的模板，还原与请求逻辑必须跟模板约定**逐字同款**。报错文案里的 apiKey 一定要先打码
- * 再截断，否则副 API key 会随 push 带出去。
+ * amsg worker 的即時對話路徑吃的是前端 `buildEmotionEvalPrompt(..., includeContext=false, ...)`
+ * 生成的模板，還原與請求邏輯必須跟模板約定**逐字同款**。報錯文案裡的 apiKey 一定要先打碼
+ * 再截斷，否則副 API key 會隨 push 帶出去。
  *
- * 零浏览器 / 零 worker 运行时依赖（会被打进 amsg worker bundle）。
+ * 零瀏覽器 / 零 worker 運行時依賴（會被打進 amsg worker bundle）。
  */
 
-/** 副 API 凭据（没单独配就是主 API 那一份）。 */
+/** 副 API 憑據（沒單獨配就是主 API 那一份）。 */
 export interface EmotionEvalApi { baseUrl: string; apiKey: string; model: string }
 
 export const EMOTION_EVAL_SYSTEM_SLOT = '__EMOTION_EVAL_SYSTEM_PROMPT__';
 export const EMOTION_EVAL_HISTORY_SLOT = '__EMOTION_EVAL_HISTORY__';
 
-/** 单次评估请求的上限；副 API 卡住的话，主流程不该跟着一起被扣在这儿。 */
+/** 單次評估請求的上限；副 API 卡住的話，主流程不該跟著一起被扣在這兒。 */
 export const EMOTION_EVAL_TIMEOUT_MS = 120_000;
 
 /**
- * 消息 content → 一行文本。结构化分段（带图片的消息）拍平成「文字 [图片]」。
- * 与本地 buildEmotionEvalPrompt 的 recentLines 同款：用空格连接、空段丢掉。
+ * 消息 content → 一行文本。結構化分段（帶圖片的消息）拍平成「文字 [圖片]」。
+ * 與本地 buildEmotionEvalPrompt 的 recentLines 同款：用空格連接、空段丟掉。
  */
 export const flattenEvalContent = (content: unknown): string => {
   if (typeof content === 'string') return content;
@@ -27,7 +27,7 @@ export const flattenEvalContent = (content: unknown): string => {
     return content
       .map((part: any) => (part?.type === 'text'
         ? (part.text || '')
-        : (part?.type === 'image_url' ? '[图片]' : '')))
+        : (part?.type === 'image_url' ? '[圖片]' : '')))
       .filter(Boolean)
       .join(' ');
   }
@@ -35,13 +35,13 @@ export const flattenEvalContent = (content: unknown): string => {
 };
 
 /**
- * 把模板里的两个占位符用本次请求的消息还原掉。
+ * 把模板裡的兩個佔位符用本次請求的消息還原掉。
  *
  * - `messages[0]`（role=system）= 本地的 mainSystemPrompt
- * - `messages[1..]` = 本地的 cleanedApiMessages，拼成 `[用户]: …` / `[角色名]: …` / `[系统]: …`
+ * - `messages[1..]` = 本地的 cleanedApiMessages，拼成 `[用戶]: …` / `[角色名]: …` / `[系統]: …`
  *
- * 用函数式 replacer：system prompt 和对话里出现 `$&`、`$1` 这类字符时，
- * String.replace 会把它们当成替换模式解析，评估看到的就不是原话了。
+ * 用函數式 replacer：system prompt 和對話裡出現 `$&`、`$1` 這類字符時，
+ * String.replace 會把它們當成替換模式解析，評估看到的就不是原話了。
  */
 export const restoreEvalPrompt = (
   template: string,
@@ -57,7 +57,7 @@ export const restoreEvalPrompt = (
   }
   const recentLines = conversation
     .map((m) => {
-      const role = m.role === 'user' ? '用户' : (m.role === 'assistant' ? charName : '系统');
+      const role = m.role === 'user' ? '用戶' : (m.role === 'assistant' ? charName : '系統');
       return `[${role}]: ${flattenEvalContent(m.content)}`;
     })
     .join('\n');
@@ -66,13 +66,13 @@ export const restoreEvalPrompt = (
     .replace(EMOTION_EVAL_HISTORY_SLOT, () => recentLines);
 };
 
-/** 报错正文最多带回这么长——够定位是限流还是鉴权就行，不是日志转发通道。 */
+/** 報錯正文最多帶回這麼長——夠定位是限流還是鑑權就行，不是日誌轉發通道。 */
 export const ERROR_SNIPPET_MAX = 120;
 
 /**
- * 「先打码、后截断」的唯一出口：所有会随 push 出门的失败文案（HTTP 分支、catch 分支）
- * 都要过这里。打码在截断之前——先截的话，切口正好落在 key 中间时整串就查不到 key，
- * 半截凭据原样带出去。个别中转会把整个请求（含 Authorization 头）回显在错误页里。
+ * 「先打碼、後截斷」的唯一出口：所有會隨 push 出門的失敗文案（HTTP 分支、catch 分支）
+ * 都要過這裡。打碼在截斷之前——先截的話，切口正好落在 key 中間時整串就查不到 key，
+ * 半截憑據原樣帶出去。個別中轉會把整個請求（含 Authorization 頭）回顯在錯誤頁裡。
  */
 export const maskAndSnip = (text: string, apiKey: string): string => {
   let snippet = text.replace(/\s+/g, ' ').trim();
@@ -80,17 +80,17 @@ export const maskAndSnip = (text: string, apiKey: string): string => {
   return snippet.slice(0, ERROR_SNIPPET_MAX);
 };
 
-/** 一次评估的结局：拿到原文，或者一句能给用户看的短失败原因。 */
+/** 一次評估的結局：拿到原文，或者一句能給用戶看的短失敗原因。 */
 export interface EmotionEvalOutcome {
-  /** 评估模型的输出原文；没跑出来时为 null。 */
+  /** 評估模型的輸出原文；沒跑出來時為 null。 */
   raw: string | null;
-  /** 没跑出来的原因（人话、一句话）；成功时为 null。 */
+  /** 沒跑出來的原因（人話、一句話）；成功時為 null。 */
   error: string | null;
 }
 
 /**
- * 发一次评估请求并解析输出。promptContent 传 restoreEvalPrompt 还原好的整段。
- * 失败绝不抛：给一句已打码的短原因（它最终要走 push 出门，凭据绝不进 push 是红线）。
+ * 發一次評估請求並解析輸出。promptContent 傳 restoreEvalPrompt 還原好的整段。
+ * 失敗絕不拋：給一句已打碼的短原因（它最終要走 push 出門，憑據絕不進 push 是紅線）。
  */
 export const requestEmotionEval = async (
   api: EmotionEvalApi,
@@ -111,23 +111,23 @@ export const requestEmotionEval = async (
         model: api.model,
         messages: [{ role: 'user', content: promptContent }],
         temperature: 0.85,
-        // 显式给足输出额度：部分中转不传 max_tokens 时默认很小，评估输出很长，
-        // 会被截成半截 JSON。
+        // 顯式給足輸出額度：部分中轉不傳 max_tokens 時默認很小，評估輸出很長，
+        // 會被截成半截 JSON。
         max_tokens: 8000,
         stream: false,
       }),
       signal: controller.signal,
     });
     if (!res.ok) {
-      // 正文可能是 HTML 错误页，截一小段够定位即可。
+      // 正文可能是 HTML 錯誤頁，截一小段夠定位即可。
       let body = '';
-      try { body = await res.text(); } catch { /* 读不出正文就只报状态码 */ }
-      console.warn('[emotion-eval] 副 API 拒了这次评估（主流程不受影响）', res.status);
+      try { body = await res.text(); } catch { /* 讀不出正文就只報狀態碼 */ }
+      console.warn('[emotion-eval] 副 API 拒了這次評估（主流程不受影響）', res.status);
       const snippet = maskAndSnip(body, api.apiKey);
       return { raw: null, error: `副 API HTTP ${res.status}${snippet ? `：${snippet}` : ''}` };
     }
     const data = await res.json() as any;
-    // 个别中转把全部输出塞进 reasoning_content 而 content 留空——与客户端
+    // 個別中轉把全部輸出塞進 reasoning_content 而 content 留空——與客戶端
     // utils/emotionApply.ts 的 extractAssistantText 同一套兜底。
     const message = data?.choices?.[0]?.message;
     const raw = flattenEvalContent(message?.content)
@@ -135,18 +135,18 @@ export const requestEmotionEval = async (
     if (!raw.trim()) {
       return {
         raw: null,
-        error: `评估模型没有输出内容（finish_reason: ${data?.choices?.[0]?.finish_reason ?? '?'}）`,
+        error: `評估模型沒有輸出內容（finish_reason: ${data?.choices?.[0]?.finish_reason ?? '?'}）`,
       };
     }
     return { raw, error: null };
   } catch (error) {
-    console.warn('[emotion-eval] 评估失败（主流程不受影响）', error);
-    // 只带异常名/消息，不带栈：这句要走 push 出门，短一点、也别把内部路径抖出去。
-    // 异常消息同样过打码：fetch 异常一般不含请求头，但 URL 解析类错误会回显传入的
-    // 地址，用户把 key 拼在 baseUrl 里时不打码就漏了。
+    console.warn('[emotion-eval] 評估失敗（主流程不受影響）', error);
+    // 只帶異常名/消息，不帶棧：這句要走 push 出門，短一點、也別把內部路徑抖出去。
+    // 異常消息同樣過打碼：fetch 異常一般不含請求頭，但 URL 解析類錯誤會回顯傳入的
+    // 地址，用戶把 key 拼在 baseUrl 裡時不打碼就漏了。
     const reason = controller.signal.aborted
-      ? `评估超时（${Math.round(timeoutMs / 1000)} 秒没回来）`
-      : `评估请求没发出去：${maskAndSnip(error instanceof Error ? error.message : String(error), api.apiKey)}`;
+      ? `評估超時（${Math.round(timeoutMs / 1000)} 秒沒回來）`
+      : `評估請求沒發出去：${maskAndSnip(error instanceof Error ? error.message : String(error), api.apiKey)}`;
     return { raw: null, error: reason };
   } finally {
     clearTimeout(timer);

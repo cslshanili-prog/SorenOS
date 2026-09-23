@@ -76,14 +76,14 @@ const BankShopScene: React.FC<Props> = ({
         onMoveStaff(x, floorY);
     };
 
-    // Push system message to chat history via DB (uses [系统: ...] format for bell display)
+    // Push system message to chat history via DB (uses [系統: ...] format for bell display)
     const pushVisitorSystemMessage = async (charId: string, message: string) => {
         try {
             await DB.saveMessage({
                 charId,
                 role: 'system',
                 type: 'text',
-                content: `[系统: ${message}]`,
+                content: `[系統: ${message}]`,
             });
         } catch (e) {
             console.error('Failed to push visitor system message', e);
@@ -98,7 +98,7 @@ const BankShopScene: React.FC<Props> = ({
             return;
         }
         if (!apiConfig.apiKey) {
-            addToast('请配置 API Key', 'error');
+            addToast('請配置 API Key', 'error');
             return;
         }
 
@@ -125,7 +125,7 @@ const BankShopScene: React.FC<Props> = ({
 ${chatSnippet || '(No recent chats)'}
 
 ### Scenario: Visiting User's Savings App Café
-${userProfile.name} has a savings/budgeting app (记账App). Inside the app there's a virtual café mini-game, similar to how Alipay has "蚂蚁庄园" or how friends visit each other's farms in QQ Farm.
+${userProfile.name} has a savings/budgeting app (記帳App). Inside the app there's a virtual café mini-game, similar to how Alipay has "螞蟻莊園" or how friends visit each other's farms in QQ Farm.
 You (${char.name}) are visiting ${userProfile.name}'s café as a friend/player — like visiting someone's virtual pet farm.
 Café Name: "${shopState.shopName}"
 Shop Appeal Level: ${shopState.appeal}
@@ -136,7 +136,7 @@ Shop Appeal Level: ${shopState.appeal}
 ### SPECIAL EVENT: APP PET REUNION!
 You just discovered that your APP PET "${pet!.name}" is working here!
 This is YOUR digital pet from this savings app — like QQ Farm chickens or Alipay's virtual pet.
-The pet is working as a ${pet!.role === 'chef' ? '小帮厨' : pet!.role === 'manager' ? '吉祥物' : '店小二'} in ${userProfile.name}'s virtual café.
+The pet is working as a ${pet!.role === 'chef' ? '小幫廚' : pet!.role === 'manager' ? '吉祥物' : '店小二'} in ${userProfile.name}'s virtual café.
 
 ### Task
 Express your SURPRISE and JOY at finding your APP PET here!
@@ -144,7 +144,7 @@ Express your SURPRISE and JOY at finding your APP PET here!
 - Comment on the café AND your pet reunion
 - Stay in character based on your personality and recent chat context
 
-Output JSON: { "action": "...", "comment": "你的反应和评论" }
+Output JSON: { "action": "...", "comment": "你的反應和評論" }
 Language: Chinese. Be in character!`;
             } else {
                 prompt += `
@@ -154,7 +154,7 @@ You're visiting this virtual café. Describe your entrance and leave a comment.
 - You can comment on the shop, the vibe, or reference recent chats with the user
 - Be in character!
 
-Output JSON: { "action": "...", "comment": "你进店后说的话" }
+Output JSON: { "action": "...", "comment": "你進店後說的話" }
 Language: Chinese.`;
             }
 
@@ -168,7 +168,7 @@ Language: Chinese.`;
                 const data = await safeResponseJson(res);
                 let jsonStr = data.choices[0].message.content.replace(/```json/g, '').replace(/```/g, '').trim();
                 const result = JSON.parse(jsonStr);
-                const comment = result.comment || '来逛逛~';
+                const comment = result.comment || '來逛逛~';
 
                 await updateState({
                     ...shopState,
@@ -184,22 +184,22 @@ Language: Chinese.`;
                 if (hasPetHere) {
                     setShowLoveEffect(true);
                     setTimeout(() => setShowLoveEffect(false), 3000);
-                    addToast(`${char.name} 发现了 ${pet!.name}！`, 'success');
+                    addToast(`${char.name} 發現了 ${pet!.name}！`, 'success');
                     await pushVisitorSystemMessage(
                         char.id,
-                        `${char.name} 拜访了${userProfile.name}的记账App咖啡馆，惊喜地发现自己的App宠物 ${pet!.name} 正在这里打工！${char.name}表示："${comment}"`
+                        `${char.name} 拜訪了${userProfile.name}的記帳App咖啡館，驚喜地發現自己的App寵物 ${pet!.name} 正在這裡打工！${char.name}表示："${comment}"`
                     );
                 } else {
-                    addToast(`${char.name} 进店了！`, 'success');
+                    addToast(`${char.name} 進店了！`, 'success');
                     await pushVisitorSystemMessage(
                         char.id,
-                        `${char.name} 拜访了${userProfile.name}的记账App咖啡馆，并表示："${comment}"`
+                        `${char.name} 拜訪了${userProfile.name}的記帳App咖啡館，並表示："${comment}"`
                     );
                 }
             }
         } catch (e) {
             console.error(e);
-            addToast('邀请失败', 'error');
+            addToast('邀請失敗', 'error');
         } finally {
             setIsInviting(false);
         }
@@ -237,7 +237,7 @@ Language: Chinese.`;
                         <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
                             <PawPrint className="w-4 h-4 text-pink-500" weight="fill" />
                             {ownerChar && (
-                                <TokenImg value={ownerChar.avatar} className="w-4 h-4 rounded-full border border-white shadow-sm" title={`${ownerChar.name}的宠物`} />
+                                <TokenImg value={ownerChar.avatar} className="w-4 h-4 rounded-full border border-white shadow-sm" title={`${ownerChar.name}的寵物`} />
                             )}
                         </div>
                     )}
@@ -563,7 +563,7 @@ Language: Chinese.`;
                         <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/5"></div>
                         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)' }}></div>
                         <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4d6.png" alt="guestbook" className="w-6 h-6 filter drop-shadow-sm relative z-10" />
-                        <div className="text-[7px] font-bold uppercase tracking-wider text-[#D7CCC8] relative z-10">情报志</div>
+                        <div className="text-[7px] font-bold uppercase tracking-wider text-[#D7CCC8] relative z-10">情報志</div>
                         <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-[#FF5252] to-[#D32F2F] rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-pulse">
                             <span className="text-[8px] text-white font-bold">!</span>
                         </div>
@@ -578,7 +578,7 @@ Language: Chinese.`;
                         <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2728.png" alt="sparkles" className="w-5 h-5" />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[9px] text-[#8D6E63] font-medium uppercase tracking-wider">人气值</span>
+                        <span className="text-[9px] text-[#8D6E63] font-medium uppercase tracking-wider">人氣值</span>
                         <span className="text-lg font-black text-[#5D4037] leading-none">{shopState.appeal}</span>
                     </div>
                 </div>
@@ -602,7 +602,7 @@ Language: Chinese.`;
                         )}
                     </div>
                     <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                        <span className="text-[9px] font-bold text-[#5D4037]/70 bg-white/60 backdrop-blur px-2 py-0.5 rounded-full">招揽客人</span>
+                        <span className="text-[9px] font-bold text-[#5D4037]/70 bg-white/60 backdrop-blur px-2 py-0.5 rounded-full">招攬客人</span>
                     </div>
                 </button>
             </div>

@@ -12,11 +12,11 @@ if (!localStorage.getItem(FISHING_MARKET_STORAGE_KEY)) {
 }
 function Fixture() {
     const [page,setPage]=useState(new URLSearchParams(location.search).get('open')||'menu');
-    return page==='gacha'?<SARGachaOverlay onClose={()=>setPage('menu')}/>:page==='shop'?<SARModuleShopOverlay npcEnabled={false} onClose={()=>setPage('menu')}/>:<div><button onClick={()=>setPage('gacha')}>打开抽卡</button><button onClick={()=>setPage('shop')}>打开商店</button></div>;
+    return page==='gacha'?<SARGachaOverlay onClose={()=>setPage('menu')}/>:page==='shop'?<SARModuleShopOverlay npcEnabled={false} onClose={()=>setPage('menu')}/>:<div><button onClick={()=>setPage('gacha')}>打開抽卡</button><button onClick={()=>setPage('shop')}>打開商店</button></div>;
 }
 async function boot() {
     const characters = await DB.getAllCharacters();
-    if (!characters.some(char=>char.id==='commerce-char')) await DB.saveCharacter({id:'commerce-char',name:'商店测试员',avatar:'',systemPrompt:'仅供本地界面测试。',vrState:{enabled:true,activityMode:'manual',intervalMinutes:120,currentRoom:'living'}} as any);
+    if (!characters.some(char=>char.id==='commerce-char')) await DB.saveCharacter({id:'commerce-char',name:'商店測試員',avatar:'',systemPrompt:'僅供本地界面測試。',vrState:{enabled:true,activityMode:'manual',intervalMinutes:120,currentRoom:'living'}} as any);
     createRoot(document.getElementById('root')!).render(<OSProvider><Fixture/></OSProvider>);
 }
 void boot();

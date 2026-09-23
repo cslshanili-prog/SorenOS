@@ -40,13 +40,13 @@ async function completeEvent(scene) {
     while (await page.locator('.srf-dialog').count()) {
         assert(++steps < 600, `${scene.id}: preview must terminate`);
         const state = await view();
-        if(state.finished){assert.equal(await page.locator('.srf-collected').textContent(),`结束${scene.rank}星事件：${scene.title}`);await page.screenshot({path:`${out}/${scene.id}-ending.png`,animations:'disabled'});}
+        if(state.finished){assert.equal(await page.locator('.srf-collected').textContent(),`結束${scene.rank}星事件：${scene.title}`);await page.screenshot({path:`${out}/${scene.id}-ending.png`,animations:'disabled'});}
         assert.equal(state.error, '', `${scene.id}: scene error`);
         if (await page.locator('.sar-dialogue-choices__list button').count()) await page.locator('.sar-dialogue-choices__list button').first().click();
-        else if (await button('就用这个形象').count()) await button('就用这个形象').click();
+        else if (await button('就用這個形象').count()) await button('就用這個形象').click();
         else if (await button('拍好了').count()) await button('拍好了').click();
-        else if (await button('按下神秘按钮').count()) await button('按下神秘按钮').click();
-        else await button('继续对话').click();
+        else if (await button('按下神秘按鈕').count()) await button('按下神秘按鈕').click();
+        else await button('繼續對話').click();
         await page.waitForFunction(() => !document.querySelector('.srf-dialog') || !JSON.parse(window.render_game_to_text()).busy);
     }
     return steps;
@@ -76,21 +76,21 @@ try {
 
     await page.reload();
     await button('SAR').click();
-    await button('打开仓库').click();
-    await button('打开收集图鉴').click();
-    await button('名册').click();
+    await button('打開倉庫').click();
+    await button('打開收集圖鑑').click();
+    await button('名冊').click();
     const saved = await savedMarket();
-    await page.getByRole('button', { name: /^回忆/ }).click();
+    await page.getByRole('button', { name: /^回[忆憶]/ }).click();
     assert.equal(await page.locator('.sar-roster-memory:enabled').count(),0,'default locks restored');
-    await button('打开调试面板').click();
-    await page.getByRole('switch',{name:'SAR 剧情与表情校对'}).click();
-    await button('关闭调试面板').click();
+    await button('打開調試面板').click();
+    await page.getByRole('switch',{name:'SAR 劇情與表情校對'}).click();
+    await button('關閉調試面板').click();
     await page.waitForFunction(()=>document.querySelectorAll('.sar-roster-memory:enabled').length>0);
 
     for (const npc of ['caian', 'aiven']) {
         const npcScenes = scenes.filter(scene => scene.npc === npc);
-        await page.locator('.sar-roster-person-tabs button').filter({ hasText: npc === 'caian' ? '凯恩' : '艾文' }).click();
-        await page.getByRole('button', { name: /^回忆/ }).click();
+        await page.locator('.sar-roster-person-tabs button').filter({ hasText: npc === 'caian' ? '凱恩' : '艾文' }).click();
+        await page.getByRole('button', { name: /^回[忆憶]/ }).click();
         assert.equal(await page.locator('.sar-roster-memory:enabled').count(), npcScenes.length);
         assert.equal(await page.locator('.sar-roster-memory:disabled').count(), 0);
         assert.equal(await page.locator('.sar-roster-topic-group .sar-roster-memory:enabled').count(), 30);
@@ -113,7 +113,7 @@ try {
                 await page.screenshot({ path: `${out}/${scene.id}.png`, animations: 'disabled' });
                 steps = await completeEvent(scene);
                 console.log(`${scene.id} complete: ${steps} steps, no save changes`);
-            } else await button('离开对话').click();
+            } else await button('離開對話').click();
             await page.locator('.sar-familiarity-roster').waitFor();
             assert.equal(await savedMarket(), saved, `${scene.id}: preview must not change progress, rewards, discounts, drafts or delivery queues`);
             results.push({ id: scene.id, npc, kind: scene.kind, accessible: true, ...(steps ? { completedRoute: true, steps } : {}) });
@@ -123,9 +123,9 @@ try {
         assert.deepEqual(progress.completed, {}, 'temporary availability must not collect memories');
         assert.equal(await page.getByRole('img', { name: '熟悉度 0 / 5 星', exact: true }).count(), 1);
     }
-    await button('打开调试面板').click();
-    await page.getByRole('switch',{name:'SAR 剧情与表情校对'}).click();
-    await button('关闭调试面板').click();
+    await button('打開調試面板').click();
+    await page.getByRole('switch',{name:'SAR 劇情與表情校對'}).click();
+    await button('關閉調試面板').click();
     await page.waitForFunction(()=>document.querySelectorAll('.sar-roster-memory:enabled').length===0);
     assert.equal(await savedMarket(),saved,'closing review never rewrites progress');
     assert.equal(results.length, 84);

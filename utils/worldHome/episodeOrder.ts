@@ -18,7 +18,7 @@ export function recoverWorldProgress(world: WorldProfile, episodes: WorldEpisode
         ? episode.round : (episode.observationNumber ?? episode.round)));
     if (world.timeMode === 'sim' || world.storyClock === previousClock) return;
     for (const episode of episodes) {
-        const match = /^(\d{4})年(\d{1,2})月(\d{1,2})日\s+周.\s+(早上|中午|晚上|凌晨)$/.exec(episode.storyTime);
+        const match = /^(\d{4})年(\d{1,2})月(\d{1,2})日\s+[周週].\s+(早上|中午|晚上|凌晨)$/.exec(episode.storyTime);
         if (!match) continue;
         const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
         const seg = ['早上', '中午', '晚上', '凌晨'].indexOf(match[4]);

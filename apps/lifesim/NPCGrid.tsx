@@ -219,7 +219,7 @@ const NPCGrid: React.FC<{
     if (allNpcs.length === 0) {
         return (
             <div className="flex items-center justify-center p-8" style={{ color: '#999', fontSize: 12 }}>
-                还没有居民入住
+                還沒有居民入住
             </div>
         );
     }
@@ -227,7 +227,7 @@ const NPCGrid: React.FC<{
     return (
         <div style={{ padding: 6 }}>
             <div className="retro-inset" style={{ padding: '4px 6px', marginBottom: 6 }}>
-                <p style={{ fontSize: 9, color: '#7a7488' }}>提示：点一下展开居民故事，长按可以改这局的角色设定。</p>
+                <p style={{ fontSize: 9, color: '#7a7488' }}>提示：點一下展開居民故事，長按可以改這局的角色設定。</p>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
                 {allNpcs.map(npc => (

@@ -32,17 +32,17 @@ export function SARExclusiveKeepsakes({ market, backRef, onDetailChange }: { mar
             {selected ? <article className="sar-collection-entry">
                 {selected.speciesId && <div className="sar-collection-large-art is-collected"><FishArt speciesId={selected.speciesId} size={165}/></div>}
                 <div className="sar-exclusive-source">{SAR_NPC_NAMES[selected.npc]} · {selected.source}</div><p>{selected.description}</p>
-                <p className="sar-hub-muted">{selected.owned ? '已经放在你的恐龙收藏里，可以去箱庭单独起名、换色和摆放。' : '这份专属赠礼的收录仍然留在这里。'}</p>
+                <p className="sar-hub-muted">{selected.owned ? '已經放在你的恐龍收藏裡，可以去箱庭單獨起名、換色和擺放。' : '這份專屬贈禮的收錄仍然留在這裡。'}</p>
             </article> : <>
-                <div className="sar-exclusive-intro"><BookmarkSimple size={29} weight="light"/><div><h3>为你留的那一份</h3><p>纪念卡、合影与特别的赠礼。打开它，就能回看当时留下的细节。</p></div></div>
-                <nav className="sar-exclusive-filters" aria-label="纪念物来自谁">{(['all', 'caian', 'aiven'] as const).map(value => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setPage(0); }}>{value === 'all' ? '全部' : SAR_NPC_NAMES[value]}</button>)}</nav>
-                <div className="sar-exclusive-count">已收好 {matches.length} 份纪念</div>
+                <div className="sar-exclusive-intro"><BookmarkSimple size={29} weight="light"/><div><h3>為你留的那一份</h3><p>紀念卡、合影與特別的贈禮。打開它，就能回看當時留下的細節。</p></div></div>
+                <nav className="sar-exclusive-filters" aria-label="紀念物來自誰">{(['all', 'caian', 'aiven'] as const).map(value => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setPage(0); }}>{value === 'all' ? '全部' : SAR_NPC_NAMES[value]}</button>)}</nav>
+                <div className="sar-exclusive-count">已收好 {matches.length} 份紀念</div>
                 <div className="sar-exclusive-items">{matches.slice(currentPage * 12, (currentPage + 1) * 12).map(item => <button type="button" className="sar-exclusive-item" key={item.id} onClick={() => setSelectedId(item.id)}>
                     <span className="sar-exclusive-art">{item.speciesId ? <FishArt speciesId={item.speciesId} size={72}/> : <SARArtifactPreview kind={item.artifactKind || 'memory-card'}/>}</span>
-                    <span><small>{SAR_NPC_NAMES[item.npc]} · 专属赠礼</small><strong>{item.title}</strong><span>{item.source}</span></span>
+                    <span><small>{SAR_NPC_NAMES[item.npc]} · 專屬贈禮</small><strong>{item.title}</strong><span>{item.source}</span></span>
                 </button>)}</div>
-                {!matches.length && <div className="sar-hub-empty"><BookmarkSimple size={40} weight="light"/><h3>这一页，先为你留着</h3><p>一起经历故事后收到的专属纪念物，会收在这里。</p></div>}
-                <SARPageNav page={currentPage} pages={pages} onChange={setPage} label="专属纪念"/>
+                {!matches.length && <div className="sar-hub-empty"><BookmarkSimple size={40} weight="light"/><h3>這一頁，先為你留著</h3><p>一起經歷故事後收到的專屬紀念物，會收在這裡。</p></div>}
+                <SARPageNav page={currentPage} pages={pages} onChange={setPage} label="專屬紀念"/>
             </>}
         </main>
     </>;

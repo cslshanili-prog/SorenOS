@@ -1,15 +1,15 @@
 // utils/amsgDiagnostics.test.ts
-// 回归守卫：
-//   1. fetch 失败不能再把 "Failed to fetch" 原样丢给用户——必须说出连的是哪个域名、
-//      可能的三个原因，以及「到点推送不走这条路」。社区里排查这一句花掉过好几天。
-//   2. 各家浏览器报「连不上」的说法不一样（Chrome 的 Failed to fetch、Safari 的
-//      Load failed、旧 Firefox 的 NetworkError），漏认一种就有一批人只剩英文原文。
-//   3. 体检面板的红绿判定：缺 D1 绑定、表结构是旧的、VAPID 没配、云端没登记收件设备，
-//      这四种都是「界面上一切正常、就是一条都不发」，必须各自单独报出来。
-//   4. 连不上 / 回执形状不对时，其余各项一律 unknown，不许假装绿——那比不体检更糟，
-//      用户会照着绿灯去别处瞎找。
-//   5. 「定时任务」那一行按实际情况说话：在失败重试、被掐掉、用户自己暂停了、每分钟
-//      那一跳在报错，各有各的说法，报错原文要能看到。
+// 迴歸守衛：
+//   1. fetch 失敗不能再把 "Failed to fetch" 原樣丟給用戶——必須說出連的是哪個域名、
+//      可能的三個原因，以及「到點推送不走這條路」。社區裡排查這一句花掉過好幾天。
+//   2. 各家瀏覽器報「連不上」的說法不一樣（Chrome 的 Failed to fetch、Safari 的
+//      Load failed、舊 Firefox 的 NetworkError），漏認一種就有一批人只剩英文原文。
+//   3. 體檢面板的紅綠判定：缺 D1 綁定、表結構是舊的、VAPID 沒配、雲端沒登記收件設備，
+//      這四種都是「界面上一切正常、就是一條都不發」，必須各自單獨報出來。
+//   4. 連不上 / 回執形狀不對時，其餘各項一律 unknown，不許假裝綠——那比不體檢更糟，
+//      用戶會照著綠燈去別處瞎找。
+//   5. 「定時任務」那一行按實際情況說話：在失敗重試、被掐掉、用戶自己暫停了、每分鐘
+//      那一跳在報錯，各有各的說法，報錯原文要能看到。
 import { describe, it, expect } from 'vitest';
 import {
   AmsgDebugReport,
@@ -30,13 +30,13 @@ const WORKER_URL = 'https://amsg.example.workers.dev';
 
 const rowOf = (rows: ReturnType<typeof buildAmsgDiagnosticRows>, key: string) => {
   const row = rows.find((item) => item.key === key);
-  if (!row) throw new Error(`体检结果里没有 ${key} 这一行`);
+  if (!row) throw new Error(`體檢結果裡沒有 ${key} 這一行`);
   return row;
 };
 
-/** 一份全绿的回执，各用例只改自己要考的那一处。 */
+/** 一份全綠的回執，各用例只改自己要考的那一處。 */
 const healthyReport = (patch: Partial<AmsgDebugReport> = {}): AmsgDebugReport => ({
-  config: { ok: true, missing: [], message: 'Worker 配置齐全。', warnings: [] },
+  config: { ok: true, missing: [], message: 'Worker 配置齊全。', warnings: [] },
   storage: {
     reachable: true,
     schemaReady: true,
@@ -54,73 +54,73 @@ const healthyReport = (patch: Partial<AmsgDebugReport> = {}): AmsgDebugReport =>
   ...patch,
 });
 
-describe('describeAmsgFetchFailure — 把 fetch 异常翻成人话', () => {
-  it('连不上时说清域名、三个可能原因，以及推送不受影响', () => {
+describe('describeAmsgFetchFailure — 把 fetch 異常翻成人話', () => {
+  it('連不上時說清域名、三個可能原因，以及推送不受影響', () => {
     const { message, kind } = describeAmsgFetchFailure(
       Object.assign(new TypeError('Failed to fetch'), { name: 'TypeError' }),
-      '初始化数据库',
+      '初始化數據庫',
       WORKER_URL,
     );
 
-    expect(kind).toBe('网络失败');
-    // 域名：不说打的是哪儿，用户没法判断是自己网络的问题还是地址填错了。
+    expect(kind).toBe('網絡失敗');
+    // 域名：不說打的是哪兒，用戶沒法判斷是自己網絡的問題還是地址填錯了。
     expect(message).toContain('amsg.example.workers.dev');
-    expect(message).toContain('连不上');
-    // 三条自查线索都要在，缺一条就会有人往错的方向翻。
+    expect(message).toContain('連不上');
+    // 三條自查線索都要在，缺一條就會有人往錯的方向翻。
     expect(message).toContain('Deno');
-    expect(message).toContain('地址填错');
-    // 最要紧的一句：别让用户以为主动消息整个废了。
+    expect(message).toContain('地址填錯');
+    // 最要緊的一句：別讓用戶以為主動消息整個廢了。
     expect(message).toContain('推送');
-    expect(message).toMatch(/不走这条路|不受影响/);
-    // 光秃秃的英文原文不该是用户看到的全部。
+    expect(message).toMatch(/不走[这這][条條]路|不受影[响響]/);
+    // 光禿禿的英文原文不該是用戶看到的全部。
     expect(message).not.toBe('Failed to fetch');
   });
 
-  it('Safari 的 Load failed 和旧 Firefox 的 NetworkError 同样认得出来', () => {
-    const safari = describeAmsgFetchFailure(new TypeError('Load failed'), '读取任务列表', WORKER_URL);
+  it('Safari 的 Load failed 和舊 Firefox 的 NetworkError 同樣認得出來', () => {
+    const safari = describeAmsgFetchFailure(new TypeError('Load failed'), '讀取任務列表', WORKER_URL);
     const firefox = describeAmsgFetchFailure(
       Object.assign(new Error('NetworkError when attempting to fetch resource.'), { name: 'NetworkError' }),
-      '读取任务列表',
+      '讀取任務列表',
       WORKER_URL,
     );
 
     for (const result of [safari, firefox]) {
-      expect(result.kind).toBe('网络失败');
-      expect(result.message).toContain('连不上');
+      expect(result.kind).toBe('網絡失敗');
+      expect(result.message).toContain('連不上');
     }
   });
 
-  it('超时单独成一句：这是「慢」不是「不通」，处理办法不一样', () => {
+  it('超時單獨成一句：這是「慢」不是「不通」，處理辦法不一樣', () => {
     const { message, kind } = describeAmsgFetchFailure(
       Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' }),
-      '即时对话',
+      '即時對話',
       WORKER_URL,
     );
 
-    expect(kind).toBe('网络失败');
-    expect(message).toContain('超时');
+    expect(kind).toBe('網絡失敗');
+    expect(message).toContain('超時');
     expect(message).toContain('amsg.example.workers.dev');
   });
 
-  it('打到网页上（拿回 HTML）仍然单独归类，指去检查地址', () => {
+  it('打到網頁上（拿回 HTML）仍然單獨歸類，指去檢查地址', () => {
     const { message, kind } = describeAmsgFetchFailure(
       new Error(`Unexpected token '<', "<!doctype ..." is not valid JSON`),
-      '配置自检',
+      '配置自檢',
       WORKER_URL,
     );
 
-    expect(kind).toBe('打到网页了');
-    expect(message).toContain('网页');
+    expect(kind).toBe('打到網頁了');
+    expect(message).toContain('網頁');
   });
 
-  it('没填地址时不硬凑域名，也不把 undefined 印出来', () => {
-    const { message } = describeAmsgFetchFailure(new TypeError('Failed to fetch'), '初始化数据库', '');
+  it('沒填地址時不硬湊域名，也不把 undefined 印出來', () => {
+    const { message } = describeAmsgFetchFailure(new TypeError('Failed to fetch'), '初始化數據庫', '');
     expect(message).not.toContain('undefined');
     expect(message).not.toContain('（）');
   });
 
-  it('认不出来的异常保留原文，不吞成一句「网络错误」', () => {
-    const { message, kind } = describeAmsgFetchFailure(new Error('AES-GCM decrypt failed'), '读取云端状态', WORKER_URL);
+  it('認不出來的異常保留原文，不吞成一句「網絡錯誤」', () => {
+    const { message, kind } = describeAmsgFetchFailure(new Error('AES-GCM decrypt failed'), '讀取雲端狀態', WORKER_URL);
     expect(kind).toBe('其他');
     expect(message).toContain('AES-GCM decrypt failed');
   });
@@ -130,36 +130,36 @@ describe('readWorkerHost', () => {
   it('取域名，取不到就返回空串', () => {
     expect(readWorkerHost('https://amsg.example.workers.dev/')).toBe('amsg.example.workers.dev');
     expect(readWorkerHost('  ')).toBe('');
-    expect(readWorkerHost('不是个地址')).toBe('');
+    expect(readWorkerHost('不是個地址')).toBe('');
     expect(readWorkerHost(undefined)).toBe('');
   });
 });
 
-describe('parseAmsgDebugReport — 只认形状对得上的回执', () => {
-  it('认得出正常回执', () => {
+describe('parseAmsgDebugReport — 只認形狀對得上的回執', () => {
+  it('認得出正常回執', () => {
     const parsed = parseAmsgDebugReport({ success: true, data: healthyReport() });
     expect(parsed?.config.ok).toBe(true);
     expect(parsed?.tick).toBe('healthy');
     expect(parsed?.server?.version).toBe('2.6.0-next.15');
   });
 
-  it('旧 worker 回的 404 / 代理塞回来的 HTML 一律判成「没有这个端点」，不当成体检结果', () => {
+  it('舊 worker 回的 404 / 代理塞回來的 HTML 一律判成「沒有這個端點」，不當成體檢結果', () => {
     expect(parseAmsgDebugReport({ success: false, error: { code: 'NOT_FOUND' } })).toBeNull();
     expect(parseAmsgDebugReport('<!doctype html><html></html>')).toBeNull();
     expect(parseAmsgDebugReport(null)).toBeNull();
-    // 有 data 但缺关键字段的，同样不采信。
+    // 有 data 但缺關鍵字段的，同樣不採信。
     expect(parseAmsgDebugReport({ success: true, data: { config: {} } })).toBeNull();
   });
 
-  // 老 bundle 的回执里压根没有 pushDelivery 这一段。收敛成显式的「没查」而不是让
-  // undefined 一路漏到界面上——判定那侧只要漏写一个 ?. 就又是一个假绿灯。
-  it('缺 pushDelivery 段（老 Worker）收敛成 probed:false / unsupported', () => {
+  // 老 bundle 的回執裡壓根沒有 pushDelivery 這一段。收斂成顯式的「沒查」而不是讓
+  // undefined 一路漏到界面上——判定那側只要漏寫一個 ?. 就又是一個假綠燈。
+  it('缺 pushDelivery 段（老 Worker）收斂成 probed:false / unsupported', () => {
     const { pushDelivery: _drop, ...storage } = healthyReport().storage;
     const parsed = parseAmsgDebugReport({ success: true, data: { ...healthyReport(), storage } });
     expect(parsed?.storage.pushDelivery).toEqual({ probed: false, reason: 'unsupported' });
   });
 
-  it('worker 显式回 null（自己查不成）收敛成 probed:false / failed', () => {
+  it('worker 顯式回 null（自己查不成）收斂成 probed:false / failed', () => {
     const parsed = parseAmsgDebugReport({
       success: true,
       data: healthyReport({ storage: { ...healthyReport().storage, pushDelivery: null as any } }),
@@ -167,7 +167,7 @@ describe('parseAmsgDebugReport — 只认形状对得上的回执', () => {
     expect(parsed?.storage.pushDelivery).toEqual({ probed: false, reason: 'failed' });
   });
 
-  it('形状不全的 gone（缺状态码或时刻）当没查到，不硬凑成一次失败', () => {
+  it('形狀不全的 gone（缺狀態碼或時刻）當沒查到，不硬湊成一次失敗', () => {
     const parsed = parseAmsgDebugReport({
       success: true,
       data: healthyReport({
@@ -180,21 +180,21 @@ describe('parseAmsgDebugReport — 只认形状对得上的回执', () => {
     expect(parsed?.storage.pushDelivery).toEqual({ probed: true, gone: null, registeredAtMs: 1700 });
   });
 
-  it('tick 是没见过的值时退回 unknown，不原样透出去', () => {
+  it('tick 是沒見過的值時退回 unknown，不原樣透出去', () => {
     const parsed = parseAmsgDebugReport({ success: true, data: healthyReport({ tick: 'wat' as any }) });
     expect(parsed?.tick).toBe('unknown');
   });
 
-  // 回归守卫：failing（在失败重试，但没卡住）是后加的一档。认不出来就被压成 unknown，
-  // 那一行会变成「暂时看不出定时器在不在跑」，正在重试的任务就这么从体检里消失了。
-  it('认得 failing 这一档，不压成 unknown', () => {
+  // 迴歸守衛：failing（在失敗重試，但沒卡住）是後加的一檔。認不出來就被壓成 unknown，
+  // 那一行會變成「暫時看不出定時器在不在跑」，正在重試的任務就這麼從體檢裡消失了。
+  it('認得 failing 這一檔，不壓成 unknown', () => {
     const parsed = parseAmsgDebugReport({ success: true, data: healthyReport({ tick: 'failing' }) });
     expect(parsed?.tick).toBe('failing');
   });
 });
 
-describe('buildAmsgDiagnosticRows — 红绿判定', () => {
-  it('全绿时每一行都是 ok', () => {
+describe('buildAmsgDiagnosticRows — 紅綠判定', () => {
+  it('全綠時每一行都是 ok', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: healthyReport() },
       localPushSubscribed: true,
@@ -203,19 +203,19 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(summarizeAmsgDiagnostics(rows)).toBe('ok');
   });
 
-  it('连不上时其余各项是 unknown，不假装绿', () => {
+  it('連不上時其餘各項是 unknown，不假裝綠', () => {
     const rows = buildAmsgDiagnosticRows({
-      probe: { reachable: false, reason: '连不上你的 Worker（amsg.example.workers.dev）。' },
+      probe: { reachable: false, reason: '連不上你的 Worker（amsg.example.workers.dev）。' },
       localPushSubscribed: true,
     });
 
     expect(rowOf(rows, 'reachable').level).toBe('bad');
-    expect(rowOf(rows, 'reachable').detail).toContain('连不上');
+    expect(rowOf(rows, 'reachable').detail).toContain('連不上');
     expect(rows.filter((row) => row.key !== 'reachable').every((row) => row.level === 'unknown')).toBe(true);
     expect(rows.some((row) => row.level === 'ok')).toBe(false);
   });
 
-  it('D1 没绑：点名是部署第一步漏点了 Add，且不再拿数据表报第二次红', () => {
+  it('D1 沒綁：點名是部署第一步漏點了 Add，且不再拿數據表報第二次紅', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -232,11 +232,11 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(database.detail).toContain('Add');
     expect(database.detail).toContain('Bindings');
     expect(database.detail).toContain('DB');
-    // 库没绑的时候表当然是空的，这一行跟着报红只会把人往错的方向引。
+    // 庫沒綁的時候表當然是空的，這一行跟著報紅只會把人往錯的方向引。
     expect(rowOf(rows, 'schema').level).toBe('unknown');
   });
 
-  it('主密钥缺失时提醒类型要选 Secret（选成 Text 下次部署就没了）', () => {
+  it('主密鑰缺失時提醒類型要選 Secret（選成 Text 下次部署就沒了）', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -253,15 +253,15 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
   });
 
   /**
-   * 回归守卫：查不了 ≠ 齐了。
+   * 迴歸守衛：查不了 ≠ 齊了。
    *
-   * 这一项存在的全部意义就是查出「升级完 Worker 没重新连接」造成的表结构漂移——漂移时
-   * cron 每分钟静默失败、主动消息整个停摆，而配置自检、任务列表、界面全都正常。查询本身
-   * 挂了却报一句「表和列都齐了」，等于在唯一能发现这件事的地方给了假绿灯，比没有这项检查
-   * 更糟。2026-08-09 本地实机跑到过：库里真缺 last_error 列和 message_outbox 表，
-   * 面板照报「数据表 正常」。
+   * 這一項存在的全部意義就是查出「升級完 Worker 沒重新連接」造成的表結構漂移——漂移時
+   * cron 每分鐘靜默失敗、主動消息整個停擺，而配置自檢、任務列表、界面全都正常。查詢本身
+   * 掛了卻報一句「表和列都齊了」，等於在唯一能發現這件事的地方給了假綠燈，比沒有這項檢查
+   * 更糟。2026-08-09 本地實機跑到過：庫裡真缺 last_error 列和 message_outbox 表，
+   * 面板照報「數據表 正常」。
    */
-  it('worker 查不了表结构（schemaReady=null）→ 报未知，绝不报正常', () => {
+  it('worker 查不了表結構（schemaReady=null）→ 報未知，絕不報正常', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -284,20 +284,20 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     const schema = rowOf(rows, 'schema');
     expect(schema.level).toBe('unknown');
     expect(schema.level).not.toBe('ok');
-    // 过去这一档说的就是这句——它正是那个假绿灯。
-    expect(schema.detail).not.toContain('表和列都齐了');
-    // 整块体检的基调也不能是「一切正常」。
+    // 過去這一檔說的就是這句——它正是那個假綠燈。
+    expect(schema.detail).not.toContain('表和列都齊了');
+    // 整塊體檢的基調也不能是「一切正常」。
     expect(summarizeAmsgDiagnostics(rows)).not.toBe('ok');
   });
 
   /**
-   * 回归守卫：查不成的时候要说清楚是**哪一种**查不成。
+   * 迴歸守衛：查不成的時候要說清楚是**哪一種**查不成。
    *
-   * 三档要用户做的事完全不同，混成一句「查不了，不知道」等于什么都没说——真实故障里
-   * 原因躺在 Cloudflare 日志里，用户看不到，只能一路猜。2026-08-09 从零部署稳定复现的
-   * 就是 denied 那档：新建的 D1 库自带一张 Cloudflare 内部表，上游逐表问列时被它拒掉。
+   * 三檔要用戶做的事完全不同，混成一句「查不了，不知道」等於什麼都沒說——真實故障裡
+   * 原因躺在 Cloudflare 日誌裡，用戶看不到，只能一路猜。2026-08-09 從零部署穩定復現的
+   * 就是 denied 那檔：新建的 D1 庫自帶一張 Cloudflare 內部表，上游逐表問列時被它拒掉。
    */
-  it('查不成的原因分档说话，不再一句「不知道」打发', () => {
+  it('查不成的原因分檔說話，不再一句「不知道」打發', () => {
     const rowFor = (schemaError: 'denied' | 'unsupported' | 'timeout' | 'other' | undefined) =>
       rowOf(buildAmsgDiagnosticRows({
         probe: {
@@ -319,30 +319,30 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
         localPushSubscribed: true,
       }), 'schema');
 
-    // 后端自己的毛病：得说明不影响收发，别让用户白点一通按钮。
-    expect(rowFor('denied').detail).toContain('内部表');
-    expect(rowFor('denied').detail).toContain('不受影响');
-    // 后端太旧：指向「更新 Worker」，不是「重新连接」。
+    // 後端自己的毛病：得說明不影響收發，別讓用戶白點一通按鈕。
+    expect(rowFor('denied').detail).toContain('內部表');
+    expect(rowFor('denied').detail).toContain('不受影響');
+    // 後端太舊：指向「更新 Worker」，不是「重新連接」。
     expect(rowFor('unsupported').detail).toContain('更新 Worker');
-    // 库刚醒：再体检一次就好，不用改任何东西。
-    expect(rowFor('timeout').detail).toContain('过一会儿');
-    // 老 worker 不报这一项 → 退回原来那句笼统的，不能变成空字符串。
-    expect(rowFor(undefined).detail).toContain('重新连接并验证');
+    // 庫剛醒：再體檢一次就好，不用改任何東西。
+    expect(rowFor('timeout').detail).toContain('過一會兒');
+    // 老 worker 不報這一項 → 退回原來那句籠統的，不能變成空字符串。
+    expect(rowFor(undefined).detail).toContain('重新連接並驗證');
     expect(rowFor(undefined).detail.length).toBeGreaterThan(10);
-    // 哪一档都不许把这行说成绿的。
+    // 哪一檔都不許把這行說成綠的。
     (['denied', 'unsupported', 'timeout', 'other', undefined] as const).forEach((kind) => {
       expect(rowFor(kind).level).toBe('unknown');
     });
   });
 
   /**
-   * 回归守卫：一张表都没建的空库不许显示成全绿。
+   * 迴歸守衛：一張表都沒建的空庫不許顯示成全綠。
    *
-   * 一键部署完还没点「连接并验证」时正好是这个组合：表一张没建（主表不在 → schemaReady
-   * 为 false），而自查被库里的内部表拒掉 → 「缺哪些表」是个空数组。界面只数这个数组的话，
-   * 空库和齐活的库长得一模一样。
+   * 一鍵部署完還沒點「連接並驗證」時正好是這個組合：表一張沒建（主表不在 → schemaReady
+   * 為 false），而自查被庫裡的內部表拒掉 → 「缺哪些表」是個空數組。界面只數這個數組的話，
+   * 空庫和齊活的庫長得一模一樣。
    */
-  it('库是空的但自查也没跑成 → 报红说「一张表都没有」，不报绿', () => {
+  it('庫是空的但自查也沒跑成 → 報紅說「一張表都沒有」，不報綠', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -365,11 +365,11 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
 
     const schema = rowOf(rows, 'schema');
     expect(schema.level).toBe('bad');
-    expect(schema.detail).not.toContain('表和列都齐了');
-    expect(schema.detail).toContain('重新连接并验证');
+    expect(schema.detail).not.toContain('表和列都齊了');
+    expect(schema.detail).toContain('重新連接並驗證');
   });
 
-  it('表结构是旧的（缺列）要单独报红并指向「重新连接并验证」', () => {
+  it('表結構是舊的（缺列）要單獨報紅並指向「重新連接並驗證」', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -392,10 +392,10 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     const schema = rowOf(rows, 'schema');
     expect(schema.level).toBe('bad');
     expect(schema.detail).toContain('lease_until');
-    expect(schema.detail).toContain('重新连接并验证');
+    expect(schema.detail).toContain('重新連接並驗證');
   });
 
-  it('缺表时说清点哪个按钮能自动建好', () => {
+  it('缺表時說清點哪個按鈕能自動建好', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -416,10 +416,10 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     });
 
     expect(rowOf(rows, 'schema').detail).toContain('scheduled_messages');
-    expect(rowOf(rows, 'schema').detail).toContain('重新连接并验证');
+    expect(rowOf(rows, 'schema').detail).toContain('重新連接並驗證');
   });
 
-  it('VAPID 没配齐要报红：任务建得成，到点一条都推不出去', () => {
+  it('VAPID 沒配齊要報紅：任務建得成，到點一條都推不出去', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -428,7 +428,7 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
             ok: true,
             missing: [],
             message: '',
-            warnings: [{ code: 'VAPID_MISSING', message: 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 没配齐，到点消息不会推送出去。' }],
+            warnings: [{ code: 'VAPID_MISSING', message: 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 沒配齊，到點消息不會推送出去。' }],
           },
         }),
       },
@@ -441,7 +441,7 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(summarizeAmsgDiagnostics(rows)).toBe('bad');
   });
 
-  it('浏览器订阅了但云端没登记 → 报红并指向「开启通知与推送」', () => {
+  it('瀏覽器訂閱了但云端沒登記 → 報紅並指向「開啟通知與推送」', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -454,10 +454,10 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
 
     const device = rowOf(rows, 'pushDevice');
     expect(device.level).toBe('bad');
-    expect(device.detail).toContain('开启通知与推送');
+    expect(device.detail).toContain('開啟通知與推送');
   });
 
-  it('这台设备根本没订阅时也报红，而不是看云端脸色', () => {
+  it('這台設備根本沒訂閱時也報紅，而不是看雲端臉色', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: healthyReport() },
       localPushSubscribed: false,
@@ -465,11 +465,11 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(rowOf(rows, 'pushDevice').level).toBe('bad');
   });
 
-  // ─── 假绿灯回归守卫 ───
-  // 真实事故：登记状态两边一致（浏览器有订阅、Worker 上也有同一条 endpoint），
-  // 但那条订阅在推送服务那侧早就作废，每次投递换回一个 410。体检当时七项里六项
-  // 绿灯，用户看着一排绿灯完全无从下手。事实一直都在（上游把推送服务回的状态码
-  // 记进了任务的失败记录），只是没人往界面上传。
+  // ─── 假綠燈迴歸守衛 ───
+  // 真實事故：登記狀態兩邊一致（瀏覽器有訂閱、Worker 上也有同一條 endpoint），
+  // 但那條訂閱在推送服務那側早就作廢，每次投遞換回一個 410。體檢當時七項裡六項
+  // 綠燈，用戶看著一排綠燈完全無從下手。事實一直都在（上游把推送服務回的狀態碼
+  // 記進了任務的失敗記錄），只是沒人往界面上傳。
   const REGISTERED_AT = Date.parse('2026-08-10T04:00:00.000Z');
   const stamp = (atMs: number) => new Date(atMs).toISOString();
   const withDelivery = (pushDelivery: AmsgDebugReport['storage']['pushDelivery']) => healthyReport({
@@ -481,7 +481,7 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     registeredAtMs: REGISTERED_AT,
   });
 
-  it('登记状态全对，但上一次推送被判订阅失效 → 这台设备报红并指向「重置订阅」', () => {
+  it('登記狀態全對，但上一次推送被判訂閱失效 → 這台設備報紅並指向「重置訂閱」', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: withDelivery(goneAt('2026-08-10T05:06:00.000Z')) },
       localPushSubscribed: true,
@@ -491,11 +491,11 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     const device = rowOf(rows, 'pushDevice');
     expect(device.level).toBe('bad');
     expect(device.detail).toContain('410');
-    expect(device.detail).toContain('重置订阅');
+    expect(device.detail).toContain('重置訂閱');
     expect(summarizeAmsgDiagnostics(rows)).toBe('bad');
   });
 
-  it('404（端点根本不存在）同样报红', () => {
+  it('404（端點根本不存在）同樣報紅', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: withDelivery(goneAt('2026-08-10T05:06:00.000Z', 404)) },
       localPushSubscribed: true,
@@ -504,9 +504,9 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(rowOf(rows, 'pushDevice').level).toBe('bad');
   });
 
-  it('失败记录早于订阅登记时刻 = 重置之前的旧账，不报红', () => {
-    // 服务端只在失败时写失败记录、之后成功也不清。不比时刻的话，重置完那条红灯
-    // 会一直挂着——假红灯和假绿灯一样会把人带偏。
+  it('失敗記錄早於訂閱登記時刻 = 重置之前的舊帳，不報紅', () => {
+    // 服務端只在失敗時寫失敗記錄、之後成功也不清。不比時刻的話，重置完那條紅燈
+    // 會一直掛著——假紅燈和假綠燈一樣會把人帶偏。
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: withDelivery(goneAt('2026-08-10T03:00:00.000Z')) },
       localPushSubscribed: true,
@@ -515,7 +515,7 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(rowOf(rows, 'pushDevice').level).toBe('ok');
   });
 
-  it('问不到订阅登记时刻时报 warn：分不清新旧账，但也不给绿灯', () => {
+  it('問不到訂閱登記時刻時報 warn：分不清新舊帳，但也不給綠燈', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -525,12 +525,12 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
       formatTime: stamp,
     });
     expect(rowOf(rows, 'pushDevice').level).toBe('warn');
-    expect(rowOf(rows, 'pushDevice').detail).toContain('重置订阅');
+    expect(rowOf(rows, 'pushDevice').detail).toContain('重置訂閱');
   });
 
-  it('Worker 太旧、根本不查这一项 → warn + 指去「更新 Worker」，不给绿灯', () => {
-    // 这一档是升级路上的常态：前端已经会读了，用户那台 Worker 还是老 bundle。
-    // 给绿灯的话，假绿灯就原封不动地回来了。
+  it('Worker 太舊、根本不查這一項 → warn + 指去「更新 Worker」，不給綠燈', () => {
+    // 這一檔是升級路上的常態：前端已經會讀了，用戶那台 Worker 還是老 bundle。
+    // 給綠燈的話，假綠燈就原封不動地回來了。
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: withDelivery({ probed: false, reason: 'unsupported' }) },
       localPushSubscribed: true,
@@ -541,16 +541,16 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(summarizeAmsgDiagnostics(rows)).toBe('warn');
   });
 
-  it('查了但没查成 → 同样 warn，并说清到点收不到该点哪儿', () => {
+  it('查了但沒查成 → 同樣 warn，並說清到點收不到該點哪兒', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: withDelivery({ probed: false, reason: 'failed' }) },
       localPushSubscribed: true,
     });
     expect(rowOf(rows, 'pushDevice').level).toBe('warn');
-    expect(rowOf(rows, 'pushDevice').detail).toContain('重置订阅');
+    expect(rowOf(rows, 'pushDevice').detail).toContain('重置訂閱');
   });
 
-  it('云端压根没登记收件设备时不提投递——该修的是上一层', () => {
+  it('雲端壓根沒登記收件設備時不提投遞——該修的是上一層', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -566,12 +566,12 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     });
     const device = rowOf(rows, 'pushDevice');
     expect(device.level).toBe('bad');
-    expect(device.detail).toContain('开启通知与推送');
+    expect(device.detail).toContain('開啟通知與推送');
     expect(device.detail).not.toContain('410');
   });
 
-  // 没有细账（没拉 / 老面板）时只剩 /debug 的两个数，只能给笼统的那句。
-  it('定时任务停摆、手上没有细账时说出积压条数和该去哪儿看日志', () => {
+  // 沒有細帳（沒拉 / 老面板）時只剩 /debug 的兩個數，只能給籠統的那句。
+  it('定時任務停擺、手上沒有細帳時說出積壓條數和該去哪兒看日誌', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: {
         reachable: true,
@@ -596,7 +596,7 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(tick.items).toBeUndefined();
   });
 
-  it('手上没有待发任务时定时器一栏是 unknown，不冒充健康', () => {
+  it('手上沒有待發任務時定時器一欄是 unknown，不冒充健康', () => {
     const rows = buildAmsgDiagnosticRows({
       probe: { reachable: true, report: healthyReport({ tick: 'unknown' }) },
       localPushSubscribed: true,
@@ -604,26 +604,26 @@ describe('buildAmsgDiagnosticRows — 红绿判定', () => {
     expect(rowOf(rows, 'tick').level).toBe('unknown');
   });
 
-  it('旧 worker 没有体检端点时算 warn 不算坏（它只是查不了）', () => {
+  it('舊 worker 沒有體檢端點時算 warn 不算壞（它只是查不了）', () => {
     const rows = buildAmsgDiagnosticRows({
-      probe: { reachable: false, reason: '这台 Worker 上还没有体检端点。', unsupported: true },
+      probe: { reachable: false, reason: '這台 Worker 上還沒有體檢端點。', unsupported: true },
     });
     expect(rowOf(rows, 'reachable').level).toBe('warn');
     expect(summarizeAmsgDiagnostics(rows)).toBe('warn');
   });
 });
 
-// ─── 「定时任务」那一行：逐条细账 ───
+// ─── 「定時任務」那一行：逐條細帳 ───
 //
-// 光有 /debug 的两个数时，这一行只能笼统地说「定时触发器可能没在跑……去看日志」。
-// 真实情况里最常见的是任务在失败重试（原因明明白白记在任务上），其次是用户自己暂停了
-// 后台任务——照那句话去 Cloudflare 翻触发器，什么都翻不出来。
-describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
+// 光有 /debug 的兩個數時，這一行只能籠統地說「定時觸發器可能沒在跑……去看日誌」。
+// 真實情況裡最常見的是任務在失敗重試（原因明明白白記在任務上），其次是用戶自己暫停了
+// 後台任務——照那句話去 Cloudflare 翻觸發器，什麼都翻不出來。
+describe('buildAmsgDiagnosticRows — 定時任務的逐條細帳', () => {
   const NOW = Date.parse('2026-09-18T06:00:00.000Z');
   const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
-  /** 只留时分，断言里好认。 */
+  /** 只留時分，斷言裡好認。 */
   const hhmm = (atMs: number) => new Date(atMs).toISOString().slice(11, 16);
-  const TRIGGER_BROKEN_TEXT = '定时触发器可能没在跑';
+  const TRIGGER_BROKEN_TEXT = '定時觸發器可能沒在跑';
 
   const LLM_REASON = 'AI API error: 404 Not Found. Request URL: https://api.example.com/v1/chat/completions\n'
     + '  — The model `gpt-4o-typo` does not exist. (provider code: model_not_found)';
@@ -674,7 +674,7 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     ...extra,
   }), 'tick');
 
-  it('在失败重试的任务 → warn，逐条说清失败几次、几点再试、为什么，原文整段可看', () => {
+  it('在失敗重試的任務 → warn，逐條說清失敗幾次、幾點再試、為什麼，原文整段可看', () => {
     const task = reportTask({
       state: 'retry-wait',
       retryCount: 2,
@@ -684,42 +684,42 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     const row = tickRow('failing', { tickReport: { ok: true, report: tickReport({ tasks: [task] }) } });
 
     expect(row.level).toBe('warn');
-    // 在重试的任务既不能报绿，也不能说成触发器坏了。
+    // 在重試的任務既不能報綠，也不能說成觸發器壞了。
     expect(row.detail).not.toContain(TRIGGER_BROKEN_TEXT);
-    expect(row.detail).toContain('失败重试');
+    expect(row.detail).toContain('失敗重試');
     expect(row.items?.[0].text).toContain('小明');
-    expect(row.items?.[0].text).toContain('晚了 42 分钟');
-    expect(row.items?.[0].text).toContain('已经失败 2 次');
-    expect(row.items?.[0].text).toContain('06:05 再试');
-    expect(row.items?.[0].text).toContain('模型接口拒了这次请求');
+    expect(row.items?.[0].text).toContain('晚了 42 分鐘');
+    expect(row.items?.[0].text).toContain('已經失敗 2 次');
+    expect(row.items?.[0].text).toContain('06:05 再試');
+    expect(row.items?.[0].text).toContain('模型接口拒了這次請求');
     expect(row.items?.[0].text).toContain('gpt-4o-typo');
     expect(row.items?.some((item) => item.text.includes(TRIGGER_BROKEN_TEXT))).toBe(false);
-    // 原文一个字都不截：状态码和 Request URL 那半句只有在这儿才看得到。
+    // 原文一個字都不截：狀態碼和 Request URL 那半句只有在這兒才看得到。
     expect(row.items?.[0].raw).toBe(LLM_REASON);
   });
 
-  it('后台任务被用户暂停着 → warn 并说暂停中，不说触发器坏了', () => {
+  it('後台任務被用戶暫停著 → warn 並說暫停中，不說觸發器壞了', () => {
     const row = tickRow('stalled', {
       cronPaused: true,
       tickReport: { ok: true, report: tickReport({ tasks: [reportTask({ stuck: true })] }) },
     }, { overdueTasks: 3, pendingTasks: 3 });
 
     expect(row.level).toBe('warn');
-    expect(row.detail).toContain('暂停');
+    expect(row.detail).toContain('暫停');
     expect(row.detail).not.toContain(TRIGGER_BROKEN_TEXT);
-    expect(row.items?.[0].text).toContain('暂停');
+    expect(row.items?.[0].text).toContain('暫停');
     expect(row.items?.[0].text).not.toContain('Trigger events');
   });
 
-  it('暂停着、也没拿到细账时同样不说触发器坏了', () => {
+  it('暫停著、也沒拿到細帳時同樣不說觸發器壞了', () => {
     const row = tickRow('stalled', { cronPaused: true }, { overdueTasks: 3, pendingTasks: 3 });
     expect(row.level).toBe('warn');
-    expect(row.detail).toContain('暂停');
+    expect(row.detail).toContain('暫停');
     expect(row.detail).toContain('3');
     expect(row.detail).not.toContain(TRIGGER_BROKEN_TEXT);
   });
 
-  it('每分钟那一跳正在报错 → 报红，原文带上报错名和原话；缺列的话指去「重新连接并验证」', () => {
+  it('每分鐘那一跳正在報錯 → 報紅，原文帶上報錯名和原話；缺列的話指去「重新連接並驗證」', () => {
     const row = tickRow('healthy', {
       tickReport: {
         ok: true,
@@ -739,16 +739,16 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     });
 
     expect(row.level).toBe('bad');
-    expect(row.detail).toContain('每分钟那一跳在报错');
-    const item = row.items?.find((entry) => entry.text.includes('每分钟那一跳'));
-    expect(item?.text).toContain('连着 30 次');
-    expect(item?.text).toContain('整轮处理任务那一步');
-    expect(item?.text).toContain('重新连接并验证');
+    expect(row.detail).toContain('每分鐘那一跳在報錯');
+    const item = row.items?.find((entry) => entry.text.includes('每分鐘那一跳'));
+    expect(item?.text).toContain('連著 30 次');
+    expect(item?.text).toContain('整輪處理任務那一步');
+    expect(item?.text).toContain('重新連接並驗證');
     expect(item?.raw).toContain('no such column: lease_until');
     expect(item?.raw).toContain('D1_ERROR');
   });
 
-  it('整轮报错认得出来的另外两种各给一句该怎么办；阶段代号翻成中文', () => {
+  it('整輪報錯認得出來的另外兩種各給一句該怎麼辦；階段代號翻成中文', () => {
     const failureRow = (patch: Record<string, unknown>) => tickRow('healthy', {
       tickReport: {
         ok: true,
@@ -763,18 +763,18 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
 
     const vapid = failureRow({ name: 'VapidNotConfigured', message: 'VAPID keys missing' }).items?.[0];
     expect(vapid?.text).toContain('VAPID');
-    expect(vapid?.text).toContain('读配置那一步');
+    expect(vapid?.text).toContain('讀配置那一步');
 
     const timeout = failureRow({ stage: 'claim_failed', message: 'D1 query timed out', code: 'D1_TIMEOUT' }).items?.[0];
-    expect(timeout?.text).toContain('没响应');
-    expect(timeout?.text).toContain('给任务占位写库那一步');
+    expect(timeout?.text).toContain('沒響應');
+    expect(timeout?.text).toContain('給任務佔位寫庫那一步');
     expect(timeout?.raw).toBe('Error: D1 query timed out (D1_TIMEOUT)');
 
     const cleanup = failureRow({ stage: 'post_send_cleanup_failed_advance' }).items?.[0];
-    expect(cleanup?.text).toContain('发完之后写库那一步');
+    expect(cleanup?.text).toContain('發完之後寫庫那一步');
   });
 
-  it('整轮报错已经停了：一小时内报 warn，更早的不提级', () => {
+  it('整輪報錯已經停了：一小時內報 warn，更早的不提級', () => {
     const stopped = (lastMinutesAgo: number) => tickRow('healthy', {
       tickReport: {
         ok: true,
@@ -788,11 +788,11 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     });
 
     expect(stopped(20).level).toBe('warn');
-    expect(stopped(20).items?.[0].text).toContain('之前报错');
+    expect(stopped(20).items?.[0].text).toContain('之前報錯');
     expect(stopped(180).level).toBe('ok');
   });
 
-  it('开跑过、没发完、也没留下原因 → 说多半是被 Cloudflare 掐掉了', () => {
+  it('開跑過、沒發完、也沒留下原因 → 說多半是被 Cloudflare 掐掉了', () => {
     const row = tickRow('stalled', {
       tickReport: {
         ok: true,
@@ -804,17 +804,17 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
 
     expect(row.level).toBe('bad');
     expect(row.items?.[0].text).toContain('掐掉');
-    expect(row.items?.[0].text).toContain('05:30 开始发过');
+    expect(row.items?.[0].text).toContain('05:30 開始發過');
     expect(row.items?.[0].text).toContain('Observability');
     expect(row.items?.[0].raw).toBeUndefined();
   });
 
-  it('一直没人来领、Worker 也没留下报错 → 指去看 Trigger events；有整轮报错时改指那条', () => {
+  it('一直沒人來領、Worker 也沒留下報錯 → 指去看 Trigger events；有整輪報錯時改指那條', () => {
     const stuck = reportTask({ stuck: true });
     const noFailure = tickRow('stalled', { tickReport: { ok: true, report: tickReport({ tasks: [stuck] }) } });
     expect(noFailure.level).toBe('bad');
-    expect(noFailure.detail).toContain('有 1 条任务到点还没发出去');
-    expect(noFailure.items?.[0].text).toContain('一直没开始发');
+    expect(noFailure.detail).toContain('有 1 條任務到點還沒發出去');
+    expect(noFailure.items?.[0].text).toContain('一直沒開始發');
     expect(noFailure.items?.[0].text).toContain('Trigger events');
 
     const withFailure = tickRow('stalled', {
@@ -829,13 +829,13 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
         }),
       },
     });
-    expect(withFailure.items?.[0].text).toContain('原因见下面');
+    expect(withFailure.items?.[0].text).toContain('原因見下面');
     expect(withFailure.items?.[0].text).not.toContain('Trigger events');
-    // 任务在前，整轮报错跟在后面——「见下面」才对得上。
-    expect(withFailure.items?.[1].text).toContain('每分钟那一跳');
+    // 任務在前，整輪報錯跟在後面——「見下面」才對得上。
+    expect(withFailure.items?.[1].text).toContain('每分鐘那一跳');
   });
 
-  it('排队、正在发、开跑晚了，各说各的', () => {
+  it('排隊、正在發、開跑晚了，各說各的', () => {
     const report = tickReport({
       tasks: [
         reportTask({ uuid: 'a', state: 'sending', lastStartedAt: at(2) }),
@@ -845,13 +845,13 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     });
     const row = tickRow('failing', { tickReport: { ok: true, report } });
 
-    expect(row.items?.[0].text).toContain('正在发（2 分钟前开始的）');
-    expect(row.items?.[1].text).toContain('排队');
-    expect(row.items?.[2].text).toContain('到点 32 分钟后才开始的');
-    expect(row.detail).toContain('开始发得比平时晚');
+    expect(row.items?.[0].text).toContain('正在發（2 分鐘前開始的）');
+    expect(row.items?.[1].text).toContain('排隊');
+    expect(row.items?.[2].text).toContain('到點 32 分鐘後才開始的');
+    expect(row.detail).toContain('開始發得比平時晚');
   });
 
-  it('称呼：后台任务、即时回复、拿不到名字的各有说法', () => {
+  it('稱呼：後台任務、即時回覆、拿不到名字的各有說法', () => {
     const report = tickReport({
       tasks: [
         reportTask({ uuid: 'a', kind: 'doorplate' }),
@@ -860,12 +860,12 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
       ],
     });
     const texts = tickRow('failing', { tickReport: { ok: true, report } }).items?.map((item) => item.text) ?? [];
-    expect(texts[0].startsWith('小明的后台任务：')).toBe(true);
-    expect(texts[1].startsWith('小明的即时回复：')).toBe(true);
-    expect(texts[2].startsWith('某个角色：')).toBe(true);
+    expect(texts[0].startsWith('小明的後台任務：')).toBe(true);
+    expect(texts[1].startsWith('小明的即時回覆：')).toBe(true);
+    expect(texts[2].startsWith('某個角色：')).toBe(true);
   });
 
-  it('最近一小时彻底没发出去的 → warn 并逐条列出；过期跳过的不给原文', () => {
+  it('最近一小時徹底沒發出去的 → warn 並逐條列出；過期跳過的不給原文', () => {
     const row = tickRow('healthy', {
       tickReport: {
         ok: true,
@@ -873,7 +873,7 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
           recentFailures: [
             {
               uuid: 'f1', charId: 'char-1', contactName: '小明', kind: null, messageType: 'auto', outcome: 'failed',
-              error: { at: at(10), occurrence: at(12), reason: 'CREDENTIAL_MISSING: 凭据 cred-1 不存在', errorCode: 'CREDENTIAL_MISSING', pushStatus: null },
+              error: { at: at(10), occurrence: at(12), reason: 'CREDENTIAL_MISSING: 憑據 cred-1 不存在', errorCode: 'CREDENTIAL_MISSING', pushStatus: null },
             },
             {
               uuid: 'f2', charId: 'char-1', contactName: '小明', kind: null, messageType: 'auto', outcome: 'skipped',
@@ -885,16 +885,16 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     });
 
     expect(row.level).toBe('warn');
-    expect(row.detail).toContain('最近一小时有 2 次');
-    expect(row.items?.[0].text).toContain('05:48 那次没发出去，不会再补发了');
-    expect(row.items?.[0].text).toContain('API 凭据');
-    expect(row.items?.[0].raw).toBe('CREDENTIAL_MISSING: 凭据 cred-1 不存在');
-    expect(row.items?.[1].text).toContain('这次跳过了，下次到点照常');
-    expect(row.items?.[1].text).toContain('过期太久');
+    expect(row.detail).toContain('最近一小時有 2 次');
+    expect(row.items?.[0].text).toContain('05:48 那次沒發出去，不會再補發了');
+    expect(row.items?.[0].text).toContain('API 憑據');
+    expect(row.items?.[0].raw).toBe('CREDENTIAL_MISSING: 憑據 cred-1 不存在');
+    expect(row.items?.[1].text).toContain('這次跳過了，下次到點照常');
+    expect(row.items?.[1].text).toContain('過期太久');
     expect(row.items?.[1].raw).toBeUndefined();
   });
 
-  it('一小时以前的失败不提级；这一行本来就不正常时才陪着列出来', () => {
+  it('一小時以前的失敗不提級；這一行本來就不正常時才陪著列出來', () => {
     const oldFailure = {
       uuid: 'f1', charId: 'char-1', contactName: '小明', kind: null, messageType: 'auto', outcome: 'failed' as const,
       error: { at: at(180), occurrence: at(181), reason: 'boom', errorCode: null, pushStatus: null },
@@ -921,8 +921,8 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     expect(ancient.items?.map((item) => item.raw)).not.toContain('boom');
   });
 
-  it('细账没拉到 → 照旧给笼统的那句（带积压条数和 Observability），原因挂在下面', () => {
-    const reason = '没拿到每条任务的细账（Worker 上的代码可能还不是最新，点上面的「更新 Worker」）。';
+  it('細帳沒拉到 → 照舊給籠統的那句（帶積壓條數和 Observability），原因掛在下面', () => {
+    const reason = '沒拿到每條任務的細帳（Worker 上的代碼可能還不是最新，點上面的「更新 Worker」）。';
     const row = tickRow('stalled', { tickReport: { ok: false, reason } }, { overdueTasks: 3, pendingTasks: 3 });
 
     expect(row.level).toBe('bad');
@@ -933,15 +933,15 @@ describe('buildAmsgDiagnosticRows — 定时任务的逐条细账', () => {
     expect(row.items).toEqual([{ text: reason }]);
   });
 
-  it('一切正常时细账拉没拉到都不多说话', () => {
-    const row = tickRow('healthy', { tickReport: { ok: false, reason: '连不上' } }, { overdueTasks: 0, oldestOverdueMinutes: null });
+  it('一切正常時細帳拉沒拉到都不多說話', () => {
+    const row = tickRow('healthy', { tickReport: { ok: false, reason: '連不上' } }, { overdueTasks: 0, oldestOverdueMinutes: null });
     expect(row.level).toBe('ok');
     expect(row.items).toBeUndefined();
   });
 });
 
-describe('parseAmsgTickReport — 认定时任务细账', () => {
-  it('单条任务形状不对就跳过那一条，整轮报错照样认下来', () => {
+describe('parseAmsgTickReport — 認定時任務細帳', () => {
+  it('單條任務形狀不對就跳過那一條，整輪報錯照樣認下來', () => {
     const parsed = parseAmsgTickReport({
       success: true,
       data: {
@@ -965,46 +965,46 @@ describe('parseAmsgTickReport — 认定时任务细账', () => {
     expect(parsed?.tickFailure?.ongoing).toBe(true);
   });
 
-  it('没有这个端点的 Worker 回什么都不采信', () => {
+  it('沒有這個端點的 Worker 回什麼都不採信', () => {
     expect(parseAmsgTickReport({ success: false, error: { code: 'NOT_FOUND' } })).toBeNull();
     expect(parseAmsgTickReport('<!doctype html>')).toBeNull();
   });
 });
 
-describe('resolveInstantChatBlocker — 即时对话卡在哪一道', () => {
+describe('resolveInstantChatBlocker — 即時對話卡在哪一道', () => {
   const ALL_PASS: InstantChatGateInput = {
     connected: true,
     pushSubscribed: true,
     workerSupportsInstantChat: true,
   };
 
-  it('三道全过才返回 null', () => {
+  it('三道全過才返回 null', () => {
     expect(resolveInstantChatBlocker(ALL_PASS)).toBeNull();
   });
 
-  it('按「先补哪个」的顺序只报第一道：没连上盖过后面所有', () => {
-    // 什么都没配的人会同时踩中三道。一次把三条都说给他，等于让他自己排先后。
+  it('按「先補哪個」的順序只報第一道：沒連上蓋過後面所有', () => {
+    // 什麼都沒配的人會同時踩中三道。一次把三條都說給他，等於讓他自己排先後。
     expect(resolveInstantChatBlocker({
       connected: false,
       pushSubscribed: false,
       workerSupportsInstantChat: false,
-    })).toBe('没连上Worker');
+    })).toBe('沒連上Worker');
   });
 
-  it('连上了但没订阅推送 → 没开推送（这时候开了就是发得出、收不到）', () => {
+  it('連上了但沒訂閱推送 → 沒開推送（這時候開了就是發得出、收不到）', () => {
     expect(resolveInstantChatBlocker({ ...ALL_PASS, pushSubscribed: false, workerSupportsInstantChat: false }))
-      .toBe('没开推送');
+      .toBe('沒開推送');
   });
 
-  it('连上了、推送也开了，只差 Worker 不认 /instant-chat → Worker太旧', () => {
-    expect(resolveInstantChatBlocker({ ...ALL_PASS, workerSupportsInstantChat: false })).toBe('Worker太旧');
+  it('連上了、推送也開了，只差 Worker 不認 /instant-chat → Worker太舊', () => {
+    expect(resolveInstantChatBlocker({ ...ALL_PASS, workerSupportsInstantChat: false })).toBe('Worker太舊');
   });
 
-  it('每个代号都配着一句话——设置页的黄字和使用统计的属性共用这份判定', () => {
-    // 少一条的话界面上会出现空白提示：开关灰着、下面什么都不说。
-    const codes: InstantChatBlocker[] = ['没连上Worker', '没开推送', 'Worker太旧'];
+  it('每個代號都配著一句話——設置頁的黃字和使用統計的屬性共用這份判定', () => {
+    // 少一條的話界面上會出現空白提示：開關灰著、下面什麼都不說。
+    const codes: InstantChatBlocker[] = ['沒連上Worker', '沒開推送', 'Worker太舊'];
     for (const code of codes) {
-      expect(INSTANT_CHAT_BLOCKER_HINTS[code], `${code} 没有对应文案`).toBeTruthy();
+      expect(INSTANT_CHAT_BLOCKER_HINTS[code], `${code} 沒有對應文案`).toBeTruthy();
     }
     expect(Object.keys(INSTANT_CHAT_BLOCKER_HINTS)).toHaveLength(codes.length);
   });

@@ -6,7 +6,7 @@ export interface SARDateSpeech {
     canonical: SpeechLine[];
 }
 
-/** 用整批台词和播放位置定位，避免「嗯」等重复短句串行。旧快照也可以存着原台词。 */
+/** 用整批台詞和播放位置定位，避免「嗯」等重複短句串行。舊快照也可以存著原台詞。 */
 export function resolveSARDateSpeech(
     messages: SARDateSpeech[], batch: SpeechLine[], queueLength: number, currentText: string,
 ) {
@@ -19,7 +19,7 @@ export function resolveSARDateSpeech(
             index = batch.length - queueLength - 1;
             if (index < 0 || batch[index]?.text !== currentText) continue;
         } else {
-            // 没有整批信息的旧快照只接受唯一命中，不能把重复句强行配到第一句。
+            // 沒有整批信息的舊快照只接受唯一命中，不能把重複句強行配到第一句。
             const indices = new Set<number>();
             for (const lines of [message.surface, message.canonical]) {
                 lines.forEach((line, i) => { if (line.text === currentText) indices.add(i); });
@@ -32,7 +32,7 @@ export function resolveSARDateSpeech(
             key: `${message.id}:${index}`,
             messageId: message.id,
             moduleTitle: message.moduleTitle,
-            // 掉格式导致行数不同时显示完整段落，避免丢尾句或把别人的一句配过来。
+            // 掉格式導致行數不同時顯示完整段落，避免丟尾句或把別人的一句配過來。
             surface: aligned ? message.surface[index]?.text || '' : message.surface.map(line => line.text).join('\n'),
             canonical: aligned ? message.canonical[index]?.text || '' : message.canonical.map(line => line.text).join('\n'),
         };

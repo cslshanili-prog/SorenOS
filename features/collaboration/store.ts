@@ -60,7 +60,7 @@ const openCollaborationDatabase = (): Promise<IDBDatabase> => {
     };
     request.onblocked = () => {
       if (databasePromise === pending) databasePromise = null;
-      reject(new Error('协同工作数据库被其它标签页占用，请关闭其它页面后重试'));
+      reject(new Error('協同工作數據庫被其它標籤頁佔用，請關閉其它頁面後重試'));
     };
   });
   databasePromise = pending;
@@ -75,7 +75,7 @@ const requestResult = <T>(request: IDBRequest<T>): Promise<T> => new Promise((re
 const commitTransaction = (transaction: IDBTransaction): Promise<void> => new Promise((resolve, reject) => {
   transaction.oncomplete = () => resolve();
   transaction.onerror = () => reject(transaction.error);
-  transaction.onabort = () => reject(transaction.error || new Error('协同工作数据写入中断'));
+  transaction.onabort = () => reject(transaction.error || new Error('協同工作數據寫入中斷'));
 });
 
 const getAll = async <T>(storeName: string): Promise<T[]> => {

@@ -4,12 +4,12 @@ import PayQr from '../luckin/PayQr';
 import { trackEvent } from '../../utils/analytics';
 
 /**
- * 瑞幸 MCP 工具结果卡片 (与 McdCard 同构, 瑞幸蓝主题)
+ * 瑞幸 MCP 工具結果卡片 (與 McdCard 同構, 瑞幸藍主題)
  *
- * 渲染策略: 不知道每个工具具体返回什么字段, 所以做"启发式 + 通用展示":
- *  - 探测常见字段: items / products / stores / coupons / orderId / total ...
- *  - 命中已知形态 → 漂亮的专用卡片
- *  - 未命中 → 折叠的 JSON 详情 (可点击展开)
+ * 渲染策略: 不知道每個工具具體返回什麼字段, 所以做"啟發式 + 通用展示":
+ *  - 探測常見字段: items / products / stores / coupons / orderId / total ...
+ *  - 命中已知形態 → 漂亮的專用卡片
+ *  - 未命中 → 摺疊的 JSON 詳情 (可點擊展開)
  */
 
 export interface LuckinCartItem {
@@ -28,17 +28,17 @@ interface LuckinCardProps {
     error?: string | null;
     rawText?: string;
     kind?: 'menu' | 'order' | 'store' | 'coupon' | 'activity' | 'address' | 'generic' | 'cart' | 'candidate';
-    /** 用户在菜单上选好商品后点"发送给角色", 把购物车作为新消息发出去 */
+    /** 用戶在菜單上選好商品後點"發送給角色", 把購物車作為新消息發出去 */
     onSendCart?: (items: LuckinCartItem[]) => void;
-    /** 单品候选: 用户点 💭 → 立即把这一项扔给角色让 ta 评价 (不影响购物车) */
+    /** 單品候選: 用戶點 💭 → 立即把這一項扔給角色讓 ta 評價 (不影響購物車) */
     onCandidate?: (item: LuckinCartItem) => void;
-    /** kind='cart' 时使用 (历史消息): 之前选过的商品清单 */
+    /** kind='cart' 時使用 (歷史消息): 之前選過的商品清單 */
     cartItems?: LuckinCartItem[];
-    /** kind='candidate' 时使用 (历史消息): 候选的那一条单品 */
+    /** kind='candidate' 時使用 (歷史消息): 候選的那一條單品 */
     candidateItem?: LuckinCartItem;
 }
 
-// ========== 通用辅助 ==========
+// ========== 通用輔助 ==========
 
 const fmtMoney = (v: any): string => {
     if (v == null) return '';
@@ -106,7 +106,7 @@ const extractItems = (data: any, prefKeys: string[] = ['items', 'products', 'goo
     return bestArr;
 };
 
-// ========== 子卡片: 商品/菜单行 ==========
+// ========== 子卡片: 商品/菜單行 ==========
 
 interface MenuItemRowProps {
     item: any;
@@ -152,9 +152,9 @@ const MenuItemRow: React.FC<MenuItemRowProps> = ({ item, qty, onAdd, onSub, onCa
                             <button
                                 type="button"
                                 onClick={onCandidate}
-                                title="问问角色这个怎么样"
+                                title="問問角色這個怎麼樣"
                                 className="px-1.5 py-0.5 rounded-md bg-white border border-[#DDD3BC] text-[#16386F] text-[10px] font-bold active:scale-95 transition-transform"
-                            >💭 问 ta</button>
+                            >💭 問 ta</button>
                         )}
                         {showStepper && (
                             <div className="flex items-center bg-white border border-[#DDD3BC] rounded-md overflow-hidden">
@@ -179,7 +179,7 @@ const MenuItemRow: React.FC<MenuItemRowProps> = ({ item, qty, onAdd, onSub, onCa
     );
 };
 
-// ========== 子卡片: 订单 ==========
+// ========== 子卡片: 訂單 ==========
 
 const OrderSummary: React.FC<{ data: any }> = ({ data }) => {
     const orderId = pickFirst<string>(data, ['orderIdStr', 'orderId', 'orderNo', 'id', 'orderSn', 'tradeNo', 'orderCode']);
@@ -193,7 +193,7 @@ const OrderSummary: React.FC<{ data: any }> = ({ data }) => {
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[#16386F]/70 font-bold uppercase">订单</span>
+                <span className="text-[10px] text-[#16386F]/70 font-bold uppercase">訂單</span>
                 {status && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2ECDD] text-[#16386F] font-bold">{status}</span>}
             </div>
             {orderId && <div className="text-[11px] text-slate-500 font-mono">#{orderId}</div>}
@@ -201,18 +201,18 @@ const OrderSummary: React.FC<{ data: any }> = ({ data }) => {
             {items && items.length > 0 && (
                 <div className="bg-white/70 rounded-lg overflow-hidden border border-[#EFE9DC]">
                     {items.slice(0, 5).map((it, i) => <MenuItemRow key={i} item={it} />)}
-                    {items.length > 5 && <div className="text-[10px] text-slate-400 text-center py-1.5">还有 {items.length - 5} 项…</div>}
+                    {items.length > 5 && <div className="text-[10px] text-slate-400 text-center py-1.5">還有 {items.length - 5} 項…</div>}
                 </div>
             )}
             {total != null && (
                 <div className="flex items-center justify-between border-t border-[#ECE6D8]/70 pt-1.5">
-                    <span className="text-[11px] text-slate-600">合计</span>
+                    <span className="text-[11px] text-slate-600">合計</span>
                     <span className="text-[14px] font-bold text-[#16386F]">{fmtMoney(total)}</span>
                 </div>
             )}
             {takeCode && takeCode !== '生成中' && (
                 <div className="flex items-center justify-between bg-[#FAF7F0] rounded-lg px-2 py-1.5 border border-[#EFE9DC]">
-                    <span className="text-[11px] text-slate-600">取餐码</span>
+                    <span className="text-[11px] text-slate-600">取餐碼</span>
                     <span className="text-[15px] font-black tracking-widest text-[#B8860B]">{takeCode}</span>
                 </div>
             )}
@@ -225,18 +225,18 @@ const OrderSummary: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-// ========== 子卡片: 门店 ==========
+// ========== 子卡片: 門店 ==========
 
 const StoreList: React.FC<{ data: any }> = ({ data }) => {
     const stores = extractItems(data, ['stores', 'shops', 'restaurants', 'storeList', 'shopList', 'list', 'data', 'items']) || [];
     if (!stores.length) return null;
     return (
         <div className="space-y-1.5">
-            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">附近门店</div>
+            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">附近門店</div>
             {stores.slice(0, 5).map((s, i) => {
-                const name = pickFirst<string>(s, ['deptName', 'name', 'storeName', 'shopName']) || '瑞幸门店';
+                const name = pickFirst<string>(s, ['deptName', 'name', 'storeName', 'shopName']) || '瑞幸門店';
                 const addr = pickFirst<string>(s, ['address', 'storeAddress', 'shopAddress']);
-                // 瑞幸 distance 单位是千米 (number, 如 8.2038)
+                // 瑞幸 distance 單位是千米 (number, 如 8.2038)
                 const distance = pickFirst<any>(s, ['distance', 'distanceM']);
                 return (
                     <div key={i} className="bg-white/70 rounded-lg p-2 border border-[#EFE9DC]">
@@ -248,12 +248,12 @@ const StoreList: React.FC<{ data: any }> = ({ data }) => {
                     </div>
                 );
             })}
-            {stores.length > 5 && <div className="text-[10px] text-slate-400 text-center">还有 {stores.length - 5} 家门店…</div>}
+            {stores.length > 5 && <div className="text-[10px] text-slate-400 text-center">還有 {stores.length - 5} 家門店…</div>}
         </div>
     );
 };
 
-// ========== 子卡片: 菜单列表 (可分页 + 可选购) ==========
+// ========== 子卡片: 菜單列表 (可分頁 + 可選購) ==========
 
 const itemKey = (item: any, idx: number): string => {
     return String(item?.code || item?.productCode || item?.skuCode || item?.goodsCode || item?.id || `idx-${idx}`);
@@ -334,8 +334,8 @@ const MenuList: React.FC<{ items: any[]; pageSize?: number; onSendCart?: (items:
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition ${safePage === 0 ? 'text-slate-300' : 'text-[#16386F] active:bg-[#EFE9DC] active:scale-90'}`}
                         >‹</button>
                         <div className="text-[11px] text-[#0B1F3A] font-bold">
-                            第 {safePage + 1} / {totalPages} 页
-                            <span className="text-[9px] text-[#16386F]/60 font-normal ml-1.5">（共 {items.length} 项）</span>
+                            第 {safePage + 1} / {totalPages} 頁
+                            <span className="text-[9px] text-[#16386F]/60 font-normal ml-1.5">（共 {items.length} 項）</span>
                         </div>
                         <button
                             type="button"
@@ -349,7 +349,7 @@ const MenuList: React.FC<{ items: any[]; pageSize?: number; onSendCart?: (items:
             {onSendCart && totalCount > 0 && (
                 <div className="mt-2 flex items-center gap-2 bg-[#F2ECDD]/90 rounded-lg p-2 border border-[#DDD3BC]">
                     <div className="flex-1 min-w-0">
-                        <div className="text-[10px] text-[#0B1F3A]/70">已选 {totalCount} 件</div>
+                        <div className="text-[10px] text-[#0B1F3A]/70">已選 {totalCount} 件</div>
                         {totalPrice > 0 && <div className="text-[14px] font-bold text-[#0B1F3A]">{fmtMoney(totalPrice)}</div>}
                     </div>
                     <button
@@ -361,14 +361,14 @@ const MenuList: React.FC<{ items: any[]; pageSize?: number; onSendCart?: (items:
                         type="button"
                         onClick={handleSend}
                         className="px-3 py-1.5 bg-[#0B1F3A] text-white text-[11px] font-bold rounded-lg shadow active:scale-95 transition-transform"
-                    >发送给角色 →</button>
+                    >發送給角色 →</button>
                 </div>
             )}
         </div>
     );
 };
 
-// ========== 子卡片: 用户购物车 ==========
+// ========== 子卡片: 用戶購物車 ==========
 
 const CartCard: React.FC<{ items: LuckinCartItem[] }> = ({ items }) => {
     const total = items.reduce((sum, c) => {
@@ -378,7 +378,7 @@ const CartCard: React.FC<{ items: LuckinCartItem[] }> = ({ items }) => {
     const totalCount = items.reduce((s, c) => s + c.qty, 0);
     return (
         <div className="space-y-2">
-            <div className="text-[10px] text-[#16386F]/80 font-bold uppercase">🛒 想要下单的内容</div>
+            <div className="text-[10px] text-[#16386F]/80 font-bold uppercase">🛒 想要下單的內容</div>
             <div className="bg-white/80 rounded-lg overflow-hidden border border-[#E6DFCF]">
                 {items.map((it, i) => (
                     <div key={i} className="flex items-center gap-2 p-2 border-b border-[#F4EFE4] last:border-b-0">
@@ -402,7 +402,7 @@ const CartCard: React.FC<{ items: LuckinCartItem[] }> = ({ items }) => {
     );
 };
 
-// ========== 子卡片: 单个商品 (switchProduct / queryProductDetailInfo 返回的单品 + 规格) ==========
+// ========== 子卡片: 單個商品 (switchProduct / queryProductDetailInfo 返回的單品 + 規格) ==========
 
 const isSingleProduct = (d: any): boolean =>
     !!d && typeof d === 'object' && !Array.isArray(d) && !!d.skuCode && !!(d.productName || d.name);
@@ -413,7 +413,7 @@ const SingleProductCard: React.FC<{ data: any }> = ({ data }) => {
     const initPrice = pickFirst<any>(data, ['initialPrice', 'initPrice']);
     const image = pickFirst<string>(data, ['pictureUrl', 'breviaryPicUrl', 'bigPicUrl']);
     const attrs: any[] = Array.isArray(data.productAttrs) ? data.productAttrs : [];
-    // 已选规格
+    // 已選規格
     const selected: string[] = [];
     for (const g of attrs) {
         const sub = Array.isArray(g?.productSubAttrs) ? g.productSubAttrs.find((s: any) => s?.selected) : null;
@@ -421,7 +421,7 @@ const SingleProductCard: React.FC<{ data: any }> = ({ data }) => {
     }
     return (
         <div className="space-y-2">
-            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">已选规格</div>
+            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">已選規格</div>
             <div className="flex gap-2 bg-white/80 rounded-lg p-2 border border-[#EFE9DC]">
                 <div className="w-12 h-12 rounded-md bg-[#FAF7F0] overflow-hidden shrink-0 flex items-center justify-center">
                     {image ? <img src={image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e: any) => { e.target.style.display = 'none'; }} /> : <span className="text-xl">{luckinItemEmoji(name)}</span>}
@@ -437,7 +437,7 @@ const SingleProductCard: React.FC<{ data: any }> = ({ data }) => {
                     )}
                 </div>
             </div>
-            {/* 各规格可选项 (供角色/用户参考) */}
+            {/* 各規格可選項 (供角色/用戶參考) */}
             {attrs.map((g: any, gi: number) => (
                 Array.isArray(g?.productSubAttrs) && g.productSubAttrs.length > 1 ? (
                     <div key={gi} className="text-[10px] text-slate-500">
@@ -450,16 +450,16 @@ const SingleProductCard: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-// ========== 子卡片: 收货地址 ==========
+// ========== 子卡片: 收貨地址 ==========
 
 const AddressList: React.FC<{ data: any }> = ({ data }) => {
     const list = extractItems(data, ['addresses', 'addressList', 'list', 'data', 'items']) || [];
     if (!list.length) return null;
     return (
         <div className="space-y-1.5">
-            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">📍 收货地址</div>
+            <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">📍 收貨地址</div>
             {list.slice(0, 5).map((a, i) => {
-                const name = pickFirst<string>(a, ['contactName', 'name', 'consignee', 'consigneeName']) || '收货人';
+                const name = pickFirst<string>(a, ['contactName', 'name', 'consignee', 'consigneeName']) || '收貨人';
                 const phone = pickFirst<string>(a, ['phone', 'mobile', 'tel', 'contactPhone', 'consigneePhone']);
                 const addr = pickFirst<string>(a, ['fullAddress', 'address', 'detailAddress', 'consigneeAddress']);
                 const tag = pickFirst<string>(a, ['tag', 'label', 'addressTag', 'addressType']);
@@ -475,12 +475,12 @@ const AddressList: React.FC<{ data: any }> = ({ data }) => {
                     </div>
                 );
             })}
-            {list.length > 5 && <div className="text-[10px] text-slate-400 text-center">还有 {list.length - 5} 条…</div>}
+            {list.length > 5 && <div className="text-[10px] text-slate-400 text-center">還有 {list.length - 5} 條…</div>}
         </div>
     );
 };
 
-// ========== 子卡片: 优惠券/咖啡券 ==========
+// ========== 子卡片: 優惠券/咖啡券 ==========
 
 const CouponList: React.FC<{ data: any }> = ({ data }) => {
     const coupons = extractItems(data, ['coupons', 'vouchers', 'myCoupons', 'couponList', 'tickets', 'list', 'data', 'items']) || [];
@@ -506,29 +506,29 @@ const CouponList: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-// ========== 文本/长内容 ==========
+// ========== 文本/長內容 ==========
 
 const TextResultCard: React.FC<{ text: string; toolName: string }> = ({ text, toolName }) => {
     const [expanded, setExpanded] = useState(false);
     const preview = text.length > 240 ? text.slice(0, 240) + '…' : text;
     const isLong = text.length > 240;
-    const label = /coupon|券/i.test(toolName) ? '优惠券文本'
-        : /menu|product|商品|菜单/i.test(toolName) ? '菜单文本'
-        : '文本结果';
+    const label = /coupon|券/i.test(toolName) ? '優惠券文本'
+        : /menu|product|商品|菜[单單]/i.test(toolName) ? '菜單文本'
+        : '文本結果';
     return (
         <div className="bg-white/80 rounded-lg border border-[#EFE9DC] p-2.5">
             <div className="text-[10px] text-[#16386F]/70 font-bold uppercase mb-1">{label}</div>
             <pre className={`text-[10px] text-slate-700 leading-snug font-mono whitespace-pre-wrap break-all ${expanded ? '' : 'max-h-40 overflow-hidden'}`}>{expanded ? text : preview}</pre>
             {isLong && (
                 <button onClick={() => setExpanded(v => !v)} className="mt-1 text-[10px] text-[#16386F] active:scale-95">
-                    {expanded ? '▲ 收起' : '▼ 展开全部'}
+                    {expanded ? '▲ 收起' : '▼ 展開全部'}
                 </button>
             )}
         </div>
     );
 };
 
-// ========== 空信封 / 失败信封提示 ==========
+// ========== 空信封 / 失敗信封提示 ==========
 
 const isLuckinEnvelope = (v: any): boolean => {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
@@ -539,7 +539,7 @@ const isLuckinEnvelope = (v: any): boolean => {
 
 const EnvelopeNotice: React.FC<{ data: any }> = ({ data }) => {
     const ok = data?.success === true || data?.code === 200 || data?.code === '200' || data?.code === 0;
-    const msg = data?.message || data?.msg || data?.errMsg || (ok ? '请求成功，但没有返回数据' : '请求失败');
+    const msg = data?.message || data?.msg || data?.errMsg || (ok ? '請求成功，但沒有返回數據' : '請求失敗');
     const code = data?.code ?? data?.errorCode;
     const traceId = data?.traceId;
     return (
@@ -550,7 +550,7 @@ const EnvelopeNotice: React.FC<{ data: any }> = ({ data }) => {
                     <div className={`font-bold text-[12px] ${ok ? 'text-[#16386F]' : 'text-red-600'}`}>{msg}</div>
                     {ok && (
                         <div className="text-[10px] text-[#16386F]/80 mt-1 leading-relaxed">
-                            瑞幸没返回内容。常见原因: 该门店此时段不营业 / 不支持当前模式 / 参数不对 / 服务临时抖动。可以换个门店或让角色重试。
+                            瑞幸沒返回內容。常見原因: 該門店此時段不營業 / 不支持當前模式 / 參數不對 / 服務臨時抖動。可以換個門店或讓角色重試。
                         </div>
                     )}
                     {code != null && <div className="text-[9px] text-slate-400 font-mono mt-1">code: {String(code)}{traceId && ` · trace: ${String(traceId).slice(0, 8)}…`}</div>}
@@ -562,9 +562,9 @@ const EnvelopeNotice: React.FC<{ data: any }> = ({ data }) => {
 
 const EmptyResultNotice: React.FC<{ toolName: string }> = ({ toolName }) => (
     <div className="rounded-lg border p-3 bg-slate-50/70 border-slate-200">
-        <div className="text-[12px] font-bold text-slate-600">这个工具这次没返回可展示的数据</div>
+        <div className="text-[12px] font-bold text-slate-600">這個工具這次沒返回可展示的數據</div>
         <div className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-            {toolName} 返回了空列表。常见原因：门店/时段不支持、参数组合不匹配、或服务端临时无可用结果。可以换门店或调整参数重试。
+            {toolName} 返回了空列表。常見原因：門店/時段不支持、參數組合不匹配、或服務端臨時無可用結果。可以換門店或調整參數重試。
         </div>
     </div>
 );
@@ -623,7 +623,7 @@ const UnrecognizedDiag: React.FC<{ data: any; rawText?: string; toolName: string
     return (
         <div className="bg-white/70 rounded-lg border-2 border-dashed border-[#DDD3BC]">
             <div className="px-2 pt-2 pb-1.5 flex items-center gap-1.5">
-                <span className="text-[9px] px-1.5 py-0.5 bg-[#F2ECDD] text-[#16386F] rounded-full font-bold">⚠️ 未识别结构</span>
+                <span className="text-[9px] px-1.5 py-0.5 bg-[#F2ECDD] text-[#16386F] rounded-full font-bold">⚠️ 未識別結構</span>
                 <span className="text-[10px] text-slate-400 font-mono truncate">{toolName}</span>
             </div>
             <div className="px-2 pb-1.5 space-y-0.5 text-[10px] text-slate-600 font-mono leading-snug">
@@ -634,7 +634,7 @@ const UnrecognizedDiag: React.FC<{ data: any; rawText?: string; toolName: string
             {fullJson && (
                 <div className="flex items-center border-t border-[#ECE6D8]/70">
                     <button onClick={() => setExpanded(v => !v)} className="flex-1 text-left px-2 py-1 text-[10px] text-[#16386F] active:scale-[0.99]">
-                        {expanded ? '▼ 收起原始' : '▶ 展开原始 JSON'}
+                        {expanded ? '▼ 收起原始' : '▶ 展開原始 JSON'}
                     </button>
                     <button
                         onClick={handleCopy}
@@ -642,7 +642,7 @@ const UnrecognizedDiag: React.FC<{ data: any; rawText?: string; toolName: string
                             copyState === 'ok' ? 'text-emerald-600' : copyState === 'err' ? 'text-red-500' : 'text-[#16386F]'
                         }`}
                     >
-                        {copyState === 'ok' ? '✓ 已复制' : copyState === 'err' ? '× 失败' : '📋 复制'}
+                        {copyState === 'ok' ? '✓ 已複製' : copyState === 'err' ? '× 失敗' : '📋 複製'}
                     </button>
                 </div>
             )}
@@ -663,7 +663,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
                     <span className="text-lg">🛒</span>
                     <div className="flex-1 min-w-0">
                         <div className="text-[11px] font-bold text-white">瑞幸咖啡</div>
-                        <div className="text-[9px] text-white/70">想要下单</div>
+                        <div className="text-[9px] text-white/70">想要下單</div>
                     </div>
                 </div>
                 <div className="p-3"><CartCard items={cartItems} /></div>
@@ -677,7 +677,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
                     <span className="text-lg">💭</span>
                     <div className="flex-1 min-w-0">
                         <div className="text-[11px] font-bold text-white">瑞幸咖啡</div>
-                        <div className="text-[9px] text-white/70">想问问你的意见</div>
+                        <div className="text-[9px] text-white/70">想問問你的意見</div>
                     </div>
                 </div>
                 <div className="p-3 flex items-center gap-2">
@@ -724,7 +724,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
 
     return (
         <div className="w-72 rounded-2xl overflow-hidden border border-[#E6DFCF] shadow-sm bg-gradient-to-br from-[#FAF7F0] to-[#F2EEE3]">
-            {/* 头部: 瑞幸蓝条 */}
+            {/* 頭部: 瑞幸藍條 */}
             <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#0B1F3A] to-[#1E4D8C]">
                 <span className="text-lg">🦌</span>
                 <div className="flex-1 min-w-0">
@@ -732,7 +732,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
                     <div className="text-[9px] text-white/70 font-mono truncate">{toolName}</div>
                 </div>
                 {isError ? (
-                    <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-bold">失败</span>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-bold">失敗</span>
                 ) : (
                     <span className="text-[9px] px-1.5 py-0.5 bg-white/80 text-[#0B1F3A] rounded-full font-bold">已返回</span>
                 )}
@@ -744,7 +744,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
                         <div className="text-[11px] text-red-600 leading-relaxed whitespace-pre-wrap">{error}</div>
                         {args && Object.keys(args).length > 0 && (
                             <details className="bg-red-50/60 border border-red-200 rounded-lg">
-                                <summary className="text-[10px] text-red-700 px-2 py-1 cursor-pointer font-bold">▶ 模型这次传的参数</summary>
+                                <summary className="text-[10px] text-red-700 px-2 py-1 cursor-pointer font-bold">▶ 模型這次傳的參數</summary>
                                 <pre className="text-[10px] text-slate-700 px-2 pb-2 overflow-auto max-h-48 leading-tight whitespace-pre-wrap break-all font-mono">{(() => { try { return JSON.stringify(args, null, 2); } catch { return String(args); } })()}</pre>
                             </details>
                         )}
@@ -777,7 +777,7 @@ const LuckinCard: React.FC<LuckinCardProps> = ({ toolName, args, result, error, 
                 {!isError && args && Object.keys(args).length > 0 && (
                     <details className="text-[9px] text-slate-400 font-mono">
                         <summary className="cursor-pointer truncate select-none active:text-[#16386F]">
-                            参数: {Object.keys(args).join(', ')}
+                            參數: {Object.keys(args).join(', ')}
                         </summary>
                         <pre className="text-[10px] text-slate-600 mt-1 px-1 py-1 bg-slate-50/80 rounded overflow-auto max-h-40 whitespace-pre-wrap break-all">{(() => { try { return JSON.stringify(args, null, 2); } catch { return String(args); } })()}</pre>
                     </details>

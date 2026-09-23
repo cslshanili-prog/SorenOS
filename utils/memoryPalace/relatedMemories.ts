@@ -1,18 +1,18 @@
 /**
- * Memory Palace — 取相关记忆的共享 helper
+ * Memory Palace — 取相關記憶的共享 helper
  *
- * 在记忆提取流程中（聊天 buffer 路径 + 旧聊天迁移路径），
- * 我们需要让 LLM 看到一些"已经存在的、可能相关的旧记忆"，
- * 这样它才能：
- *   ① 避免误解隐式指代
- *   ② 输出 relatedTo 标记，把新记忆和旧事件绑成同一个 EventBox
+ * 在記憶提取流程中（聊天 buffer 路徑 + 舊聊天遷移路徑），
+ * 我們需要讓 LLM 看到一些"已經存在的、可能相關的舊記憶"，
+ * 這樣它才能：
+ *   ① 避免誤解隱式指代
+ *   ② 輸出 relatedTo 標記，把新記憶和舊事件綁成同一個 EventBox
  *
- * 核心策略：**细粒度 per-event 查询**，而不是把大段文本切 3 段 embed。
- * - 迁移路径：把 YAML 列表 (`- 事件X`) 拆成每个 bullet 一个 query
- * - 聊天 buffer 路径：每条 ≥4 字的 user 消息独立 query
- * - 切不出细粒度（非 YAML / 全是短消息）时自动 fallback 到旧的 3 段切法
+ * 核心策略：**細粒度 per-event 查詢**，而不是把大段文本切 3 段 embed。
+ * - 遷移路徑：把 YAML 列表 (`- 事件X`) 拆成每個 bullet 一個 query
+ * - 聊天 buffer 路徑：每條 ≥4 字的 user 消息獨立 query
+ * - 切不出細粒度（非 YAML / 全是短消息）時自動 fallback 到舊的 3 段切法
  *
- * 结果合并：同一记忆取最高相似度；按相似度降序取 top N。
+ * 結果合併：同一記憶取最高相似度；按相似度降序取 top N。
  */
 
 import type { EmbeddingConfig, RemoteVectorConfig } from './types';
@@ -21,11 +21,11 @@ import { getEmbeddings } from './embedding';
 import { vectorSearch, isRemoteSearchBroken } from './vectorSearch';
 import { ensureFloat32 } from './db';
 
-/** 从 localStorage 读取远程向量配置，判断本次是走远程还是本地路径。
- *  关键：enabled=false 或未完成 initialized 时必须视为"没有远程配置"，
- *  否则用户在 UI 里关掉 Supabase 之后，这条路径还会把旧配置喂给 vectorSearch，
- *  继续尝试连远程 → 报连不上。其他模块（pipeline / digestion / db /
- *  eventBoxCompression）都是这个写法，这里是历史漏检。 */
+/** 從 localStorage 讀取遠程向量配置，判斷本次是走遠程還是本地路徑。
+ *  關鍵：enabled=false 或未完成 initialized 時必須視為"沒有遠程配置"，
+ *  否則用戶在 UI 裡關掉 Supabase 之後，這條路徑還會把舊配置餵給 vectorSearch，
+ *  繼續嘗試連遠程 → 報連不上。其他模塊（pipeline / digestion / db /
+ *  eventBoxCompression）都是這個寫法，這裡是歷史漏檢。 */
 function getLocalRemoteConfig(): RemoteVectorConfig | undefined {
     try {
         const raw = localStorage.getItem('os_remote_vector_config');
@@ -36,24 +36,24 @@ function getLocalRemoteConfig(): RemoteVectorConfig | undefined {
 }
 
 export interface FetchRelatedOptions {
-    /** 单段查询的相似度阈值，默认 0.40（细粒度 query 下给点宽松度） */
+    /** 單段查詢的相似度閾值，默認 0.40（細粒度 query 下給點寬鬆度） */
     threshold?: number;
-    /** 单段查询取 top 几条，默认 3（太少会错过稍微改写的同事件） */
+    /** 單段查詢取 top 幾條，默認 3（太少會錯過稍微改寫的同事件） */
     perQueryTopK?: number;
-    /** 合并后最多返回多少条，默认 15 */
+    /** 合併後最多返回多少條，默認 15 */
     maxTotal?: number;
-    /** 内容截断长度，默认 100 字 */
+    /** 內容截斷長度，默認 100 字 */
     contentTruncate?: number;
 }
 
 /**
- * 用一组文本片段搜出相关旧记忆。
+ * 用一組文本片段搜出相關舊記憶。
  *
- * 使用场景：
- * - 缓冲区提取：传每条 ≥4 字的 user 消息
- * - 旧记忆迁移：传拆分后的 bullet 列表
+ * 使用場景：
+ * - 緩衝區提取：傳每條 ≥4 字的 user 消息
+ * - 舊記憶遷移：傳拆分後的 bullet 列表
  *
- * @param snippets 用于做向量查询的文本片段（精细粒度，一条事件/一条消息一段）
+ * @param snippets 用於做向量查詢的文本片段（精細粒度，一條事件/一條消息一段）
  */
 export async function fetchRelatedMemoriesForExtraction(
     snippets: string[],
@@ -64,18 +64,18 @@ export async function fetchRelatedMemoriesForExtraction(
     const validSnippets = snippets.map(s => s.trim()).filter(s => s.length > 0);
     if (validSnippets.length === 0) return [];
 
-    // 防御性 cap：即便调用方传入一大堆 snippet（比如 bullets 路径 80+），也不要全跑
-    // 否则 embedding/vectorSearch/内存都会炸。均匀抽样降到 MAX 条。
+    // 防禦性 cap：即便調用方傳入一大堆 snippet（比如 bullets 路徑 80+），也不要全跑
+    // 否則 embedding/vectorSearch/內存都會炸。均勻抽樣降到 MAX 條。
     //
-    // 历史：曾经死扣到 15。原因是当时远程 Supabase RPC 一旦 CORS 失败会被
-    // 每条 query 各踩一次 + 回退本地全量加载，30 条 query 直接撕碎 V8
-    // typed-array arena。后来加了会话级远程熔断 + 本地批处理一次加载、
-    // 内存串行打分（vectorSearch.ts / relatedMemories.ts 远程熔断分支），
-    // 30 条已经不再是问题。
+    // 歷史：曾經死扣到 15。原因是當時遠程 Supabase RPC 一旦 CORS 失敗會被
+    // 每條 query 各踩一次 + 回退本地全量加載，30 條 query 直接撕碎 V8
+    // typed-array arena。後來加了會話級遠程熔斷 + 本地批處理一次加載、
+    // 內存串行打分（vectorSearch.ts / relatedMemories.ts 遠程熔斷分支），
+    // 30 條已經不再是問題。
     //
-    // 提到 25 是为了换召回质量：被抽样跳过的 bullet 没机会让 LLM 看到
-    // "新事件 vs 旧事件"的关联提示，跨 sub-batch 的事件盒合并率会偏低。
-    // 25 比 15 多覆盖 67% 的 bullet，每 sub-batch 代价约 +5-10s embedding/打分。
+    // 提到 25 是為了換召回質量：被抽樣跳過的 bullet 沒機會讓 LLM 看到
+    // "新事件 vs 舊事件"的關聯提示，跨 sub-batch 的事件盒合併率會偏低。
+    // 25 比 15 多覆蓋 67% 的 bullet，每 sub-batch 代價約 +5-10s embedding/打分。
     const HARD_MAX_SNIPPETS = 25;
     let workingSnippets = validSnippets;
     if (validSnippets.length > HARD_MAX_SNIPPETS) {
@@ -84,7 +84,7 @@ export async function fetchRelatedMemoriesForExtraction(
         for (let i = 0; i < HARD_MAX_SNIPPETS; i++) {
             workingSnippets.push(validSnippets[Math.floor(i * step)]);
         }
-        console.log(`🏰 [RelatedMemories] ${validSnippets.length} 段 snippet 降采样到 ${HARD_MAX_SNIPPETS}（防主线程阻塞）`);
+        console.log(`🏰 [RelatedMemories] ${validSnippets.length} 段 snippet 降採樣到 ${HARD_MAX_SNIPPETS}（防主線程阻塞）`);
     }
 
     const threshold = opts.threshold ?? 0.40;
@@ -93,25 +93,25 @@ export async function fetchRelatedMemoriesForExtraction(
     const contentTruncate = opts.contentTruncate ?? 100;
 
     try {
-        // 并行 batch embedding（一次请求拿回所有向量，便宜）
+        // 並行 batch embedding（一次請求拿回所有向量，便宜）
         const vectors = await getEmbeddings(workingSnippets, embeddingConfig);
 
         const searchResults: Array<{ node: any; similarity: number }[]> = [];
 
-        // 本地 vs 远程分路：本地路径之前每个 query 都独立 getAllByCharId 加载全量向量库，
-        // 30 次冗余加载 500+ × 1024 维 Float32Array 瞬间 60MB 分配，GC 跟不上就 OOM 崩 tab。
-        // 改成：本地路径**一次性**加载向量 + 节点索引，内存里串行打分；远程路径保留
-        // concurrency 4 的 Promise.all（每个 query 是独立 HTTP 无法合并）。
+        // 本地 vs 遠程分路：本地路徑之前每個 query 都獨立 getAllByCharId 加載全量向量庫，
+        // 30 次冗餘加載 500+ × 1024 維 Float32Array 瞬間 60MB 分配，GC 跟不上就 OOM 崩 tab。
+        // 改成：本地路徑**一次性**加載向量 + 節點索引，內存裡串行打分；遠程路徑保留
+        // concurrency 4 的 Promise.all（每個 query 是獨立 HTTP 無法合併）。
         //
-        // ⚠️ 远程熔断：isRemoteSearchBroken() 在首次 Supabase RPC 抛网络错误
-        //（CORS / 500 无 CORS 头）后会置 true，从那一刻起本会话直接跳过远程
-        // 走"一次性加载、内存里串行打分"的本地快路径 —— 否则迁移批量
-        // 查询会每条都踩一次 CORS 失败 + 回退到本地 getAllByCharId，15 次冗余
-        // 全量加载能把 tab 冻住好几秒直到 GC。
+        // ⚠️ 遠程熔斷：isRemoteSearchBroken() 在首次 Supabase RPC 拋網絡錯誤
+        //（CORS / 500 無 CORS 頭）後會置 true，從那一刻起本會話直接跳過遠程
+        // 走"一次性加載、內存裡串行打分"的本地快路徑 —— 否則遷移批量
+        // 查詢會每條都踩一次 CORS 失敗 + 回退到本地 getAllByCharId，15 次冗餘
+        // 全量加載能把 tab 凍住好幾秒直到 GC。
         const remoteCfg = getLocalRemoteConfig();
         let usingRemote = !!(remoteCfg?.enabled && remoteCfg?.initialized) && !isRemoteSearchBroken();
 
-        // 本地快路径的 state（remote 中途熔断时复用，避免重复加载）
+        // 本地快路徑的 state（remote 中途熔斷時複用，避免重複加載）
         let localVectors: any[] | null = null;
         let localNodeMap: Map<string, any> | null = null;
         const { cosineSimilarity } = await import('./embedding');
@@ -130,8 +130,8 @@ export async function fetchRelatedMemoriesForExtraction(
         function localScoreOne(qv: Float32Array): { node: any; similarity: number }[] {
             const scored: { memoryId: string; similarity: number }[] = [];
             for (const ev of localVectors!) {
-                // ensureFloat32 兼容三种存储形态，防御式兜底；正常情况下
-                // ev.vector 出 DB 时已是 Float32Array，这一支几乎是 no-op。
+                // ensureFloat32 兼容三種存儲形態，防禦式兜底；正常情況下
+                // ev.vector 出 DB 時已是 Float32Array，這一支幾乎是 no-op。
                 const sim = cosineSimilarity(qv, ensureFloat32(ev.vector));
                 if (sim >= threshold) {
                     scored.push({ memoryId: ev.memoryId, similarity: sim });
@@ -151,8 +151,8 @@ export async function fetchRelatedMemoriesForExtraction(
             const CONCURRENCY = 4;
             let consumed = 0;
             for (let i = 0; i < vectors.length; i += CONCURRENCY) {
-                // 每轮开始前重新检查熔断：只要前一批里有任何一条触发 markRemoteBroken，
-                // 剩余查询就立刻切到本地快路径，不再踩 CORS。
+                // 每輪開始前重新檢查熔斷：只要前一批裡有任何一條觸發 markRemoteBroken，
+                // 剩餘查詢就立刻切到本地快路徑，不再踩 CORS。
                 if (isRemoteSearchBroken()) {
                     usingRemote = false;
                     break;
@@ -163,16 +163,16 @@ export async function fetchRelatedMemoriesForExtraction(
                 );
                 searchResults.push(...batchResults);
                 consumed = i + batch.length;
-                await new Promise(r => setTimeout(r, 0)); // 让出主线程
+                await new Promise(r => setTimeout(r, 0)); // 讓出主線程
             }
             if (!usingRemote) {
-                // 远程中途挂了：剩余 query 走本地快路径（不丢弃已拿到的 batchResults）
+                // 遠程中途掛了：剩餘 query 走本地快路徑（不丟棄已拿到的 batchResults）
                 const hasLocal = await ensureLocalIndex();
                 if (!hasLocal) {
-                    // 本地没东西：剩余全补空即可（保持 searchResults 长度与 vectors 对齐不是硬需求，
-                    // 因为后面是合并去重，空批次不会引入错误）
+                    // 本地沒東西：剩餘全補空即可（保持 searchResults 長度與 vectors 對齊不是硬需求，
+                    // 因為後面是合併去重，空批次不會引入錯誤）
                 } else {
-                    console.log(`🏰 [RelatedMemories] 远程熔断后切本地：剩 ${vectors.length - consumed} 条 query 走本地路径`);
+                    console.log(`🏰 [RelatedMemories] 遠程熔斷後切本地：剩 ${vectors.length - consumed} 條 query 走本地路徑`);
                     for (let qi = consumed; qi < vectors.length; qi++) {
                         searchResults.push(localScoreOne(vectors[qi]));
                         if ((qi + 1) % 5 === 0 && qi < vectors.length - 1) {
@@ -182,19 +182,19 @@ export async function fetchRelatedMemoriesForExtraction(
                 }
             }
         } else {
-            // 本地路径：一次性加载，内存里打分
+            // 本地路徑：一次性加載，內存裡打分
             const hasLocal = await ensureLocalIndex();
             if (!hasLocal) return [];
             for (let qi = 0; qi < vectors.length; qi++) {
                 searchResults.push(localScoreOne(vectors[qi]));
-                // 每 5 条 query 让一下主线程
+                // 每 5 條 query 讓一下主線程
                 if ((qi + 1) % 5 === 0 && qi < vectors.length - 1) {
                     await new Promise(r => setTimeout(r, 0));
                 }
             }
         }
 
-        // 合并去重：同一记忆保留最高相似度
+        // 合併去重：同一記憶保留最高相似度
         const seen = new Map<string, { node: any; similarity: number }>();
         for (const results of searchResults) {
             for (const r of results) {
@@ -216,63 +216,63 @@ export async function fetchRelatedMemoriesForExtraction(
             content: (r.node.content || '').slice(0, contentTruncate),
         }));
     } catch (e: any) {
-        console.warn(`🏰 [RelatedMemories] 检索失败（不影响主流程）: ${e?.message || e}`);
+        console.warn(`🏰 [RelatedMemories] 檢索失敗（不影響主流程）: ${e?.message || e}`);
         return [];
     }
 }
 
-// ─── 细粒度拆分：YAML bullets（迁移路径用） ──────────────
+// ─── 細粒度拆分：YAML bullets（遷移路徑用） ──────────────
 
 /**
- * 把 YAML 列表格式的总结文本拆成每个 bullet 一个片段。
+ * 把 YAML 列表格式的總結文本拆成每個 bullet 一個片段。
  *
- * 典型输入：
- *   - 今天吃了蛋糕，很开心
- *   - 晚上和妈妈吵架了
- *   - 决定明天去跑步
- * 输出：[
- *   "今天吃了蛋糕，很开心",
- *   "晚上和妈妈吵架了",
- *   "决定明天去跑步",
+ * 典型輸入：
+ *   - 今天吃了蛋糕，很開心
+ *   - 晚上和媽媽吵架了
+ *   - 決定明天去跑步
+ * 輸出：[
+ *   "今天吃了蛋糕，很開心",
+ *   "晚上和媽媽吵架了",
+ *   "決定明天去跑步",
  * ]
  *
- * 兼容 "- " / "-  " / "- \t" 以及以连字符开头的多行内容（仅切行首的 -）。
+ * 兼容 "- " / "-  " / "- \t" 以及以連字符開頭的多行內容（僅切行首的 -）。
  *
- * @returns bullet 片段数组；如果切不出 ≥ 2 条，返回空数组表示"不是列表格式"
+ * @returns bullet 片段數組；如果切不出 ≥ 2 條，返回空數組表示"不是列表格式"
  */
 /**
- * 支持的 bullet 字符：ASCII hyphen、Chinese 全角破折号 －、em dash —、bullet
- * dot •、middle dot ·、asterisk *。LLM / Markdown 渲染器可能产出任一种，
- * 只认 ASCII `-` 会漏掉很多真实列表。
+ * 支持的 bullet 字符：ASCII hyphen、Chinese 全角破折號 －、em dash —、bullet
+ * dot •、middle dot ·、asterisk *。LLM / Markdown 渲染器可能產出任一種，
+ * 只認 ASCII `-` 會漏掉很多真實列表。
  */
 const BULLET_LEAD_RE = /[-－—•·*]/;
-const BULLET_SPLIT_RE = /\n(?=[-－—•·*][\s\u3000])/;      // 换行后紧跟任一 bullet 字符 + 空白
+const BULLET_SPLIT_RE = /\n(?=[-－—•·*][\s\u3000])/;      // 換行後緊跟任一 bullet 字符 + 空白
 const BULLET_STRIP_RE = /^[-－—•·*][\s\u3000]+/;           // 行首 bullet 字符 + 空白
 
 export function splitYamlBullets(text: string): string[] {
     if (!text) return [];
     const normalized = text.replace(/\r\n/g, '\n').trim();
     if (!normalized) return [];
-    // 若整段根本没有任一 bullet 字符 → 必然不是列表
+    // 若整段根本沒有任一 bullet 字符 → 必然不是列表
     if (!BULLET_LEAD_RE.test(normalized)) return [];
-    // 按"换行 + 行首 bullet"切
+    // 按"換行 + 行首 bullet"切
     const parts = normalized.split(BULLET_SPLIT_RE);
     const bullets: string[] = [];
     for (const part of parts) {
         const s = part.replace(BULLET_STRIP_RE, '').trim();
         if (s.length >= 4) bullets.push(s);
     }
-    // 至少 2 条才算有效列表
+    // 至少 2 條才算有效列表
     return bullets.length >= 2 ? bullets : [];
 }
 
 /**
- * 给迁移路径用的细粒度拆分：
+ * 給遷移路徑用的細粒度拆分：
  * 把一批 daily logs 拍平成 bullet 列表。
- * 每条 bullet 前缀上日期，方便 embedding 时保留时间线索。
+ * 每條 bullet 前綴上日期，方便 embedding 時保留時間線索。
  *
- * 如果无法拆出 bullets（有些用户可能改过归档模板），返回空数组；
- * 调用方应 fallback 到传统的 3 段切法。
+ * 如果無法拆出 bullets（有些用戶可能改過歸檔模板），返回空數組；
+ * 調用方應 fallback 到傳統的 3 段切法。
  */
 export function splitLogsToBullets(
     logs: { date: string; summary: string }[],
@@ -287,24 +287,24 @@ export function splitLogsToBullets(
                 bullets.push(`[${log.date}] ${it}`);
             }
         } else {
-            // 整条日志作为一个片段兜底
+            // 整條日誌作為一個片段兜底
             if (log.summary.trim().length >= 4) {
                 bullets.push(`[${log.date}] ${log.summary.trim().slice(0, 300)}`);
             }
         }
     }
-    // 只有"大部分日志都是 bullet 格式"才认为这个策略有效
+    // 只有"大部分日誌都是 bullet 格式"才認為這個策略有效
     const ok = usedBulletFormat >= Math.max(1, Math.floor(logs.length * 0.3));
     return ok ? bullets : [];
 }
 
-// ─── 细粒度拆分：per-message（buffer 路径用） ─────────────
+// ─── 細粒度拆分：per-message（buffer 路徑用） ─────────────
 
 /**
- * Buffer 路径：每条 ≥ MIN_LEN 字的 user 消息独立作为 query。
- * 短语气词/纯标点/URL 过滤掉。
+ * Buffer 路徑：每條 ≥ MIN_LEN 字的 user 消息獨立作為 query。
+ * 短語氣詞/純標點/URL 過濾掉。
  *
- * 如果可用消息数 < 2，返回空数组，让调用方 fallback 到传统 3 段切法。
+ * 如果可用消息數 < 2，返回空數組，讓調用方 fallback 到傳統 3 段切法。
  */
 export function splitMessagesToSpikes(
     messages: { role: string; content: string }[],
@@ -317,9 +317,9 @@ export function splitMessagesToSpikes(
         if (m.role !== 'user') continue;
         let text = (m.content || '').trim();
         if (!text) continue;
-        // 剥离 URL（embedding 里是随机噪声）
+        // 剝離 URL（embedding 裡是隨機噪聲）
         text = text.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
-        // 有意义字符数判断
+        // 有意義字符數判斷
         const meaningful = text.replace(/[\s\p{P}]/gu, '');
         if (meaningful.length < minLen) continue;
         const key = text.slice(0, 100);
@@ -330,11 +330,11 @@ export function splitMessagesToSpikes(
     return out.length >= 2 ? out : [];
 }
 
-// ─── 兜底：传统 3 段切法（保留做 fallback） ──────────────
+// ─── 兜底：傳統 3 段切法（保留做 fallback） ──────────────
 
 /**
- * 从一段消息列表中切出头/中/尾 3 段文本片段。
- * 兜底：当 per-message / per-bullet 拆分失败时用。
+ * 從一段消息列表中切出頭/中/尾 3 段文本片段。
+ * 兜底：當 per-message / per-bullet 拆分失敗時用。
  */
 export function sampleSnippetsFromMessages(
     messages: { content: string }[],

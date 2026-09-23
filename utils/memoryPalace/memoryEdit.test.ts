@@ -17,7 +17,7 @@ function makeNode(id: string, content: string): MemoryNode {
         charId: 'memory_edit_char',
         content,
         room: 'living_room',
-        tags: ['旧标签'],
+        tags: ['舊標籤'],
         importance: 5,
         mood: 'neutral',
         embedded: true,
@@ -41,34 +41,34 @@ afterAll(() => {
     global.fetch = originalFetch;
 });
 
-describe('统一记忆编辑保存', () => {
-    it('只修改 metadata 时不调用 Embedding API', async () => {
-        const original = makeNode('memory_edit_metadata', '正文没有变化');
+describe('統一記憶編輯保存', () => {
+    it('只修改 metadata 時不調用 Embedding API', async () => {
+        const original = makeNode('memory_edit_metadata', '正文沒有變化');
         await MemoryNodeDB.save(original);
 
         const result = await updateStoredMemoryNode(
             original.id,
-            { room: 'study', tags: ['新标签'], importance: 8 },
+            { room: 'study', tags: ['新標籤'], importance: 8 },
             embeddingConfig,
         );
 
         expect(result.reembedded).toBe(false);
         expect(fetch).not.toHaveBeenCalled();
         expect(result.node).toMatchObject({
-            content: '正文没有变化',
+            content: '正文沒有變化',
             room: 'study',
-            tags: ['新标签'],
+            tags: ['新標籤'],
             importance: 8,
         });
     });
 
-    it('正文变化时只请求一次，并覆盖同一 memoryId 的向量', async () => {
-        const original = makeNode('memory_edit_content', '旧正文');
+    it('正文變化時只請求一次，並覆蓋同一 memoryId 的向量', async () => {
+        const original = makeNode('memory_edit_content', '舊正文');
         await MemoryNodeDB.save(original);
 
         const result = await updateStoredMemoryNode(
             original.id,
-            { content: '修正后的正文' },
+            { content: '修正後的正文' },
             embeddingConfig,
         );
         const storedNode = await MemoryNodeDB.getById(original.id);
@@ -77,7 +77,7 @@ describe('统一记忆编辑保存', () => {
         expect(result.reembedded).toBe(true);
         expect(fetch).toHaveBeenCalledTimes(1);
         expect(storedNode?.id).toBe(original.id);
-        expect(storedNode?.content).toBe('修正后的正文');
+        expect(storedNode?.content).toBe('修正後的正文');
         expect(storedNode?.embedded).toBe(true);
         expect(storedVector?.memoryId).toBe(original.id);
         expect(Array.from(storedVector?.vector as Float32Array)).toEqual([

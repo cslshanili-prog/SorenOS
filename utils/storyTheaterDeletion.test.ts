@@ -39,7 +39,7 @@ const node = (id: string, entryId: string): MemoryNode => ({
     charId: storyTheaterThreadId(entryId),
     content: id,
     room: 'living_room',
-    tags: ['剧情'],
+    tags: ['劇情'],
     importance: 5,
     mood: 'neutral',
     embedded: true,
@@ -48,7 +48,7 @@ const node = (id: string, entryId: string): MemoryNode => ({
     accessCount: 0,
 });
 
-describe('删除整个剧情', () => {
+describe('刪除整個劇情', () => {
     const messageIds: number[] = [];
 
     afterEach(async () => {
@@ -64,7 +64,7 @@ describe('删除整个剧情', () => {
         ]);
     });
 
-    it('只清理选中剧情的条目、楼层、角色镜像与向量分区', async () => {
+    it('只清理選中劇情的條目、樓層、角色鏡像與向量分區', async () => {
         const entryA = entry(ENTRY_A);
         const entryB = entry(ENTRY_B);
         await DB.saveStoryTheater(entryA);

@@ -1,20 +1,20 @@
 /**
- * 中心 worker 的 /cf-api 中转（worker/index.js）。
+ * 中心 worker 的 /cf-api 中轉（worker/index.js）。
  *
- * 这条路存在的唯一理由是 api.cloudflare.com 不返回 CORS 头，浏览器发不出请求。
- * 转发的又是一枚能改用户整个账号 Workers 的 token，所以下面几条护栏一旦松掉，
- * 这个端点就从「amsg 一键部署的中转」变成「公开的 CF API 中继」。用测试钉住：
- *   - 目标 host 只能是 api.cloudflare.com，路径只能落在账号级资源里
- *   - 拒绝的请求一次上游都不能发
- *   - 日志里不许出现 token
+ * 這條路存在的唯一理由是 api.cloudflare.com 不返回 CORS 頭，瀏覽器發不出請求。
+ * 轉發的又是一枚能改用戶整個帳號 Workers 的 token，所以下面幾條護欄一旦鬆掉，
+ * 這個端點就從「amsg 一鍵部署的中轉」變成「公開的 CF API 中繼」。用測試釘住：
+ *   - 目標 host 只能是 api.cloudflare.com，路徑只能落在帳號級資源裡
+ *   - 拒絕的請求一次上游都不能發
+ *   - 日誌裡不許出現 token
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-// @ts-expect-error 中心 worker 是纯 JS 单文件，仓库没开 allowJs
+// @ts-expect-error 中心 worker 是純 JS 單文件，倉庫沒開 allowJs
 import worker from './index.js';
 
 const TOKEN = 'Bearer cf-token-must-not-leak';
 
-/** 装一个假的上游 fetch，返回它收到的调用记录。 */
+/** 裝一個假的上游 fetch，返回它收到的調用記錄。 */
 const stubUpstream = (status = 200, body = '{"success":true}') => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fake = vi.fn(async (url: string, init: RequestInit) => {
@@ -41,8 +41,8 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('/cf-api 路径白名单', () => {
-    it('账号级路径放行，并打到 api.cloudflare.com', async () => {
+describe('/cf-api 路徑白名單', () => {
+    it('帳號級路徑放行，並打到 api.cloudflare.com', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts?per_page=50');
 
@@ -53,7 +53,7 @@ describe('/cf-api 路径白名单', () => {
         expect((calls[0].init.headers as Record<string, string>)['Authorization']).toBe(TOKEN);
     });
 
-    it('/zones/* 拒掉，且一次上游都不发', async () => {
+    it('/zones/* 拒掉，且一次上游都不發', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/zones/abc123/dns_records', { cfMethod: 'POST' });
 
@@ -61,7 +61,7 @@ describe('/cf-api 路径白名单', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('绝对地址不能把目标带走', async () => {
+    it('絕對地址不能把目標帶走', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts/../../https://evil.example/steal');
 
@@ -69,7 +69,7 @@ describe('/cf-api 路径白名单', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('路径里的 .. 直接 400', async () => {
+    it('路徑裡的 .. 直接 400', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts/../zones/abc');
 
@@ -77,7 +77,7 @@ describe('/cf-api 路径白名单', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('不以 / 开头的路径直接 400', async () => {
+    it('不以 / 開頭的路徑直接 400', async () => {
         const calls = stubUpstream();
         const res = await callProxy('accounts');
 
@@ -86,8 +86,8 @@ describe('/cf-api 路径白名单', () => {
     });
 });
 
-describe('/cf-api 请求约束', () => {
-    it('没有 Authorization 就不往上游发', async () => {
+describe('/cf-api 請求約束', () => {
+    it('沒有 Authorization 就不往上游發', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts', { auth: '' });
 
@@ -95,7 +95,7 @@ describe('/cf-api 请求约束', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('真正的转发只收 POST，其余方法 405', async () => {
+    it('真正的轉發只收 POST，其餘方法 405', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts', { method: 'PUT', cfMethod: 'GET' });
 
@@ -103,7 +103,7 @@ describe('/cf-api 请求约束', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('GET 是探针：不带凭据也回 200，且不碰上游', async () => {
+    it('GET 是探針：不帶憑據也回 200，且不碰上游', async () => {
         const calls = stubUpstream();
         const res = await worker.fetch(
             new Request('https://proxy.test/cf-api', { method: 'GET' }),
@@ -116,7 +116,7 @@ describe('/cf-api 请求约束', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('X-CF-Method 不在名单里就 400', async () => {
+    it('X-CF-Method 不在名單裡就 400', async () => {
         const calls = stubUpstream();
         const res = await callProxy('/accounts', { cfMethod: 'TRACE' });
 
@@ -124,7 +124,7 @@ describe('/cf-api 请求约束', () => {
         expect(calls).toHaveLength(0);
     });
 
-    it('multipart 上传时 Content-Type 原样转发（boundary 不能丢）', async () => {
+    it('multipart 上傳時 Content-Type 原樣轉發（boundary 不能丟）', async () => {
         const calls = stubUpstream();
         const contentType = 'multipart/form-data; boundary=----SullyOSBoundary123';
         const res = await callProxy('/accounts/acc123/workers/scripts/sullyos-amsg', {
@@ -140,7 +140,7 @@ describe('/cf-api 请求约束', () => {
         expect(new TextDecoder().decode(calls[0].init.body as ArrayBuffer)).toBe('payload-bytes');
     });
 
-    it('上游状态码原样透传，前端能分辨 token 无效和权限不够', async () => {
+    it('上游狀態碼原樣透傳，前端能分辨 token 無效和權限不夠', async () => {
         stubUpstream(403, '{"success":false,"errors":[{"code":9109}]}');
         const res = await callProxy('/accounts');
 
@@ -149,8 +149,8 @@ describe('/cf-api 请求约束', () => {
     });
 });
 
-describe('/cf-api 日志', () => {
-    it('日志里不出现 token 和 query（账号 id 会留在路径里，可接受）', async () => {
+describe('/cf-api 日誌', () => {
+    it('日誌裡不出現 token 和 query（帳號 id 會留在路徑裡，可接受）', async () => {
         stubUpstream();
         const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
 

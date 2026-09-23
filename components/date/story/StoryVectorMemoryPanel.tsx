@@ -33,7 +33,7 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
         void listStoryVectorMemories(entry.id).then(rows => {
             if (active) setNodes(rows);
         }).catch((error: any) => {
-            if (active) addToastRef.current(error?.message || '读取剧情向量记忆失败', 'error');
+            if (active) addToastRef.current(error?.message || '讀取劇情向量記憶失敗', 'error');
         }).finally(() => {
             if (active) setLoading(false);
         });
@@ -77,9 +77,9 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
             const updated = await updateStoryVectorMemory(entry.id, editing.id, draft, memoryPalaceConfig.embedding, remoteVectorConfig);
             setNodes(current => current.map(node => node.id === updated.id ? updated : node));
             setEditing(null);
-            addToast('剧情记忆与向量已同步更新', 'success');
+            addToast('劇情記憶與向量已同步更新', 'success');
         } catch (error: any) {
-            addToast(error?.message || '剧情记忆修改失败', 'error');
+            addToast(error?.message || '劇情記憶修改失敗', 'error');
         } finally {
             setSaving(false);
         }
@@ -92,9 +92,9 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
             const result = await deleteStoryVectorMemory(entry.id, deleting.id, remoteVectorConfig);
             setNodes(current => current.filter(node => node.id !== deleting.id));
             setDeleting(null);
-            addToast(result.remoteDeleted === false ? '本地已删除；远端暂未同步，请检查网络' : '已从本剧情向量分区删除', result.remoteDeleted === false ? 'info' : 'success');
+            addToast(result.remoteDeleted === false ? '本地已刪除；遠端暫未同步，請檢查網絡' : '已從本劇情向量分區刪除', result.remoteDeleted === false ? 'info' : 'success');
         } catch (error: any) {
-            addToast(error?.message || '剧情记忆删除失败', 'error');
+            addToast(error?.message || '劇情記憶刪除失敗', 'error');
         } finally {
             setSaving(false);
         }
@@ -113,11 +113,11 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
             <div className='max-w-2xl mx-auto'>
                 <section className='story-cinema-rule pb-6 border-b border-slate-200'>
                     <Database size={34} weight='duotone' className='text-violet-500' />
-                    <h2 className='mt-4 text-2xl font-serif font-semibold'>本剧情的向量记忆</h2>
-                    <p className='mt-2 text-[11px] leading-5 text-slate-500'>这里只有「{entry.title}」的独立分区，共 {nodes.length} 条。长按任意一条可以编辑或删除；操作不会进入角色记忆，也不会触碰其它剧情。</p>
+                    <h2 className='mt-4 text-2xl font-serif font-semibold'>本劇情的向量記憶</h2>
+                    <p className='mt-2 text-[11px] leading-5 text-slate-500'>這裡只有「{entry.title}」的獨立分區，共 {nodes.length} 條。長按任意一條可以編輯或刪除；操作不會進入角色記憶，也不會觸碰其它劇情。</p>
                 </section>
 
-                {loading ? <div className='py-20 grid place-items-center text-slate-400'><SpinnerGap size={24} className='animate-spin' /></div> : nodes.length === 0 ? <div className='py-16 text-center'><div className='text-sm font-semibold'>还没有向量归档</div><p className='mt-2 text-[10px] leading-5 text-slate-500'>推进达到归档条数后，旧正文会被提炼并写入这里。</p></div> : <>
+                {loading ? <div className='py-20 grid place-items-center text-slate-400'><SpinnerGap size={24} className='animate-spin' /></div> : nodes.length === 0 ? <div className='py-16 text-center'><div className='text-sm font-semibold'>還沒有向量歸檔</div><p className='mt-2 text-[10px] leading-5 text-slate-500'>推進達到歸檔條數後，舊正文會被提煉並寫入這裡。</p></div> : <>
                     <div className='divide-y divide-slate-200'>{visibleNodes.map((node, index) => <article
                         key={node.id}
                         onPointerDown={() => beginLongPress(node)}
@@ -128,19 +128,19 @@ const StoryVectorMemoryPanel: React.FC<Props> = ({ entry, onBack }) => {
                         className='select-none py-5 flex items-start gap-4'
                     >
                         <div className='shrink-0 pt-0.5 text-[10px] font-serif text-violet-500'>{String(page * PAGE_SIZE + index + 1).padStart(2, '0')}</div>
-                        <div className='min-w-0 flex-1'><p className='whitespace-pre-wrap text-[12px] leading-6'>{node.content}</p><div className='mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-slate-400'><span>{new Date(node.createdAt).toLocaleString()}</span><span>重要度 {node.importance}/10</span><span>{node.embedded ? '向量已就绪' : '等待向量化'}</span>{node.tags?.slice(0, 3).map(tag => <span key={tag}>#{tag}</span>)}</div></div>
-                        <button onClick={() => setMenuNode(node)} onPointerDown={event => event.stopPropagation()} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' aria-label='记忆操作'><DotsThree size={18} weight='bold' /></button>
+                        <div className='min-w-0 flex-1'><p className='whitespace-pre-wrap text-[12px] leading-6'>{node.content}</p><div className='mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-slate-400'><span>{new Date(node.createdAt).toLocaleString()}</span><span>重要度 {node.importance}/10</span><span>{node.embedded ? '向量已就緒' : '等待向量化'}</span>{node.tags?.slice(0, 3).map(tag => <span key={tag}>#{tag}</span>)}</div></div>
+                        <button onClick={() => setMenuNode(node)} onPointerDown={event => event.stopPropagation()} className='w-9 h-9 shrink-0 rounded-full grid place-items-center text-slate-400' aria-label='記憶操作'><DotsThree size={18} weight='bold' /></button>
                     </article>)}</div>
-                    {pageCount > 1 && <nav className='pt-6 border-t border-slate-200 flex items-center justify-between'><button disabled={page === 0} onClick={() => setPage(current => Math.max(0, current - 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretLeft size={15} /></button><span className='text-[10px] text-slate-500'>第 {page + 1} / {pageCount} 页</span><button disabled={page + 1 >= pageCount} onClick={() => setPage(current => Math.min(pageCount - 1, current + 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretRight size={15} /></button></nav>}
+                    {pageCount > 1 && <nav className='pt-6 border-t border-slate-200 flex items-center justify-between'><button disabled={page === 0} onClick={() => setPage(current => Math.max(0, current - 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretLeft size={15} /></button><span className='text-[10px] text-slate-500'>第 {page + 1} / {pageCount} 頁</span><button disabled={page + 1 >= pageCount} onClick={() => setPage(current => Math.min(pageCount - 1, current + 1))} className='w-10 h-10 rounded-full bg-white border border-slate-200 grid place-items-center disabled:opacity-25'><CaretRight size={15} /></button></nav>}
                 </>}
             </div>
         </main>
 
-        {menuNode && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => setMenuNode(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-center justify-between'><div><div className='text-[9px] uppercase tracking-[.2em] text-violet-500 font-bold'>Memory action</div><h3 className='mt-1 font-semibold'>这条剧情记忆</h3></div><button onClick={() => setMenuNode(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><div className='mt-5 border-t border-slate-200'><button onClick={() => openEdit(menuNode)} className='w-full py-4 flex items-center gap-3 text-sm font-semibold'><PencilSimple size={18} className='text-violet-500' />编辑文字并重建向量</button><button onClick={() => { setDeleting(menuNode); setMenuNode(null); }} className='w-full py-4 border-t border-slate-200 flex items-center gap-3 text-sm font-semibold text-rose-600'><Trash size={18} />删除这条记忆</button></div></div></div>}
+        {menuNode && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => setMenuNode(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-center justify-between'><div><div className='text-[9px] uppercase tracking-[.2em] text-violet-500 font-bold'>Memory action</div><h3 className='mt-1 font-semibold'>這條劇情記憶</h3></div><button onClick={() => setMenuNode(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><div className='mt-5 border-t border-slate-200'><button onClick={() => openEdit(menuNode)} className='w-full py-4 flex items-center gap-3 text-sm font-semibold'><PencilSimple size={18} className='text-violet-500' />編輯文字並重建向量</button><button onClick={() => { setDeleting(menuNode); setMenuNode(null); }} className='w-full py-4 border-t border-slate-200 flex items-center gap-3 text-sm font-semibold text-rose-600'><Trash size={18} />刪除這條記憶</button></div></div></div>}
 
-        {editing && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setEditing(null)}><div className='story-safe-sheet story-keyboard-sheet w-full sm:max-w-lg rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-start justify-between gap-3'><div><div className='text-[9px] uppercase tracking-[.2em] text-violet-500 font-bold'>Re-embed</div><h3 className='mt-1 font-semibold'>编辑剧情记忆</h3><p className='mt-1 text-[10px] text-slate-500'>正文变化后会沿用原 ID 重建向量，不会产生重复记忆。</p></div><button disabled={saving} onClick={() => setEditing(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><textarea autoFocus value={draft} onChange={event => setDraft(event.target.value)} className='mt-5 w-full min-h-40 resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none focus:border-violet-400' /><button disabled={saving || !draft.trim()} onClick={() => void saveEdit()} className='mt-4 w-full h-12 rounded-2xl bg-slate-900 text-white font-semibold disabled:opacity-40'>{saving ? <SpinnerGap size={18} className='mx-auto animate-spin' /> : '保存并同步向量'}</button></div></div>}
+        {editing && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setEditing(null)}><div className='story-safe-sheet story-keyboard-sheet w-full sm:max-w-lg rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='flex items-start justify-between gap-3'><div><div className='text-[9px] uppercase tracking-[.2em] text-violet-500 font-bold'>Re-embed</div><h3 className='mt-1 font-semibold'>編輯劇情記憶</h3><p className='mt-1 text-[10px] text-slate-500'>正文變化後會沿用原 ID 重建向量，不會產生重複記憶。</p></div><button disabled={saving} onClick={() => setEditing(null)} className='w-9 h-9 rounded-full bg-white border border-slate-200 grid place-items-center'><X size={15} /></button></div><textarea autoFocus value={draft} onChange={event => setDraft(event.target.value)} className='mt-5 w-full min-h-40 resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 outline-none focus:border-violet-400' /><button disabled={saving || !draft.trim()} onClick={() => void saveEdit()} className='mt-4 w-full h-12 rounded-2xl bg-slate-900 text-white font-semibold disabled:opacity-40'>{saving ? <SpinnerGap size={18} className='mx-auto animate-spin' /> : '保存並同步向量'}</button></div></div>}
 
-        {deleting && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setDeleting(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='text-[9px] uppercase tracking-[.2em] text-rose-500 font-bold'>Delete memory</div><h3 className='mt-1 text-lg font-semibold'>删除后无法恢复</h3><p className='mt-2 text-[11px] leading-5 text-slate-500'>只会删除当前剧情分区内的这一条节点、向量和关联边。</p><div className='mt-5 grid grid-cols-2 gap-3'><button disabled={saving} onClick={() => setDeleting(null)} className='h-11 rounded-2xl bg-white border border-slate-200 text-xs font-bold'>取消</button><button disabled={saving} onClick={() => void confirmDelete()} className='h-11 rounded-2xl bg-rose-600 text-white text-xs font-bold'>{saving ? '删除中…' : '确认删除'}</button></div></div></div>}
+        {deleting && <div className='fixed inset-0 z-[80] bg-slate-950/35 flex items-end justify-center' onClick={() => !saving && setDeleting(null)}><div className='story-safe-sheet w-full sm:max-w-sm rounded-t-[28px] bg-stone-100 px-5 pt-5 shadow-2xl' onClick={event => event.stopPropagation()}><div className='text-[9px] uppercase tracking-[.2em] text-rose-500 font-bold'>Delete memory</div><h3 className='mt-1 text-lg font-semibold'>刪除後無法恢復</h3><p className='mt-2 text-[11px] leading-5 text-slate-500'>只會刪除當前劇情分區內的這一條節點、向量和關聯邊。</p><div className='mt-5 grid grid-cols-2 gap-3'><button disabled={saving} onClick={() => setDeleting(null)} className='h-11 rounded-2xl bg-white border border-slate-200 text-xs font-bold'>取消</button><button disabled={saving} onClick={() => void confirmDelete()} className='h-11 rounded-2xl bg-rose-600 text-white text-xs font-bold'>{saving ? '刪除中…' : '確認刪除'}</button></div></div></div>}
     </div>;
 };
 

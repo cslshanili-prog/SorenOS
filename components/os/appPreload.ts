@@ -23,10 +23,10 @@ export const shouldUseIdleAppPreload = (
   return true;
 };
 
-// AppID → 该 App 代码块的 import 工厂（路径相对本文件 components/os/）。
-// 与 PhoneShell 的 lazy 定义指向同一批模块；Vite 按模块 URL 去重，
-// 「按下即预取」与「空闲预取/懒加载」共用同一份 chunk，绝不重复下载。
-// 新增 App 时若忘记在此登记，仅会少一次按下预取优化，不影响功能（打开时照常懒加载）。
+// AppID → 該 App 代碼塊的 import 工廠（路徑相對本文件 components/os/）。
+// 與 PhoneShell 的 lazy 定義指向同一批模塊；Vite 按模塊 URL 去重，
+// 「按下即預取」與「空閒預取/懶加載」共用同一份 chunk，絕不重複下載。
+// 新增 App 時若忘記在此登記，僅會少一次按下預取優化，不影響功能（打開時照常懶加載）。
 const importers: Partial<Record<AppID, () => Promise<unknown>>> = {
   [AppID.Settings]: () => import('../../apps/Settings'),
   [AppID.Character]: () => import('../../apps/Character'),
@@ -66,18 +66,18 @@ const importers: Partial<Record<AppID, () => Promise<unknown>>> = {
   [AppID.CharCreatorDev]: () => import('../../apps/CharCreatorDevApp'),
 };
 
-// 已发起预取的 App（去重，避免同一图标多次 pointerdown 重复触发）。
+// 已發起預取的 App（去重，避免同一圖標多次 pointerdown 重複觸發）。
 const requested = new Set<AppID>();
 
-// 负载预热挂钩：由 PhoneShell 注入，按 AppID 复用对应 React.lazy 的模块 Promise。
-// 解耦放这里是为了让 AppIcon（pointerdown）也能触发，而无需直接依赖 PhoneShell 的 lazy 定义。
+// 負載預熱掛鉤：由 PhoneShell 注入，按 AppID 複用對應 React.lazy 的模塊 Promise。
+// 解耦放這裡是為了讓 AppIcon（pointerdown）也能觸發，而無需直接依賴 PhoneShell 的 lazy 定義。
 let payloadWarmer: ((id: AppID) => Promise<unknown> | undefined) | null = null;
 export const setAppPayloadWarmer = (fn: (id: AppID) => Promise<unknown> | undefined): void => { payloadWarmer = fn; };
 
 /**
- * 「按下即预取」：手指刚按到图标（pointerdown，早于 tap 完成约 100ms）即预热该 App。
- * 这里只加载用户正在按下的一个 App，不在冷启动时批量预取。优先复用 PhoneShell 的模块 Promise；
- * 未注入时退化为直接预取 Vite 模块。
+ * 「按下即預取」：手指剛按到圖標（pointerdown，早於 tap 完成約 100ms）即預熱該 App。
+ * 這裡只加載用戶正在按下的一個 App，不在冷啟動時批量預取。優先複用 PhoneShell 的模塊 Promise；
+ * 未注入時退化為直接預取 Vite 模塊。
  */
 export const preloadApp = (id: AppID): void => {
   if (requested.has(id)) return;

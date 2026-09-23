@@ -21,13 +21,13 @@ export const FishArt: React.FC<{ speciesId: string; size?: number; silhouette?: 
     const f = speciesById(speciesId);
     const palette = PALETTES[speciesId];
     if (!palette) return (
-        <span className="fish-clay" style={{ width:size,height:size*.65,display:'inline-flex',alignItems:'center',justifyContent:'center' }} role="img" aria-label={silhouette ? '尚未发现的橡皮泥藏品' : `${f?.name || dinoDefinition(speciesId)?.name || '恐龙'}橡皮泥模型`}>
+        <span className="fish-clay" style={{ width:size,height:size*.65,display:'inline-flex',alignItems:'center',justifyContent:'center' }} role="img" aria-label={silhouette ? '尚未發現的橡皮泥藏品' : `${f?.name || dinoDefinition(speciesId)?.name || '恐龍'}橡皮泥模型`}>
             <DinoIcon species={speciesId} color={silhouette?(speciesId==='aiven-chimera'?'#a6a3ad':'#61716b'):dinoDefinition(speciesId)?.body||'#b9bb9d'}/>
         </span>
     );
     const [light, mid, dark, shape] = palette;
     return (
-        <span role="img" aria-label={silhouette ? '尚未发现的鱼影' : f!.name}
+        <span role="img" aria-label={silhouette ? '尚未發現的魚影' : f!.name}
             className={`fish-art fish-art--${shape} ${silhouette ? 'is-unknown' : ''} ${animated ? 'is-swimming' : ''}`}
             style={{ width: size, height: size * .65, '--fish-light': light, '--fish-mid': mid, '--fish-dark': dark } as React.CSSProperties}>
             <span className="fish-tail" /><span className="fish-dorsal" /><span className="fish-belly-fin" />

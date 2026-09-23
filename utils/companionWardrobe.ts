@@ -25,7 +25,7 @@ export const addCompanionModelOutfit = (
 ): Pick<CharacterProfile, 'videoAvatar' | 'videoAvatarWardrobe'> => {
   const active = character.videoAvatar;
   if (active && active.format !== model.format) {
-    throw new Error(`衣橱只能加入同类型模型：当前是 ${active.format.toUpperCase()}。`);
+    throw new Error(`衣櫥只能加入同類型模型：當前是 ${active.format.toUpperCase()}。`);
   }
   const pool = uniqueModels([active, ...(character.videoAvatarWardrobe || []), model]);
   return {
@@ -46,7 +46,7 @@ export const storeCompanionModelOutfit = (
   const active = character.videoAvatar;
   if (!active) return { videoAvatar: model, videoAvatarWardrobe: [] };
   if (active.format !== model.format) {
-    throw new Error(`衣橱只能加入同类型模型：当前是 ${active.format.toUpperCase()}。`);
+    throw new Error(`衣櫥只能加入同類型模型：當前是 ${active.format.toUpperCase()}。`);
   }
   return {
     videoAvatar: active,

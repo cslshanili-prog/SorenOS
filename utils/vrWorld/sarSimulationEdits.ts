@@ -7,7 +7,7 @@ export const findSARPendingReply = (messages: Message[]) => messages.find(isSARD
 /** Correct the user's input without regenerating replies or spending a turn. */
 export async function replaceSARSimulationUserMessage(runId: string, expected: Message, text: string) {
     const content = text.trim();
-    if (!content || content.length > 4000) throw new Error('请输入 1 至 4000 字的内容');
+    if (!content || content.length > 4000) throw new Error('請輸入 1 至 4000 字的內容');
     const db = await openDB();
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction('messages', 'readwrite');
@@ -18,7 +18,7 @@ export async function replaceSARSimulationUserMessage(runId: string, expected: M
             const messages = (request.result as Message[]).filter(m => m.metadata?.source === 'sar_simulation' && m.metadata?.sarRunId === runId);
             const current = messages.find(m => m.id === expected.id);
             if (!current || current.role !== 'user' || current.content !== expected.content || JSON.stringify(current.metadata) !== JSON.stringify(expected.metadata)) {
-                failure = new Error('这条消息已变化，请刷新后再试'); tx.abort(); return;
+                failure = new Error('這條消息已變化，請刷新後再試'); tx.abort(); return;
             }
             if (current.content === content) return;
             store.put({ ...current, content });
@@ -31,17 +31,17 @@ export async function replaceSARSimulationUserMessage(runId: string, expected: M
             }
         };
         tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(failure || tx.error || new Error('消息保存失败'));
-        tx.onabort = () => reject(failure || tx.error || new Error('消息保存失败'));
+        tx.onerror = () => reject(failure || tx.error || new Error('消息保存失敗'));
+        tx.onabort = () => reject(failure || tx.error || new Error('消息保存失敗'));
     });
 }
 
 export function resolveSARReplyRetry(messages: Message[], replyId: number) {
     const reply = messages.find(message => message.id === replyId && message.role === 'assistant');
-    if (!reply) throw new Error('这条回复已经不存在，请重新打开故事');
+    if (!reply) throw new Error('這條回覆已經不存在，請重新打開故事');
     const turn = Number(reply.metadata?.sarTurn);
     const user = messages.find(message => message.role === 'user' && Number(message.metadata?.sarTurn) === turn && message.id < reply.id);
-    if (!user || !Number.isInteger(turn) || turn < 1 || turn > 50) throw new Error('没有找到这一幕对应的用户输入');
+    if (!user || !Number.isInteger(turn) || turn < 1 || turn > 50) throw new Error('沒有找到這一幕對應的用戶輸入');
     return { reply, user, turn, history: messages.filter(message => message.id < user.id && !isSARDeletedReply(message)) };
 }
 
@@ -61,7 +61,7 @@ export async function replaceSARSimulationReply(runId: string, expected: Message
             const messages = (request.result as Message[]).filter(message => message.metadata?.source === 'sar_simulation' && message.metadata?.sarRunId === runId);
             const current = messages.find(message => message.id === expected.id);
             if (!current || current.role !== 'assistant' || current.content !== expected.content || JSON.stringify(current.metadata) !== JSON.stringify(expected.metadata)) {
-                failure = new Error('这条回复已变化，请刷新后再试'); tx.abort(); return;
+                failure = new Error('這條回覆已變化，請刷新後再試'); tx.abort(); return;
             }
             if (replacement.deleted) {
                 try { resolveSARReplyRetry(messages, current.id); }
@@ -81,7 +81,7 @@ export async function replaceSARSimulationReply(runId: string, expected: Message
             }
         };
         tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(failure || tx.error || new Error('回复保存失败'));
-        tx.onabort = () => reject(failure || tx.error || new Error('回复保存失败'));
+        tx.onerror = () => reject(failure || tx.error || new Error('回覆保存失敗'));
+        tx.onabort = () => reject(failure || tx.error || new Error('回覆保存失敗'));
     });
 }

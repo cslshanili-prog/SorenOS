@@ -31,7 +31,7 @@ export class Live2DMissingFilesError extends Error {
     readonly packageFileCount: number,
   ) {
     const names = missingFiles.slice(0, 3).map(item => basename(item.resolvedPath));
-    super(`模型引用的文件不完整：${names.join('、')}${missingFiles.length > 3 ? ` 等 ${missingFiles.length} 个` : ''}`);
+    super(`模型引用的文件不完整：${names.join('、')}${missingFiles.length > 3 ? ` 等 ${missingFiles.length} 個` : ''}`);
     this.name = 'Live2DMissingFilesError';
   }
 
@@ -48,7 +48,7 @@ export class Live2DMissingFilesError extends Error {
   }
 }
 
-/** 衣橱动作拥有独立的强制手动通道，旧数据即使残留 ai 权限也不会暴露给模型。 */
+/** 衣櫥動作擁有獨立的強制手動通道，舊數據即使殘留 ai 權限也不會暴露給模型。 */
 export const isLive2DWardrobeAction = (action: Live2DAction): boolean => action.wardrobe === true;
 export const getLive2DAIActions = (config: Live2DAvatarConfig): Live2DAction[] => (
   config.actions.filter(action => action.permission === 'ai' && !isLive2DWardrobeAction(action))
@@ -179,7 +179,7 @@ const normalizePath = (value: string): string => {
   // composed characters. They are the same visible filename, so compare in NFC.
   const path = value.normalize('NFC').replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/^\/+/, '');
   const parts = path.split('/').filter(Boolean);
-  if (!parts.length || parts.some(part => part === '..')) throw new Error(`Live2D 包含不安全的路径：${value}`);
+  if (!parts.length || parts.some(part => part === '..')) throw new Error(`Live2D 包含不安全的路徑：${value}`);
   return parts.join('/');
 };
 
@@ -241,7 +241,7 @@ const buildStreamingInspectionEntries = async (
     inspected.push({ path, blob: needsBody ? await extractStreamingZipEntry(entry) : new Blob() });
     if (needsBody) {
       jsonCount += 1;
-      if (jsonCount % 8 === 0) onProgress?.(`正在读取模型配置 ${jsonCount} 个…`);
+      if (jsonCount % 8 === 0) onProgress?.(`正在讀取模型配置 ${jsonCount} 個…`);
     }
   }
   return inspected;
@@ -396,7 +396,7 @@ const downscaleLive2DTextureEntry = async (
   const target = getLive2DTextureResizeTarget(dimensions.width, dimensions.height, maxDimension);
   if (!target) return { entry };
 
-  onProgress?.(`贴图 ${basename(entry.path)} 为 ${dimensions.width}×${dimensions.height}，正在直接生成 ${target.width}×${target.height} 运行图…`);
+  onProgress?.(`貼圖 ${basename(entry.path)} 為 ${dimensions.width}×${dimensions.height}，正在直接生成 ${target.width}×${target.height} 運行圖…`);
   try {
     const resizedBlob = await resizeLive2DTextureBlob(entry.blob, dimensions, target);
     return {
@@ -411,7 +411,7 @@ const downscaleLive2DTextureEntry = async (
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`贴图 ${basename(entry.path)} 超过 ${maxDimension}px，但自动降档失败：${detail}`);
+    throw new Error(`貼圖 ${basename(entry.path)} 超過 ${maxDimension}px，但自動降檔失敗：${detail}`);
   }
 };
 
@@ -425,7 +425,7 @@ const encodeResizedTexture = async (
     const canvas = new OffscreenCanvas(target.width, target.height);
     try {
       const context = canvas.getContext('2d');
-      if (!context) throw new Error('浏览器无法创建图片缩放画布');
+      if (!context) throw new Error('瀏覽器無法創建圖片縮放畫布');
       context.drawImage(source, 0, 0, target.width, target.height);
       return await canvas.convertToBlob({ type: mimeType, quality });
     } finally {
@@ -434,17 +434,17 @@ const encodeResizedTexture = async (
     }
   }
 
-  if (typeof document === 'undefined') throw new Error('当前环境不支持图片缩放');
+  if (typeof document === 'undefined') throw new Error('當前環境不支持圖片縮放');
   const canvas = document.createElement('canvas');
   canvas.width = target.width;
   canvas.height = target.height;
   try {
     const context = canvas.getContext('2d');
-    if (!context) throw new Error('浏览器无法创建图片缩放画布');
+    if (!context) throw new Error('瀏覽器無法創建圖片縮放畫布');
     context.drawImage(source, 0, 0, target.width, target.height);
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        result => result ? resolve(result) : reject(new Error('浏览器无法编码降档后的贴图')),
+        result => result ? resolve(result) : reject(new Error('瀏覽器無法編碼降檔後的貼圖')),
         mimeType,
         quality,
       );
@@ -502,21 +502,21 @@ const resizeLive2DTextureBlob = async (
 
     if (!source) {
       if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
-        throw new Error('当前浏览器不支持图片降档');
+        throw new Error('當前瀏覽器不支持圖片降檔');
       }
       objectUrl = URL.createObjectURL(typedBlob);
       const image = document.createElement('img');
       image.decoding = 'async';
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
-        image.onerror = () => reject(new Error('浏览器无法解码这张贴图'));
+        image.onerror = () => reject(new Error('瀏覽器無法解碼這張貼圖'));
         image.src = objectUrl;
       });
       source = image;
     }
 
     const resized = await encodeResizedTexture(source, target, dimensions.mimeType);
-    if (!resized.size) throw new Error('降档后的贴图为空');
+    if (!resized.size) throw new Error('降檔後的貼圖為空');
     return resized;
   } finally {
     closeSource?.();
@@ -575,7 +575,7 @@ const extractStreamingRuntimeEntries = async (
     if (result.resized) resizedTextures.push(result.resized);
     loaded += 1;
     if (loaded === entries.length || loaded % 6 === 0) {
-      onProgress?.(`正在低内存解包模型文件 ${loaded}/${entries.length}…`);
+      onProgress?.(`正在低內存解包模型文件 ${loaded}/${entries.length}…`);
     }
     // Give Android WebView a paint/GC opportunity between large entries.
     if (texturePathSet.has(path)) await new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -594,7 +594,7 @@ export const extractStreamingLive2DRuntimeArchive = async (
   try {
     const normalizedModelPath = normalizePath(modelPath);
     const modelEntry = opened.entries.find(entry => normalizePath(entry.filename) === normalizedModelPath);
-    if (!modelEntry) throw new Error('模型包内找不到 model3.json，请重新导入。');
+    if (!modelEntry) throw new Error('模型包內找不到 model3.json，請重新導入。');
     const modelBlob = await extractStreamingZipEntry(modelEntry);
     let settings: Model3Json;
     try {
@@ -627,18 +627,18 @@ const resolveModelReference = (modelPath: string, reference: string): string => 
 };
 
 const actionTagRules: Array<[string, RegExp]> = [
-  ['happy', /happy|smile|joy|laugh|grin|star|tail|开心|高兴|微笑|笑|星星|尾巴/i],
-  ['sad', /sad|cry|gloom|tear|upset|伤心|难过|哭|失落|脸黑/i],
-  ['angry', /angry|anger|mad|rage|生气|愤怒|气恼/i],
-  ['surprised', /surpris|shock|wow|sweat|惊讶|震惊|吃惊|汗/i],
-  ['shy', /shy|blush|bashful|love|heart|cat.?ear|害羞|脸红|爱心|猫耳/i],
-  ['wave', /wave|hello|greet|hand|挥手|招呼|你好/i],
-  ['nod', /nod|agree|yes|点头|同意/i],
-  ['shake', /shake|disagree|no|摇头|拒绝/i],
-  ['tilt', /tilt|question|confus|歪头|疑问|困惑/i],
-  ['explain', /explain|present|talk|speak|chat|microphone|介绍|解释|说话|麦克风/i],
-  ['idle', /idle|standby|breath|待机|呼吸/i],
-  ['idle', /循环|loop/i],
+  ['happy', /happy|smile|joy|laugh|grin|star|tail|[开開]心|高[兴興]|微笑|笑|星星|尾巴/i],
+  ['sad', /sad|cry|gloom|tear|upset|[伤傷]心|[难難][过過]|哭|失落|[脸臉]黑/i],
+  ['angry', /angry|anger|mad|rage|生[气氣]|[愤憤]怒|[气氣][恼惱]/i],
+  ['surprised', /surpris|shock|wow|sweat|[惊驚][讶訝]|震[惊驚]|吃[惊驚]|汗/i],
+  ['shy', /shy|blush|bashful|love|heart|cat.?ear|害羞|[脸臉][红紅]|[爱愛]心|[猫貓]耳/i],
+  ['wave', /wave|hello|greet|hand|[挥揮]手|招呼|你好/i],
+  ['nod', /nod|agree|yes|[点點][头頭]|同意/i],
+  ['shake', /shake|disagree|no|[摇搖][头頭]|拒[绝絕]/i],
+  ['tilt', /tilt|question|confus|歪[头頭]|疑[问問]|困惑/i],
+  ['explain', /explain|present|talk|speak|chat|microphone|介[绍紹]|解[释釋]|[说說][话話]|[麦麥]克[风風]/i],
+  ['idle', /idle|standby|breath|待[机機]|呼吸/i],
+  ['idle', /循[环環]|loop/i],
 ];
 
 export const inferLive2DActionTags = (...parts: Array<string | undefined>): string[] => {
@@ -759,8 +759,8 @@ export const pruneUnavailableLive2DReferences = (
 const parsePackage = async (entries: PackageEntry[]): Promise<ParsedPackage> => {
   const byPath = new Map(entries.map(entry => [normalizePath(entry.path), entry.blob]));
   const modelPaths = [...byPath.keys()].filter(path => path.toLowerCase().endsWith('.model3.json'));
-  if (!modelPaths.length) throw new Error('没有找到 *.model3.json；请选择完整的 Live2D Cubism 3/4/5 模型文件夹或 ZIP。');
-  if (modelPaths.length > 1) throw new Error(`包里发现 ${modelPaths.length} 个 model3.json，请一次只导入一个 Live2D 模型。`);
+  if (!modelPaths.length) throw new Error('沒有找到 *.model3.json；請選擇完整的 Live2D Cubism 3/4/5 模型文件夾或 ZIP。');
+  if (modelPaths.length > 1) throw new Error(`包裡發現 ${modelPaths.length} 個 model3.json，請一次只導入一個 Live2D 模型。`);
 
   const modelPath = modelPaths[0];
   let model: Model3Json;
@@ -771,7 +771,7 @@ const parsePackage = async (entries: PackageEntry[]): Promise<ParsedPackage> => 
   }
   const refs = model.FileReferences;
   if (!refs?.Moc || !Array.isArray(refs.Textures) || !refs.Textures.length) {
-    throw new Error('model3.json 缺少 FileReferences.Moc 或 Textures，无法作为 Cubism 模型加载。');
+    throw new Error('model3.json 缺少 FileReferences.Moc 或 Textures，無法作為 Cubism 模型加載。');
   }
 
   let vtubePath = '';
@@ -839,13 +839,13 @@ const parsePackage = async (entries: PackageEntry[]): Promise<ParsedPackage> => 
     // fully actionable. JSON text is intentional: embedded WebView consoles
     // often collapse Error custom fields and only retain Error.message.
     console.error(
-      `[live2d] ${error.message}\n完整缺失引用诊断：\n${JSON.stringify(error.toJSON(), null, 2)}`,
+      `[live2d] ${error.message}\n完整缺失引用診斷：\n${JSON.stringify(error.toJSON(), null, 2)}`,
     );
     throw error;
   }
   if (optionalMissing.length) {
     console.warn(
-      `[live2d] 已忽略 ${optionalMissing.length} 个缺失的可选文件引用：\n${JSON.stringify(optionalMissing, null, 2)}`,
+      `[live2d] 已忽略 ${optionalMissing.length} 個缺失的可選文件引用：\n${JSON.stringify(optionalMissing, null, 2)}`,
     );
   }
 
@@ -968,7 +968,7 @@ const parsePackage = async (entries: PackageEntry[]): Promise<ParsedPackage> => 
   const idleFile = vtube?.FileReferences?.IdleAnimation;
   if (idleFile) {
     const fullPath = resolveModelReference(vtubePath, idleFile);
-    if (byPath.has(fullPath)) addMotion('待机循环', modelRelativePath(modelPath, fullPath), 'Idle', 'vtube');
+    if (byPath.has(fullPath)) addMotion('待機循環', modelRelativePath(modelPath, fullPath), 'Idle', 'vtube');
   }
 
   const modelDirectory = dirname(modelPath);
@@ -980,7 +980,7 @@ const parsePackage = async (entries: PackageEntry[]): Promise<ParsedPackage> => 
   for (const path of modelFiles.filter(item => item.toLowerCase().endsWith('.motion3.json'))) {
     const file = modelRelativePath(modelPath, path);
     const name = basename(file).replace(/\.motion3\.json$/i, '');
-    const group = /idle|standby|loop|循环|待机/i.test(name) ? 'Idle' : 'Imported';
+    const group = /idle|standby|loop|循[环環]|待[机機]/i.test(name) ? 'Idle' : 'Imported';
     addMotion(name, file, group, 'discovered');
   }
 
@@ -1069,9 +1069,9 @@ export const saveLive2DModelFromFiles = async (
   onProgress?: Live2DImportProgress,
 ): Promise<Live2DAvatarConfig> => {
   const sourceFiles = files.filter(file => file.size > 0 && !/(^|\/)\.DS_Store$/i.test(fileRelativePath(file)));
-  if (!sourceFiles.length) throw new Error('选择的文件夹是空的。');
+  if (!sourceFiles.length) throw new Error('選擇的文件夾是空的。');
   const entries = sourceFiles.map(file => ({ path: normalizePath(fileRelativePath(file)), blob: file }));
-  onProgress?.(`正在扫描 ${entries.length} 个文件和 VTube Studio 热键…`);
+  onProgress?.(`正在掃描 ${entries.length} 個文件和 VTube Studio 熱鍵…`);
   const parsed = await parsePackage(entries);
   const sourceOptimized = await downscaleOversizedLive2DTextures(entries, parsed.texturePaths, onProgress, LIVE2D_MAX_TEXTURE_DIMENSION);
   const runtimeOptimized = await downscaleOversizedLive2DTextures(
@@ -1081,13 +1081,13 @@ export const saveLive2DModelFromFiles = async (
     LIVE2D_BALANCED_TEXTURE_DIMENSION,
   );
   onProgress?.(sourceOptimized.resizedTextures.length || runtimeOptimized.resizedTextures.length
-    ? `已建立默认 2K 纹理（保留最多 4K 源图供切换），正在整理本地模型包…`
-    : `已找到 ${parsed.actions.length} 个表情/动作，正在整理本地模型包…`);
+    ? `已建立默認 2K 紋理（保留最多 4K 源圖供切換），正在整理本地模型包…`
+    : `已找到 ${parsed.actions.length} 個表情/動作，正在整理本地模型包…`);
   // PNG/JPEG/moc are already compressed. Re-deflating a large 8K texture can
   // freeze the UI for tens of seconds without meaningfully reducing its size.
   const packageBlob = await buildStoredLive2DPackage(sourceOptimized.entries);
   const rootName = parsed.modelPath.includes('/') ? parsed.modelPath.split('/')[0] : parsed.modelName;
-  onProgress?.('正在写入本地模型库，请保持页面打开…');
+  onProgress?.('正在寫入本地模型庫，請保持頁面打開…');
   return createConfig(
     packageBlob,
     sourceOptimized.entries,
@@ -1104,13 +1104,13 @@ export const saveLive2DModelFromZip = async (
 ): Promise<Live2DAvatarConfig> => {
   let opened: OpenStreamingZip;
   try {
-    onProgress?.(`正在流式读取 ${file.name}，不会把整个压缩包复制进内存…`);
+    onProgress?.(`正在流式讀取 ${file.name}，不會把整個壓縮包複製進內存…`);
     opened = await openStreamingLive2DZip(file);
   } catch {
-    throw new Error('ZIP 无法读取；请确认它没有加密且内容没有损坏。');
+    throw new Error('ZIP 無法讀取；請確認它沒有加密且內容沒有損壞。');
   }
   try {
-    onProgress?.('正在读取 model3、动作配置与 VTube Studio 热键…');
+    onProgress?.('正在讀取 model3、動作配置與 VTube Studio 熱鍵…');
     const inspectionEntries = await buildStreamingInspectionEntries(opened.entries, onProgress);
     const parsed = await parsePackage(inspectionEntries);
     const reusableBodies = new Map(
@@ -1126,8 +1126,8 @@ export const saveLive2DModelFromZip = async (
       reusableBodies,
     );
     onProgress?.(runtimeOptimized.resizedTextures.length
-      ? '已逐张生成默认 2K 纹理，正在写入低内存运行缓存…'
-      : `已找到 ${parsed.actions.length} 个表情/动作，正在写入低内存运行缓存…`);
+      ? '已逐張生成默認 2K 紋理，正在寫入低內存運行緩存…'
+      : `已找到 ${parsed.actions.length} 個表情/動作，正在寫入低內存運行緩存…`);
 
     // Keep the original compressed ZIP as the portable source. 4K is derived
     // on demand, while the default 2K runtime cache is written immediately.
@@ -1149,7 +1149,7 @@ export const saveLive2DModelFromZip = async (
 /** Restores the stored package into browser Files with the original relative paths. */
 export const loadLive2DModelFiles = async (config: Live2DAvatarConfig): Promise<File[]> => {
   const packageBlob = await DB.getBlobAsset(config.assetId);
-  if (!packageBlob) throw new Error('Live2D 模型文件已丢失，请重新导入。');
+  if (!packageBlob) throw new Error('Live2D 模型文件已丟失，請重新導入。');
   const opened = await openStreamingLive2DZip(packageBlob);
   try {
     const files: File[] = [];
@@ -1168,14 +1168,14 @@ export const loadLive2DModelFiles = async (config: Live2DAvatarConfig): Promise<
 const blobToDataUrl = (blob: Blob, mimeType: string): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(String(reader.result || ''));
-  reader.onerror = () => reject(reader.error || new Error('贴图读取失败'));
-  // blob.type 缺失或是 octet-stream 时强制换上推断出的 MIME——Pixi 靠 data URL
-  // 的 MIME 挑解析器，octet-stream 会直接 [Loader.load] Failed to load。
+  reader.onerror = () => reject(reader.error || new Error('貼圖讀取失敗'));
+  // blob.type 缺失或是 octet-stream 時強制換上推斷出的 MIME——Pixi 靠 data URL
+  // 的 MIME 挑解析器，octet-stream 會直接 [Loader.load] Failed to load。
   const needsRetype = !blob.type || blob.type === 'application/octet-stream';
   reader.readAsDataURL(needsRetype ? blob.slice(0, blob.size, mimeType) : blob);
 });
 
-/** 按文件头魔数嗅探真实图片类型；扩展名千奇百怪的模型包全靠它兜底。 */
+/** 按文件頭魔數嗅探真實圖片類型；擴展名千奇百怪的模型包全靠它兜底。 */
 export const sniffImageMime = async (blob: Blob): Promise<string | null> => {
   try {
     const bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
@@ -1218,18 +1218,18 @@ const getBuiltinLive2DSettings = async (
   config: Live2DAvatarConfig,
   onProgress?: Live2DLoadProgress,
 ): Promise<BuiltinLive2DSettingsResult> => {
-  if (!isBuiltinSullyLive2D(config)) throw new Error('内置 Live2D 配置缺少静态模型地址。');
+  if (!isBuiltinSullyLive2D(config)) throw new Error('內置 Live2D 配置缺少靜態模型地址。');
   const startedAt = nowMs();
   const modelUrl = new URL(config.builtinModelUrl, builtinDocumentBase()).href;
   const cached = builtinLive2DSettingsCache.get(modelUrl);
   if (cached) {
-    onProgress?.('正在从内置缓存恢复 Sully…');
+    onProgress?.('正在從內置緩存恢復 Sully…');
     return { settings: await cached, modelUrl, memoryHit: true, waitMs: nowMs() - startedAt };
   }
-  onProgress?.(`正在读取 Sully 内置${config.builtinQuality === 'hd' ? '高清' : '轻量'}模型…`);
+  onProgress?.(`正在讀取 Sully 內置${config.builtinQuality === 'hd' ? '高清' : '輕量'}模型…`);
   const pending = fetch(modelUrl, { cache: 'force-cache' })
     .then(async response => {
-      if (!response.ok) throw new Error(`Sully 内置模型读取失败（HTTP ${response.status}）。`);
+      if (!response.ok) throw new Error(`Sully 內置模型讀取失敗（HTTP ${response.status}）。`);
       return response.json() as Promise<Record<string, any>>;
     })
     .catch(error => {
@@ -1256,7 +1256,7 @@ const hydrateBuiltinSettings = (
   const settings = cloneBuiltinSettings(rawSettings);
   const refs = settings.FileReferences;
   if (!refs?.Moc || !Array.isArray(refs.Textures) || !refs.Textures.length) {
-    throw new Error('Sully 内置 model3.json 缺少 Moc 或 Textures。');
+    throw new Error('Sully 內置 model3.json 缺少 Moc 或 Textures。');
   }
   const absolute = (reference?: string): string | undefined => (
     reference ? new URL(reference, modelUrl).href : undefined
@@ -1342,7 +1342,7 @@ const getLive2DRuntimePackage = async (
   if (cached) {
     live2DRuntimePackageCache.delete(cacheKey);
     live2DRuntimePackageCache.set(cacheKey, cached);
-    onProgress?.(`正在从内存缓存恢复${quality === 'hd' ? '高清 4K' : '轻量 2K'}模型…`);
+    onProgress?.(`正在從內存緩存恢復${quality === 'hd' ? '高清 4K' : '輕量 2K'}模型…`);
     return {
       runtimePackage: await cached,
       memoryHit: true,
@@ -1357,27 +1357,27 @@ const getLive2DRuntimePackage = async (
     if (config.runtimePackageEncoding === 'store-v1') {
       packageBlob = await DB.getBlobAsset(persistentCacheId);
       if (packageBlob) {
-        onProgress?.(`正在读取已优化的${quality === 'hd' ? '高清 4K' : '轻量 2K'}运行缓存…`);
+        onProgress?.(`正在讀取已優化的${quality === 'hd' ? '高清 4K' : '輕量 2K'}運行緩存…`);
         source = 'persistent-cache';
       } else {
-        onProgress?.('正在读取免解压模型包…');
+        onProgress?.('正在讀取免解壓模型包…');
         packageBlob = await DB.getBlobAsset(assetId);
         source = 'stored-package';
       }
     } else {
       packageBlob = await DB.getBlobAsset(persistentCacheId);
       if (packageBlob) {
-        onProgress?.(`正在读取${quality === 'hd' ? '高清 4K' : '轻量 2K'}运行缓存…`);
+        onProgress?.(`正在讀取${quality === 'hd' ? '高清 4K' : '輕量 2K'}運行緩存…`);
         source = 'persistent-cache';
       } else {
         onProgress?.(config.runtimePackageEncoding === 'zip-v1'
-          ? `正在从源包逐张生成${quality === 'hd' ? '高清 4K' : '轻量 2K'}运行纹理…`
-          : '首次优化旧模型：正在低内存解包并建立运行缓存…');
+          ? `正在從源包逐張生成${quality === 'hd' ? '高清 4K' : '輕量 2K'}運行紋理…`
+          : '首次優化舊模型：正在低內存解包並建立運行緩存…');
         packageBlob = await DB.getBlobAsset(assetId);
         source = config.runtimePackageEncoding === 'zip-v1' ? 'source-zip' : 'legacy-zip';
       }
     }
-    if (!packageBlob) throw new Error('Live2D 模型文件已丢失，请重新导入。');
+    if (!packageBlob) throw new Error('Live2D 模型文件已丟失，請重新導入。');
     const unpackStartedAt = nowMs();
     const optimized = await extractStreamingLive2DRuntimeArchive(
       packageBlob,
@@ -1385,7 +1385,7 @@ const getLive2DRuntimePackage = async (
       getLive2DTextureMaxDimension(config),
       stage => onProgress?.(source === 'persistent-cache' || source === 'stored-package'
         ? stage
-        : `首次优化模型：${stage}`),
+        : `首次優化模型：${stage}`),
     );
     const pairs = optimized.entries.map(entry => [normalizePath(entry.path), entry.blob] as const);
     const runtimePackage: Live2DRuntimePackage = {
@@ -1484,7 +1484,7 @@ export const prewarmLive2DModelSource = async (
     const textureStartedAt = nowMs();
     await Promise.all(textureUrls.map(async url => {
       const response = await fetch(url, { cache: 'force-cache' });
-      if (!response.ok) throw new Error(`Sully 内置贴图预热失败（HTTP ${response.status}）。`);
+      if (!response.ok) throw new Error(`Sully 內置貼圖預熱失敗（HTTP ${response.status}）。`);
       await response.blob();
     }));
     const textureMs = nowMs() - textureStartedAt;
@@ -1495,7 +1495,7 @@ export const prewarmLive2DModelSource = async (
       textureMs,
       totalMs: nowMs() - totalStartedAt,
     };
-    onProgress?.(`Sully 预热完成：清单 ${prettyMs(timings.packageMs)}，贴图 ${prettyMs(textureMs)}`);
+    onProgress?.(`Sully 預熱完成：清單 ${prettyMs(timings.packageMs)}，貼圖 ${prettyMs(textureMs)}`);
     console.info('[live2d] builtin prewarm complete', { assetId: config.assetId, ...timings });
     return timings;
   }
@@ -1503,7 +1503,7 @@ export const prewarmLive2DModelSource = async (
   const { runtimePackage } = packageResult;
   const manifestStartedAt = nowMs();
   const settingsBlob = runtimePackage.entries.get(config.modelPath);
-  if (!settingsBlob) throw new Error('模型包内找不到 model3.json，请重新导入。');
+  if (!settingsBlob) throw new Error('模型包內找不到 model3.json，請重新導入。');
   const settings = JSON.parse(await settingsBlob.text()) as Model3Json & Record<string, any>;
   const textureRefs = settings.FileReferences?.Textures || [];
   const manifestMs = nowMs() - manifestStartedAt;
@@ -1522,7 +1522,7 @@ export const prewarmLive2DModelSource = async (
     textureMs,
     totalMs: nowMs() - totalStartedAt,
   };
-  onProgress?.(`模型预热完成：包 ${prettyMs(timings.packageMs)}，贴图 ${prettyMs(textureMs)}`);
+  onProgress?.(`模型預熱完成：包 ${prettyMs(timings.packageMs)}，貼圖 ${prettyMs(textureMs)}`);
   console.info('[live2d] prewarm complete', { assetId: config.assetId, ...timings });
   return timings;
 };
@@ -1562,7 +1562,7 @@ export const loadLive2DModelSource = async (
       textureMs: 0,
       totalMs: nowMs() - totalStartedAt,
     };
-    onProgress?.(`Sully 内置${config.builtinQuality === 'hd' ? '高清' : '轻量'}模型就绪`);
+    onProgress?.(`Sully 內置${config.builtinQuality === 'hd' ? '高清' : '輕量'}模型就緒`);
     console.info('[live2d] builtin model source ready', { assetId: config.assetId, ...timings });
     return {
       settings,
@@ -1578,13 +1578,13 @@ export const loadLive2DModelSource = async (
   const entries = runtimePackage.entries;
   const manifestStartedAt = nowMs();
   const settingsBlob = entries.get(config.modelPath);
-  if (!settingsBlob) throw new Error('模型包内找不到 model3.json，请重新导入。');
+  if (!settingsBlob) throw new Error('模型包內找不到 model3.json，請重新導入。');
   const settings = JSON.parse(await settingsBlob.text()) as Model3Json & Record<string, any>;
   const refs = settings.FileReferences;
   if (!refs) throw new Error('model3.json 缺少 FileReferences。');
   const prunedReferenceCount = pruneUnavailableLive2DReferences(settings, config.modelPath, entries.keys());
   if (prunedReferenceCount > 0) {
-    console.warn(`[live2d] 运行时已跳过 ${prunedReferenceCount} 个缺失的可选文件引用。`);
+    console.warn(`[live2d] 運行時已跳過 ${prunedReferenceCount} 個缺失的可選文件引用。`);
   }
   const parameterEntries = await Promise.all(config.actions.map(async action => (
     [action.id, await discoverActionParameters(action, entries, config.modelPath)] as const
@@ -1645,7 +1645,7 @@ export const loadLive2DModelSource = async (
     const cached = textureUrlCache.get(path);
     if (cached) return cached;
     const url = await getRuntimeTextureUrl(runtimePackage, path, blob);
-    if (!url) throw new Error(`贴图 ${reference} 读取为空，文件可能已损坏。`);
+    if (!url) throw new Error(`貼圖 ${reference} 讀取為空，文件可能已損壞。`);
     textureUrlCache.set(path, url);
     return url;
   };
@@ -1674,7 +1674,7 @@ export const loadLive2DModelSource = async (
       textureMs,
       totalMs: nowMs() - totalStartedAt,
     };
-    onProgress?.(`缓存就绪：模型包 ${prettyMs(timings.packageMs)}，贴图 ${prettyMs(textureMs)}`);
+    onProgress?.(`緩存就緒：模型包 ${prettyMs(timings.packageMs)}，貼圖 ${prettyMs(textureMs)}`);
     console.info('[live2d] model source ready', {
       assetId: config.assetId,
       ...timings,

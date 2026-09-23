@@ -1,11 +1,11 @@
-# PR 改了哪些文件 → 自动贴哪些 scope 标签
+# PR 改了哪些文件 → 自動貼哪些 scope 標籤
 #
-# 规则说明：
-#   - any-glob-to-any-file：改动里只要有一个文件命中，就贴这个标签
-#   - all-globs-to-all-files：改动里所有文件都命中，才贴这个标签
-#   - 只加不删（没开 sync-labels），手动贴的标签不会被冲掉
+# 規則說明：
+#   - any-glob-to-any-file：改動裡只要有一個文件命中，就貼這個標籤
+#   - all-globs-to-all-files：改動裡所有文件都命中，才貼這個標籤
+#   - 只加不刪（沒開 sync-labels），手動貼的標籤不會被沖掉
 #
-# 新增标签前先确认仓库里已经有同名 label，否则会被自动创建成灰色无描述的。
+# 新增標籤前先確認倉庫裡已經有同名 label，否則會被自動創建成灰色無描述的。
 
 'scope: amsg':
   - changed-files:
@@ -62,7 +62,7 @@
       - any-glob-to-any-file:
           - 'apps/JournalApp.tsx'
 
-# 整个 PR 只动了文档才算文档 PR，顺手改一句 README 不会被贴上
+# 整個 PR 只動了文檔才算文檔 PR，順手改一句 README 不會被貼上
 documentation:
   - changed-files:
       - all-globs-to-all-files:

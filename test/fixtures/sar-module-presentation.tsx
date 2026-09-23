@@ -27,7 +27,7 @@ function Harness() {
             {char && initialState && showDate ? <DateSession char={char} userProfile={os.userProfile} messages={messages} initialState={initialState}
                 peekStatus="" onSendMessage={async () => { throw Error('QA never calls model'); }} onReroll={async () => { throw Error('QA never calls model'); }}
                 onExit={() => setShowDate(false)} onEditMessage={() => {}} onDeleteMessage={() => {}} onDeleteMessages={async () => {}} onSettings={() => {}}/>
-                : <p style={{ color: 'white', padding: 20 }}>页面已切换</p>}
+                : <p style={{ color: 'white', padding: 20 }}>頁面已切換</p>}
         </div>
         <SARModuleMonitor/>
     </>;

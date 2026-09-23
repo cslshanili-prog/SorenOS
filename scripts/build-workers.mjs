@@ -28,23 +28,23 @@ const root = resolve(__dirname, '..');
 //   - per-worker dirs (worker/<name>/src/index.ts → worker/<name>/worker.bundle.js + public/<outName>)
 //   - flat single-file workers (worker/<name>.ts → public/<name>.js only — no worker.bundle.js sibling)
 const WORKERS = [
-  // sw-keep-alive 是 SullyOS 的 service worker, 唯一消费者是浏览器从 /public 静态读, 不需要
-  // CF wrangler 单独部署 (没 worker.bundle.js sibling). 之前 bundle 是手工跑 esbuild, Round 2
-  // 起接进 build:workers 一起做, 避免 worker/sw-keep-alive.ts 跟 public/sw-keep-alive.js 漂移.
+  // sw-keep-alive 是 SullyOS 的 service worker, 唯一消費者是瀏覽器從 /public 靜態讀, 不需要
+  // CF wrangler 單獨部署 (沒 worker.bundle.js sibling). 之前 bundle 是手工跑 esbuild, Round 2
+  // 起接進 build:workers 一起做, 避免 worker/sw-keep-alive.ts 跟 public/sw-keep-alive.js 漂移.
   {
     name: 'sw-keep-alive',
     entryPath: 'worker/sw-keep-alive.ts',
     outPublic: 'public/sw-keep-alive.js',
     skipWorkerOut: true,
   },
-  // post-office 是纯后端（跨用户漂流信），不被前端静态 fetch，所以只产 worker.bundle.js
-  // 供粘进 CF 面板（选 ES Module 格式）或对照 wrangler deploy，不写 public/。
+  // post-office 是純後端（跨用戶漂流信），不被前端靜態 fetch，所以只產 worker.bundle.js
+  // 供粘進 CF 面板（選 ES Module 格式）或對照 wrangler deploy，不寫 public/。
   {
     name: 'post-office',
     skipPublicOut: true,
   },
-  // amsg = 主动消息 2.0 的单用户 worker（amsg-server/cloudflare, D1 + Cron Trigger）。
-  // public/ 副本给设置页「复制 Worker 代码」按钮 fetch。amsg-server 2.6.0-next.2 起
+  // amsg = 主動消息 2.0 的單用戶 worker（amsg-server/cloudflare, D1 + Cron Trigger）。
+  // public/ 副本給設置頁「複製 Worker 代碼」按鈕 fetch。amsg-server 2.6.0-next.2 起
   // 全 Web Crypto，免 nodejs_compat flag。
   { name: 'amsg', outName: 'amsg-worker.bundle.js' },
 ];
@@ -59,8 +59,8 @@ const sharedOpts = {
   bundle: true,
   minify: false,
   conditions: ['worker', 'browser', 'import', 'default'],
-  // cloudflare:* 是运行时自带的内置模块（amsg 用 cloudflare:workers 的 DurableObject
-  // 基类）。它们不在 node_modules 里，不标 external 的话 esbuild 会当成缺失依赖报错。
+  // cloudflare:* 是運行時自帶的內置模塊（amsg 用 cloudflare:workers 的 DurableObject
+  // 基類）。它們不在 node_modules 裡，不標 external 的話 esbuild 會當成缺失依賴報錯。
   external: ['cloudflare:*'],
 };
 
@@ -104,14 +104,14 @@ for (const w of WORKERS) {
   console.log(`✓ ${w.name.padEnd(16)} ${sizeKb} KB  → ${dest}`);
 }
 
-// 原样复制到 public/ 的单文件脚本（不过 esbuild）。
+// 原樣複製到 public/ 的單文件腳本（不過 esbuild）。
 //
-// 为什么不打包：这些文件没有 import，是自包含单文件，而 Deno Playground 原生吃
-// TypeScript。过一遍 esbuild 只会剥掉类型、还可能顺手把注释吃了 —— 而这类脚本
-// 恰恰要用户读着注释改配置（比如 amsg 代理里的 UPSTREAM 那一行），注释没了就废了。
+// 為什麼不打包：這些文件沒有 import，是自包含單文件，而 Deno Playground 原生吃
+// TypeScript。過一遍 esbuild 只會剝掉類型、還可能順手把註釋吃了 —— 而這類腳本
+// 恰恰要用戶讀著註釋改配置（比如 amsg 代理裡的 UPSTREAM 那一行），註釋沒了就廢了。
 const VERBATIM_COPIES = [
-  // amsg 的 Deno 门面：给 Cloudflare worker 换一个国内能直连的地址。
-  // 设置页「复制 Deno 代理代码」按钮 fetch 这份。
+  // amsg 的 Deno 門面：給 Cloudflare worker 換一個國內能直連的地址。
+  // 設置頁「複製 Deno 代理代碼」按鈕 fetch 這份。
   { from: 'worker/amsg/deno-proxy.ts', to: 'public/amsg-deno-proxy.ts' },
 ];
 
@@ -123,5 +123,5 @@ for (const { from, to } of VERBATIM_COPIES) {
   }
   copyFileSync(src, resolve(root, to));
   const sizeKb = (statSync(src).size / 1024).toFixed(1);
-  console.log(`✓ ${from.split('/').pop().padEnd(16)} ${sizeKb} KB  → ${to} (原样复制)`);
+  console.log(`✓ ${from.split('/').pop().padEnd(16)} ${sizeKb} KB  → ${to} (原樣複製)`);
 }

@@ -35,11 +35,11 @@ const CompanionPortraitPreview: React.FC<{ value?: string; alt: string }> = ({ v
 };
 
 /**
- * 这个令牌还挂在衣柜里吗？
+ * 這個令牌還掛在衣櫃裡嗎？
  *
- * 桌面静态形象的令牌是「顶层 imageRef 指着现在穿的那套，衣柜里同时留着一条同令牌的条目」
- * （utils/companionWardrobe.ts 拿令牌当条目 id 认亲，id 与 imageRef 两个值位同值）。
- * 所以换图 / 移除时不能无条件删旧 Blob——衣柜里还留着的话，那套旧衣服就再也切不回去了。
+ * 桌面靜態形象的令牌是「頂層 imageRef 指著現在穿的那套，衣櫃裡同時留著一條同令牌的條目」
+ * （utils/companionWardrobe.ts 拿令牌當條目 id 認親，id 與 imageRef 兩個值位同值）。
+ * 所以換圖 / 移除時不能無條件刪舊 Blob——衣櫃裡還留著的話，那套舊衣服就再也切不回去了。
  */
 const isCompanionOutfitKeptInWardrobe = (
     companionAvatar: { imageWardrobe?: unknown } | undefined,
@@ -126,12 +126,12 @@ const CATEGORY_LABELS: Record<string, { code: string; label: string }> = {
 };
 
 
-// --- 桌面整机风格（皮肤）---
-// 动森壁纸：NookPhone 同款奶油底（#F8F4E8），底部极淡草色透气。纯 CSS 渐变，让彩色图标平铺更跳。
+// --- 桌面整機風格（皮膚）---
+// 動森壁紙：NookPhone 同款奶油底（#F8F4E8），底部極淡草色透氣。純 CSS 漸變，讓彩色圖標平鋪更跳。
 const ACNH_WALLPAPER = 'linear-gradient(180deg, #F8F4E8 0%, #F3EFDD 58%, #E6EECE 100%)';
-// 手游主题壁纸：近白底 + 极淡薰衣草/粉光晕（照搬原创参考图，整体偏白不发紫）。
+// 手遊主題壁紙：近白底 + 極淡薰衣草/粉光暈（照搬原創參考圖，整體偏白不發紫）。
 const MOBILEGAME_WALLPAPER = 'radial-gradient(95% 55% at 85% 0%, #fdeef7 0%, transparent 50%), radial-gradient(85% 55% at 6% 10%, #f6f2fc 0%, transparent 55%), linear-gradient(180deg, #fdfbff 0%, #f9f6fd 55%, #f4f0fa 100%)';
-// 电子宠物主题壁纸：薰衣草奶油（照抄参考稿——柔紫底衬奶油卡片与紫描边）。
+// 電子寵物主題壁紙：薰衣草奶油（照抄參考稿——柔紫底襯奶油卡片與紫描邊）。
 const TAMAGOTCHI_WALLPAPER = 'radial-gradient(85% 50% at 80% 0%, #e6dcf8 0%, transparent 55%), radial-gradient(75% 45% at 12% 10%, #f4edfb 0%, transparent 55%), linear-gradient(180deg, #ded4f4 0%, #d6cbf0 55%, #cfc3ec 100%)';
 const COMPANION_WALLPAPER = 'radial-gradient(90% 65% at 50% 5%, #6c5a91 0%, transparent 62%), radial-gradient(75% 55% at 100% 50%, #382e5b 0%, transparent 72%), linear-gradient(180deg, #211a36 0%, #100d1c 62%, #080711 100%)';
 
@@ -140,8 +140,8 @@ type DesktopSkinOption = { id: string; name: string; desc: string; swatch: strin
 const DESKTOP_SKINS: DesktopSkinOption[] = [
   {
     id: 'animalcrossing',
-    name: '动森风格',
-    desc: 'NookPhone 彩色图标 · 草地天空 · 暖色界面',
+    name: '動森風格',
+    desc: 'NookPhone 彩色圖標 · 草地天空 · 暖色界面',
     swatch: 'linear-gradient(135deg,#BCE7F5 0%,#BBE38F 55%,#7CBA4C 100%)',
     config: {
       skin: 'animalcrossing',
@@ -158,8 +158,8 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
   },
   {
     id: 'mobilegame',
-    name: '手游风格',
-    desc: '梦幻粉紫二次元手游首页 · 星芒满屏 · 圆润可爱',
+    name: '手遊風格',
+    desc: '夢幻粉紫二次元手遊首頁 · 星芒滿屏 · 圓潤可愛',
     swatch: 'linear-gradient(135deg,#f7d9ec 0%,#d9d4f5 55%,#a8b8e8 100%)',
     config: {
       skin: 'mobilegame',
@@ -176,8 +176,8 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
   },
   {
     id: 'tamagotchi',
-    name: '电子宠物 · 小小窝',
-    desc: '桌面就是一台养成机 · 角色住在自己的小屋里 · 薰衣草奶油',
+    name: '電子寵物 · 小小窩',
+    desc: '桌面就是一台養成機 · 角色住在自己的小屋裡 · 薰衣草奶油',
     swatch: 'linear-gradient(135deg,#ded4f4 0%,#fdf9f2 52%,#f2a7bb 100%)',
     config: {
       skin: 'tamagotchi',
@@ -194,8 +194,8 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
   },
   {
     id: 'companion',
-    name: '触感陪伴',
-    desc: '角色占据桌面 · 一次生成反馈包 · 轻触后本地轮播演出',
+    name: '觸感陪伴',
+    desc: '角色佔據桌面 · 一次生成反饋包 · 輕觸後本地輪播演出',
     swatch: 'radial-gradient(circle at 50% 25%,#a993d3 0%,#51436f 42%,#171222 100%)',
     config: {
       skin: 'companion',
@@ -206,8 +206,8 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
   },
   {
     id: 'default',
-    name: '默认风格',
-    desc: '暖米白纸感桌面 · 低对比柔和配色',
+    name: '默認風格',
+    desc: '暖米白紙感桌面 · 低對比柔和配色',
     swatch: DEFAULT_WALLPAPER,
     config: {
       skin: 'default',
@@ -219,13 +219,13 @@ const DESKTOP_SKINS: DesktopSkinOption[] = [
 
 const NOSTALGIA_SKIN: DesktopSkinOption = {
   id: 'nostalgia',
-  name: '怀旧版',
-  desc: '最初粉绿渐变 · 白色玻璃卡片、图标底与 Dock · 旧版配色',
+  name: '懷舊版',
+  desc: '最初粉綠漸變 · 白色玻璃卡片、圖標底與 Dock · 舊版配色',
   swatch: NOSTALGIA_APPEARANCE.wallpaper,
   config: { ...NOSTALGIA_APPEARANCE },
 };
 
-// 动森叶子贴纸：切换动森皮肤时自动撒到桌面。用 acnh-leaf- 前缀标记，便于切回时单独清掉而不动用户自己的装饰。
+// 動森葉子貼紙：切換動森皮膚時自動撒到桌面。用 acnh-leaf- 前綴標記，便於切回時單獨清掉而不動用戶自己的裝飾。
 const ACNH_LEAF_PREFIX = 'acnh-leaf-';
 const acnhLeafSvg = (fill: string, vein: string) => `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">`
@@ -256,13 +256,13 @@ const buildAcnhLeaves = (): DesktopDecoration[] => ACNH_LEAF_LAYOUT.map((p, i) =
 }));
 
 /**
- * 预设卡片顶部那条缩略图（壁纸打底 + 两个色块 + 装饰数量角标）。
+ * 預設卡片頂部那條縮略圖（壁紙打底 + 兩個色塊 + 裝飾數量角標）。
  *
- * 预设是直接从 assets 表读出来的 JSON，没走 OSContext 那层壁纸解析，所以
- * `theme.wallpaper` 很可能还是个 `blobref:` 令牌，直接拼进 CSS 的 url() 加载不出来。
- * 这里过一道 useBlobRefUrl 把令牌换成 objectURL —— 它对 data: / http(s) / 渐变这类
- * 非令牌值是渲染期原样透传的，所以只有令牌会真的去读盘。
- * 因为 hook 不能写在 map 回调里，这块预览单独抽成组件，一个预设一份解析和回收。
+ * 預設是直接從 assets 表讀出來的 JSON，沒走 OSContext 那層壁紙解析，所以
+ * `theme.wallpaper` 很可能還是個 `blobref:` 令牌，直接拼進 CSS 的 url() 加載不出來。
+ * 這裡過一道 useBlobRefUrl 把令牌換成 objectURL —— 它對 data: / http(s) / 漸變這類
+ * 非令牌值是渲染期原樣透傳的，所以只有令牌會真的去讀盤。
+ * 因為 hook 不能寫在 map 回調裡，這塊預覽單獨抽成組件，一個預設一份解析和回收。
  */
 const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
     const { hue, saturation, lightness, contentColor, desktopDecorations, wallpaper } = preset.theme;
@@ -272,9 +272,9 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
     const isCssGradient = !!wallpaper
         && (wallpaper.startsWith('linear-gradient') || wallpaper.startsWith('radial-gradient') || wallpaper.startsWith('conic-gradient'));
 
-    // 没设壁纸 → 主题色兜底；壁纸本身就是 CSS 渐变 → 原样用；否则当图片铺进 url()。
-    // 令牌还在读盘、或者图已经丢了时 resolvedWallpaper 是 undefined，同样退回主题色，
-    // 免得渲染出一个 url("undefined")。
+    // 沒設壁紙 → 主題色兜底；壁紙本身就是 CSS 漸變 → 原樣用；否則當圖片鋪進 url()。
+    // 令牌還在讀盤、或者圖已經丟了時 resolvedWallpaper 是 undefined，同樣退回主題色，
+    // 免得渲染出一個 url("undefined")。
     let background: string;
     if (!wallpaper) background = themeGradient;
     else if (isCssGradient) background = wallpaper;
@@ -289,7 +289,7 @@ const PresetPreview: React.FC<{ preset: AppearancePreset }> = ({ preset }) => {
             </div>
             {desktopDecorations && desktopDecorations.length > 0 && (
                 <div className="absolute bottom-1.5 right-3 text-[8px] text-white/80 bg-black/30 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-                    {desktopDecorations.length} 装饰
+                    {desktopDecorations.length} 裝飾
                 </div>
             )}
         </div>
@@ -317,7 +317,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
     const importRef = useRef<HTMLInputElement>(null);
 
     const handleSave = () => {
-        const name = newName.trim() || `预设 ${new Date().toLocaleDateString('zh-CN')}`;
+        const name = newName.trim() || `預設 ${new Date().toLocaleDateString('zh-CN')}`;
         onSave(name);
         setNewName('');
     };
@@ -325,17 +325,17 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
     const handleExport = async (id: string) => {
         try {
             const preset = presets.find(p => p.id === id);
-            // 导出前明文密钥体检 + 二次确认（外观预设正常不含密钥 → 提示「安全，可分享」）。
+            // 導出前明文密鑰體檢 + 二次確認（外觀預設正常不含密鑰 → 提示「安全，可分享」）。
             if (!(await confirmExportSafety(preset))) return;
             const blob = await onExport(id);
             const fileName = `appearance_${preset?.name || 'preset'}.zip`;
-            const title = `外观预设 - ${preset?.name || 'preset'}`;
+            const title = `外觀預設 - ${preset?.name || 'preset'}`;
 
-            const result = await shareOrDownloadBlob({ blob, fileName, shareTitle: title, card: { kind: 'appearance', title: preset?.name || '外观预设' } });
+            const result = await shareOrDownloadBlob({ blob, fileName, shareTitle: title, card: { kind: 'appearance', title: preset?.name || '外觀預設' } });
             if (result === 'cancelled') return;
-            addToast(result === 'shared' ? '已打开预设分享面板' : '预设已导出', 'success');
+            addToast(result === 'shared' ? '已打開預設分享面板' : '預設已導出', 'success');
         } catch (e: any) {
-            addToast(e.message || '导出失败', 'error');
+            addToast(e.message || '導出失敗', 'error');
         }
     };
 
@@ -346,7 +346,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
             await onImport(await readShareFile(file, 'appearance'));
             trackEvent('导入外观预设文件');
         } catch (err: any) {
-            addToast(err.message || '导入失败', 'error');
+            addToast(err.message || '導入失敗', 'error');
         }
         if (importRef.current) importRef.current.value = '';
     };
@@ -363,13 +363,13 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
         <div className="space-y-5">
             {/* Save Current */}
             <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">保存当前外观</h2>
-                <p className="text-[10px] text-slate-400 mb-3">将当前的主题色、壁纸、字体、图标、装饰等完整外观保存为预设，方便随时切换。</p>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">保存當前外觀</h2>
+                <p className="text-[10px] text-slate-400 mb-3">將當前的主題色、壁紙、字體、圖標、裝飾等完整外觀保存為預設，方便隨時切換。</p>
                 <div className="flex gap-2">
                     <input
                         value={newName}
                         onChange={e => setNewName(e.target.value)}
-                        placeholder="预设名称（可选）"
+                        placeholder="預設名稱（可選）"
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary transition-all"
                         onKeyDown={e => e.key === 'Enter' && handleSave()}
                     />
@@ -382,26 +382,26 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
 
             {/* Import */}
             <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">导入外观预设</h2>
-                <p className="text-[10px] text-slate-400 mb-3">支持 PNG 分享原图、ZIP 和旧版 JSON。系统整合备份也会包含当前外观设置，单独预设文件更适合分享。</p>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">導入外觀預設</h2>
+                <p className="text-[10px] text-slate-400 mb-3">支持 PNG 分享原圖、ZIP 和舊版 JSON。系統整合備份也會包含當前外觀設置，單獨預設文件更適合分享。</p>
                 <input type="file" ref={importRef} className="hidden" accept=".png,.zip,.json,image/png,application/zip,application/json" onChange={handleImport} />
                 <button onClick={() => importRef.current?.click()}
                     className="w-full py-2.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-500 font-bold text-xs rounded-xl border border-blue-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                    选择文件导入
+                    選擇文件導入
                 </button>
             </section>
 
             {/* Preset List */}
             <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">已保存预设 ({presets.length})</h2>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">已保存預設 ({presets.length})</h2>
                 {presets.length === 0 ? (
                     <div className="text-center py-8">
                         <div className="text-3xl mb-2 opacity-40">
                             <Sparkle size={48} weight="fill" className="mx-auto text-slate-300" />
                         </div>
-                        <p className="text-xs text-slate-400">还没有外观预设</p>
-                        <p className="text-[10px] text-slate-300 mt-1">保存当前外观或导入预设文件开始使用</p>
+                        <p className="text-xs text-slate-400">還沒有外觀預設</p>
+                        <p className="text-[10px] text-slate-300 mt-1">保存當前外觀或導入預設文件開始使用</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -421,7 +421,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                                 autoFocus
                                                 onKeyDown={e => { if (e.key === 'Enter') handleRename(preset.id); if (e.key === 'Escape') setEditingId(null); }}
                                             />
-                                            <button onClick={() => handleRename(preset.id)} className="px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg">确定</button>
+                                            <button onClick={() => handleRename(preset.id)} className="px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg">確定</button>
                                             <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg">取消</button>
                                         </div>
                                     ) : (
@@ -436,11 +436,11 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                     <div className="flex gap-1.5 flex-wrap">
                                         <button onClick={() => { onApply(preset.id); trackEvent('应用已保存外观预设'); }}
                                             className="px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg active:scale-95 transition-transform shadow-sm">
-                                            应用
+                                            應用
                                         </button>
                                         <button onClick={() => handleExport(preset.id)}
                                             className="px-3 py-1.5 bg-green-50 text-green-600 text-[10px] font-bold rounded-lg border border-green-200 active:scale-95 transition-transform">
-                                            导出
+                                            導出
                                         </button>
                                         <button onClick={() => { setEditingId(preset.id); setEditName(preset.name); }}
                                             className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg border border-slate-200 active:scale-95 transition-transform">
@@ -450,7 +450,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                             <div className="flex gap-1">
                                                 <button onClick={() => { onDelete(preset.id); setConfirmDeleteId(null); }}
                                                     className="px-3 py-1.5 bg-red-500 text-white text-[10px] font-bold rounded-lg active:scale-95 transition-transform">
-                                                    确认删除
+                                                    確認刪除
                                                 </button>
                                                 <button onClick={() => setConfirmDeleteId(null)}
                                                     className="px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-lg active:scale-95 transition-transform">
@@ -460,7 +460,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
                                         ) : (
                                             <button onClick={() => setConfirmDeleteId(preset.id)}
                                                 className="px-3 py-1.5 bg-red-50 text-red-400 text-[10px] font-bold rounded-lg border border-red-200 active:scale-95 transition-transform">
-                                                删除
+                                                刪除
                                             </button>
                                         )}
                                     </div>
@@ -472,7 +472,7 @@ const PresetManager: React.FC<PresetManagerProps> = ({ presets, onSave, onApply,
             </section>
 
             <div className="text-[10px] text-slate-400 text-center px-4 pb-4">
-                外观预设既可以单独导入/导出，也会随系统整合备份一起保存。你可以保存多个预设并随时切换。
+                外觀預設既可以單獨導入/導出，也會隨系統整合備份一起保存。你可以保存多個預設並隨時切換。
             </div>
         </div>
     );
@@ -515,7 +515,7 @@ const Appearance: React.FC = () => {
 
   const chooseCompanionSource = (source: 'model' | 'upload' | 'date') => {
       if (!appearanceCharacter) {
-          addToast('请先创建并选择一个角色', 'error');
+          addToast('請先創建並選擇一個角色', 'error');
           return;
       }
       if (source === 'upload' && !appearanceCharacter.companionAvatar?.imageRef) {
@@ -523,7 +523,7 @@ const Appearance: React.FC = () => {
           return;
       }
       if (source === 'date' && !hasDatePortraits(appearanceCharacter)) {
-          addToast('这个角色还没有见面立绘，请先去见面模式添加', 'info');
+          addToast('這個角色還沒有見面立繪，請先去見面模式添加', 'info');
           openApp(AppID.Date);
           return;
       }
@@ -537,18 +537,18 @@ const Appearance: React.FC = () => {
       trackEvent('切换桌面陪伴形象来源', {
           来源: source === 'model' ? '动态模型' : source === 'upload' ? '静态图片' : '见面立绘',
       });
-      addToast(source === 'model' ? '桌面已使用动态模型' : source === 'date' ? '已沿用见面模式立绘' : '已使用导入图片', 'success');
+      addToast(source === 'model' ? '桌面已使用動態模型' : source === 'date' ? '已沿用見面模式立繪' : '已使用導入圖片', 'success');
   };
 
   const handleCompanionPortraitUpload = async (file: File) => {
       if (!appearanceCharacter) return;
       const extension = file.name.split('.').pop()?.toLowerCase();
       if (!['png', 'gif'].includes(extension || '') || !['image/png', 'image/gif'].includes(file.type)) {
-          addToast('图片上传仅支持 PNG / GIF', 'error');
+          addToast('圖片上傳僅支持 PNG / GIF', 'error');
           return;
       }
       if (file.size > 20 * 1024 * 1024) {
-          addToast('图片超过 20 MB，请压缩后再导入', 'error');
+          addToast('圖片超過 20 MB，請壓縮後再導入', 'error');
           return;
       }
       try {
@@ -570,9 +570,9 @@ const Appearance: React.FC = () => {
               await deleteBlobRef(previousRef);
           }
           trackEvent('导入桌面静态形象', { 格式: file.type === 'image/gif' ? 'GIF' : 'PNG' });
-          addToast(file.type === 'image/gif' ? 'GIF 已原样导入，动画会保留' : 'PNG 形象已导入', 'success');
+          addToast(file.type === 'image/gif' ? 'GIF 已原樣導入，動畫會保留' : 'PNG 形象已導入', 'success');
       } catch (error: any) {
-          addToast(error?.message || '图片形象导入失败', 'error');
+          addToast(error?.message || '圖片形象導入失敗', 'error');
       }
   };
 
@@ -587,7 +587,7 @@ const Appearance: React.FC = () => {
           },
       });
       trackEvent('切换桌面见面立绘衣服');
-      addToast('桌面衣服已切换，见面模式的选择不会被改动', 'success');
+      addToast('桌面衣服已切換，見面模式的選擇不會被改動', 'success');
   };
 
   const removeCompanionUpload = async () => {
@@ -607,31 +607,31 @@ const Appearance: React.FC = () => {
           await deleteBlobRef(previousRef);
       }
       trackEvent('移除桌面静态形象');
-      addToast('已移除导入图片', 'success');
+      addToast('已移除導入圖片', 'success');
   };
 
   // Preset decoration SVGs (cute decorative elements)
   const PRESET_DECOS: { name: string; content: string; category: string }[] = [
     // Stars & Sparkles
-    { name: '闪光', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L58 38 L95 50 L58 62 L50 95 L42 62 L5 50 L42 38Z" fill="#FFD700" opacity="0.9"/><path d="M50 20 L54 42 L78 50 L54 58 L50 80 L46 58 L22 50 L46 42Z" fill="#FFF8DC"/></svg>')}` },
+    { name: '閃光', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 5 L58 38 L95 50 L58 62 L50 95 L42 62 L5 50 L42 38Z" fill="#FFD700" opacity="0.9"/><path d="M50 20 L54 42 L78 50 L54 58 L50 80 L46 58 L22 50 L46 42Z" fill="#FFF8DC"/></svg>')}` },
     { name: '星星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 63,35 95,40 72,62 78,95 50,78 22,95 28,62 5,40 37,35" fill="#FF69B4"/><polygon points="50,20 58,38 78,42 64,55 67,78 50,68 33,78 36,55 22,42 42,38" fill="#FFB6C1" opacity="0.7"/></svg>')}` },
     { name: '小星', category: 'stars', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,10 61,40 95,40 68,60 78,90 50,72 22,90 32,60 5,40 39,40" fill="#B19CD9" opacity="0.85"/></svg>')}` },
     // Hearts
-    { name: '爱心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 88 C25 65 5 50 5 30 C5 15 17 5 30 5 C38 5 46 10 50 18 C54 10 62 5 70 5 C83 5 95 15 95 30 C95 50 75 65 50 88Z" fill="#FF6B9D"/><path d="M50 78 C30 60 15 48 15 33 C15 22 23 15 33 15 C39 15 45 18 50 25 C55 18 61 15 67 15 C77 15 85 22 85 33 C85 48 70 60 50 78Z" fill="#FF8FB1" opacity="0.6"/></svg>')}` },
-    { name: '双心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M35 70 C18 52 3 42 3 27 C3 16 12 8 22 8 C28 8 33 11 35 16 C37 11 42 8 48 8 C58 8 67 16 67 27 C67 42 52 52 35 70Z" fill="#FF69B4" opacity="0.8"/><path d="M65 80 C48 62 33 52 33 37 C33 26 42 18 52 18 C58 18 63 21 65 26 C67 21 72 18 78 18 C88 18 97 26 97 37 C97 52 82 62 65 80Z" fill="#FF1493" opacity="0.7"/></svg>')}` },
+    { name: '愛心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 88 C25 65 5 50 5 30 C5 15 17 5 30 5 C38 5 46 10 50 18 C54 10 62 5 70 5 C83 5 95 15 95 30 C95 50 75 65 50 88Z" fill="#FF6B9D"/><path d="M50 78 C30 60 15 48 15 33 C15 22 23 15 33 15 C39 15 45 18 50 25 C55 18 61 15 67 15 C77 15 85 22 85 33 C85 48 70 60 50 78Z" fill="#FF8FB1" opacity="0.6"/></svg>')}` },
+    { name: '雙心', category: 'hearts', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M35 70 C18 52 3 42 3 27 C3 16 12 8 22 8 C28 8 33 11 35 16 C37 11 42 8 48 8 C58 8 67 16 67 27 C67 42 52 52 35 70Z" fill="#FF69B4" opacity="0.8"/><path d="M65 80 C48 62 33 52 33 37 C33 26 42 18 52 18 C58 18 63 21 65 26 C67 21 72 18 78 18 C88 18 97 26 97 37 C97 52 82 62 65 80Z" fill="#FF1493" opacity="0.7"/></svg>')}` },
     // Flowers & Nature
     { name: '花朵', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="30" cy="50" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="70" cy="50" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="38" cy="70" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="62" cy="70" r="18" fill="#FFB7D5" opacity="0.8"/><circle cx="50" cy="50" r="12" fill="#FFE4B5"/></svg>')}` },
-    { name: '樱花', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><g fill="#FFB7C5" opacity="0.85"><ellipse rx="12" ry="22" transform="rotate(0) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(72) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(144) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(216) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(288) translate(0,-20)"/></g><circle r="8" fill="#FF69B4"/></g></svg>')}` },
-    { name: '叶子', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 Q80 30 85 60 Q85 90 50 95 Q15 90 15 60 Q20 30 50 10Z" fill="#90EE90" opacity="0.8"/><path d="M50 20 L50 85" stroke="#228B22" stroke-width="2" fill="none" opacity="0.5"/><path d="M50 40 Q65 35 70 45" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M50 55 Q35 50 30 60" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/></svg>')}` },
+    { name: '櫻花', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g transform="translate(50,50)"><g fill="#FFB7C5" opacity="0.85"><ellipse rx="12" ry="22" transform="rotate(0) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(72) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(144) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(216) translate(0,-20)"/><ellipse rx="12" ry="22" transform="rotate(288) translate(0,-20)"/></g><circle r="8" fill="#FF69B4"/></g></svg>')}` },
+    { name: '葉子', category: 'flowers', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 Q80 30 85 60 Q85 90 50 95 Q15 90 15 60 Q20 30 50 10Z" fill="#90EE90" opacity="0.8"/><path d="M50 20 L50 85" stroke="#228B22" stroke-width="2" fill="none" opacity="0.5"/><path d="M50 40 Q65 35 70 45" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/><path d="M50 55 Q35 50 30 60" stroke="#228B22" stroke-width="1.5" fill="none" opacity="0.4"/></svg>')}` },
     // Ribbons & Bows
-    { name: '蝴蝶结', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 45 Q20 20 10 35 Q5 50 25 55 Q35 57 50 50Z" fill="#FF69B4"/><path d="M50 45 Q80 20 90 35 Q95 50 75 55 Q65 57 50 50Z" fill="#FF69B4"/><circle cx="50" cy="48" r="6" fill="#FF1493"/><path d="M45 54 Q42 75 38 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 54 Q58 75 62 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/></svg>')}` },
-    { name: '丝带', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 30 Q30 20 50 30 Q70 40 90 30 L90 50 Q70 40 50 50 Q30 60 10 50Z" fill="#DDA0DD" opacity="0.85"/><path d="M10 50 Q30 40 50 50 Q70 60 90 50 L90 70 Q70 60 50 70 Q30 80 10 70Z" fill="#BA55D3" opacity="0.7"/></svg>')}` },
+    { name: '蝴蝶結', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 45 Q20 20 10 35 Q5 50 25 55 Q35 57 50 50Z" fill="#FF69B4"/><path d="M50 45 Q80 20 90 35 Q95 50 75 55 Q65 57 50 50Z" fill="#FF69B4"/><circle cx="50" cy="48" r="6" fill="#FF1493"/><path d="M45 54 Q42 75 38 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M55 54 Q58 75 62 90" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/></svg>')}` },
+    { name: '絲帶', category: 'ribbons', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 30 Q30 20 50 30 Q70 40 90 30 L90 50 Q70 40 50 50 Q30 60 10 50Z" fill="#DDA0DD" opacity="0.85"/><path d="M10 50 Q30 40 50 50 Q70 60 90 50 L90 70 Q70 60 50 70 Q30 80 10 70Z" fill="#BA55D3" opacity="0.7"/></svg>')}` },
     // Cute Animals
-    { name: '猫耳', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15 65 L5 15 L40 45Z" fill="#333" opacity="0.9"/><path d="M85 65 L95 15 L60 45Z" fill="#333" opacity="0.9"/><path d="M18 60 L12 22 L38 46Z" fill="#FFB6C1" opacity="0.6"/><path d="M82 60 L88 22 L62 46Z" fill="#FFB6C1" opacity="0.6"/></svg>')}` },
-    { name: '猫爪', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="22" ry="20" fill="#FFB6C1" opacity="0.85"/><circle cx="35" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="65" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="22" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/><circle cx="78" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/></svg>')}` },
+    { name: '貓耳', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15 65 L5 15 L40 45Z" fill="#333" opacity="0.9"/><path d="M85 65 L95 15 L60 45Z" fill="#333" opacity="0.9"/><path d="M18 60 L12 22 L38 46Z" fill="#FFB6C1" opacity="0.6"/><path d="M82 60 L88 22 L62 46Z" fill="#FFB6C1" opacity="0.6"/></svg>')}` },
+    { name: '貓爪', category: 'animals', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><ellipse cx="50" cy="62" rx="22" ry="20" fill="#FFB6C1" opacity="0.85"/><circle cx="35" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="65" cy="38" r="10" fill="#FFB6C1" opacity="0.85"/><circle cx="22" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/><circle cx="78" cy="50" r="9" fill="#FFB6C1" opacity="0.85"/></svg>')}` },
     // Geometric / Shapes
     { name: '月亮', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M60 10 A40 40 0 1 0 60 90 A30 30 0 1 1 60 10Z" fill="#FFD700" opacity="0.8"/></svg>')}` },
-    { name: '钻石', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 85,35 50,95 15,35" fill="#87CEEB" opacity="0.8"/><polygon points="50,5 65,35 50,95" fill="#ADD8E6" opacity="0.5"/><polygon points="15,35 85,35 50,5" fill="#B0E0E6" opacity="0.6"/></svg>')}` },
+    { name: '鑽石', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,5 85,35 50,95 15,35" fill="#87CEEB" opacity="0.8"/><polygon points="50,5 65,35 50,95" fill="#ADD8E6" opacity="0.5"/><polygon points="15,35 85,35 50,5" fill="#B0E0E6" opacity="0.6"/></svg>')}` },
     { name: '泡泡', category: 'shapes', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="none" stroke="#87CEEB" stroke-width="2" opacity="0.6"/><circle cx="50" cy="50" r="35" fill="#E0F0FF" opacity="0.2"/><ellipse cx="38" cy="38" rx="12" ry="8" fill="white" opacity="0.5" transform="rotate(-30 38 38)"/></svg>')}` },
     // Text Badges
     { name: 'LOVE', category: 'badges', content: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 50"><rect x="2" y="2" width="116" height="46" rx="23" fill="#FF69B4" opacity="0.85"/><text x="60" y="33" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="sans-serif">LOVE</text></svg>')}` },
@@ -672,7 +672,7 @@ const Appearance: React.FC = () => {
     try {
       const dataUrl = await processImage(file, { maxWidth: 400, quality: 0.85 });
       addDecoration(dataUrl, 'image');
-      addToast('装饰已添加', 'success');
+      addToast('裝飾已添加', 'success');
     } catch (e: any) {
       addToast(e.message, 'error');
     }
@@ -688,12 +688,12 @@ const Appearance: React.FC = () => {
 
   const handleWallpaperUpload = async (file: File) => {
       try {
-          addToast('正在处理壁纸 (原画质)...', 'info');
-          // 改存 Blob：原画质不重绘，二进制进 blob_assets，字段只存 blobref 令牌（省 ~33% 空间、不占 JS 堆）。
+          addToast('正在處理壁紙 (原畫質)...', 'info');
+          // 改存 Blob：原畫質不重繪，二進制進 blob_assets，字段只存 blobref 令牌（省 ~33% 空間、不佔 JS 堆）。
           const blob = await processImageToBlob(file, { skipCompression: true });
           const ref = await putImageBlob(blob);
           await updateTheme({ wallpaper: ref });
-          addToast('壁纸更新成功', 'success');
+          addToast('壁紙更新成功', 'success');
       } catch (e: any) {
           addToast(e.message, 'error');
       }
@@ -703,21 +703,21 @@ const Appearance: React.FC = () => {
       const url = wallpaperUrl.trim();
       if (!url) return;
       if (!/^https?:\/\//i.test(url) && !url.startsWith('data:') && !url.startsWith('blob:')) {
-          addToast('请填写以 http(s):// 开头的图片地址', 'error');
+          addToast('請填寫以 http(s):// 開頭的圖片地址', 'error');
           return;
       }
       await updateTheme({ wallpaper: url });
       setWallpaperUrl('');
-      addToast('壁纸已应用', 'success');
+      addToast('壁紙已應用', 'success');
   };
 
   const handleLockWallpaperUpload = async (file: File) => {
       try {
-          addToast('正在处理锁屏壁纸 (原画质)...', 'info');
+          addToast('正在處理鎖屏壁紙 (原畫質)...', 'info');
           const blob = await processImageToBlob(file, { skipCompression: true });
           const ref = await putImageBlob(blob);
           await updateTheme({ lockWallpaper: ref });
-          addToast('锁屏壁纸更新成功', 'success');
+          addToast('鎖屏壁紙更新成功', 'success');
       } catch (e: any) {
           addToast(e.message, 'error');
       }
@@ -727,12 +727,12 @@ const Appearance: React.FC = () => {
       const url = lockWallpaperUrl.trim();
       if (!url) return;
       if (!/^https?:\/\//i.test(url) && !url.startsWith('data:') && !url.startsWith('blob:')) {
-          addToast('请填写以 http(s):// 开头的图片地址', 'error');
+          addToast('請填寫以 http(s):// 開頭的圖片地址', 'error');
           return;
       }
       await updateTheme({ lockWallpaper: url });
       setLockWallpaperUrl('');
-      addToast('锁屏壁纸已应用', 'success');
+      addToast('鎖屏壁紙已應用', 'success');
   };
 
   const handleWidgetUpload = async (file: File) => {
@@ -743,7 +743,7 @@ const Appearance: React.FC = () => {
           const ref = await putImageBlob(blob);
           const current = theme.launcherWidgets || {};
           updateTheme({ launcherWidgets: { ...current, [activeWidgetSlot]: ref } });
-          addToast('小组件已更新', 'success');
+          addToast('小組件已更新', 'success');
       } catch (e: any) {
           addToast(e.message, 'error');
       }
@@ -763,23 +763,23 @@ const Appearance: React.FC = () => {
       const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
       
       if (!allowedExts.includes(ext)) {
-          addToast('仅支持 ttf/otf/woff/woff2 格式', 'error');
+          addToast('僅支持 ttf/otf/woff/woff2 格式', 'error');
           return;
       }
 
-      addToast('正在处理字体文件...', 'info');
+      addToast('正在處理字體文件...', 'info');
       
       const reader = new FileReader();
       reader.onload = async (ev) => {
           try {
               const dataUrl = ev.target?.result as string;
               updateTheme({ customFont: dataUrl });
-              addToast('系统字体已更新', 'success');
+              addToast('系統字體已更新', 'success');
           } catch(err) {
-              addToast('字体加载失败', 'error');
+              addToast('字體加載失敗', 'error');
           }
       };
-      reader.onerror = () => addToast('读取失败', 'error');
+      reader.onerror = () => addToast('讀取失敗', 'error');
       reader.readAsDataURL(file);
       
       // Clear input
@@ -790,12 +790,12 @@ const Appearance: React.FC = () => {
       if (!webFontUrl.trim()) return;
       updateTheme({ customFont: webFontUrl.trim() });
       setWebFontUrl('');
-      addToast('网络字体已应用', 'success');
+      addToast('網絡字體已應用', 'success');
   };
 
-  // 切换桌面整机风格：动森模式自动撒叶子贴纸（保留用户已有装饰），切回默认时只清掉 acnh 叶子。
-  // 壁纸处理：进入动森前备份用户原壁纸（data URI 存 IndexedDB，渐变/URL 存 localStorage），
-  // 切回默认时还原，避免覆盖用户自己设的桌面壁纸。
+  // 切換桌面整機風格：動森模式自動撒葉子貼紙（保留用戶已有裝飾），切回默認時只清掉 acnh 葉子。
+  // 壁紙處理：進入動森前備份用戶原壁紙（data URI 存 IndexedDB，漸變/URL 存 localStorage），
+  // 切回默認時還原，避免覆蓋用戶自己設的桌面壁紙。
   const ACNH_WP_BACKUP_KEY = 'acnh_wallpaper_backup';
   const currentDesktopSkinId = theme.skin && theme.skin !== 'default'
       ? theme.skin
@@ -806,11 +806,11 @@ const Appearance: React.FC = () => {
 
       let wallpaper: string;
       if (!goingDefault) {
-          // 非默认皮肤（动森 / 手游 …）使用各自预设的壁纸
+          // 非默認皮膚（動森 / 手遊 …）使用各自預設的壁紙
           wallpaper = (skin.config.wallpaper as string) || DEFAULT_WALLPAPER;
-          // 仅从「默认 → 某皮肤」时备份一次用户原壁纸；皮肤之间互切不再覆盖备份，保住最初的用户壁纸
+          // 僅從「默認 → 某皮膚」時備份一次用戶原壁紙；皮膚之間互切不再覆蓋備份，保住最初的用戶壁紙
           if (!currentlyThemed) {
-              const dbWp = await DB.getAsset('wallpaper'); // 用户若用 data URI 壁纸，真值在这
+              const dbWp = await DB.getAsset('wallpaper'); // 用戶若用 data URI 壁紙，真值在這
               const cur = dbWp || theme.wallpaper || '';
               if (cur && cur.startsWith('data:')) {
                   await DB.saveAsset('wallpaper_user_backup', cur);
@@ -821,23 +821,23 @@ const Appearance: React.FC = () => {
               }
           }
       } else {
-          // 切回默认：还原备份的用户壁纸
+          // 切回默認：還原備份的用戶壁紙
           const marker = localStorage.getItem(ACNH_WP_BACKUP_KEY);
           if (marker === '__asset__') {
               wallpaper = (await DB.getAsset('wallpaper_user_backup')) || DEFAULT_WALLPAPER;
           } else if (marker !== null) {
-              wallpaper = marker || DEFAULT_WALLPAPER; // 空字符串=用户原本就是默认
+              wallpaper = marker || DEFAULT_WALLPAPER; // 空字符串=用戶原本就是默認
           } else {
-              wallpaper = DEFAULT_WALLPAPER; // 没有备份记录（老用户首次切回）
+              wallpaper = DEFAULT_WALLPAPER; // 沒有備份記錄（老用戶首次切回）
           }
       }
 
       const existing = (theme.desktopDecorations || []).filter(d => !d.id.startsWith(ACNH_LEAF_PREFIX));
       const desktopDecorations = skin.id === 'animalcrossing' ? [...existing, ...buildAcnhLeaves()] : existing;
-      // skin.config 里写死的 wallpaper 不用，改用上面算出的（备份/还原后的）值
+      // skin.config 裡寫死的 wallpaper 不用，改用上面算出的（備份/還原後的）值
       const { wallpaper: _ignored, ...restConfig } = skin.config;
       await updateTheme({ ...restConfig, wallpaper, desktopDecorations });
-      addToast(`已切换到「${skin.name}」`, 'success');
+      addToast(`已切換到「${skin.name}」`, 'success');
       trackEvent('切换桌面整机风格', { skin: skin.id });
   };
 
@@ -847,7 +847,7 @@ const Appearance: React.FC = () => {
           const blob = await processImageToBlob(file, { maxWidth: 512, quality: 0.92 });
           const ref = await putImageBlob(blob);
           await setCustomIcon(selectedAppId, ref);
-          addToast('应用图标已更新', 'success');
+          addToast('應用圖標已更新', 'success');
       } catch (e: any) {
           addToast(e.message, 'error');
       }
@@ -864,39 +864,39 @@ const Appearance: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                   </svg>
               </button>
-              <h1 className="text-xl font-medium text-slate-700 tracking-wide">外观定制</h1>
+              <h1 className="text-xl font-medium text-slate-700 tracking-wide">外觀定製</h1>
           </div>
         </div>
       </div>
 
       <div className="flex border-b border-slate-200 bg-white sticky top-0 z-20">
-          <button onClick={() => { setActiveTab('theme'); trackEvent('切换外观定制标签页', { tab: 'theme' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'theme' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>系统主题</button>
-          <button onClick={() => { setActiveTab('icons'); trackEvent('切换外观定制标签页', { tab: 'icons' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'icons' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>应用图标</button>
-          <button onClick={() => { setActiveTab('presets'); trackEvent('切换外观定制标签页', { tab: 'presets' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'presets' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>外观预设</button>
+          <button onClick={() => { setActiveTab('theme'); trackEvent('切换外观定制标签页', { tab: 'theme' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'theme' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>系統主題</button>
+          <button onClick={() => { setActiveTab('icons'); trackEvent('切换外观定制标签页', { tab: 'icons' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'icons' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>應用圖標</button>
+          <button onClick={() => { setActiveTab('presets'); trackEvent('切换外观定制标签页', { tab: 'presets' }); }} className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'presets' ? 'text-primary border-b-2 border-primary' : 'text-slate-400'}`}>外觀預設</button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar">
         {activeTab === 'theme' ? (
             <>
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">动画与过场</h2>
-                    <p className="text-[10px] text-slate-400 mb-2">三项都默认开启，可以分别关闭；关闭加载动画后，超过 15 秒的卡死恢复提示仍会保留。</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">動畫與過場</h2>
+                    <p className="text-[10px] text-slate-400 mb-2">三項都默認開啟，可以分別關閉；關閉加載動畫後，超過 15 秒的卡死恢復提示仍會保留。</p>
                     <div className="divide-y divide-slate-100">
                         {([
                             {
                                 key: 'bootAnimationEnabled' as const,
-                                title: '开机动画',
-                                description: '启动 Soren 时的整机入场过场。',
+                                title: '開機動畫',
+                                description: '啟動 Soren 時的整機入場過場。',
                             },
                             {
                                 key: 'chatCharacterSwitchAnimationEnabled' as const,
-                                title: '聊天切换角色动画',
-                                description: '进入聊天或换角色时的头像登场过场。',
+                                title: '聊天切換角色動畫',
+                                description: '進入聊天或換角色時的頭像登場過場。',
                             },
                             {
                                 key: 'appLoadingAnimationEnabled' as const,
-                                title: '进入 App 加载动画',
-                                description: 'App 首次加载较慢时显示的柔光等待画面。',
+                                title: '進入 App 加載動畫',
+                                description: 'App 首次加載較慢時顯示的柔光等待畫面。',
                             },
                         ]).map(option => {
                             const enabled = theme[option.key] !== false;
@@ -926,8 +926,8 @@ const Appearance: React.FC = () => {
                 </section>
 
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">桌面风格</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">一键切换整机主题：壁纸、配色与图标外观联动；触感陪伴不会改动全局聊天装扮。</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">桌面風格</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">一鍵切換整機主題：壁紙、配色與圖標外觀聯動；觸感陪伴不會改動全局聊天裝扮。</p>
                     <div className="grid grid-cols-2 gap-3">
                         {DESKTOP_SKINS.map(skin => {
                             const active = currentDesktopSkinId === skin.id;
@@ -940,7 +940,7 @@ const Appearance: React.FC = () => {
                                     <div className="h-16 w-full rounded-xl mb-2 shadow-inner" style={{ background: skin.swatch }} />
                                     <div className="text-xs font-bold text-slate-700 flex items-center gap-1">
                                         {skin.name}
-                                        {active && <span className="text-[9px] font-bold text-primary">· 当前</span>}
+                                        {active && <span className="text-[9px] font-bold text-primary">· 當前</span>}
                                     </div>
                                     <div className="text-[9px] text-slate-400 mt-0.5 leading-snug">{skin.desc}</div>
                                 </button>
@@ -957,26 +957,26 @@ const Appearance: React.FC = () => {
                         <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold text-slate-700">
                                 {NOSTALGIA_SKIN.name}
-                                {currentDesktopSkinId === 'nostalgia' && <span className="ml-1 text-[9px] font-bold text-primary">· 当前</span>}
+                                {currentDesktopSkinId === 'nostalgia' && <span className="ml-1 text-[9px] font-bold text-primary">· 當前</span>}
                             </div>
                             <div className="text-[9px] text-slate-400 mt-0.5 leading-snug">{NOSTALGIA_SKIN.desc}</div>
                         </div>
                         {currentDesktopSkinId !== 'nostalgia' && (
-                            <span className="shrink-0 text-[9px] font-semibold text-slate-400">一键切换</span>
+                            <span className="shrink-0 text-[9px] font-semibold text-slate-400">一鍵切換</span>
                         )}
                     </button>
 
-                    {/* 动森模式专属：聊天 App 是否联动 */}
+                    {/* 動森模式專屬：聊天 App 是否聯動 */}
                     {(theme.skin || 'default') === 'animalcrossing' && (
                         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
                             <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-700">聊天界面跟随动森</div>
-                                <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">关掉后，聊天 App 保持原来的样式</div>
+                                <div className="text-xs font-bold text-slate-700">聊天界面跟隨動森</div>
+                                <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">關掉後，聊天 App 保持原來的樣式</div>
                             </div>
                             <button
                                 onClick={() => updateTheme({ acnhChatSync: theme.acnhChatSync === false ? true : false })}
                                 className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${theme.acnhChatSync !== false ? 'bg-primary' : 'bg-slate-300'}`}
-                                aria-label="聊天界面跟随动森"
+                                aria-label="聊天界面跟隨動森"
                             >
                                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${theme.acnhChatSync !== false ? 'translate-x-5' : ''}`} />
                             </button>
@@ -1007,23 +1007,23 @@ const Appearance: React.FC = () => {
                                     <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[8px] font-bold tracking-wide text-violet-500">PNG / GIF</span>
                                 </div>
                                 <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-                                    桌面与视频通话共用这里的选择。单图保持原样；见面立绘会按 AI 情绪切换同套表情。
+                                    桌面與視頻通話共用這裡的選擇。單圖保持原樣；見面立繪會按 AI 情緒切換同套表情。
                                 </p>
                                 <button
                                     type="button"
                                     onClick={() => companionPortraitInputRef.current?.click()}
                                     className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-2 text-[10px] font-bold text-white active:scale-95"
                                 >
-                                    <UploadSimple size={13} weight="bold" /> {appearanceCharacter?.companionAvatar?.imageRef ? '更换图片' : '导入 PNG / GIF'}
+                                    <UploadSimple size={13} weight="bold" /> {appearanceCharacter?.companionAvatar?.imageRef ? '更換圖片' : '導入 PNG / GIF'}
                                 </button>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-3 border-y border-slate-100 bg-slate-50/80 p-1.5">
                             {([
-                                ['model', '动态模型'],
-                                ['upload', '图片 / GIF'],
-                                ['date', '见面立绘'],
+                                ['model', '動態模型'],
+                                ['upload', '圖片 / GIF'],
+                                ['date', '見面立繪'],
                             ] as const).map(([source, label]) => (
                                 <button
                                     key={source}
@@ -1041,10 +1041,10 @@ const Appearance: React.FC = () => {
                             <div className="p-5 pt-4">
                                 <div className="mb-2 flex items-center justify-between">
                                     <div>
-                                        <div className="text-[11px] font-bold text-slate-600">桌面衣橱</div>
-                                        <div className="mt-0.5 text-[9px] text-slate-400">独立选择，不会改掉见面模式正在穿的衣服</div>
+                                        <div className="text-[11px] font-bold text-slate-600">桌面衣櫥</div>
+                                        <div className="mt-0.5 text-[9px] text-slate-400">獨立選擇，不會改掉見面模式正在穿的衣服</div>
                                     </div>
-                                    <button type="button" onClick={() => openApp(AppID.Date)} className="text-[9px] font-semibold text-violet-500">补立绘表情 →</button>
+                                    <button type="button" onClick={() => openApp(AppID.Date)} className="text-[9px] font-semibold text-violet-500">補立繪表情 →</button>
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                     {companionDateOutfits.map(outfit => {
@@ -1074,7 +1074,7 @@ const Appearance: React.FC = () => {
                                 onClick={() => { void removeCompanionUpload(); }}
                                 className="flex w-full items-center justify-center gap-1.5 border-t border-slate-100 py-3 text-[9px] font-semibold text-slate-400 active:bg-rose-50 active:text-rose-500"
                             >
-                                <Trash size={12} /> 移除已导入图片
+                                <Trash size={12} /> 移除已導入圖片
                             </button>
                         )}
                     </section>
@@ -1145,11 +1145,11 @@ const Appearance: React.FC = () => {
 
                 {/* Global Font Section */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">全局字体 (Global Font)</h2>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">全局字體 (Global Font)</h2>
                     
                     <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
                         <button onClick={() => setFontMode('local')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${fontMode === 'local' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>本地文件</button>
-                        <button onClick={() => setFontMode('web')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${fontMode === 'web' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>网络 URL</button>
+                        <button onClick={() => setFontMode('web')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${fontMode === 'web' ? 'bg-white text-primary shadow-sm' : 'text-slate-400'}`}>網絡 URL</button>
                     </div>
 
                     {fontMode === 'local' ? (
@@ -1160,17 +1160,17 @@ const Appearance: React.FC = () => {
                             >
                                 {theme.customFont && theme.customFont.startsWith('data:') ? (
                                     <>
-                                        <span className="text-lg font-bold text-slate-700">Abc 字体预览</span>
-                                        <span className="text-[10px] text-slate-400">已应用本地字体</span>
+                                        <span className="text-lg font-bold text-slate-700">Abc 字體預覽</span>
+                                        <span className="text-[10px] text-slate-400">已應用本地字體</span>
                                     </>
                                 ) : (
                                     <>
                                         <span className="text-2xl text-slate-400">Aa</span>
-                                        <span className="text-xs text-slate-400">上传字体文件 (.ttf / .otf)</span>
+                                        <span className="text-xs text-slate-400">上傳字體文件 (.ttf / .otf)</span>
                                     </>
                                 )}
                                 <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-white text-xs font-bold bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">更换字体</span>
+                                    <span className="text-white text-xs font-bold bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">更換字體</span>
                                 </div>
                             </div>
                             <input type="file" ref={fontInputRef} className="hidden" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontUpload} />
@@ -1180,33 +1180,33 @@ const Appearance: React.FC = () => {
                             <input 
                                 value={webFontUrl} 
                                 onChange={e => setWebFontUrl(e.target.value)} 
-                                placeholder="输入字体文件 URL (https://...)" 
+                                placeholder="輸入字體文件 URL (https://...)" 
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-primary transition-all"
                             />
                             <button onClick={applyWebFont} className="w-full py-2 bg-primary text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-transform">
-                                应用网络字体
+                                應用網絡字體
                             </button>
                             <div className="text-[10px] text-slate-400 px-1">
                                 {theme.customFont && theme.customFont.startsWith('http') ? (
-                                    <span className="text-green-500">当前使用: {theme.customFont}</span>
-                                ) : '提示: 请确保链接直通字体文件 (.ttf/.woff)'}
+                                    <span className="text-green-500">當前使用: {theme.customFont}</span>
+                                ) : '提示: 請確保鏈接直通字體文件 (.ttf/.woff)'}
                             </div>
                         </div>
                     )}
 
                     {theme.customFont && (
-                        <button onClick={() => updateTheme({ customFont: undefined })} className="w-full py-2 text-xs font-bold text-red-400 bg-red-50 rounded-lg hover:bg-red-100 mt-2">恢复默认字体</button>
+                        <button onClick={() => updateTheme({ customFont: undefined })} className="w-full py-2 text-xs font-bold text-red-400 bg-red-50 rounded-lg hover:bg-red-100 mt-2">恢復默認字體</button>
                     )}
                 </section>
 
                 {/* Status Bar Layout */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">状态栏 (Status Bar)</h2>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">狀態欄 (Status Bar)</h2>
                     <div className="grid grid-cols-3 gap-2">
                         {([
-                            { id: 'standard', label: '安全显示', hint: '额外留一行', icon: '◫' },
-                            { id: 'compact', label: '紧凑显示', hint: '保留时间并上移', icon: '⌃' },
-                            { id: 'hidden', label: '隐藏时间', hint: '只留安全区', icon: '—' },
+                            { id: 'standard', label: '安全顯示', hint: '額外留一行', icon: '◫' },
+                            { id: 'compact', label: '緊湊顯示', hint: '保留時間並上移', icon: '⌃' },
+                            { id: 'hidden', label: '隱藏時間', hint: '只留安全區', icon: '—' },
                         ] as Array<{ id: StatusBarMode; label: string; hint: string; icon: string }>).map(option => {
                             const active = resolveStatusBarMode(theme.statusBarMode, theme.hideStatusBar) === option.id;
                             return (
@@ -1225,17 +1225,17 @@ const Appearance: React.FC = () => {
                         })}
                     </div>
                     <p className="mt-3 text-[10px] leading-relaxed text-slate-400">
-                        有刘海或灵动岛优先用“紧凑显示”：时间、电量进入顶部安全区，按钮仍从遮挡区下方开始；若系统已显示时间，可选“隐藏时间”。
+                        有劉海或靈動島優先用“緊湊顯示”：時間、電量進入頂部安全區，按鈕仍從遮擋區下方開始；若系統已顯示時間，可選“隱藏時間”。
                     </p>
                 </section>
 
                 {/* Desktop Music Widget Style */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">桌面组件</h2>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">桌面組件</h2>
                     <div className="flex items-center justify-between">
                         <div>
-                            <div className="text-sm font-medium text-slate-700">音乐卡片浅色系</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">桌面第二页「正在播放」卡片改用浅色样式。仅默认皮肤生效。</div>
+                            <div className="text-sm font-medium text-slate-700">音樂卡片淺色系</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">桌面第二頁「正在播放」卡片改用淺色樣式。僅默認皮膚生效。</div>
                         </div>
                         <button
                             onClick={() => updateTheme({ nowPlayingWidgetLight: !theme.nowPlayingWidgetLight })}
@@ -1248,17 +1248,17 @@ const Appearance: React.FC = () => {
 
                 {/* Wallpaper Section */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">手机壁纸</h2>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">手機壁紙</h2>
                     <LongPressArea
                         className="aspect-[9/16] w-1/2 mx-auto bg-slate-100 rounded-2xl overflow-hidden relative shadow-inner mb-4 group cursor-pointer"
                         onClick={() => wallpaperInputRef.current?.click()}
                         onLongPress={async () => {
                             if (theme.wallpaper === DEFAULT_WALLPAPER) {
-                                addToast('当前已是默认壁纸', 'info');
+                                addToast('當前已是默認壁紙', 'info');
                                 return;
                             }
                             await updateTheme({ wallpaper: DEFAULT_WALLPAPER });
-                            addToast('已恢复默认壁纸', 'success');
+                            addToast('已恢復默認壁紙', 'success');
                         }}
                     >
                          <div
@@ -1272,19 +1272,19 @@ const Appearance: React.FC = () => {
                             }}
                          />
                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                             <span className="text-white text-xs font-bold bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">更换壁纸</span>
+                             <span className="text-white text-xs font-bold bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">更換壁紙</span>
                          </div>
                     </LongPressArea>
                     <input type="file" ref={wallpaperInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWallpaperUpload(e.target.files[0])} />
-                    <p className="text-center text-[10px] text-slate-400 mb-4">点击上传 / 长按恢复默认壁纸 (支持原画质)</p>
+                    <p className="text-center text-[10px] text-slate-400 mb-4">點擊上傳 / 長按恢復默認壁紙 (支持原畫質)</p>
 
                     <div className="border-t border-slate-100 pt-4 space-y-2">
-                        <p className="text-[11px] font-bold text-slate-500">从 URL 导入</p>
+                        <p className="text-[11px] font-bold text-slate-500">從 URL 導入</p>
                         <input
                             value={wallpaperUrl}
                             onChange={e => setWallpaperUrl(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') applyWallpaperUrl(); }}
-                            placeholder="输入图片地址 (https://...)"
+                            placeholder="輸入圖片地址 (https://...)"
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-primary transition-all"
                         />
                         <button
@@ -1292,31 +1292,31 @@ const Appearance: React.FC = () => {
                             disabled={!wallpaperUrl.trim()}
                             className="w-full py-2 bg-primary text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
                         >
-                            应用网络壁纸
+                            應用網絡壁紙
                         </button>
-                        <p className="text-[10px] text-slate-400">直接引用网络图片，不占用本地存储</p>
+                        <p className="text-[10px] text-slate-400">直接引用網絡圖片，不佔用本地存儲</p>
                     </div>
                 </section>
 
                 {/* Lock Screen Wallpaper Section */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-1">
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">锁屏壁纸</h2>
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">鎖屏壁紙</h2>
                         <span className="text-[9px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-bold">
-                            {theme.lockWallpaper ? '独立设置' : '跟随桌面'}
+                            {theme.lockWallpaper ? '獨立設置' : '跟隨桌面'}
                         </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mb-4">单独设置锁屏画面，不会修改桌面壁纸。</p>
+                    <p className="text-[10px] text-slate-400 mb-4">單獨設置鎖屏畫面，不會修改桌面壁紙。</p>
                     <LongPressArea
                         className="aspect-[9/16] w-1/2 mx-auto bg-slate-100 rounded-2xl overflow-hidden relative shadow-inner mb-4 group cursor-pointer"
                         onClick={() => lockWallpaperInputRef.current?.click()}
                         onLongPress={async () => {
                             if (!theme.lockWallpaper) {
-                                addToast('锁屏当前已跟随桌面壁纸', 'info');
+                                addToast('鎖屏當前已跟隨桌面壁紙', 'info');
                                 return;
                             }
                             await updateTheme({ lockWallpaper: undefined });
-                            addToast('锁屏已恢复跟随桌面壁纸', 'success');
+                            addToast('鎖屏已恢復跟隨桌面壁紙', 'success');
                         }}
                     >
                         <div
@@ -1332,7 +1332,7 @@ const Appearance: React.FC = () => {
                             }}
                         />
                         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-white text-xs font-bold bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">更换锁屏</span>
+                            <span className="text-white text-xs font-bold bg-black/20 px-3 py-1 rounded-full backdrop-blur-md">更換鎖屏</span>
                         </div>
                     </LongPressArea>
                     <input
@@ -1345,15 +1345,15 @@ const Appearance: React.FC = () => {
                             e.target.value = '';
                         }}
                     />
-                    <p className="text-center text-[10px] text-slate-400 mb-4">点击上传 / 长按恢复跟随桌面</p>
+                    <p className="text-center text-[10px] text-slate-400 mb-4">點擊上傳 / 長按恢復跟隨桌面</p>
 
                     <div className="border-t border-slate-100 pt-4 space-y-2">
-                        <p className="text-[11px] font-bold text-slate-500">从 URL 导入</p>
+                        <p className="text-[11px] font-bold text-slate-500">從 URL 導入</p>
                         <input
                             value={lockWallpaperUrl}
                             onChange={e => setLockWallpaperUrl(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') applyLockWallpaperUrl(); }}
-                            placeholder="输入锁屏图片地址 (https://...)"
+                            placeholder="輸入鎖屏圖片地址 (https://...)"
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-primary transition-all"
                         />
                         <button
@@ -1361,7 +1361,7 @@ const Appearance: React.FC = () => {
                             disabled={!lockWallpaperUrl.trim()}
                             className="w-full py-2 bg-primary text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
                         >
-                            应用网络锁屏壁纸
+                            應用網絡鎖屏壁紙
                         </button>
                     </div>
                 <BootAnimationSettings theme={theme} updateTheme={updateTheme} />
@@ -1369,8 +1369,8 @@ const Appearance: React.FC = () => {
 
                 {/* Page 1 Desktop Square Image */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">首页方形图片</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">桌面首页右下角的方形图片槽位，长按移除</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">首頁方形圖片</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">桌面首頁右下角的方形圖片槽位，長按移除</p>
                     <div className="flex justify-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         {(() => {
                             const slot = 'dsq';
@@ -1382,7 +1382,7 @@ const Appearance: React.FC = () => {
                                     onLongPress={() => {
                                         if (img) {
                                             removeWidget(slot);
-                                            addToast('已移除方图', 'success');
+                                            addToast('已移除方圖', 'success');
                                         }
                                     }}
                                 >
@@ -1390,13 +1390,13 @@ const Appearance: React.FC = () => {
                                         <>
                                             <TokenImg value={img} className="w-full h-full object-cover" />
                                             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更换</span>
+                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
                                             </div>
                                         </>
                                     ) : (
                                         <div className="text-slate-300 text-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mx-auto mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                            <span className="text-[10px]">方图</span>
+                                            <span className="text-[10px]">方圖</span>
                                         </div>
                                     )}
                                 </LongPressArea>
@@ -1407,8 +1407,8 @@ const Appearance: React.FC = () => {
 
                 {/* Page 2 Widget Images */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">桌面小组件</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">上传小组件图片（如时钟截图、推图等），长按移除</p>
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">桌面小組件</h2>
+                    <p className="text-[10px] text-slate-400 mb-4">上傳小組件圖片（如時鐘截圖、推圖等），長按移除</p>
                     <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
                     <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex gap-2">
@@ -1422,7 +1422,7 @@ const Appearance: React.FC = () => {
                                         onLongPress={() => {
                                             if (img) {
                                                 removeWidget(slot);
-                                                addToast('已移除小组件', 'success');
+                                                addToast('已移除小組件', 'success');
                                             }
                                         }}
                                     >
@@ -1430,13 +1430,13 @@ const Appearance: React.FC = () => {
                                             <>
                                                 <TokenImg value={img} className="w-full h-full object-cover" />
                                                 <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                    <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更换</span>
+                                                    <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
                                                 </div>
                                             </>
                                         ) : (
                                             <div className="text-slate-300 text-center">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                                <span className="text-[9px]">图片</span>
+                                                <span className="text-[9px]">圖片</span>
                                             </div>
                                         )}
                                     </LongPressArea>
@@ -1453,7 +1453,7 @@ const Appearance: React.FC = () => {
                                     onLongPress={() => {
                                         if (img) {
                                             removeWidget(slot);
-                                            addToast('已移除横幅', 'success');
+                                            addToast('已移除橫幅', 'success');
                                         }
                                     }}
                                 >
@@ -1461,13 +1461,13 @@ const Appearance: React.FC = () => {
                                         <>
                                             <TokenImg value={img} className="w-full h-full object-cover" />
                                             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更换</span>
+                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
                                             </div>
                                         </>
                                     ) : (
                                         <div className="text-slate-300 text-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mx-auto mb-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                            <span className="text-[9px]">横幅</span>
+                                            <span className="text-[9px]">橫幅</span>
                                         </div>
                                     )}
                                 </LongPressArea>
@@ -1479,10 +1479,10 @@ const Appearance: React.FC = () => {
                 {/* Desktop Decoration DIY Section */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">桌面装饰 DIY</h2>
-                        <span className="text-[10px] bg-gradient-to-r from-pink-100 to-purple-100 text-pink-500 px-2 py-0.5 rounded-full font-bold">花里胡哨模式</span>
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">桌面裝飾 DIY</h2>
+                        <span className="text-[10px] bg-gradient-to-r from-pink-100 to-purple-100 text-pink-500 px-2 py-0.5 rounded-full font-bold">花裡胡哨模式</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mb-4">自由添加装饰贴纸，调整位置/大小/旋转/透明度，打造你的专属痛机桌面！</p>
+                    <p className="text-[10px] text-slate-400 mb-4">自由添加裝飾貼紙，調整位置/大小/旋轉/透明度，打造你的專屬痛機桌面！</p>
                     <input type="file" ref={decoInputRef} className="hidden" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) handleDecoUpload(e.target.files[0]); e.target.value = ''; }} />
 
                     {/* Live Preview */}
@@ -1526,7 +1526,7 @@ const Appearance: React.FC = () => {
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center text-white/40">
                                     <Sparkle size={48} weight="fill" className="text-white/60 mb-2" />
-                                    <div className="text-[10px] font-bold">添加装饰开始DIY</div>
+                                    <div className="text-[10px] font-bold">添加裝飾開始DIY</div>
                                 </div>
                             </div>
                         )}
@@ -1537,19 +1537,19 @@ const Appearance: React.FC = () => {
                         <button onClick={() => { setShowPresetPicker(!showPresetPicker); if (!showPresetPicker) trackEvent('打开桌面装饰贴纸库'); }}
                             className="flex-1 py-2.5 bg-gradient-to-r from-pink-50 to-purple-50 text-pink-500 font-bold text-xs rounded-xl border border-pink-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
-                            预设贴纸
+                            預設貼紙
                         </button>
                         <button onClick={() => decoInputRef.current?.click()}
                             className="flex-1 py-2.5 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-500 font-bold text-xs rounded-xl border border-blue-200 active:scale-95 transition-transform flex items-center justify-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
-                            上传自定义
+                            上傳自定義
                         </button>
                     </div>
 
                     {/* Preset Picker */}
                     {showPresetPicker && (
                         <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 mb-4 animate-fade-in">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-3">选择预设装饰</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-3">選擇預設裝飾</div>
                             {['stars', 'hearts', 'flowers', 'ribbons', 'animals', 'shapes', 'badges'].map(cat => {
                                 const items = PRESET_DECOS.filter(p => p.category === cat);
                                 if (items.length === 0) return null;
@@ -1575,7 +1575,7 @@ const Appearance: React.FC = () => {
                     {/* Decoration List & Editor */}
                     {decorations.length > 0 && (
                         <div className="space-y-2">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-2">已添加装饰 ({decorations.length})</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-2">已添加裝飾 ({decorations.length})</div>
                             {decorations.map((deco, idx) => (
                                 <div key={deco.id} className={`bg-slate-50 rounded-xl border transition-all ${editingDecoId === deco.id ? 'border-pink-300 shadow-md' : 'border-slate-100'}`}>
                                     {/* Decoration header row */}
@@ -1584,7 +1584,7 @@ const Appearance: React.FC = () => {
                                             <img src={deco.content} className="w-8 h-8 object-contain" style={{ transform: deco.flip ? 'scaleX(-1)' : undefined }} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold text-slate-600">装饰 #{idx + 1}</div>
+                                            <div className="text-xs font-bold text-slate-600">裝飾 #{idx + 1}</div>
                                             <div className="text-[9px] text-slate-400">位置 ({Math.round(deco.x)}, {Math.round(deco.y)}) · {deco.scale}x · {deco.rotation}°</div>
                                         </div>
                                         <button onClick={(e) => { e.stopPropagation(); removeDecoration(deco.id); }} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
@@ -1618,14 +1618,14 @@ const Appearance: React.FC = () => {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <div className="flex justify-between mb-1.5">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">缩放</label>
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">縮放</label>
                                                         <span className="text-[10px] text-slate-500 font-mono">{deco.scale}x</span>
                                                     </div>
                                                     <input type="range" min="0.2" max="3" step="0.1" value={deco.scale} onChange={(e) => updateDecoration(deco.id, { scale: parseFloat(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-purple-400" />
                                                 </div>
                                                 <div>
                                                     <div className="flex justify-between mb-1.5">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">旋转</label>
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">旋轉</label>
                                                         <span className="text-[10px] text-slate-500 font-mono">{deco.rotation}°</span>
                                                     </div>
                                                     <input type="range" min="-180" max="180" value={deco.rotation} onChange={(e) => updateDecoration(deco.id, { rotation: parseInt(e.target.value) })} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-purple-400" />
@@ -1643,11 +1643,11 @@ const Appearance: React.FC = () => {
                                             <div className="flex gap-2 flex-wrap">
                                                 <button onClick={() => updateDecoration(deco.id, { flip: !deco.flip })}
                                                     className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all active:scale-95 ${deco.flip ? 'bg-pink-50 text-pink-500 border-pink-200' : 'bg-white text-slate-400 border-slate-200'}`}>
-                                                    镜像翻转
+                                                    鏡像翻轉
                                                 </button>
                                                 <button onClick={() => updateDecoration(deco.id, { rotation: 0, scale: 1, opacity: 1, flip: false })}
                                                     className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    重置参数
+                                                    重置參數
                                                 </button>
                                                 <button onClick={() => {
                                                     const dup: DesktopDecoration = { ...deco, id: `deco-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, x: Math.min(deco.x + 8, 95), y: Math.min(deco.y + 8, 95) };
@@ -1656,7 +1656,7 @@ const Appearance: React.FC = () => {
                                                     setEditingDecoId(dup.id);
                                                 }}
                                                     className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    复制一个
+                                                    複製一個
                                                 </button>
                                                 {/* Layer controls */}
                                                 <button onClick={() => {
@@ -1664,7 +1664,7 @@ const Appearance: React.FC = () => {
                                                     updateDecoration(deco.id, { zIndex: maxZ + 1 });
                                                 }}
                                                     className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
-                                                    置顶
+                                                    置頂
                                                 </button>
                                                 <button onClick={() => updateDecoration(deco.id, { zIndex: 0 })}
                                                     className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-white text-slate-400 border border-slate-200 active:scale-95 transition-all">
@@ -1678,11 +1678,11 @@ const Appearance: React.FC = () => {
                             {/* Clear all button */}
                             <button onClick={() => { updateTheme({ desktopDecorations: [] }); setEditingDecoId(null); }}
                                 className="w-full py-2 text-xs font-bold text-red-400 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-2">
-                                清空所有装饰
+                                清空所有裝飾
                             </button>
                         </div>
                     )}
-                    <div className="text-[10px] text-slate-400 mt-3 px-1">提示: 装饰会叠加显示在桌面第二页上，可自由调节每个装饰的位置、大小、旋转和透明度。支持上传自定义图片或使用预设贴纸。</div>
+                    <div className="text-[10px] text-slate-400 mt-3 px-1">提示: 裝飾會疊加顯示在桌面第二頁上，可自由調節每個裝飾的位置、大小、旋轉和透明度。支持上傳自定義圖片或使用預設貼紙。</div>
                 </section>
             </>
         ) : activeTab === 'icons' ? (
@@ -1691,13 +1691,13 @@ const Appearance: React.FC = () => {
               <section className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-700">保留透明图标原轮廓</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">开启后按图片原轮廓完整显示，不套系统圆角底框；默认关闭。</div>
+                    <div className="text-sm font-medium text-slate-700">保留透明圖標原輪廓</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">開啟後按圖片原輪廓完整顯示，不套系統圓角底框；默認關閉。</div>
                   </div>
                   <button
                     onClick={() => updateTheme({ preserveCustomIconOutlines: !theme.preserveCustomIconOutlines })}
                     className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${theme.preserveCustomIconOutlines ? 'bg-primary' : 'bg-slate-200'}`}
-                    aria-label="保留透明图标原轮廓"
+                    aria-label="保留透明圖標原輪廓"
                   >
                     <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${theme.preserveCustomIconOutlines ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
@@ -1715,7 +1715,7 @@ const Appearance: React.FC = () => {
                                 onClick={() => { setSelectedAppId(app.id); iconInputRef.current?.click(); }}
                               >
                                   {customUrl ? (
-                                     <CustomIconImage value={customUrl} alt={`${app.name} 自定义图标`} preserveOutline={preserveOutline} />
+                                     <CustomIconImage value={customUrl} alt={`${app.name} 自定義圖標`} preserveOutline={preserveOutline} />
                                   ) : (
                                      <div className={`w-full h-full ${app.color} flex items-center justify-center text-white`}>
                                          <Icon className="w-8 h-8" />

@@ -9,8 +9,8 @@ interface JournalThemeArtworkProps {
 }
 
 /**
- * 主题自己的“物件层”。这些不是背景图片，而是会随页面一起重排的 SVG / DOM 部件：
- * 邮件路线、星盘、标本页和复古编辑器线路分别拥有独立图形语言。
+ * 主題自己的“物件層”。這些不是背景圖片，而是會隨頁面一起重排的 SVG / DOM 部件：
+ * 郵件路線、星盤、標本頁和復古編輯器線路分別擁有獨立圖形語言。
  */
 export const JournalThemeArtwork: React.FC<JournalThemeArtworkProps> = ({ preset = 'original', scene }) => {
     if (preset === 'original') return null;

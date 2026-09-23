@@ -1,15 +1,15 @@
 /**
- * 通话口型信号源：把 <audio> 元素接到 WebAudio 分析器上，按渲染帧输出
- * { level, vowel }。舞台画布（VRM / Live2D）在自己的 rAF 循环里直接
- * sample()，不经过 React state——旧实现走 80ms 节流 + setState + prop
- * 层层下传，嘴型比声音慢一拍还忽真忽假。
+ * 通話口型信號源：把 <audio> 元素接到 WebAudio 分析器上，按渲染幀輸出
+ * { level, vowel }。舞台畫布（VRM / Live2D）在自己的 rAF 循環裡直接
+ * sample()，不經過 React state——舊實現走 80ms 節流 + setState + prop
+ * 層層下傳，嘴型比聲音慢一拍還忽真忽假。
  *
- * level：0..1 的开口度。对说话人音量做自适应归一（跟踪运行峰值），
- *        小声说话也有完整口型，不会因为绝对音量低而抿嘴。
- * vowel：0..1 的元音倾向（低频占优 ≈ あ/お → 0，高频占优 ≈ い/え → 1），
- *        由频谱能量带比值估计，用来在 Aa/Ee/Oh viseme 之间过渡。
- * active：false 表示拿不到实时信号（未播放 / CORS 音频接不进 WebAudio），
- *        画布应退回节奏型假口型，而不是把 level=0 当成闭嘴。
+ * level：0..1 的開口度。對說話人音量做自適應歸一（跟蹤運行峰值），
+ *        小聲說話也有完整口型，不會因為絕對音量低而抿嘴。
+ * vowel：0..1 的元音傾向（低頻佔優 ≈ あ/お → 0，高頻佔優 ≈ い/え → 1），
+ *        由頻譜能量帶比值估計，用來在 Aa/Ee/Oh viseme 之間過渡。
+ * active：false 表示拿不到實時信號（未播放 / CORS 音頻接不進 WebAudio），
+ *        畫布應退回節奏型假口型，而不是把 level=0 當成閉嘴。
  */
 
 export interface LipSyncFrame {
@@ -21,9 +21,9 @@ export interface LipSyncFrame {
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
 /**
- * iOS 上把 HTMLMediaElement 接入 WebAudio 后，AudioContext 一旦被系统挂起，
- * 原生音频输出也会一起被截断。这里宁可退回节奏型口型，也不让分析器成为声音的必经节点。
- * iPadOS 桌面 UA 会伪装成 Mac，需要同时检查触点数量。
+ * iOS 上把 HTMLMediaElement 接入 WebAudio 後，AudioContext 一旦被系統掛起，
+ * 原生音頻輸出也會一起被截斷。這裡寧可退回節奏型口型，也不讓分析器成為聲音的必經節點。
+ * iPadOS 桌面 UA 會偽裝成 Mac，需要同時檢查觸點數量。
  */
 export const shouldKeepNativeCallAudio = (runtimeNavigator?: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'>): boolean => {
   const nav = runtimeNavigator || (typeof navigator !== 'undefined' ? navigator : undefined);
@@ -33,17 +33,17 @@ export const shouldKeepNativeCallAudio = (runtimeNavigator?: Pick<Navigator, 'us
 };
 
 /**
- * 自适应开口度：rms 相对运行峰值归一。峰值缓慢回落（每次采样 ×0.996），
- * 换了音量更小的语音片段后 1–2 秒内恢复满幅口型。
+ * 自適應開口度：rms 相對運行峰值歸一。峰值緩慢回落（每次採樣 ×0.996），
+ * 換了音量更小的語音片段後 1–2 秒內恢復滿幅口型。
  */
 export const adaptiveMouthLevel = (rms: number, peak: number): { level: number; peak: number } => {
   const nextPeak = Math.max(0.05, peak * 0.996, rms);
   const raw = rms / (nextPeak * 0.85);
-  // 低于 6% 视为呼吸/底噪，直接闭嘴，避免静音段嘴唇抖动。
+  // 低於 6% 視為呼吸/底噪，直接閉嘴，避免靜音段嘴唇抖動。
   return { level: raw < 0.06 ? 0 : clamp01(raw), peak: nextPeak };
 };
 
-/** 元音倾向：mid 带（~1k-3.6kHz）能量占比。两带都近乎无声时回中位 0.5。 */
+/** 元音傾向：mid 帶（~1k-3.6kHz）能量佔比。兩帶都近乎無聲時回中位 0.5。 */
 export const vowelFromBands = (lowEnergy: number, midEnergy: number): number => {
   const total = lowEnergy + midEnergy;
   if (total < 1e-3) return 0.5;
@@ -85,8 +85,8 @@ export class CallAudioFeed {
   }
 
   /**
-   * 必须从“接通 / 重播 / 继续播放”等真实点击处理器里直接调用。
-   * 返回 false 时调用方应保留 HTMLAudioElement 原生输出，不要 attach。
+   * 必須從“接通 / 重播 / 繼續播放”等真實點擊處理器裡直接調用。
+   * 返回 false 時調用方應保留 HTMLAudioElement 原生輸出，不要 attach。
    */
   async unlock(): Promise<boolean> {
     const context = this.ensureContext();
@@ -102,7 +102,7 @@ export class CallAudioFeed {
     }
   }
 
-  /** 把播放元素接入分析图。同一元素只会创建一次；未解锁时绝不接管原生声音。 */
+  /** 把播放元素接入分析圖。同一元素只會創建一次；未解鎖時絕不接管原生聲音。 */
   attach(element: HTMLAudioElement): boolean {
     if (this.broken) return false;
     if (this.attachedElement === element) return !!this.analyser;
@@ -122,8 +122,8 @@ export class CallAudioFeed {
       this.freqData = new Uint8Array(analyser.frequencyBinCount);
       return true;
     } catch {
-      // 某些跨域音频不允许接入 WebAudio；标记后 sample() 恒 active=false，
-      // 画布退回节奏型口型。
+      // 某些跨域音頻不允許接入 WebAudio；標記後 sample() 恆 active=false，
+      // 畫布退回節奏型口型。
       this.broken = true;
       return false;
     }
@@ -137,7 +137,7 @@ export class CallAudioFeed {
     }
   }
 
-  /** 每帧调用。多块画布同帧重复调用时命中 8ms 缓存，不会双重平滑。 */
+  /** 每幀調用。多塊畫布同幀重複調用時命中 8ms 緩存，不會雙重平滑。 */
   sample(now: number): LipSyncFrame {
     if (!this.playing) return this.frame;
     const analyser = this.analyser;
@@ -159,7 +159,7 @@ export class CallAudioFeed {
     const rms = Math.sqrt(sumSquares / timeData.length);
     const adapted = adaptiveMouthLevel(rms, this.peak);
     this.peak = adapted.peak;
-    // 快起慢落：辅音爆破立即张嘴，词尾自然合拢。
+    // 快起慢落：輔音爆破立即張嘴，詞尾自然合攏。
     const rate = adapted.level > this.smoothedLevel ? 0.55 : 0.22;
     this.smoothedLevel += (adapted.level - this.smoothedLevel) * rate;
 

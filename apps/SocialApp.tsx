@@ -176,11 +176,11 @@ const SocialApp: React.FC = () => {
     // Settings / Handle Management
     const [showSettings, setShowSettings] = useState(false);
     const [characterHandles, setCharacterHandles] = useState<Record<string, SubAccount[]>>({});
-    const [identityGroupId, setIdentityGroupId] = useState(GROUP_FILTER_ALL); // 身份管理弹窗的角色分组筛选
+    const [identityGroupId, setIdentityGroupId] = useState(GROUP_FILTER_ALL); // 身份管理彈窗的角色分組篩選
 
     // Sharing State
     const [showShareModal, setShowShareModal] = useState(false);
-    const [shareGroupId, setShareGroupId] = useState(GROUP_FILTER_ALL); // 分享帖子弹窗的角色分组筛选
+    const [shareGroupId, setShareGroupId] = useState(GROUP_FILTER_ALL); // 分享帖子彈窗的角色分組篩選
 
     // Profile Sub-tab
     const [profileTab, setProfileTab] = useState<'notes' | 'collects'>('notes');
@@ -189,7 +189,7 @@ const SocialApp: React.FC = () => {
     const [socialProfile, setSocialProfile] = useState<SocialAppProfile>({
         name: userProfile.name,
         avatar: userProfile.avatar,
-        bio: '这个人很懒，什么都没写。'
+        bio: '這個人很懶，什麼都沒寫。'
     });
     const [userSparkId, setUserSparkId] = useState('95279527');
     const [userBgImage, setUserBgImage] = useState('');
@@ -275,7 +275,7 @@ const SocialApp: React.FC = () => {
                 setSocialProfile({
                     name: userProfile.name,
                     avatar: userProfile.avatar,
-                    bio: userProfile.bio || '这个人很懒，什么都没写。'
+                    bio: userProfile.bio || '這個人很懶，什麼都沒寫。'
                 });
             }
         };
@@ -294,7 +294,7 @@ const SocialApp: React.FC = () => {
                 initialHandles[c.id] = [{ 
                     id: 'default', 
                     handle: c.socialProfile?.handle || c.name, 
-                    note: '主账号' 
+                    note: '主帳號' 
                 }];
             }
         });
@@ -336,8 +336,8 @@ const SocialApp: React.FC = () => {
     const addSubAccount = (charId: string) => {
         const newAcct: SubAccount = {
             id: `sub-${Date.now()}`,
-            handle: '新马甲',
-            note: '身份备注'
+            handle: '新馬甲',
+            note: '身份備註'
         };
         setCharacterHandles(prev => ({
             ...prev,
@@ -364,16 +364,16 @@ const SocialApp: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             try {
-                // 背景图存二进制：assets 行里只留 blobref 令牌，渲染走 TokenImg。
-                // 旧令牌不主动删（同一张图可能被别处引用），交给孤儿 GC。
+                // 背景圖存二進制：assets 行裡只留 blobref 令牌，渲染走 TokenImg。
+                // 舊令牌不主動刪（同一張圖可能被別處引用），交給孤兒 GC。
                 const blob = await processImageToBlob(file, { skipCompression: true });
                 const ref = await putImageBlob(blob);
                 setUserBgImage(ref);
                 // Save to DB Assets
                 await DB.saveAsset('spark_user_bg', ref);
-                addToast('背景图已更新', 'success');
+                addToast('背景圖已更新', 'success');
             } catch (err) {
-                addToast('图片处理失败', 'error');
+                addToast('圖片處理失敗', 'error');
             }
         }
     };
@@ -382,8 +382,8 @@ const SocialApp: React.FC = () => {
         const file = e.target.files?.[0];
         if (file) {
             try {
-                // 头像同样只存令牌；这里改的是 socialProfile 内存态，
-                // 落库在 saveUserProfileChanges（点「保存资料」时整个 JSON 写回）。
+                // 頭像同樣只存令牌；這裡改的是 socialProfile 內存態，
+                // 落庫在 saveUserProfileChanges（點「保存資料」時整個 JSON 寫回）。
                 const blob = await processImageToBlob(file);
                 const ref = await putImageBlob(blob);
                 setSocialProfile(prev => ({ ...prev, avatar: ref }));
@@ -396,10 +396,10 @@ const SocialApp: React.FC = () => {
 
     const saveUserProfileChanges = async () => {
         localStorage.setItem('spark_user_id', userSparkId);
-        // Save Profile to DB Assets（avatar 是 blobref 令牌，二进制在 IndexedDB）
+        // Save Profile to DB Assets（avatar 是 blobref 令牌，二進制在 IndexedDB）
         await DB.saveAsset('spark_social_profile', JSON.stringify(socialProfile));
         setIsEditingId(false);
-        addToast('主页资料已保存 (仅在 Spark 生效)', 'success');
+        addToast('主頁資料已保存 (僅在 Spark 生效)', 'success');
     };
 
     const prependPostsToFeed = (newPosts: SocialPost[]) => {
@@ -437,7 +437,7 @@ const SocialApp: React.FC = () => {
     };
 
     const handleRefresh = async () => {
-        if (!apiConfig.apiKey) { addToast('请配置 API Key', 'error'); return; }
+        if (!apiConfig.apiKey) { addToast('請配置 API Key', 'error'); return; }
         if (refreshRequestRef.current) return;
         const controller = new AbortController();
         refreshRequestRef.current = controller;
@@ -450,34 +450,34 @@ const SocialApp: React.FC = () => {
             const context = await buildGenerationContext(selectedChars);
             if (controller.signal.aborted) return;
 
-            const prompt = `### 任务: 模拟社交APP "Spark" 的推荐流
-你需要生成 6-8 条新的社交媒体帖子。
+            const prompt = `### 任務: 模擬社交APP "Spark" 的推薦流
+你需要生成 6-8 條新的社交媒體帖子。
 
-### 🎭 内容构成 (混合模式)
-1. **角色发帖 (30%)**: 
-   - 选中的角色: ${selectedChars.map(c => c.name).join(', ')}
-   - **关键规则**: 每个角色有多个马甲(账号)。请根据内容需要，选择最合适的账号身份发帖。
-   - 例如：如果是吐槽，可能用小号；如果是发美照，用大号。请务必使用 **Configured Handle (网名)**。
-   - **内容方向**: 公开发言，生活日常、吐槽、或者暗戳戳的记录。
+### 🎭 內容構成 (混合模式)
+1. **角色發帖 (30%)**: 
+   - 選中的角色: ${selectedChars.map(c => c.name).join(', ')}
+   - **關鍵規則**: 每個角色有多個馬甲(帳號)。請根據內容需要，選擇最合適的帳號身份發帖。
+   - 例如：如果是吐槽，可能用小號；如果是發美照，用大號。請務必使用 **Configured Handle (網名)**。
+   - **內容方向**: 公開發言，生活日常、吐槽、或者暗戳戳的記錄。
 
-2. **路人/网友发帖 (70%)**: 
-   - 模拟真实的互联网生态：吃瓜群众、技术宅、美妆博主、情感树洞。
+2. **路人/網友發帖 (70%)**: 
+   - 模擬真實的互聯網生態：吃瓜群眾、技術宅、美妝博主、情感樹洞。
 
-### 🚫 绝对禁令
-1. **禁止扮演用户**: 用户的网名是 "${socialProfile.name}"。绝对禁止生成 \`authorName\` 等于或近似 "${socialProfile.name}" 的帖子（无论是角色帖还是路人帖）。如果你想用类似的名字，请改成完全不同的网名。
-2. **路人不得冒用身份**: 路人的 \`authorName\` 必须是全新的网名，绝对不能与上方【角色身份表】中列出的任何【网名】重合。
-3. **禁止上帝视角**。
+### 🚫 絕對禁令
+1. **禁止扮演用戶**: 用戶的網名是 "${socialProfile.name}"。絕對禁止生成 \`authorName\` 等於或近似 "${socialProfile.name}" 的帖子（無論是角色帖還是路人帖）。如果你想用類似的名字，請改成完全不同的網名。
+2. **路人不得冒用身份**: 路人的 \`authorName\` 必須是全新的網名，絕對不能與上方【角色身份表】中列出的任何【網名】重合。
+3. **禁止上帝視角**。
 
-### 输出格式 (JSON Array)
+### 輸出格式 (JSON Array)
 [
   {
     "isCharacter": true/false,
-    "charId": "如果是角色填ID, 否则null", 
-    "authorName": "必须填身份表中定义的【网名】",
-    "title": "简短吸睛的标题",
-    "content": "正文内容...",
+    "charId": "如果是角色填ID, 否則null", 
+    "authorName": "必須填身份表中定義的【網名】",
+    "title": "簡短吸睛的標題",
+    "content": "正文內容...",
     "emojis": ["🎈", "✨"],
-    "likes": 随机数 (0 - 10000)
+    "likes": 隨機數 (0 - 10000)
   },
   ...
 ]`;
@@ -486,7 +486,7 @@ const SocialApp: React.FC = () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: context }, { role: "user", content: prompt }], temperature: 0.8, max_tokens: 8000 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '刷新推荐流' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '刷新推薦流' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
@@ -514,7 +514,7 @@ const SocialApp: React.FC = () => {
                     id: `post-${Date.now()}-${Math.random()}`,
                     authorName: item.authorName || 'Unknown',
                     authorAvatar: avatar,
-                    title: typeof item.title === 'string' ? item.title : '无标题',
+                    title: typeof item.title === 'string' ? item.title : '無標題',
                     content: item.content || '...',
                     images,
                     likes: item.likes || 0,
@@ -530,9 +530,9 @@ const SocialApp: React.FC = () => {
             });
             if (!newPosts.length) throw new Error('模型返回的作者身份不匹配，未添加帖子');
             prependPostsToFeed(newPosts);
-            addToast('首页已刷新: 冲浪模式开启', 'success');
+            addToast('首頁已刷新: 衝浪模式開啟', 'success');
         } catch (e: any) {
-            if (e?.name !== 'AbortError') addToast('刷新失败: ' + e.message, 'error');
+            if (e?.name !== 'AbortError') addToast('刷新失敗: ' + e.message, 'error');
         } finally {
             if (refreshRequestRef.current === controller) {
                 refreshRequestRef.current = null;
@@ -574,32 +574,32 @@ const SocialApp: React.FC = () => {
                 }
             }
 
-            const prompt = `### 任务: 模拟社交APP评论区
-**帖子来源**: "Spark" 社区
-**楼主**: "${post.authorName}" (${authorType})
-**帖子标题**: "${post.title}"
+            const prompt = `### 任務: 模擬社交APP評論區
+**帖子來源**: "Spark" 社區
+**樓主**: "${post.authorName}" (${authorType})
+**帖子標題**: "${post.title}"
 **帖子正文**:
 """
-${post.content || '(楼主没写正文)'}
+${post.content || '(樓主沒寫正文)'}
 """
 
-请基于上面的【标题 + 正文】生成 4-6 条评论，评论要切实回应正文里提到的内容，不要只对着标题空泛地说。混合使用 **选定角色** 和 **随机路人**。
-角色评论时，请选择一个符合语境的马甲身份。
+請基於上面的【標題 + 正文】生成 4-6 條評論，評論要切實回應正文裡提到的內容，不要只對著標題空泛地說。混合使用 **選定角色** 和 **隨機路人**。
+角色評論時，請選擇一個符合語境的馬甲身份。
 
 ### 禁令
-- **绝对禁止** 生成 \`author\` 等于或近似 "${socialProfile.name}" (用户) 的评论。
-- 路人评论的 \`author\` 必须是全新的网名，绝对不能与上方【角色身份库】中列出的任何马甲网名重合。
+- **絕對禁止** 生成 \`author\` 等於或近似 "${socialProfile.name}" (用戶) 的評論。
+- 路人評論的 \`author\` 必須是全新的網名，絕對不能與上方【角色身份庫】中列出的任何馬甲網名重合。
 
-### 输出格式 (JSON Array)
+### 輸出格式 (JSON Array)
 [
-  { "author": "网名 (Handle) 或 路人昵称", "charId": "角色ID或null", "content": "评论内容..." }
+  { "author": "網名 (Handle) 或 路人暱稱", "charId": "角色ID或null", "content": "評論內容..." }
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: context }, { role: "user", content: prompt }], temperature: 0.8 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '生成帖子评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '生成帖子評論' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
@@ -625,14 +625,14 @@ ${post.content || '(楼主没写正文)'}
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                if (!comments.length) throw new Error('模型返回的评论身份不匹配，未添加评论');
+                if (!comments.length) throw new Error('模型返回的評論身份不匹配，未添加評論');
                 updatePostInFeed(post.id, current => ({
                     ...current,
                     comments: mergeSocialComments(current.comments || [], comments),
                 }));
             }
         } catch (e: any) {
-            if (e?.name !== 'AbortError') addToast(`评论加载失败: ${e?.message || e}`, 'error');
+            if (e?.name !== 'AbortError') addToast(`評論加載失敗: ${e?.message || e}`, 'error');
         } finally {
             if (commentRequestRef.current?.controller === controller) {
                 commentRequestRef.current = null;
@@ -656,41 +656,41 @@ ${post.content || '(楼主没写正文)'}
             // Tell the model who actually wrote the post — if it's the user themselves, replies
             // need to make sense as people responding to the user's own note (not strangers).
             let postAuthorInfo = `"${post.authorName}"`;
-            if (post.authorType === 'user') postAuthorInfo += ' (用户本人)';
+            if (post.authorType === 'user') postAuthorInfo += ' (用戶本人)';
             else if (post.authorType === 'character' && post.authorCharId) {
                 const c = characters.find(ch => ch.id === post.authorCharId);
-                if (c) postAuthorInfo += ` (角色 ${c.name} 的马甲)`;
+                if (c) postAuthorInfo += ` (角色 ${c.name} 的馬甲)`;
             } else if (post.authorName === socialProfile.name) {
-                postAuthorInfo += ' (用户本人)';
+                postAuthorInfo += ' (用戶本人)';
             }
 
-            const prompt = `### 任务: 回复用户的评论
-**帖子楼主**: ${postAuthorInfo}
-**帖子标题**: "${post.title}"
+            const prompt = `### 任務: 回覆用戶的評論
+**帖子樓主**: ${postAuthorInfo}
+**帖子標題**: "${post.title}"
 **帖子正文**:
 """
-${post.content || '(楼主没写正文)'}
+${post.content || '(樓主沒寫正文)'}
 """
-**用户 "${socialProfile.name}" 刚在帖子下发的评论**: "${userContent}"
-**已有评论对话（最后一条可能就是上述新评论，不要重复回复旧内容）**:
+**用戶 "${socialProfile.name}" 剛在帖子下發的評論**: "${userContent}"
+**已有評論對話（最後一條可能就是上述新評論，不要重複回覆舊內容）**:
 ${buildSparkCommentHistory(post)}
 
-请基于楼主帖子的【标题 + 正文】+ 用户的评论上下文，生成 1-3 条对用户这条评论的回复，要扣题，不能脱离正文凭空发挥。
-优先由楼主或正在对话的角色回复；只能使用本次角色档案中的身份。
+請基於樓主帖子的【標題 + 正文】+ 用戶的評論上下文，生成 1-3 條對用戶這條評論的回覆，要扣題，不能脫離正文憑空發揮。
+優先由樓主或正在對話的角色回覆；只能使用本次角色檔案中的身份。
 
 ### 禁令
-- **绝对禁止** \`author\` 等于或近似 "${socialProfile.name}" (用户自己)。回复必须来自其他人。
+- **絕對禁止** \`author\` 等於或近似 "${socialProfile.name}" (用戶自己)。回覆必須來自其他人。
 
-### 输出格式 (JSON Array)
+### 輸出格式 (JSON Array)
 [
-  { "author": "网名 (Handle)", "charId": "角色ID或null", "content": "回复内容..." }
+  { "author": "網名 (Handle)", "charId": "角色ID或null", "content": "回覆內容..." }
 ]`;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'system', content: context }, { role: "user", content: prompt }], temperature: 0.8 }),
                 signal: controller.signal,
-                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '回复用户评论' },
+                __sullyMeta: { appId: 'social', appName: 'Spark', purpose: '回覆用戶評論' },
             } as RequestInit);
             if (!response.ok) throw new Error(await apiErrorMessage(response));
             const data = await safeResponseJson(response);
@@ -709,24 +709,24 @@ ${buildSparkCommentHistory(post)}
                             id: `cmt-reply-${Date.now()}-${Math.random()}`,
                             authorName: authorName,
                             authorAvatar: avatar,
-                            content: `回复 @${socialProfile.name}: ${c.content}`,
+                            content: `回覆 @${socialProfile.name}: ${c.content}`,
                             likes: Math.floor(Math.random() * 10),
                             isCharacter: !!char,
                             authorType: char ? 'character' : 'stranger',
                             authorCharId: char?.id,
                         } as SocialComment];
                     });
-                if (!newReplies.length) throw new Error('模型返回的回复身份不匹配，未添加回复');
+                if (!newReplies.length) throw new Error('模型返回的回覆身份不匹配，未添加回復');
                 if (newReplies.length > 0) {
                     updatePostInFeed(post.id, current => ({
                         ...current,
                         comments: mergeSocialComments(current.comments || [], newReplies),
                     }));
-                    addToast(`收到 ${newReplies.length} 条新回复`, 'info');
+                    addToast(`收到 ${newReplies.length} 條新回覆`, 'info');
                 }
             }
         } catch (e: any) {
-            if (e?.name !== 'AbortError') addToast(`回复生成失败: ${e?.message || e}`, 'error');
+            if (e?.name !== 'AbortError') addToast(`回覆生成失敗: ${e?.message || e}`, 'error');
         } finally {
             if (replyRequestRef.current?.controller === controller) {
                 replyRequestRef.current = null;
@@ -742,7 +742,7 @@ ${buildSparkCommentHistory(post)}
             setShowShareModal(false);
             addToast('分享成功', 'success');
             trackEvent('分享帖子到聊天');
-        } catch (e) { addToast('分享失败', 'error'); }
+        } catch (e) { addToast('分享失敗', 'error'); }
     };
 
     const handleCreatePost = () => {
@@ -751,7 +751,7 @@ ${buildSparkCommentHistory(post)}
             id: `user-post-${Date.now()}`,
             authorName: socialProfile.name, // Use Local Identity
             authorAvatar: socialProfile.avatar, // Use Local Identity
-            title: newPostTitle || '无标题',
+            title: newPostTitle || '無標題',
             content: newPostContent,
             // Sticker selector stores twemoji codepoints (eg "2728"); convert to the real emoji char
             // so that the feed/detail views render an emoji instead of the raw codepoint text.
@@ -769,10 +769,10 @@ ${buildSparkCommentHistory(post)}
         setNewPostContent(''); setNewPostTitle(''); 
         setIsCreateOpen(false); // Close Modal
         setActiveTab('home'); 
-        addToast('发布成功', 'success');
+        addToast('發佈成功', 'success');
     };
 
-    const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已删除', 'success'); trackEvent('删除一条帖子'); };
+    const handleDeletePost = (postId: string) => { removePostFromFeed(postId); addToast('帖子已刪除', 'success'); trackEvent('删除一条帖子'); };
     const handleLike = (e: any, post: SocialPost) => {
         e.stopPropagation();
         updatePostInFeed(post.id, current => ({
@@ -834,7 +834,7 @@ ${buildSparkCommentHistory(post)}
         setSelectedPost(null);
         DB.clearSocialPosts();
         setShowSettings(false);
-        addToast('推荐流已清空', 'success');
+        addToast('推薦流已清空', 'success');
         trackEvent('清空 Spark 推荐流');
     };
 
@@ -885,7 +885,7 @@ ${buildSparkCommentHistory(post)}
                    We ensure this doesn't re-render on state changes like comments.
                 */}
                 <div className="flex-1 w-full h-full flex flex-col animate-slide-up relative overflow-hidden">
-                    {/* Header —— 自理安全区：--safe-top 让开刘海（带 iOS env 偶发返回 0 的 JS 兜底；非刘海设备保底 12px） */}
+                    {/* Header —— 自理安全區：--safe-top 讓開劉海（帶 iOS env 偶發返回 0 的 JS 兜底；非劉海設備保底 12px） */}
                     <div className="flex items-center justify-between px-4 bg-white/60 backdrop-blur-xl border-b border-white/20 shrink-0 relative z-20" style={{ paddingTop: 'max(12px, var(--safe-top))', paddingBottom: '12px' }}>
                         <button onClick={handleClosePost} className="p-2 -m-2 active:opacity-60"><Icons.Back /></button>
                         <div className="flex items-center gap-2">
@@ -917,12 +917,12 @@ ${buildSparkCommentHistory(post)}
                         {/* Comments Section */}
                         <div className="px-6 pb-6">
                             <div className="text-sm font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                <span>共 {selectedPost.comments.length} 条评论</span>
+                                <span>共 {selectedPost.comments.length} 條評論</span>
                                 {(loadingComments || isReplyingToUser) && <div className="w-3 h-3 border-2 border-slate-300 border-t-[#ff2442] rounded-full animate-spin"></div>}
                             </div>
                             
                             <div className="space-y-6">
-                                {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快来抢沙发...</div>}
+                                {selectedPost.comments.length === 0 && !loadingComments && <div className="text-center text-slate-300 text-xs py-10">快來搶沙發...</div>}
                                 {selectedPost.comments.map(c => (
                                     <div key={c.id} className="flex gap-3 animate-fade-in group">
                                         <TokenImg value={c.authorAvatar} className="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-100" />
@@ -952,10 +952,10 @@ ${buildSparkCommentHistory(post)}
                                     onChange={(e) => setCommentInput(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
                                     disabled={loadingComments || isReplyingToUser}
-                                    placeholder="说点什么..."
+                                    placeholder="說點什麼..."
                                     className="bg-transparent text-sm w-full outline-none text-slate-800 placeholder:text-slate-400 disabled:opacity-50"
                                 />
-                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in disabled:opacity-40">发送</button>}
+                                {commentInput.trim() && <button disabled={loadingComments || isReplyingToUser} onClick={handleSendComment} className="text-[#ff2442] font-bold text-sm animate-fade-in disabled:opacity-40">發送</button>}
                             </div>
                             <div className="flex gap-5 text-slate-600 shrink-0 items-center">
                                 <div className="flex flex-col items-center gap-0.5">
@@ -983,16 +983,16 @@ ${buildSparkCommentHistory(post)}
                 <div className="space-y-6">
                     <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-6 px-1">
                         <p className="text-xs text-slate-400 bg-slate-50 p-2 rounded-lg">
-                            为角色添加“马甲”(Sub-Accounts)。AI 发帖时会根据内容选择合适的身份。
+                            為角色添加“馬甲”(Sub-Accounts)。AI 發帖時會根據內容選擇合適的身份。
                         </p>
-                        {/* 分组筛选（没建分组时不渲染） */}
+                        {/* 分組篩選（沒建分組時不渲染） */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={identityGroupId} onChange={setIdentityGroupId} className="!mt-3 -mx-1 px-1" />
                         {filterCharactersByGroup(characters, characterGroups, identityGroupId).map(c => (
                             <div key={c.id} className="space-y-3 pb-4 border-b border-slate-50">
                                 <div className="flex items-center gap-2">
                                     <TokenImg value={c.avatar} className="w-6 h-6 rounded-full object-cover" />
                                     <span className="text-sm font-bold text-slate-700">{c.name}</span>
-                                    <button onClick={() => addSubAccount(c.id)} className="ml-auto text-[10px] bg-[#ff2442] text-white px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform">+ 添加马甲</button>
+                                    <button onClick={() => addSubAccount(c.id)} className="ml-auto text-[10px] bg-[#ff2442] text-white px-2 py-1 rounded-full shadow-sm active:scale-95 transition-transform">+ 添加馬甲</button>
                                 </div>
                                 
                                 <div className="space-y-2 pl-4 border-l-2 border-slate-100">
@@ -1000,7 +1000,7 @@ ${buildSparkCommentHistory(post)}
                                         <div key={acct.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm space-y-2 relative group">
                                             <div className="flex gap-2">
                                                 <div className="flex-1">
-                                                    <label className="text-[9px] text-slate-400 uppercase font-bold">网名 (Handle)</label>
+                                                    <label className="text-[9px] text-slate-400 uppercase font-bold">網名 (Handle)</label>
                                                     <input 
                                                         value={acct.handle} 
                                                         onChange={(e) => updateSubAccount(c.id, acct.id, 'handle', e.target.value)} 
@@ -1010,38 +1010,38 @@ ${buildSparkCommentHistory(post)}
                                                 <button 
                                                     onClick={() => deleteSubAccount(c.id, acct.id)}
                                                     className="text-slate-300 hover:text-red-400 p-1"
-                                                    title="删除"
+                                                    title="刪除"
                                                 >
                                                     ×
                                                 </button>
                                             </div>
                                             <div>
-                                                <label className="text-[9px] text-slate-400 uppercase font-bold">备注 (Context Note)</label>
+                                                <label className="text-[9px] text-slate-400 uppercase font-bold">備註 (Context Note)</label>
                                                 <input 
                                                     value={acct.note} 
                                                     onChange={(e) => updateSubAccount(c.id, acct.id, 'note', e.target.value)} 
-                                                    placeholder="例如: 吐槽号 / 认真模式"
+                                                    placeholder="例如: 吐槽號 / 認真模式"
                                                     className="w-full text-xs text-slate-500 bg-slate-50 rounded px-2 py-1 focus:bg-white transition-colors outline-none" 
                                                 />
                                             </div>
                                         </div>
                                     ))}
                                     {(characterHandles[c.id]?.length || 0) === 0 && (
-                                        <div className="text-[10px] text-red-400 italic flex items-center gap-1"><Warning size={12} weight="bold" /> 请至少保留一个身份</div>
+                                        <div className="text-[10px] text-red-400 italic flex items-center gap-1"><Warning size={12} weight="bold" /> 請至少保留一個身份</div>
                                     )}
                                 </div>
                             </div>
                         ))}
                     </div>
                     <div className="flex gap-3 pt-2">
-                        <button onClick={handleClearFeed} className="flex-1 py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl text-xs active:bg-slate-50">清空推荐流</button>
+                        <button onClick={handleClearFeed} className="flex-1 py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl text-xs active:bg-slate-50">清空推薦流</button>
                         <button onClick={() => setShowSettings(false)} className="flex-1 py-3 bg-[#ff2442] text-white font-bold rounded-xl text-xs shadow-lg shadow-red-200 active:scale-95 transition-transform">完成</button>
                     </div>
                 </div>
             </Modal>
 
             <Modal isOpen={showShareModal} title="分享帖子" onClose={() => setShowShareModal(false)}>
-                {/* 分组筛选（没建分组时不渲染） */}
+                {/* 分組篩選（沒建分組時不渲染） */}
                 <CharacterGroupFilterBar characters={characters} groups={characterGroups} value={shareGroupId} onChange={setShareGroupId} className="mb-1 px-2" />
                 <div className="grid grid-cols-4 gap-4 p-2">
                     {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
@@ -1056,17 +1056,17 @@ ${buildSparkCommentHistory(post)}
             {/* --- Create Post Modal (Full Screen Overlay) --- */}
             {isCreateOpen && (
                 <div className="absolute inset-0 z-50 bg-white flex flex-col animate-slide-up">
-                    {/* Create Header —— 自理安全区：外层扛 safe-top + 背景，内层保持 h-14 内容栏（同主栏，避开 border-box 吃 padding） */}
+                    {/* Create Header —— 自理安全區：外層扛 safe-top + 背景，內層保持 h-14 內容欄（同主欄，避開 border-box 吃 padding） */}
                     <div className="sticky top-0 z-20 bg-white border-b border-slate-50" style={{ paddingTop: 'var(--safe-top)' }}>
                         <div className="h-14 flex items-center justify-between px-4">
                             <button onClick={() => setIsCreateOpen(false)} className="text-slate-600 text-sm font-bold px-2 py-1">取消</button>
-                            <span className="text-sm font-bold text-slate-800">发布笔记</span>
+                            <span className="text-sm font-bold text-slate-800">發佈筆記</span>
                             <button
                                 onClick={handleCreatePost}
                                 disabled={!newPostContent.trim()}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold text-white transition-all ${newPostContent.trim() ? 'bg-[#ff2442] shadow-md shadow-red-200' : 'bg-slate-200 text-slate-400'}`}
                             >
-                                发布
+                                發佈
                             </button>
                         </div>
                     </div>
@@ -1076,7 +1076,7 @@ ${buildSparkCommentHistory(post)}
                         <input 
                             value={newPostTitle} 
                             onChange={e => setNewPostTitle(e.target.value)} 
-                            placeholder="填写标题会有更多赞哦~" 
+                            placeholder="填寫標題會有更多贊哦~" 
                             className="text-xl font-black placeholder:text-slate-300 outline-none mb-4 w-full" 
                         />
                         <textarea 
@@ -1088,7 +1088,7 @@ ${buildSparkCommentHistory(post)}
                         
                         {/* Sticker Selector - Flowing after text */}
                         <div className="mt-4 pt-4 border-t border-slate-50">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">添加心情贴纸 (Sticker)</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">添加心情貼紙 (Sticker)</p>
                             <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                                 {STICKER_OPTIONS.map(sticker => (
                                     <button
@@ -1108,14 +1108,14 @@ ${buildSparkCommentHistory(post)}
             {/* --- Main Feed View --- */}
             <div className={`flex-col h-full ${selectedPost || isCreateOpen ? 'hidden' : 'flex'}`}>
                 
-                {/* Top Nav - Glass —— 自理安全区：外层扛 safe-top + 背景（无固定高度，padding 正常撑开到刘海/灵动岛下），
-                    内层保持 h-11 内容栏、文字居中。不能把 paddingTop 直接加到 h-11 上：border-box 会把 padding 吃进
-                    固定高度，content-box 塌成 0，文字被挤到白条下沿、跨在白/渐变交界上被劈开。sticky 必须留在外层。 */}
+                {/* Top Nav - Glass —— 自理安全區：外層扛 safe-top + 背景（無固定高度，padding 正常撐開到劉海/靈動島下），
+                    內層保持 h-11 內容欄、文字居中。不能把 paddingTop 直接加到 h-11 上：border-box 會把 padding 吃進
+                    固定高度，content-box 塌成 0，文字被擠到白條下沿、跨在白/漸變交界上被劈開。sticky 必須留在外層。 */}
                 <div className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="h-11 flex items-center justify-between px-4">
                         <button onClick={closeApp} className="p-1"><Icons.Back onClick={closeApp} /></button>
                         <div className="flex gap-6 text-base font-bold text-slate-300">
-                            <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>发现</button>
+                            <button className={`${activeTab === 'home' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('home'); trackEvent('切换 Spark 主标签', { tab: 'home' }); }}>發現</button>
                             <button className={`${activeTab === 'me' ? 'text-slate-800 scale-110 border-b-2 border-[#ff2442] pb-1' : 'hover:text-slate-500'} transition-all`} onClick={() => { setActiveTab('me'); trackEvent('切换 Spark 主标签', { tab: 'me' }); }}>我的</button>
                         </div>
                         <button onClick={() => { setShowSettings(true); trackEvent('打开身份管理面板'); }} className="text-slate-800 font-bold text-sm">管理</button>
@@ -1131,11 +1131,11 @@ ${buildSparkCommentHistory(post)}
                             <div className="flex items-center justify-center py-3">
                                 {isRefreshing ? (
                                     <div className="text-center text-xs text-[#ff2442] font-bold animate-pulse flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-[#ff2442] border-t-transparent rounded-full animate-spin"></div> 正在获取新鲜事...
+                                        <div className="w-4 h-4 border-2 border-[#ff2442] border-t-transparent rounded-full animate-spin"></div> 正在獲取新鮮事...
                                     </div>
                                 ) : (
                                     <button onClick={handleRefresh} className="px-6 py-2 bg-white/80 backdrop-blur-md rounded-full text-xs font-bold text-slate-500 shadow-sm border border-white hover:text-[#ff2442] active:scale-95 transition-all">
-                                        点击刷新推荐流
+                                        點擊刷新推薦流
                                     </button>
                                 )}
                             </div>
@@ -1156,7 +1156,7 @@ ${buildSparkCommentHistory(post)}
                                         <TokenImg value={userProfile.avatar} className="w-full h-full object-cover blur-2xl opacity-60 scale-125" />
                                     )}
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                        <span className="text-white text-xs font-bold bg-black/30 px-3 py-1 rounded-full backdrop-blur-md">更换背景</span>
+                                        <span className="text-white text-xs font-bold bg-black/30 px-3 py-1 rounded-full backdrop-blur-md">更換背景</span>
                                     </div>
                                     <input type="file" ref={userBgInputRef} className="hidden" accept="image/*" onChange={handleUserBgUpload} />
                                 </div>
@@ -1166,14 +1166,14 @@ ${buildSparkCommentHistory(post)}
                                     <div className="w-24 h-24 rounded-full p-1 bg-white/90 backdrop-blur-md shadow-lg relative group cursor-pointer" onClick={() => socialAvatarInputRef.current?.click()}>
                                         <TokenImg value={socialProfile.avatar} className="w-full h-full rounded-full object-cover" />
                                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full">
-                                            <span className="text-white text-[10px] font-bold">更换</span>
+                                            <span className="text-white text-[10px] font-bold">更換</span>
                                         </div>
                                         <input type="file" ref={socialAvatarInputRef} className="hidden" accept="image/*" onChange={handleSocialAvatarUpload} />
                                     </div>
 
                                     <div className="flex gap-2 mb-2">
                                         <button onClick={() => { setIsEditingId(!isEditingId); if(isEditingId) saveUserProfileChanges(); }} className="px-4 py-1.5 rounded-full border border-slate-200/60 bg-white/50 backdrop-blur-sm text-xs font-bold text-slate-600 hover:bg-white transition-colors">
-                                            {isEditingId ? '保存资料' : '编辑资料'}
+                                            {isEditingId ? '保存資料' : '編輯資料'}
                                         </button>
                                         <button className="p-1.5 rounded-full border border-slate-200/60 bg-white/50 backdrop-blur-sm text-slate-600 hover:bg-white transition-colors"><Icons.Share className="w-4 h-4" /></button>
                                     </div>
@@ -1210,22 +1210,22 @@ ${buildSparkCommentHistory(post)}
                                         onChange={e => setSocialProfile({...socialProfile, bio: e.target.value})}
                                         className="w-full mt-3 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg outline-none resize-none border border-slate-200 focus:border-primary/50"
                                         rows={3}
-                                        placeholder="填写你的个人简介..."
+                                        placeholder="填寫你的個人簡介..."
                                     />
                                 ) : (
                                     <p className="text-sm text-slate-600 mt-3 leading-relaxed font-light">{socialProfile.bio}</p>
                                 )}
 
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
-                                    <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">关注</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">12.5k</span><span className="text-[10px] text-slate-400">粉丝</span></div>
-                                    <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">获赞与收藏</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">關注</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">12.5k</span><span className="text-[10px] text-slate-400">粉絲</span></div>
+                                    <div className="text-center"><span className="block font-bold text-slate-800">8902</span><span className="text-[10px] text-slate-400">獲贊與收藏</span></div>
                                 </div>
                             </div>
 
                             {/* Sticky Tabs */}
                             <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-100 flex">
-                                <button onClick={() => { setProfileTab('notes'); trackEvent('切换个人主页子标签', { tab: 'notes' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'notes' ? 'text-slate-900 border-b-2 border-[#ff2442]' : 'text-slate-400'}`}>笔记</button>
+                                <button onClick={() => { setProfileTab('notes'); trackEvent('切换个人主页子标签', { tab: 'notes' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'notes' ? 'text-slate-900 border-b-2 border-[#ff2442]' : 'text-slate-400'}`}>筆記</button>
                                 <button onClick={() => { setProfileTab('collects'); trackEvent('切换个人主页子标签', { tab: 'collects' }); }} className={`flex-1 py-3 text-sm font-bold transition-colors ${profileTab === 'collects' ? 'text-slate-900 border-b-2 border-[#ff2442]' : 'text-slate-400'}`}>收藏</button>
                             </div>
 

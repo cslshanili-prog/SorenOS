@@ -1,16 +1,16 @@
 /**
- * 购物中心的 AI 收发标签解析——跟 utils/transferFormat.ts 同一个路数（记录形态 + 输出语法
- * 两层词汇表，模型从「见过的」到「该写的」只换一个词）：
+ * 購物中心的 AI 收發標籤解析——跟 utils/transferFormat.ts 同一個路數（記錄形態 + 輸出語法
+ * 兩層詞彙表，模型從「見過的」到「該寫的」只換一個詞）：
  *
- * - GIFT：角色主动送用户一份礼物/外卖，跟 TRANSFER 的「send」对称——发送即结清，从角色自己
- *   的 Real Balance 扣款（单向支出，不是转账，用户这边没有对应入账，钱花在了「物」上）。
- * - DAIFU_ACCEPT / DAIFU_DECLINE：角色对用户发起的「外卖代付请求」支付或拒绝，没有对应的
- *   「send」变体——代付请求永远是用户从购物中心 mini-app 手动发起的（见 apps/Chat.tsx 的
- *   handleSendMallOrder），角色不会主动发起一笔代付请求（那反而该用 GIFT）。
+ * - GIFT：角色主動送用戶一份禮物/外賣，跟 TRANSFER 的「send」對稱——發送即結清，從角色自己
+ *   的 Real Balance 扣款（單向支出，不是轉帳，用戶這邊沒有對應入帳，錢花在了「物」上）。
+ * - DAIFU_ACCEPT / DAIFU_DECLINE：角色對用戶發起的「外賣代付請求」支付或拒絕，沒有對應的
+ *   「send」變體——代付請求永遠是用戶從購物中心 mini-app 手動發起的（見 apps/Chat.tsx 的
+ *   handleSendMallOrder），角色不會主動發起一筆代付請求（那反而該用 GIFT）。
  *
- * 历史:  [[记录:MALL|kind=food|mode=daifu|items=简餐套餐x1|amount=32|status=待处理/已支付/已拒绝]]
- * 输出:  [[ACTION:GIFT|item=礼物名|price=数字|note=可选备注]]
- *        [[ACTION:DAIFU_ACCEPT]] / [[ACTION:DAIFU_DECLINE|reason=简短原因]]
+ * 歷史:  [[記錄:MALL|kind=food|mode=daifu|items=簡餐套餐x1|amount=32|status=待處理/已支付/已拒絕]]
+ * 輸出:  [[ACTION:GIFT|item=禮物名|price=數字|note=可選備註]]
+ *        [[ACTION:DAIFU_ACCEPT]] / [[ACTION:DAIFU_DECLINE|reason=簡短原因]]
  */
 
 export type MallOrderAiEvent =
@@ -27,23 +27,23 @@ export interface MallRecordInput {
 }
 
 const STATUS_LABEL: Record<MallRecordInput['status'], string> = {
-    sent: '已送出', pending: '待处理', accepted: '已支付', declined: '已拒绝',
+    sent: '已送出', pending: '待處理', accepted: '已支付', declined: '已拒絕',
 };
 
-/** 消息 -> 历史记录行，跟 formatTransferRecord 一样是幂等哨兵：模型复读这行会被消费丢弃，不产生新事件。 */
+/** 消息 -> 歷史記錄行，跟 formatTransferRecord 一樣是冪等哨兵：模型復讀這行會被消費丟棄，不產生新事件。 */
 export function formatMallOrderRecord(input: MallRecordInput): string {
     const itemsPart = input.items.map(i => `${i.name}x${i.qty}`).join('、') || '（空）';
-    return `[[记录:MALL|kind=${input.kind}|mode=${input.mode}|items=${itemsPart}|amount=${input.amount}|status=${STATUS_LABEL[input.status]}]]`;
+    return `[[記錄:MALL|kind=${input.kind}|mode=${input.mode}|items=${itemsPart}|amount=${input.amount}|status=${STATUS_LABEL[input.status]}]]`;
 }
 
 interface Hit { start: number; end: number; event: MallOrderAiEvent | null; }
 
-const RECORD_MALL_RE = /\[\[\s*[记記][录錄]\s*[:：]\s*MALL[^\]]*\]\]/gi;
+const RECORD_MALL_RE = /\[\[\s*[记記記][录錄錄]\s*[:：]\s*MALL[^\]]*\]\]/gi;
 const ACTION_GIFT_RE = /\[\[\s*ACTION\s*[:：]\s*GIFT\s*((?:\|[^\]]*)?)\s*\]\]/gi;
 const ACTION_ACCEPT_RE = /\[\[\s*ACTION\s*[:：]\s*DAIFU_ACCEPT\s*\]\]/gi;
 const ACTION_DECLINE_RE = /\[\[\s*ACTION\s*[:：]\s*DAIFU_DECLINE\s*((?:\|[^\]]*)?)\s*\]\]/gi;
 
-/** kv 解析：`item=礼物名|price=19.9|note=...` → {item, price, note}，键名不分大小写、支持中文键。 */
+/** kv 解析：`item=禮物名|price=19.9|note=...` → {item, price, note}，鍵名不分大小寫、支持中文鍵。 */
 function parseKvArgs(argStr: string): Record<string, string> {
     const out: Record<string, string> = {};
     for (const part of argStr.split(/[|｜]/)) {
@@ -63,15 +63,15 @@ function parseDeclineArgs(argStr: string): string | undefined {
     return kv.reason || kv['原因'] || undefined;
 }
 
-/** `[[ACTION:GIFT|...]]` → send 事件；item/price 缺一个都当无效标签剥掉不产生事件
- *（比 transferFormat.ts 的金额校验简单——这里不接受口语兜底/防伪造，GIFT 本来就
- * 只由角色一方发起，没有"文本里的方向信息"需要校验）。 */
+/** `[[ACTION:GIFT|...]]` → send 事件；item/price 缺一個都當無效標籤剝掉不產生事件
+ *（比 transferFormat.ts 的金額校驗簡單——這裡不接受口語兜底/防偽造，GIFT 本來就
+ * 只由角色一方發起，沒有"文本里的方向信息"需要校驗）。 */
 function kvToGiftEvent(argStr: string): MallOrderAiEvent | null {
     const kv = parseKvArgs(argStr);
-    const item = (kv.item || kv['商品'] || kv['礼物'] || '').trim();
-    const price = (kv.price || kv['价格'] || kv['金额'] || '').trim();
+    const item = (kv.item || kv['商品'] || kv['禮物'] || '').trim();
+    const price = (kv.price || kv['價格'] || kv['金額'] || '').trim();
     if (!item || !price || !/^\d+(?:\.\d+)?$/.test(price)) return null;
-    const note = kv.note || kv['备注'];
+    const note = kv.note || kv['備註'];
     return { kind: 'send', item, price, note };
 }
 

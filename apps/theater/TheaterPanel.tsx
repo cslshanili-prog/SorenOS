@@ -1,13 +1,13 @@
 /**
- * 彼方·剧院 面板。
+ * 彼方·劇院 面板。
  *
- * 视觉分两套：
- * - 主体（投稿/选剧/编排/表单/历史）走「深红丝绒 + 烫金」正剧院风（高对比、读得清）；
- * - 只有【演出时的台词气泡】保留动森奶油气泡那点可爱劲（角色说话用）。
+ * 視覺分兩套：
+ * - 主體（投稿/選劇/編排/表單/歷史）走「深紅絲絨 + 燙金」正劇院風（高對比、讀得清）；
+ * - 只有【演出時的台詞氣泡】保留動森奶油氣泡那點可愛勁（角色說話用）。
  *
- * 流程：投稿池(浏览/写/LLM代写/传txt) → 选一本【编排】(选角+缺角roll NPC+调用模式+可润色)
- * → 并发收集演员意见 → 【召唤导演】(注入各演员本色，防 OOC)整合最终本 → chibi 大舞台演出
- * → 收录【历史舞台剧】+ 回发各参演角色聊天。
+ * 流程：投稿池(瀏覽/寫/LLM代寫/傳txt) → 選一本【編排】(選角+缺角roll NPC+調用模式+可潤色)
+ * → 併發收集演員意見 → 【召喚導演】(注入各演員本色，防 OOC)整合最終本 → chibi 大舞台演出
+ * → 收錄【歷史舞台劇】+ 回發各參演角色聊天。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOS } from '../../context/OSContext';
@@ -22,18 +22,19 @@ import TokenImg from '../../components/os/TokenImg';
 import { CreatorIframe } from '../../components/Like520Event';
 import type { VRScript, VRStagedPlay, VRCastAssign, VRActorNote, VRStageMode, VRPlayRole, Emoji, EmojiCategory, CharacterProfile } from '../../types';
 import { shareOrDownloadFile } from '../../utils/shareExport';
+import { anyScriptRegexSource } from '../../utils/scriptKey';
 
 const tid = (p: string) => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 const SERIF = `'Noto Serif SC',serif`;
 
-/** 正剧院配色（深红丝绒 + 烫金 + 高对比奶白字）。 */
+/** 正劇院配色（深紅絲絨 + 燙金 + 高對比奶白字）。 */
 const TH = {
     bg: '#1b0f13', bg2: '#271820', bg3: '#33222b',
     line: 'rgba(212,175,106,.34)', gold: '#d8b271', goldSoft: '#caa46a',
     text: '#f4ece0', sub: '#cbb89e', crimson: '#b9384a', warn: '#e6c15a',
 };
 
-// ============ 正剧院风原子组件 ============
+// ============ 正劇院風原子組件 ============
 const TButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'default' | 'ghost'; size?: 'sm' | 'md'; block?: boolean; icon?: React.ReactNode }> = ({ variant = 'default', size = 'md', block, icon, children, disabled, style, ...rest }) => {
     const h = size === 'sm' ? 30 : 38, fs = size === 'sm' ? 12 : 13.5, padX = size === 'sm' ? 12 : 18;
     const v = variant === 'primary'
@@ -80,13 +81,13 @@ const taStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', fontS
 const cardStyle: React.CSSProperties = { background: TH.bg2, border: `1px solid ${TH.line}`, borderRadius: 12, padding: 10 };
 const pgBtn = (disabled: boolean): React.CSSProperties => ({ height: 24, width: 24, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TH.goldSoft, border: `1px solid ${TH.line}`, opacity: disabled ? 0.3 : 1, background: TH.bg3 });
 
-/** 解析上传 txt 成剧本。 */
+/** 解析上傳 txt 成劇本。 */
 function parseUploadedScript(text: string, fallbackTitle: string): { title: string; logline: string; roles: VRPlayRole[]; body: string } {
-    const grab = (label: string) => { const m = text.match(new RegExp(`${label}\\s*[:：]\\s*(.+)`)); return m ? m[1].trim() : ''; };
-    const title = grab('标题') || fallbackTitle;
-    const logline = grab('简介');
+    const grab = (label: string) => { const m = text.match(new RegExp(`${anyScriptRegexSource(label)}\\s*[:：]\\s*(.+)`)); return m ? m[1].trim() : ''; };
+    const title = grab('標題') || fallbackTitle;
+    const logline = grab('簡介');
     const roles: VRPlayRole[] = [];
-    const rb = text.match(/登场角色\s*[:：]?\s*\n([\s\S]*?)(?:\n\s*正文|\n\s*$)/);
+    const rb = text.match(/登[场場]角色\s*[:：]?\s*\n([\s\S]*?)(?:\n\s*正文|\n\s*$)/);
     if (rb) for (const raw of rb[1].split('\n')) { const l = raw.replace(/^[-·•\s]+/, '').trim(); if (!l) continue; const [n, ...r] = l.split(/[|｜/／:：]/); if (n.trim()) roles.push({ name: n.trim(), persona: r.join('/').trim() }); }
     const bm = text.match(/正文\s*[:：]?\s*\n([\s\S]*)$/);
     return { title, logline, roles, body: (bm ? bm[1] : text).trim() };
@@ -127,9 +128,9 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
         <>
             <div className="absolute left-3 right-3 z-20 rounded-[14px] overflow-hidden flex flex-col"
                 style={{ top: 'calc(var(--chrome-top) + 3.75rem)', bottom: 'calc(var(--safe-bottom) + 0.75rem)', background: TH.bg, border: `1px solid ${TH.line}`, color: TH.text, fontFamily: `'Nunito','Noto Sans SC',sans-serif`, boxShadow: '0 12px 34px rgba(0,0,0,.55)' }}>
-                {/* 招牌（烫金衬线，正式） */}
+                {/* 招牌（燙金襯線，正式） */}
                 <div className="shrink-0" style={{ background: 'linear-gradient(180deg,#2c0f17,#1c0a10)', borderBottom: `1px solid ${TH.line}`, padding: '9px 12px' }}>
-                    <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 17, letterSpacing: '.42em', color: TH.gold, fontFamily: SERIF, textShadow: '0 1px 2px #000', paddingLeft: '.42em' }}>剧 场</div>
+                    <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 17, letterSpacing: '.42em', color: TH.gold, fontFamily: SERIF, textShadow: '0 1px 2px #000', paddingLeft: '.42em' }}>劇 場</div>
                     <div style={{ textAlign: 'center', fontSize: 8.5, letterSpacing: '.34em', color: TH.goldSoft, marginTop: 3 }}>· THÉÂTRE · 今 日 上 演 ·</div>
                 </div>
 
@@ -139,24 +140,24 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
                             const on = tab === t;
                             return <button key={t} onClick={() => { setTab(t); setView('list'); }}
                                 style={{ fontSize: 12.5, fontWeight: 700, fontFamily: SERIF, padding: '3px 4px', color: on ? TH.gold : TH.sub, borderBottom: on ? `2px solid ${TH.gold}` : '2px solid transparent' }}>
-                                {t === 'scripts' ? '剧本投稿' : '历史舞台剧'}
+                                {t === 'scripts' ? '劇本投稿' : '歷史舞台劇'}
                             </button>;
                         })}
-                        <span className="ml-auto" style={{ fontSize: 9, color: TH.sub }}>{tab === 'scripts' ? `${scripts.length} 份剧本` : `${plays.length} 场演出`}</span>
+                        <span className="ml-auto" style={{ fontSize: 9, color: TH.sub }}>{tab === 'scripts' ? `${scripts.length} 份劇本` : `${plays.length} 場演出`}</span>
                     </div>
                 )}
 
                 <div className="flex-1 overflow-y-auto vr-reader-scroll" style={{ color: TH.text, padding: playMode ? 10 : 12 }}>
-                    {/* ===== 剧本列表 ===== */}
+                    {/* ===== 劇本列表 ===== */}
                     {tab === 'scripts' && view === 'list' && (
                         <>
                             <div className="flex gap-2 mb-3 flex-wrap">
-                                <TButton size="sm" variant="primary" icon={<Plus size={13} weight="bold" />} onClick={() => setWriteOpen(true)}>我来写</TButton>
-                                <TButton size="sm" icon={<Sparkle size={13} weight="bold" />} onClick={() => setLlmOpen(true)}>AI 代写</TButton>
-                                <UploadButton onParsed={async (p) => { const s: VRScript = { id: tid('scr'), ...p, authorId: 'user', authorName: userProfile?.name || '我', source: 'upload', createdAt: Date.now() }; await DB.saveVRScript(s); await reload(); addToast?.(`已收录《${s.title}》`, 'success'); }} />
+                                <TButton size="sm" variant="primary" icon={<Plus size={13} weight="bold" />} onClick={() => setWriteOpen(true)}>我來寫</TButton>
+                                <TButton size="sm" icon={<Sparkle size={13} weight="bold" />} onClick={() => setLlmOpen(true)}>AI 代寫</TButton>
+                                <UploadButton onParsed={async (p) => { const s: VRScript = { id: tid('scr'), ...p, authorId: 'user', authorName: userProfile?.name || '我', source: 'upload', createdAt: Date.now() }; await DB.saveVRScript(s); await reload(); addToast?.(`已收錄《${s.title}》`, 'success'); }} />
                             </div>
                             {scripts.length === 0 ? (
-                                <p style={{ fontSize: 12, color: TH.sub, textAlign: 'center', padding: '44px 0', lineHeight: 1.9 }}>戏单还空着。<br />让角色逛进剧院写一出，或你自己投一稿。</p>
+                                <p style={{ fontSize: 12, color: TH.sub, textAlign: 'center', padding: '44px 0', lineHeight: 1.9 }}>戲單還空著。<br />讓角色逛進劇院寫一齣，或你自己投一稿。</p>
                             ) : (
                                 <div className="space-y-2">
                                     {shown.map(s => (
@@ -167,7 +168,7 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
                                                 <span className="ml-auto shrink-0" style={{ fontSize: 9, color: TH.goldSoft }}>{s.authorName}</span>
                                             </div>
                                             {s.logline && <p style={{ fontSize: 11, color: TH.sub, marginTop: 3, lineHeight: 1.45 }} className="line-clamp-2">{s.logline}</p>}
-                                            <p style={{ fontSize: 9, color: TH.sub, marginTop: 5, opacity: .8 }}>{s.roles.length} 个角色 · {new Date(s.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}</p>
+                                            <p style={{ fontSize: 9, color: TH.sub, marginTop: 5, opacity: .8 }}>{s.roles.length} 個角色 · {new Date(s.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}</p>
                                         </button>
                                     ))}
                                     {totalPages > 1 && (
@@ -182,10 +183,10 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
                         </>
                     )}
 
-                    {/* ===== 历史 ===== */}
+                    {/* ===== 歷史 ===== */}
                     {tab === 'history' && view === 'list' && (
                         plays.length === 0 ? (
-                            <p style={{ fontSize: 12, color: TH.sub, textAlign: 'center', padding: '44px 0', lineHeight: 1.9 }}>还没有演出。<br />去剧本投稿里挑一本【编排】上演吧。</p>
+                            <p style={{ fontSize: 12, color: TH.sub, textAlign: 'center', padding: '44px 0', lineHeight: 1.9 }}>還沒有演出。<br />去劇本投稿裡挑一本【編排】上演吧。</p>
                         ) : (
                             <div className="space-y-2">
                                 {plays.map(p => (
@@ -201,9 +202,9 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
                         )
                     )}
 
-                    {view === 'script' && cur && <ScriptView script={cur} onBack={() => setView('list')} onStage={() => setView('stage')} onDelete={async () => { await DB.deleteVRScript(cur.id); await reload(); setView('list'); addToast?.('已删除', 'success'); }} />}
+                    {view === 'script' && cur && <ScriptView script={cur} onBack={() => setView('list')} onStage={() => setView('stage')} onDelete={async () => { await DB.deleteVRScript(cur.id); await reload(); setView('list'); addToast?.('已刪除', 'success'); }} />}
                     {view === 'stage' && cur && <StageView script={cur} ctx={ctx} apiConfig={apiConfig} addToast={addToast} onBack={() => setView('list')} onPolished={(body) => setCur({ ...cur, body })} onStaged={async (play) => { await DB.saveVRStagedPlay(play); await reload(); setCurPlay(play); setView('play'); }} />}
-                    {view === 'play' && curPlay && <PlaybackView play={curPlay} characters={characters} onBack={() => { setView('list'); setTab('history'); }} onDelete={async () => { await DB.deleteVRStagedPlay(curPlay.id); await reload(); setView('list'); setTab('history'); addToast?.('已删除这场演出', 'success'); }} />}
+                    {view === 'play' && curPlay && <PlaybackView play={curPlay} characters={characters} onBack={() => { setView('list'); setTab('history'); }} onDelete={async () => { await DB.deleteVRStagedPlay(curPlay.id); await reload(); setView('list'); setTab('history'); addToast?.('已刪除這場演出', 'success'); }} />}
                 </div>
             </div>
 
@@ -213,7 +214,7 @@ const TheaterPanel: React.FC<{ addToast?: (m: string, t?: any) => void }> = ({ a
     );
 };
 
-// ============ 看剧本 ============
+// ============ 看劇本 ============
 const ScriptView: React.FC<{ script: VRScript; onBack: () => void; onStage: () => void; onDelete: () => void }> = ({ script, onBack, onStage, onDelete }) => (
     <div>
         <div className="flex items-center gap-2 mb-2">
@@ -222,13 +223,13 @@ const ScriptView: React.FC<{ script: VRScript; onBack: () => void; onStage: () =
             <button onClick={onDelete} style={{ marginLeft: 'auto', color: TH.crimson, padding: 4, opacity: .8 }}><Trash size={15} /></button>
         </div>
         {script.logline && <p style={{ fontSize: 11.5, color: TH.sub, marginBottom: 8, fontStyle: 'italic' }}>{script.logline}</p>}
-        <div style={{ fontSize: 10.5, color: TH.goldSoft, marginBottom: 8 }}>登场：{script.roles.map(r => `${r.name}（${r.persona}）`).join('、') || '—'}</div>
+        <div style={{ fontSize: 10.5, color: TH.goldSoft, marginBottom: 8 }}>登場：{script.roles.map(r => `${r.name}（${r.persona}）`).join('、') || '—'}</div>
         <pre style={{ fontSize: 12, color: TH.text, whiteSpace: 'pre-wrap', lineHeight: 1.75, borderRadius: 10, padding: 12, marginBottom: 12, background: TH.bg2, border: `1px solid ${TH.line}`, fontFamily: SERIF }}>{script.body}</pre>
-        <TButton variant="primary" block icon={<FilmSlate size={14} weight="fill" />} onClick={onStage}>编排这出戏</TButton>
+        <TButton variant="primary" block icon={<FilmSlate size={14} weight="fill" />} onClick={onStage}>編排這出戲</TButton>
     </div>
 );
 
-// ============ 编排 ============
+// ============ 編排 ============
 const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; addToast?: (m: string, t?: any) => void; onBack: () => void; onPolished: (body: string) => void; onStaged: (play: VRStagedPlay) => void }> = ({ script, ctx, apiConfig, addToast, onBack, onPolished, onStaged }) => {
     const [step, setStep] = useState<'cast' | 'notes'>('cast');
     const [assign, setAssign] = useState<Record<string, VRCastAssign>>({});
@@ -240,7 +241,7 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
     const [npcEdit, setNpcEdit] = useState<{ roleName: string } | null>(null);
     const [userReq, setUserReq] = useState('');
 
-    const charOpts = useMemo(() => [{ key: '', label: '— 选演员 —' }, ...ctx.characters.map(c => ({ key: c.id, label: c.name }))], [ctx.characters]);
+    const charOpts = useMemo(() => [{ key: '', label: '— 選演員 —' }, ...ctx.characters.map(c => ({ key: c.id, label: c.name }))], [ctx.characters]);
     const cast = useMemo(() => script.roles.map(r => assign[r.name]).filter(Boolean) as VRCastAssign[], [assign, script.roles]);
     const allCast = cast.length === script.roles.length && script.roles.length > 0;
     const charCount = charActorCount(cast);
@@ -250,7 +251,7 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
         const ch = ctx.characters.find(c => c.id === charId);
         if (ch) setAssign(a => ({ ...a, [role.name]: { roleName: role.name, actorId: ch.id, actorName: ch.name, isNpc: false } }));
     };
-    /** roll 一个 NPC 立绘。keepName=true 时沿用当前名字（重 roll 用）。 */
+    /** roll 一個 NPC 立繪。keepName=true 時沿用當前名字（重 roll 用）。 */
     const rollNpc = async (role: VRPlayRole, keepName = false) => {
         setRolling(role.name);
         const existing = assign[role.name];
@@ -258,9 +259,9 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
         const npc = await rollNpcChibi();
         setAssign(a => ({ ...a, [role.name]: { roleName: role.name, actorId: existing?.isNpc ? existing.actorId : tid('npc'), actorName: name, isNpc: true, npcChibi: npc?.img } }));
         setRolling('');
-        addToast?.(npc ? `捏了个 NPC：${name}` : `NPC ${name}（立绘没出来，用占位）`, npc ? 'success' : 'error');
+        addToast?.(npc ? `捏了個 NPC：${name}` : `NPC ${name}（立繪沒出來，用佔位）`, npc ? 'success' : 'error');
     };
-    /** 打开捏脸器手动捏这个角色的 NPC（不满意 roll 就进去自己捏）。 */
+    /** 打開捏臉器手動捏這個角色的 NPC（不滿意 roll 就進去自己捏）。 */
     const openNpcEdit = (role: VRPlayRole) => {
         setAssign(a => {
             if (a[role.name]?.isNpc) return a;
@@ -273,31 +274,31 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
 
     const runStaging = async () => {
         const api = await resolveTheaterApi(apiConfig);
-        if (!api) { addToast?.('没配 API，去「API」标签填一下', 'error'); return; }
-        setBusy(mode === 'two-call' ? '演员们在读剧本（固定生成2段）…' : `${charCount} 位演员在各自读剧本…`);
+        if (!api) { addToast?.('沒配 API，去「API」標籤填一下', 'error'); return; }
+        setBusy(mode === 'two-call' ? '演員們在讀劇本（固定生成2段）…' : `${charCount} 位演員在各自讀劇本…`);
         try {
             const result = await collectActorNotes(script, cast, mode, ctx, api);
             setNotes(result); setStep('notes');
             for (const n of result) {
                 if (n.actorId.startsWith('npc')) continue;
-                const act = !n.cooperative ? `对舞台剧《${script.title}》有点抵触，觉得：${n.note}` : n.lines ? `把自己在《${script.title}》里的戏份改成了自己的演法，觉得：${n.note}` : `读了舞台剧《${script.title}》，觉得：${n.note}`;
-                await DB.saveMessage({ charId: n.actorId, role: 'assistant', type: 'vr_card', content: `「彼方 · 剧院」${n.actorName}${act}`, metadata: { vrCard: true, room: 'theater', activity: act, behavior: n.lines } } as any);
+                const act = !n.cooperative ? `對舞台劇《${script.title}》有點牴觸，覺得：${n.note}` : n.lines ? `把自己在《${script.title}》裡的戲份改成了自己的演法，覺得：${n.note}` : `讀了舞台劇《${script.title}》，覺得：${n.note}`;
+                await DB.saveMessage({ charId: n.actorId, role: 'assistant', type: 'vr_card', content: `「彼方 · 劇院」${n.actorName}${act}`, metadata: { vrCard: true, room: 'theater', activity: act, behavior: n.lines } } as any);
             }
-        } catch (e: any) { addToast?.('编排失败：' + (e?.message || '检查网络/API'), 'error'); }
+        } catch (e: any) { addToast?.('編排失敗：' + (e?.message || '檢查網絡/API'), 'error'); }
         finally { setBusy(''); }
     };
 
     const summonDirector = async () => {
         const api = await resolveTheaterApi(apiConfig);
-        if (!api) { addToast?.('没配 API', 'error'); return; }
-        setBusy('导演在整合最终本…');
+        if (!api) { addToast?.('沒配 API', 'error'); return; }
+        setBusy('導演在整合最終本…');
         try {
             const d = await runDirector(script, cast, notes, ctx, api, userReq.trim() || undefined);
             const play: VRStagedPlay = { id: tid('play'), scriptId: script.id, title: script.title, logline: script.logline, cast, notes, stage: d.stage, reviews: d.reviews, rating: d.rating, createdAt: Date.now() };
             const castNames = cast.map(c => c.actorName).join('、');
-            for (const c of cast) { if (c.isNpc) continue; const act = `参演的舞台剧《${script.title}》落幕了（演员：${castNames}）。综评 ${d.rating}`; await DB.saveMessage({ charId: c.actorId, role: 'assistant', type: 'vr_card', content: `「彼方 · 剧院」${act}`, metadata: { vrCard: true, room: 'theater', activity: act } } as any); }
+            for (const c of cast) { if (c.isNpc) continue; const act = `參演的舞台劇《${script.title}》落幕了（演員：${castNames}）。綜評 ${d.rating}`; await DB.saveMessage({ charId: c.actorId, role: 'assistant', type: 'vr_card', content: `「彼方 · 劇院」${act}`, metadata: { vrCard: true, room: 'theater', activity: act } } as any); }
             onStaged(play);
-        } catch (e: any) { addToast?.('导演罢工了：' + (e?.message || '检查网络/API'), 'error'); }
+        } catch (e: any) { addToast?.('導演罷工了：' + (e?.message || '檢查網絡/API'), 'error'); }
         finally { setBusy(''); }
     };
 
@@ -312,14 +313,14 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
         <div>
             <div className="flex items-center gap-2 mb-2">
                 <button onClick={onBack} style={{ color: TH.goldSoft, padding: 4, marginLeft: -4 }}><CaretLeft size={18} /></button>
-                <span style={{ fontSize: 14, fontWeight: 800, color: TH.text, fontFamily: SERIF }} className="truncate">编排《{script.title}》</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: TH.text, fontFamily: SERIF }} className="truncate">編排《{script.title}》</span>
             </div>
 
             {step === 'cast' && (
                 <>
                     <div className="flex items-center justify-between mb-2">
-                        <span style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF }}>选 角</span>
-                        <TButton size="sm" icon={<Sparkle size={12} />} onClick={() => setPolishOpen(true)}>润色剧本</TButton>
+                        <span style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF }}>選 角</span>
+                        <TButton size="sm" icon={<Sparkle size={12} />} onClick={() => setPolishOpen(true)}>潤色劇本</TButton>
                     </div>
                     <div className="space-y-2 mb-3">
                         {script.roles.map(r => {
@@ -332,8 +333,8 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
                                             {a.npcChibi ? <TokenImg value={a.npcChibi} style={{ height: 34, objectFit: 'contain' }} alt="" /> : <div style={{ height: 30, width: 30, borderRadius: 999, background: TH.bg3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: TH.gold }}>{a.actorName.slice(0, 1)}</div>}
                                             <span style={{ fontSize: 11.5, color: TH.text }}>{a.actorName} <span style={{ fontSize: 8.5, color: TH.gold }}>NPC</span></span>
                                             <div className="ml-auto flex items-center gap-1">
-                                                <TButton size="sm" disabled={!!rolling} onClick={() => rollNpc(r, true)} title="换一个">{rolling === r.name ? '🎲…' : '🎲'}</TButton>
-                                                <TButton size="sm" onClick={() => setNpcEdit({ roleName: r.name })} title="进去自己捏">✏️捏</TButton>
+                                                <TButton size="sm" disabled={!!rolling} onClick={() => rollNpc(r, true)} title="換一個">{rolling === r.name ? '🎲…' : '🎲'}</TButton>
+                                                <TButton size="sm" onClick={() => setNpcEdit({ roleName: r.name })} title="進去自己捏">✏️捏</TButton>
                                                 <button onClick={() => setChar(r, '')} style={{ color: TH.sub, padding: 4 }}><X size={14} /></button>
                                             </div>
                                         </div>
@@ -341,7 +342,7 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
                                         <div className="flex items-center gap-1.5" style={{ marginTop: 6 }}>
                                             <div className="flex-1"><TSelect value={a?.actorId || ''} onChange={(v) => setChar(r, v)} options={charOpts} /></div>
                                             <TButton size="sm" disabled={!!rolling} onClick={() => rollNpc(r)}>{rolling === r.name ? '🎲…' : '🎲NPC'}</TButton>
-                                            <TButton size="sm" onClick={() => openNpcEdit(r)} title="进去自己捏一个">✏️</TButton>
+                                            <TButton size="sm" onClick={() => openNpcEdit(r)} title="進去自己捏一個">✏️</TButton>
                                         </div>
                                     )}
                                 </div>
@@ -351,7 +352,7 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
 
                     <div style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF, marginBottom: 6 }}>表演方式</div>
                     <div className="grid grid-cols-2 gap-2 mb-2">
-                        {([['per-role', '逐角色', '每位角色各生成一段（精准、贴人设）'], ['two-call', '固定两次', '1 次搞定全部演员（省，但可能 OOC）']] as const).map(([m, t, d]) => {
+                        {([['per-role', '逐角色', '每位角色各生成一段（精準、貼人設）'], ['two-call', '固定兩次', '1 次搞定全部演員（省，但可能 OOC）']] as const).map(([m, t, d]) => {
                             const on = mode === m;
                             return <button key={m} onClick={() => setMode(m)} style={{ borderRadius: 12, padding: 10, textAlign: 'left', background: on ? 'rgba(216,178,113,.12)' : TH.bg2, border: `1px solid ${on ? TH.gold : TH.line}` }}>
                                 <div style={{ fontSize: 11.5, fontWeight: 800, color: on ? TH.gold : TH.text }}>{t}</div>
@@ -359,37 +360,37 @@ const StageView: React.FC<{ script: VRScript; ctx: TheaterCtx; apiConfig: any; a
                             </button>;
                         })}
                     </div>
-                    <p style={{ fontSize: 9.5, color: TH.sub, marginBottom: 8, textAlign: 'center' }}>本次大约要生成 <b style={{ color: TH.gold }}>{mode === 'two-call' ? (charCount > 0 ? 2 : 1) : charCount + 1}</b> 段{mode === 'per-role' ? `（${charCount} 角色 + 1 导演；NPC 不计）` : '（演员 1 段 + 导演 1 段）'}</p>
-                    <TButton variant="primary" block disabled={!allCast} onClick={runStaging}>{allCast ? '开始编排 →' : '先给每个角色选演员'}</TButton>
+                    <p style={{ fontSize: 9.5, color: TH.sub, marginBottom: 8, textAlign: 'center' }}>本次大約要生成 <b style={{ color: TH.gold }}>{mode === 'two-call' ? (charCount > 0 ? 2 : 1) : charCount + 1}</b> 段{mode === 'per-role' ? `（${charCount} 角色 + 1 導演；NPC 不計）` : '（演員 1 段 + 導演 1 段）'}</p>
+                    <TButton variant="primary" block disabled={!allCast} onClick={runStaging}>{allCast ? '開始編排 →' : '先給每個角色選演員'}</TButton>
                 </>
             )}
 
             {step === 'notes' && (
                 <>
-                    <div style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF, marginBottom: 8 }}>演员就位 · 各自的演法</div>
+                    <div style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF, marginBottom: 8 }}>演員就位 · 各自的演法</div>
                     <div className="space-y-2 mb-3">{notes.map((n, i) => <ActorNoteCard key={i} note={n} cast={cast} characters={ctx.characters} />)}</div>
                     <div style={{ ...cardStyle, marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: TH.gold, marginBottom: 4 }}>🎬 你想看的（导演必须满足 · 最高优先级）</div>
-                        <div style={{ fontSize: 9.5, color: TH.sub, marginBottom: 6, lineHeight: 1.5 }}>写下你一定要看到的情节/名场面/台词。导演不能删，演员若不情愿也只会棒读/敷衍，但照样得演。</div>
-                        <textarea value={userReq} onChange={e => setUserReq(e.target.value)} rows={2} placeholder="可空。例：必须有一段两人对跳的舞 / 一定要让 XX 说出那句台词" style={taStyle} />
+                        <div style={{ fontSize: 11, fontWeight: 800, color: TH.gold, marginBottom: 4 }}>🎬 你想看的（導演必須滿足 · 最高優先級）</div>
+                        <div style={{ fontSize: 9.5, color: TH.sub, marginBottom: 6, lineHeight: 1.5 }}>寫下你一定要看到的情節/名場面/台詞。導演不能刪，演員若不情願也只會棒讀/敷衍，但照樣得演。</div>
+                        <textarea value={userReq} onChange={e => setUserReq(e.target.value)} rows={2} placeholder="可空。例：必須有一段兩人對跳的舞 / 一定要讓 XX 說出那句台詞" style={taStyle} />
                     </div>
-                    <TButton variant="primary" block icon={<FilmSlate size={14} weight="fill" />} onClick={summonDirector}>召唤导演 · 整合最终本</TButton>
+                    <TButton variant="primary" block icon={<FilmSlate size={14} weight="fill" />} onClick={summonDirector}>召喚導演 · 整合最終本</TButton>
                 </>
             )}
 
-            <PolishModal open={polishOpen} onClose={() => setPolishOpen(false)} apiConfig={apiConfig} body={script.body} addToast={addToast} onPolished={(body) => { onPolished(body); setPolishOpen(false); addToast?.('润色好啦', 'success'); }} />
+            <PolishModal open={polishOpen} onClose={() => setPolishOpen(false)} apiConfig={apiConfig} body={script.body} addToast={addToast} onPolished={(body) => { onPolished(body); setPolishOpen(false); addToast?.('潤色好啦', 'success'); }} />
 
-            {/* NPC 捏脸器：roll 得不满意就进来自己捏 */}
+            {/* NPC 捏臉器：roll 得不滿意就進來自己捏 */}
             {npcEdit && (() => {
                 const a = assign[npcEdit.roleName];
                 return (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 330, background: '#180810', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: `1px solid ${TH.line}`, color: TH.text, paddingTop: 'calc(var(--chrome-top) + 4px)' }}>
-                            <span style={{ fontWeight: 800, fontFamily: SERIF, fontSize: 14, color: TH.gold }}>捏个群演 · {a?.actorName || 'NPC'}</span>
+                            <span style={{ fontWeight: 800, fontFamily: SERIF, fontSize: 14, color: TH.gold }}>捏個群演 · {a?.actorName || 'NPC'}</span>
                             <button onClick={() => setNpcEdit(null)} style={{ marginLeft: 'auto', color: TH.goldSoft, padding: 4 }}><X size={20} /></button>
                         </div>
                         <div style={{ flex: 1, minHeight: 0 }}>
-                            <CreatorIframe mode="char" charName={a?.actorName || 'NPC'} draftKey={`theater_npc_${script.id}_${npcEdit.roleName}`} title="捏个群演" subtitle="THEATER NPC"
+                            <CreatorIframe mode="char" charName={a?.actorName || 'NPC'} draftKey={`theater_npc_${script.id}_${npcEdit.roleName}`} title="捏個群演" subtitle="THEATER NPC"
                                 onConfirm={(res) => { applyNpcChibi(npcEdit.roleName, res.transparentDataUrl); setNpcEdit(null); addToast?.('NPC 形象已更新', 'success'); }} />
                         </div>
                     </div>
@@ -404,26 +405,26 @@ const ActorNoteCard: React.FC<{ note: VRActorNote; cast: VRCastAssign[]; charact
     const assign = cast.find(c => c.actorId === note.actorId);
     const ch = characters.find(c => c.id === note.actorId);
     const img = assign?.npcChibi || (ch ? getChibi(ch).img : undefined);
-    const att = note.attitude || (note.cooperative ? '配合' : '抵触');
-    const attColor = ['抵触', '拒演'].some(k => att.includes(k)) ? TH.crimson : ['勉强', '隐忍'].some(k => att.includes(k)) ? TH.warn : '#86c98a';
+    const att = note.attitude || (note.cooperative ? '配合' : '牴觸');
+    const attColor = ['牴觸', '拒演'].some(k => att.includes(k)) ? TH.crimson : ['勉強', '隱忍'].some(k => att.includes(k)) ? TH.warn : '#86c98a';
     return (
         <button onClick={() => setOpen(o => !o)} className="w-full text-left" style={{ ...cardStyle, border: `1px solid ${note.cooperative ? TH.line : 'rgba(185,56,74,.6)'}` }}>
             <div className="flex items-center gap-2">
                 {img ? <TokenImg value={img} style={{ height: 30, width: 30, objectFit: 'contain' }} alt="" /> : <div style={{ height: 28, width: 28, borderRadius: 999, background: TH.bg3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: TH.gold }}>{note.actorName.slice(0, 1)}</div>}
                 <span style={{ fontSize: 11.5, fontWeight: 800, color: TH.text }}>{note.actorName}</span>
-                <span style={{ fontSize: 8.5, color: TH.sub }}>饰 {note.roleName}</span>
+                <span style={{ fontSize: 8.5, color: TH.sub }}>飾 {note.roleName}</span>
                 <span className="ml-auto" style={{ fontSize: 9.5, fontWeight: 800, color: attColor, border: `1px solid ${attColor}`, borderRadius: 999, padding: '1px 8px' }}>{att}</span>
             </div>
             <p style={{ fontSize: 11, color: TH.text, marginTop: 4, lineHeight: 1.45 }}>{note.note}</p>
             {note.taboo && <p style={{ fontSize: 9.5, color: TH.crimson, marginTop: 3, lineHeight: 1.45 }}>⛔ 禁忌：{note.taboo}</p>}
-            {(note.lines || note.direction) && <p style={{ fontSize: 9, color: TH.goldSoft, marginTop: 3 }}>{open ? '▾ 收起' : '▸ 点开看 ta 重写的戏份 / 给导演的话'}</p>}
+            {(note.lines || note.direction) && <p style={{ fontSize: 9, color: TH.goldSoft, marginTop: 3 }}>{open ? '▾ 收起' : '▸ 點開看 ta 重寫的戲份 / 給導演的話'}</p>}
             {open && note.lines && <pre style={{ fontSize: 10.5, color: TH.text, marginTop: 4, padding: 8, background: TH.bg3, borderRadius: 8, borderLeft: `2px solid ${TH.gold}`, lineHeight: 1.5, whiteSpace: 'pre-wrap', fontFamily: SERIF }}>{note.lines}</pre>}
-            {open && note.direction && <p style={{ fontSize: 10, color: TH.goldSoft, marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${TH.line}`, lineHeight: 1.45 }}>🎬 给导演：{note.direction}</p>}
+            {open && note.direction && <p style={{ fontSize: 10, color: TH.goldSoft, marginTop: 4, paddingLeft: 8, borderLeft: `2px solid ${TH.line}`, lineHeight: 1.45 }}>🎬 給導演：{note.direction}</p>}
         </button>
     );
 };
 
-// ============ 演出回放（大舞台 · chibi 蹦跶） ============
+// ============ 演出回放（大舞台 · chibi 蹦躂） ============
 const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[]; onBack: () => void; onDelete: () => void }> = ({ play, characters, onBack, onDelete }) => {
     const [i, setI] = useState(0);
     const [showScript, setShowScript] = useState(false);
@@ -431,16 +432,16 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
     const beats = play.stage;
     const ended = i >= beats.length;
 
-    // 名字→选角：演员名和角色名都映射到同一个 assign，
-    // 这样导演终本里无论写"演员名"还是"角色名"，回放都能找回该演员的 chibi。
+    // 名字→選角：演員名和角色名都映射到同一個 assign，
+    // 這樣導演終本里無論寫"演員名"還是"角色名"，回放都能找回該演員的 chibi。
     const assignByName = useMemo(() => {
         const m = new Map<string, VRCastAssign>();
         for (const c of play.cast) { m.set(c.actorName, c); m.set(c.roleName, c); }
         return m;
     }, [play.cast]);
-    /** 任意名字 → 该演员的展示名（统一成演员名，便于站位去重/高亮） */
+    /** 任意名字 → 該演員的展示名（統一成演員名，便於站位去重/高亮） */
     const canon = (name?: string): string => (name && assignByName.get(name)?.actorName) || name || '';
-    /** 任意名字 → 台上显示的名字（剧本里演的角色名；找不到就原样） */
+    /** 任意名字 → 台上顯示的名字（劇本里演的角色名；找不到就原樣） */
     const displayName = (name?: string): string => (name && assignByName.get(name)?.roleName) || name || '';
 
     const onStage = useMemo(() => {
@@ -469,30 +470,30 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
                 <button onClick={onBack} style={{ color: TH.goldSoft, padding: 4, marginLeft: -4 }}><CaretLeft size={18} /></button>
                 <span style={{ fontSize: 14, fontWeight: 800, color: TH.text, fontFamily: SERIF }} className="truncate">《{play.title}》</span>
                 <span className="ml-auto" style={{ fontSize: 11, fontWeight: 800, color: TH.warn }}>{play.rating?.split(/\s/)[0]}</span>
-                <button onClick={() => setShowScript(s => !s)} title="看终本" style={{ color: showScript ? TH.gold : TH.goldSoft, padding: 4, fontSize: 16 }}>📜</button>
-                <button onClick={() => setConfirmDel(true)} title="删除这场演出" style={{ color: TH.crimson, padding: 4, opacity: .8 }}><Trash size={15} /></button>
+                <button onClick={() => setShowScript(s => !s)} title="看終本" style={{ color: showScript ? TH.gold : TH.goldSoft, padding: 4, fontSize: 16 }}>📜</button>
+                <button onClick={() => setConfirmDel(true)} title="刪除這場演出" style={{ color: TH.crimson, padding: 4, opacity: .8 }}><Trash size={15} /></button>
             </div>
 
-            {/* 终本（导演整合后的最终剧本，可读文本） */}
+            {/* 終本（導演整合後的最終劇本，可讀文本） */}
             {showScript && (
                 <pre style={{ fontSize: 11.5, color: TH.text, whiteSpace: 'pre-wrap', lineHeight: 1.8, borderRadius: 10, padding: 12, marginBottom: 12, background: TH.bg2, border: `1px solid ${TH.line}`, fontFamily: SERIF, maxHeight: '52vh', overflowY: 'auto' }}>
                     {beats.map((b, k) =>
                         b.kind === 'narration' ? `（${b.text}）`
-                        : b.kind === 'enter' ? `——${displayName(b.actorName)} 上场——`
-                        : b.kind === 'exit' ? `——${displayName(b.actorName)} 下场——`
+                        : b.kind === 'enter' ? `——${displayName(b.actorName)} 上場——`
+                        : b.kind === 'exit' ? `——${displayName(b.actorName)} 下場——`
                         : `${displayName(b.actorName)}：${b.text}`
                     ).join('\n')}
                 </pre>
             )}
 
-            {/* 删除确认 */}
+            {/* 刪除確認 */}
             {confirmDel && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 340, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(10,4,7,.62)' }} onClick={() => setConfirmDel(false)}>
                     <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 300, background: TH.bg2, border: `1px solid ${TH.line}`, borderRadius: 14, padding: 16, color: TH.text, textAlign: 'center' }}>
-                        <div style={{ fontSize: 13, fontFamily: SERIF, marginBottom: 14 }}>删除这场《{play.title}》？</div>
+                        <div style={{ fontSize: 13, fontFamily: SERIF, marginBottom: 14 }}>刪除這場《{play.title}》？</div>
                         <div className="flex gap-2">
                             <TButton block onClick={() => setConfirmDel(false)}>取消</TButton>
-                            <TButton block variant="primary" onClick={() => { setConfirmDel(false); onDelete(); }}>删除</TButton>
+                            <TButton block variant="primary" onClick={() => { setConfirmDel(false); onDelete(); }}>刪除</TButton>
                         </div>
                     </div>
                 </div>
@@ -500,37 +501,37 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
 
             {/* 大舞台 */}
             <div style={{ height: 'min(58vh, 460px)', borderRadius: 12, position: 'relative', overflow: 'hidden', marginBottom: 12, background: 'radial-gradient(120% 80% at 50% 0%, #4a1018 0%, #2a0a10 45%, #140406 100%)', border: `1px solid ${TH.line}`, boxShadow: 'inset 0 0 60px rgba(0,0,0,.6)' }}>
-                {/* 顶部檐幕 + 金穗 */}
+                {/* 頂部簷幕 + 金穗 */}
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 30, background: 'linear-gradient(180deg,#8a1224,#5e0d18)', boxShadow: '0 3px 10px rgba(0,0,0,.5)' }} />
                 <div style={{ position: 'absolute', top: 28, left: 0, right: 0, height: 8, background: `repeating-linear-gradient(90deg, ${TH.gold} 0 3px, transparent 3px 12px)`, opacity: .65 }} />
-                {/* 两侧垂幕 + 束带 */}
+                {/* 兩側垂幕 + 束帶 */}
                 <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '15%', background: 'linear-gradient(90deg,#7a0e1c,#4a0810 70%,transparent)' }} />
                 <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: '15%', background: 'linear-gradient(270deg,#7a0e1c,#4a0810 70%,transparent)' }} />
-                {/* 顶光束 */}
+                {/* 頂光束 */}
                 <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 18, width: '70%', height: '85%', background: 'radial-gradient(ellipse at 50% 0%, rgba(255,228,160,.22), transparent 68%)', pointerEvents: 'none' }} />
 
-                {/* 台词 / 旁白 */}
+                {/* 台詞 / 旁白 */}
                 {!ended && beat && (
                     <div style={{ position: 'absolute', left: 16, right: 16, top: 44, zIndex: 10 }}>
                         {beat.kind === 'narration' ? (
                             <div style={{ textAlign: 'center', fontSize: 11.5, color: 'rgba(255,236,206,.9)', fontStyle: 'italic', fontFamily: SERIF, padding: '7px 14px', borderRadius: 10, background: 'rgba(0,0,0,.45)', border: `1px solid ${TH.line}` }}>（{beat.text}）</div>
                         ) : beat.kind === 'line' ? (
-                            // ★ 唯一保留动森奶油气泡的地方
+                            // ★ 唯一保留動森奶油氣泡的地方
                             <div style={{ margin: '0 auto', width: 'fit-content', maxWidth: '90%', padding: '10px 15px', borderRadius: 18, fontSize: 13.5, color: '#3a2a20', fontWeight: 600, background: '#fff7ea', border: '2px solid #e8dcc0', boxShadow: '0 4px 0 rgba(0,0,0,.35)' }}>
                                 <span style={{ fontSize: 10, color: '#b9384a', fontWeight: 800, display: 'block', marginBottom: 1 }}>{displayName(beat.actorName)}</span>{beat.text}
                             </div>
                         ) : (
-                            <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,210,210,.6)' }}>（{displayName(beat.actorName)} {beat.kind === 'enter' ? '上场' : '下场'}）</div>
+                            <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,210,210,.6)' }}>（{displayName(beat.actorName)} {beat.kind === 'enter' ? '上場' : '下場'}）</div>
                         )}
                     </div>
                 )}
 
-                {/* 演员（大、有纵深、蹦跶） */}
+                {/* 演員（大、有縱深、蹦躂） */}
                 <div style={{ position: 'absolute', bottom: 26, left: 0, right: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 14, padding: '0 22px' }}>
                     {stageArr.map((name, idx) => {
                         const c = chibiOf(name);
                         const active = name === speaker;
-                        const depth = idx % 2 === 0 ? 0 : -10; // 奇偶错落出纵深
+                        const depth = idx % 2 === 0 ? 0 : -10; // 奇偶錯落出縱深
                         const baseH = active ? 168 : 138;
                         return (
                             <div key={name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: `translateY(${depth}px)`, animation: active ? 'thHopA .62s ease-in-out infinite' : `thHop 1.9s ${idx * .28}s ease-in-out infinite`, opacity: active || !speaker ? 1 : 0.5, transition: 'opacity .2s', zIndex: active ? 5 : 1 }}>
@@ -545,7 +546,7 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
                     })}
                 </div>
 
-                {/* 脚灯 */}
+                {/* 腳燈 */}
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 22, background: 'linear-gradient(180deg,transparent,#1a0608)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', padding: '0 14px 4px' }}>
                     {Array.from({ length: 11 }).map((_, k) => (
                         <span key={k} style={{ width: 7, height: 7, borderRadius: 999, background: 'radial-gradient(circle,#ffe6a0,#d8a23e)', boxShadow: '0 0 7px 2px rgba(255,210,120,.55)', animation: `thFoot 1.6s ${k * .12}s ease-in-out infinite` }} />
@@ -563,7 +564,7 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
                 </div>
             ) : (
                 <div>
-                    <div style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF, marginBottom: 6 }}>谢幕 · 观众席</div>
+                    <div style={{ fontSize: 11, letterSpacing: '.12em', color: TH.goldSoft, fontFamily: SERIF, marginBottom: 6 }}>謝幕 · 觀眾席</div>
                     <div className="space-y-1.5 mb-2">
                         {play.reviews.map((r, k) => (
                             <div key={k} style={{ borderRadius: 10, padding: 9, fontSize: 11, background: TH.bg2, border: `1px solid ${TH.line}` }}>
@@ -571,7 +572,7 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
                             </div>
                         ))}
                     </div>
-                    <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: TH.warn, fontFamily: SERIF, marginBottom: 12 }}>综合评级：{play.rating}</div>
+                    <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: TH.warn, fontFamily: SERIF, marginBottom: 12 }}>綜合評級：{play.rating}</div>
                     <div className="flex gap-2">
                         <TButton block onClick={() => setI(0)}>重看一遍</TButton>
                         <TButton block variant="primary" onClick={onBack}>收工</TButton>
@@ -582,10 +583,10 @@ const PlaybackView: React.FC<{ play: VRStagedPlay; characters: CharacterProfile[
     );
 };
 
-// ============ 风格 chips（润色 & 代写共用） ============
-// 写作风格预设选择器（像酒馆预设，选一个就给 LLM 灌一整套写作风格档案）。
-// 自带"自定义预设"的增删，自管理 customPresets，并通过 'vr-presets-changed' 事件互相同步。
-// onChange 同时把选中预设的完整 prompt 抛给父组件（含自定义的）。
+// ============ 風格 chips（潤色 & 代寫共用） ============
+// 寫作風格預設選擇器（像酒館預設，選一個就給 LLM 灌一整套寫作風格檔案）。
+// 自帶"自定義預設"的增刪，自管理 customPresets，並通過 'vr-presets-changed' 事件互相同步。
+// onChange 同時把選中預設的完整 prompt 拋給父組件（含自定義的）。
 const PresetChips: React.FC<{ value: string; onChange: (key: string, prompt: string) => void }> = ({ value, onChange }) => {
     const [custom, setCustom] = useState<WritingPreset[]>([]);
     const [editing, setEditing] = useState(false);
@@ -615,7 +616,7 @@ const PresetChips: React.FC<{ value: string; onChange: (key: string, prompt: str
 
     return (
         <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: TH.text }}>写作风格预设 <span style={{ fontSize: 9.5, fontWeight: 400, color: TH.sub }}>选一个，灌一整套腔调/节拍/味道</span></div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: TH.text }}>寫作風格預設 <span style={{ fontSize: 9.5, fontWeight: 400, color: TH.sub }}>選一個，灌一整套腔調/節拍/味道</span></div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {all.map(p => {
                     const on = value === p.key;
@@ -627,16 +628,16 @@ const PresetChips: React.FC<{ value: string; onChange: (key: string, prompt: str
                         </span>
                     );
                 })}
-                <span onClick={() => setEditing(true)} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, cursor: 'pointer', border: `1px dashed ${TH.line}`, background: 'transparent', color: TH.goldSoft }}>＋ 自定义</span>
+                <span onClick={() => setEditing(true)} style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, cursor: 'pointer', border: `1px dashed ${TH.line}`, background: 'transparent', color: TH.goldSoft }}>＋ 自定義</span>
             </div>
             {sel?.blurb && <div style={{ fontSize: 10, color: TH.sub, marginTop: 6, lineHeight: 1.5, fontStyle: 'italic', paddingLeft: 2, borderLeft: `2px solid ${TH.line}` }}> {sel.blurb}</div>}
 
             {editing && (
-                <TModal open title="自定义预设" width={360} onClose={() => setEditing(false)}
+                <TModal open title="自定義預設" width={360} onClose={() => setEditing(false)}
                     footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={() => setEditing(false)}>取消</TButton><TButton variant="primary" onClick={save}>保存</TButton></div>}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <TInput value={name} onChange={e => setName(e.target.value)} placeholder="预设名（如：废土朋克、宫斗权谋…）" />
-                        <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={8} placeholder={'整套写作风格档案，越具体越好：\n一句话坐标 / 味道 / 怎么写怎么说 / 对白引擎 / 道具意象 / 节拍…\n（可参考内置预设的写法）'} style={taStyle} />
+                        <TInput value={name} onChange={e => setName(e.target.value)} placeholder="預設名（如：廢土朋克、宮鬥權謀…）" />
+                        <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={8} placeholder={'整套寫作風格檔案，越具體越好：\n一句話座標 / 味道 / 怎麼寫怎麼說 / 對白引擎 / 道具意象 / 節拍…\n（可參考內置預設的寫法）'} style={taStyle} />
                     </div>
                 </TModal>
             )}
@@ -644,7 +645,7 @@ const PresetChips: React.FC<{ value: string; onChange: (key: string, prompt: str
     );
 };
 
-// ============ 弹窗：我来写 ============
+// ============ 彈窗：我來寫 ============
 const WriteScriptModal: React.FC<{ open: boolean; onClose: () => void; onSave: (p: { title: string; logline: string; roles: VRPlayRole[]; body: string }) => void }> = ({ open, onClose, onSave }) => {
     const [title, setTitle] = useState(''); const [logline, setLogline] = useState(''); const [rolesText, setRolesText] = useState(''); const [body, setBody] = useState('');
     const submit = () => {
@@ -654,72 +655,72 @@ const WriteScriptModal: React.FC<{ open: boolean; onClose: () => void; onSave: (
         setTitle(''); setLogline(''); setRolesText(''); setBody('');
     };
     return (
-        <TModal open={open} title="我来写一出" width={360} onClose={onClose} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose}>取消</TButton><TButton variant="primary" onClick={submit}>投稿</TButton></div>}>
+        <TModal open={open} title="我來寫一齣" width={360} onClose={onClose} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose}>取消</TButton><TButton variant="primary" onClick={submit}>投稿</TButton></div>}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '52vh', overflowY: 'auto' }}>
-                <TInput value={title} onChange={e => setTitle(e.target.value)} placeholder="剧名" />
-                <TInput value={logline} onChange={e => setLogline(e.target.value)} placeholder="一句话简介（可空）" />
-                <textarea value={rolesText} onChange={e => setRolesText(e.target.value)} rows={2} placeholder="登场角色，每行一个：角色名|性格" style={taStyle} />
-                <textarea value={body} onChange={e => setBody(e.target.value)} rows={7} placeholder="正文（角色名：台词 / 动作写进圆括号）" style={taStyle} />
+                <TInput value={title} onChange={e => setTitle(e.target.value)} placeholder="劇名" />
+                <TInput value={logline} onChange={e => setLogline(e.target.value)} placeholder="一句話簡介（可空）" />
+                <textarea value={rolesText} onChange={e => setRolesText(e.target.value)} rows={2} placeholder="登場角色，每行一個：角色名|性格" style={taStyle} />
+                <textarea value={body} onChange={e => setBody(e.target.value)} rows={7} placeholder="正文（角色名：台詞 / 動作寫進圓括號）" style={taStyle} />
             </div>
         </TModal>
     );
 };
 
-// ============ 弹窗：LLM 代写（可选风格） ============
+// ============ 彈窗：LLM 代寫（可選風格） ============
 const LLMScriptModal: React.FC<{ open: boolean; onClose: () => void; apiConfig: any; addToast?: (m: string, t?: any) => void; onSaved: () => void }> = ({ open, onClose, apiConfig, addToast, onSaved }) => {
     const [brief, setBrief] = useState(''); const [presetKey, setPresetKey] = useState(''); const [presetPrompt, setPresetPrompt] = useState(''); const [busy, setBusy] = useState(false);
     const gen = async () => {
         const api = await resolveTheaterApi(apiConfig);
-        if (!api) { addToast?.('没配 API', 'error'); return; }
+        if (!api) { addToast?.('沒配 API', 'error'); return; }
         setBusy(true);
-        try { const p = await generateScript(brief.trim() || '自由发挥，写一出有意思的短剧', api, presetPrompt || undefined); const s: VRScript = { id: tid('scr'), title: p.title, logline: p.logline, roles: p.roles, body: p.body, authorId: 'llm', authorName: 'AI 编剧', source: 'llm', createdAt: Date.now() }; await DB.saveVRScript(s); addToast?.(`写好了《${s.title}》`, 'success'); setBrief(''); setPresetKey(''); setPresetPrompt(''); onSaved(); }
-        catch (e: any) { addToast?.('代写失败：' + (e?.message || ''), 'error'); }
+        try { const p = await generateScript(brief.trim() || '自由發揮，寫一齣有意思的短劇', api, presetPrompt || undefined); const s: VRScript = { id: tid('scr'), title: p.title, logline: p.logline, roles: p.roles, body: p.body, authorId: 'llm', authorName: 'AI 編劇', source: 'llm', createdAt: Date.now() }; await DB.saveVRScript(s); addToast?.(`寫好了《${s.title}》`, 'success'); setBrief(''); setPresetKey(''); setPresetPrompt(''); onSaved(); }
+        catch (e: any) { addToast?.('代寫失敗：' + (e?.message || ''), 'error'); }
         finally { setBusy(false); }
     };
     return (
-        <TModal open={open} title="AI 代写" width={360} onClose={busy ? undefined : onClose} maskClosable={!busy} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose} disabled={busy}>取消</TButton><TButton variant="primary" disabled={busy} onClick={gen}>{busy ? '写作中…' : '写'}</TButton></div>}>
+        <TModal open={open} title="AI 代寫" width={360} onClose={busy ? undefined : onClose} maskClosable={!busy} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose} disabled={busy}>取消</TButton><TButton variant="primary" disabled={busy} onClick={gen}>{busy ? '寫作中…' : '寫'}</TButton></div>}>
             <div style={{ maxHeight: '52vh', overflowY: 'auto' }}>
                 <PresetChips value={presetKey} onChange={(k, pr) => { setPresetKey(k); setPresetPrompt(pr); }} />
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: TH.text }}>主题 / 脑洞（可空）</div>
-                <textarea value={brief} onChange={e => setBrief(e.target.value)} rows={3} placeholder="如：两个困在电梯里的陌生人" style={taStyle} />
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: TH.text }}>主題 / 腦洞（可空）</div>
+                <textarea value={brief} onChange={e => setBrief(e.target.value)} rows={3} placeholder="如：兩個困在電梯裡的陌生人" style={taStyle} />
             </div>
         </TModal>
     );
 };
 
-// ============ 弹窗：润色 ============
+// ============ 彈窗：潤色 ============
 const PolishModal: React.FC<{ open: boolean; onClose: () => void; apiConfig: any; body: string; addToast?: (m: string, t?: any) => void; onPolished: (body: string) => void }> = ({ open, onClose, apiConfig, body, addToast, onPolished }) => {
     const [presetKey, setPresetKey] = useState(''); const [presetPrompt, setPresetPrompt] = useState(''); const [extra, setExtra] = useState(''); const [busy, setBusy] = useState(false);
     const run = async () => {
         const api = await resolveTheaterApi(apiConfig);
-        if (!api) { addToast?.('没配 API', 'error'); return; }
+        if (!api) { addToast?.('沒配 API', 'error'); return; }
         setBusy(true);
         try { const p = await polishScript(body, presetPrompt, extra, api); onPolished(p.body); }
-        catch (e: any) { addToast?.('润色失败：' + (e?.message || ''), 'error'); }
+        catch (e: any) { addToast?.('潤色失敗：' + (e?.message || ''), 'error'); }
         finally { setBusy(false); }
     };
     return (
-        <TModal open={open} title="润色剧本" width={360} onClose={busy ? undefined : onClose} maskClosable={!busy} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose} disabled={busy}>取消</TButton><TButton variant="primary" disabled={busy} onClick={run}>{busy ? '润色中…' : '润色'}</TButton></div>}>
+        <TModal open={open} title="潤色劇本" width={360} onClose={busy ? undefined : onClose} maskClosable={!busy} footer={<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><TButton onClick={onClose} disabled={busy}>取消</TButton><TButton variant="primary" disabled={busy} onClick={run}>{busy ? '潤色中…' : '潤色'}</TButton></div>}>
             <div style={{ maxHeight: '52vh', overflowY: 'auto' }}>
                 <PresetChips value={presetKey} onChange={(k, pr) => { setPresetKey(k); setPresetPrompt(pr); }} />
-                <TInput value={extra} onChange={e => setExtra(e.target.value)} placeholder="额外要求（可空）" />
+                <TInput value={extra} onChange={e => setExtra(e.target.value)} placeholder="額外要求（可空）" />
             </div>
         </TModal>
     );
 };
 
-// ============ 上传 txt ============
+// ============ 上傳 txt ============
 const UploadButton: React.FC<{ onParsed: (p: { title: string; logline: string; roles: VRPlayRole[]; body: string }) => void }> = ({ onParsed }) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
     const dlTemplate = () => shareOrDownloadFile({
         content: SCRIPT_TEMPLATE,
-        fileName: '剧本模板.txt',
+        fileName: '劇本模板.txt',
         mimeType: 'text/plain;charset=utf-8',
-        shareTitle: '彼方剧院剧本模板',
+        shareTitle: '彼方劇院劇本模板',
     });
     return (
         <>
-            <TButton size="sm" icon={<UploadSimple size={13} weight="bold" />} onClick={() => inputRef.current?.click()}>传 txt</TButton>
+            <TButton size="sm" icon={<UploadSimple size={13} weight="bold" />} onClick={() => inputRef.current?.click()}>傳 txt</TButton>
             <TButton size="sm" icon={<DownloadSimple size={13} weight="bold" />} onClick={dlTemplate}>模板</TButton>
             <input ref={inputRef} type="file" accept=".txt,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; const text = await f.text(); onParsed(parseUploadedScript(text, f.name.replace(/\.txt$/i, ''))); e.target.value = ''; }} />
         </>

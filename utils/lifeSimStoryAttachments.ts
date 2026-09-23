@@ -55,7 +55,7 @@ function buildImageCardSvg(draft: SimStoryAttachmentDraft): string {
 function ensureDetail(draft: SimStoryAttachmentDraft): string | undefined {
     if (draft.detail) return draft.detail;
     if (draft.kind === 'fanfic') {
-        return `${draft.title}\n\n${draft.summary}\n\n有人把这一段写得比真相还像真相，读完只会更想继续吃瓜。`;
+        return `${draft.title}\n\n${draft.summary}\n\n有人把這一段寫得比真相還像真相，讀完只會更想繼續吃瓜。`;
     }
     if (draft.kind === 'item' || draft.kind === 'evidence') {
         return `${draft.title}\n\n${draft.summary}`;

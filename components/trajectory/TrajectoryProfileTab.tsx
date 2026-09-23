@@ -37,7 +37,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
     const checklistBatches = useMemo(() => groupTrajectoryChecklistByBatch(profile?.checklist || []), [profile?.checklist]);
 
     const handleRefresh = async () => {
-        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在设置里配置好 API', 'info'); return; }
+        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
         setRefreshing(true);
         try {
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
@@ -57,14 +57,14 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
             const json = extractJson(content);
             const next = parseTrajectoryProfile(json);
             if (!next.archives.length && !next.objectives.length && !next.checklist.length) {
-                addToast('这次没解析出内容，再试一次', 'error');
+                addToast('這次沒解析出內容，再試一次', 'error');
                 return;
             }
             onCommit(next);
             addToast('Profile 已刷新', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Profile 生成失败:', e);
-            addToast('生成失败，稍后再试', 'error');
+            console.warn('[Trajectory] Profile 生成失敗:', e);
+            addToast('生成失敗，稍後再試', 'error');
         } finally {
             setRefreshing(false);
         }
@@ -81,14 +81,14 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         try {
             const messageId = await DB.saveMessage({
                 charId: char.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的 軌跡 App · Archives] ${doc.title}`,
+                content: `[你手機的 軌跡 App · Archives] ${doc.title}`,
                 metadata: { phoneCard: { app: '軌跡 · Archives', title: doc.title, value: doc.category, detail: doc.content } },
             } as any);
             onCommit({ ...profile, archives: profile.archives.map(d => d.id === doc.id ? { ...d, syncedMessageId: messageId } : d) });
             addToast('已同步到私聊', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Profile Archives 同步私聊失败:', e);
-            addToast('同步失败，稍后再试', 'error');
+            console.warn('[Trajectory] Profile Archives 同步私聊失敗:', e);
+            addToast('同步失敗，稍後再試', 'error');
         } finally {
             setSyncingId(null);
         }
@@ -100,14 +100,14 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         try {
             const messageId = await DB.saveMessage({
                 charId: char.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的 軌跡 App · Objective] ${obj.title}（进度 ${obj.progress}%）`,
-                metadata: { phoneCard: { app: '軌跡 · Objective', title: obj.title, value: `进度 ${obj.progress}%`, detail: obj.detail } },
+                content: `[你手機的 軌跡 App · Objective] ${obj.title}（進度 ${obj.progress}%）`,
+                metadata: { phoneCard: { app: '軌跡 · Objective', title: obj.title, value: `進度 ${obj.progress}%`, detail: obj.detail } },
             } as any);
             onCommit({ ...profile, objectives: profile.objectives.map(o => o.id === obj.id ? { ...o, syncedMessageId: messageId } : o) });
             addToast('已同步到私聊', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Profile Objective 同步私聊失败:', e);
-            addToast('同步失败，稍后再试', 'error');
+            console.warn('[Trajectory] Profile Objective 同步私聊失敗:', e);
+            addToast('同步失敗，稍後再試', 'error');
         } finally {
             setSyncingId(null);
         }
@@ -119,14 +119,14 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         try {
             const messageId = await DB.saveMessage({
                 charId: char.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的 軌跡 App · Checklist] ${item.title}`,
+                content: `[你手機的 軌跡 App · Checklist] ${item.title}`,
                 metadata: { phoneCard: { app: '軌跡 · Checklist', title: item.title, value: item.dueLabel, detail: item.done ? '已完成' : '待完成' } },
             } as any);
             onCommit({ ...profile, checklist: profile.checklist.map(c => c.id === item.id ? { ...c, syncedMessageId: messageId } : c) });
             addToast('已同步到私聊', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Profile Checklist 同步私聊失败:', e);
-            addToast('同步失败，稍后再试', 'error');
+            console.warn('[Trajectory] Profile Checklist 同步私聊失敗:', e);
+            addToast('同步失敗，稍後再試', 'error');
         } finally {
             setSyncingId(null);
         }
@@ -137,21 +137,21 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         onCommit({ ...profile, archives: profile.archives.filter(d => d.id !== doc.id) });
         setPendingDeleteId(null);
         if (expandedId === doc.id) setExpandedId(null);
-        addToast('已删除', 'success');
+        addToast('已刪除', 'success');
     };
 
     const handleDeleteObjective = (obj: TrajectoryObjective) => {
         if (!profile) return;
         onCommit({ ...profile, objectives: profile.objectives.filter(o => o.id !== obj.id) });
         setPendingDeleteId(null);
-        addToast('已删除', 'success');
+        addToast('已刪除', 'success');
     };
 
     const handleDeleteChecklistItem = (item: TrajectoryChecklistItem) => {
         if (!profile) return;
         onCommit({ ...profile, checklist: profile.checklist.filter(c => c.id !== item.id) });
         setPendingDeleteId(null);
-        addToast('已删除', 'success');
+        addToast('已刪除', 'success');
     };
 
     const empty = !profile || (!profile.archives.length && !profile.objectives.length && !profile.checklist.length);
@@ -181,7 +181,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-28 space-y-3">
                 {empty && (
                     <div className="text-center pt-16 text-[12px]" style={{ color: 'rgba(232,227,245,0.4)' }}>
-                        还没有内容，点右上角刷新生成 {char.name} 的 Profile
+                        還沒有內容，點右上角刷新生成 {char.name} 的 Profile
                     </div>
                 )}
 
@@ -206,11 +206,11 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                             </button>
                             {isOpen && (pendingDeleteId === doc.id ? (
                                 <div className="mt-3 flex items-center gap-2">
-                                    <div className="flex-1 text-[11px]" style={{ color: 'rgba(252,165,165,0.9)' }}>确定删除这份档案？</div>
+                                    <div className="flex-1 text-[11px]" style={{ color: 'rgba(252,165,165,0.9)' }}>確定刪除這份檔案？</div>
                                     <button onClick={() => setPendingDeleteId(null)} className="px-3 py-2 rounded-xl text-[11px] font-bold"
                                         style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>取消</button>
                                     <button onClick={() => handleDeleteArchive(doc)} className="px-3 py-2 rounded-xl text-[11px] font-bold"
-                                        style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>删除</button>
+                                        style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>刪除</button>
                                 </div>
                             ) : (
                                 <div className="mt-3 flex items-center gap-2">
@@ -220,7 +220,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                         <PaperPlaneTilt size={13} weight="bold" />
                                         {doc.syncedMessageId ? '已同步到私聊' : (syncingId === doc.id ? '同步中…' : '同步到私聊')}
                                     </button>
-                                    <button onClick={() => setPendingDeleteId(doc.id)} aria-label="删除" title="删除"
+                                    <button onClick={() => setPendingDeleteId(doc.id)} aria-label="刪除" title="刪除"
                                         className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)', color: '#fca5a5' }}>
                                         <Trash size={14} weight="bold" />
                                     </button>
@@ -250,11 +250,11 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                         )}
                         {pendingDeleteId === obj.id ? (
                             <div className="mt-3 flex items-center gap-2">
-                                <div className="flex-1 text-[11px]" style={{ color: 'rgba(252,165,165,0.9)' }}>确定删除这项目标？</div>
+                                <div className="flex-1 text-[11px]" style={{ color: 'rgba(252,165,165,0.9)' }}>確定刪除這項目標？</div>
                                 <button onClick={() => setPendingDeleteId(null)} className="px-3 py-2 rounded-xl text-[11px] font-bold"
                                     style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>取消</button>
                                 <button onClick={() => handleDeleteObjective(obj)} className="px-3 py-2 rounded-xl text-[11px] font-bold"
-                                    style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>删除</button>
+                                    style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>刪除</button>
                             </div>
                         ) : (
                             <div className="mt-3 flex items-center gap-2">
@@ -264,7 +264,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                     <PaperPlaneTilt size={13} weight="bold" />
                                     {obj.syncedMessageId ? '已同步到私聊' : (syncingId === obj.id ? '同步中…' : '同步到私聊')}
                                 </button>
-                                <button onClick={() => setPendingDeleteId(obj.id)} aria-label="删除" title="删除"
+                                <button onClick={() => setPendingDeleteId(obj.id)} aria-label="刪除" title="刪除"
                                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)', color: '#fca5a5' }}>
                                     <Trash size={14} weight="bold" />
                                 </button>
@@ -282,11 +282,11 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', opacity: pendingDeleteId === item.id ? 1 : (item.done ? 0.55 : 1) }}>
                                     {pendingDeleteId === item.id ? (
                                         <>
-                                            <div className="flex-1 text-[12px]" style={{ color: 'rgba(252,165,165,0.9)' }}>确定删除这条待办？</div>
+                                            <div className="flex-1 text-[12px]" style={{ color: 'rgba(252,165,165,0.9)' }}>確定刪除這條待辦？</div>
                                             <button onClick={() => setPendingDeleteId(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0"
                                                 style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>取消</button>
                                             <button onClick={() => handleDeleteChecklistItem(item)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0"
-                                                style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>删除</button>
+                                                style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>刪除</button>
                                         </>
                                     ) : (
                                         <>
@@ -310,7 +310,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                                     ? <CircleNotch size={13} weight="bold" className="animate-spin" />
                                                     : <PaperPlaneTilt size={13} weight="bold" />}
                                             </button>
-                                            <button onClick={() => setPendingDeleteId(item.id)} aria-label="删除" title="删除"
+                                            <button onClick={() => setPendingDeleteId(item.id)} aria-label="刪除" title="刪除"
                                                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                                                 style={{ background: 'rgba(244,63,94,0.12)', color: '#fca5a5' }}>
                                                 <Trash size={13} weight="bold" />

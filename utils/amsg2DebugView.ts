@@ -1,12 +1,12 @@
 /**
- * amsg2 调试面板的纯派生层：把角色数据摊成「一条任务一行、带状态标注」的视图。
+ * amsg2 調試面板的純派生層：把角色數據攤成「一條任務一行、帶狀態標註」的視圖。
  *
- * 这里不碰 React、不碰 IndexedDB，全是可单测的纯函数——面板显示错了很容易把排查
- * 带偏（「面板说还没到点，实际早就作废了」），所以判定口径必须钉死并测出来。
+ * 這裡不碰 React、不碰 IndexedDB，全是可單測的純函數——面板顯示錯了很容易把排查
+ * 帶偏（「面板說還沒到點，實際早就作廢了」），所以判定口徑必須釘死並測出來。
  *
- * 两条口径跟系统其它地方对齐，别在这里另起一套：
- *   1. 活/死的分界完全等于 amsg2Tasks.isPendingTask（pending + firing = 它为真）；
- *   2. 人读文案一律用 amsg2Tasks 的 describeXxx，跟角色上下文块、list 工具、设置面板说同一套词。
+ * 兩條口徑跟系統其它地方對齊，別在這裡另起一套：
+ *   1. 活/死的分界完全等於 amsg2Tasks.isPendingTask（pending + firing = 它為真）；
+ *   2. 人讀文案一律用 amsg2Tasks 的 describeXxx，跟角色上下文塊、list 工具、設置面板說同一套詞。
  */
 
 import { ActiveMsg2TaskRecord, CharacterProfile } from '../types';
@@ -15,10 +15,10 @@ import { currentOccurrenceMs, isAmsg2EnabledForChar, isPendingTask } from './ams
 const MINUTE_MS = 60_000;
 
 /**
- * pending  还没到点，倒计时往下走
- * firing   已过名义时间但还在送达宽限内——正在发或正在被闸拦，这会儿最值得盯
- * expired  一次性任务过点超过宽限还没动静
- * cancelled 已取消（清单里短暂存在，取消后就被移除）
+ * pending  還沒到點，倒計時往下走
+ * firing   已過名義時間但還在送達寬限內——正在發或正在被閘攔，這會兒最值得盯
+ * expired  一次性任務過點超過寬限還沒動靜
+ * cancelled 已取消（清單裡短暫存在，取消後就被移除）
  */
 export type Amsg2DebugTaskState = 'pending' | 'firing' | 'expired' | 'cancelled';
 
@@ -26,42 +26,42 @@ export interface Amsg2DebugTaskView {
   task: ActiveMsg2TaskRecord;
   charId: string;
   charName: string;
-  /** 该角色的主动消息总开关。关着的话任务再正常也不会响。 */
+  /** 該角色的主動消息總開關。關著的話任務再正常也不會響。 */
   charEnabled: boolean;
   state: Amsg2DebugTaskState;
-  /** 当前这一次触发的名义时刻；循环任务已按周期推算。时间串坏掉时为 null。 */
+  /** 當前這一次觸發的名義時刻；循環任務已按週期推算。時間串壞掉時為 null。 */
   occurrenceMs: number | null;
-  /** cron 每分钟跑一次，这是这一次触发会被哪一分钟的 cron 领走。 */
+  /** cron 每分鐘跑一次，這是這一次觸發會被哪一分鐘的 cron 領走。 */
   cronTickMs: number | null;
 }
 
 /**
- * 这一次触发会被哪一分钟的 cron 领走。
+ * 這一次觸發會被哪一分鐘的 cron 領走。
  *
- * worker 的触发器是 "* * * * *"（见 worker/amsg/wrangler.toml），每分钟跑一次；跑起来时
- * 把名义时间已经到了的任务全部领走（底账查询是 next_send_at <= 当前时刻）。所以答案是
- * 「名义时间之后的第一个整分」，含名义时间自己压在整分上的情况：
+ * worker 的觸發器是 "* * * * *"（見 worker/amsg/wrangler.toml），每分鐘跑一次；跑起來時
+ * 把名義時間已經到了的任務全部領走（底帳查詢是 next_send_at <= 當前時刻）。所以答案是
+ * 「名義時間之後的第一個整分」，含名義時間自己壓在整分上的情況：
  *
- *   名义时间 11:47:00 → 11:47 这一分钟的 cron 领走（面板里倒计时归零的同一分钟）
- *   名义时间 11:47:30 → 11:47 那次跑过去时还没到点，等 11:48 这一分钟的 cron
+ *   名義時間 11:47:00 → 11:47 這一分鐘的 cron 領走（面板裡倒計時歸零的同一分鐘）
+ *   名義時間 11:47:30 → 11:47 那次跑過去時還沒到點，等 11:48 這一分鐘的 cron
  *
- * cron 实际起跑会比整分晚几秒（平台调度的抖动），这里按整分记——面板要的是「哪一分钟」，
- * 秒级先后不影响读数。
+ * cron 實際起跑會比整分晚幾秒（平台調度的抖動），這裡按整分記——面板要的是「哪一分鐘」，
+ * 秒級先後不影響讀數。
  */
 export const nextCronTickMs = (occurrenceMs: number): number =>
   Math.ceil(occurrenceMs / MINUTE_MS) * MINUTE_MS;
 
-/** 面板离视口边缘至少留这么多，四边一致。 */
+/** 面板離視口邊緣至少留這麼多，四邊一致。 */
 export const DEBUG_PANEL_MARGIN_PX = 8;
 
 export interface Amsg2PanelPosition { x: number; y: number }
 export interface Amsg2PanelSize { width: number; height: number }
 
 /**
- * 把面板落点约束回视口内。拖动过程、松手、视口变化（转屏 / 手机地址栏伸缩）都走这一个口径。
+ * 把面板落點約束回視口內。拖動過程、鬆手、視口變化（轉屏 / 手機地址欄伸縮）都走這一個口徑。
  *
- * 面板比视口还大时（小屏 + 长列表）上下界会翻过来，此时取上界——宁可底部溢出，
- * 也要保证标题栏那排按钮留在屏幕里，不然全屏 / 关闭都点不到了。
+ * 面板比視口還大時（小屏 + 長列表）上下界會翻過來，此時取上界——寧可底部溢出，
+ * 也要保證標題欄那排按鈕留在屏幕裡，不然全屏 / 關閉都點不到了。
  */
 export const clampPanelPosition = (
   position: Amsg2PanelPosition,
@@ -78,7 +78,7 @@ export const clampPanelPosition = (
   };
 };
 
-/** 倒计时文案：未到点 T-4m12s，已过点 T+30s。 */
+/** 倒計時文案：未到點 T-4m12s，已過點 T+30s。 */
 export const formatCountdown = (deltaMs: number): string => {
   const sign = deltaMs < 0 ? 'T+' : 'T-';
   const total = Math.floor(Math.abs(deltaMs) / 1000);
@@ -94,7 +94,7 @@ const resolveState = (
   nowMs: number,
 ): Amsg2DebugTaskState => {
   if (task.status !== 'scheduled') return 'cancelled';
-  // 活/死一律问 isPendingTask，别在这里重写判定——两边一旦走岔，面板就会骗人。
+  // 活/死一律問 isPendingTask，別在這裡重寫判定——兩邊一旦走岔，面板就會騙人。
   if (!isPendingTask(task, nowMs)) return 'expired';
   return occurrenceMs != null && nowMs >= occurrenceMs ? 'firing' : 'pending';
 };
@@ -107,8 +107,8 @@ const STATE_ORDER: Record<Amsg2DebugTaskState, number> = {
 };
 
 /**
- * 全部角色的 amsg2 任务摊平成一张表。失效的任务照样留着（置灰显示）——
- * 排查「怎么没响」时，看得见那条死任务比它凭空消失有用得多。
+ * 全部角色的 amsg2 任務攤平成一張表。失效的任務照樣留著（置灰顯示）——
+ * 排查「怎麼沒響」時，看得見那條死任務比它憑空消失有用得多。
  */
 export const buildAmsg2DebugTasks = (
   characters: CharacterProfile[],
@@ -131,7 +131,7 @@ export const buildAmsg2DebugTasks = (
       });
     }
   }
-  // 正在发的最要紧，其次是快到点的；失效的沉底，越近失效的越靠前。
+  // 正在發的最要緊，其次是快到點的；失效的沉底，越近失效的越靠前。
   return views.sort((a, b) => {
     const byState = STATE_ORDER[a.state] - STATE_ORDER[b.state];
     if (byState !== 0) return byState;

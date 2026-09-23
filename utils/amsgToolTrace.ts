@@ -1,50 +1,50 @@
 /**
- * 云端工具痕迹 —— 「这一轮角色在云端跑过哪些工具」怎么说给用户听。
+ * 雲端工具痕跡 —— 「這一輪角色在雲端跑過哪些工具」怎麼說給用戶聽。
  *
- * 即时对话把整轮交给云端跑，搜索、翻记忆这些都发生在用户看不见的地方（本地那条路
- * 一直有「正在搜索网页…」的状态条，云端这条路全程静默）。worker 把跑过的工具随最后
- * 一条推送捎回来，气泡底下画一行灰字：
+ * 即時對話把整輪交給雲端跑，搜索、翻記憶這些都發生在用戶看不見的地方（本地那條路
+ * 一直有「正在搜索網頁…」的狀態條，雲端這條路全程靜默）。worker 把跑過的工具隨最後
+ * 一條推送捎回來，氣泡底下畫一行灰字：
  *
- *     调用了工具：搜索网页 ×2 · 读取记忆
+ *     調用了工具：搜索網頁 ×2 · 讀取記憶
  *
- * 线上传的是**原始工具名 + 次数**（见 worker/amsg/src/index.ts 的 condenseToolTrace），
- * 翻译成人话全在这一份里做——显示的事归客户端，wire 上少一层约定就少一处对不齐。
+ * 線上傳的是**原始工具名 + 次數**（見 worker/amsg/src/index.ts 的 condenseToolTrace），
+ * 翻譯成人話全在這一份裡做——顯示的事歸客戶端，wire 上少一層約定就少一處對不齊。
  */
 
 import { MCP_FIRE_NAME_PREFIX } from './mcpFireCore';
 
-/** worker 捎回来的一项：跑过的工具原始名 + 这一轮跑了几次。 */
+/** worker 捎回來的一項：跑過的工具原始名 + 這一輪跑了幾次。 */
 export interface AmsgToolTraceEntry {
   name: string;
   count: number;
 }
 
 /**
- * 内置工具 → 给用户看的说法。
+ * 內置工具 → 給用戶看的說法。
  *
- * 表外的名字原样显示，不编——露个英文名总好过给用户一个错的说法。
+ * 表外的名字原樣顯示，不編——露個英文名總好過給用戶一個錯的說法。
  */
 const TOOL_DISPLAY_LABELS: Record<string, string> = {
-  web_search: '搜索网页',
-  recall: '读取记忆',
-  notion_read_diary: '读取 Notion',
-  read_note: '读取 Notion',
-  feishu_read_diary: '读取飞书',
-  xhs_search: '读取小红书',
-  xhs_browse: '读取小红书',
-  xhs_my_profile: '读取小红书',
-  xhs_detail: '读取小红书',
-  schedule_active_message: '给自己排消息',
+  web_search: '搜索網頁',
+  recall: '讀取記憶',
+  notion_read_diary: '讀取 Notion',
+  read_note: '讀取 Notion',
+  feishu_read_diary: '讀取飛書',
+  xhs_search: '讀取小紅書',
+  xhs_browse: '讀取小紅書',
+  xhs_my_profile: '讀取小紅書',
+  xhs_detail: '讀取小紅書',
+  schedule_active_message: '給自己排消息',
   cancel_active_message: '取消排好的消息',
-  renew_active_message: '改排好的消息时间',
+  renew_active_message: '改排好的消息時間',
   list_active_messages: '查自己排的消息',
 };
 
 /**
- * 一个工具名 → 给用户看的说法。认不出来的原样返回，名字是空的返回空串（调用方丢掉）。
+ * 一個工具名 → 給用戶看的說法。認不出來的原樣返回，名字是空的返回空串（調用方丟掉）。
  *
- * MCP 工具剥掉内部前缀就直接用：那是用户自己接进来的服务器，只有他知道那工具是干嘛的，
- * 我们编不出比原名更准的说法；前缀又是我们拿来分流的，露出去跟他在设置里填的对不上号。
+ * MCP 工具剝掉內部前綴就直接用：那是用戶自己接進來的服務器，只有他知道那工具是幹嘛的，
+ * 我們編不出比原名更準的說法；前綴又是我們拿來分流的，露出去跟他在設置裡填的對不上號。
  */
 const describeToolForUser = (rawName: unknown): string => {
   if (typeof rawName !== 'string') return '';
@@ -55,18 +55,18 @@ const describeToolForUser = (rawName: unknown): string => {
 };
 
 /**
- * 工具痕迹 → 气泡底下那行灰字里的内容（不含「调用了工具：」那个前缀）。
+ * 工具痕跡 → 氣泡底下那行灰字裡的內容（不含「調用了工具：」那個前綴）。
  *
  * `[{ name: 'web_search', count: 2 }, { name: 'recall', count: 1 }]`
- *   → `搜索网页 ×2 · 读取记忆`
+ *   → `搜索網頁 ×2 · 讀取記憶`
  *
- * 两条规矩：
- *   - 只跑过一次的省掉 `×1`。不然一行全是 ×1，反倒看不出哪个跑了好几遍。
- *   - 说法相同的几项合并计次（小红书那几个工具在用户眼里是同一件事），
- *     否则会画出「读取小红书 · 读取小红书」，像渲染出了 bug。
+ * 兩條規矩：
+ *   - 只跑過一次的省掉 `×1`。不然一行全是 ×1，反倒看不出哪個跑了好幾遍。
+ *   - 說法相同的幾項合併計次（小紅書那幾個工具在用戶眼裡是同一件事），
+ *     否則會畫出「讀取小紅書 · 讀取小紅書」，像渲染出了 bug。
  *
- * 形状不对就返回空串、这一行整个不画：这份数据是 worker 随推送捎回来的，老版本 worker
- * 压根不带，宁可少一行也不要在气泡底下渲染出 `[object Object]`。
+ * 形狀不對就返回空串、這一行整個不畫：這份數據是 worker 隨推送捎回來的，老版本 worker
+ * 壓根不帶，寧可少一行也不要在氣泡底下渲染出 `[object Object]`。
  */
 export const formatAmsgToolTrace = (raw: unknown): string => {
   if (!Array.isArray(raw)) return '';
@@ -74,7 +74,7 @@ export const formatAmsgToolTrace = (raw: unknown): string => {
   for (const entry of raw) {
     const label = describeToolForUser((entry as Partial<AmsgToolTraceEntry> | null)?.name);
     if (!label) continue;
-    // 次数缺了 / 是垃圾值时按「跑过一次」算：这一项存在本身就说明至少跑过一次。
+    // 次數缺了 / 是垃圾值時按「跑過一次」算：這一項存在本身就說明至少跑過一次。
     const parsed = Number((entry as Partial<AmsgToolTraceEntry>).count);
     const count = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
     byLabel.set(label, (byLabel.get(label) ?? 0) + count);

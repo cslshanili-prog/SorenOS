@@ -9,7 +9,7 @@ const NOW = Date.parse('2026-09-18T12:00:00.000Z');
 const minutesAgo = (n: number) => NOW - n * 60_000;
 const minutesLater = (n: number) => NOW + n * 60_000;
 
-/** 一条「建好就没人碰过」的任务，按需覆盖字段。 */
+/** 一條「建好就沒人碰過」的任務，按需覆蓋字段。 */
 const task = (overrides: Partial<TickTaskFacts> = {}): TickTaskFacts => ({
   nextSendAtMs: minutesAgo(40),
   createdAtMs: minutesAgo(120),
@@ -23,12 +23,12 @@ const task = (overrides: Partial<TickTaskFacts> = {}): TickTaskFacts => ({
 
 const classifyOne = (facts: TickTaskFacts) => classifyOverdueTasks([facts], NOW)[0];
 
-describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () => {
+describe('classifyOverdueTasks — 一條過期任務現在算哪種情況', () => {
   /**
-   * 回归守卫：重试期间任务的到点时刻不会往后挪，一条在正常重试的任务「晚了四十分钟」
-   * 很平常。只看晚了多久的话，它会被报成「定时触发器可能没在跑」。
+   * 迴歸守衛：重試期間任務的到點時刻不會往後挪，一條在正常重試的任務「晚了四十分鐘」
+   * 很平常。只看晚了多久的話，它會被報成「定時觸發器可能沒在跑」。
    */
-  it('在等重试的不算卡住，哪怕到点已经很久了', () => {
+  it('在等重試的不算卡住，哪怕到點已經很久了', () => {
     const verdict = classifyOne(task({
       retryAfterMs: minutesLater(4),
       currentErrorAtMs: minutesAgo(2),
@@ -36,11 +36,11 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     }));
     expect(verdict.state).toBe('retry-wait');
     expect(verdict.stuck).toBe(false);
-    // 记失败那一笔和 updated_at 是前后脚写的，不能当成「后来又开跑了一次」。
+    // 記失敗那一筆和 updated_at 是前後腳寫的，不能當成「後來又開跑了一次」。
     expect(verdict.lastStartedAtMs).toBeNull();
   });
 
-  it('重试时间刚到、下一跳还没来，不算卡住（要从重试时刻起算，不是从到点起算）', () => {
+  it('重試時間剛到、下一跳還沒來，不算卡住（要從重試時刻起算，不是從到點起算）', () => {
     const verdict = classifyOne(task({
       retryAfterMs: minutesAgo(1),
       currentErrorAtMs: minutesAgo(5),
@@ -50,18 +50,18 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.stuck).toBe(false);
   });
 
-  it('到点很久一直没人领 → 卡住', () => {
+  it('到點很久一直沒人領 → 卡住', () => {
     const verdict = classifyOne(task());
     expect(verdict.state).toBe('ready');
     expect(verdict.stuck).toBe(true);
     expect(verdict.unfinishedAttempt).toBe(false);
   });
 
-  it('刚到点一两分钟不算卡住——cron 一分钟一跳', () => {
+  it('剛到點一兩分鐘不算卡住——cron 一分鐘一跳', () => {
     expect(classifyOne(task({ nextSendAtMs: minutesAgo(1) })).stuck).toBe(false);
   });
 
-  it('开跑过、租约自己到期、行上什么都没留下 → 半路没了，算卡住', () => {
+  it('開跑過、租約自己到期、行上什麼都沒留下 → 半路沒了，算卡住', () => {
     const verdict = classifyOne(task({
       updatedAtMs: minutesAgo(38),
       leaseUntilMs: minutesAgo(36),
@@ -72,7 +72,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.stuck).toBe(true);
   });
 
-  it('失败过一次、重试时刻到了之后又开跑、然后没了下文 → 也认得出来', () => {
+  it('失敗過一次、重試時刻到了之後又開跑、然後沒了下文 → 也認得出來', () => {
     const verdict = classifyOne(task({
       currentErrorAtMs: minutesAgo(20),
       retryAfterMs: minutesAgo(18),
@@ -83,7 +83,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.stuck).toBe(true);
   });
 
-  it('刚建好的任务（建的时刻就是到点时刻）不算开跑过', () => {
+  it('剛建好的任務（建的時刻就是到點時刻）不算開跑過', () => {
     const verdict = classifyOne(task({
       nextSendAtMs: minutesAgo(1),
       createdAtMs: minutesAgo(1) + 5,
@@ -93,7 +93,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.unfinishedAttempt).toBe(false);
   });
 
-  it('到点就开跑、正在发 → 正常', () => {
+  it('到點就開跑、正在發 → 正常', () => {
     const verdict = classifyOne(task({
       nextSendAtMs: minutesAgo(7),
       updatedAtMs: minutesAgo(7) + 20_000,
@@ -104,7 +104,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.stuck).toBe(false);
   });
 
-  it('正在发，但到点半小时后才开跑 → 标出来开跑晚了（前面那段没被正常处理）', () => {
+  it('正在發，但到點半小時後才開跑 → 標出來開跑晚了（前面那段沒被正常處理）', () => {
     const verdict = classifyOne(task({
       updatedAtMs: minutesAgo(10),
       leaseUntilMs: minutesLater(1),
@@ -114,7 +114,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(verdict.stuck).toBe(false);
   });
 
-  it('同一个角色另一条正在发 → 这条在排队，不算卡住', () => {
+  it('同一個角色另一條正在發 → 這條在排隊，不算卡住', () => {
     const [sending, waiting] = classifyOverdueTasks([
       task({ nextSendAtMs: minutesAgo(9), updatedAtMs: minutesAgo(9), leaseUntilMs: minutesLater(1) }),
       task({ nextSendAtMs: minutesAgo(8) }),
@@ -124,7 +124,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(waiting.stuck).toBe(false);
   });
 
-  it('正在发的是别的角色 → 不算排队，照样卡住', () => {
+  it('正在發的是別的角色 → 不算排隊，照樣卡住', () => {
     const [, waiting] = classifyOverdueTasks([
       task({ serializeKey: 'char-b', updatedAtMs: minutesAgo(9), leaseUntilMs: minutesLater(1), nextSendAtMs: minutesAgo(9) }),
       task({ nextSendAtMs: minutesAgo(8) }),
@@ -133,7 +133,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
     expect(waiting.stuck).toBe(true);
   });
 
-  it('解不开任务内容（没有分组键）时不瞎猜排队', () => {
+  it('解不開任務內容（沒有分組鍵）時不瞎猜排隊', () => {
     const [, waiting] = classifyOverdueTasks([
       task({ serializeKey: null, updatedAtMs: minutesAgo(9), leaseUntilMs: minutesLater(1), nextSendAtMs: minutesAgo(9) }),
       task({ serializeKey: null, nextSendAtMs: minutesAgo(8) }),
@@ -143,7 +143,7 @@ describe('classifyOverdueTasks — 一条过期任务现在算哪种情况', () 
   });
 });
 
-describe('judgeOverdueTasks — 合起来算什么状态', () => {
+describe('judgeOverdueTasks — 合起來算什麼狀態', () => {
   const verdictOf = (facts: TickTaskFacts) => classifyOne(facts);
 
   it('有卡住的就是 stalled', () => {
@@ -153,19 +153,19 @@ describe('judgeOverdueTasks — 合起来算什么状态', () => {
     ])).toBe('stalled');
   });
 
-  it('只是在失败重试 → failing（有问题，但跟定时触发器无关）', () => {
+  it('只是在失敗重試 → failing（有問題，但跟定時觸發器無關）', () => {
     expect(judgeOverdueTasks([
       { verdict: verdictOf(task({ retryAfterMs: minutesLater(2), currentErrorAtMs: minutesAgo(1) })), hasCurrentError: true },
     ])).toBe('failing');
   });
 
-  it('开跑晚得不正常 → failing', () => {
+  it('開跑晚得不正常 → failing', () => {
     expect(judgeOverdueTasks([
       { verdict: verdictOf(task({ updatedAtMs: minutesAgo(10), leaseUntilMs: minutesLater(1) })), hasCurrentError: false },
     ])).toBe('failing');
   });
 
-  it('都在正常处理 → healthy', () => {
+  it('都在正常處理 → healthy', () => {
     expect(judgeOverdueTasks([])).toBe('healthy');
     expect(judgeOverdueTasks([
       { verdict: verdictOf(task({ nextSendAtMs: minutesAgo(1) })), hasCurrentError: false },

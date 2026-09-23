@@ -54,8 +54,8 @@ const THEMES: Record<ThemeMode, any> = {
         decoLine: 'bg-pink-200',
         modalBg: 'bg-white/90 rounded-[2.5rem]',
         input: 'bg-pink-50 text-slate-700 border border-pink-100 rounded-xl',
-        label: '心愿单',
-        eventLabel: '纪念日'
+        label: '心願單',
+        eventLabel: '紀念日'
     },
     minimal: {
         id: 'minimal',
@@ -99,7 +99,7 @@ const ScheduleApp: React.FC = () => {
     // Forms
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskSupervisor, setNewTaskSupervisor] = useState<string>(activeCharacterId || '');
-    const [supervisorGroupId, setSupervisorGroupId] = useState<string>(GROUP_FILTER_ALL); // 选监督人的分组筛选
+    const [supervisorGroupId, setSupervisorGroupId] = useState<string>(GROUP_FILTER_ALL); // 選監督人的分組篩選
 
     const [editingAnniId, setEditingAnniId] = useState<string | null>(null);
     const [newAnniTitle, setNewAnniTitle] = useState('');
@@ -107,7 +107,7 @@ const ScheduleApp: React.FC = () => {
     const [newAnniCharIds, setNewAnniCharIds] = useState<string[]>(activeCharacterId ? [activeCharacterId] : []);
     const [newAnniRemembers, setNewAnniRemembers] = useState(false);
     const [newAnniRepeat, setNewAnniRepeat] = useState(false);
-    const [anniCharGroupId, setAnniCharGroupId] = useState<string>(GROUP_FILTER_ALL); // 纪念日关联对象的分组筛选
+    const [anniCharGroupId, setAnniCharGroupId] = useState<string>(GROUP_FILTER_ALL); // 紀念日關聯對象的分組篩選
 
     useEffect(() => {
         loadData();
@@ -138,13 +138,13 @@ const ScheduleApp: React.FC = () => {
     const generateTaskReward = async (task: Task) => {
         const supervisor = characters.find(c => c.id === task.supervisorId);
         if (!supervisor || !apiConfig.apiKey) {
-            addToast('任务已完成', 'success');
+            addToast('任務已完成', 'success');
             return;
         }
 
         // FEEDBACK: Show loading state immediately
         // Note: The caller handles setting processingTaskIds, but we can also add a toast
-        addToast(`${supervisor.name} 正在确认你的成果...`, 'info');
+        addToast(`${supervisor.name} 正在確認你的成果...`, 'info');
 
         try {
             // 1. Build Persona Context
@@ -153,21 +153,21 @@ const ScheduleApp: React.FC = () => {
             const baseContext = ContextBuilder.buildCoreContext(supervisor, userProfile);
 
             const userPrompt = `
-### 场景：任务完成 (Task Completed)
-用户 (${userProfile.name}) 刚刚在现实生活中完成了一个任务/契约： "${task.title}"。
-你是监督人。
+### 場景：任務完成 (Task Completed)
+用戶 (${userProfile.name}) 剛剛在現實生活中完成了一個任務/契約： "${task.title}"。
+你是監督人。
 
-### 任务
-请根据你的人设，对用户完成任务这一行为做出反应。
-- 如果你是严厉的：勉强认可，或者催促下一个。
-- 如果你是温柔的：给予温暖的夸奖。
-- 如果你是傲娇的：别扭地表示一下。
-- **关键**：不要问我用什么语气，**你自己**根据你的人设决定。
+### 任務
+請根據你的人設，對用戶完成任務這一行為做出反應。
+- 如果你是嚴厲的：勉強認可，或者催促下一個。
+- 如果你是溫柔的：給予溫暖的誇獎。
+- 如果你是傲嬌的：彆扭地表示一下。
+- **關鍵**：不要問我用什麼語氣，**你自己**根據你的人設決定。
 
-**输出要求**:
-- 仅输出一句话（类似气泡通知）。
-- **必须使用用户常用语言**。
-- 不要有引号。`;
+**輸出要求**:
+- 僅輸出一句話（類似氣泡通知）。
+- **必須使用用戶常用語言**。
+- 不要有引號。`;
 
             // 2. Separate System and User roles
             const messages = [
@@ -208,22 +208,22 @@ const ScheduleApp: React.FC = () => {
                     charId: supervisor.id,
                     role: 'system',
                     type: 'text',
-                    content: `[系统: ${userProfile.name} 完成了任务 "${task.title}"。${supervisor.name} 评价道: "${text}"]`
+                    content: `[系統: ${userProfile.name} 完成了任務 "${task.title}"。${supervisor.name} 評價道: "${text}"]`
                 });
             } else {
                 console.warn("AI returned empty content", data);
-                addToast('任务完成 (AI 未返回评价)', 'success');
+                addToast('任務完成 (AI 未返回評價)', 'success');
             }
 
         } catch (e: any) {
             console.error("Task Reward Error:", e);
-            addToast(`评价生成失败: ${e.message}`, 'error');
+            addToast(`評價生成失敗: ${e.message}`, 'error');
         }
     };
 
     const generateAnniversaryThought = async (anni: Anniversary) => {
-        // 多个关联对象时只让第一个来发表感想——避免变成"每个纪念日都要 N 次 API 调用"，
-        // 跟「让 TA 记住这一天」的聊天注入（utils/anniversary.ts 的 buildAnniversaryInjection）是两回事，不冲突。
+        // 多個關聯對象時只讓第一個來發表感想——避免變成"每個紀念日都要 N 次 API 調用"，
+        // 跟「讓 TA 記住這一天」的聊天注入（utils/anniversary.ts 的 buildAnniversaryInjection）是兩回事，不衝突。
         const char = characters.find(c => c.id === anniversaryCharIds(anni)[0]);
         if (!char || !apiConfig.apiKey) return;
 
@@ -234,28 +234,28 @@ const ScheduleApp: React.FC = () => {
 
         // FEEDBACK: Show loading state if explicit call
         if (Date.now() - (anni.lastThoughtGeneratedAt || 0) > 10000) {
-             addToast(`${char.name} 正在查阅日历...`, 'info');
+             addToast(`${char.name} 正在查閱日曆...`, 'info');
         }
 
-        // 重复纪念日按"下一次到来的日期"算天数，否则历史锚点日期迟早会变成一个巨大的负数
+        // 重複紀念日按"下一次到來的日期"算天數，否則歷史錨點日期遲早會變成一個巨大的負數
         const upcomingDate = nextOccurrenceDate(anni, getLocalDateKey());
         const daysDiff = getCalendarDayDifference(getLocalDateKey(), upcomingDate) ?? 0;
-        const dayText = daysDiff > 0 ? `还有 ${daysDiff} 天` : (daysDiff === 0 ? '就是今天!' : `已经过去 ${Math.abs(daysDiff)} 天了`);
+        const dayText = daysDiff > 0 ? `還有 ${daysDiff} 天` : (daysDiff === 0 ? '就是今天!' : `已經過去 ${Math.abs(daysDiff)} 天了`);
 
         // RESTORED: Full context
         await injectMemoryPalace(char, undefined, anni.title);
         const baseContext = ContextBuilder.buildCoreContext(char, userProfile);
 
         const userPrompt = `
-### 场景：纪念日提醒
+### 場景：紀念日提醒
 事件: "${anni.title}"
-时间状态: ${dayText}
+時間狀態: ${dayText}
 
-### 任务
-请根据你的人设，针对这个日期发表一句简短的感想。
-**输出要求**:
-- 仅输出一句话。
-- **必须使用用户常用语言**。`;
+### 任務
+請根據你的人設，針對這個日期發表一句簡短的感想。
+**輸出要求**:
+- 僅輸出一句話。
+- **必須使用用戶常用語言**。`;
 
         const messages = [
             { role: "system", content: baseContext },
@@ -339,7 +339,7 @@ const ScheduleApp: React.FC = () => {
         setTasks(prev => prev.filter(t => t.id !== id));
     };
 
-    // 新建 / 编辑共用一个弹窗：editingAnniId 为空 = 新建，否则更新那条既有记录（沿用原 id/aiThought 缓存）。
+    // 新建 / 編輯共用一個彈窗：editingAnniId 為空 = 新建，否則更新那條既有記錄（沿用原 id/aiThought 緩存）。
     const openAnniModal = (anni?: Anniversary) => {
         if (anni) {
             setEditingAnniId(anni.id);
@@ -398,7 +398,7 @@ const ScheduleApp: React.FC = () => {
 
     // --- Render Helpers ---
 
-    // 重复纪念日按"下一次到来的日期"算天数；非重复的就是原始锚点日期（过了就是负数，天然掉出即将到来）。
+    // 重複紀念日按"下一次到來的日期"算天數；非重複的就是原始錨點日期（過了就是負數，天然掉出即將到來）。
     const getDaysUntil = (anni: Pick<Anniversary, 'date' | 'repeatAnnually'>) => {
         return getCalendarDayDifference(localDateKey, nextOccurrenceDate(anni, localDateKey)) ?? Number.POSITIVE_INFINITY;
     };
@@ -479,7 +479,7 @@ const ScheduleApp: React.FC = () => {
                     <div className={`w-full rounded-2xl p-5 relative overflow-hidden group transition-all duration-300 ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[inset_5px_5px_10px_#d1d9e6,inset_-5px_-5px_10px_#ffffff]' : (currentThemeMode === 'soft' ? 'bg-gradient-to-r from-pink-300 to-purple-300 text-white shadow-lg shadow-pink-200' : 'bg-gradient-to-r from-slate-900 to-slate-800 border border-purple-500/30')}`}>
                         <div className="relative z-10">
                             <div className="flex justify-between items-start mb-2">
-                                <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${currentThemeMode === 'minimal' ? 'text-slate-400' : 'text-white/80 bg-white/20'}`}>即将到来</div>
+                                <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${currentThemeMode === 'minimal' ? 'text-slate-400' : 'text-white/80 bg-white/20'}`}>即將到來</div>
                                 <div className="text-3xl font-bold tracking-tighter">{getDaysUntil(upcomingAnni)} <span className="text-xs opacity-60 font-normal">天后</span></div>
                             </div>
                             <div className="text-xl font-bold mb-4">{upcomingAnni.title}</div>
@@ -488,7 +488,7 @@ const ScheduleApp: React.FC = () => {
                             <div className={`flex items-start gap-3 p-3 rounded-xl ${currentThemeMode === 'minimal' ? 'bg-[#eef2f6] shadow-[5px_5px_10px_#d1d9e6,-5px_-5px_10px_#ffffff]' : 'bg-white/20 backdrop-blur-md'}`}>
                                 <TokenImg value={characters.find(c => c.id === anniversaryCharIds(upcomingAnni)[0])?.avatar} className="w-8 h-8 rounded-full object-cover" />
                                 <div className={`text-xs font-medium leading-relaxed italic ${currentThemeMode === 'minimal' ? 'text-slate-500' : 'text-white/90'}`}>
-                                    "{upcomingAnni.aiThought || "加载中..."}"
+                                    "{upcomingAnni.aiThought || "加載中..."}"
                                 </div>
                             </div>
                         </div>
@@ -499,12 +499,12 @@ const ScheduleApp: React.FC = () => {
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2 px-1">
                             <div className={`w-2 h-2 rounded-full animate-pulse ${currentThemeMode === 'cyber' ? 'bg-cyan-500' : (currentThemeMode === 'soft' ? 'bg-pink-400' : 'bg-slate-400')}`}></div>
-                            <h3 className={`text-xs font-bold uppercase tracking-[0.2em] ${theme.accent}`}>进行中任务</h3>
+                            <h3 className={`text-xs font-bold uppercase tracking-[0.2em] ${theme.accent}`}>進行中任務</h3>
                         </div>
                         
                         {tasks.filter(t => !t.isCompleted).length === 0 && (
                             <div className={`text-center py-12 border-2 border-dashed rounded-xl ${currentThemeMode === 'cyber' ? 'border-slate-800' : 'border-slate-200'}`}>
-                                <div className={theme.textSub}>暂无任务</div>
+                                <div className={theme.textSub}>暫無任務</div>
                             </div>
                         )}
 
@@ -523,7 +523,7 @@ const ScheduleApp: React.FC = () => {
                                     <div className="flex-1">
                                         <div className={`${theme.text} font-bold text-sm tracking-wide`}>{task.title}</div>
                                         <div className={`text-[10px] ${theme.textSub} mt-1 font-mono uppercase`}>
-                                            监督人: {supervisor?.name || 'Unknown'}
+                                            監督人: {supervisor?.name || 'Unknown'}
                                         </div>
                                     </div>
 
@@ -531,7 +531,7 @@ const ScheduleApp: React.FC = () => {
                                     {isProcessing ? (
                                         <div className="flex items-center gap-2 px-2 py-2">
                                             <div className={`w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin ${theme.accent}`}></div>
-                                            <span className={`text-[10px] font-bold animate-pulse ${theme.accent}`}>验收中...</span>
+                                            <span className={`text-[10px] font-bold animate-pulse ${theme.accent}`}>驗收中...</span>
                                         </div>
                                     ) : (
                                         <button 
@@ -566,7 +566,7 @@ const ScheduleApp: React.FC = () => {
                     <div className={`relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-[1px] ${theme.decoLine}`}>
                         {/* Anniversaries List */}
                         <div>
-                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 ${theme.textSub}`}>时间线事件</h3>
+                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 ${theme.textSub}`}>時間線事件</h3>
                              <div className="space-y-4">
                                  {anniversaries.map(a => (
                                      <div key={a.id} className="relative group">
@@ -588,12 +588,12 @@ const ScheduleApp: React.FC = () => {
 
                         {/* Completed Tasks History Log */}
                          <div>
-                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 pt-4 ${theme.textSub}`}>完成履历</h3>
+                             <h3 className={`text-xs font-bold uppercase tracking-widest mb-6 -ml-6 pl-6 pt-4 ${theme.textSub}`}>完成履歷</h3>
                              <div className="space-y-4">
                                  {tasks.filter(t => t.isCompleted).sort((a,b) => (b.completedAt || 0) - (a.completedAt || 0)).map(t => (
                                      <div key={t.id} className="relative">
                                          <div className={`absolute -left-[20px] top-2 w-2 h-2 rounded-full z-10 ${currentThemeMode === 'cyber' ? 'bg-black border border-green-600' : 'bg-slate-300'}`}></div>
-                                         <div className={`text-xs ${theme.textSub} font-mono`}>[{new Date(t.completedAt || 0).toLocaleDateString()}] 任务完成</div>
+                                         <div className={`text-xs ${theme.textSub} font-mono`}>[{new Date(t.completedAt || 0).toLocaleDateString()}] 任務完成</div>
                                          <div className={`text-sm ${theme.text} font-bold mt-1 pl-1 border-l-2 ${theme.decoLine}`}>{t.title}</div>
                                      </div>
                                  ))}
@@ -605,13 +605,13 @@ const ScheduleApp: React.FC = () => {
             </div>
 
             {/* Task Modal */}
-            <Modal isOpen={showTaskModal} title={currentThemeMode === 'cyber' ? "INITIALIZE QUEST" : "新建任务"} onClose={() => setShowTaskModal(false)} footer={<button onClick={handleAddTask} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>确认添加</button>}>
+            <Modal isOpen={showTaskModal} title={currentThemeMode === 'cyber' ? "INITIALIZE QUEST" : "新建任務"} onClose={() => setShowTaskModal(false)} footer={<button onClick={handleAddTask} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>確認添加</button>}>
                 <div className={`space-y-6 ${currentThemeMode === 'minimal' ? 'p-2' : ''}`}>
-                    <input autoFocus value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="任务目标 (例如: 背单词)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
+                    <input autoFocus value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} placeholder="任務目標 (例如: 背單詞)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
                     
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">选择监督人</label>
-                        {/* 分组筛选（没建分组时不渲染）。Modal 恒为白底，走浅色配色 */}
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">選擇監督人</label>
+                        {/* 分組篩選（沒建分組時不渲染）。Modal 恆為白底，走淺色配色 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={supervisorGroupId} onChange={setSupervisorGroupId} className="mb-2" />
                         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
@@ -626,15 +626,15 @@ const ScheduleApp: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* Anniversary Modal：新建/编辑共用，editingAnniId 非空时是编辑态 */}
-            <Modal isOpen={showAnniModal} title={editingAnniId ? (currentThemeMode === 'cyber' ? "EDIT EVENT" : "编辑纪念日") : (currentThemeMode === 'cyber' ? "REGISTER EVENT" : "添加纪念日")} onClose={() => setShowAnniModal(false)} footer={<button onClick={handleSaveAnni} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>{editingAnniId ? '保存修改' : '保存记录'}</button>}>
+            {/* Anniversary Modal：新建/編輯共用，editingAnniId 非空時是編輯態 */}
+            <Modal isOpen={showAnniModal} title={editingAnniId ? (currentThemeMode === 'cyber' ? "EDIT EVENT" : "編輯紀念日") : (currentThemeMode === 'cyber' ? "REGISTER EVENT" : "添加紀念日")} onClose={() => setShowAnniModal(false)} footer={<button onClick={handleSaveAnni} className={`w-full py-3 font-bold transition-all ${theme.buttonPrimary}`}>{editingAnniId ? '保存修改' : '保存記錄'}</button>}>
                 <div className={`space-y-4 ${currentThemeMode === 'minimal' ? 'p-2' : ''}`}>
-                    <input value={newAnniTitle} onChange={e => setNewAnniTitle(e.target.value)} placeholder="事件名称 (例如: 第一次见面)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
+                    <input value={newAnniTitle} onChange={e => setNewAnniTitle(e.target.value)} placeholder="事件名稱 (例如: 第一次見面)" className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
                     <input type="date" value={newAnniDate} onChange={e => setNewAnniDate(e.target.value)} className={`w-full px-4 py-3 text-sm focus:outline-none ${theme.input}`} />
 
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">关联对象</label>
-                        {/* 分组筛选（没建分组时不渲染）。Modal 恒为白底，走浅色配色 */}
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-widest">關聯對象</label>
+                        {/* 分組篩選（沒建分組時不渲染）。Modal 恆為白底，走淺色配色 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={anniCharGroupId} onChange={setAnniCharGroupId} className="mb-2" />
                         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
@@ -645,13 +645,13 @@ const ScheduleApp: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[9px] text-slate-400 mt-1.5">可以多选——比如一个纪念日同时跟好几位角色有关。</p>
+                        <p className="text-[9px] text-slate-400 mt-1.5">可以多選——比如一個紀念日同時跟好幾位角色有關。</p>
                     </div>
 
                     <div className="rounded-2xl bg-slate-50 p-3.5 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-700">让 TA 记住这一天</div>
-                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">每年这天 TA 会在聊天中自然提到，前三天起就会放在心上</p>
+                            <div className="text-xs font-bold text-slate-700">讓 TA 記住這一天</div>
+                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">每年這天 TA 會在聊天中自然提到，前三天起就會放在心上</p>
                         </div>
                         <button
                             onClick={() => setNewAnniRemembers(v => !v)}
@@ -663,8 +663,8 @@ const ScheduleApp: React.FC = () => {
 
                     <div className="rounded-2xl bg-slate-50 p-3.5 flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-700">每年重复提醒</div>
-                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">关闭 = 仅一次：过后不再出现在「即将到来」（仍保留记录）</p>
+                            <div className="text-xs font-bold text-slate-700">每年重複提醒</div>
+                            <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">關閉 = 僅一次：過後不再出現在「即將到來」（仍保留記錄）</p>
                         </div>
                         <button
                             onClick={() => setNewAnniRepeat(v => !v)}

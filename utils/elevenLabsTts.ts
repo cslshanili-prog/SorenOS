@@ -1,9 +1,9 @@
 /**
- * ElevenLabs TTS 适配器。
+ * ElevenLabs TTS 適配器。
  *
- * 第一阶段沿用 SullyOS 现有的「拿到完整 Blob 后播放 + IndexedDB 缓存」契约，
- * 因而聊天、见面、电话无需引入第二套 PCM 播放器。浏览器走同源 /api 或主代理
- * Worker，Capacitor 原生端直连官方接口；三条路径的请求体完全一致。
+ * 第一階段沿用 SullyOS 現有的「拿到完整 Blob 後播放 + IndexedDB 緩存」契約，
+ * 因而聊天、見面、電話無需引入第二套 PCM 播放器。瀏覽器走同源 /api 或主代理
+ * Worker，Capacitor 原生端直連官方接口；三條路徑的請求體完全一致。
  */
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import type { APIConfig, CharacterProfile } from '../types';
@@ -18,9 +18,9 @@ export const DEFAULT_ELEVENLABS_MODEL = 'eleven_flash_v2_5';
 export const ELEVENLABS_OUTPUT_FORMAT = 'mp3_44100_128';
 
 export const ELEVENLABS_MODEL_OPTIONS = [
-  { value: 'eleven_flash_v2_5', label: 'Flash v2.5 —— 低延迟，通话推荐' },
-  { value: 'eleven_v3', label: 'Eleven v3 —— 情绪最丰富，支持 Audio Tags' },
-  { value: 'eleven_multilingual_v2', label: 'Multilingual v2 —— 长文本稳定、音质优先' },
+  { value: 'eleven_flash_v2_5', label: 'Flash v2.5 —— 低延遲，通話推薦' },
+  { value: 'eleven_v3', label: 'Eleven v3 —— 情緒最豐富，支持 Audio Tags' },
+  { value: 'eleven_multilingual_v2', label: 'Multilingual v2 —— 長文本穩定、音質優先' },
 ] as const;
 
 export const normalizeElevenLabsModel = (raw?: string | null): string => {
@@ -31,19 +31,19 @@ export const normalizeElevenLabsModel = (raw?: string | null): string => {
 export const isElevenLabsV3Model = (raw?: string | null): boolean =>
   normalizeElevenLabsModel(raw) === 'eleven_v3';
 
-export const ELEVENLABS_V3_VOICE_ACTING_GUIDE = `### ElevenLabs v3 语音表演规则
+export const ELEVENLABS_V3_VOICE_ACTING_GUIDE = `### ElevenLabs v3 語音表演規則
 
-你写的是马上会被角色亲口说出来的台词，不是小说旁白。句子要口语化、有呼吸、有长短变化；不要写“她轻声说道”之类会被念出来的叙述。
+你寫的是馬上會被角色親口說出來的台詞，不是小說旁白。句子要口語化、有呼吸、有長短變化；不要寫“她輕聲說道”之類會被念出來的敘述。
 
-Eleven v3 支持方括号 Audio Tags。只在情绪真正变化的位置少量使用：\`[laughs]\`、\`[chuckles]\`、\`[whispers]\`、\`[sighs]\`、\`[excited]\`、\`[curious]\`、\`[sarcastic]\`、\`[crying]\`、\`[hesitates]\`、\`[softly]\`、\`[pause]\`。标签用半角英文方括号，通常一段 0–2 个；不要每句开头都塞标签，不要自造中文标签。
+Eleven v3 支持方括號 Audio Tags。只在情緒真正變化的位置少量使用：\`[laughs]\`、\`[chuckles]\`、\`[whispers]\`、\`[sighs]\`、\`[excited]\`、\`[curious]\`、\`[sarcastic]\`、\`[crying]\`、\`[hesitates]\`、\`[softly]\`、\`[pause]\`。標籤用半角英文方括號，通常一段 0–2 個；不要每句開頭都塞標籤，不要自造中文標籤。
 
-停顿优先靠逗号、句号、省略号、破折号和自然换行；确实需要明显沉默才用 \`[pause]\`。标签是演出指令，不要在标签外再复述动作。`;
+停頓優先靠逗號、句號、省略號、破折號和自然換行；確實需要明顯沉默才用 \`[pause]\`。標籤是演出指令，不要在標籤外再複述動作。`;
 
-export const ELEVENLABS_STANDARD_VOICE_ACTING_GUIDE = `### ElevenLabs 语音表演规则
+export const ELEVENLABS_STANDARD_VOICE_ACTING_GUIDE = `### ElevenLabs 語音表演規則
 
-你写的是马上会被角色亲口说出来的台词，不是小说旁白。只写会说出口的话，保持口语化、自然、有长短句变化；不要写“她轻声说道”一类叙述。
+你寫的是馬上會被角色親口說出來的台詞，不是小說旁白。只寫會說出口的話，保持口語化、自然、有長短句變化；不要寫“她輕聲說道”一類敘述。
 
-当前模型不是 Eleven v3，**不要输出方括号 Audio Tags、圆括号动作词或 SSML**，否则它们可能被原样念出来。情绪和停顿只靠措辞、语气词、逗号、句号、省略号、破折号与自然换行表达。强情绪也要克制，避免播音腔和每句同一种节奏。`;
+當前模型不是 Eleven v3，**不要輸出方括號 Audio Tags、圓括號動作詞或 SSML**，否則它們可能被原樣念出來。情緒和停頓只靠措辭、語氣詞、逗號、句號、省略號、破折號與自然換行表達。強情緒也要克制，避免播音腔和每句同一種節奏。`;
 
 export const getElevenLabsVoiceActingGuide = (model?: string | null): string =>
   isElevenLabsV3Model(model)
@@ -69,7 +69,7 @@ const normalizeV3Cue = (raw: string): string => {
   return V3_CUE_ALIASES[key] || '';
 };
 
-/** 支持粘贴纯 ID，也支持从常见 ElevenLabs 页面链接提取 voiceId。 */
+/** 支持粘貼純 ID，也支持從常見 ElevenLabs 頁面鏈接提取 voiceId。 */
 export const normalizeElevenLabsVoiceId = (raw?: string | null): string => {
   const value = (raw || '').trim();
   if (!value) return '';
@@ -81,7 +81,7 @@ export const normalizeElevenLabsVoiceId = (raw?: string | null): string => {
     if (voicePath) return voicePath[1];
     return '';
   } catch {
-    // 纯 ID 不是 URL，继续走下面的容错提取。
+    // 純 ID 不是 URL，繼續走下面的容錯提取。
   }
   const embedded = value.match(/(?:voiceId|voice_id)[=/:]([A-Za-z0-9_-]{8,64})/i);
   if (embedded) return embedded[1];
@@ -96,13 +96,13 @@ export const resolveElevenLabsModel = (apiConfig: APIConfig): string =>
 
 const extractVoiceBody = (raw: string): string => {
   const normalized = normalizeVoiceTags(raw || '');
-  const voiceTag = normalized.match(/<[语語]音[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>/);
+  const voiceTag = normalized.match(/<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/);
   return voiceTag ? voiceTag[1] : normalized;
 };
 
 /**
- * ElevenLabs 专属文本清洗：v3 保留一小组官方 Audio Tags；其余模型剥掉演出标签，
- * 防止把 [laughs] / (sighs) 当正文念出来。
+ * ElevenLabs 專屬文本清洗：v3 保留一小組官方 Audio Tags；其餘模型剝掉演出標籤，
+ * 防止把 [laughs] / (sighs) 當正文念出來。
  */
 export const cleanTextForTtsElevenLabs = (raw: string, model?: string | null): string => {
   const isV3 = isElevenLabsV3Model(model);
@@ -174,7 +174,7 @@ export const buildElevenLabsRequestBody = (
 ): ElevenLabsRequestBody => {
   const model = resolveElevenLabsModel(apiConfig);
   const rawStability = clamp(apiConfig.elevenLabsStability, 0.5, 0, 1);
-  // Eleven v3 官方只定义 Creative / Natural / Robust 三档稳定度。
+  // Eleven v3 官方只定義 Creative / Natural / Robust 三檔穩定度。
   const stability = isElevenLabsV3Model(model)
     ? [0, 0.5, 1].reduce((nearest, candidate) =>
         Math.abs(candidate - rawStability) < Math.abs(nearest - rawStability) ? candidate : nearest, 0.5)
@@ -217,12 +217,12 @@ const base64ToBlob = (base64: string, mime = 'audio/mpeg'): Blob => {
 
 const friendlyElevenLabsError = (status: number, detail: string): string => {
   const normalized = detail.toLowerCase();
-  if (status === 401 || normalized.includes('invalid api key')) return 'ElevenLabs API Key 无效或已过期';
-  if (status === 402 || normalized.includes('quota') || normalized.includes('credits')) return 'ElevenLabs 额度不足';
-  if (status === 403) return 'ElevenLabs 拒绝访问，请检查 Key 权限或 IP 限制';
+  if (status === 401 || normalized.includes('invalid api key')) return 'ElevenLabs API Key 無效或已過期';
+  if (status === 402 || normalized.includes('quota') || normalized.includes('credits')) return 'ElevenLabs 額度不足';
+  if (status === 403) return 'ElevenLabs 拒絕訪問，請檢查 Key 權限或 IP 限制';
   if (status === 404) return 'ElevenLabs Voice ID 或模型不存在';
-  if (status === 429) return 'ElevenLabs 请求过于频繁，请稍后再试';
-  return `ElevenLabs TTS 失败 (HTTP ${status})${detail ? `：${detail.slice(0, 240)}` : ''}`;
+  if (status === 429) return 'ElevenLabs 請求過於頻繁，請稍後再試';
+  return `ElevenLabs TTS 失敗 (HTTP ${status})${detail ? `：${detail.slice(0, 240)}` : ''}`;
 };
 
 const elevenLabsFetchAudio = async (
@@ -243,7 +243,7 @@ const elevenLabsFetchAudio = async (
       throw new Error(friendlyElevenLabsError(response.status, String(response.data || '')));
     }
     const blob = base64ToBlob(String(response.data || ''));
-    if (!blob.size) throw new Error('ElevenLabs 返回了空音频');
+    if (!blob.size) throw new Error('ElevenLabs 返回了空音頻');
     return blob;
   }
 
@@ -261,7 +261,7 @@ const elevenLabsFetchAudio = async (
     throw new Error(friendlyElevenLabsError(response.status, detail));
   }
   const blob = await response.blob();
-  if (!blob.size) throw new Error('ElevenLabs 返回了空音频');
+  if (!blob.size) throw new Error('ElevenLabs 返回了空音頻');
   return blob;
 };
 
@@ -277,7 +277,7 @@ export async function synthesizeSpeechElevenLabsDetailed(
   if (!voiceId) throw new Error('角色未配置 ElevenLabs Voice ID');
 
   const payload = buildElevenLabsRequestBody(text, char, apiConfig, options);
-  if (!payload.text) throw new Error('ElevenLabs TTS 文本为空');
+  if (!payload.text) throw new Error('ElevenLabs TTS 文本為空');
 
   const cacheKey = hashTtsParams({
     kind: 'elevenlabs-tts',

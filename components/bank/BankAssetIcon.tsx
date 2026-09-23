@@ -3,9 +3,9 @@ import { isImageValue } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 
 /**
- * 银行资产图标的值是「一张图」还是「一段直接显示的文字（emoji）」。
- * 判断本身收口在 utils/blobRef 的 isImageValue（认 blobref 令牌 / data: / http(s) / 站内路径），
- * 这里只保留名字，方便 BankDollhouse 等调用方照旧引用。
+ * 銀行資產圖標的值是「一張圖」還是「一段直接顯示的文字（emoji）」。
+ * 判斷本身收口在 utils/blobRef 的 isImageValue（認 blobref 令牌 / data: / http(s) / 站內路徑），
+ * 這裡只保留名字，方便 BankDollhouse 等調用方照舊引用。
  */
 export const isBankAssetUrl = (value?: string | null): value is string => isImageValue(value);
 

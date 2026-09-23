@@ -8,7 +8,7 @@ export type CaianExpression = typeof SAR_EXPRESSIONS.caian[number];
 export type AivenExpression = typeof SAR_EXPRESSIONS.aiven[number];
 export type SARExpression = CaianExpression | AivenExpression;
 export type SARCastExpressions = {caian:CaianExpression;aiven:AivenExpression};
-export const SAR_NPC_NAMES = {caian:'凯恩',aiven:'艾文'} as const;
+export const SAR_NPC_NAMES = {caian:'凱恩',aiven:'艾文'} as const;
 
 /** Repository-relative paths deliberately use the existing CdnImg mirror chain. */
 export function sarPortraitPath(who:SARDialogueSpeaker,expression:string='normal') {

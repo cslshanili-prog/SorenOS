@@ -20,7 +20,7 @@
       "description": ""
     },
     {
-      "name": "窗户",
+      "name": "窗戶",
       "type": "furniture",
       "image": "assets/item-02.png",
       "x": 73.9280303007458,
@@ -31,7 +31,7 @@
       "description": ""
     },
     {
-      "name": "沙发",
+      "name": "沙發",
       "type": "furniture",
       "image": "assets/item-03.png",
       "x": 31.234439199920185,
@@ -42,7 +42,7 @@
       "description": ""
     },
     {
-      "name": "灯",
+      "name": "燈",
       "type": "furniture",
       "image": "assets/item-04.png",
       "x": 13.58821247331387,
@@ -53,7 +53,7 @@
       "description": ""
     },
     {
-      "name": "书柜",
+      "name": "書櫃",
       "type": "furniture",
       "image": "assets/item-05.png",
       "x": 25.08104735149824,

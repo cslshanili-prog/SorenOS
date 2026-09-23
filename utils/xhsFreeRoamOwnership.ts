@@ -21,8 +21,8 @@ const firstNonEmptyString = (...values: unknown[]): string => {
 };
 
 /**
- * 发帖工具在 Lite、MCP 和不同上游版本中会有一到两层包装。
- * 只检查明确的发布结果路径，避免把 raw 响应里的其他 id 误认成 note_id。
+ * 發帖工具在 Lite、MCP 和不同上游版本中會有一到兩層包裝。
+ * 只檢查明確的發佈結果路徑，避免把 raw 響應裡的其他 id 誤認成 note_id。
  */
 export const extractPublishedNoteId = (result: any): string => {
     const data = result?.data;
@@ -41,7 +41,7 @@ export const extractPublishedNoteId = (result: any): string => {
     );
 };
 
-/** 从本地活动历史恢复已经确认属于当前角色的笔记。 */
+/** 從本地活動歷史恢復已經確認屬於當前角色的筆記。 */
 export const collectPersistedOwnedNotes = (
     activities: XhsActivityRecord[],
     author: string,
@@ -56,7 +56,7 @@ export const collectPersistedOwnedNotes = (
         seen.add(noteId);
         notes.push({
             noteId,
-            title: activity.content.title || '无标题',
+            title: activity.content.title || '無標題',
             desc: activity.content.body || '',
             author,
             authorId: '',
@@ -70,7 +70,7 @@ export const collectPersistedOwnedNotes = (
     return notes;
 };
 
-/** 将旧版活动记录中已经保存过 note_id 的帖子迁移到独立角色主页。 */
+/** 將舊版活動記錄中已經保存過 note_id 的帖子遷移到獨立角色主頁。 */
 export const collectOwnedPostsFromActivities = (
     activities: XhsActivityRecord[],
 ): XhsOwnedPost[] => {
@@ -85,7 +85,7 @@ export const collectOwnedPostsFromActivities = (
             id: `${activity.characterId}:${noteId}`,
             characterId: activity.characterId,
             noteId,
-            title: activity.content.title || '无标题',
+            title: activity.content.title || '無標題',
             body: activity.content.body || '',
             tags: activity.content.tags,
             publishedAt: activity.timestamp,
@@ -109,7 +109,7 @@ export const ownedPostToNote = (post: XhsOwnedPost, author: string): PersistedOw
 });
 
 /**
- * 主页接口的数据优先（它包含最新互动数和 xsec_token），本地记录负责兜底唯一 ID。
+ * 主頁接口的數據優先（它包含最新互動數和 xsec_token），本地記錄負責兜底唯一 ID。
  */
 export const mergeOwnedNotes = (
     localNotes: any[],

@@ -28,7 +28,7 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     {
         id: 'original',
         name: '原版星夜',
-        description: '跟随角色主题色',
+        description: '跟隨角色主題色',
         background: '',
         base: '',
         text: '#ffffff',
@@ -36,8 +36,8 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     },
     {
         id: 'cream',
-        name: '奶油信笺',
-        description: '暖白与焦糖棕',
+        name: '奶油信箋',
+        description: '暖白與焦糖棕',
         background: 'linear-gradient(145deg, #fffaf0, #f0dfc9)',
         base: '#f0dfc9',
         text: '#584337',
@@ -45,8 +45,8 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     },
     {
         id: 'sakura',
-        name: '樱桃牛乳',
-        description: '浅粉与莓果红',
+        name: '櫻桃牛乳',
+        description: '淺粉與莓果紅',
         background: 'linear-gradient(145deg, #fff3f7, #f5dce8)',
         base: '#f5dce8',
         text: '#623d50',
@@ -55,7 +55,7 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     {
         id: 'mint',
         name: '薄荷清晨',
-        description: '雾绿与深松石',
+        description: '霧綠與深松石',
         background: 'linear-gradient(145deg, #ecfbf5, #cee9df)',
         base: '#cee9df',
         text: '#284b46',
@@ -64,7 +64,7 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     {
         id: 'twilight',
         name: '暮光紫',
-        description: '柔紫与月光白',
+        description: '柔紫與月光白',
         background: 'linear-gradient(145deg, #352747, #191321)',
         base: '#191321',
         text: '#f6edff',
@@ -73,7 +73,7 @@ export const SCHEDULE_CARD_PRESETS: ScheduleCardPreset[] = [
     {
         id: 'midnight',
         name: '午夜青',
-        description: '墨蓝与冷青光',
+        description: '墨藍與冷青光',
         background: 'linear-gradient(145deg, #14252d, #071117)',
         base: '#071117',
         text: '#edfafa',
@@ -134,14 +134,14 @@ export const SCHEDULE_CSS_SCOPE_HINT = '`.sully-schedule-*`';
 /** Stable public hooks shared by the schedule skin editor and collaboration maker. */
 export const SCHEDULE_CUSTOM_CSS_SELECTOR_GROUPS = [
     {
-        label: '卡片与宿主',
+        label: '卡片與宿主',
         selectors: [
             '.sully-schedule-root', '.sully-schedule-card', '.sully-schedule-widget',
             '.sully-schedule-cover', '.sully-schedule-settings',
         ],
     },
     {
-        label: '日程内容',
+        label: '日程內容',
         selectors: [
             '.sully-schedule-header', '.sully-schedule-timeline', '.sully-schedule-list',
             '.sully-schedule-item', '.sully-schedule-item-current', '.sully-schedule-time',
@@ -149,7 +149,7 @@ export const SCHEDULE_CUSTOM_CSS_SELECTOR_GROUPS = [
         ],
     },
     {
-        label: '聊天内修改回执',
+        label: '聊天內修改回執',
         selectors: [
             '.sully-schedule-change', '.sully-schedule-change-head', '.sully-schedule-change-mark',
             '.sully-schedule-change-kicker', '.sully-schedule-change-count', '.sully-schedule-change-list',

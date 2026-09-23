@@ -16,7 +16,7 @@ const VoiceFavoriteActionSheet: React.FC<VoiceFavoriteActionSheetProps> = ({
     open,
     favorited,
     busy = false,
-    title = '语音消息',
+    title = '語音消息',
     preview,
     onToggle,
     onClose,
@@ -30,7 +30,7 @@ const VoiceFavoriteActionSheet: React.FC<VoiceFavoriteActionSheetProps> = ({
                         <p className="text-[11px] font-bold tracking-[.12em] text-slate-400">{title}</p>
                         {preview && <p className="mt-1.5 line-clamp-2 text-[13px] leading-5 text-slate-600">{preview}</p>}
                     </div>
-                    <button type="button" onClick={onClose} className="w-8 h-8 grid place-items-center rounded-full text-slate-400 active:bg-black/5" aria-label="关闭"><X size={17} /></button>
+                    <button type="button" onClick={onClose} className="w-8 h-8 grid place-items-center rounded-full text-slate-400 active:bg-black/5" aria-label="關閉"><X size={17} /></button>
                 </div>
                 <button
                     type="button"
@@ -39,7 +39,7 @@ const VoiceFavoriteActionSheet: React.FC<VoiceFavoriteActionSheetProps> = ({
                     className={`w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold transition-colors disabled:opacity-50 ${favorited ? 'bg-amber-100 text-amber-800' : 'bg-slate-800 text-white'}`}
                 >
                     <Star size={18} weight={favorited ? 'fill' : 'regular'} />
-                    {busy ? '正在保存音频…' : favorited ? '取消收藏语音' : '收藏语音'}
+                    {busy ? '正在保存音頻…' : favorited ? '取消收藏語音' : '收藏語音'}
                 </button>
             </div>
         </div>,

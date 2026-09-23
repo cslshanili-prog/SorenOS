@@ -1,5 +1,5 @@
 /**
- * ActionPanel — 行动面板 (retro dialog box style)
+ * ActionPanel — 行動面板 (retro dialog box style)
  */
 
 import React, { useState } from 'react';
@@ -12,17 +12,17 @@ import { trackEvent } from '../../utils/analytics';
 
 const EVENT_TYPES: { type: SimEventType; label: string; Icon: React.FC<{ size?: number }> }[] = [
     { type: 'fight', label: '吵架', Icon: IconFight },
-    { type: 'party', label: '联谊', Icon: IconParty },
-    { type: 'romance', label: '暧昧', Icon: IconRomance },
-    { type: 'gossip', label: '说闲话', Icon: IconGossip },
-    { type: 'rivalry', label: '竞争', Icon: IconRivalry },
-    { type: 'alliance', label: '结盟', Icon: IconAlliance },
+    { type: 'party', label: '聯誼', Icon: IconParty },
+    { type: 'romance', label: '曖昧', Icon: IconRomance },
+    { type: 'gossip', label: '說閒話', Icon: IconGossip },
+    { type: 'rivalry', label: '競爭', Icon: IconRivalry },
+    { type: 'alliance', label: '結盟', Icon: IconAlliance },
 ];
 
 const NPC_PERSONALITY_OPTIONS = [
-    '社牛','社恐','卷王','摸鱼','文青','话题女王','职场精英','暖男/暖女',
-    '叛逆','精致','独立','自恋','佛系','焦虑','八卦','高冷','上进',
-    '有品味','消息灵通','目标明确','热心','老好人','不按常理出牌','外貌协会',
+    '社牛','社恐','卷王','摸魚','文青','話題女王','職場精英','暖男/暖女',
+    '叛逆','精緻','獨立','自戀','佛系','焦慮','八卦','高冷','上進',
+    '有品味','消息靈通','目標明確','熱心','老好人','不按常理出牌','外貌協會',
 ];
 
 const NPC_STYLE_OPTIONS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y'];
@@ -66,16 +66,16 @@ const ActionPanel: React.FC<{
             eventDesc: eventDesc || `${EVENT_TYPES.find(e => e.type === eventType)?.label}事件`,
             worldStory: true,
         });
-        // 只带搅局方式（EVENT_TYPES 里写死的六选一）；eventDesc 是用户自由输入，绝不采。
+        // 只帶攪局方式（EVENT_TYPES 裡寫死的六選一）；eventDesc 是用戶自由輸入，絕不採。
         trackEvent('搅动世界（搅局）', { eventType });
     };
 
     const handleAdd = () => {
         if (!familyId || !npcName.trim() || personalities.length === 0) {
-            alert('请填写名字、选择性格、并选择入住公寓！'); return;
+            alert('請填寫名字、選擇性格、並選擇入住公寓！'); return;
         }
         onAdd({ name: npcName.trim(), emoji: npcEmoji, personalities, familyId });
-        // 只发事件名：名字/头像/性格/公寓都是用户自己填选的，一律不采。
+        // 只發事件名：名字/頭像/性格/公寓都是用戶自己填選的，一律不採。
         trackEvent('往城市里拉一个小人');
     };
 
@@ -91,8 +91,8 @@ const ActionPanel: React.FC<{
                 <div className="retro-titlebar">
                     <span className="flex items-center gap-1">
                         {mode === 'stir'
-                            ? <><MaskHappy size={11} weight="bold" /> 搅局 — 制造Drama</>
-                            : <><UserPlus size={11} weight="bold" /> 新邻居 — 搬入</>}
+                            ? <><MaskHappy size={11} weight="bold" /> 攪局 — 製造Drama</>
+                            : <><UserPlus size={11} weight="bold" /> 新鄰居 — 搬入</>}
                     </span>
                     <span className="retro-dots">
                         <span className="retro-dot" style={{ background: '#f87171' }} onClick={onClose}>×</span>
@@ -106,11 +106,11 @@ const ActionPanel: React.FC<{
                         <div className="space-y-2.5">
                             <div className="retro-inset" style={{ padding: '5px 8px' }}>
                                 <p style={{ fontSize: 9, color: '#8b6bb8', lineHeight: 1.5 }}>
-                                    选择搅局方式，系统将自动卷入相关NPC
+                                    選擇攪局方式，系統將自動捲入相關NPC
                                 </p>
                             </div>
 
-                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>搅局方式</p>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>攪局方式</p>
                             <div className="grid grid-cols-3 gap-1">
                                 {EVENT_TYPES.map(et => (
                                     <button key={et.type} onClick={() => setEventType(et.type)}
@@ -128,7 +128,7 @@ const ActionPanel: React.FC<{
                             </div>
 
                             <input value={eventDesc} onChange={e => setEventDesc(e.target.value)}
-                                placeholder="描述剧情（可选）"
+                                placeholder="描述劇情（可選）"
                                 style={{
                                     width: '100%', padding: '5px 8px', fontSize: 10,
                                     background: 'white', border: '2px solid rgba(0,0,0,0.15)',
@@ -139,7 +139,7 @@ const ActionPanel: React.FC<{
                             <button onClick={handleStir}
                                 className="retro-btn retro-btn-primary w-full flex items-center justify-center gap-1"
                                 style={{ padding: '7px 12px' }}>
-                                <Lightning size={12} weight="bold" /> 搅动世界！
+                                <Lightning size={12} weight="bold" /> 攪動世界！
                             </button>
                         </div>
                     )}
@@ -148,7 +148,7 @@ const ActionPanel: React.FC<{
                         <div className="space-y-2">
                             <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>名字</p>
                             <input value={npcName} onChange={e => setNpcName(e.target.value)}
-                                placeholder="给TA取个名字"
+                                placeholder="給TA取個名字"
                                 style={{
                                     width: '100%', padding: '5px 8px', fontSize: 10,
                                     background: 'white', border: '2px solid rgba(0,0,0,0.15)',
@@ -156,7 +156,7 @@ const ActionPanel: React.FC<{
                                     boxShadow: 'inset 1px 1px 3px rgba(0,0,0,0.08)',
                                 }} />
 
-                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>头像风格</p>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>頭像風格</p>
                             <div className="flex flex-wrap gap-1">
                                 {NPC_STYLE_OPTIONS.map(e => (
                                     <button key={e} onClick={() => setNpcEmoji(e)}
@@ -170,7 +170,7 @@ const ActionPanel: React.FC<{
                                 ))}
                             </div>
 
-                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>性格（至少选1个）</p>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: '#666' }}>性格（至少選1個）</p>
                             <div className="flex flex-wrap gap-1">
                                 {NPC_PERSONALITY_OPTIONS.map(p => {
                                     const sel = personalities.includes(p);
@@ -219,7 +219,7 @@ const ActionPanel: React.FC<{
                 {/* Close button */}
                 <div style={{ padding: '6px 10px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
                     <button onClick={onClose} className="retro-btn w-full" style={{ padding: '5px 12px' }}>
-                        关闭
+                        關閉
                     </button>
                 </div>
             </div>

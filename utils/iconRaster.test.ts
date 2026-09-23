@@ -1,14 +1,14 @@
 /// <reference types="vitest" />
 /**
- * utils/iconRaster.test.ts — 图标栅格化的回归测试。
+ * utils/iconRaster.test.ts — 圖標柵格化的迴歸測試。
  *
- * 钉住的点：
- *   - 输出恒为 PNG（iOS 的 apple-touch-icon 只稳定认 PNG）
- *   - cover 裁切：铺满正方形、居中、不变形（图标不该留白边或被拉扁）
- *   - Blob 走 objectURL 并回收；远程 URL 带 crossOrigin（否则污染画布 toDataURL 会抛）
+ * 釘住的點：
+ *   - 輸出恆為 PNG（iOS 的 apple-touch-icon 只穩定認 PNG）
+ *   - cover 裁切：鋪滿正方形、居中、不變形（圖標不該留白邊或被拉扁）
+ *   - Blob 走 objectURL 並回收；遠程 URL 帶 crossOrigin（否則汙染畫布 toDataURL 會拋）
  *
- * jsdom 没有真实 canvas / 图片解码，所以 Image 和 canvas 都是替身，
- * 断言落在「传给 drawImage 的参数对不对」这一层。
+ * jsdom 沒有真實 canvas / 圖片解碼，所以 Image 和 canvas 都是替身，
+ * 斷言落在「傳給 drawImage 的參數對不對」這一層。
  *
  * @vitest-environment jsdom
  */
@@ -28,7 +28,7 @@ let canvasSizes: Array<{ w: number; h: number }> = [];
 let createdObjectUrls: string[] = [];
 let revokedObjectUrls: string[] = [];
 
-/** 受控的 Image 替身：设 src 后由测试决定 onload / onerror 何时触发。 */
+/** 受控的 Image 替身：設 src 後由測試決定 onload / onerror 何時觸發。 */
 class FakeImage {
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
@@ -37,7 +37,7 @@ class FakeImage {
   height = 0;
   #src = '';
 
-  // 测试通过这两个字段控制这张「图」的原始尺寸与加载结果
+  // 測試通過這兩個字段控制這張「圖」的原始尺寸與加載結果
   static nextSize: { width: number; height: number } = { width: 100, height: 100 };
   static nextResult: 'load' | 'error' = 'load';
   static lastInstance: FakeImage | null = null;
@@ -45,7 +45,7 @@ class FakeImage {
   set src(v: string) {
     this.#src = v;
     FakeImage.lastInstance = this;
-    // 异步触发，贴近真实浏览器行为
+    // 異步觸發，貼近真實瀏覽器行為
     setTimeout(() => {
       if (FakeImage.nextResult === 'error') {
         this.onerror?.();
@@ -64,7 +64,7 @@ let origCreateElement: any;
 let origCreateObjectURL: any;
 let origRevokeObjectURL: any;
 
-/** canvas 替身：记下尺寸、drawImage 参数、toDataURL 的 mime。 */
+/** canvas 替身：記下尺寸、drawImage 參數、toDataURL 的 mime。 */
 function makeFakeCanvas(ctxAvailable = true) {
   const canvas: any = {
     set width(v: number) { canvas._w = v; canvasSizes.push({ w: v, h: canvas._h ?? 0 }); },
@@ -131,23 +131,23 @@ afterEach(() => {
 
 const blob = (type = 'image/jpeg') => new Blob(['bytes'], { type });
 
-// ── 输出格式 ────────────────────────────────────────────────────────
+// ── 輸出格式 ────────────────────────────────────────────────────────
 
-describe('输出格式', () => {
-  it('恒为 PNG —— 源图是 JPEG 也一样', async () => {
+describe('輸出格式', () => {
+  it('恆為 PNG —— 源圖是 JPEG 也一樣', async () => {
     const out = await toSquarePngDataUrl(blob('image/jpeg'), 180);
 
     expect(out).toBe(PNG_OUT);
     expect(toDataUrlCalls).toEqual(['image/png']);
   });
 
-  it('源图是 WebP 也转 PNG', async () => {
+  it('源圖是 WebP 也轉 PNG', async () => {
     await toSquarePngDataUrl(blob('image/webp'), 180);
 
     expect(toDataUrlCalls).toEqual(['image/png']);
   });
 
-  it('canvas 按请求的边长开', async () => {
+  it('canvas 按請求的邊長開', async () => {
     await toSquarePngDataUrl(blob(), 180);
 
     expect(canvasSizes).toEqual([{ w: 180, h: 180 }]);
@@ -157,7 +157,7 @@ describe('输出格式', () => {
 // ── cover 裁切 ──────────────────────────────────────────────────────
 
 describe('cover 裁切', () => {
-  it('正方形源图：铺满，不偏移', async () => {
+  it('正方形源圖：鋪滿，不偏移', async () => {
     FakeImage.nextSize = { width: 512, height: 512 };
 
     await toSquarePngDataUrl(blob(), 180);
@@ -165,13 +165,13 @@ describe('cover 裁切', () => {
     expect(drawCalls).toEqual([{ x: 0, y: 0, w: 180, h: 180 }]);
   });
 
-  it('宽图：按高度铺满，左右等量裁掉', async () => {
+  it('寬圖：按高度鋪滿，左右等量裁掉', async () => {
     FakeImage.nextSize = { width: 400, height: 200 }; // 2:1
 
     await toSquarePngDataUrl(blob(), 180);
 
     const [call] = drawCalls;
-    // 高度撑满 180，宽度等比放大到 360
+    // 高度撐滿 180，寬度等比放大到 360
     expect(call.h).toBeCloseTo(180);
     expect(call.w).toBeCloseTo(360);
     // 水平居中：(180 - 360) / 2 = -90
@@ -179,7 +179,7 @@ describe('cover 裁切', () => {
     expect(call.y).toBeCloseTo(0);
   });
 
-  it('高图：按宽度铺满，上下等量裁掉', async () => {
+  it('高圖：按寬度鋪滿，上下等量裁掉', async () => {
     FakeImage.nextSize = { width: 200, height: 400 }; // 1:2
 
     await toSquarePngDataUrl(blob(), 180);
@@ -191,7 +191,7 @@ describe('cover 裁切', () => {
     expect(call.y).toBeCloseTo(-90);
   });
 
-  it('小图会放大铺满，不留透明边', async () => {
+  it('小圖會放大鋪滿，不留透明邊', async () => {
     FakeImage.nextSize = { width: 64, height: 64 };
 
     await toSquarePngDataUrl(blob(), 180);
@@ -199,7 +199,7 @@ describe('cover 裁切', () => {
     expect(drawCalls).toEqual([{ x: 0, y: 0, w: 180, h: 180 }]);
   });
 
-  it('宽高比保持不变（不拉扁）', async () => {
+  it('寬高比保持不變（不拉扁）', async () => {
     FakeImage.nextSize = { width: 300, height: 100 }; // 3:1
 
     await toSquarePngDataUrl(blob(), 180);
@@ -209,9 +209,9 @@ describe('cover 裁切', () => {
   });
 });
 
-// ── 输入来源 ────────────────────────────────────────────────────────
+// ── 輸入來源 ────────────────────────────────────────────────────────
 
-describe('输入来源', () => {
+describe('輸入來源', () => {
   it('Blob：建 objectURL，用完回收', async () => {
     await toSquarePngDataUrl(blob(), 180);
 
@@ -219,13 +219,13 @@ describe('输入来源', () => {
     expect(revokedObjectUrls).toEqual(createdObjectUrls);
   });
 
-  it('Blob 不设 crossOrigin（本地数据不涉及 CORS）', async () => {
+  it('Blob 不設 crossOrigin（本地數據不涉及 CORS）', async () => {
     await toSquarePngDataUrl(blob(), 180);
 
     expect(FakeImage.lastInstance!.crossOrigin).toBeNull();
   });
 
-  it('远程 URL 带 crossOrigin=anonymous（不然画布被污染、toDataURL 抛错）', async () => {
+  it('遠程 URL 帶 crossOrigin=anonymous（不然畫布被汙染、toDataURL 拋錯）', async () => {
     await toSquarePngDataUrl('https://cdn.example.com/x.png', 180);
 
     expect(FakeImage.lastInstance!.crossOrigin).toBe('anonymous');
@@ -239,17 +239,17 @@ describe('输入来源', () => {
   });
 });
 
-// ── 失败路径 ────────────────────────────────────────────────────────
+// ── 失敗路徑 ────────────────────────────────────────────────────────
 
-describe('失败路径', () => {
-  it('图片加载不出来 → reject，并回收 objectURL', async () => {
+describe('失敗路徑', () => {
+  it('圖片加載不出來 → reject，並回收 objectURL', async () => {
     FakeImage.nextResult = 'error';
 
-    await expect(toSquarePngDataUrl(blob(), 180)).rejects.toThrow('图片加载失败');
+    await expect(toSquarePngDataUrl(blob(), 180)).rejects.toThrow('圖片加載失敗');
     expect(revokedObjectUrls).toEqual(createdObjectUrls);
   });
 
-  it('canvas context 拿不到 → reject，并回收 objectURL', async () => {
+  it('canvas context 拿不到 → reject，並回收 objectURL', async () => {
     ctxAvailable = false;
 
     await expect(toSquarePngDataUrl(blob(), 180)).rejects.toThrow('Canvas context');

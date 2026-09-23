@@ -1,16 +1,16 @@
 /**
- * amsg worker 满血 v2 — 服务端工具循环的纯逻辑（不碰网络 / 存储，方便单测）。
+ * amsg worker 滿血 v2 — 服務端工具循環的純邏輯（不碰網絡 / 存儲，方便單測）。
  *
- * 业务标签的识别交给同目录的 classifier（./classifier）：
- *   - 数据标签（RECALL / SEARCH / READ_DIARY / XHS_* …）→ tool-request，
- *     由 index.ts 的 executeToolCalls 在 worker 里就地执行（客户端可能离线，
- *     工具只能在服务端跑）。
- *   - 副作用标签（POKE / TRANSFER / MUSIC_ACTION / 写日记 …）→ 结构化成
- *     directives 挂在最后一条 push 的 metadata 上，客户端收到时重放
- *     （activeMsgRuntime 的 isLastChunk 守卫保证只重放一次）。
+ * 業務標籤的識別交給同目錄的 classifier（./classifier）：
+ *   - 數據標籤（RECALL / SEARCH / READ_DIARY / XHS_* …）→ tool-request，
+ *     由 index.ts 的 executeToolCalls 在 worker 裡就地執行（客戶端可能離線，
+ *     工具只能在服務端跑）。
+ *   - 副作用標籤（POKE / TRANSFER / MUSIC_ACTION / 寫日記 …）→ 結構化成
+ *     directives 掛在最後一條 push 的 metadata 上，客戶端收到時重放
+ *     （activeMsgRuntime 的 isLastChunk 守衛保證只重放一次）。
  *
- * 推送只在 finish 时发生，所以中间轮的旁白和副作用要跨轮累积（FireSessionState），
- * finish 时一起出——用户一次收到整段回复，内容与逐轮说出来的一致。
+ * 推送只在 finish 時發生，所以中間輪的旁白和副作用要跨輪累積（FireSessionState），
+ * finish 時一起出——用戶一次收到整段回覆，內容與逐輪說出來的一致。
  */
 
 import {
@@ -32,39 +32,39 @@ import {
   AMSG_FIRE_SCHEDULE_TOOL,
   extractFireScheduleTextCalls,
 } from '../../../utils/amsgFireSchedule';
-// type-only：编译期擦除，不会把 realtimeContext 的浏览器依赖打进 worker bundle。
+// type-only：編譯期擦除，不會把 realtimeContext 的瀏覽器依賴打進 worker bundle。
 import type { XhsNote } from '../../../utils/realtimeContext';
 
-/** 一次 fire 的跨轮累积状态（index.ts 按 sessionId 持有，finish/skip 后丢弃）。 */
+/** 一次 fire 的跨輪累積狀態（index.ts 按 sessionId 持有，finish/skip 後丟棄）。 */
 export interface FireSessionState {
   /**
-   * 中间轮旁白的**原始文本**（只剥了数据标签，副作用标签原样保留）。
-   * 副作用不逐轮结构化——长形态日记这类跨行标签块可能被数据标签劈开两轮
-   * （写日记写一半去 [[RECALL]]），逐轮扫会把孤立的 DIARY_START / DIARY_END
-   * 当正文漏进 push、日记也丢。finish 时拼回全文统一扫一次。
+   * 中間輪旁白的**原始文本**（只剝了數據標籤，副作用標籤原樣保留）。
+   * 副作用不逐輪結構化——長形態日記這類跨行標籤塊可能被數據標籤劈開兩輪
+   * （寫日記寫一半去 [[RECALL]]），逐輪掃會把孤立的 DIARY_START / DIARY_END
+   * 當正文漏進 push、日記也丟。finish 時拼回全文統一掃一次。
    */
   narrations: string[];
   /**
-   * 本次 fire 已经跑过的工具调用。两个用处：回喂时把清单报给模型（「这些查过了」），
-   * 以及拦住同名同参的重复调用（见 executeToolCalls）。跨轮累积，fire 结束随 scratch 丢弃。
+   * 本次 fire 已經跑過的工具調用。兩個用處：回喂時把清單報給模型（「這些查過了」），
+   * 以及攔住同名同參的重複調用（見 executeToolCalls）。跨輪累積，fire 結束隨 scratch 丟棄。
    */
   toolCalls: ToolCallRecord[];
-  /** 被打回的重复调用次数（executeToolCalls 累加）。到阈值就收尾，见 MAX_DUPLICATE_TOOL_CALLS。 */
+  /** 被打回的重複調用次數（executeToolCalls 累加）。到閾值就收尾，見 MAX_DUPLICATE_TOOL_CALLS。 */
   duplicateToolCalls: number;
-  /** 合成 tool_call id 的自增序号（正文那条路用；native 用模型自己的 id）。 */
+  /** 合成 tool_call id 的自增序號（正文那條路用；native 用模型自己的 id）。 */
   mcpCallSeq: number;
   /**
-   * 出现 [[XHS_SHARE: n]] 那一轮手上的笔记列表快照（没出现过为 null）。
+   * 出現 [[XHS_SHARE: n]] 那一輪手上的筆記列表快照（沒出現過為 null）。
    *
-   * 序号 n 指的是**模型写这句话时**看到的那份列表，而 finish 是拿本次 fire 结束时的
-   * lastXhsNotesRef 解引用的——中间只要再搜一次，列表整个被换掉，正文聊的是 A 组第 3 篇
-   * 露营帖、卡片推的却是 B 组第 3 篇口红帖。所以在那一轮就把当时的列表定格下来。
+   * 序號 n 指的是**模型寫這句話時**看到的那份列表，而 finish 是拿本次 fire 結束時的
+   * lastXhsNotesRef 解引用的——中間只要再搜一次，列表整個被換掉，正文聊的是 A 組第 3 篇
+   * 露營帖、卡片推的卻是 B 組第 3 篇口紅帖。所以在那一輪就把當時的列表定格下來。
    */
   xhsShareNotes: XhsNote[] | null;
   /**
-   * 最后一轮 LLM 的思考链（reasoning_content + 正文内联 `<think>`，见 index.ts 的
-   * onLLMOutput）。每轮覆盖，finish 时随第一条 push 的 metadata 回客户端渲染思考链卡片。
-   * 一轮都没给过思考的模型留 null，那时候一个字段都不挂。
+   * 最後一輪 LLM 的思考鏈（reasoning_content + 正文內聯 `<think>`，見 index.ts 的
+   * onLLMOutput）。每輪覆蓋，finish 時隨第一條 push 的 metadata 回客戶端渲染思考鏈卡片。
+   * 一輪都沒給過思考的模型留 null，那時候一個字段都不掛。
    */
   finalReasoning: string | null;
 }
@@ -79,88 +79,88 @@ export const createFireSessionState = (): FireSessionState => ({
 });
 
 /**
- * 连着重复请求同一个工具这么多次，就不再陪它转了，直接收尾把已有内容发出去。
+ * 連著重複請求同一個工具這麼多次，就不再陪它轉了，直接收尾把已有內容發出去。
  *
- * 光把重复调用打回去只省下了网络请求，模型该转还是转：提示词里但凡有一句常驻的
- * 「每轮先去查 X」，回喂里说什么都盖不过它——实测就是连着五轮都在请求同一个 recall，
- * 最后撞上轮次上限抛 AGENTIC_LOOP_EXCEEDED，任务不出清、下一分钟整条从头重跑。
+ * 光把重複調用打回去只省下了網絡請求，模型該轉還是轉：提示詞裡但凡有一句常駐的
+ * 「每輪先去查 X」，回喂裡說什麼都蓋不過它——實測就是連著五輪都在請求同一個 recall，
+ * 最後撞上輪次上限拋 AGENTIC_LOOP_EXCEEDED，任務不出清、下一分鐘整條從頭重跑。
  *
- * 收尾比转到上限好得多：用户至少收到角色已经写出来的那部分，任务也正常出清。
- * 阈值取 2 —— 第一次重复可能只是模型确认一下，连着两次就是真卡住了。
+ * 收尾比轉到上限好得多：用戶至少收到角色已經寫出來的那部分，任務也正常出清。
+ * 閾值取 2 —— 第一次重複可能只是模型確認一下，連著兩次就是真卡住了。
  */
 export const MAX_DUPLICATE_TOOL_CALLS = 2;
 
 /**
- * 普通内置工具最多几轮 LLM。搜索 / 记忆 / 排程通常 1~3 轮就能结束，继续保留原来的
- * 5 轮预算，避免一次普通主动消息因为模型打转而烧太多请求。
+ * 普通內置工具最多幾輪 LLM。搜索 / 記憶 / 排程通常 1~3 輪就能結束，繼續保留原來的
+ * 5 輪預算，避免一次普通主動消息因為模型打轉而燒太多請求。
  *
- * 为什么要自己判：上游在最后一轮遇到 tool-request 会直接抛 AGENTIC_LOOP_EXCEEDED，
- * 这次攒下的旁白全丢、任务不出清、下一分钟整条从头重跑再烧一遍 LLM。到最后一轮就不再
- * 放行工具请求、用手上的内容收尾，用户至少收得到角色已经写出来的那部分。
+ * 為什麼要自己判：上游在最後一輪遇到 tool-request 會直接拋 AGENTIC_LOOP_EXCEEDED，
+ * 這次攢下的旁白全丟、任務不出清、下一分鐘整條從頭重跑再燒一遍 LLM。到最後一輪就不再
+ * 放行工具請求、用手上的內容收尾，用戶至少收得到角色已經寫出來的那部分。
  */
 export const DEFAULT_TOOL_ITERATIONS = 5;
 
 /**
- * 通用 MCP 的硬上限。游戏 / 论坛类 MCP 常见「读规则 → 查状态 → 执行动作 → 再查状态」；
- * 5 轮会稳定地卡在真正动作之前。这里给到 12，但不是固定跑 12 次：模型一旦返回正文就
- * 当场结束，连续重复调用也会由 MAX_DUPLICATE_TOOL_CALLS 提前收束，所以实际轮数仍是
- * 1~12 自适应。
+ * 通用 MCP 的硬上限。遊戲 / 論壇類 MCP 常見「讀規則 → 查狀態 → 執行動作 → 再查狀態」；
+ * 5 輪會穩定地卡在真正動作之前。這裡給到 12，但不是固定跑 12 次：模型一旦返回正文就
+ * 當場結束，連續重複調用也會由 MAX_DUPLICATE_TOOL_CALLS 提前收束，所以實際輪數仍是
+ * 1~12 自適應。
  */
 export const MCP_MAX_TOOL_ITERATIONS = 12;
 
-/** 当前 fire 的工具预算：接了 MCP 才使用长预算，普通内置工具维持原成本。 */
+/** 當前 fire 的工具預算：接了 MCP 才使用長預算，普通內置工具維持原成本。 */
 export const resolveToolIterationBudget = (hasMcp: boolean): number =>
   hasMcp ? MCP_MAX_TOOL_ITERATIONS : DEFAULT_TOOL_ITERATIONS;
 
-/** 判本轮旁白里有没有 [[XHS_SHARE: n]]（与 classifier 的模式同口径，非全局免得带 lastIndex）。 */
+/** 判本輪旁白裡有沒有 [[XHS_SHARE: n]]（與 classifier 的模式同口徑，非全局免得帶 lastIndex）。 */
 const XHS_SHARE_TAG_RE = /\[\[XHS_SHARE:\s*\d+\]\]/;
 
-/** 组 push payload 需要的业务字段（都来自 sessionCtx / task metadata）。 */
+/** 組 push payload 需要的業務字段（都來自 sessionCtx / task metadata）。 */
 export interface PushBuildInput {
   contactName: string;
   avatarUrl: string | null;
-  /** 任务行 id（从 sess_task_<id> 拆出），拆不出为 null。 */
+  /** 任務行 id（從 sess_task_<id> 拆出），拆不出為 null。 */
   taskId: string | null;
-  /** 'auto' | 'prompted'（metadata.amsgMode 透传，缺省 'auto'）。 */
+  /** 'auto' | 'prompted'（metadata.amsgMode 透傳，缺省 'auto'）。 */
   messageType: string;
   metadata: Record<string, unknown>;
-  /** 本次触发时刻（任务行 next_send_at），随每条 push 的 metadata.amsgOccurrenceMs 带回客户端。 */
+  /** 本次觸發時刻（任務行 next_send_at），隨每條 push 的 metadata.amsgOccurrenceMs 帶回客戶端。 */
   occurrenceMs: number;
   /**
-   * round 1 XHS 工具抓到的笔记快照（stash.toolCtx.lastXhsNotesRef.current）。
-   * amsg2 的 round 1 在 worker 里跑，客户端本地没有这份笔记列表——不带回去
+   * round 1 XHS 工具抓到的筆記快照（stash.toolCtx.lastXhsNotesRef.current）。
+   * amsg2 的 round 1 在 worker 裡跑，客戶端本地沒有這份筆記列表——不帶回去
    * [[XHS_SHARE: n]] 重放必然 available:0。
-   * finish 时只挑 directive 引用到的几张随最后一条 push 带回（web push 单条
-   * payload ~4KB，全量 8 张会撑爆整条 push，那就不是掉卡片而是掉消息了）。
+   * finish 時只挑 directive 引用到的幾張隨最後一條 push 帶回（web push 單條
+   * payload ~4KB，全量 8 張會撐爆整條 push，那就不是掉卡片而是掉消息了）。
    */
   xhsNotes?: XhsNote[];
-  /** xsecToken 缓存快照（[noteId, token][]），点赞/评论/回复重放时客户端要用。 */
+  /** xsecToken 緩存快照（[noteId, token][]），點贊/評論/回覆重放時客戶端要用。 */
   xhsXsecTokens?: Array<[string, string]>;
   /**
-   * 本次触发时 prompt 里写的「你此刻在听」是哪一首（没渲染那一段时为 null）。
-   * 角色写了 MUSIC_ACTION 就把它冻进 directive，见 attachSceneSong。
+   * 本次觸發時 prompt 裡寫的「你此刻在聽」是哪一首（沒渲染那一段時為 null）。
+   * 角色寫了 MUSIC_ACTION 就把它凍進 directive，見 attachSceneSong。
    */
   sceneSong?: MusicActionSong | null;
 }
 
-/** 挂在最后一条 push metadata.xhsSession 的形状；idx 1-based，与 [[XHS_SHARE: n]] 同基。 */
+/** 掛在最後一條 push metadata.xhsSession 的形狀；idx 1-based，與 [[XHS_SHARE: n]] 同基。 */
 export interface XhsSessionPayload {
   notes: Array<{ idx: number; note: XhsNote }>;
   xsecTokens: Array<[string, string]>;
 }
 
-/** desc 截断长度：卡片预览够用，省 push 配额。 */
+/** desc 截斷長度：卡片預覽夠用，省 push 配額。 */
 const XHS_DESC_MAX = 120;
 
 /**
- * 从 finish 时的全部 directives 里挑出 XHS 引用，组客户端重放要的最小数据包：
- *   - xhs_share 的 idx → 对应笔记（越界/编造的序号取不到就跳过，客户端照旧警告）；
- *   - xhs_like / fav / comment / reply 的 noteId → 对应 xsecToken。
- * 没有任何 XHS 引用（或引用全落空）→ null，metadata 不多挂键。
+ * 從 finish 時的全部 directives 裡挑出 XHS 引用，組客戶端重放要的最小數據包：
+ *   - xhs_share 的 idx → 對應筆記（越界/編造的序號取不到就跳過，客戶端照舊警告）；
+ *   - xhs_like / fav / comment / reply 的 noteId → 對應 xsecToken。
+ * 沒有任何 XHS 引用（或引用全落空）→ null，metadata 不多掛鍵。
  *
- * 这里**不限张数**：角色说分享了几张就带几张。塞不塞得进一条 push 是 index.ts 组装时
- * 按真实字节预算算的，超出的部分旁路存 client_state（见 offloadOversizedPush），
- * 客户端取回后照样出卡——不会出现「说分享了 6 张只出来 4 张」。
+ * 這裡**不限張數**：角色說分享了幾張就帶幾張。塞不塞得進一條 push 是 index.ts 組裝時
+ * 按真實字節預算算的，超出的部分旁路存 client_state（見 offloadOversizedPush），
+ * 客戶端取回後照樣出卡——不會出現「說分享了 6 張只出來 4 張」。
  */
 export function buildXhsSessionPayload(
   directives: Directive[],
@@ -190,15 +190,15 @@ export function buildXhsSessionPayload(
 }
 
 /**
- * 把「这次角色在听的那首歌」冻进 music_action directive。
+ * 把「這次角色在聽的那首歌」凍進 music_action directive。
  *
- * 为什么要冻：正文里那句「我在听《X》」是 worker 到点挑的（renderFireSceneBlock），
- * 而 `[[MUSIC_ACTION:add|歌单标题]]` 标签里只有歌单名。客户端重放时若只能取「用户此刻
- * 在听的那首」，定时消息补收的那一刻用户多半什么都没在放 —— 正文聊着这首歌，卡片和加
- * 歌单却整个没发生；就算用户恰好在听，加的也是用户那首，不是角色说的那首。
+ * 為什麼要凍：正文裡那句「我在聽《X》」是 worker 到點挑的（renderFireSceneBlock），
+ * 而 `[[MUSIC_ACTION:add|歌單標題]]` 標籤裡只有歌單名。客戶端重放時若只能取「用戶此刻
+ * 在聽的那首」，定時消息補收的那一刻用戶多半什麼都沒在放 —— 正文聊著這首歌，卡片和加
+ * 歌單卻整個沒發生；就算用戶恰好在聽，加的也是用戶那首，不是角色說的那首。
  *
- * 这次没渲染「此刻在听」（不在听歌的时段 / 歌单空 / 跨天作废）就不附，客户端走它原来的
- * 实时快照那条路。其余类型的 directive 一概不动。
+ * 這次沒渲染「此刻在聽」（不在聽歌的時段 / 歌單空 / 跨天作廢）就不附，客戶端走它原來的
+ * 實時快照那條路。其餘類型的 directive 一概不動。
  */
 export function attachSceneSong(
   directives: Directive[],
@@ -211,52 +211,52 @@ export function attachSceneSong(
 export type RoundDecision =
   | { decision: 'tool-request'; toolCalls: ToolCall[] }
   | { decision: 'finish'; pushPayloads: Array<Record<string, unknown>> }
-  /** reason 直接进 last_skip，面板照实告诉用户那次为什么没响。 */
+  /** reason 直接進 last_skip，面板照實告訴用戶那次為什麼沒響。 */
   | {
       decision: 'skip-push';
       reason: 'empty-generation' | 'side-effects-only';
       /**
-       * 这一轮被整条丢掉、但仍要送到客户端的日程改动（没有就没有这个字段）。
-       * 别的副作用丢了就丢了，日程不行——理由见下面 skip-push 那处的注释。
+       * 這一輪被整條丟掉、但仍要送到客戶端的日程改動（沒有就沒有這個字段）。
+       * 別的副作用丟了就丟了，日程不行——理由見下面 skip-push 那處的註釋。
        */
       scheduleChanges?: Array<{ startTime: string; activity: string }>;
     };
 
-/** 本轮的通用 MCP 识别输入（没配 MCP 的角色不传，行为与改动前完全一致）。 */
+/** 本輪的通用 MCP 識別輸入（沒配 MCP 的角色不傳，行為與改動前完全一致）。 */
 export interface McpRoundInput {
   resolve: Map<string, McpResolvedToolCore<McpFireServer>>;
-  /** 本轮 LLM 响应里已识别为 MCP 的 native tool_calls（名字已是 mcp__ 声明名）；文本模式/无调用时缺省。 */
+  /** 本輪 LLM 響應裡已識別為 MCP 的 native tool_calls（名字已是 mcp__ 聲明名）；文本模式/無調用時缺省。 */
   nativeToolCalls?: ToolCall[];
 }
 
 /**
- * 本轮的任务管理工具识别输入（schedule / cancel / renew 共用一个池，
- * 由 index.ts 的 classifyNativeToolCalls 认领好传进来）。
+ * 本輪的任務管理工具識別輸入（schedule / cancel / renew 共用一個池，
+ * 由 index.ts 的 classifyNativeToolCalls 認領好傳進來）。
  *
- * 和 MCP 一样两层：native tool_calls 优先，没有 native 的排程调用时从正文抠
- * schedule_active_message({...})。同一轮两处都写了排程时只认 native——同一个意图
- * 跑两遍就是排出两条一模一样的任务（取消 / 改期不教正文协议，没有这层问题）。
+ * 和 MCP 一樣兩層：native tool_calls 優先，沒有 native 的排程調用時從正文摳
+ * schedule_active_message({...})。同一輪兩處都寫了排程時只認 native——同一個意圖
+ * 跑兩遍就是排出兩條一模一樣的任務（取消 / 改期不教正文協議，沒有這層問題）。
  */
 export interface ScheduleRoundInput {
   nativeToolCalls?: ToolCall[];
 }
 
-/** classifyNativeToolCalls 的结果：认领的进两个池，认不出的名字留给调用方记日志。 */
+/** classifyNativeToolCalls 的結果：認領的進兩個池，認不出的名字留給調用方記日誌。 */
 export interface NativeCallClassification {
-  /** 排程 / 取消 / 改期（声明清单命中），名字已改写成声明名。 */
+  /** 排程 / 取消 / 改期（聲明清單命中），名字已改寫成聲明名。 */
   manage: ToolCall[];
-  /** 通用 MCP（mcpResolve 命中），名字已改写成 `mcp__暴露名`。 */
+  /** 通用 MCP（mcpResolve 命中），名字已改寫成 `mcp__暴露名`。 */
   mcp: ToolCall[];
-  /** 两份清单都对不上的原始名字（模型幻觉的工具），调用方丢弃并记日志。 */
+  /** 兩份清單都對不上的原始名字（模型幻覺的工具），調用方丟棄並記日誌。 */
   dropped: Array<string | null>;
 }
 
 /**
- * 把模型回报的名字解析成声明清单里的那一个。模型常把声明名的「姓」搞丢或换家：
- * 声明的是 `mcp__foo`，回报成 `foo`、`default_api:foo`、`functions.foo` 之类。
- * 原名严格命中优先（老规矩不变）；对不上再去掉命名空间取最后一段重试。
- * 每个候选按「mcp__ 前缀名 → 管理工具名 → MCP 裸名」的顺序找，清单键本身唯一，
- * 「唯一命中才认」由 Map/Set 语义天然保证。
+ * 把模型回報的名字解析成聲明清單裡的那一個。模型常把聲明名的「姓」搞丟或換家：
+ * 聲明的是 `mcp__foo`，回報成 `foo`、`default_api:foo`、`functions.foo` 之類。
+ * 原名嚴格命中優先（老規矩不變）；對不上再去掉命名空間取最後一段重試。
+ * 每個候選按「mcp__ 前綴名 → 管理工具名 → MCP 裸名」的順序找，清單鍵本身唯一，
+ * 「唯一命中才認」由 Map/Set 語義天然保證。
  */
 const resolveNativeFireToolName = (
   raw: string,
@@ -272,17 +272,17 @@ const resolveNativeFireToolName = (
       return { kind: 'mcp', name: c };
     }
     if (manageToolNames.has(c)) return { kind: 'manage', name: c };
-    // 裸名回退：模型把 mcp__ 前缀弄丢时，报的就是暴露名本身。
+    // 裸名回退：模型把 mcp__ 前綴弄丟時，報的就是暴露名本身。
     if (mcpResolve?.has(c)) return { kind: 'mcp', name: `${MCP_FIRE_NAME_PREFIX}${c}` };
   }
   return null;
 };
 
 /**
- * 认领本轮 LLM 响应里的 native tool_calls：管理工具（schedule / cancel / renew）
- * 与 MCP 各进各的池，两份清单都对不上的丢进 dropped。认领时名字改写回声明名——
- * 下游 executeToolCalls 按声明名分流、还要 slice mcp__ 前缀，裸名直接透传会撞上
- * 没有映射的名字。
+ * 認領本輪 LLM 響應裡的 native tool_calls：管理工具（schedule / cancel / renew）
+ * 與 MCP 各進各的池，兩份清單都對不上的丟進 dropped。認領時名字改寫回聲明名——
+ * 下游 executeToolCalls 按聲明名分流、還要 slice mcp__ 前綴，裸名直接透傳會撞上
+ * 沒有映射的名字。
  */
 export const classifyNativeToolCalls = (
   rawToolCalls: unknown,
@@ -307,19 +307,19 @@ export const classifyNativeToolCalls = (
 };
 
 /**
- * 处理一轮 LLM 输出（入参已 stripReasoningTags）：
- *   - 有数据标签（或本轮有 MCP 调用）→ 原始旁白（prefix）暂存，返回 tool-request；
- *   - 无数据标签 → finish：把全部中间轮旁白 + 本轮正文**拼回一份全文**统一
- *     classify（跨轮被劈开的副作用标签块在这里合体），干净正文经
- *     sanitizeIntoSegments 分段（与客户端 chatParser.chunkText 同一份：
- *     按换行切、[[...]] / [html] / <翻译> / <语音> 等标签块保持原子），
- *     每段一条 push；全部 directives 挂最后一条的 metadata；
- *     全程无正文 → skip-push（这轮有没有副作用都不发，理由见分支处注释）。
+ * 處理一輪 LLM 輸出（入參已 stripReasoningTags）：
+ *   - 有數據標籤（或本輪有 MCP 調用）→ 原始旁白（prefix）暫存，返回 tool-request；
+ *   - 無數據標籤 → finish：把全部中間輪旁白 + 本輪正文**拼回一份全文**統一
+ *     classify（跨輪被劈開的副作用標籤塊在這裡合體），乾淨正文經
+ *     sanitizeIntoSegments 分段（與客戶端 chatParser.chunkText 同一份：
+ *     按換行切、[[...]] / [html] / <翻譯> / <語音> 等標籤塊保持原子），
+ *     每段一條 push；全部 directives 掛最後一條的 metadata；
+ *     全程無正文 → skip-push（這輪有沒有副作用都不發，理由見分支處註釋）。
  *
- * 还有一条穿透收尾：模型卡在同一个工具上出不来、或者已经是最后一轮时，本轮的工具请求
- * 不再放行，直接拿之前几轮的内容收尾；这一轮那句「等我查查」会被丢掉（它永远没有下文）。
+ * 還有一條穿透收尾：模型卡在同一個工具上出不來、或者已經是最後一輪時，本輪的工具請求
+ * 不再放行，直接拿之前幾輪的內容收尾；這一輪那句「等我查查」會被丟掉（它永遠沒有下文）。
  *
- * 通用 MCP 的调用识别是两层（native tool_calls + 正文协议），与前台同构，见函数体开头。
+ * 通用 MCP 的調用識別是兩層（native tool_calls + 正文協議），與前台同構，見函數體開頭。
  */
 export function processLLMRound(
   state: FireSessionState,
@@ -327,28 +327,28 @@ export function processLLMRound(
   build: PushBuildInput,
   mcp?: McpRoundInput | null,
   schedule?: ScheduleRoundInput | null,
-  /** 本轮序号（上游 sessionCtx.iteration，0-based）。到最后一轮就不再放行工具请求。 */
+  /** 本輪序號（上游 sessionCtx.iteration，0-based）。到最後一輪就不再放行工具請求。 */
   iteration?: number,
-  /** 与 onBeforeFire 回给上游的 maxToolIterations 必须是同一个值。 */
+  /** 與 onBeforeFire 回給上游的 maxToolIterations 必須是同一個值。 */
   maxToolIterations: number = DEFAULT_TOOL_ITERATIONS,
 ): RoundDecision {
   const isFinalRound = typeof iteration === 'number' && iteration >= maxToolIterations - 1;
-  // 通用 MCP 两层识别（与前台同构）：native tool_calls 优先；没有 native 时
-  // 用前台「兼容模式」同一个解析器从正文抠 tool_name({...})。两种来源都可能
-  // 与数据标签同轮出现，最终合并成同一个 tool-request，executeToolCalls 按
-  // mcp__ 前缀分流。正文里出现过的调用语法一律剥掉——它不能进旁白/推送。
-  // 正文解析认 mcp__ 前缀名（native 模式下模型在 tools 数组里见到的名字带前缀，
-  // 掉格式写进正文时写的也是它）——core 的 alsoMatchPrefix 选项负责，exposedName 回裸名。
+  // 通用 MCP 兩層識別（與前台同構）：native tool_calls 優先；沒有 native 時
+  // 用前台「兼容模式」同一個解析器從正文摳 tool_name({...})。兩種來源都可能
+  // 與數據標籤同輪出現，最終合併成同一個 tool-request，executeToolCalls 按
+  // mcp__ 前綴分流。正文裡出現過的調用語法一律剝掉——它不能進旁白/推送。
+  // 正文解析認 mcp__ 前綴名（native 模式下模型在 tools 數組裡見到的名字帶前綴，
+  // 掉格式寫進正文時寫的也是它）——core 的 alsoMatchPrefix 選項負責，exposedName 回裸名。
   const nativeToolCalls = mcp?.nativeToolCalls ?? [];
   const textCalls = mcp?.resolve.size
     ? extractTextFakedMcpCalls(llmOutputText, mcp.resolve, { alsoMatchPrefix: MCP_FIRE_NAME_PREFIX })
     : [];
-  // 排程工具同样两层，语法提取与入列拆开管：正文里的排程语法**始终**抠出来剥掉
-  // （跟 MCP 同一条红线：调用语法不能进旁白/推送），要不要当调用入列另说——
-  // native 排程在场时不入列，同一意图两处都写的话，跑两遍就是排出两条一模一样的
-  // 任务（而 MCP 那边重复调用只是白查一次）。池里现在可能混着 cancel / renew
-  // （见 classifyNativeToolCalls），「不入列」只看有没有真正的 native 排程调用：
-  // 本轮只 native 取消了一条时，正文里的排程语法照常入列，两个是不同意图。
+  // 排程工具同樣兩層，語法提取與入列拆開管：正文裡的排程語法**始終**摳出來剝掉
+  // （跟 MCP 同一條紅線：調用語法不能進旁白/推送），要不要當調用入列另說——
+  // native 排程在場時不入列，同一意圖兩處都寫的話，跑兩遍就是排出兩條一模一樣的
+  // 任務（而 MCP 那邊重複調用只是白查一次）。池裡現在可能混著 cancel / renew
+  // （見 classifyNativeToolCalls），「不入列」只看有沒有真正的 native 排程調用：
+  // 本輪只 native 取消了一條時，正文裡的排程語法照常入列，兩個是不同意圖。
   const nativeScheduleCalls = schedule?.nativeToolCalls ?? [];
   const hasNativeSchedule = nativeScheduleCalls.some(
     (tc) => tc?.function?.name === AMSG_FIRE_SCHEDULE_TOOL,
@@ -367,38 +367,38 @@ export function processLLMRound(
     ? stripTextFakedMcpCalls(llmOutputText, scheduleTextCalls)
     : llmOutputText;
   const scanText = textCalls.length ? stripTextFakedMcpCalls(strippedText, textCalls) : strippedText;
-  // native 在场时正文抠出来的不再入列（同一意图大概率两处都写了；库只给 assistant
-  // 消息合并 decision 里的 toolCalls，native 已含语义）。两份都入列会把同一个工具跑
-  // 两遍，第二次还会被判成重复调用往收尾计数上加。语法照剥。
+  // native 在場時正文摳出來的不再入列（同一意圖大概率兩處都寫了；庫只給 assistant
+  // 消息合併 decision 裡的 toolCalls，native 已含語義）。兩份都入列會把同一個工具跑
+  // 兩遍，第二次還會被判成重複調用往收尾計數上加。語法照剝。
   const mcpToolCalls: ToolCall[] = nativeToolCalls.length > 0
     ? nativeToolCalls
     : textCalls.map((c) => ({
-        // id 只需在一轮的 assistant/tool 消息配对里唯一；本次 fire 内自增，绝不重号。
+        // id 只需在一輪的 assistant/tool 消息配對裡唯一；本次 fire 內自增，絕不重號。
         id: `mcp_${state.mcpCallSeq++}`,
         type: 'function',
-        // exposedName 恒为裸名（alsoMatchPrefix 的命中也回裸名），统一补前缀即可。
+        // exposedName 恆為裸名（alsoMatchPrefix 的命中也回裸名），統一補前綴即可。
         function: { name: `${MCP_FIRE_NAME_PREFIX}${c.exposedName}`, arguments: JSON.stringify(c.args) },
       }));
 
-  // MCP 与排程走同一条工具通道，executeToolCalls 按名字分流。
+  // MCP 與排程走同一條工具通道，executeToolCalls 按名字分流。
   const extraToolCalls = [...mcpToolCalls, ...scheduleCalls];
 
   const result = classifyLLMOutput(scanText);
   const isToolRound = result.kind === 'tool-request' || extraToolCalls.length > 0;
 
   if (isToolRound) {
-    // prefix = 旁白 + 可能只写了一半的副作用标签块。这里不剥不结构化——
-    // 等 finish 拼回全文统一扫（见 FireSessionState.narrations 注释）。
-    // MCP-only 轮没有数据标签，整段剥净后的文本都是旁白（与 tag 轮的 prefix 同角色）。
+    // prefix = 旁白 + 可能只寫了一半的副作用標籤塊。這裡不剝不結構化——
+    // 等 finish 拼回全文統一掃（見 FireSessionState.narrations 註釋）。
+    // MCP-only 輪沒有數據標籤，整段剝淨後的文本都是旁白（與 tag 輪的 prefix 同角色）。
     const narration = result.kind === 'tool-request' ? result.prefix : scanText;
-    // 还能不能再转一轮：连着打回这么多次重复调用 = 模型卡在同一个工具上出不来；到最后一轮
-    // 再返回 tool-request 则会被上游抛 AGENTIC_LOOP_EXCEEDED。两种情况都不再给下一轮，
-    // 直接用手上的内容收尾——整条任务失败重跑的话，用户一个字都收不到。
+    // 還能不能再轉一輪：連著打回這麼多次重複調用 = 模型卡在同一個工具上出不來；到最後一輪
+    // 再返回 tool-request 則會被上游拋 AGENTIC_LOOP_EXCEEDED。兩種情況都不再給下一輪，
+    // 直接用手上的內容收尾——整條任務失敗重跑的話，用戶一個字都收不到。
     if (state.duplicateToolCalls < MAX_DUPLICATE_TOOL_CALLS && !isFinalRound) {
       if (narration.trim()) state.narrations.push(narration);
-      // 这一轮说了「我分享给你」，那 n 指的就是此刻手上这份列表。定格下来，别让后面几轮
-      // 的搜索把它换掉（详见 FireSessionState.xhsShareNotes）。只定格第一次：一次 fire 里
-      // 跨两份列表各分享一张的情况极少，定格第一份至少让先说的那张对得上。
+      // 這一輪說了「我分享給你」，那 n 指的就是此刻手上這份列表。定格下來，別讓後面幾輪
+      // 的搜索把它換掉（詳見 FireSessionState.xhsShareNotes）。只定格第一次：一次 fire 裡
+      // 跨兩份列表各分享一張的情況極少，定格第一份至少讓先說的那張對得上。
       if (state.xhsShareNotes === null && XHS_SHARE_TAG_RE.test(narration)) {
         state.xhsShareNotes = [...(build.xhsNotes ?? [])];
       }
@@ -407,36 +407,36 @@ export function processLLMRound(
         toolCalls: result.kind === 'tool-request' ? [...result.toolCalls, ...extraToolCalls] : extraToolCalls,
       };
     }
-    // 穿透收尾：这一轮的旁白是「等我翻翻记录哈」这种半句，而它请求的工具永远不会跑了。
-    // 发出去用户收到的最后一条就是一句没有下文的话，比少说这句更假——丢掉，只发之前
-    // 几轮已经说完的内容。
+    // 穿透收尾：這一輪的旁白是「等我翻翻記錄哈」這種半句，而它請求的工具永遠不會跑了。
+    // 發出去用戶收到的最後一條就是一句沒有下文的話，比少說這句更假——丟掉，只發之前
+    // 幾輪已經說完的內容。
   }
 
-  // 拼回全文再扫一次。中间轮 prefix 里不含数据标签（prefix 定义即「首个数据标签
-  // 之前」），本轮正文也没有（有就走上面 tool-request 分支了），所以这次分类必然
-  // 落 finish；万一未来 classifier 语义变化落了 tool-request，取其 prefix 兜底，
-  // 不让 fire 链在 finish 关头断掉。
-  // 没有旁白（一轮直出，最常见）时全文就是本轮正文，同样的输入不必再扫一遍。
-  // 从上面 tool-request 分支穿透下来收尾时，本轮的正文已经进过 narrations 了，
-  // 这里再拼一次 llmOutputText 就会重复一段（而且它还带着那个转不出来的数据标签）。
+  // 拼回全文再掃一次。中間輪 prefix 裡不含數據標籤（prefix 定義即「首個數據標籤
+  // 之前」），本輪正文也沒有（有就走上面 tool-request 分支了），所以這次分類必然
+  // 落 finish；萬一未來 classifier 語義變化落了 tool-request，取其 prefix 兜底，
+  // 不讓 fire 鏈在 finish 關頭斷掉。
+  // 沒有旁白（一輪直出，最常見）時全文就是本輪正文，同樣的輸入不必再掃一遍。
+  // 從上面 tool-request 分支穿透下來收尾時，本輪的正文已經進過 narrations 了，
+  // 這裡再拼一次 llmOutputText 就會重複一段（而且它還帶著那個轉不出來的數據標籤）。
   const thisRound = isToolRound ? '' : scanText;
   const fullText = [...state.narrations, thisRound]
     .filter((part) => part.trim().length > 0)
     .join('\n');
-  // result 是在 scanText（剥掉 MCP 调用语法之后的文本）上算的，比对基准必须跟着换，
-  // 否则 MCP 轮穿透到收尾时会拿错缓存。没有 MCP 参与时 scanText === llmOutputText，
-  // 这里与改动前完全一致。
+  // result 是在 scanText（剝掉 MCP 調用語法之後的文本）上算的，比對基準必須跟著換，
+  // 否則 MCP 輪穿透到收尾時會拿錯緩存。沒有 MCP 參與時 scanText === llmOutputText，
+  // 這裡與改動前完全一致。
   const finalScan = fullText === scanText ? result : classifyLLMOutput(fullText);
   const cleanedText = finalScan.kind === 'finish' ? finalScan.cleanedText : finalScan.prefix;
-  // 角色写了 MUSIC_ACTION 的话，把 prompt 里那句「你此刻在听」的那首歌冻进去（见 attachSceneSong）。
+  // 角色寫了 MUSIC_ACTION 的話，把 prompt 裡那句「你此刻在聽」的那首歌凍進去（見 attachSceneSong）。
   const directives = attachSceneSong(
     finalScan.kind === 'finish' ? finalScan.directives : [],
     build.sceneSong,
   );
 
-  // XHS 引用的笔记/token 与 directives 挂同一条 push（最后一条），客户端先落库再重放。
-  // 笔记列表优先用「说要分享那一轮」定格的快照，没定格过（分享和搜索同一轮或压根没搜过）
-  // 才用最终列表——两者此时是同一份。
+  // XHS 引用的筆記/token 與 directives 掛同一條 push（最後一條），客戶端先落庫再重放。
+  // 筆記列表優先用「說要分享那一輪」定格的快照，沒定格過（分享和搜索同一輪或壓根沒搜過）
+  // 才用最終列表——兩者此時是同一份。
   const xhsSession = buildXhsSessionPayload(
     directives, state.xhsShareNotes ?? build.xhsNotes, build.xhsXsecTokens);
   const finishMeta = directives.length > 0
@@ -445,21 +445,21 @@ export function processLLMRound(
   const segments = sanitizeIntoSegments(cleanedText);
 
   if (segments.length === 0) {
-    // 没有正文就整条不发，这轮有没有副作用都一样。
+    // 沒有正文就整條不發，這輪有沒有副作用都一樣。
     //
-    // 空正文 push 的 banner body 也是空的：用户锁屏收到一条只有标题、正文空白的横幅，
-    // 未读 +1，点进去 0 气泡。而订阅是按 userVisibleOnly:true 建的，用
-    // notification.show:false 压掉横幅等于跟浏览器违约（Firefox 对不展示通知的 push 有
-    // 配额、超了直接退订，iOS 可能撤权限，且都是静默发生），所以「发但不弹」也不是出路。
+    // 空正文 push 的 banner body 也是空的：用戶鎖屏收到一條只有標題、正文空白的橫幅，
+    // 未讀 +1，點進去 0 氣泡。而訂閱是按 userVisibleOnly:true 建的，用
+    // notification.show:false 壓掉橫幅等於跟瀏覽器違約（Firefox 對不展示通知的 push 有
+    // 配額、超了直接退訂，iOS 可能撤權限，且都是靜默發生），所以「發但不彈」也不是出路。
     //
-    // 只有副作用标签、没有正文时同样放弃：角色一个字没说却在小红书点了赞、写了日记，
-    // 用户看到的是「ta 什么都没说但做了事」，本身就穿帮。后台产生的副作用该等客户端
-    // 上线时主动拉，不塞进一条没内容的推送里（amsg-sw README 里也是这个结论）。
+    // 只有副作用標籤、沒有正文時同樣放棄：角色一個字沒說卻在小紅書點了贊、寫了日記，
+    // 用戶看到的是「ta 什麼都沒說但做了事」，本身就穿幫。後台產生的副作用該等客戶端
+    // 上線時主動拉，不塞進一條沒內容的推送裡（amsg-sw README 裡也是這個結論）。
     //
-    // 日程改动是这条规矩里唯一的例外，单拎出来交给调用方走 emitResult。它不是做给用户
-    // 看的动作，是角色在纠正自己的表：一起丢掉的话，下一次 fire 读到的还是那条旧安排，
-    // 角色会反复想改又反复改不掉，用户那边则永远看到表和角色说的话对不上。emitResult
-    // 落的是服务端收件箱，不占聊天正文，也不用为它硬发一条空推送。
+    // 日程改動是這條規矩裡唯一的例外，單拎出來交給調用方走 emitResult。它不是做給用戶
+    // 看的動作，是角色在糾正自己的表：一起丟掉的話，下一次 fire 讀到的還是那條舊安排，
+    // 角色會反覆想改又反覆改不掉，用戶那邊則永遠看到表和角色說的話對不上。emitResult
+    // 落的是服務端收件箱，不佔聊天正文，也不用為它硬發一條空推送。
     const scheduleChanges = directives
       .filter((d): d is Extract<Directive, { type: 'change_schedule' }> => d.type === 'change_schedule')
       .map((d) => ({ startTime: d.time, activity: d.activity }));
@@ -480,14 +480,14 @@ export function processLLMRound(
 }
 
 /**
- * 单段 → 老链路 scheduled push 形状（业务字段同 v1，可选多挂
- * metadata 追加键（directives / xhsSession）与 notification）。messageId/sessionId/
- * timestamp/messageIndex/totalMessages 由库的 sendHookPushPayloads 统一补齐/覆写。
+ * 單段 → 老鏈路 scheduled push 形狀（業務字段同 v1，可選多掛
+ * metadata 追加鍵（directives / xhsSession）與 notification）。messageId/sessionId/
+ * timestamp/messageIndex/totalMessages 由庫的 sendHookPushPayloads 統一補齊/覆寫。
  *
- * bannerBody = segment 的 sanitized 文本，塞进 notification.body 给 OS banner
- * 显示（[[SEND_EMOJI: x]] → [表情：x] 这类可读形态）；message 保留 raw 让客户端
- * applyAssistantPostProcessing 渲染卡片/表情。不带 notification.show —— SW 对
- * content push 的默认弹窗行为不变。
+ * bannerBody = segment 的 sanitized 文本，塞進 notification.body 給 OS banner
+ * 顯示（[[SEND_EMOJI: x]] → [表情：x] 這類可讀形態）；message 保留 raw 讓客戶端
+ * applyAssistantPostProcessing 渲染卡片/表情。不帶 notification.show —— SW 對
+ * content push 的默認彈窗行為不變。
  */
 function buildScheduledPush(
   message: string,
@@ -495,7 +495,7 @@ function buildScheduledPush(
   extraMeta?: Record<string, unknown>,
   bannerBody?: string,
 ): Record<string, unknown> {
-  const title = `来自 ${build.contactName}`;
+  const title = `來自 ${build.contactName}`;
   return {
     messageKind: 'content' as const,
     messageType: build.messageType,

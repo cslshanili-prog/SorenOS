@@ -1,21 +1,21 @@
-// 备份导出链路的纯函数小工具。这里刻意不碰 DOM / Capacitor / JSZip，
-// 把两块容易出错的逻辑——「原地抽取素材」和「手机端 3 字节对齐分片」——
-// 拆出来，好在 node 测试环境里单测钉住。
+// 備份導出鏈路的純函數小工具。這裡刻意不碰 DOM / Capacitor / JSZip，
+// 把兩塊容易出錯的邏輯——「原地抽取素材」和「手機端 3 字節對齊分片」——
+// 拆出來，好在 node 測試環境裡單測釘住。
 
 /**
- * 遍历对象树，把所有 `data:image/...` 字符串原地替换成 `resolveImage` 的返回值
- * （通常是 `assets/*` 路径；无法抽取时原样返回）。直接改传进来的 `root`，所以
- * 调用方必须传独立副本：IDB getRawStoreData 拿到的是结构化克隆副本（安全），
- * 而 theme / customIcons / appearancePresets 这类引用了运行态 React state 的，
- * 必须先深拷贝再传进来。
+ * 遍歷對象樹，把所有 `data:image/...` 字符串原地替換成 `resolveImage` 的返回值
+ * （通常是 `assets/*` 路徑；無法抽取時原樣返回）。直接改傳進來的 `root`，所以
+ * 調用方必須傳獨立副本：IDB getRawStoreData 拿到的是結構化克隆副本（安全），
+ * 而 theme / customIcons / appearancePresets 這類引用了運行態 React state 的，
+ * 必須先深拷貝再傳進來。
  *
- * 共享子图（同一对象被多处引用）只处理一次；遇到真正的循环引用直接抛错，
- * 让问题在这里就带着清楚的提示暴露，而不是拖到后面 JSON.stringify 时报一句
+ * 共享子圖（同一對象被多處引用）只處理一次；遇到真正的循環引用直接拋錯，
+ * 讓問題在這裡就帶著清楚的提示暴露，而不是拖到後面 JSON.stringify 時報一句
  * 看不懂的 "circular structure"。
  */
 export type BackupObjectPath = Array<string | number>;
 
-/** 文字备份逐字段剥图；嵌套的通讯录、完整聊天原文、话题盒都必须保留。 */
+/** 文字備份逐字段剝圖；嵌套的通訊錄、完整聊天原文、話題盒都必須保留。 */
 export function stripBackupImages(obj: any): any {
     if (typeof obj === 'string') {
         if (obj.startsWith('data:image') || obj.startsWith('blobref:')) return '';
@@ -34,27 +34,27 @@ export function extractImagesInPlace(
 ): void {
     if (root === null || typeof root !== 'object') return;
 
-    // onPath：当前正在遍历的这条路径上的祖先节点（用来判循环）。
-    // done：已经处理完的节点（共享子图第二次碰到就跳过）。
+    // onPath：當前正在遍歷的這條路徑上的祖先節點（用來判循環）。
+    // done：已經處理完的節點（共享子圖第二次碰到就跳過）。
     const onPath = new WeakSet<object>();
     const done = new WeakSet<object>();
     const stack: Array<{ node: object; path: BackupObjectPath }> = [{ node: root as object, path: [] }];
 
-    // 处理一个属性/元素：data:image 字符串原地换成路径，对象/数组入栈续遍历，
-    // 碰到还在当前路径上的节点（回边）即循环引用，抛错。定义一次，不在循环里反复重建。
+    // 處理一個屬性/元素：data:image 字符串原地換成路徑，對象/數組入棧續遍歷，
+    // 碰到還在當前路徑上的節點（回邊）即循環引用，拋錯。定義一次，不在循環裡反覆重建。
     const visit = (container: any, key: string | number, v: unknown, parentPath: BackupObjectPath) => {
         const path = [...parentPath, key];
         if (typeof v === 'string') {
             if (v.startsWith('data:image/')) container[key] = resolveImage(v, path);
         } else if (v !== null && typeof v === 'object') {
-            if (onPath.has(v as object)) throw new Error('备份数据存在循环引用，无法导出');
+            if (onPath.has(v as object)) throw new Error('備份數據存在循環引用，無法導出');
             if (!done.has(v as object)) stack.push({ node: v as object, path });
         }
     };
 
     while (stack.length) {
-        // peek 而不是 pop：第一次见到这个节点时入栈它的孩子并留着自己当「出栈标记」，
-        // 等孩子都处理完再次轮到它时，把它移出 onPath、记为 done。
+        // peek 而不是 pop：第一次見到這個節點時入棧它的孩子並留著自己當「出棧標記」，
+        // 等孩子都處理完再次輪到它時，把它移出 onPath、記為 done。
         const frame = stack[stack.length - 1];
         const { node, path } = frame;
         if (done.has(node)) { stack.pop(); continue; }
@@ -90,8 +90,8 @@ export type MalformedBackupImageDiagnostic = {
 };
 
 /**
- * 生成随备份携带的轻量坏图诊断。只记录定位信息，不复制坏 Base64 正文，避免把
- * 无法恢复的脏数据继续带到新设备，同时也不会让诊断文件本身显著增大备份体积。
+ * 生成隨備份攜帶的輕量壞圖診斷。只記錄定位信息，不復制壞 Base64 正文，避免把
+ * 無法恢復的髒數據繼續帶到新設備，同時也不會讓診斷文件本身顯著增大備份體積。
  */
 export function buildMalformedImageDiagnostics(options: {
     createdAt: string;
@@ -108,24 +108,24 @@ export function buildMalformedImageDiagnostics(options: {
         total: options.total,
         included: items.length,
         truncated: options.total > items.length,
-        note: '这些字段仅在导出副本中置空，原设备上的本地数据未被修改。',
+        note: '這些字段僅在導出副本中置空，原設備上的本地數據未被修改。',
         items,
     };
 }
 
 /**
- * 把旧数据里的 data:image URL 拆成能安全交给 JSZip `{ base64: true }` 的正文。
+ * 把舊數據裡的 data:image URL 拆成能安全交給 JSZip `{ base64: true }` 的正文。
  *
- * JSZip 的 base64 解码是惰性的：`zip.file()` 不会报错，直到最终 `generateAsync()`
- * 才抛 `Invalid base64 input, bad content length.`。因此不能靠包在 `file()` 外面的
- * try/catch 兜底，必须在素材进入 ZIP 队列前完成与 JSZip 契约一致的校验。
+ * JSZip 的 base64 解碼是惰性的：`zip.file()` 不會報錯，直到最終 `generateAsync()`
+ * 才拋 `Invalid base64 input, bad content length.`。因此不能靠包在 `file()` 外面的
+ * try/catch 兜底，必須在素材進入 ZIP 隊列前完成與 JSZip 契約一致的校驗。
  */
 export function parseImageDataUrlForBackup(value: string): BackupImageDataUrlParseResult {
     const match = value.match(/^data:image\/([a-zA-Z0-9]+);base64,([\s\S]*)$/i);
     if (!match) return { ok: false, reason: 'unsupported-header' };
 
-    // FileReader 产出的 data URL 没有空白；兼容少量经过换行排版的老数据，交给
-    // JSZip 前统一去掉空白，避免校验口径和它内部的清洗口径不一致。
+    // FileReader 產出的 data URL 沒有空白；兼容少量經過換行排版的老數據，交給
+    // JSZip 前統一去掉空白，避免校驗口徑和它內部的清洗口徑不一致。
     const base64 = match[2].replace(/\s/g, '');
     if (!base64) return { ok: false, reason: 'empty-content' };
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
@@ -141,29 +141,29 @@ export function parseImageDataUrlForBackup(value: string): BackupImageDataUrlPar
 }
 
 /**
- * 给会被原地改的导出数据做一份独立深拷贝。专门用在那些直接引用了运行态
+ * 給會被原地改的導出數據做一份獨立深拷貝。專門用在那些直接引用了運行態
  * React state 的值（theme / customIcons / appearancePresets）上，避免原地抽取
- * 素材时把正在用的系统主题等改坏。
+ * 素材時把正在用的系統主題等改壞。
  */
 export function deepCloneForExport<T>(value: T): T {
     try {
         if (typeof structuredClone === 'function') return structuredClone(value);
     } catch {
-        // 个别老 WebView 没有 structuredClone 或克隆失败，落到 JSON 兜底。
+        // 個別老 WebView 沒有 structuredClone 或克隆失敗，落到 JSON 兜底。
     }
     return JSON.parse(JSON.stringify(value));
 }
 
 /**
- * 手机端分片导出用的原始分片大小：3MiB，且能被 3 整除。
+ * 手機端分片導出用的原始分片大小：3MiB，且能被 3 整除。
  *
- * 为什么必须是 3 的倍数：base64 每 3 字节编码成 4 个字符，正好填满不带 `=` 补位。
- * 只要每个非末尾分片的字节数是 3 的倍数，各分片各自 base64 后直接首尾相接，
- * 解码回来就是原始字节；否则中间会插进 `=` 补位，拼起来再解码就对不上了。
+ * 為什麼必須是 3 的倍數：base64 每 3 字節編碼成 4 個字符，正好填滿不帶 `=` 補位。
+ * 只要每個非末尾分片的字節數是 3 的倍數，各分片各自 base64 後直接首尾相接，
+ * 解碼回來就是原始字節；否則中間會插進 `=` 補位，拼起來再解碼就對不上了。
  */
 export const EXPORT_CHUNK_SIZE = 3 * 1024 * 1024;
 
-/** 把总字节长度切成一串连续的 [start, end) 区间，每段长 `chunkSize`（末段可短）。 */
+/** 把總字節長度切成一串連續的 [start, end) 區間，每段長 `chunkSize`（末段可短）。 */
 export function sliceRanges(total: number, chunkSize: number): Array<[number, number]> {
     if (chunkSize <= 0) throw new Error('chunkSize must be positive');
     const ranges: Array<[number, number]> = [];

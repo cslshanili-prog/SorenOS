@@ -4,8 +4,8 @@ import { SAR_GACHA_STORAGE_KEY, readSARGachaState } from './sarGacha';
 import { SAR_MODULE_SHOP_STORAGE_KEY, readSARModuleShopState } from './sarModuleShop';
 import { FISHING_MARKET_STORAGE_KEY, readFishingMarketState } from './fishingMarket';
 
-// 与 sarSimulation.ts 的公开键保持一致。这里故意不反向 import 推演执行器，
-// 避免 OSContext 的备份入口把整条聊天 Prompt / LLM 管线提前拉进启动包。
+// 與 sarSimulation.ts 的公開鍵保持一致。這裡故意不反向 import 推演執行器，
+// 避免 OSContext 的備份入口把整條聊天 Prompt / LLM 管線提前拉進啟動包。
 const SAR_SIMULATION_STORAGE_KEY = 'vr_sar_simulations_v1';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -21,7 +21,7 @@ export type SARLocalBackup = {
     preferences?: Record<string, string>;
 };
 
-// 仅允许 SAR 自己的偏好，不能让导入内容写入任意 localStorage 键。
+// 僅允許 SAR 自己的偏好，不能讓導入內容寫入任意 localStorage 鍵。
 const SAR_PREFERENCES: Record<string, readonly string[]> = {
     vr_fishing_simple_mode: ['true', 'false'],
     vr_sar_session_theme_v1: ['dark', 'light'],
@@ -44,7 +44,7 @@ export const collectSARLocalBackup = (storage: StorageLike = localStorage): SARL
     if (has(storage, SAR_CLUB_STORAGE_KEY)) backup.club = readSARClubState(storage);
     const commerce = (backup.fishingMarket as ReturnType<typeof readFishingMarketState> | undefined)?.sarCommerce;
     if (has(storage, SAR_GACHA_STORAGE_KEY) || commerce?.gacha) backup.gacha = readSARGachaState(source);
-    // 商店的 UI 读取会按当天刷新货架。备份只复制已保存的货架，不能在导出时额外 roll。
+    // 商店的 UI 讀取會按當天刷新貨架。備份只複製已保存的貨架，不能在導出時額外 roll。
     if (commerce?.moduleShop) backup.moduleShop = structuredClone(commerce.moduleShop);
     else if (has(storage, SAR_MODULE_SHOP_STORAGE_KEY)) {
         try { backup.moduleShop = JSON.parse(storage.getItem(SAR_MODULE_SHOP_STORAGE_KEY)!); }

@@ -5,11 +5,11 @@ import {
     takeCrashedDateResume,
 } from './dateSessionRecovery';
 
-// 锁住见面「继续上次」崩溃自愈的两段式护栏:
-// arm(恢复开始) → clear(恢复成功/干净退出); 若进程在两者之间被 iOS WebKit 杀掉,
-// 哨兵残留, 下次 take 读到 = 上次恢复崩了 → 调用方丢弃有毒的 savedDateState。
+// 鎖住見面「繼續上次」崩潰自愈的兩段式護欄:
+// arm(恢復開始) → clear(恢復成功/乾淨退出); 若進程在兩者之間被 iOS WebKit 殺掉,
+// 哨兵殘留, 下次 take 讀到 = 上次恢復崩了 → 調用方丟棄有毒的 savedDateState。
 //
-// 测试环境是 node (无 sessionStorage)，用 Map 后端的 stub 模拟，与 chunkLoadRecovery.test.ts 一致。
+// 測試環境是 node (無 sessionStorage)，用 Map 後端的 stub 模擬，與 chunkLoadRecovery.test.ts 一致。
 
 const KEY = 'sullyos_date_resume_attempt';
 
@@ -29,41 +29,41 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('dateSessionRecovery 两段式护栏', () => {
-    it('arm 后正常 clear（恢复成功）→ 再进见面无残留', () => {
+describe('dateSessionRecovery 兩段式護欄', () => {
+    it('arm 後正常 clear（恢復成功）→ 再進見面無殘留', () => {
         stubSessionStorage();
         armDateResumeAttempt('char-1');
         clearDateResumeAttempt();
         expect(takeCrashedDateResume()).toBeNull();
     });
 
-    it('arm 后没 clear（进程崩溃）→ 下次进见面检出崩溃的 charId', () => {
+    it('arm 後沒 clear（進程崩潰）→ 下次進見面檢出崩潰的 charId', () => {
         stubSessionStorage();
         armDateResumeAttempt('char-42');
-        // 模拟崩溃 + reload：sessionStorage 在同一 tab 会话内留存，哨兵仍在
+        // 模擬崩潰 + reload：sessionStorage 在同一 tab 會話內留存，哨兵仍在
         expect(takeCrashedDateResume()).toBe('char-42');
     });
 
-    it('take 只读一次：读到后自动清除，第二次返回 null', () => {
+    it('take 只讀一次：讀到後自動清除，第二次返回 null', () => {
         stubSessionStorage();
         armDateResumeAttempt('char-7');
         expect(takeCrashedDateResume()).toBe('char-7');
         expect(takeCrashedDateResume()).toBeNull();
     });
 
-    it('从未 arm → take 返回 null（正常全新进入不误伤）', () => {
+    it('從未 arm → take 返回 null（正常全新進入不誤傷）', () => {
         stubSessionStorage();
         expect(takeCrashedDateResume()).toBeNull();
     });
 
-    it('后一次 arm 覆盖前一次的 charId', () => {
+    it('後一次 arm 覆蓋前一次的 charId', () => {
         stubSessionStorage();
         armDateResumeAttempt('char-a');
         armDateResumeAttempt('char-b');
         expect(takeCrashedDateResume()).toBe('char-b');
     });
 
-    it('哨兵内容损坏（非法 JSON）→ take 安全返回 null，不抛异常，并清除', () => {
+    it('哨兵內容損壞（非法 JSON）→ take 安全返回 null，不拋異常，並清除', () => {
         const store = stubSessionStorage();
         store.set(KEY, '{not valid json');
         expect(() => takeCrashedDateResume()).not.toThrow();
@@ -76,8 +76,8 @@ describe('dateSessionRecovery 两段式护栏', () => {
         expect(takeCrashedDateResume()).toBeNull();
     });
 
-    it('sessionStorage 不可用时静默降级，不影响调用方', () => {
-        // 不 stub sessionStorage → 访问抛 ReferenceError → 内部 catch
+    it('sessionStorage 不可用時靜默降級，不影響調用方', () => {
+        // 不 stub sessionStorage → 訪問拋 ReferenceError → 內部 catch
         expect(() => armDateResumeAttempt('char-x')).not.toThrow();
         expect(() => clearDateResumeAttempt()).not.toThrow();
         expect(takeCrashedDateResume()).toBeNull();

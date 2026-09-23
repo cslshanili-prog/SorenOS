@@ -1,6 +1,6 @@
 // ─── 主色相提取 ──────────────────────────────────────────────
-// 从 TamagotchiHome「提取小窝主色」抽出的公共实现：
-// 电子宠物小窝与触感陪伴桌面都用它做「界面颜色跟角色走」。
+// 從 TamagotchiHome「提取小窩主色」抽出的公共實現：
+// 電子寵物小窩與觸感陪伴桌面都用它做「界面顏色跟角色走」。
 
 export const rgbToHsl = (r: number, g: number, b: number): [number, number, number] => {
     r /= 255; g /= 255; b /= 255;
@@ -41,7 +41,7 @@ export const hslToHex = (hue: number, saturation: number, lightness: number): st
     return `#${channel(r)}${channel(g)}${channel(b)}`;
 };
 
-// 色相直方图（15° 一桶，饱和度×中亮度加权），忽略近灰/近黑白的像素
+// 色相直方圖（15° 一桶，飽和度×中亮度加權），忽略近灰/近黑白的像素
 export const dominantHueOfPixels = (data: Uint8ClampedArray): number | null => {
     const BINS = 24;
     const weight = new Array(BINS).fill(0);
@@ -61,7 +61,7 @@ export const dominantHueOfPixels = (data: Uint8ClampedArray): number | null => {
     return hueSum[best] / weight[best];
 };
 
-// 图片 url → 主色相（24×24 缩略采样；跨域画布被污染时返回 null，交给下一个候选）
+// 圖片 url → 主色相（24×24 縮略採樣；跨域畫布被汙染時返回 null，交給下一個候選）
 export const hueFromImage = (url: string): Promise<number | null> => new Promise(resolve => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -79,7 +79,7 @@ export const hueFromImage = (url: string): Promise<number | null> => new Promise
     img.src = url;
 });
 
-// CSS 渐变串 → 主色相（抓 #hex 色值取饱和度加权平均）
+// CSS 漸變串 → 主色相（抓 #hex 色值取飽和度加權平均）
 export const hueFromGradient = (s: string): number | null => {
     const hexes = s.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g);
     if (!hexes || hexes.length === 0) return null;

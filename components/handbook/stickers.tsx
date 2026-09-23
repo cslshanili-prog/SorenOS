@@ -1,15 +1,15 @@
 /**
- * 装饰贴纸库（SVG inline,零图片依赖）
+ * 裝飾貼紙庫（SVG inline,零圖片依賴）
  *
- * 设计：每个贴纸是一个独立 React 组件，传 size/color 即可改尺寸。
- * 还提供一个 <ScatteredStickers seed=... /> 用 page id 作种子稳定散布
- * 几枚小贴纸到容器四角（不会随渲染抖动）。
+ * 設計：每個貼紙是一個獨立 React 組件，傳 size/color 即可改尺寸。
+ * 還提供一個 <ScatteredStickers seed=... /> 用 page id 作種子穩定散佈
+ * 幾枚小貼紙到容器四角（不會隨渲染抖動）。
  */
 
 import React from 'react';
 import { seedFloat, PAPER_TONES } from './paper';
 
-// ─── 单个贴纸组件 ────────────────────────────────────
+// ─── 單個貼紙組件 ────────────────────────────────────
 
 export const HeartSticker: React.FC<{ size?: number; color?: string; sparkle?: boolean }> = ({
     size = 20, color = PAPER_TONES.accentBlush, sparkle = true,
@@ -142,11 +142,11 @@ export const TicketStub: React.FC<{ size?: number; color?: string; label?: strin
     </svg>
 );
 
-// ─── 散布贴纸（页角装饰）─────────────────────────────
-// 用 seed 决定:
-//  - 哪几个贴纸出现
-//  - 每个的位置（top/right + 些许偏移）
-//  - 旋转角度
+// ─── 散佈貼紙（頁角裝飾）─────────────────────────────
+// 用 seed 決定:
+//  - 哪幾個貼紙出現
+//  - 每個的位置（top/right + 些許偏移）
+//  - 旋轉角度
 const STICKER_POOL: Array<React.FC<any>> = [
     HeartSticker, StarSticker, PawSticker, BowSticker, SparkleDot, SparkleDot, HeartSticker, StarSticker,
 ];
@@ -154,7 +154,7 @@ const STICKER_POOL: Array<React.FC<any>> = [
 export const ScatteredStickers: React.FC<{
     seed: string;
     count?: number;
-    /** 散布范围相对父容器的百分比 */
+    /** 散佈範圍相對父容器的百分比 */
     zone?: 'corners' | 'top' | 'edges' | 'all';
 }> = ({ seed, count = 3, zone = 'corners' }) => {
     const items: { Comp: React.FC<any>; top: string; left: string; rotate: number; key: number }[] = [];
@@ -166,7 +166,7 @@ export const ScatteredStickers: React.FC<{
 
         let top: number, left: number;
         if (zone === 'corners') {
-            // 四角随机
+            // 四角隨機
             const corner = Math.floor(seedFloat(seed, i * 7 + 4) * 4);
             const ix = corner % 2;       // 0=left, 1=right
             const iy = Math.floor(corner / 2); // 0=top, 1=bottom
@@ -200,8 +200,8 @@ export const ScatteredStickers: React.FC<{
     );
 };
 
-// ─── 对话气泡（碎片填充用）─────────────────────────
-// 用法：在 page 之间或角落散一两个，制造"角色嘀咕"的 collage 感
+// ─── 對話氣泡（碎片填充用）─────────────────────────
+// 用法：在 page 之間或角落散一兩個，製造"角色嘀咕"的 collage 感
 export const DialogueBubble: React.FC<{
     text: string;
     color?: string;
@@ -224,7 +224,7 @@ export const DialogueBubble: React.FC<{
             }}
         >
             {text}
-            {/* 气泡尾巴 */}
+            {/* 氣泡尾巴 */}
             <span
                 className="absolute"
                 style={{
@@ -242,15 +242,15 @@ export const DialogueBubble: React.FC<{
     );
 };
 
-// 一些预设的萌系小词,在 day 视图里随机选用
+// 一些預設的萌系小詞,在 day 視圖裡隨機選用
 export const KAWAII_INTERJECTIONS = [
     'かわいい…', '今日も♡', 'うまい!', 'ぐぅ…', 'すきっ', 'よしっ',
-    '嘿嘿', '哇~', '完了完了', '芜湖', '嘻嘻', '叮~', '(･ω･)',
+    '嘿嘿', '哇~', '完了完了', '蕪湖', '嘻嘻', '叮~', '(･ω･)',
     'ʕ•ᴥ•ʔ', '★ ★ ★', '♡ ♡', '...', '?',
 ];
 
-// 在容器边缘自由散布"碎片填充"层（对话气泡 + 小贴纸 + 回形针）
-// 用在 day view 里让 page 之间不空荡
+// 在容器邊緣自由散佈"碎片填充"層（對話氣泡 + 小貼紙 + 回形針）
+// 用在 day view 裡讓 page 之間不空蕩
 export const ScatterFillers: React.FC<{
     seed: string;
     count?: number;
@@ -298,7 +298,7 @@ export const ScatterFillers: React.FC<{
     return <>{items}</>;
 };
 
-// ─── 蕾丝边（页眉 / 页脚装饰）───────────────────────
+// ─── 蕾絲邊（頁眉 / 頁腳裝飾）───────────────────────
 export const LaceEdge: React.FC<{ color?: string; flip?: boolean }> = ({
     color = '#fbb8c8', flip = false,
 }) => (

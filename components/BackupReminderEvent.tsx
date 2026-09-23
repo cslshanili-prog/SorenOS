@@ -1,38 +1,38 @@
 /**
  * BackupReminderEvent.tsx
- * 「该备份啦」提醒弹窗。
+ * 「該備份啦」提醒彈窗。
  *
- * 糯米机是 local-first：所有数据只躺在你这台设备的浏览器里，没有云端副本。
- * 隔一段时间（默认 7 天，可在设置里改 1~30 天）没导出，就温柔弹一次提醒。
+ * 糯米機是 local-first：所有數據只躺在你這台設備的瀏覽器裡，沒有云端副本。
+ * 隔一段時間（默認 7 天，可在設置裡改 1~30 天）沒導出，就溫柔彈一次提醒。
  *
- * 显隐判定在 utils/backupReminder.ts；这里只管长得好看 + 两个出口：
- *  - 去备份：跳到「设置 → 备份与恢复」
- *  - 知道了：记一次提醒时间，进入冷却，下个间隔到了才会再弹
+ * 顯隱判定在 utils/backupReminder.ts；這裡只管長得好看 + 兩個出口：
+ *  - 去備份：跳到「設置 → 備份與恢復」
+ *  - 知道了：記一次提醒時間，進入冷卻，下個間隔到了才會再彈
  */
 
 import React from 'react';
 import { daysSinceLastBackup, getBackupReminderState } from '../utils/backupReminder';
 
 interface BackupReminderPopupProps {
-    /** 「知道了 / 稍后」——外层会 markBackupReminderShown 并关闭 */
+    /** 「知道了 / 稍後」——外層會 markBackupReminderShown 並關閉 */
     onDismiss: () => void;
-    /** 「去备份」——外层跳设置备份区并关闭 */
+    /** 「去備份」——外層跳設置備份區並關閉 */
     onGoBackup: () => void;
 }
 
 export const BackupReminderPopup: React.FC<BackupReminderPopupProps> = ({ onDismiss, onGoBackup }) => {
     const days = daysSinceLastBackup();
     const interval = getBackupReminderState().intervalDays;
-    // 顶部那句"多久没备份了"——从未备份 vs 已过 N 天，说人话。
+    // 頂部那句"多久沒備份了"——從未備份 vs 已過 N 天，說人話。
     const gapLine = days == null
-        ? '你还没有导出过备份'
-        : `距离上次备份已经过去 ${days} 天`;
+        ? '你還沒有導出過備份'
+        : `距離上次備份已經過去 ${days} 天`;
 
     return (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center p-5 animate-fade-in">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onDismiss} />
             <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/30 overflow-hidden animate-slide-up">
-                {/* 顶部渐变头图 + 盾牌图标 */}
+                {/* 頂部漸變頭圖 + 盾牌圖標 */}
                 <div className="relative pt-8 pb-5 px-6 text-center bg-gradient-to-br from-rose-400 via-orange-300 to-amber-300">
                     <div className="w-16 h-16 mx-auto mb-3 rounded-3xl bg-white/25 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/40 shadow-lg">
                         <svg viewBox="0 0 24 24" fill="none" className="w-9 h-9 text-white" aria-hidden="true">
@@ -42,7 +42,7 @@ export const BackupReminderPopup: React.FC<BackupReminderPopupProps> = ({ onDism
                                 strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </div>
-                    <h2 className="text-xl font-extrabold text-white drop-shadow-sm">该备份啦</h2>
+                    <h2 className="text-xl font-extrabold text-white drop-shadow-sm">該備份啦</h2>
                     <p className="text-[12px] text-white/90 mt-1 font-medium">{gapLine}</p>
                 </div>
 
@@ -50,38 +50,38 @@ export const BackupReminderPopup: React.FC<BackupReminderPopupProps> = ({ onDism
                 <div className="px-6 pt-5 pb-2 space-y-3">
                     <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-100 rounded-2xl p-4 space-y-2.5">
                         <p className="text-[13px] text-slate-700 leading-relaxed">
-                            <strong>您本周没有进行备份，请注意。</strong>
+                            <strong>您本週沒有進行備份，請注意。</strong>
                         </p>
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
-                            糯米机的数据完全掌握在<strong className="text-rose-500">您自己手中</strong>——
-                            角色、聊天记录、记忆、设置全都只存在这台设备的浏览器里，我们看不到、也帮不了你找回。
+                            糯米機的數據完全掌握在<strong className="text-rose-500">您自己手中</strong>——
+                            角色、聊天記錄、記憶、設置全都只存在這台設備的瀏覽器裡，我們看不到、也幫不了你找回。
                         </p>
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
-                            一旦清理浏览器缓存、卸载重装、换手机，或者遇到系统抽风，
-                            <strong className="text-rose-500">没有备份就意味着这些全部丢失，无法恢复</strong>。
+                            一旦清理瀏覽器緩存、卸載重裝、換手機，或者遇到系統抽風，
+                            <strong className="text-rose-500">沒有備份就意味著這些全部丟失，無法恢復</strong>。
                         </p>
                         <p className="text-[12px] text-slate-500 leading-relaxed">
-                            请养成定期导出的习惯，把 ZIP 存到网盘 / 电脑 / 云备份，给自己留条后路 💛
+                            請養成定期導出的習慣，把 ZIP 存到網盤 / 電腦 / 雲備份，給自己留條後路 💛
                         </p>
                     </div>
                     <p className="text-[10.5px] text-slate-400 text-center leading-relaxed">
-                        当前每 {interval} 天提醒一次，可在「设置 → 备份与恢复」里调整频率
+                        當前每 {interval} 天提醒一次，可在「設置 → 備份與恢復」裡調整頻率
                     </p>
                 </div>
 
-                {/* 按钮 */}
+                {/* 按鈕 */}
                 <div className="px-6 pb-7 pt-3 space-y-2">
                     <button
                         onClick={onGoBackup}
                         className="w-full py-3.5 font-bold rounded-2xl text-sm text-white bg-gradient-to-r from-rose-500 to-orange-500 shadow-lg shadow-rose-200 active:scale-95 transition-transform"
                     >
-                        立即备份
+                        立即備份
                     </button>
                     <button
                         onClick={onDismiss}
                         className="w-full py-2.5 text-slate-400 font-medium text-[12px] active:scale-95 transition-transform"
                     >
-                        知道了，稍后再说
+                        知道了，稍後再說
                     </button>
                 </div>
             </div>

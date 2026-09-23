@@ -20,7 +20,7 @@ describe('companion sentence performance direction', () => {
       { at: 0.42, direction: DEFAULT_AVATAR_PERFORMANCE },
       { at: 0.91, direction: { ...DEFAULT_AVATAR_PERFORMANCE, gesture: 'wave' } },
     ];
-    const aligned = alignCompanionPerformanceCuesToSentences(cues, '回来啦。欢迎你！');
+    const aligned = alignCompanionPerformanceCuesToSentences(cues, '回來啦。歡迎你！');
 
     expect(aligned).toHaveLength(2);
     expect(aligned[0].at).toBe(0);
@@ -33,6 +33,6 @@ describe('companion sentence performance direction', () => {
     const cues: AvatarPerformanceCue[] = [{ at: 0, direction: DEFAULT_AVATAR_PERFORMANCE }];
 
     expect(() => alignCompanionPerformanceCuesToSentences(cues, '第一句。第二句。'))
-      .toThrow('需要 2 个，实际 1 个');
+      .toThrow('需要 2 個，實際 1 個');
   });
 });

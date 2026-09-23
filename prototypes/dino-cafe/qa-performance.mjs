@@ -8,7 +8,7 @@ const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFac
 const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 const state=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text()));
 const settle=()=>page.waitForTimeout(600);
-const close=()=>page.getByRole('button',{name:'关闭面板',exact:true}).last().click();
+const close=()=>page.getByRole('button',{name:'關閉面板',exact:true}).last().click();
 async function assertSleeping(label){await settle();const before=(await state()).render;await page.waitForTimeout(650);const after=(await state()).render;assert.equal(after.framesRendered,before.framesRendered,label);return after;}
 try{
   await page.goto('http://127.0.0.1:5182/prototypes/dino-cafe/index.html');
@@ -20,20 +20,20 @@ try{
   const baseline=(await state()).render;
   // Changing a prop pose reuses both landscape and editable prop geometry.
   const target=baseline.propTargets.find(p=>p.kind==='stump');await page.touchscreen.tap(target.x,target.y);
-  await page.getByRole('button',{name:'调整位置和朝向'}).click();await page.getByRole('button',{name:'向右转45度'}).click();
+  await page.getByRole('button',{name:'調整位置和朝向'}).click();await page.getByRole('button',{name:'向右轉45度'}).click();
   const draft=await assertSleeping('placement preview stops when the camera settles');
   assert.equal(draft.terrainBuilds,baseline.terrainBuilds);assert.equal(draft.propBuilds,baseline.propBuilds);
   await page.getByRole('button',{name:'取消',exact:true}).click();
-  await page.getByRole('button',{name:'恐龙',exact:true}).click();await page.getByRole('button',{name:'选择莓莓',exact:true}).click();
-  await page.getByRole('button',{name:'换颜色',exact:true}).click();
+  await page.getByRole('button',{name:'恐龍',exact:true}).click();await page.getByRole('button',{name:'選擇莓莓',exact:true}).click();
+  await page.getByRole('button',{name:'換顏色',exact:true}).click();
   const portrait=await assertSleeping('static portrait stops rendering');assert.equal(portrait.morphBuilds,baseline.morphBuilds);
-  await page.getByRole('button',{name:'配色蓝莓酪'}).click();await settle();assert.ok((await state()).render.framesRendered>portrait.framesRendered,'paint wakes the portrait');
+  await page.getByRole('button',{name:'配色藍莓酪'}).click();await settle();assert.ok((await state()).render.framesRendered>portrait.framesRendered,'paint wakes the portrait');
   await assertSleeping('paint settles');await page.screenshot({path:`${out}/portrait-390.png`});await close();
-  await page.getByRole('button',{name:'恐龙',exact:true}).click();await page.getByRole('button',{name:/打开图鉴/}).click();
+  await page.getByRole('button',{name:'恐龍',exact:true}).click();await page.getByRole('button',{name:/打[开開][图圖][鉴鑑]/}).click();
   const hidden=await assertSleeping('catalog pauses its hidden canvas');assert.equal(hidden.active,false);
   const memories=[];
   for(let i=0;i<3;i++){
-    for(const name of ['霸王龙','三角龙']){
+    for(const name of ['霸王龍','三角龍']){
       await page.getByRole('button',{name:new RegExp('^'+name+' ')}).click();await settle();
       assert.equal((await state()).render.loaded.length,1);await close();await assertSleeping('closing a portrait does not reload hidden residents');
     }
@@ -41,7 +41,7 @@ try{
   }
   assert.deepEqual(memories[2],memories[0],'repeated portrait visits do not grow GPU geometry or texture counts');
   assert.equal((await state()).render.morphBuilds,baseline.morphBuilds,'cached species morphs are prepared once');
-  await page.getByRole('button',{name:'恐龙',exact:true}).click();await close();await settle();
+  await page.getByRole('button',{name:'恐龍',exact:true}).click();await close();await settle();
   await page.emulateMedia({reducedMotion:'reduce'});const reduced=await assertSleeping('reduced motion renders on demand');
   await page.emulateMedia({reducedMotion:'no-preference'});await settle();assert.ok((await state()).render.framesRendered>reduced.framesRendered,'motion preference resumes actions');
   await page.setViewportSize({width:1920,height:1080});await settle();assert.ok((await state()).render.drawingPixels<=1_000_000);

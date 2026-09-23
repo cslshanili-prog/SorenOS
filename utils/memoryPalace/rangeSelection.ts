@@ -6,8 +6,8 @@ export interface RangeSearchEntry {
 }
 
 /**
- * 日期搜索允许用户按视觉习惯省略前导零：
- * `6/22` 可以命中界面显示的 `2026/06/22`。
+ * 日期搜索允許用戶按視覺習慣省略前導零：
+ * `6/22` 可以命中界面顯示的 `2026/06/22`。
  */
 export function normalizeRangeSearchText(value: string): string {
     return value
@@ -17,7 +17,7 @@ export function normalizeRangeSearchText(value: string): string {
         .replace(/\s+/g, ' ');
 }
 
-/** 预先生成小写内容和日期索引，避免用户每输入一个字符都重新格式化全部时间戳。 */
+/** 預先生成小寫內容和日期索引，避免用戶每輸入一個字符都重新格式化全部時間戳。 */
 export function buildRangeSearchEntries(
     messages: Message[],
     formatTimestamp: (timestamp: number) => string,
@@ -38,23 +38,23 @@ export function filterRangeSearchEntries(entries: RangeSearchEntry[], query: str
         .map(entry => entry.message);
 }
 
-/** 标签忠实反映用户点击的端点角色，不按消息先后擅自互换“起点/终点”。 */
+/** 標籤忠實反映用戶點擊的端點角色，不按消息先後擅自互換“起點/終點”。 */
 export function getRangeEndpointLabel(
     messageId: number,
     startId: number | null,
     endId: number | null,
-): '' | '起点' | '终点' | '起点 / 终点' {
+): '' | '起點' | '終點' | '起點 / 終點' {
     const isStart = messageId === startId;
     const isEnd = messageId === endId;
-    if (isStart && isEnd) return '起点 / 终点';
-    if (isStart) return '起点';
-    if (isEnd) return '终点';
+    if (isStart && isEnd) return '起點 / 終點';
+    if (isStart) return '起點';
+    if (isEnd) return '終點';
     return '';
 }
 
 export function getRangeSelectionHint(startId: number | null, endId: number | null, selectedCount: number): string {
-    if (startId != null && endId != null) return `已选 ${selectedCount} 条`;
-    if (startId != null) return '已选起点，请再点终点';
-    if (endId != null) return '已选终点，请再点起点';
-    return '未选择';
+    if (startId != null && endId != null) return `已選 ${selectedCount} 條`;
+    if (startId != null) return '已選起點，請再點終點';
+    if (endId != null) return '已選終點，請再點起點';
+    return '未選擇';
 }

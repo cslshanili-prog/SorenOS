@@ -3,80 +3,80 @@
 import { installReiSW } from '@rei-standard/amsg-sw';
 
 /**
- * SW_VERSION: 改 SW 实质行为时（push handler / message protocol / 通知策略 / IDB 升级）
- * 手工 bump。前端 BuildBadge 通过 GET_SW_VERSION postMessage 协议读取并显示，
- * 也作为 source-bytes-changed 的 cache buster 让浏览器 24h SW 缓存绕过去。
+ * SW_VERSION: 改 SW 實質行為時（push handler / message protocol / 通知策略 / IDB 升級）
+ * 手工 bump。前端 BuildBadge 通過 GET_SW_VERSION postMessage 協議讀取並顯示，
+ * 也作為 source-bytes-changed 的 cache buster 讓瀏覽器 24h SW 緩存繞過去。
  *
- * 历史：
+ * 歷史：
  *  - 1.0.0: 初版 ActiveMsg 2.0 push + keep-alive
- *  - 1.1.0: 加 BuildBadge SW 版本协议 + 文案通用化
- *  - 1.2.0: iOS 前台跳过 showNotification
- *  - 1.3.0: 测试推送 metadata.test 强制弹通知
+ *  - 1.1.0: 加 BuildBadge SW 版本協議 + 文案通用化
+ *  - 1.2.0: iOS 前台跳過 showNotification
+ *  - 1.3.0: 測試推送 metadata.test 強制彈通知
  *  - 1.4.0: Phase 2 Round 1 — ActiveMsg IDB v1→v2 (加 outbound_sessions /
- *           pending_tool_calls / reasoning_buffer 三个 store), 上线后老 SW 不升级
- *           会因为 VersionError 丢推送, 必须 bump 触发字节比较 + 重装。
- *  - 1.5.0: Phase 2 Round 2 — push handler 按 messageKind 分轨
- *           (content / reasoning / tool_request / error), 处理 _blob envelope,
- *           tool_request 按 visibility 决定 postMessage 或 showNotification。
+ *           pending_tool_calls / reasoning_buffer 三個 store), 上線後老 SW 不升級
+ *           會因為 VersionError 丟推送, 必須 bump 觸發字節比較 + 重裝。
+ *  - 1.5.0: Phase 2 Round 2 — push handler 按 messageKind 分軌
+ *           (content / reasoning / tool_request / error), 處理 _blob envelope,
+ *           tool_request 按 visibility 決定 postMessage 或 showNotification。
  *  - 1.5.1: saveContentToInbox 兼容 directive-only push (body 空但 metadata.directives
- *           非空, e.g. LLM 只输出 [[ACTION:POKE]] 时), 不再 early-return 漏掉副作用.
- *  - 1.5.2: saveContentToInbox gate 化简到只看 charId — directive-only / 空 payload
- *           都信任 worker 契约, 不在 SW 二次验证, 行为更可预测.
- *  - 1.6.0: amsg-instant 升 0.8.0-next.2, ReasoningPush 自动按字节切多 push.
- *           saveReasoningToBuffer 改累积式 (chunks[] 数组, read-modify-write),
- *           按 (messageIndex, chunkIndex) 保留每个分片, 主线程 claimReasoning
- *           取出时排序拼接. savePendingToolCall 之前清空同 sessionId 的 reasoning
- *           buffer — 镜像主应用 `data = newResponse` 的"只保留最后一轮 reasoning"
- *           行为, 避免 agentic loop 跨轮污染.
- *  - 1.7.0: content push 在没有可见 client 时补一条系统通知（当时由应用层实现）。
- *           之前只有 tool_request 弹通知, content (含写日记的 directive 回复) 关浏览器 /
- *           后台冻结时零通知 — 用户不知道要回前台, inbox 不 flush, 客户端副作用 (写 Notion)
- *           永远不跑. 与 tool_request 同策略: 有可见 client 交给 in-app UI, 否则系统通知.
- *  - 1.9.0: 升级 amsg-sw 2.1.0-next.2，由插件接管 _multipart 透明重组。
- *           删除了应用层的 reasoning chunking 逻辑，现收到完整 reasoningContent。
- *           content 通知兜底也交给 amsg-sw，应用层只负责写 inbox / tool / emotion。
- *           修复了在应用关闭期间收到分片推送丢失的问题（通过 notificationclick 恢复及前台拦截 REI_AMSG_PUSH）。
- *  - 1.9.1: 升级 amsg-sw 2.1.1，沿用插件侧 multipart 同 id 串行锁和标准通知标题 fallback。
- *  - 1.10.0: saveReasoningToBuffer 写完后 notifyClients('active-msg-reasoning')，让主线程在
- *           "content 抢先于 reasoning 落库" 的竞态下把思维链回填到已存的首条回复上，
- *           修复 instant 模式弱网/移动端思维链(心象)间歇丢失。
- *  - 1.10.1: 合并 1.10.0 思维链回填修复与 ReiStandard amsg-sw 2.1.1 升级。
- *  - 1.11.0: 加 process-sse-payload message 协议，SSE 直达 payload 也复用同一套
+ *           非空, e.g. LLM 只輸出 [[ACTION:POKE]] 時), 不再 early-return 漏掉副作用.
+ *  - 1.5.2: saveContentToInbox gate 化簡到只看 charId — directive-only / 空 payload
+ *           都信任 worker 契約, 不在 SW 二次驗證, 行為更可預測.
+ *  - 1.6.0: amsg-instant 升 0.8.0-next.2, ReasoningPush 自動按字節切多 push.
+ *           saveReasoningToBuffer 改累積式 (chunks[] 數組, read-modify-write),
+ *           按 (messageIndex, chunkIndex) 保留每個分片, 主線程 claimReasoning
+ *           取出時排序拼接. savePendingToolCall 之前清空同 sessionId 的 reasoning
+ *           buffer — 鏡像主應用 `data = newResponse` 的"只保留最後一輪 reasoning"
+ *           行為, 避免 agentic loop 跨輪汙染.
+ *  - 1.7.0: content push 在沒有可見 client 時補一條系統通知（當時由應用層實現）。
+ *           之前只有 tool_request 彈通知, content (含寫日記的 directive 回覆) 關瀏覽器 /
+ *           後台凍結時零通知 — 用戶不知道要回前台, inbox 不 flush, 客戶端副作用 (寫 Notion)
+ *           永遠不跑. 與 tool_request 同策略: 有可見 client 交給 in-app UI, 否則系統通知.
+ *  - 1.9.0: 升級 amsg-sw 2.1.0-next.2，由插件接管 _multipart 透明重組。
+ *           刪除了應用層的 reasoning chunking 邏輯，現收到完整 reasoningContent。
+ *           content 通知兜底也交給 amsg-sw，應用層只負責寫 inbox / tool / emotion。
+ *           修復了在應用關閉期間收到分片推送丟失的問題（通過 notificationclick 恢復及前台攔截 REI_AMSG_PUSH）。
+ *  - 1.9.1: 升級 amsg-sw 2.1.1，沿用插件側 multipart 同 id 串行鎖和標準通知標題 fallback。
+ *  - 1.10.0: saveReasoningToBuffer 寫完後 notifyClients('active-msg-reasoning')，讓主線程在
+ *           "content 搶先於 reasoning 落庫" 的競態下把思維鏈回填到已存的首條回覆上，
+ *           修復 instant 模式弱網/移動端思維鏈(心象)間歇丟失。
+ *  - 1.10.1: 合併 1.10.0 思維鏈回填修復與 ReiStandard amsg-sw 2.1.1 升級。
+ *  - 1.11.0: 加 process-sse-payload message 協議，SSE 直達 payload 也複用同一套
  *           ActiveMsg inbox / tool / emotion 路由。
- *  - 1.12.0: SSE 直达 payload 经 MessageChannel 回 ack，前台据此确认 SW 是否
+ *  - 1.12.0: SSE 直達 payload 經 MessageChannel 回 ack，前台據此確認 SW 是否
  *           收下（含去重命中）。
  *  - 1.13.0: 接入 amsg-sw 通用 REI_AMSG_DELIVER + delivery dedupe。SSE bridge
- *           和 WebPush backup 统一在包层 showNotification 前去重。
- *  - 1.14.0: 升级 amsg-sw dedupe 语义：去重记录区分业务处理与通知展示，
- *           SSE-first 且前台未展示通知时，WebPush backup 可在隐藏态只补通知。
- *  - 1.15.0: IndexedDB 连接韧性整治（修 Instant Push 确认超时）。
- *           1) openInboxDb 改单例复用 + onversionchange/onclose 失效自愈 —— 之前每条 push
- *              都新开一条 ActiveMsg 连接且从不 close，与主库 (utils/db.ts) 的连接风暴一起
- *              撑爆 Chromium backing store，导致写 inbox 失败、永不 active-msg-received、超时。
- *           2) openInboxDb 的所有事务过 withInboxTx：onclose 清缓存是异步的，强关到回调之间
- *              命中 fast-path 会拿到将死连接、db.transaction() 同步抛 InvalidStateError，事务层
- *              兜一次「清缓存重开重试」(同 amsg-sw 2.3.0 的 withDedupeStore)。
- *           3) openInboxDb 修 blocked-then-unblocked 连接泄漏：onblocked 先 reject 但底层 open
- *              还活着，占用方关闭后 onsuccess 仍触发、留下能 block 升级/删库的孤儿连接；加
- *              settled 标记让迟到的 onsuccess 直接 close。
- *           4) 升级 amsg-sw 2.2.0 → 2.3.0：包侧 dedupe/queue/multipart 连接补 onclose + 事务级
- *              InvalidStateError 重开兜底；DELIVER ack 新增 businessError，落库失败 ok:true 仍带
- *              错误，前台据此把超时文案精确化。
- *  - 1.15.1: 临时加 instant push trace，定位 iOS PWA 后台导致的 SSE Load failed / backup push
- *            / SW inbox 落库时序。
- *  - 1.16.0: 加 pushsubscriptionchange 监听：浏览器换掉订阅时 best-effort 用旧公钥重订，
- *            并往 ActiveMsg 库 kv store 写「订阅已变化」标记（主线程据此把新订阅逐条
- *            写回已排程的远端任务，见 utils/activeMsgRuntime.ts）。onupgradeneeded 补建
- *            kv store（SW-first 安装时主线程 schema 还没建过）。
- *  - 1.17.0: 升级 amsg-sw，通知的 silent 认 'when-visible' 这一档：静不静音改由 SW 按
- *            收到推送那一刻的窗口可见性算，用户看着页面时安静、切后台照常响铃震动。
- *            老 SW 把这个字符串当真值，会一律静音。
- *  - 1.18.0: SW 侧 trace 落到独立的 ActiveMsgSwTrace 库（原来只写 console.log，远端用户
- *            手上等于没有），并把 notifyClients 记细：找到几个页面、各自可见性、
- *            postMessage 成没成。排「推送到了、通知也弹了、界面半天不动」这类故障时，
- *            SW 到底有没有喊到页面是第一个要回答的问题。
- *  - 1.19.0: push handler 只分 content / emotion_update / error / result 四轨；
- *            _blob 信封、reasoning、tool_request 三条路线移除。
+ *           和 WebPush backup 統一在包層 showNotification 前去重。
+ *  - 1.14.0: 升級 amsg-sw dedupe 語義：去重記錄區分業務處理與通知展示，
+ *           SSE-first 且前台未展示通知時，WebPush backup 可在隱藏態只補通知。
+ *  - 1.15.0: IndexedDB 連接韌性整治（修 Instant Push 確認超時）。
+ *           1) openInboxDb 改單例複用 + onversionchange/onclose 失效自愈 —— 之前每條 push
+ *              都新開一條 ActiveMsg 連接且從不 close，與主庫 (utils/db.ts) 的連接風暴一起
+ *              撐爆 Chromium backing store，導致寫 inbox 失敗、永不 active-msg-received、超時。
+ *           2) openInboxDb 的所有事務過 withInboxTx：onclose 清緩存是異步的，強關到回調之間
+ *              命中 fast-path 會拿到將死連接、db.transaction() 同步拋 InvalidStateError，事務層
+ *              兜一次「清緩存重開重試」(同 amsg-sw 2.3.0 的 withDedupeStore)。
+ *           3) openInboxDb 修 blocked-then-unblocked 連接洩漏：onblocked 先 reject 但底層 open
+ *              還活著，佔用方關閉後 onsuccess 仍觸發、留下能 block 升級/刪庫的孤兒連接；加
+ *              settled 標記讓遲到的 onsuccess 直接 close。
+ *           4) 升級 amsg-sw 2.2.0 → 2.3.0：包側 dedupe/queue/multipart 連接補 onclose + 事務級
+ *              InvalidStateError 重開兜底；DELIVER ack 新增 businessError，落庫失敗 ok:true 仍帶
+ *              錯誤，前台據此把超時文案精確化。
+ *  - 1.15.1: 臨時加 instant push trace，定位 iOS PWA 後台導致的 SSE Load failed / backup push
+ *            / SW inbox 落庫時序。
+ *  - 1.16.0: 加 pushsubscriptionchange 監聽：瀏覽器換掉訂閱時 best-effort 用舊公鑰重訂，
+ *            並往 ActiveMsg 庫 kv store 寫「訂閱已變化」標記（主線程據此把新訂閱逐條
+ *            寫回已排程的遠端任務，見 utils/activeMsgRuntime.ts）。onupgradeneeded 補建
+ *            kv store（SW-first 安裝時主線程 schema 還沒建過）。
+ *  - 1.17.0: 升級 amsg-sw，通知的 silent 認 'when-visible' 這一檔：靜不靜音改由 SW 按
+ *            收到推送那一刻的窗口可見性算，用戶看著頁面時安靜、切後台照常響鈴震動。
+ *            老 SW 把這個字符串當真值，會一律靜音。
+ *  - 1.18.0: SW 側 trace 落到獨立的 ActiveMsgSwTrace 庫（原來只寫 console.log，遠端用戶
+ *            手上等於沒有），並把 notifyClients 記細：找到幾個頁面、各自可見性、
+ *            postMessage 成沒成。排「推送到了、通知也彈了、界面半天不動」這類故障時，
+ *            SW 到底有沒有喊到頁面是第一個要回答的問題。
+ *  - 1.19.0: push handler 只分 content / emotion_update / error / result 四軌；
+ *            _blob 信封、reasoning、tool_request 三條路線移除。
  */
 const SW_VERSION = '1.19.0';
 
@@ -87,13 +87,13 @@ const ACTIVE_MSG_DB_NAME = 'ActiveMsg';
 // main thread is on v2, SW's open() will throw VersionError and push messages will be silently dropped.
 const ACTIVE_MSG_DB_VERSION = 2;
 const ACTIVE_MSG_INBOX_STORE = 'inbox';
-// 下面三张表现在没人读写（主线程启动时清空过一次旧数据）。建表逻辑留着是为了不动库版本：
-// 删表就得升 DB_VERSION，页面和 SW 必须同步升级，否则老的一方打开库直接 VersionError。
+// 下面三張表現在沒人讀寫（主線程啟動時清空過一次舊數據）。建表邏輯留著是為了不動庫版本：
+// 刪表就得升 DB_VERSION，頁面和 SW 必須同步升級，否則老的一方打開庫直接 VersionError。
 const ACTIVE_MSG_OUTBOUND_SESSIONS_STORE = 'outbound_sessions';
 const ACTIVE_MSG_PENDING_TOOL_CALLS_STORE = 'pending_tool_calls';
 const ACTIVE_MSG_REASONING_BUFFER_STORE = 'reasoning_buffer';
-// 主线程 activeMsgStore.ts 的 kv store（记录形状 { id, value }）。SW 只往里写一条
-// 固定 key 的「订阅已变化」标记，key 必须与 utils/activeMsgRuntime.ts 的
+// 主線程 activeMsgStore.ts 的 kv store（記錄形狀 { id, value }）。SW 只往裡寫一條
+// 固定 key 的「訂閱已變化」標記，key 必須與 utils/activeMsgRuntime.ts 的
 // PUSH_SUBSCRIPTION_CHANGED_KV_ID 保持一致。
 const ACTIVE_MSG_KV_STORE = 'kv';
 const PUSH_SUBSCRIPTION_CHANGED_KV_ID = 'push_subscription_changed_v1';
@@ -119,19 +119,19 @@ function summarizeAmsgPayload(payload: any): Record<string, any> {
   };
 }
 
-// ─── SW 侧 trace 的持久化 ───
+// ─── SW 側 trace 的持久化 ───
 //
-// traceSw 原本只写 console.log。SW 的 console 在远端用户那儿等于不存在（手机上没有
-// DevTools，装成 PWA 更没有），于是「SW 到底有没有收到推送、有没有喊到页面」这一整段
-// 全是盲区——排障时只能看到页面侧的记录，而页面侧的第一条记录已经是「开始处理」了。
+// traceSw 原本只寫 console.log。SW 的 console 在遠端用戶那兒等於不存在（手機上沒有
+// DevTools，裝成 PWA 更沒有），於是「SW 到底有沒有收到推送、有沒有喊到頁面」這一整段
+// 全是盲區——排障時只能看到頁面側的記錄，而頁面側的第一條記錄已經是「開始處理」了。
 //
-// 存在**独立的小库**里，不往 ActiveMsg 库塞：那个库一升版本就要走 onupgradeneeded，
-// 主线程正开着旧版本连接的话会 blocked（openInboxDb 里就为此写了 onblocked 分支），
-// 排障用的日志不值得给收件箱这条关键路径带上这种风险。
+// 存在**獨立的小庫**裡，不往 ActiveMsg 庫塞：那個庫一升版本就要走 onupgradeneeded，
+// 主線程正開著舊版本連接的話會 blocked（openInboxDb 裡就為此寫了 onblocked 分支），
+// 排障用的日誌不值得給收件箱這條關鍵路徑帶上這種風險。
 const SW_TRACE_DB_NAME = 'ActiveMsgSwTrace';
 const SW_TRACE_DB_VERSION = 1;
 const SW_TRACE_STORE = 'entries';
-/** 留多少条。一轮多段回复能打十几条，留够翻几轮的量。 */
+/** 留多少條。一輪多段回覆能打十幾條，留夠翻幾輪的量。 */
 const SW_TRACE_LIMIT = 300;
 
 let swTraceDbPromise: Promise<IDBDatabase> | null = null;
@@ -149,7 +149,7 @@ function openSwTraceDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
-      // 跟另外两个库同款的失效自愈：被强关 / 别处升版本时清缓存，下次重开。
+      // 跟另外兩個庫同款的失效自愈：被強關 / 別處升版本時清緩存，下次重開。
       db.onversionchange = () => {
         db.close();
         if (swTraceDbPromise === promise) swTraceDbPromise = null;
@@ -173,14 +173,14 @@ function openSwTraceDb(): Promise<IDBDatabase> {
   return promise;
 }
 
-/** 追加一条并把超出上限的最老记录删掉。整个函数的失败都被调用方吞掉。 */
+/** 追加一條並把超出上限的最老記錄刪掉。整個函數的失敗都被調用方吞掉。 */
 async function appendSwTrace(entry: Record<string, any>): Promise<void> {
   const db = await openSwTraceDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(SW_TRACE_STORE, 'readwrite');
     const store = tx.objectStore(SW_TRACE_STORE);
     store.add(entry);
-    // 同一个事务里 count 能看到刚 add 的那条，多出来的从最老的一头删。
+    // 同一個事務裡 count 能看到剛 add 的那條，多出來的從最老的一頭刪。
     const countRequest = store.count();
     countRequest.onsuccess = () => {
       const excess = countRequest.result - SW_TRACE_LIMIT;
@@ -212,8 +212,8 @@ function traceSw(event: string, payload?: any, extra: Record<string, any> = {}) 
   try {
     console.log('[InstantTrace:SW]', entry);
   } catch { /* ignore */ }
-  // 不 await：trace 是旁路，写库慢了 / 挂了都不能拖住推送处理本身。
-  void appendSwTrace(entry).catch(() => { /* trace 写不进去就算了 */ });
+  // 不 await：trace 是旁路，寫庫慢了 / 掛了都不能拖住推送處理本身。
+  void appendSwTrace(entry).catch(() => { /* trace 寫不進去就算了 */ });
 }
 
 installReiSW(sw, {
@@ -285,8 +285,8 @@ function stopKeepAlive() {
 }
 
 /**
- * 页面地址里只留路径，不带查询串和 hash——排障要认的是「这是哪个页面」，
- * 而查询串/hash 上可能挂着不该进日志的东西。
+ * 頁面地址裡只留路徑，不帶查詢串和 hash——排障要認的是「這是哪個頁面」，
+ * 而查詢串/hash 上可能掛著不該進日誌的東西。
  */
 function tracePathOf(url: string): string {
   try {
@@ -297,14 +297,14 @@ function tracePathOf(url: string): string {
 }
 
 /**
- * 把消息喊给所有打开着的页面。
+ * 把消息喊給所有打開著的頁面。
  *
- * 这里的 trace 记得比别处细，因为「推送到了、通知也弹了，页面却毫无反应」这类故障
- * 全卡在这一步，而它三种坏法长得一模一样（都是页面那边什么都没发生）：
- *   1. matchAll 压根没找到页面 → count 为 0
- *   2. 找到了但 postMessage 抛错 → posted 少于 count，failures 里有原因
- *   3. 都成了，是页面自己没处理 → 这里全绿，页面侧却没有对应的收到记录
- * 不把这三样分开记，就只能靠猜。
+ * 這裡的 trace 記得比別處細，因為「推送到了、通知也彈了，頁面卻毫無反應」這類故障
+ * 全卡在這一步，而它三種壞法長得一模一樣（都是頁面那邊什麼都沒發生）：
+ *   1. matchAll 壓根沒找到頁面 → count 為 0
+ *   2. 找到了但 postMessage 拋錯 → posted 少於 count，failures 裡有原因
+ *   3. 都成了，是頁面自己沒處理 → 這裡全綠，頁面側卻沒有對應的收到記錄
+ * 不把這三樣分開記，就只能靠猜。
  */
 async function notifyClients(data: Record<string, any>) {
   let clients: readonly Client[] = [];
@@ -336,7 +336,7 @@ async function notifyClients(data: Record<string, any>) {
       path: tracePathOf(client.url),
       visibility: (client as WindowClient).visibilityState,
       focused: (client as WindowClient).focused,
-      // 冻结的页面收得下 postMessage，但要等解冻才会处理——只有部分浏览器报这个字段。
+      // 凍結的頁面收得下 postMessage，但要等解凍才會處理——只有部分瀏覽器報這個字段。
       frozen: (client as any).frozen,
     })),
     ...(failures.length > 0 ? { failures } : {}),
@@ -399,10 +399,10 @@ function readPushPayload(event: PushEvent): any | null {
   }
 }
 
-// 单例连接缓存。每条 push 都新开一条 ActiveMsg 连接且从不 close 的话, 会跟主库
-// (utils/db.ts) 的连接一起撑爆 Chromium backing store, 这里 open 失败 →
-// saveContentToInbox 抛错 → 永不 notifyClients('active-msg-received') → 页面迟迟等不到
-// 落库。复用同一条连接, 失效 (版本升级 / 浏览器强制关闭) 时清缓存自愈, 下条 push 自动重开。
+// 單例連接緩存。每條 push 都新開一條 ActiveMsg 連接且從不 close 的話, 會跟主庫
+// (utils/db.ts) 的連接一起撐爆 Chromium backing store, 這裡 open 失敗 →
+// saveContentToInbox 拋錯 → 永不 notifyClients('active-msg-received') → 頁面遲遲等不到
+// 落庫。複用同一條連接, 失效 (版本升級 / 瀏覽器強制關閉) 時清緩存自愈, 下條 push 自動重開。
 let inboxDbPromise: Promise<IDBDatabase> | null = null;
 
 function openInboxDb(): Promise<IDBDatabase> {
@@ -410,16 +410,16 @@ function openInboxDb(): Promise<IDBDatabase> {
 
   const promise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(ACTIVE_MSG_DB_NAME, ACTIVE_MSG_DB_VERSION);
-    // onblocked 不是终态: 先 reject, 但底层 open request 还活着, 占用方关闭后仍会触发
-    // onsuccess。用 settled 标记 promise 已 settle, 让迟到的连接被 close 而非泄漏成
-    // 一条没人持有、却能 block 后续升级 / 删库的孤儿连接。
-    // 清缓存一律先比对 inboxDbPromise === promise: onclose/onerror 都是异步回调 —— 尤其
-    // withInboxTx 强关后会清缓存并重开新 promise, 此时陈旧连接的迟到 onclose 不能把新单例
-    // 误清 (否则又凭空多开一条连接, 正是本次要消灭的 churn; 见 amsg-sw 2.3.0 同款守卫)。
+    // onblocked 不是終態: 先 reject, 但底層 open request 還活著, 佔用方關閉後仍會觸發
+    // onsuccess。用 settled 標記 promise 已 settle, 讓遲到的連接被 close 而非洩漏成
+    // 一條沒人持有、卻能 block 後續升級 / 刪庫的孤兒連接。
+    // 清緩存一律先比對 inboxDbPromise === promise: onclose/onerror 都是異步回調 —— 尤其
+    // withInboxTx 強關後會清緩存並重開新 promise, 此時陳舊連接的遲到 onclose 不能把新單例
+    // 誤清 (否則又憑空多開一條連接, 正是本次要消滅的 churn; 見 amsg-sw 2.3.0 同款守衛)。
     let settled = false;
 
     request.onerror = () => {
-      if (inboxDbPromise === promise) inboxDbPromise = null; // 打开失败别缓存 rejected promise
+      if (inboxDbPromise === promise) inboxDbPromise = null; // 打開失敗別緩存 rejected promise
       settled = true;
       reject(request.error);
     };
@@ -432,13 +432,13 @@ function openInboxDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
-      // 已经 reject 过 (onblocked / onerror): 迟到的连接没人接收, 直接 close, 否则它开着
-      // 会 block 后续升级 / deleteDatabase。
+      // 已經 reject 過 (onblocked / onerror): 遲到的連接沒人接收, 直接 close, 否則它開著
+      // 會 block 後續升級 / deleteDatabase。
       if (settled) {
         try { db.close(); } catch { /* ignore */ }
         return;
       }
-      // 主线程升级版本时 close 让位 + 清缓存; 浏览器强制关闭连接时也清缓存自愈。
+      // 主線程升級版本時 close 讓位 + 清緩存; 瀏覽器強制關閉連接時也清緩存自愈。
       db.onversionchange = () => {
         db.close();
         if (inboxDbPromise === promise) inboxDbPromise = null;
@@ -453,7 +453,7 @@ function openInboxDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(ACTIVE_MSG_INBOX_STORE)) {
         db.createObjectStore(ACTIVE_MSG_INBOX_STORE, { keyPath: 'messageId' });
       }
-      // 这三张表没人读写，只为让 SW-first 安装建出来的库跟主线程 v2 schema 一致（见常量处注释）。
+      // 這三張表沒人讀寫，只為讓 SW-first 安裝建出來的庫跟主線程 v2 schema 一致（見常量處註釋）。
       if (!db.objectStoreNames.contains(ACTIVE_MSG_OUTBOUND_SESSIONS_STORE)) {
         db.createObjectStore(ACTIVE_MSG_OUTBOUND_SESSIONS_STORE, { keyPath: 'sessionId' });
       }
@@ -463,9 +463,9 @@ function openInboxDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(ACTIVE_MSG_REASONING_BUFFER_STORE)) {
         db.createObjectStore(ACTIVE_MSG_REASONING_BUFFER_STORE, { keyPath: 'sessionId' });
       }
-      // kv 平时由主线程 activeMsgStore.ts 建；SW-first 安装（主线程还没开过库就先
-      // 收到 push / pushsubscriptionchange）时这里补建，否则订阅变化标记没地方写，
-      // 主线程后续 transaction('kv') 也会 NotFoundError。
+      // kv 平時由主線程 activeMsgStore.ts 建；SW-first 安裝（主線程還沒開過庫就先
+      // 收到 push / pushsubscriptionchange）時這裡補建，否則訂閱變化標記沒地方寫，
+      // 主線程後續 transaction('kv') 也會 NotFoundError。
       if (!db.objectStoreNames.contains(ACTIVE_MSG_KV_STORE)) {
         db.createObjectStore(ACTIVE_MSG_KV_STORE, { keyPath: 'id' });
       }
@@ -482,12 +482,12 @@ function isInboxConnectionClosingError(error: unknown): boolean {
   return e.name === 'InvalidStateError' || /connection is closing/i.test(String(e.message || ''));
 }
 
-// 事务级一次重开兜底。单例的 onclose 清缓存是异步的: 连接被浏览器强关到 onclose 回调
-// 跑之间, 命中 fast-path 的调用方会拿到一条将死的连接, db.transaction() 同步抛
-// InvalidStateError —— 此时 saveContentToInbox 会在写 inbox / fire active-msg-received 前
-// 就挂掉, push 静默丢、主线程超时。这里捕获该错误后清缓存、重开一次、重试一次
-// (镜像 amsg-sw 2.3.0 的 withDedupeStore), 守住这条关键路径。重试上限 1 次; 失败的
-// 事务不会 commit, 故 run() 重跑是幂等的 (含 read-modify-write)。
+// 事務級一次重開兜底。單例的 onclose 清緩存是異步的: 連接被瀏覽器強關到 onclose 回調
+// 跑之間, 命中 fast-path 的調用方會拿到一條將死的連接, db.transaction() 同步拋
+// InvalidStateError —— 此時 saveContentToInbox 會在寫 inbox / fire active-msg-received 前
+// 就掛掉, push 靜默丟、主線程超時。這裡捕獲該錯誤後清緩存、重開一次、重試一次
+// (鏡像 amsg-sw 2.3.0 的 withDedupeStore), 守住這條關鍵路徑。重試上限 1 次; 失敗的
+// 事務不會 commit, 故 run() 重跑是冪等的 (含 read-modify-write)。
 async function withInboxTx(
   storeName: string,
   mode: IDBTransactionMode,
@@ -501,7 +501,7 @@ async function withInboxTx(
         try {
           tx = db.transaction(storeName, mode);
         } catch (e) {
-          reject(e); // 连接 closing 时 db.transaction() 同步抛, 交给下面的重试判定
+          reject(e); // 連接 closing 時 db.transaction() 同步拋, 交給下面的重試判定
           return;
         }
         tx.oncomplete = () => resolve();
@@ -511,7 +511,7 @@ async function withInboxTx(
       });
     } catch (e) {
       if (attempt === 0 && isInboxConnectionClosingError(e)) {
-        inboxDbPromise = null; // 丢掉将死的缓存连接, 下一轮 openInboxDb 重开
+        inboxDbPromise = null; // 丟掉將死的緩存連接, 下一輪 openInboxDb 重開
         continue;
       }
       throw e;
@@ -523,7 +523,7 @@ async function withInboxTx(
 
 async function saveContentToInbox(payload: any) {
   const charId = payload?.metadata?.charId;
-  const charName = payload?.contactName || payload?.metadata?.charName || '主动消息';
+  const charName = payload?.contactName || payload?.metadata?.charName || '主動消息';
   const body = String(payload?.message || payload?.body || '').trim();
   const notificationBody = typeof payload?.notification?.body === 'string'
     ? payload.notification.body.trim()
@@ -534,12 +534,12 @@ async function saveContentToInbox(payload: any) {
   const parsedSentAt = payloadTimestamp ? new Date(payloadTimestamp).getTime() : NaN;
   const sentAt = Number.isFinite(parsedSentAt) ? parsedSentAt : Date.now();
 
-  // 唯一不可恢复的是没 charId — 没法路由, 直接丢. 其它形态都接受:
-  //   - body 非空 + directives 空 = 普通 content push (老路径)
+  // 唯一不可恢復的是沒 charId — 沒法路由, 直接丟. 其它形態都接受:
+  //   - body 非空 + directives 空 = 普通 content push (老路徑)
   //   - body 非空 + directives 非空 = content + 副作用混合 push
-  //   - body 空 + directives 非空 = directive-only push (LLM 只输 [[ACTION:POKE]] 等)
-  //   - body 空 + directives 空 = worker bug 推白条 → 写一条空 entry, flushInbox 跑空管线无害,
-  //     最多让 OSContext 弹一句默认 toast. 这种 case 应该在 worker 端修, SW 不二次验证契约.
+  //   - body 空 + directives 非空 = directive-only push (LLM 只輸 [[ACTION:POKE]] 等)
+  //   - body 空 + directives 空 = worker bug 推白條 → 寫一條空 entry, flushInbox 跑空管線無害,
+  //     最多讓 OSContext 彈一句默認 toast. 這種 case 應該在 worker 端修, SW 不二次驗證契約.
   if (!charId) {
     traceSw('content-drop-no-char', payload);
     return;
@@ -556,15 +556,15 @@ async function saveContentToInbox(payload: any) {
       source: payload?.source,
       messageType: payload?.messageType,
       messageSubtype: payload?.messageSubtype,
-      // 任务身份由库盖在 push 顶层 (taskId / taskUuid / recurrenceType / occurrenceMs),
-      // 客户端端的防穿帮闸与任务认领都读这几个——两条排程路径 (用户排 / 角色自排) 走的
-      // 是同一份, 不会像各自往 metadata 抄那样抄漏一个就判错。
+      // 任務身份由庫蓋在 push 頂層 (taskId / taskUuid / recurrenceType / occurrenceMs),
+      // 客戶端端的防穿幫閘與任務認領都讀這幾個——兩條排程路徑 (用戶排 / 角色自排) 走的
+      // 是同一份, 不會像各自往 metadata 抄那樣抄漏一個就判錯。
       taskId: payload?.taskId ?? null,
       taskUuid: payload?.taskUuid ?? null,
       recurrenceType: payload?.recurrenceType ?? null,
       occurrenceMs: payload?.occurrenceMs ?? null,
-      // sessionId / messageIndex 放到 metadata 里, 主线程 flushInboxToChat 据此标记是第几条
-      // (第 1 条才挂 metadata.thinkingChain).
+      // sessionId / messageIndex 放到 metadata 裡, 主線程 flushInboxToChat 據此標記是第幾條
+      // (第 1 條才掛 metadata.thinkingChain).
       metadata: {
         ...(payload?.metadata || {}),
         sessionId: payload?.sessionId,
@@ -587,14 +587,14 @@ async function saveContentToInbox(payload: any) {
   });
 }
 
-// emotion_update push: worker 跑完副 API 情绪评估后推回的 buff 结果. 静默写进 inbox (不弹通知、
-// 不计未读), 客户端 flushInboxToChat 看到 messageType==='emotion_update' 时调 applyEmotionEvalRaw
-// 落 buff + 广播 innerState, 不渲染成聊天消息. notifyClients 仅用来触发一次 flush (前台时立即落 buff;
-// 后台时 postMessage 排队/丢弃, 回前台 visibilitychange flush 兜底).
+// emotion_update push: worker 跑完副 API 情緒評估後推回的 buff 結果. 靜默寫進 inbox (不彈通知、
+// 不計未讀), 客戶端 flushInboxToChat 看到 messageType==='emotion_update' 時調 applyEmotionEvalRaw
+// 落 buff + 廣播 innerState, 不渲染成聊天消息. notifyClients 僅用來觸發一次 flush (前台時立即落 buff;
+// 後台時 postMessage 排隊/丟棄, 回前台 visibilitychange flush 兜底).
 async function saveEmotionUpdateToInbox(payload: any) {
   const charId = payload?.metadata?.charId;
-  // emotionRaw 允许为空: worker 评估失败/返回空时也会推一条 "done" 信号 (emotionRaw=''),
-  // 仍需写 inbox + notify, 让客户端 flush 时 fire 'instant-emotion-done' 熄灭 "情绪分析中" 徽章.
+  // emotionRaw 允許為空: worker 評估失敗/返回空時也會推一條 "done" 信號 (emotionRaw=''),
+  // 仍需寫 inbox + notify, 讓客戶端 flush 時 fire 'instant-emotion-done' 熄滅 "情緒分析中" 徽章.
   const emotionRaw = payload?.metadata?.emotionRaw || '';
   if (!charId) {
     traceSw('emotion-drop-no-char', payload);
@@ -616,14 +616,14 @@ async function saveEmotionUpdateToInbox(payload: any) {
   });
   traceSw('inbox-emotion-saved', payload, { emotionChars: String(emotionRaw).length });
 
-  // 触发客户端 flush (不带真实内容, 客户端 flush 时按 messageType 静默处理). 不 showNotification.
+  // 觸發客戶端 flush (不帶真實內容, 客戶端 flush 時按 messageType 靜默處理). 不 showNotification.
   await notifyClients({ type: 'active-msg-received', charId, charName: payload?.contactName || '', body: '', emotionUpdate: true });
 }
 
-// ─── 路由总入口 ──────────────────────────────────────────────────────────────
+// ─── 路由總入口 ──────────────────────────────────────────────────────────────
 
 async function saveIncomingActiveMessage(payload: any) {
-  // 按 messageKind 分轨; 没带 messageKind 字段的当 content 处理.
+  // 按 messageKind 分軌; 沒帶 messageKind 字段的當 content 處理.
   const messageKind: string = payload?.messageKind ?? 'content';
   traceSw('route-payload', payload, { route: messageKind });
 
@@ -637,10 +637,10 @@ async function saveIncomingActiveMessage(payload: any) {
       return;
 
     case 'error':
-      // 失败告知 push: 不写 inbox（不是聊天内容）。通知横幅由包层按 notification.show
-      // 决定（即时对话的终态失败带 show:'always' + 折叠 + 静音，前后台都弹）。这里把
-      // metadata 整份带给页面: 即时对话靠里面的 taskUuid/reason 当场收尾那一轮
-      // （落系统消息、熄灯），见 activeMsgRuntime 的 active-msg-error 分支。
+      // 失敗告知 push: 不寫 inbox（不是聊天內容）。通知橫幅由包層按 notification.show
+      // 決定（即時對話的終態失敗帶 show:'always' + 摺疊 + 靜音，前後台都彈）。這裡把
+      // metadata 整份帶給頁面: 即時對話靠裡面的 taskUuid/reason 當場收尾那一輪
+      // （落系統消息、熄燈），見 activeMsgRuntime 的 active-msg-error 分支。
       console.error('[amsg] error push', payload?.code, payload?.message, payload?.metadata?.reason);
       await notifyClients({
         type: 'active-msg-error',
@@ -652,9 +652,9 @@ async function saveIncomingActiveMessage(payload: any) {
       return;
 
     case 'result':
-      // 宿主自定义结果（worker 的 ctx.emitResult），不是聊天内容: 不写 inbox, 原样
-      // 转给页面按 resultKind 分流。落进 content 分支的话, 结果里那些不是正文的字段
-      // 会被当角色说的一句话渲染成气泡。
+      // 宿主自定義結果（worker 的 ctx.emitResult），不是聊天內容: 不寫 inbox, 原樣
+      // 轉給頁面按 resultKind 分流。落進 content 分支的話, 結果裡那些不是正文的字段
+      // 會被當角色說的一句話渲染成氣泡。
       await notifyClients({ type: 'active-msg-result', payload });
       return;
 
@@ -664,19 +664,19 @@ async function saveIncomingActiveMessage(payload: any) {
   }
 }
 
-// 之前我们自己写 sw.addEventListener('push')，现在全量交由 amsg-sw 的 installReiSW
-// 在 onBusinessPayload 里回调，所以这里不再需要手写 push 监听。
+// 之前我們自己寫 sw.addEventListener('push')，現在全量交由 amsg-sw 的 installReiSW
+// 在 onBusinessPayload 裡回調，所以這裡不再需要手寫 push 監聽。
 
-// ─── pushsubscriptionchange：浏览器换掉了推送订阅 ────────────────────────────
-// 已排程任务体里的 pushSubscription 是排程那一刻冻结的，订阅一换端点，到点推送
-// 全打到作废端点上（静默失联）。这里做两件事，都是 best-effort：
-//   1. 用旧订阅的 applicationServerKey 立刻重订，尽量别让订阅断档；
-//   2. 无论重订成败都往 kv store 写一条固定 key 的「订阅已变化」标记——就算重订
-//      成功，新订阅的端点也和任务体里冻结的不一样，远端任务必须逐条刷新才能继续
-//      送达。主线程 ActiveMsgRuntime 启动 / 收到下面的通知时消费标记（见
-//      utils/activeMsgRuntime.ts 的 refreshPushSubscriptionIfMarked），全部写回
+// ─── pushsubscriptionchange：瀏覽器換掉了推送訂閱 ────────────────────────────
+// 已排程任務體裡的 pushSubscription 是排程那一刻凍結的，訂閱一換端點，到點推送
+// 全打到作廢端點上（靜默失聯）。這裡做兩件事，都是 best-effort：
+//   1. 用舊訂閱的 applicationServerKey 立刻重訂，儘量別讓訂閱斷檔；
+//   2. 無論重訂成敗都往 kv store 寫一條固定 key 的「訂閱已變化」標記——就算重訂
+//      成功，新訂閱的端點也和任務體裡凍結的不一樣，遠端任務必須逐條刷新才能繼續
+//      送達。主線程 ActiveMsgRuntime 啟動 / 收到下面的通知時消費標記（見
+//      utils/activeMsgRuntime.ts 的 refreshPushSubscriptionIfMarked），全部寫回
 //      成功才清。
-// TS lib 的 ServiceWorkerGlobalScopeEventMap 还没收这个事件名，监听器手动收敛类型。
+// TS lib 的 ServiceWorkerGlobalScopeEventMap 還沒收這個事件名，監聽器手動收斂類型。
 sw.addEventListener('pushsubscriptionchange', (event: Event) => {
   const e = event as Event & {
     waitUntil: (promise: Promise<unknown>) => void;
@@ -695,7 +695,7 @@ sw.addEventListener('pushsubscriptionchange', (event: Event) => {
         resubscribed = true;
       }
     } catch (err) {
-      console.warn('[amsg] pushsubscriptionchange 重订失败（主线程稍后会走完整订阅流程）', err);
+      console.warn('[amsg] pushsubscriptionchange 重訂失敗（主線程稍後會走完整訂閱流程）', err);
     }
 
     try {
@@ -706,12 +706,12 @@ sw.addEventListener('pushsubscriptionchange', (event: Event) => {
         });
       });
     } catch (err) {
-      // 标记写不进去只能靠日志留痕：下一次订阅相关操作（重开面板 / 重新排程）会
-      // 走 ensurePushSubscription 的自检把订阅本身修好，但远端旧任务要等用户重存。
-      console.warn('[amsg] 写订阅变化标记失败', err);
+      // 標記寫不進去只能靠日誌留痕：下一次訂閱相關操作（重開面板 / 重新排程）會
+      // 走 ensurePushSubscription 的自檢把訂閱本身修好，但遠端舊任務要等用戶重存。
+      console.warn('[amsg] 寫訂閱變化標記失敗', err);
     }
 
-    // 页面开着的话立刻处理，不用等下次启动。
+    // 頁面開著的話立刻處理，不用等下次啟動。
     await notifyClients({ type: 'active-msg-subscription-change', resubscribed });
   })());
 });
@@ -742,20 +742,20 @@ sw.addEventListener('message', (event: ExtendableMessageEvent) => {
 
   switch (type) {
     case 'GET_SW_VERSION':
-      // BuildBadge 通过 MessageChannel + port 协议查询；不响应时 BuildBadge 显示 sw@?
+      // BuildBadge 通過 MessageChannel + port 協議查詢；不響應時 BuildBadge 顯示 sw@?
       event.ports[0]?.postMessage({ version: SW_VERSION });
       break;
     case 'SW_CHANNEL_PROBE': {
-      // 页面主动探一次「SW 还能不能喊到我」。两条路各回一次，为的是把故障分开：
-      //   - port 这条是「谁问谁答」，页面把回信地址一起递过来（BuildBadge 查版本走它）；
-      //   - clients 这条要 SW 自己去把页面找出来，**推送通知页面走的正是它**。
-      // 只有后者不通，说明 SW 活得好好的、只是找不到页面——这两种坏法在用户那儿
-      // 长得一模一样（界面就是不动），不分开测就只能靠猜。
+      // 頁面主動探一次「SW 還能不能喊到我」。兩條路各回一次，為的是把故障分開：
+      //   - port 這條是「誰問誰答」，頁面把回信地址一起遞過來（BuildBadge 查版本走它）；
+      //   - clients 這條要 SW 自己去把頁面找出來，**推送通知頁面走的正是它**。
+      // 只有後者不通，說明 SW 活得好好的、只是找不到頁面——這兩種壞法在用戶那兒
+      // 長得一模一樣（界面就是不動），不分開測就只能靠猜。
       const nonce = event.data?.nonce;
       traceSw('channel-probe-received', undefined, { nonce });
       event.ports[0]?.postMessage({ type: 'sw-channel-probe-port-ack', nonce, swVersion: SW_VERSION });
-      // 故意复用 notifyClients：探测必须跟真实推送走同一条路才作数，
-      // 顺带还留下一条 notify-clients 记录（找到几个页面、各自什么状态）。
+      // 故意複用 notifyClients：探測必須跟真實推送走同一條路才作數，
+      // 順帶還留下一條 notify-clients 記錄（找到幾個頁面、各自什麼狀態）。
       event.waitUntil(notifyClients({ type: 'sw-channel-probe-ack', nonce, swVersion: SW_VERSION }));
       break;
     }

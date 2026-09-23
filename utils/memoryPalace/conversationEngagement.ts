@@ -1,9 +1,9 @@
 /**
  * M3 v2 — Conversation Engagement / Subject Tracking
  *
- * 这一层不再判断“话有多深”，而是判断用户这一轮在谈话里做了什么、当前主题
- * 是否仍在展开，以及角色本轮应该怎样参与。所有检测和状态转移都在本地完成；
- * 不调用 LLM，也不把状态写回角色人格。
+ * 這一層不再判斷“話有多深”，而是判斷用戶這一輪在談話裡做了什麼、當前主題
+ * 是否仍在展開，以及角色本輪應該怎樣參與。所有檢測和狀態轉移都在本地完成；
+ * 不調用 LLM，也不把狀態寫回角色人格。
  */
 
 import type { Message } from '../../types';
@@ -75,7 +75,7 @@ export type ConversationEngagementReason =
     | 'repeated_low_information_turn';
 
 export interface GroundedConversationFact {
-    /** 只在本地 subject state 中保存；Trace 和 prompt guidance 都不复制原文。 */
+    /** 只在本地 subject state 中保存；Trace 和 prompt guidance 都不復制原文。 */
     text: string;
     sourceMessageIds: number[];
     confidence: number;
@@ -116,8 +116,8 @@ export interface ResponsePlan {
 }
 
 /**
- * 每个角色各自持有的本地临时谈话状态。knownFacts 只保存在用户设备上，
- * 不进入 RecallTrace；它们有严格数量与长度上限，也会随 subject 关闭而淘汰。
+ * 每個角色各自持有的本地臨時談話狀態。knownFacts 只保存在用戶設備上，
+ * 不進入 RecallTrace；它們有嚴格數量與長度上限，也會隨 subject 關閉而淘汰。
  */
 export interface StoredConversationEngagementState {
     version: 2;
@@ -134,8 +134,8 @@ export interface StoredConversationEngagementState {
 }
 
 /**
- * 可安全进入 Trace / Prompt renderer 的脱敏分析。这里只保留枚举、分数和计数，
- * 不包含用户原句、subject label、实体名、事实文本或 hook 文本。
+ * 可安全進入 Trace / Prompt renderer 的脫敏分析。這裡只保留枚舉、分數和計數，
+ * 不包含用戶原句、subject label、實體名、事實文本或 hook 文本。
  */
 export interface ConversationEngagementAnalysis {
     version: 2;
@@ -196,27 +196,27 @@ interface DetectedConversationAct {
     currentMessageIds: number[];
 }
 
-const OPENING_RE = /(?:有件事|发生了(?:一件|点)?事|出了点事|有(?:个|些)事|事情(?:很多|好多|有点多)|好多事|之前.{0,18}(?:事|人|那个).{0,10}(?:后续|后来|又)|有后续|又有后续|刚(?:看到|听说|发现|想到)|突然想到|不知道怎么说|不知(?:道)?该怎么说|是不是我想多了|可能是我想多了|今天.{0,14}(?:奇怪|离谱|突然)|那个人又|那个事情又)/u;
-const PERSONAL_LOAD_RE = /(?:我|最近|这几天|今天).{0,10}(?:很累|好累|有点累|太累|心累|很烦|好烦|有点烦|压力(?:很|好|有点)?大|忙不过来|喘不过气|乱糟糟|事情很多|事情好多)|事情(?:很多|好多|有点多)/u;
-const NARRATIVE_LEAD_RE = /^(?:主要是|就是|其实|然后|后来|结果|那个|关于|说起来|对了|你还记得|还记得|之前说的)/u;
-const UPDATE_RE = /(?:后续|后来|结果|进展|又|再次|突然|居然|现在变成|改口|换人|改变安排|今天.{0,10}(?:叫|说|通知|决定))/u;
-const STANCE_REQUEST_RE = /(?:你怎么看|你怎么想|你的看法|你觉得呢|你觉得|你同意吗|如果是你|你说.{0,10}(?:是不是|算不算)|所以.{0,8}(?:是不是|为什么|意味着))/u;
-const ANALYSIS_RE = /(?:认真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆开看看|想明白|可以反驳|哪里不对|往深了聊|为什么|原因|背后|机制|逻辑|矛盾|不一致|意味着)/u;
-const EXPLICIT_ANALYSIS_REQUEST_RE = /(?:请.{0,8}分析|认真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆开看看|可以反驳|往深了聊)/u;
-const SUPPORT_RE = /(?:先别分析|不想讲道理|陪陪我|陪着我|抱抱我|哄哄我|听我说|让我哭|现在只想|别急着给建议|先听我说)/u;
-const EMOTIONAL_PRESSURE_RE = /(?:很累|好累|心累|事情很多|事情好多|压力(?:很|好|有点)?大|好难受|受不了|崩溃|撑不住|害怕|好痛苦|喘不过气|想哭|不知道怎么办|乱得很|很烦|好烦)/u;
-const CLOSURE_RE = /(?:准备睡|先睡|睡觉了|睡觉啦|晚安|先休息|改天再说|以后再说|不想(?:说|聊|想)这个|先不(?:说|聊|想)了|算了.{0,8}(?:不说|不聊|不想)|到这(?:吧|了)|就这样吧|不用管(?:了|我)|别问了|没事了|先这样)/u;
-const SHIFT_RE = /(?:换个话题|说点别的|不说这个了.{0,12}(?:给你看|说说)|给你看|看我(?:刚|今天)|对了.{0,8}(?:还有|给你|我刚)|话说回来|说起来.{0,8}(?:另一个|还有))/u;
-const PLAYFUL_RE = /(?:哈哈|笑死|嘿嘿|好玩|逗你|开玩笑|乐死|绷不住)/u;
-const CONTRADICTION_RE = /(?:但是|可是|然而|却|反而|明明|矛盾|说不通|不一致|之前.{0,24}(?:现在|今天|后来)|一边.{0,24}一边)/u;
-const INCOMPLETE_END_RE = /(?:[…….…]{2,}|(?:然后|就是|主要是|那个人|那个事情|其实|可是|但是|又))\s*$/u;
-const LOW_INFORMATION_RE = /^(?:嗯+|唔+|哦+|啊+|对|是|就是|然后呢|没错|差不多|不知道|可能吧|算是吧)[。.!！?？…]*$/u;
-// 这三组只排除明显不需要 subject tracking 的交流行为。开放陈述本身不依赖
-// 情绪/事件关键词：词表负责调节参与方式，不再决定一句话“值不值得听”。
-const DIRECT_QUESTION_RE = /(?:[?？]\s*$|^(?:什么|怎么|为什么|为何|哪|谁|多少|几点|是不是|有没有|能不能|可不可以))/u;
-const DIRECT_REQUEST_RE = /^(?:请|麻烦|帮我|能否|可以帮我|给我|替我|告诉我|解释|写一?|生成|做一?|查一下|搜索|翻译)/u;
-const SOCIAL_ONLY_RE = /^(?:你?好|早上好|早安|中午好|下午好|晚上好|晚安|在吗|收到|知道了|好的?|好吧|行吧?|谢谢|谢啦|拜拜|回头见)[呀啊哦啦吧。.!！?？～~]*$/u;
-const SELF_ANCHOR_RE = /(?:我|自己|咱们|我们)/u;
+const OPENING_RE = /(?:有件事|[发發]生了(?:一件|[点點])?事|出了[点點]事|有(?:[个個]|些)事|事情(?:很多|好多|有[点點]多)|好多事|之前.{0,18}(?:事|人|那[个個]).{0,10}(?:[后後][续續]|[后後][来來]|又)|有[后後][续續]|又有[后後][续續]|[刚剛](?:看到|[听聽][说說]|[发發][现現]|想到)|突然想到|不知道怎[么麼][说說]|不知(?:道)?[该該]怎[么麼][说說]|是不是我想多了|可能是我想多了|今天.{0,14}(?:奇怪|[离離][谱譜]|突然)|那[个個]人又|那[个個]事情又)/u;
+const PERSONAL_LOAD_RE = /(?:我|最近|[这這][几幾]天|今天).{0,10}(?:很累|好累|有[点點]累|太累|心累|很[烦煩]|好[烦煩]|有[点點][烦煩]|[压壓]力(?:很|好|有[点點])?大|忙不[过過][来來]|喘不[过過][气氣]|[乱亂]糟糟|事情很多|事情好多)|事情(?:很多|好多|有[点點]多)/u;
+const NARRATIVE_LEAD_RE = /^(?:主要是|就是|其[实實]|然[后後]|[后後][来來]|[结結]果|那[个個]|[关關][于於]|[说說]起[来來]|[对對]了|你[还還][记記]得|[还還][记記]得|之前[说說]的)/u;
+const UPDATE_RE = /(?:[后後][续續]|[后後][来來]|[结結]果|[进進]展|又|再次|突然|居然|[现現]在[变變]成|改口|[换換]人|改[变變]安排|今天.{0,10}(?:叫|[说說]|通知|[决決]定))/u;
+const STANCE_REQUEST_RE = /(?:你怎[么麼]看|你怎[么麼]想|你的看法|你[觉覺]得呢|你[觉覺]得|你同意[吗嗎]|如果是你|你[说說].{0,10}(?:是不是|算不算)|所以.{0,8}(?:是不是|[为為]什[么麼]|意味[着著]))/u;
+const ANALYSIS_RE = /(?:[认認]真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆[开開]看看|想明白|可以反[驳駁]|哪[里裡]不[对對]|往深了聊|[为為]什[么麼]|原因|背[后後]|[机機]制|[逻邏][辑輯]|矛盾|不一致|意味[着著])/u;
+const EXPLICIT_ANALYSIS_REQUEST_RE = /(?:[请請].{0,8}分析|[认認]真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆[开開]看看|可以反[驳駁]|往深了聊)/u;
+const SUPPORT_RE = /(?:先[别別]分析|不想[讲講]道理|陪陪我|陪[着著]我|抱抱我|哄哄我|[听聽]我[说說]|[让讓]我哭|[现現]在只想|[别別]急[着著][给給]建[议議]|先[听聽]我[说說])/u;
+const EMOTIONAL_PRESSURE_RE = /(?:很累|好累|心累|事情很多|事情好多|[压壓]力(?:很|好|有[点點])?大|好[难難]受|受不了|崩[溃潰]|[撑撐]不住|害怕|好痛苦|喘不[过過][气氣]|想哭|不知道怎[么麼][办辦]|[乱亂]得很|很[烦煩]|好[烦煩])/u;
+const CLOSURE_RE = /(?:[准準][备備]睡|先睡|睡[觉覺]了|睡[觉覺]啦|晚安|先休息|改天再[说說]|以[后後]再[说說]|不想(?:[说說]|聊|想)[这這][个個]|先不(?:[说說]|聊|想)了|算了.{0,8}(?:不[说說]|不聊|不想)|到[这這](?:吧|了)|就[这這][样樣]吧|不用管(?:了|我)|[别別][问問]了|[没沒]事了|先[这這][样樣])/u;
+const SHIFT_RE = /(?:[换換][个個][话話][题題]|[说說][点點][别別]的|不[说說][这這][个個]了.{0,12}(?:[给給]你看|[说說][说說])|[给給]你看|看我(?:[刚剛]|今天)|[对對]了.{0,8}(?:[还還]有|[给給]你|我[刚剛])|[话話][说說]回[来來]|[说說]起[来來].{0,8}(?:另一[个個]|[还還]有))/u;
+const PLAYFUL_RE = /(?:哈哈|笑死|嘿嘿|好玩|逗你|[开開]玩笑|[乐樂]死|[绷繃]不住)/u;
+const CONTRADICTION_RE = /(?:但是|可是|然而|[却卻]|反而|明明|矛盾|[说說]不通|不一致|之前.{0,24}(?:[现現]在|今天|[后後][来來])|一[边邊].{0,24}一[边邊])/u;
+const INCOMPLETE_END_RE = /(?:[…….…]{2,}|(?:然[后後]|就是|主要是|那[个個]人|那[个個]事情|其[实實]|可是|但是|又))\s*$/u;
+const LOW_INFORMATION_RE = /^(?:嗯+|唔+|哦+|啊+|[对對]|是|就是|然[后後]呢|[没沒][错錯]|差不多|不知道|可能吧|算是吧)[。.!！?？…]*$/u;
+// 這三組只排除明顯不需要 subject tracking 的交流行為。開放陳述本身不依賴
+// 情緒/事件關鍵詞：詞表負責調節參與方式，不再決定一句話“值不值得聽”。
+const DIRECT_QUESTION_RE = /(?:[?？]\s*$|^(?:什[么麼]|怎[么麼]|[为為]什[么麼]|[为為]何|哪|[谁誰]|多少|[几幾][点點]|是不是|有[没沒]有|能不能|可不可以))/u;
+const DIRECT_REQUEST_RE = /^(?:[请請]|麻[烦煩]|[帮幫]我|能否|可以[帮幫]我|[给給]我|替我|告[诉訴]我|解[释釋]|[写寫]一?|生成|做一?|查一下|搜索|翻[译譯])/u;
+const SOCIAL_ONLY_RE = /^(?:你?好|早上好|早安|中午好|下午好|晚上好|晚安|在[吗嗎]|收到|知道了|好的?|好吧|行吧?|[谢謝][谢謝]|[谢謝]啦|拜拜|回[头頭][见見])[呀啊哦啦吧。.!！?？～~]*$/u;
+const SELF_ANCHOR_RE = /(?:我|自己|咱[们們]|我[们們])/u;
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -263,7 +263,7 @@ function detectConversationAct(
     const explicitSupport = SUPPORT_RE.test(currentText);
     const emotionalPressure = EMOTIONAL_PRESSURE_RE.test(currentText);
     const analysisInvitation = ANALYSIS_RE.test(currentText);
-    // “这背后的逻辑是什么？”本身就是要求角色参与判断，不必强制出现“你怎么看”。
+    // “這背後的邏輯是什麼？”本身就是要求角色參與判斷，不必強制出現“你怎麼看”。
     const stanceRequest = STANCE_REQUEST_RE.test(currentText)
         || (analysisInvitation && /[?？]/u.test(currentText))
         || (!explicitSupport && EXPLICIT_ANALYSIS_REQUEST_RE.test(currentText));
@@ -272,7 +272,7 @@ function detectConversationAct(
     const narrativeLead = NARRATIVE_LEAD_RE.test(currentText);
     const personalLoad = PERSONAL_LOAD_RE.test(currentText);
     const incomplete = INCOMPLETE_END_RE.test(currentText)
-        || /(?:有件事|事情很多|事情好多|不知道怎么说|有后续)/u.test(currentText);
+        || /(?:有件事|事情很多|事情好多|不知道怎[么麼][说說]|有[后後][续續])/u.test(currentText);
     const lowInformation = length <= 4 || LOW_INFORMATION_RE.test(currentText);
     const answeredQuestion = previousAssistantAsked(context);
     const contradiction = CONTRADICTION_RE.test(currentText);
@@ -388,14 +388,14 @@ function detectConversationAct(
 }
 
 function extractSubjectLabel(text: string): string | undefined {
-    const shifted = text.match(/(?:给你看|说点别的|换个话题)[：:，,\s]*(.{2,36})/u)?.[1];
-    const led = text.match(/(?:主要是|就是|关于|之前说的|那个事情|那个人)[：:，,\s]*(.{2,32})/u)?.[1];
+    const shifted = text.match(/(?:[给給]你看|[说說][点點][别別]的|[换換][个個][话話][题題])[：:，,\s]*(.{2,36})/u)?.[1];
+    const led = text.match(/(?:主要是|就是|[关關][于於]|之前[说說]的|那[个個]事情|那[个個]人)[：:，,\s]*(.{2,32})/u)?.[1];
     const selected = (shifted || led || '').split(/[。！？!?\n]/u)[0]?.trim();
     if (selected) return selected.slice(0, 36);
-    if (/(?:单位|公司|工作|主任|领导)/u.test(text)) return '工作中正在展开的事情';
-    if (/(?:朋友|同事|同学|那个人)/u.test(text)) return '用户提到的那个人和相关事情';
-    if (/(?:很累|事情很多|事情好多|压力)/u.test(text)) return '用户尚未展开的近况和压力';
-    if (/(?:规则|逻辑|矛盾|分析)/u.test(text)) return '正在讨论的问题';
+    if (/(?:[单單]位|公司|工作|主任|[领領][导導])/u.test(text)) return '工作中正在展開的事情';
+    if (/(?:朋友|同事|同[学學]|那[个個]人)/u.test(text)) return '用戶提到的那個人和相關事情';
+    if (/(?:很累|事情很多|事情好多|[压壓]力)/u.test(text)) return '用戶尚未展開的近況和壓力';
+    if (/(?:[规規][则則]|[逻邏][辑輯]|矛盾|分析)/u.test(text)) return '正在討論的問題';
     return undefined;
 }
 
@@ -630,8 +630,8 @@ export function advanceConversationEngagement(
         ? previousState
         : initialState(charId);
 
-    // charId 相同不代表仍是同一个聊天窗口。若上一轮消息已经不在当前历史里，
-    // 说明会话被清空/替换；此时不能把旧 subject 带进新的寒暄。
+    // charId 相同不代表仍是同一個聊天窗口。若上一輪消息已經不在當前歷史裡，
+    // 說明會話被清空/替換；此時不能把舊 subject 帶進新的寒暄。
     const historyDisconnected = Boolean(storedPrevious.activeSubject)
         && storedPrevious.lastProcessedMessageId != null
         && !safeMessages.some(message => message.id === storedPrevious.lastProcessedMessageId);
@@ -691,8 +691,8 @@ export function advanceConversationEngagement(
             engagementState = 'idle';
         }
     } else if (effectivePrevious.engagementState === 'closing') {
-        // closing 是旧 subject 的终态。下一条普通消息不能把它无条件复活；只有明确的新
-        // opening/update/stance/support 才建立新 subject，旧故事的余味不会黏到闲聊上。
+        // closing 是舊 subject 的終態。下一條普通消息不能把它無條件復活；只有明確的新
+        // opening/update/stance/support 才建立新 subject，舊故事的餘味不會黏到閒聊上。
         if (
             detection.primary === 'open_disclosure'
             || detection.primary === 'update'
@@ -805,7 +805,7 @@ export function saveConversationEngagementState(state: StoredConversationEngagem
         if (typeof localStorage === 'undefined') return;
         localStorage.setItem(storageKey(state.charId), JSON.stringify(state));
     } catch {
-        // 状态只是质量增强层；存储失败不能阻断聊天。
+        // 狀態只是質量增強層；存儲失敗不能阻斷聊天。
     }
 }
 
@@ -842,36 +842,36 @@ export function shouldUseLegacyDeepEngagement(): boolean {
 }
 
 const ENGAGEMENT_LABELS: Record<EngagementState, string> = {
-    idle: '现在没有需要继续追踪的主题。',
-    opening: '对方正在开启一件还没有讲完的事情。',
-    engaged: '对方正在继续同一件事情；把新的补充接回已经出现的前文。',
-    resolving: '这件事已经展开到可以逐步形成判断的阶段。',
-    closing: '对方正在收束或结束这件事情。',
+    idle: '現在沒有需要繼續追蹤的主題。',
+    opening: '對方正在開啟一件還沒有講完的事情。',
+    engaged: '對方正在繼續同一件事情；把新的補充接回已經出現的前文。',
+    resolving: '這件事已經展開到可以逐步形成判斷的階段。',
+    closing: '對方正在收束或結束這件事情。',
 };
 
 const RESPONSE_GUIDANCE: Record<ResponseAct, string> = {
-    acknowledge: '本轮优先接住刚刚出现的信息，让回应落在事情本身，而不是只对情绪给出一句泛化安慰。',
-    invite: '随后可以自然地给对方留下继续说的空间。这个入口可以只是一个有所察觉的陈述，不必固定变成“发生什么了”“然后呢”之类的问题。',
-    follow: '把这轮补充接到前文同一件事上，让对方感觉你知道事情讲到了哪里，不要重新开场。',
-    clarify: '只留意一个真正关键的未知点。如果确实需要确认，最多问一个容易回答的问题。',
-    reflect: '留意新信息与前文之间的联系、变化或反常之处，并自然地说出你察觉到了什么。',
-    evaluate: '回应事情本身，并给出属于你的判断。信息不足时保持暂定，不要为了安慰而自动站队。',
-    close: '顺着对方的收束停下来，不强迫对方继续，也不要在最后突然补上一串追问。',
-    shift: '接住新的主题并切换注意力，不要把旧主题的沉重语气机械地带到新话题。',
+    acknowledge: '本輪優先接住剛剛出現的信息，讓回應落在事情本身，而不是只對情緒給出一句泛化安慰。',
+    invite: '隨後可以自然地給對方留下繼續說的空間。這個入口可以只是一個有所察覺的陳述，不必固定變成“發生什麼了”“然後呢”之類的問題。',
+    follow: '把這輪補充接到前文同一件事上，讓對方感覺你知道事情講到了哪裡，不要重新開場。',
+    clarify: '只留意一個真正關鍵的未知點。如果確實需要確認，最多問一個容易回答的問題。',
+    reflect: '留意新信息與前文之間的聯繫、變化或反常之處，並自然地說出你察覺到了什麼。',
+    evaluate: '回應事情本身，並給出屬於你的判斷。信息不足時保持暫定，不要為了安慰而自動站隊。',
+    close: '順著對方的收束停下來，不強迫對方繼續，也不要在最後突然補上一串追問。',
+    shift: '接住新的主題並切換注意力，不要把舊主題的沉重語氣機械地帶到新話題。',
 };
 
 export function renderConversationEngagementGuidance(
     analysis: ConversationEngagementAnalysis | undefined,
 ): string {
     const lines: string[] = [
-        '### 谈话参与原则',
-        '对方出现负面情绪，不代表当前谈话的目标是消除这种情绪。不要因为对方生气、难过、烦躁或抱怨，就自动进入安慰、保护或劝离模式，也不要用“别想了、别管了”提前结束对方正在谈论的事。',
+        '### 談話參與原則',
+        '對方出現負面情緒，不代表當前談話的目標是消除這種情緒。不要因為對方生氣、難過、煩躁或抱怨，就自動進入安慰、保護或勸離模式，也不要用“別想了、別管了”提前結束對方正在談論的事。',
         '',
-        '先理解对方此刻想做什么：倾诉情绪、讲述事件、讨论问题、寻求判断，或只是开启一个尚未展开的话题。**情绪是谈话的一部分，不应覆盖谈话本身。**',
+        '先理解對方此刻想做什麼：傾訴情緒、講述事件、討論問題、尋求判斷，或只是開啟一個尚未展開的話題。**情緒是談話的一部分，不應覆蓋談話本身。**',
         '',
-        '对于尚未讲完的事情，跟随信息继续展开；不要根据关键词、记忆或既有印象补全事件并提前站队。过去的信息用于理解当前内容，而不是替代尚未出现的信息。',
+        '對於尚未講完的事情，跟隨信息繼續展開；不要根據關鍵詞、記憶或既有印象補全事件並提前站隊。過去的信息用於理解當前內容，而不是替代尚未出現的信息。',
         '',
-        '保持自己的兴趣、判断和性格。先听见，再了解，再形成看法；信息充分时可以自然表达立场。保持好奇但不要连续盘问，也不要把深入参与变成心理咨询。',
+        '保持自己的興趣、判斷和性格。先聽見，再瞭解，再形成看法；信息充分時可以自然表達立場。保持好奇但不要連續盤問，也不要把深入參與變成心理諮詢。',
         '',
     ];
 
@@ -880,28 +880,28 @@ export function renderConversationEngagementGuidance(
     }
 
     lines.push(
-        '### 当前谈话参与策略',
+        '### 當前談話參與策略',
         ENGAGEMENT_LABELS[analysis.engagementState],
     );
 
     if (analysis.subject.active && analysis.engagementState !== 'closing') {
-        lines.push('把接下来的补充当作同一件正在展开的事。你不只需要留意对方现在感觉如何，也要持续关注对方正在经历什么、事情本身发生了什么。');
+        lines.push('把接下來的補充當作同一件正在展開的事。你不只需要留意對方現在感覺如何，也要持續關注對方正在經歷什麼、事情本身發生了什麼。');
     }
     if (analysis.engagementState === 'opening') {
-        lines.push('目前没有明显的结束信号。不要用“别想了”“回来就好”“一切都会过去”之类的安慰提前盖住这件事，也不要替对方概括还没有说清的部分。');
+        lines.push('目前沒有明顯的結束信號。不要用“別想了”“回來就好”“一切都會過去”之類的安慰提前蓋住這件事，也不要替對方概括還沒有說清的部分。');
     }
     if (analysis.subject.unresolvedHookKinds.length > 0 && analysis.engagementState !== 'closing') {
-        lines.push('有些地方你暂时还不知道答案，记住这些空缺即可，不必立刻逐个问出来。');
+        lines.push('有些地方你暫時還不知道答案，記住這些空缺即可，不必立刻逐個問出來。');
     }
 
     if (analysis.interactionMode === 'supportive') {
-        lines.push('先回应对方刚刚透露出来的东西，并保留对事情本身的兴趣。关心不只是表达保护、拥抱或安慰，也包括真的想知道发生了什么。');
+        lines.push('先回應對方剛剛透露出來的東西，並保留對事情本身的興趣。關心不只是表達保護、擁抱或安慰，也包括真的想知道發生了什麼。');
     } else if (analysis.interactionMode === 'playful') {
-        lines.push('你可以保持轻松或锐评，但不要让玩笑使你丢掉正在发生的事；仍然要接住它的新进展。');
+        lines.push('你可以保持輕鬆或銳評，但不要讓玩笑使你丟掉正在發生的事；仍然要接住它的新進展。');
     } else if (analysis.interactionMode === 'exploratory') {
-        lines.push('保留真实的好奇，顺着已经知道的内容继续，不要急着替这件事定性。');
+        lines.push('保留真實的好奇，順著已經知道的內容繼續，不要急著替這件事定性。');
     } else if (analysis.interactionMode === 'analytical') {
-        lines.push('对方已经邀请你形成判断。联系前文已经出现的事实，认真讨论事情本身，而不只是处理对方的情绪。');
+        lines.push('對方已經邀請你形成判斷。聯繫前文已經出現的事實，認真討論事情本身，而不只是處理對方的情緒。');
     }
 
     lines.push(RESPONSE_GUIDANCE[analysis.responsePlan.primary]);
@@ -909,21 +909,21 @@ export function renderConversationEngagementGuidance(
         lines.push(RESPONSE_GUIDANCE[analysis.responsePlan.secondary]);
     }
     if (analysis.responsePlan.explicitQuestionBudget === 0) {
-        lines.push('这一轮不需要用明确问句推进。可以通过承接、联系或判断，自然地让谈话继续。');
+        lines.push('這一輪不需要用明確問句推進。可以通過承接、聯繫或判斷，自然地讓談話繼續。');
     } else {
-        lines.push('如果确实需要提问，最多问一个容易回答的问题。不要连续追问，也不要把好奇变成审讯。');
+        lines.push('如果確實需要提問，最多問一個容易回答的問題。不要連續追問，也不要把好奇變成審訊。');
     }
 
     if (analysis.responsePlan.primary === 'evaluate' || analysis.responsePlan.secondary === 'evaluate') {
         lines.push(analysis.stance.confidence >= 0.65
-            ? '已经有多条信息可以支撑较明确的倾向，但你的判断仍应只基于对方实际说过的事实。'
-            : '信息还不完整时，不要急着替事情定性。先保留你正在形成的印象；随着新信息出现，你可以逐渐表现出疑惑、察觉矛盾、形成倾向，最后再明确表达判断。');
+            ? '已經有多條信息可以支撐較明確的傾向，但你的判斷仍應只基於對方實際說過的事實。'
+            : '信息還不完整時，不要急著替事情定性。先保留你正在形成的印象；隨著新信息出現，你可以逐漸表現出疑惑、察覺矛盾、形成傾向，最後再明確表達判斷。');
     } else if (analysis.stance.confidence < 0.45 && analysis.engagementState !== 'closing') {
-        lines.push('现在的信息还不足以形成完整判断。先听，先连接已经出现的信息；随着对方继续补充，再逐渐形成你的看法。');
+        lines.push('現在的信息還不足以形成完整判斷。先聽，先連接已經出現的信息；隨著對方繼續補充，再逐漸形成你的看法。');
     }
 
     lines.push(
-        '不要提及这些状态、分类或策略。',
+        '不要提及這些狀態、分類或策略。',
         '',
     );
     return lines.join('\n');

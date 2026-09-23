@@ -7,9 +7,9 @@ export function FileOrImageImport({ onChange, className, disabled = false, image
     const files = useRef<HTMLInputElement>(null);
     const images = useRef<HTMLInputElement>(null);
     return <>
-        <input ref={files} type="file" accept="*/*" hidden aria-label="从文件导入" onChange={onChange} />
-        <input ref={images} type="file" accept={imageAccept} hidden aria-label="从图片导入" onChange={onChange} />
-        <button type="button" className={className} disabled={disabled} onClick={() => files.current?.click()}>从文件导入</button>
-        <button type="button" className={className} disabled={disabled} onClick={() => images.current?.click()}>从图片导入</button>
+        <input ref={files} type="file" accept="*/*" hidden aria-label="從文件導入" onChange={onChange} />
+        <input ref={images} type="file" accept={imageAccept} hidden aria-label="從圖片導入" onChange={onChange} />
+        <button type="button" className={className} disabled={disabled} onClick={() => files.current?.click()}>從文件導入</button>
+        <button type="button" className={className} disabled={disabled} onClick={() => images.current?.click()}>從圖片導入</button>
     </>;
 }

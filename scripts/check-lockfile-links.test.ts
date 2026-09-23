@@ -6,13 +6,13 @@ import { findExternalLinks } from './check-lockfile-links.mjs';
 
 const repoRoot = path.resolve(__dirname, '..');
 
-describe('lockfile 本地依赖检查', () => {
-  it('仓库当前的 pnpm-lock.yaml 是干净的', () => {
+describe('lockfile 本地依賴檢查', () => {
+  it('倉庫當前的 pnpm-lock.yaml 是乾淨的', () => {
     const text = readFileSync(path.join(repoRoot, 'pnpm-lock.yaml'), 'utf8');
     expect(findExternalLinks(text)).toEqual([]);
   });
 
-  it('抓得到指向仓库外兄弟目录的 link', () => {
+  it('抓得到指向倉庫外兄弟目錄的 link', () => {
     const lockfile = [
       'lockfileVersion: 9.0',
       '',
@@ -33,7 +33,7 @@ describe('lockfile 本地依赖检查', () => {
     expect(violations[0].target).toBe('../ReiStandard/packages/amsg-server');
   });
 
-  it('子包里跳出仓库根的 link 同样算违规', () => {
+  it('子包裡跳出倉庫根的 link 同樣算違規', () => {
     const lockfile = [
       'importers:',
       '',
@@ -50,7 +50,7 @@ describe('lockfile 本地依赖检查', () => {
     expect(violations[0].importer).toBe('worker/amsg');
   });
 
-  it('仓库内的 workspace 互链放行', () => {
+  it('倉庫內的 workspace 互鏈放行', () => {
     const lockfile = [
       'importers:',
       '',
@@ -70,7 +70,7 @@ describe('lockfile 本地依赖检查', () => {
     expect(findExternalLinks(lockfile)).toEqual([]);
   });
 
-  it('importers 段之外出现 link 字样不误报', () => {
+  it('importers 段之外出現 link 字樣不誤報', () => {
     const lockfile = [
       'importers:',
       '',

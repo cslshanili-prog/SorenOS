@@ -1,14 +1,14 @@
-// 全局「人格模拟」演出生成状态。
-// 放在模块作用域而非 CheckPhone 内部，这样：
-//   1. 生成中即使离开查手机 App（甚至切到别的 OS App），状态/提示依旧存在；
-//   2. PhoneShell 里的全局指示条可以随处显示进度，点一下深链回到演出。
+// 全局「人格模擬」演出生成狀態。
+// 放在模塊作用域而非 CheckPhone 內部，這樣：
+//   1. 生成中即使離開查手機 App（甚至切到別的 OS App），狀態/提示依舊存在；
+//   2. PhoneShell 裡的全局指示條可以隨處顯示進度，點一下深鏈回到演出。
 import { useSyncExternalStore } from 'react';
 import type { SimState } from '../apps/PersonaSim';
 
 export type GlobalSimState = SimState & {
     charId?: string;
     charName?: string;
-    deepLink?: boolean; // 用户点了全局指示条，请求 CheckPhone 直接进入该演出
+    deepLink?: boolean; // 用戶點了全局指示條，請求 CheckPhone 直接進入該演出
 };
 
 let state: GlobalSimState = { status: 'idle' };

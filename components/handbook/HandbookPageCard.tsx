@@ -1,10 +1,10 @@
 /**
- * 手账单页卡片（糖果 + 拍立得 + 贴纸版）
+ * 手帳單頁卡片（糖果 + 拍立得 + 貼紙版）
  *
- * - user_diary：横线纸 + 蕾丝顶边 + lemon washi（heart pattern）+ 散落小贴纸
- * - character_life：拍立得相框（白边相片 + 底部留白手写）+ 角色头像作主图
- *                   外加 paper clip / bow / heart 贴纸
- * - user_note：dot 纸 + mint washi（dot pattern）+ 散落贴纸
+ * - user_diary：橫線紙 + 蕾絲頂邊 + lemon washi（heart pattern）+ 散落小貼紙
+ * - character_life：拍立得相框（白邊相片 + 底部留白手寫）+ 角色頭像作主圖
+ *                   外加 paper clip / bow / heart 貼紙
+ * - user_note：dot 紙 + mint washi（dot pattern）+ 散落貼紙
  */
 
 import React, { useState, useEffect } from 'react';
@@ -40,12 +40,12 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
     const [draft, setDraft] = useState(page.content);
     useEffect(() => { setDraft(page.content); }, [page.content, isEditing]);
 
-    // 默认纸张：按类型挑
+    // 默認紙張：按類型挑
     const defaultPaper = page.type === 'character_life' ? 'cream'
         : page.type === 'user_note' ? 'dot'
         : page.type === 'user_diary' ? 'lined'
         : 'plain';
-    // 编辑期间允许 user 切纸张
+    // 編輯期間允許 user 切紙張
     const [draftPaper, setDraftPaper] = useState<string>(page.paperStyle || defaultPaper);
     useEffect(() => { setDraftPaper(page.paperStyle || defaultPaper); }, [page.paperStyle, isEditing]);
 
@@ -54,28 +54,28 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
     ) || (defaultPaper as keyof typeof PAPERS);
     const paper = PAPERS[paperKind] || PAPERS.plain;
 
-    // 类型 → 胶带 + 文案
+    // 類型 → 膠帶 + 文案
     const tape = (() => {
         switch (page.type) {
             case 'user_diary':     return { color: 'lemon' as const,  pattern: 'heart' as const, label: '我 的 一 天 ♡' };
             case 'character_life': return { color: 'rose' as const,   pattern: 'star' as const,  label: char ? `${char.name} ★` : '小生活' };
-            case 'user_note':      return { color: 'mint' as const,   pattern: 'dot' as const,   label: '我 写 的' };
-            case 'free':           return { color: 'lavender' as const, pattern: 'plain' as const, label: '便 签' };
+            case 'user_note':      return { color: 'mint' as const,   pattern: 'dot' as const,   label: '我 寫 的' };
+            case 'free':           return { color: 'lavender' as const, pattern: 'plain' as const, label: '便 籤' };
         }
     })();
 
-    // 旋转/spacing 全部交给父级（DayView）控制,这里只画"一片纸"
+    // 旋轉/spacing 全部交給父級（DayView）控制,這裡只畫"一片紙"
     // ─── character_life 走拍立得相框 ───────────────────────
     if (page.type === 'character_life') {
         return (
             <div
                 className={`relative transition-opacity ${page.excluded ? 'opacity-35' : ''}`}
             >
-                {/* 顶部回形针 */}
+                {/* 頂部回形針 */}
                 <div className="absolute -top-3 left-8 z-20 pointer-events-none">
                     <PaperClip color={PAPER_TONES.accentSilver} rotate={-15} size={26} />
                 </div>
-                {/* 散落贴纸 */}
+                {/* 散落貼紙 */}
                 <ScatteredStickers seed={page.id} count={3} zone="corners" />
 
                 {/* 拍立得相框 */}
@@ -83,7 +83,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                     className="relative mx-2"
                     style={POLAROID_SHADOW}
                 >
-                    {/* 主图区：角色头像 + 胶带标签 */}
+                    {/* 主圖區：角色頭像 + 膠帶標籤 */}
                     <div
                         className="relative overflow-hidden"
                         style={{
@@ -93,13 +93,13 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                             borderRadius: 2,
                         }}
                     >
-                        {/* 胶带在主图区上 */}
+                        {/* 膠帶在主圖區上 */}
                         <div className="absolute -top-2 left-3 z-10 pointer-events-none">
                             <WashiTape color={tape.color} pattern={tape.pattern} rotate={-3}>
                                 {tape.label}
                             </WashiTape>
                         </div>
-                        {/* 角色头像作主图（大头贴风）*/}
+                        {/* 角色頭像作主圖（大頭貼風）*/}
                         {char && (
                             <div className="flex items-center justify-center py-5 px-4">
                                 <TokenImg
@@ -130,7 +130,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                         )}
                     </div>
 
-                    {/* 拍立得底部留白 = 内容区 */}
+                    {/* 拍立得底部留白 = 內容區 */}
                     <div className="pt-4 px-1">
                         {isEditing ? (
                             <>
@@ -152,7 +152,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                             >
                                 {page.content || (
                                     <span style={{ color: PAPER_TONES.inkSoft, fontStyle: 'italic', opacity: 0.6 }}>
-                                        ta 今天还没有故事…
+                                        ta 今天還沒有故事…
                                     </span>
                                 )}
                             </p>
@@ -175,22 +175,22 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
         );
     }
 
-    // ─── 其他类型：普通纸张卡片 ─────────────────────────────
+    // ─── 其他類型：普通紙張卡片 ─────────────────────────────
     return (
         <div
             className={`relative transition-opacity ${page.excluded ? 'opacity-35' : ''}`}
         >
-            {/* 胶带 */}
+            {/* 膠帶 */}
             <div className="absolute -top-3 left-4 z-10 pointer-events-none">
                 <WashiTape color={tape.color} pattern={tape.pattern} rotate={-2}>
                     {tape.label}
                 </WashiTape>
             </div>
 
-            {/* 散落贴纸 */}
+            {/* 散落貼紙 */}
             <ScatteredStickers seed={page.id} count={page.type === 'user_diary' ? 4 : 2} zone="corners" />
 
-            {/* user_diary 顶部蕾丝边 */}
+            {/* user_diary 頂部蕾絲邊 */}
             {page.type === 'user_diary' && (
                 <div className="absolute top-0 left-0 right-0 z-[5] pointer-events-none px-2 pt-1">
                     <LaceEdge color={PAPER_TONES.accentRose} flip />
@@ -207,7 +207,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                     ...PAPER_SHADOW,
                 }}
             >
-                {/* 正文:有 fragments → 拼贴;否则 → 段落 */}
+                {/* 正文:有 fragments → 拼貼;否則 → 段落 */}
                 {isEditing ? (
                     <>
                         <PaperPicker value={draftPaper} onChange={setDraftPaper} />
@@ -228,7 +228,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
                     >
                         {page.content || (
                             <span style={{ color: PAPER_TONES.inkSoft, fontStyle: 'italic', opacity: 0.6 }}>
-                                这一页还是空白的…
+                                這一頁還是空白的…
                             </span>
                         )}
                     </p>
@@ -250,7 +250,7 @@ const HandbookPageCard: React.FC<PageCardProps> = ({
     );
 };
 
-// ─── 操作行（小铁夹按钮）────────────────────────────
+// ─── 操作行（小鐵夾按鈕）────────────────────────────
 const ActionRow: React.FC<{
     isEditing: boolean;
     onCancel: () => void;
@@ -291,13 +291,13 @@ const ActionRow: React.FC<{
         ) : (
             <>
                 {onRegenerate && (
-                    <IconBtn onClick={onRegenerate} disabled={isRegenerating} title="再写一次"
+                    <IconBtn onClick={onRegenerate} disabled={isRegenerating} title="再寫一次"
                              Icon={ArrowsClockwise} spin={isRegenerating} />
                 )}
-                <IconBtn onClick={onStartEdit} title="改写" Icon={PencilSimple} />
-                <IconBtn onClick={onToggleExclude} title={excluded ? '让它入册' : '不入册'}
+                <IconBtn onClick={onStartEdit} title="改寫" Icon={PencilSimple} />
+                <IconBtn onClick={onToggleExclude} title={excluded ? '讓它入冊' : '不入冊'}
                          Icon={excluded ? EyeSlash : Eye} />
-                <IconBtn onClick={onDelete} title="撕掉这页" Icon={Trash} danger />
+                <IconBtn onClick={onDelete} title="撕掉這頁" Icon={Trash} danger />
             </>
         )}
     </div>
@@ -327,16 +327,16 @@ const IconBtn: React.FC<{
     </button>
 );
 
-// ─── PaperPicker:编辑模式下的纸张 swatch 横条 ──────
+// ─── PaperPicker:編輯模式下的紙張 swatch 橫條 ──────
 const PAPER_SWATCH_OPTIONS: { kind: keyof typeof PAPERS; label: string }[] = [
     { kind: 'plain', label: '素' },
-    { kind: 'lined', label: '横线' },
+    { kind: 'lined', label: '橫線' },
     { kind: 'grid', label: '方格' },
-    { kind: 'dot', label: '点阵' },
+    { kind: 'dot', label: '點陣' },
     { kind: 'cream', label: '奶油' },
     { kind: 'mint', label: '薄荷' },
-    { kind: 'rose', label: '樱粉' },
-    { kind: 'sky', label: '雾蓝' },
+    { kind: 'rose', label: '櫻粉' },
+    { kind: 'sky', label: '霧藍' },
 ];
 
 const PaperPicker: React.FC<{
@@ -348,7 +348,7 @@ const PaperPicker: React.FC<{
             className="text-[10px] tracking-widest shrink-0 mr-1"
             style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
         >
-            ◆ 纸
+            ◆ 紙
         </span>
         {PAPER_SWATCH_OPTIONS.map(opt => {
             const p = PAPERS[opt.kind];

@@ -17,7 +17,7 @@ interface ScheduleCardProps {
     onDelete?: (index: number) => void;
     onReroll?: () => void;
     onCoverImageChange?: (dataUrl: string) => void;
-    onPlayTheater?: (index: number) => void; // 点某个「已过去/正在进行」时段的播放按钮 → 小剧场
+    onPlayTheater?: (index: number) => void; // 點某個「已過去/正在進行」時段的播放按鈕 → 小劇場
     isGenerating?: boolean;
 }
 
@@ -31,8 +31,8 @@ const formatClock = (now: Date): string =>
     `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
 /**
- * 每分钟走一次的「此刻」。卡片可能一直开着，不刷新的话顶部的钟会停，
- * NOW 标记也不会随着时间推进挪到下一个时段。
+ * 每分鐘走一次的「此刻」。卡片可能一直開著，不刷新的話頂部的鐘會停，
+ * NOW 標記也不會隨著時間推進挪到下一個時段。
  */
 const useTickingNow = (): Date => {
     const [now, setNow] = useState(() => new Date());
@@ -63,13 +63,13 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
     const [editEmoji, setEditEmoji] = useState('');
     const coverInputRef = useRef<HTMLInputElement>(null);
 
-    // 长按菜单状态：记录哪一条日程被长按触发 action sheet（修改 / 删除）
+    // 長按菜單狀態：記錄哪一條日程被長按觸發 action sheet（修改 / 刪除）
     const [actionIdx, setActionIdx] = useState<number | null>(null);
     const longPressTimerRef = useRef<number | null>(null);
     const longPressTriggeredRef = useRef(false);
     const LONG_PRESS_MS = 500;
 
-    // 点了「还没到的时段」的播放按钮 → 在该按钮上方冒一个一闪而过的小提示
+    // 點了「還沒到的時段」的播放按鈕 → 在該按鈕上方冒一個一閃而過的小提示
     const [lockedHintIdx, setLockedHintIdx] = useState<number | null>(null);
     const lockedHintTimerRef = useRef<number | null>(null);
     const showLockedHint = (idx: number) => {
@@ -97,8 +97,8 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
     const tickingNow = useTickingNow();
     const wallClock = getScheduleWallClock(character, tickingNow);
     const currentIdx = schedule ? getCurrentScheduleSlotIndex(schedule.slots, character, tickingNow) : -1;
-    // 角色设了自己的时区时，上面那个钟走的是 ta 那边的时间——标出地名，
-    // 免得用户拿它当自己的手机时间读。
+    // 角色設了自己的時區時，上面那個鍾走的是 ta 那邊的時間——標出地名，
+    // 免得用戶拿它當自己的手機時間讀。
     const charTzName = (() => {
         const tz = resolveCharTimeZone(character);
         return tz ? tzShortLabel(tz) : '';
@@ -185,14 +185,14 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                         <div className="h-px flex-1 opacity-20" style={{ background: contentColor }}></div>
                     </div>
                     <h2 className="text-2xl font-black tracking-tight" style={{ color: accentHsl }}>Schedule</h2>
-                    {/* 时段行写的是「这件事几点开始」，这里补一个真正的当前时间，
-                        否则只能拿 NOW 那行的数字当钟读 */}
+                    {/* 時段行寫的是「這件事幾點開始」，這裡補一個真正的當前時間，
+                        否則只能拿 NOW 那行的數字當鍾讀 */}
                     <div className="flex items-baseline gap-1.5 mt-0.5">
                         <span className="text-lg font-black font-mono leading-none tabular-nums" style={{ color: accentHsl }}>
                             {formatClock(wallClock)}
                         </span>
                         <span className="text-[10px] font-bold opacity-40">
-                            {charTzName ? `${charName}那边` : '现在'}
+                            {charTzName ? `${charName}那邊` : '現在'}
                         </span>
                     </div>
                 </div>
@@ -254,7 +254,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                         <button
                             onClick={() => coverInputRef.current?.click()}
                             className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-black/40 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors text-[10px]"
-                            title="更换看板图"
+                            title="更換看板圖"
                         >
                             ✎
                         </button>
@@ -273,7 +273,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                         schedule.slots.map((slot, idx) => {
                             const isCurrent = idx === currentIdx;
                             const isPast = currentIdx >= 0 && idx < currentIdx;
-                            const isFuture = !isPast && !isCurrent; // 还没到的时段：按钮灰着，点了给提示
+                            const isFuture = !isPast && !isCurrent; // 還沒到的時段：按鈕灰著，點了給提示
                             const isEditing = editingIdx === idx;
 
                             if (isEditing && !compact) {
@@ -296,13 +296,13 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                         <input
                                             value={editActivity}
                                             onChange={e => setEditActivity(e.target.value)}
-                                            placeholder="活动"
+                                            placeholder="活動"
                                             className="w-full bg-white/10 rounded-lg px-2 py-1 text-sm font-bold mb-1 border border-white/10 focus:outline-none"
                                         />
                                         <input
                                             value={editDesc}
                                             onChange={e => setEditDesc(e.target.value)}
-                                            placeholder="描述 (可选)"
+                                            placeholder="描述 (可選)"
                                             className="w-full bg-white/10 rounded-lg px-2 py-1 text-xs border border-white/10 focus:outline-none opacity-70"
                                         />
                                         <div className="flex gap-2 mt-2">
@@ -316,7 +316,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                             const editable = !compact && !!onEdit;
                             const pressHandlers = editable ? {
                                 onPointerDown: (e: React.PointerEvent) => {
-                                    // 只对主指针（鼠标左键 / 触屏首指）起反应，忽略右键
+                                    // 只對主指針（鼠標左鍵 / 觸屏首指）起反應，忽略右鍵
                                     if (e.button !== undefined && e.button !== 0) return;
                                     startLongPress(idx);
                                 },
@@ -324,14 +324,14 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                 onPointerLeave: () => cancelLongPress(),
                                 onPointerCancel: () => cancelLongPress(),
                                 onClick: () => {
-                                    // 长按已触发时不再执行 tap-to-edit，避免抬手时误进入编辑
+                                    // 長按已觸發時不再執行 tap-to-edit，避免抬手時誤進入編輯
                                     if (longPressTriggeredRef.current) {
                                         longPressTriggeredRef.current = false;
                                         return;
                                     }
                                     startEdit(idx, slot);
                                 },
-                                // 屏蔽原生长按右键菜单，避免与自定义长按冲突
+                                // 屏蔽原生長按右鍵菜單，避免與自定義長按衝突
                                 onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
                             } : {};
                             return (
@@ -380,8 +380,8 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                         )}
                                     </div>
 
-                                    {/* 小剧场播放按钮：全程都在，已过去/正在进行的可点（▶ 生成 / ↻ 重看）；
-                                        还没到的时段灰着，点了冒个「还没到这个时间哦」的小提示。 */}
+                                    {/* 小劇場播放按鈕：全程都在，已過去/正在進行的可點（▶ 生成 / ↻ 重看）；
+                                        還沒到的時段灰著，點了冒個「還沒到這個時間哦」的小提示。 */}
                                     {!compact && onPlayTheater && (
                                         <div className="relative flex-shrink-0 mt-0.5">
                                             <button
@@ -390,7 +390,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                                     background: isFuture ? 'color-mix(in srgb, var(--schedule-text) 6%, transparent)' : (slot.theater ? accentHsl : 'color-mix(in srgb, var(--schedule-text) 12%, transparent)'),
                                                     color: isFuture ? 'color-mix(in srgb, var(--schedule-text) 28%, transparent)' : (slot.theater ? cardBg : contentColor),
                                                 }}
-                                                title={isFuture ? '还没到这个时间哦' : (slot.theater ? '重看小剧场' : '窥视这一刻')}
+                                                title={isFuture ? '還沒到這個時間哦' : (slot.theater ? '重看小劇場' : '窺視這一刻')}
                                                 onPointerDown={(e) => { e.stopPropagation(); cancelLongPress(); }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -406,7 +406,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                                     className="absolute right-0 bottom-full mb-1.5 z-20 whitespace-nowrap px-2 py-1 rounded-lg text-[10px] font-bold animate-fade-in pointer-events-none"
                                                     style={{ background: 'rgba(20,16,30,0.96)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}
                                                 >
-                                                    还没到这个时间哦
+                                                    還沒到這個時間哦
                                                 </div>
                                             )}
                                         </div>
@@ -416,7 +416,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                         })
                     ) : (
                         <div className="py-12 text-center">
-                            <p className="text-xs opacity-30">暂无日程</p>
+                            <p className="text-xs opacity-30">暫無日程</p>
                             {onReroll && (
                                 <button onClick={onReroll} className="mt-2 text-xs font-bold opacity-50 hover:opacity-80 transition-opacity" style={{ color: accentHsl }}>
                                     生成今日日程
@@ -429,14 +429,14 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                     {schedule && schedule.slots.length > 0 && (
                         <div className="pt-2 pl-3">
                             <span className="text-[10px] font-bold tracking-widest opacity-20">OFFLINE</span>
-                            <p className="text-[10px] opacity-15">就寝</p>
+                            <p className="text-[10px] opacity-15">就寢</p>
                         </div>
                     )}
                 </div>
 
             </div>
 
-            {/* 长按菜单：修改 / 删除 */}
+            {/* 長按菜單：修改 / 刪除 */}
             {actionIdx !== null && schedule && schedule.slots[actionIdx] && (
                 <div
                     className="absolute inset-0 z-30 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -447,7 +447,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="px-4 py-3 border-b border-slate-100">
-                            <p className="text-xs text-slate-400">日程项</p>
+                            <p className="text-xs text-slate-400">日程項</p>
                             <p className="text-sm font-bold text-slate-700 truncate">
                                 {schedule.slots[actionIdx].startTime} · {schedule.slots[actionIdx].activity}
                             </p>
@@ -470,7 +470,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                 if (i !== null && onDelete) onDelete(i);
                             }}
                         >
-                            删除
+                            刪除
                         </button>
                         <button
                             className="w-full py-3 text-sm text-slate-400 border-t border-slate-100 hover:bg-slate-50 transition-colors"

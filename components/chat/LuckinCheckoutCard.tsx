@@ -4,21 +4,21 @@ import { luckinItemEmoji } from '../../utils/luckinEmoji';
 import PayQr from '../luckin/PayQr';
 
 /**
- * 瑞幸结账卡 (聊天点单模式的终点)
+ * 瑞幸結帳卡 (聊天點單模式的終點)
  *
- * 角色调完 previewOrder 后, 这张卡渲染在聊天里:
- *  - 列出角色配好的商品 (含规格 additionDesc), 用户可二次改数量
- *  - 改量后自动重新 previewOrder 刷新价格/优惠
- *  - "下单并支付" → 前端调 createOrder → 直接出微信支付二维码 (扫码即付)
+ * 角色調完 previewOrder 後, 這張卡渲染在聊天裡:
+ *  - 列出角色配好的商品 (含規格 additionDesc), 用戶可二次改數量
+ *  - 改量後自動重新 previewOrder 刷新價格/優惠
+ *  - "下單並支付" → 前端調 createOrder → 直接出微信支付二維碼 (掃碼即付)
  *
- * 下单/付款只在用户点这张卡时发生, 角色不会自己 createOrder。
+ * 下單/付款只在用戶點這張卡時發生, 角色不會自己 createOrder。
  */
 
 interface Line {
     productId: number | string;
     skuCode: string;
     name: string;
-    spec?: string;        // additionDesc, 如 "热 / 大杯"
+    spec?: string;        // additionDesc, 如 "熱 / 大杯"
     image?: string;
     unitPrice?: number;   // estimatePrice
     qty: number;
@@ -32,7 +32,7 @@ const fmtMoney = (v: any): string => {
 };
 
 const buildLines = (args: any, preview: any): Line[] => {
-    // 优先用 previewOrder 回显的 productInfoList (含名字/规格/到手价)
+    // 優先用 previewOrder 回顯的 productInfoList (含名字/規格/到手價)
     const info = Array.isArray(preview?.productInfoList) ? preview.productInfoList : null;
     if (info && info.length) {
         return info.map((p: any) => ({
@@ -45,7 +45,7 @@ const buildLines = (args: any, preview: any): Line[] => {
             qty: typeof p.amount === 'number' ? p.amount : 1,
         }));
     }
-    // 兜底: 用 previewOrder 入参 productList
+    // 兜底: 用 previewOrder 入參 productList
     const pl = Array.isArray(args?.productList) ? args.productList : [];
     return pl.map((p: any) => ({
         productId: p.productId,
@@ -57,7 +57,7 @@ const buildLines = (args: any, preview: any): Line[] => {
 
 const LuckinCheckoutCard: React.FC<{
     deptId: number | string;
-    args: any;            // previewOrder 入参 {deptId, productList}
+    args: any;            // previewOrder 入參 {deptId, productList}
     preview: any;         // previewOrder 返回
     loc?: { longitude?: number; latitude?: number };
 }> = ({ deptId, args, preview: initialPreview, loc }) => {
@@ -72,10 +72,10 @@ const LuckinCheckoutCard: React.FC<{
     const hash = useMemo(() => lines.map(l => `${l.skuCode}x${l.qty}`).sort().join('|'), [lines]);
     const firstHash = useMemo(() => buildLines(args, initialPreview).map(l => `${l.skuCode}x${l.qty}`).sort().join('|'), []);
 
-    // 改了数量 → 重新算价 (初始那次不重复算)
+    // 改了數量 → 重新算價 (初始那次不重複算)
     useEffect(() => {
-        if (order) return;                 // 已下单, 锁定
-        if (hash === firstHash) return;    // 没改, 用初始 preview
+        if (order) return;                 // 已下單, 鎖定
+        if (hash === firstHash) return;    // 沒改, 用初始 preview
         if (!productList().length) { setPreview(null); return; }
         let cancelled = false;
         setCalcing(true);
@@ -95,7 +95,7 @@ const LuckinCheckoutCard: React.FC<{
 
     const pay = async () => {
         if (paying || order) return;
-        if (!productList().length) { setPayErr('购物车空了'); return; }
+        if (!productList().length) { setPayErr('購物車空了'); return; }
         setPaying(true); setPayErr(null);
         try {
             const a: any = { deptId, productList: productList() };
@@ -104,7 +104,7 @@ const LuckinCheckoutCard: React.FC<{
             const coupons = preview?.couponCodeList;
             if (Array.isArray(coupons) && coupons.length) a.couponCodeList = coupons;
             const r = await callLuckinTool('createOrder', a);
-            if (!r.success) throw new Error(r.error || '下单失败');
+            if (!r.success) throw new Error(r.error || '下單失敗');
             setOrder(r.data);
         } catch (e: any) {
             setPayErr(e?.message || String(e));
@@ -126,16 +126,16 @@ const LuckinCheckoutCard: React.FC<{
             <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#0B1F3A] to-[#1E4D8C]">
                 <span className="text-lg">🦌</span>
                 <div className="flex-1 min-w-0">
-                    <div className="text-[11px] font-bold text-white">瑞幸 · 结账</div>
-                    <div className="text-[9px] text-white/70">{order ? '已下单, 扫码支付' : '确认下单内容, 可改数量'}</div>
+                    <div className="text-[11px] font-bold text-white">瑞幸 · 結帳</div>
+                    <div className="text-[9px] text-white/70">{order ? '已下單, 掃碼支付' : '確認下單內容, 可改數量'}</div>
                 </div>
             </div>
 
             <div className="p-3 space-y-2">
-                {/* 取餐门店 (来自 previewOrder.shopInfo) */}
+                {/* 取餐門店 (來自 previewOrder.shopInfo) */}
                 {(() => {
                     const shop = preview?.shopInfo;
-                    const shopName = shop?.deptName || (deptId != null ? `门店 ${deptId}` : undefined);
+                    const shopName = shop?.deptName || (deptId != null ? `門店 ${deptId}` : undefined);
                     if (!shopName) return null;
                     return (
                         <div className="bg-white/80 rounded-lg border border-[#EFE9DC] p-2 flex items-start gap-1.5">
@@ -173,23 +173,23 @@ const LuckinCheckoutCard: React.FC<{
                     ))}
                 </div>
 
-                {/* 费用 */}
+                {/* 費用 */}
                 <div className="space-y-1 text-[12px] text-slate-700">
-                    {original != null && <div className="flex justify-between text-[10px] text-slate-400"><span>商品总价（面价）</span><span>{fmtMoney(original)}</span></div>}
-                    {privilege != null && Number(privilege) > 0 && <div className="flex justify-between text-emerald-600"><span>已优惠</span><span>-{fmtMoney(privilege)}</span></div>}
-                    {Array.isArray(preview?.couponCodeList) && preview.couponCodeList.length > 0 && <div className="flex justify-between text-[11px] text-[#16386F]"><span>已自动用券</span><span>{preview.couponCodeList.length} 张</span></div>}
+                    {original != null && <div className="flex justify-between text-[10px] text-slate-400"><span>商品總價（面價）</span><span>{fmtMoney(original)}</span></div>}
+                    {privilege != null && Number(privilege) > 0 && <div className="flex justify-between text-emerald-600"><span>已優惠</span><span>-{fmtMoney(privilege)}</span></div>}
+                    {Array.isArray(preview?.couponCodeList) && preview.couponCodeList.length > 0 && <div className="flex justify-between text-[11px] text-[#16386F]"><span>已自動用券</span><span>{preview.couponCodeList.length} 張</span></div>}
                     <div className="flex justify-between border-t border-[#EFE9DC] pt-1">
-                        <span className="text-slate-500">{calcing ? '算价中…' : '实付'}</span>
+                        <span className="text-slate-500">{calcing ? '算價中…' : '實付'}</span>
                         <span className="font-bold text-[15px] text-[#0B1F3A]">{calcing ? '…' : fmtMoney(finalPrice != null ? finalPrice : localTotal)}</span>
                     </div>
                 </div>
 
                 {payErr && <div className="text-[11px] text-red-600 bg-red-50 rounded-lg p-2 leading-relaxed whitespace-pre-wrap break-all">{payErr}</div>}
 
-                {/* 支付 / 二维码 */}
+                {/* 支付 / 二維碼 */}
                 {order ? (
                     <div className="flex flex-col items-center gap-1.5 pt-1">
-                        {(payUrl || qrUrl) ? <PayQr payUrl={payUrl} qrImageUrl={qrUrl} size={150} /> : <div className="text-[12px] text-emerald-600 font-bold">下单成功 🎉</div>}
+                        {(payUrl || qrUrl) ? <PayQr payUrl={payUrl} qrImageUrl={qrUrl} size={150} /> : <div className="text-[12px] text-emerald-600 font-bold">下單成功 🎉</div>}
                         {orderId && <div className="text-[9px] text-slate-400 font-mono">#{orderId}</div>}
                     </div>
                 ) : (
@@ -197,7 +197,7 @@ const LuckinCheckoutCard: React.FC<{
                         onClick={pay}
                         disabled={paying || calcing || !productList().length}
                         className="w-full px-3 py-2.5 bg-[#0B1F3A] text-white text-[13px] font-bold rounded-xl active:scale-95 disabled:opacity-50">
-                        {paying ? '下单中…' : '下单并支付 →'}
+                        {paying ? '下單中…' : '下單並支付 →'}
                     </button>
                 )}
             </div>

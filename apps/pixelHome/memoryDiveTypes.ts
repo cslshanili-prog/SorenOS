@@ -1,29 +1,29 @@
 /**
- * Memory Dive (记忆潜行) — 类型定义
+ * Memory Dive (記憶潛行) — 類型定義
  *
- * 交互式 RPG 探索模式：用户在像素小屋中与角色一起探索记忆。
- * 退出后角色不记得发生过什么，但用户会获得一个临时 buff。
+ * 交互式 RPG 探索模式：用戶在像素小屋中與角色一起探索記憶。
+ * 退出后角色不記得發生過什麼，但用戶會獲得一個臨時 buff。
  */
 
 import type { MemoryRoom } from '../../utils/memoryPalace/types';
 
 // ─── 探索模式 ────────────────────────────────────────────
 
-/** 角色引领 vs 自由探索 */
+/** 角色引領 vs 自由探索 */
 export type DiveMode = 'guided' | 'free';
 
-/** 潜行阶段 */
+/** 潛行階段 */
 export type DivePhase = 'intro' | 'exploring' | 'dialogue' | 'outro';
 
-// ─── 对话系统 ────────────────────────────────────────────
+// ─── 對話系統 ────────────────────────────────────────────
 
 export interface DiveDialogue {
   id: string;
   speaker: 'character' | 'narrator' | 'user_choice';
   text: string;
-  /** 用户选项（仅 speaker === 'user_choice' 时有值） */
+  /** 用戶選項（僅 speaker === 'user_choice' 時有值） */
   choices?: DiveChoice[];
-  /** 关联的家具槽位 ID（触发来源） */
+  /** 關聯的傢俱槽位 ID（觸發來源） */
   triggeredBy?: string;
   timestamp: number;
 }
@@ -31,19 +31,19 @@ export interface DiveDialogue {
 export interface DiveChoice {
   id: string;
   text: string;
-  /** 选择后对 buff 的影响 */
+  /** 選擇後對 buff 的影響 */
   buffEffect?: Partial<DiveBuffValues>;
-  /** 标记特殊行为 */
+  /** 標記特殊行為 */
   action?: 'comfort' | 'question' | 'observe' | 'leave' | 'unlock';
 }
 
-// ─── Buff 系统 ───────────────────────────────────────────
+// ─── Buff 系統 ───────────────────────────────────────────
 
 export interface DiveBuffValues {
-  empathy: number;    // 共情 — 倾听、安慰时累积
-  trust: number;      // 信任 — 尊重角色意愿、不强行查看
-  insight: number;    // 洞察 — 提问、探索细节
-  bond: number;       // 羁绊 — 一起回忆美好时刻
+  empathy: number;    // 共情 — 傾聽、安慰時累積
+  trust: number;      // 信任 — 尊重角色意願、不強行查看
+  insight: number;    // 洞察 — 提問、探索細節
+  bond: number;       // 羈絆 — 一起回憶美好時刻
 }
 
 export type BuffType = keyof DiveBuffValues;
@@ -57,25 +57,25 @@ export interface DiveBuff {
 }
 
 export const BUFF_META: Record<BuffType, { label: string; icon: string; description: string }> = {
-  empathy: { label: '共情', icon: '💗', description: '你认真倾听了ta的记忆' },
-  trust:   { label: '信任', icon: '🤝', description: '你尊重了ta的边界' },
-  insight: { label: '洞察', icon: '🔍', description: '你发现了隐藏的细节' },
-  bond:    { label: '羁绊', icon: '✨', description: '你们一起重温了珍贵的回忆' },
+  empathy: { label: '共情', icon: '💗', description: '你認真傾聽了ta的記憶' },
+  trust:   { label: '信任', icon: '🤝', description: '你尊重了ta的邊界' },
+  insight: { label: '洞察', icon: '🔍', description: '你發現了隱藏的細節' },
+  bond:    { label: '羈絆', icon: '✨', description: '你們一起重溫了珍貴的回憶' },
 };
 
-// ─── 房间探索状态 ────────────────────────────────────────
+// ─── 房間探索狀態 ────────────────────────────────────────
 
 export interface RoomExploreState {
   roomId: MemoryRoom;
-  /** 该房间中已触发对话的家具 */
+  /** 該房間中已觸發對話的傢俱 */
   visitedSlots: Set<string>;
-  /** 是否有"锁住"的内容（阁楼等敏感房间） */
+  /** 是否有"鎖住"的內容（閣樓等敏感房間） */
   hasLockedContent: boolean;
-  /** 是否已解锁 */
+  /** 是否已解鎖 */
   unlocked: boolean;
 }
 
-// ─── 整体潜行会话 ────────────────────────────────────────
+// ─── 整體潛行會話 ────────────────────────────────────────
 
 export interface DiveSession {
   charId: string;
@@ -83,106 +83,106 @@ export interface DiveSession {
   mode: DiveMode;
   phase: DivePhase;
   currentRoom: MemoryRoom;
-  /** 玩家在房间中的位置 (%) */
+  /** 玩家在房間中的位置 (%) */
   playerPos: { x: number; y: number };
-  /** 角色在房间中的位置 (%) */
+  /** 角色在房間中的位置 (%) */
   charPos: { x: number; y: number };
-  /** 对话历史 */
+  /** 對話歷史 */
   dialogues: DiveDialogue[];
-  /** 各房间探索状态 */
+  /** 各房間探索狀態 */
   roomStates: Map<MemoryRoom, RoomExploreState>;
-  /** 累积 buff 值 */
+  /** 累積 buff 值 */
   buffValues: DiveBuffValues;
-  /** 已访问的房间列表 */
+  /** 已訪問的房間列表 */
   visitedRooms: MemoryRoom[];
-  /** 是否正在等待 LLM 回复 */
+  /** 是否正在等待 LLM 回覆 */
   isLoading: boolean;
   startedAt: number;
 }
 
-// ─── LLM 请求/响应 ───────────────────────────────────────
+// ─── LLM 請求/響應 ───────────────────────────────────────
 
 export interface DiveLLMRequest {
   charId: string;
   charName: string;
-  /** 映射的用户名（用于 user_room 显示「{用户名}的房」） */
+  /** 映射的用戶名（用於 user_room 顯示「{用戶名}的房」） */
   userName?: string;
   room: MemoryRoom;
   slotId?: string;
   slotName?: string;
   slotCategory?: string;
-  /** 从记忆宫殿检索到的相关记忆 */
+  /** 從記憶宮殿檢索到的相關記憶 */
   memories: string[];
   /** 探索模式 */
   mode: DiveMode;
-  /** 用户的选择（如果是回复对话） */
+  /** 用戶的選擇（如果是回覆對話） */
   userChoice?: DiveChoice;
-  /** 之前的对话上下文（最近5条） */
+  /** 之前的對話上下文（最近5條） */
   recentDialogues: DiveDialogue[];
-  /** 当前累积的 buff */
+  /** 當前累積的 buff */
   currentBuffs: DiveBuffValues;
 }
 
 export interface DiveLLMResponse {
-  /** 角色的对话/旁白 */
+  /** 角色的對話/旁白 */
   dialogues: Array<{
     speaker: 'character' | 'narrator';
     text: string;
   }>;
-  /** 给用户的选项 */
+  /** 給用戶的選項 */
   choices?: Array<{
     text: string;
     action: DiveChoice['action'];
     buffEffect?: Partial<DiveBuffValues>;
   }>;
-  /** 角色是否抗拒（阁楼等） */
+  /** 角色是否抗拒（閣樓等） */
   isReluctant?: boolean;
-  /** 引导模式下，角色建议去的下一个房间 */
+  /** 引導模式下，角色建議去的下一個房間 */
   suggestNextRoom?: MemoryRoom;
 }
 
-// ─── 房间剧本（一次 LLM 预生成整房间的探访） ──────────
+// ─── 房間劇本（一次 LLM 預生成整房間的探訪） ──────────
 
-/** 单个 beat 中的用户选项 —— 每个选项都有独立的角色反应 */
+/** 單個 beat 中的用戶選項 —— 每個選項都有獨立的角色反應 */
 export interface DiveScriptChoice {
   id: string;
-  /** 用户的选项文本 */
+  /** 用戶的選項文本 */
   text: string;
-  /** 行为类型：用于 buff 计算 */
+  /** 行為類型：用於 buff 計算 */
   action?: DiveChoice['action'];
-  /** 显式 buff 影响 */
+  /** 顯式 buff 影響 */
   buffEffect?: Partial<DiveBuffValues>;
-  /** 选后角色的独立回应（character 台词；可多段用 \n\n 分隔） */
+  /** 選後角色的獨立回應（character 台詞；可多段用 \n\n 分隔） */
   reaction: string;
-  /** 可选：这条反应之后额外的环境旁白（比如"灯光轻轻晃了一下"） */
+  /** 可選：這條反應之後額外的環境旁白（比如"燈光輕輕晃了一下"） */
   reactionNarrator?: string;
 }
 
-/** 房间剧本中的一段戏 */
+/** 房間劇本中的一段戲 */
 export interface DiveBeat {
-  /** 角色此刻说的一段话 */
+  /** 角色此刻說的一段話 */
   charLine: string;
-  /** 可选：说话前的环境旁白 */
+  /** 可選：說話前的環境旁白 */
   narratorLine?: string;
-  /** 3 个反应选项，每个都带独立回应 */
+  /** 3 個反應選項，每個都帶獨立回應 */
   choices: DiveScriptChoice[];
 }
 
-/** 一个房间从进场到离场的完整剧本 */
+/** 一個房間從進場到離場的完整劇本 */
 export interface RoomScript {
-  /** 进房间的环境旁白（可选） */
+  /** 進房間的環境旁白（可選） */
   introNarrator?: string;
-  /** 房间里的几段戏，默认 3 */
+  /** 房間裡的幾段戲，默認 3 */
   beats: DiveBeat[];
-  /** 离开房间的环境旁白（可选） */
+  /** 離開房間的環境旁白（可選） */
   closingNarrator?: string;
-  /** 可选：离开时浮现的一句话，作为记忆的余味 */
+  /** 可選：離開時浮現的一句話，作為記憶的餘味 */
   finalMoodHint?: string;
-  /** LLM 建议的下一个房间 */
+  /** LLM 建議的下一個房間 */
   nextRoom?: MemoryRoom;
 }
 
-// ─── 结算 ────────────────────────────────────────────────
+// ─── 結算 ────────────────────────────────────────────────
 
 export interface DiveResult {
   charId: string;
@@ -190,7 +190,7 @@ export interface DiveResult {
   visitedRooms: MemoryRoom[];
   totalDialogues: number;
   buffs: DiveBuff[];
-  /** 主要获得的 buff 类型 */
+  /** 主要獲得的 buff 類型 */
   primaryBuff: BuffType;
   duration: number; // ms
   completedAt: number;

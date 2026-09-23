@@ -42,7 +42,7 @@ export interface Live2DActionTrigger {
   nonce: number;
 }
 
-/** 模型的可调参数元数据（VTS 风格自定义参数动作编辑器用）。 */
+/** 模型的可調參數元數據（VTS 風格自定義參數動作編輯器用）。 */
 export interface Live2DParameterInfo {
   id: string;
   min: number;
@@ -58,12 +58,12 @@ interface Live2DAvatarCanvasProps {
   headMotionLocked?: boolean;
   /** Companion desktop must not inherit the video-call random pose generator. */
   ambientAutonomyDisabled?: boolean;
-  /** 优先于 config.framing 的实时构图（舞台拖拽/设置面板滑杆的即时预览）。 */
+  /** 優先於 config.framing 的實時構圖（舞台拖拽/設置面板滑桿的即時預覽）。 */
   framing?: AvatarStageFraming;
-  /** 用户锚定的脸部特写构图；close/push-in 时镜头直接落到这里。 */
+  /** 用戶錨定的臉部特寫構圖；close/push-in 時鏡頭直接落到這裡。 */
   faceFraming?: AvatarStageFraming;
   performance?: AvatarPerformanceDirection;
-  /** 高质量模式才启用保守的多层动作混合；基础/手动播放路径保持原样。 */
+  /** 高質量模式才啟用保守的多層動作混合；基礎/手動播放路徑保持原樣。 */
   performanceQuality?: 'basic' | 'high';
   manualAction?: Live2DActionTrigger | null;
   /** Keep the user's selected wardrobe expression as a persistent parameter layer. */
@@ -83,7 +83,7 @@ interface Live2DAvatarCanvasProps {
   maxFps?: number;
   /** Pins parameters to target values while the advanced editor shows its target state. */
   parameterPreview?: Array<{ id: string; value: number }> | null;
-  /** 模型加载完成后回传参数列表（id / 范围 / 默认值），供设置面板做参数动作编辑。 */
+  /** 模型加載完成後回傳參數列表（id / 範圍 / 默認值），供設置面板做參數動作編輯。 */
   onParametersDiscovered?: (parameters: Live2DParameterInfo[]) => void;
 }
 
@@ -257,7 +257,7 @@ export const prepareLive2DTextureAssets = async (urls: string[]): Promise<void> 
     if (isUsableLive2DTexture(texture)) return;
 
     await resetInvalidLive2DTextureAsset(url);
-    throw new Error(`Live2D 贴图 ${index + 1} 解码失败，渲染器未返回有效纹理。`);
+    throw new Error(`Live2D 貼圖 ${index + 1} 解碼失敗，渲染器未返回有效紋理。`);
   }));
 };
 
@@ -286,8 +286,8 @@ const releaseTextureLeases = (urls: string[]) => {
     // Keep the decoded texture only briefly across preview -> stage transitions.
     // A 30-second grace period used to retain every recently opened atlas and
     // could exhaust a mobile WebView after switching models a few times. Must go through
-    // Assets.unload：手动 destroy 只清 Cache，Assets 的 promise 缓存还留着，
-    // 下次同一 URL 会拿到已销毁的贴图。
+    // Assets.unload：手動 destroy 只清 Cache，Assets 的 promise 緩存還留著，
+    // 下次同一 URL 會拿到已銷毀的貼圖。
     lease.cleanupTimer = window.setTimeout(() => {
       if (lease.users > 0) return;
       void Assets.unload(url).catch(() => {
@@ -348,7 +348,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
   const onTouchRegionsChangeRef = useRef(onTouchRegionsChange);
   const onParametersDiscoveredRef = useRef(onParametersDiscovered);
   const parameterPreviewRef = useRef(parameterPreview);
-  // 进行中的参数动作叠加（kind='params'）：短暂把一组参数推到目标值再淡出。
+  // 進行中的參數動作疊加（kind='params'）：短暫把一組參數推到目標值再淡出。
   const paramOverlaysRef = useRef<Array<{ params: Array<{ id: string; value: number }>; startedAt: number }>>([]);
   const directedHeadMotionLeaseRef = useRef<DirectedHeadMotionLease | null>(null);
   const directedHeadPoseRef = useRef<{ headX: number; headY: number; headZ: number } | null>(null);
@@ -599,8 +599,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
     });
   }, [touchRequest]);
 
-  // kind='params' 的自定义参数动作不走引擎的 motion/expression 通道，
-  // 而是推进叠加队列，由 applyControls 按攻击-保持-衰减包络逐帧写参数。
+  // kind='params' 的自定義參數動作不走引擎的 motion/expression 通道，
+  // 而是推進疊加隊列，由 applyControls 按攻擊-保持-衰減包絡逐幀寫參數。
   const triggerAction = (action: Live2DAction, allowDirectedHead = false): Promise<void> => {
     if (action.kind === 'params') {
       const params = headMotionLockedRef.current && !allowDirectedHead
@@ -728,8 +728,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
     await Promise.all(mix.params.map(action => triggerAction(action, directedHead.enabled)));
   };
 
-  // 只跟随导演指令（performance）触发动作，不依赖 config 对象身份——否则保存
-  // 构图等任何 config 更新都会把上一条指令的动作原地重放一遍。
+  // 只跟隨導演指令（performance）觸發動作，不依賴 config 對象身份——否則保存
+  // 構圖等任何 config 更新都會把上一條指令的動作原地重放一遍。
   useEffect(() => {
     const model = modelRef.current;
     if (!model || !performance) return;
@@ -760,7 +760,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
     const action = configRef.current.actions.find(item => item.id === manualAction.id && item.permission !== 'blocked');
     if (action) {
       if (hostRef.current) hostRef.current.dataset.live2dLastAction = action.id;
-      void triggerAction(action, true).catch(error => onErrorRef.current?.(error instanceof Error ? error.message : '动作播放失败'));
+      void triggerAction(action, true).catch(error => onErrorRef.current?.(error instanceof Error ? error.message : '動作播放失敗'));
     }
   }, [manualAction]);
 
@@ -800,23 +800,23 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
     };
     const onDocumentVisibilityChange = () => syncTickerVisibility();
 
-    onLoadingChangeRef.current?.(true, '正在启动 Cubism 引擎…');
+    onLoadingChangeRef.current?.(true, '正在啟動 Cubism 引擎…');
     onErrorRef.current?.('');
 
     const boot = async () => {
       const bootStartedAt = window.performance.now();
       const mobileRuntime = isMobileLive2DRuntime();
-      // 模型包读取/解包/贴图转码只碰 IndexedDB 和 FileReader，与引擎完全无关。
-      // 提前并行发起，引擎脚本加载 + Pixi 初始化期间磁盘 IO 与解码同时进行，
-      // 首屏耗时从「两段相加」变成「取较慢的一段」。
+      // 模型包讀取/解包/貼圖轉碼只碰 IndexedDB 和 FileReader，與引擎完全無關。
+      // 提前並行發起，引擎腳本加載 + Pixi 初始化期間磁盤 IO 與解碼同時進行，
+      // 首屏耗時從「兩段相加」變成「取較慢的一段」。
       let sourceAdopted = false;
       const sourcePromise = loadLive2DModelSource(config, stage => onLoadingChangeRef.current?.(true, stage));
-      // 真正的错误处理在下方 await 处；这里只防 boot 半路退场时的 unhandledrejection。
+      // 真正的錯誤處理在下方 await 處；這裡只防 boot 半路退場時的 unhandledrejection。
       sourcePromise.catch(() => {});
       try {
         await ensureLive2DCubismCore();
         if (disposed) return;
-        onLoadingChangeRef.current?.(true, '引擎已就绪，正在准备 Live2D 渲染器…');
+        onLoadingChangeRef.current?.(true, '引擎已就緒，正在準備 Live2D 渲染器…');
         const { configureCubismSDK, Live2DModel, Live2DPlugin } = await preloadLive2DRuntime();
         registerLive2DPlugin(Live2DPlugin as Parameters<typeof extensions.add>[0]);
         // The stage renders a single model. Reserving 128 MB for Cubism's
@@ -862,7 +862,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
         }
         syncTickerVisibility();
 
-        onLoadingChangeRef.current?.(true, '正在准备模型缓存…');
+        onLoadingChangeRef.current?.(true, '正在準備模型緩存…');
         const source = await sourcePromise;
         sourceAdopted = true;
         cleanupPackage = source.cleanup;
@@ -876,11 +876,11 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
         acquireTextureLeases(packageTextureUrls);
         texturesLeased = true;
 
-        onLoadingChangeRef.current?.(true, '正在解码 Live2D 贴图…');
+        onLoadingChangeRef.current?.(true, '正在解碼 Live2D 貼圖…');
         await prepareLive2DTextureAssets(packageTextureUrls);
         if (disposed) return;
 
-        onLoadingChangeRef.current?.(true, '缓存已就绪，正在创建 Cubism 角色…');
+        onLoadingChangeRef.current?.(true, '緩存已就緒，正在創建 Cubism 角色…');
         const cubismStartedAt = window.performance.now();
         const model = await Live2DModel.from(source.settings as any, {
           idleMotionGroup: 'Idle',
@@ -902,7 +902,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           ?.findIndex(texture => !isUsableLive2DTexture(texture)) ?? -1;
         if (invalidTextureIndex >= 0) {
           model.destroy({ children: true, texture: false });
-          throw new Error(`Live2D 贴图 ${invalidTextureIndex + 1} 加载为空，已阻止进入渲染阶段。`);
+          throw new Error(`Live2D 貼圖 ${invalidTextureIndex + 1} 加載為空，已阻止進入渲染階段。`);
         }
         const cubismCoreCompatibility = bridgeCubism6RenderOrders(model);
         const cubismMaskCompatibility = enableCubism5HighPrecisionMasks(model);
@@ -950,11 +950,11 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
         internal = (model as any).internalModel;
         const core = internal?.coreModel;
         if (!internal || !core || typeof internal.getIdSafe !== 'function') {
-          throw new Error('无法取得 Live2D 参数控制器。');
+          throw new Error('無法取得 Live2D 參數控制器。');
         }
         const idCache = new Map<string, unknown>();
         const current: Record<string, number> = {};
-        // additive 参数的底值剥离记录：上一帧我们写入后的最终值与叠加量。
+        // additive 參數的底值剝離記錄：上一幀我們寫入後的最終值與疊加量。
         const lastApplied: Record<string, number> = {};
         const lastFinal: Record<string, number> = {};
         const resolveId = (id: string) => {
@@ -969,13 +969,13 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             core.setParameterValueById(resolved, next);
             return;
           }
-          // 这个回调挂在 afterMotionUpdate 上，写入发生在引擎 saveParameters 之前，
-          // 会被存进参数底值、下一帧 loadParameters 原样带回。若直接
-          // addParameterValueById，凡是动作没有驱动的参数就会逐帧累加——最典型是
-          // 眨眼的 ParamEyeLOpen：多数模型的 Idle 动作不带眼皮曲线，第一次眨眼后
-          // 负值越积越深，眼睛永久闭死。所以叠加改为“剥底值再设置”：本帧参数值
-          // 若仍等于我们上帧写入的最终值，说明动作没碰它，剥掉上帧叠加量得到真实
-          // 底值；否则以动作刚写入的值为底值。
+          // 這個回調掛在 afterMotionUpdate 上，寫入發生在引擎 saveParameters 之前，
+          // 會被存進參數底值、下一幀 loadParameters 原樣帶回。若直接
+          // addParameterValueById，凡是動作沒有驅動的參數就會逐幀累加——最典型是
+          // 眨眼的 ParamEyeLOpen：多數模型的 Idle 動作不帶眼皮曲線，第一次眨眼後
+          // 負值越積越深，眼睛永久閉死。所以疊加改為“剝底值再設置”：本幀參數值
+          // 若仍等於我們上幀寫入的最終值，說明動作沒碰它，剝掉上幀疊加量得到真實
+          // 底值；否則以動作剛寫入的值為底值。
           const currentValue = core.getParameterValueById(resolved);
           const prevFinal = lastFinal[id];
           const base = prevFinal !== undefined && Math.abs(currentValue - prevFinal) < 1e-4
@@ -1033,11 +1033,11 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
         const hasVTubeBodyTrackingInputs = Object.values(vtubeBodyTrackingInputs).some(Boolean);
         const usesVTubeTrackingInputs = hasVTubeHeadTrackingInputs || hasVTubeBodyTrackingInputs;
         const autonomy = new AvatarAutonomy(window.performance.now());
-        // 微表情包络的计时基准：导演指令一换就重新起算。
+        // 微表情包絡的計時基準：導演指令一換就重新起算。
         let handledTouchImpulseNonce = touchImpulseNonceRef.current;
         let lastDirectionForFaces: AvatarPerformanceDirection | undefined;
         let directionChangedAt = window.performance.now();
-        // 自定义参数动作的底值记录：叠加淡出后参数要精确回到模型自身的值。
+        // 自定義參數動作的底值記錄：疊加淡出後參數要精確回到模型自身的值。
         const overlayBases: Record<string, { base: number; lastFinal: number }> = {};
         const pinnedPreviewBases: Record<string, { base: number; lastFinal: number }> = {};
         const wardrobeBases: Record<string, { base: number; lastFinal: number }> = {};
@@ -1107,8 +1107,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           }
         };
 
-        // 把模型全部参数（id/范围/默认值）回传给设置面板，驱动 VTS 风格的
-        // 自定义参数动作编辑器。枚举失败不影响通话本身。
+        // 把模型全部參數（id/範圍/默認值）回傳給設置面板，驅動 VTS 風格的
+        // 自定義參數動作編輯器。枚舉失敗不影響通話本身。
         try {
           const parameters: Live2DParameterInfo[] = [];
           for (let index = 0; index < core.getParameterCount(); index += 1) {
@@ -1122,10 +1122,10 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             });
           }
           onParametersDiscoveredRef.current?.(parameters);
-        } catch { /* 参数枚举失败不影响通话 */ }
+        } catch { /* 參數枚舉失敗不影響通話 */ }
 
-        // 逐帧变化的调试值（眨眼/口型）只在 dev 面板可用时写 DOM——prod 下每帧
-        // 两次 setAttribute 纯属白扔主线程；姿态/动作组这类低频值改成变了才写。
+        // 逐幀變化的調試值（眨眼/口型）只在 dev 面板可用時寫 DOM——prod 下每幀
+        // 兩次 setAttribute 純屬白扔主線程；姿態/動作組這類低頻值改成變了才寫。
         const debugFrameDatasets = isDevDebugAvailable();
         let lastPoseDataset = '';
         let lastActiveMotionDataset: string | null = null;
@@ -1203,8 +1203,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             host.dataset.live2dAutonomyPose = frame.pose;
           }
           if (debugFrameDatasets) host.dataset.live2dBlink = frame.blink.toFixed(3);
-          // 优先用逐帧音频信号驱动口型；只有拿不到实时信号（未配语音 / CORS
-          // 音频接不进 WebAudio）才退回节奏型假口型，绝不在两者之间逐帧横跳。
+          // 優先用逐幀音頻信號驅動口型；只有拿不到實時信號（未配語音 / CORS
+          // 音頻接不進 WebAudio）才退回節奏型假口型，絕不在兩者之間逐幀橫跳。
           // MouthOpenY receives amplitude only; MouthForm receives the independent
           // round-to-wide vowel axis. Without analyser data, both signals remain
           // synthetic instead of reducing a capable rig to simple open/close flaps.
@@ -1265,7 +1265,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           // Keep breathing subtle because many models already include it in Idle.
           smooth('ParamBreath', 0.5 + (frame.breath - 0.5) * 0.2, 0.16);
 
-          // 微表情叠加层（face=wink,grin…）：说话期间保持，说完停留片刻再衰减。
+          // 微表情疊加層（face=wink,grin…）：說話期間保持，說完停留片刻再衰減。
           if (direction !== lastDirectionForFaces) {
             lastDirectionForFaces = direction;
             directionChangedAt = now;
@@ -1285,8 +1285,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             smooth(id, combinedMouthForm, mouthFormSpeed, true);
           }
           smooth('ParamCheek', faceW('blush'), 0.18, true);
-          // 眉眼系：眯眯笑眼走标准笑眼参数；眉毛用高度/形状/角度组合近似
-          // 挑眉、八字眉、皱眉（各模型绑法不同，追求"方向对"而非像素级精确）。
+          // 眉眼系：眯眯笑眼走標準笑眼參數；眉毛用高度/形狀/角度組合近似
+          // 挑眉、八字眉、皺眉（各模型綁法不同，追求"方向對"而非像素級精確）。
           const smileEyes = faceW('smile-eyes');
           smooth('ParamEyeLSmile', smileEyes, 0.25, true);
           smooth('ParamEyeRSmile', smileEyes, 0.25, true);
@@ -1308,7 +1308,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             smooth(id, mouth, speaking ? 0.42 : 0.25);
           }
 
-          // 自定义参数动作叠加：攻击 200ms → 保持到 3.2s → 800ms 淡出。
+          // 自定義參數動作疊加：攻擊 200ms → 保持到 3.2s → 800ms 淡出。
           const overlays = paramOverlaysRef.current;
           if (overlays.length) {
             const activeTargets = new Map<string, { target: number; weight: number }>();
@@ -1436,7 +1436,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             host.dataset.live2dActiveMotion = activeMotionGroup;
           }
           const closeShot = direction?.camera === 'close' || direction?.camera === 'push-in';
-          // 用户锚定过脸部时，特写镜头直接落到锚点构图，不再用启发式偏移猜脸的位置。
+          // 用戶錨定過臉部時，特寫鏡頭直接落到錨點構圖，不再用啟發式偏移猜臉的位置。
           const anchored = closeShot && faceFramingRef.current ? faceFramingRef.current : null;
           const framing = anchored || framingRef.current;
           // On the always-on desktop, a generic full-body heuristic is more
@@ -1448,8 +1448,8 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
             && ambientAutonomyDisabledRef.current
             && !anchored
             && !configRef.current.builtIn;
-          // 导演机位只在用户构图基础上做温和加减：medium 必须是 1.0，
-          // 否则用户校准好的构图会被默认镜头永久放大。锚定后特写倍率交给锚点本身。
+          // 導演機位只在用戶構圖基礎上做溫和加減：medium 必須是 1.0，
+          // 否則用戶校準好的構圖會被默認鏡頭永久放大。錨定後特寫倍率交給錨點本身。
           const cameraScale = anchored
             ? 1
             : suppressUnanchoredCloseShot
@@ -1462,10 +1462,10 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           const cameraY = base.y + app.screen.height * (framing.offsetY + cameraYOffset);
           const frame = autonomy.frame;
           const targetScale = base.scale * framing.scale * cameraScale * (1 + frame.lean * 0.45);
-          // 呼吸 / lift / lean 的位移必须并进目标位置再做平滑。旧写法把它们
-          // 加在 lerp 之后，相当于每帧注入增量、平衡点被放大 1/0.08 ≈ 12.5 倍，
-          // 模型在手机小舞台上大幅上下漂移。振幅也按小屏收敛：呼吸 ±2px 级，
-          // 前倾最多抬 ~28px（外加 targetScale 里的轻微放大）。
+          // 呼吸 / lift / lean 的位移必須並進目標位置再做平滑。舊寫法把它們
+          // 加在 lerp 之後，相當於每幀注入增量、平衡點被放大 1/0.08 ≈ 12.5 倍，
+          // 模型在手機小舞台上大幅上下漂移。振幅也按小屏收斂：呼吸 ±2px 級，
+          // 前傾最多抬 ~28px（外加 targetScale 裡的輕微放大）。
           const bobY = (frame.breath * 2 - 1) * 2.2
             + frame.lift * app.screen.height * 0.35
             - frame.lean * Math.min(app.screen.height * 0.08, 28);
@@ -1496,7 +1496,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           cubismMs: Math.round(cubismMs),
           bootTotalMs: Math.round(window.performance.now() - bootStartedAt),
         });
-        onLoadingChangeRef.current?.(false, '角色已就绪');
+        onLoadingChangeRef.current?.(false, '角色已就緒');
         onReadyRef.current?.();
 
         model.once('destroy', () => {
@@ -1506,18 +1506,18 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
       } catch (error) {
         if (!disposed) {
           onLoadingChangeRef.current?.(false);
-          const rawMessage = error instanceof Error ? error.message : 'Live2D 模型加载失败';
-          // Pixi 的贴图加载失败原文只有一句 [Loader.load] Failed to load <url>，
-          // 翻译成用户能行动的提示，同时保留前缀方便排查。
+          const rawMessage = error instanceof Error ? error.message : 'Live2D 模型加載失敗';
+          // Pixi 的貼圖加載失敗原文只有一句 [Loader.load] Failed to load <url>，
+          // 翻譯成用戶能行動的提示，同時保留前綴方便排查。
           const message = /\[Loader\.load\]/.test(rawMessage)
-            ? `贴图加载失败（${rawMessage.replace(/\s+/g, ' ').slice(0, 120)}…）。请点击重新加载再试；若仍失败，多半是贴图过大或格式异常，建议把纹理导出为 4096 以下的 PNG 后重新导入。`
+            ? `貼圖加載失敗（${rawMessage.replace(/\s+/g, ' ').slice(0, 120)}…）。請點擊重新加載再試；若仍失敗，多半是貼圖過大或格式異常，建議把紋理導出為 4096 以下的 PNG 後重新導入。`
             : rawMessage;
           onErrorRef.current?.(message);
         }
       } finally {
         bootSettled = true;
-        // boot 半路退场（引擎报错 / 组件卸载）时，晚到的模型包资源就地释放，
-        // 否则并行发起的 blob URL / 贴图缓存会一直挂到页面刷新。cleanup 幂等。
+        // boot 半路退場（引擎報錯 / 組件卸載）時，晚到的模型包資源就地釋放，
+        // 否則並行發起的 blob URL / 貼圖緩存會一直掛到頁面刷新。cleanup 冪等。
         if (!sourceAdopted) {
           void sourcePromise.then(source => { if (!sourceAdopted) source.cleanup(); }, () => {});
         }
@@ -1570,7 +1570,7 @@ const Live2DAvatarCanvas: React.FC<Live2DAvatarCanvasProps> = ({
           onPointerUp={event => finishTouchRegion(event, true)}
           onPointerCancel={event => finishTouchRegion(event, false)}
           data-testid="live2d-touch-region-editor"
-          aria-label={`正在圈选${avatarTouchZoneToastLabel(touchRegionEditingZone)}触摸区域`}
+          aria-label={`正在圈選${avatarTouchZoneToastLabel(touchRegionEditingZone)}觸摸區域`}
         >
           <div
             className="pointer-events-none absolute border border-dashed border-white/30"

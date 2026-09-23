@@ -13,11 +13,11 @@ import type { CharacterProfile } from '../types';
 
 afterEach(()=>vi.unstubAllGlobals());
 const preference = (value:'show'|'hide') => vi.stubGlobal('localStorage', {getItem:(key:string)=>key==='vr_sar_club_state_v1'?JSON.stringify({npcPreference:value}):null});
-const char = {id:'test-char',name:'测试角色',vrState:{enabled:true,title:'湖畔旅人',titleRevision:'1'}} as CharacterProfile;
+const char = {id:'test-char',name:'測試角色',vrState:{enabled:true,title:'湖畔旅人',titleRevision:'1'}} as CharacterProfile;
 describe('SAR NPC opt-out',()=>{
     it('pauses an already running personal line without changing its progress',async()=>{
         const data=new Map<string,string>();const storage={getItem:(k:string)=>data.get(k)??null,setItem:(k:string,v:string)=>{data.set(k,v);}};
-        const options={storage,userName:'测试用户',random:()=>0};
+        const options={storage,userName:'測試用戶',random:()=>0};
         await visitFamiliarity('caian',options);
         const scene=readFishingMarketState(storage).sarFamiliarity!.npcs.caian.offerId!;
         await startFamiliarity('caian',scene,options);
@@ -35,23 +35,23 @@ describe('SAR NPC opt-out',()=>{
         expect(sarNpcContentEnabled()).toBe(false);
         expect(kanataTitleContext(char.vrState?.title)).toBe('');
         expect(kanataTitleActivityPrompt(char.vrState?.title,true,false)).toBe('');
-        expect(sarPublicContext()).not.toMatch(/凯恩|艾文/);
+        expect(sarPublicContext()).not.toMatch(/[凯凱]恩|艾文/);
         expect(sarPublicContext()).toContain('芯片扭蛋');
-        const parts=await ChatPrompts.buildSystemPromptParts(char,{name:'测试用户'} as any,[],[],[],[]);
-        expect(parts.stable+parts.volatileState).not.toMatch(/凯恩|艾文|彼方称号|湖畔旅人/);
-        expect(applyKanataTitle(char,char.vrState,'新称号')).toEqual({});
+        const parts=await ChatPrompts.buildSystemPromptParts(char,{name:'測試用戶'} as any,[],[],[],[]);
+        expect(parts.stable+parts.volatileState).not.toMatch(/[凯凱]恩|艾文|彼方[称稱][号號]|湖畔旅人/);
+        expect(applyKanataTitle(char,char.vrState,'新稱號')).toEqual({});
         expect(char.vrState?.title).toBe('湖畔旅人');
         preference('show');
-        expect(sarPublicContext()).toContain('凯恩');
+        expect(sarPublicContext()).toContain('凱恩');
         expect(kanataTitleContext(char.vrState?.title)).toContain('湖畔旅人');
-        expect(applyKanataTitle(char,char.vrState,'新称号').vrState?.title).toBe('新称号');
+        expect(applyKanataTitle(char,char.vrState,'新稱號').vrState?.title).toBe('新稱號');
     });
     it('hides NPC-exclusive collection entries without changing earned progress',()=>{
         const state=createFishingMarketState(42);state.sarFamiliarity=freshFamiliarity();state.sarFamiliarity.unlocks=['eggs','titles'];
         const before=JSON.stringify(state);
         const hidden=sarCollectionEntries(state,'user',false);
         expect(hidden.some(e=>e.id==='aiven-chimera'||e.id==='dinosaur-egg')).toBe(false);
-        expect(JSON.stringify(hidden)).not.toMatch(/艾文|凯恩/);
+        expect(JSON.stringify(hidden)).not.toMatch(/艾文|[凯凱]恩/);
         expect(hidden.some(e=>e.category==='chip')).toBe(true);
         expect(hidden.some(e=>e.category==='fish')).toBe(true);
         expect(sarCollectionEntries(state,'user',true).some(e=>e.id==='dinosaur-egg')).toBe(true);
@@ -59,11 +59,11 @@ describe('SAR NPC opt-out',()=>{
     });
     it('keeps fish recovery available with neutral prompts and no NPC dialogue receipts',()=>{
         preference('hide');
-        const actor={id:'user',name:'测试用户',kind:'user' as const};
+        const actor={id:'user',name:'測試用戶',kind:'user' as const};
         const fish=rollFishingCatch(actor,{kind:'clear',label:'晴',detail:'',source:'simulated'},()=>0);
         const state=addCatchToState(ensureMarketDay(ensureActorAccounts(createFishingMarketState(42),[actor])),fish);
-        const prompt=buildFishingTurn(actor,fish,state,'测试用户');
-        expect(prompt).not.toMatch(/艾文|凯恩/);expect(prompt).toContain('回收站');
+        const prompt=buildFishingTurn(actor,fish,state,'測試用戶');
+        expect(prompt).not.toMatch(/艾文|[凯凱]恩/);expect(prompt).toContain('回收站');
         const sold=sellFishToAiven(state,actor,fish.id);
         const receipt=sold.state.ledger.at(-1)!;
         expect(receipt.text).toContain('回收站');expect(receipt.quotes).toEqual([]);

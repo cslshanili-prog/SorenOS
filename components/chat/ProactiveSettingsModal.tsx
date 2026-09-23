@@ -18,13 +18,13 @@ interface ProactiveSettingsModalProps {
 }
 
 const INTERVAL_OPTIONS = [
-    { label: '30 分钟', value: 30 },
-    { label: '1 小时', value: 60 },
-    { label: '2 小时', value: 120 },
-    { label: '4 小时', value: 240 },
-    { label: '8 小时', value: 480 },
-    { label: '12 小时', value: 720 },
-    { label: '24 小时', value: 1440 },
+    { label: '30 分鐘', value: 30 },
+    { label: '1 小時', value: 60 },
+    { label: '2 小時', value: 120 },
+    { label: '4 小時', value: 240 },
+    { label: '8 小時', value: 480 },
+    { label: '12 小時', value: 720 },
+    { label: '24 小時', value: 1440 },
 ];
 
 const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
@@ -102,9 +102,9 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
     const fetchModels = async () => {
         const baseUrl = normalizeApiBaseUrl(secUrl);
         const key = normalizeApiCredential(secKey);
-        if (!baseUrl) { setModelStatusMsg('请先填写 URL'); return; }
+        if (!baseUrl) { setModelStatusMsg('請先填寫 URL'); return; }
         setIsLoadingModels(true);
-        setModelStatusMsg('正在连接...');
+        setModelStatusMsg('正在連接...');
         try {
             const response = await fetch(`${baseUrl}/models`, {
                 method: 'GET',
@@ -116,13 +116,13 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
             if (models.length > 0) {
                 setAvailableModels(models);
                 setModelSearchQuery('');
-                setModelStatusMsg(`获取到 ${models.length} 个模型`);
+                setModelStatusMsg(`獲取到 ${models.length} 個模型`);
                 setShowModelModal(true);
             } else {
-                setModelStatusMsg('模型列表为空或格式不兼容');
+                setModelStatusMsg('模型列表為空或格式不兼容');
             }
         } catch (error: any) {
-            setModelStatusMsg(`连接失败${error?.message ? `：${error.message}` : ''}`);
+            setModelStatusMsg(`連接失敗${error?.message ? `：${error.message}` : ''}`);
         } finally {
             setIsLoadingModels(false);
         }
@@ -139,20 +139,20 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
             });
             if (response.ok) {
-                setTestConnectionResult('✅ 连接成功');
+                setTestConnectionResult('✅ 連接成功');
             } else {
                 const text = await response.text().catch(() => '');
                 setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
             }
         } catch (error: any) {
-            setTestConnectionResult(`❌ 连接失败${error?.message ? `：${error.message}` : ''}`);
+            setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
         } finally {
             setTestingConnection(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} title="主动消息" onClose={onClose} footer={
+        <Modal isOpen={isOpen} title="主動消息" onClose={onClose} footer={
             <>
                 <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
                     取消
@@ -163,19 +163,19 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                     </button>
                 ) : null}
                 <button onClick={handleSave} className="flex-1 py-3 bg-violet-500 text-white font-bold rounded-2xl active:scale-95 transition-transform shadow-lg">
-                    {enabled ? '启动' : '保存'}
+                    {enabled ? '啟動' : '保存'}
                 </button>
             </>
         }>
             <div className="space-y-5">
                 {/* Description */}
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    开启后，{char.name} 会按照设定的间隔主动给你发消息，就像真人一样随手发来一条。
+                    開啟後，{char.name} 會按照設定的間隔主動給你發消息，就像真人一樣隨手發來一條。
                 </p>
 
                 {/* Enable Toggle */}
                 <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-700">启用主动消息</span>
+                    <span className="text-sm font-bold text-slate-700">啟用主動消息</span>
                     <button
                         onClick={() => setEnabled(!enabled)}
                         className={`w-12 h-7 rounded-full transition-colors relative ${enabled ? 'bg-violet-500' : 'bg-slate-200'}`}
@@ -188,7 +188,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 {isProactiveActive && (
                     <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 rounded-xl border border-violet-100">
                         <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-                        <span className="text-xs text-violet-600 font-medium">主动消息进行中</span>
+                        <span className="text-xs text-violet-600 font-medium">主動消息進行中</span>
                     </div>
                 )}
 
@@ -196,7 +196,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 {enabled && (
                     <>
                         <div>
-                            <label className="text-sm font-bold text-slate-700 block mb-2">发送间隔</label>
+                            <label className="text-sm font-bold text-slate-700 block mb-2">發送間隔</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {INTERVAL_OPTIONS.map(opt => (
                                     <button
@@ -225,14 +225,14 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                 </button>
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-                                不开启则依次退回：角色自己的对话模型 API → 全局主 API。
+                                不開啟則依次退回：角色自己的對話模型 API → 全局主 API。
                             </p>
 
                             {showApiSection && (
                                 <div className="space-y-2 bg-slate-50 rounded-2xl p-3">
                                     {apiPresets.length > 0 && (
                                         <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的预设</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的預設</label>
                                             <div className="flex gap-2 flex-wrap">
                                                 {apiPresets.map((preset) => (
                                                     <button
@@ -256,7 +256,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                                 {isLoadingModels ? '拉取中...' : '刷新模型列表'}
                                             </button>
                                         </div>
-                                        <input value={secModel} onChange={e => setSecModel(e.target.value)} placeholder="Model，或点右上角刷新拉取" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                                        <input value={secModel} onChange={e => setSecModel(e.target.value)} placeholder="Model，或點右上角刷新拉取" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
                                         {modelStatusMsg && <p className="text-[10px] text-slate-400 mt-1">{modelStatusMsg}</p>}
                                     </div>
                                     <div className="flex items-center gap-2 pt-1">
@@ -265,13 +265,13 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                             disabled={testingConnection || !secUrl.trim()}
                                             className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 disabled:opacity-50 active:scale-95 transition-transform"
                                         >
-                                            {testingConnection ? '测试中...' : '🧪 测试连接'}
+                                            {testingConnection ? '測試中...' : '🧪 測試連接'}
                                         </button>
                                         <button
                                             onClick={() => setShowSavePreset(v => !v)}
                                             className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
                                         >
-                                            保存为预设
+                                            保存為預設
                                         </button>
                                     </div>
                                     {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
@@ -282,7 +282,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                                 value={newPresetName}
                                                 onChange={e => setNewPresetName(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                                placeholder="预设名称..."
+                                                placeholder="預設名稱..."
                                                 className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
                                                 autoFocus
                                             />
@@ -302,7 +302,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 const query = modelSearchQuery.trim().toLowerCase();
                 const filteredList = query ? availableModels.filter(m => m.toLowerCase().includes(query)) : availableModels;
                 return (
-                    <Modal isOpen title="选择模型" onClose={() => setShowModelModal(false)}>
+                    <Modal isOpen title="選擇模型" onClose={() => setShowModelModal(false)}>
                         <div className="space-y-2">
                             <input
                                 type="text"
@@ -314,7 +314,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                             />
                             <div className="max-h-72 overflow-y-auto space-y-1 no-scrollbar">
                                 {filteredList.length === 0 && (
-                                    <p className="text-[11px] text-slate-400 text-center py-4">没有匹配的模型</p>
+                                    <p className="text-[11px] text-slate-400 text-center py-4">沒有匹配的模型</p>
                                 )}
                                 {filteredList.map(m => (
                                     <button

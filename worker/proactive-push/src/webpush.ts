@@ -32,9 +32,9 @@ export function b64uEncode(buf: ArrayBuffer | Uint8Array): string {
   return out;
 }
 
-// 注：下面凡是要交给 Web Crypto / fetch 的字节都写成 Uint8Array<ArrayBuffer>。
-// TS 5.7 起 Uint8Array 默认是 Uint8Array<ArrayBufferLike>，而 BufferSource / BodyInit
-// 只收 ArrayBuffer 撑的视图；这些数组本来就是 new Uint8Array(...) 现造的，如实标注即可。
+// 注：下面凡是要交給 Web Crypto / fetch 的字節都寫成 Uint8Array<ArrayBuffer>。
+// TS 5.7 起 Uint8Array 默認是 Uint8Array<ArrayBufferLike>，而 BufferSource / BodyInit
+// 只收 ArrayBuffer 撐的視圖；這些數組本來就是 new Uint8Array(...) 現造的，如實標註即可。
 export function b64uDecode(s: string): Uint8Array<ArrayBuffer> {
   const clean = s.replace(/-/g, '+').replace(/_/g, '/');
   const padded = clean + '='.repeat((4 - (clean.length % 4)) % 4);

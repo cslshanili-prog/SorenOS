@@ -22,8 +22,8 @@ interface Env {
   HEARTBEAT_WINDOW_MS: string;
 }
 
-// 最小 Worker 运行时类型（跟 post-office 一样，只声明本文件真正用到的
-// 那几个成员，不引 @cloudflare/workers-types）。
+// 最小 Worker 運行時類型（跟 post-office 一樣，只聲明本文件真正用到的
+// 那幾個成員，不引 @cloudflare/workers-types）。
 interface D1Database {
   prepare(query: string): D1PreparedStatement;
 }
@@ -33,7 +33,7 @@ interface D1PreparedStatement {
   first<T = unknown>(): Promise<T | null>;
   all<T = unknown>(): Promise<{ results: T[] }>;
 }
-/** cron 触发时 CF 传进来的事件；本 Worker 不读它的字段，只按签名占位。 */
+/** cron 觸發時 CF 傳進來的事件；本 Worker 不讀它的字段，只按簽名佔位。 */
 interface ScheduledEvent {
   scheduledTime: number;
   cron: string;

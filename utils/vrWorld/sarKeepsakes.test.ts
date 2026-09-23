@@ -8,7 +8,7 @@ it('shows only actually earned keepsakes, retaining their original scene, draft 
     const node = Object.entries(scene.nodes).find(([, n]) => n.rewards?.some(r => r.kind === 'souvenir' && r.id === 'caian-photo'))!;
     const state = { ...createFishingMarketState(), sarFamiliarity: freshFamiliarity() };
     expect(sarExclusiveKeepsakes(state)).toEqual([]);
-    const souvenir = { id: 'caian-photo', title: '第一次 SAR 会议', description: '合照', npc: 'caian' as const, sceneId: scene.id, nodeId: node[0], at: 10, userName: '雨眠', flags: {}, draft: { photo: 'blob:local-photo' } };
+    const souvenir = { id: 'caian-photo', title: '第一次 SAR 會議', description: '合照', npc: 'caian' as const, sceneId: scene.id, nodeId: node[0], at: 10, userName: '雨眠', flags: {}, draft: { photo: 'blob:local-photo' } };
     state.sarFamiliarity.souvenirs.push(souvenir);
     const [entry] = sarExclusiveKeepsakes(state);
     expect(entry.souvenir).toBe(souvenir); expect(entry.source).toContain(scene.title); expect(entry.source).toContain('★');

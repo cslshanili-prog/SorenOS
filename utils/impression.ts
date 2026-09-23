@@ -99,10 +99,10 @@ export const normalizeCharacterImpression = (char: CharacterProfile): CharacterP
 };
 
 /**
- * 历史脏数据兜底：早期 addCharacter 没初始化 emotionConfig，导致一批"新角色"该字段
- * 为 undefined，情绪闸门 (useChatAI:761) 永远过不去。
- * 此处只把 undefined 补成默认 enabled，用户显式关掉 (false) 的不动。
- * memoryPalaceEnabled 是用户显式 opt-in 的功能，不在这里替用户开。
+ * 歷史髒數據兜底：早期 addCharacter 沒初始化 emotionConfig，導致一批"新角色"該字段
+ * 為 undefined，情緒閘門 (useChatAI:761) 永遠過不去。
+ * 此處只把 undefined 補成默認 enabled，用戶顯式關掉 (false) 的不動。
+ * memoryPalaceEnabled 是用戶顯式 opt-in 的功能，不在這裡替用戶開。
  */
 export const normalizeCharacterDefaults = (char: CharacterProfile): CharacterProfile => {
     if (char.emotionConfig !== undefined) return char;

@@ -1,5 +1,5 @@
 /**
- * GameOverOverlay — 游戏结束 (retro error dialog style)
+ * GameOverOverlay — 遊戲結束 (retro error dialog style)
  * Inspired by classic OS error windows
  */
 
@@ -35,7 +35,7 @@ const GameOverOverlay: React.FC<{ reason?: string; onRestart: () => void }> = ({
 
                 <div className="retro-inset" style={{ padding: '8px 12px', marginBottom: 12, textAlign: 'left' }}>
                     <p style={{ fontSize: 10, color: '#666', lineHeight: 1.5 }}>
-                        {reason || '所有人都搬走了……这座城市空无一人。'}
+                        {reason || '所有人都搬走了……這座城市空無一人。'}
                     </p>
                 </div>
 

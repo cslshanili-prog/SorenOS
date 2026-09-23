@@ -4,15 +4,15 @@ import { Share } from '@capacitor/share';
 import type { ShareCardOptions } from './pngShare';
 
 export interface ShareOrDownloadOptions {
-    /** 有可导入内容的分享入口：打开 PNG 分享卡编辑器，并保留原格式导出。 */
+    /** 有可導入內容的分享入口：打開 PNG 分享卡編輯器，並保留原格式導出。 */
     card?: ShareCardOptions;
-    /** 文件文本内容（目前导出都是文本，如 JSON / txt）。 */
+    /** 文件文本內容（目前導出都是文本，如 JSON / txt）。 */
     content: string;
-    /** 带扩展名的文件名，如 `worldbook.json`。 */
+    /** 帶擴展名的文件名，如 `worldbook.json`。 */
     fileName: string;
-    /** MIME 类型，默认 `application/json`。 */
+    /** MIME 類型，默認 `application/json`。 */
     mimeType?: string;
-    /** 系统 / Web 分享面板标题，默认取文件名。 */
+    /** 系統 / Web 分享面板標題，默認取文件名。 */
     shareTitle?: string;
 }
 
@@ -21,9 +21,9 @@ export interface ShareOrDownloadBlobOptions {
     blob: Blob;
     fileName: string;
     shareTitle?: string;
-    /** 大型 ZIP 在原生 WebView 中分片转 base64 并追加写盘，避免一次性读入导致 OOM。 */
+    /** 大型 ZIP 在原生 WebView 中分片轉 base64 並追加寫盤，避免一次性讀入導致 OOM。 */
     nativeChunked?: boolean;
-    /** 网页端明确显示为“下载”的入口跳过 Web Share；原生 App 仍使用系统分享。 */
+    /** 網頁端明確顯示為“下載”的入口跳過 Web Share；原生 App 仍使用系統分享。 */
     preferDownloadOnWeb?: boolean;
 }
 
@@ -38,10 +38,10 @@ const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reje
     reader.onloadend = () => {
         const dataUrl = String(reader.result || '');
         const comma = dataUrl.indexOf(',');
-        if (comma < 0) reject(new Error('文件编码失败'));
+        if (comma < 0) reject(new Error('文件編碼失敗'));
         else resolve(dataUrl.slice(comma + 1));
     };
-    reader.onerror = () => reject(reader.error || new Error('文件读取失败'));
+    reader.onerror = () => reject(reader.error || new Error('文件讀取失敗'));
     reader.readAsDataURL(blob);
 });
 
@@ -59,25 +59,25 @@ export async function fetchBlobForShare(sourceUrl: string, fallbackMimeType = 'a
         const response = await fetch(sourceUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
-        if (!blob.size) throw new Error('文件为空');
+        if (!blob.size) throw new Error('文件為空');
         return blob;
     } catch (webError) {
         if (!Capacitor.isNativePlatform() || !/^https?:\/\//i.test(sourceUrl)) throw webError;
         const response = await CapacitorHttp.request({ url: sourceUrl, method: 'GET', responseType: 'blob' });
         if (response.status < 200 || response.status >= 300) throw new Error(`HTTP ${response.status}`);
         const blob = base64ToBlob(String(response.data || ''), String(response.headers?.['content-type'] || fallbackMimeType));
-        if (!blob.size) throw new Error('文件为空');
+        if (!blob.size) throw new Error('文件為空');
         return blob;
     }
 }
 
 /**
- * 保存二进制媒体：原生壳写缓存并调系统分享，移动浏览器优先 Web Share，
- * 桌面浏览器才使用 a.download。WebView 普遍不可靠的裸 download 点击只作为末级兜底。
+ * 保存二進制媒體：原生殼寫緩存並調系統分享，移動瀏覽器優先 Web Share，
+ * 桌面瀏覽器才使用 a.download。WebView 普遍不可靠的裸 download 點擊只作為末級兜底。
  */
 export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
     const { blob, fileName, shareTitle = fileName, nativeChunked = false, preferDownloadOnWeb = false } = options;
-    if (!(blob instanceof Blob) || blob.size === 0) throw new Error('文件为空，无法保存');
+    if (!(blob instanceof Blob) || blob.size === 0) throw new Error('文件為空，無法保存');
     if (options.card) {
         const { openShareCardDialog } = await import('../components/share/ShareCardDialog');
         return openShareCardDialog(options, options.card);
@@ -135,9 +135,9 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
         if (!expectedPermissionFallback) console.error('Web Blob Share Error', error);
     }
 
-    // 原生壳绝不能伪装成“浏览器已下载”：WebView 的 a.download 正是最常见的无反应来源。
+    // 原生殼絕不能偽裝成“瀏覽器已下載”：WebView 的 a.download 正是最常見的無反應來源。
     if (nativePlatform) {
-        throw nativeFailure instanceof Error ? nativeFailure : new Error('无法拉起系统文件分享');
+        throw nativeFailure instanceof Error ? nativeFailure : new Error('無法拉起系統文件分享');
     }
 
     const url = URL.createObjectURL(blob);
@@ -152,15 +152,15 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
 }
 
 /**
- * 强制拉起分享的文件导出：原生（Capacitor Share）→ Web Share API → 浏览器下载兜底。
+ * 強制拉起分享的文件導出：原生（Capacitor Share）→ Web Share API → 瀏覽器下載兜底。
  *
- * SullyOS 常被包成移动端 WebView / 原生壳，这类环境里 `<a download>` 往往不触发任何东西，
- * 直接下载会「点了没反应 = 导不出来」。所以先尝试调起系统 / 浏览器的分享面板把文件送出去，
- * 只有在既没有原生分享、也没有 Web Share 能力时，才退回到浏览器下载。
+ * SullyOS 常被包成移動端 WebView / 原生殼，這類環境裡 `<a download>` 往往不觸發任何東西，
+ * 直接下載會「點了沒反應 = 導不出來」。所以先嘗試調起系統 / 瀏覽器的分享面板把文件送出去，
+ * 只有在既沒有原生分享、也沒有 Web Share 能力時，才退回到瀏覽器下載。
  *
- * 与 apps/Character.tsx 的角色卡导出保持一致的三级兜底策略。
+ * 與 apps/Character.tsx 的角色卡導出保持一致的三級兜底策略。
  *
- * @returns `'shared'` 已调起分享面板；`'downloaded'` 走了浏览器下载兜底。
+ * @returns `'shared'` 已調起分享面板；`'downloaded'` 走了瀏覽器下載兜底。
  */
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions & { card?: undefined }): Promise<'shared' | 'downloaded'>;
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'>;
@@ -168,7 +168,7 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
     const { content, fileName, mimeType = 'application/json', shareTitle = fileName } = options;
     if (options.card) return shareOrDownloadBlob({ blob: new Blob([content], { type: mimeType }), fileName, shareTitle, card: options.card });
 
-    // 1) 原生平台：写缓存 → 取 URI → 调起系统分享面板。
+    // 1) 原生平台：寫緩存 → 取 URI → 調起系統分享面板。
     const nativePlatform = Capacitor.isNativePlatform();
     let nativeFailure: unknown = null;
     if (nativePlatform) {
@@ -189,13 +189,13 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
             });
             return 'shared';
         } catch (e) {
-            // 原生插件失败后仍尝试 Web Share；若也不可用则明确报错，不伪装成已下载。
+            // 原生插件失敗後仍嘗試 Web Share；若也不可用則明確報錯，不偽裝成已下載。
             console.error('Native Export Error', e);
             nativeFailure = e;
         }
     }
 
-    // 2) Web Share API（移动端浏览器 / 支持的 WebView）。
+    // 2) Web Share API（移動端瀏覽器 / 支持的 WebView）。
     try {
         const file = new File([content], fileName, { type: mimeType });
         const canShareFile = typeof navigator !== 'undefined'
@@ -210,17 +210,17 @@ export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Prom
             return 'shared';
         }
     } catch (e: any) {
-        // 用户取消（AbortError）与不支持的情况都继续走下载兜底，保证一定能拿到文件。
+        // 用戶取消（AbortError）與不支持的情況都繼續走下載兜底，保證一定能拿到文件。
         if (e?.name !== 'AbortError') {
             console.error('Web Share Export Error', e);
         }
     }
 
     if (nativePlatform) {
-        throw nativeFailure instanceof Error ? nativeFailure : new Error('无法拉起系统文件分享');
+        throw nativeFailure instanceof Error ? nativeFailure : new Error('無法拉起系統文件分享');
     }
 
-    // 3) 浏览器下载兜底。
+    // 3) 瀏覽器下載兜底。
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');

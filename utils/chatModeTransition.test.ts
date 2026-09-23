@@ -25,7 +25,7 @@ describe('detectChatModeTransition', () => {
         ['video', message(2, 'assistant', 'call', { callMode: 'video' }), 'video'],
         ['date', message(2, 'assistant', 'date'), 'date'],
         ['story', message(2, 'assistant', 'story_theater_memory'), 'story'],
-    ] as const)('识别从 %s 回到 ChatApp 的第一轮', (_label, modeMessage, expected) => {
+    ] as const)('識別從 %s 回到 ChatApp 的第一輪', (_label, modeMessage, expected) => {
         expect(detectChatModeTransition([
             message(1, 'assistant'),
             modeMessage,
@@ -33,7 +33,7 @@ describe('detectChatModeTransition', () => {
         ])).toBe(expected);
     });
 
-    it('用户连续发送多个气泡时仍能越过它们找到刚结束的模式', () => {
+    it('用戶連續發送多個氣泡時仍能越過它們找到剛結束的模式', () => {
         expect(detectChatModeTransition([
             message(1, 'assistant'),
             message(2, 'assistant', 'date'),
@@ -43,7 +43,7 @@ describe('detectChatModeTransition', () => {
         ])).toBe('date');
     });
 
-    it('已经产生普通 ChatApp assistant 回复后不再重复提醒', () => {
+    it('已經產生普通 ChatApp assistant 回覆後不再重複提醒', () => {
         expect(detectChatModeTransition([
             message(1, 'assistant', 'story_theater_memory'),
             message(2, 'user'),
@@ -52,7 +52,7 @@ describe('detectChatModeTransition', () => {
         ])).toBeNull();
     });
 
-    it('特殊模式之后还没有新的 ChatApp 用户输入时不误报', () => {
+    it('特殊模式之後還沒有新的 ChatApp 用戶輸入時不誤報', () => {
         expect(detectChatModeTransition([
             message(1, 'assistant'),
             message(2, 'assistant', 'call'),
@@ -61,8 +61,8 @@ describe('detectChatModeTransition', () => {
     });
 });
 
-describe('buildChatRequestPayload 模式切换接线', () => {
-    it('即使 recentMsgsHint 已过滤通话记录，也按完整 API 历史注入视频转文字提醒', async () => {
+describe('buildChatRequestPayload 模式切換接線', () => {
+    it('即使 recentMsgsHint 已過濾通話記錄，也按完整 API 歷史注入視頻轉文字提醒', async () => {
         const historyMsgs = [
             message(1, 'assistant'),
             message(2, 'assistant', 'call', { callMode: 'video' }),
@@ -81,16 +81,16 @@ describe('buildChatRequestPayload 模式切换接线', () => {
             emojis: [],
             categories: [],
             historyMsgs,
-            // 模拟 Chat.tsx 的可见消息：call / call-end-popup 均不在这份 React state 中。
+            // 模擬 Chat.tsx 的可見消息：call / call-end-popup 均不在這份 React state 中。
             recentMsgsHint: [message(1, 'assistant'), message(4, 'user')],
             contextLimit: 20,
             realtimeConfig: { weatherEnabled: false, newsEnabled: false } as any,
         });
 
         const joined = payload.fullMessages.map(item => String(item.content || '')).join('\n');
-        expect(joined).toContain('系统提示｜模式切换（最高优先级）');
-        expect(joined).toContain('刚刚结束了视频通话');
-        expect(joined).toContain('现在已经回到 ChatApp 的文字聊天界面');
-        expect(joined).toContain('如果 ChatApp 当前开启了语音消息，仍可遵守它自己的语音消息格式');
+        expect(joined).toContain('系統提示｜模式切換（最高優先級）');
+        expect(joined).toContain('剛剛結束了視頻通話');
+        expect(joined).toContain('現在已經回到 ChatApp 的文字聊天界面');
+        expect(joined).toContain('如果 ChatApp 當前開啟了語音消息，仍可遵守它自己的語音消息格式');
     });
 });

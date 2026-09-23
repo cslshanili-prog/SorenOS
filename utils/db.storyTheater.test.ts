@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../types';
 import { DB } from './db';
 
-describe('剧情剧场数据与糯米机原生预设备份', () => {
-    it('完整备份 round-trip 后条目与自定义预设仍存在', async () => {
+describe('劇情劇場數據與糯米機原生預設備份', () => {
+    it('完整備份 round-trip 後條目與自定義預設仍存在', async () => {
         const entry: StoryTheaterEntry = {
             id: 'story-backup-entry',
-            title: '雨夜车站',
-            premise: '三个人错过末班车。',
+            title: '雨夜車站',
+            premise: '三個人錯過末班車。',
             openingMode: 'assistant',
             mask: { type: 'custom', id: 'story-mask' },
             characterIds: ['char-a', 'char-b'],
@@ -34,19 +34,19 @@ describe('剧情剧场数据与糯米机原生预设备份', () => {
         };
         const preset: StoryTheaterPreset = {
             id: 'story-backup-preset',
-            name: '备份测试',
+            name: '備份測試',
             format: 'sullyos-story-preset',
             createdAt: 10,
             updatedAt: 20,
             document: {
                 schema: 'sullyos.story-preset',
                 version: 1,
-                name: '备份测试',
+                name: '備份測試',
                 generation: { temperature: 0.8, topP: 1, frequencyPenalty: 0, presencePenalty: 0, maxTokens: 2048 },
-                prompts: [{ id: 'p1', name: '规则', enabled: true, role: 'system', content: '只写故事正文。' }],
+                prompts: [{ id: 'p1', name: '規則', enabled: true, role: 'system', content: '只寫故事正文。' }],
             },
         };
-        const mask: StoryTheaterMask = { id: 'story-mask', name: '夜航员', description: '来自另一条时间线', coreInstruction: '谨慎行动', worldview: '雨城', createdAt: 10, updatedAt: 20 };
+        const mask: StoryTheaterMask = { id: 'story-mask', name: '夜航員', description: '來自另一條時間線', coreInstruction: '謹慎行動', worldview: '雨城', createdAt: 10, updatedAt: 20 };
 
         await DB.saveStoryTheater(entry);
         await DB.saveStoryTheaterPreset(preset);

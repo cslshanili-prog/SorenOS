@@ -15,8 +15,8 @@ import {
     mergePalaceFragmentsIntoMemories,
 } from './pipeline';
 
-describe('外部记忆搬家', () => {
-    it('最多接收 5 万字，并优先按换行分批且不丢正文', () => {
+describe('外部記憶搬家', () => {
+    it('最多接收 5 萬字，並優先按換行分批且不丟正文', () => {
         const paragraphs = [
             '甲'.repeat(7_000),
             '乙'.repeat(7_000),
@@ -28,11 +28,11 @@ describe('外部记忆搬家', () => {
         expect(chunks).toEqual(paragraphs);
         expect(chunks.join('\n')).toBe(source);
         expect(() => splitExternalMemoryText('字'.repeat(EXTERNAL_MEMORY_MAX_CHARS + 1)))
-            .toThrow(/超过单次上限/);
+            .toThrow(/超[过過][单單]次上限/);
     });
 
-    it('字数在本地按 Unicode 字符统计，超限时给出明确分批建议', () => {
-        expect(getExternalMemoryLengthInfo('记忆😀')).toMatchObject({
+    it('字數在本地按 Unicode 字符統計，超限時給出明確分批建議', () => {
+        expect(getExternalMemoryLengthInfo('記憶😀')).toMatchObject({
             count: 3,
             overLimit: false,
             suggestedBatches: 1,
@@ -44,38 +44,38 @@ describe('外部记忆搬家', () => {
         expect(info.overLimit).toBe(true);
         expect(info.suggestedBatches).toBe(3);
         expect(getExternalMemoryOverLimitMessage(overLimit)).toContain('拆成 3 批');
-        expect(getExternalMemoryOverLimitMessage(overLimit)).toContain('不会调用 API');
+        expect(getExternalMemoryOverLimitMessage(overLimit)).toContain('不會調用 API');
     });
 
-    it('提示词钉死只整理时间、不压缩内容的搬家原则', () => {
-        const prompt = buildExternalMemoryPrompt('小满', '阿宁');
+    it('提示詞釘死只整理時間、不壓縮內容的搬家原則', () => {
+        const prompt = buildExternalMemoryPrompt('小滿', '阿寧');
 
-        expect(prompt).toContain('只整理时间和结构，不压缩内容');
-        expect(prompt).toContain('输出能被程序直接解析');
-        expect(prompt).toContain('不删除、不更改、不压缩内容');
-        expect(prompt).toContain('不得总结、概括、润色、改写、合并同类项或去重');
-        expect(prompt).toContain('每个具体事实');
+        expect(prompt).toContain('只整理時間和結構，不壓縮內容');
+        expect(prompt).toContain('輸出能被程序直接解析');
+        expect(prompt).toContain('不刪除、不更改、不壓縮內容');
+        expect(prompt).toContain('不得總結、概括、潤色、改寫、合併同類項或去重');
+        expect(prompt).toContain('每個具體事實');
         expect(prompt).toContain('不能省略');
-        expect(prompt).toContain('严禁猜日期');
-        expect(prompt).toContain('阿宁');
-        expect(prompt).toContain('姓名或角色标签 > 说话人标签与上下文 > 代词');
-        expect(prompt).toContain('引号内的第一人称属于原说话人');
-        expect(prompt).toContain('代词指向无法可靠判断');
-        expect(prompt).toContain('阿宁带了娃娃出门');
-        expect(prompt).toContain('不要看到负面内容就塞进阁楼');
-        expect(prompt).toContain('低 valence 本身都不等于阁楼');
-        expect(prompt).toContain('当前仍明确未解决');
+        expect(prompt).toContain('嚴禁猜日期');
+        expect(prompt).toContain('阿寧');
+        expect(prompt).toContain('姓名或角色標籤 > 說話人標籤與上下文 > 代詞');
+        expect(prompt).toContain('引號內的第一人稱屬於原說話人');
+        expect(prompt).toContain('代詞指向無法可靠判斷');
+        expect(prompt).toContain('阿寧帶了娃娃出門');
+        expect(prompt).toContain('不要看到負面內容就塞進閣樓');
+        expect(prompt).toContain('低 valence 本身都不等於閣樓');
+        expect(prompt).toContain('當前仍明確未解決');
     });
 
-    it('搬家只接受完整 JSON，不把截断对象抢救成半份成功', () => {
+    it('搬家只接受完整 JSON，不把截斷對象搶救成半份成功', () => {
         expect(parseCompleteExternalMemoryReply('[{"content":"完整"}]')).toEqual([{ content: '完整' }]);
         expect(() => parseCompleteExternalMemoryReply('[{"content":"只剩前半段"}'))
             .toThrow(/完整 JSON|JSON 格式/);
-        expect(() => parseCompleteExternalMemoryReply('说明如下：[{"content":"完整"}]'))
+        expect(() => parseCompleteExternalMemoryReply('說明如下：[{"content":"完整"}]'))
             .toThrow(/完整 JSON/);
     });
 
-    it('可解析但缺字段或字段越界的结果也不会静默补默认值', () => {
+    it('可解析但缺字段或字段越界的結果也不會靜默補默認值', () => {
         expect(() => assertExternalMemorySchema([{
             date: null,
             content: '正文',
@@ -89,7 +89,7 @@ describe('外部记忆搬家', () => {
         expect(() => assertExternalMemorySchema([{
             date: null,
             content: '正文',
-            room: '不存在的房间',
+            room: '不存在的房間',
             importance: 7,
             mood: 'neutral',
             valence: 0,
@@ -106,9 +106,9 @@ describe('外部记忆搬家', () => {
         }])).toThrow(/valence/);
     });
 
-    it('清洗结果保留完整 content，并按日期与房间生成可向量化节点', () => {
+    it('清洗結果保留完整 content，並按日期與房間生成可向量化節點', () => {
         const importedAt = new Date(2026, 6, 28, 12).getTime();
-        const longContent = '完整细节：' + '没有被摘要。'.repeat(100);
+        const longContent = '完整細節：' + '沒有被摘要。'.repeat(100);
         const nodes = parseExternalMemoryItems([
             {
                 date: '2024年3月9日',
@@ -116,11 +116,11 @@ describe('外部记忆搬家', () => {
                 room: 'user_room',
                 importance: 8,
                 mood: 'nostalgic',
-                tags: ['外婆', '旧家'],
+                tags: ['外婆', '舊家'],
             },
             {
                 date: null,
-                content: '日期未知但内容仍应保留',
+                content: '日期未知但內容仍應保留',
                 room: 'not-a-room',
             },
         ], 'char_1', importedAt);
@@ -136,31 +136,31 @@ describe('外部记忆搬家', () => {
         expect(nodes[1].createdAt).toBe(importedAt + 60_000);
     });
 
-    it('明显压缩或漏掉大段内容时拒绝继续写入', () => {
-        const source = '这是不能被删掉的完整经历。'.repeat(80);
+    it('明顯壓縮或漏掉大段內容時拒絕繼續寫入', () => {
+        const source = '這是不能被刪掉的完整經歷。'.repeat(80);
         const nodes = parseExternalMemoryItems([{
             date: null,
             content: '一句摘要',
             room: 'living_room',
         }], 'char_1');
-        expect(() => assertExternalMemoryCoverage(source, nodes)).toThrow(/删减或压缩/);
+        expect(() => assertExternalMemoryCoverage(source, nodes)).toThrow(/[删刪][减減]或[压壓][缩縮]/);
     });
 
-    it('与全自动水位线共用同一桥接器，把同批向量节点写进神经链接档案', () => {
+    it('與全自動水位線共用同一橋接器，把同批向量節點寫進神經鏈接檔案', () => {
         const day = new Date(2025, 4, 20, 12).getTime();
         const payload = buildAutoArchiveFragments([
-            { id: 'mn_1', content: '第一条完整记忆', createdAt: day },
-            { id: 'mn_2', content: '第二条完整记忆', createdAt: day + 60_000 },
+            { id: 'mn_1', content: '第一條完整記憶', createdAt: day },
+            { id: 'mn_2', content: '第二條完整記憶', createdAt: day + 60_000 },
         ], 0);
 
         expect(payload?.hideBeforeMessageId).toBe(0);
         expect(payload?.fragments).toHaveLength(1);
-        expect(payload?.fragments[0].summary).toBe('- 第一条完整记忆\n- 第二条完整记忆');
+        expect(payload?.fragments[0].summary).toBe('- 第一條完整記憶\n- 第二條完整記憶');
 
         const merged = mergePalaceFragmentsIntoMemories([], payload?.fragments || []);
         expect(merged).toHaveLength(1);
         expect(merged[0].mood).toBe('palace');
-        expect(merged[0].summary).toContain('第一条完整记忆');
-        expect(merged[0].summary).toContain('第二条完整记忆');
+        expect(merged[0].summary).toContain('第一條完整記憶');
+        expect(merged[0].summary).toContain('第二條完整記憶');
     });
 });

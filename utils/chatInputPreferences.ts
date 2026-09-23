@@ -1,4 +1,4 @@
-/** 当前设备上的私聊与群聊共用的输入习惯。 */
+/** 當前設備上的私聊與群聊共用的輸入習慣。 */
 export interface ChatInputPreferences {
     sendButtonGenerates: boolean;
     enterToSend: boolean;
@@ -15,7 +15,7 @@ export const DEFAULT_CHAT_INPUT_PREFERENCES: ChatInputPreferences = {
     emojiSuggestions: false,
 };
 
-/** 导入与读取共用：只接收已知布尔字段；新增功能对旧存档默认关闭。 */
+/** 導入與讀取共用：只接收已知布爾字段；新增功能對舊存檔默認關閉。 */
 export const normalizeChatInputPreferences = (value: unknown): ChatInputPreferences => {
     const saved = value && typeof value === 'object' ? value as Partial<ChatInputPreferences> : {};
     return {
@@ -39,6 +39,6 @@ export const saveChatInputPreferences = (preferences: ChatInputPreferences): voi
     try {
         localStorage.setItem(CHAT_INPUT_PREFERENCES_KEY, JSON.stringify(normalizeChatInputPreferences(preferences)));
     } catch {
-        // 存储不可用的 WebView 中仍允许在当前会话使用。
+        // 存儲不可用的 WebView 中仍允許在當前會話使用。
     }
 };

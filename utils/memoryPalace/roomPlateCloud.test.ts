@@ -1,22 +1,22 @@
 // utils/memoryPalace/roomPlateCloud.test.ts
 //
-// 回归守卫（交云端整理时带了什么）。本地端到端跑出来的坑：worker 那边发给模型的请求体
-// 里只有 model 和 messages，温度和输出上限全没了——本地那条路是 0.3 / 8000，云端落到
-// 供应商默认值。同一批材料两条路整理出不一样的门牌，而界面上完全看不出来。
+// 迴歸守衛（交雲端整理時帶了什麼）。本地端到端跑出來的坑：worker 那邊發給模型的請求體
+// 裡只有 model 和 messages，溫度和輸出上限全沒了——本地那條路是 0.3 / 8000，雲端落到
+// 供應商默認值。同一批材料兩條路整理出不一樣的門牌，而界面上完全看不出來。
 //
-// 门牌整理的提示词、解析、合并已经收在 roomPlateCore 这个叶子里两边共用，采样参数
-// 也是「同一件活儿的一部分」，同样要从叶子里取、同样要送到云端那条路上。
+// 門牌整理的提示詞、解析、合併已經收在 roomPlateCore 這個葉子裡兩邊共用，採樣參數
+// 也是「同一件活兒的一部分」，同樣要從葉子裡取、同樣要送到雲端那條路上。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { scheduleBackgroundJob, probeBackgroundJobSupportDetailed, plateStore, charStore } = vi.hoisted(() => ({
   scheduleBackgroundJob: vi.fn(async () => ({ uuid: 'remote-uuid' })),
   probeBackgroundJobSupportDetailed: vi.fn(async () => 'supported' as string),
-  /** 假门牌库：落地那半截要读要写，node 上没有 IndexedDB。 */
+  /** 假門牌庫：落地那半截要讀要寫，node 上沒有 IndexedDB。 */
   plateStore: { plates: new Map<string, any>(), saveError: null as Error | null },
-  /** 假角色库：落地前要确认这个角色还在。 */
-  charStore: { chars: [{ id: 'c1', name: '小满' }] as Array<{ id: string; name: string }> },
+  /** 假角色庫：落地前要確認這個角色還在。 */
+  charStore: { chars: [{ id: 'c1', name: '小滿' }] as Array<{ id: string; name: string }> },
 }));
-/** 「这条任务可能已经在远端建起来了」的标记，跟真身同款（见 activeMsgClient）。 */
+/** 「這條任務可能已經在遠端建起來了」的標記，跟真身同款（見 activeMsgClient）。 */
 const MAYBE_CREATED = '__amsgBackgroundJobMaybeCreated';
 vi.mock('../activeMsgClient', () => ({
   ActiveMsgClient: { scheduleBackgroundJob, probeBackgroundJobSupportDetailed },
@@ -24,7 +24,7 @@ vi.mock('../activeMsgClient', () => ({
     (error as Record<string, unknown> | null)?.['__amsgBackgroundJobMaybeCreated'] === true,
 }));
 vi.mock('../amsg2ToolBridge', () => ({ isAmsg2GlobalReady: vi.fn(async () => true) }));
-// 提交要记一笔「API 调用记录」，那份最终写 IndexedDB。这里只关心提交本身。
+// 提交要記一筆「API 調用記錄」，那份最終寫 IndexedDB。這裡只關心提交本身。
 vi.mock('../apiCallLog', () => ({
   cloudApiCallLogId: (id: string) => `cloud-${id}`,
   recordCloudApiCall: vi.fn(),
@@ -41,8 +41,8 @@ vi.mock('./db', () => {
     ROOM_PLATES_UPDATED_EVENT: 'room-plates-updated',
     RoomPlateDB: { get: vi.fn(), save },
     loadOrCreatePlate,
-    // 真身按门牌排队串行，这里只要保住「现读一份 → 改 → 存回去」这三步的语义
-    // （落库失败照抛，闸和幂等那几条断言都压在它上面）。
+    // 真身按門牌排隊串行，這裡只要保住「現讀一份 → 改 → 存回去」這三步的語義
+    // （落庫失敗照拋，閘和冪等那幾條斷言都壓在它上面）。
     mutatePlate: vi.fn(async (charId: string, room: string, change: (p: any) => any) => {
       const next = change(await loadOrCreatePlate(charId, room));
       if (!next) return null;
@@ -52,11 +52,11 @@ vi.mock('./db', () => {
     plateId: (charId: string, room: string) => `${charId}:${room}`,
   };
 });
-// 结果落地前要确认角色还在（删掉的角色不许被一份迟到的结果重新长出四块门牌）。
+// 結果落地前要確認角色還在（刪掉的角色不許被一份遲到的結果重新長出四塊門牌）。
 vi.mock('../db', () => ({
   DB: { getAllCharacters: vi.fn(async () => charStore.chars) },
 }));
-// 落地成功要广播一条「门牌更新了」，node 上没有 window。
+// 落地成功要廣播一條「門牌更新了」，node 上沒有 window。
 vi.stubGlobal('window', { dispatchEvent: vi.fn() });
 
 import { PLATE_CONSOLIDATE_KIND, PLATE_CONSOLIDATE_RESULT_KIND } from '../amsgPlateJob';
@@ -88,11 +88,11 @@ const plate = (room: RoomPlate['room'], texts: string[]): RoomPlate => ({
 
 const submit = (over: Record<string, unknown> = {}) => submitPlateConsolidation({
   charId: 'c1',
-  charName: '小满',
+  charName: '小滿',
   userName: '小明',
   identityContext: '（身份上下文）',
-  plates: [plate('user_room', ['小明在读研'])],
-  materials: [{ room: 'user_room', lines: ['小明搬去和同学合租了'] }],
+  plates: [plate('user_room', ['小明在讀研'])],
+  materials: [{ room: 'user_room', lines: ['小明搬去和同學合租了'] }],
   lightLLM: LIGHT_LLM,
   snapshotAt: 1,
   ...over,
@@ -106,15 +106,15 @@ beforeEach(() => {
   vi.mocked(RoomPlateDB.save).mockClear();
   plateStore.plates.clear();
   plateStore.saveError = null;
-  charStore.chars = [{ id: 'c1', name: '小满' }];
+  charStore.chars = [{ id: 'c1', name: '小滿' }];
   clearPlateJobInFlight('c1');
   clearPlateJobDone('c1');
 });
 
-/** 本轮提交拿到的 job 编号（提交侧自己生成，只能从调用参数里取）。 */
+/** 本輪提交拿到的 job 編號（提交側自己生成，只能從調用參數裡取）。 */
 const lastJobId = (): string => (scheduleBackgroundJob.mock.calls.at(-1) as unknown as [any])[0].jobId;
 
-/** 一份空结果：闸和调用记录那半截照常走，落库那半截直接短路（用不着 IDB）。 */
+/** 一份空結果：閘和調用記錄那半截照常走，落庫那半截直接短路（用不著 IDB）。 */
 const emptyResult = (jobId: string) => ({
   resultKind: PLATE_CONSOLIDATE_RESULT_KIND,
   v: 1,
@@ -124,15 +124,15 @@ const emptyResult = (jobId: string) => ({
   rooms: [],
 });
 
-/** 一份真会落库的结果：两块门牌，各一条。 */
+/** 一份真會落庫的結果：兩塊門牌，各一條。 */
 const twoRoomResult = (jobId: string) => ({
   resultKind: PLATE_CONSOLIDATE_RESULT_KIND,
   v: 1,
   jobId,
   charId: 'c1',
   items: [
-    { room: 'user_room', text: '小明搬去和同学合租了' },
-    { room: 'study', text: '在学做菜' },
+    { room: 'user_room', text: '小明搬去和同學合租了' },
+    { room: 'study', text: '在學做菜' },
   ],
   rooms: [
     { room: 'user_room', entryIds: [] },
@@ -144,8 +144,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('交云端整理', () => {
-  it('采样参数用叶子里那两个常量（本地那条路用的是同一份）', async () => {
+describe('交雲端整理', () => {
+  it('採樣參數用葉子裡那兩個常量（本地那條路用的是同一份）', async () => {
     await submit();
 
     const [params] = scheduleBackgroundJob.mock.calls[0] as unknown as [any];
@@ -153,73 +153,73 @@ describe('交云端整理', () => {
     expect(params.maxTokens).toBe(PLATE_LLM_MAX_TOKENS);
   });
 
-  it('带上 kind、每块门牌的条目 id 快照，和记忆宫殿副 API 那行凭据', async () => {
+  it('帶上 kind、每塊門牌的條目 id 快照，和記憶宮殿副 API 那行憑據', async () => {
     await submit();
 
     const [params] = scheduleBackgroundJob.mock.calls[0] as unknown as [any];
     expect(params.kind).toBe(PLATE_CONSOLIDATE_KIND);
     expect(params.credRow.credId).toBe('char:c1/memory');
     expect(params.jobInput.rooms).toEqual([
-      { room: 'user_room', entries: ['小明在读研'], entryIds: ['pe_user_room_0'] },
+      { room: 'user_room', entries: ['小明在讀研'], entryIds: ['pe_user_room_0'] },
     ]);
   });
 
-  it('记忆宫殿副 API 没配齐就不交（不拿主 API 悄悄跑后台活儿）', async () => {
+  it('記憶宮殿副 API 沒配齊就不交（不拿主 API 悄悄跑後台活兒）', async () => {
     await expect(submit({ lightLLM: { baseUrl: '', apiKey: '', model: '' } })).rejects.toThrow(/副 API/);
     expect(scheduleBackgroundJob).not.toHaveBeenCalled();
   });
 });
 
-// 回归守卫：两次消化挨得近（手动连点、或者一轮聊得快）会先后交两份 job，而它们拿的是
-// 同一份或相邻的旧快照。后回来那份按自己那份快照做合并，先回来那份的整理成果被整块盖掉，
-// 还白烧一次 API。
-describe('同一角色同时只许一份整理在飞', () => {
+// 迴歸守衛：兩次消化捱得近（手動連點、或者一輪聊得快）會先後交兩份 job，而它們拿的是
+// 同一份或相鄰的舊快照。後回來那份按自己那份快照做合併，先回來那份的整理成果被整塊蓋掉，
+// 還白燒一次 API。
+describe('同一角色同時只許一份整理在飛', () => {
   const gate = () => plateCloudGate({ charId: 'c1', lightLLM: LIGHT_LLM });
 
-  it('交出去之后这个角色的门就关上，而且不是「退回本地跑」', async () => {
+  it('交出去之後這個角色的門就關上，而且不是「退回本地跑」', async () => {
     expect(await gate()).toBe('submit');
     await submit();
 
-    expect(await gate(), '退回本地会白烧一次 API，结果还跟在飞那份互相盖').toBe('skip');
+    expect(await gate(), '退回本地會白燒一次 API，結果還跟在飛那份互相蓋').toBe('skip');
   });
 
-  it('结果回来（记号清掉）之后照常放行', async () => {
+  it('結果回來（記號清掉）之後照常放行', async () => {
     await submit();
     clearPlateJobInFlight('c1');
 
     expect(await gate()).toBe('submit');
   });
 
-  it('交不出去（worker 认不得后台任务）是 local，不是 skip', async () => {
+  it('交不出去（worker 認不得後台任務）是 local，不是 skip', async () => {
     probeBackgroundJobSupportDetailed.mockResolvedValue('unsupported');
 
     expect(await gate()).toBe('local');
   });
 
-  it('服务端答复了「不行」→ 不留记号（确定没建成，下一轮还能再试）', async () => {
-    scheduleBackgroundJob.mockRejectedValueOnce(new Error('worker 说不行'));
+  it('服務端答覆了「不行」→ 不留記號（確定沒建成，下一輪還能再試）', async () => {
+    scheduleBackgroundJob.mockRejectedValueOnce(new Error('worker 說不行'));
     await expect(submit()).rejects.toThrow();
 
     expect(await gate()).toBe('submit');
-    expect(settleCloudApiCall, '这一笔确定没烧，调用记录别一直挂着「云端生成中」')
+    expect(settleCloudApiCall, '這一筆確定沒燒，調用記錄別一直掛著「雲端生成中」')
       .toHaveBeenCalledWith(expect.objectContaining({ ok: false }));
   });
 
-  // 回归守卫：请求到了服务端、答复丢在路上。事后才打记号的话这种情形一点痕迹都不留，
-  // 任务照跑照扣费，本地却当它没交出去——这一轮退回本地再全量跑一遍（同一份快照烧两次
-  // API、两份结果先后落地互相盖），那笔烧掉的副 API 调用也进不了「API 调用记录」。
-  it('没等到答复 → 记号留着挡住下一轮，那笔调用记录也不收', async () => {
+  // 迴歸守衛：請求到了服務端、答覆丟在路上。事後才打記號的話這種情形一點痕跡都不留，
+  // 任務照跑照扣費，本地卻當它沒交出去——這一輪退回本地再全量跑一遍（同一份快照燒兩次
+  // API、兩份結果先後落地互相蓋），那筆燒掉的副 API 調用也進不了「API 調用記錄」。
+  it('沒等到答覆 → 記號留著擋住下一輪，那筆調用記錄也不收', async () => {
     scheduleBackgroundJob.mockRejectedValueOnce(
       Object.assign(new Error('Failed to fetch'), { [MAYBE_CREATED]: true }),
     );
     await expect(submit()).rejects.toThrow();
 
-    expect(readPlateJobInFlightRaw('c1'), '当成「没交出去」的话，这一轮会在本地再全量跑一遍').not.toBeNull();
+    expect(readPlateJobInFlightRaw('c1'), '當成「沒交出去」的話，這一輪會在本地再全量跑一遍').not.toBeNull();
     expect(await gate()).toBe('skip');
-    expect(settleCloudApiCall, '任务可能真在跑，别急着把这笔记成失败').not.toHaveBeenCalled();
+    expect(settleCloudApiCall, '任務可能真在跑，別急著把這筆記成失敗').not.toHaveBeenCalled();
   });
 
-  it('那笔调用记录在发请求之前就落下（答复丢了也查得到是谁在烧 Key）', async () => {
+  it('那筆調用記錄在發請求之前就落下（答覆丟了也查得到是誰在燒 Key）', async () => {
     scheduleBackgroundJob.mockRejectedValueOnce(
       Object.assign(new Error('Failed to fetch'), { [MAYBE_CREATED]: true }),
     );
@@ -230,9 +230,9 @@ describe('同一角色同时只许一份整理在飞', () => {
     );
   });
 
-  // 结果永远没回来（worker 挂了 / 任务被清了）：闸不能一直关着，那笔「云端生成中」
-  // 的调用记录也不能一直转圈。
-  it('超时之后放行，并把那笔挂着的调用记录收成失败', async () => {
+  // 結果永遠沒回來（worker 掛了 / 任務被清了）：閘不能一直關著，那筆「雲端生成中」
+  // 的調用記錄也不能一直轉圈。
+  it('超時之後放行，並把那筆掛著的調用記錄收成失敗', async () => {
     await submit();
     expect(await gate()).toBe('skip');
 
@@ -244,55 +244,55 @@ describe('同一角色同时只许一份整理在飞', () => {
     );
   });
 
-  // 回归守卫：在飞那道门原先排在「这条路还通不通」前面，于是一份交出去再没回来的任务
-  // 会让接下来半小时既不走云端、也不退回本地——整理一次都不做，而 skip 的语义本来是
-  // 「云端正在替我们干这件事」。
-  it('云端这条路断了（worker 认不得后台任务）→ 就算有一份在飞也退回本地', async () => {
+  // 迴歸守衛：在飛那道門原先排在「這條路還通不通」前面，於是一份交出去再沒回來的任務
+  // 會讓接下來半小時既不走雲端、也不退回本地——整理一次都不做，而 skip 的語義本來是
+  // 「雲端正在替我們幹這件事」。
+  it('雲端這條路斷了（worker 認不得後台任務）→ 就算有一份在飛也退回本地', async () => {
     await submit();
     expect(await gate()).toBe('skip');
 
     probeBackgroundJobSupportDetailed.mockResolvedValue('unsupported');
 
-    expect(await gate(), '路都断了还 skip 的话，这半小时门牌一次都不整理').toBe('local');
+    expect(await gate(), '路都斷了還 skip 的話，這半小時門牌一次都不整理').toBe('local');
   });
 
-  // 回归守卫：探测原先把「问不到」和「问到了、答案是不行」混成同一个 false，而它排在
-  // 在飞那道门前面。于是一次代理切换、一次 CF 边缘抖动、一次 D1 冷启动超时，就能在任务
-  // 还在云端跑着的时候把这一轮踢回本地——同一份快照烧两次副 API，两份结果先后落地互相盖。
-  it('探测这次问不到、但手上有一份在飞 → 不许退回本地', async () => {
+  // 迴歸守衛：探測原先把「問不到」和「問到了、答案是不行」混成同一個 false，而它排在
+  // 在飛那道門前面。於是一次代理切換、一次 CF 邊緣抖動、一次 D1 冷啟動超時，就能在任務
+  // 還在雲端跑著的時候把這一輪踢回本地——同一份快照燒兩次副 API，兩份結果先後落地互相蓋。
+  it('探測這次問不到、但手上有一份在飛 → 不許退回本地', async () => {
     await submit();
     probeBackgroundJobSupportDetailed.mockResolvedValue('unknown');
 
-    expect(await gate(), '任务多半好好地在云端跑着，这时候退本地就是撞车').toBe('skip');
+    expect(await gate(), '任務多半好好地在雲端跑著，這時候退本地就是撞車').toBe('skip');
   });
 
-  it('探测这次问不到、手上也没有在飞的 → 照常退回本地（别干等着）', async () => {
+  it('探測這次問不到、手上也沒有在飛的 → 照常退回本地（別乾等著）', async () => {
     probeBackgroundJobSupportDetailed.mockResolvedValue('unknown');
 
     expect(await gate()).toBe('local');
   });
 });
 
-// 回归守卫：一条迟到的（上一份超时之后才姗姗来迟）或者被重放的（销账失败，下次上线又
-// 拉回来一遍）结果，会把另一份**真正还在跑**的任务的闸打开——下一轮又交一份上去，两份
-// 带着各自的旧快照先后落地互相盖，正是这道闸要防的那种重叠。
-describe('结果落地时只认自己那一份在飞记号', () => {
+// 迴歸守衛：一條遲到的（上一份超時之後才姍姍來遲）或者被重放的（銷帳失敗，下次上線又
+// 拉回來一遍）結果，會把另一份**真正還在跑**的任務的閘打開——下一輪又交一份上去，兩份
+// 帶著各自的舊快照先後落地互相蓋，正是這道閘要防的那種重疊。
+describe('結果落地時只認自己那一份在飛記號', () => {
   const gate = () => plateCloudGate({ charId: 'c1', lightLLM: LIGHT_LLM });
 
-  it('编号对不上的结果不动闸', async () => {
+  it('編號對不上的結果不動閘', async () => {
     await submit();
     const jobA = lastJobId();
-    clearPlateJobInFlight('c1');   // A 超时被判死
-    await submit();                // 换 B 上去，记号 = B
+    clearPlateJobInFlight('c1');   // A 超時被判死
+    await submit();                // 換 B 上去，記號 = B
     const jobB = lastJobId();
 
     await applyPlateConsolidateResult(emptyResult(jobA));
 
-    expect(await gate(), 'B 还在跑，闸被 A 的结果打开就会再交一份 C 上去').toBe('skip');
+    expect(await gate(), 'B 還在跑，閘被 A 的結果打開就會再交一份 C 上去').toBe('skip');
     expect(readPlateJobInFlightRaw('c1')?.jobId).toBe(jobB);
   });
 
-  it('编号对得上就照常放行', async () => {
+  it('編號對得上就照常放行', async () => {
     await submit();
 
     await applyPlateConsolidateResult(emptyResult(lastJobId()));
@@ -300,21 +300,21 @@ describe('结果落地时只认自己那一份在飞记号', () => {
     expect(await gate()).toBe('submit');
   });
 
-  // 回归守卫：闸原先在落库循环**之前**就放开了。中途某一块存不进去（IDB 配额、事务被
-  // 中断）这份结果不销账、下次上线还会重放，而闸已经开着——期间的消化又交了一份新的
-  // 上去，两份带着不同的旧快照先后落地互相盖，正是这道闸要防的那种重叠。
-  it('落库中途炸了 → 闸不放开（这份结果还要重放）', async () => {
+  // 迴歸守衛：閘原先在落庫循環**之前**就放開了。中途某一塊存不進去（IDB 配額、事務被
+  // 中斷）這份結果不銷帳、下次上線還會重放，而閘已經開著——期間的消化又交了一份新的
+  // 上去，兩份帶著不同的舊快照先後落地互相蓋，正是這道閘要防的那種重疊。
+  it('落庫中途炸了 → 閘不放開（這份結果還要重放）', async () => {
     await submit();
     const jobId = lastJobId();
-    plateStore.saveError = new Error('IDB 配额满了');
+    plateStore.saveError = new Error('IDB 配額滿了');
 
     await expect(applyPlateConsolidateResult(twoRoomResult(jobId))).rejects.toThrow();
 
-    expect(readPlateJobInFlightRaw('c1')?.jobId, '闸开着的话下一轮又会交一份上去').toBe(jobId);
+    expect(readPlateJobInFlightRaw('c1')?.jobId, '閘開著的話下一輪又會交一份上去').toBe(jobId);
     expect(await gate()).toBe('skip');
   });
 
-  it('落库全部走完才放闸', async () => {
+  it('落庫全部走完才放閘', async () => {
     await submit();
 
     await applyPlateConsolidateResult(twoRoomResult(lastJobId()));
@@ -324,22 +324,22 @@ describe('结果落地时只认自己那一份在飞记号', () => {
   });
 });
 
-// 回归守卫：结果那一支刻意跳过了补收那两天的时效窗（结果晚到本来就是常态），但跳过之后
-// 没换上任何上限。服务端账本留 28 天——换设备 / 重装 PWA / 清过 localStorage 的用户第一次
-// 接上账本时会把这些老结果一次性拉回来，拿一份月前的快照去改写一块早被翻过几十轮的门牌。
-describe('躺太久的结果不再落地', () => {
+// 迴歸守衛：結果那一支刻意跳過了補收那兩天的時效窗（結果晚到本來就是常態），但跳過之後
+// 沒換上任何上限。服務端帳本留 28 天——換設備 / 重裝 PWA / 清過 localStorage 的用戶第一次
+// 接上帳本時會把這些老結果一次性拉回來，拿一份月前的快照去改寫一塊早被翻過幾十輪的門牌。
+describe('躺太久的結果不再落地', () => {
   const daysAgo = (n: number) => Date.now() - n * 24 * 60 * 60 * 1000;
 
-  it('超过一周的直接销账丢掉，一块门牌都不动', async () => {
+  it('超過一週的直接銷帳丟掉，一塊門牌都不動', async () => {
     await submit();
 
     const acked = await applyPlateConsolidateResult(twoRoomResult(lastJobId()), { createdAt: daysAgo(8) });
 
-    expect(acked, '留着不销的话每次上线都拉回来看一眼').toBe(true);
+    expect(acked, '留著不銷的話每次上線都拉回來看一眼').toBe(true);
     expect(RoomPlateDB.save).not.toHaveBeenCalled();
   });
 
-  it('一周之内的照常落地（关掉笔记本过个周末不算太久）', async () => {
+  it('一週之內的照常落地（關掉筆記本過個週末不算太久）', async () => {
     await submit();
 
     await applyPlateConsolidateResult(twoRoomResult(lastJobId()), { createdAt: daysAgo(2) });
@@ -347,7 +347,7 @@ describe('躺太久的结果不再落地', () => {
     expect(RoomPlateDB.save).toHaveBeenCalled();
   });
 
-  it('不带时间的（推送直达那条腿）照常落地', async () => {
+  it('不帶時間的（推送直達那條腿）照常落地', async () => {
     await submit();
 
     await applyPlateConsolidateResult(twoRoomResult(lastJobId()));
@@ -356,11 +356,11 @@ describe('躺太久的结果不再落地', () => {
   });
 });
 
-// 回归守卫：同一份结果会被送到两次以上——销账那一步失败（断网）下次上线还会拉回来，
-// 推送直达那条腿收下之后压根不销账、补收时又来一遍。而落地不是幂等的：合并对每条保留
-// 下来的条目 sourceCount + 1，那个数字就是门牌面板上的「印证 N 次」。
-describe('同一份结果落地一次就够了', () => {
-  it('重放不再动门牌（「印证 N 次」不会跟着重放虚增）', async () => {
+// 迴歸守衛：同一份結果會被送到兩次以上——銷帳那一步失敗（斷網）下次上線還會拉回來，
+// 推送直達那條腿收下之後壓根不銷帳、補收時又來一遍。而落地不是冪等的：合併對每條保留
+// 下來的條目 sourceCount + 1，那個數字就是門牌面板上的「印證 N 次」。
+describe('同一份結果落地一次就夠了', () => {
+  it('重放不再動門牌（「印證 N 次」不會跟著重放虛增）', async () => {
     await submit();
     const jobId = lastJobId();
 
@@ -370,17 +370,17 @@ describe('同一份结果落地一次就够了', () => {
 
     const acked = await applyPlateConsolidateResult(twoRoomResult(jobId));
 
-    expect(acked, '留着不销的话每次上线都重放一遍').toBe(true);
-    expect(RoomPlateDB.save, '再合并一遍就是给每条 sourceCount 白加一次').not.toHaveBeenCalled();
+    expect(acked, '留著不銷的話每次上線都重放一遍').toBe(true);
+    expect(RoomPlateDB.save, '再合併一遍就是給每條 sourceCount 白加一次').not.toHaveBeenCalled();
     expect(plateStore.plates.get('user_room')).toBe(afterFirst);
   });
 
-  // 落库中途炸掉的那一次不能记成「落过地了」：账没销、下次上线还会重放，而重放会被幂等
-  // 闸挡在门外，剩下那几块门牌就再也补不上了。
-  it('落库中途炸了 → 不记账，重放照样从头落一遍', async () => {
+  // 落庫中途炸掉的那一次不能記成「落過地了」：帳沒銷、下次上線還會重放，而重放會被冪等
+  // 閘擋在門外，剩下那幾塊門牌就再也補不上了。
+  it('落庫中途炸了 → 不記帳，重放照樣從頭落一遍', async () => {
     await submit();
     const jobId = lastJobId();
-    plateStore.saveError = new Error('IDB 配额满了');
+    plateStore.saveError = new Error('IDB 配額滿了');
     await expect(applyPlateConsolidateResult(twoRoomResult(jobId))).rejects.toThrow();
 
     plateStore.saveError = null;
@@ -391,48 +391,48 @@ describe('同一份结果落地一次就够了', () => {
   });
 });
 
-// 回归守卫：删角色时清的是云端那份**输入**，而结果回来说明 LLM 早跑完了、输入那会儿已经
-// 被 worker 自己删掉。不拦的话，下次上线补收会拿这份结果给一个已经不存在的角色重新建出
-// 四块门牌（loadOrCreatePlate 没有就现造），里面装着那个角色蒸馏出来的全部认知——而删除
-// 确认框跟用户说的是「记忆将被清空」。
-describe('角色已经删掉的结果不落地', () => {
-  it('角色不在了 → 销账丢掉，一块门牌都不新建', async () => {
+// 迴歸守衛：刪角色時清的是雲端那份**輸入**，而結果回來說明 LLM 早跑完了、輸入那會兒已經
+// 被 worker 自己刪掉。不攔的話，下次上線補收會拿這份結果給一個已經不存在的角色重新建出
+// 四塊門牌（loadOrCreatePlate 沒有就現造），裡面裝著那個角色蒸餾出來的全部認知——而刪除
+// 確認框跟用戶說的是「記憶將被清空」。
+describe('角色已經刪掉的結果不落地', () => {
+  it('角色不在了 → 銷帳丟掉，一塊門牌都不新建', async () => {
     await submit();
     const jobId = lastJobId();
     charStore.chars = [];
 
     const acked = await applyPlateConsolidateResult(twoRoomResult(jobId));
 
-    expect(acked, '留着不销的话每次上线都来试一遍').toBe(true);
-    expect(RoomPlateDB.save, '存进去就是把删掉的角色的认知又长回来').not.toHaveBeenCalled();
+    expect(acked, '留著不銷的話每次上線都來試一遍').toBe(true);
+    expect(RoomPlateDB.save, '存進去就是把刪掉的角色的認知又長回來').not.toHaveBeenCalled();
   });
 
-  it('角色库读不出来 → 不结论也不落地，账留着下次再来', async () => {
+  it('角色庫讀不出來 → 不結論也不落地，帳留著下次再來', async () => {
     await submit();
     const { DB } = await import('../db');
-    vi.mocked(DB.getAllCharacters).mockRejectedValueOnce(new Error('IDB 打不开'));
+    vi.mocked(DB.getAllCharacters).mockRejectedValueOnce(new Error('IDB 打不開'));
 
     const acked = await applyPlateConsolidateResult(twoRoomResult(lastJobId()));
 
-    expect(acked, '不知道角色还在不在的时候，宁可晚几分钟也别往库里写').toBe(false);
+    expect(acked, '不知道角色還在不在的時候，寧可晚幾分鐘也別往庫裡寫').toBe(false);
     expect(RoomPlateDB.save).not.toHaveBeenCalled();
   });
 });
 
-// 回归守卫：这一笔原先在落库**之前**就收成 ok 了。被丢掉的结果（太旧、内容空）在「设置
-// → API 调用记录」里写着成功，而它其实白烧了一次副 API；落库中途炸掉的那次也写着成功，
-// 可一条门牌都没写进去。
-describe('云端那笔调用记录说的是实话', () => {
+// 迴歸守衛：這一筆原先在落庫**之前**就收成 ok 了。被丟掉的結果（太舊、內容空）在「設置
+// → API 調用記錄」裡寫著成功，而它其實白燒了一次副 API；落庫中途炸掉的那次也寫著成功，
+// 可一條門牌都沒寫進去。
+describe('雲端那筆調用記錄說的是實話', () => {
   const settledOk = () => vi.mocked(settleCloudApiCall).mock.calls.map(([c]) => c.ok);
 
-  it('落库真的走完了才记成功', async () => {
+  it('落庫真的走完了才記成功', async () => {
     await submit();
     await applyPlateConsolidateResult(twoRoomResult(lastJobId()));
 
     expect(settledOk()).toEqual([true]);
   });
 
-  it('躺太久被丢掉的记成失败（这一笔白烧了）', async () => {
+  it('躺太久被丟掉的記成失敗（這一筆白燒了）', async () => {
     await submit();
     await applyPlateConsolidateResult(twoRoomResult(lastJobId()), {
       createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
@@ -441,20 +441,20 @@ describe('云端那笔调用记录说的是实话', () => {
     expect(settledOk()).toEqual([false]);
   });
 
-  it('落库中途炸了 → 这一笔先不收（账没销，重放时再照实收）', async () => {
+  it('落庫中途炸了 → 這一筆先不收（帳沒銷，重放時再照實收）', async () => {
     await submit();
-    plateStore.saveError = new Error('IDB 配额满了');
+    plateStore.saveError = new Error('IDB 配額滿了');
 
     await expect(applyPlateConsolidateResult(twoRoomResult(lastJobId()))).rejects.toThrow();
 
-    expect(settledOk(), '记成功的话，用户会以为门牌已经更新了').toEqual([]);
+    expect(settledOk(), '記成功的話，用戶會以為門牌已經更新了').toEqual([]);
   });
 });
 
-// 回归守卫：远端任务编号原先被 submitPlateConsolidation 返回之后就丢掉了，本地没有任何
-// 地方记着它——删角色时想撤那条任务都找不到它是哪一行。
-describe('远端任务编号要记在在飞记号上', () => {
-  it('交出去之后记号上带着那条任务的 uuid', async () => {
+// 迴歸守衛：遠端任務編號原先被 submitPlateConsolidation 返回之後就丟掉了，本地沒有任何
+// 地方記著它——刪角色時想撤那條任務都找不到它是哪一行。
+describe('遠端任務編號要記在在飛記號上', () => {
+  it('交出去之後記號上帶著那條任務的 uuid', async () => {
     scheduleBackgroundJob.mockResolvedValueOnce({ uuid: 'task-uuid-7' });
 
     await submit();
@@ -462,24 +462,24 @@ describe('远端任务编号要记在在飞记号上', () => {
     expect(readPlateJobInFlightRaw('c1')?.uuid).toBe('task-uuid-7');
   });
 
-  it('没等到答复（拿不到 uuid）→ 记号照留，只是没有编号', async () => {
+  it('沒等到答覆（拿不到 uuid）→ 記號照留，只是沒有編號', async () => {
     scheduleBackgroundJob.mockRejectedValueOnce(
       Object.assign(new Error('Failed to fetch'), { [MAYBE_CREATED]: true }),
     );
     await expect(submit()).rejects.toThrow();
 
     const mark = readPlateJobInFlightRaw('c1');
-    expect(mark, '记号是这种情形下唯一的痕迹').not.toBeNull();
+    expect(mark, '記號是這種情形下唯一的痕跡').not.toBeNull();
     expect(mark?.uuid).toBeUndefined();
   });
 });
 
-// 回归守卫：「还在飞吗」原先是个**会改状态**的判断——它顺手清记号、把那笔调用记录记成
-// 失败。而它在一轮整理里会被问到两次（决定交不交云端时一次、提交抛错后判断「是不是已经
-// 建起来了」时一次），TTL 边界正好落在两次之间的话，第二次问会就地把闸删掉，而第一次的
-// 决定是照着相反的答案做的。
-describe('问「还在飞吗」不该动任何状态', () => {
-  it('连问两次答案一样，也不会顺手把记号清掉', async () => {
+// 迴歸守衛：「還在飛嗎」原先是個**會改狀態**的判斷——它順手清記號、把那筆調用記錄記成
+// 失敗。而它在一輪整理裡會被問到兩次（決定交不交雲端時一次、提交拋錯後判斷「是不是已經
+// 建起來了」時一次），TTL 邊界正好落在兩次之間的話，第二次問會就地把閘刪掉，而第一次的
+// 決定是照著相反的答案做的。
+describe('問「還在飛嗎」不該動任何狀態', () => {
+  it('連問兩次答案一樣，也不會順手把記號清掉', async () => {
     await submit();
     const jobId = lastJobId();
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31 * 60_000);
@@ -488,11 +488,11 @@ describe('问「还在飞吗」不该动任何状态', () => {
     expect(readPlateJobInFlight('c1')).toBeNull();
     expect(readPlateJobInFlight('c1')).toBeNull();
 
-    expect(readPlateJobInFlightRaw('c1')?.jobId, '判断本身不该收尾').toBe(jobId);
+    expect(readPlateJobInFlightRaw('c1')?.jobId, '判斷本身不該收尾').toBe(jobId);
     expect(settleCloudApiCall).not.toHaveBeenCalled();
   });
 
-  it('收尾是每轮开头显式跑一次（plateCloudGate）', async () => {
+  it('收尾是每輪開頭顯式跑一次（plateCloudGate）', async () => {
     await submit();
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31 * 60_000);
 

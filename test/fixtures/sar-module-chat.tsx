@@ -9,9 +9,9 @@ import { sarStickerRawReply } from './sar-module-sticker-reply';
 import type { CharacterProfile, ChatTheme, Message, UserProfile } from '../../types';
 
 const charId = 'qa-sar-module-sticker';
-const user = { name: '测试用户' } as UserProfile;
+const user = { name: '測試用戶' } as UserProfile;
 const runtime = installSARModuleOnCharacter(SAR_MODULE_CATALOG[0], 1);
-const char = { id: charId, name: '测试角色', vrState: { enabled: true, sarModule: runtime } } as CharacterProfile;
+const char = { id: charId, name: '測試角色', vrState: { enabled: true, sarModule: runtime } } as CharacterProfile;
 const avatar = '/assets/sar/caian-chibi.png';
 const theme: ChatTheme = { id: 'qa', name: 'QA', type: 'preset', ai: { backgroundColor: '#fff', textColor: '#222', borderRadius: 15, opacity: 100 }, user: { backgroundColor: '#ddd', textColor: '#222', borderRadius: 15, opacity: 100 } };
 async function loadMessages() {
@@ -31,7 +31,7 @@ async function loadMessages() {
 function App() {
     const [messages, setMessages] = useState<Message[]>([]), [error, setError] = useState('');
     useEffect(() => { void loadMessages().then(setMessages).catch(e => setError(String(e))); }, []);
-    return <main aria-label="模块消息回归">{error && <p role="alert">{error}</p>}{messages.map((msg, index) => <div className="qa-message" data-qa-index={index} key={msg.id}>
+    return <main aria-label="模塊消息迴歸">{error && <p role="alert">{error}</p>}{messages.map((msg, index) => <div className="qa-message" data-qa-index={index} key={msg.id}>
         <MessageItem msg={msg} isFirstInGroup={index === 0} isLastInGroup={index === messages.length - 1} isLatestMessage={index === messages.length - 1}
             activeTheme={theme} charAvatar={avatar} userAvatar={avatar} charName={char.name} onLongPress={() => {}} onReply={() => {}}
             selectionMode={false} isSelected={false} onToggleSelect={() => {}} showTimestamp="never" suppressEntranceAnimation/>

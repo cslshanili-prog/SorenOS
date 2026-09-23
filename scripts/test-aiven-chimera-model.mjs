@@ -34,12 +34,12 @@ try{
     const catalog=await page.evaluate(async()=>{const {dinoDefinition}=await import('/utils/vrWorld/dinosaurCatalog.ts');return dinoDefinition('aiven-chimera');});
     assert.equal(catalog.name,'？？？');
     if(width===390){
-      await page.getByRole('button',{name:'试试换色'}).click();await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).paint.body==='#e0bb80');
+      await page.getByRole('button',{name:'試試換色'}).click();await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).paint.body==='#e0bb80');
       await page.screenshot({path:`${output}/390-painted.png`});shots.push('390-painted.png');
       await page.getByRole('button',{name:'原始配色'}).click();
       await page.getByRole('button',{name:'打招呼',exact:true}).click();await page.evaluate(()=>window.advanceTime(240));
       state=await snapshot();assert(state.activities['qa-aiven-chimera'].position.y>.04,'greeting lifts the toy gently');
-      await page.getByRole('button',{name:'放进箱庭'}).click();await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).view==='garden');await page.evaluate(()=>window.advanceTime(360));
+      await page.getByRole('button',{name:'放進箱庭'}).click();await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).view==='garden');await page.evaluate(()=>window.advanceTime(360));
       state=await snapshot();assert.deepEqual(state.loaded,['qa-aiven-chimera']);assert.equal(state.error,'');assert(state.activities['qa-aiven-chimera'].morph.some(n=>Math.abs(n)>.001),'garden activities animate the long-neck toy');
       await page.screenshot({path:`${output}/390-garden.png`});shots.push('390-garden.png');
       await page.getByRole('button',{name:'查看模型'}).click();

@@ -1,26 +1,26 @@
 /**
- * Memory Dive — 下屏氛围面板
+ * Memory Dive — 下屏氛圍面板
  *
- * 不再承载对话框（对话框现在浮在上屏房间下沿）。
- * 这里是"梦核"氛围区：
- *   - 居中大字的房间名（半透明，柔光）
- *   - 底下循环飘过一段当次房间召回的记忆碎片（纯本地数据，不调 LLM）
- *   - 转场 / 剧本生成中改成沉浸式引导文案
+ * 不再承載對話框（對話框現在浮在上屏房間下沿）。
+ * 這裡是"夢核"氛圍區：
+ *   - 居中大字的房間名（半透明，柔光）
+ *   - 底下循環飄過一段當次房間召回的記憶碎片（純本地數據，不調 LLM）
+ *   - 轉場 / 劇本生成中改成沉浸式引導文案
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 
 interface Props {
-  /** 当前房间名（已本地化） */
+  /** 當前房間名（已本地化） */
   roomName: string;
-  /** 当次进入这个房间检索到的记忆碎片（纯文本） */
+  /** 當次進入這個房間檢索到的記憶碎片（純文本） */
   memoryFragments: string[];
   isLoading: boolean;
-  /** 加载文案（"走向卧室" / "薄雾正在聚拢" 等） */
+  /** 加載文案（"走向臥室" / "薄霧正在聚攏" 等） */
   loadingText?: string;
-  /** API 失败时的错误信息；非空会显示"重新召回"按钮 */
+  /** API 失敗時的錯誤信息；非空會顯示"重新召回"按鈕 */
   loadError?: string | null;
-  /** 点击重新召回 */
+  /** 點擊重新召回 */
   onRetry?: () => void;
 }
 
@@ -38,7 +38,7 @@ const MemoryDiveAmbient: React.FC<Props> = ({
 }) => {
   const [fragIdx, setFragIdx] = useState(0);
 
-  // 切换房间或片段数组变了 → 重置并启动循环
+  // 切換房間或片段數組變了 → 重置並啟動循環
   useEffect(() => {
     setFragIdx(0);
     if (memoryFragments.length <= 1) return;
@@ -55,21 +55,21 @@ const MemoryDiveAmbient: React.FC<Props> = ({
       className="shrink-0 w-full relative overflow-hidden"
       style={{ height: '38vh', minHeight: 200 }}
     >
-      {/* 背景：深色渐变 + 像素星点 */}
+      {/* 背景：深色漸變 + 像素星點 */}
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black">
         <DecorStars />
       </div>
 
-      {/* 错误态（最高优先级）：显示重新召回按钮 */}
+      {/* 錯誤態（最高優先級）：顯示重新召回按鈕 */}
       {loadError && <ErrorRetry message={loadError} onRetry={onRetry} />}
 
-      {/* 加载态 —— 覆盖正常态 */}
-      {!loadError && isLoading && <ImmersiveLoading text={loadingText || '记忆正在浮现'} />}
+      {/* 加載態 —— 覆蓋正常態 */}
+      {!loadError && isLoading && <ImmersiveLoading text={loadingText || '記憶正在浮現'} />}
 
-      {/* 非加载 / 非错误态：房间名 + 记忆碎片 */}
+      {/* 非加載 / 非錯誤態：房間名 + 記憶碎片 */}
       {!loadError && !isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pointer-events-none">
-          {/* 房间名（大字幽光） */}
+          {/* 房間名（大字幽光） */}
           <div
             className="text-[24px] font-bold text-violet-200/30 tracking-[0.6em] select-none"
             style={{
@@ -80,10 +80,10 @@ const MemoryDiveAmbient: React.FC<Props> = ({
             {roomName}
           </div>
 
-          {/* 分隔细线 */}
+          {/* 分隔細線 */}
           <div className="mt-3 w-20 h-px bg-gradient-to-r from-transparent via-violet-400/30 to-transparent" />
 
-          {/* 记忆碎片（循环淡入淡出） */}
+          {/* 記憶碎片（循環淡入淡出） */}
           {currentFrag ? (
             <div
               key={fragIdx}
@@ -113,11 +113,11 @@ const MemoryDiveAmbient: React.FC<Props> = ({
   );
 };
 
-// ─── 错误态浮层 ────────────────────────────────────────
+// ─── 錯誤態浮層 ────────────────────────────────────────
 
 const ErrorRetry: React.FC<{ message: string; onRetry?: () => void }> = ({ message, onRetry }) => (
   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 z-10">
-    {/* 柔光环（琥珀色，表示"卡住了" vs 紫色的"正常加载"） */}
+    {/* 柔光環（琥珀色，表示"卡住了" vs 紫色的"正常加載"） */}
     <div className="absolute w-36 h-36 rounded-full"
       style={{
         background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, rgba(251,191,36,0.05) 40%, transparent 70%)',
@@ -128,7 +128,7 @@ const ErrorRetry: React.FC<{ message: string; onRetry?: () => void }> = ({ messa
     <div className="relative text-[12px] italic text-amber-200/80 text-center tracking-[0.15em]"
       style={{ textShadow: '0 0 10px rgba(251,191,36,0.35)' }}
     >
-      记忆像卡在薄雾里了
+      記憶像卡在薄霧裡了
     </div>
 
     <button
@@ -140,7 +140,7 @@ const ErrorRetry: React.FC<{ message: string; onRetry?: () => void }> = ({ messa
       }}
     >
       <span className="mr-1.5">✦</span>重新召回<span className="ml-1.5">✦</span>
-      {/* 悬停光晕 */}
+      {/* 懸停光暈 */}
       <span className="absolute inset-0 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
         style={{ boxShadow: '0 0 16px rgba(251,191,36,0.25)' }} />
     </button>
@@ -161,7 +161,7 @@ const ErrorRetry: React.FC<{ message: string; onRetry?: () => void }> = ({ messa
   </div>
 );
 
-// ─── 内部：背景星点 + 沉浸式加载 ────────────────────────
+// ─── 內部：背景星點 + 沉浸式加載 ────────────────────────
 
 const DecorStars: React.FC = () => {
   const stars = useMemo(() => {

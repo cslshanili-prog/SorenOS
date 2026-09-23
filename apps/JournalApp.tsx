@@ -27,10 +27,10 @@ const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 // --- Assets & Constants ---
 
 const PAPER_STYLES = [
-    { id: 'plain', name: '白纸', css: 'bg-white', text: 'text-slate-700' },
-    { id: 'grid', name: '网格', css: 'bg-white', text: 'text-slate-700', style: { backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'dot', name: '点阵', css: 'bg-[#fffdf5]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' } },
-    { id: 'lined', name: '横线', css: 'bg-[#fefce8]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e5e7eb 23px, #e5e7eb 24px)' } },
+    { id: 'plain', name: '白紙', css: 'bg-white', text: 'text-slate-700' },
+    { id: 'grid', name: '網格', css: 'bg-white', text: 'text-slate-700', style: { backgroundImage: 'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+    { id: 'dot', name: '點陣', css: 'bg-[#fffdf5]', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#d1d5db 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+    { id: 'lined', name: '橫線', css: 'bg-[#fefce8]', text: 'text-slate-700', style: { backgroundImage: 'repeating-linear-gradient(transparent, transparent 23px, #e5e7eb 23px, #e5e7eb 24px)' } },
     { id: 'dark', name: '夜空', css: 'bg-slate-800', text: 'text-white/90' },
     { id: 'pink', name: '少女', css: 'bg-pink-50', text: 'text-slate-700', style: { backgroundImage: 'radial-gradient(#fbcfe8 2px, transparent 2px)', backgroundSize: '30px 30px' } },
 ];
@@ -42,17 +42,17 @@ const DEFAULT_STICKERS = [
     twemojiUrl('1f48c'), twemojiUrl('1f4a4'), twemojiUrl('1f97a'), twemojiUrl('1f621'), twemojiUrl('1f62d'),
 ];
 
-// 兜底：extractJson 都救不回来时，内容可能是「模型没按 JSON 写的散文」，也可能是
-// 「破损到修不了的 JSON」。前者直接当正文用；后者不能把 { "text": "..." } 整段露出来。
-// 这里做最后一层打捞：若内容像个带 text 字段的 JSON 对象，正则抠出 text 值并还原转义；
-// 否则原样返回。
+// 兜底：extractJson 都救不回來時，內容可能是「模型沒按 JSON 寫的散文」，也可能是
+// 「破損到修不了的 JSON」。前者直接當正文用；後者不能把 { "text": "..." } 整段露出來。
+// 這裡做最後一層打撈：若內容像個帶 text 字段的 JSON 對象，正則摳出 text 值並還原轉義；
+// 否則原樣返回。
 const salvageDiaryText = (raw: string): string => {
     const s = (raw || '').trim();
     if (!s.startsWith('{') || !/"text"\s*:/.test(s)) return s;
     const m = s.match(/"text"\s*:\s*"((?:\\.|[^"\\])*)"/);
     if (!m) return s;
     try {
-        // 用 JSON.parse 还原 \n \" \\ 等转义，失败就手动替换常见转义
+        // 用 JSON.parse 還原 \n \" \\ 等轉義，失敗就手動替換常見轉義
         return JSON.parse(`"${m[1]}"`);
     } catch {
         return m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
@@ -70,11 +70,11 @@ const getLocalDateStr = () => {
 
 const JournalApp: React.FC = () => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, memoryPalaceConfig, characterGroups, theme } = useOS();
-    // 预览草稿只活在当前 JournalApp 会话里，不写 theme/localStorage。状态放在
-    // App 顶层，才能在选择页、列表页与书写页之间切换时继续预览同一套 CSS。
+    // 預覽草稿只活在當前 JournalApp 會話裡，不寫 theme/localStorage。狀態放在
+    // App 頂層，才能在選擇頁、列表頁與書寫頁之間切換時繼續預覽同一套 CSS。
     const [previewJournalAppearance, setPreviewJournalAppearance] = useState<JournalAppearance | undefined>();
     const effectiveJournalAppearance = previewJournalAppearance || theme.journalAppearance;
-    // 原本琥珀严格保留旧的单页结构；其它主题拥有各自的实体 / 设备版式。
+    // 原本琥珀嚴格保留舊的單頁結構；其它主題擁有各自的實體 / 設備版式。
     const effectiveJournalPreset = effectiveJournalAppearance?.preset || 'original';
     const journalUsesScrapbookLayout = effectiveJournalPreset !== 'original';
     const journalLayoutClass = journalUsesScrapbookLayout
@@ -89,7 +89,7 @@ const JournalApp: React.FC = () => {
 
     const [mode, setMode] = useState<'select' | 'calendar' | 'write'>('select');
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
-    const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 选日记本页的分组筛选
+    const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 選日記本頁的分組篩選
     const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(getLocalDateStr());
@@ -164,7 +164,7 @@ const JournalApp: React.FC = () => {
             // Default to char tab if they replied
             setActiveTab(existing.charPage ? 'char' : 'user');
         } else {
-            // New Entry — 打 autoSync=true, 后续不在列表里显示手动归档按钮
+            // New Entry — 打 autoSync=true, 後續不在列表裡顯示手動歸檔按鈕
             setCurrentEntry({
                 id: `diary-${Date.now()}`,
                 charId: selectedChar!.id,
@@ -238,7 +238,7 @@ const JournalApp: React.FC = () => {
         setCustomStickers(await DB.getJournalStickers()); // Changed Store
         setImportText('');
         setShowImportModal(false);
-        addToast(`成功添加 ${count} 个贴纸`, 'success');
+        addToast(`成功添加 ${count} 個貼紙`, 'success');
         trackEvent('导入自定义贴纸');
     };
 
@@ -247,16 +247,16 @@ const JournalApp: React.FC = () => {
             await DB.deleteJournalSticker(deletingSticker.name); // Changed Store
             setCustomStickers(prev => prev.filter(s => s.name !== deletingSticker.name));
             setDeletingSticker(null);
-            addToast('贴纸已删除', 'success');
+            addToast('貼紙已刪除', 'success');
             trackEvent('删除一个自定义贴纸');
         }
     };
 
-    // 把一条 diary 序列化成 score_card payload（含纸张样式名等卡片显示需要的字段）
+    // 把一條 diary 序列化成 score_card payload（含紙張樣式名等卡片顯示需要的字段）
     const buildDiaryCardPayload = (entry: DiaryEntry, char: CharacterProfile) => {
-        const userPaperName = PAPER_STYLES.find(p => p.id === entry.userPage.paperStyle)?.name || '白纸';
+        const userPaperName = PAPER_STYLES.find(p => p.id === entry.userPage.paperStyle)?.name || '白紙';
         const charPaperName = entry.charPage
-            ? (PAPER_STYLES.find(p => p.id === entry.charPage!.paperStyle)?.name || '白纸')
+            ? (PAPER_STYLES.find(p => p.id === entry.charPage!.paperStyle)?.name || '白紙')
             : '';
         return {
             type: 'diary_card',
@@ -275,9 +275,9 @@ const JournalApp: React.FC = () => {
         };
     };
 
-    // 把一条已有 charPage 的日记同步到聊天里（新建或更新 score_card）。
-    // 没有 charPage → 不做任何事（单方面写的日记不进上下文，这是产品规则）。
-    // 返回最终带 chatCardMessageId 的 entry，供调用方接着 setCurrentEntry/saveDiary。
+    // 把一條已有 charPage 的日記同步到聊天裡（新建或更新 score_card）。
+    // 沒有 charPage → 不做任何事（單方面寫的日記不進上下文，這是產品規則）。
+    // 返回最終帶 chatCardMessageId 的 entry，供調用方接著 setCurrentEntry/saveDiary。
     const syncDiaryCardToChat = async (entry: DiaryEntry, char: CharacterProfile): Promise<DiaryEntry> => {
         if (!entry.charPage) return entry;
         const cardData = buildDiaryCardPayload(entry, char);
@@ -292,7 +292,7 @@ const JournalApp: React.FC = () => {
                 }));
                 return entry;
             } catch (e) {
-                console.warn('🗒 [Journal] 已存在的卡片更新失败, 重新创建:', e);
+                console.warn('🗒 [Journal] 已存在的卡片更新失敗, 重新創建:', e);
             }
         }
         const newId = await DB.saveMessage({
@@ -307,7 +307,7 @@ const JournalApp: React.FC = () => {
 
     const saveEntry = async (options: { silent?: boolean } = {}) => {
         if (!currentEntry || !selectedChar) return;
-        // 若该日记已经在聊天里有卡片（char 回复过 + 自动发送过），保存时同步更新卡片
+        // 若該日記已經在聊天裡有卡片（char 回覆過 + 自動發送過），保存時同步更新卡片
         let toSave = currentEntry;
         if (currentEntry.chatCardMessageId && currentEntry.charPage) {
             toSave = await syncDiaryCardToChat(currentEntry, selectedChar);
@@ -315,20 +315,20 @@ const JournalApp: React.FC = () => {
         await DB.saveDiary(toSave);
         if (toSave !== currentEntry) setCurrentEntry(toSave);
         await loadDiaries(toSave.charId);
-        if (!options.silent) addToast('日记已保存', 'success');
+        if (!options.silent) addToast('日記已保存', 'success');
     };
 
     const handleDeleteDiary = async () => {
         if (!deletingDiary || !selectedChar) return;
-        // 同步删除聊天里的卡片（如果之前发过）
+        // 同步刪除聊天裡的卡片（如果之前發過）
         if (deletingDiary.chatCardMessageId) {
             try { await DB.deleteMessage(deletingDiary.chatCardMessageId); }
-            catch (e) { console.warn('🗒 [Journal] 卡片删除失败 (可能已不存在):', e); }
+            catch (e) { console.warn('🗒 [Journal] 卡片刪除失敗 (可能已不存在):', e); }
         }
         await DB.deleteDiary(deletingDiary.id);
         await loadDiaries(selectedChar.id);
         setDeletingDiary(null);
-        addToast('日记已删除', 'success');
+        addToast('日記已刪除', 'success');
         trackEvent('删除一篇日记');
     };
 
@@ -434,22 +434,22 @@ const JournalApp: React.FC = () => {
 
     const handleExchange = async () => {
         if (!currentEntry || !selectedChar || !apiConfig.apiKey) {
-            addToast('配置错误或内容为空', 'error');
+            addToast('配置錯誤或內容為空', 'error');
             return;
         }
         if (!currentEntry.userPage.text.trim()) {
-            addToast('请先写下今天的日记', 'info');
+            addToast('請先寫下今天的日記', 'info');
             return;
         }
 
         const isRewrite = Boolean(currentEntry.charPage);
         setIsThinking(true);
-        addToast(isRewrite ? `正在请 ${selectedChar.name} 重新写这篇日记…` : `正在请 ${selectedChar.name} 写交换日记…`, 'info');
+        addToast(isRewrite ? `正在請 ${selectedChar.name} 重新寫這篇日記…` : `正在請 ${selectedChar.name} 寫交換日記…`, 'info');
         trackEvent(isRewrite ? '重新生成角色日记' : '邀请角色交换日记');
 
         try {
-            // 生成前仍要把用户页草稿落库，但这是重写流程的内部步骤，不能冒充用户
-            // 主动点了“保存”。旧代码在这里直接 saveEntry()，于是循环按钮先弹“日记已保存”。
+            // 生成前仍要把用戶頁草稿落庫，但這是重寫流程的內部步驟，不能冒充用戶
+            // 主動點了“保存”。舊代碼在這裡直接 saveEntry()，於是循環按鈕先彈“日記已保存”。
             await saveEntry({ silent: true });
             await injectMemoryPalace(selectedChar, undefined, currentEntry.userPage.text);
             let systemPrompt = ContextBuilder.buildCoreContext(selectedChar, userProfile);
@@ -461,47 +461,47 @@ const JournalApp: React.FC = () => {
                 : '';
 
             const recentMsgs = await loadCharacterContextMessages(selectedChar);
-            // 用统一的 normalizeMessageContent 把消息转成可读文本，绝不能直接塞 m.content：
-            // score_card（含上一次交换日记同步进来的卡片）的 content 是整段 JSON，里面带
-            // charAvatar 的 base64 data URL + 双方日记全文。重新生成时这张卡已在历史里，
-            // 直接 dump 原始 content 会把 base64 头像和 JSON 结构整个灌进 prompt，
-            // 造成 token 异常膨胀。normalize 后日记卡会被压成一行摘要，不再泄漏 base64/JSON。
+            // 用統一的 normalizeMessageContent 把消息轉成可讀文本，絕不能直接塞 m.content：
+            // score_card（含上一次交換日記同步進來的卡片）的 content 是整段 JSON，裡面帶
+            // charAvatar 的 base64 data URL + 雙方日記全文。重新生成時這張卡已在歷史裡，
+            // 直接 dump 原始 content 會把 base64 頭像和 JSON 結構整個灌進 prompt，
+            // 造成 token 異常膨脹。normalize 後日記卡會被壓成一行摘要，不再洩漏 base64/JSON。
             const recentContext = recentMsgs.map(m => {
                 const content = normalizeMessageContent(m, selectedChar.name, userProfile.name);
                 return `[${new Date(m.timestamp).toLocaleTimeString()}] ${m.role === 'user' ? 'User' : 'You'}: ${content}`;
             }).join('\n');
 
             systemPrompt += `### [Exchange Diary Mode Instructions]
-你正在和用户进行【交换日记】互动。
+你正在和用戶進行【交換日記】互動。
 
-### 关键：最近发生的互动 (Recent Context)
-这是你们最近在聊天软件或见面时的对话记录。请**务必**阅读这些记录，并在日记中提及今天发生的具体事情（例如聊过的话题、去过的地方、用户发过的图片）。
-不要只写空泛的回复，还要说一些用户不知道的，你自己没有说过的想法，和你自己独立于用户经历过的今天的事情。
+### 關鍵：最近發生的互動 (Recent Context)
+這是你們最近在聊天軟件或見面時的對話記錄。請**務必**閱讀這些記錄，並在日記中提及今天發生的具體事情（例如聊過的話題、去過的地方、用戶發過的圖片）。
+不要只寫空泛的回覆，還要說一些用戶不知道的，你自己沒有說過的想法，和你自己獨立於用戶經歷過的今天的事情。
 [RECENT LOGS START]
 ${recentContext}
 [RECENT LOGS END]
 
-### 任务
-1. 阅读用户今天的日记 (${currentEntry.date})。
-2. 以你的角色口吻写一篇**回复日记**。
-   - 首先结合上文的聊天记录，回应用户的内容。
-   - 最重要的是分享你的生活，此条为必须项**务必说至少一件用户不知道的，你今天做的事情，尽量与用户无关！用户希望看到角色完全独立的一面**。
-   - 语言风格在符合设定的基础上，应该更加书面化和诗意，不过一切以角色性格优先。
-3. 选择适合你心情的信纸和贴纸。
+### 任務
+1. 閱讀用戶今天的日記 (${currentEntry.date})。
+2. 以你的角色口吻寫一篇**回覆日記**。
+   - 首先結合上文的聊天記錄，回應用戶的內容。
+   - 最重要的是分享你的生活，此條為必須項**務必說至少一件用戶不知道的，你今天做的事情，儘量與用戶無關！用戶希望看到角色完全獨立的一面**。
+   - 語言風格在符合設定的基礎上，應該更加書面化和詩意，不過一切以角色性格優先。
+3. 選擇適合你心情的信紙和貼紙。
 
-### 关于贴纸 (Stickers)
-你可以使用默认的 Emoji，也可以使用【Custom Stickers】。
+### 關於貼紙 (Stickers)
+你可以使用默認的 Emoji，也可以使用【Custom Stickers】。
 ${customStickerContext}
-如果要使用 Custom Sticker，请将 URL 直接放入返回的 stickers 数组中。
+如果要使用 Custom Sticker，請將 URL 直接放入返回的 stickers 數組中。
 
-### 输出格式 (必须是纯 JSON)
-- 只输出这个 JSON 对象本身，前后不要有任何多余文字。
-- text 是一个 JSON 字符串：内部的换行必须写成 \\n，引号必须写成 \\"，反斜杠必须写成 \\\\。**绝对不要**在字符串里直接放真实换行或未转义的引号，否则会解析失败。
+### 輸出格式 (必須是純 JSON)
+- 只輸出這個 JSON 對象本身，前後不要有任何多餘文字。
+- text 是一個 JSON 字符串：內部的換行必須寫成 \\n，引號必須寫成 \\"，反斜槓必須寫成 \\\\。**絕對不要**在字符串裡直接放真實換行或未轉義的引號，否則會解析失敗。
 Structure:
 {
-  "text": "日记正文第一段\\n\\n第二段...",
+  "text": "日記正文第一段\\n\\n第二段...",
   "paperStyle": "one of: ${styleOptions}",
-  "stickers": ["sticker1", "http://custom-sticker-url..."] (从默认列表或 Custom Stickers 中选0-3个)
+  "stickers": ["sticker1", "http://custom-sticker-url..."] (從默認列表或 Custom Stickers 中選0-3個)
 }`;
 
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -522,11 +522,11 @@ Structure:
             let content = data.choices[0].message.content.trim();
             content = content.replace(/```json/g, '').replace(/```/g, '').trim();
             
-            // Claude 常返回未转义特殊字符（引号 / 反斜杠 / 换行）的 JSON，裸 JSON.parse 会炸。
-            // 旧代码一炸就把整段原始 JSON（{ "text": ... } 带字面量 \n）直接塞进日记正文，
-            // 这就是「交换日记掉格式」的现象。先走 extractJson 的多层容错；连它都解析不出来
-            // （模型压根没按 JSON 写、直接写了散文）才把内容当纯文本兜底，兜底时再剥一层
-            // 可能残留的 JSON 外壳，保证任何情况下都不会把 { "text": ... } 露给用户。
+            // Claude 常返回未轉義特殊字符（引號 / 反斜槓 / 換行）的 JSON，裸 JSON.parse 會炸。
+            // 舊代碼一炸就把整段原始 JSON（{ "text": ... } 帶字面量 \n）直接塞進日記正文，
+            // 這就是「交換日記掉格式」的現象。先走 extractJson 的多層容錯；連它都解析不出來
+            // （模型壓根沒按 JSON 寫、直接寫了散文）才把內容當純文本兜底，兜底時再剝一層
+            // 可能殘留的 JSON 外殼，保證任何情況下都不會把 { "text": ... } 露給用戶。
             let parsed: any = extractJson(content);
             if (!parsed || typeof parsed.text !== 'string') {
                 parsed = { text: salvageDiaryText(content), paperStyle: 'plain', stickers: [] };
@@ -548,72 +548,72 @@ Structure:
             };
 
             const updatedEntry = { ...currentEntry, charPage };
-            // 自动发送 / 同步到聊天：char 有回复 → 卡片落地到对应角色的聊天历史。
-            // 重交换（同一日记重新让 char 写回复）会复用已有 chatCardMessageId 走更新而不是再创建一条。
+            // 自動發送 / 同步到聊天：char 有回覆 → 卡片落地到對應角色的聊天歷史。
+            // 重交換（同一日記重新讓 char 寫回復）會複用已有 chatCardMessageId 走更新而不是再創建一條。
             const synced = await syncDiaryCardToChat(updatedEntry, selectedChar);
             setCurrentEntry(synced);
             await DB.saveDiary(synced);
             await loadDiaries(selectedChar.id);
             setActiveTab('char');
-            addToast(isRewrite ? '角色日记已重新写好 · 已同步到聊天' : '对方已回复 · 已同步到聊天', 'success');
+            addToast(isRewrite ? '角色日記已重新寫好 · 已同步到聊天' : '對方已回覆 · 已同步到聊天', 'success');
 
         } catch (e: any) {
-            addToast(`${isRewrite ? '重新写日记' : '交换日记'}失败: ${e.message}`, 'error');
+            addToast(`${isRewrite ? '重新寫日記' : '交換日記'}失敗: ${e.message}`, 'error');
         } finally {
             setIsThinking(false);
         }
     };
 
-    // 手动归档: 把一条日记总结成神经链接条目 (char.memories), 跟 chatapp 的自动归档对齐 —
-    //   - 开了记忆宫殿: 走副 API extractMemoriesFromBuffer 一次提取多条 MemoryNode → 节点入宫,
-    //     同一组节点 bullets 化拼成 MemoryFragment 写 char.memories (mood='diary_palace')。
-    //     不再调主 API。神经链接里那条 bullets 跟宫殿节点严格一比一对应。
-    //   - 没开记忆宫殿 / 副 API 缺失 / 副 API 没提取出: 回落主 API + 升级 prompt 出 150~300 字
-    //     散文式总结 → 写 char.memories (mood='diary')。这条沿用老路径升级版。
+    // 手動歸檔: 把一條日記總結成神經鏈接條目 (char.memories), 跟 chatapp 的自動歸檔對齊 —
+    //   - 開了記憶宮殿: 走副 API extractMemoriesFromBuffer 一次提取多條 MemoryNode → 節點入宮,
+    //     同一組節點 bullets 化拼成 MemoryFragment 寫 char.memories (mood='diary_palace')。
+    //     不再調主 API。神經鏈接裡那條 bullets 跟宮殿節點嚴格一比一對應。
+    //   - 沒開記憶宮殿 / 副 API 缺失 / 副 API 沒提取出: 回落主 API + 升級 prompt 出 150~300 字
+    //     散文式總結 → 寫 char.memories (mood='diary')。這條沿用老路徑升級版。
     //
-    // mood 用 'diary_palace' / 'diary' 跟 chatapp 自动归档的 'palace' 区分,
-    // 避免被 mergePalaceFragmentsIntoMemories 误合并到当天聊天那条 palace bullets 里。
-    // 召回链路不看 mood,只是元数据 / UI 徽章,所以两种 mood 都正常进 chat 上下文。
+    // mood 用 'diary_palace' / 'diary' 跟 chatapp 自動歸檔的 'palace' 區分,
+    // 避免被 mergePalaceFragmentsIntoMemories 誤合併到當天聊天那條 palace bullets 裡。
+    // 召回鏈路不看 mood,只是元數據 / UI 徽章,所以兩種 mood 都正常進 chat 上下文。
     const handleArchiveDiary = async (diary: DiaryEntry) => {
         if (!selectedChar || diary.isArchived) return;
-        if (!apiConfig.apiKey) { addToast('请先配置主 API', 'error'); return; }
+        if (!apiConfig.apiKey) { addToast('請先配置主 API', 'error'); return; }
         if (!diary.userPage.text.trim() && !diary.charPage?.text?.trim()) {
-            addToast('日记内容为空,无法归档', 'info');
+            addToast('日記內容為空,無法歸檔', 'info');
             return;
         }
 
         setArchivingId(diary.id);
         trackEvent('归档日记进神经链接');
 
-        // 主 API 散文式总结 — 当宫殿没开 / 副 API 缺失 / 提取为空时的 fallback
+        // 主 API 散文式總結 — 當宮殿沒開 / 副 API 缺失 / 提取為空時的 fallback
         const generateProseSummary = async (): Promise<string> => {
             const baseContext = ContextBuilder.buildCoreContext(selectedChar, userProfile);
-            const charPart = diary.charPage?.text?.trim() || '(对方没有回复)';
+            const charPart = diary.charPage?.text?.trim() || '(對方沒有回覆)';
             const prompt = `${baseContext}
 
-### [系统指令: 交换日记归档]
-当前任务: 把这篇【交换日记】(日期 ${diary.date}) 总结成一段对你 (${selectedChar.name}) 长期有效的记忆。
+### [系統指令: 交換日記歸檔]
+當前任務: 把這篇【交換日記】(日期 ${diary.date}) 總結成一段對你 (${selectedChar.name}) 長期有效的記憶。
 
-### 输入内容
-${userProfile.name} 的那页:
+### 輸入內容
+${userProfile.name} 的那頁:
 """
-${diary.userPage.text || '(空白页)'}
+${diary.userPage.text || '(空白頁)'}
 """
 
-你 (${selectedChar.name}) 的回复页:
+你 (${selectedChar.name}) 的回覆頁:
 """
 ${charPart}
 """
 
-### 输出要求
-1. **第一人称**: 全程用"我"称呼自己,用"${userProfile.name}"称呼对方,不要写成第三视角叙述。
-2. **要点齐全**: 至少覆盖以下信息 (有就写,没有就跳过,不要生造):
-   - ${userProfile.name} 那天的关键事件 / 心情 / 提到的人或物
-   - 我对这些内容的反应、共鸣、或心里没说出口的想法
-   - 我在自己那页里分享的、属于我自己的事
-   - 如果出现任何承诺、约定、未解决的疑问,都要点名记录下来 (这些以后可能要兑现)
-3. **细节胜过抽象**: 多说具体的事 (人名、地点、物件、当时的情绪),少用"我们度过了美好的一天"这种空话。
-4. **篇幅**: 150~300 字之间的一段中文叙述,不要分段,不要列表,不要任何前缀和标题,直接出叙述。
+### 輸出要求
+1. **第一人稱**: 全程用"我"稱呼自己,用"${userProfile.name}"稱呼對方,不要寫成第三視角敘述。
+2. **要點齊全**: 至少覆蓋以下信息 (有就寫,沒有就跳過,不要生造):
+   - ${userProfile.name} 那天的關鍵事件 / 心情 / 提到的人或物
+   - 我對這些內容的反應、共鳴、或心裡沒說出口的想法
+   - 我在自己那頁裡分享的、屬於我自己的事
+   - 如果出現任何承諾、約定、未解決的疑問,都要點名記錄下來 (這些以後可能要兌現)
+3. **細節勝過抽象**: 多說具體的事 (人名、地點、物件、當時的情緒),少用"我們度過了美好的一天"這種空話。
+4. **篇幅**: 150~300 字之間的一段中文敘述,不要分段,不要列表,不要任何前綴和標題,直接出敘述。
 `;
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
@@ -625,16 +625,16 @@ ${charPart}
                     max_tokens: 1200,
                 }),
             });
-            if (!response.ok) throw new Error(`主 API 失败 (${response.status})`);
+            if (!response.ok) throw new Error(`主 API 失敗 (${response.status})`);
             const data = await safeResponseJson(response);
             let s = (data.choices?.[0]?.message?.content || '').trim();
             s = s.replace(/^["'「『]|["'」』]$/g, '').trim();
-            if (!s) throw new Error('归档总结为空');
+            if (!s) throw new Error('歸檔總結為空');
             return s;
         };
 
         try {
-            // 1. 如果开了宫殿,先走副 API 一次提取,成败决定神经链接走哪条路径
+            // 1. 如果開了宮殿,先走副 API 一次提取,成敗決定神經鏈接走哪條路徑
             let palaceResult: DiaryIngestResult | null = null;
             if (selectedChar.memoryPalaceEnabled) {
                 try {
@@ -647,16 +647,16 @@ ${charPart}
                         userProfile.name,
                     );
                 } catch (e: any) {
-                    console.warn('🏰 [Journal] 入宫失败:', e);
+                    console.warn('🏰 [Journal] 入宮失敗:', e);
                     palaceResult = null;
                 }
             } else {
                 palaceResult = { status: 'palace_disabled' };
             }
 
-            // 2. 决定神经链接那条的 summary / mood
-            //    宫殿成功 (status==='done' 且 nodes 非空) → bullets 化, mood='diary_palace'
-            //    其它一切情况 → 主 API 散文 fallback, mood='diary'
+            // 2. 決定神經鏈接那條的 summary / mood
+            //    宮殿成功 (status==='done' 且 nodes 非空) → bullets 化, mood='diary_palace'
+            //    其它一切情況 → 主 API 散文 fallback, mood='diary'
             let summary: string;
             let mood: string;
             let summaryOrigin: 'palace_bullets' | 'prose_fallback';
@@ -673,7 +673,7 @@ ${charPart}
                 summaryOrigin = 'prose_fallback';
             }
 
-            // 3. 神经链接 (char.memories): date 对齐到日记当天
+            // 3. 神經鏈接 (char.memories): date 對齊到日記當天
             const newMem: MemoryFragment = {
                 id: `mem-diary-${Date.now()}`,
                 date: diary.date,
@@ -684,13 +684,13 @@ ${charPart}
                 memories: [...(selectedChar.memories || []), newMem],
             });
 
-            // 4. 标记 isArchived 防止重复
+            // 4. 標記 isArchived 防止重複
             const updatedDiary: DiaryEntry = { ...diary, isArchived: true };
             await DB.saveDiary(updatedDiary);
             if (currentEntry?.id === diary.id) setCurrentEntry(updatedDiary);
             await loadDiaries(selectedChar.id);
 
-            // 5. 弹窗展示归档全貌
+            // 5. 彈窗展示歸檔全貌
             setArchiveResult({
                 date: diary.date,
                 charName: selectedChar.name,
@@ -700,7 +700,7 @@ ${charPart}
             });
         } catch (e: any) {
             console.error(e);
-            addToast(`归档失败: ${e.message}`, 'error');
+            addToast(`歸檔失敗: ${e.message}`, 'error');
         } finally {
             setArchivingId(null);
         }
@@ -736,7 +736,7 @@ ${charPart}
                     <textarea 
                         value={page.text}
                         onChange={e => updatePage({ text: e.target.value }, side)}
-                        placeholder={side === 'user' ? "记录今天发生的事情..." : "等待回复..."}
+                        placeholder={side === 'user' ? "記錄今天發生的事情..." : "等待回覆..."}
                         className={`sully-journal-textarea flex-1 w-full bg-transparent resize-none outline-none leading-loose text-[16px] font-normal ${style.text} placeholder:opacity-30 no-scrollbar`}
                         readOnly={isThinking} 
                     />
@@ -798,7 +798,7 @@ ${charPart}
             <div className="opacity-20 animate-pulse"><img src={twemojiUrl('1f48c')} alt="letter" className="w-12 h-12" /></div>
             {isThinking ? (
                 <div className="space-y-2">
-                    <p className="text-sm font-medium text-amber-500">对方正在阅读你的日记...</p>
+                    <p className="text-sm font-medium text-amber-500">對方正在閱讀你的日記...</p>
                     <div className="flex justify-center gap-1">
                         <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce"></div>
                         <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce delay-100"></div>
@@ -807,7 +807,7 @@ ${charPart}
                 </div>
             ) : (
                 <>
-                    <p className="text-sm">写完日记后，点击下方按钮<br/>邀请 {selectedChar?.name} 交换日记。</p>
+                    <p className="text-sm">寫完日記後，點擊下方按鈕<br/>邀請 {selectedChar?.name} 交換日記。</p>
                     <button
                         onClick={handleExchange}
                         className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95 transition-all mt-2"
@@ -819,11 +819,11 @@ ${charPart}
         </div>
     );
 
-    // 一次性弹窗:讲清楚新版交换日记的行为变化(自动同步 / 归档移到列表 / 宫殿入向量)
+    // 一次性彈窗:講清楚新版交換日記的行為變化(自動同步 / 歸檔移到列表 / 宮殿入向量)
     const introModal = showIntro ? (
         <Modal
             isOpen={showIntro}
-            title="交换日记 · 更新了"
+            title="交換日記 · 更新了"
             onClose={dismissIntro}
             footer={
                 <button onClick={dismissIntro} className="w-full py-3 bg-amber-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
@@ -832,41 +832,41 @@ ${charPart}
             }
         >
             <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
-                <p className="font-bold text-amber-700">几个新变化,先看一眼:</p>
+                <p className="font-bold text-amber-700">幾個新變化,先看一眼:</p>
                 <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 space-y-2">
-                    <p><span className="font-bold text-amber-700">① 自动同步聊天:</span> 角色回复了你的日记之后,会自动变成一张漂亮卡片出现在和这个角色的聊天里 —— 不用再手动发送。你之后在日记本里改文字 / 删日记,聊天里那张卡片也会跟着同步。</p>
-                    <p><span className="font-bold text-amber-700">② 单向日记不进记忆:</span> 如果你只是单方面写给角色看(没让 ta 回复),这一篇就不会进入任何记忆,按以前的方式存着就好。</p>
-                    <p><span className="font-bold text-amber-700">③ 新日记不用管归档:</span> 本次更新<b>之后</b>新写的日记走的就是上面"自动同步聊天"那条线 —— 卡片进了聊天后，系统会像处理普通消息一样自动帮你整理。不需要也<b>不应该</b>再手动归档一次。所以新日记你看不到归档入口, 这是故意的。</p>
-                    <p><span className="font-bold text-amber-700">④ 老日记还能手动归档:</span> 本次更新<b>之前</b>留下的老日记里, 如果是角色回复过的, <b>点进那篇日记, 右上角会有一个"归档"按钮</b>, 点一下就行 —— 就会把这篇日记整理进角色的记忆里，开了记忆宫殿的角色会记得更细。</p>
+                    <p><span className="font-bold text-amber-700">① 自動同步聊天:</span> 角色回覆了你的日記之後,會自動變成一張漂亮卡片出現在和這個角色的聊天裡 —— 不用再手動發送。你之後在日記本里改文字 / 刪日記,聊天裡那張卡片也會跟著同步。</p>
+                    <p><span className="font-bold text-amber-700">② 單向日記不進記憶:</span> 如果你只是單方面寫給角色看(沒讓 ta 回覆),這一篇就不會進入任何記憶,按以前的方式存著就好。</p>
+                    <p><span className="font-bold text-amber-700">③ 新日記不用管歸檔:</span> 本次更新<b>之後</b>新寫的日記走的就是上面"自動同步聊天"那條線 —— 卡片進了聊天后，系統會像處理普通消息一樣自動幫你整理。不需要也<b>不應該</b>再手動歸檔一次。所以新日記你看不到歸檔入口, 這是故意的。</p>
+                    <p><span className="font-bold text-amber-700">④ 老日記還能手動歸檔:</span> 本次更新<b>之前</b>留下的老日記裡, 如果是角色回覆過的, <b>點進那篇日記, 右上角會有一個"歸檔"按鈕</b>, 點一下就行 —— 就會把這篇日記整理進角色的記憶裡，開了記憶宮殿的角色會記得更細。</p>
                 </div>
-                <p className="text-xs text-slate-400">这条提示只出现一次。</p>
+                <p className="text-xs text-slate-400">這條提示只出現一次。</p>
             </div>
         </Modal>
     ) : null;
 
-    // 归档结果弹窗: 让用户清楚知道生成了哪些内容、被送去了哪里
+    // 歸檔結果彈窗: 讓用戶清楚知道生成了哪些內容、被送去了哪裡
     const archiveResultModal = archiveResult ? (() => {
         const p = archiveResult.palace;
         const userName = userProfile.name || '我';
-        // 宫殿状态文案
+        // 宮殿狀態文案
         let palaceStatus: { tone: 'on' | 'off' | 'warn' | 'fail'; title: string; detail: string } = { tone: 'off', title: '', detail: '' };
         if (!p) {
-            palaceStatus = { tone: 'fail', title: '记忆宫殿 · 写入失败', detail: '记忆宫殿这次没能写入，但日记已经成功存进神经链接。' };
+            palaceStatus = { tone: 'fail', title: '記憶宮殿 · 寫入失敗', detail: '記憶宮殿這次沒能寫入，但日記已經成功存進神經鏈接。' };
         } else if (p.status === 'palace_disabled') {
-            palaceStatus = { tone: 'off', title: '记忆宫殿 · 未开启', detail: `${archiveResult.charName} 没开启记忆宫殿，这次按基础方式存进了神经链接。想让日记记得更细，去角色设置打开"记忆宫殿"开关再归档。` };
+            palaceStatus = { tone: 'off', title: '記憶宮殿 · 未開啟', detail: `${archiveResult.charName} 沒開啟記憶宮殿，這次按基礎方式存進了神經鏈接。想讓日記記得更細，去角色設置打開"記憶宮殿"開關再歸檔。` };
         } else if (p.status === 'lightllm_missing') {
-            palaceStatus = { tone: 'warn', title: '记忆宫殿 · 副 API 未配置', detail: '记忆宫殿的后台模型还没配置，去设置里填一下就能用完整功能；这次先按基础方式存进了神经链接。' };
+            palaceStatus = { tone: 'warn', title: '記憶宮殿 · 副 API 未配置', detail: '記憶宮殿的後台模型還沒配置，去設置裡填一下就能用完整功能；這次先按基礎方式存進了神經鏈接。' };
         } else if (p.status === 'embedding_missing') {
-            palaceStatus = { tone: 'warn', title: '记忆宫殿 · 嵌入模型未配置', detail: '嵌入模型还没配置；这次先按基础方式存进了神经链接，去设置补上就能用完整功能。' };
+            palaceStatus = { tone: 'warn', title: '記憶宮殿 · 嵌入模型未配置', detail: '嵌入模型還沒配置；這次先按基礎方式存進了神經鏈接，去設置補上就能用完整功能。' };
         } else if (p.status === 'empty_input') {
-            palaceStatus = { tone: 'warn', title: '记忆宫殿 · 内容为空', detail: '日记两页都没有正文, 没东西可入宫。' };
+            palaceStatus = { tone: 'warn', title: '記憶宮殿 · 內容為空', detail: '日記兩頁都沒有正文, 沒東西可入宮。' };
         } else if (p.status === 'extracted_none') {
-            palaceStatus = { tone: 'warn', title: '记忆宫殿 · 副 API 没提取出内容', detail: '读完这篇日记后没找到值得单独记的内容；日记本身已经存进神经链接了。' };
+            palaceStatus = { tone: 'warn', title: '記憶宮殿 · 副 API 沒提取出內容', detail: '讀完這篇日記後沒找到值得單獨記的內容；日記本身已經存進神經鏈接了。' };
         } else {
             palaceStatus = {
                 tone: 'on',
-                title: `记忆宫殿 · 入了 ${p.stored} 条${p.skipped > 0 ? ` (另有 ${p.skipped} 条命中已有记忆去重)` : ''}`,
-                detail: '这篇日记被整理成下面这几条记忆，之后聊到相关内容时角色会想起来；日期按日记当天记。',
+                title: `記憶宮殿 · 入了 ${p.stored} 條${p.skipped > 0 ? ` (另有 ${p.skipped} 條命中已有記憶去重)` : ''}`,
+                detail: '這篇日記被整理成下面這幾條記憶，之後聊到相關內容時角色會想起來；日期按日記當天記。',
             };
         }
 
@@ -875,7 +875,7 @@ ${charPart}
         return (
             <Modal
                 isOpen={true}
-                title={`已归档 · ${archiveResult.date}`}
+                title={`已歸檔 · ${archiveResult.date}`}
                 onClose={() => setArchiveResult(null)}
                 footer={
                     <button onClick={() => setArchiveResult(null)} className="w-full py-3 bg-amber-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">
@@ -884,37 +884,37 @@ ${charPart}
                 }
             >
                 <div className="space-y-3 text-sm text-slate-700 leading-relaxed max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
-                    {/* 顶部一行: 数据流向示意 */}
+                    {/* 頂部一行: 數據流向示意 */}
                     {archiveResult.summaryOrigin === 'palace_bullets' ? (
                         <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-purple-50 border border-emerald-200/60 px-3 py-2 text-[11px] text-slate-600">
-                            ✓ 这次归档同时进了 <b className="text-emerald-700">神经链接</b> 和 <b className="text-purple-700">记忆宫殿</b>,
-                            两边拿的是 <b>同一组提取出来的内容</b> —— 这次提取出的几条记忆会一并存进神经链接。
+                            ✓ 這次歸檔同時進了 <b className="text-emerald-700">神經鏈接</b> 和 <b className="text-purple-700">記憶宮殿</b>,
+                            兩邊拿的是 <b>同一組提取出來的內容</b> —— 這次提取出的幾條記憶會一併存進神經鏈接。
                         </div>
                     ) : (
                         <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 px-3 py-2 text-[11px] text-slate-600">
-                            这次归档只进了 <b className="text-emerald-700">神经链接</b>, 用主 API 生成的散文式总结。原因看下面"记忆宫殿"那块。
+                            這次歸檔只進了 <b className="text-emerald-700">神經鏈接</b>, 用主 API 生成的散文式總結。原因看下面"記憶宮殿"那塊。
                         </div>
                     )}
 
-                    {/* 神经链接 */}
+                    {/* 神經鏈接 */}
                     <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700">● 神经链接</span>
-                            <span className="text-[10px] text-emerald-600/70">写入 1 条 · 日期 {archiveResult.date}</span>
+                            <span className="text-[10px] font-bold tracking-widest uppercase text-emerald-700">● 神經鏈接</span>
+                            <span className="text-[10px] text-emerald-600/70">寫入 1 條 · 日期 {archiveResult.date}</span>
                             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">mood={archiveResult.summaryOrigin === 'palace_bullets' ? 'diary_palace' : 'diary'}</span>
                         </div>
                         <p className="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: archiveResult.summaryOrigin === 'palace_bullets' ? 'inherit' : 'ui-serif, Georgia, serif' }}>
                             {archiveResult.summary}
                         </p>
                         <p className="text-[10px] text-emerald-700/70">
-                            ↑ 这条会出现在「{archiveResult.charName}」的本月详细记录里, 自动跟聊天上下文一起送进 LLM。
+                            ↑ 這條會出現在「{archiveResult.charName}」的本月詳細記錄裡, 自動跟聊天上下文一起送進 LLM。
                             {archiveResult.summaryOrigin === 'palace_bullets'
-                                ? ' 每个 bullet 都对应下面记忆宫殿里的一个节点。'
+                                ? ' 每個 bullet 都對應下面記憶宮殿裡的一個節點。'
                                 : ''}
                         </p>
                     </div>
 
-                    {/* 记忆宫殿 */}
+                    {/* 記憶宮殿 */}
                     <div className={`rounded-2xl border px-4 py-3 space-y-2 ${
                         palaceStatus.tone === 'on' ? 'border-purple-100 bg-purple-50/70'
                         : palaceStatus.tone === 'off' ? 'border-slate-100 bg-slate-50'
@@ -969,12 +969,12 @@ ${charPart}
                         <button onClick={closeApp} aria-label="返回桌面" className="sully-journal-back p-2 -ml-2 rounded-full hover:bg-amber-100/50 active:scale-90 transition-transform">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-amber-900"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <span className="sully-journal-header-title font-bold text-amber-900 text-lg tracking-wide">选择日记本</span>
+                        <span className="sully-journal-header-title font-bold text-amber-900 text-lg tracking-wide">選擇日記本</span>
                         <JournalAppearanceButton compact {...journalAppearanceButtonProps} />
                     </div>
                 </div>
                 
-                {/* 分组筛选（没建分组时不渲染），浅色米黄底 */}
+                {/* 分組篩選（沒建分組時不渲染），淺色米黃底 */}
                 <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                     value={journalGroupId} onChange={setJournalGroupId} className="sully-journal-group-filter px-6 pt-4 shrink-0" />
                 <div className="sully-journal-notebook-grid p-6 grid grid-cols-2 gap-5 overflow-y-auto pb-20 no-scrollbar">
@@ -1002,7 +1002,7 @@ ${charPart}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="calendar" />
                 <div className="sully-journal-calendar-hero pb-6 px-6 bg-amber-500 shadow-lg shrink-0 rounded-b-[2rem] z-20" style={{ paddingTop: 'max(3rem, var(--safe-top))' }}>
                     <div className="flex justify-between items-start mb-4">
-                         <button onClick={() => setMode('select')} aria-label="返回日记本选择" className="sully-journal-back text-white/80 hover:text-white transition-colors">
+                         <button onClick={() => setMode('select')} aria-label="返回日記本選擇" className="sully-journal-back text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                          </button>
                          <JournalAppearanceButton tone="dark" compact {...journalAppearanceButtonProps} />
@@ -1015,7 +1015,7 @@ ${charPart}
 
                 <div className="sully-journal-calendar-list flex-1 overflow-y-auto p-5 pb-20 no-scrollbar">
                     <button onClick={() => openEntry(getLocalDateStr())} className="sully-journal-new-entry w-full py-5 mb-8 border-2 border-dashed border-amber-200 rounded-2xl text-amber-500 font-bold flex items-center justify-center gap-2 hover:bg-amber-50 active:scale-95 transition-all">
-                        <span className="text-xl">+</span> 写今天的日记
+                        <span className="text-xl">+</span> 寫今天的日記
                     </button>
                     
                     <div className="space-y-4">
@@ -1031,21 +1031,21 @@ ${charPart}
                                     <div className="flex justify-between items-center mt-1">
                                         <p className="sully-journal-entry-year text-xs text-slate-400 font-mono">{d.date.split('-')[0]}</p>
                                         <div className="sully-journal-entry-badges flex gap-2">
-                                            {d.charPage && <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[9px] font-bold">已回复</span>}
+                                            {d.charPage && <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[9px] font-bold">已回覆</span>}
                                             {d.chatCardMessageId && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-500 rounded-full text-[9px] font-bold">同步聊天</span>}
-                                            {d.isArchived && <span className="px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full text-[9px] font-bold">已归档</span>}
+                                            {d.isArchived && <span className="px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full text-[9px] font-bold">已歸檔</span>}
                                         </div>
                                     </div>
                                 </div>
-                                {/* 归档按钮统一移到了"点进日记后的右上角". 列表保留删除按钮, 不重复入口. */}
+                                {/* 歸檔按鈕統一移到了"點進日記後的右上角". 列表保留刪除按鈕, 不重複入口. */}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setDeletingDiary(d);
                                     }}
                                     className="w-8 h-8 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center"
-                                    title="删除日记"
-                                    aria-label="删除日记"
+                                    title="刪除日記"
+                                    aria-label="刪除日記"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -1058,17 +1058,17 @@ ${charPart}
 
                 <Modal 
                     isOpen={!!deletingDiary}
-                    title="删除日记"
+                    title="刪除日記"
                     onClose={() => setDeletingDiary(null)}
                     footer={
                         <div className="flex gap-2 w-full">
                             <button onClick={() => setDeletingDiary(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
-                            <button onClick={handleDeleteDiary} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">删除</button>
+                            <button onClick={handleDeleteDiary} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">刪除</button>
                         </div>
                     }
                 >
                     <p className="text-sm text-slate-600">
-                        确定删除 {deletingDiary?.date} 的日记吗？删除后无法恢复。
+                        確定刪除 {deletingDiary?.date} 的日記嗎？刪除後無法恢復。
                     </p>
                 </Modal>
             </div>
@@ -1086,7 +1086,7 @@ ${charPart}
             {/* Editor Header */}
             <div className="sully-journal-editor-header bg-[#1a1a1a]/90 backdrop-blur-md text-white shrink-0 z-30" style={{ paddingTop: 'var(--chrome-top)' }}>
                 <div className="h-12 px-4 flex items-center justify-between">
-                    <button onClick={() => setMode('calendar')} aria-label="返回日记列表" className="sully-journal-back p-2 -ml-2 text-white/60 hover:text-white rounded-full active:bg-white/10 transition-colors">
+                    <button onClick={() => setMode('calendar')} aria-label="返回日記列表" className="sully-journal-back p-2 -ml-2 text-white/60 hover:text-white rounded-full active:bg-white/10 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                     </button>
                     <div className="flex gap-3">
@@ -1096,7 +1096,7 @@ ${charPart}
                             <button
                                 onClick={() => setHideCharStickers(!hideCharStickers)}
                                 className={`p-2 rounded-full transition-colors ${hideCharStickers ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/60'}`}
-                                title={hideCharStickers ? "显示贴纸" : "隐藏贴纸"}
+                                title={hideCharStickers ? "顯示貼紙" : "隱藏貼紙"}
                             >
                                 {hideCharStickers ? (
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
@@ -1107,35 +1107,35 @@ ${charPart}
                         )}
 
                         {currentEntry?.chatCardMessageId && (
-                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 flex items-center gap-1.5" title="该日记已自动同步为聊天卡片">
+                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 flex items-center gap-1.5" title="該日記已自動同步為聊天卡片">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                                 已同步聊天
                             </div>
                         )}
                         {currentEntry?.isArchived && (
-                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 flex items-center gap-1.5" title="该日记已归档进神经链接">
+                            <div className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 flex items-center gap-1.5" title="該日記已歸檔進神經鏈接">
                                 <Archive size={11} weight="fill" />
-                                已归档
+                                已歸檔
                             </div>
                         )}
-                        {/* 老日记 (本次更新前留下的, autoSync 未设) 且角色已回复 → 右上角出现归档按钮.
-                            新日记走自动同步聊天那条线, 不显示这个按钮防止重复入库. */}
+                        {/* 老日記 (本次更新前留下的, autoSync 未設) 且角色已回覆 → 右上角出現歸檔按鈕.
+                            新日記走自動同步聊天那條線, 不顯示這個按鈕防止重複入庫. */}
                         {currentEntry && !currentEntry.autoSync && currentEntry.charPage && !currentEntry.isArchived && (
                             <button
                                 onClick={() => handleArchiveDiary(currentEntry)}
                                 disabled={archivingId === currentEntry.id}
                                 className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg transition-all flex items-center gap-1.5 ${archivingId === currentEntry.id ? 'bg-amber-700/60 text-amber-200 cursor-wait' : 'bg-amber-500 text-white hover:bg-amber-400 active:scale-95'}`}
-                                title={'把这篇老日记归档进神经链接' + (selectedChar?.memoryPalaceEnabled ? ' / 记忆宫殿' : '')}
+                                title={'把這篇老日記歸檔進神經鏈接' + (selectedChar?.memoryPalaceEnabled ? ' / 記憶宮殿' : '')}
                             >
                                 {archivingId === currentEntry.id ? (
                                     <>
                                         <div className="w-3 h-3 border-2 border-amber-200/40 border-t-amber-100 rounded-full animate-spin"></div>
-                                        归档中
+                                        歸檔中
                                     </>
                                 ) : (
                                     <>
                                         <Archive size={12} weight="fill" />
-                                        归档
+                                        歸檔
                                     </>
                                 )}
                             </button>
@@ -1211,8 +1211,8 @@ ${charPart}
                             <button
                                 onClick={handleExchange}
                                 className="w-11 h-11 bg-white/10 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform border border-white/5"
-                                title="重新写角色日记"
-                                aria-label="重新写角色日记"
+                                title="重新寫角色日記"
+                                aria-label="重新寫角色日記"
                                 data-testid="journal-rewrite-character-page"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
@@ -1261,11 +1261,11 @@ ${charPart}
 
             {/* Sticker Import Modal */}
             <Modal 
-                isOpen={showImportModal} title="添加日记贴纸" onClose={() => setShowImportModal(false)}
-                footer={<button onClick={handleImportStickers} className="w-full py-3 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all">确认添加</button>}
+                isOpen={showImportModal} title="添加日記貼紙" onClose={() => setShowImportModal(false)}
+                footer={<button onClick={handleImportStickers} className="w-full py-3 bg-white/10 text-white font-bold rounded-2xl hover:bg-white/20 transition-all">確認添加</button>}
             >
                 <div className="space-y-3">
-                    <p className="text-xs text-slate-500">格式：贴纸名称--图片URL (每行一个)</p>
+                    <p className="text-xs text-slate-500">格式：貼紙名稱--圖片URL (每行一個)</p>
                     <textarea 
                         value={importText} 
                         onChange={e => setImportText(e.target.value)} 
@@ -1277,12 +1277,12 @@ ${charPart}
 
             {/* Sticker Delete Confirmation Modal */}
             <Modal 
-                isOpen={!!deletingSticker} title="删除贴纸素材" onClose={() => setDeletingSticker(null)}
-                footer={<div className="flex gap-2 w-full"><button onClick={() => setDeletingSticker(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button><button onClick={handleDeleteStickerAsset} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">删除</button></div>}
+                isOpen={!!deletingSticker} title="刪除貼紙素材" onClose={() => setDeletingSticker(null)}
+                footer={<div className="flex gap-2 w-full"><button onClick={() => setDeletingSticker(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button><button onClick={handleDeleteStickerAsset} className="flex-1 py-3 bg-red-500 text-white rounded-2xl font-bold">刪除</button></div>}
             >
                 <div className="flex flex-col items-center gap-3 py-2">
                     {deletingSticker && <img src={deletingSticker.url} className="w-16 h-16 object-contain rounded-lg bg-slate-100 border" />}
-                    <p className="text-sm text-slate-600">确定要删除这个贴纸素材吗？(不会影响已使用的日记)</p>
+                    <p className="text-sm text-slate-600">確定要刪除這個貼紙素材嗎？(不會影響已使用的日記)</p>
                 </div>
             </Modal>
         </div>

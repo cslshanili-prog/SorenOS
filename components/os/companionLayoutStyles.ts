@@ -10,7 +10,7 @@ export const COMPANION_LAYOUT_KEY = 'companion_layout_v1';
 export const COMPANION_LAYOUT_EVENT = 'sullyos:companion-layout';
 
 export const COMPANION_LAYOUTS: CompanionLayoutOption[] = [
-  { id: 'stage', name: '舞台', description: '角色居中，功能环绕的原始桌面' },
+  { id: 'stage', name: '舞台', description: '角色居中，功能環繞的原始桌面' },
 ];
 
 const isCompanionLayout = (value: string | null): value is CompanionLayoutId => (

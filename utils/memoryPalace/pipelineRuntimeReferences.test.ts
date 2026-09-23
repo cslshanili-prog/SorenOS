@@ -7,7 +7,7 @@ describe('memory palace pipeline runtime references', () => {
 
     it('logs the resolved per-character hot-zone value without referencing the removed constant', () => {
         expect(source).not.toMatch(/\bHOT_ZONE_SIZE\b/);
-        expect(source).toContain('热区: ${hotZoneSizeForLog}');
+        expect(source).toContain('熱區: ${hotZoneSizeForLog}');
     });
 
     it('keeps the per-character waterline types beside CharacterProfile', () => {

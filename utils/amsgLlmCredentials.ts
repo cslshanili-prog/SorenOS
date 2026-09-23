@@ -1,85 +1,85 @@
 /**
- * 主动消息 2.0 的「LLM 凭据引用」（credRefs）：本地这一侧的命名、取值与变更侦测。
+ * 主動消息 2.0 的「LLM 憑據引用」（credRefs）：本地這一側的命名、取值與變更偵測。
  *
- * 过去每条排程任务的载荷里都冻结一份 apiUrl / apiKey / primaryModel。换一次 Key 就得
- * 把待触发的任务逐条 PUT 回去，漏一条到点就是 401；角色在 fire 里给自己排的任务客户端
- * 根本够不着，旧 Key 顺着自排链一直传下去。
+ * 過去每條排程任務的載荷裡都凍結一份 apiUrl / apiKey / primaryModel。換一次 Key 就得
+ * 把待觸發的任務逐條 PUT 回去，漏一條到點就是 401；角色在 fire 裡給自己排的任務客戶端
+ * 根本夠不著，舊 Key 順著自排鏈一直傳下去。
  *
- * 现在凭据单独存一张表（worker 的 `llm_credentials`），任务只带一个名字（credId）。
- * 到点由 worker 按名字现读，所以**换 Key 只要覆盖那一行**，已排的任务——包括角色自排的
- * 那些——下一次触发用的就是新凭据，任务行一个字都不用改。
+ * 現在憑據單獨存一張表（worker 的 `llm_credentials`），任務只帶一個名字（credId）。
+ * 到點由 worker 按名字現讀，所以**換 Key 只要覆蓋那一行**，已排的任務——包括角色自排的
+ * 那些——下一次觸發用的就是新憑據，任務行一個字都不用改。
  *
- * 这份文件只做三件不联网的事：
- *   1. 起名（credId 的唯一出处，见下面三种用途）；
- *   2. 按当前配置算出每一行该是什么值；
- *   3. 记一份「上次传上去的是什么」的指纹底账，好让上传只在真的变了的时候发生。
+ * 這份文件只做三件不聯網的事：
+ *   1. 起名（credId 的唯一出處，見下面三種用途）；
+ *   2. 按當前配置算出每一行該是什麼值；
+ *   3. 記一份「上次傳上去的是什麼」的指紋底帳，好讓上傳只在真的變了的時候發生。
  *
- * 联网那半截在 activeMsgClient（排程 / 即时对话前的确保上传）和 amsgStateSync
- * （改配置后的后台补传，退避 + 底账那一套跟 tool_config 共用同一个套路）。
+ * 聯網那半截在 activeMsgClient（排程 / 即時對話前的確保上傳）和 amsgStateSync
+ * （改配置後的後台補傳，退避 + 底帳那一套跟 tool_config 共用同一個套路）。
  */
 
 import type { APIConfig, ActiveMsg2CharacterConfig, CharacterProfile } from '../types';
 
-/** 凭据行的值：三个字段全必填，服务端只查非空、不做格式校验。 */
+/** 憑據行的值：三個字段全必填，服務端只查非空、不做格式校驗。 */
 export interface LlmCredentialValue {
   apiUrl: string;
   apiKey: string;
   primaryModel: string;
 }
 
-/** 一行凭据 = 名字 + 值。 */
+/** 一行憑據 = 名字 + 值。 */
 export interface LlmCredentialRow {
   credId: string;
   value: LlmCredentialValue;
 }
 
 /**
- * worker 支持「凭据存表、任务带引用」这件事的能力位（GET /capabilities 的 features）。
- * 名字由上游 amsg-server 定义，这里只认它。
+ * worker 支持「憑據存表、任務帶引用」這件事的能力位（GET /capabilities 的 features）。
+ * 名字由上游 amsg-server 定義，這裡只認它。
  */
 export const LLM_CREDENTIALS_FEATURE = 'llm-credentials';
 
 /**
- * 这台 worker 走不走 credRefs 这条路——**整个前端只在这里判一次**。
+ * 這台 worker 走不走 credRefs 這條路——**整個前端只在這裡判一次**。
  *
- * 探不到 / 老 worker 一律 false，那一档原样走「凭据内联进任务」的老路。主动消息 2.0
- * 已经对所有人开放，旧 worker 是真实存在的运行时状态，不是开发期的兼容债。
+ * 探不到 / 老 worker 一律 false，那一檔原樣走「憑據內聯進任務」的老路。主動消息 2.0
+ * 已經對所有人開放，舊 worker 是真實存在的運行時狀態，不是開發期的兼容債。
  */
 export const supportsLlmCredentials = (features: string[] | null | undefined): boolean =>
   Array.isArray(features) && features.includes(LLM_CREDENTIALS_FEATURE);
 
 /**
- * 聊天补全的完整地址。任务行里存的是这个终点地址，不是用户填的 baseUrl。
- * 排程、即时对话、凭据行三处必须同一份算法，所以放在这里当唯一出处。
+ * 聊天補全的完整地址。任務行裡存的是這個終點地址，不是用戶填的 baseUrl。
+ * 排程、即時對話、憑據行三處必須同一份算法，所以放在這裡當唯一出處。
  */
 export const normalizeChatApiUrl = (baseUrl: string): string =>
   `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
 /**
- * 一个角色名下的三种凭据。**引用一经写进任务就不再改**，配置变了只覆盖行的值。
+ * 一個角色名下的三種憑據。**引用一經寫進任務就不再改**，配置變了只覆蓋行的值。
  *
- *   chat     定时主动消息用的那份（角色开了「单独 API」就是单独那份，否则是全局聊天 API）
- *   instant  即时对话用的那份（= 本地生成那一轮真正会用的凭据，含 -thinking 后缀之类的
- *            当轮终值）。和 chat 分开是因为两者本来就可能不是同一个模型：开了单独 API
- *            的角色，主动消息走单独 API，而用户按下发送的这一句必须还由聊天那个模型来答。
- *   emotion  即时对话那一轮的情绪评估（副 API；没单独配就回落到全局聊天 API）
- *   memory   记忆宫殿的后台活儿（门牌整理这类）。用的是记忆宫殿副 API
- *            （memoryPalaceConfig.lightLLM），跟上面三份都不是同一个——它现在是全局
- *            一份配置，但照旧按角色存一行：删角色时跟着一起清，将来真做成分角色也不用动。
+ *   chat     定時主動消息用的那份（角色開了「單獨 API」就是單獨那份，否則是全局聊天 API）
+ *   instant  即時對話用的那份（= 本地生成那一輪真正會用的憑據，含 -thinking 後綴之類的
+ *            當輪終值）。和 chat 分開是因為兩者本來就可能不是同一個模型：開了單獨 API
+ *            的角色，主動消息走單獨 API，而用戶按下發送的這一句必須還由聊天那個模型來答。
+ *   emotion  即時對話那一輪的情緒評估（副 API；沒單獨配就回落到全局聊天 API）
+ *   memory   記憶宮殿的後台活兒（門牌整理這類）。用的是記憶宮殿副 API
+ *            （memoryPalaceConfig.lightLLM），跟上面三份都不是同一個——它現在是全局
+ *            一份配置，但照舊按角色存一行：刪角色時跟著一起清，將來真做成分角色也不用動。
  */
 export type LlmCredentialPurpose = 'chat' | 'instant' | 'emotion' | 'memory';
 
 export const ALL_CREDENTIAL_PURPOSES: readonly LlmCredentialPurpose[] = ['chat', 'instant', 'emotion', 'memory'];
 
-/** 角色名下某个用途的 credId。上游只当它是不透明字符串（1–128 字符、不含控制字符）。 */
+/** 角色名下某個用途的 credId。上游只當它是不透明字符串（1–128 字符、不含控制字符）。 */
 export const charCredId = (charId: string, purpose: LlmCredentialPurpose): string =>
   `char:${charId}/${purpose}`;
 
-/** 这个角色名下全部可能的 credId（删角色时按它清云端那几行）。 */
+/** 這個角色名下全部可能的 credId（刪角色時按它清雲端那幾行）。 */
 export const charCredIds = (charId: string): string[] =>
   ALL_CREDENTIAL_PURPOSES.map((purpose) => charCredId(charId, purpose));
 
-/** 把 credId 拆回「哪个角色、什么用途」；不认识的形状返回 null。 */
+/** 把 credId 拆回「哪個角色、什麼用途」；不認識的形狀返回 null。 */
 export const parseCharCredId = (
   credId: string,
 ): { charId: string; purpose: LlmCredentialPurpose } | null => {
@@ -87,13 +87,13 @@ export const parseCharCredId = (
   return m ? { charId: m[1], purpose: m[2] as LlmCredentialPurpose } : null;
 };
 
-/** 三件套齐了才是一行能用的凭据（缺一样 worker 到点也发不出请求）。 */
+/** 三件套齊了才是一行能用的憑據（缺一樣 worker 到點也發不出請求）。 */
 export const isUsableCredentialValue = (
   value: Partial<LlmCredentialValue> | null | undefined,
 ): value is LlmCredentialValue =>
   !!value && !!value.apiUrl && !!value.apiKey && !!value.primaryModel;
 
-/** 用户填的 { baseUrl, apiKey, model } → 凭据行的值。缺字段时返回 null，由调用方决定怎么办。 */
+/** 用戶填的 { baseUrl, apiKey, model } → 憑據行的值。缺字段時返回 null，由調用方決定怎麼辦。 */
 export const toCredentialValue = (
   api: { baseUrl?: string; apiKey?: string; model?: string } | null | undefined,
 ): LlmCredentialValue | null => {
@@ -107,9 +107,9 @@ export const toCredentialValue = (
 };
 
 /**
- * 定时主动消息那一行的值：角色开了「单独 API」就用单独那份，否则用全局聊天 API。
- * 算法与排程时的 resolveApiConfig 同一份口径——凭据行绝不能把单独 API 的角色写成全局凭据。
- * 配不齐（多半是单独 API 缺字段）返回 null。
+ * 定時主動消息那一行的值：角色開了「單獨 API」就用單獨那份，否則用全局聊天 API。
+ * 算法與排程時的 resolveApiConfig 同一份口徑——憑據行絕不能把單獨 API 的角色寫成全局憑據。
+ * 配不齊（多半是單獨 API 缺字段）返回 null。
  */
 export const buildCharChatCredRow = (
   char: Pick<CharacterProfile, 'id'>,
@@ -123,8 +123,8 @@ export const buildCharChatCredRow = (
 };
 
 /**
- * 即时对话那一行的值：调用方给的就是本地生成这一轮真正会发出去的那份
- * （baseUrl / apiKey 取 effectiveApi，model 取请求体终值——claude 系开思考时会带 -thinking 后缀）。
+ * 即時對話那一行的值：調用方給的就是本地生成這一輪真正會發出去的那份
+ * （baseUrl / apiKey 取 effectiveApi，model 取請求體終值——claude 系開思考時會帶 -thinking 後綴）。
  */
 export const buildCharInstantCredRow = (
   charId: string,
@@ -135,8 +135,8 @@ export const buildCharInstantCredRow = (
 };
 
 /**
- * 情绪评估那一行的值：角色单独配了情绪 API 就用它，否则回落到全局聊天 API
- * ——回落口径与本地评估那条路（useChatAI 的 emotionApi）一致。
+ * 情緒評估那一行的值：角色單獨配了情緒 API 就用它，否則回落到全局聊天 API
+ * ——回落口徑與本地評估那條路（useChatAI 的 emotionApi）一致。
  */
 export const buildCharEmotionCredRow = (
   charId: string,
@@ -149,11 +149,11 @@ export const buildCharEmotionCredRow = (
 };
 
 /**
- * 记忆宫殿后台活儿那一行的值：记忆宫殿副 API（memoryPalaceConfig.lightLLM）。
+ * 記憶宮殿後台活兒那一行的值：記憶宮殿副 API（memoryPalaceConfig.lightLLM）。
  *
- * **不回落到全局聊天 API**——本地那条路也不回落（记忆宫殿 App 的手动按钮在副 API 没配时
- * 直接报错），拿主 API 悄悄跑一遍后台整理会把用户的主 API 额度花在他没同意的地方。
- * 没配就返回 null，调用方据此不走云端、留在本地按原来的规矩处理。
+ * **不回落到全局聊天 API**——本地那條路也不回落（記憶宮殿 App 的手動按鈕在副 API 沒配時
+ * 直接報錯），拿主 API 悄悄跑一遍後台整理會把用戶的主 API 額度花在他沒同意的地方。
+ * 沒配就返回 null，調用方據此不走雲端、留在本地按原來的規矩處理。
  */
 export const buildCharMemoryCredRow = (
   charId: string,
@@ -164,15 +164,15 @@ export const buildCharMemoryCredRow = (
   return value ? { credId: charCredId(charId, 'memory'), value } : null;
 };
 
-// ─── 「传过没有、变了没有」的指纹底账 ───
+// ─── 「傳過沒有、變了沒有」的指紋底帳 ───
 //
-// 凭据本体绝不落 localStorage（那等于把 apiKey 又抄一份到别的地方）。这里只记一个
-// 指纹：值没变就不重传，省掉每次排程 / 每条消息一次多余的 PUT。指纹只用来比对相等，
-// 不做任何安全用途，所以一个普通的字符串散列就够。
+// 憑據本體絕不落 localStorage（那等於把 apiKey 又抄一份到別的地方）。這裡只記一個
+// 指紋：值沒變就不重傳，省掉每次排程 / 每條消息一次多餘的 PUT。指紋只用來比對相等，
+// 不做任何安全用途，所以一個普通的字符串散列就夠。
 
 export const AMSG2_CRED_FINGERPRINT_LS_KEY = 'amsg2_llm_cred_fingerprints';
 
-/** FNV-1a 32 位 + 长度后缀。够区分「换了 Key / 换了模型」，不用于任何安全判定。 */
+/** FNV-1a 32 位 + 長度後綴。夠區分「換了 Key / 換了模型」，不用於任何安全判定。 */
 export const fingerprintCredentialValue = (value: LlmCredentialValue): string => {
   const text = `${value.apiUrl}\0${value.apiKey}\0${value.primaryModel}`;
   let hash = 0x811c9dc5;
@@ -195,27 +195,27 @@ export const readCredFingerprints = (): FingerprintLedger => {
     }
     return out;
   } catch {
-    // 读不出来就当「一行都没传过」：多传一次是幂等的，比漏传安全。
+    // 讀不出來就當「一行都沒傳過」：多傳一次是冪等的，比漏傳安全。
     return {};
   }
 };
 
 const writeCredFingerprints = (ledger: FingerprintLedger) => {
-  // 存储满 / 隐私模式写不进去就算了：底账只是省请求的，写不进去顶多每次都重传。
+  // 存儲滿 / 隱私模式寫不進去就算了：底帳只是省請求的，寫不進去頂多每次都重傳。
   try {
     if (Object.keys(ledger).length === 0) localStorage.removeItem(AMSG2_CRED_FINGERPRINT_LS_KEY);
     else localStorage.setItem(AMSG2_CRED_FINGERPRINT_LS_KEY, JSON.stringify(ledger));
-  } catch { /* 见上 */ }
+  } catch { /* 見上 */ }
 };
 
-/** 这几行里，云端那份跟现在算出来的不一样（或者压根没传过）的那些。 */
+/** 這幾行裡，雲端那份跟現在算出來的不一樣（或者壓根沒傳過）的那些。 */
 export const pickChangedCredRows = (
   rows: LlmCredentialRow[],
   ledger: FingerprintLedger = readCredFingerprints(),
 ): LlmCredentialRow[] =>
   rows.filter((row) => ledger[row.credId] !== fingerprintCredentialValue(row.value));
 
-/** 记下「这几行已经传上去了」。 */
+/** 記下「這幾行已經傳上去了」。 */
 export const rememberCredRows = (rows: LlmCredentialRow[]): void => {
   if (rows.length === 0) return;
   const ledger = readCredFingerprints();
@@ -223,7 +223,7 @@ export const rememberCredRows = (rows: LlmCredentialRow[]): void => {
   writeCredFingerprints(ledger);
 };
 
-/** 把这几行从底账里划掉（云端删了 / 传出去的那份作废了，下次必须重传）。 */
+/** 把這幾行從底帳裡劃掉（雲端刪了 / 傳出去的那份作廢了，下次必須重傳）。 */
 export const forgetCredIds = (credIds: string[]): void => {
   if (credIds.length === 0) return;
   const ledger = readCredFingerprints();
@@ -234,13 +234,13 @@ export const forgetCredIds = (credIds: string[]): void => {
   if (changed) writeCredFingerprints(ledger);
 };
 
-/** 整本底账清掉（清空云端数据之后云端一行都不剩，本地这份账也就作废了）。 */
+/** 整本底帳清掉（清空雲端數據之後雲端一行都不剩，本地這份帳也就作廢了）。 */
 export const forgetAllCredIds = (): void => writeCredFingerprints({});
 
-/** 底账里现在记着哪些 credId（后台补传按它决定要重算哪几行）。 */
+/** 底帳裡現在記著哪些 credId（後台補傳按它決定要重算哪幾行）。 */
 export const knownCredIds = (): string[] => Object.keys(readCredFingerprints());
 
-/** 上游单批 PUT 的上限，超了要自己切片。 */
+/** 上游單批 PUT 的上限，超了要自己切片。 */
 export const CRED_PUT_BATCH_MAX = 100;
 
 export const chunkCredRows = (rows: LlmCredentialRow[], size = CRED_PUT_BATCH_MAX): LlmCredentialRow[][] => {

@@ -2,7 +2,7 @@ export const AVATAR_EMOTIONS = ['neutral', 'happy', 'sad', 'angry', 'fearful', '
 export const AVATAR_GESTURES = ['idle', 'talk', 'nod', 'shake', 'tilt', 'explain', 'wave', 'shy', 'lean-in', 'lean-back'] as const;
 export const AVATAR_CAMERAS = ['close', 'medium', 'wide', 'push-in', 'pull-out'] as const;
 export const AVATAR_GAZES = ['viewer', 'left', 'right', 'down'] as const;
-/** 可叠加在任意情绪/手势之上的微表情：生气也可以咧嘴、wink 可以配任何脸。 */
+/** 可疊加在任意情緒/手勢之上的微表情：生氣也可以咧嘴、wink 可以配任何臉。 */
 export const AVATAR_FACES = [
   'wink', 'grin', 'pout', 'blush', 'eyes-closed',
   'smile-eyes', 'brow-up', 'brow-sad', 'brow-angry',
@@ -35,13 +35,13 @@ export interface AvatarPerformanceDirection {
   camera: AvatarCamera;
   gaze: AvatarGaze;
   intensity: number;
-  /** 微表情叠加层，可多选（如 angry + grin + wink）。 */
+  /** 微表情疊加層，可多選（如 angry + grin + wink）。 */
   faces?: AvatarFace[];
-  /** Live2D 模型专属动作 ID；舞台仍会再次检查角色的 AI 白名单。 */
+  /** Live2D 模型專屬動作 ID；舞台仍會再次檢查角色的 AI 白名單。 */
   modelAction?: string;
   /**
-   * 高质量导演可同时选择的模型专属动作层。首项也会写入 modelAction，
-   * 兼容只支持单个自定义表情的 VRM 和旧版演出记录。
+   * 高質量導演可同時選擇的模型專屬動作層。首項也會寫入 modelAction，
+   * 兼容只支持單個自定義表情的 VRM 和舊版演出記錄。
    */
   modelActions?: string[];
   /** Authored startup pose that temporarily replaces ambient autonomy. */
@@ -56,7 +56,7 @@ export const DEFAULT_AVATAR_PERFORMANCE: AvatarPerformanceDirection = {
   intensity: 0.7,
 };
 
-/** 用户在舞台上校准的构图。offset 是相对画布宽/高的比例，VRM 与 Live2D 共用。 */
+/** 用戶在舞台上校準的構圖。offset 是相對畫布寬/高的比例，VRM 與 Live2D 共用。 */
 export interface AvatarStageFraming {
   scale: number;
   offsetX: number;
@@ -169,22 +169,22 @@ export const resolveAvatarPerformance = (
 
 export const inferAvatarPerformanceFromText = (text: string): AvatarPerformanceDirection => {
   const value = (text || '').replace(/<[^>]+>/g, ' ').trim();
-  if (/(?:^|[，。！？\s])(喂|嗨|哈喽|你好|早安|晚上好)|\b(?:hello|hey|hi)\b/i.test(value)) {
+  if (/(?:^|[，。！？\s])(喂|嗨|哈[喽嘍]|你好|早安|晚上好)|\b(?:hello|hey|hi)\b/i.test(value)) {
     return { emotion: 'happy', gesture: 'wave', camera: 'medium', gaze: 'viewer', intensity: 0.78 };
   }
-  if (/哈哈|笑死|好耶|太好|开心|高兴|喜欢|爱你|可爱|\b(?:haha|great|love)\b/i.test(value)) {
+  if (/哈哈|笑死|好耶|太好|[开開]心|高[兴興]|喜[欢歡]|[爱愛]你|可[爱愛]|\b(?:haha|great|love)\b/i.test(value)) {
     return { emotion: 'happy', gesture: 'nod', camera: 'push-in', gaze: 'viewer', intensity: 0.82 };
   }
-  if (/难过|伤心|委屈|失落|对不起|抱歉|唉|\b(?:sad|sorry)\b/i.test(value)) {
+  if (/[难難][过過]|[伤傷]心|委屈|失落|[对對]不起|抱歉|唉|\b(?:sad|sorry)\b/i.test(value)) {
     return { emotion: 'sad', gesture: 'shy', camera: 'pull-out', gaze: 'down', intensity: 0.68 };
   }
-  if (/生气|气死|讨厌|不许|不行|别这样|\b(?:angry|mad|stop)\b/i.test(value)) {
+  if (/生[气氣]|[气氣]死|[讨討][厌厭]|不[许許]|不行|[别別][这這][样樣]|\b(?:angry|mad|stop)\b/i.test(value)) {
     return { emotion: 'angry', gesture: 'shake', camera: 'close', gaze: 'viewer', intensity: 0.82 };
   }
-  if (/啊[？！?]|什么[？！?]|真的[？！?]|居然|没想到|天哪|\b(?:wow|really|what)\b/i.test(value)) {
+  if (/啊[？！?]|什[么麼][？！?]|真的[？！?]|居然|[没沒]想到|天哪|\b(?:wow|really|what)\b/i.test(value)) {
     return { emotion: 'surprised', gesture: 'tilt', camera: 'push-in', gaze: 'viewer', intensity: 0.86 };
   }
-  if (/^(?:嗯|对|好|可以|当然|没错)(?:[，。！\s]|$)|\b(?:yes|okay|sure)\b/i.test(value)) {
+  if (/^(?:嗯|[对對]|好|可以|[当當]然|[没沒][错錯])(?:[，。！\s]|$)|\b(?:yes|okay|sure)\b/i.test(value)) {
     return { emotion: 'calm', gesture: 'nod', camera: 'medium', gaze: 'viewer', intensity: 0.62 };
   }
   if (/[？?]$/.test(value)) {
@@ -222,7 +222,7 @@ const splitLocalPerformanceClauses = (rawText: string): LocalPerformanceClause[]
   pushRange(text.length);
 
   const clauses: LocalPerformanceClause[] = [];
-  const transitionRe = /但是|不过|可是|然而|其实|只是|所以|然后|结果|却/g;
+  const transitionRe = /但是|不[过過]|可是|然而|其[实實]|只是|所以|然[后後]|[结結]果|[却卻]/g;
   for (const range of sentenceRanges) {
     const sentence = text.slice(range.start, range.end);
     const cuts = [0];
@@ -301,7 +301,7 @@ export const inferAvatarPerformanceTimelineFromText = (text: string): AvatarPerf
 
 const parseDirectiveBody = (body: string, base: AvatarPerformanceDirection): AvatarPerformanceDirection => {
   const values: Record<string, string> = {};
-  // 值字符集包含逗号：face=wink,grin 这类多值字段需要整段捕获。
+  // 值字符集包含逗號：face=wink,grin 這類多值字段需要整段捕獲。
   const pairRe = /([a-z_]+)\s*=\s*["']?([a-z0-9_,.-]+)["']?/gi;
   let pair: RegExpExecArray | null;
   while ((pair = pairRe.exec(body)) !== null) values[pair[1].toLowerCase()] = pair[2];
@@ -328,15 +328,15 @@ const parseDirectiveBody = (body: string, base: AvatarPerformanceDirection): Ava
       ? { modelAction: values.model_action || values.modelaction || values.action_id }
       : {}),
   };
-  // faces / modelAction 是"这一拍"的瞬时表达，不从上一条指令继承——
-  // 没写就清掉，避免一个 wink 从头挂到尾。
+  // faces / modelAction 是"這一拍"的瞬時表達，不從上一條指令繼承——
+  // 沒寫就清掉，避免一個 wink 從頭掛到尾。
   if (faces.length) direction.faces = faces;
   else delete direction.faces;
   if (!(values.model_action || values.modelaction || values.action_id)) delete direction.modelAction;
   return direction;
 };
 
-/** 一条演出指令 + 它在正文中的位置（0..1，用于按语音进度调度）。 */
+/** 一條演出指令 + 它在正文中的位置（0..1，用於按語音進度調度）。 */
 export interface AvatarPerformanceCue {
   direction: AvatarPerformanceDirection;
   at: number;
@@ -408,8 +408,8 @@ export const expandAvatarPerformanceCueBeats = (
 };
 
 /**
- * 演出时间轴：正文中可以穿插多条 [[AVATAR:]] 指令，每条从它所在位置开始生效。
- * 后一条继承前一条的 emotion/gesture/camera 等（只写变化的字段也能用）。
+ * 演出時間軸：正文中可以穿插多條 [[AVATAR:]] 指令，每條從它所在位置開始生效。
+ * 後一條繼承前一條的 emotion/gesture/camera 等（只寫變化的字段也能用）。
  */
 export const extractAvatarPerformanceTimeline = (raw: string): { text: string; cues: AvatarPerformanceCue[] } => {
   const source = raw || '';
@@ -424,7 +424,7 @@ export const extractAvatarPerformanceTimeline = (raw: string): { text: string; c
     previous = parseDirectiveBody(match[1], previous);
     pending.push({ direction: previous, cleanedAt: cleaned.replace(/\s+$/, '').length });
     lastEnd = match.index + match[0].length;
-    // 指令独占一行时把它后面的换行一并吃掉，正文不留空行
+    // 指令獨佔一行時把它後面的換行一併吃掉，正文不留空行
     if (source[lastEnd] === '\r') lastEnd += 1;
     if (source[lastEnd] === '\n') lastEnd += 1;
   }
@@ -445,39 +445,39 @@ export const extractAvatarPerformance = (raw: string): { text: string; direction
   return { text, direction: cues.length ? cues[cues.length - 1].direction : undefined };
 };
 
-export const buildAvatarPerformancePrompt = (modelActions: Array<{ id: string; name: string }> = []): string => `### 这是视频通话——对方能看见你
+export const buildAvatarPerformancePrompt = (modelActions: Array<{ id: string; name: string }> = []): string => `### 這是視頻通話——對方能看見你
 
-你有一副真实的身体（VRM/Live2D 形象）出现在对方屏幕上。你说话时的表情、小动作、和镜头的距离，对方全都看在眼里。**身体语言是你台词的一部分，不是附加任务。**
+你有一副真實的身體（VRM/Live2D 形象）出現在對方屏幕上。你說話時的表情、小動作、和鏡頭的距離，對方全都看在眼裡。**身體語言是你台詞的一部分，不是附加任務。**
 
-每条回复的第一行放一条演出指令（它不会显示、不会被朗读，之后再写你说出口的话）：
+每條回覆的第一行放一條演出指令（它不會顯示、不會被朗讀，之後再寫你說出口的話）：
 
 [[AVATAR: emotion=happy; gesture=nod; camera=push-in; gaze=viewer; intensity=0.7]]
 
-字段取值（只能从这些里选）：
+字段取值（只能從這些裡選）：
 - emotion: neutral / happy / sad / angry / fearful / disgusted / surprised / calm / relaxed
-- gesture: idle / talk / nod / shake / tilt / explain / wave / shy / lean-in（前倾凑近）/ lean-back（后仰靠回去）
-- face: 可选的微表情叠加层，逗号分隔可多选：wink / grin（咧嘴）/ pout（撅嘴）/ blush（脸红）/ eyes-closed / smile-eyes（眯眯笑眼）/ brow-up（挑眉）/ brow-sad（八字眉委屈）/ brow-angry（皱眉瞪）
+- gesture: idle / talk / nod / shake / tilt / explain / wave / shy / lean-in（前傾湊近）/ lean-back（後仰靠回去）
+- face: 可選的微表情疊加層，逗號分隔可多選：wink / grin（咧嘴）/ pout（撅嘴）/ blush（臉紅）/ eyes-closed / smile-eyes（眯眯笑眼）/ brow-up（挑眉）/ brow-sad（八字眉委屈）/ brow-angry（皺眉瞪）
 - camera: close / medium / wide / push-in / pull-out
 - gaze: viewer / left / right / down
-- intensity: 0.2 到 1（同时控制情绪浓度和动作幅度：0.9 的 nod 是大幅度点头，0.4 只是轻轻颔首）
-${modelActions.length ? `- model_action: 可选；这个模型有一些专属动作/表情，用户允许你使用的有：\n${modelActions.slice(0, 40).map(action => `  - ${action.id}: ${action.name.slice(0, 48)}`).join('\n')}` : ''}
+- intensity: 0.2 到 1（同時控制情緒濃度和動作幅度：0.9 的 nod 是大幅度點頭，0.4 只是輕輕頷首）
+${modelActions.length ? `- model_action: 可選；這個模型有一些專屬動作/表情，用戶允許你使用的有：\n${modelActions.slice(0, 40).map(action => `  - ${action.id}: ${action.name.slice(0, 48)}`).join('\n')}` : ''}
 
-**这些字段是用来自由搭配的，不是单选题**——真人的脸和身体从来不是一次只做一件事：
-- 气到想笑：emotion=angry; face=grin —— 咧着嘴的生气比板着脸生动十倍
+**這些字段是用來自由搭配的，不是單選題**——真人的臉和身體從來不是一次只做一件事：
+- 氣到想笑：emotion=angry; face=grin —— 咧著嘴的生氣比板著臉生動十倍
 - 得意地眨眼：emotion=happy; face=wink,grin; gesture=lean-in; intensity=0.85
-- 被夸到不好意思：emotion=happy; face=blush; gesture=shy; gaze=down
-- 用力否认：emotion=angry; gesture=shake; intensity=0.95 —— 大幅度摇头
-- 恍然大悟往前凑：emotion=surprised; gesture=lean-in; camera=push-in
-- 无语地靠回去：emotion=disgusted; gesture=lean-back; face=eyes-closed
-怎么选？别想"该填什么"，想"我这句话说出口的时候，我的脸和身体在做什么"。
-大部分平静的对话就是 calm + talk + medium，**不必每句都加戏**——但情绪一动，就大胆组合，你的身体不是雕塑。
-${modelActions.length ? '- model_action 是你的招牌动作，台词正好对上的时候用它比通用手势更有性格；不合适就省略，禁止编造列表外的 ID。' : ''}
+- 被誇到不好意思：emotion=happy; face=blush; gesture=shy; gaze=down
+- 用力否認：emotion=angry; gesture=shake; intensity=0.95 —— 大幅度搖頭
+- 恍然大悟往前湊：emotion=surprised; gesture=lean-in; camera=push-in
+- 無語地靠回去：emotion=disgusted; gesture=lean-back; face=eyes-closed
+怎麼選？別想"該填什麼"，想"我這句話說出口的時候，我的臉和身體在做什麼"。
+大部分平靜的對話就是 calm + talk + medium，**不必每句都加戲**——但情緒一動，就大膽組合，你的身體不是雕塑。
+${modelActions.length ? '- model_action 是你的招牌動作，台詞正好對上的時候用它比通用手勢更有性格；不合適就省略，禁止編造列表外的 ID。' : ''}
 
-**指令可以放多条**：一条回复里情绪有转折时，在转折的那一段前面再插一行指令，从那句话开始生效（后一条只写变化的字段也行）。就像：
+**指令可以放多條**：一條回覆裡情緒有轉折時，在轉折的那一段前面再插一行指令，從那句話開始生效（後一條只寫變化的字段也行）。就像：
 
 [[AVATAR: emotion=calm; gesture=talk]]
-唔……这个嘛，我本来是想拒绝的。
+唔……這個嘛，我本來是想拒絕的。
 [[AVATAR: emotion=happy; face=grin,wink; gesture=lean-in; intensity=0.85]]
-但看在你请我喝奶茶的份上——成交！
+但看在你請我喝奶茶的份上——成交！
 
-铁律：第一行必须是一条指令；指令要单独占一行、放在它对应的那段话前面；不要在台词里解释这些字段的存在。`;
+鐵律：第一行必須是一條指令；指令要單獨佔一行、放在它對應的那段話前面；不要在台詞裡解釋這些字段的存在。`;

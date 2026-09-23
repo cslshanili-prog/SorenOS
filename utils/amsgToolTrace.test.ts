@@ -1,69 +1,69 @@
 // utils/amsgToolTrace.test.ts
-// 云端工具痕迹 → 气泡底下那行灰字。worker 传回来的是原始工具名 + 次数，翻译成人话
-// 全在这一份里做，所以这里钉的都是「用户最后读到的是什么」。
+// 雲端工具痕跡 → 氣泡底下那行灰字。worker 傳回來的是原始工具名 + 次數，翻譯成人話
+// 全在這一份裡做，所以這裡釘的都是「用戶最後讀到的是什麼」。
 import { describe, it, expect } from 'vitest';
 
 import { formatAmsgToolTrace } from './amsgToolTrace';
 
 describe('formatAmsgToolTrace', () => {
-  it('内置工具说人话，不是把 web_search 这种内部名字甩给用户', () => {
-    expect(formatAmsgToolTrace([{ name: 'web_search', count: 1 }])).toBe('搜索网页');
-    expect(formatAmsgToolTrace([{ name: 'recall', count: 1 }])).toBe('读取记忆');
+  it('內置工具說人話，不是把 web_search 這種內部名字甩給用戶', () => {
+    expect(formatAmsgToolTrace([{ name: 'web_search', count: 1 }])).toBe('搜索網頁');
+    expect(formatAmsgToolTrace([{ name: 'recall', count: 1 }])).toBe('讀取記憶');
   });
 
-  it('跑了几次就写几次，跑一次的不写 ×1', () => {
+  it('跑了幾次就寫幾次，跑一次的不寫 ×1', () => {
     expect(formatAmsgToolTrace([
       { name: 'web_search', count: 2 },
       { name: 'recall', count: 1 },
-    ])).toBe('搜索网页 ×2 · 读取记忆');
+    ])).toBe('搜索網頁 ×2 · 讀取記憶');
   });
 
-  // 小红书那几个工具（搜索 / 刷首页 / 点开一条）在用户眼里是同一件事。分开写就成了
-  // 「读取小红书 · 读取小红书」，像是渲染出了 bug。
-  it('说法一样的几个工具合并计次', () => {
+  // 小紅書那幾個工具（搜索 / 刷首頁 / 點開一條）在用戶眼裡是同一件事。分開寫就成了
+  // 「讀取小紅書 · 讀取小紅書」，像是渲染出了 bug。
+  it('說法一樣的幾個工具合併計次', () => {
     expect(formatAmsgToolTrace([
       { name: 'xhs_search', count: 1 },
       { name: 'xhs_detail', count: 2 },
-    ])).toBe('读取小红书 ×3');
+    ])).toBe('讀取小紅書 ×3');
   });
 
-  // MCP 工具是用户自己接进来的，只有他知道那是干嘛的，不编说法。前缀是内部拿来分流的，
-  // 露给用户看就跟他在设置里填的名字对不上号了。
-  it('MCP 工具剥掉内部前缀，用用户自己配的那个名字', () => {
+  // MCP 工具是用戶自己接進來的，只有他知道那是幹嘛的，不編說法。前綴是內部拿來分流的，
+  // 露給用戶看就跟他在設置裡填的名字對不上號了。
+  it('MCP 工具剝掉內部前綴，用用戶自己配的那個名字', () => {
     expect(formatAmsgToolTrace([{ name: 'mcp__get_weather', count: 1 }]))
       .toBe('get_weather');
   });
 
-  it('没见过的工具名原样显示（宁可露个英文名，也别编一个说法）', () => {
+  it('沒見過的工具名原樣顯示（寧可露個英文名，也別編一個說法）', () => {
     expect(formatAmsgToolTrace([{ name: 'brand_new_tool', count: 1 }]))
       .toBe('brand_new_tool');
   });
 
-  // 这份数据是 worker 随推送捎回来的，老版本 worker 压根不带、字段也可能是别的形状。
-  // 宁可这一行不画，也别在气泡底下渲染出 [object Object]。
+  // 這份數據是 worker 隨推送捎回來的，老版本 worker 壓根不帶、字段也可能是別的形狀。
+  // 寧可這一行不畫，也別在氣泡底下渲染出 [object Object]。
   it.each([
-    ['不是数组', 'web_search'],
-    ['没有这个字段', undefined],
-    ['空数组', []],
-    ['条目没名字', [{ count: 3 }]],
+    ['不是數組', 'web_search'],
+    ['沒有這個字段', undefined],
+    ['空數組', []],
+    ['條目沒名字', [{ count: 3 }]],
     ['名字不是字符串', [{ name: 42, count: 1 }]],
     ['名字是空白', [{ name: '   ', count: 1 }]],
-  ])('形状不对就整行不画：%s', (_label, raw) => {
+  ])('形狀不對就整行不畫：%s', (_label, raw) => {
     expect(formatAmsgToolTrace(raw)).toBe('');
   });
 
-  it('次数缺了 / 是垃圾值时按跑过一次算，不写 ×NaN', () => {
-    expect(formatAmsgToolTrace([{ name: 'recall' }])).toBe('读取记忆');
-    expect(formatAmsgToolTrace([{ name: 'recall', count: 'abc' }])).toBe('读取记忆');
-    expect(formatAmsgToolTrace([{ name: 'recall', count: -3 }])).toBe('读取记忆');
+  it('次數缺了 / 是垃圾值時按跑過一次算，不寫 ×NaN', () => {
+    expect(formatAmsgToolTrace([{ name: 'recall' }])).toBe('讀取記憶');
+    expect(formatAmsgToolTrace([{ name: 'recall', count: 'abc' }])).toBe('讀取記憶');
+    expect(formatAmsgToolTrace([{ name: 'recall', count: -3 }])).toBe('讀取記憶');
   });
 
-  it('好条目和坏条目混在一起时，坏的丢掉、好的照画', () => {
+  it('好條目和壞條目混在一起時，壞的丟掉、好的照畫', () => {
     expect(formatAmsgToolTrace([
       { name: 'web_search', count: 2 },
       { name: '', count: 9 },
       null,
       { name: 'recall', count: 1 },
-    ])).toBe('搜索网页 ×2 · 读取记忆');
+    ])).toBe('搜索網頁 ×2 · 讀取記憶');
   });
 });

@@ -1,16 +1,16 @@
 /**
- * Pixel Home — 默认家具像素渲染器
+ * Pixel Home — 默認傢俱像素渲染器
  *
- * 为每个槽位生成默认的像素风格家具图标（Canvas 生成）。
- * 用户可以用自定义资产替换这些默认图。
+ * 為每個槽位生成默認的像素風格傢俱圖標（Canvas 生成）。
+ * 用戶可以用自定義資產替換這些默認圖。
  */
 
 import type { MemoryRoom } from '../../utils/memoryPalace/types';
 
-// 缓存生成的默认家具图
+// 緩存生成的默認傢俱圖
 const _cache: Map<string, string> = new Map();
 
-// 调色板
+// 調色板
 const PAL = {
   wood:      '#8b6914',
   woodDark:  '#5c4a1e',
@@ -38,22 +38,22 @@ const PAL = {
 };
 
 /**
- * 获取默认家具像素图的 data URI。
- * 每个房间的每个槽位有独特的像素小图标。
+ * 獲取默認傢俱像素圖的 data URI。
+ * 每個房間的每個槽位有獨特的像素小圖標。
  */
 export function defaultFurniturePixelSrc(roomId: MemoryRoom, slotId: string): string {
   const key = `${roomId}_${slotId}`;
   if (_cache.has(key)) return _cache.get(key)!;
 
   const SIZE = 16; // 原始像素尺寸
-  const SCALE = 4; // 展示放大倍数
+  const SCALE = 4; // 展示放大倍數
   const canvas = document.createElement('canvas');
   canvas.width = SIZE * SCALE;
   canvas.height = SIZE * SCALE;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
 
-  // 先画到小 canvas 再放大
+  // 先畫到小 canvas 再放大
   const small = document.createElement('canvas');
   small.width = SIZE;
   small.height = SIZE;
@@ -82,7 +82,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
   ctx.clearRect(0, 0, size, size);
 
   switch (`${roomId}:${slotId}`) {
-    // ─── 客厅 ─────────────────────────────
+    // ─── 客廳 ─────────────────────────────
     case 'living_room:sofa':
       rect(ctx, 2, 8, 12, 5, PAL.fabric);
       rect(ctx, 1, 9, 1, 4, PAL.fabricDark);
@@ -118,7 +118,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       px(ctx, 8, 5, PAL.red);
       break;
 
-    // ─── 卧室 ─────────────────────────────
+    // ─── 臥室 ─────────────────────────────
     case 'bedroom:bed':
       rect(ctx, 1, 7, 14, 7, PAL.fabric);
       rect(ctx, 2, 5, 12, 3, PAL.white); // pillow
@@ -153,7 +153,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       px(ctx, 8, 8, PAL.red);
       break;
 
-    // ─── 书房 ─────────────────────────────
+    // ─── 書房 ─────────────────────────────
     case 'study:desk':
       rect(ctx, 1, 7, 14, 2, PAL.wood);
       rect(ctx, 1, 6, 14, 1, PAL.woodLight);
@@ -200,7 +200,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       rect(ctx, 5, 12, 6, 1, PAL.grayDark);
       break;
 
-    // ─── 阁楼 ─────────────────────────────
+    // ─── 閣樓 ─────────────────────────────
     case 'attic:chest':
       rect(ctx, 2, 7, 12, 7, PAL.woodDark);
       rect(ctx, 2, 7, 12, 2, PAL.rust);
@@ -243,7 +243,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       px(ctx, 7, 4, PAL.gold);
       break;
 
-    // ─── 个人房间 ─────────────────────────
+    // ─── 個人房間 ─────────────────────────
     case 'self_room:vanity':
       rect(ctx, 3, 7, 10, 7, PAL.wood);
       rect(ctx, 4, 2, 8, 6, PAL.mirror);
@@ -278,7 +278,7 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       rect(ctx, 5, 10, 4, 3, PAL.cream); // cushion
       break;
 
-    // ─── 用户房 ──────────────────────────
+    // ─── 用戶房 ──────────────────────────
     case 'user_room:guest_bed':
       rect(ctx, 1, 8, 14, 6, PAL.green);
       rect(ctx, 2, 6, 12, 3, PAL.white);
@@ -364,15 +364,15 @@ function drawDefaultFurniture(ctx: CanvasRenderingContext2D, roomId: MemoryRoom,
       break;
 
     default:
-      // 通用占位
+      // 通用佔位
       rect(ctx, 4, 4, 8, 8, PAL.gray);
       rect(ctx, 5, 5, 6, 6, PAL.cobweb);
       break;
   }
 }
 
-/** 生成房间缩略图（供俯瞰地图使用） */
+/** 生成房間縮略圖（供俯瞰地圖使用） */
 export function generateRoomPixelThumbnail(_roomId: MemoryRoom): string {
-  // TODO: 生成包含已放置家具的房间完整缩略图
+  // TODO: 生成包含已放置傢俱的房間完整縮略圖
   return '';
 }

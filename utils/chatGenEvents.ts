@@ -1,42 +1,42 @@
 /**
- * 聊天生成的全局广播事件（对标彼方的 vr-session-start/end）。
+ * 聊天生成的全局廣播事件（對標彼方的 vr-session-start/end）。
  *
  * 背景：Chat App 切走是真 unmount（PhoneShell 按 activeApp switch 渲染），但
- * useChatAI.triggerAI 的异步闭包会继续跑完并把回复落库（本地 fetch 路径），
- * 情绪评估同理。过去这段"后台生成"对用户完全不可见——切走就像死了。
+ * useChatAI.triggerAI 的異步閉包會繼續跑完並把回覆落庫（本地 fetch 路徑），
+ * 情緒評估同理。過去這段"後台生成"對用戶完全不可見——切走就像死了。
  *
- * 这里定义一组 window CustomEvent，由生成闭包在开始/结束时派发：
- *   - 根级 <ChatBroadcast/>（App.tsx，PhoneShell 之外）监听并渲染
- *     「xx 正在回应…」「xx 正在感受…」全局横幅，组件生命周期与 Chat 无关；
- *   - OSContext 监听 reply 落库事件，bump lastMsgTimestamp 让当前挂载的
- *     Chat 重新 reloadMessages，并在用户不在该会话时补未读/toast——
- *     与云端回复的 'active-msg-received' 回落行为对齐。
+ * 這裡定義一組 window CustomEvent，由生成閉包在開始/結束時派發：
+ *   - 根級 <ChatBroadcast/>（App.tsx，PhoneShell 之外）監聽並渲染
+ *     「xx 正在回應…」「xx 正在感受…」全局橫幅，組件生命週期與 Chat 無關；
+ *   - OSContext 監聽 reply 落庫事件，bump lastMsgTimestamp 讓當前掛載的
+ *     Chat 重新 reloadMessages，並在用戶不在該會話時補未讀/toast——
+ *     與雲端回覆的 'active-msg-received' 回落行為對齊。
  *
  * detail 一律是 { charId, charName }。
  */
 
 export const CHAT_GEN_EVENTS = {
-    /** 主回复生成开始（本地 fetch 与即时对话两条路径都算） */
+    /** 主回覆生成開始（本地 fetch 與即時對話兩條路徑都算） */
     replyStart: 'chat-gen-reply-start',
-    /** 主回复生成会话结束（triggerAI finally，成功/失败/即时对话均触发） */
+    /** 主回覆生成會話結束（triggerAI finally，成功/失敗/即時對話均觸發） */
     replyEnd: 'chat-gen-reply-end',
-    /** 本地 fetch 路径：回复已全部落库（后处理管线跑完）。即时对话路径不发——它走 'active-msg-received' */
+    /** 本地 fetch 路徑：回覆已全部落庫（後處理管線跑完）。即時對話路徑不發——它走 'active-msg-received' */
     replyArrived: 'chat-gen-reply-arrived',
-    /** 情绪评估开始（本地 eval / 主动消息 eval / 上云点灯） */
+    /** 情緒評估開始（本地 eval / 主動消息 eval / 上雲點燈） */
     emotionStart: 'chat-gen-emotion-start',
-    /** 情绪评估结束（本地路径自己派发；上云路径由下面的 emotionDone 接） */
+    /** 情緒評估結束（本地路徑自己派發；上雲路徑由下面的 emotionDone 接） */
     emotionEnd: 'chat-gen-emotion-end',
     /**
-     * 即时对话的情绪评估有结论了——成功、失败、云端点名说这一轮没成，都算。
-     * 名字改不得：它是三方约定的线上事件名
-     * （worker 推回后由 activeMsgRuntime 派发，Chat 页的徽章和全局横幅各自监听）。
-     * 派发一律走 announceEmotionDone，别再各处手写字符串。
+     * 即時對話的情緒評估有結論了——成功、失敗、雲端點名說這一輪沒成，都算。
+     * 名字改不得：它是三方約定的線上事件名
+     * （worker 推回後由 activeMsgRuntime 派發，Chat 頁的徽章和全局橫幅各自監聽）。
+     * 派發一律走 announceEmotionDone，別再各處手寫字符串。
      */
     emotionDone: 'instant-emotion-done',
     /**
-     * 情绪评估失败（本地 fetch 报错 / 云端 worker 空结果 / 输出解析全灭）。
-     * 过去失败只写 console.warn，用户侧表现是「情绪不更新但没任何报错」，完全没法自查
-     * （真实用户反馈）。OSContext 监听本事件弹 toast（每角色带冷却），detail.reason 带人话原因。
+     * 情緒評估失敗（本地 fetch 報錯 / 雲端 worker 空結果 / 輸出解析全滅）。
+     * 過去失敗只寫 console.warn，用戶側表現是「情緒不更新但沒任何報錯」，完全沒法自查
+     * （真實用戶反饋）。OSContext 監聽本事件彈 toast（每角色帶冷卻），detail.reason 帶人話原因。
      */
     emotionFailed: 'chat-gen-emotion-failed',
 } as const;
@@ -44,14 +44,14 @@ export const CHAT_GEN_EVENTS = {
 export interface ChatGenDetail {
     charId: string;
     charName: string;
-    /** emotionFailed 专用：失败原因（人话，可直接展示给用户） */
+    /** emotionFailed 專用：失敗原因（人話，可直接展示給用戶） */
     reason?: string;
     /**
-     * 这一条最长挂多久（毫秒）。只有全局横幅读它，用来给「结束信号没来」兜底。
-     * 不给就用横幅自己那一档默认值。
+     * 這一條最長掛多久（毫秒）。只有全局橫幅讀它，用來給「結束信號沒來」兜底。
+     * 不給就用橫幅自己那一檔默認值。
      *
-     * 之所以由派发方说了算：同一种生成在不同路径上的时长天差地别——本地评估几秒钟，
-     * 交给自己那台 worker 的即时对话可以跑满十分钟。横幅这边猜不出来，也不该猜。
+     * 之所以由派發方說了算：同一種生成在不同路徑上的時長天差地別——本地評估幾秒鐘，
+     * 交給自己那台 worker 的即時對話可以跑滿十分鐘。橫幅這邊猜不出來，也不該猜。
      */
     ttlMs?: number;
 }
@@ -59,34 +59,34 @@ export interface ChatGenDetail {
 export function announceChatGen(event: string, detail: ChatGenDetail): void {
     try {
         window.dispatchEvent(new CustomEvent(event, { detail }));
-    } catch { /* SSR / 测试环境无 window */ }
+    } catch { /* SSR / 測試環境無 window */ }
 }
 
 /**
- * 上云的情绪评估有结论了 —— 熄灭 Chat 页的「情绪更新中」徽章和全局横幅。
+ * 上雲的情緒評估有結論了 —— 熄滅 Chat 頁的「情緒更新中」徽章和全局橫幅。
  *
- * 成功、失败、云端点名说这一轮没成，都要发：这是那盏灯唯一的正常熄灭信号，
- * 不发的话用户只能干等安全网超时，中途还会看到一句误导的提示。
+ * 成功、失敗、雲端點名說這一輪沒成，都要發：這是那盞燈唯一的正常熄滅信號，
+ * 不發的話用戶只能乾等安全網超時，中途還會看到一句誤導的提示。
  */
 export function announceEmotionDone(charId: string): void {
     try {
         window.dispatchEvent(new CustomEvent(CHAT_GEN_EVENTS.emotionDone, { detail: { charId } }));
-    } catch { /* SSR / 测试环境无 window */ }
+    } catch { /* SSR / 測試環境無 window */ }
 }
 
-// ─── 当前聊天视图快照 ───
-// ChatBroadcast 挂在 OSProvider 之外拿不到 activeApp/activeCharacterId，
-// 由 OSContext 在视图变化时写入这个模块级快照（同 MusicContext 的
-// loadMusicPlaybackSnapshot 模式），并派发 CHAT_VIEW_CHANGED_EVENT 触发重渲染。
-// 用途：用户正开着某角色的聊天页时，该角色的横幅不显示（页内已有打字指示），
-// 切走的瞬间横幅接棒出现。
+// ─── 當前聊天視圖快照 ───
+// ChatBroadcast 掛在 OSProvider 之外拿不到 activeApp/activeCharacterId，
+// 由 OSContext 在視圖變化時寫入這個模塊級快照（同 MusicContext 的
+// loadMusicPlaybackSnapshot 模式），並派發 CHAT_VIEW_CHANGED_EVENT 觸發重渲染。
+// 用途：用戶正開著某角色的聊天頁時，該角色的橫幅不顯示（頁內已有打字指示），
+// 切走的瞬間橫幅接棒出現。
 
 export const CHAT_VIEW_CHANGED_EVENT = 'chat-view-changed';
 
 interface ChatViewSnapshot {
-    /** 当前是否开着 Chat App */
+    /** 當前是否開著 Chat App */
     chatOpen: boolean;
-    /** Chat App 当前会话的角色 id（chatOpen=false 时无意义） */
+    /** Chat App 當前會話的角色 id（chatOpen=false 時無意義） */
     charId: string | null;
 }
 

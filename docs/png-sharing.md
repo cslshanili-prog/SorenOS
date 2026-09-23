@@ -1,44 +1,44 @@
 # PNG 分享卡
 
-在可复用内容的导出入口制作分享图：上传预览图，填写作品名称、作者和使用限制，选择留白相纸、全幅海报或横版名片。接收方在对应功能的原有导入入口选择 PNG 原文件即可还原。原格式导出仍可用。
+在可複用內容的導出入口製作分享圖：上傳預覽圖，填寫作品名稱、作者和使用限制，選擇留白相紙、全幅海報或橫版名片。接收方在對應功能的原有導入入口選擇 PNG 原文件即可還原。原格式導出仍可用。
 
-手机端默认显示大图，点击悬浮的「调整样式」展开底部小面板。面板分为「图片与排版」「文字与署名」，只在面板内滚动，预览始终留在上方实时更新。点击「收起设置」恢复大图，填写内容保留。键盘弹出时根据可视区域缩小编辑器并保持当前输入项可见；Escape 先收起设置，再次按下才关闭编辑器。桌面端保持预览和设置并排显示。
+手機端默認顯示大圖，點擊懸浮的「調整樣式」展開底部小面板。面板分為「圖片與排版」「文字與署名」，只在面板內滾動，預覽始終留在上方實時更新。點擊「收起設置」恢復大圖，填寫內容保留。鍵盤彈出時根據可視區域縮小編輯器並保持當前輸入項可見；Escape 先收起設置，再次按下才關閉編輯器。桌面端保持預覽和設置並排顯示。
 
-| 内容 | 导出 / 导入位置 | 原格式 |
+| 內容 | 導出 / 導入位置 | 原格式 |
 | --- | --- | --- |
-| 角色卡 | 角色详情导出 / 角色列表导入 | JSON |
-| 世界书 | 分组导出 / 世界书导入 | JSON |
-| 白框 CSS | 白框编辑器「导出分享」「导入 PNG / CSS」 | TXT / CSS |
-| 白框预设集 | 我的预设「图片分享」「图片导入」 | SULLYCSS1 文本；原剪贴板分享保留 |
-| 白框提示音 | 提示音编辑器「图片分享」「图片导入」 | SULLYSND1 文本；原剪贴板分享保留 |
-| 日记 CSS | 日记外观编辑器 | CSS |
-| 气泡主题 | 气泡制作器的已存主题 | JSON |
-| 外观预设 | 外观预设管理 | ZIP；兼容旧 JSON |
-| 剧情预设 | 剧情预设库、制作器及装载入口 | JSON |
-| 小屋样板房 | 小屋样板房导出 / 导入 | JSON |
-| 像素小屋 | 像素家园底部导出 / 导入 | JSON |
+| 角色卡 | 角色詳情導出 / 角色列表導入 | JSON |
+| 世界書 | 分組導出 / 世界書導入 | JSON |
+| 白框 CSS | 白框編輯器「導出分享」「導入 PNG / CSS」 | TXT / CSS |
+| 白框預設集 | 我的預設「圖片分享」「圖片導入」 | SULLYCSS1 文本；原剪貼板分享保留 |
+| 白框提示音 | 提示音編輯器「圖片分享」「圖片導入」 | SULLYSND1 文本；原剪貼板分享保留 |
+| 日記 CSS | 日記外觀編輯器 | CSS |
+| 氣泡主題 | 氣泡製作器的已存主題 | JSON |
+| 外觀預設 | 外觀預設管理 | ZIP；兼容舊 JSON |
+| 劇情預設 | 劇情預設庫、製作器及裝載入口 | JSON |
+| 小屋樣板房 | 小屋樣板房導出 / 導入 | JSON |
+| 像素小屋 | 像素家園底部導出 / 導入 | JSON |
 
-PNG 内含原文件的完整字节，图片本身不需要联网才能恢复内容。内容中原有的外链仍然是外链。角色卡沿用现有字段剥离和本机图片令牌转资源流程；系统备份、诊断日志、聊天记录及直接下载的媒体仍走原有文件出口。
+PNG 內含原文件的完整字節，圖片本身不需要聯網才能恢復內容。內容中原有的外鏈仍然是外鏈。角色卡沿用現有字段剝離和本機圖片令牌轉資源流程；系統備份、診斷日誌、聊天記錄及直接下載的媒體仍走原有文件出口。
 
-## 使用边界
+## 使用邊界
 
-- 分享的是 PNG 原文件。截图、重编码、图片压缩、转成 JPG/WebP 或删除图片元数据，可能丢失内容；建议按文件发送。
-- 使用限制展示在图片上并随元数据保存，是作者说明，不是加密或权限控制。导入时仍执行对应功能原有的校验、合并或覆盖规则。
-- 仅识别 SullyOS 分享卡，不把普通 PNG 或其它应用的角色 PNG 当作 SullyOS 数据导入。
-- 预览图限制 20 MB / 4000 万像素；内嵌内容上限 64 MB，整张 PNG 上限 96 MB。超限可用原格式导出。
-- 作者、作品名、使用限制的编辑只作用于本次分享图，不改动源角色/预设。预览图居中裁切；GIF 导出当前预览帧。
+- 分享的是 PNG 原文件。截圖、重編碼、圖片壓縮、轉成 JPG/WebP 或刪除圖片元數據，可能丟失內容；建議按文件發送。
+- 使用限制展示在圖片上並隨元數據保存，是作者說明，不是加密或權限控制。導入時仍執行對應功能原有的校驗、合併或覆蓋規則。
+- 僅識別 SullyOS 分享卡，不把普通 PNG 或其它應用的角色 PNG 當作 SullyOS 數據導入。
+- 預覽圖限制 20 MB / 4000 萬像素；內嵌內容上限 64 MB，整張 PNG 上限 96 MB。超限可用原格式導出。
+- 作者、作品名、使用限制的編輯只作用於本次分享圖，不改動源角色/預設。預覽圖居中裁切；GIF 導出當前預覽幀。
 
-## 实现
+## 實現
 
-`utils/shareExport.ts` 的文本与 Blob 入口接受可选的 `card` 参数，按需加载分享编辑器。调用方应处理 `cancelled`，取消时不显示成功提示。PNG 和原文件都复用原生分享 → Web Share → 浏览器下载的适配；Capacitor 的 `Share canceled` 和 Web Share 的 `AbortError` 都返回取消。
+`utils/shareExport.ts` 的文本與 Blob 入口接受可選的 `card` 參數，按需加載分享編輯器。調用方應處理 `cancelled`，取消時不顯示成功提示。PNG 和原文件都複用原生分享 → Web Share → 瀏覽器下載的適配；Capacitor 的 `Share canceled` 和 Web Share 的 `AbortError` 都返回取消。
 
-`utils/pngShare.ts` 在 IEND 前写入私有辅助数据块 `suLy`。布局遵循 [W3C PNG 第三版](https://www.w3.org/TR/png-3/#5Chunk-layout)：8 字节 `SullyOS\0` 标识、4 字节大端元信息长度、UTF-8 JSON 元信息、原文件二进制字节。元信息包含 format/version/kind/title/author/restrictions/style/fileName/mimeType，不使用 base64 扩充原文件。
+`utils/pngShare.ts` 在 IEND 前寫入私有輔助數據塊 `suLy`。佈局遵循 [W3C PNG 第三版](https://www.w3.org/TR/png-3/#5Chunk-layout)：8 字節 `SullyOS\0` 標識、4 字節大端元信息長度、UTF-8 JSON 元信息、原文件二進制字節。元信息包含 format/version/kind/title/author/restrictions/style/fileName/mimeType，不使用 base64 擴充原文件。
 
-导入检查 PNG 标识、分块边界、CRC、数据块重复、协议版本、内容类型、文件名和体积，确认后还原 File 交给原功能导入。重新封装时移除已有 `suLy`，防止残留上一份分享内容。图片 CRC 用于检测损坏，不用于证明作者身份。扩展新内容类型时，需同时接入导出 `card.kind`、PNG 文件选择器和 `readShareFile` / `readShareText`，再执行原内容校验。
+導入檢查 PNG 標識、分塊邊界、CRC、數據塊重複、協議版本、內容類型、文件名和體積，確認後還原 File 交給原功能導入。重新封裝時移除已有 `suLy`，防止殘留上一份分享內容。圖片 CRC 用於檢測損壞，不用於證明作者身份。擴展新內容類型時，需同時接入導出 `card.kind`、PNG 文件選擇器和 `readShareFile` / `readShareText`，再執行原內容校驗。
 
-分享卡使用统一 Canvas 生成预览，导出直接读取这张 Canvas，因此文件与预览逐像素一致。编辑器使用原生 dialog，支持键盘焦点限制、Escape 取消及减少动态效果偏好。移动端设置面板最高 320px，且不超过内容区高度的 46%；VisualViewport 变化时同步可用高度和位置，避免软键盘遮住预览、输入项或导出按钮。
+分享卡使用統一 Canvas 生成預覽，導出直接讀取這張 Canvas，因此文件與預覽逐像素一致。編輯器使用原生 dialog，支持鍵盤焦點限制、Escape 取消及減少動態效果偏好。移動端設置面板最高 320px，且不超過內容區高度的 46%；VisualViewport 變化時同步可用高度和位置，避免軟鍵盤遮住預覽、輸入項或導出按鈕。
 
-## 验证
+## 驗證
 
 ```sh
 node node_modules/vitest/vitest.mjs run utils/pngShare.test.ts utils/shareExport.test.ts utils/shareExportNative.test.ts utils/exportShareAudit.test.ts utils/characterCard.test.ts utils/exportGuard.test.ts utils/worldbook.test.ts utils/storyTheater.test.ts
@@ -46,4 +46,4 @@ node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5188 --strictPort
 node scripts/test-png-share-ui.mjs
 ```
 
-UI 脚本使用 Playwright，可通过 `PLAYWRIGHT_MODULE` 指定其绝对模块路径，通过 `PNG_SHARE_BROWSER_CHANNEL=msedge` 使用已安装的 Edge，通过 `PNG_SHARE_QA_URL` 修改测试地址。测试使用隔离浏览器存储并阻止外部网络请求；检查三种布局、真实图片上传、320px / 390px 屏幕上预览与设置同时可见、独立滚动、VisualViewport 键盘缩小模拟、收起展开保留编辑、长文案、像素一致性、下载、取消/重试、原 JSON、真实 CSS 编辑器往返和实际角色导入。结果在 `output/png-share-qa/`。可视区域模拟不等于 Android / iPhone 真机键盘测试。
+UI 腳本使用 Playwright，可通過 `PLAYWRIGHT_MODULE` 指定其絕對模塊路徑，通過 `PNG_SHARE_BROWSER_CHANNEL=msedge` 使用已安裝的 Edge，通過 `PNG_SHARE_QA_URL` 修改測試地址。測試使用隔離瀏覽器存儲並阻止外部網絡請求；檢查三種佈局、真實圖片上傳、320px / 390px 屏幕上預覽與設置同時可見、獨立滾動、VisualViewport 鍵盤縮小模擬、收起展開保留編輯、長文案、像素一致性、下載、取消/重試、原 JSON、真實 CSS 編輯器往返和實際角色導入。結果在 `output/png-share-qa/`。可視區域模擬不等於 Android / iPhone 真機鍵盤測試。

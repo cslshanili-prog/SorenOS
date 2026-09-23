@@ -41,7 +41,7 @@ export async function fetchMiniMaxVoices(apiKey: string, voiceType: MiniMaxVoice
   const statusCode = data?.base_resp?.status_code;
   if (!response.ok || (typeof statusCode === 'number' && statusCode !== 0)) {
     const statusMsg = data?.base_resp?.status_msg || `HTTP ${response.status}`;
-    throw new Error(`MiniMax 音色查询失败: ${statusMsg}`);
+    throw new Error(`MiniMax 音色查詢失敗: ${statusMsg}`);
   }
 
   return {

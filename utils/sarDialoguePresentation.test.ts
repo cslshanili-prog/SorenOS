@@ -6,7 +6,7 @@ import { familiarityScene } from './vrWorld/sarFamiliarity/catalog';
 
 describe('SAR dialogue presentation',()=>{
     it('pages sentences without losing punctuation, quotes or quiet pauses',()=>{
-        expect(dialogueSentences('你好！再坐一会儿。\n……好。你说“真的吗？！”')).toEqual(['你好！','再坐一会儿。','……好。','你说“真的吗？！”']);
+        expect(dialogueSentences('你好！再坐一會兒。\n……好。你說“真的嗎？！”')).toEqual(['你好！','再坐一會兒。','……好。','你說“真的嗎？！”']);
         expect(dialogueSentences('……')).toEqual(['……']);
         expect(dialogueSentences('')).toEqual([]);
     });
@@ -28,7 +28,7 @@ describe('SAR dialogue presentation',()=>{
     });
     it('does not reveal Caian’s embarrassed punchline during Aiven’s setup',()=>{
         const {lines}=getSARDialogueNode('about-sar',{mentionedCharacterCard:false});
-        const i=lines.findIndex(l=>l.text==='这里似乎没有仿生人。');
+        const i=lines.findIndex(l=>l.text==='這裡似乎沒有仿生人。');
         expect(lines[i].castExpressions?.caian).toBe('curious');
         expect(lines[i+1].castExpressions?.caian).toBe('embarrassed');
     });
@@ -37,11 +37,11 @@ describe('SAR dialogue presentation',()=>{
 
 it('formats spoken prose consistently and preserves stage directions and pauses', async () => {
     const { formatSARDialogue, familiarityLineExpression } = await import('./vrWorld/sarFamiliarity/dialogueText');
-    expect(formatSARDialogue('这里随时欢迎你 。')).toBe('这里随时欢迎你。');
-    expect(formatSARDialogue('明天继续')).toBe('明天继续。');
-    expect(formatSARDialogue('（低头看鱼）')).toBe('（低头看鱼）');
+    expect(formatSARDialogue('這裡隨時歡迎你 。')).toBe('這裡隨時歡迎你。');
+    expect(formatSARDialogue('明天繼續')).toBe('明天繼續。');
+    expect(formatSARDialogue('（低頭看魚）')).toBe('（低頭看魚）');
     expect(formatSARDialogue('……')).toBe('……');
-    const line = { speaker: 'caian' as const, text: '当了社长。就得有担当。', expression: 'serious' as const, sentenceExpressions: ['serious', 'normal'] as const };
+    const line = { speaker: 'caian' as const, text: '當了社長。就得有擔當。', expression: 'serious' as const, sentenceExpressions: ['serious', 'normal'] as const };
     const authored = { ...line, sentenceExpressions: [...line.sentenceExpressions] };
     expect(familiarityLineExpression(authored, 0)).toBe('serious');
     expect(familiarityLineExpression(authored, 1)).toBe('normal');
@@ -71,7 +71,7 @@ it('keeps listeners on their last spoken expression through narration and the ot
     expect(cast.caian).toBe('warm');
     cast = familiarityCast(cast, {speaker:'aiven',text:'嗯。',expression:'happy',castExpressions:{caian:'embarrassed'}});
     expect(cast).toEqual({caian:'warm',aiven:'happy'});
-    cast = familiarityCast(cast, {speaker:'narrator',text:'风吹过。',castExpressions:{caian:'sad' as never}});
+    cast = familiarityCast(cast, {speaker:'narrator',text:'風吹過。',castExpressions:{caian:'sad' as never}});
     expect(cast).toEqual({caian:'warm',aiven:'happy'});
 });
 
@@ -80,7 +80,7 @@ it('resolves dialogue, dinosaur discoverer and gift name placeholders without re
     const name = '小雨$&';
     expect(familiarityText('（User名） / (user名) / {{user}} / user',name)).toBe(Array(4).fill(name).join(' / '));
     const record = familiarityScene('A3-SPECIAL')!.nodes.record.lines[0].text;
-    expect(familiarityText(record,name)).toContain('发现者：Aiven / '+name);
+    expect(familiarityText(record,name)).toContain('發現者：Aiven / '+name);
     expect(familiarityText('（User名），你好！','User')).toBe('你，你好！');
     const ending=familiarityScene('C3-SPECIAL')!.nodes.ending.lines;
     expect(ending.every(line=>line.expression==='happy')).toBe(true);

@@ -56,7 +56,7 @@ describe('SAR authored personal lines',()=>{
         m=read(s);m.sarFamiliarity!.npcs.caian.stars=3;write(s,m);expect(readyFamiliarityEvent(m.sarFamiliarity!,'caian')).toBeUndefined();
     });
     it('all authored scene routes complete and first-run rewards survive without duplicate grants',async()=>{
-        for(const scene of FAMILIARITY_SCENES){const s=await setup();await offer(s,scene.id);await complete(s,scene.id);const before=read(s);expect(before.sarFamiliarity!.npcs[scene.npc].completed[scene.id]).toBeDefined();await expect(startFamiliarity(scene.npc,scene.id,{storage:s,userName:'小雨',now})).rejects.toThrow('还没有发生');expect(read(s).sarFamiliarity!.applied).toEqual(before.sarFamiliarity!.applied);}
+        for(const scene of FAMILIARITY_SCENES){const s=await setup();await offer(s,scene.id);await complete(s,scene.id);const before=read(s);expect(before.sarFamiliarity!.npcs[scene.npc].completed[scene.id]).toBeDefined();await expect(startFamiliarity(scene.npc,scene.id,{storage:s,userName:'小雨',now})).rejects.toThrow('還沒有發生');expect(read(s).sarFamiliarity!.applied).toEqual(before.sarFamiliarity!.applied);}
     });
     it('coupon rain grants once under races, without adding a second confirmation',async()=>{
         const s=await setup(),scene=familiarityScene('A2-E03')!;await offer(s,scene.id,'rain');const cursor=read(s).sarFamiliarity!.npcs.aiven.pending!;
@@ -67,12 +67,12 @@ describe('SAR authored personal lines',()=>{
     });
     it('membership needs a deliberate confirmation before saving the keepsake',async()=>{
         const s=await setup();await offer(s,'C1-SPECIAL','member-card');const cursor=read(s).sarFamiliarity!.npcs.caian.pending!;
-        await expect(advanceFamiliarity('caian',cursor,{storage:s,now})).rejects.toThrow('确认');expect(read(s).sarFamiliarity!.souvenirs).toHaveLength(0);
+        await expect(advanceFamiliarity('caian',cursor,{storage:s,now})).rejects.toThrow('確認');expect(read(s).sarFamiliarity!.souvenirs).toHaveLength(0);
     });
     it('module gift, journal and cursor roll back together on storage failure',async()=>{
         const s=await setup();await offer(s,'A1-E02');const c=read(s).sarFamiliarity!.npcs.aiven.pending!;await advanceFamiliarity('aiven',c,{storage:s,now});const cursor=read(s).sarFamiliarity!.npcs.aiven.pending!,before=s.getItem(FISHING_MARKET_STORAGE_KEY);
         await expect(advanceFamiliarity('aiven',cursor,{now,storage:{getItem:s.getItem,setItem:()=>{throw new Error('quota');}}})).rejects.toThrow('quota');expect(s.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
-        await advanceFamiliarity('aiven',cursor,{storage:s,now});const m=read(s),module=SAR_MODULE_CATALOG.find(m=>m.title==='关键词消音器')!;expect(m.sarCommerce!.moduleShop.inventory[module.id]).toBe(1);expect(m.sarCollection!.actors.user.modules).toContain(module.id);
+        await advanceFamiliarity('aiven',cursor,{storage:s,now});const m=read(s),module=SAR_MODULE_CATALOG.find(m=>m.title==='關鍵詞消音器')!;expect(m.sarCommerce!.moduleShop.inventory[module.id]).toBe(1);expect(m.sarCollection!.actors.user.modules).toContain(module.id);
     });
     it('egg and chimera are genuine personal gifts and never randomly fished',async()=>{
         const s=await setup();await offer(s,'A3-02');await complete(s,'A3-02');await offer(s,'A3-SPECIAL');await complete(s,'A3-SPECIAL');
@@ -81,6 +81,6 @@ describe('SAR authored personal lines',()=>{
     });
     it('backs up scene cursors, souvenirs and coupons, and rejects damaged progress without resetting',async()=>{
         const s=await setup();await offer(s,'C2-SPECIAL');await complete(s,'C2-SPECIAL');const out=memory();restoreSARLocalBackup(collectSARLocalBackup(s),{replaceMissing:true},out);expect(read(out).sarFamiliarity).toEqual(read(s).sarFamiliarity);
-        const m=read(s);m.sarFamiliarity!.npcs.caian.stars=9;write(s,m);const before=s.getItem(FISHING_MARKET_STORAGE_KEY);expect(()=>read(s)).toThrow('名册');expect(s.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
+        const m=read(s);m.sarFamiliarity!.npcs.caian.stars=9;write(s,m);const before=s.getItem(FISHING_MARKET_STORAGE_KEY);expect(()=>read(s)).toThrow('名冊');expect(s.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
     });
 });

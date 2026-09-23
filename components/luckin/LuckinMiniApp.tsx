@@ -1,20 +1,20 @@
 /**
- * 瑞幸小程序 (按真实官方 MCP 文档实现)
+ * 瑞幸小程序 (按真實官方 MCP 文檔實現)
  *
- * 纯按钮驱动的点单壳, 全程直接调 callLuckinTool, 不经过 LLM。
+ * 純按鈕驅動的點單殼, 全程直接調 callLuckinTool, 不經過 LLM。
  *
- * 真实工具 (open.lkcoffee.com, 共 8 个):
- *   queryShopList(deptName?, longitude*, latitude*)  —— 按经纬度查门店
- *   searchProductForMcp(deptId*, query*)             —— 关键词搜商品 (瑞幸菜单是搜索式)
- *   switchProduct(deptId, productId, skuCode, attrOperationParam, amount) —— 切规格 (冰/热/杯型...)
+ * 真實工具 (open.lkcoffee.com, 共 8 個):
+ *   queryShopList(deptName?, longitude*, latitude*)  —— 按經緯度查門店
+ *   searchProductForMcp(deptId*, query*)             —— 關鍵詞搜商品 (瑞幸菜單是搜索式)
+ *   switchProduct(deptId, productId, skuCode, attrOperationParam, amount) —— 切規格 (冰/熱/杯型...)
  *   queryProductDetailInfo(deptId*, productId*)
- *   previewOrder(deptId*, productList*)              —— 算价 + 可用券
- *   createOrder(deptId*, productList*, longitude*, latitude*, couponCodeList?) —— 下单, 返回支付链接/二维码
- *   queryOrderDetailInfo(orderId*)                   —— 取餐码
+ *   previewOrder(deptId*, productList*)              —— 算價 + 可用券
+ *   createOrder(deptId*, productList*, longitude*, latitude*, couponCodeList?) —— 下單, 返回支付鏈接/二維碼
+ *   queryOrderDetailInfo(orderId*)                   —— 取餐碼
  *   cancelOrder(orderId*)
  *
- * 流程: 定位 → 选门店 → 搜商品(可切规格) → 加购 → 算价确认 → 下单 → 取餐码
- * 瑞幸没有"收货地址/配送模式": 门店按经纬度查, 下单也带经纬度 (取餐码自提模式)。
+ * 流程: 定位 → 選門店 → 搜商品(可切規格) → 加購 → 算價確認 → 下單 → 取餐碼
+ * 瑞幸沒有"收貨地址/配送模式": 門店按經緯度查, 下單也帶經緯度 (取餐碼自提模式)。
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -42,7 +42,7 @@ interface CartLine {
     name: string;
     price?: string | number; // estimatePrice
     qty: number;
-    spec?: string;           // 规格描述 (如 "冰 / 超大杯")
+    spec?: string;           // 規格描述 (如 "冰 / 超大杯")
 }
 
 interface OrderContext {
@@ -54,17 +54,17 @@ interface OrderContext {
 
 type Step = 'location' | 'store' | 'menu' | 'review' | 'success';
 
-// 常用城市经纬度 (定位失败时手选, 省得手输)
+// 常用城市經緯度 (定位失敗時手選, 省得手輸)
 const CITY_PRESETS: Array<{ name: string; lng: number; lat: number }> = [
     { name: '北京', lng: 116.407, lat: 39.904 },
     { name: '上海', lng: 121.473, lat: 31.230 },
-    { name: '广州', lng: 113.264, lat: 23.129 },
+    { name: '廣州', lng: 113.264, lat: 23.129 },
     { name: '深圳', lng: 114.057, lat: 22.543 },
     { name: '杭州', lng: 120.155, lat: 30.274 },
     { name: '成都', lng: 104.066, lat: 30.572 },
 ];
 
-// ========== 通用辅助 ==========
+// ========== 通用輔助 ==========
 
 const fmtMoney = (v: any): string => {
     if (v == null) return '';
@@ -87,7 +87,7 @@ const asList = (data: any): any[] => {
     return [];
 };
 
-// 从 productAttrs 里拼出"已选规格"描述 (如 "冰 / 超大杯")
+// 從 productAttrs 裡拼出"已選規格"描述 (如 "冰 / 超大杯")
 const buildSpecDesc = (productAttrs: any[]): string => {
     if (!Array.isArray(productAttrs)) return '';
     const parts: string[] = [];
@@ -107,10 +107,10 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
 
 const ErrorBox: React.FC<{ msg: string; onRetry?: () => void }> = ({ msg, onRetry }) => (
     <div className="m-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700 leading-relaxed">
-        <div className="font-bold mb-1">😣 出错了</div>
+        <div className="font-bold mb-1">😣 出錯了</div>
         <div className="mb-2 whitespace-pre-wrap break-all">{msg}</div>
         {onRetry && (
-            <button onClick={onRetry} className="px-3 py-1 bg-red-500 text-white rounded-lg text-[11px] font-bold active:scale-95">重试</button>
+            <button onClick={onRetry} className="px-3 py-1 bg-red-500 text-white rounded-lg text-[11px] font-bold active:scale-95">重試</button>
         )}
     </div>
 );
@@ -124,32 +124,32 @@ const LocationStep: React.FC<{ onPick: (lng: number, lat: number) => void }> = (
     const [lat, setLat] = useState('');
 
     const useGeo = () => {
-        if (!navigator.geolocation) { setErr('当前环境不支持定位, 请手动选城市或输入经纬度'); return; }
+        if (!navigator.geolocation) { setErr('當前環境不支持定位, 請手動選城市或輸入經緯度'); return; }
         setLocating(true); setErr(null);
         navigator.geolocation.getCurrentPosition(
             (pos) => { setLocating(false); onPick(pos.coords.longitude, pos.coords.latitude); },
-            (e) => { setLocating(false); setErr(`定位失败: ${e.message}。可手动选城市或输入经纬度`); },
+            (e) => { setLocating(false); setErr(`定位失敗: ${e.message}。可手動選城市或輸入經緯度`); },
             { enableHighAccuracy: true, timeout: 8000 }
         );
     };
 
     const submitManual = () => {
         const a = parseFloat(lng), b = parseFloat(lat);
-        if (!isFinite(a) || !isFinite(b)) { setErr('经纬度格式不对'); return; }
+        if (!isFinite(a) || !isFinite(b)) { setErr('經緯度格式不對'); return; }
         onPick(a, b);
     };
 
     return (
         <div className="px-4 py-6 space-y-4">
-            <div className="text-[20px] font-bold text-[#0B1F3A] text-center">📍 你在哪儿？</div>
-            <div className="text-[12px] text-[#0B1F3A]/60 text-center -mt-2">瑞幸按位置查附近门店</div>
+            <div className="text-[20px] font-bold text-[#0B1F3A] text-center">📍 你在哪兒？</div>
+            <div className="text-[12px] text-[#0B1F3A]/60 text-center -mt-2">瑞幸按位置查附近門店</div>
             <button onClick={useGeo} disabled={locating}
                 className="w-full p-4 rounded-2xl bg-gradient-to-br from-[#0B1F3A] to-[#1E4D8C] text-white font-bold active:scale-[0.98] transition disabled:opacity-60">
                 {locating ? '定位中…' : '📡 使用我的定位'}
             </button>
             {err && <div className="text-[11px] text-red-600 leading-relaxed bg-red-50 rounded-lg p-2">{err}</div>}
             <div>
-                <div className="text-[11px] font-bold text-[#0B1F3A]/60 mb-1.5">或选个城市</div>
+                <div className="text-[11px] font-bold text-[#0B1F3A]/60 mb-1.5">或選個城市</div>
                 <div className="grid grid-cols-3 gap-2">
                     {CITY_PRESETS.map((c) => (
                         <button key={c.name} onClick={() => onPick(c.lng, c.lat)}
@@ -160,10 +160,10 @@ const LocationStep: React.FC<{ onPick: (lng: number, lat: number) => void }> = (
                 </div>
             </div>
             <details className="text-[11px] text-slate-500">
-                <summary className="cursor-pointer text-[#16386F]">手动输入经纬度</summary>
+                <summary className="cursor-pointer text-[#16386F]">手動輸入經緯度</summary>
                 <div className="flex gap-2 mt-2">
-                    <input value={lng} onChange={e => setLng(e.target.value)} placeholder="经度 lng" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2 py-1.5 text-[12px]" />
-                    <input value={lat} onChange={e => setLat(e.target.value)} placeholder="纬度 lat" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2 py-1.5 text-[12px]" />
+                    <input value={lng} onChange={e => setLng(e.target.value)} placeholder="經度 lng" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2 py-1.5 text-[12px]" />
+                    <input value={lat} onChange={e => setLat(e.target.value)} placeholder="緯度 lat" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2 py-1.5 text-[12px]" />
                     <button onClick={submitManual} className="px-3 bg-[#0B1F3A] text-white rounded-lg text-[12px] font-bold active:scale-95">查</button>
                 </div>
             </details>
@@ -171,7 +171,7 @@ const LocationStep: React.FC<{ onPick: (lng: number, lat: number) => void }> = (
     );
 };
 
-// ========== Step 2: 选门店 ==========
+// ========== Step 2: 選門店 ==========
 
 const StoreStep: React.FC<{ loc: { lng: number; lat: number }; onPick: (ctx: OrderContext) => void; onBack: () => void }> = ({ loc, onPick, onBack }) => {
     const [loading, setLoading] = useState(true);
@@ -185,7 +185,7 @@ const StoreStep: React.FC<{ loc: { lng: number; lat: number }; onPick: (ctx: Ord
             const args: any = { longitude: loc.lng, latitude: loc.lat };
             if (deptName) args.deptName = deptName;
             const r = await callLuckinTool('queryShopList', args);
-            if (!r.success) throw new Error(r.error || '查门店失败');
+            if (!r.success) throw new Error(r.error || '查門店失敗');
             setStores(asList(r.data));
         } catch (e: any) {
             setErr(e?.message || String(e));
@@ -199,21 +199,21 @@ const StoreStep: React.FC<{ loc: { lng: number; lat: number }; onPick: (ctx: Ord
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-3 py-2 border-b border-[#ECE6D8]/70 bg-[#FAF7F0]/70">
-                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 换位置</button>
-                <div className="text-[13px] font-bold text-[#0B1F3A]">选门店</div>
+                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 換位置</button>
+                <div className="text-[13px] font-bold text-[#0B1F3A]">選門店</div>
                 <div className="w-12" />
             </div>
             <div className="p-2 flex gap-2 border-b border-[#EFE9DC]">
                 <input value={kw} onChange={e => setKw(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') reload(kw.trim() || undefined); }}
-                    placeholder="按门店名筛选 (可选)" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2.5 py-1.5 text-[12px]" />
+                    placeholder="按門店名篩選 (可選)" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2.5 py-1.5 text-[12px]" />
                 <button onClick={() => reload(kw.trim() || undefined)} className="px-3 bg-[#0B1F3A] text-white rounded-lg text-[12px] font-bold active:scale-95">查</button>
             </div>
             <div className="flex-1 overflow-y-auto luckin-scroll p-2 space-y-2">
-                {loading ? <Spinner label="正在查附近门店..." />
+                {loading ? <Spinner label="正在查附近門店..." />
                 : err ? <ErrorBox msg={err} onRetry={() => reload(kw.trim() || undefined)} />
                 : stores.length === 0 ? (
-                    <div className="text-center py-8 text-[12px] text-slate-500">附近没查到门店, 换个位置或门店名试试。</div>
+                    <div className="text-center py-8 text-[12px] text-slate-500">附近沒查到門店, 換個位置或門店名試試。</div>
                 ) : stores.map((s: any, i: number) => (
                     <button key={s.deptId || i}
                         onClick={() => onPick({ deptId: s.deptId, storeName: s.deptName, longitude: loc.lng, latitude: loc.lat })}
@@ -222,7 +222,7 @@ const StoreStep: React.FC<{ loc: { lng: number; lat: number }; onPick: (ctx: Ord
                             <span className="text-xl shrink-0 mt-0.5">🏪</span>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                    <div className="font-bold text-[13px] text-slate-800 truncate flex-1">{s.deptName || '瑞幸门店'}</div>
+                                    <div className="font-bold text-[13px] text-slate-800 truncate flex-1">{s.deptName || '瑞幸門店'}</div>
                                     {s.distance != null && <div className="text-[10px] text-[#16386F] shrink-0">{typeof s.distance === 'number' ? `${s.distance.toFixed(1)}km` : s.distance}</div>}
                                 </div>
                                 {s.address && <div className="text-[11px] text-slate-600 line-clamp-2 leading-snug mt-0.5">{s.address}</div>}
@@ -236,11 +236,11 @@ const StoreStep: React.FC<{ loc: { lng: number; lat: number }; onPick: (ctx: Ord
     );
 };
 
-// ========== 规格切换浮层 ==========
+// ========== 規格切換浮層 ==========
 
 const ProductSheet: React.FC<{
     ctx: OrderContext;
-    product: any;          // 来自 searchProductForMcp 的一项
+    product: any;          // 來自 searchProductForMcp 的一項
     onAdd: (line: { skuCode: string; productId: number | string; name: string; price?: any; spec?: string }) => void;
     onClose: () => void;
 }> = ({ ctx, product, onAdd, onClose }) => {
@@ -262,9 +262,9 @@ const ProductSheet: React.FC<{
                 },
                 amount: 1,
             });
-            if (!r.success) throw new Error(r.error || '切换规格失败');
-            // data 是切换后的新商品; switchProduct 有时不返图 (pictureUrl 为空),
-            // 保留切换前的图, 别让规格一切图就没了。
+            if (!r.success) throw new Error(r.error || '切換規格失敗');
+            // data 是切換後的新商品; switchProduct 有時不返圖 (pictureUrl 為空),
+            // 保留切換前的圖, 別讓規格一切圖就沒了。
             const next = r.data || working;
             if (next && (!next.pictureUrl || !String(next.pictureUrl).trim())) {
                 next.pictureUrl = working?.pictureUrl;
@@ -295,7 +295,7 @@ const ProductSheet: React.FC<{
                 </div>
                 <div className="flex-1 overflow-y-auto luckin-scroll p-3 space-y-3 min-h-0">
                     {err && <div className="text-[11px] text-red-600 bg-red-50 rounded-lg p-2">{err}</div>}
-                    {attrs.length === 0 && <div className="text-[12px] text-slate-500 text-center py-4">这个商品没有可选规格</div>}
+                    {attrs.length === 0 && <div className="text-[12px] text-slate-500 text-center py-4">這個商品沒有可選規格</div>}
                     {attrs.map((g: any, gi: number) => (
                         <div key={g.attributeId || gi}>
                             <div className="text-[11px] font-bold text-slate-500 mb-1.5">{g.attributeName}</div>
@@ -324,7 +324,7 @@ const ProductSheet: React.FC<{
                         onClick={() => onAdd({ skuCode: working.skuCode, productId: working.productId, name: working.productName, price, spec: buildSpecDesc(attrs) })}
                         disabled={switching}
                         className="w-full px-3 py-2.5 bg-[#0B1F3A] text-white text-[13px] font-bold rounded-xl active:scale-95 disabled:opacity-50">
-                        加入购物车 {price != null ? `· ${fmtMoney(price)}` : ''}
+                        加入購物車 {price != null ? `· ${fmtMoney(price)}` : ''}
                     </button>
                 </div>
             </div>
@@ -332,7 +332,7 @@ const ProductSheet: React.FC<{
     );
 };
 
-// ========== Step 3: 搜商品 + 加购 ==========
+// ========== Step 3: 搜商品 + 加購 ==========
 
 const MenuStep: React.FC<{
     ctx: OrderContext;
@@ -349,10 +349,10 @@ const MenuStep: React.FC<{
     const [mode, setMode] = useState<'browse' | 'search'>('browse');
     const [sheetProduct, setSheetProduct] = useState<any>(null);
 
-    // 瑞幸 MCP 没有"拉全量菜单"接口, 只有 searchProductForMcp(query)。
-    // 进菜单页自动并发搜一批热门关键词, 按 skuCode 去重合并成一个可浏览列表,
-    // 这样不打字也有一屏商品可逛 (伪菜单)。
-    const BROWSE_KEYWORDS = ['拿铁', '美式', '生椰', '瑞纳冰', '轻乳茶', '橙C', '可可', '椰'];
+    // 瑞幸 MCP 沒有"拉全量菜單"接口, 只有 searchProductForMcp(query)。
+    // 進菜單頁自動併發搜一批熱門關鍵詞, 按 skuCode 去重合併成一個可瀏覽列表,
+    // 這樣不打字也有一屏商品可逛 (偽菜單)。
+    const BROWSE_KEYWORDS = ['拿鐵', '美式', '生椰', '瑞納冰', '輕乳茶', '橙C', '可可', '椰'];
 
     const mergeUnique = (lists: any[][]): any[] => {
         const seen = new Set<string>();
@@ -371,19 +371,19 @@ const MenuStep: React.FC<{
     const browseLoad = async () => {
         setLoading(true); setErr(null); setMode('browse');
         try {
-            // 文档里只有 8 个工具、无"列菜单"接口; 但线上 tools/list 可能比文档多。
-            // 先探测有没有"菜单/推荐"类真工具, 有就直接用它当真菜单, 没有才回退热门搜索聚合。
+            // 文檔裡只有 8 個工具、無"列菜單"接口; 但線上 tools/list 可能比文檔多。
+            // 先探測有沒有"菜單/推薦"類真工具, 有就直接用它當真菜單, 沒有才回退熱門搜索聚合。
             let merged: any[] = [];
             try {
                 const tools = await listLuckinTools(false);
-                const menuTool = tools.find(t => /menu|recommend|catalog|推荐|菜单/i.test(t.name) && !/search/i.test(t.name));
+                const menuTool = tools.find(t => /menu|recommend|catalog|推[荐薦]|菜[单單]/i.test(t.name) && !/search/i.test(t.name));
                 if (menuTool) {
                     const r = await callLuckinTool(menuTool.name, { deptId: ctx.deptId });
                     if (r.success) merged = mergeUnique([asList(r.data)]);
                 }
-            } catch { /* 探测失败就走下面的搜索聚合 */ }
+            } catch { /* 探測失敗就走下面的搜索聚合 */ }
 
-            // 回退: 并发搜热门关键词聚合 (伪菜单)
+            // 回退: 併發搜熱門關鍵詞聚合 (偽菜單)
             if (!merged.length) {
                 const results = await Promise.allSettled(
                     BROWSE_KEYWORDS.map(kw => callLuckinTool('searchProductForMcp', { deptId: ctx.deptId, query: kw }))
@@ -392,7 +392,7 @@ const MenuStep: React.FC<{
                 merged = mergeUnique(lists);
             }
             if (!merged.length) {
-                throw new Error('没拉到商品, 换个门店或直接搜关键词试试');
+                throw new Error('沒拉到商品, 換個門店或直接搜關鍵詞試試');
             }
             setItems(merged);
             onProductsSeen?.(merged);
@@ -409,7 +409,7 @@ const MenuStep: React.FC<{
         setLoading(true); setErr(null); setMode('search');
         try {
             const r = await callLuckinTool('searchProductForMcp', { deptId: ctx.deptId, query: kw });
-            if (!r.success) throw new Error(r.error || '搜商品失败');
+            if (!r.success) throw new Error(r.error || '搜商品失敗');
             const list = asList(r.data);
             setItems(list);
             onProductsSeen?.(list);
@@ -420,7 +420,7 @@ const MenuStep: React.FC<{
         }
     };
 
-    // 进门店菜单页 → 自动拉一批热门
+    // 進門店菜單頁 → 自動拉一批熱門
     useEffect(() => { browseLoad(); /* eslint-disable-next-line */ }, [ctx.deptId]);
 
     const cartCount = (Array.from(cart.values()) as CartLine[]).reduce((s, l) => s + l.qty, 0);
@@ -429,20 +429,20 @@ const MenuStep: React.FC<{
         return s + (isFinite(p) ? p * l.qty : 0);
     }, 0);
 
-    const QUICK = ['拿铁', '美式', '生椰', '厚乳', '茶饮', '果汁'];
+    const QUICK = ['拿鐵', '美式', '生椰', '厚乳', '茶飲', '果汁'];
 
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-3 py-2 border-b border-[#ECE6D8]/70 bg-[#FAF7F0]/70">
-                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 换门店</button>
-                <div className="text-[12px] font-bold text-[#0B1F3A] truncate mx-2">{ctx.storeName || `门店${ctx.deptId}`}</div>
+                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 換門店</button>
+                <div className="text-[12px] font-bold text-[#0B1F3A] truncate mx-2">{ctx.storeName || `門店${ctx.deptId}`}</div>
                 <div className="w-14" />
             </div>
             <div className="p-2 border-b border-[#EFE9DC] space-y-2">
                 <div className="flex gap-2">
                     <input value={query} onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') search(query); }}
-                        placeholder="搜咖啡 / 饮品 (如 拿铁)" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2.5 py-1.5 text-[12px]" />
+                        placeholder="搜咖啡 / 飲品 (如 拿鐵)" className="flex-1 bg-white border border-[#E6DFCF] rounded-lg px-2.5 py-1.5 text-[12px]" />
                     <button onClick={() => search(query)} className="px-3 bg-[#0B1F3A] text-white rounded-lg text-[12px] font-bold active:scale-95">搜</button>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
@@ -455,16 +455,16 @@ const MenuStep: React.FC<{
             <div className="flex-1 overflow-y-auto luckin-scroll p-2 space-y-2">
                 {!loading && !err && items.length > 0 && (
                     <div className="flex items-center justify-between px-1 pb-0.5">
-                        <span className="text-[11px] font-bold text-[#0B1F3A]/70">{mode === 'browse' ? '☕ 热门精选' : `搜索 "${query.trim()}"`} · {items.length} 款</span>
+                        <span className="text-[11px] font-bold text-[#0B1F3A]/70">{mode === 'browse' ? '☕ 熱門精選' : `搜索 "${query.trim()}"`} · {items.length} 款</span>
                         {mode === 'search' && (
-                            <button onClick={() => { setQuery(''); browseLoad(); }} className="text-[11px] text-[#16386F] active:scale-95">← 看看热门</button>
+                            <button onClick={() => { setQuery(''); browseLoad(); }} className="text-[11px] text-[#16386F] active:scale-95">← 看看熱門</button>
                         )}
                     </div>
                 )}
-                {loading ? <Spinner label={mode === 'browse' ? '正在为你拉热门…' : '搜索中…'} />
+                {loading ? <Spinner label={mode === 'browse' ? '正在為你拉熱門…' : '搜索中…'} />
                 : err ? <ErrorBox msg={err} onRetry={() => (mode === 'browse' ? browseLoad() : search(query))} />
                 : items.length === 0 ? (
-                    <div className="text-center py-8 text-[11px] text-slate-400">这家店暂时没拉到商品 ☕<br />换个门店, 或直接搜个关键词试试</div>
+                    <div className="text-center py-8 text-[11px] text-slate-400">這家店暫時沒拉到商品 ☕<br />換個門店, 或直接搜個關鍵詞試試</div>
                 ) : items.map((it: any, idx: number) => {
                     const sku = String(it.skuCode || `idx-${idx}`);
                     const inCart = cart.get(sku);
@@ -489,7 +489,7 @@ const MenuStep: React.FC<{
                                         {it.initialPrice != null && it.estimatePrice != null && it.initialPrice !== it.estimatePrice && <span className="line-through text-slate-300 ml-1 text-[10px]">{fmtMoney(it.initialPrice)}</span>}
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <button onClick={() => setSheetProduct(it)} title="选规格" className="px-1.5 py-0.5 rounded-md bg-white border border-[#DDD3BC] text-[#16386F] text-[10px] font-bold active:scale-95">规格</button>
+                                        <button onClick={() => setSheetProduct(it)} title="選規格" className="px-1.5 py-0.5 rounded-md bg-white border border-[#DDD3BC] text-[#16386F] text-[10px] font-bold active:scale-95">規格</button>
                                         <div className="flex items-center bg-white border border-[#DDD3BC] rounded-md overflow-hidden">
                                             <button onClick={() => onCart({ skuCode: sku, productId: it.productId, name: it.productName, price: it.estimatePrice ?? it.initialPrice, spec: buildSpecDesc(it.productAttrs) }, -1)}
                                                 disabled={q <= 0}
@@ -510,10 +510,10 @@ const MenuStep: React.FC<{
                 <div className="border-t border-[#DDD3BC] bg-gradient-to-r from-[#EFE9DC] to-[#E7DFC9] px-3 py-2.5 flex items-center gap-3">
                     <div className="text-2xl">🛒</div>
                     <div className="flex-1 min-w-0">
-                        <div className="text-[10px] text-[#0B1F3A]/60">已选 {cartCount} 件</div>
+                        <div className="text-[10px] text-[#0B1F3A]/60">已選 {cartCount} 件</div>
                         {cartTotal > 0 && <div className="text-[15px] font-bold text-[#0B1F3A]">{fmtMoney(cartTotal)}</div>}
                     </div>
-                    <button onClick={onReview} className="px-4 py-2 bg-[#0B1F3A] text-white text-[12px] font-bold rounded-xl shadow active:scale-95">去结算 →</button>
+                    <button onClick={onReview} className="px-4 py-2 bg-[#0B1F3A] text-white text-[12px] font-bold rounded-xl shadow active:scale-95">去結算 →</button>
                 </div>
             )}
 
@@ -529,7 +529,7 @@ const MenuStep: React.FC<{
     );
 };
 
-// ========== Step 4: 确认订单 (previewOrder → createOrder) ==========
+// ========== Step 4: 確認訂單 (previewOrder → createOrder) ==========
 
 const ReviewStep: React.FC<{
     ctx: OrderContext;
@@ -559,7 +559,7 @@ const ReviewStep: React.FC<{
         setPriceLoading(true); setPriceErr(null);
         callLuckinTool('previewOrder', { deptId: ctx.deptId, productList: productList() }).then((r: any) => {
             if (cancelled) return;
-            if (!r.success) { setPriceErr(r.error || '算价失败'); setPreview(null); }
+            if (!r.success) { setPriceErr(r.error || '算價失敗'); setPreview(null); }
             else setPreview(r.data || {});
             setPriceLoading(false);
         }).catch((e: any) => {
@@ -584,7 +584,7 @@ const ReviewStep: React.FC<{
             const coupons = preview?.couponCodeList;
             if (Array.isArray(coupons) && coupons.length) args.couponCodeList = coupons;
             const r = await callLuckinTool('createOrder', args);
-            if (!r.success) throw new Error(r.error || '下单失败');
+            if (!r.success) throw new Error(r.error || '下單失敗');
             onOrderPlaced(r.data);
         } catch (e: any) {
             setOrderErr(e?.message || String(e));
@@ -600,13 +600,13 @@ const ReviewStep: React.FC<{
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-3 py-2 border-b border-[#ECE6D8]/70 bg-[#FAF7F0]/70">
-                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 继续选</button>
-                <div className="text-[13px] font-bold text-[#0B1F3A]">确认订单</div>
+                <button onClick={onBack} className="text-[12px] text-[#16386F] active:scale-95">‹ 繼續選</button>
+                <div className="text-[13px] font-bold text-[#0B1F3A]">確認訂單</div>
                 <div className="w-12" />
             </div>
             <div className="flex-1 overflow-y-auto luckin-scroll p-3 space-y-2">
-                <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">取餐门店</div>
-                <div className="bg-white rounded-xl border border-[#EFE9DC] p-2.5 text-[12px] text-slate-700">🏪 {ctx.storeName || `门店 ${ctx.deptId}`} (到店自提)</div>
+                <div className="text-[10px] text-[#16386F]/70 font-bold uppercase">取餐門店</div>
+                <div className="bg-white rounded-xl border border-[#EFE9DC] p-2.5 text-[12px] text-slate-700">🏪 {ctx.storeName || `門店 ${ctx.deptId}`} (到店自提)</div>
 
                 <div className="text-[10px] text-[#16386F]/70 font-bold uppercase mt-2">商品</div>
                 <div className="bg-white rounded-xl border border-[#EFE9DC] overflow-hidden">
@@ -627,40 +627,40 @@ const ReviewStep: React.FC<{
                     ))}
                 </div>
 
-                <div className="text-[10px] text-[#16386F]/70 font-bold uppercase mt-2">费用</div>
+                <div className="text-[10px] text-[#16386F]/70 font-bold uppercase mt-2">費用</div>
                 <div className="bg-white rounded-xl border border-[#EFE9DC] p-3 text-[12px] text-slate-700 space-y-1.5">
                     {priceLoading ? (
                         <div className="flex items-center gap-2 py-1 text-slate-500">
                             <div className="w-3 h-3 border-2 border-[#DDD3BC] border-t-[#0B1F3A] rounded-full animate-spin" />
-                            <span className="text-[11px]">算价中...</span>
+                            <span className="text-[11px]">算價中...</span>
                         </div>
                     ) : priceErr ? (
-                        <div className="text-[11px] text-amber-600 leading-relaxed whitespace-pre-wrap break-all">算价未通过 (可先按本地合计下单): {priceErr}</div>
+                        <div className="text-[11px] text-amber-600 leading-relaxed whitespace-pre-wrap break-all">算價未通過 (可先按本地合計下單): {priceErr}</div>
                     ) : preview ? (
                         <>
-                            {original != null && <div className="flex justify-between text-[10px] text-slate-400"><span>商品总价（面价）</span><span>{fmtMoney(original)}</span></div>}
-                            {privilege != null && Number(privilege) > 0 && <div className="flex justify-between text-emerald-600"><span>已优惠</span><span>-{fmtMoney(privilege)}</span></div>}
-                            {Array.isArray(preview.couponCodeList) && preview.couponCodeList.length > 0 && <div className="flex justify-between text-[11px] text-[#16386F]"><span>已自动用券</span><span>{preview.couponCodeList.length} 张</span></div>}
+                            {original != null && <div className="flex justify-between text-[10px] text-slate-400"><span>商品總價（面價）</span><span>{fmtMoney(original)}</span></div>}
+                            {privilege != null && Number(privilege) > 0 && <div className="flex justify-between text-emerald-600"><span>已優惠</span><span>-{fmtMoney(privilege)}</span></div>}
+                            {Array.isArray(preview.couponCodeList) && preview.couponCodeList.length > 0 && <div className="flex justify-between text-[11px] text-[#16386F]"><span>已自動用券</span><span>{preview.couponCodeList.length} 張</span></div>}
                             {(!privilege || Number(privilege) <= 0) && !(Array.isArray(preview.couponCodeList) && preview.couponCodeList.length > 0) && (
-                                <div className="text-[10px] text-slate-400 leading-snug">本单暂时没有可用券。</div>
+                                <div className="text-[10px] text-slate-400 leading-snug">本單暫時沒有可用券。</div>
                             )}
-                            <div className="flex justify-between border-t border-[#EFE9DC] pt-1.5"><span className="text-slate-500">实付</span><span className="font-bold text-[#16386F]">{fmtMoney(finalPrice)}</span></div>
+                            <div className="flex justify-between border-t border-[#EFE9DC] pt-1.5"><span className="text-slate-500">實付</span><span className="font-bold text-[#16386F]">{fmtMoney(finalPrice)}</span></div>
                         </>
                     ) : (
-                        <div className="flex justify-between"><span className="text-slate-500">本地合计</span><span>{localTotal > 0 ? fmtMoney(localTotal) : '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">本地合計</span><span>{localTotal > 0 ? fmtMoney(localTotal) : '—'}</span></div>
                     )}
                 </div>
 
                 {orderErr && (
                     <div className="rounded-xl bg-red-50 border border-red-200 p-2.5 text-[11px] text-red-700 leading-relaxed whitespace-pre-wrap break-all">
-                        <div className="font-bold mb-0.5">下单失败</div>
+                        <div className="font-bold mb-0.5">下單失敗</div>
                         {orderErr}
                     </div>
                 )}
             </div>
             <div className="border-t border-[#DDD3BC] bg-gradient-to-r from-[#EFE9DC] to-[#E7DFC9] px-3 py-2.5 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-[#0B1F3A]/60">实付</div>
+                    <div className="text-[10px] text-[#0B1F3A]/60">實付</div>
                     <div className="text-[17px] font-bold text-[#0B1F3A]">
                         {priceLoading ? '...' : (finalPrice != null ? fmtMoney(finalPrice) : (localTotal > 0 ? fmtMoney(localTotal) : '—'))}
                     </div>
@@ -669,13 +669,13 @@ const ReviewStep: React.FC<{
                     onClick={handleOrder}
                     disabled={lines.length === 0 || orderLoading}
                     className="px-5 py-2.5 bg-[#0B1F3A] text-white text-[13px] font-bold rounded-xl shadow active:scale-95 disabled:opacity-40 disabled:active:scale-100"
-                >{orderLoading ? '下单中...' : '敲定 →'}</button>
+                >{orderLoading ? '下單中...' : '敲定 →'}</button>
             </div>
         </div>
     );
 };
 
-// ========== Step 5: 下单成功 ==========
+// ========== Step 5: 下單成功 ==========
 
 const SuccessStep: React.FC<{ ctx: OrderContext; orderResult: any; onClose: () => void }> = ({ orderResult, onClose }) => {
     const orderId = pick(orderResult, ['orderIdStr', 'orderId']);
@@ -698,14 +698,14 @@ const SuccessStep: React.FC<{ ctx: OrderContext; orderResult: any; onClose: () =
             <div className="flex-1 overflow-y-auto luckin-scroll p-4 space-y-3">
                 <div className="text-center py-3">
                     <div className="text-5xl mb-2">🎉</div>
-                    <div className="text-[16px] font-bold text-[#0B1F3A]">下单成功！</div>
-                    <div className="text-[11px] text-[#16386F]/70 mt-1">{needPay ? '订单已创建, 等待支付' : '订单已创建'}</div>
+                    <div className="text-[16px] font-bold text-[#0B1F3A]">下單成功！</div>
+                    <div className="text-[11px] text-[#16386F]/70 mt-1">{needPay ? '訂單已創建, 等待支付' : '訂單已創建'}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-[#EFE9DC] p-3 space-y-2 text-[12px] text-slate-700">
-                    {orderId && <div><div className="text-[10px] text-slate-400">订单号</div><div className="font-mono text-[11px] break-all">{orderId}</div></div>}
-                    {price != null && <div><div className="text-[10px] text-slate-400">实付</div><div className="font-bold text-[#16386F]">{fmtMoney(price)}</div></div>}
+                    {orderId && <div><div className="text-[10px] text-slate-400">訂單號</div><div className="font-mono text-[11px] break-all">{orderId}</div></div>}
+                    {price != null && <div><div className="text-[10px] text-slate-400">實付</div><div className="font-bold text-[#16386F]">{fmtMoney(price)}</div></div>}
                     {takeCode && takeCode !== '生成中' && (
-                        <div><div className="text-[10px] text-slate-400">取餐码</div><div className="text-[20px] font-black tracking-widest text-[#B8860B]">{takeCode}</div></div>
+                        <div><div className="text-[10px] text-slate-400">取餐碼</div><div className="text-[20px] font-black tracking-widest text-[#B8860B]">{takeCode}</div></div>
                     )}
                 </div>
                 {needPay && (payUrl || qrUrl) && (
@@ -721,7 +721,7 @@ const SuccessStep: React.FC<{ ctx: OrderContext; orderResult: any; onClose: () =
     );
 };
 
-// ========== 协同聊天面板 (modal 内嵌) ==========
+// ========== 協同聊天面板 (modal 內嵌) ==========
 
 interface LuckinProposalItem { code: string; name: string; qty: number; reason?: string; }
 interface LuckinProposalPayload { items: LuckinProposalItem[]; overall_note?: string; }
@@ -750,7 +750,7 @@ const ProposalCard: React.FC<{
     return (
         <div className="bg-gradient-to-br from-[#FAF7F0] to-[#F2EEE3] border border-[#DDD3BC] rounded-2xl overflow-hidden">
             <div className="px-2.5 py-1.5 bg-[#EFE9DC] border-b border-[#E0D8C4]/70 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#0B1F3A]">📋 这些怎么样？</span>
+                <span className="text-[10px] font-bold text-[#0B1F3A]">📋 這些怎麼樣？</span>
                 <button onClick={handleAll} className="text-[10px] px-2 py-0.5 bg-[#0B1F3A] text-white rounded-full font-bold active:scale-95">全部加</button>
             </div>
             {payload.overall_note && (
@@ -823,7 +823,7 @@ const InAppChat: React.FC<{
                 <div className="flex-1 min-w-0 text-left">
                     {!expanded && lastChar
                         ? <div className="text-[11px] text-slate-700 truncate"><span className="text-[#16386F] font-bold">{charName}: </span>{lastChar.content}</div>
-                        : <div className="text-[11px] font-bold text-[#0B1F3A]">跟 {charName} 一起选 · {expanded ? '点这里收起' : '点这里展开聊'}</div>}
+                        : <div className="text-[11px] font-bold text-[#0B1F3A]">跟 {charName} 一起選 · {expanded ? '點這裡收起' : '點這裡展開聊'}</div>}
                 </div>
                 <span className="text-[#16386F] text-xs shrink-0">{expanded ? '▼' : '▲'}</span>
             </button>
@@ -833,10 +833,10 @@ const InAppChat: React.FC<{
                     <div ref={scrollRef} className="flex-1 overflow-y-auto luckin-scroll px-3 py-2 space-y-2 min-h-0">
                         {visibleMessages.length === 0 && (
                             <div className="text-center py-4 text-[11px] text-slate-500 leading-relaxed">
-                                可以这样问 {charName}:<br />
-                                <span className="text-[#16386F]">"帮我挑杯不那么甜的"</span><br />
-                                <span className="text-[#16386F]">"我选了这些, 你看怎么样"</span><br />
-                                <span className="text-[#16386F]">"今天想喝点厚乳的"</span>
+                                可以這樣問 {charName}:<br />
+                                <span className="text-[#16386F]">"幫我挑杯不那麼甜的"</span><br />
+                                <span className="text-[#16386F]">"我選了這些, 你看怎麼樣"</span><br />
+                                <span className="text-[#16386F]">"今天想喝點厚乳的"</span>
                             </div>
                         )}
                         {visibleMessages.map((m: LuckinChatViewMsg, i: number) => (
@@ -896,7 +896,7 @@ const InAppChat: React.FC<{
                             onKeyDown={(e: any) => {
                                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
                             }}
-                            placeholder={`问问 ${charName}...`}
+                            placeholder={`問問 ${charName}...`}
                             rows={1}
                             className="flex-1 resize-none bg-[#FAF7F0]/70 border border-[#E6DFCF] rounded-xl px-3 py-1.5 text-[12px] focus:outline-none focus:border-[#C6A15B] max-h-20"
                         />
@@ -904,7 +904,7 @@ const InAppChat: React.FC<{
                             onClick={send}
                             disabled={!input.trim() || isTyping}
                             className="px-3 py-1.5 bg-[#0B1F3A] text-white text-[12px] font-bold rounded-xl shadow active:scale-95 disabled:opacity-40 shrink-0"
-                        >发送</button>
+                        >發送</button>
                     </div>
                 </>
             )}
@@ -912,7 +912,7 @@ const InAppChat: React.FC<{
     );
 };
 
-// ========== 主组件 ==========
+// ========== 主組件 ==========
 
 const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, messages, isTyping, onSendMessage, onStateChange, onConfirmOrder }) => {
     const [step, setStep] = useState<Step>('location');
@@ -933,7 +933,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
         }
     }, [open]);
 
-    // 状态推给父组件 → useChatAI 注入 system prompt
+    // 狀態推給父組件 → useChatAI 注入 system prompt
     useEffect(() => {
         if (!onStateChange) return;
         const cartArr = (Array.from(cart.values()) as CartLine[]).map((l: CartLine) => ({
@@ -971,7 +971,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
         return out;
     }, [messages]);
 
-    // 加购 (line 携带 skuCode + productId)
+    // 加購 (line 攜帶 skuCode + productId)
     const updateCart = (line: { skuCode: string; productId: number | string; name: string; price?: any; spec?: string }, delta: number) => {
         setCart((prev: Map<string, CartLine>) => {
             const next = new Map<string, CartLine>(prev);
@@ -987,7 +987,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
         });
     };
 
-    // 搜到商品 → 累积进 menuDict (key=skuCode)
+    // 搜到商品 → 累積進 menuDict (key=skuCode)
     const handleProductsSeen = (items: any[]) => {
         if (!Array.isArray(items) || !items.length) return;
         setMenuDict((prev) => {
@@ -1003,7 +1003,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
 
     const handleAddFromProposal = (it: LuckinProposalItem) => {
         if (!it?.code && !it?.name) return;
-        if (!Object.keys(menuDict).length) { console.warn('☕ [Luckin-MiniApp] 拒绝加购: 还没搜过商品'); return; }
+        if (!Object.keys(menuDict).length) { console.warn('☕ [Luckin-MiniApp] 拒絕加購: 還沒搜過商品'); return; }
         let sku: string | undefined = menuDict[it.code || ''] ? it.code : undefined;
         let meal = sku ? menuDict[sku] : undefined;
         if (!meal) {
@@ -1013,7 +1013,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
                 meal = sku ? menuDict[sku] : undefined;
             }
         }
-        if (!sku || !meal || meal.productId == null) { console.warn(`☕ [Luckin-MiniApp] 拒绝加购: code='${it.code}' name='${it.name}' 不在已搜商品里`); return; }
+        if (!sku || !meal || meal.productId == null) { console.warn(`☕ [Luckin-MiniApp] 拒絕加購: code='${it.code}' name='${it.name}' 不在已搜商品裡`); return; }
         for (let i = 0; i < (it.qty || 1); i++) {
             updateCart({ skuCode: sku, productId: meal.productId, name: meal.name || it.name, price: meal.price }, 1);
         }
@@ -1032,8 +1032,8 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
             <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
                 <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center" onClick={(e: any) => e.stopPropagation()}>
                     <div className="text-3xl mb-2">☕</div>
-                    <div className="font-bold text-slate-800 mb-2">瑞幸还没开启</div>
-                    <div className="text-[12px] text-slate-500 mb-4 leading-relaxed">请到设置 → 瑞幸填入 MCP token 并开启功能</div>
+                    <div className="font-bold text-slate-800 mb-2">瑞幸還沒開啟</div>
+                    <div className="text-[12px] text-slate-500 mb-4 leading-relaxed">請到設置 → 瑞幸填入 MCP token 並開啟功能</div>
                     <button onClick={onClose} className="px-4 py-2 bg-[#0B1F3A] text-white rounded-lg text-[12px] font-bold">知道了</button>
                 </div>
             </div>
@@ -1059,7 +1059,7 @@ const LuckinMiniApp: React.FC<LuckinMiniAppProps> = ({ open, onClose, char, mess
                         <span className="text-2xl">🦌</span>
                         <div>
                             <div className="text-[13px] font-bold text-white">瑞幸咖啡</div>
-                            <div className="text-[9px] text-white/70">官方 MCP · 直连下单</div>
+                            <div className="text-[9px] text-white/70">官方 MCP · 直連下單</div>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-white active:scale-90">✕</button>

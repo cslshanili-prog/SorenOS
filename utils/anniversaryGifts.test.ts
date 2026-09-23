@@ -4,8 +4,8 @@ import type { ChatTheme } from '../types';
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('一周年赠礼', () => {
-  it('整个设备当地九月可见，不绑定某一天，也不会每年重弹', () => {
+describe('一週年贈禮', () => {
+  it('整個設備當地九月可見，不綁定某一天，也不會每年重彈', () => {
     vi.stubGlobal('localStorage', { getItem: () => null });
     expect(shouldShowAnniversaryGift(new Date(2026, 7, 31, 23, 59))).toBe(false);
     expect(shouldShowAnniversaryGift(new Date(2026, 8, 1))).toBe(true);
@@ -14,7 +14,7 @@ describe('一周年赠礼', () => {
     expect(shouldShowAnniversaryGift(new Date(2027, 8, 1))).toBe(false);
   });
 
-  it('只有处理弹窗才标记已读，刷新后不重复', () => {
+  it('只有處理彈窗才標記已讀，刷新後不重複', () => {
     const values = new Map<string, string>();
     vi.stubGlobal('localStorage', { getItem: (key: string) => values.get(key), setItem: (key: string, value: string) => values.set(key, value) });
     const now = new Date(2026, 8, 10);
@@ -24,14 +24,14 @@ describe('一周年赠礼', () => {
     expect(shouldShowAnniversaryGift(now)).toBe(false);
   });
 
-  it('已读存储不可用时不崩溃', () => {
+  it('已讀存儲不可用時不崩潰', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('quota'); } });
     expect(shouldShowAnniversaryGift(new Date(2026, 8, 10))).toBe(true);
     expect(() => markAnniversaryGiftSeen()).not.toThrow();
   });
 
-  it('只给所选角色创建头像框副本，保留气泡和 CSS，不修改共用主题', () => {
-    const original: ChatTheme = { id: 'shared', name: '旧装扮', type: 'custom', customCss: '.sully-bubble-ai { padding: 12px; }', user: { textColor: 'pink', backgroundColor: 'navy', borderRadius: 9, opacity: .8, voiceBarBg: 'gold' }, ai: { textColor: 'blue', backgroundColor: 'white', borderRadius: 23, opacity: .9, decoration: 'my-sticker', avatarDecoration: 'old-frame' } };
+  it('只給所選角色創建頭像框副本，保留氣泡和 CSS，不修改共用主題', () => {
+    const original: ChatTheme = { id: 'shared', name: '舊裝扮', type: 'custom', customCss: '.sully-bubble-ai { padding: 12px; }', user: { textColor: 'pink', backgroundColor: 'navy', borderRadius: 9, opacity: .8, voiceBarBg: 'gold' }, ai: { textColor: 'blue', backgroundColor: 'white', borderRadius: 23, opacity: .9, decoration: 'my-sticker', avatarDecoration: 'old-frame' } };
     const before = structuredClone(original);
     const gift = createAnniversaryTheme(original, 'alice');
     expect(original).toEqual(before);
@@ -43,7 +43,7 @@ describe('一周年赠礼', () => {
     expect(createAnniversaryTheme(gift, 'alice').id).toBe(gift.id);
   });
 
-  it('开口中心在所有头像尺寸上对齐，普通上传的挂件仍沿用旧默认值', () => {
+  it('開口中心在所有頭像尺寸上對齊，普通上傳的掛件仍沿用舊默認值', () => {
     for (const size of [28, 36, 48, 86]) {
       const style = avatarDecorationImageStyle(ANNIVERSARY_FRAME_STYLE, size);
       const ratio = parseFloat(String(style.width)) / 1080;

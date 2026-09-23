@@ -32,7 +32,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer 
                             onClick={onClose}
                             className="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform"
                         >
-                            关闭
+                            關閉
                         </button>
                     </div>
                 )}

@@ -6,7 +6,7 @@ interface ScheduleChangeNoticeProps {
     onDone: () => void;
 }
 
-/** ChatApp 顶部短暂浮出的日程修订回执；全部零件都有稳定白框 CSS 钩子。 */
+/** ChatApp 頂部短暫浮出的日程修訂回執；全部零件都有穩定白框 CSS 鉤子。 */
 const ScheduleChangeNotice: React.FC<ScheduleChangeNoticeProps> = ({ detail, onDone }) => {
     useEffect(() => {
         const timer = window.setTimeout(onDone, 4300);
@@ -64,13 +64,13 @@ const ScheduleChangeNotice: React.FC<ScheduleChangeNoticeProps> = ({ detail, onD
                     :where(.sully-schedule-change-shine) { display:none; animation:none; }
                 }
             `}</style>
-            <div className="sully-schedule-change" role="status" aria-live="polite" aria-label="未来日程已调整">
+            <div className="sully-schedule-change" role="status" aria-live="polite" aria-label="未來日程已調整">
                 <div className="sully-schedule-change-shine" aria-hidden="true" />
                 <div className="sully-schedule-change-head">
                     <span className="sully-schedule-change-mark" aria-hidden="true">✓</span>
-                    <span className="sully-schedule-change-kicker">未来日程已调整</span>
+                    <span className="sully-schedule-change-kicker">未來日程已調整</span>
                     {detail.changes.length > 1 && (
-                        <span className="sully-schedule-change-count">{detail.changes.length} 项</span>
+                        <span className="sully-schedule-change-count">{detail.changes.length} 項</span>
                     )}
                 </div>
                 <div className="sully-schedule-change-list">

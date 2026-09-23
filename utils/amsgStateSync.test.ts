@@ -1,8 +1,8 @@
 // utils/amsgStateSync.test.ts
-// 编排层守卫：打脏 → 立即批量冲刷 → 失败退避重传，以及活跃会话租约的起停。
-// 关键取舍：云端那份 fire_pack 是角色到点时唯一的上下文来源，传不上去就意味着它带着
-// 旧上下文发消息，所以失败的快照必须留在队列里等重传（早期实现发请求前就清空队列，
-// 一次网络抖动那份快照就永远没了）。同时也不能变成无限重排，两头都钉住。
+// 編排層守衛：打髒 → 立即批量沖刷 → 失敗退避重傳，以及活躍會話租約的起停。
+// 關鍵取捨：雲端那份 fire_pack 是角色到點時唯一的上下文來源，傳不上去就意味著它帶著
+// 舊上下文發消息，所以失敗的快照必須留在隊列裡等重傳（早期實現發請求前就清空隊列，
+// 一次網絡抖動那份快照就永遠沒了）。同時也不能變成無限重排，兩頭都釘住。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('./activeMsgClient', () => ({
@@ -18,13 +18,13 @@ vi.mock('./activeMsgClient', () => ({
     putLlmCredentials: vi.fn().mockResolvedValue(0),
     deleteLlmCredentials: vi.fn().mockResolvedValue(0),
   },
-  // 凭据引用那条路的版本门槛。默认关着，只有专门测它的用例才打开。
+  // 憑據引用那條路的版本門檻。默認關著，只有專門測它的用例才打開。
   isLlmCredentialsReady: vi.fn().mockResolvedValue(false),
-  // 「欠着即时对话回复」的判定本体住在 activeMsgClient（排程那条路写 fire_pack 前问的
-  // 是同一个）。整个 client 在这儿被换成了假的，所以照它的定义把两个原始信号接回来，
-  // 用例照旧拿 setInstantChatPending 驱动。判定本身怎么写由 activeMsgClient.test.ts 钉，
-  // 这里钉的是「冲刷之前会去问它」。
-  // 工厂比 import 先跑，这两个 binding 那会儿还没初始化——所以只能在调用时才解引用。
+  // 「欠著即時對話回覆」的判定本體住在 activeMsgClient（排程那條路寫 fire_pack 前問的
+  // 是同一個）。整個 client 在這兒被換成了假的，所以照它的定義把兩個原始信號接回來，
+  // 用例照舊拿 setInstantChatPending 驅動。判定本身怎麼寫由 activeMsgClient.test.ts 釘，
+  // 這裡釘的是「沖刷之前會去問它」。
+  // 工廠比 import 先跑，這兩個 binding 那會兒還沒初始化——所以只能在調用時才解引用。
   owesInstantChatReply: (charId: string) =>
     !!getInstantChatPending(charId) || isInstantChatSendInFlight(charId),
 }));
@@ -68,13 +68,13 @@ import type { CharacterProfile } from '../types';
 
 const H = 3600_000;
 /**
- * 「一个请求都不该发出」那类用例的观察窗。
- * 特意开到一级退避（30s）之外：不光要看当场没发，连「过一会儿才冒出来」的延迟请求
- * 也一并算漏。假时钟推的，等多久都不花真时间。
+ * 「一個請求都不該發出」那類用例的觀察窗。
+ * 特意開到一級退避（30s）之外：不光要看當場沒發，連「過一會兒才冒出來」的延遲請求
+ * 也一併算漏。假時鐘推的，等多久都不花真時間。
  */
 const IDLE_WINDOW_MS = 31_000;
 
-/** 带一个「待触发的 auto 任务」的角色 —— 过同步门的最小形态。 */
+/** 帶一個「待觸發的 auto 任務」的角色 —— 過同步門的最小形態。 */
 const charWithAiTask = (id: string): CharacterProfile => ({
   id, name: id,
   activeMsg2Config: {
@@ -92,7 +92,7 @@ const snapshotOf = (char: CharacterProfile) => ({
 });
 
 let charSeq = 0;
-/** 每个用例用独立 charId：模块级 dirty Map 跨用例存活，同 id 会互相干扰。 */
+/** 每個用例用獨立 charId：模塊級 dirty Map 跨用例存活，同 id 會互相干擾。 */
 const nextCharId = () => `char-${++charSeq}`;
 
 beforeEach(() => {
@@ -126,16 +126,16 @@ beforeEach(() => {
   (ActiveMsgStore.getGlobalConfig as any).mockResolvedValue({ workerUrl: 'https://amsg.example.dev' });
 });
 afterEach(async () => {
-  // 待传队列和退避计数都是模块级的：失败用例会留下快照 + 一个重排 timer，
-  // 不清干净会串进下一个用例的批次里（batch 长度、退避时长都会对不上）。
-  // tool_config 的欠账同理，冲刷会顺手把它带走。
-  // 先 mockReset 再给默认实现：用例里排的 xxxOnce 如果没被消费掉（比如那几个手动
-  // release 的挂起 Promise 碰上用例中途失败），会被下面这次收尾冲刷领走然后一直挂着。
-  // 现有用例都自己消费干净了，这行是给以后写的人留的保险。
+  // 待傳隊列和退避計數都是模塊級的：失敗用例會留下快照 + 一個重排 timer，
+  // 不清乾淨會串進下一個用例的批次裡（batch 長度、退避時長都會對不上）。
+  // tool_config 的欠帳同理，沖刷會順手把它帶走。
+  // 先 mockReset 再給默認實現：用例裡排的 xxxOnce 如果沒被消費掉（比如那幾個手動
+  // release 的掛起 Promise 碰上用例中途失敗），會被下面這次收尾沖刷領走然後一直掛著。
+  // 現有用例都自己消費乾淨了，這行是給以後寫的人留的保險。
   (ActiveMsgClient.syncCharFirePacks as any).mockReset();
   (ActiveMsgClient.syncCharFirePacks as any).mockResolvedValue(undefined);
   (ActiveMsgClient.syncToolConfig as any).mockResolvedValue(undefined);
-  // 跑两轮：第一轮冲刷可能触发补跑（flushing 期间又打脏那条路），第二轮把补跑落下的收干净。
+  // 跑兩輪：第一輪沖刷可能觸發補跑（flushing 期間又打髒那條路），第二輪把補跑落下的收乾淨。
   await flushAmsgState('cleanup');
   await vi.advanceTimersByTimeAsync(1);
   await flushAmsgState('cleanup');
@@ -144,15 +144,15 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-describe('markAmsgStateDirty 同步门', () => {
-  it('没有待触发 AI 任务的角色直接忽略（零成本，不排 timer 不发请求）', async () => {
+describe('markAmsgStateDirty 同步門', () => {
+  it('沒有待觸發 AI 任務的角色直接忽略（零成本，不排 timer 不發請求）', async () => {
     const plain = { id: nextCharId(), name: 'x' } as unknown as CharacterProfile;
     markAmsgStateDirty(snapshotOf(plain));
     await vi.advanceTimersByTimeAsync(IDLE_WINDOW_MS);
     expect(ActiveMsgClient.syncCharFirePacks).not.toHaveBeenCalled();
   });
 
-  it('只有 fixed 任务也忽略（fixed 不需要 fire_pack）', async () => {
+  it('只有 fixed 任務也忽略（fixed 不需要 fire_pack）', async () => {
     const id = nextCharId();
     const fixedOnly = {
       id, name: id,
@@ -178,17 +178,17 @@ describe('markAmsgStateDirty 同步门', () => {
     expect(ActiveMsgClient.syncCharFirePacks).not.toHaveBeenCalled();
   });
 
-  it('没配 workerUrl → 清空脏标记且不发请求', async () => {
+  it('沒配 workerUrl → 清空髒標記且不發請求', async () => {
     (ActiveMsgStore.getGlobalConfig as any).mockResolvedValue({ workerUrl: '' });
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
     expect(ActiveMsgClient.syncCharFirePacks).not.toHaveBeenCalled();
-    // 没有去处不算「欠着」：底账也一起清，别让下次启动为它白跑一趟补传。
+    // 沒有去處不算「欠著」：底帳也一起清，別讓下次啟動為它白跑一趟補傳。
     expect(JSON.parse(localStorage.getItem(AMSG2_PENDING_SYNC_LS_KEY) || '[]')).not.toContain(char.id);
   });
 
-  it('冲刷失败 → 快照留在队列里，下次冲刷把同一个角色重传', async () => {
+  it('沖刷失敗 → 快照留在隊列裡，下次沖刷把同一個角色重傳', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValueOnce(new Error('worker down'));
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
@@ -201,7 +201,7 @@ describe('markAmsgStateDirty 同步门', () => {
     expect(retried.map((i: any) => i.char.id)).toEqual([char.id]);
   });
 
-  it('失败后自动退避重排（30s），不用干等下一轮聊天', async () => {
+  it('失敗後自動退避重排（30s），不用乾等下一輪聊天', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValueOnce(new Error('worker down'));
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
@@ -212,11 +212,11 @@ describe('markAmsgStateDirty 同步门', () => {
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(2);
   });
 
-  it('重排期间又聊了一轮 → 传新快照，别被回队的旧快照盖回去', async () => {
+  it('重排期間又聊了一輪 → 傳新快照，別被回隊的舊快照蓋回去', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValueOnce(new Error('worker down'));
     const id = nextCharId();
     const stale = charWithAiTask(id);
-    stale.name = '旧快照';
+    stale.name = '舊快照';
     markAmsgStateDirty(snapshotOf(stale));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
 
@@ -230,14 +230,14 @@ describe('markAmsgStateDirty 同步门', () => {
     expect(retried[0].char.name).toBe('新快照');
   });
 
-  it('连续失败到上限后停止重排（离线时不无限排 timer）', async () => {
+  it('連續失敗到上限後停止重排（離線時不無限排 timer）', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValue(new Error('offline'));
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(1);
 
-    // 30s → 60s → 120s 三次重排后放手（快照仍留在队列里等下一轮打脏）
+    // 30s → 60s → 120s 三次重排後放手（快照仍留在隊列裡等下一輪打髒）
     await vi.advanceTimersByTimeAsync(30_000 + 60_000 + 120_000 + 1_000);
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(4);
 
@@ -246,12 +246,12 @@ describe('markAmsgStateDirty 同步门', () => {
   });
 });
 
-// 打脏合并窗口回归守卫：一轮聊天的多次打脏（收尾 / 情绪落库 / 记忆写入）不在同一个
-// tick，各自触发完整冲刷太贵（重读近史 + 重建提示词 + 加密 + PUT ~40KB）。第一次打脏起
-// FLUSH_DEBOUNCE_MS 内的合并成一次上传；固定窗口不顺延，持续打脏也保证窗口到点必冲。
-// 数据丢失窗口没有回退：底账在打脏那一刻就写、切后台立即冲刷、启动有补传。
-describe('打脏合并窗口', () => {
-  it('窗口内不发请求，窗口到点冲刷一次', async () => {
+// 打髒合併窗口迴歸守衛：一輪聊天的多次打髒（收尾 / 情緒落庫 / 記憶寫入）不在同一個
+// tick，各自觸發完整沖刷太貴（重讀近史 + 重建提示詞 + 加密 + PUT ~40KB）。第一次打髒起
+// FLUSH_DEBOUNCE_MS 內的合併成一次上傳；固定窗口不順延，持續打髒也保證窗口到點必衝。
+// 數據丟失窗口沒有回退：底帳在打髒那一刻就寫、切後台立即沖刷、啟動有補傳。
+describe('打髒合併窗口', () => {
+  it('窗口內不發請求，窗口到點沖刷一次', async () => {
     markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS - 1);
     expect(ActiveMsgClient.syncCharFirePacks).not.toHaveBeenCalled();
@@ -259,9 +259,9 @@ describe('打脏合并窗口', () => {
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(1);
   });
 
-  it('窗口内的连环打脏（隔几个 tick 也算）只合并成一次上传', async () => {
+  it('窗口內的連環打髒（隔幾個 tick 也算）只合併成一次上傳', async () => {
     markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));
-    // 情绪 buff 落库这类晚半秒才来的打脏，也该并进同一次上传
+    // 情緒 buff 落庫這類晚半秒才來的打髒，也該並進同一次上傳
     await vi.advanceTimersByTimeAsync(500);
     markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
@@ -269,10 +269,10 @@ describe('打脏合并窗口', () => {
     expect((ActiveMsgClient.syncCharFirePacks as any).mock.calls[0][0]).toHaveLength(2);
   });
 
-  it('同一个角色窗口内打两次脏只传最新那份', async () => {
+  it('同一個角色窗口內打兩次髒只傳最新那份', async () => {
     const id = nextCharId();
     const stale = charWithAiTask(id);
-    stale.name = '旧快照';
+    stale.name = '舊快照';
     const fresh = charWithAiTask(id);
     fresh.name = '新快照';
 
@@ -286,15 +286,15 @@ describe('打脏合并窗口', () => {
     expect(batch[0].char.name).toBe('新快照');
   });
 
-  it('冲刷进行中再打脏，冲刷完成后自动补跑一次（不搁浅）', async () => {
-    // 旧的丢弃式防重入（if (flushing) return）下这条会挂：第二份快照
-    // 会一直躺在队列里，等不到任何人来传。
+  it('沖刷進行中再打髒，沖刷完成後自動補跑一次（不擱淺）', async () => {
+    // 舊的丟棄式防重入（if (flushing) return）下這條會掛：第二份快照
+    // 會一直躺在隊列裡，等不到任何人來傳。
     let release!: () => void;
     (ActiveMsgClient.syncCharFirePacks as any).mockImplementationOnce(
       () => new Promise<void>((resolve) => { release = resolve; }),
     );
     markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));
-    await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);   // 第一次冲刷挂起中
+    await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);   // 第一次沖刷掛起中
 
     const later = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(later));
@@ -308,7 +308,7 @@ describe('打脏合并窗口', () => {
       .toEqual([later.id]);
   });
 
-  it('这次冲刷失败时不立刻补跑，交给退避重传（补跑不许白吃退避额度）', async () => {
+  it('這次沖刷失敗時不立刻補跑，交給退避重傳（補跑不許白吃退避額度）', async () => {
     let fail!: () => void;
     (ActiveMsgClient.syncCharFirePacks as any).mockImplementationOnce(
       () => new Promise<void>((_, reject) => { fail = () => reject(new Error('worker down')); }),
@@ -316,12 +316,12 @@ describe('打脏合并窗口', () => {
     markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
 
-    markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));  // 在飞期间又打脏
+    markAmsgStateDirty(snapshotOf(charWithAiTask(nextCharId())));  // 在飛期間又打髒
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
 
     fail();
     await vi.advanceTimersByTimeAsync(0);
-    // 立刻补跑只会当场重蹈覆辙；退避重传本来就会带上队列里的全部快照（含刚打脏那份）
+    // 立刻補跑只會當場重蹈覆轍；退避重傳本來就會帶上隊列裡的全部快照（含剛打髒那份）
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(30_000);
@@ -329,10 +329,10 @@ describe('打脏合并窗口', () => {
     expect((ActiveMsgClient.syncCharFirePacks as any).mock.calls[1][0]).toHaveLength(2);
   });
 
-  it('退避打光那次冲刷里打的脏，当场补跑并重开一轮退避', async () => {
+  it('退避打光那次沖刷裡打的髒，當場補跑並重開一輪退避', async () => {
     const mock = ActiveMsgClient.syncCharFirePacks as any;
-    // 前三次直接失败，把 30 / 60 / 120 三级退避走完；第四次（额度已经用光那次）挂在
-    // 半空，好在它还在飞的时候打一次脏；第五次是补跑，也让它失败，用来验退避从头重开。
+    // 前三次直接失敗，把 30 / 60 / 120 三級退避走完；第四次（額度已經用光那次）掛在
+    // 半空，好在它還在飛的時候打一次髒；第五次是補跑，也讓它失敗，用來驗退避從頭重開。
     mock.mockRejectedValueOnce(new Error('offline'));
     mock.mockRejectedValueOnce(new Error('offline'));
     mock.mockRejectedValueOnce(new Error('offline'));
@@ -346,22 +346,22 @@ describe('打脏合并窗口', () => {
     markAmsgStateDirty(snapshotOf(doomed));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
     await vi.advanceTimersByTimeAsync(30_000 + 60_000 + 120_000 + 1_000);
-    expect(mock).toHaveBeenCalledTimes(4);           // 第四次挂在半空
+    expect(mock).toHaveBeenCalledTimes(4);           // 第四次掛在半空
 
     const later = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(later));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
-    expect(mock).toHaveBeenCalledTimes(4);           // 撞上 flushing，先记账
+    expect(mock).toHaveBeenCalledTimes(4);           // 撞上 flushing，先記帳
 
     failLast();
     await vi.advanceTimersByTimeAsync(0);
-    // 退避打光那条路不留 timer，没有别人会来接手 → 这次必须当场补跑，
-    // 并把欠着的两份（回队的旧账 + 刚打的新脏）一起带上。
+    // 退避打光那條路不留 timer，沒有別人會來接手 → 這次必須當場補跑，
+    // 並把欠著的兩份（回隊的舊帳 + 剛打的新髒）一起帶上。
     expect(mock).toHaveBeenCalledTimes(5);
     expect(mock.mock.calls[4][0].map((s: any) => s.char.id).sort())
       .toEqual([doomed.id, later.id].sort());
 
-    // 补跑再失败的话退避从 30s 重新起步：既不是接着上一轮的 120s，也不是从此没人再试。
+    // 補跑再失敗的話退避從 30s 重新起步：既不是接著上一輪的 120s，也不是從此沒人再試。
     await vi.advanceTimersByTimeAsync(29_000);
     expect(mock).toHaveBeenCalledTimes(5);
     await vi.advanceTimersByTimeAsync(1_500);
@@ -369,17 +369,17 @@ describe('打脏合并窗口', () => {
   });
 });
 
-// 欠着即时对话回复的角色，fire_pack 挂起不传：那一轮的包是 POST /instant-chat 带上去
-// 的、多一段 chat（worker 到点全靠它），常规重建的包没有 chat 段，覆盖上去 worker 到点
-// 只会硬失败。回归守卫：没有这层挂起时，等回复期间任何一次打脏（改人设 / 群聊 / 表情库
-// 变更）都会把用户正等着的那条回复变成「fire_pack 里没有 chat 段」。
-describe('即时对话挂起（chat 段不许被常规冲刷覆盖）', () => {
-  it('欠着回复的角色这次不传；销账后回看那一跳把欠的传掉', async () => {
+// 欠著即時對話回覆的角色，fire_pack 掛起不傳：那一輪的包是 POST /instant-chat 帶上去
+// 的、多一段 chat（worker 到點全靠它），常規重建的包沒有 chat 段，覆蓋上去 worker 到點
+// 只會硬失敗。迴歸守衛：沒有這層掛起時，等回覆期間任何一次打髒（改人設 / 群聊 / 表情庫
+// 變更）都會把用戶正等著的那條回覆變成「fire_pack 裡沒有 chat 段」。
+describe('即時對話掛起（chat 段不許被常規沖刷覆蓋）', () => {
+  it('欠著回覆的角色這次不傳；銷帳後回看那一跳把欠的傳掉', async () => {
     const char = charWithAiTask(nextCharId());
     setInstantChatPending(char.id, 'uuid-instant-defer');
     markAmsgStateDirty(snapshotOf(char));
     await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
-    expect(ActiveMsgClient.syncCharFirePacks, '等回复期间一个包都不许传').not.toHaveBeenCalled();
+    expect(ActiveMsgClient.syncCharFirePacks, '等回覆期間一個包都不許傳').not.toHaveBeenCalled();
 
     clearInstantChatPending(char.id);
     await vi.advanceTimersByTimeAsync(61_000);
@@ -388,7 +388,7 @@ describe('即时对话挂起（chat 段不许被常规冲刷覆盖）', () => {
       .toEqual([char.id]);
   });
 
-  it('同批里没欠着的照传，欠着的不搭车', async () => {
+  it('同批裡沒欠著的照傳，欠著的不搭車', async () => {
     const owing = charWithAiTask(nextCharId());
     const free = charWithAiTask(nextCharId());
     setInstantChatPending(owing.id, 'uuid-instant-owing');
@@ -400,7 +400,7 @@ describe('即时对话挂起（chat 段不许被常规冲刷覆盖）', () => {
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock.mock.calls[0][0].map((s: any) => s.char.id)).toEqual([free.id]);
 
-    // 收尾：销账并让回看把欠的传掉，别把挂起的快照留给下一个用例。
+    // 收尾：銷帳並讓回看把欠的傳掉，別把掛起的快照留給下一個用例。
     clearInstantChatPending(owing.id);
     await vi.advanceTimersByTimeAsync(61_000);
     expect(mock).toHaveBeenCalledTimes(2);
@@ -408,13 +408,13 @@ describe('即时对话挂起（chat 段不许被常规冲刷覆盖）', () => {
   });
 });
 
-// 脏标记轻量持久化：localStorage 只存 charId 底账（快照本体启动时从 DB 重建）。
-// 回归守卫：没有这层持久化时，「打脏 → 请求还没落地就被杀进程」那份快照就永远丢了。
-describe('脏标记持久化与启动补传', () => {
+// 髒標記輕量持久化：localStorage 只存 charId 底帳（快照本體啟動時從 DB 重建）。
+// 迴歸守衛：沒有這層持久化時，「打髒 → 請求還沒落地就被殺進程」那份快照就永遠丟了。
+describe('髒標記持久化與啟動補傳', () => {
   const readMarks = (): string[] =>
     JSON.parse(localStorage.getItem(AMSG2_PENDING_SYNC_LS_KEY) || '[]');
 
-  it('打脏写入底账，上传成功后移除', async () => {
+  it('打髒寫入底帳，上傳成功後移除', async () => {
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
     expect(readMarks()).toContain(char.id);
@@ -424,13 +424,13 @@ describe('脏标记持久化与启动补传', () => {
     expect(readMarks()).not.toContain(char.id);
   });
 
-  it('过不了同步门的角色不写底账', async () => {
+  it('過不了同步門的角色不寫底帳', async () => {
     const plain = { id: nextCharId(), name: 'x' } as unknown as CharacterProfile;
     markAmsgStateDirty(snapshotOf(plain));
     expect(readMarks()).not.toContain(plain.id);
   });
 
-  it('上传失败底账保留，等重试 / 下次启动补传', async () => {
+  it('上傳失敗底帳保留，等重試 / 下次啟動補傳', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValueOnce(new Error('worker down'));
     const char = charWithAiTask(nextCharId());
     markAmsgStateDirty(snapshotOf(char));
@@ -439,13 +439,13 @@ describe('脏标记持久化与启动补传', () => {
     expect(readMarks()).toContain(char.id);
   });
 
-  it('杀进程模拟：直接构造底账残留 → 启动补传立即重建上传并清底账', async () => {
-    // 上次会话只留下 charId（内存队列已随进程蒸发），启动时用 DB 读回的角色重建快照。
+  it('殺進程模擬：直接構造底帳殘留 → 啟動補傳立即重建上傳並清底帳', async () => {
+    // 上次會話只留下 charId（內存隊列已隨進程蒸發），啟動時用 DB 讀回的角色重建快照。
     const char = charWithAiTask(nextCharId());
     localStorage.setItem(AMSG2_PENDING_SYNC_LS_KEY, JSON.stringify([char.id]));
 
     resumePendingAmsgStateSync({ characters: [char], userProfile: {} as any, groups: [] });
-    await vi.advanceTimersByTimeAsync(1); // 补传当场发，advance 只为让异步体落地
+    await vi.advanceTimersByTimeAsync(1); // 補傳當場發，advance 只為讓異步體落地
 
     expect(ActiveMsgClient.syncCharFirePacks).toHaveBeenCalledTimes(1);
     const batch = (ActiveMsgClient.syncCharFirePacks as any).mock.calls[0][0];
@@ -453,10 +453,10 @@ describe('脏标记持久化与启动补传', () => {
     expect(readMarks()).not.toContain(char.id);
   });
 
-  it('残留角色已删除 / 已关 2.0 → 静默清除底账，不发请求', async () => {
+  it('殘留角色已刪除 / 已關 2.0 → 靜默清除底帳，不發請求', async () => {
     const disabled = charWithAiTask(nextCharId());
     (disabled.activeMsg2Config as any).enabled = false;
-    localStorage.setItem(AMSG2_PENDING_SYNC_LS_KEY, JSON.stringify(['ghost-已删除', disabled.id]));
+    localStorage.setItem(AMSG2_PENDING_SYNC_LS_KEY, JSON.stringify(['ghost-已刪除', disabled.id]));
 
     resumePendingAmsgStateSync({ characters: [disabled], userProfile: {} as any, groups: [] });
     await vi.advanceTimersByTimeAsync(IDLE_WINDOW_MS);
@@ -465,7 +465,7 @@ describe('脏标记持久化与启动补传', () => {
     expect(readMarks()).toEqual([]);
   });
 
-  it('补传失败底账不丢：留给退避重试 / 再下次启动', async () => {
+  it('補傳失敗底帳不丟：留給退避重試 / 再下次啟動', async () => {
     (ActiveMsgClient.syncCharFirePacks as any).mockRejectedValueOnce(new Error('offline'));
     const char = charWithAiTask(nextCharId());
     localStorage.setItem(AMSG2_PENDING_SYNC_LS_KEY, JSON.stringify([char.id]));
@@ -478,14 +478,14 @@ describe('脏标记持久化与启动补传', () => {
   });
 });
 
-// 回归守卫：tool_config（搜索/Notion/飞书/MCP 凭据、代理地址）以前是「单发即忘」——
-// 一句 `.catch(() => {})` 就没了，也没有底账。它又不像 fire_pack 那样每轮聊天重传，
-// 传丢一次云端就永远是旧的：用户删掉的 MCP 服务器，worker 半夜照旧带着旧 token 直连。
-describe('工具凭据（tool_config）的重试与底账', () => {
+// 迴歸守衛：tool_config（搜索/Notion/飛書/MCP 憑據、代理地址）以前是「單發即忘」——
+// 一句 `.catch(() => {})` 就沒了，也沒有底帳。它又不像 fire_pack 那樣每輪聊天重傳，
+// 傳丟一次雲端就永遠是舊的：用戶刪掉的 MCP 服務器，worker 半夜照舊帶著舊 token 直連。
+describe('工具憑據（tool_config）的重試與底帳', () => {
   const readMark = () => localStorage.getItem(AMSG2_PENDING_TOOL_CONFIG_LS_KEY);
   const config = { weatherEnabled: true } as any;
 
-  it('传成功 → 只发一次请求，底账清空', async () => {
+  it('傳成功 → 只發一次請求，底帳清空', async () => {
     syncAmsgToolConfig(config);
     await vi.advanceTimersByTimeAsync(1);
 
@@ -494,7 +494,7 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     expect(readMark()).toBeNull();
   });
 
-  it('传失败 → 底账留存，退避 30s 后自动重传，成功即清账', async () => {
+  it('傳失敗 → 底帳留存，退避 30s 後自動重傳，成功即清帳', async () => {
     (ActiveMsgClient.syncToolConfig as any).mockRejectedValueOnce(new Error('worker down'));
     syncAmsgToolConfig(config);
     await vi.advanceTimersByTimeAsync(1);
@@ -507,14 +507,14 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     expect(readMark()).toBeNull();
   });
 
-  it('退避打光仍失败 → 底账不丢，下次冲刷接着补', async () => {
+  it('退避打光仍失敗 → 底帳不丟，下次沖刷接著補', async () => {
     (ActiveMsgClient.syncToolConfig as any).mockRejectedValue(new Error('offline'));
     syncAmsgToolConfig(config);
     await vi.advanceTimersByTimeAsync(30_000 + 60_000 + 120_000 + 1_000);
     expect(ActiveMsgClient.syncToolConfig).toHaveBeenCalledTimes(4);
     expect(readMark()).toBe('1');
 
-    // 网络回来了：下一次 fire_pack 冲刷顺手把它带上去
+    // 網絡回來了：下一次 fire_pack 沖刷順手把它帶上去
     (ActiveMsgClient.syncToolConfig as any).mockResolvedValue(undefined);
     await flushAmsgState('test');
     await vi.advanceTimersByTimeAsync(1);
@@ -522,7 +522,7 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     expect(readMark()).toBeNull();
   });
 
-  it('没配 workerUrl → 不发请求，底账也不留（没有去处不算欠着）', async () => {
+  it('沒配 workerUrl → 不發請求，底帳也不留（沒有去處不算欠著）', async () => {
     (ActiveMsgStore.getGlobalConfig as any).mockResolvedValue({ workerUrl: '' });
     syncAmsgToolConfig(config);
     await vi.advanceTimersByTimeAsync(1);
@@ -531,7 +531,7 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     expect(readMark()).toBeNull();
   });
 
-  it('杀进程模拟：底账残留 → 启动补传用当前配置传一次并清账', async () => {
+  it('殺進程模擬：底帳殘留 → 啟動補傳用當前配置傳一次並清帳', async () => {
     localStorage.setItem(AMSG2_PENDING_TOOL_CONFIG_LS_KEY, '1');
     resumePendingAmsgStateSync({
       characters: [], userProfile: {} as any, groups: [], realtimeConfig: config,
@@ -543,7 +543,7 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     expect(readMark()).toBeNull();
   });
 
-  it('上传期间配置又改了 → 不拿旧那份的成功去清新的欠账', async () => {
+  it('上傳期間配置又改了 → 不拿舊那份的成功去清新的欠帳', async () => {
     let release: () => void = () => {};
     (ActiveMsgClient.syncToolConfig as any).mockImplementationOnce(
       () => new Promise<void>((resolve) => { release = resolve; }));
@@ -551,11 +551,11 @@ describe('工具凭据（tool_config）的重试与底账', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const newer = { weatherEnabled: false } as any;
-    syncAmsgToolConfig(newer);          // 上一次还没回来
+    syncAmsgToolConfig(newer);          // 上一次還沒回來
     release();
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(readMark()).toBe('1');       // 新的那份还欠着
+    expect(readMark()).toBe('1');       // 新的那份還欠著
     await flushAmsgState('test');
     await vi.advanceTimersByTimeAsync(1);
     expect(ActiveMsgClient.syncToolConfig).toHaveBeenLastCalledWith(newer);
@@ -563,20 +563,20 @@ describe('工具凭据（tool_config）的重试与底账', () => {
   });
 });
 
-// 回归守卫：清空 Worker 地址以前是静默存盘。前端这边一切同步停摆，D1 里的任务却一条
-// 没少——cron 每分钟照常消费、照烧 LLM 照推送，用户以为自己关掉了一切。
+// 迴歸守衛：清空 Worker 地址以前是靜默存盤。前端這邊一切同步停擺，D1 裡的任務卻一條
+// 沒少——cron 每分鐘照常消費、照燒 LLM 照推送，用戶以為自己關掉了一切。
 describe('清空 Worker 地址前的收尾', () => {
-  it('只有「从非空变空」才触发取消流程', () => {
+  it('只有「從非空變空」才觸發取消流程', () => {
     expect(isWorkerUrlCleared('https://amsg.example.dev', '')).toBe(true);
     expect(isWorkerUrlCleared('https://amsg.example.dev', '   ')).toBe(true);
-    // 换地址、首次填写、本来就空：都不是「关掉」
+    // 換地址、首次填寫、本來就空：都不是「關掉」
     expect(isWorkerUrlCleared('https://a.dev', 'https://b.dev')).toBe(false);
     expect(isWorkerUrlCleared('', 'https://b.dev')).toBe(false);
     expect(isWorkerUrlCleared('', '')).toBe(false);
     expect(isWorkerUrlCleared(undefined, undefined)).toBe(false);
   });
 
-  it('逐个取消远端任务，单条失败不拖累其余', async () => {
+  it('逐個取消遠端任務，單條失敗不拖累其餘', async () => {
     (ActiveMsgClient.listAllTasks as any).mockResolvedValue([
       { uuid: 'u1' }, { uuid: 'u2' }, { uuid: 'u3' }, { notAUuid: true },
     ]);
@@ -591,7 +591,7 @@ describe('清空 Worker 地址前的收尾', () => {
     expect(result).toEqual({ total: 3, failed: 1, listed: true });
   });
 
-  it('清单都读不到 → listed:false，交给界面提示「远端可能还挂着」', async () => {
+  it('清單都讀不到 → listed:false，交給界面提示「遠端可能還掛著」', async () => {
     (ActiveMsgClient.listAllTasks as any).mockRejectedValue(new Error('unauthorized'));
 
     const result = await cancelAllRemoteAmsgTasks();
@@ -600,11 +600,11 @@ describe('清空 Worker 地址前的收尾', () => {
     expect(ActiveMsgClient.cancelTask).not.toHaveBeenCalled();
   });
 
-  // 这一条刻意跟角色级的 ActiveMsgClient.cancelAllTasksForChar 反着来：那边放过即时对话的
-  // 行（关掉角色的 2.0 开关不该掐掉用户正等着的那轮聊天），这边两个调用方要的都是
-  // 「我不跟这台 worker 来往了」——地址一清，回复推回来这边也接不住；云端数据一清，
-  // 角色上下文没了，那一跳到点也只会硬失败，留着只是多一条要等 7 天才自动消失的失败行。
-  it('正在跑的即时对话也一并取消（这里的「全部」是字面意思）', async () => {
+  // 這一條刻意跟角色級的 ActiveMsgClient.cancelAllTasksForChar 反著來：那邊放過即時對話的
+  // 行（關掉角色的 2.0 開關不該掐掉用戶正等著的那輪聊天），這邊兩個調用方要的都是
+  // 「我不跟這台 worker 來往了」——地址一清，回覆推回來這邊也接不住；雲端數據一清，
+  // 角色上下文沒了，那一跳到點也只會硬失敗，留著只是多一條要等 7 天才自動消失的失敗行。
+  it('正在跑的即時對話也一併取消（這裡的「全部」是字面意思）', async () => {
     (ActiveMsgClient.listAllTasks as any).mockResolvedValue([
       { uuid: 'u-scheduled', messageSubtype: 'chat' },
       { uuid: 'u-instant', messageSubtype: 'instant-chat' },
@@ -618,11 +618,11 @@ describe('清空 Worker 地址前的收尾', () => {
   });
 });
 
-describe('清空云端数据', () => {
-  // 这一组守的是同一条：四样各清各的，谁失败都不许短路后面几样。
-  // 换过 AMSG_MASTER_KEY 之后旧密文全解不开，而「列任务」要逐条解密、必然最先炸，
-  // 偏偏这时候最需要被清掉的是 client_state —— 串行短路的话用户一样都清不成。
-  it('任务清单读不出来时，角色上下文 / 凭据行 / 推送订阅照样收拾干净', async () => {
+describe('清空雲端數據', () => {
+  // 這一組守的是同一條：四樣各清各的，誰失敗都不許短路後面幾樣。
+  // 換過 AMSG_MASTER_KEY 之後舊密文全解不開，而「列任務」要逐條解密、必然最先炸，
+  // 偏偏這時候最需要被清掉的是 client_state —— 串行短路的話用戶一樣都清不成。
+  it('任務清單讀不出來時，角色上下文 / 憑據行 / 推送訂閱照樣收拾乾淨', async () => {
     (ActiveMsgClient.listAllTasks as any).mockRejectedValue(new Error('decryption failed'));
     (ActiveMsgClient.clearClientState as any).mockResolvedValue({ deleted: 7, toolConfigRestored: true });
     (ActiveMsgClient.deleteLlmCredentials as any).mockResolvedValue(5);
@@ -638,10 +638,10 @@ describe('清空云端数据', () => {
     expect(result.push).toBe('reregistered');
   });
 
-  it('凭据行删不掉时，前后几样照样各清各的', async () => {
+  it('憑據行刪不掉時，前後幾樣照樣各清各的', async () => {
     (ActiveMsgClient.listAllTasks as any).mockResolvedValue([{ uuid: 'u-1' }]);
     (ActiveMsgClient.clearClientState as any).mockResolvedValue({ deleted: 2, toolConfigRestored: true });
-    // 老 worker 上根本没有这张表，这一步注定失败——它一个人失败不能把别的三样拖下水。
+    // 老 worker 上根本沒有這張表，這一步註定失敗——它一個人失敗不能把別的三樣拖下水。
     (ActiveMsgClient.deleteLlmCredentials as any).mockRejectedValue(new Error('NOT_FOUND'));
 
     const result = await wipeAmsgCloudData(undefined, { pushRegistered: true });
@@ -652,7 +652,7 @@ describe('清空云端数据', () => {
     expect(result.push).toBe('reregistered');
   });
 
-  it('角色上下文清不掉时，凭据行照样删（这一步排在它后面，不能被短路）', async () => {
+  it('角色上下文清不掉時，憑據行照樣刪（這一步排在它後面，不能被短路）', async () => {
     (ActiveMsgClient.clearClientState as any).mockRejectedValue(new Error('boom'));
     (ActiveMsgClient.deleteLlmCredentials as any).mockResolvedValue(3);
 
@@ -662,7 +662,7 @@ describe('清空云端数据', () => {
     expect(result.llmCredentialsDeleted).toBe(3);
   });
 
-  it('角色上下文清不掉时，任务照样取消、推送订阅照样收拾', async () => {
+  it('角色上下文清不掉時，任務照樣取消、推送訂閱照樣收拾', async () => {
     (ActiveMsgClient.listAllTasks as any).mockResolvedValue([{ uuid: 'u-1' }, { uuid: 'u-2' }]);
     (ActiveMsgClient.clearClientState as any).mockRejectedValue(new Error('boom'));
 
@@ -675,7 +675,7 @@ describe('清空云端数据', () => {
     expect(result.push).toBe('reregistered');
   });
 
-  it('推送订阅收拾不了也不影响前两样的结果', async () => {
+  it('推送訂閱收拾不了也不影響前兩樣的結果', async () => {
     (ActiveMsgClient.listAllTasks as any).mockResolvedValue([{ uuid: 'u-1' }]);
     (ActiveMsgClient.clearClientState as any).mockResolvedValue({ deleted: 3, toolConfigRestored: true });
     (ActiveMsgClient.registerPushSubscription as any).mockRejectedValue(new Error('no permission'));
@@ -687,9 +687,9 @@ describe('清空云端数据', () => {
     expect(result.push).toBe('failed');
   });
 
-  // 本机没订阅还去 registerPushSubscription 的话，会当场向用户要通知权限——
-  // 「清空数据」不该顺手弹权限框，删掉云端那行留白就是对的。
-  it('本机没有推送订阅时只删云端那行，不去重新登记', async () => {
+  // 本機沒訂閱還去 registerPushSubscription 的話，會當場向用戶要通知權限——
+  // 「清空數據」不該順手彈權限框，刪掉雲端那行留白就是對的。
+  it('本機沒有推送訂閱時只刪雲端那行，不去重新登記', async () => {
     const result = await wipeAmsgCloudData(undefined, { pushRegistered: false });
 
     expect(ActiveMsgClient.deleteRemotePushSubscription).toHaveBeenCalledTimes(1);
@@ -698,18 +698,18 @@ describe('清空云端数据', () => {
   });
 });
 
-// 云端那张凭据表和 tool_config 处境一样：只在保存配置那一刻传一次，丢了没人补。
-// 而它丢了的后果更硬——已排程的任务到点还在用旧 Key，用户只看到「主动消息不来了」。
-describe('LLM 凭据行的后台重传', () => {
+// 雲端那張憑據表和 tool_config 處境一樣：只在保存配置那一刻傳一次，丟了沒人補。
+// 而它丟了的後果更硬——已排程的任務到點還在用舊 Key，用戶只看到「主動消息不來了」。
+describe('LLM 憑據行的後台重傳', () => {
   const API = { baseUrl: 'https://api.example.dev/v1', apiKey: 'sk-new', model: 'gpt-x' } as any;
   const CHAR = {
     id: 'char-cred-sync',
-    name: '小满',
+    name: '小滿',
     activeMsg2Config: { enabled: true, tasks: [] },
   } as any as CharacterProfile;
 
   const primeLedgerWithOldKey = () => {
-    // 底账里记着这一行「传过了」，但记的是旧 Key 的指纹 → 现在算出来就是「变了」。
+    // 底帳裡記著這一行「傳過了」，但記的是舊 Key 的指紋 → 現在算出來就是「變了」。
     rememberCredRows([buildCharChatCredRow(
       CHAR as any, CHAR.activeMsg2Config as any, { baseUrl: API.baseUrl, apiKey: 'sk-old', model: API.model } as any,
     )!]);
@@ -719,7 +719,7 @@ describe('LLM 凭据行的后台重传', () => {
     vi.spyOn(DB, 'getAllCharacters').mockResolvedValue([CHAR] as any);
   });
 
-  it('worker 不支持凭据表 → 一个请求都不发，也不留欠账', async () => {
+  it('worker 不支持憑據表 → 一個請求都不發，也不留欠帳', async () => {
     (isLlmCredentialsReady as any).mockResolvedValue(false);
     primeLedgerWithOldKey();
 
@@ -730,7 +730,7 @@ describe('LLM 凭据行的后台重传', () => {
     expect(localStorage.getItem(AMSG2_PENDING_CRED_SYNC_LS_KEY)).toBeNull();
   });
 
-  it('换了 Key → 把底账里那几行按新配置重算后传上去', async () => {
+  it('換了 Key → 把底帳裡那幾行按新配置重算後傳上去', async () => {
     (isLlmCredentialsReady as any).mockResolvedValue(true);
     primeLedgerWithOldKey();
 
@@ -746,10 +746,10 @@ describe('LLM 凭据行的后台重传', () => {
         primaryModel: 'gpt-x',
       },
     }]);
-    expect(localStorage.getItem(AMSG2_PENDING_CRED_SYNC_LS_KEY), '传上去了就该销账').toBeNull();
+    expect(localStorage.getItem(AMSG2_PENDING_CRED_SYNC_LS_KEY), '傳上去了就該銷帳').toBeNull();
   });
 
-  it('这次保存没动 API → 值没变，不白发一次请求', async () => {
+  it('這次保存沒動 API → 值沒變，不白發一次請求', async () => {
     (isLlmCredentialsReady as any).mockResolvedValue(true);
     rememberCredRows([buildCharChatCredRow(CHAR as any, CHAR.activeMsg2Config as any, API)!]);
 
@@ -760,7 +760,7 @@ describe('LLM 凭据行的后台重传', () => {
     expect(localStorage.getItem(AMSG2_PENDING_CRED_SYNC_LS_KEY)).toBeNull();
   });
 
-  it('传失败 → 退避重传，欠账留在 localStorage 等启动补', async () => {
+  it('傳失敗 → 退避重傳，欠帳留在 localStorage 等啟動補', async () => {
     (isLlmCredentialsReady as any).mockResolvedValue(true);
     primeLedgerWithOldKey();
     (ActiveMsgClient.putLlmCredentials as any).mockRejectedValue(new Error('offline'));
@@ -774,7 +774,7 @@ describe('LLM 凭据行的后台重传', () => {
     expect(ActiveMsgClient.putLlmCredentials).toHaveBeenCalledTimes(2);
   });
 
-  it('启动补传：上次没传成的按底账重来一次（没给 apiConfig 就跳过这一项）', async () => {
+  it('啟動補傳：上次沒傳成的按底帳重來一次（沒給 apiConfig 就跳過這一項）', async () => {
     (isLlmCredentialsReady as any).mockResolvedValue(true);
     primeLedgerWithOldKey();
     localStorage.setItem(AMSG2_PENDING_CRED_SYNC_LS_KEY, '1');
@@ -789,8 +789,8 @@ describe('LLM 凭据行的后台重传', () => {
   });
 });
 
-describe('活跃会话租约', () => {
-  it('启动立即写一次，之后按心跳间隔续租；stop 后不再续', async () => {
+describe('活躍會話租約', () => {
+  it('啟動立即寫一次，之後按心跳間隔續租；stop 後不再續', async () => {
     const charId = nextCharId();
     startAmsgChatPresence(charId, Date.now());
     expect(ActiveMsgClient.syncChatPresence).toHaveBeenCalledTimes(1);
@@ -803,14 +803,14 @@ describe('活跃会话租约', () => {
     expect(ActiveMsgClient.syncChatPresence).toHaveBeenCalledTimes(2);
   });
 
-  it('同角色重入只刷新时间戳，不叠第二个心跳', async () => {
+  it('同角色重入只刷新時間戳，不疊第二個心跳', async () => {
     const charId = nextCharId();
     startAmsgChatPresence(charId, Date.now());
     startAmsgChatPresence(charId, Date.now());
-    expect(ActiveMsgClient.syncChatPresence).toHaveBeenCalledTimes(2); // 两次立即写
+    expect(ActiveMsgClient.syncChatPresence).toHaveBeenCalledTimes(2); // 兩次立即寫
 
     await vi.advanceTimersByTimeAsync(CHAT_PRESENCE_HEARTBEAT_MS + 100);
-    // 只有一个 timer 在跑 → 只多一次，而不是两次
+    // 只有一個 timer 在跑 → 只多一次，而不是兩次
     expect(ActiveMsgClient.syncChatPresence).toHaveBeenCalledTimes(3);
     stopAmsgChatPresence(charId);
   });

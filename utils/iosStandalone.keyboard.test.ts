@@ -1,21 +1,21 @@
 /// <reference types="vitest" />
 /**
- * utils/iosStandalone.keyboard.test.ts — 键盘态布局的回归守卫。
+ * utils/iosStandalone.keyboard.test.ts — 鍵盤態佈局的迴歸守衛。
  *
- * 背景：iOS 全屏 PWA 下 body 高度会比可视区多出一段底部安全区（给 home 条留位），
- * `.ios-keyboard-open` 一挂，外壳就铺到那段溢出区、聊天输入栏同时收掉自己的让位间隙。
- * 两个动作合起来净位移为 0，前提是「标记挂上」和「app 高度收到键盘上方」同时发生。
- * 只要有一边先动，输入条就整条沉出屏幕、home 条骑到输入框上。
+ * 背景：iOS 全屏 PWA 下 body 高度會比可視區多出一段底部安全區（給 home 條留位），
+ * `.ios-keyboard-open` 一掛，外殼就鋪到那段溢出區、聊天輸入欄同時收掉自己的讓位間隙。
+ * 兩個動作合起來淨位移為 0，前提是「標記掛上」和「app 高度收到鍵盤上方」同時發生。
+ * 只要有一邊先動，輸入條就整條沉出屏幕、home 條騎到輸入框上。
  *
- * 这里钉住的不变式：键盘态只认 visualViewport 真的变矮，不认焦点事件。
+ * 這裡釘住的不變式：鍵盤態只認 visualViewport 真的變矮，不認焦點事件。
  *
  * @vitest-environment jsdom
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-const SCREEN_H = 852; // 竖屏可视高度
-const SAFE_BOTTOM = 34; // home 条安全区
+const SCREEN_H = 852; // 豎屏可視高度
+const SAFE_BOTTOM = 34; // home 條安全區
 const SAFE_TOP = 44;
 const KEYBOARD_H = 336;
 
@@ -47,8 +47,8 @@ const setupIOSStandalone = () => {
     })) as typeof window.matchMedia;
     window.scrollTo = vi.fn() as typeof window.scrollTo;
 
-    // jsdom 不认 env()，安全区探针会读到 0，那段 34px 溢出区就不存在、用例也就测不到错位。
-    // 认出探针（fixed + hidden 的临时 div）后返回真机数值，其余元素照常走 jsdom。
+    // jsdom 不認 env()，安全區探針會讀到 0，那段 34px 溢出區就不存在、用例也就測不到錯位。
+    // 認出探針（fixed + hidden 的臨時 div）後返回真機數值，其餘元素照常走 jsdom。
     const realGetComputedStyle = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation(((el: Element, pseudo?: string | null) => {
         const style = (el as HTMLElement).style;
@@ -59,7 +59,7 @@ const setupIOSStandalone = () => {
     }) as typeof window.getComputedStyle);
 };
 
-/** 重新加载模块再装载，绕开「只装一次」的单例标志，顺带清掉基线高度等模块级状态。 */
+/** 重新加載模塊再裝載，繞開「只裝一次」的單例標誌，順帶清掉基線高度等模塊級狀態。 */
 const install = async () => {
     vi.resetModules();
     const mod = await import('./iosStandalone');
@@ -82,7 +82,7 @@ const focusTextarea = () => {
 const appHeight = () => document.documentElement.style.getPropertyValue('--app-height');
 const inKeyboardMode = () => document.body.classList.contains('ios-keyboard-open');
 
-describe('iOS 全屏 PWA 键盘态', () => {
+describe('iOS 全屏 PWA 鍵盤態', () => {
     beforeEach(() => {
         document.body.className = '';
         document.body.innerHTML = '';
@@ -94,15 +94,15 @@ describe('iOS 全屏 PWA 键盘态', () => {
         vi.restoreAllMocks();
     });
 
-    it('无键盘时 app 高度 = 可视高度 + 底部安全区（那段溢出区留给 home 条）', async () => {
+    it('無鍵盤時 app 高度 = 可視高度 + 底部安全區（那段溢出區留給 home 條）', async () => {
         await install();
         expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
         expect(inKeyboardMode()).toBe(false);
     });
 
-    // 回归守卫：输入框拿到焦点不等于键盘弹出来了。设备上键盘弹不出来时（外接键盘、输入法异常），
-    // 旧实现照样挂标记，外壳铺到那 34px 溢出区、输入栏又收掉让位间隙，输入条整条沉出屏幕。
-    it('焦点进来但可视区没变矮 → 不进键盘态，高度不动', async () => {
+    // 迴歸守衛：輸入框拿到焦點不等於鍵盤彈出來了。設備上鍵盤彈不出來時（外接鍵盤、輸入法異常），
+    // 舊實現照樣掛標記，外殼鋪到那 34px 溢出區、輸入欄又收掉讓位間隙，輸入條整條沉出屏幕。
+    it('焦點進來但可視區沒變矮 → 不進鍵盤態，高度不動', async () => {
         await install();
         focusTextarea();
 
@@ -110,7 +110,7 @@ describe('iOS 全屏 PWA 键盘态', () => {
         expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
     });
 
-    it('可视区真的变矮 → 标记和高度一起进键盘态', async () => {
+    it('可視區真的變矮 → 標記和高度一起進鍵盤態', async () => {
         await install();
         focusTextarea();
         emitViewportResize(SCREEN_H - KEYBOARD_H);
@@ -119,9 +119,9 @@ describe('iOS 全屏 PWA 键盘态', () => {
         expect(appHeight()).toBe(`${SCREEN_H - KEYBOARD_H}px`);
     });
 
-    // 回归守卫：聚焦中的输入框被 React 卸载时（退出聊天页），WebKit 不派发 focusout。
-    // 旧实现只有 focusout 能摘标记，于是标记永久卡在 body 上，全局界面底部一直错位。
-    it('输入框被直接移除、没有 focusout → 键盘收起后标记不残留', async () => {
+    // 迴歸守衛：聚焦中的輸入框被 React 卸載時（退出聊天頁），WebKit 不派發 focusout。
+    // 舊實現只有 focusout 能摘標記，於是標記永久卡在 body 上，全局界面底部一直錯位。
+    it('輸入框被直接移除、沒有 focusout → 鍵盤收起後標記不殘留', async () => {
         await install();
         const textarea = focusTextarea();
         emitViewportResize(SCREEN_H - KEYBOARD_H);
@@ -134,7 +134,7 @@ describe('iOS 全屏 PWA 键盘态', () => {
         expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
     });
 
-    it('键盘动画期可视高度报脏值 → 退化成无键盘态，不把布局撑崩', async () => {
+    it('鍵盤動畫期可視高度報髒值 → 退化成無鍵盤態，不把佈局撐崩', async () => {
         await install();
         focusTextarea();
         emitViewportResize(80);

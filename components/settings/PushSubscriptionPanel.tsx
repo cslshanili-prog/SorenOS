@@ -1,13 +1,13 @@
-// 设置页的「推送订阅状态」面板。
+// 設置頁的「推送訂閱狀態」面板。
 //
-// 主动消息 2.0 最难自己发现的故障是「静默失联」：任务建得成、界面全绿、到点一条
-// 消息都不来。原因通常在推送这条链路上——权限没给、订阅被浏览器吊销、或者 worker
-// 上登记的订阅根本不是这台设备。这个面板把这条链路从头到尾摊开，最后一行「云端
-// 登记」正是拆穿静默失联的那一行。
+// 主動消息 2.0 最難自己發現的故障是「靜默失聯」：任務建得成、界面全綠、到點一條
+// 消息都不來。原因通常在推送這條鏈路上——權限沒給、訂閱被瀏覽器吊銷、或者 worker
+// 上登記的訂閱根本不是這台設備。這個面板把這條鏈路從頭到尾攤開，最後一行「雲端
+// 登記」正是拆穿靜默失聯的那一行。
 //
-// 只读诊断走 pushSubscribeShared 的 readBrowserPushState（各推送层共用同一份判定），
-// 重置走 ActiveMsgClient 的 amsg2 路径——退订、按 worker 自己的 VAPID 重订、再覆盖
-// 登记回 worker。三步缺一不可，少了最后一步就是把这个面板要治的病再犯一遍。
+// 只讀診斷走 pushSubscribeShared 的 readBrowserPushState（各推送層共用同一份判定），
+// 重置走 ActiveMsgClient 的 amsg2 路徑——退訂、按 worker 自己的 VAPID 重訂、再覆蓋
+// 登記回 worker。三步缺一不可，少了最後一步就是把這個面板要治的病再犯一遍。
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -40,7 +40,7 @@ interface PushSubscriptionPanelProps {
   addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-/** 连续几次僵尸失败之后，「重置订阅」升级成「深度重置」。 */
+/** 連續幾次殭屍失敗之後，「重置訂閱」升級成「深度重置」。 */
 const DEEP_RESET_THRESHOLD = 3;
 
 const Row: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label, value, bad }) => (
@@ -52,24 +52,24 @@ const Row: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label,
 
 
 const REGISTRATION_TEXT: Record<AmsgPushRegistrationState, { value: string; bad: boolean }> = {
-  'worker-unset': { value: '还没填 Worker 地址', bad: true },
-  unreachable: { value: '问不到（Worker 连不上，或版本太旧没这个接口）', bad: true },
-  missing: { value: '没有登记', bad: true },
-  'other-endpoint': { value: '登记的是别的设备', bad: true },
-  matched: { value: '已登记（就是这台设备）', bad: false },
+  'worker-unset': { value: '還沒填 Worker 地址', bad: true },
+  unreachable: { value: '問不到（Worker 連不上，或版本太舊沒這個接口）', bad: true },
+  missing: { value: '沒有登記', bad: true },
+  'other-endpoint': { value: '登記的是別的設備', bad: true },
+  matched: { value: '已登記（就是這台設備）', bad: false },
 };
 
 const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast }) => {
   const [browser, setBrowser] = useState<BrowserPushState | null>(null);
   const [remote, setRemote] = useState<AmsgRemotePushSubscription | null>(null);
-  // 「登记的确实是这台设备，但推送根本送不到」——只有 Worker 那侧的投递结果知道这件事。
-  // null = 还没问到（没填 Worker / 连不上），那时这一行照实说「没查到」。
+  // 「登記的確實是這台設備，但推送根本送不到」——只有 Worker 那側的投遞結果知道這件事。
+  // null = 還沒問到（沒填 Worker / 連不上），那時這一行照實說「沒查到」。
   const [delivery, setDelivery] = useState<AmsgPushDeliveryProbe | null>(null);
   const [workerConfigured, setWorkerConfigured] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [catchingUp, setCatchingUp] = useState(false);
-  // 连续几次僵尸失败。不落盘：刷新页面就归零，用户不会莫名其妙看到一个红按钮。
+  // 連續幾次殭屍失敗。不落盤：刷新頁面就歸零，用戶不會莫名其妙看到一個紅按鈕。
   const [zombieStreak, setZombieStreak] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -77,13 +77,13 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
     try {
       const browserState = await readBrowserPushState();
       setBrowser(browserState);
-      // 没填 Worker 地址就别去问了——问也是白问，还会在控制台留一串没用的报错。
+      // 沒填 Worker 地址就別去問了——問也是白問，還會在控制台留一串沒用的報錯。
       const config = await ActiveMsgClient.getGlobalConfig().catch(() => null);
       const configured = Boolean(config?.workerUrl?.trim());
       setWorkerConfigured(configured);
       setRemote(configured ? await ActiveMsgClient.getRemotePushSubscription() : null);
-      // 「推送有没有真的送出去」是 Worker 那侧算好的（见 /debug 的 pushDelivery）。
-      // 这一行和体检面板读的是同一份，不会一个说红一个说绿。
+      // 「推送有沒有真的送出去」是 Worker 那側算好的（見 /debug 的 pushDelivery）。
+      // 這一行和體檢面板讀的是同一份，不會一個說紅一個說綠。
       const probe = configured ? await fetchWorkerDiagnostics() : null;
       setDelivery(probe?.reachable ? probe.report.storage.pushDelivery ?? null : null);
     } finally {
@@ -105,19 +105,19 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
         await ActiveMsgClient.resetPushSubscription();
       }
       setZombieStreak(0);
-      addToast('订阅已重建，并登记到了 Worker 上。', 'success');
-      // 只报「成不成 / 是哪一档 / 之前失败了几次」，全是源码里写死的枚举。
+      addToast('訂閱已重建，並登記到了 Worker 上。', 'success');
+      // 只報「成不成 / 是哪一檔 / 之前失敗了幾次」，全是源碼裡寫死的枚舉。
       trackEvent(deepMode ? '深度重置推送订阅' : '重置推送订阅', {
         result: 'success',
         attempt: bucketRetryCount(zombieStreak),
       });
     } catch (error: any) {
       const failKind = readAmsgFailKind(error);
-      // 僵尸端点是「重试也没用」的那一类，攒够次数把按钮升级成深度重置。
-      // 别的失败（没配 VAPID、权限被拒、断网）换深度重置一点用没有，不计数。
-      if (failKind === '端点僵尸') setZombieStreak((count) => count + 1);
-      // 报错原文可能带 push endpoint，只留在 toast 和控制台里，不进上报。
-      addToast(error?.message || '重置订阅失败。', 'error');
+      // 殭屍端點是「重試也沒用」的那一類，攢夠次數把按鈕升級成深度重置。
+      // 別的失敗（沒配 VAPID、權限被拒、斷網）換深度重置一點用沒有，不計數。
+      if (failKind === '端點殭屍') setZombieStreak((count) => count + 1);
+      // 報錯原文可能帶 push endpoint，只留在 toast 和控制台裡，不進上報。
+      addToast(error?.message || '重置訂閱失敗。', 'error');
       trackEvent(deepMode ? '深度重置推送订阅' : '重置推送订阅', {
         result: failKind,
         attempt: bucketRetryCount(zombieStreak),
@@ -129,36 +129,36 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
   };
 
   /**
-   * 手动补收：去云端账本上把没收到的消息捞回来。
+   * 手動補收：去雲端帳本上把沒收到的消息撈回來。
    *
-   * 结果照实说，不含糊：捞回来几条、翻过多少条都报出来。「一条都没补回来」跟「压根没读成」
-   * 是两个结论，用户拿它决定下一步该干嘛（前者说明消息不在账本上、该查别处，后者只是这趟
-   * 没读成、再点一次就行），混在一起说等于什么都没说。
+   * 結果照實說，不含糊：撈回來幾條、翻過多少條都報出來。「一條都沒補回來」跟「壓根沒讀成」
+   * 是兩個結論，用戶拿它決定下一步該幹嘛（前者說明消息不在帳本上、該查別處，後者只是這趟
+   * 沒讀成、再點一次就行），混在一起說等於什麼都沒說。
    */
   const handleCatchUp = async () => {
     setCatchingUp(true);
     try {
       const { written, scanned, stale } = await catchUpMissedPushesManually();
       if (written > 0) {
-        // 补回来了，但同一趟里还有超窗的——两件事都得说，不然用户以为全找回来了。
+        // 補回來了，但同一趟裡還有超窗的——兩件事都得說，不然用戶以為全找回來了。
         addToast(
           stale > 0
-            ? `补回 ${written} 条消息，去聊天里看看。另有 ${stale} 条超过两天，拿不回来了。`
-            : `补回 ${written} 条消息，去聊天里看看。`,
+            ? `補回 ${written} 條消息，去聊天裡看看。另有 ${stale} 條超過兩天，拿不回來了。`
+            : `補回 ${written} 條消息，去聊天裡看看。`,
           'success',
         );
       } else if (stale > 0) {
-        // 有本该收到的消息、但全都过了两天：说清楚是「丢了」不是「没有」——这是用户
-        // 唯一一次知道这件事的机会，含糊过去他会以为链路是好的。
-        addToast(`有 ${stale} 条消息超过两天没能收到，已经拿不回来了。`, 'error');
+        // 有本該收到的消息、但全都過了兩天：說清楚是「丟了」不是「沒有」——這是用戶
+        // 唯一一次知道這件事的機會，含糊過去他會以為鏈路是好的。
+        addToast(`有 ${stale} 條消息超過兩天沒能收到，已經拿不回來了。`, 'error');
       } else if (scanned > 0) {
-        // 账本上有行，但没一条是该上屏的聊天内容（思维链、工具请求这些不进聊天流）。
-        addToast('账本上剩下的都不是聊天内容，没有可补的消息。', 'info');
+        // 帳本上有行，但沒一條是該上屏的聊天內容（思維鏈、工具請求這些不進聊天流）。
+        addToast('帳本上剩下的都不是聊天內容，沒有可補的消息。', 'info');
       } else {
-        addToast('账本上没有漏收的消息——这条链路是通的。', 'info');
+        addToast('帳本上沒有漏收的消息——這條鏈路是通的。', 'info');
       }
     } catch (error: any) {
-      addToast(error?.message || '读云端账本失败，待会儿再试。', 'error');
+      addToast(error?.message || '讀雲端帳本失敗，待會兒再試。', 'error');
     } finally {
       setCatchingUp(false);
     }
@@ -169,35 +169,35 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
     : 'worker-unset';
   const registrationText = REGISTRATION_TEXT[registration];
 
-  // 上一次推送到底送没送到。判定跟体检面板共用 judgePushDeliveryFailure——两处各写一套的话，
-  // 用户会看到一个红一个绿，而这正是他判断该不该重置订阅的唯一依据。
+  // 上一次推送到底送沒送到。判定跟體檢面板共用 judgePushDeliveryFailure——兩處各寫一套的話，
+  // 用戶會看到一個紅一個綠，而這正是他判斷該不該重置訂閱的唯一依據。
   const deliveryVerdict = judgePushDeliveryFailure(delivery);
   const deliveryText: { value: string; bad: boolean } = !workerConfigured || !delivery
-    ? { value: '没查到（要先连上 Worker）', bad: false }
+    ? { value: '沒查到（要先連上 Worker）', bad: false }
     : !delivery.probed
-      ? { value: delivery.reason === 'unsupported' ? '这台 Worker 还不查' : '没查成', bad: false }
+      ? { value: delivery.reason === 'unsupported' ? '這台 Worker 還不查' : '沒查成', bad: false }
       : delivery.gone && deliveryVerdict
-        ? { value: `被推送服务退回（${delivery.gone.status}）`, bad: true }
-        // 有旧账但已经不算数了：说清楚「那是上一条订阅的事」，别让人以为从来没坏过。
-        : { value: delivery.gone ? '这条订阅登记之后没被退回过' : '没有被退回的记录', bad: false };
+        ? { value: `被推送服務退回（${delivery.gone.status}）`, bad: true }
+        // 有舊帳但已經不算數了：說清楚「那是上一條訂閱的事」，別讓人以為從來沒壞過。
+        : { value: delivery.gone ? '這條訂閱登記之後沒被退回過' : '沒有被退回的記錄', bad: false };
 
   const resetLabel = resetting
     ? (deepMode ? '深度重置中…' : '重置中…')
-    : (deepMode ? '深度重置' : '重置订阅');
+    : (deepMode ? '深度重置' : '重置訂閱');
 
   return (
     <div>
       <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-        主动消息到点靠网页推送送到你手上。这条链路上任意一环断了，表现都是「任务建得成、到点没消息」，
-        界面上不会有任何异常。这里把每一环摊开给你看。
+        主動消息到點靠網頁推送送到你手上。這條鏈路上任意一環斷了，表現都是「任務建得成、到點沒消息」，
+        界面上不會有任何異常。這裡把每一環攤開給你看。
       </p>
 
       <div className="bg-slate-50/70 rounded-2xl p-4 border border-slate-100">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-slate-600">链路状态</p>
+          <p className="text-xs font-semibold text-slate-600">鏈路狀態</p>
           <button
             onClick={() => {
-              // 全是浏览器/设备状态的固定枚举，不含端点地址、也不含任何用户配置值
+              // 全是瀏覽器/設備狀態的固定枚舉，不含端點地址、也不含任何用戶配置值
               trackEvent('刷新 Web Push 诊断', browser ? {
                 permission: browser.permission,
                 subscription: !browser.endpoint ? 'none' : browser.endpointDead ? 'dead' : 'active',
@@ -218,29 +218,29 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             disabled={refreshing || resetting}
             className="text-[10px] px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:text-slate-300"
           >
-            {refreshing ? '读取中…' : '刷新'}
+            {refreshing ? '讀取中…' : '刷新'}
           </button>
         </div>
 
         {browser ? (
           <div className="space-y-1.5 text-[11px]">
-            <Row label="浏览器支持" value={describeSupport(browser)} bad={isSupportBad(browser)} />
-            <Row label="通知权限" value={describePermission(browser.permission)} bad={browser.permission !== 'granted'} />
+            <Row label="瀏覽器支持" value={describeSupport(browser)} bad={isSupportBad(browser)} />
+            <Row label="通知權限" value={describePermission(browser.permission)} bad={browser.permission !== 'granted'} />
             <Row label="Service Worker" value={describeServiceWorker(browser)} bad={browser.swState !== 'activated'} />
             <Row
-              label="浏览器订阅"
+              label="瀏覽器訂閱"
               value={describeSubscription(browser)}
               bad={!browser.endpoint || browser.endpointDead}
             />
             <Row label="推送通道" value={browser.channel} />
-            <Row label="云端登记" value={registrationText.value} bad={registrationText.bad} />
-            {/* 上面每一行答的都是「配好了吗」，这一行答的是「实际推出去了吗」。前面全绿
-                后面照样能红——那正是「任务建得成、到点没消息」最难自己发现的一种坏法。 */}
-            <Row label="上次投递" value={deliveryText.value} bad={deliveryText.bad} />
+            <Row label="雲端登記" value={registrationText.value} bad={registrationText.bad} />
+            {/* 上面每一行答的都是「配好了嗎」，這一行答的是「實際推出去了嗎」。前面全綠
+                後面照樣能紅——那正是「任務建得成、到點沒消息」最難自己發現的一種壞法。 */}
+            <Row label="上次投遞" value={deliveryText.value} bad={deliveryText.bad} />
 
             {browser.endpoint && (
               <div className="pt-2 mt-2 border-t border-slate-200">
-                <p className="text-[10px] text-slate-400 mb-1">订阅端点（前 60 字符）</p>
+                <p className="text-[10px] text-slate-400 mb-1">訂閱端點（前 60 字符）</p>
                 <p className={`text-[10px] font-mono break-all leading-relaxed ${browser.endpointDead ? 'text-rose-600' : 'text-slate-500'}`}>
                   {browser.endpoint.slice(0, 60)}…
                 </p>
@@ -252,19 +252,19 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
                 {browser.capabilityGap}。
               </div>
             )}
-            {/* 失败原文以前只走 toast，一闪而过就没了——而这类失败恰恰最需要照着原文
-                排查。这里把它固定显示出来，直到订阅真的建起来为止。 */}
+            {/* 失敗原文以前只走 toast，一閃而過就沒了——而這類失敗恰恰最需要照著原文
+                排查。這裡把它固定顯示出來，直到訂閱真的建起來為止。 */}
             {hasLiveFailure(browser) && browser.lastSubscribeFailure && (() => {
               const failure = browser.lastSubscribeFailure!;
               const elapsed = describeElapsed(failure.at);
               return (
                 <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
-                  <p className="font-semibold mb-1">上次建订阅失败{elapsed && `（${elapsed}）`}</p>
+                  <p className="font-semibold mb-1">上次建訂閱失敗{elapsed && `（${elapsed}）`}</p>
                   <p>{failure.text}。</p>
                   {(failure.kind === 'channel-unreachable' || failure.kind === 'no-subscription') && (
                     <p className="mt-1.5 pt-1.5 border-t border-rose-200">
-                      这一类<b>重试多少次都是一样的结果</b>，问题不在这个站点、也不在权限，
-                      换个浏览器、换个网络或换台设备才有用。
+                      這一類<b>重試多少次都是一樣的結果</b>，問題不在這個站點、也不在權限，
+                      換個瀏覽器、換個網絡或換台設備才有用。
                     </p>
                   )}
                 </div>
@@ -272,9 +272,9 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
             })()}
             {browser.endpointDead && (
               <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
-                订阅地址变成了 <code className="font-mono">permanently-removed.invalid</code>，
-                意思是浏览器把这条订阅吊销了（常见原因：很久没打开、通知权限被改过、站点数据被清过）。
-                这个域名全球都不会解析，推送发过去必然失败。点下面的「重置订阅」重建一条就行。
+                訂閱地址變成了 <code className="font-mono">permanently-removed.invalid</code>，
+                意思是瀏覽器把這條訂閱吊銷了（常見原因：很久沒打開、通知權限被改過、站點數據被清過）。
+                這個域名全球都不會解析，推送發過去必然失敗。點下面的「重置訂閱」重建一條就行。
               </div>
             )}
             {deliveryVerdict?.level === 'bad' && (
@@ -285,46 +285,46 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
               }`}>
                 <p className="font-semibold mb-1">推送被退回了</p>
                 <p>{deliveryVerdict.what}。</p>
-                {/* 这段解释只在坐实了的时候说：warn 那档是 Worker 问不到，上面几行本来
-                    就红着，再说一句「上面都没问题」只会自相矛盾。 */}
+                {/* 這段解釋只在坐實了的時候說：warn 那檔是 Worker 問不到，上面幾行本來
+                    就紅著，再說一句「上面都沒問題」只會自相矛盾。 */}
                 {deliveryVerdict.level === 'bad' && (
                   <p className="mt-1.5 pt-1.5 border-t border-current/20">
-                    上面每一行<b>都没问题</b>，坏的是那条订阅本身——它在推送服务
-                    （Chrome 走 FCM、Firefox 走 Mozilla、iOS 走 Apple）那侧已经作废了，
-                    这件事只有推送服务知道，前面几行谁都查不出来。点下面的「重置订阅」换一条新的。
+                    上面每一行<b>都沒問題</b>，壞的是那條訂閱本身——它在推送服務
+                    （Chrome 走 FCM、Firefox 走 Mozilla、iOS 走 Apple）那側已經作廢了，
+                    這件事只有推送服務知道，前面幾行誰都查不出來。點下面的「重置訂閱」換一條新的。
                   </p>
                 )}
               </div>
             )}
             {registration === 'other-endpoint' && (
               <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
-                Worker 上登记的订阅不是这台设备——主动消息到点会推到<b>别处</b>，这台收不到。
-                换过设备、换过浏览器、或者换过 Worker 之后会这样（一个账号只存一份订阅，后登记的顶掉先前的）。
-                点「重置订阅」把它改成这台。
+                Worker 上登記的訂閱不是這台設備——主動消息到點會推到<b>別處</b>，這台收不到。
+                換過設備、換過瀏覽器、或者換過 Worker 之後會這樣（一個帳號只存一份訂閱，後登記的頂掉先前的）。
+                點「重置訂閱」把它改成這台。
               </div>
             )}
-            {/* 通道不通 / 内核不支持的时候不提「点重置订阅」：那一步必挂在建订阅上，
-                登记根本轮不到，上面那个失败框才是这台设备真正的结论。 */}
+            {/* 通道不通 / 內核不支持的時候不提「點重置訂閱」：那一步必掛在建訂閱上，
+                登記根本輪不到，上面那個失敗框才是這台設備真正的結論。 */}
             {registration === 'missing' && !isSupportBad(browser) && (
               <div className="mt-2 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 leading-relaxed">
-                Worker 上一份订阅都没有，到点没地方推。点「重置订阅」登记一下这台设备。
+                Worker 上一份訂閱都沒有，到點沒地方推。點「重置訂閱」登記一下這台設備。
               </div>
             )}
             {browser.iosNeedsPwa && (
               <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
-                检测到 iOS Safari，但现在不是从主屏图标启动的。
-                iOS 的网页推送必须先「添加到主屏幕」、再从主屏图标打开才能用。
+                檢測到 iOS Safari，但現在不是從主屏圖標啟動的。
+                iOS 的網頁推送必須先「添加到主屏幕」、再從主屏圖標打開才能用。
               </div>
             )}
             {browser.capacitorNative && (
               <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 leading-relaxed">
-                你现在用的是<b>打包好的 App</b>，不是浏览器网页。网页推送这条通道在 App 里不存在，
-                这个面板可以直接忽略——不影响正常使用。
+                你現在用的是<b>打包好的 App</b>，不是瀏覽器網頁。網頁推送這條通道在 App 裡不存在，
+                這個面板可以直接忽略——不影響正常使用。
               </div>
             )}
           </div>
         ) : (
-          <p className="text-[10px] text-slate-400">读取中…</p>
+          <p className="text-[10px] text-slate-400">讀取中…</p>
         )}
 
         <button
@@ -341,15 +341,15 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
           {resetLabel}
         </button>
         <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-          「重置订阅」会清掉现在这条、重建一条，再登记到 Worker 上。换了浏览器、换了 Worker、
-          或者订阅被吊销之后点它。
-          {deepMode && <><br/>连着几次都没成，已经切到「深度重置」——它会把 Service Worker 整个装一遍，更彻底。</>}
+          「重置訂閱」會清掉現在這條、重建一條，再登記到 Worker 上。換了瀏覽器、換了 Worker、
+          或者訂閱被吊銷之後點它。
+          {deepMode && <><br/>連著幾次都沒成，已經切到「深度重置」——它會把 Service Worker 整個裝一遍，更徹底。</>}
         </p>
 
-        {/* 上面那条链路修好了也追不回已经丢掉的消息——那些还在云端账本上躺着，得有人去拿。
-            平时冷启动和回到前台会自动捞一次，这个按钮是给「我确实少收了东西」的时候用的：
-            它连头一趟的账本存量也当补收处理，而自动那条路会把存量整批销掉（分不清哪些是
-            真丢的、哪些是当时收到了只是老版本不会销账，倒出来就是重放）。 */}
+        {/* 上面那條鏈路修好了也追不回已經丟掉的消息——那些還在雲端帳本上躺著，得有人去拿。
+            平時冷啟動和回到前台會自動撈一次，這個按鈕是給「我確實少收了東西」的時候用的：
+            它連頭一趟的帳本存量也當補收處理，而自動那條路會把存量整批銷掉（分不清哪些是
+            真丟的、哪些是當時收到了只是老版本不會銷帳，倒出來就是重放）。 */}
         {workerConfigured && !browser?.capacitorNative && (
           <>
             <button
@@ -361,11 +361,11 @@ const PushSubscriptionPanel: React.FC<PushSubscriptionPanelProps> = ({ addToast 
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {catchingUp ? '正在找…' : '找回没收到的消息'}
+              {catchingUp ? '正在找…' : '找回沒收到的消息'}
             </button>
             <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-              每条消息发出去之前，云端都先记了一行，你这边收到了才销账。所以推送要是在路上丢了
-              （网络不稳、挂着代理、手机压后台），内容还留在云端——点它把最近一天里漏掉的捞回来。
+              每條消息發出去之前，雲端都先記了一行，你這邊收到了才銷帳。所以推送要是在路上丟了
+              （網絡不穩、掛著代理、手機壓後台），內容還留在雲端——點它把最近一天裡漏掉的撈回來。
             </p>
           </>
         )}

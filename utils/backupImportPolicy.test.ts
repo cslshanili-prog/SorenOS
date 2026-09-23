@@ -20,10 +20,10 @@ describe('backup import policy', () => {
             version: 1,
             characters: [],
             ...marker,
-        })).toThrow('不支持导入第三方系统备份');
+        })).toThrow('不支持導入第三方系統備份');
     });
 
     it('rejects non-object payloads', () => {
-        expect(() => assertSupportedSullyBackup([])).toThrow('备份内容无效');
+        expect(() => assertSupportedSullyBackup([])).toThrow('備份內容無效');
     });
 });

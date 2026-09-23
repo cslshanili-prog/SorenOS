@@ -16,21 +16,21 @@ import { ChatParser } from './chatParser';
 
 const noopToast = () => {};
 
-describe('购物中心「外卖代付请求」AI 收发', () => {
+describe('購物中心「外賣代付請求」AI 收發', () => {
     beforeEach(() => {
         getMessagesByCharId.mockReset();
         updateMessageMetadata.mockClear();
         saveMessage.mockClear();
     });
 
-    it('[[ACTION:DAIFU_ACCEPT]]：找到待处理请求，调用 onCharDaifuAccept 并把状态改成 accepted', async () => {
+    it('[[ACTION:DAIFU_ACCEPT]]：找到待處理請求，調用 onCharDaifuAccept 並把狀態改成 accepted', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 5, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 32, status: 'pending' } },
         ]);
         const onCharDaifuAccept = vi.fn().mockResolvedValue(true);
 
         await ChatParser.parseAndExecuteActions(
-            '行，这顿我请了。[[ACTION:DAIFU_ACCEPT]]',
+            '行，這頓我請了。[[ACTION:DAIFU_ACCEPT]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
             onCharDaifuAccept,
@@ -42,14 +42,14 @@ describe('购物中心「外卖代付请求」AI 收发', () => {
         expect(updater({ status: 'pending' })).toMatchObject({ status: 'accepted' });
     });
 
-    it('[[ACTION:DAIFU_DECLINE|reason=...]]：状态改成 declined 并带上原因，不调用 onCharDaifuAccept', async () => {
+    it('[[ACTION:DAIFU_DECLINE|reason=...]]：狀態改成 declined 並帶上原因，不調用 onCharDaifuAccept', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 6, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 23, status: 'pending' } },
         ]);
         const onCharDaifuAccept = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '不行。[[ACTION:DAIFU_DECLINE|reason=说好的减肥呢]]',
+            '不行。[[ACTION:DAIFU_DECLINE|reason=說好的減肥呢]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
             onCharDaifuAccept,
@@ -57,17 +57,17 @@ describe('购物中心「外卖代付请求」AI 收发', () => {
 
         expect(onCharDaifuAccept).not.toHaveBeenCalled();
         const updater = updateMessageMetadata.mock.calls[0][1];
-        expect(updater({ status: 'pending' })).toMatchObject({ status: 'declined', declineReason: '说好的减肥呢' });
+        expect(updater({ status: 'pending' })).toMatchObject({ status: 'declined', declineReason: '說好的減肥呢' });
     });
 
-    it('onCharDaifuAccept 返回 false（角色余额不足）：自动改判 declined 并带系统原因', async () => {
+    it('onCharDaifuAccept 返回 false（角色餘額不足）：自動改判 declined 並帶系統原因', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 7, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 9999, status: 'pending' } },
         ]);
         const onCharDaifuAccept = vi.fn().mockResolvedValue(false);
 
         await ChatParser.parseAndExecuteActions(
-            '这顿我请了！[[ACTION:DAIFU_ACCEPT]]',
+            '這頓我請了！[[ACTION:DAIFU_ACCEPT]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
             onCharDaifuAccept,
@@ -75,10 +75,10 @@ describe('购物中心「外卖代付请求」AI 收发', () => {
 
         expect(onCharDaifuAccept).toHaveBeenCalledWith(9999);
         const updater = updateMessageMetadata.mock.calls[0][1];
-        expect(updater({ status: 'pending' })).toMatchObject({ status: 'declined', declineReason: '余额不够，付不出这笔钱' });
+        expect(updater({ status: 'pending' })).toMatchObject({ status: 'declined', declineReason: '餘額不夠，付不出這筆錢' });
     });
 
-    it('没有待处理的代付请求时静默忽略，不落库不报错', async () => {
+    it('沒有待處理的代付請求時靜默忽略，不落庫不報錯', async () => {
         getMessagesByCharId.mockResolvedValue([]);
         const onCharDaifuAccept = vi.fn();
 
@@ -93,7 +93,7 @@ describe('购物中心「外卖代付请求」AI 收发', () => {
         expect(updateMessageMetadata).not.toHaveBeenCalled();
     });
 
-    it('已经被处理过（非 pending）的请求不会被重复结算', async () => {
+    it('已經被處理過（非 pending）的請求不會被重複結算', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 8, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 20, status: 'accepted' } },
         ]);
@@ -109,7 +109,7 @@ describe('购物中心「外卖代付请求」AI 收发', () => {
         expect(onCharDaifuAccept).not.toHaveBeenCalled();
     });
 
-    it('没传 onCharDaifuAccept 时（旧调用方）不报错，只是不结算余额，但仍标记状态', async () => {
+    it('沒傳 onCharDaifuAccept 時（舊調用方）不報錯，只是不結算餘額，但仍標記狀態', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 9, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 20, status: 'pending' } },
         ]);

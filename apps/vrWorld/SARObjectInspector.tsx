@@ -20,8 +20,8 @@ export function SARObjectInspector({ title, children, onClose }: { title: string
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }}>
-        <div ref={panel} className="sar-object-inspector-panel" role="dialog" aria-modal="true" aria-label={'物品详情：' + title}>
-            <header><span>{title}</span><button ref={close} type="button" aria-label="关闭物品详情" onClick={onClose}><X size={22}/></button></header>
+        <div ref={panel} className="sar-object-inspector-panel" role="dialog" aria-modal="true" aria-label={'物品詳情：' + title}>
+            <header><span>{title}</span><button ref={close} type="button" aria-label="關閉物品詳情" onClick={onClose}><X size={22}/></button></header>
             <div className="sar-object-inspector-content">{children}</div>
         </div>
     </div>, document.body);

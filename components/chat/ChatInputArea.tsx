@@ -20,7 +20,7 @@ interface ChatInputAreaProps {
     showPanel: 'none' | 'actions' | 'emojis' | 'chars';
     setShowPanel: (v: 'none' | 'actions' | 'emojis' | 'chars') => void;
     onSend: () => void;
-    /** 私聊可把底部发送按钮切换为手动生成入口；其他复用方保持原行为。 */
+    /** 私聊可把底部發送按鈕切換為手動生成入口；其他複用方保持原行為。 */
     sendButtonGenerates?: boolean;
     enterToSend?: boolean;
     onGenerate?: () => void;
@@ -35,17 +35,17 @@ interface ChatInputAreaProps {
     emojiSuggestionsEnabled?: boolean;
     /** Visible library across all categories, independent of the open emoji tab. */
     suggestionEmojis?: Emoji[];
-    /** 以下会话切换/主题 props 仅私聊使用；群聊等复用方不传（'chars' 面板不会被打开） */
+    /** 以下會話切換/主題 props 僅私聊使用；群聊等複用方不傳（'chars' 面板不會被打開） */
     characters?: CharacterProfile[];
     activeCharacterId?: string;
     onCharSelect?: (id: string) => void;
-    /** 每个角色的未读消息数，用于在「切换会话」头像上显示红点 */
+    /** 每個角色的未讀消息數，用於在「切換會話」頭像上顯示紅點 */
     unreadMessages?: Record<string, number>;
     customThemes?: ChatTheme[];
     onUpdateTheme?: (id: string) => void;
     onRemoveTheme?: (id: string) => void;
     activeThemeId?: string;
-    /** 提供时整体替换内置 actions 双页网格——群聊传自己的功能格。不传 = 原行为 */
+    /** 提供時整體替換內置 actions 雙頁網格——群聊傳自己的功能格。不傳 = 原行為 */
     actionsContent?: React.ReactNode;
     onPanelAction: (type: string, payload?: any) => void;
     onImageSelect: (file: File) => void;
@@ -58,21 +58,21 @@ interface ChatInputAreaProps {
     canReroll: boolean;
     // Proactive messaging
     isProactiveActive?: boolean;
-    // 麦当劳 MCP
-    mcdConfigured?: boolean;   // 设置里 token 已填且启用
-    mcdActivated?: boolean;    // 当前会话已发"麦请求"
+    // 麥當勞 MCP
+    mcdConfigured?: boolean;   // 設置裡 token 已填且啟用
+    mcdActivated?: boolean;    // 當前會話已發"麥請求"
     // 瑞幸 MCP
     luckinConfigured?: boolean;
     luckinActivated?: boolean;
-    // HTML 模块模式
+    // HTML 模塊模式
     htmlModeEnabled?: boolean;
-    // 思考过程展示（会话级）
+    // 思考過程展示（會話級）
     showThinkingChain?: boolean;
     // Input style
     inputStyle?: 'default' | 'rounded' | 'flat' | 'wechat' | 'ios' | 'telegram' | 'discord' | 'pixel';
     sendButtonStyle?: 'circle' | 'pill' | 'minimal';
     chromeStyle?: 'soft' | 'flat' | 'floating' | 'pixel';
-    /** 动森彩蛋模式：输入栏换成木质草绿圆角。 */
+    /** 動森彩蛋模式：輸入欄換成木質草綠圓角。 */
     acnh?: boolean;
 }
 
@@ -131,7 +131,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
     useEffect(() => {
         if (!canEndEditing || !isInputFocused) return;
-        // 移动浏览器点非可聚焦区域不一定失焦，明确让「点聊天空白处」结束编辑。
+        // 移動瀏覽器點非可聚焦區域不一定失焦，明確讓「點聊天空白處」結束編輯。
         const blurOnOutsidePointer = (event: PointerEvent) => {
             const target = event.target;
             if (!(target instanceof Node)) return;
@@ -142,15 +142,15 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         return () => document.removeEventListener('pointerdown', blurOnOutsidePointer, true);
     }, [canEndEditing, isInputFocused]);
     const [actionsPage, setActionsPage] = useState(0);
-    // 气泡样式面板：搜索 + 两步确认删除（防止 hover 小 × 误删）
+    // 氣泡樣式面板：搜索 + 兩步確認刪除（防止 hover 小 × 誤刪）
     const [bubbleSearch, setBubbleSearch] = useState('');
-    // 会话面板的主要用途仍是切换聊天；气泡选择作为次级工具默认收起。
+    // 會話面板的主要用途仍是切換聊天；氣泡選擇作為次級工具默認收起。
     const [isBubbleSectionOpen, setIsBubbleSectionOpen] = useState(false);
     const [pendingDeleteThemeId, setPendingDeleteThemeId] = useState<string | null>(null);
     const [emojiSelectionMode, setEmojiSelectionMode] = useState(false);
     const [exportEmojis, setExportEmojis] = useState<Emoji[] | null>(null);
     const [selectedEmojis, setSelectedEmojis] = useState<Emoji[]>([]);
-    // 手动分页避免旧版/第三方 WebView 不触发 IntersectionObserver，永远卡在「加载中」。
+    // 手動分頁避免舊版/第三方 WebView 不觸發 IntersectionObserver，永遠卡在「加載中」。
     const [emojiPage, setEmojiPage] = useState(0);
     const emojiPageCount = Math.max(1, Math.ceil(emojis.length / EMOJI_PAGE_SIZE));
     const emojiPageStart = emojiPage * EMOJI_PAGE_SIZE;
@@ -169,7 +169,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const useIOSStandaloneInputFix = isIOSStandaloneWebApp();
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        // 候选词确认不能当发送；229 兼容部分输入法在确认时漏报 isComposing。
+        // 候選詞確認不能當發送；229 兼容部分輸入法在確認時漏報 isComposing。
         if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === 'Escape' && canEndEditing) {
             textareaRef.current?.blur();
@@ -217,8 +217,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             isLongPressTriggered.current = true;
             // Trigger action
             if (type === 'emoji') {
-                // 不在批量选择态时, 长按单个表情弹出操作菜单 (修改名称 / 删除)。
-                // 批量删除仍可通过右上角铅笔按钮进入多选态。
+                // 不在批量選擇態時, 長按單個表情彈出操作菜單 (修改名稱 / 刪除)。
+                // 批量刪除仍可通過右上角鉛筆按鈕進入多選態。
                 if (!emojiSelectionMode) {
                     onPanelAction('emoji-options', item);
                 }
@@ -466,16 +466,16 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const selectedEmojiNames = emojiSelectionMode ? new Set(selectedEmojis.map(se => se.name)) : new Set();
 
     // Keep one ordered list so removed or added entries cannot leave holes between pages.
-    // 顺序固定成三页：第一页 8 个常用操作，第二页 8 个（含主动消息系两个、HTML/思考展示、
-    // 协同/记忆链接/收藏、装扮），其余挤第三页。白框/提示音已并进"装扮"（fine-tune 打开的
-    // 同一个 ChatDecorationPanel，只是预选的 tab 不同），这里不再重复摆一个入口。
+    // 順序固定成三頁：第一頁 8 個常用操作，第二頁 8 個（含主動消息系兩個、HTML/思考展示、
+    // 協同/記憶鏈接/收藏、裝扮），其餘擠第三頁。白框/提示音已並進"裝扮"（fine-tune 打開的
+    // 同一個 ChatDecorationPanel，只是預選的 tab 不同），這裡不再重複擺一個入口。
     const actionTiles = [
         <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-orange-300 border-orange-400/20' : 'bg-orange-50 text-orange-400 border-orange-100'}`}>
                 <Money className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">转账</span>
+            <span className="text-xs font-bold">轉帳</span>
         </button>,
         <button key="poke" onClick={() => onPanelAction('poke')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="poke" /> : (
@@ -487,21 +487,21 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-400 border-pink-100'}`}>
                 <Image className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">相册</span>
+            <span className="text-xs font-bold">相冊</span>
         </button>,
         <button key="mall-open" onClick={() => onPanelAction('mall-open')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-rose-300 border-rose-400/20' : 'bg-rose-50 text-rose-400 border-rose-100'}`}>
                 <ShoppingBag className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">购物中心</span>
+            <span className="text-xs font-bold">購物中心</span>
         </button>,
         <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="archive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-400 border-indigo-100'}`}>
                 <BookOpenText className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">{isSummarizing ? '归档中...' : '记忆归档'}</span>
+            <span className="text-xs font-bold">{isSummarizing ? '歸檔中...' : '記憶歸檔'}</span>
         </button>,
         <button key="reroll" onClick={onReroll} disabled={!canReroll} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? (isDiscordStyle ? 'text-slate-200' : 'text-slate-600') : 'text-slate-300 opacity-50'}`}>
             {acnh ? <AcnhActionTile kind="regenerate" /> : (
@@ -515,20 +515,20 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-cyan-300 border-cyan-400/20' : 'bg-cyan-50 text-cyan-500 border-cyan-100'}`}>
                 <CalendarBlank className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">日程/情绪</span>
+            <span className="text-xs font-bold">日程/情緒</span>
         </button>,
         <button key="settings" onClick={() => onPanelAction('settings')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="settings" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-slate-300 border-white/10' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
                 <GearSix className="w-6 h-6" weight="bold" /></div>)}
-            <span className="text-xs font-bold">设置</span>
+            <span className="text-xs font-bold">設置</span>
         </button>,
         <button key="proactive" onClick={() => onPanelAction('proactive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="proactive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isProactiveActive ? (isDiscordStyle ? 'bg-violet-500/15 text-violet-300 border-violet-400/30' : 'bg-violet-50 text-violet-500 border-violet-200') : (isDiscordStyle ? 'bg-slate-800 text-slate-400 border-white/10' : 'bg-slate-50 text-slate-400 border-slate-100')}`}>
                 <ChatCircleDots className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">主动消息</span>
+            <span className="text-xs font-bold">主動消息</span>
             {isProactiveActive && <span className={`absolute top-0 right-1 w-2.5 h-2.5 rounded-full border-2 ${isDiscordStyle ? 'bg-violet-400 border-slate-900' : 'bg-violet-500 border-white'}`} />}
         </button>,
         <button key="active-msg-2" onClick={() => onPanelAction('active-msg-2')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
@@ -536,7 +536,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
                 <Alarm className="w-6 h-6" weight="bold" />
             </div>)}
-            <span className="text-xs font-bold">主动消息 2.0</span>
+            <span className="text-xs font-bold">主動消息 2.0</span>
         </button>,
         <button key="html-mode-toggle"
           onClick={() => onPanelAction('html-mode-toggle')}
@@ -552,7 +552,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <Code className="w-6 h-6" weight="bold" />
               {htmlModeEnabled && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-fuchsia-400 border-slate-900' : 'bg-fuchsia-500 border-white'}`} />}
           </div>)}
-          <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
+          <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已開' : 'HTML模式'}</span>
         </button>,
         <button key="thinking-settings"
           onClick={() => onPanelAction('thinking-settings')}
@@ -567,13 +567,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <Brain className="w-6 h-6" weight="bold" />
               {showThinkingChain && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-indigo-400 border-slate-900' : 'bg-indigo-500 border-white'}`} />}
           </div>)}
-          <span className="text-xs font-bold">{showThinkingChain ? '思考已开' : '展示思考'}</span>
+          <span className="text-xs font-bold">{showThinkingChain ? '思考已開' : '展示思考'}</span>
         </button>,
         <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
                 <Briefcase className="w-6 h-6" weight="fill" />
             </div>
-            <span className="text-xs font-bold">协同工作</span>
+            <span className="text-xs font-bold">協同工作</span>
         </button>,
         <button key="memory-link"
           onClick={() => onPanelAction('memory-link')}
@@ -582,7 +582,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#8f674a]' : isDiscordStyle ? 'bg-slate-800 text-purple-300 border-purple-400/20' : 'bg-purple-50 text-purple-500 border-purple-100'}`}>
             <LinkSimple className="w-6 h-6" weight="bold" />
           </span>
-          <span className="text-xs font-bold">记忆链接</span>
+          <span className="text-xs font-bold">記憶鏈接</span>
         </button>,
         <button key="favorites"
           onClick={() => onPanelAction('favorites')}
@@ -600,7 +600,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#5fae6e]' : isDiscordStyle ? 'bg-slate-800 text-teal-300 border-teal-400/20' : 'bg-teal-50 text-teal-500 border-teal-100'}`}>
               <FadersHorizontal className="w-6 h-6" weight="bold" />
           </div>
-          <span className="text-xs font-bold">聊天装扮</span>
+          <span className="text-xs font-bold">聊天裝扮</span>
         </button>,
         <button key="mcd-not-configured"
           onClick={() => {
@@ -618,7 +618,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <ForkKnife className="w-6 h-6" weight="bold" />
               {mcdActivated && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-yellow-300 border-slate-900' : 'bg-yellow-500 border-white'}`} />}
           </div>)}
-          <span className="text-xs font-bold">{mcdActivated ? '结束麦请求' : '麦当劳'}</span>
+          <span className="text-xs font-bold">{mcdActivated ? '結束麥請求' : '麥當勞'}</span>
         </button>,
         <button key="luckin-not-configured"
           onClick={() => {
@@ -635,13 +635,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <Coffee className="w-6 h-6" weight="bold" />
               {luckinActivated && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-[#C6A15B] border-slate-900' : 'bg-[#C6A15B] border-white'}`} />}
           </div>
-          <span className="text-xs font-bold">{luckinActivated ? '结束瑞一杯' : '瑞一杯'}</span>
+          <span className="text-xs font-bold">{luckinActivated ? '結束瑞一杯' : '瑞一杯'}</span>
         </button>,
         <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-violet-300 border-violet-400/20' : 'bg-violet-50 text-violet-500 border-violet-100'}`}>
                 <Sparkle className="w-6 h-6" weight="fill" />
             </div>
-            <span className="text-xs font-bold">见面</span>
+            <span className="text-xs font-bold">見面</span>
         </button>
     ];
     const actionPageCount = Math.max(1, Math.ceil(actionTiles.length / ACTION_PAGE_SIZE));
@@ -653,18 +653,18 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <div className={`fixed inset-0 z-[-1] ${isPixelStyle ? 'bg-[#eadfce]/70 backdrop-blur-[2px]' : isDiscordStyle ? 'bg-slate-950/70 backdrop-blur-[2px]' : 'bg-white/60 backdrop-blur-[2px]'}`} />
         )}
         {exportEmojis && <EmojiExportDialog emojis={exportEmojis} onClose={() => setExportEmojis(null)} />}
-        {/* 辅助提示保持在输入栏外，避免改变社区 CSS 的 > div:first-child / nth-child 目标。 */}
+        {/* 輔助提示保持在輸入欄外，避免改變社區 CSS 的 > div:first-child / nth-child 目標。 */}
             {suggestedEmojis.length > 0 && (
-                <div ref={suggestionsRef} role="region" aria-label="表情包联想"
+                <div ref={suggestionsRef} role="region" aria-label="表情包聯想"
                     className={`sully-chat-emoji-suggestions sully-emoji-suggestions shrink-0 relative z-40 border-b px-4 pb-2 pt-2 ${shellClass} ${isDiscordStyle ? 'border-white/10 bg-slate-900 text-slate-300' : isPixelStyle ? 'border-[#8f674a]/20 text-[#8f674a]' : 'border-slate-100 text-slate-500'}`}>
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px]">表情联想 · 点击发送</span>
-                        <button type="button" aria-label="收起表情联想" onClick={() => setDismissedSuggestionInput(input)}
+                        <span className="text-[10px]">表情聯想 · 點擊發送</span>
+                        <button type="button" aria-label="收起表情聯想" onClick={() => setDismissedSuggestionInput(input)}
                             className="-mr-2 flex h-8 w-8 items-center justify-center rounded-full text-base hover:bg-slate-400/10">×</button>
                     </div>
                     <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
                         {suggestedEmojis.map(emoji => (
-                            <button key={emoji.url} type="button" aria-label={`发送表情：${emoji.name}`} title={emoji.name}
+                            <button key={emoji.url} type="button" aria-label={`發送表情：${emoji.name}`} title={emoji.name}
                                 onMouseDown={event => event.preventDefault()}
                                 onClick={() => {
                                     setDismissedSuggestionInput(input);
@@ -681,8 +681,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             )}
             {autoReplySeconds !== null && !selectionMode && (
                 <div className={`sully-chat-auto-reply shrink-0 relative z-40 flex min-h-10 items-center justify-center gap-1 px-4 text-xs text-slate-500 ${shellClass}`}>
-                    <span role="status">即将回复 · {autoReplySeconds} 秒</span>
-                    <button type="button" onClick={onCancelAutoReply} className="min-h-11 px-3 font-bold text-primary" aria-label="取消自动回复">取消</button>
+                    <span role="status">即將回復 · {autoReplySeconds} 秒</span>
+                    <button type="button" onClick={onCancelAutoReply} className="min-h-11 px-3 font-bold text-primary" aria-label="取消自動回覆">取消</button>
                 </div>
             )}
         <div className={`sully-chat-inputbar ${shellClass} pb-safe shrink-0 z-40 relative`}>
@@ -695,7 +695,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             className={`flex-1 py-3 font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${selectedCount === 0 ? 'bg-slate-200 text-slate-400 shadow-none' : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-blue-200'}`}
                         >
                             <ShareNetwork className="w-5 h-5" weight="bold" />
-                            转发 ({selectedCount})
+                            轉發 ({selectedCount})
                         </button>
                     )}
                     <button
@@ -703,7 +703,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         className={`${onForwardSelected ? 'flex-1' : 'w-full'} py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2`}
                     >
                         <Trash className="w-5 h-5" weight="bold" />
-                        删除 ({selectedCount})
+                        刪除 ({selectedCount})
                     </button>
                 </div>
             ) : (
@@ -739,17 +739,17 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         data-guide={isGenerateButton ? 'generate' : undefined}
                         type="button"
                         onPointerDown={e => {
-                            // 保留点下时的发送模式与光标，避免 blur 先于 click 把这一下变成生成。
+                            // 保留點下時的發送模式與光標，避免 blur 先於 click 把這一下變成生成。
                             if (canEndEditing && isInputFocused && e.button === 0) e.preventDefault();
                         }}
                         onClick={isGenerateButton ? onGenerate : onSend}
                         disabled={primaryButtonDisabled}
-                        aria-label={isGenerateButton ? (isTyping ? '正在生成回复' : '生成回复') : '发送文字'}
-                        title={isGenerateButton ? (isTyping ? '正在生成回复' : '让对方回复已发送的消息') : '发送文字'}
+                        aria-label={isGenerateButton ? (isTyping ? '正在生成回覆' : '生成回覆') : '發送文字'}
+                        title={isGenerateButton ? (isTyping ? '正在生成回覆' : '讓對方回覆已發送的消息') : '發送文字'}
                         className={`sully-chat-send-button ${sendButtonClass} ${primaryButtonDisabled ? 'opacity-45 shadow-none' : ''}`}
                     >
                         {sendButtonStyle === 'pill'
-                            ? <span>{isGenerateButton ? (isTyping ? '生成中' : '生成') : '发送'}</span>
+                            ? <span>{isGenerateButton ? (isTyping ? '生成中' : '生成') : '發送'}</span>
                             : isGenerateButton
                                 ? <Lightning className={`w-5 h-5 ${isTyping ? 'animate-pulse' : ''}`} weight="fill" />
                                 : <PaperPlaneTilt className="w-5 h-5" weight="fill" />}
@@ -773,8 +773,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         <>
                             {/* Categories Bar */}
                             <div className={`relative flex shrink-0 ${panelTopBarSurfaceClass}`}>
-                                {/* touch-action: pan-x —— 显式告诉浏览器"从分组 chip 上起手的触摸就是横向滚动"，
-                                    防止 chip 的长按/点击手势让部分浏览器犹豫而吞掉滑动（分组多时滑不到末尾的 +） */}
+                                {/* touch-action: pan-x —— 顯式告訴瀏覽器"從分組 chip 上起手的觸摸就是橫向滾動"，
+                                    防止 chip 的長按/點擊手勢讓部分瀏覽器猶豫而吞掉滑動（分組多時滑不到末尾的 +） */}
                                 <div className={panelTopBarClass} style={{ touchAction: 'pan-x' }}>
                                     {categories.map(cat => (
                                         <button
@@ -821,7 +821,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                         </button>
                                     </div>
                                 ) : (
-                                    /* 编辑按钮占据独立列，滚动区在它左侧结束，末尾的 + 不会再被覆盖。 */
+                                    /* 編輯按鈕佔據獨立列，滾動區在它左側結束，末尾的 + 不會再被覆蓋。 */
                                     <div className="flex h-10 shrink-0 items-center pl-1 pr-3">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setEmojiSelectionMode(true); }}
@@ -839,8 +839,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             </div>
 
                             <div className="flex-1 overflow-y-auto no-scrollbar p-4">
-                                {/* 4 列 → 5 列：面板缩略图整体缩小一档（吸收社区美化的共识密度）。
-                                    已用自定义 CSS（.sully-chat-panel button img 定宽 !important）的用户不受影响。 */}
+                                {/* 4 列 → 5 列：面板縮略圖整體縮小一檔（吸收社區美化的共識密度）。
+                                    已用自定義 CSS（.sully-chat-panel button img 定寬 !important）的用戶不受影響。 */}
                                 <div className="grid grid-cols-5 gap-2">
                                     {emojiSelectionMode ? (
                                         <button
@@ -850,7 +850,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                                 }
                                             }}
                                             disabled={selectedEmojis.length === 0}
-                                            aria-label="删除选中的表情"
+                                            aria-label="刪除選中的表情"
                                             className={`${emojiImportTileClass} !bg-red-50 !border-red-400 !text-red-500 ${selectedEmojis.length === 0 ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}`}
                                         >
                                             <Trash className="w-8 h-8" weight="fill" />
@@ -858,13 +858,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                     ) : (
                                         <button onClick={() => onPanelAction('emoji-import')} className={emojiImportTileClass}>+</button>
                                     )}
-                                    {emojiSelectionMode && <button onClick={() => setExportEmojis([...selectedEmojis])} disabled={!selectedEmojis.length} aria-label="下载选中的表情" className={`${emojiImportTileClass} text-xs disabled:opacity-40`}>下载原图</button>}
+                                    {emojiSelectionMode && <button onClick={() => setExportEmojis([...selectedEmojis])} disabled={!selectedEmojis.length} aria-label="下載選中的表情" className={`${emojiImportTileClass} text-xs disabled:opacity-40`}>下載原圖</button>}
                                     {visibleEmojis.map((e) => {
                                         const isSelected = selectedEmojiNames.has(e.name);
                                         return (
                                         <button
-                                            // name 是表情库主键；不同表情可共用 URL / 去重后的 Blob 令牌。
-                                            // 用图片地址当记录 key 会冲突，切分组/翻页时残留、复制旧格子。
+                                            // name 是表情庫主鍵；不同表情可共用 URL / 去重後的 Blob 令牌。
+                                            // 用圖片地址當記錄 key 會衝突，切分組/翻頁時殘留、複製舊格子。
                                             key={e.name}
                                             onClick={(ev) => handleItemClick(ev, e, 'emoji')}
                                             aria-pressed={emojiSelectionMode ? isSelected : undefined}
@@ -880,7 +880,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                             className={`${emojiTileClass} ${isSelected ? '!border-blue-500' : ''}`}
                                         >
                                             <div className="aspect-square w-full">
-                                                {/* 换图仍重建 img，避免新图解码前残留旧位图；分页和懒加载照旧。 */}
+                                                {/* 換圖仍重建 img，避免新圖解碼前殘留舊位圖；分頁和懶加載照舊。 */}
                                                 <TokenImg key={e.url} value={e.url} loading="lazy" decoding="async" className="sully-emoji-thumb w-full h-full object-contain pointer-events-none" />
                                             </div>
                                             <span className={`text-[9px] truncate w-full text-center mt-0.5 leading-tight pointer-events-none ${emojiLabelClass}`}>{e.name}</span>
@@ -893,7 +893,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                     <div className={`py-3 flex items-center justify-center gap-3 text-[10px] ${emojiLabelClass}`}>
                                         <button
                                             type="button"
-                                            aria-label="上一页表情"
+                                            aria-label="上一頁表情"
                                             disabled={emojiPage === 0}
                                             onClick={() => setEmojiPage(page => Math.max(0, page - 1))}
                                             className="w-8 h-7 rounded-full border border-current/20 disabled:opacity-30 active:scale-95"
@@ -901,11 +901,11 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                             ‹
                                         </button>
                                         <span>
-                                            {emojiPage + 1}/{emojiPageCount} 页 · {emojiPageStart + 1}-{Math.min(emojiPageStart + EMOJI_PAGE_SIZE, emojis.length)}/{emojis.length}
+                                            {emojiPage + 1}/{emojiPageCount} 頁 · {emojiPageStart + 1}-{Math.min(emojiPageStart + EMOJI_PAGE_SIZE, emojis.length)}/{emojis.length}
                                         </span>
                                         <button
                                             type="button"
-                                            aria-label="下一页表情"
+                                            aria-label="下一頁表情"
                                             disabled={emojiPage >= emojiPageCount - 1}
                                             onClick={() => setEmojiPage(page => Math.min(emojiPageCount - 1, page + 1))}
                                             className="w-8 h-7 rounded-full border border-current/20 disabled:opacity-30 active:scale-95"
@@ -918,7 +918,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         </>
                     )}
 
-                    {/* Actions Panel：外部提供 actionsContent 时整体替换内置双页网格 */}
+                    {/* Actions Panel：外部提供 actionsContent 時整體替換內置雙頁網格 */}
                     {showPanel === 'actions' && actionsContent && (
                         <div className="overflow-y-auto no-scrollbar">
                             {actionsContent}
@@ -935,13 +935,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         >
                           <input type="file" ref={chatImageInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageChange(e, 'chat')} />
                           {Array.from({length: actionPageCount}, (_, page) => (
-                            <div key={page} role="group" aria-label={`聊天功能第 ${page + 1} 页`} className={`p-6 grid grid-cols-4 grid-rows-[repeat(2,96px)] gap-x-4 gap-y-8 ${actionsPage === page ? '' : 'hidden'}`}>
+                            <div key={page} role="group" aria-label={`聊天功能第 ${page + 1} 頁`} className={`p-6 grid grid-cols-4 grid-rows-[repeat(2,96px)] gap-x-4 gap-y-8 ${actionsPage === page ? '' : 'hidden'}`}>
                               {actionTiles.slice(page * ACTION_PAGE_SIZE, (page + 1) * ACTION_PAGE_SIZE)}
                             </div>
                           ))}
                           <div className="flex items-center justify-center gap-3 pb-3 -mt-2">
                             {Array.from({length: actionPageCount}, (_, page) => (
-                              <button key={page} type="button" aria-label={`第 ${page + 1} 页`} aria-current={actionsPage === page ? 'page' : undefined} onClick={() => setActionsPage(page)}
+                              <button key={page} type="button" aria-label={`第 ${page + 1} 頁`} aria-current={actionsPage === page ? 'page' : undefined} onClick={() => setActionsPage(page)}
                                 className={`w-2 h-2 rounded-full transition-all ${actionsPage === page ? (isDiscordStyle ? 'bg-slate-200 w-5' : 'bg-slate-500 w-5') : (isDiscordStyle ? 'bg-slate-600' : 'bg-slate-300')}`} />
                             ))}
                           </div>
@@ -957,20 +957,20 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                     className="w-full flex items-center justify-between gap-3 px-1 py-1 text-left"
                                 >
                                     <span>
-                                        <span className="block text-xs font-bold text-slate-400 tracking-wider uppercase">气泡样式 · 当前角色</span>
-                                        <span className="block mt-1 text-[10px] text-slate-400">{isBubbleSectionOpen ? '选择或管理当前角色的气泡' : '已折叠 · 点此展开'}</span>
+                                        <span className="block text-xs font-bold text-slate-400 tracking-wider uppercase">氣泡樣式 · 當前角色</span>
+                                        <span className="block mt-1 text-[10px] text-slate-400">{isBubbleSectionOpen ? '選擇或管理當前角色的氣泡' : '已摺疊 · 點此展開'}</span>
                                     </span>
                                     <span className={`text-slate-400 transition-transform ${isBubbleSectionOpen ? 'rotate-180' : ''}`} aria-hidden>⌄</span>
                                 </button>
                                 {isBubbleSectionOpen && <div className="mt-3">
                                 <div className="flex justify-end px-1 mb-2">
-                                    <span className="text-[10px] text-slate-400">新气泡去「气泡工坊」App 制作</span>
+                                    <span className="text-[10px] text-slate-400">新氣泡去「氣泡工坊」App 製作</span>
                                 </div>
                                 {customThemes.length > 6 && (
                                     <input
                                         value={bubbleSearch}
                                         onChange={e => setBubbleSearch(e.target.value)}
-                                        placeholder="搜索我的气泡…"
+                                        placeholder="搜索我的氣泡…"
                                         className="w-full mb-2.5 px-3 py-2 rounded-xl bg-white/70 border border-slate-200 text-xs focus:outline-none focus:border-indigo-300"
                                     />
                                 )}
@@ -1003,13 +1003,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                                             <span className="text-[9px] font-normal opacity-70">{inUseCount}人在用</span>
                                                         )}
                                                     </button>
-                                                    {/* 删除两步确认：第一下变红色「确删」，3 秒不点自动还原 */}
+                                                    {/* 刪除兩步確認：第一下變紅色「確刪」，3 秒不點自動還原 */}
                                                     {pendingDelete ? (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setPendingDeleteThemeId(null); onRemoveTheme(t.id); }}
                                                             className="px-2 py-2 text-[10px] font-bold bg-red-500 text-white self-stretch"
                                                         >
-                                                            确删
+                                                            確刪
                                                         </button>
                                                     ) : (
                                                         <button
@@ -1018,7 +1018,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                                                 setPendingDeleteThemeId(t.id);
                                                                 setTimeout(() => setPendingDeleteThemeId(cur => (cur === t.id ? null : cur)), 3000);
                                                             }}
-                                                            aria-label={`删除气泡 ${t.name}`}
+                                                            aria-label={`刪除氣泡 ${t.name}`}
                                                             className={`pr-2.5 pl-1 py-2 text-sm leading-none opacity-45 hover:opacity-100 transition-opacity ${activeThemeId === t.id ? 'text-white' : 'text-indigo-400'}`}
                                                         >
                                                             ×
@@ -1028,13 +1028,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                             );
                                         })}
                                     {bubbleSearch.trim() && customThemes.every(t => !(t.name || '').toLowerCase().includes(bubbleSearch.trim().toLowerCase())) && (
-                                        <div className="text-[11px] text-slate-400 px-1 py-2">没有叫「{bubbleSearch.trim()}」的气泡～</div>
+                                        <div className="text-[11px] text-slate-400 px-1 py-2">沒有叫「{bubbleSearch.trim()}」的氣泡～</div>
                                     )}
                                 </div>
                                 </div>}
                             </div>
                             <div>
-                                <h3 className="text-xs font-bold text-slate-400 px-1 tracking-wider uppercase mb-3">切换会话</h3>
+                                <h3 className="text-xs font-bold text-slate-400 px-1 tracking-wider uppercase mb-3">切換會話</h3>
                                 <div className="space-y-3">
                                     {characters.map(c => {
                                         const unread = c.id !== activeCharacterId ? (unreadMessages[c.id] || 0) : 0;
@@ -1043,7 +1043,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                             <div className="relative shrink-0">
                                                 <TokenImg value={c.avatar} className="w-12 h-12 rounded-2xl object-cover" />
                                                 {unread > 0 && (
-                                                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.6)] ring-2 ring-white" aria-label={`${unread} 条未读消息`}>{unread > 99 ? '99+' : unread}</span>
+                                                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.6)] ring-2 ring-white" aria-label={`${unread} 條未讀消息`}>{unread > 99 ? '99+' : unread}</span>
                                                 )}
                                             </div>
                                             <div className="flex-1"><div className="font-bold text-sm text-slate-700">{c.name}</div><div className="text-xs text-slate-400 truncate">{c.description}</div></div>

@@ -2,13 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CaretDown, Check, CopySimple } from '@phosphor-icons/react';
 
 /**
- * HTML 卡片渲染（私聊 MessageItem 与群聊 GroupMessageItem 共用）。
- * 沙盒 iframe：禁用脚本 / 表单提交 / 弹窗，避免任意 HTML 越权访问父页面。
- * srcDoc 用一个全宽中心化的 wrapper, 让 270px 的卡片在 iframe 里居中、背景透明。
- * body>* 强制清掉最外层元素的 box-shadow/filter: 模型经常给卡片外层加柔和阴影,
- * 但 iframe 只比卡片宽一点 + 外层 overflow-hidden, 阴影会被裁成一圈"若隐若现的
- * 假边框"贴在卡片周围 —— 聊天里卡片约定是直接贴在聊天背景上、无背景无边框,
- * 这里在渲染端兜底 (对已落库的旧卡片同样生效), 提示词端同步不再教模型加外层阴影。
+ * HTML 卡片渲染（私聊 MessageItem 與群聊 GroupMessageItem 共用）。
+ * 沙盒 iframe：禁用腳本 / 表單提交 / 彈窗，避免任意 HTML 越權訪問父頁面。
+ * srcDoc 用一個全寬中心化的 wrapper, 讓 270px 的卡片在 iframe 里居中、背景透明。
+ * body>* 強制清掉最外層元素的 box-shadow/filter: 模型經常給卡片外層加柔和陰影,
+ * 但 iframe 只比卡片寬一點 + 外層 overflow-hidden, 陰影會被裁成一圈"若隱若現的
+ * 假邊框"貼在卡片周圍 —— 聊天裡卡片約定是直接貼在聊天背景上、無背景無邊框,
+ * 這裡在渲染端兜底 (對已落庫的舊卡片同樣生效), 提示詞端同步不再教模型加外層陰影。
  */
 const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
     const [sourceExpanded, setSourceExpanded] = useState(false);
@@ -63,9 +63,9 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
             <iframe
                 title="html-card"
                 srcDoc={srcDoc}
-                // allow-same-origin: 让父页面能读 contentDocument 自动调高度
-                // 故意不给 allow-scripts / allow-forms / allow-popups —
-                // AI 输出里的 <script> 不会执行, 表单 / 弹窗 / 顶层跳转 也都被拦。
+                // allow-same-origin: 讓父頁面能讀 contentDocument 自動調高度
+                // 故意不給 allow-scripts / allow-forms / allow-popups —
+                // AI 輸出裡的 <script> 不會執行, 表單 / 彈窗 / 頂層跳轉 也都被攔。
                 sandbox="allow-same-origin"
                 referrerPolicy="no-referrer"
                 className="block w-full min-h-[120px] border-0 bg-transparent"
@@ -75,8 +75,8 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                         const f = e.currentTarget as HTMLIFrameElement & { __htmlCardRO?: ResizeObserver };
                         const doc = f.contentDocument;
                         if (!doc || !doc.body) return;
-                        // 量内容真实高度并把 iframe 调成等高，避免内部滚动。
-                        // 上限放宽到 2400，足够长卡片完整展开；真正超长的才会兜底滚动。
+                        // 量內容真實高度並把 iframe 調成等高，避免內部滾動。
+                        // 上限放寬到 2400，足夠長卡片完整展開；真正超長的才會兜底滾動。
                         const fit = () => {
                             try {
                                 const root = doc.documentElement;
@@ -87,11 +87,11 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                                 );
                                 const h = Math.min(2400, Math.max(60, natural + 4));
                                 f.style.height = h + 'px';
-                            } catch { /* 同源读不到时静默 */ }
+                            } catch { /* 同源讀不到時靜默 */ }
                         };
                         fit();
-                        // 交互卡片（:checked 展开 / 折叠）、动画、字体晚到都会改变高度，
-                        // 用 ResizeObserver 持续跟随，让高度始终自适应而不是只量一次。
+                        // 交互卡片（:checked 展開 / 摺疊）、動畫、字體晚到都會改變高度，
+                        // 用 ResizeObserver 持續跟隨，讓高度始終自適應而不是只量一次。
                         f.__htmlCardRO?.disconnect();
                         if (typeof ResizeObserver !== 'undefined') {
                             const ro = new ResizeObserver(() => fit());
@@ -99,7 +99,7 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                             if (doc.documentElement) ro.observe(doc.documentElement);
                             f.__htmlCardRO = ro;
                         }
-                    } catch { /* 同源也读不到时静默 */ }
+                    } catch { /* 同源也讀不到時靜默 */ }
                 }}
             />
             {/* The source action deliberately lives outside the iframe. Card
@@ -127,8 +127,8 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                         setSourceExpanded(expanded => !expanded);
                     }}
                     aria-expanded={sourceExpanded}
-                    aria-label={sourceExpanded ? '收起 HTML 源码操作' : '展开 HTML 源码操作'}
-                    title={sourceExpanded ? '收起源码操作' : '展开源码操作'}
+                    aria-label={sourceExpanded ? '收起 HTML 源碼操作' : '展開 HTML 源碼操作'}
+                    title={sourceExpanded ? '收起源碼操作' : '展開源碼操作'}
                     className="sully-html-source-toggle inline-flex h-5 items-center gap-1 rounded-full font-medium text-slate-400/80 transition-all duration-200 hover:bg-slate-500/[0.04] hover:text-slate-400 focus:outline-none focus-visible:bg-slate-500/10 focus-visible:text-slate-500"
                     style={sourceExpanded ? undefined : {
                         gap: 2,
@@ -144,7 +144,7 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                     <span
                         className="ml-0.5 max-w-16 overflow-hidden whitespace-nowrap tracking-[0.08em] opacity-100 transition-all duration-200"
                         style={sourceExpanded ? undefined : { marginLeft: 0, maxWidth: 0, opacity: 0 }}
-                    >完整源码</span>
+                    >完整源碼</span>
                     <CaretDown
                         size={8}
                         weight="bold"
@@ -155,8 +155,8 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                 <button
                     type="button"
                     onClick={copyHtmlSource}
-                    aria-label="复制完整 HTML 源码"
-                    title="复制完整 HTML 源码"
+                    aria-label="複製完整 HTML 源碼"
+                    title="複製完整 HTML 源碼"
                     aria-hidden={!sourceExpanded}
                     tabIndex={sourceExpanded ? 0 : -1}
                     className={`sully-html-copy-button inline-flex h-6 max-w-24 items-center gap-1 overflow-hidden whitespace-nowrap rounded-full px-2 font-medium opacity-100 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/70 focus-visible:ring-offset-1 active:scale-95 ${
@@ -175,7 +175,7 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
                     }}
                 >
                     {copyState === 'ok' ? <Check size={11} weight="bold" /> : <CopySimple size={11} />}
-                    {copyState === 'ok' ? '已复制' : copyState === 'error' ? '复制失败' : '复制源码'}
+                    {copyState === 'ok' ? '已複製' : copyState === 'error' ? '複製失敗' : '複製源碼'}
                 </button>
             </div>
         </div>

@@ -69,8 +69,8 @@ const packageEntries = [
   { path: 'Skylar/expressions/angry.exp3.json', blob: blob('{}') },
 ];
 
-describe('Live2D 模型导入解析', () => {
-  it('把运行包写成 STORE 存档并保持路径与内容可读取', async () => {
+describe('Live2D 模型導入解析', () => {
+  it('把運行包寫成 STORE 存檔並保持路徑與內容可讀取', async () => {
     const repeated = 'x'.repeat(64 * 1024);
     const stored = await buildStoredLive2DPackage([
       { path: 'Model/model3.json', blob: new Blob([repeated]) },
@@ -80,7 +80,7 @@ describe('Live2D 模型导入解析', () => {
     expect(stored.size).toBeGreaterThan(64 * 1024);
   });
 
-  it('从压缩 ZIP 逐项读取，并把 8K 纹理直接生成 2K 运行图', async () => {
+  it('從壓縮 ZIP 逐項讀取，並把 8K 紋理直接生成 2K 運行圖', async () => {
     const close = vi.fn();
     const createBitmap = vi.fn(async () => ({ width: 2048, height: 1024, close }));
     class MockOffscreenCanvas {
@@ -127,10 +127,10 @@ describe('Live2D 模型导入解析', () => {
       resizeHeight: 1024,
     }));
     expect(close).toHaveBeenCalledOnce();
-    expect(progress).toHaveBeenCalledWith(expect.stringContaining('低内存解包'));
+    expect(progress).toHaveBeenCalledWith(expect.stringContaining('低內存解包'));
   });
 
-  it('运行纹理使用原始 Blob URL，不再复制为 Base64 或伪造扩展名', async () => {
+  it('運行紋理使用原始 Blob URL，不再複製為 Base64 或偽造擴展名', async () => {
     const createObjectURL = vi.fn(() => 'blob:live2d-texture');
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
 
@@ -142,7 +142,7 @@ describe('Live2D 模型导入解析', () => {
     expect(url).not.toContain('#');
   });
 
-  it('从 model3.json 解析动作、表情、标签与口型参数，自动开放安全动作', async () => {
+  it('從 model3.json 解析動作、表情、標籤與口型參數，自動開放安全動作', async () => {
     const result = await inspectLive2DPackage(packageEntries);
     expect(result.modelPath).toBe('Skylar/Skylar.model3.json');
     expect(result.texturePaths).toEqual(['Skylar/textures/texture_00.png']);
@@ -160,7 +160,7 @@ describe('Live2D 模型导入解析', () => {
     });
   });
 
-  it('模型引用缺文件时保留短提示，并向控制台返回完整路径诊断', async () => {
+  it('模型引用缺文件時保留短提示，並向控制台返回完整路徑診斷', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const entries = packageEntries.filter(entry => !entry.path.endsWith('texture_00.png'));
     try {
@@ -176,18 +176,18 @@ describe('Live2D 模型导入解析', () => {
           referencedBy: 'Skylar/Skylar.model3.json',
         }),
       ]);
-      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('完整缺失引用诊断'));
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('完整缺失引用診斷'));
       expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('Skylar/textures/texture_00.png'));
     } finally {
       consoleError.mockRestore();
     }
   });
 
-  it('缺失 exp3 等可选引用时像 VTube Studio 一样跳过，核心模型仍可导入', async () => {
+  it('缺失 exp3 等可選引用時像 VTube Studio 一樣跳過，核心模型仍可導入', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const staleModel = JSON.parse(modelJson);
     staleModel.FileReferences.Physics = 'missing.physics3.json';
-    staleModel.FileReferences.Expressions.push({ Name: '旧表情', File: '2旧表情.exp3.json' });
+    staleModel.FileReferences.Expressions.push({ Name: '舊表情', File: '2舊表情.exp3.json' });
     staleModel.FileReferences.Motions.TapBody.push({ File: 'missing.motion3.json' });
     const entries = packageEntries.map(entry => entry.path.endsWith('.model3.json')
       ? { ...entry, blob: blob(JSON.stringify(staleModel)) }
@@ -196,15 +196,15 @@ describe('Live2D 模型导入解析', () => {
     try {
       const result = await inspectLive2DPackage(entries);
       expect(result.modelPath).toBe('Skylar/Skylar.model3.json');
-      expect(result.actions.some(action => action.file === '2旧表情.exp3.json')).toBe(false);
+      expect(result.actions.some(action => action.file === '2舊表情.exp3.json')).toBe(false);
       expect(result.actions.some(action => action.file === 'missing.motion3.json')).toBe(false);
-      expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('已忽略 3 个缺失的可选'));
+      expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('已忽略 3 個缺失的可選'));
     } finally {
       consoleWarn.mockRestore();
     }
   });
 
-  it('运行前清理失效的可选引用，不让 Blob URL 转换阶段再次报错', () => {
+  it('運行前清理失效的可選引用，不讓 Blob URL 轉換階段再次報錯', () => {
     const settings: any = {
       FileReferences: {
         Moc: 'model.moc3',
@@ -232,12 +232,12 @@ describe('Live2D 模型导入解析', () => {
     expect(settings.FileReferences.Physics).toBeUndefined();
     expect(settings.FileReferences.Motions.Tap).toEqual([{ File: 'ok.motion3.json' }]);
     expect(settings.FileReferences.Expressions).toEqual([{ Name: 'ok', File: 'ok.exp3.json' }]);
-    // 核心引用绝不由这个兼容清理器删除，缺失时应交给导入校验明确报错。
+    // 核心引用絕不由這個兼容清理器刪除，缺失時應交給導入校驗明確報錯。
     expect(settings.FileReferences.Moc).toBe('model.moc3');
     expect(settings.FileReferences.Textures).toEqual(['texture.png']);
   });
 
-  it('iOS/macOS ZIP 的 Unicode 分解文件名能与 model3 引用对应', async () => {
+  it('iOS/macOS ZIP 的 Unicode 分解文件名能與 model3 引用對應', async () => {
     const composed = 'café.exp3.json';
     const decomposed = composed.normalize('NFD');
     const unicodeModel = JSON.stringify({
@@ -258,7 +258,7 @@ describe('Live2D 模型导入解析', () => {
     expect(result.actions.find(action => action.name === 'accent')?.file).toBe(composed);
   });
 
-  it('缺失诊断指出大小写错误和同名文件所在位置', async () => {
+  it('缺失診斷指出大小寫錯誤和同名文件所在位置', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const entries = packageEntries
       .filter(entry => !entry.path.endsWith('texture_00.png'))
@@ -274,16 +274,16 @@ describe('Live2D 模型导入解析', () => {
     }
   });
 
-  it('解析 VTube Studio 热键、未登记表情、待机动画和保存的构图', async () => {
+  it('解析 VTube Studio 熱鍵、未登記表情、待機動畫和保存的構圖', async () => {
     const bareModel = JSON.stringify({
       Version: 3,
       FileReferences: { Moc: 'model.moc3', Textures: ['texture.png'] },
     });
     const vtube = JSON.stringify({
-      FileReferences: { Model: 'Skylar.model3.json', IdleAnimation: '循环动画.motion3.json' },
+      FileReferences: { Model: 'Skylar.model3.json', IdleAnimation: '循環動畫.motion3.json' },
       SavedModelPosition: { Position: { x: 40, y: -30 }, Scale: { x: 1.25, y: 1.25 } },
       Hotkeys: [
-        { Name: 'A爱心眼', Action: 'ToggleExpression', File: 'A爱心眼.exp3.json', IsActive: true, Triggers: { Trigger1: 'F3' } },
+        { Name: 'A愛心眼', Action: 'ToggleExpression', File: 'A愛心眼.exp3.json', IsActive: true, Triggers: { Trigger1: 'F3' } },
         { Name: '', Action: 'RemoveAllExpressions', File: '', IsActive: true, Triggers: { Trigger1: 'Alt', Trigger2: 'Q' } },
       ],
     });
@@ -292,24 +292,24 @@ describe('Live2D 模型导入解析', () => {
       { path: 'Skylar/Skylar.vtube.json', blob: blob(vtube) },
       { path: 'Skylar/model.moc3', blob: blob('moc') },
       { path: 'Skylar/texture.png', blob: blob('png') },
-      { path: 'Skylar/A爱心眼.exp3.json', blob: blob('{}') },
-      { path: 'Skylar/B猫耳.exp3.json', blob: blob('{}') },
+      { path: 'Skylar/A愛心眼.exp3.json', blob: blob('{}') },
+      { path: 'Skylar/B貓耳.exp3.json', blob: blob('{}') },
       { path: 'Skylar/Mystery.exp3.json', blob: blob('{}') },
-      { path: 'Skylar/循环动画.motion3.json', blob: blob('{}') },
+      { path: 'Skylar/循環動畫.motion3.json', blob: blob('{}') },
     ]);
 
     expect(result.actions).toHaveLength(5);
-    expect(result.actions.find(action => action.name === 'A爱心眼')).toMatchObject({
+    expect(result.actions.find(action => action.name === 'A愛心眼')).toMatchObject({
       kind: 'expression', hotkey: 'F3', source: 'vtube', tags: ['shy'], permission: 'ai',
     });
     expect(result.actions.find(action => action.resetExpression)).toMatchObject({ hotkey: 'Alt+Q', permission: 'manual' });
-    expect(result.actions.find(action => action.name === 'B猫耳')?.source).toBe('discovered');
+    expect(result.actions.find(action => action.name === 'B貓耳')?.source).toBe('discovered');
     expect(result.actions.find(action => action.name === 'Mystery')?.permission).toBe('ai');
     expect(result.actions.find(action => action.kind === 'motion')).toMatchObject({ group: 'Idle', source: 'vtube', permission: 'manual' });
     expect(result.framing).toEqual({ scale: 1.25, offsetX: 0.2, offsetY: 0.15 });
   });
 
-  it('AI 调度只能命中白名单，显式请求被禁动作也会被忽略', () => {
+  it('AI 調度只能命中白名單，顯式請求被禁動作也會被忽略', () => {
     const config = {
       format: 'live2d',
       actions: [
@@ -358,13 +358,13 @@ describe('Live2D 模型导入解析', () => {
     expect(getLive2DAIActions(next)).toEqual([]);
   });
 
-  it('旧模型一次性自动开放未分类原生动作，同时保留用户覆盖和待机动作', () => {
+  it('舊模型一次性自動開放未分類原生動作，同時保留用戶覆蓋和待機動作', () => {
     const legacy = {
       format: 'live2d',
       actions: [
         { id: 'unknown-expression', kind: 'expression', name: 'Mystery', file: 'Mystery.exp3.json', source: 'discovered', tags: [], permission: 'manual' },
-        { id: 'user-manual', kind: 'motion', name: '挥手', file: 'wave.motion3.json', group: 'Tap', index: 0, source: 'model3', tags: ['wave'], permission: 'manual' },
-        { id: 'idle', kind: 'motion', name: '待机', file: 'idle.motion3.json', group: 'Idle', index: 0, source: 'model3', tags: ['idle'], permission: 'manual' },
+        { id: 'user-manual', kind: 'motion', name: '揮手', file: 'wave.motion3.json', group: 'Tap', index: 0, source: 'model3', tags: ['wave'], permission: 'manual' },
+        { id: 'idle', kind: 'motion', name: '待機', file: 'idle.motion3.json', group: 'Idle', index: 0, source: 'model3', tags: ['idle'], permission: 'manual' },
         { id: 'custom', kind: 'params', name: '自建', file: '', source: 'custom', params: [{ id: 'ParamCheek', value: 1 }], tags: [], permission: 'manual' },
         { id: 'blocked', kind: 'expression', name: '禁用', file: 'blocked.exp3.json', source: 'discovered', tags: [], permission: 'blocked' },
       ],
@@ -382,16 +382,16 @@ describe('Live2D 模型导入解析', () => {
     expect(upgradeLive2DAutoPermissions(upgraded)).toBe(upgraded);
   });
 
-  it('高质量混合保留专属表情、身体手势和参数层，只有参数不冲突的动作才并行', () => {
+  it('高質量混合保留專屬表情、身體手勢和參數層，只有參數不衝突的動作才並行', () => {
     const config = {
       format: 'live2d',
       lipSyncParameterIds: ['ParamMouthOpenY'],
       actions: [
         { id: 'expression-star', kind: 'expression', name: '星星眼', file: 'star.exp3.json', tags: ['happy'], permission: 'ai' },
-        { id: 'motion-wave', kind: 'motion', name: '挥手', file: 'wave.motion3.json', group: 'Arm', index: 0, tags: ['wave'], permission: 'ai' },
-        { id: 'motion-lean', kind: 'motion', name: '前倾', file: 'lean.motion3.json', group: 'Body', index: 0, tags: ['happy'], permission: 'ai' },
-        { id: 'motion-clash', kind: 'motion', name: '另一种挥手', file: 'clash.motion3.json', group: 'Other', index: 0, tags: ['wave'], permission: 'ai' },
-        { id: 'params-blush', kind: 'params', name: '脸红', file: '', params: [{ id: 'ParamCheek', value: 1 }], tags: ['shy'], permission: 'ai' },
+        { id: 'motion-wave', kind: 'motion', name: '揮手', file: 'wave.motion3.json', group: 'Arm', index: 0, tags: ['wave'], permission: 'ai' },
+        { id: 'motion-lean', kind: 'motion', name: '前傾', file: 'lean.motion3.json', group: 'Body', index: 0, tags: ['happy'], permission: 'ai' },
+        { id: 'motion-clash', kind: 'motion', name: '另一種揮手', file: 'clash.motion3.json', group: 'Other', index: 0, tags: ['wave'], permission: 'ai' },
+        { id: 'params-blush', kind: 'params', name: '臉紅', file: '', params: [{ id: 'ParamCheek', value: 1 }], tags: ['shy'], permission: 'ai' },
       ],
     } as Live2DAvatarConfig;
 
@@ -415,14 +415,14 @@ describe('Live2D 模型导入解析', () => {
     expect(mix.params.map(action => action.id)).toEqual(['params-blush']);
   });
 
-  it('动作名称支持中英文标签推断', () => {
-    expect(inferLive2DActionTags('你好挥手', 'hello.motion3.json')).toContain('wave');
-    expect(inferLive2DActionTags('脸红 love')).toContain('shy');
+  it('動作名稱支持中英文標籤推斷', () => {
+    expect(inferLive2DActionTags('你好揮手', 'hello.motion3.json')).toContain('wave');
+    expect(inferLive2DActionTags('臉紅 love')).toContain('shy');
     expect(inferLive2DActionTags('A星星眼')).toContain('happy');
-    expect(inferLive2DActionTags('B麦克风')).toContain('explain');
+    expect(inferLive2DActionTags('B麥克風')).toContain('explain');
   });
 
-  it('贴图魔数嗅探：扩展名不可靠时按文件头识别 PNG/JPEG/WebP', async () => {
+  it('貼圖魔數嗅探：擴展名不可靠時按文件頭識別 PNG/JPEG/WebP', async () => {
     const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0, 0, 0, 0])]);
     const jpeg = new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])]);
     const webp = new Blob([new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0, 0, 0, 0])]);
@@ -452,7 +452,7 @@ describe('Live2D 模型导入解析', () => {
     expect(getActiveLive2DWardrobeParameters({ ...config, activeWardrobeActionId: undefined })).toEqual([]);
   });
 
-  it('只读文件头即可识别超大贴图，并按最长边 4096 等比计算降档尺寸', async () => {
+  it('只讀文件頭即可識別超大貼圖，並按最長邊 4096 等比計算降檔尺寸', async () => {
     expect(await readLive2DTextureDimensions(pngHeader(8192, 4096))).toEqual({
       width: 8192,
       height: 4096,
@@ -462,7 +462,7 @@ describe('Live2D 模型导入解析', () => {
     expect(getLive2DTextureResizeTarget(2048, 4096)).toBeNull();
   });
 
-  it('导入模型默认使用 2K 运行纹理，并允许显式切到 4K', () => {
+  it('導入模型默認使用 2K 運行紋理，並允許顯式切到 4K', () => {
     const base = { format: 'live2d', textureQuality: undefined } as Live2DAvatarConfig;
     expect(getLive2DTextureQuality(base)).toBe('balanced');
     expect(getLive2DTextureMaxDimension(base)).toBe(2048);
@@ -470,7 +470,7 @@ describe('Live2D 模型导入解析', () => {
     expect(getLive2DTextureMaxDimension({ ...base, textureQuality: 'hd' })).toBe(4096);
   });
 
-  it('导入时自动降档模型引用的超大贴图，并关闭临时位图释放解码内存', async () => {
+  it('導入時自動降檔模型引用的超大貼圖，並關閉臨時位圖釋放解碼內存', async () => {
     const close = vi.fn();
     const createBitmap = vi.fn(async () => ({ width: 4096, height: 2048, close }));
     const drawImage = vi.fn();
@@ -510,7 +510,7 @@ describe('Live2D 模型导入解析', () => {
     expect(progress).toHaveBeenCalledWith(expect.stringContaining('8192×4096'));
   });
 
-  it('手机支持 WebCodecs 时按 2K 目标流式解码，不先展开 8K 位图', async () => {
+  it('手機支持 WebCodecs 時按 2K 目標流式解碼，不先展開 8K 位圖', async () => {
     const frameClose = vi.fn();
     const decoderClose = vi.fn();
     const decoderInit = vi.fn();

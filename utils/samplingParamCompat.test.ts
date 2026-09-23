@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams, isSamplingParamError } from './samplingParamCompat';
 
 describe('clampClaudeTemperature', () => {
-    it('只把 Claude 超过 1 的 temperature 压到合法上限', () => {
+    it('只把 Claude 超過 1 的 temperature 壓到合法上限', () => {
         const claude: any = { model: 'anthropic/claude-sonnet-4.6', temperature: 1.1, top_p: 0.88 };
         expect(clampClaudeTemperature(claude)).toBe(true);
         expect(claude).toEqual({ model: 'anthropic/claude-sonnet-4.6', temperature: 1, top_p: 0.88 });
@@ -12,7 +12,7 @@ describe('clampClaudeTemperature', () => {
         expect(openAi.temperature).toBe(1.1);
     });
 
-    it('Claude 已在合法范围时保持不动', () => {
+    it('Claude 已在合法範圍時保持不動', () => {
         const body: any = { model: 'claude-opus-4-5', temperature: 0.9 };
         expect(clampClaudeTemperature(body)).toBe(false);
         expect(body.temperature).toBe(0.9);
@@ -20,7 +20,7 @@ describe('clampClaudeTemperature', () => {
 });
 
 describe('modelRejectsSamplingParams', () => {
-    it('识别会废弃采样参数的模型（带上 temperature 会 400）', () => {
+    it('識別會廢棄採樣參數的模型（帶上 temperature 會 400）', () => {
         const reject = [
             'anthropic/claude-opus-4.8',
             'claude-opus-4-8',
@@ -39,7 +39,7 @@ describe('modelRejectsSamplingParams', () => {
         }
     });
 
-    it('对仍接受 temperature 的模型返回 false（不误伤）', () => {
+    it('對仍接受 temperature 的模型返回 false（不誤傷）', () => {
         const keep = [
             'claude-opus-4-6',
             'anthropic/claude-opus-4.6',
@@ -62,7 +62,7 @@ describe('modelRejectsSamplingParams', () => {
 });
 
 describe('stripSamplingParams', () => {
-    it('摘掉 temperature/top_p/top_k 并报告有改动', () => {
+    it('摘掉 temperature/top_p/top_k 並報告有改動', () => {
         const body: any = { model: 'x', messages: [], temperature: 0.85, top_p: 0.9, top_k: 40, max_tokens: 100 };
         expect(stripSamplingParams(body)).toBe(true);
         expect('temperature' in body).toBe(false);
@@ -71,19 +71,19 @@ describe('stripSamplingParams', () => {
         expect(body.max_tokens).toBe(100); // 其它字段保留
     });
 
-    it('没有采样参数时返回 false', () => {
+    it('沒有采樣參數時返回 false', () => {
         expect(stripSamplingParams({ model: 'x', messages: [] })).toBe(false);
     });
 });
 
 describe('isSamplingParamError', () => {
-    it('命中 provider 的 temperature 废弃报文', () => {
+    it('命中 provider 的 temperature 廢棄報文', () => {
         expect(isSamplingParamError('temperature is deprecated for this model.')).toBe(true);
         expect(isSamplingParamError('{"error":{"message":"temperature is not supported"}}')).toBe(true);
         expect(isSamplingParamError('top_p is no longer supported on this model')).toBe(true);
     });
 
-    it('对无关 400 报文不误判', () => {
+    it('對無關 400 報文不誤判', () => {
         expect(isSamplingParamError('prompt is too long: 10494')).toBe(false);
         expect(isSamplingParamError('invalid api key')).toBe(false);
         expect(isSamplingParamError('')).toBe(false);

@@ -14,7 +14,7 @@ import { installDevDebugLifecycleCapture } from './utils/devDebug';
 
 const App: React.FC = () => {
   React.useEffect(() => {
-    // 常驻监听前后台 / 焦点 / 网络事件；抓不抓由 devDebug 的 lifecycle 类勾选决定
+    // 常駐監聽前後台 / 焦點 / 網絡事件；抓不抓由 devDebug 的 lifecycle 類勾選決定
     installDevDebugLifecycleCapture();
   }, []);
 
@@ -40,8 +40,8 @@ const App: React.FC = () => {
             <MusicProvider>
               <PhoneShell />
             </MusicProvider>
-            {/* 挂在 Provider 里面才能直接读 characters（省掉轮询 IndexedDB），
-                面板自身用 portal 渲染到 body，绕开上面那层 transform 对 fixed 定位的影响。 */}
+            {/* 掛在 Provider 裡面才能直接讀 characters（省掉輪詢 IndexedDB），
+                面板自身用 portal 渲染到 body，繞開上面那層 transform 對 fixed 定位的影響。 */}
             <Amsg2DebugPanel />
           </OSProvider>
         </div>

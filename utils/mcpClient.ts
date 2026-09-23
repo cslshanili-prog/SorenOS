@@ -1,19 +1,19 @@
 /**
- * 通用 MCP 客户端 (Model Context Protocol, Streamable HTTP)
+ * 通用 MCP 客戶端 (Model Context Protocol, Streamable HTTP)
  *
- * 与 mcdMcpClient / luckinMcpClient 的「一家一个客户端」不同，这里是用户
- * 自配的任意远程 MCP 服务器：设置里填 URL（+ 可选 Bearer Token / 自定义头），发现工具后
- * 以 OpenAI function-calling 格式注入聊天请求，工具循环见 useChatAI。
+ * 與 mcdMcpClient / luckinMcpClient 的「一家一個客戶端」不同，這裡是用戶
+ * 自配的任意遠程 MCP 服務器：設置裡填 URL（+ 可選 Bearer Token / 自定義頭），發現工具後
+ * 以 OpenAI function-calling 格式注入聊天請求，工具循環見 useChatAI。
  *
- * 网络路径（用户三选一，见 docs/mcp-client.md）：
- * 1. 直连 —— MCP 服务器 CORS 配置正确时（能读到 Mcp-Session-Id 响应头）
+ * 網絡路徑（用戶三選一，見 docs/mcp-client.md）：
+ * 1. 直連 —— MCP 服務器 CORS 配置正確時（能讀到 Mcp-Session-Id 響應頭）
  * 2. 本地代理 —— node scripts/mcp-proxy.mjs，代理 URL 填 http://localhost:18061
- * 3. 用户自己的 Cloudflare Worker —— worker/mcp-proxy/，部署到用户自己的账号
- * 代理约定统一为 <代理URL>?target=<url-encoded 服务器URL>，可选 X-Proxy-Key 头。
- * 刻意不走中心 sfworker：MCP 流量（含用户的 Bearer Token）不该过项目方的服务器。
+ * 3. 用戶自己的 Cloudflare Worker —— worker/mcp-proxy/，部署到用戶自己的帳號
+ * 代理約定統一為 <代理URL>?target=<url-encoded 服務器URL>，可選 X-Proxy-Key 頭。
+ * 刻意不走中心 sfworker：MCP 流量（含用戶的 Bearer Token）不該過項目方的服務器。
  *
- * JSON-RPC 收发本体（握手、SSE、tools/call、参数还原）住在环境无关叶子
- * mcpFireCore，浏览器和 amsg worker 共用；这里只补浏览器侧的配置、代理包装和会话表。
+ * JSON-RPC 收發本體（握手、SSE、tools/call、參數還原）住在環境無關葉子
+ * mcpFireCore，瀏覽器和 amsg worker 共用；這裡只補瀏覽器側的配置、代理包裝和會話表。
  */
 
 import {
@@ -56,18 +56,18 @@ export interface McpServerConfig {
     id: string;
     name: string;
     url: string;
-    /** Bearer Token，可选（Authorization: Bearer <token>） */
+    /** Bearer Token，可選（Authorization: Bearer <token>） */
     token?: string;
-    /** 额外请求头，可选（例如 X-API-Key / XBY-APIKEY） */
+    /** 額外請求頭，可選（例如 X-API-Key / XBY-APIKEY） */
     customHeaders?: McpCustomHeader[];
-    /** 代理 URL，可选。空 = 浏览器直连 */
+    /** 代理 URL，可選。空 = 瀏覽器直連 */
     proxyUrl?: string;
-    /** 自部署 Worker 的防白嫖密钥，可选（X-Proxy-Key 头） */
+    /** 自部署 Worker 的防白嫖密鑰，可選（X-Proxy-Key 頭） */
     proxyKey?: string;
     enabled: boolean;
-    /** 「发现工具」后持久化的工具清单（聊天注入直接读这里，不用每次握手） */
+    /** 「發現工具」後持久化的工具清單（聊天注入直接讀這裡，不用每次握手） */
     tools?: McpToolDef[];
-    /** 最近一次真实握手的诊断快照；连接字段变化时会清掉，避免展示假绿灯。 */
+    /** 最近一次真實握手的診斷快照；連接字段變化時會清掉，避免展示假綠燈。 */
     lastConnection?: {
         testedAt: number;
         protocolVersion: string;
@@ -75,9 +75,9 @@ export interface McpServerConfig {
         serverVersion?: string;
     };
     /**
-     * 绑定聊天：空/缺省 = 通用（所有私聊和群聊可用）；非空 = 只有这些角色/群聊能用。
-     * 为兼容已有本地配置沿用 charIds 字段名，数组项也可以是 GroupProfile.id。
-     * 老配置没有该字段，天然落在通用语义上。
+     * 綁定聊天：空/缺省 = 通用（所有私聊和群聊可用）；非空 = 只有這些角色/群聊能用。
+     * 為兼容已有本地配置沿用 charIds 字段名，數組項也可以是 GroupProfile.id。
+     * 老配置沒有該字段，天然落在通用語義上。
      */
     charIds?: string[];
     updatedAt: number;
@@ -86,7 +86,7 @@ export interface McpServerConfig {
 const MCP_SERVERS_KEY = 'aetheros.mcp.servers';
 const MCP_USE_NATIVE_TOOLS_KEY = 'aetheros.mcp.useNativeTools';
 
-// ========== 服务器配置 (持久化在 localStorage) ==========
+// ========== 服務器配置 (持久化在 localStorage) ==========
 
 export const loadMcpServers = (): McpServerConfig[] => {
     try {
@@ -100,7 +100,7 @@ export const saveMcpServers = (servers: McpServerConfig[]): void => {
     try { localStorage.setItem(MCP_SERVERS_KEY, JSON.stringify(servers)); } catch { /* ignore */ }
 };
 
-/** 当前聊天模型/中转是否支持 OpenAI function calling；默认支持。 */
+/** 當前聊天模型/中轉是否支持 OpenAI function calling；默認支持。 */
 export const getMcpUseNativeTools = (): boolean => {
     try { return localStorage.getItem(MCP_USE_NATIVE_TOOLS_KEY) !== '0'; }
     catch { return true; }
@@ -119,9 +119,9 @@ export const createMcpServer = (name: string, url: string): McpServerConfig => (
 });
 
 /**
- * 启用且已发现工具、且对当前聊天可见的服务器。
- * charId 可传角色 ID 或群聊 ID；缺省时只返回通用服务器，保证没有聊天上下文
- * 的调用点不会泄漏绑定服务器的工具。
+ * 啟用且已發現工具、且對當前聊天可見的服務器。
+ * charId 可傳角色 ID 或群聊 ID；缺省時只返回通用服務器，保證沒有聊天上下文
+ * 的調用點不會洩漏綁定服務器的工具。
  */
 export const getEnabledMcpServers = (charId?: string): McpServerConfig[] =>
     loadMcpServers().filter(s =>
@@ -129,42 +129,42 @@ export const getEnabledMcpServers = (charId?: string): McpServerConfig[] =>
         (!s.charIds?.length || (charId != null && s.charIds.includes(charId))),
     );
 
-/** 有任何一个启用且已发现工具、对该角色可见的服务器 → 聊天进入 MCP 工具模式 */
+/** 有任何一個啟用且已發現工具、對該角色可見的服務器 → 聊天進入 MCP 工具模式 */
 export const isMcpChatAvailable = (charId?: string): boolean => getEnabledMcpServers(charId).length > 0;
 
-// CF worker 够不够得着的判断搬去了 utils/amsgToolPack.ts —— 小红书配置那边要用同一份。
+// CF worker 夠不夠得著的判斷搬去了 utils/amsgToolPack.ts —— 小紅書配置那邊要用同一份。
 
 /**
- * 这个聊天里有没有「本地用得上、但 worker 够不着」的服务器（localhost / 私网 / *.local
- * 这类，判据见 amsgToolPack.isWorkerReachableUrl）。
+ * 這個聊天裡有沒有「本地用得上、但 worker 夠不著」的服務器（localhost / 私網 / *.local
+ * 這類，判據見 amsgToolPack.isWorkerReachableUrl）。
  *
- * 谁在乎：即时对话那一轮的 prompt 是交给 worker 补 MCP 说明的，前端这份整段不注入
- * （chatRequestPayload 的 timelyByWorker 分支）；而上云的清单 collectMcpFireServers
- * 恰好把这类地址过滤掉了。两边都不说 = 角色这一轮彻底不知道自己有工具，设置页却还
- * 显示「已连接」。所以有这种服务器时那一轮别上云，留在本地跑（本地连得上 localhost，
- * 工具照常用），见 useChatAI 的 instantChatVeto。
+ * 誰在乎：即時對話那一輪的 prompt 是交給 worker 補 MCP 說明的，前端這份整段不注入
+ * （chatRequestPayload 的 timelyByWorker 分支）；而上雲的清單 collectMcpFireServers
+ * 恰好把這類地址過濾掉了。兩邊都不說 = 角色這一輪徹底不知道自己有工具，設置頁卻還
+ * 顯示「已連接」。所以有這種服務器時那一輪別上雲，留在本地跑（本地連得上 localhost，
+ * 工具照常用），見 useChatAI 的 instantChatVeto。
  *
- * 口径跟 isMcpChatAvailable 同源（都走 getEnabledMcpServers）：本地这一轮真会写进
- * prompt 的是哪几台，就拿哪几台来判，别把别的角色绑定的服务器算进来。
+ * 口徑跟 isMcpChatAvailable 同源（都走 getEnabledMcpServers）：本地這一輪真會寫進
+ * prompt 的是哪幾台，就拿哪幾台來判，別把別的角色綁定的服務器算進來。
  */
 export const hasWorkerUnreachableMcpServer = (charId?: string): boolean =>
     getEnabledMcpServers(charId).some((s) => !isWorkerReachableUrl(s.url));
 
 /**
- * 上云给 amsg worker 用的服务器子集。注意不走 getEnabledMcpServers：
- * 那个函数缺 charId 时只回通用服务器，而这里要的是全部 enabled（含绑定角色的），
- * charIds 原样带上、由 worker 在 fire 时按角色过滤。
+ * 上雲給 amsg worker 用的服務器子集。注意不走 getEnabledMcpServers：
+ * 那個函數缺 charId 時只回通用服務器，而這裡要的是全部 enabled（含綁定角色的），
+ * charIds 原樣帶上、由 worker 在 fire 時按角色過濾。
  *
- * 带上 token/customHeaders：走的是 client_state 端到端加密通道、落在用户自己的
- * amsg worker（不是项目方服务器，与文件头「不走中心 sfworker」的原则不冲突），
- * 与 notion/飞书凭据同一信任模型。
+ * 帶上 token/customHeaders：走的是 client_state 端到端加密通道、落在用戶自己的
+ * amsg worker（不是項目方服務器，與文件頭「不走中心 sfworker」的原則不衝突），
+ * 與 notion/飛書憑據同一信任模型。
  */
 export const collectMcpFireServers = (): McpFireServer[] =>
     loadMcpServers()
         .filter((s) => s.enabled && s.url && (s.tools?.length || 0) > 0 && isWorkerReachableUrl(s.url))
         .map((s) => {
-            // 无人值守的后台没有确认弹窗：服务端明确标成 destructive 的工具只留在
-            // 前台并自动询问，不把提示词当权限系统，也不额外暴露用户配置项。
+            // 無人值守的後台沒有確認彈窗：服務端明確標成 destructive 的工具只留在
+            // 前台並自動詢問，不把提示詞當權限系統，也不額外暴露用戶配置項。
             const backgroundTools = (s.tools || []).filter((t) => t.annotations?.destructiveHint !== true);
             return {
                 id: s.id, name: s.name, url: s.url,
@@ -183,7 +183,7 @@ export const collectMcpFireServers = (): McpFireServer[] =>
         })
         .filter((s) => s.tools.length > 0);
 
-// ── 备份用：随「设置 → 导出/导入备份」一起带走（存 localStorage） ──
+// ── 備份用：隨「設置 → 導出/導入備份」一起帶走（存 localStorage） ──
 export function exportMcpLocal(): Record<string, string> | undefined {
     try {
         const out: Record<string, string> = {};
@@ -202,7 +202,7 @@ export function importMcpLocal(data: Record<string, string> | null | undefined):
     } catch { /* ignore */ }
 }
 
-// ========== JSON-RPC 会话状态 (内存, 每服务器一份) ==========
+// ========== JSON-RPC 會話狀態 (內存, 每服務器一份) ==========
 
 const sessions = new Map<string, McpSessionState>();
 
@@ -219,7 +219,7 @@ export const resetMcpSession = (serverId: string): void => {
     sessions.delete(serverId);
 };
 
-/** 实际请求地址：配了代理就包成 <proxy>?target=<url>，没配就直连 */
+/** 實際請求地址：配了代理就包成 <proxy>?target=<url>，沒配就直連 */
 export const buildMcpFetchUrl = (server: Pick<McpServerConfig, 'url' | 'proxyUrl'>): string => {
     const proxy = (server.proxyUrl || '').trim().replace(/\/+$/, '');
     if (!proxy) return server.url;
@@ -228,9 +228,9 @@ export const buildMcpFetchUrl = (server: Pick<McpServerConfig, 'url' | 'proxyUrl
 };
 
 /**
- * 组装 MCP 请求头。自定义头在 Bearer / session 等托管字段之前写入，因此用户
- * 可以在不填 Bearer Token 时自定义 Authorization，但不会意外覆盖当前 session。
- * 走代理时额外带一份“需要透传的头名”清单，代理据此只放行用户明确配置的头。
+ * 組裝 MCP 請求頭。自定義頭在 Bearer / session 等託管字段之前寫入，因此用戶
+ * 可以在不填 Bearer Token 時自定義 Authorization，但不會意外覆蓋當前 session。
+ * 走代理時額外帶一份“需要透傳的頭名”清單，代理據此只放行用戶明確配置的頭。
  */
 export const buildMcpRequestHeaders = (
     server: Pick<McpServerConfig, 'token' | 'customHeaders' | 'proxyUrl' | 'proxyKey'>,
@@ -250,7 +250,7 @@ export const buildMcpRequestHeaders = (
             headers.set(name, value);
             customNames.push(name);
         } catch {
-            // 非法 HTTP 头名/值留给设置页继续编辑，不让整条 MCP 请求在 fetch 前崩掉。
+            // 非法 HTTP 頭名/值留給設置頁繼續編輯，不讓整條 MCP 請求在 fetch 前崩掉。
         }
     }
     if (server.token) headers.set('Authorization', `Bearer ${server.token}`);
@@ -261,19 +261,19 @@ export const buildMcpRequestHeaders = (
     return headers;
 };
 
-/** 一次请求的目标：代理包装和请求头都是浏览器侧独有的，在这里落地后交给 core。 */
+/** 一次請求的目標：代理包裝和請求頭都是瀏覽器側獨有的，在這裡落地後交給 core。 */
 const targetFor = (server: McpServerConfig): McpTransportTarget => ({
     url: buildMcpFetchUrl(server),
     headers: (sessionId, protocolVersion) => buildMcpRequestHeaders(server, sessionId, protocolVersion),
-    // 直连时 fetch 抛 TypeError 十有八九是 CORS，把排查方向直接告诉用户
+    // 直連時 fetch 拋 TypeError 十有八九是 CORS，把排查方向直接告訴用戶
     fetchErrorHint: server.proxyUrl
-        ? '请检查代理 URL 是否可访问、代理密钥是否正确。'
-        : '很可能是浏览器 CORS 限制。请在这个服务器的「代理 URL」里配置代理（本地 node scripts/mcp-proxy.mjs 或自部署 worker/mcp-proxy）。',
+        ? '請檢查代理 URL 是否可訪問、代理密鑰是否正確。'
+        : '很可能是瀏覽器 CORS 限制。請在這個服務器的「代理 URL」裡配置代理（本地 node scripts/mcp-proxy.mjs 或自部署 worker/mcp-proxy）。',
 });
 
-// ========== 公开 API ==========
+// ========== 公開 API ==========
 
-/** 握手 + tools/list。调用方负责把返回的工具清单存回 McpServerConfig.tools */
+/** 握手 + tools/list。調用方負責把返回的工具清單存回 McpServerConfig.tools */
 export type McpConnectionStage = 'initialize' | 'tools';
 
 export const discoverMcpTools = async (
@@ -285,8 +285,8 @@ export const discoverMcpTools = async (
 };
 
 /**
- * 调用一个工具（会自动补握手；session 失效自动重试一次）。
- * 重试前的会话重置是 core 就地做的，改的就是这张表里的那个对象，两边不会走岔。
+ * 調用一個工具（會自動補握手；session 失效自動重試一次）。
+ * 重試前的會話重置是 core 就地做的，改的就是這張表裡的那個對象，兩邊不會走岔。
  */
 export const callMcpTool = async (
     server: McpServerConfig,
@@ -300,10 +300,10 @@ export const callMcpTool = async (
         try { argsPreview = JSON.stringify(args, null, 2).slice(0, 600); }
         catch { argsPreview = String(args).slice(0, 600); }
         const approved = window.confirm(
-            `Sully 想通过「${server.name || '未命名服务器'}」调用 ${tool?.title || toolName}。\n\n` +
-            `${argsPreview || '这次调用没有参数。'}\n\n允许这一次吗？`,
+            `Sully 想通過「${server.name || '未命名服務器'}」調用 ${tool?.title || toolName}。\n\n` +
+            `${argsPreview || '這次調用沒有參數。'}\n\n允許這一次嗎？`,
         );
-        if (!approved) return { success: false, error: '用户拒绝了这次 MCP 调用。' };
+        if (!approved) return { success: false, error: '用戶拒絕了這次 MCP 調用。' };
     }
     return callMcpToolCore(targetFor(server), getSession(server.id), toolName, args, {
         inputSchema: (server.tools || []).find(tool => tool.name === toolName)?.inputSchema,
@@ -311,7 +311,7 @@ export const callMcpTool = async (
     });
 };
 
-/** 测试连接: 验证握手 + tools/list 能通，返回工具清单供持久化 */
+/** 測試連接: 驗證握手 + tools/list 能通，返回工具清單供持久化 */
 export const testMcpConnection = async (
     server: McpServerConfig,
     onStage?: (stage: McpConnectionStage) => void,
@@ -333,16 +333,16 @@ export const testMcpConnection = async (
         };
         const serverLabel = connection.serverName
             ? `${connection.serverName}${connection.serverVersion ? ` ${connection.serverVersion}` : ''}`
-            : '服务器';
+            : '服務器';
         if (!tools.length) return {
             ok: true,
-            message: `${serverLabel}已响应 · 协议 ${connection.protocolVersion} · 工具清单为空`,
+            message: `${serverLabel}已響應 · 協議 ${connection.protocolVersion} · 工具清單為空`,
             tools,
             connection,
         };
         return {
             ok: true,
-            message: `${serverLabel}已响应 · 协议 ${connection.protocolVersion} · 发现 ${tools.length} 个工具`,
+            message: `${serverLabel}已響應 · 協議 ${connection.protocolVersion} · 發現 ${tools.length} 個工具`,
             tools,
             connection,
         };

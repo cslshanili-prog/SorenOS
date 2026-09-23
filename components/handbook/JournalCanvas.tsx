@@ -1,11 +1,11 @@
 /**
- * 一张"纸"的画布
+ * 一張"紙"的畫布
  *
- * - 容器自适应父宽 + 父高,默认填满,但用 maxWidth 限制宽屏不要无限拉
- * - 内部坐标系: 整张纸 = 100% x 100%, 每个 placement 用 % 落位
- * - 装饰: 左侧装订环 + 顶部 lace + 散落贴纸(由父级传入)
+ * - 容器自適應父寬 + 父高,默認填滿,但用 maxWidth 限制寬屏不要無限拉
+ * - 內部座標系: 整張紙 = 100% x 100%, 每個 placement 用 % 落位
+ * - 裝飾: 左側裝訂環 + 頂部 lace + 散落貼紙(由父級傳入)
  *
- * 不负责日期头/翻页/编辑 — 只画一张纸的内容。
+ * 不負責日期頭/翻頁/編輯 — 只畫一張紙的內容。
  */
 
 import React from 'react';
@@ -25,11 +25,11 @@ interface Props {
     pages: HandbookPage[];
     characters: CharacterProfile[];
     userName: string;
-    /** 点击某个 placement → 父级决定怎么处理(打开编辑/操作菜单) */
+    /** 點擊某個 placement → 父級決定怎麼處理(打開編輯/操作菜單) */
     onPickPlacement?: (pageId: string, fragmentId?: string) => void;
-    /** 是否显示日期页眉(只有第一张纸显示) */
+    /** 是否顯示日期頁眉(只有第一張紙顯示) */
     showHeader?: boolean;
-    pageNumberLabel?: string;     // "1 / 3" 之类,显示在右下角
+    pageNumberLabel?: string;     // "1 / 3" 之類,顯示在右下角
 }
 
 const JournalCanvas: React.FC<Props> = ({
@@ -41,12 +41,12 @@ const JournalCanvas: React.FC<Props> = ({
     const fragMap = new Map<string, HandbookFragment>();
     pages.forEach(p => p.fragments?.forEach(f => fragMap.set(f.id, f)));
 
-    // v2: 强调预算 lint 退役 — slot charBudget 已经卡住字数, prompt 也限制 emphasis 上限
-    // 老数据 (无 slotRole) 渲染时 SlotRenderer 自动 fallback 到 JournalFragmentCard,
-    // 那一路也不再依赖外部 lint (老 entry 重新打开就是了)
+    // v2: 強調預算 lint 退役 — slot charBudget 已經卡住字數, prompt 也限制 emphasis 上限
+    // 老數據 (無 slotRole) 渲染時 SlotRenderer 自動 fallback 到 JournalFragmentCard,
+    // 那一路也不再依賴外部 lint (老 entry 重新打開就是了)
 
-    // 用 date 当种子, 决定纸张底纹: 网格 / 横线 / 净色
-    // 像真实日记本 — 纸先于贴纸存在
+    // 用 date 當種子, 決定紙張底紋: 網格 / 橫線 / 淨色
+    // 像真實日記本 — 紙先於貼紙存在
     const paperKind = (() => {
         const r = seedFloat(date, 4242);
         if (r < 0.45) return 'grid';
@@ -59,9 +59,9 @@ const JournalCanvas: React.FC<Props> = ({
         ? { backgroundImage: 'repeating-linear-gradient(transparent, transparent 25px, rgba(242,157,176,0.18) 25px, rgba(242,157,176,0.18) 26px)' }
         : {};
 
-    // ─── 装饰预算 (硬编码) ──────────────────────────────────
-    // 上限: ≤ 2 件 (sparkle + bow), 每件 ≤ 12% 面积, 避开所有 placement bbox.
-    // 候选位置 = 4 个角的小区域, 用 seed 选, 与 placements 不重叠才放。
+    // ─── 裝飾預算 (硬編碼) ──────────────────────────────────
+    // 上限: ≤ 2 件 (sparkle + bow), 每件 ≤ 12% 面積, 避開所有 placement bbox.
+    // 候選位置 = 4 個角的小區域, 用 seed 選, 與 placements 不重疊才放。
     const decorations = (() => {
         type Box = { x1: number; y1: number; x2: number; y2: number };
         const placedBoxes: Box[] = layout.placements.map(pl => {
@@ -74,11 +74,11 @@ const JournalCanvas: React.FC<Props> = ({
         });
         const intersect = (a: Box, b: Box) => !(a.x2 < b.x1 || b.x2 < a.x1 || a.y2 < b.y1 || b.y2 < a.y1);
 
-        // 候选锚点 (x%, y%) — 仅放在文字不太可能落到的区域
+        // 候選錨點 (x%, y%) — 僅放在文字不太可能落到的區域
         const anchors: Array<{ x: number; y: number; w: number; h: number; rot: number }> = [
             { x: 88, y: 4,  w: 8, h: 6, rot: 12 },   // 右上
             { x: 88, y: 92, w: 8, h: 6, rot: -8 },   // 右下
-            { x: 2,  y: 92, w: 8, h: 6, rot: 6 },    // 左下 (装订线右侧)
+            { x: 2,  y: 92, w: 8, h: 6, rot: 6 },    // 左下 (裝訂線右側)
         ];
         const out: Array<{ x: number; y: number; rot: number; kind: 'sparkle' | 'bow' }> = [];
         for (let i = 0; i < anchors.length && out.length < 2; i++) {
@@ -101,14 +101,14 @@ const JournalCanvas: React.FC<Props> = ({
                 background: PAPER_TONES.paper,
                 boxShadow: '0 6px 22px -6px rgba(122,90,114,0.25), inset 0 0 0 1.5px rgba(220,199,213,0.5)',
                 borderRadius: 6,
-                paddingLeft: 30,             // 给装订环让位
+                paddingLeft: 30,             // 給裝訂環讓位
                 overflow: 'hidden',
                 ...paperBg,
             }}
         >
             <BinderRings count={11} tone="silver" />
 
-            {/* 左侧装订线 */}
+            {/* 左側裝訂線 */}
             <div
                 className="absolute top-0 bottom-0 pointer-events-none"
                 style={{
@@ -119,7 +119,7 @@ const JournalCanvas: React.FC<Props> = ({
                 aria-hidden
             />
 
-            {/* 装饰 — 预算 ≤ 2 件, 已与 placement bbox 做过碰撞检测 */}
+            {/* 裝飾 — 預算 ≤ 2 件, 已與 placement bbox 做過碰撞檢測 */}
             {decorations.map((d, i) => (
                 <div
                     key={i}
@@ -134,8 +134,8 @@ const JournalCanvas: React.FC<Props> = ({
                 </div>
             ))}
 
-            {/* 日期页眉 — 像真实日记顶部那一行手写日期, 极简 ───────── */}
-            {/* "5/10 Sat." 体例: 大手写月日 + 星期英文缩写, 不再杂志大标题 */}
+            {/* 日期頁眉 — 像真實日記頂部那一行手寫日期, 極簡 ───────── */}
+            {/* "5/10 Sat." 體例: 大手寫月日 + 星期英文縮寫, 不再雜誌大標題 */}
             {showHeader && (
                 <div className="absolute pointer-events-none" style={{ top: 10, left: 38, right: 14, zIndex: 1 }}>
                     <div className="flex items-baseline gap-2">
@@ -166,7 +166,7 @@ const JournalCanvas: React.FC<Props> = ({
                                 : dayOfWeekZh(date) === '四' ? 'Thu.'
                                 : dayOfWeekZh(date) === '五' ? 'Fri.' : 'Sat.'}
                         </span>
-                        {/* 一句心情小词, 极小 */}
+                        {/* 一句心情小詞, 極小 */}
                         <span
                             className="ml-auto"
                             style={{
@@ -182,7 +182,7 @@ const JournalCanvas: React.FC<Props> = ({
                             })()}
                         </span>
                     </div>
-                    {/* 一根细线压住, 像日记的日期下划线 */}
+                    {/* 一根細線壓住, 像日記的日期下劃線 */}
                     <div style={{
                         marginTop: 4, height: 1,
                         background: PAPER_TONES.accentRose, opacity: 0.4,
@@ -190,7 +190,7 @@ const JournalCanvas: React.FC<Props> = ({
                 </div>
             )}
 
-            {/* 第二张及以后,顶部用一个简洁 jolt */}
+            {/* 第二張及以後,頂部用一個簡潔 jolt */}
             {!showHeader && (
                 <div className="absolute pointer-events-none" style={{ top: 10, left: 38, right: 14, zIndex: 1 }}>
                     <span
@@ -206,7 +206,7 @@ const JournalCanvas: React.FC<Props> = ({
                 </div>
             )}
 
-            {/* 画布 — 可摆 fragment 的整页 */}
+            {/* 畫布 — 可擺 fragment 的整頁 */}
             <div
                 className="absolute"
                 style={{
@@ -250,7 +250,7 @@ const JournalCanvas: React.FC<Props> = ({
                 })}
             </div>
 
-            {/* 页脚 — 仅一行小手写 tagline + (多页时)页码 ─────────── */}
+            {/* 頁腳 — 僅一行小手寫 tagline + (多頁時)頁碼 ─────────── */}
             <div
                 className="absolute pointer-events-none flex items-end justify-between"
                 style={{ bottom: 6, left: 38, right: 14, zIndex: 1 }}

@@ -20,7 +20,7 @@ const INTENSITY_DOTS = (n: number | undefined | null) => {
     return '●'.repeat(safe) + '○'.repeat(3 - safe);
 };
 
-/** 「当前情绪状态」独立展示——从 EmotionSettingsPanel 拆出来，不跟着它的收合区块一起被藏起来。 */
+/** 「當前情緒狀態」獨立展示——從 EmotionSettingsPanel 拆出來，不跟著它的收合區塊一起被藏起來。 */
 const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBuffs }) => {
     const buffs: CharacterBuff[] = char.activeBuffs || [];
     const scheduleOn = isScheduleFeatureOn(char);

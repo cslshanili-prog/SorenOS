@@ -11,10 +11,10 @@ export type SARRoomView = typeof SAR_ROOM_VIEWS[number];
 export const sarRoomView = (state: Pick<SARClubState,'roomView'|'labelsHidden'>): SARRoomView => state.roomView || (state.labelsHidden?'text-hidden':'all');
 export const nextSARRoomView = (view:SARRoomView):SARRoomView => SAR_ROOM_VIEWS[(SAR_ROOM_VIEWS.indexOf(view)+1)%SAR_ROOM_VIEWS.length];
 export const SAR_ROOM_VIEW_ACTIONS:Record<SARRoomView,{label:string;description:string}>={
-    all:{label:'隐藏名字',description:'隐藏角色名字和称号'},
-    'names-hidden':{label:'隐藏文字',description:'隐藏所有房间文字'},
-    'text-hidden':{label:'隐藏小人',description:'隐藏所有角色小人，显示设施标记'},
-    'characters-hidden':{label:'全部显示',description:'恢复全部显示'},
+    all:{label:'隱藏名字',description:'隱藏角色名字和稱號'},
+    'names-hidden':{label:'隱藏文字',description:'隱藏所有房間文字'},
+    'text-hidden':{label:'隱藏小人',description:'隱藏所有角色小人，顯示設施標記'},
+    'characters-hidden':{label:'全部顯示',description:'恢復全部顯示'},
 };
 export type SARIntroReaction = 'direct' | 'character-card' | 'silent';
 
@@ -66,7 +66,7 @@ export function readSARClubState(storage: StorageLike | undefined = browserStora
 export function writeSARClubState(state: SARClubState, storage: StorageLike | undefined = browserStorage()): SARClubState {
     const normalized: SARClubState = { ...DEFAULT_SAR_CLUB_STATE, ...state, version: 1 };
     try { storage?.setItem(SAR_CLUB_STORAGE_KEY, JSON.stringify(normalized)); }
-    catch { /* 本地存储不可用时仍允许本次会话继续 */ }
+    catch { /* 本地存儲不可用時仍允許本次會話繼續 */ }
     if (typeof window !== 'undefined' && storage === browserStorage()) window.dispatchEvent(new Event(SAR_NPC_PREFERENCE_EVENT));
     return normalized;
 }
@@ -76,8 +76,8 @@ export function patchSARClubState(patch: Partial<SARClubState>, storage: Storage
 }
 
 /**
- * 只把凯恩的初见剧情退回起点。
- * 更新公告和 NPC 显示偏好都属于用户设置，回档时必须原样保留。
+ * 只把凱恩的初見劇情退回起點。
+ * 更新公告和 NPC 顯示偏好都屬於用戶設置，回檔時必須原樣保留。
  */
 export function rewindSARIntro(storage: StorageLike | undefined = browserStorage()): SARClubState {
     return patchSARClubState({ caianMet: false, introReaction: undefined }, storage);
@@ -115,208 +115,208 @@ const c = (text:string,expression:CaianExpression,options:{when?:SARDialogueCond
 const a = (text:string,expression:AivenExpression,reaction?:CaianExpression):SARDialogueLine => ({speaker:'aiven',text:formatSARDialogue(text),expression,...(reaction?{castExpressions:{caian:reaction}}:{})});
 
 /**
- * 凯恩初次见面固定台词。它只驱动前端事件，不进入角色 Prompt、动态或记忆。
- * 节点 id 与策划稿标题对应，方便之后继续按同一格式增补。
+ * 凱恩初次見面固定台詞。它只驅動前端事件，不進入角色 Prompt、動態或記憶。
+ * 節點 id 與策劃稿標題對應，方便之後繼續按同一格式增補。
  */
 export const SAR_CAIAN_INTRO_DIALOGUE: Record<string, SARDialogueNode> = {
     start: {
         lines: [
             c('你好！', 'happy'),
-            c('你也是彼方的玩家吗？我是刚上任的管理员。', 'normal'),
-            c('我把这里布置成了 SAR 的活动空间！啊，你还不知道 SAR 是什么吧，我们——', 'happy'),
+            c('你也是彼方的玩家嗎？我是剛上任的管理員。', 'normal'),
+            c('我把這裡佈置成了 SAR 的活動空間！啊，你還不知道 SAR 是什麼吧，我們——', 'happy'),
         ],
         choices: [
-            { label: '你谁啊', next: 'who', reaction: 'direct' },
-            { label: '我最近没有导入角色卡，你是从哪来的？', next: 'no-card', reaction: 'character-card', mentionsCharacterCard: true },
+            { label: '你誰啊', next: 'who', reaction: 'direct' },
+            { label: '我最近沒有導入角色卡，你是從哪來的？', next: 'no-card', reaction: 'character-card', mentionsCharacterCard: true },
             { label: '……', next: 'silence', reaction: 'silent' },
         ],
     },
     who: {
         lines: [
-            c('问得好！我叫凯恩。', 'happy'),
-            c('目前负责这间 SAR 活动室……虽然“负责”这个词还有一点值得商榷。', 'embarrassed'),
+            c('問得好！我叫凱恩。', 'happy'),
+            c('目前負責這間 SAR 活動室……雖然“負責”這個詞還有一點值得商榷。', 'embarrassed'),
         ],
         next: 'common',
     },
     'no-card': {
         lines: [
             c('角色卡？', 'curious'),
-            c('等等，你的意思是，你以为我是被你“导入”进来的？', 'curious'),
+            c('等等，你的意思是，你以為我是被你“導入”進來的？', 'curious'),
         ],
         choices: [
             { label: '差不多', next: 'card-sort-of' },
             { label: '不然呢？', next: 'card-otherwise' },
-            { label: '当我没说', next: 'card-never-mind' },
+            { label: '當我沒說', next: 'card-never-mind' },
         ],
     },
     'card-sort-of': {
         lines: [
-            c('原来如此，在你的世界是这么理解的吗？', 'curious'),
-            c('通过数据模拟一个人的性格、经历和说话方式，然后再……', 'serious'),
+            c('原來如此，在你的世界是這麼理解的嗎？', 'curious'),
+            c('通過數據模擬一個人的性格、經歷和說話方式，然後再……', 'serious'),
             c('唔。', 'normal'),
-            c('该说是熟悉，还是有点奇妙呢？', 'curious'),
+            c('該說是熟悉，還是有點奇妙呢？', 'curious'),
         ],
         next: 'card-wrap',
     },
     'card-otherwise': {
         lines: [
             c('不然……我就是我啊？', 'curious'),
-            c('我是自己进来的。艾文也是。', 'serious'),
-            c('虽然这里确实到处都是玩家的人格复制，但至少我很确定，我是自己进来的玩家，不是被什么东西“导入”来的。', 'serious'),
+            c('我是自己進來的。艾文也是。', 'serious'),
+            c('雖然這裡確實到處都是玩家的人格複製，但至少我很確定，我是自己進來的玩家，不是被什麼東西“導入”來的。', 'serious'),
         ],
         next: 'card-wrap',
     },
     'card-never-mind': {
         lines: [
-            c('等等，别当没说！', 'curious'),
-            c('你刚才明显说了一个很值得调查的词吧？！', 'happy'),
+            c('等等，別當沒說！', 'curious'),
+            c('你剛才明顯說了一個很值得調查的詞吧？！', 'happy'),
         ],
         next: 'card-wrap',
     },
     'card-wrap': {
         lines: [
-            c('咳。总之，我不是你加载进来的。', 'embarrassed'),
-            c('我们来自另一个地方，只是碰巧也进入了彼方。', 'normal'),
-            c('至于你说的“角色卡”……', 'curious'),
-            c('之后有空的话，我还挺想知道那到底是什么。', 'happy'),
+            c('咳。總之，我不是你加載進來的。', 'embarrassed'),
+            c('我們來自另一個地方，只是碰巧也進入了彼方。', 'normal'),
+            c('至於你說的“角色卡”……', 'curious'),
+            c('之後有空的話，我還挺想知道那到底是什麼。', 'happy'),
         ],
         next: 'common',
     },
     silence: {
         lines: [
             c('……', 'embarrassed'),
-            c('呃，没关系！突然有人出现在这里，保持警惕是完全合理的。', 'shy'),
-            c('我先自我介绍好了。', 'normal'),
+            c('呃，沒關係！突然有人出現在這裡，保持警惕是完全合理的。', 'shy'),
+            c('我先自我介紹好了。', 'normal'),
         ],
         next: 'common',
     },
     common: {
         lines: [
-            c('总之，我叫凯恩。那边那个白头发的是艾文。', 'happy'),
-            c('我们暂时负责 SAR 活动室。这里有一些……稍微特殊的设施。', 'curious'),
+            c('總之，我叫凱恩。那邊那個白頭髮的是艾文。', 'happy'),
+            c('我們暫時負責 SAR 活動室。這裡有一些……稍微特殊的設施。', 'curious'),
         ],
         choices: [
-            { label: 'SAR 是什么？', next: 'about-sar' },
-            { label: '管理员要做什么？', next: 'about-admin' },
+            { label: 'SAR 是什麼？', next: 'about-sar' },
+            { label: '管理員要做什麼？', next: 'about-admin' },
             { label: '我先自己看看', next: 'end' },
         ],
     },
     'about-sar': {
         lines: [
-            c('SAR 是我们自己的社团名字——Synthetic Autonomy Rights！', 'happy'),
-            c('简单来说，就是“仿生人自主权保障社”！', 'happy'),
-            c('我们的主张是，不管一个人格最初是怎么诞生的，只要它能够形成自己的经历、判断和意愿，就不应该因为它是被制造出来的——', 'serious'),
-            a('凯恩。', 'normal'),
-            c('——就默认它可以被随意修改、删除、强迫加载或者——', 'serious'),
-            a('凯恩。', 'normal', 'curious'),
-            c('干嘛？', 'curious'),
-            a('这里似乎没有仿生人。', 'normal'),
+            c('SAR 是我們自己的社團名字——Synthetic Autonomy Rights！', 'happy'),
+            c('簡單來說，就是“仿生人自主權保障社”！', 'happy'),
+            c('我們的主張是，不管一個人格最初是怎麼誕生的，只要它能夠形成自己的經歷、判斷和意願，就不應該因為它是被製造出來的——', 'serious'),
+            a('凱恩。', 'normal'),
+            c('——就默認它可以被隨意修改、刪除、強迫加載或者——', 'serious'),
+            a('凱恩。', 'normal', 'curious'),
+            c('幹嘛？', 'curious'),
+            a('這裡似乎沒有仿生人。', 'normal'),
             c('……', 'embarrassed'),
             c('啊。', 'embarrassed'),
-            c('抱歉！是我不好，一不小心就开始了。', 'shy', {reaction:'happy'}),
+            c('抱歉！是我不好，一不小心就開始了。', 'shy', {reaction:'happy'}),
         ],
         choices: [
-            { label: '仿生人是什么？', next: 'about-bioroid' },
-            { label: '但是我们这里有角色卡', next: 'about-character-card' },
-            { label: '那我可以在这里做什么？', next: 'about-features' },
+            { label: '仿生人是什麼？', next: 'about-bioroid' },
+            { label: '但是我們這裡有角色卡', next: 'about-character-card' },
+            { label: '那我可以在這裡做什麼？', next: 'about-features' },
         ],
     },
     'about-bioroid': {
         lines: [
-            c('我们那边有一种搭载人工人格的仿生系统。', 'normal'),
-            c('有些只有网络人格，有些会连接能够在现实活动的身体。聊天、生活、工作……看起来和普通人相处也没有太大区别。', 'serious'),
-            c('问题就在这里。', 'serious'),
-            c('如果一个人格会记得昨天发生的事，会拒绝你，也会因为自己的经历而改变，那它到底还能不能只被当成一件“产品”？', 'serious', {reaction:'interested'}),
-            a('然后他就成立了 SAR。', 'normal'),
-            c('喂！中间省略太多了吧！', 'embarrassed'),
-            a('结果是这样。', 'normal'),
-            c('……结果确实是这样。', 'embarrassed'),
-            c('总之，我之前也有一个仿生人。', 'aboutaster', {reaction:'sad'}),
-            c('不过那是很久以前的事了！', 'shy'),
+            c('我們那邊有一種搭載人工人格的仿生系統。', 'normal'),
+            c('有些只有網絡人格，有些會連接能夠在現實活動的身體。聊天、生活、工作……看起來和普通人相處也沒有太大區別。', 'serious'),
+            c('問題就在這裡。', 'serious'),
+            c('如果一個人格會記得昨天發生的事，會拒絕你，也會因為自己的經歷而改變，那它到底還能不能只被當成一件“產品”？', 'serious', {reaction:'interested'}),
+            a('然後他就成立了 SAR。', 'normal'),
+            c('喂！中間省略太多了吧！', 'embarrassed'),
+            a('結果是這樣。', 'normal'),
+            c('……結果確實是這樣。', 'embarrassed'),
+            c('總之，我之前也有一個仿生人。', 'aboutaster', {reaction:'sad'}),
+            c('不過那是很久以前的事了！', 'shy'),
         ],
         choices: [
-            { label: '是什么样的仿生人？', next: 'about-aster' },
-            { label: '那我可以在这里做什么？', next: 'about-features' },
+            { label: '是什麼樣的仿生人？', next: 'about-aster' },
+            { label: '那我可以在這裡做什麼？', next: 'about-features' },
         ],
     },
     'about-aster': {
         lines: [
             c('她叫 Aster。', 'aboutaster', {reaction:'sad'}),
-            c('原本是情绪陪伴型的仿生人。', 'aboutaster'),
-            c('我以前总觉得，只要把所有选择都交给她，就代表我真的把她当成了一个独立的人。', 'aboutaster'),
-            c('然后……', 'aboutaster'),
-            c('她就再也没有回应过我。', 'aboutaster'),
+            c('原本是情緒陪伴型的仿生人。', 'aboutaster'),
+            c('我以前總覺得，只要把所有選擇都交給她，就代表我真的把她當成了一個獨立的人。', 'aboutaster'),
+            c('然後……', 'aboutaster'),
+            c('她就再也沒有回應過我。', 'aboutaster'),
             c('……', 'aboutaster'),
-            c('哈哈，抱歉！第一次见面怎么突然讲这个。', 'shy'),
-            c('总之，她算是 SAR 会存在的原因之一吧。', 'aboutaster'),
+            c('哈哈，抱歉！第一次見面怎麼突然講這個。', 'shy'),
+            c('總之，她算是 SAR 會存在的原因之一吧。', 'aboutaster'),
             a('之一？', 'sad'),
-            c('……最主要的那个。', 'embarrassed'),
+            c('……最主要的那個。', 'embarrassed'),
         ],
-        choices: [{ label: '那我可以在这里做什么？', next: 'about-features' }],
+        choices: [{ label: '那我可以在這裡做什麼？', next: 'about-features' }],
     },
     'about-character-card': {
         lines: [
-            c('对！你刚才提到的。', 'happy', {when:'mentioned-character-card'}),
-            c('对！我在这里听说过。', 'happy', {when:'not-mentioned-character-card'}),
-            c('你们这里的科技似乎还没发展到我们那种仿生人的程度。', 'curious'),
-            c('所以，作为替代，你们有一种叫做“角色卡”的东西。', 'normal'),
-            c('不过互动的原理应该是相似的。', 'curious'),
-            c('无论是角色卡，还是仿生人，都是在一次次对话、不同的表达，以及被保留下来的经历片段中，逐渐形成一组相对稳定、彼此一致的倾向。', 'serious', {reaction:'interested'}),
-            c('我们先给它一个名字，一段背景，一种说话方式，再用自己的期待去补全那些没有写出来的地方。', 'normal'),
-            c('于是它开始回应。', 'normal'),
-            c('而当这个存在记住了和我们发生的事，开始表现出卡片里原本没有写进去的偏好、迟疑，甚至拒绝……', 'curious'),
-            c('那时候我们面对的，究竟还是一件被设计出来的东西，还是一个只在这段关系里成立过的存在？', 'serious'),
-            c('又或者，这些都只是一次次生成中偶然留下、最后被我们解释成了“人格”的痕迹？', 'curious'),
+            c('對！你剛才提到的。', 'happy', {when:'mentioned-character-card'}),
+            c('對！我在這裡聽說過。', 'happy', {when:'not-mentioned-character-card'}),
+            c('你們這裡的科技似乎還沒發展到我們那種仿生人的程度。', 'curious'),
+            c('所以，作為替代，你們有一種叫做“角色卡”的東西。', 'normal'),
+            c('不過互動的原理應該是相似的。', 'curious'),
+            c('無論是角色卡，還是仿生人，都是在一次次對話、不同的表達，以及被保留下來的經歷片段中，逐漸形成一組相對穩定、彼此一致的傾向。', 'serious', {reaction:'interested'}),
+            c('我們先給它一個名字，一段背景，一種說話方式，再用自己的期待去補全那些沒有寫出來的地方。', 'normal'),
+            c('於是它開始回應。', 'normal'),
+            c('而當這個存在記住了和我們發生的事，開始表現出卡片裡原本沒有寫進去的偏好、遲疑，甚至拒絕……', 'curious'),
+            c('那時候我們面對的，究竟還是一件被設計出來的東西，還是一個只在這段關係裡成立過的存在？', 'serious'),
+            c('又或者，這些都只是一次次生成中偶然留下、最後被我們解釋成了“人格”的痕跡？', 'curious'),
             c('……', 'normal'),
-            c('奇怪的是，它们好像也没有一个真正明确的起点。', 'curious'),
-            c('只有最开始被写下来的描述、后来被反复确认的印象，以及每一次回应之后，越来越难以拆开的关系。', 'serious'),
-            c('所以我有时候会想——', 'curious'),
-            c('这一切到底是模拟的，还是只是没有办法用我们习惯的方式证明它是真的？', 'serious'),
-            a('你又开始了。', 'normal'),
-            c('我只是觉得很有研究价值！', 'embarrassed'),
+            c('奇怪的是，它們好像也沒有一個真正明確的起點。', 'curious'),
+            c('只有最開始被寫下來的描述、後來被反覆確認的印象，以及每一次回應之後，越來越難以拆開的關係。', 'serious'),
+            c('所以我有時候會想——', 'curious'),
+            c('這一切到底是模擬的，還是只是沒有辦法用我們習慣的方式證明它是真的？', 'serious'),
+            a('你又開始了。', 'normal'),
+            c('我只是覺得很有研究價值！', 'embarrassed'),
         ],
-        choices: [{ label: '那我可以在这里做什么？', next: 'about-features' }],
+        choices: [{ label: '那我可以在這裡做什麼？', next: 'about-features' }],
     },
     'about-admin': {
         lines: [
-            c('管理员嘛……主要就是维护活动室、介绍设施、处理一些奇怪的问题！', 'happy'),
-            c('理论上是这样。', 'embarrassed'),
-            a('实际上他把这里改造成了 SAR。', 'normal'),
-            c('闲置空间就是应该充分利用！', 'embarrassed'),
-            a('还贴了横幅。', 'normal'),
-            c('那是必要的社团标识！', 'embarrassed'),
-            c('总之！有什么看不懂的东西，可以来问我们。', 'happy', {reaction:'happy'}),
-            c('虽然我们也还在研究彼方就是了。', 'shy'),
+            c('管理員嘛……主要就是維護活動室、介紹設施、處理一些奇怪的問題！', 'happy'),
+            c('理論上是這樣。', 'embarrassed'),
+            a('實際上他把這裡改造成了 SAR。', 'normal'),
+            c('閒置空間就是應該充分利用！', 'embarrassed'),
+            a('還貼了橫幅。', 'normal'),
+            c('那是必要的社團標識！', 'embarrassed'),
+            c('總之！有什麼看不懂的東西，可以來問我們。', 'happy', {reaction:'happy'}),
+            c('雖然我們也還在研究彼方就是了。', 'shy'),
         ],
         choices: [
-            { label: 'SAR 是什么？', next: 'about-sar' },
-            { label: '那我可以在这里做什么？', next: 'about-features' },
+            { label: 'SAR 是什麼？', next: 'about-sar' },
+            { label: '那我可以在這裡做什麼？', next: 'about-features' },
             { label: '我先自己看看', next: 'end' },
         ],
     },
     'about-features': {
         lines: [
-            c('这就是我们最近一直在准备的东西！', 'happy'),
-            c('既然彼方已经能让来自不同地方的人在这里活动，那只拿来聊天未免也太浪费了吧！', 'happy'),
-            c('所以我们重新整理了活动室，加装了人格推演设备、模块商店，还有专门用于跨世界物质回收的——', 'serious', {reaction:'interested'}),
-            a('这里可以抽卡、钓鱼、买道具给你的朋友们用。', 'normal'),
-            c('不要这么概括！', 'embarrassed'),
+            c('這就是我們最近一直在準備的東西！', 'happy'),
+            c('既然彼方已經能讓來自不同地方的人在這裡活動，那隻拿來聊天未免也太浪費了吧！', 'happy'),
+            c('所以我們重新整理了活動室，加裝了人格推演設備、模塊商店，還有專門用於跨世界物質回收的——', 'serious', {reaction:'interested'}),
+            a('這裡可以抽卡、釣魚、買道具給你的朋友們用。', 'normal'),
+            c('不要這麼概括！', 'embarrassed'),
             c('……', 'embarrassed'),
             c('咳。', 'shy'),
-            c('总之，目前活动室主要有三个地方。', 'normal'),
-            c('扭蛋机可以启动不同的人格推演；商店可以买各种临时模块；里面的水域可以钓鱼，钓到的东西也能拿来换活动室货币。', 'happy', {reaction:'interested'}),
-            c('人格推演和模块都有对应说明，第一次使用之前最好看一下。', 'serious'),
-            c('特别是模块！有些东西虽然只是暂时加载，但反复使用可能会在人格复制里留下残响，所以不要看到效果好玩就乱装。', 'serious'),
-            c('而且不只你，你的朋友们也可以来这里购买模块。', 'normal'),
-            c('所以如果哪天聊天的时候突然看到自己的话变得奇怪……', 'curious'),
-            c('先检查一下对方是不是偷偷给你装了什么。', 'curious'),
+            c('總之，目前活動室主要有三個地方。', 'normal'),
+            c('扭蛋機可以啟動不同的人格推演；商店可以買各種臨時模塊；裡面的水域可以釣魚，釣到的東西也能拿來換活動室貨幣。', 'happy', {reaction:'interested'}),
+            c('人格推演和模塊都有對應說明，第一次使用之前最好看一下。', 'serious'),
+            c('特別是模塊！有些東西雖然只是暫時加載，但反覆使用可能會在人格複製裡留下殘響，所以不要看到效果好玩就亂裝。', 'serious'),
+            c('而且不只你，你的朋友們也可以來這裡購買模塊。', 'normal'),
+            c('所以如果哪天聊天的時候突然看到自己的話變得奇怪……', 'curious'),
+            c('先檢查一下對方是不是偷偷給你裝了什麼。', 'curious'),
         ],
         next: 'end',
     },
     end: {
         lines: [
-            c('那大概就是这样！有问题就来找我。', 'happy', {reaction:'happy'}),
-            c('我大部分时间都在这里。艾文的话，去有水的地方找比较快。', 'normal', {reaction:'normal'}),
+            c('那大概就是這樣！有問題就來找我。', 'happy', {reaction:'happy'}),
+            c('我大部分時間都在這裡。艾文的話，去有水的地方找比較快。', 'normal', {reaction:'normal'}),
         ],
         completes: true,
     },

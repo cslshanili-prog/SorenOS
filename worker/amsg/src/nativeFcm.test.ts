@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildFcmMessage, createHybridPushTransport, fcmTokenFromEndpoint } from './nativeFcm';
 
 describe('AMSG2 native FCM transport', () => {
-  it('普通 Web Push endpoint 原样委托旧发送器', async () => {
+  it('普通 Web Push endpoint 原樣委託舊發送器', async () => {
     const sendNotification = vi.fn().mockResolvedValue('web-ok');
     const transport = createHybridPushTransport({}, { sendNotification });
     const subscription = { endpoint: 'https://push.example/sub', keys: { p256dh: 'a', auth: 'b' } };
@@ -10,7 +10,7 @@ describe('AMSG2 native FCM transport', () => {
     expect(sendNotification).toHaveBeenCalledWith(subscription, '{"message":"hi"}');
   });
 
-  it('只有 fcm: endpoint 才识别为原生 token', () => {
+  it('只有 fcm: endpoint 才識別為原生 token', () => {
     expect(fcmTokenFromEndpoint('fcm:abc:123')).toBe('abc:123');
     expect(fcmTokenFromEndpoint('https://push.example/sub')).toBeNull();
     expect(fcmTokenFromEndpoint('fcm:   ')).toBeNull();

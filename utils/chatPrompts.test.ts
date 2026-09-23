@@ -3,14 +3,14 @@ import { ChatPrompts } from './chatPrompts';
 import { buildGroupHistoryBlock } from './groupChat/prompts';
 import type { CharacterProfile, Message } from '../types';
 
-// 钉住「图片值不许当正文进 prompt」这条线。
+// 釘住「圖片值不許當正文進 prompt」這條線。
 //
-// 背景：图片二进制存在 IndexedDB，字段里只留 `blobref:<id>` 短令牌（~28 字）。发请求时
-// utils/apiBlobRefs.ts 会在网络出口把请求体里的令牌还原成完整 data URL——所以令牌一旦混进
-// prompt 文本，出门就是几 MB 的 base64，且每轮对话重发一次。长度截断拦不住它（令牌比截断
-// 阈值还短），只能在拼 prompt 时就认出来换成占位符。
+// 背景：圖片二進制存在 IndexedDB，字段裡只留 `blobref:<id>` 短令牌（~28 字）。發請求時
+// utils/apiBlobRefs.ts 會在網絡出口把請求體裡的令牌還原成完整 data URL——所以令牌一旦混進
+// prompt 文本，出門就是幾 MB 的 base64，且每輪對話重發一次。長度截斷攔不住它（令牌比截斷
+// 閾值還短），只能在拼 prompt 時就認出來換成佔位符。
 //
-// 下面两类漏点都是真实线上问题：引用回复的摘要，以及没被认领的卡片走 JSON 原文兜底。
+// 下面兩類漏點都是真實線上問題：引用回覆的摘要，以及沒被認領的卡片走 JSON 原文兜底。
 
 const char = { id: 'c1', name: '小角色' } as any;
 const userProfile = { name: '我' } as any;
@@ -20,38 +20,38 @@ const DATA_URL = 'data:image/jpeg;base64,' + 'A'.repeat(600);
 
 const t0 = Date.now() - 60_000;
 
-/** 用户引用了一条图片消息，然后回了一句话。 */
+/** 用戶引用了一條圖片消息，然後回了一句話。 */
 const replyToMediaMessage = (mediaValue: string): Message[] => ([
     {
         id: 2, charId: 'c1', role: 'user', type: 'text',
-        content: '这张图好可爱',
+        content: '這張圖好可愛',
         timestamp: t0 + 1000,
         replyTo: { id: 1, content: mediaValue, name: '小角色' },
     },
 ] as any[]);
 
-describe('私聊引用回复：被引用的是图片消息', () => {
-    it('引用 blobref 令牌图片时，令牌不进 prompt', () => {
+describe('私聊引用回覆：被引用的是圖片消息', () => {
+    it('引用 blobref 令牌圖片時，令牌不進 prompt', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             replyToMediaMessage(BLOB_TOKEN), 10, char, userProfile, [],
         );
         const payload = JSON.stringify(apiMessages);
         expect(payload).not.toContain('blobref:');
-        // 用户真正说的那句话必须还在
-        expect(payload).toContain('这张图好可爱');
+        // 用戶真正說的那句話必須還在
+        expect(payload).toContain('這張圖好可愛');
     });
 
-    it('引用 data URL 图片时，base64 不进 prompt', () => {
+    it('引用 data URL 圖片時，base64 不進 prompt', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             replyToMediaMessage(DATA_URL), 10, char, userProfile, [],
         );
         const payload = JSON.stringify(apiMessages);
         expect(payload).not.toContain('data:image');
         expect(payload).not.toContain('AAAA');
-        expect(payload).toContain('这张图好可爱');
+        expect(payload).toContain('這張圖好可愛');
     });
 
-    it('引用 http 外链图片时，链接不进 prompt', () => {
+    it('引用 http 外鏈圖片時，鏈接不進 prompt', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             replyToMediaMessage('https://example.com/pic/very-long-name.png'), 10, char, userProfile, [],
         );
@@ -59,52 +59,52 @@ describe('私聊引用回复：被引用的是图片消息', () => {
         expect(payload).not.toContain('example.com');
     });
 
-    it('引用普通文字消息时仍按原样摘要（不误伤正文）', () => {
-        const longText = '这是一段很长的普通文字'.repeat(20);
+    it('引用普通文字消息時仍按原樣摘要（不誤傷正文）', () => {
+        const longText = '這是一段很長的普通文字'.repeat(20);
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             replyToMediaMessage(longText), 10, char, userProfile, [],
         );
         const payload = JSON.stringify(apiMessages);
-        expect(payload).toContain('这是一段很长的普通文字');
+        expect(payload).toContain('這是一段很長的普通文字');
         expect(payload).toContain('…');
     });
 });
 
-describe('群聊引用回复：被引用的是图片消息', () => {
+describe('群聊引用回覆：被引用的是圖片消息', () => {
     const chars: CharacterProfile[] = [{ id: 'c1', name: '小夏' } as CharacterProfile];
 
     const groupReply = (mediaValue: string): Message[] => ([
         {
             id: 2, role: 'user', type: 'text', charId: '',
-            content: '哈哈哈这张',
+            content: '哈哈哈這張',
             timestamp: t0 + 1000,
             replyTo: { id: 1, content: mediaValue, name: '小夏' },
         },
     ] as any[]);
 
-    it('引用 blobref 令牌图片时，令牌不进群历史', () => {
-        const { text } = buildGroupHistoryBlock(groupReply(BLOB_TOKEN), chars, [], '用户');
+    it('引用 blobref 令牌圖片時，令牌不進群歷史', () => {
+        const { text } = buildGroupHistoryBlock(groupReply(BLOB_TOKEN), chars, [], '用戶');
         expect(text).not.toContain('blobref:');
-        expect(text).toContain('哈哈哈这张');
+        expect(text).toContain('哈哈哈這張');
     });
 
-    it('引用 data URL 图片时，base64 不进群历史', () => {
-        const { text } = buildGroupHistoryBlock(groupReply(DATA_URL), chars, [], '用户');
+    it('引用 data URL 圖片時，base64 不進群歷史', () => {
+        const { text } = buildGroupHistoryBlock(groupReply(DATA_URL), chars, [], '用戶');
         expect(text).not.toContain('data:image');
         expect(text).not.toContain('AAAA');
-        expect(text).toContain('哈哈哈这张');
+        expect(text).toContain('哈哈哈這張');
     });
 });
 
-describe('score_card 兜底：没被认领的卡片', () => {
-    // 认不出类型的活动卡（比如 520 活动卡）会掉进 [系统卡片] 兜底分支。
-    // 它的 JSON 里 charAvatar 就在最前面，值是令牌。
+describe('score_card 兜底：沒被認領的卡片', () => {
+    // 認不出類型的活動卡（比如 520 活動卡）會掉進 [系統卡片] 兜底分支。
+    // 它的 JSON 裡 charAvatar 就在最前面，值是令牌。
     const unknownCard = {
         type: 'anniv520_card',
         version: 1,
         charAvatar: BLOB_TOKEN,
         userAvatar: 'blobref:b_9876543210fedcba',
-        title: '520 心动瞬间',
+        title: '520 心動瞬間',
         score: 88,
     };
 
@@ -118,25 +118,25 @@ describe('score_card 兜底：没被认领的卡片', () => {
         },
     ] as any[]);
 
-    it('metadata.scoreCard 里的图片令牌不进 prompt', () => {
+    it('metadata.scoreCard 裡的圖片令牌不進 prompt', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(cardMessage(), 10, char, userProfile, []);
         const payload = JSON.stringify(apiMessages);
         expect(payload).not.toContain('blobref:');
-        expect(payload).toContain('[系统卡片]');
-        // 卡片里的正常字段还要留着，兜底不能退化成一句空占位
-        expect(payload).toContain('520 心动瞬间');
+        expect(payload).toContain('[系統卡片]');
+        // 卡片裡的正常字段還要留著，兜底不能退化成一句空佔位
+        expect(payload).toContain('520 心動瞬間');
     });
 
-    it('只有 content JSON（没有 metadata.scoreCard）时同样不漏令牌', () => {
+    it('只有 content JSON（沒有 metadata.scoreCard）時同樣不漏令牌', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             cardMessage({ metadata: {} }), 10, char, userProfile, [],
         );
         const payload = JSON.stringify(apiMessages);
         expect(payload).not.toContain('blobref:');
-        expect(payload).toContain('[系统卡片]');
+        expect(payload).toContain('[系統卡片]');
     });
 
-    it('卡片里带 data URL 头像时也剥掉', () => {
+    it('卡片裡帶 data URL 頭像時也剝掉', () => {
         const dataCard = { ...unknownCard, charAvatar: DATA_URL };
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             cardMessage({ content: JSON.stringify(dataCard), metadata: { scoreCard: dataCard } }),

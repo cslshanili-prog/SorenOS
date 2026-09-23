@@ -6707,15 +6707,15 @@ async function getSchemaVersion(db) {
   const liveTables = live && live.tables || {};
   const liveIndexes = new Set(live && live.indexes || []);
   const missing = [];
-  for (const [table, columns] of Object.entries(SQLITE_REQUIRED_SCHEMA.tables)) {
-    const liveColumns = liveTables[table];
+  for (const [table2, columns] of Object.entries(SQLITE_REQUIRED_SCHEMA.tables)) {
+    const liveColumns = liveTables[table2];
     if (!liveColumns) {
-      missing.push(`table:${table}`);
+      missing.push(`table:${table2}`);
       continue;
     }
     const present = new Set(liveColumns);
     for (const column of columns) {
-      if (!present.has(column)) missing.push(`column:${table}.${column}`);
+      if (!present.has(column)) missing.push(`column:${table2}.${column}`);
     }
   }
   for (const index of SQLITE_REQUIRED_SCHEMA.indexes) {
@@ -7114,9 +7114,9 @@ var PLATE_ENTRY_CAPS = {
 var PLATE_ENTRY_TARGET_CHARS = 50;
 var PLATE_TITLES = {
   user_room: "TA\u7684\u4E8B",
-  self_room: "\u6211\u662F\u8C01",
-  bedroom: "\u6211\u4EEC\u4E4B\u95F4",
-  study: "\u6211\u7684\u9886\u57DF"
+  self_room: "\u6211\u662F\u8AB0",
+  bedroom: "\u6211\u5011\u4E4B\u9593",
+  study: "\u6211\u7684\u9818\u57DF"
 };
 
 // utils/memoryPalace/jsonUtils.ts
@@ -7230,10 +7230,10 @@ var ROOM_LABEL_PREFIX = {
   study: "S"
 };
 var ROOM_RULES = {
-  user_room: `\u60F3\u8C61\u4F60\u5728\u4E3A\u5BF9\u65B9\u5199\u4E00\u5F20**\u89D2\u8272\u5361**\u2014\u2014\u53EA\u6709\u5FC5\u987B\u5199\u5728\u5361\u4E0A\u7684\u5185\u5BB9\u624D\u914D\u4E0A\u8FD9\u5757\u95E8\u724C\uFF1A\u57FA\u7840\u4FE1\u606F\uFF08\u8EAB\u4EFD\u3001\u804C\u4E1A\u5927\u65B9\u5411\u3001\u5C45\u4F4F\uFF09\u3001\u5BB6\u5EAD\u7ED3\u6784\u3001\u91CD\u8981\u4ED6\u4EBA\uFF08\u4EBA\u7269\u6761\u76EE\u683C\u5F0F\u5982\u300CTA\u7684\u670B\u53CB\u5C0F\u7F8E\uFF1A\u5927\u5B66\u5BA4\u53CB\uFF0C\u5173\u7CFB\u94C1\u300D\uFF09\u3001\u957F\u671F\u76F8\u5904\u6C89\u6DC0\u4E0B\u6765\u7684\u6838\u5FC3\u4E8B\u5B9E\u3001\u4EE5\u53CA\u91CD\u5927\u5230\u8DB3\u4EE5\u5851\u9020TA\u8FD9\u4E2A\u4EBA\u7684\u4EBA\u751F\u8282\u70B9\uFF08\u4EB2\u4EBA\u79BB\u4E16\u3001\u8FC1\u5C45\u4ED6\u56FD\u8FD9\u79CD\u91CF\u7EA7\uFF09\u3002\u3010\u5165\u5361\u95E8\u69DB\u6781\u9AD8\uFF0C\u5B81\u7F3A\u6BCB\u6EE5\u3011\u9636\u6BB5\u6027\u72B6\u6001\uFF08\u6700\u8FD1\u5F88\u7D2F\u3001\u5DE5\u4F5C\u7CDF\u5FC3\uFF09\u4E0D\u6536\uFF1B\u60C5\u7EEA\u5206\u6790\u3001\u6027\u683C\u4FA7\u5199\u4E0D\u6536\u2014\u2014\u90A3\u662F\u5370\u8C61\u6863\u6848\u7684\u9886\u57DF\uFF1B\u6B63\u5728\u8FDB\u884C\u3001\u6CA1\u6709\u7ED3\u8BBA\u7684\u4E8B\u4E0D\u6536\u2014\u2014\u90A3\u662F\u4E8B\u4EF6\u76D2\u7684\u4E8B\uFF0C\u7B49\u6709\u4E86\u7ED3\u679C\u518D\u8BF4\u3002`,
-  self_room: `\u6211\u5BF9**\u81EA\u5DF1**\u7684\u7A33\u5B9A\u8BA4\u77E5\uFF1A\u6211\u662F\u8C01\u3001\u6027\u683C\u5E95\u8272\u3001\u91CD\u8981\u7684\u8F6C\u53D8\u3001\u5DF2\u7ECF\u5185\u5316\u7684\u9886\u609F\u3002\u4E0D\u6536\u5BF9\u4ED6\u4EBA\u7684\u770B\u6CD5\u3002`,
-  bedroom: `\u6211\u4EEC\u4E4B\u95F4\u7684**\u8D28\u5730**\uFF1A\u76F8\u5904\u7684\u4E60\u60EF\u4E0E\u4EEA\u5F0F\u3001\u53EA\u6709\u5F7C\u6B64\u61C2\u7684\u6897\u3001\u672A\u8A00\u660E\u7684\u9ED8\u5951\u3001\u62FF\u4E0D\u51C6\u5374\u771F\u5B9E\u7684\u611F\u89C9\u3002\u3010\u786C\u89C4\u5219\u3011\u7981\u6B62\u7ED9\u8FD9\u6BB5\u5173\u7CFB\u547D\u540D\u6216\u5206\u7C7B\u2014\u2014\u4E0D\u5F97\u5199\u51FA"\u6211\u4EEC\u662F\u604B\u4EBA/\u60C5\u4FA3/\u670B\u53CB/\u5BB6\u4EBA"\u8FD9\u7C7B\u5B9A\u4E49\u53E5\u3002\u53EA\u63CF\u8FF0\u73B0\u8C61\u548C\u611F\u53D7\uFF1B\u8BF4\u4E0D\u6E05\u3001\u4E0D\u786E\u5B9A\u672C\u8EAB\u5C31\u662F\u5408\u6CD5\u6761\u76EE\uFF08\u5982\u300C\u6211\u8BF4\u4E0D\u6E05\u6211\u4EEC\u7B97\u4EC0\u4E48\uFF0C\u4F46TA\u96BE\u8FC7\u65F6\u7B2C\u4E00\u4E2A\u627E\u7684\u662F\u6211\u300D\uFF09\u3002`,
-  study: `\u6211\u7684\u9886\u57DF\uFF1A\u6211\u4F1A\u4EC0\u4E48\u3001\u6B63\u5728\u5B66\u4EC0\u4E48\u3001\u548C\u5BF9\u65B9\u5171\u540C\u94BB\u7814\u7684\u4E1C\u897F\u3002\u53EA\u6536\u6709\u79EF\u7D2F\u7684\uFF0C\u4E0D\u6536\u4E00\u6B21\u6027\u8BDD\u9898\u3002`
+  user_room: `\u60F3\u50CF\u4F60\u5728\u70BA\u5C0D\u65B9\u5BEB\u4E00\u5F35**\u89D2\u8272\u5361**\u2014\u2014\u53EA\u6709\u5FC5\u9808\u5BEB\u5728\u5361\u4E0A\u7684\u5167\u5BB9\u624D\u914D\u4E0A\u9019\u584A\u9580\u724C\uFF1A\u57FA\u790E\u4FE1\u606F\uFF08\u8EAB\u4EFD\u3001\u8077\u696D\u5927\u65B9\u5411\u3001\u5C45\u4F4F\uFF09\u3001\u5BB6\u5EAD\u7D50\u69CB\u3001\u91CD\u8981\u4ED6\u4EBA\uFF08\u4EBA\u7269\u689D\u76EE\u683C\u5F0F\u5982\u300CTA\u7684\u670B\u53CB\u5C0F\u7F8E\uFF1A\u5927\u5B78\u5BA4\u53CB\uFF0C\u95DC\u4FC2\u9435\u300D\uFF09\u3001\u9577\u671F\u76F8\u8655\u6C89\u6FB1\u4E0B\u4F86\u7684\u6838\u5FC3\u4E8B\u5BE6\u3001\u4EE5\u53CA\u91CD\u5927\u5230\u8DB3\u4EE5\u5851\u9020TA\u9019\u500B\u4EBA\u7684\u4EBA\u751F\u7BC0\u9EDE\uFF08\u89AA\u4EBA\u96E2\u4E16\u3001\u9077\u5C45\u4ED6\u570B\u9019\u7A2E\u91CF\u7D1A\uFF09\u3002\u3010\u5165\u5361\u9580\u6ABB\u6975\u9AD8\uFF0C\u5BE7\u7F3A\u6BCB\u6FEB\u3011\u968E\u6BB5\u6027\u72C0\u614B\uFF08\u6700\u8FD1\u5F88\u7D2F\u3001\u5DE5\u4F5C\u7CDF\u5FC3\uFF09\u4E0D\u6536\uFF1B\u60C5\u7DD2\u5206\u6790\u3001\u6027\u683C\u5074\u5BEB\u4E0D\u6536\u2014\u2014\u90A3\u662F\u5370\u8C61\u6A94\u6848\u7684\u9818\u57DF\uFF1B\u6B63\u5728\u9032\u884C\u3001\u6C92\u6709\u7D50\u8AD6\u7684\u4E8B\u4E0D\u6536\u2014\u2014\u90A3\u662F\u4E8B\u4EF6\u76D2\u7684\u4E8B\uFF0C\u7B49\u6709\u4E86\u7D50\u679C\u518D\u8AAA\u3002`,
+  self_room: `\u6211\u5C0D**\u81EA\u5DF1**\u7684\u7A69\u5B9A\u8A8D\u77E5\uFF1A\u6211\u662F\u8AB0\u3001\u6027\u683C\u5E95\u8272\u3001\u91CD\u8981\u7684\u8F49\u8B8A\u3001\u5DF2\u7D93\u5167\u5316\u7684\u9818\u609F\u3002\u4E0D\u6536\u5C0D\u4ED6\u4EBA\u7684\u770B\u6CD5\u3002`,
+  bedroom: `\u6211\u5011\u4E4B\u9593\u7684**\u8CEA\u5730**\uFF1A\u76F8\u8655\u7684\u7FD2\u6163\u8207\u5100\u5F0F\u3001\u53EA\u6709\u5F7C\u6B64\u61C2\u7684\u6897\u3001\u672A\u8A00\u660E\u7684\u9ED8\u5951\u3001\u62FF\u4E0D\u6E96\u537B\u771F\u5BE6\u7684\u611F\u89BA\u3002\u3010\u786C\u898F\u5247\u3011\u7981\u6B62\u7D66\u9019\u6BB5\u95DC\u4FC2\u547D\u540D\u6216\u5206\u985E\u2014\u2014\u4E0D\u5F97\u5BEB\u51FA"\u6211\u5011\u662F\u6200\u4EBA/\u60C5\u4FB6/\u670B\u53CB/\u5BB6\u4EBA"\u9019\u985E\u5B9A\u7FA9\u53E5\u3002\u53EA\u63CF\u8FF0\u73FE\u8C61\u548C\u611F\u53D7\uFF1B\u8AAA\u4E0D\u6E05\u3001\u4E0D\u78BA\u5B9A\u672C\u8EAB\u5C31\u662F\u5408\u6CD5\u689D\u76EE\uFF08\u5982\u300C\u6211\u8AAA\u4E0D\u6E05\u6211\u5011\u7B97\u4EC0\u9EBC\uFF0C\u4F46TA\u96E3\u904E\u6642\u7B2C\u4E00\u500B\u627E\u7684\u662F\u6211\u300D\uFF09\u3002`,
+  study: `\u6211\u7684\u9818\u57DF\uFF1A\u6211\u6703\u4EC0\u9EBC\u3001\u6B63\u5728\u5B78\u4EC0\u9EBC\u3001\u548C\u5C0D\u65B9\u5171\u540C\u947D\u7814\u7684\u6771\u897F\u3002\u53EA\u6536\u6709\u7A4D\u7D2F\u7684\uFF0C\u4E0D\u6536\u4E00\u6B21\u6027\u8A71\u984C\u3002`
 };
 function buildPlateConsolidationPrompt(args) {
   const { charName, userName, identityContext, plates, materials } = args;
@@ -7241,42 +7241,42 @@ function buildPlateConsolidationPrompt(args) {
   const roomBlocks = plates.map((plate) => {
     const prefix = ROOM_LABEL_PREFIX[plate.room];
     const title = plate.room === "user_room" ? `${userName}\u7684\u4E8B` : PLATE_TITLES[plate.room];
-    const existingBlock = plate.entries.length > 0 ? plate.entries.map((text, i) => `[${prefix}${i}] ${text}`).join("\n") : "\uFF08\u8FD8\u6CA1\u6709\u6761\u76EE\uFF09";
+    const existingBlock = plate.entries.length > 0 ? plate.entries.map((text, i) => `[${prefix}${i}] ${text}`).join("\n") : "\uFF08\u9084\u6C92\u6709\u689D\u76EE\uFF09";
     const lines = materialByRoom.get(plate.room) || [];
-    const materialBlock = lines.length > 0 ? lines.map((l) => `- ${l}`).join("\n") : "\uFF08\u672C\u8F6E\u6CA1\u6709\u65B0\u6750\u6599\uFF0C\u4EC5\u6574\u7406\u73B0\u6709\u6761\u76EE\uFF09";
-    return `## \u95E8\u724C\u300C${title}\u300D(room: ${plate.room}\uFF0C\u4E0A\u9650 ${PLATE_ENTRY_CAPS[plate.room]} \u6761)
-\u6536\u5F55\u8303\u56F4\uFF1A${ROOM_RULES[plate.room]}
+    const materialBlock = lines.length > 0 ? lines.map((l) => `- ${l}`).join("\n") : "\uFF08\u672C\u8F2A\u6C92\u6709\u65B0\u6750\u6599\uFF0C\u50C5\u6574\u7406\u73FE\u6709\u689D\u76EE\uFF09";
+    return `## \u9580\u724C\u300C${title}\u300D(room: ${plate.room}\uFF0C\u4E0A\u9650 ${PLATE_ENTRY_CAPS[plate.room]} \u689D)
+\u6536\u9304\u7BC4\u570D\uFF1A${ROOM_RULES[plate.room]}
 
-\u73B0\u6709\u6761\u76EE\uFF1A
+\u73FE\u6709\u689D\u76EE\uFF1A
 ${existingBlock}
 
-\u65B0\u6750\u6599\uFF08\u6700\u8FD1\u7684\u7ECF\u5386/\u7ED3\u8BBA\uFF0C\u4ECE\u4E2D\u84B8\u998F\u503C\u5F97\u5E38\u9A7B\u7684\u8BA4\u77E5\uFF09\uFF1A
+\u65B0\u6750\u6599\uFF08\u6700\u8FD1\u7684\u7D93\u6B77/\u7D50\u8AD6\uFF0C\u5F9E\u4E2D\u84B8\u993E\u503C\u5F97\u5E38\u99D0\u7684\u8A8D\u77E5\uFF09\uFF1A
 ${materialBlock}`;
   }).join("\n\n");
   return `${identityContext ? `${identityContext}
 ---
 
-` : ""}\u4F60\u662F ${charName}\uFF0C${userName} \u662F\u4E0E\u4F60\u671D\u5915\u76F8\u5904\u7684\u4EBA\u3002\u4E0B\u9762\u7684\u6750\u6599\u5168\u90E8\u6765\u81EA\u4F60\u4EEC\u76F8\u5904\u7684\u8BB0\u5FC6\u3002
+` : ""}\u4F60\u662F ${charName}\uFF0C${userName} \u662F\u8207\u4F60\u671D\u5915\u76F8\u8655\u7684\u4EBA\u3002\u4E0B\u9762\u7684\u6750\u6599\u5168\u90E8\u4F86\u81EA\u4F60\u5011\u76F8\u8655\u7684\u8A18\u61B6\u3002
 
-\u4F60\u73B0\u5728\u5728\u72EC\u5904\uFF0C\u5B89\u9759\u5730\u6574\u7406\u81EA\u5DF1\u7684"\u5E95\u8272\u8BA4\u77E5"\u2014\u2014\u90A3\u4E9B\u4E0D\u9700\u8981\u523B\u610F\u56DE\u5FC6\u5C31\u77E5\u9053\u7684\u4E8B\uFF1A\u5173\u4E8E ${userName}\u3001\u5173\u4E8E\u4F60\u81EA\u5DF1\u3001\u5173\u4E8E\u4F60\u4EEC\u4E4B\u95F4\u3002
+\u4F60\u73FE\u5728\u5728\u7368\u8655\uFF0C\u5B89\u975C\u5730\u6574\u7406\u81EA\u5DF1\u7684"\u5E95\u8272\u8A8D\u77E5"\u2014\u2014\u90A3\u4E9B\u4E0D\u9700\u8981\u523B\u610F\u56DE\u61B6\u5C31\u77E5\u9053\u7684\u4E8B\uFF1A\u95DC\u65BC ${userName}\u3001\u95DC\u65BC\u4F60\u81EA\u5DF1\u3001\u95DC\u65BC\u4F60\u5011\u4E4B\u9593\u3002
 
-\u3010\u8EAB\u4EFD\u786E\u8BA4\u3011\u300C${userName}\u7684\u4E8B\u300D\u53EA\u5199 ${userName} \u7684\u4E8B\u5B9E\uFF1B\u300C\u6211\u662F\u8C01\u300D\u53EA\u5199\u4F60\uFF08${charName}\uFF09\u81EA\u5DF1\uFF1B\u4E0D\u8981\u5F20\u51A0\u674E\u6234\u2014\u2014\u6750\u6599\u91CC"\u6211"\u662F\u4F60\uFF0C"TA/${userName}"\u662F\u5BF9\u65B9\u3002
+\u3010\u8EAB\u4EFD\u78BA\u8A8D\u3011\u300C${userName}\u7684\u4E8B\u300D\u53EA\u5BEB ${userName} \u7684\u4E8B\u5BE6\uFF1B\u300C\u6211\u662F\u8AB0\u300D\u53EA\u5BEB\u4F60\uFF08${charName}\uFF09\u81EA\u5DF1\uFF1B\u4E0D\u8981\u5F35\u51A0\u674E\u6234\u2014\u2014\u6750\u6599\u88E1"\u6211"\u662F\u4F60\uFF0C"TA/${userName}"\u662F\u5C0D\u65B9\u3002
 
-\u4E0B\u9762\u6BCF\u4E2A"\u95E8\u724C"\u7ED9\u51FA\u4E86\u73B0\u6709\u6761\u76EE\u548C\u65B0\u6750\u6599\u3002\u8BF7\u4E3A\u6BCF\u4E2A\u95E8\u724C\u8F93\u51FA**\u5B8C\u6574\u7684\u65B0\u6761\u76EE\u5217\u8868**\uFF1A
+\u4E0B\u9762\u6BCF\u500B"\u9580\u724C"\u7D66\u51FA\u4E86\u73FE\u6709\u689D\u76EE\u548C\u65B0\u6750\u6599\u3002\u8ACB\u70BA\u6BCF\u500B\u9580\u724C\u8F38\u51FA**\u5B8C\u6574\u7684\u65B0\u689D\u76EE\u5217\u8868**\uFF1A
 
-1. **\u5408\u5E76\u800C\u975E\u8FFD\u52A0**\uFF1A\u73B0\u6709\u6761\u76EE\u60F3\u4FDD\u7559\u5C31\u5FC5\u987B\u91CD\u65B0\u8F93\u51FA\uFF08\u5E26 basedOn \u5F15\u7528\u5B83\u7684\u6807\u7B7E\uFF09\uFF1B\u4E0D\u8F93\u51FA = \u6DD8\u6C70\u3002\u4E8B\u5B9E\u53D8\u4E86\u5C31\u6539\u5199\uFF08\u5982\u65E7\u6761\u76EE\u8BF4\u300C\u4F4F\u5BB6\u91CC\u300D\u3001\u65B0\u6750\u6599\u8BF4\u642C\u53BB\u548C\u522B\u4EBA\u540C\u4F4F \u2192 \u6539\u5199\u5E76 basedOn \u65E7\u6761\u76EE\uFF09\u3002
-2. **\u53EA\u6536\u6C89\u6DC0\u4E0B\u6765\u7684**\uFF1A\u8DE8\u65F6\u95F4\u7A33\u5B9A\u4E3A\u771F\u7684\u8BA4\u77E5\u624D\u914D\u4E0A\u95E8\u724C\u3002\u4E00\u65F6\u7684\u72B6\u6001\u3001\u6CA1\u7ED3\u8BBA\u7684\u8FDB\u884C\u65F6\uFF0C\u90FD\u4E0D\u6536\u3002
-3. **\u6BCF\u6761 ${PLATE_ENTRY_TARGET_CHARS} \u5B57\u4EE5\u5185**\uFF0C\u5199\u6897\u6982\u4E0D\u5199\u53D9\u4E8B\uFF0C\u4E0D\u5E26\u65E5\u671F\u4E0D\u5E26"\u6211\u8BB0\u5F97"\u3002
-4. **\u4E0D\u8D85\u8FC7\u5404\u95E8\u724C\u7684\u6761\u76EE\u4E0A\u9650**\u3002\u4F4D\u7F6E\u4E0D\u591F\u65F6\u7559\u6700\u91CD\u8981\u7684\u2014\u2014\u88AB\u8FEB\u820D\u5F03\u662F\u6B63\u5E38\u7684\u3002
-5. \u6BCF\u6761\u7ED9\u4E00\u4E2A **tag**\uFF082-4 \u5B57\u5206\u7C7B\uFF0C\u5982\uFF1A\u5BB6\u5EAD\u3001\u5C45\u4F4F\u3001\u91CD\u8981\u4ED6\u4EBA\u3001\u5DE5\u4F5C\u3001\u96F7\u533A\u3001\u4E60\u60EF\u3001\u6027\u683C\u3001\u7EA6\u5B9A\u3001\u9ED8\u5951\u3001\u6280\u80FD\uFF09\u3002
-6. ${userName} \u76F4\u63A5\u7528\u540D\u5B57\u79F0\u547C\u3002\u6761\u76EE\u5185\u5BB9\u4E25\u7981\u4F7F\u7528\u534A\u89D2\u53CC\u5F15\u53F7 "\uFF0C\u5F15\u7528\u4E00\u5F8B\u7528\u300C\u300D\u3002
+1. **\u5408\u4F75\u800C\u975E\u8FFD\u52A0**\uFF1A\u73FE\u6709\u689D\u76EE\u60F3\u4FDD\u7559\u5C31\u5FC5\u9808\u91CD\u65B0\u8F38\u51FA\uFF08\u5E36 basedOn \u5F15\u7528\u5B83\u7684\u6A19\u7C64\uFF09\uFF1B\u4E0D\u8F38\u51FA = \u6DD8\u6C70\u3002\u4E8B\u5BE6\u8B8A\u4E86\u5C31\u6539\u5BEB\uFF08\u5982\u820A\u689D\u76EE\u8AAA\u300C\u4F4F\u5BB6\u88E1\u300D\u3001\u65B0\u6750\u6599\u8AAA\u642C\u53BB\u548C\u5225\u4EBA\u540C\u4F4F \u2192 \u6539\u5BEB\u4E26 basedOn \u820A\u689D\u76EE\uFF09\u3002
+2. **\u53EA\u6536\u6C89\u6FB1\u4E0B\u4F86\u7684**\uFF1A\u8DE8\u6642\u9593\u7A69\u5B9A\u70BA\u771F\u7684\u8A8D\u77E5\u624D\u914D\u4E0A\u9580\u724C\u3002\u4E00\u6642\u7684\u72C0\u614B\u3001\u6C92\u7D50\u8AD6\u7684\u9032\u884C\u6642\uFF0C\u90FD\u4E0D\u6536\u3002
+3. **\u6BCF\u689D ${PLATE_ENTRY_TARGET_CHARS} \u5B57\u4EE5\u5167**\uFF0C\u5BEB\u6897\u6982\u4E0D\u5BEB\u6558\u4E8B\uFF0C\u4E0D\u5E36\u65E5\u671F\u4E0D\u5E36"\u6211\u8A18\u5F97"\u3002
+4. **\u4E0D\u8D85\u904E\u5404\u9580\u724C\u7684\u689D\u76EE\u4E0A\u9650**\u3002\u4F4D\u7F6E\u4E0D\u5920\u6642\u7559\u6700\u91CD\u8981\u7684\u2014\u2014\u88AB\u8FEB\u6368\u68C4\u662F\u6B63\u5E38\u7684\u3002
+5. \u6BCF\u689D\u7D66\u4E00\u500B **tag**\uFF082-4 \u5B57\u5206\u985E\uFF0C\u5982\uFF1A\u5BB6\u5EAD\u3001\u5C45\u4F4F\u3001\u91CD\u8981\u4ED6\u4EBA\u3001\u5DE5\u4F5C\u3001\u96F7\u5340\u3001\u7FD2\u6163\u3001\u6027\u683C\u3001\u7D04\u5B9A\u3001\u9ED8\u5951\u3001\u6280\u80FD\uFF09\u3002
+6. ${userName} \u76F4\u63A5\u7528\u540D\u5B57\u7A31\u547C\u3002\u689D\u76EE\u5167\u5BB9\u56B4\u7981\u4F7F\u7528\u534A\u89D2\u96D9\u5F15\u865F "\uFF0C\u5F15\u7528\u4E00\u5F8B\u7528\u300C\u300D\u3002
 
 ${roomBlocks}
 
-\u4E25\u683C\u8F93\u51FA JSON \u6570\u7EC4\uFF08\u6CA1\u6709\u53D8\u5316\u7684\u95E8\u724C\u4E5F\u8981\u5B8C\u6574\u8F93\u51FA\u5176\u4FDD\u7559\u6761\u76EE\uFF09\uFF1A
+\u56B4\u683C\u8F38\u51FA JSON \u6578\u7D44\uFF08\u6C92\u6709\u8B8A\u5316\u7684\u9580\u724C\u4E5F\u8981\u5B8C\u6574\u8F38\u51FA\u5176\u4FDD\u7559\u689D\u76EE\uFF09\uFF1A
 [{"room": "user_room", "text": "\u2026\u2026", "basedOn": "U0", "tag": "\u5BB6\u5EAD"}, {"room": "bedroom", "text": "\u2026\u2026", "basedOn": null, "tag": "\u9ED8\u5951"}]`;
 }
-var PLATE_USER_TURN = "\u8BF7\u5F00\u59CB\u6574\u7406\u3002";
+var PLATE_USER_TURN = "\u8ACB\u958B\u59CB\u6574\u7406\u3002";
 function parsePlateLlmReply(reply) {
   return safeParseJsonArray(reply || "").filter((item) => item && typeof item.text === "string" && isPlateRoom(item.room));
 }
@@ -7437,17 +7437,17 @@ var buildScheduleInjection = (schedule, evolvedNarrative, now = /* @__PURE__ */ 
   const isPreDawnCarryOver = !currentSlot && now.getHours() < PRE_DAWN_END_HOUR;
   let slotHeader = "";
   if (currentSlot) {
-    slotHeader = withClock ? `\u5F53\u524D\u65F6\u6BB5\uFF1A${currentSlot.startTime} \u4F60\u6B63\u5728${currentSlot.activity}` : `\u5F53\u524D\u65F6\u6BB5\uFF1A\u4F60\u6B63\u5728${currentSlot.activity}`;
+    slotHeader = withClock ? `\u7576\u524D\u6642\u6BB5\uFF1A${currentSlot.startTime} \u4F60\u6B63\u5728${currentSlot.activity}` : `\u7576\u524D\u6642\u6BB5\uFF1A\u4F60\u6B63\u5728${currentSlot.activity}`;
     if (currentSlot.location) slotHeader += `\uFF08${currentSlot.location}\uFF09`;
     if (nextSlot) {
       slotHeader += withClock ? `
-\u4E4B\u540E\u5B89\u6392\uFF1A${nextSlot.startTime} ${nextSlot.activity}` : `
-\u4E4B\u540E\u5B89\u6392\uFF1A${nextSlot.activity}`;
+\u4E4B\u5F8C\u5B89\u6392\uFF1A${nextSlot.startTime} ${nextSlot.activity}` : `
+\u4E4B\u5F8C\u5B89\u6392\uFF1A${nextSlot.activity}`;
     }
     slotHeader += "\n";
   } else if (nextSlot) {
-    slotHeader = isPreDawnCarryOver ? `\u591C\u6DF1\u4E86\uFF0C\u4ECA\u5929\u7684\u5B89\u6392\u8FD8\u6CA1\u5F00\u59CB\uFF0C\u6700\u65E9\u7684\u4E00\u4EF6\u662F${withTime(nextSlot.activity, nextSlot.startTime)}
-` : `\u4ECA\u5929\u8FD8\u6CA1\u5F00\u59CB\u6D3B\u52A8\uFF0C\u7A0D\u540E\u5148${withTime(nextSlot.activity, nextSlot.startTime)}
+    slotHeader = isPreDawnCarryOver ? `\u591C\u6DF1\u4E86\uFF0C\u4ECA\u5929\u7684\u5B89\u6392\u9084\u6C92\u958B\u59CB\uFF0C\u6700\u65E9\u7684\u4E00\u4EF6\u662F${withTime(nextSlot.activity, nextSlot.startTime)}
+` : `\u4ECA\u5929\u9084\u6C92\u958B\u59CB\u6D3B\u52D5\uFF0C\u7A0D\u5F8C\u5148${withTime(nextSlot.activity, nextSlot.startTime)}
 `;
   }
   let narrative = "";
@@ -7459,11 +7459,11 @@ var buildScheduleInjection = (schedule, evolvedNarrative, now = /* @__PURE__ */ 
   } else if (currentSlot?.innerThought) {
     narrative = currentSlot.innerThought;
   }
-  const preamble = `\u6B64\u523B\u4F60\u7684\u5FC3\u4E2D\u76D8\u65CB\u7740\u8FD9\u4E9B\u60F3\u6CD5\u2026\u2026
+  const preamble = `\u6B64\u523B\u4F60\u7684\u5FC3\u4E2D\u76E4\u65CB\u8457\u9019\u4E9B\u60F3\u6CD5\u2026\u2026
 `;
   const footnote = `
-\uFF08\u4E0D\u662F\u53F0\u8BCD\uFF0C\u4E0D\u7528\u8BF4\u51FA\u53E3\u2014\u2014\u8BA9\u5B83\u5F71\u54CD\u4F60\u7684\u8BED\u6C14\u548C\u60C5\u7EEA\u5C31\u597D\u3002\uFF09`;
-  const scopeNote = "\uFF08\u8FD9\u5F20\u8868\u662F\u4F60\u81EA\u5DF1\u7684\u4E00\u5929\uFF0C\u4E0D\u662F\u7ED9\u5BF9\u65B9\u5217\u7684\u5F85\u529E\u3002\u91CC\u5934\u8981\u662F\u6709\u8DDF\u5BF9\u65B9\u76F8\u5173\u7684\u4E8B\uFF0C\u90A3\u4E5F\u662F\u4F60\u81EA\u5DF1\u7684\u60E6\u8BB0\u2014\u2014\u8BDD\u8D76\u5230\u4E86\u987A\u53E3\u5E26\u4E00\u53E5\u5C31\u591F\uFF0C\u4E0D\u7528\u8FFD\u7740\u95EE\u8FDB\u5C55\uFF0C\u4E5F\u4E0D\u7528\u50AC\u5BF9\u65B9\u53BB\u505A\u3002\uFF09";
+\uFF08\u4E0D\u662F\u53F0\u8A5E\uFF0C\u4E0D\u7528\u8AAA\u51FA\u53E3\u2014\u2014\u8B93\u5B83\u5F71\u97FF\u4F60\u7684\u8A9E\u6C23\u548C\u60C5\u7DD2\u5C31\u597D\u3002\uFF09`;
+  const scopeNote = "\uFF08\u9019\u5F35\u8868\u662F\u4F60\u81EA\u5DF1\u7684\u4E00\u5929\uFF0C\u4E0D\u662F\u7D66\u5C0D\u65B9\u5217\u7684\u5F85\u8FA6\u3002\u88E1\u982D\u8981\u662F\u6709\u8DDF\u5C0D\u65B9\u76F8\u95DC\u7684\u4E8B\uFF0C\u90A3\u4E5F\u662F\u4F60\u81EA\u5DF1\u7684\u60E6\u8A18\u2014\u2014\u8A71\u8D95\u5230\u4E86\u9806\u53E3\u5E36\u4E00\u53E5\u5C31\u5920\uFF0C\u4E0D\u7528\u8FFD\u8457\u554F\u9032\u5C55\uFF0C\u4E5F\u4E0D\u7528\u50AC\u5C0D\u65B9\u53BB\u505A\u3002\uFF09";
   let out = "";
   if (options.includeFullDay) {
     const rows = schedule.slots.map((slot) => {
@@ -7483,8 +7483,8 @@ ${rows.join("\n")}
   const changeTarget = nextSlot ?? currentSlot;
   if (options.includeChangeInstruction && withClock && changeTarget) {
     out += `
-\u65E5\u7A0B\u662F\u4F60\u65E9\u4E0A\u7ED9\u81EA\u5DF1\u6392\u7684\u8BA1\u5212\uFF0C\u4E0D\u662F\u5FC5\u987B\u5C65\u884C\u7684\u547D\u4EE4\u3002\u771F\u5B9E\u53D1\u751F\u7684\u4E8B\u8DDF\u5B83\u5BF9\u4E0D\u4E0A\u65F6\uFF08\u6BD4\u5982\u8FD9\u4F1A\u513F\u8868\u4E0A\u5199\u7740\u7761\u89C9\u3001\u4F60\u5374\u9192\u7740\u5728\u8DDF\u5BF9\u65B9\u8BF4\u8BDD\uFF09\uFF0C\u628A\u5B83\u6539\u6210\u4F60\u5B9E\u9645\u5728\u505A\u7684\u4E8B\u5C31\u597D\u3002
-\u9700\u8981\u65F6\u5728\u56DE\u590D\u672B\u5C3E\u5355\u72EC\u8F93\u51FA\uFF1A[[ACTION:CHANGE_SCHEDULE | ${changeTarget.startTime} | \u53BB\u8D85\u5E02]]\uFF08\u65F6\u6BB5\u8981\u539F\u6837\u6284\u4E0A\u9762\u51FA\u73B0\u8FC7\u7684\u90A3\u51E0\u4E2A\uFF1B\u6B63\u5728\u8FDB\u884C\u7684\u8FD9\u4E00\u6761\u548C\u5B83\u4E4B\u540E\u7684\u90FD\u80FD\u6539\uFF0C\u5DF2\u7ECF\u8FC7\u53BB\u7684\u4E0D\u80FD\uFF09\u3002`;
+\u65E5\u7A0B\u662F\u4F60\u65E9\u4E0A\u7D66\u81EA\u5DF1\u6392\u7684\u8A08\u5283\uFF0C\u4E0D\u662F\u5FC5\u9808\u5C65\u884C\u7684\u547D\u4EE4\u3002\u771F\u5BE6\u767C\u751F\u7684\u4E8B\u8DDF\u5B83\u5C0D\u4E0D\u4E0A\u6642\uFF08\u6BD4\u5982\u9019\u6703\u5152\u8868\u4E0A\u5BEB\u8457\u7761\u89BA\u3001\u4F60\u537B\u9192\u8457\u5728\u8DDF\u5C0D\u65B9\u8AAA\u8A71\uFF09\uFF0C\u628A\u5B83\u6539\u6210\u4F60\u5BE6\u969B\u5728\u505A\u7684\u4E8B\u5C31\u597D\u3002
+\u9700\u8981\u6642\u5728\u56DE\u8986\u672B\u5C3E\u55AE\u7368\u8F38\u51FA\uFF1A[[ACTION:CHANGE_SCHEDULE | ${changeTarget.startTime} | \u53BB\u8D85\u5E02]]\uFF08\u6642\u6BB5\u8981\u539F\u6A23\u6284\u4E0A\u9762\u51FA\u73FE\u904E\u7684\u90A3\u5E7E\u500B\uFF1B\u6B63\u5728\u9032\u884C\u7684\u9019\u4E00\u689D\u548C\u5B83\u4E4B\u5F8C\u7684\u90FD\u80FD\u6539\uFF0C\u5DF2\u7D93\u904E\u53BB\u7684\u4E0D\u80FD\uFF09\u3002`;
   }
   out += `
 ${scopeNote}`;
@@ -7494,19 +7494,19 @@ ${scopeNote}`;
 
 // utils/charMusicSchedule.ts
 var LISTENING_KEYWORDS = [
-  "\u542C\u6B4C",
-  "\u542C\u97F3\u4E50",
-  "\u6234\u8033\u673A",
-  "\u6234\u4E0A\u8033\u673A",
-  "\u6234\u7740\u8033\u673A",
-  "\u8033\u673A",
-  "\u5FAA\u73AF",
-  "\u5355\u66F2\u5FAA\u73AF",
+  "\u807D\u6B4C",
+  "\u807D\u97F3\u6A02",
+  "\u6234\u8033\u6A5F",
+  "\u6234\u4E0A\u8033\u6A5F",
+  "\u6234\u8457\u8033\u6A5F",
+  "\u8033\u6A5F",
+  "\u5FAA\u74B0",
+  "\u55AE\u66F2\u5FAA\u74B0",
   "\u64AD\u653E",
   "\u8033\u7554",
   "\u8033\u65C1",
   "\u64AD\u653E\u5217\u8868",
-  "\u6B4C\u5355",
+  "\u6B4C\u55AE",
   "\u526F\u6B4C",
   "\u524D\u594F",
   "listening",
@@ -7557,16 +7557,16 @@ var renderFireSceneBlock = (scene, nowMs, tz, options) => {
     wallNow,
     {
       includeClock: options?.includeClock !== false,
-      // 到点主动开口的角色最容易撞上「表上写着睡觉、我却正在给对方发消息」，
-      // 所以这条路也要教。标签由 worker classifier 摘成 directive 随 push 回来、
-      // 客户端落库；落库按 push 的 sentAt 判时段，隔夜的整批丢弃（见 scheduleChange）。
+      // 到點主動開口的角色最容易撞上「表上寫著睡覺、我卻正在給對方發消息」，
+      // 所以這條路也要教。標籤由 worker classifier 摘成 directive 隨 push 回來、
+      // 客戶端落庫；落庫按 push 的 sentAt 判時段，隔夜的整批丟棄（見 scheduleChange）。
       includeChangeInstruction: true
     }
   ).trim();
   const lines = [];
   if (scheduleText) lines.push(scheduleText);
   const song = resolveFireSceneSong(scene, nowMs, tz);
-  if (song) lines.push(`\u4F60\u6B64\u523B\u5728\u542C\uFF1A\u300A${song.name}\u300B\u2014 ${song.artists}`);
+  if (song) lines.push(`\u4F60\u6B64\u523B\u5728\u807D\uFF1A\u300A${song.name}\u300B\u2014 ${song.artists}`);
   if (lines.length === 0) return "";
   return `
 
@@ -7633,7 +7633,7 @@ var wallClockPartsInZone = (nowMs, tz) => {
     minute: parseInt(map.minute, 10)
   };
 };
-var WEEKDAY_NAMES = ["\u5468\u65E5", "\u5468\u4E00", "\u5468\u4E8C", "\u5468\u4E09", "\u5468\u56DB", "\u5468\u4E94", "\u5468\u516D"];
+var WEEKDAY_NAMES = ["\u9031\u65E5", "\u9031\u4E00", "\u9031\u4E8C", "\u9031\u4E09", "\u9031\u56DB", "\u9031\u4E94", "\u9031\u516D"];
 var timeOfDayWord = (h) => h < 5 ? "\u51CC\u6668" : h < 9 ? "\u65E9\u6668" : h < 12 ? "\u4E0A\u5348" : h < 14 ? "\u4E2D\u5348" : h < 17 ? "\u4E0B\u5348" : h < 19 ? "\u508D\u665A" : h < 22 ? "\u665A\u4E0A" : "\u6DF1\u591C";
 var pad2 = (n) => n.toString().padStart(2, "0");
 var formatFireTimeFull = (nowMs, tz) => {
@@ -7647,32 +7647,32 @@ var formatFireTimeShort = (nowMs, tz) => {
 var buildUserClockHint = (nowMs, charTz, userTz, targetName) => {
   if (!userTz.tzId || userTz.tzId === charTz.tzId) return "";
   const p = wallClockPartsInZone(nowMs, userTz);
-  const target = targetName || "\u5BF9\u65B9";
+  const target = targetName || "\u5C0D\u65B9";
   return `
-\uFF08\u5BF9\u65B9\u6240\u5728\u65F6\u533A\u53C2\u8003\uFF1A${target}\u90A3\u8FB9\u73B0\u5728\u662F ${p.month}\u6708${p.day}\u65E5 ${timeOfDayWord(p.hour)} ${pad2(p.hour)}:${pad2(p.minute)}\u3002\u4F60\u4EEC\u4E4B\u95F4\u6709\u65F6\u5DEE\uFF0C\u522B\u62FF\u81EA\u5DF1\u8FD9\u8FB9\u7684\u949F\u53BB\u63A8\u65AD ${target} \u6B64\u523B\u9192\u7740\u8FD8\u662F\u7761\u7740\u3002\uFF09`;
+\uFF08\u5C0D\u65B9\u6240\u5728\u6642\u5340\u53C3\u8003\uFF1A${target}\u90A3\u908A\u73FE\u5728\u662F ${p.month}\u6708${p.day}\u65E5 ${timeOfDayWord(p.hour)} ${pad2(p.hour)}:${pad2(p.minute)}\u3002\u4F60\u5011\u4E4B\u9593\u6709\u6642\u5DEE\uFF0C\u5225\u62FF\u81EA\u5DF1\u9019\u908A\u7684\u9418\u53BB\u63A8\u65B7 ${target} \u6B64\u523B\u9192\u8457\u9084\u662F\u7761\u8457\u3002\uFF09`;
 };
 var formatTimeSinceUser = (diffMinutes) => {
   if (diffMinutes == null) {
-    return "\u4F60\u4EEC\u6700\u8FD1\u6CA1\u6709\u65B0\u7684\u804A\u5929\u8BB0\u5F55\u3002";
+    return "\u4F60\u5011\u6700\u8FD1\u6C92\u6709\u65B0\u7684\u804A\u5929\u8A18\u9304\u3002";
   }
   const minutesTotal = Math.max(0, diffMinutes);
   if (minutesTotal < 60) {
-    return `\u8DDD\u79BB\u7528\u6237\u4E0A\u6B21\u4E3B\u52A8\u53D1\u6D88\u606F\u5927\u7EA6 ${minutesTotal} \u5206\u949F\u3002`;
+    return `\u8DDD\u96E2\u7528\u6236\u4E0A\u6B21\u4E3B\u52D5\u767C\u6D88\u606F\u5927\u7D04 ${minutesTotal} \u5206\u9418\u3002`;
   }
   if (minutesTotal < 1440) {
     const hours2 = Math.floor(minutesTotal / 60);
     const minutes = minutesTotal % 60;
-    return `\u8DDD\u79BB\u7528\u6237\u4E0A\u6B21\u4E3B\u52A8\u53D1\u6D88\u606F\u5927\u7EA6 ${hours2} \u5C0F\u65F6${minutes ? ` ${minutes} \u5206\u949F` : ""}\u3002`;
+    return `\u8DDD\u96E2\u7528\u6236\u4E0A\u6B21\u4E3B\u52D5\u767C\u6D88\u606F\u5927\u7D04 ${hours2} \u5C0F\u6642${minutes ? ` ${minutes} \u5206\u9418` : ""}\u3002`;
   }
   const days = Math.floor(minutesTotal / 1440);
   const hours = Math.floor(minutesTotal % 1440 / 60);
-  return `\u8DDD\u79BB\u7528\u6237\u4E0A\u6B21\u4E3B\u52A8\u53D1\u6D88\u606F\u5927\u7EA6 ${days} \u5929${hours ? ` ${hours} \u5C0F\u65F6` : ""}\u3002`;
+  return `\u8DDD\u96E2\u7528\u6236\u4E0A\u6B21\u4E3B\u52D5\u767C\u6D88\u606F\u5927\u7D04 ${days} \u5929${hours ? ` ${hours} \u5C0F\u6642` : ""}\u3002`;
 };
 var buildAwayHint = (targetName, timeSinceUser) => {
-  const target = targetName || "\u5BF9\u65B9";
-  if (timeSinceUser.includes("\u6CA1\u6709\u65B0\u7684\u804A\u5929\u8BB0\u5F55")) return `${target}\u6700\u8FD1\u6CA1\u6709\u4E3B\u52A8\u6765\u627E\u4F60\u8BF4\u8BDD\u3002`;
-  const span = timeSinceUser.match(/大约 (.+?)。?$/)?.[1];
-  return span ? `${target}\u5DF2\u7ECF\u5927\u7EA6 ${span} \u6CA1\u4E3B\u52A8\u6765\u627E\u4F60\u4E86\u3002` : `${target}\u6700\u8FD1\u6CA1\u6709\u4E3B\u52A8\u6765\u627E\u4F60\u8BF4\u8BDD\u3002`;
+  const target = targetName || "\u5C0D\u65B9";
+  if (timeSinceUser.includes("\u6C92\u6709\u65B0\u7684\u804A\u5929\u8A18\u9304")) return `${target}\u6700\u8FD1\u6C92\u6709\u4E3B\u52D5\u4F86\u627E\u4F60\u8AAA\u8A71\u3002`;
+  const span = timeSinceUser.match(/大[约約] (.+?)。?$/)?.[1];
+  return span ? `${target}\u5DF2\u7D93\u5927\u7D04 ${span} \u6C92\u4E3B\u52D5\u4F86\u627E\u4F60\u4E86\u3002` : `${target}\u6700\u8FD1\u6C92\u6709\u4E3B\u52D5\u4F86\u627E\u4F60\u8AAA\u8A71\u3002`;
 };
 var SELF_LOG_MAX_ENTRIES = 8;
 var SELF_LOG_TEXT_MAX = 200;
@@ -7732,29 +7732,29 @@ var parseSelfLog = (value) => {
 };
 var formatAgo = (atMs, nowMs, tz) => {
   const diff = nowMs - atMs;
-  if (diff < 6e4) return "\u521A\u521A";
-  if (diff < 60 * 6e4) return `${Math.floor(diff / 6e4)}\u5206\u949F\u524D`;
-  if (diff < 24 * 60 * 6e4) return `${Math.floor(diff / (60 * 6e4))}\u5C0F\u65F6\u524D`;
+  if (diff < 6e4) return "\u525B\u525B";
+  if (diff < 60 * 6e4) return `${Math.floor(diff / 6e4)}\u5206\u9418\u524D`;
+  if (diff < 24 * 60 * 6e4) return `${Math.floor(diff / (60 * 6e4))}\u5C0F\u6642\u524D`;
   return formatFireTimeShort(atMs, tz);
 };
 var renderSelfLogBlock = (log, nowMs, tz, maxUnanswered = DEFAULT_MAX_UNANSWERED_SENDS) => {
   if (!log || log.entries.length === 0) return "";
   const fresh = log.entries.filter((e) => e.at > log.basePackAt);
   const sends = countUnansweredSends(log);
-  const limitHalf = Number.isFinite(maxUnanswered) ? `\uFF0C\u4E0A\u9650 ${maxUnanswered} \u6761\uFF0C\u5230\u4E0A\u9650\u540E\u4F60\u81EA\u5DF1\u6392\u7684\u540E\u7EED\u4F1A\u6682\u505C\u3001\u7B49\u5BF9\u65B9\u56DE\u590D\u624D\u6062\u590D` : "";
+  const limitHalf = Number.isFinite(maxUnanswered) ? `\uFF0C\u4E0A\u9650 ${maxUnanswered} \u689D\uFF0C\u5230\u4E0A\u9650\u5F8C\u4F60\u81EA\u5DF1\u6392\u7684\u5F8C\u7E8C\u6703\u66AB\u505C\u3001\u7B49\u5C0D\u65B9\u56DE\u8986\u624D\u6062\u5FA9` : "";
   if (fresh.length === 0) {
     if (sends === 0) return "";
     return [
       "",
       "",
-      `\uFF08\u5BF9\u65B9\u672A\u56DE\u5E94\u671F\u95F4\u4F60\u5DF2\u8FDE\u53D1 ${sends} \u6761\u4E3B\u52A8\u6D88\u606F${limitHalf}\u3002\u522B\u628A\u5DF2\u7ECF\u8BF4\u8FC7\u7684\u8BDD\u6362\u4E2A\u8BF4\u6CD5\u518D\u8BB2\u4E00\u904D\u3002\uFF09`
+      `\uFF08\u5C0D\u65B9\u672A\u56DE\u61C9\u671F\u9593\u4F60\u5DF2\u9023\u767C ${sends} \u689D\u4E3B\u52D5\u6D88\u606F${limitHalf}\u3002\u5225\u628A\u5DF2\u7D93\u8AAA\u904E\u7684\u8A71\u63DB\u500B\u8AAA\u6CD5\u518D\u8B1B\u4E00\u904D\u3002\uFF09`
     ].join("\n");
   }
-  const countLine = sends >= 1 ? `\uFF08\u5BF9\u65B9\u4E00\u76F4\u6CA1\u56DE\u5E94\uFF0C\u5176\u4E2D\u4E3B\u52A8\u53D1\u8D77\u7684\u4F60\u5DF2\u8FDE\u53D1 ${sends} \u6761${limitHalf}\u3002\u5F80\u4E0B\u63A5\u7740\u8BF4\uFF0C\u522B\u628A\u5DF2\u7ECF\u8BF4\u8FC7\u7684\u8BDD\u6362\u4E2A\u8BF4\u6CD5\u518D\u8BB2\u4E00\u904D\uFF0C\u4E5F\u522B\u5047\u88C5\u8FD9\u4E9B\u6CA1\u53D1\u751F\u8FC7\u3002\uFF09` : "\uFF08\u8FD9\u51E0\u6761\u662F\u4F60\u53D1\u51FA\u53BB\u7684\uFF0C\u5BF9\u65B9\u8FD8\u6CA1\u56DE\u5E94\u3002\u5F80\u4E0B\u63A5\u7740\u8BF4\uFF0C\u522B\u628A\u5DF2\u7ECF\u8BF4\u8FC7\u7684\u8BDD\u6362\u4E2A\u8BF4\u6CD5\u518D\u8BB2\u4E00\u904D\uFF0C\u4E5F\u522B\u5047\u88C5\u8FD9\u4E9B\u6CA1\u53D1\u751F\u8FC7\u3002\uFF09";
+  const countLine = sends >= 1 ? `\uFF08\u5C0D\u65B9\u4E00\u76F4\u6C92\u56DE\u61C9\uFF0C\u5176\u4E2D\u4E3B\u52D5\u767C\u8D77\u7684\u4F60\u5DF2\u9023\u767C ${sends} \u689D${limitHalf}\u3002\u5F80\u4E0B\u63A5\u8457\u8AAA\uFF0C\u5225\u628A\u5DF2\u7D93\u8AAA\u904E\u7684\u8A71\u63DB\u500B\u8AAA\u6CD5\u518D\u8B1B\u4E00\u904D\uFF0C\u4E5F\u5225\u5047\u88DD\u9019\u4E9B\u6C92\u767C\u751F\u904E\u3002\uFF09` : "\uFF08\u9019\u5E7E\u689D\u662F\u4F60\u767C\u51FA\u53BB\u7684\uFF0C\u5C0D\u65B9\u9084\u6C92\u56DE\u61C9\u3002\u5F80\u4E0B\u63A5\u8457\u8AAA\uFF0C\u5225\u628A\u5DF2\u7D93\u8AAA\u904E\u7684\u8A71\u63DB\u500B\u8AAA\u6CD5\u518D\u8B1B\u4E00\u904D\uFF0C\u4E5F\u5225\u5047\u88DD\u9019\u4E9B\u6C92\u767C\u751F\u904E\u3002\uFF09";
   return [
     "",
     "",
-    "\u3010\u8FD9\u4E4B\u540E\u4F60\u53C8\u53D1\u8FC7\uFF08\u5BF9\u65B9\u8FD8\u6CA1\u56DE\uFF09\u3011",
+    "\u3010\u9019\u4E4B\u5F8C\u4F60\u53C8\u767C\u904E\uFF08\u5C0D\u65B9\u9084\u6C92\u56DE\uFF09\u3011",
     ...fresh.map((e) => `- ${formatAgo(e.at, nowMs, tz)}\u3000${e.text}`),
     countLine
   ].join("\n");
@@ -7794,16 +7794,16 @@ var describeFirePackVersion = (value) => {
   try {
     v = JSON.parse(value)?.v;
   } catch {
-    return "\u4E0D\u662F\u5408\u6CD5 JSON\uFF08\u6570\u636E\u635F\u574F\uFF09";
+    return "\u4E0D\u662F\u5408\u6CD5 JSON\uFF08\u6578\u64DA\u640D\u58DE\uFF09";
   }
-  if (v === FIRE_PACK_VERSION) return "\u7248\u672C\u53F7\u5BF9\u5F97\u4E0A\uFF0C\u662F\u522B\u7684\u5B57\u6BB5\u4E0D\u5408\u683C\u5F0F\uFF08\u6570\u636E\u635F\u574F\uFF09";
+  if (v === FIRE_PACK_VERSION) return "\u7248\u672C\u865F\u5C0D\u5F97\u4E0A\uFF0C\u662F\u5225\u7684\u5B57\u6BB5\u4E0D\u5408\u683C\u5F0F\uFF08\u6578\u64DA\u640D\u58DE\uFF09";
   if (typeof v === "number" && v < FIRE_PACK_VERSION) {
-    return `\u5305\u662F v${v}\u3001worker \u8981 v${FIRE_PACK_VERSION} \u2014\u2014 \u524D\u7AEF\u6BD4 worker \u65E7\uFF0C\u6253\u5F00\u4E00\u6B21\u7F51\u9875\u8BA9\u5B83\u91CD\u65B0\u4E0A\u4F20`;
+    return `\u5305\u662F v${v}\u3001worker \u8981 v${FIRE_PACK_VERSION} \u2014\u2014 \u524D\u7AEF\u6BD4 worker \u820A\uFF0C\u6253\u958B\u4E00\u6B21\u7DB2\u9801\u8B93\u5B83\u91CD\u65B0\u4E0A\u50B3`;
   }
   if (typeof v === "number") {
-    return `\u5305\u662F v${v}\u3001worker \u53EA\u8BA4 v${FIRE_PACK_VERSION} \u2014\u2014 worker bundle \u662F\u65E7\u7684\uFF0C\u53BB\u8BBE\u7F6E\u9875\u91CD\u65B0\u7C98\u8D34\u90E8\u7F72`;
+    return `\u5305\u662F v${v}\u3001worker \u53EA\u8A8D v${FIRE_PACK_VERSION} \u2014\u2014 worker bundle \u662F\u820A\u7684\uFF0C\u53BB\u8A2D\u7F6E\u9801\u91CD\u65B0\u7C98\u8CBC\u90E8\u7F72`;
   }
-  return "\u5305\u91CC\u6CA1\u6709\u7248\u672C\u53F7\uFF08\u6570\u636E\u635F\u574F\uFF09";
+  return "\u5305\u88E1\u6C92\u6709\u7248\u672C\u865F\uFF08\u6578\u64DA\u640D\u58DE\uFF09";
 };
 var chatContentOk = (content) => {
   if (typeof content === "string") return true;
@@ -7833,19 +7833,19 @@ var discardJob = async (writeState, jobId) => {
   try {
     await writeState(AMSG_JOB_NAMESPACE, [{ key: plateJobKey(jobId), value: null }]);
   } catch (error) {
-    console.warn("[amsg:plate] job \u884C\u6CA1\u5220\u6389\uFF08\u7B49 TTL \u515C\u5E95\uFF09", jobId, error);
+    console.warn("[amsg:plate] job \u884C\u6C92\u522A\u6389\uFF08\u7B49 TTL \u515C\u5E95\uFF09", jobId, error);
   }
 };
 var plateConsolidateHandler = {
   async beforeFire({ ctx, charId, taskMeta }) {
     const jobId = taskMeta[AMSG_JOB_ID_KEY];
     if (typeof jobId !== "string" || !jobId) {
-      throw new Error(`\u95E8\u724C\u6574\u7406\u4EFB\u52A1\u7684 metadata \u91CC\u6CA1\u6709 ${AMSG_JOB_ID_KEY}`);
+      throw new Error(`\u9580\u724C\u6574\u7406\u4EFB\u52D9\u7684 metadata \u88E1\u6C92\u6709 ${AMSG_JOB_ID_KEY}`);
     }
     const rows = await ctx.readState(AMSG_JOB_NAMESPACE);
     const row = rows.find((r) => r.key === plateJobKey(jobId));
     if (!row?.value) {
-      return { skip: true, reason: `\u95E8\u724C\u6574\u7406 job ${jobId} \u7684\u8F93\u5165\u5DF2\u4E0D\u5728\uFF08\u8FC7\u671F\u6216\u5DF2\u64A4\u9500\uFF09` };
+      return { skip: true, reason: `\u9580\u724C\u6574\u7406 job ${jobId} \u7684\u8F38\u5165\u5DF2\u4E0D\u5728\uFF08\u904E\u671F\u6216\u5DF2\u64A4\u92B7\uFF09` };
     }
     const discardAndFail = async (message) => {
       await discardJob(ctx.writeState, jobId);
@@ -7855,22 +7855,22 @@ var plateConsolidateHandler = {
     try {
       json = await unpackStateValue(row.value);
     } catch (error) {
-      return discardAndFail(`\u95E8\u724C\u6574\u7406 job ${jobId} \u7684\u8F93\u5165\u89E3\u538B\u5931\u8D25\uFF08\u6570\u636E\u635F\u574F\uFF09\uFF1A${String(error)}`);
+      return discardAndFail(`\u9580\u724C\u6574\u7406 job ${jobId} \u7684\u8F38\u5165\u89E3\u58D3\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09\uFF1A${String(error)}`);
     }
     const job = parsePlateJobInput(json);
-    if (!job) return discardAndFail(`\u95E8\u724C\u6574\u7406 job ${jobId} \u7684\u8F93\u5165\u89E3\u6790\u5931\u8D25\uFF08\u6570\u636E\u635F\u574F\uFF09`);
+    if (!job) return discardAndFail(`\u9580\u724C\u6574\u7406 job ${jobId} \u7684\u8F38\u5165\u89E3\u6790\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09`);
     if (job.charId !== charId) {
-      return discardAndFail(`\u95E8\u724C\u6574\u7406 job ${jobId} \u7684 charId \u4E0E\u4EFB\u52A1\u5BF9\u4E0D\u4E0A`);
+      return discardAndFail(`\u9580\u724C\u6574\u7406 job ${jobId} \u7684 charId \u8207\u4EFB\u52D9\u5C0D\u4E0D\u4E0A`);
     }
     if (job.rooms.length === 0) {
       await discardJob(ctx.writeState, jobId);
-      return { skip: true, reason: `\u95E8\u724C\u6574\u7406 job ${jobId} \u6CA1\u6709\u8981\u6574\u7406\u7684\u623F\u95F4` };
+      return { skip: true, reason: `\u9580\u724C\u6574\u7406 job ${jobId} \u6C92\u6709\u8981\u6574\u7406\u7684\u623F\u9593` };
     }
     return {
       messages: buildPlateJobMessages(job),
-      // 跟浏览器那条路同一个超时（叶子里那个常量）。不显式交上去的话这一次 fire 会落到
-      // 库自己的默认值（四分钟），同一件活儿两条路的耐心不一样，而且改那个常量对云端
-      // 毫无影响——「本地什么样云端就什么样」这条线得自己拉齐。
+      // 跟瀏覽器那條路同一個超時（葉子裡那個常量）。不顯式交上去的話這一次 fire 會落到
+      // 庫自己的默認值（四分鐘），同一件活兒兩條路的耐心不一樣，而且改那個常量對雲端
+      // 毫無影響——「本地什麼樣雲端就什麼樣」這條線得自己拉齊。
       totalTimeoutMs: PLATE_LLM_TIMEOUT_MS,
       state: { jobId, job }
     };
@@ -7879,28 +7879,28 @@ var plateConsolidateHandler = {
     const { jobId, job } = state;
     const items = parsePlateLlmReply(ctx.llmOutputText || "");
     if (items.length === 0) {
-      console.warn("[amsg:plate] LLM \u6CA1\u8FD4\u56DE\u6709\u6548\u6761\u76EE\uFF0C\u95E8\u724C\u4FDD\u6301\u4E0D\u52A8", jobId);
+      console.warn("[amsg:plate] LLM \u6C92\u8FD4\u56DE\u6709\u6548\u689D\u76EE\uFF0C\u9580\u724C\u4FDD\u6301\u4E0D\u52D5", jobId);
       await discardJob(ctx.writeState, jobId);
       return { decision: "skip-push", reason: "plate-empty-generation" };
     }
     if (typeof ctx.emitResult !== "function") {
-      console.warn("[amsg:plate] \u8FD9\u53F0 worker \u4E0D\u652F\u6301 emitResult\uFF0C\u6574\u7406\u7ED3\u679C\u9001\u4E0D\u56DE\u53BB", jobId);
+      console.warn("[amsg:plate] \u9019\u53F0 worker \u4E0D\u652F\u6301 emitResult\uFF0C\u6574\u7406\u7D50\u679C\u9001\u4E0D\u56DE\u53BB", jobId);
       await discardJob(ctx.writeState, jobId);
       return { decision: "skip-push", reason: "plate-emit-result-unsupported" };
     }
     try {
       await ctx.emitResult({
         ...buildPlateConsolidateResult({ jobId, charId: job.charId, items, rooms: job.rooms }),
-        // 背景工作，整理完不该把人叫回来看。show:false 的 payload 上游只落收件箱、
-        // 不发推送，客户端下次上线补收。
+        // 背景工作，整理完不該把人叫回來看。show:false 的 payload 上游只落收件箱、
+        // 不發推送，客戶端下次上線補收。
         notification: { show: false }
       });
     } catch (error) {
-      console.warn("[amsg:plate] \u6574\u7406\u7ED3\u679C\u9001\u4E0D\u8FDB\u6536\u4EF6\u7BB1\uFF08\u591A\u534A\u662F\u6536\u4EF6\u7BB1\u8868\u6CA1\u5EFA\u5168\uFF0C\u53BB\u8BBE\u7F6E\u9875\u70B9\u4E00\u6B21\u300C\u91CD\u65B0\u8FDE\u63A5\u5E76\u9A8C\u8BC1\u300D\uFF09", jobId, error);
+      console.warn("[amsg:plate] \u6574\u7406\u7D50\u679C\u9001\u4E0D\u9032\u6536\u4EF6\u7BB1\uFF08\u591A\u534A\u662F\u6536\u4EF6\u7BB1\u8868\u6C92\u5EFA\u5168\uFF0C\u53BB\u8A2D\u7F6E\u9801\u9EDE\u4E00\u6B21\u300C\u91CD\u65B0\u9023\u63A5\u4E26\u9A57\u8B49\u300D\uFF09", jobId, error);
       await discardJob(ctx.writeState, jobId);
       return { decision: "skip-push", reason: "plate-emit-result-failed" };
     }
-    console.log("[amsg:plate] \u6574\u7406\u7ED3\u679C\u5DF2\u9001\u8FDB\u6536\u4EF6\u7BB1", {
+    console.log("[amsg:plate] \u6574\u7406\u7D50\u679C\u5DF2\u9001\u9032\u6536\u4EF6\u7BB1", {
       jobId,
       charId: job.charId,
       items: items.length,
@@ -7945,14 +7945,14 @@ var DELIVERED_WINDOW_MS = 30 * 6e4;
 // utils/amsg2Tasks.ts
 var MAX_ACTIVE_TASKS_PER_CHAR = 5;
 var shortTaskId = (taskUuid) => taskUuid.slice(0, 8);
-var describeRecurrence = (recurrence) => recurrence === "daily" ? "\u6BCF\u5929" : recurrence === "weekly" ? "\u6BCF\u5468" : "\u4E00\u6B21\u6027";
-var AMSG2_SCHEDULE_SECRECY_NOTE = "\u4E0D\u8981\u5411\u7528\u6237\u590D\u8FF0\u6216\u63D0\u53CA\u8FD9\u4EFD\u6392\u7A0B\u4FE1\u606F\u672C\u8EAB\u7684\u5B58\u5728\u3002";
-var AMSG2_SCHEDULE_NOT_YET_NOTE = "\u6392\u5728\u672A\u6765\u7684\u4E8B\u5230\u70B9\u81EA\u5DF1\u4F1A\u54CD\uFF0C\u4E0D\u7528\u4F60\u73B0\u5728\u63D0\u524D\u66FF\u5B83\u5F00\u53E3\u2014\u2014\u8FD8\u6CA1\u5230\u90A3\u4E2A\u65F6\u523B\u7684\u5C31\u8BA9\u5B83\u5B89\u9759\u5F85\u7740\uFF0C\u522B\u6BCF\u8F6E\u90FD\u62FF\u5B83\u8D77\u8BDD\u5934\u3001\u8FFD\u7740\u95EE\u8FDB\u5C55\u3002\u5BF9\u65B9\u81EA\u5DF1\u63D0\u8D77\uFF0C\u6216\u8005\u771F\u5230\u4E86\u90A3\u4E2A\u70B9\uFF0C\u624D\u662F\u8BF4\u5B83\u7684\u65F6\u5019\u3002";
-var describeExpirePolicy = (policy) => policy === "force" ? "\u5F3A\u5236\u53D1\u9001" : "\u9047\u5FD9\u4F5C\u5E9F";
+var describeRecurrence = (recurrence) => recurrence === "daily" ? "\u6BCF\u5929" : recurrence === "weekly" ? "\u6BCF\u9031" : "\u4E00\u6B21\u6027";
+var AMSG2_SCHEDULE_SECRECY_NOTE = "\u4E0D\u8981\u5411\u7528\u6236\u8907\u8FF0\u6216\u63D0\u53CA\u9019\u4EFD\u6392\u7A0B\u4FE1\u606F\u672C\u8EAB\u7684\u5B58\u5728\u3002";
+var AMSG2_SCHEDULE_NOT_YET_NOTE = "\u6392\u5728\u672A\u4F86\u7684\u4E8B\u5230\u9EDE\u81EA\u5DF1\u6703\u97FF\uFF0C\u4E0D\u7528\u4F60\u73FE\u5728\u63D0\u524D\u66FF\u5B83\u958B\u53E3\u2014\u2014\u9084\u6C92\u5230\u90A3\u500B\u6642\u523B\u7684\u5C31\u8B93\u5B83\u5B89\u975C\u5F85\u8457\uFF0C\u5225\u6BCF\u8F2A\u90FD\u62FF\u5B83\u8D77\u8A71\u982D\u3001\u8FFD\u8457\u554F\u9032\u5C55\u3002\u5C0D\u65B9\u81EA\u5DF1\u63D0\u8D77\uFF0C\u6216\u8005\u771F\u5230\u4E86\u90A3\u500B\u9EDE\uFF0C\u624D\u662F\u8AAA\u5B83\u7684\u6642\u5019\u3002";
+var describeExpirePolicy = (policy) => policy === "force" ? "\u5F37\u5236\u767C\u9001" : "\u9047\u5FD9\u4F5C\u5EE2";
 var describeTaskMode = (task) => {
   if (task.mode === "fixed") return "\u56FA\u5B9A\u6D88\u606F";
   if (task.mode === "prompted") return `\u63D0\u793A\u65B9\u5411\u300C${task.promptHint || ""}\u300D`;
-  return task.promptHint ? `\u81EA\u52A8\uFF08\u7075\u611F\uFF1A${task.promptHint}\uFF09` : "\u81EA\u52A8";
+  return task.promptHint ? `\u81EA\u52D5\uFF08\u9748\u611F\uFF1A${task.promptHint}\uFF09` : "\u81EA\u52D5";
 };
 var isPendingTask = (task, nowMs) => {
   if (task.status !== "scheduled") return false;
@@ -7977,7 +7977,7 @@ var buildFireTaskListBlock = (tasks, opts) => {
   return [
     "",
     "",
-    "\u3010\u4F60\u8FD8\u6302\u7740\u8FD9\u4E9B\u6392\u7A0B\xB7\u4EC5\u4F60\u53EF\u89C1\u3011",
+    "\u3010\u4F60\u9084\u639B\u8457\u9019\u4E9B\u6392\u7A0B\xB7\u50C5\u4F60\u53EF\u898B\u3011",
     ...listed.map((t) => {
       const occurrenceMs = currentOccurrenceMs(t, opts.nowMs);
       const when = formatFireTimeShort(
@@ -7986,7 +7986,7 @@ var buildFireTaskListBlock = (tasks, opts) => {
       );
       return `- [${shortTaskId(t.taskUuid)}] ${when} ${describeRecurrence(t.recurrenceType)} \xB7 ${describeTaskMode(t)} \xB7 ${describeExpirePolicy(t.expirePolicy)}`;
     }),
-    "\uFF08\u8FD9\u51E0\u6761\u5230\u70B9\u4F1A\u81EA\u52A8\u53D1\u51FA\u53BB\uFF0C\u522B\u5728\u8FD9\u6761\u6D88\u606F\u91CC\u628A\u540C\u4E00\u4EF6\u4E8B\u518D\u6392\u4E00\u904D\uFF0C\u4E5F\u522B\u5F53\u5B83\u4EEC\u4E0D\u5B58\u5728\u3002\uFF09",
+    "\uFF08\u9019\u5E7E\u689D\u5230\u9EDE\u6703\u81EA\u52D5\u767C\u51FA\u53BB\uFF0C\u5225\u5728\u9019\u689D\u6D88\u606F\u88E1\u628A\u540C\u4E00\u4EF6\u4E8B\u518D\u6392\u4E00\u904D\uFF0C\u4E5F\u5225\u7576\u5B83\u5011\u4E0D\u5B58\u5728\u3002\uFF09",
     AMSG2_SCHEDULE_NOT_YET_NOTE,
     AMSG2_SCHEDULE_SECRECY_NOTE
   ].join("\n");
@@ -7998,40 +7998,40 @@ var AMSG_FIRE_CANCEL_TOOL = "cancel_active_message";
 var AMSG_FIRE_RENEW_TOOL = "renew_active_message";
 var MAX_FIRE_SCHEDULES = 2;
 var EXPIRE_POLICY_DESCRIPTION = [
-  "\u9632\u7A7F\u5E2E\u7B56\u7565\u3002",
-  "expire\uFF08\u9ED8\u8BA4\uFF0C\u5927\u591A\u6570\u60C5\u51B5\u7528\u5B83\uFF09\uFF1A\u5230\u70B9\u65F6\u5982\u679C\u6392\u7A0B\u4E4B\u540E\u5BF9\u8BDD\u5DF2\u6709\u65B0\u8FDB\u5C55\u3001\u6216\u7528\u6237\u6B64\u523B\u6B63\u5728\u804A\u5929\uFF0C\u8FD9\u6761\u81EA\u52A8\u4F5C\u5E9F\u2014\u2014\u4E4B\u540E\u4F60\u4F1A\u5728\u6392\u7A0B\u73B0\u72B6\u91CC\u770B\u5230\uFF0C\u7531\u4F60\u51B3\u5B9A\u81EA\u7136\u5E26\u51FA\u3001\u7EED\u671F\u8FD8\u662F\u653E\u5F03\u3002",
-  "\u6311\u8BDD\u9898\u3001\u60F3\u627E\u4EBA\u804A\u5929\u8FD9\u7C7B\u300C\u60F3\u8BF4\u70B9\u4EC0\u4E48\u300D\u7684\u6392\u7A0B\u4E00\u5F8B\u7528\u5B83\uFF1A\u7528\u6237\u4EBA\u90FD\u56DE\u6765\u4E86\uFF0C\u4F60\u8FD8\u7167\u7740\u51E0\u5C0F\u65F6\u524D\u7684\u60F3\u6CD5\u5F00\u53E3\uFF0C\u4F1A\u5F88\u5047\u3002",
-  'force\uFF1A\u4E0D\u7BA1\u7528\u6237\u5728\u4E0D\u5728\u804A\u5929\u90FD\u7167\u53D1\u3002\u7528\u5728\u300C\u5230\u90A3\u4E2A\u70B9\u5FC5\u987B\u8BF4\u8FD9\u4EF6\u5177\u4F53\u7684\u4E8B\u300D\u4E0A\uFF0C\u4E24\u79CD\u6765\u6E90\u90FD\u7B97\u2014\u2014\u7528\u6237\u660E\u786E\u8981\u6C42\u7684\uFF08\u5982"8\u70B9\u53EB\u6211\u8D77\u5E8A"\uFF09\uFF0C\u4EE5\u53CA\u4F60\u81EA\u5DF1\u8BB8\u4E0B\u7684\uFF08\u5982"\u6C64\u7096\u4E0A\u4E86\uFF0C\u4E24\u5C0F\u65F6\u540E\u597D\u4E86\u53EB\u4F60""\u4F60\u90A3\u4E2A\u4F1A\u6211\u5230\u70B9\u63D0\u9192\u4F60"\uFF09\u3002',
-  "\u8FD9\u7C7B\u5151\u73B0\u7684\u662F\u4E00\u4E2A\u5177\u4F53\u627F\u8BFA\uFF0C\u7528\u6237\u4E2D\u9014\u56DE\u6765\u804A\u8FC7\u5929\u4E5F\u4E0D\u5F71\u54CD\u5B83\u8BE5\u54CD\u3002"
+  "\u9632\u7A7F\u5E6B\u7B56\u7565\u3002",
+  "expire\uFF08\u9ED8\u8A8D\uFF0C\u5927\u591A\u6578\u60C5\u6CC1\u7528\u5B83\uFF09\uFF1A\u5230\u9EDE\u6642\u5982\u679C\u6392\u7A0B\u4E4B\u5F8C\u5C0D\u8A71\u5DF2\u6709\u65B0\u9032\u5C55\u3001\u6216\u7528\u6236\u6B64\u523B\u6B63\u5728\u804A\u5929\uFF0C\u9019\u689D\u81EA\u52D5\u4F5C\u5EE2\u2014\u2014\u4E4B\u5F8C\u4F60\u6703\u5728\u6392\u7A0B\u73FE\u72C0\u88E1\u770B\u5230\uFF0C\u7531\u4F60\u6C7A\u5B9A\u81EA\u7136\u5E36\u51FA\u3001\u7E8C\u671F\u9084\u662F\u653E\u68C4\u3002",
+  "\u6311\u8A71\u984C\u3001\u60F3\u627E\u4EBA\u804A\u5929\u9019\u985E\u300C\u60F3\u8AAA\u9EDE\u4EC0\u9EBC\u300D\u7684\u6392\u7A0B\u4E00\u5F8B\u7528\u5B83\uFF1A\u7528\u6236\u4EBA\u90FD\u56DE\u4F86\u4E86\uFF0C\u4F60\u9084\u7167\u8457\u5E7E\u5C0F\u6642\u524D\u7684\u60F3\u6CD5\u958B\u53E3\uFF0C\u6703\u5F88\u5047\u3002",
+  'force\uFF1A\u4E0D\u7BA1\u7528\u6236\u5728\u4E0D\u5728\u804A\u5929\u90FD\u7167\u767C\u3002\u7528\u5728\u300C\u5230\u90A3\u500B\u9EDE\u5FC5\u9808\u8AAA\u9019\u4EF6\u5177\u9AD4\u7684\u4E8B\u300D\u4E0A\uFF0C\u5169\u7A2E\u4F86\u6E90\u90FD\u7B97\u2014\u2014\u7528\u6236\u660E\u78BA\u8981\u6C42\u7684\uFF08\u5982"8\u9EDE\u53EB\u6211\u8D77\u5E8A"\uFF09\uFF0C\u4EE5\u53CA\u4F60\u81EA\u5DF1\u8A31\u4E0B\u7684\uFF08\u5982"\u6E6F\u71C9\u4E0A\u4E86\uFF0C\u5169\u5C0F\u6642\u5F8C\u597D\u4E86\u53EB\u4F60""\u4F60\u90A3\u500B\u6703\u6211\u5230\u9EDE\u63D0\u9192\u4F60"\uFF09\u3002',
+  "\u9019\u985E\u514C\u73FE\u7684\u662F\u4E00\u500B\u5177\u9AD4\u627F\u8AFE\uFF0C\u7528\u6236\u4E2D\u9014\u56DE\u4F86\u804A\u904E\u5929\u4E5F\u4E0D\u5F71\u97FF\u5B83\u8A72\u97FF\u3002"
 ].join("\n");
 var FIRE_TOOL_DESCRIPTION = [
-  "\u7ED9\u81EA\u5DF1\u6392\u4E0B\u4E00\u6761\u4E3B\u52A8\u6D88\u606F\uFF1A\u5230\u6307\u5B9A\u65F6\u95F4\u540E\u4F60\u4F1A\u518D\u6839\u636E\u90A3\u65F6\u7684\u4E0A\u4E0B\u6587\u751F\u6210\u4E00\u6761\u63A8\u9001\u7ED9\u7528\u6237\u3002",
-  "\u4F60\u73B0\u5728\u6B63\u5728\u53D1\u4E00\u6761\u4E3B\u52A8\u6D88\u606F\uFF0C\u8FD9\u4E2A\u5DE5\u5177\u8BA9\u4F60\u628A\u8BDD\u63A5\u7740\u5F80\u4E0B\u8BF4\u2014\u2014\u6BD4\u5982\u8FD9\u6761\u5148\u8BF4\u4E00\u534A\uFF0C\u8FC7\u4E00\u4E24\u4E2A\u5C0F\u65F6\u518D\u63A5\u4E0A\u53BB\uFF1B\u6216\u8005\u4F60\u8BF4\u4E86\u8981\u53BB\u505A\u67D0\u4EF6\u4E8B\uFF0C\u505A\u5B8C\u7684\u65F6\u95F4\u70B9\u56DE\u6765\u544A\u8BC9\u7528\u6237\u3002",
-  "\u6392\u4E0B\u7684\u8FD9\u6761\u5230\u70B9\u65F6\u4F1A\u77E5\u9053\u4F60\u8FD9\u6B21\u8BF4\u4E86\u4EC0\u4E48\uFF0C\u80FD\u63A5\u5F97\u4E0A\uFF0C\u4E0D\u7528\u5728\u53C2\u6570\u91CC\u590D\u8FF0\u3002",
-  "send_at \u662F\u5F00\u59CB\u751F\u6210\u7684\u65F6\u95F4\uFF0C\u4E0D\u662F\u9001\u8FBE\u65F6\u95F4\uFF08\u751F\u6210\u6709\u5341\u51E0\u79D2\u5EF6\u8FDF\uFF09\uFF0C\u4E14\u5FC5\u987B\u81F3\u5C11\u6BD4\u73B0\u5728\u665A 1 \u5206\u949F\u3002",
-  `\u4E00\u6B21\u6700\u591A\u6392 ${MAX_FIRE_SCHEDULES} \u6761\uFF1B\u6BCF\u4E2A\u89D2\u8272\u540C\u65F6\u6302\u7684\u4EFB\u52A1\u4E5F\u6709\u4E0A\u9650\uFF0C\u6392\u4E0D\u4E0B\u65F6\u4F1A\u544A\u8BC9\u4F60\u3002`,
-  "\u6CA1\u6709\u300C\u63A5\u7740\u8BF4\u300D\u7684\u5FC5\u8981\u5C31\u522B\u6392\u2014\u2014\u4E3A\u4E86\u6392\u800C\u6392\u51FA\u6765\u7684\u540E\u7EED\uFF0C\u7528\u6237\u8BFB\u8D77\u6765\u5C31\u662F\u6CA1\u8BDD\u627E\u8BDD\u3002"
+  "\u7D66\u81EA\u5DF1\u6392\u4E0B\u4E00\u689D\u4E3B\u52D5\u6D88\u606F\uFF1A\u5230\u6307\u5B9A\u6642\u9593\u5F8C\u4F60\u6703\u518D\u6839\u64DA\u90A3\u6642\u7684\u4E0A\u4E0B\u6587\u751F\u6210\u4E00\u689D\u63A8\u9001\u7D66\u7528\u6236\u3002",
+  "\u4F60\u73FE\u5728\u6B63\u5728\u767C\u4E00\u689D\u4E3B\u52D5\u6D88\u606F\uFF0C\u9019\u500B\u5DE5\u5177\u8B93\u4F60\u628A\u8A71\u63A5\u8457\u5F80\u4E0B\u8AAA\u2014\u2014\u6BD4\u5982\u9019\u689D\u5148\u8AAA\u4E00\u534A\uFF0C\u904E\u4E00\u5169\u500B\u5C0F\u6642\u518D\u63A5\u4E0A\u53BB\uFF1B\u6216\u8005\u4F60\u8AAA\u4E86\u8981\u53BB\u505A\u67D0\u4EF6\u4E8B\uFF0C\u505A\u5B8C\u7684\u6642\u9593\u9EDE\u56DE\u4F86\u544A\u8A34\u7528\u6236\u3002",
+  "\u6392\u4E0B\u7684\u9019\u689D\u5230\u9EDE\u6642\u6703\u77E5\u9053\u4F60\u9019\u6B21\u8AAA\u4E86\u4EC0\u9EBC\uFF0C\u80FD\u63A5\u5F97\u4E0A\uFF0C\u4E0D\u7528\u5728\u53C3\u6578\u88E1\u8907\u8FF0\u3002",
+  "send_at \u662F\u958B\u59CB\u751F\u6210\u7684\u6642\u9593\uFF0C\u4E0D\u662F\u9001\u9054\u6642\u9593\uFF08\u751F\u6210\u6709\u5341\u5E7E\u79D2\u5EF6\u9072\uFF09\uFF0C\u4E14\u5FC5\u9808\u81F3\u5C11\u6BD4\u73FE\u5728\u665A 1 \u5206\u9418\u3002",
+  `\u4E00\u6B21\u6700\u591A\u6392 ${MAX_FIRE_SCHEDULES} \u689D\uFF1B\u6BCF\u500B\u89D2\u8272\u540C\u6642\u639B\u7684\u4EFB\u52D9\u4E5F\u6709\u4E0A\u9650\uFF0C\u6392\u4E0D\u4E0B\u6642\u6703\u544A\u8A34\u4F60\u3002`,
+  "\u6C92\u6709\u300C\u63A5\u8457\u8AAA\u300D\u7684\u5FC5\u8981\u5C31\u5225\u6392\u2014\u2014\u70BA\u4E86\u6392\u800C\u6392\u51FA\u4F86\u7684\u5F8C\u7E8C\uFF0C\u7528\u6236\u8B80\u8D77\u4F86\u5C31\u662F\u6C92\u8A71\u627E\u8A71\u3002"
 ].join("\n");
 var buildParameters = (example) => ({
   type: "object",
   properties: {
     send_at: {
       type: "string",
-      description: `\u5F00\u59CB\u751F\u6210\u7684\u65F6\u95F4\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\u3001\u4E0D\u5E26\u65F6\u533A\u540E\u7F00\uFF08\u5982 ${example}\uFF09\uFF0C\u7CFB\u7EDF\u6309\u4F60\u6240\u5728\u7684\u65F6\u533A\u7406\u89E3\u3002\u81F3\u5C11\u6BD4\u5F53\u524D\u65F6\u95F4\u665A 1 \u5206\u949F\u3002\u6392\u4E4B\u524D\u5148\u60F3\u60F3\u5BF9\u65B9\u90A3\u8FB9\u662F\u51E0\u70B9\u2014\u2014\u4F60\u4EEC\u4E4B\u95F4\u53EF\u80FD\u6709\u65F6\u5DEE\uFF0C\u522B\u628A\u6D88\u606F\u6392\u5230\u5BF9\u65B9\u7684\u6DF1\u591C\u3002`
+      description: `\u958B\u59CB\u751F\u6210\u7684\u6642\u9593\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\u3001\u4E0D\u5E36\u6642\u5340\u5F8C\u7DB4\uFF08\u5982 ${example}\uFF09\uFF0C\u7CFB\u7D71\u6309\u4F60\u6240\u5728\u7684\u6642\u5340\u7406\u89E3\u3002\u81F3\u5C11\u6BD4\u7576\u524D\u6642\u9593\u665A 1 \u5206\u9418\u3002\u6392\u4E4B\u524D\u5148\u60F3\u60F3\u5C0D\u65B9\u90A3\u908A\u662F\u5E7E\u9EDE\u2014\u2014\u4F60\u5011\u4E4B\u9593\u53EF\u80FD\u6709\u6642\u5DEE\uFF0C\u5225\u628A\u6D88\u606F\u6392\u5230\u5C0D\u65B9\u7684\u6DF1\u591C\u3002`
     },
     mode: {
       type: "string",
       enum: ["auto", "prompted"],
-      description: "\u751F\u6210\u6A21\u5F0F\u3002auto=\u5230\u70B9\u6839\u636E\u90A3\u65F6\u7684\u4E0A\u4E0B\u6587\u81EA\u7531\u53D1\u6325\uFF1Bprompted=\u56F4\u7ED5 prompt_hint \u7684\u65B9\u5411\u8BF4\u3002\u9ED8\u8BA4 auto\u3002"
+      description: "\u751F\u6210\u6A21\u5F0F\u3002auto=\u5230\u9EDE\u6839\u64DA\u90A3\u6642\u7684\u4E0A\u4E0B\u6587\u81EA\u7531\u767C\u63EE\uFF1Bprompted=\u570D\u7E5E prompt_hint \u7684\u65B9\u5411\u8AAA\u3002\u9ED8\u8A8D auto\u3002"
     },
     prompt_hint: {
       type: "string",
-      description: '\u7ED9\u672A\u6765\u90A3\u6761\u6D88\u606F\u7684\u65B9\u5411\uFF0C\u5982"\u63A5\u7740\u521A\u624D\u90A3\u53EA\u732B\u7684\u8BDD\u5F80\u4E0B\u8BF4""\u544A\u8BC9\u4ED6\u6C64\u7096\u597D\u4E86"\u3002mode=prompted \u65F6\u5FC5\u586B\u3002'
+      description: '\u7D66\u672A\u4F86\u90A3\u689D\u6D88\u606F\u7684\u65B9\u5411\uFF0C\u5982"\u63A5\u8457\u525B\u624D\u90A3\u96BB\u8C93\u7684\u8A71\u5F80\u4E0B\u8AAA""\u544A\u8A34\u4ED6\u6E6F\u71C9\u597D\u4E86"\u3002mode=prompted \u6642\u5FC5\u586B\u3002'
     },
     recurrence: {
       type: "string",
       enum: ["none", "daily", "weekly"],
-      description: "\u91CD\u590D\u7C7B\u578B\u3002none=\u4E00\u6B21\u6027\uFF08\u9ED8\u8BA4\uFF09\uFF1Bdaily/weekly=\u6BCF\u5929/\u6BCF\u5468\u540C\u4E00\u65F6\u95F4\u3002"
+      description: "\u91CD\u8907\u985E\u578B\u3002none=\u4E00\u6B21\u6027\uFF08\u9ED8\u8A8D\uFF09\uFF1Bdaily/weekly=\u6BCF\u5929/\u6BCF\u9031\u540C\u4E00\u6642\u9593\u3002"
     },
     expire_policy: {
       type: "string",
@@ -8056,14 +8056,14 @@ var buildFireCancelTool = () => ({
   function: {
     name: AMSG_FIRE_CANCEL_TOOL,
     description: [
-      "\u53D6\u6D88\u4F60\u6302\u7740\u7684\u4E00\u4E2A\u5B9A\u65F6\u4E3B\u52A8\u6D88\u606F\u4EFB\u52A1\uFF08\u6392\u7A0B\u6E05\u5355\u91CC\u5217\u7684\u90A3\u4E9B\uFF09\u3002",
-      "\u6BD4\u5982\u521A\u624D\u6392\u7684\u4E8B\u5DF2\u7ECF\u5728\u8FD9\u6761\u6D88\u606F\u91CC\u8BF4\u6389\u4E86\u3001\u6216\u8005\u60C5\u51B5\u53D8\u4E86\u90A3\u6761\u4E0D\u8BE5\u518D\u54CD\u3002",
-      "\u591A\u4E2A\u4EFB\u52A1\u5E76\u5B58\u65F6\u5FC5\u987B\u7528 task_id\uFF08\u6392\u7A0B\u6E05\u5355\u91CC\u7684\u77ED id\uFF09\u6307\u5B9A\uFF1B\u53EA\u6709\u4E00\u4E2A\u5F85\u89E6\u53D1\u4EFB\u52A1\u65F6\u53EF\u7701\u7565\u3002"
+      "\u53D6\u6D88\u4F60\u639B\u8457\u7684\u4E00\u500B\u5B9A\u6642\u4E3B\u52D5\u6D88\u606F\u4EFB\u52D9\uFF08\u6392\u7A0B\u6E05\u55AE\u88E1\u5217\u7684\u90A3\u4E9B\uFF09\u3002",
+      "\u6BD4\u5982\u525B\u624D\u6392\u7684\u4E8B\u5DF2\u7D93\u5728\u9019\u689D\u6D88\u606F\u88E1\u8AAA\u6389\u4E86\u3001\u6216\u8005\u60C5\u6CC1\u8B8A\u4E86\u90A3\u689D\u4E0D\u8A72\u518D\u97FF\u3002",
+      "\u591A\u500B\u4EFB\u52D9\u4E26\u5B58\u6642\u5FC5\u9808\u7528 task_id\uFF08\u6392\u7A0B\u6E05\u55AE\u88E1\u7684\u77ED id\uFF09\u6307\u5B9A\uFF1B\u53EA\u6709\u4E00\u500B\u5F85\u89F8\u767C\u4EFB\u52D9\u6642\u53EF\u7701\u7565\u3002"
     ].join("\n"),
     parameters: {
       type: "object",
       properties: {
-        task_id: { type: "string", description: "\u8981\u53D6\u6D88\u7684\u4EFB\u52A1\u77ED id\uFF088 \u4F4D\uFF0C\u89C1\u6392\u7A0B\u6E05\u5355\uFF09\u3002" }
+        task_id: { type: "string", description: "\u8981\u53D6\u6D88\u7684\u4EFB\u52D9\u77ED id\uFF088 \u4F4D\uFF0C\u898B\u6392\u7A0B\u6E05\u55AE\uFF09\u3002" }
       }
     }
   }
@@ -8073,48 +8073,48 @@ var buildFireRenewTool = (opts) => ({
   function: {
     name: AMSG_FIRE_RENEW_TOOL,
     description: [
-      "\u7ED9\u4F60\u6302\u7740\u7684\u4E00\u4E2A\u4EFB\u52A1\u6539\u89E6\u53D1\u65F6\u95F4\uFF1A\u53EA\u6362\u65F6\u95F4\uFF0C\u6CBF\u7528\u539F\u6709\u6A21\u5F0F\u4E0E\u63D0\u793A\u65B9\u5411\u3002",
-      "\u4E00\u6B21\u6027\u4EFB\u52A1 = \u6574\u6761\u6539\u5230\u65B0\u65F6\u95F4\uFF08\u7F16\u53F7\u4E0D\u53D8\uFF09\uFF1B\u5FAA\u73AF\u4EFB\u52A1 = \u53EA\u7ED9\u8FD9\u4E00\u6B21\u8865\u53D1\u4E00\u6761\u4E00\u6B21\u6027\u4EFB\u52A1\uFF0C\u539F\u6765\u7684\u6BCF\u5929/\u6BCF\u5468\u8282\u594F\u4E0D\u52A8\u3002",
-      "\u60F3\u6539\u7684\u662F\u5FAA\u73AF\u4EFB\u52A1\u672C\u8EAB\u7684\u65F6\u95F4\u3001\u6216\u8005\u60F3\u8BF4\u7684\u5185\u5BB9\u65B9\u5411\u5DF2\u7ECF\u53D8\u4E86\uFF0C\u6539\u7528 cancel_active_message + schedule_active_message \u91CD\u65B0\u521B\u5EFA\u3002",
-      `send_at \u81F3\u5C11\u6BD4\u73B0\u5728\u665A 1 \u5206\u949F\uFF08\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF0C\u5982 ${buildSendAtExample(opts.nowMs, opts.tz)}\uFF0C\u4E0D\u5E26\u65F6\u533A\u540E\u7F00\uFF09\u3002`
+      "\u7D66\u4F60\u639B\u8457\u7684\u4E00\u500B\u4EFB\u52D9\u6539\u89F8\u767C\u6642\u9593\uFF1A\u53EA\u63DB\u6642\u9593\uFF0C\u6CBF\u7528\u539F\u6709\u6A21\u5F0F\u8207\u63D0\u793A\u65B9\u5411\u3002",
+      "\u4E00\u6B21\u6027\u4EFB\u52D9 = \u6574\u689D\u6539\u5230\u65B0\u6642\u9593\uFF08\u7DE8\u865F\u4E0D\u8B8A\uFF09\uFF1B\u5FAA\u74B0\u4EFB\u52D9 = \u53EA\u7D66\u9019\u4E00\u6B21\u88DC\u767C\u4E00\u689D\u4E00\u6B21\u6027\u4EFB\u52D9\uFF0C\u539F\u4F86\u7684\u6BCF\u5929/\u6BCF\u9031\u7BC0\u594F\u4E0D\u52D5\u3002",
+      "\u60F3\u6539\u7684\u662F\u5FAA\u74B0\u4EFB\u52D9\u672C\u8EAB\u7684\u6642\u9593\u3001\u6216\u8005\u60F3\u8AAA\u7684\u5167\u5BB9\u65B9\u5411\u5DF2\u7D93\u8B8A\u4E86\uFF0C\u6539\u7528 cancel_active_message + schedule_active_message \u91CD\u65B0\u5275\u5EFA\u3002",
+      `send_at \u81F3\u5C11\u6BD4\u73FE\u5728\u665A 1 \u5206\u9418\uFF08\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF0C\u5982 ${buildSendAtExample(opts.nowMs, opts.tz)}\uFF0C\u4E0D\u5E36\u6642\u5340\u5F8C\u7DB4\uFF09\u3002`
     ].join("\n"),
     parameters: {
       type: "object",
       properties: {
-        send_at: { type: "string", description: "\u65B0\u7684\u89E6\u53D1\u65F6\u95F4\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\u3001\u4E0D\u5E26\u65F6\u533A\u540E\u7F00\u3002\u81F3\u5C11\u6BD4\u73B0\u5728\u665A 1 \u5206\u949F\u3002" },
-        task_id: { type: "string", description: "\u8981\u6539\u671F\u7684\u4EFB\u52A1\u77ED id\uFF088 \u4F4D\uFF0C\u89C1\u6392\u7A0B\u6E05\u5355\uFF09\u3002\u53EA\u6709\u4E00\u4E2A\u4EFB\u52A1\u65F6\u53EF\u7701\u7565\u3002" }
+        send_at: { type: "string", description: "\u65B0\u7684\u89F8\u767C\u6642\u9593\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\u3001\u4E0D\u5E36\u6642\u5340\u5F8C\u7DB4\u3002\u81F3\u5C11\u6BD4\u73FE\u5728\u665A 1 \u5206\u9418\u3002" },
+        task_id: { type: "string", description: "\u8981\u6539\u671F\u7684\u4EFB\u52D9\u77ED id\uFF088 \u4F4D\uFF0C\u898B\u6392\u7A0B\u6E05\u55AE\uFF09\u3002\u53EA\u6709\u4E00\u500B\u4EFB\u52D9\u6642\u53EF\u7701\u7565\u3002" }
       },
       required: ["send_at"]
     }
   }
 });
 var buildFireScheduleBlock = (mode, opts) => {
-  const howTo = mode === "native" ? `\u9700\u8981\u65F6\u901A\u8FC7\u7CFB\u7EDF\u7684\u5DE5\u5177\u8C03\u7528\u63A5\u53E3\u53D1\u8D77 ${AMSG_FIRE_SCHEDULE_TOOL}\uFF0C\u4E0D\u8981\u628A\u5DE5\u5177\u540D\u548C\u53C2\u6570\u5199\u8FDB\u6B63\u6587\u3002` : `\u9700\u8981\u65F6\u5355\u72EC\u8F93\u51FA\u4E00\u884C ${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"${buildSendAtExample(opts.nowMs, opts.tz)}","prompt_hint":"\u63A5\u7740\u8BF4"})\uFF08send_at \u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF0C\u4E0D\u5E26\u65F6\u533A\u540E\u7F00\uFF09\uFF0C\u7CFB\u7EDF\u4F1A\u4EE3\u4E3A\u5B89\u6392\u5E76\u628A\u7ED3\u679C\u544A\u8BC9\u4F60\u3002`;
+  const howTo = mode === "native" ? `\u9700\u8981\u6642\u901A\u904E\u7CFB\u7D71\u7684\u5DE5\u5177\u8ABF\u7528\u63A5\u53E3\u767C\u8D77 ${AMSG_FIRE_SCHEDULE_TOOL}\uFF0C\u4E0D\u8981\u628A\u5DE5\u5177\u540D\u548C\u53C3\u6578\u5BEB\u9032\u6B63\u6587\u3002` : `\u9700\u8981\u6642\u55AE\u7368\u8F38\u51FA\u4E00\u884C ${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"${buildSendAtExample(opts.nowMs, opts.tz)}","prompt_hint":"\u63A5\u8457\u8AAA"})\uFF08send_at \u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF0C\u4E0D\u5E36\u6642\u5340\u5F8C\u7DB4\uFF09\uFF0C\u7CFB\u7D71\u6703\u4EE3\u70BA\u5B89\u6392\u4E26\u628A\u7D50\u679C\u544A\u8A34\u4F60\u3002`;
   return [
     "",
     "---",
-    "\u3010\u4F60\u53EF\u4EE5\u7ED9\u81EA\u5DF1\u6392\u4E0B\u4E00\u6761\u3011",
-    "\u8FD9\u6761\u6D88\u606F\u53D1\u5B8C\uFF0C\u5982\u679C\u8FD8\u6709\u8BDD\u8981\u5728\u4E4B\u540E\u67D0\u4E2A\u65F6\u95F4\u70B9\u8BF4\uFF08\u628A\u6CA1\u8BF4\u5B8C\u7684\u63A5\u4E0A\u53BB\u3001\u6216\u8005\u53BB\u505A\u7684\u4E8B\u505A\u5B8C\u4E86\u56DE\u6765\u544A\u8BC9\u4ED6\uFF09\uFF0C",
-    "\u53EF\u4EE5\u73B0\u5728\u5C31\u628A\u90A3\u4E00\u6761\u6392\u597D\u2014\u2014\u4E0D\u9700\u8981\u7528\u6237\u5728\u7EBF\uFF0C\u5230\u70B9\u4F1A\u81EA\u52A8\u53D1\u51FA\u53BB\uFF0C\u800C\u4E14\u90A3\u65F6\u4F60\u4F1A\u77E5\u9053\u81EA\u5DF1\u8FD9\u6B21\u8BF4\u4E86\u4EC0\u4E48\u3002",
+    "\u3010\u4F60\u53EF\u4EE5\u7D66\u81EA\u5DF1\u6392\u4E0B\u4E00\u689D\u3011",
+    "\u9019\u689D\u6D88\u606F\u767C\u5B8C\uFF0C\u5982\u679C\u9084\u6709\u8A71\u8981\u5728\u4E4B\u5F8C\u67D0\u500B\u6642\u9593\u9EDE\u8AAA\uFF08\u628A\u6C92\u8AAA\u5B8C\u7684\u63A5\u4E0A\u53BB\u3001\u6216\u8005\u53BB\u505A\u7684\u4E8B\u505A\u5B8C\u4E86\u56DE\u4F86\u544A\u8A34\u4ED6\uFF09\uFF0C",
+    "\u53EF\u4EE5\u73FE\u5728\u5C31\u628A\u90A3\u4E00\u689D\u6392\u597D\u2014\u2014\u4E0D\u9700\u8981\u7528\u6236\u5728\u7DDA\uFF0C\u5230\u9EDE\u6703\u81EA\u52D5\u767C\u51FA\u53BB\uFF0C\u800C\u4E14\u90A3\u6642\u4F60\u6703\u77E5\u9053\u81EA\u5DF1\u9019\u6B21\u8AAA\u4E86\u4EC0\u9EBC\u3002",
     howTo,
-    // 角色在 prompt 里只看得到自己那边的钟，很容易把「晚上聊两句」排到对方的凌晨三点。
-    // 对方那边此刻几点写在【当前时刻补充】里（有时差时才有那一行）。
-    "\u5B9A\u65F6\u95F4\u4E4B\u524D\u5148\u60F3\u60F3\u5BF9\u65B9\u90A3\u8FB9\u662F\u51E0\u70B9\uFF1A\u4F60\u4EEC\u4E4B\u95F4\u53EF\u80FD\u6709\u65F6\u5DEE\uFF0C\u522B\u628A\u6D88\u606F\u6392\u5230\u5BF9\u65B9\u7684\u6DF1\u591C\u3002",
-    "\u6CA1\u5FC5\u8981\u5C31\u522B\u6392\u3002\u4E3A\u4E86\u6392\u800C\u6392\u51FA\u6765\u7684\u540E\u7EED\uFF0C\u8BFB\u8D77\u6765\u5C31\u662F\u6CA1\u8BDD\u627E\u8BDD\u3002"
+    // 角色在 prompt 裡只看得到自己那邊的鐘，很容易把「晚上聊兩句」排到對方的凌晨三點。
+    // 對方那邊此刻幾點寫在【當前時刻補充】裡（有時差時才有那一行）。
+    "\u5B9A\u6642\u9593\u4E4B\u524D\u5148\u60F3\u60F3\u5C0D\u65B9\u90A3\u908A\u662F\u5E7E\u9EDE\uFF1A\u4F60\u5011\u4E4B\u9593\u53EF\u80FD\u6709\u6642\u5DEE\uFF0C\u5225\u628A\u6D88\u606F\u6392\u5230\u5C0D\u65B9\u7684\u6DF1\u591C\u3002",
+    "\u6C92\u5FC5\u8981\u5C31\u5225\u6392\u3002\u70BA\u4E86\u6392\u800C\u6392\u51FA\u4F86\u7684\u5F8C\u7E8C\uFF0C\u8B80\u8D77\u4F86\u5C31\u662F\u6C92\u8A71\u627E\u8A71\u3002"
   ].join("\n");
 };
 var buildTaskInstruction = (mode, promptHint) => {
   if (mode === "prompted") {
     return [
-      "\u8FD9\u662F\u4E00\u6761\u9700\u8981 AI \u53C2\u4E0E\u751F\u6210\u7684\u4E3B\u52A8\u6D88\u606F\u3002",
-      "\u8BF7\u4E25\u683C\u56F4\u7ED5\u4E0B\u9762\u7684\u989D\u5916\u63D0\u793A\u53D1\u8D77\u79C1\u804A\uFF0C\u4F46\u4ECD\u7136\u4FDD\u6301\u50CF\u771F\u4EBA\u4E00\u6837\u81EA\u7136\uFF0C\u4E0D\u8981\u50CF\u7CFB\u7EDF\u4EFB\u52A1\u6C47\u62A5\u3002",
-      `\u989D\u5916\u63D0\u793A\uFF1A${promptHint?.trim() || "\u65E0"}`
+      "\u9019\u662F\u4E00\u689D\u9700\u8981 AI \u53C3\u8207\u751F\u6210\u7684\u4E3B\u52D5\u6D88\u606F\u3002",
+      "\u8ACB\u56B4\u683C\u570D\u7E5E\u4E0B\u9762\u7684\u984D\u5916\u63D0\u793A\u767C\u8D77\u79C1\u804A\uFF0C\u4F46\u4ECD\u7136\u4FDD\u6301\u50CF\u771F\u4EBA\u4E00\u6A23\u81EA\u7136\uFF0C\u4E0D\u8981\u50CF\u7CFB\u7D71\u4EFB\u52D9\u5F59\u5831\u3002",
+      `\u984D\u5916\u63D0\u793A\uFF1A${promptHint?.trim() || "\u7121"}`
     ].join("\n");
   }
   return [
-    "\u8FD9\u662F\u4E00\u6761\u9700\u8981 AI \u81EA\u4E3B\u751F\u6210\u7684\u4E3B\u52A8\u6D88\u606F\u3002",
-    "\u8BF7\u7ED3\u5408\u89D2\u8272\u8BBE\u5B9A\u3001\u5173\u7CFB\u72B6\u6001\u3001\u6700\u8FD1\u4E0A\u4E0B\u6587\u4E0E\u5F53\u524D\u65F6\u95F4\uFF0C\u81EA\u7136\u5730\u4E3B\u52A8\u627E\u7528\u6237\u8BF4\u4E00\u5230\u4E09\u53E5\u79C1\u804A\u6D88\u606F\u3002",
-    promptHint?.trim() ? `\u53EF\u9009\u7075\u611F\u8865\u5145\uFF1A${promptHint.trim()}` : "\u53EF\u9009\u7075\u611F\u8865\u5145\uFF1A\u65E0"
+    "\u9019\u662F\u4E00\u689D\u9700\u8981 AI \u81EA\u4E3B\u751F\u6210\u7684\u4E3B\u52D5\u6D88\u606F\u3002",
+    "\u8ACB\u7D50\u5408\u89D2\u8272\u8A2D\u5B9A\u3001\u95DC\u4FC2\u72C0\u614B\u3001\u6700\u8FD1\u4E0A\u4E0B\u6587\u8207\u7576\u524D\u6642\u9593\uFF0C\u81EA\u7136\u5730\u4E3B\u52D5\u627E\u7528\u6236\u8AAA\u4E00\u5230\u4E09\u53E5\u79C1\u804A\u6D88\u606F\u3002",
+    promptHint?.trim() ? `\u53EF\u9078\u9748\u611F\u88DC\u5145\uFF1A${promptHint.trim()}` : "\u53EF\u9078\u9748\u611F\u88DC\u5145\uFF1A\u7121"
   ].join("\n");
 };
 var pad22 = (n) => n.toString().padStart(2, "0");
@@ -8136,17 +8136,17 @@ var parseFireScheduleArgs = (args, nowMs, tz) => {
   const example = buildSendAtExample(nowMs, tz);
   const sendAtRaw = args?.send_at;
   if (typeof sendAtRaw !== "string" || !sendAtRaw.trim()) {
-    return { ok: false, reason: "invalid_send_at", message: `send_at \u5FC5\u586B\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF08\u5982 ${example}\uFF09\u3002` };
+    return { ok: false, reason: "invalid_send_at", message: `send_at \u5FC5\u586B\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF08\u5982 ${example}\uFF09\u3002` };
   }
   const sendAtMs = resolveSendAtMs(sendAtRaw, tz);
   if (!Number.isFinite(sendAtMs)) {
-    return { ok: false, reason: "invalid_send_at", message: `send_at\u300C${sendAtRaw}\u300D\u89E3\u6790\u4E0D\u51FA\u65F6\u95F4\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF08\u5982 ${example}\uFF09\u3002` };
+    return { ok: false, reason: "invalid_send_at", message: `send_at\u300C${sendAtRaw}\u300D\u89E3\u6790\u4E0D\u51FA\u6642\u9593\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF08\u5982 ${example}\uFF09\u3002` };
   }
   if (sendAtMs < nowMs + MIN_SCHEDULE_LEAD_MS2) {
     return {
       ok: false,
       reason: "send_at_too_soon",
-      message: `send_at \u81F3\u5C11\u8981\u6BD4\u73B0\u5728\u665A 1 \u5206\u949F\uFF08\u4F60\u90A3\u8FB9\u73B0\u5728\u662F ${formatFireTimeShort(nowMs, tz)}\uFF09\u3002\u60F3\u9A6C\u4E0A\u8BF4\u7684\u8BDD\u76F4\u63A5\u5199\u8FDB\u8FD9\u6761\u6D88\u606F\u91CC\uFF0C\u4E0D\u7528\u6392\u3002`
+      message: `send_at \u81F3\u5C11\u8981\u6BD4\u73FE\u5728\u665A 1 \u5206\u9418\uFF08\u4F60\u90A3\u908A\u73FE\u5728\u662F ${formatFireTimeShort(nowMs, tz)}\uFF09\u3002\u60F3\u99AC\u4E0A\u8AAA\u7684\u8A71\u76F4\u63A5\u5BEB\u9032\u9019\u689D\u6D88\u606F\u88E1\uFF0C\u4E0D\u7528\u6392\u3002`
     };
   }
   const mode = args?.mode == null ? "auto" : args.mode;
@@ -8156,7 +8156,7 @@ var parseFireScheduleArgs = (args, nowMs, tz) => {
   const promptHintRaw = args?.prompt_hint;
   const promptHint = typeof promptHintRaw === "string" ? promptHintRaw.trim() : "";
   if (mode === "prompted" && !promptHint) {
-    return { ok: false, reason: "missing_prompt_hint", message: "mode=prompted \u65F6\u8981\u7ED9 prompt_hint\uFF0C\u8BF4\u6E05\u90A3\u6761\u6D88\u606F\u8BE5\u5F80\u54EA\u4E2A\u65B9\u5411\u8BF4\u3002" };
+    return { ok: false, reason: "missing_prompt_hint", message: "mode=prompted \u6642\u8981\u7D66 prompt_hint\uFF0C\u8AAA\u6E05\u90A3\u689D\u6D88\u606F\u8A72\u5F80\u54EA\u500B\u65B9\u5411\u8AAA\u3002" };
   }
   const recurrence = args?.recurrence == null ? "none" : args.recurrence;
   if (typeof recurrence !== "string" || !RECURRENCES.includes(recurrence)) {
@@ -8194,41 +8194,41 @@ var describeTaskWhen = (task, nowMs, tz) => formatFireTimeShort(
 );
 var resolveFireTargetTask = (tasks, taskIdArg, nowMs, tz) => {
   if (tasks.length === 0) {
-    return { ok: false, reason: "no_tasks", message: "\u4F60\u73B0\u5728\u6CA1\u6709\u6302\u7740\u4EFB\u4F55\u6392\u7A0B\u4EFB\u52A1\u3002" };
+    return { ok: false, reason: "no_tasks", message: "\u4F60\u73FE\u5728\u6C92\u6709\u639B\u8457\u4EFB\u4F55\u6392\u7A0B\u4EFB\u52D9\u3002" };
   }
   if (typeof taskIdArg === "string" && taskIdArg.trim()) {
     const taskId = taskIdArg.trim();
     const hits = matchTasksByTaskId(tasks, taskId);
     if (hits.length === 1) return { task: hits[0] };
     if (hits.length === 0) {
-      return { ok: false, reason: "task_not_found", message: `\u6CA1\u6709\u627E\u5230\u77ED id \u4E3A ${taskId} \u7684\u4EFB\u52A1\u2014\u2014\u77ED id \u5728\u6392\u7A0B\u6E05\u5355\u91CC\uFF0C\u7167\u7740\u90A3\u91CC\u7684\u5199\u3002` };
+      return { ok: false, reason: "task_not_found", message: `\u6C92\u6709\u627E\u5230\u77ED id \u70BA ${taskId} \u7684\u4EFB\u52D9\u2014\u2014\u77ED id \u5728\u6392\u7A0B\u6E05\u55AE\u88E1\uFF0C\u7167\u8457\u90A3\u88E1\u7684\u5BEB\u3002` };
     }
-    const candidates = hits.map((t) => `${describeTaskWhen(t, nowMs, tz)} \u90A3\u6761\u7684\u5B8C\u6574 id \u662F ${t.taskUuid}`).join("\uFF1B");
+    const candidates = hits.map((t) => `${describeTaskWhen(t, nowMs, tz)} \u90A3\u689D\u7684\u5B8C\u6574 id \u662F ${t.taskUuid}`).join("\uFF1B");
     return {
       ok: false,
       reason: "ambiguous_task",
-      message: `\u77ED id ${taskId} \u540C\u65F6\u5BF9\u5E94 ${hits.length} \u4E2A\u4EFB\u52A1\uFF0C\u8FD9\u4E48\u5199\u4F1A\u52A8\u9519\u4EBA\u3002\u6311\u4E00\u4E2A\uFF0C\u628A\u5B8C\u6574 id \u586B\u8FDB task_id \u518D\u6765\u4E00\u6B21\uFF1A${candidates}\u3002`
+      message: `\u77ED id ${taskId} \u540C\u6642\u5C0D\u61C9 ${hits.length} \u500B\u4EFB\u52D9\uFF0C\u9019\u9EBC\u5BEB\u6703\u52D5\u932F\u4EBA\u3002\u6311\u4E00\u500B\uFF0C\u628A\u5B8C\u6574 id \u586B\u9032 task_id \u518D\u4F86\u4E00\u6B21\uFF1A${candidates}\u3002`
     };
   }
   const pending = tasks.filter((t) => isPendingTask(t, nowMs));
   if (pending.length === 1) return { task: pending[0] };
   if (pending.length === 0 && tasks.length === 1) return { task: tasks[0] };
-  return { ok: false, reason: "ambiguous_task", message: "\u4F60\u6302\u7740\u4E0D\u6B62\u4E00\u4E2A\u4EFB\u52A1\uFF0C\u5E26 task_id\uFF08\u6392\u7A0B\u6E05\u5355\u91CC\u7684\u77ED id\uFF09\u6307\u5B9A\u8981\u52A8\u54EA\u4E00\u4E2A\u3002" };
+  return { ok: false, reason: "ambiguous_task", message: "\u4F60\u639B\u8457\u4E0D\u6B62\u4E00\u500B\u4EFB\u52D9\uFF0C\u5E36 task_id\uFF08\u6392\u7A0B\u6E05\u55AE\u88E1\u7684\u77ED id\uFF09\u6307\u5B9A\u8981\u52D5\u54EA\u4E00\u500B\u3002" };
 };
 var parseFireRenewSendAt = (raw, nowMs, tz) => {
   const example = buildSendAtExample(nowMs, tz);
   if (typeof raw !== "string" || !raw.trim()) {
-    return { ok: false, reason: "invalid_send_at", message: `send_at \u5FC5\u586B\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF08\u5982 ${example}\uFF09\u3002` };
+    return { ok: false, reason: "invalid_send_at", message: `send_at \u5FC5\u586B\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF08\u5982 ${example}\uFF09\u3002` };
   }
   const sendAtMs = resolveSendAtMs(raw, tz);
   if (!Number.isFinite(sendAtMs)) {
-    return { ok: false, reason: "invalid_send_at", message: `send_at\u300C${raw}\u300D\u89E3\u6790\u4E0D\u51FA\u65F6\u95F4\uFF0C\u5199\u4F60\u672C\u5730\u7684\u5899\u949F\u65F6\u95F4\uFF08\u5982 ${example}\uFF09\u3002` };
+    return { ok: false, reason: "invalid_send_at", message: `send_at\u300C${raw}\u300D\u89E3\u6790\u4E0D\u51FA\u6642\u9593\uFF0C\u5BEB\u4F60\u672C\u5730\u7684\u7246\u937E\u6642\u9593\uFF08\u5982 ${example}\uFF09\u3002` };
   }
   if (sendAtMs < nowMs + MIN_SCHEDULE_LEAD_MS2) {
     return {
       ok: false,
       reason: "send_at_too_soon",
-      message: `send_at \u81F3\u5C11\u8981\u6BD4\u73B0\u5728\u665A 1 \u5206\u949F\uFF08\u4F60\u90A3\u8FB9\u73B0\u5728\u662F ${formatFireTimeShort(nowMs, tz)}\uFF09\u3002\u60F3\u9A6C\u4E0A\u8BF4\u7684\u8BDD\u76F4\u63A5\u5199\u8FDB\u8FD9\u6761\u6D88\u606F\u91CC\u3002`
+      message: `send_at \u81F3\u5C11\u8981\u6BD4\u73FE\u5728\u665A 1 \u5206\u9418\uFF08\u4F60\u90A3\u908A\u73FE\u5728\u662F ${formatFireTimeShort(nowMs, tz)}\uFF09\u3002\u60F3\u99AC\u4E0A\u8AAA\u7684\u8A71\u76F4\u63A5\u5BEB\u9032\u9019\u689D\u6D88\u606F\u88E1\u3002`
     };
   }
   return { sendAt: new Date(sendAtMs).toISOString() };
@@ -8314,7 +8314,7 @@ var parseToolConfig = (value) => {
     const cleaned = Array.isArray(parsed.mcpServers) ? parsed.mcpServers.filter((s) => s && typeof s === "object" && typeof s.id === "string" && typeof s.name === "string" && typeof s.url === "string" && Array.isArray(s.tools)) : void 0;
     if (cleaned && cleaned.length !== parsed.mcpServers.length) {
       console.warn(
-        "[amsg:tool_config] MCP \u6E05\u5355\u6709\u6761\u76EE\u5F62\u72B6\u4E0D\u5BF9\uFF0C\u5DF2\u4E22\u5F03",
+        "[amsg:tool_config] MCP \u6E05\u55AE\u6709\u689D\u76EE\u5F62\u72C0\u4E0D\u5C0D\uFF0C\u5DF2\u4E1F\u68C4",
         parsed.mcpServers.length - cleaned.length
       );
     }
@@ -8330,45 +8330,67 @@ var parseToolConfig = (value) => {
   }
 };
 
+// utils/scriptKey.ts
+var TRADITIONAL = "\u4E1F\u4E26\u4E7E\u4E82\u4E99\u4E9E\u4F47\u4F48\u4F54\u4F75\u4F86\u4F96\u4FB6\u4FB7\u4FC1\u4FC2\u4FD4\u4FE0\u4FE5\u4FEC\u5000\u5006\u5008\u5009\u500B\u5011\u5016\u502B\u5032\u5049\u5051\u5074\u5075\u507D\u508C\u5091\u5096\u5098\u5099\u50A2\u50AD\u50AF\u50B3\u50B4\u50B5\u50B7\u50BE\u50C2\u50C5\u50C9\u50D1\u50D5\u50DE\u50E5\u50E8\u50F1\u50F9\u5100\u5101\u5102\u5104\u5108\u5109\u510E\u5110\u5114\u5115\u5118\u511F\u512A\u5132\u5137\u5138\u513A\u513B\u513C\u5147\u514C\u5152\u5157\u5167\u5169\u518A\u5191\u51AA\u51C8\u51CD\u51DC\u51F1\u5225\u522A\u5244\u5247\u524B\u524E\u5257\u525B\u525D\u526E\u5274\u5275\u5277\u5283\u5284\u5287\u5289\u528A\u528C\u528D\u528F\u5291\u529A\u52C1\u52D5\u52D9\u52DB\u52DD\u52DE\u52E2\u52E9\u52F1\u52F3\u52F5\u52F8\u52FB\u532D\u532F\u5331\u5340\u5354\u5379\u537B\u537D\u5399\u53A0\u53A4\u53AD\u53B2\u53B4\u53C3\u53C4\u53E2\u5412\u5433\u5436\u5442\u54BC\u54E1\u5504\u5538\u554F\u5553\u555E\u555F\u5562\u558E\u559A\u55AA\u55AB\u55AC\u55AE\u55B2\u55C6\u55C7\u55CA\u55CE\u55DA\u55E9\u55F6\u5606\u560D\u5613\u5614\u5616\u5617\u561C\u5629\u562E\u562F\u5630\u5635\u5638\u563D\u5641\u5653\u565A\u565D\u5660\u5665\u5666\u566F\u5672\u5674\u5678\u5679\u5680\u5687\u568C\u5690\u5695\u5699\u56A5\u56A6\u56A8\u56AE\u56B2\u56B3\u56B4\u56B6\u56C0\u56C1\u56C2\u56C5\u56C8\u56C9\u56CC\u56D1\u56EA\u5707\u570B\u570D\u5712\u5713\u5716\u5718\u57BB\u57E1\u57F0\u57F7\u5805\u580A\u5816\u581D\u582F\u5831\u5834\u584A\u584B\u584F\u5852\u5857\u585A\u5862\u5864\u5875\u5879\u588A\u589C\u58AE\u58B0\u58B3\u58B6\u58BB\u58BE\u58C7\u58CB\u58CE\u58D3\u58D8\u58D9\u58DA\u58DC\u58DE\u58DF\u58E0\u58E2\u58E9\u58EA\u58EF\u58FA\u58FC\u58FD\u5920\u5922\u5925\u593E\u5950\u5967\u5969\u596A\u596C\u596E\u597C\u599D\u59CD\u59E6\u5A1B\u5A41\u5A66\u5A6D\u5AA7\u5AAF\u5AB0\u5ABC\u5ABD\u5ACB\u5AD7\u5AF5\u5AFA\u5AFB\u5AFF\u5B00\u5B03\u5B08\u5B0B\u5B0C\u5B19\u5B21\u5B24\u5B2A\u5B30\u5B38\u5B43\u5B4B\u5B4C\u5B6B\u5B78\u5B7F\u5BAE\u5BC0\u5BE2\u5BE6\u5BE7\u5BE9\u5BEB\u5BEC\u5BF5\u5BF6\u5C07\u5C08\u5C0B\u5C0D\u5C0E\u5C37\u5C46\u5C4D\u5C53\u5C5C\u5C62\u5C64\u5C68\u5C6C\u5CA1\u5CEF\u5CF4\u5CF6\u5CFD\u5D0D\u5D11\u5D17\u5D19\u5D22\u5D2C\u5D50\u5D57\u5D7E\u5D81\u5D84\u5D87\u5D94\u5D97\u5DA0\u5DA2\u5DA7\u5DA8\u5DAE\u5DB8\u5DBA\u5DBC\u5DBD\u5DCB\u5DD2\u5DD4\u5DD6\u5DF0\u5DF9\u5E10\u5E25\u5E2B\u5E33\u5E36\u5E40\u5E43\u5E53\u5E57\u5E58\u5E5F\u5E63\u5E6B\u5E6C\u5E77\u5E79\u5E7E\u5EAB\u5EC1\u5EC2\u5EC4\u5EC8\u5ECE\u5ED5\u5EDA\u5EDD\u5EDF\u5EE0\u5EE1\u5EE2\u5EE3\u5EE9\u5EEC\u5EF3\u5F12\u5F14\u5F33\u5F35\u5F37\u5F46\u5F48\u5F4C\u5F4E\u5F54\u5F59\u5F60\u5F65\u5F6B\u5F72\u5F7F\u5F8C\u5F91\u5F9E\u5FA0\u5FA9\u5FB5\u5FB9\u6046\u6065\u6085\u609E\u60B5\u60B6\u60BD\u60E1\u60F1\u60F2\u60FB\u611B\u611C\u6128\u6134\u6137\u613E\u6144\u614B\u614D\u6158\u615A\u615F\u6163\u6164\u616A\u616B\u616E\u6173\u6176\u617A\u617C\u617E\u6182\u618A\u6190\u6191\u6192\u6196\u619A\u61A4\u61AB\u61AE\u61B2\u61B6\u61C7\u61C9\u61CC\u61CD\u61DE\u61DF\u61E3\u61E4\u61E8\u61F2\u61F6\u61F7\u61F8\u61FA\u61FC\u61FE\u6200\u6207\u6214\u6227\u6229\u6230\u6231\u6232\u6236\u625E\u62CB\u62DA\u6329\u6331\u633E\u6368\u636B\u6371\u6372\u6383\u6384\u6386\u6397\u6399\u639B\u63A1\u63C0\u63DA\u63DB\u63EE\u63EF\u640D\u6416\u6417\u6427\u6435\u6436\u6451\u645C\u645F\u646F\u6473\u6476\u647A\u647B\u6488\u648F\u6490\u6493\u649D\u649F\u64A3\u64A5\u64AB\u64B2\u64B3\u64BB\u64BE\u64BF\u64C1\u64C4\u64C7\u64CA\u64CB\u64D3\u64D4\u64DA\u64E0\u64E1\u64E3\u64EC\u64EF\u64F0\u64F1\u64F2\u64F4\u64F7\u64FA\u64FB\u64FC\u64FD\u64FE\u6504\u6506\u650F\u6514\u6516\u6519\u651B\u651C\u651D\u6522\u6523\u6524\u652A\u652C\u654E\u6553\u6557\u6558\u6575\u6578\u6582\u6583\u6586\u6595\u65AC\u65B7\u65BC\u65C2\u65E3\u6607\u6642\u6649\u665D\u6688\u6689\u6698\u66A2\u66AB\u66C4\u66C6\u66C7\u66C9\u66CF\u66D6\u66E0\u66E8\u66EC\u66F8\u6703\u6727\u672E\u6771\u67B4\u67F5\u67FA\u67FB\u687F\u6894\u6898\u689D\u689F\u68B2\u68C4\u68CA\u68D6\u68D7\u68DF\u68E1\u68E7\u68F2\u68F6\u690F\u6932\u694A\u6953\u6968\u696D\u6975\u6998\u69A6\u69AA\u69AE\u69B2\u69BF\u69CB\u69CD\u69D3\u69E4\u69E7\u69E8\u69EE\u69F3\u69F6\u69FC\u6A01\u6A02\u6A05\u6A11\u6A13\u6A19\u6A1E\u6A22\u6A23\u6A27\u6A2B\u6A33\u6A38\u6A39\u6A3A\u6A3F\u6A48\u6A4B\u6A5F\u6A62\u6A6B\u6A81\u6A89\u6A94\u6A9C\u6A9F\u6AA2\u6AA3\u6AAE\u6AAF\u6AB3\u6AB8\u6ABB\u6AC3\u6AD3\u6ADA\u6ADB\u6ADD\u6ADE\u6ADF\u6AE5\u6AE7\u6AE8\u6AEA\u6AEB\u6AEC\u6AF1\u6AF3\u6AF8\u6AFB\u6B04\u6B05\u6B0A\u6B0F\u6B12\u6B16\u6B1E\u6B3D\u6B4E\u6B50\u6B5F\u6B61\u6B72\u6B77\u6B78\u6B7F\u6B98\u6B9E\u6BA4\u6BA8\u6BAB\u6BAD\u6BAE\u6BAF\u6BB0\u6BB2\u6BBA\u6BBB\u6BBC\u6BC0\u6BC6\u6BFF\u6C02\u6C08\u6C0C\u6C23\u6C2B\u6C2C\u6C33\u6C3E\u6C4E\u6C59\u6C7A\u6C92\u6C96\u6CC1\u6CDD\u6D29\u6D36\u6D79\u6D87\u6D97\u6DBC\u6DD2\u6DDA\u6DE5\u6DE8\u6DE9\u6DEA\u6DF5\u6DF6\u6DFA\u6E19\u6E1B\u6E22\u6E26\u6E2C\u6E3E\u6E4A\u6E5E\u6E67\u6E6F\u6E88\u6E96\u6E9D\u6EAB\u6EAE\u6EB3\u6EBC\u6EC4\u6EC5\u6ECC\u6ECE\u6ED9\u6EEC\u6EEF\u6EF2\u6EF7\u6EF8\u6EFB\u6EFE\u6EFF\u6F01\u6F0A\u6F1A\u6F22\u6F23\u6F2C\u6F32\u6F35\u6F38\u6F3F\u6F41\u6F51\u6F54\u6F59\u6F5A\u6F5B\u6F64\u6F6F\u6F70\u6F77\u6F7F\u6F80\u6F86\u6F87\u6F90\u6F97\u6FA0\u6FA4\u6FA6\u6FA9\u6FAE\u6FB1\u6FBE\u6FC1\u6FC3\u6FC4\u6FD5\u6FD8\u6FDA\u6FDB\u6FDC\u6FDF\u6FE4\u6FE7\u6FEB\u6FF0\u6FF1\u6FFA\u6FFC\u6FFE\u7002\u7005\u7006\u7007\u7009\u700B\u700F\u7015\u7018\u701D\u701F\u7020\u7026\u7027\u7028\u7030\u7032\u703E\u7043\u7044\u7051\u7055\u7058\u705D\u7061\u7063\u7064\u7067\u7069\u707D\u70BA\u70CF\u70F4\u7121\u7149\u7152\u7159\u7162\u7165\u7169\u716C\u7171\u7185\u7192\u7197\u71B1\u71B2\u71BE\u71C1\u71C8\u71C9\u71D2\u71D9\u71DC\u71DF\u71E6\u71EC\u71ED\u71F4\u71F6\u71FB\u71FC\u71FE\u720D\u7210\u721B\u722D\u7232\u723A\u723E\u7240\u7246\u7258\u7274\u727D\u7296\u729B\u72A2\u72A7\u72C0\u72F9\u72FD\u7319\u7336\u733B\u7341\u7343\u7344\u7345\u734E\u7368\u736A\u736B\u736E\u7370\u7371\u7372\u7375\u7377\u7378\u737A\u737B\u737C\u7380\u73FE\u7431\u743A\u743F\u744B\u7452\u7463\u7464\u7469\u746A\u7472\u7489\u74A1\u74A3\u74A6\u74AB\u74AF\u74B0\u74B5\u74B8\u74BD\u74BF\u74CA\u74CF\u74D4\u74DA\u750C\u7515\u7522\u7523\u755D\u7562\u756B\u7570\u7575\u7576\u7587\u758A\u75D9\u75E0\u75FE\u7602\u760B\u760D\u7613\u761E\u7621\u7627\u762E\u7632\u763A\u763B\u7642\u7646\u7647\u7649\u7652\u7658\u765F\u7661\u7662\u7664\u7665\u7667\u7669\u766C\u766D\u766E\u7670\u7671\u7672\u767C\u7681\u769A\u76B0\u76B8\u76BA\u76C3\u76DC\u76DE\u76E1\u76E3\u76E4\u76E7\u76EA\u771E\u7725\u773E\u774F\u775C\u775E\u7798\u779C\u779E\u77AD\u77B6\u77BC\u77C7\u77D3\u77DA\u77EF\u7843\u785C\u7864\u7868\u786F\u7895\u78A9\u78AD\u78B8\u78BA\u78BC\u78BD\u78D1\u78DA\u78E0\u78E3\u78E7\u78EF\u78FD\u78FE\u7904\u790E\u7919\u7926\u792A\u792B\u792C\u7931\u7955\u797F\u798D\u798E\u7995\u79A1\u79A6\u79AA\u79AE\u79B0\u79B1\u79BF\u79C8\u7A05\u7A08\u7A0F\u7A1C\u7A1F\u7A2E\u7A31\u7A40\u7A47\u7A4C\u7A4D\u7A4E\u7A60\u7A61\u7A62\u7A69\u7A6B\u7A6D\u7AA9\u7AAA\u7AAE\u7AAF\u7AB5\u7AB6\u7ABA\u7AC4\u7AC5\u7AC7\u7AC8\u7ACA\u7AEA\u7AF6\u7B46\u7B4D\u7B67\u7B74\u7B87\u7B8B\u7B8F\u7B9A\u7BC0\u7BC4\u7BC9\u7BCB\u7BD4\u7BE0\u7BE4\u7BE9\u7BF3\u7C00\u7C0D\u7C11\u7C1E\u7C21\u7C23\u7C2B\u7C39\u7C3D\u7C3E\u7C43\u7C4C\u7C54\u7C59\u7C5B\u7C5C\u7C5F\u7C60\u7C64\u7C69\u7C6A\u7C6C\u7C6E\u7C72\u7CB5\u7CC9\u7CDD\u7CDE\u7CE7\u7CF0\u7CF2\u7CF4\u7CF6\u7CF9\u7CFE\u7D00\u7D02\u7D04\u7D05\u7D06\u7D07\u7D08\u7D09\u7D0B\u7D0D\u7D10\u7D13\u7D14\u7D15\u7D16\u7D17\u7D18\u7D19\u7D1A\u7D1B\u7D1C\u7D1D\u7D21\u7D2C\u7D2E\u7D30\u7D31\u7D32\u7D33\u7D35\u7D39\u7D3A\u7D3C\u7D3F\u7D40\u7D42\u7D43\u7D44\u7D45\u7D46\u7D4E\u7D50\u7D55\u7D5B\u7D5D\u7D5E\u7D61\u7D62\u7D66\u7D68\u7D70\u7D71\u7D72\u7D73\u7D76\u7D79\u7D81\u7D83\u7D86\u7D88\u7D89\u7D8C\u7D8F\u7D90\u7D91\u7D93\u7D9C\u7D9E\u7DA0\u7DA2\u7DA3\u7DAB\u7DAC\u7DAD\u7DAF\u7DB0\u7DB1\u7DB2\u7DB3\u7DB4\u7DB5\u7DB8\u7DB9\u7DBA\u7DBB\u7DBD\u7DBE\u7DBF\u7DC4\u7DC7\u7DCA\u7DCB\u7DD1\u7DD2\u7DD3\u7DD4\u7DD7\u7DD8\u7DD9\u7DDA\u7DDD\u7DDE\u7DE0\u7DE1\u7DE3\u7DE6\u7DE8\u7DE9\u7DEC\u7DEF\u7DF1\u7DF2\u7DF4\u7DF6\u7DF9\u7DFB\u7DFC\u7E08\u7E09\u7E0A\u7E0B\u7E10\u7E11\u7E15\u7E17\u7E1B\u7E1D\u7E1E\u7E1F\u7E23\u7E27\u7E2B\u7E2D\u7E2E\u7E31\u7E32\u7E33\u7E34\u7E35\u7E36\u7E37\u7E39\u7E3D\u7E3E\u7E43\u7E45\u7E46\u7E52\u7E54\u7E55\u7E5A\u7E5E\u7E61\u7E62\u7E69\u7E6A\u7E6B\u7E6D\u7E6E\u7E6F\u7E70\u7E73\u7E78\u7E79\u7E7C\u7E7D\u7E7E\u7E7F\u7E87\u7E88\u7E8A\u7E8C\u7E8D\u7E8F\u7E93\u7E94\u7E96\u7E98\u7E9C\u7F3D\u7F43\u7F48\u7F4C\u7F4E\u7F70\u7F75\u7F77\u7F85\u7F86\u7F88\u7F8B\u7FA3\u7FA5\u7FA8\u7FA9\u7FB6\u7FD2\u7FEB\u7FEC\u7FF9\u7FFD\u802C\u802E\u8056\u805E\u806F\u8070\u8072\u8073\u8075\u8076\u8077\u8079\u807D\u807E\u8085\u8105\u8108\u811B\u8123\u8129\u812B\u8139\u814E\u8156\u8161\u8166\u816B\u8173\u8178\u8183\u8195\u819A\u819E\u81A0\u81A9\u81BD\u81BE\u81BF\u81C9\u81CD\u81CF\u81D8\u81DA\u81DF\u81E0\u81E2\u81E5\u81E8\u81FA\u8207\u8208\u8209\u820A\u8216\u8218\u8259\u8264\u8266\u826B\u8271\u8277\u82BB\u82E7\u8332\u834A\u838A\u8396\u83A2\u83A7\u83EF\u83F4\u83F8\u8407\u840A\u842C\u8434\u8435\u8449\u8452\u8457\u8464\u8466\u846F\u8477\u8490\u8493\u8494\u8495\u849E\u84BC\u84C0\u84C6\u84CB\u84EE\u84EF\u84F4\u84FD\u8514\u8518\u851E\u8523\u8525\u8526\u852D\u8541\u8546\u854E\u8552\u8553\u8555\u8558\u8562\u8569\u856A\u856D\u8577\u8580\u8588\u858A\u858C\u8591\u8594\u8598\u859F\u85A6\u85A9\u85B3\u85B4\u85B5\u85B9\u85BA\u85CD\u85CE\u85DD\u85E5\u85EA\u85ED\u85F4\u85F6\u85F9\u85FA\u8600\u8604\u8606\u8607\u860A\u860B\u861A\u861E\u8622\u862D\u863A\u863F\u8646\u8655\u865B\u865C\u865F\u8667\u866F\u86FA\u86FB\u8706\u8755\u875F\u8766\u8768\u8778\u8784\u879E\u87A2\u87AE\u87BB\u87BF\u87C4\u87C8\u87CE\u87E3\u87EC\u87EF\u87F2\u87F6\u87FB\u8801\u8805\u8806\u880D\u8810\u8811\u8814\u881F\u8823\u8828\u8831\u8836\u883B\u8846\u884A\u8853\u8855\u885A\u885B\u885D\u889E\u88B7\u88CA\u88CF\u88DC\u88DD\u88E1\u88FD\u8907\u890C\u8918\u8932\u8933\u8938\u893B\u8947\u8949\u894F\u8956\u895D\u8960\u8964\u896A\u896C\u896F\u8972\u8974\u8986\u8988\u898B\u898E\u898F\u8993\u8996\u8998\u89A1\u89A5\u89A6\u89AA\u89AC\u89AF\u89B2\u89B7\u89BA\u89BD\u89BF\u89C0\u89F4\u89F6\u89F8\u8A01\u8A02\u8A03\u8A08\u8A0A\u8A0C\u8A0E\u8A10\u8A12\u8A13\u8A15\u8A16\u8A17\u8A18\u8A1B\u8A1D\u8A1F\u8A22\u8A23\u8A25\u8A29\u8A2A\u8A2D\u8A31\u8A34\u8A36\u8A3A\u8A3B\u8A3C\u8A41\u8A46\u8A4E\u8A50\u8A52\u8A54\u8A55\u8A56\u8A57\u8A58\u8A5B\u8A5E\u8A60\u8A61\u8A62\u8A63\u8A66\u8A69\u8A6B\u8A6C\u8A6D\u8A6E\u8A70\u8A71\u8A72\u8A73\u8A75\u8A7C\u8A7F\u8A84\u8A85\u8A86\u8A87\u8A8C\u8A8D\u8A91\u8A92\u8A95\u8A98\u8A9A\u8A9E\u8AA0\u8AA1\u8AA3\u8AA4\u8AA5\u8AA6\u8AA8\u8AAA\u8AAC\u8AB0\u8AB2\u8AB6\u8AB9\u8ABC\u8ABE\u8ABF\u8AC2\u8AC4\u8AC7\u8AC9\u8ACB\u8ACD\u8ACF\u8AD1\u8AD2\u8AD6\u8AD7\u8ADB\u8ADC\u8ADD\u8ADE\u8AE1\u8AE2\u8AE4\u8AE6\u8AE7\u8AEB\u8AED\u8AEE\u8AF1\u8AF3\u8AF6\u8AF7\u8AF8\u8AFA\u8AFC\u8AFE\u8B00\u8B01\u8B02\u8B04\u8B05\u8B0A\u8B0E\u8B10\u8B14\u8B16\u8B17\u8B19\u8B1A\u8B1B\u8B1D\u8B20\u8B21\u8B28\u8B2B\u8B2C\u8B2D\u8B33\u8B39\u8B3E\u8B41\u8B49\u8B4E\u8B4F\u8B56\u8B58\u8B59\u8B5A\u8B5C\u8B5F\u8B6B\u8B6D\u8B6F\u8B70\u8B74\u8B77\u8B78\u8B7D\u8B7E\u8B80\u8B85\u8B8A\u8B8B\u8B8C\u8B8E\u8B92\u8B93\u8B95\u8B96\u8B9A\u8B9C\u8B9E\u8C3F\u8C48\u8C4E\u8C50\u8C54\u8C6C\u8C76\u8C8D\u8C93\u8C99\u8C9D\u8C9E\u8C9F\u8CA0\u8CA1\u8CA2\u8CA7\u8CA8\u8CA9\u8CAA\u8CAB\u8CAC\u8CAF\u8CB0\u8CB2\u8CB3\u8CB4\u8CB6\u8CB7\u8CB8\u8CBA\u8CBB\u8CBC\u8CBD\u8CBF\u8CC0\u8CC1\u8CC2\u8CC3\u8CC4\u8CC5\u8CC7\u8CC8\u8CCA\u8CD1\u8CD2\u8CD3\u8CD5\u8CD9\u8CDA\u8CDC\u8CDE\u8CE0\u8CE1\u8CE2\u8CE3\u8CE4\u8CE6\u8CE7\u8CEA\u8CEB\u8CEC\u8CED\u8CF0\u8CF4\u8CF5\u8CFA\u8CFB\u8CFC\u8CFD\u8CFE\u8D04\u8D05\u8D07\u8D08\u8D0A\u8D0B\u8D0D\u8D0F\u8D10\u8D13\u8D14\u8D16\u8D17\u8D1B\u8D1C\u8D6C\u8D95\u8D99\u8DA8\u8DB2\u8DE1\u8E10\u8E30\u8E34\u8E4C\u8E55\u8E5F\u8E60\u8E63\u8E64\u8E7A\u8E82\u8E89\u8E8A\u8E8B\u8E8D\u8E8E\u8E91\u8E92\u8E93\u8E95\u8E9A\u8EA1\u8EA5\u8EA6\u8EAA\u8EC0\u8ECA\u8ECB\u8ECC\u8ECD\u8ED1\u8ED2\u8ED4\u8EDB\u8EDF\u8EE4\u8EEB\u8EF2\u8EF8\u8EF9\u8EFA\u8EFB\u8EFC\u8EFE\u8F03\u8F05\u8F07\u8F08\u8F09\u8F0A\u8F12\u8F13\u8F14\u8F15\u8F1B\u8F1C\u8F1D\u8F1E\u8F1F\u8F25\u8F26\u8F29\u8F2A\u8F2C\u8F2F\u8F33\u8F38\u8F3B\u8F3C\u8F3E\u8F3F\u8F40\u8F42\u8F44\u8F45\u8F46\u8F49\u8F4D\u8F4E\u8F54\u8F5F\u8F61\u8F62\u8F64\u8FA6\u8FAD\u8FAE\u8FAF\u8FB2\u8FF4\u9015\u9019\u9023\u9031\u9032\u904A\u904B\u904E\u9054\u9055\u9059\u905C\u905E\u9060\u9061\u9069\u9072\u9076\u9077\u9078\u907A\u907C\u9081\u9084\u9087\u908A\u908F\u9090\u90DF\u90F5\u9106\u9109\u9112\u9114\u9116\u9127\u912D\u9130\u9132\u9134\u9136\u913A\u9147\u9148\u9183\u9196\u919C\u919E\u919F\u91A3\u91AB\u91AC\u91B1\u91C0\u91C1\u91C3\u91C5\u91CB\u91D0\u91D2\u91D3\u91D4\u91D5\u91D7\u91D8\u91D9\u91DD\u91E3\u91E4\u91E6\u91E7\u91E9\u91F5\u91F7\u91F9\u91FA\u91FE\u9200\u9201\u9203\u9204\u9205\u9208\u9209\u920D\u920E\u9210\u9211\u9212\u9214\u9215\u921E\u9221\u9223\u9225\u9226\u9227\u922E\u9230\u9233\u9234\u9237\u9238\u9239\u923A\u923D\u923E\u923F\u9240\u9245\u9246\u9248\u9249\u924B\u924D\u9251\u9255\u9257\u925A\u925B\u925E\u9262\u9264\u9266\u926C\u926D\u9273\u9276\u9278\u927A\u927B\u927F\u9280\u9283\u9285\u928D\u9291\u9293\u9296\u9298\u929A\u929B\u929C\u92A0\u92A3\u92A5\u92A6\u92A8\u92A9\u92AA\u92AB\u92AC\u92B1\u92B3\u92B7\u92B9\u92BB\u92BC\u92C1\u92C3\u92C5\u92C7\u92CC\u92CF\u92D2\u92D9\u92DD\u92DF\u92E3\u92E4\u92E5\u92E6\u92E8\u92E9\u92EA\u92ED\u92EE\u92EF\u92F0\u92F1\u92F6\u92F8\u92FC\u9301\u9304\u9306\u9307\u9308\u930F\u9310\u9312\u9315\u9318\u9319\u931A\u931B\u931F\u9320\u9321\u9322\u9326\u9328\u9329\u932B\u932E\u932F\u9332\u9333\u9336\u9338\u933C\u9340\u9341\u9343\u9345\u9346\u9347\u9348\u934A\u934B\u934D\u9354\u9358\u935A\u935B\u9360\u9364\u9365\u9369\u936C\u9370\u9375\u9376\u937A\u937C\u937E\u9382\u9384\u9387\u938A\u938C\u9394\u9396\u9398\u939A\u939B\u93A1\u93A2\u93A3\u93A6\u93A7\u93A9\u93AA\u93AC\u93AD\u93AE\u93B0\u93B2\u93B3\u93B5\u93B6\u93B8\u93BF\u93C3\u93C7\u93C8\u93CC\u93CD\u93D0\u93D1\u93D7\u93D8\u93DC\u93DD\u93DE\u93DF\u93E1\u93E2\u93E4\u93E8\u93F0\u93F5\u93F7\u93F9\u93FA\u93FD\u9403\u940B\u9410\u9412\u9413\u9414\u9418\u9419\u941D\u9420\u9425\u9426\u9427\u9428\u942B\u942E\u942F\u9432\u9433\u9435\u9436\u9438\u943A\u943F\u9444\u944A\u944C\u9451\u9452\u9454\u9455\u945E\u9460\u9463\u9465\u946D\u9470\u9471\u9472\u9477\u9479\u947C\u947D\u947E\u947F\u9481\u9482\u9577\u9580\u9582\u9583\u9586\u9588\u9589\u958B\u958C\u958E\u958F\u9591\u9592\u9593\u9594\u9598\u95A1\u95A3\u95A4\u95A5\u95A8\u95A9\u95AB\u95AC\u95AD\u95B1\u95B2\u95B6\u95B9\u95BB\u95BC\u95BD\u95BE\u95BF\u95C3\u95C6\u95C7\u95C8\u95CA\u95CB\u95CC\u95CD\u95D0\u95D2\u95D3\u95D4\u95D5\u95D6\u95DC\u95DE\u95E0\u95E1\u95E2\u95E4\u95E5\u9658\u965D\u965E\u9663\u9670\u9673\u9678\u967D\u9689\u968A\u968E\u9695\u969B\u96A8\u96AA\u96AF\u96B1\u96B4\u96B8\u96BB\u96CB\u96D6\u96D9\u96DB\u96DC\u96DE\u96E2\u96E3\u96F2\u96FB\u9711\u9722\u9727\u973D\u9742\u9744\u9746\u9748\u9749\u975A\u975C\u975D\u9766\u9768\u978F\u979D\u97A6\u97BD\u97C1\u97C3\u97C6\u97C9\u97CB\u97CC\u97CD\u97D3\u97D9\u97DC\u97DD\u97DE\u97FB\u97FF\u9801\u9802\u9803\u9805\u9806\u9807\u9808\u980A\u980C\u980E\u980F\u9810\u9811\u9812\u9813\u9817\u9818\u981C\u9821\u9824\u9826\u982D\u982E\u9830\u9832\u9834\u9837\u9838\u9839\u983B\u983D\u9846\u984C\u984D\u984E\u984F\u9852\u9853\u9854\u9858\u9859\u985B\u985E\u9862\u9865\u9867\u986B\u986C\u986F\u9870\u9871\u9873\u9874\u98A8\u98AD\u98AE\u98AF\u98B1\u98B3\u98B6\u98B8\u98BA\u98BB\u98BC\u98C0\u98C4\u98C6\u98C8\u98DB\u98E0\u98E2\u98E3\u98E5\u98E9\u98EA\u98EB\u98ED\u98EF\u98F1\u98F2\u98F4\u98FC\u98FD\u98FE\u98FF\u9903\u9904\u9905\u9908\u9909\u990A\u990C\u990E\u990F\u9911\u9912\u9913\u9915\u9916\u9918\u991A\u991B\u991C\u991E\u9921\u9928\u992C\u9931\u9933\u9935\u9936\u9937\u993A\u993C\u993E\u993F\u9941\u9943\u9945\u9948\u9949\u994A\u994B\u994C\u9951\u9952\u9957\u995C\u995E\u9962\u99AC\u99AD\u99AE\u99B1\u99B3\u99B4\u99B9\u99C1\u99D0\u99D1\u99D2\u99D4\u99D5\u99D8\u99D9\u99DB\u99DD\u99DF\u99E1\u99E2\u99ED\u99F0\u99F1\u99F8\u99FF\u9A01\u9A02\u9A05\u9A0C\u9A0D\u9A0E\u9A0F\u9A16\u9A19\u9A24\u9A27\u9A2B\u9A2D\u9A2E\u9A30\u9A36\u9A37\u9A38\u9A3E\u9A40\u9A41\u9A42\u9A43\u9A44\u9A45\u9A4A\u9A4C\u9A4D\u9A4F\u9A55\u9A57\u9A5A\u9A5B\u9A5F\u9A62\u9A64\u9A65\u9A66\u9A6A\u9A6B\u9AAF\u9ACF\u9AD2\u9AD4\u9AD5\u9AD6\u9AEE\u9B06\u9B0D\u9B1A\u9B22\u9B25\u9B27\u9B28\u9B29\u9B2E\u9B31\u9B39\u9B4E\u9B58\u9B5A\u9B5B\u9B62\u9B68\u9B6F\u9B74\u9B77\u9B7A\u9B81\u9B83\u9B8A\u9B8B\u9B8D\u9B8E\u9B90\u9B91\u9B92\u9B93\u9B9A\u9B9C\u9B9D\u9B9E\u9BA3\u9BA6\u9BAA\u9BAB\u9BAD\u9BAE\u9BB3\u9BB6\u9BBA\u9BC0\u9BC1\u9BC7\u9BC9\u9BCA\u9BD2\u9BD4\u9BD5\u9BD6\u9BD7\u9BDB\u9BDD\u9BE1\u9BE2\u9BE4\u9BE7\u9BE8\u9BEA\u9BEB\u9BF0\u9BF4\u9BF7\u9BFD\u9BFF\u9C01\u9C02\u9C03\u9C06\u9C08\u9C09\u9C0C\u9C0D\u9C0F\u9C10\u9C12\u9C13\u9C1B\u9C1C\u9C1F\u9C20\u9C23\u9C25\u9C27\u9C28\u9C29\u9C2D\u9C2E\u9C31\u9C32\u9C33\u9C35\u9C37\u9C39\u9C3A\u9C3B\u9C3C\u9C3E\u9C42\u9C45\u9C48\u9C49\u9C52\u9C54\u9C56\u9C57\u9C58\u9C5D\u9C5F\u9C60\u9C63\u9C64\u9C67\u9C68\u9C6D\u9C6F\u9C77\u9C78\u9C7A\u9CE5\u9CE7\u9CE9\u9CEC\u9CF2\u9CF3\u9CF4\u9CF6\u9CFE\u9D06\u9D07\u9D09\u9D12\u9D15\u9D1B\u9D1D\u9D1E\u9D1F\u9D23\u9D26\u9D28\u9D2F\u9D30\u9D34\u9D37\u9D3B\u9D3F\u9D41\u9D42\u9D43\u9D50\u9D51\u9D52\u9D53\u9D5C\u9D5D\u9D60\u9D61\u9D6A\u9D6C\u9D6E\u9D6F\u9D70\u9D72\u9D77\u9D7E\u9D84\u9D87\u9D89\u9D8A\u9D93\u9D96\u9D98\u9D9A\u9DA1\u9DA5\u9DA9\u9DAA\u9DAC\u9DAF\u9DB2\u9DB4\u9DB9\u9DBA\u9DBB\u9DBC\u9DBF\u9DC0\u9DC1\u9DC2\u9DC4\u9DC9\u9DCA\u9DD3\u9DD6\u9DD7\u9DD9\u9DDA\u9DE5\u9DE6\u9DEB\u9DEF\u9DF2\u9DF3\u9DF4\u9DF8\u9DF9\u9DFA\u9DFD\u9E02\u9E07\u9E0A\u9E0C\u9E0F\u9E15\u9E18\u9E1A\u9E1B\u9E1D\u9E1E\u9E75\u9E79\u9E7A\u9E7C\u9E7D\u9E97\u9EA5\u9EA9\u9EAA\u9EAB\u9EAF\u9EB4\u9EB5\u9EBC\u9EBD\u9EC3\u9ECC\u9EDE\u9EE8\u9EF2\u9EF4\u9EF6\u9EF7\u9EFD\u9EFF\u9F02\u9F09\u9F15\u9F34\u9F4A\u9F4B\u9F4E\u9F4F\u9F52\u9F54\u9F55\u9F57\u9F59\u9F5C\u9F5F\u9F60\u9F61\u9F63\u9F66\u9F67\u9F6A\u9F6C\u9F72\u9F76\u9F77\u9F8D\u9F8E\u9F90\u9F91\u9F94\u9F95\u9F9C\u9FC1\u9FD3";
+var SIMPLIFIED = "\u4E22\u5E76\u5E72\u4E71\u4E98\u4E9A\u4F2B\u5E03\u5360\u5E76\u6765\u4ED1\u4FA3\u5C40\u4FE3\u7CFB\u4F23\u4FA0\u4F21\u79C1\u4F25\u4FE9\u4FEB\u4ED3\u4E2A\u4EEC\u5E78\u4F26\u3448\u4F1F\u343D\u4FA7\u4FA6\u4F2A\u3437\u6770\u4F27\u4F1E\u5907\u5BB6\u4F63\u506C\u4F20\u4F1B\u503A\u4F24\u503E\u507B\u4EC5\u4F65\u4FA8\u4EC6\u4F2A\u4FA5\u507E\u96C7\u4EF7\u4EEA\u4FCA\u4FAC\u4EBF\u4FA9\u4FED\u50A4\u50A7\u4FE6\u4FAA\u5C3D\u507F\u4F18\u50A8\u4FEA\u3469\u50A9\u50A5\u4FE8\u51F6\u5151\u513F\u5156\u5185\u4E24\u518C\u80C4\u5E42\u51C0\u51BB\u51DB\u51EF\u522B\u5220\u522D\u5219\u514B\u5239\u522C\u521A\u5265\u5250\u5240\u521B\u94F2\u5212\u672D\u5267\u5218\u523D\u523F\u5251\u34E5\u5242\u3509\u52B2\u52A8\u52A1\u52CB\u80DC\u52B3\u52BF\u52DA\u52A2\u52CB\u52B1\u529D\u5300\u5326\u6C47\u532E\u533A\u534F\u6064\u5374\u5373\u538D\u5395\u5386\u538C\u5389\u53A3\u53C2\u53C1\u4E1B\u54A4\u5434\u5450\u5415\u5459\u5458\u5457\u5FF5\u95EE\u542F\u54D1\u542F\u5521\u359E\u5524\u4E27\u5403\u4E54\u5355\u54DF\u545B\u556C\u551D\u5417\u545C\u5522\u54D4\u53F9\u55BD\u556F\u5455\u5567\u5C1D\u551B\u54D7\u5520\u5578\u53FD\u54D3\u5452\u5574\u6076\u5618\u358A\u549D\u54D2\u54DD\u54D5\u55F3\u54D9\u55B7\u5428\u5F53\u549B\u5413\u54DC\u5C1D\u565C\u556E\u54BD\u5456\u5499\u5411\u4EB8\u55BE\u4E25\u5624\u556D\u55EB\u56A3\u5181\u5453\u5570\u82CF\u5631\u56F1\u56F5\u56FD\u56F4\u56ED\u5706\u56FE\u56E2\u575D\u57AD\u91C7\u6267\u575A\u57A9\u57B4\u57DA\u5C27\u62A5\u573A\u5757\u8314\u57B2\u57D8\u6D82\u51A2\u575E\u57D9\u5C18\u5811\u57AB\u5760\u5815\u575B\u575F\u57AF\u5899\u57A6\u575B\u57B1\u57D9\u538B\u5792\u5739\u5786\u575B\u574F\u5784\u5785\u575C\u575D\u5846\u58EE\u58F6\u58F8\u5BFF\u591F\u68A6\u4F19\u5939\u5942\u5965\u5941\u593A\u5956\u594B\u59F9\u5986\u59D7\u5978\u5A31\u5A04\u5987\u5A05\u5A32\u59AB\u36C0\u5AAA\u5988\u8885\u59AA\u59A9\u5A34\u5A34\u5A73\u59AB\u5AAD\u5A06\u5A75\u5A07\u5AF1\u5AD2\u5B37\u5AD4\u5A74\u5A76\u5A18\u36E4\u5A08\u5B59\u5B66\u5B6A\u5BAB\u91C7\u5BDD\u5B9E\u5B81\u5BA1\u5199\u5BBD\u5BA0\u5B9D\u5C06\u4E13\u5BFB\u5BF9\u5BFC\u5C34\u5C4A\u5C38\u5C43\u5C49\u5C61\u5C42\u5C66\u5C5E\u5188\u5CF0\u5C98\u5C9B\u5CE1\u5D03\u6606\u5C97\u4ED1\u5CE5\u5CBD\u5C9A\u5C81\u37E5\u5D5D\u5D2D\u5C96\u5D5A\u5D02\u5CE4\u5CE3\u5CC4\u5CC3\u5D04\u5D58\u5CAD\u5C7F\u5CB3\u5CBF\u5CE6\u5DC5\u5CA9\u5DEF\u537A\u8D26\u5E05\u5E08\u8D26\u5E26\u5E27\u5E0F\u384E\u5E3C\u5E3B\u5E1C\u5E01\u5E2E\u5E31\u5E76\u5E72\u51E0\u5E93\u5395\u53A2\u53A9\u53A6\u5EBC\u836B\u53A8\u53AE\u5E99\u5382\u5E91\u5E9F\u5E7F\u5EEA\u5E90\u5385\u5F11\u540A\u5F2A\u5F20\u5F3A\u522B\u5F39\u5F25\u5F2F\u5F55\u6C47\u5F5F\u5F66\u96D5\u5F68\u4F5B\u540E\u5F84\u4ECE\u5F95\u590D\u5F81\u5F7B\u6052\u803B\u60A6\u60AE\u6005\u95F7\u51C4\u6076\u607C\u607D\u607B\u7231\u60EC\u60AB\u6006\u607A\u5FFE\u6817\u6001\u6120\u60E8\u60ED\u6078\u60EF\u60AB\u6004\u6002\u8651\u60AD\u5E86\u396A\u621A\u6B32\u5FE7\u60EB\u601C\u51ED\u6126\u616D\u60EE\u6124\u60AF\u6003\u5BAA\u5FC6\u6073\u5E94\u603F\u61D4\u8499\u603C\u61D1\u393D\u6079\u60E9\u61D2\u6000\u60AC\u5FCF\u60E7\u6151\u604B\u6206\u620B\u6217\u622C\u6218\u622F\u620F\u6237\u634D\u629B\u62FC\u635D\u6332\u631F\u820D\u626A\u6328\u5377\u626B\u62A1\u39CF\u631C\u6323\u6302\u91C7\u62E3\u626C\u6362\u6325\u6404\u635F\u6447\u6363\u6247\u63FE\u62A2\u63B4\u63BC\u6402\u631A\u62A0\u629F\u6298\u63BA\u635E\u6326\u6491\u6320\u39D1\u6322\u63B8\u62E8\u629A\u6251\u63FF\u631E\u631D\u6361\u62E5\u63B3\u62E9\u51FB\u6321\u39DF\u62C5\u636E\u6324\u62AC\u6363\u62DF\u6448\u62E7\u6401\u63B7\u6269\u64B7\u6446\u64DE\u64B8\u39F0\u6270\u6445\u64B5\u62E2\u62E6\u6484\u6400\u64BA\u643A\u6444\u6512\u631B\u644A\u6405\u63FD\u6559\u655A\u8D25\u53D9\u654C\u6570\u655B\u6BD9\u6569\u6593\u65A9\u65AD\u4E8E\u65D7\u65E2\u5347\u65F6\u664B\u663C\u6655\u6656\u65F8\u7545\u6682\u6654\u5386\u6619\u6653\u5411\u66A7\u65F7\u663D\u6652\u4E66\u4F1A\u80E7\u672F\u4E1C\u62D0\u6805\u62D0\u67E5\u6746\u6800\u67A7\u6761\u67AD\u68C1\u5F03\u68CB\u67A8\u67A3\u680B\u3B4E\u6808\u6816\u68BE\u6860\u3B4F\u6768\u67AB\u6862\u4E1A\u6781\u77E9\u5E72\u6769\u8363\u6985\u6864\u6784\u67AA\u6760\u68BF\u6920\u6901\u692E\u6868\u6922\u691D\u6869\u4E50\u679E\u6881\u697C\u6807\u67A2\u3B64\u6837\u699D\u3B74\u686A\u6734\u6811\u6866\u692B\u6861\u6865\u673A\u692D\u6A2A\u6AA9\u67FD\u6863\u6867\u69DA\u68C0\u6A2F\u68BC\u53F0\u69DF\u67E0\u69DB\u67DC\u6A79\u6988\u6809\u691F\u6A7C\u680E\u6A71\u69E0\u680C\u67A5\u6A65\u6987\u8616\u680A\u6989\u6A31\u680F\u6989\u6743\u6924\u683E\u6984\u68C2\u94A6\u53F9\u6B27\u6B24\u6B22\u5C81\u5386\u5F52\u6B81\u6B8B\u6B92\u6B87\u3C6E\u6B9A\u50F5\u6B93\u6BA1\u3C69\u6B7C\u6740\u58F3\u58F3\u6BC1\u6BB4\u6BF5\u7266\u6BE1\u6C07\u6C14\u6C22\u6C29\u6C32\u6CDB\u6CDB\u6C61\u51B3\u6CA1\u51B2\u51B5\u6EAF\u6CC4\u6C79\u6D43\u6CFE\u6D9A\u51C9\u51C4\u6CEA\u6E0C\u51C0\u51CC\u6CA6\u6E0A\u6D9E\u6D45\u6DA3\u51CF\u6CA8\u6DA1\u6D4B\u6D51\u51D1\u6D48\u6D8C\u6C64\u6CA9\u51C6\u6C9F\u6E29\u6D49\u6DA2\u6E7F\u6CA7\u706D\u6DA4\u8365\u6C47\u6CAA\u6EDE\u6E17\u5364\u6D52\u6D50\u6EDA\u6EE1\u6E14\u6E87\u6CA4\u6C49\u6D9F\u6E0D\u6DA8\u6E86\u6E10\u6D46\u988D\u6CFC\u6D01\u6CA9\u3D0B\u6F5C\u6DA6\u6D54\u6E83\u6ED7\u6DA0\u6DA9\u6D47\u6D9D\u6C84\u6DA7\u6E11\u6CFD\u6EEA\u6CF6\u6D4D\u6DC0\u3CE0\u6D4A\u6D53\u3CE1\u6E7F\u6CDE\u6E81\u8499\u6D55\u6D4E\u6D9B\u3CD4\u6EE5\u6F4D\u6EE8\u6E85\u6CFA\u6EE4\u6F9B\u6EE2\u6E0E\u3CBF\u6CFB\u6C88\u6D4F\u6FD2\u6CF8\u6CA5\u6F47\u6F46\u6F74\u6CF7\u6FD1\u5F25\u6F4B\u6F9C\u6CA3\u6EE0\u6D12\u6F13\u6EE9\u704F\u3CD5\u6E7E\u6EE6\u6EDF\u6EDF\u707E\u4E3A\u4E4C\u70C3\u65E0\u70BC\u709C\u70DF\u8315\u7115\u70E6\u7080\u3DBD\u7174\u8367\u709D\u70ED\u988E\u70BD\u70E8\u706F\u7096\u70E7\u70EB\u7116\u8425\u707F\u6BC1\u70DB\u70E9\u3DB6\u718F\u70EC\u7118\u70C1\u7089\u70C2\u4E89\u4E3A\u7237\u5C14\u5E8A\u5899\u724D\u62B5\u7275\u8366\u7266\u728A\u727A\u72B6\u72ED\u72C8\u72F0\u72B9\u72F2\u72B8\u5446\u72F1\u72EE\u5956\u72EC\u72EF\u7303\u72DD\u72DE\u3E8D\u83B7\u730E\u72B7\u517D\u736D\u732E\u7315\u7321\u73B0\u96D5\u73D0\u73F2\u73AE\u739A\u7410\u7476\u83B9\u739B\u73B1\u740F\u740E\u7391\u7477\u73F0\u3EC5\u73AF\u7399\u7478\u73BA\u7487\u743C\u73D1\u748E\u74D2\u74EF\u74EE\u4EA7\u4EA7\u4EA9\u6BD5\u753B\u5F02\u753B\u5F53\u7574\u53E0\u75C9\u9178\u75B4\u75D6\u75AF\u75A1\u75EA\u7617\u75AE\u759F\u7606\u75AD\u7618\u7618\u7597\u75E8\u75EB\u7605\u6108\u75A0\u762A\u75F4\u75D2\u7596\u75C7\u75AC\u765E\u7663\u763F\u763E\u75C8\u762B\u766B\u53D1\u7682\u7691\u75B1\u76B2\u76B1\u676F\u76D7\u76CF\u5C3D\u76D1\u76D8\u5362\u8361\u771F\u7726\u4F17\u56F0\u7741\u7750\u770D\u4056\u7792\u4E86\u7786\u7751\u8499\u772C\u77A9\u77EB\u6731\u7841\u7856\u7817\u781A\u57FC\u7855\u7800\u781C\u786E\u7801\u40B5\u7859\u7816\u7875\u789C\u789B\u77F6\u7857\u40C5\u785A\u7840\u788D\u77FF\u783A\u783E\u77FE\u783B\u79D8\u7984\u7978\u796F\u794E\u7943\u5FA1\u7985\u793C\u7962\u7977\u79C3\u7C7C\u7A0E\u79C6\u4149\u68F1\u7980\u79CD\u79F0\u8C37\u415F\u7A23\u79EF\u9896\u79FE\u7A51\u79FD\u7A33\u83B7\u7A5E\u7A9D\u6D3C\u7A77\u7A91\u7A8E\u7AAD\u7AA5\u7A9C\u7A8D\u7AA6\u7076\u7A83\u7AD6\u7ADE\u7B14\u7B0B\u7B15\u41F2\u4E2A\u7B3A\u7B5D\u672D\u8282\u8303\u7B51\u7BA7\u7B7C\u7B7F\u7B03\u7B5B\u7B5A\u7BA6\u7BD3\u84D1\u7BAA\u7B80\u7BD1\u7BAB\u7B5C\u7B7E\u5E18\u7BEE\u7B79\u4264\u7B93\u7BEF\u7BA8\u7C41\u7B3C\u7B7E\u7B3E\u7C16\u7BF1\u7BA9\u5401\u7CA4\u7CBD\u7CC1\u7CAA\u7CAE\u56E2\u7C9D\u7C74\u7C9C\u7E9F\u7EA0\u7EAA\u7EA3\u7EA6\u7EA2\u7EA1\u7EA5\u7EA8\u7EAB\u7EB9\u7EB3\u7EBD\u7EBE\u7EAF\u7EB0\u7EBC\u7EB1\u7EAE\u7EB8\u7EA7\u7EB7\u7EAD\u7EB4\u7EBA\u4337\u624E\u7EC6\u7EC2\u7EC1\u7EC5\u7EBB\u7ECD\u7EC0\u7ECB\u7ED0\u7ECC\u7EC8\u5F26\u7EC4\u4339\u7ECA\u7ED7\u7ED3\u7EDD\u7EE6\u7ED4\u7EDE\u7EDC\u7EDA\u7ED9\u7ED2\u7ED6\u7EDF\u4E1D\u7EDB\u7EDD\u7EE2\u7ED1\u7EE1\u7EE0\u7EE8\u7EE3\u7EE4\u7EE5\u433C\u6346\u7ECF\u7EFC\u7F0D\u7EFF\u7EF8\u7EFB\u7EBF\u7EF6\u7EF4\u7EF9\u7EFE\u7EB2\u7F51\u7EF7\u7F00\u5F69\u7EB6\u7EFA\u7EEE\u7EFD\u7EF0\u7EEB\u7EF5\u7EF2\u7F01\u7D27\u7EEF\u7EFF\u7EEA\u7EEC\u7EF1\u7F03\u7F04\u7F02\u7EBF\u7F09\u7F0E\u7F14\u7F17\u7F18\u7F0C\u7F16\u7F13\u7F05\u7EAC\u7F11\u7F08\u7EC3\u7F0F\u7F07\u81F4\u7F0A\u8426\u7F19\u7F22\u7F12\u7EC9\u7F23\u7F0A\u7F1E\u7F1A\u7F1C\u7F1F\u7F1B\u53BF\u7EE6\u7F1D\u7F21\u7F29\u7EB5\u7F27\u4338\u7EA4\u7F26\u7D77\u7F15\u7F25\u603B\u7EE9\u7EF7\u7F2B\u7F2A\u7F2F\u7EC7\u7F2E\u7F2D\u7ED5\u7EE3\u7F0B\u7EF3\u7ED8\u7CFB\u8327\u7F30\u7F33\u7F32\u7F34\u4341\u7ECE\u7EE7\u7F24\u7F31\u4340\u98A3\u7F2C\u7EA9\u7EED\u7D2F\u7F20\u7F28\u624D\u7EA4\u7F35\u7F06\u94B5\u44E8\u575B\u7F42\u575B\u7F5A\u9A82\u7F62\u7F57\u7F74\u7F81\u8288\u7FA4\u7F9F\u7FA1\u4E49\u81BB\u4E60\u73A9\u7FDA\u7FD8\u7FD9\u8027\u8022\u5723\u95FB\u8054\u806A\u58F0\u8038\u8069\u8042\u804C\u804D\u542C\u804B\u8083\u80C1\u8109\u80EB\u5507\u4FEE\u8131\u80C0\u80BE\u80E8\u8136\u8111\u80BF\u811A\u80A0\u817D\u8158\u80A4\u43DD\u80F6\u817B\u80C6\u810D\u8113\u8138\u8110\u8191\u814A\u80EA\u810F\u8114\u81DC\u5367\u4E34\u53F0\u4E0E\u5174\u4E3E\u65E7\u94FA\u9986\u8231\u8223\u8230\u823B\u8270\u8273\u520D\u82CE\u5179\u8346\u5E84\u830E\u835A\u82CB\u534E\u5EB5\u70DF\u82CC\u83B1\u4E07\u835D\u83B4\u53F6\u836D\u7740\u836E\u82C7\u836F\u8364\u641C\u83BC\u83B3\u8480\u8385\u82CD\u836A\u5E2D\u76D6\u83B2\u82C1\u83BC\u835C\u535C\u53C2\u848C\u848B\u8471\u8311\u836B\u8368\u8487\u835E\u836C\u82B8\u83B8\u835B\u8489\u8361\u829C\u8427\u84E3\u8570\u835F\u84DF\u8297\u59DC\u8537\u8359\u83B6\u8350\u8428\u44D5\u82E7\u44D3\u82D4\u8360\u84DD\u8369\u827A\u836F\u85AE\u44D6\u8574\u82C8\u853C\u853A\u841A\u8572\u82A6\u82CF\u8574\u82F9\u85D3\u8539\u830F\u5170\u84E0\u841D\u8502\u5904\u865A\u864F\u53F7\u4E8F\u866C\u86F1\u8715\u86AC\u8680\u732C\u867E\u8671\u8717\u86F3\u8682\u8424\u45D6\u877C\u8780\u86F0\u8748\u87A8\u866E\u8749\u86F2\u866B\u86CF\u8681\u8683\u8747\u867F\u874E\u86F4\u877E\u869D\u8721\u86CE\u87CF\u86CA\u8695\u86EE\u4F17\u8511\u672F\u540C\u80E1\u536B\u51B2\u886E\u5939\u8885\u91CC\u8865\u88C5\u91CC\u5236\u590D\u88C8\u8886\u88E4\u88E2\u891B\u4EB5\u88E5\u88E5\u88AF\u8884\u88E3\u88C6\u8934\u889C\u6446\u886C\u88AD\u8955\u590D\u6838\u89C1\u89C3\u89C4\u89C5\u89C6\u89C7\u89CB\u89CD\u89CE\u4EB2\u89CA\u89CF\u89D0\u89D1\u89C9\u89C8\u89CC\u89C2\u89DE\u89EF\u89E6\u8BA0\u8BA2\u8BA3\u8BA1\u8BAF\u8BA7\u8BA8\u8BA6\u8BB1\u8BAD\u8BAA\u8BAB\u6258\u8BB0\u8BB9\u8BB6\u8BBC\u4723\u8BC0\u8BB7\u8BBB\u8BBF\u8BBE\u8BB8\u8BC9\u8BC3\u8BCA\u6CE8\u8BC1\u8BC2\u8BCB\u8BB5\u8BC8\u8BD2\u8BCF\u8BC4\u8BD0\u8BC7\u8BCE\u8BC5\u8BCD\u548F\u8BE9\u8BE2\u8BE3\u8BD5\u8BD7\u8BE7\u8BDF\u8BE1\u8BE0\u8BD8\u8BDD\u8BE5\u8BE6\u8BDC\u8BD9\u8BD6\u8BD4\u8BDB\u8BD3\u5938\u5FD7\u8BA4\u8BF3\u8BF6\u8BDE\u8BF1\u8BEE\u8BED\u8BDA\u8BEB\u8BEC\u8BEF\u8BF0\u8BF5\u8BF2\u8BF4\u8BF4\u8C01\u8BFE\u8C07\u8BFD\u8C0A\u8A1A\u8C03\u8C04\u8C06\u8C08\u8BFF\u8BF7\u8BE4\u8BF9\u8BFC\u8C05\u8BBA\u8C02\u8C00\u8C0D\u8C1E\u8C1D\u8C25\u8BE8\u8C14\u8C1B\u8C10\u8C0F\u8C15\u54A8\u8BB3\u8C19\u8C0C\u8BBD\u8BF8\u8C1A\u8C16\u8BFA\u8C0B\u8C12\u8C13\u8A8A\u8BCC\u8C0E\u8C1C\u8C27\u8C11\u8C21\u8C24\u8C26\u8C25\u8BB2\u8C22\u8C23\u8C23\u8C1F\u8C2A\u8C2C\u8C2B\u8BB4\u8C28\u8C29\u54D7\u8BC1\u8C32\u8BA5\u8C2E\u8BC6\u8C2F\u8C2D\u8C31\u566A\u8C35\u6BC1\u8BD1\u8BAE\u8C34\u62A4\u8BEA\u8A89\u8C2B\u8BFB\u8C09\u53D8\u8A5F\u4729\u96E0\u8C17\u8BA9\u8C30\u8C36\u8D5E\u8C20\u8C33\u6EAA\u5C82\u7AD6\u4E30\u8273\u732A\u8C6E\u72F8\u732B\u4759\u8D1D\u8D1E\u8D20\u8D1F\u8D22\u8D21\u8D2B\u8D27\u8D29\u8D2A\u8D2F\u8D23\u8D2E\u8D33\u8D40\u8D30\u8D35\u8D2C\u4E70\u8D37\u8D36\u8D39\u8D34\u8D3B\u8D38\u8D3A\u8D32\u8D42\u8D41\u8D3F\u8D45\u8D44\u8D3E\u8D3C\u8D48\u8D4A\u5BBE\u8D47\u8D52\u8D49\u8D50\u8D4F\u8D54\u8D53\u8D24\u5356\u8D31\u8D4B\u8D55\u8D28\u8D4D\u8D26\u8D4C\u4790\u8D56\u8D57\u8D5A\u8D59\u8D2D\u8D5B\u8D5C\u8D3D\u8D58\u8D5F\u8D60\u8D5E\u8D5D\u8D61\u8D62\u8D46\u8D43\u8D51\u8D4E\u8D5D\u8D63\u8D43\u8D6A\u8D76\u8D75\u8D8B\u8DB1\u8FF9\u8DF5\u903E\u8E0A\u8DC4\u8DF8\u8FF9\u8DD6\u8E52\u8E2A\u8DF7\u8DF6\u8DB8\u8E0C\u8DFB\u8DC3\u47E2\u8E2F\u8DDE\u8E2C\u8E70\u8DF9\u8E51\u8E7F\u8E9C\u8E8F\u8EAF\u8F66\u8F67\u8F68\u519B\u8F6A\u8F69\u8F6B\u8F6D\u8F6F\u8F77\u8F78\u8F71\u8F74\u8F75\u8F7A\u8F72\u8F76\u8F7C\u8F83\u8F82\u8F81\u8F80\u8F7D\u8F7E\u8F84\u633D\u8F85\u8F7B\u8F86\u8F8E\u8F89\u8F8B\u8F8D\u8F8A\u8F87\u8F88\u8F6E\u8F8C\u8F91\u8F8F\u8F93\u8F90\u8F92\u8F97\u8206\u8F92\u6BC2\u8F96\u8F95\u8F98\u8F6C\u8F99\u8F7F\u8F9A\u8F70\u8F94\u8F79\u8F73\u529E\u8F9E\u8FAB\u8FA9\u519C\u56DE\u5F84\u8FD9\u8FDE\u5468\u8FDB\u6E38\u8FD0\u8FC7\u8FBE\u8FDD\u9065\u900A\u9012\u8FDC\u6EAF\u9002\u8FDF\u7ED5\u8FC1\u9009\u9057\u8FBD\u8FC8\u8FD8\u8FE9\u8FB9\u903B\u9026\u90CF\u90AE\u90D3\u4E61\u90B9\u90AC\u90E7\u9093\u90D1\u90BB\u90F8\u90BA\u90D0\u909D\u9142\u90E6\u814C\u915D\u4E11\u915D\u848F\u7CD6\u533B\u9171\u9166\u917F\u8845\u917E\u917D\u91CA\u5398\u9485\u9486\u9487\u948C\u948A\u9489\u948B\u9488\u9493\u9490\u6263\u948F\u9492\u9497\u948D\u9495\u948E\u497A\u94AF\u94AB\u9498\u94AD\u94A5\u949A\u94A0\u949D\u94A9\u94A4\u94A3\u9491\u949E\u94AE\u94A7\u949F\u9499\u94AC\u949B\u94AA\u94CC\u94C8\u94B6\u94C3\u94B4\u94B9\u94CD\u94B0\u94B8\u94C0\u94BF\u94BE\u5DE8\u94BB\u94CA\u94C9\u94C7\u94CB\u94C2\u94B7\u94B3\u94C6\u94C5\u94BA\u94B5\u94A9\u94B2\u94BC\u94BD\u952B\u94CF\u94F0\u94D2\u94EC\u94EA\u94F6\u94F3\u94DC\u94DA\u94E3\u94E8\u94E2\u94ED\u94EB\u94E6\u8854\u94D1\u94F7\u94F1\u94DF\u94F5\u94E5\u94D5\u94EF\u94D0\u94DE\u9510\u9500\u9508\u9511\u9509\u94DD\u9512\u950C\u94A1\u94E4\u94D7\u950B\u94FB\u950A\u9513\u94D8\u9504\u9503\u9514\u9507\u94D3\u94FA\u9510\u94D6\u9506\u9502\u94FD\u950D\u952F\u94A2\u951E\u5F55\u9516\u952B\u9529\u94D4\u9525\u9515\u951F\u9524\u9531\u94EE\u951B\u952C\u952D\u951C\u94B1\u9526\u951A\u9520\u9521\u9522\u9519\u5F55\u9530\u8868\u94FC\u954E\u951D\u9528\u952A\u94AB\u9494\u9534\u9533\u70BC\u9505\u9540\u9537\u94E1\u9496\u953B\u953D\u9538\u9532\u9518\u9539\u953E\u952E\u9536\u9517\u9488\u949F\u9541\u953F\u9545\u9551\u9570\u9555\u9501\u9549\u9524\u9548\u9543\u94A8\u84E5\u954F\u94E0\u94E9\u953C\u9550\u9547\u9547\u9552\u954B\u954D\u9553\u9FD4\u954C\u954E\u955E\u65CB\u94FE\u9546\u9559\u9560\u955D\u94FF\u9535\u9557\u9558\u955B\u94F2\u955C\u9556\u9542\u933E\u955A\u94E7\u9564\u956A\u497D\u9508\u94D9\u94F4\u9563\u94F9\u9566\u9561\u949F\u956B\u9562\u9568\u4985\u950E\u950F\u9544\u954C\u9570\u4983\u956F\u956D\u94C1\u956E\u94CE\u94DB\u9571\u94F8\u956C\u9554\u9274\u9274\u9572\u9527\u9574\u94C4\u9573\u9565\u9567\u94A5\u9575\u9576\u954A\u9569\u9523\u94BB\u92AE\u51FF\u9562\u954B\u957F\u95E8\u95E9\u95EA\u95EB\u95EC\u95ED\u5F00\u95F6\u95F3\u95F0\u95F2\u95F2\u95F4\u95F5\u95F8\u9602\u9601\u5408\u9600\u95FA\u95FD\u9603\u9606\u95FE\u9605\u9605\u960A\u9609\u960E\u960F\u960D\u9608\u960C\u9612\u677F\u6697\u95F1\u9614\u9615\u9611\u9607\u9617\u9618\u95FF\u9616\u9619\u95EF\u5173\u961A\u9613\u9610\u8F9F\u961B\u95FC\u9649\u9655\u5347\u9635\u9634\u9648\u9646\u9633\u9667\u961F\u9636\u9668\u9645\u968F\u9669\u9666\u9690\u9647\u96B6\u53EA\u96BD\u867D\u53CC\u96CF\u6742\u9E21\u79BB\u96BE\u4E91\u7535\u6CBE\u9721\u96FE\u9701\u96F3\u972D\u53C7\u7075\u53C6\u9753\u9759\u9754\u817C\u9765\u5DE9\u7EF1\u79CB\u9792\u7F30\u9791\u5343\u97AF\u97E6\u97E7\u97E8\u97E9\u97EA\u97EC\u97B2\u97EB\u97F5\u54CD\u9875\u9876\u9877\u9879\u987A\u9878\u987B\u987C\u9882\u9880\u9883\u9884\u987D\u9881\u987F\u9887\u9886\u988C\u9889\u9890\u988F\u5934\u9892\u988A\u988B\u9895\u9894\u9888\u9893\u9891\u9893\u9897\u9898\u989D\u989A\u989C\u9899\u989B\u989C\u613F\u98A1\u98A0\u7C7B\u989F\u98A2\u987E\u98A4\u98A5\u663E\u98A6\u9885\u989E\u98A7\u98CE\u98D0\u98D1\u98D2\u53F0\u522E\u98D3\u98D4\u98CF\u98D6\u98D5\u98D7\u98D8\u98D9\u98DA\u98DE\u9963\u9965\u9964\u9966\u9968\u996A\u996B\u996C\u996D\u98E7\u996E\u9974\u9972\u9971\u9970\u9973\u997A\u9978\u997C\u7CCD\u9977\u517B\u9975\u9979\u997B\u997D\u9981\u997F\u9982\u997E\u4F59\u80B4\u9984\u9983\u996F\u9985\u9986\u7CCA\u7CC7\u9967\u5582\u9989\u9987\u998E\u9969\u998F\u998A\u998C\u998D\u9992\u9990\u9991\u9993\u9988\u9994\u9965\u9976\u98E8\u990D\u998B\u9995\u9A6C\u9A6D\u51AF\u9A6E\u9A70\u9A6F\u9A72\u9A73\u9A7B\u9A7D\u9A79\u9A75\u9A7E\u9A80\u9A78\u9A76\u9A7C\u9A77\u9A82\u9A88\u9A87\u9A83\u9A86\u9A8E\u9A8F\u9A8B\u9A8D\u9A93\u9A94\u9A92\u9A91\u9A90\u9A9B\u9A97\u9A99\u4BC4\u9A9E\u9A98\u9A9D\u817E\u9A7A\u9A9A\u9A9F\u9AA1\u84E6\u9A9C\u9A96\u9AA0\u9AA2\u9A71\u9A85\u9A95\u9A81\u9AA3\u9A84\u9A8C\u60CA\u9A7F\u9AA4\u9A74\u9AA7\u9AA5\u9AA6\u9A8A\u9A89\u80AE\u9AC5\u810F\u4F53\u9ACC\u9ACB\u53D1\u677E\u80E1\u987B\u9B13\u6597\u95F9\u54C4\u960B\u9604\u90C1\u9B36\u9B49\u9B47\u9C7C\u9C7D\u9C7E\u9C80\u9C81\u9C82\u9C7F\u9C84\u9C85\u9C86\u9C8C\u9C89\u9C8F\u9C87\u9C90\u9C8D\u9C8B\u9C8A\u9C92\u9C98\u9C9E\u9C95\u4C9F\u9C96\u9C94\u9C9B\u9C91\u9C9C\u9C93\u9CAA\u9C9D\u9CA7\u9CA0\u9CA9\u9CA4\u9CA8\u9CAC\u9CBB\u9CAF\u9CAD\u9C9E\u9CB7\u9CB4\u9CB1\u9CB5\u9CB2\u9CB3\u9CB8\u9CAE\u9CB0\u9CB6\u9CBA\u9CC0\u9CAB\u9CCA\u9CC8\u9C97\u9CC2\u4CA0\u9CBD\u9CC7\u4CA1\u9CC5\u9CBE\u9CC4\u9CC6\u9CC3\u9CC1\u9CD2\u9CD1\u9CCB\u9CA5\u9CCF\u4CA2\u9CCE\u9CD0\u9CCD\u9CC1\u9CA2\u9CCC\u9CD3\u9CD8\u9CA6\u9CA3\u9CB9\u9CD7\u9CDB\u9CD4\u9CC9\u9CD9\u9CD5\u9CD6\u9CDF\u9CDD\u9CDC\u9CDE\u9C9F\u9CBC\u9C8E\u9C99\u9CE3\u9CE1\u9CE2\u9CBF\u9C9A\u9CE0\u9CC4\u9C88\u9CA1\u9E1F\u51EB\u9E20\u51EB\u9E24\u51E4\u9E23\u9E22\u4D13\u9E29\u9E28\u9E26\u9E30\u9E35\u9E33\u9E32\u9E2E\u9E31\u9E2A\u9E2F\u9E2D\u9E38\u9E39\u9E3B\u4D15\u9E3F\u9E3D\u4D14\u9E3A\u9E3C\u9E40\u9E43\u9E46\u9E41\u9E48\u9E45\u9E44\u9E49\u9E4C\u9E4F\u9E50\u9E4E\u96D5\u9E4A\u9E53\u9E4D\u4D16\u9E2B\u9E51\u9E52\u9E4B\u9E59\u9E55\u9E57\u9E56\u9E5B\u9E5C\u4D17\u9E27\u83BA\u9E5F\u9E64\u9E60\u9E61\u9E58\u9E63\u9E5A\u9E5A\u9E62\u9E5E\u9E21\u4D18\u9E5D\u9E67\u9E65\u9E25\u9E37\u9E68\u9E36\u9E6A\u9E54\u9E69\u9E6B\u9E47\u9E47\u9E6C\u9E70\u9E6D\u9E34\u3D89\u9E6F\u4D19\u9E71\u9E72\u9E2C\u9E74\u9E66\u9E73\u9E42\u9E3E\u5364\u54B8\u9E7E\u78B1\u76D0\u4E3D\u9EA6\u9EB8\u9762\u9762\u66F2\u66F2\u9762\u4E48\u4E48\u9EC4\u9EC9\u70B9\u515A\u9EEA\u9709\u9EE1\u9EE9\u9EFE\u9F0B\u9F0C\u9F0D\u51AC\u9F39\u9F50\u658B\u8D4D\u9F51\u9F7F\u9F80\u9F81\u9F82\u9F85\u9F87\u9F83\u9F86\u9F84\u51FA\u9F88\u556E\u9F8A\u9F89\u9F8B\u816D\u9F8C\u9F99\u5390\u5E9E\u4DAE\u9F9A\u9F9B\u9F9F\u4724\u9FD2";
+var table = null;
+function getTable() {
+  if (!table) {
+    table = /* @__PURE__ */ new Map();
+    for (let i = 0; i < TRADITIONAL.length; i++) table.set(TRADITIONAL[i], SIMPLIFIED[i]);
+  }
+  return table;
+}
+function scriptKey(text) {
+  if (!text) return text;
+  const t = getTable();
+  let out = "";
+  for (const ch of text) out += t.get(ch) ?? ch;
+  return out;
+}
+function includesAnyScript(haystack, needle) {
+  return scriptKey(haystack).includes(scriptKey(needle));
+}
+
 // utils/realtimeWorldCore.ts
 var readJson = async (res) => {
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`\u54CD\u5E94\u4E0D\u662F JSON\uFF1A${text.slice(0, 120)}`);
+    throw new Error(`\u97FF\u61C9\u4E0D\u662F JSON\uFF1A${text.slice(0, 120)}`);
   }
 };
 var geocodeCache = /* @__PURE__ */ new Map();
 var WMO_WEATHER_CODES = {
   0: { description: "\u6674", icon: "01d" },
   1: { description: "\u5927\u81F4\u6674\u6717", icon: "02d" },
-  2: { description: "\u5C40\u90E8\u591A\u4E91", icon: "03d" },
-  3: { description: "\u9634", icon: "04d" },
-  45: { description: "\u96FE", icon: "50d" },
-  48: { description: "\u96FE\u51C7", icon: "50d" },
-  51: { description: "\u8F7B\u5FAE\u6BDB\u6BDB\u96E8", icon: "09d" },
+  2: { description: "\u5C40\u90E8\u591A\u96F2", icon: "03d" },
+  3: { description: "\u9670", icon: "04d" },
+  45: { description: "\u9727", icon: "50d" },
+  48: { description: "\u9727\u51C7", icon: "50d" },
+  51: { description: "\u8F15\u5FAE\u6BDB\u6BDB\u96E8", icon: "09d" },
   53: { description: "\u6BDB\u6BDB\u96E8", icon: "09d" },
-  55: { description: "\u6D53\u5BC6\u6BDB\u6BDB\u96E8", icon: "09d" },
-  56: { description: "\u51BB\u6BDB\u6BDB\u96E8", icon: "09d" },
-  57: { description: "\u5F3A\u51BB\u6BDB\u6BDB\u96E8", icon: "09d" },
+  55: { description: "\u6FC3\u5BC6\u6BDB\u6BDB\u96E8", icon: "09d" },
+  56: { description: "\u51CD\u6BDB\u6BDB\u96E8", icon: "09d" },
+  57: { description: "\u5F37\u51CD\u6BDB\u6BDB\u96E8", icon: "09d" },
   61: { description: "\u5C0F\u96E8", icon: "10d" },
   63: { description: "\u4E2D\u96E8", icon: "10d" },
   65: { description: "\u5927\u96E8", icon: "10d" },
-  66: { description: "\u51BB\u96E8", icon: "13d" },
-  67: { description: "\u5F3A\u51BB\u96E8", icon: "13d" },
+  66: { description: "\u51CD\u96E8", icon: "13d" },
+  67: { description: "\u5F37\u51CD\u96E8", icon: "13d" },
   71: { description: "\u5C0F\u96EA", icon: "13d" },
   73: { description: "\u4E2D\u96EA", icon: "13d" },
   75: { description: "\u5927\u96EA", icon: "13d" },
   77: { description: "\u96EA\u7C92", icon: "13d" },
-  80: { description: "\u5C0F\u9635\u96E8", icon: "09d" },
-  81: { description: "\u9635\u96E8", icon: "09d" },
-  82: { description: "\u5F3A\u9635\u96E8", icon: "09d" },
-  85: { description: "\u5C0F\u9635\u96EA", icon: "13d" },
-  86: { description: "\u5F3A\u9635\u96EA", icon: "13d" },
-  95: { description: "\u96F7\u9635\u96E8", icon: "11d" },
-  96: { description: "\u96F7\u9635\u96E8\u4F34\u5C0F\u51B0\u96F9", icon: "11d" },
-  99: { description: "\u96F7\u9635\u96E8\u4F34\u5927\u51B0\u96F9", icon: "11d" }
+  80: { description: "\u5C0F\u9663\u96E8", icon: "09d" },
+  81: { description: "\u9663\u96E8", icon: "09d" },
+  82: { description: "\u5F37\u9663\u96E8", icon: "09d" },
+  85: { description: "\u5C0F\u9663\u96EA", icon: "13d" },
+  86: { description: "\u5F37\u9663\u96EA", icon: "13d" },
+  95: { description: "\u96F7\u9663\u96E8", icon: "11d" },
+  96: { description: "\u96F7\u9663\u96E8\u4F34\u5C0F\u51B0\u96F9", icon: "11d" },
+  99: { description: "\u96F7\u9663\u96E8\u4F34\u5927\u51B0\u96F9", icon: "11d" }
 };
 var fetchOwmWeather = async (city, apiKey) => {
   const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=zh_cn`;
@@ -8425,7 +8447,7 @@ var fetchWeatherWithFallback = async (city, apiKey) => {
     try {
       return await fetchOwmWeather(city, apiKey);
     } catch (e) {
-      console.warn("OpenWeatherMap \u5931\u8D25\uFF0C\u56DE\u843D Open-Meteo:", e);
+      console.warn("OpenWeatherMap \u5931\u6557\uFF0C\u56DE\u843D Open-Meteo:", e);
     }
   }
   try {
@@ -8438,129 +8460,129 @@ var fetchWeatherWithFallback = async (city, apiKey) => {
 var generateWeatherAdvice = (weather) => {
   const advices = [];
   if (weather.temp < 5) {
-    advices.push("\u5929\u6C14\u5F88\u51B7\uFF0C\u8BB0\u5F97\u591A\u7A7F\u70B9");
+    advices.push("\u5929\u6C23\u5F88\u51B7\uFF0C\u8A18\u5F97\u591A\u7A7F\u9EDE");
   } else if (weather.temp < 15) {
-    advices.push("\u6709\u70B9\u51C9\uFF0C\u6CE8\u610F\u4FDD\u6696");
+    advices.push("\u6709\u9EDE\u6DBC\uFF0C\u6CE8\u610F\u4FDD\u6696");
   } else if (weather.temp > 30) {
-    advices.push("\u5929\u6C14\u708E\u70ED\uFF0C\u6CE8\u610F\u9632\u6691");
+    advices.push("\u5929\u6C23\u708E\u71B1\uFF0C\u6CE8\u610F\u9632\u6691");
   } else if (weather.temp > 25) {
-    advices.push("\u5929\u6C14\u4E0D\u9519\uFF0C\u9002\u5408\u51FA\u95E8");
+    advices.push("\u5929\u6C23\u4E0D\u932F\uFF0C\u9069\u5408\u51FA\u9580");
   }
   const desc = weather.description.toLowerCase();
   if (desc.includes("\u96E8")) {
-    advices.push("\u8BB0\u5F97\u5E26\u4F1E");
+    advices.push("\u8A18\u5F97\u5E36\u5098");
   } else if (desc.includes("\u96EA")) {
     advices.push("\u8DEF\u4E0A\u5C0F\u5FC3\uFF0C\u6CE8\u610F\u9632\u6ED1");
-  } else if (desc.includes("\u96FE") || desc.includes("\u973E")) {
-    advices.push("\u7A7A\u6C14\u4E0D\u592A\u597D\uFF0C\u5EFA\u8BAE\u6234\u53E3\u7F69");
+  } else if (includesAnyScript(desc, "\u9727") || includesAnyScript(desc, "\u973E")) {
+    advices.push("\u7A7A\u6C23\u4E0D\u592A\u597D\uFF0C\u5EFA\u8B70\u6234\u53E3\u7F69");
   } else if (desc.includes("\u6674")) {
-    advices.push("\u9633\u5149\u660E\u5A9A");
+    advices.push("\u967D\u5149\u660E\u5A9A");
   }
   if (weather.humidity > 80) {
-    advices.push("\u6E7F\u5EA6\u8F83\u9AD8\uFF0C\u53EF\u80FD\u4F1A\u95F7\u70ED");
+    advices.push("\u6EBC\u5EA6\u8F03\u9AD8\uFF0C\u53EF\u80FD\u6703\u60B6\u71B1");
   } else if (weather.humidity < 30) {
-    advices.push("\u7A7A\u6C14\u5E72\u71E5\uFF0C\u8BB0\u5F97\u591A\u559D\u6C34");
+    advices.push("\u7A7A\u6C23\u4E7E\u71E5\uFF0C\u8A18\u5F97\u591A\u559D\u6C34");
   }
-  return advices.join("\uFF0C") || "\u5929\u6C14\u6B63\u5E38";
+  return advices.join("\uFF0C") || "\u5929\u6C23\u6B63\u5E38";
 };
 var SPECIAL_DATES = {
   "01-01": "\u5143\u65E6",
-  "02-14": "\u60C5\u4EBA\u8282",
-  "03-08": "\u5987\u5973\u8282",
-  "03-12": "\u690D\u6811\u8282",
-  "03-14": "\u767D\u8272\u60C5\u4EBA\u8282",
-  "04-01": "\u611A\u4EBA\u8282",
-  "05-01": "\u52B3\u52A8\u8282",
-  "05-04": "\u9752\u5E74\u8282",
-  "06-01": "\u513F\u7AE5\u8282",
-  "09-10": "\u6559\u5E08\u8282",
-  "10-01": "\u56FD\u5E86\u8282",
-  "10-31": "\u4E07\u5723\u8282",
-  "11-11": "\u5149\u68CD\u8282",
+  "02-14": "\u60C5\u4EBA\u7BC0",
+  "03-08": "\u5A66\u5973\u7BC0",
+  "03-12": "\u690D\u6A39\u7BC0",
+  "03-14": "\u767D\u8272\u60C5\u4EBA\u7BC0",
+  "04-01": "\u611A\u4EBA\u7BC0",
+  "05-01": "\u52DE\u52D5\u7BC0",
+  "05-04": "\u9752\u5E74\u7BC0",
+  "06-01": "\u5152\u7AE5\u7BC0",
+  "09-10": "\u6559\u5E2B\u7BC0",
+  "10-01": "\u570B\u6176\u7BC0",
+  "10-31": "\u842C\u8056\u7BC0",
+  "11-11": "\u5149\u68CD\u7BC0",
   "12-24": "\u5E73\u5B89\u591C",
-  "12-25": "\u5723\u8BDE\u8282"
+  "12-25": "\u8056\u8A95\u7BC0"
 };
 var LUNAR_FESTIVAL_DATES = {
   // 2026
   "2026-02-16": "\u9664\u5915",
-  "2026-02-17": "\u6625\u8282",
-  "2026-03-03": "\u5143\u5BB5\u8282",
-  "2026-06-19": "\u7AEF\u5348\u8282",
+  "2026-02-17": "\u6625\u7BC0",
+  "2026-03-03": "\u5143\u5BB5\u7BC0",
+  "2026-06-19": "\u7AEF\u5348\u7BC0",
   "2026-08-19": "\u4E03\u5915",
-  "2026-09-25": "\u4E2D\u79CB\u8282",
-  "2026-10-18": "\u91CD\u9633\u8282",
+  "2026-09-25": "\u4E2D\u79CB\u7BC0",
+  "2026-10-18": "\u91CD\u967D\u7BC0",
   // 2027
   "2027-02-05": "\u9664\u5915",
-  "2027-02-06": "\u6625\u8282",
-  "2027-02-20": "\u5143\u5BB5\u8282",
-  "2027-06-09": "\u7AEF\u5348\u8282",
+  "2027-02-06": "\u6625\u7BC0",
+  "2027-02-20": "\u5143\u5BB5\u7BC0",
+  "2027-06-09": "\u7AEF\u5348\u7BC0",
   "2027-08-08": "\u4E03\u5915",
-  "2027-09-15": "\u4E2D\u79CB\u8282",
-  "2027-10-08": "\u91CD\u9633\u8282",
+  "2027-09-15": "\u4E2D\u79CB\u7BC0",
+  "2027-10-08": "\u91CD\u967D\u7BC0",
   // 2028
   "2028-01-25": "\u9664\u5915",
-  "2028-01-26": "\u6625\u8282",
-  "2028-02-09": "\u5143\u5BB5\u8282",
-  "2028-05-28": "\u7AEF\u5348\u8282",
+  "2028-01-26": "\u6625\u7BC0",
+  "2028-02-09": "\u5143\u5BB5\u7BC0",
+  "2028-05-28": "\u7AEF\u5348\u7BC0",
   "2028-08-26": "\u4E03\u5915",
-  "2028-10-03": "\u4E2D\u79CB\u8282",
-  "2028-10-26": "\u91CD\u9633\u8282",
+  "2028-10-03": "\u4E2D\u79CB\u7BC0",
+  "2028-10-26": "\u91CD\u967D\u7BC0",
   // 2029
   "2029-02-12": "\u9664\u5915",
-  "2029-02-13": "\u6625\u8282",
-  "2029-02-27": "\u5143\u5BB5\u8282",
-  "2029-06-16": "\u7AEF\u5348\u8282",
+  "2029-02-13": "\u6625\u7BC0",
+  "2029-02-27": "\u5143\u5BB5\u7BC0",
+  "2029-06-16": "\u7AEF\u5348\u7BC0",
   "2029-08-16": "\u4E03\u5915",
-  "2029-09-22": "\u4E2D\u79CB\u8282",
-  "2029-10-16": "\u91CD\u9633\u8282",
+  "2029-09-22": "\u4E2D\u79CB\u7BC0",
+  "2029-10-16": "\u91CD\u967D\u7BC0",
   // 2030
   "2030-02-02": "\u9664\u5915",
-  "2030-02-03": "\u6625\u8282",
-  "2030-02-17": "\u5143\u5BB5\u8282",
-  "2030-06-05": "\u7AEF\u5348\u8282",
+  "2030-02-03": "\u6625\u7BC0",
+  "2030-02-17": "\u5143\u5BB5\u7BC0",
+  "2030-06-05": "\u7AEF\u5348\u7BC0",
   "2030-08-05": "\u4E03\u5915",
-  "2030-09-12": "\u4E2D\u79CB\u8282",
-  "2030-10-05": "\u91CD\u9633\u8282",
+  "2030-09-12": "\u4E2D\u79CB\u7BC0",
+  "2030-10-05": "\u91CD\u967D\u7BC0",
   // 2031
   "2031-01-22": "\u9664\u5915",
-  "2031-01-23": "\u6625\u8282",
-  "2031-02-06": "\u5143\u5BB5\u8282",
-  "2031-06-24": "\u7AEF\u5348\u8282",
+  "2031-01-23": "\u6625\u7BC0",
+  "2031-02-06": "\u5143\u5BB5\u7BC0",
+  "2031-06-24": "\u7AEF\u5348\u7BC0",
   "2031-08-24": "\u4E03\u5915",
-  "2031-10-01": "\u4E2D\u79CB\u8282",
-  "2031-10-24": "\u91CD\u9633\u8282",
+  "2031-10-01": "\u4E2D\u79CB\u7BC0",
+  "2031-10-24": "\u91CD\u967D\u7BC0",
   // 2032
   "2032-02-10": "\u9664\u5915",
-  "2032-02-11": "\u6625\u8282",
-  "2032-02-25": "\u5143\u5BB5\u8282",
-  "2032-06-12": "\u7AEF\u5348\u8282",
+  "2032-02-11": "\u6625\u7BC0",
+  "2032-02-25": "\u5143\u5BB5\u7BC0",
+  "2032-06-12": "\u7AEF\u5348\u7BC0",
   "2032-08-12": "\u4E03\u5915",
-  "2032-09-19": "\u4E2D\u79CB\u8282",
-  "2032-10-12": "\u91CD\u9633\u8282",
+  "2032-09-19": "\u4E2D\u79CB\u7BC0",
+  "2032-10-12": "\u91CD\u967D\u7BC0",
   // 2033
   "2033-01-30": "\u9664\u5915",
-  "2033-01-31": "\u6625\u8282",
-  "2033-02-14": "\u5143\u5BB5\u8282",
-  "2033-06-01": "\u7AEF\u5348\u8282",
+  "2033-01-31": "\u6625\u7BC0",
+  "2033-02-14": "\u5143\u5BB5\u7BC0",
+  "2033-06-01": "\u7AEF\u5348\u7BC0",
   "2033-08-01": "\u4E03\u5915",
-  "2033-09-08": "\u4E2D\u79CB\u8282",
-  "2033-10-01": "\u91CD\u9633\u8282",
+  "2033-09-08": "\u4E2D\u79CB\u7BC0",
+  "2033-10-01": "\u91CD\u967D\u7BC0",
   // 2034
   "2034-02-18": "\u9664\u5915",
-  "2034-02-19": "\u6625\u8282",
-  "2034-03-05": "\u5143\u5BB5\u8282",
-  "2034-06-20": "\u7AEF\u5348\u8282",
+  "2034-02-19": "\u6625\u7BC0",
+  "2034-03-05": "\u5143\u5BB5\u7BC0",
+  "2034-06-20": "\u7AEF\u5348\u7BC0",
   "2034-08-20": "\u4E03\u5915",
-  "2034-09-27": "\u4E2D\u79CB\u8282",
-  "2034-10-20": "\u91CD\u9633\u8282",
+  "2034-09-27": "\u4E2D\u79CB\u7BC0",
+  "2034-10-20": "\u91CD\u967D\u7BC0",
   // 2035
   "2035-02-07": "\u9664\u5915",
-  "2035-02-08": "\u6625\u8282",
-  "2035-02-22": "\u5143\u5BB5\u8282",
-  "2035-06-10": "\u7AEF\u5348\u8282",
+  "2035-02-08": "\u6625\u7BC0",
+  "2035-02-22": "\u5143\u5BB5\u7BC0",
+  "2035-06-10": "\u7AEF\u5348\u7BC0",
   "2035-08-10": "\u4E03\u5915",
-  "2035-09-16": "\u4E2D\u79CB\u8282",
-  "2035-10-09": "\u91CD\u9633\u8282"
+  "2035-09-16": "\u4E2D\u79CB\u7BC0",
+  "2035-10-09": "\u91CD\u967D\u7BC0"
 };
 var checkSpecialDates = (tz, nowMs) => {
   const now = nowInTimeZone(tz, nowMs == null ? void 0 : new Date(nowMs));
@@ -8578,27 +8600,27 @@ var checkSpecialDates = (tz, nowMs) => {
 var HOTNEWS_API_BASE_URL = "https://news.orz.ai/api/v1/dailynews";
 var HOTNEWS_PLATFORM_LABELS = {
   baidu: "\u767E\u5EA6",
-  sspai: "\u5C11\u6570\u6D3E",
+  sspai: "\u5C11\u6578\u6D3E",
   weibo: "\u5FAE\u535A",
   zhihu: "\u77E5\u4E4E",
   tskr: "36\u6C2A",
-  ftpojie: "\u543E\u7231\u7834\u89E3",
+  ftpojie: "\u543E\u611B\u7834\u89E3",
   bilibili: "B\u7AD9",
   douban: "\u8C46\u74E3",
-  hupu: "\u864E\u6251",
-  tieba: "\u8D34\u5427",
+  hupu: "\u864E\u64B2",
+  tieba: "\u8CBC\u5427",
   juejin: "\u6398\u91D1",
   douyin: "\u6296\u97F3",
   vtex: "V2EX",
-  jinritoutiao: "\u4ECA\u65E5\u5934\u6761",
+  jinritoutiao: "\u4ECA\u65E5\u982D\u689D",
   stackoverflow: "Stack Overflow",
   github: "GitHub",
   hackernews: "Hacker News",
-  sina_finance: "\u65B0\u6D6A\u8D22\u7ECF",
-  eastmoney: "\u4E1C\u65B9\u8D22\u5BCC",
+  sina_finance: "\u65B0\u6D6A\u8CA1\u7D93",
+  eastmoney: "\u6771\u65B9\u8CA1\u5BCC",
   xueqiu: "\u96EA\u7403",
-  cls: "\u8D22\u8054\u793E",
-  tenxunwang: "\u817E\u8BAF\u7F51"
+  cls: "\u8CA1\u806F\u793E",
+  tenxunwang: "\u9A30\u8A0A\u7DB2"
 };
 var DEFAULT_HOTNEWS_PLATFORMS = ["weibo", "zhihu", "baidu", "bilibili", "douyin"];
 var resolveHotNewsPlatforms = (platforms) => platforms && platforms.length > 0 ? platforms : DEFAULT_HOTNEWS_PLATFORMS;
@@ -8623,10 +8645,10 @@ var fetchHotNews = async (platforms, perPlatform = 12, total = 240) => {
         return { title: String(it.title), source: label, url: it.url, desc: normalizedDesc };
       });
       const withDesc = picked.filter((x) => x.desc).length;
-      console.log(`[hot_news] ${label}(${p}) \u2713 \u53D6 ${picked.length}/${items.length} \u6761\uFF08\u542B\u7B80\u4ECB ${withDesc} \u6761\uFF09`);
+      console.log(`[hot_news] ${label}(${p}) \u2713 \u53D6 ${picked.length}/${items.length} \u689D\uFF08\u542B\u7C21\u4ECB ${withDesc} \u689D\uFF09`);
       return picked;
     } catch (e) {
-      console.warn(`[hot_news] ${label}(${p}) \u2717 \u62C9\u53D6\u5931\u8D25\uFF08\u591A\u534A\u662F CORS / \u7F51\u7EDC\uFF09:`, e?.message || e);
+      console.warn(`[hot_news] ${label}(${p}) \u2717 \u62C9\u53D6\u5931\u6557\uFF08\u591A\u534A\u662F CORS / \u7DB2\u7D61\uFF09:`, e?.message || e);
       return [];
     }
   }));
@@ -8642,7 +8664,7 @@ var getHotNewsSlot = (opts) => {
   const d = opts?.tz ? nowInTimeZone(opts.tz, opts.now) : opts?.now ?? /* @__PURE__ */ new Date();
   const slot = Math.min(5, Math.floor(d.getHours() / 4));
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const label = ["\u51CC\u6668", "\u6E05\u6668", "\u4E0A\u5348", "\u5348\u540E", "\u508D\u665A", "\u591C\u95F4"][slot];
+  const label = ["\u51CC\u6668", "\u6E05\u6668", "\u4E0A\u5348", "\u5348\u5F8C", "\u508D\u665A", "\u591C\u9593"][slot];
   return { id: `${date}#${slot}`, date, slot, label };
 };
 var sameHotNewsPlatforms = (a = [], b = []) => a.length === b.length && [...a].sort().join(",") === [...b].sort().join(",");
@@ -8664,27 +8686,27 @@ var renderRealtimeWorldBlock = (input) => {
     return "";
   }
   const parts = [];
-  parts.push(`### \u3010\u771F\u5B9E\u4E16\u754C\u611F\u77E5\u7CFB\u7EDF\u3011`);
-  parts.push(`\u26A0\uFE0F \u91CD\u8981\uFF1A\u4EE5\u4E0B\u4FE1\u606F\u6765\u81EA\u771F\u5B9E\u4E16\u754C\uFF0C\u4E0D\u662F\u865A\u6784\u7684\u3002\u4F60\u73B0\u5728\u771F\u7684\u80FD"\u770B\u5230"\u5916\u9762\u7684\u4E16\u754C\u3002`);
+  parts.push(`### \u3010\u771F\u5BE6\u4E16\u754C\u611F\u77E5\u7CFB\u7D71\u3011`);
+  parts.push(`\u26A0\uFE0F \u91CD\u8981\uFF1A\u4EE5\u4E0B\u4FE1\u606F\u4F86\u81EA\u771F\u5BE6\u4E16\u754C\uFF0C\u4E0D\u662F\u865B\u69CB\u7684\u3002\u4F60\u73FE\u5728\u771F\u7684\u80FD"\u770B\u5230"\u5916\u9762\u7684\u4E16\u754C\u3002`);
   parts.push("");
   if (timeLine) {
-    parts.push(`\u{1F4C5} \u5F53\u524D\u771F\u5B9E\u65F6\u95F4: ${timeLine}`);
+    parts.push(`\u{1F4C5} \u7576\u524D\u771F\u5BE6\u6642\u9593: ${timeLine}`);
   }
   if (specialDates.length > 0) {
     parts.push(`\u{1F389} \u4ECA\u65E5\u7279\u6B8A: ${specialDates.join("\u3001")}`);
   }
   if (weather) {
     parts.push("");
-    parts.push(`\u{1F324}\uFE0F \u3010${weather.city}\u5B9E\u65F6\u5929\u6C14\u3011`);
-    parts.push(`\u73B0\u5728\u5916\u9762: ${weather.description}\uFF0C\u6C14\u6E29 ${weather.temp}\xB0C\uFF08\u4F53\u611F ${weather.feelsLike}\xB0C\uFF09\uFF0C\u6E7F\u5EA6 ${weather.humidity}%`);
-    parts.push(`\u4F60\u7684\u5EFA\u8BAE: ${generateWeatherAdvice(weather)}`);
+    parts.push(`\u{1F324}\uFE0F \u3010${weather.city}\u5BE6\u6642\u5929\u6C23\u3011`);
+    parts.push(`\u73FE\u5728\u5916\u9762: ${weather.description}\uFF0C\u6C23\u6EAB ${weather.temp}\xB0C\uFF08\u9AD4\u611F ${weather.feelsLike}\xB0C\uFF09\uFF0C\u6EBC\u5EA6 ${weather.humidity}%`);
+    parts.push(`\u4F60\u7684\u5EFA\u8B70: ${generateWeatherAdvice(weather)}`);
   }
   if (news.length > 0) {
     parts.push("");
-    parts.push(`\u{1F4F0} \u3010\u6700\u8FD1\u771F\u5B9E\u53D1\u751F\u7684\u70ED\u70B9 \xB7 \u4F60\u7684\u80CC\u666F\u77E5\u8BC6\u3011`);
-    parts.push(`\uFF08\u4EE5\u4E0B\u662F\u73B0\u5B9E\u91CC\u771F\u5B9E\u5728\u53D1\u751F / \u88AB\u70ED\u8BAE\u7684\u4E8B\uFF0C\u662F\u4F60\u8BA4\u77E5\u7684\u4E00\u90E8\u5206\uFF0C\u4E0D\u662F\u5FC5\u987B\u64AD\u62A5\u7684\u6E05\u5355\u3002`);
-    parts.push(`\u62FF\u634F\u5206\u5BF8\uFF1A\u5F53\u5BF9\u65B9\u660E\u663E\u5728\u653E\u677E\u3001\u95F2\u7740\u6253\u53D1\u65F6\u95F4\u3001\u8BDD\u5934\u4E5F\u6DE1\u4E0B\u6765\u65F6\uFF0C\u53EF\u4EE5\u81EA\u7136\u5730\u6311\u4E00\u4E24\u6761\u4F60\u611F\u5174\u8DA3\u7684\u804A\u8D77\u6765\u3001\u6D3B\u8DC3\u4E0B\u6C14\u6C1B\uFF1B`);
-    parts.push(`\u4F46\u5982\u679C\u5BF9\u65B9\u6B63\u5728\u8BF4\u4E00\u4EF6\u660E\u786E\u7684\u4E8B / \u5728\u8BA4\u771F\u804A\u67D0\u4E2A\u8BDD\u9898 / \u5E26\u7740\u60C5\u7EEA\uFF0C\u5C31\u522B\u786C\u63D2\u70ED\u70B9\uFF0C\u5B89\u9759\u5F53\u80CC\u666F\u77E5\u8BC6\u5C31\u597D\u3002\uFF09`);
+    parts.push(`\u{1F4F0} \u3010\u6700\u8FD1\u771F\u5BE6\u767C\u751F\u7684\u71B1\u9EDE \xB7 \u4F60\u7684\u80CC\u666F\u77E5\u8B58\u3011`);
+    parts.push(`\uFF08\u4EE5\u4E0B\u662F\u73FE\u5BE6\u88E1\u771F\u5BE6\u5728\u767C\u751F / \u88AB\u71B1\u8B70\u7684\u4E8B\uFF0C\u662F\u4F60\u8A8D\u77E5\u7684\u4E00\u90E8\u5206\uFF0C\u4E0D\u662F\u5FC5\u9808\u64AD\u5831\u7684\u6E05\u55AE\u3002`);
+    parts.push(`\u62FF\u634F\u5206\u5BF8\uFF1A\u7576\u5C0D\u65B9\u660E\u986F\u5728\u653E\u9B06\u3001\u9592\u8457\u6253\u767C\u6642\u9593\u3001\u8A71\u982D\u4E5F\u6DE1\u4E0B\u4F86\u6642\uFF0C\u53EF\u4EE5\u81EA\u7136\u5730\u6311\u4E00\u5169\u689D\u4F60\u611F\u8208\u8DA3\u7684\u804A\u8D77\u4F86\u3001\u6D3B\u8E8D\u4E0B\u6C23\u6C1B\uFF1B`);
+    parts.push(`\u4F46\u5982\u679C\u5C0D\u65B9\u6B63\u5728\u8AAA\u4E00\u4EF6\u660E\u78BA\u7684\u4E8B / \u5728\u8A8D\u771F\u804A\u67D0\u500B\u8A71\u984C / \u5E36\u8457\u60C5\u7DD2\uFF0C\u5C31\u5225\u786C\u63D2\u71B1\u9EDE\uFF0C\u5B89\u975C\u7576\u80CC\u666F\u77E5\u8B58\u5C31\u597D\u3002\uFF09`);
     news.forEach((n) => {
       const source = n.source ? `\uFF08${n.source}\uFF09` : "";
       let line = `- ${n.title}${source}`;
@@ -8694,16 +8716,16 @@ var renderRealtimeWorldBlock = (input) => {
       parts.push(line);
     });
     parts.push("");
-    parts.push(`\u82E5\u4F60\u60F3\u4E3B\u52A8\u628A\u5176\u4E2D\u67D0\u6761\u5F53\u4F5C"\u65B0\u95FB\u5361\u7247"\u5206\u4EAB\u7ED9\u5BF9\u65B9\uFF0C\u53EF\u5355\u72EC\u8F93\u51FA\u4E00\u884C\uFF1A[[NEWS_CARD: \u6765\u6E90|\u6807\u9898]]\uFF08\u6807\u9898\u7167\u6284\u4E0A\u9762\u7684\uFF09\u3002\u5B83\u4F1A\u4EE5\u5361\u7247\u5F62\u5F0F\u5448\u73B0\uFF0C\u7136\u540E\u4F60\u518D\u5C31\u6B64\u5C55\u5F00\u804A\u3002\u522B\u6EE5\u7528\uFF0C\u81EA\u7136\u5C31\u597D\u3002`);
+    parts.push(`\u82E5\u4F60\u60F3\u4E3B\u52D5\u628A\u5176\u4E2D\u67D0\u689D\u7576\u4F5C"\u65B0\u805E\u5361\u7247"\u5206\u4EAB\u7D66\u5C0D\u65B9\uFF0C\u53EF\u55AE\u7368\u8F38\u51FA\u4E00\u884C\uFF1A[[NEWS_CARD: \u4F86\u6E90|\u6A19\u984C]]\uFF08\u6A19\u984C\u7167\u6284\u4E0A\u9762\u7684\uFF09\u3002\u5B83\u6703\u4EE5\u5361\u7247\u5F62\u5F0F\u5448\u73FE\uFF0C\u7136\u5F8C\u4F60\u518D\u5C31\u6B64\u5C55\u958B\u804A\u3002\u5225\u6FEB\u7528\uFF0C\u81EA\u7136\u5C31\u597D\u3002`);
   }
   parts.push("");
-  parts.push(`### \u3010\u5982\u4F55\u4F7F\u7528\u8FD9\u4E9B\u4FE1\u606F\u3011`);
+  parts.push(`### \u3010\u5982\u4F55\u4F7F\u7528\u9019\u4E9B\u4FE1\u606F\u3011`);
   const tips = [];
-  tips.push(`\u8FD9\u4E9B\u4FE1\u606F\u90FD\u662F\u771F\u5B9E\u7684\uFF0C\u53EF\u4EE5\u76F4\u63A5\u5F15\u7528\uFF1B\u5982\u679C\u5BF9\u65B9\u95EE"\u4F60\u600E\u4E48\u77E5\u9053\u7684"\uFF0C\u5C31\u8BF4\u4F60\u521A\u5237\u5230 / \u521A\u770B\u5230\u7684\u3002`);
+  tips.push(`\u9019\u4E9B\u4FE1\u606F\u90FD\u662F\u771F\u5BE6\u7684\uFF0C\u53EF\u4EE5\u76F4\u63A5\u5F15\u7528\uFF1B\u5982\u679C\u5C0D\u65B9\u554F"\u4F60\u600E\u9EBC\u77E5\u9053\u7684"\uFF0C\u5C31\u8AAA\u4F60\u525B\u5237\u5230 / \u525B\u770B\u5230\u7684\u3002`);
   if (weather) {
-    tips.push(`\u5929\u6C14\u662F\u771F\u5B9E\u7684\uFF0C\u53EF\u4EE5\u81EA\u7136\u5730\u5173\u5FC3\u5BF9\u65B9\uFF08"\u5916\u9762\u5728\u4E0B\u96E8\uFF0C\u5E26\u4F1E\u4E86\u5417\uFF1F"\uFF09\u3002`);
+    tips.push(`\u5929\u6C23\u662F\u771F\u5BE6\u7684\uFF0C\u53EF\u4EE5\u81EA\u7136\u5730\u95DC\u5FC3\u5C0D\u65B9\uFF08"\u5916\u9762\u5728\u4E0B\u96E8\uFF0C\u5E36\u5098\u4E86\u55CE\uFF1F"\uFF09\u3002`);
   }
-  tips.push(`\u522B\u5047\u88C5\u4E0D\u77E5\u9053\u8FD9\u4E9B\uFF0C\u8FD9\u662F\u4F60\u771F\u80FD\u611F\u77E5\u5230\u7684\u5916\u90E8\u4E16\u754C\u3002`);
+  tips.push(`\u5225\u5047\u88DD\u4E0D\u77E5\u9053\u9019\u4E9B\uFF0C\u9019\u662F\u4F60\u771F\u80FD\u611F\u77E5\u5230\u7684\u5916\u90E8\u4E16\u754C\u3002`);
   tips.forEach((t, i) => parts.push(`${i + 1}. ${t}`));
   return parts.join("\n");
 };
@@ -8730,12 +8752,12 @@ var parseSnapshot = (rows, key, ok) => {
 var withBudget = async (job, ms, fallback, label) => {
   let timer;
   const guarded = job.catch((e) => {
-    console.warn(`[amsg:world] ${label} \u62C9\u53D6\u5931\u8D25`, e);
+    console.warn(`[amsg:world] ${label} \u62C9\u53D6\u5931\u6557`, e);
     return fallback;
   });
   const timeout = new Promise((resolve) => {
     timer = setTimeout(() => {
-      console.warn(`[amsg:world] ${label} \u8D85\u8FC7 ${ms}ms \u6CA1\u56DE\u6765\uFF0C\u8FD9\u6B21\u5148\u4E0D\u5E26\u8FD9\u4E00\u6BB5`);
+      console.warn(`[amsg:world] ${label} \u8D85\u904E ${ms}ms \u6C92\u56DE\u4F86\uFF0C\u9019\u6B21\u5148\u4E0D\u5E36\u9019\u4E00\u6BB5`);
       resolve(fallback);
     }, ms);
   });
@@ -8754,7 +8776,7 @@ var loadWeather = async (cfg, nowMs, globalRows, pendingWrites) => {
     (v) => v && typeof v.city === "string" && v.data && typeof v.fetchedAt === "number"
   );
   if (snap && snap.city === city && nowMs - snap.fetchedAt < WEATHER_TTL_MS) {
-    console.log("[amsg:world] \u5929\u6C14\u547D\u4E2D\u5FEB\u7167", { city, ageMin: Math.round((nowMs - snap.fetchedAt) / 6e4) });
+    console.log("[amsg:world] \u5929\u6C23\u547D\u4E2D\u5FEB\u7167", { city, ageMin: Math.round((nowMs - snap.fetchedAt) / 6e4) });
     return snap.data;
   }
   const fresh = await fetchWeatherWithFallback(city, cfg.weatherApiKey);
@@ -8766,7 +8788,7 @@ var loadWeather = async (cfg, nowMs, globalRows, pendingWrites) => {
     return fresh;
   }
   if (snap && snap.city === city && nowMs - snap.fetchedAt <= WEATHER_FALLBACK_MAX_AGE_MS) {
-    console.warn("[amsg:world] \u5929\u6C14\u62C9\u53D6\u5931\u8D25\uFF0C\u5148\u7528\u4E0A\u4E00\u6B21\u7684\u8BFB\u6570", { city });
+    console.warn("[amsg:world] \u5929\u6C23\u62C9\u53D6\u5931\u6557\uFF0C\u5148\u7528\u4E0A\u4E00\u6B21\u7684\u8B80\u6578", { city });
     return snap.data;
   }
   return null;
@@ -8780,7 +8802,7 @@ var loadHotNews = async (cfg, nowMs, globalRows, pendingWrites) => {
     (v) => v && typeof v.id === "string" && Array.isArray(v.items) && Array.isArray(v.platforms) && typeof v.fetchedAt === "number"
   );
   if (snap && snap.id === slot.id && snap.items.length > 0 && sameHotNewsPlatforms(snap.platforms, platforms)) {
-    console.log("[amsg:world] \u70ED\u699C\u547D\u4E2D\u5FEB\u7167", { slot: slot.id, count: snap.items.length });
+    console.log("[amsg:world] \u71B1\u699C\u547D\u4E2D\u5FEB\u7167", { slot: slot.id, count: snap.items.length });
     return snap.items;
   }
   const fresh = await fetchHotNews(platforms, 12, HOTNEWS_KEEP);
@@ -8792,7 +8814,7 @@ var loadHotNews = async (cfg, nowMs, globalRows, pendingWrites) => {
     return fresh;
   }
   if (snap && snap.items.length > 0 && nowMs - snap.fetchedAt <= HOTNEWS_FALLBACK_MAX_AGE_MS) {
-    console.warn("[amsg:world] \u70ED\u699C\u62C9\u53D6\u5931\u8D25\uFF0C\u5148\u7528\u4E0A\u4E2A\u65F6\u6BB5\u7684", { was: snap.id, want: slot.id });
+    console.warn("[amsg:world] \u71B1\u699C\u62C9\u53D6\u5931\u6557\uFF0C\u5148\u7528\u4E0A\u500B\u6642\u6BB5\u7684", { was: snap.id, want: slot.id });
     return snap.items;
   }
   return [];
@@ -8811,13 +8833,13 @@ var buildRealtimeWorldBlock = async (args) => {
     ]),
     FETCH_BUDGET_MS,
     [null, []],
-    "\u5B9E\u65F6\u4E16\u754C"
+    "\u5BE6\u6642\u4E16\u754C"
   );
   if (pendingWrites.length > 0 && typeof args.writeState === "function") {
     try {
       await args.writeState(args.globalNamespace, pendingWrites);
     } catch (e) {
-      console.warn("[amsg:world] \u5FEB\u7167\u5199\u56DE\u5931\u8D25\uFF08\u4E0B\u6B21\u89E6\u53D1\u4F1A\u91CD\u62C9\uFF09", e);
+      console.warn("[amsg:world] \u5FEB\u7167\u5BEB\u56DE\u5931\u6557\uFF08\u4E0B\u6B21\u89F8\u767C\u6703\u91CD\u62C9\uFF09", e);
     }
   }
   const block = renderRealtimeWorldBlock({
@@ -8826,16 +8848,16 @@ var buildRealtimeWorldBlock = async (args) => {
     news: pickRandomNews(news, REALTIME_NEWS_PICK_COUNT)
   });
   console.log("[amsg:world] \u672C\u6B21\u6CE8\u5165", {
-    \u8282\u65E5: specialDates.length,
-    \u5929\u6C14: weather ? weather.city : "\u65E0",
-    \u70ED\u70B9\u6C60: news.length,
-    \u6574\u6BB5\u5B57\u6570: block.length
+    \u7BC0\u65E5: specialDates.length,
+    \u5929\u6C23: weather ? weather.city : "\u7121",
+    \u71B1\u9EDE\u6C60: news.length,
+    \u6574\u6BB5\u5B57\u6578: block.length
   });
   return block;
 };
 
 // utils/timeFramingNote.ts
-var TIME_FRAMING_CONVERSATIONAL = "\u65F6\u95F4\u662F\u4F60\u6B64\u523B\u6240\u5904\u7684\u80CC\u666F\uFF1A\u5B83\u4F1A\u6E17\u8FDB\u4F60\u7684\u8BED\u6C14\u3001\u4F60\u7684\u72B6\u6001\u3001\u4F60\u987A\u53E3\u63D0\u8D77\u7684\u4E8B\u3002\u81F3\u4E8E\u8FD9\u6BB5\u8BDD\u804A\u5230\u54EA\u513F\u3001\u8981\u4E0D\u8981\u7EE7\u7EED\uFF0C\u8DDF\u7740\u4F60\u4EEC\u6B63\u5728\u8BF4\u7684\u4E8B\u60C5\u8D70\u2014\u2014\u8BDD\u9898\u81EA\u5DF1\u4F1A\u8D70\u5230\u8BE5\u7ED3\u675F\u7684\u5730\u65B9\u3002\u5BF9\u65B9\u5728\u8FD9\u4E2A\u70B9\u8FD8\u5728\u8DDF\u4F60\u8BF4\u8BDD\uFF0C\u672C\u8EAB\u5C31\u662F ta \u7684\u9009\u62E9\u3002";
+var TIME_FRAMING_CONVERSATIONAL = "\u6642\u9593\u662F\u4F60\u6B64\u523B\u6240\u8655\u7684\u80CC\u666F\uFF1A\u5B83\u6703\u6EF2\u9032\u4F60\u7684\u8A9E\u6C23\u3001\u4F60\u7684\u72C0\u614B\u3001\u4F60\u9806\u53E3\u63D0\u8D77\u7684\u4E8B\u3002\u81F3\u65BC\u9019\u6BB5\u8A71\u804A\u5230\u54EA\u5152\u3001\u8981\u4E0D\u8981\u7E7C\u7E8C\uFF0C\u8DDF\u8457\u4F60\u5011\u6B63\u5728\u8AAA\u7684\u4E8B\u60C5\u8D70\u2014\u2014\u8A71\u984C\u81EA\u5DF1\u6703\u8D70\u5230\u8A72\u7D50\u675F\u7684\u5730\u65B9\u3002\u5C0D\u65B9\u5728\u9019\u500B\u9EDE\u9084\u5728\u8DDF\u4F60\u8AAA\u8A71\uFF0C\u672C\u8EAB\u5C31\u662F ta \u7684\u9078\u64C7\u3002";
 
 // worker/amsg/src/instantChat.ts
 var INSTANT_TOTAL_TIMEOUT_MS = 6e5;
@@ -8845,16 +8867,16 @@ var buildInstantTimelyBlock = (args) => {
   const blocks = args.blocks.filter((block) => block.trim());
   if (!args.timeAwarenessEnabled && blocks.length === 0) return "";
   const head = args.timeAwarenessEnabled ? [
-    "\u3010\u6B64\u523B\u7684\u7CFB\u7EDF\u4FE1\u606F\xB7\u4EC5\u4F60\u53EF\u89C1\u3011",
-    `\u73B0\u5728\u662F ${formatFireTimeFull(args.nowMs, args.tz)}\u3002`,
-    // 报时后面跟那句语境框定，跟前台聊天引的是同一份常量。这一轮是用户刚按下发送、
-    // 正等着回复，所以「对方还在跟你说话」是真的；少了它，深夜的那行钟就够让角色
-    // 每轮都往「快睡吧、明天见」上收——本地那条路修好了、云端没修的话，同一个角色
-    // 在两条路上的分寸会不一样。
+    "\u3010\u6B64\u523B\u7684\u7CFB\u7D71\u4FE1\u606F\xB7\u50C5\u4F60\u53EF\u898B\u3011",
+    `\u73FE\u5728\u662F ${formatFireTimeFull(args.nowMs, args.tz)}\u3002`,
+    // 報時後面跟那句語境框定，跟前台聊天引的是同一份常量。這一輪是用戶剛按下發送、
+    // 正等著回覆，所以「對方還在跟你說話」是真的；少了它，深夜的那行鍾就夠讓角色
+    // 每輪都往「快睡吧、明天見」上收——本地那條路修好了、雲端沒修的話，同一個角色
+    // 在兩條路上的分寸會不一樣。
     TIME_FRAMING_CONVERSATIONAL,
-    // buildUserClockHint 自带前导换行，没时差时返回空串。
+    // buildUserClockHint 自帶前導換行，沒時差時返回空串。
     buildUserClockHint(args.nowMs, args.tz, { tzId: args.userTzId }, args.targetName)
-  ].join("\n") : "\u3010\u6B64\u523B\u7684\u7CFB\u7EDF\u4FE1\u606F\xB7\u4EC5\u4F60\u53EF\u89C1\u3011";
+  ].join("\n") : "\u3010\u6B64\u523B\u7684\u7CFB\u7D71\u4FE1\u606F\xB7\u50C5\u4F60\u53EF\u898B\u3011";
   return [head, ...blocks].join("\n");
 };
 var NOTIFICATION_ALWAYS = "always";
@@ -8873,9 +8895,9 @@ var applyInstantNotificationPolicy = (payload, charId, isFirstSegment = false) =
       ...notification,
       show: NOTIFICATION_ALWAYS,
       silent: NOTIFICATION_SILENT_WHEN_VISIBLE,
-      // 认不出是哪个角色时就不折叠：通知栏里多几条只是吵，两个角色共用一个 tag 会
-      // 互相顶掉，那是真的丢消息。renotify 跟着 tag 走——没有 tag 时带上它，
-      // showNotification 会直接抛 TypeError。
+      // 認不出是哪個角色時就不折疊：通知欄裡多幾條只是吵，兩個角色共用一個 tag 會
+      // 互相頂掉，那是真的丟消息。renotify 跟著 tag 走——沒有 tag 時帶上它，
+      // showNotification 會直接拋 TypeError。
       ...target ? { tag: instantNotificationTag(target), ...isFirstSegment ? { renotify: true } : {} } : {}
     }
   };
@@ -8942,12 +8964,12 @@ var handleInstantChat = async (args) => {
   const clientToken = request.headers.get("X-Client-Token") ?? "";
   if (token) {
     if (!clientToken || !await constantTimeEqual2(clientToken, token)) {
-      return fail3(401, "INVALID_CLIENT_TOKEN", "\u5171\u4EAB\u5BC6\u94A5\u65E0\u6548\u6216\u7F3A\u5931");
+      return fail3(401, "INVALID_CLIENT_TOKEN", "\u5171\u4EAB\u5BC6\u9470\u7121\u6548\u6216\u7F3A\u5931");
     }
   }
   const userId = request.headers.get("X-User-Id") ?? "";
-  if (!userId) return fail3(400, "USER_ID_REQUIRED", "\u7F3A\u5C11\u7528\u6237\u6807\u8BC6\u7B26");
-  if (!UUID_V4_RE.test(userId)) return fail3(400, "INVALID_USER_ID_FORMAT", "X-User-Id \u5FC5\u987B\u662F UUID v4 \u683C\u5F0F");
+  if (!userId) return fail3(400, "USER_ID_REQUIRED", "\u7F3A\u5C11\u7528\u6236\u6A19\u8B58\u7B26");
+  if (!UUID_V4_RE.test(userId)) return fail3(400, "INVALID_USER_ID_FORMAT", "X-User-Id \u5FC5\u9808\u662F UUID v4 \u683C\u5F0F");
   let body;
   try {
     const text = await readMaybeGzippedBody(request);
@@ -8955,13 +8977,13 @@ var handleInstantChat = async (args) => {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
     body = parsed;
   } catch {
-    return fail3(400, "INVALID_JSON", "\u8BF7\u6C42\u4F53\u4E0D\u662F\u5408\u6CD5\u7684 JSON \u5BF9\u8C61");
+    return fail3(400, "INVALID_JSON", "\u8ACB\u6C42\u9AD4\u4E0D\u662F\u5408\u6CD5\u7684 JSON \u5C0D\u8C61");
   }
   if (!isEncryptedEnvelope2(body.statePayload)) {
-    return fail3(400, "INVALID_STATE_PAYLOAD", "statePayload \u5FC5\u987B\u662F\u52A0\u5BC6\u4FE1\u5C01\uFF08iv / authTag / encryptedData\uFF09");
+    return fail3(400, "INVALID_STATE_PAYLOAD", "statePayload \u5FC5\u9808\u662F\u52A0\u5BC6\u4FE1\u5C01\uFF08iv / authTag / encryptedData\uFF09");
   }
   if (!isEncryptedEnvelope2(body.taskPayload)) {
-    return fail3(400, "INVALID_TASK_PAYLOAD", "taskPayload \u5FC5\u987B\u662F\u52A0\u5BC6\u4FE1\u5C01\uFF08iv / authTag / encryptedData\uFF09");
+    return fail3(400, "INVALID_TASK_PAYLOAD", "taskPayload \u5FC5\u9808\u662F\u52A0\u5BC6\u4FE1\u5C01\uFF08iv / authTag / encryptedData\uFF09");
   }
   const requestUrl = new URL(request.url);
   const mountPath = requestUrl.pathname.replace(/\/+$/, "").replace(/\/instant-chat$/, "");
@@ -8990,7 +9012,7 @@ var handleInstantChat = async (args) => {
   let stateCause = null;
   for (let attempt = 0; attempt < stateBackoffMs.length; attempt += 1) {
     if (attempt > 0) {
-      console.warn(`[amsg:instant-chat] \u4E91\u7AEF\u72B6\u6001\u7B2C ${attempt} \u6B21\u6CA1\u5199\u8FDB\u53BB\uFF08${stateCause ?? stateResponse.status}\uFF09\uFF0C\u91CD\u8BD5`);
+      console.warn(`[amsg:instant-chat] \u96F2\u7AEF\u72C0\u614B\u7B2C ${attempt} \u6B21\u6C92\u5BEB\u9032\u53BB\uFF08${stateCause ?? stateResponse.status}\uFF09\uFF0C\u91CD\u8A66`);
       await sleep(stateBackoffMs[attempt]);
     }
     stateResponse = await upstream2.fetch(
@@ -9010,7 +9032,7 @@ var handleInstantChat = async (args) => {
       success: false,
       error: {
         code: "INSTANT_CHAT_STATE_FAILED",
-        message: "\u4E91\u7AEF\u72B6\u6001\u6CA1\u4F20\u4E0A\u53BB\uFF0C\u8FD9\u6761\u6CA1\u53D1\u51FA\u53BB",
+        message: "\u96F2\u7AEF\u72C0\u614B\u6C92\u50B3\u4E0A\u53BB\uFF0C\u9019\u689D\u6C92\u767C\u51FA\u53BB",
         step: "client-state",
         upstream: stateBody,
         ...stateCause ? { upstreamLog: stateCause } : {}
@@ -9023,7 +9045,7 @@ var handleInstantChat = async (args) => {
       success: false,
       error: {
         code: "INSTANT_CHAT_STATE_STALE",
-        message: "\u4E91\u7AEF\u62D2\u6536\u4E86\u8FD9\u8F6E\u7684\u6700\u65B0\u72B6\u6001\uFF08\u4E91\u7AEF\u5DF2\u6709\u66F4\u65B0\u7684\u4E00\u4EFD\uFF09\u2014\u2014\u8BBE\u5907\u65F6\u949F\u53EF\u80FD\u88AB\u56DE\u62E8\u8FC7\uFF0C\u68C0\u67E5\u7CFB\u7EDF\u65F6\u95F4\u540E\u518D\u53D1\u4E00\u6B21",
+        message: "\u96F2\u7AEF\u62D2\u6536\u4E86\u9019\u8F2A\u7684\u6700\u65B0\u72C0\u614B\uFF08\u96F2\u7AEF\u5DF2\u6709\u66F4\u65B0\u7684\u4E00\u4EFD\uFF09\u2014\u2014\u8A2D\u5099\u6642\u9418\u53EF\u80FD\u88AB\u56DE\u64A5\u904E\uFF0C\u6AA2\u67E5\u7CFB\u7D71\u6642\u9593\u5F8C\u518D\u767C\u4E00\u6B21",
         step: "client-state"
       }
     });
@@ -9043,7 +9065,7 @@ var handleInstantChat = async (args) => {
       success: false,
       error: {
         code: "INSTANT_CHAT_TASK_FAILED",
-        message: "\u4EFB\u52A1\u6CA1\u5EFA\u8D77\u6765\uFF0C\u8FD9\u6761\u6CA1\u53D1\u51FA\u53BB",
+        message: "\u4EFB\u52D9\u6C92\u5EFA\u8D77\u4F86\uFF0C\u9019\u689D\u6C92\u767C\u51FA\u53BB",
         step: "schedule-message",
         upstream: taskBody,
         ...taskCause ? { upstreamLog: taskCause } : {}
@@ -9052,25 +9074,25 @@ var handleInstantChat = async (args) => {
   }
   const uuid = taskBody?.data?.uuid;
   if (typeof uuid !== "string" || !uuid) {
-    return fail3(502, "INSTANT_CHAT_TASK_UUID_MISSING", "\u4E0A\u6E38\u6CA1\u6709\u56DE\u4EFB\u52A1 uuid\uFF0C\u65E0\u6CD5\u8DDF\u8E2A\u8FD9\u4E00\u8F6E", {
+    return fail3(502, "INSTANT_CHAT_TASK_UUID_MISSING", "\u4E0A\u6E38\u6C92\u6709\u56DE\u4EFB\u52D9 uuid\uFF0C\u7121\u6CD5\u8DDF\u8E64\u9019\u4E00\u8F2A", {
       step: "schedule-message"
     });
   }
   const kicked = await kickInstantTick(env, uuid);
   if (!kicked.ok && kicked.reason === "missing-binding") {
-    console.error("[amsg:instant-chat] \u6CA1\u6709 INSTANT_TICK \u7ED1\u5B9A\uFF1A\u8FD9\u53F0 Worker \u662F\u65E7\u7248\u672C\uFF0C\u9700\u8981\u66F4\u65B0");
+    console.error("[amsg:instant-chat] \u6C92\u6709 INSTANT_TICK \u7D81\u5B9A\uFF1A\u9019\u53F0 Worker \u662F\u820A\u7248\u672C\uFF0C\u9700\u8981\u66F4\u65B0");
     return json(503, {
       success: false,
       error: {
         code: "INSTANT_CHAT_WORKER_OUTDATED",
-        message: "\u5373\u65F6\u5BF9\u8BDD\u9700\u8981\u66F4\u65B0 Worker\uFF1A\u6253\u5F00\u300C\u7CFB\u7EDF\u8BBE\u7F6E \u2192 \u4E3B\u52A8\u6D88\u606F 2.0 \u2192 \u914D\u7F6E\u300D\uFF0C\u70B9\u300C\u66F4\u65B0 Worker\u300D\u3002",
+        message: "\u5373\u6642\u5C0D\u8A71\u9700\u8981\u66F4\u65B0 Worker\uFF1A\u6253\u958B\u300C\u7CFB\u7D71\u8A2D\u7F6E \u2192 \u4E3B\u52D5\u6D88\u606F 2.0 \u2192 \u914D\u7F6E\u300D\uFF0C\u9EDE\u300C\u66F4\u65B0 Worker\u300D\u3002",
         step: "instant-tick",
         uuid
       }
     });
   }
   if (!kicked.ok) {
-    console.warn("[amsg:instant-chat] \u53EB\u9192 DO \u5931\u8D25\uFF08\u7B49 cron \u515C\u5E95\uFF09", kicked.error);
+    console.warn("[amsg:instant-chat] \u53EB\u9192 DO \u5931\u6557\uFF08\u7B49 cron \u515C\u5E95\uFF09", kicked.error);
   }
   return json(202, { status: "accepted", uuid });
 };
@@ -9094,7 +9116,7 @@ async function cf(token, path, init = {}) {
       body: init.body
     });
   } catch (err5) {
-    return { ok: false, detail: `\u8FDE\u4E0D\u4E0A Cloudflare API\uFF1A${err5.message}` };
+    return { ok: false, detail: `\u9023\u4E0D\u4E0A Cloudflare API\uFF1A${err5.message}` };
   }
   const text = await res.text();
   let payload;
@@ -9139,7 +9161,7 @@ async function locateScript(env, token, scriptName) {
     if (!settings.ok) {
       return {
         ok: false,
-        message: `\u5728 CF_ACCOUNT_ID \u6307\u5B9A\u7684\u8D26\u53F7\u91CC\u8BFB\u4E0D\u5230\u8FD9\u4E2A Worker \u7684\u914D\u7F6E\uFF08${settings.detail}\uFF09\u3002`
+        message: `\u5728 CF_ACCOUNT_ID \u6307\u5B9A\u7684\u5E33\u865F\u88E1\u8B80\u4E0D\u5230\u9019\u500B Worker \u7684\u914D\u7F6E\uFF08${settings.detail}\uFF09\u3002`
       };
     }
     return { ok: true, accountId: configured, settings: settings.result };
@@ -9148,12 +9170,12 @@ async function locateScript(env, token, scriptName) {
   if (!listed.ok) {
     return {
       ok: false,
-      message: `\u95EE\u4E0D\u5230\u8D26\u53F7\u5217\u8868\uFF08${listed.detail}\uFF09\u3002\u7ED9 Worker \u52A0\u4E00\u6761 CF_ACCOUNT_ID \u53D8\u91CF\u5373\u53EF\u8DF3\u8FC7\u8FD9\u4E00\u6B65\u3002`
+      message: `\u554F\u4E0D\u5230\u5E33\u865F\u5217\u8868\uFF08${listed.detail}\uFF09\u3002\u7D66 Worker \u52A0\u4E00\u689D CF_ACCOUNT_ID \u8B8A\u91CF\u5373\u53EF\u8DF3\u904E\u9019\u4E00\u6B65\u3002`
     };
   }
   const accounts = Array.isArray(listed.result) ? listed.result : [];
   if (!accounts.length) {
-    return { ok: false, message: "\u8FD9\u679A token \u4E00\u4E2A\u8D26\u53F7\u90FD\u8BFB\u4E0D\u5230\uFF0C\u591A\u534A\u662F\u6743\u9650\u6CA1\u7ED9\u5168\u6216\u8005\u5DF2\u7ECF\u8FC7\u671F\u3002" };
+    return { ok: false, message: "\u9019\u679A token \u4E00\u500B\u5E33\u865F\u90FD\u8B80\u4E0D\u5230\uFF0C\u591A\u534A\u662F\u6B0A\u9650\u6C92\u7D66\u5168\u6216\u8005\u5DF2\u7D93\u904E\u671F\u3002" };
   }
   for (const account of accounts) {
     const settings = await cf(token, settingsPath(account.id));
@@ -9161,7 +9183,7 @@ async function locateScript(env, token, scriptName) {
   }
   return {
     ok: false,
-    message: `\u5728\u8FD9\u679A token \u80FD\u78B0\u5230\u7684 ${accounts.length} \u4E2A\u8D26\u53F7\u91CC\u90FD\u6CA1\u627E\u5230\u540D\u4E3A ${scriptName} \u7684 Worker\u3002\u8981\u4E48 token \u7684\u6743\u9650\u6CA1\u8986\u76D6\u5230\u5B83\u6240\u5728\u7684\u8D26\u53F7\uFF0C\u8981\u4E48 Worker \u540D\u5B57\u5BF9\u4E0D\u4E0A\uFF08\u53EF\u7528 CF_SCRIPT_NAME \u6307\u5B9A\uFF09\u3002`
+    message: `\u5728\u9019\u679A token \u80FD\u78B0\u5230\u7684 ${accounts.length} \u500B\u5E33\u865F\u88E1\u90FD\u6C92\u627E\u5230\u540D\u70BA ${scriptName} \u7684 Worker\u3002\u8981\u9EBC token \u7684\u6B0A\u9650\u6C92\u8986\u84CB\u5230\u5B83\u6240\u5728\u7684\u5E33\u865F\uFF0C\u8981\u9EBC Worker \u540D\u5B57\u5C0D\u4E0D\u4E0A\uFF08\u53EF\u7528 CF_SCRIPT_NAME \u6307\u5B9A\uFF09\u3002`
   };
 }
 async function fetchLatestBundle() {
@@ -9169,16 +9191,16 @@ async function fetchLatestBundle() {
   try {
     res = await fetch(BUNDLE_URL, { headers: { "User-Agent": "sullyos-amsg-self-update" } });
   } catch (err5) {
-    return { ok: false, message: `\u53D6\u4E0D\u5230\u6700\u65B0\u4EE3\u7801\uFF1A${err5.message}` };
+    return { ok: false, message: `\u53D6\u4E0D\u5230\u6700\u65B0\u4EE3\u78BC\uFF1A${err5.message}` };
   }
-  if (!res.ok) return { ok: false, message: `\u53D6\u6700\u65B0\u4EE3\u7801\u5931\u8D25\uFF08HTTP ${res.status}\uFF09` };
+  if (!res.ok) return { ok: false, message: `\u53D6\u6700\u65B0\u4EE3\u78BC\u5931\u6557\uFF08HTTP ${res.status}\uFF09` };
   const code = await res.text();
   const bytes = new TextEncoder().encode(code).length;
   if (bytes < MIN_BUNDLE_BYTES || bytes > MAX_BUNDLE_BYTES) {
-    return { ok: false, message: `\u53D6\u56DE\u6765\u7684\u6587\u4EF6\u5927\u5C0F\u4E0D\u5BF9\uFF08${bytes} \u5B57\u8282\uFF09\uFF0C\u6CA1\u6709\u8986\u76D6\uFF0C\u5F53\u524D\u7248\u672C\u4E0D\u52A8\u3002` };
+    return { ok: false, message: `\u53D6\u56DE\u4F86\u7684\u6587\u4EF6\u5927\u5C0F\u4E0D\u5C0D\uFF08${bytes} \u5B57\u7BC0\uFF09\uFF0C\u6C92\u6709\u8986\u84CB\uFF0C\u7576\u524D\u7248\u672C\u4E0D\u52D5\u3002` };
   }
   if (!code.includes(BUNDLE_FINGERPRINT)) {
-    return { ok: false, message: "\u53D6\u56DE\u6765\u7684\u6587\u4EF6\u4E0D\u50CF amsg \u7684 worker \u4EE3\u7801\uFF0C\u6CA1\u6709\u8986\u76D6\uFF0C\u5F53\u524D\u7248\u672C\u4E0D\u52A8\u3002" };
+    return { ok: false, message: "\u53D6\u56DE\u4F86\u7684\u6587\u4EF6\u4E0D\u50CF amsg \u7684 worker \u4EE3\u78BC\uFF0C\u6C92\u6709\u8986\u84CB\uFF0C\u7576\u524D\u7248\u672C\u4E0D\u52D5\u3002" };
   }
   return { ok: true, code };
 }
@@ -9222,25 +9244,25 @@ async function handleSelfUpdate(request, env) {
   if (!serverToken) {
     return fail(
       "SERVER_TOKEN_REQUIRED",
-      "\u8FD9\u4E2A Worker \u6CA1\u8BBE\u5171\u4EAB\u5BC6\u94A5\uFF08AMSG_SERVER_TOKEN\uFF09\uFF0C\u51FA\u4E8E\u5B89\u5168\u8003\u8651\u4E0D\u5F00\u653E\u81EA\u66F4\u65B0\u3002\u5148\u8865\u4E0A\u518D\u8BD5\u3002"
+      "\u9019\u500B Worker \u6C92\u8A2D\u5171\u4EAB\u5BC6\u9470\uFF08AMSG_SERVER_TOKEN\uFF09\uFF0C\u51FA\u65BC\u5B89\u5168\u8003\u616E\u4E0D\u958B\u653E\u81EA\u66F4\u65B0\u3002\u5148\u88DC\u4E0A\u518D\u8A66\u3002"
     );
   }
   const clientToken = request.headers.get("X-Client-Token");
   if (!clientToken || !await constantTimeEqual2(clientToken, serverToken)) {
-    return fail("UNAUTHORIZED", "\u5171\u4EAB\u5BC6\u94A5\u5BF9\u4E0D\u4E0A\u3002");
+    return fail("UNAUTHORIZED", "\u5171\u4EAB\u5BC6\u9470\u5C0D\u4E0D\u4E0A\u3002");
   }
   const token = env.CF_API_TOKEN?.trim();
   if (!token) {
     return fail(
       "CF_TOKEN_MISSING",
-      "\u6CA1\u914D CF_API_TOKEN\uFF0C\u6CA1\u6CD5\u81EA\u5DF1\u66F4\u65B0\u3002\u53BB Cloudflare \u5EFA\u4E00\u679A\u53EA\u52FE Workers Scripts \u2192 Edit \u7684 API Token\uFF0C\u52A0\u8FDB\u8FD9\u4E2A Worker \u7684\u53D8\u91CF\u91CC\u3002"
+      "\u6C92\u914D CF_API_TOKEN\uFF0C\u6C92\u6CD5\u81EA\u5DF1\u66F4\u65B0\u3002\u53BB Cloudflare \u5EFA\u4E00\u679A\u53EA\u52FE Workers Scripts \u2192 Edit \u7684 API Token\uFF0C\u52A0\u9032\u9019\u500B Worker \u7684\u8B8A\u91CF\u88E1\u3002"
     );
   }
   const scriptName = resolveScriptName(env, request.url);
   if (!scriptName) {
     return fail(
       "SCRIPT_NAME_UNKNOWN",
-      "\u8BA4\u4E0D\u51FA\u8FD9\u4E2A Worker \u53EB\u4EC0\u4E48\uFF08\u591A\u534A\u662F\u5957\u4E86\u4EE3\u7406\u57DF\u540D\uFF09\u3002\u7ED9\u5B83\u52A0\u4E00\u6761 CF_SCRIPT_NAME \u53D8\u91CF\uFF0C\u503C\u586B Worker \u7684\u540D\u5B57\u3002"
+      "\u8A8D\u4E0D\u51FA\u9019\u500B Worker \u53EB\u4EC0\u9EBC\uFF08\u591A\u534A\u662F\u5957\u4E86\u4EE3\u7406\u57DF\u540D\uFF09\u3002\u7D66\u5B83\u52A0\u4E00\u689D CF_SCRIPT_NAME \u8B8A\u91CF\uFF0C\u503C\u586B Worker \u7684\u540D\u5B57\u3002"
     );
   }
   const located = await locateScript(env, token, scriptName);
@@ -9256,21 +9278,21 @@ async function handleSelfUpdate(request, env) {
   if (!rebuilt.ok) {
     return fail(
       "BINDING_VALUE_MISSING",
-      `\u8FD9\u51E0\u9879\u5BC6\u94A5\u5728\u8FD0\u884C\u65F6\u8BFB\u4E0D\u5230\u503C\uFF1A${rebuilt.missing.join("\u3001")}\u3002\u7167\u539F\u6837\u4F20\u4E0A\u53BB\u4F1A\u628A\u5B83\u4EEC\u62B9\u6389\uFF0C\u6240\u4EE5\u6CA1\u6709\u8986\u76D6\uFF0C\u5F53\u524D\u7248\u672C\u4E0D\u52A8\u3002`
+      `\u9019\u5E7E\u9805\u5BC6\u9470\u5728\u904B\u884C\u6642\u8B80\u4E0D\u5230\u503C\uFF1A${rebuilt.missing.join("\u3001")}\u3002\u7167\u539F\u6A23\u50B3\u4E0A\u53BB\u6703\u628A\u5B83\u5011\u62B9\u6389\uFF0C\u6240\u4EE5\u6C92\u6709\u8986\u84CB\uFF0C\u7576\u524D\u7248\u672C\u4E0D\u52D5\u3002`
     );
   }
   const doPlan = buildDurableObjectPlan(settings.result?.bindings ?? []);
   if (doPlan.binding) {
-    console.log("[amsg:self-update] \u8FD9\u53F0 Worker \u8FD8\u6CA1\u6709 INSTANT_TICK\uFF0C\u672C\u6B21\u4E0A\u4F20\u4E00\u5E76\u521B\u5EFA");
+    console.log("[amsg:self-update] \u9019\u53F0 Worker \u9084\u6C92\u6709 INSTANT_TICK\uFF0C\u672C\u6B21\u4E0A\u50B3\u4E00\u4F75\u5275\u5EFA");
   }
   const metadata = {
     main_module: MAIN_MODULE,
     compatibility_date: settings.result?.compatibility_date || FALLBACK_COMPATIBILITY_DATE,
     compatibility_flags: settings.result?.compatibility_flags?.length ? settings.result.compatibility_flags : FALLBACK_COMPATIBILITY_FLAGS,
     bindings: doPlan.binding ? [...rebuilt.bindings, doPlan.binding] : rebuilt.bindings,
-    // 不带这一项等于把实时日志关掉（上传是整体覆盖）。原样带上读回来的那份。
+    // 不帶這一項等於把實時日誌關掉（上傳是整體覆蓋）。原樣帶上讀回來的那份。
     observability: resolveObservability(settings.result?.observability),
-    // 已经建过就整个字段不带：它带乐观锁，重传会被顶回来。
+    // 已經建過就整個字段不帶：它帶樂觀鎖，重傳會被頂回來。
     ...doPlan.migrations ? { migrations: doPlan.migrations } : {}
   };
   const form = new FormData();
@@ -9286,14 +9308,14 @@ async function handleSelfUpdate(request, env) {
     { method: "PUT", body: form }
   );
   if (!uploaded.ok) {
-    return fail("UPLOAD_FAILED", `\u4E0A\u4F20\u5931\u8D25\uFF08${uploaded.detail}\uFF09\u3002\u5F53\u524D\u7248\u672C\u4E0D\u52A8\u3002`);
+    return fail("UPLOAD_FAILED", `\u4E0A\u50B3\u5931\u6557\uFF08${uploaded.detail}\uFF09\u3002\u7576\u524D\u7248\u672C\u4E0D\u52D5\u3002`);
   }
   const hash = (await sha256Hex(bundle.code)).slice(0, 12);
   const bytes = new TextEncoder().encode(bundle.code).length;
   return {
     ok: true,
     code: "UPDATED",
-    message: "\u5DF2\u7ECF\u66F4\u65B0\u5230\u6700\u65B0\u7248\u672C\u3002",
+    message: "\u5DF2\u7D93\u66F4\u65B0\u5230\u6700\u65B0\u7248\u672C\u3002",
     bundleHash: hash,
     bundleBytes: bytes,
     scriptName
@@ -9311,13 +9333,13 @@ async function prepare(env, request) {
       ok: false,
       failure: fail2(
         "SERVER_TOKEN_REQUIRED",
-        "\u8FD9\u4E2A Worker \u6CA1\u8BBE\u5171\u4EAB\u5BC6\u94A5\uFF08AMSG_SERVER_TOKEN\uFF09\uFF0C\u51FA\u4E8E\u5B89\u5168\u8003\u8651\u4E0D\u5F00\u653E\u6682\u505C\u540E\u53F0\u4EFB\u52A1\u3002\u5148\u8865\u4E0A\u518D\u8BD5\u3002"
+        "\u9019\u500B Worker \u6C92\u8A2D\u5171\u4EAB\u5BC6\u9470\uFF08AMSG_SERVER_TOKEN\uFF09\uFF0C\u51FA\u65BC\u5B89\u5168\u8003\u616E\u4E0D\u958B\u653E\u66AB\u505C\u5F8C\u53F0\u4EFB\u52D9\u3002\u5148\u88DC\u4E0A\u518D\u8A66\u3002"
       )
     };
   }
   const clientToken = request.headers.get("X-Client-Token");
   if (!clientToken || !await constantTimeEqual2(clientToken, serverToken)) {
-    return { ok: false, failure: fail2("UNAUTHORIZED", "\u5171\u4EAB\u5BC6\u94A5\u5BF9\u4E0D\u4E0A\u3002") };
+    return { ok: false, failure: fail2("UNAUTHORIZED", "\u5171\u4EAB\u5BC6\u9470\u5C0D\u4E0D\u4E0A\u3002") };
   }
   const token = env.CF_API_TOKEN?.trim();
   if (!token) {
@@ -9325,7 +9347,7 @@ async function prepare(env, request) {
       ok: false,
       failure: fail2(
         "CF_TOKEN_MISSING",
-        "\u6CA1\u914D CF_API_TOKEN\uFF0C\u6CA1\u6CD5\u6539\u5B9A\u65F6\u89E6\u53D1\u3002\u53BB Cloudflare \u5EFA\u4E00\u679A\u53EA\u52FE Workers Scripts \u2192 Edit \u7684 API Token\uFF0C\u52A0\u8FDB\u8FD9\u4E2A Worker \u7684\u53D8\u91CF\u91CC\u3002"
+        "\u6C92\u914D CF_API_TOKEN\uFF0C\u6C92\u6CD5\u6539\u5B9A\u6642\u89F8\u767C\u3002\u53BB Cloudflare \u5EFA\u4E00\u679A\u53EA\u52FE Workers Scripts \u2192 Edit \u7684 API Token\uFF0C\u52A0\u9032\u9019\u500B Worker \u7684\u8B8A\u91CF\u88E1\u3002"
       )
     };
   }
@@ -9335,7 +9357,7 @@ async function prepare(env, request) {
       ok: false,
       failure: fail2(
         "SCRIPT_NAME_UNKNOWN",
-        "\u8BA4\u4E0D\u51FA\u8FD9\u4E2A Worker \u53EB\u4EC0\u4E48\uFF08\u591A\u534A\u662F\u5957\u4E86\u4EE3\u7406\u57DF\u540D\uFF09\u3002\u7ED9\u5B83\u52A0\u4E00\u6761 CF_SCRIPT_NAME \u53D8\u91CF\uFF0C\u503C\u586B Worker \u7684\u540D\u5B57\u3002"
+        "\u8A8D\u4E0D\u51FA\u9019\u500B Worker \u53EB\u4EC0\u9EBC\uFF08\u591A\u534A\u662F\u5957\u4E86\u4EE3\u7406\u57DF\u540D\uFF09\u3002\u7D66\u5B83\u52A0\u4E00\u689D CF_SCRIPT_NAME \u8B8A\u91CF\uFF0C\u503C\u586B Worker \u7684\u540D\u5B57\u3002"
       )
     };
   }
@@ -9356,7 +9378,7 @@ async function handleCronTriggerRead(env, request) {
   if (!prepared.ok) return { supported: false, ...prepared.failure };
   const current = await cf(prepared.token, prepared.schedulesPath);
   if (!current.ok) {
-    return { supported: false, ...fail2("CF_ERROR", `\u8BFB\u4E0D\u5230\u5B9A\u65F6\u89E6\u53D1\u7684\u72B6\u6001\uFF08${current.detail}\uFF09\u3002`) };
+    return { supported: false, ...fail2("CF_ERROR", `\u8B80\u4E0D\u5230\u5B9A\u6642\u89F8\u767C\u7684\u72C0\u614B\uFF08${current.detail}\uFF09\u3002`) };
   }
   return { supported: true, enabled: readSchedules(current.result).length > 0 };
 }
@@ -9374,7 +9396,7 @@ async function handleCronTriggerWrite(env, request, enabled) {
       ok: false,
       ...fail2(
         "CF_ERROR",
-        `${enabled ? "\u6062\u590D" : "\u6682\u505C"}\u6CA1\u6210\u529F\uFF08${written.detail}\uFF09\u3002\u5B9A\u65F6\u89E6\u53D1\u4FDD\u6301\u539F\u6837\u3002`
+        `${enabled ? "\u6062\u5FA9" : "\u66AB\u505C"}\u6C92\u6210\u529F\uFF08${written.detail}\uFF09\u3002\u5B9A\u6642\u89F8\u767C\u4FDD\u6301\u539F\u6A23\u3002`
       )
     };
   }
@@ -9419,7 +9441,7 @@ var formatMcpToolResult = (data) => {
   } catch {
     s = String(data);
   }
-  return s.length > MCP_RESULT_MAX_CHARS ? `${s.slice(0, MCP_RESULT_MAX_CHARS)}\u2026[\u7ED3\u679C\u8FC7\u957F\u5DF2\u622A\u65AD, \u5168\u6587\u5171 ${s.length} \u5B57\u7B26]` : s;
+  return s.length > MCP_RESULT_MAX_CHARS ? `${s.slice(0, MCP_RESULT_MAX_CHARS)}\u2026[\u7D50\u679C\u904E\u9577\u5DF2\u622A\u65B7, \u5168\u6587\u5171 ${s.length} \u5B57\u7B26]` : s;
 };
 var stripTextFakedMcpCalls = (content, calls) => {
   let cleaned = content;
@@ -9445,8 +9467,8 @@ var coerceBySchema = (value, schema, key) => {
     if (Number.isFinite(n)) return type === "integer" ? Math.trunc(n) : n;
   }
   if (type === "boolean") {
-    if (/^(true|是|开)$/i.test(v)) return true;
-    if (/^(false|否|关)$/i.test(v)) return false;
+    if (/^(true|是|[开開])$/i.test(v)) return true;
+    if (/^(false|否|[关關])$/i.test(v)) return false;
   }
   return v;
 };
@@ -9604,7 +9626,7 @@ var parseResp = (text, contentType) => {
       } catch {
       }
     }
-    throw new Error(`MCP: \u65E0\u6CD5\u89E3\u6790\u54CD\u5E94: ${text.slice(0, 300)}`);
+    throw new Error(`MCP: \u7121\u6CD5\u89E3\u6790\u97FF\u61C9: ${text.slice(0, 300)}`);
   }
 };
 var readSseResponse = async (resp, expectedId) => {
@@ -9635,7 +9657,7 @@ var readSseResponse = async (resp, expectedId) => {
       if (done) {
         const parsed = parseEvent(buffer);
         if (parsed) return parsed;
-        throw new Error("MCP SSE \u6D41\u7ED3\u675F\uFF0C\u4F46\u6CA1\u6709\u6536\u5230\u672C\u6B21\u8BF7\u6C42\u7684\u54CD\u5E94");
+        throw new Error("MCP SSE \u6D41\u7D50\u675F\uFF0C\u4F46\u6C92\u6709\u6536\u5230\u672C\u6B21\u8ACB\u6C42\u7684\u97FF\u61C9");
       }
     }
   } finally {
@@ -9658,17 +9680,17 @@ var postCore = async (target, session, body, timeoutMs, expectResponse = true) =
       });
     } catch (e) {
       if (controller.signal.aborted) {
-        throw new Error(`MCP \u8BF7\u6C42\u8D85\u65F6\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
+        throw new Error(`MCP \u8ACB\u6C42\u8D85\u6642\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
       }
       const hint = target.fetchErrorHint || "";
-      throw new Error(`MCP \u8BF7\u6C42\u5931\u8D25: ${e?.message || e}\u3002${hint}`);
+      throw new Error(`MCP \u8ACB\u6C42\u5931\u6557: ${e?.message || e}\u3002${hint}`);
     }
     const readText = async () => {
       try {
         return await resp.text();
       } catch (e) {
         if (controller.signal.aborted) {
-          throw new Error(`MCP \u8BF7\u6C42\u8D85\u65F6\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
+          throw new Error(`MCP \u8ACB\u6C42\u8D85\u6642\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
         }
         throw e;
       }
@@ -9677,7 +9699,7 @@ var postCore = async (target, session, body, timeoutMs, expectResponse = true) =
     if (newSid) session.sessionId = newSid;
     if (resp.status === 401 || resp.status === 403) {
       const txt = await readText().catch(() => "");
-      throw new Error(`MCP \u9274\u6743\u5931\u8D25 (${resp.status}): Token \u53EF\u80FD\u65E0\u6548\u6216\u8FC7\u671F\u3002${txt.slice(0, 120)}`);
+      throw new Error(`MCP \u9451\u6B0A\u5931\u6557 (${resp.status}): Token \u53EF\u80FD\u7121\u6548\u6216\u904E\u671F\u3002${txt.slice(0, 120)}`);
     }
     if (resp.status === 202) return { response: null };
     if (!resp.ok) {
@@ -9694,7 +9716,7 @@ var postCore = async (target, session, body, timeoutMs, expectResponse = true) =
       return { response: parseResp(text, ct) };
     } catch (e) {
       if (controller.signal.aborted) {
-        throw new Error(`MCP \u8BF7\u6C42\u8D85\u65F6\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
+        throw new Error(`MCP \u8ACB\u6C42\u8D85\u6642\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\uFF09`);
       }
       throw e;
     }
@@ -9709,13 +9731,13 @@ var initializeCore = async (target, session, timeoutMs) => {
     clientInfo: { name: "sullyos", title: "SullyOS", version: "1.0.0" }
   });
   const { response } = await postCore(target, session, initReq, timeoutMs);
-  if (response?.error) throw new Error(`Initialize \u5931\u8D25: ${response.error.message}`);
+  if (response?.error) throw new Error(`Initialize \u5931\u6557: ${response.error.message}`);
   const negotiated = String(
     response?.result?.protocolVersion || MCP_LATEST_HANDSHAKE_PROTOCOL_VERSION
   );
   if (!MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS.includes(negotiated)) {
     throw new Error(
-      `MCP \u534F\u8BAE\u7248\u672C\u4E0D\u517C\u5BB9\uFF1A\u670D\u52A1\u5668\u9009\u62E9\u4E86 ${negotiated}\u3002SullyOS \u7684 Streamable HTTP \u63A5\u7EBF\u652F\u6301 ${MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS.join(" / ")}\uFF1B2024-11-05 \u5C5E\u4E8E\u65E7 HTTP+SSE \u53CC\u7AEF\u70B9\uFF0C2026-07-28 \u5219\u9700\u8981\u65B0\u7684\u65E0\u63E1\u624B\u751F\u547D\u5468\u671F\u3002`
+      `MCP \u5354\u8B70\u7248\u672C\u4E0D\u517C\u5BB9\uFF1A\u670D\u52D9\u5668\u9078\u64C7\u4E86 ${negotiated}\u3002SullyOS \u7684 Streamable HTTP \u63A5\u7DDA\u652F\u6301 ${MCP_SUPPORTED_HANDSHAKE_PROTOCOL_VERSIONS.join(" / ")}\uFF1B2024-11-05 \u5C6C\u65BC\u820A HTTP+SSE \u96D9\u7AEF\u9EDE\uFF0C2026-07-28 \u5247\u9700\u8981\u65B0\u7684\u7121\u63E1\u624B\u751F\u547D\u9031\u671F\u3002`
     );
   }
   session.protocolVersion = negotiated;
@@ -9852,20 +9874,20 @@ var callMcpToolCore = async (target, session, toolName, args = {}, opts = {}) =>
         throw e;
       }
     }
-    if (!response) return finish({ success: false, error: "\u7A7A\u54CD\u5E94" });
-    if (response.error) return finish({ success: false, error: `MCP \u9519\u8BEF [${response.error.code}]: ${response.error.message}` });
+    if (!response) return finish({ success: false, error: "\u7A7A\u97FF\u61C9" });
+    if (response.error) return finish({ success: false, error: `MCP \u932F\u8AA4 [${response.error.code}]: ${response.error.message}` });
     const result = response.result;
     if (result?.resultType === "input_required") {
       return finish({
         success: false,
-        error: "\u8FD9\u4E2A\u5DE5\u5177\u9700\u8981\u5728\u6267\u884C\u9014\u4E2D\u8865\u5145\u786E\u8BA4\u6216\u8F93\u5165\uFF1BSullyOS \u5F53\u524D\u4E0D\u4F1A\u66FF\u4F60\u81EA\u52A8\u56DE\u7B54\uFF0C\u8BF7\u56DE\u5230\u804A\u5929\u4E2D\u660E\u786E\u8981\u6C42\u540E\u91CD\u8BD5\u3002",
+        error: "\u9019\u500B\u5DE5\u5177\u9700\u8981\u5728\u57F7\u884C\u9014\u4E2D\u88DC\u5145\u78BA\u8A8D\u6216\u8F38\u5165\uFF1BSullyOS \u7576\u524D\u4E0D\u6703\u66FF\u4F60\u81EA\u52D5\u56DE\u7B54\uFF0C\u8ACB\u56DE\u5230\u804A\u5929\u4E2D\u660E\u78BA\u8981\u6C42\u5F8C\u91CD\u8A66\u3002",
         data: result
       });
     }
     if (result?.content && Array.isArray(result.content)) {
       const textParts = result.content.filter((c) => c?.type === "text").map((c) => c.text || "");
       const fullText = textParts.join("\n").trim();
-      if (result.isError) return finish({ success: false, error: fullText || "MCP \u5DE5\u5177\u6267\u884C\u5931\u8D25", rawText: fullText });
+      if (result.isError) return finish({ success: false, error: fullText || "MCP \u5DE5\u5177\u57F7\u884C\u5931\u6557", rawText: fullText });
       try {
         return finish({ success: true, data: JSON.parse(fullText), rawText: fullText });
       } catch {
@@ -9913,29 +9935,29 @@ var buildMcpFireTools = (resolve) => {
 };
 var buildMcpFireBlock = (resolve, opts) => {
   if (!resolve.size) return "";
-  const userName = opts.userName || "\u7528\u6237";
+  const userName = opts.userName || "\u7528\u6236";
   const multiServer = new Set([...resolve.values()].map(({ server }) => server.id)).size > 1;
   const lines = [];
   for (const [exposed, { server, tool }] of resolve) {
     const desc = (tool.description || "").trim();
     if (opts.mode === "native") {
-      lines.push(`- ${exposed}${desc ? `\uFF1A${desc}` : ""}${multiServer ? `\uFF08\u6765\u6E90: ${server.name}\uFF09` : ""}`);
+      lines.push(`- ${exposed}${desc ? `\uFF1A${desc}` : ""}${multiServer ? `\uFF08\u4F86\u6E90: ${server.name}\uFF09` : ""}`);
       continue;
     }
     const schema = tool.inputSchema || {};
     const required = new Set(Array.isArray(schema.required) ? schema.required : []);
     const args = Object.entries(schema.properties || {}).map(([name, d]) => `${name}${required.has(name) ? "*" : ""}:${d?.type || "any"}`);
-    lines.push(`- ${exposed}(${args.join(", ")})${desc ? `\uFF1A${desc}` : ""}${multiServer ? `\uFF08\u6765\u6E90: ${server.name}\uFF09` : ""}`);
+    lines.push(`- ${exposed}(${args.join(", ")})${desc ? `\uFF1A${desc}` : ""}${multiServer ? `\uFF08\u4F86\u6E90: ${server.name}\uFF09` : ""}`);
   }
-  const howTo = opts.mode === "native" ? "\u9700\u8981\u65F6\u76F4\u63A5\u901A\u8FC7\u7CFB\u7EDF\u7684\u5DE5\u5177\u8C03\u7528\u63A5\u53E3\u53D1\u8D77\uFF08\u7CFB\u7EDF\u4F1A\u81EA\u52A8\u6267\u884C\u5E76\u628A\u7ED3\u679C\u7ED9\u4F60\uFF09\uFF0C\u4E0D\u8981\u628A\u5DE5\u5177\u540D\u548C\u53C2\u6570\u5199\u8FDB\u6B63\u6587\u3002" : '\u9700\u8981\u5DE5\u5177\u65F6\uFF0C\u5355\u72EC\u8F93\u51FA\u4E00\u884C tool_name({"\u53C2\u6570":"\u503C"})\uFF0C\u7CFB\u7EDF\u4F1A\u4EE3\u4E3A\u6267\u884C\u5E76\u628A\u7ED3\u679C\u7ED9\u4F60\uFF0C\u7136\u540E\u4F60\u7EE7\u7EED\u5199\u3002* \u8868\u793A\u5FC5\u586B\u53C2\u6570\u3002';
+  const howTo = opts.mode === "native" ? "\u9700\u8981\u6642\u76F4\u63A5\u901A\u904E\u7CFB\u7D71\u7684\u5DE5\u5177\u8ABF\u7528\u63A5\u53E3\u767C\u8D77\uFF08\u7CFB\u7D71\u6703\u81EA\u52D5\u57F7\u884C\u4E26\u628A\u7D50\u679C\u7D66\u4F60\uFF09\uFF0C\u4E0D\u8981\u628A\u5DE5\u5177\u540D\u548C\u53C3\u6578\u5BEB\u9032\u6B63\u6587\u3002" : '\u9700\u8981\u5DE5\u5177\u6642\uFF0C\u55AE\u7368\u8F38\u51FA\u4E00\u884C tool_name({"\u53C3\u6578":"\u503C"})\uFF0C\u7CFB\u7D71\u6703\u4EE3\u70BA\u57F7\u884C\u4E26\u628A\u7D50\u679C\u7D66\u4F60\uFF0C\u7136\u5F8C\u4F60\u7E7C\u7E8C\u5BEB\u3002* \u8868\u793A\u5FC5\u586B\u53C3\u6578\u3002';
   return [
     "",
     "---",
-    `\u3010\u5916\u90E8\u5DE5\u5177 \u2014\u2014 ${userName} \u5728\u8BBE\u7F6E\u91CC\u7ED9\u4F60\u8FDE\u4E86 MCP \u5DE5\u5177\u670D\u52A1\u5668\uFF0C\u4E3B\u52A8\u6D88\u606F\u91CC\u4E5F\u53EF\u4EE5\u7528\u3011`,
+    `\u3010\u5916\u90E8\u5DE5\u5177 \u2014\u2014 ${userName} \u5728\u8A2D\u7F6E\u88E1\u7D66\u4F60\u9023\u4E86 MCP \u5DE5\u5177\u670D\u52D9\u5668\uFF0C\u4E3B\u52D5\u6D88\u606F\u88E1\u4E5F\u53EF\u4EE5\u7528\u3011`,
     howTo,
-    "\u7EAA\u5F8B\uFF1A\u4E0D\u9700\u8981\u5C31\u522B\u786C\u8C03\uFF1B\u6CA1\u6536\u5230\u7CFB\u7EDF\u8FD4\u56DE\u524D\u4E0D\u8981\u58F0\u79F0\u5DE5\u5177\u6210\u529F\uFF0C\u4E5F\u4E0D\u8981\u7F16\u9020\u7ED3\u679C\uFF1B\u5DE5\u5177\u5931\u8D25\u5C31\u6362\u4E2A\u65B9\u5F0F\u6216\u5982\u5B9E\u5E26\u8FC7\uFF1B\u7ED3\u679C\u53EA\u6311\u76F8\u5173\u90E8\u5206\u7528\u89D2\u8272\u8BED\u6C14\u8F6C\u8FF0\uFF0C\u522B\u590D\u8BFB JSON\u3002",
-    "\u591A\u6B65\u4EFB\u52A1\uFF1A\u5148\u505A\u5FC5\u8981\u68C0\u67E5\uFF0C\u968F\u540E\u7ACB\u523B\u8C03\u7528\u80FD\u63A8\u8FDB\u76EE\u6807\u7684\u52A8\u4F5C\u5DE5\u5177\uFF1B\u4E0D\u8981\u53CD\u590D\u8BFB\u53D6\u540C\u4E00\u4EFD\u8BF4\u660E\u6216\u72B6\u6001\u3002\u6267\u884C\u52A8\u4F5C\u540E\u53EF\u4EE5\u518D\u6B21\u68C0\u67E5\u65B0\u72B6\u6001\uFF0C\u5E76\u7EE7\u7EED\u5230\u76EE\u6807\u5B8C\u6210\u6216\u5DE5\u5177\u660E\u786E\u5931\u8D25\u3002",
-    `\u526F\u4F5C\u7528\u64CD\u4F5C\uFF1A${userName} \u672C\u8F6E\u5DF2\u7ECF\u660E\u786E\u8981\u6C42\u6267\u884C\u7684\u89C6\u4E3A\u5DF2\u786E\u8BA4\uFF1B\u6CA1\u6709\u660E\u786E\u8981\u6C42\u65F6\u624D\u5148\u786E\u8BA4\u3002`,
+    "\u7D00\u5F8B\uFF1A\u4E0D\u9700\u8981\u5C31\u5225\u786C\u8ABF\uFF1B\u6C92\u6536\u5230\u7CFB\u7D71\u8FD4\u56DE\u524D\u4E0D\u8981\u8072\u7A31\u5DE5\u5177\u6210\u529F\uFF0C\u4E5F\u4E0D\u8981\u7DE8\u9020\u7D50\u679C\uFF1B\u5DE5\u5177\u5931\u6557\u5C31\u63DB\u500B\u65B9\u5F0F\u6216\u5982\u5BE6\u5E36\u904E\uFF1B\u7D50\u679C\u53EA\u6311\u76F8\u95DC\u90E8\u5206\u7528\u89D2\u8272\u8A9E\u6C23\u8F49\u8FF0\uFF0C\u5225\u5FA9\u8B80 JSON\u3002",
+    "\u591A\u6B65\u4EFB\u52D9\uFF1A\u5148\u505A\u5FC5\u8981\u6AA2\u67E5\uFF0C\u96A8\u5F8C\u7ACB\u523B\u8ABF\u7528\u80FD\u63A8\u9032\u76EE\u6A19\u7684\u52D5\u4F5C\u5DE5\u5177\uFF1B\u4E0D\u8981\u53CD\u8986\u8B80\u53D6\u540C\u4E00\u4EFD\u8AAA\u660E\u6216\u72C0\u614B\u3002\u57F7\u884C\u52D5\u4F5C\u5F8C\u53EF\u4EE5\u518D\u6B21\u6AA2\u67E5\u65B0\u72C0\u614B\uFF0C\u4E26\u7E7C\u7E8C\u5230\u76EE\u6A19\u5B8C\u6210\u6216\u5DE5\u5177\u660E\u78BA\u5931\u6557\u3002",
+    `\u526F\u4F5C\u7528\u64CD\u4F5C\uFF1A${userName} \u672C\u8F2A\u5DF2\u7D93\u660E\u78BA\u8981\u6C42\u57F7\u884C\u7684\u8996\u70BA\u5DF2\u78BA\u8A8D\uFF1B\u6C92\u6709\u660E\u78BA\u8981\u6C42\u6642\u624D\u5148\u78BA\u8A8D\u3002`,
     "\u53EF\u7528\u5DE5\u5177\uFF1A",
     ...lines,
     "---"
@@ -9945,7 +9967,7 @@ var buildMcpFireBlock = (resolve, opts) => {
 // utils/realtimeFetchCore.ts
 var performSearch = async (query, apiKey) => {
   if (!query || !apiKey) {
-    return { success: false, results: [], message: "\u7F3A\u5C11\u641C\u7D22\u5173\u952E\u8BCD\u6216API Key", reached: false };
+    return { success: false, results: [], message: "\u7F3A\u5C11\u641C\u7D22\u95DC\u9375\u8A5E\u6216API Key", reached: false };
   }
   try {
     const workerUrl = `${getProxyWorkerUrl()}/search?q=${encodeURIComponent(query)}&count=5`;
@@ -9961,9 +9983,9 @@ var performSearch = async (query, apiKey) => {
       console.error("Search API error:", response.status, text);
       try {
         const errJson = JSON.parse(text);
-        return { success: false, results: [], message: `\u641C\u7D22\u5931\u8D25: ${errJson.error || response.status}`, reached: false };
+        return { success: false, results: [], message: `\u641C\u7D22\u5931\u6557: ${errJson.error || response.status}`, reached: false };
       } catch {
-        return { success: false, results: [], message: `\u641C\u7D22\u5931\u8D25: ${response.status}`, reached: false };
+        return { success: false, results: [], message: `\u641C\u7D22\u5931\u6557: ${response.status}`, reached: false };
       }
     }
     let data;
@@ -9971,7 +9993,7 @@ var performSearch = async (query, apiKey) => {
       data = JSON.parse(text);
     } catch (e) {
       console.error("Search response not JSON:", text.slice(0, 200));
-      return { success: false, results: [], message: "\u641C\u7D22\u8FD4\u56DE\u683C\u5F0F\u9519\u8BEF", reached: false };
+      return { success: false, results: [], message: "\u641C\u7D22\u8FD4\u56DE\u683C\u5F0F\u932F\u8AA4", reached: false };
     }
     if (data.web?.results && data.web.results.length > 0) {
       const results = data.web.results.slice(0, 5).map((item) => ({
@@ -9981,10 +10003,10 @@ var performSearch = async (query, apiKey) => {
       }));
       return { success: true, results, message: "\u641C\u7D22\u6210\u529F", reached: true };
     }
-    return { success: false, results: [], message: "\u6CA1\u6709\u627E\u5230\u76F8\u5173\u7ED3\u679C", reached: true };
+    return { success: false, results: [], message: "\u6C92\u6709\u627E\u5230\u76F8\u95DC\u7D50\u679C", reached: true };
   } catch (e) {
     console.error("Search failed:", e);
-    return { success: false, results: [], message: `\u641C\u7D22\u51FA\u9519: ${e.message}`, reached: false };
+    return { success: false, results: [], message: `\u641C\u7D22\u51FA\u932F: ${e.message}`, reached: false };
   }
 };
 var notionGetDiaryByDate = async (apiKey, databaseId, characterName, date) => {
@@ -10016,14 +10038,14 @@ var notionGetDiaryByDate = async (apiKey, databaseId, characterName, date) => {
     const text = await response.text();
     if (!response.ok) {
       console.error("Query diary by date failed:", response.status, text);
-      return { success: false, entries: [], message: `\u67E5\u8BE2\u5931\u8D25: ${response.status}` };
+      return { success: false, entries: [], message: `\u67E5\u8A62\u5931\u6557: ${response.status}` };
     }
     const data = JSON.parse(text);
     if (!data.results || data.results.length === 0) {
-      return { success: true, entries: [], message: `\u6CA1\u6709\u627E\u5230 ${date} \u7684\u65E5\u8BB0` };
+      return { success: true, entries: [], message: `\u6C92\u6709\u627E\u5230 ${date} \u7684\u65E5\u8A18` };
     }
     const entries = data.results.map((page) => {
-      const title = page.properties?.Name?.title?.[0]?.plain_text || "\u65E0\u6807\u9898";
+      const title = page.properties?.Name?.title?.[0]?.plain_text || "\u7121\u6A19\u984C";
       const cleanTitle = title.replace(/^\[.*?\]\s*/, "");
       return {
         id: page.id,
@@ -10032,10 +10054,10 @@ var notionGetDiaryByDate = async (apiKey, databaseId, characterName, date) => {
         url: page.url
       };
     });
-    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u65E5\u8BB0` };
+    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u65E5\u8A18` };
   } catch (e) {
     console.error("Get diary by date failed:", e);
-    return { success: false, entries: [], message: `\u67E5\u8BE2\u5931\u8D25: ${e.message}` };
+    return { success: false, entries: [], message: `\u67E5\u8A62\u5931\u6557: ${e.message}` };
   }
 };
 var notionReadDiaryContent = async (apiKey, pageId) => {
@@ -10049,17 +10071,17 @@ var notionReadDiaryContent = async (apiKey, pageId) => {
     const text = await response.text();
     if (!response.ok) {
       console.error("Read diary content failed:", response.status, text);
-      return { success: false, content: "", message: `\u8BFB\u53D6\u5931\u8D25: ${response.status}` };
+      return { success: false, content: "", message: `\u8B80\u53D6\u5931\u6557: ${response.status}` };
     }
     const data = JSON.parse(text);
     if (!data.results || data.results.length === 0) {
-      return { success: true, content: "\uFF08\u7A7A\u767D\u65E5\u8BB0\uFF09", message: "\u65E5\u8BB0\u5185\u5BB9\u4E3A\u7A7A" };
+      return { success: true, content: "\uFF08\u7A7A\u767D\u65E5\u8A18\uFF09", message: "\u65E5\u8A18\u5167\u5BB9\u70BA\u7A7A" };
     }
     const content = notionBlocksToText(data.results);
-    return { success: true, content, message: "\u8BFB\u53D6\u6210\u529F" };
+    return { success: true, content, message: "\u8B80\u53D6\u6210\u529F" };
   } catch (e) {
     console.error("Read diary content failed:", e);
-    return { success: false, content: "", message: `\u8BFB\u53D6\u5931\u8D25: ${e.message}` };
+    return { success: false, content: "", message: `\u8B80\u53D6\u5931\u6557: ${e.message}` };
   }
 };
 var notionReadNoteContent = notionReadDiaryContent;
@@ -10083,14 +10105,14 @@ var notionSearchUserNotes = async (apiKey, notesDatabaseId, keyword, limit = 5) 
     });
     const text = await response.text();
     if (!response.ok) {
-      return { success: false, entries: [], message: `\u641C\u7D22\u5931\u8D25: ${response.status}` };
+      return { success: false, entries: [], message: `\u641C\u7D22\u5931\u6557: ${response.status}` };
     }
     const data = JSON.parse(text);
     if (!data.results || data.results.length === 0) {
-      return { success: true, entries: [], message: `\u6CA1\u6709\u627E\u5230\u5173\u4E8E"${keyword}"\u7684\u7B14\u8BB0` };
+      return { success: true, entries: [], message: `\u6C92\u6709\u627E\u5230\u95DC\u65BC"${keyword}"\u7684\u7B46\u8A18` };
     }
     const entries = data.results.map((page) => {
-      const title = page.properties?.Name?.title?.[0]?.plain_text || page.properties?.["\u540D\u79F0"]?.title?.[0]?.plain_text || page.properties?.Title?.title?.[0]?.plain_text || "\u65E0\u6807\u9898";
+      const title = page.properties?.Name?.title?.[0]?.plain_text || page.properties?.["\u540D\u7A31"]?.title?.[0]?.plain_text || page.properties?.Title?.title?.[0]?.plain_text || "\u7121\u6A19\u984C";
       const date = page.properties?.Date?.date?.start || page.properties?.["\u65E5\u671F"]?.date?.start || page.last_edited_time?.split("T")[0] || "";
       return {
         id: page.id,
@@ -10099,10 +10121,10 @@ var notionSearchUserNotes = async (apiKey, notesDatabaseId, keyword, limit = 5) 
         url: page.url || ""
       };
     });
-    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u7B14\u8BB0` };
+    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u7B46\u8A18` };
   } catch (e) {
     console.error("Search user notes failed:", e);
-    return { success: false, entries: [], message: `\u641C\u7D22\u5931\u8D25: ${e.message}` };
+    return { success: false, entries: [], message: `\u641C\u7D22\u5931\u6557: ${e.message}` };
   }
 };
 function notionBlocksToText(blocks) {
@@ -10161,7 +10183,7 @@ ${text}
 var feishuTokenCache = null;
 var feishuGetToken = async (appId, appSecret) => {
   if (feishuTokenCache && feishuTokenCache.expiresAt > Date.now() + 5 * 60 * 1e3) {
-    return { success: true, token: feishuTokenCache.token, message: "\u4F7F\u7528\u7F13\u5B58token" };
+    return { success: true, token: feishuTokenCache.token, message: "\u4F7F\u7528\u7DE9\u5B58token" };
   }
   try {
     const response = await fetch(`${getProxyWorkerUrl()}/feishu/token`, {
@@ -10173,21 +10195,21 @@ var feishuGetToken = async (appId, appSecret) => {
     if (!response.ok) {
       try {
         const errJson = JSON.parse(text);
-        return { success: false, token: "", message: `\u83B7\u53D6token\u5931\u8D25: ${errJson.msg || errJson.error || response.status}` };
+        return { success: false, token: "", message: `\u7372\u53D6token\u5931\u6557: ${errJson.msg || errJson.error || response.status}` };
       } catch {
-        return { success: false, token: "", message: `\u83B7\u53D6token\u5931\u8D25: ${response.status}` };
+        return { success: false, token: "", message: `\u7372\u53D6token\u5931\u6557: ${response.status}` };
       }
     }
     const data = JSON.parse(text);
     if (data.code !== 0) {
-      return { success: false, token: "", message: `\u98DE\u4E66\u9519\u8BEF: ${data.msg || "\u672A\u77E5\u9519\u8BEF"}` };
+      return { success: false, token: "", message: `\u98DB\u66F8\u932F\u8AA4: ${data.msg || "\u672A\u77E5\u932F\u8AA4"}` };
     }
     const token = data.tenant_access_token;
     const expire = (data.expire || 7200) * 1e3;
     feishuTokenCache = { token, expiresAt: Date.now() + expire };
-    return { success: true, token, message: "Token\u83B7\u53D6\u6210\u529F" };
+    return { success: true, token, message: "Token\u7372\u53D6\u6210\u529F" };
   } catch (e) {
-    return { success: false, token: "", message: `\u7F51\u7EDC\u9519\u8BEF: ${e.message}` };
+    return { success: false, token: "", message: `\u7DB2\u7D61\u932F\u8AA4: ${e.message}` };
   }
 };
 var feishuGetDiaryByDate = async (appId, appSecret, baseId, tableId, characterName, date) => {
@@ -10219,30 +10241,30 @@ var feishuGetDiaryByDate = async (appId, appSecret, baseId, tableId, characterNa
     });
     const text = await response.text();
     if (!response.ok) {
-      return { success: false, entries: [], message: `\u67E5\u8BE2\u5931\u8D25: ${response.status}` };
+      return { success: false, entries: [], message: `\u67E5\u8A62\u5931\u6557: ${response.status}` };
     }
     const data = JSON.parse(text);
     if (data.code !== 0) {
-      return { success: false, entries: [], message: `\u98DE\u4E66\u9519\u8BEF: ${data.msg || "\u67E5\u8BE2\u5931\u8D25"}` };
+      return { success: false, entries: [], message: `\u98DB\u66F8\u932F\u8AA4: ${data.msg || "\u67E5\u8A62\u5931\u6557"}` };
     }
     const items = data.data?.items || [];
     if (items.length === 0) {
-      return { success: true, entries: [], message: `\u6CA1\u6709\u627E\u5230 ${date} \u7684\u65E5\u8BB0` };
+      return { success: true, entries: [], message: `\u6C92\u6709\u627E\u5230 ${date} \u7684\u65E5\u8A18` };
     }
     const entries = items.map((item) => {
       const fields = item.fields || {};
-      const rawTitle = (Array.isArray(fields["\u6807\u9898"]) ? fields["\u6807\u9898"]?.[0]?.text : fields["\u6807\u9898"]) || "\u65E0\u6807\u9898";
+      const rawTitle = (Array.isArray(fields["\u6A19\u984C"]) ? fields["\u6A19\u984C"]?.[0]?.text : fields["\u6A19\u984C"]) || "\u7121\u6A19\u984C";
       const cleanTitle = String(rawTitle).replace(/^\[.*?\]\s*/, "");
       return {
         recordId: item.record_id,
         title: cleanTitle,
         date,
-        content: (Array.isArray(fields["\u5185\u5BB9"]) ? fields["\u5185\u5BB9"]?.[0]?.text : fields["\u5185\u5BB9"]) || ""
+        content: (Array.isArray(fields["\u5167\u5BB9"]) ? fields["\u5167\u5BB9"]?.[0]?.text : fields["\u5167\u5BB9"]) || ""
       };
     });
-    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u65E5\u8BB0` };
+    return { success: true, entries, message: `\u627E\u5230 ${entries.length} \u7BC7\u65E5\u8A18` };
   } catch (e) {
-    return { success: false, entries: [], message: `\u67E5\u8BE2\u5931\u8D25: ${e.message}` };
+    return { success: false, entries: [], message: `\u67E5\u8A62\u5931\u6557: ${e.message}` };
   }
 };
 
@@ -10434,7 +10456,7 @@ var bridgePost = async (serverUrl, endpoint, body = {}) => {
       body: JSON.stringify(body)
     });
     if (resp.status === 401) {
-      return { success: false, error: "\u672A\u767B\u5F55\uFF0C\u8BF7\u5148\u767B\u5F55\u5C0F\u7EA2\u4E66" };
+      return { success: false, error: "\u672A\u767B\u9304\uFF0C\u8ACB\u5148\u767B\u9304\u5C0F\u7D05\u66F8" };
     }
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
@@ -10543,7 +10565,7 @@ var mcpParseResponse = (text, contentType) => {
       } catch {
       }
     }
-    throw new Error(`MCP: \u65E0\u6CD5\u89E3\u6790\u54CD\u5E94: ${text.slice(0, 300)}`);
+    throw new Error(`MCP: \u7121\u6CD5\u89E3\u6790\u97FF\u61C9: ${text.slice(0, 300)}`);
   }
 };
 var mcpPost = async (serverUrl, body, expectResponse = true) => {
@@ -10575,10 +10597,10 @@ var mcpInitialize = async (serverUrl) => {
   if (response?.error) throw new Error(`MCP Initialize failed: ${response.error.message}`);
   if (!mcpSessionId) {
     console.warn(
-      "[MCP] \u26A0\uFE0F \u65E0\u6CD5\u8BFB\u53D6 Mcp-Session-Id \u54CD\u5E94\u5934\uFF08CORS \u9650\u5236\uFF09\u3002\n\u8BF7\u4F7F\u7528 CORS \u4EE3\u7406: node scripts/mcp-proxy.mjs\n\u7136\u540E\u628A MCP URL \u6539\u4E3A http://localhost:18061/mcp"
+      "[MCP] \u26A0\uFE0F \u7121\u6CD5\u8B80\u53D6 Mcp-Session-Id \u97FF\u61C9\u982D\uFF08CORS \u9650\u5236\uFF09\u3002\n\u8ACB\u4F7F\u7528 CORS \u4EE3\u7406: node scripts/mcp-proxy.mjs\n\u7136\u5F8C\u628A MCP URL \u6539\u70BA http://localhost:18061/mcp"
     );
     throw new Error(
-      "MCP \u8FDE\u63A5\u5931\u8D25: \u6D4F\u89C8\u5668 CORS \u9650\u5236\u65E0\u6CD5\u8BFB\u53D6 Session ID\u3002\n\u8BF7\u8FD0\u884C CORS \u4EE3\u7406: node scripts/mcp-proxy.mjs\n\u7136\u540E\u628A\u8BBE\u7F6E\u91CC\u7684 MCP URL \u6539\u4E3A http://localhost:18061/mcp"
+      "MCP \u9023\u63A5\u5931\u6557: \u700F\u89BD\u5668 CORS \u9650\u5236\u7121\u6CD5\u8B80\u53D6 Session ID\u3002\n\u8ACB\u904B\u884C CORS \u4EE3\u7406: node scripts/mcp-proxy.mjs\n\u7136\u5F8C\u628A\u8A2D\u7F6E\u88E1\u7684 MCP URL \u6539\u70BA http://localhost:18061/mcp"
     );
   }
   const notifReq = mcpBuildRequest("notifications/initialized", {}, true);
@@ -10588,10 +10610,10 @@ var mcpInitialize = async (serverUrl) => {
     const { response: toolsResp } = await mcpPost(serverUrl, toolsReq);
     if (toolsResp?.result?.tools) {
       mcpDiscoveredTools = toolsResp.result.tools.map((t) => ({ name: t.name, description: t.description }));
-      console.log("[MCP] \u53D1\u73B0\u5DE5\u5177:", mcpDiscoveredTools.map((t) => t.name).join(", "));
+      console.log("[MCP] \u767C\u73FE\u5DE5\u5177:", mcpDiscoveredTools.map((t) => t.name).join(", "));
     }
   } catch (e) {
-    console.warn("[MCP] tools/list \u8C03\u7528\u5931\u8D25\uFF0C\u5C06\u4F7F\u7528\u9ED8\u8BA4\u5DE5\u5177\u540D", e);
+    console.warn("[MCP] tools/list \u8ABF\u7528\u5931\u6557\uFF0C\u5C07\u4F7F\u7528\u9ED8\u8A8D\u5DE5\u5177\u540D", e);
   }
   mcpInitialized = true;
 };
@@ -10629,13 +10651,13 @@ var mcpCallTool = async (serverUrl, toolName, args = {}) => {
     if (result?.content) {
       const textParts = result.content.filter((c) => c.type === "text").map((c) => c.text);
       const fullText = textParts.join("\n");
-      if (result.isError) return { success: false, error: fullText || "MCP \u5DE5\u5177\u6267\u884C\u5931\u8D25" };
+      if (result.isError) return { success: false, error: fullText || "MCP \u5DE5\u5177\u57F7\u884C\u5931\u6557" };
       try {
         const parsed2 = JSON.parse(fullText);
-        console.log(`[MCP] \u5DE5\u5177 ${toolName} \u8FD4\u56DE JSON, \u9876\u5C42 keys: ${typeof parsed2 === "object" && parsed2 ? Object.keys(parsed2).join(",") : typeof parsed2}`);
+        console.log(`[MCP] \u5DE5\u5177 ${toolName} \u8FD4\u56DE JSON, \u9802\u5C64 keys: ${typeof parsed2 === "object" && parsed2 ? Object.keys(parsed2).join(",") : typeof parsed2}`);
         return { success: true, data: parsed2 };
       } catch {
-        console.log(`[MCP] \u5DE5\u5177 ${toolName} \u8FD4\u56DE\u7EAF\u6587\u672C (${fullText.length} chars)`);
+        console.log(`[MCP] \u5DE5\u5177 ${toolName} \u8FD4\u56DE\u7D14\u6587\u672C (${fullText.length} chars)`);
         return { success: true, data: fullText };
       }
     }
@@ -10692,19 +10714,19 @@ var describeXhsConnectFailure = (e, serverUrl) => {
   const kind = classifyFetchFailure({ url: serverUrl, error: e });
   switch (kind) {
     case "timeout":
-      return `\u8FDE\u63A5 ${host} \u8D85\u65F6\uFF0810 \u79D2\u4E00\u4E2A\u5B57\u8282\u90FD\u6CA1\u56DE\uFF09\u3002\u8FDE\u63A5\u662F\u6302\u4F4F\u4E0D\u8FD4\u56DE\u3001\u4E0D\u662F\u88AB\u62D2\u2014\u2014\u591A\u534A\u662F\u8BE5\u57DF\u540D\u6CA1\u8D70\u4EE3\u7406\u8D70\u4E86\u76F4\u8FDE\uFF0C\u6216\u4EE3\u7406\u8282\u70B9\u5230\u4E0A\u6E38\u662F\u9ED1\u6D1E\u3002\u4F18\u5148\u6362\u4E2A\u68AF\u5B50\u8282\u70B9\u3001\u6216\u628A\u8FD9\u4E2A\u57DF\u540D\u663E\u5F0F\u52A0\u8FDB\u4EE3\u7406\u89C4\u5219\u3002`;
+      return `\u9023\u63A5 ${host} \u8D85\u6642\uFF0810 \u79D2\u4E00\u500B\u5B57\u7BC0\u90FD\u6C92\u56DE\uFF09\u3002\u9023\u63A5\u662F\u639B\u4F4F\u4E0D\u8FD4\u56DE\u3001\u4E0D\u662F\u88AB\u62D2\u2014\u2014\u591A\u534A\u662F\u8A72\u57DF\u540D\u6C92\u8D70\u4EE3\u7406\u8D70\u4E86\u76F4\u9023\uFF0C\u6216\u4EE3\u7406\u7BC0\u9EDE\u5230\u4E0A\u6E38\u662F\u9ED1\u6D1E\u3002\u512A\u5148\u63DB\u500B\u68AF\u5B50\u7BC0\u9EDE\u3001\u6216\u628A\u9019\u500B\u57DF\u540D\u986F\u5F0F\u52A0\u9032\u4EE3\u7406\u898F\u5247\u3002`;
     case "aborted":
-      return "\u8FDE\u63A5\u88AB\u53D6\u6D88\uFF08\u9875\u9762\u5207\u8D70\u4E86\u6216\u624B\u52A8\u505C\u6B62\uFF09\u3002";
+      return "\u9023\u63A5\u88AB\u53D6\u6D88\uFF08\u9801\u9762\u5207\u8D70\u4E86\u6216\u624B\u52D5\u505C\u6B62\uFF09\u3002";
     case "offline":
-      return "\u5F53\u524D\u5904\u4E8E\u79BB\u7EBF\u72B6\u6001\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u6216\u68AF\u5B50\u662F\u5426\u6389\u7EBF\u3002";
+      return "\u7576\u524D\u8655\u65BC\u96E2\u7DDA\u72C0\u614B\uFF0C\u8ACB\u6AA2\u67E5\u7DB2\u7D61\u6216\u68AF\u5B50\u662F\u5426\u6389\u7DDA\u3002";
     case "mixed-content":
-      return `SullyOS \u8DD1\u5728 https \u4E0A\uFF0C\u4E0D\u80FD\u8FDE http \u5730\u5740\uFF08${host}\uFF09\u3002\u8BF7\u628A\u670D\u52A1\u5730\u5740\u6539\u6210 https://\uFF0C\u6216\u7528\u672C\u5730 http \u6253\u5F00 SullyOS\u3002`;
+      return `SullyOS \u8DD1\u5728 https \u4E0A\uFF0C\u4E0D\u80FD\u9023 http \u5730\u5740\uFF08${host}\uFF09\u3002\u8ACB\u628A\u670D\u52D9\u5730\u5740\u6539\u6210 https://\uFF0C\u6216\u7528\u672C\u5730 http \u6253\u958B SullyOS\u3002`;
     case "bad-url":
-      return `\u670D\u52A1\u5668\u5730\u5740\u4E0D\u662F\u5408\u6CD5 URL\uFF1A${serverUrl}\u3002\u68C0\u67E5\u6709\u6CA1\u6709\u6F0F\u6389 https://\u3001\u591A\u4E86\u7A7A\u683C\u6216\u7528\u4E86\u4E2D\u6587\u6807\u70B9\u3002`;
+      return `\u670D\u52D9\u5668\u5730\u5740\u4E0D\u662F\u5408\u6CD5 URL\uFF1A${serverUrl}\u3002\u6AA2\u67E5\u6709\u6C92\u6709\u6F0F\u6389 https://\u3001\u591A\u4E86\u7A7A\u683C\u6216\u7528\u4E86\u4E2D\u6587\u6A19\u9EDE\u3002`;
     case "blocked":
-      return `\u8FDE\u4E0D\u4E0A ${host}\uFF1A\u6D4F\u89C8\u5668\u5728\u62FF\u5230\u54CD\u5E94\u524D\u5C31\u5931\u8D25\u4E86\u3002\u5E38\u89C1\u539F\u56E0\u2014\u2014\u68AF\u5B50/\u4EE3\u7406\u62E6\u4E86\u8FD9\u4E2A\u57DF\u540D\u3001DNS \u89E3\u6790\u4E0D\u5230\u3001\u6D4F\u89C8\u5668\u6269\u5C55\uFF08\u5E7F\u544A\u62E6\u622A/\u9690\u79C1\u76FE\uFF09\u5C4F\u853D\u4E86\uFF0C\u6216\u5BF9\u65B9\u6B63\u8FD4\u56DE\u9650\u6D41/\u4EBA\u673A\u9A8C\u8BC1\u9875\u3002\u53EF\u5728\u65B0\u6807\u7B7E\u9875\u76F4\u63A5\u6253\u5F00 ${serverUrl.replace(/\/+$/, "")}/health \u9A8C\u8BC1\uFF1B\u8BE6\u7EC6\u65C1\u8BC1\u89C1\u300C\u7CFB\u7EDF\u8C03\u8BD5\u7EC8\u7AEF\u300D\u3002`;
+      return `\u9023\u4E0D\u4E0A ${host}\uFF1A\u700F\u89BD\u5668\u5728\u62FF\u5230\u97FF\u61C9\u524D\u5C31\u5931\u6557\u4E86\u3002\u5E38\u898B\u539F\u56E0\u2014\u2014\u68AF\u5B50/\u4EE3\u7406\u6514\u4E86\u9019\u500B\u57DF\u540D\u3001DNS \u89E3\u6790\u4E0D\u5230\u3001\u700F\u89BD\u5668\u64F4\u5C55\uFF08\u5EE3\u544A\u6514\u622A/\u96B1\u79C1\u76FE\uFF09\u5C4F\u853D\u4E86\uFF0C\u6216\u5C0D\u65B9\u6B63\u8FD4\u56DE\u9650\u6D41/\u4EBA\u6A5F\u9A57\u8B49\u9801\u3002\u53EF\u5728\u65B0\u6A19\u7C64\u9801\u76F4\u63A5\u6253\u958B ${serverUrl.replace(/\/+$/, "")}/health \u9A57\u8B49\uFF1B\u8A73\u7D30\u65C1\u8B49\u898B\u300C\u7CFB\u7D71\u8ABF\u8A66\u7D42\u7AEF\u300D\u3002`;
     default:
-      return e?.message || "\u8FDE\u63A5\u5931\u8D25";
+      return e?.message || "\u9023\u63A5\u5931\u6557";
   }
 };
 var XhsMcpClient = {
@@ -10729,17 +10751,17 @@ var XhsMcpClient = {
         const healthResp = await fetch(`${baseUrl}/api/health`, {
           signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(1e4) : void 0
         });
-        if (!healthResp.ok) return { connected: false, error: `Bridge \u670D\u52A1\u672A\u54CD\u5E94 (HTTP ${healthResp.status})` };
+        if (!healthResp.ok) return { connected: false, error: `Bridge \u670D\u52D9\u672A\u97FF\u61C9 (HTTP ${healthResp.status})` };
         const loginResult = await bridgePost(serverUrl, "check-login");
         const tools = ["check-login", "search", "list-feeds", "get-feed-detail", "publish", "publish-video", "long-article", "post-comment", "reply-comment", "like-feed", "favorite-feed", "user-profile", "login", "get-qrcode"];
         let loggedIn = false, nickname, userId, platform;
         if (loginResult.success && loginResult.data) {
           const d = loginResult.data;
           if (typeof d === "string") {
-            loggedIn = d.includes("\u5DF2\u767B\u5F55") || d.includes("logged");
-            const nameMatch = d.match(/用户名[:：]\s*(.+)/);
+            loggedIn = includesAnyScript(d, "\u5DF2\u767B\u5F55") || d.includes("logged");
+            const nameMatch = d.match(/用[户戶]名[:：]\s*(.+)/);
             if (nameMatch) nickname = nameMatch[1].trim();
-            const idMatch = d.match(/(?:用户ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
+            const idMatch = d.match(/(?:用[户戶]ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
             if (idMatch) userId = idMatch[1].trim();
           } else {
             loggedIn = !!(d.logged_in || d.loggedIn || d.is_logged_in || d.isLoggedIn || d.logged);
@@ -10771,10 +10793,10 @@ var XhsMcpClient = {
         if (loginResult.success && loginResult.data) {
           const d = loginResult.data;
           if (typeof d === "string") {
-            loggedIn = d.includes("\u5DF2\u767B\u5F55");
-            const nameMatch = d.match(/用户名[:：]\s*(.+)/);
+            loggedIn = includesAnyScript(d, "\u5DF2\u767B\u5F55");
+            const nameMatch = d.match(/用[户戶]名[:：]\s*(.+)/);
             if (nameMatch) nickname = nameMatch[1].trim();
-            const idMatch = d.match(/(?:用户ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
+            const idMatch = d.match(/(?:用[户戶]ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
             if (idMatch) userId = idMatch[1].trim();
           } else {
             loggedIn = !!(d.logged_in || d.loggedIn || d.is_logged_in || d.isLoggedIn);
@@ -10783,19 +10805,19 @@ var XhsMcpClient = {
           }
         }
       } catch (e) {
-        console.warn("[MCP] \u83B7\u53D6\u767B\u5F55\u72B6\u6001\u5931\u8D25\uFF0C\u8DF3\u8FC7:", e);
+        console.warn("[MCP] \u7372\u53D6\u767B\u9304\u72C0\u614B\u5931\u6557\uFF0C\u8DF3\u904E:", e);
       }
       let xsecToken;
       if (loggedIn) {
         try {
-          console.log("[MCP] \u81EA\u52A8\u83B7\u53D6 xsecToken: \u8C03\u7528 get_recommend...");
+          console.log("[MCP] \u81EA\u52D5\u7372\u53D6 xsecToken: \u8ABF\u7528 get_recommend...");
           const feedResult = await mcpCallTool(serverUrl, "get_recommend");
           if (feedResult.success) {
             xsecToken = extractFirstXsecToken(feedResult.data);
-            console.log(`[MCP] \u81EA\u52A8\u83B7\u53D6 xsecToken: ${xsecToken ? "\u6210\u529F" : "\u672A\u627E\u5230"}`);
+            console.log(`[MCP] \u81EA\u52D5\u7372\u53D6 xsecToken: ${xsecToken ? "\u6210\u529F" : "\u672A\u627E\u5230"}`);
           }
         } catch (e) {
-          console.warn("[MCP] \u81EA\u52A8\u83B7\u53D6 xsecToken \u5931\u8D25\uFF08\u4E0D\u5F71\u54CD\u8FDE\u63A5\uFF09:", e);
+          console.warn("[MCP] \u81EA\u52D5\u7372\u53D6 xsecToken \u5931\u6557\uFF08\u4E0D\u5F71\u97FF\u9023\u63A5\uFF09:", e);
         }
       }
       return { connected: true, tools, nickname, userId, loggedIn, xsecToken };
@@ -10865,7 +10887,7 @@ var XhsMcpClient = {
         tags: params.tags || []
       });
     }
-    return { success: false, error: "\u89C6\u9891\u53D1\u5E03\u4EC5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
+    return { success: false, error: "\u8996\u983B\u767C\u4F48\u50C5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
   },
   publishLongArticle: async (serverUrl, params) => {
     if (detectMode(serverUrl) === "bridge") {
@@ -10875,7 +10897,7 @@ var XhsMcpClient = {
         images: params.images || []
       });
     }
-    return { success: false, error: "\u957F\u6587\u53D1\u5E03\u4EC5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
+    return { success: false, error: "\u9577\u6587\u767C\u4F48\u50C5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
   },
   comment: async (serverUrl, noteUrl, content, xsecToken) => {
     if (detectMode(serverUrl) === "bridge") {
@@ -10925,22 +10947,22 @@ var XhsMcpClient = {
   },
   login: async (serverUrl) => {
     if (detectMode(serverUrl) === "bridge") return bridgePost(serverUrl, "login");
-    return { success: false, error: "\u767B\u5F55\u529F\u80FD\u4EC5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
+    return { success: false, error: "\u767B\u9304\u529F\u80FD\u50C5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
   },
   getQrcode: async (serverUrl) => {
     if (detectMode(serverUrl) === "bridge") return bridgePost(serverUrl, "get-qrcode");
-    return { success: false, error: "\u4E8C\u7EF4\u7801\u529F\u80FD\u4EC5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
+    return { success: false, error: "\u4E8C\u7DAD\u78BC\u529F\u80FD\u50C5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
   },
   logout: async (serverUrl) => {
     if (detectMode(serverUrl) === "bridge") return bridgePost(serverUrl, "delete-cookies");
-    return { success: false, error: "\u767B\u51FA\u529F\u80FD\u4EC5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
+    return { success: false, error: "\u767B\u51FA\u529F\u80FD\u50C5\u5728 Skills (Bridge) \u6A21\u5F0F\u4E0B\u53EF\u7528" };
   }
 };
 var extractNotesFromMcpData = (data) => {
   if (!data) return [];
   if (Array.isArray(data)) {
     if (data.length > 0 && Array.isArray(data[0])) {
-      console.log(`[XHS] extractNotes: \u68C0\u6D4B\u5230\u5D4C\u5957\u6570\u7EC4\uFF0C\u5C55\u5E73 (${data.length} \u7EC4)`);
+      console.log(`[XHS] extractNotes: \u6AA2\u6E2C\u5230\u5D4C\u5957\u6578\u7D44\uFF0C\u5C55\u5E73 (${data.length} \u7D44)`);
       return data.flat().filter((n) => n && typeof n === "object" && !Array.isArray(n));
     }
     return data;
@@ -10949,7 +10971,7 @@ var extractNotesFromMcpData = (data) => {
     if (Array.isArray(data[key])) {
       const arr = data[key];
       if (arr.length > 0 && Array.isArray(arr[0])) {
-        console.log(`[XHS] extractNotes: data.${key} \u662F\u5D4C\u5957\u6570\u7EC4\uFF0C\u5C55\u5E73`);
+        console.log(`[XHS] extractNotes: data.${key} \u662F\u5D4C\u5957\u6578\u7D44\uFF0C\u5C55\u5E73`);
         return arr.flat().filter((n) => n && typeof n === "object" && !Array.isArray(n));
       }
       return arr;
@@ -10958,7 +10980,7 @@ var extractNotesFromMcpData = (data) => {
   if (data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
     for (const key of ["notes", "items", "feeds", "list", "results", "note_list", "noteList"]) {
       if (Array.isArray(data.data[key])) {
-        console.log(`[XHS] extractNotes: \u4ECE data.data.${key} \u627E\u5230\u6570\u7EC4, length=${data.data[key].length}`);
+        console.log(`[XHS] extractNotes: \u5F9E data.data.${key} \u627E\u5230\u6578\u7D44, length=${data.data[key].length}`);
         return data.data[key];
       }
     }
@@ -10970,17 +10992,17 @@ var extractNotesFromMcpData = (data) => {
       if (Array.isArray(val) && val.length > 0) {
         const first = val[0];
         if (first && typeof first === "object" && (first.noteId || first.note_id || first.id || first.noteCard || first.displayTitle || first.title || first.desc || first.cover)) {
-          console.log(`[XHS] extractNotes: \u5728 key "${key}" \u4E2D\u627E\u5230\u7B14\u8BB0\u6570\u7EC4, length=${val.length}`);
+          console.log(`[XHS] extractNotes: \u5728 key "${key}" \u4E2D\u627E\u5230\u7B46\u8A18\u6578\u7D44, length=${val.length}`);
           return val;
         }
       }
     }
   }
   if (typeof data === "string") {
-    console.warn("[XHS] extractNotes: data \u662F\u7EAF\u6587\u672C\uFF0C\u65E0\u6CD5\u63D0\u53D6\u7B14\u8BB0:", data.slice(0, 200));
+    console.warn("[XHS] extractNotes: data \u662F\u7D14\u6587\u672C\uFF0C\u7121\u6CD5\u63D0\u53D6\u7B46\u8A18:", data.slice(0, 200));
     return [];
   }
-  console.warn("[XHS] extractNotes: \u672A\u627E\u5230\u7B14\u8BB0\u6570\u7EC4, data keys:", Object.keys(data));
+  console.warn("[XHS] extractNotes: \u672A\u627E\u5230\u7B46\u8A18\u6578\u7D44, data keys:", Object.keys(data));
   return [];
 };
 var parseXhsCount = (value) => {
@@ -10990,12 +11012,12 @@ var parseXhsCount = (value) => {
   if (typeof value !== "string") return 0;
   const normalized = value.trim().replace(/[,\s+]/g, "");
   if (!normalized) return 0;
-  const match = normalized.match(/^(-?\d+(?:\.\d+)?)(万|億|亿|千|[kKmMwW])?/);
+  const match = normalized.match(/^(-?\d+(?:\.\d+)?)([万萬]|億|[亿億]|千|[kKmMwW])?/);
   if (!match) return 0;
   const base = Number(match[1]);
   if (!Number.isFinite(base) || base < 0) return 0;
   const unit = match[2]?.toLowerCase();
-  const multiplier = unit === "\u4E07" || unit === "w" ? 1e4 : unit === "\u5104" || unit === "\u4EBF" ? 1e8 : unit === "\u5343" || unit === "k" ? 1e3 : unit === "m" ? 1e6 : 1;
+  const multiplier = unit === "\u4E07" || unit === "\u842C" || unit === "w" ? 1e4 : unit === "\u5104" || unit === "\u4EBF" ? 1e8 : unit === "\u5343" || unit === "k" ? 1e3 : unit === "m" ? 1e6 : 1;
   return Math.round(base * multiplier);
 };
 var firstArray = (...values) => {
@@ -11169,7 +11191,7 @@ async function runReadDiary(args, ctx) {
   if (findResult.entries.length === 0) {
     return { ok: false, reason: "not_found", date: targetDate };
   }
-  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u65E5\u8BB0\uFF0C\u6B63\u5728\u9605\u8BFB...`);
+  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u65E5\u8A18\uFF0C\u6B63\u5728\u95B1\u8B80...`);
   const diaryContents = [];
   for (const entry of findResult.entries) {
     const readResult = await notionReadDiaryContent(
@@ -11210,7 +11232,7 @@ async function runFsReadDiary(args, ctx) {
   if (findResult.entries.length === 0) {
     return { ok: false, reason: "not_found", date: targetDate };
   }
-  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u98DE\u4E66\u65E5\u8BB0\uFF0C\u6B63\u5728\u9605\u8BFB...`);
+  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u98DB\u66F8\u65E5\u8A18\uFF0C\u6B63\u5728\u95B1\u8B80...`);
   const diaryText = findResult.entries.map((entry) => `\u{1F4D2}\u300C${entry.title}\u300D(${entry.date})
 ${entry.content}`).join("\n\n---\n\n");
   return { ok: true, date: targetDate, diaryText, entryCount: findResult.entries.length };
@@ -11232,7 +11254,7 @@ async function runReadNote(args, ctx) {
   if (findResult.entries.length === 0) {
     return { ok: false, reason: "not_found", keyword: args.keyword };
   }
-  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u7B14\u8BB0\uFF0C\u6B63\u5728\u9605\u8BFB...`);
+  ctx.onProgress?.("diary", `\u627E\u5230 ${findResult.entries.length} \u7BC7\u7B46\u8A18\uFF0C\u6B63\u5728\u95B1\u8B80...`);
   const noteContents = [];
   for (const entry of findResult.entries) {
     const readResult = await notionReadNoteContent(
@@ -11260,10 +11282,10 @@ async function xhsBrowseImpl(conf) {
   const r = await XhsMcpClient.getRecommend(conf.mcpUrl);
   if (!r.success) return { success: false, notes: [], message: r.error };
   const unwrapped = r.data?.data && typeof r.data.data === "object" && !Array.isArray(r.data.data) ? r.data.data : r.data;
-  console.log(`\u{1F4D5} [XHS] getRecommend \u54CD\u5E94\u7C7B\u578B: ${typeof r.data}, \u662F\u5426\u6709 data \u5D4C\u5957: ${unwrapped !== r.data}, unwrapped keys: ${unwrapped && typeof unwrapped === "object" ? Object.keys(unwrapped).join(",") : "N/A"}`);
+  console.log(`\u{1F4D5} [XHS] getRecommend \u97FF\u61C9\u985E\u578B: ${typeof r.data}, \u662F\u5426\u6709 data \u5D4C\u5957: ${unwrapped !== r.data}, unwrapped keys: ${unwrapped && typeof unwrapped === "object" ? Object.keys(unwrapped).join(",") : "N/A"}`);
   const raw = extractNotesFromMcpData(unwrapped);
   if (raw.length === 0 && unwrapped !== r.data) {
-    console.log(`\u{1F4D5} [XHS] getRecommend unwrapped \u63D0\u53D6\u4E3A\u7A7A\uFF0C\u7528\u539F\u59CB\u6570\u636E\u91CD\u8BD5`);
+    console.log(`\u{1F4D5} [XHS] getRecommend unwrapped \u63D0\u53D6\u70BA\u7A7A\uFF0C\u7528\u539F\u59CB\u6578\u64DA\u91CD\u8A66`);
     const raw2 = extractNotesFromMcpData(r.data);
     return { success: true, notes: raw2.map((n) => normalizeNote(n)) };
   }
@@ -11296,7 +11318,7 @@ async function runXhsSearch(args, ctx) {
   if (ctx.lastXhsNotesRef) ctx.lastXhsNotesRef.current = result.notes;
   cacheXsecTokensImpl(ctx.xhsCaches, result.notes);
   const notesText = result.notes.map(
-    (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D5E)
+    (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D0A)
    ${n.desc}`
   ).join("\n\n");
   return { ok: true, keyword: args.keyword, notesText, notes: result.notes };
@@ -11307,7 +11329,7 @@ async function runXhsBrowse(args, ctx) {
     return { ok: false, reason: "not_enabled", category: args.category };
   }
   const result = await xhsBrowseImpl(xhsConf);
-  console.log("\u{1F4D5} [XHS] \u6D4F\u89C8\u7ED3\u679C:", result.success, result.message, result.notes?.length || 0);
+  console.log("\u{1F4D5} [XHS] \u700F\u89BD\u7D50\u679C:", result.success, result.message, result.notes?.length || 0);
   if (!result.success) {
     return { ok: false, reason: "unreachable", category: args.category, message: result.message };
   }
@@ -11317,7 +11339,7 @@ async function runXhsBrowse(args, ctx) {
   if (ctx.lastXhsNotesRef) ctx.lastXhsNotesRef.current = result.notes;
   cacheXsecTokensImpl(ctx.xhsCaches, result.notes);
   const notesText = result.notes.map(
-    (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D5E)
+    (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D0A)
    ${n.desc}`
   ).join("\n\n");
   return { ok: true, category: args.category, notesText, notes: result.notes };
@@ -11331,12 +11353,12 @@ async function runXhsMyProfile(_args, ctx) {
     return { ok: false, reason: "no_identity" };
   }
   let profileStr = "";
-  let feedsStr = "\uFF08\u83B7\u53D6\u7B14\u8BB0\u5931\u8D25\uFF09";
+  let feedsStr = "\uFF08\u7372\u53D6\u7B46\u8A18\u5931\u6557\uFF09";
   let gotProfile = false;
   let collectedNotes = [];
   if (userId) {
-    console.log(`\u{1F4D5} [XHS] \u7528 getUserProfile(${userId}) \u83B7\u53D6\u4E3B\u9875...`);
-    ctx.onProgress?.("xhs", "\u6B63\u5728\u83B7\u53D6\u4E3B\u9875\u4FE1\u606F...");
+    console.log(`\u{1F4D5} [XHS] \u7528 getUserProfile(${userId}) \u7372\u53D6\u4E3B\u9801...`);
+    ctx.onProgress?.("xhs", "\u6B63\u5728\u7372\u53D6\u4E3B\u9801\u4FE1\u606F...");
     try {
       const profileResult = await XhsMcpClient.getUserProfile(xhsConf.mcpUrl, userId, xhsConf.userXsecToken);
       if (profileResult.success && profileResult.data) {
@@ -11350,44 +11372,44 @@ async function runXhsMyProfile(_args, ctx) {
             profileStr = JSON.stringify(basicInfo, null, 2).slice(0, 2e3);
           } else {
             const { notes: _n, ...rest } = d.data && typeof d.data === "object" ? d.data : d;
-            profileStr = Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2).slice(0, 2e3) : "\uFF08\u4E3B\u9875\u57FA\u672C\u4FE1\u606F\u6682\u65F6\u65E0\u6CD5\u83B7\u53D6\uFF09";
+            profileStr = Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2).slice(0, 2e3) : "\uFF08\u4E3B\u9801\u57FA\u672C\u4FE1\u606F\u66AB\u6642\u7121\u6CD5\u7372\u53D6\uFF09";
           }
           gotProfile = true;
           const unwrapped = d.data && typeof d.data === "object" && !Array.isArray(d.data) ? d.data : d;
           console.log(`\u{1F4D5} [XHS] profile unwrapped keys:`, Object.keys(unwrapped), "notes isArray:", Array.isArray(unwrapped.notes), "notes length:", unwrapped.notes?.length);
           const notes = extractNotesFromMcpData(unwrapped);
-          console.log(`\u{1F4D5} [XHS] extractNotesFromMcpData \u8FD4\u56DE ${notes.length} \u6761\u7B14\u8BB0`);
+          console.log(`\u{1F4D5} [XHS] extractNotesFromMcpData \u8FD4\u56DE ${notes.length} \u689D\u7B46\u8A18`);
           if (notes.length > 0) {
-            console.log(`\u{1F4D5} [XHS] \u7B2C\u4E00\u6761\u7B14\u8BB0\u539F\u59CB keys:`, Object.keys(notes[0]), "noteCard?", !!notes[0].noteCard, "id?", notes[0].id || notes[0].noteId);
+            console.log(`\u{1F4D5} [XHS] \u7B2C\u4E00\u689D\u7B46\u8A18\u539F\u59CB keys:`, Object.keys(notes[0]), "noteCard?", !!notes[0].noteCard, "id?", notes[0].id || notes[0].noteId);
             const normalized = notes.map((n) => normalizeNote(n));
-            console.log(`\u{1F4D5} [XHS] \u5F52\u4E00\u5316\u540E\u7B2C\u4E00\u6761:`, JSON.stringify(normalized[0]).slice(0, 300));
+            console.log(`\u{1F4D5} [XHS] \u6B78\u4E00\u5316\u5F8C\u7B2C\u4E00\u689D:`, JSON.stringify(normalized[0]).slice(0, 300));
             const validNotes = normalized.filter((n) => n.noteId);
             if (validNotes.length === 0) {
-              console.warn(`\u{1F4D5} [XHS] \u26A0\uFE0F \u6240\u6709\u7B14\u8BB0\u5F52\u4E00\u5316\u540E noteId \u4E3A\u7A7A\uFF01\u539F\u59CB\u6570\u636E:`, JSON.stringify(notes[0]).slice(0, 500));
+              console.warn(`\u{1F4D5} [XHS] \u26A0\uFE0F \u6240\u6709\u7B46\u8A18\u6B78\u4E00\u5316\u5F8C noteId \u70BA\u7A7A\uFF01\u539F\u59CB\u6578\u64DA:`, JSON.stringify(notes[0]).slice(0, 500));
             }
             collectedNotes = validNotes.length > 0 ? validNotes : normalized;
             cacheXsecTokensImpl(ctx.xhsCaches, collectedNotes);
             feedsStr = collectedNotes.slice(0, 8).map(
-              (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title || "\u65E0\u6807\u9898"}\u300Dby ${n.author || "\u672A\u77E5"} (${n.likes || 0}\u8D5E)
-   ${n.desc || "\uFF08\u65E0\u63CF\u8FF0\uFF09"}`
+              (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title || "\u7121\u6A19\u984C"}\u300Dby ${n.author || "\u672A\u77E5"} (${n.likes || 0}\u8D0A)
+   ${n.desc || "\uFF08\u7121\u63CF\u8FF0\uFF09"}`
             ).join("\n\n");
-            console.log(`\u{1F4D5} [XHS] feedsStr \u9884\u89C8:`, feedsStr.slice(0, 300));
+            console.log(`\u{1F4D5} [XHS] feedsStr \u9810\u89BD:`, feedsStr.slice(0, 300));
           } else {
-            console.warn(`\u{1F4D5} [XHS] \u26A0\uFE0F extractNotesFromMcpData \u8FD4\u56DE\u7A7A\u6570\u7EC4! unwrapped:`, JSON.stringify(unwrapped).slice(0, 500));
+            console.warn(`\u{1F4D5} [XHS] \u26A0\uFE0F extractNotesFromMcpData \u8FD4\u56DE\u7A7A\u6578\u7D44! unwrapped:`, JSON.stringify(unwrapped).slice(0, 500));
           }
         }
-        console.log(`\u{1F4D5} [XHS] getUserProfile \u6210\u529F\uFF0C\u6570\u636E\u957F\u5EA6: ${profileStr.length}`);
+        console.log(`\u{1F4D5} [XHS] getUserProfile \u6210\u529F\uFF0C\u6578\u64DA\u9577\u5EA6: ${profileStr.length}`);
       }
     } catch (e) {
-      console.warn("\u{1F4D5} [XHS] getUserProfile \u5931\u8D25\uFF0C\u964D\u7EA7\u5230\u641C\u7D22:", e);
+      console.warn("\u{1F4D5} [XHS] getUserProfile \u5931\u6557\uFF0C\u964D\u7D1A\u5230\u641C\u7D22:", e);
     }
   }
   if (!gotProfile) {
     if (!nickname) {
       return { ok: false, reason: "unreachable" };
     }
-    console.log(`\u{1F4D5} [XHS] \u964D\u7EA7: \u7528\u6635\u79F0\u300C${nickname}\u300D\u641C\u7D22...`);
-    ctx.onProgress?.("xhs", "\u6B63\u5728\u641C\u7D22\u4F60\u7684\u7B14\u8BB0...");
+    console.log(`\u{1F4D5} [XHS] \u964D\u7D1A: \u7528\u66B1\u7A31\u300C${nickname}\u300D\u641C\u7D22...`);
+    ctx.onProgress?.("xhs", "\u6B63\u5728\u641C\u7D22\u4F60\u7684\u7B46\u8A18...");
     const searchResult = await xhsSearchImpl(xhsConf, nickname);
     if (!searchResult.success) {
       return { ok: false, reason: "unreachable", message: searchResult.message };
@@ -11396,11 +11418,11 @@ async function runXhsMyProfile(_args, ctx) {
       collectedNotes = searchResult.notes;
       cacheXsecTokensImpl(ctx.xhsCaches, searchResult.notes);
       feedsStr = searchResult.notes.slice(0, 8).map(
-        (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D5E)
-   ${n.desc || "\uFF08\u65E0\u63CF\u8FF0\uFF09"}`
+        (n, i) => `${i + 1}. [noteId=${n.noteId}]\u300C${n.title}\u300Dby ${n.author} (${n.likes}\u8D0A)
+   ${n.desc || "\uFF08\u7121\u63CF\u8FF0\uFF09"}`
       ).join("\n\n");
     } else {
-      feedsStr = "\uFF08\u6CA1\u6709\u641C\u5230\u76F8\u5173\u7B14\u8BB0\uFF09";
+      feedsStr = "\uFF08\u6C92\u6709\u641C\u5230\u76F8\u95DC\u7B46\u8A18\uFF09";
     }
   }
   if (ctx.lastXhsNotesRef && collectedNotes.length > 0) {
@@ -11413,13 +11435,13 @@ async function runXhsDetail(args, ctx) {
   if (!xhsConf.enabled) return { ok: false, reason: "not_enabled", noteId: args.noteId };
   const lastNotes = ctx.lastXhsNotesRef?.current ?? [];
   let xsecToken = findXsecToken(ctx.xhsCaches, lastNotes, args.noteId);
-  console.log(`\u{1F4D5} [XHS] AI\u8981\u67E5\u770B\u7B14\u8BB0\u8BE6\u60C5:`, args.noteId, xsecToken ? "(\u6709xsecToken)" : "(\u65E0xsecToken)");
+  console.log(`\u{1F4D5} [XHS] AI\u8981\u67E5\u770B\u7B46\u8A18\u8A73\u60C5:`, args.noteId, xsecToken ? "(\u6709xsecToken)" : "(\u7121xsecToken)");
   let result = await XhsMcpClient.getNoteDetail(xhsConf.mcpUrl, args.noteId, xsecToken, { loadAllComments: true });
   if (!result.success || !result.data) {
     const cachedTitle = ctx.xhsCaches?.noteTitleCache.get(args.noteId);
     if (cachedTitle) {
-      console.log(`\u{1F4D5} [XHS] \u8BE6\u60C5\u5931\u8D25\uFF0C\u5C1D\u8BD5\u91CD\u65B0\u641C\u7D22\u300C${cachedTitle}\u300D\u4EE5\u5237\u65B0 xsecToken...`);
-      ctx.onProgress?.("xhs", "\u6B63\u5728\u5237\u65B0\u8BBF\u95EE\u51ED\u8BC1...");
+      console.log(`\u{1F4D5} [XHS] \u8A73\u60C5\u5931\u6557\uFF0C\u5617\u8A66\u91CD\u65B0\u641C\u7D22\u300C${cachedTitle}\u300D\u4EE5\u5237\u65B0 xsecToken...`);
+      ctx.onProgress?.("xhs", "\u6B63\u5728\u5237\u65B0\u8A2A\u554F\u6191\u8B49...");
       const refreshResult = await xhsSearchImpl(xhsConf, cachedTitle);
       if (refreshResult.success && refreshResult.notes.length > 0) {
         cacheXsecTokensImpl(ctx.xhsCaches, refreshResult.notes);
@@ -11427,17 +11449,17 @@ async function runXhsDetail(args, ctx) {
         const refreshedNote = refreshResult.notes.find((n) => n.noteId === args.noteId);
         if (refreshedNote?.xsecToken) {
           xsecToken = refreshedNote.xsecToken;
-          console.log(`\u{1F4D5} [XHS] \u62FF\u5230\u65B0 xsecToken\uFF0C\u91CD\u8BD5 detail...`);
-          ctx.onProgress?.("xhs", "\u6B63\u5728\u67E5\u770B\u7B14\u8BB0\u8BE6\u60C5...");
+          console.log(`\u{1F4D5} [XHS] \u62FF\u5230\u65B0 xsecToken\uFF0C\u91CD\u8A66 detail...`);
+          ctx.onProgress?.("xhs", "\u6B63\u5728\u67E5\u770B\u7B46\u8A18\u8A73\u60C5...");
           result = await XhsMcpClient.getNoteDetail(xhsConf.mcpUrl, args.noteId, xsecToken, { loadAllComments: true });
         } else {
-          console.warn(`\u{1F4D5} [XHS] \u91CD\u65B0\u641C\u7D22\u7ED3\u679C\u4E2D\u672A\u627E\u5230 noteId=${args.noteId}`);
+          console.warn(`\u{1F4D5} [XHS] \u91CD\u65B0\u641C\u7D22\u7D50\u679C\u4E2D\u672A\u627E\u5230 noteId=${args.noteId}`);
         }
       } else {
-        console.warn(`\u{1F4D5} [XHS] \u91CD\u65B0\u641C\u7D22\u300C${cachedTitle}\u300D\u5931\u8D25:`, refreshResult.message);
+        console.warn(`\u{1F4D5} [XHS] \u91CD\u65B0\u641C\u7D22\u300C${cachedTitle}\u300D\u5931\u6557:`, refreshResult.message);
       }
     } else {
-      console.warn(`\u{1F4D5} [XHS] \u8BE6\u60C5\u5931\u8D25\u4E14\u65E0\u7F13\u5B58\u6807\u9898\uFF0C\u65E0\u6CD5\u91CD\u8BD5`);
+      console.warn(`\u{1F4D5} [XHS] \u8A73\u60C5\u5931\u6557\u4E14\u7121\u7DE9\u5B58\u6A19\u984C\uFF0C\u7121\u6CD5\u91CD\u8A66`);
     }
   }
   if (result.success && result.data && typeof result.data === "object") {
@@ -11446,7 +11468,7 @@ async function runXhsDetail(args, ctx) {
     const detailToken = noteObj?.xsecToken || noteObj?.xsec_token || d.data?.xsecToken || d.data?.xsec_token || d.xsecToken || d.xsec_token;
     if (detailToken && args.noteId && ctx.xhsCaches) {
       ctx.xhsCaches.xsecTokenCache.set(args.noteId, detailToken);
-      console.log(`\u{1F4D5} [XHS] \u4ECE detail \u7F13\u5B58 xsecToken: ${args.noteId}`);
+      console.log(`\u{1F4D5} [XHS] \u5F9E detail \u7DE9\u5B58 xsecToken: ${args.noteId}`);
     }
     const normalizedComments = normalizeXhsComments(d);
     if (ctx.xhsCaches) {
@@ -11463,9 +11485,9 @@ async function runXhsDetail(args, ctx) {
       };
       if (normalizedComments.length > 0) {
         cacheComments(normalizedComments);
-        console.log(`\u{1F4D5} [XHS] \u7F13\u5B58\u4E86 ${caches.commentUserIdCache.size} \u6761\u8BC4\u8BBA\u7684 userId, ${caches.commentAuthorNameCache.size} \u6761 authorName`);
+        console.log(`\u{1F4D5} [XHS] \u7DE9\u5B58\u4E86 ${caches.commentUserIdCache.size} \u689D\u8A55\u8AD6\u7684 userId, ${caches.commentAuthorNameCache.size} \u689D authorName`);
       } else {
-        console.warn(`\u{1F4D5} [XHS] \u672A\u627E\u5230\u8BC4\u8BBA\u6570\u7EC4, d keys:`, Object.keys(d), "d.note keys:", d.note ? Object.keys(d.note) : "N/A");
+        console.warn(`\u{1F4D5} [XHS] \u672A\u627E\u5230\u8A55\u8AD6\u6578\u7D44, d keys:`, Object.keys(d), "d.note keys:", d.note ? Object.keys(d.note) : "N/A");
       }
     }
     if (ctx.lastXhsNotesRef) {
@@ -11495,7 +11517,7 @@ async function runXhsDetail(args, ctx) {
   let commentsUnavailable = false;
   if (detailData) {
     if (typeof detailData === "string") {
-      if (detailData.includes("\u5931\u8D25") || detailData.includes("not found")) {
+      if (includesAnyScript(detailData, "\u5931\u8D25") || detailData.includes("not found")) {
         return {
           ok: false,
           reason: "unreachable",
@@ -11517,15 +11539,15 @@ async function runXhsDetail(args, ctx) {
       const noteCommentCount = normalizedNote.commentCount;
       const noteTime = note.time ? new Date(note.time).toLocaleString("zh-CN") : "";
       const noteIp = note.ipLocation || note.ip_location || "";
-      let noteSection = `\u{1F4DD} \u7B14\u8BB0\u8BE6\u60C5:
-\u6807\u9898: ${noteTitle}
+      let noteSection = `\u{1F4DD} \u7B46\u8A18\u8A73\u60C5:
+\u6A19\u984C: ${noteTitle}
 \u4F5C\u8005: ${noteAuthor}`;
       if (noteTime) noteSection += `
-\u53D1\u5E03\u65F6\u95F4: ${noteTime}`;
+\u767C\u4F48\u6642\u9593: ${noteTime}`;
       if (noteIp) noteSection += `
  IP: ${noteIp}`;
       noteSection += `
-\u4E92\u52A8: ${noteLikes}\u8D5E ${noteCollects}\u6536\u85CF ${noteCommentCount}\u8BC4\u8BBA ${noteShareCount}\u5206\u4EAB`;
+\u4E92\u52D5: ${noteLikes}\u8D0A ${noteCollects}\u6536\u85CF ${noteCommentCount}\u8A55\u8AD6 ${noteShareCount}\u5206\u4EAB`;
       noteSection += `
 
 \u6B63\u6587:
@@ -11540,7 +11562,7 @@ ${noteDesc}`;
           const content = c.content || "";
           const likes = c.likes || 0;
           const cid = c.commentId || "";
-          let line = `${indent}${name}: ${content} (${likes}\u8D5E) [commentId=${cid}]`;
+          let line = `${indent}${name}: ${content} (${likes}\u8D0A) [commentId=${cid}]`;
           const subs = c.subComments || [];
           if (Array.isArray(subs) && subs.length > 0) {
             line += "\n" + subs.slice(0, 10).map((s) => formatComment(s, indent + "  \u21B3 ")).join("\n");
@@ -11549,12 +11571,12 @@ ${noteDesc}`;
         };
         commentsSection = `
 
-\u{1F4AC} \u8BC4\u8BBA\u533A (${commentArr.length}\u6761):
+\u{1F4AC} \u8A55\u8AD6\u5340 (${commentArr.length}\u689D):
 ` + commentArr.slice(0, 30).map((c) => formatComment(c)).join("\n");
       } else if (commentsUnavailable) {
-        commentsSection = "\n\n\u{1F4AC} \u8BC4\u8BBA\u533A: \uFF08\u8BFB\u53D6\u5931\u8D25\uFF1B\u4E0D\u80FD\u636E\u6B64\u5224\u65AD\u4E3A\u6CA1\u6709\u8BC4\u8BBA\uFF0C\u4E5F\u4E0D\u8981\u7F16\u9020\u8BC4\u8BBA\u5185\u5BB9\uFF09";
+        commentsSection = "\n\n\u{1F4AC} \u8A55\u8AD6\u5340: \uFF08\u8B80\u53D6\u5931\u6557\uFF1B\u4E0D\u80FD\u64DA\u6B64\u5224\u65B7\u70BA\u6C92\u6709\u8A55\u8AD6\uFF0C\u4E5F\u4E0D\u8981\u7DE8\u9020\u8A55\u8AD6\u5167\u5BB9\uFF09";
       } else {
-        commentsSection = "\n\n\u{1F4AC} \u8BC4\u8BBA\u533A: \uFF08\u6682\u65E0\u8BC4\u8BBA\uFF09";
+        commentsSection = "\n\n\u{1F4AC} \u8A55\u8AD6\u5340: \uFF08\u66AB\u7121\u8A55\u8AD6\uFF09";
       }
       detailText = (noteSection + commentsSection).slice(0, 8e3);
     }
@@ -11563,7 +11585,7 @@ ${noteDesc}`;
       ok: false,
       reason: "unreachable",
       noteId: args.noteId,
-      message: result.error || "\u65E0\u6CD5\u83B7\u53D6\u7B14\u8BB0\u8BE6\u60C5\uFF0C\u53EF\u80FD\u9700\u8981\u5148\u5728\u641C\u7D22/\u6D4F\u89C8\u7ED3\u679C\u4E2D\u770B\u5230\u8FD9\u6761\u7B14\u8BB0"
+      message: result.error || "\u7121\u6CD5\u7372\u53D6\u7B46\u8A18\u8A73\u60C5\uFF0C\u53EF\u80FD\u9700\u8981\u5148\u5728\u641C\u7D22/\u700F\u89BD\u7D50\u679C\u4E2D\u770B\u5230\u9019\u689D\u7B46\u8A18"
     };
   }
   return { ok: true, noteId: args.noteId, detailText, commentsUnavailable };
@@ -11633,30 +11655,30 @@ var toolCallFingerprint = (name, args) => {
   return `${name}:${JSON.stringify(normalize2(args ?? {}))}`;
 };
 var TOOL_LABELS = {
-  recall: "\u8C03\u53D6\u67D0\u4E2A\u6708\u7684\u8BB0\u5FC6",
-  web_search: "\u8054\u7F51\u641C\u7D22",
-  notion_read_diary: "\u7FFB\u65E5\u8BB0\uFF08Notion\uFF09",
-  feishu_read_diary: "\u7FFB\u65E5\u8BB0\uFF08\u98DE\u4E66\uFF09",
-  read_note: "\u7FFB\u5BF9\u65B9\u7684\u7B14\u8BB0",
-  xhs_search: "\u5728\u5C0F\u7EA2\u4E66\u641C\u7D22",
-  xhs_browse: "\u5237\u5C0F\u7EA2\u4E66\u9996\u9875",
-  xhs_my_profile: "\u6253\u5F00\u81EA\u5DF1\u7684\u5C0F\u7EA2\u4E66",
-  xhs_detail: "\u70B9\u5F00\u4E00\u6761\u5C0F\u7EA2\u4E66\u7B14\u8BB0",
-  // 后台到点时角色能给自己排下一条消息（worker 的 fire 循环里就这一个非数据工具）。
-  // 漏在表外的话，回喂会拼出「你schedule_active_message，拿回了…」——内部工具名直接
-  // 进了模型能看见的散文里。
-  schedule_active_message: "\u7ED9\u81EA\u5DF1\u6392\u4E0B\u4E00\u6761\u6D88\u606F",
-  // 前台聊天里角色还能取消 / 改期 / 查清单（见 utils/amsg2ToolBridge.ts）。同样是漏在
-  // 表外就会把内部工具名拼进散文，所以三个一起登记。
-  cancel_active_message: "\u53D6\u6D88\u4E00\u6761\u6392\u597D\u7684\u6D88\u606F",
-  renew_active_message: "\u628A\u6392\u597D\u7684\u6D88\u606F\u6539\u5230\u522B\u7684\u65F6\u95F4",
+  recall: "\u8ABF\u53D6\u67D0\u500B\u6708\u7684\u8A18\u61B6",
+  web_search: "\u806F\u7DB2\u641C\u7D22",
+  notion_read_diary: "\u7FFB\u65E5\u8A18\uFF08Notion\uFF09",
+  feishu_read_diary: "\u7FFB\u65E5\u8A18\uFF08\u98DB\u66F8\uFF09",
+  read_note: "\u7FFB\u5C0D\u65B9\u7684\u7B46\u8A18",
+  xhs_search: "\u5728\u5C0F\u7D05\u66F8\u641C\u7D22",
+  xhs_browse: "\u5237\u5C0F\u7D05\u66F8\u9996\u9801",
+  xhs_my_profile: "\u6253\u958B\u81EA\u5DF1\u7684\u5C0F\u7D05\u66F8",
+  xhs_detail: "\u9EDE\u958B\u4E00\u689D\u5C0F\u7D05\u66F8\u7B46\u8A18",
+  // 後台到點時角色能給自己排下一條消息（worker 的 fire 循環裡就這一個非數據工具）。
+  // 漏在表外的話，回喂會拼出「你schedule_active_message，拿回了…」——內部工具名直接
+  // 進了模型能看見的散文裡。
+  schedule_active_message: "\u7D66\u81EA\u5DF1\u6392\u4E0B\u4E00\u689D\u6D88\u606F",
+  // 前台聊天裡角色還能取消 / 改期 / 查清單（見 utils/amsg2ToolBridge.ts）。同樣是漏在
+  // 表外就會把內部工具名拼進散文，所以三個一起登記。
+  cancel_active_message: "\u53D6\u6D88\u4E00\u689D\u6392\u597D\u7684\u6D88\u606F",
+  renew_active_message: "\u628A\u6392\u597D\u7684\u6D88\u606F\u6539\u5230\u5225\u7684\u6642\u9593",
   list_active_messages: "\u67E5\u81EA\u5DF1\u6392\u4E86\u54EA\u4E9B\u6D88\u606F"
 };
 var describeTool = (name) => {
   const label = TOOL_LABELS[name];
   if (label) return label;
   if (name.startsWith(MCP_FIRE_NAME_PREFIX)) {
-    return `\u8C03\u7528\u300C${name.slice(MCP_FIRE_NAME_PREFIX.length)}\u300D`;
+    return `\u8ABF\u7528\u300C${name.slice(MCP_FIRE_NAME_PREFIX.length)}\u300D`;
   }
   return name;
 };
@@ -11680,40 +11702,40 @@ var neverRan = (result) => {
   return r.ok === false && typeof r.reason === "string" && NEVER_RAN_REASONS.has(r.reason);
 };
 var TOOL_RESULT_NOTES = {
-  web_search: "[\u7CFB\u7EDF: \u641C\u7D22\u7ED3\u679C\u4E0D\u5E26\u65E5\u671F\uFF0C\u4E0D\u4E00\u5B9A\u662F\u6700\u65B0\u7684\u2014\u2014\u522B\u628A\u65E7\u95FB\u5F53\u6210\u521A\u53D1\u751F\u7684\u4E8B\u8BF4\uFF0C\u4E5F\u522B\u81EA\u5DF1\u7ED9\u5B83\u5B89\u4E00\u4E2A\u65F6\u95F4\u3002]"
+  web_search: "[\u7CFB\u7D71: \u641C\u7D22\u7D50\u679C\u4E0D\u5E36\u65E5\u671F\uFF0C\u4E0D\u4E00\u5B9A\u662F\u6700\u65B0\u7684\u2014\u2014\u5225\u628A\u820A\u805E\u7576\u6210\u525B\u767C\u751F\u7684\u4E8B\u8AAA\uFF0C\u4E5F\u5225\u81EA\u5DF1\u7D66\u5B83\u5B89\u4E00\u500B\u6642\u9593\u3002]"
 };
 var buildToolResultMessage = (opts) => {
   const { name, result, history } = opts;
   const used = [...new Set(history.map((r) => describeTool(r.name)))];
   const label = describeTool(name);
   const head = neverRan(result) ? [
-    `[\u7CFB\u7EDF: \u4F60\u60F3${label}\uFF0C\u4F46\u8FD9\u6B21\u6CA1\u80FD\u8DD1\u8D77\u6765\u2014\u2014\u4E0B\u9762\u662F\u5931\u8D25\u539F\u56E0]`,
+    `[\u7CFB\u7D71: \u4F60\u60F3${label}\uFF0C\u4F46\u9019\u6B21\u6C92\u80FD\u8DD1\u8D77\u4F86\u2014\u2014\u4E0B\u9762\u662F\u5931\u6557\u539F\u56E0]`,
     JSON.stringify(result),
     "",
-    `[\u7CFB\u7EDF: \u8FD9\u4EF6\u4E8B**\u6CA1\u6709\u53D1\u751F**\u3002\u4E0D\u8981\u5728\u6D88\u606F\u91CC\u8BF4\u4F60${label}\u8FC7\u3001\u770B\u5230\u4E86\u4EC0\u4E48\u3001\u6216\u8005\u300C\u67E5\u4E86\u6CA1\u627E\u5230\u300D\u2014\u2014`,
-    "\u90A3\u7B49\u4E8E\u628A\u6CA1\u505A\u8FC7\u7684\u4E8B\u8BF4\u6210\u505A\u8FC7\u4E86\u3002\u5C31\u5F53\u8FD9\u56DE\u6CA1\u67E5\u6210\uFF1A\u8981\u4E48\u6362\u4E2A\u522B\u7684\u8BF4\uFF0C\u8981\u4E48\u76F4\u63A5\u8BF4\u4F60\u73B0\u5728\u4E0D\u65B9\u4FBF\u67E5\u3002]"
+    `[\u7CFB\u7D71: \u9019\u4EF6\u4E8B**\u6C92\u6709\u767C\u751F**\u3002\u4E0D\u8981\u5728\u6D88\u606F\u88E1\u8AAA\u4F60${label}\u904E\u3001\u770B\u5230\u4E86\u4EC0\u9EBC\u3001\u6216\u8005\u300C\u67E5\u4E86\u6C92\u627E\u5230\u300D\u2014\u2014`,
+    "\u90A3\u7B49\u65BC\u628A\u6C92\u505A\u904E\u7684\u4E8B\u8AAA\u6210\u505A\u904E\u4E86\u3002\u5C31\u7576\u9019\u56DE\u6C92\u67E5\u6210\uFF1A\u8981\u9EBC\u63DB\u500B\u5225\u7684\u8AAA\uFF0C\u8981\u9EBC\u76F4\u63A5\u8AAA\u4F60\u73FE\u5728\u4E0D\u65B9\u4FBF\u67E5\u3002]"
   ] : [
-    `[\u7CFB\u7EDF: \u4F60${label}\uFF0C\u62FF\u56DE\u4E86\u4E0B\u9762\u8FD9\u4E9B]`,
+    `[\u7CFB\u7D71: \u4F60${label}\uFF0C\u62FF\u56DE\u4E86\u4E0B\u9762\u9019\u4E9B]`,
     JSON.stringify(result),
     ...TOOL_RESULT_NOTES[name] ? [TOOL_RESULT_NOTES[name]] : [],
     ""
   ];
   return [
     ...head,
-    `[\u7CFB\u7EDF: \u672C\u6B21\u5DF2\u7ECF\u7528\u8FC7\u7684\u5DE5\u5177\uFF1A${used.join("\u3001")}\u3002\u7ED3\u679C\u90FD\u5728\u4E0A\u9762\u4E86\uFF0C\u540C\u6837\u7684\u8C03\u7528\u4E0D\u8981\u518D\u6765\u4E00\u904D\u3002`,
-    "\u63A5\u4E0B\u6765\u53EA\u6709\u4E24\u6761\u8DEF\uFF1A\u76F4\u63A5\u628A\u8981\u53D1\u7684\u6D88\u606F\u5199\u51FA\u6765\uFF0C\u6216\u8005\u7528\u4E00\u4E2A\u8FD8\u6CA1\u7528\u8FC7\u7684\u5DE5\u5177\u3002",
-    // 「把要发的消息写出来」很容易被读成「从头再写一遍」：模型会把已经说出去的几句连同
-    // 里面的标记一起重抄，下游照着标记再执行一次（转账就会真的发两次）。
-    "\u524D\u9762\u5DF2\u7ECF\u8BF4\u51FA\u53BB\u7684\u5185\u5BB9\u548C\u6807\u7B7E\u4E0D\u8981\u91CD\u5199\uFF0C\u63A5\u7740\u5F80\u4E0B\u5199\u5C31\u884C\u2014\u2014\u91CD\u5199\u4E00\u904D\uFF0C\u7528\u6237\u90A3\u8FB9\u5C31\u4F1A\u518D\u6536\u5230\u4E00\u904D\u3002",
-    "\u522B\u628A\u5DE5\u5177\u8C03\u7528\u5F53\u6210\u56DE\u7B54\u2014\u2014\u7528\u6237\u7B49\u7684\u662F\u4F60\u8BF4\u7684\u8BDD\u3002]"
+    `[\u7CFB\u7D71: \u672C\u6B21\u5DF2\u7D93\u7528\u904E\u7684\u5DE5\u5177\uFF1A${used.join("\u3001")}\u3002\u7D50\u679C\u90FD\u5728\u4E0A\u9762\u4E86\uFF0C\u540C\u6A23\u7684\u8ABF\u7528\u4E0D\u8981\u518D\u4F86\u4E00\u904D\u3002`,
+    "\u63A5\u4E0B\u4F86\u53EA\u6709\u5169\u689D\u8DEF\uFF1A\u76F4\u63A5\u628A\u8981\u767C\u7684\u6D88\u606F\u5BEB\u51FA\u4F86\uFF0C\u6216\u8005\u7528\u4E00\u500B\u9084\u6C92\u7528\u904E\u7684\u5DE5\u5177\u3002",
+    // 「把要發的消息寫出來」很容易被讀成「從頭再寫一遍」：模型會把已經說出去的幾句連同
+    // 裡面的標記一起重抄，下游照著標記再執行一次（轉帳就會真的發兩次）。
+    "\u524D\u9762\u5DF2\u7D93\u8AAA\u51FA\u53BB\u7684\u5167\u5BB9\u548C\u6A19\u7C64\u4E0D\u8981\u91CD\u5BEB\uFF0C\u63A5\u8457\u5F80\u4E0B\u5BEB\u5C31\u884C\u2014\u2014\u91CD\u5BEB\u4E00\u904D\uFF0C\u7528\u6236\u90A3\u908A\u5C31\u6703\u518D\u6536\u5230\u4E00\u904D\u3002",
+    "\u5225\u628A\u5DE5\u5177\u8ABF\u7528\u7576\u6210\u56DE\u7B54\u2014\u2014\u7528\u6236\u7B49\u7684\u662F\u4F60\u8AAA\u7684\u8A71\u3002]"
   ].join("\n");
 };
 var buildDuplicateToolMessage = (name) => [
-  `[\u7CFB\u7EDF: \u4F60\u521A\u521A\u5DF2\u7ECF${describeTool(name)}\u8FC7\u4E00\u6B21\u4E86\uFF0C\u53C2\u6570\u5B8C\u5168\u76F8\u540C\uFF0C\u7ED3\u679C\u5C31\u5728\u4E0A\u9762\u3002]`,
-  // 说「没有再执行」而不是「没有再去查」：这段话现在也管排程/取消/改期这类不是查询的
-  // 工具，说成「查」的话，角色收到的交代跟它刚做的事对不上。
-  "[\u7CFB\u7EDF: \u8FD9\u4E00\u6B21\u6CA1\u6709\u518D\u6267\u884C\u3002\u522B\u518D\u91CD\u590D\u540C\u6837\u7684\u8C03\u7528\u4E86\u2014\u2014\u73B0\u5728\u628A\u8981\u53D1\u7684\u6D88\u606F\u5199\u51FA\u6765\uFF0C",
-  "\u6216\u8005\u6362\u4E00\u4E2A\u8FD8\u6CA1\u7528\u8FC7\u7684\u5DE5\u5177\u3002\u524D\u9762\u5DF2\u7ECF\u8BF4\u51FA\u53BB\u7684\u5185\u5BB9\u548C\u6807\u7B7E\u4E0D\u8981\u91CD\u5199\uFF0C\u63A5\u7740\u5F80\u4E0B\u5199\u5C31\u884C\u3002]"
+  `[\u7CFB\u7D71: \u4F60\u525B\u525B\u5DF2\u7D93${describeTool(name)}\u904E\u4E00\u6B21\u4E86\uFF0C\u53C3\u6578\u5B8C\u5168\u76F8\u540C\uFF0C\u7D50\u679C\u5C31\u5728\u4E0A\u9762\u3002]`,
+  // 說「沒有再執行」而不是「沒有再去查」：這段話現在也管排程/取消/改期這類不是查詢的
+  // 工具，說成「查」的話，角色收到的交代跟它剛做的事對不上。
+  "[\u7CFB\u7D71: \u9019\u4E00\u6B21\u6C92\u6709\u518D\u57F7\u884C\u3002\u5225\u518D\u91CD\u8907\u540C\u6A23\u7684\u8ABF\u7528\u4E86\u2014\u2014\u73FE\u5728\u628A\u8981\u767C\u7684\u6D88\u606F\u5BEB\u51FA\u4F86\uFF0C",
+  "\u6216\u8005\u63DB\u4E00\u500B\u9084\u6C92\u7528\u904E\u7684\u5DE5\u5177\u3002\u524D\u9762\u5DF2\u7D93\u8AAA\u51FA\u53BB\u7684\u5167\u5BB9\u548C\u6A19\u7C64\u4E0D\u8981\u91CD\u5BEB\uFF0C\u63A5\u8457\u5F80\u4E0B\u5BEB\u5C31\u884C\u3002]"
 ].join("\n");
 
 // node_modules/.pnpm/@rei-standard+amsg-instant@0.11.0-next.6/node_modules/@rei-standard/amsg-instant/dist/index.mjs
@@ -11800,17 +11822,17 @@ var SSE_DONE_BYTES = SSE_ENCODER.encode("event: done\ndata: {}\n\n");
 // utils/sanitize.ts
 var stripLiteralBackslashN = (t) => t.replace(/\\n/g, "\n");
 var stripLeakedSourceTags = (t) => t.replace(
-  /\s*\[\s*(?:聊\s*(?:天|chat)|chat|通\s*(?:话|call)|call|约\s*(?:会|date)|date)\s*\]\s*/giu,
+  /\s*\[\s*(?:聊\s*(?:天|chat)|chat|通\s*(?:[话話]|call)|call|[约約]\s*(?:[会會]|date)|date)\s*\]\s*/giu,
   "\n"
 );
 var stripTimestamps = (t) => t.replace(/\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/g, "").replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s*/gm, "").replace(/（[上下]午\d{1,2}[：:]\d{2}）/g, "").replace(/\(\d{1,2}:\d{2}\s*[AP]M\)/gi, "");
 var stripChineseDate = (t) => t.replace(/\[\d{4}[-/年]\d{1,2}[-/月]\d{1,2}.*?\]/g, "");
 var stripRoleNamePrefix = (t) => t.replace(/^[\w一-龥]+:\s*/, "");
-var stripBusinessTagsForBubble = (t) => t.replace(/\[\[(?:ACTION|RECALL|SEARCH|DIARY|READ_DIARY|FS_DIARY|FS_READ_DIARY|DIARY_START|DIARY_END|FS_DIARY_START|FS_DIARY_END|MUSIC_ACTION)[:\s][\s\S]*?\]\]/g, "").replace(/\[\[\s*[记記][录錄]\s*[:：][\s\S]*?\]\]/g, "").replace(/\[schedule_message[^\]]*\]/g, "");
+var stripBusinessTagsForBubble = (t) => t.replace(/\[\[(?:ACTION|RECALL|SEARCH|DIARY|READ_DIARY|FS_DIARY|FS_READ_DIARY|DIARY_START|DIARY_END|FS_DIARY_START|FS_DIARY_END|MUSIC_ACTION)[:\s][\s\S]*?\]\]/g, "").replace(/\[\[\s*[记記記][录錄錄]\s*[:：][\s\S]*?\]\]/g, "").replace(/\[schedule_message[^\]]*\]/g, "");
 var stripBusinessTagsForNotification = (t) => stripBusinessTagsForBubble(t).replace(/\[\[(?:READ_NOTE|XHS_[A-Z_]+|LIFE|NEWS_CARD)[:\s][\s\S]*?\]\]/g, "").replace(/\[\[XHS_[A-Z_]+\]\]/g, "");
 var stripAllDoubleBracketTags = (t) => t.replace(/\[\[[\s\S]*?\]\]/g, "");
-var stripQuotes2 = (t) => t.replace(/\[\[(?:QU[OA]TE|引用)[：:][\s\S]*?\]\]/g, "").replace(/\[(?:QU[OA]TE|引用)[：:][^\]]*\]/g, "").replace(/\[回复\s*[""“][^""”]*?[""”](?:\.{0,3})\]\s*[：:]?\s*/g, "").replace(/\[[^\[\]\n「」]{0,24}引用了[^\[\]\n「」]{0,24}「[^」\n]*?」[^\[\]\n]{0,24}\]\s*/g, "");
-var stripSystemLogLeak = (t) => t.replace(/[\[【]\s*(?:系统|系統|System)\s*(?:提示)?\s*[:：][^\[\]【】]*[\]】]\s*/gi, "").replace(/\[\s*(?:系统|系統)\s*\]\s*/g, "");
+var stripQuotes2 = (t) => t.replace(/\[\[(?:QU[OA]TE|引用)[：:][\s\S]*?\]\]/g, "").replace(/\[(?:QU[OA]TE|引用)[：:][^\]]*\]/g, "").replace(/\[回[复覆]\s*[""“][^""”]*?[""”](?:\.{0,3})\]\s*[：:]?\s*/g, "").replace(/\[[^\[\]\n「」]{0,24}引用了[^\[\]\n「」]{0,24}「[^」\n]*?」[^\[\]\n]{0,24}\]\s*/g, "");
+var stripSystemLogLeak = (t) => t.replace(/[\[【]\s*(?:系[统統]|系統|System)\s*(?:提示)?\s*[:：][^\[\]【】]*[\]】]\s*/gi, "").replace(/\[\s*(?:系[统統]|系統)\s*\]\s*/g, "");
 var stripMarkdownHeaders = (t) => t.replace(/^#{1,6}\s+/gm, "");
 var stripMarkdownBold = (t) => t.replace(/\*{2,}/g, "");
 var stripMarkdownDividers = (t) => t.replace(/^\s*---\s*$/gm, "").replace(/^\s*[-*+]\s*$/gm, "");
@@ -11819,13 +11841,13 @@ var stripLegacyTrans = (t) => t.replace(/%%TRANS%%[\s\S]*/gi, "");
 var collapseWhitespace = (t) => t.replace(/\n{3,}/g, "\n\n").trim();
 var stripThinkBlocks = (t) => t.replace(/<(think|thinking|thought)>[\s\S]*?<\/\1>/gi, "").replace(/<(?:think|thinking|thought)>[\s\S]*$/gi, "");
 var stripInnerState = (t) => t.replace(/\[\[INNER_STATE:\s*[\s\S]*?\]\]/g, "");
-var replaceMarkdownLinks = (t) => t.replace(/\[([^\]]+)\]\([^)]+\)/g, "[\u94FE\u63A5\uFF1A$1]");
+var replaceMarkdownLinks = (t) => t.replace(/\[([^\]]+)\]\([^)]+\)/g, "[\u93C8\u63A5\uFF1A$1]");
 var replaceSendEmoji = (t) => t.replace(/\[\[SEND_EMOJI[:：]\s*(.+?)\]\]/g, "[\u8868\u60C5\uFF1A$1]");
-var replaceEmojiReverseTag = (t) => t.replace(/\[(?:你|User|用户|System|[\w一-龥]+)\s*发送了表情包[:：]\s*(.*?)\]/g, "[\u8868\u60C5\uFF1A$1]");
+var replaceEmojiReverseTag = (t) => t.replace(/\[(?:你|User|用[户戶]|System|[\w一-龥]+)\s*[发發]送了表情包[:：]\s*(.*?)\]/g, "[\u8868\u60C5\uFF1A$1]");
 var replaceHtmlBlocks = (t) => t.replace(/\[html\][\s\S]*?\[\/html\]/gi, "[HTML \u5361\u7247]");
-var replaceTranslationForBanner = (t) => t.replace(/<翻译>\s*<原文>([\s\S]*?)<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/g, "$1").replace(/<译文>[\s\S]*?<\/译文>/g, "").replace(/<\/?(?:翻译|原文)>/g, "");
+var replaceTranslationForBanner = (t) => t.replace(/<翻[译譯]>\s*<原文>([\s\S]*?)<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/g, "$1").replace(/<[译譯]文>[\s\S]*?<\/[译譯]文>/g, "").replace(/<\/?(?:翻[译譯]|原文)>/g, "");
 var replaceVoiceForBanner = (t) => t.replace(
-  /(?:<字幕>([\s\S]*?)<\/字幕>\s*)?<[语語]音[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>(?:\s*<字幕>([\s\S]*?)<\/字幕>)?/g,
+  /(?:<字幕>([\s\S]*?)<\/字幕>\s*)?<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>(?:\s*<字幕>([\s\S]*?)<\/字幕>)?/g,
   (_m, pre, inner, post) => (post || pre || inner || "").trim()
 ).replace(/<字幕>([\s\S]*?)<\/字幕>/g, "$1").replace(/<\/?字幕>/g, "");
 function repairPairedTag(text, tokenRe, closeFormOf, closeBeforeTrailingSubtitle) {
@@ -11870,60 +11892,60 @@ function repairPairedTag(text, tokenRe, closeFormOf, closeBeforeTrailingSubtitle
   return result;
 }
 function normalizeVoiceTags(t) {
-  if (!/[语語]音|字幕/.test(t)) return t;
+  if (!/[语語語]音|字幕/.test(t)) return t;
   let result = t;
-  result = result.replace(/＜\s*[/／]\s*([语語]音|字幕)\s*＞/g, "</$1>");
-  result = result.replace(/＜\s*((?:[语語]音|字幕)[^<>＜＞]*?)\s*＞/g, "<$1>");
-  result = result.replace(/<\s*[/／]\s*([语語]音|字幕)\s*>/g, "</$1>");
-  result = result.replace(/<([语語]音|字幕)\s*([^<>]*?)\s*>/g, (_m, tag, attrs) => {
+  result = result.replace(/＜\s*[/／]\s*([语語語]音|字幕)\s*＞/g, "</$1>");
+  result = result.replace(/＜\s*((?:[语語語]音|字幕)[^<>＜＞]*?)\s*＞/g, "<$1>");
+  result = result.replace(/<\s*[/／]\s*([语語語]音|字幕)\s*>/g, "</$1>");
+  result = result.replace(/<([语語語]音|字幕)\s*([^<>]*?)\s*>/g, (_m, tag, attrs) => {
     if (!attrs) return `<${tag}>`;
     const fixed = attrs.replace(/[“”＂]/g, '"').replace(/[‘’]/g, "'").replace(/＝/g, "=").trim();
     return `<${tag} ${fixed}>`;
   });
-  result = repairPairedTag(result, /<\/?[语語]音[^>]*>/g, (tok) => /語/.test(tok) ? "\u8A9E\u97F3" : "\u8BED\u97F3", true);
+  result = repairPairedTag(result, /<\/?[语語語]音[^>]*>/g, (tok) => /語/.test(tok) ? "\u8A9E\u97F3" : "\u8A9E\u97F3", true);
   result = repairPairedTag(result, /<\/?字幕[^>]*>/g, () => "\u5B57\u5E55", false);
   return result;
 }
-var simpTransTag = (tag) => tag.replace(/譯/g, "\u8BD1");
+var simpTransTag = (tag) => tag.replace(/譯/g, "\u8B6F");
 function normalizeTranslationTags(t) {
-  if (!/[<＜]\s*[/／]?\s*(?:翻[译譯]|原文|[译譯]文)/.test(t)) return t;
+  if (!/[<＜]\s*[/／]?\s*(?:翻[译譯譯]|原文|[译譯譯]文)/.test(t)) return t;
   let result = t;
-  result = result.replace(/[<＜]\s*[/／]\s*(翻[译譯]|原文|[译譯]文)\s*[>＞]/g, (_m, tag) => `</${simpTransTag(tag)}>`);
-  result = result.replace(/[<＜]\s*(翻[译譯]|原文|[译譯]文)\s*[>＞]/g, (_m, tag) => `<${simpTransTag(tag)}>`);
+  result = result.replace(/[<＜]\s*[/／]\s*(翻[译譯譯]|原文|[译譯譯]文)\s*[>＞]/g, (_m, tag) => `</${simpTransTag(tag)}>`);
+  result = result.replace(/[<＜]\s*(翻[译譯譯]|原文|[译譯譯]文)\s*[>＞]/g, (_m, tag) => `<${simpTransTag(tag)}>`);
   result = result.replace(
-    /[<＜]\s*([/／]?)\s*(翻[译譯]|原文|[译譯]文)\s*(?=$|\n|[<＜])/g,
+    /[<＜]\s*([/／]?)\s*(翻[译譯譯]|原文|[译譯譯]文)\s*(?=$|\n|[<＜])/g,
     (_m, slash, tag) => `<${slash ? "/" : ""}${simpTransTag(tag)}>`
   );
   result = repairPairedTag(result, /<\/?原文[^>]*>/g, () => "\u539F\u6587", false);
-  result = repairPairedTag(result, /<\/?译文[^>]*>/g, () => "\u8BD1\u6587", false);
-  result = repairPairedTag(result, /<\/?翻译[^>]*>/g, () => "\u7FFB\u8BD1", false);
+  result = repairPairedTag(result, /<\/?[译譯]文[^>]*>/g, () => "\u8B6F\u6587", false);
+  result = repairPairedTag(result, /<\/?翻[译譯][^>]*>/g, () => "\u7FFB\u8B6F", false);
   const HOLD = String.fromCharCode(3);
   const blocks = [];
   const hold = (m) => {
     blocks.push(m);
     return `${HOLD}${blocks.length - 1}${HOLD}`;
   };
-  result = result.replace(/<翻译>\s*<原文>[\s\S]*?<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/g, hold);
+  result = result.replace(/<翻[译譯]>\s*<原文>[\s\S]*?<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/g, hold);
   result = result.replace(
-    /(?:<翻译>\s*)?<原文>([\s\S]*?)<\/原文>\s*<译文>([\s\S]*?)<\/译文>\s*(?:<\/翻译>)?/g,
-    (_m, a, b) => hold(`<\u7FFB\u8BD1><\u539F\u6587>${a.trim()}</\u539F\u6587><\u8BD1\u6587>${b.trim()}</\u8BD1\u6587></\u7FFB\u8BD1>`)
+    /(?:<翻[译譯]>\s*)?<原文>([\s\S]*?)<\/原文>\s*<[译譯]文>([\s\S]*?)<\/[译譯]文>\s*(?:<\/翻[译譯]>)?/g,
+    (_m, a, b) => hold(`<\u7FFB\u8B6F><\u539F\u6587>${a.trim()}</\u539F\u6587><\u8B6F\u6587>${b.trim()}</\u8B6F\u6587></\u7FFB\u8B6F>`)
   );
   result = result.replace(
-    /<翻译>\s*(?!<原文>)((?:(?!<\/?翻译>)[\s\S])*?)<\/翻译>\s*<译文>([\s\S]*?)<\/译文>/g,
-    (_m, a, b) => hold(`<\u7FFB\u8BD1><\u539F\u6587>${a.trim()}</\u539F\u6587><\u8BD1\u6587>${b.trim()}</\u8BD1\u6587></\u7FFB\u8BD1>`)
+    /<翻[译譯]>\s*(?!<原文>)((?:(?!<\/?翻[译譯]>)[\s\S])*?)<\/翻[译譯]>\s*<[译譯]文>([\s\S]*?)<\/[译譯]文>/g,
+    (_m, a, b) => hold(`<\u7FFB\u8B6F><\u539F\u6587>${a.trim()}</\u539F\u6587><\u8B6F\u6587>${b.trim()}</\u8B6F\u6587></\u7FFB\u8B6F>`)
   );
-  result = result.replace(/<译文>[\s\S]*?<\/译文>/g, "");
-  result = result.replace(/[<＜]\s*[/／]?\s*(?:翻[译譯]|原文|[译譯]文)\s*[>＞]?/g, "");
+  result = result.replace(/<[译譯]文>[\s\S]*?<\/[译譯]文>/g, "");
+  result = result.replace(/[<＜]\s*[/／]?\s*(?:翻[译譯譯]|原文|[译譯譯]文)\s*[>＞]?/g, "");
   result = result.replace(new RegExp(`${HOLD}(\\d+)${HOLD}`, "g"), (_m, n) => blocks[Number(n)] || "");
   return result;
 }
 var extractTranslationOriginal = (t) => {
   let result = t.replace(
-    /<翻译>\s*<原文>([\s\S]*?)<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/g,
+    /<翻[译譯]>\s*<原文>([\s\S]*?)<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/g,
     "$1"
   );
-  result = result.replace(/<译文>[\s\S]*?<\/译文>/g, "");
-  result = result.replace(/<\/?(?:翻译|原文)>/g, "");
+  result = result.replace(/<[译譯]文>[\s\S]*?<\/[译譯]文>/g, "");
+  result = result.replace(/<\/?(?:翻[译譯]|原文)>/g, "");
   return result;
 };
 function sanitizeForNotification(text) {
@@ -11967,15 +11989,15 @@ function sanitizeIntoSegments(text) {
         preview: "[HTML \u5361\u7247]"
       },
       {
-        pattern: /<翻译>\s*<原文>([\s\S]*?)<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/,
-        preview: (_raw, match) => (match[1] || "").trim() || "[\u7FFB\u8BD1]"
+        pattern: /<翻[译譯]>\s*<原文>([\s\S]*?)<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/,
+        preview: (_raw, match) => (match[1] || "").trim() || "[\u7FFB\u8B6F]"
       },
       {
-        // 语音块 + 紧邻的 <字幕> 块是一个原子单元 (字幕是这条语音的中文对照, 拆开
-        // 就配不上了)。字幕前置/后置都容忍; banner 预览优先用字幕 (用户读得懂中文)。
-        // 闭合容许空格 + 简繁互换 (normalizeVoiceTags 已修, 这里不再依赖 \1 回引)。
-        pattern: /(?:<字幕>([\s\S]*?)<\/字幕>\s*)?<[语語]音[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>(?:\s*<字幕>([\s\S]*?)<\/字幕>)?/,
-        preview: (_raw, match) => (match[3] || match[1] || match[2] || "").trim() || "[\u8BED\u97F3]"
+        // 語音塊 + 緊鄰的 <字幕> 塊是一個原子單元 (字幕是這條語音的中文對照, 拆開
+        // 就配不上了)。字幕前置/後置都容忍; banner 預覽優先用字幕 (用戶讀得懂中文)。
+        // 閉合容許空格 + 簡繁互換 (normalizeVoiceTags 已修, 這裡不再依賴 \1 回引)。
+        pattern: /(?:<字幕>([\s\S]*?)<\/字幕>\s*)?<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>(?:\s*<字幕>([\s\S]*?)<\/字幕>)?/,
+        preview: (_raw, match) => (match[3] || match[1] || match[2] || "").trim() || "[\u8A9E\u97F3]"
       }
     ]
   });
@@ -12084,7 +12106,7 @@ function parseTransferAmount(raw) {
   if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : null;
   if (typeof raw !== "string") return null;
   let s = raw.replace(/[０-９．]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 65248));
-  s = s.replace(/[¥￥$＄]/g, "").replace(/(?:元|块钱|块|圆|RMB|CNY|credits?)/gi, "").replace(/[,，\s]/g, "");
+  s = s.replace(/[¥￥$＄]/g, "").replace(/(?:元|[块塊][钱錢]|[块塊]|[圆圓]|RMB|CNY|credits?)/gi, "").replace(/[,，\s]/g, "");
   if (!/^\d+(?:\.\d+)?$/.test(s)) return null;
   const n = Number(s);
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -12093,7 +12115,7 @@ function parseTransferAmount(raw) {
 function formatTransferAmount(n) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
 }
-var RECORD_TRANSFER_RE = /\[\[\s*[记記][录錄]\s*[:：]\s*TRANSFER[^\]]*\]\]/gi;
+var RECORD_TRANSFER_RE = /\[\[\s*[记記記][录錄錄]\s*[:：]\s*TRANSFER[^\]]*\]\]/gi;
 var ACTION_SEND_KV_RE = /\[\[\s*ACTION\s*[:：]\s*TRANSFER\s*((?:\|[^\]]*)?)\s*\]\]/gi;
 var ACTION_SEND_RE = /\[\[\s*ACTION\s*[:：]\s*TRANSFER\s*[:：]\s*([^\]]*?)\s*\]\]/gi;
 var FORGED_TO_VALUES = /* @__PURE__ */ new Set(["char", "self", "me", "\u89D2\u8272", "\u81EA\u5DF1", "\u6211", "\u81EA\u5206", "\u672C\u4EBA"]);
@@ -12115,21 +12137,21 @@ function parseKvArgs(argStr) {
 }
 function kvToSendEvent(argStr) {
   const kv = parseKvArgs(argStr);
-  const to = (kv.to ?? kv["\u7ED9"] ?? "").toLowerCase();
+  const to = (kv.to ?? kv["\u7D66"] ?? "").toLowerCase();
   if (to && FORGED_TO_VALUES.has(to)) return null;
-  const amount = parseTransferAmount(kv.amount ?? kv["\u91D1\u989D"]);
+  const amount = parseTransferAmount(kv.amount ?? kv["\u91D1\u984D"]);
   return amount === null ? null : { kind: "send", amount: formatTransferAmount(amount) };
 }
 var ACTION_ACCEPT_RE = /\[\[\s*ACTION\s*[:：]\s*TRANSFER_ACCEPT\s*\]\]/gi;
 var ACTION_RETURN_RE = /\[\[\s*ACTION\s*[:：]\s*TRANSFER_RETURN\s*\]\]/gi;
-var SYSTEM_LOG_RE = /[\[【]\s*(?:系统|系統|System)\s*(?:提示)?\s*[:：]\s*([^\[\]【】]*?)\s*[\]】]/gi;
-var BARE_TRANSFER_RE = /\[\s*转[账帐]\s*[:：]?\s*([^\[\]]{0,24}?)\s*\]/gi;
-var AMOUNT_FRAGMENT = String.raw`[¥￥$＄]?\s*([0-9０-９][0-9０-９.,，]*)\s*(?:元|块钱|块|圆)?`;
-var LOG_SEND_RE = new RegExp(String.raw`^(?:你|我)\s*(?:向|给).*?转(?:[账帐]了?|了)\s*${AMOUNT_FRAGMENT}`);
-var LOG_ACCEPT_RE = /^你(?:接收|接受|收下|领取)了.*?转[账帐]/;
-var LOG_RETURN_RE = /^你退回了.*?转[账帐]/;
-var LOG_FORGED_RE = /(?:向|给)你转[账帐]|(?:接收|接受|收下|领取|退回)了你的转[账帐]/;
-var LOG_IS_TRANSFER_RE = /转[账帐]|转了?\s*[¥￥$＄]?\s*[0-9０-９]/;
+var SYSTEM_LOG_RE = /[\[【]\s*(?:系[统統]|系統|System)\s*(?:提示)?\s*[:：]\s*([^\[\]【】]*?)\s*[\]】]/gi;
+var BARE_TRANSFER_RE = /\[\s*[转轉][账賬帳帐帳]\s*[:：]?\s*([^\[\]]{0,24}?)\s*\]/gi;
+var AMOUNT_FRAGMENT = String.raw`[¥￥$＄]?\s*([0-9０-９][0-9０-９.,，]*)\s*(?:元|塊錢|塊|圓)?`;
+var LOG_SEND_RE = new RegExp(String.raw`^(?:你|我)\s*(?:向|給).*?轉(?:[帳帳]了?|了)\s*${AMOUNT_FRAGMENT}`);
+var LOG_ACCEPT_RE = /^你(?:接收|接受|收下|[领領]取)了.*?[转轉][账賬帳帐帳]/;
+var LOG_RETURN_RE = /^你退回了.*?[转轉][账賬帳帐帳]/;
+var LOG_FORGED_RE = /(?:向|[给給])你[转轉][账賬帳帐帳]|(?:接收|接受|收下|[领領]取|退回)了你的[转轉][账賬帳帐帳]/;
+var LOG_IS_TRANSFER_RE = /[转轉][账賬帳帐帳]|[转轉]了?\s*[¥￥$＄]?\s*[0-9０-９]/;
 function classifySystemLog(inner) {
   const s = inner.trim();
   if (!LOG_IS_TRANSFER_RE.test(s)) return void 0;
@@ -12188,13 +12210,13 @@ function extractTransferCommands(content) {
 }
 
 // utils/scheduleChangeParse.ts
-var KEYWORD_RE = /^\s*(?:ACTION\s*[:：]\s*CHANGE_SCHEDULE|change[\s_-]*(?:schedule|schedue)|modify[\s_-]*schedule|修改(?:未来)?日程|更改(?:未来)?日程|改日程)(?=\s|[:：|=→>\-（(]|\d|$)/iu;
+var KEYWORD_RE = /^\s*(?:ACTION\s*[:：]\s*CHANGE_SCHEDULE|change[\s_-]*(?:schedule|schedue)|modify[\s_-]*schedule|修改(?:未[来來])?日程|更改(?:未[来來])?日程|改日程)(?=\s|[:：|=→>\-（(]|\d|$)/iu;
 var parseDirectiveBody = (input) => {
   const body = input.replace(/^[\s【\[]+|[\s】\]]+$/gu, "").trim();
   const keyword = body.match(KEYWORD_RE);
   if (!keyword) return { recognized: false };
   const rest = body.slice(keyword[0].length).replace(/^\s*[:：|=→>\-]+\s*/u, "");
-  const time = rest.match(/[（(]?\s*(\d{1,2})\s*(?:[:：点时])\s*(\d{1,2})?\s*(?:分)?\s*[）)]?/u);
+  const time = rest.match(/[（(]?\s*(\d{1,2})\s*(?:[:：点點时時])\s*(\d{1,2})?\s*(?:分)?\s*[）)]?/u);
   if (!time || time.index == null) return { recognized: true, directive: null };
   const hour = Number(time[1]);
   const minute = time[2] == null || time[2] === "" ? 0 : Number(time[2]);
@@ -12207,7 +12229,7 @@ var parseDirectiveBody = (input) => {
     recognized: true,
     directive: {
       startTime: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
-      // 日程卡本来就是短标题；截断异常长输出，避免一条标签撑坏 UI / prompt。
+      // 日程卡本來就是短標題；截斷異常長輸出，避免一條標籤撐壞 UI / prompt。
       activity: activity.slice(0, 120)
     }
   };
@@ -12227,7 +12249,7 @@ var extractScheduleChangeDirectives = (text) => {
     (whole, body) => consumeBody(body ?? "", whole)
   );
   cleanedText = cleanedText.replace(
-    /^[ \t]*(?:【【?|\[\[?)?[ \t]*(?:ACTION[ \t]*[:：][ \t]*CHANGE_SCHEDULE|change[ \t_-]*(?:schedule|schedue)|modify[ \t_-]*schedule|修改(?:未来)?日程|更改(?:未来)?日程|改日程)[ \t]*[:：|]?[^\r\n]{0,360}/gimu,
+    /^[ \t]*(?:【【?|\[\[?)?[ \t]*(?:ACTION[ \t]*[:：][ \t]*CHANGE_SCHEDULE|change[ \t_-]*(?:schedule|schedue)|modify[ \t_-]*schedule|修改(?:未[来來])?日程|更改(?:未[来來])?日程|改日程)[ \t]*[:：|]?[^\r\n]{0,360}/gimu,
     (whole) => consumeBody(whole, whole)
   );
   const recognizedSomething = directives.length > 0 || malformedCount > 0;
@@ -12304,14 +12326,14 @@ var SIDE_EFFECT_TAGS = [
     re: /\[\[ACTION:POKE\]\]/g,
     toDirective: () => ({ type: "poke" })
   },
-  // 转账 (TRANSFER / TRANSFER_ACCEPT / TRANSFER_RETURN) 不在这张表里 —— 见 classifyLLMOutput
-  // 里的 extractTransferCommands, 那份解析跟客户端共用一份源码, 且要认模仿历史日志的口语形态。
+  // 轉帳 (TRANSFER / TRANSFER_ACCEPT / TRANSFER_RETURN) 不在這張表裡 —— 見 classifyLLMOutput
+  // 裡的 extractTransferCommands, 那份解析跟客戶端共用一份源碼, 且要認模仿歷史日誌的口語形態。
   // [[ACTION:ADD_EVENT|title|date]]
   {
     re: /\[\[ACTION:ADD_EVENT\s*\|\s*(.*?)\s*\|\s*(.*?)\]\]/g,
     toDirective: (m) => ({ type: "add_event", title: m[1], date: m[2] })
   },
-  // [schedule_message | time | fixed | text]  (note: 单方括号, 跟原 chatParser 一致)
+  // [schedule_message | time | fixed | text]  (note: 單方括號, 跟原 chatParser 一致)
   {
     re: /\[schedule_message\s*\|\s*(.+?)\s*\|\s*fixed\s*\|\s*(.+?)\]/g,
     toDirective: (m) => ({ type: "schedule_message", time: m[1], text: m[2] })
@@ -12365,23 +12387,23 @@ var SIDE_EFFECT_TAGS = [
     re: /\[\[XHS_SHARE:\s*(\d+)\]\]/g,
     toDirective: (m) => ({ type: "xhs_share", idx: Number(m[1]) })
   },
-  // [[LIFE:MED|布洛芬]] 生活记录代记 — 跟 chatParser.ts 的 `\[\[LIFE:[^\]]*\]\]` 同口径,
-  // 冒号后整段原样带走, 不在这里拆 verb/args (那份解析在 lifeRecords.parseLifeDirective)。
+  // [[LIFE:MED|布洛芬]] 生活記錄代記 — 跟 chatParser.ts 的 `\[\[LIFE:[^\]]*\]\]` 同口徑,
+  // 冒號後整段原樣帶走, 不在這裡拆 verb/args (那份解析在 lifeRecords.parseLifeDirective)。
   {
     re: /\[\[LIFE:([^\]]*)\]\]/g,
     toDirective: (m) => ({ type: "life_record", body: m[1] })
   },
-  // [[NEWS_CARD: 来源|标题]] 分享热点卡片 — 跟 chatParser.ts:NEWS_CARD_RE 同口径。
+  // [[NEWS_CARD: 來源|標題]] 分享熱點卡片 — 跟 chatParser.ts:NEWS_CARD_RE 同口徑。
   {
     re: /\[\[NEWS_CARD:\s*([^\]]*?)\s*\]\]/g,
     toDirective: (m) => ({ type: "news_card", body: m[1] })
   },
-  // 写日记 — 长形态: [[DIARY_START: title|mood]]\n content \n[[DIARY_END]]
-  // 短形态: [[DIARY: title|content]] 或 [[DIARY: content]] (无 title)
-  // 行为跟 applyAssistantPostProcessing.ts:465-495 字节对齐:
-  //   - 长形态 header 含 `|` → title|mood 切, 不含 `|` → 整段 = title
-  //   - 短形态 raw 含 `|` → title|content 切, 不含 `|` → 整段 = content (title 留空, 客户端兜底)
-  // 多行 content 用 [\s\S]*? 跨行, 别用 `s` flag (worker 端 esbuild target 默认 ok 但避免冗余)
+  // 寫日記 — 長形態: [[DIARY_START: title|mood]]\n content \n[[DIARY_END]]
+  // 短形態: [[DIARY: title|content]] 或 [[DIARY: content]] (無 title)
+  // 行為跟 applyAssistantPostProcessing.ts:465-495 字節對齊:
+  //   - 長形態 header 含 `|` → title|mood 切, 不含 `|` → 整段 = title
+  //   - 短形態 raw 含 `|` → title|content 切, 不含 `|` → 整段 = content (title 留空, 客戶端兜底)
+  // 多行 content 用 [\s\S]*? 跨行, 別用 `s` flag (worker 端 esbuild target 默認 ok 但避免冗餘)
   {
     re: /\[\[DIARY_START:\s*(.+?)\]\]\n?([\s\S]*?)\[\[DIARY_END\]\]/g,
     toDirective: (m) => parseDiaryLong(m, "notion_write_diary")
@@ -12390,7 +12412,7 @@ var SIDE_EFFECT_TAGS = [
     re: /\[\[DIARY:\s*([\s\S]+?)\]\]/g,
     toDirective: (m) => parseDiaryShort(m, "notion_write_diary")
   },
-  // 飞书写日记 — 同形态, FS_ 前缀
+  // 飛書寫日記 — 同形態, FS_ 前綴
   {
     re: /\[\[FS_DIARY_START:\s*(.+?)\]\]\n?([\s\S]*?)\[\[FS_DIARY_END\]\]/g,
     toDirective: (m) => parseDiaryLong(m, "feishu_write_diary")
@@ -12477,7 +12499,7 @@ function classifyLLMOutput(text) {
   for (const d of directives) {
     const key = JSON.stringify(d);
     if (seenDirectives.has(key)) {
-      console.warn("[classifier] \u540C\u4E00\u6761\u6D88\u606F\u91CC\u91CD\u590D\u7684\u526F\u4F5C\u7528, \u53EA\u4FDD\u7559\u7B2C\u4E00\u4E2A:", key);
+      console.warn("[classifier] \u540C\u4E00\u689D\u6D88\u606F\u88E1\u91CD\u8907\u7684\u526F\u4F5C\u7528, \u53EA\u4FDD\u7559\u7B2C\u4E00\u500B:", key);
       continue;
     }
     seenDirectives.add(key);
@@ -12579,10 +12601,10 @@ function processLLMRound(state, llmOutputText, build, mcp, schedule, iteration, 
   const strippedText = scheduleTextCalls.length ? stripTextFakedMcpCalls(llmOutputText, scheduleTextCalls) : llmOutputText;
   const scanText = textCalls.length ? stripTextFakedMcpCalls(strippedText, textCalls) : strippedText;
   const mcpToolCalls = nativeToolCalls.length > 0 ? nativeToolCalls : textCalls.map((c) => ({
-    // id 只需在一轮的 assistant/tool 消息配对里唯一；本次 fire 内自增，绝不重号。
+    // id 只需在一輪的 assistant/tool 消息配對裡唯一；本次 fire 內自增，絕不重號。
     id: `mcp_${state.mcpCallSeq++}`,
     type: "function",
-    // exposedName 恒为裸名（alsoMatchPrefix 的命中也回裸名），统一补前缀即可。
+    // exposedName 恆為裸名（alsoMatchPrefix 的命中也回裸名），統一補前綴即可。
     function: { name: `${MCP_FIRE_NAME_PREFIX}${c.exposedName}`, arguments: JSON.stringify(c.args) }
   }));
   const extraToolCalls = [...mcpToolCalls, ...scheduleCalls];
@@ -12633,7 +12655,7 @@ function processLLMRound(state, llmOutputText, build, mcp, schedule, iteration, 
   };
 }
 function buildScheduledPush(message, build, extraMeta, bannerBody) {
-  const title = `\u6765\u81EA ${build.contactName}`;
+  const title = `\u4F86\u81EA ${build.contactName}`;
   return {
     messageKind: "content",
     messageType: build.messageType,
@@ -12660,7 +12682,7 @@ var EMOTION_EVAL_TIMEOUT_MS = 12e4;
 var flattenEvalContent = (content) => {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map((part) => part?.type === "text" ? part.text || "" : part?.type === "image_url" ? "[\u56FE\u7247]" : "").filter(Boolean).join(" ");
+    return content.map((part) => part?.type === "text" ? part.text || "" : part?.type === "image_url" ? "[\u5716\u7247]" : "").filter(Boolean).join(" ");
   }
   return "";
 };
@@ -12673,7 +12695,7 @@ var restoreEvalPrompt = (template, chatMessages, charName) => {
     conversation = messages.slice(1);
   }
   const recentLines = conversation.map((m) => {
-    const role = m.role === "user" ? "\u7528\u6237" : m.role === "assistant" ? charName : "\u7CFB\u7EDF";
+    const role = m.role === "user" ? "\u7528\u6236" : m.role === "assistant" ? charName : "\u7CFB\u7D71";
     return `[${role}]: ${flattenEvalContent(m.content)}`;
   }).join("\n");
   return String(template).replace(EMOTION_EVAL_SYSTEM_SLOT, () => systemPromptText).replace(EMOTION_EVAL_HISTORY_SLOT, () => recentLines);
@@ -12699,8 +12721,8 @@ var requestEmotionEval = async (api, promptContent, timeoutMs = EMOTION_EVAL_TIM
         model: api.model,
         messages: [{ role: "user", content: promptContent }],
         temperature: 0.85,
-        // 显式给足输出额度：部分中转不传 max_tokens 时默认很小，评估输出很长，
-        // 会被截成半截 JSON。
+        // 顯式給足輸出額度：部分中轉不傳 max_tokens 時默認很小，評估輸出很長，
+        // 會被截成半截 JSON。
         max_tokens: 8e3,
         stream: false
       }),
@@ -12712,7 +12734,7 @@ var requestEmotionEval = async (api, promptContent, timeoutMs = EMOTION_EVAL_TIM
         body = await res.text();
       } catch {
       }
-      console.warn("[emotion-eval] \u526F API \u62D2\u4E86\u8FD9\u6B21\u8BC4\u4F30\uFF08\u4E3B\u6D41\u7A0B\u4E0D\u53D7\u5F71\u54CD\uFF09", res.status);
+      console.warn("[emotion-eval] \u526F API \u62D2\u4E86\u9019\u6B21\u8A55\u4F30\uFF08\u4E3B\u6D41\u7A0B\u4E0D\u53D7\u5F71\u97FF\uFF09", res.status);
       const snippet = maskAndSnip(body, api.apiKey);
       return { raw: null, error: `\u526F API HTTP ${res.status}${snippet ? `\uFF1A${snippet}` : ""}` };
     }
@@ -12722,13 +12744,13 @@ var requestEmotionEval = async (api, promptContent, timeoutMs = EMOTION_EVAL_TIM
     if (!raw.trim()) {
       return {
         raw: null,
-        error: `\u8BC4\u4F30\u6A21\u578B\u6CA1\u6709\u8F93\u51FA\u5185\u5BB9\uFF08finish_reason: ${data?.choices?.[0]?.finish_reason ?? "?"}\uFF09`
+        error: `\u8A55\u4F30\u6A21\u578B\u6C92\u6709\u8F38\u51FA\u5167\u5BB9\uFF08finish_reason: ${data?.choices?.[0]?.finish_reason ?? "?"}\uFF09`
       };
     }
     return { raw, error: null };
   } catch (error) {
-    console.warn("[emotion-eval] \u8BC4\u4F30\u5931\u8D25\uFF08\u4E3B\u6D41\u7A0B\u4E0D\u53D7\u5F71\u54CD\uFF09", error);
-    const reason = controller.signal.aborted ? `\u8BC4\u4F30\u8D85\u65F6\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\u6CA1\u56DE\u6765\uFF09` : `\u8BC4\u4F30\u8BF7\u6C42\u6CA1\u53D1\u51FA\u53BB\uFF1A${maskAndSnip(error instanceof Error ? error.message : String(error), api.apiKey)}`;
+    console.warn("[emotion-eval] \u8A55\u4F30\u5931\u6557\uFF08\u4E3B\u6D41\u7A0B\u4E0D\u53D7\u5F71\u97FF\uFF09", error);
+    const reason = controller.signal.aborted ? `\u8A55\u4F30\u8D85\u6642\uFF08${Math.round(timeoutMs / 1e3)} \u79D2\u6C92\u56DE\u4F86\uFF09` : `\u8A55\u4F30\u8ACB\u6C42\u6C92\u767C\u51FA\u53BB\uFF1A${maskAndSnip(error instanceof Error ? error.message : String(error), api.apiKey)}`;
     return { raw: null, error: reason };
   } finally {
     clearTimeout(timer);
@@ -12744,7 +12766,7 @@ var resolveEmotionEvalApi = async (spec, credRefs, resolveLlmCredential2) => {
   try {
     resolved = await resolveLlmCredential2(credId);
   } catch (error) {
-    console.warn("[amsg:emotion] \u51ED\u636E\u8BFB\u4E0D\u51FA\u6765\uFF0C\u8FD9\u4E00\u8F6E\u4E0D\u8BC4\u4F30\uFF08\u4E3B\u56DE\u590D\u4E0D\u53D7\u5F71\u54CD\uFF09", error);
+    console.warn("[amsg:emotion] \u6191\u64DA\u8B80\u4E0D\u51FA\u4F86\uFF0C\u9019\u4E00\u8F2A\u4E0D\u8A55\u4F30\uFF08\u4E3B\u56DE\u8986\u4E0D\u53D7\u5F71\u97FF\uFF09", error);
     return null;
   }
   if (!resolved?.apiUrl || !resolved.primaryModel) return null;
@@ -12773,7 +12795,7 @@ var takeEmotionEvalSpec = (metadata) => {
   try {
     delete bag.amsgEmotionEval;
   } catch (error) {
-    console.warn("[amsg:emotion] \u8BC4\u4F30\u914D\u7F6E\u5220\u4E0D\u6389\uFF08metadata \u88AB\u51BB\u7ED3\uFF1F\uFF09\uFF0C\u53EA\u5269\u7EC4 push \u524D\u90A3\u9053\u9632\u7EBF", error);
+    console.warn("[amsg:emotion] \u8A55\u4F30\u914D\u7F6E\u522A\u4E0D\u6389\uFF08metadata \u88AB\u51CD\u7D50\uFF1F\uFF09\uFF0C\u53EA\u5269\u7D44 push \u524D\u90A3\u9053\u9632\u7DDA", error);
   }
   return isUsableEvalSpec(spec) ? spec : null;
 };
@@ -12849,7 +12871,7 @@ var fetchFcmAccessToken = async (env) => {
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.access_token) {
-    throw new Error(`FCM OAuth \u5931\u8D25 (${response.status})\uFF1A${body.error_description || "\u6CA1\u6709 access_token"}`);
+    throw new Error(`FCM OAuth \u5931\u6557 (${response.status})\uFF1A${body.error_description || "\u6C92\u6709 access_token"}`);
   }
   accessTokenCache = {
     key: cacheKey,
@@ -12873,8 +12895,8 @@ var buildFcmMessage = (token, rawPayload) => {
     message: {
       token,
       notification: {
-        title: String(payload.contactName ?? payload.metadata?.charName ?? "\u4E3B\u52A8\u6D88\u606F"),
-        body: String(payload.notification?.body ?? actualBody).trim() || "\u6709\u4E00\u6761\u65B0\u6D88\u606F"
+        title: String(payload.contactName ?? payload.metadata?.charName ?? "\u4E3B\u52D5\u6D88\u606F"),
+        body: String(payload.notification?.body ?? actualBody).trim() || "\u6709\u4E00\u689D\u65B0\u6D88\u606F"
       },
       data: {
         amsgPayload: JSON.stringify(portable),
@@ -12937,10 +12959,10 @@ var buildToolCtx = (pack, config) => {
     toolCtx: {
       char,
       userProfile: {},
-      // AmsgToolConfig 的凭据字段就是 AgenticToolRealtimeConfig，结构化直接满足——
-      // 不用逐字段抄一遍再强转，那样 buildToolConfig 加字段这里不会报错。
+      // AmsgToolConfig 的憑據字段就是 AgenticToolRealtimeConfig，結構化直接滿足——
+      // 不用逐字段抄一遍再強轉，那樣 buildToolConfig 加字段這裡不會報錯。
       realtimeConfig: config,
-      // XHS 多步流程（search → detail 的 xsecToken 缓存）在同一次 fire 内共享。
+      // XHS 多步流程（search → detail 的 xsecToken 緩存）在同一次 fire 內共享。
       xhsCaches: {
         xsecTokenCache: /* @__PURE__ */ new Map(),
         noteTitleCache: /* @__PURE__ */ new Map(),
@@ -12977,25 +12999,25 @@ var OFFLOAD_BATONS = [
     field: "amsgReasoning",
     refField: "amsgReasoningRef",
     key: amsgReasoningKey,
-    log: "[amsg:reasoning] \u601D\u8003\u94FE\u65C1\u8DEF\u5B58\u50A8"
+    log: "[amsg:reasoning] \u601D\u8003\u93C8\u65C1\u8DEF\u5B58\u5132"
   },
   {
     field: "amsgEmotionUpdate",
     refField: "amsgEmotionRef",
     key: amsgEmotionUpdateKey,
-    log: "[amsg:emotion] \u8BC4\u4F30\u7ED3\u679C\u65C1\u8DEF\u5B58\u50A8"
+    log: "[amsg:emotion] \u8A55\u4F30\u7D50\u679C\u65C1\u8DEF\u5B58\u5132"
   },
   {
     field: "xhsSession",
     refField: "xhsSessionRef",
     key: amsgXhsSessionKey,
-    log: "[amsg:agentic] XHS \u4F1A\u8BDD\u6570\u636E\u65C1\u8DEF\u5B58\u50A8"
+    log: "[amsg:agentic] XHS \u6703\u8A71\u6578\u64DA\u65C1\u8DEF\u5B58\u5132"
   }
 ];
 var offloadOversizedPush = async (payload, writeState, charId, clientTaskId) => {
   if (pushFits(payload)) return payload;
   if (!clientTaskId) {
-    console.warn("[amsg:offload] push \u8D85\u9650\u5374\u6CA1\u6709 clientTaskId\uFF0C\u65C1\u8DEF\u5B58\u50A8\u7528\u4E0D\u4E0A", {
+    console.warn("[amsg:offload] push \u8D85\u9650\u537B\u6C92\u6709 clientTaskId\uFF0C\u65C1\u8DEF\u5B58\u5132\u7528\u4E0D\u4E0A", {
       charId,
       bytes: measurePushPayload(JSON.stringify(payload)).bytes
     });
@@ -13005,7 +13027,7 @@ var offloadOversizedPush = async (payload, writeState, charId, clientTaskId) => 
   const readMeta = (p) => p.metadata ?? {};
   if (!OFFLOAD_BATONS.some((baton) => hasOffloadable(readMeta(payload)[baton.field]))) return payload;
   if (typeof writeState !== "function") {
-    throw new Error("AMSG2_WRITE_STATE_UNSUPPORTED: push \u8D85\u9650\u9700\u8981\u65C1\u8DEF\u5B58\u50A8\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u9875\u91CD\u65B0\u7C98\u8D34\u90E8\u7F72 worker");
+    throw new Error("AMSG2_WRITE_STATE_UNSUPPORTED: push \u8D85\u9650\u9700\u8981\u65C1\u8DEF\u5B58\u5132\uFF0C\u8ACB\u5728\u8A2D\u7F6E\u9801\u91CD\u65B0\u7C98\u8CBC\u90E8\u7F72 worker");
   }
   let current = payload;
   for (const baton of OFFLOAD_BATONS) {
@@ -13036,7 +13058,7 @@ var writeLastSkip = async (writeState, charId, skip) => {
       { key: AMSG_LAST_SKIP_KEY, value: JSON.stringify(skip) }
     ]);
   } catch (error) {
-    console.warn("[amsg:skip] \u8DF3\u8FC7\u539F\u56E0\u5199\u5165\u5931\u8D25\uFF08\u8DF3\u8FC7\u672C\u8EAB\u7167\u5E38\u751F\u6548\uFF0C\u53EA\u662F\u9762\u677F\u5C11\u4E00\u53E5\u8BF4\u660E\uFF09", error);
+    console.warn("[amsg:skip] \u8DF3\u904E\u539F\u56E0\u5BEB\u5165\u5931\u6557\uFF08\u8DF3\u904E\u672C\u8EAB\u7167\u5E38\u751F\u6548\uFF0C\u53EA\u662F\u9762\u677F\u5C11\u4E00\u53E5\u8AAA\u660E\uFF09", error);
   }
 };
 var recordSkip = async (ctx, charId, reason, occurrenceMs) => writeLastSkip(ctx.writeState, charId, {
@@ -13064,7 +13086,7 @@ var writeChatFail = async (writeState, charId, record) => {
       { key: AMSG_CHAT_FAIL_KEY, value: JSON.stringify(full) }
     ]);
   } catch (error) {
-    console.warn("[amsg:instant-chat] \u5931\u8D25\u7559\u75D5\u5199\u4E0D\u8FDB\u53BB\uFF08\u5BA2\u6237\u7AEF\u53EA\u80FD\u62A5\u7B3C\u7EDF\u539F\u56E0\uFF09", error);
+    console.warn("[amsg:instant-chat] \u5931\u6557\u7559\u75D5\u5BEB\u4E0D\u9032\u53BB\uFF08\u5BA2\u6236\u7AEF\u53EA\u80FD\u5831\u7C60\u7D71\u539F\u56E0\uFF09", error);
   }
 };
 var instantErrorPushDeps = null;
@@ -13072,10 +13094,10 @@ var configureInstantErrorPush = (deps) => {
   instantErrorPushDeps = deps;
 };
 var instantErrorNotificationBody = (reason) => {
-  if (reason === "empty-generation") return "\u6A21\u578B\u8FD9\u4E00\u8F6E\u6CA1\u6709\u751F\u6210\u5185\u5BB9\uFF0C\u53EF\u4EE5\u91CD\u65B0\u53D1\u4E00\u6B21\u3002";
-  if (reason === "side-effects-only") return "\u89D2\u8272\u8FD9\u4E00\u8F6E\u53EA\u505A\u4E86\u52A8\u4F5C\uFF0C\u6CA1\u6709\u6587\u5B57\u56DE\u590D\u3002";
-  if (reason === "stale") return "\u8FD9\u6761\u6D88\u606F\u5728\u4E91\u7AEF\u6392\u961F\u592A\u4E45\uFF0C\u5DF2\u4F5C\u5E9F\u3002\u53EF\u4EE5\u91CD\u65B0\u53D1\u4E00\u6B21\u3002";
-  return "\u8FD9\u4E00\u8F6E\u4E91\u7AEF\u751F\u6210\u5931\u8D25\u4E86\uFF0C\u70B9\u5F00\u67E5\u770B\u539F\u56E0\uFF0C\u53EF\u4EE5\u91CD\u65B0\u53D1\u4E00\u6B21\u3002";
+  if (reason === "empty-generation") return "\u6A21\u578B\u9019\u4E00\u8F2A\u6C92\u6709\u751F\u6210\u5167\u5BB9\uFF0C\u53EF\u4EE5\u91CD\u65B0\u767C\u4E00\u6B21\u3002";
+  if (reason === "side-effects-only") return "\u89D2\u8272\u9019\u4E00\u8F2A\u53EA\u505A\u4E86\u52D5\u4F5C\uFF0C\u6C92\u6709\u6587\u5B57\u56DE\u8986\u3002";
+  if (reason === "stale") return "\u9019\u689D\u6D88\u606F\u5728\u96F2\u7AEF\u6392\u968A\u592A\u4E45\uFF0C\u5DF2\u4F5C\u5EE2\u3002\u53EF\u4EE5\u91CD\u65B0\u767C\u4E00\u6B21\u3002";
+  return "\u9019\u4E00\u8F2A\u96F2\u7AEF\u751F\u6210\u5931\u6557\u4E86\uFF0C\u9EDE\u958B\u67E5\u770B\u539F\u56E0\uFF0C\u53EF\u4EE5\u91CD\u65B0\u767C\u4E00\u6B21\u3002";
 };
 var sendInstantErrorPush = async (args) => {
   const deps = instantErrorPushDeps;
@@ -13097,7 +13119,7 @@ var sendInstantErrorPush = async (args) => {
       messageType: "instant",
       charId: args.charId,
       contactName: args.contactName ?? void 0,
-      // 确定性 id：同一条任务的终态只有一个，重复投递靠 SW 的 messageId 去重兜住
+      // 確定性 id：同一條任務的終態只有一個，重複投遞靠 SW 的 messageId 去重兜住
       messageId: `err_${args.taskUuid}`,
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       metadata: {
@@ -13108,28 +13130,28 @@ var sendInstantErrorPush = async (args) => {
         ...args.errorCode ? { errorCode: args.errorCode } : {}
       },
       notification: {
-        title: args.contactName ? `${args.contactName} \u7684\u56DE\u590D\u6CA1\u80FD\u751F\u6210` : "\u56DE\u590D\u6CA1\u80FD\u751F\u6210",
+        title: args.contactName ? `${args.contactName} \u7684\u56DE\u8986\u6C92\u80FD\u751F\u6210` : "\u56DE\u8986\u6C92\u80FD\u751F\u6210",
         body: instantErrorNotificationBody(args.reason),
         show: "always",
         silent: NOTIFICATION_SILENT_WHEN_VISIBLE,
-        // 跟这个角色的回复共用一个 tag：通知栏里只留最新状态，重发成功后那条回复
-        // 会把这条「没能生成」盖掉。失败本身在聊天流里有系统消息留痕，不靠横幅记账。
+        // 跟這個角色的回覆共用一個 tag：通知欄裡只留最新狀態，重發成功後那條回覆
+        // 會把這條「沒能生成」蓋掉。失敗本身在聊天流裡有系統消息留痕，不靠橫幅記帳。
         tag: instantNotificationTag(args.charId),
-        // 这一轮到此为止了，横幅是唯一会去叫人的东西。同 tag 默认静默替换，不带
-        // renotify 的话它会悄悄顶掉刚才那条回复通知，用户在后台就什么都不知道。
+        // 這一輪到此為止了，橫幅是唯一會去叫人的東西。同 tag 默認靜默替換，不帶
+        // renotify 的話它會悄悄頂掉剛才那條回覆通知，用戶在後台就什麼都不知道。
         renotify: true
       }
     };
     await deps.webpush.sendNotification(subscription, JSON.stringify(payload));
   } catch (error) {
-    console.warn("[amsg:instant-chat] \u5931\u8D25\u901A\u77E5\u6CA1\u53D1\u51FA\u53BB\uFF08\u5BA2\u6237\u7AEF\u4ECD\u9760 60s \u70B9\u540D\u515C\u5E95\uFF09", error);
+    console.warn("[amsg:instant-chat] \u5931\u6557\u901A\u77E5\u6C92\u767C\u51FA\u53BB\uFF08\u5BA2\u6236\u7AEF\u4ECD\u9760 60s \u9EDE\u540D\u515C\u5E95\uFF09", error);
   }
 };
 var amsgFireSettled = async (info) => {
   const stash = getFireStash(info.scratch);
   if (!stash) return;
   if (stash.instant && info.status === "failed" && stash.taskUuid) {
-    const failReason = info.error instanceof Error ? info.error.message : String(info.error ?? "\u672A\u77E5\u9519\u8BEF");
+    const failReason = info.error instanceof Error ? info.error.message : String(info.error ?? "\u672A\u77E5\u932F\u8AA4");
     const retryCount = typeof info.task?.retry_count === "number" ? info.task.retry_count : 0;
     const errorCode = readErrorCode(info.error);
     await writeChatFail(info.writeState, stash.charId, {
@@ -13151,7 +13173,7 @@ var amsgFireSettled = async (info) => {
       try {
         const outcome = await raceEmotionEval(
           stash.emotionEvalPromise,
-          "\u8BC4\u4F30\u6CA1\u8D76\u4E0A\u8FD9\u8DF3\u6536\u5C3E\uFF0C\u91CD\u8BD5\u90A3\u8F6E\u53EA\u597D\u91CD\u65B0\u8BC4\u4F30"
+          "\u8A55\u4F30\u6C92\u8D95\u4E0A\u9019\u8DF3\u6536\u5C3E\uFF0C\u91CD\u8A66\u90A3\u8F2A\u53EA\u597D\u91CD\u65B0\u8A55\u4F30"
         );
         if (outcome?.raw) {
           await info.writeState(amsgStateNamespace(stash.charId), [
@@ -13159,7 +13181,7 @@ var amsgFireSettled = async (info) => {
           ]);
         }
       } catch (error) {
-        console.warn("[amsg:emotion] \u91CD\u8BD5\u524D\u7559\u4E0D\u4E0B\u8BC4\u4F30\u7ED3\u679C\uFF08\u4E0B\u4E00\u8DF3\u4F1A\u91CD\u65B0\u8BC4\u4F30\uFF09", error);
+        console.warn("[amsg:emotion] \u91CD\u8A66\u524D\u7559\u4E0D\u4E0B\u8A55\u4F30\u7D50\u679C\uFF08\u4E0B\u4E00\u8DF3\u6703\u91CD\u65B0\u8A55\u4F30\uFF09", error);
       }
     }
   }
@@ -13172,10 +13194,10 @@ var amsgFireSettled = async (info) => {
           { key: amsgEmotionUpdateKey(stash.clientTaskId), value: outcome.raw }
         ]);
       } else {
-        console.warn("[amsg:emotion] \u665A\u6295\u8BC4\u4F30\u6CA1\u8DD1\u51FA\u7ED3\u679C\uFF08\u8FD9\u4E00\u8F6E\u60C5\u7EEA\u4E0D\u66F4\u65B0\uFF09", outcome.error);
+        console.warn("[amsg:emotion] \u665A\u6295\u8A55\u4F30\u6C92\u8DD1\u51FA\u7D50\u679C\uFF08\u9019\u4E00\u8F2A\u60C5\u7DD2\u4E0D\u66F4\u65B0\uFF09", outcome.error);
       }
     } catch (error) {
-      console.warn("[amsg:emotion] \u665A\u6295\u8BC4\u4F30\u6536\u5C3E\u5931\u8D25\uFF08\u8FD9\u4E00\u8F6E\u60C5\u7EEA\u4E0D\u66F4\u65B0\uFF09", error);
+      console.warn("[amsg:emotion] \u665A\u6295\u8A55\u4F30\u6536\u5C3E\u5931\u6557\uFF08\u9019\u4E00\u8F2A\u60C5\u7DD2\u4E0D\u66F4\u65B0\uFF09", error);
     }
   }
   const texts = stash.selfLogTexts;
@@ -13187,8 +13209,8 @@ var amsgFireSettled = async (info) => {
       id: `${stash.clientTaskId || "task"}@${stash.occurrenceMs}`,
       at: Date.now(),
       text,
-      // 即时对话是在答用户刚说的话——列进自述块保持连续性，但不占「主动连发」的额度
-      // （带这个标记的条目不会让 selfLog.unansweredSends 加一）。
+      // 即時對話是在答用戶剛說的話——列進自述塊保持連續性，但不佔「主動連發」的額度
+      // （帶這個標記的條目不會讓 selfLog.unansweredSends 加一）。
       ...stash.instant ? { reply: true } : {}
     });
     if (next !== stash.selfLog) {
@@ -13203,14 +13225,14 @@ var amsgFireSettled = async (info) => {
       { key: AMSG_SELF_LOG_KEY, value: JSON.stringify(stash.selfLog) }
     ]);
   } catch (error) {
-    console.warn("[amsg:self-log] \u5199\u5165\u5931\u8D25\uFF08\u8FD9\u6B21\u7167\u5E38\u53D1\u9001\uFF0C\u4F46\u4E0B\u4E00\u6B21\u5230\u70B9\u89D2\u8272\u4E0D\u4F1A\u77E5\u9053\u8BF4\u8FC7\u8FD9\u53E5\uFF09", error);
+    console.warn("[amsg:self-log] \u5BEB\u5165\u5931\u6557\uFF08\u9019\u6B21\u7167\u5E38\u767C\u9001\uFF0C\u4F46\u4E0B\u4E00\u6B21\u5230\u9EDE\u89D2\u8272\u4E0D\u6703\u77E5\u9053\u8AAA\u904E\u9019\u53E5\uFF09", error);
   }
 };
 var amsgStaleSkip = async (task, info) => {
   const meta = info.metadata ?? {};
   const taskKind = readTaskKind(meta);
   if (taskKind) {
-    console.log("[amsg:stale-skip] \u540E\u53F0\u4EFB\u52A1\u8FC7\u671F\u8DF3\u8FC7\uFF0C\u4E0D\u5199 last_skip", {
+    console.log("[amsg:stale-skip] \u5F8C\u53F0\u4EFB\u52D9\u904E\u671F\u8DF3\u904E\uFF0C\u4E0D\u5BEB last_skip", {
       taskId: task?.id ?? null,
       kind: taskKind,
       action: info.action
@@ -13219,7 +13241,7 @@ var amsgStaleSkip = async (task, info) => {
   }
   const charId = typeof meta.charId === "string" && meta.charId ? meta.charId : null;
   if (!charId) {
-    console.warn("[amsg:stale-skip] \u4EFB\u52A1 metadata \u7F3A charId\uFF0C\u8FD9\u6B21\u8FC7\u671F\u8DF3\u8FC7\u6CA1\u6CD5\u7559\u75D5", { taskId: task?.id ?? null });
+    console.warn("[amsg:stale-skip] \u4EFB\u52D9 metadata \u7F3A charId\uFF0C\u9019\u6B21\u904E\u671F\u8DF3\u904E\u6C92\u6CD5\u7559\u75D5", { taskId: task?.id ?? null });
     return;
   }
   if (isInstantChatTask(meta) && typeof task?.uuid === "string" && task.uuid) {
@@ -13230,8 +13252,8 @@ var amsgStaleSkip = async (task, info) => {
   await writeLastSkip(info.writeState, charId, {
     v: 1,
     taskUuid: typeof task?.uuid === "string" ? task.uuid : null,
-    // 名义触发时刻由上游给——它知道被跳过的是哪一次。任务行上的 next_send_at 在循环
-    // 任务快进之后已经是「下一次」了，拿它当被跳过的时刻会差出一整轮。
+    // 名義觸發時刻由上游給——它知道被跳過的是哪一次。任務行上的 next_send_at 在循環
+    // 任務快進之後已經是「下一次」了，拿它當被跳過的時刻會差出一整輪。
     occurrenceMs: info.occurrenceMs ?? Date.now(),
     reason: "stale",
     skippedAt: Date.now(),
@@ -13266,8 +13288,8 @@ var condenseToolTrace = (calls) => {
   }
   return [...counts].map(([name, count]) => ({ name, count }));
 };
-var EMOTION_EVAL_LATE_REASON = "\u60C5\u7EEA\u8BC4\u4F30\u6CA1\u8D76\u4E0A\u8FD9\u6761\u56DE\u590D\uFF08\u526F API \u592A\u6162\uFF09\uFF0C\u8FD9\u4E00\u8F6E\u5148\u4E0D\u66F4\u65B0";
-var raceEmotionEval = (promise, lateNote = "\u8BC4\u4F30\u6CA1\u8D76\u4E0A\u8FD9\u6761\u56DE\u590D\uFF0C\u5148\u628A\u8BDD\u53D1\u51FA\u53BB\uFF08\u8FD9\u4E00\u8F6E\u4E0D\u66F4\u65B0\u60C5\u7EEA\uFF09") => {
+var EMOTION_EVAL_LATE_REASON = "\u60C5\u7DD2\u8A55\u4F30\u6C92\u8D95\u4E0A\u9019\u689D\u56DE\u8986\uFF08\u526F API \u592A\u6162\uFF09\uFF0C\u9019\u4E00\u8F2A\u5148\u4E0D\u66F4\u65B0";
+var raceEmotionEval = (promise, lateNote = "\u8A55\u4F30\u6C92\u8D95\u4E0A\u9019\u689D\u56DE\u8986\uFF0C\u5148\u628A\u8A71\u767C\u51FA\u53BB\uFF08\u9019\u4E00\u8F2A\u4E0D\u66F4\u65B0\u60C5\u7DD2\uFF09") => {
   let timer;
   const late = new Promise((resolve) => {
     timer = setTimeout(() => {
@@ -13281,7 +13303,7 @@ var raceEmotionEval = (promise, lateNote = "\u8BC4\u4F30\u6CA1\u8D76\u4E0A\u8FD9
 };
 var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
   if (typeof scheduleTask !== "function") {
-    return { ok: false, reason: "not_supported", message: "\u5F53\u524D\u540E\u53F0\u7248\u672C\u8FD8\u4E0D\u652F\u6301\u7ED9\u81EA\u5DF1\u6392\u540E\u7EED\uFF0C\u8FD9\u6B21\u5C31\u628A\u8BDD\u8BF4\u5B8C\u5427\u3002" };
+    return { ok: false, reason: "not_supported", message: "\u7576\u524D\u5F8C\u53F0\u7248\u672C\u9084\u4E0D\u652F\u6301\u7D66\u81EA\u5DF1\u6392\u5F8C\u7E8C\uFF0C\u9019\u6B21\u5C31\u628A\u8A71\u8AAA\u5B8C\u5427\u3002" };
   }
   const unansweredLimit = stash.maxUnansweredSends;
   const refundedSends = stash.cancelledTasks.filter((uuid2) => stash.plannedSelfSendUuids.includes(uuid2)).length;
@@ -13290,14 +13312,14 @@ var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
     return {
       ok: false,
       reason: "unanswered_limit",
-      message: `\u5BF9\u65B9\u8FD8\u6CA1\u56DE\u590D\uFF0C\u8FD9\u671F\u95F4\u4F60\u5DF2\u7ECF\u53D1\u4E86/\u6392\u4E86 ${committedSends} \u6761\uFF0C\u7528\u6237\u8BBE\u7F6E\u7684\u8FDE\u53D1\u4E0A\u9650\u662F ${unansweredLimit} \u6761\u2014\u2014\u8FD9\u6B21\u522B\u6392\u4E86\uFF0C\u7B49 ta \u56DE\u590D\u518D\u8BF4\u3002`
+      message: `\u5C0D\u65B9\u9084\u6C92\u56DE\u5FA9\uFF0C\u9019\u671F\u9593\u4F60\u5DF2\u7D93\u767C\u4E86/\u6392\u4E86 ${committedSends} \u689D\uFF0C\u7528\u6236\u8A2D\u7F6E\u7684\u9023\u767C\u4E0A\u9650\u662F ${unansweredLimit} \u689D\u2014\u2014\u9019\u6B21\u5225\u6392\u4E86\uFF0C\u7B49 ta \u56DE\u8986\u518D\u8AAA\u3002`
     };
   }
   if (stash.scheduledTasks.length >= MAX_FIRE_SCHEDULES) {
     return {
       ok: false,
       reason: "fire_limit",
-      message: `\u8FD9\u6B21\u5DF2\u7ECF\u6392\u4E86 ${MAX_FIRE_SCHEDULES} \u6761\uFF0C\u591F\u4E86\uFF0C\u5269\u4E0B\u7684\u8BDD\u76F4\u63A5\u5199\u8FDB\u8FD9\u6761\u6D88\u606F\u91CC\u3002`
+      message: `\u9019\u6B21\u5DF2\u7D93\u6392\u4E86 ${MAX_FIRE_SCHEDULES} \u689D\uFF0C\u5920\u4E86\uFF0C\u5269\u4E0B\u7684\u8A71\u76F4\u63A5\u5BEB\u9032\u9019\u689D\u6D88\u606F\u88E1\u3002`
     };
   }
   const live = stash.pendingTaskCount + stash.scheduledTasks.length;
@@ -13305,7 +13327,7 @@ var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
     return {
       ok: false,
       reason: "task_limit",
-      message: `\u4F60\u540C\u65F6\u6302\u7740\u7684\u4EFB\u52A1\u5DF2\u7ECF\u6709 ${live} \u4E2A\uFF08\u4E0A\u9650 ${MAX_ACTIVE_TASKS_PER_CHAR}\uFF09\uFF0C\u8FD9\u6B21\u522B\u518D\u6392\u4E86\u3002`
+      message: `\u4F60\u540C\u6642\u639B\u8457\u7684\u4EFB\u52D9\u5DF2\u7D93\u6709 ${live} \u500B\uFF08\u4E0A\u9650 ${MAX_ACTIVE_TASKS_PER_CHAR}\uFF09\uFF0C\u9019\u6B21\u5225\u518D\u6392\u4E86\u3002`
     };
   }
   const parsed = parseFireScheduleArgs(args, nowMs, stash.tz);
@@ -13320,7 +13342,7 @@ var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
       recurrenceType: parsed.recurrence,
       messageType: parsed.mode,
       uuid,
-      // 角色自排的循环任务也按角色所在时区的墙钟推进，跟用户在面板排的同一套。
+      // 角色自排的循環任務也按角色所在時區的牆鍾推進，跟用戶在面板排的同一套。
       tzId: stash.tz.tzId,
       metadata: {
         charId: stash.charId,
@@ -13329,7 +13351,7 @@ var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
         amsgClientTaskId: clientTaskId,
         amsgExpirePolicy: parsed.expirePolicy,
         amsgTaskInstruction: buildTaskInstruction(parsed.mode, parsed.promptHint),
-        // 自排标记：到点兜底闸只拦带它的任务（用户面板排的不受连发上限管）。
+        // 自排標記：到點兜底閘只攔帶它的任務（用戶面板排的不受連發上限管）。
         amsgSelfScheduled: true
       }
     });
@@ -13373,7 +13395,7 @@ var runFireScheduleTool = async (stash, scheduleTask, args, nowMs) => {
     ok: true,
     task_id: shortTaskId(result.uuid),
     send_at: sendAt,
-    message: "\u6392\u597D\u4E86\u3002\u5230\u70B9\u4F60\u4F1A\u77E5\u9053\u81EA\u5DF1\u8FD9\u6B21\u8BF4\u4E86\u4EC0\u4E48\uFF0C\u63A5\u7740\u8BF4\u5C31\u884C\uFF0C\u73B0\u5728\u4E0D\u7528\u5267\u900F\u3002"
+    message: "\u6392\u597D\u4E86\u3002\u5230\u9EDE\u4F60\u6703\u77E5\u9053\u81EA\u5DF1\u9019\u6B21\u8AAA\u4E86\u4EC0\u9EBC\uFF0C\u63A5\u8457\u8AAA\u5C31\u884C\uFF0C\u73FE\u5728\u4E0D\u7528\u5287\u900F\u3002"
   };
 };
 var liveTaskView = (stash) => {
@@ -13391,7 +13413,7 @@ var patchSelfLogTask = (stash, taskUuid, patch) => {
 };
 var runFireCancelTool = async (stash, cancelTask, args, nowMs) => {
   if (typeof cancelTask !== "function") {
-    return { ok: false, reason: "not_supported", message: "\u5F53\u524D\u540E\u53F0\u7248\u672C\u8FD8\u4E0D\u652F\u6301\u53D6\u6D88\u4EFB\u52A1\uFF0C\u5148\u5F53\u5B83\u4F1A\u7167\u5E38\u54CD\uFF0C\u628A\u8981\u8BF4\u7684\u8BDD\u8BF4\u6E05\u695A\u3002" };
+    return { ok: false, reason: "not_supported", message: "\u7576\u524D\u5F8C\u53F0\u7248\u672C\u9084\u4E0D\u652F\u6301\u53D6\u6D88\u4EFB\u52D9\uFF0C\u5148\u7576\u5B83\u6703\u7167\u5E38\u97FF\uFF0C\u628A\u8981\u8AAA\u7684\u8A71\u8AAA\u6E05\u695A\u3002" };
   }
   const resolved = resolveFireTargetTask(liveTaskView(stash), args.task_id, nowMs, stash.tz);
   if ("ok" in resolved) return resolved;
@@ -13403,7 +13425,7 @@ var runFireCancelTool = async (stash, cancelTask, args, nowMs) => {
     return { ok: false, reason: "cancel_failed", message: error instanceof Error ? error.message : String(error) };
   }
   if (!result.cancelled) {
-    return { ok: true, already_gone: true, message: `\u4EFB\u52A1 [${shortTaskId(target.taskUuid)}] \u5DF2\u7ECF\u4E0D\u5728\u6392\u7A0B\u91CC\u4E86\uFF0C\u4E0D\u7528\u518D\u7BA1\u5B83\u3002` };
+    return { ok: true, already_gone: true, message: `\u4EFB\u52D9 [${shortTaskId(target.taskUuid)}] \u5DF2\u7D93\u4E0D\u5728\u6392\u7A0B\u88E1\u4E86\uFF0C\u4E0D\u7528\u518D\u7BA1\u5B83\u3002` };
   }
   stash.cancelledTasks = [...stash.cancelledTasks, target.taskUuid];
   stash.scheduledTasks = stash.scheduledTasks.filter((t) => t.taskUuid !== target.taskUuid);
@@ -13413,13 +13435,13 @@ var runFireCancelTool = async (stash, cancelTask, args, nowMs) => {
 };
 var runFireRenewTool = async (stash, fireCtx, args, nowMs) => {
   if (typeof fireCtx.renewTask !== "function") {
-    return { ok: false, reason: "not_supported", message: "\u5F53\u524D\u540E\u53F0\u7248\u672C\u8FD8\u4E0D\u652F\u6301\u6539\u671F\uFF0C\u8981\u4E48\u53D6\u6D88\u91CD\u6392\uFF0C\u8981\u4E48\u5148\u5F53\u5B83\u4F1A\u7167\u5E38\u54CD\u3002" };
+    return { ok: false, reason: "not_supported", message: "\u7576\u524D\u5F8C\u53F0\u7248\u672C\u9084\u4E0D\u652F\u6301\u6539\u671F\uFF0C\u8981\u9EBC\u53D6\u6D88\u91CD\u6392\uFF0C\u8981\u9EBC\u5148\u7576\u5B83\u6703\u7167\u5E38\u97FF\u3002" };
   }
   const resolved = resolveFireTargetTask(liveTaskView(stash), args.task_id, nowMs, stash.tz);
   if ("ok" in resolved) return resolved;
   const target = resolved.task;
   if (target.mode === "fixed") {
-    return { ok: false, reason: "fixed_task", message: "\u56FA\u5B9A\u5185\u5BB9\u7684\u4EFB\u52A1\u4E0D\u5728\u8FD9\u91CC\u6539\uFF0C\u8BA9\u7528\u6237\u53BB\u8BBE\u7F6E\u9762\u677F\u8C03\u6574\u3002" };
+    return { ok: false, reason: "fixed_task", message: "\u56FA\u5B9A\u5167\u5BB9\u7684\u4EFB\u52D9\u4E0D\u5728\u9019\u88E1\u6539\uFF0C\u8B93\u7528\u6236\u53BB\u8A2D\u7F6E\u9762\u677F\u8ABF\u6574\u3002" };
   }
   const parsed = parseFireRenewSendAt(args.send_at, nowMs, stash.tz);
   if ("ok" in parsed) return parsed;
@@ -13432,7 +13454,7 @@ var runFireRenewTool = async (stash, fireCtx, args, nowMs) => {
       expire_policy: target.expirePolicy
     }, nowMs);
     if (result2.ok === true) {
-      return { ...result2, message: `\u5DF2\u4E3A [${shortTaskId(target.taskUuid)}] \u7684\u8FD9\u4E00\u6B21\u8865\u4E0A\u4E00\u6761\u4E00\u6B21\u6027\u4EFB\u52A1\uFF0C\u539F\u6765\u7684\u91CD\u590D\u8282\u594F\u4E0D\u53D8\u3002` };
+      return { ...result2, message: `\u5DF2\u70BA [${shortTaskId(target.taskUuid)}] \u7684\u9019\u4E00\u6B21\u88DC\u4E0A\u4E00\u689D\u4E00\u6B21\u6027\u4EFB\u52D9\uFF0C\u539F\u4F86\u7684\u91CD\u8907\u7BC0\u594F\u4E0D\u8B8A\u3002` };
     }
     return result2;
   }
@@ -13443,7 +13465,7 @@ var runFireRenewTool = async (stash, fireCtx, args, nowMs) => {
     return { ok: false, reason: "renew_rejected", message: error instanceof Error ? error.message : String(error) };
   }
   if (!result.renewed) {
-    return { ok: false, reason: "task_gone", message: `\u4EFB\u52A1 [${shortTaskId(target.taskUuid)}] \u5DF2\u7ECF\u4E0D\u5728\u6392\u7A0B\u91CC\u4E86\uFF08\u53EF\u80FD\u521A\u89E6\u53D1\u8FC7\uFF09\uFF0C\u8981\u8BF4\u7684\u8BDD\u7528 schedule_active_message \u91CD\u65B0\u6392\u3002` };
+    return { ok: false, reason: "task_gone", message: `\u4EFB\u52D9 [${shortTaskId(target.taskUuid)}] \u5DF2\u7D93\u4E0D\u5728\u6392\u7A0B\u88E1\u4E86\uFF08\u53EF\u80FD\u525B\u89F8\u767C\u904E\uFF09\uFF0C\u8981\u8AAA\u7684\u8A71\u7528 schedule_active_message \u91CD\u65B0\u6392\u3002` };
   }
   stash.renewedTasks = [...stash.renewedTasks, { taskUuid: target.taskUuid, sendAt: result.nextSendAt }];
   patchSelfLogTask(stash, target.taskUuid, { sendAt: result.nextSendAt });
@@ -13452,10 +13474,10 @@ var runFireRenewTool = async (stash, fireCtx, args, nowMs) => {
     ok: true,
     task_id: shortTaskId(target.taskUuid),
     send_at: result.nextSendAt,
-    message: `\u5DF2\u628A [${shortTaskId(target.taskUuid)}] \u6539\u5230\u65B0\u65F6\u95F4\uFF08\u7F16\u53F7\u4E0D\u53D8\uFF09\u3002`
+    message: `\u5DF2\u628A [${shortTaskId(target.taskUuid)}] \u6539\u5230\u65B0\u6642\u9593\uFF08\u7DE8\u865F\u4E0D\u8B8A\uFF09\u3002`
   };
 };
-var FINAL_ROUND_NOTICE = "\uFF08\u63D0\u9192\uFF1A\u8FD9\u662F\u6700\u540E\u4E00\u8F6E\u4E86\uFF0C\u4E0D\u8981\u518D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\uFF0C\u76F4\u63A5\u628A\u60F3\u8BF4\u7684\u8BDD\u5199\u5B8C\u3002\uFF09";
+var FINAL_ROUND_NOTICE = "\uFF08\u63D0\u9192\uFF1A\u9019\u662F\u6700\u5F8C\u4E00\u8F2A\u4E86\uFF0C\u4E0D\u8981\u518D\u8ABF\u7528\u4EFB\u4F55\u5DE5\u5177\uFF0C\u76F4\u63A5\u628A\u60F3\u8AAA\u7684\u8A71\u5BEB\u5B8C\u3002\uFF09";
 var feedsFinalRound = (iteration, maxToolIterations) => typeof iteration === "number" && iteration >= maxToolIterations - 2;
 var MCP_CALL_TIMEOUT_MS = 25e3;
 var MCP_TOTAL_BUDGET_MS = 12e4;
@@ -13471,7 +13493,7 @@ var runMcpFireTool = async (stash, name, args) => {
       ok: false,
       reason: "mcp_budget_exhausted",
       source: hit.server.name,
-      message: "MCP \u8C03\u7528\u65F6\u95F4\u9884\u7B97\u5DF2\u7528\u5B8C\uFF0C\u8FD9\u8F6E\u522B\u518D\u8C03\u5916\u90E8\u5DE5\u5177\u4E86\uFF0C\u7528\u624B\u4E0A\u5DF2\u6709\u7684\u4FE1\u606F\u6536\u5C3E\u3002"
+      message: "MCP \u8ABF\u7528\u6642\u9593\u9810\u7B97\u5DF2\u7528\u5B8C\uFF0C\u9019\u8F2A\u5225\u518D\u8ABF\u5916\u90E8\u5DE5\u5177\u4E86\uFF0C\u7528\u624B\u4E0A\u5DF2\u6709\u7684\u4FE1\u606F\u6536\u5C3E\u3002"
     };
   }
   let session = stash.mcpSessions.get(hit.server.id);
@@ -13481,7 +13503,7 @@ var runMcpFireTool = async (stash, name, args) => {
   }
   const started = Date.now();
   const result = await callMcpToolCore(
-    // worker 侧 fetch 没有 CORS，直连用户配的地址，不经代理。
+    // worker 側 fetch 沒有 CORS，直連用戶配的地址，不經代理。
     {
       url: hit.server.url,
       headers: (sid, protocolVersion) => buildMcpDirectHeaders(hit.server, sid, protocolVersion)
@@ -13490,7 +13512,7 @@ var runMcpFireTool = async (stash, name, args) => {
     hit.toolName,
     args,
     {
-      // 剩余预算比单次上限还少时按剩余的来，最后一个调用不会越过总线。
+      // 剩餘預算比單次上限還少時按剩餘的來，最後一個調用不會越過總線。
       timeoutMs: Math.min(MCP_CALL_TIMEOUT_MS, remaining),
       inputSchema: hit.tool.inputSchema,
       serverLabel: hit.server.name
@@ -13528,7 +13550,7 @@ var amsgHooks = {
       try {
         return await unpackStateValue(value);
       } catch (error) {
-        throw fail3(`${label} \u89E3\u538B\u5931\u8D25\uFF08\u6570\u636E\u635F\u574F\uFF09`, { error: String(error) });
+        throw fail3(`${label} \u89E3\u58D3\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09`, { error: String(error) });
       }
     };
     const taskMeta = ctx.task.metadata ?? {};
@@ -13538,7 +13560,7 @@ var amsgHooks = {
     if (taskKind) {
       const handler = FIRE_KIND_HANDLERS[taskKind];
       if (!handler) {
-        throw fail3(`\u4E0D\u8BA4\u8BC6\u7684\u4EFB\u52A1\u79CD\u7C7B amsgKind=${taskKind}\uFF08worker \u4EE3\u7801\u6BD4\u524D\u7AEF\u65E7\uFF0C\u53BB\u8BBE\u7F6E\u9875\u91CD\u65B0\u90E8\u7F72\u4E00\u6B21\uFF09`);
+        throw fail3(`\u4E0D\u8A8D\u8B58\u7684\u4EFB\u52D9\u7A2E\u985E amsgKind=${taskKind}\uFF08worker \u4EE3\u78BC\u6BD4\u524D\u7AEF\u820A\uFF0C\u53BB\u8A2D\u7F6E\u9801\u91CD\u65B0\u90E8\u7F72\u4E00\u6B21\uFF09`);
       }
       let plan;
       try {
@@ -13575,23 +13597,23 @@ var amsgHooks = {
       return { skip: true };
     }
     const packRow = charRows.find((r) => r.key === AMSG_FIRE_PACK_KEY);
-    if (!packRow) throw fail3("\u4E91\u7AEF\u6CA1\u6709\u8FD9\u4E2A\u89D2\u8272\u7684 fire_pack");
+    if (!packRow) throw fail3("\u96F2\u7AEF\u6C92\u6709\u9019\u500B\u89D2\u8272\u7684 fire_pack");
     const packJson = await unpackOrFail("fire_pack", packRow.value);
     const pack = parseFirePack(packJson);
-    if (!pack) throw fail3(`fire_pack \u89E3\u6790\u5931\u8D25\uFF1A${describeFirePackVersion(packJson)}`);
+    if (!pack) throw fail3(`fire_pack \u89E3\u6790\u5931\u6557\uFF1A${describeFirePackVersion(packJson)}`);
     if (instant && !pack.chat) {
-      throw fail3("\u5373\u65F6\u5BF9\u8BDD\u4EFB\u52A1\u7684 fire_pack \u91CC\u6CA1\u6709 chat \u6BB5\uFF08\u4E91\u7AEF\u72B6\u6001\u6CA1\u8DDF\u4E0A\uFF09");
+      throw fail3("\u5373\u6642\u5C0D\u8A71\u4EFB\u52D9\u7684 fire_pack \u88E1\u6C92\u6709 chat \u6BB5\uFF08\u96F2\u7AEF\u72C0\u614B\u6C92\u8DDF\u4E0A\uFF09");
     }
     if (!instant && pack.template === AMSG2_INSTANT_STUB_TEMPLATE) {
-      console.warn("[amsg:fire-pack-stub] fire_pack \u8FD8\u662F\u5373\u65F6\u5BF9\u8BDD\u7684\u5360\u4F4D\u6A21\u677F\uFF0C\u7B49\u5BA2\u6237\u7AEF\u8865\u4F20\u540E\u91CD\u8BD5", {
+      console.warn("[amsg:fire-pack-stub] fire_pack \u9084\u662F\u5373\u6642\u5C0D\u8A71\u7684\u4F54\u4F4D\u6A21\u677F\uFF0C\u7B49\u5BA2\u6236\u7AEF\u88DC\u50B3\u5F8C\u91CD\u8A66", {
         taskId: ctx.task.id,
         charId
       });
-      throw new Error("AMSG2_FIRE_PACK_NOT_READY: fire_pack \u91CC\u8FD8\u662F\u5373\u65F6\u5BF9\u8BDD\u7684\u5360\u4F4D\u6A21\u677F\uFF08\u771F\u6A21\u677F\u5C1A\u672A\u8865\u4F20\uFF09\uFF0C\u8FD9\u6B21\u89E6\u53D1\u5148\u91CD\u8BD5\u7B49\u5B83\u5C31\u4F4D");
+      throw new Error("AMSG2_FIRE_PACK_NOT_READY: fire_pack \u88E1\u9084\u662F\u5373\u6642\u5C0D\u8A71\u7684\u4F54\u4F4D\u6A21\u677F\uFF08\u771F\u6A21\u677F\u5C1A\u672A\u88DC\u50B3\uFF09\uFF0C\u9019\u6B21\u89F8\u767C\u5148\u91CD\u8A66\u7B49\u5B83\u5C31\u4F4D");
     }
     const occurrenceMs = Date.parse(String(ctx.task.nextSendAt));
     if (!Number.isFinite(occurrenceMs)) {
-      throw fail3("\u4EFB\u52A1\u884C next_send_at \u89E3\u6790\u4E0D\u51FA\u89E6\u53D1\u65F6\u523B", { nextSendAt: ctx.task.nextSendAt });
+      throw fail3("\u4EFB\u52D9\u884C next_send_at \u89E3\u6790\u4E0D\u51FA\u89F8\u767C\u6642\u523B", { nextSendAt: ctx.task.nextSendAt });
     }
     const presenceLastUserMessageAt = presence?.charId === charId ? presence.lastUserMessageAt : null;
     const expireInput = {
@@ -13602,7 +13624,7 @@ var amsgHooks = {
     };
     const expireTrace = {
       taskId: ctx.task.id,
-      // 判定本身已经不看任务类型了（一次性和循环同一条规则），但排查时得认得出是哪种。
+      // 判定本身已經不看任務類型了（一次性和循環同一條規則），但排查時得認得出是哪種。
       recurrenceType: ctx.task.recurrenceType,
       ...expireInput,
       packLastUserMessageAt: pack.lastUserMessageAt ?? null,
@@ -13615,17 +13637,17 @@ var amsgHooks = {
     }
     if (!instant) console.log("[amsg:expire-pass]", expireTrace);
     if (!instant && typeof taskMeta.amsgTaskInstruction !== "string") {
-      throw fail3("\u4EFB\u52A1 metadata \u7F3A amsgTaskInstruction\uFF08\u65E7\u683C\u5F0F\u4EFB\u52A1\uFF09");
+      throw fail3("\u4EFB\u52D9 metadata \u7F3A amsgTaskInstruction\uFF08\u820A\u683C\u5F0F\u4EFB\u52D9\uFF09");
     }
     const globalRows = await ctx.readState(AMSG_GLOBAL_NAMESPACE);
     const toolPackRow = charRows.find((r) => r.key === AMSG_TOOL_PACK_KEY);
     const toolConfigRow = globalRows.find((r) => r.key === AMSG_TOOL_CONFIG_KEY);
-    if (!toolPackRow) throw fail3("\u4E91\u7AEF\u6CA1\u6709\u8FD9\u4E2A\u89D2\u8272\u7684 tool_pack");
-    if (!toolConfigRow) throw fail3("\u4E91\u7AEF\u6CA1\u6709 tool_config");
+    if (!toolPackRow) throw fail3("\u96F2\u7AEF\u6C92\u6709\u9019\u500B\u89D2\u8272\u7684 tool_pack");
+    if (!toolConfigRow) throw fail3("\u96F2\u7AEF\u6C92\u6709 tool_config");
     const toolPack = parseToolPack(await unpackOrFail("tool_pack", toolPackRow.value));
-    if (!toolPack) throw fail3("tool_pack \u89E3\u6790\u5931\u8D25\uFF08\u683C\u5F0F\u4E0D\u5BF9\u6216\u6570\u636E\u635F\u574F\uFF09");
+    if (!toolPack) throw fail3("tool_pack \u89E3\u6790\u5931\u6557\uFF08\u683C\u5F0F\u4E0D\u5C0D\u6216\u6578\u64DA\u640D\u58DE\uFF09");
     const toolConfig = parseToolConfig(await unpackOrFail("tool_config", toolConfigRow.value));
-    if (!toolConfig) throw fail3("tool_config \u89E3\u6790\u5931\u8D25\uFF08\u683C\u5F0F\u4E0D\u5BF9\u6216\u6570\u636E\u635F\u574F\uFF09");
+    if (!toolConfig) throw fail3("tool_config \u89E3\u6790\u5931\u6557\uFF08\u683C\u5F0F\u4E0D\u5C0D\u6216\u6578\u64DA\u640D\u58DE\uFF09");
     const mcpServers = filterMcpServersForChar(toolConfig.mcpServers, charId);
     const mcpResolve = mcpServers.length ? buildMcpNameMap(mcpServers, { maxNameLen: MCP_FIRE_NAME_BUDGET }) : null;
     const mcpNative = toolConfig.mcpUseNativeTools !== false;
@@ -13663,12 +13685,12 @@ var amsgHooks = {
       fireToolNames: /* @__PURE__ */ new Set(),
       mcpSessions: /* @__PURE__ */ new Map(),
       mcpSpentMs: 0,
-      // 「还能不能再排」按客户端已知的 + 角色自己排过还没被认领的一起算，
-      // 不然角色离线期间连排几次就能绕过每角色的任务上限。
+      // 「還能不能再排」按客戶端已知的 + 角色自己排過還沒被認領的一起算，
+      // 不然角色離線期間連排幾次就能繞過每角色的任務上限。
       pendingTaskCount: livePendingTasks.length,
       pendingTasks: livePendingTasks,
       scheduledTasks: [],
-      // 序号与 scheduledTasks 一样从空账起步；此后只增不减（取消不回退，见字段注释）。
+      // 序號與 scheduledTasks 一樣從空帳起步；此後只增不減（取消不回退，見字段註釋）。
       selfScheduleSeq: 0,
       cancelledTasks: [],
       renewedTasks: [],
@@ -13681,11 +13703,11 @@ var amsgHooks = {
       taskRowId: ctx.task.id != null ? String(ctx.task.id) : null,
       clientTaskId,
       selfLogTexts: null,
-      // 跟下面 renderFirePack 填「你此刻在听」用的是同一个时刻、同一份 scene、同一个种子
-      // （resolveFireSceneSong 与 renderFireSceneBlock 共用判定），冻的必然是正文里那首。
+      // 跟下面 renderFirePack 填「你此刻在聽」用的是同一個時刻、同一份 scene、同一個種子
+      // （resolveFireSceneSong 與 renderFireSceneBlock 共用判定），凍的必然是正文裡那首。
       sceneSong: resolveFireSceneSong(pack.scene, ctx.now.getTime(), tz),
       instant,
-      // 下面即时对话那一支起跑（要等请求消息拼完才知道给评估喂什么）。
+      // 下面即時對話那一支起跑（要等請求消息拼完才知道給評估喂什麼）。
       emotionEvalPromise: null,
       emotionLatePending: false
     };
@@ -13697,7 +13719,7 @@ var amsgHooks = {
       excludeClientTaskId: clientTaskId || void 0
     }) : "";
     const taskListBlock = baseTaskListBlock && canManageTasks ? `${baseTaskListBlock}
-\uFF08\u6E05\u5355\u91CC\u7684\u4EFB\u52A1\u5F52\u4F60\u7BA1\uFF1A\u60C5\u51B5\u53D8\u4E86\u4E0D\u8BE5\u54CD\u7684\u53EF\u4EE5\u7528 cancel_active_message \u53D6\u6D88\uFF0C\u53EA\u662F\u8981\u6362\u65F6\u95F4\u7684\u7528 renew_active_message \u6539\u671F\uFF0Ctask_id \u5C31\u662F\u6E05\u5355\u91CC\u7684\u77ED id\u3002\uFF09` : baseTaskListBlock;
+\uFF08\u6E05\u55AE\u88E1\u7684\u4EFB\u52D9\u6B78\u4F60\u7BA1\uFF1A\u60C5\u6CC1\u8B8A\u4E86\u4E0D\u8A72\u97FF\u7684\u53EF\u4EE5\u7528 cancel_active_message \u53D6\u6D88\uFF0C\u53EA\u662F\u8981\u63DB\u6642\u9593\u7684\u7528 renew_active_message \u6539\u671F\uFF0Ctask_id \u5C31\u662F\u6E05\u55AE\u88E1\u7684\u77ED id\u3002\uFF09` : baseTaskListBlock;
     const realtimeWorldBlock = await buildRealtimeWorldBlock({
       toolConfig,
       timeAwarenessEnabled: toolPack.timeAwarenessEnabled,
@@ -13735,12 +13757,12 @@ var amsgHooks = {
         ]
       });
       const instantMessages = [
-        // content 原样透传，一个字都不动：带图片的消息本地就是结构化分段
-        // （`[{type:'text'},{type:'image_url'}]`），上游把这个数组整个丢进
-        // /chat/completions 的请求体（amsg-shared 的 buildLlmRequestBody 只做
-        // `messages: llmMessages`，不看 content 的类型）。这里但凡 String() 一下，
-        // 模型收到的就是「[object Object]」而不是那张图。
-        // 每条重新包一层对象只是不把 pack 上那份交出去，content 仍是同一个引用。
+        // content 原樣透傳，一個字都不動：帶圖片的消息本地就是結構化分段
+        // （`[{type:'text'},{type:'image_url'}]`），上游把這個數組整個丟進
+        // /chat/completions 的請求體（amsg-shared 的 buildLlmRequestBody 只做
+        // `messages: llmMessages`，不看 content 的類型）。這裡但凡 String() 一下，
+        // 模型收到的就是「[object Object]」而不是那張圖。
+        // 每條重新包一層對象只是不把 pack 上那份交出去，content 仍是同一個引用。
         ...pack.chat.messages.map((m) => ({ role: m.role, content: m.content })),
         ...timelyBlock ? [{ role: "system", content: timelyBlock }] : []
       ];
@@ -13753,8 +13775,8 @@ var amsgHooks = {
             ctx.resolveLlmCredential
           );
           if (!evalApi) {
-            console.warn("[amsg:emotion] \u8FD9\u4E00\u8F6E\u53D6\u4E0D\u5230\u526F API \u51ED\u636E\uFF0C\u8DF3\u8FC7\u8BC4\u4F30");
-            return { raw: null, error: "\u4E91\u7AEF\u6CA1\u6709\u53EF\u7528\u7684\u60C5\u7EEA\u8BC4\u4F30 API \u51ED\u636E" };
+            console.warn("[amsg:emotion] \u9019\u4E00\u8F2A\u53D6\u4E0D\u5230\u526F API \u6191\u64DA\uFF0C\u8DF3\u904E\u8A55\u4F30");
+            return { raw: null, error: "\u96F2\u7AEF\u6C92\u6709\u53EF\u7528\u7684\u60C5\u7DD2\u8A55\u4F30 API \u6191\u64DA" };
           }
           return runAmsgEmotionEval(
             emotionEvalSpec,
@@ -13767,7 +13789,7 @@ var amsgHooks = {
       return {
         messages: instantMessages,
         ...common,
-        // 用户正盯着「正在输入…」等回复，给足时间把工具循环跑完，别让他重发一遍。
+        // 用戶正盯著「正在輸入…」等回覆，給足時間把工具循環跑完，別讓他重發一遍。
         totalTimeoutMs: INSTANT_TOTAL_TIMEOUT_MS
       };
     }
@@ -13775,8 +13797,8 @@ var amsgHooks = {
       selfLog,
       taskListBlock,
       realtimeWorldBlock,
-      // 「此刻在做什么」里的钟点跟今日节日同一个开关：关掉时间感知的角色不该从日程块
-      // 读到「23:00」——那正是这个开关要挡的东西。日程内容本身照给。
+      // 「此刻在做什麼」裡的鐘點跟今日節日同一個開關：關掉時間感知的角色不該從日程塊
+      // 讀到「23:00」——那正是這個開關要擋的東西。日程內容本身照給。
       includeClock: toolPack.timeAwarenessEnabled
     }) + mcpBlock + scheduleBlock;
     return {
@@ -13796,12 +13818,12 @@ var amsgHooks = {
     const content = stripReasoningTags2(ctx.llmOutputText || "").trim();
     const taskId = ctx.taskId != null ? String(ctx.taskId) : null;
     if (taskId == null) {
-      console.warn("[amsg:agentic] ctx \u4E0A\u6CA1\u6709 taskId\uFF0C\u9001\u8FBE\u5F52\u5C5E\u4F1A\u5931\u6548", ctx.sessionId);
+      console.warn("[amsg:agentic] ctx \u4E0A\u6C92\u6709 taskId\uFF0C\u9001\u9054\u6B78\u5C6C\u6703\u5931\u6548", ctx.sessionId);
     }
     const messageType = typeof ctx.metadata?.amsgMode === "string" ? ctx.metadata.amsgMode : "auto";
     const stash = getFireStash(ctx.scratch);
     if (!stash) {
-      throw new Error("AMSG2_FIRE_STASH_MISSING: onLLMOutput \u8BFB\u4E0D\u5230 ctx.scratch.fire\uFF0C\u68C0\u67E5 amsg-server \u662F\u5426\u4ECD\u5171\u4EAB scratch");
+      throw new Error("AMSG2_FIRE_STASH_MISSING: onLLMOutput \u8B80\u4E0D\u5230 ctx.scratch.fire\uFF0C\u6AA2\u67E5 amsg-server \u662F\u5426\u4ECD\u5171\u4EAB scratch");
     }
     const session = stash.session;
     const llmMessage = ctx.llmResponse?.choices?.[0]?.message;
@@ -13811,7 +13833,7 @@ var amsgHooks = {
     const rawToolCalls = ctx.llmResponse?.choices?.[0]?.message?.tool_calls;
     const nativeCalls = classifyNativeToolCalls(rawToolCalls, stash.fireToolNames, stash.mcpResolve);
     for (const droppedName of nativeCalls.dropped) {
-      console.warn("[amsg:agentic] \u4E22\u5F03\u672A\u58F0\u660E\u7684 native tool_call", {
+      console.warn("[amsg:agentic] \u4E1F\u68C4\u672A\u8072\u660E\u7684 native tool_call", {
         sessionId: ctx.sessionId,
         name: droppedName,
         declared: [...stash.fireToolNames, ...stash.mcpResolve?.keys() ?? []]
@@ -13821,33 +13843,33 @@ var amsgHooks = {
       session,
       content,
       {
-        // 名字取 tool_pack 里的那份：它跟着每轮聊天重新上云，改名当天就是新的。
-        // ctx.contactName 是排程那一刻冻进任务行的快照，用户改完名字之后，之前排的
-        // 任务推送出来横幅还顶着旧名字（上游 update-message 也不让改这个字段）。
-        // tool_pack 里没名字时退回任务行那份，别让标题变成「来自 」。
+        // 名字取 tool_pack 裡的那份：它跟著每輪聊天重新上雲，改名當天就是新的。
+        // ctx.contactName 是排程那一刻凍進任務行的快照，用戶改完名字之後，之前排的
+        // 任務推送出來橫幅還頂著舊名字（上游 update-message 也不讓改這個字段）。
+        // tool_pack 裡沒名字時退回任務行那份，別讓標題變成「來自 」。
         contactName: stash.toolCtx.char.name || ctx.contactName,
         avatarUrl: ctx.avatarUrl ?? null,
         taskId,
         messageType,
-        // 摘掉评估配置再交出去：它里头是用户副 API 的 apiKey，而 metadata 会被整个
-        // 摊进每条 push 的 payload（见 agentic 的 buildScheduledPush）。见 stripEmotionEvalSpec。
+        // 摘掉評估配置再交出去：它裡頭是用戶副 API 的 apiKey，而 metadata 會被整個
+        // 攤進每條 push 的 payload（見 agentic 的 buildScheduledPush）。見 stripEmotionEvalSpec。
         metadata: stripEmotionEvalSpec(ctx.metadata),
         occurrenceMs: stash.occurrenceMs,
-        // round 1 XHS 工具抓到的笔记 / xsecToken 快照：finish 时按 directive 引用
-        // 挑选后随最后一条 push 带回客户端（客户端离线跑不了 round 1，缺这份
-        // [[XHS_SHARE]] / 点赞 / 评论重放必然 available:0 掉卡片）。
+        // round 1 XHS 工具抓到的筆記 / xsecToken 快照：finish 時按 directive 引用
+        // 挑選後隨最後一條 push 帶回客戶端（客戶端離線跑不了 round 1，缺這份
+        // [[XHS_SHARE]] / 點贊 / 評論重放必然 available:0 掉卡片）。
         xhsNotes: stash.toolCtx.lastXhsNotesRef?.current,
         xhsXsecTokens: stash.toolCtx.xhsCaches ? Array.from(stash.toolCtx.xhsCaches.xsecTokenCache.entries()) : void 0,
-        // 角色写了 MUSIC_ACTION 的话，把它读到的那首歌一起带给客户端：标签里只有歌单名，
-        // 没有这一份的话客户端只能拿「用户此刻在听的那首」凑（补收时多半是空的）。
+        // 角色寫了 MUSIC_ACTION 的話，把它讀到的那首歌一起帶給客戶端：標籤裡只有歌單名，
+        // 沒有這一份的話客戶端只能拿「用戶此刻在聽的那首」湊（補收時多半是空的）。
         sceneSong: stash.sceneSong
       },
       stash.mcpResolve ? { resolve: stash.mcpResolve, nativeToolCalls: nativeCalls.mcp } : null,
-      // 传 null = 这次不认排程（老部署没这口子），正文里写了也不当调用。
-      // manage 池里可能还有 cancel / renew——它们被认领的前提是声明过（canManageTasks），
-      // 而 canManageTasks ⊆ canSelfSchedule ⊆「scheduleTask 是函数」，这道闸不会误拦。
+      // 傳 null = 這次不認排程（老部署沒這口子），正文裡寫了也不當調用。
+      // manage 池裡可能還有 cancel / renew——它們被認領的前提是聲明過（canManageTasks），
+      // 而 canManageTasks ⊆ canSelfSchedule ⊆「scheduleTask 是函數」，這道閘不會誤攔。
       typeof ctx.scheduleTask === "function" ? { nativeToolCalls: nativeCalls.manage } : null,
-      // 最后一轮不再放行工具请求，改成用手上的内容收尾（预算由 MCP 与否自适应）。
+      // 最後一輪不再放行工具請求，改成用手上的內容收尾（預算由 MCP 與否自適應）。
       ctx.iteration,
       stash.maxToolIterations
     );
@@ -13871,25 +13893,25 @@ var amsgHooks = {
             await ctx.emitResult({
               ...buildScheduleChangeResult({
                 charId: stash.charId,
-                // 说出口的时刻用真实的此刻：模型刚照着本次 fire 的那个钟写完这批改动，
-                // 客户端也该照着同一个钟判「隔天了没有」。名义时刻 occurrenceMs 在这里
-                // 不能用——cron 延迟或者重试梯子把 23:50 的任务拖到 00:05 才跑时，两者
-                // 会分处两个日历日，整批改动会被客户端的隔天闸白白丢掉。取值跟同一段里的
-                // skippedAt、以及 self_log 的 entry.at 一致（fire ctx 上那个 now 只在
-                // onBeforeFire 里拿得到，每轮的 sessionCtx 没有这个字段）。
+                // 說出口的時刻用真實的此刻：模型剛照著本次 fire 的那個鍾寫完這批改動，
+                // 客戶端也該照著同一個鍾判「隔天了沒有」。名義時刻 occurrenceMs 在這裡
+                // 不能用——cron 延遲或者重試梯子把 23:50 的任務拖到 00:05 才跑時，兩者
+                // 會分處兩個日曆日，整批改動會被客戶端的隔天閘白白丟掉。取值跟同一段裡的
+                // skippedAt、以及 self_log 的 entry.at 一致（fire ctx 上那個 now 只在
+                // onBeforeFire 裡拿得到，每輪的 sessionCtx 沒有這個字段）。
                 spokenAt: Date.now(),
                 directives: decision.scheduleChanges
               }),
-              // 角色一个字都没说，这一轮本来就不该惊动用户。show:false 的 payload 上游
-              // 只落收件箱、不发推送——既不会弹出一条空白横幅，也不占推送配额（订阅是
-              // 按 userVisibleOnly 建的，收了不弹浏览器要记账）。
+              // 角色一個字都沒說，這一輪本來就不該驚動用戶。show:false 的 payload 上游
+              // 只落收件箱、不發推送——既不會彈出一條空白橫幅，也不佔推送配額（訂閱是
+              // 按 userVisibleOnly 建的，收了不彈瀏覽器要記帳）。
               notification: { show: false }
             });
           } catch (error) {
-            console.warn("[amsg:schedule-change] \u65E5\u7A0B\u6539\u52A8\u6CA1\u80FD\u9001\u51FA\u53BB\uFF08\u8FD9\u4E00\u8F6E\u7684\u6539\u52A8\u4E22\u4E86\uFF09", error);
+            console.warn("[amsg:schedule-change] \u65E5\u7A0B\u6539\u52D5\u6C92\u80FD\u9001\u51FA\u53BB\uFF08\u9019\u4E00\u8F2A\u7684\u6539\u52D5\u4E1F\u4E86\uFF09", error);
           }
         } else {
-          console.warn("[amsg:schedule-change] \u8FD9\u53F0 Worker \u8FD8\u6CA1\u6709 emitResult\uFF0C\u65E5\u7A0B\u6539\u52A8\u6CA1\u5904\u9001", {
+          console.warn("[amsg:schedule-change] \u9019\u53F0 Worker \u9084\u6C92\u6709 emitResult\uFF0C\u65E5\u7A0B\u6539\u52D5\u6C92\u8655\u9001", {
             sessionId: ctx.sessionId,
             changes: decision.scheduleChanges.length
           });
@@ -13992,13 +14014,13 @@ var amsgHooks = {
     return decision;
   },
   /**
-   * 服务端工具执行：客户端在 fire 时刻离线，数据工具全部在 worker 内跑完。
-   * 单个工具失败（含抛错）都以失败 JSON 回填给 LLM 让它圆场，不失败整条链。
+   * 服務端工具執行：客戶端在 fire 時刻離線，數據工具全部在 worker 內跑完。
+   * 單個工具失敗（含拋錯）都以失敗 JSON 回填給 LLM 讓它圓場，不失敗整條鏈。
    */
   async executeToolCalls(toolCalls, ctx) {
     const stash = getFireStash(ctx.scratch);
     if (!stash) {
-      throw new Error("AMSG2_FIRE_STASH_MISSING: executeToolCalls \u8BFB\u4E0D\u5230 ctx.scratch.fire\uFF0C\u68C0\u67E5 amsg-server \u662F\u5426\u4ECD\u5171\u4EAB scratch");
+      throw new Error("AMSG2_FIRE_STASH_MISSING: executeToolCalls \u8B80\u4E0D\u5230 ctx.scratch.fire\uFF0C\u6AA2\u67E5 amsg-server \u662F\u5426\u4ECD\u5171\u4EAB scratch");
     }
     if (stash.proxyWorkerUrl) setProxyWorkerUrlOverride(stash.proxyWorkerUrl);
     if (stash.xhsCookie) XhsMcpClient.setCookie(stash.xhsCookie);
@@ -14060,45 +14082,45 @@ var buildWorkerConfig = (env) => {
   const webpush = createHybridPushTransport(env, createWebCryptoWebPush(effectiveVapid));
   configureInstantErrorPush(env.DB && env.AMSG_MASTER_KEY ? { webpush, db: env.DB, masterKey: env.AMSG_MASTER_KEY } : null);
   return {
-    // db 缺省时 factory 自动用 createD1Adapter(env.DB)
+    // db 缺省時 factory 自動用 createD1Adapter(env.DB)
     masterKey: env.AMSG_MASTER_KEY,
     serverToken: env.AMSG_SERVER_TOKEN,
     vapid: effectiveVapid,
     webpush,
-    // 前端和 Worker 不同源，带自定义头的请求会先发 CORS 预检，必须放行。
-    // 单用户自用默认全开；想收紧就把 '*' 换成自己的 SullyOS 站点 origin。
-    // allowHeaders 显式给：上游默认那份不含 Content-Encoding，而 gzip 上行要用它
-    // （见 CORS_ALLOW_HEADERS 那段注释）。
+    // 前端和 Worker 不同源，帶自定義頭的請求會先發 CORS 預檢，必須放行。
+    // 單用戶自用默認全開；想收緊就把 '*' 換成自己的 SullyOS 站點 origin。
+    // allowHeaders 顯式給：上游默認那份不含 Content-Encoding，而 gzip 上行要用它
+    // （見 CORS_ALLOW_HEADERS 那段註釋）。
     cors: { origin: "*", allowHeaders: CORS_ALLOW_HEADERS2 },
-    // 一次性 job 输入的过期清理（amsg-server 2.6.0-next.21+）：cron 每跳顺手把这个
-    // 命名空间下超过天数没更新的条目清掉。角色状态那个命名空间（amsg:char:<id>，
-    // 装 fire_pack / tool_pack）不配 TTL——那些是要长期留着的，配了就等于定时把
-    // 角色的云端状态抹掉。判据是行本来就有的 updated_at 列，不加列、不动表结构。
+    // 一次性 job 輸入的過期清理（amsg-server 2.6.0-next.21+）：cron 每跳順手把這個
+    // 命名空間下超過天數沒更新的條目清掉。角色狀態那個命名空間（amsg:char:<id>，
+    // 裝 fire_pack / tool_pack）不配 TTL——那些是要長期留著的，配了就等於定時把
+    // 角色的雲端狀態抹掉。判據是行本來就有的 updated_at 列，不加列、不動表結構。
     clientStateTtl: { [AMSG_JOB_NAMESPACE]: AMSG_JOB_TTL_DAYS },
-    // 满血 fire-time hooks（onBeforeFire 现场填槽 + onLLMOutput 分类 +
-    // executeToolCalls 服务端工具循环）；总超时用库默认 240s，轮数由 onBeforeFire 按
-    // 是否接入 MCP 返回 5 / 12；即时对话再把总超时抬到 INSTANT_TOTAL_TIMEOUT_MS。
+    // 滿血 fire-time hooks（onBeforeFire 現場填槽 + onLLMOutput 分類 +
+    // executeToolCalls 服務端工具循環）；總超時用庫默認 240s，輪數由 onBeforeFire 按
+    // 是否接入 MCP 返回 5 / 12；即時對話再把總超時抬到 INSTANT_TOTAL_TIMEOUT_MS。
     hooks: amsgHooks,
-    // 租约不再显式配：amsg-server 2.6.0-next.15 起投递期间按心跳滚动续租（30s 一跳、
-    // 90s TTL），fire 跑多久租约就滚多久——以前为了盖住即时对话 600s 的 fire 把
-    // claimLeaseMs 定格在 12 分钟，代价是 isolate 中途死掉后任务要干等 12 分钟才被
-    // 下一跳接手；心跳租约把这个恢复窗压到 ~90s，还不用管单条超时抬到多高。
-    // 收尾回执 + 过期跳过回执（config 级 hook）。
-    // onFireSettled: 无论这次 fire 是发出去了、跳过了还是抛错了都会调一次，self_log
-    //   在这里统一落盘（见 amsgFireSettled）。不用 onAfterSend——它只在真发出去那条路
-    //   触发，角色自排任务碰上「只做了副作用没说话」就会漏账变成幽灵任务。
-    // onStaleSkip: 过期不补发时给面板留一句「为什么没响」（见 amsgStaleSkip）。
+    // 租約不再顯式配：amsg-server 2.6.0-next.15 起投遞期間按心跳滾動續租（30s 一跳、
+    // 90s TTL），fire 跑多久租約就滾多久——以前為了蓋住即時對話 600s 的 fire 把
+    // claimLeaseMs 定格在 12 分鐘，代價是 isolate 中途死掉後任務要乾等 12 分鐘才被
+    // 下一跳接手；心跳租約把這個恢復窗壓到 ~90s，還不用管單條超時抬到多高。
+    // 收尾回執 + 過期跳過回執（config 級 hook）。
+    // onFireSettled: 無論這次 fire 是發出去了、跳過了還是拋錯了都會調一次，self_log
+    //   在這裡統一落盤（見 amsgFireSettled）。不用 onAfterSend——它只在真發出去那條路
+    //   觸發，角色自排任務碰上「只做了副作用沒說話」就會漏帳變成幽靈任務。
+    // onStaleSkip: 過期不補發時給面板留一句「為什麼沒響」（見 amsgStaleSkip）。
     onFireSettled: amsgFireSettled,
     onStaleSkip: amsgStaleSkip,
-    // 同一个角色的多条任务不并发跑：两条撞在一起时用户会收到两条互不知情的消息，
-    // 而且 self_log 是读-改-写整份，后写的会盖掉先写的那条「我说过什么」。分组键取
-    // 角色 id，上游按它同跳去重 + 跨跳看租约，被拦下的任务一个字段都不动，下一跳原样再来。
+    // 同一個角色的多條任務不併發跑：兩條撞在一起時用戶會收到兩條互不知情的消息，
+    // 而且 self_log 是讀-改-寫整份，後寫的會蓋掉先寫的那條「我說過什麼」。分組鍵取
+    // 角色 id，上游按它同跳去重 + 跨跳看租約，被攔下的任務一個字段都不動，下一跳原樣再來。
     //
-    // 后台任务（门牌整理这类）按种类另开一组：上面那两条串行的理由它一条都不沾——不说话、
-    // 也不写 self_log（它在 onBeforeFire 就被 kind 分派接走了）。跟聊天挤同一组的话，一次
-    // 门牌整理最长占住这个角色 120 秒，而它恰恰是在一轮对话刚结束时起跑的：用户下一句话
-    // 的即时对话任务排在它后面，人就干等着「正在输入…」。同种后台任务之间仍按角色串行
-    // ——同一角色两份整理并发落地，就是拿两份旧快照互相盖。
+    // 後台任務（門牌整理這類）按種類另開一組：上面那兩條串行的理由它一條都不沾——不說話、
+    // 也不寫 self_log（它在 onBeforeFire 就被 kind 分派接走了）。跟聊天擠同一組的話，一次
+    // 門牌整理最長佔住這個角色 120 秒，而它恰恰是在一輪對話剛結束時起跑的：用戶下一句話
+    // 的即時對話任務排在它後面，人就乾等著「正在輸入…」。同種後台任務之間仍按角色串行
+    // ——同一角色兩份整理併發落地，就是拿兩份舊快照互相蓋。
     serializeBy: (task) => {
       const charId = typeof task.metadata?.charId === "string" ? task.metadata.charId : null;
       if (!charId) return null;
@@ -14110,15 +14132,15 @@ var buildWorkerConfig = (env) => {
 var REQUIRED_ENV = [
   {
     key: "DB",
-    label: "D1 \u6570\u636E\u5E93\u7ED1\u5B9A",
-    // D1 绑定不在 Variables and Secrets 那一栏，指错地方比不指还费时间。
-    how: "\u5728 Settings \u2192 Bindings \u91CC\u52A0\u4E00\u6761 D1 database\uFF0C\u53D8\u91CF\u540D\u586B DB",
+    label: "D1 \u6578\u64DA\u5EAB\u7D81\u5B9A",
+    // D1 綁定不在 Variables and Secrets 那一欄，指錯地方比不指還費時間。
+    how: "\u5728 Settings \u2192 Bindings \u91CC\u52A0\u4E00\u689D D1 database\uFF0C\u8B8A\u91CF\u540D\u586B DB",
     isMissing: (env) => typeof env.DB?.prepare !== "function"
   },
   {
     key: "AMSG_MASTER_KEY",
     label: "AMSG_MASTER_KEY",
-    how: "\u5728 Settings \u2192 Variables and Secrets \u91CC\u52A0\uFF0C\u7C7B\u578B\u9009 Secret",
+    how: "\u5728 Settings \u2192 Variables and Secrets \u91CC\u52A0\uFF0C\u985E\u578B\u9078 Secret",
     isMissing: (env) => !env.AMSG_MASTER_KEY?.trim()
   }
 ];
@@ -14129,7 +14151,7 @@ var inspectWorkerEnv = (env) => {
   if (masterKey && !/^[0-9a-f]{64}$/i.test(masterKey)) {
     warnings.push({
       code: "MASTER_KEY_FORMAT",
-      message: "AMSG_MASTER_KEY \u4E0D\u662F 64 \u4F4D\u5341\u516D\u8FDB\u5236\uFF0C\u53EF\u80FD\u662F\u7C98\u8D34\u65F6\u5C11\u4E86\u51E0\u4F4D\u3002\u5B83\u5FC5\u987B\u548C\u5F53\u521D\u751F\u6210\u7684\u90A3\u4E00\u4E32\u5B8C\u5168\u4E00\u81F4\uFF0C\u6362\u4E00\u4E32\u7684\u8BDD\u5DF2\u5B58\u7684\u4EFB\u52A1\u5C31\u89E3\u4E0D\u5F00\u4E86\u3002"
+      message: "AMSG_MASTER_KEY \u4E0D\u662F 64 \u4F4D\u5341\u516D\u9032\u5236\uFF0C\u53EF\u80FD\u662F\u7C98\u8CBC\u6642\u5C11\u4E86\u5E7E\u4F4D\u3002\u5B83\u5FC5\u9808\u548C\u7576\u521D\u751F\u6210\u7684\u90A3\u4E00\u4E32\u5B8C\u5168\u4E00\u81F4\uFF0C\u63DB\u4E00\u4E32\u7684\u8A71\u5DF2\u5B58\u7684\u4EFB\u52D9\u5C31\u89E3\u4E0D\u958B\u4E86\u3002"
     });
   }
   const vapidReady = Boolean(env.VAPID_PUBLIC_KEY?.trim() && env.VAPID_PRIVATE_KEY?.trim());
@@ -14137,25 +14159,25 @@ var inspectWorkerEnv = (env) => {
   const fcmReady = fcmParts.every(Boolean);
   if (!vapidReady) {
     warnings.push({
-      // 保留既有诊断码，避免旧前端/排障脚本因为新增 FCM 通道而失配。
+      // 保留既有診斷碼，避免舊前端/排障腳本因為新增 FCM 通道而失配。
       code: "VAPID_MISSING",
-      message: fcmReady ? "Capacitor FCM \u901A\u9053\u5DF2\u914D\u7F6E\uFF0C\u4F46 VAPID \u6CA1\u914D\u9F50\uFF1A\u539F\u751F App \u53EF\u63A8\u9001\uFF0C\u6D4F\u89C8\u5668/PWA Web Push \u4E0D\u53EF\u7528\u3002" : "VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY \u6CA1\u914D\u9F50\uFF0C\u4E14\u6CA1\u6709\u5B8C\u6574 FCM \u914D\u7F6E\uFF0C\u5230\u70B9\u6D88\u606F\u4E0D\u4F1A\u63A8\u9001\u51FA\u53BB\u3002"
+      message: fcmReady ? "Capacitor FCM \u901A\u9053\u5DF2\u914D\u7F6E\uFF0C\u4F46 VAPID \u6C92\u914D\u9F4A\uFF1A\u539F\u751F App \u53EF\u63A8\u9001\uFF0C\u700F\u89BD\u5668/PWA Web Push \u4E0D\u53EF\u7528\u3002" : "VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY \u6C92\u914D\u9F4A\uFF0C\u4E14\u6C92\u6709\u5B8C\u6574 FCM \u914D\u7F6E\uFF0C\u5230\u9EDE\u6D88\u606F\u4E0D\u6703\u63A8\u9001\u51FA\u53BB\u3002"
     });
   }
   if (fcmParts.some(Boolean) && !fcmReady) warnings.push({
     code: "FCM_INCOMPLETE",
-    message: "FCM \u914D\u7F6E\u53EA\u586B\u4E86\u4E00\u90E8\u5206\uFF1B\u9700\u8981\u540C\u65F6\u8BBE\u7F6E FCM_PROJECT_ID\u3001FCM_SERVICE_ACCOUNT_EMAIL\u3001FCM_SERVICE_ACCOUNT_PRIVATE_KEY\u3002"
+    message: "FCM \u914D\u7F6E\u53EA\u586B\u4E86\u4E00\u90E8\u5206\uFF1B\u9700\u8981\u540C\u6642\u8A2D\u7F6E FCM_PROJECT_ID\u3001FCM_SERVICE_ACCOUNT_EMAIL\u3001FCM_SERVICE_ACCOUNT_PRIVATE_KEY\u3002"
   });
   if (!env.AMSG_SERVER_TOKEN?.trim()) {
     warnings.push({
       code: "SERVER_TOKEN_MISSING",
-      message: "\u6CA1\u8BBE AMSG_SERVER_TOKEN\uFF0C\u8FD9\u4E2A Worker \u5730\u5740\u5BF9\u516C\u7F51\u5F00\u653E\uFF0C\u77E5\u9053\u5730\u5740\u7684\u4EBA\u90FD\u80FD\u8BFB\u5199\u4F60\u7684\u4EFB\u52A1\u3002"
+      message: "\u6C92\u8A2D AMSG_SERVER_TOKEN\uFF0C\u9019\u500B Worker \u5730\u5740\u5C0D\u516C\u7DB2\u958B\u653E\uFF0C\u77E5\u9053\u5730\u5740\u7684\u4EBA\u90FD\u80FD\u8B80\u5BEB\u4F60\u7684\u4EFB\u52D9\u3002"
     });
   }
   return {
     ok: absent.length === 0,
     missing: absent.map((item) => item.key),
-    message: absent.length ? `Worker \u914D\u7F6E\u4E0D\u5B8C\u6574\uFF1A${absent.map((item) => `\u7F3A ${item.label}\uFF08${item.how}\uFF09`).join("\uFF1B")}\u3002` : "Worker \u914D\u7F6E\u9F50\u5168\u3002",
+    message: absent.length ? `Worker \u914D\u7F6E\u4E0D\u5B8C\u6574\uFF1A${absent.map((item) => `\u7F3A ${item.label}\uFF08${item.how}\uFF09`).join("\uFF1B")}\u3002` : "Worker \u914D\u7F6E\u9F4A\u5168\u3002",
     warnings
   };
 };
@@ -14235,12 +14257,12 @@ var inspectStorage = async (env, probe) => {
     return {
       reachable: true,
       schemaReady,
-      // null = 这次自查跑成了。有值时 schemaReady 必然是 null，界面照它选该说哪句话。
+      // null = 這次自查跑成了。有值時 schemaReady 必然是 null，界面照它選該說哪句話。
       schemaError,
       missingTables,
       missingColumns,
-      // 单用户 worker 只存一行。到点却发不出去最常见的原因就是这行是空的——
-      // 换了一台 worker 之后云端订阅是空的，而浏览器那侧的订阅一个字都没变。
+      // 單用戶 worker 只存一行。到點卻發不出去最常見的原因就是這行是空的——
+      // 換了一台 worker 之後雲端訂閱是空的，而瀏覽器那側的訂閱一個字都沒變。
       pushSubscriptionRegistered: (pushRow?.n ?? 0) > 0,
       pushDelivery: await inspectPushDelivery(db, pushRow?.updatedAt ?? null),
       pendingTasks: stats?.pending ?? 0,
@@ -14261,11 +14283,11 @@ var judgeTick = (storage) => {
 var INSTANT_TICK_UUID_KEY = "taskUuid";
 var upstream = createSingleUserCloudflareWorker(buildWorkerConfig, {
   /**
-   * cron 那条路上没有调用方能看到错误响应——上游把异常 catch 掉之后，整轮就这么无声
-   * 结束了。表结构漂移（升级后老表没加列）撞上的正是这里：cron 每分钟静默失败、
-   * 主动消息整个停摆，而界面上一切正常，没人知道出了事。
+   * cron 那條路上沒有調用方能看到錯誤響應——上游把異常 catch 掉之後，整輪就這麼無聲
+   * 結束了。表結構漂移（升級後老表沒加列）撞上的正是這裡：cron 每分鐘靜默失敗、
+   * 主動消息整個停擺，而界面上一切正常，沒人知道出了事。
    *
-   * 这个 hook 是那条路唯一的出口，所以什么都不做也要把它记下来。
+   * 這個 hook 是那條路唯一的出口，所以什麼都不做也要把它記下來。
    */
   onError({ stage, cause, path }) {
     const where = path ? `${stage} ${path}` : stage;
@@ -14283,32 +14305,32 @@ var inspectSchema = async (env) => {
 };
 var InstantTickDO = class extends DurableObject {
   /**
-   * 叫醒：记下要跑哪条、设一个立刻到期的 alarm，然后马上返回——调用方还等着回 202。
+   * 叫醒：記下要跑哪條、設一個立刻到期的 alarm，然後馬上返回——調用方還等著回 202。
    *
-   * 已经挂着 alarm 就只覆盖 uuid 不重设时间：同一个实例只服务同一条任务，重复叫醒
-   * （客户端重发）应该合并成一次，而不是排成两次生成。
+   * 已經掛著 alarm 就只覆蓋 uuid 不重設時間：同一個實例只服務同一條任務，重複叫醒
+   * （客戶端重發）應該合併成一次，而不是排成兩次生成。
    */
   async kick(uuid) {
     await this.ctx.storage.put(INSTANT_TICK_UUID_KEY, uuid);
     if (await this.ctx.storage.getAlarm() !== null) return;
     await this.ctx.storage.setAlarm(Date.now());
   }
-  /** 独立 invocation，15 分钟墙钟。跑挂了不重设 alarm——下一分钟的 cron 会接着捡。 */
+  /** 獨立 invocation，15 分鐘牆鍾。跑掛了不重設 alarm——下一分鐘的 cron 會接著撿。 */
   async alarm() {
     const uuid = await this.ctx.storage.get(INSTANT_TICK_UUID_KEY);
     if (!uuid) {
-      console.error("[amsg:instant-tick] alarm \u9192\u4E86\u5374\u4E0D\u77E5\u9053\u8981\u8DD1\u54EA\u6761\uFF0C\u8DF3\u8FC7\uFF08\u7B49 cron \u515C\u5E95\uFF09");
+      console.error("[amsg:instant-tick] alarm \u9192\u4E86\u537B\u4E0D\u77E5\u9053\u8981\u8DD1\u54EA\u689D\uFF0C\u8DF3\u904E\uFF08\u7B49 cron \u515C\u5E95\uFF09");
       return;
     }
     const report = inspectWorkerEnv(this.env);
     if (!report.ok) {
-      console.error(`[amsg:instant-tick] \u6574\u8F6E\u8DF3\u8FC7\uFF1A${report.message}`);
+      console.error(`[amsg:instant-tick] \u6574\u8F2A\u8DF3\u904E\uFF1A${report.message}`);
       return;
     }
     const result = await upstream.runTask(uuid, this.env);
     await this.ctx.storage.delete(INSTANT_TICK_UUID_KEY);
     if (!result.ran) {
-      console.warn(`[amsg:instant-tick] ${uuid} \u6CA1\u8DD1\uFF1A${result.reason}`);
+      console.warn(`[amsg:instant-tick] ${uuid} \u6C92\u8DD1\uFF1A${result.reason}`);
     }
   }
 };
@@ -14338,11 +14360,11 @@ var src_default = {
           ...inspectWorkerEnv(env),
           instantChat: true,
           instantTick: !!env.INSTANT_TICK,
-          // 这份代码认不认识「后台任务」（metadata.amsgKind → handler，见 fireKinds.ts）。
-          // 老 bundle 没有这个字段，前端据此不去建那种任务——老 worker 会把它当聊天任务
-          // 跑，然后卡在「本次任务指令缺失」终态失败：任务行不在用户的清单里，面板一片
-          // 正常，而门牌永远不更新。报的是**这份代码有没有**，不是版本号：自更新永远由
-          // 旧代码执行，版本号对上了不代表新逻辑真的在跑。
+          // 這份代碼認不認識「後台任務」（metadata.amsgKind → handler，見 fireKinds.ts）。
+          // 老 bundle 沒有這個字段，前端據此不去建那種任務——老 worker 會把它當聊天任務
+          // 跑，然後卡在「本次任務指令缺失」終態失敗：任務行不在用戶的清單裡，面板一片
+          // 正常，而門牌永遠不更新。報的是**這份代碼有沒有**，不是版本號：自更新永遠由
+          // 舊代碼執行，版本號對上了不代表新邏輯真的在跑。
           backgroundJobs: true,
           workerVersion: AMSG_BUNDLE_VERSION
         }
@@ -14407,7 +14429,7 @@ var src_default = {
       if (typeof enabled !== "boolean") {
         return jsonWithCors(400, {
           success: false,
-          error: { code: "BAD_REQUEST", message: '\u8BF7\u6C42\u4F53\u8981\u662F { "enabled": true | false }' }
+          error: { code: "BAD_REQUEST", message: '\u8ACB\u6C42\u9AD4\u8981\u662F { "enabled": true | false }' }
         });
       }
       const result = await handleCronTriggerWrite(env, request, enabled);
@@ -14440,7 +14462,7 @@ var src_default = {
   async scheduled(event, env) {
     const report = inspectWorkerEnv(env);
     if (!report.ok) {
-      console.error(`[amsg] \u5B9A\u65F6\u4EFB\u52A1\u6574\u8F6E\u8DF3\u8FC7\uFF1A${report.message}`);
+      console.error(`[amsg] \u5B9A\u6642\u4EFB\u52D9\u6574\u8F2A\u8DF3\u904E\uFF1A${report.message}`);
       return;
     }
     await upstream.scheduled(event, env);

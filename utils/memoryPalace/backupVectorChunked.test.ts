@@ -9,8 +9,8 @@ const makeRows = () => [
     { memoryId: 'm5', charId: 'c3', vector: new Float32Array([0.5, 0.25, 0.125, 0.0625]) },
 ];
 
-describe('记忆向量低内存备份编码', () => {
-    it('分批两遍扫描与整表编码字节、索引完全一致', async () => {
+describe('記憶向量低內存備份編碼', () => {
+    it('分批兩遍掃描與整表編碼字節、索引完全一致', async () => {
         const rows = makeRows();
         let scans = 0;
         let largestBatch = 0;
@@ -30,7 +30,7 @@ describe('记忆向量低内存备份编码', () => {
         expect(Array.from(chunked.bin)).toEqual(Array.from(whole.bin));
     });
 
-    it('4500 条向量可只按 25 条批次生成，不要求调用方持有整表', async () => {
+    it('4500 條向量可只按 25 條批次生成，不要求調用方持有整表', async () => {
         const count = 4500;
         const dimensions = 1024;
         let scans = 0;
@@ -63,7 +63,7 @@ describe('记忆向量低内存备份编码', () => {
         });
     });
 
-    it('两遍扫描之间记录顺序或内容变化会中止，不生成错位备份', async () => {
+    it('兩遍掃描之間記錄順序或內容變化會中止，不生成錯位備份', async () => {
         const rows = makeRows();
         let scan = 0;
         await expect(encodeVectorsForBackupChunked(async (onBatch) => {
@@ -71,6 +71,6 @@ describe('记忆向量低内存备份编码', () => {
             const current = scan === 1 ? rows : [...rows].reverse();
             await onBatch(current.slice(0, 3));
             await onBatch(current.slice(3));
-        })).rejects.toThrow(/备份期间记忆向量发生变化/);
+        })).rejects.toThrow(/[备備]份期[间間][记記][忆憶]向量[发發]生[变變]化/);
     });
 });

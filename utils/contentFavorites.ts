@@ -29,13 +29,13 @@ interface ContentFavoriteBase {
 export interface ChatContentFavorite extends ContentFavoriteBase {
     kind: 'chat';
     messageId: number;
-    /** 文字/卡片的轻量收藏副本；不包含 metadata，更不用于图片消息。 */
+    /** 文字/卡片的輕量收藏副本；不包含 metadata，更不用於圖片消息。 */
     snapshot?: ChatFavoriteSnapshot;
 }
 
 export interface ImageContentFavorite extends ContentFavoriteBase {
     kind: 'image';
-    /** 仅保存不可逆短指纹用于去重，不保存 URL、Base64、Blob 或图片副本。 */
+    /** 僅保存不可逆短指紋用於去重，不保存 URL、Base64、Blob 或圖片副本。 */
     fingerprint: string;
     references: ContentFavoriteReference[];
 }
@@ -380,7 +380,7 @@ const preserveImageFavoritesBeforeDeletion = async (
                 imageUrl = await resolveImageReference(reference);
                 if (imageUrl) break;
             }
-            if (!imageUrl) throw new Error('无法保留已收藏图片，已取消删除原图');
+            if (!imageUrl) throw new Error('無法保留已收藏圖片，已取消刪除原圖');
             const assetId = favoriteImageAssetId(item.fingerprint);
             await DB.saveAssetRaw(assetId, {
                 version: 1,
@@ -438,9 +438,9 @@ export const resolveContentFavorite = async (favorite: ContentFavorite): Promise
     for (const reference of references) {
         const rawUrl = await resolveImageReference(reference);
         if (rawUrl && makeImageContentFavoriteId(rawUrl) === favorite.id) {
-            // resolveImageReference 给回的是 blobref:<id> 令牌（消息/相册/收藏保留资产存的
-            // 都是令牌，不是能直接喂给 <img src> 的东西）——指纹必须按令牌算（收藏时就是这么
-            // 算的 id），但真正拿去渲染的这份要转成 data URL，不然图会直接挂空。
+            // resolveImageReference 給回的是 blobref:<id> 令牌（消息/相冊/收藏保留資產存的
+            // 都是令牌，不是能直接餵給 <img src> 的東西）——指紋必須按令牌算（收藏時就是這麼
+            // 算的 id），但真正拿去渲染的這份要轉成 data URL，不然圖會直接掛空。
             const imageUrl = await resolveRefToDataUrl(rawUrl);
             return { favorite, imageUrl: imageUrl || null, reference };
         }

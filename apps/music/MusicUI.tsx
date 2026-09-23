@@ -1,6 +1,6 @@
 /**
- * 雫 (shizuku) 主题 — 音乐 App 视觉组件
- * 水滴般清澈 + 二次元装饰: 玻璃拟态, 浮游粒子, 星芒, 柔光, 梦幻渐变
+ * 雫 (shizuku) 主題 — 音樂 App 視覺組件
+ * 水滴般清澈 + 二次元裝飾: 玻璃擬態, 浮游粒子, 星芒, 柔光, 夢幻漸變
  */
 import React, { useEffect } from 'react';
 import {
@@ -12,25 +12,25 @@ import TokenImg from '../../components/os/TokenImg';
 
 /* ══════════ 色板 — 水滴 × 星空 ══════════ */
 export const C = {
-  bg:       '#fbfbff',       // 几乎纯白 (一抹紫灰)
-  bgDeep:   '#f3f1fa',       // 轻雾紫
-  bgTint:   '#ebe9f5',       // 最深层也只是浅紫雾
-  primary:  '#807c9d',       // 淡紫调灰 — 比深紫更柔，饱和度更低
+  bg:       '#fbfbff',       // 幾乎純白 (一抹紫灰)
+  bgDeep:   '#f3f1fa',       // 輕霧紫
+  bgTint:   '#ebe9f5',       // 最深層也只是淺紫霧
+  primary:  '#807c9d',       // 淡紫調灰 — 比深紫更柔，飽和度更低
   accent:   '#b3a8ce',       // 淡紫
-  soft:     '#e0d9f0',       // secondary container — 紫雾
-  glow:     '#cdc6e9',       // 发光淡紫
-  sakura:   '#f4c2cf',       // 樱花粉 (装饰)
-  lavender: '#cfc3e8',       // 薰衣草 (装饰)
+  soft:     '#e0d9f0',       // secondary container — 紫霧
+  glow:     '#cdc6e9',       // 發光淡紫
+  sakura:   '#f4c2cf',       // 櫻花粉 (裝飾)
+  lavender: '#cfc3e8',       // 薰衣草 (裝飾)
   surface:  'rgba(255,255,255,0.65)',
   glass:    'rgba(255,255,255,0.35)',
   text:     '#22232a',       // 正文
-  muted:    '#7c779a',       // 弱文字 (紫调)
+  muted:    '#7c779a',       // 弱文字 (紫調)
   faint:    '#bcb8cc',       // 超弱
   vip:      '#d4a06a',       // VIP
   danger:   '#ba1a1a',
 } as const;
 
-/* ══════════ 全局 CSS 动画 (注入一次) ══════════ */
+/* ══════════ 全局 CSS 動畫 (注入一次) ══════════ */
 const STYLE_ID = '__shizuku_anims';
 const injectStyles = () => {
   if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
@@ -54,7 +54,7 @@ const injectStyles = () => {
   document.head.appendChild(style);
 };
 
-/* ══════════ 星芒 kirakira ✦ (带闪烁动画) ══════════ */
+/* ══════════ 星芒 kirakira ✦ (帶閃爍動畫) ══════════ */
 export const Sparkle: React.FC<{ className?: string; size?: number; color?: string; delay?: number }> = ({
   className = '', size = 10, color = C.accent, delay = 0,
 }) => (
@@ -64,7 +64,7 @@ export const Sparkle: React.FC<{ className?: string; size?: number; color?: stri
   </svg>
 );
 
-/* ══════════ 十字四芒星 ✦ (窄瘦版, 用于歌词两侧) ══════════ */
+/* ══════════ 十字四芒星 ✦ (窄瘦版, 用於歌詞兩側) ══════════ */
 export const CrossStar: React.FC<{ className?: string; size?: number; color?: string; delay?: number; solid?: boolean }> = ({
   className = '', size = 12, color = C.accent, delay = 0, solid = true,
 }) => (
@@ -74,19 +74,19 @@ export const CrossStar: React.FC<{ className?: string; size?: number; color?: st
       filter: `drop-shadow(0 0 6px ${color})`,
       animation: `shizuku-twinkle 1.8s ease-in-out ${delay}s infinite`,
     }}>
-    {/* 四角星:瘦长菱形+横向菱形叠加 */}
+    {/* 四角星:瘦長菱形+橫向菱形疊加 */}
     <path d="M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z" />
   </svg>
 );
 
-/* ══════════ 水滴装饰 ══════════ */
+/* ══════════ 水滴裝飾 ══════════ */
 const WaterDrop: React.FC<{ className?: string; size?: number }> = ({ className = '', size = 8 }) => (
   <svg width={size} height={size * 1.4} viewBox="0 0 10 14" className={className} fill={C.glow} style={{ opacity: 0.4 }}>
     <path d="M5 0 C5 0 0 7 0 9.5 C0 12 2.2 14 5 14 C7.8 14 10 12 10 9.5 C10 7 5 0 5 0Z" />
   </svg>
 );
 
-/* ══════════ Header — 毛玻璃导航条 ══════════ */
+/* ══════════ Header — 毛玻璃導航條 ══════════ */
 export const MizuHeader: React.FC<{
   title: string;
   onBack?: () => void;
@@ -113,7 +113,7 @@ export const MizuHeader: React.FC<{
   </div>
 );
 
-/* ══════════ 搜索栏 — 水晶胶囊 ══════════ */
+/* ══════════ 搜索欄 — 水晶膠囊 ══════════ */
 export const SearchBar: React.FC<{
   value: string;
   onChange: (v: string) => void;
@@ -129,7 +129,7 @@ export const SearchBar: React.FC<{
       <input
         className="flex-1 bg-transparent outline-none text-sm placeholder:italic"
         style={{ color: C.text }}
-        placeholder="搜一首想听的歌..."
+        placeholder="搜一首想聽的歌..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') onSearch(); }}
@@ -146,7 +146,7 @@ export const SearchBar: React.FC<{
       }}
     >
       <span className="relative z-10">{searching ? '...' : '搜索'}</span>
-      {/* shimmer 扫光 */}
+      {/* shimmer 掃光 */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: `linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%)`,
         backgroundSize: '200% 100%',
@@ -156,7 +156,7 @@ export const SearchBar: React.FC<{
   </div>
 );
 
-/* ══════════ 歌曲列表项 — 玻璃卡片 ══════════ */
+/* ══════════ 歌曲列表項 — 玻璃卡片 ══════════ */
 export const SongRow: React.FC<{
   name: string;
   artists: string;
@@ -181,7 +181,7 @@ export const SongRow: React.FC<{
       boxShadow: isActive ? `0 2px 16px ${C.glow}15` : 'none',
     }}
   >
-    {/* 封面 — 圆角 + 水光边框 */}
+    {/* 封面 — 圓角 + 水光邊框 */}
     <div className="relative shrink-0">
       <img src={resolvedAlbumPic} alt="" className="w-11 h-11 rounded-xl object-cover"
         style={{ border: `1.5px solid ${isActive ? C.accent + '60' : C.faint + '40'}` }} />
@@ -202,14 +202,14 @@ export const SongRow: React.FC<{
   );
 };
 
-/* ══════════ 小头像 — 处理 emoji / URL / data: 三种 avatar ══════════ */
+/* ══════════ 小頭像 — 處理 emoji / URL / data: 三種 avatar ══════════ */
 const TinyAvatar: React.FC<{
   avatar?: string;
   name: string;
   size?: number;
   ring?: string;
 }> = ({ avatar, name, size = 28, ring = C.sakura }) => {
-  // 头像可能是图床直链 / base64 / blobref 令牌，三种都算图；其余当 emoji 或首字兜底。
+  // 頭像可能是圖床直鏈 / base64 / blobref 令牌，三種都算圖；其餘當 emoji 或首字兜底。
   const isImg = !!avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || isBlobRef(avatar));
   const style: React.CSSProperties = {
     width: size,
@@ -235,15 +235,15 @@ const TinyAvatar: React.FC<{
   );
 };
 
-/* ══════════ 一起听徽章 — 居中 · 两个头像 · 粉紫高级感 ══════════ */
+/* ══════════ 一起聽徽章 — 居中 · 兩個頭像 · 粉紫高級感 ══════════ */
 const TogetherHeader: React.FC<{
   userAvatar?: string;
   userName?: string;
   companions: { id: string; name: string; avatar?: string }[];
   onKick?: (id: string) => void;
 }> = ({ userAvatar, userName = '你', companions, onKick }) => {
-  // 目前最多和一个 char 一起听 —— 居中两头像是刚好的"小情侣"结构；
-  // 万一哪天同时和多个 char 听，改成主头像 + 叠头像组还能自然兼容。
+  // 目前最多和一個 char 一起聽 —— 居中兩頭像是剛好的"小情侶"結構；
+  // 萬一哪天同時和多個 char 聽，改成主頭像 + 疊頭像組還能自然兼容。
   const main = companions[0];
   const extraCount = companions.length - 1;
   return (
@@ -254,13 +254,13 @@ const TogetherHeader: React.FC<{
         boxShadow: `inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 12px ${C.sakura}20`,
       }}
     >
-      {/* 背景光晕 */}
+      {/* 背景光暈 */}
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-60"
         style={{
           background: `radial-gradient(ellipse at 30% 40%, ${C.sakura}40 0%, transparent 45%),
                        radial-gradient(ellipse at 70% 60%, ${C.lavender}38 0%, transparent 50%)`,
         }} />
-      {/* 居中两头像 + 中间的心 */}
+      {/* 居中兩頭像 + 中間的心 */}
       <div className="relative flex items-center justify-center gap-2">
         <TinyAvatar avatar={userAvatar} name={userName} size={30} ring={C.glow} />
         <div className="flex flex-col items-center justify-center -mx-1"
@@ -293,14 +293,14 @@ const TogetherHeader: React.FC<{
         <span className="font-medium">{main?.name || ''}</span>
         {extraCount > 0 && <span className="opacity-70"> 等 {companions.length} 人</span>}
       </div>
-      {/* 结束一起听 —— 右上角小 × */}
+      {/* 結束一起聽 —— 右上角小 × */}
       {onKick && main && (
         <button
           onClick={(e) => { e.stopPropagation(); onKick(main.id); }}
-          aria-label={`结束和 ${main.name} 的一起听`}
+          aria-label={`結束和 ${main.name} 的一起聽`}
           className="absolute top-1 right-1.5 p-0.5 rounded-full transition-colors"
           style={{ color: C.primary, background: 'rgba(255,255,255,0.5)' }}
-          title="结束一起听"
+          title="結束一起聽"
         >
           <X size={10} weight="bold" />
         </button>
@@ -309,7 +309,7 @@ const TogetherHeader: React.FC<{
   );
 };
 
-/* ══════════ Mini 播放器 — 浮游玻璃条 ══════════ */
+/* ══════════ Mini 播放器 — 浮游玻璃條 ══════════ */
 export const MiniPlayer: React.FC<{
   name: string;
   artists: string;
@@ -319,14 +319,14 @@ export const MiniPlayer: React.FC<{
   onPrev: () => void;
   onToggle: () => void;
   onNext: () => void;
-  userAvatar?: string;   // 当前用户的头像（给"一起听"顶部用）
-  userName?: string;     // 当前用户昵称
-  companions?: { id: string; name: string; avatar?: string }[];   // 正在一起听的 char（切歌自动清空）
-  // 点 × 立刻把该 char 从"一起听"名单里移除；下次 chat 发送时
-  // 氛围/工具提示词都会掉回旁观措辞。
+  userAvatar?: string;   // 當前用戶的頭像（給"一起聽"頂部用）
+  userName?: string;     // 當前用戶暱稱
+  companions?: { id: string; name: string; avatar?: string }[];   // 正在一起聽的 char（切歌自動清空）
+  // 點 × 立刻把該 char 從"一起聽"名單裡移除；下次 chat 發送時
+  // 氛圍/工具提示詞都會掉回旁觀措辭。
   onKickCompanion?: (charId: string) => void;
-  charsWithSong?: { id: string; name: string; playlistTitle: string }[]; // 歌单里也有这首歌的 char
-  regenStatus?: string;  // 当前歌正在重录时的状态文案，置则显示进度条
+  charsWithSong?: { id: string; name: string; playlistTitle: string }[]; // 歌單裡也有這首歌的 char
+  regenStatus?: string;  // 當前歌正在重錄時的狀態文案，置則顯示進度條
 }> = ({ name, artists, albumPic, playing, onTap, onPrev, onToggle, onNext, userAvatar, userName, companions, onKickCompanion, charsWithSong, regenStatus }) => {
   const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
   return (
@@ -338,7 +338,7 @@ export const MiniPlayer: React.FC<{
       animation: 'shizuku-glow 4s ease-in-out infinite',
     }}
   >
-    {/* 伴听徽章 — 居中两个头像 + 心 */}
+    {/* 伴聽徽章 — 居中兩個頭像 + 心 */}
     {(companions && companions.length > 0) && (
       <TogetherHeader
         userAvatar={userAvatar}
@@ -348,7 +348,7 @@ export const MiniPlayer: React.FC<{
       />
     )}
     <div className="flex items-center gap-3">
-      {/* 封面 — 水滴圆角 */}
+      {/* 封面 — 水滴圓角 */}
       <div className="relative">
         <img src={resolvedAlbumPic} alt="" className="w-10 h-10 rounded-xl object-cover"
           style={{ border: `1.5px solid ${C.accent}40`, opacity: regenStatus ? 0.4 : 1 }} />
@@ -364,7 +364,7 @@ export const MiniPlayer: React.FC<{
         <div className="text-xs font-normal truncate" style={{ color: C.text }}>{name}</div>
         {regenStatus ? (
           <div className="flex items-center gap-1 text-[10px] truncate" style={{ color: C.primary, fontFamily: 'monospace' }}>
-            <span>● 重录中 ·</span>
+            <span>● 重錄中 ·</span>
             <span className="truncate" style={{ color: C.muted }}>{regenStatus}</span>
           </div>
         ) : (
@@ -381,18 +381,18 @@ export const MiniPlayer: React.FC<{
         <button onClick={(e) => { e.stopPropagation(); onNext(); }} className="p-1.5 rounded-full transition-colors" style={{ color: C.muted }}><SkipForward size={14} weight="fill" /></button>
       </div>
     </div>
-    {/* 同款歌单提示 */}
+    {/* 同款歌單提示 */}
     {(!companions || companions.length === 0) && charsWithSong && charsWithSong.length > 0 && (
       <div className="mt-1.5 text-[9px] italic truncate" style={{ color: C.muted }}>
-        🎵 {charsWithSong[0].name} 的《{charsWithSong[0].playlistTitle}》里也有
-        {charsWithSong.length > 1 && ` · 还有 ${charsWithSong.length - 1} 位`}
+        🎵 {charsWithSong[0].name} 的《{charsWithSong[0].playlistTitle}》裡也有
+        {charsWithSong.length > 1 && ` · 還有 ${charsWithSong.length - 1} 位`}
       </div>
     )}
   </div>
   );
 };
 
-/* ══════════ 唱片 — iridescent 星云版 ══════════ */
+/* ══════════ 唱片 — iridescent 星雲版 ══════════ */
 export const VinylDisc: React.FC<{
   albumPic: string;
   playing: boolean;
@@ -402,7 +402,7 @@ export const VinylDisc: React.FC<{
   const resolvedAlbumPic = useBlobRefUrl(albumPic) || '';
   return (
   <div className="relative" style={{ width: size, height: size }}>
-    {/* 单层柔光 — 收敛简洁，不再散乱 */}
+    {/* 單層柔光 — 收斂簡潔，不再散亂 */}
     <div className="absolute rounded-full pointer-events-none"
       style={{
         inset: -size * 0.08,
@@ -410,18 +410,18 @@ export const VinylDisc: React.FC<{
         filter: 'blur(20px)',
       }} />
 
-    {/* 唱片本体 — 旋转 */}
+    {/* 唱片本體 — 旋轉 */}
     <div className="relative w-full h-full rounded-full overflow-hidden"
       style={{
         animation: playing ? 'shizuku-vinyl 18s linear infinite' : 'none',
         border: `1.5px solid rgba(255,255,255,0.6)`,
         boxShadow: `0 8px 32px ${C.primary}20, 0 0 0 1px ${C.glow}30`,
       }}>
-      {/* 单张封面 — 完全不透明，干净清晰 */}
+      {/* 單張封面 — 完全不透明，乾淨清晰 */}
       <img src={resolvedAlbumPic} alt=""
         className="absolute inset-0 w-full h-full object-cover" />
 
-      {/* 中心标签 — 不旋转跟随，保持唱片标识 */}
+      {/* 中心標籤 — 不旋轉跟隨，保持唱片標識 */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="rounded-full flex items-center justify-center"
           style={{
@@ -431,7 +431,7 @@ export const VinylDisc: React.FC<{
             border: `1px solid rgba(255,255,255,0.85)`,
             boxShadow: `inset 0 2px 6px rgba(255,255,255,0.6), 0 2px 8px ${C.primary}20`,
           }}>
-          {/* 中心轴心 */}
+          {/* 中心軸心 */}
           <div className="rounded-full"
             style={{
               width: size * 0.04,
@@ -442,7 +442,7 @@ export const VinylDisc: React.FC<{
         </div>
       </div>
 
-      {/* 极轻表面反光 — 一道高光，不抢戏 */}
+      {/* 極輕表面反光 — 一道高光，不搶戲 */}
       <div className="absolute inset-0 pointer-events-none rounded-full"
         style={{ background: 'linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.12) 50%, transparent 65%)' }} />
     </div>
@@ -460,7 +460,7 @@ export const VinylDisc: React.FC<{
       </div>
     )}
 
-    {/* 装饰粒子 — 星芒 + 水滴，绕着唱片漂浮 */}
+    {/* 裝飾粒子 — 星芒 + 水滴，繞著唱片漂浮 */}
     <Sparkle size={11} className="absolute -top-2 right-3" color={C.glow} delay={0} />
     <Sparkle size={9} className="absolute top-1/4 -left-3.5" color={C.sakura} delay={0.8} />
     <Sparkle size={7} className="absolute -bottom-1 left-7" color={C.lavender} delay={1.5} />
@@ -471,7 +471,7 @@ export const VinylDisc: React.FC<{
   );
 };
 
-/* ══════════ 时间 / 元数据 chip ══════════ */
+/* ══════════ 時間 / 元數據 chip ══════════ */
 export const MetaChip: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <span className={`px-2 py-0.5 text-[9px] tracking-[0.15em] ${className}`}
     style={{
@@ -489,12 +489,12 @@ export type SubPlayMode = 'loop' | 'single' | 'shuffle';
 export const SubActions: React.FC<{
   onLike?: () => void;
   liked?: boolean;
-  onSync?: () => void;             // 手动对轴 (仅本地歌显示)
+  onSync?: () => void;             // 手動對軸 (僅本地歌顯示)
   showSync?: boolean;
-  onDownload?: () => void;         // 下载本地生成的音频 (仅本地歌显示)
+  onDownload?: () => void;         // 下載本地生成的音頻 (僅本地歌顯示)
   showDownload?: boolean;
   playMode?: SubPlayMode;
-  onCyclePlayMode?: () => void;    // 循环模式切换
+  onCyclePlayMode?: () => void;    // 循環模式切換
   onAdd?: () => void;
 }> = ({ onLike, liked, onSync, showSync, onDownload, showDownload, playMode = 'loop', onCyclePlayMode, onAdd }) => {
   const Item = ({ icon, label, onClick, active }: { icon: React.ReactNode; label: string; onClick?: () => void; active?: boolean }) => (
@@ -524,19 +524,19 @@ export const SubActions: React.FC<{
     </svg>
   );
   const loopSvg = playMode === 'single' ? (
-    // 单曲循环 — 圆环带数字 1
+    // 單曲循環 — 圓環帶數字 1
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="1.5">
       <path d="M17 4l3 3-3 3" /><path d="M20 7H8a4 4 0 0 0-4 4v0" />
       <path d="M7 20l-3-3 3-3" /><path d="M4 17h12a4 4 0 0 0 4-4v0" />
       <text x="12" y="14.5" fontSize="7" fontWeight="700" fill={C.primary} stroke="none" textAnchor="middle">1</text>
     </svg>
   ) : playMode === 'shuffle' ? (
-    // 随机
+    // 隨機
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="1.5">
       <path d="M3 6h3l12 12h3" /><path d="M18 6h3l-3-3M3 18h3l12-12h3" /><path d="M18 18h3l-3 3" />
     </svg>
   ) : (
-    // 列表循环
+    // 列表循環
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.primary} strokeWidth="1.5">
       <path d="M17 4l3 3-3 3" /><path d="M20 7H8a4 4 0 0 0-4 4v0" />
       <path d="M7 20l-3-3 3-3" /><path d="M4 17h12a4 4 0 0 0 4-4v0" />
@@ -568,7 +568,7 @@ export const SubActions: React.FC<{
   );
 };
 
-/* ══════════ 玻璃进度条 — 水滴指示器 ══════════ */
+/* ══════════ 玻璃進度條 — 水滴指示器 ══════════ */
 export const GlassProgress: React.FC<{
   progress: number;
   duration: number;
@@ -584,14 +584,14 @@ export const GlassProgress: React.FC<{
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           onSeek((e.clientX - rect.left) / rect.width);
         }}>
-        {/* 已播进度 */}
+        {/* 已播進度 */}
         <div className="absolute top-0 left-0 h-full rounded-full transition-[width] duration-150"
           style={{
             width: `${pct}%`,
             background: `linear-gradient(90deg, ${C.primary}, ${C.glow})`,
             boxShadow: `0 0 10px ${C.glow}40`,
           }} />
-        {/* 水滴指示点 */}
+        {/* 水滴指示點 */}
         <div className="absolute top-1/2 -translate-y-1/2 transition-[left] duration-150"
           style={{ left: `${pct}%`, transform: `translateX(-50%) translateY(-50%)` }}>
           <div className="w-3 h-3 rounded-full"
@@ -609,7 +609,7 @@ export const GlassProgress: React.FC<{
   );
 };
 
-/* ══════════ 播放控制 — 发光按钮组 ══════════ */
+/* ══════════ 播放控制 — 發光按鈕組 ══════════ */
 export const PlayControls: React.FC<{
   playing: boolean;
   loading: boolean;
@@ -638,7 +638,7 @@ export const PlayControls: React.FC<{
       ) : (
         <Play size={22} weight="fill" color="white" />
       )}
-      {/* 外圈装饰 */}
+      {/* 外圈裝飾 */}
       <div className="absolute inset-[-3px] rounded-full pointer-events-none"
         style={{ border: `1px solid rgba(255,255,255,0.2)` }} />
     </button>
@@ -649,7 +649,7 @@ export const PlayControls: React.FC<{
   </div>
 );
 
-/* ══════════ 背景装饰 — 浮游粒子 + 光斑 + 水滴 ══════════ */
+/* ══════════ 背景裝飾 — 浮游粒子 + 光斑 + 水滴 ══════════ */
 export const BokehBg: React.FC = () => {
   useEffect(() => { injectStyles(); }, []);
   return (
@@ -663,7 +663,7 @@ export const BokehBg: React.FC = () => {
         style={{ background: `radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 70%)`, animation: 'shizuku-float 7s ease-in-out 1s infinite' }} />
       <div className="absolute top-[25%] right-[32%] w-24 h-24 rounded-full"
         style={{ background: `radial-gradient(circle, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%)`, animation: 'shizuku-drift 12s ease-in-out infinite' }} />
-      {/* 轻微彩色点缀 (极低饱和) */}
+      {/* 輕微彩色點綴 (極低飽和) */}
       <div className="absolute top-[65%] right-[10%] w-20 h-20 rounded-full"
         style={{ background: `radial-gradient(circle, ${C.sakura}18 0%, transparent 70%)`, filter: 'blur(8px)' }} />
       <div className="absolute top-[15%] left-[20%] w-16 h-16 rounded-full"

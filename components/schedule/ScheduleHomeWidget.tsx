@@ -172,7 +172,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
     paper = false,
 }) => {
     const { theme } = useOS();
-    // 头像光晕是 CSS 背景，拿不到 <img> 的自动解析，这里在组件顶层先把令牌解开
+    // 頭像光暈是 CSS 背景，拿不到 <img> 的自動解析，這裡在組件頂層先把令牌解開
     const avatarUrl = useBlobRefUrl(character?.avatar);
     const currentIdx = schedule ? getCurrentScheduleSlotIndex(schedule.slots, character) : -1;
     const currentSlot = currentIdx >= 0 ? schedule!.slots[currentIdx] : null;
@@ -208,7 +208,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
 
     const timelineSlots = schedule?.slots ?? [];
 
-    // 动森：全新奶油布局（不复用暗底版式）
+    // 動森：全新奶油布局（不復用暗底版式）
     if (effectiveAcnh) {
         return (
             <div
@@ -244,7 +244,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
                             <div className="flex items-center gap-1.5 mb-1">
                                 <span className="text-[9px] font-extrabold tracking-wide px-2 py-0.5 rounded-full"
                                     style={{ background: currentSlot ? '#dff0c8' : '#efe7d4', color: currentSlot ? '#5a9e1e' : '#9f927d' }}>
-                                    {currentSlot ? '现在' : '休息'}
+                                    {currentSlot ? '現在' : '休息'}
                                 </span>
                                 <span className="sully-schedule-time text-[10px] font-bold" style={{ color: '#9f927d' }}>{currentSlot ? currentSlot.startTime : timeLabel}</span>
                                 <span className="text-[9px] ml-auto shrink-0 truncate max-w-[40%] font-bold" style={{ color: '#b3a88e' }}>{character?.name || '—'}</span>
@@ -252,7 +252,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
                             <div className="flex items-center gap-1.5 min-w-0">
                                 {currentSlot?.emoji && <span className="text-base shrink-0">{currentSlot.emoji}</span>}
                                 <span className="sully-schedule-activity text-[15px] font-bold truncate leading-tight" style={{ color: '#725d42' }}>
-                                    {currentSlot?.activity || (schedule ? '休息中 · 暂无安排' : '尚未生成日程')}
+                                    {currentSlot?.activity || (schedule ? '休息中 · 暫無安排' : '尚未生成日程')}
                                 </span>
                             </div>
                             {nextSlot && (
@@ -319,7 +319,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
             <div className="absolute right-3 top-3 z-20">
                 <ScheduleAppearanceButton compact />
             </div>
-            {/* Blurred avatar glow（动森奶油底下省略，避免糊脏） */}
+            {/* Blurred avatar glow（動森奶油底下省略，避免糊髒） */}
             {!effectivePaper && palette.isOriginal && avatarUrl && (
                 <div
                     className="absolute inset-0 opacity-25 pointer-events-none"
@@ -399,7 +399,7 @@ export const ScheduleHomeWidget: React.FC<ScheduleHomeWidgetProps> = ({
                                 <span className={`text-lg shrink-0 ${effectivePaper ? '' : 'drop-shadow-md'}`}>{currentSlot.emoji}</span>
                             )}
                             <span className={`sully-schedule-activity text-[15px] font-bold truncate leading-tight ${effectivePaper ? '' : 'drop-shadow-md'}`}>
-                                {currentSlot?.activity || (schedule ? '休息中 · 暂无安排' : '尚未生成日程')}
+                                {currentSlot?.activity || (schedule ? '休息中 · 暫無安排' : '尚未生成日程')}
                             </span>
                         </div>
                         {(currentSlot?.description || nextSlot) && (
@@ -501,7 +501,7 @@ export const ScheduleFullscreenViewer: React.FC<ScheduleFullscreenViewerProps> =
         return () => window.removeEventListener('keydown', onKey);
     }, [open, onClose]);
 
-    // 这层全屏查看器不跟随卡片配色，固定用默认色相做强调色
+    // 這層全屏查看器不跟隨卡片配色，固定用默認色相做強調色
     const accentHsl = 'hsl(260, 70%, 65%)';
 
     if (!open) return null;
@@ -602,7 +602,7 @@ export const ScheduleFullscreenViewer: React.FC<ScheduleFullscreenViewerProps> =
                     compact={true}
                 />
                 <div className="text-[10px] text-center opacity-40 mt-4 tracking-widest">
-                    TAP OUTSIDE TO CLOSE · 点空白处关闭
+                    TAP OUTSIDE TO CLOSE · 點空白處關閉
                 </div>
             </div>
         </div>

@@ -6,21 +6,21 @@ type Line = { expression: CaianExpression; text: string | readonly string[]; emp
 /** Authored release messages; kept outside familiarity scenes and their daily/reward state. */
 export const SAR_UPDATE_NOTICES: Record<SARUpdateNotice, readonly Line[]> = {
     cabinet: [
-        { expression: 'happy', text: '对了！刚刚收到了优化通知。' },
-        { expression: 'normal', text: ['异格回复：点「…」可复制、修改、重新生成、删除。', '删除后点生成会重试原来那一幕，不重复扣轮数；生成失败保留旧回复'], emphasis: '异格回复', quoted: true },
-        { expression: 'happy', text: '——彼方的作者是这样留言的。' },
-        { expression: 'normal', text: '那么，我转达到位了！' },
-        { expression: 'normal2', text: '玩得开心哦。' },
+        { expression: 'happy', text: '對了！剛剛收到了優化通知。' },
+        { expression: 'normal', text: ['異格回覆：點「…」可複製、修改、重新生成、刪除。', '刪除後點生成會重試原來那一幕，不重複扣輪數；生成失敗保留舊回覆'], emphasis: '異格回覆', quoted: true },
+        { expression: 'happy', text: '——彼方的作者是這樣留言的。' },
+        { expression: 'normal', text: '那麼，我轉達到位了！' },
+        { expression: 'normal2', text: '玩得開心哦。' },
     ],
     board: [
-        { expression: 'happy', text: '来自2026年9月16日夜晚的更新的优化通知！' },
-        { expression: 'normal', text: '我给你读一下哦！' },
-        { expression: 'normal', text: '之前角色不会把鱼批量卖艾文，现在他们可以了，当他们在市场板的时候，可以这样做', quoted: true },
-        { expression: 'curious', text: '诶——之前不行的吗！' },
-        { expression: 'embarrassed', text: '怪不得艾文说感觉池子里的鱼越来越少了……' },
-        { expression: 'normal', text: '此外，本次更新了市场板玩法，npc发布的内容可能附带了一场隐藏事件', quoted: true },
-        { expression: 'normal2', text: '就是这些，感觉会很有意思！' },
-        { expression: 'happy', text: '那么，玩得开心！' },
+        { expression: 'happy', text: '來自2026年9月16日夜晚的更新的優化通知！' },
+        { expression: 'normal', text: '我給你讀一下哦！' },
+        { expression: 'normal', text: '之前角色不會把魚批量賣艾文，現在他們可以了，當他們在市場板的時候，可以這樣做', quoted: true },
+        { expression: 'curious', text: '誒——之前不行的嗎！' },
+        { expression: 'embarrassed', text: '怪不得艾文說感覺池子裡的魚越來越少了……' },
+        { expression: 'normal', text: '此外，本次更新了市場板玩法，npc發佈的內容可能附帶了一場隱藏事件', quoted: true },
+        { expression: 'normal2', text: '就是這些，感覺會很有意思！' },
+        { expression: 'happy', text: '那麼，玩得開心！' },
     ],
 };
 

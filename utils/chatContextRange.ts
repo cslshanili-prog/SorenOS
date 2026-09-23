@@ -37,8 +37,8 @@ export const clampManualContextLimit = (value: unknown): number => {
 };
 
 /**
- * adaptive 只在有明确来源时接管范围：全自动记忆，或用户主动执行过一键存入。
- * 单独残留一个 adaptive 旧字段仍按 manual 处理，避免不存在的自动模式限制用户。
+ * adaptive 只在有明確來源時接管範圍：全自動記憶，或用戶主動執行過一鍵存入。
+ * 單獨殘留一個 adaptive 舊字段仍按 manual 處理，避免不存在的自動模式限制用戶。
  */
 export const resolveContextRangeMode = (char: CharacterProfile): ContextRangeMode =>
     char.contextRangeMode === 'adaptive'
@@ -56,11 +56,11 @@ export const getMemoryPalaceHighWaterMarkForContext = (charId: string): number =
 };
 
 /**
- * 一次性迁移旧角色：
- * - 已开全自动记忆：无论旧拉杆是否为 5000，都回到 adaptive + 默认 500；
- * - 未开全自动：保留旧拉杆，并把旧版手动断点迁成用户断点。
+ * 一次性遷移舊角色：
+ * - 已開全自動記憶：無論舊拉桿是否為 5000，都回到 adaptive + 默認 500；
+ * - 未開全自動：保留舊拉桿，並把舊版手動斷點遷成用戶斷點。
  *
- * hideBeforeMessageId 仍保留给旧归档内部使用，但新版 prompt 不再把它当用户范围。
+ * hideBeforeMessageId 仍保留給舊歸檔內部使用，但新版 prompt 不再把它當用戶範圍。
  */
 export const migrateCharacterContextRange = (
     char: CharacterProfile,
@@ -92,10 +92,10 @@ const chronologicalPrivateMessages = (messages: Message[]): Message[] =>
         .sort((a, b) => a.id - b.id);
 
 /**
- * 纯边界计算。方向不变式（Message.id 越大越新）：
- * - 最大范围起点越大，可读范围越小；
- * - 用户断点只能 >= 最大范围起点；
- * - 最终起点永远取两者中更大的 id，绝不会越过最大范围向旧消息扩张。
+ * 純邊界計算。方向不變式（Message.id 越大越新）：
+ * - 最大範圍起點越大，可讀範圍越小；
+ * - 用戶斷點只能 >= 最大範圍起點；
+ * - 最終起點永遠取兩者中更大的 id，絕不會越過最大範圍向舊消息擴張。
  */
 export const computeContextRangeSnapshot = (
     sourceMessages: Message[],
@@ -140,10 +140,10 @@ export const computeContextRangeSnapshot = (
 };
 
 /**
- * AI 上下文读取：
- * - adaptive 读取水位线后的完整原文（全自动记忆或一键存入后的水位跟随）；
- * - manual 忽略水位线，读取完整库最近 N 条；
- * - 随后再用用户断点收窄。
+ * AI 上下文讀取：
+ * - adaptive 讀取水位線後的完整原文（全自動記憶或一鍵存入後的水位跟隨）；
+ * - manual 忽略水位線，讀取完整庫最近 N 條；
+ * - 隨後再用用戶斷點收窄。
  */
 export const loadCharacterContextRange = async (
     char: CharacterProfile,
@@ -163,7 +163,7 @@ export const loadCharacterContextRange = async (
 export const countMessagesFrom = (messages: Message[], messageId: number): number =>
     chronologicalPrivateMessages(messages).filter(message => message.id >= messageId).length;
 
-/** 所有 AI 入口共用的原文范围。UI 浏览、导出、记忆整理仍直接使用 DB。 */
+/** 所有 AI 入口共用的原文範圍。UI 瀏覽、導出、記憶整理仍直接使用 DB。 */
 export const loadCharacterContextMessages = async (
     character: CharacterProfile | string,
 ): Promise<Message[]> => {
@@ -172,7 +172,7 @@ export const loadCharacterContextMessages = async (
     return (await loadCharacterContextRange(char)).messages;
 };
 
-/** 已有消息快照的入口也遵守同一边界，不能用残留的手动条数截断自适应范围。 */
+/** 已有消息快照的入口也遵守同一邊界，不能用殘留的手動條數截斷自適應範圍。 */
 export const selectCharacterContextMessages = (messages: Message[], char: CharacterProfile, hwm = getMemoryPalaceHighWaterMarkForContext(char.id)): Message[] =>
     computeContextRangeSnapshot(messages, (char.contextRangePolicyVersion || 0) >= 1 ? char : {
         ...char, contextUserStartMessageId: char.contextUserStartMessageId ?? char.hideBeforeMessageId,

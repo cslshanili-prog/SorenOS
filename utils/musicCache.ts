@@ -1,31 +1,31 @@
 /**
- * 网易云 API 响应缓存层
+ * 網易雲 API 響應緩存層
  *
- * 目标：进入 Music App / 桌面切换 / 反复点击页面时，不再重复打网易云接口。
+ * 目標：進入 Music App / 桌面切換 / 反覆點擊頁面時，不再重複打網易雲接口。
  *
- * 设计：
- *   1. 内存 Map + localStorage 双层。进程内快，刷新后仍有效。
- *   2. 每条记录带 TTL；不同 path 走不同的有效期（见 TTL_RULES）。
- *   3. Cookie 会作为 key 的盐（仅取末尾 8 位做标识）——换账号不会读到上一个账号的缓存。
- *   4. 同一个 key 的并发请求会合并成一个 in-flight promise，避免 bursty 重复请求。
- *   5. 写操作（like / 签到 / 登录 / 登出）通过 invalidate 主动清掉相关路径。
+ * 設計：
+ *   1. 內存 Map + localStorage 雙層。進程內快，刷新後仍有效。
+ *   2. 每條記錄帶 TTL；不同 path 走不同的有效期（見 TTL_RULES）。
+ *   3. Cookie 會作為 key 的鹽（僅取末尾 8 位做標識）——換帳號不會讀到上一個帳號的緩存。
+ *   4. 同一個 key 的併發請求會合併成一個 in-flight promise，避免 bursty 重複請求。
+ *   5. 寫操作（like / 簽到 / 登錄 / 登出）通過 invalidate 主動清掉相關路徑。
  *
- * 为什么不走数据导入导出：
- *   这里的 LS key 不在 OSContext 备份 allowlist 里，后端只挑指定键做 backup。
- *   缓存随时可以重建，没必要增加备份体积。
+ * 為什麼不走數據導入導出：
+ *   這裡的 LS key 不在 OSContext 備份 allowlist 裡，後端只挑指定鍵做 backup。
+ *   緩存隨時可以重建，沒必要增加備份體積。
  */
 
 type Entry = { data: any; expires: number };
 
-const LS_KEY = 'sully_music_api_cache_v1'; // 不参与 backup/import-export
+const LS_KEY = 'sully_music_api_cache_v1'; // 不參與 backup/import-export
 const MAX_ENTRIES = 200;
 
 /**
- * 每个 path 的默认 TTL（毫秒）。
- * 精确匹配优先于前缀匹配；没匹配上 → 不缓存（直接走网络）。
+ * 每個 path 的默認 TTL（毫秒）。
+ * 精確匹配優先於前綴匹配；沒匹配上 → 不緩存（直接走網絡）。
  */
 const TTL_RULES: Array<{ path: string; ttl: number; exact?: boolean }> = [
-  // 用户侧（合理地保守一点，防止登录后看到旧数据）
+  // 用戶側（合理地保守一點，防止登錄後看到舊數據）
   { path: '/login/status',       ttl: 60 * 1000 },
   { path: '/user/detail',        ttl: 5 * 60 * 1000 },
   { path: '/user/playlist',      ttl: 5 * 60 * 1000 },
@@ -34,31 +34,31 @@ const TTL_RULES: Array<{ path: string; ttl: number; exact?: boolean }> = [
   { path: '/user/subcount',      ttl: 5 * 60 * 1000 },
   { path: '/likelist',           ttl: 5 * 60 * 1000 },
 
-  // 歌单内容
+  // 歌單內容
   { path: '/playlist/detail',    ttl: 10 * 60 * 1000 },
   { path: '/playlist/track/all', ttl: 10 * 60 * 1000 },
 
-  // 歌词基本不会改
+  // 歌詞基本不會改
   { path: '/lyric',              ttl: 24 * 60 * 60 * 1000 },
 
-  // 榜单半小时够了
+  // 榜單半小時夠了
   { path: '/toplist',            ttl: 30 * 60 * 1000 },
 
-  // CDN 链接一般 ~20min 内有效，给短点避免点进去放不出来
+  // CDN 鏈接一般 ~20min 內有效，給短點避免點進去放不出來
   { path: '/song/url',           ttl: 90 * 1000 },
 ];
 
 /**
- * 不应该被缓存的 path（即使没匹配 TTL 也显式列出，防止将来手滑加 TTL）：
- *   /search             —— keyword 空间太大，用户会频繁变
- *   /recommend/songs    —— 每日推荐，且带随机
- *   /personal_fm        —— 随机电台
- *   /daily_signin       —— 写
- *   /like               —— 写
- *   /logout             —— 写
- *   /login/cellphone    —— 写
- *   /login/qr/*         —— 验证码态，必须实时
- *   /captcha/sent       —— 写
+ * 不應該被緩存的 path（即使沒匹配 TTL 也顯式列出，防止將來手滑加 TTL）：
+ *   /search             —— keyword 空間太大，用戶會頻繁變
+ *   /recommend/songs    —— 每日推薦，且帶隨機
+ *   /personal_fm        —— 隨機電台
+ *   /daily_signin       —— 寫
+ *   /like               —— 寫
+ *   /logout             —— 寫
+ *   /login/cellphone    —— 寫
+ *   /login/qr/*         —— 驗證碼態，必須實時
+ *   /captcha/sent       —— 寫
  */
 
 const MEM = new Map<string, Entry>();
@@ -75,7 +75,7 @@ const stableStringify = (v: any): string => {
 const cookieSalt = (cookie?: string): string => {
   const c = (cookie || '').trim();
   if (!c) return 'anon';
-  // 取末尾 8 位作为账号区分，避免把 cookie 明文落地到 key
+  // 取末尾 8 位作為帳號區分，避免把 cookie 明文落地到 key
   return c.length <= 8 ? c : c.slice(-8);
 };
 
@@ -107,7 +107,7 @@ const load = () => {
 
 const persistNow = () => {
   try {
-    // 逐出过期 + 容量裁剪（丢掉最早插入的）
+    // 逐出過期 + 容量裁剪（丟掉最早插入的）
     const now = Date.now();
     const arr: Array<[string, Entry]> = [];
     for (const [k, v] of MEM) {
@@ -121,9 +121,9 @@ const persistNow = () => {
   } catch {}
 };
 
-// 批量：同一 task 内多次写只落盘一次。
-// 用 microtask（Promise.resolve().then）而不是 setTimeout —— microtask 会在当前 task 末尾、
-// 浏览器把页面交给 unload 之前跑完；setTimeout 可能赶不上快速刷新。
+// 批量：同一 task 內多次寫只落盤一次。
+// 用 microtask（Promise.resolve().then）而不是 setTimeout —— microtask 會在當前 task 末尾、
+// 瀏覽器把頁面交給 unload 之前跑完；setTimeout 可能趕不上快速刷新。
 let persistQueued = false;
 const schedulePersist = () => {
   if (persistQueued) return;
@@ -135,8 +135,8 @@ const schedulePersist = () => {
 };
 
 /**
- * 页面卸载 / 切后台时同步落盘，兜住 microtask 也错过的边界情况。
- * pagehide 对 bfcache 有效；visibilitychange→hidden 对后台切换有效。
+ * 頁面卸載 / 切後台時同步落盤，兜住 microtask 也錯過的邊界情況。
+ * pagehide 對 bfcache 有效；visibilitychange→hidden 對後台切換有效。
  */
 if (typeof window !== 'undefined') {
   const flush = () => { persistQueued = false; persistNow(); };
@@ -150,7 +150,7 @@ const makeKey = (path: string, body: any, cookie?: string) =>
   `${cookieSalt(cookie)}|${path}|${stableStringify(body ?? {})}`;
 
 /**
- * 包装实际请求。不在缓存规则里的 path → 直接打网络。
+ * 包裝實際請求。不在緩存規則裡的 path → 直接打網絡。
  */
 export async function cachedCall<T = any>(
   path: string,
@@ -188,11 +188,11 @@ export async function cachedCall<T = any>(
 }
 
 /**
- * 按路径前缀清除。cookie 传入就只清当前账号，不传就全账号清。
+ * 按路徑前綴清除。cookie 傳入就只清當前帳號，不傳就全帳號清。
  * 用例：
- *   toggleLike 后       → invalidate('/likelist', cfg.cookie)
- *   签到后              → invalidate('/user/subcount', cfg.cookie)
- *   登录 / 登出 / 换账号 → clearAll()
+ *   toggleLike 後       → invalidate('/likelist', cfg.cookie)
+ *   簽到後              → invalidate('/user/subcount', cfg.cookie)
+ *   登錄 / 登出 / 換帳號 → clearAll()
  */
 export function invalidate(pathPrefix: string, cookie?: string) {
   load();

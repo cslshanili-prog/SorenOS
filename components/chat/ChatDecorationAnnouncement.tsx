@@ -14,13 +14,13 @@ export default function ChatDecorationAnnouncement({surface}:{surface:'appearanc
  const dismiss=()=>{acknowledged.add(key);try{localStorage.setItem(key,'seen');}catch{/* Read-only storage: remember for this session. */}dialog.current?.close();setVisible(false);};
  if(!visible||guideActive)return null;
  return createPortal(<dialog ref={dialog} className="chat-decoration-announcement" aria-labelledby={title} onCancel={event=>{event.preventDefault();dismiss();}}>
-  <small>CHATAPP · 装扮更新</small>
-  <h2 id={title}>喜欢的样子，在一处调好。</h2>
-  <p className="decoration-announcement-intro">聊天美化搬到一起了，原有设置会继续保留。</p>
+  <small>CHATAPP · 裝扮更新</small>
+  <h2 id={title}>喜歡的樣子，在一處調好。</h2>
+  <p className="decoration-announcement-intro">聊天美化搬到一起了，原有設置會繼續保留。</p>
   <ol>
-   <li><h3>一个入口，调整整套聊天</h3><p>打开聊天 →「＋」→「聊天装扮」。外观 App 的聊天界面与布局、聊天设置里的背景，以及加号里的聊天装扮、提示音和白框，都整合到这里。白框在「进阶」，提示音在「声音」。</p></li>
-   <li><h3>预设可以整套分享</h3><p>布局、气泡、背景、声音和进阶样式，可以一起保存、导出，再整套导入；也能只勾选需要的部分。</p></li>
-   <li><h3>导入文件，自动识别内容</h3><p>在「预设」导入整套装扮、CSS / TXT、分享图或普通图片。系统会识别内容，再引导你选择用途和应用范围，确认后才修改。</p></li>
+   <li><h3>一個入口，調整整套聊天</h3><p>打開聊天 →「＋」→「聊天裝扮」。外觀 App 的聊天界面與佈局、聊天設置裡的背景，以及加號裡的聊天裝扮、提示音和白框，都整合到這裡。白框在「進階」，提示音在「聲音」。</p></li>
+   <li><h3>預設可以整套分享</h3><p>佈局、氣泡、背景、聲音和進階樣式，可以一起保存、導出，再整套導入；也能只勾選需要的部分。</p></li>
+   <li><h3>導入文件，自動識別內容</h3><p>在「預設」導入整套裝扮、CSS / TXT、分享圖或普通圖片。系統會識別內容，再引導你選擇用途和應用範圍，確認後才修改。</p></li>
   </ol>
   <button type="button" onClick={dismiss} autoFocus>知道了</button>
  </dialog>,document.body);

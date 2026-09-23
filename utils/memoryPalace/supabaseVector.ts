@@ -1,21 +1,21 @@
 /**
- * Memory Palace — Supabase pgvector 远程向量存储
+ * Memory Palace — Supabase pgvector 遠程向量存儲
  *
- * 用户在自己的 Supabase 项目里存储向量，本地只做缓存。
- * 使用原生 fetch 调用 PostgREST API，无需额外依赖。
+ * 用戶在自己的 Supabase 項目裡存儲向量，本地只做緩存。
+ * 使用原生 fetch 調用 PostgREST API，無需額外依賴。
  *
- * 数据归属：100% 在用户自己的 Supabase 项目，我们不碰不存。
+ * 數據歸屬：100% 在用戶自己的 Supabase 項目，我們不碰不存。
  */
 
 import type { RemoteVectorConfig, MemoryNode } from './types';
 
-// ─── 初始化 SQL（用户需在 Supabase SQL Editor 运行一次） ──
+// ─── 初始化 SQL（用戶需在 Supabase SQL Editor 運行一次） ──
 
 export const INIT_SQL = `
--- 1. 启用 pgvector 扩展
+-- 1. 啟用 pgvector 擴展
 create extension if not exists vector;
 
--- 2. 创建向量表
+-- 2. 創建向量表
 create table if not exists memory_vectors (
   memory_id text primary key,
   char_id text not null,
@@ -27,24 +27,24 @@ create table if not exists memory_vectors (
   importance int default 5,
   tags text[] default '{}',
   mood text default '',
-  -- Russell 情感空间（可空；老数据由本地 MOOD_TO_VA 查表兜底）
+  -- Russell 情感空間（可空；老數據由本地 MOOD_TO_VA 查表兜底）
   valence real default null,
   arousal real default null,
   created_at bigint default (extract(epoch from now()) * 1000)::bigint,
   last_accessed_at bigint default 0,
   access_count int default 0,
-  -- 便利贴置顶截止（ms timestamp，null = 不置顶）
+  -- 便利貼置頂截止（ms timestamp，null = 不置頂）
   pinned_until bigint default null,
-  -- 消化衍生记忆的源 + 来源标签
+  -- 消化衍生記憶的源 + 來源標籤
   source_id text default null,
   origin text default null,
-  -- EventBox 扩展列
-  archived boolean default false,       -- 被压入 box summary 的活节点打标，搜索时过滤
-  is_summary boolean default false,     -- 此行本身是 box summary（参与搜索，但展开逻辑不同）
-  event_box_id text default null        -- 所属 EventBox.id；null = 独立记忆
+  -- EventBox 擴展列
+  archived boolean default false,       -- 被壓入 box summary 的活節點打標，搜索時過濾
+  is_summary boolean default false,     -- 此行本身是 box summary（參與搜索，但展開邏輯不同）
+  event_box_id text default null        -- 所屬 EventBox.id；null = 獨立記憶
 );
 
--- 2b. 兼容升级：已有表添加新列（幂等，不影响新表）
+-- 2b. 兼容升級：已有表添加新列（冪等，不影響新表）
 alter table memory_vectors add column if not exists last_accessed_at bigint default 0;
 alter table memory_vectors add column if not exists access_count int default 0;
 alter table memory_vectors add column if not exists archived boolean default false;
@@ -56,7 +56,7 @@ alter table memory_vectors add column if not exists pinned_until bigint default 
 alter table memory_vectors add column if not exists source_id text default null;
 alter table memory_vectors add column if not exists origin text default null;
 
--- 3. 创建索引
+-- 3. 創建索引
 create index if not exists idx_mv_char_id on memory_vectors(char_id);
 create index if not exists idx_mv_hnsw on memory_vectors
   using hnsw (vector vector_cosine_ops);
@@ -64,7 +64,7 @@ create index if not exists idx_mv_event_box_id on memory_vectors(event_box_id)
   where event_box_id is not null;
 create index if not exists idx_mv_archived on memory_vectors(archived);
 
--- 4. 相似度搜索函数（先 drop 旧版，因为返回类型变更时 replace 不允许）
+-- 4. 相似度搜索函數（先 drop 舊版，因為返回類型變更時 replace 不允許）
 drop function if exists match_vectors(vector, text, float, int);
 create or replace function match_vectors(
   query_embedding vector(1024),
@@ -117,13 +117,13 @@ as $$
     mv.event_box_id
   from memory_vectors mv
   where mv.char_id = match_char_id
-    and coalesce(mv.archived, false) = false  -- 过滤已归档节点
+    and coalesce(mv.archived, false) = false  -- 過濾已歸檔節點
     and 1 - (mv.vector <=> query_embedding) > match_threshold
   order by mv.vector <=> query_embedding
   limit match_count;
 $$;
 
--- 5. 行级安全（允许 anon key 完全访问 — 这是用户自己的数据库）
+-- 5. 行級安全（允許 anon key 完全訪問 — 這是用戶自己的數據庫）
 alter table memory_vectors enable row level security;
 drop policy if exists "Allow all access" on memory_vectors;
 create policy "Allow all access" on memory_vectors
@@ -152,7 +152,7 @@ function rpcUrl(config: RemoteVectorConfig, fn: string): string {
 // ─── 公共 API ────────────────────────────────────────
 
 /**
- * 测试连接 + 检测表是否存在
+ * 測試連接 + 檢測表是否存在
  */
 export async function testConnection(config: RemoteVectorConfig): Promise<{
     ok: boolean;
@@ -165,23 +165,23 @@ export async function testConnection(config: RemoteVectorConfig): Promise<{
         });
 
         if (res.status === 200) {
-            return { ok: true, tableExists: true, message: '连接成功，表已就绪' };
+            return { ok: true, tableExists: true, message: '連接成功，表已就緒' };
         }
         if (res.status === 404 || res.status === 406) {
             // Table doesn't exist — PostgREST returns 404 or specific error
-            return { ok: true, tableExists: false, message: '连接成功，但表尚未创建（请运行初始化 SQL）' };
+            return { ok: true, tableExists: false, message: '連接成功，但表尚未創建（請運行初始化 SQL）' };
         }
         if (res.status === 401) {
-            return { ok: false, tableExists: false, message: '认证失败：请检查 anon key' };
+            return { ok: false, tableExists: false, message: '認證失敗：請檢查 anon key' };
         }
         const body = await res.text().catch(() => '');
         // Check for "relation does not exist" error
         if (body.includes('does not exist') || body.includes('relation')) {
-            return { ok: true, tableExists: false, message: '连接成功，但表尚未创建（请运行初始化 SQL）' };
+            return { ok: true, tableExists: false, message: '連接成功，但表尚未創建（請運行初始化 SQL）' };
         }
-        return { ok: false, tableExists: false, message: `服务器返回 ${res.status}: ${body.slice(0, 100)}` };
+        return { ok: false, tableExists: false, message: `服務器返回 ${res.status}: ${body.slice(0, 100)}` };
     } catch (e: any) {
-        return { ok: false, tableExists: false, message: `连接失败: ${e.message}` };
+        return { ok: false, tableExists: false, message: `連接失敗: ${e.message}` };
     }
 }
 
@@ -313,12 +313,12 @@ export async function upsertVectorBatch(
 }
 
 /**
- * 向量相似度搜索（调用 match_vectors RPC 函数）
+ * 向量相似度搜索（調用 match_vectors RPC 函數）
  *
- * ⚠️ 错误传播：网络错误（CORS / fetch 抛 TypeError）/ HTTP 非 2xx 都会向上 throw，
- * 不再静默返回空数组。这样上层（vectorSearch.ts）才能分辨"远程挂了→禁用本会话远程路径"
- * 和"远程正常但这次没命中→返回空"。之前的 catch{ return [] } 导致每次查询都
- * 踩一遍 CORS + 回退到本地 getAllByCharId，造成迁移批量查询时 15 次重复加载全量向量。
+ * ⚠️ 錯誤傳播：網絡錯誤（CORS / fetch 拋 TypeError）/ HTTP 非 2xx 都會向上 throw，
+ * 不再靜默返回空數組。這樣上層（vectorSearch.ts）才能分辨"遠程掛了→禁用本會話遠程路徑"
+ * 和"遠程正常但這次沒命中→返回空"。之前的 catch{ return [] } 導致每次查詢都
+ * 踩一遍 CORS + 回退到本地 getAllByCharId，造成遷移批量查詢時 15 次重複加載全量向量。
  */
 export async function searchVectors(
     config: RemoteVectorConfig,
@@ -387,11 +387,11 @@ export async function searchVectors(
 }
 
 /**
- * 按房间直接拉取远程记忆（PostgREST 过滤，不跑向量相似度）。
- * 用于"本地没有向量记忆但远程有"的场景，比如记忆潜行要在客厅/卧室里
- * 展示该脑区有哪些记忆时，直接按 room 列查远端就够了。
+ * 按房間直接拉取遠程記憶（PostgREST 過濾，不跑向量相似度）。
+ * 用於"本地沒有向量記憶但遠程有"的場景，比如記憶潛行要在客廳/臥室裡
+ * 展示該腦區有哪些記憶時，直接按 room 列查遠端就夠了。
  *
- * 返回 MemoryNode 形状，方便调用方与本地结果合并/去重。
+ * 返回 MemoryNode 形狀，方便調用方與本地結果合併/去重。
  */
 export async function fetchRemoteByRoom(
     config: RemoteVectorConfig,
@@ -423,7 +423,7 @@ export async function fetchRemoteByRoom(
             mood: row.mood || '',
             valence: typeof row.valence === 'number' ? row.valence : undefined,
             arousal: typeof row.arousal === 'number' ? row.arousal : undefined,
-            embedded: true, // 远程就是向量表，默认视为已 embedded
+            embedded: true, // 遠程就是向量表，默認視為已 embedded
             createdAt: Number(row.created_at) || 0,
             lastAccessedAt: Number(row.last_accessed_at) || 0,
             accessCount: Number(row.access_count) || 0,
@@ -440,8 +440,8 @@ export async function fetchRemoteByRoom(
 }
 
 /**
- * 批量把一组向量标记为 archived（EventBox 压缩时用）
- * 通过 PATCH 单发多 ID，避免 N 次 upsert
+ * 批量把一組向量標記為 archived（EventBox 壓縮時用）
+ * 通過 PATCH 單發多 ID，避免 N 次 upsert
  */
 export async function bulkSetArchived(
     config: RemoteVectorConfig,
@@ -467,12 +467,12 @@ export async function bulkSetArchived(
 }
 
 /**
- * 批量把一组向量的 room 字段改成同一个值（consolidation 晋升/驱逐时用）
- * promotion 全部 → bedroom，eviction 全部 → attic，所以只需两次 PATCH。
+ * 批量把一組向量的 room 字段改成同一個值（consolidation 晉升/驅逐時用）
+ * promotion 全部 → bedroom，eviction 全部 → attic，所以只需兩次 PATCH。
  *
- * 注意：只改 memory_vectors.room，content / importance / 向量本身都不动。
- * 所以即便 memory_id 在远端不存在（用户后启用云同步，老节点只在本地），
- * PATCH 也只是 no-op 更新 0 行，不会造成数据污染。
+ * 注意：只改 memory_vectors.room，content / importance / 向量本身都不動。
+ * 所以即便 memory_id 在遠端不存在（用戶後啟用雲同步，老節點只在本地），
+ * PATCH 也只是 no-op 更新 0 行，不會造成數據汙染。
  */
 export async function bulkSetRoom(
     config: RemoteVectorConfig,
@@ -497,7 +497,7 @@ export async function bulkSetRoom(
 }
 
 /**
- * 删除向量
+ * 刪除向量
  */
 export async function deleteVector(config: RemoteVectorConfig, memoryId: string): Promise<boolean> {
     try {
@@ -512,7 +512,7 @@ export async function deleteVector(config: RemoteVectorConfig, memoryId: string)
 }
 
 /**
- * 获取远程向量数量（用于 UI 显示）
+ * 獲取遠程向量數量（用於 UI 顯示）
  */
 export async function getVectorCount(config: RemoteVectorConfig, charId?: string): Promise<number> {
     try {
@@ -536,7 +536,7 @@ export async function getVectorCount(config: RemoteVectorConfig, charId?: string
 }
 
 /**
- * 将本地向量同步到远程（一次性迁移）
+ * 將本地向量同步到遠程（一次性遷移）
  */
 export async function syncLocalToRemote(
     config: RemoteVectorConfig,

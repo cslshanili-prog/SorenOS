@@ -1,6 +1,6 @@
-// 限定作用域的用户自定义 CSS 校验 —— 气泡工坊（.sully-bubble-*）与心象卡片（.sully-psyche*）共用。
-// 注意：这是编辑期软校验（语法检查 + 选择器作用域白名单），不做 XSS 级安全过滤；
-// 注入端仍是原样 <style>，作用域白名单只为防止用户样式外溢污染整个应用。
+// 限定作用域的用戶自定義 CSS 校驗 —— 氣泡工坊（.sully-bubble-*）與心象卡片（.sully-psyche*）共用。
+// 注意：這是編輯期軟校驗（語法檢查 + 選擇器作用域白名單），不做 XSS 級安全過濾；
+// 注入端仍是原樣 <style>，作用域白名單隻為防止用戶樣式外溢汙染整個應用。
 
 export type CssValidationResult = {
     isValid: boolean;
@@ -17,8 +17,8 @@ const extractLineFromErrorMessage = (message: string) => {
 };
 
 /**
- * @param selectorRegex 非 @ 规则的每个选择器必须命中的白名单正则（如 /^\.sully-bubble-(user|ai)\b/）
- * @param scopeHint     报错文案里展示给用户看的作用域说明（如「.sully-bubble-user / .sully-bubble-ai」）
+ * @param selectorRegex 非 @ 規則的每個選擇器必須命中的白名單正則（如 /^\.sully-bubble-(user|ai)\b/）
+ * @param scopeHint     報錯文案裡展示給用戶看的作用域說明（如「.sully-bubble-user / .sully-bubble-ai」）
  */
 export const validateScopedCss = (css: string, selectorRegex: RegExp, scopeHint: string): CssValidationResult => {
     const source = css || '';
@@ -43,7 +43,7 @@ export const validateScopedCss = (css: string, selectorRegex: RegExp, scopeHint:
             sheet.replaceSync(source);
         }
     } catch (error: any) {
-        pushError(`CSS 语法错误：${error?.message || '请检查语法。'}`, extractLineFromErrorMessage(error?.message || ''));
+        pushError(`CSS 語法錯誤：${error?.message || '請檢查語法。'}`, extractLineFromErrorMessage(error?.message || ''));
     }
 
     // Minimal syntax check 2: brace balance
@@ -52,15 +52,15 @@ export const validateScopedCss = (css: string, selectorRegex: RegExp, scopeHint:
         if (char === '{') braceStack.push(index);
         if (char === '}') {
             if (braceStack.length === 0) {
-                pushError('发现多余的 `}`，请检查大括号闭合。', findLineNumberByIndex(source, index));
+                pushError('發現多餘的 `}`，請檢查大括號閉合。', findLineNumberByIndex(source, index));
             } else {
                 braceStack.pop();
             }
         }
     });
-    braceStack.forEach(index => pushError('存在未闭合的 `{`，请补全规则块。', findLineNumberByIndex(source, index)));
+    braceStack.forEach(index => pushError('存在未閉合的 `{`，請補全規則塊。', findLineNumberByIndex(source, index)));
 
-    // Scope check（先去掉注释，避免 /* comment */ .selector 误报）
+    // Scope check（先去掉註釋，避免 /* comment */ .selector 誤報）
     const sourceWithoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
     const ruleRegex = /([^{}]+)\{/g;
     let selectorMatch = ruleRegex.exec(sourceWithoutComments);
@@ -69,13 +69,13 @@ export const validateScopedCss = (css: string, selectorRegex: RegExp, scopeHint:
         if (!selectorGroup.startsWith('@')) {
             const selectorList = selectorGroup.split(',').map(item => item.trim()).filter(Boolean);
             selectorList.forEach(selector => {
-                // @keyframes 的内部步骤也会被上面的轻量 ruleRegex 读成普通“选择器”。
-                // 它们不访问 DOM，不属于作用域外溢，应该放行；真正的语法仍由
-                // CSSStyleSheet.replaceSync / 大括号检查负责。
+                // @keyframes 的內部步驟也會被上面的輕量 ruleRegex 讀成普通“選擇器”。
+                // 它們不訪問 DOM，不屬於作用域外溢，應該放行；真正的語法仍由
+                // CSSStyleSheet.replaceSync / 大括號檢查負責。
                 if (/^(?:from|to|\d+(?:\.\d+)?%)$/i.test(selector)) return;
                 if (!selectorRegex.test(selector)) {
                     pushError(
-                        `选择器 \`${selector}\` 超出限定范围，仅允许以 ${scopeHint} 开头。`,
+                        `選擇器 \`${selector}\` 超出限定範圍，僅允許以 ${scopeHint} 開頭。`,
                         findLineNumberByIndex(sourceWithoutComments, selectorMatch!.index)
                     );
                 }
@@ -92,12 +92,12 @@ export const validateScopedCss = (css: string, selectorRegex: RegExp, scopeHint:
     };
 };
 
-/** 把 CSS 真插进 <style> 数 cssRules，验证浏览器确实能渲染出规则 */
+/** 把 CSS 真插進 <style> 數 cssRules，驗證瀏覽器確實能渲染出規則 */
 export const runCssRenderabilityCheck = (css: string, validation: CssValidationResult) => {
     if (!validation.isValid) {
         return {
             ok: false,
-            message: `CSS 不可渲染：第 ${validation.errorLines[0] || '?'} 行附近存在错误，请先修复。`
+            message: `CSS 不可渲染：第 ${validation.errorLines[0] || '?'} 行附近存在錯誤，請先修復。`
         };
     }
 
@@ -112,10 +112,10 @@ export const runCssRenderabilityCheck = (css: string, validation: CssValidationR
         const ruleCount = styleEl.sheet?.cssRules?.length ?? 0;
         styleEl.remove();
         if (ruleCount === 0) {
-            return { ok: false, message: 'CSS 未生成有效规则，请确认语法和选择器。' };
+            return { ok: false, message: 'CSS 未生成有效規則，請確認語法和選擇器。' };
         }
     } catch (error: any) {
-        return { ok: false, message: `CSS 渲染检查失败：${error?.message || '未知错误。'}` };
+        return { ok: false, message: `CSS 渲染檢查失敗：${error?.message || '未知錯誤。'}` };
     }
 
     return { ok: true, message: '' };

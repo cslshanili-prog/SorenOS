@@ -1,29 +1,29 @@
 #!/usr/bin/env node
 /**
- * XHS Bridge Server — Node HTTP 桥接 xiaohongshu-skills Python CLI
+ * XHS Bridge Server — Node HTTP 橋接 xiaohongshu-skills Python CLI
  *
- * 适配 xiaohongshu-skills 新架构（2026-05 之后）：
- * - cli.py 不再通过 Chrome 远程调试端口（--remote-debugging-port=9222）
- * - 改为通过 "XHS Bridge" 浏览器扩展 + bridge_server.py（WebSocket :9333）
- * - cli.py 每次调用会自动拉起 bridge_server.py、自动打开 Chrome
+ * 適配 xiaohongshu-skills 新架構（2026-05 之後）：
+ * - cli.py 不再通過 Chrome 遠程調試端口（--remote-debugging-port=9222）
+ * - 改為通過 "XHS Bridge" 瀏覽器擴展 + bridge_server.py（WebSocket :9333）
+ * - cli.py 每次調用會自動拉起 bridge_server.py、自動打開 Chrome
  *
- * 前端 (SullyOS) 仍然通过 REST API 调用本服务，本服务 spawn Python CLI 并返回 JSON。
- * REST API 的 endpoint / 入参 / 出参与旧版完全兼容，前端无需改动。
+ * 前端 (SullyOS) 仍然通過 REST API 調用本服務，本服務 spawn Python CLI 並返回 JSON。
+ * REST API 的 endpoint / 入參 / 出參與舊版完全兼容，前端無需改動。
  *
- * 依赖:
- *   - xiaohongshu-skills 新版（含 extension/ 目录）
- *   - "XHS Bridge" Chrome 扩展（在 chrome://extensions/ 加载已解压扩展 → extension/）
+ * 依賴:
+ *   - xiaohongshu-skills 新版（含 extension/ 目錄）
+ *   - "XHS Bridge" Chrome 擴展（在 chrome://extensions/ 加載已解壓擴展 → extension/）
  *   - uv (Python 包管理器)
  *
  * 用法:
- *   node scripts/xhs-bridge.mjs                                    # 默认端口 18061
- *   node scripts/xhs-bridge.mjs --port 19000                       # 自定义端口
- *   node scripts/xhs-bridge.mjs --skills-dir /path/to/skills       # 自定义 skills 目录
- *   node scripts/xhs-bridge.mjs --bridge-url ws://localhost:9333   # 自定义扩展 bridge 地址
+ *   node scripts/xhs-bridge.mjs                                    # 默認端口 18061
+ *   node scripts/xhs-bridge.mjs --port 19000                       # 自定義端口
+ *   node scripts/xhs-bridge.mjs --skills-dir /path/to/skills       # 自定義 skills 目錄
+ *   node scripts/xhs-bridge.mjs --bridge-url ws://localhost:9333   # 自定義擴展 bridge 地址
  *
- * 前端 Server URL 设为: http://localhost:18061/api
+ * 前端 Server URL 設為: http://localhost:18061/api
  *
- * 兼容性: --chrome-host / --chrome-port / --account 仍可传入，但会被忽略。
+ * 兼容性: --chrome-host / --chrome-port / --account 仍可傳入，但會被忽略。
  */
 
 import { createServer } from 'http';
@@ -43,7 +43,7 @@ const getArg = (name, fallback) => {
 };
 
 const PORT = parseInt(getArg('--port', '18061'), 10);
-const BRIDGE_URL = getArg('--bridge-url', ''); // 空字符串 = 用 cli.py 默认 (ws://localhost:9333)
+const BRIDGE_URL = getArg('--bridge-url', ''); // 空字符串 = 用 cli.py 默認 (ws://localhost:9333)
 
 // Auto-detect skills directory
 function findSkillsDir() {
@@ -78,7 +78,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ==================== CLI Runner ====================
 
 /**
- * 执行 xiaohongshu-skills CLI 命令，返回 JSON 结果。
+ * 執行 xiaohongshu-skills CLI 命令，返回 JSON 結果。
  * 注意：新版 cli.py 不接受 --host/--port/--account，只接受 --bridge-url + command。
  */
 function runCli(command, cliArgs = []) {
@@ -95,7 +95,7 @@ function runCli(command, cliArgs = []) {
         const proc = spawn('uv', ['run', 'python', ...fullArgs], {
             cwd: SKILLS_DIR,
             env: { ...process.env },
-            // 首次调用会拉起 bridge_server.py + 等待扩展连接，时间会略久
+            // 首次調用會拉起 bridge_server.py + 等待擴展連接，時間會略久
             timeout: 180_000,
         });
 
@@ -127,42 +127,42 @@ function runCli(command, cliArgs = []) {
                 console.warn(`[bridge] WARNING: CLI exited 0 but produced no output for: ${command}`);
                 resolve({ code, data: { success: true, empty: true, warning: 'CLI returned no data' } });
             } else if (code === 1) {
-                reject(new Error('未登录，请先登录小红书'));
+                reject(new Error('未登錄，請先登錄小紅書'));
             } else {
-                reject(new Error(err || `CLI 退出码: ${code}`));
+                reject(new Error(err || `CLI 退出碼: ${code}`));
             }
         });
 
         proc.on('error', (e) => {
-            reject(new Error(`无法启动 CLI: ${e.message}. 请确保已安装 uv 和 xiaohongshu-skills`));
+            reject(new Error(`無法啟動 CLI: ${e.message}. 請確保已安裝 uv 和 xiaohongshu-skills`));
         });
     });
 }
 
 /**
- * 带重试的 CLI 执行：专用于 comment/reply 等操作
- * XHS 反爬机制：如果刚打开过笔记详情（get-feed-detail），再用同一 xsec_token
- * 打开同一笔记会被临时封锁（"笔记不可访问"/"当前笔记暂时无法浏览"）。
- * 等几秒后重试通常可以成功。
+ * 帶重試的 CLI 執行：專用於 comment/reply 等操作
+ * XHS 反爬機制：如果剛打開過筆記詳情（get-feed-detail），再用同一 xsec_token
+ * 打開同一筆記會被臨時封鎖（"筆記不可訪問"/"當前筆記暫時無法瀏覽"）。
+ * 等幾秒後重試通常可以成功。
  */
 async function runCliWithRetry(command, cliArgs, maxRetries = 2) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const result = await runCli(command, cliArgs);
             const errMsg = result.data?.error || '';
-            if (errMsg.includes('不可访问') || errMsg.includes('无法浏览') || errMsg.includes('暂时无法')) {
+            if (errMsg.includes('不可訪問') || errMsg.includes('無法瀏覽') || errMsg.includes('暫時無法')) {
                 if (attempt < maxRetries) {
                     const waitSec = 5 + attempt * 3;
-                    console.log(`[bridge] ${command}: 笔记暂时不可访问，等 ${waitSec}s 后重试 (${attempt + 1}/${maxRetries})...`);
+                    console.log(`[bridge] ${command}: 筆記暫時不可訪問，等 ${waitSec}s 後重試 (${attempt + 1}/${maxRetries})...`);
                     await sleep(waitSec * 1000);
                     continue;
                 }
             }
             return result;
         } catch (e) {
-            if (attempt < maxRetries && (e.message.includes('不可访问') || e.message.includes('无法浏览'))) {
+            if (attempt < maxRetries && (e.message.includes('不可訪問') || e.message.includes('無法瀏覽'))) {
                 const waitSec = 5 + attempt * 3;
-                console.log(`[bridge] ${command}: 异常 - 笔记不可访问，等 ${waitSec}s 后重试 (${attempt + 1}/${maxRetries})...`);
+                console.log(`[bridge] ${command}: 異常 - 筆記不可訪問，等 ${waitSec}s 後重試 (${attempt + 1}/${maxRetries})...`);
                 await sleep(waitSec * 1000);
                 continue;
             }
@@ -182,9 +182,9 @@ function cleanupTempFile(path) {
     try { unlinkSync(path); } catch { /* ignore */ }
 }
 
-// ==================== xsec_token 缓存 ====================
-// 新版 cli.py 强制要求 get-feed-detail / post-comment / like-feed 等带 --xsec-token。
-// 从 search/list-feeds 的响应里把 token 缓存下来，调用方没传时回退到缓存。
+// ==================== xsec_token 緩存 ====================
+// 新版 cli.py 強制要求 get-feed-detail / post-comment / like-feed 等帶 --xsec-token。
+// 從 search/list-feeds 的響應裡把 token 緩存下來，調用方沒傳時回退到緩存。
 
 const xsecTokenCache = new Map();
 
@@ -202,7 +202,7 @@ function cacheTokensFromFeeds(feeds) {
 function resolveXsecToken(feedId, providedToken) {
     if (providedToken) return providedToken;
     const cached = xsecTokenCache.get(feedId);
-    if (cached) console.log(`[bridge] xsec_token 命中缓存: ${feedId}`);
+    if (cached) console.log(`[bridge] xsec_token 命中緩存: ${feedId}`);
     return cached || '';
 }
 
@@ -233,7 +233,7 @@ const handlers = {
         const feedId = body.feed_id;
         const xsecToken = resolveXsecToken(feedId, body.xsec_token);
         if (!xsecToken) {
-            return { code: 0, data: { error: '缺少 xsec_token。请先调用 search 或 list-feeds 获取 token，或在调用时显式传入 xsec_token。' } };
+            return { code: 0, data: { error: '缺少 xsec_token。請先調用 search 或 list-feeds 獲取 token，或在調用時顯式傳入 xsec_token。' } };
         }
         const cliArgs = ['--feed-id', feedId, '--xsec-token', xsecToken];
         if (body.load_all_comments) cliArgs.push('--load-all-comments');
@@ -244,7 +244,7 @@ const handlers = {
     'post-comment': async (body) => {
         const xsecToken = resolveXsecToken(body.feed_id, body.xsec_token);
         if (!xsecToken) {
-            return { code: 1, data: { error: '缺少 xsec_token，评论失败' } };
+            return { code: 1, data: { error: '缺少 xsec_token，評論失敗' } };
         }
         return runCliWithRetry('post-comment', [
             '--feed-id', body.feed_id,
@@ -256,7 +256,7 @@ const handlers = {
     'reply-comment': async (body) => {
         const xsecToken = resolveXsecToken(body.feed_id, body.xsec_token);
         if (!xsecToken) {
-            return { code: 1, data: { error: '缺少 xsec_token，回复失败' } };
+            return { code: 1, data: { error: '缺少 xsec_token，回覆失敗' } };
         }
         const cliArgs = ['--feed-id', body.feed_id, '--xsec-token', xsecToken, '--content', body.content];
         if (body.comment_id) cliArgs.push('--comment-id', body.comment_id);
@@ -267,7 +267,7 @@ const handlers = {
     'like-feed': async (body) => {
         const xsecToken = resolveXsecToken(body.feed_id, body.xsec_token);
         if (!xsecToken) {
-            return { code: 1, data: { error: '缺少 xsec_token，点赞失败' } };
+            return { code: 1, data: { error: '缺少 xsec_token，點贊失敗' } };
         }
         const cliArgs = ['--feed-id', body.feed_id, '--xsec-token', xsecToken];
         if (body.unlike) cliArgs.push('--unlike');
@@ -277,7 +277,7 @@ const handlers = {
     'favorite-feed': async (body) => {
         const xsecToken = resolveXsecToken(body.feed_id, body.xsec_token);
         if (!xsecToken) {
-            return { code: 1, data: { error: '缺少 xsec_token，收藏失败' } };
+            return { code: 1, data: { error: '缺少 xsec_token，收藏失敗' } };
         }
         const cliArgs = ['--feed-id', body.feed_id, '--xsec-token', xsecToken];
         if (body.unfavorite) cliArgs.push('--unfavorite');
@@ -291,7 +291,7 @@ const handlers = {
             return {
                 code: 0,
                 data: {
-                    error: '缺少 xsec_token。新版 xiaohongshu-skills 强制要求 user-profile 带 token，请从 search/list-feeds 结果或他人主页链接中提取后传入。',
+                    error: '缺少 xsec_token。新版 xiaohongshu-skills 強制要求 user-profile 帶 token，請從 search/list-feeds 結果或他人主頁鏈接中提取後傳入。',
                 },
             };
         }
@@ -417,7 +417,7 @@ createServer(async (req, res) => {
             res.end(JSON.stringify(result.data));
         } catch (e) {
             console.error(`[bridge] Error in ${command}:`, e.message);
-            const status = e.message.includes('未登录') ? 401 : 500;
+            const status = e.message.includes('未登錄') ? 401 : 500;
             res.writeHead(status, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: e.message }));
         }
@@ -435,13 +435,13 @@ createServer(async (req, res) => {
         console.error(`  The bridge will start but CLI commands will fail.`);
         console.error(`  Please check your --skills-dir path or place xiaohongshu-skills in the parent directory.`);
     } else if (!existsSync(join(SKILLS_DIR, 'scripts', 'bridge_server.py'))) {
-        console.error(`\n[WARNING] 检测到 OLD VERSION xiaohongshu-skills！`);
-        console.error(`  ${SKILLS_DIR}\\scripts\\ 里没有 bridge_server.py，说明这是旧版（CDP 架构）。`);
-        console.error(`  本 bridge 是为新版（扩展架构）写的，调旧 cli.py 会出现：`);
-        console.error(`    - 自动弹出空白 Chrome 让你扫码登录`);
-        console.error(`    - 发布/评论等操作用旧 DOM 选择器，小红书改版后会失败`);
-        console.error(`  请从 https://github.com/autoclaw-cc/xiaohongshu-skills 用 Code → Download ZIP 拿最新源码`);
-        console.error(`  （Release 页的 zip 不包含 extension/，是坑）然后整个覆盖到 ${SKILLS_DIR}\\`);
+        console.error(`\n[WARNING] 檢測到 OLD VERSION xiaohongshu-skills！`);
+        console.error(`  ${SKILLS_DIR}\\scripts\\ 裡沒有 bridge_server.py，說明這是舊版（CDP 架構）。`);
+        console.error(`  本 bridge 是為新版（擴展架構）寫的，調舊 cli.py 會出現：`);
+        console.error(`    - 自動彈出空白 Chrome 讓你掃碼登錄`);
+        console.error(`    - 發佈/評論等操作用舊 DOM 選擇器，小紅書改版後會失敗`);
+        console.error(`  請從 https://github.com/autoclaw-cc/xiaohongshu-skills 用 Code → Download ZIP 拿最新源碼`);
+        console.error(`  （Release 頁的 zip 不包含 extension/，是坑）然後整個覆蓋到 ${SKILLS_DIR}\\`);
     }
 
     console.log(`\nAvailable endpoints:`);
@@ -450,7 +450,7 @@ createServer(async (req, res) => {
     }
     console.log(`\nSet your server URL to: http://localhost:${PORT}/api`);
     console.log(`\nNotes:`);
-    console.log(`  - cli.py 会在首次请求时自动启动 bridge_server.py 和打开 Chrome`);
-    console.log(`  - 确保 "XHS Bridge" 浏览器扩展已在 Chrome 加载并启用`);
-    console.log(`  - 扩展加载方式: chrome://extensions/ → 开发者模式 → 加载已解压扩展 → 选 extension/ 目录`);
+    console.log(`  - cli.py 會在首次請求時自動啟動 bridge_server.py 和打開 Chrome`);
+    console.log(`  - 確保 "XHS Bridge" 瀏覽器擴展已在 Chrome 加載並啟用`);
+    console.log(`  - 擴展加載方式: chrome://extensions/ → 開發者模式 → 加載已解壓擴展 → 選 extension/ 目錄`);
 });

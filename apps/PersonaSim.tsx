@@ -20,7 +20,7 @@ import {
 
 // ============================================================
 //  TYPES (runtime script model) — Beat / SimScript 已移到 types.ts 共享，
-//  以便「生活记录」存完整脚本快照用于重播。
+//  以便「生活記錄」存完整腳本快照用於重播。
 // ============================================================
 export interface SimApiConfig { apiKey: string; baseUrl: string; model: string; }
 export type SimState =
@@ -38,8 +38,8 @@ interface Props {
     onConsumed: () => void;
 }
 
-const DAILY = ['平凡的周二', '周末宅家', '深夜失眠', '上班的一天', '放学后的傍晚'];
-const EVENTS = ['第一次见到某人', '告白当天', '考试成绩公布', '离职那天', '医院检查结果出来的下午', '一场争吵之后'];
+const DAILY = ['平凡的週二', '週末宅家', '深夜失眠', '上班的一天', '放學後的傍晚'];
+const EVENTS = ['第一次見到某人', '告白當天', '考試成績公佈', '離職那天', '醫院檢查結果出來的下午', '一場爭吵之後'];
 
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 const ACCENT = '#b89bff';
@@ -91,7 +91,7 @@ export async function generatePersonaScript(opts: {
     await injectMemoryPalace(char, undefined, theme, userProfile.name);
     const context = ContextBuilder.buildCoreContext(char, userProfile, true, char.memoryPalaceInjection);
     const msgs = await loadCharacterContextMessages(char);
-    // 跟随用户为该角色设置的最大上下文（没设则默认 500）——避免「吵完架来看 if 线，结果 char 不记得吵什么」
+    // 跟隨用戶為該角色設置的最大上下文（沒設則默認 500）——避免「吵完架來看 if 線，結果 char 不記得吵什麼」
     const ctxLimit = Math.max(1, msgs.length);
     const recent = msgs.slice(-ctxLimit).map(m => {
         const who = m.role === 'user' ? userProfile.name : char.name;
@@ -108,20 +108,20 @@ export async function generatePersonaScript(opts: {
     });
     if (!res.ok) throw new Error('API');
     const data = await safeResponseJson(res);
-    // 截断直接报错，不兜底：模型输出被 token 上限截断时 finish_reason 为 'length'
-    if (data.choices?.[0]?.finish_reason === 'length') throw new Error('演出生成被截断');
+    // 截斷直接報錯，不兜底：模型輸出被 token 上限截斷時 finish_reason 為 'length'
+    if (data.choices?.[0]?.finish_reason === 'length') throw new Error('演出生成被截斷');
     const finishReason = data?.choices?.[0]?.finish_reason;
     if (finishReason === 'content_filter' || finishReason === 'safety') {
         throw new Error('演出生成被模型安全策略中止');
     }
     const { content, script: parsed } = parsePersonaScriptApiResponse(data);
-    if (!content) throw new Error('模型没有返回演出正文');
+    if (!content) throw new Error('模型沒有返回演出正文');
     if (!parsed) {
         console.warn('[persona] script parse failed', { finishReason, contentLength: content.length });
-        throw new Error(`演出格式无法解析（模型返回 ${content.length} 字）`);
+        throw new Error(`演出格式無法解析（模型返回 ${content.length} 字）`);
     }
-    // 不兜底：结尾必须是模型自己收束好的 end，否则视为不完整/被截断，报错让用户重试
-    if (parsed.beats[parsed.beats.length - 1].kind !== 'end') throw new Error('演出结尾不完整');
+    // 不兜底：結尾必須是模型自己收束好的 end，否則視為不完整/被截斷，報錯讓用戶重試
+    if (parsed.beats[parsed.beats.length - 1].kind !== 'end') throw new Error('演出結尾不完整');
     return parsed;
 }
 
@@ -146,8 +146,8 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
     const beats = script?.beats || [];
     const beat = beats[idx];
 
-    // 图层化：找出「当前可见的屏幕」(lock/app/flashback)，通知/独白叠在它上面弹出，
-    // 背景屏幕只在真正切屏时才重新进场 —— 这是去掉「PPT 翻页感」的关键。
+    // 圖層化：找出「當前可見的屏幕」(lock/app/flashback)，通知/獨白疊在它上面彈出，
+    // 背景屏幕只在真正切屏時才重新進場 —— 這是去掉「PPT 翻頁感」的關鍵。
     const screenIdx = (() => {
         for (let i = idx; i >= 0; i--) {
             const k = beats[i]?.kind;
@@ -161,7 +161,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
     // ----- kick off background generation (runs in CheckPhone) -----
     const requestStart = (m: 'daily' | 'event', t: string) => {
         const trimmed = t.trim();
-        if (!trimmed) { addToast('请选择或输入体验内容', 'error'); return; }
+        if (!trimmed) { addToast('請選擇或輸入體驗內容', 'error'); return; }
         setMode(m); setTheme(trimmed);
         onStart(m, trimmed, presence, tone);
     };
@@ -170,7 +170,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
     useEffect(() => {
         if (phase === 'idle' && sim.status === 'ready') {
             setMode(sim.mode); setTheme(sim.theme);
-            // 重播：脚本来自生活记录已存档的快照，别再 persist 一遍（否则生活记录里出现重复）
+            // 重播：腳本來自生活記錄已存檔的快照，別再 persist 一遍（否則生活記錄裡出現重複）
             setScript(sim.script); setIdx(0); savedRef.current = !!sim.replay; setMemorySent(false); setPhase('play');
             onConsumed();
         }
@@ -191,7 +191,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
             beatsCount: beats.length,
             memoryText: buildMemoryText(script),
             timestamp: Date.now(),
-            script,   // 存完整脚本快照 → 生活记录可原样重播
+            script,   // 存完整腳本快照 → 生活記錄可原樣重播
         };
 
         // emotion buff — only if the schedule feature is on for this character
@@ -207,8 +207,8 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
         } : null;
         if (newBuff) log.buff = { label: newBuff.label, emoji: newBuff.emoji, color: newBuff.color };
 
-        // 关键：基于「最新」角色状态合并，绝不用可能过期的 targetChar 快照整体覆盖 phoneState
-        //（否则在异步间隙里别处的写入会把刚存的 simLogs / 其它 phoneState 字段抹掉）。
+        // 關鍵：基於「最新」角色狀態合併，絕不用可能過期的 targetChar 快照整體覆蓋 phoneState
+        //（否則在異步間隙裡別處的寫入會把剛存的 simLogs / 其它 phoneState 字段抹掉）。
         let dispatchBuffs: CharacterBuff[] | null = null;
         updateCharacter(targetChar.id, (cur) => {
             const phoneState = {
@@ -229,12 +229,12 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
             return { phoneState };
         });
         if (newBuff) {
-            // buffs 拿不到就退化成「纯刷新」信号——buffSyncHandler 会从 DB 兜底重读
+            // buffs 拿不到就退化成「純刷新」信號——buffSyncHandler 會從 DB 兜底重讀
             window.dispatchEvent(new CustomEvent('emotion-updated',
                 dispatchBuffs ? { detail: { charId: targetChar.id, buffs: dispatchBuffs, buffInjection: '' } }
                               : { detail: { charId: targetChar.id } }));
         }
-        addToast('已存入生活记录', 'success');
+        addToast('已存入生活記錄', 'success');
     }, [script, mode, theme, beats.length, targetChar, updateCharacter, addToast]);
 
     // ----- advance -----
@@ -271,28 +271,28 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
     useEffect(() => () => stopFF(), []);
 
     const restart = () => {
-        // 重看同一场演出不再重复写入「生活记录」(savedRef 保持已保存)
+        // 重看同一場演出不再重複寫入「生活記錄」(savedRef 保持已保存)
         setIdx(0);
         setPhase('play');
     };
 
-    // 把这场演出作为「真实回忆」发送到聊天 —— 角色会把它当成亲身经历（进入上下文）
+    // 把這場演出作為「真實回憶」發送到聊天 —— 角色會把它當成親身經歷（進入上下文）
     const sendAsMemory = async () => {
         if (!script || memorySent) return;
         const title = script.title || theme;
         const summary = script.summary || '';
         const digest = buildMemoryText(script);
-        const content = `【一段亲身经历 · ${title}】\n${digest}${summary ? `\n\n回过头想：${summary}` : ''}`;
+        const content = `【一段親身經歷 · ${title}】\n${digest}${summary ? `\n\n回過頭想：${summary}` : ''}`;
         try {
             await DB.saveMessage({
                 charId: targetChar.id, role: 'assistant', type: 'sim_card', content,
                 metadata: { simCard: { mode, theme, title, summary, ending: script.ending } },
             } as any);
             setMemorySent(true);
-            addToast('已作为回忆发送给 TA', 'success');
+            addToast('已作為回憶發送給 TA', 'success');
         } catch (e) {
             console.error(e);
-            addToast('发送失败，请重试', 'error');
+            addToast('發送失敗，請重試', 'error');
         }
     };
 
@@ -306,32 +306,32 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
             <Shell wallpaper={wallpaper}>
                 <TopBar onBack={onExit} right={
                     <button onClick={() => { openLifeLog(); trackEvent('打开生活记录'); }} className="flex items-center gap-1 text-[11px] text-white/60 active:scale-95 transition">
-                        <ClockCounterClockwise size={15} /> 生活记录
+                        <ClockCounterClockwise size={15} /> 生活記錄
                     </button>
                 } />
                 <div className="flex-1 overflow-y-auto no-scrollbar px-6 pt-2 pb-10">
                     <div className="mb-5">
                         <div className="text-[10px] tracking-[0.35em] uppercase" style={{ color: ACCENT }}>Persona Simulation</div>
                         <h1 className="text-[26px] font-light text-white mt-2 leading-tight" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>
-                            成为 {targetChar.name} 的<br />一段人生
+                            成為 {targetChar.name} 的<br />一段人生
                         </h1>
                     </div>
 
-                    {/* 体验卡 · 中二叠甲：显得很牛逼，同时声明这只是小剧场、不代表角色真实情况 */}
+                    {/* 體驗卡 · 中二疊甲：顯得很牛逼，同時聲明這只是小劇場、不代表角色真實情況 */}
                     <div className="relative rounded-2xl overflow-hidden mb-6 border border-[#b89bff]/25"
                         style={{ background: 'linear-gradient(135deg, rgba(184,155,255,0.16), rgba(184,155,255,0.03))' }}>
                         <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: ACCENT }} />
                         <div className="absolute -top-8 -right-6 w-28 h-28 rounded-full blur-2xl pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(184,155,255,0.4), transparent 70%)' }} />
                         <div className="relative p-4 pl-5">
                             <div className="flex items-center justify-between mb-2.5">
-                                <span className="text-[9px] tracking-[0.28em] uppercase font-bold" style={{ color: ACCENT }}>✦ Experience Ticket · 体验卡</span>
+                                <span className="text-[9px] tracking-[0.28em] uppercase font-bold" style={{ color: ACCENT }}>✦ Experience Ticket · 體驗卡</span>
                                 <span className="text-[8px] tracking-[0.2em] uppercase text-white/45 border border-white/15 rounded px-1.5 py-0.5">Fiction Only</span>
                             </div>
                             <p className="text-[11.5px] text-white/75 leading-relaxed" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>
-                                这是一张通往 TA 的体验卡。我们借这部手机，为你点演一段「<span style={{ color: ACCENT }}>可能发生过</span>」的人生切片——画面、独白与痕迹，皆由此刻的 AI 即兴演绎。
+                                這是一張通往 TA 的體驗卡。我們借這部手機，為你點演一段「<span style={{ color: ACCENT }}>可能發生過</span>」的人生切片——畫面、獨白與痕跡，皆由此刻的 AI 即興演繹。
                             </p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-2.5 pt-2.5 border-t border-dashed border-white/15">
-                                ※ 它只是献给你的一出小剧场，是一种「如果」。<br />并不等于角色的真实经历或设定——纵情入戏，散场即忘，无需当真。
+                                ※ 它只是獻給你的一齣小劇場，是一種「如果」。<br />並不等於角色的真實經歷或設定——縱情入戲，散場即忘，無需當真。
                             </p>
                         </div>
                     </div>
@@ -342,21 +342,21 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                             <button key={m} onClick={() => { setMode(m); trackEvent('切换人格模拟类型', { mode: m }); }}
                                 className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition"
                                 style={mode === m ? { background: ACCENT, color: '#1a1530' } : { color: 'rgba(255,255,255,0.5)' }}>
-                                {m === 'daily' ? '日常模拟' : '事件模拟'}
+                                {m === 'daily' ? '日常模擬' : '事件模擬'}
                             </button>
                         ))}
                     </div>
                     <p className="text-[11px] text-white/35 mb-4 px-1">
-                        {mode === 'daily' ? '体验 TA 某个普通日子的生活 · 生活感与陪伴' : '体验 TA 人生中的某个特殊事件 · 情绪张力'}
+                        {mode === 'daily' ? '體驗 TA 某個普通日子的生活 · 生活感與陪伴' : '體驗 TA 人生中的某個特殊事件 · 情緒張力'}
                     </p>
 
-                    {/* 你的存在感（这一天里"你"占多少分量） */}
+                    {/* 你的存在感（這一天裡"你"佔多少分量） */}
                     <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">你的存在感</div>
                     <div className="grid grid-cols-3 gap-2 mb-5">
                         {([
-                            { id: 'default', label: '默认', desc: '自然出现' },
-                            { id: 'light', label: '轻度', desc: '淡淡背景' },
-                            { id: 'none', label: '无你', desc: '只有 TA' },
+                            { id: 'default', label: '默認', desc: '自然出現' },
+                            { id: 'light', label: '輕度', desc: '淡淡背景' },
+                            { id: 'none', label: '無你', desc: '只有 TA' },
                         ] as const).map(o => {
                             const active = presence === o.id;
                             return (
@@ -372,14 +372,14 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         })}
                     </div>
 
-                    {/* 演出基调（丧的大前提下偏哪种味道） */}
-                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">演出基调</div>
+                    {/* 演出基調（喪的大前提下偏哪種味道） */}
+                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">演出基調</div>
                     <div className="grid grid-cols-2 gap-2 mb-5">
                         {([
-                            { id: 'mix', label: '随心', desc: '每场随机' },
-                            { id: 'depressive', label: '致郁', desc: '一路丧到底' },
-                            { id: 'darkhumor', label: '黑色幽默', desc: '荒诞又毒舌' },
-                            { id: 'cute', label: '轻盈可爱', desc: '活泼俏皮' },
+                            { id: 'mix', label: '隨心', desc: '每場隨機' },
+                            { id: 'depressive', label: '致鬱', desc: '一路喪到底' },
+                            { id: 'darkhumor', label: '黑色幽默', desc: '荒誕又毒舌' },
+                            { id: 'cute', label: '輕盈可愛', desc: '活潑俏皮' },
                         ] as const).map(o => {
                             const active = tone === o.id;
                             return (
@@ -395,8 +395,8 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         })}
                     </div>
 
-                    {/* ① 选方向（点一下填进下方，可继续编辑） */}
-                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">① 选个大方向</div>
+                    {/* ① 選方向（點一下填進下方，可繼續編輯） */}
+                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">① 選個大方向</div>
                     <div className="grid grid-cols-2 gap-2 mb-5">
                         {(mode === 'daily' ? DAILY : EVENTS).map(s => {
                             const active = theme.trim() === s;
@@ -412,16 +412,16 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         })}
                     </div>
 
-                    {/* ② 补细节（与方向合并，二者不再二选一） */}
-                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">② 补点细节 · 也可直接自己写</div>
+                    {/* ② 補細節（與方向合併，二者不再二選一） */}
+                    <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 px-1">② 補點細節 · 也可直接自己寫</div>
                     <textarea value={theme} onChange={e => setTheme(e.target.value)}
-                        placeholder="选个方向后在这里补充具体情境，或直接写你想看的。例如：放学后的傍晚 · 下了雨，TA 没带伞，在便利店门口等一个不一定会来的人。"
+                        placeholder="選個方向後在這裡補充具體情境，或直接寫你想看的。例如：放學後的傍晚 · 下了雨，TA 沒帶傘，在便利店門口等一個不一定會來的人。"
                         className="w-full h-24 bg-white/[0.05] border border-white/[0.08] rounded-2xl px-3.5 py-3 text-[12.5px] text-white placeholder-white/25 outline-none resize-none leading-relaxed mb-4 no-scrollbar" />
 
                     <button onClick={() => requestStart(mode, theme)} disabled={!theme.trim()}
                         className="w-full py-3.5 rounded-2xl text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40"
                         style={{ background: ACCENT, color: '#1a1530' }}>
-                        开始演出 <ArrowRight size={15} weight="bold" />
+                        開始演出 <ArrowRight size={15} weight="bold" />
                     </button>
                 </div>
             </Shell>
@@ -441,10 +441,10 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                         <HourglassMedium size={40} weight="light" style={{ color: ACCENT }} className="animate-pulse" />
                         <div className="absolute inset-0 blur-2xl rounded-full" style={{ background: `${ACCENT}55` }} />
                     </div>
-                    <div className="text-[13px] text-white/75">正在编排「{t}」…</div>
-                    <div className="text-[11px] text-white/35 leading-relaxed">把记忆、对话与情绪编排成 TA 的一天，<br />可能需要较长时间。</div>
+                    <div className="text-[13px] text-white/75">正在編排「{t}」…</div>
+                    <div className="text-[11px] text-white/35 leading-relaxed">把記憶、對話與情緒編排成 TA 的一天，<br />可能需要較長時間。</div>
                     <button onClick={onExit} className="mt-3 px-5 py-2.5 rounded-xl text-[12px] text-white/75 bg-white/[0.06] border border-white/[0.08] active:scale-95 transition">
-                        先去别处逛逛 · 好了通知我
+                        先去別處逛逛 · 好了通知我
                     </button>
                 </div>
             </Shell>
@@ -459,7 +459,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
             <Shell wallpaper={wallpaper}>
                 <div className="flex-1 flex flex-col items-center justify-center px-8 text-center animate-fade-in">
                     <Lock size={26} weight="light" className="text-white/30 mb-5" />
-                    <div className="text-[10px] tracking-[0.3em] uppercase text-white/35 mb-3">演出结束</div>
+                    <div className="text-[10px] tracking-[0.3em] uppercase text-white/35 mb-3">演出結束</div>
                     <h2 className="text-[20px] font-light text-white mb-2" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{script?.title}</h2>
                     {script?.ending && <div className="text-[11px] mb-4 px-3 py-1 rounded-full" style={{ color: ACCENT, background: `${ACCENT}1f` }}>{script.ending}</div>}
                     <p className="text-[13.5px] text-white/65 leading-loose max-w-[280px]" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{script?.summary}</p>
@@ -469,23 +469,23 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                             <span className="text-base">{script.buff.emoji || '✨'}</span>
                             <div className="text-left">
                                 <div className="text-[12px] font-semibold text-white">{script.buff.label}</div>
-                                <div className="text-[9px] text-white/45">情绪状态已写入 TA</div>
+                                <div className="text-[9px] text-white/45">情緒狀態已寫入 TA</div>
                             </div>
                         </div>
                     )}
 
-                    {/* 把这场演出作为真实回忆送给角色 */}
+                    {/* 把這場演出作為真實回憶送給角色 */}
                     <button onClick={sendAsMemory} disabled={memorySent}
                         className="mt-8 w-full max-w-[300px] py-3 rounded-2xl text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-60"
                         style={memorySent
                             ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.1)' }
                             : { background: ACCENT, color: '#1a1530' }}>
                         {memorySent
-                            ? <><Check size={15} weight="bold" /> 已成为 TA 的回忆</>
-                            : <><PaperPlaneTilt size={15} weight="fill" /> 作为回忆发送给 TA</>}
+                            ? <><Check size={15} weight="bold" /> 已成為 TA 的回憶</>
+                            : <><PaperPlaneTilt size={15} weight="fill" /> 作為回憶發送給 TA</>}
                     </button>
                     <p className="text-[10px] text-white/30 mt-2 max-w-[280px] leading-relaxed">
-                        会以一张卡片发到聊天里，TA 将把这段经历当成真实记忆。
+                        會以一張卡片發到聊天裡，TA 將把這段經歷當成真實記憶。
                     </p>
 
                     <div className="flex gap-3 mt-6">
@@ -493,7 +493,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                             <ArrowClockwise size={14} /> 再看一次
                         </button>
                         <button onClick={() => { openLifeLog(); }} className="px-5 py-2.5 rounded-xl text-[12px] font-semibold text-[#1a1530] flex items-center gap-1.5 active:scale-95 transition" style={{ background: ACCENT }}>
-                            <ClockCounterClockwise size={14} weight="bold" /> 生活记录
+                            <ClockCounterClockwise size={14} weight="bold" /> 生活記錄
                         </button>
                     </div>
                     <button onClick={onExit} className="mt-4 text-[11px] text-white/30">退出演出</button>
@@ -545,7 +545,7 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
                 </div>
                 <div className="flex items-center justify-between">
                     <button onClick={(e) => { e.stopPropagation(); onExit(); }} className="text-[11px] text-white/35">退出</button>
-                    <span className="text-[10px] text-white/30">轻触继续 · 长按快进</span>
+                    <span className="text-[10px] text-white/30">輕觸繼續 · 長按快進</span>
                     <button onClick={(e) => { e.stopPropagation(); setAutoplay(a => !a); trackEvent('切换演出自动播放'); }}
                         className="w-9 h-9 rounded-full flex items-center justify-center border border-white/[0.1] text-white/70 active:scale-90 transition"
                         style={autoplay ? { background: ACCENT, color: '#1a1530', borderColor: 'transparent' } : undefined}>
@@ -560,12 +560,12 @@ const PersonaSim: React.FC<Props> = ({ targetChar, onExit, openLifeLog, sim, onS
 // ============================================================
 //  ENTRANCE + MONOLOGUE
 // ============================================================
-// 每种屏幕的进场动作 —— App 从底部弹起(像真的启动)、锁屏淡入、闪回淡入
+// 每種屏幕的進場動作 —— App 從底部彈起(像真的啟動)、鎖屏淡入、閃回淡入
 const screenEntrance = (kind: BeatKind): string =>
     kind === 'app' ? 'animate-app-open' : 'animate-fade-in';
 
 type Vibe = NonNullable<Beat['vibe']>;
-// 确定性伪随机（按种子），保证同一 beat 每次渲染散布一致
+// 確定性偽隨機（按種子），保證同一 beat 每次渲染散佈一致
 const rnd = (n: number) => { const x = Math.sin(n * 99.73) * 43758.545; return x - Math.floor(x); };
 
 const vibeTint: Record<Vibe, string> = {
@@ -577,7 +577,7 @@ const vibeTint: Record<Vibe, string> = {
     tender: '#e6c9ff',
 };
 
-// 内心独白气泡（逐字敲出，按情绪微调色调）
+// 內心獨白氣泡（逐字敲出，按情緒微調色調）
 const MonoBubble: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'calm' }) => (
     <span className="inline-block px-3 py-1 rounded-2xl bg-black/70">
         <Typewriter drafts={[]} sent={text} placeholder=""
@@ -585,14 +585,14 @@ const MonoBubble: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'cal
     </span>
 );
 
-// 浮在屏幕底部的内心独白（用于锁屏 / 通知等无底部输入框的场景）
+// 浮在屏幕底部的內心獨白（用於鎖屏 / 通知等無底部輸入框的場景）
 const MonoLine: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'calm' }) => (
     <div className="absolute left-0 right-0 bottom-6 px-8 text-center pointer-events-none z-20">
         <MonoBubble text={text} vibe={vibe} />
     </div>
 );
 
-// 情绪化的「内心独白」全屏演出：混乱铺满 / 开心粉色飘飘 / 麻木冷淡 / 焦虑紧绷
+// 情緒化的「內心獨白」全屏演出：混亂鋪滿 / 開心粉色飄飄 / 麻木冷淡 / 焦慮緊繃
 const MoodThought: React.FC<{ text: string; vibe?: Vibe }> = ({ text, vibe = 'calm' }) => {
     if (vibe === 'chaotic') {
         const frags = text.split(/[，。、！？!?,.\s]+/).filter(Boolean);
@@ -696,7 +696,7 @@ const ScreenContent: React.FC<{ beat: Beat; char: CharacterProfile; showMono: bo
                     style={{ background: `radial-gradient(circle at 50% 45%, ${f?.tint || '#3a2a4a'} 0%, #07080c 78%)` }}>
                     <div className="absolute top-4 left-4 right-4 rounded-2xl px-4 py-2.5 bg-black/75 border border-white/[0.15] flex items-center gap-2 animate-slide-down">
                         <ImageSquare size={16} className="text-pink-300" />
-                        <span className="text-[12px] text-white/85 font-medium">{f?.label || f?.date || '过去的某天'}</span>
+                        <span className="text-[12px] text-white/85 font-medium">{f?.label || f?.date || '過去的某天'}</span>
                     </div>
                     <div className="w-[68%] aspect-[4/5] rounded-2xl overflow-hidden border border-white/[0.1] shadow-2xl relative grayscale-[35%] animate-fade-in"
                         style={{ background: `linear-gradient(160deg, ${f?.tint || '#5a4a6a'}, #1a1520)`, animationDuration: '1.4s' }}>
@@ -727,7 +727,7 @@ const ScreenContent: React.FC<{ beat: Beat; char: CharacterProfile; showMono: bo
                 <div className="flex-1 min-h-0 overflow-hidden relative">
                     <AppView app={a} char={char} />
                 </div>
-                {/* app 场景里独白走「页脚」而非浮层，避免盖住聊天/搜索/输入框 */}
+                {/* app 場景裡獨白走「頁腳」而非浮層，避免蓋住聊天/搜索/輸入框 */}
                 {showMono && beat.monologue && (
                     <div className="shrink-0 px-8 pb-6 pt-2 text-center">
                         <MonoBubble text={beat.monologue} vibe={beat.vibe} />
@@ -809,11 +809,11 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
             <div className="h-full flex flex-col justify-end p-4">
                 {c.to && <div className="text-[10px] text-white/30 mb-2 px-1">To: {c.to}</div>}
                 <div className="rounded-2xl bg-white/[0.05] border border-white/[0.1] px-4 py-3 min-h-[52px] flex items-center">
-                    <Typewriter drafts={c.drafts || []} sent={c.sent} placeholder="输入消息…"
+                    <Typewriter drafts={c.drafts || []} sent={c.sent} placeholder="輸入消息…"
                         className="text-[14px] text-white/90 leading-relaxed" />
                 </div>
                 <div className="text-[10px] text-white/25 mt-2 px-1">
-                    {c.sent ? '已发送' : '草稿已清空'}
+                    {c.sent ? '已發送' : '草稿已清空'}
                 </div>
             </div>
         );
@@ -833,8 +833,8 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
                 <div className="text-[10px] text-white/25 mt-3 px-1">{app.search.engine || '搜索'}</div>
                 <div className="flex-1 flex items-center justify-center">
                     {sent
-                        ? <span className="text-[11px] text-white/30">为你找到相关结果…</span>
-                        : <span className="text-[11px] text-white/25">— 没有搜索 —</span>}
+                        ? <span className="text-[11px] text-white/30">為你找到相關結果…</span>
+                        : <span className="text-[11px] text-white/25">— 沒有搜索 —</span>}
                 </div>
             </div>
         );
@@ -892,7 +892,7 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
     if (app.view === 'browser' && app.browser) {
         return (
             <div className="h-full overflow-y-auto no-scrollbar p-4 space-y-2">
-                <div className="text-[10px] text-white/30 px-1 mb-1">{app.browser.tabs.length} 个标签页</div>
+                <div className="text-[10px] text-white/30 px-1 mb-1">{app.browser.tabs.length} 個標籤頁</div>
                 {app.browser.tabs.map((t, i) => (
                     <div key={i} className="rounded-xl bg-white/[0.04] border border-white/[0.07] px-3.5 py-3 flex items-center gap-2.5">
                         <Globe size={15} className="text-white/35 shrink-0" />
@@ -925,8 +925,8 @@ const AppView: React.FC<{ app: NonNullable<Beat['app']>; char: CharacterProfile 
 //  SHARED CHROME
 // ============================================================
 const Shell: React.FC<{ children: React.ReactNode; wallpaper?: string }> = ({ children, wallpaper }) => {
-    // 传进来的是角色见面背景的原始字段值（blobref 令牌 / 旧 data: / 外链），
-    // 令牌喂不了 CSS url()，在这儿解析一次；非令牌值原样透传。
+    // 傳進來的是角色見面背景的原始字段值（blobref 令牌 / 舊 data: / 外鏈），
+    // 令牌喂不了 CSS url()，在這兒解析一次；非令牌值原樣透傳。
     const wallpaperUrl = useBlobRefUrl(wallpaper);
     return (
     <div className="absolute inset-0 z-[80] flex flex-col overflow-hidden text-white" style={{ background: '#07080c' }}>
@@ -939,7 +939,7 @@ const Shell: React.FC<{ children: React.ReactNode; wallpaper?: string }> = ({ ch
 };
 
 const TopBar: React.FC<{ onBack: () => void; right?: React.ReactNode; title?: string }> = ({ onBack, right, title }) => (
-    // 顶部安全区：iOS 刘海/状态栏会盖住返回键和「生活记录」，给个 safe-area-inset 兜底
+    // 頂部安全區：iOS 劉海/狀態欄會蓋住返回鍵和「生活記錄」，給個 safe-area-inset 兜底
     <div className="flex items-center justify-between px-4 shrink-0 pb-2"
         style={{ paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))' }}>
         <button onClick={onBack} className="w-9 h-9 -ml-1 rounded-full flex items-center justify-center text-white/80 bg-white/[0.05] border border-white/[0.08] active:scale-90 transition">
@@ -951,7 +951,7 @@ const TopBar: React.FC<{ onBack: () => void; right?: React.ReactNode; title?: st
 );
 
 // ============================================================
-//  LIFE LOG (生活记录) — sub-app
+//  LIFE LOG (生活記錄) — sub-app
 // ============================================================
 export const LifeLog: React.FC<{
     targetChar: CharacterProfile;
@@ -986,25 +986,25 @@ export const LifeLog: React.FC<{
             const digest = log.memoryText ? `\n${log.memoryText}` : '';
             await DB.saveMessage({
                 charId: targetChar.id, role: 'assistant', type: 'sim_card',
-                content: `【一段亲身经历 · ${log.title}】${digest}${log.summary ? `\n\n回过头想：${log.summary}` : ''}`,
+                content: `【一段親身經歷 · ${log.title}】${digest}${log.summary ? `\n\n回過頭想：${log.summary}` : ''}`,
                 metadata: { simCard: { mode: log.mode, theme: log.theme, title: log.title, summary: log.summary, ending: log.ending } },
             } as any);
             setSent(s => ({ ...s, [log.id]: true }));
-            addToast('已作为回忆发送给 TA', 'success');
-        } catch (e) { console.error(e); addToast('发送失败，请重试', 'error'); }
+            addToast('已作為回憶發送給 TA', 'success');
+        } catch (e) { console.error(e); addToast('發送失敗，請重試', 'error'); }
     };
     return (
         <Shell wallpaper={targetChar.dateBackground}>
-            <TopBar onBack={onBack} title="生活记录" />
+            <TopBar onBack={onBack} title="生活記錄" />
             <div className="px-6 pb-3 shrink-0">
-                <p className="text-[11px] text-white/40 leading-relaxed">那些你以 TA 的身份活过的片段。TA 不会记得，但你会。</p>
-                {logs.length > 0 && onRequestDelete && <p className="mt-1.5 text-[10px] text-white/25">长按记录可删除</p>}
+                <p className="text-[11px] text-white/40 leading-relaxed">那些你以 TA 的身份活過的片段。TA 不會記得，但你會。</p>
+                {logs.length > 0 && onRequestDelete && <p className="mt-1.5 text-[10px] text-white/25">長按記錄可刪除</p>}
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 pb-10 space-y-3">
                 {logs.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-white/30 gap-3">
                         <ClockCounterClockwise size={42} weight="light" />
-                        <span className="text-xs">还没有体验记录</span>
+                        <span className="text-xs">還沒有體驗記錄</span>
                     </div>
                 )}
                 {logs.map(log => (
@@ -1028,7 +1028,7 @@ export const LifeLog: React.FC<{
                             <span className="text-[9px] text-white/30 tabular-nums">{fmt(log.timestamp)}</span>
                         </div>
                         <div className="text-[15px] font-light text-white mb-1.5" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{log.title}</div>
-                        {log.ending && <div className="text-[10px] text-white/40 mb-1.5">结局 · {log.ending}</div>}
+                        {log.ending && <div className="text-[10px] text-white/40 mb-1.5">結局 · {log.ending}</div>}
                         <p className="text-[12.5px] text-white/60 leading-relaxed" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{log.summary}</p>
                         <div className="flex items-center justify-between mt-3 gap-2">
                             {log.buff?.label ? (
@@ -1046,7 +1046,7 @@ export const LifeLog: React.FC<{
                                 <button onClick={() => sendLog(log)} disabled={!!sent[log.id]}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-semibold active:scale-95 transition disabled:opacity-60"
                                     style={sent[log.id] ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' } : { background: ACCENT, color: '#1a1530' }}>
-                                    {sent[log.id] ? <><Check size={12} weight="bold" /> 已发送</> : <><PaperPlaneTilt size={12} weight="fill" /> 发送给 TA</>}
+                                    {sent[log.id] ? <><Check size={12} weight="bold" /> 已發送</> : <><PaperPlaneTilt size={12} weight="fill" /> 發送給 TA</>}
                                 </button>
                             </div>
                         </div>
@@ -1060,21 +1060,21 @@ export const LifeLog: React.FC<{
 // ============================================================
 //  DIRECTOR PROMPT + PARSER
 // ============================================================
-// 把「最早一条消息距今多久」翻译成给导演看的认识时长描述（闪回时间口径护栏）
+// 把「最早一條消息距今多久」翻譯成給導演看的認識時長描述（閃回時間口徑護欄）
 function describeAcquaintance(firstTs: number | undefined, userName: string, charName: string): string {
     if (!firstTs) {
-        return `${charName} 与 ${userName} 还没有可考的相处记录（可能是初次接触）。`;
+        return `${charName} 與 ${userName} 還沒有可考的相處記錄（可能是初次接觸）。`;
     }
     const days = Math.floor((Date.now() - firstTs) / 86400000);
     let span: string;
     if (days <= 1) span = '不到一天';
-    else if (days < 30) span = `约 ${days} 天`;
-    else if (days < 365) span = `约 ${Math.floor(days / 30)} 个月`;
-    else span = `约 ${(days / 365).toFixed(1)} 年`;
-    return `${charName} 与 ${userName} 自首次接触至今${span}（${days} 天）。`;
+    else if (days < 30) span = `約 ${days} 天`;
+    else if (days < 365) span = `約 ${Math.floor(days / 30)} 個月`;
+    else span = `約 ${(days / 365).toFixed(1)} 年`;
+    return `${charName} 與 ${userName} 自首次接觸至今${span}（${days} 天）。`;
 }
 
-// 把演出脚本压成「可读梗概」——作为回忆发给角色时用这个（让角色真的知道发生了什么，
+// 把演出腳本壓成「可讀梗概」——作為回憶發給角色時用這個（讓角色真的知道發生了什麼，
 // 而不是只收到一句留白的收尾）。
 function buildMemoryText(s: SimScript): string {
     const lines: string[] = [];
@@ -1082,20 +1082,20 @@ function buildMemoryText(s: SimScript): string {
         if (b.kind === 'end') continue;
         const t = b.time ? b.time + ' ' : '';
         const mono = b.monologue ? `（${b.monologue}）` : '';
-        if (b.kind === 'thought') { if (b.monologue) lines.push(`${t}心里：${b.monologue}`); continue; }
+        if (b.kind === 'thought') { if (b.monologue) lines.push(`${t}心裡：${b.monologue}`); continue; }
         if (b.kind === 'notification' && b.notif) { lines.push(`${t}${b.notif.app}通知：${b.notif.title}${b.notif.body ? ' ' + b.notif.body : ''}${mono}`); continue; }
-        if (b.kind === 'flashback') { lines.push(`${t}相册突然翻出${b.flashback?.label || '一张旧照片'}${b.flashback?.caption ? '：' + b.flashback.caption : ''}${mono}`); continue; }
-        if (b.kind === 'lock') { lines.push(`${t}${b.notif ? `锁屏，${b.notif.app}：${b.notif.title}` : '看了眼锁屏'}${mono}`); continue; }
+        if (b.kind === 'flashback') { lines.push(`${t}相冊突然翻出${b.flashback?.label || '一張舊照片'}${b.flashback?.caption ? '：' + b.flashback.caption : ''}${mono}`); continue; }
+        if (b.kind === 'lock') { lines.push(`${t}${b.notif ? `鎖屏，${b.notif.app}：${b.notif.title}` : '看了眼鎖屏'}${mono}`); continue; }
         if (b.kind === 'app' && b.app) {
-            const a = b.app; let act = `打开${a.name}`;
+            const a = b.app; let act = `打開${a.name}`;
             if (a.view === 'search' && a.search) act += `，搜：${a.search.queries.map(q => q.q).join(' → ')}`;
-            else if (a.view === 'compose' && a.compose) act += a.compose.sent ? `，给${a.compose.to || '对方'}发了「${a.compose.sent}」` : `，打了字又删了（${(a.compose.drafts || []).join('；')}）`;
-            else if (a.view === 'chat' && a.chat) act += `，和${a.chat.name}：${a.chat.lines.map(l => (l.me ? '我:' : '对方:') + l.text).join(' ')}`;
-            else if (a.view === 'photo' && a.photo) act += `，看一张照片${a.photo.caption ? '：' + a.photo.caption : ''}`;
-            else if (a.view === 'music' && a.music) act += `，听《${a.music.song}》${a.music.artist ? ' - ' + a.music.artist : ''}`;
-            else if (a.view === 'notes' && a.notes) act += `，备忘录：${(a.notes.items || []).join('；')}`;
-            else if (a.view === 'browser' && a.browser) act += `，标签页：${(a.browser.tabs || []).join('；')}`;
-            else if (a.view === 'weather' && a.weather) act += `，看天气（${a.weather.temp}° ${a.weather.desc}）`;
+            else if (a.view === 'compose' && a.compose) act += a.compose.sent ? `，給${a.compose.to || '對方'}發了「${a.compose.sent}」` : `，打了字又刪了（${(a.compose.drafts || []).join('；')}）`;
+            else if (a.view === 'chat' && a.chat) act += `，和${a.chat.name}：${a.chat.lines.map(l => (l.me ? '我:' : '對方:') + l.text).join(' ')}`;
+            else if (a.view === 'photo' && a.photo) act += `，看一張照片${a.photo.caption ? '：' + a.photo.caption : ''}`;
+            else if (a.view === 'music' && a.music) act += `，聽《${a.music.song}》${a.music.artist ? ' - ' + a.music.artist : ''}`;
+            else if (a.view === 'notes' && a.notes) act += `，備忘錄：${(a.notes.items || []).join('；')}`;
+            else if (a.view === 'browser' && a.browser) act += `，標籤頁：${(a.browser.tabs || []).join('；')}`;
+            else if (a.view === 'weather' && a.weather) act += `，看天氣（${a.weather.temp}° ${a.weather.desc}）`;
             else if (a.text) act += `：${a.text}`;
             lines.push(`${t}${act}${mono}`);
         }
@@ -1105,104 +1105,104 @@ function buildMemoryText(s: SimScript): string {
     return text;
 }
 
-// 「本场变奏」——每次随机抽几根轴当硬约束，打破固定的起床→刷手机→睡觉流水账
+// 「本場變奏」——每次隨機抽幾根軸當硬約束，打破固定的起床→刷手機→睡覺流水帳
 const vPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-// 各基调对应的「情绪底色」候选池（丧是公共底子，差异在上层笔触）
+// 各基調對應的「情緒底色」候選池（喪是公共底子，差異在上層筆觸）
 const MOOD_POOLS: Record<'depressive' | 'darkhumor' | 'cute', string[]> = {
     depressive: [
-        '平静钝感，情绪几乎贴着地面', '隐隐的烦躁，说不清为什么',
-        '麻木、抽离，像隔着一层玻璃', '怀念某个具体的人或时刻',
-        '低度焦虑，反复确认某件小事', '自我欺骗，嘴上一套、行为一套',
+        '平靜鈍感，情緒幾乎貼著地面', '隱隱的煩躁，說不清為什麼',
+        '麻木、抽離，像隔著一層玻璃', '懷念某個具體的人或時刻',
+        '低度焦慮，反覆確認某件小事', '自我欺騙，嘴上一套、行為一套',
     ],
     darkhumor: [
-        '把处境吐槽成段子，越离谱越想损两句', '一本正经地做一件很荒诞的事，自己都觉得好笑',
-        '用调侃和自嘲消解一切，没什么是不能拿来开玩笑的', '把糟心事说得稀松平常，透着一股冷幽默',
-        '神经质的好笑，脑子里全是怪念头', '对自己的烂摊子幸灾乐祸，黑色玩笑停不下来',
+        '把處境吐槽成段子，越離譜越想損兩句', '一本正經地做一件很荒誕的事，自己都覺得好笑',
+        '用調侃和自嘲消解一切，沒什麼是不能拿來開玩笑的', '把糟心事說得稀鬆平常，透著一股冷幽默',
+        '神經質的好笑，腦子裡全是怪念頭', '對自己的爛攤子幸災樂禍，黑色玩笑停不下來',
     ],
     cute: [
-        '行为里冒出一股傻气和俏皮', '小题大做地认真，可爱又好笑',
-        '幼稚的小执拗，像个长不大的小孩', '自娱自乐，给自己找些无聊但开心的小乐子',
-        '轻飘飘的，对小事莫名上头', '一惊一乍、活泼跳脱，情绪都写在脸上',
+        '行為裡冒出一股傻氣和俏皮', '小題大做地認真，可愛又好笑',
+        '幼稚的小執拗，像個長不大的小孩', '自娛自樂，給自己找些無聊但開心的小樂子',
+        '輕飄飄的，對小事莫名上頭', '一驚一乍、活潑跳脫，情緒都寫在臉上',
     ],
 };
 
 function buildVariation(tone: 'mix' | 'depressive' | 'darkhumor' | 'cute' = 'mix'): string {
     const entry = vPick([
-        '从一个不起眼的中间时刻切入（绝不要从「起床/醒来/关闹钟」开始）',
-        '从午后犯困、注意力涣散的那一刻切入',
-        '从黄昏、天快黑了还没开灯的那一刻切入',
-        '从深夜睡不着、第无数次点亮屏幕切入',
-        '从通勤/在路上、单手划手机切入',
-        '从被一条通知突然打断的瞬间切入',
-        '从一件正做到一半的事中途切入',
+        '從一個不起眼的中間時刻切入（絕不要從「起床/醒來/關鬧鐘」開始）',
+        '從午後犯困、注意力渙散的那一刻切入',
+        '從黃昏、天快黑了還沒開燈的那一刻切入',
+        '從深夜睡不著、第無數次點亮屏幕切入',
+        '從通勤/在路上、單手劃手機切入',
+        '從被一條通知突然打斷的瞬間切入',
+        '從一件正做到一半的事中途切入',
     ]);
     const span = vPick([
-        '整场只覆盖十几分钟的一个片段，密度高、范围小',
-        '只覆盖某半天里零散的几个空隙',
-        '在同一个时刻反复回返（时间几乎没走，心思在原地打转）',
+        '整場只覆蓋十幾分鐘的一個片段，密度高、範圍小',
+        '只覆蓋某半天裡零散的幾個空隙',
+        '在同一個時刻反覆回返（時間幾乎沒走，心思在原地打轉）',
         '跨越深夜到天亮前的一小段',
-        '一天里互不相连的三四个碎片，跳着来',
+        '一天裡互不相連的三四個碎片，跳著來',
     ]);
     const structure = vPick([
-        '整场几乎围绕「一个 App」展开，很少离开它',
-        '整场围绕「一件小物 / 一条未读 / 一张旧图」打转',
-        '在两件不相干的事之间反复横跳',
-        '大量留白，几乎什么都没发生，靠空气感和零碎动作撑',
-        '被一个突发（来电/通知/没电）打断后，再也没回到原来的事',
-        '线性但克制，靠细节而非情节推进',
+        '整場幾乎圍繞「一個 App」展開，很少離開它',
+        '整場圍繞「一件小物 / 一條未讀 / 一張舊圖」打轉',
+        '在兩件不相干的事之間反覆橫跳',
+        '大量留白，幾乎什麼都沒發生，靠空氣感和零碎動作撐',
+        '被一個突發（來電/通知/沒電）打斷後，再也沒回到原來的事',
+        '線性但克制，靠細節而非情節推進',
     ]);
     const medium = vPick([
-        '以「搜了又删、删了又搜」为主要表达',
-        '以「翻看相册」为主要表达',
-        '以「打字→删除→再打字」的反复为主要表达',
-        '以「一首歌单曲循环 + 走神」为主要表达',
-        '以「和某一个联系人有一搭没一搭的聊天」为主要表达',
-        '以「一堆与主线无关的环境碎片（通知/待办/标签页/购物车）」为主要表达',
+        '以「搜了又刪、刪了又搜」為主要表達',
+        '以「翻看相冊」為主要表達',
+        '以「打字→刪除→再打字」的反覆為主要表達',
+        '以「一首歌單曲循環 + 走神」為主要表達',
+        '以「和某一個聯繫人有一搭沒一搭的聊天」為主要表達',
+        '以「一堆與主線無關的環境碎片（通知/待辦/標籤頁/購物車）」為主要表達',
     ]);
     const moodPool = tone === 'mix'
         ? [...MOOD_POOLS.depressive, ...MOOD_POOLS.darkhumor, ...MOOD_POOLS.cute]
         : MOOD_POOLS[tone];
     const mood = vPick(moodPool);
     const anchor = vPick([
-        '一杯早就凉掉的咖啡/茶', '一条打好了却没发出去的消息', '一张忘了删的截图',
-        '一个挂了半年的待办', '一首单曲循环的歌', '一个一直没人回的群',
-        '一条快递的物流页', '一个总点开又退出的页面', '一张存了很久没再看的照片',
-        '一个删到一半的草稿',
+        '一杯早就涼掉的咖啡/茶', '一條打好了卻沒發出去的消息', '一張忘了刪的截圖',
+        '一個掛了半年的待辦', '一首單曲循環的歌', '一個一直沒人回的群',
+        '一條快遞的物流頁', '一個總點開又退出的頁面', '一張存了很久沒再看的照片',
+        '一個刪到一半的草稿',
     ]);
-    return `### [本场变奏 · 必须严格遵守，让这一场和上一场截然不同]
+    return `### [本場變奏 · 必須嚴格遵守，讓這一場和上一場截然不同]
 - 切入：${entry}
 - 跨度：${span}
-- 结构：${structure}
-- 主导表达：${medium}
-- 情绪底色：${mood}
-- 具体锚点：让这一场反复回到「${anchor}」上（可改写成更贴合人设的同类小物）
-※ 严禁套路化：不要从「起床/关闹钟/看天气」开场，也不要默认以「睡觉/锁屏」收尾，更不要走「醒来→刷一圈微信微博→睡觉」的流水账。下方字段示例只演示 JSON 格式，时间和内容一律按本场变奏来。`;
+- 結構：${structure}
+- 主導表達：${medium}
+- 情緒底色：${mood}
+- 具體錨點：讓這一場反覆回到「${anchor}」上（可改寫成更貼合人設的同類小物）
+※ 嚴禁套路化：不要從「起床/關鬧鐘/看天氣」開場，也不要默認以「睡覺/鎖屏」收尾，更不要走「醒來→刷一圈微信微博→睡覺」的流水帳。下方字段示例只演示 JSON 格式，時間和內容一律按本場變奏來。`;
 }
 
-// user 存在感三档（这一天里"你"占多少分量）
+// user 存在感三檔（這一天裡"你"佔多少分量）
 function buildPresenceRule(presence: 'default' | 'light' | 'none', userName: string): string {
-    const u = userName || '用户';
+    const u = userName || '用戶';
     switch (presence) {
         case 'none':
-            return `这一天**完全是 TA 自己的人生**：${u} 不出现、不被想起、不被寻找。即使 TA 记忆里有 ${u}，这一天也绝不浮现。所有消息、念头、痕迹都由 TA 自己的生活与其他人构成，绝对不要出现、暗示、惦记 ${u}。`;
+            return `這一天**完全是 TA 自己的人生**：${u} 不出現、不被想起、不被尋找。即使 TA 記憶裡有 ${u}，這一天也絕不浮現。所有消息、念頭、痕跡都由 TA 自己的生活與其他人構成，絕對不要出現、暗示、惦記 ${u}。`;
         case 'light':
-            return `${u} 只是**极淡的背景**——整场重心是 TA 自己。最多偶尔扫过一条 ${u} 的旧消息、一闪而过的一个念头，点到即止，绝不聚焦、不展开、不围着 ${u} 转。`;
+            return `${u} 只是**極淡的背景**——整場重心是 TA 自己。最多偶爾掃過一條 ${u} 的舊消息、一閃而過的一個念頭，點到即止，絕不聚焦、不展開、不圍著 ${u} 轉。`;
         default:
-            return `${u} 是 TA 生活里**自然存在的一条线**——可以有 ${u} 的消息、对 ${u} 的惦记、痕迹里出现 ${u}，关系与平时聊天一致；但此刻 ${u} 不在场，不要替 ${u} 说话或行动。`;
+            return `${u} 是 TA 生活裡**自然存在的一條線**——可以有 ${u} 的消息、對 ${u} 的惦記、痕跡裡出現 ${u}，關係與平時聊天一致；但此刻 ${u} 不在場，不要替 ${u} 說話或行動。`;
     }
 }
 
-// 演出基调：丧始终是底子，差异在上层笔触
+// 演出基調：喪始終是底子，差異在上層筆觸
 function buildToneRule(tone: 'mix' | 'depressive' | 'darkhumor' | 'cute'): string {
     switch (tone) {
         case 'depressive':
-            return `【本场基调：致郁】纯粹的低气压——钝感、麻木、克制、贴着地面。不要插科打诨，不要俏皮，让情绪安安静静地泡着。`;
+            return `【本場基調：致鬱】純粹的低氣壓——鈍感、麻木、克制、貼著地面。不要插科打諢，不要俏皮，讓情緒安安靜靜地泡著。`;
         case 'darkhumor':
-            return `【本场基调：黑色幽默】要有**神经质的好笑**——self-aware 的自嘲、把糟心事讲成段子、一本正经地做荒诞的事、越离谱越好笑。参考《安迪和莉莉的棺材》那种味道：可爱的皮、荒诞的里，冷不丁戳你一下。表达可以毒舌、跳脱、停不下来。`;
+            return `【本場基調：黑色幽默】要有**神經質的好笑**——self-aware 的自嘲、把糟心事講成段子、一本正經地做荒誕的事、越離譜越好笑。參考《安迪和莉莉的棺材》那種味道：可愛的皮、荒誕的裡，冷不丁戳你一下。表達可以毒舌、跳脫、停不下來。`;
         case 'cute':
-            return `【本场基调：轻盈可爱】笔触**俏皮、轻盈、带点傻气和萌**——小题大做、幼稚的小执拗、自娱自乐、对无聊小事莫名上头。像素小可爱那种活泼可爱感，整场轻松、不压抑。`;
+            return `【本場基調：輕盈可愛】筆觸**俏皮、輕盈、帶點傻氣和萌**——小題大做、幼稚的小執拗、自娛自樂、對無聊小事莫名上頭。像素小可愛那種活潑可愛感，整場輕鬆、不壓抑。`;
         default:
-            return `【本场基调：随心】基调随「情绪底色」自然流动——可平静、可黑色幽默、可俏皮轻盈，允许一场之内有起伏，不必固定在某一种情绪上。`;
+            return `【本場基調：隨心】基調隨「情緒底色」自然流動——可平靜、可黑色幽默、可俏皮輕盈，允許一場之內有起伏，不必固定在某一種情緒上。`;
     }
 }
 
@@ -1210,77 +1210,77 @@ function buildDirectorPrompt(context: string, recent: string, mode: 'daily' | 'e
     return `${context}
 
 ### [最近的聊天上下文]
-${recent || '（暂无最近对话）'}
+${recent || '（暫無最近對話）'}
 
-### [导演任务：手机人生演出 Screenlife]
-你现在是一位沉浸式叙事导演。请把「${name}」的一段人生，编排成一场**以手机为载体的第一人称演出**。
-体验类型：${mode === 'daily' ? '日常模拟（普通日子，重生活感与陪伴）' : '事件模拟（特殊事件，重情绪张力）'}
-体验内容：「${theme}」
-关系时间线（重要护栏）：${acquaintance}
-你的存在感（${userName || '用户'}在这一天里的位置 · 必须严格遵守）：${buildPresenceRule(presence, userName)}
+### [導演任務：手機人生演出 Screenlife]
+你現在是一位沉浸式敘事導演。請把「${name}」的一段人生，編排成一場**以手機為載體的第一人稱演出**。
+體驗類型：${mode === 'daily' ? '日常模擬（普通日子，重生活感與陪伴）' : '事件模擬（特殊事件，重情緒張力）'}
+體驗內容：「${theme}」
+關係時間線（重要護欄）：${acquaintance}
+你的存在感（${userName || '用戶'}在這一天裡的位置 · 必須嚴格遵守）：${buildPresenceRule(presence, userName)}
 ${buildToneRule(tone)}
 
-观众（用户）将**成为 ${name}**，通过 TA 使用手机的行为，亲身经历这段时间。
+觀眾（用戶）將**成為 ${name}**，通過 TA 使用手機的行為，親身經歷這段時間。
 
 ${buildVariation(tone)}
 
-【铁律】
-1. 不要把故事讲出来，不要解释人物，不要分析情绪，不要总结意义。一切通过**手机行为 / 数字痕迹 / 内心独白 / 环境碎片**自然呈现。
-2. 内心独白（monologue）要**大量出现**，但**极其口语、简短、真实**，像真实人脑活动。例如：「不想起床。」「算了。」「她怎么还没回我。」「应该没事吧。」「其实有点在意。」禁止文学腔、禁止解释剧情。
-3. **非可靠叙事**：TA 说的/想的不一定是真相，允许自我安慰、自我欺骗、逃避、美化记忆、误解他人。让行为去拆穿独白（例如嘴上说「我根本不在意」，却反复打开同一个聊天窗口）。
-4. **数字行为优先**：多用「打字后删除(compose)」「搜索后删除再搜(search)」「翻看旧照片」「反复打开同一页面」「消息撤回」来表达，而不是直接说出情绪。
-5. **真实手机感**：可穿插与主线无关的真实手机事件——来电、电量不足、验证码、快递通知、垃圾短信、天气预警、自动续费、各种推送。它们不一定推动剧情，但增强真实。
-6. **环境碎片**：可出现与主线无关的痕迹——没做完的待办、半年前的截图、忘记删的照片、一堆浏览器标签、购物车、旧闹钟、收藏夹。这些共同拼出 TA 的人格。
-7. **情绪高潮放慢节奏**：关键节点用「打开→关闭→重新打开→停顿→锁屏→再打开→输入→删除→输入→删除→最终发送(或不发)」这种反复的 beat 序列制造张力，并把这些 beat 的 pace 设为 3。
-8. 【记忆闪回 · 务必先判断是否合理，宁可不插也不要 OOC】闪回是 ${name} **自己的一段过去突然闯进现在**（相册自动弹出一张旧照片→沉默→什么都不说→继续今天，杀伤力来自“过去闯进现在”）。但是否插入、用什么时间口径，必须严格符合人设与世界观：
-   - 时间标签(label)由你决定，必须与上面的「关系时间线」以及角色自身的人生阶段/世界观自洽。例如真的相识一年以上才用「去年今日」；几个月就用「三个月前的今天」「那天」；刚认识或时间线不支持，**绝不要**用「去年」。
-   - 照片不一定与用户有关，可以是 ${name} 自己更早的人生片段（地方、人、物）。
-   - 如果该角色的设定/世界观里根本没有「拍照片 / 现代时间感 / 可追溯的过去」，或任何闪回都会显得突兀 OOC，就**完全不要**加 flashback beat。
-   - ${mode === 'event' ? '事件模拟下，若合理，优先安排一次闪回来强化情绪；若不合理则跳过。' : '日常模拟下，仅在某个安静且合理的时刻择机插入，可有可无。'}
+【鐵律】
+1. 不要把故事講出來，不要解釋人物，不要分析情緒，不要總結意義。一切通過**手機行為 / 數字痕跡 / 內心獨白 / 環境碎片**自然呈現。
+2. 內心獨白（monologue）要**大量出現**，但**極其口語、簡短、真實**，像真實人腦活動。例如：「不想起床。」「算了。」「她怎麼還沒回我。」「應該沒事吧。」「其實有點在意。」禁止文學腔、禁止解釋劇情。
+3. **非可靠敘事**：TA 說的/想的不一定是真相，允許自我安慰、自我欺騙、逃避、美化記憶、誤解他人。讓行為去拆穿獨白（例如嘴上說「我根本不在意」，卻反覆打開同一個聊天窗口）。
+4. **數字行為優先**：多用「打字後刪除(compose)」「搜索後刪除再搜(search)」「翻看舊照片」「反覆打開同一頁面」「消息撤回」來表達，而不是直接說出情緒。
+5. **真實手機感**：可穿插與主線無關的真實手機事件——來電、電量不足、驗證碼、快遞通知、垃圾短信、天氣預警、自動續費、各種推送。它們不一定推動劇情，但增強真實。
+6. **環境碎片**：可出現與主線無關的痕跡——沒做完的待辦、半年前的截圖、忘記刪的照片、一堆瀏覽器標籤、購物車、舊鬧鐘、收藏夾。這些共同拼出 TA 的人格。
+7. **情緒高潮放慢節奏**：關鍵節點用「打開→關閉→重新打開→停頓→鎖屏→再打開→輸入→刪除→輸入→刪除→最終發送(或不發)」這種反覆的 beat 序列製造張力，並把這些 beat 的 pace 設為 3。
+8. 【記憶閃回 · 務必先判斷是否合理，寧可不插也不要 OOC】閃回是 ${name} **自己的一段過去突然闖進現在**（相冊自動彈出一張舊照片→沉默→什麼都不說→繼續今天，殺傷力來自“過去闖進現在”）。但是否插入、用什麼時間口徑，必須嚴格符合人設與世界觀：
+   - 時間標籤(label)由你決定，必須與上面的「關係時間線」以及角色自身的人生階段/世界觀自洽。例如真的相識一年以上才用「去年今日」；幾個月就用「三個月前的今天」「那天」；剛認識或時間線不支持，**絕不要**用「去年」。
+   - 照片不一定與用戶有關，可以是 ${name} 自己更早的人生片段（地方、人、物）。
+   - 如果該角色的設定/世界觀里根本沒有「拍照片 / 現代時間感 / 可追溯的過去」，或任何閃回都會顯得突兀 OOC，就**完全不要**加 flashback beat。
+   - ${mode === 'event' ? '事件模擬下，若合理，優先安排一次閃回來強化情緒；若不合理則跳過。' : '日常模擬下，僅在某個安靜且合理的時刻擇機插入，可有可無。'}
 
-【下猛料 · 密度 / 强度 / 具体度（这一段优先级最高，别给我收着）】
-- **要长、要满**：这是一场完整演出，不是预告片。beats 给足 **40~64 个**，疏密有致但总量宁多勿少。
-- **每一步都有戏**：绝大多数 beat 都带 monologue；独白可以接连成串——一个动作配 2~3 个跳跃、互相打架的念头，让脑子真的"在转"。
-- **往死里具体**：用真实的名字、店名、歌名、金额、时间、对话原话、搜索词。**拒绝**「某人 / 某件事 / 一条消息 / 一首歌」这种含糊占位，每个细节都要像真有其事，能拼出一个活人。
-- **数字行为往狠里堆**：compose 的「打了又删」至少 2~3 次且每次草稿不同、search 的「搜了又删」至少一串 3~4 条层层递进（越搜越露底）、再穿插消息撤回 / 反复开同一页 / 已读不回 / 对方"正在输入…"又停了。
-- **高潮要够长够窒息**：把关键节点拉成 **8~12 个连续 beat**（开→关→重开→停顿→锁屏→再开→输入→删→输入→删→…→最终发送或最终没发），全程 pace=3，把"手指悬在发送键上"的劲儿磨出来。
-- **环境碎片撒厚**：购物车里躺着什么、半年前的待办写了什么、浏览器开着哪些标签、相册某张图是哪天——具体到刺人。
-- **敢于不体面**：真实的人会走神、会反复确认、会自欺、会因一件小事突然破防。别替 TA 美化、克制成一张白纸——该狼狈就狼狈，该上头就上头。
-- **结尾要"落地"，不要"断电"**：高潮之后**必须**有 3~6 个 beat 的收束——情绪慢慢沉下来、做一个最终的小动作（放下手机 / 关灯 / 最后看一眼那条消息 / 轻轻锁屏），pace 回落到 1~2；倒数第二拍用一句 thought 或一个 lock 给整场一个情绪落点，让观众真切感到"这一段，结束了"。**绝不能停在动作中途或高潮顶点就 end**。end 永远是收束之后的最后一拍，不是急刹车。
+【下猛料 · 密度 / 強度 / 具體度（這一段優先級最高，別給我收著）】
+- **要長、要滿**：這是一場完整演出，不是預告片。beats 給足 **40~64 個**，疏密有致但總量寧多勿少。
+- **每一步都有戲**：絕大多數 beat 都帶 monologue；獨白可以接連成串——一個動作配 2~3 個跳躍、互相打架的念頭，讓腦子真的"在轉"。
+- **往死裡具體**：用真實的名字、店名、歌名、金額、時間、對話原話、搜索詞。**拒絕**「某人 / 某件事 / 一條消息 / 一首歌」這種含糊佔位，每個細節都要像真有其事，能拼出一個活人。
+- **數字行為往狠裡堆**：compose 的「打了又刪」至少 2~3 次且每次草稿不同、search 的「搜了又刪」至少一串 3~4 條層層遞進（越搜越露底）、再穿插消息撤回 / 反覆開同一頁 / 已讀不回 / 對方"正在輸入…"又停了。
+- **高潮要夠長夠窒息**：把關鍵節點拉成 **8~12 個連續 beat**（開→關→重開→停頓→鎖屏→再開→輸入→刪→輸入→刪→…→最終發送或最終沒發），全程 pace=3，把"手指懸在發送鍵上"的勁兒磨出來。
+- **環境碎片撒厚**：購物車裡躺著什麼、半年前的待辦寫了什麼、瀏覽器開著哪些標籤、相冊某張圖是哪天——具體到刺人。
+- **敢於不體面**：真實的人會走神、會反覆確認、會自欺、會因一件小事突然破防。別替 TA 美化、克制成一張白紙——該狼狽就狼狽，該上頭就上頭。
+- **結尾要"落地"，不要"斷電"**：高潮之後**必須**有 3~6 個 beat 的收束——情緒慢慢沉下來、做一個最終的小動作（放下手機 / 關燈 / 最後看一眼那條消息 / 輕輕鎖屏），pace 回落到 1~2；倒數第二拍用一句 thought 或一個 lock 給整場一個情緒落點，讓觀眾真切感到"這一段，結束了"。**絕不能停在動作中途或高潮頂點就 end**。end 永遠是收束之後的最後一拍，不是急剎車。
 
-【输出格式】严格输出**一个 JSON 对象**（不要任何额外文字、不要 markdown 代码块），结构如下：
+【輸出格式】嚴格輸出**一個 JSON 對象**（不要任何額外文字、不要 markdown 代碼塊），結構如下：
 {
-  "title": "演出标题（如：普通的周二）",
-  "ending": "可选，这次的结局版本标签（如：最终没有发送）",
-  "summary": "1-2 句收尾，客观留白，不解释",
-  "buff": { "name": "英文key", "label": "中文情绪标签(4-8字)", "emoji": "1个emoji", "color": "#hex", "intensity": 1|2|3, "description": "一句给AI看的情绪底色" },
-  "beats": [ ... 40~64 个 beat，宁多勿少 ... ]
+  "title": "演出標題（如：普通的週二）",
+  "ending": "可選，這次的結局版本標籤（如：最終沒有發送）",
+  "summary": "1-2 句收尾，客觀留白，不解釋",
+  "buff": { "name": "英文key", "label": "中文情緒標籤(4-8字)", "emoji": "1個emoji", "color": "#hex", "intensity": 1|2|3, "description": "一句給AI看的情緒底色" },
+  "beats": [ ... 40~64 個 beat，寧多勿少 ... ]
 }
 
-每个 beat 是一个对象，必含 "kind"，按需含 "time"(HH:MM)、"monologue"、"pace"(1普通/2稍慢/3高潮)、"vibe"。
-**"vibe" 决定这段文字的视觉演出**，请根据 TA 此刻的情绪状态给 thought / 关键 monologue 标注，取值：
-  - "calm" 平静（默认，文字居中缓缓敲出）
-  - "chaotic" 混乱崩溃（文字会铺天盖地散落满屏——情绪越乱越适合）
-  - "happy" 开心（粉色字 + 飘飘上浮的小装饰）
-  - "anxious" 焦虑（文字紧绷、发红、轻微脉动）
-  - "numb" 麻木空洞（文字冷淡、缩小、大片留白）
-  - "tender" 温柔/眷恋（柔光）
-kind 取值与字段：
-- {"kind":"lock","time":"07:12","notif":{"app":"闹钟","title":"...","body":"..."},"monologue":"不想起床。"}  // 锁屏/亮屏
-- {"kind":"thought","monologue":"算了。","vibe":"numb"}  // 纯内心独白；情绪强烈时务必给 vibe（如崩溃→"chaotic"、雀跃→"happy"）
-- {"kind":"notification","notif":{"app":"微信","title":"...","body":"...","tone":"push|sms|system|flashback"},"monologue":"..."}  // 横幅通知
-- {"kind":"app","app":{"name":"微信","view":"chat","chat":{"name":"妈","lines":[{"me":false,"text":"吃饭了吗"},{"me":true,"text":"吃了"}]}}}
-- {"kind":"app","app":{"name":"微信","view":"compose","compose":{"to":"她","drafts":["在吗","你最近还好吗"],"sent":null}}}  // 打字后删除；sent=null表示最终没发，sent填字符串表示最终发送
-- {"kind":"app","app":{"name":"搜索","view":"search","search":{"engine":"百度","queries":[{"q":"失眠怎么办","deleted":true},{"q":"长期睡不好会死吗","deleted":true},{"q":"猫为什么半夜叫"}]}}}
-- {"kind":"app","app":{"name":"相册","view":"photo","photo":{"caption":"...","date":"2024-06-19","tint":"#5a6a7a"}}}
-- {"kind":"app","app":{"name":"音乐","view":"music","music":{"song":"...","artist":"...","state":"单曲循环"}}}
-- {"kind":"app","app":{"name":"备忘录","view":"notes","notes":{"title":"待办","items":["...","..."]}}}
-- {"kind":"app","app":{"name":"浏览器","view":"browser","browser":{"tabs":["...","..."]}}}
-- {"kind":"app","app":{"name":"天气","view":"weather","weather":{"city":"...","temp":22,"desc":"多云"}}}
-- {"kind":"flashback","time":"15:00","flashback":{"label":"三个月前的今天","caption":"...","date":"...","tint":"#4a3a5a"},"monologue":""}  // 记忆闪回(可选)，label=自洽的时间口径，monologue留空=沉默
-- {"kind":"end","time":"23:40"}  // 最后一个 beat 必须是 end
+每個 beat 是一個對象，必含 "kind"，按需含 "time"(HH:MM)、"monologue"、"pace"(1普通/2稍慢/3高潮)、"vibe"。
+**"vibe" 決定這段文字的視覺演出**，請根據 TA 此刻的情緒狀態給 thought / 關鍵 monologue 標註，取值：
+  - "calm" 平靜（默認，文字居中緩緩敲出）
+  - "chaotic" 混亂崩潰（文字會鋪天蓋地散落滿屏——情緒越亂越適合）
+  - "happy" 開心（粉色字 + 飄飄上浮的小裝飾）
+  - "anxious" 焦慮（文字緊繃、發紅、輕微脈動）
+  - "numb" 麻木空洞（文字冷淡、縮小、大片留白）
+  - "tender" 溫柔/眷戀（柔光）
+kind 取值與字段：
+- {"kind":"lock","time":"07:12","notif":{"app":"鬧鐘","title":"...","body":"..."},"monologue":"不想起床。"}  // 鎖屏/亮屏
+- {"kind":"thought","monologue":"算了。","vibe":"numb"}  // 純內心獨白；情緒強烈時務必給 vibe（如崩潰→"chaotic"、雀躍→"happy"）
+- {"kind":"notification","notif":{"app":"微信","title":"...","body":"...","tone":"push|sms|system|flashback"},"monologue":"..."}  // 橫幅通知
+- {"kind":"app","app":{"name":"微信","view":"chat","chat":{"name":"媽","lines":[{"me":false,"text":"吃飯了嗎"},{"me":true,"text":"吃了"}]}}}
+- {"kind":"app","app":{"name":"微信","view":"compose","compose":{"to":"她","drafts":["在嗎","你最近還好嗎"],"sent":null}}}  // 打字後刪除；sent=null表示最終沒發，sent填字符串表示最終發送
+- {"kind":"app","app":{"name":"搜索","view":"search","search":{"engine":"百度","queries":[{"q":"失眠怎麼辦","deleted":true},{"q":"長期睡不好會死嗎","deleted":true},{"q":"貓為什麼半夜叫"}]}}}
+- {"kind":"app","app":{"name":"相冊","view":"photo","photo":{"caption":"...","date":"2024-06-19","tint":"#5a6a7a"}}}
+- {"kind":"app","app":{"name":"音樂","view":"music","music":{"song":"...","artist":"...","state":"單曲循環"}}}
+- {"kind":"app","app":{"name":"備忘錄","view":"notes","notes":{"title":"待辦","items":["...","..."]}}}
+- {"kind":"app","app":{"name":"瀏覽器","view":"browser","browser":{"tabs":["...","..."]}}}
+- {"kind":"app","app":{"name":"天氣","view":"weather","weather":{"city":"...","temp":22,"desc":"多雲"}}}
+- {"kind":"flashback","time":"15:00","flashback":{"label":"三個月前的今天","caption":"...","date":"...","tint":"#4a3a5a"},"monologue":""}  // 記憶閃回(可選)，label=自洽的時間口徑，monologue留空=沉默
+- {"kind":"end","time":"23:40"}  // 最後一個 beat 必須是 end
 
-请严格贴合上面的【本场变奏】，并把【下猛料】那段吃透：beats 给足 40~64 个、独白密集、细节具体、数字行为反复、高潮拉长、结尾收束落地。**务必保证 JSON 完整闭合、结尾收好**——若篇幅吃紧，宁可砍掉几个中段 beat，也要留足收尾、把括号全部闭合，绝不允许写到一半被截断。直接输出 JSON 对象。`;
+請嚴格貼合上面的【本場變奏】，並把【下猛料】那段吃透：beats 給足 40~64 個、獨白密集、細節具體、數字行為反覆、高潮拉長、結尾收束落地。**務必保證 JSON 完整閉合、結尾收好**——若篇幅吃緊，寧可砍掉幾個中段 beat，也要留足收尾、把括號全部閉合，絕不允許寫到一半被截斷。直接輸出 JSON 對象。`;
 }
 
 export default PersonaSim;

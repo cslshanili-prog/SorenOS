@@ -1,119 +1,119 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeTranslationTags, sanitizeForBubble, sanitizeForNotification, sanitizeIntoSegments } from './sanitize';
 
-// applyAssistantPostProcessing Step 8 的严格双语判定/拆泡正则 (utils/applyAssistantPostProcessing.ts)。
-// 自愈的目标就是让掉格式输出重新命中它 —— 这里用同一条正则做端到端断言。
-const STEP8_RE = /<翻译>\s*<原文>[\s\S]*?<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/;
-const CANON = (a: string, b: string) => `<翻译><原文>${a}</原文><译文>${b}</译文></翻译>`;
+// applyAssistantPostProcessing Step 8 的嚴格雙語判定/拆泡正則 (utils/applyAssistantPostProcessing.ts)。
+// 自愈的目標就是讓掉格式輸出重新命中它 —— 這裡用同一條正則做端到端斷言。
+const STEP8_RE = /<翻[译譯]>\s*<原文>[\s\S]*?<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/;
+const CANON = (a: string, b: string) => `<翻譯><原文>${a}</原文><譯文>${b}</譯文></翻譯>`;
 
 describe('normalizeTranslationTags', () => {
-    it('无翻译标签的文本原样返回 (fast path)', () => {
-        expect(normalizeTranslationTags('普通聊天文本，没有任何标签')).toBe('普通聊天文本，没有任何标签');
-        expect(normalizeTranslationTags('原文和译文这两个词本身不该被动')).toBe('原文和译文这两个词本身不该被动');
+    it('無翻譯標籤的文本原樣返回 (fast path)', () => {
+        expect(normalizeTranslationTags('普通聊天文本，沒有任何標籤')).toBe('普通聊天文本，沒有任何標籤');
+        expect(normalizeTranslationTags('原文和譯文這兩個詞本身不該被動')).toBe('原文和譯文這兩個詞本身不該被動');
     });
 
-    it('规范块幂等：完整格式不被改坏', () => {
-        const s = CANON('你好！', 'こんにちは！') + CANON('今天做什么？', '今日は何する？');
+    it('規範塊冪等：完整格式不被改壞', () => {
+        const s = CANON('你好！', 'こんにちは！') + CANON('今天做什麼？', '今日は何する？');
         expect(normalizeTranslationTags(s)).toBe(s);
     });
 
-    // ─── 截图报告形态 ───
+    // ─── 截圖報告形態 ───
 
-    it('尾部截断 `</译文` (少写 > 且丢 </翻译>) → 补全成规范块', () => {
-        const s = '<翻译><原文>如果硬撑着一整天不睡，胃也会难受的。</原文><译文>丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。</译文';
+    it('尾部截斷 `</譯文` (少寫 > 且丟 </翻譯>) → 補全成規範塊', () => {
+        const s = '<翻譯><原文>如果硬撐著一整天不睡，胃也會難受的。</原文><譯文>丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。</譯文';
         const out = normalizeTranslationTags(s);
-        expect(out).toBe(CANON('如果硬撑着一整天不睡，胃也会难受的。', '丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。'));
+        expect(out).toBe(CANON('如果硬撐著一整天不睡，胃也會難受的。', '丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。'));
         expect(STEP8_RE.test(out)).toBe(true);
     });
 
-    it('全裸文本只剩孤儿 `</译文` 残尾 → 剥干净，正文保留', () => {
-        const s = '如果硬撑着一整天不睡，胃也会难受的。\n丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。</译文';
+    it('全裸文本只剩孤兒 `</譯文` 殘尾 → 剝乾淨，正文保留', () => {
+        const s = '如果硬撐著一整天不睡，胃也會難受的。\n丸一日無理して起きてたら、胃もキリキリ痛くなっちゃうよ。</譯文';
         const out = normalizeTranslationTags(s);
         expect(out).not.toMatch(/[<＜]/);
-        expect(out).toContain('胃也会难受的。');
+        expect(out).toContain('胃也會難受的。');
         expect(out).toContain('痛くなっちゃうよ。');
     });
 
-    // ─── 结构掉格式 ───
+    // ─── 結構掉格式 ───
 
-    it('缺外层 <翻译> 包裹 → 补齐', () => {
-        const out = normalizeTranslationTags('<原文>你好！</原文>\n<译文>こんにちは！</译文>');
+    it('缺外層 <翻譯> 包裹 → 補齊', () => {
+        const out = normalizeTranslationTags('<原文>你好！</原文>\n<譯文>こんにちは！</譯文>');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    it('缺 </翻译> 闭合 → 补齐', () => {
-        const out = normalizeTranslationTags('<翻译><原文>你好！</原文><译文>こんにちは！</译文>');
+    it('缺 </翻譯> 閉合 → 補齊', () => {
+        const out = normalizeTranslationTags('<翻譯><原文>你好！</原文><譯文>こんにちは！</譯文>');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    it('sibling 幻觉形态 <翻译>X</翻译><译文>Y</译文> → 规范块', () => {
-        const out = normalizeTranslationTags('<翻译>你好！</翻译><译文>こんにちは！</译文>');
+    it('sibling 幻覺形態 <翻譯>X</翻譯><譯文>Y</譯文> → 規範塊', () => {
+        const out = normalizeTranslationTags('<翻譯>你好！</翻譯><譯文>こんにちは！</譯文>');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    it('译文块未闭合 (流截断) → 末尾补闭合再规范化', () => {
-        const out = normalizeTranslationTags('<翻译><原文>你好！</原文><译文>こんにちは！');
+    it('譯文塊未閉合 (流截斷) → 末尾補閉合再規範化', () => {
+        const out = normalizeTranslationTags('<翻譯><原文>你好！</原文><譯文>こんにちは！');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    it('多句混合：规范块 + 掉格式块同现，各自修好', () => {
-        const s = CANON('你好！', 'こんにちは！') + '\n<原文>今天做什么？</原文><译文>今日は何する？</译文';
+    it('多句混合：規範塊 + 掉格式塊同現，各自修好', () => {
+        const s = CANON('你好！', 'こんにちは！') + '\n<原文>今天做什麼？</原文><譯文>今日は何する？</譯文';
         const out = normalizeTranslationTags(s);
         expect(out).toContain(CANON('你好！', 'こんにちは！'));
-        expect(out).toContain(CANON('今天做什么？', '今日は何する？'));
+        expect(out).toContain(CANON('今天做什麼？', '今日は何する？'));
     });
 
     // ─── 字形掉格式 ───
 
-    it('全角尖括号 / 全角斜杠 / 标签内空格 → 规范半角', () => {
-        const out = normalizeTranslationTags('＜翻译＞＜原文＞你好！＜／原文＞< 译文 >こんにちは！</ 译文 >＜/翻译＞');
+    it('全角尖括號 / 全角斜槓 / 標籤內空格 → 規範半角', () => {
+        const out = normalizeTranslationTags('＜翻譯＞＜原文＞你好！＜／原文＞< 譯文 >こんにちは！</ 譯文 >＜/翻譯＞');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    it('简繁互换 譯文/翻譯 → 规范简体', () => {
+    it('簡繁互換 譯文/翻譯 → 規範簡體', () => {
         const out = normalizeTranslationTags('<翻譯><原文>你好！</原文><譯文>こんにちは！</譯文></翻譯>');
         expect(out).toBe(CANON('你好！', 'こんにちは！'));
     });
 
-    // ─── 兜底不变量 ───
+    // ─── 兜底不變量 ───
 
-    it('孤儿闭合 / 配不成对的标签一律剥除，绝不漏给用户', () => {
-        expect(normalizeTranslationTags('前面</翻译>后面')).toBe('前面后面');
-        // 配不成对的 <译文> 整块 = 重复的目标语内容，按 extractTranslationOriginal 既有策略丢弃
-        expect(normalizeTranslationTags('只有译文块<译文>こんにちは！</译文>')).toBe('只有译文块');
+    it('孤兒閉合 / 配不成對的標籤一律剝除，絕不漏給用戶', () => {
+        expect(normalizeTranslationTags('前面</翻譯>後面')).toBe('前面後面');
+        // 配不成對的 <譯文> 整塊 = 重複的目標語內容，按 extractTranslationOriginal 既有策略丟棄
+        expect(normalizeTranslationTags('只有譯文塊<譯文>こんにちは！</譯文>')).toBe('只有譯文塊');
     });
 
-    it('规范多行块（标签间带换行）原样保留，不被压扁', () => {
-        const s = '<翻译>\n<原文>Wait... seriously?</原文>\n<译文>等等…？</译文>\n</翻译>';
+    it('規範多行塊（標籤間帶換行）原樣保留，不被壓扁', () => {
+        const s = '<翻譯>\n<原文>Wait... seriously?</原文>\n<譯文>等等…？</譯文>\n</翻譯>';
         expect(normalizeTranslationTags(s)).toBe(s);
     });
 
-    it('自愈后不变量：除规范块外无任何翻译标签残留', () => {
-        const messy = '碎片</译文\n<翻译>半个块<译文>訳</译文>\n＜原文 正文继续';
+    it('自愈後不變量：除規範塊外無任何翻譯標籤殘留', () => {
+        const messy = '碎片</譯文\n<翻譯>半個塊<譯文>訳</譯文>\n＜原文 正文繼續';
         const out = normalizeTranslationTags(messy);
-        const rest = out.replace(/<翻译><原文>[\s\S]*?<\/原文><译文>[\s\S]*?<\/译文><\/翻译>/g, '');
-        expect(rest).not.toMatch(/[<＜]\s*[/／]?\s*(?:翻[译譯]|原文|[译譯]文)/);
+        const rest = out.replace(/<翻[译譯]><原文>[\s\S]*?<\/原文><[译譯]文>[\s\S]*?<\/[译譯]文><\/翻[译譯]>/g, '');
+        expect(rest).not.toMatch(/[<＜]\s*[/／]?\s*(?:翻[译譯譯]|原文|[译譯譯]文)/);
     });
 
-    it('幂等：修复结果再跑一遍不变', () => {
-        const once = normalizeTranslationTags('<原文>你好！</原文><译文>こんにちは！</译文');
+    it('冪等：修復結果再跑一遍不變', () => {
+        const once = normalizeTranslationTags('<原文>你好！</原文><譯文>こんにちは！</譯文');
         expect(normalizeTranslationTags(once)).toBe(once);
     });
 });
 
 describe('facade 集成', () => {
-    it('sanitizeForBubble：掉格式输出修回 Step 8 可命中的规范块', () => {
-        const out = sanitizeForBubble('<翻译><原文>早上好</原文><译文>おはよう</译文');
+    it('sanitizeForBubble：掉格式輸出修回 Step 8 可命中的規範塊', () => {
+        const out = sanitizeForBubble('<翻譯><原文>早上好</原文><譯文>おはよう</譯文');
         expect(STEP8_RE.test(out)).toBe(true);
     });
 
-    it('sanitizeForNotification：掉格式块也能提取原文进 banner', () => {
-        const out = sanitizeForNotification('<原文>早上好</原文><译文>おはよう</译文>');
+    it('sanitizeForNotification：掉格式塊也能提取原文進 banner', () => {
+        const out = sanitizeForNotification('<原文>早上好</原文><譯文>おはよう</譯文>');
         expect(out).toBe('早上好');
     });
 
-    it('sanitizeIntoSegments：修复后整块被 Phase 1.5 原子保护，banner 预览取原文', () => {
-        const segs = sanitizeIntoSegments('<翻译><原文>早上好</原文><译文>おはよう</译文');
+    it('sanitizeIntoSegments：修復後整塊被 Phase 1.5 原子保護，banner 預覽取原文', () => {
+        const segs = sanitizeIntoSegments('<翻譯><原文>早上好</原文><譯文>おはよう</譯文');
         expect(segs).toHaveLength(1);
         expect(STEP8_RE.test(segs[0].raw)).toBe(true);
         expect(segs[0].sanitized).toBe('早上好');

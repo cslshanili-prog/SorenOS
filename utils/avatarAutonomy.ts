@@ -524,8 +524,8 @@ export class AvatarAutonomy {
         const gesture: AvatarGesture = reaction.direction.gesture;
 
         switch (gesture) {
-          // nod/shake 的振幅随 gestureEnvelope（已含 intensity）线性放大：
-          // intensity 0.95 是用力点头/摇头，0.4 只是轻轻颔首。
+          // nod/shake 的振幅隨 gestureEnvelope（已含 intensity）線性放大：
+          // intensity 0.95 是用力點頭/搖頭，0.4 只是輕輕頷首。
           case 'nod':
             {
               const beat = Math.sin(localTime * 8.4);
@@ -646,10 +646,10 @@ export class AvatarAutonomy {
     const bodyX = this.bodyX.step(clamp(precision ? targetBodyX : headX * 0.5 + microX * 0.8 + targetBodyX), dt, bodyFrequency);
     const bodyY = this.bodyY.step(clamp(precision ? targetBodyY : headY * 0.36 + microY * 0.7 + targetBodyY), dt, precision ? 0.58 : 0.6 * (touchSpeed ? 1.25 : 1));
     const bodyZ = this.bodyZ.step(clamp(precision ? targetBodyZ : headZ * 0.54 + microZ + targetBodyZ), dt, precision ? 0.56 : 0.58 * (touchSpeed ? 1.25 : 1));
-    // “眼球归零”只表示眼睛朝着脸的正前方；头在摇晃/点头时，眼睛仍会随头骨一起
-    // 离开镜头。说话且明确 gaze=viewer 时，按弹簧平滑后的实际头姿做有限反向补偿。
-    // 眼球响应略快于普通扫视，减少摇头换向时的错相；显式 left/right/down 与导演
-    // 精确姿态保持原样，不在这里抢控制权。
+    // “眼球歸零”只表示眼睛朝著臉的正前方；頭在搖晃/點頭時，眼睛仍會隨頭骨一起
+    // 離開鏡頭。說話且明確 gaze=viewer 時，按彈簧平滑後的實際頭姿做有限反向補償。
+    // 眼球響應略快於普通掃視，減少搖頭換向時的錯相；顯式 left/right/down 與導演
+    // 精確姿態保持原樣，不在這裡搶控制權。
     const maintainsViewerEyeContact = !precision && activity === 'speaking' && direction.gaze === 'viewer';
     if (maintainsViewerEyeContact) {
       const correction = getViewerEyeContactCompensation(headX, headY);
@@ -658,7 +658,7 @@ export class AvatarAutonomy {
     }
     const eyeX = this.eyeX.step(clamp(targetEyeX), dt, maintainsViewerEyeContact ? 3.1 : 2.4, maintainsViewerEyeContact ? 0.9 : 0.78);
     const eyeY = this.eyeY.step(clamp(targetEyeY), dt, maintainsViewerEyeContact ? 2.8 : 2.2, maintainsViewerEyeContact ? 0.9 : 0.78);
-    // lean 允许为负（lean-back 后仰）；正向前倾上限稍高。
+    // lean 允許為負（lean-back 後仰）；正向前傾上限稍高。
     const lean = this.lean.step(clamp(targetLean, -0.1, 0.14), dt, 0.42 * (touchSpeed ? 1.3 : 1));
     const lift = this.lift.step(targetLift, dt, 0.5 * (touchSpeed ? 1.3 : 1));
     const rotation = this.rotation.step(targetRotation, dt, 0.48 * (touchSpeed ? 1.3 : 1));

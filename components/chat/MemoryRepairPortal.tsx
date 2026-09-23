@@ -53,13 +53,13 @@ function readSkipAnimation(): boolean {
 
 function nodeKindLabel(item: RepairNode): string {
     if (item.kind === 'summary') return '盒摘要';
-    if (item.kind === 'archived') return '归档子节点';
-    if (item.kind === 'live') return '活跃子节点';
-    return '独立记忆';
+    if (item.kind === 'archived') return '歸檔子節點';
+    if (item.kind === 'live') return '活躍子節點';
+    return '獨立記憶';
 }
 
 function boxDateLabel(nodes: RepairNode[]): string {
-    if (nodes.length === 0) return '日期不详';
+    if (nodes.length === 0) return '日期不詳';
     const timestamps = nodes
         .filter(item => item.kind !== 'summary')
         .map(item => item.node.createdAt)
@@ -68,7 +68,7 @@ function boxDateLabel(nodes: RepairNode[]): string {
     const source = timestamps.length > 0
         ? timestamps
         : nodes.map(item => item.node.createdAt).filter(value => Number.isFinite(value));
-    if (source.length === 0) return '日期不详';
+    if (source.length === 0) return '日期不詳';
     const first = formatRepairMemoryDate(source[0]);
     const last = formatRepairMemoryDate(source[source.length - 1]);
     return first === last ? first : `${first} — ${last}`;
@@ -115,7 +115,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                 if (alive) setSnapshot(result);
             })
             .catch(error => {
-                if (alive) setNotice(error?.message || '没能打开这次召回留下的痕迹');
+                if (alive) setNotice(error?.message || '沒能打開這次召回留下的痕跡');
             })
             .finally(() => {
                 if (alive) setLoading(false);
@@ -151,7 +151,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                     if (alive) setSearchResults(results);
                 })
                 .catch(error => {
-                    if (alive) setNotice(error?.message || '没有搜到这片记忆');
+                    if (alive) setNotice(error?.message || '沒有搜到這片記憶');
                 })
                 .finally(() => {
                     if (alive) setSearching(false);
@@ -207,7 +207,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
             remoteVectorConfig,
         );
         replaceNode(updated);
-        setNotice('已经写回原处，也重新生成了这条记忆的向量。');
+        setNotice('已經寫回原處，也重新生成了這條記憶的向量。');
     };
 
     const submitConcern = async () => {
@@ -233,7 +233,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
         } catch (error: any) {
             setDialogue(items => [
                 ...items,
-                { role: 'guide', text: `我没能完成这次核对：${error?.message || '请求失败'}` },
+                { role: 'guide', text: `我沒能完成這次核對：${error?.message || '請求失敗'}` },
             ]);
         } finally {
             setDiagnosing(false);
@@ -456,12 +456,12 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
             `}</style>
 
             <div className="memory-top">
-                <button className="memory-icon-btn" onClick={onClose} aria-label="离开记忆链接">
+                <button className="memory-icon-btn" onClick={onClose} aria-label="離開記憶鏈接">
                     <X size={19} />
                 </button>
                 <div className="flex items-center gap-2">
-                    <span className="text-[11px] tracking-[.18em] text-white/45">记忆链接</span>
-                    <button className="memory-icon-btn" onClick={() => setSettingsOpen(value => !value)} aria-label="显影设置">
+                    <span className="text-[11px] tracking-[.18em] text-white/45">記憶鏈接</span>
+                    <button className="memory-icon-btn" onClick={() => setSettingsOpen(value => !value)} aria-label="顯影設置">
                         <EyeSlash size={18} />
                     </button>
                 </div>
@@ -471,8 +471,8 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                 <div className="memory-settings">
                     <button className="w-full flex items-center justify-between gap-4 text-left" onClick={toggleSkipAnimation}>
                         <span>
-                            <b className="block text-white/90 mb-1">跳过显影动画</b>
-                            <span className="text-white/45 text-xs">以后进入时直接看见召回痕迹</span>
+                            <b className="block text-white/90 mb-1">跳過顯影動畫</b>
+                            <span className="text-white/45 text-xs">以後進入時直接看見召回痕跡</span>
                         </span>
                         <span className={`w-10 h-6 rounded-full p-1 transition-colors ${skipAnimation ? 'bg-violet-400' : 'bg-white/15'}`}>
                             <span className={`block w-4 h-4 rounded-full bg-white transition-transform ${skipAnimation ? 'translate-x-4' : ''}`} />
@@ -485,7 +485,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
 
             <div className="memory-repair-scroll">
                 <main className="memory-repair-shell">
-                    <div className="memory-guide-orbit" aria-label={roomChibi ? `${char.name}的小屋 Chibi` : '一枚未知光点'}>
+                    <div className="memory-guide-orbit" aria-label={roomChibi ? `${char.name}的小屋 Chibi` : '一枚未知光點'}>
                         {roomChibi
                             ? <img className="memory-guide-image" src={roomChibi} alt="" />
                             : <div className="memory-guide-light" />}
@@ -495,7 +495,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
 
                     <section className="memory-trail">
                         <div className="memory-trail-title">
-                            {loading ? '正在辨认刚才的脚印……' : snapshot?.receipt ? guideCopy.trail : guideCopy.empty}
+                            {loading ? '正在辨認剛才的腳印……' : snapshot?.receipt ? guideCopy.trail : guideCopy.empty}
                         </div>
 
                         {!loading && (
@@ -505,14 +505,14 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                     type="search"
                                     value={searchQuery}
                                     onChange={event => setSearchQuery(event.target.value)}
-                                    placeholder={`模糊搜索 ${char.name} 的记忆、日期或标签`}
-                                    aria-label="模糊搜索可修改的记忆"
+                                    placeholder={`模糊搜索 ${char.name} 的記憶、日期或標籤`}
+                                    aria-label="模糊搜索可修改的記憶"
                                 />
                                 {searchActive && (
                                     <button
                                         className="memory-search-clear"
                                         onClick={() => setSearchQuery('')}
-                                        aria-label="清空记忆搜索"
+                                        aria-label="清空記憶搜索"
                                     >
                                         <X size={14} />
                                     </button>
@@ -524,8 +524,8 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                             <>
                                 <div className="memory-search-status">
                                     {searching
-                                        ? '正在记忆库里寻找相近的痕迹……'
-                                        : `找到 ${searchResults.length} 条可修改的记忆 · 仅本地搜索`}
+                                        ? '正在記憶庫裡尋找相近的痕跡……'
+                                        : `找到 ${searchResults.length} 條可修改的記憶 · 僅本地搜索`}
                                 </div>
                                 {!searching && searchResults.map(item => (
                                     <button
@@ -539,15 +539,15 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                             <span>{formatRepairMemoryDate(item.node.createdAt)}</span>
                                             <span>·</span>
                                             <span>{getRoomLabel(item.node.room, user.name)}</span>
-                                            {item.recalled && <span>本轮经过</span>}
-                                            {item.kind === 'archived' && <span>已归档 · 本轮未注入</span>}
+                                            {item.recalled && <span>本輪經過</span>}
+                                            {item.kind === 'archived' && <span>已歸檔 · 本輪未注入</span>}
                                         </div>
                                         <div className="memory-strip-copy">{item.node.content}</div>
                                     </button>
                                 ))}
                                 {!searching && searchResults.length === 0 && (
                                     <div className="memory-empty">
-                                        没有找到相近的记忆。可以少写几个字，或换一个日期、名字、地点试试。
+                                        沒有找到相近的記憶。可以少寫幾個字，或換一個日期、名字、地點試試。
                                     </div>
                                 )}
                             </>
@@ -563,12 +563,12 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                         onClick={() => openNode(item.node.id)}
                                     >
                                         <div className="memory-strip-kicker">
-                                            <span>独立记忆</span>
+                                            <span>獨立記憶</span>
                                             <span>·</span>
                                             <span>{formatRepairMemoryDate(item.node.createdAt)}</span>
                                             <span>·</span>
                                             <span>{getRoomLabel(item.node.room, user.name)}</span>
-                                            {suspectIds.includes(item.node.id) && <span>可能有关</span>}
+                                            {suspectIds.includes(item.node.id) && <span>可能有關</span>}
                                         </div>
                                         <div className="memory-strip-copy">{item.node.content}</div>
                                         {reasons[item.node.id] && <div className="memory-suspect-reason">{reasons[item.node.id]}</div>}
@@ -586,13 +586,13 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                             <div className="memory-strip-kicker">
                                                 <span>事件盒</span><span>·</span>
                                                 <span>{boxDateLabel(group.nodes)}</span><span>·</span>
-                                                <span>本轮经过 {group.recalledNodeIds.length} 条</span><span>·</span>
-                                                <span>展开 {group.nodes.length} 个节点</span>
+                                                <span>本輪經過 {group.recalledNodeIds.length} 條</span><span>·</span>
+                                                <span>展開 {group.nodes.length} 個節點</span>
                                             </div>
                                             <div className="memory-strip-copy">「{group.box.name}」</div>
                                             {hitSuspects.length > 0 && (
                                                 <div className="memory-suspect-reason">
-                                                    ？？？标出了 {hitSuspects.length} 处可能影响刚才回复的内容
+                                                    ？？？標出了 {hitSuspects.length} 處可能影響剛才回覆的內容
                                                 </div>
                                             )}
                                         </button>
@@ -604,8 +604,8 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                         {!loading && !searchActive && (!snapshot?.receipt || allNodeCount === 0) && (
                             <div className="memory-empty">
                                 <Sparkle size={20} className="mx-auto mb-3 opacity-50" />
-                                这里没有可以修改的召回记忆。<br />
-                                刚才的问题可能来自模型理解或普通聊天上下文。
+                                這裡沒有可以修改的召回記憶。<br />
+                                剛才的問題可能來自模型理解或普通聊天上下文。
                             </div>
                         )}
                     </section>
@@ -619,10 +619,10 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                     disabled={!snapshot?.receipt || allNodeCount === 0}
                 >
                     <LinkSimple size={17} />
-                    和？？？说
+                    和？？？說
                 </button>
                 <button className="memory-action-primary" onClick={finish}>
-                    完成修补
+                    完成修補
                 </button>
             </div>
 
@@ -638,15 +638,15 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                 </div>
                                 <h2 className="text-xl leading-tight">
                                     {editorTarget.id === '__dialogue__'
-                                        ? '告诉我，刚才哪里不对劲？'
+                                        ? '告訴我，剛才哪裡不對勁？'
                                         : editorBox
                                             ? `事件盒「${editorBox.box.name}」`
-                                            : '修改这条记忆'}
+                                            : '修改這條記憶'}
                                 </h2>
                                 {editorBox && (
                                     <p className="mt-2 text-xs leading-6 text-white/45">
-                                        已完整展开 {editorBox.nodes.length} 个节点；摘要在前，其余按日期排列。
-                                        活跃节点和归档节点都可修改，保存时会原地重建对应向量。
+                                        已完整展開 {editorBox.nodes.length} 個節點；摘要在前，其餘按日期排列。
+                                        活躍節點和歸檔節點都可修改，保存時會原地重建對應向量。
                                     </p>
                                 )}
                             </div>
@@ -659,7 +659,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                             <div className="memory-dialogue">
                                 {(userMessage || assistantReply) && (
                                     <details className="mb-4 text-xs text-white/45">
-                                        <summary className="cursor-pointer select-none">查看刚才这一轮对话</summary>
+                                        <summary className="cursor-pointer select-none">查看剛才這一輪對話</summary>
                                         <div className="mt-3 pl-3 border-l border-white/10 space-y-2 leading-6">
                                             {userMessage && <p><b className="text-white/65">你：</b>{userMessage}</p>}
                                             {assistantReply && <p><b className="text-white/65">{char.name}：</b>{assistantReply}</p>}
@@ -676,13 +676,13 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                     {diagnosing && (
                                         <div className="memory-dialogue-bubble guide">
                                             <div className="text-[10px] tracking-[.2em] text-white/40 mb-1">？？？</div>
-                                            我在逐条对照刚才经过的记忆……
+                                            我在逐條對照剛才經過的記憶……
                                         </div>
                                     )}
                                 </div>
                                 {suspectIds.length > 0 && (
                                     <div className="mb-4">
-                                        <div className="text-xs text-amber-100/65 mb-2">可能需要核对</div>
+                                        <div className="text-xs text-amber-100/65 mb-2">可能需要核對</div>
                                         <div className="flex flex-wrap gap-2">
                                             {suspectIds.map((id, index) => (
                                                 <button
@@ -690,7 +690,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                                     onClick={() => openSuspect(id)}
                                                     className="px-3 py-2 rounded-full bg-amber-200/10 border border-amber-100/15 text-xs text-amber-50"
                                                 >
-                                                    线索 {index + 1} · 去修改
+                                                    線索 {index + 1} · 去修改
                                                 </button>
                                             ))}
                                         </div>
@@ -701,7 +701,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                         rows={4}
                                         value={concern}
                                         onChange={event => setConcern(event.target.value)}
-                                        placeholder="比如：ta 把旅行地点说错了；这件事其实发生在另一个人身上……"
+                                        placeholder="比如：ta 把旅行地點說錯了；這件事其實發生在另一個人身上……"
                                     />
                                     <button
                                         onClick={submitConcern}
@@ -712,7 +712,7 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
                                     </button>
                                 </div>
                                 <p className="mt-3 text-[11px] leading-5 text-white/35">
-                                    这里只用角色基础设定和上面这批召回现场进行判断，不会再次搜索向量记忆，也不会读取其它记忆上下文。
+                                    這裡只用角色基礎設定和上面這批召回現場進行判斷，不會再次搜索向量記憶，也不會讀取其它記憶上下文。
                                 </p>
                             </div>
                         ) : editorNode ? (
@@ -736,8 +736,8 @@ const MemoryRepairPortal: React.FC<MemoryRepairPortalProps> = ({
             {farewell && (
                 <div className="memory-farewell">
                     <div className="memory-farewell-copy">
-                        <span className="memory-farewell-line">谢谢你</span>
-                        <span className="memory-farewell-line">这次【我】会好好记得——</span>
+                        <span className="memory-farewell-line">謝謝你</span>
+                        <span className="memory-farewell-line">這次【我】會好好記得——</span>
                     </div>
                 </div>
             )}
@@ -768,7 +768,7 @@ const NodeEditor: React.FC<{
             await onSave(item, content);
             setEditing(false);
         } catch (cause: any) {
-            setError(cause?.message || '保存失败');
+            setError(cause?.message || '保存失敗');
         } finally {
             setSaving(false);
         }
@@ -783,9 +783,9 @@ const NodeEditor: React.FC<{
                     <span>{formatRepairMemoryDate(item.node.createdAt)}</span>
                     <span>·</span>
                     <span>{getRoomLabel(item.node.room)}</span>
-                    {item.recalled && <span className="text-violet-200/75">本轮经过</span>}
-                    {item.kind === 'archived' && <span className="text-white/35">已归档 · 本轮未注入</span>}
-                    {!item.recalled && item.kind !== 'archived' && <span className="text-white/35">同盒展开 · 本轮未直接注入</span>}
+                    {item.recalled && <span className="text-violet-200/75">本輪經過</span>}
+                    {item.kind === 'archived' && <span className="text-white/35">已歸檔 · 本輪未注入</span>}
+                    {!item.recalled && item.kind !== 'archived' && <span className="text-white/35">同盒展開 · 本輪未直接注入</span>}
                 </div>
                 {!editing && (
                     <button
@@ -814,7 +814,7 @@ const NodeEditor: React.FC<{
                             disabled={!dirty || saving || !content.trim()}
                         >
                             {saving ? <Sparkle size={15} className="animate-pulse" /> : <FloppyDisk size={15} />}
-                            {saving ? '正在写回…' : '保存补丁'}
+                            {saving ? '正在寫回…' : '保存補丁'}
                         </button>
                     </div>
                 </>

@@ -1,11 +1,11 @@
 /**
- * 模块级 charId → 角色名 注册表 — 与 MusicContext 的播放快照同一模式。
+ * 模塊級 charId → 角色名 註冊表 — 與 MusicContext 的播放快照同一模式。
  *
- * 动机：私聊 prompt 的群聊背景注入（chatPrompts.buildSystemPromptParts）需要把
- * 群消息的发言人标成真实角色名，但它位于 utils 层、拿不到 OSContext 的 characters
- * state，而给 buildChatRequestPayload 的所有调用方（useChatAI / 主动消息 /
- * worldHome / 彼方 …）逐一穿参代价太高。OSProvider 在 characters 变化时把
- * 名字表写到这里，utils 层按需读取。
+ * 動機：私聊 prompt 的群聊背景注入（chatPrompts.buildSystemPromptParts）需要把
+ * 群消息的發言人標成真實角色名，但它位於 utils 層、拿不到 OSContext 的 characters
+ * state，而給 buildChatRequestPayload 的所有調用方（useChatAI / 主動消息 /
+ * worldHome / 彼方 …）逐一穿參代價太高。OSProvider 在 characters 變化時把
+ * 名字表寫到這裡，utils 層按需讀取。
  */
 
 let __charNames: Record<string, string> = {};

@@ -17,21 +17,21 @@
 // ═══════════════════════════════════════════════════════════════════
 //   FILL THESE IN AFTER DEPLOYING THE CLOUDFLARE WORKER
 //
-//   VAPID 公私钥在 utils/pushVapid.ts (push_vapid_v1) — 默认空，由用户在
-//   Settings → 推送凭据 (VAPID) 里生成；跟主动消息 2.0 用同一份，避免互相
-//   unsubscribe 抢同一个 pushManager 订阅。
+//   VAPID 公私鑰在 utils/pushVapid.ts (push_vapid_v1) — 默認空，由用戶在
+//   Settings → 推送憑據 (VAPID) 裡生成；跟主動消息 2.0 用同一份，避免互相
+//   unsubscribe 搶同一個 pushManager 訂閱。
 // ═══════════════════════════════════════════════════════════════════
 const WORKER_URL = 'https://noir2.cc.cd';
 const CLIENT_TOKEN = 'weqwqewqeqwdcsccagdgs32132';
 // ═══════════════════════════════════════════════════════════════════
 
-// ── 全局停用开关（KILL SWITCH）─────────────────────────────────────
-// 主动消息 Push 加速这层已经全局下线（设置面板也藏了）。已经开过的用户
-// localStorage 里 proactive_push_enabled_v1 还是 'true'，光藏 UI 改不了，
-// 他们的客户端会照常心跳、Worker 照常发 wake push。把这里设成 true 后，
-// loadPushConfig() 一律返回 enabled=false：心跳不再启动、不再向 Worker
-// 注册，Worker 在心跳窗口（默认 5 分钟）内自动对这些设备停发。
-// 注意：只关掉 Worker 加速层，proactiveChat.ts 的本地定时主动消息不受影响。
+// ── 全局停用開關（KILL SWITCH）─────────────────────────────────────
+// 主動消息 Push 加速這層已經全局下線（設置面板也藏了）。已經開過的用戶
+// localStorage 裡 proactive_push_enabled_v1 還是 'true'，光藏 UI 改不了，
+// 他們的客戶端會照常心跳、Worker 照常發 wake push。把這裡設成 true 後，
+// loadPushConfig() 一律返回 enabled=false：心跳不再啟動、不再向 Worker
+// 註冊，Worker 在心跳窗口（默認 5 分鐘）內自動對這些設備停發。
+// 注意：只關掉 Worker 加速層，proactiveChat.ts 的本地定時主動消息不受影響。
 const FORCE_DISABLED = true;
 // ───────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ export interface ProactivePushConfig {
 
 export function loadPushConfig(): ProactivePushConfig {
   let enabled = false;
-  // 全局 kill switch：下线后无论 localStorage 里存的是什么，一律当关闭处理。
+  // 全局 kill switch：下線後無論 localStorage 裡存的是什麼，一律當關閉處理。
   if (!FORCE_DISABLED) {
     try {
       enabled = localStorage.getItem(ENABLED_STORAGE_KEY) === 'true';
@@ -95,8 +95,8 @@ export function isPushConfigAvailable(): boolean {
 // ---------- Web Push subscription helpers ----------
 //
 // b64uToBytes / bytesToB64u / isDeadPushEndpoint / explainSubscribeError /
-// subscribeWithRetry / SUBSCRIBE_SETTLE_MS 全部从 pushSubscribeShared.ts 取,
-// 与主动消息 2.0 共用同一份实现.
+// subscribeWithRetry / SUBSCRIBE_SETTLE_MS 全部從 pushSubscribeShared.ts 取,
+// 與主動消息 2.0 共用同一份實現.
 
 interface SubscriptionInfo {
   endpoint: string;
@@ -105,8 +105,8 @@ interface SubscriptionInfo {
 }
 
 /**
- * 旧 API 名 — 调用方 (apps/Settings.tsx 等) 还在引用, 保留为薄包装.
- * 实现在 pushSubscribeShared.ts 的 isDeadPushEndpoint.
+ * 舊 API 名 — 調用方 (apps/Settings.tsx 等) 還在引用, 保留為薄包裝.
+ * 實現在 pushSubscribeShared.ts 的 isDeadPushEndpoint.
  */
 export function isDeadSubscriptionEndpoint(endpoint: string | null | undefined): boolean {
   return isDeadPushEndpoint(endpoint);
@@ -131,7 +131,7 @@ export async function getOrCreateSubscription(vapidPublicKey: string): Promise<S
     // (`permanently-removed.invalid` endpoint) — those can never deliver.
     if (isDeadPushEndpoint(sub.endpoint)) {
       try { await sub.unsubscribe(); } catch { /* ignore */ }
-      // 等浏览器清内部 removed 标记, 否则后面 subscribe() 又拿到死哨兵
+      // 等瀏覽器清內部 removed 標記, 否則後面 subscribe() 又拿到死哨兵
       await new Promise(r => setTimeout(r, SUBSCRIBE_SETTLE_MS));
       sub = null;
     }
@@ -155,9 +155,9 @@ export async function getOrCreateSubscription(vapidPublicKey: string): Promise<S
   if (!sub) {
     if (Notification.permission === 'default') {
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return { sub: null, reason: '通知权限未授予' };
+      if (perm !== 'granted') return { sub: null, reason: '通知權限未授予' };
     } else if (Notification.permission === 'denied') {
-      return { sub: null, reason: '通知权限已被拒绝（请到浏览器站点设置里手动开启）' };
+      return { sub: null, reason: '通知權限已被拒絕（請到瀏覽器站點設置裡手動開啟）' };
     }
     const fresh = await subscribeWithRetry(reg, vapidPublicKey, '[ProactivePush]');
     if (!fresh.sub) return { sub: null, reason: fresh.failure?.text };
@@ -166,7 +166,7 @@ export async function getOrCreateSubscription(vapidPublicKey: string): Promise<S
 
   const p256dh = bytesToB64u(sub.getKey('p256dh'));
   const auth = bytesToB64u(sub.getKey('auth'));
-  if (!p256dh || !auth) return { sub: null, reason: '订阅缺少加密公钥（p256dh / auth）' };
+  if (!p256dh || !auth) return { sub: null, reason: '訂閱缺少加密公鑰（p256dh / auth）' };
   return { sub: { endpoint: sub.endpoint, p256dh, auth } };
 }
 
@@ -316,7 +316,7 @@ export async function ensureSubscribed(): Promise<SubscribeResult> {
     return { ok: false, reason: 'Worker URL 未配置' };
   }
   if (!isPushVapidReady()) {
-    return { ok: false, reason: 'VAPID 公钥未配置, 请到 Settings → 推送凭据 (VAPID) 生成' };
+    return { ok: false, reason: 'VAPID 公鑰未配置, 請到 Settings → 推送憑據 (VAPID) 生成' };
   }
   const capabilityGap = describePushCapabilityGap();
   if (capabilityGap) {
@@ -326,13 +326,13 @@ export async function ensureSubscribed(): Promise<SubscribeResult> {
   // Request permission first so the popup is tied to the user's click.
   if (Notification.permission === 'default') {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return { ok: false, reason: '通知权限未授予' };
+    if (perm !== 'granted') return { ok: false, reason: '通知權限未授予' };
   } else if (Notification.permission === 'denied') {
-    return { ok: false, reason: '通知权限已被拒绝（请到浏览器站点设置里手动开启）' };
+    return { ok: false, reason: '通知權限已被拒絕（請到瀏覽器站點設置裡手動開啟）' };
   }
 
   const { sub, reason: subReason } = await getOrCreateSubscription(cfg.vapidPublicKey);
-  if (!sub) return { ok: false, reason: subReason || '订阅创建失败（未知原因）' };
+  if (!sub) return { ok: false, reason: subReason || '訂閱創建失敗（未知原因）' };
 
   // Register a sentinel row so /test can find the endpoint by URL.  We use a
   // very large intervalMs so the cron sweep never picks it up — this row is
@@ -350,7 +350,7 @@ export async function ensureSubscribed(): Promise<SubscribeResult> {
     });
     if (!res.ok) return { ok: false, reason: `Worker /subscribe 返回 HTTP ${res.status}`, endpoint: sub.endpoint };
   } catch (e: any) {
-    return { ok: false, reason: `Worker 连接失败：${e?.message || '网络错误'}`, endpoint: sub.endpoint };
+    return { ok: false, reason: `Worker 連接失敗：${e?.message || '網絡錯誤'}`, endpoint: sub.endpoint };
   }
 
   return { ok: true, endpoint: sub.endpoint };
@@ -363,7 +363,7 @@ export async function sendTestPush(): Promise<{ ok: boolean; status?: number; re
 
   const reg = await navigator.serviceWorker?.ready?.catch(() => null);
   const sub = reg ? await reg.pushManager.getSubscription() : null;
-  if (!sub) return { ok: false, reason: '本设备没有现有订阅，请先点"开启系统通知"' };
+  if (!sub) return { ok: false, reason: '本設備沒有現有訂閱，請先點"開啟系統通知"' };
 
   // Browser-side zombie-endpoint guard — bail before bothering the Worker.
   // Otherwise Worker will fetch permanently-removed.invalid → 530 from CF.
@@ -371,7 +371,7 @@ export async function sendTestPush(): Promise<{ ok: boolean; status?: number; re
     return {
       ok: false,
       deadSubscription: true,
-      reason: '订阅已被浏览器吊销（permanently-removed.invalid），点"重置订阅"重建一次',
+      reason: '訂閱已被瀏覽器吊銷（permanently-removed.invalid），點"重置訂閱"重建一次',
     };
   }
 
@@ -383,16 +383,16 @@ export async function sendTestPush(): Promise<{ ok: boolean; status?: number; re
     });
     const data = await res.json().catch(() => ({})) as any;
     if (!res.ok) return { ok: false, status: res.status, reason: data?.error || data?.reason || `HTTP ${res.status}` };
-    if (!data?.ok) return { ok: false, status: data?.status, reason: data?.reason || data?.error || '推送失败' };
+    if (!data?.ok) return { ok: false, status: data?.status, reason: data?.reason || data?.error || '推送失敗' };
     return { ok: true, status: data?.status };
   } catch (e: any) {
-    return { ok: false, reason: e?.message || '网络错误' };
+    return { ok: false, reason: e?.message || '網絡錯誤' };
   }
 }
 
 /**
  * Tear the local subscription down and rebuild it from scratch.  Used by the
- * diagnostic panel's "重置订阅" button to recover from
+ * diagnostic panel's "重置訂閱" button to recover from
  * `permanently-removed.invalid` zombies, scope changes, or a stuck VAPID-key
  * mismatch.  Also tells the Worker to forget the dead row so /test won't
  * keep finding it.
@@ -403,7 +403,7 @@ export async function resetSubscription(): Promise<{ ok: boolean; reason?: strin
     return { ok: false, reason: 'Worker URL 未配置' };
   }
   if (!isPushVapidReady()) {
-    return { ok: false, reason: 'VAPID 公钥未配置, 请到 Settings → 推送凭据 (VAPID) 生成' };
+    return { ok: false, reason: 'VAPID 公鑰未配置, 請到 Settings → 推送憑據 (VAPID) 生成' };
   }
   const capabilityGap = describePushCapabilityGap();
   if (capabilityGap) {
@@ -428,9 +428,9 @@ export async function resetSubscription(): Promise<{ ok: boolean; reason?: strin
 
   if (oldSub) {
     try { await oldSub.unsubscribe(); } catch { /* ignore */ }
-    // 等浏览器清内部 PushMessagingAppIdentifier removed 标记; 不等的话紧接
-    // 着的 subscribe() 大概率又拿到 zombie sentinel, 进入 subscribeWithRetry
-    // 的重试链路也会多走一轮.
+    // 等瀏覽器清內部 PushMessagingAppIdentifier removed 標記; 不等的話緊接
+    // 著的 subscribe() 大概率又拿到 zombie sentinel, 進入 subscribeWithRetry
+    // 的重試鏈路也會多走一輪.
     await new Promise(r => setTimeout(r, SUBSCRIBE_SETTLE_MS));
   }
 
@@ -440,19 +440,19 @@ export async function resetSubscription(): Promise<{ ok: boolean; reason?: strin
 }
 
 /**
- * 升级版重置: resetSubscription 的 subscribeWithRetry 全跑完仍拿到 zombie 时
- * (Chromium 内部 PushMessagingAppIdentifier 被锁死在 MarkedForRemoval 状态,
- * pushManager.unsubscribe 清不掉这个标记), 唯一可编程的逃离路径是 unregister
- * Service Worker 再 register 一遍 — 新 SW 拿到新的 sw_registration_id, 绑死
- * 在旧 id 上的坏 PushMessagingAppIdentifier 自然失效.
+ * 升級版重置: resetSubscription 的 subscribeWithRetry 全跑完仍拿到 zombie 時
+ * (Chromium 內部 PushMessagingAppIdentifier 被鎖死在 MarkedForRemoval 狀態,
+ * pushManager.unsubscribe 清不掉這個標記), 唯一可編程的逃離路徑是 unregister
+ * Service Worker 再 register 一遍 — 新 SW 拿到新的 sw_registration_id, 綁死
+ * 在舊 id 上的壞 PushMessagingAppIdentifier 自然失效.
  *
  * 副作用:
- *  - SW 短暂下线 (< 1s), 期间收到的 push 会真丢. 但深度重置本来就是"已经
- *    收不到 push"才点的, 不存在"原本能收的现在丢了".
- *  - SW 内的 proactive setInterval 全清. 调用方 (Settings.tsx 的 "深度重置"
- *    handler) 必须在 deepResetSubscription resolve 后调一次
- *    `ProactiveChat.resume()` 把 schedule 推回新 SW, 否则主动消息悄悄不响.
- *  - KeepAlive 计数器清零. 跟"正在长 fetch"撞同一时刻概率近零, 不补救.
+ *  - SW 短暫下線 (< 1s), 期間收到的 push 會真丟. 但深度重置本來就是"已經
+ *    收不到 push"才點的, 不存在"原本能收的現在丟了".
+ *  - SW 內的 proactive setInterval 全清. 調用方 (Settings.tsx 的 "深度重置"
+ *    handler) 必須在 deepResetSubscription resolve 後調一次
+ *    `ProactiveChat.resume()` 把 schedule 推回新 SW, 否則主動消息悄悄不響.
+ *  - KeepAlive 計數器清零. 跟"正在長 fetch"撞同一時刻概率近零, 不補救.
  */
 export async function deepResetSubscription(): Promise<{ ok: boolean; reason?: string; endpoint?: string }> {
   const cfg = loadPushConfig();
@@ -460,14 +460,14 @@ export async function deepResetSubscription(): Promise<{ ok: boolean; reason?: s
     return { ok: false, reason: 'Worker URL 未配置' };
   }
   if (!isPushVapidReady()) {
-    return { ok: false, reason: 'VAPID 公钥未配置, 请到 Settings → 推送凭据 (VAPID) 生成' };
+    return { ok: false, reason: 'VAPID 公鑰未配置, 請到 Settings → 推送憑據 (VAPID) 生成' };
   }
   const capabilityGap = describePushCapabilityGap();
   if (capabilityGap) {
     return { ok: false, reason: capabilityGap };
   }
 
-  // 1) 拿现有 sub 的 endpoint, 通知 Worker 删 D1 行 (best-effort)
+  // 1) 拿現有 sub 的 endpoint, 通知 Worker 刪 D1 行 (best-effort)
   let oldEndpoint: string | undefined;
   try {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -483,14 +483,14 @@ export async function deepResetSubscription(): Promise<{ ok: boolean; reason?: s
           });
         } catch { /* ignore */ }
       }
-      // 2) 本地 unsubscribe (拿不掉 MarkedForRemoval 标记, 但走完流程)
+      // 2) 本地 unsubscribe (拿不掉 MarkedForRemoval 標記, 但走完流程)
       if (sub) {
         try { await sub.unsubscribe(); } catch { /* ignore */ }
       }
     }
-  } catch { /* 拿不到 reg 也继续; SW unregister 才是关键 */ }
+  } catch { /* 拿不到 reg 也繼續; SW unregister 才是關鍵 */ }
 
-  // 3) Unregister 全部 SW registration — 关键步骤
+  // 3) Unregister 全部 SW registration — 關鍵步驟
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
     await Promise.all(regs.map(r => r.unregister().catch(() => false)));
@@ -498,22 +498,22 @@ export async function deepResetSubscription(): Promise<{ ok: boolean; reason?: s
     console.warn('[ProactivePush] SW unregister failed', e);
   }
 
-  // 4) 经 KeepAlive 走应用 boot 路径重 register — 同 scriptUrl + scope
+  // 4) 經 KeepAlive 走應用 boot 路徑重 register — 同 scriptUrl + scope
   try {
     await KeepAlive.reregister();
   } catch (e: any) {
-    return { ok: false, reason: `Service Worker 重新注册失败: ${e?.message || e}` };
+    return { ok: false, reason: `Service Worker 重新註冊失敗: ${e?.message || e}` };
   }
 
-  // 5) 再保险等一次 ready (KeepAlive 内已 await 过, 这里防 race)
+  // 5) 再保險等一次 ready (KeepAlive 內已 await 過, 這裡防 race)
   try {
     await navigator.serviceWorker.ready;
   } catch (e: any) {
-    return { ok: false, reason: `Service Worker ready 失败: ${e?.message || e}` };
+    return { ok: false, reason: `Service Worker ready 失敗: ${e?.message || e}` };
   }
 
-  // 6) 等 controller 切换 — 否则后续 postToSW (proactive sync) 会被 swallow.
-  //    新 SW activate 时已 clients.claim(), controllerchange 应该很快; 5s 兜底.
+  // 6) 等 controller 切換 — 否則後續 postToSW (proactive sync) 會被 swallow.
+  //    新 SW activate 時已 clients.claim(), controllerchange 應該很快; 5s 兜底.
   await new Promise<void>((resolve) => {
     if (navigator.serviceWorker.controller) {
       resolve();
@@ -537,7 +537,7 @@ export async function deepResetSubscription(): Promise<{ ok: boolean; reason?: s
 // ---------- Diagnostic info ----------
 
 export interface PushDiagnostics {
-  /** Web Push 三件套齐不齐：Service Worker / Push API / Notification */
+  /** Web Push 三件套齊不齊：Service Worker / Push API / Notification */
   supported: boolean;
   /** Notification.permission (or 'unavailable' if API missing) */
   permission: 'default' | 'granted' | 'denied' | 'unavailable';
@@ -567,8 +567,8 @@ export interface PushDiagnostics {
 
 export async function getPushDiagnostics(): Promise<PushDiagnostics> {
   const cfg = loadPushConfig();
-  // 浏览器那一半（支持/权限/SW/端点/厂商/平台）读共用的 readBrowserPushState，
-  // 这里只补 proactive-push 自己的三样：worker 配没配、开关开没开、上次唤醒。
+  // 瀏覽器那一半（支持/權限/SW/端點/廠商/平台）讀共用的 readBrowserPushState，
+  // 這裡只補 proactive-push 自己的三樣：worker 配沒配、開關開沒開、上次喚醒。
   const browser = await readBrowserPushState();
 
   let lastWakeAt: number | null = null;

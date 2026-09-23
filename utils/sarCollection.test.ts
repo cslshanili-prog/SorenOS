@@ -9,7 +9,7 @@ import { collectSARLocalBackup, restoreSARLocalBackup } from './vrWorld/sarBacku
 import { SAR_ALL_MODULES } from './vrWorld/sarGacha';
 import { freshFamiliarity } from './vrWorld/sarFamiliarity/storageTypes';
 const id = SAR_MODULE_CATALOG[0].id, other = SAR_MODULE_CATALOG[1].id;
-const actor = { id: 'aran', name: '阿岚', kind: 'character' as const };
+const actor = { id: 'aran', name: '阿嵐', kind: 'character' as const };
 const init = () => ({ ...M.createFishingMarketState(42), sarCommerce: { moduleShop: createSARModuleShopState(), gacha: { version: 1 as const, collection: {}, history: [], freeDrawDate: {} } } });
 const storageFor = (s: M.FishingMarketState) => { const values = new Map([[M.FISHING_MARKET_STORAGE_KEY, JSON.stringify(s)]]); return { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => { values.set(k,v); }, removeItem: (k: string) => { values.delete(k); } }; };
 const entry = (s: M.FishingMarketState, who: string, itemId = id) => sarCollectionEntries(s, who).find(e => e.id === itemId)!;
@@ -28,13 +28,13 @@ describe('SAR personal collection atlas', () => {
         const locked = entry(s, 'user', 'aiven-chimera');
         expect(locked).toMatchObject({ title: '？？？', collected: false, owned: 0 });
         expect(locked.source).not.toContain('三星');
-        expect(locked.description).not.toContain('霸王龙');
+        expect(locked.description).not.toContain('霸王龍');
         expect(s.inventory).toHaveLength(0);
         expect(sarCollectionEntries(s, 'user', false).some(item => item.id === 'aiven-chimera')).toBe(false);
         s = M.addCatchToState(s, { id: 'chimera-gift', speciesId: 'aiven-chimera', ownerId: 'user', ownerName: '我', caughtAt: 1, weather: 'clear', weatherLabel: '晴', weatherSource: 'simulated', sizeCm: 12, quality: 1 });
         expect(entry(s, 'user', 'aiven-chimera')).toMatchObject({ collected: true, owned: 1 });
         expect(entry(s, 'user', 'aiven-chimera').source).toContain('三星');
-        expect(entry(s, 'user', 'aiven-chimera').description).toContain('霸王龙');
+        expect(entry(s, 'user', 'aiven-chimera').description).toContain('霸王龍');
     });
     it('opens the egg atlas at the authored unlock and preserves legacy egg/chimera ownership history',()=>{
         let s:M.FishingMarketState=init();
@@ -89,7 +89,7 @@ describe('SAR personal collection atlas', () => {
     it('backs up malformed collection data verbatim without overwriting it', () => {
         const s = { ...init(), sarCollection: { version: 1, actors: { broken: { chips: 'bad', modules: [] } } } } as any;
         const storage = storageFor(s), raw = storage.getItem(M.FISHING_MARKET_STORAGE_KEY);
-        expect(() => M.readFishingMarketState(storage)).toThrow('收集图鉴');
+        expect(() => M.readFishingMarketState(storage)).toThrow('收集圖鑑');
         expect(collectSARLocalBackup(storage).fishingMarketRaw).toBe(raw); expect(storage.getItem(M.FISHING_MARKET_STORAGE_KEY)).toBe(raw);
     });
 });

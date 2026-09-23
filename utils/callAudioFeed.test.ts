@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { adaptiveMouthLevel, shouldKeepNativeCallAudio, vowelFromBands } from './callAudioFeed';
 
 describe('adaptiveMouthLevel', () => {
-  it('小音量语音也能张到接近满口型（相对峰值归一）', () => {
+  it('小音量語音也能張到接近滿口型（相對峰值歸一）', () => {
     let peak = 0.05;
-    // 连续多帧 0.04 的小声说话：峰值收敛到 ~0.05，口型应接近全开
+    // 連續多幀 0.04 的小聲說話：峰值收斂到 ~0.05，口型應接近全開
     let level = 0;
     for (let i = 0; i < 60; i += 1) {
       const out = adaptiveMouthLevel(0.045, peak);
@@ -14,18 +14,18 @@ describe('adaptiveMouthLevel', () => {
     expect(level).toBeGreaterThan(0.85);
   });
 
-  it('静音/底噪帧直接闭嘴，不残留抖动', () => {
+  it('靜音/底噪幀直接閉嘴，不殘留抖動', () => {
     const out = adaptiveMouthLevel(0.002, 0.3);
     expect(out.level).toBe(0);
   });
 
-  it('峰值跟随更响的输入立即抬升，避免爆音顶满', () => {
+  it('峰值跟隨更響的輸入立即抬升，避免爆音頂滿', () => {
     const out = adaptiveMouthLevel(0.6, 0.1);
     expect(out.peak).toBe(0.6);
     expect(out.level).toBeLessThanOrEqual(1);
   });
 
-  it('峰值缓慢回落，切到小声片段后能恢复动态范围', () => {
+  it('峰值緩慢回落，切到小聲片段後能恢復動態範圍', () => {
     let peak = 0.8;
     for (let i = 0; i < 400; i += 1) peak = adaptiveMouthLevel(0.01, peak).peak;
     expect(peak).toBeLessThan(0.25);
@@ -33,13 +33,13 @@ describe('adaptiveMouthLevel', () => {
 });
 
 describe('vowelFromBands', () => {
-  it('低频占优（あ/お类元音）趋近 0', () => {
+  it('低頻佔優（あ/お類元音）趨近 0', () => {
     expect(vowelFromBands(0.8, 0.1)).toBeLessThan(0.2);
   });
-  it('高频占优（い/え类元音）趋近 1', () => {
+  it('高頻佔優（い/え類元音）趨近 1', () => {
     expect(vowelFromBands(0.1, 0.7)).toBeGreaterThan(0.8);
   });
-  it('近乎无声时回中位，不产生 NaN', () => {
+  it('近乎無聲時回中位，不產生 NaN', () => {
     expect(vowelFromBands(0, 0)).toBe(0.5);
   });
 });

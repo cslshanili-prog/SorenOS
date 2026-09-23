@@ -1,17 +1,17 @@
 /**
- * 定时任务细账：到点没发出去的任务各自卡在哪一步、报了什么错，以及每分钟那一跳自己
- * 出过什么错。给体检面板「定时任务」那一行用（GET /tick-report，要共享密钥）。
+ * 定時任務細帳：到點沒發出去的任務各自卡在哪一步、報了什麼錯，以及每分鐘那一跳自己
+ * 出過什麼錯。給體檢面板「定時任務」那一行用（GET /tick-report，要共享密鑰）。
  *
- * 回执形状和「一条过期任务算哪种情况」的判定在 utils/amsgTickReport.ts（前端共用）；
- * 这里只管读库、解密出是哪个角色的任务，以及把整轮报错记进库里。
+ * 回執形狀和「一條過期任務算哪種情況」的判定在 utils/amsgTickReport.ts（前端共用）；
+ * 這裡只管讀庫、解密出是哪個角色的任務，以及把整輪報錯記進庫裡。
  *
- * **整轮报错为什么要自己记**：上游 scheduled() 挂了只会把原因当返回值交出来、再打一行
- * 日志，库里什么都不留。而「每一跳一开头就挂」恰恰是任务行上一点痕迹都没有的那种坏法
- * ——任务行只记得「我还没发」，说不出为什么。不记进库的话，这句原话只在 Cloudflare 的
- * 日志里，大多数人根本不知道那个入口在哪。
+ * **整輪報錯為什麼要自己記**：上游 scheduled() 掛了只會把原因當返回值交出來、再打一行
+ * 日誌，庫裡什麼都不留。而「每一跳一開頭就掛」恰恰是任務行上一點痕跡都沒有的那種壞法
+ * ——任務行只記得「我還沒發」，說不出為什麼。不記進庫的話，這句原話只在 Cloudflare 的
+ * 日誌裡，大多數人根本不知道那個入口在哪。
  *
- * 只在出错时写一笔，正常的那一跳什么都不写：心跳式的「每分钟记一次」会让 D1 的写入
- * 次数平白多出一天一千四百多笔，而用户关心的只是出错的那几次。
+ * 只在出錯時寫一筆，正常的那一跳什麼都不寫：心跳式的「每分鐘記一次」會讓 D1 的寫入
+ * 次數平白多出一天一千四百多筆，而用戶關心的只是出錯的那幾次。
  */
 
 import {
@@ -45,16 +45,16 @@ export type TickReportDb = {
   };
 };
 
-/** 同一个角色的任务归一组（跟 worker 配给上游的 serializeBy 是同一个函数）。 */
+/** 同一個角色的任務歸一組（跟 worker 配給上游的 serializeBy 是同一個函數）。 */
 export type SerializeKeyOf = (task: { metadata?: Record<string, unknown> | null }) => string | null;
 
-/** 一次最多列多少条过期任务。单用户手上正常不会有这么多，多了说明整个都停了，列前面这些就够看。 */
+/** 一次最多列多少條過期任務。單用戶手上正常不會有這麼多，多了說明整個都停了，列前面這些就夠看。 */
 const MAX_OVERDUE_TASKS = 50;
-/** 最近失败列多少条、往回看多久。 */
+/** 最近失敗列多少條、往回看多久。 */
 const MAX_RECENT_FAILURES = 10;
 const RECENT_FAILURE_WINDOW_MS = 24 * 60 * 60_000;
 
-/** 读过期任务要用的列。retry_after / lease_until / last_error 是后加的列，老库没有的话这条查询会挂。 */
+/** 讀過期任務要用的列。retry_after / lease_until / last_error 是後加的列，老庫沒有的話這條查詢會掛。 */
 const TASK_COLUMNS = `uuid, user_id, encrypted_payload, message_type, status, next_send_at,
        retry_count, retry_after, lease_until, created_at, updated_at, last_error`;
 
@@ -81,7 +81,7 @@ const parseMs = (value: string | null | undefined): number | null => {
 
 const toIso = (ms: number | null): string | null => (ms === null ? null : new Date(ms).toISOString());
 
-/** 任务行上的 last_error。存的应该是 JSON；万一不是，整段当原文，不丢。 */
+/** 任務行上的 last_error。存的應該是 JSON；萬一不是，整段當原文，不丟。 */
 const parseLastError = (raw: string | null): AmsgTaskErrorRecord | null => {
   if (!raw) return null;
   let value: Record<string, unknown> | null = null;
@@ -103,7 +103,7 @@ const parseLastError = (raw: string | null): AmsgTaskErrorRecord | null => {
   };
 };
 
-/** 这条失败记录是不是记的「这一次到点」。循环任务上一次的旧账不算。 */
+/** 這條失敗記錄是不是記的「這一次到點」。循環任務上一次的舊帳不算。 */
 const isCurrentOccurrence = (error: AmsgTaskErrorRecord, nextSendAtMs: number): boolean => {
   const occurrenceMs = parseMs(error.occurrence);
   if (occurrenceMs !== null) return occurrenceMs === nextSendAtMs;
@@ -119,8 +119,8 @@ interface TaskIdentity {
 }
 
 /**
- * 解开任务内容，认出是哪个角色的。解不开（主密钥换过、内容坏了）就全是 null——
- * 细账照样出，只是说不出名字；这时候更要紧的是让人看到后面那段报错。
+ * 解開任務內容，認出是哪個角色的。解不開（主密鑰換過、內容壞了）就全是 null——
+ * 細帳照樣出，只是說不出名字；這時候更要緊的是讓人看到後面那段報錯。
  */
 const createIdentityReader = (masterKey: string | undefined, serializeKeyOf: SerializeKeyOf) => {
   const userKeys = new Map<string, Promise<string>>();
@@ -153,15 +153,15 @@ const createIdentityReader = (masterKey: string | undefined, serializeKeyOf: Ser
 export interface OverdueTasksResult {
   tasks: AmsgTickReportTask[];
   truncated: boolean;
-  /** 合起来算什么状态（见 judgeOverdueTasks）。没有过期任务时是 healthy。 */
+  /** 合起來算什麼狀態（見 judgeOverdueTasks）。沒有過期任務時是 healthy。 */
   verdict: 'stalled' | 'failing' | 'healthy';
 }
 
 /**
- * 读出所有到点还没发出去的任务，逐条判定现在算哪种情况。
+ * 讀出所有到點還沒發出去的任務，逐條判定現在算哪種情況。
  *
- * 查询本身挂了（老库还没有 retry_after 这些列）会原样抛出去，由调用方决定怎么退：
- * 体检退回只看「最老那条晚了多久」，细账端点照实报错。
+ * 查詢本身掛了（老庫還沒有 retry_after 這些列）會原樣拋出去，由調用方決定怎麼退：
+ * 體檢退回只看「最老那條晚了多久」，細帳端點照實報錯。
  */
 export const readOverdueTasks = async (
   db: TickReportDb,
@@ -234,10 +234,10 @@ export const readOverdueTasks = async (
 };
 
 /**
- * 最近 24 小时彻底没发出去的：一次性任务标成了失败，或者循环任务跳过了这一次
- * （行还是 pending，排期已经推到以后，失败记录留在行上）。
+ * 最近 24 小時徹底沒發出去的：一次性任務標成了失敗，或者循環任務跳過了這一次
+ * （行還是 pending，排期已經推到以後，失敗記錄留在行上）。
  *
- * 即时对话的不列：它失败时聊天界面自己会说，放在这里是重复的噪音。
+ * 即時對話的不列：它失敗時聊天界面自己會說，放在這裡是重複的噪音。
  */
 export const readRecentFailures = async (
   db: TickReportDb,
@@ -263,7 +263,7 @@ export const readRecentFailures = async (
   const failures = await Promise.all(rows.map(async (row): Promise<AmsgTickReportFailure | null> => {
     const error = parseLastError(row.last_error);
     const atMs = parseMs(error?.at);
-    // updated_at 会被后来的开跑刷新，真正「什么时候失败的」看记录自己的时刻。
+    // updated_at 會被後來的開跑刷新，真正「什麼時候失敗的」看記錄自己的時刻。
     if (!row.uuid || !error || atMs === null || atMs < sinceMs) return null;
     const identity = await readIdentity(row);
     return {
@@ -279,9 +279,9 @@ export const readRecentFailures = async (
   return failures.filter((item): item is AmsgTickReportFailure => item !== null);
 };
 
-// ─── 整轮报错 ───
+// ─── 整輪報錯 ───
 
-/** worker 自己的诊断表：一行一个键，值是 JSON。跟上游的表分开，上游的 schema 自查不管它。 */
+/** worker 自己的診斷表：一行一個鍵，值是 JSON。跟上游的表分開，上游的 schema 自查不管它。 */
 const DIAGNOSTICS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS worker_diagnostics (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
@@ -290,9 +290,9 @@ const DIAGNOSTICS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS worker_diagnostics (
 const TICK_FAILURE_KEY = 'tick_failure';
 
 /**
- * 上游收尾时写库失败的那几种状态（见上游 run-tick 的 failedTasks）。这几种不会在任务行上
- * 留下任何痕迹——要写的那一笔本身就没写进去——所以只能记在这里。
- * `post_send_cleanup_failed_marked_sent` / `…_rescheduled` 是补救成功了的，不算。
+ * 上游收尾時寫庫失敗的那幾種狀態（見上游 run-tick 的 failedTasks）。這幾種不會在任務行上
+ * 留下任何痕跡——要寫的那一筆本身就沒寫進去——所以只能記在這裡。
+ * `post_send_cleanup_failed_marked_sent` / `…_rescheduled` 是補救成功了的，不算。
  */
 const TASK_WRITE_FAILURE_STATUSES = new Set([
   'claim_failed',
@@ -303,7 +303,7 @@ const TASK_WRITE_FAILURE_STATUSES = new Set([
 
 type StoredTickFailure = Omit<AmsgTickFailureRecord, 'ongoing'>;
 
-/** 从上游 scheduled() 的返回值里认出这一跳要记的那个错。没出错返回 null。 */
+/** 從上游 scheduled() 的返回值裡認出這一跳要記的那個錯。沒出錯返回 null。 */
 export const pickTickFailure = (outcome: unknown): Pick<StoredTickFailure, 'stage' | 'name' | 'message' | 'code'> | null => {
   const value = outcome as {
     ok?: unknown;
@@ -331,21 +331,21 @@ export const pickTickFailure = (outcome: unknown): Pick<StoredTickFailure, 'stag
 
   const reason = typeof hit.reason === 'string' ? hit.reason : '';
   const updateError = typeof hit.updateError === 'string' ? hit.updateError : '';
-  // 记失败原因那一笔没写进去时，丢的是两样东西：写库的错，和本来要记下的那个失败原因。
-  // 两样都留着，后者正是用户想知道的「为什么没发出去」。
+  // 記失敗原因那一筆沒寫進去時，丟的是兩樣東西：寫庫的錯，和本來要記下的那個失敗原因。
+  // 兩樣都留著，後者正是用戶想知道的「為什麼沒發出去」。
   const rawMessage = updateError
-    ? `${updateError}（本来要记下的失败原因：${reason || '无'}）`
+    ? `${updateError}（本來要記下的失敗原因：${reason || '無'}）`
     : reason;
-  // 上游给 failedTasks 的 reason 是没脱敏的原话，这里过一遍跟整轮报错同一套打码。
+  // 上游給 failedTasks 的 reason 是沒脫敏的原話，這裡過一遍跟整輪報錯同一套打碼。
   const cause = summarizeErrorCause({ name: 'TaskWriteFailed', message: rawMessage }, 'tick');
   return { stage: hit.status, name: cause.name, message: cause.message ?? '', code: null };
 };
 
 /**
- * 把这一跳的报错记进库。同一种错连着出现就并成一串（只更新最后一次和次数）。
+ * 把這一跳的報錯記進庫。同一種錯連著出現就併成一串（只更新最後一次和次數）。
  *
- * best-effort：库本身挂了的时候这一笔多半也写不进去，那也只能认——不能让记账的错
- * 反过来盖掉 scheduled() 的正常收尾。
+ * best-effort：庫本身掛了的時候這一筆多半也寫不進去，那也只能認——不能讓記帳的錯
+ * 反過來蓋掉 scheduled() 的正常收尾。
  */
 export const recordTickOutcome = async (db: TickReportDb | undefined, outcome: unknown, nowMs = Date.now()): Promise<void> => {
   const failure = pickTickFailure(outcome);
@@ -376,7 +376,7 @@ export const recordTickOutcome = async (db: TickReportDb | undefined, outcome: u
       .bind(TICK_FAILURE_KEY, JSON.stringify(record), nowMs)
       .run();
   } catch (error) {
-    console.warn('[amsg:tick-report] 这一跳的报错没记进库', error);
+    console.warn('[amsg:tick-report] 這一跳的報錯沒記進庫', error);
   }
 };
 
@@ -401,7 +401,7 @@ const parseStoredTickFailure = (raw: string | null | undefined): StoredTickFailu
   }
 };
 
-/** 读最近一次整轮报错。表还没建（从没出过错）或读不了都当没有。 */
+/** 讀最近一次整輪報錯。表還沒建（從沒出過錯）或讀不了都當沒有。 */
 export const readTickFailure = async (db: TickReportDb, nowMs = Date.now()): Promise<AmsgTickFailureRecord | null> => {
   try {
     const row = await db
@@ -416,7 +416,7 @@ export const readTickFailure = async (db: TickReportDb, nowMs = Date.now()): Pro
   }
 };
 
-/** GET /tick-report 的完整回执。 */
+/** GET /tick-report 的完整回執。 */
 export const buildTickReport = async (
   db: TickReportDb,
   options: { masterKey?: string; serializeKeyOf: SerializeKeyOf; nowMs?: number },

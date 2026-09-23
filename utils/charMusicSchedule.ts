@@ -1,12 +1,12 @@
 /**
- * Char 音乐 · Schedule 运行时 (纯同步版)
+ * Char 音樂 · Schedule 運行時 (純同步版)
  *
- * 设计目标：给 char 一个"此刻背景音"元数据，让它能在聊天 / 拜访页里感知。
- * 故意 **不** 拉歌词、不做进度映射 —— char 作为叙事主体天然知道"自己在听什么"，
- * 不需要 app 模拟物理播放进度给它看。
+ * 設計目標：給 char 一個"此刻背景音"元數據，讓它能在聊天 / 拜訪頁裡感知。
+ * 故意 **不** 拉歌詞、不做進度映射 —— char 作為敘事主體天然知道"自己在聽什麼"，
+ * 不需要 app 模擬物理播放進度給它看。
  *
- * 因此这个模块是纯同步的：给定 char + schedule + now，直接返回一份 CharCurrentListening 或 null。
- * 可以在任意位置（chat 送信前、拜访页渲染时）自由调用，零网络成本。
+ * 因此這個模塊是純同步的：給定 char + schedule + now，直接返回一份 CharCurrentListening 或 null。
+ * 可以在任意位置（chat 送信前、拜訪頁渲染時）自由調用，零網絡成本。
  */
 
 import { CharacterProfile, CharCurrentListening, CharPlaylistSong, DailySchedule, ScheduleSlot } from '../types';
@@ -14,15 +14,15 @@ import { getLocalDateKey } from './localDate';
 import { getScheduleWallClock } from './scheduleTime';
 
 const LISTENING_KEYWORDS = [
-    '听歌', '听音乐', '戴耳机', '戴上耳机', '戴着耳机', '耳机',
-    '循环', '单曲循环', '播放', '耳畔', '耳旁',
-    '播放列表', '歌单', '副歌', '前奏',
+    '聽歌', '聽音樂', '戴耳機', '戴上耳機', '戴著耳機', '耳機',
+    '循環', '單曲循環', '播放', '耳畔', '耳旁',
+    '播放列表', '歌單', '副歌', '前奏',
     'listening', 'music', 'song', 'playlist', 'vinyl', 'headphone', '🎵', '🎶', '🎧',
 ];
 
 const MAX_SAMPLED_SONGS = 20;
 
-/** 返回当前时间属于哪一个 slot */
+/** 返回當前時間屬於哪一個 slot */
 export const getCurrentSlot = (schedule: DailySchedule | null, at: Date = new Date()): ScheduleSlot | null => {
     if (!schedule?.slots?.length) return null;
     const nowMin = at.getHours() * 60 + at.getMinutes();
@@ -34,7 +34,7 @@ export const getCurrentSlot = (schedule: DailySchedule | null, at: Date = new Da
     return null;
 };
 
-/** 判断 slot 是否暗示"在听歌" */
+/** 判斷 slot 是否暗示"在聽歌" */
 export const slotIsListening = (slot: ScheduleSlot | null): boolean => {
     if (!slot) return false;
     const blob = `${slot.activity || ''} ${slot.description || ''} ${slot.innerThought || ''} ${slot.emoji || ''}`.toLowerCase();
@@ -50,10 +50,10 @@ const slotStartToDate = (slot: ScheduleSlot, baseDate: Date): Date => {
 };
 
 /**
- * 抽样池：按歌单顺序去重取前 MAX_SAMPLED_SONGS 首。
+ * 抽樣池：按歌單順序去重取前 MAX_SAMPLED_SONGS 首。
  *
- * 单独 export 是给主动消息用的——fire_pack 把这份池子随包带给 worker，worker 到点用
- * 下面同一个 pickSongFromPool 抽，抽出来的跟角色在聊天里说的是同一首。
+ * 單獨 export 是給主動消息用的——fire_pack 把這份池子隨包帶給 worker，worker 到點用
+ * 下面同一個 pickSongFromPool 抽，抽出來的跟角色在聊天裡說的是同一首。
  */
 export const buildSongPool = (char: CharacterProfile): CharPlaylistSong[] => {
     const p = char.musicProfile;
@@ -73,8 +73,8 @@ export const buildSongPool = (char: CharacterProfile): CharPlaylistSong[] => {
 };
 
 /**
- * 基于 (today + slot.startTime + charId) 种子从池子里稳定抽一首。
- * 同一 slot 期间永远是同一首歌，不会跳。
+ * 基於 (today + slot.startTime + charId) 種子從池子裡穩定抽一首。
+ * 同一 slot 期間永遠是同一首歌，不會跳。
  */
 export const pickSongFromPool = <T,>(
     pool: T[],
@@ -90,12 +90,12 @@ export const pickSongFromPool = <T,>(
 };
 
 /**
- * 计算 char 此刻该"在听"的歌（纯同步，无网络）。
- * - slot 不含听歌关键词 → 返回 null
- * - char 没有歌单或歌单全为空 → 返回 null
+ * 計算 char 此刻該"在聽"的歌（純同步，無網絡）。
+ * - slot 不含聽歌關鍵詞 → 返回 null
+ * - char 沒有歌單或歌單全為空 → 返回 null
  *
- * 调用方可以直接把结果挂到 char.musicProfile.currentListening (UI 展示)，
- * 或只临时用于 prompt 注入，不必持久化。
+ * 調用方可以直接把結果掛到 char.musicProfile.currentListening (UI 展示)，
+ * 或只臨時用於 prompt 注入，不必持久化。
  */
 export function computeCurrentListening(
     char: CharacterProfile,

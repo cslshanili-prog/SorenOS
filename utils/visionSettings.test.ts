@@ -34,15 +34,15 @@ function Harness() {
     return createElement(Settings);
 }
 function visionSection() {
-    return Array.from(container.querySelectorAll('section')).find(section => section.querySelector('h2')?.textContent === '识图 API')!;
+    return Array.from(container.querySelectorAll('section')).find(section => section.querySelector('h2')?.textContent === '識圖 API')!;
 }
 async function openVision() {
     await act(async () => { visionSection().querySelector('button')!.click(); });
 }
 afterEach(async () => { await act(async () => { root.render(null); }); vi.restoreAllMocks(); });
 
-describe('识图设置开关', () => {
-    it('首次配置未填完整时不接入，关闭也保留尚未保存的输入', async () => {
+describe('識圖設置開關', () => {
+    it('首次配置未填完整時不接入，關閉也保留尚未保存的輸入', async () => {
         saved = { baseUrl: 'https://main.test/v1', apiKey: 'main-key', model: 'main' };
         await act(async () => { root.render(createElement(Harness)); });
         await openVision();
@@ -59,7 +59,7 @@ describe('识图设置开关', () => {
         expect(urlInput.value).toBe('https://draft.test/v1');
     });
 
-    it('关掉立即改变徽标并落盘，重新打开设置保持关闭，凭据保留', async () => {
+    it('關掉立即改變徽標並落盤，重新打開設置保持關閉，憑據保留', async () => {
         saved = { baseUrl: 'https://main.test/v1', apiKey: 'main-key', model: 'main',
             visionApi: { enabled: true, baseUrl: 'https://vision.test/v1', apiKey: 'vision-key', model: 'vision' } };
         await act(async () => { root.render(createElement(Harness)); });

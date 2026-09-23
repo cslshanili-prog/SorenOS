@@ -21,27 +21,27 @@ const memoryStorage = () => {
     };
 };
 
-describe('SAR 模块商店', () => {
-    it('固定目录包含 46 个唯一模块和新增的三种语言模块', () => {
+describe('SAR 模塊商店', () => {
+    it('固定目錄包含 46 個唯一模塊和新增的三種語言模塊', () => {
         expect(SAR_MODULE_CATALOG).toHaveLength(46);
         expect(new Set(SAR_MODULE_CATALOG.map(module => module.id)).size).toBe(46);
         expect(SAR_MODULE_CATALOG.map(module => module.title)).toEqual(expect.arrayContaining([
-            '古风译码器', '王庭贵族协议', '莎翁戏剧感染', '直球增压器', '结局名称生成器',
+            '古風譯碼器', '王庭貴族協議', '莎翁戲劇感染', '直球增壓器', '結局名稱生成器',
         ]));
         expect(SAR_MODULE_CATALOG.every(module => module.description && module.caianNote && module.example)).toBe(true);
     });
 
-    it('需配置模块会把输入收紧成短字面值，普通模块不会伪造配置', () => {
-        const configurable = SAR_MODULE_CATALOG.find(module => module.title === '关键词消音器')!;
+    it('需配置模塊會把輸入收緊成短字面值，普通模塊不會偽造配置', () => {
+        const configurable = SAR_MODULE_CATALOG.find(module => module.title === '關鍵詞消音器')!;
         const plain = SAR_MODULE_CATALOG.find(module => !module.configuration)!;
         expect(normalizeSARModuleConfiguration(configurable, '  想\n你  ')).toEqual({
             keyword: '想 你',
         });
         expect(normalizeSARModuleConfiguration(configurable, ' \n\t ')).toBeUndefined();
-        expect(normalizeSARModuleConfiguration(plain, '不该生效')).toBeUndefined();
+        expect(normalizeSARModuleConfiguration(plain, '不該生效')).toBeUndefined();
     });
 
-    it('每天只陈列 5 个不同模块，并提供三次额外重排', () => {
+    it('每天只陳列 5 個不同模塊，並提供三次額外重排', () => {
         const storage = memoryStorage();
         const now = new Date(2026, 8, 3, 8, 0, 0);
         let state = readSARModuleShopState(storage, now, () => 0.42);
@@ -56,7 +56,7 @@ describe('SAR 模块商店', () => {
         expect(rollSARModuleOffers(state, () => 0.9, storage)).toEqual(state);
     });
 
-    it('跨本地日期自动刷新货架和重排次数，但保留库存', () => {
+    it('跨本地日期自動刷新貨架和重排次數，但保留庫存', () => {
         const storage = memoryStorage();
         const dayOne = new Date(2026, 8, 3, 22, 0, 0);
         let state = readSARModuleShopState(storage, dayOne, () => 0.1);
@@ -71,7 +71,7 @@ describe('SAR 模块商店', () => {
         expect(nextDay.inventory[offered]).toBe(1);
     });
 
-    it('试运行领取不扣票据，重复领取会叠加库存', () => {
+    it('試運行領取不扣票據，重複領取會疊加庫存', () => {
         const storage = memoryStorage();
         let state = readSARModuleShopState(storage, new Date(2026, 8, 3), () => 0.3);
         const offered = state.market.offerIds[0];
@@ -84,7 +84,7 @@ describe('SAR 模块商店', () => {
         expect(second.state.purchases).toHaveLength(2);
     });
 
-    it('正式计价时会阻止余额不足，并拒绝购买非今日商品', () => {
+    it('正式計價時會阻止餘額不足，並拒絕購買非今日商品', () => {
         const state = createSARModuleShopState(new Date(2026, 8, 3), () => 0.5);
         const offered = state.market.offerIds[0];
         const notOffered = SAR_MODULE_CATALOG.find(module => !state.market.offerIds.includes(module.id))!;
@@ -92,7 +92,7 @@ describe('SAR 模块商店', () => {
         expect(purchaseSARModule(state, notOffered.id, { developmentMode: true }).reason).toBe('not-offered');
     });
 
-    it('只在正式装载后消耗一枚库存', () => {
+    it('只在正式裝載後消耗一枚庫存', () => {
         const storage = memoryStorage();
         let state = readSARModuleShopState(storage, new Date(2026, 8, 3), () => 0.3);
         const offered = state.market.offerIds[0];
@@ -103,7 +103,7 @@ describe('SAR 模块商店', () => {
         expect(consumeSARModule(consumed.state, offered, storage).reason).toBe('not-owned');
     });
 
-    it('损坏或过期的市场存档会安全重建', () => {
+    it('損壞或過期的市場存檔會安全重建', () => {
         const storage = memoryStorage();
         storage.setItem(SAR_MODULE_SHOP_STORAGE_KEY, '{broken');
         expect(readSARModuleShopState(storage, new Date(2026, 8, 3), () => 0.4).market.offerIds).toHaveLength(5);

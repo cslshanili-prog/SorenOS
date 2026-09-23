@@ -9,9 +9,9 @@ export function getLocalDateKey(date: Date = new Date()): string {
 }
 
 /**
- * 「虚拟日」日期 key：凌晨 6 点前算前一天（小屋/房间的一天以起床为界，不是以午夜为界）。
- * 传入的 Date 必须已经是**目标时区的墙上时间**（角色开了自定义时区就传 nowInTimeZone(tz)），
- * 这样同一份 6 点分界逻辑对本机和角色时区都成立。不改动传入的 Date。
+ * 「虛擬日」日期 key：凌晨 6 點前算前一天（小屋/房間的一天以起床為界，不是以午夜為界）。
+ * 傳入的 Date 必須已經是**目標時區的牆上時間**（角色開了自定義時區就傳 nowInTimeZone(tz)），
+ * 這樣同一份 6 點分界邏輯對本機和角色時區都成立。不改動傳入的 Date。
  */
 export function getVirtualDayKey(now: Date = new Date()): string {
     const d = new Date(now);

@@ -33,8 +33,8 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('本轮召回记忆修补', () => {
-    it('只拿时间点之后最近一次回执，不会误用上一轮', () => {
+describe('本輪召回記憶修補', () => {
+    it('只拿時間點之後最近一次回執，不會誤用上一輪', () => {
         const charId = 'repair_receipt_latest';
         clearReceipts(charId);
         vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(2000);
@@ -45,15 +45,15 @@ describe('本轮召回记忆修补', () => {
         expect(getLatestRecallReceipt(charId, 2500)).toBeNull();
     });
 
-    it('命中事件盒任一节点后，展开摘要、活节点和归档节点供原地修改', async () => {
+    it('命中事件盒任一節點後，展開摘要、活節點和歸檔節點供原地修改', async () => {
         const charId = 'repair_box_complete';
-        const summary = node('repair_summary', charId, '错误的盒摘要', { isBoxSummary: true });
-        const live = node('repair_live', charId, '本轮实际经过的活节点', { eventBoxId: 'repair_box' });
-        const archived = node('repair_archived', charId, '已经归档但仍可修补', {
+        const summary = node('repair_summary', charId, '錯誤的盒摘要', { isBoxSummary: true });
+        const live = node('repair_live', charId, '本輪實際經過的活節點', { eventBoxId: 'repair_box' });
+        const archived = node('repair_archived', charId, '已經歸檔但仍可修補', {
             eventBoxId: 'repair_box',
             archived: true,
         });
-        const standalone = node('repair_standalone', charId, '散落的独立记忆');
+        const standalone = node('repair_standalone', charId, '散落的獨立記憶');
         await MemoryNodeDB.saveMany([summary, live, archived, standalone]);
         const box: EventBox = {
             id: 'repair_box',
@@ -83,26 +83,26 @@ describe('本轮召回记忆修补', () => {
         expect(snapshot.boxes[0].recalledNodeIds).toEqual([live.id]);
     });
 
-    it('修补现场使用真实记忆日期，不把中午占位伪装成精确时分', () => {
+    it('修補現場使用真實記憶日期，不把中午佔位偽裝成精確時分', () => {
         const timestamp = new Date(2026, 6, 28, 12, 0, 0).getTime();
         expect(formatRepairMemoryDate(timestamp, timestamp)).toBe('2026年7月28日（今天）');
     });
 
-    it('面向用户的诊断不残留“用户/角色”分析术语', () => {
+    it('面向用戶的診斷不殘留“用戶/角色”分析術語', () => {
         expect(naturalizeMemoryRepairLanguage(
-            '该用户指出这个角色记错了，角色本人需要核对。',
-            '阿宁',
-            '小满',
-        )).toBe('小满指出阿宁记错了，阿宁需要核对。');
+            '該用戶指出這個角色記錯了，角色本人需要核對。',
+            '阿寧',
+            '小滿',
+        )).toBe('小滿指出阿寧記錯了，阿寧需要核對。');
     });
 
-    it('诊断上下文按约定走 false，并隔离持久记忆和运行时向量注入', () => {
+    it('診斷上下文按約定走 false，並隔離持久記憶和運行時向量注入', () => {
         const char = {
             id: 'repair_context',
-            name: '阿宁',
+            name: '阿寧',
             avatar: '',
             description: '',
-            systemPrompt: '说话简洁。',
+            systemPrompt: '說話簡潔。',
             memories: [{ id: 'legacy', date: '2026-01-01', summary: 'LEGACY_MEMORY_MARKER' }],
             refinedMemories: { '2026-01': 'REFINED_MEMORY_MARKER' },
             activeMemoryMonths: ['2026-01'],
@@ -111,10 +111,10 @@ describe('本轮召回记忆修补', () => {
             roomPlatesInjection: 'ROOM_PLATE_MARKER',
             buffInjection: 'BUFF_MARKER',
         } as CharacterProfile;
-        const user = { name: '小满' } as UserProfile;
+        const user = { name: '小滿' } as UserProfile;
 
         const context = buildMemoryRepairCoreContext(char, user);
-        expect(context).toContain('阿宁');
+        expect(context).toContain('阿寧');
         expect(context).not.toContain('LEGACY_MEMORY_MARKER');
         expect(context).not.toContain('REFINED_MEMORY_MARKER');
         expect(context).not.toContain('VECTOR_MEMORY_MARKER');
@@ -122,31 +122,31 @@ describe('本轮召回记忆修补', () => {
         expect(context).not.toContain('BUFF_MARKER');
     });
 
-    it('引路者问候由角色风格稳定选择，不调用模型生成', () => {
+    it('引路者問候由角色風格穩定選擇，不調用模型生成', () => {
         const char = {
             id: 'guide_style',
-            name: '阿宁',
+            name: '阿寧',
             personalityStyle: 'imagery',
         } as CharacterProfile;
-        const first = getMemoryGuideCopy(char, '小满');
-        const second = getMemoryGuideCopy(char, '小满');
+        const first = getMemoryGuideCopy(char, '小滿');
+        const second = getMemoryGuideCopy(char, '小滿');
 
         expect(first).toEqual(second);
-        expect(first.greeting).toContain('小满');
+        expect(first.greeting).toContain('小滿');
         expect(first.trail.length).toBeGreaterThan(4);
     });
 
-    it('用户可用不完整关键词和日期模糊找到可修改记忆，包含归档节点', () => {
+    it('用戶可用不完整關鍵詞和日期模糊找到可修改記憶，包含歸檔節點', () => {
         const nodes = [
-            node('beach', 'search_char', '去年在海边一起过了生日', {
-                tags: ['旅行', '礼物'],
+            node('beach', 'search_char', '去年在海邊一起過了生日', {
+                tags: ['旅行', '禮物'],
                 createdAt: new Date(2026, 6, 3, 12, 0, 0).getTime(),
             }),
-            node('archived', 'search_char', '旧车站告别', {
+            node('archived', 'search_char', '舊車站告別', {
                 archived: true,
                 eventBoxId: 'box_1',
             }),
-            node('other', 'search_char', '在家看了一整天电影'),
+            node('other', 'search_char', '在家看了一整天電影'),
         ];
 
         expect(filterEditableMemoryNodes(nodes, '海 生').map(item => item.node.id))
@@ -155,7 +155,7 @@ describe('本轮召回记忆修补', () => {
             .toEqual(['beach']);
         expect(filterEditableMemoryNodes(nodes, '2026-07').map(item => item.node.id))
             .toEqual(['beach']);
-        expect(filterEditableMemoryNodes(nodes, '车站')[0]).toMatchObject({
+        expect(filterEditableMemoryNodes(nodes, '車站')[0]).toMatchObject({
             node: { id: 'archived' },
             kind: 'archived',
         });

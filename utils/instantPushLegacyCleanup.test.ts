@@ -5,8 +5,8 @@ import {
   cleanupInstantPushLegacyData,
 } from './instantPushLegacyCleanup';
 
-// fake-indexeddb 由 test-setup.ts 注入。先让 ActiveMsgStore 把库建到 v2（三张闲置表都在），
-// 再绕过它直接往表里塞旧数据——生产代码里已经没有写这几张表的入口了。
+// fake-indexeddb 由 test-setup.ts 注入。先讓 ActiveMsgStore 把庫建到 v2（三張閒置表都在），
+// 再繞過它直接往表裡塞舊數據——生產代碼裡已經沒有寫這幾張表的入口了。
 const LEGACY_STORES = ['outbound_sessions', 'pending_tool_calls', 'reasoning_buffer'] as const;
 
 async function withActiveMsgDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
@@ -60,7 +60,7 @@ describe('cleanupInstantPushLegacyData', () => {
     vi.restoreAllMocks();
   });
 
-  it('清掉旧配置、提醒记账、工具状态和三张闲置表，要留的 key 不碰', async () => {
+  it('清掉舊配置、提醒記帳、工具狀態和三張閒置表，要留的 key 不碰', async () => {
     localStorage.setItem('instant_push_config_v1', JSON.stringify({ enabled: true, clientToken: 't' }));
     localStorage.setItem('sullyos_worker_build_seen', '2026-08-19');
     localStorage.setItem('sullyos_worker_update_snooze_until', '1');
@@ -92,7 +92,7 @@ describe('cleanupInstantPushLegacyData', () => {
     expect(localStorage.getItem(INSTANT_PUSH_LEGACY_CLEANUP_DONE_KEY)).not.toBeNull();
   });
 
-  it('清过一次之后不再动：之后出现的同名 key 留着', async () => {
+  it('清過一次之後不再動：之後出現的同名 key 留著', async () => {
     await cleanupInstantPushLegacyData();
     localStorage.setItem('instant_push_config_v1', 'later');
     const clearSpy = vi.spyOn(ActiveMsgStore, 'clearLegacyInstantPushStores');
@@ -103,7 +103,7 @@ describe('cleanupInstantPushLegacyData', () => {
     expect(clearSpy).not.toHaveBeenCalled();
   });
 
-  it('IDB 清表失败不写标记，下次启动重试', async () => {
+  it('IDB 清表失敗不寫標記，下次啟動重試', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(ActiveMsgStore, 'clearLegacyInstantPushStores').mockRejectedValueOnce(new Error('boom'));
 

@@ -65,8 +65,8 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
              style={{ background: 'linear-gradient(180deg, #f5f2fb 0%, #ece6f6 100%)' }}>
             <div className="px-6 pb-4 shrink-0 flex items-start justify-between" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
                 <div>
-                    <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神经链接</h1>
-                    <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{npcs.length}</span> 个 NPC</p>
+                    <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神經鏈接</h1>
+                    <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{npcs.length}</span> 個 NPC</p>
                 </div>
                 <button onClick={closeApp} className="p-2 text-slate-400">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
@@ -87,7 +87,7 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
             <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
                 {npcs.length === 0 && (
                     <div className="text-center py-10 text-violet-300 text-sm">
-                        还没有 NPC——点下面「+ 新增 NPC」建一个
+                        還沒有 NPC——點下面「+ 新增 NPC」建一個
                     </div>
                 )}
                 {npcs.map(npc => (
@@ -102,7 +102,7 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
                         <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold text-slate-700 truncate">{npc.name || '未命名 NPC'}</div>
                             <div className="text-[11px] text-slate-400 truncate">
-                                {npc.relationships.length > 0 ? `${npc.relationships.length} 段关系` : '暂无关系设定'}
+                                {npc.relationships.length > 0 ? `${npc.relationships.length} 段關係` : '暫無關係設定'}
                             </div>
                         </div>
                         <button
@@ -125,11 +125,11 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirmId(null)} />
                     <div className="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-6 text-center">
-                        <p className="text-sm text-slate-700 font-bold mb-1">删除这个 NPC？</p>
-                        <p className="text-xs text-slate-400 mb-5">删除后，ta 在群聊/查手机联系人/见面剧情里的设定都会一并消失，无法恢复。</p>
+                        <p className="text-sm text-slate-700 font-bold mb-1">刪除這個 NPC？</p>
+                        <p className="text-xs text-slate-400 mb-5">刪除後，ta 在群聊/查手機聯繫人/見面劇情裡的設定都會一併消失，無法恢復。</p>
                         <div className="flex gap-3">
                             <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button>
-                            <button onClick={() => handleDelete(deleteConfirmId)} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl">删除</button>
+                            <button onClick={() => handleDelete(deleteConfirmId)} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl">刪除</button>
                         </div>
                     </div>
                 </div>
@@ -169,7 +169,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [testingConnection, setTestingConnection] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
 
-    // 切换编辑对象时把本地草稿同步回来，避免残留上一个 NPC 的文字。
+    // 切換編輯對象時把本地草稿同步回來，避免殘留上一個 NPC 的文字。
     useEffect(() => {
         setName(npc.name);
         setDescription(npc.description);
@@ -205,9 +205,9 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const fetchModels = async () => {
         const baseUrl = normalizeApiBaseUrl(apiUrl);
         const key = normalizeApiCredential(apiKey);
-        if (!baseUrl) { setModelStatusMsg('请先填写 URL'); return; }
+        if (!baseUrl) { setModelStatusMsg('請先填寫 URL'); return; }
         setIsLoadingModels(true);
-        setModelStatusMsg('正在连接...');
+        setModelStatusMsg('正在連接...');
         try {
             const response = await fetch(`${baseUrl}/models`, {
                 method: 'GET',
@@ -219,13 +219,13 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
             if (models.length > 0) {
                 setAvailableModels(models);
                 setModelSearchQuery('');
-                setModelStatusMsg(`获取到 ${models.length} 个模型`);
+                setModelStatusMsg(`獲取到 ${models.length} 個模型`);
                 setShowModelModal(true);
             } else {
-                setModelStatusMsg('模型列表为空或格式不兼容');
+                setModelStatusMsg('模型列表為空或格式不兼容');
             }
         } catch (error: any) {
-            setModelStatusMsg(`连接失败${error?.message ? `：${error.message}` : ''}`);
+            setModelStatusMsg(`連接失敗${error?.message ? `：${error.message}` : ''}`);
         } finally {
             setIsLoadingModels(false);
         }
@@ -242,13 +242,13 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 headers: { 'Authorization': `Bearer ${normalizeApiCredential(apiKey)}`, 'Content-Type': 'application/json' },
             });
             if (response.ok) {
-                setTestConnectionResult('✅ 连接成功');
+                setTestConnectionResult('✅ 連接成功');
             } else {
                 const text = await response.text().catch(() => '');
                 setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
             }
         } catch (error: any) {
-            setTestConnectionResult(`❌ 连接失败${error?.message ? `：${error.message}` : ''}`);
+            setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
         } finally {
             setTestingConnection(false);
         }
@@ -291,7 +291,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 <button onClick={onBack} className="p-2 -ml-2 text-slate-500">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                 </button>
-                <h2 className="text-sm font-bold text-slate-700">编辑 NPC</h2>
+                <h2 className="text-sm font-bold text-slate-700">編輯 NPC</h2>
                 <button onClick={onDelete} className="p-2 -mr-2 text-slate-300 hover:text-red-400">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -307,7 +307,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     >
                         <TokenImg value={npc.avatar} className="w-full h-full object-cover" alt={name} />
                         <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center text-white text-[10px] opacity-0 hover:opacity-100">
-                            更换
+                            更換
                         </div>
                     </div>
                     <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])} />
@@ -325,12 +325,12 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 </div>
 
                 <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">性格与背景描述</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">性格與背景描述</label>
                     <textarea
                         value={description}
                         onChange={e => setDescription(e.target.value)}
                         onBlur={() => onChange({ description })}
-                        placeholder="ta 是什么样的人，会怎么出现在群聊/查手机联系人/见面剧情里"
+                        placeholder="ta 是什麼樣的人，會怎麼出現在群聊/查手機聯繫人/見面劇情裡"
                         rows={4}
                         className="w-full bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm resize-none focus:bg-white transition-all"
                     />
@@ -338,14 +338,14 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
 
                 <div>
                     <div className="flex items-center justify-between mb-2 px-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">关系</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">關係</label>
                         <button onClick={addRelationship} className="text-[10px] bg-violet-50 text-violet-600 px-2.5 py-1 rounded-full font-bold">
-                            + 新增关系
+                            + 新增關係
                         </button>
                     </div>
                     {npc.relationships.length === 0 ? (
                         <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
-                            还没有设定关系——同一个 NPC 可以跟不同角色/用户各自有一段不同的关系
+                            還沒有設定關係——同一個 NPC 可以跟不同角色/用戶各自有一段不同的關係
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -357,7 +357,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                             onChange={e => updateRelationship(rel.id, { targetId: e.target.value })}
                                             className="flex-1 bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-1.5 text-xs font-bold"
                                         >
-                                            <option value="user">用户</option>
+                                            <option value="user">用戶</option>
                                             {characters.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -367,7 +367,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                     <textarea
                                         defaultValue={rel.description}
                                         onBlur={e => updateRelationship(rel.id, { description: e.target.value })}
-                                        placeholder="这段关系的描述，如「妹妹，从小玩到大，愛耍賴」"
+                                        placeholder="這段關係的描述，如「妹妹，從小玩到大，愛耍賴」"
                                         rows={2}
                                         className="w-full bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-2 text-xs resize-none"
                                     />
@@ -378,29 +378,29 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 </div>
 
                 <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">世界观 / 设定补充</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">世界觀 / 設定補充</label>
                     <textarea
                         value={worldview}
                         onChange={e => setWorldview(e.target.value)}
                         onBlur={() => onChange({ worldview })}
-                        placeholder="在这个世界里，魔法是存在的..."
+                        placeholder="在這個世界裡，魔法是存在的..."
                         rows={3}
                         className="w-full bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm resize-none focus:bg-white transition-all"
                     />
                 </div>
 
-                {/* 时间感知 & 时区：字段跟 CharacterProfile 同名，群聊/见面接入 NPC 后可以直接复用同一套时区工具函数 */}
+                {/* 時間感知 & 時區：字段跟 CharacterProfile 同名，群聊/見面接入 NPC 後可以直接複用同一套時區工具函數 */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
                     <div>
-                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">时间感知 & 时区</label>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">两个开关相互独立，可任意组合。</p>
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">時間感知 & 時區</label>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">兩個開關相互獨立，可任意組合。</p>
                     </div>
 
                     <div className="border-t border-slate-100 pt-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-700">时间感知强化</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。出现在群聊/见面里时，会贴近真实时间和作息。</p>
+                                <p className="text-xs font-bold text-slate-700">時間感知強化</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。出現在群聊/見面裡時，會貼近真實時間和作息。</p>
                             </div>
                             <button
                                 onClick={() => onChange({ timeAwarenessEnabled: npc.timeAwarenessEnabled === false })}
@@ -414,8 +414,8 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     <div className="border-t border-slate-100 pt-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-700">自定义时区</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关（跟随本机）。适合设定在异国的 NPC。</p>
+                                <p className="text-xs font-bold text-slate-700">自定義時區</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認關（跟隨本機）。適合設定在異國的 NPC。</p>
                             </div>
                             <button
                                 onClick={() => onChange({ customTimezoneEnabled: !npc.customTimezoneEnabled })}
@@ -430,7 +430,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 onChange={e => onChange({ customTimezone: e.target.value })}
                                 className="mt-3 w-full bg-slate-50 rounded-xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-primary/30"
                             >
-                                <option value="">请选择 NPC 所在时区…</option>
+                                <option value="">請選擇 NPC 所在時區…</option>
                                 {COMMON_TIMEZONES.map(tz => (
                                     <option key={tz.id} value={tz.id}>{tz.label}</option>
                                 ))}
@@ -441,8 +441,8 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     <div className="border-t border-slate-100 pt-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-700">线下时间感知（见面）</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。出现在见面剧情里时跟着现实时间走；关掉更适合纯架空。</p>
+                                <p className="text-xs font-bold text-slate-700">線下時間感知（見面）</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。出現在見面劇情裡時跟著現實時間走；關掉更適合純架空。</p>
                             </div>
                             <button
                                 onClick={() => onChange({ dateTimeAwarenessEnabled: npc.dateTimeAwarenessEnabled === false ? undefined : false })}
@@ -454,11 +454,11 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     </div>
                 </div>
 
-                {/* AI 模型：默认跟随查手机 App 的共用设定（跟真人联系人的关系对话共用同一组），可选自定义单独覆盖 */}
+                {/* AI 模型：默認跟隨查手機 App 的共用設定（跟真人聯繫人的關係對話共用同一組），可選自定義單獨覆蓋 */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
                     <div>
                         <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">AI 模型</label>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">默认跟查手机里其他联系人共用同一组设定；选「自定义」可以单独给这个 NPC 配一个不同的 API / 模型。</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">默認跟查手機裡其他聯繫人共用同一組設定；選「自定義」可以單獨給這個 NPC 配一個不同的 API / 模型。</p>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -467,7 +467,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 apiMode === 'shared' ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'
                             }`}
                         >
-                            查手机共用设定
+                            查手機共用設定
                         </button>
                         <button
                             onClick={() => setApiMode('custom')}
@@ -475,14 +475,14 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 apiMode === 'custom' ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'
                             }`}
                         >
-                            自定义
+                            自定義
                         </button>
                     </div>
                     {apiMode === 'custom' && (
                         <div className="space-y-2">
                             {apiPresets.length > 0 && (
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的预设</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的預設</label>
                                     <div className="flex gap-2 flex-wrap">
                                         {apiPresets.map(preset => (
                                             <button
@@ -525,7 +525,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                     value={apiModel}
                                     onChange={e => setApiModel(e.target.value)}
                                     onBlur={() => saveApiConfig('custom')}
-                                    placeholder="Model，或点右上角刷新拉取"
+                                    placeholder="Model，或點右上角刷新拉取"
                                     className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-mono"
                                 />
                                 {modelStatusMsg && <p className="text-[10px] text-slate-400 mt-1">{modelStatusMsg}</p>}
@@ -536,13 +536,13 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                     disabled={testingConnection || !apiUrl.trim()}
                                     className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl disabled:opacity-50 active:scale-95 transition-transform"
                                 >
-                                    {testingConnection ? '测试中...' : '🧪 测试连接'}
+                                    {testingConnection ? '測試中...' : '🧪 測試連接'}
                                 </button>
                                 <button
                                     onClick={() => setShowSavePreset(v => !v)}
                                     className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl active:scale-95 transition-transform"
                                 >
-                                    保存为预设
+                                    保存為預設
                                 </button>
                             </div>
                             {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
@@ -553,7 +553,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                         value={newPresetName}
                                         onChange={e => setNewPresetName(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                        placeholder="预设名称..."
+                                        placeholder="預設名稱..."
                                         className="flex-1 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs"
                                         autoFocus
                                     />
@@ -570,7 +570,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     const query = modelSearchQuery.trim().toLowerCase();
                     const filteredList = query ? availableModels.filter(m => m.toLowerCase().includes(query)) : availableModels;
                     return (
-                        <Modal isOpen title="选择模型" onClose={() => setShowModelModal(false)}>
+                        <Modal isOpen title="選擇模型" onClose={() => setShowModelModal(false)}>
                             <div className="space-y-2">
                                 <input
                                     type="text"
@@ -582,7 +582,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 />
                                 <div className="max-h-72 overflow-y-auto space-y-1 no-scrollbar">
                                     {filteredList.length === 0 && (
-                                        <p className="text-[11px] text-slate-400 text-center py-4">没有匹配的模型</p>
+                                        <p className="text-[11px] text-slate-400 text-center py-4">沒有匹配的模型</p>
                                     )}
                                     {filteredList.map(m => (
                                         <button
@@ -607,8 +607,8 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
 
                 <div>
                     <div className="flex justify-between items-center mb-2 px-1">
-                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">扩展设定 (Worldbooks)</label>
-                        <button onClick={() => setShowWorldbookModal(true)} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 挂载</button>
+                        <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">擴展設定 (Worldbooks)</label>
+                        <button onClick={() => setShowWorldbookModal(true)} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 掛載</button>
                     </div>
                     {npc.mountedWorldbooks && npc.mountedWorldbooks.length > 0 ? (
                         <div className="space-y-2">
@@ -621,17 +621,17 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                         </div>
                     ) : (
                         <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
-                            暂未挂载任何世界书
+                            暫未掛載任何世界書
                         </div>
                     )}
                 </div>
             </div>
 
-            <Modal isOpen={showWorldbookModal} title="挂载世界书" onClose={() => setShowWorldbookModal(false)}>
+            <Modal isOpen={showWorldbookModal} title="掛載世界書" onClose={() => setShowWorldbookModal(false)}>
                 <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-2 p-1">
                     {worldbooks.length === 0 ? (
                         <div className="text-center text-slate-400 text-xs py-8">
-                            还没有世界书，请去桌面【世界书】App 创建。
+                            還沒有世界書，請去桌面【世界書】App 創建。
                         </div>
                     ) : (
                         worldbooks.map(wb => {
@@ -645,9 +645,9 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 >
                                     <div className="flex justify-between items-center gap-2">
                                         <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
-                                        {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                        {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已掛載</span>}
                                     </div>
-                                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分类设定 (General)'}</div>
+                                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分類設定 (General)'}</div>
                                 </button>
                             );
                         })

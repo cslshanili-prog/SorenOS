@@ -3,7 +3,7 @@ import { SimStoryAttachment } from '../../types';
 import { BookOpen, FileText, ImageSquare, Package, X } from '@phosphor-icons/react';
 
 const KIND_META = {
-    image: { label: '插图', Icon: ImageSquare },
+    image: { label: '插圖', Icon: ImageSquare },
     item: { label: '道具', Icon: Package },
     fanfic: { label: '同人文', Icon: BookOpen },
     evidence: { label: '附件', Icon: FileText },
@@ -174,7 +174,7 @@ const StoryAttachments: React.FC<{
                                     {active.detail && (
                                         <div className="retro-inset" style={{ padding: '8px 10px', marginTop: 10 }}>
                                             <div style={{ fontSize: 10, color: '#777', fontWeight: 700, marginBottom: 4 }}>
-                                                展开内容
+                                                展開內容
                                             </div>
                                             <div style={{ fontSize: 11, color: '#4f4b58', lineHeight: 1.7, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                                                 {active.detail}

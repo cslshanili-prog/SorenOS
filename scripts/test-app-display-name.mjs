@@ -8,7 +8,7 @@ const config=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));assert.
 const html=fs.readFileSync('index.html','utf8');assert(html.includes('<title>'+name+'</title>'));assert(html.includes('name="apple-mobile-web-app-title" content="'+name+'"'));assert(html.includes('name="application-name" content="'+name+'"'));
 fs.mkdirSync('output/app-display-name',{recursive:true});
 const root=fs.mkdtempSync(path.resolve('output/app-display-name/native-'));const xmlPath=path.join(root,'android/app/src/main/res/values/strings.xml');fs.mkdirSync(path.dirname(xmlPath),{recursive:true});
-const original={appId:'com.example.keep',appName:'旧名字',webDir:'dist',plugins:{Keyboard:{resize:'body'}}};const configPath=path.join(root,'capacitor.config.json');fs.writeFileSync(configPath,JSON.stringify(original));
+const original={appId:'com.example.keep',appName:'舊名字',webDir:'dist',plugins:{Keyboard:{resize:'body'}}};const configPath=path.join(root,'capacitor.config.json');fs.writeFileSync(configPath,JSON.stringify(original));
 fs.writeFileSync(xmlPath,`<resources><string name="app_name">Old</string><string name='title_activity_main'>Old activity</string><string name="package_name">com.example.keep</string><string name="custom_url_scheme">com.example.keep</string></resources>`);
 syncNativeAppName(root,name);assert.deepEqual(JSON.parse(fs.readFileSync(configPath,'utf8')),{...original,appName:name});const xml=fs.readFileSync(xmlPath,'utf8');assert.equal(xml.split(name).length-1,2);assert.equal(xml.split('com.example.keep').length-1,2);
 syncNativeAppName(root,name);assert.equal(fs.readFileSync(xmlPath,'utf8'),xml);

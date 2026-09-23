@@ -31,7 +31,7 @@ export async function deleteNodeAndLinkedArchive(node: MemoryNode, choice?: Link
             const character = request.result as CharacterProfile | undefined;
             if (character?.memories?.some(memory => memory.palaceMemoryId === node.id)) {
                 if (!choice) {
-                    failure = new Error('此记忆刚刚新增了日度档案关联，请重新删除并选择是否同步删除');
+                    failure = new Error('此記憶剛剛新增了日度檔案關聯，請重新刪除並選擇是否同步刪除');
                     tx.abort(); return;
                 }
                 characters.put({ ...character, memories: applyLinkedArchiveDeletion(character.memories, node.id, choice) });
@@ -41,7 +41,7 @@ export async function deleteNodeAndLinkedArchive(node: MemoryNode, choice?: Link
         };
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(failure || tx.error);
-        tx.onabort = () => reject(failure || tx.error || new Error('删除未完成'));
+        tx.onabort = () => reject(failure || tx.error || new Error('刪除未完成'));
     });
     bm25Index.onNodeDeleted(node.id);
     if (changed && choice && typeof window !== 'undefined') {
@@ -57,10 +57,10 @@ export function askLinkedArchiveDeletion(): Promise<LinkedArchiveDeletionChoice 
     return new Promise(resolve => {
         const previousFocus = document.activeElement;
         const dialog = document.createElement('dialog');
-        dialog.setAttribute('aria-label', '同步删除日度记忆');
+        dialog.setAttribute('aria-label', '同步刪除日度記憶');
         dialog.style.cssText = 'max-width:360px;width:calc(100% - 40px);padding:24px;border:1px solid #e2e8f0;border-radius:20px;background:white;color:#334155;box-shadow:0 20px 80px #0005;';
         const message = document.createElement('p');
-        message.textContent = '神经链接的日度记忆中，有该记忆的备份，您需要同步删除吗？';
+        message.textContent = '神經鏈接的日度記憶中，有該記憶的備份，您需要同步刪除嗎？';
         message.style.cssText = 'font-size:15px;line-height:1.7;margin:0 0 16px;';
         dialog.append(message);
         let settled = false;
@@ -71,9 +71,9 @@ export function askLinkedArchiveDeletion(): Promise<LinkedArchiveDeletionChoice 
             resolve(choice);
         };
         for (const [label, choice] of [
-            ['是，删除', 'delete'],
-            ['否，取消链接并保留原始快照', 'keep'],
-            ['取消本次删除', null],
+            ['是，刪除', 'delete'],
+            ['否，取消鏈接並保留原始快照', 'keep'],
+            ['取消本次刪除', null],
         ] as const) {
             const button = document.createElement('button');
             button.textContent = label; button.type = 'button';

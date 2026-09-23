@@ -42,30 +42,30 @@ export const isSttSupported = (): boolean => {
 };
 
 const friendlyError = (raw: string): string => {
-  if (/not-allowed|denied|permission/i.test(raw)) return '麦克风权限被拒绝，去系统设置里允许一下';
-  if (/no-speech/i.test(raw)) return '没听清，再说一次？';
-  if (/network/i.test(raw)) return '语音识别服务连不上，检查下网络';
+  if (/not-allowed|denied|permission/i.test(raw)) return '麥克風權限被拒絕，去系統設置裡允許一下';
+  if (/no-speech/i.test(raw)) return '沒聽清，再說一次？';
+  if (/network/i.test(raw)) return '語音識別服務連不上，檢查下網絡';
   if (/aborted/i.test(raw)) return '';
-  return raw || '语音识别出错了';
+  return raw || '語音識別出錯了';
 };
 
-// 看门狗时长：开麦后这么久还没有任何音频/语音/结果信号，就判定这个浏览器的
-// 在线识别后端不可用（国内套壳浏览器常见：有 webkitSpeechRecognition 对象、
-// 麦克风也亮，但永远不返回结果、也不报错）。
+// 看門狗時長：開麥後這麼久還沒有任何音頻/語音/結果信號，就判定這個瀏覽器的
+// 在線識別後端不可用（國內套殼瀏覽器常見：有 webkitSpeechRecognition 對象、
+// 麥克風也亮，但永遠不返回結果、也不報錯）。
 const STT_WATCHDOG_MS = 7000;
 
 const startWeb = (lang: string, cb: SttCallbacks): SttSession => {
   const Ctor = getWebCtor();
-  if (!Ctor) throw new Error('当前浏览器不支持语音识别');
+  if (!Ctor) throw new Error('當前瀏覽器不支持語音識別');
   const rec = new Ctor();
   rec.lang = lang;
   rec.interimResults = true;
-  // 持续聆听到用户手动停（贴合 UI 的「点麦克风结束」），别一遇停顿就自己断。
+  // 持續聆聽到用戶手動停（貼合 UI 的「點麥克風結束」），別一遇停頓就自己斷。
   rec.continuous = true;
   rec.maxAlternatives = 1;
   let finalText = '';
   let ended = false;
-  // 是否收到过识别器「活着」的信号（音频开始 / 检测到说话 / 出结果）。
+  // 是否收到過識別器「活著」的信號（音頻開始 / 檢測到說話 / 出結果）。
   let gotSignal = false;
   let watchdog: ReturnType<typeof setTimeout> | null = null;
   const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
@@ -96,11 +96,11 @@ const startWeb = (lang: string, cb: SttCallbacks): SttSession => {
     cb.onEnd?.();
   };
   rec.start();
-  // 若在看门狗时限内识别器毫无生命迹象，多半是这个浏览器没有可用的在线识别
-  // 服务（套壳浏览器/缺 Google 服务的 WebView）。明确告诉用户，别让麦克风空亮。
+  // 若在看門狗時限內識別器毫無生命跡象，多半是這個瀏覽器沒有可用的在線識別
+  // 服務（套殼瀏覽器/缺 Google 服務的 WebView）。明確告訴用戶，別讓麥克風空亮。
   watchdog = setTimeout(() => {
     if (gotSignal || ended) return;
-    cb.onError?.('这个浏览器识别不到语音，多半不支持在线语音识别（国内套壳浏览器常见）。换 Chrome / Edge，或者直接打字吧。');
+    cb.onError?.('這個瀏覽器識別不到語音，多半不支持在線語音識別（國內套殼瀏覽器常見）。換 Chrome / Edge，或者直接打字吧。');
     try { rec.stop(); } catch { /* ignore */ }
   }, STT_WATCHDOG_MS);
   return { stop: () => { clearWatchdog(); try { rec.stop(); } catch { /* ignore */ } } };
@@ -112,7 +112,7 @@ const startNative = async (lang: string, cb: SttCallbacks): Promise<SttSession> 
   const perm = await SpeechRecognition.checkPermissions().catch(() => ({ speechRecognition: 'prompt' as const }));
   if (perm.speechRecognition !== 'granted') {
     const req = await SpeechRecognition.requestPermissions();
-    if (req.speechRecognition !== 'granted') throw new Error('麦克风权限被拒绝');
+    if (req.speechRecognition !== 'granted') throw new Error('麥克風權限被拒絕');
   }
 
   let lastPartial = '';

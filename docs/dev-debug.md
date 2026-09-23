@@ -1,152 +1,152 @@
-# Dev Debug 调试子系统
+# Dev Debug 調試子系統
 
-开发分支专用的"工具箱"：一个悬浮按钮 + 面板，放一堆**只在开发分支显示**的调试开关，外加一套可选的「分类捕获」日志——打开**总开关**「记录日志」后会露出并排的类型 checkbox（目前 `api` 普通聊天 / `amsg` 主动消息收发链路 / `lifecycle` 前后台 / `memory-palace` 记忆召回），勾哪类抓哪类。面板走极简：类型并排、无逐条说明（看不懂就别用）。正式分支（main / master）默认整个隐藏，用户看不到也不会误触。
+開發分支專用的"工具箱"：一個懸浮按鈕 + 面板，放一堆**只在開發分支顯示**的調試開關，外加一套可選的「分類捕獲」日誌——打開**總開關**「記錄日誌」後會露出並排的類型 checkbox（目前 `api` 普通聊天 / `amsg` 主動消息收發鏈路 / `lifecycle` 前後台 / `memory-palace` 記憶召回），勾哪類抓哪類。面板走極簡：類型並排、無逐條說明（看不懂就別用）。正式分支（main / master）默認整個隱藏，用戶看不到也不會誤觸。
 
-这份文档讲清楚它怎么运作，以及**怎么往里加新开关 / 加一类捕获日志**——照着步骤抄就行。
+這份文檔講清楚它怎麼運作，以及**怎麼往裡加新開關 / 加一類捕獲日誌**——照著步驟抄就行。
 
 ---
 
-## 一、它什么时候出现？（可用性门禁）
+## 一、它什麼時候出現？（可用性門禁）
 
-整套能力（面板、开关存储、日志捕获）都挂在一个总开关后面：
+整套能力（面板、開關存儲、日誌捕獲）都掛在一個總開關後面：
 
 ```ts
 isDevDebugAvailable()  // utils/devDebug.ts
-  → !forceClosed && (__BUILD_BADGE_VISIBLE__（vite 构建注入）|| manualUnlock（连点解锁·会话级）)
+  → !forceClosed && (__BUILD_BADGE_VISIBLE__（vite 構建注入）|| manualUnlock（連點解鎖·會話級）)
 ```
 
-`__BUILD_BADGE_VISIBLE__` 在 `vite.config.ts` 里算出来，规则如下：
+`__BUILD_BADGE_VISIBLE__` 在 `vite.config.ts` 裡算出來，規則如下：
 
-| 情况 | 是否显示 |
+| 情況 | 是否顯示 |
 |------|---------|
-| 在 `main` / `master` 构建 | ❌ 隐藏（视为正式发布） |
-| 在其他分支构建 | ✅ 显示 |
-| 设了 `VITE_HIDE_BUILD_BADGE=1` | ❌ 强制隐藏（覆盖默认） |
-| 设了 `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（在 master 本地调试用） |
-| 设置页底部连点「构建版本」5 下 | ✅ 显示（**手动解锁**，会话级、刷新即关，正式版临时排障用） |
+| 在 `main` / `master` 構建 | ❌ 隱藏（視為正式發佈） |
+| 在其他分支構建 | ✅ 顯示 |
+| 設了 `VITE_HIDE_BUILD_BADGE=1` | ❌ 強制隱藏（覆蓋默認） |
+| 設了 `VITE_SHOW_BUILD_BADGE=1` | ✅ 強制顯示（在 master 本地調試用） |
+| 設置頁底部連點「構建版本」5 下 | ✅ 顯示（**手動解鎖**，會話級、刷新即關，正式版臨時排障用） |
 
-> 分支名的来源：CI 优先读 `GITHUB_REF_NAME` / `VERCEL_GIT_COMMIT_REF` / `CF_PAGES_BRANCH` / `BRANCH`，本地退化成 `git rev-parse --abbrev-ref HEAD`，非 git 环境是 `'unknown'`（`'unknown'` 不在发布分支集合里，所以会显示）。
+> 分支名的來源：CI 優先讀 `GITHUB_REF_NAME` / `VERCEL_GIT_COMMIT_REF` / `CF_PAGES_BRANCH` / `BRANCH`，本地退化成 `git rev-parse --abbrev-ref HEAD`，非 git 環境是 `'unknown'`（`'unknown'` 不在發佈分支集合裡，所以會顯示）。
 
-**关键含义**：在 master 上本地想调试，跑 `VITE_SHOW_BUILD_BADGE=1 pnpm dev` 即可，不用改代码。
+**關鍵含義**：在 master 上本地想調試，跑 `VITE_SHOW_BUILD_BADGE=1 pnpm dev` 即可，不用改代碼。
 
-**正式版排障（手动解锁）**：设置页底部连点 `VersionInfo`（构建版本那栏）5 下 → `unlockDevDebug()` **会话级**解锁（**不落 localStorage**），`isDevDebugAvailable()` 放行、`<DevDebugPanel />` 经 `subscribeDevDebugAvailability` 即时弹出。
+**正式版排障（手動解鎖）**：設置頁底部連點 `VersionInfo`（構建版本那欄）5 下 → `unlockDevDebug()` **會話級**解鎖（**不落 localStorage**），`isDevDebugAvailable()` 放行、`<DevDebugPanel />` 經 `subscribeDevDebugAvailability` 即時彈出。
 
-**怎么关掉**：
-- **刷新页面**：`manualUnlock` 清零 → prod 回到隐藏；非 prod 因 `__BUILD_BADGE_VISIBLE__` 默认可见，刷新后照常显示（即「非 prod 一直开」）。
-- **面板底部「关闭」按钮**：`closeDevDebug()` 置 `forceClosed`，**任意分支**强制关掉；会话级，**刷新后非 prod 自动恢复**。顺手把浮球位置收回默认、面板收起；**`isCaptureEnabled` 跟 `isDevDebugAvailable` 绑定**——只要面板看不见（关闭 / prod 未解锁 / prod 解锁后刷新 / 非 prod 强制关闭）都返 false，避免业务代码继续往 localStorage 写日志的隐私债。**里面的捕获 / 行为开关存档不动**——刷新恢复后可见性回来，里面勾的还是原样，但只有面板可见时才真正录。
+**怎麼關掉**：
+- **刷新頁面**：`manualUnlock` 清零 → prod 回到隱藏；非 prod 因 `__BUILD_BADGE_VISIBLE__` 默認可見，刷新後照常顯示（即「非 prod 一直開」）。
+- **面板底部「關閉」按鈕**：`closeDevDebug()` 置 `forceClosed`，**任意分支**強制關掉；會話級，**刷新後非 prod 自動恢復**。順手把浮球位置收回默認、面板收起；**`isCaptureEnabled` 跟 `isDevDebugAvailable` 綁定**——只要面板看不見（關閉 / prod 未解鎖 / prod 解鎖後刷新 / 非 prod 強制關閉）都返 false，避免業務代碼繼續往 localStorage 寫日誌的隱私債。**裡面的捕獲 / 行為開關存檔不動**——刷新恢復後可見性回來，裡面勾的還是原樣，但只有面板可見時才真正錄。
 
-> 可用性 = `!forceClosed && (__BUILD_BADGE_VISIBLE__ || manualUnlock)`，三个量里只有 `__BUILD_BADGE_VISIBLE__` 是构建期常量，另两个是会话级内存标志（刷新归零）。
+> 可用性 = `!forceClosed && (__BUILD_BADGE_VISIBLE__ || manualUnlock)`，三個量裡只有 `__BUILD_BADGE_VISIBLE__` 是構建期常量，另兩個是會話級內存標誌（刷新歸零）。
 
-> **面板自身状态全是纯内存、不落盘**：浮球位置、展开与否每次出现都回默认（位置默认角、收起）；prod 刷新 = 解锁失效 ≈ 手动关闭，所以位置没必要持久化。里面的捕获 / 行为开关是另一套 localStorage，跟这些无关。
+> **面板自身狀態全是純內存、不落盤**：浮球位置、展開與否每次出現都回默認（位置默認角、收起）；prod 刷新 = 解鎖失效 ≈ 手動關閉，所以位置沒必要持久化。裡面的捕獲 / 行為開關是另一套 localStorage，跟這些無關。
 
 ---
 
-## 二、相关文件清单
+## 二、相關文件清單
 
-| 文件 | 职责 |
+| 文件 | 職責 |
 |------|------|
-| `utils/devDebug.ts` | 核心：类型、存储读写、事件、分类捕获、便捷 getter。**所有逻辑都在这** |
-| `components/DevDebugPanel.tsx` | 悬浮按钮 + 面板 UI（拖拽、开关行、复制 / 下载日志、重置） |
-| `components/settings/VersionInfo.tsx` | 设置页底部版本脚注（APP_VERSION + build hash + UTC+8 构建时间 + sw 版本）；连点 5 下手动解锁面板 |
-| `utils/swVersion.ts` | `querySwVersion()`：向 SW 查版本号（BuildBadge / VersionInfo 共用） |
-| `App.tsx` | 挂载 `<DevDebugPanel />`（无脑挂，组件内部自己判断要不要渲染） |
+| `utils/devDebug.ts` | 核心：類型、存儲讀寫、事件、分類捕獲、便捷 getter。**所有邏輯都在這** |
+| `components/DevDebugPanel.tsx` | 懸浮按鈕 + 面板 UI（拖拽、開關行、複製 / 下載日誌、重置） |
+| `components/settings/VersionInfo.tsx` | 設置頁底部版本腳註（APP_VERSION + build hash + UTC+8 構建時間 + sw 版本）；連點 5 下手動解鎖面板 |
+| `utils/swVersion.ts` | `querySwVersion()`：向 SW 查版本號（BuildBadge / VersionInfo 共用） |
+| `App.tsx` | 掛載 `<DevDebugPanel />`（無腦掛，組件內部自己判斷要不要渲染） |
 | `vite.config.ts` | 注入 `__BUILD_BRANCH__` / `__BUILD_COMMIT__` / `__BUILD_TIME__` / `__BUILD_BADGE_VISIBLE__` |
-| `vite-env.d.ts` | 上面四个常量的 TS 声明 |
+| `vite-env.d.ts` | 上面四個常量的 TS 聲明 |
 
-消费现有开关的地方（改开关行为时要一起看）：
+消費現有開關的地方（改開關行為時要一起看）：
 
-| 开关 | 消费点 |
+| 開關 | 消費點 |
 |------|--------|
 | `skipPromptBuild` | `utils/chatRequestPayload.ts:266` |
 | `skipEmotionEval` | `context/OSContext.tsx`（`isEmotionEvalSkipped()`）、`hooks/useChatAI.ts`（`emotionEvalEnabled`） |
-| `mergeSystemMessages` | `utils/chatRequestPayload.ts`（fullMessages 组装末尾）+ `utils/systemMessageMerge.ts` |
-| 捕获类 `api` | `utils/safeApi.ts`（调 `appendDevDebugApiLog`，普通聊天直发 + Character 的记忆精炼/归档/导入/批量总结/印象生成，凡走 `safeFetchJson` 的 chat completions 都算） |
-| 捕获类 `amsg` | `utils/activeMsgRuntime.ts`（模块顶 `makeDebugLogger('amsg', …)` + `activeMsgTrace` 镜像） |
-| 捕获类 `lifecycle` | `utils/devDebug.ts` 自带的 `installDevDebugLifecycleCapture()`（`App.tsx` 启动时挂一次，监听器常驻、抓不抓走门禁） |
-| 总开关 `captureEnabled` | `utils/devDebug.ts` 的 `isCaptureEnabled()` 闸门——关掉时所有捕获类都不抓 |
+| `mergeSystemMessages` | `utils/chatRequestPayload.ts`（fullMessages 組裝末尾）+ `utils/systemMessageMerge.ts` |
+| 捕獲類 `api` | `utils/safeApi.ts`（調 `appendDevDebugApiLog`，普通聊天直發 + Character 的記憶精煉/歸檔/導入/批量總結/印象生成，凡走 `safeFetchJson` 的 chat completions 都算） |
+| 捕獲類 `amsg` | `utils/activeMsgRuntime.ts`（模塊頂 `makeDebugLogger('amsg', …)` + `activeMsgTrace` 鏡像） |
+| 捕獲類 `lifecycle` | `utils/devDebug.ts` 自帶的 `installDevDebugLifecycleCapture()`（`App.tsx` 啟動時掛一次，監聽器常駐、抓不抓走門禁） |
+| 總開關 `captureEnabled` | `utils/devDebug.ts` 的 `isCaptureEnabled()` 閘門——關掉時所有捕獲類都不抓 |
 
 ---
 
-## 三、两类开关的区别
+## 三、兩類開關的區別
 
-面板里的开关分两种，加法不一样，别搞混：
+面板裡的開關分兩種，加法不一樣，別搞混：
 
-| 类型 | 例子 | 数据形态 | 加新的成本 |
+| 類型 | 例子 | 數據形態 | 加新的成本 |
 |------|------|---------|-----------|
-| **行为开关（skip 型）** | `skipPromptBuild` / `skipEmotionEval` | `DevDebugFlags` 里一个 `boolean` | 改 flag 结构（见指南 A） |
-| **捕获类（checkbox）** | `api` / `amsg`（未来 `mcp`…） | 进 `captureLogs: Category[]` 数组 | 加一行 category + 一个薄封装，flag 结构不动（见指南 B） |
+| **行為開關（skip 型）** | `skipPromptBuild` / `skipEmotionEval` | `DevDebugFlags` 裡一個 `boolean` | 改 flag 結構（見指南 A） |
+| **捕獲類（checkbox）** | `api` / `amsg`（未來 `mcp`…） | 進 `captureLogs: Category[]` 數組 | 加一行 category + 一個薄封裝，flag 結構不動（見指南 B） |
 
-> 还有个**总开关** `captureEnabled`（本质也是个 boolean 行为开关）：勾选只是「选类型」，真正抓不抓 = `captureEnabled && captureLogs.includes(category)`。面板上**总开关用 switch、类型用并排 checkbox**，且**总开关打开后才露出类型 checkbox**（无逐条说明）。
+> 還有個**總開關** `captureEnabled`（本質也是個 boolean 行為開關）：勾選只是「選類型」，真正抓不抓 = `captureEnabled && captureLogs.includes(category)`。面板上**總開關用 switch、類型用並排 checkbox**，且**總開關打開後才露出類型 checkbox**（無逐條說明）。
 
-> **面板文案约定（用就默认看得懂）**：标题写清"是什么"；说明（`detail`）只留**非显而易见的坑**，能省则省、不写教程。能从标题猜到的（总开关、类型 checkbox）干脆不写说明。例：「记录完整内容」说明只留一句「只对新条目生效」——为什么折叠、怎么导出这些写在 doc（第六、第九节），不挤进面板。新增开关 / 类别时照此办，详尽解释放 doc、面板只留必要提示。
+> **面板文案約定（用就默認看得懂）**：標題寫清"是什麼"；說明（`detail`）只留**非顯而易見的坑**，能省則省、不寫教程。能從標題猜到的（總開關、類型 checkbox）乾脆不寫說明。例：「記錄完整內容」說明只留一句「只對新條目生效」——為什麼摺疊、怎麼導出這些寫在 doc（第六、第九節），不擠進面板。新增開關 / 類別時照此辦，詳盡解釋放 doc、面板只留必要提示。
 
-捕获类共用同一套底座（存储、脱敏、限容、复制 / 下载），所以加新类很便宜——这也是为什么日志系统设计成"分类"而不是给每种日志单独开一个 boolean。
+捕獲類共用同一套底座（存儲、脫敏、限容、複製 / 下載），所以加新類很便宜——這也是為什麼日誌系統設計成"分類"而不是給每種日誌單獨開一個 boolean。
 
 ---
 
-## 四、数据流总览
+## 四、數據流總覽
 
 ```
 DevDebugPanel (UI)
-   │  点开关
+   │  點開關
    ▼
 writeDevDebugFlags(flags)
-   │  写 localStorage（按分支隔离的 key）
-   │  派发 DEV_DEBUG_EVENT 自定义事件
-   │  ⚠️ 取消勾选「不」清日志（勾选是纯选择）；清日志只在「重置」时做
+   │  寫 localStorage（按分支隔離的 key）
+   │  派發 DEV_DEBUG_EVENT 自定義事件
+   │  ⚠️ 取消勾選「不」清日誌（勾選是純選擇）；清日誌只在「重置」時做
    ▼
-业务代码调 isXxxSkipped() / isCaptureEnabled('api' | 'amsg')
-   │  闸门 = captureEnabled（总开关）&& 该类已勾
-   │  每次都现读 localStorage，拿到最新值
+業務代碼調 isXxxSkipped() / isCaptureEnabled('api' | 'amsg')
+   │  閘門 = captureEnabled（總開關）&& 該類已勾
+   │  每次都現讀 localStorage，拿到最新值
    ▼
-按 flag 改变行为（跳过某步 / 抓日志）
+按 flag 改變行為（跳過某步 / 抓日誌）
 
-跨标签页同步：localStorage 的 'storage' 事件
-面板内实时刷新：subscribeDevDebugFlags() / subscribeDevDebugLog()
+跨標籤頁同步：localStorage 的 'storage' 事件
+面板內實時刷新：subscribeDevDebugFlags() / subscribeDevDebugLog()
 ```
 
-**为什么用事件 + 现读 localStorage，而不是 React state 全局共享？**
-因为消费方大多是普通函数（不是组件），拿不到 React context。所以约定成：**写的时候持久化 + 广播事件，读的时候直接读存储**。组件想跟着变就 `subscribe`。
+**為什麼用事件 + 現讀 localStorage，而不是 React state 全局共享？**
+因為消費方大多是普通函數（不是組件），拿不到 React context。所以約定成：**寫的時候持久化 + 廣播事件，讀的時候直接讀存儲**。組件想跟著變就 `subscribe`。
 
 ---
 
-## 五、存储 key（都按分支隔离）
+## 五、存儲 key（都按分支隔離）
 
-每个 key 实际存进 localStorage 时会拼上当前分支后缀，避免不同分支的调试状态互相污染：
+每個 key 實際存進 localStorage 時會拼上當前分支後綴，避免不同分支的調試狀態互相汙染：
 
 ```
-sullyos.devDebug.flags.v1.<branch>      ← 开关状态（含 captureLogs 数组）
-sullyos.devDebug.log.v1.<branch>        ← 分类捕获日志（各类混存，每条带 category 字段）
+sullyos.devDebug.flags.v1.<branch>      ← 開關狀態（含 captureLogs 數組）
+sullyos.devDebug.log.v1.<branch>        ← 分類捕獲日誌（各類混存，每條帶 category 字段）
 ```
 
-> 浮球位置 / 展开与否**不落 localStorage**（纯内存，刷新即回默认）；可用性（解锁 / 强制关闭）也是会话级内存标志。只有上面这两个 key 真正持久化。
+> 浮球位置 / 展開與否**不落 localStorage**（純內存，刷新即回默認）；可用性（解鎖 / 強制關閉）也是會話級內存標誌。只有上面這兩個 key 真正持久化。
 
-`<branch>` 由 `__BUILD_BRANCH__` 归一化而来（非字母数字 `._-` 的字符替换成 `_`）。
+`<branch>` 由 `__BUILD_BRANCH__` 歸一化而來（非字母數字 `._-` 的字符替換成 `_`）。
 
 ---
 
-## 六、现有开关
+## 六、現有開關
 
-| 开关 | 类型 | 作用 | 副作用 |
+| 開關 | 類型 | 作用 | 副作用 |
 |------|------|------|--------|
-| `skipPromptBuild` | 行为 | 只发聊天历史，不注入 system prompt | 双语 / MCD / HTML / thinking 等增强全部关掉 |
-| `skipEmotionEval` | 行为 | 主回复照常，但不跑情绪副评估（本地和即时对话都算） | 关掉后情绪不更新 |
-| `mergeSystemMessages` | 行为 | 把聊天请求的多条 `role:system`（稳定前缀 / 易变尾段 / 双语·MCP 提醒条）合并成开头一条再发送（`utils/systemMessageMerge.ts`）。用途：A/B 对照中转适配层对多 system 请求的计量——同一段聊天开关各发一条，对比中转记的 prompt_tokens；合并后骤降 = 中转把「历史后的 system」重复拼接了 | 易变尾段失去 recency 位置、稳定前缀缓存失效；只作临时排障，测完关掉 |
-| `captureEnabled`<br>（记录日志·总开关） | 行为 | 日志录制总闸：关掉时所有捕获类都不抓 | 默认关；关掉只是停录，**不清**已抓日志 |
-| 捕获类 `api` | 捕获 | 抓所有走 `safeFetchJson`（`safeApi`）的 chat completions 请求 + 响应：普通聊天直发，外加 Character 里的记忆精炼/强制归档/导入清洗/批量总结/印象生成。每条带 `durationMs`（最后一次 attempt 从发起到成功/报错的耗时）和 `requestChars`（请求体字符数，messages 折叠后靠它看体积） | 取消勾选只停此后抓取，**不清**已有日志 |
-| 捕获类 `amsg` | 捕获 | 抓主动消息 2.0 的收发链路：收件箱冲刷、推送落库、即时对话回合的 trace（`[ActiveMsg]` / `[amsg]` 两个 tag） | 同上，取消勾选不清日志 |
-| 捕获类 `lifecycle` | 捕获 | 抓页面前后台/焦点/网络状态变化：`visibilitychange`、`focus`/`blur`、`pagehide`/`pageshow`（含 bfcache `persisted` 标记）、`online`/`offline`、`freeze`/`resume`（Chromium 系）。跟 api 类对时间线用——API 报错前后紧挨着 `visibilitychange → hidden`，基本就是切后台/锁屏把 fetch 冻死的 | 同上，取消勾选不清日志 |
-| `exposeLogDetail`<br>（记录完整内容） | 抓取 | 关（默认）：`messages` 聊天历史数组整组换成一句 `…共 N 项（已折叠）`；开：整段存 | 影响**抓取 / 存储**；要完整须复现前打开，已抓的折叠版不可还原 |
+| `skipPromptBuild` | 行為 | 只發聊天歷史，不注入 system prompt | 雙語 / MCD / HTML / thinking 等增強全部關掉 |
+| `skipEmotionEval` | 行為 | 主回覆照常，但不跑情緒副評估（本地和即時對話都算） | 關掉後情緒不更新 |
+| `mergeSystemMessages` | 行為 | 把聊天請求的多條 `role:system`（穩定前綴 / 易變尾段 / 雙語·MCP 提醒條）合併成開頭一條再發送（`utils/systemMessageMerge.ts`）。用途：A/B 對照中轉適配層對多 system 請求的計量——同一段聊天開關各發一條，對比中轉記的 prompt_tokens；合併後驟降 = 中轉把「歷史後的 system」重複拼接了 | 易變尾段失去 recency 位置、穩定前綴緩存失效；只作臨時排障，測完關掉 |
+| `captureEnabled`<br>（記錄日誌·總開關） | 行為 | 日誌錄製總閘：關掉時所有捕獲類都不抓 | 默認關；關掉只是停錄，**不清**已抓日誌 |
+| 捕獲類 `api` | 捕獲 | 抓所有走 `safeFetchJson`（`safeApi`）的 chat completions 請求 + 響應：普通聊天直發，外加 Character 裡的記憶精煉/強制歸檔/導入清洗/批量總結/印象生成。每條帶 `durationMs`（最後一次 attempt 從發起到成功/報錯的耗時）和 `requestChars`（請求體字符數，messages 摺疊後靠它看體積） | 取消勾選只停此後抓取，**不清**已有日誌 |
+| 捕獲類 `amsg` | 捕獲 | 抓主動消息 2.0 的收發鏈路：收件箱沖刷、推送落庫、即時對話回合的 trace（`[ActiveMsg]` / `[amsg]` 兩個 tag） | 同上，取消勾選不清日誌 |
+| 捕獲類 `lifecycle` | 捕獲 | 抓頁面前後台/焦點/網絡狀態變化：`visibilitychange`、`focus`/`blur`、`pagehide`/`pageshow`（含 bfcache `persisted` 標記）、`online`/`offline`、`freeze`/`resume`（Chromium 系）。跟 api 類對時間線用——API 報錯前後緊挨著 `visibilitychange → hidden`，基本就是切後台/鎖屏把 fetch 凍死的 | 同上，取消勾選不清日誌 |
+| `exposeLogDetail`<br>（記錄完整內容） | 抓取 | 關（默認）：`messages` 聊天歷史數組整組換成一句 `…共 N 項（已摺疊）`；開：整段存 | 影響**抓取 / 存儲**；要完整須復現前打開，已抓的摺疊版不可還原 |
 
-捕获日志：各类**混存在一个数组**里、每条带 `category`，全局最多留 **100 条 / 1 MB**（先到先淘汰）。因为长文本在写入时就折叠了（见第九节），实际存的是瘦身版、很省空间，1 MB 基本撑不爆、轻松存满 100 条；导出（复制 / 下载）默认导全部、自动带上当前分支 + commit，并对密钥字段脱敏。
+捕獲日誌：各類**混存在一個數組**裡、每條帶 `category`，全局最多留 **100 條 / 1 MB**（先到先淘汰）。因為長文本在寫入時就摺疊了（見第九節），實際存的是瘦身版、很省空間，1 MB 基本撐不爆、輕鬆存滿 100 條；導出（複製 / 下載）默認導全部、自動帶上當前分支 + commit，並對密鑰字段脫敏。
 
 ---
 
-## 七、操作指南 A：加一个行为开关（skip 型）
+## 七、操作指南 A：加一個行為開關（skip 型）
 
-以加 `skipMemoryRecall`（跳过记忆召回）为例，只动 2 个文件。
+以加 `skipMemoryRecall`（跳過記憶召回）為例，只動 2 個文件。
 
-### 1. `utils/devDebug.ts` —— 加字段 + 默认值 + 归一化 + 便捷 getter
+### 1. `utils/devDebug.ts` —— 加字段 + 默認值 + 歸一化 + 便捷 getter
 
 ```ts
 export interface DevDebugFlags {
@@ -160,10 +160,10 @@ export const DEFAULT_DEV_DEBUG_FLAGS: DevDebugFlags = {
     skipPromptBuild: false,
     skipEmotionEval: false,
     captureLogs: [],
-    skipMemoryRecall: false,          // ← 新增，行为开关一律默认 false
+    skipMemoryRecall: false,          // ← 新增，行為開關一律默認 false
 };
 
-// normalizeFlags 里也要加一行（防止旧 localStorage 缺字段读出 undefined）
+// normalizeFlags 裡也要加一行（防止舊 localStorage 缺字段讀出 undefined）
 function normalizeFlags(value: unknown): DevDebugFlags {
     const source = ...;
     return {
@@ -179,22 +179,22 @@ export function isMemoryRecallSkipped(): boolean {
 }
 ```
 
-> ⚠️ 三处一定都要改：`DevDebugFlags`、`DEFAULT_DEV_DEBUG_FLAGS`、`normalizeFlags`。漏了 `normalizeFlags`，老用户存档里没这字段，读出来是 `undefined`，行为不可控。
+> ⚠️ 三處一定都要改：`DevDebugFlags`、`DEFAULT_DEV_DEBUG_FLAGS`、`normalizeFlags`。漏了 `normalizeFlags`，老用戶存檔裡沒這字段，讀出來是 `undefined`，行為不可控。
 
-### 2. `components/DevDebugPanel.tsx` —— 在两个 skip 开关下面照抄一行
+### 2. `components/DevDebugPanel.tsx` —— 在兩個 skip 開關下面照抄一行
 
 ```tsx
 <ToggleRow
-    title="跳过记忆召回"
-    detail="不注入历史记忆，用来隔离记忆相关的问题。"
+    title="跳過記憶召回"
+    detail="不注入歷史記憶，用來隔離記憶相關的問題。"
     checked={flags.skipMemoryRecall}
     onChange={(checked) => updateFlag('skipMemoryRecall', checked)}
 />
 ```
 
-`activeCount`（浮球小红点）已经按 `skipPromptBuild + skipEmotionEval + captureLogs.length` 累加——加一个新 skip 字段要顺手把它也加进 `activeCount` 的算式里。
+`activeCount`（浮球小紅點）已經按 `skipPromptBuild + skipEmotionEval + captureLogs.length` 累加——加一個新 skip 字段要順手把它也加進 `activeCount` 的算式裡。
 
-### 3. 在业务代码里消费
+### 3. 在業務代碼裡消費
 
 ```ts
 import { isMemoryRecallSkipped } from '../utils/devDebug';
@@ -205,31 +205,31 @@ if (isMemoryRecallSkipped()) {
 }
 ```
 
-> 习惯：开关命中时打一条 `console.warn('[DevDebug] ...')`，方便在控制台确认开关真生效了（参考 `chatRequestPayload.ts:158`）。
+> 習慣：開關命中時打一條 `console.warn('[DevDebug] ...')`，方便在控制台確認開關真生效了（參考 `chatRequestPayload.ts:158`）。
 
 ---
 
-## 八、操作指南 B：加一类捕获日志（checkbox）
+## 八、操作指南 B：加一類捕獲日誌（checkbox）
 
-捕获类共用底座，加新类**不用碰 `DevDebugFlags` 结构**，面板也会自动多出一个开关。以加一类 `mcp`（抓 MCP 工具调用）为例：
+捕獲類共用底座，加新類**不用碰 `DevDebugFlags` 結構**，面板也會自動多出一個開關。以加一類 `mcp`（抓 MCP 工具調用）為例：
 
 ### 1. `utils/devDebug.ts` —— 加 category + 元信息
 
 ```ts
-export type DevDebugCaptureCategory = 'api' | 'amsg' | 'mcp';   // ← 加一个字面量
+export type DevDebugCaptureCategory = 'api' | 'amsg' | 'mcp';   // ← 加一個字面量
 
 export const DEV_DEBUG_CAPTURE_CATEGORIES: DevDebugCaptureCategoryMeta[] = [
-    { key: 'api', title: 'API（普通聊天请求）', detail: '...' },
-    { key: 'amsg', title: '主动消息', detail: '...' },
-    { key: 'mcp', title: '记录 MCP 调用', detail: '抓 MCP 工具的入参和返回。' },  // ← 加一行
+    { key: 'api', title: 'API（普通聊天請求）', detail: '...' },
+    { key: 'amsg', title: '主動消息', detail: '...' },
+    { key: 'mcp', title: '記錄 MCP 調用', detail: '抓 MCP 工具的入參和返回。' },  // ← 加一行
 ];
 ```
 
-> 面板靠遍历 `DEV_DEBUG_CAPTURE_CATEGORIES` 渲染并排 checkbox，加了这一行就自动多一个，**不用动 Panel 代码**。注意：面板只用 `title` 当短标签，`detail` 现在不渲染（仅作源码文档）。
+> 面板靠遍歷 `DEV_DEBUG_CAPTURE_CATEGORIES` 渲染並排 checkbox，加了這一行就自動多一個，**不用動 Panel 代碼**。注意：面板只用 `title` 當短標籤，`detail` 現在不渲染（僅作源碼文檔）。
 
-### 2.（可选）写一个语义化薄封装
+### 2.（可選）寫一個語義化薄封裝
 
-底层 `appendDevDebugLog(category, { label, data })` 已经够用，但给每类包一层薄封装调用更顺手、字段更整齐（参考文件末尾的 `appendDevDebugApiLog`，HTTP 形状的可直接复用 `appendDevDebugHttpLog`）：
+底層 `appendDevDebugLog(category, { label, data })` 已經夠用，但給每類包一層薄封裝調用更順手、字段更整齊（參考文件末尾的 `appendDevDebugApiLog`，HTTP 形狀的可直接複用 `appendDevDebugHttpLog`）：
 
 ```ts
 export function appendDevDebugMcpLog(input: { tool: string; args: unknown; result?: unknown }): void {
@@ -240,199 +240,199 @@ export function appendDevDebugMcpLog(input: { tool: string; args: unknown; resul
 }
 ```
 
-### 3. 在业务代码里捕获
+### 3. 在業務代碼裡捕獲
 
 ```ts
 import { appendDevDebugMcpLog } from '../utils/devDebug';
 
 const result = await callMcpTool(tool, args);
-appendDevDebugMcpLog({ tool, args, result });   // 没勾 mcp 时是空操作，零成本
+appendDevDebugMcpLog({ tool, args, result });   // 沒勾 mcp 時是空操作，零成本
 ```
 
-`appendDevDebugLog` 自带的保护，调用方都不用操心：
+`appendDevDebugLog` 自帶的保護，調用方都不用操心：
 
-- **门禁**：对应 category 没勾就直接 return，零成本。
-- **脱敏**：`data` 里 key 名命中 `api_key / authorization / bearer / token / secret / endpoint / p256dh / auth` 的字段，值替换成 `<redacted>`（正则见 `SECRET_KEY_PATTERN`）。
-- **折叠**：默认把 `data` 里超 10 字的长文本截成「前 10 字 + `...`」再落库（省空间 / 隐私）——所以你新加的捕获类导出默认也是瘦身版，要原文得复现前开「记录完整内容」，详见第九节。
-- **容量**：全局最多最近 100 条、超 1 MB 从头丢，不会撑爆 localStorage。
-- **永不抛**：内部整个包了 try/catch，日志失败不影响主流程。
+- **門禁**：對應 category 沒勾就直接 return，零成本。
+- **脫敏**：`data` 裡 key 名命中 `api_key / authorization / bearer / token / secret / endpoint / p256dh / auth` 的字段，值替換成 `<redacted>`（正則見 `SECRET_KEY_PATTERN`）。
+- **摺疊**：默認把 `data` 裡超 10 字的長文本截成「前 10 字 + `...`」再落庫（省空間 / 隱私）——所以你新加的捕獲類導出默認也是瘦身版，要原文得復現前開「記錄完整內容」，詳見第九節。
+- **容量**：全局最多最近 100 條、超 1 MB 從頭丟，不會撐爆 localStorage。
+- **永不拋**：內部整個包了 try/catch，日誌失敗不影響主流程。
 
-> 想自己看一眼，用 `console.log('[模块名] ...')` 就行；只有当你需要把整份请求 / 响应**导出成文件发给别人排查**（或存档、版本间对比）时，才值得加一类捕获。
+> 想自己看一眼，用 `console.log('[模塊名] ...')` 就行；只有當你需要把整份請求 / 響應**導出成文件發給別人排查**（或存檔、版本間對比）時，才值得加一類捕獲。
 
 ---
 
-## 九、复制 / 下载日志
+## 九、複製 / 下載日誌
 
-面板底部有两个按钮，都调 `formatDevDebugLog()` 拿同一份 JSON（默认全部类别；传 category 可只导一类）：
+面板底部有兩個按鈕，都調 `formatDevDebugLog()` 拿同一份 JSON（默認全部類別；傳 category 可只導一類）：
 
-- **复制**：写进剪贴板，丢给别人 debug。
-- **下载**：存成 `devdebug-log-<分支>-<时间>.json` 文件，适合日志大、或要存档对比的场景。
-- **清空**：只清掉已抓的日志，**不动**总开关 / 类型勾选 / 完整内容。跟「关掉总开关」（清完之后类型 UI 也收起）和「重置」（连开关一起回默认）是三件事，挑最小动作做。
+- **複製**：寫進剪貼板，丟給別人 debug。
+- **下載**：存成 `devdebug-log-<分支>-<時間>.json` 文件，適合日誌大、或要存檔對比的場景。
+- **清空**：只清掉已抓的日誌，**不動**總開關 / 類型勾選 / 完整內容。跟「關掉總開關」（清完之後類型 UI 也收起）和「重置」（連開關一起回默認）是三件事，挑最小動作做。
 
-导出的 JSON 顶层带 `exportedAt` + `build.{branch,commit}`，方便定位"到底是哪个版本、什么时候抓的"。
+導出的 JSON 頂層帶 `exportedAt` + `build.{branch,commit}`，方便定位"到底是哪個版本、什麼時候抓的"。
 
-### 长文本折叠（`exposeLogDetail`）
+### 長文本摺疊（`exposeLogDetail`）
 
-LLM 日志里的聊天历史动辄几十条，整段塞进 localStorage 很快就把 1 MB 吃满、存不了几条。所以**默认在写入时只折一处**：递归找对象里 key 名等于 `messages` 且值是数组的字段（任意嵌套深度），整组替换成一句 `…共 N 项（已折叠）`——首条通常是体积最大的 system prompt，留着没省到多少空间，要看就开「记录完整内容」。**其它字段（url / status / error.reason / response.outcome / 任意键值）一律原样保留**——之前的版本会无差别把超过 10 字的字符串截成「前 10 字 + `...`」，结果连 `reason: "flush-not-confirmed"` 这种关键短字段都看不到，现在不折了。容量保护靠下面那条「100 条 / 1 MB 先到先淘汰」兜底。
+LLM 日誌裡的聊天歷史動輒幾十條，整段塞進 localStorage 很快就把 1 MB 吃滿、存不了幾條。所以**默認在寫入時只折一處**：遞歸找對象裡 key 名等於 `messages` 且值是數組的字段（任意嵌套深度），整組替換成一句 `…共 N 項（已摺疊）`——首條通常是體積最大的 system prompt，留著沒省到多少空間，要看就開「記錄完整內容」。**其它字段（url / status / error.reason / response.outcome / 任意鍵值）一律原樣保留**——之前的版本會無差別把超過 10 字的字符串截成「前 10 字 + `...`」，結果連 `reason: "flush-not-confirmed"` 這種關鍵短字段都看不到，現在不折了。容量保護靠下面那條「100 條 / 1 MB 先到先淘汰」兜底。
 
-- 折叠发生在**写入层 `appendDevDebugLog()`**——`localStorage` 里存的就是瘦身版（messages 已折），容量限制作用在瘦身后的数据上。
-- **代价**：要看完整 messages 历史得**在复现之前**先开「记录完整内容」（`exposeLogDetail`），之后抓的才整段存；**已抓的折叠版无法事后还原**（原文压根没存过）。
-- 折叠只动每条的 `data` 里嵌的 `messages` 数组（整组替换成一句 metadata）；`label`（含完整 url，便于定位）和 `id` / `timestamp` / `category` 保留；其它任何字段（含数组）都原样。每条带 `collapsed` 标记记录抓时折没折（expose 中途切换会让一份日志混着两种）。
-- 导出 JSON 只要有折叠条目，顶层就带一句 `note` 提示，拿到日志的人一眼知道 messages 被截过、别当完整看。
+- 摺疊發生在**寫入層 `appendDevDebugLog()`**——`localStorage` 裡存的就是瘦身版（messages 已折），容量限制作用在瘦身後的數據上。
+- **代價**：要看完整 messages 歷史得**在復現之前**先開「記錄完整內容」（`exposeLogDetail`），之後抓的才整段存；**已抓的摺疊版無法事後還原**（原文壓根沒存過）。
+- 摺疊只動每條的 `data` 裡嵌的 `messages` 數組（整組替換成一句 metadata）；`label`（含完整 url，便於定位）和 `id` / `timestamp` / `category` 保留；其它任何字段（含數組）都原樣。每條帶 `collapsed` 標記記錄抓時折沒折（expose 中途切換會讓一份日誌混著兩種）。
+- 導出 JSON 只要有摺疊條目，頂層就帶一句 `note` 提示，拿到日誌的人一眼知道 messages 被截過、別當完整看。
 
-> 折叠是**通用**的——对所有捕获类的 `data` 一视同仁，未来加的捕获类自动享受，不用各自处理。当前规则只有一条：递归遇到 key=`messages` 的数组就整组替换成 metadata，其它字段一律原样。
+> 摺疊是**通用**的——對所有捕獲類的 `data` 一視同仁，未來加的捕獲類自動享受，不用各自處理。當前規則只有一條：遞歸遇到 key=`messages` 的數組就整組替換成 metadata，其它字段一律原樣。
 
-### 主动消息的 trace 是另一套（无条件记录）
+### 主動消息的 trace 是另一套（無條件記錄）
 
-上面那套要先勾选才录。主动消息这条链路另有一套 **不用勾、正式版照录** 的记录，落在 `localStorage` 的 `instant_push_trace_log_v1`（滚动留 400 条，刷新不丢），实现在 [`utils/instantTraceLog.ts`](../utils/instantTraceLog.ts)。Service Worker 那一侧的记录存在独立的 `ActiveMsgSwTrace` 库里（SW 访问不到 localStorage），导出时两边合成一份、按时间排好。
+上面那套要先勾選才錄。主動消息這條鏈路另有一套 **不用勾、正式版照錄** 的記錄，落在 `localStorage` 的 `instant_push_trace_log_v1`（滾動留 400 條，刷新不丟），實現在 [`utils/instantTraceLog.ts`](../utils/instantTraceLog.ts)。Service Worker 那一側的記錄存在獨立的 `ActiveMsgSwTrace` 庫裡（SW 訪問不到 localStorage），導出時兩邊合成一份、按時間排好。
 
-入口在 amsg2 观察窗的 `trace` 那一行，点「导出全部」得到一个 json。因为不用提前开任何开关，**可以先复现、事后再导**。
+入口在 amsg2 觀察窗的 `trace` 那一行，點「導出全部」得到一個 json。因為不用提前開任何開關，**可以先復現、事後再導**。
 
-排「通知都弹了、聊天界面半天不出字」这类问题时，看这几个字段：
+排「通知都彈了、聊天界面半天不出字」這類問題時，看這幾個字段：
 
-| 字段 | 在哪条记录上 | 说明 |
+| 字段 | 在哪條記錄上 | 說明 |
 |---|---|---|
-| `trigger` | `runtime-flush-start` | 这趟冲刷是谁发起的。`SW通知` 是推送直达的那条；`本地巡查` 是页面自己隔几秒数收件箱数出来的（见下）；其余（`回到前台` / `启动` / `轮询补收` / `上线补收`…）各自带着更长的固有延迟 |
-| `waitedMs` | `runtime-inbox-message` | 这条消息在收件箱里躺了多久才轮到它。跟正文长短无关，纯粹是「没人来捞」的时间。算的是它**第一次**落到这台设备的时刻——补收把同一条重新写一遍时会保住这个值，否则它永远显示「刚到」 |
-| `count` / `posted` / `targets` | `notify-clients`（SW 侧） | SW 喊页面时找到几个页面、各自可见性、发成功几个 |
-| `portAck` / `clientsAck` | `runtime-sw-channel-probe` | 启动时的通道体检。两条路分开测：port 通而 clients 不通 = SW 活着但找不到页面 |
+| `trigger` | `runtime-flush-start` | 這趟沖刷是誰發起的。`SW通知` 是推送直達的那條；`本地巡查` 是頁面自己隔幾秒數收件箱數出來的（見下）；其餘（`回到前台` / `啟動` / `輪詢補收` / `上線補收`…）各自帶著更長的固有延遲 |
+| `waitedMs` | `runtime-inbox-message` | 這條消息在收件箱裡躺了多久才輪到它。跟正文長短無關，純粹是「沒人來撈」的時間。算的是它**第一次**落到這台設備的時刻——補收把同一條重新寫一遍時會保住這個值，否則它永遠顯示「剛到」 |
+| `count` / `posted` / `targets` | `notify-clients`（SW 側） | SW 喊頁面時找到幾個頁面、各自可見性、發成功幾個 |
+| `portAck` / `clientsAck` | `runtime-sw-channel-probe` | 啟動時的通道體檢。兩條路分開測：port 通而 clients 不通 = SW 活著但找不到頁面 |
 
-面板上还有一行现成的结论：**实时通道正常**（附上次收到 SW 消息的时刻），或者 **没收到过 SW 实时通知**。后者意味着消息全靠本地巡查在捞，会慢那么几秒——这种状态下功能表面上是正常的（消息照样会到），所以只能靠主动看，等不到用户来报。
+面板上還有一行現成的結論：**實時通道正常**（附上次收到 SW 消息的時刻），或者 **沒收到過 SW 實時通知**。後者意味著消息全靠本地巡查在撈，會慢那麼幾秒——這種狀態下功能表面上是正常的（消息照樣會到），所以只能靠主動看，等不到用戶來報。
 
-**iOS 上这行几乎必然显示后者**，这是平台行为不是故障：App 不在最前台时，Service Worker 拿到的「当前有哪些页面」名单直接是空的，存完消息喊了也没人听见。所以页面不指望被喊——它自己隔几秒数一眼本地收件箱（`sweepLocalInbox`，纯本地读、不走网络），库里有货就冲刷。`pageshow` / `focus` / 切回前台这几个「页面刚活过来」的时刻会额外立刻数一次。数出来是 0 就什么都不做，**空转不写 trace**，否则几秒一条就能把要看的记录顶出缓冲区。
+**iOS 上這行幾乎必然顯示後者**，這是平台行為不是故障：App 不在最前台時，Service Worker 拿到的「當前有哪些頁面」名單直接是空的，存完消息喊了也沒人聽見。所以頁面不指望被喊——它自己隔幾秒數一眼本地收件箱（`sweepLocalInbox`，純本地讀、不走網絡），庫裡有貨就沖刷。`pageshow` / `focus` / 切回前台這幾個「頁面剛活過來」的時刻會額外立刻數一次。數出來是 0 就什麼都不做，**空轉不寫 trace**，否則幾秒一條就能把要看的記錄頂出緩衝區。
 
-别把它跟 `轮询补收` 搞混：那个是即时对话欠着回复时每 60 秒去**云端账本**捞一圈（要分页拉、还要逐条查任务状态，全是网络），只在欠着回复时才存在。
+別把它跟 `輪詢補收` 搞混：那個是即時對話欠著回覆時每 60 秒去**雲端帳本**撈一圈（要分頁拉、還要逐條查任務狀態，全是網絡），只在欠著回覆時才存在。
 
 ---
 
 ## 十、容易踩的坑
 
-- **改了开关行为，记得同步改面板 / category 的 `detail` 文案**，否则别人按文案理解会和实际不符。
-- **总开关 `captureEnabled` 是录制总闸**：光勾类型不会录，得把总开关打开；关掉总开关 = 一次「录制周期」结束 —— **立即清空已抓日志**（清空动作落在 `writeDevDebugFlags` 数据层，任何路径改 `captureEnabled` true → false 都触发，不只 UI handler）、把「类型 / 记录完整内容 / 复制 / 下载」整段 UI 收起；勾选的类型 + `exposeLogDetail` 作为下次的**配置**保留。
-- **取消勾选某个捕获类 = 只停此后抓取，不清已有日志**（勾选是纯选择）。想清日志走面板「重置」——它会一并把总开关关掉、清空全部勾选和日志，比"全不勾"更彻底。
-- **容量是全局共享的**（100 条 / 1 MB，各类混算）：某一类刷得很猛会把别的类挤掉，排查时注意。删了字符串截短之后每条 response 完整保留，单条体积变大（典型 5–10 KB），1 MB 大约 100 条上下——跟 MAX_LOG_ENTRIES 同档，先到先丢的保护仍然成立。
-- **`exposeLogDetail`（记录完整内容）必须复现前开**：它管的是"抓取时存不存完整"，不是导出时才展开。中途打开只对**之后**抓的生效，已经抓下来的折叠版还原不了（原文没存过）。这是用空间换的，符合"大多数时候不需要那堆历史"的设计取舍。
-- **存储按分支隔离**：切到别的分支构建，之前的开关状态 / 日志不会带过来，是预期行为。
-- **master 上看不到面板是正常的**，要么切开发分支，要么 `VITE_SHOW_BUILD_BADGE=1`。
-- **行为开关默认值一律 `false`、捕获类默认不勾**：dev 开关是"出问题时手动打开来隔离变量"的，默认不能改变正常行为。
+- **改了開關行為，記得同步改面板 / category 的 `detail` 文案**，否則別人按文案理解會和實際不符。
+- **總開關 `captureEnabled` 是錄製總閘**：光勾類型不會錄，得把總開關打開；關掉總開關 = 一次「錄製週期」結束 —— **立即清空已抓日誌**（清空動作落在 `writeDevDebugFlags` 數據層，任何路徑改 `captureEnabled` true → false 都觸發，不只 UI handler）、把「類型 / 記錄完整內容 / 複製 / 下載」整段 UI 收起；勾選的類型 + `exposeLogDetail` 作為下次的**配置**保留。
+- **取消勾選某個捕獲類 = 只停此後抓取，不清已有日誌**（勾選是純選擇）。想清日誌走面板「重置」——它會一併把總開關關掉、清空全部勾選和日誌，比"全不勾"更徹底。
+- **容量是全局共享的**（100 條 / 1 MB，各類混算）：某一類刷得很猛會把別的類擠掉，排查時注意。刪了字符串截短之後每條 response 完整保留，單條體積變大（典型 5–10 KB），1 MB 大約 100 條上下——跟 MAX_LOG_ENTRIES 同檔，先到先丟的保護仍然成立。
+- **`exposeLogDetail`（記錄完整內容）必須復現前開**：它管的是"抓取時存不存完整"，不是導出時才展開。中途打開只對**之後**抓的生效，已經抓下來的摺疊版還原不了（原文沒存過）。這是用空間換的，符合"大多數時候不需要那堆歷史"的設計取捨。
+- **存儲按分支隔離**：切到別的分支構建，之前的開關狀態 / 日誌不會帶過來，是預期行為。
+- **master 上看不到面板是正常的**，要麼切開發分支，要麼 `VITE_SHOW_BUILD_BADGE=1`。
+- **行為開關默認值一律 `false`、捕獲類默認不勾**：dev 開關是"出問題時手動打開來隔離變量"的，默認不能改變正常行為。
 
 ---
 
-## 十一、TODO：还没接入 devDebug 的日志支线
+## 十一、TODO：還沒接入 devDebug 的日誌支線
 
-`makeDebugLogger` 已经把 P1 等价的错误支线接进来了（safeApi 重试、ActiveMsg post-processing / saveMessage / requeue lost / flushInboxToChat、amsg multipart expired）。下面这些还没接，价值递减或工程量大，**单点踩坑时再换成 `log.warn(...)` 即可**（每条改 1 行）：
+`makeDebugLogger` 已經把 P1 等價的錯誤支線接進來了（safeApi 重試、ActiveMsg post-processing / saveMessage / requeue lost / flushInboxToChat、amsg multipart expired）。下面這些還沒接，價值遞減或工程量大，**單點踩坑時再換成 `log.warn(...)` 即可**（每條改 1 行）：
 
-### P2 — 价值递减的前端支线
+### P2 — 價值遞減的前端支線
 
-| 文件 | 行 | 标签 | 干嘛 |
+| 文件 | 行 | 標籤 | 幹嘛 |
 |------|----|------|------|
-| `utils/activeMsgRuntime.ts` | 655 | `[ActiveMsg] restore xhs session notes failed` | xhs note 恢复失败 |
+| `utils/activeMsgRuntime.ts` | 655 | `[ActiveMsg] restore xhs session notes failed` | xhs note 恢復失敗 |
 | `utils/activeMsgRuntime.ts` | 717 | `[push:toast]` | 通知文案 |
-| `utils/activeMsgRuntime.ts` | 1115 / 1117 / 1120 | `[push:memory-palace]` 几条 | 记忆宫殿 stage / 异常 |
-| `utils/activeMsgRuntime.ts` | 315 | `[flush:emotion_update] apply failed` | 情绪更新落库失败 |
+| `utils/activeMsgRuntime.ts` | 1115 / 1117 / 1120 | `[push:memory-palace]` 幾條 | 記憶宮殿 stage / 異常 |
+| `utils/activeMsgRuntime.ts` | 315 | `[flush:emotion_update] apply failed` | 情緒更新落庫失敗 |
 
-> 接的姿势就是：模块顶 `const log = makeDebugLogger('amsg', '<Tag>')`（已有就复用），然后 `console.warn('[Tag] event', ...x)` 换成 `log.warn('event', ...x)`。
+> 接的姿勢就是：模塊頂 `const log = makeDebugLogger('amsg', '<Tag>')`（已有就複用），然後 `console.warn('[Tag] event', ...x)` 換成 `log.warn('event', ...x)`。
 
 ### SW 端（Service Worker context，工程量大）
 
-SW 跑在自己的 context，没法直接访问 page 的 `localStorage` / `appendDevDebugLog`。要接 devDebug 得走一条新通道：
+SW 跑在自己的 context，沒法直接訪問 page 的 `localStorage` / `appendDevDebugLog`。要接 devDebug 得走一條新通道：
 
-1. SW 端攒一份 trace ring buffer（已有 `[InstantTrace:SW]` 在 `worker/sw-keep-alive.ts`）
-2. page 端解锁面板时，向所有 SW client `postMessage({ type: 'GET_DEBUG_TRACE' })` 拉一份
-3. page 端收到 SW 回包 → 写进 devDebug 的 `amsg` 类目
+1. SW 端攢一份 trace ring buffer（已有 `[InstantTrace:SW]` 在 `worker/sw-keep-alive.ts`）
+2. page 端解鎖面板時，向所有 SW client `postMessage({ type: 'GET_DEBUG_TRACE' })` 拉一份
+3. page 端收到 SW 回包 → 寫進 devDebug 的 `amsg` 類目
 
-涉及范围（grep 出来的 SW 端日志，先列着）：
+涉及範圍（grep 出來的 SW 端日誌，先列著）：
 
-| 文件 | 行 | 标签 |
+| 文件 | 行 | 標籤 |
 |------|----|------|
 | `worker/sw-keep-alive.ts` | 213 | `[InstantTrace:SW]` |
 | `worker/sw-keep-alive.ts` | 644 | `[amsg] error push` |
 | `worker/sw-keep-alive.ts` | 662 | `[amsg] unknown messageKind, falling back to content` |
-| `worker/sw-keep-alive.ts` | 698 / 711 | `[amsg] pushsubscriptionchange 重订失败` / `写订阅变化标记失败` |
-| `public/sw-keep-alive.js` | — | `[rei-standard-amsg-sw] ...` 系列（amsg-sw 包内的 dedupe / multipart / 通知报错） |
-| `public/sw-keep-alive.js` | — | `[InstantTrace:SW]`（构建产物里也叫这名） |
+| `worker/sw-keep-alive.ts` | 698 / 711 | `[amsg] pushsubscriptionchange 重訂失敗` / `寫訂閱變化標記失敗` |
+| `public/sw-keep-alive.js` | — | `[rei-standard-amsg-sw] ...` 系列（amsg-sw 包內的 dedupe / multipart / 通知報錯） |
+| `public/sw-keep-alive.js` | — | `[InstantTrace:SW]`（構建產物裡也叫這名） |
 
-> **建议路径**：等真的有 SW 端 bug 需要远端排障时再做（开发本地 SW 在 DevTools 单独面板就能看，价值不大）。做的时候在 `utils/swVersion.ts` 旁边新增 `utils/swTrace.ts` 包通信协议。
+> **建議路徑**：等真的有 SW 端 bug 需要遠端排障時再做（開發本地 SW 在 DevTools 單獨面板就能看，價值不大）。做的時候在 `utils/swVersion.ts` 旁邊新增 `utils/swTrace.ts` 包通信協議。
 
 ---
 
-## 十二、系统调试终端里的网络失败诊断（面向普通用户）
+## 十二、系統調試終端裡的網絡失敗診斷（面向普通用戶）
 
-> 注意：这一节讲的是**所有用户都看得到**的「系统调试终端」（状态栏下方的红色 `SYSTEM ERROR` 胶囊点开的那个），
-> 不是上面十一节那个只在开发分支出现的 devDebug 面板。两者是两套东西，别改串了。
+> 注意：這一節講的是**所有用戶都看得到**的「系統調試終端」（狀態欄下方的紅色 `SYSTEM ERROR` 膠囊點開的那個），
+> 不是上面十一節那個只在開發分支出現的 devDebug 面板。兩者是兩套東西，別改串了。
 
 ### 背景
 
-浏览器出于安全，把下面这些完全不同的事统统报成同一句 `TypeError: Failed to fetch`，不带任何细节：
+瀏覽器出於安全，把下面這些完全不同的事統統報成同一句 `TypeError: Failed to fetch`，不帶任何細節：
 
-- 梯子 / 代理把这个域名的连接掐了
+- 梯子 / 代理把這個域名的連接掐了
 - DNS 解析不到
-- 浏览器扩展（广告拦截、隐私盾、脚本管理器）在请求发出前就屏蔽了
-- 对方**回了响应，但没有 CORS 头**（Cloudflare 限流页、人机验证页、网关错误页都长这样）
+- 瀏覽器擴展（廣告攔截、隱私盾、腳本管理器）在請求發出前就屏蔽了
+- 對方**回了響應，但沒有 CORS 頭**（Cloudflare 限流頁、人機驗證頁、網關錯誤頁都長這樣）
 
-旧版日志只记 `URL: xxx` 一行，用户复制出来发到群里，信息量是零。
+舊版日誌只記 `URL: xxx` 一行，用戶複製出來發到群裡，信息量是零。
 
-### 现在记什么
+### 現在記什麼
 
-`utils/networkFailureDiagnosis.ts` 负责把能补的旁证一次性补齐，`context/OSContext.tsx` 的 fetch 拦截器
-在 `catch` 里调用它：
+`utils/networkFailureDiagnosis.ts` 負責把能補的旁證一次性補齊，`context/OSContext.tsx` 的 fetch 攔截器
+在 `catch` 裡調用它：
 
 ```
 URL: https://sullymeow.ccwu.cc/api/health
-请求: GET · 失败于 43ms
-错误: TypeError: Failed to fetch
-目标域名: sullymeow.ccwu.cc（跨域请求，受 CORS 约束）
-本页来源: https://xxx.pages.dev
-浏览器联网状态: 在线
-Resource Timing: responseStatus=429, transferSize=0 → 对方其实回了 HTTP 429，是响应被 CORS 拦掉的，不是网络不通
-初判: 请求在拿到响应头之前就失败了——浏览器没告诉我们具体是哪一步断的。
-可能原因: 梯子/代理把这个域名的连接掐了 · DNS 解析不到 · ...
-连通性复检: no-cors 直连 sullymeow.ccwu.cc 成功 → 网络路径是通的，问题出在响应本身（...）
+請求: GET · 失敗於 43ms
+錯誤: TypeError: Failed to fetch
+目標域名: sullymeow.ccwu.cc（跨域請求，受 CORS 約束）
+本頁來源: https://xxx.pages.dev
+瀏覽器聯網狀態: 在線
+Resource Timing: responseStatus=429, transferSize=0 → 對方其實回了 HTTP 429，是響應被 CORS 攔掉的，不是網絡不通
+初判: 請求在拿到響應頭之前就失敗了——瀏覽器沒告訴我們具體是哪一步斷的。
+可能原因: 梯子/代理把這個域名的連接掐了 · DNS 解析不到 · ...
+連通性複檢: no-cors 直連 sullymeow.ccwu.cc 成功 → 網絡路徑是通的，問題出在響應本身（...）
 ```
 
-两个关键设计：
+兩個關鍵設計：
 
-1. **Resource Timing 的 `responseStatus`**：跨域也能读（不受 TAO 限制）。它 > 0 就说明**对方其实回了**，
-   那就是 CORS / 限流页的事，跟网络通不通无关——这一条直接把排查范围砍一半。
-2. **no-cors 连通性复检**：`mode: 'no-cors'` 不做 CORS 校验，只要网络路径通就会拿到 opaque 响应。
-   它成功而原请求失败 ⇒ 响应头的问题；它也失败 ⇒ 这台设备到这个域名是真的不通。结论异步回填到同一条日志。
+1. **Resource Timing 的 `responseStatus`**：跨域也能讀（不受 TAO 限制）。它 > 0 就說明**對方其實回了**，
+   那就是 CORS / 限流頁的事，跟網絡通不通無關——這一條直接把排查範圍砍一半。
+2. **no-cors 連通性複檢**：`mode: 'no-cors'` 不做 CORS 校驗，只要網絡路徑通就會拿到 opaque 響應。
+   它成功而原請求失敗 ⇒ 響應頭的問題；它也失敗 ⇒ 這台設備到這個域名是真的不通。結論異步回填到同一條日誌。
 
-### 失败分类别漏了 TimeoutError
+### 失敗分類別漏了 TimeoutError
 
-线上第一版就踩到：`AbortSignal.timeout()` 抛出来的是 **`TimeoutError` / "signal timed out"**，
-既不含 `abort` 字样、也不是 `TypeError`，一度掉进 `unknown`，日志只剩一句「不符合已知的几种
-失败形态」。分类里 `timeout` 必须排在 `aborted` 前面判：
+線上第一版就踩到：`AbortSignal.timeout()` 拋出來的是 **`TimeoutError` / "signal timed out"**，
+既不含 `abort` 字樣、也不是 `TypeError`，一度掉進 `unknown`，日誌只剩一句「不符合已知的幾種
+失敗形態」。分類裡 `timeout` 必須排在 `aborted` 前面判：
 
-- `aborted`（AbortError）= 调用方自己撤了，到此为止，不用再查；
-- `timeout`（TimeoutError）= 连接**挂住不返回**，恰恰是最需要继续查的一类，要做连通性复检。
+- `aborted`（AbortError）= 調用方自己撤了，到此為止，不用再查；
+- `timeout`（TimeoutError）= 連接**掛住不返回**，恰恰是最需要繼續查的一類，要做連通性複檢。
 
-要不要复检统一走 `shouldProbeReachability(kind)`，别在调用点各写各的。
+要不要複檢統一走 `shouldProbeReachability(kind)`，別在調用點各寫各的。
 
-### 「失败得多快」也是证据
+### 「失敗得多快」也是證據
 
-`readStallHint()` 拿耗时区分两种截然相反的形态，这是 JS 侧唯一能拿到的这条线索：
+`readStallHint()` 拿耗時區分兩種截然相反的形態，這是 JS 側唯一能拿到的這條線索：
 
-- **挂几秒到几十秒才失败、transferSize 0** ⇒ 握手没人应答（黑洞）。查代理分流规则、换节点。
-- **几十毫秒就失败** ⇒ 有人明确说不。查 DNS、扩展、防火墙。
+- **掛幾秒到幾十秒才失敗、transferSize 0** ⇒ 握手沒人應答（黑洞）。查代理分流規則、換節點。
+- **幾十毫秒就失敗** ⇒ 有人明確說不。查 DNS、擴展、防火牆。
 
-中间地带（0.3–5s）不硬猜，宁可不输出——瞎猜比不说更容易把人带偏。
+中間地帶（0.3–5s）不硬猜，寧可不輸出——瞎猜比不說更容易把人帶偏。
 
-### 改这块时的坑
+### 改這塊時的坑
 
-- **复检必须用 `originalFetch`**（拦截器闭包里那个未打补丁的），用打过补丁的 `window.fetch` 会让探测自己
-  失败时再写一条日志，一条网络错误滚成一屏。
-- **复检打的是域名根路径，不是原地址**：原地址可能是有副作用的接口（发帖、下单），复检不该顺手触发它；
-  而 DNS / 梯子 / 防火墙 / 扩展拦的都是整个域名，打根路径一样测得出来。
-- **同域名 30s 冷却**：一串请求同时炸时不能对同一个域名连打探测；冷却命中返回 `cooldown`，
-  日志里明说「看上一条」，不能一声不吭让人以为漏了。
-- **哪些类要复检看 `shouldProbeReachability()`**：主动取消 / 混合内容 / 地址非法 / 离线已经有确定结论，再打一次纯属浪费。
-- 判定全是纯函数，回归守卫在 `utils/networkFailureDiagnosis.test.ts`——改文案时先看那份测试想守的是什么。
+- **複檢必須用 `originalFetch`**（攔截器閉包裡那個未打補丁的），用打過補丁的 `window.fetch` 會讓探測自己
+  失敗時再寫一條日誌，一條網絡錯誤滾成一屏。
+- **複檢打的是域名根路徑，不是原地址**：原地址可能是有副作用的接口（發帖、下單），複檢不該順手觸發它；
+  而 DNS / 梯子 / 防火牆 / 擴展攔的都是整個域名，打根路徑一樣測得出來。
+- **同域名 30s 冷卻**：一串請求同時炸時不能對同一個域名連打探測；冷卻命中返回 `cooldown`，
+  日誌裡明說「看上一條」，不能一聲不吭讓人以為漏了。
+- **哪些類要複檢看 `shouldProbeReachability()`**：主動取消 / 混合內容 / 地址非法 / 離線已經有確定結論，再打一次純屬浪費。
+- 判定全是純函數，迴歸守衛在 `utils/networkFailureDiagnosis.test.ts`——改文案時先看那份測試想守的是什麼。
 
-### 用户侧自查清单
+### 用戶側自查清單
 
-`NETWORK_SELF_CHECK_STEPS` 同时被调试终端（`components/os/StatusBar.tsx`，网络类错误时折叠展示）复用。
-改文案改那一处即可，两边不会不同步。
+`NETWORK_SELF_CHECK_STEPS` 同時被調試終端（`components/os/StatusBar.tsx`，網絡類錯誤時摺疊展示）複用。
+改文案改那一處即可，兩邊不會不同步。
 
-## SAR 剧情与表情校对
+## SAR 劇情與表情校對
 
-扳手内仅在 `pnpm dev` 显示此开关，默认关闭；开启后临时开放名册全部 84 段原稿及逐句表情编辑、分支返回和 JSON 导出。关闭立即恢复真实收藏锁定，未解锁预览退出；不修改星级、奖励或收藏记录，既有校对草稿保留。正式构建即使手动解锁扳手也不能启用。开关按分支随调试标志保存，细节见 [SAR 个人线](./sar-personal-lines.md)。
+扳手內僅在 `pnpm dev` 顯示此開關，默認關閉；開啟後臨時開放名冊全部 84 段原稿及逐句表情編輯、分支返回和 JSON 導出。關閉立即恢復真實收藏鎖定，未解鎖預覽退出；不修改星級、獎勵或收藏記錄，既有校對草稿保留。正式構建即使手動解鎖扳手也不能啟用。開關按分支隨調試標誌保存，細節見 [SAR 個人線](./sar-personal-lines.md)。

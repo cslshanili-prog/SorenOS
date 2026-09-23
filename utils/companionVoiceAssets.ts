@@ -31,8 +31,8 @@ export const makeCompanionVoiceAssetId = (
 };
 
 export const saveCompanionVoiceBlob = async (assetId: string, blob: Blob): Promise<void> => {
-  if (!isCompanionVoiceAssetId(assetId)) throw new Error('无效的陪伴语音资产 ID');
-  if (!(blob instanceof Blob) || blob.size <= 0) throw new Error('语音文件为空');
+  if (!isCompanionVoiceAssetId(assetId)) throw new Error('無效的陪伴語音資產 ID');
+  if (!(blob instanceof Blob) || blob.size <= 0) throw new Error('語音文件為空');
   await DB.saveAssetRaw(assetId, {
     blob,
     mimeType: blob.type || 'audio/mpeg',
@@ -46,7 +46,7 @@ export const getCompanionVoiceBlob = async (assetId: string): Promise<Blob | nul
   if (raw instanceof Blob) return raw;
   if (raw?.blob instanceof Blob) return raw.blob;
 
-  // v1 把陪伴语音放在不参与普通备份的 blob_assets。读取时原地迁移到可备份 assets。
+  // v1 把陪伴語音放在不參與普通備份的 blob_assets。讀取時原地遷移到可備份 assets。
   const legacy = await DB.getBlobAsset(assetId).catch(() => null);
   if (!legacy) return null;
   await saveCompanionVoiceBlob(assetId, legacy);
@@ -62,7 +62,7 @@ export const deleteCompanionVoiceBlob = async (assetId: string): Promise<void> =
   ]);
 };
 
-/** 在导出读取 assets store 前，把所有旧版 blob_assets 陪伴语音搬进可备份资产表。 */
+/** 在導出讀取 assets store 前，把所有舊版 blob_assets 陪伴語音搬進可備份資產表。 */
 export const ensureCompanionVoiceAssetsForBackup = async (characters: CharacterProfile[]): Promise<number> => {
   let migrated = 0;
   for (const assetId of collectCharacterCompanionVoiceAssetIds(characters)) {

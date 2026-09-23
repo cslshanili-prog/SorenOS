@@ -1,24 +1,24 @@
-// fake-slow-llm — OpenAI-compatible 慢速假 LLM，纯测试用。
+// fake-slow-llm — OpenAI-compatible 慢速假 LLM，純測試用。
 //
-// 干什么的: 假装是一个 chat completions 端点, 收到请求后干等一段时间
-// (默认 120 秒) 再吐回复。用来测 worker 在「LLM 很慢 + 客户端断开/杀 App」
-// 场景下的存活窗口、超时与推送兜底, 不消耗任何真实 token。
+// 幹什麼的: 假裝是一個 chat completions 端點, 收到請求後乾等一段時間
+// (默認 120 秒) 再吐回覆。用來測 worker 在「LLM 很慢 + 客戶端斷開/殺 App」
+// 場景下的存活窗口、超時與推送兜底, 不消耗任何真實 token。
 //
-// 跑法 (二选一):
+// 跑法 (二選一):
 //   - 本地:      deno run --allow-net --allow-env scripts/fake-slow-llm.ts
-//   - 线上:      整个文件贴进 app.deno.com 的 Playground
+//   - 線上:      整個文件貼進 app.deno.com 的 Playground
 //
-// 配置 (全部可选):
-//   - 环境变量 FAKE_DELAY_MS    默认 120000 (两分钟)
-//   - 请求头   x-fake-delay-ms  单次覆盖, 方便不同场景混测
+// 配置 (全部可選):
+//   - 環境變量 FAKE_DELAY_MS    默認 120000 (兩分鐘)
+//   - 請求頭   x-fake-delay-ms  單次覆蓋, 方便不同場景混測
 //
-// 端点:
-//   - GET  …/models, …/v1/models          → 模型列表 (过前端「测试连接」)
-//   - POST …/chat/completions (任意前缀)   → 等 delay 后回非流式 JSON;
-//                                           body 带 stream:true 时回 SSE
-//   - 其余路径 404
+// 端點:
+//   - GET  …/models, …/v1/models          → 模型列表 (過前端「測試連接」)
+//   - POST …/chat/completions (任意前綴)   → 等 delay 後回非流式 JSON;
+//                                           body 帶 stream:true 時回 SSE
+//   - 其餘路徑 404
 //
-// API key 随便填, 不校验。
+// API key 隨便填, 不校驗。
 
 export {};
 
@@ -30,12 +30,12 @@ declare const Deno: {
 const DEFAULT_DELAY_MS = 120_000;
 const MODEL_ID = 'fake-slow-llm';
 
-// 多句回复, 让分句器能切出多条推送来测多段消息链路。
+// 多句回覆, 讓分句器能切出多條推送來測多段消息鏈路。
 const REPLY_SENTENCES = [
-  '这是一条来自假 LLM 的慢速测试回复。',
-  '如果你看到这条消息, 说明 worker 熬过了漫长的等待。',
-  '现在可以确认推送链路在慢响应下依然完整。',
-  '测试完成, 辛苦啦。',
+  '這是一條來自假 LLM 的慢速測試回覆。',
+  '如果你看到這條消息, 說明 worker 熬過了漫長的等待。',
+  '現在可以確認推送鏈路在慢響應下依然完整。',
+  '測試完成, 辛苦啦。',
 ];
 
 const CORS_HEADERS: Record<string, string> = {
@@ -53,7 +53,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 function parseDelay(raw: string | null | undefined): number | null {
-  if (raw == null || raw.trim() === '') return null; // Number(null/'') 会变 0, 必须先挡掉
+  if (raw == null || raw.trim() === '') return null; // Number(null/'') 會變 0, 必須先擋掉
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
@@ -87,9 +87,9 @@ function completionPayload(content: string) {
 }
 
 /**
- * 非流式慢响应。不能傻等再一次性返回: Deno Deploy 边缘网关对 ~105s 内
- * 不出首字节的响应直接回 502 (实测)。JSON 允许任意前导空白 —— 等待期间
- * 每 5s 滴一个空格保活, 最后吐完整 JSON, res.json() 照常解析。
+ * 非流式慢響應。不能傻等再一次性返回: Deno Deploy 邊緣網關對 ~105s 內
+ * 不出首字節的響應直接回 502 (實測)。JSON 允許任意前導空白 —— 等待期間
+ * 每 5s 滴一個空格保活, 最後吐完整 JSON, res.json() 照常解析。
  */
 function slowJsonResponse(delayMs: number): Response {
   const encoder = new TextEncoder();
@@ -114,7 +114,7 @@ function slowJsonResponse(delayMs: number): Response {
   );
 }
 
-/** stream:true 时: 等完 delay 再逐句吐 SSE chunk, 模拟慢首字 + 正常流速。 */
+/** stream:true 時: 等完 delay 再逐句吐 SSE chunk, 模擬慢首字 + 正常流速。 */
 function streamResponse(delayMs: number): Response {
   const encoder = new TextEncoder();
   const now = Math.floor(Date.now() / 1000);
@@ -130,7 +130,7 @@ function streamResponse(delayMs: number): Response {
   return new Response(
     new ReadableStream({
       async start(controller) {
-        // 等待期间用 SSE 注释行保活, 防边缘网关掐首字节超时 (同 slowJsonResponse)
+        // 等待期間用 SSE 註釋行保活, 防邊緣網關掐首字節超時 (同 slowJsonResponse)
         const startedAt = Date.now();
         let remaining = delayMs;
         while (remaining > 0) {
@@ -159,7 +159,7 @@ Deno.serve(async (request: Request) => {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  // /models, /v1/models — 前端「测试连接」拉模型列表
+  // /models, /v1/models — 前端「測試連接」拉模型列表
   if (request.method === 'GET' && /\/models\/?$/.test(pathname)) {
     return json({
       object: 'list',
@@ -167,7 +167,7 @@ Deno.serve(async (request: Request) => {
     });
   }
 
-  // 任意前缀的 /chat/completions — 调用方会按 apiUrl 形态自动拼路径
+  // 任意前綴的 /chat/completions — 調用方會按 apiUrl 形態自動拼路徑
   if (request.method === 'POST' && /\/chat\/completions\/?$/.test(pathname)) {
     const delayMs = resolveDelayMs(request);
     let wantsStream = false;
@@ -175,7 +175,7 @@ Deno.serve(async (request: Request) => {
       const body = await request.json();
       wantsStream = body?.stream === true;
     } catch {
-      // body 不是 JSON 也无所谓, 反正是假的
+      // body 不是 JSON 也無所謂, 反正是假的
     }
 
     if (wantsStream) return streamResponse(delayMs);

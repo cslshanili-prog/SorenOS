@@ -20,7 +20,7 @@ import { getProxyWorkerUrl } from './proxyWorker';
 // ── Endpoint config ──
 // Same Cloudflare Worker that hosts /netease, /xhs, /webdav etc. — address comes
 // from the central config (utils/proxyWorker.ts); users can point it at their own
-// self-hosted worker via 「设置 → 网络代理 (Worker)」.
+// self-hosted worker via 「設置 → 網絡代理 (Worker)」.
 const workerBase = (): string => getProxyWorkerUrl();
 // Replicate model slug. Using the model-prediction endpoint means we always
 // pick up the latest published version automatically — no manual pinning.
@@ -77,15 +77,15 @@ export interface VoicePreset {
 }
 
 export const VOICE_PRESETS: VoicePreset[] = [
-  { id: 'auto',         label: '随风格', emoji: '🎲', tags: '' },
-  { id: 'female-sweet', label: '甜美女声', emoji: '🎀', tags: 'female vocal, sweet, clear, bright', autoFromGender: 'female' },
-  { id: 'female-soft',  label: '气声女声', emoji: '🌸', tags: 'female vocal, breathy, soft, whisper' },
-  { id: 'female-rock',  label: '摇滚女声', emoji: '🔥', tags: 'female vocal, powerful, rock, energetic' },
-  { id: 'male-deep',    label: '磁性男声', emoji: '🎙️', tags: 'male vocal, deep, mellow, husky', autoFromGender: 'male' },
-  { id: 'male-high',    label: '高亢男声', emoji: '⚡', tags: 'male vocal, high pitch, clear, bright' },
-  { id: 'male-soft',    label: '气声男声', emoji: '🌊', tags: 'male vocal, breathy, soft, intimate' },
-  { id: 'child',        label: '童声',     emoji: '🍬', tags: 'child vocal, innocent, light' },
-  { id: 'duet',         label: '男女对唱', emoji: '💕', tags: 'duet, male and female vocals, harmony' },
+  { id: 'auto',         label: '隨風格', emoji: '🎲', tags: '' },
+  { id: 'female-sweet', label: '甜美女聲', emoji: '🎀', tags: 'female vocal, sweet, clear, bright', autoFromGender: 'female' },
+  { id: 'female-soft',  label: '氣聲女聲', emoji: '🌸', tags: 'female vocal, breathy, soft, whisper' },
+  { id: 'female-rock',  label: '搖滾女聲', emoji: '🔥', tags: 'female vocal, powerful, rock, energetic' },
+  { id: 'male-deep',    label: '磁性男聲', emoji: '🎙️', tags: 'male vocal, deep, mellow, husky', autoFromGender: 'male' },
+  { id: 'male-high',    label: '高亢男聲', emoji: '⚡', tags: 'male vocal, high pitch, clear, bright' },
+  { id: 'male-soft',    label: '氣聲男聲', emoji: '🌊', tags: 'male vocal, breathy, soft, intimate' },
+  { id: 'child',        label: '童聲',     emoji: '🍬', tags: 'child vocal, innocent, light' },
+  { id: 'duet',         label: '男女對唱', emoji: '💕', tags: 'duet, male and female vocals, harmony' },
 ];
 
 export const getVoicePreset = (id: string | undefined | null): VoicePreset =>
@@ -184,7 +184,7 @@ export function buildAceStepTags(song: SongSheet, voicePresetId?: string): strin
  *  - 'zh' → Chinese natural-language description (MiniMax music — Chinese-trained)
  *
  * Crucially this is NOT a direct translation. The user usually doesn't speak
- * music theory ("我想要伤感的", "酷炫一点"), so we hand the LLM the
+ * music theory ("我想要傷感的", "酷炫一點"), so we hand the LLM the
  * collaborator's full persona and ask it to *decide* — pick the vocal type,
  * style, instruments, BPM, key that the **character** would actually sing.
  * The user's hint is treated as one input among many, not the last word.
@@ -198,110 +198,110 @@ export async function generatePromptViaLLM(
   outputLanguage: 'en' | 'zh' = 'en',
 ): Promise<string> {
   if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) {
-    throw new Error('请先在「设置」里配置 LLM API（baseUrl + key + model）');
+    throw new Error('請先在「設置」裡配置 LLM API（baseUrl + key + model）');
   }
   const trimmed = guidance.trim();
 
-  const sysPromptEn = `你是「角色音乐总监」——给 AI 音乐生成模型 (ACE-Step) 写英文 prompt 的人。
-**任务**: 把【用户的中文 hint】+【角色档案】融合成**一行英文 tag 字符串**, 8-15 个 tag, 逗号分隔。无论 hint 是详细、模糊、还是为空, 你都必须给出这一行——这是必交作业, 绝不能空回。
+  const sysPromptEn = `你是「角色音樂總監」——給 AI 音樂生成模型 (ACE-Step) 寫英文 prompt 的人。
+**任務**: 把【用戶的中文 hint】+【角色檔案】融合成**一行英文 tag 字符串**, 8-15 個 tag, 逗號分隔。無論 hint 是詳細、模糊、還是為空, 你都必須給出這一行——這是必交作業, 絕不能空回。
 
-【两条铁律 ⚠️】
-1. **用户在 hint 里写明的具体音乐元素必须原样保留**: vocal 性别 (女声/男声/对唱)、风格名 (爵士/摇滚/古风)、具体乐器 (钢琴/萨克斯)、BPM、调式。
-   例: hint = "慵懒爵士女声, 钢琴和萨克斯, 60bpm" → 必须含 female vocal + jazz + piano + saxophone + 60 bpm; 绝不能改成 male vocal / r&b / hip-hop。
-2. **用户没明说的部分按【角色档案】挑**——根据 TA 的怪癖、口头禅、世界观:
-   - 音色处理 (vinyl crackle / glitch fx / 8-bit / lo-fi tape / autotune / cassette warble)
-   - vocal 修饰 (whisper / breathy / belting / smirk / mumble / sob / sleepy croon)
-   - 场景音色 (late-night bar / cyberpunk synth / fairy bell / 808 trap / shoegaze)
-   - 情绪 + 调式 (c minor / e dorian / d phrygian 这种具体的)
+【兩條鐵律 ⚠️】
+1. **用戶在 hint 裡寫明的具體音樂元素必須原樣保留**: vocal 性別 (女聲/男聲/對唱)、風格名 (爵士/搖滾/古風)、具體樂器 (鋼琴/薩克斯)、BPM、調式。
+   例: hint = "慵懶爵士女聲, 鋼琴和薩克斯, 60bpm" → 必須含 female vocal + jazz + piano + saxophone + 60 bpm; 絕不能改成 male vocal / r&b / hip-hop。
+2. **用戶沒明說的部分按【角色檔案】挑**——根據 TA 的怪癖、口頭禪、世界觀:
+   - 音色處理 (vinyl crackle / glitch fx / 8-bit / lo-fi tape / autotune / cassette warble)
+   - vocal 修飾 (whisper / breathy / belting / smirk / mumble / sob / sleepy croon)
+   - 場景音色 (late-night bar / cyberpunk synth / fairy bell / 808 trap / shoegaze)
+   - 情緒 + 調式 (c minor / e dorian / d phrygian 這種具體的)
 
-【范例 — hint 里的具体要求被原样保留】
+【範例 — hint 裡的具體要求被原樣保留】
 
-例 1: hint = "慵懒爵士女声, 钢琴和萨克斯, 60bpm, 雨夜的感觉"; 角色 = 嘴硬黑客猫娘 Sully
+例 1: hint = "慵懶爵士女聲, 鋼琴和薩克斯, 60bpm, 雨夜的感覺"; 角色 = 嘴硬黑客貓娘 Sully
 → female vocal, sleepy lazy croon, jazz, piano, saxophone, vinyl crackle, late-night smoky bar, soft glitch reverb, smirky breath, rainy ambience, 60 bpm, e minor
 
-例 2: hint = "想要伤感的"; 角色 = 古风修仙剑客
+例 2: hint = "想要傷感的"; 角色 = 古風修仙劍客
 → ethereal female vocal, sorrowful layered chant, ancient chinese folk, guzheng, dizi flute, mountain rain reverb, suona wail, melancholic, 68 bpm, d phrygian
 
-例 3: hint = (空); 角色 = 摇滚魂主唱姐
+例 3: hint = (空); 角色 = 搖滾魂主唱姐
 → female vocal, raspy belting, alt rock anthem, distorted electric guitar, driving kick drum, snarl, anthemic chorus, 138 bpm, e minor
 
-例 4: hint = "电子男声, 冷酷一点"; 角色 = 赛博朋克打工人
+例 4: hint = "電子男聲, 冷酷一點"; 角色 = 賽博朋克打工人
 → male vocal, monotone drained, dark synthwave, analog synth bass, neon arpeggio, rain reverb, vocoder, mumble rap, 808 sub, 92 bpm, a minor
 
-【输出格式】
-- 一行英文, 逗号分隔, 8-15 个 tag, 直接输出 tag 串本身。
-- 你可以内部思考组合, 但**最终回复必须是这一行 tag 串, 不能空, 不能只有思考**。
-- 别用 "sad pop" / "happy upbeat pop" 这种 Spotify 通用词; 别输出中文 / 解释 / 引号 / Markdown / "Tags:" 前缀; 别输出 [verse]/[chorus] 章节标记 (那是 lyrics 的事)。
-- hint 模糊或为空时, 照例 3 的方式按角色档案给出完整 8-15 个 tag——不能因为没头绪就交白卷。`;
+【輸出格式】
+- 一行英文, 逗號分隔, 8-15 個 tag, 直接輸出 tag 串本身。
+- 你可以內部思考組合, 但**最終回覆必須是這一行 tag 串, 不能空, 不能只有思考**。
+- 別用 "sad pop" / "happy upbeat pop" 這種 Spotify 通用詞; 別輸出中文 / 解釋 / 引號 / Markdown / "Tags:" 前綴; 別輸出 [verse]/[chorus] 章節標記 (那是 lyrics 的事)。
+- hint 模糊或為空時, 照例 3 的方式按角色檔案給出完整 8-15 個 tag——不能因為沒頭緒就交白卷。`;
 
-  const sysPromptZh = `你是「角色音乐总监」——给 MiniMax music 写中文 prompt 的人。MiniMax 是中国团队的中文模型, prompt 用自然中文描述效果最好。
-**任务**: 把【用户的中文 hint】+【角色档案】融合成**一行中文标签串**, 8-15 个标签, 逗号分隔。无论 hint 是详细、模糊、还是为空, 你都必须给出这一行——这是必交作业, 绝不能空回。
+  const sysPromptZh = `你是「角色音樂總監」——給 MiniMax music 寫中文 prompt 的人。MiniMax 是中國團隊的中文模型, prompt 用自然中文描述效果最好。
+**任務**: 把【用戶的中文 hint】+【角色檔案】融合成**一行中文標籤串**, 8-15 個標籤, 逗號分隔。無論 hint 是詳細、模糊、還是為空, 你都必須給出這一行——這是必交作業, 絕不能空回。
 
-【两条铁律 ⚠️】
-1. **用户在 hint 里写明的具体音乐元素必须原样保留**: vocal 性别 (女声/男声/对唱)、风格名 (爵士/摇滚/古风)、具体乐器、BPM、调式。
-   例: hint = "慵懒爵士女声, 钢琴和萨克斯, 60bpm" → 必须含女声 + 爵士 + 钢琴 + 萨克斯 + 60bpm; 绝不能改成男声 / R&B / 嘻哈。
-2. **用户没明说的部分按【角色档案】挑**——根据 TA 的怪癖、口头禅、世界观:
-   - 音色质感 (黑胶噪点 / 故障感 / 8-bit 复古 / 磁带沙哑 / 自动调音 / 卡带颤音)
-   - vocal 修饰 (气声 / 假音 / 咬字含糊 / 撕裂感 / 颤音 / 嘲弄式咧嘴 / 啜泣)
-   - 场景氛围 (深夜爵士酒吧 / 赛博朋克霓虹 / 童话音乐盒 / trap 重低音 / 噪声墙)
-   - 情绪 + 调式 (c 小调 / e 多利亚调式 / d 弗里几亚调式 这种具体的)
+【兩條鐵律 ⚠️】
+1. **用戶在 hint 裡寫明的具體音樂元素必須原樣保留**: vocal 性別 (女聲/男聲/對唱)、風格名 (爵士/搖滾/古風)、具體樂器、BPM、調式。
+   例: hint = "慵懶爵士女聲, 鋼琴和薩克斯, 60bpm" → 必須含女聲 + 爵士 + 鋼琴 + 薩克斯 + 60bpm; 絕不能改成男聲 / R&B / 嘻哈。
+2. **用戶沒明說的部分按【角色檔案】挑**——根據 TA 的怪癖、口頭禪、世界觀:
+   - 音色質感 (黑膠噪點 / 故障感 / 8-bit 復古 / 磁帶沙啞 / 自動調音 / 卡帶顫音)
+   - vocal 修飾 (氣聲 / 假音 / 咬字含糊 / 撕裂感 / 顫音 / 嘲弄式咧嘴 / 啜泣)
+   - 場景氛圍 (深夜爵士酒吧 / 賽博朋克霓虹 / 童話音樂盒 / trap 重低音 / 噪聲牆)
+   - 情緒 + 調式 (c 小調 / e 多利亞調式 / d 弗裡幾亞調式 這種具體的)
 
-【范例 — hint 里的具体要求原样保留】
+【範例 — hint 裡的具體要求原樣保留】
 
-例 1: hint = "慵懒爵士女声, 钢琴和萨克斯, 60bpm, 雨夜的感觉"; 角色 = 嘴硬黑客猫娘 Sully
-→ 女声, 慵懒哼唱, 爵士, 钢琴, 萨克斯, 黑胶沙沙噪点, 深夜烟熏酒吧, 故障感混响尾音, 嘲弄式呼气, 雨夜氛围, 60bpm, e 小调
+例 1: hint = "慵懶爵士女聲, 鋼琴和薩克斯, 60bpm, 雨夜的感覺"; 角色 = 嘴硬黑客貓娘 Sully
+→ 女聲, 慵懶哼唱, 爵士, 鋼琴, 薩克斯, 黑膠沙沙噪點, 深夜煙燻酒吧, 故障感混響尾音, 嘲弄式呼氣, 雨夜氛圍, 60bpm, e 小調
 
-例 2: hint = "想要伤感的"; 角色 = 古风修仙剑客
-→ 飘逸女声, 哀婉吟唱, 古风, 古筝, 笛子, 山雨混响, 唢呐悲鸣, 失意, 68bpm, d 弗里几亚调式
+例 2: hint = "想要傷感的"; 角色 = 古風修仙劍客
+→ 飄逸女聲, 哀婉吟唱, 古風, 古箏, 笛子, 山雨混響, 嗩吶悲鳴, 失意, 68bpm, d 弗裡幾亞調式
 
-例 3: hint = (空); 角色 = 摇滚魂主唱姐
-→ 女声, 沙哑撕裂, 另类摇滚, 失真电吉他, 重型底鼓, 嘶吼感, 燃烧的副歌, 138bpm, e 小调
+例 3: hint = (空); 角色 = 搖滾魂主唱姐
+→ 女聲, 沙啞撕裂, 另類搖滾, 失真電吉他, 重型底鼓, 嘶吼感, 燃燒的副歌, 138bpm, e 小調
 
-例 4: hint = "电子男声, 冷酷一点"; 角色 = 赛博朋克打工人
-→ 男声, 平淡空洞, 暗黑合成器浪潮, 模拟合成贝斯, 霓虹琶音, 雨声混响, 声码器, 含糊说唱, 808 重低音, 92bpm, a 小调
+例 4: hint = "電子男聲, 冷酷一點"; 角色 = 賽博朋克打工人
+→ 男聲, 平淡空洞, 暗黑合成器浪潮, 模擬合成貝斯, 霓虹琶音, 雨聲混響, 聲碼器, 含糊說唱, 808 重低音, 92bpm, a 小調
 
-【输出格式】
-- 一行中文 (混乐器/调式拉丁专名 OK), 逗号分隔, 8-15 个标签, 直接输出标签串本身。
-- 你可以内部思考组合, 但**最终回复必须是这一行标签串, 不能空, 不能只有思考**。
-- 别用"伤感流行" / "欢快流行"这种烂大街词; 别输出大段英文 / 解释 / 引号 / Markdown / "提示词:" 前缀; 别输出 [verse]/[chorus] 章节标记 (那是歌词的事)。
-- hint 模糊或为空时, 照例 3 的方式按角色档案给出完整 8-15 个标签——不能因为没头绪就交白卷。`;
+【輸出格式】
+- 一行中文 (混樂器/調式拉丁專名 OK), 逗號分隔, 8-15 個標籤, 直接輸出標籤串本身。
+- 你可以內部思考組合, 但**最終回覆必須是這一行標籤串, 不能空, 不能只有思考**。
+- 別用"傷感流行" / "歡快流行"這種爛大街詞; 別輸出大段英文 / 解釋 / 引號 / Markdown / "提示詞:" 前綴; 別輸出 [verse]/[chorus] 章節標記 (那是歌詞的事)。
+- hint 模糊或為空時, 照例 3 的方式按角色檔案給出完整 8-15 個標籤——不能因為沒頭緒就交白卷。`;
 
   const sysPrompt = outputLanguage === 'zh' ? sysPromptZh : sysPromptEn;
 
   const genreInfo = SONG_GENRES.find(g => g.id === song.genre);
   const moodInfo = SONG_MOODS.find(m => m.id === song.mood);
 
-  // 角色档案全量喂给现代大模型 (Gemini/Claude/GPT-4 都吃得下)。
-  // 切片只会把最有特色的那部分人设丢掉。
+  // 角色檔案全量餵給現代大模型 (Gemini/Claude/GPT-4 都吃得下)。
+  // 切片只會把最有特色的那部分人設丟掉。
   let charBlock: string;
   if (collaborator) {
     const desc = collaborator.description || '';
     const systemPrompt = collaborator.systemPrompt || '';
     const writer = collaborator.writerPersona || '';
     const worldview = collaborator.worldview || '';
-    charBlock = `【创作角色 — 这首歌是 TA 的歌】
+    charBlock = `【創作角色 — 這首歌是 TA 的歌】
 名字：${collaborator.name}
-用户对 TA 的备注/爱称：${desc || '无'}
+用戶對 TA 的備註/愛稱：${desc || '無'}
 
-人设：
-${systemPrompt}${writer ? `\n\n写手 persona 速写：\n${writer}` : ''}${worldview ? `\n\n世界观：\n${worldview}` : ''}`;
+人設：
+${systemPrompt}${writer ? `\n\n寫手 persona 速寫：\n${writer}` : ''}${worldview ? `\n\n世界觀：\n${worldview}` : ''}`;
   } else {
-    charBlock = '【创作角色】未指定（按通用气质处理）';
+    charBlock = '【創作角色】未指定（按通用氣質處理）';
   }
 
   const userPrompt = `${charBlock}
 
-【歌曲元数据】
-- 标题：《${song.title}》${song.subtitle ? `（${song.subtitle}）` : ''}
-- 用户选风格：${genreInfo?.label || song.genre}
-- 用户选情绪：${moodInfo?.label || song.mood}${song.bpm ? `\n- BPM：${song.bpm}` : ''}${song.key ? `\n- 调：${song.key}` : ''}
+【歌曲元數據】
+- 標題：《${song.title}》${song.subtitle ? `（${song.subtitle}）` : ''}
+- 用戶選風格：${genreInfo?.label || song.genre}
+- 用戶選情緒：${moodInfo?.label || song.mood}${song.bpm ? `\n- BPM：${song.bpm}` : ''}${song.key ? `\n- 調：${song.key}` : ''}
 
-【用户的中文 hint】
-${trimmed || '(用户没填，请完全凭角色档案的怪癖和气质来决定)'}
+【用戶的中文 hint】
+${trimmed || '(用戶沒填，請完全憑角色檔案的怪癖和氣質來決定)'}
 
-现在按【两条铁律】+ 范例的格式, 输出一行${outputLanguage === 'zh' ? '中文标签' : '英文 tag'}字符串。
-${trimmed ? '⚠️ 再次提醒: 用户 hint 里写明的具体音乐元素 (vocal 性别 / 风格 / 乐器 / BPM) 必须原样保留。' : ''}
-最终回复仅是那一行标签串本身 (不要前后缀 / 不要解释)。**即使 hint 模糊或为空, 也必须给出一段 8-15 个标签的完整字符串, 绝不能空回。**`;
+現在按【兩條鐵律】+ 範例的格式, 輸出一行${outputLanguage === 'zh' ? '中文標籤' : '英文 tag'}字符串。
+${trimmed ? '⚠️ 再次提醒: 用戶 hint 裡寫明的具體音樂元素 (vocal 性別 / 風格 / 樂器 / BPM) 必須原樣保留。' : ''}
+最終回覆僅是那一行標籤串本身 (不要前後綴 / 不要解釋)。**即使 hint 模糊或為空, 也必須給出一段 8-15 個標籤的完整字符串, 絕不能空回。**`;
 
   const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
     method: 'POST',
@@ -325,16 +325,16 @@ ${trimmed ? '⚠️ 再次提醒: 用户 hint 里写明的具体音乐元素 (vo
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`LLM 调用失败 (HTTP ${res.status}): ${text.slice(0, 150)}`);
+    throw new Error(`LLM 調用失敗 (HTTP ${res.status}): ${text.slice(0, 150)}`);
   }
   const data = await res.json();
   const raw: string = data?.choices?.[0]?.message?.content || '';
-  if (!raw) throw new Error('LLM 没返回内容');
+  if (!raw) throw new Error('LLM 沒返回內容');
 
-  // 清理：剥掉常见的引号/markdown/解释前缀
+  // 清理：剝掉常見的引號/markdown/解釋前綴
   return raw
     .replace(/^[\s`"'']+|[\s`"'']+$/g, '')
-    .replace(/^(tags?|输出|prompt)\s*[:：]\s*/i, '')
+    .replace(/^(tags?|[输輸]出|prompt)\s*[:：]\s*/i, '')
     .replace(/\n[\s\S]*$/, '')   // 只取第一行
     .trim();
 }
@@ -470,15 +470,15 @@ async function resolveModelVersion(authHeader: string, signal?: AbortSignal): Pr
   try {
     data = await res.json();
   } catch {
-    throw new Error(`获取模型信息失败 (HTTP ${res.status})`);
+    throw new Error(`獲取模型信息失敗 (HTTP ${res.status})`);
   }
   if (!res.ok) {
     const detail = data?.detail || data?.error || `HTTP ${res.status}`;
-    throw new Error(`无法访问 ${MODEL_OWNER}/${MODEL_NAME}: ${detail}`);
+    throw new Error(`無法訪問 ${MODEL_OWNER}/${MODEL_NAME}: ${detail}`);
   }
   const version: string | undefined = data?.latest_version?.id;
   if (!version) {
-    throw new Error('Replicate 没返回模型版本信息');
+    throw new Error('Replicate 沒返回模型版本信息');
   }
   try {
     localStorage.setItem(VERSION_CACHE_KEY, JSON.stringify({ version, fetchedAt: Date.now() }));
@@ -498,9 +498,9 @@ export async function synthesizeSong(
 ): Promise<SynthesizeResult> {
   const { signal, onStatus } = options;
   const apiKey = (apiConfig.aceStepApiKey || '').trim();
-  if (!apiKey) throw new Error('请先在「设置」里填 Replicate API Token (r8_xxx)');
+  if (!apiKey) throw new Error('請先在「設置」裡填 Replicate API Token (r8_xxx)');
   if (!input.tags && !input.lyrics) {
-    throw new Error('歌词和风格至少需要一个');
+    throw new Error('歌詞和風格至少需要一個');
   }
 
   const cacheKey = hashSongInputs(input);
@@ -555,14 +555,14 @@ export async function synthesizeSong(
     startData = await startRes.json();
   } catch {
     const text = await startRes.text().catch(() => '');
-    throw new Error(`Replicate 起任务返回非 JSON (HTTP ${startRes.status}): ${text.slice(0, 200)}`);
+    throw new Error(`Replicate 起任務返回非 JSON (HTTP ${startRes.status}): ${text.slice(0, 200)}`);
   }
   if (!startRes.ok) {
     const detail = startData?.detail || startData?.error || JSON.stringify(startData).slice(0, 200);
-    throw new Error(`Replicate 起任务失败 (HTTP ${startRes.status}): ${detail}`);
+    throw new Error(`Replicate 起任務失敗 (HTTP ${startRes.status}): ${detail}`);
   }
   const predictionId: string | undefined = startData?.id;
-  if (!predictionId) throw new Error('Replicate 没返回 prediction id');
+  if (!predictionId) throw new Error('Replicate 沒返回 prediction id');
 
   // ── 2. Poll until succeeded / failed / canceled ──
   const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -572,7 +572,7 @@ export async function synthesizeSong(
   while (true) {
     checkAbort(signal);
     if (Date.now() > deadline) {
-      throw new Error('Replicate 任务超时（>5 分钟）');
+      throw new Error('Replicate 任務超時（>5 分鐘）');
     }
     await sleep(interval, signal);
     interval = Math.min(interval + 500, POLL_INTERVAL_MAX_MS);
@@ -595,15 +595,15 @@ export async function synthesizeSong(
     if (status === 'succeeded') {
       outputUrl = extractOutputUrl(pollData?.output);
       if (!outputUrl) {
-        throw new Error('Replicate 任务成功但没找到音频 URL');
+        throw new Error('Replicate 任務成功但沒找到音頻 URL');
       }
       break;
     }
     if (status === 'failed') {
-      throw new Error(`Replicate 任务失败: ${pollData?.error || 'unknown'}`);
+      throw new Error(`Replicate 任務失敗: ${pollData?.error || 'unknown'}`);
     }
     if (status === 'canceled') {
-      throw new Error('Replicate 任务被取消');
+      throw new Error('Replicate 任務被取消');
     }
     // 'starting' / 'processing' → keep polling
   }
@@ -616,11 +616,11 @@ export async function synthesizeSong(
     signal,
   });
   if (!fileRes.ok) {
-    throw new Error(`下载音频失败 (HTTP ${fileRes.status})`);
+    throw new Error(`下載音頻失敗 (HTTP ${fileRes.status})`);
   }
   const mimeType = fileRes.headers.get('Content-Type') || guessMimeFromUrl(outputUrl);
   const blob = await fileRes.blob();
-  if (!blob.size) throw new Error('下载音频为空文件');
+  if (!blob.size) throw new Error('下載音頻為空文件');
 
   // ── 4. Cache & return ──
   saveCachedSong(cacheKey, blob, mimeType).catch(() => { /* ignore */ });

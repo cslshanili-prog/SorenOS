@@ -25,20 +25,20 @@ try {
     });
     await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).collectedUnique === 49);
     await shot('idle');
-    await page.getByRole('button', { name: /玩法说明/ }).click();
+    await page.getByRole('button', { name: /玩法[说說]明/ }).click();
     report.helpAnimations = await page.evaluate(() => document.querySelector('.sarg-root').getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length);
-    await page.getByRole('button', { name: '关闭玩法引导' }).click();
+    await page.getByRole('button', { name: '關閉玩法引導' }).click();
     await page.locator('.sarg-draw-button').click();
     await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).phase === 'drawing');
     report.drawing = await state();
     report.animatedFilters = await page.evaluate(() => document.querySelector('.sarg-root').getAnimations({ subtree: true })
         .filter(animation => animation.effect?.getKeyframes().some(frame => frame.filter && frame.filter !== 'none')).length);
     await shot('drawing');
-    await page.getByRole('button', { name: '打开扭蛋', exact: true }).click();
-    await page.getByRole('button', { name: '收入陈列', exact: true }).waitFor();
+    await page.getByRole('button', { name: '打開扭蛋', exact: true }).click();
+    await page.getByRole('button', { name: '收入陳列', exact: true }).waitFor();
     assert.equal((await state()).phase, 'revealed');
     await shot('revealed');
-    await page.getByRole('button', { name: '收入陈列', exact: true }).click();
+    await page.getByRole('button', { name: '收入陳列', exact: true }).click();
     await page.locator('.sarg-card--compact').first().waitFor();
     report.collectionDOM = await page.locator('.sarg-collection *').count();
     report.mountedCards = await page.locator('.sarg-card--compact').count();
@@ -55,14 +55,14 @@ try {
     const titles = new Set();
     do {
         for (const title of await page.locator('.sarg-card--compact h3').allTextContents()) titles.add(title);
-        const next = page.getByRole('button', { name: '模块下一页', exact: true });
+        const next = page.getByRole('button', { name: '模塊下一頁', exact: true });
         if (!await next.count() || await next.isDisabled()) break;
         await next.click();
     } while (true);
     assert.equal(titles.size, 25, 'all variants remain reachable');
     await page.locator('.sarg-card--compact').last().click();
-    await page.getByRole('button', { name: '关闭模块详情' }).click();
-    await page.getByRole('tab', { name: /异界坐标/ }).click();
+    await page.getByRole('button', { name: '關閉模塊詳情' }).click();
+    await page.getByRole('tab', { name: /[异異]界[坐座][标標]/ }).click();
     assert((await page.locator('.sarg-collection__count').innerText()).includes('24'));
     if (label !== 'before') {
         assert.equal(report.helpAnimations, 0, 'covered machine pauses during help');

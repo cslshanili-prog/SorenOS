@@ -9,8 +9,8 @@ const walk = (directory: string): string[] => readdirSync(directory).flatMap(nam
     return statSync(path).isDirectory() ? walk(path) : [path];
 });
 
-describe('文件导出统一分享适配', () => {
-    it('业务代码不再直接触发 anchor.download', () => {
+describe('文件導出統一分享適配', () => {
+    it('業務代碼不再直接觸發 anchor.download', () => {
         const forbidden = ['.down', 'load ='].join('');
         const sourceRoots = ['apps', 'components', 'context', 'features', 'utils'];
         const violations = sourceRoots
@@ -24,14 +24,14 @@ describe('文件导出统一分享适配', () => {
         expect(violations).toEqual([]);
     });
 
-    it('大体积系统备份也复用统一分享，并开启原生分片写盘', () => {
+    it('大體積系統備份也複用統一分享，並開啟原生分片寫盤', () => {
         const settings = readFileSync(`${projectRoot}/apps/Settings.tsx`, 'utf8');
         expect(settings).toContain("import { shareOrDownloadBlob } from '../utils/shareExport'");
         expect(settings).toContain('nativeChunked: true');
         expect(settings).not.toContain('Filesystem.appendFile');
     });
 
-    it('统一出口的顺序是原生分享、Web 文件分享、桌面下载兜底', () => {
+    it('統一出口的順序是原生分享、Web 文件分享、桌面下載兜底', () => {
         const source = readFileSync(`${projectRoot}/utils/shareExport.ts`, 'utf8');
         const nativeShare = source.indexOf('Capacitor.isNativePlatform()');
         const webShare = source.indexOf('navigator.share');

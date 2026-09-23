@@ -1,15 +1,15 @@
 /**
- * Pixel Home — 像素小人生成器（基于图层素材版）
+ * Pixel Home — 像素小人生成器（基於圖層素材版）
  *
- * 素材位于 public/pixel-char/，按图层从后到前合成：
- *   3-后发  → 2-身体(肤色+衣服+裤子+线稿) → 1-眼睛(颜色底+线稿) → 0-前发(颜色底+线稿)
+ * 素材位於 public/pixel-char/，按圖層從後到前合成：
+ *   3-後發  → 2-身體(膚色+衣服+褲子+線稿) → 1-眼睛(顏色底+線稿) → 0-前發(顏色底+線稿)
  *
- * 每一层的"颜色底图"是纯色 alpha 蒙版，通过 Canvas 的 source-in 合成替换为用户选择的颜色；
- * 然后叠加同一位置的黑色线稿得到最终像素小人。
+ * 每一層的"顏色底圖"是純色 alpha 蒙版，通過 Canvas 的 source-in 合成替換為用戶選擇的顏色；
+ * 然後疊加同一位置的黑色線稿得到最終像素小人。
  */
 
 export const ASSET_SIZE = { w: 53, h: 56 };
-const OUTPUT_SCALE = 4; // 输出再放大（保持像素风）
+const OUTPUT_SCALE = 4; // 輸出再放大（保持像素風）
 
 const BASE_URL = (import.meta as any).env?.BASE_URL ?? '/';
 const asset = (p: string) => `${BASE_URL}pixel-char/${p}`.replace(/\/+/g, '/');
@@ -18,33 +18,33 @@ export const FRONT_HAIR_COUNT = 4;
 export const BACK_HAIR_COUNT = 4;
 export const EYE_COUNT = 3;
 
-export const FRONT_HAIR_NAMES = ['前发A', '前发B', '前发C', '前发D'];
-export const BACK_HAIR_NAMES = ['后发A', '后发B', '后发C', '后发D'];
+export const FRONT_HAIR_NAMES = ['前發A', '前發B', '前發C', '前發D'];
+export const BACK_HAIR_NAMES = ['後發A', '後發B', '後發C', '後發D'];
 export const EYE_NAMES = ['眼型1', '眼型2', '眼型3'];
 
 export interface PixelCharConfig {
-  /** 前发样式，1..4；0 表示不戴前发 */
+  /** 前發樣式，1..4；0 表示不戴前發 */
   frontHair: number;
-  /** 后发样式，1..4；0 表示不戴后发 */
+  /** 後發樣式，1..4；0 表示不戴後發 */
   backHair: number;
-  /** 眼睛样式，1..3 */
+  /** 眼睛樣式，1..3 */
   eyes: number;
-  /** 头发颜色（同时作用于前发 + 后发） */
+  /** 頭髮顏色（同時作用於前發 + 後發） */
   hairColor: string;
-  /** 眼睛颜色 */
+  /** 眼睛顏色 */
   eyeColor: string;
-  /** 肤色（body 填充） */
+  /** 膚色（body 填充） */
   skinTone: string;
-  /** 上衣颜色 */
+  /** 上衣顏色 */
   outfitColor: string;
-  /** 裤子颜色 */
+  /** 褲子顏色 */
   outfitColor2: string;
-  /** 用户直接上传的像素小人 data URI（跳过合成） */
+  /** 用戶直接上傳的像素小人 data URI（跳過合成） */
   customSprite?: string;
-  /** 用户在画布上手绘覆盖的像素："x,y" -> 颜色（或 'transparent' 表示擦除） */
+  /** 用戶在畫布上手繪覆蓋的像素："x,y" -> 顏色（或 'transparent' 表示擦除） */
   customPixels?: Record<string, string>;
 
-  // ── 旧字段保留为可选，避免读到老存档时 TS 报错 ──
+  // ── 舊字段保留為可選，避免讀到老存檔時 TS 報錯 ──
   hairStyle?: number;
 }
 
@@ -83,7 +83,7 @@ export const OUTFIT_COLORS = [
   '#ff6b9d', '#a78bfa', '#111111', '#ffffff',
 ];
 
-// ─── 图片加载 ────────────────────────────────────────
+// ─── 圖片加載 ────────────────────────────────────────
 
 const imgCache = new Map<string, Promise<HTMLImageElement>>();
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -100,7 +100,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return p;
 }
 
-/** 把颜色底图按 alpha 蒙版贴上指定颜色 */
+/** 把顏色底圖按 alpha 蒙版貼上指定顏色 */
 function drawTinted(
   dst: CanvasRenderingContext2D,
   maskImg: HTMLImageElement,
@@ -129,7 +129,7 @@ export async function generatePixelChar(config: PixelCharConfig): Promise<string
     outfitColor, outfitColor2, customPixels,
   } = { ...DEFAULT_CONFIG, ...config };
 
-  // 预加载所有需要的图片
+  // 預加載所有需要的圖片
   const jobs: Promise<HTMLImageElement | null>[] = [
     backHair > 0 ? loadImage(asset(`backhair/${backHair}-color.png`)) : Promise.resolve(null),
     backHair > 0 ? loadImage(asset(`backhair/${backHair}.png`)) : Promise.resolve(null),
@@ -155,32 +155,32 @@ export async function generatePixelChar(config: PixelCharConfig): Promise<string
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
 
-  // 3-后发
+  // 3-後發
   if (backHairColorMask) drawTinted(ctx, backHairColorMask, hairColor);
   if (backHairLine) ctx.drawImage(backHairLine, 0, 0);
 
-  // 2-身体：皮肤底 + 衣服 + 裤子 + 黑色线稿
+  // 2-身體：皮膚底 + 衣服 + 褲子 + 黑色線稿
   if (skinMask) drawTinted(ctx, skinMask, skinTone);
   if (shirtMask) drawTinted(ctx, shirtMask, outfitColor);
   if (pantsMask) drawTinted(ctx, pantsMask, outfitColor2);
   if (bodyLine) ctx.drawImage(bodyLine, 0, 0);
 
-  // 1-眼睛：统一颜色底 + 眼型线稿
+  // 1-眼睛：統一顏色底 + 眼型線稿
   if (eyeColorMask) drawTinted(ctx, eyeColorMask, eyeColor);
   if (eyeLine) ctx.drawImage(eyeLine, 0, 0);
 
-  // 0-前发
+  // 0-前發
   if (frontHairColorMask) drawTinted(ctx, frontHairColorMask, hairColor);
   if (frontHairLine) ctx.drawImage(frontHairLine, 0, 0);
 
-  // 眼睛"幽灵"层：30% 透明度压在前发上方，营造"眼睛透过刘海"的二次元感
+  // 眼睛"幽靈"層：30% 透明度壓在前發上方，營造"眼睛透過劉海"的二次元感
   const prevAlpha = ctx.globalAlpha;
   ctx.globalAlpha = 0.3;
   if (eyeColorMask) drawTinted(ctx, eyeColorMask, eyeColor);
   if (eyeLine) ctx.drawImage(eyeLine, 0, 0);
   ctx.globalAlpha = prevAlpha;
 
-  // 用户手绘覆盖（最顶层）
+  // 用戶手繪覆蓋（最頂層）
   if (customPixels) {
     for (const [key, color] of Object.entries(customPixels)) {
       const [cx, cy] = key.split(',').map(Number);
@@ -196,7 +196,7 @@ export async function generatePixelChar(config: PixelCharConfig): Promise<string
     }
   }
 
-  // 放大输出
+  // 放大輸出
   const display = document.createElement('canvas');
   display.width = ASSET_SIZE.w * OUTPUT_SCALE;
   display.height = ASSET_SIZE.h * OUTPUT_SCALE;
@@ -206,7 +206,7 @@ export async function generatePixelChar(config: PixelCharConfig): Promise<string
   return display.toDataURL('image/png');
 }
 
-// ─── 缓存（同步读取） ────────────────────────────────
+// ─── 緩存（同步讀取） ────────────────────────────────
 
 const _cache = new Map<string, string>();
 const _pending = new Map<string, Promise<string>>();
@@ -225,14 +225,14 @@ function keyOf(cfg: PixelCharConfig): string {
 const TRANSPARENT_PX =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
-/** 订阅缓存更新，用于触发 React 重渲染 */
+/** 訂閱緩存更新，用於觸發 React 重渲染 */
 export function onPixelCharCacheUpdate(cb: () => void): () => void {
   _listeners.add(cb);
   return () => { _listeners.delete(cb); };
 }
 
 /**
- * 同步读取缓存版本。若未缓存则立刻返回透明占位图并异步生成，生成完成后通知订阅者。
+ * 同步讀取緩存版本。若未緩存則立刻返回透明佔位圖並異步生成，生成完成後通知訂閱者。
  */
 export function getCachedPixelChar(config: PixelCharConfig): string {
   if (config.customSprite) return config.customSprite;
@@ -254,7 +254,7 @@ export function getCachedPixelChar(config: PixelCharConfig): string {
   return TRANSPARENT_PX;
 }
 
-/** 异步获取并写入缓存 */
+/** 異步獲取並寫入緩存 */
 export async function ensurePixelChar(config: PixelCharConfig): Promise<string> {
   if (config.customSprite) return config.customSprite;
   const k = keyOf(config);

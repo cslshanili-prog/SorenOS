@@ -96,7 +96,7 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                 setAvailableModels(models);
                 setModelSearchQuery('');
                 const imageLikelyCount = models.filter(isLikelyImageModel).length;
-                // 猜不出任何生图模型时没必要默认过滤成空列表，直接退回显示全部。
+                // 猜不出任何生圖模型時沒必要默認過濾成空列表，直接退回顯示全部。
                 setShowAllModels(imageLikelyCount === 0);
                 if (!models.includes(model)) setModel(models[0]);
                 setStatusMsg(

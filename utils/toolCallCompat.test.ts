@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildToolResultMessage, normalizeToolCallsForCompat } from './toolCallCompat';
 
 describe('tool call compatibility', () => {
-    it('为 Gemini 的空调用 ID 生成稳定 ID，并把工具名放回结果消息', () => {
+    it('為 Gemini 的空調用 ID 生成穩定 ID，並把工具名放回結果消息', () => {
         const calls = normalizeToolCallsForCompat([{
             id: '',
             type: 'function',
@@ -20,7 +20,7 @@ describe('tool call compatibility', () => {
         });
     });
 
-    it('保留有效调用 ID，并避免并行调用出现重复 ID', () => {
+    it('保留有效調用 ID，並避免並行調用出現重複 ID', () => {
         const calls = normalizeToolCallsForCompat([
             { id: 'call-1', function: { name: 'first_tool', arguments: '{}' } },
             { id: 'call-1', function: { name: 'second_tool', arguments: '{}' } },

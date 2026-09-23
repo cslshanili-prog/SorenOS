@@ -125,20 +125,21 @@ import {
     validateInstallableArtifact,
 } from '../features/collaboration/makers';
 import { upsertMountedWorldbooks } from '../utils/worldbook';
+import { equalsAnyScript } from '../utils/scriptKey';
 
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
 const HISTORY_WINDOW_BATCH_SIZE = 30;
 
-/** 即时对话那一轮回复「推送陆续到齐」的宽限时间，也就是自动合成的补扫窗口有多长（见下面的 auto-TTS effect）。 */
+/** 即時對話那一輪回復「推送陸續到齊」的寬限時間，也就是自動合成的補掃窗口有多長（見下面的 auto-TTS effect）。 */
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
     const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
-    // 从 Chat 主页（消息/联系人 tab）点进来的私聊，返回键回 Chat 主页而不是无脑回桌面；
-    // 别的入口（角色卡「发消息」、伴侣桌面皮肤的「对话」按钮等）没设这个，行为不变。
+    // 從 Chat 主頁（消息/聯繫人 tab）點進來的私聊，返回鍵回 Chat 主頁而不是無腦回桌面；
+    // 別的入口（角色卡「發消息」、伴侶桌面皮膚的「對話」按鈕等）沒設這個，行為不變。
     const handleChatClose = useCallback(() => {
         const target = chatReturnTarget.consume();
         if (target) openApp(target); else closeApp();
@@ -146,7 +147,7 @@ const Chat: React.FC = () => {
     const isProactiveComposing = !!(activeCharacterId && proactiveComposingChars[activeCharacterId]);
     const localDateKey = useLocalDateKey();
 
-    // 记忆宫殿高水位（用于清空聊天时的安全检查）
+    // 記憶宮殿高水位（用於清空聊天時的安全檢查）
     const getMemoryPalaceHWM = useCallback(async (charId: string): Promise<number> => {
         try {
             const { getMemoryPalaceHighWaterMark } = await import('../utils/memoryPalace/pipeline');
@@ -154,17 +155,17 @@ const Chat: React.FC = () => {
         } catch { return 0; }
     }, []);
     const [messages, setMessages] = useState<Message[]>([]);
-    // 即时对话：这一轮已经交给云端、还没等到回复。它跟 isTyping 不一样——生成不在这台
-    // 设备上跑，所以要扛得住关页面重开（记录落在 localStorage，见 amsgInstantChat）。
+    // 即時對話：這一輪已經交給雲端、還沒等到回覆。它跟 isTyping 不一樣——生成不在這台
+    // 設備上跑，所以要扛得住關頁面重開（記錄落在 localStorage，見 amsgInstantChat）。
     const [instantChatPending, setInstantChatPending] = useState(false);
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const [visibleCount, setVisibleCount] = useState(30);
     const [windowedFocusMsgId, setWindowedFocusMsgId] = useState<number | null>(null);
     const [historyWindowRange, setHistoryWindowRange] = useState<ChatHistoryWindowRange | null>(null);
     const [flashMsgId, setFlashMsgId] = useState<number | null>(null);
-    // 角色切换/进入时的缓入开关：先 false（透明），下一帧转 true，靠 CSS transition 平滑淡入。
-    // 初值 false 让首次打开也是淡入、且不会有"先显示再变透明"的闪烁。
-    // 角色切换「登场」过场是否显示。切换/进入角色时由 useLayoutEffect 在绘制前置真，覆盖住加载、避免闪到新聊天。
+    // 角色切換/進入時的緩入開關：先 false（透明），下一幀轉 true，靠 CSS transition 平滑淡入。
+    // 初值 false 讓首次打開也是淡入、且不會有"先顯示再變透明"的閃爍。
+    // 角色切換「登場」過場是否顯示。切換/進入角色時由 useLayoutEffect 在繪製前置真，覆蓋住加載、避免閃到新聊天。
     const [showEntry, setShowEntry] = useState(false);
     const [input, setInput] = useState('');
     const [isInputFocused, setIsInputFocused] = useState(false);
@@ -180,12 +181,12 @@ const Chat: React.FC = () => {
     const [activeCategory, setActiveCategory] = useState<string>('default');
     const [newCategoryName, setNewCategoryName] = useState('');
     const [emojiExport, setEmojiExport] = useState<{ emojis: Emoji[]; title: string } | null>(null);
-    const [newEmojiName, setNewEmojiName] = useState(''); // 表情包重命名输入框
+    const [newEmojiName, setNewEmojiName] = useState(''); // 表情包重命名輸入框
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const lastMsgIdRef = useRef<number | null>(null);
-    // 最新图片在移动端异步解码后会把消息列表继续向下撑开。记录这一条，等真实高度
-    // 确定后再补一次贴底；用户一旦主动向上翻，就清掉它，绝不抢滚动位置。
+    // 最新圖片在移動端異步解碼後會把消息列表繼續向下撐開。記錄這一條，等真實高度
+    // 確定後再補一次貼底；用戶一旦主動向上翻，就清掉它，絕不搶滾動位置。
     const pendingMediaAutoScrollIdRef = useRef<number | null>(null);
     const scrollThrottleRef = useRef(0);
     const visibleCountRef = useRef(30);
@@ -197,31 +198,31 @@ const Chat: React.FC = () => {
     const historyJumpUnlockTimerRef = useRef<number | null>(null);
     const historyWindowScrollEnabledRef = useRef(false);
     const activeCharIdRef = useRef(activeCharacterId);
-    // 流式预览接棒过的正式消息在当前会话内始终跳过入场动画，避免后续 DB 刷新时动画类又被加回来。
+    // 流式預覽接棒過的正式消息在當前會話內始終跳過入場動畫，避免後續 DB 刷新時動畫類又被加回來。
     const streamPreviewHandoverIdsRef = useRef<Set<number>>(new Set());
     const registerStreamPreviewHandover = useCallback((charId: string, messageIds: number[]) => {
         if (activeCharIdRef.current !== charId) return;
         messageIds.forEach(id => streamPreviewHandoverIdsRef.current.add(id));
     }, []);
     const charRef = useRef<typeof char>(null as any);
-    // 白框提示音：记录当前角色"见过的最大消息 ID" + "上一条气泡到达时刻"，一轮回复只在首条气泡响一次。
-    // 用 max-id 基线天然免疫：切角色/进入(先记基线不播)、翻旧历史(末尾 ID 变小不响)、自己发消息(role≠assistant 不响)。
-    // lastAt 做回合去重：ta 一轮回复拆成多条气泡逐条下发（间隔 ≤2s），距上一条气泡 >3s 才算新回合、才响。
+    // 白框提示音：記錄當前角色"見過的最大消息 ID" + "上一條氣泡到達時刻"，一輪回復只在首條氣泡響一次。
+    // 用 max-id 基線天然免疫：切角色/進入(先記基線不播)、翻舊歷史(末尾 ID 變小不響)、自己發消息(role≠assistant 不響)。
+    // lastAt 做回合去重：ta 一輪回復拆成多條氣泡逐條下發（間隔 ≤2s），距上一條氣泡 >3s 才算新回合、才響。
     const soundSyncRef = useRef<{ charId: string | null; maxId: number | null; lastAt: number | null }>({ charId: null, maxId: null, lastAt: null });
-    // 回合去重阈值：气泡间最大间隔 = clamp(字数×50,500,2000)=2s，取 3s 安全合并同一轮，跨轮(LLM 延迟)一般远大于此。
+    // 回合去重閾值：氣泡間最大間隔 = clamp(字數×50,500,2000)=2s，取 3s 安全合併同一輪，跨輪(LLM 延遲)一般遠大於此。
     const SOUND_ROUND_GAP_MS = 3000;
 
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
 
     const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'image-zoom'>('none');
-    // 「聊天装扮」悬浮态：不走全屏 modal——圆气泡挂在聊天上，点开小面板边看真聊天边调。
+    // 「聊天裝扮」懸浮態：不走全屏 modal——圓氣泡掛在聊天上，點開小面板邊看真聊天邊調。
     const [decorationTab, setDecorationTab] = useState<DecorationTab>('layout');
-    // 切换角色时收掉装扮气泡：定制是 per-character 的，避免误改到下一个角色
+    // 切換角色時收掉裝扮氣泡：定製是 per-character 的，避免誤改到下一個角色
     const [scheduleData, setScheduleData] = useState<DailySchedule | null>(null);
     const [scheduleChangeNotice, setScheduleChangeNotice] = useState<ScheduleChangeEventDetail | null>(null);
     const dismissScheduleChangeNotice = useCallback(() => setScheduleChangeNotice(null), []);
-    // 小剧场（窥视演出）：正在播放的时段索引（null = 未打开），以及生成中标志
+    // 小劇場（窺視演出）：正在播放的時段索引（null = 未打開），以及生成中標誌
     const [theaterSlotIdx, setTheaterSlotIdx] = useState<number | null>(null);
     const [isTheaterGenerating, setIsTheaterGenerating] = useState(false);
     const [isScheduleGenerating, setIsScheduleGenerating] = useState(false);
@@ -242,7 +243,7 @@ const Chat: React.FC = () => {
         && memoryPalaceConfig.featureFlags?.interactionAdaptation === true
         && memoryPalaceConfig.featureFlags?.deepEngagement === true;
     const [isVectorizing, setIsVectorizing] = useState(false);
-    // 记忆宫殿「一键存入」：打开设置弹窗时算出待处理条数（排除热区的真实口径），处理中显示逐轮进度
+    // 記憶宮殿「一鍵存入」：打開設置彈窗時算出待處理條數（排除熱區的真實口徑），處理中顯示逐輪進度
     const [vectorizePendingCount, setVectorizePendingCount] = useState<number | null>(null);
     const [vectorizeProgress, setVectorizeProgress] = useState('');
     const [retainRecentForVectorize, setRetainRecentForVectorize] = useState(false);
@@ -272,8 +273,8 @@ const Chat: React.FC = () => {
     const [showHistoryCleanup, setShowHistoryCleanup] = useState(false);
     useEffect(() => setShowHistoryCleanup(false), [activeCharacterId]);
     const [selectedMsgIds, setSelectedMsgIds] = useState<Set<number>>(new Set());
-    // 思维链是 metadata.thinkingChain，没有独立 id，所以用宿主消息 id 作为键，
-    // 与 selectedMsgIds 并行存在 —— 只勾思维链时只清 metadata，宿主消息保留。
+    // 思維鏈是 metadata.thinkingChain，沒有獨立 id，所以用宿主消息 id 作為鍵，
+    // 與 selectedMsgIds 並行存在 —— 只勾思維鏈時只清 metadata，宿主消息保留。
     const [selectedThinkingMsgIds, setSelectedThinkingMsgIds] = useState<Set<number>>(new Set());
 
     // --- Translation State (per-character) ---
@@ -294,13 +295,13 @@ const Chat: React.FC = () => {
     const [translationExpanded, setTranslationExpanded] = useState(() => {
         try { return JSON.parse(localStorage.getItem(`chat_translate_expanded_${activeCharacterId}`) || 'false'); } catch { return false; }
     });
-    // Which messages are currently showing "译" version (toggle state only, no API calls)
+    // Which messages are currently showing "譯" version (toggle state only, no API calls)
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
     const char = characters.find(c => c.id === activeCharacterId) || characters[0];
-    // 分角色身份指定：这个私聊里「你」该是哪张身份卡，按 char.id 单独解析——不看全域默认，
-    // 除非这个角色没有单独指定。下面所有原本读 userProfile 的地方（AI 提示词/气泡头像/
-    // 主动消息打脏快照……）只要是「这个聊天窗口里的你」，都改吃这份，而不是全域 userProfile。
+    // 分角色身份指定：這個私聊裡「你」該是哪張身份卡，按 char.id 單獨解析——不看全域默認，
+    // 除非這個角色沒有單獨指定。下面所有原本讀 userProfile 的地方（AI 提示詞/氣泡頭像/
+    // 主動消息打髒快照……）只要是「這個聊天窗口裡的你」，都改吃這份，而不是全域 userProfile。
     const chatUserProfile = useMemo(
         () => (char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile),
         [char, userProfileBase, userProfile],
@@ -329,7 +330,7 @@ const Chat: React.FC = () => {
             .map(message => message.content)
             .join('\n');
         return {
-            // receipt 在用户消息落库之后、助手回复落库之前产生；留 1 秒时钟误差容差。
+            // receipt 在用戶消息落庫之後、助手回覆落庫之前產生；留 1 秒時鐘誤差容差。
             sinceTs: userIndex >= 0 ? Math.max(0, messages[userIndex].timestamp - 1000) : messages[assistantIndex].timestamp - 60_000,
             userMessage: userIndex >= 0 ? messages[userIndex].content : '',
             assistantReply,
@@ -361,7 +362,7 @@ const Chat: React.FC = () => {
             || !char?.contextUserStartMessageId
             || !historyContextRange?.userBreakpointExpired
         ) return;
-        // 最大范围已经向前越过用户断点：立即清掉持久化断点，防止以后拉大时旧断点复活。
+        // 最大範圍已經向前越過用戶斷點：立即清掉持久化斷點，防止以後拉大時舊斷點復活。
         updateCharacter(char.id, { contextUserStartMessageId: undefined });
     }, [
         modalType,
@@ -372,7 +373,7 @@ const Chat: React.FC = () => {
         updateCharacter,
     ]);
     const currentThemeId = char?.bubbleStyle || osTheme.chatDefaultBubbleStyle || 'default';
-    // 解析逻辑抽到 utils/groupChat/theme.ts（群聊共用），行为不变
+    // 解析邏輯抽到 utils/groupChat/theme.ts（群聊共用），行為不變
     const activeTheme = useMemo(
         () => resolveChatTheme(currentThemeId, customThemes, PRESET_THEMES),
         [currentThemeId, customThemes],
@@ -394,24 +395,24 @@ const Chat: React.FC = () => {
 
 
 
-    // 小程序快照 ref: MiniApp 状态变化时塞进来, useChatAI 在 build system prompt 时读取并注入
+    // 小程序快照 ref: MiniApp 狀態變化時塞進來, useChatAI 在 build system prompt 時讀取並注入
     const mcdMiniAppRef = useRef<import('../utils/mcdToolBridge').McdMiniAppSnapshot | undefined>(undefined);
     const luckinMiniAppRef = useRef<import('../utils/luckinToolBridge').LuckinMiniAppSnapshot | undefined>(undefined);
-    // 瑞幸聊天点单模式 (点"瑞一杯"激活: 角色直接调真实工具, 注入定位)
+    // 瑞幸聊天點單模式 (點"瑞一杯"激活: 角色直接調真實工具, 注入定位)
     const luckinChatRef = useRef<import('../utils/luckinToolBridge').LuckinChatState | undefined>(undefined);
 
-    // 生成闭包的回落守卫：triggerAI 的异步闭包在用户切到别的角色后才完成时（Chat 内
-    // 切角色不卸载组件），迟到的 setMessages 会把旧角色的消息灌进当前会话视图。
-    // 按消息 charId 丢弃不属于当前会话的回落——DB 已落库，且 OSContext 会因
-    // chat-gen-reply-arrived bump lastMsgTimestamp，切回该角色时自然取回。
+    // 生成閉包的回落守衛：triggerAI 的異步閉包在用戶切到別的角色後才完成時（Chat 內
+    // 切角色不卸載組件），遲到的 setMessages 會把舊角色的消息灌進當前會話視圖。
+    // 按消息 charId 丟棄不屬於當前會話的回落——DB 已落庫，且 OSContext 會因
+    // chat-gen-reply-arrived bump lastMsgTimestamp，切回該角色時自然取回。
     const setMessagesFromGen = useCallback((msgs: Message[]) => {
         if (msgs.some(m => m.charId && m.charId !== activeCharIdRef.current)) return;
         setMessages(msgs);
     }, []);
 
-    // 即时对话的「正在输入…」：受理 / 收到回复 / 超时判失败都会广播一次，界面跟着它亮灭。
-    // 进这个角色时先读一次落盘记录——上一轮的回复可能是在应用关着的时候还没回来。
-    // 这个 CustomEvent 只在本标签页内派发；别的标签页销账走下面那个 storage 监听
+    // 即時對話的「正在輸入…」：受理 / 收到回覆 / 超時判失敗都會廣播一次，界面跟著它亮滅。
+    // 進這個角色時先讀一次落盤記錄——上一輪的回覆可能是在應用關著的時候還沒回來。
+    // 這個 CustomEvent 只在本標籤頁內派發；別的標籤頁銷帳走下面那個 storage 監聽
     //（搜 AMSG_INSTANT_CHAT_PENDING_LS_KEY）。
     useEffect(() => {
         const sync = () => setInstantChatPending(!!activeCharacterId && !!getInstantChatPending(activeCharacterId));
@@ -468,19 +469,19 @@ const Chat: React.FC = () => {
     const voiceRequestsRef = useRef(new Set<number>());
     const voiceMountedRef = useRef(true);
     const prevIsTypingRef = useRef(false);
-    // 即时对话那条路的自动合成扫描窗（用法见下面那个 auto-TTS 的 effect）：
-    // 「正在输入」灯灭的那一下开窗，窗口内每次消息变化都补扫一遍；角色不对就整个作废。
+    // 即時對話那條路的自動合成掃描窗（用法見下面那個 auto-TTS 的 effect）：
+    // 「正在輸入」燈滅的那一下開窗，窗口內每次消息變化都補掃一遍；角色不對就整個作廢。
     const prevInstantPendingRef = useRef(false);
     const instantVoiceScanUntilRef = useRef(0);
     const instantVoiceScanCharRef = useRef<string | undefined>(undefined);
-    // 自动合成失败过的消息 id。扫描窗里每来一条新消息都会重扫一遍，不记下来的话同一条失败的
-    // 消息会被反复重试、每次再弹一个「语音生成失败」。只挡自动那条路：用户自己点「转换语音」
-    // 照样能重试（换了网络/补了 key 之后就该能成）。换角色时清空。
+    // 自動合成失敗過的消息 id。掃描窗裡每來一條新消息都會重掃一遍，不記下來的話同一條失敗的
+    // 消息會被反覆重試、每次再彈一個「語音生成失敗」。只擋自動那條路：用戶自己點「轉換語音」
+    // 照樣能重試（換了網絡/補了 key 之後就該能成）。換角色時清空。
     const voiceFailedRef = useRef<Set<number>>(new Set());
     // Track blob: URLs we created so we can revoke them on character switch / unmount.
     const voiceBlobUrlsRef = useRef<Set<string>>(new Set());
     // We warn the user at most once (per character) that the active TTS provider isn't configured —
-    // a character can produce many <语音> messages and we don't want to spam toasts.
+    // a character can produce many <語音> messages and we don't want to spam toasts.
     const ttsWarnedRef = useRef(false);
 
     /** Whether this character can synthesize real voice under the active TTS provider (key + a voice profile). */
@@ -516,7 +517,7 @@ const Chat: React.FC = () => {
             }
             return changed ? next : prev;
         });
-        if (!deletePersisted) return; // 区间清理已在同一事务中删掉磁盘语音。
+        if (!deletePersisted) return; // 區間清理已在同一事務中刪掉磁盤語音。
         // Best-effort: remove persisted entries so they don't reappear on next load.
         for (const id of idList) {
             DB.deleteAsset(voiceAssetKey(id)).catch(() => { /* ignore */ });
@@ -552,14 +553,14 @@ const Chat: React.FC = () => {
         playChatVoice(msgId, data.url);
     };
 
-    // 稳定的播放回调：用 ref 持有最新闭包，引用永不变 —— 避免每条消息每次渲染都新建箭头函数，
-    // 否则 MessageItem 的 React.memo 会被击穿（30 条重组件每次都全量重渲染 = 进入聊天卡顿主因之一）。
+    // 穩定的播放回調：用 ref 持有最新閉包，引用永不變 —— 避免每條消息每次渲染都新建箭頭函數，
+    // 否則 MessageItem 的 React.memo 會被擊穿（30 條重組件每次都全量重渲染 = 進入聊天卡頓主因之一）。
     const handlePlayVoiceRef = useRef(handlePlayVoice);
     handlePlayVoiceRef.current = handlePlayVoice;
     const onPlayVoiceStable = useCallback((id: number) => handlePlayVoiceRef.current(id), []);
 
-    // LLM 翻译兜底（语音条中外对照用）。查 res.ok + 失败重试一次 ——
-    // 以前不查状态码、失败静默吞掉，翻译一次拿不到就永远空着（「外语语音没翻译」主因）。
+    // LLM 翻譯兜底（語音條中外對照用）。查 res.ok + 失敗重試一次 ——
+    // 以前不查狀態碼、失敗靜默吞掉，翻譯一次拿不到就永遠空著（「外語語音沒翻譯」主因）。
     const llmTranslate = async (systemPrompt: string, text: string): Promise<string> => {
         const attempt = async (): Promise<string> => {
             const res = await fetch(`${apiConfig.baseUrl}/chat/completions`, {
@@ -583,42 +584,42 @@ const Chat: React.FC = () => {
         if (voiceRequestsRef.current.has(msg.id)) return null;
         if (voiceDataMap[msg.id]) {
             if (autoTriggered) return null;
-            // 手动点「转换语音」= 用户要求重新生成（典型场景：编辑了消息内容后）。
-            // 丢掉这条旧语音再走正常合成；文本没变时会命中共享 TTS 缓存，不会重复请求 API。
+            // 手動點「轉換語音」= 用戶要求重新生成（典型場景：編輯了消息內容後）。
+            // 丟掉這條舊語音再走正常合成；文本沒變時會命中共享 TTS 緩存，不會重複請求 API。
             discardVoiceForMessages([msg.id]);
         }
 
-        // SAR 模块改变的是角色真正“发到外面/念出来”的表达。content 仍保存真意供上下文与
-        // 总结读取，但 TTS 必须优先读 surface；否则会出现气泡是古风、耳朵听到原台词的穿帮。
+        // SAR 模塊改變的是角色真正“發到外面/念出來”的表達。content 仍保存真意供上下文與
+        // 總結讀取，但 TTS 必須優先讀 surface；否則會出現氣泡是古風、耳朵聽到原台詞的穿幫。
         const voiceSourceContent = resolveSARModuleSpeechSource(msg);
         const sarVoiceSurface = voiceSourceContent !== msg.content;
         // Parse the structured voice output: spoken text (sanitized) + per-message emotion.
         const parsedVoice = parseVoiceOutput(voiceSourceContent);
-        // Fish / ElevenLabs 的适配器需要看到原始 inline cue；MiniMax 使用已消毒的 speech。
+        // Fish / ElevenLabs 的適配器需要看到原始 inline cue；MiniMax 使用已消毒的 speech。
         const ttsProvider = resolveTtsProvider(apiConfig);
         const preserveRawMarkup = providerUsesRawVoiceMarkup(apiConfig);
         const voiceTagContent = parsedVoice.hasVoiceTag ? (preserveRawMarkup ? parsedVoice.rawSpeech : parsedVoice.speech) : '';
         const voiceEmotion = parsedVoice.emotion;
 
-        // Auto-TTS: only generate voice when AI explicitly used <语音> tag
+        // Auto-TTS: only generate voice when AI explicitly used <語音> tag
         if (autoTriggered && !parsedVoice.hasVoiceTag) return null;
-        // F12 调试：打印 LLM 这条消息的带标签原文，方便核对语音标签写法是否正确。
-        // 放在上面那道门之后：即时对话的扫描窗里每来一条消息都要重扫一遍，
-        // 搁在门前的话没有语音标签的普通消息会被反复打印，控制台直接刷屏。
-        console.log('[voice] LLM 原文(带标签):', { provider: ttsProvider, content: voiceSourceContent, voiceTagContent, emotion: voiceEmotion, sarSurface: sarVoiceSurface });
+        // F12 調試：打印 LLM 這條消息的帶標籤原文，方便核對語音標籤寫法是否正確。
+        // 放在上面那道門之後：即時對話的掃描窗裡每來一條消息都要重掃一遍，
+        // 擱在門前的話沒有語音標籤的普通消息會被反覆打印，控制台直接刷屏。
+        console.log('[voice] LLM 原文(帶標籤):', { provider: ttsProvider, content: voiceSourceContent, voiceTagContent, emotion: voiceEmotion, sarSurface: sarVoiceSurface });
 
-        // 当前 TTS 引擎未配齐时不尝试合成（否则每条语音、每次点击都会抛错刷屏）。
-        // 只提醒一次；<语音> 气泡仍保留「转文字」入口，所以台词不会丢。
-        // The <语音> bubble still shows its 转文字 button so the
+        // 當前 TTS 引擎未配齊時不嘗試合成（否則每條語音、每次點擊都會拋錯刷屏）。
+        // 只提醒一次；<語音> 氣泡仍保留「轉文字」入口，所以台詞不會丟。
+        // The <語音> bubble still shows its 轉文字 button so the
         // text stays readable, matching real voice messages.
         if (!isTtsReady()) {
             if (!autoTriggered && !ttsWarnedRef.current) {
                 ttsWarnedRef.current = true;
                 const tip = ttsProvider === 'fishaudio'
-                    ? '该角色未配置鱼声音色或缺少 Fish API Key，无法播放真实语音，可点「转文字」查看内容'
+                    ? '該角色未配置魚聲音色或缺少 Fish API Key，無法播放真實語音，可點「轉文字」查看內容'
                     : ttsProvider === 'elevenlabs'
-                        ? '该角色未配置 ElevenLabs Voice ID 或缺少 ElevenLabs Key，无法播放真实语音，可点「转文字」查看内容'
-                        : '该角色未配置 MiniMax 语音，无法播放真实语音，可点「转文字」查看内容';
+                        ? '該角色未配置 ElevenLabs Voice ID 或缺少 ElevenLabs Key，無法播放真實語音，可點「轉文字」查看內容'
+                        : '該角色未配置 MiniMax 語音，無法播放真實語音，可點「轉文字」查看內容';
                 addToast(tip, 'info');
             }
             return null;
@@ -633,26 +634,26 @@ const Chat: React.FC = () => {
             const voiceLang = char.chatVoiceLang || '';
 
             if (voiceTagContent) {
-                // AI already provided the spoken text (possibly translated) in <语音> tag.
+                // AI already provided the spoken text (possibly translated) in <語音> tag.
                 // parseVoiceOutput already sanitized it (whitelisted sound tags only).
                 spokenText = voiceTagContent;
-                // 翻译第一优先级: 模型显式给的 <字幕> 标签 —— 确定性, 不用猜也不用调 LLM。
-                // 其次是标签外的文字 (老格式 / 模型没写字幕时的兜底)。
-                // parseVoiceOutput 已做标签自愈 + 提取, 别再自己 replace 一遍。
+                // 翻譯第一優先級: 模型顯式給的 <字幕> 標籤 —— 確定性, 不用猜也不用調 LLM。
+                // 其次是標籤外的文字 (老格式 / 模型沒寫字幕時的兜底)。
+                // parseVoiceOutput 已做標籤自愈 + 提取, 別再自己 replace 一遍。
                 originalText = parsedVoice.subtitle
                     || (parsedVoice.display ? cleanTextForTts(parsedVoice.display) : '');
-                // 字幕对齐模式下中文字幕通常被 chunk 成同批次的独立气泡, 语音消息标签外没字。
-                // 先从兄弟气泡把字幕收回来当翻译 —— 确定性、零成本、跟用户看到的字幕逐字一致。
-                // (内部有结构对齐校验: 模型没守字幕格式、标签外是闲聊短句时返回空, 走下面 LLM)
+                // 字幕對齊模式下中文字幕通常被 chunk 成同批次的獨立氣泡, 語音消息標籤外沒字。
+                // 先從兄弟氣泡把字幕收回來當翻譯 —— 確定性、零成本、跟用戶看到的字幕逐字一致。
+                // (內部有結構對齊校驗: 模型沒守字幕格式、標籤外是閒聊短句時返回空, 走下面 LLM)
                 if (voiceLang && !originalText) {
                     originalText = collectVoiceBatchSubtitle(messages, msg.id);
                 }
-                // 收不到 (纯语音回合 / 字幕对不齐) 再让 LLM 把外语翻回中文, 带 ok 检查 + 重试。
+                // 收不到 (純語音回合 / 字幕對不齊) 再讓 LLM 把外語翻回中文, 帶 ok 檢查 + 重試。
                 if (voiceLang && !originalText && spokenText) {
-                    originalText = await llmTranslate('把以下内容翻译成中文。只输出翻译结果，不要任何解释。', spokenText);
+                    originalText = await llmTranslate('把以下內容翻譯成中文。只輸出翻譯結果，不要任何解釋。', spokenText);
                 }
             } else {
-                // Manual TTS (long-press): no <语音> tag.
+                // Manual TTS (long-press): no <語音> tag.
                 // Bilingual messages already contain both a target-language side (before
                 // %%BILINGUAL%%) and a Chinese side (after). When the char's voice language
                 // matches the message's target language we reuse those halves directly —
@@ -685,7 +686,7 @@ const Chat: React.FC = () => {
                 groupId: apiConfig.minimaxGroupId || undefined,
                 emotion: voiceEmotion,
             });
-            // 转文字面板只展示实际台词，不展示当前引擎的停顿 / 表演标记。
+            // 轉文字面板只展示實際台詞，不展示當前引擎的停頓 / 表演標記。
             const displaySpoken = stripTtsMarkupForDisplay(spokenText, apiConfig);
             const storedSpokenText = voiceTagContent ? displaySpoken : (voiceLang ? displaySpoken : undefined);
             const storedLang = voiceLang || undefined;
@@ -697,16 +698,16 @@ const Chat: React.FC = () => {
             }
             if (blobUrl.startsWith('blob:')) voiceBlobUrlsRef.current.add(blobUrl);
             setVoiceDataMap(prev => ({ ...prev, [msg.id]: { url: blobUrl, originalText, spokenText: storedSpokenText, lang: storedLang } }));
-            // 合成完是否立刻播（规则和来由见 shouldAutoPlayGeneratedVoice）：
-            // AI 自动发来的默认不响、等用户点；用户自己点着要的一定响。
+            // 合成完是否立刻播（規則和來由見 shouldAutoPlayGeneratedVoice）：
+            // AI 自動發來的默認不響、等用戶點；用戶自己點著要的一定響。
             if (shouldAutoPlayGeneratedVoice({ autoTriggered, autoPlayEnabled: char.chatVoiceAutoPlay })) {
                 playChatVoice(msg.id, blobUrl);
             }
             return { url: blobUrl, originalText, spokenText: storedSpokenText, lang: storedLang, blob };
         } catch (err: any) {
-            // 记一笔失败：自动那条路下次扫到就跳过（见 voiceFailedRef 的说明）。
+            // 記一筆失敗：自動那條路下次掃到就跳過（見 voiceFailedRef 的說明）。
             voiceFailedRef.current.add(msg.id);
-            addToast(`语音生成失败: ${err?.message || '未知错误'}`, 'error');
+            addToast(`語音生成失敗: ${err?.message || '未知錯誤'}`, 'error');
             return null;
         } finally {
             voiceRequestsRef.current.delete(msg.id);
@@ -714,26 +715,26 @@ const Chat: React.FC = () => {
         }
     };
 
-    // 长按语音菜单里的「下载」：移动端优先调系统分享/保存，桌面端才走浏览器下载。
+    // 長按語音菜單裡的「下載」：移動端優先調系統分享/保存，桌面端才走瀏覽器下載。
     const handleDownloadVoice = async (msg: Message) => {
         if (!msg?.id) return;
         try {
             const stored = await DB.getAssetRaw(voiceAssetKey(msg.id)) as StoredVoice | null;
             let blob: Blob | null = stored?.blob instanceof Blob ? stored.blob : null;
             if (!blob && stored?.remoteUrl) {
-                try { blob = await fetchBlobForShare(stored.remoteUrl, 'audio/mpeg'); } catch { /* 下面给出明确提示 */ }
+                try { blob = await fetchBlobForShare(stored.remoteUrl, 'audio/mpeg'); } catch { /* 下面給出明確提示 */ }
             }
-            const fname = `${(char?.name || '语音').replace(/[\\/:*?"<>|]/g, '_')}_语音_${msg.id}.mp3`;
+            const fname = `${(char?.name || '語音').replace(/[\\/:*?"<>|]/g, '_')}_語音_${msg.id}.mp3`;
             if (!blob) {
-                addToast('这条还没有可下载的语音', 'error');
+                addToast('這條還沒有可下載的語音', 'error');
                 return;
             }
-            const result = await shareOrDownloadBlob({ blob, fileName: fname, shareTitle: `${char?.name || '角色'}的语音` });
+            const result = await shareOrDownloadBlob({ blob, fileName: fname, shareTitle: `${char?.name || '角色'}的語音` });
             if (result === 'cancelled') return;
-            addToast(result === 'shared' ? '已打开系统保存/分享' : '语音已开始下载', 'success');
+            addToast(result === 'shared' ? '已打開系統保存/分享' : '語音已開始下載', 'success');
             trackEvent('下载语音条');
         } catch {
-            addToast('语音下载失败', 'error');
+            addToast('語音下載失敗', 'error');
         }
     };
 
@@ -745,7 +746,7 @@ const Chat: React.FC = () => {
                 await removeVoiceFavorite('chat', sourceKey);
                 setChatFavoriteKeys(prev => { const next = new Set(prev); next.delete(sourceKey); return next; });
                 setVoiceDataMap(prev => prev[msg.id] ? ({ ...prev, [msg.id]: { ...prev[msg.id], favorite: false } }) : prev);
-                addToast('已取消收藏语音', 'info');
+                addToast('已取消收藏語音', 'info');
                 return;
             }
             let current: GeneratedVoiceData | VoiceData | undefined = voiceDataMap[msg.id];
@@ -760,7 +761,7 @@ const Chat: React.FC = () => {
                 try { blob = await fetchBlobForShare(current.url, 'audio/mpeg'); } catch { /* handled below */ }
             }
             if (!blob) {
-                addToast('暂时拿不到这条语音的音频文件，无法收藏', 'error');
+                addToast('暫時拿不到這條語音的音頻文件，無法收藏', 'error');
                 return;
             }
             await saveVoiceFavorite({
@@ -776,65 +777,65 @@ const Chat: React.FC = () => {
             });
             setChatFavoriteKeys(prev => new Set(prev).add(sourceKey));
             setVoiceDataMap(prev => ({ ...prev, [msg.id]: { ...prev[msg.id], favorite: true } }));
-            addToast('已收藏语音，可在“收藏”里查看', 'success');
+            addToast('已收藏語音，可在“收藏”裡查看', 'success');
             trackEvent('收藏语音条');
         } catch (e) {
             console.warn('[Chat] favorite voice failed', e);
-            addToast('收藏失败，请检查浏览器存储空间', 'error');
+            addToast('收藏失敗，請檢查瀏覽器存儲空間', 'error');
         }
     };
 
-    // --- Auto-TTS: when chatVoiceEnabled, auto-generate voice when AI uses <语音> tag ---
+    // --- Auto-TTS: when chatVoiceEnabled, auto-generate voice when AI uses <語音> tag ---
     // Scans ALL recent assistant messages (not just the last one) because chunkText
-    // may split a single AI response into multiple messages, and the <语音> tag could
+    // may split a single AI response into multiple messages, and the <語音> tag could
     // end up in any chunk — not necessarily the final one.
     //
-    // 两个触发源：
-    //   · 本机生成：打字结束的那一下（wasTyping → !isTyping）。
-    //   · 即时对话：回复在云端生成、靠推送落库，本机的 isTyping 在 POST 完就灭了，永远等不到
-    //     那一下，开了自动播放的角色会一路静音。改看「正在输入」指示灯熄灭（instantChatPending
-    //     由真变假），熄灭时开一个 30 秒的扫描窗——一轮回复常被拆成好几条推送陆续到，第一条到
-    //     就熄灯，后面几条得靠窗口内每次 messages 变化补扫。只扫窗口内，冷启动和翻历史不会把
-    //     旧消息整批合成一遍。
+    // 兩個觸發源：
+    //   · 本機生成：打字結束的那一下（wasTyping → !isTyping）。
+    //   · 即時對話：回覆在雲端生成、靠推送落庫，本機的 isTyping 在 POST 完就滅了，永遠等不到
+    //     那一下，開了自動播放的角色會一路靜音。改看「正在輸入」指示燈熄滅（instantChatPending
+    //     由真變假），熄滅時開一個 30 秒的掃描窗——一輪回復常被拆成好幾條推送陸續到，第一條到
+    //     就熄燈，後面幾條得靠窗口內每次 messages 變化補掃。只掃窗口內，冷啟動和翻歷史不會把
+    //     舊消息整批合成一遍。
     useEffect(() => {
         const wasTyping = prevIsTypingRef.current;
         prevIsTypingRef.current = isTyping;
         const wasPending = prevInstantPendingRef.current;
         prevInstantPendingRef.current = instantChatPending;
-        // 换角色先把窗清零：Chat 里切角色不卸载组件，这几个 ref 会跨角色留着。甲还欠着回复时
-        // 切到乙，instantChatPending 会跟着乙的记录变假——那不是「乙的回复到了」，不能拿它开窗，
-        // 更不能拿甲的窗去扫乙的历史消息。两个触发源都要先有一次「变化前」才成立，所以这里直接
-        // 走人不会漏掉任何一次真的触发。
+        // 換角色先把窗清零：Chat 裡切角色不卸載組件，這幾個 ref 會跨角色留著。甲還欠著回覆時
+        // 切到乙，instantChatPending 會跟著乙的記錄變假——那不是「乙的回覆到了」，不能拿它開窗，
+        // 更不能拿甲的窗去掃乙的歷史消息。兩個觸發源都要先有一次「變化前」才成立，所以這裡直接
+        // 走人不會漏掉任何一次真的觸發。
         if (instantVoiceScanCharRef.current !== char?.id) {
             instantVoiceScanCharRef.current = char?.id;
             instantVoiceScanUntilRef.current = 0;
             return;
         }
-        // 覆盖范围就到这儿：销账是在页面里发生的，推送落地时人不在这个聊天页的话没有这次
-        // 真→假的转换，那条回复就保持静音（跟「不批量合成历史」是同一个取舍）。
+        // 覆蓋範圍就到這兒：銷帳是在頁面裡發生的，推送落地時人不在這個聊天頁的話沒有這次
+        // 真→假的轉換，那條回覆就保持靜音（跟「不批量合成歷史」是同一個取捨）。
         if (wasPending && !instantChatPending) {
             instantVoiceScanUntilRef.current = Date.now() + INSTANT_VOICE_SCAN_WINDOW_MS;
         }
-        // Only trigger when AI just finished typing (wasTyping → !isTyping)，或者还在即时对话的扫描窗里。
-        // 这道门也是 messages 进依赖之后本机那条路的保险：不在窗里就仍然只在打字结束那一下扫，
-        // 平时每来一条消息不会重扫。
+        // Only trigger when AI just finished typing (wasTyping → !isTyping)，或者還在即時對話的掃描窗裡。
+        // 這道門也是 messages 進依賴之後本機那條路的保險：不在窗裡就仍然只在打字結束那一下掃，
+        // 平時每來一條消息不會重掃。
         const typingJustEnded = wasTyping && !isTyping;
         const inInstantWindow = Date.now() < instantVoiceScanUntilRef.current;
         if (!typingJustEnded && !inInstantWindow) return;
         if (!char.chatVoiceEnabled) return;
-        // 关着「收到就自动播放」就别提前合成（理由见 shouldAutoGenerateVoice）：
-        // 空语音条照常出现，用户点了才合成、合成完直接播。
+        // 關著「收到就自動播放」就別提前合成（理由見 shouldAutoGenerateVoice）：
+        // 空語音條照常出現，用戶點了才合成、合成完直接播。
         if (!shouldAutoGenerateVoice({ autoPlayEnabled: char.chatVoiceAutoPlay })) return;
         if (!characterHasVoice(char, apiConfig)) return;
-        // Scan recent assistant messages for unprocessed <语音> tags
+        // Scan recent assistant messages for unprocessed <語音> tags
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             // Stop scanning once we hit a non-assistant message (end of current AI response batch)
             if (msg.role !== 'assistant') break;
             if (msg.type !== 'text') continue;
             if (voiceDataMap[msg.id] || voiceLoading.has(msg.id)) continue;
-            // 合成失败过就别再自动重试了：扫描窗里每来一条消息都重扫一遍，
-            // 同一条会一路重试到窗口关闭，还每次弹一个失败提示。用户手点不受影响。
+            // 合成失敗過就別再自動重試了：掃描窗裡每來一條消息都重掃一遍，
+            // 同一條會一路重試到窗口關閉，還每次彈一個失敗提示。用戶手點不受影響。
             if (voiceFailedRef.current.has(msg.id)) continue;
             handleManualTts(msg, true);
         }
@@ -894,12 +895,12 @@ const Chat: React.FC = () => {
                     }
                     if (!url) continue;
                     let originalText = stored.originalText || '';
-                    // 存量毒数据自愈: 07-02~07-04 的版本曾把同回合的闲聊短句当翻译存进来
-                    // (收字幕没做对齐校验)。认出来就清掉并回写, 别让错翻译一直挂在面板上。
+                    // 存量毒數據自愈: 07-02~07-04 的版本曾把同回合的閒聊短句當翻譯存進來
+                    // (收字幕沒做對齊校驗)。認出來就清掉並回寫, 別讓錯翻譯一直掛在面板上。
                     if (stored.lang && originalText && isPoisonedVoiceSubtitle(messages, m.id, originalText)) {
                         originalText = '';
                         DB.saveAssetRaw(voiceAssetKey(m.id), { ...stored, originalText: '' })
-                            .catch(() => { /* 回写失败下次进聊天再试 */ });
+                            .catch(() => { /* 回寫失敗下次進聊天再試 */ });
                     }
                     let favorited = favoriteKeys.has(chatFavoriteSourceKey(m));
                     // One-time migration for the short-lived per-message favorite shape.
@@ -964,7 +965,7 @@ const Chat: React.FC = () => {
         voiceMountedRef.current = true;
         // Reset the "active TTS not configured" warning so each character gets one reminder.
         ttsWarnedRef.current = false;
-        // 自动合成的失败记录也跟着换角色清空：这一位的失败不该拦着下一位。
+        // 自動合成的失敗記錄也跟著換角色清空：這一位的失敗不該攔著下一位。
         voiceFailedRef.current.clear();
         const urls = voiceBlobUrlsRef.current;
         return () => {
@@ -982,20 +983,20 @@ const Chat: React.FC = () => {
         if (!activeCharacterId) return;
 
         const charIdAtStart = activeCharacterId;
-        // 倒序游标先过滤展示范围再取最近 N 条。缓冲只用于判断是否还有历史，
-        // 不能靠固定缓冲抵消见面/通话记录：它们可能连续几百条，挤掉真正的私聊。
+        // 倒序游標先過濾展示範圍再取最近 N 條。緩衝只用於判斷是否還有歷史，
+        // 不能靠固定緩衝抵消見面/通話記錄：它們可能連續幾百條，擠掉真正的私聊。
         const fetchLimit = requestedVisibleCount >= 100000 ? requestedVisibleCount : requestedVisibleCount + 16;
         const accept = (message: Message) => isVisibleChatMessage(message, !!charRef.current?.hideSystemLogs);
         const applyResult = (recent: Message[], totalCount: number) => {
-            // 用 ref 取当前 char（避免闭包过期）
+            // 用 ref 取當前 char（避免閉包過期）
             const currentChar = charRef.current;
-            // 不在视觉层过滤 hideBeforeMessageId —— 用户能往上滚回看，
-            // 上下文截断仅作用于发给 LLM 的 prompt（在 chatPrompts.ts 里处理）。
+            // 不在視覺層過濾 hideBeforeMessageId —— 用戶能往上滾回看，
+            // 上下文截斷僅作用於發給 LLM 的 prompt（在 chatPrompts.ts 裡處理）。
             const chatScopeMsgs = recent.filter(m => isVisibleChatMessage(m, !!currentChar?.hideSystemLogs));
-            // totalCount 走 charId 索引全量计数，包含群聊消息（以及上面被过滤的约会/通话
-            // 消息）——它们永远不会出现在单聊列表里。直接拿它算「加载历史消息」会出现
-            // 有计数、点击却加载不出任何东西的幽灵按钮。倒序游标没取满 fetchLimit 条
-            // 即说明该角色的单聊消息已全部在手，此时把总数钳到实际可展示的条数。
+            // totalCount 走 charId 索引全量計數，包含群聊消息（以及上面被過濾的約會/通話
+            // 消息）——它們永遠不會出現在單聊列表裡。直接拿它算「加載歷史消息」會出現
+            // 有計數、點擊卻加載不出任何東西的幽靈按鈕。倒序游標沒取滿 fetchLimit 條
+            // 即說明該角色的單聊消息已全部在手，此時把總數鉗到實際可展示的條數。
             const exhausted = recent.length < fetchLimit;
             setTotalMsgCount(exhausted ? chatScopeMsgs.length : totalCount);
             setMessages(chatScopeMsgs.slice(-requestedVisibleCount));
@@ -1089,8 +1090,8 @@ const Chat: React.FC = () => {
         }
     }, [activeCharacterId, reloadMessages]);
 
-    // 进入/切换角色时触发「登场」过场。useLayoutEffect 在浏览器绘制前置真，
-    // 让过场层先盖住，避免一帧闪到新角色的空聊天界面。
+    // 進入/切換角色時觸發「登場」過場。useLayoutEffect 在瀏覽器繪製前置真，
+    // 讓過場層先蓋住，避免一幀閃到新角色的空聊天界面。
     useLayoutEffect(() => {
         if (!activeCharacterId || osTheme.chatCharacterSwitchAnimationEnabled === false) {
             setShowEntry(false);
@@ -1113,7 +1114,7 @@ const Chat: React.FC = () => {
     useEffect(() => setScheduleChangeNotice(null), [activeCharacterId]);
 
     // Auto-generate daily schedule (fire-and-forget on chat load)
-    // 总开关关闭时完全跳过：不查询 DB、不调用副 API、不跑兜底
+    // 總開關關閉時完全跳過：不查詢 DB、不調用副 API、不跑兜底
     useEffect(() => {
         if (!char || !apiConfig.apiKey) return;
         if (!isScheduleFeatureOn(char)) {
@@ -1130,22 +1131,22 @@ const Chat: React.FC = () => {
         }).catch(() => {});
     }, [activeCharacterId, char?.scheduleFeatureEnabled, char?.customTimezoneEnabled, char?.customTimezone, charDateKey]);
 
-    // 心声/好感度里设了「每隔 N 小时」节奏的条目，进聊天时顺手检查一遍是否到期——
-    // 跟日程同一个触发时机；到期的在后台重新生成，不阻塞聊天。turns 节奏另外在每轮发消息时推进
-    // （见 useChatAI 里 checkCustomMeterAutoUpdate 的调用点），这里不传 tickTurns。
+    // 心聲/好感度裡設了「每隔 N 小時」節奏的條目，進聊天時順手檢查一遍是否到期——
+    // 跟日程同一個觸發時機；到期的在後台重新生成，不阻塞聊天。turns 節奏另外在每輪發消息時推進
+    // （見 useChatAI 裡 checkCustomMeterAutoUpdate 的調用點），這裡不傳 tickTurns。
     useEffect(() => {
         if (!char || !apiConfig.apiKey) return;
         const meterApi = resolveCharacterMeterApi(char, apiConfig);
         checkCustomMeterAutoUpdate('text', char, chatUserProfile, meterApi, char.innerVoices || [])
             .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
-            .catch(e => console.warn('[CustomMeter] 心声按小时自动更新失败:', e));
+            .catch(e => console.warn('[CustomMeter] 心聲按小時自動更新失敗:', e));
         checkCustomMeterAutoUpdate('number', char, chatUserProfile, meterApi, char.affinities || [])
             .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
-            .catch(e => console.warn('[CustomMeter] 好感度按小时自动更新失败:', e));
+            .catch(e => console.warn('[CustomMeter] 好感度按小時自動更新失敗:', e));
     }, [activeCharacterId]);
 
-    // 每次真正打开聊天设置时从角色持久化值重新初始化；避免用户在记忆宫殿页
-    // 切换全自动模式后，隐藏着的 Chat 组件仍带着旧拉杆状态。
+    // 每次真正打開聊天設置時從角色持久化值重新初始化；避免用戶在記憶宮殿頁
+    // 切換全自動模式後，隱藏著的 Chat 組件仍帶著舊拉桿狀態。
     useEffect(() => {
         if (modalType !== 'chat-settings' || !char) return;
         setSettingsContextLimit(char.contextLimit || 500);
@@ -1159,8 +1160,8 @@ const Chat: React.FC = () => {
     useEffect(() => {
         if (modalType === 'history-manager' && activeCharacterId) {
             DB.getMessagesByCharId(activeCharacterId, true).then(allMsgs => {
-                // 范围管理必须使用 AI 可能读取的完整私聊序列，不能先按聊天界面显示偏好
-                // 隐掉系统/约会/通话消息，否则「最近 N 条」起点会与真实 prompt 发生偏移。
+                // 範圍管理必須使用 AI 可能讀取的完整私聊序列，不能先按聊天界面顯示偏好
+                // 隱掉系統/約會/通話消息，否則「最近 N 條」起點會與真實 prompt 發生偏移。
                 setAllHistoryMessages(allMsgs);
             });
         }
@@ -1187,15 +1188,15 @@ const Chat: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clearUnread is stable (useCallback with []), omit to prevent stale-dep lint noise
     }, [lastMsgTimestamp, activeCharacterId, char?.hideSystemLogs, reloadMessages, clearUnread]);
 
-    // 即时对话待收记录的跨标签页补听。同一聊天开两个标签页时，回复推送到达后 SW 把
-    // 广播发给所有 client，后台标签页的 flush 可能先抢到并落库——销账的 CustomEvent
-    // 只在它自己那边派发，这边收不到，「正在输入…」就会无限常亮、回复也不上屏。
-    // 待收记录本来就落在 localStorage，而 storage 事件恰好只在「其他」标签页触发，
-    // 正好补上这条缝：这个 key 一变，就照上面 CustomEvent 那套处理走——刷新指示灯，
-    // 并重载消息把对方标签页落的库带上屏。同标签页内的 CustomEvent 机制保持不动。
+    // 即時對話待收記錄的跨標籤頁補聽。同一聊天開兩個標籤頁時，回覆推送到達後 SW 把
+    // 廣播發給所有 client，後台標籤頁的 flush 可能先搶到並落庫——銷帳的 CustomEvent
+    // 只在它自己那邊派發，這邊收不到，「正在輸入…」就會無限常亮、回覆也不上屏。
+    // 待收記錄本來就落在 localStorage，而 storage 事件恰好只在「其他」標籤頁觸發，
+    // 正好補上這條縫：這個 key 一變，就照上面 CustomEvent 那套處理走——刷新指示燈，
+    // 並重載消息把對方標籤頁落的庫帶上屏。同標籤頁內的 CustomEvent 機制保持不動。
     useEffect(() => {
         const onStorage = (e: StorageEvent) => {
-            // 严格按 key 过滤，别的 localStorage 变动（草稿、翻译开关等）一概不理。
+            // 嚴格按 key 過濾，別的 localStorage 變動（草稿、翻譯開關等）一概不理。
             if (e.key !== AMSG_INSTANT_CHAT_PENDING_LS_KEY) return;
             const charId = activeCharIdRef.current;
             setInstantChatPending(!!charId && !!getInstantChatPending(charId));
@@ -1209,12 +1210,12 @@ const Chat: React.FC = () => {
         visibleCountRef.current = visibleCount;
     }, [visibleCount]);
 
-    // （旧的"首次自动归档 banner"已移除，自动归档改为用户在神经链接里显式 opt-in）
+    // （舊的"首次自動歸檔 banner"已移除，自動歸檔改為用戶在神經鏈接裡顯式 opt-in）
 
-    // buff 同步已上移到 OSContext 的 App 级 'emotion-updated' 监听 (无条件按事件 charId 更新内存,
-    // 不再受"当前是否开着该角色聊天页"限制). 之前这里有个 `charId === activeCharacterId` 守卫的
-    // handler, 导致云端回复时用户不在该角色页的话 buff 回不到前端 (只落 DB), 故移除, 同时
-    // 避免和 OSContext 双写.
+    // buff 同步已上移到 OSContext 的 App 級 'emotion-updated' 監聽 (無條件按事件 charId 更新內存,
+    // 不再受"當前是否開著該角色聊天頁"限制). 之前這裡有個 `charId === activeCharacterId` 守衛的
+    // handler, 導致雲端回覆時用戶不在該角色頁的話 buff 回不到前端 (只落 DB), 故移除, 同時
+    // 避免和 OSContext 雙寫.
 
     const handleInputChange = (val: string) => {
         setInput(val);
@@ -1227,7 +1228,7 @@ const Chat: React.FC = () => {
         const currentLastId = messages.length > 0 ? messages[messages.length - 1].id : null;
         // Only auto-scroll when a new message is appended (ID changes),
         // not when loading older history or updating existing messages in-place.
-        // windowed 模式下用户在翻旧消息，不要被新消息打断滚走。
+        // windowed 模式下用戶在翻舊消息，不要被新消息打斷滾走。
         if (currentLastId !== lastMsgIdRef.current) {
             if (windowedFocusMsgId === null) {
                 pendingMediaAutoScrollIdRef.current = currentLastId;
@@ -1254,8 +1255,8 @@ const Chat: React.FC = () => {
 
         historyWindowLoadingRef.current = true;
         if (direction === 'older') {
-            // 前插消息会把当前内容整体向下顶；记录原高度，提交 DOM 后补偿差值，
-            // 用户看到的位置就不会突然跳走。
+            // 前插消息會把當前內容整體向下頂；記錄原高度，提交 DOM 後補償差值，
+            // 用戶看到的位置就不會突然跳走。
             historyPrependAnchorRef.current = {
                 scrollHeight: scroller.scrollHeight,
                 scrollTop: scroller.scrollTop,
@@ -1308,13 +1309,13 @@ const Chat: React.FC = () => {
         }
     }, [messages, isTyping, streamingBubbles, streamingThinking, recallStatus, searchStatus, diaryStatus, selectionMode, windowedFocusMsgId]);
 
-    // 白框提示音：当 char 新发的消息成为会话最后一条时播放一次（用户自己/历史/翻旧消息都不响）。
-    // 声音配置编码在白框 CSS 注释里（角色 chromeCustomCss 覆盖全局 chatChromeCustomCss），随白框分享一起走。
+    // 白框提示音：當 char 新發的消息成為會話最後一條時播放一次（用戶自己/歷史/翻舊消息都不響）。
+    // 聲音配置編碼在白框 CSS 註釋裡（角色 chromeCustomCss 覆蓋全局 chatChromeCustomCss），隨白框分享一起走。
     useEffect(() => {
         const sync = soundSyncRef.current;
         const last = messages.length > 0 ? messages[messages.length - 1] : null;
         const lastId = last ? last.id : null;
-        // 切角色 / 首次进入：只记录基线，不播（避免一打开聊天就响）；回合计时清零。
+        // 切角色 / 首次進入：只記錄基線，不播（避免一打開聊天就響）；回合計時清零。
         if (sync.charId !== activeCharacterId) {
             sync.charId = activeCharacterId ?? null;
             sync.maxId = lastId;
@@ -1324,10 +1325,10 @@ const Chat: React.FC = () => {
         if (lastId == null) return;
         const isNew = sync.maxId == null || lastId > sync.maxId;
         if (isNew) {
-            // 仅"char 发送的、落到底部的最新一条"才触发：assistant 且非见面/通话等旁路消息。
+            // 僅"char 發送的、落到底部的最新一條"才觸發：assistant 且非見面/通話等旁路消息。
             const src = last?.metadata?.source;
             if (last?.role === 'assistant' && src !== 'date' && src !== 'call') {
-                // 回合首条即响：距上一条气泡 >3s 视为新回合，立刻响一次；同一轮后续气泡只刷新计时、不再响。
+                // 回合首條即響：距上一條氣泡 >3s 視為新回合，立刻響一次；同一輪後續氣泡只刷新計時、不再響。
                 const now = Date.now();
                 if (sync.lastAt == null || now - sync.lastAt > SOUND_ROUND_GAP_MS) {
                     playWhiteboxSound(resolveActiveSound(char?.chromeCustomCss, char?.chatSound, osTheme.chatChromeCustomCss, osTheme.chatSound));
@@ -1335,7 +1336,7 @@ const Chat: React.FC = () => {
                 sync.lastAt = now;
             }
         }
-        // 基线只增不减：翻旧历史让末尾 ID 变小时不下调，返回底部也不会重复触发。
+        // 基線只增不減：翻舊歷史讓末尾 ID 變小時不下調，返回底部也不會重複觸發。
         sync.maxId = sync.maxId == null ? lastId : Math.max(sync.maxId, lastId);
     }, [messages, activeCharacterId, osTheme.chatChromeCustomCss, osTheme.chatSound, char?.chromeCustomCss, char?.chatSound]);
 
@@ -1347,15 +1348,15 @@ const Chat: React.FC = () => {
 
     const sendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         if (!char || (!input.trim() && !customContent)) return;
-        // 只累加内存里的计数，这里不发任何请求；页面切走时才按区间报一次。见 utils/analytics.ts
+        // 只累加內存裡的計數，這裡不發任何請求；頁面切走時才按區間報一次。見 utils/analytics.ts
         noteMessageSent();
-        // 借用户"发送"这个手势解锁音频上下文，好让稍后 AI 回复时的白框提示音能顺利播放（移动端自动播放策略）。
+        // 借用戶"發送"這個手勢解鎖音頻上下文，好讓稍後 AI 回覆時的白框提示音能順利播放（移動端自動播放策略）。
         unlockWhiteboxAudio();
         if (char.chatVoiceEnabled && char.chatVoiceAutoPlay && isTtsReady()) primeVoiceAudio(prepareChatAudio());
         const text = customContent || input.trim();
         const type = customType || 'text';
 
-        // 发消息隐含"回到当前聊天"——退出 windowed 旧消息浏览模式
+        // 發消息隱含"回到當前聊天"——退出 windowed 舊消息瀏覽模式
         if (windowedFocusMsgId !== null) {
             setWindowedFocusMsgId(null);
             setHistoryWindowRange(null);
@@ -1367,12 +1368,12 @@ const Chat: React.FC = () => {
             setFlashMsgId(null);
         }
 
-        // 用户手打"麦请求"三个字 → 等价于点击麦克风按钮 (拉起麦当劳菜单)
-        // 不落库, 跟按钮点击行为完全一致, 避免出现"banner 在但菜单没拉起"的诡异状态
-        if (!customContent && type === 'text' && text === MCD_ACTIVATE_TRIGGER) {
+        // 用戶手打"麥請求"三個字 → 等價於點擊麥克風按鈕 (拉起麥當勞菜單)
+        // 不落庫, 跟按鈕點擊行為完全一致, 避免出現"banner 在但菜單沒拉起"的詭異狀態
+        if (!customContent && type === 'text' && equalsAnyScript(text, MCD_ACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             if (!isMcdConfigured()) {
-                addToast('请先到设置 → 麦当劳 启用并填入 MCP Token', 'info');
+                addToast('請先到設置 → 麥當勞 啟用並填入 MCP Token', 'info');
                 return;
             }
             setMcdAppOpen(true);
@@ -1381,13 +1382,13 @@ const Chat: React.FC = () => {
             return;
         }
 
-        // 用户手打"瑞一杯" → 激活角色瑞幸点单模式 (注入提示词+工具+定位, 角色自己点)
-        if (!customContent && type === 'text' && text === LUCKIN_ACTIVATE_TRIGGER) {
+        // 用戶手打"瑞一杯" → 激活角色瑞幸點單模式 (注入提示詞+工具+定位, 角色自己點)
+        if (!customContent && type === 'text' && equalsAnyScript(text, LUCKIN_ACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             activateLuckin();
             return;
         }
-        if (!customContent && type === 'text' && text === LUCKIN_DEACTIVATE_TRIGGER) {
+        if (!customContent && type === 'text' && equalsAnyScript(text, LUCKIN_DEACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             deactivateLuckin();
             return;
@@ -1395,12 +1396,12 @@ const Chat: React.FC = () => {
 
         if (!customContent) { setInput(''); localStorage.removeItem(draftKey); }
         
-        // 图片 / 表情消息存的是短令牌，图片二进制单独躺在 blob_assets 里，省掉 base64 那 ~33%
-        // 的膨胀。同一张图之前存过就直接复用它的令牌；转不动时原样还回这条 data URL，图不会丢。
-        // http 外链（网络表情）和已经是令牌的值都原样通过。
-        // 注意：这条消息和下面存进相册的那条共用同一个令牌（按内容哈希认人，只存一份 Blob），
-        // 所以删消息时绝不能顺手删 Blob——那会把相册里的同一张图一起删破。失去引用的 Blob
-        // 交给孤儿 GC 收（见 utils/blobGc.ts）。
+        // 圖片 / 表情消息存的是短令牌，圖片二進制單獨躺在 blob_assets 裡，省掉 base64 那 ~33%
+        // 的膨脹。同一張圖之前存過就直接複用它的令牌；轉不動時原樣還回這條 data URL，圖不會丟。
+        // http 外鏈（網絡表情）和已經是令牌的值都原樣通過。
+        // 注意：這條消息和下面存進相冊的那條共用同一個令牌（按內容哈希認人，只存一份 Blob），
+        // 所以刪消息時絕不能順手刪 Blob——那會把相冊裡的同一張圖一起刪破。失去引用的 Blob
+        // 交給孤兒 GC 收（見 utils/blobGc.ts）。
         const storedContent = (type === 'image' || type === 'emoji') && text.startsWith('data:')
             ? await migrateDataUrlToRef(text)
             : text;
@@ -1420,8 +1421,8 @@ const Chat: React.FC = () => {
         
         if (replyTarget) {
             msgPayload.replyTo = {
-                // 引用图片 / 表情时快照存 '[图片]' 之类的占位符，不把令牌原样带进这条消息
-                // （跟角色侧的引用快照同一个函数，口径一致）
+                // 引用圖片 / 表情時快照存 '[圖片]' 之類的佔位符，不把令牌原樣帶進這條消息
+                // （跟角色側的引用快照同一個函數，口徑一致）
                 id: replyTarget.id,
                 content: buildReplySnapshotContent(replyTarget),
                 name: replyTarget.role === 'user' ? '我' : char.name
@@ -1432,8 +1433,8 @@ const Chat: React.FC = () => {
         const savedUserMsgId = await DB.saveMessage(msgPayload);
 
         if (type === 'image') {
-            // 相册是消息的附带记录：保留来源消息引用供收藏/去重使用，但相册写入失败
-            // 不能阻断已经落库的聊天消息。
+            // 相冊是消息的附帶記錄：保留來源消息引用供收藏/去重使用，但相冊寫入失敗
+            // 不能阻斷已經落庫的聊天消息。
             try {
                 await DB.saveGalleryImage({
                     id: `img-${Date.now()}-${Math.random()}`,
@@ -1444,74 +1445,74 @@ const Chat: React.FC = () => {
                     savedDate: localDateKey,
                     chatContext: imageChatContext || undefined,
                 });
-                addToast('图片已保存至相册', 'info');
+                addToast('圖片已保存至相冊', 'info');
             } catch (err) {
-                console.warn('[Chat] 图片存相册失败，消息照常发送', err);
-                addToast('图片没能存进相册，消息照常发送', 'error');
+                console.warn('[Chat] 圖片存相冊失敗，消息照常發送', err);
+                addToast('圖片沒能存進相冊，消息照常發送', 'error');
             }
         }
 
-        // 小红书链接 → xhs_card。主路径不依赖任何后端：小红书分享文案自带标题（【标题】）
-        // 和笔记 id/token，直接解析就能建卡，让「没部署小红书 MCP」的用户也能让角色看到分享了哪篇笔记。
-        // 配了 MCP 的话再抓详情补正文/封面/作者（锦上添花，抓失败也不影响基础卡）。
+        // 小紅書鏈接 → xhs_card。主路徑不依賴任何後端：小紅書分享文案自帶標題（【標題】）
+        // 和筆記 id/token，直接解析就能建卡，讓「沒部署小紅書 MCP」的用戶也能讓角色看到分享了哪篇筆記。
+        // 配了 MCP 的話再抓詳情補正文/封面/作者（錦上添花，抓失敗也不影響基礎卡）。
         if (type === 'text') {
             let xhsCardCreated = false;
             let webpageCardCreated = false;
             const xhsFullNote = extractXhsNoteLink(text);
             const xhsFullNoteId = xhsFullNote?.noteId;
-            // 同时识别桌面/旧版 xhslink.com 与手机版新版 xhslink.cn。
+            // 同時識別桌面/舊版 xhslink.com 與手機版新版 xhslink.cn。
             const xhsShortUrl = detectXhsShortUrl(text);
             if (xhsFullNoteId || xhsShortUrl) {
                 let noteId = xhsFullNoteId || '';
                 let xsecToken = xhsFullNote?.xsecToken;
                 let shortLinkError = '';
-                // 短链（xhslink.com / xhslink.cn）不含 id/token —— 先经 sfworker 展开成真实链接再提取。
+                // 短鏈（xhslink.com / xhslink.cn）不含 id/token —— 先經 sfworker 展開成真實鏈接再提取。
                 if (!noteId && xhsShortUrl) {
                     try {
                         const finalUrl = await expandShortUrl(xhsShortUrl);
                         const expandedNote = extractXhsNoteLink(finalUrl);
                         noteId = expandedNote?.noteId || '';
                         xsecToken = expandedNote?.xsecToken;
-                        if (!noteId) shortLinkError = '短链返回的页面中未找到笔记地址';
-                        if (isDevDebugAvailable()) console.log('[卡片调试] 小红书短链展开 →', finalUrl, '| noteId =', noteId);
+                        if (!noteId) shortLinkError = '短鏈返回的頁面中未找到筆記地址';
+                        if (isDevDebugAvailable()) console.log('[卡片調試] 小紅書短鏈展開 →', finalUrl, '| noteId =', noteId);
                     } catch (e) {
-                        console.warn('xhslink 短链展开失败:', e);
-                        shortLinkError = e instanceof Error ? e.message : '短链展开失败';
+                        console.warn('xhslink 短鏈展開失敗:', e);
+                        shortLinkError = e instanceof Error ? e.message : '短鏈展開失敗';
                     }
                 }
-                // 兼容旧版「【标题 | 小红书】」和新版「标题 ... 短链 打开【小红书】」。
-                // 不能直接取第一个【】块：新版唯一的括号内容是应用名，会把卡片标题错误写成“小红书”。
+                // 兼容舊版「【標題 | 小紅書】」和新版「標題 ... 短鏈 打開【小紅書】」。
+                // 不能直接取第一個【】塊：新版唯一的括號內容是應用名，會把卡片標題錯誤寫成“小紅書”。
                 const titleFromText = extractXhsShareTitle(text);
 
-                // 拿不到 noteId（短链展开失败/被挡）就不建空卡，保留原文给用户，并明确
-                // 告诉用户如何排查。此前这里完全静默，表现就是“角色能分享、用户分享不了”。
+                // 拿不到 noteId（短鏈展開失敗/被擋）就不建空卡，保留原文給用戶，並明確
+                // 告訴用戶如何排查。此前這裡完全靜默，表現就是“角色能分享、用戶分享不了”。
                 if (noteId) {
-                    // 基础卡数据来自分享文案，零后端依赖。
+                    // 基礎卡數據來自分享文案，零後端依賴。
                     let note: any = {
                         noteId, title: titleFromText || '', desc: '', author: '',
                         authorId: '', likes: 0, xsecToken,
                     };
 
-                    // 有小红书 MCP/Lite 才抓详情补全（正文/封面/作者/赞数）。
+                    // 有小紅書 MCP/Lite 才抓詳情補全（正文/封面/作者/贊數）。
                     const mcpUrl = realtimeConfig?.xhsMcpConfig?.serverUrl;
                     if (mcpUrl && realtimeConfig?.xhsMcpConfig?.enabled) {
                         try {
                             const noteUrl = `https://www.xiaohongshu.com/explore/${noteId}${xsecToken ? `?xsec_token=${encodeURIComponent(xsecToken)}&xsec_source=pc_share` : ''}`;
-                            // loadAllComments：和角色自己浏览笔记 (XHS_DETAIL) 一致地把评论区也抓回来，
-                            // 否则 user 分享的笔记只有标题/正文，角色读不到评论（char 分享给 user 的却能看到）。
+                            // loadAllComments：和角色自己瀏覽筆記 (XHS_DETAIL) 一致地把評論區也抓回來，
+                            // 否則 user 分享的筆記只有標題/正文，角色讀不到評論（char 分享給 user 的卻能看到）。
                             const result = await XhsMcpClient.getNoteDetail(mcpUrl, noteUrl, xsecToken, { loadAllComments: true });
-                            if (isDevDebugAvailable()) console.log('[卡片调试] 小红书抓取 result =', result);
+                            if (isDevDebugAvailable()) console.log('[卡片調試] 小紅書抓取 result =', result);
                             if (result.success && result.data) {
                                 const fetched = normalizeXhsLiteDetail(result.data);
-                                // 抓到的字段补全基础卡；id/标题/token 保底，标题优先文案标题（更完整可读）。
+                                // 抓到的字段補全基礎卡；id/標題/token 保底，標題優先文案標題（更完整可讀）。
                                 note = { ...note, ...fetched, noteId: fetched.noteId || note.noteId, title: titleFromText || fetched.title || note.title, xsecToken: fetched.xsecToken || xsecToken };
                             } else if (!result.success) {
-                                // 基础卡仍然可以发送，只提示详情读取失败，避免误以为整次分享失败。
-                                addToast(`小红书正文读取失败，已发送基础卡片。请尝试开启/关闭科学上网、切换 Wi‑Fi/流量，或检查 Lite 配置。${result.error ? `（${result.error}）` : ''}`, 'info');
+                                // 基礎卡仍然可以發送，只提示詳情讀取失敗，避免誤以為整次分享失敗。
+                                addToast(`小紅書正文讀取失敗，已發送基礎卡片。請嘗試開啟/關閉科學上網、切換 Wi‑Fi/流量，或檢查 Lite 配置。${result.error ? `（${result.error}）` : ''}`, 'info');
                             }
                         } catch (e) {
                             console.warn('XHS link fetch via MCP failed (已用文案兜底):', e);
-                            addToast('小红书正文读取失败，已发送基础卡片。请尝试开启/关闭科学上网、切换 Wi‑Fi/流量，或检查 Lite 配置。', 'info');
+                            addToast('小紅書正文讀取失敗，已發送基礎卡片。請嘗試開啟/關閉科學上網、切換 Wi‑Fi/流量，或檢查 Lite 配置。', 'info');
                         }
                     }
 
@@ -1519,33 +1520,33 @@ const Chat: React.FC = () => {
                         charId: char.id,
                         role: 'user',
                         type: 'xhs_card',
-                        content: note.title || '小红书笔记',
+                        content: note.title || '小紅書筆記',
                         metadata: { xhsNote: note }
                     });
-                    // F12 调试（仅开发分支）：打印卡片存了啥 + 角色实际会读到的文本。
+                    // F12 調試（僅開發分支）：打印卡片存了啥 + 角色實際會讀到的文本。
                     if (isDevDebugAvailable()) {
-                        console.log('[卡片调试] 小红书卡片·metadata =', note);
-                        console.log('[卡片调试] 小红书卡片·角色将读到 =\n' + normalizeMessageContent(
-                            { type: 'xhs_card', role: 'user', content: note.title || '小红书笔记', metadata: { xhsNote: note } } as any,
+                        console.log('[卡片調試] 小紅書卡片·metadata =', note);
+                        console.log('[卡片調試] 小紅書卡片·角色將讀到 =\n' + normalizeMessageContent(
+                            { type: 'xhs_card', role: 'user', content: note.title || '小紅書筆記', metadata: { xhsNote: note } } as any,
                             char.name, chatUserProfile.name,
                         ));
                     }
                     xhsCardCreated = true;
                 } else {
-                    addToast(`小红书链接解析失败，原消息已保留。通常是网络或代理导致短链无法展开：请尝试开启/关闭科学上网、切换 Wi‑Fi/流量，并检查网络代理与小红书 Lite 配置。${shortLinkError ? `（${shortLinkError}）` : ''}`, 'error');
+                    addToast(`小紅書鏈接解析失敗，原消息已保留。通常是網絡或代理導致短鏈無法展開：請嘗試開啟/關閉科學上網、切換 Wi‑Fi/流量，並檢查網絡代理與小紅書 Lite 配置。${shortLinkError ? `（${shortLinkError}）` : ''}`, 'error');
                 }
             }
 
-            // 通用网页分享：检测到普通 http(s) 链接 → 抓取正文存成 webpage_card，
-            // 让角色"看见"网页内容。跳过 XHS 链接（上面已有专门的 MCP 卡片路径）。
-            // 视频平台链接（抖音/B站/快手…）Jina 基本抓不到东西（SPA+登录墙），
-            // 优先走 apizero 视频解析拿标题/作者/封面/热度；失败降级回通用网页抓取。
+            // 通用網頁分享：檢測到普通 http(s) 鏈接 → 抓取正文存成 webpage_card，
+            // 讓角色"看見"網頁內容。跳過 XHS 鏈接（上面已有專門的 MCP 卡片路徑）。
+            // 視頻平台鏈接（抖音/B站/快手…）Jina 基本抓不到東西（SPA+登錄牆），
+            // 優先走 apizero 視頻解析拿標題/作者/封面/熱度；失敗降級回通用網頁抓取。
             const sharedUrl = detectFirstUrl(text);
             if (sharedUrl && !isXhsUrl(sharedUrl) && !(xhsFullNoteId || xhsShortUrl)) {
                 let webpage: ExtractedWebpage | null = null;
                 if (isVideoShareUrl(sharedUrl)) {
                     try {
-                        addToast('正在解析视频链接…', 'info');
+                        addToast('正在解析視頻鏈接…', 'info');
                         webpage = await parseVideoShareUrl(sharedUrl);
                     } catch (e) {
                         console.warn('Video parse failed, fallback to webpage fetch:', e);
@@ -1553,11 +1554,11 @@ const Chat: React.FC = () => {
                 }
                 if (!webpage) {
                     try {
-                        addToast('正在读取网页内容…', 'info');
+                        addToast('正在讀取網頁內容…', 'info');
                         webpage = await extractWebpageContent(sharedUrl);
                     } catch (e: any) {
                         console.warn('Webpage fetch failed:', e);
-                        addToast(`网页抓取失败：${e?.message || '可能被这个站点拦截了，换个链接或稍后再试。'}`, 'error');
+                        addToast(`網頁抓取失敗：${e?.message || '可能被這個站點攔截了，換個鏈接或稍後再試。'}`, 'error');
                     }
                 }
                 if (webpage) {
@@ -1568,10 +1569,10 @@ const Chat: React.FC = () => {
                         content: webpage.title,
                         metadata: { webpage },
                     });
-                    // F12 调试（仅开发分支）：打印卡片存了啥 + 角色实际会读到的文本。
+                    // F12 調試（僅開發分支）：打印卡片存了啥 + 角色實際會讀到的文本。
                     if (isDevDebugAvailable()) {
-                        console.log('[卡片调试] 网页卡片·metadata =', webpage);
-                        console.log('[卡片调试] 网页卡片·角色将读到 =\n' + normalizeMessageContent(
+                        console.log('[卡片調試] 網頁卡片·metadata =', webpage);
+                        console.log('[卡片調試] 網頁卡片·角色將讀到 =\n' + normalizeMessageContent(
                             { type: 'webpage_card', role: 'user', content: webpage.title, metadata: { webpage } } as any,
                             char.name, chatUserProfile.name,
                         ));
@@ -1580,14 +1581,14 @@ const Chat: React.FC = () => {
                 }
             }
 
-            // 一段话里出现链接 = 整条就是分享（符合用户习惯）→ 建卡成功就删原文，只留卡片。
+            // 一段話裡出現鏈接 = 整條就是分享（符合用戶習慣）→ 建卡成功就刪原文，只留卡片。
             if ((xhsCardCreated || webpageCardCreated) && savedUserMsgId) {
                 await DB.deleteMessage(savedUserMsgId);
             }
         }
 
         await reloadMessages(visibleCountRef.current);
-        // 自动回复模式下允许连续挑表情，用户主动收起加号等面板后才计时。
+        // 自動回覆模式下允許連續挑表情，用戶主動收起加號等面板後才計時。
         if (!inputPreferences.autoReply) setShowPanel('none');
 
         return true;
@@ -1604,11 +1605,11 @@ const Chat: React.FC = () => {
         }
     };
 
-    // 用户点开「收到的转账」卡（角色发来、待处理）选择接收 / 退回：
-    // 标记原转账状态 + 补一张回执小卡（role=user，角色侧 prompt 会看到 [[记录:TRANSFER|to=user|...|status=已收下/已退回]]）。
+    // 用戶點開「收到的轉帳」卡（角色發來、待處理）選擇接收 / 退回：
+    // 標記原轉帳狀態 + 補一張回執小卡（role=user，角色側 prompt 會看到 [[記錄:TRANSFER|to=user|...|status=已收下/已退回]]）。
     const handleResolveTransfer = useCallback(async (msg: Message, action: 'accepted' | 'returned') => {
         if (!char) return;
-        // 只处理仍待处理的转账，避免重复点击造成多张回执。
+        // 只處理仍待處理的轉帳，避免重複點擊造成多張回執。
         if (msg.metadata?.receipt) return;
         if (msg.metadata?.status && msg.metadata.status !== 'pending') return;
         await DB.updateMessageMetadata(msg.id, (prev) => ({ ...(prev || {}), status: action, resolvedAt: Date.now() }));
@@ -1619,20 +1620,20 @@ const Chat: React.FC = () => {
             content: action === 'accepted' ? '[已收款]' : '[已退回]',
             metadata: { receipt: action, amount: msg.metadata?.amount, ref: msg.id },
         });
-        // 角色发起转账走「发送即结清」：钱在角色说出口那一刻就已经从角色 Real Balance 扣走了
-        // （chatParser.ts 的 onCharTransferSend）。收下才真的到用户账户；退回等于这笔钱从没
-        // 到手，得还回角色账户——不是不动余额，是把它退回发起方，跟用户侧转账被角色退回时
-        // 退回用户账户（onUserTransferReturned）对称。
+        // 角色發起轉帳走「發送即結清」：錢在角色說出口那一刻就已經從角色 Real Balance 扣走了
+        // （chatParser.ts 的 onCharTransferSend）。收下才真的到用戶帳戶；退回等於這筆錢從沒
+        // 到手，得還回角色帳戶——不是不動餘額，是把它退回發起方，跟用戶側轉帳被角色退回時
+        // 退回用戶帳戶（onUserTransferReturned）對稱。
         const amount = Number(msg.metadata?.amount);
         if (Number.isFinite(amount) && amount > 0) {
             if (action === 'accepted') {
                 updateUserProfile(prev => {
-                    const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `收到 ${char.name} 的转账`);
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `收到 ${char.name} 的轉帳`);
                     return result.ok ? { realBalance: result.state } : {};
                 });
             } else {
                 updateCharacter(char.id, previous => {
-                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `${chatUserProfile.name}退回了转账`);
+                    const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `${chatUserProfile.name}退回了轉帳`);
                     if (!result.ok) return {};
                     return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
                 });
@@ -1641,33 +1642,33 @@ const Chat: React.FC = () => {
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages, updateUserProfile, updateCharacter, chatUserProfile]);
 
-    // 用户主动发起转账：先扣 Real Balance 再落待处理转账卡——在发送这一刻结清，
-    // 而不是等角色事后「收下」才扣（那样等于允许承诺一笔当下就已经不存在的钱，
-    // 角色收下时才发现余额不够会造成账目和聊天记录对不上）。余额不够直接拦下，不发。
-    // 角色之后「退回」这笔钱走 utils/chatParser.ts 的 onUserTransferReturned 退款回来。
-    // 跟原来的内联 onTransfer 一样不用 useCallback：handleSendText 每次渲染都重新定义，
-    // 记成 memo 反而会捕到一份过期的它。
+    // 用戶主動發起轉帳：先扣 Real Balance 再落待處理轉帳卡——在發送這一刻結清，
+    // 而不是等角色事後「收下」才扣（那樣等於允許承諾一筆當下就已經不存在的錢，
+    // 角色收下時才發現餘額不夠會造成帳目和聊天記錄對不上）。餘額不夠直接攔下，不發。
+    // 角色之後「退回」這筆錢走 utils/chatParser.ts 的 onUserTransferReturned 退款回來。
+    // 跟原來的內聯 onTransfer 一樣不用 useCallback：handleSendText 每次渲染都重新定義，
+    // 記成 memo 反而會捕到一份過期的它。
     const handleSendTransfer = () => {
         if (!char || !transferAmt) return;
         const amount = Number(transferAmt);
-        if (!Number.isFinite(amount) || amount <= 0) { addToast('请输入有效金额', 'error'); return; }
+        if (!Number.isFinite(amount) || amount <= 0) { addToast('請輸入有效金額', 'error'); return; }
         const current = ensureRealBalanceState(userProfileBase.realBalance);
-        const result = applyRealBalanceDelta(current, -amount, `转账给 ${char.name}`);
+        const result = applyRealBalanceDelta(current, -amount, `轉帳給 ${char.name}`);
         if (!result.ok) { addToast(result.reason, 'error'); return; }
         updateUserProfile({ realBalance: result.state });
-        handleSendText(`[转账]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' });
+        handleSendText(`[轉帳]`, 'transfer', { amount: transferAmt, note: transferNote.trim() || undefined, status: 'pending' });
         setTransferNote('');
         setModalType('none');
     };
 
-    // 购物中心 mini-app 送出订单卡片：
-    // - gift（送给TA / 为TA点单 / 发小票）：跟转账一样发送即结清，先扣用户 Real Balance，
-    //   再走 handleSendText 正常触发角色的一轮回复（角色收到礼物/外卖该有反应）。
-    // - daifu（外卖代付请求）：先不动余额——真正付不付款要看角色收到请求后的选择，那条走
-    //   utils/chatParser.ts 的 AI 收发（跟 TRANSFER_ACCEPT/RETURN 同一个位置，还没接，接了才会
-    //   真的扣角色的 Real Balance），这里只负责把待处理卡片发出去、触发角色这轮回复。
-    // - manual（「TA主动给我买/点外卖」手动模拟卡）：纯摆设，角色没有真的做这件事、也不用回复，
-    //   直接落库成 role:'assistant' 的既成事实，不走 handleSendText（不触发 AI 生成）。
+    // 購物中心 mini-app 送出訂單卡片：
+    // - gift（送給TA / 為TA點單 / 發小票）：跟轉帳一樣發送即結清，先扣用戶 Real Balance，
+    //   再走 handleSendText 正常觸發角色的一輪回復（角色收到禮物/外賣該有反應）。
+    // - daifu（外賣代付請求）：先不動餘額——真正付不付款要看角色收到請求後的選擇，那條走
+    //   utils/chatParser.ts 的 AI 收發（跟 TRANSFER_ACCEPT/RETURN 同一個位置，還沒接，接了才會
+    //   真的扣角色的 Real Balance），這裡只負責把待處理卡片發出去、觸發角色這輪回復。
+    // - manual（「TA主動給我買/點外賣」手動模擬卡）：純擺設，角色沒有真的做這件事、也不用回覆，
+    //   直接落庫成 role:'assistant' 的既成事實，不走 handleSendText（不觸發 AI 生成）。
     const handleSendMallOrder = async (order: import('../components/mall/ShoppingMallMiniApp').MallSendOrderInput) => {
         if (!char) return;
         const metadata = {
@@ -1676,41 +1677,41 @@ const Chat: React.FC = () => {
             status: order.mode === 'daifu' ? 'pending' as const : 'sent' as const,
         };
         if (order.mode === 'manual') {
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]', metadata });
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]', metadata });
             await reloadMessages(visibleCountRef.current);
             trackEvent('购物中心手动模拟卡', { mallKind: order.mallKind });
             return;
         }
         if (order.mode === 'gift') {
             const current = ensureRealBalanceState(userProfileBase.realBalance);
-            const result = applyRealBalanceDelta(current, -order.total, order.title || (order.mallKind === 'food' ? `为${char.name}点了外卖` : `送给${char.name}的购物礼物`));
+            const result = applyRealBalanceDelta(current, -order.total, order.title || (order.mallKind === 'food' ? `為${char.name}點了外賣` : `送給${char.name}的購物禮物`));
             if (!result.ok) { addToast(result.reason, 'error'); return; }
             updateUserProfile({ realBalance: result.state });
         }
-        handleSendText('[购物中心卡片]', 'mall_order', metadata);
+        handleSendText('[購物中心卡片]', 'mall_order', metadata);
         trackEvent('购物中心发送订单卡片', { mallKind: order.mallKind, mode: order.mode });
     };
 
-    // 用户点「生活记录」代记卡选择确认 / 否决：
-    // 否决 → 记录标记 rejected（不再计入注入摘要）+ 回滚银行流水（expense）+
-    // 给代记角色挂一条一次性反馈，下一轮 system prompt 会告诉角色它弄错了。
+    // 用戶點「生活記錄」代記卡選擇確認 / 否決：
+    // 否決 → 記錄標記 rejected（不再計入注入摘要）+ 回滾銀行流水（expense）+
+    // 給代記角色掛一條一次性反饋，下一輪 system prompt 會告訴角色它弄錯了。
     const handleResolveLifeRecord = useCallback(async (msg: Message, action: 'confirmed' | 'rejected') => {
         if (!char) return;
-        // 只处理仍待复核的卡片，避免重复点击。
+        // 只處理仍待複核的卡片，避免重複點擊。
         if (msg.metadata?.reviewStatus && msg.metadata.reviewStatus !== 'active') return;
         try {
             await resolveLifeRecordCard(msg, action);
-            // 否决会把这条记录踢出注入摘要、回滚银行流水，生活记录是注入给所有开了开关的
-            // 角色的共享素材，所以逐个打脏（同表情库）。
+            // 否決會把這條記錄踢出注入摘要、回滾銀行流水，生活記錄是注入給所有開了開關的
+            // 角色的共享素材，所以逐個打髒（同表情庫）。
             markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
-            addToast(action === 'confirmed' ? '已确认记录' : '已否决，记录撤销', action === 'confirmed' ? 'success' : 'info');
+            addToast(action === 'confirmed' ? '已確認記錄' : '已否決，記錄撤銷', action === 'confirmed' ? 'success' : 'info');
         } catch (e) {
             console.error('[LifeRecord] resolve failed:', e);
         }
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages, addToast, characters, userProfileBase, groups, realtimeConfig]);
 
-    // 顶栏 ⚡ 手动触发（也是「发完后自动生成」到点时调的那一下）。
+    // 頂欄 ⚡ 手動觸發（也是「發完後自動生成」到點時調的那一下）。
     const handleManualTrigger = () => {
         autoReply.cancel();
         if (isTyping) return;
@@ -1735,15 +1736,15 @@ const Chat: React.FC = () => {
 
         await DB.deleteMessages(toDeleteIds);
         discardVoiceForMessages(toDeleteIds);
-        // 重 roll 也删了消息：正常路径下这轮生成结束会再打脏一次，这里先打是兜住
-        // 「触发失败没走到生成收尾」的路径，云端 fire_pack 不能停在删除前。
+        // 重 roll 也刪了消息：正常路徑下這輪生成結束會再打髒一次，這裡先打是兜住
+        // 「觸發失敗沒走到生成收尾」的路徑，雲端 fire_pack 不能停在刪除前。
         markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         const newHistory = messages.slice(0, index + 1);
         setMessages(newHistory);
-        addToast('回溯对话中...', 'info');
+        addToast('回溯對話中...', 'info');
         trackEvent('重新生成回复');
 
-        // 重 roll：不注入上一轮残留的情绪 buff 与意识流（innerState），两边独立重新生成。
+        // 重 roll：不注入上一輪殘留的情緒 buff 與意識流（innerState），兩邊獨立重新生成。
         triggerAI(newHistory, undefined, { skipEmotionInjection: true });
     };
 
@@ -1754,22 +1755,22 @@ const Chat: React.FC = () => {
             if (!inputPreferences.autoReply) setShowPanel('none');
             await handleSendText(base64, 'image');
         } catch (err: any) {
-            addToast(err.message || '图片处理失败', 'error');
+            addToast(err.message || '圖片處理失敗', 'error');
         } finally {
-            // 是否真正发出由 handleSendText 标记；这里仅解除图片处理期间的暂停。
+            // 是否真正發出由 handleSendText 標記；這裡僅解除圖片處理期間的暫停。
             finishImage(false);
         }
     };
 
     const handlePanelAction = (type: string, payload?: any) => {
-        // 只统计「打开某个面板 / 开关某个能力」这几个固定入口，名单写死在这里；
-        // 选表情、选分类之类的动作不上报。
+        // 只統計「打開某個面板 / 開關某個能力」這幾個固定入口，名單寫死在這裡；
+        // 選表情、選分類之類的動作不上報。
         if ([
             'transfer', 'archive', 'settings', 'fine-tune',
             'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request', 'mall-open',
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
-            // 独立小功能：点一下就是用了一次，跟「打开某个面板」同一性质。
-            // send-emoji / select-category 这些是「挑哪一个」，不进名单。
+            // 獨立小功能：點一下就是用了一次，跟「打開某個面板」同一性質。
+            // send-emoji / select-category 這些是「挑哪一個」，不進名單。
             'poke', 'emoji-import', 'add-category', 'mcd-end', 'luckin-end',
         ].includes(type)) {
             trackEvent('打开聊天功能面板项', { action: type });
@@ -1794,10 +1795,10 @@ const Chat: React.FC = () => {
             case 'meetup': if (char) { setShowPanel('none'); openDateWithChar(char.id); } break;
             case 'proactive': setShowProactiveModal(true); break;
             case 'active-msg-2': setShowActiveMsg2Modal(true); break;
-            case 'emotion': setModalType('schedule'); break; // 情绪已并入日程，打开同一 modal
+            case 'emotion': setModalType('schedule'); break; // 情緒已併入日程，打開同一 modal
             case 'schedule': setModalType('schedule'); break;
             case 'mcd-not-configured':
-                addToast('请先到设置 → 麦当劳 启用并填入 MCP Token', 'info');
+                addToast('請先到設置 → 麥當勞 啟用並填入 MCP Token', 'info');
                 break;
             case 'mcd-request':
                 setMcdAppOpen(true);
@@ -1807,7 +1808,7 @@ const Chat: React.FC = () => {
                 handleSendText(MCD_DEACTIVATE_TRIGGER, 'text', { mcdDeactivate: true });
                 break;
             case 'luckin-not-configured':
-                addToast('请先到设置 → 瑞幸 启用并填入 MCP Token', 'info');
+                addToast('請先到設置 → 瑞幸 啟用並填入 MCP Token', 'info');
                 break;
             case 'luckin-request':
                 activateLuckin();
@@ -1819,11 +1820,11 @@ const Chat: React.FC = () => {
                 if (!char) break;
                 const next = !((char as any).htmlModeEnabled);
                 updateCharacter(char.id, { htmlModeEnabled: next } as any);
-                addToast(next ? 'HTML 模式已开启' : 'HTML 模式已关闭', next ? 'success' : 'info');
+                addToast(next ? 'HTML 模式已開啟' : 'HTML 模式已關閉', next ? 'success' : 'info');
                 break;
             }
             case 'html-mode-settings': {
-                // 长按 → 跳进聊天设置 modal 的 HTML 模块板块 (顺便确保开关已打开, 不然滚下去看不见 textarea)
+                // 長按 → 跳進聊天設置 modal 的 HTML 模塊板塊 (順便確保開關已打開, 不然滾下去看不見 textarea)
                 if (!char) break;
                 if (!(char as any).htmlModeEnabled) {
                     updateCharacter(char.id, { htmlModeEnabled: true } as any);
@@ -1832,7 +1833,7 @@ const Chat: React.FC = () => {
                 break;
             }
             case 'thinking-settings': {
-                // 「展示思考」按钮 → 打开思考链设置 modal（开关 / 卡片风格 / 配色 / 追加提示词）
+                // 「展示思考」按鈕 → 打開思考鏈設置 modal（開關 / 卡片風格 / 配色 / 追加提示詞）
                 if (!char) break;
                 setShowThinkingChainModal(true);
                 break;
@@ -1843,36 +1844,36 @@ const Chat: React.FC = () => {
         }
     };
 
-    // 当前会话麦请求是否激活 (从消息历史推导, 无新存储)
+    // 當前會話麥請求是否激活 (從消息歷史推導, 無新存儲)
     const mcdActivated = useMemo(() => isMcdActivatedInMessages(messages), [messages]);
     const [mcdAppOpen, setMcdAppOpen] = useState(false);
-    // 购物中心 mini-app：跟麦当劳小程序同构的本地 mini-app 壳，见 components/mall/ShoppingMallMiniApp.tsx
+    // 購物中心 mini-app：跟麥當勞小程序同構的本地 mini-app 殼，見 components/mall/ShoppingMallMiniApp.tsx
     const [mallOpen, setMallOpen] = useState(false);
-    // mcdMiniAppRef 声明在文件靠前 (传给 useChatAI), 这里仅占位
+    // mcdMiniAppRef 聲明在文件靠前 (傳給 useChatAI), 這裡僅佔位
     const mcdConfiguredFlag = useMemo(() => isMcdConfigured(), [showPanel, mcdActivated]);
 
-    // 瑞幸聊天点单模式: 激活态用 React state (临时会话态, 不落库)
+    // 瑞幸聊天點單模式: 激活態用 React state (臨時會話態, 不落庫)
     const [luckinMode, setLuckinMode] = useState(false);
-    const [showLuckinLoc, setShowLuckinLoc] = useState(false); // 瑞一杯定位选择弹窗
-    const [showLuckinHelp, setShowLuckinHelp] = useState(false); // 瑞一杯使用说明
+    const [showLuckinLoc, setShowLuckinLoc] = useState(false); // 瑞一杯定位選擇彈窗
+    const [showLuckinHelp, setShowLuckinHelp] = useState(false); // 瑞一杯使用說明
     const luckinActivated = luckinMode;
-    const [luckinAppOpen, setLuckinAppOpen] = useState(false); // 旧小程序壳, 现已不主动开
+    const [luckinAppOpen, setLuckinAppOpen] = useState(false); // 舊小程序殼, 現已不主動開
     const luckinConfiguredFlag = useMemo(() => isLuckinConfigured(), [showPanel, luckinActivated]);
 
     const activateLuckin = useCallback(() => {
-        if (!isLuckinConfigured()) { addToast('请先到设置 → 瑞幸 启用并填入 MCP Token', 'info'); return; }
+        if (!isLuckinConfigured()) { addToast('請先到設置 → 瑞幸 啟用並填入 MCP Token', 'info'); return; }
         setShowPanel('none');
-        setShowLuckinLoc(true); // 先选定位 (GPS 常抓到机房位置, 让用户选城市)
+        setShowLuckinLoc(true); // 先選定位 (GPS 常抓到機房位置, 讓用戶選城市)
     }, [addToast]);
 
-    // 选完定位 → 正式激活角色瑞幸模式, 把坐标注入给角色
+    // 選完定位 → 正式激活角色瑞幸模式, 把座標注入給角色
     const onLuckinLocationPick = useCallback((lng: number, lat: number, cityName?: string) => {
         luckinChatRef.current = { active: true, longitude: lng, latitude: lat, cityName };
         setLuckinMode(true);
         setShowLuckinLoc(false);
         trackEvent('开启瑞一杯聊天点单');
-        addToast(`瑞一杯已开启 ☕ 定位: ${cityName || '已设置'}`, 'info');
-        // 首次启动: 自动弹一次使用说明 (之后收在 banner 的 ? 里)
+        addToast(`瑞一杯已開啟 ☕ 定位: ${cityName || '已設置'}`, 'info');
+        // 首次啟動: 自動彈一次使用說明 (之後收在 banner 的 ? 裡)
         try {
             if (localStorage.getItem('aetheros.luckin.helpSeen') !== '1') {
                 setShowLuckinHelp(true);
@@ -1886,7 +1887,7 @@ const Chat: React.FC = () => {
         setLuckinMode(false);
     }, []);
 
-    // 用户在菜单卡里点"发送给角色"时, 把购物车作为 user 消息插入
+    // 用戶在菜單卡里點"發送給角色"時, 把購物車作為 user 消息插入
     const handleMcdSendCart = useCallback(async (items: import('../components/chat/McdCard').McdCartItem[]) => {
         if (!char || !items.length) return;
         const summary = items.map(i => `${i.name}×${i.qty}`).join('、');
@@ -1895,7 +1896,7 @@ const Chat: React.FC = () => {
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
         const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
-        const content = `想要下单：${summary}${totalStr}`;
+        const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
             charId: char.id,
             role: 'user',
@@ -1906,11 +1907,11 @@ const Chat: React.FC = () => {
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages]);
 
-    // 用户在菜单卡某条单品上点 💭 → 立即把这条扔给角色让 ta 评价 (候选状态, 不进购物车)
+    // 用戶在菜單卡某條單品上點 💭 → 立即把這條扔給角色讓 ta 評價 (候選狀態, 不進購物車)
     const handleMcdCandidate = useCallback(async (item: import('../components/chat/McdCard').McdCartItem) => {
         if (!char || !item) return;
         const priceStr = typeof item.price === 'number' ? ` ¥${item.price}` : (typeof item.price === 'string' && item.price ? ` ¥${item.price}` : '');
-        const content = `「${item.name}」${priceStr}—— 这个怎么样？`;
+        const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
             charId: char.id,
             role: 'user',
@@ -1921,9 +1922,9 @@ const Chat: React.FC = () => {
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages]);
 
-    // 小程序内输入 → 直接保存 user 消息 + 立即触发 AI (主聊天 handleSendText 不自动触发,
-    // 那是设计上的"手动 ⚡ 触发"流程, 但小程序里用户预期发完就有回复, 跳过那个步骤)。
-    // 走完整 pipeline: useChatAI 在 build prompt 时会读 mcdMiniAppRef 注入小程序状态。
+    // 小程序內輸入 → 直接保存 user 消息 + 立即觸發 AI (主聊天 handleSendText 不自動觸發,
+    // 那是設計上的"手動 ⚡ 觸發"流程, 但小程序裡用戶預期發完就有回覆, 跳過那個步驟)。
+    // 走完整 pipeline: useChatAI 在 build prompt 時會讀 mcdMiniAppRef 注入小程序狀態。
     const handleMcdMiniAppSend = useCallback(async (text: string) => {
         if (!char || !text.trim() || isTyping) return;
         const trimmed = text.trim();
@@ -1940,13 +1941,13 @@ const Chat: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [char, isTyping, triggerAI]);
 
-    // 小程序状态实时同步到 ref, 让下次 send 走主 pipeline 时能注入到 system prompt
+    // 小程序狀態實時同步到 ref, 讓下次 send 走主 pipeline 時能注入到 system prompt
     const handleMcdMiniAppStateChange = useCallback((state: import('../utils/mcdToolBridge').McdMiniAppSnapshot) => {
         mcdMiniAppRef.current = state;
     }, []);
 
-    // 小程序里"敲定"购物车 → 把购物车转成 cart 卡 (复用现有渲染), 之后 Phase 2
-    // 会在这里挂 calculate-price + create-order。当前先让 char 看到购物车评论。
+    // 小程序裡"敲定"購物車 → 把購物車轉成 cart 卡 (複用現有渲染), 之後 Phase 2
+    // 會在這裡掛 calculate-price + create-order。當前先讓 char 看到購物車評論。
     const handleMcdAppConfirm = useCallback(async (
         cart: import('../components/mcd/McdMiniApp').CartLine[],
         ctx: import('../components/mcd/McdMiniApp').OrderContext,
@@ -1982,7 +1983,7 @@ const Chat: React.FC = () => {
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages]);
 
-    // ─── 瑞幸 handlers (与麦当劳同构) ───
+    // ─── 瑞幸 handlers (與麥當勞同構) ───
     const handleLuckinSendCart = useCallback(async (items: import('../components/chat/LuckinCard').LuckinCartItem[]) => {
         if (!char || !items.length) return;
         const summary = items.map(i => `${i.name}×${i.qty}`).join('、');
@@ -1991,7 +1992,7 @@ const Chat: React.FC = () => {
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
         const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
-        const content = `想要下单：${summary}${totalStr}`;
+        const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
             charId: char.id,
             role: 'user',
@@ -2005,7 +2006,7 @@ const Chat: React.FC = () => {
     const handleLuckinCandidate = useCallback(async (item: import('../components/chat/LuckinCard').LuckinCartItem) => {
         if (!char || !item) return;
         const priceStr = (typeof item.price === 'number' || (typeof item.price === 'string' && item.price)) ? ` ¥${item.price}` : '';
-        const content = `「${item.name}」${priceStr}—— 这个怎么样？`;
+        const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
             charId: char.id,
             role: 'user',
@@ -2082,8 +2083,8 @@ const Chat: React.FC = () => {
         if (modalType === 'schedule') loadSchedule();
     }, [modalType]);
 
-    // 日程表随 fire_pack 一起上云（角色到点按它说自己在干嘛），改完要让云端那份跟上：
-    // 用户把「健身」改成「在家养病」，角色晚上还说「刚从健身房回来」就穿帮了。
+    // 日程表隨 fire_pack 一起上雲（角色到點按它說自己在幹嘛），改完要讓雲端那份跟上：
+    // 用戶把「健身」改成「在家養病」，角色晚上還說「剛從健身房回來」就穿幫了。
     const handleScheduleEdit = async (index: number, slot: ScheduleSlot) => {
         if (!scheduleData) return;
         const newSlots = [...scheduleData.slots];
@@ -2110,13 +2111,13 @@ const Chat: React.FC = () => {
         await DB.saveDailySchedule(updated);
     };
 
-    // 小剧场：点某个时段的播放按钮。有缓存直接放；没有则先生成再放（forceRegenerate=重演）。
+    // 小劇場：點某個時段的播放按鈕。有緩存直接放；沒有則先生成再放（forceRegenerate=重演）。
     const runTheater = async (index: number, forceRegenerate: boolean) => {
         if (!char || !scheduleData) return;
         const slot = scheduleData.slots[index];
         if (!slot) return;
         trackEvent('打开日程小剧场', { mode: forceRegenerate ? 'replay' : 'play' });
-        // 命中缓存且非重演：直接打开，不烧 token
+        // 命中緩存且非重演：直接打開，不燒 token
         if (!forceRegenerate && slot.theater && slot.theater.lines.length > 0) {
             setTheaterSlotIdx(index);
             return;
@@ -2128,12 +2129,12 @@ const Chat: React.FC = () => {
             if (updated) {
                 setScheduleData(updated);
             } else {
-                addToast('小剧场生成失败，稍后再试', 'error');
+                addToast('小劇場生成失敗，稍後再試', 'error');
                 setTheaterSlotIdx(null);
             }
         } catch (e) {
             console.error('[Theater] play failed:', e);
-            addToast('小剧场生成失败，稍后再试', 'error');
+            addToast('小劇場生成失敗，稍後再試', 'error');
             setTheaterSlotIdx(null);
         } finally {
             setIsTheaterGenerating(false);
@@ -2142,11 +2143,11 @@ const Chat: React.FC = () => {
 
     const handlePlayTheater = (index: number) => { runTheater(index, false); };
 
-    // 把这段小剧场作为卡片发到聊天。两态都「留痕」——角色都知道自己当时干了啥，
-    // 区别只在 exposed：是否知道「user 看到了」。
-    //   exposed=true  → TA 会发现你在偷看
-    //   exposed=false → TA 不知道你看了（但照样记得自己干了啥）
-    // 发卡片本身不再自动触发对话——只留痕，下次聊天角色自然带着这份记忆。
+    // 把這段小劇場作為卡片發到聊天。兩態都「留痕」——角色都知道自己當時幹了啥，
+    // 區別只在 exposed：是否知道「user 看到了」。
+    //   exposed=true  → TA 會發現你在偷看
+    //   exposed=false → TA 不知道你看了（但照樣記得自己幹了啥）
+    // 發卡片本身不再自動觸發對話——只留痕，下次聊天角色自然帶著這份記憶。
     const handleSendTheaterCard = async (index: number, exposed: boolean) => {
         if (!char || !scheduleData) return;
         const slot = scheduleData.slots[index];
@@ -2165,11 +2166,11 @@ const Chat: React.FC = () => {
                 exposed,
             },
         });
-        // 关掉播放器 + 日程 modal，回到聊天看到卡片（但不强行触发回复）
+        // 關掉播放器 + 日程 modal，回到聊天看到卡片（但不強行觸發回覆）
         setTheaterSlotIdx(null);
         setModalType('none');
         await reloadMessages(visibleCountRef.current);
-        addToast(exposed ? '已让 TA 发现你在看 👀' : '已悄悄记下 · TA 不知道你看了 🙈', 'info');
+        addToast(exposed ? '已讓 TA 發現你在看 👀' : '已悄悄記下 · TA 不知道你看了 🙈', 'info');
     };
 
     const generateDailySchedule = async (targetChar: typeof char, forceRegenerate: boolean = false) => {
@@ -2179,7 +2180,7 @@ const Chat: React.FC = () => {
             const result = await generateDailyScheduleForChar(targetChar, chatUserProfile, apiConfig, forceRegenerate);
             if (result) {
                 setScheduleData(result);
-                // 跨天后台重新生成也要刷云端：不刷的话角色到点照着昨天的作息表说话
+                // 跨天后台重新生成也要刷雲端：不刷的話角色到點照著昨天的作息表說話
                 markAmsgStateDirty({ char: targetChar, userProfile: chatUserProfile, groups, realtimeConfig });
             }
         } catch (e) {
@@ -2191,7 +2192,7 @@ const Chat: React.FC = () => {
 
     const handleScheduleStyleChange = async (style: 'lifestyle' | 'mindful') => {
         if (!char) return;
-        // 与情绪/意识流强制同步：启用日程时自动启用情绪感知
+        // 與情緒/意識流強制同步：啟用日程時自動啟用情緒感知
         const prevEmotion = char.emotionConfig;
         const nextEmotion = { ...(prevEmotion || {}), enabled: true };
         updateCharacter(char.id, { scheduleStyle: style, emotionConfig: nextEmotion });
@@ -2209,32 +2210,32 @@ const Chat: React.FC = () => {
         }
     };
 
-    // 日程 / 情绪 buff 总开关
-    // 关闭：清空前台 scheduleData，同时清空可能已缓存的 buff 注入（防止继续污染下一轮 prompt）
-    // 打开：若还没生成今日日程，立即生成一次
+    // 日程 / 情緒 buff 總開關
+    // 關閉：清空前台 scheduleData，同時清空可能已緩存的 buff 注入（防止繼續汙染下一輪 prompt）
+    // 打開：若還沒生成今日日程，立即生成一次
     const handleToggleScheduleFeature = async () => {
         if (!char) return;
         const nextEnabled = !isScheduleFeatureOn(char);
         const patch: any = { scheduleFeatureEnabled: nextEnabled };
         if (nextEnabled) {
-            // 与 handleScheduleStyleChange 对齐：开日程 = 同步开情绪/意识流。
-            // 旧逻辑下，新角色的 emotionConfig 从未初始化（undefined），
-            // 仅切总开关而不点风格时，emotionConfig?.enabled 始终落 false，
-            // 副 API 闸门 (isScheduleFeatureOn && emotionConfig?.enabled) 永远过不去。
+            // 與 handleScheduleStyleChange 對齊：開日程 = 同步開情緒/意識流。
+            // 舊邏輯下，新角色的 emotionConfig 從未初始化（undefined），
+            // 僅切總開關而不點風格時，emotionConfig?.enabled 始終落 false，
+            // 副 API 閘門 (isScheduleFeatureOn && emotionConfig?.enabled) 永遠過不去。
             patch.emotionConfig = { ...(char.emotionConfig || {}), enabled: true };
         } else {
-            // 关闭时顺手把 buff 注入清空，避免上一轮残留继续注入
+            // 關閉時順手把 buff 注入清空，避免上一輪殘留繼續注入
             patch.buffInjection = '';
             patch.activeBuffs = [];
         }
         updateCharacter(char.id, patch);
         if (!nextEnabled) {
             setScheduleData(null);
-            addToast('日程与情绪已关闭', 'info');
+            addToast('日程與情緒已關閉', 'info');
             return;
         }
-        addToast('日程与情绪已开启', 'success');
-        // 打开后立刻尝试生成（若今日未生成且已选风格）
+        addToast('日程與情緒已開啟', 'success');
+        // 打開後立刻嘗試生成（若今日未生成且已選風格）
         const updatedChar = { ...char, ...patch };
         if (updatedChar.scheduleStyle) {
             const existing = await getDailyScheduleForChar(updatedChar).catch(() => null);
@@ -2249,15 +2250,15 @@ const Chat: React.FC = () => {
     // --- Modal Handlers ---
 
     /**
-     * 表情库是全局的：增删改名、删分类、改分类可见范围，都会让每个角色云端 fire_pack 里
-     * 那份表情清单过期。角色到点照旧清单发 [[SEND_EMOJI]]，客户端反查不到就只能落降级
-     * 文本气泡——所以这几个入口都要重新打包。
+     * 表情庫是全局的：增刪改名、刪分類、改分類可見範圍，都會讓每個角色雲端 fire_pack 裡
+     * 那份表情清單過期。角色到點照舊清單發 [[SEND_EMOJI]]，客戶端反查不到就只能落降級
+     * 文本氣泡——所以這幾個入口都要重新打包。
      */
     const markEmojiLibraryChanged = () => markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
 
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) {
-             addToast('请输入分类名称', 'error');
+             addToast('請輸入分類名稱', 'error');
              return;
         }
         const newCat = { id: `cat-${Date.now()}`, name: newCategoryName.trim() };
@@ -2266,7 +2267,7 @@ const Chat: React.FC = () => {
         setActiveCategory(newCat.id);
         setModalType('none');
         setNewCategoryName('');
-        addToast('分类创建成功', 'success');
+        addToast('分類創建成功', 'success');
     };
 
     const handleImportEmoji = async () => {
@@ -2280,8 +2281,8 @@ const Chat: React.FC = () => {
                 const name = parts[0].trim();
                 const url = parts.slice(1).join('--').trim();
                 if (name && url) {
-                    // 粘进来的可能是 data: 图（复制粘贴的图片），也可能是图床外链。
-                    // 前者转成令牌只留二进制，后者是别人服务器上的地址，原样存。
+                    // 粘進來的可能是 data: 圖（複製粘貼的圖片），也可能是圖床外鏈。
+                    // 前者轉成令牌只留二進制，後者是別人服務器上的地址，原樣存。
                     const stored = url.startsWith('data:') ? await migrateDataUrlToRef(url) : url;
                     await DB.saveEmoji(name, stored, targetCatId);
                 }
@@ -2291,20 +2292,20 @@ const Chat: React.FC = () => {
         markEmojiLibraryChanged();
         setModalType('none');
         setEmojiImportText('');
-        addToast('表情包导入成功', 'success');
+        addToast('表情包導入成功', 'success');
     };
 
     const handleRenameCategory = async () => {
         if (!selectedCategory || selectedCategory.isSystem || selectedCategory.id === 'default') return;
         const name = newCategoryName.trim();
-        if (!name) { addToast('分类名称不能为空', 'error'); return; }
+        if (!name) { addToast('分類名稱不能為空', 'error'); return; }
         try {
             await DB.saveEmojiCategory({ ...selectedCategory, name });
             await loadEmojiData();
             markEmojiLibraryChanged();
             setModalType('none'); setSelectedCategory(null); setNewCategoryName('');
-            addToast('分类已重命名', 'success');
-        } catch { addToast('分类重命名失败', 'error'); }
+            addToast('分類已重命名', 'success');
+        } catch { addToast('分類重命名失敗', 'error'); }
     };
     const handleDownloadCategory = () => {
         if (!selectedCategory) return;
@@ -2321,7 +2322,7 @@ const Chat: React.FC = () => {
         setActiveCategory('default');
         setModalType('none');
         setSelectedCategory(null);
-        addToast('分类及包含表情已删除', 'success');
+        addToast('分類及包含表情已刪除', 'success');
     };
 
     const handleSaveCategoryVisibility = async (categoryId: string, allowedCharacterIds: string[] | undefined) => {
@@ -2331,12 +2332,12 @@ const Chat: React.FC = () => {
         await loadEmojiData();
         markEmojiLibraryChanged();
         setSelectedCategory(null);
-        addToast(allowedCharacterIds ? `已设置 ${allowedCharacterIds.length} 个角色可见` : '已设为所有角色可见', 'success');
+        addToast(allowedCharacterIds ? `已設置 ${allowedCharacterIds.length} 個角色可見` : '已設為所有角色可見', 'success');
     };
 
     const handleSavePrompt = () => {
         if (!editingPrompt || !editingPrompt.name.trim() || !editingPrompt.content.trim()) {
-            addToast('请填写完整', 'error');
+            addToast('請填寫完整', 'error');
             return;
         }
         setArchivePrompts(prev => {
@@ -2357,7 +2358,7 @@ const Chat: React.FC = () => {
 
     const handleDeletePrompt = (id: string) => {
         if (id.startsWith('preset_')) {
-            addToast('默认预设不可删除', 'error');
+            addToast('默認預設不可刪除', 'error');
             return;
         }
         setArchivePrompts(prev => {
@@ -2367,11 +2368,11 @@ const Chat: React.FC = () => {
             return next;
         });
         if (selectedPromptId === id) setSelectedPromptId('preset_rational');
-        addToast('预设已删除', 'success');
+        addToast('預設已刪除', 'success');
     };
 
     const createNewPrompt = () => {
-        setEditingPrompt({ id: `custom_${Date.now()}`, name: '新预设', content: DEFAULT_ARCHIVE_PROMPTS[0].content });
+        setEditingPrompt({ id: `custom_${Date.now()}`, name: '新預設', content: DEFAULT_ARCHIVE_PROMPTS[0].content });
         setModalType('prompt-editor');
     };
 
@@ -2388,8 +2389,8 @@ const Chat: React.FC = () => {
 
     const handleBgUpload = async (file: File) => {
         try {
-            // 改存 Blob：原画质不重绘，二进制进 blob_assets，字段只存 blobref 令牌
-            // （省掉 base64 的 ~33% 膨胀，也不再把整张图常驻在角色行里）。
+            // 改存 Blob：原畫質不重繪，二進制進 blob_assets，字段只存 blobref 令牌
+            // （省掉 base64 的 ~33% 膨脹，也不再把整張圖常駐在角色行裡）。
             const blob = await processImageToBlob(file, { skipCompression: true });
             const ref = await putImageBlob(blob);
             updateCharacter(char.id, { chatBackground: ref });
@@ -2418,7 +2419,7 @@ const Chat: React.FC = () => {
             const range = await loadCharacterContextRange(candidate);
             if (range.userBreakpointExpired) nextUserStart = undefined;
         } catch {
-            // 保存其它设置不应被一次范围检查失败阻断；AI 请求时还会再次做同样的安全钳制。
+            // 保存其它設置不應被一次範圍檢查失敗阻斷；AI 請求時還會再次做同樣的安全鉗制。
         }
         updateCharacter(char.id, {
             contextLimit: settingsContextLimit,
@@ -2432,7 +2433,7 @@ const Chat: React.FC = () => {
         setInputPreferences(settingsInputPreferences);
         saveChatInputPreferences(settingsInputPreferences);
         setModalType('none');
-        addToast('设置已保存', 'success');
+        addToast('設置已保存', 'success');
     };
 
     const handleToggleContextSuite = () => {
@@ -2449,7 +2450,7 @@ const Chat: React.FC = () => {
                 deepEngagement: enabled,
             },
         });
-        addToast(enabled ? '已开启智能语境' : '已关闭智能语境，回复恢复旧流程', 'success');
+        addToast(enabled ? '已開啟智能語境' : '已關閉智能語境，回覆恢復舊流程', 'success');
     };
 
     const restoreAdaptiveContext = () => {
@@ -2468,8 +2469,8 @@ const Chat: React.FC = () => {
         });
         addToast(
             char.autoArchiveEnabled
-                ? '已恢复全自动记忆的自适应上下文'
-                : '已恢复跟随记忆水位线',
+                ? '已恢復全自動記憶的自適應上下文'
+                : '已恢復跟隨記憶水位線',
             'success',
         );
     };
@@ -2490,8 +2491,8 @@ const Chat: React.FC = () => {
         await reloadMessages(LOAD_BATCH_SIZE);
     };
 
-    // 只在打开聊天设置时计算一键存入的待处理量；不开弹窗的用户没有额外 DB 扫描。
-    // 这里按按钮的真实语义统计：默认处理到当前末尾，勾选后精确保留最后 10 条原文。
+    // 只在打開聊天設置時計算一鍵存入的待處理量；不開彈窗的用戶沒有額外 DB 掃描。
+    // 這裡按按鈕的真實語義統計：默認處理到當前末尾，勾選後精確保留最後 10 條原文。
     useEffect(() => {
         if (modalType !== 'chat-settings' || !char?.memoryPalaceEnabled) {
             setVectorizePendingCount(null);
@@ -2507,7 +2508,7 @@ const Chat: React.FC = () => {
                 );
                 if (!cancelled) setVectorizePendingCount(n);
             } catch {
-                // 算不出就不显示条数，不影响按钮可用
+                // 算不出就不顯示條數，不影響按鈕可用
             }
         })();
         return () => { cancelled = true; };
@@ -2518,18 +2519,18 @@ const Chat: React.FC = () => {
         const mpEmb = memoryPalaceConfig?.embedding;
         const mpLLM = memoryPalaceConfig?.lightLLM;
         if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM?.baseUrl) {
-            addToast('请先在记忆宫殿设置中配置 API', 'error');
+            addToast('請先在記憶宮殿設置中配置 API', 'error');
             return;
         }
 
         const retainedCount = retainRecentForVectorize ? 10 : 0;
         const charIdAtStart = char.id;
         setIsVectorizing(true);
-        setVectorizeProgress('准备中...');
+        setVectorizeProgress('準備中...');
         addToast(
             retainedCount === 10
-                ? '🏰 开始整理聊天，保留最近 10 条原文...'
-                : '🏰 开始整理全部聊天记录...',
+                ? '🏰 開始整理聊天，保留最近 10 條原文...'
+                : '🏰 開始整理全部聊天記錄...',
             'info',
         );
 
@@ -2543,7 +2544,7 @@ const Chat: React.FC = () => {
             const pendingBefore = await getMemoryPalaceOneShotPendingCount(char.id, retainedCount);
             const hwmBefore = getMemoryPalaceHighWaterMark(char.id);
             setVectorizePendingCount(pendingBefore);
-            setVectorizeProgress(pendingBefore > 0 ? `待处理 ${pendingBefore} 条` : '正在同步原文边界...');
+            setVectorizeProgress(pendingBefore > 0 ? `待處理 ${pendingBefore} 條` : '正在同步原文邊界...');
 
             const pipelineResult = await processNewMessages(
                 [],
@@ -2562,11 +2563,11 @@ const Chat: React.FC = () => {
             );
 
             if (charIdAtStart !== activeCharIdRef.current) return;
-            if (!pipelineResult) throw new Error('记忆处理没有完成，请检查副 API 与网络');
-            if (pipelineResult.skipReason === 'lock') throw new Error('这个角色已有记忆任务在运行，请稍后再试');
+            if (!pipelineResult) throw new Error('記憶處理沒有完成，請檢查副 API 與網絡');
+            if (pipelineResult.skipReason === 'lock') throw new Error('這個角色已有記憶任務在運行，請稍後再試');
             const failedBatches = pipelineResult.batches.filter(batch => !batch.ok);
             if (failedBatches.length > 0) {
-                throw new Error(`第 ${failedBatches.map(batch => batch.index).join('、')} 批处理失败，水位线未移动`);
+                throw new Error(`第 ${failedBatches.map(batch => batch.index).join('、')} 批處理失敗，水位線未移動`);
             }
 
             const rangeMessages = (await DB.getMessagesByCharId(char.id, true))
@@ -2577,11 +2578,11 @@ const Chat: React.FC = () => {
             const targetBoundaryId = targetBoundaryIndex >= 0 ? rangeMessages[targetBoundaryIndex].id : 0;
             const hwmAfter = getMemoryPalaceHighWaterMark(char.id);
             if (targetBoundaryId > hwmBefore && hwmAfter < targetBoundaryId) {
-                throw new Error('处理未到达预定边界，原文范围保持不变，请重试');
+                throw new Error('處理未到達預定邊界，原文範圍保持不變，請重試');
             }
 
-            // 水位线只前进不回退。极少数情况下用户先“保留 0 条”又改选保留 10 条，
-            // 这 10 条此前已处理；此时用手动 10 条保证原文仍可读，同时避免重复向量化。
+            // 水位線只前進不回退。極少數情況下用戶先“保留 0 條”又改選保留 10 條，
+            // 這 10 條此前已處理；此時用手動 10 條保證原文仍可讀，同時避免重複向量化。
             const waterlineAlreadyAhead = expectedRetained > 0 && hwmBefore > targetBoundaryId;
             const nextMode: ContextRangeMode = waterlineAlreadyAhead ? 'manual' : 'adaptive';
             const nextLimit = expectedRetained > 0 ? 10 : (char.contextLimit || 500);
@@ -2614,9 +2615,9 @@ const Chat: React.FC = () => {
                 waterlineAlreadyAhead,
             });
             setModalType('memory-vectorize-result');
-            addToast('✅ 记忆处理完成，原文范围已同步', 'success');
+            addToast('✅ 記憶處理完成，原文範圍已同步', 'success');
         } catch (e: any) {
-            addToast(`❌ 向量化失败：${e.message}`, 'error');
+            addToast(`❌ 向量化失敗：${e.message}`, 'error');
             if (charIdAtStart === activeCharIdRef.current) setModalType('chat-settings');
         } finally {
             setIsVectorizing(false);
@@ -2631,23 +2632,23 @@ const Chat: React.FC = () => {
                 contextRangePolicyVersion: CONTEXT_RANGE_POLICY_VERSION,
             });
             setModalType('none');
-            addToast('已清除用户断点，原文范围重新跟随拉杆上限', 'success');
+            addToast('已清除用戶斷點，原文範圍重新跟隨拉桿上限', 'success');
             return;
         }
 
         const range = historyContextRange;
         const maxStart = range?.maxRangeStartMessageId;
-        // 不用 Array.prototype.at：tsconfig 的 lib 没开 es2022，tsc 会报错
+        // 不用 Array.prototype.at：tsconfig 的 lib 沒開 es2022，tsc 會報錯
         const rangeMessages = range?.messages ?? [];
         const latestId = rangeMessages[rangeMessages.length - 1]?.id
             || allHistoryMessages[allHistoryMessages.length - 1]?.id;
         if (maxStart === undefined || latestId === undefined || messageId < maxStart || messageId > latestId) {
             const required = countMessagesFrom(allHistoryMessages, messageId);
             const hint = settingsContextRangeMode === 'adaptive'
-                ? `该消息在全自动记忆当前原文范围之外。请先切换为自定义范围，并将拉杆调至至少 ${required} 条。`
+                ? `該消息在全自動記憶當前原文範圍之外。請先切換為自定義範圍，並將拉桿調至至少 ${required} 條。`
                 : required > 5000
-                    ? '该消息超出上下文拉杆的 5000 条上限，无法设为用户断点。'
-                    : `该消息超出当前拉杆范围，请先将上下文调至至少 ${required} 条。`;
+                    ? '該消息超出上下文拉桿的 5000 條上限，無法設為用戶斷點。'
+                    : `該消息超出當前拉桿範圍，請先將上下文調至至少 ${required} 條。`;
             addToast(hint, 'error');
             return;
         }
@@ -2663,11 +2664,11 @@ const Chat: React.FC = () => {
             contextUserStartMessageId: messageId,
         });
         setModalType('none');
-        addToast('已设置 AI 原文读取断点', 'success');
+        addToast('已設置 AI 原文讀取斷點', 'success');
     };
 
-    // 跳转到旧消息：先定位到目标周围的小窗口，再在用户滑到窗口边缘时按批次
-    // 向前/向后扩展。这样既不会首次挂载整段超长 DOM，也不会把用户锁死在 51 条里。
+    // 跳轉到舊消息：先定位到目標周圍的小窗口，再在用戶滑到窗口邊緣時按批次
+    // 向前/向後擴展。這樣既不會首次掛載整段超長 DOM，也不會把用戶鎖死在 51 條裡。
     const handleJumpToMessageInChat = async (messageId: number) => {
         if (!activeCharacterId) return;
         setModalType('none');
@@ -2682,7 +2683,7 @@ const Chat: React.FC = () => {
         if (targetIndex < 0) {
             visibleCountRef.current = LOAD_BATCH_SIZE;
             setVisibleCount(LOAD_BATCH_SIZE);
-            addToast('这条记录当前未显示在聊天界面中', 'info');
+            addToast('這條記錄當前未顯示在聊天界面中', 'info');
             await reloadMessages(LOAD_BATCH_SIZE);
             return;
         }
@@ -2700,8 +2701,8 @@ const Chat: React.FC = () => {
         setHistoryWindowRange(nextRange);
         setWindowedFocusMsgId(messageId);
         setFlashMsgId(messageId);
-        // 等窗口节点挂上 DOM 再定位；定位动画结束后才开放边缘续载，避免滚动动画
-        // 自己触发 onScroll，提前改动窗口。
+        // 等窗口節點掛上 DOM 再定位；定位動畫結束後才開放邊緣續載，避免滾動動畫
+        // 自己觸發 onScroll，提前改動窗口。
         requestAnimationFrame(() => requestAnimationFrame(() => {
             const el = document.getElementById(`chat-msg-${messageId}`);
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2736,49 +2737,49 @@ const Chat: React.FC = () => {
                     next.delete(favoriteId);
                     return next;
                 });
-                addToast(msg.type === 'image' ? '已取消收藏图片' : '已取消收藏聊天消息', 'info');
+                addToast(msg.type === 'image' ? '已取消收藏圖片' : '已取消收藏聊天消息', 'info');
                 return;
             }
             await saveMessageContentFavorite(msg, char?.name || '未知角色');
             setContentFavoriteIds(previous => new Set(previous).add(favoriteId));
-            addToast(msg.type === 'image' ? '已收藏图片（仅保存引用）' : '已收藏聊天消息', 'success');
+            addToast(msg.type === 'image' ? '已收藏圖片（僅保存引用）' : '已收藏聊天消息', 'success');
             trackEvent(msg.type === 'image' ? '收藏聊天图片' : '收藏聊天消息');
         } catch (error) {
             console.warn('[Chat] favorite content failed', error);
-            addToast('收藏失败，请稍后重试', 'error');
+            addToast('收藏失敗，請稍後重試', 'error');
         }
     };
 
-    // 点图片本身（非长按菜单）→ 全屏放大预览，支持下载/重新生成（见 ChatModals 的 'image-zoom'）。
+    // 點圖片本身（非長按菜單）→ 全屏放大預覽，支持下載/重新生成（見 ChatModals 的 'image-zoom'）。
     const handleImageClick = (msg: Message) => {
         setSelectedMessage(msg);
         setModalType('image-zoom');
     };
 
     const handleDownloadImage = async (msg: Message) => {
-        if (!msg.content) { addToast('图片已丢失，无法保存', 'error'); return; }
+        if (!msg.content) { addToast('圖片已丟失，無法保存', 'error'); return; }
         try {
             const blob = (await getBlobForRef(msg.content)) || (await fetchBlobForShare(msg.content).catch(() => null));
-            if (!blob) { addToast('图片已丢失，无法保存', 'error'); return; }
-            const result = await shareOrDownloadBlob({ blob, fileName: `chat-image-${msg.id}.png`, shareTitle: `${char?.name || '角色'}的图片` });
-            if (result !== 'cancelled') addToast(result === 'shared' ? '已打开保存面板' : '已保存到本地', 'success');
+            if (!blob) { addToast('圖片已丟失，無法保存', 'error'); return; }
+            const result = await shareOrDownloadBlob({ blob, fileName: `chat-image-${msg.id}.png`, shareTitle: `${char?.name || '角色'}的圖片` });
+            if (result !== 'cancelled') addToast(result === 'shared' ? '已打開保存面板' : '已保存到本地', 'success');
         } catch (error) {
-            console.warn('[Chat] 图片保存失败', error);
-            addToast('保存失败，稍后再试', 'error');
+            console.warn('[Chat] 圖片保存失敗', error);
+            addToast('保存失敗，稍後再試', 'error');
         }
     };
 
     const [regeneratingImageId, setRegeneratingImageId] = useState<number | null>(null);
 
-    // 只对角色自己生成的图（SEND_PHOTO 落的 metadata.imagePrompt）有意义——用户自己发的照片没有
-    // 画面描述可重跑。复用当时存下的 imagePrompt，保证新图还是同一个场景描述，不会图文不符。
+    // 只對角色自己生成的圖（SEND_PHOTO 落的 metadata.imagePrompt）有意義——用戶自己發的照片沒有
+    // 畫面描述可重跑。複用當時存下的 imagePrompt，保證新圖還是同一個場景描述，不會圖文不符。
     const handleRegenerateImage = async (msg: Message) => {
         if (!char) return;
         const description = typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '';
-        if (!description) { addToast('这张图片没有可重新生成的描述', 'error'); return; }
+        if (!description) { addToast('這張圖片沒有可重新生成的描述', 'error'); return; }
         const imageGenConfig = apiConfig.imageGenConfig;
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在设置里开启并配置好生图 API', 'info');
+            addToast('先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingImageId(msg.id);
@@ -2792,10 +2793,10 @@ const Chat: React.FC = () => {
             setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: nextContent } : m));
             setSelectedMessage(prev => prev && prev.id === msg.id ? { ...prev, content: nextContent } : prev);
             void deleteBlobRefIfUnreferenced(oldContent);
-            addToast('图片已重新生成', 'success');
+            addToast('圖片已重新生成', 'success');
         } catch (error) {
-            console.warn('[Chat] 图片重新生成失败', error);
-            addToast('生成失败，稍后再试', 'error');
+            console.warn('[Chat] 圖片重新生成失敗', error);
+            addToast('生成失敗，稍後再試', 'error');
         } finally {
             setRegeneratingImageId(null);
         }
@@ -2844,7 +2845,7 @@ const Chat: React.FC = () => {
 
     const handleFullArchive = async () => {
         if (!apiConfig.apiKey || !char) {
-            addToast('请先配置 API Key', 'error');
+            addToast('請先配置 API Key', 'error');
             return;
         }
         const allMessages = await DB.getMessagesByCharId(char.id, true);
@@ -2860,14 +2861,14 @@ const Chat: React.FC = () => {
 
         const datesToProcess = Object.keys(msgsByDate).sort();
         if (datesToProcess.length === 0) {
-            addToast('聊天记录为空，无法归档', 'info');
+            addToast('聊天記錄為空，無法歸檔', 'info');
             return;
         }
 
         setIsSummarizing(true);
         setShowPanel('none');
-        setArchiveProgress(`准备归档 ${datesToProcess.length} 天...`);
-        addToast(`开始归档 ${datesToProcess.length} 天聊天记录`, 'info');
+        setArchiveProgress(`準備歸檔 ${datesToProcess.length} 天...`);
+        addToast(`開始歸檔 ${datesToProcess.length} 天聊天記錄`, 'info');
         trackEvent('归档聊天记录');
 
         try {
@@ -2878,7 +2879,7 @@ const Chat: React.FC = () => {
 
             for (let idx = 0; idx < datesToProcess.length; idx++) {
                 const dateStr = datesToProcess[idx];
-                setArchiveProgress(`归档中 ${dateStr} (${idx + 1}/${datesToProcess.length})`);
+                setArchiveProgress(`歸檔中 ${dateStr} (${idx + 1}/${datesToProcess.length})`);
                 const dayMsgs = msgsByDate[dateStr];
                 const rawLog = dayMsgs
                     .map(m => formatMessageWithTime(m, char.name, chatUserProfile.name, formatTime))
@@ -2918,18 +2919,18 @@ const Chat: React.FC = () => {
             const total = datesToProcess.length;
 
             if (processedCount === 0) {
-                addToast(`归档失败：${total} 天均未生成摘要（请检查 API/模型）`, 'error');
+                addToast(`歸檔失敗：${total} 天均未生成摘要（請檢查 API/模型）`, 'error');
                 setModalType('none');
             } else {
                 const finalMemories = [...(char.memories || []), ...newMemories];
 
-                // 关键修复：全量归档成功后把 hideBeforeMessageId 推到"倒数第 reserve 条"的位置。
-                // 不推的话下次再点归档，hideBefore 过滤没作用，之前已归档的几天会被重总结一遍，
-                // 往 char.memories 里堆重复条目。保留最近 max(100, 15%) 条不隐藏（和 palace
-                // auto-archive 的 hot-zone 概念对齐），这样聊天 UI 不会突然空掉。
+                // 關鍵修復：全量歸檔成功後把 hideBeforeMessageId 推到"倒數第 reserve 條"的位置。
+                // 不推的話下次再點歸檔，hideBefore 過濾沒作用，之前已歸檔的幾天會被重總結一遍，
+                // 往 char.memories 裡堆重複條目。保留最近 max(100, 15%) 條不隱藏（和 palace
+                // auto-archive 的 hot-zone 概念對齊），這樣聊天 UI 不會突然空掉。
                 //
-                // 部分失败时不推 hideBefore —— 那几天的原消息没写进 MemoryFragment，推了
-                // 就真的读不到了。用户下次重试归档会把失败的那几天补上。
+                // 部分失敗時不推 hideBefore —— 那幾天的原消息沒寫進 MemoryFragment，推了
+                // 就真的讀不到了。用戶下次重試歸檔會把失敗的那幾天補上。
                 let newHideBefore = char.hideBeforeMessageId;
                 let reservedCount = 0;
                 let hiddenCount = 0;
@@ -2940,7 +2941,7 @@ const Chat: React.FC = () => {
                     const RESERVE = Math.max(100, Math.ceil(allArchivedMsgs.length * 0.15));
                     if (allArchivedMsgs.length > RESERVE) {
                         const candidate = allArchivedMsgs[allArchivedMsgs.length - RESERVE].id;
-                        // 只前进不后退
+                        // 只前進不後退
                         if (!char.hideBeforeMessageId || candidate > char.hideBeforeMessageId) {
                             newHideBefore = candidate;
                             reservedCount = RESERVE;
@@ -2956,18 +2957,18 @@ const Chat: React.FC = () => {
                 updateCharacter(char.id, updates as any);
 
                 const hideStr = hiddenCount > 0
-                    ? `（已隐藏 ${hiddenCount} 条旧消息，保留最近 ${reservedCount} 条可见）`
+                    ? `（已隱藏 ${hiddenCount} 條舊消息，保留最近 ${reservedCount} 條可見）`
                     : '';
                 if (processedCount < total) {
-                    addToast(`归档完成：${processedCount}/${total} 天成功（部分失败，下次再点会补上）`, 'info');
+                    addToast(`歸檔完成：${processedCount}/${total} 天成功（部分失敗，下次再點會補上）`, 'info');
                 } else {
-                    addToast(`归档完成：成功归档 ${processedCount} 天${hideStr}`, 'success');
+                    addToast(`歸檔完成：成功歸檔 ${processedCount} 天${hideStr}`, 'success');
                 }
                 setModalType('none');
             }
 
         } catch (e: any) {
-            addToast(`归档中断: ${e.message}`, 'error');
+            addToast(`歸檔中斷: ${e.message}`, 'error');
         } finally {
             setIsSummarizing(false);
             setArchiveProgress('');
@@ -2980,14 +2981,14 @@ const Chat: React.FC = () => {
         const deletedId = selectedMessage.id;
         await DB.deleteMessage(deletedId);
         discardVoiceForMessages([deletedId]);
-        // 满血主动消息：云端 fire_pack 里带最近对话原文，删了消息不打脏的话，角色到点
-        // 还会提起这条已经不存在的消息（快照的消息在 flush 时从 DB 重读，这里只管打脏）。
+        // 滿血主動消息：雲端 fire_pack 裡帶最近對話原文，刪了消息不打髒的話，角色到點
+        // 還會提起這條已經不存在的消息（快照的消息在 flush 時從 DB 重讀，這裡只管打髒）。
         markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         setMessages(prev => prev.filter(m => m.id !== deletedId));
         setTotalMsgCount(prev => Math.max(0, prev - 1));
         setModalType('none');
         setSelectedMessage(null);
-        addToast('消息已删除', 'success');
+        addToast('消息已刪除', 'success');
         trackEvent('删除一条消息');
     };
 
@@ -2995,9 +2996,9 @@ const Chat: React.FC = () => {
         if (!selectedMessage) return;
         const contentChanged = editContent !== selectedMessage.content;
         await DB.updateMessage(selectedMessage.id, editContent);
-        // 内容变了旧语音就作废，否则语音条仍会播放编辑前的音频。
+        // 內容變了舊語音就作廢，否則語音條仍會播放編輯前的音頻。
         if (contentChanged) discardVoiceForMessages([selectedMessage.id]);
-        // 同 handleDeleteMessage：正文改了要让云端 fire_pack 跟上。
+        // 同 handleDeleteMessage：正文改了要讓雲端 fire_pack 跟上。
         if (contentChanged) markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         setMessages(prev => prev.map(m => m.id === selectedMessage.id ? { ...m, content: editContent } : m));
         setModalType('none');
@@ -3025,7 +3026,7 @@ const Chat: React.FC = () => {
         navigator.clipboard.writeText(selectedMessage.content);
         setModalType('none');
         setSelectedMessage(null);
-        addToast('已复制到剪贴板', 'success');
+        addToast('已複製到剪貼板', 'success');
         trackEvent('复制一条消息');
     };
 
@@ -3034,13 +3035,13 @@ const Chat: React.FC = () => {
         const emojisToDelete = Array.isArray(selectedEmoji) ? selectedEmoji : [selectedEmoji];
         try {
             await Promise.all(emojisToDelete.map(emoji => DB.deleteEmoji(emoji.name)));
-            addToast(Array.isArray(selectedEmoji) ? `已删除 ${selectedEmoji.length} 个表情包` : '表情包已删除', 'success');
+            addToast(Array.isArray(selectedEmoji) ? `已刪除 ${selectedEmoji.length} 個表情包` : '表情包已刪除', 'success');
         } catch (err) {
             console.error('Failed to delete emojis:', err);
-            addToast('删除表情包失败', 'error');
+            addToast('刪除表情包失敗', 'error');
         } finally {
             await loadEmojiData();
-            // 放 finally：Promise.all 部分失败时也已经删掉了几个，云端那份照样过期了。
+            // 放 finally：Promise.all 部分失敗時也已經刪掉了幾個，雲端那份照樣過期了。
             markEmojiLibraryChanged();
             setModalType('none');
             setSelectedEmoji(null);
@@ -3050,11 +3051,11 @@ const Chat: React.FC = () => {
     const handleRenameEmoji = async () => {
         if (!selectedEmoji || Array.isArray(selectedEmoji)) return;
         const newName = newEmojiName.trim();
-        if (!newName) { addToast('表情包名称不能为空', 'error'); return; }
+        if (!newName) { addToast('表情包名稱不能為空', 'error'); return; }
         if (newName === selectedEmoji.name) { setModalType('none'); setSelectedEmoji(null); return; }
         try {
             await DB.renameEmoji(selectedEmoji.name, newName);
-            addToast('表情包名称已修改', 'success');
+            addToast('表情包名稱已修改', 'success');
             await loadEmojiData();
             markEmojiLibraryChanged();
             setModalType('none');
@@ -3062,7 +3063,7 @@ const Chat: React.FC = () => {
             setNewEmojiName('');
         } catch (err: any) {
             console.error('Failed to rename emoji:', err);
-            addToast(err?.message || '修改名称失败', 'error');
+            addToast(err?.message || '修改名稱失敗', 'error');
         }
     };
 
@@ -3102,15 +3103,15 @@ const Chat: React.FC = () => {
 
     const handleBatchDelete = async () => {
         const msgIdsToDelete = new Set<number>(selectedMsgIds);
-        // 思维链单独勾选、但宿主消息没选 -> 只清 metadata.thinkingChain，保留消息
+        // 思維鏈單獨勾選、但宿主消息沒選 -> 只清 metadata.thinkingChain，保留消息
         const thinkingIdsToClear = new Set<number>();
         selectedThinkingMsgIds.forEach(id => {
             if (!msgIdsToDelete.has(id)) thinkingIdsToClear.add(id);
         });
         if (msgIdsToDelete.size === 0 && thinkingIdsToClear.size === 0) return;
 
-        // 删消息时，如果它身上的思维链没被勾选，就尝试迁移到同一轮里下一条 assistant 消息上，
-        // 让"只想删第一条输出，但想留思维链"成立
+        // 刪消息時，如果它身上的思維鏈沒被勾選，就嘗試遷移到同一輪裡下一條 assistant 消息上，
+        // 讓"只想刪第一條輸出，但想留思維鏈"成立
         const sorted = [...messages].sort((a, b) => a.id - b.id);
         const idxById = new Map<number, number>();
         sorted.forEach((m, i) => idxById.set(m.id, i));
@@ -3119,12 +3120,12 @@ const Chat: React.FC = () => {
             const msg = messages.find(x => x.id === id);
             const chain = msg?.metadata?.thinkingChain;
             if (!msg || !chain) return;
-            if (selectedThinkingMsgIds.has(id)) return; // 用户主动连思维链一起删
+            if (selectedThinkingMsgIds.has(id)) return; // 用戶主動連思維鏈一起刪
             const startIdx = idxById.get(id);
             if (startIdx == null) return;
             for (let i = startIdx + 1; i < sorted.length; i++) {
                 const next = sorted[i];
-                if (next.role !== 'assistant') break; // 出了这一轮，没法挂靠了
+                if (next.role !== 'assistant') break; // 出了這一輪，沒法掛靠了
                 if (msgIdsToDelete.has(next.id)) continue;
                 migrations.push({ targetId: next.id, chain: String(chain) });
                 break;
@@ -3164,8 +3165,8 @@ const Chat: React.FC = () => {
         setTotalMsgCount(prev => Math.max(0, prev - msgIdsToDelete.size));
 
         const parts: string[] = [];
-        if (msgIdsToDelete.size > 0) parts.push(`已删除 ${msgIdsToDelete.size} 条消息`);
-        if (thinkingIdsToClear.size > 0) parts.push(`已清除 ${thinkingIdsToClear.size} 条思维链`);
+        if (msgIdsToDelete.size > 0) parts.push(`已刪除 ${msgIdsToDelete.size} 條消息`);
+        if (thinkingIdsToClear.size > 0) parts.push(`已清除 ${thinkingIdsToClear.size} 條思維鏈`);
         addToast(parts.join('，'), 'success');
 
         setSelectionMode(false);
@@ -3175,7 +3176,7 @@ const Chat: React.FC = () => {
 
     // --- Forward Chat Records ---
     const [showForwardModal, setShowForwardModal] = useState(false);
-    const [forwardGroupId, setForwardGroupId] = useState(GROUP_FILTER_ALL); // 转发弹窗的角色分组筛选
+    const [forwardGroupId, setForwardGroupId] = useState(GROUP_FILTER_ALL); // 轉發彈窗的角色分組篩選
 
     const handleForwardSelected = () => {
         if (selectedMsgIds.size === 0) return;
@@ -3193,10 +3194,10 @@ const Chat: React.FC = () => {
         // Build preview text (first few messages)
         const previewLines = selectedMsgs.slice(0, 4).map(m => {
             const sender = m.role === 'user' ? chatUserProfile.name : char.name;
-            const text = m.type === 'text' ? m.content.slice(0, 30) : `[${m.type === 'image' ? '图片' : m.type === 'emoji' ? '表情' : m.type}]`;
+            const text = m.type === 'text' ? m.content.slice(0, 30) : `[${m.type === 'image' ? '圖片' : m.type === 'emoji' ? '表情' : m.type}]`;
             return `${sender}: ${text}`;
         });
-        if (selectedMsgs.length > 4) previewLines.push(`... 共 ${selectedMsgs.length} 条消息`);
+        if (selectedMsgs.length > 4) previewLines.push(`... 共 ${selectedMsgs.length} 條消息`);
 
         const forwardData = {
             fromUserName: chatUserProfile.name,
@@ -3226,13 +3227,13 @@ const Chat: React.FC = () => {
                 charId: char.id,
                 role: 'system',
                 type: 'text' as MessageType,
-                content: `[转发了 ${selectedMsgs.length} 条聊天记录给 ${targetChar?.name || ''}]`,
+                content: `[轉發了 ${selectedMsgs.length} 條聊天記錄給 ${targetChar?.name || ''}]`,
             });
             // Refresh messages to show the forwarding system message
             reloadMessages(visibleCountRef.current);
         }
 
-        addToast(`已转发 ${selectedMsgs.length} 条记录给 ${targetChar?.name || ''}`, 'success');
+        addToast(`已轉發 ${selectedMsgs.length} 條記錄給 ${targetChar?.name || ''}`, 'success');
         setShowForwardModal(false);
         setSelectionMode(false);
         setSelectedMsgIds(new Set());
@@ -3240,9 +3241,9 @@ const Chat: React.FC = () => {
 
     const handleOpenCollaborationFile = useCallback(async (msg: Message) => {
         const assetId = String(msg.metadata?.collaborationAssetId || '');
-        const fileName = String(msg.metadata?.fileName || '协同文件');
+        const fileName = String(msg.metadata?.fileName || '協同文件');
         if (!assetId) {
-            addToast('这条文件消息缺少原始文件引用', 'error');
+            addToast('這條文件消息缺少原始文件引用', 'error');
             return;
         }
         const isInstallable = msg.metadata?.collaborationAttachmentKind === 'installable'
@@ -3255,19 +3256,19 @@ const Chat: React.FC = () => {
         try {
             const blob = await CollaborationStore.getAsset(assetId);
             if (!blob) {
-                addToast('原始文件已不存在，无法打开', 'error');
+                addToast('原始文件已不存在，無法打開', 'error');
                 return;
             }
             const result = await shareOrDownloadBlob({
                 blob,
                 fileName,
-                shareTitle: `${char?.name || '角色'}发来的文件`,
+                shareTitle: `${char?.name || '角色'}發來的文件`,
                 preferDownloadOnWeb: true,
             });
             if (result === 'cancelled') return;
-            addToast(result === 'shared' ? '已打开系统保存/分享' : '文件已开始下载', 'success');
+            addToast(result === 'shared' ? '已打開系統保存/分享' : '文件已開始下載', 'success');
         } catch (error: any) {
-            addToast(error?.message || '文件打开失败', 'error');
+            addToast(error?.message || '文件打開失敗', 'error');
         }
     }, [addToast, char?.name]);
 
@@ -3275,8 +3276,8 @@ const Chat: React.FC = () => {
         setCollaborationPreviewAssetId(null);
     }, []);
 
-    // 协同工作是独立 sidecar：只有用户点「发送给 ChatApp」时才通过这个窄桥写入主消息表。
-    // 其它协同会话、提示词、API 与文件都留在独立数据库，不进入主聊天 pipeline。
+    // 協同工作是獨立 sidecar：只有用戶點「發送給 ChatApp」時才通過這個窄橋寫入主消息表。
+    // 其它協同會話、提示詞、API 與文件都留在獨立數據庫，不進入主聊天 pipeline。
     const handleCollaborationTransfer = useCallback(async (
         sessionTitle: string,
         transferredMessages: CollaborationTransferMessage[],
@@ -3286,10 +3287,10 @@ const Chat: React.FC = () => {
             const sender = message.role === 'user' ? chatUserProfile.name : char.name;
             return `${sender}: ${message.content.replace(/\s+/g, ' ').slice(0, 36)}`;
         });
-        if (transferredMessages.length > 4) preview.push(`… 共 ${transferredMessages.length} 条消息`);
+        if (transferredMessages.length > 4) preview.push(`… 共 ${transferredMessages.length} 條消息`);
         const forwardData = {
             fromUserName: chatUserProfile.name,
-            fromCharName: `${char.name} · 协同工作`,
+            fromCharName: `${char.name} · 協同工作`,
             count: transferredMessages.length,
             preview,
             messages: transferredMessages,
@@ -3318,7 +3319,7 @@ const Chat: React.FC = () => {
         occurredAt: number,
         sourceId: string,
     ): Promise<string> => {
-        if (!char) throw new Error('当前角色不存在');
+        if (!char) throw new Error('當前角色不存在');
         const occurred = new Date(occurredAt);
         const date = `${occurred.getFullYear()}-${String(occurred.getMonth() + 1).padStart(2, '0')}-${String(occurred.getDate()).padStart(2, '0')}`;
         const fragmentId = `collab_archive_${sourceId}`;
@@ -3327,7 +3328,7 @@ const Chat: React.FC = () => {
             const embedding = memoryPalaceConfig.embedding;
             const lightLLM = memoryPalaceConfig.lightLLM;
             if (!embedding?.baseUrl || !embedding?.apiKey || !embedding?.model || !lightLLM?.baseUrl || !lightLLM?.model) {
-                throw new Error('角色已开启记忆宫殿，但宫殿的向量 API 或副 LLM 还没有配置完整');
+                throw new Error('角色已開啟記憶宮殿，但宮殿的向量 API 或副 LLM 還沒有配置完整');
             }
             const { importExternalMemoryText, mergePalaceFragmentsIntoMemories } = await import('../utils/memoryPalace/pipeline');
             const imported = await importExternalMemoryText(
@@ -3339,10 +3340,10 @@ const Chat: React.FC = () => {
                 chatUserProfile.name,
             );
             if (imported.error && imported.error !== 'no_memories') {
-                throw new Error(`记忆宫殿没有存好：${imported.error}`);
+                throw new Error(`記憶宮殿沒有存好：${imported.error}`);
             }
             if (imported.stored === 0 && imported.skipped === 0) {
-                throw new Error('记忆宫殿没有提取出可保存的经历');
+                throw new Error('記憶宮殿沒有提取出可保存的經歷');
             }
             const palaceFragment: { id: string; date: string; summary: string; mood: string } = {
                 id: fragmentId,
@@ -3355,7 +3356,7 @@ const Chat: React.FC = () => {
                     ? current.memories
                     : mergePalaceFragmentsIntoMemories(current.memories || [], [palaceFragment]),
             }));
-            return `已把这次协作的一条总结同时存入 ${char.name} 的记忆宫殿和神经链接`;
+            return `已把這次協作的一條總結同時存入 ${char.name} 的記憶宮殿和神經鏈接`;
         }
 
         const archiveFragment: MemoryFragment = {
@@ -3369,7 +3370,7 @@ const Chat: React.FC = () => {
                 ? current.memories
                 : [...(current.memories || []), archiveFragment],
         }));
-        return `已把这次协作的一条总结存入 ${char.name} 的神经链接`;
+        return `已把這次協作的一條總結存入 ${char.name} 的神經鏈接`;
     }, [char, memoryPalaceConfig.embedding, memoryPalaceConfig.lightLLM, updateCharacter, chatUserProfile.name]);
 
     const handleCollaborationInstall = useCallback(async (
@@ -3384,7 +3385,7 @@ const Chat: React.FC = () => {
             await addCustomTheme(nextTheme);
             if (targetCharacterId) await updateCharacter(targetCharacterId, { bubbleStyle: nextTheme.id });
             const target = characters.find(item => item.id === targetCharacterId);
-            return target ? `气泡主题已保存，并给 ${target.name} 穿上` : '气泡主题已保存到气泡工坊';
+            return target ? `氣泡主題已保存，並給 ${target.name} 穿上` : '氣泡主題已保存到氣泡工坊';
         }
 
         if (artifact.kind === 'whitebox-css') {
@@ -3395,12 +3396,12 @@ const Chat: React.FC = () => {
             await DB.saveAssetRaw('chrome_css_presets', [nextPreset, ...presets.filter((item: any) => item.name !== nextPreset.name)].slice(0, 60));
             if (targetCharacterId) await updateCharacter(targetCharacterId, { chromeCustomCss: css });
             const target = characters.find(item => item.id === targetCharacterId);
-            return target ? `白框已存入预设，并应用给 ${target.name}` : '白框已保存到预设';
+            return target ? `白框已存入預設，並應用給 ${target.name}` : '白框已保存到預設';
         }
 
         if (artifact.kind === 'journal-css') {
             await updateTheme({ journalAppearance: { preset: 'original', customCss: String(artifact.payload.css || '') } });
-            return '交换日记美化已保存并启用';
+            return '交換日記美化已保存並啟用';
         }
 
         if (artifact.kind === 'schedule-css') {
@@ -3410,14 +3411,14 @@ const Chat: React.FC = () => {
                     customCss: String(artifact.payload.css || ''),
                 },
             });
-            return '日程卡美化已保存并启用';
+            return '日程卡美化已保存並啟用';
         }
 
         if (artifact.kind === 'psyche-css') {
-            if (!targetCharacterId) throw new Error('请选择使用心象卡美化的角色');
+            if (!targetCharacterId) throw new Error('請選擇使用心象卡美化的角色');
             await updateCharacter(targetCharacterId, { thinkingChainCustomCss: String(artifact.payload.css || '') });
             const target = characters.find(item => item.id === targetCharacterId);
-            return `心象卡美化已应用给 ${target?.name || '所选角色'}`;
+            return `心象卡美化已應用給 ${target?.name || '所選角色'}`;
         }
 
         if (artifact.kind === 'appearance-preset') {
@@ -3425,13 +3426,13 @@ const Chat: React.FC = () => {
             const presetTheme = { ...osTheme, ...patch };
             await saveAppearancePreset(artifact.title.slice(0, 50), presetTheme);
             await updateTheme(patch);
-            return '整套界面已存入外观预设并启用';
+            return '整套界面已存入外觀預設並啟用';
         }
 
         if (artifact.kind === 'character-card') {
             const created = await addCharacter();
             await updateCharacter(created.id, installableToCharacterPatch(artifact));
-            return `角色「${String(artifact.payload.name || artifact.title)}」已创建`;
+            return `角色「${String(artifact.payload.name || artifact.title)}」已創建`;
         }
 
         const books = installableToWorldbooks(artifact);
@@ -3443,13 +3444,13 @@ const Chat: React.FC = () => {
         }
         const target = characters.find(item => item.id === targetCharacterId);
         return target
-            ? `世界书「${String(artifact.payload.category || artifact.title)}」的 ${books.length} 条内容已保存并挂载给 ${target.name}`
-            : `世界书已保存到世界书库，共 ${books.length} 条`;
+            ? `世界書「${String(artifact.payload.category || artifact.title)}」的 ${books.length} 條內容已保存並掛載給 ${target.name}`
+            : `世界書已保存到世界書庫，共 ${books.length} 條`;
     }, [addCharacter, addCustomTheme, addWorldbook, characters, osTheme, saveAppearancePreset, updateCharacter, updateTheme]);
 
-    // hideBeforeMessageId 不在视觉层过滤：用户依旧能往上翻到旧消息，只是 LLM 拉不到。
-    // 真正想从聊天记录里抹掉，应该走"删除"。
-    // 旧消息定位模式仍然维护一个有限 DOM 窗口，但窗口会随着上下滚动持续扩展。
+    // hideBeforeMessageId 不在視覺層過濾：用戶依舊能往上翻到舊消息，只是 LLM 拉不到。
+    // 真正想從聊天記錄裡抹掉，應該走"刪除"。
+    // 舊消息定位模式仍然維護一個有限 DOM 窗口，但窗口會隨著上下滾動持續擴展。
     const chatDisplayMessages = useMemo(
         () => messages.filter(message => isVisibleChatMessage(message, !!char?.hideSystemLogs)),
         [messages, char?.id, char?.hideSystemLogs],
@@ -3478,8 +3479,8 @@ const Chat: React.FC = () => {
         return chatDisplayMessages.slice(-visibleCount);
     }, [chatDisplayMessages, visibleCount, windowedFocusMsgId, historyWindowRange]);
 
-    // 预览整组交接前，不把同一批逐条落库的正式气泡再画一遍。
-    // 仅处理本轮已匹配的 ID；旧回复、未预览的卡片和二次回复仍正常显示。
+    // 預覽整組交接前，不把同一批逐條落庫的正式氣泡再畫一遍。
+    // 僅處理本輪已匹配的 ID；舊回覆、未預覽的卡片和二次回覆仍正常顯示。
     const renderedMessages = useMemo(() => {
         if (selectionMode || (!streamingBubbles.length && !streamingThinking)) return displayMessages;
         const pending = new Set(streamingHandoverIds);
@@ -3490,18 +3491,18 @@ const Chat: React.FC = () => {
     const hasOlderHistoryWindow = windowedFocusMsgId !== null && !!historyWindowRange && historyWindowRange.start > 0;
     const hasNewerHistoryWindow = windowedFocusMsgId !== null && !!historyWindowRange && historyWindowRange.end < chatDisplayMessages.length;
 
-    // ── 新消息进入动画 ──────────────────────────────────────────────
-    // 只让「刚追加的最新消息」（自己发的 / AI 回的）整条淡入一次。
-    // 进聊天首帧、切角色、翻历史（老消息 id 更小）都不播，避免满屏一起闪。
+    // ── 新消息進入動畫 ──────────────────────────────────────────────
+    // 只讓「剛追加的最新消息」（自己發的 / AI 回的）整條淡入一次。
+    // 進聊天首幀、切角色、翻歷史（老消息 id 更小）都不播，避免滿屏一起閃。
     const animSeenMaxIdRef = useRef<number | null>(null);
     const [animatingIds, setAnimatingIds] = useState<Set<number>>(() => new Set());
-    // 切角色 / 首次进入：清基线，下一轮 detect 只记录不播
+    // 切角色 / 首次進入：清基線，下一輪 detect 只記錄不播
     useEffect(() => {
         animSeenMaxIdRef.current = null;
         streamPreviewHandoverIdsRef.current.clear();
         setAnimatingIds(new Set());
     }, [activeCharacterId]);
-    // 检测新增：id 超过基线的才淡入；首帧只记基线不播
+    // 檢測新增：id 超過基線的才淡入；首幀只記基線不播
     useEffect(() => {
         if (displayMessages.length === 0) return;
         let maxId = -Infinity;
@@ -3517,15 +3518,15 @@ const Chat: React.FC = () => {
         }
     }, [displayMessages]);
 
-    // 稳定的思维链配置对象：只在角色/样式变化时重建，避免每次渲染新建对象击穿 MessageItem.memo。
+    // 穩定的思維鏈配置對象：只在角色/樣式變化時重建，避免每次渲染新建對象擊穿 MessageItem.memo。
     const thinkingChainOptions = useMemo(() => ({
         styleId: (char as any)?.thinkingChainStyle || 'echo',
         customColors: (char as any)?.thinkingChainCustomColors,
         onOpenSettings: () => setShowThinkingChainModal(true),
     }), [(char as any)?.thinkingChainStyle, (char as any)?.thinkingChainCustomColors]);
 
-    // 工具痕迹那行灰字要贴着气泡走，所以把气泡自带的组间距（MessageItem 里那组
-    // mb-3 / mb-6 / mb-8）抵掉大半。组内的气泡本来就挨着，不用抵。
+    // 工具痕跡那行灰字要貼著氣泡走，所以把氣泡自帶的組間距（MessageItem 裡那組
+    // mb-3 / mb-6 / mb-8）抵掉大半。組內的氣泡本來就挨著，不用抵。
     const toolTracePullClass = osTheme.chatMessageSpacing === 'compact' ? '-mt-2'
         : osTheme.chatMessageSpacing === 'spacious' ? '-mt-6' : '-mt-5';
 
@@ -3556,27 +3557,27 @@ const Chat: React.FC = () => {
         generating: isTyping || instantChatPending || isProactiveComposing,
         onGenerate: handleManualTrigger,
     });
-    // 角色自定义聊天背景：字段值可能是 blobref 令牌（二进制在 IndexedDB），这里解析成能直接
-    // 喂进 CSS url() 的地址；data: / http(s) 之类的非令牌值渲染期原样透传。
-    // hook 必须在下面的空态早退之前调用，所以用可选链读 char。
+    // 角色自定義聊天背景：字段值可能是 blobref 令牌（二進制在 IndexedDB），這裡解析成能直接
+    // 喂進 CSS url() 的地址；data: / http(s) 之類的非令牌值渲染期原樣透傳。
+    // hook 必須在下面的空態早退之前調用，所以用可選鏈讀 char。
     const resolvedChatBackground = useBlobRefUrl(char?.chatBackground ?? osTheme.chatBackground);
-    // 兜底：正常情况下 OSContext 启动时一定会保底一个角色，char 不该为空。
-    // 但若 init 期间某个 store 读取失败（数据其实还在 IndexedDB 里），characters 可能暂时为空，
-    // 此时下面读 char 上的字段会直接抛 "undefined is not an object" 把整个 App 崩到错误页。
-    // 这里给个温和空态，避免硬崩，也好让用户能退回桌面/重启恢复。
+    // 兜底：正常情況下 OSContext 啟動時一定會保底一個角色，char 不該為空。
+    // 但若 init 期間某個 store 讀取失敗（數據其實還在 IndexedDB 裡），characters 可能暫時為空，
+    // 此時下面讀 char 上的字段會直接拋 "undefined is not an object" 把整個 App 崩到錯誤頁。
+    // 這裡給個溫和空態，避免硬崩，也好讓用戶能退回桌面/重啟恢復。
     if (!char) {
         return (
             <div className="flex flex-col items-center justify-center h-full bg-[#f1f5f9] text-center px-8 gap-3">
                 <ChatDecorationAnnouncement surface="chat"/>
                 <div className="text-4xl">💤</div>
-                <div className="text-slate-600 text-sm font-medium">暂时没有可用的角色</div>
-                <div className="text-slate-400 text-xs leading-relaxed">数据可能未加载完成。请退回桌面后重新进入；若仍为空，重启应用即可恢复。</div>
+                <div className="text-slate-600 text-sm font-medium">暫時沒有可用的角色</div>
+                <div className="text-slate-400 text-xs leading-relaxed">數據可能未加載完成。請退回桌面後重新進入；若仍為空，重啟應用即可恢復。</div>
                 <button onClick={closeApp} className="mt-2 px-4 py-2 rounded-full bg-slate-800 text-white text-xs">返回桌面</button>
             </div>
         );
     }
 
-    // 动森彩蛋模式（受「聊天联动」开关控制：关掉则聊天保持原样式）
+    // 動森彩蛋模式（受「聊天聯動」開關控制：關掉則聊天保持原樣式）
     const acnh = osTheme.skin === 'animalcrossing' && osTheme.acnhChatSync !== false;
     const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
     const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
@@ -3588,8 +3589,8 @@ const Chat: React.FC = () => {
               : chatChromeStyle === 'floating'
                 ? 'flex flex-col h-full bg-[#eef2ff] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
                 : 'flex flex-col h-full bg-[#f1f5f9] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500';
-    // 令牌还在读盘、或者图已经丢了时 resolvedChatBackground 是 undefined，这一帧按「没设背景」
-    // 的样式走，免得渲染出一个 url("undefined")。
+    // 令牌還在讀盤、或者圖已經丟了時 resolvedChatBackground 是 undefined，這一幀按「沒設背景」
+    // 的樣式走，免得渲染出一個 url("undefined")。
     const chatRootStyle: React.CSSProperties = resolvedChatBackground
         ? {
             backgroundImage: `url("${resolvedChatBackground}")`,
@@ -3618,18 +3619,18 @@ const Chat: React.FC = () => {
               : {
                   backgroundImage: 'none',
                 };
-    // 动森彩蛋：浅奶油米黄中心（上下绿条由 header/输入栏负责），配色参考 Pocket Camp。
+    // 動森彩蛋：淺奶油米黃中心（上下綠條由 header/輸入欄負責），配色參考 Pocket Camp。
     const acnhRootClass = 'flex flex-col h-full overflow-hidden relative font-sans transition-[background-color] duration-500';
     const acnhRootStyle: React.CSSProperties = {
         backgroundColor: '#F6F0D8',
         backgroundImage: 'none',
     };
     const finalRootClass = acnh ? acnhRootClass : chatRootClass;
-    // 动森下强制覆盖角色自定义聊天背景，保证整机一致的彩蛋观感
-    // 进入/切换的过场由 CharacterEntryTransition 覆盖层负责，根容器不再自己做淡入。
+    // 動森下強制覆蓋角色自定義聊天背景，保證整機一致的彩蛋觀感
+    // 進入/切換的過場由 CharacterEntryTransition 覆蓋層負責，根容器不再自己做淡入。
     const finalRootStyle = acnh ? acnhRootStyle : chatRootStyle;
-    // 聊天细节微调（外观 → 聊天细节，全局打底；角色开了「聊天装扮」时逐字段覆盖）：
-    // CSS 全默认时为空串不注入；chatModuleAlign 不走 CSS，作为布局属性传给 MessageItem。
+    // 聊天細節微調（外觀 → 聊天細節，全局打底；角色開了「聊天裝扮」時逐字段覆蓋）：
+    // CSS 全默認時為空串不注入；chatModuleAlign 不走 CSS，作為佈局屬性傳給 MessageItem。
     const mergedFineTune = useMemo(() => mergeChatFineTune(osTheme, char?.chatFineTune), [osTheme, char?.chatFineTune]);
     const chatFineTuneCss = useMemo(() => buildChatFineTuneCss(mergedFineTune), [mergedFineTune]);
     const chatAvatarSizeClass = osTheme.chatAvatarSize === 'small' ? 'w-7 h-7' : osTheme.chatAvatarSize === 'large' ? 'w-12 h-12' : 'w-9 h-9';
@@ -3642,12 +3643,12 @@ const Chat: React.FC = () => {
             style={finalRootStyle}
         >
              <ChatDecorationAnnouncement surface="chat"/>
-             {/* 聊天细节微调（外观 App 可视化设置生成）：排在用户自定义 CSS 之前——
-                 同为 !important 时后写的胜，手写美化代码永远可覆盖可视化设置。 */}
+             {/* 聊天細節微調（外觀 App 可視化設置生成）：排在用戶自定義 CSS 之前——
+                 同為 !important 時後寫的勝，手寫美化代碼永遠可覆蓋可視化設置。 */}
              {chatFineTuneCss && <style>{chatFineTuneCss}</style>}
              {char.chatAppearance?.chatEmojiSize && char.chatFineTune?.enabled !== false && <style>{`.sully-chat-root { --sully-emoji-size: ${{small:96,medium:128,large:160}[osTheme.chatEmojiSize || 'small']}px; }`}</style>}
-             {/* 白框自定义 CSS：全局默认在前、角色专属在后（后者叠加覆盖）。作用于 .sully-chat-* 各零件。
-                 守护样式统一放在气泡主题 customCss 之后（见下），保证对所有用户 CSS 都能兜底。 */}
+             {/* 白框自定義 CSS：全局默認在前、角色專屬在後（後者疊加覆蓋）。作用於 .sully-chat-* 各零件。
+                 守護樣式統一放在氣泡主題 customCss 之後（見下），保證對所有用戶 CSS 都能兜底。 */}
              {osTheme.chatChromeCustomCss && <style>{osTheme.chatChromeCustomCss}</style>}
              {char.chromeCustomCss && <style>{char.chromeCustomCss}</style>}
              {scheduleChangeNotice && (
@@ -3657,7 +3658,7 @@ const Chat: React.FC = () => {
                  onDone={dismissScheduleChangeNotice}
                />
              )}
-             {/* 角色「登场」过场：切换/进入时以 ta 的头像氛围铺底登场，再推进穿过进入聊天。key 切换即重放。 */}
+             {/* 角色「登場」過場：切換/進入時以 ta 的頭像氛圍鋪底登場，再推進穿過進入聊天。key 切換即重放。 */}
              {showEntry && char && (
                <CharacterEntryTransition
                  key={activeCharacterId}
@@ -3668,21 +3669,21 @@ const Chat: React.FC = () => {
              )}
 
              {activeTheme.customCss && <style>{activeTheme.customCss}</style>}
-             {/* 气泡工坊的尾巴频率依赖直接挂在气泡上的稳定类。用户 CSS 即使给
-                 ::before/::after 写了 !important，中间气泡仍会按“仅组末/隐藏”设置收起尾巴。 */}
+             {/* 氣泡工坊的尾巴頻率依賴直接掛在氣泡上的穩定類。用戶 CSS 即使給
+                 ::before/::after 寫了 !important，中間氣泡仍會按“僅組末/隱藏”設置收起尾巴。 */}
              <style>{`
                .sully-bubble-tail-hidden::before,
                .sully-bubble-tail-hidden::after { content: none !important; display: none !important; }
              `}</style>
 
-             {/* 心象卡片自定义 CSS（per-character）：作用于 .sully-psyche-* 各零件，编辑入口在心象设置弹窗 */}
+             {/* 心象卡片自定義 CSS（per-character）：作用於 .sully-psyche-* 各零件，編輯入口在心象設置彈窗 */}
              {(char as any).thinkingChainCustomCss && <style>{(char as any).thinkingChainCustomCss}</style>}
 
-             {/* 守护样式（注在所有用户 CSS —— 白框全局/角色、气泡主题 customCss、心象卡片 CSS —— 之后）：
-                 保证返回键和输入栏永远可见可点。坏 CSS（常随备份/分享导入）把它们隐藏/变透明/
-                 pointer-events:none 时，用户会遇到「点输入框没反应、键盘唤不起来」或退不出聊天，
-                 且重启、重新导入备份都无解。有了兜底，至少能退出去「外观→聊天界面→还原白框」清掉坏 CSS。
-                 不锁位置与配色，正常美化不受影响。 */}
+             {/* 守護樣式（注在所有用戶 CSS —— 白框全局/角色、氣泡主題 customCss、心象卡片 CSS —— 之後）：
+                 保證返回鍵和輸入欄永遠可見可點。壞 CSS（常隨備份/分享導入）把它們隱藏/變透明/
+                 pointer-events:none 時，用戶會遇到「點輸入框沒反應、鍵盤喚不起來」或退不出聊天，
+                 且重啟、重新導入備份都無解。有了兜底，至少能退出去「外觀→聊天界面→還原白框」清掉壞 CSS。
+                 不鎖位置與配色，正常美化不受影響。 */}
              {(osTheme.chatChromeCustomCss || char.chromeCustomCss || activeTheme.customCss || (char as any).thinkingChainCustomCss) && (
                <style>{`
                  .sully-chat-back{visibility:visible!important;opacity:1!important;pointer-events:auto!important;}
@@ -3691,7 +3692,7 @@ const Chat: React.FC = () => {
                `}</style>
              )}
 
-             {/* 动森彩蛋：作用域 CSS 覆盖气泡——奶油 AI 气泡 + 蜜桃用户气泡，暖棕文字，绕开 MessageItem 复杂逻辑 */}
+             {/* 動森彩蛋：作用域 CSS 覆蓋氣泡——奶油 AI 氣泡 + 蜜桃用戶氣泡，暖棕文字，繞開 MessageItem 複雜邏輯 */}
              {acnh && <style>{`
                 .sully-bubble-ai {
                     background: #FBF4DE !important;
@@ -3707,14 +3708,14 @@ const Chat: React.FC = () => {
                     border-radius: 24px !important;
                     box-shadow: 0 4px 10px -5px rgba(150,100,55,0.32) !important;
                 }
-                /* 仅动森：聊天正文放大一点 */
+                /* 僅動森：聊天正文放大一點 */
                 .sully-bubble-ai .text-\\[15px\\], .sully-bubble-user .text-\\[15px\\] {
                     font-size: 16.5px !important;
                     line-height: 1.7 !important;
                 }
              `}</style>}
 
-             {/* 记忆整理中 — 顶部浮动胶囊（不阻塞交互，轻量无 backdrop-filter） */}
+             {/* 記憶整理中 — 頂部浮動膠囊（不阻塞交互，輕量無 backdrop-filter） */}
              {memoryPalaceStatus && (
                  <div
                      className="absolute top-[76px] left-1/2 z-[150] animate-fade-in"
@@ -3746,7 +3747,7 @@ const Chat: React.FC = () => {
              )}
 
 
-             {/* 记忆整理结果 — 弹窗（高级感） */}
+             {/* 記憶整理結果 — 彈窗（高級感） */}
              {memoryPalaceResult && (
                  <div
                      className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
@@ -3781,26 +3782,26 @@ const Chat: React.FC = () => {
                                  <span style={{ fontSize: 26 }}>🗂️</span>
                              </div>
                              <div className="text-[10px] tracking-[0.25em] uppercase font-semibold" style={{ color: '#6366f1' }}>Memory Palace</div>
-                             <p className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>记忆整理完成</p>
+                             <p className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>記憶整理完成</p>
                              <p className="text-[11px] text-slate-400 mt-1">
-                                 新增 {memoryPalaceResult.stored} 条 · 去重跳过 {memoryPalaceResult.skipped} 条
+                                 新增 {memoryPalaceResult.stored} 條 · 去重跳過 {memoryPalaceResult.skipped} 條
                                  {memoryPalaceResult.batches.length > 1 && ` · ${memoryPalaceResult.batches.length} 批`}
                              </p>
                              {memoryPalaceResult.batches.some(b => !b.ok) && (
                                  <p className="text-[10px] text-red-500 mt-1">
-                                     {memoryPalaceResult.batches.filter(b => !b.ok).map(b => `batch ${b.index} 失败`).join(', ')}
+                                     {memoryPalaceResult.batches.filter(b => !b.ok).map(b => `batch ${b.index} 失敗`).join(', ')}
                                  </p>
                              )}
                          </div>
                          <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-2 no-scrollbar">
                              {memoryPalaceResult.memories.map((m, i) => {
                                  const roomMeta: Record<string, { label: string; color: string }> = {
-                                     living_room: { label: '客厅', color: '#f59e0b' },
-                                     bedroom: { label: '卧室', color: '#8b5cf6' },
-                                     study: { label: '书房', color: '#0ea5e9' },
-                                     user_room: { label: '用户房间', color: '#ec4899' },
-                                     self_room: { label: '自我房间', color: '#10b981' },
-                                     attic: { label: '阁楼', color: '#6366f1' },
+                                     living_room: { label: '客廳', color: '#f59e0b' },
+                                     bedroom: { label: '臥室', color: '#8b5cf6' },
+                                     study: { label: '書房', color: '#0ea5e9' },
+                                     user_room: { label: '用戶房間', color: '#ec4899' },
+                                     self_room: { label: '自我房間', color: '#10b981' },
+                                     attic: { label: '閣樓', color: '#6366f1' },
                                      windowsill: { label: '窗台', color: '#14b8a6' },
                                  };
                                  const meta = roomMeta[m.room] || { label: m.room, color: '#64748b' };
@@ -3838,7 +3839,7 @@ const Chat: React.FC = () => {
                                  );
                              })}
                              {memoryPalaceResult.memories.length === 0 && (
-                                 <p className="text-center text-xs text-slate-400 py-4">本次未提取到新记忆</p>
+                                 <p className="text-center text-xs text-slate-400 py-4">本次未提取到新記憶</p>
                              )}
                          </div>
                          <div className="px-6 pb-6 pt-2">
@@ -3850,7 +3851,7 @@ const Chat: React.FC = () => {
                                      boxShadow: '0 6px 18px -6px rgba(79,70,229,0.5)',
                                  }}
                              >
-                                 确认
+                                 確認
                              </button>
                          </div>
                      </div>
@@ -3874,7 +3875,7 @@ const Chat: React.FC = () => {
                 editContent={editContent} setEditContent={setEditContent}
                 archivePrompts={archivePrompts} selectedPromptId={selectedPromptId} setSelectedPromptId={(id: string) => {
                     setSelectedPromptId(id);
-                    // 同步写 localStorage，让 palace extraction 的风格追加能读到最新选择
+                    // 同步寫 localStorage，讓 palace extraction 的風格追加能讀到最新選擇
                     try { localStorage.setItem('chat_active_archive_prompt_id', id); } catch {}
                 }}
                 editingPrompt={editingPrompt} setEditingPrompt={setEditingPrompt} isSummarizing={isSummarizing} archiveProgress={archiveProgress}
@@ -3958,7 +3959,7 @@ const Chat: React.FC = () => {
                 apiPresets={apiPresets}
                 onAddApiPreset={addApiPreset}
                 onSaveEmotion={(config) => {
-                    // API 同步到所有角色，enabled 仅写到当前角色
+                    // API 同步到所有角色，enabled 僅寫到當前角色
                     syncEmotionApiToAllCharacters(config.api);
                     updateCharacter(char.id, {
                         emotionConfig: {
@@ -3969,11 +3970,11 @@ const Chat: React.FC = () => {
                 }}
                 onClearBuffs={() => {
                     updateCharacter(char.id, { activeBuffs: [], buffInjection: '' });
-                    addToast('情绪状态已清除', 'info');
+                    addToast('情緒狀態已清除', 'info');
                 }}
                 onSaveChatApi={(chatApi) => {
                     updateCharacter(char.id, { chatApi });
-                    addToast('对话模型设置已保存', 'success');
+                    addToast('對話模型設置已保存', 'success');
                 }}
                 onSaveInnerVoices={(innerVoices) => updateCharacter(char.id, { innerVoices })}
                 onGenerateInnerVoice={(entry) => generateInnerVoiceContent(char, chatUserProfile, resolveCharacterMeterApi(char, apiConfig), entry)
@@ -3983,7 +3984,7 @@ const Chat: React.FC = () => {
                     .then(result => result === null ? null : { value: result.value, statusNote: result.note })}
              />
 
-             {/* 小剧场播放器：窥视某个日程时段的角色行为演出 */}
+             {/* 小劇場播放器：窺視某個日程時段的角色行為演出 */}
              {theaterSlotIdx !== null && scheduleData && createPortal(
                 <TheaterPlayer
                     character={char}
@@ -4018,7 +4019,7 @@ const Chat: React.FC = () => {
                     const newBuffs = currentBuffs.filter(b => b.id !== buffId);
                     const newInjection = '';
                     updateCharacter(char.id, { activeBuffs: newBuffs, buffInjection: newInjection });
-                    addToast('已删除该情绪状态', 'info');
+                    addToast('已刪除該情緒狀態', 'info');
                 }}
                 headerStyle={osTheme.chatHeaderStyle}
                 avatarShape={osTheme.chatAvatarShape}
@@ -4030,7 +4031,7 @@ const Chat: React.FC = () => {
                 acnh={acnh}
              />
 
-            {/* 认知消化结果弹窗 — 全屏玻璃拟态 */}
+            {/* 認知消化結果彈窗 — 全屏玻璃擬態 */}
             {lastDigestResult && (() => {
                 const r = lastDigestResult;
                 const groups: Array<{
@@ -4041,15 +4042,15 @@ const Chat: React.FC = () => {
                     items: Array<{ content: string; sub?: string }>;
                 }> = [];
                 if (r.resolved.length) groups.push({ key: 'resolved', label: '困惑化解', icon: '🕊️', accent: '#10b981', items: r.resolved.map(e => ({ content: e.content })) });
-                if (r.deepened.length) groups.push({ key: 'deepened', label: '创伤加深', icon: '💢', accent: '#f43f5e', items: r.deepened.map(e => ({ content: e.content })) });
-                if (r.internalized.length) groups.push({ key: 'internalized', label: '知识内化', icon: '🪞', accent: '#8b5cf6', items: r.internalized.map(e => ({ content: e.content })) });
-                if (r.selfInsights.length) groups.push({ key: 'insights', label: '自我领悟', icon: '💡', accent: '#f59e0b', items: r.selfInsights.map(t => ({ content: t })) });
+                if (r.deepened.length) groups.push({ key: 'deepened', label: '創傷加深', icon: '💢', accent: '#f43f5e', items: r.deepened.map(e => ({ content: e.content })) });
+                if (r.internalized.length) groups.push({ key: 'internalized', label: '知識內化', icon: '🪞', accent: '#8b5cf6', items: r.internalized.map(e => ({ content: e.content })) });
+                if (r.selfInsights.length) groups.push({ key: 'insights', label: '自我領悟', icon: '💡', accent: '#f59e0b', items: r.selfInsights.map(t => ({ content: t })) });
                 if (r.selfConfused.length) groups.push({ key: 'confused', label: '新的自我困惑', icon: '🌀', accent: '#6366f1', items: r.selfConfused.map(e => ({ content: e.content })) });
-                if (r.synthesizedUser.length) groups.push({ key: 'synth', label: '用户认知整合', icon: '👤', accent: '#0ea5e9', items: r.synthesizedUser.map(e => ({ content: e.content, sub: e.category })) });
-                if (r.worries?.length) groups.push({ key: 'worries', label: '回看引发的担忧', icon: '😟', accent: '#f97316', items: r.worries.map(e => ({ content: e.content })) });
+                if (r.synthesizedUser.length) groups.push({ key: 'synth', label: '用戶認知整合', icon: '👤', accent: '#0ea5e9', items: r.synthesizedUser.map(e => ({ content: e.content, sub: e.category })) });
+                if (r.worries?.length) groups.push({ key: 'worries', label: '回看引發的擔憂', icon: '😟', accent: '#f97316', items: r.worries.map(e => ({ content: e.content })) });
                 if (r.aspirations?.length) groups.push({ key: 'aspirations', label: '新的期盼', icon: '🌟', accent: '#eab308', items: r.aspirations.map(e => ({ content: e.content })) });
-                if (r.distilled?.length) groups.push({ key: 'distilled', label: '沉淀到门牌', icon: '🚪', accent: '#a855f7', items: r.distilled.map(e => ({ content: e.content })) });
-                if (r.fulfilled.length) groups.push({ key: 'fulfilled', label: '期盼实现', icon: '✨', accent: '#22c55e', items: r.fulfilled.map(e => ({ content: e.content })) });
+                if (r.distilled?.length) groups.push({ key: 'distilled', label: '沉澱到門牌', icon: '🚪', accent: '#a855f7', items: r.distilled.map(e => ({ content: e.content })) });
+                if (r.fulfilled.length) groups.push({ key: 'fulfilled', label: '期盼實現', icon: '✨', accent: '#22c55e', items: r.fulfilled.map(e => ({ content: e.content })) });
                 if (r.disappointed.length) groups.push({ key: 'disappointed', label: '期盼落空', icon: '🍂', accent: '#94a3b8', items: r.disappointed.map(e => ({ content: e.content })) });
                 if (r.faded.length) groups.push({ key: 'faded', label: '淡忘', icon: '🌫️', accent: '#cbd5e1', items: r.faded.map(e => ({ content: e.content })) });
                 if (groups.length === 0) return null;
@@ -4073,12 +4074,12 @@ const Chat: React.FC = () => {
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {/* 顶部光晕条 */}
+                            {/* 頂部光暈條 */}
                             <div
                                 className="absolute top-0 left-0 right-0 h-1 pointer-events-none"
                                 style={{ background: 'linear-gradient(90deg, transparent, #10b981, #6ee7b7, #10b981, transparent)' }}
                             />
-                            {/* 头部 */}
+                            {/* 頭部 */}
                             <div className="px-6 pt-7 pb-4 text-center">
                                 <div
                                     className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3"
@@ -4090,11 +4091,11 @@ const Chat: React.FC = () => {
                                     <span style={{ fontSize: 28 }}>🧠</span>
                                 </div>
                                 <div className="text-[11px] tracking-[0.2em] uppercase font-semibold" style={{ color: '#059669' }}>Cognitive Digest</div>
-                                <div className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>{char.name} 完成了一次认知消化</div>
-                                <div className="text-[11px] text-slate-400 mt-1">内心整理 · {groups.reduce((s, g) => s + g.items.length, 0)} 项变化</div>
+                                <div className="text-[17px] font-bold mt-1" style={{ color: '#0f172a' }}>{char.name} 完成了一次認知消化</div>
+                                <div className="text-[11px] text-slate-400 mt-1">內心整理 · {groups.reduce((s, g) => s + g.items.length, 0)} 項變化</div>
                             </div>
 
-                            {/* 内容列表 */}
+                            {/* 內容列表 */}
                             <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-3 no-scrollbar">
                                 {groups.map(g => (
                                     <div key={g.key}
@@ -4125,14 +4126,14 @@ const Chat: React.FC = () => {
                                                 </div>
                                             ))}
                                             {g.items.length > 3 && (
-                                                <div className="text-[10px] text-slate-400 pl-3">还有 {g.items.length - 3} 条…</div>
+                                                <div className="text-[10px] text-slate-400 pl-3">還有 {g.items.length - 3} 條…</div>
                                             )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* 确认按钮 */}
+                            {/* 確認按鈕 */}
                             <div className="px-6 pb-6 pt-2">
                                 <button
                                     onClick={() => setLastDigestResult(null)}
@@ -4142,7 +4143,7 @@ const Chat: React.FC = () => {
                                         boxShadow: '0 8px 24px -4px rgba(16,185,129,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
                                     }}
                                 >
-                                    放入心里
+                                    放入心裡
                                 </button>
                             </div>
                         </div>
@@ -4155,7 +4156,7 @@ const Chat: React.FC = () => {
                     <div className="sticky top-0 z-20 flex justify-center pb-2 pointer-events-none">
                         <button onClick={handleBackToCurrent} className="pointer-events-auto px-4 py-2 bg-primary text-white rounded-full text-xs font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
-                            回到当前聊天
+                            回到當前聊天
                         </button>
                     </div>
                 )}
@@ -4166,7 +4167,7 @@ const Chat: React.FC = () => {
                             visibleCountRef.current = nextVisibleCount;
                             setVisibleCount(nextVisibleCount);
                             await reloadMessages(nextVisibleCount);
-                        }} className="px-4 py-2 bg-white/50 backdrop-blur-sm rounded-full text-xs text-slate-500 shadow-sm border border-white hover:bg-white transition-colors">加载历史消息 ({collapsedCount})</button>
+                        }} className="px-4 py-2 bg-white/50 backdrop-blur-sm rounded-full text-xs text-slate-500 shadow-sm border border-white hover:bg-white transition-colors">加載歷史消息 ({collapsedCount})</button>
                     </div>
                 )}
                 {windowedFocusMsgId !== null && (
@@ -4176,10 +4177,10 @@ const Chat: React.FC = () => {
                                 onClick={() => extendHistoryWindow('older')}
                                 className="px-3 py-1.5 bg-white/60 backdrop-blur-sm rounded-full text-[11px] text-slate-500 shadow-sm border border-white hover:bg-white transition-colors"
                             >
-                                向上滑继续看更早消息
+                                向上滑繼續看更早消息
                             </button>
                         ) : (
-                            <span className="text-[11px] text-slate-400">已到最早一条消息</span>
+                            <span className="text-[11px] text-slate-400">已到最早一條消息</span>
                         )}
                     </div>
                 )}
@@ -4197,11 +4198,11 @@ const Chat: React.FC = () => {
                         nextMessage.role !== m.role ||
                         Math.abs(nextMessage.timestamp - m.timestamp) > messageGroupGapMs;
                     const suppressEntranceAnimation = streamPreviewHandoverIdsRef.current.has(m.id);
-                    // 这一轮在云端跑过哪些工具（即时对话才有，worker 挂在最后一条推送上）。
-                    // 一条推送拆出的每条气泡都继承了同一份（metadata 是整份往下铺的，见
-                    // activeMsgRuntime 的 mcdInheritMeta），所以只在这条推送的最后一条底下画，
-                    // 不然一句回复底下能排出三行一模一样的字。
-                    // 多选状态下不画：跟旁边那两块浮层一样，让位给选择框。
+                    // 這一輪在雲端跑過哪些工具（即時對話才有，worker 掛在最後一條推送上）。
+                    // 一條推送拆出的每條氣泡都繼承了同一份（metadata 是整份往下鋪的，見
+                    // activeMsgRuntime 的 mcdInheritMeta），所以只在這條推送的最後一條底下畫，
+                    // 不然一句回覆底下能排出三行一模一樣的字。
+                    // 多選狀態下不畫：跟旁邊那兩塊浮層一樣，讓位給選擇框。
                     const toolTraceText = selectionMode
                         ? '' : formatAmsgToolTrace((m.metadata as any)?.amsgToolTrace);
                     const pushMessageId = (m.metadata as any)?.activeMsg2?.messageId;
@@ -4265,7 +4266,7 @@ const Chat: React.FC = () => {
                         {showToolTrace && (
                             <div className={`px-3 mb-4 ${breaksWithNext ? toolTracePullClass : ''}`}>
                                 <div className="ml-12 text-[10px] leading-relaxed text-slate-400">
-                                    调用了工具：{toolTraceText}
+                                    調用了工具：{toolTraceText}
                                 </div>
                             </div>
                         )}
@@ -4279,15 +4280,15 @@ const Chat: React.FC = () => {
                                 onClick={() => extendHistoryWindow('newer')}
                                 className="px-3 py-1.5 bg-white/60 backdrop-blur-sm rounded-full text-[11px] text-slate-500 shadow-sm border border-white hover:bg-white transition-colors"
                             >
-                                向下滑继续看较新消息
+                                向下滑繼續看較新消息
                             </button>
                         ) : (
-                            <span className="text-[11px] text-slate-400">已到当前最新消息</span>
+                            <span className="text-[11px] text-slate-400">已到當前最新消息</span>
                         )}
                     </div>
                 )}
 
-                {/* 渠道确实发送 reasoning 增量时，先用正式心象卡实时展示；落库后同帧交给正式消息。 */}
+                {/* 渠道確實發送 reasoning 增量時，先用正式心象卡實時展示；落庫後同幀交給正式消息。 */}
                 {streamingThinking && !selectionMode && (
                     <div className="group flex items-end justify-start relative px-3 mb-1.5 animate-fade-in">
                         <div className="relative max-w-[72%] min-w-0 ml-12">
@@ -4301,9 +4302,9 @@ const Chat: React.FC = () => {
                     </div>
                 )}
 
-                {/* 流式预览直接复用正式 MessageItem：气泡变体、主题背景图/装饰、头像框、
-                    grouped/every_message、消息间距、时间戳、Markdown 与所有自定义 CSS 天然一致。
-                    整轮落库完成后一起交接，已登记接棒 id 的正式消息首帧不再重播 fade-in。 */}
+                {/* 流式預覽直接複用正式 MessageItem：氣泡變體、主題背景圖/裝飾、頭像框、
+                    grouped/every_message、消息間距、時間戳、Markdown 與所有自定義 CSS 天然一致。
+                    整輪落庫完成後一起交接，已登記接棒 id 的正式消息首幀不再重播 fade-in。 */}
                 {streamingBubbles.length > 0 && !selectionMode && (
                     <>
                         {streamingBubbles.map((bubble, i) => (
@@ -4340,7 +4341,7 @@ const Chat: React.FC = () => {
                         ))}
                     </>
                 )}
-                {/* instantChatPending：这一轮在云端跑，本机可以关页面，指示灯靠落盘记录活着。 */}
+                {/* instantChatPending：這一輪在雲端跑，本機可以關頁面，指示燈靠落盤記錄活著。 */}
                 {(isTyping || instantChatPending || recallStatus || searchStatus || diaryStatus || isProactiveComposing) && !selectionMode && (
                     <div className="flex items-end gap-3 px-3 mb-6 animate-fade-in">
                         <TokenImg value={char.avatar} className={chatPendingAvatarClass} />
@@ -4348,7 +4349,7 @@ const Chat: React.FC = () => {
                             {isProactiveComposing && !isTyping && !recallStatus && !searchStatus && !diaryStatus ? (
                                 <div className="flex items-center gap-2 text-xs text-teal-600 font-medium">
                                     <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    {char.name} 在给你写消息…
+                                    {char.name} 在給你寫消息…
                                 </div>
                             ) : searchStatus ? (
                                 <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium">
@@ -4378,13 +4379,13 @@ const Chat: React.FC = () => {
                     <div className="flex items-center justify-between px-4 py-1.5 bg-yellow-50 border-b border-yellow-200 text-xs">
                         <div className="flex items-center gap-1.5 text-yellow-700 font-bold">
                             <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"/>
-                            🍔 麦请求进行中
+                            🍔 麥請求進行中
                         </div>
                         <button
                           onClick={() => handleSendText(MCD_DEACTIVATE_TRIGGER, 'text', { mcdDeactivate: true })}
                           className="px-2.5 py-0.5 bg-yellow-200/80 text-yellow-800 rounded-full text-[11px] font-bold active:scale-95"
                         >
-                          结束
+                          結束
                         </button>
                     </div>
                 )}
@@ -4392,13 +4393,13 @@ const Chat: React.FC = () => {
                     <div className="flex items-center justify-between px-4 py-1.5 bg-[#0B1F3A]/5 border-b border-[#0B1F3A]/15 text-xs">
                         <div className="flex items-center gap-1.5 text-[#0B1F3A] font-bold">
                             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C6A15B] animate-pulse"/>
-                            🦌 瑞一杯进行中
+                            🦌 瑞一杯進行中
                             {luckinChatRef.current?.cityName && <span className="font-normal text-[#0B1F3A]/60">· {luckinChatRef.current.cityName}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => setShowLuckinHelp(true)}
-                              title="瑞一杯怎么用"
+                              title="瑞一杯怎麼用"
                               className="w-5 h-5 flex items-center justify-center bg-[#0B1F3A]/10 text-[#0B1F3A] rounded-full text-[11px] font-bold active:scale-95"
                             >
                               ?
@@ -4413,20 +4414,20 @@ const Chat: React.FC = () => {
                               onClick={deactivateLuckin}
                               className="px-2.5 py-0.5 bg-[#0B1F3A]/10 text-[#0B1F3A] rounded-full text-[11px] font-bold active:scale-95"
                             >
-                              结束
+                              結束
                             </button>
                         </div>
                     </div>
                 )}
                 {replyTarget && (
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
-                        {/* 引用的是图片 / 表情时这里显示占位符，跟落库的快照同一口径 */}
-                        <div className="flex items-center gap-2 truncate"><span className="font-bold text-slate-700">正在回复:</span><span className="truncate max-w-[200px]">{buildReplySnapshotContent(replyTarget)}</span></div>
+                        {/* 引用的是圖片 / 表情時這裡顯示佔位符，跟落庫的快照同一口徑 */}
+                        <div className="flex items-center gap-2 truncate"><span className="font-bold text-slate-700">正在回覆:</span><span className="truncate max-w-[200px]">{buildReplySnapshotContent(replyTarget)}</span></div>
                         <button onClick={() => setReplyTarget(null)} className="p-1 text-slate-400 hover:text-slate-600">×</button>
                     </div>
                 )}
 
-                {/* 开关写着「已开启」、这一轮却在本地生成时，把原因说给用户听 */}
+                {/* 開關寫著「已開啟」、這一輪卻在本地生成時，把原因說給用戶聽 */}
                 <InstantChatRouteNotice charId={activeCharacterId} />
 
                 <ChatInputArea
@@ -4487,8 +4488,8 @@ const Chat: React.FC = () => {
                         updateCharacter(char.id, { proactiveConfig: config });
                         if (config.enabled) {
                             startProactiveChat(config.intervalMinutes);
-                            // 界面只给 7 个档，但这个值是从持久化状态读回来的——导入的备份、
-                            // 老版本写进去的都可能是任意整数。收敛到写死的档位，其余归 custom。
+                            // 界面只給 7 個檔，但這個值是從持久化狀態讀回來的——導入的備份、
+                            // 老版本寫進去的都可能是任意整數。收斂到寫死的檔位，其餘歸 custom。
                             trackEvent('启动主动消息', {
                                 intervalMinutes: presetOrCustom(
                                     String(config.intervalMinutes),
@@ -4496,21 +4497,21 @@ const Chat: React.FC = () => {
                                     '没设',
                                 ),
                             });
-                            addToast(`已启动主动消息，每 ${config.intervalMinutes >= 60 ? formatHours(config.intervalMinutes) + ' 小时' : config.intervalMinutes + ' 分钟'}发送一次`, 'success');
+                            addToast(`已啟動主動消息，每 ${config.intervalMinutes >= 60 ? formatHours(config.intervalMinutes) + ' 小時' : config.intervalMinutes + ' 分鐘'}發送一次`, 'success');
                         } else {
                             stopProactiveChat();
-                            addToast('已关闭主动消息', 'info');
+                            addToast('已關閉主動消息', 'info');
                         }
                     }}
                     onStop={() => {
                         stopProactiveChat();
                         updateCharacter(char.id, { proactiveConfig: { ...char.proactiveConfig!, enabled: false } });
-                        addToast('已停止主动消息', 'info');
+                        addToast('已停止主動消息', 'info');
                     }}
                 />
             )}
 
-            {/* 主动消息 2.0（云端 worker 定时任务）Settings Modal */}
+            {/* 主動消息 2.0（雲端 worker 定時任務）Settings Modal */}
             {char && (
                 <ActiveMsg2SettingsModal
                     isOpen={showActiveMsg2Modal}
@@ -4522,9 +4523,9 @@ const Chat: React.FC = () => {
                     realtimeConfig={realtimeConfig}
                     apiPresets={apiPresets}
                     onAddApiPreset={addApiPreset}
-                    // updater 形态：merge 在 setCharacters 的函数式 updater 里发生，
-                    // 拿到的 prev 是最新排队后的状态，不会被面板的渲染时快照盖掉
-                    // （角色在聊天里用工具排的任务就是这么丢的）。
+                    // updater 形態：merge 在 setCharacters 的函數式 updater 裡發生，
+                    // 拿到的 prev 是最新排隊後的狀態，不會被面板的渲染時快照蓋掉
+                    // （角色在聊天裡用工具排的任務就是這麼丟的）。
                     onSave={(updater) => updateCharacter(char.id, (prev) => ({
                         activeMsg2Config: updater(prev.activeMsg2Config),
                     }))}
@@ -4532,7 +4533,7 @@ const Chat: React.FC = () => {
                 />
             )}
 
-            {/* 思考链设置 Modal — 入口：聊天加号面板「展示思考」按钮长按 / 思考链卡片右上齿轮 */}
+            {/* 思考鏈設置 Modal — 入口：聊天加號面板「展示思考」按鈕長按 / 思考鏈卡片右上齒輪 */}
             {char && (
                 <ThinkingChainSettingsModal
                     isOpen={showThinkingChainModal}
@@ -4569,9 +4570,9 @@ const Chat: React.FC = () => {
                 onClose={()=>setModalType('none')}
             />}
 
-            {/* 情绪设置已嵌入日程 Modal（与日程强制同步开/关），不再单独渲染 */}
+            {/* 情緒設置已嵌入日程 Modal（與日程強制同步開/關），不再單獨渲染 */}
 
-            {/* 🍔 麦当劳小程序 - MCP 数据流按钮驱动, 协同聊天走主 pipeline (完整人设/记忆/日程) */}
+            {/* 🍔 麥當勞小程序 - MCP 數據流按鈕驅動, 協同聊天走主 pipeline (完整人設/記憶/日程) */}
             {memoryRepairOpen && char && (
                 <MemoryRepairPortal
                     char={char}
@@ -4597,7 +4598,7 @@ const Chat: React.FC = () => {
             )}
 
             {char && (
-                <React.Suspense fallback={collaborationOpen ? <div className="absolute inset-0 z-[120] grid place-items-center bg-slate-50 text-xs text-slate-400">正在打开协同工作…</div> : null}>
+                <React.Suspense fallback={collaborationOpen ? <div className="absolute inset-0 z-[120] grid place-items-center bg-slate-50 text-xs text-slate-400">正在打開協同工作…</div> : null}>
                     <CollaborationWindow
                         open={collaborationOpen}
                         character={char}
@@ -4638,7 +4639,7 @@ const Chat: React.FC = () => {
                 onConfirmOrder={handleMcdAppConfirm}
             />
 
-            {/* 购物中心 mini-app */}
+            {/* 購物中心 mini-app */}
             <ShoppingMallMiniApp
                 open={mallOpen}
                 onClose={() => setMallOpen(false)}
@@ -4649,7 +4650,7 @@ const Chat: React.FC = () => {
                 apiPresets={apiPresets}
             />
 
-            {/* 🦌 瑞幸小程序 - 与麦当劳同构 */}
+            {/* 🦌 瑞幸小程序 - 與麥當勞同構 */}
             <LuckinMiniApp
                 open={luckinAppOpen}
                 onClose={() => setLuckinAppOpen(false)}
@@ -4662,14 +4663,14 @@ const Chat: React.FC = () => {
                 onConfirmOrder={handleLuckinAppConfirm}
             />
 
-            {/* 🦌 瑞一杯定位选择 */}
+            {/* 🦌 瑞一杯定位選擇 */}
             <LuckinLocationModal
                 open={showLuckinLoc}
                 onClose={() => setShowLuckinLoc(false)}
                 onPick={onLuckinLocationPick}
             />
 
-            {/* 🦌 瑞一杯使用说明 (首次自动弹 + banner ? 调出) */}
+            {/* 🦌 瑞一杯使用說明 (首次自動彈 + banner ? 調出) */}
             <LuckinHelpModal
                 open={showLuckinHelp}
                 onClose={() => setShowLuckinHelp(false)}
@@ -4677,13 +4678,13 @@ const Chat: React.FC = () => {
 
 
             {/* Forward Modal */}
-            <Modal isOpen={showForwardModal} title="转发聊天记录" onClose={() => setShowForwardModal(false)}>
+            <Modal isOpen={showForwardModal} title="轉發聊天記錄" onClose={() => setShowForwardModal(false)}>
                 {(() => {
                     const forwardCandidates = characters.filter(c => c.id !== activeCharacterId);
                     const forwardChars = filterCharactersByGroup(forwardCandidates, characterGroups, forwardGroupId);
                     return (
                         <div className="space-y-2 max-h-64 overflow-y-auto">
-                            <p className="text-xs text-slate-400 mb-3">选择要转发给的角色 (已选 {selectedMsgIds.size} 条消息)</p>
+                            <p className="text-xs text-slate-400 mb-3">選擇要轉發給的角色 (已選 {selectedMsgIds.size} 條消息)</p>
                             <CharacterGroupFilterBar characters={forwardCandidates} groups={characterGroups} value={forwardGroupId} onChange={setForwardGroupId} className="mb-2 -mx-1 px-1" />
                             {forwardChars.map(c => (
                                 <button
@@ -4700,7 +4701,7 @@ const Chat: React.FC = () => {
                                 </button>
                             ))}
                             {forwardChars.length === 0 && (
-                                <div className="text-center text-xs text-slate-400 py-8">{forwardCandidates.length === 0 ? '没有其他角色可以转发' : '该分组下没有角色'}</div>
+                                <div className="text-center text-xs text-slate-400 py-8">{forwardCandidates.length === 0 ? '沒有其他角色可以轉發' : '該分組下沒有角色'}</div>
                             )}
                         </div>
                     );

@@ -8,9 +8,9 @@ export const DINO_GRID = Array.from({length:30},(_,i)=>({
 }));
 export const gridCell = (id:string) => DINO_GRID.find(c=>c.id===id);
 export function snapDinoPose(p:DinoPose):DinoPose {
-  if(![p.x,p.z,p.rotation].every(Number.isFinite)||Math.abs(p.x)>3.7||Math.abs(p.z)>3.9)throw new Error('请选择沙盘里的落点');
+  if(![p.x,p.z,p.rotation].every(Number.isFinite)||Math.abs(p.x)>3.7||Math.abs(p.z)>3.9)throw new Error('請選擇沙盤裡的落點');
   const cell=p.slotId?gridCell(p.slotId):DINO_GRID.reduce((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)<Math.hypot(b.x-p.x,b.z-p.z)?a:b);
-  if(!cell)throw new Error('这个落点不存在');
+  if(!cell)throw new Error('這個落點不存在');
   const rotation=((Math.round(p.rotation/(Math.PI/4))%8)+8)%8*Math.PI/4;
   return {x:cell.x,z:cell.z,rotation,slotId:cell.id};
 }

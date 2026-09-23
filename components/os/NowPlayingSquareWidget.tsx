@@ -1,7 +1,7 @@
 /**
- * 方形「正在播放」组件 — 用于桌面第二页的风车布局
- * — 全局 Music Context 驱动，点击跳到 Music App。
- * — 填满父容器（由父的 aspect-square 约束成方形）。
+ * 方形「正在播放」組件 — 用於桌面第二頁的風車佈局
+ * — 全局 Music Context 驅動，點擊跳到 Music App。
+ * — 填滿父容器（由父的 aspect-square 約束成方形）。
  */
 import React from 'react';
 import { Play, Pause, SkipBack, SkipForward } from '@phosphor-icons/react';
@@ -20,16 +20,16 @@ const formatTime = (sec: number) => {
 const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentColor }) => {
   const { openApp, theme } = useOS();
   const { current, playing, progress, duration, togglePlay, nextSong, prevSong } = useMusic();
-  const acnh = theme.skin === 'animalcrossing'; // 动森：奶油卡片 + 薄荷进度
+  const acnh = theme.skin === 'animalcrossing'; // 動森：奶油卡片 + 薄荷進度
   const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
 
   const pct = duration > 0 ? (progress / duration) * 100 : 0;
   const hasSong = !!current;
 
-  // 用户自己上传的封面存的是 blobref 令牌，得解析成可渲染的地址；网易云那种 http 直链原样透传。
+  // 用戶自己上傳的封面存的是 blobref 令牌，得解析成可渲染的地址；網易雲那種 http 直鏈原樣透傳。
   const albumPic = useBlobRefUrl(current?.albumPic);
-  const title = current?.name || '抽一张来听';
-  const artists = current?.artists || '— 轻触，进入';
+  const title = current?.name || '抽一張來聽';
+  const artists = current?.artists || '— 輕觸，進入';
   const statusText = !hasSong ? 'Standby' : (playing ? 'Now Playing' : 'Paused');
   const dotColor = paper ? (!hasSong ? '#a66f52' : '#788369') : (!hasSong ? '#fbbf24' : (playing ? '#4ade80' : '#fbbf24'));
 
@@ -38,7 +38,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
   const handleNext = (e: React.MouseEvent) => { e.stopPropagation(); if (hasSong) nextSong(); };
   const handlePrev = (e: React.MouseEvent) => { e.stopPropagation(); if (hasSong) prevSong(); };
 
-  // 动森彩蛋：黑胶唱机布局（全新设计，非原版均衡器条）
+  // 動森彩蛋：黑膠唱機佈局（全新設計，非原版均衡器條）
   if (acnh) {
     return (
       <div
@@ -74,7 +74,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
           <div className="text-[9px] truncate leading-tight" style={{ color: '#9f927d' }}>{artists}</div>
         </div>
 
-        {/* 控件：圆形 AC 按钮 */}
+        {/* 控件：圓形 AC 按鈕 */}
         <div className="flex items-center justify-center gap-3">
           <button aria-label="Previous" onClick={handlePrev} onMouseDown={stopProp} disabled={!hasSong}
             className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition disabled:opacity-30"
@@ -96,7 +96,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
     );
   }
 
-  // 浅色系变体（外观设置可切换）：白卡 + 深字，给不喜欢深色玻璃卡的用户。
+  // 淺色系變體（外觀設置可切換）：白卡 + 深字，給不喜歡深色玻璃卡的用戶。
   const light = !!theme.nowPlayingWidgetLight;
   const palette = paper
     ? {
@@ -157,7 +157,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
         color: palette.textColor,
       }}
     >
-      {/* 背景封面（不再实时 blur — 改用低透明度覆盖） */}
+      {/* 背景封面（不再實時 blur — 改用低透明度覆蓋） */}
       {albumPic ? (
         <div className="absolute inset-0 pointer-events-none"
           style={{
@@ -174,7 +174,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
         />
       )}
 
-      {/* 顶部：封面 + 文字 */}
+      {/* 頂部：封面 + 文字 */}
       <div className="relative flex items-center gap-2 z-10 min-w-0">
         <div
           className="w-9 h-9 shrink-0 rounded-lg overflow-hidden relative"
@@ -210,7 +210,7 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
         </div>
       </div>
 
-      {/* 中间：均衡器条 */}
+      {/* 中間：均衡器條 */}
       <div className="relative flex-1 flex items-center justify-center gap-[3px] z-10 opacity-40 py-1">
         {[5, 9, 4, 7, 5, 8, 4].map((h, i) => (
           <div
@@ -226,9 +226,9 @@ const NowPlayingSquareWidget: React.FC<{ contentColor: string }> = ({ contentCol
         ))}
       </div>
 
-      {/* 底部：进度 + 控件 */}
+      {/* 底部：進度 + 控件 */}
       <div className="relative z-10 flex flex-col gap-1.5">
-        {/* 进度条 */}
+        {/* 進度條 */}
         <div className="flex flex-col gap-0.5">
           <div className="h-[3px] w-full rounded-full overflow-hidden"
             style={{ background: acnh ? 'rgba(94,72,59,0.15)' : palette.trackBg }}>

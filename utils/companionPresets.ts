@@ -34,7 +34,7 @@ export function saveCompanionStartupPreset(
   const presets = settings.startupPresets || [];
   const preset: CompanionStartupPreset = {
     id: options.id || makePresetId('startup', now),
-    name: presetName(name, `开机演出 ${presets.length + 1}`),
+    name: presetName(name, `開機演出 ${presets.length + 1}`),
     startup: cloneJson(startup),
     createdAt: now,
     updatedAt: now,
@@ -73,7 +73,7 @@ export function saveCompanionTouchPreset(
   const presets = settings.touchPresets || [];
   const preset: CompanionTouchPreset = {
     id: options.id || makePresetId('touch', now),
-    name: presetName(name, `触摸反馈 ${presets.length + 1}`),
+    name: presetName(name, `觸摸反饋 ${presets.length + 1}`),
     enabledZones: [...snapshot.enabledZones],
     reactions: cloneJson(snapshot.reactions),
     voiceLanguage: snapshot.voiceLanguage,

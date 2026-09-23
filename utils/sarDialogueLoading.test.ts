@@ -36,7 +36,7 @@ it('does not flash an old guest while the interrupted conversation is being rest
     // Commerce preparation can publish the old save before visitFamiliarity resets it.
     await act(async()=>{saveFishingMarketState(old);window.dispatchEvent(new Event('storage'));});
     expect(container.querySelector('.cast-aiven')).toBeNull();
-    expect(container.querySelector('.srf-line')?.textContent).toBe('正在走进活动室…');
+    expect(container.querySelector('.srf-line')?.textContent).toBe('正在走進活動室…');
     await act(async()=>ready(withCursor(scene.id,scene.start,0)));
     expect(container.querySelector('.cast-aiven')).toBeNull();
     await act(async()=>saveFishingMarketState(old));

@@ -3,7 +3,7 @@ import { SULLY_DEFAULT_AVATAR_URL, shouldMigrateSullyAvatar } from './sullyAvata
 
 const PAGE = 'https://qegj567-cloud.github.io/SullyOS/';
 
-describe('Sully 默认头像迁移', () => {
+describe('Sully 默認頭像遷移', () => {
     it.each([
         'https://sharkpan.xyz/f/BZ3VSa/head.png',
         'sully/head.png',
@@ -12,7 +12,7 @@ describe('Sully 默认头像迁移', () => {
         '/SullyOS/sully/head.png',
         'https://qegj567-cloud.github.io/sully/head.png',
         'https://qegj567-cloud.github.io/SullyOS/sully/head.png',
-    ])('识别旧默认地址 %s', value => {
+    ])('識別舊默認地址 %s', value => {
         expect(shouldMigrateSullyAvatar(value, PAGE)).toBe(true);
     });
 
@@ -21,7 +21,7 @@ describe('Sully 默认头像迁移', () => {
         expect(shouldMigrateSullyAvatar('https://qegj567-cloud.github.io/SullyOS/sully/head.png', 'http://localhost:5173/')).toBe(true);
     });
 
-    it('不覆盖当前资产仓库地址或用户自定义头像', () => {
+    it('不覆蓋當前資產倉庫地址或用戶自定義頭像', () => {
         expect(shouldMigrateSullyAvatar(SULLY_DEFAULT_AVATAR_URL, PAGE)).toBe(false);
         expect(shouldMigrateSullyAvatar('https://images.example/custom.png', PAGE)).toBe(false);
         expect(shouldMigrateSullyAvatar('/custom/sully/head.png', PAGE)).toBe(false);

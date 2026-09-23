@@ -1,20 +1,20 @@
-// 自定义 PWA 应用图标：把用户选的图接到 apple-touch-icon / favicon / manifest 上。
+// 自定義 PWA 應用圖標：把用戶選的圖接到 apple-touch-icon / favicon / manifest 上。
 //
-// 三条踩过的坑，改这份文件前先读：
+// 三條踩過的坑，改這份文件前先讀：
 //
-// 1. **只能有一个 apple-touch-icon**。index.html 里写死了一个 180x180 的，
-//    如果再 append 一个同尺寸的，iOS 会挑排在前面那个（也就是原装图标），
-//    新图标静默失效。所以这里的做法是**改原有 link 的 href**，而不是新增。
+// 1. **只能有一個 apple-touch-icon**。index.html 裡寫死了一個 180x180 的，
+//    如果再 append 一個同尺寸的，iOS 會挑排在前面那個（也就是原裝圖標），
+//    新圖標靜默失效。所以這裡的做法是**改原有 link 的 href**，而不是新增。
 //
-// 2. **必须是 PNG**。iOS 的 apple-touch-icon 只稳定支持 PNG；上传管线默认吐 JPEG、
-//    图床还可能给 WebP，直接用会被 iOS 忽略。统一走 utils/iconRaster 转 PNG。
+// 2. **必須是 PNG**。iOS 的 apple-touch-icon 只穩定支持 PNG；上傳管線默認吐 JPEG、
+//    圖床還可能給 WebP，直接用會被 iOS 忽略。統一走 utils/iconRaster 轉 PNG。
 //
-// 3. **尺寸要压到 180**。源图存的是 512，base64 后几百 KB，塞进 href 又慢又冒险。
+// 3. **尺寸要壓到 180**。源圖存的是 512，base64 後幾百 KB，塞進 href 又慢又冒險。
 //
-// 另一条固有约束（不是 bug，改不了）：图标在「添加到主屏幕」那一刻固化。装完之后
-// 再改这里的任何东西，主屏和通知图标都不变，只能删掉 App 重新添加。
+// 另一條固有約束（不是 bug，改不了）：圖標在「添加到主屏幕」那一刻固化。裝完之後
+// 再改這裡的任何東西，主屏和通知圖標都不變，只能刪掉 App 重新添加。
 //
-// 详见 docs/superpowers/specs/2026-08-09-pwa-custom-icon-design.md
+// 詳見 docs/superpowers/specs/2026-08-09-pwa-custom-icon-design.md
 
 import appMetadata from '../metadata.json';
 import { getBlobForRef, isBlobRef, blobToDataUrl } from './blobRef';
@@ -26,24 +26,24 @@ export const PWA_DEFAULT_ICON_URL = import.meta.env.BASE_URL + 'icons/jellyfish-
 export const PWA_CLASSIC_ICON_URL = import.meta.env.BASE_URL + 'icons/icon-512.png';
 let iconRevision = 0;
 
-/** apple-touch-icon 的标准边长。 */
+/** apple-touch-icon 的標準邊長。 */
 const TOUCH_ICON_SIZE = 180;
 
 const APPLE_ICON_SELECTOR = 'link[rel~="apple-touch-icon"], link[rel~="apple-touch-icon-precomposed"]';
 const FAVICON_SELECTOR = 'link[rel~="icon"]:not([rel~="apple-touch-icon"])';
 const MANIFEST_SELECTOR = 'link[rel="manifest"]';
 
-// 原始 href 备份，clearPwaIcon 时逐个还原。
+// 原始 href 備份，clearPwaIcon 時逐個還原。
 const originalHrefs = new WeakMap<HTMLLinkElement, string>();
 let originalManifestHref: string | null = null;
 let dynamicManifestUrl: string | null = null;
 
-// ── 公开 API ──────────────────────────────────────────────────────
+// ── 公開 API ──────────────────────────────────────────────────────
 
 /**
- * 把图标值（blobRef 令牌 / data: URI / http(s) URL）接到页面上。
- * - 总是更新 apple-touch-icon + favicon（浏览器标签页当场就变）
- * - 同时更新 manifest，浏览器安装前选择的图标也能生效
+ * 把圖標值（blobRef 令牌 / data: URI / http(s) URL）接到頁面上。
+ * - 總是更新 apple-touch-icon + favicon（瀏覽器標籤頁當場就變）
+ * - 同時更新 manifest，瀏覽器安裝前選擇的圖標也能生效
  */
 export async function injectPwaIcon(value: string): Promise<void> {
   const revision = ++iconRevision;
@@ -70,7 +70,7 @@ export async function injectPwaIcon(value: string): Promise<void> {
   await replaceManifest(pngDataUrl, revision);
 }
 
-/** 恢复默认图标：所有被改过的 href 还原。 */
+/** 恢復默認圖標：所有被改過的 href 還原。 */
 export function clearPwaIcon(): void {
   iconRevision++;
   restoreHrefs(APPLE_ICON_SELECTOR);
@@ -86,25 +86,25 @@ export function clearPwaIcon(): void {
   }
 }
 
-/** 启动时调用：customIcons 里有 `_pwa_` 就接上。 */
+/** 啟動時調用：customIcons 裡有 `_pwa_` 就接上。 */
 export async function initPwaIcon(customIcons: Record<string, string>): Promise<void> {
   const icon = customIcons[PWA_ICON_APP_ID];
   if (!icon) return;
   try {
     await injectPwaIcon(icon);
   } catch (e) {
-    console.warn('[PWA Icon] 启动注入失败', e);
+    console.warn('[PWA Icon] 啟動注入失敗', e);
   }
 }
 
-// ── 图标源解析 ────────────────────────────────────────────────────
+// ── 圖標源解析 ────────────────────────────────────────────────────
 
-/** 把存储值解析成能喂给 canvas 的东西：Blob 优先（不会污染画布），否则原样的 URL 字符串。 */
+/** 把存儲值解析成能餵給 canvas 的東西：Blob 優先（不會汙染畫布），否則原樣的 URL 字符串。 */
 async function resolveIconSource(value: string): Promise<Blob | string | null> {
   if (isBlobRef(value)) {
     const blob = await getBlobForRef(value);
     if (!blob) {
-      console.warn('[PWA Icon] blobRef 令牌解析失败，图标可能已被清理');
+      console.warn('[PWA Icon] blobRef 令牌解析失敗，圖標可能已被清理');
       return null;
     }
     return blob;
@@ -112,19 +112,19 @@ async function resolveIconSource(value: string): Promise<Blob | string | null> {
   if (value.startsWith('data:') || /^https?:\/\//i.test(value)) {
     return value;
   }
-  console.warn('[PWA Icon] 不支持的图标值:', value.slice(0, 50));
+  console.warn('[PWA Icon] 不支持的圖標值:', value.slice(0, 50));
   return null;
 }
 
 /**
- * 转成正方形 PNG data URL。转换失败时退回原图（能显示总比没有强），
- * 但会明确警告——iOS 大概率不认非 PNG，这时候图标就是不会变。
+ * 轉成正方形 PNG data URL。轉換失敗時退回原圖（能顯示總比沒有強），
+ * 但會明確警告——iOS 大概率不認非 PNG，這時候圖標就是不會變。
  */
 async function rasterize(source: Blob | string, size: number): Promise<string | null> {
   try {
     return await toSquarePngDataUrl(source, size);
   } catch (e) {
-    console.warn('[PWA Icon] 转 PNG 失败，退回原图（iOS 可能不认非 PNG 格式）', e);
+    console.warn('[PWA Icon] 轉 PNG 失敗，退回原圖（iOS 可能不認非 PNG 格式）', e);
     if (typeof source === 'string') return source;
     try {
       return await blobToDataUrl(source);
@@ -137,8 +137,8 @@ async function rasterize(source: Blob | string, size: number): Promise<string | 
 // ── DOM 操作 ──────────────────────────────────────────────────────
 
 /**
- * 改掉匹配到的所有 link 的 href（首次调用时备份原值）。
- * 一个都没匹配到且给了 fallback 时，创建一个。
+ * 改掉匹配到的所有 link 的 href（首次調用時備份原值）。
+ * 一個都沒匹配到且給了 fallback 時，創建一個。
  */
 function applyHref(selector: string, href: string, createIfMissing?: () => HTMLLinkElement): void {
   const links = Array.from(document.querySelectorAll(selector)) as HTMLLinkElement[];
@@ -161,7 +161,7 @@ function restoreHrefs(selector: string): void {
     const original = originalHrefs.get(link);
     if (original === undefined) continue;
     if (original) link.setAttribute('href', original);
-    else link.remove(); // 本来就是我们建的，直接删掉
+    else link.remove(); // 本來就是我們建的，直接刪掉
     originalHrefs.delete(link);
   }
 }
@@ -195,8 +195,8 @@ async function replaceManifest(iconDataUrl: string, revision: number): Promise<v
       { src: iconDataUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ];
 
-    // 动态 manifest 挂的是 blob: 地址，里面的相对路径会相对 blob 解析导致 404。
-    // 所有路径先折成绝对地址（base 取原始 manifest 的绝对 URL）。
+    // 動態 manifest 掛的是 blob: 地址，裡面的相對路徑會相對 blob 解析導致 404。
+    // 所有路徑先折成絕對地址（base 取原始 manifest 的絕對 URL）。
     const toAbs = (p: string): string => {
       if (!p || p.startsWith('data:') || /^https?:\/\//i.test(p)) return p;
       return new URL(p, originalManifestHref!).href;
@@ -210,6 +210,6 @@ async function replaceManifest(iconDataUrl: string, revision: number): Promise<v
     dynamicManifestUrl = URL.createObjectURL(blob);
     link.href = dynamicManifestUrl;
   } catch (e) {
-    console.warn('[PWA Icon] manifest 替换失败，apple-touch-icon 已注入', e);
+    console.warn('[PWA Icon] manifest 替換失敗，apple-touch-icon 已注入', e);
   }
 }

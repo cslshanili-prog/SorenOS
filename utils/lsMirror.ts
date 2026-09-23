@@ -1,42 +1,42 @@
 /**
- * 关键 localStorage 键的 IndexedDB 镜像（防浏览器"清 localStorage 但留 IndexedDB"式驱逐）。
+ * 關鍵 localStorage 鍵的 IndexedDB 鏡像（防瀏覽器"清 localStorage 但留 IndexedDB"式驅逐）。
  *
- * 背景：有用户遇到「主题回初始 + 梦境盲盒收藏册清空 + 小窝『更新这一天』点了没反应」
- * 三连——三个症状对应的持久化恰好全在 localStorage（os_theme / os_dream_collection /
- * os_api_config），而角色、聊天记录（IndexedDB）完好。部分移动端浏览器/系统清理工具
- * 会只清 WebView 的 localStorage 而留下 IndexedDB，重新导入云备份后一切恢复也与此吻合。
+ * 背景：有用戶遇到「主題回初始 + 夢境盲盒收藏冊清空 + 小窩『更新這一天』點了沒反應」
+ * 三連——三個症狀對應的持久化恰好全在 localStorage（os_theme / os_dream_collection /
+ * os_api_config），而角色、聊天記錄（IndexedDB）完好。部分移動端瀏覽器/系統清理工具
+ * 會只清 WebView 的 localStorage 而留下 IndexedDB，重新導入雲備份後一切恢復也與此吻合。
  *
- * 方案：把「备份体系里也会带走的那批小体积配置键」定期快照进 IndexedDB assets 表；
- * 启动时若发现某键在 localStorage 里缺失而镜像里有，就回填。真值仍是 localStorage，
- * 镜像只在"丢了"的时候兜底——localStorage 里已有的值永远优先，不会被镜像覆盖。
+ * 方案：把「備份體系裡也會帶走的那批小體積配置鍵」定期快照進 IndexedDB assets 表；
+ * 啟動時若發現某鍵在 localStorage 裡缺失而鏡像裡有，就回填。真值仍是 localStorage，
+ * 鏡像只在"丟了"的時候兜底——localStorage 裡已有的值永遠優先，不會被鏡像覆蓋。
  *
- * 注意 removeItem 语义：个别键（如 study_api_config）以"删除 = 恢复默认"为语义，
- * 所以镜像必须靠频繁快照（启动后 / 页面隐藏 / pagehide / 定时）及时把删除同步进去，
- * 避免启动回填把用户已删除的配置复活。实际的复活窗口 ≈ "删完立刻杀进程且没触发过
+ * 注意 removeItem 語義：個別鍵（如 study_api_config）以"刪除 = 恢復默認"為語義，
+ * 所以鏡像必須靠頻繁快照（啟動後 / 頁面隱藏 / pagehide / 定時）及時把刪除同步進去，
+ * 避免啟動回填把用戶已刪除的配置復活。實際的復活窗口 ≈ "刪完立刻殺進程且沒觸發過
  * 一次 pagehide"，可以接受。
  */
 
 import { DB } from './db';
 
 /**
- * 参与镜像的键。收录标准：用户手动配置或长期积累、丢了没法凭空再生、体积是小段
- * JSON/字符串（严禁 data URI 等大体积——那些本来就该走 assets/blob 存储）。
- * 这份名单与「设置 → 导出备份」带走的 localStorage 键保持同一批（见 OSContext
- * exportFullData / importFullData），新增备份键时记得两边同步。
+ * 參與鏡像的鍵。收錄標準：用戶手動配置或長期積累、丟了沒法憑空再生、體積是小段
+ * JSON/字符串（嚴禁 data URI 等大體積——那些本來就該走 assets/blob 存儲）。
+ * 這份名單與「設置 → 導出備份」帶走的 localStorage 鍵保持同一批（見 OSContext
+ * exportFullData / importFullData），新增備份鍵時記得兩邊同步。
  */
 export const MIRRORED_KEYS: readonly string[] = [
-    'os_theme',                          // 外观主题（丢了 = 回初始主题）
-    'os_api_config',                     // 全局 API（丢了 = 一切生成静默失效）
+    'os_theme',                          // 外觀主題（丟了 = 回初始主題）
+    'os_api_config',                     // 全局 API（丟了 = 一切生成靜默失效）
     'os_api_presets',
     'os_realtime_config',
     'os_memory_palace_config',
     'os_remote_vector_config',
-    'os_cloud_backup_config',            // 丢了连"从云端恢复"都要重新配
-    'os_dream_collection',               // 梦境盲盒收藏册（账号级图鉴，纯积累不可再生）
-    'world_home_api',                    // 家园全局 API 覆盖
+    'os_cloud_backup_config',            // 丟了連"從雲端恢復"都要重新配
+    'os_dream_collection',               // 夢境盲盒收藏冊（帳號級圖鑑，純積累不可再生）
+    'world_home_api',                    // 家園全局 API 覆蓋
     'study_api_config',
     'study_tutor_presets',
-    'push_vapid_v1',                     // VAPID 密钥对，须与浏览器既有推送订阅匹配
+    'push_vapid_v1',                     // VAPID 密鑰對，須與瀏覽器既有推送訂閱匹配
     'chat_archive_prompts',
     'chat_active_archive_prompt_id',
     'character_refine_prompts',
@@ -50,9 +50,9 @@ const SNAPSHOT_INTERVAL_MS = 5 * 60_000;
 type MirrorPayload = { savedAt: number; data: Record<string, string> };
 
 /**
- * 启动回填：镜像里有、localStorage 里没有的键写回 localStorage。
- * 返回被回填的键名（空数组 = localStorage 完好或没有镜像）。
- * 必须在任何读 localStorage 的初始化逻辑（OSContext.loadSettings 等）之前 await。
+ * 啟動回填：鏡像裡有、localStorage 裡沒有的鍵寫回 localStorage。
+ * 返回被回填的鍵名（空數組 = localStorage 完好或沒有鏡像）。
+ * 必須在任何讀 localStorage 的初始化邏輯（OSContext.loadSettings 等）之前 await。
  */
 export async function healLocalStorageMirror(): Promise<string[]> {
     let payload: MirrorPayload | null = null;
@@ -74,13 +74,13 @@ export async function healLocalStorageMirror(): Promise<string[]> {
                 restored.push(key);
             }
         } catch {
-            // quota 满 / 私有模式写不进：兜底失败就算了，不能让启动流程挂掉
+            // quota 滿 / 私有模式寫不進：兜底失敗就算了，不能讓啟動流程掛掉
         }
     }
     return restored;
 }
 
-/** 把当前 localStorage 里的镜像键快照进 IndexedDB。全部缺失时不写（避免拿空快照覆盖有效镜像）。 */
+/** 把當前 localStorage 裡的鏡像鍵快照進 IndexedDB。全部缺失時不寫（避免拿空快照覆蓋有效鏡像）。 */
 export async function snapshotLocalStorageMirror(): Promise<void> {
     const data: Record<string, string> = {};
     for (const key of MIRRORED_KEYS) {
@@ -92,14 +92,14 @@ export async function snapshotLocalStorageMirror(): Promise<void> {
     if (Object.keys(data).length === 0) return;
     try {
         await DB.saveAssetRaw(MIRROR_ASSET_ID, { savedAt: Date.now(), data } satisfies MirrorPayload);
-    } catch { /* 镜像写失败不影响主流程 */ }
+    } catch { /* 鏡像寫失敗不影響主流程 */ }
 }
 
 let listenersAttached = false;
 
 /**
- * 应用启动时调一次：先回填、再拍一张新快照，并挂上"页面隐藏 / 关闭 / 定时"的快照钩子。
- * 返回回填的键名，调用方可据此提示用户"本地设置曾丢失，已自动恢复"。
+ * 應用啟動時調一次：先回填、再拍一張新快照，並掛上"頁面隱藏 / 關閉 / 定時"的快照鉤子。
+ * 返回回填的鍵名，調用方可據此提示用戶"本地設置曾丟失，已自動恢復"。
  */
 export async function initLocalStorageMirror(): Promise<string[]> {
     const restored = await healLocalStorageMirror();

@@ -5,13 +5,13 @@ import {
     BACKUP_FORMAT_VERSION, type BackupManifest, type ShardLimits,
 } from './backupFormat';
 
-// 这组用例锁住 v2 分片格式的「写 → 读」往返与各档校验。核心契约：
-//   导入端拼出的 data 必须与导出端喂进去的 backupData 逐字段一致（数组照旧、非数组照旧），
-//   这样它喂给原封不动的 importFullData 时，还原行为就和 v1 完全一样。
-// 失败档（缺片 / 条数不符 / 版本不符 / 非数组 / 单条超大）必须在「拼数据之前/导出中途」
-// 干净报错，绝不退回 RangeError、绝不静默少数据。
+// 這組用例鎖住 v2 分片格式的「寫 → 讀」往返與各檔校驗。核心契約：
+//   導入端拼出的 data 必須與導出端喂進去的 backupData 逐字段一致（數組照舊、非數組照舊），
+//   這樣它餵給原封不動的 importFullData 時，還原行為就和 v1 完全一樣。
+// 失敗檔（缺片 / 條數不符 / 版本不符 / 非數組 / 單條超大）必須在「拼數據之前/導出中途」
+// 乾淨報錯，絕不退回 RangeError、絕不靜默少數據。
 
-// 内存假 zip：同时实现 ZipFileWriter / ZipFileReader，支持文本与二进制（Uint8Array）。
+// 內存假 zip：同時實現 ZipFileWriter / ZipFileReader，支持文本與二進制（Uint8Array）。
 class FakeFile {
     constructor(private content: string | Uint8Array) {}
     async(type: 'string'): Promise<string>;
@@ -55,21 +55,21 @@ class FakeZip {
 }
 
 const sampleBackup = () => ({
-    // 非数组字段 → metadata.json
+    // 非數組字段 → metadata.json
     timestamp: 123,
     version: 3,
     theme: { name: 'dark', wallpaper: 'assets/asset_1.png' },
     userProfile: { name: '小明', avatar: 'assets/asset_2.png' },
-    lifeSimState: null,                 // 单例空 → null，仍要原样带回（v1 语义：清目标）
-    apiConfig: undefined,               // undefined 字段 → JSON 丢弃，导入端拿不到（与 v1 一致）
-    // 数组字段 → 分片
+    lifeSimState: null,                 // 單例空 → null，仍要原樣帶回（v1 語義：清目標）
+    apiConfig: undefined,               // undefined 字段 → JSON 丟棄，導入端拿不到（與 v1 一致）
+    // 數組字段 → 分片
     messages: [{ id: 1, t: 'a' }, { id: 2, t: 'b' }, { id: 3, t: 'c' }],
-    galleryImages: [],                  // 空数组 → count 0、parts 0，导入端必须拼回 []
+    galleryImages: [],                  // 空數組 → count 0、parts 0，導入端必須拼回 []
     memoryNodes: [{ id: 'n1' }],
 });
 
 describe('backupFormat v2 往返', () => {
-    it('写 → 读：每个字段与原 backupData 逐字段一致（数组照旧、非数组照旧）', async () => {
+    it('寫 → 讀：每個字段與原 backupData 逐字段一致（數組照舊、非數組照舊）', async () => {
         const zip = new FakeZip();
         const src = sampleBackup();
         const manifest = await writeV2Backup(zip, { ...src, messages: [...src.messages], galleryImages: [], memoryNodes: [...src.memoryNodes] }, { mode: 'full', createdAt: 999, assetCount: 2 });
@@ -77,26 +77,26 @@ describe('backupFormat v2 往返', () => {
         expect(manifest.formatVersion).toBe(BACKUP_FORMAT_VERSION);
         expect(manifest.mode).toBe('full');
         expect(manifest.assetCount).toBe(2);
-        // 数组字段都进了 manifest.stores（含空数组 count 0）
+        // 數組字段都進了 manifest.stores（含空數組 count 0）
         expect(manifest.stores.messages).toEqual({ parts: 1, count: 3 });
         expect(manifest.stores.galleryImages).toEqual({ parts: 0, count: 0 });
         expect(manifest.stores.memoryNodes).toEqual({ parts: 1, count: 1 });
-        // 非数组字段不进 stores
+        // 非數組字段不進 stores
         expect(manifest.stores.theme).toBeUndefined();
         expect(manifest.stores.userProfile).toBeUndefined();
 
         const data = await assembleV2Backup(zip, manifest);
         expect(data.messages).toEqual(src.messages);
-        expect(data.galleryImages).toEqual([]);              // 空数组拼回 []，不是 undefined
+        expect(data.galleryImages).toEqual([]);              // 空數組拼回 []，不是 undefined
         expect(data.memoryNodes).toEqual(src.memoryNodes);
         expect(data.theme).toEqual(src.theme);
         expect(data.userProfile).toEqual(src.userProfile);
-        expect(data.lifeSimState).toBe(null);                // null 原样带回
-        expect('apiConfig' in data).toBe(false);             // undefined 字段被 JSON 丢弃，导入端没有
+        expect(data.lifeSimState).toBe(null);                // null 原樣帶回
+        expect('apiConfig' in data).toBe(false);             // undefined 字段被 JSON 丟棄，導入端沒有
         expect(data.timestamp).toBe(123);
     });
 
-    it('大数组按 maxItems 分多片，拼回顺序不乱、不漏不重', async () => {
+    it('大數組按 maxItems 分多片，拼回順序不亂、不漏不重', async () => {
         const zip = new FakeZip();
         const messages = Array.from({ length: 23 }, (_, i) => ({ id: i, body: `m${i}` }));
         const limits: ShardLimits = { maxLen: 1 << 30, maxItems: 5, hardMaxLen: 1 << 30 };
@@ -108,10 +108,10 @@ describe('backupFormat v2 往返', () => {
         for (let p = 0; p < 5; p++) expect(zip.files.has(shardFileName('messages', p))).toBe(true);
 
         const data = await assembleV2Backup(zip, manifest);
-        expect(data.messages).toEqual(messages); // 顺序 + 内容完全一致
+        expect(data.messages).toEqual(messages); // 順序 + 內容完全一致
     });
 
-    it('游标批次可增量写入同一字段，收尾 manifest 能完整往返且无需整表数组', async () => {
+    it('游標批次可增量寫入同一字段，收尾 manifest 能完整往返且無需整表數組', async () => {
         const zip = new FakeZip();
         const limits: ShardLimits = { maxLen: 1 << 30, maxItems: 3, hardMaxLen: 1 << 30 };
         const writer = createV2ArrayFieldWriter(zip, 'messages', { limits });
@@ -131,7 +131,7 @@ describe('backupFormat v2 往返', () => {
         expect(data.theme).toEqual({ name: 'low-memory' });
     });
 
-    it('同一字段不能同时走增量写入与普通数组写入，避免重复分片', async () => {
+    it('同一字段不能同時走增量寫入與普通數組寫入，避免重複分片', async () => {
         const zip = new FakeZip();
         const writer = createV2ArrayFieldWriter(zip, 'messages');
         await writer.append([{ id: 1 }]);
@@ -141,14 +141,14 @@ describe('backupFormat v2 往返', () => {
             zip,
             { messages: [{ id: 2 }] },
             { prewrittenStores: { messages: messagesMeta } },
-        )).rejects.toThrow(/同时走了增量写入和普通写入/);
+        )).rejects.toThrow(/同[时時]走了增量[写寫]入和普通[写寫]入/);
     });
 
-    it('单条超软上限：该条独占一片（Finding 5），仍能完整往返', async () => {
+    it('單條超軟上限：該條獨佔一片（Finding 5），仍能完整往返', async () => {
         const zip = new FakeZip();
         const big = { id: 'big', blob: 'x'.repeat(2000) };
         const items = [{ id: 'a' }, big, { id: 'c' }];
-        // maxLen 设 1000：big 条 ~2000 长度，独占一片；前后小条各自成片
+        // maxLen 設 1000：big 條 ~2000 長度，獨佔一片；前後小條各自成片
         const limits: ShardLimits = { maxLen: 1000, maxItems: 9999, hardMaxLen: 1 << 30 };
         const manifest = await writeV2Backup(zip, { messages: items }, { limits });
         const data = await assembleV2Backup(zip, manifest);
@@ -157,51 +157,51 @@ describe('backupFormat v2 往返', () => {
         expect(manifest.stores.messages.parts).toBeGreaterThanOrEqual(2);
     });
 
-    it('数组含 undefined 空洞：count 记实际写入数，不让被跳过的空洞触发条数误判 abort（G1）', async () => {
+    it('數組含 undefined 空洞：count 記實際寫入數，不讓被跳過的空洞觸發條數誤判 abort（G1）', async () => {
         const zip = new FakeZip();
-        // JSON.stringify(undefined) === undefined，导出时该元素被跳过
+        // JSON.stringify(undefined) === undefined，導出時該元素被跳過
         const arr = [{ id: 1 }, undefined, { id: 3 }];
         const manifest = await writeV2Backup(zip, { messages: arr }, {});
-        // count 必须是「实际写入的 2 条」而非 arr.length(3)，否则导入端条数自洽校验会误判损坏
+        // count 必須是「實際寫入的 2 條」而非 arr.length(3)，否則導入端條數自洽校驗會誤判損壞
         expect(manifest.stores.messages.count).toBe(2);
-        const data = await assembleV2Backup(zip, manifest); // 旧写法（count=3）会在这里抛 count-mismatch
+        const data = await assembleV2Backup(zip, manifest); // 舊寫法（count=3）會在這裡拋 count-mismatch
         expect(data.messages).toEqual([{ id: 1 }, { id: 3 }]);
     });
 
-    it('单条超硬上限：干净报错中止，不退回 RangeError', async () => {
+    it('單條超硬上限：乾淨報錯中止，不退回 RangeError', async () => {
         const zip = new FakeZip();
         const limits: ShardLimits = { maxLen: 100, maxItems: 10, hardMaxLen: 500 };
         await expect(
             writeV2Backup(zip, { messages: [{ id: 'x', blob: 'y'.repeat(1000) }] }, { limits })
-        ).rejects.toThrow(/单条记录过大/);
-        // 没写出 manifest（中途抛错）
+        ).rejects.toThrow(/[单單][条條][记記][录錄][过過]大/);
+        // 沒寫出 manifest（中途拋錯）
         expect(zip.files.has('manifest.json')).toBe(false);
     });
 });
 
-describe('backupFormat v2 校验档（写库前 abort，DB 未动）', () => {
+describe('backupFormat v2 校驗檔（寫庫前 abort，DB 未動）', () => {
     it('缺分片文件 → abort', async () => {
         const zip = new FakeZip();
         const manifest = await writeV2Backup(zip, { messages: [{ id: 1 }, { id: 2 }] }, {});
-        zip.files.delete(shardFileName('messages', 0)); // 人为删掉一片
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/没有|找不到|中止导入/);
+        zip.files.delete(shardFileName('messages', 0)); // 人為刪掉一片
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/[没沒]有|找不到|中止[导導]入/);
     });
 
-    it('条数与 manifest 不符 → abort', async () => {
+    it('條數與 manifest 不符 → abort', async () => {
         const zip = new FakeZip();
         const manifest = await writeV2Backup(zip, { messages: [{ id: 1 }, { id: 2 }] }, {});
         const tampered: BackupManifest = { ...manifest, stores: { ...manifest.stores, messages: { parts: 1, count: 99 } } };
-        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/对不上|中止导入/);
+        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/[对對]不上|中止[导導]入/);
     });
 
-    it('formatVersion 不在支持清单（如未来 v4）→ abort，不拿现有 parser 硬解', async () => {
+    it('formatVersion 不在支持清單（如未來 v4）→ abort，不拿現有 parser 硬解', async () => {
         const zip = new FakeZip();
         const manifest = await writeV2Backup(zip, { messages: [{ id: 1 }] }, {});
         const v4: BackupManifest = { ...manifest, formatVersion: 4 };
-        await expect(assembleV2Backup(zip, v4)).rejects.toThrow(/不支持的备份格式版本/);
+        await expect(assembleV2Backup(zip, v4)).rejects.toThrow(/不支持的[备備]份格式版本/);
     });
 
-    it('formatVersion 2 的老包仍可组装（回归守卫：升 v3 不弃 v2）', async () => {
+    it('formatVersion 2 的老包仍可組裝（迴歸守衛：升 v3 不棄 v2）', async () => {
         const zip = new FakeZip();
         const manifest = await writeV2Backup(zip, { messages: [{ id: 1, t: 'a' }] }, {});
         const v2: BackupManifest = { ...manifest, formatVersion: 2 };
@@ -209,7 +209,7 @@ describe('backupFormat v2 校验档（写库前 abort，DB 未动）', () => {
         expect(data.messages).toEqual([{ id: 1, t: 'a' }]);
     });
 
-    it('onSerialized 钩子看到每条分片记录与 metadata 的落包文本', async () => {
+    it('onSerialized 鉤子看到每條分片記錄與 metadata 的落包文本', async () => {
         const zip = new FakeZip();
         const seen: string[] = [];
         await writeV2Backup(
@@ -217,18 +217,18 @@ describe('backupFormat v2 校验档（写库前 abort，DB 未动）', () => {
             { theme: { wallpaper: 'blobref:b_meta' }, messages: [{ id: 1, img: 'blobref:b_item' }, { id: 2 }] },
             { onSerialized: s => seen.push(s) },
         );
-        // 两条 messages 记录 + 一段 metadata，逐段可见（v3 blob 旁路靠它收集令牌）
+        // 兩條 messages 記錄 + 一段 metadata，逐段可見（v3 blob 旁路靠它收集令牌）
         expect(seen.some(s => s.includes('blobref:b_item'))).toBe(true);
         expect(seen.some(s => s.includes('blobref:b_meta'))).toBe(true);
         expect(seen.filter(s => s.startsWith('{"id"')).length).toBe(2);
     });
 
-    it('分片内容不是数组 → abort', async () => {
+    it('分片內容不是數組 → abort', async () => {
         const zip = new FakeZip();
         zip.file('metadata.json', '{}');
         zip.file(shardFileName('messages', 0), '{"not":"an array"}');
         const manifest: BackupManifest = { formatVersion: 2, stores: { messages: { parts: 1, count: 1 } } };
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/不是数组/);
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/不是[数數][组組]/);
     });
 
     it('缺 metadata.json → abort', async () => {
@@ -238,7 +238,7 @@ describe('backupFormat v2 校验档（写库前 abort，DB 未动）', () => {
     });
 });
 
-// 向量二进制旁路：构造 Float32 字节拼成的 bin + 索引，喂给 writeV2Backup 的 vectors 选项。
+// 向量二進制旁路：構造 Float32 字節拼成的 bin + 索引，餵給 writeV2Backup 的 vectors 選項。
 function makeVectorPayload(vecs: Array<{ memoryId: string; charId: string; values: number[]; model?: string }>) {
     const index: any[] = [];
     const parts: Uint8Array[] = [];
@@ -256,8 +256,8 @@ function makeVectorPayload(vecs: Array<{ memoryId: string; charId: string; value
     return { bin, index };
 }
 
-describe('backupFormat v2 向量二进制旁路', () => {
-    it('向量写 bin → 读回：逐值一致、维度保留、每条 vector 是独立 buffer 的 Uint8Array', async () => {
+describe('backupFormat v2 向量二進制旁路', () => {
+    it('向量寫 bin → 讀回：逐值一致、維度保留、每條 vector 是獨立 buffer 的 Uint8Array', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([
             { memoryId: 'm1', charId: 'c1', values: [0.1, 0.2, 0.3, 0.4], model: 'embed-test' },
@@ -267,7 +267,7 @@ describe('backupFormat v2 向量二进制旁路', () => {
         const manifest = await writeV2Backup(zip, { memoryNodes: [{ id: 'm1' }] }, { vectors: payload });
         expect(manifest.vectors).toEqual({ count: 3, byteLength: 3 * 4 * 4 });
         expect(zip.fileOptions.get('stores/memory_vectors.bin')).toMatchObject({ compression: 'STORE' });
-        // 向量不进 stores（走旁路）
+        // 向量不進 stores（走旁路）
         expect(manifest.stores.memoryVectors).toBeUndefined();
 
         const data = await assembleV2Backup(zip, manifest);
@@ -277,54 +277,54 @@ describe('backupFormat v2 向量二进制旁路', () => {
         expect(v1.charId).toBe('c1');
         expect(v1.model).toBe('embed-test');
         expect(v1.dimensions).toBe(4);
-        // vector 是 Uint8Array，且 buffer 紧贴自己的 byteLength（证明是 slice 独立 buffer，不是整 bin 的 subarray 视图）
+        // vector 是 Uint8Array，且 buffer 緊貼自己的 byteLength（證明是 slice 獨立 buffer，不是整 bin 的 subarray 視圖）
         expect(v1.vector).toBeInstanceOf(Uint8Array);
         expect(v1.vector.byteLength).toBe(16);
         expect(v1.vector.buffer.byteLength).toBe(16);
-        // 逐值还原
+        // 逐值還原
         const back = new Float32Array(v1.vector.buffer, v1.vector.byteOffset, v1.vector.byteLength >>> 2);
         expect(Array.from(back)).toEqual([
             expect.closeTo(0.1, 6), expect.closeTo(0.2, 6), expect.closeTo(0.3, 6), expect.closeTo(0.4, 6),
         ]);
-        // 第二条整数值精确
+        // 第二條整數值精確
         const back2 = new Float32Array(data.memoryVectors[1].vector.buffer, data.memoryVectors[1].vector.byteOffset, 4);
         expect(Array.from(back2)).toEqual([1, 2, 3, 4]);
     });
 
-    it('向量 byteLength 与维度对不上 → abort', async () => {
+    it('向量 byteLength 與維度對不上 → abort', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([{ memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] }]);
-        payload.index[0].dimensions = 5; // 谎称 5 维但只有 16 字节（4 维）
+        payload.index[0].dimensions = 5; // 謊稱 5 維但只有 16 字節（4 維）
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/维度对不上|中止导入/);
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/[维維]度[对對]不上|中止[导導]入/);
     });
 
-    it('向量条数与 manifest 不符 → abort', async () => {
+    it('向量條數與 manifest 不符 → abort', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([{ memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] }]);
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
         const tampered: BackupManifest = { ...manifest, vectors: { count: 99, byteLength: manifest.vectors!.byteLength } };
-        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/向量条数.*不符|中止导入/);
+        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/向量[条條][数數].*不符|中止[导導]入/);
     });
 
-    it('向量 bin 字节数与 manifest 不符 → abort', async () => {
+    it('向量 bin 字節數與 manifest 不符 → abort', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([{ memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] }]);
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
         const tampered: BackupManifest = { ...manifest, vectors: { count: 1, byteLength: 9999 } };
-        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/bin 字节数.*不符|中止导入/);
+        await expect(assembleV2Backup(zip, tampered)).rejects.toThrow(/bin 字[节節][数數].*不符|中止[导導]入/);
     });
 
-    it('声明了向量但缺 bin 文件 → abort', async () => {
+    it('聲明了向量但缺 bin 文件 → abort', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([{ memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] }]);
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
         zip.files.delete('stores/memory_vectors.bin');
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/缺 index\/bin|中止导入/);
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/缺 index\/bin|中止[导導]入/);
     });
 
-    // codex 二审 finding：坏 byteOffset 会被 slice 钳制成空/截断字节、组装却照样过 → 写库前必须挡住
-    it('向量 byteOffset 越过 bin 末尾 → abort（不被 slice 静默钳制）', async () => {
+    // codex 二審 finding：壞 byteOffset 會被 slice 鉗制成空/截斷字節、組裝卻照樣過 → 寫庫前必須擋住
+    it('向量 byteOffset 越過 bin 末尾 → abort（不被 slice 靜默鉗制）', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([
             { memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] },
@@ -332,22 +332,22 @@ describe('backupFormat v2 向量二进制旁路', () => {
         ]);
         payload.index[1].byteOffset = payload.bin.byteLength; // 指到 bin 末尾之外
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/越过 bin 末尾|中止导入/);
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/越[过過] bin 末尾|中止[导導]入/);
     });
 
-    it('向量 byteOffset 为负数 → abort', async () => {
+    it('向量 byteOffset 為負數 → abort', async () => {
         const zip = new FakeZip();
         const payload = makeVectorPayload([{ memoryId: 'm1', charId: 'c1', values: [1, 2, 3, 4] }]);
         payload.index[0].byteOffset = -4;
         const manifest = await writeV2Backup(zip, {}, { vectors: payload });
-        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/偏移\/长度\/维度非法|中止导入/);
+        await expect(assembleV2Backup(zip, manifest)).rejects.toThrow(/偏移\/[长長]度\/[维維]度非法|中止[导導]入/);
     });
 });
 
-// FakeZip 只验逻辑，验不到真 JSZip 的二进制编码 + generateAsync/loadAsync 实际行为。
-// 这条用真 JSZip 跑完整往返，钉死「bin 直写 Uint8Array、读回 async('uint8array') 字节无损」。
-describe('backupFormat v2 真实 JSZip 二进制往返', () => {
-    it('真 JSZip：写 bin + 分片 + metadata → generateAsync → loadAsync → 读 manifest → 完整还原', async () => {
+// FakeZip 只驗邏輯，驗不到真 JSZip 的二進制編碼 + generateAsync/loadAsync 實際行為。
+// 這條用真 JSZip 跑完整往返，釘死「bin 直寫 Uint8Array、讀回 async('uint8array') 字節無損」。
+describe('backupFormat v2 真實 JSZip 二進制往返', () => {
+    it('真 JSZip：寫 bin + 分片 + metadata → generateAsync → loadAsync → 讀 manifest → 完整還原', async () => {
         const zip = new JSZip();
         const payload = makeVectorPayload([
             { memoryId: 'm1', charId: 'c1', values: [0.1, 0.2, 0.3, 0.4], model: 'e' },
@@ -358,10 +358,10 @@ describe('backupFormat v2 真实 JSZip 二进制往返', () => {
             theme: { name: 'dark' },
         }, { vectors: payload, mode: 'full' });
 
-        // 真正打包成字节，再原样解回来（模拟落盘 → 重新导入）
+        // 真正打包成字節，再原樣解回來（模擬落盤 → 重新導入）
         const bytes = await zip.generateAsync({ type: 'uint8array' });
         const loaded = await JSZip.loadAsync(bytes);
-        // manifest 从 zip 里读（不是用内存里的），走和导入端一模一样的路径
+        // manifest 從 zip 裡讀（不是用內存裡的），走和導入端一模一樣的路徑
         const manifest = JSON.parse(await loaded.file('manifest.json')!.async('string'));
         const data = await assembleV2Backup(loaded as any, manifest);
 

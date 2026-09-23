@@ -39,17 +39,17 @@ interface VRMVideoCallStageProps {
   performance?: AvatarPerformanceDirection;
   performanceQuality?: 'basic' | 'high';
   accentColor: string;
-  /** 已解析成可渲染 URL 的自定义背景（blobref → objectURL 在 CallApp 完成）。 */
+  /** 已解析成可渲染 URL 的自定義背景（blobref → objectURL 在 CallApp 完成）。 */
   backgroundUrl?: string;
   onChooseModel: () => void;
   onChooseLive2DFolder?: () => void;
   onConfigureActions?: () => void;
   onConfigureBackground?: () => void;
-  /** 用户在舞台上拖拽/缩放后的构图提交（手势结束时触发，用于持久化）。 */
+  /** 用戶在舞台上拖拽/縮放後的構圖提交（手勢結束時觸發，用於持久化）。 */
   onFramingChange?: (framing: AvatarStageFraming) => void;
-  /** 脸部锚点保存/清除（null = 清除），持久化到 videoAvatar.faceFraming。 */
+  /** 臉部錨點保存/清除（null = 清除），持久化到 videoAvatar.faceFraming。 */
   onFaceAnchorChange?: (framing: AvatarStageFraming | null) => void;
-  /** VRM 模型加载后回传自定义表情名，供 LLM 的 model_action 白名单使用。 */
+  /** VRM 模型加載後回傳自定義表情名，供 LLM 的 model_action 白名單使用。 */
   onExpressionsDiscovered?: (names: string[]) => void;
   /** Fired only after the renderable model has completed loading. */
   onModelReady?: () => void;
@@ -62,9 +62,9 @@ interface VRMVideoCallStageProps {
   externalManualAction?: Live2DActionTrigger | null;
   /** Minimal chrome for the always-on launcher companion. */
   companionMode?: boolean;
-  /** 基准构图覆盖：陪伴桌面传 companionFraming，优先于 model.framing 作为静息构图。 */
+  /** 基準構圖覆蓋：陪伴桌面傳 companionFraming，優先於 model.framing 作為靜息構圖。 */
   baseFraming?: AvatarStageFraming;
-  /** 布置模式：companionMode 下重新启用拖拽/捏合/滚轮调构图（默认 = !companionMode）。 */
+  /** 佈置模式：companionMode 下重新啟用拖拽/捏合/滾輪調構圖（默認 = !companionMode）。 */
   framingEditable?: boolean;
   /** Optional companion-only mask. Insets are percentages of the full stage. */
   stageCrop?: AvatarStageCrop;
@@ -77,18 +77,18 @@ interface VRMVideoCallStageProps {
   maxFps?: number;
 }
 
-// 两种渲染器的构图范围：Live2D 与设置面板滑杆一致，VRM 是相机距离/视野平移的安全区。
+// 兩種渲染器的構圖範圍：Live2D 與設置面板滑桿一致，VRM 是相機距離/視野平移的安全區。
 const FRAMING_LIMITS = {
   vrm: { scale: [0.5, 4] as [number, number], offsetX: [-0.9, 0.9] as [number, number], offsetY: [-0.9, 0.9] as [number, number] },
   live2d: { scale: [0.55, 6] as [number, number], offsetX: [-1.4, 1.4] as [number, number], offsetY: [-3.2, 3.2] as [number, number] },
 };
 
 const stateLabel = (state: AvatarMotionState): string => {
-  if (state === 'speaking') return '正在说话';
+  if (state === 'speaking') return '正在說話';
   if (state === 'thinking') return '正在想';
   if (state === 'connecting') return '正在接通';
-  if (state === 'error') return '连接波动';
-  return '看着你';
+  if (state === 'error') return '連接波動';
+  return '看著你';
 };
 
 const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
@@ -130,7 +130,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
   maxFps,
 }) => {
   const canAdjustFraming = !touchRegionEditingZone && (framingEditable ?? !companionMode);
-  // 动作/表情快捷按钮默认收起——一排药丸浮在模型上视觉太吵，想用再展开。
+  // 動作/表情快捷按鈕默認收起——一排藥丸浮在模型上視覺太吵，想用再展開。
   const [actionChipsOpen, setActionChipsOpen] = useState(() => {
     try { return localStorage.getItem('sully-call-action-chips-v1') === 'open'; } catch { return false; }
   });
@@ -142,14 +142,14 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
   const [modelUrl, setModelUrl] = useState('');
   const [modelMissing, setModelMissing] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
-  const [modelLoadingStage, setModelLoadingStage] = useState('正在准备角色…');
+  const [modelLoadingStage, setModelLoadingStage] = useState('正在準備角色…');
   const [modelError, setModelError] = useState('');
   const [live2DRetryKey, setLive2DRetryKey] = useState(0);
   const [stageToolsOpen, setStageToolsOpen] = useState(false);
   const [manualAction, setManualAction] = useState<Live2DActionTrigger | null>(null);
   const [touchRequest, setTouchRequest] = useState<AvatarTouchRequest | null>(null);
 
-  // ── 舞台构图：拖拽移动、双指捏合/滚轮缩放，手势结束时统一提交持久化 ──
+  // ── 舞台構圖：拖拽移動、雙指捏合/滾輪縮放，手勢結束時統一提交持久化 ──
   const [framing, setFraming] = useState<AvatarStageFraming>(baseFraming || model?.framing || DEFAULT_STAGE_FRAMING);
   const framingRef = useRef(framing);
   const framingDirtyRef = useRef(false);
@@ -170,11 +170,11 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
   const wheelCommitTimerRef = useRef<number | null>(null);
   const framingLimits = model?.format === 'live2d' ? FRAMING_LIMITS.live2d : FRAMING_LIMITS.vrm;
 
-  // 跟随外部构图变化（换模型、设置面板滑杆保存）。舞台自己提交的构图写回
-  // 角色后也会流回这里，值相同因此不会造成抖动或循环。
+  // 跟隨外部構圖變化（換模型、設置面板滑桿保存）。舞台自己提交的構圖寫回
+  // 角色後也會流回這裡，值相同因此不會造成抖動或循環。
   useEffect(() => {
-    if (gestureRef.current.pointers.size) return; // 手势进行中以本地为准
-    if (calibratingFaceRef.current) return; // 脸部校准中以本地为准
+    if (gestureRef.current.pointers.size) return; // 手勢進行中以本地為準
+    if (calibratingFaceRef.current) return; // 臉部校準中以本地為準
     const next = baseFraming || model?.framing || DEFAULT_STAGE_FRAMING;
     framingRef.current = next;
     setFraming(next);
@@ -183,7 +183,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
     if (wheelCommitTimerRef.current !== null) window.clearTimeout(wheelCommitTimerRef.current);
   }, []);
 
-  // ── 脸部锚定校准模式：拖/缩到理想特写后保存；校准中的构图不写回 base ──
+  // ── 臉部錨定校準模式：拖/縮到理想特寫後保存；校準中的構圖不寫回 base ──
   const [calibratingFace, setCalibratingFace] = useState(false);
   const calibratingFaceRef = useRef(false);
   const preCalibrationFramingRef = useRef<AvatarStageFraming>(DEFAULT_STAGE_FRAMING);
@@ -197,7 +197,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
   const commitFraming = () => {
     if (!framingDirtyRef.current) return;
     framingDirtyRef.current = false;
-    // 校准脸部时的拖拽只属于锚点，不写回日常构图
+    // 校準臉部時的拖拽只屬於錨點，不寫回日常構圖
     if (calibratingFaceRef.current) return;
     onFramingChange?.(framingRef.current);
   };
@@ -214,7 +214,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
     preCalibrationFramingRef.current = framingRef.current;
     calibratingFaceRef.current = true;
     setCalibratingFace(true);
-    // 已有锚点就从锚点起步微调；没有就从当前构图放大一点作为起手式
+    // 已有錨點就從錨點起步微調；沒有就從當前構圖放大一點作為起手式
     const existing = model?.faceFraming;
     setFramingLocal(clampStageFraming(
       existing || { ...framingRef.current, scale: Math.max(framingRef.current.scale * 1.8, 1.8) },
@@ -346,14 +346,14 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
       if (cancelled) return;
       if (!blob) {
         setModelMissing(true);
-        onModelError?.('模型文件已丢失，请重新导入');
+        onModelError?.('模型文件已丟失，請重新導入');
         return;
       }
       url = URL.createObjectURL(blob);
       setModelUrl(url);
     }).catch(error => {
       if (!cancelled) {
-        const message = error instanceof Error ? error.message : '模型读取失败';
+        const message = error instanceof Error ? error.message : '模型讀取失敗';
         setModelError(message);
         onModelError?.(message);
       }
@@ -369,7 +369,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
     setModelMissing(false);
     setModelError('');
     setModelLoading(true);
-    setModelLoadingStage('正在重新建立 Live2D 渲染资源…');
+    setModelLoadingStage('正在重新建立 Live2D 渲染資源…');
     setLive2DRetryKey(current => current + 1);
   };
 
@@ -378,14 +378,14 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
       setModelError('');
       return;
     }
-    const missing = /文件已丢失|找不到 model3\.json|模型包内找不到/i.test(message);
+    const missing = /文件已[丢丟]失|找不到 model3\.json|模型包[内內]找不到/i.test(message);
     setModelMissing(missing);
     // The first failure is commonly a stale Pixi texture left by the settings
     // preview. Recreate the renderer once with an isolated texture identity
     // before surfacing an error or asking the user to re-import anything.
     if (!missing && live2DRetryKey === 0) {
       setModelLoading(true);
-      setModelLoadingStage('检测到贴图缓存切换，正在自动恢复…');
+      setModelLoadingStage('檢測到貼圖緩存切換，正在自動恢復…');
       setLive2DRetryKey(1);
       return;
     }
@@ -423,10 +423,10 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
       {backgroundUrl ? (
         <>
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundUrl})` }} />
-          {/* 自定义背景上压一层暗色渐变，保证状态文字和模型轮廓仍然可读 */}
+          {/* 自定義背景上壓一層暗色漸變，保證狀態文字和模型輪廓仍然可讀 */}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(3,4,7,0.5), rgba(3,4,7,0.08) 42%, rgba(3,4,7,0.28))' }} />
         </>
-      ) : companionMode ? null : ( /* 陪伴桌面自己画时段氛围背景，舞台保持透明 */
+      ) : companionMode ? null : ( /* 陪伴桌面自己畫時段氛圍背景，舞台保持透明 */
         <>
           <div className="absolute inset-0" style={{ background: `radial-gradient(80% 70% at 50% 45%, ${accentColor}2e, transparent 72%), linear-gradient(160deg, #111522 0%, #07090f 58%, #030407 100%)` }} />
           <div className="absolute inset-x-0 bottom-0 h-1/2 opacity-60" style={{ background: `linear-gradient(to top, ${accentColor}1f, transparent)` }} />
@@ -458,7 +458,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
               expressionKey={staticExpressionKey}
               touchEnabled={Boolean(onAvatarTouch)}
               onAvatarTouch={onAvatarTouch}
-              surfaceLabel="视频形象"
+              surfaceLabel="視頻形象"
               testId="video-call-static-portrait-stage"
             />
           ) : model?.format === 'live2d' ? (
@@ -518,25 +518,25 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
           {fallbackAvatar ? (
             <div className={`relative overflow-hidden rounded-full border border-white/15 ${companionMode ? 'h-36 w-36' : 'h-20 w-20'}`} style={{ animation: 'vrm-stage-drift 5.5s ease-in-out infinite', boxShadow: `0 0 55px ${accentColor}4d` }}>
-              {/* 兜底头像来自 char.avatar：上传的头像存的是 blobref 令牌，裸 <img> 会裂图，
-                  交给 TokenImg 统一解析（旧的 data: / http 外链原样透传） */}
+              {/* 兜底頭像來自 char.avatar：上傳的頭像存的是 blobref 令牌，裸 <img> 會裂圖，
+                  交給 TokenImg 統一解析（舊的 data: / http 外鏈原樣透傳） */}
               <TokenImg value={fallbackAvatar} alt={characterName} className="h-full w-full object-cover" />
             </div>
           ) : (
             <div className="flex h-28 w-28 items-center justify-center rounded-full border border-white/15 text-5xl font-light" style={{ background: `${accentColor}22`, color: accentColor }}>{characterName[0] || '角'}</div>
           )}
           <div className={`${companionMode ? 'mt-5' : 'mt-3'} text-sm font-medium text-white/85`}>
-            {modelMissing ? '模型文件已丢失，需要重新导入' : modelError ? '模型暂时加载失败' : companionMode ? '给 ta 换上陪伴形象' : '给这个角色装上视频模型'}
+            {modelMissing ? '模型文件已丟失，需要重新導入' : modelError ? '模型暫時加載失敗' : companionMode ? '給 ta 換上陪伴形象' : '給這個角色裝上視頻模型'}
           </div>
           <p className="mt-1.5 max-w-[17rem] text-xs leading-relaxed text-white/45">
-            {modelError && !modelMissing ? '模型仍保存在本地，可以直接重新建立渲染，不必重复导入。' : companionMode && !modelMissing ? '图片或 GIF 可以在「外观」中设置，也能沿用见面立绘。想使用动态模型，可以在这里导入。' : '支持 VRM 0.x / 1.0，以及 Cubism model3.json 文件夹或 ZIP。'}
+            {modelError && !modelMissing ? '模型仍保存在本地，可以直接重新建立渲染，不必重複導入。' : companionMode && !modelMissing ? '圖片或 GIF 可以在「外觀」中設置，也能沿用見面立繪。想使用動態模型，可以在這裡導入。' : '支持 VRM 0.x / 1.0，以及 Cubism model3.json 文件夾或 ZIP。'}
           </p>
           {model?.format === 'live2d' && modelError && !modelMissing ? (
             <div className={`${companionMode ? 'mt-4' : 'mt-2.5'} flex items-center gap-2`}>
               <button onClick={retryLive2D} className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-[11px] font-medium text-white transition active:scale-95">
-                <ArrowClockwise size={15} weight="bold" /> 重新加载模型
+                <ArrowClockwise size={15} weight="bold" /> 重新加載模型
               </button>
-              <button onClick={onChooseModel} className="px-2 py-2 text-[10px] text-white/40">重新导入</button>
+              <button onClick={onChooseModel} className="px-2 py-2 text-[10px] text-white/40">重新導入</button>
             </div>
           ) : onChooseLive2DFolder ? (
             <div className={`${companionMode ? 'mt-4' : 'mt-2.5'} grid w-full max-w-[18rem] grid-cols-1 gap-2 sm:grid-cols-2`}>
@@ -544,13 +544,13 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                 <FileZip size={15} weight="bold" /> VRM / L2D ZIP
               </button>
               <button onClick={onChooseLive2DFolder} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-[11px] font-medium text-white transition active:scale-95">
-                <FolderOpen size={15} weight="bold" /> L2D 整个文件夹
+                <FolderOpen size={15} weight="bold" /> L2D 整個文件夾
               </button>
-              <p className="col-span-full text-[9px] leading-relaxed text-white/35">文件夹导入要选择包含 model3.json 的整个文件夹，不要只点 model3.json。</p>
+              <p className="col-span-full text-[9px] leading-relaxed text-white/35">文件夾導入要選擇包含 model3.json 的整個文件夾，不要只點 model3.json。</p>
             </div>
           ) : (
             <button onClick={onChooseModel} className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-medium text-white transition active:scale-95">
-              <UploadSimple size={15} weight="bold" /> 导入模型
+              <UploadSimple size={15} weight="bold" /> 導入模型
             </button>
           )}
         </div>
@@ -571,7 +571,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
           <span className="absolute -right-px -top-px h-5 w-5 rounded-tr-[1.4rem] border-r-2 border-t-2" style={{ borderColor: accentColor }} />
           <span className="absolute -bottom-px -left-px h-5 w-5 rounded-bl-[1.4rem] border-b-2 border-l-2" style={{ borderColor: accentColor }} />
           <span className="absolute -bottom-px -right-px h-5 w-5 rounded-br-[1.4rem] border-b-2 border-r-2" style={{ borderColor: accentColor }} />
-          <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-2 py-1 text-[8px] tracking-[0.14em] text-white/75 backdrop-blur">角色可视区</span>
+          <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-2 py-1 text-[8px] tracking-[0.14em] text-white/75 backdrop-blur">角色可視區</span>
         </div>
       )}
 
@@ -580,7 +580,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
           <div className="max-w-[19rem] px-5 text-center text-white/70">
             <span className="mx-auto mb-3 block h-7 w-7 animate-spin rounded-full border-2 border-white/15 border-t-white/80" />
             <div className="text-xs leading-relaxed">{modelLoadingStage}</div>
-            <div className="mt-2 text-[9px] leading-relaxed text-white/35">大模型第一次读取会比较慢。看到这个提示时请继续等待，不要重复点击导入或退出通话。</div>
+            <div className="mt-2 text-[9px] leading-relaxed text-white/35">大模型第一次讀取會比較慢。看到這個提示時請繼續等待，不要重複點擊導入或退出通話。</div>
           </div>
         </div>
       )}
@@ -593,18 +593,18 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
       {!companionMode && hasRenderableModel && !modelLoading && calibratingFace && (
         <div className="absolute inset-x-3 top-12 z-40 rounded-2xl border border-amber-200/25 bg-black/55 px-3 py-2 backdrop-blur-md">
           <div className="text-[10px] leading-relaxed text-amber-100/90">
-            锚定脸部：拖动 / 缩放，把<b>脸</b>摆到画面中心的理想特写位置，之后 AI 拉近镜头都会精确落到这里。
+            錨定臉部：拖動 / 縮放，把<b>臉</b>擺到畫面中心的理想特寫位置，之後 AI 拉近鏡頭都會精確落到這裡。
           </div>
           <div className="mt-1.5 flex items-center gap-1.5">
             <button onClick={() => endFaceCalibration(true)} className="rounded-full bg-amber-300/25 border border-amber-200/40 px-3 py-1 text-[10px] font-medium text-amber-50 active:scale-95">
-              保存锚点
+              保存錨點
             </button>
             <button onClick={() => endFaceCalibration(false)} className="rounded-full border border-white/15 px-3 py-1 text-[10px] text-white/60 active:scale-95">
               取消
             </button>
             {model?.faceFraming && (
               <button onClick={() => endFaceCalibration(false, true)} className="ml-auto px-2 py-1 text-[10px] text-rose-300/75 active:scale-95">
-                清除锚点
+                清除錨點
               </button>
             )}
           </div>
@@ -629,7 +629,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                   <div className="text-[10px] font-medium text-white/75">舞台工具</div>
                   <div className="mt-0.5 max-w-[10rem] truncate text-[8px] text-white/28">{model?.fileName}</div>
                 </div>
-                <span className="text-[8px] text-white/25">直接拖动角色可调构图</span>
+                <span className="text-[8px] text-white/25">直接拖動角色可調構圖</span>
               </div>
 
               <div className="divide-y divide-white/[0.06]">
@@ -639,7 +639,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                     className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                   >
                     <ImageSquare size={14} weight="fill" className="text-white/35" />
-                    <span className="flex-1">更换舞台背景</span>
+                    <span className="flex-1">更換舞台背景</span>
                   </button>
                 )}
                 {!staticAvatarActive && (
@@ -648,8 +648,8 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                     className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                   >
                     <span className={`flex w-3.5 justify-center text-xs ${model?.faceFraming ? 'text-amber-200' : 'text-white/35'}`}>◎</span>
-                    <span className="flex-1">{model?.faceFraming ? '重新锚定脸部' : '锚定脸部特写'}</span>
-                    {model?.faceFraming && <span className="text-[8px] text-amber-200/55">已设置</span>}
+                    <span className="flex-1">{model?.faceFraming ? '重新錨定臉部' : '錨定臉部特寫'}</span>
+                    {model?.faceFraming && <span className="text-[8px] text-amber-200/55">已設置</span>}
                   </button>
                 )}
                 {!staticAvatarActive && framingAdjusted && (
@@ -658,7 +658,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                     className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                   >
                     <ArrowsOutCardinal size={14} weight="bold" className="text-white/35" />
-                    <span className="flex-1">恢复默认构图</span>
+                    <span className="flex-1">恢復默認構圖</span>
                   </button>
                 )}
                 {model?.format === 'live2d' && onConfigureActions && (
@@ -667,8 +667,8 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                     className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                   >
                     <SlidersHorizontal size={14} weight="bold" className="text-white/35" />
-                    <span className="flex-1">动作与参数</span>
-                    <span className="text-[8px] text-white/25">高级</span>
+                    <span className="flex-1">動作與參數</span>
+                    <span className="text-[8px] text-white/25">高級</span>
                   </button>
                 )}
                 {model?.format === 'live2d' && model.actions.some(action => action.permission !== 'blocked' && !action.wardrobe) && (
@@ -678,7 +678,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                     className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                   >
                     <Play size={13} weight="fill" className="text-white/35" />
-                    <span className="flex-1">{actionChipsOpen ? '收起手动动作' : '展开手动动作'}</span>
+                    <span className="flex-1">{actionChipsOpen ? '收起手動動作' : '展開手動動作'}</span>
                     <span className="text-[8px] text-white/25">{model.actions.filter(action => action.permission !== 'blocked' && !action.wardrobe).length}</span>
                   </button>
                 )}
@@ -687,7 +687,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                   className="flex w-full items-center gap-2.5 py-2.5 text-left text-[10px] text-white/62 active:text-white"
                 >
                   <UploadSimple size={14} weight="bold" className="text-white/35" />
-                  <span className="flex-1">更换角色形象</span>
+                  <span className="flex-1">更換角色形象</span>
                 </button>
               </div>
             </div>
@@ -700,7 +700,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
           <button
             onClick={toggleActionChips}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/55 backdrop-blur-md active:scale-95"
-            title="收起手动动作"
+            title="收起手動動作"
           >
             <CaretDown size={10} weight="bold" />
           </button>
@@ -711,7 +711,7 @@ const VRMVideoCallStage: React.FC<VRMVideoCallStageProps> = ({
                 data-live2d-manual-action={action.id}
                 onClick={() => setManualAction({ id: action.id, nonce: Date.now() + Math.random() })}
                 className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[9px] text-white/65 backdrop-blur-md transition active:scale-95"
-                title={`${action.permission === 'ai' ? 'AI 可用 / ' : '仅手动 / '}${action.kind === 'motion' ? '动作' : action.kind === 'params' ? '参数动作' : '表情'}`}
+                title={`${action.permission === 'ai' ? 'AI 可用 / ' : '僅手動 / '}${action.kind === 'motion' ? '動作' : action.kind === 'params' ? '參數動作' : '表情'}`}
               >
                 <Play size={9} weight="fill" /> {action.name}
               </button>

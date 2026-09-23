@@ -10,7 +10,7 @@ import TokenImg from '../os/TokenImg';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
 import ObserveSettings from './ObserveSettings';
 
-// 标准情绪列表
+// 標準情緒列表
 const REQUIRED_EMOTIONS = ['normal', 'happy', 'angry', 'sad', 'shy'];
 const DEFAULT_SPRITE_CONFIG: SpriteConfig = { scale: 1, x: 0, y: 0 };
 
@@ -19,7 +19,7 @@ interface DateSettingsProps {
     onBack: () => void;
 }
 
-/** 可折叠分区卡片：标题常驻，内容默认收起，点标题展开。用原生 <details> 省状态。 */
+/** 可摺疊分區卡片：標題常駐，內容默認收起，點標題展開。用原生 <details> 省狀態。 */
 const Section: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode }> = ({ title, defaultOpen, children }) => (
     <details open={defaultOpen} className="group bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <summary className="list-none cursor-pointer select-none flex items-center justify-between gap-2 px-4 py-3.5 active:bg-slate-50 [&::-webkit-details-marker]:hidden">
@@ -33,11 +33,11 @@ const Section: React.FC<{ title: string; defaultOpen?: boolean; children: React.
 const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const { updateCharacter, addToast, userProfileBase } = useOS();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    // 背景字段存的是 blobref 令牌（二进制在 IndexedDB），CSS url() 喂不了令牌，
-    // 先在这里解析成能直接用的地址。非令牌值（旧 data: / 外链）原样透传。
+    // 背景字段存的是 blobref 令牌（二進制在 IndexedDB），CSS url() 喂不了令牌，
+    // 先在這裡解析成能直接用的地址。非令牌值（舊 data: / 外鏈）原樣透傳。
     const dateBackgroundUrl = useBlobRefUrl(char.dateBackground);
 
-    // 文风与叙事（即时生效：system prompt 每次请求重建，存上就影响下一条回复）
+    // 文風與敘事（即時生效：system prompt 每次請求重建，存上就影響下一條回覆）
     const styleConfig = char.dateStyleConfig || {};
     const [extraDraft, setExtraDraft] = useState(styleConfig.extra || '');
     useEffect(() => { setExtraDraft(char.dateStyleConfig?.extra || ''); }, [char.id]);
@@ -48,15 +48,15 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         const trimmed = extraDraft.trim();
         if (trimmed === (char.dateStyleConfig?.extra || '')) return;
         patchStyleConfig({ extra: trimmed || undefined });
-        addToast(trimmed ? '补充要求已保存' : '补充要求已清空', 'success');
+        addToast(trimmed ? '補充要求已保存' : '補充要求已清空', 'success');
     };
-    // 只是 POV 预览文案里的示例名字，跟见面走同一套「个人档案 → 分角色身份指定」
-    const userName = resolveUserProfileForChar(userProfileBase, char.id).name || '用户';
+    // 只是 POV 預覽文案裡的示例名字，跟見面走同一套「個人檔案 → 分角色身份指定」
+    const userName = resolveUserProfileForChar(userProfileBase, char.id).name || '用戶';
     const POV_OPTIONS: { id: DateStyleConfig['pov']; label: string; example: string }[] = [
-        { id: undefined, label: '默认', example: '不额外指定，随模型发挥' },
-        { id: 'third-name', label: '第三人称 · 称名字', example: `${char.name}看着${userName}` },
-        { id: 'third-you', label: '第三人称 · 称"你"', example: `${char.name}看着你` },
-        { id: 'first-you', label: '第一人称', example: '我看着你' },
+        { id: undefined, label: '默認', example: '不額外指定，隨模型發揮' },
+        { id: 'third-name', label: '第三人稱 · 稱名字', example: `${char.name}看著${userName}` },
+        { id: 'third-you', label: '第三人稱 · 稱"你"', example: `${char.name}看著你` },
+        { id: 'first-you', label: '第一人稱', example: '我看著你' },
     ];
 
     const [uploadTarget, setUploadTarget] = useState<'bg' | 'sprite' | 'skin-sprite'>('bg');
@@ -108,8 +108,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
         try {
             if (uploadTarget === 'bg') {
-                // 背景改存 Blob：原画质不重绘，二进制进 blob_assets，字段只存 blobref 令牌
-                // （省 ~33% 空间、不占 JS 堆）。参考 apps/Appearance.tsx 的壁纸上传。
+                // 背景改存 Blob：原畫質不重繪，二進制進 blob_assets，字段只存 blobref 令牌
+                // （省 ~33% 空間、不佔 JS 堆）。參考 apps/Appearance.tsx 的壁紙上傳。
                 const blob = await processImageToBlob(file, { skipCompression: true });
                 const ref = await putImageBlob(blob);
                 updateCharacter(char.id, { dateBackground: ref });
@@ -117,28 +117,28 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 return;
             }
 
-            // 立绘也改存 Blob，字段里只留 blobref 令牌。压缩口径和以前一模一样：
-            // 不传参 = 长边 1200 / 质量 0.85 / PNG·WebP 保留透明通道，只是产物从
-            // base64 换成二进制。别跟着背景抄 skipCompression，那是背景要原画质。
+            // 立繪也改存 Blob，字段裡只留 blobref 令牌。壓縮口徑和以前一模一樣：
+            // 不傳參 = 長邊 1200 / 質量 0.85 / PNG·WebP 保留透明通道，只是產物從
+            // base64 換成二進制。別跟著背景抄 skipCompression，那是背景要原畫質。
             const blob = await processImageToBlob(file);
             const ref = await putImageBlob(blob);
             if (uploadTarget === 'skin-sprite') {
                 // Upload to a specific skin set
                 const key = targetEmotionKey.trim().toLowerCase();
                 const skinId = editingSkinId;
-                if (!key || !skinId) { addToast('参数丢失', 'error'); return; }
+                if (!key || !skinId) { addToast('參數丟失', 'error'); return; }
                 const updatedSets = (char.dateSkinSets || []).map(s =>
                     s.id === skinId ? { ...s, sprites: { ...s.sprites, [key]: ref } } : s
                 );
                 updateCharacter(char.id, { dateSkinSets: updatedSets });
-                addToast(`皮肤立绘 [${key}] 已保存`, 'success');
+                addToast(`皮膚立繪 [${key}] 已保存`, 'success');
                 setTargetEmotionKey('');
             } else {
                 const key = targetEmotionKey.trim().toLowerCase();
-                if (!key) { addToast('情绪Key丢失', 'error'); return; }
+                if (!key) { addToast('情緒Key丟失', 'error'); return; }
                 const newSprites = { ...(char.sprites || {}), [key]: ref };
                 updateCharacter(char.id, { sprites: newSprites });
-                addToast(`立绘 [${key}] 已保存`, 'success');
+                addToast(`立繪 [${key}] 已保存`, 'success');
                 setTargetEmotionKey('');
             }
         } catch (e: any) {
@@ -151,12 +151,12 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     // --- Skin Set Management ---
     const handleCreateSkinSet = () => {
         const name = newSkinName.trim();
-        if (!name) { addToast('请输入皮肤名称', 'error'); return; }
-        if (skinSets.some(s => s.name === name)) { addToast('该名称已存在', 'error'); return; }
+        if (!name) { addToast('請輸入皮膚名稱', 'error'); return; }
+        if (skinSets.some(s => s.name === name)) { addToast('該名稱已存在', 'error'); return; }
         const newSkin: SkinSet = { id: `skin_${Date.now()}`, name, sprites: {} };
         updateCharacter(char.id, { dateSkinSets: [...skinSets, newSkin] });
         setNewSkinName('');
-        addToast(`皮肤 [${name}] 已创建`, 'success');
+        addToast(`皮膚 [${name}] 已創建`, 'success');
     };
 
     const handleDeleteSkinSet = (skinId: string) => {
@@ -165,12 +165,12 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         if (activeSkinId === skinId) patch.activeSkinSetId = undefined;
         updateCharacter(char.id, patch);
         if (editingSkinId === skinId) setEditingSkinId(null);
-        addToast('已删除皮肤', 'success');
+        addToast('已刪除皮膚', 'success');
     };
 
     const handleActivateSkin = (skinId: string | null) => {
         updateCharacter(char.id, { activeSkinSetId: skinId || undefined });
-        addToast(skinId ? '已切换皮肤' : '已切换为默认立绘', 'success');
+        addToast(skinId ? '已切換皮膚' : '已切換為默認立繪', 'success');
     };
 
     const triggerSkinSpriteUpload = (skinId: string, emotionKey: string) => {
@@ -183,10 +183,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const handleUrlSubmit = () => {
         const url = skinUrlInput.trim();
         const key = skinUrlEmotionKey.trim().toLowerCase();
-        if (!url || !key) { addToast('请填写完整', 'error'); return; }
+        if (!url || !key) { addToast('請填寫完整', 'error'); return; }
         // Basic URL validation
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            addToast('请输入有效的 URL (http/https)', 'error'); return;
+            addToast('請輸入有效的 URL (http/https)', 'error'); return;
         }
 
         if (urlTargetSkinId) {
@@ -200,7 +200,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
             const newSprites = { ...(char.sprites || {}), [key]: url };
             updateCharacter(char.id, { sprites: newSprites });
         }
-        addToast(`立绘 [${key}] URL 已保存`, 'success');
+        addToast(`立繪 [${key}] URL 已保存`, 'success');
         setSkinUrlInput('');
         setSkinUrlEmotionKey('');
         setShowUrlModal(false);
@@ -216,14 +216,14 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
     const handleAddCustomEmotion = () => {
         const key = newEmotionName.trim().toLowerCase().replace(/\s+/g, '_');
-        if (!key) { addToast('请输入情绪名称', 'error'); return; }
-        if (REQUIRED_EMOTIONS.includes(key)) { addToast('该名称与默认情绪重复', 'error'); return; }
-        if (customEmotions.includes(key)) { addToast('该自定义情绪已存在', 'error'); return; }
-        if (key === 'chibi') { addToast('不能使用 chibi 作为情绪名', 'error'); return; }
+        if (!key) { addToast('請輸入情緒名稱', 'error'); return; }
+        if (REQUIRED_EMOTIONS.includes(key)) { addToast('該名稱與默認情緒重複', 'error'); return; }
+        if (customEmotions.includes(key)) { addToast('該自定義情緒已存在', 'error'); return; }
+        if (key === 'chibi') { addToast('不能使用 chibi 作為情緒名', 'error'); return; }
         const updated = [...customEmotions, key];
         updateCharacter(char.id, { customDateSprites: updated });
         setNewEmotionName('');
-        addToast(`已添加自定义情绪 [${key}]`, 'success');
+        addToast(`已添加自定義情緒 [${key}]`, 'success');
     };
 
     const handleDeleteCustomEmotion = (key: string) => {
@@ -233,7 +233,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         const newSprites = { ...(char.sprites || {}) };
         delete newSprites[key];
         updateCharacter(char.id, { sprites: newSprites, customDateSprites: updated });
-        addToast(`已删除自定义情绪 [${key}]`, 'success');
+        addToast(`已刪除自定義情緒 [${key}]`, 'success');
     };
 
     return (
@@ -242,7 +242,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <button onClick={onBack} className="p-2 -ml-2 text-slate-600 active:scale-95 transition-transform">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
-                <span className="font-bold text-slate-700">场景布置</span>
+                <span className="font-bold text-slate-700">場景佈置</span>
                 <div className="w-8"></div>
             </div>
             
@@ -258,14 +258,14 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         }}
                         />
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">预览 (Preview)</div>
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">預覽 (Preview)</div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-8 pb-20">
-                <Section title="立绘位置调整">
+                <Section title="立繪位置調整">
                     <div className="space-y-6">
                         <div>
-                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小缩放 (Scale)</span><span>{tempSpriteConfig.scale.toFixed(1)}x</span></div>
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-2"><span>大小縮放 (Scale)</span><span>{tempSpriteConfig.scale.toFixed(1)}x</span></div>
                             <input type="range" min="0.5" max="2.0" step="0.1" value={tempSpriteConfig.scale} onChange={e => setTempSpriteConfig({...tempSpriteConfig, scale: parseFloat(e.target.value)})} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
                         </div>
                         <div>
@@ -282,15 +282,15 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100">
                     <div className="flex items-center justify-between gap-4 p-4">
                         <div className="min-w-0">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase">浅色阅读模式</h3>
-                            <p className="text-[11px] text-slate-400 mt-1">小说视图使用浅色背景，减少眼睛疲劳</p>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase">淺色閱讀模式</h3>
+                            <p className="text-[11px] text-slate-400 mt-1">小說視圖使用淺色背景，減少眼睛疲勞</p>
                         </div>
                         <button
                             onClick={() => updateCharacter(char.id, { dateLightReading: !char.dateLightReading })}
                             type="button"
                             role="switch"
                             aria-checked={!!char.dateLightReading}
-                            aria-label="切换浅色阅读模式"
+                            aria-label="切換淺色閱讀模式"
                             className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${char.dateLightReading ? 'bg-primary' : 'bg-slate-200'}`}
                         >
                             <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateLightReading ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
@@ -298,15 +298,15 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                     <div className="flex items-center justify-between gap-4 p-4">
                         <div className="min-w-0">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase">阅读模式显示头像</h3>
-                            <p className="text-[11px] text-slate-400 mt-1">在双方的见面记录旁显示对应头像</p>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase">閱讀模式顯示頭像</h3>
+                            <p className="text-[11px] text-slate-400 mt-1">在雙方的見面記錄旁顯示對應頭像</p>
                         </div>
                         <button
                             onClick={() => updateCharacter(char.id, { dateReadingShowAvatars: !char.dateReadingShowAvatars })}
                             type="button"
                             role="switch"
                             aria-checked={!!char.dateReadingShowAvatars}
-                            aria-label="切换阅读模式头像"
+                            aria-label="切換閱讀模式頭像"
                             className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${char.dateReadingShowAvatars ? 'bg-primary' : 'bg-slate-200'}`}
                         >
                             <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateReadingShowAvatars ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
@@ -316,12 +316,12 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
                 <ObserveSettings char={char} />
 
-                <Section title="文风与叙事 (Writing Style)">
-                    <p className="text-[11px] text-slate-400 mt-1 mb-4">调整见面时 AI 的写作风格与叙事人称，修改后从下一条回复开始生效。</p>
+                <Section title="文風與敘事 (Writing Style)">
+                    <p className="text-[11px] text-slate-400 mt-1 mb-4">調整見面時 AI 的寫作風格與敘事人稱，修改後從下一條回覆開始生效。</p>
 
-                    {/* 写作风格 */}
+                    {/* 寫作風格 */}
                     <div className="mb-5">
-                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">写作风格</label>
+                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">寫作風格</label>
                         <div className="flex flex-wrap gap-2">
                             {DATE_STYLE_PRESETS.map(p => {
                                 const active = (styleConfig.style || 'cinematic') === p.id;
@@ -341,9 +341,9 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         </p>
                     </div>
 
-                    {/* 叙事人称 */}
+                    {/* 敘事人稱 */}
                     <div className="mb-5">
-                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">叙事人称</label>
+                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">敘事人稱</label>
                         <div className="space-y-2">
                             {POV_OPTIONS.map(opt => {
                                 const active = styleConfig.pov === opt.id;
@@ -361,11 +361,11 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         </div>
                     </div>
 
-                    {/* 细节深挖引导 */}
+                    {/* 細節深挖引導 */}
                     <div className="mb-5 flex items-center justify-between">
                         <div className="pr-4">
-                            <label className="text-[11px] text-slate-500 font-bold block">细节深挖引导</label>
-                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">教 AI 从任何一句话里挖出可写的细节，并每轮给一条不同的聚焦线索，减少空话和模型口癖。</p>
+                            <label className="text-[11px] text-slate-500 font-bold block">細節深挖引導</label>
+                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">教 AI 從任何一句話裡挖出可寫的細節，並每輪給一條不同的聚焦線索，減少空話和模型口癖。</p>
                         </div>
                         <button
                             onClick={() => patchStyleConfig({ digDeeper: styleConfig.digDeeper === false ? undefined : false })}
@@ -375,17 +375,17 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         </button>
                     </div>
 
-                    {/* 自定义补充 */}
+                    {/* 自定義補充 */}
                     <div>
-                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">自定义补充（可选）</label>
+                        <label className="text-[11px] text-slate-500 font-bold mb-2 block">自定義補充（可選）</label>
                         <textarea
                             value={extraDraft}
                             onChange={e => setExtraDraft(e.target.value)}
                             onBlur={saveExtraDraft}
-                            placeholder="比如：多写环境互动；不要写心理活动；对话占比多一些……"
+                            placeholder="比如：多寫環境互動；不要寫心理活動；對話佔比多一些……"
                             className="w-full h-20 px-4 py-3 bg-slate-100 rounded-xl text-sm resize-none focus:ring-1 focus:ring-primary/30 outline-none transition-all leading-relaxed"
                         />
-                        <p className="text-[10px] text-slate-300 mt-1">点别处会自动保存；这段会照原样用上，比上面的风格优先。</p>
+                        <p className="text-[10px] text-slate-300 mt-1">點別處會自動保存；這段會照原樣用上，比上面的風格優先。</p>
                     </div>
                 </Section>
 
@@ -397,13 +397,13 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         {char.dateBackground ? (
                             <>
                                 <TokenImg value={char.dateBackground} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-xs font-bold">更换背景</span></div>
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-xs font-bold">更換背景</span></div>
                             </>
-                        ) : <span className="text-slate-400 text-xs">+ 上传背景图</span>}
+                        ) : <span className="text-slate-400 text-xs">+ 上傳背景圖</span>}
                     </div>
                 </Section>
                 
-                <Section title="基础情绪立绘">
+                <Section title="基礎情緒立繪">
                     <div className="grid grid-cols-3 gap-3">
                         {REQUIRED_EMOTIONS.map(key => (
                             <div key={key} onClick={() => triggerUpload('sprite', key)} className="flex flex-col gap-2 group cursor-pointer">
@@ -411,7 +411,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                     {sprites[key] ? (
                                         <>
                                             <TokenImg value={sprites[key]} className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[10px]">更换</span></div>
+                                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[10px]">更換</span></div>
                                         </>
                                     ) : <span className="text-slate-300 text-2xl">+</span>}
                                 </div>
@@ -423,8 +423,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </Section>
 
-                <Section title="自定义情绪 (Custom Emotions)">
-                    <p className="text-[11px] text-slate-400 mb-4">为该角色添加专属情绪，AI 会在见面时使用。每个角色的自定义情绪互相独立。</p>
+                <Section title="自定義情緒 (Custom Emotions)">
+                    <p className="text-[11px] text-slate-400 mb-4">為該角色添加專屬情緒，AI 會在見面時使用。每個角色的自定義情緒互相獨立。</p>
 
                     {/* Existing custom emotions grid */}
                     {customEmotions.length > 0 && (
@@ -438,7 +438,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                         {sprites[key] ? (
                                             <>
                                                 <TokenImg value={sprites[key]} className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[10px]">更换</span></div>
+                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[10px]">更換</span></div>
                                             </>
                                         ) : <span className="text-slate-300 text-2xl">+</span>}
                                     </div>
@@ -463,7 +463,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             value={newEmotionName}
                             onChange={e => setNewEmotionName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') handleAddCustomEmotion(); }}
-                            placeholder="输入情绪名 (如 scared, excited...)"
+                            placeholder="輸入情緒名 (如 scared, excited...)"
                             className="flex-1 px-4 py-3 bg-slate-100 rounded-xl text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all"
                         />
                         <button
@@ -477,26 +477,26 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 </Section>
 
                 {/* URL Upload for Default Sprites */}
-                <Section title="图床 URL 上传">
-                    <p className="text-[11px] text-slate-400 mb-3">直接粘贴图片 URL 作为默认立绘</p>
+                <Section title="圖床 URL 上傳">
+                    <p className="text-[11px] text-slate-400 mb-3">直接粘貼圖片 URL 作為默認立繪</p>
                     <button
                         onClick={() => { setUrlTargetSkinId(null); setShowUrlModal(true); }}
                         className="w-full py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-200 transition-colors active:scale-95"
                     >
-                        + 通过 URL 添加立绘
+                        + 通過 URL 添加立繪
                     </button>
                 </Section>
 
                 {/* Skin Sets System */}
-                <Section title="皮肤系统 (Skin Sets)">
-                    <p className="text-[11px] text-slate-400 mb-4">为角色创建多套立绘皮肤。切换皮肤后，AI 将使用对应皮肤的表情立绘。</p>
+                <Section title="皮膚系統 (Skin Sets)">
+                    <p className="text-[11px] text-slate-400 mb-4">為角色創建多套立繪皮膚。切換皮膚後，AI 將使用對應皮膚的表情立繪。</p>
 
                     {/* Active skin indicator */}
                     <div className="mb-4 flex items-center gap-2 text-xs">
-                        <span className="text-slate-400">当前激活:</span>
-                        <span className="font-bold text-slate-700">{activeSkinId ? (skinSets.find(s => s.id === activeSkinId)?.name || '未知') : '默认立绘'}</span>
+                        <span className="text-slate-400">當前激活:</span>
+                        <span className="font-bold text-slate-700">{activeSkinId ? (skinSets.find(s => s.id === activeSkinId)?.name || '未知') : '默認立繪'}</span>
                         {activeSkinId && (
-                            <button onClick={() => handleActivateSkin(null)} className="text-[10px] text-primary underline">切回默认</button>
+                            <button onClick={() => handleActivateSkin(null)} className="text-[10px] text-primary underline">切回默認</button>
                         )}
                     </div>
 
@@ -507,7 +507,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                 <div className="p-3 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <span className="font-bold text-sm text-slate-700">{skin.name}</span>
-                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{Object.keys(skin.sprites).length} 个表情</span>
+                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{Object.keys(skin.sprites).length} 個表情</span>
                                         {activeSkinId === skin.id && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">使用中</span>}
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -515,7 +515,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                             <button onClick={() => handleActivateSkin(skin.id)} className="text-[10px] text-primary font-bold px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">激活</button>
                                         )}
                                         <button onClick={() => setEditingSkinId(editingSkinId === skin.id ? null : skin.id)} className="text-[10px] text-slate-500 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors">
-                                            {editingSkinId === skin.id ? '收起' : '编辑'}
+                                            {editingSkinId === skin.id ? '收起' : '編輯'}
                                         </button>
                                         <button onClick={() => handleDeleteSkinSet(skin.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -533,7 +533,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                                         {skin.sprites[emoKey] ? (
                                                             <>
                                                                 <TokenImg value={skin.sprites[emoKey]} className="w-full h-full object-cover" />
-                                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[9px]">更换</span></div>
+                                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[9px]">更換</span></div>
                                                             </>
                                                         ) : <span className="text-slate-300 text-lg">+</span>}
                                                     </div>
@@ -545,7 +545,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                             onClick={() => { setUrlTargetSkinId(skin.id); setShowUrlModal(true); }}
                                             className="w-full py-2 bg-slate-50 text-slate-500 text-[11px] font-medium rounded-lg hover:bg-slate-100 transition-colors"
                                         >
-                                            + 通过 URL 添加立绘到此皮肤
+                                            + 通過 URL 添加立繪到此皮膚
                                         </button>
                                     </div>
                                 )}
@@ -560,7 +560,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             value={newSkinName}
                             onChange={e => setNewSkinName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') handleCreateSkinSet(); }}
-                            placeholder="皮肤名称 (如 冬装、泳装...)"
+                            placeholder="皮膚名稱 (如 冬裝、泳裝...)"
                             className="flex-1 px-4 py-3 bg-slate-100 rounded-xl text-sm focus:ring-1 focus:ring-primary/30 outline-none transition-all"
                         />
                         <button
@@ -568,7 +568,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             disabled={!newSkinName.trim()}
                             className="px-5 py-3 bg-primary text-white text-sm font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
                         >
-                            创建
+                            創建
                         </button>
                     </div>
                 </Section>
@@ -581,25 +581,25 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowUrlModal(false)}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-700 text-sm">通过 URL 添加立绘</h3>
-                            <p className="text-[11px] text-slate-400 mt-1">{urlTargetSkinId ? `目标: ${skinSets.find(s => s.id === urlTargetSkinId)?.name}` : '目标: 默认立绘'}</p>
+                            <h3 className="font-bold text-slate-700 text-sm">通過 URL 添加立繪</h3>
+                            <p className="text-[11px] text-slate-400 mt-1">{urlTargetSkinId ? `目標: ${skinSets.find(s => s.id === urlTargetSkinId)?.name}` : '目標: 默認立繪'}</p>
                         </div>
                         <div className="p-4 space-y-3">
                             <div>
-                                <label className="text-[11px] text-slate-500 font-bold mb-1 block">情绪</label>
+                                <label className="text-[11px] text-slate-500 font-bold mb-1 block">情緒</label>
                                 <select
                                     value={skinUrlEmotionKey}
                                     onChange={e => setSkinUrlEmotionKey(e.target.value)}
                                     className="w-full px-3 py-2.5 bg-slate-100 rounded-xl text-sm outline-none"
                                 >
-                                    <option value="">选择情绪...</option>
+                                    <option value="">選擇情緒...</option>
                                     {[...REQUIRED_EMOTIONS, ...(char.customDateSprites || [])].map(k => (
                                         <option key={k} value={k}>{k}</option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="text-[11px] text-slate-500 font-bold mb-1 block">图片 URL</label>
+                                <label className="text-[11px] text-slate-500 font-bold mb-1 block">圖片 URL</label>
                                 <input
                                     type="text"
                                     value={skinUrlInput}
@@ -616,7 +616,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         </div>
                         <div className="p-4 border-t border-slate-100 flex gap-2">
                             <button onClick={() => setShowUrlModal(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold text-sm rounded-xl">取消</button>
-                            <button onClick={handleUrlSubmit} disabled={!skinUrlInput.trim() || !skinUrlEmotionKey} className="flex-1 py-2.5 bg-primary text-white font-bold text-sm rounded-xl disabled:opacity-40 active:scale-95 transition-all">确认添加</button>
+                            <button onClick={handleUrlSubmit} disabled={!skinUrlInput.trim() || !skinUrlEmotionKey} className="flex-1 py-2.5 bg-primary text-white font-bold text-sm rounded-xl disabled:opacity-40 active:scale-95 transition-all">確認添加</button>
                         </div>
                     </div>
                 </div>
@@ -624,7 +624,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
             <div className="p-4 border-t border-slate-200 bg-white/90 backdrop-blur-sm sticky bottom-0 z-20">
                 <button onClick={handleSaveSettings} className="w-full py-3 bg-primary text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-transform">
-                    保存当前布置
+                    保存當前佈置
                 </button>
             </div>
         </div>

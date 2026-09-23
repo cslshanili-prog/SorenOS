@@ -1,28 +1,28 @@
 /**
- * 手账内 markdown-lite 渲染
+ * 手帳內 markdown-lite 渲染
  *
  * 支持:
- *   **粗** *斜* ==高亮== ~~删~~ `代码` [color:red](文字)
- *   行首 # ## ### → 三级标题
+ *   **粗** *斜* ==高亮== ~~刪~~ `代碼` [color:red](文字)
+ *   行首 # ## ### → 三級標題
  *   行首 - / · / ◦ → 列表
  *   行首 > → 引用
- *   ::: callout ... :::  → 整段 callout (渲染由父级决定)
+ *   ::: callout ... :::  → 整段 callout (渲染由父級決定)
  *
- * 不支持完整 markdown(链接/图片/表格)。LLM 可控,样本量少,正则就够。
+ * 不支持完整 markdown(鏈接/圖片/表格)。LLM 可控,樣本量少,正則就夠。
  */
 
 import React from 'react';
 
 export interface RichTextOpts {
-    /** 默认正文颜色 */
+    /** 默認正文顏色 */
     color?: string;
-    /** 高亮配色,可换 */
+    /** 高亮配色,可換 */
     accent?: string;
-    /** 删除/code 等次要色 */
+    /** 刪除/code 等次要色 */
     muted?: string;
-    /** 粗体颜色(默认 = color) */
+    /** 粗體顏色(默認 = color) */
     boldColor?: string;
-    /** 行首高亮 (#)标题颜色 */
+    /** 行首高亮 (#)標題顏色 */
     headColor?: string;
 }
 
@@ -30,25 +30,25 @@ const HEADING_RE = /^(#{1,3})\s+(.+)$/;
 const QUOTE_RE = /^>\s+(.+)$/;
 const LIST_RE = /^[-·◦]\s+(.+)$/;
 
-/** 把一行内联 markdown 拆成 React 节点 */
+/** 把一行內聯 markdown 拆成 React 節點 */
 function renderInline(line: string, opts: RichTextOpts, key: string): React.ReactNode[] {
     const accent = opts.accent || '#f29db0';
     const muted = opts.muted || 'rgba(122,90,114,0.55)';
     const bold = opts.boldColor || opts.color || '#3d2f3d';
 
-    // 优先匹配的顺序: code > color > highlight > strike > bold > italic
-    // 用一个简单的 token 化方案:逐次找最早出现的标记
+    // 優先匹配的順序: code > color > highlight > strike > bold > italic
+    // 用一個簡單的 token 化方案:逐次找最早出現的標記
     const tokens: { kind: 'text' | 'b' | 'i' | 'h' | 's' | 'c' | 'col'; text: string; col?: string }[] = [];
     let rest = line;
     let safety = 0;
     while (rest.length > 0 && safety++ < 200) {
-        // 查找各种 marker 的最早位置
+        // 查找各種 marker 的最早位置
         const candidates: { kind: typeof tokens[number]['kind']; idx: number; len: number; inner: string; col?: string }[] = [];
 
         const code = rest.match(/`([^`]+)`/);
         if (code && code.index !== undefined) candidates.push({ kind: 'c', idx: code.index, len: code[0].length, inner: code[1] });
 
-        // [color:red](...) — 自定义彩色笔
+        // [color:red](...) — 自定義彩色筆
         const colMatch = rest.match(/\[color:([a-zA-Z#0-9]+)\]\(([^)]+)\)/);
         if (colMatch && colMatch.index !== undefined) {
             candidates.push({ kind: 'col', idx: colMatch.index, len: colMatch[0].length, inner: colMatch[2], col: colorAlias(colMatch[1]) });
@@ -63,12 +63,12 @@ function renderInline(line: string, opts: RichTextOpts, key: string): React.Reac
         const b = rest.match(/\*\*([^*]+)\*\*/);
         if (b && b.index !== undefined) candidates.push({ kind: 'b', idx: b.index, len: b[0].length, inner: b[1] });
 
-        // 单星斜体, 要排除 **粗体** 的单星。不用后行断言 (?<!\*): iOS Safari <16.4 的 JSC 不支持,
-        // 旧设备 new RegExp 会抛 "invalid group specifier name". 改成把左侧非星字符 (或行首) 捕获进
-        // it[1], 命中后用 it[1].length 修正 idx/len, 行为等价 (见 utils/lookbehindFree.test.ts)。
+        // 單星斜體, 要排除 **粗體** 的單星。不用後行斷言 (?<!\*): iOS Safari <16.4 的 JSC 不支持,
+        // 舊設備 new RegExp 會拋 "invalid group specifier name". 改成把左側非星字符 (或行首) 捕獲進
+        // it[1], 命中後用 it[1].length 修正 idx/len, 行為等價 (見 utils/lookbehindFree.test.ts)。
         const it = rest.match(/(^|[^*])\*([^*]+)\*(?!\*)/);
         if (it && it.index !== undefined) {
-            const offset = it[1].length;  // 行首匹配为 0, 普通字符为 1
+            const offset = it[1].length;  // 行首匹配為 0, 普通字符為 1
             candidates.push({ kind: 'i', idx: it.index + offset, len: it[0].length - offset, inner: it[2] });
         }
 
@@ -133,7 +133,7 @@ function colorAlias(raw: string): string {
         orange: '#e89b6a',
         gray: 'rgba(122,90,114,0.6)', grey: 'rgba(122,90,114,0.6)',
     };
-    return map[k] || raw;  // 也允许 #rrggbb 直接传
+    return map[k] || raw;  // 也允許 #rrggbb 直接傳
 }
 
 const JournalRichText: React.FC<{

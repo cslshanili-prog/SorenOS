@@ -3,14 +3,14 @@ import { createServer } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 const out = 'output/chat-stream-handover'; mkdirSync(out, { recursive: true });
-const lines = ['第一句流式测试', '第二句流式测试', '第三句流式测试'];
+const lines = ['第一句流式測試', '第二句流式測試', '第三句流式測試'];
 const server = createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', '*');
     if (req.method === 'OPTIONS') { res.end(); return; }
     for await (const _ of req) { /* drain request */ }
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-    for (const content of ['第一句', '流式测试\n', `${lines[1]}\n`, lines[2]]) {
+    for (const content of ['第一句', '流式測試\n', `${lines[1]}\n`, lines[2]]) {
         res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
         await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -28,14 +28,14 @@ try {
     await page.waitForFunction(() => !!window.streamQA);
     await page.evaluate(async port => {
         const { DB } = window.streamQA;
-        await DB.saveCharacter({ id: 'qa-stream', name: '流式测试角色', avatar: '', systemPrompt: '测试', showThinkingChain: false });
-        await DB.saveMessage({ charId: 'qa-stream', role: 'user', type: 'text', content: '回复三句话' });
+        await DB.saveCharacter({ id: 'qa-stream', name: '流式測試角色', avatar: '', systemPrompt: '測試', showThinkingChain: false });
+        await DB.saveMessage({ charId: 'qa-stream', role: 'user', type: 'text', content: '回覆三句話' });
         localStorage.setItem('os_last_active_char_id', 'qa-stream');
         localStorage.setItem('os_api_config', JSON.stringify({ baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'qa-only', model: 'qa-only', stream: true }));
         localStorage.removeItem('sully-chat-input-preferences-v1');
     }, server.address().port);
     await page.reload();
-    await page.locator('.sully-chat-name').filter({ hasText: '流式测试角色' }).waitFor();
+    await page.locator('.sully-chat-name').filter({ hasText: '流式測試角色' }).waitFor();
     const start = async (failAt = 0) => {
         await page.evaluate(failAt => Object.assign(window.streamQA.gate, { enabled: true, attempts: 0, failAt, release: null }), failAt);
         await page.locator('.sully-chat-trigger').click();

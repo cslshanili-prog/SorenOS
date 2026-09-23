@@ -1,6 +1,6 @@
 /**
  * ElevenLabs TTS 代理（Vercel serverless）。
- * Key 由客户端请求头或部署环境变量提供；代理只转发，不记录 Key 与待合成文本。
+ * Key 由客戶端請求頭或部署環境變量提供；代理只轉發，不記錄 Key 與待合成文本。
  */
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';

@@ -1,24 +1,24 @@
 /**
- * 主动消息「此刻在做什么」的到点渲染（AMSG_SLOT_SCENE）。
+ * 主動消息「此刻在做什麼」的到點渲染（AMSG_SLOT_SCENE）。
  *
- * 为什么要有这一层：fire_pack 是最后一次聊天时打好的模板，到点才渲染。角色的日程
- * 「当前时段」和由日程推出来的「此刻在听的歌」都是打包那一刻算的，烤进模板的话，
- * 凌晨三点触发时角色会说「我在健身房呢，今天多跑了两公里」。这两块改成随包带原始数据
- * （整天的作息表 + 歌单抽样池），worker 到点按角色时区现算。
+ * 為什麼要有這一層：fire_pack 是最後一次聊天時打好的模板，到點才渲染。角色的日程
+ * 「當前時段」和由日程推出來的「此刻在聽的歌」都是打包那一刻算的，烤進模板的話，
+ * 凌晨三點觸發時角色會說「我在健身房呢，今天多跑了兩公里」。這兩塊改成隨包帶原始數據
+ * （整天的作息表 + 歌單抽樣池），worker 到點按角色時區現算。
  *
- * 一份表只管一天：随包还带打包那天的日期（dateKey），到点先比日期，跨天了整段不用——
- * 拿周五的作息表照着周日念，跟烤死是同一种穿帮。
+ * 一份表只管一天：隨包還帶打包那天的日期（dateKey），到點先比日期，跨天了整段不用——
+ * 拿週五的作息表照著週日念，跟烤死是同一種穿幫。
  *
- * 零浏览器依赖：只 import type 和两个纯叶子（scheduleInjection / charMusicSchedule /
- * timezone / localDate）。日程文本与前台聊天共用 buildScheduleInjection，歌与前台聊天
- * 共用 pickSongFromPool —— 不共用的话，角色在聊天里和到点生成时会说出两套作息。
+ * 零瀏覽器依賴：只 import type 和兩個純葉子（scheduleInjection / charMusicSchedule /
+ * timezone / localDate）。日程文本與前台聊天共用 buildScheduleInjection，歌與前台聊天
+ * 共用 pickSongFromPool —— 不共用的話，角色在聊天裡和到點生成時會說出兩套作息。
  *
- * 前台聊天的音乐块比这里丰富（一起听状态、歌词片段、换歌察觉，见
- * ContextBuilder.buildMusicAtmosphere）。那些要么依赖用户此刻的播放状态、要么要拉网络，
- * worker 都够不着，所以 fire 这边只渲染「你此刻在听什么」这一句。
+ * 前台聊天的音樂塊比這裡豐富（一起聽狀態、歌詞片段、換歌察覺，見
+ * ContextBuilder.buildMusicAtmosphere）。那些要麼依賴用戶此刻的播放狀態、要麼要拉網絡，
+ * worker 都夠不著，所以 fire 這邊只渲染「你此刻在聽什麼」這一句。
  */
 
-/** 抽歌只用到这三个字段；专辑封面之类不随包上云。 */
+/** 抽歌只用到這三個字段；專輯封面之類不隨包上雲。 */
 export interface AmsgFireSong {
   id: number;
   name: string;
@@ -30,44 +30,44 @@ import { buildScheduleInjection, resolveScheduleSlots, type RenderableSchedule }
 import { pickSongFromPool, slotIsListening } from './charMusicSchedule';
 import type { AmsgTzRef } from './amsgFirePack';
 
-/** 随 fire_pack 带给 worker 的原始素材。到点渲染成 AMSG_SLOT_SCENE 那一段。 */
+/** 隨 fire_pack 帶給 worker 的原始素材。到點渲染成 AMSG_SLOT_SCENE 那一段。 */
 export interface AmsgFireScene {
-  /** 角色 id —— 抽歌的种子之一，换个角色同一时段听的歌不一样。 */
+  /** 角色 id —— 抽歌的種子之一，換個角色同一時段聽的歌不一樣。 */
   charId: string;
   /**
-   * 这份日程说的是哪一天（打包时角色当地的 YYYY-MM-DD）。
+   * 這份日程說的是哪一天（打包時角色當地的 YYYY-MM-DD）。
    *
-   * 表里只有「几点做什么」，没有日期。周五晚上打的包周日上午触发时，光按墙钟时分挑
-   * 时段一样挑得出「09:00 晨会」——角色于是在周日说自己正在开周五的会。到点先比日期，
-   * 不是同一天就整段不用（见 renderFireSceneBlock）。
+   * 表裡只有「幾點做什麼」，沒有日期。週五晚上打的包週日上午觸發時，光按牆鍾時分挑
+   * 時段一樣挑得出「09:00 晨會」——角色於是在週日說自己正在開週五的會。到點先比日期，
+   * 不是同一天就整段不用（見 renderFireSceneBlock）。
    */
   dateKey: string;
   /**
-   * 打包时那天的日程；到点由 worker 按角色时区挑出当前时段。
+   * 打包時那天的日程；到點由 worker 按角色時區挑出當前時段。
    *
-   * 只带渲染会读的字段（见 RenderableSchedule）——整份 DailySchedule 里挂着每个时段
-   * 缓存的小剧场台词和 coverImage（可能是 base64 图），随包上云纯属白占体积。
+   * 只帶渲染會讀的字段（見 RenderableSchedule）——整份 DailySchedule 裡掛著每個時段
+   * 緩存的小劇場台詞和 coverImage（可能是 base64 圖），隨包上雲純屬白佔體積。
    */
   schedule: RenderableSchedule | null;
   /**
-   * 意识流独白。日程自带的 flowNarrative 按小时分三档、到点现取，
-   * 这个字段是聊天时演化出来的那一份（进化独白），有的话优先。
+   * 意識流獨白。日程自帶的 flowNarrative 按小時分三檔、到點現取，
+   * 這個字段是聊天時演化出來的那一份（進化獨白），有的話優先。
    */
   evolvedNarrative?: string;
-  /** 歌单抽样池（charMusicSchedule.buildSongPool 的结果，最多 20 首）。 */
+  /** 歌單抽樣池（charMusicSchedule.buildSongPool 的結果，最多 20 首）。 */
   songPool: AmsgFireSong[];
 }
 
 /**
- * 这次触发角色「此刻在听」的是哪一首（不在听歌的时段 / 歌单空 / 跨天作废 → null）。
+ * 這次觸發角色「此刻在聽」的是哪一首（不在聽歌的時段 / 歌單空 / 跨天作廢 → null）。
  *
- * 单独 export 是给 worker 用的：prompt 里那句「你此刻在听：《X》」是这里挑的，可角色
- * 写出来的 `[[MUSIC_ACTION:add|歌单标题]]` 标签只带得动歌单名、带不动歌名。worker 到点
- * 把这一首附进 music_action directive，客户端重放时才知道角色说的是哪首歌——不然只能取
- * 「用户此刻在听的那首」，而定时消息补收时用户多半什么都没在放，卡片和加歌单整个不发生。
+ * 單獨 export 是給 worker 用的：prompt 裡那句「你此刻在聽：《X》」是這裡挑的，可角色
+ * 寫出來的 `[[MUSIC_ACTION:add|歌單標題]]` 標籤只帶得動歌單名、帶不動歌名。worker 到點
+ * 把這一首附進 music_action directive，客戶端重放時才知道角色說的是哪首歌——不然只能取
+ * 「用戶此刻在聽的那首」，而定時消息補收時用戶多半什麼都沒在放，卡片和加歌單整個不發生。
  *
- * 判定与种子跟 renderFireSceneBlock 共用这一份：prompt 里写的那首和 directive 里冻的
- * 那首必须严格是同一首，各写一份迟早对不上。
+ * 判定與種子跟 renderFireSceneBlock 共用這一份：prompt 裡寫的那首和 directive 裡凍的
+ * 那首必須嚴格是同一首，各寫一份遲早對不上。
  */
 export const resolveFireSceneSong = (
   scene: AmsgFireScene | null,
@@ -76,8 +76,8 @@ export const resolveFireSceneSong = (
 ): AmsgFireSong | null => {
   if (!scene?.schedule?.slots?.length) return null;
   const wallNow = nowInTimeZone(tz.tzId, new Date(nowMs));
-  // 跨天的包整段作废，「此刻在听」跟着走：那首歌是从当前时段推出来的，日程都不算数了，
-  // 它就没有依据了（同 renderFireSceneBlock 的日期门槛）。
+  // 跨天的包整段作廢，「此刻在聽」跟著走：那首歌是從當前時段推出來的，日程都不算數了，
+  // 它就沒有依據了（同 renderFireSceneBlock 的日期門檻）。
   if (getLocalDateKey(wallNow) !== scene.dateKey) return null;
   if (scene.songPool.length === 0) return null;
 
@@ -92,12 +92,12 @@ export const resolveFireSceneSong = (
 };
 
 /**
- * 渲染 fire 时刻的「此刻在做什么」。没有日程、日程是空表、或者这份日程已经不是今天的了，
- * 一律返回空串（槽位被抹平，模板跟没这回事一样）。
+ * 渲染 fire 時刻的「此刻在做什麼」。沒有日程、日程是空表、或者這份日程已經不是今天的了，
+ * 一律返回空串（槽位被抹平，模板跟沒這回事一樣）。
  *
- * includeClock 跟着角色的「时间感知」开关走（worker 从 tool_pack 读，同今日节日那条）。
- * 关掉的角色在前台连「现在几点」都读不到，这里要是照旧写「当前时段：23:00 你正在睡觉」，
- * 钟就从日程这条缝漏了出去。日程本身照给——它有自己的总开关。
+ * includeClock 跟著角色的「時間感知」開關走（worker 從 tool_pack 讀，同今日節日那條）。
+ * 關掉的角色在前台連「現在幾點」都讀不到，這裡要是照舊寫「當前時段：23:00 你正在睡覺」，
+ * 鍾就從日程這條縫漏了出去。日程本身照給——它有自己的總開關。
  */
 export const renderFireSceneBlock = (
   scene: AmsgFireScene | null,
@@ -107,10 +107,10 @@ export const renderFireSceneBlock = (
 ): string => {
   if (!scene?.schedule?.slots?.length) return '';
 
-  // 角色所在地的墙钟：日程表里的 "08:00" 说的是角色那边的八点。
+  // 角色所在地的牆鍾：日程表裡的 "08:00" 說的是角色那邊的八點。
   const wallNow = nowInTimeZone(tz.tzId, new Date(nowMs));
-  // 跨天的包整段不用：这是 scene.dateKey 那天的安排，第二天再照着念就是在说昨天的事。
-  // 宁缺勿错，跟「实时世界拉不到就整段消失」同一条线。
+  // 跨天的包整段不用：這是 scene.dateKey 那天的安排，第二天再照著念就是在說昨天的事。
+  // 寧缺勿錯，跟「實時世界拉不到就整段消失」同一條線。
   if (getLocalDateKey(wallNow) !== scene.dateKey) return '';
   const scheduleText = buildScheduleInjection(
     scene.schedule,
@@ -118,9 +118,9 @@ export const renderFireSceneBlock = (
     wallNow,
     {
       includeClock: options?.includeClock !== false,
-      // 到点主动开口的角色最容易撞上「表上写着睡觉、我却正在给对方发消息」，
-      // 所以这条路也要教。标签由 worker classifier 摘成 directive 随 push 回来、
-      // 客户端落库；落库按 push 的 sentAt 判时段，隔夜的整批丢弃（见 scheduleChange）。
+      // 到點主動開口的角色最容易撞上「表上寫著睡覺、我卻正在給對方發消息」，
+      // 所以這條路也要教。標籤由 worker classifier 摘成 directive 隨 push 回來、
+      // 客戶端落庫；落庫按 push 的 sentAt 判時段，隔夜的整批丟棄（見 scheduleChange）。
       includeChangeInstruction: true,
     },
   ).trim();
@@ -129,9 +129,9 @@ export const renderFireSceneBlock = (
   if (scheduleText) lines.push(scheduleText);
 
   const song = resolveFireSceneSong(scene, nowMs, tz);
-  if (song) lines.push(`你此刻在听：《${song.name}》— ${song.artists}`);
+  if (song) lines.push(`你此刻在聽：《${song.name}》— ${song.artists}`);
 
   if (lines.length === 0) return '';
-  // 前导空行：槽位是紧跟在上一行后面填的，自带空行才不会跟当前时间粘成一行。
+  // 前導空行：槽位是緊跟在上一行後面填的，自帶空行才不會跟當前時間粘成一行。
   return `\n\n${lines.join('\n')}`;
 };

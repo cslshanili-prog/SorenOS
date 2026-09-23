@@ -45,14 +45,14 @@ describe('first-use memory guide', () => {
         await click('收起');
         const previous = JSON.stringify(mocked.os.memoryPalaceConfig);
         mocked.os.openApp.mockClear(); mocked.os.updateMemoryPalaceConfig.mockClear();
-        await click('直接跳过引导');
+        await click('直接跳過引導');
         expect(localStorage.getItem(GUIDE_KEY)).toBe('done');
-        expect(document.querySelector('[aria-label="首次使用引导"]')).toBeNull();
+        expect(document.querySelector('[aria-label="首次使用引導"]')).toBeNull();
         expect(mocked.os.openApp).not.toHaveBeenCalled();
         expect(mocked.os.updateMemoryPalaceConfig).not.toHaveBeenCalled();
         expect(JSON.stringify(mocked.os.memoryPalaceConfig)).toBe(previous);
         await act(async () => root.unmount()); root = createRoot(host); await render();
-        expect(document.querySelector('[aria-label="首次使用引导"]')).toBeNull();
+        expect(document.querySelector('[aria-label="首次使用引導"]')).toBeNull();
     });
 
     it('points to Sully first, then moves the highlight to Send message and removes it on skip', async () => {
@@ -61,16 +61,16 @@ describe('first-use memory guide', () => {
         document.body.append(card);
         setGuideStep(3); await render();
         expect(card.classList.contains('first-use-highlight')).toBe(true);
-        expect(document.body.textContent).toContain('点击 Sully，打开角色详情');
+        expect(document.body.textContent).toContain('點擊 Sully，打開角色詳情');
         const send = document.createElement('button'); send.dataset.guide = 'sully-message';
         send.getBoundingClientRect = card.getBoundingClientRect;
         await act(async () => { host.append(send); });
         expect(send.classList.contains('first-use-highlight')).toBe(true);
         expect(card.classList.contains('first-use-highlight')).toBe(false);
-        expect(document.body.textContent).toContain('点击「发消息」进入聊天');
-        await click('直接跳过引导');
+        expect(document.body.textContent).toContain('點擊「發消息」進入聊天');
+        await click('直接跳過引導');
         expect(send.classList.contains('first-use-highlight')).toBe(false);
-        expect(document.body.textContent).not.toContain('点击「发消息」进入聊天');
+        expect(document.body.textContent).not.toContain('點擊「發消息」進入聊天');
         card.remove(); send.remove();
     });
     it('does not interrupt existing users and preserves an unfinished new-user step', () => {
@@ -97,7 +97,7 @@ describe('first-use memory guide', () => {
         await click('下一步'); expect(readGuideStep()).toBe(1);
         mocked.os.memoryPalaceConfig.embedding = { ...mocked.os.apiConfig, model: 'embedding' };
         await render(); await click('下一步'); expect(readGuideStep()).toBe(1);
-        await click('我想暂时只用主 API');
+        await click('我想暫時只用主 API');
         expect(mocked.os.memoryPalaceConfig.lightLLM).toEqual(mocked.os.apiConfig);
         await render(); await click('下一步');
         await click('下一步'); expect(readGuideStep()).toBe(2);
@@ -111,9 +111,9 @@ describe('first-use memory guide', () => {
     it('can skip vectors after choosing a secondary API, resumes that path, and can return to setup', async () => {
         mocked.os.apiConfig = { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'chat' };
         setGuideStep(1); await render();
-        await click('暂时跳过向量记忆'); expect(readGuideStep()).toBe(1);
-        await click('我想暂时只用主 API'); await render();
-        await click('暂时跳过向量记忆');
+        await click('暫時跳過向量記憶'); expect(readGuideStep()).toBe(1);
+        await click('我想暫時只用主 API'); await render();
+        await click('暫時跳過向量記憶');
         expect(readGuideStep()).toBe(3);
         expect(mocked.os.characters[0].autoArchiveEnabled).toBeUndefined();
         expect(mocked.os.memoryPalaceConfig.embedding).toEqual({});
@@ -129,11 +129,11 @@ describe('first-use memory guide', () => {
 
     it('does not claim automatic memory is enabled after skipping vector setup', async () => {
         mocked.os.memoryPalaceConfig.lightLLM = { baseUrl: 'https://example.test/v1', apiKey: 'test', model: 'chat' };
-        setGuideStep(1); await render(); await click('暂时跳过向量记忆');
+        setGuideStep(1); await render(); await click('暫時跳過向量記憶');
         await act(async () => setGuideStep(6));
-        expect(host.textContent).toContain('本次引导没有为你开启全自动记忆');
+        expect(host.textContent).toContain('本次引導沒有為你開啟全自動記憶');
         expect(host.textContent).not.toContain('7/7');
-        await click('完成引导'); expect(host.textContent).toBe('');
+        await click('完成引導'); expect(host.textContent).toBe('');
     });
 
     it('highlights generation without clicking it, then waits for the desktop Chat entry', async () => {
@@ -153,8 +153,8 @@ describe('first-use memory guide', () => {
         await click('下一步'); expect(readGuideStep()).toBe(5);
         mocked.os.activeApp = AppID.Chat; await render();
         expect(readGuideStep()).toBe(6);
-        expect(host.textContent).toContain('全自动用户大部分时候不需要操作');
-        await click('完成引导');
+        expect(host.textContent).toContain('全自動用戶大部分時候不需要操作');
+        await click('完成引導');
         expect(host.textContent).toBe('');
         expect(generateRequest).not.toHaveBeenCalled();
         expect(generate.classList.contains('first-use-highlight')).toBe(false);

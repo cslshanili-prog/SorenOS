@@ -1,9 +1,9 @@
 // utils/activeMsgClient.cronTrigger.test.ts
 //
-// 「暂停 / 恢复后台任务」前端这一侧的回归守卫（worker 那一侧见 worker/amsg/src/cronTrigger.test.ts）。
+// 「暫停 / 恢復後台任務」前端這一側的迴歸守衛（worker 那一側見 worker/amsg/src/cronTrigger.test.ts）。
 //
-// 最要紧的一条：旧版 Worker 没有 /cron-trigger 这个端点，问状态回 404 时必须回 null 而不是抛——
-// 设置页每次打开都会问一次，抛出去等于让所有还没更新 Worker 的人每次开面板都看到一条报错。
+// 最要緊的一條：舊版 Worker 沒有 /cron-trigger 這個端點，問狀態回 404 時必須回 null 而不是拋——
+// 設置頁每次打開都會問一次，拋出去等於讓所有還沒更新 Worker 的人每次開面板都看到一條報錯。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { reiClient } = vi.hoisted(() => ({
@@ -29,14 +29,14 @@ vi.mock('./activeMsgStore', () => ({
 
 import { ActiveMsgClient } from './activeMsgClient';
 
-/** 让 worker 回一份固定的 JSON。 */
+/** 讓 worker 回一份固定的 JSON。 */
 const workerReplies = (status: number, body: unknown) => vi.stubGlobal('fetch', vi.fn(async () => ({
   status,
   text: async () => JSON.stringify(body),
   headers: new Headers({ 'content-type': 'application/json' }),
 })));
 
-/** 最近一次打到 worker 的请求。 */
+/** 最近一次打到 worker 的請求。 */
 const lastRequest = () => {
   const calls = (globalThis.fetch as any).mock.calls as Array<[string, RequestInit]>;
   const [url, init] = calls[calls.length - 1];
@@ -53,22 +53,22 @@ afterEach(() => {
 });
 
 describe('getCronTriggerState', () => {
-  it('旧版 Worker 回 404 → null，不抛', async () => {
+  it('舊版 Worker 回 404 → null，不拋', async () => {
     workerReplies(404, null);
     await expect(ActiveMsgClient.getCronTriggerState()).resolves.toBeNull();
   });
 
-  it('上游把它当未知路由回 NOT_FOUND → 同样是 null', async () => {
+  it('上游把它當未知路由回 NOT_FOUND → 同樣是 null', async () => {
     workerReplies(200, { success: false, error: { code: 'NOT_FOUND', message: 'no route' } });
     await expect(ActiveMsgClient.getCronTriggerState()).resolves.toBeNull();
   });
 
-  it('连不上 Worker → null，不抛（设置页每次打开都会问，抛出去就是每次一条报错）', async () => {
+  it('連不上 Worker → null，不拋（設置頁每次打開都會問，拋出去就是每次一條報錯）', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Failed to fetch'); }));
     await expect(ActiveMsgClient.getCronTriggerState()).resolves.toBeNull();
   });
 
-  it('读到了：把 supported / enabled 原样带回，请求走 GET /cron-trigger 并带共享密钥', async () => {
+  it('讀到了：把 supported / enabled 原樣帶回，請求走 GET /cron-trigger 並帶共享密鑰', async () => {
     workerReplies(200, { success: true, data: { supported: true, enabled: false } });
     expect(await ActiveMsgClient.getCronTriggerState()).toEqual({ supported: true, enabled: false });
     const { url, init, headers } = lastRequest();
@@ -77,34 +77,34 @@ describe('getCronTriggerState', () => {
     expect(headers.get('X-Client-Token')).toBe('shared');
   });
 
-  it('端点在、但 Worker 没配 CF_API_TOKEN：supported:false 带代号，面板据此引导补钥匙', async () => {
+  it('端點在、但 Worker 沒配 CF_API_TOKEN：supported:false 帶代號，面板據此引導補鑰匙', async () => {
     workerReplies(200, {
       success: true,
-      data: { supported: false, code: 'CF_TOKEN_MISSING', message: '没配 CF_API_TOKEN。' },
+      data: { supported: false, code: 'CF_TOKEN_MISSING', message: '沒配 CF_API_TOKEN。' },
     });
     expect(await ActiveMsgClient.getCronTriggerState()).toEqual({
       supported: false,
       code: 'CF_TOKEN_MISSING',
-      message: '没配 CF_API_TOKEN。',
+      message: '沒配 CF_API_TOKEN。',
     });
   });
 
-  it('共享密钥对不上（401）：supported:false，代号从 error 里取', async () => {
-    workerReplies(401, { success: false, error: { code: 'UNAUTHORIZED', message: '共享密钥对不上。' } });
+  it('共享密鑰對不上（401）：supported:false，代號從 error 裡取', async () => {
+    workerReplies(401, { success: false, error: { code: 'UNAUTHORIZED', message: '共享密鑰對不上。' } });
     expect(await ActiveMsgClient.getCronTriggerState()).toEqual({
       supported: false,
       code: 'UNAUTHORIZED',
-      message: '共享密钥对不上。',
+      message: '共享密鑰對不上。',
     });
   });
 });
 
 describe('setCronTriggerEnabled', () => {
-  it('暂停：POST /cron-trigger，JSON 体 { enabled: false }', async () => {
+  it('暫停：POST /cron-trigger，JSON 體 { enabled: false }', async () => {
     workerReplies(200, { success: true, data: { ok: true, enabled: false } });
     const result = await ActiveMsgClient.setCronTriggerEnabled(false);
     expect(result.ok).toBe(true);
-    expect(result.message).toContain('已暂停');
+    expect(result.message).toContain('已暫停');
     const { url, init, headers } = lastRequest();
     expect(url).toBe('https://amsg.example.workers.dev/cron-trigger');
     expect(init.method).toBe('POST');
@@ -112,27 +112,27 @@ describe('setCronTriggerEnabled', () => {
     expect(JSON.parse(String(init.body))).toEqual({ enabled: false });
   });
 
-  it('恢复：JSON 体 { enabled: true }', async () => {
+  it('恢復：JSON 體 { enabled: true }', async () => {
     workerReplies(200, { success: true, data: { ok: true, enabled: true } });
     const result = await ActiveMsgClient.setCronTriggerEnabled(true);
     expect(result.ok).toBe(true);
-    expect(result.message).toContain('已恢复');
+    expect(result.message).toContain('已恢復');
     expect(JSON.parse(String(lastRequest().init.body))).toEqual({ enabled: true });
   });
 
-  it('worker 报失败：ok:false，把它那句话和代号带回来', async () => {
+  it('worker 報失敗：ok:false，把它那句話和代號帶回來', async () => {
     workerReplies(400, {
       success: false,
-      error: { code: 'CF_TOKEN_MISSING', message: '没配 CF_API_TOKEN，没法改定时触发。' },
+      error: { code: 'CF_TOKEN_MISSING', message: '沒配 CF_API_TOKEN，沒法改定時觸發。' },
     });
     expect(await ActiveMsgClient.setCronTriggerEnabled(false)).toEqual({
       ok: false,
       code: 'CF_TOKEN_MISSING',
-      message: '没配 CF_API_TOKEN，没法改定时触发。',
+      message: '沒配 CF_API_TOKEN，沒法改定時觸發。',
     });
   });
 
-  it('旧版 Worker 回 404 → ok:false 说要先更新，不抛', async () => {
+  it('舊版 Worker 回 404 → ok:false 說要先更新，不拋', async () => {
     workerReplies(404, null);
     const result = await ActiveMsgClient.setCronTriggerEnabled(false);
     expect(result.ok).toBe(false);

@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './BootSequence.css';
 import { trackEvent } from '../../utils/analytics';
 
-// CSS 水母开场：紫黑星空、轻浮与微光，沿用原有数据等待和同会话短开场。
-// 动画仅使用 transform / opacity；减少动态效果时以静态图形呈现。
+// CSS 水母開場：紫黑星空、輕浮與微光，沿用原有數據等待和同會話短開場。
+// 動畫僅使用 transform / opacity；減少動態效果時以靜態圖形呈現。
 const BOOT_SEEN_KEY = 'sullyos_boot_seen_session';
 
 interface Props {
-  /** 数据是否已就绪（IndexedDB 加载完）。未就绪时场景持续呼吸等待，不退场。 */
+  /** 數據是否已就緒（IndexedDB 加載完）。未就緒時場景持續呼吸等待，不退場。 */
   dataReady: boolean;
-  /** 退场动画播完后回调，交还控制权给 PhoneShell。 */
+  /** 退場動畫播完後回調，交還控制權給 PhoneShell。 */
   onDone: () => void;
 }
 
@@ -19,15 +19,15 @@ const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
-  // 本会话是否首次看到开场：刷新页面仍属同 session → 走极短版。
+  // 本會話是否首次看到開場：刷新頁面仍屬同 session → 走極短版。
   const firstThisSession = useMemo(() => {
     try { return !sessionStorage.getItem(BOOT_SEEN_KEY); } catch { return true; }
   }, []);
   const reduced = useMemo(() => prefersReducedMotion(), []);
   const cinematic = firstThisSession && !reduced;
 
-  const HOLD = cinematic ? 2000 : 520; // 退场前最短停留（也是「等数据」的下限）
-  const EXIT = cinematic ? 680 : 300;  // 推进式退场时长
+  const HOLD = cinematic ? 2000 : 520; // 退場前最短停留（也是「等數據」的下限）
+  const EXIT = cinematic ? 680 : 300;  // 推進式退場時長
 
   const [phase, setPhase] = useState<'enter' | 'exit'>('enter');
   const startRef = useRef(0);
@@ -39,7 +39,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
     try { sessionStorage.setItem(BOOT_SEEN_KEY, '1'); } catch { /* ignore */ }
   }, []);
 
-  // 「数据就绪 且 停留够 HOLD」→ 退场；否则一直呼吸等待。
+  // 「數據就緒 且 停留夠 HOLD」→ 退場；否則一直呼吸等待。
   useEffect(() => {
     if (phase === 'exit') return;
     let raf = 0;
@@ -47,8 +47,8 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (dataReady && now - startRef.current >= HOLD) {
         setPhase('exit');
-        // 只报区间不报精确毫秒。注意这里的时长带 HOLD 下限（完整版 2000ms / 极短版 520ms），
-        // 真正有信息量的是 3-8s / 8s+ 这条尾巴 —— 数据加载慢才会落到那儿。
+        // 只報區間不報精確毫秒。注意這裡的時長帶 HOLD 下限（完整版 2000ms / 極短版 520ms），
+        // 真正有信息量的是 3-8s / 8s+ 這條尾巴 —— 數據加載慢才會落到那兒。
         const waited = now - startRef.current;
         trackEvent('冷启动等待数据就绪', {
           等待档位: waited < 1000 ? '<1s' : waited < 3000 ? '1-3s' : waited < 8000 ? '3-8s' : '8s+',
@@ -62,14 +62,14 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
     return () => cancelAnimationFrame(raf);
   }, [dataReady, phase, HOLD]);
 
-  // 退场动画播完 → 交还控制权。
+  // 退場動畫播完 → 交還控制權。
   useEffect(() => {
     if (phase !== 'exit') return;
     const t = setTimeout(onDone, EXIT);
     return () => clearTimeout(t);
   }, [phase, EXIT, onDone]);
 
-  // 轻触跳过：进入平滑退场（非硬切）。
+  // 輕觸跳過：進入平滑退場（非硬切）。
   const skip = () => {
     if (phase !== 'exit') {
       setPhase('exit');
@@ -91,7 +91,7 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); skip(); } }}
       role="button"
       tabIndex={0}
-      aria-label="Soren，轻触进入"
+      aria-label="Soren，輕觸進入"
       style={{ opacity: exiting ? 0 : 1, transition: 'opacity ' + EXIT + 'ms ease-in' }}
     >
       <div className="sully-boot-scene">
@@ -114,9 +114,9 @@ const JellyfishBootSequence: React.FC<Props> = ({ dataReady, onDone }) => {
         </div>
         <div className="sully-boot-wordmark">Soren</div>
         <div className="sully-boot-rule" aria-hidden="true" />
-        <p className="sully-boot-greeting">欢迎回家</p>
+        <p className="sully-boot-greeting">歡迎回家</p>
       </div>
-      {cinematic && !exiting && <div className="sully-boot-hint">轻触进入</div>}
+      {cinematic && !exiting && <div className="sully-boot-hint">輕觸進入</div>}
     </div>
   );
 };

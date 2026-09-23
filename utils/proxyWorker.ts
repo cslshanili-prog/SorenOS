@@ -1,23 +1,23 @@
 /**
- * 主代理 Worker 地址 —— 中心配置（单一可信源）
+ * 主代理 Worker 地址 —— 中心配置（單一可信源）
  *
- * SullyOS 一票联网能力都通过同一个 Cloudflare Worker 代理转发，源码全在
- * `worker/index.js`（单文件，可一键搬到自己的 Cloudflare 账号）。涉及：
- *   - 联网搜索 / 实时新闻热榜（Brave）       → /search /news
- *   - WebDAV 云备份代理                       → /webdav
- *   - GitHub 云备份代理（GFW 下走代理）       → /github
+ * SullyOS 一票聯網能力都通過同一個 Cloudflare Worker 代理轉發，源碼全在
+ * `worker/index.js`（單文件，可一鍵搬到自己的 Cloudflare 帳號）。涉及：
+ *   - 聯網搜索 / 實時新聞熱榜（Brave）       → /search /news
+ *   - WebDAV 雲備份代理                       → /webdav
+ *   - GitHub 雲備份代理（GFW 下走代理）       → /github
  *   - Notion 集成                             → /notion/*
- *   - 飞书多维表格集成                        → /feishu/*
- *   - 麦当劳 / 瑞幸 点单 MCP                   → /mcp/mcd /mcp/luckin
- *   - Cloudflare API 中转（一键部署后端用）    → /cf-api
+ *   - 飛書多維表格集成                        → /feishu/*
+ *   - 麥當勞 / 瑞幸 點單 MCP                   → /mcp/mcd /mcp/luckin
+ *   - Cloudflare API 中轉（一鍵部署後端用）    → /cf-api
  *
- * 默认指向作者部署的公共实例。如果作者哪天不再维护、或你想完全自托管，
- * 把自己部署的 worker 地址填进「设置 → 网络代理 (Worker)」即可，
- * 以上全部能力会自动切到你的实例，无需改任何代码。
+ * 默認指向作者部署的公共實例。如果作者哪天不再維護、或你想完全自託管，
+ * 把自己部署的 worker 地址填進「設置 → 網絡代理 (Worker)」即可，
+ * 以上全部能力會自動切到你的實例，無需改任何代碼。
  *
- * 网易云音乐（MusicContext）在播放器设置里另有一个服务地址输入框：留空 = 跟随这里，
- * 填了则只有音乐走那个地址。小红书 Lite 的 serverUrl 指向用户自己电脑上跑的服务，
- * 跟这里是两回事。
+ * 網易雲音樂（MusicContext）在播放器設置裡另有一個服務地址輸入框：留空 = 跟隨這裡，
+ * 填了則只有音樂走那個地址。小紅書 Lite 的 serverUrl 指向用戶自己電腦上跑的服務，
+ * 跟這裡是兩回事。
  */
 
 export const DEFAULT_PROXY_WORKER = 'https://sullymeow.ccwu.cc';
@@ -25,22 +25,22 @@ export const DEFAULT_PROXY_WORKER = 'https://sullymeow.ccwu.cc';
 const LS_KEY = 'sully_proxy_worker_url_v1';
 const SETTINGS_FOCUS_SESSION_KEY = 'sully_settings_focus_proxy_worker_v1';
 
-// 已死/弃用的历史公共实例域名。老用户 localStorage 里如果还存着这些，
-// 读出来时自动当成"用的是默认"，回落到 DEFAULT_PROXY_WORKER（与
-// MusicContext 的迁移逻辑一致：都指向同一个 worker，行为相同）。
-//   - sully-n.qegj567.workers.dev：最早的 workers.dev 默认域名（国内超时）
-//   - sullymeow.ccwu213.cc：旧公共自定义域名，注册已过期、DNS 无法解析（2026-07 起）
+// 已死/棄用的歷史公共實例域名。老用戶 localStorage 裡如果還存著這些，
+// 讀出來時自動當成"用的是默認"，回落到 DEFAULT_PROXY_WORKER（與
+// MusicContext 的遷移邏輯一致：都指向同一個 worker，行為相同）。
+//   - sully-n.qegj567.workers.dev：最早的 workers.dev 默認域名（國內超時）
+//   - sullymeow.ccwu213.cc：舊公共自定義域名，註冊已過期、DNS 無法解析（2026-07 起）
 const STALE_HOSTS = [/sully-n\.qegj567\.workers\.dev/i, /sullymeow\.ccwu213\.cc/i];
 
 const normalize = (url: string): string => url.trim().replace(/\/+$/, '');
 
-// 非浏览器运行时（amsg worker 等）没有 localStorage，靠这个显式注入用户配置的
-// 代理地址；浏览器端不设置，保持 localStorage 懒读不变。
+// 非瀏覽器運行時（amsg worker 等）沒有 localStorage，靠這個顯式注入用戶配置的
+// 代理地址；瀏覽器端不設置，保持 localStorage 懶讀不變。
 let runtimeOverrideUrl: string | null = null;
 
 /**
- * 注入代理 worker 地址（无 localStorage 的运行时用，如 amsg worker 到点执行工具时）。
- * 传空串/null 清除注入，回到 localStorage → 默认值 的正常解析顺序。
+ * 注入代理 worker 地址（無 localStorage 的運行時用，如 amsg worker 到點執行工具時）。
+ * 傳空串/null 清除注入，回到 localStorage → 默認值 的正常解析順序。
  */
 export const setProxyWorkerUrlOverride = (url: string | null): void => {
   const trimmed = normalize(url || '');
@@ -48,8 +48,8 @@ export const setProxyWorkerUrlOverride = (url: string | null): void => {
 };
 
 /**
- * 读取当前生效的主代理 worker 地址（已去尾斜杠）。懒读 localStorage，
- * 用户在设置里改完、新发起的请求立刻生效，无需刷新页面。
+ * 讀取當前生效的主代理 worker 地址（已去尾斜槓）。懶讀 localStorage，
+ * 用戶在設置裡改完、新發起的請求立刻生效，無需刷新頁面。
  */
 export const getProxyWorkerUrl = (): string => {
   if (runtimeOverrideUrl) return runtimeOverrideUrl;
@@ -66,9 +66,9 @@ export const getProxyWorkerUrl = (): string => {
 };
 
 /**
- * 写入自定义 worker 地址。传空、或传的就是默认地址 → 清掉本地存储（回到默认）。
- * 非法地址（不以 http(s):// 开头）直接忽略，由调用方负责校验提示。
- * 写入成功后广播一个自定义事件，让"启动时快照配置"的消费者（如音乐播放器）能实时跟随。
+ * 寫入自定義 worker 地址。傳空、或傳的就是默認地址 → 清掉本地存儲（回到默認）。
+ * 非法地址（不以 http(s):// 開頭）直接忽略，由調用方負責校驗提示。
+ * 寫入成功後廣播一個自定義事件，讓"啟動時快照配置"的消費者（如音樂播放器）能實時跟隨。
  */
 export const setProxyWorkerUrl = (url: string): void => {
   try {
@@ -82,13 +82,13 @@ export const setProxyWorkerUrl = (url: string): void => {
     localStorage.setItem(LS_KEY, trimmed);
     notifyProxyWorkerChanged();
   } catch {
-    /* localStorage 不可用就当默认处理 */
+    /* localStorage 不可用就當默認處理 */
   }
 };
 
 /**
- * 中心 Worker 地址变更事件。同一标签页内改 localStorage 不会触发原生 'storage' 事件，
- * 所以用这个自定义事件通知那些"只在挂载时读一次配置"的模块（目前是音乐播放器）实时刷新。
+ * 中心 Worker 地址變更事件。同一標籤頁內改 localStorage 不會觸發原生 'storage' 事件，
+ * 所以用這個自定義事件通知那些"只在掛載時讀一次配置"的模塊（目前是音樂播放器）實時刷新。
  */
 export const PROXY_WORKER_CHANGED_EVENT = 'sully:proxy-worker-changed';
 const notifyProxyWorkerChanged = (): void => {
@@ -97,23 +97,23 @@ const notifyProxyWorkerChanged = (): void => {
       window.dispatchEvent(new Event(PROXY_WORKER_CHANGED_EVENT));
     }
   } catch {
-    /* 非浏览器环境（测试 / SSR）忽略 */
+    /* 非瀏覽器環境（測試 / SSR）忽略 */
   }
 };
 
-/** 当前是否在用自定义（非默认）worker。用于设置页提示文案。 */
+/** 當前是否在用自定義（非默認）worker。用於設置頁提示文案。 */
 export const isCustomProxyWorker = (): boolean => getProxyWorkerUrl() !== DEFAULT_PROXY_WORKER;
 
-/** 从公告等入口打开设置时，请设置页自动展开并定位到网络代理。 */
+/** 從公告等入口打開設置時，請設置頁自動展開並定位到網絡代理。 */
 export const requestProxyWorkerSettingsFocus = (): void => {
   try {
     sessionStorage.setItem(SETTINGS_FOCUS_SESSION_KEY, '1');
   } catch {
-    /* sessionStorage 不可用时仍可正常打开设置，只是不自动定位。 */
+    /* sessionStorage 不可用時仍可正常打開設置，只是不自動定位。 */
   }
 };
 
-/** 一次性读取定位请求，避免用户以后每次打开设置都被拉到页面底部。 */
+/** 一次性讀取定位請求，避免用戶以後每次打開設置都被拉到頁面底部。 */
 export const consumeProxyWorkerSettingsFocus = (): boolean => {
   try {
     const requested = sessionStorage.getItem(SETTINGS_FOCUS_SESSION_KEY) === '1';
@@ -125,9 +125,9 @@ export const consumeProxyWorkerSettingsFocus = (): boolean => {
 };
 
 /**
- * 把指向已死历史实例的 url 改写到当前生效的 worker（保留路径和 query）；
- * 其余地址原样返回。给小红书 serverUrl 这类「自己存一份地址」的模块做存量迁移用——
- * 它们存的地址不走上面的 LS_KEY，得在自己的读取层调这个。
+ * 把指向已死歷史實例的 url 改寫到當前生效的 worker（保留路徑和 query）；
+ * 其餘地址原樣返回。給小紅書 serverUrl 這類「自己存一份地址」的模塊做存量遷移用——
+ * 它們存的地址不走上面的 LS_KEY，得在自己的讀取層調這個。
  */
 export const rewriteStaleWorkerUrl = (url: string): string => {
   if (typeof url !== 'string' || !url || !STALE_HOSTS.some((re) => re.test(url))) return url;

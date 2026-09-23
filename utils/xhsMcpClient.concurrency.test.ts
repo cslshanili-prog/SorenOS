@@ -1,17 +1,17 @@
 // utils/xhsMcpClient.concurrency.test.ts
-// MCP 握手的并发安全。
+// MCP 握手的併發安全。
 //
-// mcpCallTool 里是 `if (!mcpInitialized) await mcpInitialize(...)` 这种 check-then-act：
-// 两个调用同时进来时都会看到 mcpInitialized=false，于是各握一次手，后完成的那个把
-// 模块级 mcpSessionId 覆盖掉——先发起的那个再拿它发 tools/call，用的就是别人的 session
-// （表现是随机的 MCP session error / 空结果）。
+// mcpCallTool 裡是 `if (!mcpInitialized) await mcpInitialize(...)` 這種 check-then-act：
+// 兩個調用同時進來時都會看到 mcpInitialized=false，於是各握一次手，後完成的那個把
+// 模塊級 mcpSessionId 覆蓋掉——先發起的那個再拿它發 tools/call，用的就是別人的 session
+// （表現是隨機的 MCP session error / 空結果）。
 //
-// worker 到点最多并发跑 8 个任务，两个任务同一分钟都用小红书工具就会踩到。
+// worker 到點最多併發跑 8 個任務，兩個任務同一分鐘都用小紅書工具就會踩到。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const SERVER = 'https://xhs.example.com/mcp';
 
-/** 记录每次 fetch 的 method 与带上的 session 头。 */
+/** 記錄每次 fetch 的 method 與帶上的 session 頭。 */
 type Seen = { method: string; session: string | null };
 
 const setupFetch = (opts: { initDelayMs: number }) => {
@@ -24,7 +24,7 @@ const setupFetch = (opts: { initDelayMs: number }) => {
     seen.push({ method: body.method, session });
 
     if (body.method === 'initialize') {
-      // 握手慢：给并发的第二个调用留出「也看到 mcpInitialized=false」的窗口
+      // 握手慢：給併發的第二個調用留出「也看到 mcpInitialized=false」的窗口
       await new Promise((r) => setTimeout(r, opts.initDelayMs));
       const id = `sess-${++sessionSeq}`;
       return {
@@ -58,15 +58,15 @@ const setupFetch = (opts: { initDelayMs: number }) => {
   return { seen };
 };
 
-describe('XHS MCP 握手的并发安全', () => {
+describe('XHS MCP 握手的併發安全', () => {
   beforeEach(() => {
-    vi.resetModules();  // 模块级 session 状态每个用例重来
+    vi.resetModules();  // 模塊級 session 狀態每個用例重來
   });
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('两个调用并发进来，只握一次手（回归：重复 initialize）', async () => {
+  it('兩個調用併發進來，只握一次手（迴歸：重複 initialize）', async () => {
     const { seen } = setupFetch({ initDelayMs: 20 });
     const { XhsMcpClient } = await import('./xhsMcpClient');
 
@@ -78,7 +78,7 @@ describe('XHS MCP 握手的并发安全', () => {
     expect(seen.filter((s) => s.method === 'initialize')).toHaveLength(1);
   });
 
-  it('两个并发调用带的是同一个 session（回归：后握手的把先前的 session 覆盖掉）', async () => {
+  it('兩個併發調用帶的是同一個 session（迴歸：後握手的把先前的 session 覆蓋掉）', async () => {
     const { seen } = setupFetch({ initDelayMs: 20 });
     const { XhsMcpClient } = await import('./xhsMcpClient');
 
@@ -93,7 +93,7 @@ describe('XHS MCP 握手的并发安全', () => {
     expect(callSessions[1]).toBe('sess-1');
   });
 
-  it('握手完成后的调用直接复用，不再重复握手', async () => {
+  it('握手完成後的調用直接複用，不再重複握手', async () => {
     const { seen } = setupFetch({ initDelayMs: 0 });
     const { XhsMcpClient } = await import('./xhsMcpClient');
 
@@ -103,7 +103,7 @@ describe('XHS MCP 握手的并发安全', () => {
     expect(seen.filter((s) => s.method === 'initialize')).toHaveLength(1);
   });
 
-  it('握手失败不留下「正在握手」的残留，下一次调用能重新握手', async () => {
+  it('握手失敗不留下「正在握手」的殘留，下一次調用能重新握手', async () => {
     const failing = vi.fn(async () => { throw new Error('network down'); });
     vi.stubGlobal('fetch', failing);
     const { XhsMcpClient } = await import('./xhsMcpClient');

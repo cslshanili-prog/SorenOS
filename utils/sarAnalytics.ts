@@ -1,6 +1,6 @@
 import { trackEvent } from './analytics';
 
-// 分发处重写固定字面量。新增入口不会自动上传，角色、剧情、物品名称不进统计。
+// 分發處重寫固定字面量（統計值保持簡體，別跟著轉）。新增入口不會自動上傳，角色、劇情、物品名稱不進統計。
 export function trackSARFeature(feature: string): void {
     let label: string;
     switch (feature) {

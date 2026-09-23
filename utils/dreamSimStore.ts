@@ -1,7 +1,7 @@
-// 全局「梦境」生成状态。
-// 放在模块作用域而非 DreamTheater 内部，这样：
-//   1. 生成中即使离开小屋 App（甚至切到别的 OS App），状态/提示依旧存在；
-//   2. PhoneShell 里的全局指示条可以随处显示进度，点一下深链回到那场梦。
+// 全局「夢境」生成狀態。
+// 放在模塊作用域而非 DreamTheater 內部，這樣：
+//   1. 生成中即使離開小屋 App（甚至切到別的 OS App），狀態/提示依舊存在；
+//   2. PhoneShell 裡的全局指示條可以隨處顯示進度，點一下深鏈回到那場夢。
 import { useSyncExternalStore } from 'react';
 import type { DreamScript } from '../types';
 
@@ -12,7 +12,7 @@ export type DreamGenState =
     | { status: 'error'; charId: string; charName: string };
 
 export type GlobalDreamState = DreamGenState & {
-    deepLink?: boolean; // 用户点了全局指示条，请求小屋直接进入那场梦
+    deepLink?: boolean; // 用戶點了全局指示條，請求小屋直接進入那場夢
 };
 
 let state: GlobalDreamState = { status: 'idle' };

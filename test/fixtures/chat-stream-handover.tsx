@@ -21,6 +21,6 @@ DB.saveMessage = async message => {
 function App() {
     const { openApp, characters, activeCharacterId } = useOS();
     useEffect(() => { openApp(AppID.Chat); }, []);
-    return characters.some(character => character.id === activeCharacterId) ? <Chat/> : <p>等待角色载入</p>;
+    return characters.some(character => character.id === activeCharacterId) ? <Chat/> : <p>等待角色載入</p>;
 }
 createRoot(document.getElementById('root')!).render(<OSProvider><MusicProvider><App/></MusicProvider></OSProvider>);

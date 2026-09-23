@@ -15,7 +15,7 @@ let container: HTMLDivElement;
 let root: Root;
 let props: React.ComponentProps<typeof ChatInputArea>;
 const textarea = () => container.querySelector('textarea')!;
-const primary = () => container.querySelector<HTMLButtonElement>('button[aria-label="发送文字"], button[aria-label="生成回复"], button[aria-label="正在生成回复"]')!;
+const primary = () => container.querySelector<HTMLButtonElement>('button[aria-label="發送文字"], button[aria-label="生成回覆"], button[aria-label="正在生成回覆"]')!;
 const renderInput = (patch: Partial<typeof props> = {}) => {
     props = { ...props, ...patch };
     act(() => root.render(React.createElement(ChatInputArea, props)));
@@ -54,7 +54,7 @@ afterEach(() => {
 describe('private chat input controls', () => {
     it('keeps the existing send button and Enter behavior by default', () => {
         renderInput();
-        expect(primary().getAttribute('aria-label')).toBe('发送文字');
+        expect(primary().getAttribute('aria-label')).toBe('發送文字');
         expect(keydown().defaultPrevented).toBe(true);
         expect(props.onSend).toHaveBeenCalledTimes(1);
         expect(props.onGenerate).not.toHaveBeenCalled();
@@ -80,13 +80,13 @@ describe('private chat input controls', () => {
 
     it('sends without switching to generation during pointer focus changes', () => {
         renderInput({ sendButtonGenerates: true });
-        expect(primary().getAttribute('aria-label')).toBe('生成回复');
+        expect(primary().getAttribute('aria-label')).toBe('生成回覆');
         act(() => textarea().focus());
-        expect(primary().getAttribute('aria-label')).toBe('发送文字');
+        expect(primary().getAttribute('aria-label')).toBe('發送文字');
         const button = primary();
         const press = pointerdown(button.querySelector('svg')!);
         expect(press.defaultPrevented).toBe(true);
-        // 模拟浏览器：未阻止 pointerdown 时，按钮会夺走输入框焦点。
+        // 模擬瀏覽器：未阻止 pointerdown 時，按鈕會奪走輸入框焦點。
         if (!press.defaultPrevented) act(() => button.focus());
         act(() => button.click());
         expect(document.activeElement).toBe(textarea());
@@ -101,7 +101,7 @@ describe('private chat input controls', () => {
         act(() => textarea().focus());
         pointerdown(container);
         expect(document.activeElement).not.toBe(textarea());
-        expect(primary().getAttribute('aria-label')).toBe('生成回复');
+        expect(primary().getAttribute('aria-label')).toBe('生成回覆');
         expect(textarea().value).toBe('你好');
         act(() => primary().click());
         expect(props.onGenerate).toHaveBeenCalledTimes(1);
@@ -126,7 +126,7 @@ describe('private chat input controls', () => {
         keydown({ key: 'Escape' });
         expect(primary().textContent).toBe('生成');
         renderInput({ onGenerate: undefined });
-        expect(primary().textContent).toBe('发送');
+        expect(primary().textContent).toBe('發送');
     });
 
     it('removes the top lightning in standard and centered headers only when requested', () => {
@@ -149,7 +149,7 @@ describe('private chat input controls', () => {
         act(() => root.render(React.createElement(ChatInputSettings, { value: loadChatInputPreferences(), onChange })));
         const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
         expect(Array.from(boxes, box => box.checked)).toEqual([false, true, false, false]);
-        const help = container.querySelector<HTMLButtonElement>('button[aria-label="发送按钮代替生成按钮说明"]')!;
+        const help = container.querySelector<HTMLButtonElement>('button[aria-label="發送按鈕代替生成按鈕說明"]')!;
         act(() => help.click());
         expect(help.getAttribute('aria-expanded')).toBe('true');
         expect(container.querySelector<HTMLParagraphElement>('#chat-input-help-sendButtonGenerates')!.hidden).toBe(false);
@@ -170,13 +170,13 @@ describe('private chat input controls', () => {
     it('only suggests when enabled, using the supplied visible library across categories', () => {
         const hug = { name: '抱抱', url: 'hug.png', categoryId: 'another-category' };
         renderInput({ input: '抱', suggestionEmojis: [hug] });
-        expect(container.querySelector('[aria-label="表情包联想"]')).toBeNull();
+        expect(container.querySelector('[aria-label="表情包聯想"]')).toBeNull();
         renderInput({ emojiSuggestionsEnabled: true });
-        expect(container.querySelector('[aria-label="发送表情：抱抱"]')).not.toBeNull();
+        expect(container.querySelector('[aria-label="發送表情：抱抱"]')).not.toBeNull();
         renderInput({ showPanel: 'emojis' });
-        expect(container.querySelector('[aria-label="表情包联想"]')).toBeNull();
+        expect(container.querySelector('[aria-label="表情包聯想"]')).toBeNull();
         renderInput({ showPanel: 'none', suggestionEmojis: [] });
-        expect(container.querySelector('[aria-label="表情包联想"]')).toBeNull();
+        expect(container.querySelector('[aria-label="表情包聯想"]')).toBeNull();
     });
 
     it('preserves community composer selectors and input identity when auxiliary rows appear', () => {
@@ -205,19 +205,19 @@ describe('private chat input controls', () => {
     it('hides suggestions during IME composition and never sends the confirmation key', () => {
         renderInput({ input: '抱', emojiSuggestionsEnabled: true, emojis: [{ name: '抱抱', url: 'hug.png' }] });
         act(() => textarea().dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })));
-        expect(container.querySelector('[aria-label="表情包联想"]')).toBeNull();
+        expect(container.querySelector('[aria-label="表情包聯想"]')).toBeNull();
         keydown({ isComposing: true });
         expect(props.onPanelAction).not.toHaveBeenCalled();
         expect(props.onSend).not.toHaveBeenCalled();
         act(() => textarea().dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '抱' })));
-        expect(container.querySelector('[aria-label="发送表情：抱抱"]')).not.toBeNull();
+        expect(container.querySelector('[aria-label="發送表情：抱抱"]')).not.toBeNull();
     });
 
     it('sends a chosen sticker once, keeps the draft and focus, and dismisses that query', () => {
         const hug = { name: '抱抱', url: 'hug.png' };
         renderInput({ input: '抱', emojiSuggestionsEnabled: true, emojis: [hug], sendButtonGenerates: true });
         act(() => textarea().focus());
-        const suggestion = container.querySelector<HTMLButtonElement>('[aria-label="发送表情：抱抱"]')!;
+        const suggestion = container.querySelector<HTMLButtonElement>('[aria-label="發送表情：抱抱"]')!;
         pointerdown(suggestion);
         expect(document.activeElement).toBe(textarea());
         act(() => suggestion.click());
@@ -228,15 +228,15 @@ describe('private chat input controls', () => {
         expect(props.setInput).not.toHaveBeenCalled();
         expect(textarea().value).toBe('抱');
         expect(document.activeElement).toBe(textarea());
-        expect(container.querySelector('[aria-label="表情包联想"]')).toBeNull();
+        expect(container.querySelector('[aria-label="表情包聯想"]')).toBeNull();
         renderInput({ input: '抱抱' });
-        expect(container.querySelector('[aria-label="发送表情：抱抱"]')).not.toBeNull();
+        expect(container.querySelector('[aria-label="發送表情：抱抱"]')).not.toBeNull();
     });
 
     it('starts settings sections collapsed and preserves an unsaved choice across toggles', () => {
         const Settings = () => {
             const [value, onChange] = React.useState(loadChatInputPreferences);
-            return React.createElement(ChatSettingsSection, { title: '输入与发送', summary: '输入习惯', children: React.createElement(ChatInputSettings, { value, onChange }) });
+            return React.createElement(ChatSettingsSection, { title: '輸入與發送', summary: '輸入習慣', children: React.createElement(ChatInputSettings, { value, onChange }) });
         };
         act(() => root.render(React.createElement(Settings)));
         const header = container.querySelector<HTMLButtonElement>('button[aria-controls]')!;

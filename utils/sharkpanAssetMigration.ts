@@ -1,19 +1,19 @@
 /**
- * 老用户数据里的鲨盘（sharkpan）图链接一次性改写成 jsDelivr。
+ * 老用戶數據裡的鯊盤（sharkpan）圖鏈接一次性改寫成 jsDelivr。
  *
- * 背景：Sully 的表情包、家园情绪立绘、小屋家具、见面皮肤等默认素材原先挂在 sharkpan 图床
- * （不稳定、常拉不到）。源码常量已改为素材仓库 jsDelivr 路径，但【已经装过】的用户 IndexedDB
- * 里存的仍是老鲨盘链接——只改源码只能救新用户。这里在启动时把这些库存链接就地改写，救现有用户。
+ * 背景：Sully 的表情包、家園情緒立繪、小屋傢俱、見面皮膚等默認素材原先掛在 sharkpan 圖床
+ * （不穩定、常拉不到）。源碼常量已改為素材倉庫 jsDelivr 路徑，但【已經裝過】的用戶 IndexedDB
+ * 裡存的仍是老鯊盤鏈接——只改源碼只能救新用戶。這裡在啟動時把這些庫存鏈接就地改寫，救現有用戶。
  *
- * 只替换【精确匹配】的已知鲨盘 URL（下表 30 条），绝不碰用户自己上传的图；
- * bank 背景图（bg.png）用户选择不迁、head.png 已单独处理，都不在表内。
+ * 只替換【精確匹配】的已知鯊盤 URL（下表 30 條），絕不碰用戶自己上傳的圖；
+ * bank 背景圖（bg.png）用戶選擇不遷、head.png 已單獨處理，都不在表內。
  */
 
 import { DB } from './db';
 
 const BASE = 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/';
 
-// 鲨盘完整 URL -> jsDelivr 完整 URL（文件名保持不变，与源码常量一致）。
+// 鯊盤完整 URL -> jsDelivr 完整 URL（文件名保持不變，與源碼常量一致）。
 export const SHARKPAN_ASSET_MAP: Record<string, string> = Object.fromEntries(
     [
         ['https://sharkpan.xyz/f/pWg6HQ/night.png', 'night.png'],
@@ -49,7 +49,7 @@ export const SHARKPAN_ASSET_MAP: Record<string, string> = Object.fromEntries(
     ].map(([old, name]) => [old, BASE + name]),
 );
 
-/** 把字符串里所有已知鲨盘链接替换成 jsDelivr。无已知链接则原样返回（省掉无谓改写）。 */
+/** 把字符串裡所有已知鯊盤鏈接替換成 jsDelivr。無已知鏈接則原樣返回（省掉無謂改寫）。 */
 export function rewriteSharkpanUrls(s: string): string {
     if (!s.includes('sharkpan.xyz')) return s;
     let out = s;
@@ -62,14 +62,14 @@ export function rewriteSharkpanUrls(s: string): string {
 const MIGRATION_FLAG = 'sharkpan_assets_migrated_v1';
 
 /**
- * 启动时调用一次：把表情包 + 角色（立绘/家具/见面皮肤，可能深层嵌套）里存的鲨盘链接
- * 改写成 jsDelivr。幂等；跑成功后打标记跳过后续启动。任何异常吞掉，绝不阻断启动。
+ * 啟動時調用一次：把表情包 + 角色（立繪/傢俱/見面皮膚，可能深層嵌套）裡存的鯊盤鏈接
+ * 改寫成 jsDelivr。冪等；跑成功後打標記跳過後續啟動。任何異常吞掉，絕不阻斷啟動。
  */
 export async function migrateSharkpanAssets(): Promise<void> {
     try { if (localStorage.getItem(MIGRATION_FLAG) === '1') return; } catch { /* localStorage 不可用：照跑 */ }
 
     try {
-        // 表情包：逐行改 url（keyPath=name，saveEmoji 同名覆盖）
+        // 表情包：逐行改 url（keyPath=name，saveEmoji 同名覆蓋）
         const emojis = await DB.getRawStoreData('emojis');
         for (const e of emojis) {
             if (e && typeof e.url === 'string' && e.url.includes('sharkpan.xyz')) {
@@ -78,7 +78,7 @@ export async function migrateSharkpanAssets(): Promise<void> {
             }
         }
 
-        // 角色：整体序列化后深层替换（立绘 sprites / 小屋 roomConfig / 见面 dateSkinSets 都能一网打尽）
+        // 角色：整體序列化後深層替換（立繪 sprites / 小屋 roomConfig / 見面 dateSkinSets 都能一網打盡）
         const chars = await DB.getAllCharacters();
         for (const c of chars) {
             const s = JSON.stringify(c);
@@ -89,6 +89,6 @@ export async function migrateSharkpanAssets(): Promise<void> {
 
         try { localStorage.setItem(MIGRATION_FLAG, '1'); } catch { /* ignore */ }
     } catch (err) {
-        console.warn('[migrateSharkpanAssets] 迁移失败（不影响启动，下次再试）', err);
+        console.warn('[migrateSharkpanAssets] 遷移失敗（不影響啟動，下次再試）', err);
     }
 }

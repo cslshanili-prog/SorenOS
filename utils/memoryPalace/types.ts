@@ -1,102 +1,102 @@
 /**
- * Memory Palace (记忆宫殿) — 类型定义
+ * Memory Palace (記憶宮殿) — 類型定義
  *
- * 模拟人脑七个脑区的记忆系统。
- * 所有类型定义集中在此文件，供其他模块导入。
+ * 模擬人腦七個腦區的記憶系統。
+ * 所有類型定義集中在此文件，供其他模塊導入。
  */
 
-// ─── 七个房间 ─────────────────────────────────────────
+// ─── 七個房間 ─────────────────────────────────────────
 
 export type MemoryRoom =
-    | 'living_room'   // 客厅 — 日常闲聊、近期互动（海马体）
-    | 'bedroom'       // 卧室 — 亲密情感、深层羁绊（新皮层）
-    | 'study'         // 书房 — 工作学习、技能成长（前额叶）
-    | 'user_room'     // 用户房间 — 用户个人信息、习惯（颞顶联合区）
-    | 'self_room'     // 自我房间 — 角色自我认同、演变（默认模式网络）
-    | 'attic'         // 阁楼 — 未消化的困惑、潜意识（杏仁核–海马体）
-    | 'windowsill';   // 窗台 — 期盼、目标、憧憬（多巴胺奖赏系统）
+    | 'living_room'   // 客廳 — 日常閒聊、近期互動（海馬體）
+    | 'bedroom'       // 臥室 — 親密情感、深層羈絆（新皮層）
+    | 'study'         // 書房 — 工作學習、技能成長（前額葉）
+    | 'user_room'     // 用戶房間 — 用戶個人信息、習慣（顳頂聯合區）
+    | 'self_room'     // 自我房間 — 角色自我認同、演變（默認模式網絡）
+    | 'attic'         // 閣樓 — 未消化的困惑、潛意識（杏仁核–海馬體）
+    | 'windowsill';   // 窗台 — 期盼、目標、憧憬（多巴胺獎賞系統）
 
 export interface RoomConfig {
-    capacity: number | null;    // null = 无限
-    decayRate: number | null;   // null = 永不遗忘，数值为每小时衰减基数
+    capacity: number | null;    // null = 無限
+    decayRate: number | null;   // null = 永不遺忘，數值為每小時衰減基數
     description: string;
 }
 
 export const ROOM_CONFIGS: Record<MemoryRoom, RoomConfig> = {
-    living_room: { capacity: 200,  decayRate: 0.9972, description: '日常闲聊、近期互动' },
-    bedroom:     { capacity: null, decayRate: 0.9995, description: '亲密情感、深层羁绊' },
-    study:       { capacity: null, decayRate: 0.9995, description: '工作学习、技能成长' },
-    user_room:   { capacity: null, decayRate: 0.9995, description: '用户个人信息、习惯' },
-    self_room:   { capacity: null, decayRate: null,   description: '角色自我认同、演变' },
-    attic:       { capacity: null, decayRate: null,   description: '未消化的困惑、潜意识' },
-    windowsill:  { capacity: null, decayRate: null,   description: '期盼、目标、憧憬' },
+    living_room: { capacity: 200,  decayRate: 0.9972, description: '日常閒聊、近期互動' },
+    bedroom:     { capacity: null, decayRate: 0.9995, description: '親密情感、深層羈絆' },
+    study:       { capacity: null, decayRate: 0.9995, description: '工作學習、技能成長' },
+    user_room:   { capacity: null, decayRate: 0.9995, description: '用戶個人信息、習慣' },
+    self_room:   { capacity: null, decayRate: null,   description: '角色自我認同、演變' },
+    attic:       { capacity: null, decayRate: null,   description: '未消化的困惑、潛意識' },
+    windowsill:  { capacity: null, decayRate: null,   description: '期盼、目標、憧憬' },
 };
 
 export const ROOM_LABELS: Record<MemoryRoom, string> = {
-    living_room: '客厅',
-    bedroom:     '卧室',
-    study:       '书房',
-    user_room:   '用户房间',
-    self_room:   '自我房间',
-    attic:       '阁楼',
+    living_room: '客廳',
+    bedroom:     '臥室',
+    study:       '書房',
+    user_room:   '用戶房間',
+    self_room:   '自我房間',
+    attic:       '閣樓',
     windowsill:  '窗台',
 };
 
 /**
- * 获取房间的动态显示标签。
- * user_room 在有用户名时显示为"【用户名】的房间"，其余房间返回静态标签。
+ * 獲取房間的動態顯示標籤。
+ * user_room 在有用戶名時顯示為"【用戶名】的房間"，其餘房間返回靜態標籤。
  */
 export function getRoomLabel(room: MemoryRoom, userName?: string): string {
     if (room === 'user_room' && userName) {
-        return `${userName}的房间`;
+        return `${userName}的房間`;
     }
     return ROOM_LABELS[room];
 }
 
-// ─── 记忆节点 ─────────────────────────────────────────
+// ─── 記憶節點 ─────────────────────────────────────────
 
 export interface MemoryEntity {
-    /** 记忆中明确出现的专名；不收录“他 / 朋友 / 那个项目”这类泛称。 */
+    /** 記憶中明確出現的專名；不收錄“他 / 朋友 / 那個項目”這類泛稱。 */
     name: string;
     type?: 'person' | 'place' | 'organization' | 'project' | 'product' | 'account' | 'domain' | 'other';
-    /** 第一版不自动推断别名，只消费已经明确存下来的别名。 */
+    /** 第一版不自動推斷別名，只消費已經明確存下來的別名。 */
     aliases?: string[];
 }
 
 export interface MemoryNode {
-    /** 可选补注的固定说话日期，不是 createdAt 事件日。原文始终不含系统补注。 */
+    /** 可選補註的固定說話日期，不是 createdAt 事件日。原文始終不含系統補註。 */
     relativeTimeAnchor?: { dateKey: string; source: 'message'; messageId?: number };
     id: string;
     charId: string;
-    content: string;            // 记忆内容（提取记忆为第三人称叙事，消化衍生记忆为第一人称内心独白）
+    content: string;            // 記憶內容（提取記憶為第三人稱敘事，消化衍生記憶為第一人稱內心獨白）
     room: MemoryRoom;
     tags: string[];
-    /** 用于显式实体精确召回；旧数据没有此字段时会回退到 tags/content 精确匹配。 */
+    /** 用於顯式實體精確召回；舊數據沒有此字段時會回退到 tags/content 精確匹配。 */
     entities?: MemoryEntity[];
     importance: number;         // 1–10
-    mood: string;               // 情绪标签，如 'happy', 'sad', 'angry'
-    /** Russell 环形情感模型 · 效价：-1 极痛苦 → +1 极愉悦。未填则由 emotionSpace.getEmotionVA() 查表兜底 */
+    mood: string;               // 情緒標籤，如 'happy', 'sad', 'angry'
+    /** Russell 環形情感模型 · 效價：-1 極痛苦 → +1 極愉悅。未填則由 emotionSpace.getEmotionVA() 查表兜底 */
     valence?: number;
-    /** Russell 环形情感模型 · 唤醒度：-1 极平静 → +1 极激烈 */
+    /** Russell 環形情感模型 · 喚醒度：-1 極平靜 → +1 極激烈 */
     arousal?: number;
     embedded: boolean;          // 是否已向量化
     createdAt: number;          // timestamp ms
     lastAccessedAt: number;     // timestamp ms
     accessCount: number;
-    pinnedUntil?: number | null; // 便利贴置顶截止时间（timestamp ms），null/undefined = 不置顶
-    sourceId?: string | null;   // 消化衍生记忆的源记忆 ID，null = 非衍生记忆
-    origin?: 'extraction' | 'digestion' | 'system'; // 记忆来源：extraction=聊天提取, digestion=认知消化衍生, system=系统生成
+    pinnedUntil?: number | null; // 便利貼置頂截止時間（timestamp ms），null/undefined = 不置頂
+    sourceId?: string | null;   // 消化衍生記憶的源記憶 ID，null = 非衍生記憶
+    origin?: 'extraction' | 'digestion' | 'system'; // 記憶來源：extraction=聊天提取, digestion=認知消化衍生, system=系統生成
     /**
-     * 消化已消费标记：synthesize_user / internalize / self_insight / self_confuse
-     * 消费过的源节点打上时间戳，不再进入后续消化的候选池。
-     * 历史上这个"已消费"信息靠衍生节点的 sourceId 反查——消化改道门牌后
-     * 不再新建衍生节点，改用此字段显式标记（旧数据仍走 sourceId 反查兜底）。
+     * 消化已消費標記：synthesize_user / internalize / self_insight / self_confuse
+     * 消費過的源節點打上時間戳，不再進入後續消化的候選池。
+     * 歷史上這個"已消費"信息靠衍生節點的 sourceId 反查——消化改道門牌後
+     * 不再新建衍生節點，改用此字段顯式標記（舊數據仍走 sourceId 反查兜底）。
      */
     digestedAt?: number | null;
 
     /**
-     * 历史版本曾迁移过的第三方语义元数据。当前已不再提供对应导入能力；保留该字段仅为
-     * 兼容已经落进用户本机数据库的旧记录，避免升级后读取异常。
+     * 歷史版本曾遷移過的第三方語義元數據。當前已不再提供對應導入能力；保留該字段僅為
+     * 兼容已經落進用戶本機數據庫的舊記錄，避免升級後讀取異常。
      */
     legacyCsy?: {
         originalId: string;
@@ -113,114 +113,114 @@ export interface MemoryNode {
         modelId?: string;
     };
 
-    // ─── EventBox 绑定（新） ─────────────────
-    eventBoxId?: string | null;  // 所属事件盒 ID，null/undefined = 独立记忆（"地上的球"）
-    archived?: boolean;          // true = 已被压入 box summary，不再参与召回（可复活）
-    isBoxSummary?: boolean;      // true = 此节点是某 EventBox 的压缩总结
+    // ─── EventBox 綁定（新） ─────────────────
+    eventBoxId?: string | null;  // 所屬事件盒 ID，null/undefined = 獨立記憶（"地上的球"）
+    archived?: boolean;          // true = 已被壓入 box summary，不再參與召回（可復活）
+    isBoxSummary?: boolean;      // true = 此節點是某 EventBox 的壓縮總結
 
-    // ─── 群聊记忆来源（独立管线，私聊代码不感知这两个字段） ─────────────
-    /** 这条记忆来自哪个群（groupPipeline 提取时打上）；undefined = 来自私聊 */
+    // ─── 群聊記憶來源（獨立管線，私聊代碼不感知這兩個字段） ─────────────
+    /** 這條記憶來自哪個群（groupPipeline 提取時打上）；undefined = 來自私聊 */
     groupId?: string;
-    /** 群名快照（用于群被删除后仍能在 UI 里识别这条记忆来自哪个群） */
+    /** 群名快照（用於群被刪除後仍能在 UI 裡識別這條記憶來自哪個群） */
     groupName?: string;
 
-    // ─── 已弃用字段（保留以兼容历史数据读取，新代码不应写入） ───
-    /** @deprecated 旧话题盒 ID，已由 eventBoxId 替代 */
+    // ─── 已棄用字段（保留以兼容歷史數據讀取，新代碼不應寫入） ───
+    /** @deprecated 舊話題盒 ID，已由 eventBoxId 替代 */
     boxId?: string;
-    /** @deprecated 旧话题摘要，已废弃 */
+    /** @deprecated 舊話題摘要，已廢棄 */
     boxTopic?: string;
 }
 
-// ─── 向量存储 ─────────────────────────────────────────
+// ─── 向量存儲 ─────────────────────────────────────────
 
 export interface MemoryVector {
-    memoryId: string;           // 关联 MemoryNode.id
-    charId: string;             // 冗余角色 ID，用于 IndexedDB 索引直查，避免全表扫描
-    // 1024 维向量。三种形态：
-    //   - 在内存里检索时是 Float32Array（4 bytes / dim）
-    //   - 写入 IndexedDB 时是 Uint8Array（Float32 的原始字节，4 bytes / dim）
-    //   - 旧数据是 number[]（每个 number ~50 字节，惊人浪费），读取时会被透明
-    //     地转换并在下次写入时持久化为 Uint8Array。
-    // 出 DB 层之后调用方拿到的永远是 Float32Array。
+    memoryId: string;           // 關聯 MemoryNode.id
+    charId: string;             // 冗餘角色 ID，用於 IndexedDB 索引直查，避免全表掃描
+    // 1024 維向量。三種形態：
+    //   - 在內存裡檢索時是 Float32Array（4 bytes / dim）
+    //   - 寫入 IndexedDB 時是 Uint8Array（Float32 的原始字節，4 bytes / dim）
+    //   - 舊數據是 number[]（每個 number ~50 字節，驚人浪費），讀取時會被透明
+    //     地轉換並在下次寫入時持久化為 Uint8Array。
+    // 出 DB 層之後調用方拿到的永遠是 Float32Array。
     vector: number[] | Float32Array | Uint8Array;
     dimensions: number;
-    model?: string;             // 生成此向量的 embedding 模型名（用于换模型检测）
+    model?: string;             // 生成此向量的 embedding 模型名（用於換模型檢測）
 }
 
-// ─── 关联网络 ─────────────────────────────────────────
+// ─── 關聯網絡 ─────────────────────────────────────────
 
 export type LinkType =
-    | 'temporal'    // 时间关联 — 24h 内创建的记忆
-    | 'emotional'   // 情感关联 — 相同情绪标签
-    | 'causal'      // 因果关联
-    | 'person'      // 人物关联 — 提到同一人
-    | 'metaphor';   // 隐喻关联
+    | 'temporal'    // 時間關聯 — 24h 內創建的記憶
+    | 'emotional'   // 情感關聯 — 相同情緒標籤
+    | 'causal'      // 因果關聯
+    | 'person'      // 人物關聯 — 提到同一人
+    | 'metaphor';   // 隱喻關聯
 
 export interface MemoryLink {
     id: string;
     sourceId: string;           // MemoryNode.id
     targetId: string;           // MemoryNode.id
     type: LinkType;
-    strength: number;           // 0–1，共同激活时 +0.05
+    strength: number;           // 0–1，共同激活時 +0.05
 }
 
 // ─── 事件盒 (EventBox) ─────────────────────────────────
 
 /**
- * EventBox —— 把同一件事的多条记忆绑在一起。
+ * EventBox —— 把同一件事的多條記憶綁在一起。
  *
- * 创建方式：
- * - LLM 在提取新记忆时，通过 relatedTo 指向旧记忆 → 自动建盒/加盒/合并
- * - 用户在 UI 里手动"+ 添加关联"
+ * 創建方式：
+ * - LLM 在提取新記憶時，通過 relatedTo 指向舊記憶 → 自動建盒/加盒/合併
+ * - 用戶在 UI 裡手動"+ 添加關聯"
  *
- * 召回方式：命中盒内任一"活"节点 → 整盒（summary + 所有活节点）一起出，算 1 个名额
+ * 召回方式：命中盒內任一"活"節點 → 整盒（summary + 所有活節點）一起出，算 1 個名額
  *
- * 压缩：活节点达到 COMPRESSION_THRESHOLD (4) 条 →
- * LLM 把"旧 summary? + 新活节点"整合成一个新 summary MemoryNode，
- * 原活节点全部 archived=true 不再参与召回，box.compressionCount++
+ * 壓縮：活節點達到 COMPRESSION_THRESHOLD (4) 條 →
+ * LLM 把"舊 summary? + 新活節點"整合成一個新 summary MemoryNode，
+ * 原活節點全部 archived=true 不再參與召回，box.compressionCount++
  */
 export interface EventBox {
     id: string;                     // eb_xxx
     charId: string;
-    name: string;                   // 盒名（LLM 生成，首次创建时给）
-    tags: string[];                 // 详细 tag，便于搜索（LLM 生成）
-    summaryNodeId: string | null;   // 压缩总结节点的 MemoryNode.id；null = 未压缩过
-    liveMemoryIds: string[];        // 活节点：参与召回的原始记忆
-    archivedMemoryIds: string[];    // 灰节点：已被压入 summary，不参与召回（可复活）
-    compressionCount: number;       // 压缩过几次
+    name: string;                   // 盒名（LLM 生成，首次創建時給）
+    tags: string[];                 // 詳細 tag，便於搜索（LLM 生成）
+    summaryNodeId: string | null;   // 壓縮總結節點的 MemoryNode.id；null = 未壓縮過
+    liveMemoryIds: string[];        // 活節點：參與召回的原始記憶
+    archivedMemoryIds: string[];    // 灰節點：已被壓入 summary，不參與召回（可復活）
+    compressionCount: number;       // 壓縮過幾次
     createdAt: number;
     updatedAt: number;
     lastCompressedAt: number | null;
-    /** 是否已封盒。封盒后不再接收新成员，新相关记忆会另建一个盒。召回仍正常。 */
+    /** 是否已封盒。封盒後不再接收新成員，新相關記憶會另建一個盒。召回仍正常。 */
     sealed?: boolean;
-    /** 封盒后若有新相关记忆，新建盒会把旧盒 id 记在这里供追溯（非召回路径使用）。 */
+    /** 封盒後若有新相關記憶，新建盒會把舊盒 id 記在這裡供追溯（非召回路徑使用）。 */
     predecessorBoxId?: string | null;
 }
 
-/** 活节点达到此条数时触发压缩 */
+/** 活節點達到此條數時觸發壓縮 */
 export const EVENT_BOX_COMPRESSION_THRESHOLD = 4;
 
-/** 活节点数硬上限：binding 时如果当前开盒已达此数，视作满员，另开新盒
- *  （带 predecessorBoxId）。防御屏障：LLM 压缩连续失败不会让单盒无限膨胀
- *  到 40+ 条活节点，后果是整盒再也压不动（token 爆、UI 卡）。
- *  比 COMPRESSION_THRESHOLD 大很多是为了给正常的"多批次待压缩"留出缓冲。 */
+/** 活節點數硬上限：binding 時如果當前開盒已達此數，視作滿員，另開新盒
+ *  （帶 predecessorBoxId）。防禦屏障：LLM 壓縮連續失敗不會讓單盒無限膨脹
+ *  到 40+ 條活節點，後果是整盒再也壓不動（token 爆、UI 卡）。
+ *  比 COMPRESSION_THRESHOLD 大很多是為了給正常的"多批次待壓縮"留出緩衝。 */
 export const EVENT_BOX_LIVE_HARD_CAP = 15;
 
-/** 盒内事件总数（archived + live）达到此值后封盒，之后的相关记忆另开新盒 */
+/** 盒內事件總數（archived + live）達到此值後封盒，之後的相關記憶另開新盒 */
 export const EVENT_BOX_SEAL_THRESHOLD = 12;
 
-/** summary 目标字数区间（prompt 引导，让模型尽量落在区间内）+ 硬上限（超过强制截断兜底）。
- *  目标上界低于硬上限，给「模型数不准字数」留缓冲——模型瞄着上界写、稍微超一点也不会被砍出「……」。 */
+/** summary 目標字數區間（prompt 引導，讓模型儘量落在區間內）+ 硬上限（超過強制截斷兜底）。
+ *  目標上界低於硬上限，給「模型數不準字數」留緩衝——模型瞄著上界寫、稍微超一點也不會被砍出「……」。 */
 export const EVENT_BOX_SUMMARY_TARGET_MIN_CHARS = 400;
 export const EVENT_BOX_SUMMARY_TARGET_MAX_CHARS = 700;
 export const EVENT_BOX_SUMMARY_HARD_MAX_CHARS = 900;
 
-// ─── 旧话题盒（已废弃，代码路径已摘除，类型保留以兼容残留数据读取） ──
+// ─── 舊話題盒（已廢棄，代碼路徑已摘除，類型保留以兼容殘留數據讀取） ──
 
 /** @deprecated */
 export type BoxStatus = 'open' | 'sealed';
 
-/** @deprecated 旧 TopicLoom 话题盒，已由 EventBox 替代 */
+/** @deprecated 舊 TopicLoom 話題盒，已由 EventBox 替代 */
 export interface TopicBox {
     id: string;
     charId: string;
@@ -236,30 +236,30 @@ export interface TopicBox {
 /** @deprecated */
 export type TopicContinuity = 'continuous' | 'partial_shift' | 'discontinuous';
 
-// ─── 房间门牌（Room Plate — 情景→语义的固化终点） ──────
+// ─── 房間門牌（Room Plate — 情景→語義的固化終點） ──────
 
 /**
- * 门牌：每个房间头上那层常驻的"蒸馏物"。
+ * 門牌：每個房間頭上那層常駐的"蒸餾物"。
  *
- * 房间装的是情景记忆（一条条带时间戳的事件），门牌写的是这些经历沉淀出的
- * 认知——不走向量召回、不衰减、每轮常驻注入 System Prompt。
- * 对应人脑里"海马体情景记忆固化为新皮质语义知识"的那一步。
+ * 房間裝的是情景記憶（一條條帶時間戳的事件），門牌寫的是這些經歷沉澱出的
+ * 認知——不走向量召回、不衰減、每輪常駐注入 System Prompt。
+ * 對應人腦裡"海馬體情景記憶固化為新皮質語義知識"的那一步。
  *
- * 四个房间有门牌：
- * - user_room「TA的事」  — 用户的稳定事实（家庭、居住、重要他人、雷区）
- * - self_room「我是谁」  — 角色对自己的稳定认知
- * - bedroom  「我们之间」— 关系的质地。硬规则：只描述现象，禁止给关系命名
- * - study    「我的领域」— 会什么、在学什么
+ * 四個房間有門牌：
+ * - user_room「TA的事」  — 用戶的穩定事實（家庭、居住、重要他人、雷區）
+ * - self_room「我是誰」  — 角色對自己的穩定認知
+ * - bedroom  「我們之間」— 關係的質地。硬規則：只描述現象，禁止給關係命名
+ * - study    「我的領域」— 會什麼、在學什麼
  *
- * 客厅天生短暂不配门牌；阁楼/窗台已有各自的生命周期机制（本质上就是它们的门牌）。
+ * 客廳天生短暫不配門牌；閣樓/窗台已有各自的生命週期機制（本質上就是它們的門牌）。
  *
- * 更新时机：
- * - EventBox 压缩/封盒时 → 本盒所属房间的门牌做一次增量合并
- * - 认知消化（50轮）时  → 四块门牌做一次全量整理
+ * 更新時機：
+ * - EventBox 壓縮/封盒時 → 本盒所屬房間的門牌做一次增量合併
+ * - 認知消化（50輪）時  → 四塊門牌做一次全量整理
  *
- * 条目是"合并语义"而非"追加语义"：事实会变（搬家、换工作、和某人和好），
- * 每次 LLM 整理输出的是完整的新条目列表，旧条目不被重新输出即被淘汰——
- * 硬容量上限让不重要/过时的条目在合并时被自然挤出（gist 记忆的容量压力）。
+ * 條目是"合併語義"而非"追加語義"：事實會變（搬家、換工作、和某人和好），
+ * 每次 LLM 整理輸出的是完整的新條目列表，舊條目不被重新輸出即被淘汰——
+ * 硬容量上限讓不重要/過時的條目在合併時被自然擠出（gist 記憶的容量壓力）。
  */
 
 export type PlateRoom = 'user_room' | 'self_room' | 'bedroom' | 'study';
@@ -268,11 +268,11 @@ export const PLATE_ROOMS: PlateRoom[] = ['user_room', 'self_room', 'bedroom', 's
 
 export interface PlateEntry {
     id: string;             // pe_xxx
-    text: string;           // 梗概条目，目标 ≤ PLATE_ENTRY_TARGET_CHARS 字
-    firstLearnedAt: number; // 首次蒸馏出这条认知的时间（"你是第三个月才跟我说家里的事"）
-    updatedAt: number;      // 最近一次被合并/改写的时间
-    sourceCount: number;    // 被印证的次数（提过一次 vs 反复出现）
-    /** 2-4 字分类标签（家庭/居住/重要他人/工作/雷区/习惯…），LLM 整理时给出，UI 渲染 chip 与图标 */
+    text: string;           // 梗概條目，目標 ≤ PLATE_ENTRY_TARGET_CHARS 字
+    firstLearnedAt: number; // 首次蒸餾出這條認知的時間（"你是第三個月才跟我說家裡的事"）
+    updatedAt: number;      // 最近一次被合併/改寫的時間
+    sourceCount: number;    // 被印證的次數（提過一次 vs 反覆出現）
+    /** 2-4 字分類標籤（家庭/居住/重要他人/工作/雷區/習慣…），LLM 整理時給出，UI 渲染 chip 與圖標 */
     tag?: string;
 }
 
@@ -282,10 +282,10 @@ export interface RoomPlate {
     room: PlateRoom;
     entries: PlateEntry[];
     updatedAt: number;
-    version: number;        // 每次合并 +1
+    version: number;        // 每次合併 +1
 }
 
-/** 每块门牌的条目硬上限（容量压力 = 天然的边界纠错器） */
+/** 每塊門牌的條目硬上限（容量壓力 = 天然的邊界糾錯器） */
 export const PLATE_ENTRY_CAPS: Record<PlateRoom, number> = {
     user_room: 12,
     self_room: 10,
@@ -293,27 +293,27 @@ export const PLATE_ENTRY_CAPS: Record<PlateRoom, number> = {
     study:     8,
 };
 
-/** 单条目标字数（prompt 引导）与硬上限（超出截断兜底） */
+/** 單條目標字數（prompt 引導）與硬上限（超出截斷兜底） */
 export const PLATE_ENTRY_TARGET_CHARS = 50;
 export const PLATE_ENTRY_HARD_MAX_CHARS = 90;
 
 export const PLATE_TITLES: Record<PlateRoom, string> = {
     user_room: 'TA的事',
-    self_room: '我是谁',
-    bedroom:   '我们之间',
-    study:     '我的领域',
+    self_room: '我是誰',
+    bedroom:   '我們之間',
+    study:     '我的領域',
 };
 
-// ─── 消化日志（DigestReport — 认知消化的可回看记录） ───
+// ─── 消化日誌（DigestReport — 認知消化的可回看記錄） ───
 
 /**
- * 每次认知消化落一条报告，回答"这次到底消化了什么"：
- * 审视了哪些材料 → 状态机改了什么 → 往门牌提交了什么 → 门牌实际更新了哪几块。
- * 通用 section 结构让 UI 保持傻瓜渲染；每角色只保留最近 DIGEST_REPORT_KEEP 条。
+ * 每次認知消化落一條報告，回答"這次到底消化了什麼"：
+ * 審視了哪些材料 → 狀態機改了什麼 → 往門牌提交了什麼 → 門牌實際更新了哪幾塊。
+ * 通用 section 結構讓 UI 保持傻瓜渲染；每角色只保留最近 DIGEST_REPORT_KEEP 條。
  */
 export interface DigestReportSection {
-    label: string;      // 如「阁楼困惑」「化解」「提交给门牌·TA的事」
-    items: string[];    // 内容预览（已截断）
+    label: string;      // 如「閣樓困惑」「化解」「提交給門牌·TA的事」
+    items: string[];    // 內容預覽（已截斷）
 }
 
 export interface DigestReport {
@@ -321,18 +321,18 @@ export interface DigestReport {
     charId: string;
     createdAt: number;
     trigger: 'auto' | 'manual';
-    examined: DigestReportSection[];    // 本次审视的材料
-    outcomes: DigestReportSection[];    // 状态机结果（化解/加深/淡忘/实现/落空/新困惑）
-    plateSubmissions: DigestReportSection[]; // 提交给门牌的蒸馏候选
-    plateUpdated: string[];             // 门牌实际更新的房间（PlateRoom）
+    examined: DigestReportSection[];    // 本次審視的材料
+    outcomes: DigestReportSection[];    // 狀態機結果（化解/加深/淡忘/實現/落空/新困惑）
+    plateSubmissions: DigestReportSection[]; // 提交給門牌的蒸餾候選
+    plateUpdated: string[];             // 門牌實際更新的房間（PlateRoom）
     /**
-     * 这次的门牌整理交给云端跑了，结果还在路上（几分钟后落地）。
-     * 缺字段 = 这条日志是这个标记出现之前记的，当 false 看。
+     * 這次的門牌整理交給雲端跑了，結果還在路上（幾分鐘後落地）。
+     * 缺字段 = 這條日誌是這個標記出現之前記的，當 false 看。
      */
     plateCloudPending?: boolean;
 }
 
-/** 每角色保留的消化报告条数上限 */
+/** 每角色保留的消化報告條數上限 */
 export const DIGEST_REPORT_KEEP = 30;
 
 // ─── 期盼（窗台） ─────────────────────────────────────
@@ -345,11 +345,11 @@ export interface Anticipation {
     content: string;
     status: AnticipationStatus;
     createdAt: number;
-    anchoredAt: number | null;  // active → anchor 的时间
-    resolvedAt: number | null;  // fulfilled / disappointed 的时间
+    anchoredAt: number | null;  // active → anchor 的時間
+    resolvedAt: number | null;  // fulfilled / disappointed 的時間
 }
 
-// ─── 处理批次日志 ─────────────────────────────────────
+// ─── 處理批次日誌 ─────────────────────────────────────
 
 export interface MemoryBatch {
     id: string;
@@ -362,11 +362,11 @@ export interface MemoryBatch {
     completedAt: number | null;
 }
 
-// ─── 人格风格（影响扩散激活权重） ─────────────────────
+// ─── 人格風格（影響擴散激活權重） ─────────────────────
 
 export type PersonalityStyle = 'emotional' | 'narrative' | 'imagery' | 'analytical';
 
-/** 每种人格风格对五种关联类型的权重 */
+/** 每種人格風格對五種關聯類型的權重 */
 export const PERSONALITY_WEIGHTS: Record<PersonalityStyle, Record<LinkType, number>> = {
     emotional:  { emotional: 1.0, person: 0.6, metaphor: 0.5, temporal: 0.3, causal: 0.2 },
     narrative:  { temporal: 1.0, person: 0.8, causal: 0.4, emotional: 0.3, metaphor: 0.2 },
@@ -374,16 +374,16 @@ export const PERSONALITY_WEIGHTS: Record<PersonalityStyle, Record<LinkType, numb
     analytical: { causal: 1.0, temporal: 0.4, person: 0.3, emotional: 0.2, metaphor: 0.2 },
 };
 
-// ─── Embedding 配置（独立于聊天 API） ─────────────────
+// ─── Embedding 配置（獨立於聊天 API） ─────────────────
 
 export interface EmbeddingConfig {
-    baseUrl: string;            // OpenAI 兼容端点，如 https://api.siliconflow.cn/v1
+    baseUrl: string;            // OpenAI 兼容端點，如 https://api.siliconflow.cn/v1
     apiKey: string;
-    model: string;              // 默认 text-embedding-3-small
-    dimensions: number;         // 默认 1024
+    model: string;              // 默認 text-embedding-3-small
+    dimensions: number;         // 默認 1024
 }
 
-// ─── 远程向量存储配置 (Supabase pgvector) ────────────
+// ─── 遠程向量存儲配置 (Supabase pgvector) ────────────
 
 export interface RemoteVectorConfig {
     enabled: boolean;
@@ -392,14 +392,14 @@ export interface RemoteVectorConfig {
     initialized: boolean;       // 是否已建表
 }
 
-// ─── 检索结果 ─────────────────────────────────────────
+// ─── 檢索結果 ─────────────────────────────────────────
 
 export interface ScoredMemory {
     node: MemoryNode;
     finalScore: number;
-    similarity: number;         // 向量余弦相似度
-    bm25Score: number;          // BM25 分数
-    roomScore: number;          // 房间评分后的最终分
-    /** 精确信号的硬保底；formatter 会在普通分数排序前优先保留。 */
+    similarity: number;         // 向量餘弦相似度
+    bm25Score: number;          // BM25 分數
+    roomScore: number;          // 房間評分後的最終分
+    /** 精確信號的硬保底；formatter 會在普通分數排序前優先保留。 */
     recallGuarantee?: 'explicit_entity';
 }

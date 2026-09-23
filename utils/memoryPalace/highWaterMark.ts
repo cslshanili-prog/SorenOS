@@ -15,7 +15,7 @@ function normalizeMessageId(value: unknown): number {
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
 }
 
-/** 同步读取供聊天上下文过滤使用；后台管线会再用 IndexedDB 镜像校准。 */
+/** 同步讀取供聊天上下文過濾使用；後台管線會再用 IndexedDB 鏡像校準。 */
 export function getLocalMemoryPalaceHighWaterMark(charId: string): number {
     try {
         return normalizeMessageId(localStorage.getItem(LOCAL_KEY(charId)));
@@ -25,16 +25,16 @@ export function getLocalMemoryPalaceHighWaterMark(charId: string): number {
 }
 
 /**
- * 读取 localStorage 与 IndexedDB 中较新的水位线。
+ * 讀取 localStorage 與 IndexedDB 中較新的水位線。
  *
- * 部分第三方移动浏览器会只清理/隔离 localStorage，却保留 IndexedDB 中的消息。
- * 水位线是单调递增值，因此取两者最大值既能修复这种驱逐，也不会覆盖更新的数据。
+ * 部分第三方移動瀏覽器會只清理/隔離 localStorage，卻保留 IndexedDB 中的消息。
+ * 水位線是單調遞增值，因此取兩者最大值既能修復這種驅逐，也不會覆蓋更新的數據。
  */
 export async function getReliableMemoryPalaceHighWaterMark(charId: string): Promise<number> {
     try {
         const db = await openDB();
-        // 与 saveMessage 的镜像自愈共享 assets 事务锁。不能在 await 前缓存本地旧值，
-        // 也不能读完后再另开事务写回：中间可能已经落入新消息并清掉失效水位。
+        // 與 saveMessage 的鏡像自愈共享 assets 事務鎖。不能在 await 前緩存本地舊值，
+        // 也不能讀完後再另開事務寫回：中間可能已經落入新消息並清掉失效水位。
         return await new Promise<number>((resolve, reject) => {
             const tx = db.transaction('assets', 'readwrite');
             const assets = tx.objectStore('assets');
@@ -53,27 +53,27 @@ export async function getReliableMemoryPalaceHighWaterMark(charId: string): Prom
             };
             tx.oncomplete = () => {
                 if (reliableValue > getLocalMemoryPalaceHighWaterMark(charId)) {
-                    try { localStorage.setItem(LOCAL_KEY(charId), String(reliableValue)); } catch { /* 镜像仍可用 */ }
+                    try { localStorage.setItem(LOCAL_KEY(charId), String(reliableValue)); } catch { /* 鏡像仍可用 */ }
                 }
                 resolve(reliableValue);
             };
             tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error || new Error('水位读取事务中止'));
+            tx.onabort = () => reject(tx.error || new Error('水位讀取事務中止'));
         });
     } catch {
-        // 失败后读取当前本地值，不恢复进入函数前的旧快照。
+        // 失敗後讀取當前本地值，不恢復進入函數前的舊快照。
         return getLocalMemoryPalaceHighWaterMark(charId);
     }
 }
 
-/** 成功处理消息后同时写两份；任意一份幸存即可避免旧消息被整批重复提取。 */
+/** 成功處理消息後同時寫兩份；任意一份倖存即可避免舊消息被整批重複提取。 */
 export async function setReliableMemoryPalaceHighWaterMark(charId: string, msgId: number): Promise<void> {
     const normalized = normalizeMessageId(msgId);
 
     try {
         localStorage.setItem(LOCAL_KEY(charId), String(normalized));
     } catch {
-        // 继续尝试 IndexedDB。
+        // 繼續嘗試 IndexedDB。
     }
 
     try {
@@ -84,6 +84,6 @@ export async function setReliableMemoryPalaceHighWaterMark(charId: string, msgId
             updatedAt: Date.now(),
         } satisfies HighWaterMarkMirror);
     } catch {
-        // 与旧行为一致：持久化故障不抹掉已经成功写入的记忆。
+        // 與舊行為一致：持久化故障不抹掉已經成功寫入的記憶。
     }
 }

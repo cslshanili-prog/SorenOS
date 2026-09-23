@@ -1,23 +1,23 @@
 import { CharacterProfile } from '../types';
 
 /**
- * 角色卡分享时必须剥离的字段清单。
+ * 角色卡分享時必須剝離的字段清單。
  *
- * 角色卡是拿来分享「角色」本身的（人设、世界观、立绘、世界书……），
- * 不该把发卡人自己的私密凭据、界面美化、本地偏好和运行时残留一起带出去。
- * 历史上导出走的是「黑名单只剔 6 个字段、其余 ...cardProps 全导出」的写法，
- * 导致下面这些东西全被打包进卡里，别人一导入就整套接管——尤其是 API 密钥，
- * 属于灾难级泄漏。这里改成一份显式清单，**导出时不写出、导入时也不读入**，
- * 双向都过一遍：即便别人给你一张老版本（已经把密钥打进去的）卡，导入这侧也会剥掉。
+ * 角色卡是拿來分享「角色」本身的（人設、世界觀、立繪、世界書……），
+ * 不該把發卡人自己的私密憑據、界面美化、本地偏好和運行時殘留一起帶出去。
+ * 歷史上導出走的是「黑名單隻剔 6 個字段、其餘 ...cardProps 全導出」的寫法，
+ * 導致下面這些東西全被打包進卡里，別人一導入就整套接管——尤其是 API 密鑰，
+ * 屬於災難級洩漏。這裡改成一份顯式清單，**導出時不寫出、導入時也不讀入**，
+ * 雙向都過一遍：即便別人給你一張老版本（已經把密鑰打進去的）卡，導入這側也會剝掉。
  *
- * 分四类：
- *  1) 凭据：任何内嵌 API key 的配置对象，整体剔除（emotion buff / 向量 / 主动消息副 API）。
- *  2) 美化：主题、白框 CSS、气泡、背景、提示音、思考链样式——接收方用自己的。
- *  3) 语言：各处语音语言 / 开关偏好——接收方的本地偏好，不该被卡覆盖。
- *  4) 运行时状态：buff、宫殿注入、见面/小屋存档、查手机数据等发卡人当下状态残留。
+ * 分四類：
+ *  1) 憑據：任何內嵌 API key 的配置對象，整體剔除（emotion buff / 向量 / 主動消息副 API）。
+ *  2) 美化：主題、白框 CSS、氣泡、背景、提示音、思考鏈樣式——接收方用自己的。
+ *  3) 語言：各處語音語言 / 開關偏好——接收方的本地偏好，不該被卡覆蓋。
+ *  4) 運行時狀態：buff、宮殿注入、見面/小屋存檔、查手機數據等發卡人當下狀態殘留。
  */
 export const CARD_STRIPPED_FIELDS = [
-  // 1) 凭据（含 apiKey，灾难级泄漏）
+  // 1) 憑據（含 apiKey，災難級洩漏）
   'chatApi',
   'emotionConfig',
   'embeddingConfig',
@@ -25,9 +25,9 @@ export const CARD_STRIPPED_FIELDS = [
   'activeMsg2Config',
 
   // 2) 美化
-  'embeddedTheme',           // CharacterExportData 上的内嵌主题（导入侧一并剥离）
+  'embeddedTheme',           // CharacterExportData 上的內嵌主題（導入側一併剝離）
   'bubbleStyle',
-  'chatFineTune',            // 聊天装扮（细节微调的角色级覆盖）：发卡人的界面偏好，接收方用自己的
+  'chatFineTune',            // 聊天裝扮（細節微調的角色級覆蓋）：發卡人的界面偏好，接收方用自己的
   'chromeCustomCss',
   'chatSound',
   'chatSoundBound',
@@ -37,19 +37,19 @@ export const CARD_STRIPPED_FIELDS = [
   'thinkingChainCustomColors',
   'thinkingChainCustomPrompt',
   'thinkingChainCustomCss',
-  'chatCollaborationEnabled', // 用户在本机选择的日常聊天注意力模式
+  'chatCollaborationEnabled', // 用戶在本機選擇的日常聊天注意力模式
 
-  // 3) 语言 / 语音 / 组织类本地偏好
-  'groupId',                 // 角色分组是发卡人自己的整理方式，指向的分组 id 在接收方本地也不存在
+  // 3) 語言 / 語音 / 組織類本地偏好
+  'groupId',                 // 角色分組是發卡人自己的整理方式，指向的分組 id 在接收方本地也不存在
   'chatVoiceLang',
   'dateVoiceLang',
   'callVoiceLang',
   'chatVoiceEnabled',
   'chatVoiceAutoPlay',
   'dateVoiceEnabled',
-  'memoryPalaceWaterline', // 发卡人的使用节奏；接收方按自己的聊天习惯选择
+  'memoryPalaceWaterline', // 發卡人的使用節奏；接收方按自己的聊天習慣選擇
 
-  // 4) 运行时状态残留
+  // 4) 運行時狀態殘留
   'activeBuffs',
   'buffInjection',
   'memoryPalaceInjection',
@@ -68,8 +68,8 @@ export const CARD_STRIPPED_FIELDS = [
 ] as const;
 
 /**
- * 从一份角色卡数据里剔除所有敏感 / 私密 / 运行时字段，返回浅拷贝。
- * 导出（生成分享文件）和导入（落库前）都调用它，保证两个方向一致。
+ * 從一份角色卡數據裡剔除所有敏感 / 私密 / 運行時字段，返回淺拷貝。
+ * 導出（生成分享文件）和導入（落庫前）都調用它，保證兩個方向一致。
  */
 export function stripSensitiveCardFields<T extends Record<string, any>>(data: T): T {
   const clone: Record<string, any> = { ...data };
@@ -79,5 +79,5 @@ export function stripSensitiveCardFields<T extends Record<string, any>>(data: T)
   return clone as T;
 }
 
-/** 供类型收窄用：CharacterProfile 上被剥离掉的键。 */
+/** 供類型收窄用：CharacterProfile 上被剝離掉的鍵。 */
 export type StrippedCardField = Extract<keyof CharacterProfile, typeof CARD_STRIPPED_FIELDS[number]>;

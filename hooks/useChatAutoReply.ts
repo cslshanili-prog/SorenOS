@@ -13,7 +13,7 @@ interface Options {
 
 const newWork = () => ({ pending: false, sends: new Set<symbol>(), cancelVersion: 0 });
 
-/** 只处理本次聊天实际发送的消息；历史加载、切角色和取消都不会补触发。 */
+/** 只處理本次聊天實際發送的消息；歷史加載、切角色和取消都不會補觸發。 */
 export function useChatAutoReply(options: Options) {
     const current = useRef(options);
     useLayoutEffect(() => { current.current = options; });
@@ -37,7 +37,7 @@ export function useChatAutoReply(options: Options) {
         return () => { workRef.current = newWork(); };
     }, [options.conversationId, options.enabled, options.active]);
 
-    // 手动闪电、重生成或其他生成入口已经接手时，取消尚未执行的自动回复。
+    // 手動閃電、重生成或其他生成入口已經接手時，取消尚未執行的自動回覆。
     useLayoutEffect(() => {
         if (options.generating) cancel();
     }, [options.generating, cancel]);
@@ -48,8 +48,8 @@ export function useChatAutoReply(options: Options) {
         return () => document.removeEventListener('visibilitychange', onVisibility);
     }, []);
 
-    // 从发送开始就暂停计时，直到图片处理、落库和聊天刷新都结束。
-    // 返回的完成函数绑定本次会话；切走或取消后，晚到的结果不会重新启动倒计时。
+    // 從發送開始就暫停計時，直到圖片處理、落庫和聊天刷新都結束。
+    // 返回的完成函數綁定本次會話；切走或取消後，晚到的結果不會重新啟動倒計時。
     const beginSend = useCallback((conversationId: string | null) => {
         if (!current.current.enabled || !current.current.active || conversationId !== current.current.conversationId) {
             return (_sent: boolean) => {};

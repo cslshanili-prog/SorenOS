@@ -1,18 +1,18 @@
 /**
- * 「家园」离线 tick 调度器。
+ * 「家園」離線 tick 調度器。
  *
- * 与 VRScheduler 的"固定间隔"不同，家园按**每日时段**触发：
- * 凌晨（02:00 后）/ 早（09:00 后）/ 午（14:00 后）/ 晚（21:00 后），每个时段当天最多一轮。
- * 错过时段后回到前台会补火（和 VRScheduler 一样的 visibilitychange / focus /
- * 主线程轮询三重兜底），所以"早上没开 App，中午打开"会把早上那轮补上——
- * 这正是"我不看的时候世界慢慢走，我一看就加速"的体验。
+ * 與 VRScheduler 的"固定間隔"不同，家園按**每日時段**觸發：
+ * 凌晨（02:00 後）/ 早（09:00 後）/ 午（14:00 後）/ 晚（21:00 後），每個時段當天最多一輪。
+ * 錯過時段後回到前台會補火（和 VRScheduler 一樣的 visibilitychange / focus /
+ * 主線程輪詢三重兜底），所以"早上沒開 App，中午打開"會把早上那輪補上——
+ * 這正是"我不看的時候世界慢慢走，我一看就加速"的體驗。
  *
- * 时段判定按**每个世界自己的时区**（WorldProfile.timezone，不设=本机）：不然「东京家园的早上」
- * 会在本机凌晨触发，和世界钟（realNowSeg）对不上。日历日也一样按世界时区算，否则跨日的
- * fired 记录会在错误的时刻清零、当天配额被多烧一轮。
+ * 時段判定按**每個世界自己的時區**（WorldProfile.timezone，不設=本機）：不然「東京家園的早上」
+ * 會在本機凌晨觸發，和世界鍾（realNowSeg）對不上。日曆日也一樣按世界時區算，否則跨日的
+ * fired 記錄會在錯誤的時刻清零、當天配額被多燒一輪。
  *
- * 存储（localStorage，独立键，不与 vr_schedules / proactive 挤占）：
- *   - world_tick_slots: { [worldId]: { slots: slot[]; tz?: string } }（旧格式 slot[] 读时自动兼容）
+ * 存儲（localStorage，獨立鍵，不與 vr_schedules / proactive 擠佔）：
+ *   - world_tick_slots: { [worldId]: { slots: slot[]; tz?: string } }（舊格式 slot[] 讀時自動兼容）
  *   - world_tick_fired: { [worldId]: { date: 'YYYY-MM-DD', fired: slot[] } }
  */
 
@@ -25,16 +25,16 @@ const SLOTS_KEY = 'world_tick_slots';
 const FIRED_KEY = 'world_tick_fired';
 const MAIN_THREAD_CHECK_INTERVAL = 60_000;
 
-/** 各时段的起火时刻（小时，世界当地时间）。latenight 按当天日历日的凌晨 2 点计。 */
+/** 各時段的起火時刻（小時，世界當地時間）。latenight 按當天日曆日的凌晨 2 點計。 */
 const SLOT_HOUR: Record<WorldTickSlot, number> = { latenight: 2, morning: 9, noon: 14, evening: 21 };
 
-/** 一个世界的调度项。tz 空 = 跟随本机。 */
+/** 一個世界的調度項。tz 空 = 跟隨本機。 */
 type SlotEntry = { slots: WorldTickSlot[]; tz?: string };
-/** 旧格式（值直接是 slot 数组）也要读得动——老用户的 localStorage 里就是它。 */
+/** 舊格式（值直接是 slot 數組）也要讀得動——老用戶的 localStorage 裡就是它。 */
 type SlotsMap = Record<string, SlotEntry | WorldTickSlot[]>;
 type FiredMap = Record<string, { date: string; fired: WorldTickSlot[] }>;
 
-/** 兼容读取：旧格式 slot[] → { slots }。 */
+/** 兼容讀取：舊格式 slot[] → { slots }。 */
 const normalizeEntry = (v: SlotEntry | WorldTickSlot[] | undefined): SlotEntry =>
     Array.isArray(v) ? { slots: v } : { slots: v?.slots || [], tz: v?.tz };
 
@@ -42,8 +42,8 @@ const sameSlots = (a: WorldTickSlot[], b: WorldTickSlot[]): boolean =>
     a.length === b.length && a.every(slot => b.includes(slot));
 
 /**
- * 世界列表 → reconcile 的入参（三处调用点共用一份口径，避免漏传时区）。
- * 只收开了离线 tick 的世界；sim（虚拟时间）世界不跟世界时区，按本机时刻触发。
+ * 世界列表 → reconcile 的入參（三處調用點共用一份口徑，避免漏傳時區）。
+ * 只收開了離線 tick 的世界；sim（虛擬時間）世界不跟世界時區，按本機時刻觸發。
  */
 export const toTickEntries = (worlds: WorldProfile[]): { worldId: string; slots: WorldTickSlot[]; tz?: string }[] =>
     worlds
@@ -69,7 +69,7 @@ function save(key: string, value: object) {
     else localStorage.setItem(key, JSON.stringify(value));
 }
 
-/** 某世界当地的「今天」与「现在几点」。tz 空 = 本机。 */
+/** 某世界當地的「今天」與「現在幾點」。tz 空 = 本機。 */
 const localNow = (tz?: string) => {
     const d = nowInTimeZone(tz);
     return {
@@ -92,7 +92,7 @@ function checkDue() {
     for (const [worldId, raw] of Object.entries(slotsMap)) {
         const { slots, tz } = normalizeEntry(raw);
         if (slots.length === 0) continue;
-        // 时段/日历日按这个世界自己的时区判定
+        // 時段/日曆日按這個世界自己的時區判定
         const { date, hour } = localNow(tz);
         let rec = firedMap[worldId];
         if (!rec || rec.date !== date) {
@@ -106,8 +106,8 @@ function checkDue() {
             rec.fired.push(slot);
             changed = true;
             void triggerCallback(worldId, 'tick');
-            // 一次 check 每个世界最多补一轮：链式 N 角色调用很贵，
-            // 错过的多个时段隔分钟级轮询逐个补，不在同一瞬间叠加触发。
+            // 一次 check 每個世界最多補一輪：鏈式 N 角色調用很貴，
+            // 錯過的多個時段隔分鐘級輪詢逐個補，不在同一瞬間疊加觸發。
             break;
         }
     }
@@ -144,7 +144,7 @@ function detachListeners() {
 }
 
 export const WorldScheduler = {
-    /** 注册触发回调（应用启动时调一次）。 */
+    /** 註冊觸發回調（應用啟動時調一次）。 */
     onTrigger(callback: (worldId: string, trigger: 'observe' | 'tick') => void | Promise<void>) {
         triggerCallback = callback;
         if (Object.keys(load<SlotsMap>(SLOTS_KEY)).length > 0) {
@@ -154,11 +154,11 @@ export const WorldScheduler = {
     },
 
     /**
-     * 以世界配置为准重建调度表。
-     * 调度表存 localStorage 不随备份迁移，世界配置（offlineTickSlots）存 IndexedDB
-     * 随备份走——和 VRScheduler.reconcile 同样的对账逻辑。
-     * 注意：新加入调度的世界，"今天已经过去的时段"视为已耗尽，不补火——
-     * 避免用户刚配置完就瞬间连烧几轮 LLM 调用。
+     * 以世界配置為準重建調度表。
+     * 調度表存 localStorage 不隨備份遷移，世界配置（offlineTickSlots）存 IndexedDB
+     * 隨備份走——和 VRScheduler.reconcile 同樣的對帳邏輯。
+     * 注意：新加入調度的世界，"今天已經過去的時段"視為已耗盡，不補火——
+     * 避免用戶剛配置完就瞬間連燒幾輪 LLM 調用。
      */
     reconcile(active: { worldId: string; slots: WorldTickSlot[]; tz?: string }[]) {
         const previousSlotsMap = load<SlotsMap>(SLOTS_KEY);
@@ -169,16 +169,16 @@ export const WorldScheduler = {
         for (const a of active) {
             if (a.slots.length === 0) continue;
             slotsMap[a.worldId] = { slots: a.slots, tz: a.tz };
-            // "今天已经过去的时段"按该世界当地时间算——换了时区的世界跟着一起挪
+            // "今天已經過去的時段"按該世界當地時間算——換了時區的世界跟著一起挪
             const { date, hour } = localNow(a.tz);
             const previousRaw = previousSlotsMap[a.worldId];
             const previous = normalizeEntry(previousRaw);
             const configChanged = previousRaw === undefined
                 || previous.tz !== a.tz
                 || !sameSlots(previous.slots, a.slots);
-            // 同一日内换时区也必须重算：例如东京 21 点切到洛杉矶 5 点，东京已经
-            // fired 的 evening 在洛杉矶仍是未来，不能继续占着配额；反向切换则要
-            // 把新时区已经过去的时段标为耗尽，避免配置一保存就补火。
+            // 同一日內換時區也必須重算：例如東京 21 點切到洛杉磯 5 點，東京已經
+            // fired 的 evening 在洛杉磯仍是未來，不能繼續佔著配額；反向切換則要
+            // 把新時區已經過去的時段標為耗盡，避免配置一保存就補火。
             if (!firedMap[a.worldId] || firedMap[a.worldId].date !== date || configChanged) {
                 firedMap[a.worldId] = { date, fired: a.slots.filter(s => hour >= SLOT_HOUR[s]) };
                 firedChanged = true;
@@ -197,7 +197,7 @@ export const WorldScheduler = {
         else detachListeners();
     },
 
-    /** 立刻触发一轮"观测"（UI 推进按钮用），不占用当日 tick 配额。 */
+    /** 立刻觸發一輪"觀測"（UI 推進按鈕用），不佔用當日 tick 配額。 */
     triggerNow(worldId: string) {
         if (triggerCallback) void triggerCallback(worldId, 'observe');
     },

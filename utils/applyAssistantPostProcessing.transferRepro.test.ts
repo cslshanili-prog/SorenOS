@@ -32,16 +32,16 @@ const makeCtx = (charId: string, overrides: Partial<PostProcessCtx> = {}): PostP
     };
 };
 
-// 回归用例：用户实测「角色主动转账，查手机确认已扣款，但聊天窗口里没有出现转账卡」——
-// 用 [API Response Debug] 面板拿到的真实 raw_content 端到端跑一遍
-// applyAssistantPostProcessing（含真实 DB，不 mock chatParser），确认：
-// 1) 不抛异常；2) onCharTransferSend 收到正确金额（对应查手机上真实观察到的扣款）；
-// 3) 转账卡确实落库为 pending 状态；4) 落库后最后一次 hooks.setMessages 调用里
-//    已经带着这张转账卡——也就是说数据链路本身是通的，前端拿到的 setMessages 参数
-//    并不缺这张卡。真机上卡片没出现，大概率是这之后（真实 setMessages 到渲染之间）
-//    的前端状态问题，不是这条数据管线的锅。
-describe('repro: 用户实测的角色主动转账 raw_content 复现', () => {
-    it('带 [聊天] 时间戳前缀噪音的整段回复：不抛异常，且落一张 pending 转账卡，并进了最后一次 setMessages', async () => {
+// 迴歸用例：用戶實測「角色主動轉帳，查手機確認已扣款，但聊天窗口裡沒有出現轉帳卡」——
+// 用 [API Response Debug] 面板拿到的真實 raw_content 端到端跑一遍
+// applyAssistantPostProcessing（含真實 DB，不 mock chatParser），確認：
+// 1) 不拋異常；2) onCharTransferSend 收到正確金額（對應查手機上真實觀察到的扣款）；
+// 3) 轉帳卡確實落庫為 pending 狀態；4) 落庫後最後一次 hooks.setMessages 調用裡
+//    已經帶著這張轉帳卡——也就是說數據鏈路本身是通的，前端拿到的 setMessages 參數
+//    並不缺這張卡。真機上卡片沒出現，大概率是這之後（真實 setMessages 到渲染之間）
+//    的前端狀態問題，不是這條數據管線的鍋。
+describe('repro: 用戶實測的角色主動轉帳 raw_content 復現', () => {
+    it('帶 [聊天] 時間戳前綴噪音的整段回覆：不拋異常，且落一張 pending 轉帳卡，並進了最後一次 setMessages', async () => {
         const charId = `c-transfer-repro-${Date.now()}`;
         const raw = `[2026-09-16 22:10] [聊天] 啊？沒到嗎
 

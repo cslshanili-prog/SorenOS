@@ -11,7 +11,7 @@ import { normalizeTtsProvider } from './ttsProvider';
 
 const character = {
   id: 'char-1',
-  name: '测试角色',
+  name: '測試角色',
   avatar: '',
   description: '',
   systemPrompt: '',
@@ -35,7 +35,7 @@ describe('ElevenLabs voice id', () => {
 
 describe('ElevenLabs text cleanup', () => {
   it('keeps supported v3 tags and converts known parenthesized cues', () => {
-    expect(cleanTextForTtsElevenLabs('<语音>[laughs] 你好 (sigh)</语音>', 'eleven_v3'))
+    expect(cleanTextForTtsElevenLabs('<語音>[laughs] 你好 (sigh)</語音>', 'eleven_v3'))
       .toBe('[laughs] 你好 [sighs]');
   });
 
@@ -45,7 +45,7 @@ describe('ElevenLabs text cleanup', () => {
   });
 
   it('removes cues only from display text and preserves ordinary brackets', () => {
-    expect(stripElevenLabsMarkupForDisplay('[whispers] 小声说 [第2章]')).toBe('小声说 [第2章]');
+    expect(stripElevenLabsMarkupForDisplay('[whispers] 小聲說 [第2章]')).toBe('小聲說 [第2章]');
   });
 });
 
@@ -91,7 +91,7 @@ describe('ElevenLabs request body', () => {
 describe('ElevenLabs prompt and provider routing', () => {
   it('uses audio-tag guidance only for v3 and recognizes the provider', () => {
     expect(getElevenLabsVoiceActingGuide('eleven_v3')).toContain('Audio Tags');
-    expect(getElevenLabsVoiceActingGuide('eleven_flash_v2_5')).toContain('不要输出方括号');
+    expect(getElevenLabsVoiceActingGuide('eleven_flash_v2_5')).toContain('不要輸出方括號');
     expect(normalizeTtsProvider('elevenlabs')).toBe('elevenlabs');
   });
 });

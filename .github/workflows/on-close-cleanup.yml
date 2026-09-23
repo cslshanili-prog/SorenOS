@@ -1,7 +1,7 @@
-name: 关闭时清理流程标签
+name: 關閉時清理流程標籤
 
-# issue / PR 一关闭，就把「还在走流程」类的标签摘掉，
-# 已关闭列表里不会再留着一堆 needs xxx。
+# issue / PR 一關閉，就把「還在走流程」類的標籤摘掉，
+# 已關閉列表裡不會再留著一堆 needs xxx。
 on:
   issues:
     types: [closed]
@@ -15,15 +15,15 @@ permissions:
 
 jobs:
   remove-pending-labels:
-    name: 摘掉 needs 系列标签
+    name: 摘掉 needs 系列標籤
     runs-on: ubuntu-latest
     steps:
-      - name: 移除标签
+      - name: 移除標籤
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
-          # 要摘掉的标签，一行一个
+          # 要摘掉的標籤，一行一個
           PENDING_LABELS: |
             needs triage
             needs info
@@ -31,30 +31,30 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 先看这条 issue / PR 现在挂着哪些标签。没挂的就不去删，
-          # 免得为「本来就没有的标签」报一次 404 把整个流程判成失败。
+          # 先看這條 issue / PR 現在掛著哪些標籤。沒掛的就不去刪，
+          # 免得為「本來就沒有的標籤」報一次 404 把整個流程判成失敗。
           current=$(gh api "repos/$REPO/issues/$NUMBER/labels" --paginate --jq '.[].name')
 
           while IFS= read -r label; do
             [ -n "$label" ] || continue
 
-            # 下面几处 ${label} 的花括号不能省：变量紧挨着「」这类全角标点时，
-            # bash 会把标点的字节也算进变量名，配上 set -u 直接报错退出
+            # 下面幾處 ${label} 的花括號不能省：變量緊挨著「」這類全角標點時，
+            # bash 會把標點的字節也算進變量名，配上 set -u 直接報錯退出
             if ! grep -Fxq "$label" <<<"$current"; then
-              echo "跳过：#$NUMBER 上没有「${label}」"
+              echo "跳過：#$NUMBER 上沒有「${label}」"
               continue
             fi
 
-            # 标签名里有空格，塞进 URL 前先转义
+            # 標籤名裡有空格，塞進 URL 前先轉義
             encoded=$(jq -rn --arg name "$label" '$name | @uri')
 
             if err=$(gh api --method DELETE "repos/$REPO/issues/$NUMBER/labels/$encoded" 2>&1 >/dev/null); then
               echo "已移除：$label"
             elif grep -q 'HTTP 404' <<<"$err"; then
-              # 查完标签到这一步之间，别人手动摘掉了，当成已经做完
-              echo "跳过：「${label}」已经不在了"
+              # 查完標籤到這一步之間，別人手動摘掉了，當成已經做完
+              echo "跳過：「${label}」已經不在了"
             else
-              echo "移除「${label}」失败：$err" >&2
+              echo "移除「${label}」失敗：$err" >&2
               exit 1
             fi
           done <<<"$PENDING_LABELS"

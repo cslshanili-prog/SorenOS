@@ -1,11 +1,11 @@
 import { UserProfile } from '../types';
 
 /**
- * 把「目前身份」套用到用户档案上，返回一份新对象；没有生效的身份卡（或指向的卡已被删除）时原样返回。
- * 只覆盖 name/avatar/bio/gender/customSetting/otherDetails 这几个"外显装扮"字段，其余字段
- * （vrState/perCharAvatars/personas 本身……）不变。这是全站唯一的口径——所有读
- * userProfile.name/avatar/bio 等字段的地方读到的都已经是这份套用结果，好感度/记忆/关系仍然
- * 认的是同一个人，不因为换了身份卡而分开算。
+ * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
+ * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails 這幾個"外顯裝扮"字段，其餘字段
+ * （vrState/perCharAvatars/personas 本身……）不變。這是全站唯一的口徑——所有讀
+ * userProfile.name/avatar/bio 等字段的地方讀到的都已經是這份套用結果，好感度/記憶/關係仍然
+ * 認的是同一個人，不因為換了身份卡而分開算。
  */
 export function applyActivePersona(profile: UserProfile): UserProfile {
     const persona = profile.activePersonaId
@@ -24,17 +24,17 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
 }
 
 /**
- * perCharPersonaIds 里表示「这个角色强制用真实身份」的哨兵值——跟真实的身份卡 id（由
- * addUserPersona 现场生成）不会撞：真实 id 都带时间戳，这个是固定字面量。
+ * perCharPersonaIds 裡表示「這個角色強制用真實身份」的哨兵值——跟真實的身份卡 id（由
+ * addUserPersona 現場生成）不會撞：真實 id 都帶時間戳，這個是固定字面量。
  */
 export const REAL_IDENTITY_PERSONA_ID = '__real__';
 
 /**
- * resolveUserProfileForChar / resolveUserProfileForGroup 共用的身份卡挑选逻辑：
- * overrideId 指向一张还在的身份卡 → 用那张卡（matchedPersona=true）；指向
- * REAL_IDENTITY_PERSONA_ID 或身份卡已被删除 → 真实身份；都没设置（undefined）→
- * 全域默认（activePersonaId）。matchedPersona 供 resolveUserProfileForChar 判断
- * 要不要再叠 perCharAvatars——具体指定了身份卡的那支分支不叠。
+ * resolveUserProfileForChar / resolveUserProfileForGroup 共用的身份卡挑選邏輯：
+ * overrideId 指向一張還在的身份卡 → 用那張卡（matchedPersona=true）；指向
+ * REAL_IDENTITY_PERSONA_ID 或身份卡已被刪除 → 真實身份；都沒設置（undefined）→
+ * 全域默認（activePersonaId）。matchedPersona 供 resolveUserProfileForChar 判斷
+ * 要不要再疊 perCharAvatars——具體指定了身份卡的那支分支不疊。
  */
 function applyPersonaOverride(
     profileBase: UserProfile,
@@ -54,24 +54,24 @@ function applyPersonaOverride(
             },
             matchedPersona: true,
         };
-        // 指向的身份卡已被删除：跟"没设置"一样回落到全域默认，不崩溃、不留死引用的痕迹。
+        // 指向的身份卡已被刪除：跟"沒設置"一樣回落到全域默認，不崩潰、不留死引用的痕跡。
     }
     return { profile: overrideId === REAL_IDENTITY_PERSONA_ID ? profileBase : applyActivePersona(profileBase), matchedPersona: false };
 }
 
 /**
- * 分角色身份指定的全站唯一解析口径：私聊（Chat.tsx）、查手机（CheckPhone.tsx）、记忆宫殿
- * 手动重新归档这三处目前接了这个函数，其余画面仍读全域默认（applyActivePersona），是刻意
- * 分批留下的范围边界，不是遗漏——全部画面接完是明显更大的一次改动。
+ * 分角色身份指定的全站唯一解析口徑：私聊（Chat.tsx）、查手機（CheckPhone.tsx）、記憶宮殿
+ * 手動重新歸檔這三處目前接了這個函數，其餘畫面仍讀全域默認（applyActivePersona），是刻意
+ * 分批留下的範圍邊界，不是遺漏——全部畫面接完是明顯更大的一次改動。
  *
- * 优先级（从高到低）：
- *   1. perCharPersonaIds[charId] 指向一张还在的身份卡 → 用这张卡的 name/avatar/bio，不叠
- *      perCharAvatars——身份卡本来就带着自己的头像，一个身份只对应一个头像，叠加只会
- *      让人搞不清当前到底顶着哪张脸；
- *   2. perCharPersonaIds[charId] === REAL_IDENTITY_PERSONA_ID → 强制真实身份，不看全域默认，
- *      但仍然吃 perCharAvatars（这是先于身份卡存在的机制，语义是"这个聊天单独换个头像"，
- *      跟"要不要用身份卡"是两件事，不能因为强制真实身份就把它盖掉）；
- *   3. 都没设置 → 走全域默认（activePersonaId），同样再叠一层 perCharAvatars。
+ * 優先級（從高到低）：
+ *   1. perCharPersonaIds[charId] 指向一張還在的身份卡 → 用這張卡的 name/avatar/bio，不疊
+ *      perCharAvatars——身份卡本來就帶著自己的頭像，一個身份只對應一個頭像，疊加只會
+ *      讓人搞不清當前到底頂著哪張臉；
+ *   2. perCharPersonaIds[charId] === REAL_IDENTITY_PERSONA_ID → 強制真實身份，不看全域默認，
+ *      但仍然吃 perCharAvatars（這是先於身份卡存在的機制，語義是"這個聊天單獨換個頭像"，
+ *      跟"要不要用身份卡"是兩件事，不能因為強制真實身份就把它蓋掉）；
+ *   3. 都沒設置 → 走全域默認（activePersonaId），同樣再疊一層 perCharAvatars。
  */
 export function resolveUserProfileForChar(profileBase: UserProfile, charId: string): UserProfile {
     const { profile: resolved, matchedPersona } = applyPersonaOverride(profileBase, profileBase.perCharPersonaIds?.[charId]);
@@ -81,9 +81,9 @@ export function resolveUserProfileForChar(profileBase: UserProfile, charId: stri
 }
 
 /**
- * 群聊版的分角色身份指定，键是 groupId（perGroupPersonaIds），逻辑跟
- * resolveUserProfileForChar 一样，只是没有 perCharAvatars 那层——群聊头像一直用整体
- * 默认，不受这个字段影响（perCharAvatars 自己的文档也写明"群聊仍用整体头像"）。
+ * 群聊版的分角色身份指定，鍵是 groupId（perGroupPersonaIds），邏輯跟
+ * resolveUserProfileForChar 一樣，只是沒有 perCharAvatars 那層——群聊頭像一直用整體
+ * 默認，不受這個字段影響（perCharAvatars 自己的文檔也寫明"群聊仍用整體頭像"）。
  */
 export function resolveUserProfileForGroup(profileBase: UserProfile, groupId: string): UserProfile {
     return applyPersonaOverride(profileBase, profileBase.perGroupPersonaIds?.[groupId]).profile;

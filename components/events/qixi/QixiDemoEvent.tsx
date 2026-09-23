@@ -125,13 +125,13 @@ const WORD_PICK_COUNT = 3;
 export const QIXI_MODEL_API_CALL_COUNT = 4;
 
 const SCENES: Record<QixiSceneId, SceneMeta> = {
-    lostLayer: { title: '失联层', ritual: '等待响应', intention: '遥寄 · 双星失联', userColor: '#f2c4d8', charColor: '#a8d9ff' },
-    doubleWish: { title: '双面祈愿处', ritual: '翻面见字', intention: '拜七姐 · 写愿', userColor: '#f6c6d8', charColor: '#b8d8ff' },
-    threadNeedle: { title: '穿针乞巧处', ritual: '共同穿线', intention: '穿针 · 乞巧', userColor: '#f1b3ca', charColor: '#9fd7ff' },
-    offerings: { title: '供果与记忆陈列', ritual: '交换供物', intention: '供果 · 供桌', userColor: '#f2c7a6', charColor: '#b7d5ff' },
-    reflection: { title: '投针照影', ritual: '双层水纹', intention: '投针 · 照影', userColor: '#efb8d4', charColor: '#91dcff' },
-    nightMarket: { title: '乞巧市', ritual: '记忆夜市', intention: '七夕夜市 · 小事', userColor: '#f3c39e', charColor: '#a5d2ff' },
-    wordCloud: { title: '葡萄架下的词云', ritual: '听见另一边', intention: '葡萄架 · 私语', userColor: '#efbadb', charColor: '#9fdcff' },
+    lostLayer: { title: '失聯層', ritual: '等待響應', intention: '遙寄 · 雙星失聯', userColor: '#f2c4d8', charColor: '#a8d9ff' },
+    doubleWish: { title: '雙面祈願處', ritual: '翻面見字', intention: '拜七姐 · 寫願', userColor: '#f6c6d8', charColor: '#b8d8ff' },
+    threadNeedle: { title: '穿針乞巧處', ritual: '共同穿線', intention: '穿針 · 乞巧', userColor: '#f1b3ca', charColor: '#9fd7ff' },
+    offerings: { title: '供果與記憶陳列', ritual: '交換供物', intention: '供果 · 供桌', userColor: '#f2c7a6', charColor: '#b7d5ff' },
+    reflection: { title: '投針照影', ritual: '雙層水紋', intention: '投針 · 照影', userColor: '#efb8d4', charColor: '#91dcff' },
+    nightMarket: { title: '乞巧市', ritual: '記憶夜市', intention: '七夕夜市 · 小事', userColor: '#f3c39e', charColor: '#a5d2ff' },
+    wordCloud: { title: '葡萄架下的詞雲', ritual: '聽見另一邊', intention: '葡萄架 · 私語', userColor: '#efbadb', charColor: '#9fdcff' },
 };
 
 const createPlannedJourney = (bundle: QixiMemoryBundle): QixiJourneyBeat[] => QIXI_SCENE_IDS.map(sceneId => ({
@@ -178,7 +178,7 @@ const createRunId = (): string => globalThis.crypto?.randomUUID?.() || `qixi-${D
 const qixiChibiRaw = (char: CharacterProfile): string | undefined => char.vrState?.chibi?.img || char.sprites?.chibi;
 
 const ExitButton: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-    <button type="button" className="q7-exit" onClick={onClose} aria-label="退出七夕活动">退出 <b>×</b></button>
+    <button type="button" className="q7-exit" onClick={onClose} aria-label="退出七夕活動">退出 <b>×</b></button>
 );
 
 const CelestialBackdrop: React.FC = () => (
@@ -357,7 +357,7 @@ const QixiFlappyLoader = React.forwardRef<QixiFlappyHandle, {
         simRef.current.vy = -315;
     };
 
-    return <main className="q7-loading-game"><ExitButton onClose={onClose} /><section><p className="q7-kicker">MEMORY SORTING · FLAPPY CHAR</p><h2>穿过正在整理的<br />上下文碎片</h2>{notice && <small className="q7-loading-status">{notice}</small>}</section><div className="q7-flappy-shell"><canvas ref={canvasRef} width={360} height={520} onPointerDown={flap} aria-label="点击或触摸让角色上升" />{!ui.alive && !ready && <button type="button" onClick={reset}>再飞一次</button>}{!ui.alive && ready && <div className="q7-flappy-ready"><small>MEMORIES READY</small><b>记忆整理完成。</b><button type="button" data-qixi-action="loading-continue" onClick={onContinue}>落进那条异常消息</button></div>}</div><footer>点击 / 触摸，让 {char.name} 上升</footer></main>;
+    return <main className="q7-loading-game"><ExitButton onClose={onClose} /><section><p className="q7-kicker">MEMORY SORTING · FLAPPY CHAR</p><h2>穿過正在整理的<br />上下文碎片</h2>{notice && <small className="q7-loading-status">{notice}</small>}</section><div className="q7-flappy-shell"><canvas ref={canvasRef} width={360} height={520} onPointerDown={flap} aria-label="點擊或觸摸讓角色上升" />{!ui.alive && !ready && <button type="button" onClick={reset}>再飛一次</button>}{!ui.alive && ready && <div className="q7-flappy-ready"><small>MEMORIES READY</small><b>記憶整理完成。</b><button type="button" data-qixi-action="loading-continue" onClick={onContinue}>落進那條異常消息</button></div>}</div><footer>點擊 / 觸摸，讓 {char.name} 上升</footer></main>;
 });
 QixiFlappyLoader.displayName = 'QixiFlappyLoader';
 
@@ -366,12 +366,12 @@ const AnimatedText: React.FC<{ text: string; className?: string }> = ({ text, cl
 );
 
 const LOST_LAYER_ERRORS = [
-    ['API 429', '请求太快，请稍后再试'],
-    ['TIMEOUT', '这条消息等了太久'],
-    ['DELIVERY FAILED', '抱歉，暂时没能送达'],
-    ['CONNECTION LOST', '正在努力重新连接'],
-    ['RESPONSE BLOCKED', '很遗憾，回复中断了'],
-    ['UNKNOWN ERROR', '或许可以换个说法'],
+    ['API 429', '請求太快，請稍後再試'],
+    ['TIMEOUT', '這條消息等了太久'],
+    ['DELIVERY FAILED', '抱歉，暫時沒能送達'],
+    ['CONNECTION LOST', '正在努力重新連接'],
+    ['RESPONSE BLOCKED', '很遺憾，回覆中斷了'],
+    ['UNKNOWN ERROR', '或許可以換個說法'],
 ] as const;
 
 const QixiBird: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = '', style }) => (
@@ -400,38 +400,38 @@ const SceneObject: React.FC<{
         {sceneId === 'lostLayer' && <div className="q7-message-object">
             <i className="q7-message-line" /><i className="q7-message-line" /><i className="q7-message-line" />
             <div className="q7-topic-choices">{topicOptions.slice(0, 3).map((option, index) => <button type="button" key={option.id} style={{ '--topic-index': index } as React.CSSProperties} className={selectedTopicId === option.id ? 'is-selected' : ''} disabled={beat !== 'idle'} onClick={() => onTopicSelect?.(option.id)}><span>{option.label}</span></button>)}</div>
-            {beat !== 'idle' && <div className={`q7-lost-error-field ${changedByChar ? 'is-erasing' : ''}`} aria-label="发送失败，报错正在铺满空间">
+            {beat !== 'idle' && <div className={`q7-lost-error-field ${changedByChar ? 'is-erasing' : ''}`} aria-label="發送失敗，報錯正在鋪滿空間">
                 {LOST_LAYER_ERRORS.map(([code, message], index) => <b key={code} style={{ '--error-index': index } as React.CSSProperties}><small>{code}</small><span>{message}</span>{changedByChar && <i aria-hidden="true" />}</b>)}
             </div>}
             {changedByChar && <div className="q7-char-overwrite">
                 {charMutter && <AnimatedText className="q7-char-mutter" text={charMutter} />}
             </div>}
-            {changedByChar && visualQuips.length > 0 && <div className="q7-lost-whispers" aria-label={`另一层的碎碎念：${visualQuips.join(' ')}`}>{visualQuips.slice(0, 2).map((quip, index) => <p key={`${quip}-${index}`} style={{ '--quip-index': index } as React.CSSProperties}>“{quip}”</p>)}</div>}
+            {changedByChar && visualQuips.length > 0 && <div className="q7-lost-whispers" aria-label={`另一層的碎碎念：${visualQuips.join(' ')}`}>{visualQuips.slice(0, 2).map((quip, index) => <p key={`${quip}-${index}`} style={{ '--quip-index': index } as React.CSSProperties}>“{quip}”</p>)}</div>}
             {changedByChar && charText && <AnimatedText className="q7-lost-core-instruction" text={charText} />}
             {changedByChar && charReply && <AnimatedText className="q7-lost-real-reply" text={charReply} />}
         </div>}
         {sceneId === 'doubleWish' && <div className={`q7-wish-object ${changedByChar ? 'is-flipped' : ''}`}>
-            <div className="front"><small>你的愿望</small><i className="q7-wish-seal">愿</i>{userText && <AnimatedText text={userText} />}</div>
-            <div className="back"><small>{'另一面的愿望'}</small>{charText && <AnimatedText text={charText} />}{visualQuips[0] && <em className="q7-wish-whisper">“{visualQuips[0]}”</em>}</div>
+            <div className="front"><small>你的願望</small><i className="q7-wish-seal">願</i>{userText && <AnimatedText text={userText} />}</div>
+            <div className="back"><small>{'另一面的願望'}</small>{charText && <AnimatedText text={charText} />}{visualQuips[0] && <em className="q7-wish-whisper">“{visualQuips[0]}”</em>}</div>
             <span className="hanger" />
         </div>}
         {sceneId === 'threadNeedle' && <svg viewBox="0 0 260 220" aria-hidden="true"><path className="needle" d="M175 26L83 187" /><ellipse className="eye" cx="170" cy="35" rx="7" ry="14" transform="rotate(31 170 35)" /><path className="thread user-thread" d="M25 151C87 75 153 170 211 86S292 71 236 174" /><path className="thread char-thread" d="M233 177C190 138 159 55 103 105S40 119 29 159" /><circle className="thread-spark" cx="170" cy="35" r="4" /></svg>}
         {sceneId === 'offerings' && <div className="q7-offering-stage">
             <span className="q7-offering-table" aria-hidden="true" />
             <section className="q7-offering-slot is-user"><small>你放下</small><b>{userText || '你的供物'}</b><i aria-hidden="true" /></section>
-            <section className="q7-offering-slot is-char"><small>另一边放下私物</small><b>{charContribution || '一件属于 ta 的私物'}</b><i aria-hidden="true" /></section>
+            <section className="q7-offering-slot is-char"><small>另一邊放下私物</small><b>{charContribution || '一件屬於 ta 的私物'}</b><i aria-hidden="true" /></section>
             {changedByChar && visualQuips[0] && <em className="q7-offering-quip">“{visualQuips[0]}”</em>}
         </div>}
         {sceneId === 'reflection' && <div className="q7-water-object"><i /><i /><i /><span /><em className="q7-water-star">✦</em>{changedByChar && <b />}</div>}
         {sceneId === 'nightMarket' && <div className="q7-market-object">
             <span className="q7-market-awning" aria-hidden="true" />
-            <section className="q7-market-purchase is-user"><small>你挑中</small><b>{userText || '还没选商品'}</b></section>
-            {changedByChar && charContribution && <section className="q7-market-purchase is-char"><small>另一边偷偷自购</small><b>{charContribution}</b></section>}
+            <section className="q7-market-purchase is-user"><small>你挑中</small><b>{userText || '還沒選商品'}</b></section>
+            {changedByChar && charContribution && <section className="q7-market-purchase is-char"><small>另一邊偷偷自購</small><b>{charContribution}</b></section>}
             <i className="q7-market-lantern one" aria-hidden="true" /><i className="q7-market-lantern two" aria-hidden="true" />
             <b className="q7-market-ticket" />
         </div>}
         {sceneId === 'wordCloud' && <div className="q7-vine-object"><i /><i /><i /><span /><b /><b /><b /></div>}
-        {visualQuips.length > 0 && !['lostLayer', 'doubleWish', 'offerings'].includes(sceneId) && <div className={`q7-char-visual-quips is-${sceneId}`} aria-label={`另一层吐槽：${visualQuips.join(' ')}`}>
+        {visualQuips.length > 0 && !['lostLayer', 'doubleWish', 'offerings'].includes(sceneId) && <div className={`q7-char-visual-quips is-${sceneId}`} aria-label={`另一層吐槽：${visualQuips.join(' ')}`}>
             {visualQuips.map((quip, index) => <p key={`${quip}-${index}`} style={{ '--quip-index': index } as React.CSSProperties}>“{quip}”</p>)}
         </div>}
         {changedByChar && !['lostLayer', 'doubleWish', 'wordCloud'].includes(sceneId) && <span className="q7-char-signature" aria-hidden="true"><i /><i /><i /></span>}
@@ -482,15 +482,15 @@ const QixiPortrait: React.FC<{
         return <>
             <div className="q7-portrait is-meeting" data-emotion={cue.emotionIntent}><img src={meetingUrl} alt={char.name} onError={() => setMeetingFailed(true)} style={meetingStyle} /></div>
             {adjustable && <div className="q7-portrait-adjust">
-                <button type="button" className="q7-portrait-adjust-toggle" aria-label="调整立绘大小与位置" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(open => !open)}>
+                <button type="button" className="q7-portrait-adjust-toggle" aria-label="調整立繪大小與位置" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(open => !open)}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.86 1.86-.06-.06A1.7 1.7 0 0 0 16 18.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V20h-2.6v-.1A1.7 1.7 0 0 0 10.9 18.4a1.7 1.7 0 0 0-1.88.34l-.06.06-1.86-1.86.06-.06A1.7 1.7 0 0 0 7.5 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H5.7V11h.1A1.7 1.7 0 0 0 7.5 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06L8.96 6.2l.06.06A1.7 1.7 0 0 0 10.9 6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V4h2.6v.1A1.7 1.7 0 0 0 16 6a1.7 1.7 0 0 0 1.88-.34l.06-.06 1.86 1.86-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1V14h-.1a1.7 1.7 0 0 0-1.7 1Z" /></svg>
                 </button>
                 {settingsOpen && <section className="q7-portrait-adjust-panel" onClick={event => event.stopPropagation()}>
-                    <header><b>立绘调整</b><button type="button" onClick={() => { onMeetingConfigSave?.(meetingConfig); setSettingsOpen(false); }}>完成</button></header>
+                    <header><b>立繪調整</b><button type="button" onClick={() => { onMeetingConfigSave?.(meetingConfig); setSettingsOpen(false); }}>完成</button></header>
                     <label><span>大小 <i>{meetingConfig.scale.toFixed(1)}×</i></span><input type="range" min="0.5" max="2" step="0.1" value={meetingConfig.scale} onChange={event => setMeetingConfig(current => ({ ...current, scale: Number(event.target.value) }))} /></label>
                     <label><span>左右 <i>{meetingConfig.x}%</i></span><input type="range" min="-100" max="100" step="5" value={meetingConfig.x} onChange={event => setMeetingConfig(current => ({ ...current, x: Number(event.target.value) }))} /></label>
                     <label><span>上下 <i>{meetingConfig.y}%</i></span><input type="range" min="-50" max="50" step="5" value={meetingConfig.y} onChange={event => setMeetingConfig(current => ({ ...current, y: Number(event.target.value) }))} /></label>
-                    <button type="button" className="q7-portrait-adjust-reset" onClick={() => setMeetingConfig({ scale: 1, x: 0, y: 0 })}>重置为见面模式默认</button>
+                    <button type="button" className="q7-portrait-adjust-reset" onClick={() => setMeetingConfig({ scale: 1, x: 0, y: 0 })}>重置為見面模式默認</button>
                 </section>}
             </div>}
         </>;
@@ -611,7 +611,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             })
             .catch((error: any) => {
                 setGenerationStatus(current => ({ ...current, part3: 'error' }));
-                setGenerationError({ part: 'part3', message: error?.message || '最终见面生成失败。' });
+                setGenerationError({ part: 'part3', message: error?.message || '最終見面生成失敗。' });
                 return null;
             })
             .finally(() => { reunionGenerationRef.current = null; });
@@ -639,7 +639,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             })
             .catch((error: any) => {
                 setGenerationStatus(current => ({ ...current, part2: 'error', part3: 'idle' }));
-                setGenerationError({ part: 'part2', message: error?.message || '记忆鹊生成失败。' });
+                setGenerationError({ part: 'part2', message: error?.message || '記憶鵲生成失敗。' });
                 return null;
             })
             .finally(() => { bridgeGenerationRef.current = null; });
@@ -651,7 +651,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
         setMemoryStatus('loading');
         setGenerationStatus({ part1: 'generating', part2: 'idle', part3: 'idle' });
         setGenerationError(null);
-        setMemoryNotice(`正在整理你和 ${char.name} 的聊天与共同记忆，这一步可能需要稍长时间。`);
+        setMemoryNotice(`正在整理你和 ${char.name} 的聊天與共同記憶，這一步可能需要稍長時間。`);
         materialGenerationRef.current = prepareQixiMemoryBundle(char, user, apiConfig, {
             forceRegenerate,
             strict: true,
@@ -664,16 +664,16 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                 if (phase === 'first') {
                     setLoadingReady(true);
                     setGenerationStatus({ part1: 'ready', part2: 'generating', part3: 'idle' });
-                    setMemoryNotice(`开场与前两处空间已经整理完成；${char.name} 正在后台继续寻找后面的路。`);
+                    setMemoryNotice(`開場與前兩處空間已經整理完成；${char.name} 正在後台繼續尋找後面的路。`);
                     return;
                 }
                 if (phase === 'second') {
                     setGenerationStatus({ part1: 'ready', part2: 'generating', part3: 'idle' });
-                    setMemoryNotice('中段空间已经抵达；下一段仍在后台继续生成。');
+                    setMemoryNotice('中段空間已經抵達；下一段仍在後台繼續生成。');
                     return;
                 }
                 setGenerationStatus({ part1: 'ready', part2: 'ready', part3: 'generating' });
-                setMemoryNotice('七处空间与鹊桥剧情已经全部生成。');
+                setMemoryNotice('七處空間與鵲橋劇情已經全部生成。');
                 void generatePart2And3(bundle);
             },
             userLayerColor: selectedUserLayerColor,
@@ -686,7 +686,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             .catch((error: any) => {
                 setMemoryStatus('idle');
                 setGenerationStatus(current => ({ ...current, part1: 'error' }));
-                setGenerationError({ part: 'part1', message: error?.message || '记忆与开场生成失败。' });
+                setGenerationError({ part: 'part1', message: error?.message || '記憶與開場生成失敗。' });
                 throw error;
             })
             .finally(() => { materialGenerationRef.current = null; });
@@ -1008,7 +1008,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             onClose();
             return;
         }
-        const message = game.reunion?.returnMessage || `七夕快乐，${user.name}。`;
+        const message = game.reunion?.returnMessage || `七夕快樂，${user.name}。`;
         try {
             const reunion = game.reunion;
             const card = createQixiEventChatCard({
@@ -1034,7 +1034,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                 companionshipReflection: reunion?.companionshipReflection || [],
                 blessing: reunion?.blessing || [],
                 promiseInvitation: reunion?.touch.invitation || [],
-                promiseComplete: reunion?.touch.complete || '……约好了。',
+                promiseComplete: reunion?.touch.complete || '……約好了。',
             });
             const replaySnapshotValue: QixiReplaySnapshot = {
                 version: 8,
@@ -1053,38 +1053,38 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
     }, [finishToChat]);
 
     const visibleActions = useMemo(() => {
-        if (apiConfirmationOpen) return ['确认 API 配置并开始', '先不开始'];
+        if (apiConfirmationOpen) return ['確認 API 配置並開始', '先不開始'];
         if (game.stage === 'cover') {
-            if (sessionMode === 'replay') return ['重看上一次梦境'];
-            return savedAtOpen.current ? ['进入梦境', '继续上次探索'] : ['进入梦境'];
+            if (sessionMode === 'replay') return ['重看上一次夢境'];
+            return savedAtOpen.current ? ['進入夢境', '繼續上次探索'] : ['進入夢境'];
         }
-        if (game.stage === 'colorSelect') return memoryStatus === 'loading' ? ['正在辨认共同记忆'] : QIXI_USER_LAYER_COLORS.map(color => color.label);
-        if (game.stage === 'loading') return loadingReady ? ['等待落地', '记忆整理完成后继续'] : ['点击或触摸使角色上升'];
+        if (game.stage === 'colorSelect') return memoryStatus === 'loading' ? ['正在辨認共同記憶'] : QIXI_USER_LAYER_COLORS.map(color => color.label);
+        if (game.stage === 'loading') return loadingReady ? ['等待落地', '記憶整理完成後繼續'] : ['點擊或觸摸使角色上升'];
         if (game.stage === 'entry') return ['探索附近', '喊 ta 的名字', '留在原地'];
-        if (game.stage === 'sceneTransition') return currentSceneMaterialReady ? ['继续'] : ['等待这一段生成完成'];
+        if (game.stage === 'sceneTransition') return currentSceneMaterialReady ? ['繼續'] : ['等待這一段生成完成'];
         if (game.stage === 'scene') {
-            if (game.sceneBeat === 'user') return [currentSceneId === 'lostLayer' ? '看看另一层的反应' : '继续'];
-            if (game.sceneBeat === 'char') return ['继续'];
+            if (game.sceneBeat === 'user') return [currentSceneId === 'lostLayer' ? '看看另一層的反應' : '繼續'];
+            if (game.sceneBeat === 'char') return ['繼續'];
             if (currentSceneId === 'wordCloud' && !sceneCompleted) {
-                if (wordPickTarget === 0) return ['继续'];
-                return wordTurnWaiting ? ['等待另一边选择'] : wordArtifacts.map(item => item.label);
+                if (wordPickTarget === 0) return ['繼續'];
+                return wordTurnWaiting ? ['等待另一邊選擇'] : wordArtifacts.map(item => item.label);
             }
             if (!sceneCompleted) return scenePayload.options.map(option => option.label);
-            return [game.sceneIndex === QIXI_SCENE_IDS.length - 1 ? '让痕迹汇成桥' : '沿星线继续'];
+            return [game.sceneIndex === QIXI_SCENE_IDS.length - 1 ? '讓痕跡匯成橋' : '沿星線繼續'];
         }
-        if (game.stage === 'bridgeLoading') return ['正在把真实记忆整理成桥面'];
+        if (game.stage === 'bridgeLoading') return ['正在把真實記憶整理成橋面'];
         if (game.stage === 'bridge') {
             const remaining = game.bridge?.userMagpies.filter(item => !game.bridgePlaced.includes(item.id)) || [];
-            return remaining.length ? remaining.map(item => `想起：${item.name}`) : ['等待最后一只鹊从对岸飞来'];
+            return remaining.length ? remaining.map(item => `想起：${item.name}`) : ['等待最後一隻鵲從對岸飛來'];
         }
-        if (game.stage === 'bridgeCrossing') return ['沿双方织出的星线走向对岸'];
-        if (game.stage === 'reunion') return ['继续'];
+        if (game.stage === 'bridgeCrossing') return ['沿雙方織出的星線走向對岸'];
+        if (game.stage === 'reunion') return ['繼續'];
         if (game.stage === 'touch') {
             const invitationCount = game.reunion?.touch.invitation.length || 0;
-            if (game.reunionLineIndex < invitationCount) return ['继续听约定'];
-            return [touch.joined ? '松手，留下约定' : '按住发光圆圈'];
+            if (game.reunionLineIndex < invitationCount) return ['繼續聽約定'];
+            return [touch.joined ? '鬆手，留下約定' : '按住發光圓圈'];
         }
-        if (game.stage === 'ending') return ['点击任意处结束'];
+        if (game.stage === 'ending') return ['點擊任意處結束'];
         return [];
     }, [apiConfirmationOpen, currentSceneId, currentSceneMaterialReady, game.bridge, game.bridgePlaced, game.reunion?.touch.invitation.length, game.reunionLineIndex, game.sceneBeat, game.sceneIndex, game.stage, loadingReady, memoryStatus, sceneCompleted, scenePayload.options, sessionMode, touch.joined, wordArtifacts, wordPickTarget, wordTurnWaiting]);
 
@@ -1143,28 +1143,28 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             <CelestialBackdrop /><ExitButton onClose={onClose} />
             <div className="q7-cover-frame" aria-hidden="true"><i /><i /><i /><i /></div>
             <section>
-                <div className="q7-season"><i>✦</i><span>2026 · 七夕限定梦境</span><i>✦</i></div>
+                <div className="q7-season"><i>✦</i><span>2026 · 七夕限定夢境</span><i>✦</i></div>
                 <div className="q7-moons" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></div>
-                <h1><small>星月</small>梦境童话</h1>
+                <h1><small>星月</small>夢境童話</h1>
                 <em>THE TALE BENEATH A MESSAGE</em>
-                <blockquote>沿着一条没有送达的消息，<br />捡回从聊天里漏掉的小事。</blockquote>
-                <button type="button" data-qixi-action="enter-dream" className="q7-primary" onClick={sessionMode === 'replay' ? startReplay : openColorSelect}><span>{sessionMode === 'replay' ? '重看这次梦境' : '进入梦境'}</span><small>{sessionMode === 'replay' ? 'REPLAY THE SAME MEMORY' : 'ENTER REVERIE'}</small></button>
-                {sessionMode === 'replay' ? <p className="q7-notice is-memory">沿用上一次生成的完整剧情、鹊桥与最终约定，不会再次调用模型，也不会重复写入私聊。</p> : memoryNotice && <p className={`q7-notice is-${memoryStatus}`}>{memoryNotice}</p>}
-                {sessionMode === 'fresh' && savedAtOpen.current && <button type="button" data-qixi-action="resume" className="q7-resume" onClick={resume}>继续上次掉下去的地方</button>}
+                <blockquote>沿著一條沒有送達的消息，<br />撿回從聊天裡漏掉的小事。</blockquote>
+                <button type="button" data-qixi-action="enter-dream" className="q7-primary" onClick={sessionMode === 'replay' ? startReplay : openColorSelect}><span>{sessionMode === 'replay' ? '重看這次夢境' : '進入夢境'}</span><small>{sessionMode === 'replay' ? 'REPLAY THE SAME MEMORY' : 'ENTER REVERIE'}</small></button>
+                {sessionMode === 'replay' ? <p className="q7-notice is-memory">沿用上一次生成的完整劇情、鵲橋與最終約定，不會再次調用模型，也不會重複寫入私聊。</p> : memoryNotice && <p className={`q7-notice is-${memoryStatus}`}>{memoryNotice}</p>}
+                {sessionMode === 'fresh' && savedAtOpen.current && <button type="button" data-qixi-action="resume" className="q7-resume" onClick={resume}>繼續上次掉下去的地方</button>}
             </section>
         </main>
     );
 
     const renderFakeChat = () => (
-        <main className="q7-chat"><ExitButton onClose={onClose} /><header><button>‹</button><i>{char.name.trim().charAt(0)}</i><span><b>{char.name}</b><small>在线</small></span></header><section><time>七夕 · 23:57</time>{activeBundle.openingChat.map((line, index) => <p key={index}><AnimatedText text={line} /></p>)}<em><i /> 输入状态反复消失</em></section><footer><button>＋</button><button type="button" className="q7-glitch-input" data-qixi-action="send-code" onClick={() => setGame(current => ({ ...current, stage: 'distort' }))}><span>点一下异常的输入框</span><i>│</i></button><button>↑</button></footer></main>
+        <main className="q7-chat"><ExitButton onClose={onClose} /><header><button>‹</button><i>{char.name.trim().charAt(0)}</i><span><b>{char.name}</b><small>在線</small></span></header><section><time>七夕 · 23:57</time>{activeBundle.openingChat.map((line, index) => <p key={index}><AnimatedText text={line} /></p>)}<em><i /> 輸入狀態反覆消失</em></section><footer><button>＋</button><button type="button" className="q7-glitch-input" data-qixi-action="send-code" onClick={() => setGame(current => ({ ...current, stage: 'distort' }))}><span>點一下異常的輸入框</span><i>│</i></button><button>↑</button></footer></main>
     );
 
     const renderDistort = () => (
-        <main className="q7-distort"><ExitButton onClose={onClose} /><div className="q7-tunnel" aria-hidden="true"><i /><i /><i /><i /><span className="rabbit"><i /></span></div><header><small>CHAT / CONTEXT LEAK</small>{char.name}<span>正在输入　正在输入　正＿</span></header>{[...sceneFragments, ...activeBundle.artifacts].slice(0, 6).map((item, index) => <div key={`${item.id}-${index}`} className={`shard s${index + 1}`}>{item.label}</div>)}<button type="button" data-qixi-action="fall" className="q7-door" onClick={() => setGame(current => ({ ...current, stage: 'entry' }))}><small>输入框底下露出了一层不该出现的文字</small><b>空白正在向下裂开。</b><span>碰一下 ↓</span></button></main>
+        <main className="q7-distort"><ExitButton onClose={onClose} /><div className="q7-tunnel" aria-hidden="true"><i /><i /><i /><i /><span className="rabbit"><i /></span></div><header><small>CHAT / CONTEXT LEAK</small>{char.name}<span>正在輸入　正在輸入　正＿</span></header>{[...sceneFragments, ...activeBundle.artifacts].slice(0, 6).map((item, index) => <div key={`${item.id}-${index}`} className={`shard s${index + 1}`}>{item.label}</div>)}<button type="button" data-qixi-action="fall" className="q7-door" onClick={() => setGame(current => ({ ...current, stage: 'entry' }))}><small>輸入框底下露出了一層不該出現的文字</small><b>空白正在向下裂開。</b><span>碰一下 ↓</span></button></main>
     );
 
     const renderEntry = () => (
-        <main className="q7-story q7-entry"><CelestialBackdrop /><ExitButton onClose={onClose} /><div className="q7-entry-fragments" aria-hidden="true">{sceneFragments.slice(0, 5).map((item, index) => <i key={item.id} style={{ '--fragment-index': index } as React.CSSProperties}>{item.label}</i>)}</div><section><p className="q7-kicker">上下文夹层 · 坐标同时丢失</p><h2>你和那条消息<br />一起掉了下来。</h2><p>聊天界面在头顶合拢。半句话、日期、物件名和一块褪色的 [图片] 痕迹还在继续往下落。</p><aside>没有路标。白兔只是从裂缝里长出来的一小块错觉。</aside><button data-qixi-action="entry-explore" onClick={() => enterInterlayer('explore')}>先碰最近的那句话 <i>→</i></button><button data-qixi-action="entry-shout" onClick={() => enterInterlayer('shout')}>对着裂缝喊 {char.name} <i>→</i></button><button data-qixi-action="entry-stay" onClick={() => enterInterlayer('stay')}>不动，等一秒看看 <i>→</i></button></section></main>
+        <main className="q7-story q7-entry"><CelestialBackdrop /><ExitButton onClose={onClose} /><div className="q7-entry-fragments" aria-hidden="true">{sceneFragments.slice(0, 5).map((item, index) => <i key={item.id} style={{ '--fragment-index': index } as React.CSSProperties}>{item.label}</i>)}</div><section><p className="q7-kicker">上下文夾層 · 座標同時丟失</p><h2>你和那條消息<br />一起掉了下來。</h2><p>聊天界面在頭頂合攏。半句話、日期、物件名和一塊褪色的 [圖片] 痕跡還在繼續往下落。</p><aside>沒有路標。白兔只是從裂縫裡長出來的一小塊錯覺。</aside><button data-qixi-action="entry-explore" onClick={() => enterInterlayer('explore')}>先碰最近的那句話 <i>→</i></button><button data-qixi-action="entry-shout" onClick={() => enterInterlayer('shout')}>對著裂縫喊 {char.name} <i>→</i></button><button data-qixi-action="entry-stay" onClick={() => enterInterlayer('stay')}>不動，等一秒看看 <i>→</i></button></section></main>
     );
 
     const renderSceneTransition = () => {
@@ -1177,30 +1177,30 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                 <small>前往 {String(game.sceneIndex + 1).padStart(2, '0')} · {sceneMeta.title}</small>
                 <div>{currentSceneMaterialReady
                     ? lines.map((line, index) => <p key={`${line}-${index}`}><AnimatedText text={line} /></p>)
-                    : <p><AnimatedText text="这一段还在从另一层赶来。" /></p>}</div>
-                <button type="button" data-qixi-action="enter-scene" disabled={!currentSceneMaterialReady} onClick={() => setGame(current => currentSceneMaterialReady ? ({ ...current, stage: 'scene' }) : current)}>{currentSceneMaterialReady ? '继续' : '正在等待'} <i>{currentSceneMaterialReady ? '→' : '···'}</i></button>
+                    : <p><AnimatedText text="這一段還在從另一層趕來。" /></p>}</div>
+                <button type="button" data-qixi-action="enter-scene" disabled={!currentSceneMaterialReady} onClick={() => setGame(current => currentSceneMaterialReady ? ({ ...current, stage: 'scene' }) : current)}>{currentSceneMaterialReady ? '繼續' : '正在等待'} <i>{currentSceneMaterialReady ? '→' : '···'}</i></button>
             </section>
         </main>;
     };
 
     const attitudeLine = game.attitude === 'shout'
-        ? '你喊出的名字在字缝里弹了一下，几句还没发出的日常话题跟着亮起。'
+        ? '你喊出的名字在字縫裡彈了一下，幾句還沒發出的日常話題跟著亮起。'
         : game.attitude === 'stay'
-            ? '你等了一秒，输入框把几句还没说的话推到面前。'
-            : '第一步落下时，几件还想继续聊的小事在远处亮起。';
+            ? '你等了一秒，輸入框把幾句還沒說的話推到面前。'
+            : '第一步落下時，幾件還想繼續聊的小事在遠處亮起。';
 
     const wishCardText = currentSceneId === 'doubleWish'
-        ? selectedSceneOption?.label.replace(/^(?:写|许愿)[：:]\s*/, '')
+        ? selectedSceneOption?.label.replace(/^(?:[写寫]|[许許][愿願])[：:]\s*/, '')
         : undefined;
     const sceneObjectUserText = currentSceneId === 'offerings' || currentSceneId === 'nightMarket'
         ? selectedSceneOption?.label
         : wishCardText;
     const sceneChoicePrompt: Partial<Record<QixiSceneId, string>> = {
-        doubleWish: '选一个你真想和 ta 一起抵达的以后',
-        threadNeedle: '决定这一轮怎么和另一边配合',
-        offerings: '选一件你想先放上供桌的东西',
-        reflection: '决定要在水面留下什么',
-        nightMarket: '从摊位上挑一件你真的想买的商品',
+        doubleWish: '選一個你真想和 ta 一起抵達的以後',
+        threadNeedle: '決定這一輪怎麼和另一邊配合',
+        offerings: '選一件你想先放上供桌的東西',
+        reflection: '決定要在水面留下什麼',
+        nightMarket: '從攤位上挑一件你真的想買的商品',
     };
 
     const renderScene = () => (
@@ -1211,20 +1211,20 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             <section className="q7-scene-grid">
                 <div className="q7-visual"><SceneObject sceneId={currentSceneId} label={scenePayload.sharedObject} beat={game.sceneBeat} visualQuips={visibleVisualCharQuips} userText={sceneObjectUserText} charText={['lostLayer', 'doubleWish'].includes(currentSceneId) ? qixiCharVisibleText(currentSceneId, scenePayload) : undefined} charMutter={currentSceneId === 'lostLayer' ? qixiCharMutter(scenePayload) : undefined} charReply={currentSceneId === 'lostLayer' ? selectedSceneOption?.charReply : undefined} charContribution={['offerings', 'nightMarket'].includes(currentSceneId) ? scenePayload.charContribution : undefined} topicOptions={currentSceneId === 'lostLayer' ? scenePayload.options : undefined} selectedTopicId={currentSceneId === 'lostLayer' ? sceneDecisions[0] : undefined} onTopicSelect={optionId => { const option = scenePayload.options.find(item => item.id === optionId); if (option) chooseOption(option.id, option.result); }} /><p><AnimatedText text={scenePayload.memoryLine} /></p></div>
                 <div className="q7-interaction">
-                    {!sceneCompleted && game.sceneBeat === 'idle' && currentSceneId === 'lostLayer' && <div className="q7-lost-instruction"><small>选择一个想和 ta 聊的话题</small><p>从输入框里挑一句现在想说的话。</p></div>}
-                    {!sceneCompleted && game.sceneBeat === 'idle' && !['lostLayer', 'wordCloud'].includes(currentSceneId) && <><small>{sceneChoicePrompt[currentSceneId] || '选一种做法'}</small>{scenePayload.options.map(option => <button key={option.id} type="button" data-qixi-action={`choose-${currentSceneId}-${option.id}`} onClick={() => chooseOption(option.id, option.result)}>{option.label}<i>→</i></button>)}</>}
-                    {!sceneCompleted && game.sceneBeat === 'idle' && currentSceneId === 'wordCloud' && (wordPickTarget > 0 ? <><small>选 {wordPickTarget} 个词：你想到的那个人是什么性格 · {Math.min(sceneDecisions.length, wordPickTarget)} / {wordPickTarget}</small><div className={`q7-words is-turn-taking ${wordTurnWaiting ? 'is-waiting' : ''}`}>{wordArtifacts.map(item => <button key={item.id} type="button" disabled={wordTurnWaiting || sceneDecisions.includes(item.id)} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`} data-qixi-action={`word-${item.id}`} onClick={() => toggleWord(item.id)}>{item.label}</button>)}</div><p className={`q7-word-turn-status ${wordTurnWaiting ? 'is-char' : 'is-user'}`}><i />{wordTurnWaiting ? '另一层也正在选一个词……' : game.wordCloudCharRevealed ? '再选一个你想到 ta 时会用的性格词。' : '先选一个最像 ta 的性格词。'}</p></> : <div className="q7-word-cloud-recovery"><small>散落的词没有完全显形</small><button type="button" data-qixi-action="continue-empty-word-cloud" onClick={continueEmptyWordCloud}>继续 <i>→</i></button></div>)}
-                    {!sceneCompleted && game.sceneBeat === 'user' && currentSceneId === 'lostLayer' && <div className="q7-beat-prompt is-user is-error-beat"><small>这句话没有送达</small><p>{(game.results[currentSceneId] || [])[0]}</p><button type="button" data-qixi-action="scene-reveal-char" onClick={advanceSceneBeat}>看看另一层的反应 <i>→</i></button></div>}
-                    {!sceneCompleted && game.sceneBeat === 'user' && currentSceneId !== 'lostLayer' && <div className="q7-beat-prompt is-user"><small>你碰过以后</small><p>{(game.results[currentSceneId] || [])[0]}</p><button type="button" data-qixi-action="scene-reveal-char" onClick={advanceSceneBeat}>继续 <i>→</i></button></div>}
-                    {!sceneCompleted && game.sceneBeat === 'char' && <div className="q7-beat-prompt is-char"><small>{currentSceneId === 'lostLayer' ? '另一层挤了进来' : '另一层传来'}</small><p className="q7-char-stage-direction">{scenePayload.charAction}</p>{currentSceneId === 'wordCloud' && <div className="q7-words is-reveal">{wordArtifacts.map((item, index) => <span key={item.id} style={{ '--word-index': index } as React.CSSProperties} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`}>{item.label}</span>)}</div>}<button type="button" data-qixi-action="scene-complete-beat" onClick={advanceSceneBeat}>继续 <i>→</i></button></div>}
-                    {sceneCompleted && <div className="q7-result">{currentSceneId === 'wordCloud' && <div className="q7-words is-reveal">{wordArtifacts.map((item, index) => <span key={item.id} style={{ '--word-index': index } as React.CSSProperties} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`}>{item.label}</span>)}</div>}<button type="button" data-qixi-action="next-scene" className="q7-next" onClick={nextScene}>继续 <i>→</i></button></div>}
+                    {!sceneCompleted && game.sceneBeat === 'idle' && currentSceneId === 'lostLayer' && <div className="q7-lost-instruction"><small>選擇一個想和 ta 聊的話題</small><p>從輸入框裡挑一句現在想說的話。</p></div>}
+                    {!sceneCompleted && game.sceneBeat === 'idle' && !['lostLayer', 'wordCloud'].includes(currentSceneId) && <><small>{sceneChoicePrompt[currentSceneId] || '選一種做法'}</small>{scenePayload.options.map(option => <button key={option.id} type="button" data-qixi-action={`choose-${currentSceneId}-${option.id}`} onClick={() => chooseOption(option.id, option.result)}>{option.label}<i>→</i></button>)}</>}
+                    {!sceneCompleted && game.sceneBeat === 'idle' && currentSceneId === 'wordCloud' && (wordPickTarget > 0 ? <><small>選 {wordPickTarget} 個詞：你想到的那個人是什麼性格 · {Math.min(sceneDecisions.length, wordPickTarget)} / {wordPickTarget}</small><div className={`q7-words is-turn-taking ${wordTurnWaiting ? 'is-waiting' : ''}`}>{wordArtifacts.map(item => <button key={item.id} type="button" disabled={wordTurnWaiting || sceneDecisions.includes(item.id)} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`} data-qixi-action={`word-${item.id}`} onClick={() => toggleWord(item.id)}>{item.label}</button>)}</div><p className={`q7-word-turn-status ${wordTurnWaiting ? 'is-char' : 'is-user'}`}><i />{wordTurnWaiting ? '另一層也正在選一個詞……' : game.wordCloudCharRevealed ? '再選一個你想到 ta 時會用的性格詞。' : '先選一個最像 ta 的性格詞。'}</p></> : <div className="q7-word-cloud-recovery"><small>散落的詞沒有完全顯形</small><button type="button" data-qixi-action="continue-empty-word-cloud" onClick={continueEmptyWordCloud}>繼續 <i>→</i></button></div>)}
+                    {!sceneCompleted && game.sceneBeat === 'user' && currentSceneId === 'lostLayer' && <div className="q7-beat-prompt is-user is-error-beat"><small>這句話沒有送達</small><p>{(game.results[currentSceneId] || [])[0]}</p><button type="button" data-qixi-action="scene-reveal-char" onClick={advanceSceneBeat}>看看另一層的反應 <i>→</i></button></div>}
+                    {!sceneCompleted && game.sceneBeat === 'user' && currentSceneId !== 'lostLayer' && <div className="q7-beat-prompt is-user"><small>你碰過以後</small><p>{(game.results[currentSceneId] || [])[0]}</p><button type="button" data-qixi-action="scene-reveal-char" onClick={advanceSceneBeat}>繼續 <i>→</i></button></div>}
+                    {!sceneCompleted && game.sceneBeat === 'char' && <div className="q7-beat-prompt is-char"><small>{currentSceneId === 'lostLayer' ? '另一層擠了進來' : '另一層傳來'}</small><p className="q7-char-stage-direction">{scenePayload.charAction}</p>{currentSceneId === 'wordCloud' && <div className="q7-words is-reveal">{wordArtifacts.map((item, index) => <span key={item.id} style={{ '--word-index': index } as React.CSSProperties} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`}>{item.label}</span>)}</div>}<button type="button" data-qixi-action="scene-complete-beat" onClick={advanceSceneBeat}>繼續 <i>→</i></button></div>}
+                    {sceneCompleted && <div className="q7-result">{currentSceneId === 'wordCloud' && <div className="q7-words is-reveal">{wordArtifacts.map((item, index) => <span key={item.id} style={{ '--word-index': index } as React.CSSProperties} className={`${sceneDecisions.includes(item.id) ? 'is-user' : ''} ${visibleCharWordSelections.includes(item.id) ? 'is-char' : ''}`}>{item.label}</span>)}</div>}<button type="button" data-qixi-action="next-scene" className="q7-next" onClick={nextScene}>繼續 <i>→</i></button></div>}
                 </div>
             </section>
         </main>
     );
 
     const renderBridgeLoading = () => (
-        <main className="q7-reunion-loading"><CelestialBackdrop /><ExitButton onClose={onClose} /><div><i /><span /><i /></div><p>记忆已经抵达星河。<br />正在等两岸的鹊飞来……</p></main>
+        <main className="q7-reunion-loading"><CelestialBackdrop /><ExitButton onClose={onClose} /><div><i /><span /><i /></div><p>記憶已經抵達星河。<br />正在等兩岸的鵲飛來……</p></main>
     );
 
     const renderBridge = () => {
@@ -1236,8 +1236,8 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
         const latest = [...bridge.userMagpies].reverse().find(item => game.bridgePlaced.includes(item.id));
         return <main className={`q7-magpie-bridge is-${game.bridgeFinalState || 'idle'}`}>
             <CelestialBackdrop /><ExitButton onClose={onClose} />
-            <header><small>08 · 星河两岸</small><h2>想起一件事。</h2></header>
-            <div className="q7-river" aria-label="双方从两岸召来记忆鹊，细线正在织成道路">
+            <header><small>08 · 星河兩岸</small><h2>想起一件事。</h2></header>
+            <div className="q7-river" aria-label="雙方從兩岸召來記憶鵲，細線正在織成道路">
                 <div className="q7-bank is-user"><i /><span>{user.name}</span></div>
                 <div className="q7-bank is-char"><i /><span>{char.name}</span></div>
                 <svg className="q7-woven-lines" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true">
@@ -1250,7 +1250,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                 {game.bridgeFinalState !== 'idle' && <div className="q7-final-magpie"><QixiBird /><strong>「{bridge.finalMagpie.name}」</strong><p>{bridge.finalMagpie.line}</p></div>}
                 <div className="q7-thread-knot" />
             </div>
-            {!allUserPlaced && <section className="q7-memory-choices" aria-label="选择一段真实记忆">
+            {!allUserPlaced && <section className="q7-memory-choices" aria-label="選擇一段真實記憶">
                 {bridge.userMagpies.map(magpie => {
                     const placed = game.bridgePlaced.includes(magpie.id);
                     return <button type="button" key={magpie.id} disabled={placed} className={placed ? 'is-placed' : ''} data-qixi-action={`bridge-${magpie.id}`} onClick={() => placeBridgeNode(magpie.id)}><b>「{magpie.name}」</b><span>{magpie.memory}</span></button>;
@@ -1264,16 +1264,16 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
     );
 
     const renderReunionLoading = () => (
-        <main className="q7-reunion-loading"><CelestialBackdrop /><ExitButton onClose={onClose} /><div><i /><span /><i /></div><p>桥的另一端正在成为<br />你熟悉的那个 ta……</p></main>
+        <main className="q7-reunion-loading"><CelestialBackdrop /><ExitButton onClose={onClose} /><div><i /><span /><i /></div><p>橋的另一端正在成為<br />你熟悉的那個 ta……</p></main>
     );
 
     const renderReunion = () => {
         const reunion = game.reunion!;
         const pages: Array<{ label: string; lines: string[]; portraitStage: QixiPortraitStage; expressionGroup: 'reunion' | 'metaReflection' | 'companionshipReflection' | 'blessing' }> = [
-            { label: '终于看见', lines: reunion.reunion.lines, portraitStage: 'arrival', expressionGroup: 'reunion' },
-            ...(reunion.metaReflection.length ? [{ label: '隔层回声', lines: reunion.metaReflection, portraitStage: 'reflection' as QixiPortraitStage, expressionGroup: 'metaReflection' as const }] : []),
+            { label: '終於看見', lines: reunion.reunion.lines, portraitStage: 'arrival', expressionGroup: 'reunion' },
+            ...(reunion.metaReflection.length ? [{ label: '隔層回聲', lines: reunion.metaReflection, portraitStage: 'reflection' as QixiPortraitStage, expressionGroup: 'metaReflection' as const }] : []),
             { label: '想起彼此', lines: reunion.companionshipReflection, portraitStage: 'reflection', expressionGroup: 'companionshipReflection' },
-            { label: '七夕祝愿', lines: reunion.blessing, portraitStage: 'blessing', expressionGroup: 'blessing' },
+            { label: '七夕祝願', lines: reunion.blessing, portraitStage: 'blessing', expressionGroup: 'blessing' },
         ];
         const page = pages[Math.min(game.reunionPage, pages.length - 1)];
         const lineIndex = Math.min(game.reunionLineIndex, Math.max(0, page.lines.length - 1));
@@ -1295,7 +1295,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             <button type="button" className="q7-galgame-dialogue" data-qixi-action={lastPage && lastLine ? 'begin-touch' : 'reunion-next'} onClick={advance}>
                 <header><small>{page.label}</small><b>{char.name}</b></header>
                 <p key={`${game.reunionPage}-${lineIndex}`}><AnimatedText text={line} /></p>
-                <footer><span>{lastPage && lastLine ? '听 ta 说最后一个约定' : '点击继续'}</span><i>⌄</i></footer>
+                <footer><span>{lastPage && lastLine ? '聽 ta 說最後一個約定' : '點擊繼續'}</span><i>⌄</i></footer>
             </button>
         </main>;
     };
@@ -1312,7 +1312,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             {!invitationReady && <button type="button" className="q7-promise-dialogue" data-qixi-action="promise-next" onClick={() => setGame(current => ({ ...current, reunionLineIndex: current.reunionLineIndex + 1 }))}>
                 <small>{char.name}</small>
                 <p key={invitationIndex}><AnimatedText text={reunion.touch.invitation[invitationIndex] || '……'} /></p>
-                <span>点击继续　⌄</span>
+                <span>點擊繼續　⌄</span>
             </button>}
             <div className={`q7-touch-surface ${invitationReady ? 'is-ready' : 'is-waiting'} ${touch.active ? 'is-active' : ''} ${touch.approaching ? 'is-approaching' : ''} ${touch.joined ? 'is-joined' : ''}`} style={{ '--touch-x': touch.x, '--touch-y': touch.y } as React.CSSProperties}>
                 <div className="q7-touch-name">{char.name}</div>
@@ -1323,14 +1323,14 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                     type="button"
                     className="q7-touch-orb"
                     data-qixi-action="hold-glowing-orb"
-                    aria-label="按住发光圆圈完成约定"
+                    aria-label="按住發光圓圈完成約定"
                     onPointerDown={beginTouch}
                     onPointerUp={endTouch}
                     onPointerCancel={endTouch}
                     onLostPointerCapture={endTouch}
                     onContextMenu={event => event.preventDefault()}
                     onDragStart={event => event.preventDefault()}
-                ><i className="q7-touch-orb-ring is-user" /><i className="q7-touch-orb-ring is-char" /><b className="q7-touch-orb-core">✦</b><span><strong>快来碰碰这里</strong><small>{touch.releasedEarly && !touch.active ? '再按久一点' : touch.joined ? '可以松开了' : '轻轻按住'}</small></span></button>}
+                ><i className="q7-touch-orb-ring is-user" /><i className="q7-touch-orb-ring is-char" /><b className="q7-touch-orb-core">✦</b><span><strong>快來碰碰這裡</strong><small>{touch.releasedEarly && !touch.active ? '再按久一點' : touch.joined ? '可以鬆開了' : '輕輕按住'}</small></span></button>}
             </div>
         </main>;
     };
@@ -1340,13 +1340,13 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             className="q7-returning"
             role="button"
             tabIndex={0}
-            aria-label="结束七夕活动"
+            aria-label="結束七夕活動"
             data-qixi-action="finish-event"
             onClick={() => void finishToChatRef.current()}
             onKeyDown={event => {
                 if (event.key === 'Enter' || event.key === ' ') void finishToChatRef.current();
             }}
-        ><CelestialBackdrop /><div className="q7-returning-knot"><i /><b /></div><section><small>THE MOMENT REMAINS</small><p>七夕快乐，{user.name}。</p><span>{char.name}</span></section></main>
+        ><CelestialBackdrop /><div className="q7-returning-knot"><i /><b /></div><section><small>THE MOMENT REMAINS</small><p>七夕快樂，{user.name}。</p><span>{char.name}</span></section></main>
     );
 
     const renderColorSelect = () => (
@@ -1355,11 +1355,11 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             <section>
                 <header className="q7-color-select-copy">
                     <p className="q7-kicker">01 · DEFINE YOUR TRACE</p>
-                    <h2><span>先为这一边</span><strong>留下颜色。</strong></h2>
-                    <p>进入夹层后，它会标记你碰过的文字与星线。{char.name} 会拥有属于自己的另一种颜色。</p>
+                    <h2><span>先為這一邊</span><strong>留下顏色。</strong></h2>
+                    <p>進入夾層後，它會標記你碰過的文字與星線。{char.name} 會擁有屬於自己的另一種顏色。</p>
                 </header>
                 <div className="q7-layer-color-picker">
-                    <small><span>你的星线</span><b className="q7-layer-color-current"><i style={{ '--swatch': selectedUserLayerColor } as React.CSSProperties} />{QIXI_USER_LAYER_COLORS.find(color => color.value === selectedUserLayerColor)?.label || '已选择'}</b></small>
+                    <small><span>你的星線</span><b className="q7-layer-color-current"><i style={{ '--swatch': selectedUserLayerColor } as React.CSSProperties} />{QIXI_USER_LAYER_COLORS.find(color => color.value === selectedUserLayerColor)?.label || '已選擇'}</b></small>
                     <div>{QIXI_USER_LAYER_COLORS.map(color => <button
                         key={color.value}
                         type="button"
@@ -1371,7 +1371,7 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                         onClick={() => setSelectedUserLayerColor(color.value)}
                     ><i /><span>{color.label}</span></button>)}</div>
                 </div>
-                <button type="button" data-qixi-action="confirm-layer-color" className="q7-primary" onClick={() => setApiConfirmationOpen(true)} disabled={memoryStatus === 'loading'}><span>{memoryStatus === 'loading' ? '正在辨认两条星线' : '就用这个颜色'}</span><small>{memoryStatus === 'loading' ? 'TRACING MEMORIES' : 'CONFIRM YOUR SIDE'}</small></button>
+                <button type="button" data-qixi-action="confirm-layer-color" className="q7-primary" onClick={() => setApiConfirmationOpen(true)} disabled={memoryStatus === 'loading'}><span>{memoryStatus === 'loading' ? '正在辨認兩條星線' : '就用這個顏色'}</span><small>{memoryStatus === 'loading' ? 'TRACING MEMORIES' : 'CONFIRM YOUR SIDE'}</small></button>
                 {memoryNotice && <p className={`q7-notice is-${memoryStatus}`}>{memoryNotice}</p>}
                 {memoryStatus !== 'loading' && <button type="button" className="q7-color-select-back" onClick={() => setGame(current => ({ ...current, stage: 'cover' }))}>返回封面</button>}
             </section>
@@ -1383,14 +1383,14 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
             <div className="q7-api-confirm__veil" />
             <section>
                 <div className="q7-api-confirm__orbit" aria-hidden="true"><i /><i /><b>✦</b></div>
-                <small>BEFORE GENERATION · 生成前确认</small>
-                <h2 id="q7-api-confirm-title">检查一下 API 配置</h2>
+                <small>BEFORE GENERATION · 生成前確認</small>
+                <h2 id="q7-api-confirm-title">檢查一下 API 配置</h2>
                 <div className="q7-api-confirm__count"><strong>{QIXI_MODEL_API_CALL_COUNT}</strong><span>次模型 API</span></div>
-                <p>本次旅程共会调用 {QIXI_MODEL_API_CALL_COUNT} 次模型 API，请确认当前 API 配置与额度合适。</p>
-                <p className="q7-api-confirm__note">确认后才会开始整理记忆；取消不会发起任何一次生成调用。</p>
+                <p>本次旅程共會調用 {QIXI_MODEL_API_CALL_COUNT} 次模型 API，請確認當前 API 配置與額度合適。</p>
+                <p className="q7-api-confirm__note">確認後才會開始整理記憶；取消不會發起任何一次生成調用。</p>
                 <div className="q7-api-confirm__actions">
-                    <button type="button" data-qixi-action="confirm-api-and-start" onClick={confirmApiAndStart}>配置没问题，开始</button>
-                    <button type="button" data-qixi-action="cancel-api-confirmation" className="is-quiet" onClick={() => setApiConfirmationOpen(false)}>先不开始</button>
+                    <button type="button" data-qixi-action="confirm-api-and-start" onClick={confirmApiAndStart}>配置沒問題，開始</button>
+                    <button type="button" data-qixi-action="cancel-api-confirmation" className="is-quiet" onClick={() => setApiConfirmationOpen(false)}>先不開始</button>
                 </div>
             </section>
         </div>
@@ -1404,11 +1404,11 @@ export const QixiDemoSession: React.FC<QixiDemoSessionProps> = ({ char, user, ap
                 <div className="q7-generation-error__veil" />
                 <section>
                     <small>{generationError.part.toUpperCase()} · GENERATION STOPPED</small>
-                    <h2>这一段没有生成成功</h2>
+                    <h2>這一段沒有生成成功</h2>
                     <p>{generationError.message}</p>
-                    <p>系统没有自动重试，也没有用固定文案冒充生成结果。</p>
-                    <button type="button" data-qixi-action={`retry-${generationError.part}`} onClick={() => void retryGeneration()}>重新生成这一部分</button>
-                    <button type="button" className="is-quiet" onClick={onClose}>先退出活动</button>
+                    <p>系統沒有自動重試，也沒有用固定文案冒充生成結果。</p>
+                    <button type="button" data-qixi-action={`retry-${generationError.part}`} onClick={() => void retryGeneration()}>重新生成這一部分</button>
+                    <button type="button" className="is-quiet" onClick={onClose}>先退出活動</button>
                 </section>
             </div>}
             {game.stage === 'cover' && renderCover()}

@@ -43,7 +43,7 @@ describe('voice playback recovery', () => {
         await playVoiceAudio(audio, 'blob:voice', events);
         expect(events.onPlaying).not.toHaveBeenCalled();
         expect(events.onError).toHaveBeenCalledWith(error);
-        expect(voicePlaybackErrorMessage(error)).toContain('无需重新生成');
+        expect(voicePlaybackErrorMessage(error)).toContain('無需重新生成');
         await playVoiceAudio(audio, 'blob:voice', events);
         expect(events.onPlaying).toHaveBeenCalledTimes(1);
     });
@@ -73,7 +73,7 @@ describe('voice playback recovery', () => {
         await playVoiceAudio(audio, 'https://audio.example.com/expired', events);
         expect(events.onError).toHaveBeenCalledTimes(1);
         expect(events.onPlaying).not.toHaveBeenCalled();
-        expect(voicePlaybackErrorMessage(new Error('load failed'))).toContain('音频加载或播放失败');
+        expect(voicePlaybackErrorMessage(new Error('load failed'))).toContain('音頻加載或播放失敗');
     });
     it('reserves WebAudio for local audio; cross-origin fallbacks use native playback', () => {
         expect(canAnalyzeVoiceSource('https://audio.example.com/x', 'https://friedsully.com')).toBe(false);

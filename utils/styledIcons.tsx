@@ -1,8 +1,8 @@
 /**
- * StyledIcon — 手绘风格 SVG 图标系统
+ * StyledIcon — 手繪風格 SVG 圖標系統
  *
- * 用精致的 SVG 小插画替代 Twemoji，提供更统一、更有设计感的视觉体验。
- * 每个图标都是手工设计的极简矢量图，带有柔和的渐变和圆润的线条。
+ * 用精緻的 SVG 小插畫替代 Twemoji，提供更統一、更有設計感的視覺體驗。
+ * 每個圖標都是手工設計的極簡矢量圖，帶有柔和的漸變和圓潤的線條。
  */
 
 import React from 'react';
@@ -21,9 +21,9 @@ const Wrap: React.FC<IconProps & { children: React.ReactNode; viewBox?: string }
     </svg>
 );
 
-// ── 情绪/事件图标 ──────────────────────────────────────
+// ── 情緒/事件圖標 ──────────────────────────────────────
 
-/** 愤怒 - 红色闪电裂痕 */
+/** 憤怒 - 紅色閃電裂痕 */
 export const IconFight: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="url(#gFight)" stroke="#dc2626" strokeWidth="1.2" strokeLinejoin="round"/>
@@ -31,7 +31,7 @@ export const IconFight: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 派对 - 彩色星爆 */
+/** 派對 - 彩色星爆 */
 export const IconParty: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <circle cx="12" cy="12" r="6" fill="url(#gParty)" opacity="0.3"/>
@@ -54,7 +54,7 @@ export const IconRomance: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 闲话 - 气泡 */
+/** 閒話 - 氣泡 */
 export const IconGossip: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M20 12c0 4.418-3.582 7-8 7a9.863 9.863 0 01-3.2-.533L4 20l1.338-3.346C4.485 15.26 4 13.698 4 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
@@ -66,7 +66,7 @@ export const IconGossip: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 竞争 - 交叉剑 */
+/** 競爭 - 交叉劍 */
 export const IconRivalry: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M6 18L16 4" stroke="url(#gRiv1)" strokeWidth="2" strokeLinecap="round"/>
@@ -82,7 +82,7 @@ export const IconRivalry: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 结盟 - 握手 */
+/** 結盟 - 握手 */
 export const IconAlliance: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M2 11l4-4 3 1 3-3 3 3 3-1 4 4" stroke="url(#gAll)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -106,7 +106,7 @@ export const IconFlame: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 心动 - 暗恋 */
+/** 心動 - 暗戀 */
 export const IconCrush: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
@@ -116,7 +116,7 @@ export const IconCrush: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-// ── 天气图标 ──────────────────────────────────────
+// ── 天氣圖標 ──────────────────────────────────────
 
 /** 雨滴 */
 export const IconRaindrop: React.FC<IconProps> = (p) => (
@@ -138,7 +138,7 @@ export const IconSnowflake: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 闪电 */
+/** 閃電 */
 export const IconLightning: React.FC<IconProps> = (p) => (
     <Wrap {...p}>
         <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="url(#gLtn)" stroke="#fbbf24" strokeWidth="0.8" strokeLinejoin="round"/>
@@ -155,7 +155,7 @@ export const IconExplosion: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-// ── 家具图标（RoomApp 用） ──────────────────────────
+// ── 傢俱圖標（RoomApp 用） ──────────────────────────
 
 /** 床 */
 export const IconBed: React.FC<IconProps> = (p) => (
@@ -172,7 +172,7 @@ export const IconBed: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 沙发 */
+/** 沙發 */
 export const IconSofa: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <rect x="4" y="14" width="24" height="10" rx="3" fill="url(#gSofa)"/>
@@ -211,7 +211,7 @@ export const IconPlant: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 电脑 */
+/** 電腦 */
 export const IconComputer: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <rect x="4" y="4" width="24" height="16" rx="2" fill="url(#gComp1)" stroke="#475569" strokeWidth="1"/>
@@ -225,7 +225,7 @@ export const IconComputer: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 游戏手柄 */
+/** 遊戲手柄 */
 export const IconGamepad: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <path d="M6 12c0-2 1.5-3.5 3.5-3.5h13c2 0 3.5 1.5 3.5 3.5v4c0 4-2 8-5 9h-10c-3-1-5-5-5-9z" fill="url(#gPad)"/>
@@ -253,7 +253,7 @@ export const IconGuitar: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 画框 */
+/** 畫框 */
 export const IconPainting: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <rect x="3" y="5" width="26" height="22" rx="1" fill="#92400e" stroke="#78350f" strokeWidth="1.5"/>
@@ -265,7 +265,7 @@ export const IconPainting: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 书堆 */
+/** 書堆 */
 export const IconBooks: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <rect x="6" y="20" width="20" height="4" rx="0.5" fill="#3b82f6"/>
@@ -280,7 +280,7 @@ export const IconBooks: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 台灯 */
+/** 檯燈 */
 export const IconLamp: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <rect x="14" y="14" width="4" height="10" rx="1" fill="#94a3b8"/>
@@ -332,7 +332,7 @@ export const IconCake: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 披萨 */
+/** 披薩 */
 export const IconPizza: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <path d="M16 4L4 28h24z" fill="url(#gPiz1)"/>
@@ -347,7 +347,7 @@ export const IconPizza: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-/** 马桶 */
+/** 馬桶 */
 export const IconToilet: React.FC<IconProps> = (p) => (
     <Wrap {...p} viewBox="0 0 32 32">
         <ellipse cx="16" cy="20" rx="9" ry="6" fill="url(#gToilet1)"/>
@@ -373,7 +373,7 @@ export const IconBathtub: React.FC<IconProps> = (p) => (
     </Wrap>
 );
 
-// ── LifeSim 特殊事件图标 ──────────────────────────
+// ── LifeSim 特殊事件圖標 ──────────────────────────
 
 const EVENT_SVG_MAP: Record<string, React.FC<IconProps>> = {
     fight: IconFight,
@@ -400,26 +400,26 @@ const EVENT_SVG_MAP: Record<string, React.FC<IconProps>> = {
 };
 
 /**
- * 获取事件对应的 SVG 图标组件
- * 如果没有匹配的图标，返回 IconParty 作为默认
+ * 獲取事件對應的 SVG 圖標組件
+ * 如果沒有匹配的圖標，返回 IconParty 作為默認
  */
 export function getEventIcon(eventType: string): React.FC<IconProps> {
     return EVENT_SVG_MAP[eventType] || IconParty;
 }
 
 /**
- * EventIcon — 根据事件类型渲染对应 SVG 图标
+ * EventIcon — 根據事件類型渲染對應 SVG 圖標
  */
 export const EventIcon: React.FC<IconProps & { eventType: string }> = ({ eventType, ...rest }) => {
     const Comp = getEventIcon(eventType);
     return <Comp {...rest} />;
 };
 
-// ── 用于替代 NPC 头像 emoji 的彩色首字母头像 ──────────
+// ── 用於替代 NPC 頭像 emoji 的彩色首字母頭像 ──────────
 
 /**
- * NPCAvatar — 彩色首字母头像
- * 根据名字生成固定的渐变背景色 + 首字母，比 emoji 更精致
+ * NPCAvatar — 彩色首字母頭像
+ * 根據名字生成固定的漸變背景色 + 首字母，比 emoji 更精緻
  */
 export const NPCAvatar: React.FC<{
     name: string;
@@ -428,7 +428,7 @@ export const NPCAvatar: React.FC<{
     className?: string;
     style?: React.CSSProperties;
 }> = ({ name, size = 24, className = '', style }) => {
-    // 根据名字生成稳定的 hue
+    // 根據名字生成穩定的 hue
     let hash = 0;
     for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
     const hue = Math.abs(hash) % 360;

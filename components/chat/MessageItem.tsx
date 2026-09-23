@@ -23,35 +23,36 @@ import HtmlCard from './HtmlCard';
 import LuckinCard from './LuckinCard';
 import LuckinCheckoutCard from './LuckinCheckoutCard';
 import QixiEventCardView from './QixiEventCard';
+import { includesAnyScript } from '../../utils/scriptKey';
 
-// 思考链卡片支持的 12 种风格预设 — 同时被 MessageItem 与 ThinkingChainSettingsModal 复用
+// 思考鏈卡片支持的 12 種風格預設 — 同時被 MessageItem 與 ThinkingChainSettingsModal 複用
 export type ThinkingChainStyleId = 'echo' | 'whisper' | 'minimal' | 'ink' | 'neon' | 'terminal' | 'stellar' | 'tama' | 'pixel' | 'muji' | 'ins' | 'custom';
 export interface ThinkingChainStyleSpec {
     bg: string;            // 卡片背景（可以是 CSS gradient）
-    border: string;        // 边框色
-    accent: string;        // 标题/装饰点缀
-    text: string;          // 正文颜色
-    subtext: string;       // 副标题/状态文字
-    glow?: string;         // 右上角微光 radial 颜色（可选）
-    fadeColor?: string;    // 展开滚动区上下软渐变颜色（可选）
-    fontFamily: string;    // 正文字体
-    showCorners: boolean;  // 四角装饰括号
-    showDivider: boolean;  // 标题下分隔线
-    titleZh: string;       // 中文标题
-    titleEn: string;       // 英文副标题
-    listenLabel: string;   // 折叠态右侧文字
-    silenceLabel: string;  // 展开态右侧文字
-    quoteLeft: string;     // 折叠态首句左引号
-    quoteRight: string;    // 折叠态首句右引号
-    italic: boolean;       // 是否斜体
-    radius: string;        // 圆角
-    /** 边框宽度（默认 1px）——像素框/电子鸡壳等拟态风格用粗框 */
+    border: string;        // 邊框色
+    accent: string;        // 標題/裝飾點綴
+    text: string;          // 正文顏色
+    subtext: string;       // 副標題/狀態文字
+    glow?: string;         // 右上角微光 radial 顏色（可選）
+    fadeColor?: string;    // 展開滾動區上下軟漸變顏色（可選）
+    fontFamily: string;    // 正文字體
+    showCorners: boolean;  // 四角裝飾括號
+    showDivider: boolean;  // 標題下分隔線
+    titleZh: string;       // 中文標題
+    titleEn: string;       // 英文副標題
+    listenLabel: string;   // 摺疊態右側文字
+    silenceLabel: string;  // 展開態右側文字
+    quoteLeft: string;     // 摺疊態首句左引號
+    quoteRight: string;    // 摺疊態首句右引號
+    italic: boolean;       // 是否斜體
+    radius: string;        // 圓角
+    /** 邊框寬度（默認 1px）——像素框/電子雞殼等擬態風格用粗框 */
     borderWidth?: string;
-    /** 卡片投影完全覆盖（不设则走 glow 默认逻辑）——硬像素影/ins 软影/机壳圈 */
+    /** 卡片投影完全覆蓋（不設則走 glow 默認邏輯）——硬像素影/ins 軟影/機殼圈 */
     cardShadow?: string;
-    /** 卡片内部整面覆盖层：扫描线（CRT）/ 点阵（液晶屏） */
+    /** 卡片內部整面覆蓋層：掃描線（CRT）/ 點陣（液晶屏） */
     overlay?: 'scanlines' | 'dotMatrix';
-    /** 破格装饰：溢出卡片边框的风格化元素（印章/霓虹括角/终端红绿灯/星子/机壳按钮…），由 PsycheDecor 渲染 */
+    /** 破格裝飾：溢出卡片邊框的風格化元素（印章/霓虹括角/終端紅綠燈/星子/機殼按鈕…），由 PsycheDecor 渲染 */
     decoKind?: 'inkSeal' | 'neonGlitch' | 'termHud' | 'starScatter' | 'tamaShell' | 'pixelArrow' | 'insHeart';
 }
 
@@ -75,7 +76,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         titleZh: '心象',
         titleEn: 'PSYCHE',
         listenLabel: '凝望',
-        silenceLabel: '移开视线',
+        silenceLabel: '移開視線',
         quoteLeft: '「',
         quoteRight: '」',
         italic: true,
@@ -95,7 +96,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         titleZh: '心象',
         titleEn: 'PSYCHE',
         listenLabel: '凝望',
-        silenceLabel: '移开视线',
+        silenceLabel: '移開視線',
         quoteLeft: '「',
         quoteRight: '」',
         italic: true,
@@ -114,7 +115,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         titleZh: '心象',
         titleEn: 'PSYCHE',
         listenLabel: '凝望',
-        silenceLabel: '移开视线',
+        silenceLabel: '移開視線',
         quoteLeft: '"',
         quoteRight: '"',
         italic: false,
@@ -130,7 +131,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: SERIF,
         showCorners: false,
         showDivider: true,
-        titleZh: '墨迹',
+        titleZh: '墨跡',
         titleEn: 'INK',
         listenLabel: '展卷',
         silenceLabel: '收卷',
@@ -151,10 +152,10 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: SANS,
         showCorners: true,
         showDivider: false,
-        titleZh: '脑域',
+        titleZh: '腦域',
         titleEn: 'NEURO-LINK',
         listenLabel: '接入',
-        silenceLabel: '断开',
+        silenceLabel: '斷開',
         quoteLeft: '⟨',
         quoteRight: '⟩',
         italic: false,
@@ -173,7 +174,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: MONO,
         showCorners: false,
         showDivider: true,
-        titleZh: '内核',
+        titleZh: '內核',
         titleEn: 'KERNEL.LOG',
         listenLabel: 'tail -f',
         silenceLabel: '^C',
@@ -194,7 +195,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: SERIF,
         showCorners: false,
         showDivider: true,
-        titleZh: '星语',
+        titleZh: '星語',
         titleEn: 'STELLAR',
         listenLabel: '仰望',
         silenceLabel: '垂眸',
@@ -204,7 +205,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         radius: '12px',
         decoKind: 'starScatter',
     },
-    // 拓麻歌子：粉壳 + 液晶点阵屏，框本身拟态成电子宠物机
+    // 拓麻歌子：粉殼 + 液晶點陣屏，框本身擬態成電子寵物機
     tama: {
         bg: 'linear-gradient(180deg, #d6e2c2 0%, #c8d6b0 100%)',
         border: '#f2a5c4',
@@ -215,9 +216,9 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: PIXEL,
         showCorners: false,
         showDivider: true,
-        titleZh: '心宠',
+        titleZh: '心寵',
         titleEn: 'TMGC-LOG',
-        listenLabel: '喂食',
+        listenLabel: '餵食',
         silenceLabel: '哄睡',
         quoteLeft: '▶',
         quoteRight: '',
@@ -228,7 +229,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         overlay: 'dotMatrix',
         decoKind: 'tamaShell',
     },
-    // 像素：JRPG 对话框，白粗框 + 硬像素投影
+    // 像素：JRPG 對話框，白粗框 + 硬像素投影
     pixel: {
         bg: '#23255e',
         border: '#ffffff',
@@ -239,9 +240,9 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: PIXEL,
         showCorners: false,
         showDivider: false,
-        titleZh: '任务',
+        titleZh: '任務',
         titleEn: 'QUEST.LOG',
-        listenLabel: '继续',
+        listenLabel: '繼續',
         silenceLabel: '合上',
         quoteLeft: '『',
         quoteRight: '』',
@@ -251,7 +252,7 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         cardShadow: '4px 4px 0 rgba(0, 0, 0, 0.4)',
         decoKind: 'pixelArrow',
     },
-    // 性冷淡：暖灰米白、细线、留白，什么装饰都不要
+    // 性冷淡：暖灰米白、細線、留白，什麼裝飾都不要
     muji: {
         bg: '#f7f6f3',
         border: 'rgba(60, 60, 54, 0.14)',
@@ -262,16 +263,16 @@ export const THINKING_CHAIN_PRESETS: Record<Exclude<ThinkingChainStyleId, 'custo
         fontFamily: SANS,
         showCorners: false,
         showDivider: true,
-        titleZh: '独白',
+        titleZh: '獨白',
         titleEn: 'MONOLOGUE',
-        listenLabel: '展开',
+        listenLabel: '展開',
         silenceLabel: '收起',
         quoteLeft: '',
         quoteRight: '',
         italic: false,
         radius: '6px',
     },
-    // ins：白卡软影 feed 风，右上一颗小红心
+    // ins：白卡軟影 feed 風，右上一顆小紅心
     ins: {
         bg: '#ffffff',
         border: 'rgba(0, 0, 0, 0.07)',
@@ -315,18 +316,18 @@ export function resolveThinkingChainStyle(
             titleZh: '心象',
             titleEn: 'PSYCHE',
             listenLabel: '凝望',
-            silenceLabel: '移开视线',
+            silenceLabel: '移開視線',
         };
     }
     return THINKING_CHAIN_PRESETS[styleId || 'echo'] || THINKING_CHAIN_PRESETS.echo;
 }
 
-// 心象卡片的「破格」装饰：溢出卡片边框的风格化元素。
-// 必须渲染在卡片（overflow-hidden）的兄弟层、且父容器 relative + 不裁剪，才能真的探出边框。
-// 被 ThinkingChainBlock 与设置弹窗的 StylePreview 共用；compact 用于迷你预览缩小尺寸。
+// 心象卡片的「破格」裝飾：溢出卡片邊框的風格化元素。
+// 必須渲染在卡片（overflow-hidden）的兄弟層、且父容器 relative + 不裁剪，才能真的探出邊框。
+// 被 ThinkingChainBlock 與設置彈窗的 StylePreview 共用；compact 用於迷你預覽縮小尺寸。
 export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boolean }> = ({ spec, compact }) => {
     switch (spec.decoKind) {
-        case 'inkSeal': // 右下角压出边框的朱文印
+        case 'inkSeal': // 右下角壓出邊框的朱文印
             return (
                 <span
                     aria-hidden
@@ -347,14 +348,14 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
                     }}
                 >心</span>
             );
-        case 'neonGlitch': // 探出四角的霓虹括角（青 × 品红错位残影）
+        case 'neonGlitch': // 探出四角的霓虹括角（青 × 品紅錯位殘影）
             return (
                 <>
                     <span aria-hidden className={`absolute z-10 pointer-events-none border-t-2 border-l-2 ${compact ? '-top-0.5 -left-0.5 w-2 h-2' : '-top-1 -left-1 w-3 h-3'}`} style={{ borderColor: spec.accent, filter: `drop-shadow(0 0 3px ${spec.accent})` }} />
                     <span aria-hidden className={`absolute z-10 pointer-events-none border-b-2 border-r-2 ${compact ? '-bottom-0.5 -right-0.5 w-2 h-2' : '-bottom-1 -right-1 w-3 h-3'}`} style={{ borderColor: '#f0abfc', filter: 'drop-shadow(0 0 3px #f0abfc)' }} />
                 </>
             );
-        case 'termHud': // 顶出上边框的窗口红绿灯
+        case 'termHud': // 頂出上邊框的窗口紅綠燈
             return (
                 <span aria-hidden className="absolute z-10 pointer-events-none flex gap-1" style={{ top: compact ? -2 : -3, right: compact ? 8 : 12 }}>
                     {['#ff5f56', '#ffbd2e', '#27c93f'].map(c => (
@@ -362,7 +363,7 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
                     ))}
                 </span>
             );
-        case 'starScatter': // 缀在边框内外的星子
+        case 'starScatter': // 綴在邊框內外的星子
             return (
                 <>
                     <span aria-hidden className="absolute z-10 pointer-events-none animate-pulse" style={{ top: compact ? -5 : -8, right: compact ? 10 : 16, color: spec.accent, fontSize: compact ? 8 : 12, textShadow: spec.glow ? `0 0 6px ${spec.glow}` : undefined }}>✦</span>
@@ -370,7 +371,7 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
                     <span aria-hidden className="absolute z-10 pointer-events-none animate-pulse" style={{ bottom: compact ? -3 : -5, left: compact ? 12 : 20, color: spec.accent, fontSize: compact ? 5 : 7, opacity: 0.6, animationDelay: '0.8s' }}>✦</span>
                 </>
             );
-        case 'tamaShell': // 底边探出的机壳三按钮（电子宠物机的 A/B/C 键）
+        case 'tamaShell': // 底邊探出的機殼三按鈕（電子寵物機的 A/B/C 鍵）
             return (
                 <span aria-hidden className="absolute z-10 pointer-events-none flex" style={{ bottom: compact ? -5 : -8, left: '50%', transform: 'translateX(-50%)', gap: compact ? 5 : 8 }}>
                     {[0, 1, 2].map(i => (
@@ -387,7 +388,7 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
                     ))}
                 </span>
             );
-        case 'pixelArrow': // JRPG「还有下文」的闪烁小三角，压在右下边框上
+        case 'pixelArrow': // JRPG「還有下文」的閃爍小三角，壓在右下邊框上
             return (
                 <span
                     aria-hidden
@@ -401,7 +402,7 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
                     }}
                 >▼</span>
             );
-        case 'insHeart': // 右上角一颗小红心，feed 点赞感
+        case 'insHeart': // 右上角一顆小紅心，feed 點贊感
             return (
                 <span
                     aria-hidden
@@ -421,9 +422,9 @@ export const PsycheDecor: React.FC<{ spec: ThinkingChainStyleSpec; compact?: boo
     }
 };
 
-// 思考链卡片：可视化 metadata.thinkingChain。
-// 内容来源：useChatAI 抽取的 LLM reasoning_content + <think>/<thinking>/<thought>。
-// 多风格通过 resolveThinkingChainStyle() 统一渲染；齿轮触发 onOpenSettings 进入设置弹窗。
+// 思考鏈卡片：可視化 metadata.thinkingChain。
+// 內容來源：useChatAI 抽取的 LLM reasoning_content + <think>/<thinking>/<thought>。
+// 多風格通過 resolveThinkingChainStyle() 統一渲染；齒輪觸發 onOpenSettings 進入設置彈窗。
 export const ThinkingChainBlock: React.FC<{
     chain: string;
     styleId?: ThinkingChainStyleId;
@@ -465,7 +466,7 @@ export const ThinkingChainBlock: React.FC<{
             await navigator.clipboard.writeText(trimmed);
             success = true;
         } catch {
-            // iOS PWA / 非安全上下文可能拒绝 Clipboard API，保留 textarea 兜底。
+            // iOS PWA / 非安全上下文可能拒絕 Clipboard API，保留 textarea 兜底。
             let textarea: HTMLTextAreaElement | null = null;
             try {
                 textarea = document.createElement('textarea');
@@ -497,8 +498,8 @@ export const ThinkingChainBlock: React.FC<{
         if (copyState === 'ready') setCopyState('idle');
     };
 
-    // 必须由 pointerup / touchend / contextmenu 这类真实用户手势直接调用。
-    // Safari 会拒绝在长按 setTimeout 回调里发起的剪贴板写入。
+    // 必須由 pointerup / touchend / contextmenu 這類真實用戶手勢直接調用。
+    // Safari 會拒絕在長按 setTimeout 回調裡發起的剪貼板寫入。
     const finishLongPressCopy = () => {
         if (!longPressReadyRef.current) return false;
         clearCopyTimer();
@@ -545,8 +546,8 @@ export const ThinkingChainBlock: React.FC<{
         if (pointerIdRef.current !== e.pointerId) return;
         pointerIdRef.current = null;
         clearCopyTimer();
-        // iOS 弹出原生选区时可能先派发 pointercancel，随后仍会派发 touchend。
-        // 此时保留 ready，让 touchend 仍可在真实用户手势中执行复制。
+        // iOS 彈出原生選區時可能先派發 pointercancel，隨後仍會派發 touchend。
+        // 此時保留 ready，讓 touchend 仍可在真實用戶手勢中執行復制。
         if (e.pointerType !== 'touch' || !longPressReadyRef.current) resetLongPress();
     };
 
@@ -561,11 +562,11 @@ export const ThinkingChainBlock: React.FC<{
     };
 
     const copyStatusLabel = copyState === 'ok'
-        ? '已复制'
+        ? '已複製'
         : copyState === 'ready'
-            ? '松开复制'
+            ? '鬆開複製'
             : copyState === 'error'
-                ? '请用系统复制'
+                ? '請用系統複製'
                 : expanded ? spec.silenceLabel : spec.listenLabel;
 
     return (
@@ -573,8 +574,8 @@ export const ThinkingChainBlock: React.FC<{
             className="sully-psyche relative mb-2 w-full max-w-full select-text cursor-pointer group"
             role="button"
             tabIndex={0}
-            aria-label="心象：点击展开，长按复制全文"
-            title="长按复制心象全文"
+            aria-label="心象：點擊展開，長按複製全文"
+            title="長按複製心象全文"
             onClick={handleClick}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -586,7 +587,7 @@ export const ThinkingChainBlock: React.FC<{
             }}
             onContextMenu={(e) => {
                 e.stopPropagation();
-                // 触屏保留 Safari 原生蓝色选区与复制菜单，作为剪贴板权限受限时的兜底。
+                // 觸屏保留 Safari 原生藍色選區與複製菜單，作為剪貼板權限受限時的兜底。
                 if (pointerTypeRef.current !== 'mouse') return;
                 e.preventDefault();
                 suppressNextClickRef.current = false;
@@ -617,7 +618,7 @@ export const ThinkingChainBlock: React.FC<{
                             : '0 1px 3px rgba(15, 23, 42, 0.08)',
                 }}
             >
-                {/* 四角装饰括号 */}
+                {/* 四角裝飾括號 */}
                 {spec.showCorners && (
                     <>
                         <span aria-hidden className="absolute top-1 left-1 w-2 h-2 border-t border-l pointer-events-none" style={{ borderColor: spec.accent }} />
@@ -634,7 +635,7 @@ export const ThinkingChainBlock: React.FC<{
                         style={{ background: `radial-gradient(circle, ${spec.glow} 0%, transparent 70%)` }}
                     />
                 )}
-                {/* 内部整面覆盖层：CRT 扫描线 / 液晶点阵 */}
+                {/* 內部整面覆蓋層：CRT 掃描線 / 液晶點陣 */}
                 {spec.overlay === 'scanlines' && (
                     <div
                         aria-hidden
@@ -650,7 +651,7 @@ export const ThinkingChainBlock: React.FC<{
                     />
                 )}
 
-                {/* 标题行 */}
+                {/* 標題行 */}
                 <div className="relative flex items-center gap-2">
                     <span
                         className="sully-psyche-title text-[13px] font-semibold tracking-[0.4em]"
@@ -676,7 +677,7 @@ export const ThinkingChainBlock: React.FC<{
                     </span>
                 </div>
 
-                {/* 装饰横线 */}
+                {/* 裝飾橫線 */}
                 {spec.showDivider && (
                     <div className="relative mt-1.5 mb-0.5 flex items-center gap-1.5" aria-hidden>
                         <span className="h-px flex-1" style={{ background: `linear-gradient(to right, transparent, ${spec.border}, transparent)` }} />
@@ -698,7 +699,7 @@ export const ThinkingChainBlock: React.FC<{
                 )}
                 {expanded && (
                     <div className="relative mt-1.5">
-                        {/* 上下软渐变盖掉系统滚动条; fadeColor 跟卡片背景一致 */}
+                        {/* 上下軟漸變蓋掉系統滾動條; fadeColor 跟卡片背景一致 */}
                         {spec.fadeColor && (
                             <>
                                 <div aria-hidden className="absolute top-0 left-0 right-0 h-3 pointer-events-none z-10" style={{ background: `linear-gradient(to bottom, ${spec.fadeColor} 0%, transparent 100%)` }} />
@@ -720,7 +721,7 @@ export const ThinkingChainBlock: React.FC<{
                     </div>
                 )}
             </div>
-            {/* 破格装饰渲染在卡片外层（卡片自身 overflow-hidden 裁不掉它） */}
+            {/* 破格裝飾渲染在卡片外層（卡片自身 overflow-hidden 裁不掉它） */}
             <PsycheDecor spec={spec} />
         </div>
     );
@@ -750,7 +751,7 @@ const ForwardCard: React.FC<{
                     <div className="px-4 pt-3 pb-2 border-b border-slate-50">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-primary"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" /></svg>
-                            {forwardData.fromUserName} 和 {forwardData.fromCharName} 的聊天记录
+                            {forwardData.fromUserName} 和 {forwardData.fromCharName} 的聊天記錄
                         </div>
                     </div>
                     <div className="px-4 py-2 space-y-1">
@@ -759,8 +760,8 @@ const ForwardCard: React.FC<{
                         ))}
                     </div>
                     <div className="px-4 py-2 border-t border-slate-50 text-[10px] text-slate-400 flex items-center justify-between">
-                        <span>共 {forwardData.count || 0} 条聊天记录</span>
-                        <span className="text-primary font-medium">点击查看</span>
+                        <span>共 {forwardData.count || 0} 條聊天記錄</span>
+                        <span className="text-primary font-medium">點擊查看</span>
                     </div>
                 </div>
             )}
@@ -774,8 +775,8 @@ const ForwardCard: React.FC<{
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-slate-700 truncate">{forwardData.fromUserName} 和 {forwardData.fromCharName} 的聊天记录</div>
-                            <div className="text-[10px] text-slate-400">共 {forwardData.count || 0} 条消息</div>
+                            <div className="text-sm font-bold text-slate-700 truncate">{forwardData.fromUserName} 和 {forwardData.fromCharName} 的聊天記錄</div>
+                            <div className="text-[10px] text-slate-400">共 {forwardData.count || 0} 條消息</div>
                         </div>
                     </div>
 
@@ -789,8 +790,8 @@ const ForwardCard: React.FC<{
                                     <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
                                         <div className="text-[10px] text-slate-400 mb-1 px-1">{senderName} {msg.timestamp ? formatTime(msg.timestamp) : ''}</div>
                                         <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-all ${isUser ? 'bg-primary text-white rounded-br-sm' : 'bg-white text-slate-700 rounded-bl-sm shadow-sm border border-slate-100'}`}>
-                                            {msg.type === 'image' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[200px] rounded-xl" /> : <span className="italic opacity-60">[图片已丢失]</span>) :
-                                             msg.type === 'emoji' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[100px]" /> : <span className="italic opacity-60">[表情已丢失]</span>) :
+                                            {msg.type === 'image' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[200px] rounded-xl" /> : <span className="italic opacity-60">[圖片已丟失]</span>) :
+                                             msg.type === 'emoji' ? (msg.content ? <TokenImg value={msg.content} className="max-w-[100px]" /> : <span className="italic opacity-60">[表情已丟失]</span>) :
                                              msg.content}
                                         </div>
                                     </div>
@@ -805,7 +806,7 @@ const ForwardCard: React.FC<{
 };
 
 // ============================================================
-// 转账卡片：点开看精美详情，可接收 / 退回；回执则渲染成小卡
+// 轉帳卡片：點開看精美詳情，可接收 / 退回；回執則渲染成小卡
 // ============================================================
 
 type TransferStatus = 'pending' | 'accepted' | 'returned';
@@ -818,12 +819,12 @@ const SullyPayMark: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-// ─── 生活记录代记卡（角色 [[LIFE:...]] 落库后插入；用户可确认 / 否决）───
+// ─── 生活記錄代記卡（角色 [[LIFE:...]] 落庫後插入；用戶可確認 / 否決）───
 const LIFE_CARD_STYLE: Record<string, { icon: string; ring: string; bg: string; label: string }> = {
     period: { icon: '🌙', ring: '#fda4af', bg: 'linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%)', label: '生理期' },
-    med: { icon: '💊', ring: '#7dd3fc', bg: 'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)', label: '药盒' },
-    expense: { icon: '🧾', ring: '#fcd34d', bg: 'linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)', label: '记账' },
-    exercise: { icon: '🏃', ring: '#6ee7b7', bg: 'linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%)', label: '锻炼' },
+    med: { icon: '💊', ring: '#7dd3fc', bg: 'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)', label: '藥盒' },
+    expense: { icon: '🧾', ring: '#fcd34d', bg: 'linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)', label: '記帳' },
+    exercise: { icon: '🏃', ring: '#6ee7b7', bg: 'linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%)', label: '鍛鍊' },
 };
 
 const LifeRecordCard: React.FC<{
@@ -835,7 +836,7 @@ const LifeRecordCard: React.FC<{
 }> = ({ m, charName, commonLayout, selectionMode, onResolveLifeRecord }) => {
     const meta = m.metadata || {};
     const style = LIFE_CARD_STYLE[meta.module as string] || LIFE_CARD_STYLE.exercise;
-    const summary: string = meta.summary || '生活记录';
+    const summary: string = meta.summary || '生活記錄';
     const isDuplicate: boolean = !!meta.duplicate;
     const reviewStatus: 'active' | 'confirmed' | 'rejected' = meta.reviewStatus || 'active';
     const canResolve = !isDuplicate && reviewStatus === 'active' && !!onResolveLifeRecord && !selectionMode;
@@ -857,7 +858,7 @@ const LifeRecordCard: React.FC<{
                             {summary}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                            {style.label}{dateLabel ? ` · ${dateLabel}` : ''} · {meta.recordedByName || charName} 代记
+                            {style.label}{dateLabel ? ` · ${dateLabel}` : ''} · {meta.recordedByName || charName} 代記
                         </div>
                     </div>
                 </div>
@@ -865,17 +866,17 @@ const LifeRecordCard: React.FC<{
                 {isDuplicate ? (
                     <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 bg-white/60 rounded-xl px-2.5 py-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-emerald-500 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                        <span>此前已由「{meta.duplicateBy || '其他角色'}」记录，无需重复</span>
+                        <span>此前已由「{meta.duplicateBy || '其他角色'}」記錄，無需重複</span>
                     </div>
                 ) : reviewStatus === 'confirmed' ? (
                     <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold px-1">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={3} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                        已确认
+                        已確認
                     </div>
                 ) : reviewStatus === 'rejected' ? (
                     <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold px-1">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        已否决（记录已撤销，TA 下次会知道弄错了）
+                        已否決（記錄已撤銷，TA 下次會知道弄錯了）
                     </div>
                 ) : canResolve ? (
                     <div className="mt-2.5 flex gap-2">
@@ -883,19 +884,19 @@ const LifeRecordCard: React.FC<{
                             onClick={(e) => { e.stopPropagation(); onResolveLifeRecord?.(m, 'confirmed'); trackEvent('处理角色代记的生活记录', { result: 'confirmed' }); }}
                             className="flex-1 py-1.5 rounded-xl bg-white/85 text-emerald-600 text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
                         >
-                            ✓ 确认
+                            ✓ 確認
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onResolveLifeRecord?.(m, 'rejected'); trackEvent('处理角色代记的生活记录', { result: 'rejected' }); }}
                             className="flex-1 py-1.5 rounded-xl bg-white/60 text-slate-500 text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
                         >
-                            ✗ 否决
+                            ✗ 否決
                         </button>
                     </div>
                 ) : null}
             </div>
             <div className="px-3.5 py-1.5 bg-white/40 border-t border-white/60 text-[9px] text-slate-400">
-                📋 生活记录
+                📋 生活記錄
             </div>
         </div>
     );
@@ -919,7 +920,7 @@ const TransferCard: React.FC<{
     const actor = isUser ? '你' : charName;
     const counterparty = isUser ? charName : '你';
 
-    // ---- 回执小卡：接收 / 退回的轻量结算条 ----
+    // ---- 回執小卡：接收 / 退回的輕量結算條 ----
     if (receipt) {
         const accepted = receipt === 'accepted';
         return commonLayout(
@@ -937,7 +938,7 @@ const TransferCard: React.FC<{
                 </div>
                 <div className="min-w-0">
                     <div className={`text-xs font-semibold ${accepted ? 'text-emerald-700' : 'text-slate-600'}`}>
-                        {actor}{accepted ? '已收款' : '退回了转账'}
+                        {actor}{accepted ? '已收款' : '退回了轉帳'}
                     </div>
                     {amount !== undefined && (
                         <div className="text-[10px] text-slate-400">₩ {amount}</div>
@@ -947,12 +948,12 @@ const TransferCard: React.FC<{
         );
     }
 
-    // ---- 主转账卡（可点开）----
+    // ---- 主轉帳卡（可點開）----
     const resolved = status !== 'pending';
-    // 用户是「收到方」才出现接收/退回入口：即这条是角色发来的、且仍待处理。
+    // 用戶是「收到方」才出現接收/退回入口：即這條是角色發來的、且仍待處理。
     const canResolve = !isUser && !resolved && !!onResolveTransfer;
 
-    const statusBadge = status === 'accepted' ? '已收款' : status === 'returned' ? '已退还' : '';
+    const statusBadge = status === 'accepted' ? '已收款' : status === 'returned' ? '已退還' : '';
 
     const handleResolve = (action: 'accepted' | 'returned') => {
         onResolveTransfer?.(m, action);
@@ -979,7 +980,7 @@ const TransferCard: React.FC<{
                         <div className="text-[11px] text-white/80 truncate mb-0.5">{note}</div>
                     ) : null}
                     <div className="flex items-center justify-between">
-                        <div className="text-[10px] text-white/70">转账给{counterparty}</div>
+                        <div className="text-[10px] text-white/70">轉帳給{counterparty}</div>
                         {statusBadge && (
                             <span className="text-[9px] bg-white/25 backdrop-blur-sm px-1.5 py-0.5 rounded-full">{statusBadge}</span>
                         )}
@@ -993,22 +994,22 @@ const TransferCard: React.FC<{
                         className="w-full max-w-[320px] bg-white rounded-3xl overflow-hidden shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* 顶部金额区 */}
+                        {/* 頂部金額區 */}
                         <div className="bg-gradient-to-br from-amber-400 to-orange-500 px-6 pt-7 pb-8 text-white relative overflow-hidden">
                             <div className="absolute -top-4 -right-4 opacity-15"><SullyPayMark className="w-28 h-28" /></div>
                             <div className="flex items-center gap-2 mb-5">
                                 <div className="p-1.5 bg-white/20 rounded-full"><SullyPayMark className="w-4 h-4" /></div>
-                                <span className="text-sm font-medium text-white/90">Sully Pay 转账</span>
+                                <span className="text-sm font-medium text-white/90">Sully Pay 轉帳</span>
                             </div>
-                            <div className="text-[11px] text-white/70 mb-1">{isUser ? `你向${charName}转账` : `${charName}向你转账`}</div>
+                            <div className="text-[11px] text-white/70 mb-1">{isUser ? `你向${charName}轉帳` : `${charName}向你轉帳`}</div>
                             <div className="text-4xl font-bold tracking-tight">₩ {amount}</div>
                         </div>
 
-                        {/* 详情区 */}
+                        {/* 詳情區 */}
                         <div className="px-6 py-5 space-y-3.5">
                             {note && (
                                 <div className="bg-slate-50 rounded-xl px-3.5 py-2.5">
-                                    <div className="text-[10px] text-slate-400 mb-0.5">转账留言</div>
+                                    <div className="text-[10px] text-slate-400 mb-0.5">轉帳留言</div>
                                     <div className="text-sm text-slate-700 break-words">{note}</div>
                                 </div>
                             )}
@@ -1021,11 +1022,11 @@ const TransferCard: React.FC<{
                                 <span className="text-slate-700 font-medium">{isUser ? charName : '你'}</span>
                             </div>
                             <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400">状态</span>
+                                <span className="text-slate-400">狀態</span>
                                 <span className={`font-medium ${
                                     status === 'accepted' ? 'text-emerald-600' : status === 'returned' ? 'text-slate-500' : 'text-amber-600'
                                 }`}>
-                                    {status === 'accepted' ? '已收款' : status === 'returned' ? '已退还' : '等待对方处理'}
+                                    {status === 'accepted' ? '已收款' : status === 'returned' ? '已退還' : '等待對方處理'}
                                 </span>
                             </div>
 
@@ -1044,7 +1045,7 @@ const TransferCard: React.FC<{
                                 <button
                                     onClick={() => setOpen(false)}
                                     className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-500 bg-slate-100 active:scale-95 transition-transform mt-1"
-                                >关闭</button>
+                                >關閉</button>
                             )}
                         </div>
                     </div>
@@ -1055,7 +1056,7 @@ const TransferCard: React.FC<{
 };
 
 // ============================================================
-// Like520 卡片：520 限定典藏，展开后看完整合照 + 信
+// Like520 卡片：520 限定典藏，展開後看完整合照 + 信
 // ============================================================
 
 const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
@@ -1070,7 +1071,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
 
     return (
         <>
-            {/* 拍立得 / 复古剪贴本：照片 + 胶带 + 手写感落款 */}
+            {/* 拍立得 / 復古剪貼本：照片 + 膠帶 + 手寫感落款 */}
             <div
                 onClick={() => setOpen(true)}
                 style={{
@@ -1088,7 +1089,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     marginTop: 8,
                 }}
             >
-                {/* 左上胶带 */}
+                {/* 左上膠帶 */}
                 <div style={{
                     position: 'absolute', top: -6, left: 18,
                     width: 36, height: 14,
@@ -1097,7 +1098,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     transform: 'rotate(-6deg)',
                     pointerEvents: 'none',
                 }} />
-                {/* 右上胶带 */}
+                {/* 右上膠帶 */}
                 <div style={{
                     position: 'absolute', top: -6, right: 18,
                     width: 36, height: 14,
@@ -1107,7 +1108,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     pointerEvents: 'none',
                 }} />
 
-                {/* 照片本体 */}
+                {/* 照片本體 */}
                 <div style={{
                     position: 'relative',
                     background: '#fff',
@@ -1119,7 +1120,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                         : <div style={{ width: '100%', aspectRatio: '1200 / 780', background: 'linear-gradient(180deg, #FFE0E8, #FFD3DC)' }} />}
                 </div>
 
-                {/* 手写感标题 */}
+                {/* 手寫感標題 */}
                 <div style={{
                     marginTop: 12,
                     textAlign: 'center',
@@ -1130,7 +1131,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     letterSpacing: 1,
                     lineHeight: 1.35,
                 }}>
-                    「 {data.title || '我们的下午'} 」
+                    「 {data.title || '我們的下午'} 」
                 </div>
 
                 {/* 日期 + 落款 */}
@@ -1163,10 +1164,10 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     color: '#b8923f',
                     letterSpacing: 2,
                 }}>
-                    ❦ 点 开 看 信 ❦
+                    ❦ 點 開 看 信 ❦
                 </div>
 
-                {/* 左下角复古火漆/印章："♥ 520" */}
+                {/* 左下角復古火漆/印章："♥ 520" */}
                 <div style={{
                     position: 'absolute',
                     bottom: -8, left: -8,
@@ -1222,7 +1223,7 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                     >
                         <button
                             onClick={() => setOpen(false)}
-                            title="关闭"
+                            title="關閉"
                             style={{
                                 position: 'absolute', top: 10, right: 10, zIndex: 5,
                                 width: 30, height: 30, borderRadius: '50%',
@@ -1238,13 +1239,13 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
 
                         <div style={{ textAlign: 'center', marginBottom: 12 }}>
                             <div style={{ fontSize: 9, letterSpacing: 6, color: '#8b6914', fontFamily: 'Cinzel, serif', fontWeight: 600 }}>5 · 2 · 0 · TRÉSOR</div>
-                            <div style={{ fontSize: 13, color: '#7a2e3a', fontFamily: '"Noto Serif SC", serif', fontWeight: 500, letterSpacing: 4, marginTop: 4 }}>{data.title || '我们的下午'}</div>
+                            <div style={{ fontSize: 13, color: '#7a2e3a', fontFamily: '"Noto Serif SC", serif', fontWeight: 500, letterSpacing: 4, marginTop: 4 }}>{data.title || '我們的下午'}</div>
                         </div>
 
                         {data.photoDataUrl ? (
                             <>
                                 <TokenImg value={data.photoDataUrl} alt="合照" draggable={false} style={{ width: '100%', display: 'block', borderRadius: 8, boxShadow: '0 8px 20px rgba(122,46,58,0.2), 0 0 0 1px rgba(184,146,63,0.4)' }} />
-                                <div style={{ fontSize: 10, fontStyle: 'italic', color: '#9D7585', textAlign: 'center', marginTop: 4, fontFamily: '"Cormorant Garamond", serif', letterSpacing: 2 }}>长按图片保存到相册</div>
+                                <div style={{ fontSize: 10, fontStyle: 'italic', color: '#9D7585', textAlign: 'center', marginTop: 4, fontFamily: '"Cormorant Garamond", serif', letterSpacing: 2 }}>長按圖片保存到相冊</div>
                             </>
                         ) : null}
 
@@ -1328,7 +1329,7 @@ const LifeSimResetCardView: React.FC<{ card: any }> = ({ card }) => {
             >
                 <div className="flex items-center justify-between text-[9px] font-bold mb-2" style={{ color: '#8f7968', fontFamily: 'monospace' }}>
                     <span>{parsed.charName}</span>
-                    <span>主线 {parsed.mainPlotCount}</span>
+                    <span>主線 {parsed.mainPlotCount}</span>
                 </div>
                 <div
                     className="px-3 py-2.5"
@@ -1346,11 +1347,11 @@ const LifeSimResetCardView: React.FC<{ card: any }> = ({ card }) => {
 
                 <div className="mt-3 retro-inset px-2.5 py-2" style={{ borderRadius: 2 }}>
                     <div className="flex items-center justify-between text-[9px] font-bold" style={{ color: '#8f7968', fontFamily: 'monospace' }}>
-                        <span>参与者 {parsed.participantNames.length}</span>
+                        <span>參與者 {parsed.participantNames.length}</span>
                         <span>回合 {parsed.turnCount}</span>
                     </div>
                     <div className="mt-1 text-[9px] leading-relaxed" style={{ color: '#9b8677' }}>
-                        {parsed.participantNames.join('、') || '无参与角色'}
+                        {parsed.participantNames.join('、') || '無參與角色'}
                     </div>
                 </div>
             </div>
@@ -1380,18 +1381,18 @@ interface MessageItemProps {
     charAvatar: string;
     charName: string;
     userAvatar: string;
-    /** 当前窗口里的最后一条消息；最新图片需要立即解码，避免移动端懒加载卡在滚动容器底部。 */
+    /** 當前窗口裡的最後一條消息；最新圖片需要立即解碼，避免移動端懶加載卡在滾動容器底部。 */
     isLatestMessage?: boolean;
-    /** 图片完成解码并确定高度后，通知聊天列表重新校准贴底位置。 */
+    /** 圖片完成解碼並確定高度後，通知聊天列表重新校準貼底位置。 */
     onMediaLoad?: (messageId: number) => void;
-    /** 点击图片消息本身（非长按菜单）→ 打开全屏放大预览，支持下载/AI 生图重新生成。 */
+    /** 點擊圖片消息本身（非長按菜單）→ 打開全屏放大預覽，支持下載/AI 生圖重新生成。 */
     onImageClick?: (m: Message) => void;
     onLongPress: (m: Message) => void;
     onReply: (m: Message) => void;
     selectionMode: boolean;
     isSelected: boolean;
     onToggleSelect: (id: number) => void;
-    /** 思维链卡片在多选模式下有独立勾选框，与 isSelected 分开。 */
+    /** 思維鏈卡片在多選模式下有獨立勾選框，與 isSelected 分開。 */
     isThinkingSelected?: boolean;
     onToggleThinkingSelect?: (id: number) => void;
     // Translation (AI messages only, bilingual content parsed from %%BILINGUAL%%)
@@ -1411,23 +1412,23 @@ interface MessageItemProps {
     bubbleVariant?: 'modern' | 'flat' | 'outline' | 'shadow' | 'wechat' | 'ios';
     messageSpacing?: 'compact' | 'default' | 'spacious';
     showTimestamp?: 'always' | 'hover' | 'never';
-    /** HTML / 心象 / 音乐卡片的出现位置（聊天细节微调 chatModuleAlign 合并后的生效值）。缺省 = 居中 */
+    /** HTML / 心象 / 音樂卡片的出現位置（聊天細節微調 chatModuleAlign 合併後的生效值）。缺省 = 居中 */
     moduleAlign?: 'anchor' | 'center';
-    /** 流式预览无缝接棒时，正式消息首帧已经可见，不应再次从透明态淡入。 */
+    /** 流式預覽無縫接棒時，正式消息首幀已經可見，不應再次從透明態淡入。 */
     suppressEntranceAnimation?: boolean;
-    /** 麦当劳菜单卡里点了"发送给角色"时调用 */
+    /** 麥當勞菜單卡里點了"發送給角色"時調用 */
     onMcdSendCart?: (items: import('./McdCard').McdCartItem[]) => void;
     onMcdCandidate?: (item: import('./McdCard').McdCartItem) => void;
-    /** 瑞幸菜单卡 (与麦当劳同构) */
+    /** 瑞幸菜單卡 (與麥當勞同構) */
     onLuckinSendCart?: (items: import('./LuckinCard').LuckinCartItem[]) => void;
     onLuckinCandidate?: (item: import('./LuckinCard').LuckinCartItem) => void;
-    /** 用户点「收到的转账」卡 → 接收 / 退回 */
+    /** 用戶點「收到的轉帳」卡 → 接收 / 退回 */
     onResolveTransfer?: (m: Message, action: 'accepted' | 'returned') => void;
-    /** 用户点「生活记录」卡 → 确认 / 否决（角色代记的记录） */
+    /** 用戶點「生活記錄」卡 → 確認 / 否決（角色代記的記錄） */
     onResolveLifeRecord?: (m: Message, action: 'confirmed' | 'rejected') => void;
-    /** 打开协同文件柜里的原始 Blob；消息本身只保存 assetId 引用。 */
+    /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
     onOpenCollaborationFile?: (m: Message) => void | Promise<void>;
-    /** 思考链卡片视觉与交互 */
+    /** 思考鏈卡片視覺與交互 */
     thinkingChainOptions?: {
         styleId?: ThinkingChainStyleId;
         customColors?: { bg?: string; accent?: string; text?: string };
@@ -1486,10 +1487,10 @@ const MessageItem = React.memo(({
     const avatarRadiusClass = avatarShape === 'square' ? 'rounded-sm' : avatarShape === 'rounded' ? 'rounded-xl' : 'rounded-full';
     const avatarSizePx = avatarSize === 'small' ? 28 : avatarSize === 'large' ? 48 : 36;
     const shouldShowAvatar = avatarMode === 'every_message' || isLastInGroup;
-    // 头像绝对定位在气泡底部尖角处，bottom 恒为 0。
-    // 时间戳改用绝对定位浮层（见下方渲染处），不再占据行内高度，
-    // 于是气泡列底恒等于气泡尖角——头像贴 bottom-0 就始终对齐：
-    // 组末/组中、时间戳开或关都一样，发新消息也不会因参考高度变化而位移。
+    // 頭像絕對定位在氣泡底部尖角處，bottom 恆為 0。
+    // 時間戳改用絕對定位浮層（見下方渲染處），不再佔據行內高度，
+    // 於是氣泡列底恆等於氣泡尖角——頭像貼 bottom-0 就始終對齊：
+    // 組末/組中、時間戳開或關都一樣，發新消息也不會因參考高度變化而位移。
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const startPos = useRef({ x: 0, y: 0 });
     const activePointerId = useRef<number | null>(null);
@@ -1498,8 +1499,8 @@ const MessageItem = React.memo(({
     const replyReadyRef = useRef(false);
 
     const styleConfig = isUser ? activeTheme.user : activeTheme.ai;
-    // 气泡底纹画在 CSS background-image 上，拿不到 <img> 那层的自动解析，只能在顶层
-    // 无条件解析一次（hook 不能进条件分支）。挂件/头像挂件走 TokenImg，各自组件内解析。
+    // 氣泡底紋畫在 CSS background-image 上，拿不到 <img> 那層的自動解析，只能在頂層
+    // 無條件解析一次（hook 不能進條件分支）。掛件/頭像掛件走 TokenImg，各自組件內解析。
     const bubbleBgUrl = useBlobRefUrl(styleConfig.backgroundImage);
     const [showVoiceText, setShowVoiceText] = useState(false);
     const [showSarTruth, setShowSarTruth] = useState(false);
@@ -1704,8 +1705,8 @@ const MessageItem = React.memo(({
                                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #d4a55a, #b8843a)' }}>{scoreData.charName?.[0] || '?'}</div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#a07840' }}>Exchange Diary · 交换日记</div>
-                                        <div className="text-xs font-bold truncate" style={{ color: '#5c3e1a' }}>与 {scoreData.charName} · {scoreData.date}</div>
+                                        <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#a07840' }}>Exchange Diary · 交換日記</div>
+                                        <div className="text-xs font-bold truncate" style={{ color: '#5c3e1a' }}>與 {scoreData.charName} · {scoreData.date}</div>
                                     </div>
                                     <div className="shrink-0 text-right leading-none">
                                         <div className="text-[8px] font-mono opacity-60" style={{ color: '#8a6230' }}>{year}</div>
@@ -1716,11 +1717,11 @@ const MessageItem = React.memo(({
                                 {/* User page */}
                                 <div className="px-4 pt-3 pb-2">
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#a07840' }}>● {scoreData.userName || '我'} 写道</span>
+                                        <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#a07840' }}>● {scoreData.userName || '我'} 寫道</span>
                                         {scoreData.userPaperName && <span className="text-[8px] font-mono opacity-50" style={{ color: '#a07840' }}>{scoreData.userPaperName}</span>}
                                     </div>
                                     <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed whitespace-pre-wrap" style={{ background: 'rgba(255,253,245,0.85)', border: '1px solid rgba(217,180,120,0.25)', color: '#4a3520', fontFamily: 'ui-serif, Georgia, serif' }}>
-                                        {userText ? truncate(userText, 160) : <span className="opacity-40 italic">(空白页)</span>}
+                                        {userText ? truncate(userText, 160) : <span className="opacity-40 italic">(空白頁)</span>}
                                     </div>
                                 </div>
 
@@ -1731,7 +1732,7 @@ const MessageItem = React.memo(({
                                         {scoreData.charPaperName && <span className="text-[8px] font-mono opacity-50" style={{ color: '#a07840' }}>{scoreData.charPaperName}</span>}
                                     </div>
                                     <div className="rounded-xl px-3 py-2.5 text-[11px] leading-relaxed whitespace-pre-wrap" style={{ background: 'linear-gradient(135deg, rgba(255,245,220,0.85), rgba(255,238,200,0.7))', border: '1px solid rgba(217,180,120,0.3)', color: '#4a3520', fontFamily: 'ui-serif, Georgia, serif' }}>
-                                        {charText ? truncate(charText, 200) : <span className="opacity-40 italic">(空白页)</span>}
+                                        {charText ? truncate(charText, 200) : <span className="opacity-40 italic">(空白頁)</span>}
                                     </div>
                                 </div>
 
@@ -1739,10 +1740,10 @@ const MessageItem = React.memo(({
                                 <div className="px-4 py-2 flex items-center justify-between" style={{ borderTop: '1px dashed rgba(200,160,100,0.25)', background: 'linear-gradient(135deg, rgba(245,210,150,0.12), rgba(240,195,130,0.06))' }}>
                                     <span className="text-[9px]" style={{ color: '#b89060' }}>
                                         {(scoreData.userStickerCount || 0) + (scoreData.charStickerCount || 0) > 0
-                                            ? `贴了 ${(scoreData.userStickerCount || 0) + (scoreData.charStickerCount || 0)} 张贴纸`
-                                            : '今天的纸面很干净'}
+                                            ? `貼了 ${(scoreData.userStickerCount || 0) + (scoreData.charStickerCount || 0)} 張貼紙`
+                                            : '今天的紙面很乾淨'}
                                     </span>
-                                    <span className="text-[9px] font-bold" style={{ color: '#a07840' }}>交换日记 ✿</span>
+                                    <span className="text-[9px] font-bold" style={{ color: '#a07840' }}>交換日記 ✿</span>
                                 </div>
                             </div>
                         </div>
@@ -1771,7 +1772,7 @@ const MessageItem = React.memo(({
                                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>{scoreData.charName?.[0] || '?'}</div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#9b8a8e' }}>攻略本 · 结算报告</div>
+                                        <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#9b8a8e' }}>攻略本 · 結算報告</div>
                                         <div className="text-xs font-bold truncate" style={{ color: '#5a4a50' }}>「{scoreData.title}」</div>
                                     </div>
                                     <div className={`text-lg font-black shrink-0 ${isPositive ? 'text-emerald-500' : diff < 0 ? 'text-red-400' : 'text-slate-400'}`}>
@@ -1792,7 +1793,7 @@ const MessageItem = React.memo(({
                                     )}
                                     {scoreData.charNewInsight && (
                                         <div className="rounded-xl px-3 py-2" style={{ background: 'linear-gradient(135deg, rgba(215,230,248,0.6), rgba(200,220,245,0.45))', border: '1px solid rgba(150,185,225,0.35)' }}>
-                                            <div className="text-[9px] font-bold mb-1" style={{ color: '#4a6a92' }}>◆ 这局游戏让我发现的你</div>
+                                            <div className="text-[9px] font-bold mb-1" style={{ color: '#4a6a92' }}>◆ 這局遊戲讓我發現的你</div>
                                             <div className="text-xs leading-relaxed italic" style={{ color: '#2a4a68' }}>{scoreData.charNewInsight}</div>
                                         </div>
                                     )}
@@ -1808,17 +1809,17 @@ const MessageItem = React.memo(({
             }
         }
 
-        // Clean up text: remove [System:] or [系统:] prefix for display
-        const displayText = m.content.replace(/^\[(System|系统|System Log|系统记录)\s*[:：]?\s*/i, '').replace(/\]$/, '').trim();
+        // Clean up text: remove [System:] or [系統:] prefix for display
+        const displayText = m.content.replace(/^\[(System|系[统統]|System Log|系[统統][记記][录錄])\s*[:：]?\s*/i, '').replace(/\]$/, '').trim();
 
         if (isCallSummary) {
             const durationSec = Math.max(1, Number(m.metadata?.durationSec || 0));
             const turnCount = Math.max(1, Number(m.metadata?.turnCount || 1));
             const durationText = `${String(Math.floor(durationSec / 60)).padStart(2, '0')}:${String(durationSec % 60).padStart(2, '0')}`;
-            const callMemo = String(m.metadata?.keepsakeLine || `“今天这通电话，我会记很久。” —— ${m.metadata?.characterName || charName}`);
+            const callMemo = String(m.metadata?.keepsakeLine || `“今天這通電話，我會記很久。” —— ${m.metadata?.characterName || charName}`);
             const memoTitle = m.metadata?.characterName || charName;
             const memoAvatar = m.metadata?.characterAvatar || charAvatar;
-            const timeHint = durationSec <= 240 ? '差不多是一杯咖啡的时间' : '像听完一首喜欢的歌再多一点';
+            const timeHint = durationSec <= 240 ? '差不多是一杯咖啡的時間' : '像聽完一首喜歡的歌再多一點';
 
             return (
                 <div className={`flex items-center w-full ${selectionMode ? 'pl-8' : ''} animate-fade-in relative transition-[padding] duration-300`}>
@@ -1834,8 +1835,8 @@ const MessageItem = React.memo(({
                             <div className="flex items-center gap-3">
                                 <TokenImg value={memoAvatar} alt={memoTitle} className="h-9 w-9 rounded-full object-cover ring-1 ring-slate-200/80" loading="lazy" decoding="async" />
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-sm font-medium text-slate-600 truncate">和 {memoTitle} 通了电话</div>
-                                    <div className="text-xs text-slate-400 mt-0.5">{durationText} · {turnCount}轮对话</div>
+                                    <div className="text-sm font-medium text-slate-600 truncate">和 {memoTitle} 通了電話</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">{durationText} · {turnCount}輪對話</div>
                                 </div>
                             </div>
                             <div className="mt-3 rounded-2xl bg-white/70 border border-slate-100 px-3.5 py-2.5 text-[13px] italic leading-relaxed text-slate-500">
@@ -1859,9 +1860,9 @@ const MessageItem = React.memo(({
                 <div className="flex justify-center my-6 px-10 w-full" {...interactionProps}>
                     <div className="flex items-center gap-1.5 bg-slate-200/40 backdrop-blur-md text-slate-500 px-3 py-1 rounded-full shadow-sm border border-white/20 select-none cursor-pointer active:scale-95 transition-transform">
                         {/* Optional Icon based on content */}
-                        <img src={displayText.includes('任务') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2728.png' :
-                        displayText.includes('纪念日') || displayText.includes('Event') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4c5.png' :
-                        displayText.includes('转账') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b0.png' : 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f514.png'} alt="" className="w-4 h-4" />
+                        <img src={includesAnyScript(displayText, '任務') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2728.png' :
+                        includesAnyScript(displayText, '紀念日') || displayText.includes('Event') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4c5.png' :
+                        includesAnyScript(displayText, '轉帳') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b0.png' : 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f514.png'} alt="" className="w-4 h-4" />
                         <span className="text-[10px] font-medium tracking-wide">{displayText}</span>
                     </div>
                 </div>
@@ -1892,17 +1893,17 @@ const MessageItem = React.memo(({
         );
     }
 
-    // HTML 卡片（280px 定宽模块）默认位置就是"视觉居中"的约定：包装层打上 sully-html-wrap，
-    // 让「聊天细节微调」的贴边/缩进规则 :not() 绕开它——美化怎么开卡片都不挪窝。
+    // HTML 卡片（280px 定寬模塊）默認位置就是"視覺居中"的約定：包裝層打上 sully-html-wrap，
+    // 讓「聊天細節微調」的貼邊/縮進規則 :not() 繞開它——美化怎麼開卡片都不挪窩。
     const isHtmlCard = m.type === 'html_card';
-    // 音乐卡片（一起听 / 收歌单）与 HTML 卡片同为定宽模块，跟随同一套 chatModuleAlign 约定。
-    // 条件与下方渲染分支一致：没有 song 元数据会落回普通气泡，不按模块排版。
+    // 音樂卡片（一起聽 / 收歌單）與 HTML 卡片同為定寬模塊，跟隨同一套 chatModuleAlign 約定。
+    // 條件與下方渲染分支一致：沒有 song 元數據會落回普通氣泡，不按模塊排版。
     const isMusicCard = m.type === 'music_card' && !!m.metadata?.song;
     const isModuleCard = isHtmlCard || isMusicCard;
-    // 聊天细节微调 chatModuleAlign：HTML 卡片 / 心象卡片 / 音乐卡片默认水平居中，'anchor' 才贴气泡列。
-    // 心象居中时抽出到气泡行上方的独立行（不带 .group 类，注入的钉位 CSS 自然不命中）。
+    // 聊天細節微調 chatModuleAlign：HTML 卡片 / 心象卡片 / 音樂卡片默認水平居中，'anchor' 才貼氣泡列。
+    // 心象居中時抽出到氣泡行上方的獨立行（不帶 .group 類，注入的釘位 CSS 自然不命中）。
     const centerModules = moduleAlign !== 'anchor';
-    // 心象卡片（思考链）：默认渲染在气泡包装层内、气泡上方；居中模式挪到独立行。
+    // 心象卡片（思考鏈）：默認渲染在氣泡包裝層內、氣泡上方；居中模式挪到獨立行。
     const thinkingChainNode = !isUser && m.metadata?.thinkingChain ? (
         <div className={`relative w-full ${selectionMode ? 'pl-7' : ''}`}>
             {selectionMode && onToggleThinkingSelect && (
@@ -1952,7 +1953,7 @@ const MessageItem = React.memo(({
                     </div>
                 )}
 
-                {/* 白框布局钩子：组首额外挂一份默认隐藏的头像；显示它即可做“每轮一次、头像在气泡上方”。 */}
+                {/* 白框佈局鉤子：組首額外掛一份默認隱藏的頭像；顯示它即可做“每輪一次、頭像在氣泡上方”。 */}
                 {isFirstInGroup && !isModuleCard && (
                     <div className={`sully-chat-turn-avatar-slot hidden absolute top-0 z-0 ${isUser ? 'right-3' : (selectionMode ? 'left-14' : 'left-3')}`}>
                         {renderAvatar(isUser ? userAvatar : charAvatar, {
@@ -1962,7 +1963,7 @@ const MessageItem = React.memo(({
                     </div>
                 )}
 
-                {/* HTML / 音乐卡片是独立模块，不继承普通消息外壳的角色头像。卡片内部自己的头像不受影响。 */}
+                {/* HTML / 音樂卡片是獨立模塊，不繼承普通消息外殼的角色頭像。卡片內部自己的頭像不受影響。 */}
                 {!isUser && !isModuleCard && (
                     <div className={`sully-chat-message-avatar-slot absolute bottom-0 z-0 ${selectionMode ? 'left-14' : 'left-3'} transition-[left] duration-300`}>
                         {renderAvatar(charAvatar, { className: 'sully-chat-message-avatar' })}
@@ -2010,7 +2011,7 @@ const MessageItem = React.memo(({
                     </div>
                 </div>
 
-                {/* 用户侧若存在导入/历史模块卡，也保持同一条“卡片不带消息外侧头像”规则。 */}
+                {/* 用戶側若存在導入/歷史模塊卡，也保持同一條“卡片不帶消息外側頭像”規則。 */}
                 {isUser && !isModuleCard && (
                     <div className={`sully-chat-message-avatar-slot absolute right-3 bottom-0 z-0 transition-[left] duration-300`}>
                         {renderAvatar(userAvatar, { className: 'sully-chat-message-avatar' })}
@@ -2030,14 +2031,14 @@ const MessageItem = React.memo(({
         }
     }
 
-    // --- Music Card Rendering (一起听 / 加入歌单) ---
+    // --- Music Card Rendering (一起聽 / 加入歌單) ---
     if (m.type === 'music_card' && m.metadata?.song) {
         const song = m.metadata.song as { songId: number; name: string; artists: string; albumPic: string };
         const intent = (m.metadata.intent || 'join') as 'join' | 'add' | 'join_and_add';
         const isTogether = intent === 'join' || intent === 'join_and_add';
         const addedTo = m.metadata.addedToPlaylistTitle as string | undefined;
 
-        // 头像渲染：有图用图，无图显姓名首字
+        // 頭像渲染：有圖用圖，無圖顯姓名首字
         const renderAvatar = (src: string | undefined, name: string, ring: string) => (
             <div
                 className="relative shrink-0 rounded-full overflow-hidden"
@@ -2076,16 +2077,16 @@ const MessageItem = React.memo(({
                     background: 'linear-gradient(135deg, #fff2f7 0%, #f5edff 55%, #eaf1ff 100%)',
                 }}>
 
-                {/* 一起听 · 居中双头像头图（仅 join / join_and_add 显示）*/}
+                {/* 一起聽 · 居中雙頭像頭圖（僅 join / join_and_add 顯示）*/}
                 {isTogether && (
                     <div className="relative px-3 pt-3 pb-2 overflow-hidden">
-                        {/* 粉紫光晕背景 */}
+                        {/* 粉紫光暈背景 */}
                         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-70"
                             style={{
                                 background: `radial-gradient(ellipse at 30% 50%, rgba(255,170,200,0.32) 0%, transparent 52%),
                                              radial-gradient(ellipse at 70% 50%, rgba(195,178,255,0.32) 0%, transparent 55%)`,
                             }} />
-                        {/* 居中：用户头像 · ♥ · 角色头像 */}
+                        {/* 居中：用戶頭像 · ♥ · 角色頭像 */}
                         <div className="relative flex items-center justify-center gap-2">
                             {renderAvatar(userAvatar, '你', '#ffb5cf')}
                             <svg width="16" height="15" viewBox="0 0 24 22" fill="none"
@@ -2096,7 +2097,7 @@ const MessageItem = React.memo(({
                             </svg>
                             {renderAvatar(charAvatar, charName, '#c3b2ff')}
                         </div>
-                        {/* 标签 */}
+                        {/* 標籤 */}
                         <div className="relative mt-1.5 text-center text-[9px] tracking-[0.3em] uppercase font-semibold"
                             style={{ color: '#9c6fc2', opacity: 0.8 }}>
                             Listening Together
@@ -2109,7 +2110,7 @@ const MessageItem = React.memo(({
                             {intent === 'join_and_add' && (
                                 <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full align-middle"
                                     style={{ background: 'rgba(195,178,255,0.3)', color: '#7a5db0', border: '1px solid rgba(195,178,255,0.5)' }}>
-                                    + 歌单
+                                    + 歌單
                                 </span>
                             )}
                         </div>
@@ -2144,11 +2145,11 @@ const MessageItem = React.memo(({
                             <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '28px' }}>♪</span>
                         </div>
                     )}
-                    {/* 纯"收入歌单"保留角标；一起听意图已在头部表达，不再重复 */}
+                    {/* 純"收入歌單"保留角標；一起聽意圖已在頭部表達，不再重複 */}
                     {!isTogether && (
                         <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full backdrop-blur-sm text-[9px] font-medium"
                             style={{ background: 'rgba(255,255,255,0.85)', color: '#5a49a8' }}>
-                            📌 收入歌单
+                            📌 收入歌單
                         </div>
                     )}
                 </div>
@@ -2168,14 +2169,14 @@ const MessageItem = React.memo(({
                     <div className="mt-2 pt-1.5 flex items-center gap-1 text-[9px] border-t" style={{ color: '#a89bc5', borderColor: '#e0d9f0' }}>
                         <span style={{ color: '#5a49a8', fontWeight: 600 }}>Shizuku Music</span>
                         <span>·</span>
-                        <span>{isUser ? '分享' : '互动'}</span>
+                        <span>{isUser ? '分享' : '互動'}</span>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // --- XHS Card Rendering (小红书笔记卡片) ---
+    // --- XHS Card Rendering (小紅書筆記卡片) ---
     if (m.type === 'xhs_card' && m.metadata?.xhsNote) {
         const note = m.metadata.xhsNote;
         const openXhsNote = () => {
@@ -2200,41 +2201,41 @@ const MessageItem = React.memo(({
                             referrerPolicy="no-referrer"
                             crossOrigin="anonymous"
                             onError={(e: any) => {
-                                // 图片加载失败时显示占位图（保持卡片高度）
+                                // 圖片加載失敗時顯示佔位圖（保持卡片高度）
                                 const img = e.target;
                                 const container = img.parentElement;
                                 if (!container) return;
                                 img.style.display = 'none';
-                                // 避免重复插入占位
+                                // 避免重複插入佔位
                                 if (container.querySelector('.xhs-cover-fallback')) return;
                                 const fallback = document.createElement('div');
                                 fallback.className = 'xhs-cover-fallback w-full h-full bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center';
-                                fallback.innerHTML = `<div class="text-center"><div class="mb-1"><img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4d5.png" alt="" class="w-6 h-6 mx-auto" /></div><div class="text-[10px] text-red-300 font-medium">${note.title ? '封面加载失败' : '小红书笔记'}</div></div>`;
+                                fallback.innerHTML = `<div class="text-center"><div class="mb-1"><img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4d5.png" alt="" class="w-6 h-6 mx-auto" /></div><div class="text-[10px] text-red-300 font-medium">${note.title ? '封面加載失敗' : '小紅書筆記'}</div></div>`;
                                 container.appendChild(fallback);
                             }}
                         />
                         {note.type === 'video' && (
                             <div className="absolute top-2 right-2 bg-black/50 rounded-full px-1.5 py-0.5 flex items-center gap-0.5">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-white"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" /></svg>
-                                <span className="text-[9px] text-white font-medium">视频</span>
+                                <span className="text-[9px] text-white font-medium">視頻</span>
                             </div>
                         )}
                     </div>
                 ) : (
                     <div className="h-14 bg-gradient-to-r from-red-400 to-pink-500 flex items-center justify-center">
-                        <span className="text-white/80 text-xs font-medium tracking-wide">小红书笔记</span>
+                        <span className="text-white/80 text-xs font-medium tracking-wide">小紅書筆記</span>
                     </div>
                 )}
                 <div className="p-3">
                     {/* Title */}
-                    <div className="font-bold text-sm text-slate-800 line-clamp-2 leading-snug mb-1.5">{note.title || '无标题笔记'}</div>
+                    <div className="font-bold text-sm text-slate-800 line-clamp-2 leading-snug mb-1.5">{note.title || '無標題筆記'}</div>
                     {/* Description */}
                     {note.desc && <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed mb-2">{note.desc}</p>}
                     {/* Author + Likes */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                         <div className="flex items-center gap-1.5">
                             <div className="w-4 h-4 rounded-full bg-gradient-to-br from-red-400 to-pink-400 flex items-center justify-center text-[8px] text-white font-bold">{(note.author || '?')[0]}</div>
-                            <span className="text-[10px] text-slate-500 truncate max-w-[100px]">{note.author || '小红书用户'}</span>
+                            <span className="text-[10px] text-slate-500 truncate max-w-[100px]">{note.author || '小紅書用戶'}</span>
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-slate-400">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-red-300"><path d="m9.653 16.915-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.723.723 0 0 1-.692 0l-.003-.002Z" /></svg>
@@ -2243,17 +2244,17 @@ const MessageItem = React.memo(({
                     </div>
                     {/* Footer label */}
                     <div className="mt-2 pt-1.5 flex items-center gap-1 text-[9px] text-slate-300">
-                        <span className="text-red-400 font-bold">小红书</span> <span>·</span> <span>{note.type === 'video' ? '视频' : '笔记'}{isUser ? '分享' : '推荐'}</span>
+                        <span className="text-red-400 font-bold">小紅書</span> <span>·</span> <span>{note.type === 'video' ? '視頻' : '筆記'}{isUser ? '分享' : '推薦'}</span>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // --- Webpage Share Card (用户分享的网页 / 视频平台链接) ---
+    // --- Webpage Share Card (用戶分享的網頁 / 視頻平台鏈接) ---
     if (m.type === 'webpage_card' && m.metadata?.webpage) {
         const wp = m.metadata.webpage;
-        const vd = wp.video; // videoParser 解析路径才有：平台/作者/热度
+        const vd = wp.video; // videoParser 解析路徑才有：平台/作者/熱度
         let host = (wp.siteName || '').trim();
         try { host = new URL(wp.finalUrl || wp.url).hostname.replace(/^www\./, ''); } catch { /* 用 siteName 兜底 */ }
         const openPage = () => {
@@ -2270,7 +2271,7 @@ const MessageItem = React.memo(({
             <div
                 onClick={openPage}
                 className="w-64 bg-white rounded-2xl overflow-hidden border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.05)] cursor-pointer active:opacity-90 transition-opacity">
-                {/* 封面图（og:image / 正文首图 / 视频封面），加载失败自动隐藏 */}
+                {/* 封面圖（og:image / 正文首圖 / 視頻封面），加載失敗自動隱藏 */}
                 {wp.image && (
                     <div className="relative w-full h-32 bg-slate-100 overflow-hidden">
                         <img
@@ -2281,7 +2282,7 @@ const MessageItem = React.memo(({
                             referrerPolicy="no-referrer"
                             onError={(e: any) => { const c = e.target?.parentElement; if (c) c.style.display = 'none'; }}
                         />
-                        {/* 视频分享：封面加播放角标；图集显示张数 */}
+                        {/* 視頻分享：封面加播放角標；圖集顯示張數 */}
                         {vd && vd.contentType !== 'image' && (
                             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                 <span className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
@@ -2291,7 +2292,7 @@ const MessageItem = React.memo(({
                         )}
                         {vd && vd.contentType === 'image' && !!vd.imageCount && (
                             <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/45 text-white text-[9px] font-medium pointer-events-none">
-                                图集 · {vd.imageCount}张
+                                圖集 · {vd.imageCount}張
                             </span>
                         )}
                     </div>
@@ -2305,11 +2306,11 @@ const MessageItem = React.memo(({
                                 <path fillRule="evenodd" d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" clipRule="evenodd" />
                             </svg>
                         </span>
-                        <span className="text-[11px] text-slate-400 font-medium truncate">{vd?.platformLabel || host || '网页'}</span>
+                        <span className="text-[11px] text-slate-400 font-medium truncate">{vd?.platformLabel || host || '網頁'}</span>
                     </div>
-                    {/* 标题 */}
-                    <div className="font-semibold text-[15px] text-slate-800 line-clamp-2 leading-snug">{wp.title || host || '网页'}</div>
-                    {/* 视频分享：作者 + 热度行 */}
+                    {/* 標題 */}
+                    <div className="font-semibold text-[15px] text-slate-800 line-clamp-2 leading-snug">{wp.title || host || '網頁'}</div>
+                    {/* 視頻分享：作者 + 熱度行 */}
                     {vd ? (
                         <div className="flex items-center justify-between mt-1.5 gap-2">
                             <span className="text-[10px] text-slate-500 truncate">{vd.authorName ? `@${vd.authorName}` : ''}</span>
@@ -2320,7 +2321,7 @@ const MessageItem = React.memo(({
                     ) : excerpt ? (
                         <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed mt-1.5">{excerpt}</p>
                     ) : (
-                        <p className="text-[11px] text-slate-300 mt-1.5">未能提取到正文预览，点开看原网页</p>
+                        <p className="text-[11px] text-slate-300 mt-1.5">未能提取到正文預覽，點開看原網頁</p>
                     )}
                 </div>
             </div>
@@ -2330,13 +2331,13 @@ const MessageItem = React.memo(({
     if (m.type === 'mcd_card') {
         const meta = m.metadata || {};
         const kind = meta.mcdCardKind;
-        // 来自小程序的卡片 (proposal / cart / candidate) → 主聊天里只渲染一张漂亮的"刷卡"占位
-        // 真实可交互内容只在小程序界面里展示, 主聊天里点小程序按钮回到那个界面看。
+        // 來自小程序的卡片 (proposal / cart / candidate) → 主聊天裡只渲染一張漂亮的"刷卡"佔位
+        // 真實可交互內容只在小程序界面裡展示, 主聊天裡點小程序按鈕回到那個界面看。
         if (kind === 'proposal' || kind === 'cart' || kind === 'candidate' || meta.fromMcdMiniApp) {
-            const label = kind === 'proposal' ? '推荐了几样'
-                : kind === 'cart' ? '想下单的购物车'
-                : kind === 'candidate' ? '问问意见'
-                : '麦当劳卡片';
+            const label = kind === 'proposal' ? '推薦了幾樣'
+                : kind === 'cart' ? '想下單的購物車'
+                : kind === 'candidate' ? '問問意見'
+                : '麥當勞卡片';
             const summary = kind === 'proposal' && Array.isArray(meta.mcdProposal?.items)
                 ? `${meta.mcdProposal.items.length} 件: ${meta.mcdProposal.items.slice(0, 3).map((i: any) => i.name).join(' / ')}${meta.mcdProposal.items.length > 3 ? '…' : ''}`
                 : kind === 'cart' && Array.isArray(meta.mcdCartItems)
@@ -2349,20 +2350,20 @@ const MessageItem = React.memo(({
                     <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-300 to-amber-300">
                         <span className="text-lg">🍟</span>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[10px] text-yellow-900/70 leading-none">麦当劳卡片</div>
+                            <div className="text-[10px] text-yellow-900/70 leading-none">麥當勞卡片</div>
                             <div className="text-[11px] font-bold text-yellow-900 leading-tight">{label}</div>
                         </div>
                     </div>
                     <div className="px-3 py-2 text-[10px] text-slate-500 leading-snug min-h-[28px]">
-                        {summary || '在麦当劳小程序里查看完整内容'}
+                        {summary || '在麥當勞小程序裡查看完整內容'}
                     </div>
                     <div className="px-3 pb-2 text-[9px] text-yellow-700/60 italic">
-                        💳 已记录在麦记录里
+                        💳 已記錄在麥記錄裡
                     </div>
                 </div>
             );
         }
-        // 老的 mcd_card (从旧 LLM 工具调用残留 / 无 kind), 保持原有 McdCard 渲染兼容
+        // 老的 mcd_card (從舊 LLM 工具調用殘留 / 無 kind), 保持原有 McdCard 渲染兼容
         return commonLayout(
             <McdCard
                 toolName={meta.mcdToolName || m.content || 'mcd_tool'}
@@ -2382,11 +2383,11 @@ const MessageItem = React.memo(({
     if (m.type === 'luckin_card') {
         const meta = m.metadata || {};
         const kind = meta.luckinCardKind;
-        // 来自小程序的卡片 (proposal / cart / candidate) → 主聊天里只渲染一张"刷卡"占位
+        // 來自小程序的卡片 (proposal / cart / candidate) → 主聊天裡只渲染一張"刷卡"佔位
         if (kind === 'proposal' || kind === 'cart' || kind === 'candidate' || meta.fromLuckinMiniApp) {
-            const label = kind === 'proposal' ? '推荐了几样'
-                : kind === 'cart' ? '想下单的购物车'
-                : kind === 'candidate' ? '问问意见'
+            const label = kind === 'proposal' ? '推薦了幾樣'
+                : kind === 'cart' ? '想下單的購物車'
+                : kind === 'candidate' ? '問問意見'
                 : '瑞幸卡片';
             const summary = kind === 'proposal' && Array.isArray(meta.luckinProposal?.items)
                 ? `${meta.luckinProposal.items.length} 件: ${meta.luckinProposal.items.slice(0, 3).map((i: any) => i.name).join(' / ')}${meta.luckinProposal.items.length > 3 ? '…' : ''}`
@@ -2405,15 +2406,15 @@ const MessageItem = React.memo(({
                         </div>
                     </div>
                     <div className="px-3 py-2 text-[10px] text-slate-500 leading-snug min-h-[28px]">
-                        {summary || '在瑞幸小程序里查看完整内容'}
+                        {summary || '在瑞幸小程序裡查看完整內容'}
                     </div>
                     <div className="px-3 pb-2 text-[9px] text-blue-700/60 italic">
-                        💳 已记录在瑞幸记录里
+                        💳 已記錄在瑞幸記錄裡
                     </div>
                 </div>
             );
         }
-        // 结账卡 (聊天点单 previewOrder 的终点): 可改数量 + 直接扫码支付
+        // 結帳卡 (聊天點單 previewOrder 的終點): 可改數量 + 直接掃碼支付
         if (kind === 'checkout' && meta.luckinToolResult) {
             return commonLayout(
                 <LuckinCheckoutCard
@@ -2424,7 +2425,7 @@ const MessageItem = React.memo(({
                 />
             );
         }
-        // 工具结果卡 (门店/商品/订单) 或老的 luckin_card → 走 LuckinCard 渲染
+        // 工具結果卡 (門店/商品/訂單) 或老的 luckin_card → 走 LuckinCard 渲染
         return commonLayout(
             <LuckinCard
                 toolName={meta.luckinToolName || m.content || 'luckin_tool'}
@@ -2444,10 +2445,10 @@ const MessageItem = React.memo(({
     if (m.type === 'vr_card') {
         const md: any = m.metadata || {};
         const roomNameMap: Record<string, string> = {
-            library: '图书馆', music: '听歌房', guestbook: '留言簿', gym: '娱乐室', postoffice: '邮局', theater: '剧院', signal: '信号坠落处', sar: 'SAR 活动空间',
+            library: '圖書館', music: '聽歌房', guestbook: '留言簿', gym: '娛樂室', postoffice: '郵局', theater: '劇院', signal: '信號墜落處', sar: 'SAR 活動空間',
         };
         const roomInfo = { name: roomNameMap[md.room] || '彼方' };
-        const activity: string = md.activity || '在彼方度过了一段时间。';
+        const activity: string = md.activity || '在彼方度過了一段時間。';
         const excerpts: string[] = Array.isArray(md.annotationExcerpts) ? md.annotationExcerpts : [];
         const timeStr = new Date(m.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const sarNote: any = md.sarCabinetNote;
@@ -2459,9 +2460,9 @@ const MessageItem = React.memo(({
                         <div className="px-4 pl-5 pt-3 pb-2.5 flex items-start gap-2 border-b border-stone-400/45">
                             <span className="mt-0.5 text-[15px] text-teal-700">✦</span>
                             <div className="min-w-0 flex-1">
-                                <div className="text-[8px] tracking-[0.22em] font-bold text-teal-800/65">彼方 · 角色柜中随笔</div>
+                                <div className="text-[8px] tracking-[0.22em] font-bold text-teal-800/65">彼方 · 角色櫃中隨筆</div>
                                 <div className="mt-1 text-[15px] leading-snug font-bold text-stone-800" style={{ fontFamily: "'Noto Serif SC',serif" }}>{sarNote.title || '一次芯片事故'}</div>
-                                <div className="mt-1 text-[9px] text-stone-500">{sarNote.actorName || charName || 'Ta'} 给 {sarNote.targetName || '另一位玩家'} 用了两枚芯片</div>
+                                <div className="mt-1 text-[9px] text-stone-500">{sarNote.actorName || charName || 'Ta'} 給 {sarNote.targetName || '另一位玩家'} 用了兩枚芯片</div>
                             </div>
                             <span className="text-[8px] text-stone-400">{timeStr}</span>
                         </div>
@@ -2472,15 +2473,15 @@ const MessageItem = React.memo(({
                             <blockquote className="my-2.5 px-2.5 py-2 border-l-2 border-rose-700/45 bg-[#e8ddce] text-[11px] leading-relaxed text-stone-700" style={{ fontFamily: "'Noto Serif SC',serif" }}>“{sarNote.highlight}”</blockquote>
                             <p className="text-[11px] leading-[1.65] text-stone-600">{activity}</p>
                             <details className="group mt-2 border-t border-dashed border-stone-400/50 pt-2 [&_summary]:list-none [&::-webkit-details-marker]:hidden">
-                                <summary className="cursor-pointer select-none text-[9px] font-bold text-teal-800/70">展开完整事故与 TA 的随笔 <span className="inline-block transition-transform group-open:rotate-90">›</span></summary>
+                                <summary className="cursor-pointer select-none text-[9px] font-bold text-teal-800/70">展開完整事故與 TA 的隨筆 <span className="inline-block transition-transform group-open:rotate-90">›</span></summary>
                                 <div className="mt-2 space-y-2.5">
-                                    <div><div className="text-[8px] tracking-[0.14em] text-stone-400">事情经过</div><p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.75] text-stone-600">{sarNote.story}</p></div>
-                                    <div className="border-t border-stone-300/70 pt-2"><div className="text-[8px] tracking-[0.14em] text-rose-800/55">柜中随笔</div><p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.75] text-stone-700" style={{ fontFamily: "'Noto Serif SC',serif" }}>{sarNote.notes}</p></div>
+                                    <div><div className="text-[8px] tracking-[0.14em] text-stone-400">事情經過</div><p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.75] text-stone-600">{sarNote.story}</p></div>
+                                    <div className="border-t border-stone-300/70 pt-2"><div className="text-[8px] tracking-[0.14em] text-rose-800/55">櫃中隨筆</div><p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.75] text-stone-700" style={{ fontFamily: "'Noto Serif SC',serif" }}>{sarNote.notes}</p></div>
                                 </div>
                             </details>
                         </div>
                         <div className="px-4 pl-5 py-1.5 border-t border-stone-400/40 flex items-center justify-between text-[8px] text-stone-500">
-                            <span>TA 自己玩过的一局</span><span className="font-bold text-rose-800/60">已收入角色柜子</span>
+                            <span>TA 自己玩過的一局</span><span className="font-bold text-rose-800/60">已收入角色櫃子</span>
                         </div>
                     </div>
                 </div>
@@ -2493,16 +2494,16 @@ const MessageItem = React.memo(({
                     className="rounded-xl overflow-hidden border border-indigo-300/40 shadow-[0_4px_16px_rgba(60,40,120,0.22)]"
                     style={{ background: 'linear-gradient(155deg,#2a2350 0%,#1b1838 100%)' }}
                 >
-                    {/* 头部：彼方 · 房间 */}
+                    {/* 頭部：彼方 · 房間 */}
                     <div className="px-3 pt-2.5 pb-2 flex items-center gap-2 border-b border-white/10">
                         <span className="text-base leading-none text-indigo-200/80" style={{ filter: 'drop-shadow(0 0 5px rgba(170,180,255,.6))' }}>✦</span>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] text-indigo-300/80 font-bold uppercase">彼方 · 动态</div>
+                            <div className="text-[9px] tracking-[0.25em] text-indigo-300/80 font-bold uppercase">彼方 · 動態</div>
                             <div className="text-[12px] text-indigo-100 font-semibold truncate">{roomInfo.name}{md.novelTitle ? ` · 《${md.novelTitle}》` : ''}</div>
                         </div>
                         <span className="text-[9px] text-indigo-300/60">{timeStr}</span>
                     </div>
-                    {/* 活动播报 */}
+                    {/* 活動播報 */}
                     <div className="px-3 py-2.5">
                         <p className="text-[12.5px] leading-[1.5] text-indigo-50/95">
                             {md.userBoardPost
@@ -2518,11 +2519,11 @@ const MessageItem = React.memo(({
                                 ))}
                             </div>
                         )}
-                        {/* 留言簿：把角色在墙上留的原话也显示出来 */}
+                        {/* 留言簿：把角色在牆上留的原話也顯示出來 */}
                         {md.privateWords && <blockquote className="mt-2 border-l-2 border-teal-200/50 pl-2 text-[12px] leading-relaxed text-indigo-50 whitespace-pre-wrap">{md.privateWords}</blockquote>}
                         {md.fishing?.sale && <React.Suspense fallback={null}><AivenFishSaleReceipt sale={md.fishing.sale} sellerName={charName || 'Ta'} sellerWords={md.fishing.sale.sellerWords}/></React.Suspense>}
                         {(md.marketActivity || md.marketEventId) && <details className="mt-2 text-[11px] text-indigo-200/80">
-                            <summary className="cursor-pointer">展开经过与原话</summary>
+                            <summary className="cursor-pointer">展開經過與原話</summary>
                             <p className="mt-2 whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                         </details>}
                         {Array.isArray(md.boardPosts) && md.boardPosts.length > 0 && (
@@ -2535,10 +2536,10 @@ const MessageItem = React.memo(({
                             </div>
                         )}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="px-3 py-1.5 border-t border-white/10 flex items-center justify-between">
-                        <span className="text-[9px] text-indigo-300/60 italic">{md.userBoardPost ? '你发布到留言墙' : 'Ta 独自度过的时间'}</span>
-                        <span className="text-[9px] text-amber-200/70 font-bold tracking-wide">{md.userBoardPost ? '彼方' : '＋记忆'}</span>
+                        <span className="text-[9px] text-indigo-300/60 italic">{md.userBoardPost ? '你發佈到留言牆' : 'Ta 獨自度過的時間'}</span>
+                        <span className="text-[9px] text-amber-200/70 font-bold tracking-wide">{md.userBoardPost ? '彼方' : '＋記憶'}</span>
                     </div>
                 </div>
             </div>
@@ -2556,12 +2557,12 @@ const MessageItem = React.memo(({
                     style={{ borderColor: 'rgba(184,155,255,0.3)', background: 'linear-gradient(160deg,#221c33 0%,#171327 55%,#100d1c 100%)' }}>
                     <div className="absolute -top-7 -right-5 w-24 h-24 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,rgba(184,155,255,.4),transparent 70%)' }} />
                     <div className="absolute inset-0 pointer-events-none opacity-50" style={{ backgroundImage: 'radial-gradient(1px 1px at 22% 24%,#c9b8ec,transparent),radial-gradient(1px 1px at 62% 18%,#e7c9f0,transparent),radial-gradient(1px 1px at 42% 36%,#bcd0f0,transparent)' }} />
-                    {/* 头部 */}
+                    {/* 頭部 */}
                     <div className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(184,155,255,0.18)' }}>
                         <span className="text-base leading-none" style={{ color: accent, filter: 'drop-shadow(0 1px 4px rgba(184,155,255,.5))' }}>✦</span>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: accent }}>体验卡 · {sc.mode === 'event' ? '事件' : '日常'}</div>
-                            <div className="text-[12px] text-white/90 font-semibold truncate" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{sc.title || '一段回忆'}</div>
+                            <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: accent }}>體驗卡 · {sc.mode === 'event' ? '事件' : '日常'}</div>
+                            <div className="text-[12px] text-white/90 font-semibold truncate" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{sc.title || '一段回憶'}</div>
                         </div>
                         <span className="text-[9px] text-white/35">{timeStr}</span>
                     </div>
@@ -2575,12 +2576,12 @@ const MessageItem = React.memo(({
                                 {sc.summary}
                             </p>
                         )}
-                        {sc.ending && <div className="mt-2 text-[10px] text-white/40">结局 · {sc.ending}</div>}
+                        {sc.ending && <div className="mt-2 text-[10px] text-white/40">結局 · {sc.ending}</div>}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="relative px-3 py-1.5 border-t flex items-center justify-between" style={{ borderColor: 'rgba(184,155,255,0.18)' }}>
-                        <span className="text-[9px] italic text-white/35">你真实经历过的一天</span>
-                        <span className="text-[9px] font-bold tracking-wide" style={{ color: accent }}>＋ 收藏为回忆</span>
+                        <span className="text-[9px] italic text-white/35">你真實經歷過的一天</span>
+                        <span className="text-[9px] font-bold tracking-wide" style={{ color: accent }}>＋ 收藏為回憶</span>
                     </div>
                 </div>
             </div>
@@ -2595,16 +2596,16 @@ const MessageItem = React.memo(({
                 <div className="px-4 pt-3 pb-2 border-b border-violet-100 flex items-center gap-2">
                     <span className="w-8 h-8 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">💬</span>
                     <div className="min-w-0 flex-1">
-                        <div className="text-[9px] font-bold tracking-[0.18em] text-violet-400 uppercase">群聊公共话题盒</div>
-                        <div className="text-[13px] font-bold text-slate-700 truncate">{box.title || '一段群聊回忆'}</div>
+                        <div className="text-[9px] font-bold tracking-[0.18em] text-violet-400 uppercase">群聊公共話題盒</div>
+                        <div className="text-[13px] font-bold text-slate-700 truncate">{box.title || '一段群聊回憶'}</div>
                     </div>
                 </div>
                 <div className="px-4 py-3">
                     <p className="text-[12px] leading-6 text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto no-scrollbar">{box.summary || m.content}</p>
                 </div>
                 <div className="px-4 py-2 border-t border-violet-100 text-[9px] text-violet-400 flex justify-between">
-                    <span>{box.groupName || '群聊'} · 共同经历</span>
-                    <span>{box.messageCount ? `${box.messageCount} 条原文` : ''}</span>
+                    <span>{box.groupName || '群聊'} · 共同經歷</span>
+                    <span>{box.messageCount ? `${box.messageCount} 條原文` : ''}</span>
                 </div>
             </div>
         );
@@ -2629,26 +2630,26 @@ const MessageItem = React.memo(({
         };
         const timeStr = new Date(m.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
-        // 智能体卡片（偷看到 TA 在玩 AI：助手 / 树洞 / 酒馆）
+        // 智能體卡片（偷看到 TA 在玩 AI：助手 / 樹洞 / 酒館）
         if (typeof pc.kind === 'string' && pc.kind.startsWith('ai_')) {
             const svc = pc.service || pc.kind.replace('ai_', '');
             const meta: Record<string, { label: string; accent: string; bg: string; glyph: string }> = {
                 assistant: { label: 'AI 助手', accent: '#34d399', bg: 'linear-gradient(150deg,#0e2a22 0%,#0b1f1a 55%,#0a1512 100%)', glyph: '🤖' },
-                claude: { label: '深度对话', accent: '#a78bfa', bg: 'linear-gradient(150deg,#1e1830 0%,#171228 55%,#100c1c 100%)', glyph: '✻' },
-                tavern: { label: '酒馆', accent: '#fb7185', bg: 'linear-gradient(150deg,#2a1620 0%,#1d1018 55%,#130a0f 100%)', glyph: '🎭' },
+                claude: { label: '深度對話', accent: '#a78bfa', bg: 'linear-gradient(150deg,#1e1830 0%,#171228 55%,#100c1c 100%)', glyph: '✻' },
+                tavern: { label: '酒館', accent: '#fb7185', bg: 'linear-gradient(150deg,#2a1620 0%,#1d1018 55%,#130a0f 100%)', glyph: '🎭' },
             };
             const mm = meta[svc] || meta.assistant;
             const card = (
                 <div className="w-64">
-                    {/* 用原生 <details> 折叠：默认收起，点头部展开（无需 React state，避免在分支里用 hook） */}
+                    {/* 用原生 <details> 摺疊：默認收起，點頭部展開（無需 React state，避免在分支裡用 hook） */}
                     <details className="group relative rounded-2xl overflow-hidden border shadow-[0_8px_24px_rgba(10,12,20,0.5)] [&_summary]:list-none [&::-webkit-details-marker]:hidden"
                         style={{ borderColor: `${mm.accent}44`, background: mm.bg }}>
                         <div className="absolute -top-8 -right-6 w-28 h-28 rounded-full blur-2xl pointer-events-none" style={{ background: `radial-gradient(circle, ${mm.accent}55, transparent 70%)` }} />
                         <summary className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b cursor-pointer select-none" style={{ borderColor: `${mm.accent}22` }}>
                             <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[13px] shrink-0" style={{ background: `${mm.accent}22` }}>{mm.glyph}</span>
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] tracking-[0.22em] font-bold uppercase" style={{ color: mm.accent }}>智能体 · {mm.label}</div>
-                                <div className="text-[12px] text-white/90 font-semibold truncate">{pc.serviceName ? `${pc.serviceName} · ${pc.title || ''}` : (pc.title || '一段对话')}</div>
+                                <div className="text-[9px] tracking-[0.22em] font-bold uppercase" style={{ color: mm.accent }}>智能體 · {mm.label}</div>
+                                <div className="text-[12px] text-white/90 font-semibold truncate">{pc.serviceName ? `${pc.serviceName} · ${pc.title || ''}` : (pc.title || '一段對話')}</div>
                             </div>
                             <span className="shrink-0 text-[12px] font-bold leading-none transition-transform group-open:rotate-90" style={{ color: mm.accent }}>›</span>
                         </summary>
@@ -2656,8 +2657,8 @@ const MessageItem = React.memo(({
                             <p className="text-[12px] leading-[1.7] text-white/65 whitespace-pre-wrap max-h-40 overflow-y-auto no-scrollbar">{pc.detail || ''}</p>
                         </div>
                         <div className="relative px-3 py-1.5 border-t flex items-center justify-between" style={{ borderColor: `${mm.accent}1e` }}>
-                            <span className="text-[9px] italic text-white/35">TA 自己手机上的 AI · {timeStr}</span>
-                            <span className="text-[9px] font-bold tracking-wide" style={{ color: mm.accent }}>来自查手机</span>
+                            <span className="text-[9px] italic text-white/35">TA 自己手機上的 AI · {timeStr}</span>
+                            <span className="text-[9px] font-bold tracking-wide" style={{ color: mm.accent }}>來自查手機</span>
                         </div>
                     </details>
                 </div>
@@ -2665,7 +2666,7 @@ const MessageItem = React.memo(({
             return commonLayout(card);
         }
 
-        // 人际关系变动卡片（用户在查手机里删/拉黑了角色的好友）
+        // 人際關係變動卡片（用戶在查手機裡刪/拉黑了角色的好友）
         if (pc.kind === 'relationship') {
             const isBlock = pc.action === 'blocked';
             const rAccent = isBlock ? '#fca5a5' : '#fb7185';
@@ -2677,21 +2678,21 @@ const MessageItem = React.memo(({
                         <div className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(251,113,133,0.18)' }}>
                             <span className="text-sm leading-none">{isBlock ? '🚫' : '💔'}</span>
                             <div className="flex-1 min-w-0">
-                                <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: rAccent }}>人际关系 · 关系变动</div>
-                                <div className="text-[12px] text-white/90 font-semibold truncate">{pc.title || '好友关系变动'}</div>
+                                <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: rAccent }}>人際關係 · 關係變動</div>
+                                <div className="text-[12px] text-white/90 font-semibold truncate">{pc.title || '好友關係變動'}</div>
                             </div>
                             <span className="text-[9px] text-white/35">{timeStr}</span>
                         </div>
                         <div className="relative px-3 py-2.5">
                             <p className="text-[12px] leading-[1.6] text-white/70 whitespace-pre-wrap">
-                                <span className="font-semibold" style={{ color: rAccent }}>{pc.by || '对方'}</span> 把你和
+                                <span className="font-semibold" style={{ color: rAccent }}>{pc.by || '對方'}</span> 把你和
                                 <span className="font-semibold text-white/90">「{pc.contactName || '某人'}」</span>
-                                的好友关系{isBlock ? '拉黑' : '删除'}了。
+                                的好友關係{isBlock ? '拉黑' : '刪除'}了。
                             </p>
                         </div>
                         <div className="relative px-3 py-1.5 border-t flex items-center justify-between" style={{ borderColor: 'rgba(251,113,133,0.16)' }}>
-                            <span className="text-[9px] italic text-white/40">你察觉到是 TA 动的手</span>
-                            <span className="text-[9px] font-bold tracking-wide" style={{ color: rAccent }}>来自查手机</span>
+                            <span className="text-[9px] italic text-white/40">你察覺到是 TA 動的手</span>
+                            <span className="text-[9px] font-bold tracking-wide" style={{ color: rAccent }}>來自查手機</span>
                         </div>
                     </div>
                 </div>
@@ -2706,16 +2707,16 @@ const MessageItem = React.memo(({
                 <div className="relative rounded-2xl overflow-hidden border shadow-[0_8px_24px_rgba(20,30,45,0.4)]"
                     style={{ borderColor: 'rgba(125,211,252,0.28)', background: 'linear-gradient(160deg,#10202b 0%,#0d1822 55%,#0a1019 100%)' }}>
                     <div className="absolute -top-7 -right-5 w-24 h-24 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,rgba(125,211,252,.3),transparent 70%)' }} />
-                    {/* 头部 */}
+                    {/* 頭部 */}
                     <div className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b" style={{ borderColor: 'rgba(125,211,252,0.16)' }}>
                         <span className="text-sm leading-none" style={{ color: accent }}>🔍</span>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: accent }}>查手机 · {pc.app || '手机'}</div>
-                            <div className="text-[12px] text-white/90 font-semibold truncate">{pc.title || '一条痕迹'}</div>
+                            <div className="text-[9px] tracking-[0.25em] font-bold uppercase" style={{ color: accent }}>查手機 · {pc.app || '手機'}</div>
+                            <div className="text-[12px] text-white/90 font-semibold truncate">{pc.title || '一條痕跡'}</div>
                         </div>
                         <span className="text-[9px] text-white/35">{timeStr}</span>
                     </div>
-                    {/* 配图：目前只有「軌跡」OOTD/Moments 同步过来的卡片会带 */}
+                    {/* 配圖：目前只有「軌跡」OOTD/Moments 同步過來的卡片會帶 */}
                     {pc.image && (
                         <div className="relative aspect-[4/5] bg-black/20">
                             <TokenImg value={pc.image} alt="" className="w-full h-full object-cover" />
@@ -2730,10 +2731,10 @@ const MessageItem = React.memo(({
                             <p className="text-[12px] leading-[1.6] text-white/65 whitespace-pre-wrap max-h-40 overflow-y-auto no-scrollbar">{pc.detail}</p>
                         )}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="relative px-3 py-1.5 border-t flex items-center justify-between" style={{ borderColor: 'rgba(125,211,252,0.16)' }}>
-                        <span className="text-[9px] italic text-white/35">{isChat ? 'TA 手机里的一段对话' : 'TA 手机里的一条记录'}</span>
-                        <span className="text-[9px] font-bold tracking-wide" style={{ color: accent }}>来自查手机</span>
+                        <span className="text-[9px] italic text-white/35">{isChat ? 'TA 手機裡的一段對話' : 'TA 手機裡的一條記錄'}</span>
+                        <span className="text-[9px] font-bold tracking-wide" style={{ color: accent }}>來自查手機</span>
                     </div>
                 </div>
             </div>
@@ -2748,8 +2749,8 @@ const MessageItem = React.memo(({
         const timeStr = new Date(m.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const HUE = 262;
         const accent = `hsl(${HUE},75%,72%)`;
-        const exposed = tMeta.exposed !== false; // 缺省按已暴露（兼容旧卡片）
-        // 由该时段起始时间，给每一拍合成「行为轨迹」时间戳（HH:MM:SS），与窥视面板一致。
+        const exposed = tMeta.exposed !== false; // 缺省按已暴露（兼容舊卡片）
+        // 由該時段起始時間，給每一拍合成「行為軌跡」時間戳（HH:MM:SS），與窺視面板一致。
         const beatClock = (idx: number): string => {
             const [h, mm] = String(tMeta.slotTime || '00:00').split(':').map((n: string) => parseInt(n, 10));
             const base = (Number.isFinite(h) ? h : 0) * 3600 + (Number.isFinite(mm) ? mm : 0) * 60 + idx * 17;
@@ -2762,19 +2763,19 @@ const MessageItem = React.memo(({
                     style={{ borderColor: `hsla(${HUE},55%,55%,0.32)`, background: `linear-gradient(160deg,hsl(${HUE},38%,20%) 0%,hsl(${HUE},42%,13%) 58%,#0f0a18 100%)` }}>
                     <div className="absolute -top-7 -right-5 w-24 h-24 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle,hsla(${HUE},70%,60%,.35),transparent 70%)` }} />
                     <div className="absolute inset-0 pointer-events-none opacity-50" style={{ backgroundImage: 'radial-gradient(1px 1px at 22% 30%,rgba(200,180,255,.4),transparent),radial-gradient(1px 1px at 78% 18%,rgba(220,200,255,.35),transparent)' }} />
-                    {/* 头部：窥视回放 · LIVE */}
+                    {/* 頭部：窺視回放 · LIVE */}
                     <div className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b" style={{ borderColor: `hsla(${HUE},55%,55%,0.2)` }}>
                         <span className="text-sm leading-none" style={{ color: accent, filter: `drop-shadow(0 1px 4px hsla(${HUE},70%,60%,.6))` }}>👁</span>
                         <div className="flex-1 min-w-0">
                             <div className="text-[8.5px] tracking-[0.22em] font-bold uppercase flex items-center gap-1.5" style={{ color: accent }}>
-                                <span>窥视回放 · {tMeta.slotTime || ''}</span>
+                                <span>窺視回放 · {tMeta.slotTime || ''}</span>
                                 <span className="w-1 h-1 rounded-full bg-[#ff5a78] animate-pulse" />
                             </div>
-                            <div className="text-[12px] text-white/90 font-semibold truncate">{tMeta.emoji ? `${tMeta.emoji} ` : ''}{tMeta.activity || '某个时段'}</div>
+                            <div className="text-[12px] text-white/90 font-semibold truncate">{tMeta.emoji ? `${tMeta.emoji} ` : ''}{tMeta.activity || '某個時段'}</div>
                         </div>
                         <span className="text-[9px] text-white/35">{timeStr}</span>
                     </div>
-                    {/* 正文：逐拍回放（时间戳 + 氛围图标方块 + 文本） */}
+                    {/* 正文：逐拍回放（時間戳 + 氛圍圖標方塊 + 文本） */}
                     <div className="relative px-2.5 py-2.5 max-h-52 overflow-y-auto no-scrollbar space-y-1.5">
                         {lines.length > 0 ? lines.map((l: any, i: number) => (
                             <div key={i} className="flex items-stretch gap-1.5">
@@ -2790,14 +2791,14 @@ const MessageItem = React.memo(({
                                 >{l?.text || ''}</p>
                             </div>
                         )) : (
-                            <p className="text-[11px] text-white/40 italic">（这段窥视没有内容）</p>
+                            <p className="text-[11px] text-white/40 italic">（這段窺視沒有內容）</p>
                         )}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="relative px-3 py-1.5 border-t flex items-center justify-between" style={{ borderColor: `hsla(${HUE},55%,55%,0.2)` }}>
-                        <span className="text-[9px] italic text-white/40">你偷看了 TA 的这一刻</span>
+                        <span className="text-[9px] italic text-white/40">你偷看了 TA 的這一刻</span>
                         <span className="text-[9px] font-bold tracking-wide" style={{ color: exposed ? accent : 'rgba(255,255,255,0.4)' }}>
-                            {exposed ? 'TA 已察觉' : 'TA 不知情'}
+                            {exposed ? 'TA 已察覺' : 'TA 不知情'}
                         </span>
                     </div>
                 </div>
@@ -2807,8 +2808,8 @@ const MessageItem = React.memo(({
     }
 
     if (m.type === 'room_card') {
-        // 小屋「生活动态」轻量卡片：情绪评估顺风车偶尔捎带的一句小变化（utils/roomAmbient.ts）。
-        // content 进上下文，角色自然记得自己干过啥——不额外建 feed，卡片即记录。
+        // 小屋「生活動態」輕量卡片：情緒評估順風車偶爾捎帶的一句小變化（utils/roomAmbient.ts）。
+        // content 進上下文，角色自然記得自己幹過啥——不額外建 feed，卡片即記錄。
         const md: any = m.metadata || {};
         const timeStr = new Date(m.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
         const card = (
@@ -2819,13 +2820,13 @@ const MessageItem = React.memo(({
                 >
                     <div className="relative px-3 pt-2 pb-1.5 flex items-center gap-2 border-b border-amber-200/50">
                         <span className="text-sm leading-none">{md.emoji || '🏠'}</span>
-                        <span className="flex-1 text-[9px] tracking-[0.25em] text-amber-500/90 font-bold uppercase">小屋 · 生活动态</span>
+                        <span className="flex-1 text-[9px] tracking-[0.25em] text-amber-500/90 font-bold uppercase">小屋 · 生活動態</span>
                         <span className="text-[9px] text-amber-400/70">{timeStr}</span>
                     </div>
                     <div className="relative px-3 py-2">
                         <p className="text-[12px] leading-[1.6] text-[#6b5636]">
                             <span className="font-bold text-amber-600">{charName || 'Ta'}</span>
-                            {md.text || String(m.content || '').replace(/^\[小屋动态\]\s*/, '')}
+                            {md.text || String(m.content || '').replace(/^\[小屋[动動][态態]\]\s*/, '')}
                         </p>
                     </div>
                 </div>
@@ -2846,20 +2847,20 @@ const MessageItem = React.memo(({
                     className="relative rounded-2xl overflow-hidden border border-violet-200/70 shadow-[0_6px_20px_rgba(150,130,200,0.22)]"
                     style={{ background: 'linear-gradient(160deg,#fbf7ff 0%,#f1ebfa 55%,#eae3f6 100%)' }}
                 >
-                    {/* 顶部淡紫光晕 + 月亮 + 星点（浅色系，和彼方的深色拉开差异） */}
+                    {/* 頂部淡紫光暈 + 月亮 + 星點（淺色系，和彼方的深色拉開差異） */}
                     <div className="absolute -top-6 -right-4 w-24 h-24 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle,rgba(214,196,244,.55),transparent 70%)' }} />
                     <div className="absolute top-2.5 right-3.5 w-5 h-5 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle at 38% 35%,#ffffff,#d9cdf0 72%)', boxShadow: '0 0 10px 2px rgba(200,180,245,.5)' }} />
                     <div className="absolute inset-0 pointer-events-none opacity-60" style={{ backgroundImage: 'radial-gradient(1px 1px at 20% 22%,#c9b8ec,transparent),radial-gradient(1px 1px at 60% 16%,#e7c9f0,transparent),radial-gradient(1px 1px at 40% 34%,#bcd0f0,transparent)' }} />
-                    {/* 头部：家园 · 世界名 · 剧情时间 */}
+                    {/* 頭部：家園 · 世界名 · 劇情時間 */}
                     <div className="relative px-3 pt-2.5 pb-2 flex items-center gap-2 border-b border-violet-200/50">
                         <span className="text-base leading-none text-violet-400" style={{ filter: 'drop-shadow(0 1px 3px rgba(180,150,230,.5))' }}>⌂</span>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] text-violet-400/90 font-bold uppercase">家园 · {md.storyTime || '生活记录'}</div>
+                            <div className="text-[9px] tracking-[0.25em] text-violet-400/90 font-bold uppercase">家園 · {md.storyTime || '生活記錄'}</div>
                             <div className="text-[12px] text-[#5b4b7a] font-semibold truncate font-serif">{md.worldName || '共同世界'}</div>
                         </div>
                         <span className="text-[9px] text-violet-400/60">{timeStr}</span>
                     </div>
-                    {/* 行为描述 */}
+                    {/* 行為描述 */}
                     <div className="relative px-3 py-2.5">
                         <p className="text-[11px] text-[#6a5790] mb-1">
                             <span className="font-bold text-rose-400">{charName || 'Ta'}</span>
@@ -2870,7 +2871,7 @@ const MessageItem = React.memo(({
                                 {narrative}
                             </p>
                         )}
-                        {/* 数值面板 */}
+                        {/* 數值面板 */}
                         {Object.keys(panel).length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
                                 {Object.entries(panel).map(([k, v]) => (
@@ -2880,7 +2881,7 @@ const MessageItem = React.memo(({
                                 ))}
                             </div>
                         )}
-                        {/* 发的动态 */}
+                        {/* 發的動態 */}
                         {posts.length > 0 && (
                             <div className="mt-2 space-y-1">
                                 {posts.map((p, i) => (
@@ -2891,10 +2892,10 @@ const MessageItem = React.memo(({
                             </div>
                         )}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="relative px-3 py-1.5 border-t border-violet-200/50 flex items-center justify-between">
-                        <span className="text-[9px] text-violet-400/70 italic">Ta 在那个世界的生活</span>
-                        <span className="text-[9px] text-rose-400/80 font-bold tracking-wide">＋记忆</span>
+                        <span className="text-[9px] text-violet-400/70 italic">Ta 在那個世界的生活</span>
+                        <span className="text-[9px] text-rose-400/80 font-bold tracking-wide">＋記憶</span>
                     </div>
                 </div>
             </div>
@@ -2904,7 +2905,7 @@ const MessageItem = React.memo(({
 
     if (m.type === 'trpg_card') {
         const t: any = m.metadata?.trpg || {};
-        const gameTitle: string = t.gameTitle || 'TRPG 跑团';
+        const gameTitle: string = t.gameTitle || 'TRPG 跑團';
         const partyNames: string[] = Array.isArray(t.partyNames) ? t.partyNames.filter((n: string) => n && n !== charName) : [];
         const excerpt: Array<{ speaker?: string; text?: string; role?: string }> = Array.isArray(t.excerpt) ? t.excerpt : [];
         const card = (
@@ -2913,19 +2914,19 @@ const MessageItem = React.memo(({
                     className="rounded-2xl overflow-hidden border border-purple-300/30 shadow-[0_6px_20px_rgba(70,40,110,0.28)]"
                     style={{ background: 'linear-gradient(155deg,#2c1c44 0%,#1a1230 100%)' }}
                 >
-                    {/* 头部 */}
+                    {/* 頭部 */}
                     <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-2.5 border-b border-white/10">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#a855f7,#ec4899)' }}>
                             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white"><path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] text-purple-300/80 font-bold uppercase">TRPG · 一起玩的游戏</div>
+                            <div className="text-[9px] tracking-[0.25em] text-purple-300/80 font-bold uppercase">TRPG · 一起玩的遊戲</div>
                             <div className="text-[13px] text-purple-50 font-semibold truncate font-serif">{gameTitle}</div>
                         </div>
                     </div>
-                    {/* 剧情节选 */}
+                    {/* 劇情節選 */}
                     <div className="px-3.5 py-3 space-y-2 max-h-60 overflow-hidden">
-                        {excerpt.length === 0 && <p className="text-[12px] text-purple-200/70 italic">一段冒险剧情</p>}
+                        {excerpt.length === 0 && <p className="text-[12px] text-purple-200/70 italic">一段冒險劇情</p>}
                         {excerpt.slice(0, 6).map((e, i) => {
                             const isGM = e.role === 'gm';
                             const text = (e.text || '').replace(/^\*|\*$/g, '').trim();
@@ -2936,12 +2937,12 @@ const MessageItem = React.memo(({
                                 </div>
                             );
                         })}
-                        {excerpt.length > 6 && <div className="text-[10px] text-purple-300/60 text-center pt-0.5">…共 {excerpt.length} 条剧情</div>}
+                        {excerpt.length > 6 && <div className="text-[10px] text-purple-300/60 text-center pt-0.5">…共 {excerpt.length} 條劇情</div>}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="px-3.5 py-2 border-t border-white/10 flex items-center justify-between">
-                        <span className="text-[9px] text-purple-300/70 italic truncate">{partyNames.length ? `与 ${partyNames.join('、')} 同行` : '我们的冒险'}</span>
-                        <span className="text-[9px] text-pink-200/80 font-bold tracking-wide shrink-0 ml-2">＋共同回忆</span>
+                        <span className="text-[9px] text-purple-300/70 italic truncate">{partyNames.length ? `與 ${partyNames.join('、')} 同行` : '我們的冒險'}</span>
+                        <span className="text-[9px] text-pink-200/80 font-bold tracking-wide shrink-0 ml-2">＋共同回憶</span>
                     </div>
                 </div>
             </div>
@@ -2951,7 +2952,7 @@ const MessageItem = React.memo(({
 
     if (m.type === 'novel_card') {
         const n: any = m.metadata?.novel || {};
-        const bookTitle: string = n.bookTitle || '无题';
+        const bookTitle: string = n.bookTitle || '無題';
         const isCoauthor = Array.isArray(n.collaboratorNames) && n.collaboratorNames.includes(charName);
         const coauthors: string[] = Array.isArray(n.collaboratorNames) ? n.collaboratorNames.filter((name: string) => name && name !== charName) : [];
         const chapters: Array<{ index?: number; summary?: string }> = Array.isArray(n.chapters) ? n.chapters : [];
@@ -2961,17 +2962,17 @@ const MessageItem = React.memo(({
                     className="rounded-2xl overflow-hidden border border-amber-300/40 shadow-[0_6px_20px_rgba(120,80,20,0.22)]"
                     style={{ background: 'linear-gradient(155deg,#fdf6e3 0%,#f5e9cf 100%)' }}
                 >
-                    {/* 头部 */}
+                    {/* 頭部 */}
                     <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-2.5 border-b border-amber-900/10">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg,#d97706,#b45309)' }}>
                             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white"><path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] tracking-[0.25em] text-amber-700/70 font-bold uppercase">笔友会 · {isCoauthor ? '一起写的书' : '分享的书'}</div>
+                            <div className="text-[9px] tracking-[0.25em] text-amber-700/70 font-bold uppercase">筆友會 · {isCoauthor ? '一起寫的書' : '分享的書'}</div>
                             <div className="text-[13px] text-amber-950 font-semibold truncate font-serif">《{bookTitle}》{n.subtitle ? <span className="text-amber-800/60 text-[11px] ml-1">{n.subtitle}</span> : null}</div>
                         </div>
                     </div>
-                    {/* 章节归档节选 */}
+                    {/* 章節歸檔節選 */}
                     <div className="px-3.5 py-3 space-y-2.5 max-h-60 overflow-hidden">
                         {chapters.length === 0 && <p className="text-[12px] text-amber-800/60 italic font-serif">一段手稿</p>}
                         {chapters.slice(0, 3).map((c, i) => (
@@ -2980,12 +2981,12 @@ const MessageItem = React.memo(({
                                 <span className="border-l-2 border-amber-600/25 pl-2 block mt-0.5 line-clamp-3 font-serif">{(c.summary || '').trim()}</span>
                             </div>
                         ))}
-                        {chapters.length > 3 && <div className="text-[10px] text-amber-700/50 text-center pt-0.5">…共 {chapters.length} 章归档</div>}
+                        {chapters.length > 3 && <div className="text-[10px] text-amber-700/50 text-center pt-0.5">…共 {chapters.length} 章歸檔</div>}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="px-3.5 py-2 border-t border-amber-900/10 flex items-center justify-between">
-                        <span className="text-[9px] text-amber-700/60 italic truncate">{isCoauthor ? (coauthors.length ? `与 ${coauthors.join('、')} 合著` : '我们合写的手稿') : '递到你手里的手稿'}</span>
-                        <span className="text-[9px] text-amber-700/90 font-bold tracking-wide shrink-0 ml-2">＋共同回忆</span>
+                        <span className="text-[9px] text-amber-700/60 italic truncate">{isCoauthor ? (coauthors.length ? `與 ${coauthors.join('、')} 合著` : '我們合寫的手稿') : '遞到你手裡的手稿'}</span>
+                        <span className="text-[9px] text-amber-700/90 font-bold tracking-wide shrink-0 ml-2">＋共同回憶</span>
                     </div>
                 </div>
             </div>
@@ -2995,8 +2996,8 @@ const MessageItem = React.memo(({
 
     if (m.type === 'news_card') {
         const md: any = m.metadata || {};
-        const title: string = md.title || '热点';
-        const source: string = md.source || '热点';
+        const title: string = md.title || '熱點';
+        const source: string = md.source || '熱點';
         const url: string | undefined = md.url;
         const desc: string | undefined = (md.desc && md.desc !== title) ? md.desc : undefined;
         const dateStr = new Date(m.timestamp).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
@@ -3010,20 +3011,20 @@ const MessageItem = React.memo(({
                     className="rounded-lg overflow-hidden border border-stone-400/70 shadow-[0_3px_12px_rgba(60,50,30,0.18)]"
                     style={{ background: 'linear-gradient(170deg,#faf6ec 0%,#f3ecdb 100%)' }}
                 >
-                    {/* 报头 */}
+                    {/* 報頭 */}
                     <div className="px-3 pt-2 pb-1.5 border-b-2 border-double border-stone-500/60">
                         <div className="flex items-center justify-between text-stone-500">
                             <span className="text-[8.5px] tracking-[0.3em] uppercase font-bold">Soren Daily</span>
-                            <span className="text-[8.5px] tracking-wide">{dateStr} · 号外</span>
+                            <span className="text-[8.5px] tracking-wide">{dateStr} · 號外</span>
                         </div>
                     </div>
-                    {/* 栏目标签 */}
+                    {/* 欄目標籤 */}
                     <div className="px-3 pt-2.5">
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-red-700 px-1.5 py-[1px] tracking-wide shadow-sm">
                             <span className="text-[8px]">▌</span>{source}
                         </span>
                     </div>
-                    {/* 标题 */}
+                    {/* 標題 */}
                     <div className="px-3 pt-1.5 pb-2">
                         <p
                             className="text-[15px] leading-[1.35] font-black text-stone-900"
@@ -3040,12 +3041,12 @@ const MessageItem = React.memo(({
                             </p>
                         )}
                     </div>
-                    {/* 页脚 */}
+                    {/* 頁腳 */}
                     <div className="px-3 py-1.5 flex items-center justify-between border-t border-stone-400/50">
-                        <span className="text-[9px] text-stone-500 italic">{charName || 'Ta'} 转给你看</span>
+                        <span className="text-[9px] text-stone-500 italic">{charName || 'Ta'} 轉給你看</span>
                         {url
                             ? <span className="text-[10px] text-red-700 font-bold tracking-wide">查看原文 ›</span>
-                            : <span className="text-[9px] text-stone-400">热点速读</span>}
+                            : <span className="text-[9px] text-stone-400">熱點速讀</span>}
                     </div>
                 </div>
             </div>
@@ -3057,14 +3058,14 @@ const MessageItem = React.memo(({
         const meta: any = m.metadata || {};
         const html: string = (typeof meta.htmlSource === 'string' && meta.htmlSource) ? meta.htmlSource : '';
         if (!html) {
-            // 元数据丢了 (老消息或导入数据), 给个友好占位
+            // 元數據丟了 (老消息或導入數據), 給個友好佔位
             return commonLayout(
                 <div className="px-4 py-3 rounded-2xl bg-fuchsia-50 text-fuchsia-500 text-xs italic border border-fuchsia-100">
-                    [HTML 卡片数据缺失]
+                    [HTML 卡片數據缺失]
                 </div>
             );
         }
-        // 渲染逻辑抽到共享组件 components/chat/HtmlCard.tsx（群聊共用），行为不变
+        // 渲染邏輯抽到共享組件 components/chat/HtmlCard.tsx（群聊共用），行為不變
         return commonLayout(<HtmlCard html={html} />);
     }
 
@@ -3095,7 +3096,7 @@ const MessageItem = React.memo(({
                     </div>
                     <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{post.content}</p>
                     <div className="mt-2 pt-2 border-t border-slate-50 flex items-center gap-1 text-[10px] text-slate-400">
-                        <span className="text-red-400">Spark</span> • 笔记分享
+                        <span className="text-red-400">Spark</span> • 筆記分享
                     </div>
                 </div>
             </div>
@@ -3129,7 +3130,7 @@ const MessageItem = React.memo(({
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #b8909a, #a07880)' }}>{scoreData.charName?.[0] || '?'}</div>
                         )}
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#9b8a8e' }}>攻略本 · 结算报告</div>
+                            <div className="text-[9px] font-bold tracking-widest uppercase" style={{ color: '#9b8a8e' }}>攻略本 · 結算報告</div>
                             <div className="text-xs font-bold truncate" style={{ color: '#5a4a50' }}>「{scoreData.title}」</div>
                         </div>
                         <div className={`text-lg font-black shrink-0 ${isPositive ? 'text-emerald-500' : diff < 0 ? 'text-red-400' : 'text-slate-400'}`}>
@@ -3159,7 +3160,7 @@ const MessageItem = React.memo(({
                         {scoreData.charNewInsight && (
                             <div className="rounded-xl px-3 py-2" style={{ background: 'linear-gradient(135deg, rgba(215,230,248,0.6), rgba(200,220,245,0.45))', border: '1px solid rgba(150,185,225,0.35)' }}>
                                 <div className="text-[9px] font-bold mb-1 flex items-center gap-1" style={{ color: '#4a6a92' }}>
-                                    <span>◆</span> 这局游戏让我发现的你
+                                    <span>◆</span> 這局遊戲讓我發現的你
                                 </div>
                                 <div className="text-xs leading-relaxed italic" style={{ color: '#2a4a68' }}>
                                     {scoreData.charNewInsight}
@@ -3190,7 +3191,7 @@ const MessageItem = React.memo(({
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>{scoreData.charName?.[0] || '?'}</div>
                         )}
                         <div className="flex-1 min-w-0">
-                            <div className="text-[9px] font-bold tracking-widest" style={{ color: '#b45309' }}>白色情人节 · 默契测验</div>
+                            <div className="text-[9px] font-bold tracking-widest" style={{ color: '#b45309' }}>白色情人節 · 默契測驗</div>
                             <div className="text-xs font-bold truncate" style={{ color: '#78350f' }}>{scoreData.charName}</div>
                         </div>
                         <div className="shrink-0 text-right">
@@ -3198,7 +3199,7 @@ const MessageItem = React.memo(({
                                 {scoreData.score}<span className="text-xs opacity-60">/{scoreData.total}</span>
                             </div>
                             <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${passed ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
-                                {passed ? '解锁 🍫' : '未达标'}
+                                {passed ? '解鎖 🍫' : '未達標'}
                             </div>
                         </div>
                     </div>
@@ -3212,10 +3213,10 @@ const MessageItem = React.memo(({
                                 <div className="flex-1 min-w-0">
                                     <p className="text-[11px] font-medium leading-tight" style={{ color: '#4a3520' }}>{q.question}</p>
                                     <p className="text-[10px] mt-0.5" style={{ color: q.isCorrect ? '#6b7280' : '#dc2626' }}>
-                                        你选：{q.userAnswer}
+                                        你選：{q.userAnswer}
                                     </p>
                                     {!q.isCorrect && (
-                                        <p className="text-[10px]" style={{ color: '#059669' }}>正确：{q.correctAnswer}</p>
+                                        <p className="text-[10px]" style={{ color: '#059669' }}>正確：{q.correctAnswer}</p>
                                     )}
                                     {q.review && (
                                         <p className="text-[10px] italic mt-0.5" style={{ color: '#92400e' }}>「{q.review}」</p>
@@ -3233,7 +3234,7 @@ const MessageItem = React.memo(({
                         </div>
                     )}
                     <div className="px-3 pb-2.5 flex justify-end">
-                        <span className="text-[9px]" style={{ color: '#d97706' }}>2026.3.14 白色情人节 🍫</span>
+                        <span className="text-[9px]" style={{ color: '#d97706' }}>2026.3.14 白色情人節 🍫</span>
                     </div>
                 </div>
             );
@@ -3253,14 +3254,14 @@ const MessageItem = React.memo(({
                         <div className="text-xs font-bold text-slate-800 truncate">{scoreData.courseTitle}</div>
                         <div className="text-[10px] text-slate-500 truncate mt-0.5">{scoreData.chapterTitle}</div>
                         <div className="mt-2 pt-2 border-t border-slate-50 flex items-center gap-1 text-[10px] text-emerald-500">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4dd.png" alt="" className="w-3 h-3 inline-block" /> 刷题报告
+                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4dd.png" alt="" className="w-3 h-3 inline-block" /> 刷題報告
                         </div>
                     </div>
                 </div>
             );
         }
 
-        // === Like 520 Card === (必须放在 if (scoreData) 兜底前)
+        // === Like 520 Card === (必須放在 if (scoreData) 兜底前)
         if (scoreData?.type === 'like520_card') {
             return commonLayout(<Like520ChatCard data={scoreData} />);
         }
@@ -3299,7 +3300,7 @@ const MessageItem = React.memo(({
                             <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed whitespace-pre-wrap">{scoreData.lyrics.substring(0, 100)}</p>
                         )}
                         <div className="mt-2 pt-2 border-t border-slate-50 flex items-center gap-1 text-[10px] text-fuchsia-500">
-                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3b5.png" alt="" className="w-3 h-3 inline-block" /> 乐谱分享
+                            <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3b5.png" alt="" className="w-3 h-3 inline-block" /> 樂譜分享
                         </div>
                     </div>
                 </div>
@@ -3358,7 +3359,7 @@ const MessageItem = React.memo(({
                 onClick={openFile}
                 disabled={openingCollaborationFile && !selectionMode}
                 className="sully-collaboration-file group w-[min(276px,72vw)] overflow-hidden rounded-[18px] border border-slate-200/90 bg-white text-left shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-[transform,box-shadow,opacity] duration-150 active:scale-[0.985] disabled:opacity-70"
-                aria-label={`打开文件 ${fileName}`}
+                aria-label={`打開文件 ${fileName}`}
             >
                 <span className="flex min-w-0 items-center gap-3.5 px-3.5 py-3.5">
                     <span className={`sully-collaboration-file-icon relative grid h-12 w-11 shrink-0 place-items-center rounded-[13px] border ${accentClass}`}>
@@ -3382,20 +3383,20 @@ const MessageItem = React.memo(({
                         )}
                     </span>
                 </span>
-                <span className="block border-t border-slate-100 px-3.5 py-2 text-[9px] font-semibold tracking-[0.12em] text-slate-400">协同工作 · {isInstallable ? '可安装作品' : '原始文件'}</span>
+                <span className="block border-t border-slate-100 px-3.5 py-2 text-[9px] font-semibold tracking-[0.12em] text-slate-400">協同工作 · {isInstallable ? '可安裝作品' : '原始文件'}</span>
             </button>
         );
     }
 
-    // 表情气泡默认尺寸 160→96（吸收社区美化的共识尺寸）。sully-emoji-msg 是给自定义 CSS 用的
-    // 稳定锚点——旧美化代码锚在 .max-w-\[160px\] 类名上，类名一变就失配（恰好无缝退休：
-    // 新默认就是它们想要的 96px）；以后想改尺寸请选择器写 .sully-emoji-msg，不再锚类名。
+    // 表情氣泡默認尺寸 160→96（吸收社區美化的共識尺寸）。sully-emoji-msg 是給自定義 CSS 用的
+    // 穩定錨點——舊美化代碼錨在 .max-w-\[160px\] 類名上，類名一變就失配（恰好無縫退休：
+    // 新默認就是它們想要的 96px）；以後想改尺寸請選擇器寫 .sully-emoji-msg，不再錨類名。
     if (m.type === 'emoji') {
         return commonLayout(
             m.content ? (
                 <TokenImg value={m.content} className="sully-emoji-msg max-w-[var(--sully-emoji-size,96px)] max-h-[var(--sully-emoji-size,96px)] w-auto h-auto object-contain hover:scale-105 transition-transform drop-shadow-md active:scale-95" loading="lazy" decoding="async" />
             ) : (
-                <div className="px-3 py-2 rounded-2xl bg-slate-100 text-slate-400 text-xs italic">[表情已丢失]</div>
+                <div className="px-3 py-2 rounded-2xl bg-slate-100 text-slate-400 text-xs italic">[表情已丟失]</div>
             )
         );
     }
@@ -3414,7 +3415,7 @@ const MessageItem = React.memo(({
                         onClick={onImageClick ? () => onImageClick(m) : undefined}
                     />
                 ) : (
-                    <div className="px-4 py-6 rounded-2xl bg-slate-100 text-slate-400 text-xs italic text-center min-w-[120px]">[图片已丢失]</div>
+                    <div className="px-4 py-6 rounded-2xl bg-slate-100 text-slate-400 text-xs italic text-center min-w-[120px]">[圖片已丟失]</div>
                 )}
             </div>
         );
@@ -3539,33 +3540,33 @@ const MessageItem = React.memo(({
     const stripJunk = (s: string) => stripFishCuesForDisplay(stripLeakedSourceTags(s)
         .replace(/%%TRANS%%[\s\S]*/gi, '')           // legacy translation marker
         .replace(/%%BILINGUAL%%/gi, '\n')            // raw bilingual marker → newline
-        // stray bilingual XML tags — 容错版：全角括号/斜杠、标签内空格、简繁、少写 `>` 的截断形态
-        // (如 `</译文`) 都吃掉。掉格式消息已经按破标签落过库，显示端不容错就会原样漏给用户。
-        .replace(/[<＜]\s*[/／]?\s*(?:翻[译譯]|原文|[译譯]文)\s*[>＞]?/g, '')
+        // stray bilingual XML tags — 容錯版：全角括號/斜槓、標籤內空格、簡繁、少寫 `>` 的截斷形態
+        // (如 `</譯文`) 都吃掉。掉格式消息已經按破標籤落過庫，顯示端不容錯就會原樣漏給用戶。
+        .replace(/[<＜]\s*[/／]?\s*(?:翻[译譯譯]|原文|[译譯譯]文)\s*[>＞]?/g, '')
         .replace(/\[\[(?:QU[OA]TE|引用)[：:][\s\S]*?\]\]/g, '')  // residual double-bracket quotes (incl. typos & Chinese)
         .replace(/\[(?:QU[OA]TE|引用)[：:][^\]]*\]/g, '')     // residual single-bracket quotes (incl. typos & Chinese)
-        .replace(/\[[^\[\]\n「」]{0,24}引用了[^\[\]\n「」]{0,24}「[^」\n]*?」[^\[\]\n]{0,24}\]\s*/g, '')  // imitated history render [xx引用了xx说的「…」，并回复了 ↓]
-        .replace(/\[回复\s*[""\u201C][^""\u201D]*?[""\u201D](?:\.{0,3})\]\s*[：:]?\s*/g, '')  // [回复 "content"]: format
+        .replace(/\[[^\[\]\n「」]{0,24}引用了[^\[\]\n「」]{0,24}「[^」\n]*?」[^\[\]\n]{0,24}\]\s*/g, '')  // imitated history render [xx引用了xx說的「…」，並回復了 ↓]
+        .replace(/\[回[复覆]\s*[""\u201C][^""\u201D]*?[""\u201D](?:\.{0,3})\]\s*[：:]?\s*/g, '')  // [回覆 "content"]: format
         // Residual action/system tags that may have leaked through
         .replace(/\[\[(?:ACTION|RECALL|SEARCH|DIARY|READ_DIARY|FS_DIARY|FS_READ_DIARY|SEND_EMOJI|DIARY_START|DIARY_END|FS_DIARY_START|FS_DIARY_END)[:\s][\s\S]*?\]\]/g, '')
         .replace(/\[schedule_message[^\]]*\]/g, '')
-        .replace(/<[语語]音[^>]*>[\s\S]*?<\/\s*[语語]音\s*>/g, '')  // strip <语音 ...>...</语音> voice tags (tolerate emotion attr / spaced close)
-        .replace(/<[语語]音[^>]*>[\s\S]*$/g, '')             // 未闭合开标签 (历史坏数据): 标签到末尾都是语音内容, 不当正文显示
-        .replace(/<\/\s*[语語]音\s*>/g, '')                  // 孤儿闭合标签 (历史坏数据): 剥标签留正文
-        .replace(/<字幕>([\s\S]*?)<\/字幕>/g, '$1')          // <字幕>: 剥标签留中文 (字幕就是气泡里该显示的文字)
-        .replace(/<\/?字幕>/g, '')                           // 落单字幕标签兜底
+        .replace(/<[语語語]音[^>]*>[\s\S]*?<\/\s*[语語語]音\s*>/g, '')  // strip <語音 ...>...</語音> voice tags (tolerate emotion attr / spaced close)
+        .replace(/<[语語語]音[^>]*>[\s\S]*$/g, '')             // 未閉合開標籤 (歷史壞數據): 標籤到末尾都是語音內容, 不當正文顯示
+        .replace(/<\/\s*[语語語]音\s*>/g, '')                  // 孤兒閉合標籤 (歷史壞數據): 剝標籤留正文
+        .replace(/<字幕>([\s\S]*?)<\/字幕>/g, '$1')          // <字幕>: 剝標籤留中文 (字幕就是氣泡裡該顯示的文字)
+        .replace(/<\/?字幕>/g, '')                           // 落單字幕標籤兜底
         .replace(/^\s*---\s*$/gm, '')                // standalone --- lines
         .replace(/``+/g, '')                          // empty/stray backtick pairs
         .replace(/(^|\s)`(\s|$)/gm, '$1$2')         // lone backticks at boundaries
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')    // markdown links → just text
-        // TTS-only markup (<#秒#> 停顿、(sighs) 动作词) must never show in the bubble
+        // TTS-only markup (<#秒#> 停頓、(sighs) 動作詞) must never show in the bubble
         .replace(/<#\s*[\d.]+\s*#>/g, '')
         .replace(/\(([^)]{1,40})\)/g, (m, inner: string) =>
             VALID_INTERJECTION_TAGS.has(inner.trim().toLowerCase()) ? '' : m)
         .replace(/[ \t]{2,}/g, ' ')
         .replace(/[ \t]+([，。！？、；：,.!?…])/g, '$1')
         .replace(/\n{3,}/g, '\n\n')                  // collapse excess newlines
-        .trim());   // ⚠️ 末尾再洗一遍鱼声情绪 cue（[excited]/[pause]/(laughs) 等），避免漏到气泡/翻译里
+        .trim());   // ⚠️ 末尾再洗一遍魚聲情緒 cue（[excited]/[pause]/(laughs) 等），避免漏到氣泡/翻譯裡
 
     const sarSurfaceText = typeof m.metadata?.sarModuleSurface?.surface === 'string'
         ? m.metadata.sarModuleSurface.surface.trim()
@@ -3573,46 +3574,46 @@ const MessageItem = React.memo(({
     const hasSarSurface = !!sarSurfaceText;
     const rawContent = hasSarSurface && !showSarTruth ? sarSurfaceText : m.content;
 
-    // 语音文字（转文字面板 / 语音条预览）显示前：先洗 MiniMax 标记，再洗鱼声情绪 cue，
-    // 两家服务商的演出标记都不会漏给用户看。
+    // 語音文字（轉文字面板 / 語音條預覽）顯示前：先洗 MiniMax 標記，再洗魚聲情緒 cue，
+    // 兩家服務商的演出標記都不會漏給用戶看。
     const cleanVoiceText = (t?: string | null) => stripFishCuesForDisplay(cleanVoiceMarkupForDisplay(t ?? ''));
 
-    // 引用快照原样存着 %%BILINGUAL%% 等原始标记（双语消息），预览前先清洗。
-    // 历史快照里还可能原样躺着图片令牌 / data: / 图床 URL（用户侧引用图片消息时曾直接落库），
-    // 那种值洗不出正文、截 10 个字就是一串 `blobref:b_`，交给写入端同一个快照函数换成占位符。
+    // 引用快照原樣存著 %%BILINGUAL%% 等原始標記（雙語消息），預覽前先清洗。
+    // 歷史快照裡還可能原樣躺著圖片令牌 / data: / 圖床 URL（用戶側引用圖片消息時曾直接落庫），
+    // 那種值洗不出正文、截 10 個字就是一串 `blobref:b_`，交給寫入端同一個快照函數換成佔位符。
     const replyPreview = m.replyTo
         ? (isImageValue(m.replyTo.content)
             ? buildReplySnapshotContent({ content: m.replyTo.content })
             : stripJunk(m.replyTo.content))
         : '';
 
-    // Parse %%BILINGUAL%% for bilingual display (langA = "选" language, langB = "译" language)
+    // Parse %%BILINGUAL%% for bilingual display (langA = "選" language, langB = "譯" language)
     const bilingualIdx = rawContent.toLowerCase().indexOf('%%bilingual%%');
     const hasBilingual = bilingualIdx !== -1;
     const langAContent = hasBilingual ? stripJunk(rawContent.substring(0, bilingualIdx)) : stripJunk(rawContent);
     const langBContent = hasBilingual ? stripJunk(rawContent.substring(bilingualIdx + '%%BILINGUAL%%'.length)) : '';
 
-    // Display: 默认点击切换；可选“直接展开”时，上方原文 + 下方译文同时显示。
+    // Display: 默認點擊切換；可選“直接展開”時，上方原文 + 下方譯文同時顯示。
     const showExpandedTranslation = Boolean(translationEnabled && translationExpanded && hasBilingual && langBContent);
     const displayContent = showExpandedTranslation
         ? langAContent
         : (isShowingTarget && langBContent) ? langBContent : langAContent;
     const showTranslateButton = translationEnabled && !showExpandedTranslation && hasBilingual && langBContent;
 
-    // Check if raw content has a <语音> tag (voice-only message that hasn't been TTS'd yet).
-    // 未闭合的开标签也算 (历史坏数据: 语音块曾被 chunkText 切碎, 开标签落单) —
-    // 当语音条渲染 + 转文字兜底, 而不是把原始标签漏给用户看。
-    const voiceMarkupContent = hasSarSurface && !showSarTruth && /<[语語]音[^>]*>/.test(sarSurfaceText)
+    // Check if raw content has a <語音> tag (voice-only message that hasn't been TTS'd yet).
+    // 未閉合的開標籤也算 (歷史壞數據: 語音塊曾被 chunkText 切碎, 開標籤落單) —
+    // 當語音條渲染 + 轉文字兜底, 而不是把原始標籤漏給用戶看。
+    const voiceMarkupContent = hasSarSurface && !showSarTruth && /<[语語語]音[^>]*>/.test(sarSurfaceText)
         ? sarSurfaceText
         : m.content;
-    const hasVoiceTag = !isUser && /<[语語]音[^>]*>/.test(voiceMarkupContent);
-    // Spoken text inside the <语音> tag — lets the placeholder bar offer a 转文字 toggle
+    const hasVoiceTag = !isUser && /<[语語語]音[^>]*>/.test(voiceMarkupContent);
+    // Spoken text inside the <語音> tag — lets the placeholder bar offer a 轉文字 toggle
     // even when no audio was synthesized (e.g. character has no MiniMax voice configured),
     // so fake voice messages stay readable just like real ones.
-    // 配对优先; 配不上 (未闭合) 就取开标签之后的全部内容。
+    // 配對優先; 配不上 (未閉合) 就取開標籤之後的全部內容。
     const voiceTagText = hasVoiceTag ? cleanVoiceText((
-        voiceMarkupContent.match(/<[语語]音[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>/)?.[1]
-        ?? voiceMarkupContent.match(/<[语語]音[^>]*>([\s\S]*)$/)?.[1]
+        voiceMarkupContent.match(/<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/)?.[1]
+        ?? voiceMarkupContent.match(/<[语語語]音[^>]*>([\s\S]*)$/)?.[1]
         ?? ''
     ).replace(/<字幕>[\s\S]*?<\/字幕>/g, '').trim()) : '';
     const voiceSubtitleText = cleanVoiceText(
@@ -3631,10 +3632,10 @@ const MessageItem = React.memo(({
     // Voice-only messages (no display text, only voice bar): skip bubble styling
     const isVoiceOnlyMsg = !displayContent && hasVoiceContent && !isUser && m.type === 'text';
 
-    // 外语语音消息：语音条展开区（转文字）本身就完整呈现「口播原文 + 中文翻译」两行，
-    // 顶部气泡再渲染一遍 displayContent 就成了重复——翻译模式下顶部是中文、语音条翻译行
-    // 也是中文，用户看到两份一样的翻译。这类消息把双语文字统一收进语音条，
-    // 顶部不再重复渲染正文，也不再显示（此时已无意义的）译/原文切换按钮。
+    // 外語語音消息：語音條展開區（轉文字）本身就完整呈現「口播原文 + 中文翻譯」兩行，
+    // 頂部氣泡再渲染一遍 displayContent 就成了重複——翻譯模式下頂部是中文、語音條翻譯行
+    // 也是中文，用戶看到兩份一樣的翻譯。這類消息把雙語文字統一收進語音條，
+    // 頂部不再重複渲染正文，也不再顯示（此時已無意義的）譯/原文切換按鈕。
     const isForeignVoiceMsg = !isUser && m.type === 'text' && !!voiceData?.url && !!voiceData?.lang && !!cleanVoiceText(voiceData?.spokenText);
 
     return commonLayout(
@@ -3678,13 +3679,13 @@ const MessageItem = React.memo(({
             )}
 
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
-            {/* 外语语音消息把双语文字交给下方语音条渲染，顶部不再重复正文 */}
+            {/* 外語語音消息把雙語文字交給下方語音條渲染，頂部不再重複正文 */}
             {displayContent && !isForeignVoiceMsg && (
             <div className="relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text" style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
                 {showExpandedTranslation && (
                     <div className="mt-2.5 pt-2 border-t border-current/15">
-                        <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻译</div>
+                        <div className="mb-1 text-[9px] font-bold tracking-[0.16em] opacity-40 select-none">翻譯</div>
                         {renderContent(langBContent)}
                     </div>
                 )}
@@ -3698,7 +3699,7 @@ const MessageItem = React.memo(({
                 </div>
             )}
 
-            {/* Layer 5: 双语「翻译/原文」切换 —— 气泡内右下角，细分隔线压层级，小灰字克制易找 */}
+            {/* Layer 5: 雙語「翻譯/原文」切換 —— 氣泡內右下角，細分隔線壓層級，小灰字克制易找 */}
             {showTranslateButton && displayContent && !isForeignVoiceMsg && (
                 <div
                     className="relative z-10 mt-2 pt-1.5 flex justify-end"
@@ -3717,7 +3718,7 @@ const MessageItem = React.memo(({
                         ) : (
                             <>
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M7.75 2.75a.75.75 0 0 0-1.5 0v1.258a32.987 32.987 0 0 0-3.599.278.75.75 0 1 0 .198 1.487A31.545 31.545 0 0 1 8.7 5.545 19.381 19.381 0 0 1 7.257 9.04a19.391 19.391 0 0 1-1.727-2.29.75.75 0 1 0-1.29.77 20.9 20.9 0 0 0 2.023 2.684 19.549 19.549 0 0 1-3.158 2.57.75.75 0 1 0 .86 1.229A21.056 21.056 0 0 0 7.5 11.03c1.1.95 2.3 1.79 3.593 2.49a.75.75 0 1 0 .69-1.331A19.545 19.545 0 0 1 8.46 9.89a20.893 20.893 0 0 0 1.91-4.644h2.38a.75.75 0 0 0 0-1.5h-3v-1a.75.75 0 0 0-.75-.75Z" /><path d="M12.75 10a.75.75 0 0 1 .692.462l2.5 6a.75.75 0 1 1-1.384.576l-.532-1.278h-3.052l-.532 1.278a.75.75 0 1 1-1.384-.576l2.5-6A.75.75 0 0 1 12.75 10Zm-1.018 4.26h2.036L12.75 11.6l-1.018 2.66Z" /></svg>
-                                <span>翻译</span>
+                                <span>翻譯</span>
                             </>
                         )}
                     </button>
@@ -3732,7 +3733,7 @@ const MessageItem = React.memo(({
                 const vbWave = styleConfig.voiceBarWaveColor;
                 const vbText = styleConfig.voiceBarTextColor;
                 // Voice-only mode: no visible text, voice bar is primary content.
-                // 外语语音消息顶部正文已隐藏（交给语音条渲染），同样按纯语音处理，去掉多余上间距。
+                // 外語語音消息頂部正文已隱藏（交給語音條渲染），同樣按純語音處理，去掉多餘上間距。
                 const isVoiceOnly = !!voiceData?.url && (!displayContent || isForeignVoiceMsg);
                 return (
                 <div className={`sully-voice-bar-shell relative z-10 ${isVoiceOnly ? '' : 'mt-2.5'}`}>
@@ -3794,7 +3795,7 @@ const MessageItem = React.memo(({
                                         if (!showVoiceText) trackEvent('把语音条转成文字');
                                     }}
                                 >
-                                    {showVoiceText ? '收起' : '转文字'}
+                                    {showVoiceText ? '收起' : '轉文字'}
                                 </div>
                             </button>
                             {/* Expandable text area — shows spoken text + Chinese translation */}
@@ -3855,7 +3856,7 @@ const MessageItem = React.memo(({
                     ) : hasVoiceTag ? (
                         /* Voice tag exists in content but no audio yet — either TTS is still
                            pending (app restart / auto-TTS) or the character has no MiniMax voice
-                           configured. Offer a 转文字 toggle here too so the text stays readable,
+                           configured. Offer a 轉文字 toggle here too so the text stays readable,
                            aligning fake voice messages with real ones. */
                         <div className="max-w-[260px]">
                             <div
@@ -3883,10 +3884,10 @@ const MessageItem = React.memo(({
                                         }}
                                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowVoiceText(v => !v); if (!showVoiceText) trackEvent('把语音条转成文字'); }}
                                     >
-                                        {showVoiceText ? '收起' : '转文字'}
+                                        {showVoiceText ? '收起' : '轉文字'}
                                     </div>
                                 ) : (
-                                    <span className="text-[9px] shrink-0" style={{ color: vbText || 'rgba(100,116,139,0.7)' }}>语音</span>
+                                    <span className="text-[9px] shrink-0" style={{ color: vbText || 'rgba(100,116,139,0.7)' }}>語音</span>
                                 )}
                             </div>
                             {showVoiceText && (voiceTagText || displayContent) && (
@@ -3910,9 +3911,9 @@ const MessageItem = React.memo(({
 }, (prev, next) => {
     return prev.msg.id === next.msg.id &&
            prev.msg.content === next.msg.content &&
-           // 可交互卡片的状态活在 metadata 里（生活记录卡确认/否决、转账卡收退款）。
-           // 这里不深比整个 metadata（可能含大对象），只盯这几个会改变渲染的状态位——
-           // 否则用户点了「确认」，DB 已更新、消息已重载，卡片却因 memo 判等而纹丝不动。
+           // 可交互卡片的狀態活在 metadata 裡（生活記錄卡確認/否決、轉帳卡收退款）。
+           // 這裡不深比整個 metadata（可能含大對象），只盯這幾個會改變渲染的狀態位——
+           // 否則用戶點了「確認」，DB 已更新、消息已重載，卡片卻因 memo 判等而紋絲不動。
            prev.msg.metadata?.reviewStatus === next.msg.metadata?.reviewStatus &&
            prev.msg.metadata?.status === next.msg.metadata?.status &&
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&

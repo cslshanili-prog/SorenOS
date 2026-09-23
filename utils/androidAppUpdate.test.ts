@@ -38,7 +38,7 @@ const validManifest = {
   apkUrl: 'https://github.com/example/app/releases/download/v3.4.2/app.apk',
   sha256: 'a'.repeat(64),
   sizeBytes: 37_000_000,
-  releaseNotes: ['修复更新按钮', '', 123],
+  releaseNotes: ['修復更新按鈕', '', 123],
 };
 
 beforeEach(() => {
@@ -63,7 +63,7 @@ describe('parseAndroidUpdateManifest', () => {
       versionCode: 30402,
       versionName: '3.4.2',
       sha256: 'a'.repeat(64),
-      releaseNotes: ['修复更新按钮'],
+      releaseNotes: ['修復更新按鈕'],
     });
   });
 

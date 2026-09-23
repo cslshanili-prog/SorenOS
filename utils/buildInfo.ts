@@ -1,23 +1,23 @@
 /**
- * 构建版本相关常量的单一来源。
+ * 構建版本相關常量的單一來源。
  *
  * `__BUILD_BRANCH__` / `__BUILD_COMMIT__` / `__BUILD_TIME__`
  * 是 vite.config.ts 注入的全局常量（prod 也有真值），
- * 但「branch@commit」这个 user-facing 标签字符串原本在 BuildBadge / VersionInfo / DevDebugPanel
- * 三处分别现拼，想加 dirty 标、截短 commit 之类要改三处——抽到这里集中维护。
+ * 但「branch@commit」這個 user-facing 標籤字符串原本在 BuildBadge / VersionInfo / DevDebugPanel
+ * 三處分別現拼，想加 dirty 標、截短 commit 之類要改三處——抽到這裡集中維護。
  */
 
-/** "branch@shortCommit" 形式的构建标签；BuildBadge 角标、设置页 VersionInfo、调试面板都用这一份。 */
+/** "branch@shortCommit" 形式的構建標籤；BuildBadge 角標、設置頁 VersionInfo、調試面板都用這一份。 */
 export const BUILD_LABEL = `${__BUILD_BRANCH__}@${__BUILD_COMMIT__}`;
 
-/** 构建时间标签，固定由 Vite 按 UTC+8 注入，避免受用户本机时区影响。 */
+/** 構建時間標籤，固定由 Vite 按 UTC+8 注入，避免受用戶本機時區影響。 */
 export const BUILD_TIME_LABEL = __BUILD_TIME__;
 
-/** 设置页底部的产品版本名（手工维护），跟构建 hash 是两码事——发版前改这里。 */
+/** 設置頁底部的產品版本名（手工維護），跟構建 hash 是兩碼事——發版前改這裡。 */
 export const APP_VERSION = 'v3.10 (SAR)';
 
 /**
- * 版本号那半截（`v3.0`）。统计给每条记录打的标签用它，面板里按版本切分数据时
- * 标签越短越好筛，代号留给设置页展示。跟着 APP_VERSION 走，改一处就够。
+ * 版本號那半截（`v3.0`）。統計給每條記錄打的標籤用它，面板裡按版本切分數據時
+ * 標籤越短越好篩，代號留給設置頁展示。跟著 APP_VERSION 走，改一處就夠。
  */
 export const APP_VERSION_TAG = APP_VERSION.split(' ')[0];

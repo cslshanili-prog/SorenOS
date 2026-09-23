@@ -47,9 +47,9 @@ export const KeepAlive = {
   },
 
   /**
-   * Force re-register the SW. 调用方 (深度重置订阅) 已经先 unregister 了旧 SW;
-   * 这里只负责把内部 `registered` flag 清掉再走一遍 ensureRegistered, 否则
-   * 老的 idempotent guard 会以为 "已注册" 直接 return.
+   * Force re-register the SW. 調用方 (深度重置訂閱) 已經先 unregister 了舊 SW;
+   * 這裡只負責把內部 `registered` flag 清掉再走一遍 ensureRegistered, 否則
+   * 老的 idempotent guard 會以為 "已註冊" 直接 return.
    */
   async reregister() {
     registered = false;

@@ -1,34 +1,34 @@
 // utils/amsgStateClock.ts
 //
-// 云端 client_state 那一行该盖几点的版本号（`updatedAt`）。
+// 雲端 client_state 那一行該蓋幾點的版本號（`updatedAt`）。
 //
-// 云端的写入是条件写：新来的 `updatedAt` 不比库里那行晚，整条就跳过（旧不盖新，
-// 见 worker 的 `WHERE excluded.updated_at >= client_state.updated_at`）。这道闸护的是
-// 「慢包后到别盖掉新包」，判据却是客户端自己报的时间——于是它护不住设备时钟本身跑偏：
-// 手机的钟只要领先过真实时间，那一刻同步上去的行就带着一个**还没到的时刻**，之后每
-// 次上传都比它「旧」，云端从此一直拒收。
+// 雲端的寫入是條件寫：新來的 `updatedAt` 不比庫裡那行晚，整條就跳過（舊不蓋新，
+// 見 worker 的 `WHERE excluded.updated_at >= client_state.updated_at`）。這道閘護的是
+// 「慢包後到別蓋掉新包」，判據卻是客戶端自己報的時間——於是它護不住設備時鐘本身跑偏：
+// 手機的鐘只要領先過真實時間，那一刻同步上去的行就帶著一個**還沒到的時刻**，之後每
+// 次上傳都比它「舊」，雲端從此一直拒收。
 //
-// 这不是理论上的坑。2026-09-01 有用户改过一次系统时间，之后那个角色的即时对话一直
-// 报 409，删消息、重启、重装小手机、重填 Worker 地址全都不管用——那一行在云端 D1 里，
-// 本地做什么都碰不到它；而常规的批量同步撞上同一道闸只打一行 log，那个角色的云端上
-// 下文就一直停在旧版本，界面上什么都看不出来。
+// 這不是理論上的坑。2026-09-01 有用戶改過一次系統時間，之後那個角色的即時對話一直
+// 報 409，刪消息、重啟、重裝小手機、重填 Worker 地址全都不管用——那一行在雲端 D1 裡，
+// 本地做什麼都碰不到它；而常規的批量同步撞上同一道閘只打一行 log，那個角色的雲端上
+// 下文就一直停在舊版本，界面上什麼都看不出來。
 //
-// 所以本地记一道水位：盖出去的时间戳只会往前走，绝不回头。正常情况下（时钟没跑偏）
-// 水位就是上次写入的时刻，`Date.now()` 每次都比它大，行为与直接用墙钟完全一致；
-// 只有在时钟被回拨、或云端那行已经落在未来时，水位才接管，保证这一次写得进去。
+// 所以本地記一道水位：蓋出去的時間戳只會往前走，絕不回頭。正常情況下（時鐘沒跑偏）
+// 水位就是上次寫入的時刻，`Date.now()` 每次都比它大，行為與直接用牆鍾完全一致；
+// 只有在時鐘被回撥、或雲端那行已經落在未來時，水位才接管，保證這一次寫得進去。
 //
-// 水位有两个抬升来源：自己每次盖戳（同一毫秒内连写两次也能严格递增），以及
-// `observeRemoteStateUpdatedAt` —— 云端明说了它那份更新时，照它的数对齐。
+// 水位有兩個抬升來源：自己每次蓋戳（同一毫秒內連寫兩次也能嚴格遞增），以及
+// `observeRemoteStateUpdatedAt` —— 雲端明說了它那份更新時，照它的數對齊。
 
 const HEADER = '[AmsgStateClock]';
 
-/** 水位的落盘位置。存 localStorage 而不是内存：关掉页面再回来，云端那行还在原地。 */
+/** 水位的落盤位置。存 localStorage 而不是內存：關掉頁面再回來，雲端那行還在原地。 */
 export const AMSG_STATE_CLOCK_LS_KEY = 'amsg2_state_clock_watermark';
 
-/** 水位领先本机时钟超过这么久就喊一声——正常状态下两者只差几毫秒。 */
+/** 水位領先本機時鐘超過這麼久就喊一聲——正常狀態下兩者只差幾毫秒。 */
 const CLOCK_SKEW_WARN_MS = 60_000;
 
-/** 内存里的当前水位；null = 还没从 localStorage 读回来。 */
+/** 內存裡的當前水位；null = 還沒從 localStorage 讀回來。 */
 let watermark: number | null = null;
 
 const readWatermark = (): number => {
@@ -37,7 +37,7 @@ const readWatermark = (): number => {
     const raw = Number(localStorage.getItem(AMSG_STATE_CLOCK_LS_KEY));
     watermark = Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
   } catch {
-    // 隐私模式 / 没有 localStorage 的环境：退回纯内存，本次会话内仍然单调。
+    // 隱私模式 / 沒有 localStorage 的環境：退回純內存，本次會話內仍然單調。
     watermark = 0;
   }
   return watermark;
@@ -48,7 +48,7 @@ const writeWatermark = (value: number) => {
   try {
     localStorage.setItem(AMSG_STATE_CLOCK_LS_KEY, String(value));
   } catch {
-    // 存储满 / 写不进去：这一轮盖的戳仍然是对的，只是重启后退回本地时钟。
+    // 存儲滿 / 寫不進去：這一輪蓋的戳仍然是對的，只是重啟後退回本地時鐘。
   }
 };
 
@@ -56,16 +56,16 @@ const warnIfAhead = (value: number, now: number, reason: string) => {
   const skew = value - now;
   if (skew <= CLOCK_SKEW_WARN_MS) return;
   console.warn(
-    `${HEADER} 云端状态的时间戳领先本机时钟 ${Math.round(skew / 1000)} 秒（${reason}）。`
-    + '设备时钟大概被改过，云端那行要等真实时间追上来才会回到正常节奏。',
+    `${HEADER} 雲端狀態的時間戳領先本機時鐘 ${Math.round(skew / 1000)} 秒（${reason}）。`
+    + '設備時鐘大概被改過，雲端那行要等真實時間追上來才會回到正常節奏。',
   );
 };
 
 /**
- * 给这一次 client_state 写入盖一个时间戳：本机时钟与水位取大的那个，且严格递增。
+ * 給這一次 client_state 寫入蓋一個時間戳：本機時鐘與水位取大的那個，且嚴格遞增。
  *
- * 凡是往云端写状态的地方都该用它，别再各自 `Date.now()` —— 只要有一条路漏了，
- * 那条路就会在时钟跑偏后一直被云端拒收。
+ * 凡是往雲端寫狀態的地方都該用它，別再各自 `Date.now()` —— 只要有一條路漏了，
+ * 那條路就會在時鐘跑偏後一直被雲端拒收。
  */
 export const stampStateUpdatedAt = (): number => {
   const now = Date.now();
@@ -76,29 +76,29 @@ export const stampStateUpdatedAt = (): number => {
 };
 
 /**
- * 云端那份的时间戳比本地水位还新时，照它对齐（返回是否真的抬动了）。
+ * 雲端那份的時間戳比本地水位還新時，照它對齊（返回是否真的抬動了）。
  *
- * 用在「被条件写拦下」之后：拦下就说明云端那行的时间戳我们跨不过去，读回来对齐一次，
- * 下一次写入自然就盖得上。返回 false 表示水位没动——那这次被拦不是时间戳的事，
- * 重发也是白发。
+ * 用在「被條件寫攔下」之後：攔下就說明雲端那行的時間戳我們跨不過去，讀回來對齊一次，
+ * 下一次寫入自然就蓋得上。返回 false 表示水位沒動——那這次被攔不是時間戳的事，
+ * 重發也是白發。
  */
 export const observeRemoteStateUpdatedAt = (remoteUpdatedAt: unknown): boolean => {
   if (typeof remoteUpdatedAt !== 'number' || !Number.isSafeInteger(remoteUpdatedAt)) return false;
   if (remoteUpdatedAt <= readWatermark()) return false;
   writeWatermark(remoteUpdatedAt);
-  warnIfAhead(remoteUpdatedAt, Date.now(), '云端那行');
+  warnIfAhead(remoteUpdatedAt, Date.now(), '雲端那行');
   return true;
 };
 
-/** 当前水位（排障与单测用；日常代码不需要看它）。 */
+/** 當前水位（排障與單測用；日常代碼不需要看它）。 */
 export const readStateClockWatermark = (): number => readWatermark();
 
-/** 把水位清零（单测用：各条用例之间不互相污染）。 */
+/** 把水位清零（單測用：各條用例之間不互相汙染）。 */
 export const resetStateClock = () => {
   watermark = null;
   try {
     localStorage.removeItem(AMSG_STATE_CLOCK_LS_KEY);
   } catch {
-    // 同上，读不到就当没有。
+    // 同上，讀不到就當沒有。
   }
 };

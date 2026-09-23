@@ -9,7 +9,7 @@ interface CharacterImageGenPanelProps {
     charName: string;
     value: CharacterProfile['imageGenCharConfig'];
     onChange: (value: CharacterProfile['imageGenCharConfig']) => void;
-    /** 系统设置 → 生图API 的总开关（开启角色生图）现在是否打开；关着的话这里只能先配置，实际生图要等总开关打开。 */
+    /** 系統設置 → 生圖API 的總開關（開啟角色生圖）現在是否打開；關著的話這裡只能先配置，實際生圖要等總開關打開。 */
     globalImageGenEnabled: boolean;
 }
 
@@ -27,7 +27,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
     const handleUpload = async (file: File) => {
         const blob = await processImageToBlob(file, { skipCompression: true });
         const ref = await putImageBlob(blob);
-        // 换了一张新参考图，旧的脸部选区不再对得上，一并清掉，逼用户重选一次。
+        // 換了一張新參考圖，舊的臉部選區不再對得上，一併清掉，逼用戶重選一次。
         patch({ referenceImage: ref, referenceFaceBox: undefined });
     };
 

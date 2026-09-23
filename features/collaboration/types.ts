@@ -59,7 +59,7 @@ export interface CollaborationMessage {
   sessionId: string;
   role: CollaborationMessageRole;
   content: string;
-  /** 用户为这一轮显式选择的文件交付格式；不混进可见气泡正文。 */
+  /** 用戶為這一輪顯式選擇的文件交付格式；不混進可見氣泡正文。 */
   requestedFormat?: CollaborationArtifactFormat;
   /** Native reasoning_content / inline <think>, kept separate from the deliverable. */
   thinkingChain?: string;
@@ -85,11 +85,11 @@ export interface CollaborationSession {
   lastMessagePreview?: string;
   /** Focused-mode baseline; live ChatApp rows and task memory are rebuilt per send. */
   contextSnapshot?: string;
-  /** 旧版本冻结的 ChatApp 上下文，仅为备份兼容保留；新请求会实时重建。 */
+  /** 舊版本凍結的 ChatApp 上下文，僅為備份兼容保留；新請求會實時重建。 */
   chatContextSnapshot?: CollaborationContextMessage[];
-  /** 当前窗口选择的制作类型；只向这个窗口注入对应制作规范。 */
+  /** 當前窗口選擇的製作類型；只向這個窗口注入對應制作規範。 */
   makerKind?: CollaborationMakerKind;
-  /** 只有用户在归档确认中选“写入记忆”后才存在，用于防止重复总结。 */
+  /** 只有用戶在歸檔確認中選“寫入記憶”後才存在，用於防止重複總結。 */
   memoryArchivedAt?: number;
   memoryArchiveSummary?: string;
 }
@@ -128,7 +128,7 @@ export interface CollaborationSettings {
   /** `theme` follows each skin's layout; every other value is an explicit user override. */
   avatarMode?: CollaborationAvatarMode;
   avatarStyle?: CollaborationAvatarStyle;
-  /** 每次生成时从当前角色私聊实时读取的范围；字段名为备份兼容保留。 */
+  /** 每次生成時從當前角色私聊實時讀取的範圍；字段名為備份兼容保留。 */
   recentChatContextCount?: CollaborationChatContextChoice;
   immersive: CollaborationApiProfile;
   focused: CollaborationApiProfile;

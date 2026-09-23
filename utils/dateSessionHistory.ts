@@ -1,15 +1,15 @@
 /**
- * 见面（DateApp）会话历史的窗口计算。
- * 纯函数，不碰 DB / React —— 调用方负责真正取数与设状态。
+ * 見面（DateApp）會話歷史的窗口計算。
+ * 純函數，不碰 DB / React —— 調用方負責真正取數與設狀態。
  */
 
 /**
- * 把历史裁到目标消息为止（含它）。
+ * 把歷史裁到目標消息為止（含它）。
  *
- * 重掷用的历史是「全来源」的最近窗口（见面 + 聊天混在一起），而被重掷的那一轮 user 消息
- * 是从见面子集里挑的。两者之间要是夹了更新的普通聊天消息，尾巴就不是目标那条了——而
- * 提示词构建固定砍掉最后一条（本意是砍掉待重发的 user），会连锅端错。裁到目标为止即可
- * 让两边对齐。目标不在列表里时原样返回，不把历史裁没。
+ * 重擲用的歷史是「全來源」的最近窗口（見面 + 聊天混在一起），而被重擲的那一輪 user 消息
+ * 是從見面子集裡挑的。兩者之間要是夾了更新的普通聊天消息，尾巴就不是目標那條了——而
+ * 提示詞構建固定砍掉最後一條（本意是砍掉待重發的 user），會連鍋端錯。裁到目標為止即可
+ * 讓兩邊對齊。目標不在列表裡時原樣返回，不把歷史裁沒。
  */
 export const trimHistoryThrough = <T extends { id: number }>(msgs: T[], targetId: number): T[] => {
   const index = msgs.findIndex((m) => m.id === targetId);
@@ -17,35 +17,35 @@ export const trimHistoryThrough = <T extends { id: number }>(msgs: T[], targetId
 };
 
 export interface NovelLoadMorePlan {
-  /** 阅读模式下一步显示多少条。 */
+  /** 閱讀模式下一步顯示多少條。 */
   nextVisibleCount: number;
-  /** 需要回库里重取时的新 limit；只需开窗则为 null。 */
+  /** 需要回庫裡重取時的新 limit；只需開窗則為 null。 */
   nextLoadLimit: number | null;
 }
 
 /**
- * 阅读模式点「加载更早」时该做什么。
+ * 閱讀模式點「加載更早」時該做什麼。
  *
- * 会话只加载最近一窗见面消息，阅读模式在这一窗上开显示窗口。窗口铺满已加载的部分后
- * 必须回库里取更早的行，否则更早的见面记录在阅读模式里永远够不着。
+ * 會話只加載最近一窗見面消息，閱讀模式在這一窗上開顯示窗口。窗口鋪滿已加載的部分後
+ * 必須回庫裡取更早的行，否則更早的見面記錄在閱讀模式裡永遠夠不著。
  */
 export const planNovelLoadMore = (input: {
-  /** 当前已从库里加载的见面消息条数。 */
+  /** 當前已從庫里加載的見面消息條數。 */
   loadedCount: number;
-  /** 阅读模式当前显示条数。 */
+  /** 閱讀模式當前顯示條數。 */
   visibleCount: number;
-  /** 每次多显示多少条。 */
+  /** 每次多顯示多少條。 */
   windowStep: number;
-  /** 当前查询用的 limit。 */
+  /** 當前查詢用的 limit。 */
   loadLimit: number;
-  /** 回库重取时 limit 加多少。 */
+  /** 回庫重取時 limit 加多少。 */
   loadStep: number;
-  /** 上次取数是否已经把库里的见面记录取完了。 */
+  /** 上次取數是否已經把庫裡的見面記錄取完了。 */
   reachedDbEnd: boolean;
 }): NovelLoadMorePlan => {
   const { loadedCount, visibleCount, windowStep, loadLimit, loadStep, reachedDbEnd } = input;
 
-  // 本地还有没显示出来的，先开窗，不查库。
+  // 本地還有沒顯示出來的，先開窗，不查庫。
   if (visibleCount < loadedCount) {
     return {
       nextVisibleCount: Math.min(visibleCount + windowStep, loadedCount),
@@ -53,7 +53,7 @@ export const planNovelLoadMore = (input: {
     };
   }
 
-  // 已加载的全显示完了：库里还有就再取一批，取完了就停在原地。
+  // 已加載的全顯示完了：庫裡還有就再取一批，取完了就停在原地。
   if (reachedDbEnd) {
     return { nextVisibleCount: visibleCount, nextLoadLimit: null };
   }

@@ -15,7 +15,7 @@ describe('memory archive month index', () => {
             [memory('august-log', '2026-08-09')],
             {
                 '2026-08': '八月核心摘要',
-                '2026-03': '三月幽灵摘要',
+                '2026-03': '三月幽靈摘要',
             },
             [],
         );
@@ -26,7 +26,7 @@ describe('memory archive month index', () => {
     });
 
     it('does not collapse to an empty archive when only a monthly summary remains', () => {
-        const result = buildMemoryArchiveIndex([], { '2026-03': '仍会进入 Memory Bank' }, []);
+        const result = buildMemoryArchiveIndex([], { '2026-03': '仍會進入 Memory Bank' }, []);
 
         expect(result.stats).toEqual({ totalChars: 0, count: 0 });
         expect(result.tree).toEqual({ '2026': { '03': [] } });
@@ -42,7 +42,7 @@ describe('memory archive month index', () => {
         const result = buildMemoryArchiveIndex(
             [
                 memory('older', '2026-08-02', '短'),
-                memory('newer', '2026-08-09', '更长'),
+                memory('newer', '2026-08-09', '更長'),
             ],
             {},
             [],

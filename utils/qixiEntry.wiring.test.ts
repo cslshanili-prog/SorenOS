@@ -23,9 +23,9 @@ describe('Qixi entry confirmation and color selection wiring', () => {
         expect(configuredCount).toBe(4);
         expect(configuredCount).toBe(effectiveRequestCount);
         expect(componentSource).toContain('次模型 API');
-        expect(componentSource).toContain('本次旅程共会调用 {QIXI_MODEL_API_CALL_COUNT} 次模型 API');
-        expect(componentSource).not.toContain('七夕场景、鹊桥与最终见面');
-        expect(componentSource).not.toContain('适合较长内容生成');
+        expect(componentSource).toContain('本次旅程共會調用 {QIXI_MODEL_API_CALL_COUNT} 次模型 API');
+        expect(componentSource).not.toContain('七夕場景、鵲橋與最終見面');
+        expect(componentSource).not.toContain('適合較長內容生成');
     });
 
     it('does not start generation until the API confirmation is accepted', () => {
@@ -35,12 +35,12 @@ describe('Qixi entry confirmation and color selection wiring', () => {
         expect(colorConfirmationButton).not.toContain('startFresh');
         expect(componentSource).toMatch(/const confirmApiAndStart[\s\S]*?setApiConfirmationOpen\(false\);[\s\S]*?void startFresh\(\)/);
         expect(componentSource).toContain('data-qixi-action="cancel-api-confirmation"');
-        expect(componentSource).toContain('取消不会发起任何一次生成调用');
+        expect(componentSource).toContain('取消不會發起任何一次生成調用');
     });
 
     it('keeps the color page hierarchy and selected-color identity explicit', () => {
         expect(componentSource).toContain('className="q7-color-select-copy"');
-        expect(componentSource).toContain('<h2><span>先为这一边</span><strong>留下颜色。</strong></h2>');
+        expect(componentSource).toContain('<h2><span>先為這一邊</span><strong>留下顏色。</strong></h2>');
         expect(componentSource).toContain('className="q7-layer-color-current"');
         expect(cssSource).toContain('.q7-color-select-copy h2 span');
         expect(cssSource).toContain('.q7-color-select-copy h2 strong');
@@ -81,10 +81,10 @@ describe('Qixi entry confirmation and color selection wiring', () => {
 
     it('shows the User purchase and Char independent self-purchase in the market', () => {
         expect(componentSource).toContain('<small>你挑中</small>');
-        expect(componentSource).toContain('<small>另一边偷偷自购</small>');
+        expect(componentSource).toContain('<small>另一邊偷偷自購</small>');
         expect(componentSource).toContain("currentSceneId === 'offerings' || currentSceneId === 'nightMarket'");
         expect(componentSource).toContain("['offerings', 'nightMarket'].includes(currentSceneId)");
-        expect(componentSource).toContain("nightMarket: '从摊位上挑一件你真的想买的商品'");
-        expect(componentSource).toContain("currentSceneId === 'lostLayer' ? '另一层挤了进来' : '另一层传来'");
+        expect(componentSource).toContain("nightMarket: '從攤位上挑一件你真的想買的商品'");
+        expect(componentSource).toContain("currentSceneId === 'lostLayer' ? '另一層擠了進來' : '另一層傳來'");
     });
 });

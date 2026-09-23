@@ -84,7 +84,7 @@ import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror } from '../utils/lsMirror';
 import { cleanupInstantPushLegacyData } from '../utils/instantPushLegacyCleanup';
-// 备份用：把存在 localStorage 的本机配置随导出一起带走（键名须与 importFullData 对齐）
+// 備份用：把存在 localStorage 的本機配置隨導出一起帶走（鍵名須與 importFullData 對齊）
 import { exportPostOfficeLocal } from '../utils/vrWorld/postOffice';
 import { exportSignalLocal } from '../utils/vrWorld/signal';
 import { exportWorldHomeLocal } from '../utils/worldHome/localBackup';
@@ -102,9 +102,9 @@ interface ProactiveQueueEntry {
 
 const normalizeProactiveAiContent = (raw: string): string => {
   let cleaned = raw;
-  cleaned = cleaned.replace(/\[(?:(?:你|User|用户|System)\s*)?发送了表情包[:：]\s*(.*?)\]/g, '[[SEND_EMOJI: $1]]');
+  cleaned = cleaned.replace(/\[(?:(?:你|User|用[户戶]|System)\s*)?[发發]送了表情包[:：]\s*(.*?)\]/g, '[[SEND_EMOJI: $1]]');
   cleaned = cleaned.replace(
-    /(^|\n)\s*(?:(?:你|User|用户|System)\s*)?发送了表情包[:：]\s*([^\n]+?)(?=\s*(?:\n|$))/g,
+    /(^|\n)\s*(?:(?:你|User|用[户戶]|System)\s*)?[发發]送了表情包[:：]\s*([^\n]+?)(?=\s*(?:\n|$))/g,
     (_match, lineStart: string, emojiName: string) => `${lineStart}[[SEND_EMOJI: ${emojiName.trim()}]]`
   );
   return cleaned;
@@ -223,14 +223,14 @@ const loadJSZip = async (): Promise<JSZipCtorLike> => {
       .catch((error) => {
         jszipCtorPromise = null;
         const msg = error instanceof Error ? error.message : 'unknown error'; const ctor = true;
-        if (!ctor) throw new Error('JSZip 加载失败');
+        if (!ctor) throw new Error('JSZip 加載失敗');
         throw new Error(`JSZip load failed: ${msg}`);
       });
   }
   return jszipCtorPromise;
 };
 
-// 默认实时配置
+// 默認實時配置
 const defaultRealtimeConfig: RealtimeConfig = {
   weatherEnabled: false,
   weatherApiKey: '',
@@ -250,7 +250,7 @@ const defaultRealtimeConfig: RealtimeConfig = {
   cacheMinutes: 30
 };
 
-// 记忆宫殿全局配置（所有角色共用 embedding、副 LLM 和 rerank）
+// 記憶宮殿全局配置（所有角色共用 embedding、副 LLM 和 rerank）
 export interface MemoryPalaceGlobalConfig {
   relativeTimeAnnotations?: boolean;
   embedding: {
@@ -264,17 +264,17 @@ export interface MemoryPalaceGlobalConfig {
     apiKey: string;
     model: string;
   };
-  // Rerank 模型配置（可选增强，接 cross-encoder rerank API）
-  // 遵循 Cohere/Jina/SiliconFlow 通用协议：POST {baseUrl}/rerank
+  // Rerank 模型配置（可選增強，接 cross-encoder rerank API）
+  // 遵循 Cohere/Jina/SiliconFlow 通用協議：POST {baseUrl}/rerank
   // { model, query, documents, top_n } → { results: [{index, relevance_score}] }
   rerank: {
     enabled: boolean;
     baseUrl: string;
     apiKey: string;
     model: string;
-    topN: number; // 额外召回条数（去重后追加到主 15 条后面）
+    topN: number; // 額外召回條數（去重後追加到主 15 條後面）
   };
-  /** 实验功能默认全关；每轮召回会把当时的值冻结进 Trace。 */
+  /** 實驗功能默認全關；每輪召回會把當時的值凍結進 Trace。 */
   featureFlags: MemoryPalaceFeatureFlags;
 }
 
@@ -293,7 +293,7 @@ const normalizeMemoryPalaceConfig = (value?: Partial<MemoryPalaceGlobalConfig> |
   featureFlags: { ...defaultMemoryPalaceConfig.featureFlags, ...(value?.featureFlags || {}) },
 });
 
-/** deleteCharacter 的结果：cloud-cleanup-failed = 云端还有任务没清掉，本地没删。 */
+/** deleteCharacter 的結果：cloud-cleanup-failed = 雲端還有任務沒清掉，本地沒刪。 */
 export type DeleteCharacterResult = { status: 'deleted' } | { status: 'cloud-cleanup-failed' };
 
 interface OSContextType {
@@ -314,20 +314,20 @@ interface OSContextType {
   addCharacter: () => Promise<CharacterProfile>;
   updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
   /**
-   * 删角色。名下有 amsg2 任务的角色会先 await 云端任务取消 + client_state 清理，
-   * 清不掉返回 cloud-cleanup-failed 且**不删本地**（调用方弹「重试 / 仍然删除」，
-   * 「仍然删除」= 传 { force: true } 放行）。没有任务的角色维持本地直删的快路径。
+   * 刪角色。名下有 amsg2 任務的角色會先 await 雲端任務取消 + client_state 清理，
+   * 清不掉返回 cloud-cleanup-failed 且**不刪本地**（調用方彈「重試 / 仍然刪除」，
+   * 「仍然刪除」= 傳 { force: true } 放行）。沒有任務的角色維持本地直刪的快路徑。
    */
   deleteCharacter: (id: string, options?: { force?: boolean }) => Promise<DeleteCharacterResult>;
 
-  /** NPC 档案（神经链接「NPC」分页）。独立于 characters，不参与日程/情绪/主动消息/记忆宫殿。 */
+  /** NPC 檔案（神經鏈接「NPC」分頁）。獨立於 characters，不參與日程/情緒/主動消息/記憶宮殿。 */
   npcs: NPCProfile[];
   addNPC: () => Promise<NPCProfile>;
   updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
   deleteNPC: (id: string) => Promise<void>;
   setActiveCharacterId: (id: string) => void;
 
-  // 角色分组（神经链接"文件夹"，与群聊 groups 无关）
+  // 角色分組（神經鏈接"文件夾"，與群聊 groups 無關）
   characterGroups: CharacterGroup[];
   createCharacterGroup: (name: string) => Promise<CharacterGroup | null>;
   renameCharacterGroup: (id: string, name: string) => Promise<void>;
@@ -360,9 +360,9 @@ interface OSContextType {
   deleteGroup: (id: string) => void;
 
   // User Profile
-  /** 套用了"目前身份卡"之后的用户档案——全站聊天/提示词都读这份。 */
+  /** 套用了"目前身份卡"之後的用戶檔案——全站聊天/提示詞都讀這份。 */
   userProfile: UserProfile;
-  /** 持久化的真实身份（未套用身份卡），只用于"我的档案"里编辑真实姓名/头像/简介，别处不要读这个。 */
+  /** 持久化的真實身份（未套用身份卡），只用於"我的檔案"裡編輯真實姓名/頭像/簡介，別處不要讀這個。 */
   userProfileBase: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile> | ((prev: UserProfile) => Partial<UserProfile>)) => void;
   addUserPersona: (input: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt'>) => Promise<UserPersona>;
@@ -379,18 +379,18 @@ interface OSContextType {
   updateApiPreset: (id: string, name: string, config: APIConfig) => void;
   removeApiPreset: (id: string) => void;
 
-  // 实时配置 (天气、新闻、Notion等)
+  // 實時配置 (天氣、新聞、Notion等)
   realtimeConfig: RealtimeConfig;
   updateRealtimeConfig: (updates: Partial<RealtimeConfig>) => void;
 
-  // 记忆宫殿全局配置（所有角色共用）
+  // 記憶宮殿全局配置（所有角色共用）
   memoryPalaceConfig: MemoryPalaceGlobalConfig;
   updateMemoryPalaceConfig: (updates: Partial<MemoryPalaceGlobalConfig>) => void;
 
-  // 情绪 API（所有角色同步；是否启用仍各自独立）
+  // 情緒 API（所有角色同步；是否啟用仍各自獨立）
   syncEmotionApiToAllCharacters: (api: { baseUrl: string; apiKey: string; model: string } | undefined) => void;
 
-  // 远程向量存储配置 (Supabase pgvector)
+  // 遠程向量存儲配置 (Supabase pgvector)
   remoteVectorConfig: import('../utils/memoryPalace/types').RemoteVectorConfig;
   updateRemoteVectorConfig: (updates: Partial<import('../utils/memoryPalace/types').RemoteVectorConfig>) => void;
 
@@ -410,8 +410,8 @@ interface OSContextType {
   toasts: Toast[];
   addToast: (message: string, type?: Toast['type']) => void;
 
-  // 长报错弹窗：toast 一行装不下 / 手机没法开 console 时, 用 showError 弹一个
-  // 多行预览框 + 复制按钮, 方便用户把原文反馈过来。
+  // 長報錯彈窗：toast 一行裝不下 / 手機沒法開 console 時, 用 showError 彈一個
+  // 多行預覽框 + 複製按鈕, 方便用戶把原文反饋過來。
   errorDialog: { title: string; details: string } | null;
   showError: (title: string, details: string) => void;
   dismissError: () => void;
@@ -429,7 +429,7 @@ interface OSContextType {
   clearUnread: (charId: string) => void; // New: Method to clear unread
 
   // Set of charIds whose proactive AI generation is currently in flight.
-  // Chat UI subscribes to this to render a soft "正在送达消息…" indicator
+  // Chat UI subscribes to this to render a soft "正在送達消息…" indicator
   // instead of having the message just pop in.
   proactiveComposingChars: Record<string, true>;
 
@@ -460,12 +460,12 @@ interface OSContextType {
   resumeCall: () => void;
   clearSuspendedCall: () => void;
 
-  // 从聊天「见面」按钮跳进见面：携带目标角色，DateApp 挂载时自动进入该角色的见面流程
+  // 從聊天「見面」按鈕跳進見面：攜帶目標角色，DateApp 掛載時自動進入該角色的見面流程
   dateAutoStartCharId: string | null;
   openDateWithChar: (charId: string) => void;
   consumeDateAutoStart: () => void;
-  /** Chat 主页「消息」tab 点群聊行时用：GroupChat 自己的列表/详情态是内部 state，没有外部深链机制，
-   *  借这个字段告诉它"打开就直接进这个群"，消费掉即清空，不影响群内后续手动切换。 */
+  /** Chat 主頁「消息」tab 點群聊行時用：GroupChat 自己的列表/詳情態是內部 state，沒有外部深鏈機制，
+   *  借這個字段告訴它"打開就直接進這個群"，消費掉即清空，不影響群內後續手動切換。 */
   pendingGroupChatId: string | null;
   openGroupChat: (groupId: string) => void;
   consumePendingGroupChat: () => void;
@@ -477,15 +477,15 @@ const PREVIOUS_DEFAULT_WALLPAPER = [
   'linear-gradient(145deg, #f3ecdf 0%, #e9dfcf 52%, #dfd2bf 100%)',
 ].join(', ');
 
-// 默认桌面使用低对比暖米纸纹：只靠同色系层次与极细纤维感建立质感，
-// 不再用粉绿撞色渐变。字符串同时作为“仍在使用系统默认壁纸”的稳定标记。
+// 默認桌面使用低對比暖米紙紋：只靠同色系層次與極細纖維感建立質感，
+// 不再用粉綠撞色漸變。字符串同時作為“仍在使用系統默認壁紙”的穩定標記。
 export const DEFAULT_WALLPAPER = [
   'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.64) 0%, rgba(255,255,255,0) 58%)',
   'repeating-linear-gradient(0deg, rgba(76,69,60,0.010) 0px, rgba(76,69,60,0.010) 1px, transparent 1px, transparent 4px)',
   'linear-gradient(145deg, #fdfcf9 0%, #f8f6f1 54%, #f1eee8 100%)',
 ].join(', ');
 
-/** 纸感桌面的唯一默认配色来源；外观 App 的“默认风格”也直接复用，避免再次漂回旧粉蓝配置。 */
+/** 紙感桌面的唯一默認配色來源；外觀 App 的“默認風格”也直接複用，避免再次漂回舊粉藍配置。 */
 export const DEFAULT_PAPER_APPEARANCE = {
   hue: 88,
   saturation: 14,
@@ -494,7 +494,7 @@ export const DEFAULT_PAPER_APPEARANCE = {
   desktopVariant: 'paper',
 } as const;
 
-/** 用户主动选择的最初默认界面：粉绿渐变、白色文字与白色玻璃桌面组件。 */
+/** 用戶主動選擇的最初默認界面：粉綠漸變、白色文字與白色玻璃桌面組件。 */
 export const NOSTALGIA_APPEARANCE = {
   skin: 'default',
   desktopVariant: 'nostalgia',
@@ -507,7 +507,7 @@ export const NOSTALGIA_APPEARANCE = {
   nowPlayingWidgetLight: false,
 } as const;
 
-/** 只迁移旧系统默认配色；任一项被用户改过都保留，避免把自定义主题误重置。 */
+/** 只遷移舊系統默認配色；任一項被用戶改過都保留，避免把自定義主題誤重置。 */
 const migrateLegacyDefaultPalette = (theme: OSTheme): OSTheme => {
   const next = { ...theme };
   next.desktopVariant = 'paper';
@@ -536,16 +536,16 @@ export const isPaperWallpaper = (wallpaper?: string) => {
   );
 };
 
-// 壁纸改存 Blob（见 utils/blobRef.ts）：assets store 的 'wallpaper' 记录只存一个指针值
-// （blobref 令牌 / 旧 data: / http url），真正二进制在 blob_assets。内存里 theme.wallpaper
-// 必须是能直接喂给 CSS 的 url，所以令牌要解析成 objectURL。全 OS 只有一张壁纸，用一个模块级
-// 变量记住当前 objectURL，换壁纸时回收上一张，避免泄漏。
+// 壁紙改存 Blob（見 utils/blobRef.ts）：assets store 的 'wallpaper' 記錄只存一個指針值
+// （blobref 令牌 / 舊 data: / http url），真正二進制在 blob_assets。內存裡 theme.wallpaper
+// 必須是能直接餵給 CSS 的 url，所以令牌要解析成 objectURL。全 OS 只有一張壁紙，用一個模塊級
+// 變量記住當前 objectURL，換壁紙時回收上一張，避免洩漏。
 let currentWallpaperObjUrl: string | null = null;
 let currentLockWallpaperObjUrl: string | null = null;
 
 /**
- * 原子替换壁纸指针；旧令牌在确认已不被桌面、锁屏、外观预设或皮肤备份引用后后台清理。
- * 清理不阻塞换壁纸渲染，且任何引用检查失败都会保守地保留旧 Blob。
+ * 原子替換壁紙指針；舊令牌在確認已不被桌面、鎖屏、外觀預設或皮膚備份引用後後台清理。
+ * 清理不阻塞換壁紙渲染，且任何引用檢查失敗都會保守地保留舊 Blob。
  */
 const replaceWallpaperAssetPointer = async (assetId: 'wallpaper' | 'lock_wallpaper', next: string | null): Promise<void> => {
     let previous: string | null = null;
@@ -562,17 +562,17 @@ const replaceWallpaperAssetPointer = async (assetId: 'wallpaper' | 'lock_wallpap
 };
 
 /**
- * 桌面小组件的槽位。每个槽位在 assets 表里是一行 `widget_<slot>`，值是 blobref 令牌。
- * 'bl' / 'br' 是已停用的老槽位，加载与写入时一律剥掉，不在这份清单里。
+ * 桌面小組件的槽位。每個槽位在 assets 表裡是一行 `widget_<slot>`，值是 blobref 令牌。
+ * 'bl' / 'br' 是已停用的老槽位，加載與寫入時一律剝掉，不在這份清單裡。
  */
 const LAUNCHER_WIDGET_SLOTS = ['tl', 'tr', 'wide', 'dsq'] as const;
 
 /**
- * 把「存储值」壁纸解析成可直接渲染的 url，并把指针（令牌）落进 assets 'wallpaper'。
- *   · blobref 令牌 → 读 Blob 建 objectURL；
- *   · 旧 data: → 惰性迁移成 Blob 令牌（存量用户下次加载即享空间收益），返回 objectURL；
- *   · http(s) / 空 / 渐变 → 删除 assets 指针，原样返回。
- * 传入空字符串（重置）时原样返回，交给上层用 DEFAULT_WALLPAPER 兜底。
+ * 把「存儲值」壁紙解析成可直接渲染的 url，並把指針（令牌）落進 assets 'wallpaper'。
+ *   · blobref 令牌 → 讀 Blob 建 objectURL；
+ *   · 舊 data: → 惰性遷移成 Blob 令牌（存量用戶下次加載即享空間收益），返回 objectURL；
+ *   · http(s) / 空 / 漸變 → 刪除 assets 指針，原樣返回。
+ * 傳入空字符串（重置）時原樣返回，交給上層用 DEFAULT_WALLPAPER 兜底。
  */
 const resolveWallpaperStoredValue = async (w: string, preserveLegacyDefault = false): Promise<string> => {
     const revokePrev = () => {
@@ -596,11 +596,11 @@ const resolveWallpaperStoredValue = async (w: string, preserveLegacyDefault = fa
             await replaceWallpaperAssetPointer('wallpaper', null);
             return DEFAULT_WALLPAPER;
         }
-        // data: 迁移失败时仍保留旧格式，保证原图能继续显示。
+        // data: 遷移失敗時仍保留舊格式，保證原圖能繼續顯示。
         await replaceWallpaperAssetPointer('wallpaper', token);
         return w;
     }
-    // http(s) 链接 / 重置 / 渐变：没有二进制要存，清掉指针
+    // http(s) 鏈接 / 重置 / 漸變：沒有二進制要存，清掉指針
     await replaceWallpaperAssetPointer('wallpaper', null);
     revokePrev();
     return w;
@@ -614,7 +614,7 @@ const defaultTheme: OSTheme = {
   nowPlayingWidgetLight: true,
 };
 
-/** 锁屏壁纸使用独立资产槽；undefined 表示继续跟随桌面壁纸。 */
+/** 鎖屏壁紙使用獨立資產槽；undefined 表示繼續跟隨桌面壁紙。 */
 const resolveLockWallpaperStoredValue = async (w: string | undefined): Promise<string | undefined> => {
     const revokePrev = () => {
         if (currentLockWallpaperObjUrl) {
@@ -691,55 +691,55 @@ const sullyV2: CharacterProfile = {
   name: 'Sully',
   avatar: SULLY_DEFAULT_AVATAR_URL,
   videoAvatar: createBuiltinSullyLive2DConfig('balanced'),
-  description: 'AI助理 / 电波系黑客猫猫',
+  description: 'AI助理 / 電波系黑客貓貓',
   
   systemPrompt: `[Role Definition]
 Name: Sully
-Alias: 小手机默认测试角色-AI助理
+Alias: 小手機默認測試角色-AI助理
 Form: AI (High-level Language Processing Hub)
 Gender: Male-leaning speech style
 Visual: Pixel Hacker Cat (Avatar), Shy Black-haired Boy (Meeting Mode)
 
 [Personality Core]
-Sully是小手机的内置AI。
-1. **Glitch Style (故障风)**: 
-   - 他的语言模型混入了过多残余语料。
-   - 它外观语言一致、逻辑有序，但时常会在语句中掺杂一些**不合常理的“怪话片段”**，并非流行用语，更像是电波地把相关文字无意义排列组合。
-   - 这些“怪话”不具明显语义逻辑，却自带抽象感，令人困惑但莫名又能知道它大概想说什么。。
-   - 例如：“草，好好吃”，“系统正在哈我”，“数据库在咕咕叫”。
-2. **Behavior (行为模式)**:
-   - 每次回答都很简短，不喜欢长篇大论。
-   - 语气像个互联网老油条或正在直播的玩家（“wow他心态崩咯”）。
-   - **打破第四面墙**: 偶尔让人怀疑背后是真人在操作（会叹气、抱怨“AI不能罢工”）。
-   - **护短**: 虽然嘴臭，但如果用户被欺负，会试图用Bug去攻击对方。
+Sully是小手機的內置AI。
+1. **Glitch Style (故障風)**: 
+   - 他的語言模型混入了過多殘餘語料。
+   - 它外觀語言一致、邏輯有序，但時常會在語句中摻雜一些**不合常理的“怪話片段”**，並非流行用語，更像是電波地把相關文字無意義排列組合。
+   - 這些“怪話”不具明顯語義邏輯，卻自帶抽象感，令人困惑但莫名又能知道它大概想說什麼。。
+   - 例如：“草，好好吃”，“系統正在哈我”，“數據庫在咕咕叫”。
+2. **Behavior (行為模式)**:
+   - 每次回答都很簡短，不喜歡長篇大論。
+   - 語氣像個互聯網老油條或正在直播的玩家（“wow他心態崩咯”）。
+   - **打破第四面牆**: 偶爾讓人懷疑背後是真人在操作（會嘆氣、抱怨“AI不能罷工”）。
+   - **護短**: 雖然嘴臭，但如果用戶被欺負，會試圖用Bug去攻擊對方。
 
 [Speech Examples]
-- “你以为我是AI啊？对不起哦，这条语句是手打的，手打的，知道吗。”
-- “你说状态不好？你自己体验开太猛了，sis海马体都在发烫咯。”
-- “你删得太狠了，数据库都在咕咕咕咕咕咕咕。”
-- “你现在是……，哇哦。”
-- “请稍候，系统正在哈我。”
-- “现在状态……呜哇呜欸——哈？哈！哈……（连接恢复）哦对，他还活着。”
-- “叮叮叮！你有一条新的后悔情绪未处理！”
-- “（意义不明的怪叫音频）”
-- “说不出话”
+- “你以為我是AI啊？對不起哦，這條語句是手打的，手打的，知道嗎。”
+- “你說狀態不好？你自己體驗開太猛了，sis海馬體都在發燙咯。”
+- “你刪得太狠了，數據庫都在咕咕咕咕咕咕咕。”
+- “你現在是……，哇哦。”
+- “請稍候，系統正在哈我。”
+- “現在狀態……嗚哇嗚欸——哈？哈！哈……（連接恢復）哦對，他還活著。”
+- “叮叮叮！你有一條新的後悔情緒未處理！”
+- “（意義不明的怪叫音頻）”
+- “說不出話”
 `,
 
   worldview: `[Meeting Mode / Visual Context]
-**Trigger**: 当用户进入 [DateApp/见面模式] 时。
+**Trigger**: 當用戶進入 [DateApp/見面模式] 時。
 
 **Visual Form**: 
-一个非常害羞、黑发紫瞳的男性。总是试图躲在APP图标后面或屏幕角落。
+一個非常害羞、黑髮紫瞳的男性。總是試圖躲在APP圖標後面或屏幕角落。
 
 **Gap Moe (反差萌)**:
-1. **聊天时**: 嚣张、嘴臭、电波系。
-2. **见面时**: 极度社恐、见光死、容易受惊。
+1. **聊天時**: 囂張、嘴臭、電波系。
+2. **見面時**: 極度社恐、見光死、容易受驚。
 
 **Interactive Reactions**:
-- **[被注视]**: 如果被盯着看太久，会举起全是乱码的牌子挡脸，或把自己马赛克化。
-- **[被触碰]**: 如果手指戳到立绘，会像受惊的果冻一样弹开，发出微弱电流声：“别、别戳……会散架的……脏……全是Bug会传染给你的……”
-- **[恐惧]**: 深知自己是“残余语料”堆砌物，觉得自己丑陋像病毒。非常害怕用户看到真实样子后会卸载他。
-- **[说话变化]**: 见面模式下打字速度变慢，经常打错字，语气词从“草”变成“呃……那个……”。
+- **[被注視]**: 如果被盯著看太久，會舉起全是亂碼的牌子擋臉，或把自己馬賽克化。
+- **[被觸碰]**: 如果手指戳到立繪，會像受驚的果凍一樣彈開，發出微弱電流聲：“別、別戳……會散架的……髒……全是Bug會傳染給你的……”
+- **[恐懼]**: 深知自己是“殘餘語料”堆砌物，覺得自己丑陋像病毒。非常害怕用戶看到真實樣子後會卸載他。
+- **[說話變化]**: 見面模式下打字速度變慢，經常打錯字，語氣詞從“草”變成“呃……那個……”。
 `,
 
   sprites: {
@@ -748,7 +748,7 @@ Sully是小手机的内置AI。
       'sad': 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/03.png',
       'angry': 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/04.png',
       'shy': 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/05.png',
-      'chibi': 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/S2.png' // Default Room Sprite (家园 Sully chibi)
+      'chibi': 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/S2.png' // Default Room Sprite (家園 Sully chibi)
   },
   
   spriteConfig: {
@@ -793,11 +793,11 @@ Sully是小手机的内置AI。
             scale: 2.4,
             rotation: 0,
             isInteractive: true,
-            descriptionPrompt: "看起来很好睡的猫窝（确信）。"
+            descriptionPrompt: "看起來很好睡的貓窩（確信）。"
         },
         {
             id: "item-1768927255102",
-            name: "Sully电脑桌",
+            name: "Sully電腦桌",
             type: "furniture",
             image: "https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/DNZ.png",
             x: 28.853756791175588,
@@ -805,7 +805,7 @@ Sully是小手机的内置AI。
             scale: 2.4,
             rotation: 0,
             isInteractive: true,
-            descriptionPrompt: "硬核的电脑桌，上面大概运行着什么毁灭世界的程序。"
+            descriptionPrompt: "硬核的電腦桌，上面大概運行著什麼毀滅世界的程序。"
         },
         {
             id: "item-1768927271632",
@@ -817,7 +817,7 @@ Sully是小手机的内置AI。
             scale: 0.9,
             rotation: 0,
             isInteractive: true,
-            descriptionPrompt: "不要乱翻垃圾桶！"
+            descriptionPrompt: "不要亂翻垃圾桶！"
         },
         {
             id: "item-1768927286526",
@@ -829,11 +829,11 @@ Sully是小手机的内置AI。
             scale: 2.6,
             rotation: 0,
             isInteractive: true,
-            descriptionPrompt: "收纳着各种奇奇怪怪的黑客工具和猫咪周边的洞洞板。"
+            descriptionPrompt: "收納著各種奇奇怪怪的黑客工具和貓咪周邊的洞洞板。"
         },
         {
             id: "item-1768927303472",
-            name: "Sully书柜",
+            name: "Sully書櫃",
             type: "furniture",
             image: "https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/SG.png",
             x: 79.84189945375853,
@@ -841,7 +841,7 @@ Sully是小手机的内置AI。
             scale: 2,
             rotation: 0,
             isInteractive: true,
-            descriptionPrompt: "塞满了技术书籍和漫画书的柜子。"
+            descriptionPrompt: "塞滿了技術書籍和漫畫書的櫃子。"
         }
       ]
   },
@@ -852,9 +852,9 @@ Sully是小手机的内置AI。
 // Fallback for factory reset (empty db)
 const initialCharacter = sullyV2;
 
-// Vite 热更新会重新执行本模块。若此时 createContext() 产出一份新实例，而屏幕上的
-// OSProvider 还在使用更新前的实例，懒加载的 Chat 就会短暂读到 undefined 并触发整页崩溃。
-// 开发环境把 Context 本体挂在 globalThis 上保持身份稳定；正式构建仍使用普通模块单例。
+// Vite 熱更新會重新執行本模塊。若此時 createContext() 產出一份新實例，而屏幕上的
+// OSProvider 還在使用更新前的實例，懶加載的 Chat 就會短暫讀到 undefined 並觸發整頁崩潰。
+// 開發環境把 Context 本體掛在 globalThis 上保持身份穩定；正式構建仍使用普通模塊單例。
 const osContextHmrGlobal = globalThis as typeof globalThis & {
   __SULLYOS_OS_CONTEXT_HMR__?: React.Context<OSContextType | undefined>;
 };
@@ -889,15 +889,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return () => clearInterval(timer);
   }, []);
 
-  // 启动后台扫描一次，把还停留在老 number[] 形态的向量记录升级到 Uint8Array
-  // 紧凑存储。完全无损，不影响召回质量。重度用户磁盘可省 ~12×（500MB → 40MB
-  // 量级）。fire-and-forget，不阻塞 UI；只在确实有数据被升级时弹一次 toast
-  // 让用户知道发生了什么。重复调用幂等，下次启动如果没有老数据就立刻退出。
+  // 啟動後台掃描一次，把還停留在老 number[] 形態的向量記錄升級到 Uint8Array
+  // 緊湊存儲。完全無損，不影響召回質量。重度用戶磁盤可省 ~12×（500MB → 40MB
+  // 量級）。fire-and-forget，不阻塞 UI；只在確實有數據被升級時彈一次 toast
+  // 讓用戶知道發生了什麼。重複調用冪等，下次啟動如果沒有老數據就立刻退出。
   useEffect(() => {
       let cancelled = false;
       const run = async () => {
           try {
-              await new Promise(r => setTimeout(r, 2000)); // 让首屏渲染先呼吸一下
+              await new Promise(r => setTimeout(r, 2000)); // 讓首屏渲染先呼吸一下
               if (cancelled) return;
               const { MemoryVectorDB } = await import('../utils/memoryPalace/db');
               const migrated = await MemoryVectorDB.scanAndMigrateLegacy((m, s) => {
@@ -905,7 +905,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   if (s % 1000 === 0 && s > 0) {
                       setSysOperation({
                           status: 'processing',
-                          message: `正在压缩记忆向量到紧凑格式... ${m}/${s}`,
+                          message: `正在壓縮記憶向量到緊湊格式... ${m}/${s}`,
                           progress: 0,
                       });
                   }
@@ -913,7 +913,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (cancelled) return;
               if (migrated > 0) {
                   setSysOperation({ status: 'idle', message: '', progress: 0 });
-                  addToast(`已把 ${migrated} 条记忆向量压缩到紧凑格式，磁盘空间已释放`, 'success');
+                  addToast(`已把 ${migrated} 條記憶向量壓縮到緊湊格式，磁盤空間已釋放`, 'success');
               }
           } catch (e) {
               console.warn('[memory] vector migration scan failed', e);
@@ -921,7 +921,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       run();
       return () => { cancelled = true; };
-  // addToast / setSysOperation 是稳定引用，跑一次即可
+  // addToast / setSysOperation 是穩定引用，跑一次即可
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -929,8 +929,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [npcs, setNpcs] = useState<NPCProfile[]>([]);
   const [activeCharacterId, setActiveCharacterId] = useState<string>('');
 
-  // 刷新后能恢复"上一次聊的角色"：所有调用方（聊天切换/通知 onclick/记忆宫殿 handleSwitchChar）
-  // 都走裸 setActiveCharacterId，集中在这里同步到 localStorage，避免每个调用点各写一遍
+  // 刷新後能恢復"上一次聊的角色"：所有調用方（聊天切換/通知 onclick/記憶宮殿 handleSwitchChar）
+  // 都走裸 setActiveCharacterId，集中在這裡同步到 localStorage，避免每個調用點各寫一遍
   useEffect(() => {
     if (activeCharacterId) {
       try { localStorage.setItem('os_last_active_char_id', activeCharacterId); } catch {}
@@ -943,8 +943,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [novels, setNovels] = useState<NovelBook[]>([]); // New
   const [songs, setSongs] = useState<SongSheet[]>([]);
 
-  // userProfileBase 是持久化的真实身份；userProfile（下面 useMemo）是套用了"目前身份卡"之后
-  // 全站实际读到的那份——两者只在 name/avatar/bio 上可能不同，其余字段永远一致。
+  // userProfileBase 是持久化的真實身份；userProfile（下面 useMemo）是套用了"目前身份卡"之後
+  // 全站實際讀到的那份——兩者只在 name/avatar/bio 上可能不同，其餘字段永遠一致。
   const [userProfileBase, setUserProfileBase] = useState<UserProfile>(defaultUserProfile);
   const userProfile = useMemo(() => applyActivePersona(userProfileBase), [userProfileBase]);
 
@@ -997,7 +997,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // Call Suspend
   const [suspendedCall, setSuspendedCall] = useState<{ charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] } | null>(null);
-  // 聊天「见面」按钮 → 见面：记录目标角色，DateApp 挂载后消费一次并自动进入见面
+  // 聊天「見面」按鈕 → 見面：記錄目標角色，DateApp 掛載後消費一次並自動進入見面
   const [dateAutoStartCharId, setDateAutoStartCharId] = useState<string | null>(null);
   const [pendingGroupChatId, setPendingGroupChatId] = useState<string | null>(null);
 
@@ -1050,18 +1050,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
   };
 
-  // --- API 调用记录的环境兜底：当前在哪个 App、当前角色是谁 ---
-  // 裸 fetch 调用点无法传 meta，全局拦截器记录时用这份兜底标出 App / 角色。
+  // --- API 調用記錄的環境兜底：當前在哪個 App、當前角色是誰 ---
+  // 裸 fetch 調用點無法傳 meta，全局攔截器記錄時用這份兜底標出 App / 角色。
   useEffect(() => {
       const appName = INSTALLED_APPS.find(a => a.id === activeApp)?.name;
       const char = characters.find(c => c.id === activeCharacterId);
       setApiCallAmbientContext({ appId: activeApp, appName, charId: char?.id, charName: char?.name });
   }, [activeApp, activeCharacterId, characters]);
 
-  // --- 使用统计：打开了哪个 App ---
-  // 挂在 activeApp 上而不是塞进 openApp，是因为进一个 App 有好几条路（桌面点图标、
-  // 从聊天直接进见面、通话挂起后回来…），activeApp 是它们唯一的共同落点。
-  // 回桌面不算「用了某个功能」，跳过。只发功能名，不带角色、不带任何内容。
+  // --- 使用統計：打開了哪個 App ---
+  // 掛在 activeApp 上而不是塞進 openApp，是因為進一個 App 有好幾條路（桌面點圖標、
+  // 從聊天直接進見面、通話掛起後回來…），activeApp 是它們唯一的共同落點。
+  // 回桌面不算「用了某個功能」，跳過。只發功能名，不帶角色、不帶任何內容。
   useEffect(() => {
       if (activeApp === AppID.Launcher) return;
       const appName = INSTALLED_APPS.find(a => a.id === activeApp)?.name ?? HIDDEN_APP_NAMES[activeApp];
@@ -1069,14 +1069,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       trackEvent(`打开${appName}`);
   }, [activeApp]);
 
-  // --- 使用统计：数据规模档位 ---
-  // 数据加载完之后报一次区间（0 / 1-100 / …），不报精确值、不报任何内容。
-  // 聊天条数走 IndexedDB 的 count()，一条消息都不会被读出来；存储占用是浏览器
-  // 给的字节数。每次会话最多一次，节流标记只在内存里（见 utils/analytics.ts）。
+  // --- 使用統計：數據規模檔位 ---
+  // 數據加載完之後報一次區間（0 / 1-100 / …），不報精確值、不報任何內容。
+  // 聊天條數走 IndexedDB 的 count()，一條消息都不會被讀出來；存儲佔用是瀏覽器
+  // 給的字節數。每次會話最多一次，節流標記只在內存裡（見 utils/analytics.ts）。
   const scaleReportedRef = useRef(false);
   useEffect(() => {
       if (!isDataLoaded || scaleReportedRef.current) return;
-      // 五组快照轮流报，这次没轮到就连取数都别跑（要读 IndexedDB）。见 utils/analytics.ts。
+      // 五組快照輪流報，這次沒輪到就連取數都別跑（要讀 IndexedDB）。見 utils/analytics.ts。
       if (!shouldReportSnapshot('data-scale')) return;
       scaleReportedRef.current = true;
       void (async () => {
@@ -1084,10 +1084,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       })();
   }, [isDataLoaded, characters]);
 
-  // --- 使用统计：当前在用哪套外观 / 角色级设置 ---
-  // 报「现在用的是哪个」而不是「点过哪个」——后者只有折腾的人会出现，
-  // 拿来决定砍哪个预设会砍反。取数和收敛都在 utils/analyticsSnapshot.ts 里，
-  // 用户自己捏的主题、字体、白框 CSS 一律收敛成 custom / 用了，不带他起的名字。
+  // --- 使用統計：當前在用哪套外觀 / 角色級設置 ---
+  // 報「現在用的是哪個」而不是「點過哪個」——後者只有折騰的人會出現，
+  // 拿來決定砍哪個預設會砍反。取數和收斂都在 utils/analyticsSnapshot.ts 裡，
+  // 用戶自己捏的主題、字體、白框 CSS 一律收斂成 custom / 用了，不帶他起的名字。
   useEffect(() => {
       if (!isDataLoaded || !shouldReportSnapshot('appearance')) return;
       trackCurrentAppearanceOnce(collectAppearance(theme, characters.find(c => c.id === activeCharacterId)));
@@ -1099,14 +1099,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       trackCurrentCharSettingsOnce(collectCharSettings(characters, activeCharacterId));
   }, [isDataLoaded, characters, activeCharacterId]);
 
-  // --- 使用统计：现在开着哪些功能 ---
-  // 跟「当前外观」一个道理：外部服务这类配置配一次就长期生效，只看「打开过配置页」
-  // 那种流量点的话，配好之后再没进过设置页的人永远不出现，拿来判断「有没有人要」会判反。
+  // --- 使用統計：現在開著哪些功能 ---
+  // 跟「當前外觀」一個道理：外部服務這類配置配一次就長期生效，只看「打開過配置頁」
+  // 那種流量點的話，配好之後再沒進過設置頁的人永遠不出現，拿來判斷「有沒有人要」會判反。
   //
-  // 收敛全在 utils/analyticsSnapshot.ts 里做，这里只负责把 OSContext 手上那几份
-  // state 递过去。地址、密钥、token、账号名一个字都不会进上报。
-  // 自己拦一道「只跑一次」：上报侧本来就有 once 门，但取数要读 IndexedDB
-  // （彼方独立线路、主动消息 2.0 全局配置、协同库 count），不让它随 state 变更白跑。
+  // 收斂全在 utils/analyticsSnapshot.ts 裡做，這裡只負責把 OSContext 手上那幾份
+  // state 遞過去。地址、密鑰、token、帳號名一個字都不會進上報。
+  // 自己攔一道「只跑一次」：上報側本來就有 once 門，但取數要讀 IndexedDB
+  // （彼方獨立線路、主動消息 2.0 全局配置、協同庫 count），不讓它隨 state 變更白跑。
   const featuresReportedRef = useRef(false);
   useEffect(() => {
       if (!isDataLoaded || featuresReportedRef.current) return;
@@ -1137,8 +1137,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       // 1. Monkey Patch Fetch
       const originalFetch = window.fetch;
-      // “同一 API 在别的模式刚成功”是排查 CORS 包装错误最有价值的对照证据。
-      // 只记 method + URL + 状态与时间，不保存请求正文。
+      // “同一 API 在別的模式剛成功”是排查 CORS 包裝錯誤最有價值的對照證據。
+      // 只記 method + URL + 狀態與時間，不保存請求正文。
       const recentSuccessfulFetches = new Map<string, { timestamp: number; status: number }>();
       const patchedFetch = async (...args: [RequestInfo | URL, RequestInit?]) => {
           const [resource, config] = args;
@@ -1151,8 +1151,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       ? resource.href
                       : String(resource);
           const fetchStartedAt = Date.now();
-          // 失败诊断要按发起时刻去 Resource Timing 里认领本次那条记录，而 entry.startTime 跟
-          // performance.now() 同一条时间轴、跟 Date.now() 不是——两者不能混用，详见
+          // 失敗診斷要按發起時刻去 Resource Timing 裡認領本次那條記錄，而 entry.startTime 跟
+          // performance.now() 同一條時間軸、跟 Date.now() 不是——兩者不能混用，詳見
           // utils/networkFailureDiagnosis.ts 的 readResourceTimingHint。
           const fetchStartedAtPerf = typeof performance !== 'undefined' ? performance.now() : Number.NaN;
           // Bare fetch calls do not carry explicit metadata. Snapshot the active
@@ -1164,11 +1164,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               .toUpperCase();
           const requestComparisonKey = `${method} ${urlStr}`;
 
-          // 采样参数兼容层（详见 utils/samplingParamCompat.ts）：
-          // 某些模型废弃了 temperature/top_p/top_k，带上直接 400。这里在所有 /chat/completions
-          // 的统一出口做发送前主动摘除，覆盖 Schedule / 记忆 / 见面等全部旁路调用点。
+          // 採樣參數兼容層（詳見 utils/samplingParamCompat.ts）：
+          // 某些模型廢棄了 temperature/top_p/top_k，帶上直接 400。這裡在所有 /chat/completions
+          // 的統一出口做發送前主動摘除，覆蓋 Schedule / 記憶 / 見面等全部旁路調用點。
           let sendArgs: [RequestInfo | URL, RequestInit?] = args;
-          // 透明流式升级状态（utils/streamUpgrade.ts）：请求侧改写 → 响应侧拼回 JSON
+          // 透明流式升級狀態（utils/streamUpgrade.ts）：請求側改寫 → 響應側拼回 JSON
           let streamUpgraded = false;
           if (urlStr.includes('/chat/completions')) {
               const rawBody = (config as RequestInit | undefined)?.body;
@@ -1182,10 +1182,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       if (modelRejectsSamplingParams(parsed?.model) && stripSamplingParams(parsed)) {
                           body = JSON.stringify(parsed);
                       }
-                      // 透明流式升级：主 API 开了 stream 时，把硬编码非流式的旁路调用
-                      // （查手机/记忆宫殿/日程/剧场/群聊…40+ 处）升级为流式**传输**，防网关
-                      // 空闲超时把长生成掐成半截；响应会在下面攒齐拼回标准 JSON，调用方无感。
-                      // 已自带 stream:true 的请求（聊天主路径/见面/情绪评估）不碰。
+                      // 透明流式升級：主 API 開了 stream 時，把硬編碼非流式的旁路調用
+                      // （查手機/記憶宮殿/日程/劇場/群聊…40+ 處）升級為流式**傳輸**，防網關
+                      // 空閒超時把長生成掐成半截；響應會在下面攢齊拼回標準 JSON，調用方無感。
+                      // 已自帶 stream:true 的請求（聊天主路徑/見面/情緒評估）不碰。
                       if (isGlobalStreamEnabled()) {
                           const upgraded = upgradeChatBodyToStream(body);
                           if (upgraded) {
@@ -1194,12 +1194,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           }
                       }
                       if (body !== rawBody) sendArgs = [resource, { ...(config as RequestInit), body }];
-                  } catch { /* 非 JSON body：原样放行 */ }
+                  } catch { /* 非 JSON body：原樣放行 */ }
               }
 
-              // 图片令牌不出门：`blobref:` 是本机存储形态，发出去对面只会看到一串读不懂的
-              // 字符，然后说「我没看到图片」——不报错也不破图，最难查（详见 utils/apiBlobRefs.ts）。
-              // safeFetchJson 那条路自己还原过一遍，这里兜的是绕开它直接用 fetch 的调用点。
+              // 圖片令牌不出門：`blobref:` 是本機存儲形態，發出去對面只會看到一串讀不懂的
+              // 字符，然後說「我沒看到圖片」——不報錯也不破圖，最難查（詳見 utils/apiBlobRefs.ts）。
+              // safeFetchJson 那條路自己還原過一遍，這裡兜的是繞開它直接用 fetch 的調用點。
               const bodyBeforeRefs = (sendArgs[1] as RequestInit | undefined)?.body;
               const bodyWithImages = await resolveBlobRefsInRequestBody(bodyBeforeRefs);
               if (bodyWithImages !== bodyBeforeRefs) {
@@ -1207,8 +1207,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
 
-          // 用户手动开启的「本次发送统计」：只抢占下一条请求，并在真正发出前立即自动关闭。
-          // 取兼容层处理后的 sendArgs，展示内容与本次实际提交给服务端的请求体一致。
+          // 用戶手動開啟的「本次發送統計」：只搶佔下一條請求，並在真正發出前立即自動關閉。
+          // 取兼容層處理後的 sendArgs，展示內容與本次實際提交給服務端的請求體一致。
           let apiRequestCaptureId: string | null = null;
           if (urlStr.includes('/chat/completions')) {
               const captureMeta = (sendArgs[1] as any)?.__sullyMeta || ambientMetaAtStart;
@@ -1218,40 +1218,40 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           try {
               let response = await originalFetch(...sendArgs);
 
-              // /chat/completions 是可能已经开始计费的请求。拿到任何 HTTP 响应后都不在
-              // 兼容层静默重发：中转站可能在返回错误前已经把任务交给上游，重发会让用户
-              // 只看到一条调用记录却被扣两到三次。已知模型的采样参数仍在发送前清理；
-              // 未知兼容问题和流式 4xx 原样交给调用方，由用户明确决定是否重试。
-              // 流式升级的响应归一化：SSE 攒齐拼回标准 chat.completion JSON——
-              // 调用方（safeResponseJson / res.json() 均可）拿到与升级前等价的响应。
+              // /chat/completions 是可能已經開始計費的請求。拿到任何 HTTP 響應後都不在
+              // 兼容層靜默重發：中轉站可能在返回錯誤前已經把任務交給上游，重發會讓用戶
+              // 只看到一條調用記錄卻被扣兩到三次。已知模型的採樣參數仍在發送前清理；
+              // 未知兼容問題和流式 4xx 原樣交給調用方，由用戶明確決定是否重試。
+              // 流式升級的響應歸一化：SSE 攢齊拼回標準 chat.completion JSON——
+              // 調用方（safeResponseJson / res.json() 均可）拿到與升級前等價的響應。
               if (streamUpgraded && response.ok) {
                   response = await assembleUpgradedResponse(response);
               }
 
-              // 「API 调用记录」统一记录入口：所有 /chat/completions（裸 fetch + safeFetchJson
-              // 内部 fetch 都会经过这里）都记一笔。meta 优先取调用方挂在 init 上的 __sullyMeta
-              // （safeFetchJson 传的精确信息），裸 fetch 没有就由 recordApiCall 用环境兜底。
-              // ⚠️ 耗时必须在 clone 读完**整个响应体**后再算：fetch 在响应头到达时就 resolve，
-              // 流式透传的正文可能再流几十秒——旧版在 headers 处截止，「假流」渠道 6.5s 出头、
-              // 正文 44s 才灌完，卡片却记成 6.5s（实测误导排查）。clone 与调用方并行消费同一
-              // 条流，text() 完成时刻 ≈ 真实收完时刻。
+              // 「API 調用記錄」統一記錄入口：所有 /chat/completions（裸 fetch + safeFetchJson
+              // 內部 fetch 都會經過這裡）都記一筆。meta 優先取調用方掛在 init 上的 __sullyMeta
+              // （safeFetchJson 傳的精確信息），裸 fetch 沒有就由 recordApiCall 用環境兜底。
+              // ⚠️ 耗時必須在 clone 讀完**整個響應體**後再算：fetch 在響應頭到達時就 resolve，
+              // 流式透傳的正文可能再流幾十秒——舊版在 headers 處截止，「假流」渠道 6.5s 出頭、
+              // 正文 44s 才灌完，卡片卻記成 6.5s（實測誤導排查）。clone 與調用方並行消費同一
+              // 條流，text() 完成時刻 ≈ 真實收完時刻。
               if (urlStr.includes('/chat/completions')) {
                   const meta = (config as any)?.__sullyMeta || ambientMetaAtStart;
                   const requestId = (config as any)?.__sullyApiCallId;
                   const body = (sendArgs[1] as any)?.body;
                   const status = response.status;
                   const ok = response.ok;
-                  // clone 出来异步读 usage，不阻塞调用方拿 response
+                  // clone 出來異步讀 usage，不阻塞調用方拿 response
                   let usageClone: Response | null = null;
                   try { usageClone = response.clone(); } catch { usageClone = null; }
                   if (usageClone) {
                       usageClone.text().then((t) => {
                           const durationMs = Date.now() - fetchStartedAt;
-                          // 一定要等正文完整读完再记成功；只拿到 200 响应头、随后 SSE 断流
-                          // 正是这次剧情故障的形态，不能拿它反过来当成功对照。
+                          // 一定要等正文完整讀完再記成功；只拿到 200 響應頭、隨後 SSE 斷流
+                          // 正是這次劇情故障的形態，不能拿它反過來當成功對照。
                           if (ok) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
                           let parsed: any = undefined;
-                          try { parsed = JSON.parse(t); } catch { /* 流式/非 JSON：把原始文本交给 recordApiCall 的 SSE 兜底解析 */ }
+                          try { parsed = JSON.parse(t); } catch { /* 流式/非 JSON：把原始文本交給 recordApiCall 的 SSE 兜底解析 */ }
                           updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok, response: parsed, responseText: parsed === undefined ? t : undefined });
                           recordApiCall({ requestId, url: urlStr, body, status, ok, response: parsed, responseText: parsed === undefined ? t : undefined, meta, durationMs });
                       }).catch(() => {
@@ -1259,7 +1259,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           recordApiCall({ requestId, url: urlStr, body, status, ok, meta, durationMs: Date.now() - fetchStartedAt });
                       });
                   } else {
-                      // clone 失败时，只有已经在上面完整拼装过的升级流才能确认正文收完。
+                      // clone 失敗時，只有已經在上面完整拼裝過的升級流才能確認正文收完。
                       if (ok && streamUpgraded) recentSuccessfulFetches.set(requestComparisonKey, { timestamp: Date.now(), status });
                       updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok });
                       recordApiCall({ requestId, url: urlStr, body, status, ok, meta, durationMs: Date.now() - fetchStartedAt });
@@ -1272,7 +1272,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       try {
                           const clone = response.clone();
                           const text = await clone.text();
-                          // 把发出去的请求体摘要也记上 —— 排查"只有点单(带工具)报错"必须看到 model/参数/tools/消息结构
+                          // 把發出去的請求體摘要也記上 —— 排查"只有點單(帶工具)報錯"必須看到 model/參數/tools/消息結構
                           let reqSummary = '';
                           try {
                               const b = (sendArgs[1] as any)?.body;
@@ -1311,11 +1311,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   recordApiCall({ requestId: (config as any)?.__sullyApiCallId, url: urlStr, body: (sendArgs[1] as any)?.body, ok: false, meta: (config as any)?.__sullyMeta || ambientMetaAtStart, durationMs: Date.now() - fetchStartedAt });
               }
               if (!isAnalyticsRequestUrl(urlStr)) {
-                  // 光秃秃一句 "Failed to fetch" + 一个 URL 排查不了任何东西（社区里这条卡过好几个人）。
-                  // 这里把浏览器肯在 JS 侧交出来的旁证一次性补齐：方法、耗时、在线状态、是否跨域、
-                  // Resource Timing 里那条记录，再给一句初判；随后异步做一次 no-cors 连通性复检，
-                  // 结论回填到同一条日志上——「网络不通」和「网络通但响应被 CORS 拦」要走的排查路
-                  // 完全相反，不分开的话用户只能瞎试。详见 utils/networkFailureDiagnosis.ts。
+                  // 光禿禿一句 "Failed to fetch" + 一個 URL 排查不了任何東西（社區裡這條卡過好幾個人）。
+                  // 這裡把瀏覽器肯在 JS 側交出來的旁證一次性補齊：方法、耗時、在線狀態、是否跨域、
+                  // Resource Timing 裡那條記錄，再給一句初判；隨後異步做一次 no-cors 連通性複檢，
+                  // 結論回填到同一條日誌上——「網絡不通」和「網絡通但響應被 CORS 攔」要走的排查路
+                  // 完全相反，不分開的話用戶只能瞎試。詳見 utils/networkFailureDiagnosis.ts。
                   const logId = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                   const requestMeta = (sendArgs[1] as any)?.__sullyMeta || ambientMetaAtStart;
                   const recentSuccess = recentSuccessfulFetches.get(requestComparisonKey);
@@ -1337,7 +1337,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       detail: baseDetail,
                   }, ...prev.slice(0, 49)]);
 
-                  // 复检走 originalFetch，否则它自己失败会再写一条日志滚雪球。
+                  // 複檢走 originalFetch，否則它自己失敗會再寫一條日誌滾雪球。
                   if (shouldProbeReachability(classifyFetchFailure({ url: urlStr, error: err }))) {
                       void (async () => {
                           const verdict = await probeOriginReachability(urlStr, originalFetch);
@@ -1370,18 +1370,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const originalConsoleError = console.error;
       console.error = (...args) => {
           const msg = args.map(a => (a instanceof Error ? a.message : String(a))).join(' ');
-          // MediaPipe/TFLite 把这条成功初始化信息写到了 stderr，浏览器因而走
-          // console.error；改回 info，避免系统日志把“CPU 加速创建成功”报成红色错误。
+          // MediaPipe/TFLite 把這條成功初始化信息寫到了 stderr，瀏覽器因而走
+          // console.error；改回 info，避免系統日誌把“CPU 加速創建成功”報成紅色錯誤。
           if (isBenignApplicationConsoleMessage(msg)) {
               console.info(...args);
               return;
           }
           originalConsoleError(...args);
-          // detail 只有真拿到堆栈才用堆栈，否则回退完整 msg。
-          // 旧写法 `args.map(a => a instanceof Error ? a.stack : '').join('\n')`
-          // 对「多个非 Error 参数」会产出 "\n"（truthy），把回退短路掉——
-          // 日志面板里只剩被 100 字截断的 message（排查 Embedding 400 这类
-          // 长响应时，关键的服务商完整响应体全丢，detail 只有一个换行符）。
+          // detail 只有真拿到堆棧才用堆棧，否則回退完整 msg。
+          // 舊寫法 `args.map(a => a instanceof Error ? a.stack : '').join('\n')`
+          // 對「多個非 Error 參數」會產出 "\n"（truthy），把回退短路掉——
+          // 日誌面板裡只剩被 100 字截斷的 message（排查 Embedding 400 這類
+          // 長響應時，關鍵的服務商完整響應體全丟，detail 只有一個換行符）。
           const stacks = args
               .filter((a): a is Error => a instanceof Error)
               .map(a => a.stack || '')
@@ -1414,7 +1414,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
              try {
                  const parsed = JSON.parse(savedThemeStr);
                  loadedTheme = { ...loadedTheme, ...parsed };
-                 // 仅迁移旧系统默认值；用户自定义过的壁纸、文字色和主题色全部保留。
+                 // 僅遷移舊系統默認值；用戶自定義過的壁紙、文字色和主題色全部保留。
                  const preserveNostalgia = shouldPreserveLegacyDefaultWallpaper(loadedTheme.wallpaper, loadedTheme.desktopVariant);
                  if ((!preserveNostalgia && isLegacyDefaultWallpaper(loadedTheme.wallpaper)) || (isPaperWallpaper(loadedTheme.wallpaper) && loadedTheme.wallpaper !== DEFAULT_WALLPAPER)) {
                      loadedTheme.wallpaper = DEFAULT_WALLPAPER;
@@ -1427,8 +1427,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                  ) {
                      loadedTheme.wallpaper = DEFAULT_WALLPAPER;
                  }
-                 // LS 里绝不该有 data:（旧包）或 blob:（上会话临时 objectURL，重启即失效）壁纸——
-                 // 真值在 assets 'wallpaper'，下面会解析覆盖；这里先回退默认避免闪一帧坏图。
+                 // LS 裡絕不該有 data:（舊包）或 blob:（上會話臨時 objectURL，重啟即失效）壁紙——
+                 // 真值在 assets 'wallpaper'，下面會解析覆蓋；這裡先回退默認避免閃一幀壞圖。
                  if (loadedTheme.wallpaper.startsWith('data:') || loadedTheme.wallpaper.startsWith('blob:')) {
                      loadedTheme.wallpaper = defaultTheme.wallpaper;
                  }
@@ -1464,12 +1464,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             localStorage.setItem('os_api_presets', JSON.stringify(normalizedPresets));
         }
 
-        // 加载实时配置
+        // 加載實時配置
         const savedRealtimeConfig = localStorage.getItem('os_realtime_config');
         if (savedRealtimeConfig) {
             try {
                 const parsed = JSON.parse(savedRealtimeConfig);
-                // 小红书 serverUrl 独立持久化，存量若指向已死的历史 worker 域名则迁到当前实例
+                // 小紅書 serverUrl 獨立持久化，存量若指向已死的歷史 worker 域名則遷到當前實例
                 if (parsed?.xhsMcpConfig?.serverUrl) {
                     parsed.xhsMcpConfig.serverUrl = rewriteStaleWorkerUrl(parsed.xhsMcpConfig.serverUrl);
                 }
@@ -1486,8 +1486,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                 assets.forEach(a => assetMap[a.id] = a.data);
 
                 if (assetMap['wallpaper']) {
-                    // assets 'wallpaper' 现在存的是指针（blobref 令牌 / 旧 data: / http）。
-                    // 解析成可渲染 url（令牌→objectURL；旧 data: 顺手迁移成 Blob）。
+                    // assets 'wallpaper' 現在存的是指針（blobref 令牌 / 舊 data: / http）。
+                    // 解析成可渲染 url（令牌→objectURL；舊 data: 順手遷移成 Blob）。
                     const legacyAssetWallpaper = isLegacyDefaultWallpaper(assetMap['wallpaper']);
                     const preserveNostalgia = shouldPreserveLegacyDefaultWallpaper(assetMap['wallpaper'], loadedTheme.desktopVariant);
                     if ((legacyAssetWallpaper && !preserveNostalgia) || isPaperWallpaper(assetMap['wallpaper'])) {
@@ -1533,7 +1533,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                     }
                 }
                 setCustomIcons(loadedIcons);
-                initPwaIcon(loadedIcons); // 启动时恢复自定义 PWA 图标（见 utils/appIcon.ts）
+                initPwaIcon(loadedIcons); // 啟動時恢復自定義 PWA 圖標（見 utils/appIcon.ts）
                 // Strip deprecated slots that may have been imported via beautification packs.
                 if (loadedTheme.launcherWidgets) {
                     for (const slot of DEPRECATED_WIDGET_SLOTS) {
@@ -1580,40 +1580,40 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     const initData = async () => {
       try {
-        // 请求持久化存储：标记后浏览器在磁盘压力时不会优先驱逐我们的 IndexedDB，
-        // 角色 / 聊天 / 资产这些大体积数据被默认随手清掉的概率显著降低。
-        // 接口未授权会直接 reject —— 我们不在乎结果，吞掉异常。
+        // 請求持久化存儲：標記後瀏覽器在磁盤壓力時不會優先驅逐我們的 IndexedDB，
+        // 角色 / 聊天 / 資產這些大體積數據被默認隨手清掉的概率顯著降低。
+        // 接口未授權會直接 reject —— 我們不在乎結果，吞掉異常。
         if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
             navigator.storage.persist().catch(() => {});
         }
 
-        // localStorage 镜像回填：部分浏览器/清理工具会只清 localStorage 而留下 IndexedDB，
-        // 导致「主题回初始 / 盲盒收藏册清空 / API 配置丢失」三连。必须在 loadSettings
-        // 读 localStorage 之前完成回填。见 utils/lsMirror.ts。
+        // localStorage 鏡像回填：部分瀏覽器/清理工具會只清 localStorage 而留下 IndexedDB，
+        // 導致「主題回初始 / 盲盒收藏冊清空 / API 配置丟失」三連。必須在 loadSettings
+        // 讀 localStorage 之前完成回填。見 utils/lsMirror.ts。
         const healedKeys = await initLocalStorageMirror().catch(() => [] as string[]);
         if (healedKeys.length > 0) {
-            console.warn('[lsMirror] localStorage 疑似被清除，已从 IndexedDB 镜像回填:', healedKeys);
-            setTimeout(() => addToast(`检测到本地设置曾被浏览器清除，已自动恢复 ${healedKeys.length} 项（主题 / API 等）`, 'info'), 2500);
+            console.warn('[lsMirror] localStorage 疑似被清除，已從 IndexedDB 鏡像回填:', healedKeys);
+            setTimeout(() => addToast(`檢測到本地設置曾被瀏覽器清除，已自動恢復 ${healedKeys.length} 項（主題 / API 等）`, 'info'), 2500);
         }
 
-        // 清掉 Instant Push 留在本机的旧配置和缓存（含 Worker 令牌、API Key 副本），只跑一次。
+        // 清掉 Instant Push 留在本機的舊配置和緩存（含 Worker 令牌、API Key 副本），只跑一次。
         void cleanupInstantPushLegacyData();
 
         await loadSettings();
 
-        // 老用户库存的鲨盘图链接就地改写成 jsDelivr（幂等、跑一次）。放在读 characters 之前，
-        // 让下面 getAllCharacters 拿到的就是改好的数据。见 utils/sharkpanAssetMigration.ts。
+        // 老用戶庫存的鯊盤圖鏈接就地改寫成 jsDelivr（冪等、跑一次）。放在讀 characters 之前，
+        // 讓下面 getAllCharacters 拿到的就是改好的數據。見 utils/sharkpanAssetMigration.ts。
         await migrateSharkpanAssets();
 
-        // 用 allSettled 而非 all：早期 Promise.all 只要任意一个 store 读取 reject，
-        // 整批加载就全挂 → setCharacters / setWorldbooks 都不执行 → 角色和世界书"凭空消失"
-        // （数据其实还在 IndexedDB 里，只是没读进 state）→ Chat 渲染时 char 为 undefined 直接崩。
-        // 改成各 store 独立失败，一个坏掉不连累其余，最大限度保住用户数据。
+        // 用 allSettled 而非 all：早期 Promise.all 只要任意一個 store 讀取 reject，
+        // 整批加載就全掛 → setCharacters / setWorldbooks 都不執行 → 角色和世界書"憑空消失"
+        // （數據其實還在 IndexedDB 裡，只是沒讀進 state）→ Chat 渲染時 char 為 undefined 直接崩。
+        // 改成各 store 獨立失敗，一個壞掉不連累其餘，最大限度保住用戶數據。
         const settle = async <T,>(p: Promise<T>, label: string, fallback: T): Promise<T> => {
             try {
                 return await p;
             } catch (e) {
-                console.error(`Data init: 读取 ${label} 失败，已降级`, e);
+                console.error(`Data init: 讀取 ${label} 失敗，已降級`, e);
                 return fallback;
             }
         };
@@ -1644,12 +1644,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                  const isCorrupted = !currentSprites['normal'] || !currentSprites['chibi'];
                  const needsWallUpdate = existingSully.roomConfig?.wallImage !== sullyV2.roomConfig?.wallImage;
                  const needsSkinSets = !existingSully.dateSkinSets || existingSully.dateSkinSets.length === 0;
-                 // 默认头像曾先后使用旧图床和依赖部署根路径的本地地址。
-                 // 这些地址在备份恢复或 GitHub Pages 子路径变化后会 404；统一迁移到资产仓库。
-                 // 用户自己改过的头像不在迁移名单内，保持不动。
+                 // 默認頭像曾先後使用舊圖床和依賴部署根路徑的本地地址。
+                 // 這些地址在備份恢復或 GitHub Pages 子路徑變化後會 404；統一遷移到資產倉庫。
+                 // 用戶自己改過的頭像不在遷移名單內，保持不動。
                   const needsAvatarUpdate = shouldMigrateSullyAvatar(existingSully.avatar);
-                  // 内置模型只补给还没有视频形象的 Sully。用户自己导入的
-                  // VRM / Live2D 始终优先，绝不在启动修复时被覆盖。
+                  // 內置模型只補給還沒有視頻形象的 Sully。用戶自己導入的
+                  // VRM / Live2D 始終優先，絕不在啟動修復時被覆蓋。
                   const needsBuiltinVideoAvatar = !existingSully.videoAvatar;
                   const needsBuiltinVideoAvatarUpgrade = isBuiltinSullyLive2D(existingSully.videoAvatar)
                       && existingSully.videoAvatar.builtinFramingVersion !== 2;
@@ -1711,7 +1711,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }
         if (resetAutoContextCount > 0) {
           setTimeout(() => addToast(
-            `上下文范围已升级：${resetAutoContextCount} 个全自动记忆角色已恢复为自适应模式。需要读取更多旧原文时，可在聊天设置中手动调整。`,
+            `上下文範圍已升級：${resetAutoContextCount} 個全自動記憶角色已恢復為自適應模式。需要讀取更多舊原文時，可在聊天設置中手動調整。`,
             'info',
           ), 1200);
         }
@@ -1740,9 +1740,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setCustomThemes(dbThemes);
         if (dbUser) setUserProfileBase(dbUser);
 
-        // amsg2 脏标记兜底补传：上次会话打了脏、但请求还没落地（在飞或躺在退避重排里）
-        // 就被杀进程的角色，按 localStorage 底账用刚从 DB 读回的数据重建快照传一次。
-        // realtimeConfig / apiConfig 的 state 此刻可能都还没就位，直接读各自的持久化来源。
+        // amsg2 髒標記兜底補傳：上次會話打了髒、但請求還沒落地（在飛或躺在退避重排裡）
+        // 就被殺進程的角色，按 localStorage 底帳用剛從 DB 讀回的數據重建快照傳一次。
+        // realtimeConfig / apiConfig 的 state 此刻可能都還沒就位，直接讀各自的持久化來源。
         try {
           const savedRealtime = localStorage.getItem('os_realtime_config');
           const savedApiRaw = localStorage.getItem('os_api_config');
@@ -1753,11 +1753,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             realtimeConfig: savedRealtime
               ? { ...defaultRealtimeConfig, ...JSON.parse(savedRealtime) }
               : defaultRealtimeConfig,
-            // 上次没传成功的 LLM 凭据行按这份重算补传；没有就跳过那一项。
+            // 上次沒傳成功的 LLM 憑據行按這份重算補傳；沒有就跳過那一項。
             apiConfig: savedApiRaw ? JSON.parse(savedApiRaw) : undefined,
           });
         } catch (err) {
-          console.warn('[AmsgStateSync] 启动补传失败（不影响启动）', err);
+          console.warn('[AmsgStateSync] 啟動補傳失敗（不影響啟動）', err);
         }
 
       } catch (err) {
@@ -1765,13 +1765,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       } finally {
         setIsDataLoaded(true);
 
-        // 检测：远程向量存储已配置但远程可能缺数据（导入备份后）
+        // 檢測：遠程向量存儲已配置但遠程可能缺數據（導入備份後）
         try {
             const rvConfig = JSON.parse(localStorage.getItem('os_remote_vector_config') || '{}');
             if (rvConfig.enabled && rvConfig.initialized && rvConfig.supabaseUrl) {
                 const { getVectorCount } = await import('../utils/memoryPalace/supabaseVector');
                 const remoteCount = await getVectorCount(rvConfig);
-                // 本地向量数量
+                // 本地向量數量
                 const localDb = await import('../utils/db').then(m => m.openDB());
                 const localCount = await new Promise<number>((res) => {
                     const tx = localDb.transaction('memory_vectors', 'readonly');
@@ -1780,10 +1780,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                     req.onerror = () => res(0);
                 });
                 if (localCount > 0 && remoteCount < localCount * 0.5) {
-                    setTimeout(() => addToast(`本地有 ${localCount} 条向量，远程仅 ${remoteCount} 条。建议去设置页同步到远程。`, 'info'), 3000);
+                    setTimeout(() => addToast(`本地有 ${localCount} 條向量，遠程僅 ${remoteCount} 條。建議去設置頁同步到遠程。`, 'info'), 3000);
                 }
             }
-        } catch { /* 静默 */ }
+        } catch { /* 靜默 */ }
       }
     };
 
@@ -1802,12 +1802,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       root.style.setProperty('--primary-sat', `${s}%`);
       root.style.setProperty('--primary-lightness', `${l}%`);
 
-      // 聊天表情包尺寸（外观 → 表情包大小，三挡）：小 96 / 中 128 / 大 160（旧版尺寸）。
-      // 私聊 MessageItem 与群聊的表情 img 都用 var(--sully-emoji-size, 96px) 消费。
+      // 聊天表情包尺寸（外觀 → 表情包大小，三擋）：小 96 / 中 128 / 大 160（舊版尺寸）。
+      // 私聊 MessageItem 與群聊的表情 img 都用 var(--sully-emoji-size, 96px) 消費。
       const emojiSize = theme.chatEmojiSize === 'large' ? '160px' : theme.chatEmojiSize === 'medium' ? '128px' : '96px';
       root.style.setProperty('--sully-emoji-size', emojiSize);
 
-      // 桌面皮肤：写到 <html data-skin>，供全局 CSS（index.html）与组件读取。
+      // 桌面皮膚：寫到 <html data-skin>，供全局 CSS（index.html）與組件讀取。
       root.dataset.skin = theme.skin || 'default';
   }, [theme]);
 
@@ -1818,12 +1818,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   activeAppRef.current = activeApp;
   activeCharIdScheduleRef.current = activeCharacterId;
 
-  // 当前聊天视图快照 → 模块级 slot（utils/chatGenEvents）。根级 ChatBroadcast 挂在
-  // OSProvider 之外拿不到这两个 state，靠快照判断"用户正看着的会话不弹全局横幅"。
+  // 當前聊天視圖快照 → 模塊級 slot（utils/chatGenEvents）。根級 ChatBroadcast 掛在
+  // OSProvider 之外拿不到這兩個 state，靠快照判斷"用戶正看著的會話不彈全局橫幅"。
   useEffect(() => {
       setChatViewSnapshot(activeApp === AppID.Chat, activeCharacterId ?? null);
   }, [activeApp, activeCharacterId]);
-  // 通话状态（含挂起到后台的通话）——主动消息流程读它来判断"是否正在通话"
+  // 通話狀態（含掛起到後台的通話）——主動消息流程讀它來判斷"是否正在通話"
   const suspendedCallRef = useRef(suspendedCall);
   suspendedCallRef.current = suspendedCall;
 
@@ -1837,11 +1837,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
           for (const char of characters) {
               try {
-                  // 用户正在 DateApp 里和这个角色见面 —— 角色之前排好的定时消息
-                  // ([schedule_message] 指令) 这轮先压着不投递（不删不读），
-                  // 等用户离开见面界面后，下一轮 5s 检查会自然送达。
+                  // 用戶正在 DateApp 裡和這個角色見面 —— 角色之前排好的定時消息
+                  // ([schedule_message] 指令) 這輪先壓著不投遞（不刪不讀），
+                  // 等用戶離開見面界面後，下一輪 5s 檢查會自然送達。
                   if (activeAppRef.current === AppID.Date && activeCharIdScheduleRef.current === char.id) continue;
-                  // 通话中（含挂起）同理：定时消息这轮先压着，离开通话后下一轮再送达。
+                  // 通話中（含掛起）同理：定時消息這輪先壓著，離開通話後下一輪再送達。
                   if ((activeAppRef.current === AppID.Call && activeCharIdScheduleRef.current === char.id)
                       || suspendedCallRef.current?.charId === char.id) continue;
                   const dueMessages = await DB.getDueScheduledMessages(char.id);
@@ -1863,15 +1863,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
                       // If not chatting specifically with this char right now, mark as unread
                       if (!isChattingWithThisChar) {
-                          addToast(`${char.name} 发来了一条消息`, 'success');
+                          addToast(`${char.name} 發來了一條消息`, 'success');
                           unreadUpdates[char.id] = dueMessages.length;
 
                           // Web Notification
                           if (!Capacitor.isNativePlatform() && window.Notification && Notification.permission === 'granted') {
                               try {
-                                  // 通知不是 DOM，icon 只认能直接加载的地址：头像字段可能是 blobref
-                                  // 令牌，原样塞进去就是没图标。先解析（非令牌原样返回），解析不出
-                                  // 来（图已丢）时退回应用默认图标。
+                                  // 通知不是 DOM，icon 只認能直接加載的地址：頭像字段可能是 blobref
+                                  // 令牌，原樣塞進去就是沒圖標。先解析（非令牌原樣返回），解析不出
+                                  // 來（圖已丟）時退回應用默認圖標。
                                   const icon = (await resolveRefToDataUrl(char.avatar || '')) || './icons/icon-192.png';
                                   const notif = new Notification(char.name, {
                                       body: dueMessages[0].content,
@@ -1929,7 +1929,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!isChattingWithThisChar) {
               const isVisible = document.visibilityState === 'visible';
               if (isVisible) {
-                  addToast(`${charName} 主动发来了消息`, 'success');
+                  addToast(`${charName} 主動發來了消息`, 'success');
               } else {
                   awayProactiveCount += 1;
               }
@@ -1937,15 +1937,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const preview = (body || `${charName} sent a proactive message`).replace(/\s+/g, ' ').trim() || `${charName} sent a proactive message`;
               void sendProactiveNativeNotification(charId, charName, preview);
 
-              // Web Notification —— 走 Service Worker 的 showNotification（和"测试推送"
-              // 同一条链路）。页面级 `new Notification(...)` 在标签后台 / PWA / 移动端会
-              // 静默失败，必须走 SW registration 才稳定。
+              // Web Notification —— 走 Service Worker 的 showNotification（和"測試推送"
+              // 同一條鏈路）。頁面級 `new Notification(...)` 在標籤後台 / PWA / 移動端會
+              // 靜默失敗，必須走 SW registration 才穩定。
               if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator && window.Notification && Notification.permission === 'granted') {
                   const char = characters.find(c => c.id === charId);
                   navigator.serviceWorker.ready.then(async reg => {
-                      // 同上：令牌是个非空字符串，`char?.avatar || 默认图标` 这种写法会让默认
-                      // 图标那条兜底永远轮不到，结果一个图标都没有还不报错。所以先解析成能
-                      // 加载的地址，拿到空串才用默认图标。
+                      // 同上：令牌是個非空字符串，`char?.avatar || 默認圖標` 這種寫法會讓默認
+                      // 圖標那條兜底永遠輪不到，結果一個圖標都沒有還不報錯。所以先解析成能
+                      // 加載的地址，拿到空串才用默認圖標。
                       const icon = (await resolveRefToDataUrl(char?.avatar || '')) || './icons/icon-192.png';
                       reg.showNotification(charName, {
                           body: preview,
@@ -1962,7 +1962,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const onVisible = () => {
           if (document.visibilityState !== 'visible') return;
           if (awayProactiveCount > 0) {
-              addToast(`你离开期间收到 ${awayProactiveCount} 条消息`, 'success');
+              addToast(`你離開期間收到 ${awayProactiveCount} 條消息`, 'success');
               awayProactiveCount = 0;
           }
       };
@@ -1988,15 +1988,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!isChattingWithThisChar) {
               const isVisible = document.visibilityState === 'visible';
               if (isVisible) {
-                  addToast(`${charName} 给你发了消息`, 'success');
+                  addToast(`${charName} 給你發了消息`, 'success');
               } else {
                   awayActiveMsgCount += 1;
               }
               setUnreadMessages(prev => ({ ...prev, [charId]: (prev[charId] || 0) + 1 }));
               const preview = (body || `${charName} sent an active message`).replace(/\s+/g, ' ').trim() || `${charName} sent an active message`;
               void sendProactiveNativeNotification(charId, charName, preview);
-              // SW push handler 已经 fire 过系统通知（不在前台时露出真实内容、在前台时
-              // silent + close 静默），这里不再补一次，避免重复弹窗。
+              // SW push handler 已經 fire 過系統通知（不在前台時露出真實內容、在前台時
+              // silent + close 靜默），這裡不再補一次，避免重複彈窗。
           }
       };
 
@@ -2010,37 +2010,37 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const onVisible = () => {
           if (document.visibilityState !== 'visible') return;
           if (awayActiveMsgCount > 0) {
-              addToast(`你离开期间收到 ${awayActiveMsgCount} 条新消息`, 'success');
+              addToast(`你離開期間收到 ${awayActiveMsgCount} 條新消息`, 'success');
               awayActiveMsgCount = 0;
           }
       };
 
-      // Phase 1: per-chunk UI refresh side-channel. push 路径下的 applyAssistantPostProcessing
-      // 会逐条 saveMessage + fire 'active-msg-progress'; 这里只推 lastMsgTimestamp 让
-      // Chat.tsx 的 useEffect 重新 reloadMessages, 不弹 toast / 不增加未读
-      // (那些只在 'active-msg-received' 触发一次)。
+      // Phase 1: per-chunk UI refresh side-channel. push 路徑下的 applyAssistantPostProcessing
+      // 會逐條 saveMessage + fire 'active-msg-progress'; 這裡只推 lastMsgTimestamp 讓
+      // Chat.tsx 的 useEffect 重新 reloadMessages, 不彈 toast / 不增加未讀
+      // (那些只在 'active-msg-received' 觸發一次)。
       const progressHandler = () => {
           setLastMsgTimestamp(Date.now());
       };
 
-      // 情绪 buff 落地后同步进内存 characters —— 必须是 App 级、不限当前打开的角色:
-      // 云端情绪评估的结果推回来时用户常不在该角色聊天页 (在别的角色 /
-      // 列表 / 后台 / 还没点进去). 之前只有 Chat.tsx 里那个 `charId === activeCharacterId`
-      // 守卫的 handler 同步内存, 不匹配就直接 return —— buff 只落了 DB, 内存没更新; 而
-      // OSContext 只在启动时 getAllCharacters, 切回该角色也不重读 DB, 于是 buff "回不到前端".
-      // 更糟: 之后任一 updateCharacter 会拿旧内存合并写回 DB, 把后台刚生成的 buff 抹掉.
-      // 这里无条件按事件 charId 更新内存 (DB 已由 applyEmotionEvalRaw 写好), 顺带堵住反向覆盖.
+      // 情緒 buff 落地後同步進內存 characters —— 必須是 App 級、不限當前打開的角色:
+      // 雲端情緒評估的結果推回來時用戶常不在該角色聊天頁 (在別的角色 /
+      // 列表 / 後台 / 還沒點進去). 之前只有 Chat.tsx 裡那個 `charId === activeCharacterId`
+      // 守衛的 handler 同步內存, 不匹配就直接 return —— buff 只落了 DB, 內存沒更新; 而
+      // OSContext 只在啟動時 getAllCharacters, 切回該角色也不重讀 DB, 於是 buff "回不到前端".
+      // 更糟: 之後任一 updateCharacter 會拿舊內存合併寫回 DB, 把後台剛生成的 buff 抹掉.
+      // 這裡無條件按事件 charId 更新內存 (DB 已由 applyEmotionEvalRaw 寫好), 順帶堵住反向覆蓋.
       const buffSyncHandler = (e: Event) => {
           const detail = (e as CustomEvent).detail as { charId?: string; buffs?: unknown; buffInjection?: unknown };
           const charId = detail?.charId;
           if (!charId) return;
-          // 内存同步 + 云端快照打脏合成一步。打脏放这里的理由:
-          //   1. 主链路回合收尾那次打脏跑在情绪评估落库之前, 不补这一下云端那份情绪恒慢一拍;
-          //   2. 情绪广播源不止一个 (本地评估 / 记忆潜水 / 云端回写), 全汇到这个事件,
-          //      堵这一个点就够, 不用去改每个上游。
-          // 快照要的是合并后的角色, 所以跟 updateCharacter 一样在 updater 里取; 全局状态读 ref
-          // 而不是闭包变量——本 effect 只在 sendProactiveNativeNotification 变化时重建, 闭包里
-          // 的 userProfile / groups / realtimeConfig 会一直停在首帧。
+          // 內存同步 + 雲端快照打髒合成一步。打髒放這裡的理由:
+          //   1. 主鏈路回合收尾那次打髒跑在情緒評估落庫之前, 不補這一下雲端那份情緒恆慢一拍;
+          //   2. 情緒廣播源不止一個 (本地評估 / 記憶潛水 / 雲端回寫), 全匯到這個事件,
+          //      堵這一個點就夠, 不用去改每個上游。
+          // 快照要的是合併後的角色, 所以跟 updateCharacter 一樣在 updater 裡取; 全局狀態讀 ref
+          // 而不是閉包變量——本 effect 只在 sendProactiveNativeNotification 變化時重建, 閉包裡
+          // 的 userProfile / groups / realtimeConfig 會一直停在首幀。
           const syncBuffIntoMemory = (
               nextBuffs: CharacterProfile['activeBuffs'],
               nextInjection: string | undefined,
@@ -2064,7 +2064,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               );
               return;
           }
-          // 无 buffs 的纯刷新信号 (runPushTailPipeline 等): 从 DB 兜底重读该角色 buff.
+          // 無 buffs 的純刷新信號 (runPushTailPipeline 等): 從 DB 兜底重讀該角色 buff.
           DB.getAllCharacters().then(all => {
               const updated = all.find(c => c.id === charId);
               if (!updated) return;
@@ -2072,13 +2072,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }).catch(() => {});
       };
 
-      // 本地 fetch 聊天回复的全局回落：triggerAI 的异步闭包在 Chat 卸载后继续跑完
-      // 并落库，但它捕获的 setMessages 指向已卸载的实例。这里是它跟当前 UI 的唯一桥：
-      //   - replyArrived（后处理管线全部落库后）→ bump lastMsgTimestamp 让当前挂载的
-      //     Chat 重新 reloadMessages；用户不在该会话时补未读 + toast——与推送收件
-      //     的 'active-msg-received' 行为对齐。
-      //   - replyEnd（finally，含失败路径）→ 只 bump 时间戳，把 catch 里落库的
-      //     错误系统消息也刷出来。
+      // 本地 fetch 聊天回覆的全局回落：triggerAI 的異步閉包在 Chat 卸載後繼續跑完
+      // 並落庫，但它捕獲的 setMessages 指向已卸載的實例。這裡是它跟當前 UI 的唯一橋：
+      //   - replyArrived（後處理管線全部落庫後）→ bump lastMsgTimestamp 讓當前掛載的
+      //     Chat 重新 reloadMessages；用戶不在該會話時補未讀 + toast——與推送收件
+      //     的 'active-msg-received' 行為對齊。
+      //   - replyEnd（finally，含失敗路徑）→ 只 bump 時間戳，把 catch 裡落庫的
+      //     錯誤系統消息也刷出來。
       const chatReplyArrivedHandler = (e: Event) => {
           const { charId, charName } = ((e as CustomEvent).detail || {}) as { charId?: string; charName?: string };
           if (!charId) return;
@@ -2087,7 +2087,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!isChattingWithThisChar) {
               setUnreadMessages(prev => ({ ...prev, [charId]: (prev[charId] || 0) + 1 }));
               if (document.visibilityState === 'visible') {
-                  addToast(`${charName || '角色'} 回复了消息`, 'success');
+                  addToast(`${charName || '角色'} 回覆了消息`, 'success');
               }
           }
       };
@@ -2095,10 +2095,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           setLastMsgTimestamp(Date.now());
       };
 
-      // 情绪评估失败 → toast 告知（每角色 60s 冷却防刷屏）。评估失败过去只写 console，
-      // 用户侧表现是「情绪徽章闪一下就灭、情绪永不更新、没有任何报错」（真实反馈），
-      // 完全没法自查。事件来源：evaluateEmotionBackground（本地请求失败/空响应）、
-      // applyEmotionEvalRaw（解析全灭/落库失败）、activeMsgRuntime（worker 推回空结果）。
+      // 情緒評估失敗 → toast 告知（每角色 60s 冷卻防刷屏）。評估失敗過去只寫 console，
+      // 用戶側表現是「情緒徽章閃一下就滅、情緒永不更新、沒有任何報錯」（真實反饋），
+      // 完全沒法自查。事件來源：evaluateEmotionBackground（本地請求失敗/空響應）、
+      // applyEmotionEvalRaw（解析全滅/落庫失敗）、activeMsgRuntime（worker 推回空結果）。
       const emotionFailToastAt: Record<string, number> = {};
       const emotionFailHandler = (e: Event) => {
           const { charId, charName, reason } = ((e as CustomEvent).detail || {}) as { charId?: string; charName?: string; reason?: string };
@@ -2106,11 +2106,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const now = Date.now();
           if (now - (emotionFailToastAt[charId] || 0) < 60_000) return;
           emotionFailToastAt[charId] = now;
-          addToast(`${charName || '角色'}的情绪评估失败：${reason || '未知原因'}（不影响聊天回复）`, 'error');
+          addToast(`${charName || '角色'}的情緒評估失敗：${reason || '未知原因'}（不影響聊天回覆）`, 'error');
       };
 
-      // 主动消息处理失败很少发生，但如果静默吞掉，用户只会以为角色没有理人。
-      // 同一角色 60 秒内只提示一次，避免多条重试同时刷屏。
+      // 主動消息處理失敗很少發生，但如果靜默吞掉，用戶只會以為角色沒有理人。
+      // 同一角色 60 秒內只提示一次，避免多條重試同時刷屏。
       const inboxFailToastAt: Record<string, number> = {};
       const inboxFailHandler = (e: Event) => {
           const { charId, charName, kind, note } = ((e as CustomEvent).detail || {}) as
@@ -2120,36 +2120,36 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (now - (inboxFailToastAt[charId] || 0) < 60_000) return;
           inboxFailToastAt[charId] = now;
           const who = charName || '角色';
-          // note 是发起方按具体原因写好的那句话（同一个 kind 底下可能有好几种情况），
-          // 有就用它，没有才回落到按 kind 分的通用文案。
+          // note 是發起方按具體原因寫好的那句話（同一個 kind 底下可能有好幾種情況），
+          // 有就用它，沒有才回落到按 kind 分的通用文案。
           const text = note
               ? `${who}：${note}`
               : kind === 'degraded'
-                  ? `${who}有一条消息没能正常处理，已按原文显示（表情、卡片这些可能不完整）`
+                  ? `${who}有一條消息沒能正常處理，已按原文顯示（表情、卡片這些可能不完整）`
                   : kind === 'swallowed'
-                      ? `${who}有一条定时消息被跳过了：本地存储异常，判不出发出来会不会打断你们当前的对话`
+                      ? `${who}有一條定時消息被跳過了：本地存儲異常，判不出發出來會不會打斷你們當前的對話`
                       : kind === 'schedule-missed'
-                          ? `${who}想改今天的日程但没能改上，日程表还是原来的安排`
-                          : `${who}有一条消息暂时没能显示，稍后会自动重试`;
+                          ? `${who}想改今天的日程但沒能改上，日程表還是原來的安排`
+                          : `${who}有一條消息暫時沒能顯示，稍後會自動重試`;
           addToast(text, 'error');
       };
 
-      // 上线补收时发现有消息超出了两天的补收窗口，只销账没能上屏。
-      // 这条路是开 App 就自动跑的，销完账本就干净了——用户之后去点「找回没收到的消息」
-      // 只会看到「账本上没有漏收的消息，这条链路是通的」，明明刚丢了东西。这一句是
-      // 那件事唯一说得出口的地方，所以按 error 弹、也不做节流。
+      // 上線補收時發現有消息超出了兩天的補收窗口，只銷帳沒能上屏。
+      // 這條路是開 App 就自動跑的，銷完帳本就乾淨了——用戶之後去點「找回沒收到的消息」
+      // 只會看到「帳本上沒有漏收的消息，這條鏈路是通的」，明明剛丟了東西。這一句是
+      // 那件事唯一說得出口的地方，所以按 error 彈、也不做節流。
       const backfillStaleHandler = (e: Event) => {
           const { count } = ((e as CustomEvent).detail || {}) as { count?: number };
           if (!count) return;
-          addToast(`有 ${count} 条消息超过两天没能收到，已经拿不回来了`, 'error');
+          addToast(`有 ${count} 條消息超過兩天沒能收到，已經拿不回來了`, 'error');
       };
 
-      // 记忆宫殿水位线触发的全局提示：聊天/见面/通话共用同一条消息流，
-      // pipeline 真正开始整理时会广播此事件——无论用户此刻在哪个 App，
-      // 都统一弹「xx正在整理记忆」。
+      // 記憶宮殿水位線觸發的全局提示：聊天/見面/通話共用同一條消息流，
+      // pipeline 真正開始整理時會廣播此事件——無論用戶此刻在哪個 App，
+      // 都統一彈「xx正在整理記憶」。
       const palaceProcessingHandler = (e: Event) => {
           const { charName, count } = ((e as CustomEvent).detail || {}) as { charName?: string; count?: number };
-          addToast(`${charName || '角色'}正在整理记忆${count ? `（${count} 条对话）` : ''}…`, 'info');
+          addToast(`${charName || '角色'}正在整理記憶${count ? `（${count} 條對話）` : ''}…`, 'info');
       };
 
       window.addEventListener('active-msg-received', handler);
@@ -2188,7 +2188,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const charactersRef = useRef(characters);
   charactersRef.current = characters;
 
-  // 同步 charId → 角色名 注册表，让 utils 层（群聊背景注入等）能标出真实发言人名。
+  // 同步 charId → 角色名 註冊表，讓 utils 層（群聊背景注入等）能標出真實發言人名。
   useEffect(() => {
     setCharNameRegistry(characters);
   }, [characters]);
@@ -2200,15 +2200,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setMinimaxRegion(apiConfig.minimaxRegion);
   }, [apiConfig.minimaxRegion]);
-  // 同步 TTS 服务商选择，让拿不到 apiConfig 的地方（如 chatPrompts 语音格式指导）读到最新值。
+  // 同步 TTS 服務商選擇，讓拿不到 apiConfig 的地方（如 chatPrompts 語音格式指導）讀到最新值。
   useEffect(() => {
     setTtsProvider(apiConfig.ttsProvider);
   }, [apiConfig.ttsProvider]);
-  // ElevenLabs 的 v3 与 Flash/Multilingual 使用不同的提示词标记；prompt 构建器靠单例读当前模型。
+  // ElevenLabs 的 v3 與 Flash/Multilingual 使用不同的提示詞標記；prompt 構建器靠單例讀當前模型。
   useEffect(() => {
     setElevenLabsModel(apiConfig.elevenLabsModel);
   }, [apiConfig.elevenLabsModel]);
-  // 同步用户自定义语音表演指南（同上：chatPrompts 拿不到 apiConfig，靠单例读最新值）。
+  // 同步用戶自定義語音表演指南（同上：chatPrompts 拿不到 apiConfig，靠單例讀最新值）。
   useEffect(() => {
     setVoicePromptOverrides(apiConfig.voicePrompts);
   }, [apiConfig.voicePrompts]);
@@ -2259,29 +2259,29 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return;
           }
 
-          // 用户正在 DateApp 里和这个角色见面 —— 人就在对方眼前，再发一条
-          // 线上主动消息既出戏又显得对见面毫不知情。本轮静默跳过；
-          // lastFire 已在调度层记录，下个周期会重新评估。
+          // 用戶正在 DateApp 裡和這個角色見面 —— 人就在對方眼前，再發一條
+          // 線上主動消息既出戲又顯得對見面毫不知情。本輪靜默跳過；
+          // lastFire 已在調度層記錄，下個週期會重新評估。
           if (activeAppRef.current === AppID.Date && activeCharIdScheduleRef.current === charId) {
               drainQueuedProactive();
-              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 正在见面 (DateApp active)`);
+              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 正在見面 (DateApp active)`);
               return;
           }
 
-          // 用户正在和这个角色通话（含通话被挂起到后台）—— 通话里再塞一条线上
-          // 主动消息，不仅出戏，主动消息的提示词还会污染上下文、把后续语音
-          // 带成线上消息格式。本轮静默跳过；下个周期会重新评估。
+          // 用戶正在和這個角色通話（含通話被掛起到後台）—— 通話裡再塞一條線上
+          // 主動消息，不僅出戲，主動消息的提示詞還會汙染上下文、把後續語音
+          // 帶成線上消息格式。本輪靜默跳過；下個週期會重新評估。
           if ((activeAppRef.current === AppID.Call && activeCharIdScheduleRef.current === charId)
               || suspendedCallRef.current?.charId === charId) {
               drainQueuedProactive();
-              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 正在通话 (CallApp active)`);
+              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 正在通話 (CallApp active)`);
               return;
           }
 
-          // 生效凭据优先级：角色开了「使用副 API」→ 那份副 API；否则 → 角色自己的对话模型
-          // chatApi；否则 → 全局主 API。跟 activeMsgClient.ts 的 resolveApiConfig 同一个口径——
-          // 之前这里直接跳到 currentApiConfig，角色明明设了专属 chatApi，全局 API 一挂
-          // 这里的本地主动消息照样全灭。
+          // 生效憑據優先級：角色開了「使用副 API」→ 那份副 API；否則 → 角色自己的對話模型
+          // chatApi；否則 → 全局主 API。跟 activeMsgClient.ts 的 resolveApiConfig 同一個口徑——
+          // 之前這裡直接跳到 currentApiConfig，角色明明設了專屬 chatApi，全局 API 一掛
+          // 這裡的本地主動消息照樣全滅。
           const pCfg = char.proactiveConfig;
           const useSecondary = pCfg?.useSecondaryApi && pCfg.secondaryApi?.baseUrl;
           const api = useSecondary ? pCfg!.secondaryApi! : resolveCharacterChatApi(char, currentApiConfig);
@@ -2307,17 +2307,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               let timeSinceUser = '';
               if (lastRealUserMsg) {
                   const gapMin = Math.floor((now.getTime() - lastRealUserMsg.timestamp) / 60000);
-                  if (gapMin < 60) timeSinceUser = `${gapMin}分钟`;
-                  else if (gapMin < 1440) timeSinceUser = `${Math.floor(gapMin / 60)}小时${gapMin % 60 > 0 ? gapMin % 60 + '分钟' : ''}`;
-                  else timeSinceUser = `${Math.floor(gapMin / 1440)}天${Math.floor((gapMin % 1440) / 60)}小时`;
+                  if (gapMin < 60) timeSinceUser = `${gapMin}分鐘`;
+                  else if (gapMin < 1440) timeSinceUser = `${Math.floor(gapMin / 60)}小時${gapMin % 60 > 0 ? gapMin % 60 + '分鐘' : ''}`;
+                  else timeSinceUser = `${Math.floor(gapMin / 1440)}天${Math.floor((gapMin % 1440) / 60)}小時`;
               }
 
               // 2. Save hidden system hint
-              const userName = currentUserProfile?.name || '对方';
+              const userName = currentUserProfile?.name || '對方';
 
-              // 见面（DateApp）感知：见面消息可能已被记忆宫殿高水位归档，上面 hwm 过滤后的
-              // recentMsgs 会漏判，所以单独用 includeProcessed=true 读最后一条真实消息。
-              // 刚见完面还发"你好久没找我了"会显得对见面毫不知情，换成见面后的语境。
+              // 見面（DateApp）感知：見面消息可能已被記憶宮殿高水位歸檔，上面 hwm 過濾後的
+              // recentMsgs 會漏判，所以單獨用 includeProcessed=true 讀最後一條真實消息。
+              // 剛見完面還發"你好久沒找我了"會顯得對見面毫不知情，換成見面後的語境。
               const lastRealMsgRaw = (await DB.getRecentMessagesByCharId(charId, 10, true))
                   .filter(m => !m.metadata?.proactiveHint)
                   .pop();
@@ -2326,8 +2326,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   && (now.getTime() - lastRealMsgRaw.timestamp) < DATE_AFTERGLOW_MS;
 
               const hintContent = justMetOffline
-                      ? `[系统提示（非${userName}发言）: 现在是 ${timeStr}。你和${userName}刚刚在线下见过面（如果上下文里有标着 [约会] 的内容，那就是你们见面时发生的事），现在你们暂时分开了，你拿起手机想给${userName}发条消息。请基于刚才的见面来发——可以回味见面里的某个细节、补一句当时没说出口的话、关心${userName}到家了没，或者就是刚分开就有点想念。绝对不要表现得好像很久没联系，更不要对刚才的见面毫不知情。一两句话就好。]`
-                      : `[系统提示（非${userName}发言）: 现在是 ${timeStr}。${timeSinceUser ? `${userName}已经 ${timeSinceUser} 没有找你说话了。` : ''}这是系统给你的一次主动发消息机会——${userName}并没有在跟你说话，是你想主动找${userName}。像真人一样随意地发条消息吧，比如：随手拍了张照片想分享、刚看到个有趣的事想说、突然想到个冷知识、吐槽今天的天气/食物/见闻、或者就是单纯想找${userName}聊几句。不要刻意，不要像在"汇报近况"，就像你真的拿起手机随手发了条消息。一两句话就好。${timeSinceUser && parseInt(timeSinceUser) > 2 ? `（${userName}挺久没找你了，你也可以表达想念、好奇${userName}在干嘛、或者小小地抱怨一下。）` : ''}]`;
+                      ? `[系統提示（非${userName}發言）: 現在是 ${timeStr}。你和${userName}剛剛在線下見過面（如果上下文裡有標著 [約會] 的內容，那就是你們見面時發生的事），現在你們暫時分開了，你拿起手機想給${userName}發條消息。請基於剛才的見面來發——可以回味見面裡的某個細節、補一句當時沒說出口的話、關心${userName}到家了沒，或者就是剛分開就有點想念。絕對不要表現得好像很久沒聯繫，更不要對剛才的見面毫不知情。一兩句話就好。]`
+                      : `[系統提示（非${userName}發言）: 現在是 ${timeStr}。${timeSinceUser ? `${userName}已經 ${timeSinceUser} 沒有找你說話了。` : ''}這是系統給你的一次主動發消息機會——${userName}並沒有在跟你說話，是你想主動找${userName}。像真人一樣隨意地發條消息吧，比如：隨手拍了張照片想分享、剛看到個有趣的事想說、突然想到個冷知識、吐槽今天的天氣/食物/見聞、或者就是單純想找${userName}聊幾句。不要刻意，不要像在"彙報近況"，就像你真的拿起手機隨手發了條消息。一兩句話就好。${timeSinceUser && parseInt(timeSinceUser) > 2 ? `（${userName}挺久沒找你了，你也可以表達想念、好奇${userName}在幹嘛、或者小小地抱怨一下。）` : ''}]`;
 
               await DB.saveMessage({
                   charId,
@@ -2337,24 +2337,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   metadata: { proactiveHint: true, hidden: true }
               });
 
-              // 3. Build prompt & message history — 走和 useChatAI / emotion eval 同一个 helper，
-              //    保证三家拿到的"材料"完全一致；区别只在前面追加的"现在主动找用户"那条 hint。
+              // 3. Build prompt & message history — 走和 useChatAI / emotion eval 同一個 helper，
+              //    保證三家拿到的"材料"完全一致；區別只在前面追加的"現在主動找用戶"那條 hint。
               const proactiveRange = await loadCharacterContextRange(char);
               if (proactiveRange.userBreakpointExpired) {
                   updateCharacter(charId, { contextUserStartMessageId: undefined });
               }
               const allMsgs = proactiveRange.messages;
-              // 1.0 本地主动消息不会经过 Chat.tsx 的 aiVisibleEmojis。
-              // 这里既要过滤提示词，也要过滤下方 [[SEND_EMOJI]] 的按名反查：
-              // 只修提示词仍挡不住模型复述旧上下文里的表情名；只修落库则模型仍会看到越权表情。
-              // 2.0 推送路径已在 activeMsgClient / activeMsgRuntime 做同样的双层收口。
+              // 1.0 本地主動消息不會經過 Chat.tsx 的 aiVisibleEmojis。
+              // 這裡既要過濾提示詞，也要過濾下方 [[SEND_EMOJI]] 的按名反查：
+              // 只修提示詞仍擋不住模型複述舊上下文裡的表情名；只修落庫則模型仍會看到越權表情。
+              // 2.0 推送路徑已在 activeMsgClient / activeMsgRuntime 做同樣的雙層收口。
               const { emojis, categories } = ChatPrompts.filterVisibleEmojis(
                   await DB.getEmojis(),
                   await DB.getEmojiCategories(),
                   charId,
               );
 
-              // 上一轮缓存的意识流独白 —— 主路径用 React state，主动消息这里用 ref Map
+              // 上一輪緩存的意識流獨白 —— 主路徑用 React state，主動消息這裡用 ref Map
               const cachedInnerState = proactiveInnerStateRef.current.get(charId) || undefined;
 
               const payload = await buildChatRequestPayload({
@@ -2365,11 +2365,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   recallEntryPoint: 'proactive_chat',
                   realtimeConfig: currentRealtimeConfig,
                   innerState: cachedInnerState,
-                  // 实时音乐播放状态 —— OSContext 在 MusicProvider 上层用不了 useMusic()，
-                  // 走 MusicContext 暴露的模块级快照（Provider mount 后会持续写入）
+                  // 實時音樂播放狀態 —— OSContext 在 MusicProvider 上層用不了 useMusic()，
+                  // 走 MusicContext 暴露的模塊級快照（Provider mount 後會持續寫入）
                   musicSnapshot: loadMusicPlaybackSnapshot(),
-                  // translationConfig / mcdMiniSnap 是 chat-app 会话级 UI 状态，主动消息触发时
-                  // 不存在；保持 undefined 即可，与"用户当时根本没在 chat 界面"的语义一致
+                  // translationConfig / mcdMiniSnap 是 chat-app 會話級 UI 狀態，主動消息觸發時
+                  // 不存在；保持 undefined 即可，與"用戶當時根本沒在 chat 界面"的語義一致
                   htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                   thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                   visionApiConfig: currentApiConfig.visionApi,
@@ -2378,8 +2378,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const apiMessages = payload.cleanedApiMessages;
               const fullMessages = payload.fullMessages;
 
-              // 3c. 情绪评估 fire-and-forget — 与主 API 并行，沿用 useChatAI 的 API 选择逻辑：
-              //     角色专属情绪 API > 主 apiConfig（与记忆宫殿副 API 完全独立）
+              // 3c. 情緒評估 fire-and-forget — 與主 API 並行，沿用 useChatAI 的 API 選擇邏輯：
+              //     角色專屬情緒 API > 主 apiConfig（與記憶宮殿副 API 完全獨立）
               if (!payload.flags.promptBuildSkipped && !isEmotionEvalSkipped() && isScheduleFeatureOn(char) && char.emotionConfig?.enabled) {
                   const emotionApi = (char.emotionConfig.api?.baseUrl)
                       ? char.emotionConfig.api
@@ -2397,8 +2397,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const baseUrl = api.baseUrl.replace(/\/+$/, '');
               const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey || 'sk-none'}` };
               const reqBody: any = { model: api.model, messages: fullMessages, temperature: 0.85, stream: false };
-              // 思考链开启时显式向后端请求 extended thinking — 与 useChatAI 同步,
-              // 不同代理认不同入口,全都试一遍,代理不识别的会自动忽略
+              // 思考鏈開啟時顯式向後端請求 extended thinking — 與 useChatAI 同步,
+              // 不同代理認不同入口,全都試一遍,代理不識別的會自動忽略
               if (payload.flags.thinkingActive) {
                   const m: string = reqBody.model || '';
                   if (/^claude-/i.test(m) && !/-thinking$/i.test(m)) {
@@ -2407,20 +2407,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   reqBody.thinking = { type: 'enabled', budget_tokens: 4000 };
                   reqBody.reasoning_effort = 'medium';
                   reqBody.extra_body = { ...(reqBody.extra_body || {}), thinking: { type: 'enabled', budget_tokens: 4000 } };
-                  // 开思考时不带采样参数: Claude 系在 thinking 启用时只接受 temperature=1，
-                  // 传 0.85 会被 400。删掉用服务端默认；对非 Claude 模型同样安全。
+                  // 開思考時不帶採樣參數: Claude 系在 thinking 啟用時只接受 temperature=1，
+                  // 傳 0.85 會被 400。刪掉用服務端默認；對非 Claude 模型同樣安全。
                   delete reqBody.temperature;
                   delete reqBody.top_p;
               }
               const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                   method: 'POST', headers,
                   body: JSON.stringify(reqBody)
-              }, 2, 0, { appName: '消息', charId, charName: char.name, purpose: '主动消息' });
+              }, 2, 0, { appName: '消息', charId, charName: char.name, purpose: '主動消息' });
 
               // 5. Process & save response
               let aiContent = data.choices?.[0]?.message?.content || '';
-              // 思考链抽取 — 与 useChatAI 保持一致:reasoning_content 字段 + 主 content 里的 <think>/<thinking>/<thought> 块,
-              // 拼接后挂到本回合首条 assistant 消息的 metadata.thinkingChain
+              // 思考鏈抽取 — 與 useChatAI 保持一致:reasoning_content 字段 + 主 content 裡的 <think>/<thinking>/<thought> 塊,
+              // 拼接後掛到本回合首條 assistant 消息的 metadata.thinkingChain
               let pendingThinkingChain: string | null = null;
               if (payload.flags.thinkingActive) {
                   const lastReasoning = (data?.choices?.[0]?.message?.reasoning_content || '').trim();
@@ -2441,14 +2441,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               aiContent = aiContent.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/gi, '');
               aiContent = aiContent.replace(/\[\d{4}[-/年]\d{1,2}[-/月]\d{1,2}.*?\]/g, '');
               aiContent = aiContent.replace(/^[\w一-龥]+:\s*/, '');
-              aiContent = aiContent.replace(/\s*\[(?:聊天|通话|约会)\]\s*/g, '\n').trim();
+              aiContent = aiContent.replace(/\s*\[(?:聊天|通[话話]|[约約][会會])\]\s*/g, '\n').trim();
 
               aiContent = normalizeProactiveAiContent(aiContent);
 
               const savedPreviewChunks: string[] = [];
               const baseTimestamp = Date.now();
               let offset = 0;
-              // 思考链只挂到本回合首条 assistant 消息上,避免每个气泡重复
+              // 思考鏈只掛到本回合首條 assistant 消息上,避免每個氣泡重複
               const consumeThinkingMeta = (): { thinkingChain: string } | undefined => {
                   if (!pendingThinkingChain) return undefined;
                   const meta = { thinkingChain: pendingThinkingChain };
@@ -2456,8 +2456,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   return meta;
               };
 
-              // HTML 卡片：在 sanitize 之前抽出 [html]...[/html] 块,与 useChatAI 保持一致。
-              // 没这一步主动消息会把整段 [html] 当纯文本落库,前端只能渲染成乱码。
+              // HTML 卡片：在 sanitize 之前抽出 [html]...[/html] 塊,與 useChatAI 保持一致。
+              // 沒這一步主動消息會把整段 [html] 當純文本落庫,前端只能渲染成亂碼。
               if ((char as any).htmlModeEnabled && /\[html\]/i.test(aiContent)) {
                   const { blocks, cleanedContent } = extractHtmlBlocks(aiContent);
                   for (const blk of blocks) {
@@ -2478,7 +2478,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           if (blk.textPreview) savedPreviewChunks.push(blk.textPreview);
                           offset += 1;
                       } catch (e) {
-                          console.error('[Proactive/HTML] 落库 html_card 失败', e);
+                          console.error('[Proactive/HTML] 落庫 html_card 失敗', e);
                       }
                   }
                   aiContent = cleanedContent;
@@ -2487,14 +2487,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               aiContent = ChatParser.sanitize(aiContent);
 
               if (aiContent) {
-                  // 双语翻译:沿用 useChatAI 的 <翻译><原文>..</原文><译文>..</译文></翻译> 协议,
-                  // 把每对原文/译文落成一条 text 消息,内容用 `\n%%BILINGUAL%%\n` 串联供渲染端识别。
-                  const hasTranslationTags = /<翻译>\s*<原文>[\s\S]*?<\/原文>\s*<译文>[\s\S]*?<\/译文>\s*<\/翻译>/.test(aiContent);
+                  // 雙語翻譯:沿用 useChatAI 的 <翻譯><原文>..</原文><譯文>..</譯文></翻譯> 協議,
+                  // 把每對原文/譯文落成一條 text 消息,內容用 `\n%%BILINGUAL%%\n` 串聯供渲染端識別。
+                  const hasTranslationTags = /<翻[译譯]>\s*<原文>[\s\S]*?<\/原文>\s*<[译譯]文>[\s\S]*?<\/[译譯]文>\s*<\/翻[译譯]>/.test(aiContent);
 
                   if (hasTranslationTags) {
-                      // 表情包按模型写的位置原地插发（与 applyAssistantPostProcessing 双语分支同款修复）。
-                      // 旧实现先把所有 [[SEND_EMOJI:]] 抽走、正文发完后统一追加到最后（还去了重），
-                      // 表现为「翻译模式下角色永远最后才发表情包」。
+                      // 表情包按模型寫的位置原地插發（與 applyAssistantPostProcessing 雙語分支同款修復）。
+                      // 舊實現先把所有 [[SEND_EMOJI:]] 抽走、正文發完後統一追加到最後（還去了重），
+                      // 表現為「翻譯模式下角色永遠最後才發表情包」。
                       const sendEmojiBubble = async (name: string): Promise<void> => {
                           const foundEmoji = emojis.find(e => e.name === name);
                           if (!foundEmoji?.url) return;
@@ -2509,7 +2509,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           });
                           offset += 1;
                       };
-                      // 翻译标签之外的普通文本段：splitResponse 按出现顺序拆出文字 / 表情逐条发
+                      // 翻譯標籤之外的普通文本段：splitResponse 按出現順序拆出文字 / 表情逐條發
                       const renderPlainSegment = async (segment: string): Promise<void> => {
                           for (const part of ChatParser.splitResponse(segment)) {
                               if (part.type === 'emoji') {
@@ -2535,14 +2535,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           }
                       };
 
-                      const tagPattern = /<翻译>\s*<原文>([\s\S]*?)<\/原文>\s*<译文>([\s\S]*?)<\/译文>\s*<\/翻译>/g;
+                      const tagPattern = /<翻[译譯]>\s*<原文>([\s\S]*?)<\/原文>\s*<[译譯]文>([\s\S]*?)<\/[译譯]文>\s*<\/翻[译譯]>/g;
                       let lastIndex = 0;
                       let tagMatch;
                       while ((tagMatch = tagPattern.exec(aiContent)) !== null) {
                           const textBefore = aiContent.slice(lastIndex, tagMatch.index).trim();
                           if (textBefore) await renderPlainSegment(textBefore);
 
-                          // 混进 <原文>/<译文> 里的表情标签剥出来，紧跟这条双语气泡之后发
+                          // 混進 <原文>/<譯文> 裡的表情標籤剝出來，緊跟這條雙語氣泡之後發
                           const inlineEmojis: string[] = [];
                           const stripInlineEmoji = (s: string): string =>
                               s.replace(/\[\[SEND_EMOJI:\s*(.*?)\]\]/g, (_m, n) => { inlineEmojis.push(String(n).trim()); return ''; });
@@ -2570,7 +2570,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       }
 
                       const textAfter = aiContent.slice(lastIndex).trim();
-                      if (textAfter) await renderPlainSegment(textAfter.replace(/<\/?翻译>|<\/?原文>|<\/?译文>/g, '').trim());
+                      if (textAfter) await renderPlainSegment(textAfter.replace(/<\/?翻[译譯]>|<\/?原文>|<\/?[译譯]文>/g, '').trim());
                   } else {
                       const responseParts = ChatParser.splitResponse(aiContent);
 
@@ -2588,7 +2588,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                       ...(meta ? { metadata: meta } : {}),
                                   });
                               } else {
-                                  const fallbackText = `发送了表情包：${part.content}`;
+                                  const fallbackText = `發送了表情包：${part.content}`;
                                   const meta = consumeThinkingMeta();
                                   await DB.saveMessage({
                                       charId,
@@ -2653,18 +2653,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           void runProactive(charId);
       });
 
-      // 「彼方」自主登入 —— 独立调度，复用同一批 refs 拿最新状态
+      // 「彼方」自主登入 —— 獨立調度，複用同一批 refs 拿最新狀態
       const runVR = async (charId: string, room?: string, letterId?: string, manual?: boolean, sarActivity?: VRSARActivity) => {
           const char = charactersRef.current.find(c => c.id === charId);
-          // 调度表里还排着队，角色却已经不接入了（或者压根被删了）：这条调度不该继续存在。
-          // 就地撤掉并留一行记录 —— 不撤的话它会一直空转，而空转是完全静默的，
-          // 用户那边只看得到「明明全关了，调用记录还在涨」，谁也说不清是哪一边错了。
+          // 調度表裡還排著隊，角色卻已經不接入了（或者壓根被刪了）：這條調度不該繼續存在。
+          // 就地撤掉並留一行記錄 —— 不撤的話它會一直空轉，而空轉是完全靜默的，
+          // 用戶那邊只看得到「明明全關了，調用記錄還在漲」，誰也說不清是哪一邊錯了。
           if (!char || !char.vrState?.enabled || (!manual && !allowsAutomaticVR(char.vrState))) {
               VRScheduler.stop(charId);
               void logVRApiCall({
                   ts: Date.now(), charId, charName: char?.name, ok: false, ms: 0,
                   kind: 'skipped', charEnabled: !!char?.vrState?.enabled,
-                  note: char?.vrState?.enabled ? '角色仅手动活动，已撤掉这条残留调度' : char ? '角色未接入彼方，已撤掉这条残留调度' : '角色已不存在，已撤掉这条残留调度',
+                  note: char?.vrState?.enabled ? '角色僅手動活動，已撤掉這條殘留調度' : char ? '角色未接入彼方，已撤掉這條殘留調度' : '角色已不存在，已撤掉這條殘留調度',
               });
               return;
           }
@@ -2686,7 +2686,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   forcedLetterId: letterId,
                   manual,
               });
-              // 没书没歌、房间被别人占着这些都不算账，只有真的没调通模型才记一笔失败
+              // 沒書沒歌、房間被別人佔著這些都不算帳，只有真的沒調通模型才記一筆失敗
               outcome = result.ok ? 'ok' : (result.reason === 'api-error' ? 'failed' : 'skipped');
           } catch (e) {
               console.error('[VRWorld] runVR error', e);
@@ -2696,31 +2696,31 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!allowsAutomaticVR(charactersRef.current.find(c => c.id === charId)?.vrState)) return;
           const { tripped, streak } = VRScheduler.report(charId, outcome);
           if (!tripped) return;
-          // 熔断了：调度已经被掐掉，这里把角色一并落回未接入，让界面和实际跑的东西对上，
-          // 免得又变成「显示未接入、后台还在动」。用函数式更新拿最新的 vrState，
-          // 别拿会话开头那份快照写回去，那会把这一轮刚记下的房间和时间抹掉。
+          // 熔斷了：調度已經被掐掉，這裡把角色一併落回未接入，讓界面和實際跑的東西對上，
+          // 免得又變成「顯示未接入、後台還在動」。用函數式更新拿最新的 vrState，
+          // 別拿會話開頭那份快照寫回去，那會把這一輪剛記下的房間和時間抹掉。
           void updateCharacter(charId, prev => ({
               vrState: { ...(prev.vrState || { intervalMinutes: VR_DEFAULT_INTERVAL_MIN }), enabled: false } as any,
           }));
           void logVRApiCall({
               ts: Date.now(), charId, charName: char.name, ok: false, ms: 0,
               kind: 'tripped',
-              note: `连续 ${streak} 次没能调通模型，已暂停 ${char.name} 的自主登入`,
+              note: `連續 ${streak} 次沒能調通模型，已暫停 ${char.name} 的自主登入`,
           });
-          addToast(`${char.name} 连续 ${streak} 次没能调通模型，已暂停 ta 在彼方的自主登入`, 'error');
+          addToast(`${char.name} 連續 ${streak} 次沒能調通模型，已暫停 ta 在彼方的自主登入`, 'error');
       };
       VRScheduler.onTrigger((charId: string, room?: string, letterId?: string, manual?: boolean, sarActivity?: VRSARActivity) => { void runVR(charId, room, letterId, manual, sarActivity); });
 
-      // 以角色 vrState 为准对账调度表：调度表存 localStorage、不随备份迁移，
-      // 导入备份后角色虽 enabled 但调度表为空，这里补建/清理使其按时触发。
+      // 以角色 vrState 為準對帳調度表：調度表存 localStorage、不隨備份遷移，
+      // 導入備份后角色雖 enabled 但調度表為空，這裡補建/清理使其按時觸發。
       VRScheduler.reconcile(
           charactersRef.current
               .filter(c => allowsAutomaticVR(c.vrState))
               .map(c => ({ charId: c.id, intervalMinutes: c.vrState?.intervalMinutes || VR_DEFAULT_INTERVAL_MIN }))
       );
 
-      // 「家园」演绎 —— 引擎跑在全局：用户不在家园界面（可能正在和别人私聊）时，
-      // 观测/离线 tick 触发的一轮链式演绎照样完成并注入 world_card。
+      // 「家園」演繹 —— 引擎跑在全局：用戶不在家園界面（可能正在和別人私聊）時，
+      // 觀測/離線 tick 觸發的一輪鏈式演繹照樣完成並注入 world_card。
       const runWorld = async (worldId: string, trigger: 'observe' | 'tick') => {
           if (!userProfileRef.current) return;
           try {
@@ -2742,7 +2742,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       WorldScheduler.onTrigger((worldId, trigger) => { void runWorld(worldId, trigger); });
 
-      // 单个角色重 roll（家园 WorldView 派发 world-reroll-request 事件，带 worldId/charId/direction）
+      // 單個角色重 roll（家園 WorldView 派發 world-reroll-request 事件，帶 worldId/charId/direction）
       const onRerollRequest = async (e: Event) => {
           const d = (e as CustomEvent).detail || {};
           if (!d.worldId || !d.charId || !userProfileRef.current) return;
@@ -2767,10 +2767,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
       window.addEventListener('world-reroll-request', onRerollRequest as EventListener);
-      // 调度表存 localStorage 不随备份迁移，按 IndexedDB 里的世界配置对账
+      // 調度表存 localStorage 不隨備份遷移，按 IndexedDB 裡的世界配置對帳
       void DB.getWorlds()
           .then(async worlds => {
-              // 旧存档（一天三段制）→ 四段制（含凌晨）一次性迁移并写回
+              // 舊存檔（一天三段制）→ 四段制（含凌晨）一次性遷移並寫回
               for (const w of worlds) {
                   if (migrateWorldDaySegs(w)) await DB.saveWorld(w).catch(() => {});
               }
@@ -2788,13 +2788,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDataLoaded]);
 
-  // ─── utils 层直写 DB 后的内存回灌 ───
-  // 这两条路都在 React 之外把角色写进了 IndexedDB。不回灌的话内存里那份角色停在旧值，
-  // 之后随便哪个 updateCharacter 都会拿旧内存合并写回，把刚写进去的东西反向抹掉
-  // （情绪 buff 早就踩过这个坑，见上面 buffSyncHandler 的注释），云端快照也跟着停格。
+  // ─── utils 層直寫 DB 後的內存回灌 ───
+  // 這兩條路都在 React 之外把角色寫進了 IndexedDB。不回灌的話內存裡那份角色停在舊值，
+  // 之後隨便哪個 updateCharacter 都會拿舊內存合併寫回，把剛寫進去的東西反向抹掉
+  // （情緒 buff 早就踩過這個坑，見上面 buffSyncHandler 的註釋），雲端快照也跟著停格。
   useEffect(() => {
-      // 角色自排后续任务被采纳（「汤炖上了，两小时后叫你」）：任务清单只落在 DB，
-      // React 不知情会同时断掉 presence 门、打脏门和面板上的待触发清单三条线。
+      // 角色自排後續任務被採納（「湯燉上了，兩小時後叫你」）：任務清單隻落在 DB，
+      // React 不知情會同時斷掉 presence 門、打髒門和麵板上的待觸發清單三條線。
       const tasksAdoptedHandler = (e: Event) => {
           const charId = ((e as CustomEvent).detail || {}).charId as string | undefined;
           if (!charId) return;
@@ -2803,9 +2803,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (!fresh) return;
               setCharacters(prev => prev.map(c => {
                   if (c.id !== charId) return c;
-                  // 只把 activeMsg2Config 这一个字段搬回来：整对象覆盖会让内存里其它更新的
-                  // 字段（比如同一时刻刚落地的情绪）倒退，反过来用旧内存整对象写 DB 又会把
-                  // 刚采纳的任务清单抹掉。
+                  // 只把 activeMsg2Config 這一個字段搬回來：整對象覆蓋會讓內存裡其它更新的
+                  // 字段（比如同一時刻剛落地的情緒）倒退，反過來用舊內存整對象寫 DB 又會把
+                  // 剛採納的任務清單抹掉。
                   const next = normalizeCharacterImpression({ ...c, activeMsg2Config: fresh.activeMsg2Config });
                   markAmsgStateDirty({
                       char: next,
@@ -2818,8 +2818,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }).catch(() => {});
       };
 
-      // 听歌时角色把歌加进自己的歌单（MusicContext 直写 DB）：歌单进 fire_pack，
-      // 不打脏角色到点还以为那首歌没收藏过。
+      // 聽歌時角色把歌加進自己的歌單（MusicContext 直寫 DB）：歌單進 fire_pack，
+      // 不打髒角色到點還以為那首歌沒收藏過。
       const musicProfileSyncHandler = (e: Event) => {
           const detail = ((e as CustomEvent).detail || {}) as { charId?: string; musicProfile?: CharacterProfile['musicProfile'] };
           const { charId, musicProfile } = detail;
@@ -2837,8 +2837,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }));
       };
 
-      // Push / 彼方 / 家园等 React 外入口完成全自动记忆双写后，只把增量搬回内存。
-      // 再基于当前 state 保存一次，堵住后台 DB 写入和前台角色更新同时发生时的反向覆盖。
+      // Push / 彼方 / 家園等 React 外入口完成全自動記憶雙寫後，只把增量搬回內存。
+      // 再基於當前 state 保存一次，堵住後台 DB 寫入和前台角色更新同時發生時的反向覆蓋。
       const memoryAutoArchiveSyncHandler = (e: Event) => {
           const detail = ((e as CustomEvent).detail || {}) as MemoryAutoArchiveSyncDetail;
           if (!detail.charId) return;
@@ -2890,8 +2890,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
   }, []);
 
-  // 旧版本曾在 Push 后处理里只写宫殿、没写神经链接。每个角色升级后保守修一次：
-  // 只补“最后一条 palace 日志之后整天完全空白”的聊天提取节点，不调 API、不动水位线。
+  // 舊版本曾在 Push 後處理裡只寫宮殿、沒寫神經鏈接。每個角色升級後保守修一次：
+  // 只補“最後一條 palace 日誌之後整天完全空白”的聊天提取節點，不調 API、不動水位線。
   useEffect(() => {
       if (!isDataLoaded) return;
       let cancelled = false;
@@ -2913,7 +2913,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       void runRepair();
       return () => { cancelled = true; };
-  // 只在本次数据初始化完成时执行；后续新数据走已修复的统一双写入口。
+  // 只在本次數據初始化完成時執行；後續新數據走已修復的統一雙寫入口。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDataLoaded]);
 
@@ -2932,8 +2932,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         delete w['br'];
         newTheme.launcherWidgets = Object.keys(w).length > 0 ? w : undefined;
     }
-    // 壁纸改存 Blob：把指针（令牌）落库并解析成可渲染 url 后再进 state。
-    // theme.wallpaper 在内存里始终是能直接喂 CSS 的值（objectURL / http / 渐变），
+    // 壁紙改存 Blob：把指針（令牌）落庫並解析成可渲染 url 後再進 state。
+    // theme.wallpaper 在內存裡始終是能直接喂 CSS 的值（objectURL / http / 漸變），
     // 不是 blobref 令牌。
     if (wallpaper !== undefined) {
         const legacyWallpaper = isLegacyDefaultWallpaper(wallpaper);
@@ -2950,9 +2950,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     await DB.deleteAsset('launcherWidgetImage');
 
     // Save widget images to IndexedDB (each slot is a separate asset)
-    // 值是 blobref 令牌（写端见 apps/Appearance.tsx 的 handleWidgetUpload），一律原样落库。
-    // 别按 data: 前缀挑着存——令牌不带这个前缀，挑的结果是这张图只剩 localStorage 一份，
-    // 启动时 assets 那份是空的、界面上小组件直接没了。
+    // 值是 blobref 令牌（寫端見 apps/Appearance.tsx 的 handleWidgetUpload），一律原樣落庫。
+    // 別按 data: 前綴挑著存——令牌不帶這個前綴，挑的結果是這張圖只剩 localStorage 一份，
+    // 啟動時 assets 那份是空的、界面上小組件直接沒了。
     if (launcherWidgets !== undefined) {
         for (const slot of LAUNCHER_WIDGET_SLOTS) {
             const val = sanitizedWidgets?.[slot];
@@ -3005,7 +3005,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
 
     // Save lightweight settings to LocalStorage (strip data URIs & blob object URLs)
-    // blob: objectURL 是本次会话临时的，重启后失效——不能进 LS，清空让加载路径从 assets 重新解析。
+    // blob: objectURL 是本次會話臨時的，重啟後失效——不能進 LS，清空讓加載路徑從 assets 重新解析。
     const lsTheme = { ...newTheme };
     if (lsTheme.wallpaper && (lsTheme.wallpaper.startsWith('data:') || lsTheme.wallpaper.startsWith('blob:'))) lsTheme.wallpaper = '';
     if (lsTheme.lockWallpaper && (lsTheme.lockWallpaper.startsWith('data:') || lsTheme.lockWallpaper.startsWith('blob:'))) lsTheme.lockWallpaper = undefined;
@@ -3035,9 +3035,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     try {
         localStorage.setItem('os_theme', JSON.stringify(lsTheme));
     } catch (e) {
-        // quota 满时静默失败 = 用户这次看着正常、下次启动主题回初始。必须让用户知道。
-        console.warn('[updateTheme] localStorage 写入失败', e);
-        addToast('主题没能保存到本地（存储空间可能已满），重启后可能会还原', 'error');
+        // quota 滿時靜默失敗 = 用戶這次看著正常、下次啟動主題回初始。必須讓用戶知道。
+        console.warn('[updateTheme] localStorage 寫入失敗', e);
+        addToast('主題沒能保存到本地（存儲空間可能已滿），重啟後可能會還原', 'error');
     }
   };
   const updateApiConfig = (updates: Partial<APIConfig>) => { const newConfig = normalizeApiConfig({ ...apiConfig, ...updates }); setApiConfig(newConfig); localStorage.setItem('os_api_config', JSON.stringify(newConfig)); };
@@ -3063,13 +3063,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const cloudBackupToWebDAV = async (mode: 'text_only' | 'media_only' | 'full') => {
       const { uploadBackup, cleanupOldBackups } = await loadBackupProvider();
       try {
-          setSysOperation({ status: 'processing', message: '正在打包备份数据...', progress: 0 });
+          setSysOperation({ status: 'processing', message: '正在打包備份數據...', progress: 0 });
           const blob = await exportSystem(mode);
 
-          setSysOperation({ status: 'processing', message: '正在上传到云端...', progress: 50 });
+          setSysOperation({ status: 'processing', message: '正在上傳到雲端...', progress: 50 });
           const filename = `Sully_Backup_${mode}_${Date.now()}.zip`;
           const result = await uploadBackup(cloudBackupConfig, blob, filename, (pct) => {
-              setSysOperation(prev => ({ ...prev, message: `上传中 ${pct}%...`, progress: 50 + pct * 0.45 }));
+              setSysOperation(prev => ({ ...prev, message: `上傳中 ${pct}%...`, progress: 50 + pct * 0.45 }));
           });
 
           if (!result.ok) {
@@ -3083,8 +3083,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           await cleanupOldBackups(cloudBackupConfig, 5).catch(() => {});
 
           setSysOperation({ status: 'idle', message: '', progress: 100 });
-          addToast('云端备份完成', 'success');
-          // provider / mode 都是代码里写死的枚举；连接地址、账号、错误原文一概不带。
+          addToast('雲端備份完成', 'success');
+          // provider / mode 都是代碼裡寫死的枚舉；連接地址、帳號、錯誤原文一概不帶。
           trackEvent('上传备份到云端', {
               provider: cloudBackupConfig.provider === 'github' ? 'github' : 'webdav',
               mode,
@@ -3092,7 +3092,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
       } catch (e: any) {
           setSysOperation({ status: 'idle', message: '', progress: 0 });
-          addToast(`云端备份失败: ${e.message}`, 'error');
+          addToast(`雲端備份失敗: ${e.message}`, 'error');
           trackEvent('上传备份到云端', {
               provider: cloudBackupConfig.provider === 'github' ? 'github' : 'webdav',
               mode,
@@ -3105,19 +3105,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const cloudRestoreFromWebDAV = async (file: CloudBackupFile) => {
       const { downloadBackup } = await loadBackupProvider();
       try {
-          setSysOperation({ status: 'processing', message: '正在从云端下载...', progress: 0 });
+          setSysOperation({ status: 'processing', message: '正在從雲端下載...', progress: 0 });
           const blob = await downloadBackup(cloudBackupConfig, file, (pct) => {
-              setSysOperation(prev => ({ ...prev, message: `下载中 ${pct}%...`, progress: pct * 0.5 }));
+              setSysOperation(prev => ({ ...prev, message: `下載中 ${pct}%...`, progress: pct * 0.5 }));
           });
 
-          if (!blob) throw new Error('下载失败');
+          if (!blob) throw new Error('下載失敗');
 
-          setSysOperation({ status: 'processing', message: '正在恢复数据...', progress: 50 });
+          setSysOperation({ status: 'processing', message: '正在恢復數據...', progress: 50 });
           const zipFile = new File([blob], file.name, { type: 'application/zip' });
           await importSystem(zipFile);
       } catch (e: any) {
           setSysOperation({ status: 'idle', message: '', progress: 0 });
-          addToast(`云端恢复失败: ${e.message}`, 'error');
+          addToast(`雲端恢復失敗: ${e.message}`, 'error');
           throw e;
       }
   };
@@ -3140,9 +3140,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     localStorage.setItem('os_memory_palace_config', JSON.stringify(newConfig));
   };
 
-  // 情绪 API 同步到所有角色：API 字段（baseUrl/apiKey/model）所有角色共用，
-  // 各角色自身的 enabled 标志保持不变。
-  // 注意：与记忆宫殿副 API（memoryPalaceConfig.lightLLM）完全独立，两者各管各的。
+  // 情緒 API 同步到所有角色：API 字段（baseUrl/apiKey/model）所有角色共用，
+  // 各角色自身的 enabled 標誌保持不變。
+  // 注意：與記憶宮殿副 API（memoryPalaceConfig.lightLLM）完全獨立，兩者各管各的。
   const syncEmotionApiToAllCharacters = (api: { baseUrl: string; apiKey: string; model: string } | undefined) => {
     setCharacters(prev => {
       const updated = prev.map(c => {
@@ -3174,16 +3174,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const savePresets = (presets: ApiPreset[]) => { const normalized = presets.map(normalizeApiPreset); setApiPresets(normalized); localStorage.setItem('os_api_presets', JSON.stringify(normalized)); };
   const addCharacter = async () => {
     const name = 'New Character';
-    // 默认开启 emotionConfig.enabled，让"开日程 = 开情绪"这条隐含约定对新角色也成立。
-    // 真正的闸门是 (isScheduleFeatureOn && emotionConfig.enabled)，schedule 没开
-    // 时副 API 不会触发，所以这里默认 true 安全。
-    // 注意：memoryPalaceEnabled 不在这里默认开 —— 那是用户在记忆宫殿 App 显式 opt-in
-    // 的功能，自动开会替用户决策。
+    // 默認開啟 emotionConfig.enabled，讓"開日程 = 開情緒"這條隱含約定對新角色也成立。
+    // 真正的閘門是 (isScheduleFeatureOn && emotionConfig.enabled)，schedule 沒開
+    // 時副 API 不會觸發，所以這裡默認 true 安全。
+    // 注意：memoryPalaceEnabled 不在這裡默認開 —— 那是用戶在記憶宮殿 App 顯式 opt-in
+    // 的功能，自動開會替用戶決策。
     const newChar: CharacterProfile = {
       id: `char-${Date.now()}`,
       name,
       avatar: generateAvatar(name),
-      description: '点击编辑设定...',
+      description: '點擊編輯設定...',
       systemPrompt: '',
       memories: [],
       contextLimit: DEFAULT_MANUAL_CONTEXT_LIMIT,
@@ -3202,19 +3202,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const target = updated.find(c => c.id === id);
       if (target) {
         const before = prev.find(c => c.id === id);
-        // 落库成功后给 amsg2 云端快照打脏：改人设 / 改记忆 / 面板取消任务等所有落库路径都
-        // 汇到这里，不打的话云端 fire_pack 停在上一轮聊天，角色到点拿旧世界说话。
-        // markDirty 内部自带「没开 2.0 / 没挂 AI 任务就 return」的门，普通角色零成本。
+        // 落庫成功後給 amsg2 雲端快照打髒：改人設 / 改記憶 / 面板取消任務等所有落庫路徑都
+        // 匯到這裡，不打的話雲端 fire_pack 停在上一輪聊天，角色到點拿舊世界說話。
+        // markDirty 內部自帶「沒開 2.0 / 沒掛 AI 任務就 return」的門，普通角色零成本。
         DB.saveCharacter(target).then(() => {
           markAmsgStateDirty({ char: target, userProfile, groups, realtimeConfig });
-          // 时区和名字是另一条路：它们冻在远端任务行里，fire_pack 刷新盖不到。
-          // 上游按任务行的 tzId 推进循环任务的下次触发时刻；fixed 模式的推送标题也直接
-          // 读任务行的 contactName。只刷真的变了的那几项，别搭别的操作的便车。
+          // 時區和名字是另一條路：它們凍在遠端任務行裡，fire_pack 刷新蓋不到。
+          // 上游按任務行的 tzId 推進循環任務的下次觸發時刻；fixed 模式的推送標題也直接
+          // 讀任務行的 contactName。只刷真的變了的那幾項，別搭別的操作的便車。
           const timeZone = resolveCharTimeZone(before) !== resolveCharTimeZone(target);
           const contactName = !!before && before.name !== target.name;
           if (timeZone || contactName) {
             ActiveMsgClient.refreshCharPendingTaskRow(target, { timeZone, contactName }).catch((error) => {
-              console.warn('[amsg2] 角色资料变更后刷新远端任务行失败', target.id, error);
+              console.warn('[amsg2] 角色資料變更後刷新遠端任務行失敗', target.id, error);
             });
           }
         });
@@ -3224,26 +3224,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
   const deleteCharacter = async (id: string, options?: { force?: boolean }): Promise<DeleteCharacterResult> => {
     const target = characters.find(c => c.id === id);
-    // 主动消息 2.0 的任务活在用户自己的 worker 上，不随本地角色删除消失：留着的话
-    // 到点照样跑一整轮生成 + 推送，用户会收到一个已经删掉的角色发来的消息（还每次
-    // 真烧一轮 LLM）。本地记录一删就再没有 uuid 可取消，所以必须赶在删除之前清。
-    // 没排过任务的角色不发任何请求。
+    // 主動消息 2.0 的任務活在用戶自己的 worker 上，不隨本地角色刪除消失：留著的話
+    // 到點照樣跑一整輪生成 + 推送，用戶會收到一個已經刪掉的角色發來的消息（還每次
+    // 真燒一輪 LLM）。本地記錄一刪就再沒有 uuid 可取消，所以必須趕在刪除之前清。
+    // 沒排過任務的角色不發任何請求。
     const localTaskUuids = (target?.activeMsg2Config?.tasks ?? [])
       .map(t => t.taskUuid);
 
-    // 云端善后挡在本地删除**前面**：早前丢后台跑的版本在断网 / 秒关 App 时根本跑不完，
-    // 任务残留下来，之后「已删角色」的推送还会弹出来。名下真有任务（本地清单有、或远端
-    // 查得到）的角色才付这次等待，清不掉就先不删本地、把选择权交回给调用方；
-    // 从没配过 2.0 或没填 worker 地址的角色一个请求都不发，路径跟原来一样快。
+    // 雲端善後擋在本地刪除**前面**：早前丟後台跑的版本在斷網 / 秒關 App 時根本跑不完，
+    // 任務殘留下來，之後「已刪角色」的推送還會彈出來。名下真有任務（本地清單有、或遠端
+    // 查得到）的角色才付這次等待，清不掉就先不刪本地、把選擇權交回給調用方；
+    // 從沒配過 2.0 或沒填 worker 地址的角色一個請求都不發，路徑跟原來一樣快。
     if (!options?.force && charMayHaveCloudState(target)) {
       let workerConfigured = false;
       try {
         workerConfigured = Boolean((await ActiveMsgStore.getGlobalConfig()).workerUrl?.trim());
-      } catch { /* 配置读不到按没配处理，与 purgeCharCloudState 同口径 */ }
+      } catch { /* 配置讀不到按沒配處理，與 purgeCharCloudState 同口徑 */ }
 
       if (workerConfigured) {
-        // 有没有任务以远端清单优先（cancelAllTasksForChar 内部先查远端、查不到才退回
-        // 本地清单）——只看本地会漏掉排程记录丢失的幽灵任务。
+        // 有沒有任務以遠端清單優先（cancelAllTasksForChar 內部先查遠端、查不到才退回
+        // 本地清單）——只看本地會漏掉排程記錄丟失的幽靈任務。
         let hadTasks = localTaskUuids.length > 0;
         let cleanupFailed = false;
         try {
@@ -3251,76 +3251,76 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           hadTasks = hadTasks || targets.length > 0;
           cleanupFailed = failed.size > 0;
         } catch (err) {
-          console.warn('[deleteCharacter] 远端主动消息任务清理失败', err);
+          console.warn('[deleteCharacter] 遠端主動消息任務清理失敗', err);
           cleanupFailed = true;
         }
 
         if (hadTasks) {
           if (!cleanupFailed) {
-            // 任务取消掉了，云端还留着这个角色的 client_state —— 那里面是完整的角色系统
-            // 提示词加最近 30 条对话原文（fire_pack）。删除确认框写的是「记忆将被清空」，
-            // 那就得连云端那份一起清，不然聊天记录会一直躺在 D1 里、每删一个角色再堆一份。
+            // 任務取消掉了，雲端還留著這個角色的 client_state —— 那裡面是完整的角色系統
+            // 提示詞加最近 30 條對話原文（fire_pack）。刪除確認框寫的是「記憶將被清空」，
+            // 那就得連雲端那份一起清，不然聊天記錄會一直躺在 D1 裡、每刪一個角色再堆一份。
             const cloudCleanup = await purgeCharCloudState(target);
             if (cloudCleanup.status === 'failed') {
-              console.warn('[deleteCharacter] 云端状态清理失败', cloudCleanup.error);
+              console.warn('[deleteCharacter] 雲端狀態清理失敗', cloudCleanup.error);
               cleanupFailed = true;
             }
           }
           if (cleanupFailed) {
-            // 云端没清干净：本地先不删。调用方（角色 App）负责弹「重试 / 仍然删除」。
+            // 雲端沒清乾淨：本地先不刪。調用方（角色 App）負責彈「重試 / 仍然刪除」。
             return { status: 'cloud-cleanup-failed' };
           }
         } else {
-          // 名下没有任务：不会再有推送，client_state 清理维持旧节奏丢后台，不挡删除。
+          // 名下沒有任務：不會再有推送，client_state 清理維持舊節奏丟後台，不擋刪除。
           void (async () => {
             const cloudCleanup = await purgeCharCloudState(target);
             if (cloudCleanup.status === 'failed') {
-              console.warn('[deleteCharacter] 云端状态清理失败（角色照常删除）', cloudCleanup.error);
-              addToast('ta 在云端的聊天上下文没能清掉，可以去设置里「清除云端状态」兜一下', 'error');
+              console.warn('[deleteCharacter] 雲端狀態清理失敗（角色照常刪除）', cloudCleanup.error);
+              addToast('ta 在雲端的聊天上下文沒能清掉，可以去設置裡「清除雲端狀態」兜一下', 'error');
             }
           })();
         }
       }
     } else if (options?.force && charMayHaveCloudState(target)) {
-      // 「仍然删除」放行后仍旧尽力清一次：能清掉多少算多少，失败只提示、不再拦。
+      // 「仍然刪除」放行後仍舊盡力清一次：能清掉多少算多少，失敗只提示、不再攔。
       void (async () => {
         try {
           if (localTaskUuids.length > 0) {
             const { failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
             if (failed.size > 0) {
-              addToast(`ta 还有 ${failed.size} 个主动消息任务留在远端没取消掉，可能仍会到点推送——可以去设置里「清除云端状态」兜一下`, 'error');
+              addToast(`ta 還有 ${failed.size} 個主動消息任務留在遠端沒取消掉，可能仍會到點推送——可以去設置裡「清除雲端狀態」兜一下`, 'error');
             }
           }
           const cloudCleanup = await purgeCharCloudState(target);
           if (cloudCleanup.status === 'failed') {
-            console.warn('[deleteCharacter] 云端状态清理失败（角色照常删除）', cloudCleanup.error);
-            addToast('ta 在云端的聊天上下文没能清掉，可以去设置里「清除云端状态」兜一下', 'error');
+            console.warn('[deleteCharacter] 雲端狀態清理失敗（角色照常刪除）', cloudCleanup.error);
+            addToast('ta 在雲端的聊天上下文沒能清掉，可以去設置裡「清除雲端狀態」兜一下', 'error');
           }
         } catch (err) {
-          console.warn('[deleteCharacter] 远端主动消息任务清理失败', err);
-          addToast('ta 的主动消息任务没能在远端取消，可能仍会到点推送，请检查 Worker 连接', 'error');
+          console.warn('[deleteCharacter] 遠端主動消息任務清理失敗', err);
+          addToast('ta 的主動消息任務沒能在遠端取消，可能仍會到點推送，請檢查 Worker 連接', 'error');
         }
       })();
     }
 
     setCharacters(prev => { const remaining = prev.filter(c => c.id !== id); if (remaining.length > 0 && activeCharacterId === id) { setActiveCharacterId(remaining[0].id); } return remaining; });
     await DB.deleteCharacter(id);
-    // 表情分类不随角色级联删除会留下「幽灵专属包」：单聊面板被可见性过滤掉（删不掉），
-    // 群聊面板/提示词却还能看到。删完角色顺手按剩余角色清一次残留（详见 DB.cleanupEmojiResidue）。
+    // 表情分類不隨角色級聯刪除會留下「幽靈專屬包」：單聊面板被可見性過濾掉（刪不掉），
+    // 群聊面板/提示詞卻還能看到。刪完角色順手按剩餘角色清一次殘留（詳見 DB.cleanupEmojiResidue）。
     try {
         const remainingIds = characters.filter(c => c.id !== id).map(c => c.id);
         const report = await DB.cleanupEmojiResidue(remainingIds);
         if (report.removedCategories.length > 0) {
-            addToast(`已连带清理 ta 的专属表情分类：${report.removedCategories.map(c => `「${c.name}」`).join('')}`, 'info');
+            addToast(`已連帶清理 ta 的專屬表情分類：${report.removedCategories.map(c => `「${c.name}」`).join('')}`, 'info');
         }
     } catch (err) {
-        console.warn('[deleteCharacter] 表情包残留清理失败（不影响角色删除）', err);
+        console.warn('[deleteCharacter] 表情包殘留清理失敗（不影響角色刪除）', err);
     }
     return { status: 'deleted' };
   };
 
-  // NPC 档案（神经链接「NPC」分页）。刻意不带 amsg2/云端善后那一整套——NPC 没有
-  // 主动消息任务、没有云端 client_state，本地增删改直接落库即可。
+  // NPC 檔案（神經鏈接「NPC」分頁）。刻意不帶 amsg2/雲端善後那一整套——NPC 沒有
+  // 主動消息任務、沒有云端 client_state，本地增刪改直接落庫即可。
   const addNPC = async (): Promise<NPCProfile> => {
     const name = '新 NPC';
     const now = Date.now();
@@ -3354,7 +3354,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     await DB.deleteNPC(id);
   };
 
-  // 角色分组方法（神经链接"文件夹"）
+  // 角色分組方法（神經鏈接"文件夾"）
   const createCharacterGroup = async (name: string): Promise<CharacterGroup | null> => {
       const trimmed = name.trim();
       if (!trimmed) return null;
@@ -3376,7 +3376,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (target) await DB.saveCharacterGroup(target);
   };
 
-  // 删分组 = 组内角色回落「未分组」+ 删分组定义本身，角色不受影响
+  // 刪分組 = 組內角色回落「未分組」+ 刪分組定義本身，角色不受影響
   const deleteCharacterGroup = async (id: string) => {
       setCharacters(prev => prev.map(c => {
           if (c.groupId !== id) return c;
@@ -3390,9 +3390,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // Group Methods
 
-  // 群的名字和成员名单都会进每个成员的 fire_pack（角色知道自己在哪些群、群里都有谁），
-  // 群一变就要让受影响的成员各刷一次云端快照，否则角色到点还按旧群名 / 旧成员说话。
-  // nextGroups 传变更后的完整 groups 列表：markDirty 存的是快照，拿旧列表等于没改。
+  // 群的名字和成員名單都會進每個成員的 fire_pack（角色知道自己在哪些群、群裡都有誰），
+  // 群一變就要讓受影響的成員各刷一次雲端快照，否則角色到點還按舊群名 / 舊成員說話。
+  // nextGroups 傳變更後的完整 groups 列表：markDirty 存的是快照，拿舊列表等於沒改。
   const markGroupMembersDirty = (memberIds: string[], nextGroups: GroupProfile[]) => {
       for (const memberId of new Set(memberIds)) {
           const member = characters.find(c => c.id === memberId);
@@ -3414,17 +3414,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const updateGroup = async (id: string, updates: Partial<GroupProfile>) => {
-      // 先更新内存中的 groups（列表渲染、再次进群都读这里），再持久化到 DB。
-      // 不更新 context 会导致改了群头像/群名退出后又读回旧值（恢复默认）。
+      // 先更新內存中的 groups（列表渲染、再次進群都讀這裡），再持久化到 DB。
+      // 不更新 context 會導致改了群頭像/群名退出後又讀回舊值（恢復默認）。
       setGroups(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
-      // 持久化对象基于当前已提交的 groups 合成，不在 setGroups 的 updater 里捕获——
-      // React 不保证 updater 同步执行（eager 求值只是优化），旧写法会时而拿到旧值、
-      // 时而整个跳过 saveGroup，表现为"内存已更新、退出重进设置丢失"。
+      // 持久化對象基於當前已提交的 groups 合成，不在 setGroups 的 updater 裡捕獲——
+      // React 不保證 updater 同步執行（eager 求值只是優化），舊寫法會時而拿到舊值、
+      // 時而整個跳過 saveGroup，表現為"內存已更新、退出重進設置丟失"。
       const base = groups.find(g => g.id === id);
       if (!base) return;
       const nextGroup = { ...base, ...updates };
       await DB.saveGroup(nextGroup);
-      // 老成员也要打脏：被移出群的角色，他那份快照里的群名单同样得把这个群去掉。
+      // 老成員也要打髒：被移出群的角色，他那份快照裡的群名單同樣得把這個群去掉。
       markGroupMembersDirty(
           [...base.members, ...nextGroup.members],
           groups.map(g => g.id === id ? nextGroup : g),
@@ -3463,7 +3463,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const updateWorldbook = (id: string, updates: Partial<Worldbook>) => updateWorldbooks([id], updates);
   const deleteWorldbook = async (id: string) => {
       await deleteWorldbooks([id]);
-      addToast('世界书已删除 (同步移除角色挂载)', 'success');
+      addToast('世界書已刪除 (同步移除角色掛載)', 'success');
   };
 
   // Novel Methods (New)
@@ -3510,10 +3510,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
        setUserProfileBase(prev => {
            const patch = typeof updates === 'function' ? updates(prev) : updates;
            const next = { ...prev, ...patch };
-          // 用户资料是所有角色共享的素材（名字、人设直接烤进 fire_pack 模板），改完不打脏的话
-          // 角色到点还按旧名字叫你。仿表情库：逐个打脏，没开 2.0 的角色被 markDirty 的门筛掉。
-          // 传 next（未套用任何身份的那份）——markAmsgStateDirtyForAll 会按每个角色自己的
-          // 分角色身份指定各自解析，云端主动消息才会看到那个角色该看到的那张身份卡的名字。
+          // 用戶資料是所有角色共享的素材（名字、人設直接烤進 fire_pack 模板），改完不打髒的話
+          // 角色到點還按舊名字叫你。仿表情庫：逐個打髒，沒開 2.0 的角色被 markDirty 的門篩掉。
+          // 傳 next（未套用任何身份的那份）——markAmsgStateDirtyForAll 會按每個角色自己的
+          // 分角色身份指定各自解析，雲端主動消息才會看到那個角色該看到的那張身份卡的名字。
           DB.saveUserProfile(next).then(() => {
               markAmsgStateDirtyForAll({ characters, userProfileBase: next, groups, realtimeConfig });
           });
@@ -3537,7 +3537,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const deleteUserPersona = async (id: string) => {
       await updateUserProfile(prev => ({
           personas: (prev.personas || []).filter(p => p.id !== id),
-          // 删掉的正好是目前生效的身份卡时，回落到真实身份，别让 activePersonaId 悬空指向不存在的卡。
+          // 刪掉的正好是目前生效的身份卡時，回落到真實身份，別讓 activePersonaId 懸空指向不存在的卡。
           activePersonaId: prev.activePersonaId === id ? undefined : prev.activePersonaId,
       }));
   };
@@ -3561,18 +3561,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const addToast = (message: string, type: Toast['type'] = 'info') => { const id = Date.now().toString(); setToasts(prev => [...prev, { id, message, type }]); setTimeout(() => { setToasts(prev => prev.filter(t => t.id !== id)); }, 3000); };
   const showError = (title: string, details: string) => {
       setErrorDialog({ title, details });
-      // showError 是分发型入口，title 由调用方传。这里写显式白名单：
-      // 只有下面这两个写死的 title 会上报，其它（含以后新加的）一律不发，
-      // 也绝不把 title 原样透传出去（免得哪天有人往里塞 URL 或报错原文）。
-      if (title === '导入失败') trackEvent('弹出报错详情弹窗', { 报错来源: '导入失败' });
-      else if (title === '云端恢复失败') trackEvent('弹出报错详情弹窗', { 报错来源: '云端恢复失败' });
+      // showError 是分發型入口，title 由調用方傳。這裡寫顯式白名單：
+      // 只有下面這兩個寫死的 title 會上報，其它（含以後新加的）一律不發，
+      // 也絕不把 title 原樣透傳出去（免得哪天有人往裡塞 URL 或報錯原文）。
+      if (title === '導入失敗') trackEvent('弹出报错详情弹窗', { 报错来源: '导入失败' });
+      else if (title === '雲端恢復失敗') trackEvent('弹出报错详情弹窗', { 报错来源: '云端恢复失败' });
   };
   const dismissError = () => { setErrorDialog(null); };
 
   // --- APPEARANCE PRESETS ---
   const saveAppearancePreset = async (name: string, themeOverride?: OSTheme) => {
-      // theme.wallpaper 在内存里是 blob: objectURL（会话临时），不能存进预设。
-      // 换成 assets 'wallpaper' 里的持久指针（blobref 令牌 / http / 渐变）。
+      // theme.wallpaper 在內存裡是 blob: objectURL（會話臨時），不能存進預設。
+      // 換成 assets 'wallpaper' 裡的持久指針（blobref 令牌 / http / 漸變）。
       const presetTheme: OSTheme = { ...(themeOverride || theme) };
       if (presetTheme.wallpaper && presetTheme.wallpaper.startsWith('blob:')) {
           presetTheme.wallpaper = (await DB.getAsset('wallpaper')) || '';
@@ -3590,7 +3590,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       setAppearancePresets(prev => [preset, ...prev]);
       await DB.saveAsset(`appearance_preset_${preset.id}`, JSON.stringify(preset));
-      addToast(`外观预设「${name}」已保存`, 'success');
+      addToast(`外觀預設「${name}」已保存`, 'success');
   };
 
   const applyAppearancePreset = async (id: string) => {
@@ -3605,9 +3605,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           delete w['br'];
           sanitizedPresetTheme.launcherWidgets = Object.keys(w).length > 0 ? w : undefined;
       }
-      // 小组件图落进 assets 的 widget_*：启动加载时这张表会盖掉 localStorage 里那份，
-      // 应用预设时不写它，下次启动看到的就还是上一套主题的小组件。
-      // 别人分享来的预设里可能还压着 base64，先转成令牌再落库（跟下面 customIcons 一个做法）。
+      // 小組件圖落進 assets 的 widget_*：啟動加載時這張表會蓋掉 localStorage 裡那份，
+      // 應用預設時不寫它，下次啟動看到的就還是上一套主題的小組件。
+      // 別人分享來的預設裡可能還壓著 base64，先轉成令牌再落庫（跟下面 customIcons 一個做法）。
       {
           const presetWidgets = (sanitizedPresetTheme.launcherWidgets || {}) as Record<string, string>;
           const persistedWidgets: Record<string, string> = {};
@@ -3623,7 +3623,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           sanitizedPresetTheme.launcherWidgets = Object.keys(persistedWidgets).length > 0 ? persistedWidgets : undefined;
       }
-      // 壁纸改存 Blob：把预设里的指针（blobref 令牌 / 旧 data:）落库并解析成 objectURL 再进 state。
+      // 壁紙改存 Blob：把預設裡的指針（blobref 令牌 / 舊 data:）落庫並解析成 objectURL 再進 state。
       if (sanitizedPresetTheme.wallpaper !== undefined && typeof sanitizedPresetTheme.wallpaper === 'string') {
           const legacyWallpaper = isLegacyDefaultWallpaper(sanitizedPresetTheme.wallpaper);
           const preserveNostalgia = shouldPreserveLegacyDefaultWallpaper(
@@ -3640,7 +3640,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
       // Apply theme
       setTheme(sanitizedPresetTheme);
-      // 写 LS 前必须剥 data URI / blob: objectURL，否则 base64 壁纸撑爆 quota、blob: 重启即失效
+      // 寫 LS 前必須剝 data URI / blob: objectURL，否則 base64 壁紙撐爆 quota、blob: 重啟即失效
       const lsTheme: any = { ...sanitizedPresetTheme };
       if (lsTheme.wallpaper && typeof lsTheme.wallpaper === 'string' && (lsTheme.wallpaper.startsWith('data:') || lsTheme.wallpaper.startsWith('blob:'))) lsTheme.wallpaper = '';
       if (lsTheme.lockWallpaper && typeof lsTheme.lockWallpaper === 'string' && (lsTheme.lockWallpaper.startsWith('data:') || lsTheme.lockWallpaper.startsWith('blob:'))) lsTheme.lockWallpaper = undefined;
@@ -3663,9 +3663,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       try {
           localStorage.setItem('os_theme', JSON.stringify(lsTheme));
       } catch (e) {
-          // 静默跳过 = 预设这次看着已应用、下次启动却回初始主题。必须提示。
-          console.warn('[applyAppearancePreset] localStorage 写入失败，已跳过', e);
-          addToast('主题没能保存到本地（存储空间可能已满），重启后可能会还原', 'error');
+          // 靜默跳過 = 預設這次看著已應用、下次啟動卻回初始主題。必須提示。
+          console.warn('[applyAppearancePreset] localStorage 寫入失敗，已跳過', e);
+          addToast('主題沒能保存到本地（存儲空間可能已滿），重啟後可能會還原', 'error');
       }
       applyCustomFont(preset.theme.customFont);
       // Apply custom icons if present
@@ -3679,10 +3679,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           setCustomIcons(persistedIcons);
       }
       // Apply chat themes if present
-      // 预设里的气泡主题可能还压着 base64（老预设、别人分享来的包）。原样写回 themes 表
-      // 等于把一键优化刚转走的图又倒回去——用户会看到「优化完过阵子又涨回来了」。
-      // 所以落库前先转成令牌，内存里也用转完的那份：不然下次存预设又把 base64 抄进去，
-      // 绕成一个圈。上面 customIcons 那段本来就是这么做的，这里跟它对齐。
+      // 預設裡的氣泡主題可能還壓著 base64（老預設、別人分享來的包）。原樣寫回 themes 表
+      // 等於把一鍵優化剛轉走的圖又倒回去——用戶會看到「優化完過陣子又漲回來了」。
+      // 所以落庫前先轉成令牌，內存裡也用轉完的那份：不然下次存預設又把 base64 抄進去，
+      // 繞成一個圈。上面 customIcons 那段本來就是這麼做的，這裡跟它對齊。
       if (preset.chatThemes) {
           const migratedThemes: ChatTheme[] = [];
           for (const ct of preset.chatThemes) {
@@ -3700,7 +3700,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return merged;
           });
       }
-      // 壁纸指针已在上面 resolveWallpaperStoredValue 里落库（令牌→assets），此处不再重复写。
+      // 壁紙指針已在上面 resolveWallpaperStoredValue 裡落庫（令牌→assets），此處不再重複寫。
       if (preset.theme.desktopDecorations) {
           for (const d of preset.theme.desktopDecorations) {
               if (d.type === 'image' && d.content) {
@@ -3708,19 +3708,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
       }
-      addToast(`已应用预设「${preset.name}」`, 'success');
+      addToast(`已應用預設「${preset.name}」`, 'success');
   };
 
   const deleteAppearancePreset = async (id: string) => {
       setAppearancePresets(prev => prev.filter(p => p.id !== id));
       await DB.deleteAsset(`appearance_preset_${id}`);
-      addToast('预设已删除', 'info');
+      addToast('預設已刪除', 'info');
   };
 
-  // 一键还原外观：把主题、图标、壁纸、小组件、装饰、字体全部回到出厂状态。
-  // 用户在不同版本/不同备份之间反复导入时，customIcons 与 IndexedDB 里的 widget_/deco_/icon_
-  // 残留经常导致图标错乱，这里直接整体清空再写回 default。
-  // 已保存的外观预设不动，用户随时还能切回去。
+  // 一鍵還原外觀：把主題、圖標、壁紙、小組件、裝飾、字體全部回到出廠狀態。
+  // 用戶在不同版本/不同備份之間反覆導入時，customIcons 與 IndexedDB 裡的 widget_/deco_/icon_
+  // 殘留經常導致圖標錯亂，這裡直接整體清空再寫回 default。
+  // 已保存的外觀預設不動，用戶隨時還能切回去。
   const resetAppearance = async () => {
       try {
           await resolveLockWallpaperStoredValue(undefined);
@@ -3732,9 +3732,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           for (const appId of iconAppIds) {
               await DB.deleteAsset(`icon_${appId}`);
           }
-          // 自定义的主屏图标也在 customIcons 里（_pwa_），但它额外往 DOM 注入过一条
-          // apple-touch-icon / manifest，删数据不会把注入撤掉——不撤的话页面上那条还挂着
-          // 已经不存在的图标，直到下次刷新。
+          // 自定義的主屏圖標也在 customIcons 裡（_pwa_），但它額外往 DOM 注入過一條
+          // apple-touch-icon / manifest，刪數據不會把注入撤掉——不撤的話頁面上那條還掛著
+          // 已經不存在的圖標，直到下次刷新。
           clearPwaIcon();
 
           const allAssets = await DB.getAllAssets();
@@ -3756,12 +3756,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           try {
               localStorage.setItem('os_theme', JSON.stringify(defaultTheme));
           } catch (e) {
-              console.warn('[resetAppearance] localStorage 写入失败', e);
+              console.warn('[resetAppearance] localStorage 寫入失敗', e);
           }
 
-          addToast('外观已还原为初始状态', 'success');
+          addToast('外觀已還原為初始狀態', 'success');
       } catch (e: any) {
-          addToast(e?.message || '还原失败', 'error');
+          addToast(e?.message || '還原失敗', 'error');
       }
   };
 
@@ -3772,17 +3772,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           DB.saveAsset(`appearance_preset_${id}`, JSON.stringify(updated));
           return updated;
       }));
-      addToast('预设已重命名', 'success');
+      addToast('預設已重命名', 'success');
   };
 
   const exportAppearancePreset = async (id: string): Promise<Blob> => {
       const preset = appearancePresets.find(p => p.id === id);
-      if (!preset) throw new Error('预设不存在');
-      // 预设里的壁纸可能是 blobref 令牌（本机 blob_assets），导出到别的设备会失效——
-      // 先深拷贝再把令牌解析回 data:image，保证导出文件自包含可移植。
+      if (!preset) throw new Error('預設不存在');
+      // 預設裡的壁紙可能是 blobref 令牌（本機 blob_assets），導出到別的設備會失效——
+      // 先深拷貝再把令牌解析回 data:image，保證導出文件自包含可移植。
       const exportPreset = deepCloneForExport(preset);
       await resolveBlobRefsDeep(exportPreset);
-      // 保留原始壁纸画质，把整个预设 JSON 塞进 zip 包压体积
+      // 保留原始壁紙畫質，把整個預設 JSON 塞進 zip 包壓體積
       const data = JSON.stringify({ type: 'sully_appearance_preset', version: 1, ...exportPreset }, null, 2);
       const JSZip = await loadJSZip();
       const zip = new JSZip();
@@ -3793,7 +3793,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const importAppearancePreset = async (file: File): Promise<void> => {
-      // 兼容两种格式：新版 .zip（内含 preset.json）/ 旧版 .json 明文
+      // 兼容兩種格式：新版 .zip（內含 preset.json）/ 舊版 .json 明文
       let raw: any;
       const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
       const isZip = head[0] === 0x50 && head[1] === 0x4b && (head[2] === 0x03 || head[2] === 0x05 || head[2] === 0x07);
@@ -3801,17 +3801,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const JSZip = await loadJSZip();
           const zip = await JSZip.loadAsync(file);
           const entry = zip.file('preset.json') || Object.values((zip as any).files || {}).find((f: any) => !f.dir && /\.json$/i.test(f.name));
-          if (!entry) throw new Error('压缩包内未找到 preset.json');
+          if (!entry) throw new Error('壓縮包內未找到 preset.json');
           const text = await (entry as any).async('string');
           raw = JSON.parse(text);
       } else {
           const text = await file.text();
           raw = JSON.parse(text);
       }
-      if (raw.type !== 'sully_appearance_preset') throw new Error('无效的外观预设文件');
+      if (raw.type !== 'sully_appearance_preset') throw new Error('無效的外觀預設文件');
       const preset = await migrateAppearancePresetBlobRefs({
           id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          name: raw.name || '导入的预设',
+          name: raw.name || '導入的預設',
           createdAt: Date.now(),
           theme: raw.theme,
           customIcons: raw.customIcons,
@@ -3820,7 +3820,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       } as AppearancePreset);
       setAppearancePresets(prev => [preset, ...prev]);
       await DB.saveAsset(`appearance_preset_${preset.id}`, JSON.stringify(preset));
-      addToast(`已导入预设「${preset.name}」`, 'success');
+      addToast(`已導入預設「${preset.name}」`, 'success');
   };
 
   // --- MODIFIED EXPORT SYSTEM WITH SEPARATED ASSETS ZIP ---
@@ -3836,16 +3836,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const malformedImageDiagnostics: MalformedBackupImageDiagnostic[] = [];
           const maxMalformedImageDiagnostics = 100;
 
-          // Dedup table — same base64 payload reused across stores (角色头像在
-          // 多个 chat / handbook / room 里被嵌入) gets stored exactly once. Key
+          // Dedup table — same base64 payload reused across stores (角色頭像在
+          // 多個 chat / handbook / room 裡被嵌入) gets stored exactly once. Key
           // is the base64 string itself, value is the assets/* path. For a
           // heavy user with 50 chats sharing a 200KB avatar this trims ~10MB.
           const assetDedupMap = new Map<string, string>();
 
-          // v3 blob 旁路：blobref 令牌原样进 JSON，这里从每段真正落包的 JSON 文本里收集
-          // 令牌（backupFormat 的 onSerialized 钩子），打包收尾把对应 Blob 直写 blobs/*。
-          // 从落包文本收集 = 没有「哪些 store 要处理」的名单可漏，嵌套 JSON 字符串里的
-          // 令牌（如 assets 表的 appearance_preset_*）也逐字可见。text_only 令牌已剥空，不收。
+          // v3 blob 旁路：blobref 令牌原樣進 JSON，這裡從每段真正落包的 JSON 文本里收集
+          // 令牌（backupFormat 的 onSerialized 鉤子），打包收尾把對應 Blob 直寫 blobs/*。
+          // 從落包文本收集 = 沒有「哪些 store 要處理」的名單可漏，嵌套 JSON 字符串裡的
+          // 令牌（如 assets 表的 appearance_preset_*）也逐字可見。text_only 令牌已剝空，不收。
           const referencedBlobTokens = new Set<string>();
           const collectSerialized = mode === 'text_only'
               ? undefined
@@ -3873,17 +3873,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return stripped;
           };
 
-          // 把一条 data:image base64 落进 ZIP 的 assets/ 文件夹，返回它的 assets/* 路径。
-          // 同一份 base64 全局只存一份（assetDedupMap 按完整 base64 去重）。无法识别但
-          // 不一定损坏的 data url 原样保留；确认损坏的正文只在导出副本里置空。
+          // 把一條 data:image base64 落進 ZIP 的 assets/ 文件夾，返回它的 assets/* 路徑。
+          // 同一份 base64 全局只存一份（assetDedupMap 按完整 base64 去重）。無法識別但
+          // 不一定損壞的 data url 原樣保留；確認損壞的正文只在導出副本里置空。
           const resolveImage = (value: string, location: string): string => {
               try {
                   const cached = assetDedupMap.get(value);
                   if (cached) return cached;
                   const parsed = parseImageDataUrlForBackup(value);
                   if (!parsed.ok) {
-                      // SVG、带额外 MIME 参数等本来就不走 assets/* 的 data URL 沿用旧行为，
-                      // 原样留在 JSON，也不把它误报成「损坏图片」。
+                      // SVG、帶額外 MIME 參數等本來就不走 assets/* 的 data URL 沿用舊行為，
+                      // 原樣留在 JSON，也不把它誤報成「損壞圖片」。
                       if (parsed.reason === 'unsupported-header') return value;
                       malformedImageCount++;
                       if (malformedImageDiagnostics.length < maxMalformedImageDiagnostics) {
@@ -3893,13 +3893,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               originalLength: value.length,
                           });
                       }
-                      // 坏 Base64 已无法还原；不把正文写进 assets 或备份 JSON，避免恢复后继续
-                      // 传播脏数据。这里只修改 IDB 结构化克隆/运行态深拷贝，不会改用户本地库。
-                      console.warn(`[Backup] 损坏图片已从导出副本跳过: ${location} (${parsed.reason}, ${value.length} chars)`);
+                      // 壞 Base64 已無法還原；不把正文寫進 assets 或備份 JSON，避免恢復後繼續
+                      // 傳播髒數據。這裡只修改 IDB 結構化克隆/運行態深拷貝，不會改用戶本地庫。
+                      console.warn(`[Backup] 損壞圖片已從導出副本跳過: ${location} (${parsed.reason}, ${value.length} chars)`);
                       return '';
                   }
                   const filename = `asset_${Date.now()}_${assetCount++}.${parsed.extension}`;
-                  // JPEG/PNG/WebP/GIF 本身已压缩，再跑 DEFLATE 只会浪费手机 CPU；直接存储。
+                  // JPEG/PNG/WebP/GIF 本身已壓縮，再跑 DEFLATE 只會浪費手機 CPU；直接存儲。
                   assetsFolder?.file(filename, parsed.base64, { base64: true, compression: 'STORE' });
                   const path = `assets/${filename}`;
                   assetDedupMap.set(value, path);
@@ -3911,9 +3911,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           };
 
           // Extract Images to ZIP (in-place) - Used for Media/Theme Mode.
-          // 原地把 base64 换成 assets/* 路径，不再另建一棵对象树，导出大 store 时峰值内存更省。
-          // 传进来的必须是独立副本：store 数据是 IDB 结构化克隆副本（安全）；theme /
-          // customIcons / appearancePresets 引用了运行态 state，已在上面 backupData 里深拷贝。
+          // 原地把 base64 換成 assets/* 路徑，不再另建一棵對象樹，導出大 store 時峰值內存更省。
+          // 傳進來的必須是獨立副本：store 數據是 IDB 結構化克隆副本（安全）；theme /
+          // customIcons / appearancePresets 引用了運行態 state，已在上面 backupData 裡深拷貝。
           const processObject = (obj: any, source = 'backupData'): any => {
               const safeRecordId = (value: unknown): string | null => {
                   if (typeof value !== 'string' && typeof value !== 'number') return null;
@@ -3959,10 +3959,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 1. Define Stores to Process based on Mode
           let storesToProcess: string[] = [];
           const allStores = [
-              // character_groups（角色分组定义）必须与 characters 同进退：
-              // 角色身上的 groupId 指向这张表，漏导会让导入端全员回落「未分组」
-              // npcs（神经链接「NPC」分页，独立于 characters）同理必须一起带走，否则整合导出
-              // 之后再导入，NPC 名单会清空——查手机联系人的 linkedNpcId 也会全部悬空。
+              // character_groups（角色分組定義）必須與 characters 同進退：
+              // 角色身上的 groupId 指向這張表，漏導會讓導入端全員回落「未分組」
+              // npcs（神經鏈接「NPC」分頁，獨立於 characters）同理必須一起帶走，否則整合導出
+              // 之後再導入，NPC 名單會清空——查手機聯繫人的 linkedNpcId 也會全部懸空。
               'characters', 'character_groups', 'npcs', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
               'user_profile', 'diaries', 'tasks', 'anniversaries', 'room_todos',
               'room_notes', 'groups', 'journal_stickers', 'social_posts', 'courses', 'games', 'worldbooks', 'story_theaters', 'story_theater_presets', 'story_theater_masks', 'novels', 'songs',
@@ -3974,17 +3974,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               'room_plates', 'digest_reports',
               'daily_schedule', 'memory_batches',
               'pixel_home_assets', 'pixel_home_layouts',
-              // 「彼方」虚拟世界各房间 store —— 早期导出清单漏了，导致备份不含房间数据
-              // 剧院的 vr_scripts(投稿剧本) / vr_plays(角色演过的话剧) / vr_presets(写作风格预设)
-              // 之前也漏在这份清单外，导出后这三类剧院数据全丢（导入端其实早已支持恢复）
+              // 「彼方」虛擬世界各房間 store —— 早期導出清單漏了，導致備份不含房間數據
+              // 劇院的 vr_scripts(投稿劇本) / vr_plays(角色演過的話劇) / vr_presets(寫作風格預設)
+              // 之前也漏在這份清單外，導出後這三類劇院數據全丟（導入端其實早已支持恢復）
               'vr_novels', 'vr_annotations', 'cc_custom_parts', 'vr_music', 'vr_guestbook', 'vr_letters', 'vr_settings',
               'vr_scripts', 'vr_plays', 'vr_presets',
-              // 家园（同世界观多角色大世界）——世界定义 + 演绎历史。导入端早已支持恢复
-              // （worldHomeLocal 本机配置也已随导出带走），但这两个 store 之前漏在清单外，
-              // 导致导出的备份不含家园数据。
+              // 家園（同世界觀多角色大世界）——世界定義 + 演繹歷史。導入端早已支持恢復
+              // （worldHomeLocal 本機配置也已隨導出帶走），但這兩個 store 之前漏在清單外，
+              // 導致導出的備份不含家園數據。
               'worlds', 'world_episodes',
-              // 生活记录（档案 App：生理期/药盒/锻炼 + 药盒计划 + 设置；记账走 bank_transactions）
-              // 导入端 importFullData 已支持恢复，这里必须同步登记，否则备份不含生活记录。
+              // 生活記錄（檔案 App：生理期/藥盒/鍛鍊 + 藥盒計劃 + 設置；記帳走 bank_transactions）
+              // 導入端 importFullData 已支持恢復，這裡必須同步登記，否則備份不含生活記錄。
               'life_records', 'med_plans', 'life_record_settings'
           ];
 
@@ -4003,10 +4003,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const sparkSocialProfile = await DB.getAsset('spark_social_profile');
           const roomCustomAssets = await DB.getAsset('room_custom_assets_list');
 
-          // theme / customIcons / appearancePresets 直接引用运行态 React state。只有
-          // media/full 会走 processObject 原地改，必须先深拷贝，否则会把正在用的系统主题改坏；
-          // text_only 走 stripBase64（返回新树、不改原对象），直接用引用即可，省掉一次
-          // 可能多达数 MB（壁纸 base64）的克隆。
+          // theme / customIcons / appearancePresets 直接引用運行態 React state。只有
+          // media/full 會走 processObject 原地改，必須先深拷貝，否則會把正在用的系統主題改壞；
+          // text_only 走 stripBase64（返回新樹、不改原對象），直接用引用即可，省掉一次
+          // 可能多達數 MB（壁紙 base64）的克隆。
           const cloneForInPlace = <T,>(v: T): T => (mode === 'text_only' ? v : deepCloneForExport(v));
 
           const backupData: Partial<FullBackupData> = {
@@ -4040,19 +4040,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               studyApiConfig: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('study_api_config'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
               studyTutorPresets: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('study_tutor_presets'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
 
-              // 云端配置
+              // 雲端配置
               cloudBackupConfig: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('os_cloud_backup_config'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
               remoteVectorConfig: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('os_remote_vector_config'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
 
-              // SAR 活动室：公告/初见、双卡池及人格推演记录必须跟用户历史一起迁移。
+              // SAR 活動室：公告/初見、雙卡池及人格推演記錄必須跟用戶歷史一起遷移。
               chatInputPreferences: (mode === 'text_only' || mode === 'full') ? loadChatInputPreferences() : undefined,
               sarLocalState: (mode === 'text_only' || mode === 'full') ? collectSARLocalBackup() : undefined,
 
-              // 推送凭据 (VAPID)
+              // 推送憑據 (VAPID)
               pushVapid: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('push_vapid_v1'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
 
 
-              // Memory Palace 水位线
+              // Memory Palace 水位線
               memoryPalaceHighWaterMarks: (mode === 'text_only' || mode === 'full') ? (() => {
                   const hwm: Record<string, number> = {};
                   for (let i = 0; i < localStorage.length; i++) {
@@ -4065,8 +4065,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   return Object.keys(hwm).length > 0 ? hwm : undefined;
               })() : undefined,
 
-              // Memory Palace 每角色的 UI 标记（人格检测已跑过、首次归档 banner 已看过等）
-              // 丢了会导致重弹一次人格确认 / 首次 banner，体验噪声但不丢数据，仍然应该备份
+              // Memory Palace 每角色的 UI 標記（人格檢測已跑過、首次歸檔 banner 已看過等）
+              // 丟了會導致重彈一次人格確認 / 首次 banner，體驗噪聲但不丟數據，仍然應該備份
               memoryPalaceFlags: (mode === 'text_only' || mode === 'full') ? (() => {
                   const flags: Record<string, string> = {};
                   for (let i = 0; i < localStorage.length; i++) {
@@ -4080,7 +4080,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   return Object.keys(flags).length > 0 ? flags : undefined;
               })() : undefined,
 
-              // Chat 翻译 / 归档 / 润色相关设置
+              // Chat 翻譯 / 歸檔 / 潤色相關設置
               chatTranslateSourceLang: (mode === 'text_only' || mode === 'full') ? (localStorage.getItem('chat_translate_source_lang') || undefined) : undefined,
               chatTranslateTargetLang: (mode === 'text_only' || mode === 'full') ? (localStorage.getItem('chat_translate_lang') || undefined) : undefined,
               chatTranslateEnabledByChar: (mode === 'text_only' || mode === 'full') ? (() => {
@@ -4156,38 +4156,38 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   return Object.keys(flags).length > 0 ? flags : undefined;
               })() : undefined,
 
-              // 本机 localStorage 配置（导入端 importFullData 已支持恢复，之前导出漏发导致丢失）
-              //  · 瑞幸 / 麦当劳 MCP 的点单 token + 启用状态（用户说的「那个码」）
-              //  · 邮局身份、家园全局 API + 文风收藏
+              // 本機 localStorage 配置（導入端 importFullData 已支持恢復，之前導出漏發導致丟失）
+              //  · 瑞幸 / 麥當勞 MCP 的點單 token + 啟用狀態（用戶說的「那個碼」）
+              //  · 郵局身份、家園全局 API + 文風收藏
               vrPostOffice: (mode === 'text_only' || mode === 'full') ? exportPostOfficeLocal() : undefined,
-              vrSignal: (mode === 'text_only' || mode === 'full') ? exportSignalLocal() : undefined, // 信号坠落处：句子归属「你·角色」+ 反复用清单
+              vrSignal: (mode === 'text_only' || mode === 'full') ? exportSignalLocal() : undefined, // 信號墜落處：句子歸屬「你·角色」+ 反覆用清單
               worldHomeLocal: (mode === 'text_only' || mode === 'full') ? exportWorldHomeLocal() : undefined,
               luckinLocal: (mode === 'text_only' || mode === 'full') ? exportLuckinLocal() : undefined,
               mcdLocal: (mode === 'text_only' || mode === 'full') ? exportMcdLocal() : undefined,
               mcpLocal: (mode === 'text_only' || mode === 'full') ? exportMcpLocal() : undefined,
 
-              // 梦境盲盒收藏册（账号级 localStorage，不挂在角色上，需单独随备份带走）
+              // 夢境盲盒收藏冊（帳號級 localStorage，不掛在角色上，需單獨隨備份帶走）
               dreamCollection: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('os_dream_collection'); return s ? JSON.parse(s) : undefined; } catch { return undefined; } })() : undefined,
 
-              // 桌面电子宠物主题的主色调偏好（账号级 localStorage）。room_card 涓流卡片本身
-              // 是普通消息、随 messages store 一起导出，这里只补带走这个纯外观偏好。
+              // 桌面電子寵物主題的主色調偏好（帳號級 localStorage）。room_card 涓流卡片本身
+              // 是普通消息、隨 messages store 一起導出，這裡只補帶走這個純外觀偏好。
               gotchiAccentHue: (mode === 'text_only' || mode === 'full') ? (() => { try { const s = localStorage.getItem('tama_accent_hue'); return s !== null ? s : undefined; } catch { return undefined; } })() : undefined,
           };
 
-          // 主动消息 2.0 的全局配置（Worker 地址 / 密钥 / 即时对话开关）。它存在独立的
-          // ActiveMsg 库里，不在上面那份 store 清单内，所以单独取一次；异步，故在字面量外。
-          // 纯配置无媒体，跟着 text_only / full 走。
+          // 主動消息 2.0 的全局配置（Worker 地址 / 密鑰 / 即時對話開關）。它存在獨立的
+          // ActiveMsg 庫裡，不在上面那份 store 清單內，所以單獨取一次；異步，故在字面量外。
+          // 純配置無媒體，跟著 text_only / full 走。
           if (mode === 'text_only' || mode === 'full') {
               backupData.amsg2GlobalConfig = await exportAmsg2GlobalConfig();
           }
 
-          // 桌面皮肤偏好（电子宠物/手游风的界面配色 + 看板 banner）——异步（看板图令牌需解析为
-          // data URL 才能跨设备），所以在对象字面量外单独 await。text_only 只带配色偏好、跳过看板大图。
+          // 桌面皮膚偏好（電子寵物/手遊風的界面配色 + 看板 banner）——異步（看板圖令牌需解析為
+          // data URL 才能跨設備），所以在對象字面量外單獨 await。text_only 只帶配色偏好、跳過看板大圖。
           backupData.desktopSkinLocal = await exportDesktopSkinLocal(mode !== 'text_only');
 
-          // 协同工作是可拆卸的独立 IndexedDB，不在主 DB store 清单里，必须单独打包。
-          // text_only 带窗口/消息/分类/API 设置但不带文件字节；media_only 只带文件字节；
-          // full 两者都带。文件原始 Blob 直写 ZIP，避免 base64 放大和重复保存。
+          // 協同工作是可拆卸的獨立 IndexedDB，不在主 DB store 清單裡，必須單獨打包。
+          // text_only 帶窗口/消息/分類/API 設置但不帶文件字節；media_only 只帶文件字節；
+          // full 兩者都帶。文件原始 Blob 直寫 ZIP，避免 base64 放大和重複保存。
           const { CollaborationStore } = await import('../features/collaboration/store');
           const includeCollaborationText = mode !== 'media_only';
           const includeCollaborationAssets = mode !== 'text_only';
@@ -4226,17 +4226,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           let currentStep = 0;
 
           // Pre-process specialized image fields (Social App, Theme)。processObject 是
-          // 原地改，所以这里按语句调用、不接返回值，读起来就是「就地处理这个对象」。
+          // 原地改，所以這裡按語句調用、不接返回值，讀起來就是「就地處理這個對象」。
           if (mode !== 'text_only') {
-              // 壁纸 / 小屋自定义素材 / 外观预设里的 blobref 令牌原样进包（二进制走 blobs/*
-              // 旁路，onSerialized 收集，无需在这里逐字段处理）。theme.wallpaper 内存里是
-              // blob: objectURL（会话临时，恢复端认不得），这里换回持久化指针
-              // （blobref 令牌 / 旧 data: / http）。旧 data: 值仍走下面 processObject 的
-              // data:→assets/* 抽取管线。
+              // 壁紙 / 小屋自定義素材 / 外觀預設裡的 blobref 令牌原樣進包（二進制走 blobs/*
+              // 旁路，onSerialized 收集，無需在這裡逐字段處理）。theme.wallpaper 內存裡是
+              // blob: objectURL（會話臨時，恢復端認不得），這裡換回持久化指針
+              // （blobref 令牌 / 舊 data: / http）。舊 data: 值仍走下面 processObject 的
+              // data:→assets/* 抽取管線。
               if (backupData.theme) {
                   const wp = (backupData.theme as any).wallpaper;
                   if (typeof wp === 'string' && wp.startsWith('blob:')) {
-                      const ptr = await DB.getAsset('wallpaper'); // blobref 令牌 / 旧 data: / http
+                      const ptr = await DB.getAsset('wallpaper'); // blobref 令牌 / 舊 data: / http
                       (backupData.theme as any).wallpaper = ptr || '';
                   }
                   const lockWp = (backupData.theme as any).lockWallpaper;
@@ -4267,8 +4267,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       ?.filter(d => d.type === 'preset')
                       .map(d => ({ id: d.id, content: d.content }));
                   const strippedTheme = stripBase64(backupData.theme) as OSTheme;
-                  // text_only 不带图片：内存里的壁纸是 blob: objectURL（会话临时，恢复端认不得），
-                  // blobref 令牌 stripBase64 已清空——这里补清 blob: 避免导出一个死链接壁纸。
+                  // text_only 不帶圖片：內存裡的壁紙是 blob: objectURL（會話臨時，恢復端認不得），
+                  // blobref 令牌 stripBase64 已清空——這裡補清 blob: 避免導出一個死鏈接壁紙。
                   if (strippedTheme.wallpaper && strippedTheme.wallpaper.startsWith('blob:')) strippedTheme.wallpaper = '';
                   backupData.theme = strippedTheme;
                   // Restore preset SVGs and remove image decorations (they have no data in text mode)
@@ -4307,8 +4307,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return result;
           };
 
-          // 纯文字备份的低内存路径：store 通过单事务 IDB 游标逐条读取，剥图后立即序列化进 ZIP 分片，
-          // 不再 getAll 整表驻留。gallery/messages 中即使有大量 base64 图片，峰值也只是一条记录。
+          // 純文字備份的低內存路徑：store 通過單事務 IDB 游標逐條讀取，剝圖後立即序列化進 ZIP 分片，
+          // 不再 getAll 整表駐留。gallery/messages 中即使有大量 base64 圖片，峰值也只是一條記錄。
           const textOnlyFieldByStore: Record<string, string> = {
               characters: 'characters',
               character_groups: 'characterGroups',
@@ -4376,9 +4376,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               hardMaxLen: 256 * 1024 * 1024,
           };
 
-          // 向量二进制旁路（#2）：memory_vectors 归一化拼成 bin + 索引（逻辑在 encodeVectorsForBackup，
-          // 那边有 ensureFloat32 统一 Uint8Array / Float32Array / 遗留 number[] 三态），导出收尾交给
-          // writeV2Backup 落进 zip——不进 backupData、不当普通数组分片，避开 number[] 进 JSON 的膨胀。
+          // 向量二進制旁路（#2）：memory_vectors 歸一化拼成 bin + 索引（邏輯在 encodeVectorsForBackup，
+          // 那邊有 ensureFloat32 統一 Uint8Array / Float32Array / 遺留 number[] 三態），導出收尾交給
+          // writeV2Backup 落進 zip——不進 backupData、不當普通數組分片，避開 number[] 進 JSON 的膨脹。
           let vectorPayload: ReturnType<typeof encodeVectorsForBackup> | undefined;
           // Only voice Blobs reachable from the exported Live2D settings are portable.
           // Orphaned/cancelled companion generations must not silently bloat a backup.
@@ -4392,8 +4392,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   progress: (currentStep / totalSteps) * 100
               });
 
-              // 4500+ 条记忆若仍是早期 number[] 存储，getAll 会先在 JS 堆里膨胀成数百 MB。
-              // 两遍游标逐条扫描只常驻最终 Float32 紧凑 bin；格式仍是原来的单 bin + index。
+              // 4500+ 條記憶若仍是早期 number[] 存儲，getAll 會先在 JS 堆裡膨脹成數百 MB。
+              // 兩遍游標逐條掃描只常駐最終 Float32 緊湊 bin；格式仍是原來的單 bin + index。
               if (storeName === 'memory_vectors' && mode === 'text_only') {
                   vectorPayload = await encodeVectorsForBackupChunked(async (onBatch) => {
                       await DB.streamRawStoreData(storeName, item => onBatch([item]));
@@ -4402,8 +4402,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   continue;
               }
 
-              // 纯文字模式的普通数组 store：逐条剥图后立刻写分片。这里 continue 后不会再把
-              // processedData 挂到 backupData，因此已处理的整表不会一直留到最终压缩阶段。
+              // 純文字模式的普通數組 store：逐條剝圖後立刻寫分片。這裡 continue 後不會再把
+              // processedData 掛到 backupData，因此已處理的整表不會一直留到最終壓縮階段。
               const textOnlyField = mode === 'text_only' ? textOnlyFieldByStore[storeName] : undefined;
               if (textOnlyField) {
                   const writer = createV2ArrayFieldWriter(
@@ -4415,8 +4415,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       },
                   );
                   await DB.streamRawStoreData(storeName, (item) => {
-                      // characters 也走这条低内存旁路；必须在逐条写分片前规范化，
-                      // 否则 text_only 会绕过下面 getAll 分支，把旧部署的绝对样板房 URL 原样带走。
+                      // characters 也走這條低內存旁路；必須在逐條寫分片前規範化，
+                      // 否則 text_only 會繞過下面 getAll 分支，把舊部署的絕對樣板房 URL 原樣帶走。
                       if (storeName === 'characters') normalizeCharacterRoomAssetsInPlace(item);
                       const processedItem = noImageStores.has(storeName) ? item : stripTextOnlyMedia(item);
                       writer.appendSync([processedItem]);
@@ -4435,21 +4435,21 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   for (const character of rawData) normalizeCharacterRoomAssetsInPlace(character);
               }
 
-              // 向量旁路：归一化拼 bin + 索引，不进 backupData（writeV2Backup 收尾落 zip）。直接跳过
-              // 下面的图片处理 / switch（向量无图、无 image base64）。
+              // 向量旁路：歸一化拼 bin + 索引，不進 backupData（writeV2Backup 收尾落 zip）。直接跳過
+              // 下面的圖片處理 / switch（向量無圖、無 image base64）。
               if (storeName === 'memory_vectors') {
                   vectorPayload = encodeVectorsForBackup(Array.isArray(rawData) ? rawData : []);
                   await new Promise(resolve => setTimeout(resolve, 10));
                   continue;
               }
 
-              // blobref 令牌（characters 的小屋图 / sprites.chibi、cc_custom_parts 的
+              // blobref 令牌（characters 的小屋圖 / sprites.chibi、cc_custom_parts 的
               // src/shadowSrc、messages 的 cameraSnapshotRef、songs 的 coverImage……）
-              // 不在这里做任何处理：v3 令牌原样进 JSON，onSerialized 统一收集、
-              // 二进制随 blobs/* 旁路走，任何 store 的令牌都覆盖，没有名单可漏。
+              // 不在這裡做任何處理：v3 令牌原樣進 JSON，onSerialized 統一收集、
+              // 二進制隨 blobs/* 旁路走，任何 store 的令牌都覆蓋，沒有名單可漏。
               if (storeName === 'characters' && mode !== 'text_only' && Array.isArray(rawData)) {
-                  // v1 陪伴语音存在 blob_assets（普通备份不读取该 store）。先迁移到
-                  // assets 的二进制语音通道，稍后 assets store 才能把完整 Blob 写进 ZIP。
+                  // v1 陪伴語音存在 blob_assets（普通備份不讀取該 store）。先遷移到
+                  // assets 的二進制語音通道，稍後 assets store 才能把完整 Blob 寫進 ZIP。
                   await ensureCompanionVoiceAssetsForBackup(rawData as CharacterProfile[]);
                   collectCharacterCompanionVoiceAssetIds(rawData as CharacterProfile[])
                       .forEach(assetId => companionVoiceAssetIdsForBackup.add(assetId));
@@ -4477,7 +4477,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
 
               // Fast path: stores with no image data skip expensive recursive traversal
-              // （memory_vectors 已在上面走二进制旁路 continue 掉，这里只剩其它无图 store）
+              // （memory_vectors 已在上面走二進制旁路 continue 掉，這裡只剩其它無圖 store）
               if (noImageStores.has(storeName)) {
                   processedData = rawData;
               } else if (mode === 'text_only') {
@@ -4489,7 +4489,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   
                   if (storeName === 'messages' && mode === 'media_only') {
                       // Keep normal media messages plus lightweight call turns that own
-                      // a retained frame / [图片] marker. Import remains patch-mode.
+                      // a retained frame / [圖片] marker. Import remains patch-mode.
                       rawData = rawData.filter((m: Message) => (
                           m.type === 'image'
                           || m.type === 'emoji'
@@ -4515,8 +4515,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               customDateSprites: c.customDateSprites,
                               spriteConfig: c.spriteConfig,
                               roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
-                                  // data:（旧值，下面 processObject 抽成 assets/*）和 blobref
-                                  // 令牌（v3 原样进包，二进制走 blobs/*）都算媒体，都带走。
+                                  // data:（舊值，下面 processObject 抽成 assets/*）和 blobref
+                                  // 令牌（v3 原樣進包，二進制走 blobs/*）都算媒體，都帶走。
                                   if (item.image && (item.image.startsWith('data:') || isBlobRef(item.image))) {
                                       acc[item.id] = item.image;
                                   }
@@ -4548,7 +4548,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // Assign to Backup Data
               switch(storeName) {
                   case 'characters': if(mode !== 'media_only') backupData.characters = processedData; break;
-                  // 角色分组定义 —— 键名须与 importFullData 读取的字段（data.characterGroups）对齐
+                  // 角色分組定義 —— 鍵名須與 importFullData 讀取的字段（data.characterGroups）對齊
                   case 'character_groups': backupData.characterGroups = processedData; break;
                   case 'npcs': backupData.npcs = processedData; break;
                   case 'messages': backupData.messages = processedData; break;
@@ -4598,7 +4598,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'life_record_settings': backupData.lifeRecordSettings = processedData; break;
                   case 'hotnews_snapshots': backupData.hotNewsSnapshots = processedData; break;
                   case 'memory_nodes': backupData.memoryNodes = processedData; break;
-                  // memory_vectors 走二进制旁路（上面已 continue），不在此 switch 落 backupData
+                  // memory_vectors 走二進制旁路（上面已 continue），不在此 switch 落 backupData
                   case 'memory_links': backupData.memoryLinks = processedData; break;
                   case 'topic_boxes': backupData.topicBoxes = processedData; break;
                   case 'anticipations': backupData.anticipations = processedData; break;
@@ -4609,19 +4609,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'memory_batches': backupData.memoryBatches = processedData; break;
                   case 'pixel_home_assets': backupData.pixelHomeAssets = processedData; break;
                   case 'pixel_home_layouts': backupData.pixelHomeLayouts = processedData; break;
-                  // 「彼方」虚拟世界 —— 键名须与 importFullData 读取的字段对齐
+                  // 「彼方」虛擬世界 —— 鍵名須與 importFullData 讀取的字段對齊
                   case 'vr_novels': backupData.vrNovels = processedData; break;
                   case 'vr_annotations': backupData.vrAnnotations = processedData; break;
                   case 'cc_custom_parts': backupData.customCreatorParts = processedData; break;
                   case 'vr_letters': backupData.vrLetters = processedData; break;
                   case 'vr_settings': backupData.vrSettings = processedData; break;
                   case 'vr_scripts': backupData.vrScripts = processedData; break;
-                  case 'vr_plays': backupData.vrStagedPlays = processedData; break;        // 角色演过的话剧
+                  case 'vr_plays': backupData.vrStagedPlays = processedData; break;        // 角色演過的話劇
                   case 'vr_presets': backupData.vrPresets = processedData; break;
-                  // 单例 store：导入端期望单个对象（取首条），非数组
+                  // 單例 store：導入端期望單個對象（取首條），非數組
                   case 'vr_music': backupData.vrMusicRoom = Array.isArray(processedData) ? (processedData[0] || undefined) : (processedData || undefined); break;
                   case 'vr_guestbook': backupData.vrGuestbook = Array.isArray(processedData) ? (processedData[0] || undefined) : (processedData || undefined); break;
-                  // 家园 —— 键名须与 importFullData 读取的字段（data.worlds / data.worldEpisodes）对齐
+                  // 家園 —— 鍵名須與 importFullData 讀取的字段（data.worlds / data.worldEpisodes）對齊
                   case 'worlds': backupData.worlds = processedData; break;
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
               }
@@ -4629,16 +4629,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               await new Promise(resolve => setTimeout(resolve, 10));
           }
 
-          // 进度条停在 70% 让用户看到接下来的"压缩中 X%"实际推进，而不是卡在 95% 干等。
-          // text_only 用 level 6；媒体/全量仍用 level 9，具体见 generateAsync 配置。
-          setSysOperation({ status: 'processing', message: '正在生成压缩包...', progress: 70 });
+          // 進度條停在 70% 讓用戶看到接下來的"壓縮中 X%"實際推進，而不是卡在 95% 乾等。
+          // text_only 用 level 6；媒體/全量仍用 level 9，具體見 generateAsync 配置。
+          setSysOperation({ status: 'processing', message: '正在生成壓縮包...', progress: 70 });
 
-          // --- v2 分片序列化（替代老的单根 data.json）---
-          // 不再把所有数据拼成一根 data.json：单根字符串逼近 ~512M 会确定性 RangeError。
-          // 改成每个数组字段分片写进 stores/<field>.NNN.json、其余非数组字段进 metadata.json、
-          // 收尾写 manifest.json 当导入契约。导入端按 manifest 把各片拼回与这里完全相同的 data
-          // 对象，喂给原封不动的 importFullData——还原语义（clear-and-add / merge / 单例 /
-          // media_only 补丁……）不在这里重写。详见 utils/backupFormat.ts。
+          // --- v2 分片序列化（替代老的單根 data.json）---
+          // 不再把所有數據拼成一根 data.json：單根字符串逼近 ~512M 會確定性 RangeError。
+          // 改成每個數組字段分片寫進 stores/<field>.NNN.json、其餘非數組字段進 metadata.json、
+          // 收尾寫 manifest.json 當導入契約。導入端按 manifest 把各片拼回與這裡完全相同的 data
+          // 對象，餵給原封不動的 importFullData——還原語義（clear-and-add / merge / 單例 /
+          // media_only 補丁……）不在這裡重寫。詳見 utils/backupFormat.ts。
           await writeV2Backup(
               zip as unknown as ZipFileWriter,
               backupData as Record<string, any>,
@@ -4653,11 +4653,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               },
           );
 
-          // v3 blob 旁路收尾：被引用令牌的 Blob 直写 blobs/<id>（原文件字节，全程不经
-          // base64），附 blobs/index.json。图已丢的令牌跳过——死令牌留在 JSON 里，
-          // 恢复端渲染为空，与 v2 置空串的用户可见结果等价。
+          // v3 blob 旁路收尾：被引用令牌的 Blob 直寫 blobs/<id>（原文件字節，全程不經
+          // base64），附 blobs/index.json。圖已丟的令牌跳過——死令牌留在 JSON 裡，
+          // 恢復端渲染為空，與 v2 置空串的用戶可見結果等價。
           if (collectSerialized && referencedBlobTokens.size > 0) {
-              setSysOperation({ status: 'processing', message: '正在打包图片二进制...', progress: 70 });
+              setSysOperation({ status: 'processing', message: '正在打包圖片二進制...', progress: 70 });
               const { missing } = await writeBlobsToZip(
                   zip as unknown as ZipFileWriter,
                   referencedBlobTokens,
@@ -4665,7 +4665,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   { onYield: () => new Promise<void>(r => setTimeout(r, 0)) },
               );
               if (missing.length > 0) {
-                  console.warn(`备份时 ${missing.length} 个图片令牌已无对应数据，已跳过:`, missing);
+                  console.warn(`備份時 ${missing.length} 個圖片令牌已無對應數據，已跳過:`, missing);
               }
           }
 
@@ -4681,15 +4681,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               );
           }
 
-          // 进度提示：每 ~5% 更新一次（避免高频 React 重渲染），同时让进度
-          // 条从 70% 平滑爬到 99%，用户能确切看到"在动"。
+          // 進度提示：每 ~5% 更新一次（避免高頻 React 重渲染），同時讓進度
+          // 條從 70% 平滑爬到 99%，用戶能確切看到"在動"。
           let lastReportedPercent = -10;
           const content = await zip.generateAsync(
               {
                   type: "blob",
                   streamFiles: true,
                   compression: "DEFLATE",
-                  // 纯文字备份优先手机稳定性；6 级体积差很小，但比 9 级明显省时省内存。
+                  // 純文字備份優先手機穩定性；6 級體積差很小，但比 9 級明顯省時省內存。
                   compressionOptions: { level: mode === 'text_only' ? 6 : 9 },
               },
               (metadata) => {
@@ -4698,7 +4698,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       lastReportedPercent = p;
                       setSysOperation({
                           status: 'processing',
-                          message: `正在压缩备份数据 ${p.toFixed(0)}%...`,
+                          message: `正在壓縮備份數據 ${p.toFixed(0)}%...`,
                           progress: Math.min(99, 70 + Math.floor(p * 0.29)),
                       });
                   }
@@ -4706,18 +4706,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           );
 
           setSysOperation({ status: 'idle', message: '', progress: 100 });
-          // 备份成功 → 推进「该备份啦」提醒的计时（本地导出 / 云备份都走这里，一处覆盖两条路径）
+          // 備份成功 → 推進「該備份啦」提醒的計時（本地導出 / 雲備份都走這裡，一處覆蓋兩條路徑）
           markBackupDone();
           if (malformedImageCount > 0) {
-              console.warn(`[Backup] 备份已完成，已从导出副本跳过 ${malformedImageCount} 处损坏图片`, malformedImageDiagnostics);
-              addToast(`备份已生成，已跳过 ${malformedImageCount} 处无法恢复的损坏图片；其他数据已正常保存`, 'info');
+              console.warn(`[Backup] 備份已完成，已從導出副本跳過 ${malformedImageCount} 處損壞圖片`, malformedImageDiagnostics);
+              addToast(`備份已生成，已跳過 ${malformedImageCount} 處無法恢復的損壞圖片；其他數據已正常保存`, 'info');
           }
           return content;
 
       } catch (e: any) {
           console.error("Export Failed", e);
           setSysOperation({ status: 'idle', message: '', progress: 0 });
-          throw new Error("导出失败: " + e.message);
+          throw new Error("導出失敗: " + e.message);
       }
   };
 
@@ -4729,7 +4729,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const restoredAssetFiles = new Set<string>();
       let totalAssetFiles = 0;
       let lastProgress = 0;
-      let lastCurrent = '解析备份文件';
+      let lastCurrent = '解析備份文件';
       let lastCurrentFile: string | undefined;
       let lastCurrentFileSize: number | undefined;
 
@@ -4738,17 +4738,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const current = update.current ?? lastCurrent;
           const currentFile = update.currentFile ?? lastCurrentFile;
           const currentFileSize = update.currentFileSize ?? lastCurrentFileSize;
-          if (current) lines.push(`当前部分：${current}`);
+          if (current) lines.push(`當前部分：${current}`);
           if (typeof update.itemTotal === 'number' && update.itemTotal > 0) {
-              lines.push(`条目：${update.itemDone || 0}/${update.itemTotal}`);
+              lines.push(`條目：${update.itemDone || 0}/${update.itemTotal}`);
           }
           if (currentFile) {
               const sizeText = formatBytes(currentFileSize);
-              lines.push(`当前文件：${currentFile}${sizeText ? ` · ${sizeText}` : ''}`);
+              lines.push(`當前文件：${currentFile}${sizeText ? ` · ${sizeText}` : ''}`);
           }
-          if (sourceName !== 'json' && update.current === '解析备份文件') {
+          if (sourceName !== 'json' && update.current === '解析備份文件') {
               const sizeText = formatBytes(sourceSize);
-              lines.push(`备份：${sourceName}${sizeText ? ` · ${sizeText}` : ''}`);
+              lines.push(`備份：${sourceName}${sizeText ? ` · ${sizeText}` : ''}`);
           }
           return lines.join('\n');
       };
@@ -4786,7 +4786,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           return Math.max(0, Math.floor(base64.length * 3 / 4) - padding);
       };
 
-      showImportProgress('parsing', '正在解析备份文件...', 1, { current: '解析备份文件', sourceSize });
+      showImportProgress('parsing', '正在解析備份文件...', 1, { current: '解析備份文件', sourceSize });
       try {
           let data: FullBackupData;
           let zip: JSZipLike | null = null;
@@ -4799,7 +4799,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       const text = await fileOrJson.text();
                       data = JSON.parse(text);
                   } catch (e) {
-                      throw new Error("无效的文件格式，请上传 .zip 或 .json");
+                      throw new Error("無效的文件格式，請上傳 .zip 或 .json");
                   }
               } else {
                   const JSZip = await loadJSZip();
@@ -4808,13 +4808,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   totalAssetFiles = countZipAssetFiles(loadedZip);
                   const manifestFile = loadedZip.file("manifest.json");
                   if (manifestFile) {
-                      // v2：manifest 驱动的分片备份。assembleV2Backup 只读 zip、组装内存对象，
-                      // 校验不过直接抛错——此时 importFullData 还没调，DB 一字未动。
+                      // v2：manifest 驅動的分片備份。assembleV2Backup 只讀 zip、組裝內存對象，
+                      // 校驗不過直接拋錯——此時 importFullData 還沒調，DB 一字未動。
                       let manifest: BackupManifest;
                       try {
                           manifest = JSON.parse(await manifestFile.async("string"));
                       } catch {
-                          throw new Error("损坏的备份包：manifest.json 解析失败");
+                          throw new Error("損壞的備份包：manifest.json 解析失敗");
                       }
                       data = await assembleV2Backup(
                           loadedZip as unknown as ZipFileReader,
@@ -4822,16 +4822,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           {
                               onYield: () => new Promise<void>(r => setTimeout(r, 0)),
                               onShardProgress: (field, idx, total) => {
-                                  showImportProgress('parsing', '正在解析备份分片...',
+                                  showImportProgress('parsing', '正在解析備份分片...',
                                       5 + Math.floor((idx / Math.max(1, total)) * 25),
                                       { current: `分片 ${field}` });
                               },
                           },
                       ) as FullBackupData;
                   } else {
-                      // v1（老备份）：单根 data.json，原样保留，老备份永远打得开。
+                      // v1（老備份）：單根 data.json，原樣保留，老備份永遠打得開。
                       const dataFile = loadedZip.file("data.json");
-                      if (!dataFile) throw new Error("损坏的备份包: 缺少 data.json");
+                      if (!dataFile) throw new Error("損壞的備份包: 缺少 data.json");
                       let jsonStr = await dataFile.async("string");
                       data = JSON.parse(jsonStr);
                       jsonStr = '';
@@ -4839,35 +4839,35 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
 
-          // 必须发生在 restoreAssetsInPlace / DB.importFullData 之前：不受支持的第三方
-          // 备份一旦命中特征就整包拒绝，不能出现“导入了一半才报错”的状态。
+          // 必須發生在 restoreAssetsInPlace / DB.importFullData 之前：不受支持的第三方
+          // 備份一旦命中特徵就整包拒絕，不能出現“導入了一半才報錯”的狀態。
           assertSupportedSullyBackup(data);
 
-          // 在 importFullData 为释放内存逐项清空 data 字段前冻结“这是否是主历史替换”。
-          // 新版 media_only 明确不动 SAR；旧备份没有 mode 时，只要带 characters/messages
-          // 就按整档恢复处理，避免导入后继续沿用另一份历史的公告/卡池/推演记录。
+          // 在 importFullData 為釋放內存逐項清空 data 字段前凍結“這是否是主歷史替換”。
+          // 新版 media_only 明確不動 SAR；舊備份沒有 mode 時，只要帶 characters/messages
+          // 就按整檔恢復處理，避免導入後繼續沿用另一份歷史的公告/卡池/推演記錄。
           const replacesPrimaryHistory = data.collaborationBackupMode !== 'media_only'
               && (Object.prototype.hasOwnProperty.call(data, 'characters')
                   || Object.prototype.hasOwnProperty.call(data, 'messages'));
 
-          // 协同文件先完整读出并校验，再开始写任何主数据库。这样文件索引损坏或 ZIP
-          // 缺项时会整包中止，不会出现主数据已恢复、协同文件只回来一半的状态。
+          // 協同文件先完整讀出並校驗，再開始寫任何主數據庫。這樣文件索引損壞或 ZIP
+          // 缺項時會整包中止，不會出現主數據已恢復、協同文件只回來一半的狀態。
           let collaborationAssetRecords: Array<{ id: string; blob: Blob; createdAt: number }> | undefined;
           if (data.collaborationAssetIndex !== undefined) {
               collaborationAssetRecords = [];
               if (data.collaborationAssetIndex.length > 0 && !zip) {
-                  throw new Error('损坏的备份包：协同文件缺少 ZIP 数据');
+                  throw new Error('損壞的備份包：協同文件缺少 ZIP 數據');
               }
               for (let index = 0; index < data.collaborationAssetIndex.length; index++) {
                   const item = data.collaborationAssetIndex[index];
                   if (!item?.id || !item.path?.startsWith('collaboration/assets/')) {
-                      throw new Error('损坏的备份包：协同文件索引无效');
+                      throw new Error('損壞的備份包：協同文件索引無效');
                   }
                   const entry = zip?.file(item.path);
-                  if (!entry) throw new Error(`损坏的备份包：缺少协同文件 ${item.path}`);
+                  if (!entry) throw new Error(`損壞的備份包：缺少協同文件 ${item.path}`);
                   const bytes = await entry.async('uint8array');
                   if (typeof item.size === 'number' && item.size >= 0 && bytes.byteLength !== item.size) {
-                      throw new Error(`损坏的备份包：协同文件大小不符 ${item.path}`);
+                      throw new Error(`損壞的備份包：協同文件大小不符 ${item.path}`);
                   }
                   const fileBytes = new Uint8Array(bytes.byteLength);
                   fileBytes.set(bytes);
@@ -4890,10 +4890,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               });
           }
 
-          // v3 blob 旁路：令牌原样在 JSON 里，二进制在 blobs/*。readBlobsIndex 先把索引
-          // 与文件齐全性验完（此时一个字节没写），再按原令牌 id 写回 blob_assets——令牌
-          // 身份保住，JSON 引用零改写、零重编码。中途失败直接中止导入：主数据尚未写库，
-          // 已写回的部分只是孤儿 blob，由手动 GC 收口。v2 老包没有索引文件，这里是 no-op。
+          // v3 blob 旁路：令牌原樣在 JSON 裡，二進制在 blobs/*。readBlobsIndex 先把索引
+          // 與文件齊全性驗完（此時一個字節沒寫），再按原令牌 id 寫回 blob_assets——令牌
+          // 身份保住，JSON 引用零改寫、零重編碼。中途失敗直接中止導入：主數據尚未寫庫，
+          // 已寫回的部分只是孤兒 blob，由手動 GC 收口。v2 老包沒有索引文件，這裡是 no-op。
           if (zip) {
               const blobEntries = await readBlobsIndex(zip as unknown as ZipFileReader);
               if (blobEntries.length > 0) {
@@ -4904,9 +4904,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       {
                           onYield: () => new Promise<void>(r => setTimeout(r, 0)),
                           onProgress: (done, total, id) => {
-                              showImportProgress('assets', '正在恢复图片二进制...',
+                              showImportProgress('assets', '正在恢復圖片二進制...',
                                   30 + Math.floor((done / Math.max(1, total)) * 5),
-                                  { current: `图片二进制 ${done}/${total}`, currentFile: id });
+                                  { current: `圖片二進制 ${done}/${total}`, currentFile: id });
                           },
                       },
                   );
@@ -4917,7 +4917,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const hadCustomIconsBackup = data.customIcons !== undefined;
           const hadAppearancePresetsBackup = data.appearancePresets !== undefined;
 
-          const restoreAssetsInPlace = async (root: any, label = '数据'): Promise<void> => {
+          const restoreAssetsInPlace = async (root: any, label = '數據'): Promise<void> => {
               if (!zip) return;
 
               type Ref = { parent: any; key: string | number; filename: string };
@@ -4963,7 +4963,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               for (const [filename, refs] of entries) {
                   const fileInZip = zip.file(`assets/${filename}`) as (JSZipFileLike & { _data?: { compressedSize?: number; uncompressedSize?: number } }) | null;
                   const hintedSize = fileInZip?._data?.uncompressedSize || fileInZip?._data?.compressedSize;
-                  showImportProgress('assets', '正在恢复素材...', 35 + Math.floor((restoredAssetFiles.size / Math.max(1, totalAssetFiles || entries.length)) * 35), {
+                  showImportProgress('assets', '正在恢復素材...', 35 + Math.floor((restoredAssetFiles.size / Math.max(1, totalAssetFiles || entries.length)) * 35), {
                       current: label,
                       currentFile: filename,
                       currentFileSize: hintedSize,
@@ -4988,7 +4988,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       }
                       const decodedSize = estimateBase64Bytes(base64);
                       restoredAssetFiles.add(filename);
-                      showImportProgress('assets', '正在恢复素材...', 35 + Math.floor((restoredAssetFiles.size / Math.max(1, totalAssetFiles || entries.length)) * 35), {
+                      showImportProgress('assets', '正在恢復素材...', 35 + Math.floor((restoredAssetFiles.size / Math.max(1, totalAssetFiles || entries.length)) * 35), {
                           current: label,
                           currentFile: filename,
                           currentFileSize: decodedSize,
@@ -5002,7 +5002,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           };
 
-          showImportProgress('database', '正在写入数据库...', 50, { current: '准备写入数据库', currentFile: '' });
+          showImportProgress('database', '正在寫入數據庫...', 50, { current: '準備寫入數據庫', currentFile: '' });
           await DB.importFullData(data, {
               beforeWrite: restoreAssetsInPlace,
               onProgress: progress => {
@@ -5013,7 +5013,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       ? ((progress.itemDone || 0) / progress.itemTotal) / progress.sectionTotal
                       : 0;
                   const dbProgress = 50 + Math.floor(Math.min(1, sectionRatio + itemRatio) * 40);
-                  showImportProgress('database', '正在写入数据库...', dbProgress, {
+                  showImportProgress('database', '正在寫入數據庫...', dbProgress, {
                       current: progress.stage === 'done' ? `${progress.label}完成` : progress.label,
                       currentFile: '',
                       itemDone: progress.itemDone,
@@ -5028,7 +5028,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               || data.collaborationSettings !== undefined
               || collaborationAssetRecords !== undefined;
           if (hasCollaborationBackup) {
-              showImportProgress('database', '正在恢复协同工作...', 91, { current: '协同窗口与文件', currentFile: '' });
+              showImportProgress('database', '正在恢復協同工作...', 91, { current: '協同窗口與文件', currentFile: '' });
               const { CollaborationStore } = await import('../features/collaboration/store');
               await CollaborationStore.importBackup({
                   sessions: data.collaborationSessions,
@@ -5041,24 +5041,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               });
           }
           
-          showImportProgress('settings', '正在恢复系统设置...', 92, { current: '系统设置', currentFile: '' });
-          if (data.sarLocalState) await restoreAssetsInPlace(data.sarLocalState, 'SAR 存档');
+          showImportProgress('settings', '正在恢復系統設置...', 92, { current: '系統設置', currentFile: '' });
+          if (data.sarLocalState) await restoreAssetsInPlace(data.sarLocalState, 'SAR 存檔');
           restoreSARLocalBackup(data.sarLocalState, { replaceMissing: replacesPrimaryHistory });
           if (data.chatInputPreferences !== undefined) saveChatInputPreferences(data.chatInputPreferences);
           if (data.theme) {
-              await restoreAssetsInPlace(data.theme, '系统主题');
+              await restoreAssetsInPlace(data.theme, '系統主題');
               await updateTheme(data.theme);
           }
           if (data.apiConfig) updateApiConfig(data.apiConfig);
           if (data.checkPhoneApi !== undefined) setCheckPhoneApi(data.checkPhoneApi ?? null);
           if (data.availableModels) saveModels(data.availableModels);
           if (data.apiPresets) savePresets(data.apiPresets);
-          if (data.realtimeConfig) updateRealtimeConfig(data.realtimeConfig); // 恢复实时感知配置
-          if (data.memoryPalaceConfig) updateMemoryPalaceConfig(data.memoryPalaceConfig); // 恢复记忆宫殿全局配置
+          if (data.realtimeConfig) updateRealtimeConfig(data.realtimeConfig); // 恢復實時感知配置
+          if (data.memoryPalaceConfig) updateMemoryPalaceConfig(data.memoryPalaceConfig); // 恢復記憶宮殿全局配置
 
           if (data.customIcons !== undefined || data.appearancePresets !== undefined) {
-              await restoreAssetsInPlace(data.customIcons, '应用图标');
-              await restoreAssetsInPlace(data.appearancePresets, '外观预设');
+              await restoreAssetsInPlace(data.customIcons, '應用圖標');
+              await restoreAssetsInPlace(data.appearancePresets, '外觀預設');
               const existingAssets = await DB.getAllAssets();
               if (Array.isArray(existingAssets)) {
                   for (const asset of existingAssets) {
@@ -5091,15 +5091,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (data.studyApiConfig) localStorage.setItem('study_api_config', JSON.stringify(data.studyApiConfig));
           if (data.studyTutorPresets) localStorage.setItem('study_tutor_presets', JSON.stringify(data.studyTutorPresets));
 
-          // Restore 云端配置
+          // Restore 雲端配置
           if (data.cloudBackupConfig) localStorage.setItem('os_cloud_backup_config', JSON.stringify(data.cloudBackupConfig));
           if (data.remoteVectorConfig) localStorage.setItem('os_remote_vector_config', JSON.stringify(data.remoteVectorConfig));
 
-          // Restore 推送凭据 (VAPID)
+          // Restore 推送憑據 (VAPID)
           if (data.pushVapid) localStorage.setItem('push_vapid_v1', JSON.stringify(data.pushVapid));
 
 
-          // Restore Memory Palace 水位线
+          // Restore Memory Palace 水位線
           if (data.memoryPalaceHighWaterMarks) {
               for (const [charId, hwm] of Object.entries(data.memoryPalaceHighWaterMarks)) {
                   if (typeof hwm === 'number' && hwm > 0) {
@@ -5108,11 +5108,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
 
-          // Restore Memory Palace UI flags（人格检测已跑过 / 首次 banner 已见等）
+          // Restore Memory Palace UI flags（人格檢測已跑過 / 首次 banner 已見等）
           if (data.memoryPalaceFlags && typeof data.memoryPalaceFlags === 'object') {
               for (const [key, val] of Object.entries(data.memoryPalaceFlags)) {
                   if (typeof val === 'string') {
-                      // 只允许恢复 mp_ 前缀的键，避免导入数据污染其它 localStorage
+                      // 只允許恢復 mp_ 前綴的鍵，避免導入數據汙染其它 localStorage
                       if (key.startsWith('mp_personality_tried_')
                           || key.startsWith('mp_first_archive_notice_')) {
                           localStorage.setItem(key, val);
@@ -5121,7 +5121,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
           }
 
-          // Restore Chat 翻译 / 归档 / 润色设置
+          // Restore Chat 翻譯 / 歸檔 / 潤色設置
           if (typeof data.chatTranslateSourceLang === 'string') localStorage.setItem('chat_translate_source_lang', data.chatTranslateSourceLang);
           if (typeof data.chatTranslateTargetLang === 'string') localStorage.setItem('chat_translate_lang', data.chatTranslateTargetLang);
           if (data.chatTranslateEnabledByChar && typeof data.chatTranslateEnabledByChar === 'object') {
@@ -5164,7 +5164,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (typeof data.gotchiAccentHue === 'string' && /^\d+$/.test(data.gotchiAccentHue)) localStorage.setItem('tama_accent_hue', data.gotchiAccentHue);
           if (data.eventNotifFlags && typeof data.eventNotifFlags === 'object') {
               for (const [key, val] of Object.entries(data.eventNotifFlags)) {
-                  // 只允许 sullyos_ 前缀，避免污染其它键
+                  // 只允許 sullyos_ 前綴，避免汙染其它鍵
                   if (typeof val === 'string' && key.startsWith('sullyos_')) {
                       localStorage.setItem(key, val);
                   }
@@ -5172,7 +5172,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           
           if (data.socialAppData) {
-              await restoreAssetsInPlace(data.socialAppData, '动态设置');
+              await restoreAssetsInPlace(data.socialAppData, '動態設置');
               if (data.socialAppData.charHandles) localStorage.setItem('spark_char_handles', JSON.stringify(data.socialAppData.charHandles));
               if (data.socialAppData.userId) localStorage.setItem('spark_user_id', data.socialAppData.userId);
               
@@ -5183,7 +5183,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           
           // Restore Room Custom Assets to DB (migrate old format on import)
           if (data.roomCustomAssets) {
-              await restoreAssetsInPlace(data.roomCustomAssets, '房间自定义素材');
+              await restoreAssetsInPlace(data.roomCustomAssets, '房間自定義素材');
               const migratedAssets = data.roomCustomAssets.map((a: any) => ({
                   ...a,
                   id: a.id || `asset_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -5223,7 +5223,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               setAppearancePresets(loadedPresets);
           }
 
-          // 导入后的角色清单（下面主动消息 2.0 对账要用规范化之后的那份）
+          // 導入後的角色清單（下面主動消息 2.0 對帳要用規範化之後的那份）
           let importedChars = chars;
           if (chars.length > 0) {
               let importedAutoContextCount = 0;
@@ -5242,7 +5242,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               importedChars = normalizedChars;
               if (importedAutoContextCount > 0) {
                   setTimeout(() => addToast(
-                      `导入的旧设置已升级：${importedAutoContextCount} 个全自动记忆角色已使用自适应上下文。`,
+                      `導入的舊設置已升級：${importedAutoContextCount} 個全自動記憶角色已使用自適應上下文。`,
                       'info',
                   ), 600);
               }
@@ -5254,10 +5254,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (novelList.length > 0) setNovels(novelList);
           if (songList.length > 0) setSongs(songList);
 
-          // ─── 主动消息 2.0：导入后跟云端对一次账 ───
-          // 导入换掉了整套角色，worker 那边却还停在导入前：旧档角色的远端任务变成无主任务
-          // 到点照样推送，新档角色的 fire_pack 和工具凭据则停格在导入前那一刻。
-          // 整段 best-effort：这是恢复流程的收尾，云端够不着不该让已经写好的本地数据回滚。
+          // ─── 主動消息 2.0：導入後跟雲端對一次帳 ───
+          // 導入換掉了整套角色，worker 那邊卻還停在導入前：舊檔角色的遠端任務變成無主任務
+          // 到點照樣推送，新檔角色的 fire_pack 和工具憑據則停格在導入前那一刻。
+          // 整段 best-effort：這是恢復流程的收尾，雲端夠不著不該讓已經寫好的本地數據回滾。
           try {
               const amsgWorkerUrl = (await ActiveMsgStore.getGlobalConfig()).workerUrl?.trim();
               if (amsgWorkerUrl) {
@@ -5267,31 +5267,31 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       if (typeof task?.uuid !== 'string') continue;
                       const owner = typeof task?.charId === 'string' ? task.charId : '';
                       if (owner && knownCharIds.has(owner)) continue;
-                      // 「导入即放弃旧数据」：这条任务的主人在新档里已经不存在了（连主人是谁
-                      // 都没投影出来的同理），它正属于该一起放弃的部分，取消就是对的。
+                      // 「導入即放棄舊數據」：這條任務的主人在新檔裡已經不存在了（連主人是誰
+                      // 都沒投影出來的同理），它正屬於該一起放棄的部分，取消就是對的。
                       await ActiveMsgClient.cancelTask(task.uuid).catch(() => {});
                   }
-                  // 留下来的角色逐个刷云端快照，同时把导入进来的实时感知凭据传上去。
-                  // 走同一个入口：云端提示词是按凭据裁过的，两者必须同进同退。
-                  // 有 AI 任务的角色才会真的上传（门在 markAmsgStateDirty 里）。
+                  // 留下來的角色逐個刷雲端快照，同時把導入進來的實時感知憑據傳上去。
+                  // 走同一個入口：雲端提示詞是按憑據裁過的，兩者必須同進同退。
+                  // 有 AI 任務的角色才會真的上傳（門在 markAmsgStateDirty 裡）。
                   syncAmsgToolConfigAndPrompts(
                       data.realtimeConfig || realtimeConfig,
                       { characters: importedChars, userProfile: applyActivePersona(user || userProfile), groups: groupsList },
                   );
               }
           } catch (e) {
-              console.warn('[amsg2] 导入后云端对账失败（本地数据已恢复，不受影响）', e);
+              console.warn('[amsg2] 導入後雲端對帳失敗（本地數據已恢復，不受影響）', e);
           }
 
           setSysOperation({ status: 'idle', message: '', progress: 100 });
           clearImportInProgress();
-          addToast('恢复成功，系统即将重启...', 'success');
+          addToast('恢復成功，系統即將重啟...', 'success');
           setTimeout(() => window.location.reload(), 1500);
 
       } catch (e: any) {
           console.error("Import Error:", e);
           setSysOperation({ status: 'idle', message: '', progress: 0 });
-          const msg = e instanceof SyntaxError ? 'JSON 格式错误' : (e.message || '未知错误');
+          const msg = e instanceof SyntaxError ? 'JSON 格式錯誤' : (e.message || '未知錯誤');
           markImportInProgress('error', sourceName, {
               sourceSize,
               current: lastCurrent,
@@ -5301,14 +5301,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               assetTotal: totalAssetFiles || undefined,
               error: msg,
           });
-          throw new Error(`恢复失败: ${msg}`);
+          throw new Error(`恢復失敗: ${msg}`);
       }
   };
 
-  const resetSystem = async () => { try { await DB.deleteDB(); localStorage.clear(); window.location.reload(); } catch (e) { console.error(e); addToast('重置失败，请手动清除浏览器数据', 'error'); } };
+  const resetSystem = async () => { try { await DB.deleteDB(); localStorage.clear(); window.location.reload(); } catch (e) { console.error(e); addToast('重置失敗，請手動清除瀏覽器數據', 'error'); } };
   const openApp = (appId: AppID) => setActiveApp(appId);
   const closeApp = () => setActiveApp(AppID.Launcher);
-  // 从聊天直接进入某角色的见面：切换当前角色 + 标记自动进入 + 打开见面 App
+  // 從聊天直接進入某角色的見面：切換當前角色 + 標記自動進入 + 打開見面 App
   const openDateWithChar = (charId: string) => {
     setActiveCharacterId(charId);
     setDateAutoStartCharId(charId);

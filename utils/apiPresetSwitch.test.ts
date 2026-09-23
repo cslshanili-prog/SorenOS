@@ -1,7 +1,7 @@
-// 「点预设 = 立刻切过去」的口径守卫。
+// 「點預設 = 立刻切過去」的口徑守衛。
 //
-// 为什么值得钉：这块出过的问题全是静默的——界面高亮着 B、请求发去 A，或者切了一下
-// 温度被顺手重置。都不报错，只有对着账单或输出风格才看得出来。
+// 為什麼值得釘：這塊出過的問題全是靜默的——界面高亮著 B、請求發去 A，或者切了一下
+// 溫度被順手重置。都不報錯，只有對著帳單或輸出風格才看得出來。
 import { describe, expect, it } from 'vitest';
 
 import type { APIConfig, ApiPreset } from '../types';
@@ -14,7 +14,7 @@ const preset = (id: string, config: Partial<APIConfig>): ApiPreset => ({
 });
 
 describe('configFromPreset', () => {
-  it('带上三件套并归一化（末尾斜杠、粘贴带进来的空格）', () => {
+  it('帶上三件套並歸一化（末尾斜槓、粘貼帶進來的空格）', () => {
     const patch = configFromPreset(preset('a', {
       baseUrl: ' https://api.example.com/v1/ ',
       apiKey: ' sk-abc ',
@@ -28,16 +28,16 @@ describe('configFromPreset', () => {
     });
   });
 
-  it('预设没存 stream / temperature 时一个字都不带（老预设不许重置用户调过的温度）', () => {
-    // 聊天面板存的预设只有三件套。旧实现在这里补 stream:false + temperature:0.85，
-    // 切一次预设就把用户手调的温度打回默认。
+  it('預設沒存 stream / temperature 時一個字都不帶（老預設不許重置用戶調過的溫度）', () => {
+    // 聊天面板存的預設只有三件套。舊實現在這裡補 stream:false + temperature:0.85，
+    // 切一次預設就把用戶手調的溫度打回默認。
     const patch = configFromPreset(preset('a', { baseUrl: 'https://x', model: 'm' }));
 
     expect('stream' in patch).toBe(false);
     expect('temperature' in patch).toBe(false);
   });
 
-  it('预设存了就照搬，包括 false / 0 这种容易被 falsy 判定吃掉的值', () => {
+  it('預設存了就照搬，包括 false / 0 這種容易被 falsy 判定吃掉的值', () => {
     const patch = configFromPreset(preset('a', {
       baseUrl: 'https://x',
       model: 'm',
@@ -53,16 +53,16 @@ describe('configFromPreset', () => {
 describe('findActivePresetId', () => {
   const presets = [
     preset('main', { baseUrl: 'https://a.example.com/v1', apiKey: 'sk-1', model: 'm1' }),
-    // 同站同模型、只换了令牌的副号：Key 也参与比对，两条不能混为一条
+    // 同站同模型、只換了令牌的副號：Key 也參與比對，兩條不能混為一條
     preset('backup', { baseUrl: 'https://a.example.com/v1', apiKey: 'sk-2', model: 'm1' }),
   ];
 
-  it('认出当前生效的那条', () => {
+  it('認出當前生效的那條', () => {
     expect(findActivePresetId(presets, { baseUrl: 'https://a.example.com/v1', apiKey: 'sk-2', model: 'm1' }))
       .toBe('backup');
   });
 
-  it('末尾斜杠不同不算换了一条', () => {
+  it('末尾斜槓不同不算換了一條', () => {
     expect(findActivePresetId(presets, { baseUrl: 'https://a.example.com/v1/', apiKey: 'sk-1', model: 'm1' }))
       .toBe('main');
   });
@@ -72,13 +72,13 @@ describe('findActivePresetId', () => {
       .toBeNull();
   });
 
-  it('还没配过 API 时不打勾（别跟同样空着的预设撞上）', () => {
+  it('還沒配過 API 時不打勾（別跟同樣空著的預設撞上）', () => {
     expect(findActivePresetId([preset('empty', {})], { baseUrl: '', apiKey: '', model: '' })).toBeNull();
   });
 });
 
 describe('presetMatchesConfig', () => {
-  it('只看三件套，温度 / 流式不参与判定', () => {
+  it('只看三件套，溫度 / 流式不參與判定', () => {
     const p = preset('a', { baseUrl: 'https://x', apiKey: 'k', model: 'm', temperature: 0.85 });
 
     expect(presetMatchesConfig(p, { baseUrl: 'https://x', apiKey: 'k', model: 'm' })).toBe(true);

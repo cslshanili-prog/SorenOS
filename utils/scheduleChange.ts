@@ -8,8 +8,8 @@ import type { ExtractedScheduleChanges, ScheduleChangeDirective } from './schedu
 
 export const SCHEDULE_CHANGE_EVENT = 'schedule-change-applied';
 
-// 解析层住在 utils/scheduleChangeParse.ts —— 那是零依赖叶子，worker 侧的业务标签
-// classifier 也要用它（见那份文件顶部的说明）。这里转发一道，现有调用点不用改 import。
+// 解析層住在 utils/scheduleChangeParse.ts —— 那是零依賴葉子，worker 側的業務標籤
+// classifier 也要用它（見那份文件頂部的說明）。這裡轉發一道，現有調用點不用改 import。
 export type { ExtractedScheduleChanges, ScheduleChangeDirective } from './scheduleChangeParse';
 export { extractScheduleChangeDirectives } from './scheduleChangeParse';
 
@@ -32,8 +32,8 @@ export interface AppliedScheduleChangeResult extends ExtractedScheduleChanges {
     changes: AppliedScheduleChange[];
     rejectedCount: number;
     /**
-     * rejectedCount > 0 时说明是哪一种拒绝，给调用方拼准确的提示语用。
-     * `cross-day` 是这句话不是今天说的、整批作废；`no-slot` 是今天的表里没有能落的时段。
+     * rejectedCount > 0 時說明是哪一種拒絕，給調用方拼準確的提示語用。
+     * `cross-day` 是這句話不是今天說的、整批作廢；`no-slot` 是今天的表裡沒有能落的時段。
      */
     rejectedReason?: 'cross-day' | 'no-slot';
 }
@@ -48,12 +48,12 @@ const minutesOf = (time: string): number | null => {
 };
 
 /**
- * 纯数据层：只允许命中已有的时段，且只能是当前正在进行的这一条或它之后的；
- * 无法确定目标时宁可不改。
+ * 純數據層：只允許命中已有的時段，且只能是當前正在進行的這一條或它之後的；
+ * 無法確定目標時寧可不改。
  *
- * 「当前这一条也能改」是有意为之：夜里最后一条日程通常是睡觉，人却还在聊天，
- * 角色说「今晚不睡了陪你」时得有地方落，否则它读到的当前时段永远停在睡觉上，
- * 每一轮都被这条硬事实推着去道晚安。已经过去的时段仍然改不了——那是既成事实。
+ * 「當前這一條也能改」是有意為之：夜裡最後一條日程通常是睡覺，人卻還在聊天，
+ * 角色說「今晚不睡了陪你」時得有地方落，否則它讀到的當前時段永遠停在睡覺上，
+ * 每一輪都被這條硬事實推著去道晚安。已經過去的時段仍然改不了——那是既成事實。
  */
 export const applyScheduleChanges = (
     schedule: DailySchedule,
@@ -64,22 +64,22 @@ export const applyScheduleChanges = (
     const wallNow = getScheduleWallClock(char, at);
     const currentMinutes = wallNow.getHours() * 60 + wallNow.getMinutes();
     const slots: ScheduleSlot[] = schedule.slots.map((slot) => ({ ...slot }));
-    // 「当前是第几条」跟日程卡 / 首页小组件 / 日程注入用同一个函数。两边说的必须是同一条，
-    // 否则界面高亮成「此刻」的那条，在这里会被判成不可改。
+    // 「當前是第幾條」跟日程卡 / 首頁小組件 / 日程注入用同一個函數。兩邊說的必須是同一條，
+    // 否則界面高亮成「此刻」的那條，在這裡會被判成不可改。
     const currentIndex = getCurrentScheduleSlotIndex(slots, char, at);
     const changeByTime = new Map<string, AppliedScheduleChange>();
     let rejectedCount = 0;
 
     for (const directive of directives) {
         const targetMinutes = minutesOf(directive.startTime);
-        // 未来的时段一律可改；已经开始的只放行当前这一条，更早的属于既成事实。
-        // 落点先在「当前时段及之后」这一段里找：同一个 startTime 万一出现两次，
-        // 要改的是还没过去的那条，而不是数组里排在前面的那条。
+        // 未來的時段一律可改；已經開始的只放行當前這一條，更早的屬於既成事實。
+        // 落點先在「當前時段及之後」這一段裡找：同一個 startTime 萬一出現兩次，
+        // 要改的是還沒過去的那條，而不是數組裡排在前面的那條。
         const editableFrom = currentIndex < 0 ? 0 : currentIndex;
         let slotIndex = slots.findIndex(
             (slot, i) => i >= editableFrom && slot.startTime === directive.startTime,
         );
-        // 日程表理应按时间排好；万一乱序，位置靠前但时刻确实在未来的时段也该能改。
+        // 日程表理應按時間排好；萬一亂序，位置靠前但時刻確實在未來的時段也該能改。
         if (slotIndex < 0 && targetMinutes != null && targetMinutes > currentMinutes) {
             slotIndex = slots.findIndex((slot) => slot.startTime === directive.startTime);
         }
@@ -94,7 +94,7 @@ export const applyScheduleChanges = (
         slots[slotIndex] = {
             startTime: slot.startTime,
             activity: directive.activity.trim(),
-            // 原描述、地点、独白和小剧场都围绕旧活动生成，保留会立即穿帮。
+            // 原描述、地點、獨白和小劇場都圍繞舊活動生成，保留會立即穿幫。
             ...(slot.emoji ? { emoji: slot.emoji } : {}),
         };
         changeByTime.set(directive.startTime, {
@@ -110,7 +110,7 @@ export const applyScheduleChanges = (
         schedule: {
             ...schedule,
             slots,
-            // 整日意识流同样基于旧计划生成；清掉后回落到当前 slot 的独白，避免安排都改了、念头仍旧。
+            // 整日意識流同樣基於舊計劃生成；清掉後回落到當前 slot 的獨白，避免安排都改了、念頭仍舊。
             flowNarrative: undefined,
         },
         changes,
@@ -119,12 +119,12 @@ export const applyScheduleChanges = (
 };
 
 /**
- * 解析模型回复、落库成功的日程改动，并返回供聊天 UI 展示的差异。
+ * 解析模型回覆、落庫成功的日程改動，並返回供聊天 UI 展示的差異。
  *
- * `at` 是**这句话说出口的时刻**，不是处理它的时刻。本地聊天两者只差几秒，主动消息
- * 差得可以很远：昨晚 22:05 发出的「22:00 改成陪你聊天」，用户今早九点才打开 App。
- * 按处理时刻判的话，那条会落到**今天**的 22:00 上——角色昨晚的一句话，改了今天的安排。
- * 所以调用方要把 push 的 sentAt 传进来，隔天的整批直接丢弃（见下面的日历日门槛）。
+ * `at` 是**這句話說出口的時刻**，不是處理它的時刻。本地聊天兩者只差幾秒，主動消息
+ * 差得可以很遠：昨晚 22:05 發出的「22:00 改成陪你聊天」，用戶今早九點才打開 App。
+ * 按處理時刻判的話，那條會落到**今天**的 22:00 上——角色昨晚的一句話，改了今天的安排。
+ * 所以調用方要把 push 的 sentAt 傳進來，隔天的整批直接丟棄（見下面的日曆日門檻）。
  */
 export const applyAssistantScheduleChanges = async (
     text: string,
@@ -140,13 +140,13 @@ export const applyAssistantScheduleChanges = async (
 };
 
 /**
- * 落库那半边：已经拿到 directives 之后的取表 → 改 → 存。
+ * 落庫那半邊：已經拿到 directives 之後的取表 → 改 → 存。
  *
- * 单独开一个口子，是因为改动不只从聊天正文来。角色在后台改自己的日程时，那一轮可能
- * 一个字都没说，指令是随云端结果（`schedule-change`，见 utils/amsgScheduleResult.ts）
- * 回来的，没有正文可解析。两条路都走这里，「哪条时段能改」「隔天怎么算」只有一套说法。
+ * 單獨開一個口子，是因為改動不只從聊天正文來。角色在後台改自己的日程時，那一輪可能
+ * 一個字都沒說，指令是隨雲端結果（`schedule-change`，見 utils/amsgScheduleResult.ts）
+ * 回來的，沒有正文可解析。兩條路都走這裡，「哪條時段能改」「隔天怎麼算」只有一套說法。
  *
- * `at` 同样是**说出口**的时刻，不是处理它的时刻。
+ * `at` 同樣是**說出口**的時刻，不是處理它的時刻。
  */
 export const applyScheduleChangeDirectives = async (
     directives: ScheduleChangeDirective[],
@@ -157,18 +157,18 @@ export const applyScheduleChangeDirectives = async (
         return { schedule: null, changes: [], rejectedCount: 0 };
     }
 
-    // 日历日门槛：说出口那天不是角色当地的今天，这批改动就已经没有落点了
-    // ——今天的日程是另一张表，昨天的意思不该盖到它头上。整批算作拒绝，
-    // 调用方照常收到 rejectedCount，但一个字都不落库。
+    // 日曆日門檻：說出口那天不是角色當地的今天，這批改動就已經沒有落點了
+    // ——今天的日程是另一張表，昨天的意思不該蓋到它頭上。整批算作拒絕，
+    // 調用方照常收到 rejectedCount，但一個字都不落庫。
     const sameDay = getLocalDateKey(getScheduleWallClock(char, at))
         === getLocalDateKey(getScheduleWallClock(char, new Date()));
     if (!sameDay) {
         return { schedule: null, changes: [], rejectedCount: directives.length, rejectedReason: 'cross-day' };
     }
 
-    // 上面的日历日门槛已经保证「说出口那天」就是角色当地的今天，所以这里要的就是今天
-    // 那张表，用「现在」去取。传 at 会让表内的 legacy key 兜底按**设备**时区折算日期，
-    // 跨时区角色可能因此探到另一天的旧键。
+    // 上面的日曆日門檻已經保證「說出口那天」就是角色當地的今天，所以這裡要的就是今天
+    // 那張表，用「現在」去取。傳 at 會讓表內的 legacy key 兜底按**設備**時區折算日期，
+    // 跨時區角色可能因此探到另一天的舊鍵。
     const schedule = await getDailyScheduleForChar(char);
     if (!schedule) {
         return { schedule: null, changes: [], rejectedCount: directives.length, rejectedReason: 'no-slot' };
@@ -178,8 +178,8 @@ export const applyScheduleChangeDirectives = async (
     if (applied.changes.length > 0) await DB.saveDailySchedule(applied.schedule);
     return {
         ...applied,
-        // 只在一条都没落地时才给原因。部分成功的批次（两条指令落了一条）挂上 'no-slot'
-        // 是在说谎——这个字段是给调用方拼「为什么没改成」用的，而那种情况已经改成了。
+        // 只在一條都沒落地時才給原因。部分成功的批次（兩條指令落了一條）掛上 'no-slot'
+        // 是在說謊——這個字段是給調用方拼「為什麼沒改成」用的，而那種情況已經改成了。
         ...(applied.changes.length === 0 && applied.rejectedCount > 0
             ? { rejectedReason: 'no-slot' as const }
             : {}),

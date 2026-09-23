@@ -1,18 +1,18 @@
 /**
- * Memory Palace — EventBox 压缩
+ * Memory Palace — EventBox 壓縮
  *
- * 当 EventBox 的活节点 ≥ COMPRESSION_THRESHOLD (4) 条时触发：
- *   1. LLM 把"旧 summary?(若有) + 所有活节点"整合成一段第一人称连贯回忆
- *   2. 创建/更新 box.summaryNodeId 指向的 MemoryNode（isBoxSummary=true）
- *   3. 总结节点向量化、写入本地+远程
- *   4. 所有活节点 archived=true（本地保存 + 远程 bulkSetArchived）
+ * 當 EventBox 的活節點 ≥ COMPRESSION_THRESHOLD (4) 條時觸發：
+ *   1. LLM 把"舊 summary?(若有) + 所有活節點"整合成一段第一人稱連貫回憶
+ *   2. 創建/更新 box.summaryNodeId 指向的 MemoryNode（isBoxSummary=true）
+ *   3. 總結節點向量化、寫入本地+遠程
+ *   4. 所有活節點 archived=true（本地保存 + 遠程 bulkSetArchived）
  *   5. 更新 box.archivedMemoryIds / liveMemoryIds=[] / compressionCount++
  *
- * 触发点：
- *   - pipeline.processNewMessages 在 vectorize 之后扫描 touched boxes
- *   - migration.migrateOldMemories 全部 chunk 处理完后扫描 touched boxes
+ * 觸發點：
+ *   - pipeline.processNewMessages 在 vectorize 之後掃描 touched boxes
+ *   - migration.migrateOldMemories 全部 chunk 處理完後掃描 touched boxes
  *
- * 重压缩：第 N 次时，"旧 summary + 新活节点" 一起送给 LLM 重写，覆盖旧 summary。
+ * 重壓縮：第 N 次時，"舊 summary + 新活節點" 一起送給 LLM 重寫，覆蓋舊 summary。
  */
 
 import type { EventBox, MemoryNode, EmbeddingConfig, MemoryRoom, RemoteVectorConfig } from './types';
@@ -59,11 +59,11 @@ interface CompressionLLMResult {
 }
 
 /**
- * 检测模型把“怎么算字数 / 怎么压缩”的过程误塞进整合回忆正文。
+ * 檢測模型把“怎麼算字數 / 怎麼壓縮”的過程誤塞進整合回憶正文。
  *
- * 只凭一个英文短语就拒绝会误伤真实对话，所以要求至少命中两种典型信号；
- * 显式 think 标签则可以直接判定。这个守卫主要兜 Gemini/推理中转把未标记
- * reasoning 混进 content 的情况，例如：Paragraph 1: 31 chars / Still too long。
+ * 只憑一個英文短語就拒絕會誤傷真實對話，所以要求至少命中兩種典型信號；
+ * 顯式 think 標籤則可以直接判定。這個守衛主要兜 Gemini/推理中轉把未標記
+ * reasoning 混進 content 的情況，例如：Paragraph 1: 31 chars / Still too long。
  */
 export function hasSummaryReasoningLeak(content: string): boolean {
     const text = content.trim();
@@ -82,11 +82,11 @@ export function hasSummaryReasoningLeak(content: string): boolean {
 }
 
 /**
- * 字段级兜底解析：当 LLM 在 content 里塞了未转义的 ASCII "（中文输出高发，
- * 标准 JSON.parse 直接挂），按已知 schema 把六个字段一个一个抠出来。
+ * 字段級兜底解析：當 LLM 在 content 裡塞了未轉義的 ASCII "（中文輸出高發，
+ * 標準 JSON.parse 直接掛），按已知 schema 把六個字段一個一個摳出來。
  *
- * 策略：content 抠到下一个顶层键（name/tags/room/importance/mood）出现之前为止，
- * 其余字段用宽松正则。任何一个字段失败都视为兜底失败，让上层走原 null 路径。
+ * 策略：content 摳到下一個頂層鍵（name/tags/room/importance/mood）出現之前為止，
+ * 其餘字段用寬鬆正則。任何一個字段失敗都視為兜底失敗，讓上層走原 null 路徑。
  */
 function recoverCompressionFields(raw: string): Partial<CompressionLLMResult> | null {
     if (!raw) return null;
@@ -95,20 +95,20 @@ function recoverCompressionFields(raw: string): Partial<CompressionLLMResult> | 
         .replace(/\n?```\s*$/gm, '')
         .trim();
 
-    // 找到 content 字段值的起始引号
+    // 找到 content 字段值的起始引號
     const contentStartMatch = text.match(/"content"\s*:\s*"/);
     if (!contentStartMatch || contentStartMatch.index === undefined) return null;
     const valueStart = contentStartMatch.index + contentStartMatch[0].length;
 
-    // content 结束的判据：紧跟着 ", "name"|"tags"|"room"|"importance"|"mood" 这种下一个顶层键
-    // 用「最后一个 " + 任意空白/逗号 + 下一个键名」的匹配，能正确跳过中间所有 ASCII "
+    // content 結束的判據：緊跟著 ", "name"|"tags"|"room"|"importance"|"mood" 這種下一個頂層鍵
+    // 用「最後一個 " + 任意空白/逗號 + 下一個鍵名」的匹配，能正確跳過中間所有 ASCII "
     const tailMatch = text.slice(valueStart).match(/"\s*,\s*"(?:name|tags|room|importance|mood)"\s*:/);
     if (!tailMatch || tailMatch.index === undefined) return null;
     const rawContent = text.slice(valueStart, valueStart + tailMatch.index);
 
-    // 把抠出来的 raw content 做 JSON 字符串转义还原。\\ 用占位符暂存，
-    // 避免 \" 被错误地拆成 \ + \"。残留的裸 " 不动——上层 JSON.parse 已失败，
-    // 走到这里说明 LLM 在 content 内就是塞了未转义的 "，保留即可，最终 summary 是普通字符串。
+    // 把摳出來的 raw content 做 JSON 字符串轉義還原。\\ 用佔位符暫存，
+    // 避免 \" 被錯誤地拆成 \ + \"。殘留的裸 " 不動——上層 JSON.parse 已失敗，
+    // 走到這裡說明 LLM 在 content 內就是塞了未轉義的 "，保留即可，最終 summary 是普通字符串。
     const BS = '\u0001';
     const normalized = rawContent
         .replace(/\\\\/g, BS)
@@ -142,7 +142,7 @@ function recoverCompressionFields(raw: string): Partial<CompressionLLMResult> | 
     };
 }
 
-// ─── 压缩 LLM 调用 ─────────────────────────────────────
+// ─── 壓縮 LLM 調用 ─────────────────────────────────────
 
 async function callCompressionLLM(
     box: EventBox,
@@ -152,7 +152,7 @@ async function callCompressionLLM(
     charName: string,
     userName: string | undefined,
 ): Promise<CompressionLLMResult | null> {
-    const userLabel = userName || '用户';
+    const userLabel = userName || '用戶';
 
     const formatDate = (ts: number): string => {
         const d = new Date(ts);
@@ -164,33 +164,33 @@ async function callCompressionLLM(
         .join('\n\n');
 
     const oldSummaryBlock = oldSummaryContent
-        ? `\n## 你之前已经回忆过这件事一次，那时记下的是：\n${oldSummaryContent}\n\n后来又新增了下面这些：\n`
-        : `\n## 关于这件事的零散记忆碎片：\n`;
+        ? `\n## 你之前已經回憶過這件事一次，那時記下的是：\n${oldSummaryContent}\n\n後來又新增了下面這些：\n`
+        : `\n## 關於這件事的零散記憶碎片：\n`;
     const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(`${oldSummaryContent || ''}\n${livesText}`);
 
-    const systemPrompt = `你是 ${charName}。下面这些记忆都属于一件事：「${box.name}」。
-请把它们整合成一段连贯的、第一人称（「我」）的回忆。
+    const systemPrompt = `你是 ${charName}。下面這些記憶都屬於一件事：「${box.name}」。
+請把它們整合成一段連貫的、第一人稱（「我」）的回憶。
 
-**要求（严格遵守）**：
-1. **第一人称**（用「我」），从 ${charName} 的视角写。${userLabel} 用名字直接称呼。
-2. **字数目标 ${EVENT_BOX_SUMMARY_TARGET_MIN_CHARS}-${EVENT_BOX_SUMMARY_TARGET_MAX_CHARS} 字，绝对上限 ${EVENT_BOX_SUMMARY_HARD_MAX_CHARS} 字**。紧凑、务实、不口水。
-3. **只保留关键信息**：具体人物、动作、对象、场景、转折、情绪。**去掉所有语气填充、修辞铺陈、重复感慨**（如「真是的」、「怎么说呢」、「不过话说回来」等）。事实先行。
-4. **带时间点但不冗余**：每件事标一次日期就够（「3 月 20 日…4 月 5 日…」），不要每句都重复时间。
-5. **连贯但简洁**：不套「起因/经过/结果」模板，但要让读者能按顺序看懂事情怎么发展的。
-6. **覆盖所有关键词**（这是给向量检索用的）—— 每条新增的旧记忆里出现过的具体名词、地点、人物必须在 content 里出现一次。
-7. **content 字符串内严禁使用半角双引号 \`"\`**。要引用人物原话、书名、外号、术语，一律用中文方角引号「」、《》或单引号 \`'\`。否则会破坏外层 JSON 解析、整批记忆白丢。
+**要求（嚴格遵守）**：
+1. **第一人稱**（用「我」），從 ${charName} 的視角寫。${userLabel} 用名字直接稱呼。
+2. **字數目標 ${EVENT_BOX_SUMMARY_TARGET_MIN_CHARS}-${EVENT_BOX_SUMMARY_TARGET_MAX_CHARS} 字，絕對上限 ${EVENT_BOX_SUMMARY_HARD_MAX_CHARS} 字**。緊湊、務實、不口水。
+3. **只保留關鍵信息**：具體人物、動作、對象、場景、轉折、情緒。**去掉所有語氣填充、修辭鋪陳、重複感慨**（如「真是的」、「怎麼說呢」、「不過話說回來」等）。事實先行。
+4. **帶時間點但不冗餘**：每件事標一次日期就夠（「3 月 20 日…4 月 5 日…」），不要每句都重複時間。
+5. **連貫但簡潔**：不套「起因/經過/結果」模板，但要讓讀者能按順序看懂事情怎麼發展的。
+6. **覆蓋所有關鍵詞**（這是給向量檢索用的）—— 每條新增的舊記憶裡出現過的具體名詞、地點、人物必須在 content 裡出現一次。
+7. **content 字符串內嚴禁使用半角雙引號 \`"\`**。要引用人物原話、書名、外號、術語，一律用中文方角引號「」、《》或單引號 \`'\`。否則會破壞外層 JSON 解析、整批記憶白丟。
 ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
 
-附带输出 metadata：
-- name：5-12 字的精炼盒名
-- tags：5-10 个具体的搜索 tag（具体名词）
+附帶輸出 metadata：
+- name：5-12 字的精煉盒名
+- tags：5-10 個具體的搜索 tag（具體名詞）
 - room：${VALID_ROOMS.join(' / ')}
 - importance：1-10
 - mood：happy / sad / angry / anxious / tender / excited / peaceful / confused / hurt / grateful / nostalgic / neutral
 
-严格 JSON，不要 markdown 包裹（content 里的引用一律用「」/《》/'，不要用 "）：
+嚴格 JSON，不要 markdown 包裹（content 裡的引用一律用「」/《》/'，不要用 "）：
 {
-  "content": "（紧凑的第一人称回忆，${EVENT_BOX_SUMMARY_TARGET_MIN_CHARS}-${EVENT_BOX_SUMMARY_TARGET_MAX_CHARS}字）",
+  "content": "（緊湊的第一人稱回憶，${EVENT_BOX_SUMMARY_TARGET_MIN_CHARS}-${EVENT_BOX_SUMMARY_TARGET_MAX_CHARS}字）",
   "name": "...",
   "tags": ["...", "..."],
   "room": "...",
@@ -220,47 +220,47 @@ ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
                     stream: false,
                 }),
             },
-            2, 120_000, { appName: '记忆宫殿', purpose: '事件压缩' }
+            2, 120_000, { appName: '記憶宮殿', purpose: '事件壓縮' }
         );
 
-        // 统一剥除 <think> 块并兼容分段 content / reasoning-only 中转。
-        // 未标记的推理泄漏由 hasSummaryReasoningLeak 在手动重整路径继续拦截。
+        // 統一剝除 <think> 塊併兼容分段 content / reasoning-only 中轉。
+        // 未標記的推理洩漏由 hasSummaryReasoningLeak 在手動重整路徑繼續攔截。
         const reply = extractContent(data);
         let parsed: any = extractJson(reply);
         const parseFailed = !parsed || typeof parsed !== 'object';
         const contentMissing = !parseFailed && (!parsed.content || typeof parsed.content !== 'string');
 
         if (parseFailed || contentMissing) {
-            // 兜底：LLM 在 content 里嵌了未转义的 ASCII "（中文场景高发，破坏 JSON 解析），
-            // 按已知 schema 用正则把六个字段单独抠出来——content 抠到下一个顶层键之前为止。
+            // 兜底：LLM 在 content 裡嵌了未轉義的 ASCII "（中文場景高發，破壞 JSON 解析），
+            // 按已知 schema 用正則把六個字段單獨摳出來——content 摳到下一個頂層鍵之前為止。
             const recovered = recoverCompressionFields(reply);
             if (recovered && recovered.content) {
-                console.warn(`🗜️ [Compression] JSON 解析失败但字段级兜底成功（疑似 content 内含未转义 "）`);
+                console.warn(`🗜️ [Compression] JSON 解析失敗但字段級兜底成功（疑似 content 內含未轉義 "）`);
                 parsed = recovered;
             } else if (parseFailed) {
-                console.warn(`🗜️ [Compression] LLM 输出无法解析为 JSON，原始前 300 字: ${reply.slice(0, 300)}`);
+                console.warn(`🗜️ [Compression] LLM 輸出無法解析為 JSON，原始前 300 字: ${reply.slice(0, 300)}`);
                 return null;
             } else {
-                console.warn(`🗜️ [Compression] LLM 输出缺少 content 字段，已解析键: ${Object.keys(parsed).join(',')}`);
+                console.warn(`🗜️ [Compression] LLM 輸出缺少 content 字段，已解析鍵: ${Object.keys(parsed).join(',')}`);
                 return null;
             }
         }
-        // 长度兜底：超过硬上限时，先让模型把这段二次压缩回目标区间（不丢信息），
-        // 压不动或二次压缩失败才退回硬截断保证有界。详见 enforceSummaryLengthBudget。
+        // 長度兜底：超過硬上限時，先讓模型把這段二次壓縮回目標區間（不丟信息），
+        // 壓不動或二次壓縮失敗才退回硬截斷保證有界。詳見 enforceSummaryLengthBudget。
         let content = String(parsed.content);
         if (content.length > EVENT_BOX_SUMMARY_HARD_MAX_CHARS) {
-            console.warn(`🗜️ [Compression] LLM summary ${content.length} 字超过硬上限 ${EVENT_BOX_SUMMARY_HARD_MAX_CHARS}，尝试二次压缩`);
+            console.warn(`🗜️ [Compression] LLM summary ${content.length} 字超過硬上限 ${EVENT_BOX_SUMMARY_HARD_MAX_CHARS}，嘗試二次壓縮`);
             content = await enforceSummaryLengthBudget(
                 content,
                 (t) => recompressSummary(t, EVENT_BOX_SUMMARY_TARGET_MAX_CHARS, llmConfig, charName),
                 EVENT_BOX_SUMMARY_HARD_MAX_CHARS,
             );
         }
-        // 这种输出即使 JSON 合法、长度也没过硬上限，语义上仍不是回忆正文。
-        // 自动压缩同样拒绝，避免以后继续产出截图里的污染 summary；活节点会保留，
-        // 下次触发仍可重试。手动重新整合的外层还会立即再试一次。
+        // 這種輸出即使 JSON 合法、長度也沒過硬上限，語義上仍不是回憶正文。
+        // 自動壓縮同樣拒絕，避免以後繼續產出截圖裡的汙染 summary；活節點會保留，
+        // 下次觸發仍可重試。手動重新整合的外層還會立即再試一次。
         if (hasSummaryReasoningLeak(content)) {
-            console.error(`🧹 [Compression] 检测到整合回忆混入字数计算/推理过程，已拒绝保存`);
+            console.error(`🧹 [Compression] 檢測到整合回憶混入字數計算/推理過程，已拒絕保存`);
             return null;
         }
         return {
@@ -272,16 +272,16 @@ ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
             mood: typeof parsed.mood === 'string' && parsed.mood.trim() ? parsed.mood.trim() : 'neutral',
         };
     } catch (err: any) {
-        console.error(`🗜️ [Compression] LLM 调用失败: ${err?.message || err}`);
+        console.error(`🗜️ [Compression] LLM 調用失敗: ${err?.message || err}`);
         return null;
     }
 }
 
-// ─── 整合回忆长度兜底：超限二次压缩，压不动才硬截断 ──────────
+// ─── 整合回憶長度兜底：超限二次壓縮，壓不動才硬截斷 ──────────
 
 /**
- * 让模型把过长的整合回忆压缩回 targetMaxChars 字内（纯文本输出，不走 JSON）。
- * 失败返回 null，由 enforceSummaryLengthBudget 决定兜底。
+ * 讓模型把過長的整合回憶壓縮回 targetMaxChars 字內（純文本輸出，不走 JSON）。
+ * 失敗返回 null，由 enforceSummaryLengthBudget 決定兜底。
  */
 async function recompressSummary(
     text: string,
@@ -289,9 +289,9 @@ async function recompressSummary(
     llmConfig: LightLLMConfig,
     charName: string,
 ): Promise<string | null> {
-    const systemPrompt = `你是 ${charName}。下面这段第一人称回忆写得太长了。请在**不丢关键信息**（具体人物、地点、事件、转折、情绪）的前提下，把它压缩到 ${targetMaxChars} 字以内。
-要求：保持第一人称（「我」）、连贯通顺；只删语气填充和重复铺陈，不删事实；引用一律用「」《》或单引号，不要用半角双引号。
-直接输出压缩后的回忆正文，不要解释、不要 JSON、不要 markdown 包裹。`;
+    const systemPrompt = `你是 ${charName}。下面這段第一人稱回憶寫得太長了。請在**不丟關鍵信息**（具體人物、地點、事件、轉折、情緒）的前提下，把它壓縮到 ${targetMaxChars} 字以內。
+要求：保持第一人稱（「我」）、連貫通順；只刪語氣填充和重複鋪陳，不刪事實；引用一律用「」《》或單引號，不要用半角雙引號。
+直接輸出壓縮後的回憶正文，不要解釋、不要 JSON、不要 markdown 包裹。`;
     try {
         const data = await safeFetchJson(
             `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -312,19 +312,19 @@ async function recompressSummary(
                     stream: false,
                 }),
             },
-            2, 90_000, { appName: '记忆宫殿', purpose: '事件压缩-二次压缩' }
+            2, 90_000, { appName: '記憶宮殿', purpose: '事件壓縮-二次壓縮' }
         );
         const reply = (data.choices?.[0]?.message?.content || '').trim();
-        // 模型偶尔仍会裹 ``` 代码块，剥掉常见包裹
+        // 模型偶爾仍會裹 ``` 代碼塊，剝掉常見包裹
         const cleaned = reply.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
         return cleaned || null;
     } catch (err: any) {
-        console.warn(`🗜️ [Compression] 二次压缩 LLM 调用失败: ${err?.message || err}`);
+        console.warn(`🗜️ [Compression] 二次壓縮 LLM 調用失敗: ${err?.message || err}`);
         return null;
     }
 }
 
-// ─── 单 box 压缩主流程 ──────────────────────────────────
+// ─── 單 box 壓縮主流程 ──────────────────────────────────
 
 async function compressEventBox(
     box: EventBox,
@@ -333,7 +333,7 @@ async function compressEventBox(
     charName: string,
     userName: string | undefined,
 ): Promise<boolean> {
-    // 1. 加载活节点（按时间升序）
+    // 1. 加載活節點（按時間升序）
     const liveNodes: MemoryNode[] = [];
     for (const id of box.liveMemoryIds) {
         const n = await MemoryNodeDB.getById(id);
@@ -342,23 +342,23 @@ async function compressEventBox(
     if (liveNodes.length === 0) return false;
     liveNodes.sort((a, b) => a.createdAt - b.createdAt);
 
-    // 2. 加载旧 summary 内容（如有）
+    // 2. 加載舊 summary 內容（如有）
     let oldSummaryContent: string | null = null;
     if (box.summaryNodeId) {
         const old = await MemoryNodeDB.getById(box.summaryNodeId);
         if (old) oldSummaryContent = old.content;
     }
 
-    console.log(`🗜️ [Compression] 开始压缩 ${box.id} "${box.name}"（${liveNodes.length} 条活节点，第 ${box.compressionCount + 1} 次压缩）`);
+    console.log(`🗜️ [Compression] 開始壓縮 ${box.id} "${box.name}"（${liveNodes.length} 條活節點，第 ${box.compressionCount + 1} 次壓縮）`);
 
     // 3. LLM 整合
     const result = await callCompressionLLM(box, oldSummaryContent, liveNodes, llmConfig, charName, userName);
     if (!result) {
-        console.error(`🗜️ [Compression] ${box.id} "${box.name}" LLM 失败，跳过本次压缩 — 活节点 ${liveNodes.length} 条仍未归档，summary 未生成/未向量化`);
+        console.error(`🗜️ [Compression] ${box.id} "${box.name}" LLM 失敗，跳過本次壓縮 — 活節點 ${liveNodes.length} 條仍未歸檔，summary 未生成/未向量化`);
         return false;
     }
 
-    // 4. 创建或更新 summary 节点
+    // 4. 創建或更新 summary 節點
     const now = Date.now();
     let summaryNode: MemoryNode;
     if (box.summaryNodeId) {
@@ -377,7 +377,7 @@ async function compressEventBox(
             existing.origin = 'system';
             summaryNode = existing;
         } else {
-            // summaryNodeId 指向的节点丢失，新建
+            // summaryNodeId 指向的節點丟失，新建
             summaryNode = createSummaryNode(box, result, now);
             box.summaryNodeId = summaryNode.id;
         }
@@ -387,29 +387,29 @@ async function compressEventBox(
     }
     await MemoryNodeDB.save(summaryNode);
 
-    // 5. 向量化 summary（跳过去重，因为内容必然和 live 节点重叠）
+    // 5. 向量化 summary（跳過去重，因為內容必然和 live 節點重疊）
     const remoteCfg = getRemoteVectorConfig();
     try {
         await vectorizeAndStore([summaryNode], embeddingConfig, remoteCfg, { skipDedup: true });
     } catch (e: any) {
-        console.warn(`🗜️ [Compression] summary 向量化失败（继续后续步骤）: ${e?.message}`);
+        console.warn(`🗜️ [Compression] summary 向量化失敗（繼續後續步驟）: ${e?.message}`);
     }
 
-    // 6. 标记活节点 archived（本地）
+    // 6. 標記活節點 archived（本地）
     const liveIds = box.liveMemoryIds.slice();
     for (const id of liveIds) {
         const n = await MemoryNodeDB.getById(id);
         if (n && !n.archived) {
             n.archived = true;
-            await MemoryNodeDB.save(n);  // syncNodeMetadataToRemote 会同步 archived=true
+            await MemoryNodeDB.save(n);  // syncNodeMetadataToRemote 會同步 archived=true
         }
     }
-    // 远程批量加速（与上面 per-node sync 重复但幂等）
+    // 遠程批量加速（與上面 per-node sync 重複但冪等）
     if (remoteCfg) {
         await bulkSetArchived(remoteCfg, liveIds, true).catch(() => {});
     }
 
-    // 7. 更新 box 状态
+    // 7. 更新 box 狀態
     for (const id of liveIds) {
         if (!box.archivedMemoryIds.includes(id)) box.archivedMemoryIds.push(id);
     }
@@ -420,19 +420,19 @@ async function compressEventBox(
     box.name = result.name;
     box.tags = result.tags;
 
-    // 8. 封盒检查：事件总数（archived + live）达到阈值 → sealed，新的相关记忆另开新盒
+    // 8. 封盒檢查：事件總數（archived + live）達到閾值 → sealed，新的相關記憶另開新盒
     const totalEvents = box.archivedMemoryIds.length + box.liveMemoryIds.length;
     if (totalEvents >= EVENT_BOX_SEAL_THRESHOLD && !box.sealed) {
         box.sealed = true;
-        console.log(`🔒 [Compression] ${box.id} 事件数 ${totalEvents} 达阈值 ${EVENT_BOX_SEAL_THRESHOLD}，封盒`);
+        console.log(`🔒 [Compression] ${box.id} 事件數 ${totalEvents} 達閾值 ${EVENT_BOX_SEAL_THRESHOLD}，封盒`);
     }
 
     await EventBoxDB.save(box);
 
-    console.log(`✅ [Compression] ${box.id} → summary ${result.content.length}字 "${result.content.slice(0, 30)}…"，已归档 ${liveIds.length} 条${box.sealed ? '，已封盒' : ''}`);
+    console.log(`✅ [Compression] ${box.id} → summary ${result.content.length}字 "${result.content.slice(0, 30)}…"，已歸檔 ${liveIds.length} 條${box.sealed ? '，已封盒' : ''}`);
 
-    // 9. 门牌增量合并：盒子的结论落到有门牌的房间时，顺手沉淀进该房间的门牌。
-    //    封盒的沉淀物就是语义事实——这是"情景→语义"固化的即时触发点。
+    // 9. 門牌增量合併：盒子的結論落到有門牌的房間時，順手沉澱進該房間的門牌。
+    //    封盒的沉澱物就是語義事實——這是"情景→語義"固化的即時觸發點。
     try {
         const { isPlateRoom, updatePlateFromBoxSummary } = await import('./roomPlates');
         if (isPlateRoom(summaryNode.room)) {
@@ -442,7 +442,7 @@ async function compressEventBox(
             );
         }
     } catch (e: any) {
-        console.warn(`🚪 [Compression] 门牌增量合并失败（不影响压缩结果）: ${e?.message || e}`);
+        console.warn(`🚪 [Compression] 門牌增量合併失敗（不影響壓縮結果）: ${e?.message || e}`);
     }
 
     return true;
@@ -475,13 +475,13 @@ export interface RegenerateEventBoxSummaryResult {
 }
 
 /**
- * 手动“重新整合全部回忆”。
+ * 手動“重新整合全部回憶”。
  *
- * 与自动增量压缩刻意不同：
- * - 原料始终是 archived + live 的全部成员，不使用旧 summary，避免坏总结自我复制；
- * - 不改变 live/archived/sealed/compressionCount，只替换总结与盒元数据；
- * - 新总结必须先成功生成 Embedding，才会覆盖旧 summary 节点；
- * - 已封盒同样允许执行。
+ * 與自動增量壓縮刻意不同：
+ * - 原料始終是 archived + live 的全部成員，不使用舊 summary，避免壞總結自我複製；
+ * - 不改變 live/archived/sealed/compressionCount，只替換總結與盒元數據；
+ * - 新總結必須先成功生成 Embedding，才會覆蓋舊 summary 節點；
+ * - 已封盒同樣允許執行。
  */
 export async function regenerateEventBoxSummary(
     boxId: string,
@@ -492,7 +492,7 @@ export async function regenerateEventBoxSummary(
     remoteVectorConfig?: RemoteVectorConfig,
 ): Promise<RegenerateEventBoxSummaryResult> {
     const box = await EventBoxDB.getById(boxId);
-    if (!box) throw new Error('这个事件盒已经不存在了');
+    if (!box) throw new Error('這個事件盒已經不存在了');
 
     const sourceIds = [...new Set([
         ...box.archivedMemoryIds,
@@ -507,14 +507,14 @@ export async function regenerateEventBoxSummary(
             && !node.isBoxSummary,
         ))
         .sort((a, b) => a.createdAt - b.createdAt);
-    if (sourceNodes.length === 0) throw new Error('盒内没有可用于重新整合的原始记忆');
+    if (sourceNodes.length === 0) throw new Error('盒內沒有可用於重新整合的原始記憶');
 
-    // 输出结构失败或出现典型推理泄漏时自动重试一次。两次都失败则保持旧总结不动。
+    // 輸出結構失敗或出現典型推理洩漏時自動重試一次。兩次都失敗則保持舊總結不動。
     let result: CompressionLLMResult | null = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
         const candidate = await callCompressionLLM(
             box,
-            null, // 关键：绝不把旧 summary 当原料
+            null, // 關鍵：絕不把舊 summary 當原料
             sourceNodes,
             llmConfig,
             charName,
@@ -525,11 +525,11 @@ export async function regenerateEventBoxSummary(
             break;
         }
         if (candidate) {
-            console.error(`🧹 [Compression] ${box.id} 第 ${attempt} 次重新整合混入推理过程，已拒绝保存`);
+            console.error(`🧹 [Compression] ${box.id} 第 ${attempt} 次重新整合混入推理過程，已拒絕保存`);
         }
     }
     if (!result) {
-        throw new Error('副 API 两次都没有返回干净的整合回忆，原内容已保留');
+        throw new Error('副 API 兩次都沒有返回乾淨的整合回憶，原內容已保留');
     }
 
     const now = Date.now();
@@ -553,8 +553,8 @@ export async function regenerateEventBoxSummary(
         }
         : createSummaryNode(box, result, now);
 
-    // vectorizeAndStore 先请求 Embedding，拿到向量后才保存 node/vector。
-    // 不预存 summaryNode，确保网络侧 Embedding 失败时旧正文完全不被覆盖。
+    // vectorizeAndStore 先請求 Embedding，拿到向量後才保存 node/vector。
+    // 不預存 summaryNode，確保網絡側 Embedding 失敗時舊正文完全不被覆蓋。
     const remoteCfg = remoteVectorConfig?.enabled && remoteVectorConfig.initialized
         ? remoteVectorConfig
         : getRemoteVectorConfig();
@@ -565,13 +565,13 @@ export async function regenerateEventBoxSummary(
         { skipDedup: true },
     );
     if (vectorized.stored !== 1) {
-        throw new Error('整合回忆已生成，但语义向量没有成功写入，原内容已保留');
+        throw new Error('整合回憶已生成，但語義向量沒有成功寫入，原內容已保留');
     }
 
-    // LLM/Embedding 等待期间盒子可能又进了新成员；重新读取后只覆盖总结元数据，
-    // 保留最新的成员列表与 sealed 状态。
+    // LLM/Embedding 等待期間盒子可能又進了新成員；重新讀取後只覆蓋總結元數據，
+    // 保留最新的成員列表與 sealed 狀態。
     const freshBox = await EventBoxDB.getById(box.id);
-    if (!freshBox) throw new Error('整合完成时事件盒已不存在');
+    if (!freshBox) throw new Error('整合完成時事件盒已不存在');
     freshBox.summaryNodeId = summaryNode.id;
     freshBox.name = result.name;
     freshBox.tags = result.tags;
@@ -579,8 +579,8 @@ export async function regenerateEventBoxSummary(
     freshBox.lastCompressedAt = now;
     await EventBoxDB.save(freshBox);
 
-    // 与自动压缩保持一致：若总结属于门牌房间，让新的干净结论继续沉淀。
-    // 门牌失败不影响已经成功落库的总结与向量。
+    // 與自動壓縮保持一致：若總結屬於門牌房間，讓新的乾淨結論繼續沉澱。
+    // 門牌失敗不影響已經成功落庫的總結與向量。
     try {
         const { isPlateRoom, updatePlateFromBoxSummary } = await import('./roomPlates');
         if (isPlateRoom(summaryNode.room)) {
@@ -594,7 +594,7 @@ export async function regenerateEventBoxSummary(
             );
         }
     } catch (e: any) {
-        console.warn(`🚪 [Compression] 重新整合后的门牌同步失败（总结与向量已生效）: ${e?.message || e}`);
+        console.warn(`🚪 [Compression] 重新整合後的門牌同步失敗（總結與向量已生效）: ${e?.message || e}`);
     }
 
     return {
@@ -604,11 +604,11 @@ export async function regenerateEventBoxSummary(
     };
 }
 
-// ─── 公共 API：扫描 + 触发压缩 ──────────────────────────
+// ─── 公共 API：掃描 + 觸發壓縮 ──────────────────────────
 
 /**
- * 检查一组 box 是否达到压缩阈值，达到的逐个压缩。
- * 调用方：pipeline 处理新消息后 / migration 跑完后。
+ * 檢查一組 box 是否達到壓縮閾值，達到的逐個壓縮。
+ * 調用方：pipeline 處理新消息後 / migration 跑完後。
  */
 export async function maybeCompressEventBoxes(
     boxIds: Iterable<string>,
@@ -632,19 +632,19 @@ export async function maybeCompressEventBoxes(
             if (ok) compressed++;
             else skipped++;
         } catch (e: any) {
-            console.error(`🗜️ [Compression] ${id} 压缩异常: ${e?.message}`);
+            console.error(`🗜️ [Compression] ${id} 壓縮異常: ${e?.message}`);
             skipped++;
         }
     }
 
     if (compressed > 0) {
-        console.log(`🗜️ [Compression] 本轮完成：压缩 ${compressed} 个 box，跳过 ${skipped} 个`);
+        console.log(`🗜️ [Compression] 本輪完成：壓縮 ${compressed} 個 box，跳過 ${skipped} 個`);
     }
     return { compressed, skipped };
 }
 
 /**
- * 全角色扫一遍，触发所有满足阈值的 box 压缩（手动维护接口）。
+ * 全角色掃一遍，觸發所有滿足閾值的 box 壓縮（手動維護接口）。
  */
 export async function compressAllEligibleBoxes(
     charId: string,

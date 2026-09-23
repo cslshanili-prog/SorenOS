@@ -5,21 +5,21 @@ export type QixiBGMGroup = 'fall' | 'explore' | 'otherSide' | 'bridge';
 
 export const QIXI_BGM_GROUPS: Record<QixiBGMGroup, string[]> = {
     fall: [
-        'bgm/qixi/01/02_0_褪色客厅.mp3',
-        'bgm/qixi/01/1_0_褪色客厅.mp3',
+        'bgm/qixi/01/02_0_褪色客廳.mp3',
+        'bgm/qixi/01/1_0_褪色客廳.mp3',
     ],
     explore: [
-        'bgm/qixi/02/01_0_旧钟房间.mp3',
-        'bgm/qixi/02/02_0_旧钟房间.mp3',
+        'bgm/qixi/02/01_0_舊鐘房間.mp3',
+        'bgm/qixi/02/02_0_舊鐘房間.mp3',
     ],
     otherSide: [
-        'bgm/qixi/03/01_0_鹊桥月色.mp3',
-        'bgm/qixi/03/03_0_月下双向.mp3',
+        'bgm/qixi/03/01_0_鵲橋月色.mp3',
+        'bgm/qixi/03/03_0_月下雙向.mp3',
     ],
     bridge: [
-        'bgm/qixi/04/01_0_鹊桥释然.mp3',
-        'bgm/qixi/04/02_0_鹊桥释然.mp3',
-        'bgm/qixi/04/03_0_风铃之约.mp3',
+        'bgm/qixi/04/01_0_鵲橋釋然.mp3',
+        'bgm/qixi/04/02_0_鵲橋釋然.mp3',
+        'bgm/qixi/04/03_0_風鈴之約.mp3',
     ],
 };
 
@@ -210,7 +210,7 @@ export function useQixiBGM(stage: string, sceneIndex: number) {
 }
 
 export const QixiBGMToggle: React.FC<{ muted: boolean; onToggle: () => void }> = ({ muted, onToggle }) => (
-    <button type="button" className={`q7-bgm ${muted ? 'is-muted' : ''}`} onClick={onToggle} aria-label={muted ? '播放七夕背景音乐' : '静音七夕背景音乐'} title={muted ? '播放 BGM' : '静音 BGM'}>
+    <button type="button" className={`q7-bgm ${muted ? 'is-muted' : ''}`} onClick={onToggle} aria-label={muted ? '播放七夕背景音樂' : '靜音七夕背景音樂'} title={muted ? '播放 BGM' : '靜音 BGM'}>
         <i>{muted ? '×' : '♪'}</i><span>{muted ? 'BGM OFF' : 'BGM'}</span>
     </button>
 );

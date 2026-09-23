@@ -9,31 +9,31 @@ await context.route('**/*',route=>['127.0.0.1','localhost'].includes(new URL(rou
 const base='http://127.0.0.1:5173/test/fixtures/sar-dialogue.html';
 const button=name=>page.getByRole('button',{name,exact:true});
 const state=()=>page.evaluate(()=>JSON.parse(window.render_game_to_text?.()||'{}'));
-const settled=()=>page.waitForFunction(()=>document.getElementById('root')?.textContent==='已离开对话'||(window.render_game_to_text&&JSON.parse(window.render_game_to_text()).mode==='sar-familiarity'&&!JSON.parse(window.render_game_to_text()).busy&&JSON.parse(window.render_game_to_text()).text!=='正在走进活动室…'));
-const closed=()=>page.getByText('已离开对话',{exact:true}).waitFor();
+const settled=()=>page.waitForFunction(()=>document.getElementById('root')?.textContent==='已離開對話'||(window.render_game_to_text&&JSON.parse(window.render_game_to_text()).mode==='sar-familiarity'&&!JSON.parse(window.render_game_to_text()).busy&&JSON.parse(window.render_game_to_text()).text!=='正在走進活動室…'));
+const closed=()=>page.getByText('已離開對話',{exact:true}).waitFor();
 const open=async(query)=>{await page.goto(`${base}?${query}`);await settled();if(/(?:^|&)(?:node|line)=/.test(query)&&!query.includes('resume'))await page.waitForFunction(()=>document.documentElement.dataset.qaPositioned==='true');};
-const next=async()=>{await button('继续对话').click();await settled();};
+const next=async()=>{await button('繼續對話').click();await settled();};
 const choices=page.locator('.sar-dialogue-choices__list');
 const screenshot=async name=>{await page.waitForFunction(()=>Array.from(document.querySelectorAll('.sar-npc-portrait')).every(el=>el.getAttribute('aria-busy')!=='true'));await page.screenshot({path:`${out}/${name}.png`,animations:'disabled'});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);};
 const geometry=()=>page.locator('.srf-stage').boundingBox();
 const portraitHeight=async(who)=>{await page.waitForFunction(()=>Array.from(document.querySelectorAll('.sar-npc-portrait')).every(el=>el.getAttribute('aria-busy')!=='true'));return page.locator('.cast-'+who+' img:not(.sar-npc-portrait__pending)').evaluate(img=>{const box=img.getBoundingClientRect();return Math.min(box.height,box.width*img.naturalHeight/img.naturalWidth);});};
 try{
-    await open('scene=C1-01');assert.equal(await page.locator('.srf-header').count(),0);assert.equal(await page.locator('.srf-speaker b').innerText(),'凯恩');assert.equal(await page.locator('.srf-replay-title').count(),0);assert.equal((await state()).text,'不同地方的人居然真的能跑到同一个空间里。');assert.equal(await choices.count(),0);
+    await open('scene=C1-01');assert.equal(await page.locator('.srf-header').count(),0);assert.equal(await page.locator('.srf-speaker b').innerText(),'凱恩');assert.equal(await page.locator('.srf-replay-title').count(),0);assert.equal((await state()).text,'不同地方的人居然真的能跑到同一個空間裡。');assert.equal(await choices.count(),0);
     const before=await geometry();assert.equal(before.y,24,'no app header above the stage');const soloHeight=await portraitHeight('caian');await screenshot('01-first-sentence');await next();
-    assert.equal((await state()).text,'意味着异世界联机终于不用担心服务器了！');assert.equal(await choices.count(),1);
+    assert.equal((await state()).text,'意味著異世界聯機終於不用擔心服務器了！');assert.equal(await choices.count(),1);
     assert.deepEqual(await geometry(),before,'choices cannot resize portrait stage');
     const box=await choices.boundingBox();assert(Math.abs(box.x+box.width/2-195)<2);assert(Math.abs(box.y+box.height/2-422)<2);
-    await screenshot('02-centered-choices');await button('确实').click();await settled();assert.equal((await state()).text,'对吧！');assert.deepEqual(await geometry(),before);await next();await closed();
+    await screenshot('02-centered-choices');await button('確實').click();await settled();assert.equal((await state()).text,'對吧！');assert.deepEqual(await geometry(),before);await next();await closed();
     await open('greeting');const greeting=[];await screenshot('03-greeting');for(let i=0;i<15&&await page.locator('.srf-dialog').count();i++){greeting.push((await state()).text);assert.equal(await choices.count(),0);await next();}assert(greeting.length>=3);assert(greeting.every(t=>!t.includes('\n')));await closed();
     await open('scene=A1-03');assert.equal(await choices.count(),0);await next();assert.equal(await choices.count(),1);await screenshot('04-aiven-three-choices');
     await open('scene=A1-SPECIAL&node=working');assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),1);await next();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2);await next();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2,'guest remains for the response');await screenshot('05-personal-exchange');
     await page.goto(`${base}?scene=A1-SPECIAL&resume`);await settled();assert.equal((await state()).node,'start','reopening an interrupted event restarts it');assert.equal((await state()).line,0);assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),1);
-    await open('scene=C1-01&replay');assert((await page.locator('.srf-replay-title').innerText()).startsWith('彼方也太方便了吧'));const saved=await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1'));await next();await button('确实').click();await settled();await next();assert.equal(await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1')),saved,'replay never changes rewards or progress');
-    await open('scene=C1-SPECIAL&node=member-card');assert.equal(await choices.count(),0);assert(await button('继续对话').isDisabled());await screenshot('06-interactive');await button('就用这个形象').click();await next();assert.equal((await state()).error,'');
+    await open('scene=C1-01&replay');assert((await page.locator('.srf-replay-title').innerText()).startsWith('彼方也太方便了吧'));const saved=await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1'));await next();await button('確實').click();await settled();await next();assert.equal(await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1')),saved,'replay never changes rewards or progress');
+    await open('scene=C1-SPECIAL&node=member-card');assert.equal(await choices.count(),0);assert(await button('繼續對話').isDisabled());await screenshot('06-interactive');await button('就用這個形象').click();await next();assert.equal((await state()).error,'');
     await page.setViewportSize({width:320,height:680});await open('scene=A1-03');await next();await screenshot('07-small-phone');
     await page.setViewportSize({width:1100,height:850});await screenshot('08-desktop');
-    await page.setViewportSize({width:390,height:844});await page.goto(`${base}?intro`);await button('继续对话').waitFor();
-    const introNext=()=>button('继续对话').click();
+    await page.setViewportSize({width:390,height:844});await page.goto(`${base}?intro`);await button('繼續對話').waitFor();
+    const introNext=()=>button('繼續對話').click();
     const initialStage=await geometry(),introHeight=await portraitHeight('caian');assert.equal(initialStage.y,24);await screenshot('12-intro-full-height');assert(initialStage.height>500);
     const dailyBg=await page.locator('.srf-dialog').evaluate(el=>getComputedStyle(el).backgroundColor);assert.equal(dailyBg,'rgb(245, 241, 233)');
     await introNext();await introNext();assert.deepEqual(await geometry(),initialStage);
@@ -41,14 +41,14 @@ try{
     assert.equal(bg,dailyBg);await option.hover();assert.equal(await option.evaluate(el=>getComputedStyle(el).backgroundColor),bg);
     await option.focus();assert.equal(await option.evaluate(el=>getComputedStyle(el).backgroundColor),bg);
     await screenshot('13-intro-choices');await page.setViewportSize({width:320,height:680});await screenshot('14-intro-small');
-    await page.setViewportSize({width:1100,height:850});await screenshot('15-intro-desktop');await page.setViewportSize({width:390,height:844});await button('你谁啊').click();await introNext();await introNext();await introNext();await button('SAR 是什么？').click();
+    await page.setViewportSize({width:1100,height:850});await screenshot('15-intro-desktop');await page.setViewportSize({width:390,height:844});await button('你誰啊').click();await introNext();await introNext();await introNext();await button('SAR 是什麼？').click();
     for(let i=0;i<3;i++)await introNext();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2);assert(Math.abs(await portraitHeight('caian')-introHeight)<1,'joining a guest does not shrink the lead');
     for(let i=0;i<4;i++){await introNext();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2);}
-    assert.equal(await page.locator('.cast-caian .sar-npc-portrait').getAttribute('data-expression'),'curious');assert((await page.locator('.sar-dialogue-panel').innerText()).includes('这里似乎没有仿生人。'));await screenshot('09-before-punchline');
+    assert.equal(await page.locator('.cast-caian .sar-npc-portrait').getAttribute('data-expression'),'curious');assert((await page.locator('.sar-dialogue-panel').innerText()).includes('這裡似乎沒有仿生人。'));await screenshot('09-before-punchline');
     await introNext();assert.equal(await page.locator('.cast-caian .sar-npc-portrait').getAttribute('data-expression'),'embarrassed');assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2);await screenshot('10-punchline');
-    await introNext();await introNext();await button('仿生人是什么？').click();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2,'upcoming exchange retains the guest across choices');await screenshot('11-branch-retains-guest');
+    await introNext();await introNext();await button('仿生人是什麼？').click();assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),2,'upcoming exchange retains the guest across choices');await screenshot('11-branch-retains-guest');
     for(let i=0;i<60&&!(await state()).choices.length;i++)await introNext();
-    await button('那我可以在这里做什么？').click();
+    await button('那我可以在這裡做什麼？').click();
     for(let i=0;i<60&&(await state()).node!=='end';i++)await introNext();
     assert.equal((await state()).node,'end');assert.equal(await page.locator('.sar-dialogue-cast__actor').count(),1);
     assert(Math.abs(await portraitHeight('caian')-introHeight)<1,'returning to solo keeps exactly the same image scale');await screenshot('16-solo-after-exchange');
@@ -56,6 +56,6 @@ try{
     await open('scene=A1-03&greeting');assert(Math.abs(await portraitHeight('aiven')-soloHeight)<1,'both NPCs use the same stage-height scale');await screenshot('18-aiven-greeting-scale');
     await open('scene=A1-03');assert(Math.abs(await portraitHeight('aiven')-soloHeight)<1);await screenshot('19-aiven-topic-scale');
     const meta=await page.locator('.srf-meta').boundingBox(),bubble=await page.locator('.srf-bubble').boundingBox();assert(meta.y>=before.y+before.height);assert(meta.y+meta.height<=bubble.y+1);
-    await button('离开对话').click();await closed();
+    await button('離開對話').click();await closed();
     assert.deepEqual(errors,[]);writeFileSync(`${out}/result.json`,JSON.stringify({passed:true,greeting,pageErrors:errors},null,2));console.log('SAR dialogue presentation passed: 19 screenshots, no page errors.');
 }catch(error){await page.screenshot({path:`${out}/failure.png`});console.error(await page.locator('body').innerText());throw error;}finally{await browser.close();}

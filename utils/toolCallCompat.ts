@@ -13,9 +13,9 @@ const safeFragment = (value: string): string =>
     value.replace(/[^A-Za-z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 48) || 'tool';
 
 /**
- * Gemini 的 OpenAI 兼容层偶尔会返回空 tool_call.id；结果回填时又要求
- * function_response.name 非空。先把本轮调用规范化，确保 assistant.tool_calls
- * 和后续 role=tool 消息使用同一组稳定 id/name。
+ * Gemini 的 OpenAI 兼容層偶爾會返回空 tool_call.id；結果回填時又要求
+ * function_response.name 非空。先把本輪調用規範化，確保 assistant.tool_calls
+ * 和後續 role=tool 消息使用同一組穩定 id/name。
  */
 export function normalizeToolCallsForCompat(toolCalls: unknown, scope = 'tool'): any[] {
     if (!Array.isArray(toolCalls)) return [];

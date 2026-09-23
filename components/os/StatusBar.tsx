@@ -28,7 +28,7 @@ const StatusBar: React.FC = () => {
 
   // Use content color from theme
   const textColor = theme.contentColor || '#ffffff';
-  const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：电量条用叶绿色
+  const acnh = theme.skin === 'animalcrossing'; // 動森彩蛋：電量條用葉綠色
 
   useEffect(() => {
     const initBattery = async () => {
@@ -65,26 +65,26 @@ const StatusBar: React.FC = () => {
     const text = `${log.message} ${log.detail || ''}`.toLowerCase();
     return text.includes('backing store') || text.includes('indexeddb.open');
   });
-  // 「连不上」这类错误光看日志没用，多半要用户自己在设备上试几刀才能定位，
-  // 所以顺手把自查顺序摆在终端里，省得每次都要去群里问。
+  // 「連不上」這類錯誤光看日誌沒用，多半要用戶自己在設備上試幾刀才能定位，
+  // 所以順手把自查順序擺在終端裡，省得每次都要去群裡問。
   const hasNetworkFailure = systemLogs.some(log => log.type === 'network' && log.source === 'Network');
 
-  // 三档状态栏布局；旧版 hideStatusBar 存档仍可解析。错误指示器与本设置无关，始终独立渲染。
+  // 三檔狀態欄佈局；舊版 hideStatusBar 存檔仍可解析。錯誤指示器與本設置無關，始終獨立渲染。
   const statusBarMode = resolveStatusBarMode(theme.statusBarMode, theme.hideStatusBar);
   const hideOsStatusBar = statusBarMode === 'hidden';
   const compactStatusBar = statusBarMode === 'compact';
 
   return (
     <>
-      {/* safe-area-B 解法：iOS 全屏 PWA 下系统状态栏（真实时间/电量）删不掉，隐掉 SullyOS 自己这条避免双显。
-         非 iOS standalone（安卓/桌面浏览器无系统状态栏）仍渲染，作为虚拟手机自己的状态栏。 */}
+      {/* safe-area-B 解法：iOS 全屏 PWA 下系統狀態欄（真實時間/電量）刪不掉，隱掉 SullyOS 自己這條避免雙顯。
+         非 iOS standalone（安卓/桌面瀏覽器無系統狀態欄）仍渲染，作為虛擬手機自己的狀態欄。 */}
       {!hideOsStatusBar && (
       <div
           className="w-full flex justify-between items-start px-6 text-[11px] font-bold z-50 absolute top-0 left-0 bg-transparent transition-colors duration-500 select-none pointer-events-none"
           style={{
               color: textColor,
-              // 紧凑档把状态信息放进硬件安全区左右两侧；内容仍从 --chrome-top 开始，
-              // 不会把返回键/标题顶进刘海或灵动岛，同时少掉 standard 的额外 1.5rem。
+              // 緊湊檔把狀態信息放進硬件安全區左右兩側；內容仍從 --chrome-top 開始，
+              // 不會把返回鍵/標題頂進劉海或靈動島，同時少掉 standard 的額外 1.5rem。
               paddingTop: compactStatusBar ? '4px' : 'max(4px, var(--safe-top))',
               height: 'auto',
               minHeight: compactStatusBar ? 'max(var(--safe-top), 1.5rem)' : '2rem'
@@ -136,33 +136,33 @@ const StatusBar: React.FC = () => {
 
       <Modal 
           isOpen={showLogModal} 
-          title="系统调试终端" 
+          title="系統調試終端" 
           onClose={() => setShowLogModal(false)}
           footer={
               <div className="flex gap-2 w-full">
-                  <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(systemLogs, null, 2)); }} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">复制 JSON</button>
-                  <button onClick={clearLogs} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-200">清空日志</button>
+                  <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(systemLogs, null, 2)); }} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">複製 JSON</button>
+                  <button onClick={clearLogs} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-200">清空日誌</button>
               </div>
           }
       >
           {hasIndexedDbBackingStoreError && (
               <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-                  <div className="font-bold mb-1">检测到浏览器存储无法打开</div>
-                  <div>请先不要清除浏览器数据、格式化或重置 Soren。彻底关闭浏览器后重启设备，并确认仍从原来的网址进入；若恢复打开，请立即完整导出备份。此错误通常来自浏览器/WebView 的站点存储，而不是应用主动删除数据。</div>
+                  <div className="font-bold mb-1">檢測到瀏覽器存儲無法打開</div>
+                  <div>請先不要清除瀏覽器數據、格式化或重置 Soren。徹底關閉瀏覽器後重啟設備，並確認仍從原來的網址進入；若恢復打開，請立即完整導出備份。此錯誤通常來自瀏覽器/WebView 的站點存儲，而不是應用主動刪除數據。</div>
               </div>
           )}
           {hasNetworkFailure && (
               <details className="mb-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-900">
-                  <summary className="font-bold cursor-pointer select-none">网络连接失败？按这个顺序自查</summary>
+                  <summary className="font-bold cursor-pointer select-none">網絡連接失敗？按這個順序自查</summary>
                   <ol className="mt-2 list-decimal pl-4 space-y-1">
                       {NETWORK_SELF_CHECK_STEPS.map(step => <li key={step}>{step}</li>)}
                   </ol>
-                  <div className="mt-2 opacity-80">日志里的「初判」和「连通性复检」两行已经替你缩小了范围，先看那两行再动手。</div>
+                  <div className="mt-2 opacity-80">日誌裡的「初判」和「連通性複檢」兩行已經替你縮小了範圍，先看那兩行再動手。</div>
               </details>
           )}
           <div className="h-64 bg-slate-900 rounded-xl p-3 overflow-y-auto font-mono text-[10px] space-y-2 no-scrollbar shadow-inner">
               {systemLogs.length === 0 ? (
-                  <div className="text-slate-500 text-center mt-20">系统运行正常，暂无错误日志。</div>
+                  <div className="text-slate-500 text-center mt-20">系統運行正常，暫無錯誤日誌。</div>
               ) : (
                   systemLogs.map(log => (
                       <div key={log.id} className="border-b border-white/10 pb-2 mb-2 last:border-0 last:mb-0 last:pb-0">

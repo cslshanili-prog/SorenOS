@@ -29,8 +29,8 @@ const makeChar = (partial: Partial<CharacterProfile>): CharacterProfile => ({
     ...partial,
 });
 
-describe('AI 原文范围边界', () => {
-    it('自适应最大范围从水位线之后开始', () => {
+describe('AI 原文範圍邊界', () => {
+    it('自適應最大範圍從水位線之後開始', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({ autoArchiveEnabled: true, contextRangeMode: 'adaptive', contextLimit: 5000 }),
@@ -43,7 +43,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages.at(-1)?.id).toBe(1000);
     });
 
-    it('一键入宫后即使没开全自动，也会从水位线之后读取且当前可为 0 条', () => {
+    it('一鍵入宮後即使沒開全自動，也會從水位線之後讀取且當前可為 0 條', () => {
         const messages = makeMessages(1, 1000);
         const snapshot = computeContextRangeSnapshot(
             messages,
@@ -61,7 +61,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages).toHaveLength(0);
     });
 
-    it('选择保留最近 10 条时，水位线后的原文与橙色范围精确为 10 条', () => {
+    it('選擇保留最近 10 條時，水位線後的原文與橙色範圍精確為 10 條', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -78,7 +78,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages[9].id).toBe(1000);
     });
 
-    it('范围内用户断点只能把起点向更新消息推进', () => {
+    it('範圍內用戶斷點只能把起點向更新消息推進', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -95,7 +95,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages[0].id).toBe(900);
     });
 
-    it('用户断点恰好位于最大范围起点时有效且没有越界', () => {
+    it('用戶斷點恰好位於最大範圍起點時有效且沒有越界', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -112,7 +112,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages).toHaveLength(500);
     });
 
-    it('水位线之前的用户断点不能突破自适应最大范围', () => {
+    it('水位線之前的用戶斷點不能突破自適應最大範圍', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -129,7 +129,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages[0].id).toBe(801);
     });
 
-    it('手动拉杆忽略水位线并把最近 N 条作为最大范围', () => {
+    it('手動拉桿忽略水位線並把最近 N 條作為最大範圍', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -145,7 +145,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages).toHaveLength(500);
     });
 
-    it('拉杆范围外的旧断点失效，绝不会扩大范围', () => {
+    it('拉桿範圍外的舊斷點失效，絕不會擴大範圍', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1000),
             makeChar({
@@ -162,7 +162,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.messages[0].id).toBe(501);
     });
 
-    it('新消息把拉杆起点推过固定断点后，固定断点失效并跟随拉杆', () => {
+    it('新消息把拉桿起點推過固定斷點後，固定斷點失效並跟隨拉桿', () => {
         const snapshot = computeContextRangeSnapshot(
             makeMessages(1, 1200),
             makeChar({
@@ -179,7 +179,7 @@ describe('AI 原文范围边界', () => {
         expect(snapshot.effectiveStartMessageId).toBe(701);
     });
 
-    it('作为断点的消息被删除后断点失效，不能停在不存在的 ID 上', () => {
+    it('作為斷點的消息被刪除後斷點失效，不能停在不存在的 ID 上', () => {
         const messages = makeMessages(1, 1000).filter(message => message.id !== 800);
         const snapshot = computeContextRangeSnapshot(
             messages,
@@ -198,8 +198,8 @@ describe('AI 原文范围边界', () => {
     });
 });
 
-describe('旧角色上下文迁移', () => {
-    it('全自动用户即使原来拉满 5000 条也回到自适应默认', () => {
+describe('舊角色上下文遷移', () => {
+    it('全自動用戶即使原來拉滿 5000 條也回到自適應默認', () => {
         const result = migrateCharacterContextRange(makeChar({
             contextRangePolicyVersion: undefined,
             autoArchiveEnabled: true,
@@ -214,7 +214,7 @@ describe('旧角色上下文迁移', () => {
         expect(result.character.contextUserStartMessageId).toBeUndefined();
     });
 
-    it('未开全自动的旧用户保留拉杆，并把旧用户断点迁入新字段', () => {
+    it('未開全自動的舊用戶保留拉桿，並把舊用戶斷點遷入新字段', () => {
         const result = migrateCharacterContextRange(makeChar({
             contextRangePolicyVersion: undefined,
             autoArchiveEnabled: false,
@@ -227,7 +227,7 @@ describe('旧角色上下文迁移', () => {
         expect(result.character.contextUserStartMessageId).toBe(250);
     });
 
-    it('新字段会随角色设置 JSON 备份往返保留', () => {
+    it('新字段會隨角色設置 JSON 備份往返保留', () => {
         const original = makeChar({
             autoArchiveEnabled: true,
             contextRangeMode: 'manual',

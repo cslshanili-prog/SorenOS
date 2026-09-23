@@ -22,11 +22,11 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('native binary share files', () => {
-    it('记忆 JSON 与全部备份一样写分享缓存并直接拉起系统面板', async () => {
-        expect(await saveMemoryPalaceExport('{"记忆":"你好"}', 'memory.json', '记忆宫殿')).toEqual({ kind: 'shared' });
+    it('記憶 JSON 與全部備份一樣寫分享緩存並直接拉起系統面板', async () => {
+        expect(await saveMemoryPalaceExport('{"記憶":"你好"}', 'memory.json', '記憶宮殿')).toEqual({ kind: 'shared' });
         const write = mocks.write.mock.calls[0][0];
         expect(write.directory).toBe('CACHE');
-        expect(Buffer.from(write.data, 'base64').toString('utf8')).toBe('{"记忆":"你好"}');
+        expect(Buffer.from(write.data, 'base64').toString('utf8')).toBe('{"記憶":"你好"}');
         expect(mocks.share).toHaveBeenCalledTimes(1);
     });
     it('shares a cached PNG as binary instead of writing UTF-8 text', async () => {

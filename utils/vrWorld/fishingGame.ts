@@ -9,7 +9,7 @@ export const createFishingGame = (difficulty = .3, assist = false): FishingGameS
 });
 export const angleDifference = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export const fishingArcWidth = (s: FishingGameState) => s.assist ? .92 : .6 - s.difficulty * .15;
-/** 归一化水面坐标；鱼影每次会逗留数秒，简单模式不用追光弧。 */
+/** 歸一化水面座標；魚影每次會逗留數秒，簡單模式不用追光弧。 */
 export const simpleFishingShadow = (elapsed: number) => ({
     visible: elapsed % 8 < 5.2,
     x: .5 + .24 * Math.sin(elapsed * .62),

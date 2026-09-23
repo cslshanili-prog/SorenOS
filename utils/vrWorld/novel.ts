@@ -1,5 +1,5 @@
 /**
- * 「彼方」小说工具 —— 切块、阅读窗口、书签推进、批注组织。
+ * 「彼方」小說工具 —— 切塊、閱讀窗口、書籤推進、批註組織。
  */
 
 import { VRWorldNovel, VRNovelSegment, VRNovelAnnotation } from '../../types';
@@ -9,8 +9,8 @@ const genId = (prefix: string) =>
     `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 /**
- * 把整本小说原文切成阅读单元。按段落（空行/换行）聚合到 ~目标字数，
- * 尽量不切断自然段；超长自然段按字数硬切。
+ * 把整本小說原文切成閱讀單元。按段落（空行/換行）聚合到 ~目標字數，
+ * 儘量不切斷自然段；超長自然段按字數硬切。
  */
 export function chunkNovelText(raw: string, target = VR_SEGMENT_TARGET_CHARS): VRNovelSegment[] {
     const normalized = raw.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -34,7 +34,7 @@ export function chunkNovelText(raw: string, target = VR_SEGMENT_TARGET_CHARS): V
     };
 
     for (const para of paragraphs) {
-        // 超长自然段：硬切
+        // 超長自然段：硬切
         if (para.length > target * 2) {
             flush();
             for (let i = 0; i < para.length; i += target) {
@@ -53,14 +53,14 @@ export function chunkNovelText(raw: string, target = VR_SEGMENT_TARGET_CHARS): V
     return segments;
 }
 
-/** 从原文新建一本小说。 */
+/** 從原文新建一本小說。 */
 export function buildNovel(title: string, raw: string, opts?: { author?: string; summary?: string }): VRWorldNovel {
     const segments = chunkNovelText(raw);
     const totalChars = segments.reduce((s, seg) => s + seg.chars, 0);
     const now = Date.now();
     return {
         id: genId('vrnovel'),
-        title: title.trim() || '无题',
+        title: title.trim() || '無題',
         author: opts?.author?.trim() || undefined,
         summary: opts?.summary?.trim() || undefined,
         segments,
@@ -71,8 +71,8 @@ export function buildNovel(title: string, raw: string, opts?: { author?: string;
 }
 
 /**
- * 异步切块：大文件（数 MB 小说）专用。分批让出主线程，避免一次性同步切块冻 UI。
- * onProgress 回调 0~1 进度。
+ * 異步切塊：大文件（數 MB 小說）專用。分批讓出主線程，避免一次性同步切塊凍 UI。
+ * onProgress 回調 0~1 進度。
  */
 export async function chunkNovelTextAsync(
     raw: string,
@@ -106,7 +106,7 @@ export async function chunkNovelTextAsync(
                 buffer = buffer ? `${buffer}\n${para}` : para;
             }
         }
-        // 每 4000 段让出一次主线程并上报进度
+        // 每 4000 段讓出一次主線程並上報進度
         if (i % 4000 === 0) {
             onProgress?.(i / total);
             await new Promise<void>(r => setTimeout(r));
@@ -117,7 +117,7 @@ export async function chunkNovelTextAsync(
     return segments;
 }
 
-/** 异步版 buildNovel —— 大文件用，避免主线程卡顿。 */
+/** 異步版 buildNovel —— 大文件用，避免主線程卡頓。 */
 export async function buildNovelAsync(
     title: string,
     raw: string,
@@ -128,7 +128,7 @@ export async function buildNovelAsync(
     const now = Date.now();
     return {
         id: genId('vrnovel'),
-        title: title.trim() || '无题',
+        title: title.trim() || '無題',
         author: opts?.author?.trim() || undefined,
         summary: opts?.summary?.trim() || undefined,
         segments,
@@ -141,16 +141,16 @@ export async function buildNovelAsync(
 export interface ReadingWindow {
     /** 起始 segment 索引（含） */
     from: number;
-    /** 结束 segment 索引（不含） */
+    /** 結束 segment 索引（不含） */
     to: number;
     segments: VRNovelSegment[];
-    /** 是否已读到全书末尾 */
+    /** 是否已讀到全書末尾 */
     reachedEnd: boolean;
 }
 
 /**
- * 从书签处取一个阅读窗口：累计原文字数直到接近预算（含已有批注的开销由调用方另算）。
- * 至少给一个 segment，避免预算太小卡死。
+ * 從書籤處取一個閱讀窗口：累計原文字數直到接近預算（含已有批註的開銷由調用方另算）。
+ * 至少給一個 segment，避免預算太小卡死。
  */
 export function getReadingWindow(
     novel: VRWorldNovel,
@@ -174,7 +174,7 @@ export function getReadingWindow(
     };
 }
 
-/** 新建一条批注。 */
+/** 新建一條批註。 */
 export function buildAnnotation(input: {
     novelId: string;
     segIdx: number;
@@ -195,7 +195,7 @@ export function buildAnnotation(input: {
     };
 }
 
-/** 把批注按段落索引归组，便于渲染与喂 prompt。 */
+/** 把批註按段落索引歸組，便於渲染與喂 prompt。 */
 export function groupAnnotationsBySeg(annotations: VRNovelAnnotation[]): Map<number, VRNovelAnnotation[]> {
     const map = new Map<number, VRNovelAnnotation[]>();
     for (const a of annotations) {
@@ -207,7 +207,7 @@ export function groupAnnotationsBySeg(annotations: VRNovelAnnotation[]): Map<num
     return map;
 }
 
-/** 读取某角色对某本书的书签（默认 0）。 */
+/** 讀取某角色對某本書的書籤（默認 0）。 */
 export function getBookmark(bookmarks: Record<string, number> | undefined, novelId: string): number {
     return bookmarks?.[novelId] ?? 0;
 }

@@ -71,7 +71,7 @@ export const isAndroidAppUpdateEnabled = (): boolean =>
   && /^https:\/\//i.test(getAndroidUpdateManifestUrl());
 
 export const parseAndroidUpdateManifest = (input: unknown): AndroidUpdateManifest => {
-  if (!input || typeof input !== 'object') throw new Error('更新清单格式无效');
+  if (!input || typeof input !== 'object') throw new Error('更新清單格式無效');
   const value = input as Record<string, unknown>;
   const versionCode = Number(value.versionCode);
   const sizeBytes = Number(value.sizeBytes);
@@ -80,11 +80,11 @@ export const parseAndroidUpdateManifest = (input: unknown): AndroidUpdateManifes
   const sha256 = typeof value.sha256 === 'string'
     ? value.sha256.trim().replace(/^sha256:/i, '').toLowerCase()
     : '';
-  if (Number(value.schemaVersion) !== 1) throw new Error('暂不支持这份更新清单');
-  if (!Number.isSafeInteger(versionCode) || versionCode <= 0 || !versionName) throw new Error('更新版本号无效');
-  if (!/^https:\/\//i.test(apkUrl)) throw new Error('APK 下载地址必须使用 HTTPS');
-  if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('APK SHA-256 无效');
-  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) throw new Error('APK 文件大小无效');
+  if (Number(value.schemaVersion) !== 1) throw new Error('暫不支持這份更新清單');
+  if (!Number.isSafeInteger(versionCode) || versionCode <= 0 || !versionName) throw new Error('更新版本號無效');
+  if (!/^https:\/\//i.test(apkUrl)) throw new Error('APK 下載地址必須使用 HTTPS');
+  if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('APK SHA-256 無效');
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) throw new Error('APK 文件大小無效');
   return {
     schemaVersion: 1,
     versionCode,
@@ -104,11 +104,11 @@ export const getInstalledAndroidAppInfo = (): Promise<InstalledAndroidAppInfo> =
 
 export const fetchAndroidUpdateManifest = async (): Promise<AndroidUpdateManifest> => {
   const manifestUrl = getAndroidUpdateManifestUrl();
-  if (!/^https:\/\//i.test(manifestUrl)) throw new Error('当前安装包没有配置更新地址');
+  if (!/^https:\/\//i.test(manifestUrl)) throw new Error('當前安裝包沒有配置更新地址');
   const url = new URL(manifestUrl);
   url.searchParams.set('_', String(Date.now()));
   const response = await fetch(url.toString(), { cache: 'no-store' });
-  if (!response.ok) throw new Error(`检查更新失败（HTTP ${response.status}）`);
+  if (!response.ok) throw new Error(`檢查更新失敗（HTTP ${response.status}）`);
   return parseAndroidUpdateManifest(await response.json());
 };
 
@@ -145,7 +145,7 @@ export const downloadAndVerifyAndroidUpdate = async (
   const { uri } = await Filesystem.getUri({ path: UPDATE_PATH, directory: Directory.Cache });
   const verified = await ApkInstaller.verifyApk({ path: uri, sha256: manifest.sha256 });
   if (!verified.valid || verified.versionCode !== manifest.versionCode) {
-    throw new Error('下载的 APK 与更新清单版本不一致');
+    throw new Error('下載的 APK 與更新清單版本不一致');
   }
   return uri;
 };

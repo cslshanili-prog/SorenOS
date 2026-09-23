@@ -12,6 +12,7 @@ import { formatLifeSimActionDescription } from '../../utils/lifeSimTone';
 import { trackEvent } from '../../utils/analytics';
 import { isImageValue } from '../../utils/blobRef';
 import TokenImg from '../../components/os/TokenImg';
+import { includesAnyScript } from '../../utils/scriptKey';
 
 const EVENT_ACCENTS: Record<string, string> = {
     fight: '#b85050',
@@ -39,8 +40,8 @@ type DramaFilter = 'all' | 'character' | 'main_plot' | 'system';
 const FILTERS: { value: DramaFilter; label: string }[] = [
     { value: 'all', label: '全部' },
     { value: 'character', label: '角色' },
-    { value: 'main_plot', label: '主线' },
-    { value: 'system', label: '系统' },
+    { value: 'main_plot', label: '主線' },
+    { value: 'system', label: '系統' },
 ];
 
 function getEventAccent(action: SimAction): string {
@@ -49,20 +50,20 @@ function getEventAccent(action: SimAction): string {
 
     const desc = action.description.toLowerCase();
     if (desc.includes('fight') || desc.includes('吵架') || desc.includes('打架')) return EVENT_ACCENTS.fight;
-    if (desc.includes('romance') || desc.includes('暧昧') || desc.includes('恋')) return EVENT_ACCENTS.romance;
-    if (desc.includes('gossip') || desc.includes('闲话') || desc.includes('八卦')) return EVENT_ACCENTS.gossip;
-    if (desc.includes('alliance') || desc.includes('结盟')) return EVENT_ACCENTS.alliance;
-    if (desc.includes('party') || desc.includes('派对')) return EVENT_ACCENTS.party;
-    if (desc.includes('rivalry') || desc.includes('竞争')) return EVENT_ACCENTS.rivalry;
+    if (desc.includes('romance') || includesAnyScript(desc, '曖昧') || includesAnyScript(desc, '戀')) return EVENT_ACCENTS.romance;
+    if (desc.includes('gossip') || includesAnyScript(desc, '閒話') || includesAnyScript(desc, '八卦')) return EVENT_ACCENTS.gossip;
+    if (desc.includes('alliance') || includesAnyScript(desc, '結盟')) return EVENT_ACCENTS.alliance;
+    if (desc.includes('party') || includesAnyScript(desc, '派對')) return EVENT_ACCENTS.party;
+    if (desc.includes('rivalry') || includesAnyScript(desc, '競爭')) return EVENT_ACCENTS.rivalry;
     if (action.actorId === 'system' || action.actorId === 'autonomous') return '#8b6bb8';
     if (action.actorId === 'user') return '#5b9b6b';
     return '#888';
 }
 
 function getStoryBadge(action: SimAction): string {
-    if (action.storyKind === 'main_plot') return '主线';
+    if (action.storyKind === 'main_plot') return '主線';
     if (action.storyKind === 'character_drama') return '角色';
-    if (action.storyKind === 'system') return '系统';
+    if (action.storyKind === 'system') return '系統';
     return '';
 }
 
@@ -185,7 +186,7 @@ const DramaEntry: React.FC<{ action: SimAction }> = ({ action }) => {
 
             {action.chainFromId && (
                 <p style={{ fontSize: 8, color: '#b89840', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <Lightning size={8} weight="bold" style={{ flexShrink: 0 }} /> 连锁事件
+                    <Lightning size={8} weight="bold" style={{ flexShrink: 0 }} /> 連鎖事件
                 </p>
             )}
         </div>
@@ -226,16 +227,16 @@ const MainPlotArchive: React.FC<{ gameState: LifeSimState }> = ({ gameState }) =
             {!selectedPlot ? (
                 <div className="flex-1 flex items-center justify-center text-center" style={{ padding: 14 }}>
                     <div>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#7f6c5d' }}>主线档案室还是空的</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#7f6c5d' }}>主線檔案室還是空的</p>
                         <p style={{ fontSize: 10, color: '#9a8f84', marginTop: 6, lineHeight: 1.5 }}>
-                            多点几次“吃瓜”，世界线就会在这里留下记录。
+                            多點幾次“吃瓜”，世界線就會在這裡留下記錄。
                         </p>
                     </div>
                 </div>
             ) : (
                 <>
                     <div style={{ padding: 8, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: '#8b7b72', marginBottom: 6 }}>主线历史</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#8b7b72', marginBottom: 6 }}>主線歷史</div>
                         <div className="space-y-1.5 no-scrollbar" style={{ maxHeight: 168, overflowY: 'auto', overflowX: 'hidden', paddingRight: 2 }}>
                             {mainPlots.map(action => {
                                 const active = action.id === selectedPlot.id;
@@ -285,7 +286,7 @@ const MainPlotArchive: React.FC<{ gameState: LifeSimState }> = ({ gameState }) =
                                     letterSpacing: '0.04em',
                                 }}
                             >
-                                当前主线
+                                當前主線
                             </span>
                             <span style={{ fontSize: 8, color: '#a1968c', fontFamily: 'monospace' }}>R{selectedPlot.turnNumber}</span>
                         </div>
@@ -297,7 +298,7 @@ const MainPlotArchive: React.FC<{ gameState: LifeSimState }> = ({ gameState }) =
                         </p>
                         {selectedPlot.immediateResult && (
                             <div className="retro-inset" style={{ padding: '6px 8px', marginTop: 7 }}>
-                                <div style={{ fontSize: 8, fontWeight: 700, color: '#9b765e', marginBottom: 3 }}>阶段结果</div>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: '#9b765e', marginBottom: 3 }}>階段結果</div>
                                 <div style={{ fontSize: 10, color: '#59504a', lineHeight: 1.5, overflowWrap: 'anywhere' }}>{selectedPlot.immediateResult}</div>
                             </div>
                         )}
@@ -326,7 +327,7 @@ const MainPlotArchive: React.FC<{ gameState: LifeSimState }> = ({ gameState }) =
 
                     {(selectedPlot.narrative?.innerThought || selectedPlot.narrative?.commentOnWorld) && (
                         <div style={{ padding: 8 }}>
-                            <div style={{ fontSize: 9, fontWeight: 700, color: '#8b7b72', marginBottom: 6 }}>编剧室批注</div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: '#8b7b72', marginBottom: 6 }}>編劇室批註</div>
                             {selectedPlot.narrative?.innerThought && (
                                 <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: selectedPlot.narrative?.commentOnWorld ? 6 : 0 }}>
                                     <p style={{ fontSize: 9, color: '#7d705e', lineHeight: 1.55, fontStyle: 'italic', overflowWrap: 'anywhere' }}>
@@ -389,7 +390,7 @@ const DramaFeed: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                     </div>
                     <div style={{ padding: 6, minWidth: 0 }} className="space-y-1 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
                         {logs.length === 0 ? (
-                            <div className="text-center py-8" style={{ color: '#999', fontSize: 11 }}>还没有新的动态记录…</div>
+                            <div className="text-center py-8" style={{ color: '#999', fontSize: 11 }}>還沒有新的動態記錄…</div>
                         ) : logs.map(action => (
                             <DramaEntry key={action.id} action={action} />
                         ))}

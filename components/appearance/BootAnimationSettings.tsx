@@ -6,11 +6,11 @@ export default function BootAnimationSettings({theme,updateTheme}: {
   updateTheme: (patch: Partial<OSTheme>) => void;
 }) {
   return <div className="mt-5 border-t border-slate-100 pt-4">
-    <h3 className="text-xs font-bold text-slate-700">开机动画风格</h3>
-    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">下次启动时生效。动画开关在「动画与过场」中，关闭后仍会记住所选风格。</p>
-    <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="开机动画风格">
+    <h3 className="text-xs font-bold text-slate-700">開機動畫風格</h3>
+    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">下次啟動時生效。動畫開關在「動畫與過場」中，關閉後仍會記住所選風格。</p>
+    <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="開機動畫風格">
       {([
-        {id:'classic',name:'原版',description:'壁纸柔光 · 文字浮现'},
+        {id:'classic',name:'原版',description:'壁紙柔光 · 文字浮現'},
         {id:'jellyfish',name:'水母',description:'紫色星光 · 小水母'},
       ] as const).map(option => <button key={option.id} type="button"
         aria-pressed={(theme.bootAnimationStyle || 'jellyfish') === option.id}

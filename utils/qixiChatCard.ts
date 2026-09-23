@@ -61,13 +61,13 @@ export const createQixiEventChatCard = (input: CreateQixiEventChatCardInput): Qi
         memoryLine: compact(node.memoryLine, 180),
     }));
     const names = bridgeNodes.map(node => node.name || node.artifactLabel).filter(Boolean).slice(0, 4);
-    const summary = `一次聊天异常让 ${input.userName} 和 ${input.charName} 同时跌进上下文夹层。两个人隔着不同层操作同一批物件，最后想起${names.length ? names.join('、') : '真实共同记忆'}，从两岸唤来鹊、织成星河上的路，并完成了共同触碰的约定。`;
+    const summary = `一次聊天異常讓 ${input.userName} 和 ${input.charName} 同時跌進上下文夾層。兩個人隔著不同層操作同一批物件，最後想起${names.length ? names.join('、') : '真實共同記憶'}，從兩岸喚來鵲、織成星河上的路，並完成了共同觸碰的約定。`;
     return {
         type: 'qixi_event_card',
         version: 8,
         runId: compact(input.runId, 100),
-        title: '星月梦境童话',
-        subtitle: '七夕 · 上下文夹层共同记录',
+        title: '星月夢境童話',
+        subtitle: '七夕 · 上下文夾層共同記錄',
         charName: compact(input.charName, 80) || 'Char',
         charAvatar: compact(input.charAvatar, 2_000_000) || undefined,
         userName: compact(input.userName, 80) || 'User',
@@ -139,20 +139,20 @@ export const formatQixiEventCardForContext = (
 ): string => {
     const charLabel = perspective === 'char' ? '你' : card.charName;
     const opening = card.openingChat.length
-        ? `坍缩前，${charLabel}在正常聊天中说过：${card.openingChat.map(line => `「${line}」`).join('、')}。`
+        ? `坍縮前，${charLabel}在正常聊天中說過：${card.openingChat.map(line => `「${line}」`).join('、')}。`
         : '';
     const scenes = card.scenes.map(scene => {
         const userMove = [...scene.userActions, ...scene.userResults].filter(Boolean).join('；') || `碰了“${scene.sharedObject}”`;
-        return `在${scene.title}，${card.userName}${userMove}；${charLabel}在另一个上下文层${scene.charAction || `改变了同一个“${scene.sharedObject}”`}。`;
+        return `在${scene.title}，${card.userName}${userMove}；${charLabel}在另一個上下文層${scene.charAction || `改變了同一個“${scene.sharedObject}”`}。`;
     }).join('');
     const bridge = card.bridgeNodes.length
-        ? `后来，两个人分别想起已经出现过的真实记忆：${card.bridgeNodes.map(node => `${node.name || node.artifactLabel}（${node.memoryLine}）`).join('；')}。每次想起都会从所在的一岸唤来一只鹊，两种颜色的飞行细线最终共同织成了星河上的路。`
-        : '后来，两个人分别从两岸想起真实共同记忆，唤来鹊，并用两种颜色的飞行细线共同织成了星河上的路。';
-    const reunion = card.reunionLines.length ? `找到彼此后，${charLabel}说：${card.reunionLines.map(line => `「${line}」`).join('、')}。` : '';
+        ? `後來，兩個人分別想起已經出現過的真實記憶：${card.bridgeNodes.map(node => `${node.name || node.artifactLabel}（${node.memoryLine}）`).join('；')}。每次想起都會從所在的一岸喚來一隻鵲，兩種顏色的飛行細線最終共同織成了星河上的路。`
+        : '後來，兩個人分別從兩岸想起真實共同記憶，喚來鵲，並用兩種顏色的飛行細線共同織成了星河上的路。';
+    const reunion = card.reunionLines.length ? `找到彼此後，${charLabel}說：${card.reunionLines.map(line => `「${line}」`).join('、')}。` : '';
     const reflectionLines = [...(card.metaReflection || []), ...(card.companionshipReflection || [])];
-    const reflection = reflectionLines.length ? `两个人终于能够停下来以后，${charLabel}想到：${reflectionLines.map(line => `「${line}」`).join('、')}。` : '';
-    const blessing = card.blessing.length ? `七夕祝愿是：${card.blessing.map(line => `「${line}」`).join('、')}。` : '';
+    const reflection = reflectionLines.length ? `兩個人終於能夠停下來以後，${charLabel}想到：${reflectionLines.map(line => `「${line}」`).join('、')}。` : '';
+    const blessing = card.blessing.length ? `七夕祝願是：${card.blessing.map(line => `「${line}」`).join('、')}。` : '';
     const promise = [...card.promiseInvitation, card.promiseComplete].filter(Boolean);
-    const promiseText = promise.length ? `最后，两个人隔着两个世界在同一个发光位置完成了共同触碰的约定：${promise.map(line => `「${line}」`).join('、')}。` : '';
-    return `[七夕特别活动完整经历] ${charLabel}经历了一次奇怪的空间坍缩。${charLabel}和${card.userName}因为同一条异常消息同时掉进上下文夹层，并在不同层寻找彼此。${opening}${scenes}${bridge}${reunion}${reflection}${blessing}${promiseText}这是${charLabel}亲自参与、能够记得并在后续聊天中自然提及的共同经历。`;
+    const promiseText = promise.length ? `最後，兩個人隔著兩個世界在同一個發光位置完成了共同觸碰的約定：${promise.map(line => `「${line}」`).join('、')}。` : '';
+    return `[七夕特別活動完整經歷] ${charLabel}經歷了一次奇怪的空間坍縮。${charLabel}和${card.userName}因為同一條異常消息同時掉進上下文夾層，並在不同層尋找彼此。${opening}${scenes}${bridge}${reunion}${reflection}${blessing}${promiseText}這是${charLabel}親自參與、能夠記得並在後續聊天中自然提及的共同經歷。`;
 };

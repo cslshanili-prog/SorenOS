@@ -1,12 +1,12 @@
 /**
- * Group Memory Palace — 群聊记忆提取（第三人称版本，独立于私聊）
+ * Group Memory Palace — 群聊記憶提取（第三人稱版本，獨立於私聊）
  *
- * 与 extraction.ts 的区别：
- * - 视角是"群聊观察者"而非角色本人 → 第三人称叙事，主语是具体的角色名
- * - 内容前缀统一为 "在【XXX群】里，..."，便于该记忆后续平等地分发给每个成员
- * - 不参与便利贴系统（pinDays），不参与 relatedTo / EventBox 跨时间链接（v1 简化）
+ * 與 extraction.ts 的區別：
+ * - 視角是"群聊觀察者"而非角色本人 → 第三人稱敘事，主語是具體的角色名
+ * - 內容前綴統一為 "在【XXX群】裡，..."，便於該記憶後續平等地分發給每個成員
+ * - 不參與便利貼系統（pinDays），不參與 relatedTo / EventBox 跨時間鏈接（v1 簡化）
  *
- * 私聊路径完全不感知本文件存在。
+ * 私聊路徑完全不感知本文件存在。
  */
 import type { Message } from '../../types';
 import type { MemoryRoom } from './types';
@@ -14,7 +14,7 @@ import type { LightLLMConfig } from './pipeline';
 import { safeFetchJson } from '../safeApi';
 import { safeParseJsonArray } from './jsonUtils';
 
-/** 群记忆草稿——尚未指派 charId（一份记忆稍后会复制给每个成员持久化） */
+/** 群記憶草稿——尚未指派 charId（一份記憶稍後會複製給每個成員持久化） */
 export interface GroupMemoryDraft {
     content: string;
     room: MemoryRoom;
@@ -23,7 +23,7 @@ export interface GroupMemoryDraft {
     mood: string;
     valence?: number;
     arousal?: number;
-    /** 这批草稿对应的群消息时间窗中点（用于 createdAt） */
+    /** 這批草稿對應的群消息時間窗中點（用於 createdAt） */
     createdAt: number;
 }
 
@@ -41,37 +41,37 @@ function clampVA(x: number): number {
 
 function buildGroupRulesBlock(groupName: string, memberNames: string[], userLabel: string): string {
     const memberList = memberNames.join('、');
-    return `## 规则
+    return `## 規則
 
-1. **第三人称叙事**：你是【${groupName}】的群聊观察者，记录"群里发生了什么"。
-   - 用户称呼为"${userLabel}"，群成员名字直接用：${memberList}
-   - **绝对不要用"我"** —— 这条记忆会平等地发给群里每个成员，所以不能站在某一个人的视角
-   - 内容前缀统一为："在【${groupName}】里，..."
+1. **第三人稱敘事**：你是【${groupName}】的群聊觀察者，記錄"群裡發生了什麼"。
+   - 用戶稱呼為"${userLabel}"，群成員名字直接用：${memberList}
+   - **絕對不要用"我"** —— 這條記憶會平等地發給群裡每個成員，所以不能站在某一個人的視角
+   - 內容前綴統一為："在【${groupName}】裡，..."
    例：
-   - "在【${groupName}】里，${memberNames[0] || 'A'} 提起了最近在追的剧，${memberNames[1] || 'B'} 跟着安利，${userLabel} 表示已经被种草了。"
-   - "在【${groupName}】里，${memberNames[0] || 'A'} 抱怨了周末加班的事，大家分别支了一招，${memberNames[1] || 'B'} 让 ta 直接拒绝，${memberNames[2] || 'C'} 让 ta 先观望。"
+   - "在【${groupName}】裡，${memberNames[0] || 'A'} 提起了最近在追的劇，${memberNames[1] || 'B'} 跟著安利，${userLabel} 表示已經被種草了。"
+   - "在【${groupName}】裡，${memberNames[0] || 'A'} 抱怨了週末加班的事，大家分別支了一招，${memberNames[1] || 'B'} 讓 ta 直接拒絕，${memberNames[2] || 'C'} 讓 ta 先觀望。"
 
-2. **重要性分级控制文字长度**：
-   - 重要性 1–5：20–60字，事实为主
-   - 重要性 6–7：60–140字，包含群里的氛围描写
-   - 重要性 8–10：120–220字，完整叙事（起因→经过→群里的反应）
+2. **重要性分級控制文字長度**：
+   - 重要性 1–5：20–60字，事實為主
+   - 重要性 6–7：60–140字，包含群裡的氛圍描寫
+   - 重要性 8–10：120–220字，完整敘事（起因→經過→群裡的反應）
 
-3. **房间分配**（注意视角是群整体）：
-   - living_room：群里的日常闲聊、玩梗、复读、无关紧要的活跃气氛
-   - bedroom：群里的暖心瞬间、深度互动、彼此关心或起哄逗 ${userLabel} 的时刻
-   - study：群里讨论工作 / 学习 / 兴趣 / 技能 / 新闻话题
-   - user_room：群里发生的、关于 ${userLabel} 的事——${userLabel} 在群里的状态、情绪、提到的家人朋友、被起哄等
-   - self_room：群成员之间的关系演变、群整体氛围的变化、谁和谁关系变好/变差
-   - attic：群里没解决的矛盾、尴尬冷场、被搁置的话题、暗流涌动的修罗场
-   - windowsill：群里立下的约定、共同期盼、群体目标（线下聚会、集体计划等）
+3. **房間分配**（注意視角是群整體）：
+   - living_room：群裡的日常閒聊、玩梗、復讀、無關緊要的活躍氣氛
+   - bedroom：群裡的暖心瞬間、深度互動、彼此關心或起鬨逗 ${userLabel} 的時刻
+   - study：群裡討論工作 / 學習 / 興趣 / 技能 / 新聞話題
+   - user_room：群裡發生的、關於 ${userLabel} 的事——${userLabel} 在群裡的狀態、情緒、提到的家人朋友、被起鬨等
+   - self_room：群成員之間的關係演變、群整體氛圍的變化、誰和誰關係變好/變差
+   - attic：群裡沒解決的矛盾、尷尬冷場、被擱置的話題、暗流湧動的修羅場
+   - windowsill：群裡立下的約定、共同期盼、群體目標（線下聚會、集體計劃等）
 
-4. **情绪标签**（mood）：happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral
-5. **情感坐标**（valence, arousal）：
-   - valence：-1（极痛苦）→ +1（极愉悦）
-   - arousal：-1（极平静）→ +1（极激烈）
-6. **标签**（tags）：提取 2-5 个关键词标签，最好包含涉及的角色名
-7. **不要遗漏值得记的事，但也不要把每句话都变成记忆**。一段群聊通常提取 1–5 条记忆。
-8. **不需要 pinDays / relatedTo / sameAs / eventName / eventTags** —— 群记忆 v1 不参与便利贴和事件盒系统。`;
+4. **情緒標籤**（mood）：happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral
+5. **情感座標**（valence, arousal）：
+   - valence：-1（極痛苦）→ +1（極愉悅）
+   - arousal：-1（極平靜）→ +1（極激烈）
+6. **標籤**（tags）：提取 2-5 個關鍵詞標籤，最好包含涉及的角色名
+7. **不要遺漏值得記的事，但也不要把每句話都變成記憶**。一段群聊通常提取 1–5 條記憶。
+8. **不需要 pinDays / relatedTo / sameAs / eventName / eventTags** —— 群記憶 v1 不參與便利貼和事件盒系統。`;
 }
 
 function buildGroupConversationText(messages: Message[], speakerNameOf: (m: Message) => string): string {
@@ -79,9 +79,9 @@ function buildGroupConversationText(messages: Message[], speakerNameOf: (m: Mess
         const name = speakerNameOf(m);
         const time = new Date(m.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         let content: string;
-        if (m.type === 'image') content = '[图片]';
+        if (m.type === 'image') content = '[圖片]';
         else if (m.type === 'emoji') content = `[表情包]`;
-        else if (m.type === 'transfer') content = `[红包: ${m.metadata?.amount ?? ''}]`;
+        else if (m.type === 'transfer') content = `[紅包: ${m.metadata?.amount ?? ''}]`;
         else content = (m.content || '').slice(0, 600);
         return `[${time}] ${name}: ${content}`;
     }).join('\n');
@@ -92,9 +92,9 @@ export interface GroupExtractionResult {
 }
 
 /**
- * 从群消息缓冲区提取记忆草稿。caller 拿到 drafts 后再为每个成员各持久化一份。
+ * 從群消息緩衝區提取記憶草稿。caller 拿到 drafts 後再為每個成員各持久化一份。
  *
- * 任何 LLM / 网络异常都吞掉，返回空 drafts 供 caller 跳过本轮——绝不抛到上层。
+ * 任何 LLM / 網絡異常都吞掉，返回空 drafts 供 caller 跳過本輪——絕不拋到上層。
  */
 export async function extractGroupMemoriesFromBuffer(
     messages: Message[],
@@ -109,28 +109,28 @@ export async function extractGroupMemoriesFromBuffer(
     const conversationText = buildGroupConversationText(messages, speakerNameOf);
     const memberList = memberNames.join('、');
 
-    const systemPrompt = `你是【${groupName}】的群聊观察者，请从以下群聊记录中提取值得记住的群聊记忆。
-群成员：${memberList}
-用户：${userLabel}
+    const systemPrompt = `你是【${groupName}】的群聊觀察者，請從以下群聊記錄中提取值得記住的群聊記憶。
+群成員：${memberList}
+用戶：${userLabel}
 
 ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
 
-## 输出格式
+## 輸出格式
 
-严格 JSON 数组，不要 markdown 包裹：
+嚴格 JSON 數組，不要 markdown 包裹：
 [
   {
-    "content": "在【${groupName}】里，...",
+    "content": "在【${groupName}】裡，...",
     "room": "living_room",
     "importance": 5,
     "mood": "neutral",
     "valence": 0,
     "arousal": 0,
-    "tags": ["标签1", "标签2"]
+    "tags": ["標籤1", "標籤2"]
   }
 ]
 
-如果群聊过于琐碎无值得记忆的内容，返回空数组 []。`;
+如果群聊過於瑣碎無值得記憶的內容，返回空數組 []。`;
 
     try {
         const data = await safeFetchJson(
@@ -145,21 +145,21 @@ ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
                     model: llmConfig.model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `群聊记录：\n${conversationText}` },
+                        { role: 'user', content: `群聊記錄：\n${conversationText}` },
                     ],
                     temperature: 0.4,
                     max_tokens: 12000,
                     stream: false,
                 }),
             },
-            2, 180_000, { appName: '记忆宫殿', purpose: '群记忆提取' }
+            2, 180_000, { appName: '記憶宮殿', purpose: '群記憶提取' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';
         const parsed = safeParseJsonArray(reply);
 
         if (parsed.length === 0 && reply.trim().length > 0) {
-            console.warn(`🏰 [GroupExtraction] LLM 返回了内容但 JSON 解析为空数组。原始回复前200字: ${reply.slice(0, 200)}`);
+            console.warn(`🏰 [GroupExtraction] LLM 返回了內容但 JSON 解析為空數組。原始回覆前200字: ${reply.slice(0, 200)}`);
         }
 
         const msgTimestamps = messages.map(m => m.timestamp).filter(t => t > 0);
@@ -180,10 +180,10 @@ ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
                 createdAt: midTime,
             }));
 
-        console.log(`🏰 [GroupExtraction] 从 ${messages.length} 条群消息提取 ${drafts.length} 条群记忆草稿`);
+        console.log(`🏰 [GroupExtraction] 從 ${messages.length} 條群消息提取 ${drafts.length} 條群記憶草稿`);
         return { drafts };
     } catch (err: any) {
-        console.warn(`❌ [GroupExtraction] 群记忆提取失败 (${messages.length} 条消息): ${err.message}`);
+        console.warn(`❌ [GroupExtraction] 群記憶提取失敗 (${messages.length} 條消息): ${err.message}`);
         return { drafts: [] };
     }
 }

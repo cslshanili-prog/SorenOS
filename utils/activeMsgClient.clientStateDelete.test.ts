@@ -1,12 +1,12 @@
 // utils/activeMsgClient.clientStateDelete.test.ts
 //
-// 回归守卫（云端 client_state 的删行）：
-//   1. worker 认 `value: null` 之后，取回旁路内容后的「清掉」要真删而不是写空串——
-//      即时对话每轮的旁路键都是新的，写空串留下的空壳只涨不跌，worker 每次生成都要把
-//      整个角色命名空间读一遍。老 worker 收到 null 是逐条拒，所以不认就还得走写空串。
-//   2. 删角色同一套：认删行时连已有的空壳一起删干净；不认时空壳跳过（原行为）。
-//   3. 存量空壳清理：只在认删行时做、每个角色只读一次、只删三个旁路前缀且值为空的行、
-//      超过单批上限切批、哪一步失败都不记进已扫列表。
+// 迴歸守衛（雲端 client_state 的刪行）：
+//   1. worker 認 `value: null` 之後，取回旁路內容後的「清掉」要真刪而不是寫空串——
+//      即時對話每輪的旁路鍵都是新的，寫空串留下的空殼只漲不跌，worker 每次生成都要把
+//      整個角色命名空間讀一遍。老 worker 收到 null 是逐條拒，所以不認就還得走寫空串。
+//   2. 刪角色同一套：認刪行時連已有的空殼一起刪乾淨；不認時空殼跳過（原行為）。
+//   3. 存量空殼清理：只在認刪行時做、每個角色只讀一次、只刪三個旁路前綴且值為空的行、
+//      超過單批上限切批、哪一步失敗都不記進已掃列表。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { reiClient } = vi.hoisted(() => ({
@@ -51,7 +51,7 @@ import { DB } from './db';
 const CHAR_ID = 'char-state-delete';
 const CHAR = {
   id: CHAR_ID,
-  name: '小满',
+  name: '小滿',
   memories: [],
   activeMsg2Config: { enabled: true, tasks: [] },
 } as any;
@@ -61,7 +61,7 @@ const OTHER_CHAR_ID = 'char-state-delete-2';
 const OTHER_CHAR = { ...CHAR, id: OTHER_CHAR_ID, name: '小雨' };
 const OTHER_NAMESPACE = amsgStateNamespace(OTHER_CHAR_ID);
 
-/** 云端读回来的一份典型命名空间：三种旁路空壳 + 还有内容的旁路行 + 各种长期状态。 */
+/** 雲端讀回來的一份典型命名空間：三種旁路空殼 + 還有內容的旁路行 + 各種長期狀態。 */
 const MIXED_ENTRIES = [
   { namespace: NAMESPACE, key: 'reasoning:a', value: '', updatedAt: 1 },
   { namespace: NAMESPACE, key: 'emotion_update:b', value: '', updatedAt: 1 },
@@ -82,13 +82,13 @@ const remoteHas = (entries: unknown[]) => {
   reiClient.getClientState.mockResolvedValue({ success: true, data: { entries } });
 };
 
-/** saveGlobalConfig 里带已扫列表的那几次调用（握手时的能力探测也会存一次配置，得筛掉）。 */
+/** saveGlobalConfig 裡帶已掃列表的那幾次調用（握手時的能力探測也會存一次配置，得篩掉）。 */
 const sweptListSaves = (): string[][] =>
   vi.mocked(ActiveMsgStore.saveGlobalConfig).mock.calls
     .map(([updates]) => (updates as { sidechannelShellsSweptCharIds?: string[] }).sidechannelShellsSweptCharIds)
     .filter((list): list is string[] => list !== undefined);
 
-/** 第 n 次（从 0 数）putClientState 发出去的条目。 */
+/** 第 n 次（從 0 數）putClientState 發出去的條目。 */
 const putEntries = (n: number): any[] => reiClient.putClientState.mock.calls[n][0];
 
 const sync = (chars = [CHAR]) => ActiveMsgClient.syncCharFirePacks(chars.map((char) => ({
@@ -121,7 +121,7 @@ beforeEach(() => {
   vi.spyOn(ChatPrompts, 'buildMessageHistory').mockReturnValue({ apiMessages: [] } as any);
   vi.spyOn(ChatPrompts, 'filterVisibleEmojis').mockReturnValue({ emojis: [], categories: [] } as any);
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  // 握手时顺手跑的即时对话探测会打 config-check，别让它真的出网。
+  // 握手時順手跑的即時對話探測會打 config-check，別讓它真的出網。
   vi.stubGlobal('fetch', vi.fn(async () => ({
     status: 200,
     text: async () => JSON.stringify({ success: true, data: {} }),
@@ -135,8 +135,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('clearClientStateValue（取回旁路内容后的清理）', () => {
-  it('worker 认删行 → 发 value: null 真删', async () => {
+describe('clearClientStateValue（取回旁路內容後的清理）', () => {
+  it('worker 認刪行 → 發 value: null 真刪', async () => {
     globalConfig.clientStateDeleteSupported = true;
 
     await ActiveMsgClient.clearClientStateValue(NAMESPACE, 'reasoning:abc');
@@ -146,7 +146,7 @@ describe('clearClientStateValue（取回旁路内容后的清理）', () => {
     ]);
   });
 
-  it('老 worker → 照旧写空串', async () => {
+  it('老 worker → 照舊寫空串', async () => {
     globalConfig.clientStateDeleteSupported = false;
 
     await ActiveMsgClient.clearClientStateValue(NAMESPACE, 'reasoning:abc');
@@ -154,14 +154,14 @@ describe('clearClientStateValue（取回旁路内容后的清理）', () => {
     expect(putEntries(0)[0].value).toBe('');
   });
 
-  it('还没探过 → 按老 worker 处理（null 发到老 worker 上是被拒）', async () => {
+  it('還沒探過 → 按老 worker 處理（null 發到老 worker 上是被拒）', async () => {
     await ActiveMsgClient.clearClientStateValue(NAMESPACE, 'reasoning:abc');
 
     expect(putEntries(0)[0].value).toBe('');
   });
 });
 
-describe('clearNamespaceValuesOrThrow（删角色）', () => {
+describe('clearNamespaceValuesOrThrow（刪角色）', () => {
   const fakeClient = (entries: unknown[]) => ({
     getClientState: vi.fn().mockResolvedValue({ success: true, data: { entries } }),
     putClientState: vi.fn().mockResolvedValue({ success: true }),
@@ -173,7 +173,7 @@ describe('clearNamespaceValuesOrThrow（删角色）', () => {
     { key: 'xhs_session:y', value: '' },
   ];
 
-  it('worker 认删行 → 每一行都发 null，已经是空壳的也在内', async () => {
+  it('worker 認刪行 → 每一行都發 null，已經是空殼的也在內', async () => {
     globalConfig.clientStateDeleteSupported = true;
     const client = fakeClient(ROWS);
 
@@ -186,7 +186,7 @@ describe('clearNamespaceValuesOrThrow（删角色）', () => {
     ]);
   });
 
-  it('老 worker → 只对有内容的行写空串，空壳跳过', async () => {
+  it('老 worker → 只對有內容的行寫空串，空殼跳過', async () => {
     globalConfig.clientStateDeleteSupported = false;
     const client = fakeClient(ROWS);
 
@@ -198,7 +198,7 @@ describe('clearNamespaceValuesOrThrow（删角色）', () => {
     ]);
   });
 
-  it('行数超过单批上限 → 切批发', async () => {
+  it('行數超過單批上限 → 切批發', async () => {
     globalConfig.clientStateDeleteSupported = true;
     const client = fakeClient(shellEntries(450));
 
@@ -209,8 +209,8 @@ describe('clearNamespaceValuesOrThrow（删角色）', () => {
   });
 });
 
-describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
-  it('认删行且没扫过 → 读一次命名空间，只删三个旁路前缀且为空的行，扫完记进列表', async () => {
+describe('存量空殼清理（掛在 syncCharFirePacks 末尾）', () => {
+  it('認刪行且沒掃過 → 讀一次命名空間，只刪三個旁路前綴且為空的行，掃完記進列表', async () => {
     globalConfig.clientStateDeleteSupported = true;
     remoteHas(MIXED_ENTRIES);
 
@@ -218,7 +218,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
 
     expect(reiClient.getClientState).toHaveBeenCalledTimes(1);
     expect(reiClient.getClientState).toHaveBeenCalledWith(NAMESPACE);
-    // 第 0 次是常规同步（fire_pack / tool_pack），第 1 次才是清空壳。
+    // 第 0 次是常規同步（fire_pack / tool_pack），第 1 次才是清空殼。
     expect(reiClient.putClientState).toHaveBeenCalledTimes(2);
     const deletes = putEntries(1);
     expect(deletes.map((e: any) => e.key)).toEqual(SHELL_KEYS);
@@ -226,7 +226,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([[CHAR_ID]]);
   });
 
-  it('没有空壳 → 不多发一次 PUT，但照样记进列表（下次不用再读）', async () => {
+  it('沒有空殼 → 不多發一次 PUT，但照樣記進列表（下次不用再讀）', async () => {
     globalConfig.clientStateDeleteSupported = true;
     remoteHas([{ namespace: NAMESPACE, key: 'fire_pack', value: 'gz1:...', updatedAt: 1 }]);
 
@@ -237,7 +237,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([[CHAR_ID]]);
   });
 
-  it('已在列表里 → 不再读云端', async () => {
+  it('已在列表裡 → 不再讀雲端', async () => {
     globalConfig.clientStateDeleteSupported = true;
     globalConfig.sidechannelShellsSweptCharIds = [CHAR_ID];
     remoteHas(MIXED_ENTRIES);
@@ -249,7 +249,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([]);
   });
 
-  it('worker 不认删行 → 不读也不删', async () => {
+  it('worker 不認刪行 → 不讀也不刪', async () => {
     globalConfig.clientStateDeleteSupported = false;
     remoteHas(MIXED_ENTRIES);
 
@@ -260,7 +260,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([]);
   });
 
-  it('空壳超过单批上限 → 切批发', async () => {
+  it('空殼超過單批上限 → 切批發', async () => {
     globalConfig.clientStateDeleteSupported = true;
     remoteHas(shellEntries(450));
 
@@ -272,18 +272,18 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([[CHAR_ID]]);
   });
 
-  it('读云端失败 → warn、这一轮不记列表，同步本身照样算成功', async () => {
+  it('讀雲端失敗 → warn、這一輪不記列表，同步本身照樣算成功', async () => {
     globalConfig.clientStateDeleteSupported = true;
-    reiClient.getClientState.mockRejectedValue(new Error('网络断了'));
+    reiClient.getClientState.mockRejectedValue(new Error('網絡斷了'));
 
     await expect(sync()).resolves.toBeUndefined();
 
     expect(reiClient.putClientState).toHaveBeenCalledTimes(1);
     expect(sweptListSaves()).toEqual([]);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('旁路存储空壳'), expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('旁路存儲空殼'), expect.any(Error));
   });
 
-  it('删空壳被 worker 拒了 → 不记列表，下次再试', async () => {
+  it('刪空殼被 worker 拒了 → 不記列表，下次再試', async () => {
     globalConfig.clientStateDeleteSupported = true;
     remoteHas(MIXED_ENTRIES);
     reiClient.putClientState
@@ -293,10 +293,10 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     await expect(sync()).resolves.toBeUndefined();
 
     expect(sweptListSaves()).toEqual([]);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('旁路存储空壳'), expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('旁路存儲空殼'), expect.any(Error));
   });
 
-  it('一批里几个角色 → 各读各的，扫成的才记、扫挂的留到下次', async () => {
+  it('一批裡幾個角色 → 各讀各的，掃成的才記、掃掛的留到下次', async () => {
     globalConfig.clientStateDeleteSupported = true;
     reiClient.getClientState.mockImplementation(async (namespace: string) => {
       if (namespace === OTHER_NAMESPACE) throw new Error('D1 busy');
@@ -309,7 +309,7 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
     expect(sweptListSaves()).toEqual([[CHAR_ID]]);
   });
 
-  it('列表里已有别的角色 → 追加而不是覆盖', async () => {
+  it('列表裡已有別的角色 → 追加而不是覆蓋', async () => {
     globalConfig.clientStateDeleteSupported = true;
     globalConfig.sidechannelShellsSweptCharIds = [OTHER_CHAR_ID];
     remoteHas(MIXED_ENTRIES);
@@ -320,13 +320,13 @@ describe('存量空壳清理（挂在 syncCharFirePacks 末尾）', () => {
   });
 });
 
-describe('probeWorkerFeatures（握手时一次探测存两个能力位）', () => {
+describe('probeWorkerFeatures（握手時一次探測存兩個能力位）', () => {
   const savedFlags = () =>
     vi.mocked(ActiveMsgStore.saveGlobalConfig).mock.calls
       .map(([updates]) => updates as Record<string, unknown>)
       .filter((updates) => 'clientStateDeleteSupported' in updates);
 
-  it('features 两个都有 → 两个都是 true', async () => {
+  it('features 兩個都有 → 兩個都是 true', async () => {
     reiClient.getCapabilities.mockResolvedValue({
       serverVersion: '2.6.0-next.27', features: ['llm-credentials', 'client-state-delete'],
     });
@@ -336,14 +336,14 @@ describe('probeWorkerFeatures（握手时一次探测存两个能力位）', () 
     expect(savedFlags().at(-1)).toEqual({ llmCredentialsSupported: true, clientStateDeleteSupported: true });
   });
 
-  it('只认凭据那一位 → 删行是 false（老一档的 worker）', async () => {
+  it('只認憑據那一位 → 刪行是 false（老一檔的 worker）', async () => {
     reiClient.getCapabilities.mockResolvedValue({ serverVersion: '2.6.0-next.26', features: ['llm-credentials'] });
 
     await expect(ActiveMsgClient.probeWorkerFeatures())
       .resolves.toEqual({ llmCredentialsSupported: true, clientStateDeleteSupported: false });
   });
 
-  it('探不到 → 两个都是 false', async () => {
+  it('探不到 → 兩個都是 false', async () => {
     reiClient.getCapabilities.mockRejectedValue(new Error('offline'));
 
     await expect(ActiveMsgClient.probeWorkerFeatures())

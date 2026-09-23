@@ -205,26 +205,26 @@ export const buildCompanionStartupPrompt = (
 ): string => {
   const actionList = modelActions.length
     ? modelActions.slice(0, 60).map(action => `- ${action.id}: ${action.name}`).join('\n')
-    : '（当前没有模型专属动作）';
+    : '（當前沒有模型專屬動作）';
   return `${coreContext}
 
-### 陪伴桌面 · 开机自启演出
-${userName}正在为${characterName}设置“每次回到陪伴主界面时”的短开场。它像二次元手游首页的角色入场，但必须完全属于${characterName}本人。
-${hint.trim() ? `用户给的写作提示：${hint.trim()}` : '用户没有限定台词，请从完整人设、关系、近期对话和记忆出发自行决定如何开口。'}
+### 陪伴桌面 · 開機自啟演出
+${userName}正在為${characterName}設置“每次回到陪伴主界面時”的短開場。它像二次元手遊首頁的角色入場，但必須完全屬於${characterName}本人。
+${hint.trim() ? `用戶給的寫作提示：${hint.trim()}` : '用戶沒有限定台詞，請從完整人設、關係、近期對話和記憶出發自行決定如何開口。'}
 
 要求：
-- 只写角色真正会说的一至两句短台词；不要套用通用欢迎、早安、主人、系统上线或自我介绍模板。
-- 不要替桌面主题说话，不要解释模型、API、动作参数或提示词。
-- 眼睛默认看镜头。为头部 X/Y/Z、眼睛 X/Y、身体 X/Y/Z 给出克制的细微目标；动作先略微超过目标，再轻轻回正。
-- 可选择一个主 gesture、最多四个微表情，以及最多一个白名单模型专属动作；禁止编造动作 ID。
-- 只输出一个合法 JSON 对象，不要代码围栏或额外说明。
+- 只寫角色真正會說的一至兩句短台詞；不要套用通用歡迎、早安、主人、系統上線或自我介紹模板。
+- 不要替桌面主題說話，不要解釋模型、API、動作參數或提示詞。
+- 眼睛默認看鏡頭。為頭部 X/Y/Z、眼睛 X/Y、身體 X/Y/Z 給出克制的細微目標；動作先略微超過目標，再輕輕回正。
+- 可選擇一個主 gesture、最多四個微表情，以及最多一個白名單模型專屬動作；禁止編造動作 ID。
+- 只輸出一個合法 JSON 對象，不要代碼圍欄或額外說明。
 
-模型专属动作白名单：
+模型專屬動作白名單：
 ${actionList}
 
-严格结构：
+嚴格結構：
 {
-  "line": "角色台词",
+  "line": "角色台詞",
   "performance": {
     "emotion": "calm",
     "gesture": "tilt",
@@ -232,7 +232,7 @@ ${actionList}
     "gaze": "viewer",
     "intensity": 0.66,
     "faces": ["smile-eyes"],
-    "modelAction": "可选的白名单ID",
+    "modelAction": "可選的白名單ID",
     "precision": {
       "headX": 0.06,
       "headY": 0.04,
@@ -264,7 +264,7 @@ export const requestCompanionStartupDraft = async (options: {
     hint = '',
   } = options;
   const baseUrl = apiConfig.baseUrl?.replace(/\/+$/, '');
-  if (!baseUrl) throw new Error('请先在设置中配置主聊天 API');
+  if (!baseUrl) throw new Error('請先在設置中配置主聊天 API');
 
   const [allMessages, emojis] = await Promise.all([
     loadCharacterContextMessages(character),
@@ -272,7 +272,7 @@ export const requestCompanionStartupDraft = async (options: {
   ]);
   const recentMessages = allMessages
     .filter(message => message.role === 'user' || message.role === 'assistant');
-  const eventText = `[陪伴桌面开机演出设置] ${user.name || '用户'}希望你为每次回到陪伴主界面准备一句符合本人性格的短开场。`;
+  const eventText = `[陪伴桌面開機演出設置] ${user.name || '用戶'}希望你為每次回到陪伴主界面準備一句符合本人性格的短開場。`;
   const coreContext = ContextBuilder.buildCoreContext(
     character,
     user,
@@ -303,7 +303,7 @@ export const requestCompanionStartupDraft = async (options: {
     body: JSON.stringify({
       model: apiConfig.model,
       messages: [
-        { role: 'system', content: buildCompanionStartupPrompt(coreContext, character.name, user.name || '用户', modelActions, hint) },
+        { role: 'system', content: buildCompanionStartupPrompt(coreContext, character.name, user.name || '用戶', modelActions, hint) },
         ...apiMessages,
         { role: 'user', content: eventText },
       ],
@@ -312,12 +312,12 @@ export const requestCompanionStartupDraft = async (options: {
       stream: false,
     }),
   }, 1, 60_000, {
-    appName: '触感陪伴',
+    appName: '觸感陪伴',
     charId: character.id,
     charName: character.name,
-    purpose: '生成开机自启台词与演出',
+    purpose: '生成開機自啟台詞與演出',
   });
   const parsed = parseCompanionStartupResponse(data, modelActions);
-  if (!parsed) throw new Error('主模型没有返回可用的开机台词；可以改短提示后再试一次');
+  if (!parsed) throw new Error('主模型沒有返回可用的開機台詞；可以改短提示後再試一次');
   return parsed;
 };

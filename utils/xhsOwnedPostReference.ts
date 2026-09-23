@@ -16,11 +16,11 @@ const meaningfulChunks = (value: string): string[] => {
     return [...chunks];
 };
 
-const RECENT_REFERENCE_RE = /(刚才|刚刚|刚发|刚写|上一个|上一条|最近|那个帖子|那篇帖子|那条笔记)/;
+const RECENT_REFERENCE_RE = /([刚剛]才|[刚剛][刚剛]|[刚剛][发發]|[刚剛][写寫]|上一[个個]|上一[条條]|最近|那[个個]帖子|那篇帖子|那[条條][笔筆][记記])/;
 
 /**
- * 从大量角色帖子里选出最值得放进本轮提示词的少量候选。
- * ID 仍由代码持有；模型只看经过排序的候选，不需要背下整个主页。
+ * 從大量角色帖子裡選出最值得放進本輪提示詞的少量候選。
+ * ID 仍由代碼持有；模型只看經過排序的候選，不需要背下整個主頁。
  */
 export const selectOwnedPostsForReference = (
     posts: XhsOwnedPost[],

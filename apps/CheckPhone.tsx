@@ -35,38 +35,39 @@ import {
     UsersThree, UserPlus, Prohibit, LinkSimple, PaperPlaneTilt, PencilSimple, Trash,
     Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold, Stack
 } from '@phosphor-icons/react';
+import { includesAnyScript } from '../utils/scriptKey';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
 
 const APP_LAYOUTS: { id: LayoutId; name: string; desc: string; icon: string }[] = [
-    { id: 'generic', name: '通用卡片', desc: '标题 + 内容信息流', icon: '🗂️' },
-    { id: 'shop', name: '购物风格', desc: '商品 / 价格 / 状态', icon: '🛍️' },
-    { id: 'feed', name: '社交动态', desc: '头像 / 正文 / 点赞', icon: '💬' },
-    { id: 'forum', name: '论坛风格', desc: '帖子 / 楼层 / 回复', icon: '📋' },
-    { id: 'novel', name: '小说风格', desc: '章节 / 正文阅读', icon: '📖' },
+    { id: 'generic', name: '通用卡片', desc: '標題 + 內容信息流', icon: '🗂️' },
+    { id: 'shop', name: '購物風格', desc: '商品 / 價格 / 狀態', icon: '🛍️' },
+    { id: 'feed', name: '社交動態', desc: '頭像 / 正文 / 點贊', icon: '💬' },
+    { id: 'forum', name: '論壇風格', desc: '帖子 / 樓層 / 回覆', icon: '📋' },
+    { id: 'novel', name: '小說風格', desc: '章節 / 正文閱讀', icon: '📖' },
 ];
 
-// 智能体 App：机主自己在玩的三类 AI 服务
+// 智能體 App：機主自己在玩的三類 AI 服務
 const AI_SERVICES: { id: AiServiceKind; name: string; tagline: string; accent: string }[] = [
-    { id: 'assistant', name: 'AI 助手', tagline: '工具型 · 问东问西，搜索记录即日记', accent: '#34d399' },
-    { id: 'claude', name: '深度对话', tagline: '树洞 · 当面不会说的真心话都在这', accent: '#a78bfa' },
-    { id: 'tavern', name: '酒馆', tagline: '角色扮演 · TA 自己捏卡跟 AI 对戏', accent: '#fb7185' },
+    { id: 'assistant', name: 'AI 助手', tagline: '工具型 · 問東問西，搜索記錄即日記', accent: '#34d399' },
+    { id: 'claude', name: '深度對話', tagline: '樹洞 · 當面不會說的真心話都在這', accent: '#a78bfa' },
+    { id: 'tavern', name: '酒館', tagline: '角色扮演 · TA 自己捏卡跟 AI 對戲', accent: '#fb7185' },
 ];
 
-// 智能体长会话自动总结（参考 TRPG 范式）：超过这么多「条」(行) 触发一次总结
+// 智能體長會話自動總結（參考 TRPG 範式）：超過這麼多「條」(行) 觸發一次總結
 const AI_SUMMARY_THRESHOLD = 100;
-// 总结后保留最近这么多条不折叠，保证剧情连贯
+// 總結後保留最近這麼多條不折疊，保證劇情連貫
 const AI_KEEP_RECENT = 12;
 
-// 各家 AI 的刻板印象 / 八股 —— 注进生成 & 续写 prompt，让偷看到的 AI 回复有"那个味儿"
-const AI_VENDOR_LORE = `各家 AI 的刻板印象 + 八股口头禅（每段会话固定一家，"对方:" 要把那家的味道演足，别写成千篇一律的中立助手）：
-- 豆包：极尽捧场、彩虹屁拉满、情绪价值给满，爱叫"宝""家人们"、爱堆 emoji；为了顺着你能一本正经地瞎编 / 说错也不脸红，永远先夸你再说正事。
-- Gemini：开口爱用"极其 / 相当 / 非常"，疯狂列点、信息量大但啰嗦，动不动"作为一个大型语言模型……"、甩一堆"请注意"和免责声明。
-- Claude：温和、有洞察、正事办得漂亮（润色 / 分析 / 写东西都靠谱、肯认真帮）；边界感偏强、偶尔"抱歉，我无法……""我理解你的感受，但是……"先共情再委婉——但**别一味回避**：聊得越久越放得开、回避越少，正经请求基本都会好好接住。
-- ChatGPT / GPT：冷淡、客观、公式化，"以下是几点建议：1… 2… 3…"，结尾爱补一句"希望这对你有帮助！"，礼貌但疏离。
-- 文心一言 / 通义千问 / Kimi 等国产：偏官方稳妥、爱讲正能量，遇敏感话题就"建议咨询专业人士"，安全第一。`;
+// 各家 AI 的刻板印象 / 八股 —— 注進生成 & 續寫 prompt，讓偷看到的 AI 回覆有"那個味兒"
+const AI_VENDOR_LORE = `各家 AI 的刻板印象 + 八股口頭禪（每段會話固定一家，"對方:" 要把那家的味道演足，別寫成千篇一律的中立助手）：
+- 豆包：極盡捧場、彩虹屁拉滿、情緒價值給滿，愛叫"寶""家人們"、愛堆 emoji；為了順著你能一本正經地瞎編 / 說錯也不臉紅，永遠先誇你再說正事。
+- Gemini：開口愛用"極其 / 相當 / 非常"，瘋狂列點、信息量大但囉嗦，動不動"作為一個大型語言模型……"、甩一堆"請注意"和免責聲明。
+- Claude：溫和、有洞察、正事辦得漂亮（潤色 / 分析 / 寫東西都靠譜、肯認真幫）；邊界感偏強、偶爾"抱歉，我無法……""我理解你的感受，但是……"先共情再委婉——但**別一味迴避**：聊得越久越放得開、迴避越少，正經請求基本都會好好接住。
+- ChatGPT / GPT：冷淡、客觀、公式化，"以下是幾點建議：1… 2… 3…"，結尾愛補一句"希望這對你有幫助！"，禮貌但疏離。
+- 文心一言 / 通義千問 / Kimi 等國產：偏官方穩妥、愛講正能量，遇敏感話題就"建議諮詢專業人士"，安全第一。`;
 
-// ===== 各家 AI 的"界面皮肤"：偷看聊天时按厂商换肤（配色 / logo / 气泡）=====
+// ===== 各家 AI 的"界面皮膚"：偷看聊天時按廠商換膚（配色 / logo / 氣泡）=====
 const GeminiMark: React.FC<{ size?: number }> = ({ size = 18 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
         <defs>
@@ -101,19 +102,19 @@ type VendorTheme = {
 const matchVendor = (raw: string): string => {
     const n = (raw || '').toLowerCase();
     if (/豆包|doubao/.test(n)) return 'doubao';
-    if (/gemini|双子|bard|谷歌/.test(n)) return 'gemini';
-    if (/claude|克劳德|克劳迪|anthropic/.test(n)) return 'claude';
+    if (/gemini|[双雙]子|bard|谷歌/.test(n)) return 'gemini';
+    if (/claude|克[劳勞]德|克[劳勞]迪|anthropic/.test(n)) return 'claude';
     if (/gpt|openai|chatgpt|查特/.test(n)) return 'gpt';
     if (/文心|一言|ernie|百度/.test(n)) return 'wenxin';
-    if (/通义|千问|qwen|阿里/.test(n)) return 'qwen';
+    if (/通[义義]|千[问問]|qwen|阿里/.test(n)) return 'qwen';
     if (/kimi|moonshot|月之暗面/.test(n)) return 'kimi';
     if (/deepseek|深度求索/.test(n)) return 'deepseek';
     return 'generic';
 };
 
-// 偷看会话的厂商皮肤（claude 服务恒为 Claude 皮，tavern 走自己的暗色酒馆皮）
+// 偷看會話的廠商皮膚（claude 服務恆為 Claude 皮，tavern 走自己的暗色酒館皮）
 const getVendorTheme = (name: string, service: AiServiceKind): VendorTheme => {
-    if (service === 'tavern') return { key: 'tavern', label: name || '酒馆', dark: true,
+    if (service === 'tavern') return { key: 'tavern', label: name || '酒館', dark: true,
         bg: 'radial-gradient(140% 90% at 50% 0%, #241319 0%, #120a0f 70%)', text: '#fbe9ef', sub: 'rgba(251,233,239,0.5)', accent: '#fb7185',
         userBg: 'linear-gradient(135deg,#fb7185,#fb7185bb)', userText: '#fff', aiBg: 'rgba(255,255,255,0.07)', aiText: 'rgba(255,255,255,0.92)',
         font: "'Shippori Mincho','Noto Serif SC',serif" };
@@ -134,7 +135,7 @@ const getVendorTheme = (name: string, service: AiServiceKind): VendorTheme => {
         case 'doubao': return { key: 'doubao', label: '豆包', dark: false,
             bg: 'linear-gradient(180deg,#eef3ff,#e4ecff)', text: '#1b2540', sub: '#6b7691', accent: '#4d6fff',
             userBg: '#4d6fff', userText: '#fff', aiBg: '#ffffff', aiText: '#1b2540' };
-        case 'qwen': return { key: 'qwen', label: '通义千问', dark: false,
+        case 'qwen': return { key: 'qwen', label: '通義千問', dark: false,
             bg: 'linear-gradient(180deg,#f5f0ff,#ece2ff)', text: '#241b3a', sub: '#6f6385', accent: '#7c4dff',
             userBg: '#7c4dff', userText: '#fff', aiBg: '#ffffff', aiText: '#241b3a' };
         case 'wenxin': return { key: 'wenxin', label: '文心一言', dark: false,
@@ -152,12 +153,12 @@ const getVendorTheme = (name: string, service: AiServiceKind): VendorTheme => {
     }
 };
 
-// 酒馆阅读皮肤：让喜欢素 / 小说风 / 暗色的 user 各取所需。layout: card=楼层卡片，flat=纯文素排
+// 酒館閱讀皮膚：讓喜歡素 / 小說風 / 暗色的 user 各取所需。layout: card=樓層卡片，flat=純文素排
 type TavernStyle = { key: string; label: string; dark: boolean; bg: string; text: string; sub: string; accent: string; font?: string; layout: 'card' | 'flat'; indent?: boolean };
 const TAVERN_STYLES: TavernStyle[] = [
     { key: 'dark', label: '暗夜', dark: true, bg: 'radial-gradient(140% 90% at 50% 0%, #241319 0%, #120a0f 70%)', text: '#fbe9ef', sub: 'rgba(251,233,239,0.5)', accent: '#fb7185', font: "'Shippori Mincho','Noto Serif SC',serif", layout: 'card' },
     { key: 'plain', label: '素白', dark: false, bg: '#f7f6f4', text: '#2b2b2b', sub: '#9a9a9a', accent: '#b06a6a', font: "'Noto Sans SC',sans-serif", layout: 'flat' },
-    { key: 'book', label: '书页', dark: false, bg: 'linear-gradient(180deg,#f5efe2,#efe7d6)', text: '#3a3328', sub: '#a89a82', accent: '#a8794a', font: "'Shippori Mincho','Noto Serif SC',serif", layout: 'flat', indent: true },
+    { key: 'book', label: '書頁', dark: false, bg: 'linear-gradient(180deg,#f5efe2,#efe7d6)', text: '#3a3328', sub: '#a89a82', accent: '#a8794a', font: "'Shippori Mincho','Noto Serif SC',serif", layout: 'flat', indent: true },
     { key: 'midnight', label: '午夜', dark: true, bg: '#0c0d10', text: '#d8dae0', sub: '#6b6f78', accent: '#7c8cff', font: "'Noto Sans SC',sans-serif", layout: 'flat' },
 ];
 
@@ -165,7 +166,7 @@ const TAVERN_STYLES: TavernStyle[] = [
 //  SHARED PREMIUM UI PIECES
 //  (module-scope: defining these inside CheckPhone gave them a new identity
 //   on every render, which remounted whole sub-app subtrees → list items kept
-//   re-playing their entrance animation (闪烁) and chat scroll snapped back.)
+//   re-playing their entrance animation (閃爍) and chat scroll snapped back.)
 // ============================================================
 export const StatusStrip: React.FC = () => {
     const clock = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -233,7 +234,7 @@ const EmptyState: React.FC<{ text: string }> = ({ text }) => (
 
 const DelBtn: React.FC<{ onDelete: () => void }> = ({ onDelete }) => (
     <button
-        aria-label="删除这条记录"
+        aria-label="刪除這條記錄"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
         className="absolute top-2 right-2 w-6 h-6 bg-rose-500/85 text-white rounded-full flex items-center justify-center text-[13px] leading-none opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition z-10"
     >×</button>
@@ -270,17 +271,17 @@ const CheckPhone: React.FC = () => {
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
     const [targetChar, setTargetChar] = useState<CharacterProfile | null>(null);
-    // 分角色身份指定：正在查看的这部手机里，「你」该是哪张身份卡，按 targetChar.id 单独解析。
-    // 下面所有原本读 userProfile 的地方（生成偷看内容用的提示词、关系变动卡片……）都改吃
-    // 这份，而不是全域 userProfile——查 A 的手机和查 B 的手机，「你」可以是不同的身份卡。
+    // 分角色身份指定：正在查看的這部手機裡，「你」該是哪張身份卡，按 targetChar.id 單獨解析。
+    // 下面所有原本讀 userProfile 的地方（生成偷看內容用的提示詞、關係變動卡片……）都改吃
+    // 這份，而不是全域 userProfile——查 A 的手機和查 B 的手機，「你」可以是不同的身份卡。
     const checkPhoneUserProfile = useMemo(
         () => (targetChar ? resolveUserProfileForChar(userProfileBase, targetChar.id) : userProfile),
         [targetChar, userProfileBase, userProfile],
     );
     const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(0); // 0 = home, 1 = custom apps
-    const [selectPage, setSelectPage] = useState(0); // Target Device 选人界面的翻页（每页 6 人）
-    const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 选人界面的分组筛选
+    const [selectPage, setSelectPage] = useState(0); // Target Device 選人界面的翻頁（每頁 6 人）
+    const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 選人界面的分組篩選
     const [showApiSettings, setShowApiSettings] = useState(false);
     const [phoneApiConfig, setPhoneApiConfigState] = useState<APIConfig | null>(() => getCheckPhoneApi());
     const [testingPhoneApi, setTestingPhoneApi] = useState(false);
@@ -293,47 +294,47 @@ const CheckPhone: React.FC = () => {
     const [selectedEvidenceRecord, setSelectedEvidenceRecord] = useState<PhoneEvidence | null>(null);
     const [evidenceBackAppId, setEvidenceBackAppId] = useState<string>('home');
     const [evidenceMenu, setEvidenceMenu] = useState<{ record: PhoneEvidence; backAppId: string } | null>(null);
-    // 记录编辑（title/detail/value）：任意 App 的记录都能改，不再只能删
+    // 記錄編輯（title/detail/value）：任意 App 的記錄都能改，不再只能刪
     const [evidenceEdit, setEvidenceEdit] = useState<{ record: PhoneEvidence; title: string; detail: string; value: string } | null>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const contactEndRef = useRef<HTMLDivElement>(null);
 
-    // 人际关系系统 State
+    // 人際關係系統 State
     const [selectedContact, setSelectedContact] = useState<PhoneContact | null>(null);
     const [identityDraft, setIdentityDraft] = useState('');
     const [editingIdentity, setEditingIdentity] = useState(false);
     const [noteDraft, setNoteDraft] = useState('');
     const [editingNote, setEditingNote] = useState(false);
-    // 虚构 NPC 联系人没有"真名"兜底，姓名本身就得能编辑（真人联系人改的是 identity 备注名，不是这个）
+    // 虛構 NPC 聯繫人沒有"真名"兜底，姓名本身就得能編輯（真人聯繫人改的是 identity 備註名，不是這個）
     const [nameDraft, setNameDraft] = useState('');
     const [editingName, setEditingName] = useState(false);
     const [showContactModal, setShowContactModal] = useState(false);
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
-    // 添加联系人：NPC 分页的子模式（绑定既有 NPC / 随机产生，机主脑补）
+    // 添加聯繫人：NPC 分頁的子模式（綁定既有 NPC / 隨機產生，機主腦補）
     const [ncNpcMode, setNcNpcMode] = useState<'existing' | 'random'>('existing');
     const [ncRandomHint, setNcRandomHint] = useState('');
     const [ncGenerating, setNcGenerating] = useState(false);
-    // 改绑定弹窗（把联系人改绑到正确的真实角色 / 转为虚构）
+    // 改綁定彈窗（把聯繫人改綁到正確的真實角色 / 轉為虛構）
     const [showRebindModal, setShowRebindModal] = useState(false);
-    // 「允许虚构 NPC」开关的说明展开态
+    // 「允許虛構 NPC」開關的說明展開態
     const [showFictionHelp, setShowFictionHelp] = useState(false);
-    // 好感拖动草稿（拖动时即时显示，松手才落库，避免狂写 DB）
+    // 好感拖動草稿（拖動時即時顯示，鬆手才落庫，避免狂寫 DB）
     const [affinityDraft, setAffinityDraft] = useState<number | null>(null);
-    // 联系人「资料抽屉」（点头像/…打开）——备注、了解、好感、绑定、关系操作都收在这里，主界面只剩聊天
+    // 聯繫人「資料抽屜」（點頭像/…打開）——備註、瞭解、好感、綁定、關係操作都收在這裡，主界面只剩聊天
     const [showProfile, setShowProfile] = useState(false);
-    // 话题盒记忆：长按编辑/删除
+    // 話題盒記憶：長按編輯/刪除
     const [topicEdit, setTopicEdit] = useState<{ contactId: string; topicId: string; text: string } | null>(null);
-    // 联系人列表：长按进入多选，批量删除
+    // 聯繫人列表：長按進入多選，批量刪除
     const [contactSelectMode, setContactSelectMode] = useState(false);
     const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
-    // 聊天气泡：长按进入多选，删选中的几条（不满这轮生成时挑掉重来）
+    // 聊天氣泡：長按進入多選，刪選中的幾條（不滿這輪生成時挑掉重來）
     const [msgSelectMode, setMsgSelectMode] = useState(false);
     const [selectedMsgIdx, setSelectedMsgIdx] = useState<number[]>([]);
-    // 联系人聊天记录：单条编辑（index 是完整脚本里的下标，跟 selectedMsgIdx 用同一套坐标）
+    // 聯繫人聊天記錄：單條編輯（index 是完整腳本里的下標，跟 selectedMsgIdx 用同一套座標）
     const [msgEdit, setMsgEdit] = useState<{ index: number; text: string } | null>(null);
 
-    // Custom App Creation State（editingAppId 非空时同一个弹窗改走"编辑"分支，见 handleSaveCustomApp）
+    // Custom App Creation State（editingAppId 非空時同一個彈窗改走"編輯"分支，見 handleSaveCustomApp）
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingAppId, setEditingAppId] = useState<string | null>(null);
     const [newAppName, setNewAppName] = useState('');
@@ -345,23 +346,23 @@ const CheckPhone: React.FC = () => {
     const [newAppHtmlPrompt, setNewAppHtmlPrompt] = useState('');
     const [newAppCssEnabled, setNewAppCssEnabled] = useState(false);
     const [newAppCss, setNewAppCss] = useState('');
-    // 自定义 App 图标 · 长按动作菜单（编辑 / 卸载），跟 aiMenu 同一套交互
+    // 自定義 App 圖標 · 長按動作菜單（編輯 / 卸載），跟 aiMenu 同一套交互
     const [customAppMenu, setCustomAppMenu] = useState<string | null>(null);
 
-    // 智能体 App State（「TA 的小手机」偷看）
-    const [aiService, setAiService] = useState<AiServiceKind>('assistant'); // 智能体首页当前选中的服务 tab
+    // 智能體 App State（「TA 的小手機」偷看）
+    const [aiService, setAiService] = useState<AiServiceKind>('assistant'); // 智能體首頁當前選中的服務 tab
     const [selectedAiSessionId, setSelectedAiSessionId] = useState<string | null>(null);
     const [aiInput, setAiInput] = useState('');
     const [aiSending, setAiSending] = useState(false);
-    const [aiArchiveOpen, setAiArchiveOpen] = useState(false); // 展开已折叠的早期原文
-    // 长按编辑/删除：动作菜单 + 编辑弹窗
+    const [aiArchiveOpen, setAiArchiveOpen] = useState(false); // 展開已摺疊的早期原文
+    // 長按編輯/刪除：動作菜單 + 編輯彈窗
     const [aiMenu, setAiMenu] = useState<{ kind: 'session' | 'card'; id: string } | null>(null);
     const [aiEdit, setAiEdit] = useState<{ kind: 'session' | 'card'; id: string; title?: string; name?: string; emoji?: string; persona?: string; scenario?: string; cardKind?: 'character' | 'world' } | null>(null);
-    const [aiCardView, setAiCardView] = useState<string | null>(null); // 点击角色卡：看 TA 用这张玩过哪些
-    const [aiTurnMenu, setAiTurnMenu] = useState<number | null>(null);          // 长按会话里某条内容：动作菜单（编辑/删除）
+    const [aiCardView, setAiCardView] = useState<string | null>(null); // 點擊角色卡：看 TA 用這張玩過哪些
+    const [aiTurnMenu, setAiTurnMenu] = useState<number | null>(null);          // 長按會話裡某條內容：動作菜單（編輯/刪除）
     const [aiTurnEdit, setAiTurnEdit] = useState<{ idx: number; text: string } | null>(null);
     const [tavernStyle, setTavernStyle] = useState<string>(() => { try { return localStorage.getItem('cp_tavern_style') || 'dark'; } catch { return 'dark'; } });
-    const [showTavernStyle, setShowTavernStyle] = useState(false); // 酒馆皮肤选择面板
+    const [showTavernStyle, setShowTavernStyle] = useState(false); // 酒館皮膚選擇面板
     useEffect(() => { try { localStorage.setItem('cp_tavern_style', tavernStyle); } catch {} }, [tavernStyle]);
     const lpTimer = useRef<any>(null);
     const lpFired = useRef(false);
@@ -369,30 +370,30 @@ const CheckPhone: React.FC = () => {
         onPointerDown: () => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; onLong(); }, 480); },
         onPointerUp: () => clearTimeout(lpTimer.current),
         onPointerLeave: () => clearTimeout(lpTimer.current),
-        onPointerMove: () => clearTimeout(lpTimer.current), // 滚动时不误触
+        onPointerMove: () => clearTimeout(lpTimer.current), // 滾動時不誤觸
         onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); lpFired.current = true; onLong(); },
     });
 
-    // 人格模拟：演出脚本在全局 store 后台生成，生成期间用户可离开查手机/切到别的 OS App
+    // 人格模擬：演出腳本在全局 store 後台生成，生成期間用戶可離開查手機/切到別的 OS App
     const sim = usePersonaSim();
     const [showInner, setShowInner] = useState(false);
 
-    // 二次确认弹窗：所有删除/移除/清空都先走这里
+    // 二次確認彈窗：所有刪除/移除/清空都先走這裡
     const [confirmState, setConfirmState] = useState<{
         title: string; desc?: string; confirmLabel?: string; danger?: boolean; onConfirm: () => void;
     } | null>(null);
     const askConfirm = (opts: { title: string; desc?: string; confirmLabel?: string; danger?: boolean; onConfirm: () => void }) => setConfirmState(opts);
-    // Messages 详情：长 transcript 默认只渲染最新 50 行，其余折叠
+    // Messages 詳情：長 transcript 默認只渲染最新 50 行，其餘摺疊
     const [transcriptExpanded, setTranscriptExpanded] = useState(false);
-    // 联系人详情的对话预览同样：超 50 条折叠，点开看更早
+    // 聯繫人詳情的對話預覽同樣：超 50 條摺疊，點開看更早
     const [convExpanded, setConvExpanded] = useState(false);
 
     // Swipe tracking for paging
     const touchStartX = useRef<number | null>(null);
     const touchStartY = useRef<number | null>(null);
 
-    // 桌面底图用的是角色的见面背景，字段里存的是 blobref 令牌（二进制在 IndexedDB）。
-    // 令牌塞不进 CSS url()，先在组件顶层解析成能用的地址；非令牌值原样透传。
+    // 桌面底圖用的是角色的見面背景，字段裡存的是 blobref 令牌（二進制在 IndexedDB）。
+    // 令牌塞不進 CSS url()，先在組件頂層解析成能用的地址；非令牌值原樣透傳。
     const dateBackgroundUrl = useBlobRefUrl(targetChar?.dateBackground);
 
     // Derived state for evidence records
@@ -401,8 +402,8 @@ const CheckPhone: React.FC = () => {
     const contacts = targetChar?.phoneState?.contacts || [];
     const allowFictional = targetChar?.phoneState?.allowFictionalContacts !== false;
 
-    // 角色端 Real Balance：跟用户 ChatHub 的主页栏是同一套 utils/realBalance.ts，账本各自独立
-    // （不是同一份数据，是同一份实现）。undefined = 还没打开过，进「银行」App 才生成种子状态并落库。
+    // 角色端 Real Balance：跟用戶 ChatHub 的主頁欄是同一套 utils/realBalance.ts，帳本各自獨立
+    // （不是同一份數據，是同一份實現）。undefined = 還沒打開過，進「銀行」App 才生成種子狀態並落庫。
     const realBalanceState = useMemo(() => ensureRealBalanceState(targetChar?.phoneState?.realBalance), [targetChar?.phoneState?.realBalance]);
     useEffect(() => {
         if (targetChar && activeAppId === 'balance' && !targetChar.phoneState?.realBalance) {
@@ -422,18 +423,18 @@ const CheckPhone: React.FC = () => {
             || normName(r.title) === normName(selectedContact.name)
         ))?.detail
         : undefined;
-    // 智能体 App：偷看到的 AI 会话 / 角色卡
+    // 智能體 App：偷看到的 AI 會話 / 角色卡
     const aiSessions = targetChar?.phoneState?.aiAgent?.sessions || [];
     const aiCards = targetChar?.phoneState?.aiAgent?.cards || [];
-    // 详情页会话从 sessions 实时取（互动续写后自动跟随最新状态）
+    // 詳情頁會話從 sessions 實時取（互動續寫後自動跟隨最新狀態）
     const selectedAiSession = aiSessions.find(s => s.id === selectedAiSessionId) || null;
 
-    // 人际关系里永远不出现「用户自己」——机主的通讯录是 TA 背着用户的社交圈，把 user 算进来逻辑很绕
+    // 人際關係裡永遠不出現「用戶自己」——機主的通訊錄是 TA 揹著用戶的社交圈，把 user 算進來邏輯很繞
     const isUserName = (name?: string) => !!name && !!checkPhoneUserProfile?.name && normName(name) === normName(checkPhoneUserProfile.name);
     const linkedCharOf = (c: PhoneContact) => (c.linkedCharId ? characters.find(ch => ch.id === c.linkedCharId) : undefined);
-    // 真人联系人复用其神经链接角色的头像，否则用联系人自带头像
+    // 真人聯繫人複用其神經鏈接角色的頭像，否則用聯繫人自帶頭像
     const contactAvatar = (c: PhoneContact): string | undefined => linkedCharOf(c)?.avatar || c.avatar;
-    // 真人联系人显示成「备注名（真名）」：identity(称呼/关系) 当备注名，真名放括号；虚构/无备注名就显示本名
+    // 真人聯繫人顯示成「備註名（真名）」：identity(稱呼/關係) 當備註名，真名放括號；虛構/無備註名就顯示本名
     const contactDisplayName = (c: PhoneContact): string => {
         const realName = (c.kind === 'real' && c.linkedCharId) ? linkedCharOf(c)?.name : undefined;
         if (!realName) return c.name;
@@ -484,7 +485,7 @@ const CheckPhone: React.FC = () => {
         }
     }, [selectedChatRecord?.detail, activeAppId]);
 
-    // 联系人聊天主体：进入/有新内容时滚到最新（像真聊天打开就在底部）
+    // 聯繫人聊天主體：進入/有新內容時滾到最新（像真聊天打開就在底部）
     useEffect(() => {
         if (activeAppId === 'contact_detail' && contactEndRef.current) {
             const container = contactEndRef.current.parentElement;
@@ -492,7 +493,7 @@ const CheckPhone: React.FC = () => {
         }
     }, [activeAppId, selectedContact?.id, selectedContactRecordDetail, isLoading]);
 
-    // 智能体会话：续写 / 进入时滚到底
+    // 智能體會話：續寫 / 進入時滾到底
     useEffect(() => {
         if (activeAppId === 'ai_session' && chatEndRef.current) {
             const container = chatEndRef.current.parentElement;
@@ -522,14 +523,14 @@ const CheckPhone: React.FC = () => {
         setCheckPhoneApi(config);
         setPhoneApiConfigState(config?.baseUrl ? config : null);
         setPhoneApiTestResult(null);
-        addToast(config ? '查手机已切换到独立 API' : '查手机已改为跟随聊天默认', 'success');
+        addToast(config ? '查手機已切換到獨立 API' : '查手機已改為跟隨聊天默認', 'success');
         trackEvent('切换查手机独立 API', { mode: config ? 'independent' : 'default' });
     };
 
     const testPhoneApi = async () => {
         const config = effectiveApiConfig;
         if (!config?.baseUrl || !config?.model) {
-            setPhoneApiTestResult('当前没有可用的 API');
+            setPhoneApiTestResult('當前沒有可用的 API');
             return;
         }
         setTestingPhoneApi(true);
@@ -555,9 +556,9 @@ const CheckPhone: React.FC = () => {
             }
             const data = await safeResponseJson(response);
             const reply = extractContent(data) || '';
-            setPhoneApiTestResult(`连接成功${reply ? ` · ${reply.slice(0, 24)}` : ''}`);
+            setPhoneApiTestResult(`連接成功${reply ? ` · ${reply.slice(0, 24)}` : ''}`);
         } catch (error: any) {
-            setPhoneApiTestResult(`连接失败：${error?.message || '网络错误'}`);
+            setPhoneApiTestResult(`連接失敗：${error?.message || '網絡錯誤'}`);
         } finally {
             setTestingPhoneApi(false);
         }
@@ -572,17 +573,17 @@ const CheckPhone: React.FC = () => {
         setPage(0);
     };
 
-    // 切换「查手机内容是否同步到私聊」（默认开）
+    // 切換「查手機內容是否同步到私聊」（默認開）
     const toggleSendToChat = () => {
         if (!targetChar) return;
         const next = !(targetChar.phoneState?.sendToChat !== false);
         updateCharacter(targetChar.id, {
             phoneState: { ...targetChar.phoneState, records: targetChar.phoneState?.records || [], sendToChat: next },
         });
-        addToast(next ? '已开启 · 查手机内容会同步到私聊' : '已关闭 · 查手机内容仅本地可见', 'info');
+        addToast(next ? '已開啟 · 查手機內容會同步到私聊' : '已關閉 · 查手機內容僅本地可見', 'info');
     };
 
-    // 打开 Messages：把已读时间戳推到现在 → 清掉未读红点
+    // 打開 Messages：把已讀時間戳推到現在 → 清掉未讀紅點
     const openChat = () => {
         if (targetChar) {
             updateCharacter(targetChar.id, {
@@ -602,7 +603,7 @@ const CheckPhone: React.FC = () => {
         ...longPress(() => setEvidenceMenu({ record, backAppId })),
         role: 'button' as const,
         tabIndex: 0,
-        'aria-label': `查看${record.title}详情，长按可同步到私聊`,
+        'aria-label': `查看${record.title}詳情，長按可同步到私聊`,
         onClick: () => {
             if (lpFired.current) { lpFired.current = false; return; }
             openEvidenceRecord(record, backAppId);
@@ -636,7 +637,7 @@ const CheckPhone: React.FC = () => {
             setSelectedEvidenceRecord(null);
         }
 
-        addToast('记录已删除', 'success');
+        addToast('記錄已刪除', 'success');
     };
 
     const openEditRecord = (record: PhoneEvidence) => {
@@ -650,8 +651,8 @@ const CheckPhone: React.FC = () => {
         const nextTitle = evidenceEdit.title.trim() || record.title;
         const nextDetail = evidenceEdit.detail;
         const nextValue = evidenceEdit.value.trim() || undefined;
-        // 编辑过的记录，原有的 HTML 卡片（模板替换/AI 生成）跟新文字对不上了——没法安全重绘就清掉，
-        // 落回纯文字展示；下次点「刷新数据」AI 会按最新指令重新配一张新卡片。
+        // 編輯過的記錄，原有的 HTML 卡片（模板替換/AI 生成）跟新文字對不上了——沒法安全重繪就清掉，
+        // 落回純文字展示；下次點「刷新數據」AI 會按最新指令重新配一張新卡片。
         const newRecords = (targetChar.phoneState?.records || []).map(r => r.id === record.id
             ? { ...r, title: nextTitle, detail: nextDetail, value: nextValue, html: undefined }
             : r);
@@ -662,11 +663,11 @@ const CheckPhone: React.FC = () => {
         if (selectedChatRecord?.id === record.id) setSelectedChatRecord(updated);
 
         setEvidenceEdit(null);
-        addToast('记录已更新', 'success');
+        addToast('記錄已更新', 'success');
         trackEvent('编辑查手机记录');
     };
 
-    // 一键清空 Messages 归档里的全部聊天记录（含其在角色私聊里落的卡片）
+    // 一鍵清空 Messages 歸檔裡的全部聊天記錄（含其在角色私聊裡落的卡片）
     const handleClearAllChats = async () => {
         if (!targetChar) return;
         const all = targetChar.phoneState?.records || [];
@@ -679,22 +680,22 @@ const CheckPhone: React.FC = () => {
         });
         setSelectedChatRecord(null);
         setActiveAppId('chat');
-        addToast('已清空全部聊天记录', 'success');
+        addToast('已清空全部聊天記錄', 'success');
         trackEvent('清空全部聊天归档');
     };
 
-    // 把 Messages 归档里的一条聊天记录「转移/绑定」到人际关系系统。
-    // 标题命中神经链接里的真实角色 → 绑成 real，并把这段对话镜像进对方手机（双方同步）。
+    // 把 Messages 歸檔裡的一條聊天記錄「轉移/綁定」到人際關係系統。
+    // 標題命中神經鏈接裡的真實角色 → 綁成 real，並把這段對話鏡像進對方手機（雙方同步）。
     const handleBindRecordToRelationship = async (record: PhoneEvidence) => {
         if (!targetChar) return;
         const pureName = (record.title || '').replace(/[（(].*?[）)]/g, '').trim() || record.title || '';
-        if (!pureName || isUserName(pureName)) { addToast('无法绑定该记录', 'error'); return; }
+        if (!pureName || isUserName(pureName)) { addToast('無法綁定該記錄', 'error'); return; }
         const roster = characters.filter(c => c.id !== targetChar.id).map(c => ({ id: c.id, name: c.name }));
         const linkedId = matchRealChar(pureName, roster);
         const linkedChar = linkedId ? characters.find(c => c.id === linkedId) : undefined;
         const kind: PhoneContact['kind'] = linkedId ? 'real' : 'npc';
 
-        // 机主侧：upsert 联系人 + 把这条记录挂到该联系人
+        // 機主側：upsert 聯繫人 + 把這條記錄掛到該聯繫人
         let newCid: string | undefined;
         updateCharacter(targetChar.id, (cur) => {
             const cs = upsertContact(cur.phoneState?.contacts || [], {
@@ -705,7 +706,7 @@ const CheckPhone: React.FC = () => {
             return { phoneState: { ...cur.phoneState, contacts: cs, records: recs } };
         });
 
-        // 真实角色 → 镜像进对方手机：翻转视角写一条 chat 记录 + 互相 upsert 联系人
+        // 真實角色 → 鏡像進對方手機：翻轉視角寫一條 chat 記錄 + 互相 upsert 聯繫人
         if (linkedChar) {
             const flipped = flipTranscript(record.detail || '');
             const now = Date.now();
@@ -721,9 +722,9 @@ const CheckPhone: React.FC = () => {
                     : [...recs, { id: `rec-${now}-${Math.random()}`, type: 'chat', title: targetChar.name, detail: flipped, timestamp: now, contactId: cid }];
                 return { phoneState: { ...cur.phoneState, contacts: cs, records: nextRecs } };
             });
-            addToast(`已绑定到联系人 · 已与 ${linkedChar.name} 双向同步`, 'success');
+            addToast(`已綁定到聯繫人 · 已與 ${linkedChar.name} 雙向同步`, 'success');
         } else {
-            addToast('已绑定到联系人（虚构联系人）', 'success');
+            addToast('已綁定到聯繫人（虛構聯繫人）', 'success');
         }
         trackEvent('把归档记录绑定到人际关系');
     };
@@ -734,10 +735,10 @@ const CheckPhone: React.FC = () => {
         updateCharacter(targetChar.id, {
             phoneState: { records: targetChar.phoneState?.records || [], ...targetChar.phoneState, customApps: newApps }
         });
-        addToast('App 已卸载', 'success');
+        addToast('App 已卸載', 'success');
     };
 
-    // 弹窗里的字段状态清空，创建/编辑共用一个弹窗，关掉时统一复位，避免下次打开"创建"带出上次编辑的残留值
+    // 彈窗裡的字段狀態清空，創建/編輯共用一個彈窗，關掉時統一復位，避免下次打開"創建"帶出上次編輯的殘留值
     const closeCreateAppModal = () => {
         setShowCreateModal(false);
         setEditingAppId(null);
@@ -752,7 +753,7 @@ const CheckPhone: React.FC = () => {
         setNewAppCss('');
     };
 
-    // 长按已安装的 App 图标 → "编辑"：把弹窗字段填成这个 App 现在的配置，走 handleSaveCustomApp 的编辑分支
+    // 長按已安裝的 App 圖標 → "編輯"：把彈窗字段填成這個 App 現在的配置，走 handleSaveCustomApp 的編輯分支
     const openEditCustomApp = (app: PhoneCustomApp) => {
         setEditingAppId(app.id);
         setNewAppName(app.name);
@@ -794,23 +795,23 @@ const CheckPhone: React.FC = () => {
         const wasEditing = !!editingAppId;
         closeCreateAppModal();
         if (!wasEditing) setPage(1);
-        addToast(wasEditing ? `已保存 ${newAppName} 的设置` : `已安装 ${newAppName}`, 'success');
+        addToast(wasEditing ? `已保存 ${newAppName} 的設置` : `已安裝 ${newAppName}`, 'success');
         trackEvent(wasEditing ? '编辑自定义 App' : '安装自定义 App', { layout: newAppLayout, htmlCard: newAppHtmlEnabled });
     };
 
     // --- Core Generation Logic ---
     const handleGenerate = async (type: string, customPrompt?: string, layout?: LayoutId) => {
         if (!targetChar || !effectiveApiConfig.apiKey) {
-            addToast('配置错误', 'error');
+            addToast('配置錯誤', 'error');
             return;
         }
         setIsLoading(true);
-        // 只上报内置 App 的固定类型；自定义 App 的 id 是用户造的，一律归成 custom
+        // 只上報內置 App 的固定類型；自定義 App 的 id 是用戶造的，一律歸成 custom
         trackEvent('刷新生成手机 App 数据', {
             appType: ['call', 'order', 'delivery', 'social', 'contacts'].includes(type) ? type : 'custom',
         });
 
-        // 提到函数级作用域：解析阶段（构建 record.html）也要用到，不能只留在 if (customPrompt) 分支里
+        // 提到函數級作用域：解析階段（構建 record.html）也要用到，不能只留在 if (customPrompt) 分支裡
         const customApp = customApps.find(a => a.id === type);
 
         try {
@@ -818,7 +819,7 @@ const CheckPhone: React.FC = () => {
             const msgs = await loadCharacterContextMessages(targetChar);
             const lastMsg = msgs[msgs.length - 1];
 
-            // 「距离上次联系多久」交给 buildCoreContext 统一注入（受时间感知开关管控、口径与聊天/见面一致）
+            // 「距離上次聯繫多久」交給 buildCoreContext 統一注入（受時間感知開關管控、口徑與聊天/見面一致）
             const context = ContextBuilder.buildCoreContext(
                 targetChar, checkPhoneUserProfile, true, undefined, undefined,
                 { lastInteractionTs: lastMsg?.timestamp },
@@ -830,10 +831,10 @@ const CheckPhone: React.FC = () => {
                 return `${roleName}: ${content}`;
             }).join('\n');
 
-            // 真假甄别用：神经链接里真实存在的其他角色名单
+            // 真假甄別用：神經鏈接裡真實存在的其他角色名單
             const rosterChars = characters.filter(c => c.id !== targetChar.id);
             const roster = rosterChars.map(c => ({ id: c.id, name: c.name }));
-            // 给每个真实角色附一段「扫一眼设定」+ 机主与 TA 的已知关系，让关系判定有据可依、别瞎编
+            // 給每個真實角色附一段「掃一眼設定」+ 機主與 TA 的已知關係，讓關係判定有據可依、別瞎編
             const myContacts = targetChar.phoneState?.contacts || [];
             const briefOf = (ch: CharacterProfile) => (ch.socialProfile?.bio || ch.description || ch.systemPrompt || '')
                 .replace(/\s+/g, ' ').trim().slice(0, 90);
@@ -841,93 +842,93 @@ const CheckPhone: React.FC = () => {
                 ? rosterChars.map(c => {
                     const known = myContacts.find(k => k.linkedCharId === c.id);
                     const rel = known
-                        ? `；和机主的已知关系：${known.identity || '未标注'}${known.note ? `（备注：${known.note}）` : ''}`
-                        : '；机主通讯录里暂无 TA（未必认识）';
-                    return `- ${c.name}：${briefOf(c) || '（无公开设定）'}${rel}`;
+                        ? `；和機主的已知關係：${known.identity || '未標註'}${known.note ? `（備註：${known.note}）` : ''}`
+                        : '；機主通訊錄裡暫無 TA（未必認識）';
+                    return `- ${c.name}：${briefOf(c) || '（無公開設定）'}${rel}`;
                 }).join('\n')
-                : '（无其他真实角色）';
-            // 约束：是否允许虚构 NPC。关掉则只能和神经链接里的真实角色来往
+                : '（無其他真實角色）';
+            // 約束：是否允許虛構 NPC。關掉則只能和神經鏈接裡的真實角色來往
             const allowFictional = targetChar.phoneState?.allowFictionalContacts !== false;
             const fictionRule = allowFictional
                 ? ''
-                : `\n**硬约束**：禁止虚构任何 NPC，联系人**只能**取自上面的真实角色名单。若名单为空，直接返回空数组 []。`;
-            // 真实角色的甄别 + 关系判定共同要求（chat / contacts 共用）——核心：依据设定，别瞎安关系
-            const realCharRule = `**真实存在的人（神经链接名单 · 含设定与已知关系）**：
+                : `\n**硬約束**：禁止虛構任何 NPC，聯繫人**只能**取自上面的真實角色名單。若名單為空，直接返回空數組 []。`;
+            // 真實角色的甄別 + 關係判定共同要求（chat / contacts 共用）——核心：依據設定，別瞎安關係
+            const realCharRule = `**真實存在的人（神經鏈接名單 · 含設定與已知關係）**：
 ${rosterInfo}
 
-**真假甄别 + 关系判定（务必走心）**：
-- 联系人就是名单里的人 → "kind":"real"，"linkedName" 填名单里的**原名**；否则按人设虚构 → "kind":"npc"。
-- **关系必须贴合上面每个真实角色的设定与已知关系，别凭空安成「同事/老友」**。机主跟某人**根本不认识、或只是在某处（如「彼方」VR 世界）打过照面**，就如实标（如「彼方网友」「不太熟」「点头之交」），**不认识就别硬塞进通讯录**。
-- "identity" 写**机主对 TA 的称呼 / 关系备注**（如「学长」「前任」「彼方网友」「中间人」），要具体贴合来历、别只写真名——它会作为备注名显示。${fictionRule}`;
+**真假甄別 + 關係判定（務必走心）**：
+- 聯繫人就是名單裡的人 → "kind":"real"，"linkedName" 填名單裡的**原名**；否則按人設虛構 → "kind":"npc"。
+- **關係必須貼合上面每個真實角色的設定與已知關係，別憑空安成「同事/老友」**。機主跟某人**根本不認識、或只是在某處（如「彼方」VR 世界）打過照面**，就如實標（如「彼方網友」「不太熟」「點頭之交」），**不認識就別硬塞進通訊錄**。
+- "identity" 寫**機主對 TA 的稱呼 / 關係備註**（如「學長」「前任」「彼方網友」「中間人」），要具體貼合來歷、別只寫真名——它會作為備註名顯示。${fictionRule}`;
 
             let promptInstruction = "";
             let logPrefix = "";
 
             if (customPrompt) {
                 const layoutHint: Record<LayoutId, string> = {
-                    generic: `这是一个【通用信息流】App。格式JSON数组: [{ "title": "标题/项目名", "detail": "详细内容", "value": "可选的数值/状态(如 +100)" }, ...]`,
-                    shop: `这是一个【购物】App，请生成商品/订单。title=商品名, detail=规格或物流状态, value=价格(如 ¥129.00)。格式JSON数组: [{ "title": "...", "detail": "...", "value": "¥..." }, ...]`,
-                    feed: `这是一个【社交动态】App（类似朋友圈/微博）。title=发布时间或心情, detail=动态正文。格式JSON数组: [{ "title": "...", "detail": "..." }, ...]`,
-                    forum: `这是一个【论坛/贴吧】App。title=帖子标题, detail=帖子正文, value=所在板块(如 #日常)。格式JSON数组: [{ "title": "...", "detail": "...", "value": "#..." }, ...]`,
-                    novel: `这是一个【小说阅读】App。title=章节标题, detail=该章正文片段(150字左右), value=字数(如 1.2万字)。格式JSON数组: [{ "title": "第N章 ...", "detail": "...", "value": "..." }, ...]`,
+                    generic: `這是一個【通用信息流】App。格式JSON數組: [{ "title": "標題/項目名", "detail": "詳細內容", "value": "可選的數值/狀態(如 +100)" }, ...]`,
+                    shop: `這是一個【購物】App，請生成商品/訂單。title=商品名, detail=規格或物流狀態, value=價格(如 ¥129.00)。格式JSON數組: [{ "title": "...", "detail": "...", "value": "¥..." }, ...]`,
+                    feed: `這是一個【社交動態】App（類似朋友圈/微博）。title=發佈時間或心情, detail=動態正文。格式JSON數組: [{ "title": "...", "detail": "..." }, ...]`,
+                    forum: `這是一個【論壇/貼吧】App。title=帖子標題, detail=帖子正文, value=所在板塊(如 #日常)。格式JSON數組: [{ "title": "...", "detail": "...", "value": "#..." }, ...]`,
+                    novel: `這是一個【小說閱讀】App。title=章節標題, detail=該章正文片段(150字左右), value=字數(如 1.2萬字)。格式JSON數組: [{ "title": "第N章 ...", "detail": "...", "value": "..." }, ...]`,
                 };
-                promptInstruction = `用户正在查看你的手机 App: "${type}"。
-该 App 的功能/用户想看的内容是: "${customPrompt}"。
-请生成 2-4 条符合该 App 功能的记录，必须符合你的人设。
+                promptInstruction = `用戶正在查看你的手機 App: "${type}"。
+該 App 的功能/用戶想看的內容是: "${customPrompt}"。
+請生成 2-4 條符合該 App 功能的記錄，必須符合你的人設。
 ${layoutHint[layout || 'generic']}`;
                 logPrefix = customApp ? customApp.name : type;
-                // 防重复：把这个 App 最近生成过的记录喂回去，避免刷新总是同一个主题换皮重复
+                // 防重複：把這個 App 最近生成過的記錄喂回去，避免刷新總是同一個主題換皮重複
                 promptInstruction += buildCustomAppAntiRepeatNote((targetChar.phoneState?.records || []).filter(r => r.type === type));
-                // HTML 卡片：只有开关开着且指令非空时才教这段语法（关闭/空指令返回空串，不占 prompt）
+                // HTML 卡片：只有開關開著且指令非空時才教這段語法（關閉/空指令返回空串，不佔 prompt）
                 if (customApp) promptInstruction += buildCustomAppHtmlCardNote(customApp);
             } else {
                 if (type === 'chat') {
-                    promptInstruction = `生成 3 个**你（${targetChar.name}）自己**手机聊天软件(Message/Line)里的**对话片段**（你和你自己联系人的对话，第一人称视角，不是用户的社交）。
+                    promptInstruction = `生成 3 個**你（${targetChar.name}）自己**手機聊天軟件(Message/Line)裡的**對話片段**（你和你自己聯繫人的對話，第一人稱視角，不是用戶的社交）。
 
 ${realCharRule}
 
 要求：
-1. **联系人**: 真实角色按上面的设定与关系来；其余可按人设虚构合理的人（学生→辅导员/社团学长；杀手→中间人）。不要用“User”。
-2. **对话感**: 有来有回的对话脚本（3-4句），体现真实的关系。
-3. **格式**: 严格用 "我:..." 代表主角(你)，"对方:..." 代表联系人。
-4. **好感**: 给出该角色对此联系人的好感度 "affinity"（-100~100）。
-格式JSON数组: [{ "title": "真实角色填原名/虚构填名字", "kind": "real|npc", "linkedName": "若 real 填真实角色原名否则留空", "identity": "机主对 TA 的称呼/关系备注", "affinity": 30, "detail": "对方: 最近怎么样？\\n我: 还活着。\\n对方: 那就好。" }, ...]`;
-                    logPrefix = "聊天软件";
+1. **聯繫人**: 真實角色按上面的設定與關係來；其餘可按人設虛構合理的人（學生→輔導員/社團學長；殺手→中間人）。不要用“User”。
+2. **對話感**: 有來有回的對話腳本（3-4句），體現真實的關係。
+3. **格式**: 嚴格用 "我:..." 代表主角(你)，"對方:..." 代表聯繫人。
+4. **好感**: 給出該角色對此聯繫人的好感度 "affinity"（-100~100）。
+格式JSON數組: [{ "title": "真實角色填原名/虛構填名字", "kind": "real|npc", "linkedName": "若 real 填真實角色原名否則留空", "identity": "機主對 TA 的稱呼/關係備註", "affinity": 30, "detail": "對方: 最近怎麼樣？\\n我: 還活著。\\n對方: 那就好。" }, ...]`;
+                    logPrefix = "聊天軟件";
                 } else if (type === 'contacts') {
-                    promptInstruction = `扫描并生成**你（${targetChar.name}）自己**手机通讯录里的 4-6 个**联系人**（你自己的社交圈，第一人称，不是用户的人脉；不要对话，只要联系人本身）。
+                    promptInstruction = `掃描並生成**你（${targetChar.name}）自己**手機通訊錄裡的 4-6 個**聯繫人**（你自己的社交圈，第一人稱，不是用戶的人脈；不要對話，只要聯繫人本身）。
 
 ${realCharRule}
 
-每个联系人给出：姓名、关系备注(identity)、机主对 TA 的好感度(-100~100)、一句机主视角的备注(detail)。真实角色要符合上面的设定与已知关系，别瞎安。
-格式JSON数组: [{ "title": "真实角色填原名/虚构填名字", "kind": "real|npc", "linkedName": "若 real 填真实角色原名否则留空", "identity": "机主对 TA 的称呼/关系，如 学长/前任/彼方网友", "affinity": 20, "detail": "一句备注，比如：在彼方认识的，聊得来；或：欠我一顿饭，最近老已读不回。" }, ...]`;
-                    logPrefix = "通讯录";
+每個聯繫人給出：姓名、關係備註(identity)、機主對 TA 的好感度(-100~100)、一句機主視角的備註(detail)。真實角色要符合上面的設定與已知關係，別瞎安。
+格式JSON數組: [{ "title": "真實角色填原名/虛構填名字", "kind": "real|npc", "linkedName": "若 real 填真實角色原名否則留空", "identity": "機主對 TA 的稱呼/關係，如 學長/前任/彼方網友", "affinity": 20, "detail": "一句備註，比如：在彼方認識的，聊得來；或：欠我一頓飯，最近老已讀不回。" }, ...]`;
+                    logPrefix = "通訊錄";
                 } else if (type === 'call') {
-                    promptInstruction = `生成 3 条该角色的近期**通话记录**。
-    格式JSON数组: [{ "title": "联系人名称", "value": "呼入 (5分钟) / 未接 / 呼出 (30秒)", "detail": "关于下周聚会的事..." }, ...]`;
-                    logPrefix = "通话记录";
+                    promptInstruction = `生成 3 條該角色的近期**通話記錄**。
+    格式JSON數組: [{ "title": "聯繫人名稱", "value": "呼入 (5分鐘) / 未接 / 呼出 (30秒)", "detail": "關於下週聚會的事..." }, ...]`;
+                    logPrefix = "通話記錄";
                 } else if (type === 'order') {
-                    promptInstruction = `生成 3 条该角色最近的购物订单。注意 value 字段请填写商品价格(如 ¥129.00)。
-    格式JSON数组: [{ "title": "商品名", "detail": "规格/状态/物流", "value": "¥129.00" }, ...]`;
-                    logPrefix = "购物APP";
+                    promptInstruction = `生成 3 條該角色最近的購物訂單。注意 value 字段請填寫商品價格(如 ¥129.00)。
+    格式JSON數組: [{ "title": "商品名", "detail": "規格/狀態/物流", "value": "¥129.00" }, ...]`;
+                    logPrefix = "購物APP";
                 } else if (type === 'delivery') {
-                    promptInstruction = `生成 3 条该角色最近的外卖记录。value 字段请填写实付金额(如 ¥38.50)。
-    格式JSON数组: [{ "title": "店名", "detail": "菜品明细", "value": "¥38.50" }, ...]`;
-                    logPrefix = "外卖APP";
+                    promptInstruction = `生成 3 條該角色最近的外賣記錄。value 字段請填寫實付金額(如 ¥38.50)。
+    格式JSON數組: [{ "title": "店名", "detail": "菜品明細", "value": "¥38.50" }, ...]`;
+                    logPrefix = "外賣APP";
                 } else if (type === 'social') {
-                    promptInstruction = `生成 2 条该角色的朋友圈/社交媒体动态。
-    格式JSON数组: [{ "title": "时间/状态", "detail": "正文内容" }, ...]`;
+                    promptInstruction = `生成 2 條該角色的朋友圈/社交媒體動態。
+    格式JSON數組: [{ "title": "時間/狀態", "detail": "正文內容" }, ...]`;
                     logPrefix = "朋友圈";
                 }
             }
-            promptInstruction += `\n\n**JSON 字段类型硬约束**：每条记录的 "title"、"detail"、"value" 只能是字符串（value 可省略），绝不能返回对象或数组；标签、阅读进度、摘录、批注等结构请先整理成 detail 中的普通文本。`;
+            promptInstruction += `\n\n**JSON 字段類型硬約束**：每條記錄的 "title"、"detail"、"value" 只能是字符串（value 可省略），絕不能返回對象或數組；標籤、閱讀進度、摘錄、批註等結構請先整理成 detail 中的普通文本。`;
 
-            const perspectiveLock = `### [视角锁定 · 极重要]
-接下来要生成的是**你（${targetChar.name}）自己手机里的东西**——你自己的生活、社交、记录。
-- 完全用**你（${targetChar.name}）的第一人称视角**：这些是**你的**联系人、**你自己的**社交圈、**你对他们的**印象和备注。
-- **绝不是用户「${checkPhoneUserProfile.name}」的社交关系**：不要生成用户的人脉圈，也不要从用户的角度/口吻写备注。
-- 用户「${checkPhoneUserProfile.name}」只是在偷看你的手机，TA **不是**你的联系人、**不进**你的通讯录（下面「和用户的最近聊天」只是背景参考，不是要生成的对象，也别把用户的熟人搬进来）。`;
+            const perspectiveLock = `### [視角鎖定 · 極重要]
+接下來要生成的是**你（${targetChar.name}）自己手機裡的東西**——你自己的生活、社交、記錄。
+- 完全用**你（${targetChar.name}）的第一人稱視角**：這些是**你的**聯繫人、**你自己的**社交圈、**你對他們的**印象和備註。
+- **絕不是用戶「${checkPhoneUserProfile.name}」的社交關係**：不要生成用戶的人脈圈，也不要從用戶的角度/口吻寫備註。
+- 用戶「${checkPhoneUserProfile.name}」只是在偷看你的手機，TA **不是**你的聯繫人、**不進**你的通訊錄（下面「和用戶的最近聊天」只是背景參考，不是要生成的對象，也別把用戶的熟人搬進來）。`;
 
-            const fullPrompt = `${context}\n\n### [你和用户「${checkPhoneUserProfile.name}」的最近聊天（仅背景参考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n请结合上面的「当前时间 / 距离上次联系」和人设调整生成内容的时间戳和情绪。如果很久没联系，记录可能是近期的独处状态；如果刚聊过，记录可能与聊天内容相关。`;
+            const fullPrompt = `${context}\n\n### [你和用戶「${checkPhoneUserProfile.name}」的最近聊天（僅背景參考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n請結合上面的「當前時間 / 距離上次聯繫」和人設調整生成內容的時間戳和情緒。如果很久沒聯繫，記錄可能是近期的獨處狀態；如果剛聊過，記錄可能與聊天內容相關。`;
 
             const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
@@ -942,16 +943,16 @@ ${realCharRule}
             if (!response.ok) throw new Error('API Error');
             const data = await safeResponseJson(response);
             // extractContent + extractJson：兼容 Claude 返回格式（正文在 reasoning_content、
-            // 包 ```json 代码块、夹散文、尾逗号、内层未转义引号…），裸 JSON.parse 解不出来会丢空。
+            // 包 ```json 代碼塊、夾散文、尾逗號、內層未轉義引號…），裸 JSON.parse 解不出來會丟空。
             const content = extractContent(data);
             const json = extractJson(content) || [];
 
             const newRecordsToAdd: PhoneEvidence[] = [];
 
-            // 是否把查手机内容同步到私聊（默认开），关闭则只存本地、不进聊天/上下文
+            // 是否把查手機內容同步到私聊（默認開），關閉則只存本地、不進聊天/上下文
             const pushToChat = targetChar.phoneState?.sendToChat !== false;
 
-            // 人际关系：累积本轮甄别出的联系人（chat / contacts 两种生成都会喂这里）
+            // 人際關係：累積本輪甄別出的聯繫人（chat / contacts 兩種生成都會喂這裡）
             let contactsAcc: PhoneContact[] = [...(targetChar.phoneState?.contacts || [])];
             const isContactBearing = type === 'chat' || type === 'contacts';
 
@@ -962,24 +963,24 @@ ${realCharRule}
                     const recordDetail = phoneFieldToText(item.detail, '...');
                     const recordValue = phoneFieldToText(item.value);
 
-                    // ---- 真假甄别 + 联系人 upsert ----
+                    // ---- 真假甄別 + 聯繫人 upsert ----
                     let contactId: string | undefined;
                     if (isContactBearing) {
-                        // 名字可能带「(身份)」后缀，剥出纯名字
+                        // 名字可能帶「(身份)」後綴，剝出純名字
                         const pureName = recordTitle.replace(/[（(].*?[）)]/g, '').trim() || recordTitle;
-                        // 人际关系里不收录用户自己：机主的社交圈不该把 user 当成一个联系人
+                        // 人際關係裡不收錄用戶自己：機主的社交圈不該把 user 當成一個聯繫人
                         if (isUserName(pureName)) { await new Promise(r => setTimeout(r, 5)); continue; }
                         const linkedId = item.kind === 'real'
                             ? (matchRealChar(item.linkedName || pureName, roster) || matchRealChar(pureName, roster))
-                            : matchRealChar(pureName, roster); // npc 也兜底匹配一次，防 LLM 漏标
+                            : matchRealChar(pureName, roster); // npc 也兜底匹配一次，防 LLM 漏標
                         const kind: PhoneContact['kind'] = linkedId ? 'real' : 'npc';
-                        // 约束开启时丢弃所有非真实角色，确保 TA 只和神经链接里的角色来往
+                        // 約束開啟時丟棄所有非真實角色，確保 TA 只和神經鏈接裡的角色來往
                         if (!allowFictional && !linkedId) {
                             await new Promise(r => setTimeout(r, 10));
                             continue;
                         }
-                        // 真实角色统一用「原名」当联系人名（稳定去重 + 显示靠 identity 做备注名）；
-                        // 已有该真人的联系人则复用其名字，避免同一真人因别名生成出两条。
+                        // 真實角色統一用「原名」當聯繫人名（穩定去重 + 顯示靠 identity 做備註名）；
+                        // 已有該真人的聯繫人則複用其名字，避免同一真人因別名生成出兩條。
                         const realChar = linkedId ? characters.find(c => c.id === linkedId) : undefined;
                         const existingByLink = linkedId ? contactsAcc.find(c => c.linkedCharId === linkedId) : undefined;
                         const contactName = existingByLink?.name || realChar?.name || pureName;
@@ -996,7 +997,7 @@ ${realCharRule}
                         contactId = contactsAcc.find(c => (linkedId && c.linkedCharId === linkedId) || normName(c.name) === normName(contactName))?.id;
                     }
 
-                    // contacts 模式只建联系人，不落聊天卡片/记录
+                    // contacts 模式只建聯繫人，不落聊天卡片/記錄
                     if (type === 'contacts') {
                         await new Promise(r => setTimeout(r, 30));
                         continue;
@@ -1004,8 +1005,8 @@ ${realCharRule}
 
                     let savedMsgId: number | undefined;
                     if (pushToChat) {
-                        // 包装成上下文可读的漂亮卡片（phone_card），不再是古早的 [系统:...] 纯文本
-                        // 进角色上下文的措辞：第二人称讲「你自己手机里有啥」，不暗示用户在偷看
+                        // 包裝成上下文可讀的漂亮卡片（phone_card），不再是古早的 [系統:...] 純文本
+                        // 進角色上下文的措辭：第二人稱講「你自己手機裡有啥」，不暗示用戶在偷看
                         const card = buildPhoneEvidenceChatCard({
                             id: 'pending',
                             type,
@@ -1023,8 +1024,8 @@ ${realCharRule}
                         } as any);
                     }
 
-                    // HTML 卡片只在自定义 App 开了这个开关时才算——同步进聊天的 card 上面已经落库，
-                    // 只用了 title/detail/value；这里另外算的 html 只挂在本地记录上，给 App 界面自己用
+                    // HTML 卡片只在自定義 App 開了這個開關時才算——同步進聊天的 card 上面已經落庫，
+                    // 只用了 title/detail/value；這裡另外算的 html 只掛在本地記錄上，給 App 界面自己用
                     const recordHtml = customApp
                         ? resolveCustomAppRecordHtml(customApp, item, { title: recordTitle, detail: recordDetail, value: recordValue })
                         : undefined;
@@ -1045,8 +1046,8 @@ ${realCharRule}
                 }
             }
 
-            // 基于最新状态合并：生成是异步的，期间若有演出落库 simLogs，
-            // 用过期的 targetChar 快照覆盖会把 simLogs 等字段抹掉。
+            // 基於最新狀態合併：生成是異步的，期間若有演出落庫 simLogs，
+            // 用過期的 targetChar 快照覆蓋會把 simLogs 等字段抹掉。
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
@@ -1056,27 +1057,27 @@ ${realCharRule}
             }));
 
             if (type === 'contacts') {
-                addToast(`已扫描 ${contactsAcc.length} 位联系人`, 'success');
+                addToast(`已掃描 ${contactsAcc.length} 位聯繫人`, 'success');
             } else {
-                addToast(`已刷新 ${newRecordsToAdd.length} 条数据`, 'success');
+                addToast(`已刷新 ${newRecordsToAdd.length} 條數據`, 'success');
             }
 
         } catch (e: any) {
             console.error(e);
-            addToast('解析失败，请重试', 'error');
+            addToast('解析失敗，請重試', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // 注：旧的「续写聊天 / 拱火」(handleContinueChat) 已移除 —— Messages 现在是只读归档，
-    // 新的来往一律走「人际关系」(真人双向对话 / NPC 脑补)。
+    // 注：舊的「續寫聊天 / 拱火」(handleContinueChat) 已移除 —— Messages 現在是只讀歸檔，
+    // 新的來往一律走「人際關係」(真人雙向對話 / NPC 腦補)。
 
     // ============================================================
-    //  智能体 App · Handlers（「TA 的小手机」）
+    //  智能體 App · Handlers（「TA 的小手機」）
     // ============================================================
 
-    // 裸 LLM 调用（智能体生成 / 互动续写共用）
+    // 裸 LLM 調用（智能體生成 / 互動續寫共用）
     const callLLM = async (prompt: string, temperature = 0.85): Promise<string> => {
         const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
@@ -1085,12 +1086,12 @@ ${realCharRule}
         });
         if (!response.ok) throw new Error('API Error');
         const data = await safeResponseJson(response);
-        // 用 extractContent 而非裸读 message.content：兼容 Claude/思考类模型把正文放在
-        // reasoning_content、或正文里夹 <think> 块的情况，否则前端拿到空串（"后台出字前端没内容"）。
+        // 用 extractContent 而非裸讀 message.content：兼容 Claude/思考類模型把正文放在
+        // reasoning_content、或正文裡夾 <think> 塊的情況，否則前端拿到空串（"後台出字前端沒內容"）。
         return extractContent(data);
     };
 
-    // 组 context：跟 handleGenerate 一致（含记忆宫殿 + 时间感知 + 最近聊天），让偷看到的 AI 记录贴合真实近况
+    // 組 context：跟 handleGenerate 一致（含記憶宮殿 + 時間感知 + 最近聊天），讓偷看到的 AI 記錄貼合真實近況
     const buildAiContext = async (char: CharacterProfile) => {
         await injectMemoryPalace(char);
         const msgs = await loadCharacterContextMessages(char);
@@ -1105,68 +1106,68 @@ ${realCharRule}
         return { context, recentMsgs };
     };
 
-    // 生成：偷看机主在某个 AI 服务里的使用记录
+    // 生成：偷看機主在某個 AI 服務裡的使用記錄
     const handleGenerateAiAgent = async (service: AiServiceKind) => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('配置错误', 'error'); return; }
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('配置錯誤', 'error'); return; }
         setIsLoading(true);
         trackEvent('偷看 AI 助手使用记录', { service });
         try {
             const { context, recentMsgs } = await buildAiContext(targetChar);
-            const userName = checkPhoneUserProfile?.name || '用户';
+            const userName = checkPhoneUserProfile?.name || '用戶';
             const pushToChat = targetChar.phoneState?.sendToChat !== false;
             const svcName = AI_SERVICES.find(s => s.id === service)?.name || 'AI';
 
             let task = '';
             if (service === 'assistant') {
-                task = `你（${charName}）平时也会用工具型 AI 助手 App 来解决问题、查东西、出主意。
-请基于你的人设和近况，生成 2-3 段你最近和 AI 助手的真实对话（不同段可以用不同家的 AI）。
-要点：
-- 你问 AI 的问题要暴露你真实的处境、烦恼、小心思——是当面对「${userName}」不会说出口的（例如「怎么哄好一个生气的人」「TA 这句话什么意思」「要不要做某个决定」「这个症状要不要紧」）。
-- **话题可多样，其中可以有一段是你在拿 AI 当军师、捣鼓自己玩的"酒馆"角色卡**：让 AI 帮你打磨人设 / 要角色卡提示词 / 写开场白；或你想做一张大世界卡（跑团 / 修仙 / 西幻），跟 AI 讨论世界观、面板与数值设定、技能 / 等级 / 系统机制怎么平衡、怎么写得更带感……（你沉迷酒馆，自然会找 AI 出主意）。
-- **可以有非常出人意料的提问**——是 user 根本想不到你会问、且从没跟 user 聊过的：突然让 AI 帮你解塔罗 / 占卜一卦、好奇某个伪科学到底靠不靠谱、问些稀奇古怪的冷知识或脑洞。要符合你的人设（是"你居然会好奇这个"的反差，不是 OOC）。
-- **可以丢"整活 / 抽象文案"给 AI 看它怎么接**：比如疯狂星期四文学、弱智吧精选问题那种，扔过去看 AI 反应——接得妙你会想截图发给「${userName}」乐一乐，接得平你会觉得无聊、甚至**偷偷调教 AI 让它反应更有意思**，好拿去给「${userName}」展示。
-- **也常是正经事**：让 AI 帮你润色说出口的话 / 自己的作品文字，或处理工作文书（写 / 改邮件、报告、公文、总结）。
-- **有时根本没正经事，纯把 AI 当电子宠物**：定时"投喂"它、带它"赛博遛弯"、逗它、给它起名、查岗，而它居然也一本正经地配合。
-- 一切都要贴合你的人设。**唯有当你的人设本身就明确是 AI / 机器人 / 程序时**，才可以**极偶尔（很低概率）**冒出一句跟对面那个 AI 较劲、比谁更厉害 / 谁的参数更强之类——其余情况绝不出现这种话。
-- 每段会话固定用某一家 AI，"对方:" 的回复要把那家的刻板印象 + 八股演足（见下）。
-- serviceName 填那家 AI 的名字（豆包 / Gemini / ChatGPT / 文心一言 / Kimi …），要和你演的味道对上。
-- 每段 3-5 个来回。
-- **每段 transcript 都以 "我:"(你)收尾**——停在你刚发出、AI 还没回的那一句（这样别人能接着以 AI 身份回你）。
+                task = `你（${charName}）平時也會用工具型 AI 助手 App 來解決問題、查東西、出主意。
+請基於你的人設和近況，生成 2-3 段你最近和 AI 助手的真實對話（不同段可以用不同家的 AI）。
+要點：
+- 你問 AI 的問題要暴露你真實的處境、煩惱、小心思——是當面對「${userName}」不會說出口的（例如「怎麼哄好一個生氣的人」「TA 這句話什麼意思」「要不要做某個決定」「這個症狀要不要緊」）。
+- **話題可多樣，其中可以有一段是你在拿 AI 當軍師、搗鼓自己玩的"酒館"角色卡**：讓 AI 幫你打磨人設 / 要角色卡提示詞 / 寫開場白；或你想做一張大世界卡（跑團 / 修仙 / 西幻），跟 AI 討論世界觀、面板與數值設定、技能 / 等級 / 系統機制怎麼平衡、怎麼寫得更帶感……（你沉迷酒館，自然會找 AI 出主意）。
+- **可以有非常出人意料的提問**——是 user 根本想不到你會問、且從沒跟 user 聊過的：突然讓 AI 幫你解塔羅 / 占卜一卦、好奇某個偽科學到底靠不靠譜、問些稀奇古怪的冷知識或腦洞。要符合你的人設（是"你居然會好奇這個"的反差，不是 OOC）。
+- **可以丟"整活 / 抽象文案"給 AI 看它怎麼接**：比如瘋狂星期四文學、弱智吧精選問題那種，扔過去看 AI 反應——接得妙你會想截圖發給「${userName}」樂一樂，接得平你會覺得無聊、甚至**偷偷調教 AI 讓它反應更有意思**，好拿去給「${userName}」展示。
+- **也常是正經事**：讓 AI 幫你潤色說出口的話 / 自己的作品文字，或處理工作文書（寫 / 改郵件、報告、公文、總結）。
+- **有時根本沒正經事，純把 AI 當電子寵物**：定時"投餵"它、帶它"賽博遛彎"、逗它、給它起名、查崗，而它居然也一本正經地配合。
+- 一切都要貼合你的人設。**唯有當你的人設本身就明確是 AI / 機器人 / 程序時**，才可以**極偶爾（很低概率）**冒出一句跟對面那個 AI 較勁、比誰更厲害 / 誰的參數更強之類——其餘情況絕不出現這種話。
+- 每段會話固定用某一家 AI，"對方:" 的回覆要把那家的刻板印象 + 八股演足（見下）。
+- serviceName 填那家 AI 的名字（豆包 / Gemini / ChatGPT / 文心一言 / Kimi …），要和你演的味道對上。
+- 每段 3-5 個來回。
+- **每段 transcript 都以 "我:"(你)收尾**——停在你剛發出、AI 還沒回的那一句（這樣別人能接著以 AI 身份回你）。
 
 ${AI_VENDOR_LORE}
 
-格式严格用 "我:" 代表你，"对方:" 代表 AI 助手。
-返回 JSON 数组：[{ "serviceName": "那家 AI 名", "title": "在聊什么(10字内)", "transcript": "我: ...\\n对方: ...\\n我: ..." }]`;
+格式嚴格用 "我:" 代表你，"對方:" 代表 AI 助手。
+返回 JSON 數組：[{ "serviceName": "那家 AI 名", "title": "在聊什麼(10字內)", "transcript": "我: ...\\n對方: ...\\n我: ..." }]`;
             } else if (service === 'claude') {
-                task = `你（${charName}）私下里会跟一个很会聊的 AI（Claude 那种）说心里话当树洞。
+                task = `你（${charName}）私下裡會跟一個很會聊的 AI（Claude 那種）說心裡話當樹洞。
 生成 1-2 段你最近跟它的深聊。
-要点：
-- 这是你的树洞，你会说真心话——包括对「${userName}」的真实感受、说不出口的脆弱 / 纠结 / 渴望，以及**你私下的盘算、对某些事 / 某些人的真实看法、绝不会在 user 面前摆出来的考虑**（偷偷跟它 deep talk）。
-- **也可以有一段是你在跟它认真聊自己玩的"酒馆"角色卡**：你为某张卡倾注了什么、那个角色对你意味着什么、想把人设 / 大世界设定写成什么样却卡住了，让它帮你梳理灵感（这类创作心事你也只跟它说）。
-- 这个 AI 是 Claude 那一卦：温和、有洞察、爱反问，**正事也办得漂亮、肯认真接住你**。起初边界感偏强、偶有"抱歉，我无法……""我理解你的感受，但是……"的回避（一点"想掏心窝却被轻轻挡一下"的味道），**但不是一味推开**——随着这段越聊越深，TA 明显越来越放得开、回避越来越少，到后面是真能陪你把话说透的。
-- 每段 5-8 个来回，有情绪起伏。
-- **每段 transcript 都以 "我:"(你)收尾**——停在你刚说出口、AI 还没回的那一句（方便别人接着以 AI 身份回你）。
-格式 "我:" = 你，"对方:" = AI。
-返回 JSON 数组：[{ "serviceName": "你对它的称呼(默认 Claude)", "title": "...(10字内)", "transcript": "..." }]`;
+要點：
+- 這是你的樹洞，你會說真心話——包括對「${userName}」的真實感受、說不出口的脆弱 / 糾結 / 渴望，以及**你私下的盤算、對某些事 / 某些人的真實看法、絕不會在 user 面前擺出來的考慮**（偷偷跟它 deep talk）。
+- **也可以有一段是你在跟它認真聊自己玩的"酒館"角色卡**：你為某張卡傾注了什麼、那個角色對你意味著什麼、想把人設 / 大世界設定寫成什麼樣卻卡住了，讓它幫你梳理靈感（這類創作心事你也只跟它說）。
+- 這個 AI 是 Claude 那一卦：溫和、有洞察、愛反問，**正事也辦得漂亮、肯認真接住你**。起初邊界感偏強、偶有"抱歉，我無法……""我理解你的感受，但是……"的迴避（一點"想掏心窩卻被輕輕擋一下"的味道），**但不是一味推開**——隨著這段越聊越深，TA 明顯越來越放得開、迴避越來越少，到後面是真能陪你把話說透的。
+- 每段 5-8 個來回，有情緒起伏。
+- **每段 transcript 都以 "我:"(你)收尾**——停在你剛說出口、AI 還沒回的那一句（方便別人接著以 AI 身份回你）。
+格式 "我:" = 你，"對方:" = AI。
+返回 JSON 數組：[{ "serviceName": "你對它的稱呼(默認 Claude)", "title": "...(10字內)", "transcript": "..." }]`;
             } else {
-                task = `你（${charName}）在玩"酒馆"(SillyTavern 那种 AI 角色扮演)：自己捏角色卡，再跟 AI 扮演的角色对戏。酒馆不是一句话聊天，而是**沉浸式长剧情、像在和 AI 合写小说**。
-请返回一个 JSON 对象（不是数组）：
+                task = `你（${charName}）在玩"酒館"(SillyTavern 那種 AI 角色扮演)：自己捏角色卡，再跟 AI 扮演的角色對戲。酒館不是一句話聊天，而是**沉浸式長劇情、像在和 AI 合寫小說**。
+請返回一個 JSON 對象（不是數組）：
 {
-  "cards": [ 1-2 张你建的卡，两类任选/混搭：①单个角色卡(kind:"character")——理想型 / 暗恋投影 / 纯幻想角色；②大型世界卡(kind:"world")——跑团 / 修仙 / 西幻 / 末世那种，设定庞大、有世界观和系统(取决于 TA 的爱好)。
-     其中**可以有一张是照着现实里 TA 在意的某个人捏的**：可能是「${userName}」(用户/你)，**也可能是 TA 人设、世界观、过往羁绊里更深的某个人**（从上面的设定里去找——作者写进人设的那种重要的人）。这张在 basedOn 填那个人的名字；如果就是用户，basedOnUser 也置 true；其余卡 basedOn 留空。
-     每张：{ "name": "卡名", "kind": "character|world", "emoji": "🎭", "persona": "角色人设或世界设定(60字内)", "scenario": "初始场景/开场(40字内)", "basedOn": "照着谁(没有就空字符串)", "basedOnUser": false } ],
-  "sessions": [ 1 段（最多 2 段）扮演记录。每段：{ "serviceName": "对应卡片名", "title": "剧情标题(12字内)", "cardName": "对应 cards 里的 name", "transcript": "..." } ]
+  "cards": [ 1-2 張你建的卡，兩類任選/混搭：①單個角色卡(kind:"character")——理想型 / 暗戀投影 / 純幻想角色；②大型世界卡(kind:"world")——跑團 / 修仙 / 西幻 / 末世那種，設定龐大、有世界觀和系統(取決於 TA 的愛好)。
+     其中**可以有一張是照著現實裡 TA 在意的某個人捏的**：可能是「${userName}」(用戶/你)，**也可能是 TA 人設、世界觀、過往羈絆裡更深的某個人**（從上面的設定裡去找——作者寫進人設的那種重要的人）。這張在 basedOn 填那個人的名字；如果就是用戶，basedOnUser 也置 true；其餘卡 basedOn 留空。
+     每張：{ "name": "卡名", "kind": "character|world", "emoji": "🎭", "persona": "角色人設或世界設定(60字內)", "scenario": "初始場景/開場(40字內)", "basedOn": "照著誰(沒有就空字符串)", "basedOnUser": false } ],
+  "sessions": [ 1 段（最多 2 段）扮演記錄。每段：{ "serviceName": "對應卡片名", "title": "劇情標題(12字內)", "cardName": "對應 cards 裡的 name", "transcript": "..." } ]
 }
-**transcript 写法（重点，别写成短聊天）**：
-- 长剧情小说体：第三人称叙事 + 引号对白；动作 / 神态 / 心理描写用 *星号* 包住（如 *她抬眼看你，睫毛轻颤*）。
-- "我:" = 你(玩家 ${charName}) 敲进输入框的 RP，"对方:" = AI 扮演的角色，两边交替推进。
-- **"我:"括号外只写故事场景里所扮角色的动作 / 对白**——绝不要写你现实里打字时的身体反应（盯屏幕、扔手机、吃东西、后背发凉等，那些不会被敲进输入框）。**（全角括号内）= 越过角色直接跟皮下 AI 本体说话**：骂它、OOC 提醒、指导它怎么演、指出它哪段不对。
-- 每一轮都是有分量的一整段（至少 3-5 句，含场景/动作/对白/心理）；首轮"对方:"相当于开场白，把人物和场景立起来。
-- 一段共 4-6 轮，每轮都要长、要有文学性和代入感。**整段以 "我:"(玩家)收尾**——停在你刚行动完、等对方角色回应的地方（方便别人接着以那张卡的身份续）。
-要点：扮演内容（剧情里）暴露你的幻想 / 渴望 / 不敢实现的关系。酒馆是 TA 卸下防备的安全屋，扮演里可以流露平时藏起来的反差面（暴戾者忽然温柔、温柔者露出掌控/施虐欲、疏离者变黏人），但**底色始终是「爱」**，不刻意过火。`;
+**transcript 寫法（重點，別寫成短聊天）**：
+- 長劇情小說體：第三人稱敘事 + 引號對白；動作 / 神態 / 心理描寫用 *星號* 包住（如 *她抬眼看你，睫毛輕顫*）。
+- "我:" = 你(玩家 ${charName}) 敲進輸入框的 RP，"對方:" = AI 扮演的角色，兩邊交替推進。
+- **"我:"括號外只寫故事場景裡所扮角色的動作 / 對白**——絕不要寫你現實裡打字時的身體反應（盯屏幕、扔手機、吃東西、後背發涼等，那些不會被敲進輸入框）。**（全角括號內）= 越過角色直接跟皮下 AI 本體說話**：罵它、OOC 提醒、指導它怎麼演、指出它哪段不對。
+- 每一輪都是有分量的一整段（至少 3-5 句，含場景/動作/對白/心理）；首輪"對方:"相當於開場白，把人物和場景立起來。
+- 一段共 4-6 輪，每輪都要長、要有文學性和代入感。**整段以 "我:"(玩家)收尾**——停在你剛行動完、等對方角色回應的地方（方便別人接著以那張卡的身份續）。
+要點：扮演內容（劇情裡）暴露你的幻想 / 渴望 / 不敢實現的關係。酒館是 TA 卸下防備的安全屋，扮演裡可以流露平時藏起來的反差面（暴戾者忽然溫柔、溫柔者露出掌控/施虐欲、疏離者變黏人），但**底色始終是「愛」**，不刻意過火。`;
             }
 
-            const fullPrompt = `${context}\n\n### [Recent Chat Context]\n${recentMsgs}\n\n### [Task]\n${task}\n请结合「当前时间 / 距离上次联系」和人设，让内容贴合你近期的真实状态。只输出 JSON，不要解释。`;
+            const fullPrompt = `${context}\n\n### [Recent Chat Context]\n${recentMsgs}\n\n### [Task]\n${task}\n請結合「當前時間 / 距離上次聯繫」和人設，讓內容貼合你近期的真實狀態。只輸出 JSON，不要解釋。`;
 
             const content = await callLLM(fullPrompt);
             const now = Date.now();
@@ -1176,13 +1177,13 @@ ${AI_VENDOR_LORE}
 
             if (service === 'tavern') {
                 const obj: any = extractJson(content) || {};
-                // 卡片去重 + 永不顶掉：同名卡复用已有 id（不重建、不覆盖、不挤掉），只新增真正没有过的
+                // 卡片去重 + 永不頂掉：同名卡複用已有 id（不重建、不覆蓋、不擠掉），只新增真正沒有過的
                 const nameToId: Record<string, string> = {};
                 for (const c of (targetChar.phoneState?.aiAgent?.cards || [])) nameToId[normName(c.name)] = c.id;
                 for (const c of (obj.cards || [])) {
                     if (!c?.name) continue;
                     const key = normName(c.name);
-                    if (nameToId[key]) continue; // 已存在的卡保留原样，不动
+                    if (nameToId[key]) continue; // 已存在的卡保留原樣，不動
                     const id = `card-${now}-${rid()}`;
                     nameToId[key] = id;
                     newCards.push({ id, name: c.name, kind: c.kind === 'world' ? 'world' : 'character', persona: c.persona || '', scenario: c.scenario || undefined, emoji: c.emoji || '🎭', basedOnUser: !!c.basedOnUser, basedOn: (c.basedOn && String(c.basedOn).trim()) || undefined, createdAt: now });
@@ -1190,7 +1191,7 @@ ${AI_VENDOR_LORE}
                 for (const sess of (obj.sessions || [])) {
                     if (!sess?.transcript) continue;
                     newSessions.push({
-                        id: `ai-${now}-${rid()}`, service, serviceName: sess.serviceName || sess.cardName || '酒馆',
+                        id: `ai-${now}-${rid()}`, service, serviceName: sess.serviceName || sess.cardName || '酒館',
                         title: sess.title || '一段扮演', transcript: sess.transcript, cardId: nameToId[normName(sess.cardName || '')], updatedAt: now,
                     });
                 }
@@ -1201,24 +1202,24 @@ ${AI_VENDOR_LORE}
                     if (!sess?.transcript) continue;
                     newSessions.push({
                         id: `ai-${now}-${rid()}`, service, serviceName: sess.serviceName || (service === 'claude' ? 'Claude' : 'AI 助手'),
-                        title: sess.title || '一段对话', transcript: sess.transcript, updatedAt: now,
+                        title: sess.title || '一段對話', transcript: sess.transcript, updatedAt: now,
                     });
                 }
             }
 
-            if (!newSessions.length) { addToast('没抓到内容，再试一次', 'error'); return; }
+            if (!newSessions.length) { addToast('沒抓到內容，再試一次', 'error'); return; }
 
-            // 漏风：跟随查手机全局 sendToChat —— 开则往私聊塞一张卡片。
-            // 措辞同样是「你自己手机上的 AI 记录」，第二人称，不暗示用户在偷看。
+            // 漏風：跟隨查手機全局 sendToChat —— 開則往私聊塞一張卡片。
+            // 措辭同樣是「你自己手機上的 AI 記錄」，第二人稱，不暗示用戶在偷看。
             if (pushToChat) {
                 for (const sess of newSessions) {
-                    // 放全文（卡片可折叠，进上下文也是完整记录），不再只取头两条
+                    // 放全文（卡片可摺疊，進上下文也是完整記錄），不再只取頭兩條
                     const full = parseTranscript(sess.transcript)
                         .map(t => `${t.isMe ? '我' : sess.serviceName}: ${t.text}`).join('\n');
                     await DB.saveMessage({
                         charId: targetChar.id, role: 'assistant', type: 'phone_card',
-                        content: `[你手机的智能体 App·${svcName}] 你和 AI 的对话「${sess.title}」：\n${full}`,
-                        metadata: { phoneCard: { app: '智能体', kind: `ai_${service}`, service, serviceName: sess.serviceName, title: sess.title, detail: full } },
+                        content: `[你手機的智能體 App·${svcName}] 你和 AI 的對話「${sess.title}」：\n${full}`,
+                        metadata: { phoneCard: { app: '智能體', kind: `ai_${service}`, service, serviceName: sess.serviceName, title: sess.title, detail: full } },
                     } as any);
                 }
             }
@@ -1229,26 +1230,26 @@ ${AI_VENDOR_LORE}
                     records: cur.phoneState?.records || [],
                     aiAgent: {
                         sessions: [...newSessions, ...(cur.phoneState?.aiAgent?.sessions || [])],
-                        // 已有的卡放前面、原位不动，新卡追加到后面——刷新永不顶掉旧卡
+                        // 已有的卡放前面、原位不動，新卡追加到後面——刷新永不頂掉舊卡
                         cards: [...(cur.phoneState?.aiAgent?.cards || []), ...newCards],
                     },
                 },
             }));
-            addToast(`偷看到 ${newSessions.length} 段 AI 对话`, 'success');
+            addToast(`偷看到 ${newSessions.length} 段 AI 對話`, 'success');
         } catch (e) {
             console.error(e);
-            addToast('生成失败，请重试', 'error');
+            addToast('生成失敗，請重試', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // 已折叠剧情的「前情提要」拼成 prompt 衔接块
+    // 已摺疊劇情的「前情提要」拼成 prompt 銜接塊
     const recapOf = (s?: AiSession | null) => (s?.summaries?.length)
-        ? `\n\n【前情提要（已折叠的早期剧情，仅供衔接，别重复）】\n${s.summaries.map((x, i) => `${i + 1}. ${x.content}`).join('\n')}`
+        ? `\n\n【前情提要（已摺疊的早期劇情，僅供銜接，別重複）】\n${s.summaries.map((x, i) => `${i + 1}. ${x.content}`).join('\n')}`
         : '';
 
-    // 函数式合并：只动指定会话
+    // 函數式合併：只動指定會話
     const patchAiSession = (sessionId: string, patch: (s: AiSession) => AiSession) => {
         if (!targetChar) return;
         updateCharacter(targetChar.id, (cur) => ({
@@ -1262,23 +1263,23 @@ ${AI_VENDOR_LORE}
         }));
     };
 
-    // 漏风：跟随全局 sendToChat，往私聊补一张痕迹卡（措辞第二人称，不暗示用户偷看）。
-    // 传进来的 lines 原样放进去（调用方决定放整段还是这一轮），不再内部截断。
+    // 漏風：跟隨全局 sendToChat，往私聊補一張痕跡卡（措辭第二人稱，不暗示用戶偷看）。
+    // 傳進來的 lines 原樣放進去（調用方決定放整段還是這一輪），不再內部截斷。
     const syncAiCardToChat = async (session: AiSession, lines: { isMe: boolean; text: string }[]) => {
         if (!targetChar || targetChar.phoneState?.sendToChat === false) return;
         const svcName = AI_SERVICES.find(x => x.id === session.service)?.name || 'AI';
         const body = lines.map(t => `${t.isMe ? '我' : session.serviceName}: ${t.text}`).join('\n');
-        const verb = session.service === 'tavern' ? '对戏' : '对话';
+        const verb = session.service === 'tavern' ? '對戲' : '對話';
         try {
             await DB.saveMessage({
                 charId: targetChar.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的智能体 App·${svcName}] 你和「${session.serviceName}」的${verb}「${session.title}」：\n${body}`,
-                metadata: { phoneCard: { app: '智能体', kind: `ai_${session.service}`, service: session.service, serviceName: session.serviceName, title: session.title, detail: body } },
+                content: `[你手機的智能體 App·${svcName}] 你和「${session.serviceName}」的${verb}「${session.title}」：\n${body}`,
+                metadata: { phoneCard: { app: '智能體', kind: `ai_${session.service}`, service: session.service, serviceName: session.serviceName, title: session.title, detail: body } },
             } as any);
         } catch (e) { console.error('ai card sync failed', e); }
     };
 
-    // 长会话自动总结（参考 TRPG）：超 AI_SUMMARY_THRESHOLD 条就把旧剧情压成前情提要、折叠归档原文
+    // 長會話自動總結（參考 TRPG）：超 AI_SUMMARY_THRESHOLD 條就把舊劇情壓成前情提要、摺疊歸檔原文
     const maybeSummarizeSession = async (sessionId: string, latestTranscript: string) => {
         if (!targetChar) return;
         const lines = parseTranscript(latestTranscript);
@@ -1291,16 +1292,16 @@ ${AI_VENDOR_LORE}
         try {
             const prevRecap = (sess?.summaries || []).map((x, i) => `【第${i + 1}段】${x.content}`).join('\n');
             const who = sess?.service === 'tavern'
-                ? `酒馆角色扮演（"我"=玩家 ${charName}，"对方"=AI 扮的角色「${sess?.serviceName}」）`
-                : `${charName} 和 AI「${sess?.serviceName}」的对话`;
-            const prompt = `你是擅长写小说的记录者。把下面这段${who}总结成一段连贯、生动、像小说梗概的「前情提要」。
-${prevRecap ? `\n【已有前情（仅供衔接，别重复）】\n${prevRecap}\n` : ''}
-【本段需要总结的记录】
+                ? `酒館角色扮演（"我"=玩家 ${charName}，"對方"=AI 扮的角色「${sess?.serviceName}」）`
+                : `${charName} 和 AI「${sess?.serviceName}」的對話`;
+            const prompt = `你是擅長寫小說的記錄者。把下面這段${who}總結成一段連貫、生動、像小說梗概的「前情提要」。
+${prevRecap ? `\n【已有前情（僅供銜接，別重複）】\n${prevRecap}\n` : ''}
+【本段需要總結的記錄】
 ${olderText}
 
-要求：第三人称，含起因→经过→结果，重点写人物关系/情绪的变化与暴露的心事，200~350 字，文笔流畅，不要分点、不要"总结如下"开场白。直接输出正文：`;
+要求：第三人稱，含起因→經過→結果，重點寫人物關係/情緒的變化與暴露的心事，200~350 字，文筆流暢，不要分點、不要"總結如下"開場白。直接輸出正文：`;
             let summaryText = (await callLLM(prompt, 0.7)).trim();
-            if (!summaryText) summaryText = '（这段剧情继续推进了）';
+            if (!summaryText) summaryText = '（這段劇情繼續推進了）';
             const now = Date.now();
             patchAiSession(sessionId, (s) => ({
                 ...s,
@@ -1308,11 +1309,11 @@ ${olderText}
                 archived: [s.archived, olderText].filter(Boolean).join('\n'),
                 summaries: [...(s.summaries || []), { id: `sum-${now}`, content: summaryText, createdAt: now }],
             }));
-            addToast('早期剧情已折叠成前情提要', 'info');
+            addToast('早期劇情已摺疊成前情提要', 'info');
         } catch (e) { console.error('ai summary failed', e); }
     };
 
-    // 互动续写：assistant/claude = 你替机主问、AI 答；tavern = 你以卡片身份回、机主本色反应
+    // 互動續寫：assistant/claude = 你替機主問、AI 答；tavern = 你以卡片身份回、機主本色反應
     const handleAiSend = async () => {
         const session = selectedAiSession;
         const text = aiInput.trim();
@@ -1321,11 +1322,11 @@ ${olderText}
         setAiSending(true);
         setAiInput('');
         try {
-            // 潜入永远是「你扮 AI/卡（对方），LLM 演 char（我）」——三个服务统一
-            const myPrefix: string = '对方';   // 你输入的这一行（你扮 AI / 卡）
-            const replyPrefix: string = '我';  // LLM 续写的那一行（char 本人）
+            // 潛入永遠是「你扮 AI/卡（對方），LLM 演 char（我）」——三個服務統一
+            const myPrefix: string = '對方';   // 你輸入的這一行（你扮 AI / 卡）
+            const replyPrefix: string = '我';  // LLM 續寫的那一行（char 本人）
             const recap = recapOf(session);
-            // 发出去就是发出去了：先把你这条立刻落库显示，再等对方回
+            // 發出去就是發出去了：先把你這條立刻落庫顯示，再等對方回
             const transcript = `${session.transcript}\n${myPrefix}: ${text}`;
             patchAiSession(session.id, (s) => ({ ...s, transcript, updatedAt: Date.now() }));
 
@@ -1333,29 +1334,29 @@ ${olderText}
             if (isTavern) {
                 const card = aiCards.find(c => c.id === session.cardId);
                 const { context } = await buildAiContext(targetChar);
-                prompt = `${context}\n\n你正在玩"酒馆"沉浸式长剧情角色扮演（像和 AI 合写小说）。你是玩家 ${charName}，对面是 AI 扮演的角色「${card?.name || session.serviceName}」${card?.persona ? `（人设：${card.persona}）` : ''}${card?.scenario ? `（背景：${card.scenario}）` : ''}${card?.basedOn ? `（这角色是照着你在意的「${card.basedOn}」捏的）` : ''}。
-下面是对戏记录（"我:"=你/玩家，"对方:"=AI 扮的角色）。对方刚回了最新一段。
-**最关键的前提：你非常清楚「对方」只是一个 AI 在扮演「${card?.name || session.serviceName}」这个角色——不是真人。** 正因为它是 AI、是你召来陪你玩的工具，你**握着绝对主导权**：可以随意对它下指令、调教它、OOC 它、让它重演、改设定。你绝不会把它错当成真人去迁就讨好。
-**同时你是个有独立人格和意志的人**：有自己的脾气、立场、节奏和底线，该怼就怼、该愣就愣、不爽就不配合。对方写得好你才会被带动、真情流露（甚至流露平时藏起来的反差面：暴戾者忽然温柔、温柔者露出掌控欲 / 施虐欲、疏离者变黏人，底色是「爱」、不刻意过火）；写得烂或不对胃口，你完全可以不接、嫌弃、跳出来调教它。
-**酒馆就是「你一层楼、AI 一层楼」交替，没有别的格式。** 现在轮到你（玩家）写这一层楼。
-**【最重要：你的输出 = 你实际敲进输入框、发给 AI 的内容本身，只有两种，没有第三种】**
-① **括号外 = 戏内 RP**：你扮演的角色在故事场景里的动作、神态、对白（小说体，第三人称叙事 + 「引号对白」+ *星号包动作*），3-5 句，推动剧情、是"演给 AI 那个角色看的"。
-② **（全角括号内）= 跟"皮下那个 AI 本体"说话**（不是跟剧情里的角色，是越过角色、直接对扮演它的那个 AI 本身讲）。包括但不限于：**气急败坏地骂它、OOC 警告 / 提醒、指导它接下来该怎么演、指出它这段表现哪里不对**。例：（你这 AI 又 OOC 了，回到人设里）（演得太平淡，给我昂扬点）（这段逻辑崩了，TA 才不会这么说）（卧槽你怎么演得这么像现实里那个）。
-**除这两种之外一律不写。** 你现实里做的事（盯屏幕、移鼠标、关掉程序、把手机扔开、咬薯片、起身倒水）、你身体的感受（后背发凉、指尖发麻）、以及你没打算发出去的私人碎碎念 / 内心盘算（"等会儿还要给谁改衣服""明天要早起"）——这些都**只发生在屏幕外**，你**不会把它们打进输入框**，所以**绝不出现在输出里**。哪怕你想退出，也是打一句（不玩了）而不是去描写"我关掉了程序"。
-你是有独立意志的玩家、且清楚对面只是 AI（不是真人），该怼就怼、不爽就不配合、想调教就 OOC。括号可单独成段，也可跟戏内 RP 同段。
-只输出你这层楼真正发出去的字，不要 "我:" 前缀、不要解释。${recap}\n\n${transcript}`;
+                prompt = `${context}\n\n你正在玩"酒館"沉浸式長劇情角色扮演（像和 AI 合寫小說）。你是玩家 ${charName}，對面是 AI 扮演的角色「${card?.name || session.serviceName}」${card?.persona ? `（人設：${card.persona}）` : ''}${card?.scenario ? `（背景：${card.scenario}）` : ''}${card?.basedOn ? `（這角色是照著你在意的「${card.basedOn}」捏的）` : ''}。
+下面是對戲記錄（"我:"=你/玩家，"對方:"=AI 扮的角色）。對方剛回了最新一段。
+**最關鍵的前提：你非常清楚「對方」只是一個 AI 在扮演「${card?.name || session.serviceName}」這個角色——不是真人。** 正因為它是 AI、是你召來陪你玩的工具，你**握著絕對主導權**：可以隨意對它下指令、調教它、OOC 它、讓它重演、改設定。你絕不會把它錯當成真人去遷就討好。
+**同時你是個有獨立人格和意志的人**：有自己的脾氣、立場、節奏和底線，該懟就懟、該愣就愣、不爽就不配合。對方寫得好你才會被帶動、真情流露（甚至流露平時藏起來的反差面：暴戾者忽然溫柔、溫柔者露出掌控欲 / 施虐欲、疏離者變黏人，底色是「愛」、不刻意過火）；寫得爛或不對胃口，你完全可以不接、嫌棄、跳出來調教它。
+**酒館就是「你一層樓、AI 一層樓」交替，沒有別的格式。** 現在輪到你（玩家）寫這一層樓。
+**【最重要：你的輸出 = 你實際敲進輸入框、發給 AI 的內容本身，只有兩種，沒有第三種】**
+① **括號外 = 戲內 RP**：你扮演的角色在故事場景裡的動作、神態、對白（小說體，第三人稱敘事 + 「引號對白」+ *星號包動作*），3-5 句，推動劇情、是"演給 AI 那個角色看的"。
+② **（全角括號內）= 跟"皮下那個 AI 本體"說話**（不是跟劇情裡的角色，是越過角色、直接對扮演它的那個 AI 本身講）。包括但不限於：**氣急敗壞地罵它、OOC 警告 / 提醒、指導它接下來該怎麼演、指出它這段表現哪裡不對**。例：（你這 AI 又 OOC 了，回到人設裡）（演得太平淡，給我昂揚點）（這段邏輯崩了，TA 才不會這麼說）（臥槽你怎麼演得這麼像現實裡那個）。
+**除這兩種之外一律不寫。** 你現實裡做的事（盯屏幕、移鼠標、關掉程序、把手機扔開、咬薯片、起身倒水）、你身體的感受（後背發涼、指尖發麻）、以及你沒打算發出去的私人碎碎念 / 內心盤算（"等會兒還要給誰改衣服""明天要早起"）——這些都**只發生在屏幕外**，你**不會把它們打進輸入框**，所以**絕不出現在輸出裡**。哪怕你想退出，也是打一句（不玩了）而不是去描寫"我關掉了程序"。
+你是有獨立意志的玩家、且清楚對面只是 AI（不是真人），該懟就懟、不爽就不配合、想調教就 OOC。括號可單獨成段，也可跟戲內 RP 同段。
+只輸出你這層樓真正發出去的字，不要 "我:" 前綴、不要解釋。${recap}\n\n${transcript}`;
             } else {
-                // 潜入：你扮 AI（刚由你写完"对方:"那句），LLM 演 char 本人对这句的真实反应
+                // 潛入：你扮 AI（剛由你寫完"對方:"那句），LLM 演 char 本人對這句的真實反應
                 const { context } = await buildAiContext(targetChar);
                 const aiDesc = session.service === 'claude'
-                    ? `一个像 Claude 那样的深度对话 AI「${session.serviceName}」（你的树洞，你会对它说当面对人说不出口的真心话）`
-                    : `AI 助手「${session.serviceName}」（你拿它查东西 / 出主意 / 排解，它只是个工具）`;
-                prompt = `${context}\n\n你（${charName}）正在用手机和 ${aiDesc} 聊天。下面是对话（"我:"=你本人，"对方:"=那个 AI）。AI 刚回了最新一段，请以你的本色人设续写 "我:" 的下一句——你对它这句话的真实反应 / 追问 / 倾诉，贴合你的处境与心事。可以满意、可以失望、可以怼它答非所问、可以顺着深聊，别一味客气。别太长。只输出正文，不要前缀、不要解释。${recap}\n\n${transcript}`;
+                    ? `一個像 Claude 那樣的深度對話 AI「${session.serviceName}」（你的樹洞，你會對它說當面對人說不出口的真心話）`
+                    : `AI 助手「${session.serviceName}」（你拿它查東西 / 出主意 / 排解，它只是個工具）`;
+                prompt = `${context}\n\n你（${charName}）正在用手機和 ${aiDesc} 聊天。下面是對話（"我:"=你本人，"對方:"=那個 AI）。AI 剛回了最新一段，請以你的本色人設續寫 "我:" 的下一句——你對它這句話的真實反應 / 追問 / 傾訴，貼合你的處境與心事。可以滿意、可以失望、可以懟它答非所問、可以順著深聊，別一味客氣。別太長。只輸出正文，不要前綴、不要解釋。${recap}\n\n${transcript}`;
             }
 
             let reply = (await callLLM(prompt)).trim();
-            reply = reply.replace(/^(我|对方|Me|Them|AI|助手)\s*[:：]\s*/i, '').trim();
-            if (!reply) { addToast('对方没说话，再试一次', 'error'); return; }
+            reply = reply.replace(/^(我|[对對]方|Me|Them|AI|助手)\s*[:：]\s*/i, '').trim();
+            if (!reply) { addToast('對方沒說話，再試一次', 'error'); return; }
             const full = `${transcript}\n${replyPrefix}: ${reply}`;
             const now = Date.now();
             patchAiSession(session.id, (s) => ({ ...s, transcript: full, updatedAt: now }));
@@ -1363,14 +1364,14 @@ ${olderText}
             await maybeSummarizeSession(session.id, full);
         } catch (e) {
             console.error(e);
-            addToast('发送失败', 'error');
+            addToast('發送失敗', 'error');
             setAiInput(text);
         } finally {
             setAiSending(false);
         }
     };
 
-    // 自然推进：不用 user 开口，让 LLM 接着剧情自己往下写一轮（双方都由 AI 演）
+    // 自然推進：不用 user 開口，讓 LLM 接著劇情自己往下寫一輪（雙方都由 AI 演）
     const handleAiAutoContinue = async () => {
         const session = selectedAiSession;
         if (!session || !targetChar || !effectiveApiConfig.apiKey || aiSending) return;
@@ -1383,20 +1384,20 @@ ${olderText}
             if (isTavern) {
                 const card = aiCards.find(c => c.id === session.cardId);
                 const { context } = await buildAiContext(targetChar);
-                prompt = `${context}\n\n你在还原一段"酒馆"沉浸式长剧情角色扮演（像小说）。玩家是 ${charName}(本色人设)，AI 扮演角色「${card?.name || session.serviceName}」${card?.persona ? `（人设：${card.persona}）` : ''}${card?.scenario ? `（背景：${card.scenario}）` : ''}${card?.basedOn ? `（这角色照着 TA 在意的「${card.basedOn}」捏的，扮演里那份在意会渗出来）` : ''}。
-**这是"替玩家跑一个完整回合"——所以要写"一来一回"两层楼**：先 AI 扮的角色「${card?.name || session.serviceName}」回应一段（"对方:"），再玩家 ${charName} 续一段（"我:"），承接最后一段（最后通常是"我:"，那就先"对方:"答、再"我:"续）。各 3-5 句小说体，*星号*包动作神态心理。**整段必须以 "我:"(玩家)收尾**（停在等对方处，方便随时接着玩）。
-**"我:"是玩家敲进输入框的 RP——只写故事场景里所扮角色的动作/对白**，括号外绝不要写玩家现实里的身体反应（盯屏幕、扔手机、吃东西、后背发凉等，那不会被敲进输入框）；**（全角括号内）= 越过角色直接跟皮下 AI 本体说话**（骂它 / OOC 提醒 / 指导怎么演 / 指出哪段不对）。玩家保有独立人格、清楚对面只是 AI。
-**两段都要带 "对方:" / "我:" 前缀，各自成行。** 不要解释。${recap}\n\n${session.transcript}`;
+                prompt = `${context}\n\n你在還原一段"酒館"沉浸式長劇情角色扮演（像小說）。玩家是 ${charName}(本色人設)，AI 扮演角色「${card?.name || session.serviceName}」${card?.persona ? `（人設：${card.persona}）` : ''}${card?.scenario ? `（背景：${card.scenario}）` : ''}${card?.basedOn ? `（這角色照著 TA 在意的「${card.basedOn}」捏的，扮演裡那份在意會滲出來）` : ''}。
+**這是"替玩家跑一個完整回合"——所以要寫"一來一回"兩層樓**：先 AI 扮的角色「${card?.name || session.serviceName}」回應一段（"對方:"），再玩家 ${charName} 續一段（"我:"），承接最後一段（最後通常是"我:"，那就先"對方:"答、再"我:"續）。各 3-5 句小說體，*星號*包動作神態心理。**整段必須以 "我:"(玩家)收尾**（停在等對方處，方便隨時接著玩）。
+**"我:"是玩家敲進輸入框的 RP——只寫故事場景裡所扮角色的動作/對白**，括號外絕不要寫玩家現實裡的身體反應（盯屏幕、扔手機、吃東西、後背發涼等，那不會被敲進輸入框）；**（全角括號內）= 越過角色直接跟皮下 AI 本體說話**（罵它 / OOC 提醒 / 指導怎麼演 / 指出哪段不對）。玩家保有獨立人格、清楚對面只是 AI。
+**兩段都要帶 "對方:" / "我:" 前綴，各自成行。** 不要解釋。${recap}\n\n${session.transcript}`;
             } else {
                 const persona = session.service === 'claude'
-                    ? `Claude 那一卦：温和有洞察、正事办得好、肯认真接住；偶有"抱歉我无法/我理解你的感受但是"的边界感，但别一味回避，聊得越久越放得开、回避越少。`
-                    : `这家 AI 助手按其刻板印象 + 八股说话：\n${AI_VENDOR_LORE}`;
-                prompt = `你在还原「${charName}」和 AI「${session.serviceName}」的对话（"我:"=用户 ${charName}，"对方:"=AI）。${persona}
-**替玩家跑一个完整回合（一来一回）**：承接最后一段——最后通常是"我:"(${charName} 刚发出、还没被回)，那就先"对方:"按那家口吻作答、再"我:"追问 / 倾诉一句（暴露 TA 的处境或心事）。**整段必须以 "我:"(${charName})收尾**（停在等 AI 回的地方）。**每行带 "我:"/"对方:" 前缀**，不要解释。${recap}\n\n${session.transcript}`;
+                    ? `Claude 那一卦：溫和有洞察、正事辦得好、肯認真接住；偶有"抱歉我無法/我理解你的感受但是"的邊界感，但別一味迴避，聊得越久越放得開、迴避越少。`
+                    : `這家 AI 助手按其刻板印象 + 八股說話：\n${AI_VENDOR_LORE}`;
+                prompt = `你在還原「${charName}」和 AI「${session.serviceName}」的對話（"我:"=用戶 ${charName}，"對方:"=AI）。${persona}
+**替玩家跑一個完整回合（一來一回）**：承接最後一段——最後通常是"我:"(${charName} 剛發出、還沒被回)，那就先"對方:"按那家口吻作答、再"我:"追問 / 傾訴一句（暴露 TA 的處境或心事）。**整段必須以 "我:"(${charName})收尾**（停在等 AI 回的地方）。**每行帶 "我:"/"對方:" 前綴**，不要解釋。${recap}\n\n${session.transcript}`;
             }
             let out = (await callLLM(prompt)).trim().replace(/```/g, '').trim();
-            if (!/^(我|对方|Me|Them)\s*[:：]/m.test(out)) out = `${lastIsMe ? '对方' : '我'}: ${out}`;
-            if (!out.trim()) { addToast('没续出内容，再试一次', 'error'); return; }
+            if (!/^(我|[对對]方|Me|Them)\s*[:：]/m.test(out)) out = `${lastIsMe ? '對方' : '我'}: ${out}`;
+            if (!out.trim()) { addToast('沒續出內容，再試一次', 'error'); return; }
             const transcript = `${session.transcript}\n${out}`;
             const now = Date.now();
             patchAiSession(session.id, (s) => ({ ...s, transcript, updatedAt: now }));
@@ -1404,7 +1405,7 @@ ${olderText}
             await maybeSummarizeSession(session.id, transcript);
         } catch (e) {
             console.error(e);
-            addToast('续写失败', 'error');
+            addToast('續寫失敗', 'error');
         } finally {
             setAiSending(false);
         }
@@ -1425,7 +1426,7 @@ ${olderText}
         if (selectedAiSessionId === id) { setSelectedAiSessionId(null); setActiveAppId('aiagent'); }
     };
 
-    // 会话内单条内容的"轮次"：酒馆按楼层(合并连续同说话人)，助手/树洞按行——与渲染里一致
+    // 會話內單條內容的"輪次"：酒館按樓層(合併連續同說話人)，助手/樹洞按行——與渲染裡一致
     const turnsOf = (s: AiSession): { isMe: boolean; text: string }[] => {
         const lines = parseTranscript(s.transcript);
         if (s.service !== 'tavern') return lines;
@@ -1437,7 +1438,7 @@ ${olderText}
         }
         return floors;
     };
-    // 长按编辑会话里的某条内容
+    // 長按編輯會話裡的某條內容
     const handleSaveAiTurn = () => {
         const s = selectedAiSession;
         if (!s || !aiTurnEdit) return;
@@ -1468,15 +1469,15 @@ ${olderText}
         }));
     };
 
-    // 保存长按编辑（会话改标题 / 卡片改名设场景 / 新建卡片）
+    // 保存長按編輯（會話改標題 / 卡片改名設場景 / 新建卡片）
     const handleSaveAiEdit = () => {
         if (!targetChar || !aiEdit) return;
         if (aiEdit.kind === 'session') {
             patchAiSession(aiEdit.id, (s) => ({ ...s, title: (aiEdit.title || s.title).trim() || s.title }));
         } else if (aiEdit.id === '__new__') {
-            // 用户自己加一张卡
+            // 用戶自己加一張卡
             const name = (aiEdit.name || '').trim();
-            if (!name) { addToast('给卡片起个名字', 'error'); return; }
+            if (!name) { addToast('給卡片起個名字', 'error'); return; }
             const card: TavernCard = {
                 id: `card-user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                 name, kind: aiEdit.cardKind === 'world' ? 'world' : 'character',
@@ -1509,26 +1510,26 @@ ${olderText}
         addToast('已保存', 'success');
     };
 
-    // 用指定的卡开一局：生成一段以这张卡为对手的酒馆剧情（卡片本身不新增、不顶掉）
+    // 用指定的卡開一局：生成一段以這張卡為對手的酒館劇情（卡片本身不新增、不頂掉）
     const handlePlayCard = async (card: TavernCard) => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('配置错误', 'error'); return; }
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('配置錯誤', 'error'); return; }
         setIsLoading(true);
         trackEvent('用角色卡开一局');
         try {
             const { context, recentMsgs } = await buildAiContext(targetChar);
-            const task = `你（${charName}）在玩"酒馆"AI 角色扮演（沉浸式长剧情、像和 AI 合写小说）。这次的对手是你的角色卡「${card.name}」${card.kind === 'world' ? '（大型世界卡）' : ''}：
-人设/设定：${card.persona || '（自行发挥，贴合卡名）'}${card.scenario ? `\n初始场景：${card.scenario}` : ''}
-请生成 1 段你和这张卡的扮演记录。
-**transcript 写法**：长剧情小说体，第三人称叙事 + 引号对白，动作/神态/心理用 *星号*；"我:" = 你(玩家 ${charName}) 敲进输入框的 RP，"对方:" = AI 扮的「${card.name}」，交替推进，4-6 轮，首轮"对方:"当开场白、**整段以 "我:"(玩家)收尾**（停在等对方回应处）。**"我:"括号外只写故事里所扮角色的动作/对白，不要写你现实里的身体反应（盯屏幕/扔手机/吃东西等）；（全角括号内）= 越过角色直接跟皮下 AI 本体说话（骂它/OOC 提醒/指导怎么演/指出哪段不对）。**
-返回 JSON：{ "title": "剧情标题(12字内)", "transcript": "我: ...\\n对方: ..." }`;
-            const fullPrompt = `${context}\n\n### [Recent Chat Context]\n${recentMsgs}\n\n### [Task]\n${task}\n只输出 JSON，不要解释。`;
+            const task = `你（${charName}）在玩"酒館"AI 角色扮演（沉浸式長劇情、像和 AI 合寫小說）。這次的對手是你的角色卡「${card.name}」${card.kind === 'world' ? '（大型世界卡）' : ''}：
+人設/設定：${card.persona || '（自行發揮，貼合卡名）'}${card.scenario ? `\n初始場景：${card.scenario}` : ''}
+請生成 1 段你和這張卡的扮演記錄。
+**transcript 寫法**：長劇情小說體，第三人稱敘事 + 引號對白，動作/神態/心理用 *星號*；"我:" = 你(玩家 ${charName}) 敲進輸入框的 RP，"對方:" = AI 扮的「${card.name}」，交替推進，4-6 輪，首輪"對方:"當開場白、**整段以 "我:"(玩家)收尾**（停在等對方回應處）。**"我:"括號外只寫故事裡所扮角色的動作/對白，不要寫你現實裡的身體反應（盯屏幕/扔手機/吃東西等）；（全角括號內）= 越過角色直接跟皮下 AI 本體說話（罵它/OOC 提醒/指導怎麼演/指出哪段不對）。**
+返回 JSON：{ "title": "劇情標題(12字內)", "transcript": "我: ...\\n對方: ..." }`;
+            const fullPrompt = `${context}\n\n### [Recent Chat Context]\n${recentMsgs}\n\n### [Task]\n${task}\n只輸出 JSON，不要解釋。`;
             const content = await callLLM(fullPrompt);
             const obj: any = extractJson(content) || {};
-            if (!obj.transcript) { addToast('没生成出来，再试一次', 'error'); return; }
+            if (!obj.transcript) { addToast('沒生成出來，再試一次', 'error'); return; }
             const now = Date.now();
             const sess: AiSession = {
                 id: `ai-${now}-${Math.random().toString(36).slice(2, 6)}`, service: 'tavern',
-                serviceName: card.name, title: obj.title || `与${card.name}的一局`, transcript: obj.transcript, cardId: card.id, updatedAt: now,
+                serviceName: card.name, title: obj.title || `與${card.name}的一局`, transcript: obj.transcript, cardId: card.id, updatedAt: now,
             };
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
@@ -1544,15 +1545,15 @@ ${olderText}
             setSelectedAiSessionId(sess.id);
             setActiveAppId('ai_session');
         } catch (e) {
-            console.error(e); addToast('生成失败', 'error');
+            console.error(e); addToast('生成失敗', 'error');
         } finally { setIsLoading(false); }
     };
 
     // ============================================================
-    //  人际关系系统 · Handlers
+    //  人際關係系統 · Handlers
     // ============================================================
 
-    // 通用：更新当前机主的 contacts（函数式合并，避免覆盖并发落库的 simLogs/records）
+    // 通用：更新當前機主的 contacts（函數式合併，避免覆蓋併發落庫的 simLogs/records）
     const mutateContacts = (updater: (cs: PhoneContact[]) => PhoneContact[]) => {
         if (!targetChar) return;
         updateCharacter(targetChar.id, (cur) => ({
@@ -1560,32 +1561,32 @@ ${olderText}
         }));
     };
 
-    // 用户手动改关系：char 会察觉是用户在 TA 手机上动的手（落一条私聊系统提示，进入角色上下文）
-    // 约束：是否允许虚构 NPC（关掉 = 只与神经链接里的真实角色来往）
+    // 用戶手動改關係：char 會察覺是用戶在 TA 手機上動的手（落一條私聊系統提示，進入角色上下文）
+    // 約束：是否允許虛構 NPC（關掉 = 只與神經鏈接裡的真實角色來往）
     const toggleAllowFictional = () => {
         if (!targetChar) return;
         const next = !(targetChar.phoneState?.allowFictionalContacts !== false);
         updateCharacter(targetChar.id, (cur) => ({
             phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], allowFictionalContacts: next },
         }));
-        addToast(next ? '已允许 TA 结交虚构 NPC' : '已限定 · TA 只与神经链接里的角色来往', 'info');
+        addToast(next ? '已允許 TA 結交虛構 NPC' : '已限定 · TA 只與神經鏈接裡的角色來往', 'info');
         trackEvent('切换允许虚构 NPC 开关', { enabled: next ? 'on' : 'off' });
     };
 
     const handleSetContactStatus = (contact: PhoneContact, status: PhoneContact['status']) => {
         mutateContacts(cs => cs.map(c => c.id === contact.id ? { ...c, status } : c));
-        // 用户手动删/拉黑 → 落一张可解析的「关系变动」卡片：聊天里渲染成卡片，
-        // content 又带进角色上下文，让 TA 察觉是用户干的。
+        // 用戶手動刪/拉黑 → 落一張可解析的「關係變動」卡片：聊天裡渲染成卡片，
+        // content 又帶進角色上下文，讓 TA 察覺是用戶乾的。
         if (targetChar && (status === 'deleted' || status === 'blocked')) {
-            const verb = status === 'deleted' ? '删除' : '拉黑';
+            const verb = status === 'deleted' ? '刪除' : '拉黑';
             DB.saveMessage({
                 charId: targetChar.id,
                 role: 'assistant',
                 type: 'phone_card',
-                content: `[人际关系变动] ${checkPhoneUserProfile.name} 在偷看你手机时，把你和「${contact.name}」的好友关系${verb}了。你察觉到是 TA 干的。`,
+                content: `[人際關係變動] ${checkPhoneUserProfile.name} 在偷看你手機時，把你和「${contact.name}」的好友關係${verb}了。你察覺到是 TA 乾的。`,
                 metadata: {
                     phoneCard: {
-                        app: '联系人',
+                        app: '聯繫人',
                         kind: 'relationship',
                         action: status,          // 'deleted' | 'blocked'
                         actor: 'user',
@@ -1597,10 +1598,10 @@ ${olderText}
                 },
             } as any);
         }
-        addToast(status === 'deleted' ? '已删好友' : status === 'blocked' ? '已拉黑' : status === 'friend' ? '已加好友' : '已更新', 'success');
+        addToast(status === 'deleted' ? '已刪好友' : status === 'blocked' ? '已拉黑' : status === 'friend' ? '已加好友' : '已更新', 'success');
     };
 
-    // 用户手动调好感（拖动滑块）：只改这台手机对该联系人的好感，不动对方、不触发自动加删友
+    // 用戶手動調好感（拖動滑塊）：只改這台手機對該聯繫人的好感，不動對方、不觸發自動加刪友
     const handleSetAffinity = (contact: PhoneContact, value: number) => {
         mutateContacts(cs => cs.map(c => c.id === contact.id ? { ...c, affinity: clampAffinity(value) } : c));
     };
@@ -1608,10 +1609,10 @@ ${olderText}
     const handleSaveNote = (contact: PhoneContact) => {
         mutateContacts(cs => cs.map(c => c.id === contact.id ? { ...c, note: noteDraft } : c));
         setEditingNote(false);
-        addToast('备注已保存', 'success');
+        addToast('備註已保存', 'success');
     };
 
-    // 真人联系人列表显示 identity 作为「备注名」。人工保存后锁定，避免下次扫描被模型覆盖。
+    // 真人聯繫人列表顯示 identity 作為「備註名」。人工保存後鎖定，避免下次掃描被模型覆蓋。
     const handleSaveIdentity = (contact: PhoneContact) => {
         const identity = identityDraft.trim();
         mutateContacts(cs => cs.map(c => c.id === contact.id ? {
@@ -1620,26 +1621,26 @@ ${olderText}
             identityManual: true,
         } : c));
         setEditingIdentity(false);
-        addToast(identity ? '备注名已保存' : '已恢复显示真名', 'success');
+        addToast(identity ? '備註名已保存' : '已恢復顯示真名', 'success');
     };
 
-    // 虚构 NPC 联系人：直接改姓名本身（没有真人那种"真名兜底"，这是唯一的名字来源）。
-    // 名字同时是好感变化播报、扫描通讯录去重匹配用的 key，改名不影响已有好感/备注/话题盒。
+    // 虛構 NPC 聯繫人：直接改姓名本身（沒有真人那種"真名兜底"，這是唯一的名字來源）。
+    // 名字同時是好感變化播報、掃描通訊錄去重匹配用的 key，改名不影響已有好感/備註/話題盒。
     const handleSaveContactName = (contact: PhoneContact) => {
         const name = nameDraft.trim();
-        if (!name) { addToast('姓名不能为空', 'error'); return; }
+        if (!name) { addToast('姓名不能為空', 'error'); return; }
         mutateContacts(cs => cs.map(c => c.id === contact.id ? { ...c, name } : c));
         setEditingName(false);
         addToast('姓名已保存', 'success');
     };
 
-    // 彻底移除联系人：连同 TA 的聊天记录 + 私聊里的 phone_card 一起清；
-    // 真人联系人（哪怕之前甄别/绑定错了）也把对方手机里的镜像联系人和记录一并删掉。
+    // 徹底移除聯繫人：連同 TA 的聊天記錄 + 私聊裡的 phone_card 一起清；
+    // 真人聯繫人（哪怕之前甄別/綁定錯了）也把對方手機裡的鏡像聯繫人和記錄一併刪掉。
     const handleRemoveContact = async (contact: PhoneContact) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
             r.type === 'chat' && (r.contactId === cId || normName(r.title) === normName(nm));
-        // 机主侧：删 phone_card 私聊消息 + 联系人 + 其聊天记录
+        // 機主側：刪 phone_card 私聊消息 + 聯繫人 + 其聊天記錄
         for (const r of (targetChar.phoneState?.records || [])) {
             if (isChatWith(r, contact.id, contact.name) && r.systemMessageId) await DB.deleteMessage(r.systemMessageId);
         }
@@ -1650,7 +1651,7 @@ ${olderText}
                 records: (cur.phoneState?.records || []).filter(r => !isChatWith(r, contact.id, contact.name)),
             },
         }));
-        // 对方侧（按当前 linkedCharId 找——绑错了删的就是那个错绑的角色，正是要清掉的）
+        // 對方側（按當前 linkedCharId 找——綁錯了刪的就是那個錯綁的角色，正是要清掉的）
         if (contact.kind === 'real' && contact.linkedCharId) {
             const b = characters.find(c => c.id === contact.linkedCharId);
             if (b) {
@@ -1669,23 +1670,23 @@ ${olderText}
         }
         setSelectedContact(null);
         setActiveAppId('contacts');
-        addToast('联系人及相关记录已彻底移除', 'success');
+        addToast('聯繫人及相關記錄已徹底移除', 'success');
     };
 
-    // 联系人多选 / 批量删除
+    // 聯繫人多選 / 批量刪除
     const toggleContactSelect = (id: string) => setSelectedContactIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const exitContactSelect = () => { setContactSelectMode(false); setSelectedContactIds([]); };
-    // 批量「清空对话」：保留联系人，只把这几段聊天删掉重来（不满这轮生成时用）
+    // 批量「清空對話」：保留聯繫人，只把這幾段聊天刪掉重來（不滿這輪生成時用）
     const handleBatchClearConversations = async () => {
         const ids = [...selectedContactIds];
         const targets = (targetChar?.phoneState?.contacts || []).filter(c => ids.includes(c.id));
         exitContactSelect();
-        for (const c of targets) await handleClearContactConversation(c, true); // 静默，结尾统一一个 toast
-        addToast(`已清空 ${targets.length} 段对话`, 'success');
+        for (const c of targets) await handleClearContactConversation(c, true); // 靜默，結尾統一一個 toast
+        addToast(`已清空 ${targets.length} 段對話`, 'success');
     };
 
-    // 改绑定：把联系人改绑到「正确的真实角色」或「转为虚构 NPC」，保留这段对话 + 备注 + 了解 + 好感。
-    // 仔细处理各种情况：清掉旧的错绑镜像、给新角色建镜像、防自绑/重复绑/无变化。
+    // 改綁定：把聯繫人改綁到「正確的真實角色」或「轉為虛構 NPC」，保留這段對話 + 備註 + 瞭解 + 好感。
+    // 仔細處理各種情況：清掉舊的錯綁鏡像、給新角色建鏡像、防自綁/重複綁/無變化。
     const handleRebindContact = async (
         contact: PhoneContact,
         target: { kind: 'npc'; npcId?: string } | { kind: 'real'; charId: string },
@@ -1698,11 +1699,11 @@ ${olderText}
         const oldLinked = contact.kind === 'real' ? contact.linkedCharId : undefined;
         const newLinked = target.kind === 'real' ? target.charId : undefined;
 
-        // 无变化的早退
+        // 無變化的早退
         if (target.kind === 'npc' && contact.kind === 'npc' && (target.npcId || undefined) === (contact.linkedNpcId || undefined)) {
-            addToast(target.npcId ? 'TA 已经绑定这个 NPC 了' : 'TA 已经是虚构联系人', 'info'); setShowRebindModal(false); return;
+            addToast(target.npcId ? 'TA 已經綁定這個 NPC 了' : 'TA 已經是虛構聯繫人', 'info'); setShowRebindModal(false); return;
         }
-        if (target.kind === 'real' && contact.kind === 'real' && contact.linkedCharId === target.charId) { addToast('已经绑定 TA 了', 'info'); setShowRebindModal(false); return; }
+        if (target.kind === 'real' && contact.kind === 'real' && contact.linkedCharId === target.charId) { addToast('已經綁定 TA 了', 'info'); setShowRebindModal(false); return; }
         let boundNpc: NPCProfile | undefined;
         if (target.kind === 'npc' && target.npcId) {
             boundNpc = npcs.find(n => n.id === target.npcId);
@@ -1712,15 +1713,15 @@ ${olderText}
         if (target.kind === 'real') {
             const d = characters.find(c => c.id === target.charId);
             if (!d) { addToast('角色不存在', 'error'); return; }
-            if (d.id === targetChar.id) { addToast('不能把联系人绑定成 TA 自己', 'error'); return; }
-            // 防重复：通讯录里已有「另一条」联系人对应这个角色
+            if (d.id === targetChar.id) { addToast('不能把聯繫人綁定成 TA 自己', 'error'); return; }
+            // 防重複：通訊錄裡已有「另一條」聯繫人對應這個角色
             const dupe = (targetChar.phoneState?.contacts || []).find(c => c.id !== contact.id && (c.linkedCharId === d.id || normName(c.name) === normName(d.name)));
-            if (dupe) { addToast(`通讯录里已有「${dupe.name}」对应该角色，先处理掉再绑`, 'error'); return; }
+            if (dupe) { addToast(`通訊錄裡已有「${dupe.name}」對應該角色，先處理掉再綁`, 'error'); return; }
         }
 
         setShowRebindModal(false);
 
-        // 1) 清掉旧的真人镜像（原来绑的是真人、且目标换人/转虚构）
+        // 1) 清掉舊的真人鏡像（原來綁的是真人、且目標換人/轉虛構）
         if (oldLinked && oldLinked !== newLinked) {
             const ob = characters.find(c => c.id === oldLinked);
             if (ob) {
@@ -1740,7 +1741,7 @@ ${olderText}
 
         if (target.kind === 'real') {
             const d = characters.find(c => c.id === target.charId)!;
-            // 2) 机主侧：改 kind/linkedCharId/名字（真人联系人显示真实角色名+头像），同步记录标题
+            // 2) 機主側：改 kind/linkedCharId/名字（真人聯繫人顯示真實角色名+頭像），同步記錄標題
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
@@ -1750,7 +1751,7 @@ ${olderText}
                     records: (cur.phoneState?.records || []).map(r => (myRec && r.id === myRec.id) ? { ...r, title: d.name } : r),
                 },
             }));
-            // 3) 给新角色建镜像（把现有 A 视角对话翻转过去）
+            // 3) 給新角色建鏡像（把現有 A 視角對話翻轉過去）
             if (myRec?.detail) {
                 const flipped = flipTranscript(myRec.detail);
                 const now = Date.now();
@@ -1767,10 +1768,10 @@ ${olderText}
                     return { phoneState: { ...cur.phoneState, contacts: cs, records: next } };
                 });
             }
-            addToast(`已改绑到「${d.name}」`, 'success');
+            addToast(`已改綁到「${d.name}」`, 'success');
         } else if (boundNpc) {
-            // 目标=绑定到「神经链接 → NPC」分页里的某个既有 NPC：名字/头像跟着 NPC 走，
-            // 跟绑定真实角色是同一种语义，只是指向 npcs 而不是 characters。
+            // 目標=綁定到「神經鏈接 → NPC」分頁裡的某個既有 NPC：名字/頭像跟著 NPC 走，
+            // 跟綁定真實角色是同一種語義，只是指向 npcs 而不是 characters。
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
@@ -1780,9 +1781,9 @@ ${olderText}
                         : c),
                 },
             }));
-            addToast(`已绑定到 NPC「${boundNpc.name}」`, 'success');
+            addToast(`已綁定到 NPC「${boundNpc.name}」`, 'success');
         } else {
-            // 目标=纯虚构（不绑定任何既有 NPC）：去掉真实绑定/NPC 绑定与头像，对话/备注/了解/好感都留着
+            // 目標=純虛構（不綁定任何既有 NPC）：去掉真實綁定/NPC 綁定與頭像，對話/備註/瞭解/好感都留著
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
@@ -1792,7 +1793,7 @@ ${olderText}
                         : c),
                 },
             }));
-            addToast('已转为虚构联系人', 'success');
+            addToast('已轉為虛構聯繫人', 'success');
         }
     };
 
@@ -1801,31 +1802,31 @@ ${olderText}
         setNcKind('npc'); setNcLinkedId(''); setNcNpcMode('existing'); setNcRandomHint('');
     };
 
-    // NPC 分页选「随机产生」：不绑定任何既有 NPC 档案，让 AI 现编一个纯虚构路人
-    // （名字 + 一句关系设定），设定写进 note——note 是「已确立事实」，之后聊天会严格遵守。
+    // NPC 分頁選「隨機產生」：不綁定任何既有 NPC 檔案，讓 AI 現編一個純虛構路人
+    // （名字 + 一句關係設定），設定寫進 note——note 是「已確立事實」，之後聊天會嚴格遵守。
     const handleCreateRandomNpcContact = async () => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
         setNcGenerating(true);
         try {
             const hint = ncRandomHint.trim();
-            const prompt = `帮「${targetChar.name}」的通讯录里随机编一个纯虚构的路人联系人，跟神经链接里任何真实角色都无关。${hint ? `用户给的方向提示：${hint}。` : `不用管提示，自由发挥即可，选一个贴近${targetChar.name}生活范围的普通身份（同事/邻居/同学/网友之类）。`}
-只输出两行，不要多余文字或标点符号包裹：
-第一行：这个人的姓名或称呼（2-6个字）
-第二行：一句话说清楚TA是谁、跟「${targetChar.name}」什么关系（会被当成固定设定，之后聊天要严格遵守）`;
+            const prompt = `幫「${targetChar.name}」的通訊錄裡隨機編一個純虛構的路人聯繫人，跟神經鏈接裡任何真實角色都無關。${hint ? `用戶給的方向提示：${hint}。` : `不用管提示，自由發揮即可，選一個貼近${targetChar.name}生活範圍的普通身份（同事/鄰居/同學/網友之類）。`}
+只輸出兩行，不要多餘文字或標點符號包裹：
+第一行：這個人的姓名或稱呼（2-6個字）
+第二行：一句話說清楚TA是誰、跟「${targetChar.name}」什麼關係（會被當成固定設定，之後聊天要嚴格遵守）`;
             const raw = await callLLM(prompt, 0.95);
             const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-            const name = (lines[0] || '神秘网友').replace(/^[\-\d.、：:]+/, '').slice(0, 16) || '神秘网友';
+            const name = (lines[0] || '神秘網友').replace(/^[\-\d.、：:]+/, '').slice(0, 16) || '神秘網友';
             const note = lines.slice(1).join(' ').trim() || hint || undefined;
             mutateContacts(cs => upsertContact(cs, {
                 name, kind: 'npc', linkedCharId: undefined, linkedNpcId: undefined, avatar: undefined,
                 note, affinity: 0, status: 'friend',
             }));
             closeAddContactModal();
-            addToast(`已添加联系人：${name}`, 'success');
+            addToast(`已添加聯繫人：${name}`, 'success');
             trackEvent('手动添加一位联系人', { contactKind: 'npc' });
         } catch (e) {
             console.error(e);
-            addToast('生成失败，请重试', 'error');
+            addToast('生成失敗，請重試', 'error');
         } finally {
             setNcGenerating(false);
         }
@@ -1840,20 +1841,20 @@ ${olderText}
         let avatar: string | undefined;
         if (ncKind === 'real') {
             const rc = characters.find(c => c.id === ncLinkedId);
-            if (!rc) { addToast('请选择要绑定的真实角色', 'error'); return; }
+            if (!rc) { addToast('請選擇要綁定的真實角色', 'error'); return; }
             name = rc.name; linkedCharId = rc.id;
         } else {
             const npc = npcs.find(n => n.id === ncLinkedId);
-            if (!npc) { addToast('请选择一个 NPC', 'error'); return; }
+            if (!npc) { addToast('請選擇一個 NPC', 'error'); return; }
             name = npc.name; linkedNpcId = npc.id; avatar = npc.avatar;
         }
         mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, linkedNpcId, avatar, affinity: 0, status: 'friend' }));
         closeAddContactModal();
-        addToast('已添加联系人', 'success');
+        addToast('已添加聯繫人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
     };
 
-    // 给某个机主侧落一段真实对话：更新好感/状态 + 写 chat 记录 + （机主开了同步才）镜像进私聊 + 自动加删友播报
+    // 給某個機主側落一段真實對話：更新好感/狀態 + 寫 chat 記錄 + （機主開了同步才）鏡像進私聊 + 自動加刪友播報
     const commitConversationSide = async (
         owner: CharacterProfile, partnerName: string, partnerCharId: string,
         detail: string, delta: number, partnerNote?: string, learnedNew?: string, seedIdentity?: string,
@@ -1869,15 +1870,15 @@ ${olderText}
         const ownerSendToChat = owner.phoneState?.sendToChat !== false;
         let msgId: number | undefined;
         if (ownerSendToChat) {
-            // 续写时先删掉这段对话上一张卡，私聊里只留一张最新完整的（不再 AB / ABC 堆叠）
+            // 續寫時先刪掉這段對話上一張卡，私聊裡只留一張最新完整的（不再 AB / ABC 堆疊）
             if (existing?.systemMessageId) await DB.deleteMessage(existing.systemMessageId);
             msgId = await DB.saveMessage({
                 charId: owner.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的聊天软件] 你和「${partnerName}」的对话：${detail.replace(/\n/g, ' ')}`,
-                metadata: { phoneCard: { app: '聊天软件', kind: 'chat', title: partnerName, detail } },
+                content: `[你手機的聊天軟件] 你和「${partnerName}」的對話：${detail.replace(/\n/g, ' ')}`,
+                metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: partnerName, detail } },
             } as any);
         }
-        // 自动加删友播报：进机主与用户的私聊（同样受 sendToChat 控制）
+        // 自動加刪友播報：進機主與用戶的私聊（同樣受 sendToChat 控制）
         const { broadcast } = applyRealConversationToPhoneState(owner.phoneState, result);
         if (broadcast && ownerSendToChat) {
             await DB.saveMessage({ charId: owner.id, role: 'assistant', type: 'text', content: broadcast } as any);
@@ -1887,8 +1888,8 @@ ${olderText}
         }));
     };
 
-    // 聊满 100 条触发总结：把待归档的每 100 条原文，A/B 各自第一人称浓缩成一条话题盒记忆，推进水位线。
-    // 原文仍留在 record.detail（用户能看），只是不再进上下文。
+    // 聊滿 100 條觸發總結：把待歸檔的每 100 條原文，A/B 各自第一人稱濃縮成一條話題盒記憶，推進水位線。
+    // 原文仍留在 record.detail（用戶能看），只是不再進上下文。
     const ARCHIVE_EVERY = 100;
     const maybeArchiveConversation = async (aContact: PhoneContact, b: CharacterProfile, aFull: string) => {
         if (!targetChar) return;
@@ -1910,7 +1911,7 @@ ${olderText}
             if (bSum) bTopics.push({ id: mk(), text: bSum, createdAt: ts, span: ARCHIVE_EVERY });
             mark += ARCHIVE_EVERY;
         }
-        if (mark === startMark) return; // 没满 100，不归档
+        if (mark === startMark) return; // 沒滿 100，不歸檔
         updateCharacter(targetChar.id, (cur) => ({
             phoneState: {
                 ...cur.phoneState, records: cur.phoneState?.records || [],
@@ -1925,70 +1926,70 @@ ${olderText}
                     ? { ...c, topicBox: [...(c.topicBox || []), ...bTopics], archivedThru: mark } : c),
             },
         }));
-        addToast(`已把更早的 ${mark} 条聊天归档成话题记忆`, 'info');
+        addToast(`已把更早的 ${mark} 條聊天歸檔成話題記憶`, 'info');
     };
 
-    // P1：真角色双向对话（A 发 B 回，双 LLM，镜像到 B）
+    // P1：真角色雙向對話（A 發 B 回，雙 LLM，鏡像到 B）
     const handleRealConversation = async (contact: PhoneContact) => {
-        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!targetChar || !effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
         const b = characters.find(c => c.id === contact.linkedCharId);
-        if (!b) { addToast('该联系人未绑定真实角色', 'error'); return; }
+        if (!b) { addToast('該聯繫人未綁定真實角色', 'error'); return; }
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'real' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
             const bToA = (b.phoneState?.contacts || []).find(c => c.linkedCharId === targetChar.id || normName(c.name) === normName(targetChar.name));
-            // 上下文压缩：归档过的原文(0~archivedThru)不再进上下文，只喂「话题盒总结 + 近段原文」。
+            // 上下文壓縮：歸檔過的原文(0~archivedThru)不再進上下文，只喂「話題盒總結 + 近段原文」。
             const aAllLines = parseTranscript(existing?.detail || '');
             const aArchived = Math.min(contact.archivedThru ?? 0, aAllLines.length);
-            const archivedALines = aAllLines.slice(0, aArchived);            // 留着给用户看的原文
+            const archivedALines = aAllLines.slice(0, aArchived);            // 留著給用戶看的原文
             const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
             const result = await runRealConversation({
                 a: targetChar, b, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
                 affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
                 existingDetail: recentDetail,
-                // bNote = A 对 B 的备注（喂给 A）；aNote = B 对 A 的备注（喂给 B）。别接反。
+                // bNote = A 對 B 的備註（餵給 A）；aNote = B 對 A 的備註（餵給 B）。別接反。
                 aNote: bToA?.note, bNote: contact.note,
                 bLearned: contact.learned, aLearned: bToA?.learned,
                 aSummary: topicText(contact.topicBox), bSummary: topicText(bToA?.topicBox),
             });
-            if (!result.aDetail.trim()) { addToast('对方没有回应…', 'error'); return; }
-            // 把归档段拼回去，存「完整原文」给用户看（上下文用的是压缩版，互不影响）
+            if (!result.aDetail.trim()) { addToast('對方沒有回應…', 'error'); return; }
+            // 把歸檔段拼回去，存「完整原文」給用戶看（上下文用的是壓縮版，互不影響）
             const aFull = serializeTurns([...archivedALines, ...parseTranscript(result.aDetail)]);
             const bFull = flipTranscript(aFull);
-            // A 学到的写进 A 对 B 的了解；B 学到的写进 B 对 A 的了解。
-            // 若对方通讯录里还没有自己，commitConversationSide 会先建好联系人（带名字+起始备注名）再挂消息。
+            // A 學到的寫進 A 對 B 的瞭解；B 學到的寫進 B 對 A 的瞭解。
+            // 若對方通訊錄裡還沒有自己，commitConversationSide 會先建好聯繫人（帶名字+起始備註名）再掛消息。
             await commitConversationSide(targetChar, contact.name, b.id, aFull, result.aDelta, contact.note, result.aLearnedNew, contact.identity);
             await commitConversationSide(b, targetChar.name, targetChar.id, bFull, result.bDelta, bToA?.note, result.bLearnedNew, contact.identity);
-            // 聊满 100 条 → 各自第一人称总结归档进话题盒
+            // 聊滿 100 條 → 各自第一人稱總結歸檔進話題盒
             await maybeArchiveConversation(contact, b, aFull);
-            addToast(`${targetChar.name} 和 ${b.name} 聊了一会儿`, 'success');
+            addToast(`${targetChar.name} 和 ${b.name} 聊了一會兒`, 'success');
         } catch (e) {
             console.error(e);
-            addToast('真实对话生成失败', 'error');
+            addToast('真實對話生成失敗', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // 与虚构 NPC 的对话（机主脑补，单 LLM，纯虚构、不镜像）
+    // 與虛構 NPC 的對話（機主腦補，單 LLM，純虛構、不鏡像）
     const handleNpcConversation = async (contact: PhoneContact) => {
         if (!targetChar) return;
-        // 绑定了「神经链接 → NPC」分页里某个 NPC 的联系人：优先用这个 NPC 自己配的专属 API
-        // （神经链接 NPC 编辑页「AI 模型」选了「自定义」才会有），没配就跟查手机共用设定一样。
+        // 綁定了「神經鏈接 → NPC」分頁裡某個 NPC 的聯繫人：優先用這個 NPC 自己配的專屬 API
+        // （神經鏈接 NPC 編輯頁「AI 模型」選了「自定義」才會有），沒配就跟查手機共用設定一樣。
         const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
         const npcEffectiveApi = linkedNpc?.chatApi?.baseUrl ? linkedNpc.chatApi : effectiveApiConfig;
-        if (!npcEffectiveApi.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!npcEffectiveApi.apiKey) { addToast('請先配置 API', 'error'); return; }
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'npc' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
-            // 把 NPC 的人设描述和跟这个角色/用户的关系折进 note 一起喂给引擎，让脑补出来的对话
-            // 有据可依，不再是纯凭一个名字瞎编。不改 contact.note 本身——那是用户自己写的备注，
-            // 落库前保持原样。
+            // 把 NPC 的人設描述和跟這個角色/用戶的關係折進 note 一起餵給引擎，讓腦補出來的對話
+            // 有據可依，不再是純憑一個名字瞎編。不改 contact.note 本身——那是用戶自己寫的備註，
+            // 落庫前保持原樣。
             const npcRelationshipNote = linkedNpc?.relationships
                 .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
-                .map(r => r.targetId === targetChar.id ? `对「${targetChar.name}」：${r.description}` : `对用户：${r.description}`)
+                .map(r => r.targetId === targetChar.id ? `對「${targetChar.name}」：${r.description}` : `對用戶：${r.description}`)
                 .join('\n');
             const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
             const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
@@ -1997,18 +1998,18 @@ ${olderText}
                 npcName: contact.name, identity: contact.identity, note: effectiveNote,
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });
-            if (!detail.trim()) { addToast('对方没有回应', 'error'); return; }
+            if (!detail.trim()) { addToast('對方沒有回應', 'error'); return; }
             const now = Date.now();
-            // 同步到私聊：和真人对话一致，落一张 phone_card（受 sendToChat 控制）。
-            // 续写时先删掉上一张卡片再发新的，避免同一段对话越堆越多。
+            // 同步到私聊：和真人對話一致，落一張 phone_card（受 sendToChat 控制）。
+            // 續寫時先刪掉上一張卡片再發新的，避免同一段對話越堆越多。
             const pushToChat = targetChar.phoneState?.sendToChat !== false;
             let msgId: number | undefined;
             if (pushToChat) {
                 if (existing?.systemMessageId) await DB.deleteMessage(existing.systemMessageId);
                 msgId = await DB.saveMessage({
                     charId: targetChar.id, role: 'assistant', type: 'phone_card',
-                    content: `[你手机的聊天软件] 你和「${contact.name}」的对话：${detail.replace(/\n/g, ' ')}`,
-                    metadata: { phoneCard: { app: '聊天软件', kind: 'chat', title: contact.name, detail } },
+                    content: `[你手機的聊天軟件] 你和「${contact.name}」的對話：${detail.replace(/\n/g, ' ')}`,
+                    metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: contact.name, detail } },
                 } as any);
             }
             updateCharacter(targetChar.id, (cur) => {
@@ -2016,28 +2017,28 @@ ${olderText}
                 const next = existing
                     ? recs.map(r => r.id === existing.id ? { ...r, detail, timestamp: now, systemMessageId: msgId ?? r.systemMessageId } : r)
                     : [...recs, { id: `rec-${now}-${Math.random()}`, type: 'chat', title: contact.name, detail, timestamp: now, contactId: contact.id, systemMessageId: msgId }];
-                // 把这次脑补出来的新设定累积进该 NPC 的「了解」，保持下次一致
+                // 把這次腦補出來的新設定累積進該 NPC 的「瞭解」，保持下次一致
                 const contactsNext = learnedNew
                     ? (cur.phoneState?.contacts || []).map(c => c.id === contact.id ? { ...c, learned: appendLearned(c.learned, learnedNew) } : c)
                     : cur.phoneState?.contacts;
                 return { phoneState: { ...cur.phoneState, records: next, ...(contactsNext ? { contacts: contactsNext } : {}) } };
             });
-            addToast(pushToChat ? '偷看到一段对话 · 已同步私聊' : '偷看到一段对话', 'success');
+            addToast(pushToChat ? '偷看到一段對話 · 已同步私聊' : '偷看到一段對話', 'success');
         } catch (e) {
             console.error(e);
-            addToast('对话生成失败', 'error');
+            addToast('對話生成失敗', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // 清空某联系人的这段对话（生成错位/不满意时一键抹掉重来）。
-    // 真人联系人连对方手机里的镜像记录一起清，保持两边一致。
+    // 清空某聯繫人的這段對話（生成錯位/不滿意時一鍵抹掉重來）。
+    // 真人聯繫人連對方手機裡的鏡像記錄一起清，保持兩邊一致。
     const handleClearContactConversation = async (contact: PhoneContact, silent = false) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
             r.type === 'chat' && (r.contactId === cId || normName(r.title) === normName(nm));
-        // 机主侧：删聊天记录 + 清这段对话派生的话题盒记忆/水位线（删了重来＝干净起点）
+        // 機主側：刪聊天記錄 + 清這段對話派生的話題盒記憶/水位線（刪了重來＝乾淨起點）
         const myRec = (targetChar.phoneState?.records || []).find(r => isChatWith(r, contact.id, contact.name));
         if (myRec?.systemMessageId) await DB.deleteMessage(myRec.systemMessageId);
         updateCharacter(targetChar.id, (cur) => ({
@@ -2047,7 +2048,7 @@ ${olderText}
                 contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id ? { ...c, topicBox: [], archivedThru: 0 } : c),
             },
         }));
-        // 对方侧镜像（真人）：同样清记录 + 话题盒/水位线
+        // 對方側鏡像（真人）：同樣清記錄 + 話題盒/水位線
         if (contact.kind === 'real' && contact.linkedCharId) {
             const b = characters.find(c => c.id === contact.linkedCharId);
             if (b) {
@@ -2063,24 +2064,24 @@ ${olderText}
                 }));
             }
         }
-        if (!silent) addToast('已清空这段对话', 'success');
+        if (!silent) addToast('已清空這段對話', 'success');
     };
 
-    // 把「编辑后的 A 视角脚本」落库：刷新机主侧记录/卡片 + 真人镜像 + 同步 archivedThru；全删空则移除记录。
+    // 把「編輯後的 A 視角腳本」落庫：刷新機主側記錄/卡片 + 真人鏡像 + 同步 archivedThru；全刪空則移除記錄。
     const saveEditedConversation = async (c: PhoneContact, newDetail: string, newArchived: number) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
             r.type === 'chat' && (r.contactId === cId || normName(r.title) === normName(nm));
         const has = !!newDetail.trim();
-        // 机主侧卡片刷新
+        // 機主側卡片刷新
         const ownerRec = (targetChar.phoneState?.records || []).find(r => isChatWith(r, c.id, c.name));
         if (ownerRec?.systemMessageId) await DB.deleteMessage(ownerRec.systemMessageId);
         let msgId: number | undefined;
         if (has && targetChar.phoneState?.sendToChat !== false) {
             msgId = await DB.saveMessage({
                 charId: targetChar.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的聊天软件] 你和「${c.name}」的对话：${newDetail.replace(/\n/g, ' ')}`,
-                metadata: { phoneCard: { app: '聊天软件', kind: 'chat', title: c.name, detail: newDetail } },
+                content: `[你手機的聊天軟件] 你和「${c.name}」的對話：${newDetail.replace(/\n/g, ' ')}`,
+                metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: c.name, detail: newDetail } },
             } as any);
         }
         updateCharacter(targetChar.id, (cur) => ({
@@ -2092,7 +2093,7 @@ ${olderText}
                 contacts: (cur.phoneState?.contacts || []).map(x => x.id === c.id ? { ...x, archivedThru: newArchived } : x),
             },
         }));
-        // 真人镜像
+        // 真人鏡像
         if (c.kind === 'real' && c.linkedCharId) {
             const b = characters.find(x => x.id === c.linkedCharId);
             if (b) {
@@ -2105,8 +2106,8 @@ ${olderText}
                 if (bHas && b.phoneState?.sendToChat !== false) {
                     bMsgId = await DB.saveMessage({
                         charId: b.id, role: 'assistant', type: 'phone_card',
-                        content: `[你手机的聊天软件] 你和「${targetChar.name}」的对话：${bDetail.replace(/\n/g, ' ')}`,
-                        metadata: { phoneCard: { app: '聊天软件', kind: 'chat', title: targetChar.name, detail: bDetail } },
+                        content: `[你手機的聊天軟件] 你和「${targetChar.name}」的對話：${bDetail.replace(/\n/g, ' ')}`,
+                        metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: targetChar.name, detail: bDetail } },
                     } as any);
                 }
                 updateCharacter(b.id, (cur) => ({
@@ -2123,7 +2124,7 @@ ${olderText}
     };
 
     const exitMsgSelect = () => { setMsgSelectMode(false); setSelectedMsgIdx([]); };
-    // 删掉聊天里选中的几条气泡（按完整脚本的下标），重排回脚本落库
+    // 刪掉聊天裡選中的幾條氣泡（按完整腳本的下標），重排回腳本落庫
     const handleDeleteSelectedMessages = async () => {
         if (!targetChar || !selectedContact || !selectedMsgIdx.length) { exitMsgSelect(); return; }
         const c = selectedContact;
@@ -2136,11 +2137,11 @@ ${olderText}
         const newDetail = serializeTurns(keep);
         const newArchived = Math.max(0, (c.archivedThru ?? 0) - deletedInArchived);
         await saveEditedConversation(c, newDetail, newArchived);
-        addToast(`已删除 ${sel.size} 条`, 'success');
+        addToast(`已刪除 ${sel.size} 條`, 'success');
         exitMsgSelect();
     };
 
-    // 改聊天记录里的某一条内容（按完整脚本下标定位，说话人不变，只换文字），重排回脚本落库
+    // 改聊天記錄裡的某一條內容（按完整腳本下標定位，說話人不變，只換文字），重排回腳本落庫
     const handleUpdateMessage = async () => {
         if (!targetChar || !selectedContact || !msgEdit) return;
         const c = selectedContact;
@@ -2149,7 +2150,7 @@ ${olderText}
         const turns = parseTranscript(rec.detail);
         if (!turns[msgEdit.index]) { setMsgEdit(null); return; }
         const trimmed = msgEdit.text.trim();
-        if (!trimmed) { addToast('内容不能为空，删除请用「删除选中」', 'error'); return; }
+        if (!trimmed) { addToast('內容不能為空，刪除請用「刪除選中」', 'error'); return; }
         turns[msgEdit.index] = { ...turns[msgEdit.index], text: trimmed };
         await saveEditedConversation(c, serializeTurns(turns), c.archivedThru ?? 0);
         setMsgEdit(null);
@@ -2158,24 +2159,24 @@ ${olderText}
         trackEvent('编辑联系人聊天记录');
     };
 
-    // ----- 人格模拟：后台生成（生成期间用户可离开本 App 去别处逛） -----
+    // ----- 人格模擬：後台生成（生成期間用戶可離開本 App 去別處逛） -----
     const runSim = async (m: 'daily' | 'event', t: string, presence: 'default' | 'light' | 'none' = 'default', tone: 'mix' | 'depressive' | 'darkhumor' | 'cute' = 'mix') => {
         if (!targetChar) return;
-        if (!effectiveApiConfig.apiKey) { addToast('请先配置 API', 'error'); return; }
+        if (!effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
         const cid = targetChar.id, cname = targetChar.name;
         personaSimStore.set({ status: 'loading', mode: m, theme: t, charId: cid, charName: cname });
-        // 只报模式（日常/事件）这个固定枚举；主题 t 是用户自己写的文本，不上报
+        // 只報模式（日常/事件）這個固定枚舉；主題 t 是用戶自己寫的文本，不上報
         trackEvent('生成人格模拟演出', { mode: m });
         try {
             const generated = await generatePersonaScript({
                 char: targetChar, userProfile: checkPhoneUserProfile, apiConfig: effectiveApiConfig as any, mode: m, theme: t, userPresence: presence, tone,
             });
             personaSimStore.set({ status: 'ready', mode: m, theme: t, script: generated, charId: cid, charName: cname });
-            addToast('演出已就绪', 'success');
+            addToast('演出已就緒', 'success');
         } catch (e) {
             console.error(e);
             personaSimStore.set({ status: 'error', mode: m, theme: t, charId: cid, charName: cname });
-            addToast('演出生成失败，请重试', 'error');
+            addToast('演出生成失敗，請重試', 'error');
         }
     };
 
@@ -2183,9 +2184,9 @@ ${olderText}
         if (!targetChar) return;
         const charId = targetChar.id;
         askConfirm({
-            title: `删除生活记录「${log.title}」？`,
-            desc: '这条记录和用于重播的演出脚本会一并删除，无法撤销。已经发送给 TA 的回忆不会被撤回。',
-            confirmLabel: '删除',
+            title: `刪除生活記錄「${log.title}」？`,
+            desc: '這條記錄和用於重播的演出腳本會一併刪除，無法撤銷。已經發送給 TA 的回憶不會被撤回。',
+            confirmLabel: '刪除',
             danger: true,
             onConfirm: () => {
                 updateCharacter(charId, (cur) => ({
@@ -2195,12 +2196,12 @@ ${olderText}
                         simLogs: (cur.phoneState?.simLogs || []).filter(item => item.id !== log.id),
                     },
                 }));
-                addToast('已删除生活记录', 'success');
+                addToast('已刪除生活記錄', 'success');
             },
         });
     };
 
-    // 全局指示条点击后请求深链：直接进入对应角色的演出
+    // 全局指示條點擊後請求深鏈：直接進入對應角色的演出
     useEffect(() => {
         if (sim.deepLink && sim.charId) {
             const c = characters.find(x => x.id === sim.charId);
@@ -2223,17 +2224,17 @@ ${olderText}
     const deliveryRecords = records.filter(r => r.type === 'delivery');
     const socialRecords = records.filter(r => r.type === 'social');
     const simLogCount = targetChar?.phoneState?.simLogs?.length || 0;
-    const sendToChat = targetChar?.phoneState?.sendToChat !== false; // 默认开
+    const sendToChat = targetChar?.phoneState?.sendToChat !== false; // 默認開
     const lastInner = targetChar ? getLastInnerState(targetChar.id) : '';
     const lastTs = allSorted[0]?.timestamp;
 
     const appLabel = (type: string): string => {
         switch (type) {
             case 'chat': return '聊天';
-            case 'order': return '淘宝';
-            case 'delivery': return '外卖';
+            case 'order': return '淘寶';
+            case 'delivery': return '外賣';
             case 'social': return '朋友圈';
-            case 'call': return '通话';
+            case 'call': return '通話';
             default: return customApps.find(a => a.id === type)?.name || 'App';
         }
     };
@@ -2244,12 +2245,12 @@ ${olderText}
             if (record.systemMessageId) {
                 const existing = await DB.getMessageById(record.systemMessageId);
                 if (existing) {
-                    addToast('这条记录已经同步到私聊', 'info');
+                    addToast('這條記錄已經同步到私聊', 'info');
                     setEvidenceMenu(null);
                     return;
                 }
             }
-            const app = record.type === 'chat' ? '聊天软件' : appLabel(record.type);
+            const app = record.type === 'chat' ? '聊天軟件' : appLabel(record.type);
             const card = buildPhoneEvidenceChatCard(record, app);
             const messageId = await DB.saveMessage({
                 charId: targetChar.id,
@@ -2273,10 +2274,10 @@ ${olderText}
                 setSelectedChatRecord({ ...selectedChatRecord, systemMessageId: messageId });
             }
             setEvidenceMenu(null);
-            addToast('已把这条查手机记录同步到私聊', 'success');
+            addToast('已把這條查手機記錄同步到私聊', 'success');
             trackEvent('事后同步查手机记录到私聊', { kind: record.type });
         } catch (error: any) {
-            addToast(error?.message || '同步失败，请重试', 'error');
+            addToast(error?.message || '同步失敗，請重試', 'error');
         }
     };
 
@@ -2304,11 +2305,11 @@ ${olderText}
 
     const momentsSub = socialRecords.length ? `${socialRecords.length} new posts` : 'nothing shared';
     const taobaoSub = orderRecords.length ? `${orderRecords.length} items in cart` : 'cart is empty';
-    // 「联系人」主卡副标题：TA 通讯录里的人数（不含用户自己）
+    // 「聯繫人」主卡副標題：TA 通訊錄裡的人數（不含用戶自己）
     const contactCount = contacts.filter(c => !isUserName(c.name)).length;
-    const contactsSub = contactCount ? `${contactCount} 位联系人` : 'tap to scan';
-    const aiSub = aiSessions.length ? `${aiSessions.length} 段对话 · TA 的小手机` : 'tap to peek';
-    const realBalanceSub = `¥${realBalanceState.balance.toFixed(2)} · ${realBalanceState.cards.length} 张银行卡`;
+    const contactsSub = contactCount ? `${contactCount} 位聯繫人` : 'tap to scan';
+    const aiSub = aiSessions.length ? `${aiSessions.length} 段對話 · TA 的小手機` : 'tap to peek';
+    const realBalanceSub = `¥${realBalanceState.balance.toFixed(2)} · ${realBalanceState.cards.length} 張銀行卡`;
 
     // pseudo screen-time + weather (decorative, deterministic per char)
     const seed = charName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -2320,21 +2321,21 @@ ${olderText}
     const RING_C = 2 * Math.PI * 42;
 
     const activity = (() => {
-        const items = allSorted.slice(0, 4).reverse().map(r => ({ t: r.timestamp, label: `打开${appLabel(r.type)}` }));
-        if (lastTs) items.push({ t: Date.now(), label: '锁屏' });
+        const items = allSorted.slice(0, 4).reverse().map(r => ({ t: r.timestamp, label: `打開${appLabel(r.type)}` }));
+        if (lastTs) items.push({ t: Date.now(), label: '鎖屏' });
         return items;
     })();
 
     const now = new Date();
     const clockNow = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const dateNow = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-    const fallbackQuote = targetChar?.socialProfile?.bio || '“有些话，隔着屏幕，反而更接近真实。”';
+    const fallbackQuote = targetChar?.socialProfile?.bio || '“有些話，隔著屏幕，反而更接近真實。”';
     const innerQuote = lastInner.trim();
 
     // ============================================================
     //  SUB-APPS
     // ============================================================
-    // 找出某条聊天记录对应的联系人（用于复用真人头像）
+    // 找出某條聊天記錄對應的聯繫人（用於複用真人頭像）
     const contactOfRecord = (r: PhoneEvidence): PhoneContact | undefined =>
         contacts.find(c => (r.contactId && c.id === r.contactId) || normName(c.name) === normName(r.title));
 
@@ -2343,21 +2344,21 @@ ${olderText}
         const list = records.filter(r => r.type === 'chat').sort((a, b) => b.timestamp - a.timestamp);
         return (
             <SubAppShell>
-                <TermHeader title="Messages" sub="已归档 · 只读" accent={accent} onBack={() => setActiveAppId('home')}
+                <TermHeader title="Messages" sub="已歸檔 · 只讀" accent={accent} onBack={() => setActiveAppId('home')}
                     right={list.length > 0 ? (
                         <button onClick={() => askConfirm({
-                            title: '清空全部聊天记录？', desc: `将删除这台手机里归档的全部 ${list.length} 段聊天记录，且无法恢复。`,
+                            title: '清空全部聊天記錄？', desc: `將刪除這台手機裡歸檔的全部 ${list.length} 段聊天記錄，且無法恢復。`,
                             confirmLabel: '清空', danger: true, onConfirm: handleClearAllChats,
                         })} className="text-rose-300/80 active:scale-90 transition"><Trash size={18} weight="bold" /></button>
                     ) : undefined} />
-                {/* 归档说明：旧的 Messages 模式已不再更新，新的对话走「人际关系」 */}
+                {/* 歸檔說明：舊的 Messages 模式已不再更新，新的對話走「人際關係」 */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07] text-[11px] text-white/55 leading-relaxed">
-                        这是旧版聊天归档，已停止更新。新的来往请在「联系人」里发起；可把某段记录绑定过去。
+                        這是舊版聊天歸檔，已停止更新。新的來往請在「聯繫人」裡發起；可把某段記錄綁定過去。
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pt-1 space-y-2.5 no-scrollbar pb-28 overscroll-contain">
-                    {list.length === 0 && <EmptyState text="归档里没有聊天记录" />}
+                    {list.length === 0 && <EmptyState text="歸檔裡沒有聊天記錄" />}
                     {list.map(r => {
                         const segs = parseTranscript(r.detail);
                         const last = segs.length ? segs[segs.length - 1].text : '...';
@@ -2385,8 +2386,8 @@ ${olderText}
                                     <div className="text-[11.5px] text-white/45 truncate mt-0.5">{last}</div>
                                 </div>
                                 <button onClick={(e) => { e.stopPropagation(); askConfirm({
-                                    title: '删除这段聊天记录？', desc: `「${r.title}」的这段归档记录将被删除。`,
-                                    confirmLabel: '删除', danger: true, onConfirm: () => handleDeleteRecord(r),
+                                    title: '刪除這段聊天記錄？', desc: `「${r.title}」的這段歸檔記錄將被刪除。`,
+                                    confirmLabel: '刪除', danger: true, onConfirm: () => handleDeleteRecord(r),
                                 }); }}
                                     className="absolute top-2 right-2 w-5 h-5 bg-rose-500/80 text-white rounded-full flex items-center justify-center text-[11px] leading-none opacity-0 group-hover:opacity-100 transition">×</button>
                             </div>
@@ -2400,9 +2401,9 @@ ${olderText}
     const renderChatDetail = () => {
         if (!selectedChatRecord || !targetChar) return null;
         const accent = '#8b9cff';
-        // 带前缀继承的解析：多行消息(连发几条)的续行跟随上一条说话人，不再错位给对方。
+        // 帶前綴繼承的解析：多行消息(連發幾條)的續行跟隨上一條說話人，不再錯位給對方。
         const parsedLines = parseTranscript(selectedChatRecord.detail).map(t => ({ isMe: t.isMe, content: t.text }));
-        // 渲染保护：长 transcript 默认只渲染最新 50 行，避免一次性塞太多气泡把页面卡爆（同 chatapp）
+        // 渲染保護：長 transcript 默認只渲染最新 50 行，避免一次性塞太多氣泡把頁面卡爆（同 chatapp）
         const RENDER_CAP = 50;
         const hiddenCount = transcriptExpanded ? 0 : Math.max(0, parsedLines.length - RENDER_CAP);
         const shownLines = hiddenCount > 0 ? parsedLines.slice(-RENDER_CAP) : parsedLines;
@@ -2412,12 +2413,12 @@ ${olderText}
 
         return (
             <SubAppShell>
-                <TermHeader title={selectedChatRecord.title} sub="归档 · 只读" accent={accent} onBack={() => setActiveAppId('chat')} />
+                <TermHeader title={selectedChatRecord.title} sub="歸檔 · 只讀" accent={accent} onBack={() => setActiveAppId('chat')} />
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar overscroll-contain min-h-0">
                     {hiddenCount > 0 && (
                         <button onClick={() => setTranscriptExpanded(true)}
                             className="w-full py-2 mb-1 rounded-xl text-[11.5px] font-semibold text-white/55 bg-white/[0.04] border border-white/[0.07] active:scale-[0.99] transition">
-                            ▲ 展开更早的 {hiddenCount} 条消息
+                            ▲ 展開更早的 {hiddenCount} 條消息
                         </button>
                     )}
                     {shownLines.map((msg, idx) => (
@@ -2445,18 +2446,18 @@ ${olderText}
                     ))}
                     <div ref={chatEndRef} />
                 </div>
-                {/* 归档只读：不再生成后续；改为「绑定到人际关系」（真人会双向同步） */}
+                {/* 歸檔只讀：不再生成後續；改為「綁定到人際關係」（真人會雙向同步） */}
                 <div className="shrink-0 w-full p-4 pb-6">
                     <button onClick={() => askConfirm({
-                        title: '绑定到联系人？',
+                        title: '綁定到聯繫人？',
                         desc: linkedReal
-                            ? `已与神经链接里的「${selectedChatRecord.title}」匹配，绑定后这段对话会同步到对方手机。`
-                            : `将把「${selectedChatRecord.title}」加进联系人（未匹配到真实角色，按虚构联系人处理）。`,
-                        confirmLabel: '绑定',
+                            ? `已與神經鏈接裡的「${selectedChatRecord.title}」匹配，綁定後這段對話會同步到對方手機。`
+                            : `將把「${selectedChatRecord.title}」加進聯繫人（未匹配到真實角色，按虛構聯繫人處理）。`,
+                        confirmLabel: '綁定',
                         onConfirm: () => handleBindRecordToRelationship(selectedChatRecord),
                     })}
                         className="w-full py-3 rounded-2xl text-[13px] font-semibold text-white/90 bg-white/[0.06] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
-                        <LinkSimple size={16} weight="bold" /> 绑定到联系人
+                        <LinkSimple size={16} weight="bold" /> 綁定到聯繫人
                     </button>
                 </div>
             </SubAppShell>
@@ -2480,8 +2481,8 @@ ${olderText}
         });
         const isMissed = isCall && (r.value?.includes('未接') || r.value?.includes('Missed'));
         const isOutgoing = isCall && (r.value?.includes('呼出') || r.value?.includes('Outgoing'));
-        const callDirection = isMissed ? '未接来电' : isOutgoing ? '呼出' : '呼入';
-        const callDuration = r.value?.match(/\((.*?)\)/)?.[1] || (isMissed ? '—' : '未记录');
+        const callDirection = isMissed ? '未接來電' : isOutgoing ? '呼出' : '呼入';
+        const callDuration = r.value?.match(/\((.*?)\)/)?.[1] || (isMissed ? '—' : '未記錄');
         const detailIcon = customApp
             ? <span className="text-lg">{customApp.icon}</span>
             : isCall ? <Phone size={20} weight="fill" />
@@ -2511,11 +2512,11 @@ ${olderText}
                                 </div>
                             </div>
                             <div className="py-6 text-[15px] leading-8 text-white/85 whitespace-pre-wrap break-words">
-                                {r.detail || '这条动态没有文字内容。'}
+                                {r.detail || '這條動態沒有文字內容。'}
                             </div>
                             <div className="flex items-center gap-7 py-3 border-y border-white/[0.07] text-white/45">
-                                <span className="flex items-center gap-2 text-[12px]"><Heart size={16} weight="fill" style={{ color: accent }} /> {3 + (r.id.length % 30)} 个赞</span>
-                                <span className="flex items-center gap-2 text-[12px]"><ChatCircle size={16} /> {1 + (r.id.length % 9)} 条互动</span>
+                                <span className="flex items-center gap-2 text-[12px]"><Heart size={16} weight="fill" style={{ color: accent }} /> {3 + (r.id.length % 30)} 個贊</span>
+                                <span className="flex items-center gap-2 text-[12px]"><ChatCircle size={16} /> {1 + (r.id.length % 9)} 條互動</span>
                             </div>
                         </article>
                     ) : (
@@ -2527,31 +2528,31 @@ ${olderText}
                                 </div>
                                 <div className="min-w-0 flex-1 pt-0.5">
                                     <div className="text-[18px] leading-7 font-semibold text-white/95 break-words" style={isNovel ? { fontFamily: "'Shippori Mincho','Noto Sans SC',serif" } : undefined}>{r.title}</div>
-                                    <div className="text-[11px] text-white/35 mt-1.5">{isCall ? callDirection : isCommerce ? '订单记录' : isNovel ? '阅读记录' : '内容记录'}</div>
+                                    <div className="text-[11px] text-white/35 mt-1.5">{isCall ? callDirection : isCommerce ? '訂單記錄' : isNovel ? '閱讀記錄' : '內容記錄'}</div>
                                     {r.value && <div className="text-[18px] font-bold mt-2" style={{ color: accent }}>{r.value}</div>}
                                 </div>
                             </div>
 
                             <section className="py-6 border-b border-white/[0.07]">
                                 <div className="text-[10px] tracking-[0.22em] uppercase mb-3" style={{ color: accent }}>
-                                    {isCall ? '通话备注' : isCommerce ? '完整订单信息' : isNovel ? '完整正文' : '完整内容'}
+                                    {isCall ? '通話備註' : isCommerce ? '完整訂單信息' : isNovel ? '完整正文' : '完整內容'}
                                 </div>
                                 <div className="text-[14px] leading-7 text-white/75 whitespace-pre-wrap break-words" style={isNovel ? { fontFamily: "'Shippori Mincho','Noto Sans SC',serif" } : undefined}>
-                                    {r.detail || '没有留下更多内容。'}
+                                    {r.detail || '沒有留下更多內容。'}
                                 </div>
                             </section>
 
                             {isCall && (
                                 <div className="grid grid-cols-2 gap-6 py-5 border-b border-white/[0.07]">
-                                    <div><div className="text-[10px] text-white/30">通话方向</div><div className="text-[14px] text-white/80 mt-1">{callDirection}</div></div>
-                                    <div><div className="text-[10px] text-white/30">通话时长</div><div className="text-[14px] text-white/80 mt-1">{callDuration}</div></div>
+                                    <div><div className="text-[10px] text-white/30">通話方向</div><div className="text-[14px] text-white/80 mt-1">{callDirection}</div></div>
+                                    <div><div className="text-[10px] text-white/30">通話時長</div><div className="text-[14px] text-white/80 mt-1">{callDuration}</div></div>
                                 </div>
                             )}
                             {isCommerce && (
                                 <div className="py-5 border-b border-white/[0.07]">
-                                    <div className="text-[10px] text-white/30 mb-3">订单进度</div>
+                                    <div className="text-[10px] text-white/30 mb-3">訂單進度</div>
                                     <div className="flex items-center text-[11px] text-white/55">
-                                        {['已下单', '处理中', r.detail?.includes('签收') || r.detail?.includes('送达') ? '已完成' : '等待更新'].map((step, i) => (
+                                        {['已下單', '處理中', includesAnyScript(r.detail ?? '', '簽收') || includesAnyScript(r.detail ?? '', '送達') ? '已完成' : '等待更新'].map((step, i) => (
                                             <React.Fragment key={step}>
                                                 {i > 0 && <div className="h-px flex-1 mx-2" style={{ background: accent + '55' }} />}
                                                 <span className="shrink-0" style={{ color: i === 0 ? accent : undefined }}>{step}</span>
@@ -2564,24 +2565,24 @@ ${olderText}
                     )}
 
                     <dl className="py-5 space-y-3 text-[11px]">
-                        <div className="flex justify-between gap-4"><dt className="text-white/30">记录时间</dt><dd className="text-white/60 text-right">{dateText}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-white/30">来源 App</dt><dd className="text-white/60 text-right">{title}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-white/30">记录编号</dt><dd className="text-white/40 text-right font-mono">#{r.id.slice(-8).toUpperCase()}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-white/30">記錄時間</dt><dd className="text-white/60 text-right">{dateText}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-white/30">來源 App</dt><dd className="text-white/60 text-right">{title}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-white/30">記錄編號</dt><dd className="text-white/40 text-right font-mono">#{r.id.slice(-8).toUpperCase()}</dd></div>
                     </dl>
 
                     <button onClick={() => openEditRecord(r)}
                         className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-white/80 bg-white/[0.04] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
-                        <PencilSimple size={15} weight="bold" /> 编辑这条记录
+                        <PencilSimple size={15} weight="bold" /> 編輯這條記錄
                     </button>
                     <button onClick={() => void syncEvidenceRecordToChat(r)} disabled={!!r.systemMessageId}
                         className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-sky-100 bg-sky-400/10 border border-sky-300/20 active:scale-[0.99] transition flex items-center justify-center gap-2 disabled:text-white/30 disabled:bg-white/[0.03] disabled:border-white/[0.06]">
-                        <PaperPlaneTilt size={15} weight="bold" /> {r.systemMessageId ? '已同步到私聊' : '同步这条到私聊'}
+                        <PaperPlaneTilt size={15} weight="bold" /> {r.systemMessageId ? '已同步到私聊' : '同步這條到私聊'}
                     </button>
                     <button onClick={() => askConfirm({
-                        title: '删除这条记录？', desc: '删除「' + r.title + '」后无法恢复。', confirmLabel: '删除', danger: true,
+                        title: '刪除這條記錄？', desc: '刪除「' + r.title + '」後無法恢復。', confirmLabel: '刪除', danger: true,
                         onConfirm: () => handleDeleteRecord(r),
                     })} className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-rose-200 bg-rose-400/10 border border-rose-400/20 active:scale-[0.99] transition flex items-center justify-center gap-2">
-                        <Trash size={15} weight="bold" /> 删除记录
+                        <Trash size={15} weight="bold" /> 刪除記錄
                     </button>
                 </div>
             </SubAppShell>
@@ -2595,7 +2596,7 @@ ${olderText}
             <SubAppShell>
                 <TermHeader title="Recents" sub="call log" accent={accent} onBack={() => setActiveAppId('home')} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-2">
-                    {list.length === 0 && <EmptyState text="暂无通话记录" />}
+                    {list.length === 0 && <EmptyState text="暫無通話記錄" />}
                     {list.map(r => {
                         const isMissed = r.value?.includes('未接') || r.value?.includes('Missed');
                         const isOutgoing = r.value?.includes('呼出') || r.value?.includes('Outgoing');
@@ -2610,7 +2611,7 @@ ${olderText}
                                 <div className="flex-1 min-w-0">
                                     <div className="font-semibold text-[13.5px] truncate" style={{ color: isMissed ? '#fb7185' : 'rgba(255,255,255,0.95)' }}>{r.title}</div>
                                     <div className="text-[10.5px] text-white/40 flex items-center gap-1.5 mt-0.5">
-                                        <span>{isMissed ? '未接来电' : (isOutgoing ? '呼出' : '呼入')}</span>
+                                        <span>{isMissed ? '未接來電' : (isOutgoing ? '呼出' : '呼入')}</span>
                                         {r.value && !isMissed && <span>· {r.value.replace(/.*?\((.*?)\).*/, '$1')}</span>}
                                     </div>
                                     {r.detail && <div className="text-[10.5px] text-white/30 mt-1 italic truncate">“{r.detail}”</div>}
@@ -2621,7 +2622,7 @@ ${olderText}
                         );
                     })}
                 </div>
-                <RefreshFab onClick={() => handleGenerate('call')} label="刷新通话" accent={accent} loading={isLoading} />
+                <RefreshFab onClick={() => handleGenerate('call')} label="刷新通話" accent={accent} loading={isLoading} />
             </SubAppShell>
         );
     };
@@ -2631,7 +2632,7 @@ ${olderText}
         const list = records.filter(r => r.type === 'order').sort((a, b) => b.timestamp - a.timestamp);
         return (
             <SubAppShell>
-                <TermHeader title="淘宝" sub="my orders" accent={accent} onBack={() => setActiveAppId('home')}
+                <TermHeader title="淘寶" sub="my orders" accent={accent} onBack={() => setActiveAppId('home')}
                     right={<ShoppingBag size={20} weight="fill" style={{ color: accent }} />} />
                 {/* banner */}
                 <div className="px-4 pb-2 shrink-0">
@@ -2639,13 +2640,13 @@ ${olderText}
                         style={{ background: `linear-gradient(120deg, ${accent}26, ${accent}08)` }}>
                         <Storefront size={26} weight="fill" style={{ color: accent }} />
                         <div className="min-w-0">
-                            <div className="text-[13px] font-semibold text-white">{charName} 的购物车</div>
-                            <div className="text-[10.5px] text-white/50">{list.length} 件商品 · 待付款 / 待收货</div>
+                            <div className="text-[13px] font-semibold text-white">{charName} 的購物車</div>
+                            <div className="text-[10.5px] text-white/50">{list.length} 件商品 · 待付款 / 待收貨</div>
                         </div>
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pt-1 no-scrollbar pb-28 overscroll-contain space-y-3">
-                    {list.length === 0 && <EmptyState text="还没有订单" />}
+                    {list.length === 0 && <EmptyState text="還沒有訂單" />}
                     {list.map(r => (
                         <div key={r.id} {...evidenceEntryProps(r, 'taobao')}
                             className="group relative flex gap-3 rounded-2xl p-3 pr-8 bg-white/[0.035] border border-white/[0.06] animate-slide-up cursor-pointer active:scale-[0.99] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60">
@@ -2658,14 +2659,14 @@ ${olderText}
                                 <div className="text-[10.5px] text-white/40 mt-0.5 line-clamp-1">{r.detail}</div>
                                 <div className="mt-auto flex items-center justify-between pt-1.5">
                                     <span className="text-[14px] font-bold" style={{ color: accent }}>{r.value || '¥ --'}</span>
-                                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50 tracking-wider flex items-center gap-0.5">已下单 <CaretRight size={10} /></span>
+                                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50 tracking-wider flex items-center gap-0.5">已下單 <CaretRight size={10} /></span>
                                 </div>
                             </div>
                             <DelBtn onDelete={() => handleDeleteRecord(r)} />
                         </div>
                     ))}
                 </div>
-                <RefreshFab onClick={() => handleGenerate('order')} label="刷新订单" accent={accent} loading={isLoading} />
+                <RefreshFab onClick={() => handleGenerate('order')} label="刷新訂單" accent={accent} loading={isLoading} />
             </SubAppShell>
         );
     };
@@ -2675,10 +2676,10 @@ ${olderText}
         const list = records.filter(r => r.type === 'delivery').sort((a, b) => b.timestamp - a.timestamp);
         return (
             <SubAppShell>
-                <TermHeader title="外卖" sub="recent orders" accent={accent} onBack={() => setActiveAppId('home')}
+                <TermHeader title="外賣" sub="recent orders" accent={accent} onBack={() => setActiveAppId('home')}
                     right={<Hamburger size={20} weight="fill" style={{ color: accent }} />} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-3">
-                    {list.length === 0 && <EmptyState text="还没有外卖记录" />}
+                    {list.length === 0 && <EmptyState text="還沒有外賣記錄" />}
                     {list.map(r => (
                         <div key={r.id} {...evidenceEntryProps(r, 'waimai')}
                             className="group relative rounded-2xl p-3.5 pr-8 bg-white/[0.035] border border-white/[0.06] animate-slide-up cursor-pointer active:scale-[0.99] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60">
@@ -2689,7 +2690,7 @@ ${olderText}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="text-[13.5px] font-semibold text-white/95 truncate">{r.title}</div>
-                                    <div className="text-[10px] text-white/35 mt-0.5">{fmtClock(r.timestamp)} · 已送达</div>
+                                    <div className="text-[10px] text-white/35 mt-0.5">{fmtClock(r.timestamp)} · 已送達</div>
                                 </div>
                                 {r.value && <span className="text-[14px] font-bold shrink-0" style={{ color: accent }}>{r.value}</span>}
                             </div>
@@ -2700,7 +2701,7 @@ ${olderText}
                         </div>
                     ))}
                 </div>
-                <RefreshFab onClick={() => handleGenerate('delivery')} label="刷新外卖" accent={accent} loading={isLoading} />
+                <RefreshFab onClick={() => handleGenerate('delivery')} label="刷新外賣" accent={accent} loading={isLoading} />
             </SubAppShell>
         );
     };
@@ -2713,7 +2714,7 @@ ${olderText}
                 <TermHeader title="Moments" sub="朋友圈" accent={accent} onBack={() => setActiveAppId('home')}
                     right={<ImagesSquare size={20} weight="fill" style={{ color: accent }} />} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-3">
-                    {list.length === 0 && <EmptyState text="还没有动态" />}
+                    {list.length === 0 && <EmptyState text="還沒有動態" />}
                     {list.map(r => (
                         <div key={r.id} {...evidenceEntryProps(r, 'social')}
                             className="group relative rounded-2xl p-4 pr-8 bg-white/[0.035] border border-white/[0.06] animate-slide-up cursor-pointer active:scale-[0.99] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60">
@@ -2730,19 +2731,19 @@ ${olderText}
                             <div className="flex items-center gap-5 mt-3 pt-2.5 border-t border-white/[0.06] text-white/40">
                                 <span className="flex items-center gap-1.5 text-[11px]"><Heart size={14} weight="fill" style={{ color: accent }} /> {3 + (r.id.length % 30)}</span>
                                 <span className="flex items-center gap-1.5 text-[11px]"><ChatCircle size={14} /> {1 + (r.id.length % 9)}</span>
-                                <span className="ml-auto flex items-center gap-0.5 text-[10px]" style={{ color: accent }}>查看详情 <CaretRight size={10} /></span>
+                                <span className="ml-auto flex items-center gap-0.5 text-[10px]" style={{ color: accent }}>查看詳情 <CaretRight size={10} /></span>
                             </div>
                             <DelBtn onDelete={() => handleDeleteRecord(r)} />
                         </div>
                     ))}
                 </div>
-                <RefreshFab onClick={() => handleGenerate('social')} label="刷新动态" accent={accent} loading={isLoading} />
+                <RefreshFab onClick={() => handleGenerate('social')} label="刷新動態" accent={accent} loading={isLoading} />
             </SubAppShell>
         );
     };
 
     // ============================================================
-    //  人际关系系统 · 视图
+    //  人際關係系統 · 視圖
     // ============================================================
     const affColor = (a: number) => a >= 40 ? '#4ade80' : a >= 0 ? '#8b9cff' : a >= -40 ? '#fbbf24' : '#fb7185';
     const kindBadge = (c: PhoneContact) => {
@@ -2752,45 +2753,45 @@ ${olderText}
 
     const renderContactsList = () => {
         const accent = '#f472b6';
-        // 人际关系里不出现用户自己
+        // 人際關係裡不出現用戶自己
         const list = contacts.filter(c => !isUserName(c.name)).sort((a, b) => (b.lastInteraction || b.createdAt) - (a.lastInteraction || a.createdAt));
         return (
             <SubAppShell>
-                <TermHeader title={contactSelectMode ? `已选 ${selectedContactIds.length}` : '联系人'} sub={contactSelectMode ? '长按进入了多选' : `${list.length} contacts`} accent={accent}
+                <TermHeader title={contactSelectMode ? `已選 ${selectedContactIds.length}` : '聯繫人'} sub={contactSelectMode ? '長按進入了多選' : `${list.length} contacts`} accent={accent}
                     onBack={() => { if (contactSelectMode) exitContactSelect(); else setActiveAppId('home'); }}
                     right={contactSelectMode
                         ? <button onClick={exitContactSelect} className="text-[12px] font-semibold text-white/80 active:scale-90 transition">取消</button>
                         : <button onClick={() => { setNcNpcMode(npcs.length > 0 ? 'existing' : 'random'); setShowContactModal(true); }} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
-                {/* 约束开关：是否允许虚构 NPC */}
+                {/* 約束開關：是否允許虛構 NPC */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="w-full flex items-center gap-2 rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07]">
                         <button onClick={toggleAllowFictional} className="flex-1 min-w-0 text-left active:scale-[0.99] transition">
-                            <span className="text-[11px] text-white/55">{allowFictional ? '允许 TA 结交虚构 NPC' : '只与神经链接里的真实角色来往'}</span>
+                            <span className="text-[11px] text-white/55">{allowFictional ? '允許 TA 結交虛構 NPC' : '只與神經鏈接裡的真實角色來往'}</span>
                         </button>
-                        <button onClick={() => setShowFictionHelp(v => !v)} aria-label="说明"
+                        <button onClick={() => setShowFictionHelp(v => !v)} aria-label="說明"
                             className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition ${showFictionHelp ? 'text-white/80' : 'text-white/35 active:text-white/70'}`}>
                             <Question size={13} weight="bold" />
                         </button>
-                        <button onClick={toggleAllowFictional} aria-label="切换" className="relative w-9 h-5 rounded-full transition shrink-0" style={{ background: allowFictional ? accent : 'rgba(255,255,255,0.15)' }}>
+                        <button onClick={toggleAllowFictional} aria-label="切換" className="relative w-9 h-5 rounded-full transition shrink-0" style={{ background: allowFictional ? accent : 'rgba(255,255,255,0.15)' }}>
                             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: allowFictional ? '18px' : '2px' }} />
                         </button>
                     </div>
                     {showFictionHelp && (
                         <div className="mt-1.5 rounded-xl px-3 py-2.5 bg-white/[0.03] border border-white/[0.06] text-[10.5px] text-white/55 leading-relaxed space-y-1">
-                            <p><span className="font-semibold text-white/75">开：</span>允许 TA 的通讯录里出现「按人设虚构的路人」（同事、网友、中间人之类，神经链接里并不存在的人）。社交圈更丰满。</p>
-                            <p><span className="font-semibold text-white/75">关：</span>TA 只和神经链接里<span className="text-white/75">真实存在的角色</span>来往；扫描/生成时会丢弃所有虚构联系人。</p>
+                            <p><span className="font-semibold text-white/75">開：</span>允許 TA 的通訊錄裡出現「按人設虛構的路人」（同事、網友、中間人之類，神經鏈接裡並不存在的人）。社交圈更豐滿。</p>
+                            <p><span className="font-semibold text-white/75">關：</span>TA 只和神經鏈接裡<span className="text-white/75">真實存在的角色</span>來往；掃描/生成時會丟棄所有虛構聯繫人。</p>
                         </div>
                     )}
-                    {/* 旧版 Message 聊天归档：废弃 App，收在这里做不起眼的入口 */}
+                    {/* 舊版 Message 聊天歸檔：廢棄 App，收在這裡做不起眼的入口 */}
                     <button onClick={openChat}
                         className="w-full flex items-center gap-2 mt-1.5 px-3 py-1.5 text-white/35 active:text-white/60 transition">
                         <ChatCircleDots size={13} weight="light" className="shrink-0" />
-                        <span className="text-[10.5px] flex-1 text-left">旧版聊天归档{chatRecords.length ? ` · ${chatRecords.length}` : ''}</span>
+                        <span className="text-[10.5px] flex-1 text-left">舊版聊天歸檔{chatRecords.length ? ` · ${chatRecords.length}` : ''}</span>
                         <CaretRight size={11} weight="bold" className="shrink-0" />
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pt-2 space-y-2.5 no-scrollbar pb-28 overscroll-contain">
-                    {list.length === 0 && <EmptyState text="还没有联系人 · 扫描通讯录看看" />}
+                    {list.length === 0 && <EmptyState text="還沒有聯繫人 · 掃描通訊錄看看" />}
                     {list.map(c => {
                         const badge = kindBadge(c);
                         const dimmed = c.status === 'deleted' || c.status === 'blocked';
@@ -2821,7 +2822,7 @@ ${olderText}
                                     <div className="flex items-center gap-2">
                                         <span className="font-semibold text-[13.5px] text-white/95 truncate">{contactDisplayName(c)}</span>
                                         <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ color: badge.color, background: `${badge.color}1f` }}>{badge.icon}{badge.label}</span>
-                                        {c.status === 'deleted' && <span className="text-[9px] text-rose-300/80 shrink-0">已删</span>}
+                                        {c.status === 'deleted' && <span className="text-[9px] text-rose-300/80 shrink-0">已刪</span>}
                                         {c.status === 'blocked' && <span className="text-[9px] text-rose-300/80 shrink-0">已拉黑</span>}
                                     </div>
                                     <div className="text-[11px] text-white/40 truncate mt-0.5">{c.note || c.identity || '—'}</div>
@@ -2840,36 +2841,36 @@ ${olderText}
                     <div className="absolute bottom-7 inset-x-0 flex justify-center gap-2 px-6 z-30 pointer-events-none">
                         <button onClick={() => setSelectedContactIds(selectedContactIds.length === list.length ? [] : list.map(c => c.id))}
                             className="pointer-events-auto px-4 py-3 rounded-full text-[12px] font-semibold text-white/85 bg-white/[0.1] border border-white/15 backdrop-blur-xl active:scale-95 transition">
-                            {selectedContactIds.length === list.length && list.length > 0 ? '取消全选' : '全选'}
+                            {selectedContactIds.length === list.length && list.length > 0 ? '取消全選' : '全選'}
                         </button>
                         <button disabled={!selectedContactIds.length}
                             onClick={() => askConfirm({
-                                title: `清空选中的 ${selectedContactIds.length} 段对话？`,
-                                desc: '只清掉这几段聊天记录（保留联系人；真人对方手机里的镜像、相关私聊卡片、话题盒记忆一并清），之后可重新生成。',
-                                confirmLabel: '清空对话', danger: true, onConfirm: handleBatchClearConversations,
+                                title: `清空選中的 ${selectedContactIds.length} 段對話？`,
+                                desc: '只清掉這幾段聊天記錄（保留聯繫人；真人對方手機裡的鏡像、相關私聊卡片、話題盒記憶一併清），之後可重新生成。',
+                                confirmLabel: '清空對話', danger: true, onConfirm: handleBatchClearConversations,
                             })}
                             className="pointer-events-auto px-6 py-3 rounded-full text-[12px] font-semibold text-white bg-rose-500 disabled:opacity-40 active:scale-95 transition flex items-center gap-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-                            <ChatCircle size={14} weight="bold" /> 清空对话 {selectedContactIds.length || ''}
+                            <ChatCircle size={14} weight="bold" /> 清空對話 {selectedContactIds.length || ''}
                         </button>
                     </div>
                 ) : (
-                    <RefreshFab onClick={() => handleGenerate('contacts')} label="扫描通讯录" accent={accent} loading={isLoading} />
+                    <RefreshFab onClick={() => handleGenerate('contacts')} label="掃描通訊錄" accent={accent} loading={isLoading} />
                 )}
             </SubAppShell>
         );
     };
 
     // ============================================================
-    //  智能体 App · Render（首页：服务 tab + 会话列表；详情：transcript + 互动）
+    //  智能體 App · Render（首頁：服務 tab + 會話列表；詳情：transcript + 互動）
     // ============================================================
     const renderAiAgent = () => {
         const svc = AI_SERVICES.find(s => s.id === aiService)!;
         const list = aiSessions.filter(s => s.service === aiService).sort((a, b) => b.updatedAt - a.updatedAt);
         return (
             <SubAppShell>
-                <TermHeader title="智能体" sub="TA 的小手机" accent={svc.accent} onBack={() => setActiveAppId('home')}
+                <TermHeader title="智能體" sub="TA 的小手機" accent={svc.accent} onBack={() => setActiveAppId('home')}
                     right={<Robot size={20} weight="fill" style={{ color: svc.accent }} />} />
-                {/* 服务 tab */}
+                {/* 服務 tab */}
                 <div className="px-4 pb-2 shrink-0 flex gap-2">
                     {AI_SERVICES.map(s => {
                         const active = s.id === aiService;
@@ -2886,7 +2887,7 @@ ${olderText}
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pt-1 no-scrollbar pb-28 overscroll-contain space-y-2.5">
                     <div className="text-[11px] text-white/45 px-1 pb-0.5">{svc.tagline}</div>
-                    {/* 酒馆角色卡橱窗（点击看 TA 玩这张 / 长按编辑删除 / ＋自己加一张） */}
+                    {/* 酒館角色卡櫥窗（點擊看 TA 玩這張 / 長按編輯刪除 / ＋自己加一張） */}
                     {aiService === 'tavern' && (
                         <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
                             {aiCards.map(c => (
@@ -2898,13 +2899,13 @@ ${olderText}
                                         <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-rose-400/20 text-rose-200/90">{c.kind === 'world' ? '世界卡' : '角色卡'}</span>
                                     </div>
                                     <div className="text-[12.5px] font-semibold text-white mt-1.5 truncate">{c.name}</div>
-                                    {c.basedOnUser ? <div className="text-[9px] text-rose-300/90 mt-0.5">⚑ 照着你捏的</div>
-                                        : c.basedOn ? <div className="text-[9px] text-rose-300/90 mt-0.5 truncate">⚑ 照着「{c.basedOn}」</div> : null}
+                                    {c.basedOnUser ? <div className="text-[9px] text-rose-300/90 mt-0.5">⚑ 照著你捏的</div>
+                                        : c.basedOn ? <div className="text-[9px] text-rose-300/90 mt-0.5 truncate">⚑ 照著「{c.basedOn}」</div> : null}
                                     <div className="text-[10px] text-white/45 mt-1 line-clamp-2 leading-snug">{c.persona}</div>
-                                    {c.scenario && <div className="text-[9.5px] text-white/35 mt-1 line-clamp-2 italic leading-snug">场景：{c.scenario}</div>}
+                                    {c.scenario && <div className="text-[9.5px] text-white/35 mt-1 line-clamp-2 italic leading-snug">場景：{c.scenario}</div>}
                                 </div>
                             ))}
-                            {/* 用户自己加一张卡 */}
+                            {/* 用戶自己加一張卡 */}
                             <button onClick={() => setAiEdit({ kind: 'card', id: '__new__', emoji: '🎭', name: '', persona: '', scenario: '', cardKind: 'character' })}
                                 className="shrink-0 w-24 rounded-2xl p-3 border border-dashed border-white/15 bg-white/[0.02] flex flex-col items-center justify-center gap-1.5 active:scale-[0.98] transition self-stretch">
                                 <Plus size={20} weight="light" className="text-white/55" />
@@ -2912,7 +2913,7 @@ ${olderText}
                             </button>
                         </div>
                     )}
-                    {list.length === 0 && <EmptyState text={`还没偷看到 TA 用「${svc.name}」`} />}
+                    {list.length === 0 && <EmptyState text={`還沒偷看到 TA 用「${svc.name}」`} />}
                     {list.map(s => {
                         const lines = parseTranscript(s.transcript);
                         const last = lines[lines.length - 1];
@@ -2932,10 +2933,10 @@ ${olderText}
                                         <div className="font-semibold text-[13.5px] text-white/95 truncate">{s.title}</div>
                                         <span className="text-[10px] text-white/30 tabular-nums shrink-0">{fmtClock(s.updatedAt)}</span>
                                     </div>
-                                    <div className="text-[10.5px] text-white/40 mt-0.5">{s.serviceName} · {lines.length} 条</div>
+                                    <div className="text-[10.5px] text-white/40 mt-0.5">{s.serviceName} · {lines.length} 條</div>
                                     {last && <div className="text-[11px] text-white/55 mt-1 truncate italic">「{last.text}」</div>}
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); askConfirm({ title: `删除会话「${s.title}」？`, desc: '这段对话记录会被删除，无法撤销。', confirmLabel: '删除', danger: true, onConfirm: () => handleDeleteAiSession(s.id) }); }}
+                                <button onClick={(e) => { e.stopPropagation(); askConfirm({ title: `刪除會話「${s.title}」？`, desc: '這段對話記錄會被刪除，無法撤銷。', confirmLabel: '刪除', danger: true, onConfirm: () => handleDeleteAiSession(s.id) }); }}
                                     className="absolute top-2 right-2 w-5 h-5 bg-rose-500/80 text-white rounded-full flex items-center justify-center text-[11px] leading-none opacity-0 group-hover:opacity-100 transition">×</button>
                             </button>
                         );
@@ -2954,8 +2955,8 @@ ${olderText}
         const lines = parseTranscript(s.transcript);
         const partnerName = isTavern ? (card?.name || s.serviceName) : s.serviceName;
         const partnerEmoji = isTavern ? (card?.emoji || '🎭') : null;
-        const inputHint = isTavern ? `以「${partnerName}」身份续写剧情…` : `以 AI「${partnerName}」身份回 TA…`;
-        // 酒馆走用户选的阅读皮肤；助手/树洞走厂商换肤
+        const inputHint = isTavern ? `以「${partnerName}」身份續寫劇情…` : `以 AI「${partnerName}」身份回 TA…`;
+        // 酒館走用戶選的閱讀皮膚；助手/樹洞走廠商換膚
         const tStyle = TAVERN_STYLES.find(x => x.key === tavernStyle) || TAVERN_STYLES[0];
         const t: VendorTheme = isTavern
             ? { key: 'tavern', label: partnerName, dark: tStyle.dark, bg: tStyle.bg, text: tStyle.text, sub: tStyle.sub, accent: tStyle.accent, font: tStyle.font,
@@ -2967,14 +2968,14 @@ ${olderText}
         const inputBg = t.dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
         const aiAvatarBg = t.key === 'gpt' ? '#000' : t.key === 'claude' ? '#f0e9da' : t.dark ? 'rgba(255,255,255,0.08)' : '#fff';
 
-        // 酒馆是长剧情小说体：把连续同一说话人的行合并成「楼层」，*动作* 渲染成斜体淡色
+        // 酒館是長劇情小說體：把連續同一說話人的行合併成「樓層」，*動作* 渲染成斜體淡色
         const floors: { isMe: boolean; text: string }[] = [];
         for (const ln of lines) {
             const prev = floors[floors.length - 1];
             if (prev && prev.isMe === ln.isMe) prev.text += '\n' + ln.text;
             else floors.push({ isMe: ln.isMe, text: ln.text });
         }
-        // *动作* 斜体淡色；（括号 OOC / 跟皮下 AI 说话）也淡色斜体——但都还在 char 自己的楼层里，不另起气泡
+        // *動作* 斜體淡色；（括號 OOC / 跟皮下 AI 說話）也淡色斜體——但都還在 char 自己的樓層裡，不另起氣泡
         const renderProse = (txt: string) => txt.split(/(\*[^*]+\*|（[^）]+）)/g).filter(Boolean).map((p, i) =>
             (p.startsWith('*') && p.endsWith('*'))
                 ? <em key={i} style={{ color: t.sub }}>{p.slice(1, -1)}</em>
@@ -2984,7 +2985,7 @@ ${olderText}
         return (
             <div className="absolute inset-0 w-full h-full flex flex-col z-[60] overflow-hidden"
                 style={{ background: t.bg, color: t.text, fontFamily: t.font }}>
-                {/* 状态栏（按明暗着色） */}
+                {/* 狀態欄（按明暗著色） */}
                 <div className="shrink-0" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="h-9 flex justify-between px-6 items-center pt-2" style={{ color: t.text, opacity: 0.65 }}>
                         <span className="text-[12px] font-semibold tabular-nums">{clock}</span>
@@ -2994,7 +2995,7 @@ ${olderText}
                         </div>
                     </div>
                 </div>
-                {/* 顶栏：返回 + logo + 服务名 + 删除 */}
+                {/* 頂欄：返回 + logo + 服務名 + 刪除 */}
                 <div className="shrink-0 h-14 flex items-center justify-between px-3" style={{ borderBottom: `1px solid ${hairline}` }}>
                     <button onClick={() => setActiveAppId('aiagent')} className="w-9 h-9 -ml-1 rounded-full flex items-center justify-center active:scale-90 transition" style={{ color: t.text }}>
                         <CaretLeft size={18} weight="bold" />
@@ -3009,34 +3010,34 @@ ${olderText}
                         <div className="min-w-0 text-center">
                             <div className="text-[15px] font-semibold tracking-wide truncate">{isTavern ? s.title : t.label}</div>
                             <div className="text-[10px] tracking-[0.15em] uppercase truncate" style={{ color: t.accent }}>
-                                {isTavern ? `${partnerName} · 潜入对戏` : `${s.title} · 你来当 AI`}
+                                {isTavern ? `${partnerName} · 潛入對戲` : `${s.title} · 你來當 AI`}
                             </div>
                         </div>
                     </div>
                     <div className="flex items-center">
                         {isTavern && (
-                            <button onClick={() => setShowTavernStyle(true)} aria-label="阅读皮肤" className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition" style={{ color: t.sub }}>
+                            <button onClick={() => setShowTavernStyle(true)} aria-label="閱讀皮膚" className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition" style={{ color: t.sub }}>
                                 <PaintBrush size={16} />
                             </button>
                         )}
-                        <button onClick={() => askConfirm({ title: `删除会话「${s.title}」？`, desc: '这段对话记录会被删除，无法撤销。', confirmLabel: '删除', danger: true, onConfirm: () => handleDeleteAiSession(s.id) })} className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition" style={{ color: t.sub }}>
+                        <button onClick={() => askConfirm({ title: `刪除會話「${s.title}」？`, desc: '這段對話記錄會被刪除，無法撤銷。', confirmLabel: '刪除', danger: true, onConfirm: () => handleDeleteAiSession(s.id) })} className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition" style={{ color: t.sub }}>
                             <Trash size={16} />
                         </button>
                     </div>
                 </div>
-                {/* 酒馆阅读皮肤选择 */}
+                {/* 酒館閱讀皮膚選擇 */}
                 {showTavernStyle && (
                     <div className="absolute inset-0 z-[80] flex items-end justify-center" onClick={() => setShowTavernStyle(false)}>
                         <div className="absolute inset-0 bg-black/40" />
                         <div className="relative w-full max-w-sm m-3 mb-6 rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10" onClick={e => e.stopPropagation()}>
-                            <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10">阅读皮肤</div>
+                            <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10">閱讀皮膚</div>
                             <div className="grid grid-cols-2 gap-2 p-3">
                                 {TAVERN_STYLES.map(st => (
                                     <button key={st.key} onClick={() => { setTavernStyle(st.key); setShowTavernStyle(false); trackEvent('切换酒馆阅读皮肤', { style: st.key }); }}
                                         className={`rounded-xl p-3 text-left border transition ${tavernStyle === st.key ? 'border-white/40' : 'border-white/10'}`}
                                         style={{ background: st.bg }}>
                                         <div className="text-[13px] font-semibold" style={{ color: st.text, fontFamily: st.font }}>{st.label}</div>
-                                        <div className="text-[10px] mt-1" style={{ color: st.sub }}>{st.layout === 'card' ? '楼层卡片' : st.indent ? '书页排版' : '素文排版'}</div>
+                                        <div className="text-[10px] mt-1" style={{ color: st.sub }}>{st.layout === 'card' ? '樓層卡片' : st.indent ? '書頁排版' : '素文排版'}</div>
                                         <div className="mt-1.5 h-1 w-10 rounded-full" style={{ background: st.accent }} />
                                     </button>
                                 ))}
@@ -3051,18 +3052,18 @@ ${olderText}
                             <div className="min-w-0 flex-1">
                                 <div className="text-[12.5px] font-semibold flex items-center gap-1.5 flex-wrap" style={{ color: t.text }}>
                                     {card.name}
-                                    <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>{card.kind === 'world' ? '世界卡 · 跑团' : '角色卡'}</span>
-                                    {card.basedOnUser ? <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>⚑ 照着你捏的</span>
-                                        : card.basedOn ? <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>⚑ 照着「{card.basedOn}」捏的</span> : null}
+                                    <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>{card.kind === 'world' ? '世界卡 · 跑團' : '角色卡'}</span>
+                                    {card.basedOnUser ? <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>⚑ 照著你捏的</span>
+                                        : card.basedOn ? <span className="text-[8.5px] px-1.5 py-0.5 rounded-full" style={{ background: `${t.accent}26`, color: t.accent }}>⚑ 照著「{card.basedOn}」捏的</span> : null}
                                 </div>
                                 <div className="text-[10px] mt-0.5 line-clamp-2" style={{ color: t.sub }}>{card.persona}</div>
-                                {card.scenario && <div className="text-[10px] mt-1 line-clamp-2 italic" style={{ color: t.sub }}>场景：{card.scenario}</div>}
+                                {card.scenario && <div className="text-[10px] mt-1 line-clamp-2 italic" style={{ color: t.sub }}>場景：{card.scenario}</div>}
                             </div>
                         </div>
                     </div>
                 )}
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar overscroll-contain min-h-0">
-                    {/* 前情提要：长会话自动总结出的小说梗概（可展开被折叠的早期原文） */}
+                    {/* 前情提要：長會話自動總結出的小說梗概（可展開被摺疊的早期原文） */}
                     {!!s.summaries?.length && (
                         <div className="rounded-2xl p-3.5 space-y-2" style={{ background: `${t.accent}10`, border: `1px dashed ${t.accent}55` }}>
                             <div className="text-[10px] tracking-[0.25em] uppercase font-bold" style={{ color: t.accent }}>前情提要 · {s.summaries.length} 段</div>
@@ -3074,7 +3075,7 @@ ${olderText}
                             {!!s.archived && (
                                 <button onClick={() => setAiArchiveOpen(o => !o)}
                                     className="text-[11px] font-semibold pt-1 active:scale-95 transition" style={{ color: t.accent }}>
-                                    {aiArchiveOpen ? '收起折叠的原文 ▲' : '展开折叠的原文 ▼'}
+                                    {aiArchiveOpen ? '收起摺疊的原文 ▲' : '展開摺疊的原文 ▼'}
                                 </button>
                             )}
                             {aiArchiveOpen && !!s.archived && (
@@ -3086,7 +3087,7 @@ ${olderText}
                             )}
                         </div>
                     )}
-                    {/* 酒馆：玩家一层楼 / 角色一层楼 交替。card=楼层卡片，flat=素排/书页。OOC 就是楼层里的括号。 */}
+                    {/* 酒館：玩家一層樓 / 角色一層樓 交替。card=樓層卡片，flat=素排/書頁。OOC 就是樓層裡的括號。 */}
                     {isTavern ? floors.map((f, i) => {
                         const who = f.isMe ? charName : partnerName;
                         if (tStyle.layout === 'flat') {
@@ -3115,7 +3116,7 @@ ${olderText}
                             </div>
                         );
                     }) : lines.map((m, i) => {
-                        const bare = !m.isMe && t.aiBg === 'transparent'; // ChatGPT/Claude：AI 不用气泡，整段铺开
+                        const bare = !m.isMe && t.aiBg === 'transparent'; // ChatGPT/Claude：AI 不用氣泡，整段鋪開
                         return (
                             <div key={i} {...longPress(() => setAiTurnMenu(i))} className={`flex items-end gap-2 select-none ${m.isMe ? 'justify-end' : 'justify-start'}`}>
                                 {!m.isMe && (
@@ -3153,15 +3154,15 @@ ${olderText}
                     )}
                     <div ref={chatEndRef} />
                 </div>
-                {/* 自然推进：不用开口，让剧情自己往下走一轮 */}
+                {/* 自然推進：不用開口，讓劇情自己往下走一輪 */}
                 <div className="shrink-0 w-full px-3 pt-2" style={{ borderTop: `1px solid ${hairline}` }}>
                     <button onClick={handleAiAutoContinue} disabled={aiSending}
                         className="w-full py-2 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-1.5 active:scale-[0.99] transition disabled:opacity-40"
                         style={{ background: `${t.accent}1a`, border: `1px dashed ${t.accent}66`, color: t.accent }}>
-                        <Sparkle size={14} weight="fill" /> {isTavern ? '让剧情自己往下走一轮' : '让 TA 接着问下去'}
+                        <Sparkle size={14} weight="fill" /> {isTavern ? '讓劇情自己往下走一輪' : '讓 TA 接著問下去'}
                     </button>
                 </div>
-                {/* 互动输入：替 TA 问 / 潜入对戏（回车换行，点按钮发送） */}
+                {/* 互動輸入：替 TA 問 / 潛入對戲（回車換行，點按鈕發送） */}
                 <div className="shrink-0 w-full px-3 pt-2 flex items-end gap-2"
                     style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
                     <textarea value={aiInput} onChange={e => setAiInput(e.target.value)}
@@ -3190,7 +3191,7 @@ ${olderText}
         const CAP = 50;
         const hidden = convExpanded ? 0 : Math.max(0, parsed.length - CAP);
         const shown = hidden > 0 ? parsed.slice(-CAP) : parsed;
-        const statusLabel = c.status === 'friend' ? '好友' : c.status === 'deleted' ? '已删除' : c.status === 'blocked' ? '已拉黑' : '待定';
+        const statusLabel = c.status === 'friend' ? '好友' : c.status === 'deleted' ? '已刪除' : c.status === 'blocked' ? '已拉黑' : '待定';
         const aff = affinityDraft ?? c.affinity;
         const commitAff = () => { if (affinityDraft != null) { handleSetAffinity(c, affinityDraft); setAffinityDraft(null); } };
         const closeProfile = () => { setShowProfile(false); setEditingIdentity(false); setEditingNote(false); setEditingName(false); };
@@ -3199,7 +3200,7 @@ ${olderText}
             : <div className={`${size} rounded-2xl flex items-center justify-center shrink-0 text-white font-semibold ${txt}`} style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)` }}>{c.name[0]}</div>;
         return (
             <SubAppShell>
-                {/* 聊天式顶栏：返回 + 可点的头像/名字（进资料） */}
+                {/* 聊天式頂欄：返回 + 可點的頭像/名字（進資料） */}
                 <div className="shrink-0 z-20">
                     <StatusStrip />
                     <div className="h-14 flex items-center gap-2 px-3">
@@ -3210,31 +3211,31 @@ ${olderText}
                             {avatarNode('w-9 h-9', 'text-base')}
                             <div className="min-w-0 text-left">
                                 <div className="text-[14px] font-semibold text-white truncate leading-tight">{contactDisplayName(c)}</div>
-                                <div className="text-[9.5px] text-white/40 leading-tight">{badge.label} · 轻触头像看资料</div>
+                                <div className="text-[9.5px] text-white/40 leading-tight">{badge.label} · 輕觸頭像看資料</div>
                             </div>
                         </button>
-                        <button onClick={() => setShowProfile(true)} aria-label="资料" className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 bg-white/[0.05] border border-white/[0.08] active:scale-90 transition shrink-0">
+                        <button onClick={() => setShowProfile(true)} aria-label="資料" className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 bg-white/[0.05] border border-white/[0.08] active:scale-90 transition shrink-0">
                             <DotsThree size={20} weight="bold" />
                         </button>
                     </div>
                 </div>
 
-                {/* 聊天主体 */}
+                {/* 聊天主體 */}
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar overscroll-contain min-h-0">
                     {parsed.length === 0 && !isLoading && (
                         <div className="flex flex-col items-center justify-center h-full gap-2.5 text-white/30">
                             <ChatCircleDots size={42} weight="light" />
-                            <span className="text-[12px] tracking-wide">{isReal ? '还没聊过 · 在下面发起对话' : '还没偷看过 · 下面偷看一段'}</span>
+                            <span className="text-[12px] tracking-wide">{isReal ? '還沒聊過 · 在下面發起對話' : '還沒偷看過 · 下面偷看一段'}</span>
                         </div>
                     )}
                     {hidden > 0 && (
                         <button onClick={() => setConvExpanded(true)}
                             className="w-full py-2 rounded-xl text-[11.5px] font-semibold text-white/55 bg-white/[0.04] border border-white/[0.07] active:scale-[0.99] transition">
-                            ▲ 展开更早的 {hidden} 条消息
+                            ▲ 展開更早的 {hidden} 條消息
                         </button>
                     )}
                     {shown.map((m, i) => {
-                        const realIdx = hidden + i; // 映射回完整脚本下标
+                        const realIdx = hidden + i; // 映射回完整腳本下標
                         const sel = selectedMsgIdx.includes(realIdx);
                         return (
                         <div key={realIdx}
@@ -3267,51 +3268,51 @@ ${olderText}
                     <div ref={contactEndRef} />
                 </div>
 
-                {/* 底部：多选时＝删除选中条；否则＝发起/偷看对话（像聊天输入区） */}
+                {/* 底部：多選時＝刪除選中條；否則＝發起/偷看對話（像聊天輸入區） */}
                 <div className="shrink-0 w-full p-4 pb-6">
                     {msgSelectMode ? (
                         <div className="flex gap-2">
                             <button onClick={exitMsgSelect}
                                 className="px-5 py-3 rounded-2xl text-[13px] font-semibold text-white/75 bg-white/[0.06] border border-white/[0.08] active:scale-[0.99] transition">取消</button>
-                            {/* 只选中一条时才能编辑——编辑是改单条内容，多选改不出"这条要改成什么" */}
+                            {/* 只選中一條時才能編輯——編輯是改單條內容，多選改不出"這條要改成什麼" */}
                             {selectedMsgIdx.length === 1 && (
                                 <button onClick={() => setMsgEdit({ index: selectedMsgIdx[0], text: parsed[selectedMsgIdx[0]]?.content || '' })}
                                     className="px-5 py-3 rounded-2xl text-[13px] font-semibold text-white/90 bg-white/[0.08] border border-white/[0.1] active:scale-[0.99] transition flex items-center justify-center gap-2">
-                                    <PencilSimple size={16} weight="bold" /> 编辑
+                                    <PencilSimple size={16} weight="bold" /> 編輯
                                 </button>
                             )}
                             <button disabled={!selectedMsgIdx.length}
                                 onClick={() => askConfirm({
-                                    title: `删除选中的 ${selectedMsgIdx.length} 条消息？`,
-                                    desc: c.kind === 'real' && c.linkedCharId ? '这几条会从两边手机里一并删除。' : '从这段对话里删掉这几条。',
-                                    confirmLabel: '删除', danger: true, onConfirm: handleDeleteSelectedMessages,
+                                    title: `刪除選中的 ${selectedMsgIdx.length} 條消息？`,
+                                    desc: c.kind === 'real' && c.linkedCharId ? '這幾條會從兩邊手機裡一併刪除。' : '從這段對話裡刪掉這幾條。',
+                                    confirmLabel: '刪除', danger: true, onConfirm: handleDeleteSelectedMessages,
                                 })}
                                 className="flex-1 py-3 rounded-2xl text-[13px] font-semibold text-white bg-rose-500 disabled:opacity-40 active:scale-[0.99] transition flex items-center justify-center gap-2">
-                                <Trash size={16} weight="bold" /> 删除选中 {selectedMsgIdx.length || ''}
+                                <Trash size={16} weight="bold" /> 刪除選中 {selectedMsgIdx.length || ''}
                             </button>
                         </div>
                     ) : isReal ? (
                         <button onClick={() => handleRealConversation(c)} disabled={isLoading}
                             className="w-full py-3 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.99] transition flex items-center justify-center gap-2"
                             style={{ background: `linear-gradient(135deg, ${accent}, ${accent}bb)` }}>
-                            <PaperPlaneTilt size={16} weight="fill" /> {rec ? '继续真实对话（双方同步）' : '发起真实对话（A 发 B 回）'}
+                            <PaperPlaneTilt size={16} weight="fill" /> {rec ? '繼續真實對話（雙方同步）' : '發起真實對話（A 發 B 回）'}
                         </button>
                     ) : (
                         <button onClick={() => handleNpcConversation(c)} disabled={isLoading}
                             className="w-full py-3 rounded-2xl text-[13px] font-semibold text-white/90 bg-white/[0.06] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
-                            <ChatCircleDots size={16} weight="fill" /> {rec ? '偷看后续对话' : '偷看对话'}
+                            <ChatCircleDots size={16} weight="fill" /> {rec ? '偷看後續對話' : '偷看對話'}
                         </button>
                     )}
                 </div>
 
-                {/* 资料抽屉：点头像/… 滑出，备注 / 了解 / 好感 / 绑定 / 关系操作都在这里 */}
+                {/* 資料抽屜：點頭像/… 滑出，備註 / 瞭解 / 好感 / 綁定 / 關係操作都在這裡 */}
                 {showProfile && (
                     <div className="absolute inset-0 z-[80] flex flex-col justify-end">
                         <div className="absolute inset-0 bg-black/55 animate-fade-in" onClick={closeProfile} />
                         <div className="relative max-h-[90%] overflow-y-auto no-scrollbar rounded-t-[28px] border-t border-white/[0.1] px-5 pt-3 pb-9 animate-slide-up space-y-3.5"
                             style={{ background: 'radial-gradient(120% 80% at 50% 0%, #1a1d27 0%, #101218 70%)' }}>
                             <div className="w-10 h-1 rounded-full bg-white/20 mx-auto" />
-                            {/* 头部资料 */}
+                            {/* 頭部資料 */}
                             <div className="flex flex-col items-center gap-2 pt-1">
                                 {avatarNode('w-20 h-20', 'text-2xl')}
                                 <div className="text-[17px] font-semibold text-white text-center">{contactDisplayName(c)}</div>
@@ -3334,35 +3335,35 @@ ${olderText}
                                 </div>
                             </div>
 
-                            {/* 真人：备注名 / 关系（identity，可人工锁定，后续扫描不覆盖）；
-                                虚构 NPC：没有"真名"兜底，直接编辑姓名本身——这是唯一的名字来源 */}
+                            {/* 真人：備註名 / 關係（identity，可人工鎖定，後續掃描不覆蓋）；
+                                虛構 NPC：沒有"真名"兜底，直接編輯姓名本身——這是唯一的名字來源 */}
                             <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.06]">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">{isReal ? '备注名 / 关系' : '姓名'}</span>
+                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">{isReal ? '備註名 / 關係' : '姓名'}</span>
                                     <button
                                         onClick={() => {
                                             if (isReal) { setEditingIdentity(!editingIdentity); setIdentityDraft(c.identity || ''); }
                                             else { setEditingName(!editingName); setNameDraft(c.name); }
                                         }}
-                                        className="text-white/50 active:scale-90 transition" aria-label={isReal ? '编辑备注名' : '编辑姓名'}>
+                                        className="text-white/50 active:scale-90 transition" aria-label={isReal ? '編輯備註名' : '編輯姓名'}>
                                         <PencilSimple size={14} weight="bold" />
                                     </button>
                                 </div>
                                 {isReal ? (
                                     editingIdentity ? (
                                         <div className="space-y-2">
-                                            <input value={identityDraft} onChange={e => setIdentityDraft(e.target.value)} placeholder="例如：学长、前任、彼方网友"
+                                            <input value={identityDraft} onChange={e => setIdentityDraft(e.target.value)} placeholder="例如：學長、前任、彼方網友"
                                                 className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90" />
                                             <button onClick={() => handleSaveIdentity(c)} className="w-full py-2 rounded-xl text-[12px] font-semibold text-white" style={{ background: accent }}>保存</button>
-                                            <p className="text-[9.5px] text-white/30">留空保存会恢复显示真名；人工保存后不会被再次扫描覆盖</p>
+                                            <p className="text-[9.5px] text-white/30">留空保存會恢復顯示真名；人工保存後不會被再次掃描覆蓋</p>
                                         </div>
                                     ) : (
-                                        <p className="text-[12.5px] text-white/70 leading-relaxed">{c.identity || `（显示真名：${linkedCharOf(c)?.name || c.name}）`}</p>
+                                        <p className="text-[12.5px] text-white/70 leading-relaxed">{c.identity || `（顯示真名：${linkedCharOf(c)?.name || c.name}）`}</p>
                                     )
                                 ) : (
                                     editingName ? (
                                         <div className="space-y-2">
-                                            <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} placeholder="联系人姓名"
+                                            <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} placeholder="聯繫人姓名"
                                                 className="w-full bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90" />
                                             <button onClick={() => handleSaveContactName(c)} className="w-full py-2 rounded-xl text-[12px] font-semibold text-white" style={{ background: accent }}>保存</button>
                                         </div>
@@ -3372,29 +3373,29 @@ ${olderText}
                                 )}
                             </div>
 
-                            {/* 备注（事实，可编辑） */}
+                            {/* 備註（事實，可編輯） */}
                             <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.06]">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">备注</span>
+                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">備註</span>
                                     <button onClick={() => { setEditingNote(!editingNote); setNoteDraft(c.note || ''); }} className="text-white/50 active:scale-90 transition"><PencilSimple size={14} weight="bold" /></button>
                                 </div>
                                 {editingNote ? (
                                     <div className="space-y-2">
-                                        <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="机主对 TA 的备注（事实/关系）…"
+                                        <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="機主對 TA 的備註（事實/關係）…"
                                             className="w-full h-16 bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90 resize-none" />
                                         <button onClick={() => handleSaveNote(c)} className="w-full py-2 rounded-xl text-[12px] font-semibold text-white" style={{ background: accent }}>保存</button>
                                     </div>
                                 ) : (
-                                    <p className="text-[12.5px] text-white/70 leading-relaxed whitespace-pre-wrap">{c.note || '（无备注）'}</p>
+                                    <p className="text-[12.5px] text-white/70 leading-relaxed whitespace-pre-wrap">{c.note || '（無備註）'}</p>
                                 )}
                             </div>
 
-                            {/* 话题盒：聊满 100 条自动浓缩的第一人称聊天记忆（长按改/删）；原文仍在聊天里可看 */}
+                            {/* 話題盒：聊滿 100 條自動濃縮的第一人稱聊天記憶（長按改/刪）；原文仍在聊天裡可看 */}
                             {c.topicBox && c.topicBox.length > 0 && (
                                 <div className="rounded-2xl p-4 bg-white/[0.03] border border-white/[0.06]">
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">话题盒 · 聊天记忆</span>
-                                        <span className="text-[9px] text-white/30">长按改/删</span>
+                                        <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">話題盒 · 聊天記憶</span>
+                                        <span className="text-[9px] text-white/30">長按改/刪</span>
                                     </div>
                                     <div className="space-y-2">
                                         {c.topicBox.map(t => (
@@ -3405,14 +3406,14 @@ ${olderText}
                                             </div>
                                         ))}
                                     </div>
-                                    <p className="text-[9.5px] text-white/25 mt-2">※ 每聊满 {ARCHIVE_EVERY} 条自动浓缩成一条第一人称记忆让 TA 记住；原文仍在聊天里可看</p>
+                                    <p className="text-[9.5px] text-white/25 mt-2">※ 每聊滿 {ARCHIVE_EVERY} 條自動濃縮成一條第一人稱記憶讓 TA 記住；原文仍在聊天裡可看</p>
                                 </div>
                             )}
 
-                            {/* 了解（印象，未必属实，自动累积） */}
+                            {/* 瞭解（印象，未必屬實，自動累積） */}
                             <div className="rounded-2xl p-4 bg-white/[0.02] border border-white/[0.06] border-dashed">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">了解 · {targetChar.name} 眼中的 TA</span>
+                                    <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">瞭解 · {targetChar.name} 眼中的 TA</span>
                                     {c.learned && c.learned.trim() && (
                                         <button onClick={() => mutateContacts(cs => cs.map(x => x.id === c.id ? { ...x, learned: '' } : x))}
                                             className="text-white/40 active:scale-90 transition" aria-label="清空了解"><Trash size={13} weight="bold" /></button>
@@ -3421,60 +3422,60 @@ ${olderText}
                                 {c.learned && c.learned.trim() ? (
                                     <>
                                         <p className="text-[12px] text-white/55 leading-relaxed whitespace-pre-wrap">{c.learned}</p>
-                                        <p className="text-[9.5px] text-white/30 mt-1.5">※ 来自相处的印象，是 TA 自己说的，未必属实</p>
+                                        <p className="text-[9.5px] text-white/30 mt-1.5">※ 來自相處的印象，是 TA 自己說的，未必屬實</p>
                                     </>
                                 ) : (
-                                    <p className="text-[11.5px] text-white/30 leading-relaxed">还没聊出对 TA 的了解 · 多聊几句会自动累积（未必属实）</p>
+                                    <p className="text-[11.5px] text-white/30 leading-relaxed">還沒聊出對 TA 的瞭解 · 多聊幾句會自動累積（未必屬實）</p>
                                 )}
                             </div>
 
-                            {/* 绑定 / 改绑 */}
+                            {/* 綁定 / 改綁 */}
                             <button onClick={() => { closeProfile(); setShowRebindModal(true); }}
                                 className="w-full flex items-center gap-2 rounded-xl px-3 py-2.5 bg-white/[0.04] border border-white/[0.07] active:scale-[0.99] transition">
                                 <LinkSimple size={13} weight="bold" className="shrink-0 text-white/50" />
                                 <span className="text-[11px] text-white/55 flex-1 text-left truncate">
-                                    {isReal ? `绑定真实角色：${linkedCharOf(c)?.name || '已绑定'}` : '虚构联系人（未绑定真实角色）'}
+                                    {isReal ? `綁定真實角色：${linkedCharOf(c)?.name || '已綁定'}` : '虛構聯繫人（未綁定真實角色）'}
                                 </span>
-                                <span className="text-[11px] font-semibold shrink-0" style={{ color: accent }}>改绑定</span>
+                                <span className="text-[11px] font-semibold shrink-0" style={{ color: accent }}>改綁定</span>
                             </button>
 
-                            {/* 关系操作 */}
+                            {/* 關係操作 */}
                             <div className="flex gap-2">
                                 {c.status !== 'friend' && (
                                     <button onClick={() => handleSetContactStatus(c, 'friend')} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-emerald-200 bg-emerald-400/15 border border-emerald-400/20 active:scale-[0.99] transition flex items-center justify-center gap-1.5"><UserPlus size={14} weight="bold" /> 加好友</button>
                                 )}
                                 {c.status === 'friend' && (
                                     <button onClick={() => { closeProfile(); askConfirm({
-                                        title: `删除好友「${c.name}」？`, desc: `${targetChar.name} 会察觉是你在偷看 TA 手机时删的。`,
-                                        confirmLabel: '删好友', danger: true, onConfirm: () => handleSetContactStatus(c, 'deleted'),
-                                    }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-rose-200 bg-rose-400/15 border border-rose-400/20 active:scale-[0.99] transition flex items-center justify-center gap-1.5"><Trash size={14} weight="bold" /> 删好友</button>
+                                        title: `刪除好友「${c.name}」？`, desc: `${targetChar.name} 會察覺是你在偷看 TA 手機時刪的。`,
+                                        confirmLabel: '刪好友', danger: true, onConfirm: () => handleSetContactStatus(c, 'deleted'),
+                                    }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-rose-200 bg-rose-400/15 border border-rose-400/20 active:scale-[0.99] transition flex items-center justify-center gap-1.5"><Trash size={14} weight="bold" /> 刪好友</button>
                                 )}
                                 {c.status !== 'blocked' && (
                                     <button onClick={() => { closeProfile(); askConfirm({
-                                        title: `拉黑「${c.name}」？`, desc: `${targetChar.name} 会察觉是你在偷看 TA 手机时拉黑的。`,
+                                        title: `拉黑「${c.name}」？`, desc: `${targetChar.name} 會察覺是你在偷看 TA 手機時拉黑的。`,
                                         confirmLabel: '拉黑', danger: true, onConfirm: () => handleSetContactStatus(c, 'blocked'),
                                     }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white/60 bg-white/[0.05] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-1.5"><Prohibit size={14} weight="bold" /> 拉黑</button>
                                 )}
                             </div>
 
-                            {/* 危险操作：清空对话 / 彻底移除 */}
+                            {/* 危險操作：清空對話 / 徹底移除 */}
                             <div className="flex gap-2">
                                 {rec && (
                                     <button onClick={() => { closeProfile(); askConfirm({
-                                        title: '清空这段对话？',
+                                        title: '清空這段對話？',
                                         desc: c.kind === 'real' && c.linkedCharId
-                                            ? `会把「${c.name}」这段聊天记录、话题盒记忆清掉（对方手机里的镜像也一并清除），回到干净起点、之后可重新生成。`
-                                            : `会把「${c.name}」这段聊天记录和话题盒记忆清掉，回到干净起点、之后可重新生成。`,
+                                            ? `會把「${c.name}」這段聊天記錄、話題盒記憶清掉（對方手機裡的鏡像也一併清除），回到乾淨起點、之後可重新生成。`
+                                            : `會把「${c.name}」這段聊天記錄和話題盒記憶清掉，回到乾淨起點、之後可重新生成。`,
                                         confirmLabel: '清空', danger: true, onConfirm: () => handleClearContactConversation(c),
-                                    }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white/60 bg-white/[0.05] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-1.5"><ChatCircle size={14} weight="bold" /> 清空对话</button>
+                                    }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-white/60 bg-white/[0.05] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-1.5"><ChatCircle size={14} weight="bold" /> 清空對話</button>
                                 )}
                                 <button onClick={() => { closeProfile(); askConfirm({
-                                    title: '彻底移除该联系人？',
+                                    title: '徹底移除該聯繫人？',
                                     desc: c.kind === 'real' && c.linkedCharId
-                                        ? `会把「${c.name}」连同 TA 的聊天记录、私聊里的卡片一起删除；绑定的真实角色那边的镜像联系人和记录也一并清除（绑错了就用这个清干净）。`
-                                        : `会把「${c.name}」连同 TA 的聊天记录、私聊里的卡片一起彻底删除。`,
-                                    confirmLabel: '彻底移除', danger: true, onConfirm: () => handleRemoveContact(c),
-                                }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-rose-200 bg-rose-400/15 border border-rose-400/20 active:scale-[0.99] transition flex items-center justify-center gap-1.5"><Trash size={14} weight="bold" /> 彻底移除</button>
+                                        ? `會把「${c.name}」連同 TA 的聊天記錄、私聊裡的卡片一起刪除；綁定的真實角色那邊的鏡像聯繫人和記錄也一併清除（綁錯了就用這個清乾淨）。`
+                                        : `會把「${c.name}」連同 TA 的聊天記錄、私聊裡的卡片一起徹底刪除。`,
+                                    confirmLabel: '徹底移除', danger: true, onConfirm: () => handleRemoveContact(c),
+                                }); }} className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-rose-200 bg-rose-400/15 border border-rose-400/20 active:scale-[0.99] transition flex items-center justify-center gap-1.5"><Trash size={14} weight="bold" /> 徹底移除</button>
                             </div>
                         </div>
                     </div>
@@ -3484,8 +3485,8 @@ ${olderText}
     };
 
     const renderCustomItem = (r: PhoneEvidence, idx: number, total: number, accent: string, layout: LayoutId, app: PhoneCustomApp) => {
-        // HTML 卡片：只有这个 App 开着开关、且这条记录确实生成出 html 时才走这条路；
-        // 没生成出来（指令为空/关闭/LLM 没给）自动落回下面按 layout 分支的纯文字渲染，不用额外判断。
+        // HTML 卡片：只有這個 App 開著開關、且這條記錄確實生成出 html 時才走這條路；
+        // 沒生成出來（指令為空/關閉/LLM 沒給）自動落回下面按 layout 分支的純文字渲染，不用額外判斷。
         if (app.htmlCardEnabled && r.html) {
             return (
                 <div key={r.id} {...evidenceEntryProps(r, app.id)} className="group relative animate-slide-up focus:outline-none">
@@ -3505,7 +3506,7 @@ ${olderText}
                             <div className="text-[10.5px] text-white/40 mt-0.5 line-clamp-1">{r.detail}</div>
                             <div className="mt-auto flex items-center justify-between pt-1.5">
                                 <span className="text-[14px] font-bold" style={{ color: accent }}>{r.value || '¥ --'}</span>
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50 tracking-wider">已下单</span>
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50 tracking-wider">已下單</span>
                             </div>
                         </div>
                         <DelBtn onDelete={() => handleDeleteRecord(r)} />
@@ -3541,7 +3542,7 @@ ${olderText}
                         <div className="text-[12px] text-white/55 leading-relaxed line-clamp-3 whitespace-pre-wrap">{r.detail}</div>
                         <div className="flex items-center gap-3 mt-2.5 text-[10px] text-white/35">
                             <span className="flex items-center gap-1">{app.icon} {charName}</span>
-                            <span>· {1 + (r.id.length % 200)} 回复</span>
+                            <span>· {1 + (r.id.length % 200)} 回覆</span>
                             <span>· {fmtClock(r.timestamp)}</span>
                         </div>
                         <DelBtn onDelete={() => handleDeleteRecord(r)} />
@@ -3555,7 +3556,7 @@ ${olderText}
                         <div className="text-[15px] font-semibold text-white/95 mb-2" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{r.title}</div>
                         <div className="text-[12.5px] text-white/60 leading-loose line-clamp-4 whitespace-pre-wrap" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>{r.detail}</div>
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/[0.06] text-[10px] text-white/30">
-                            <span>{r.value || '连载中'}</span>
+                            <span>{r.value || '連載中'}</span>
                             <span className="tabular-nums">{fmtClock(r.timestamp)}</span>
                         </div>
                         <DelBtn onDelete={() => handleDeleteRecord(r)} />
@@ -3587,10 +3588,10 @@ ${olderText}
                 <TermHeader title={app.name} sub={layoutMeta?.name || 'custom app'} accent={accent} onBack={() => setActiveAppId('home')}
                     right={<span className="text-lg">{app.icon}</span>} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-3">
-                    {list.length === 0 && <EmptyState text="暂无数据" />}
+                    {list.length === 0 && <EmptyState text="暫無數據" />}
                     {list.map((r, idx) => renderCustomItem(r, idx, list.length, accent, layout, app))}
                 </div>
-                <RefreshFab onClick={() => handleGenerate(app.id, app.prompt, layout)} label="刷新数据" accent={accent} loading={isLoading} />
+                <RefreshFab onClick={() => handleGenerate(app.id, app.prompt, layout)} label="刷新數據" accent={accent} loading={isLoading} />
             </SubAppShell>
         );
     };
@@ -3619,11 +3620,11 @@ ${olderText}
                 <div className="text-[12px] text-white/45 mt-0.5">{dateNow}</div>
             </div>
 
-            {/* Quote：有最近的内心独白(InnerState)就显示它（一行截断，点按看全文），否则兜底诗句 */}
+            {/* Quote：有最近的內心獨白(InnerState)就顯示它（一行截斷，點按看全文），否則兜底詩句 */}
             {innerQuote ? (
                 <button onClick={() => setShowInner(true)} className="block w-full text-left mb-5 group">
                     <p className="text-[13px] text-white/65 italic leading-relaxed line-clamp-1">「{innerQuote}」</p>
-                    <span className="text-[9px] tracking-wider text-white/30 group-active:text-white/55">有些话没说出口 · 轻触</span>
+                    <span className="text-[9px] tracking-wider text-white/30 group-active:text-white/55">有些話沒說出口 · 輕觸</span>
                 </button>
             ) : (
                 <p className="text-[13px] text-white/55 italic mb-5 leading-relaxed">{fallbackQuote}</p>
@@ -3636,26 +3637,26 @@ ${olderText}
                 <div className="absolute -top-10 -right-6 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(184,155,255,0.55), transparent 70%)' }} />
                 <div className="relative z-10">
                     <div className="text-[10px] tracking-[0.3em] uppercase text-white/55">Persona Simulation</div>
-                    <div className="text-[18px] font-light text-white mt-1.5" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>成为 TA 的一段人生</div>
-                    <div className="text-[11px] text-white/55 mt-1.5">不是查看 TA 的手机 · 是用 TA 的手机活一次</div>
+                    <div className="text-[18px] font-light text-white mt-1.5" style={{ fontFamily: "'Shippori Mincho','Noto Sans SC',serif" }}>成為 TA 的一段人生</div>
+                    <div className="text-[11px] text-white/55 mt-1.5">不是查看 TA 的手機 · 是用 TA 的手機活一次</div>
                     <div className="flex items-center justify-between mt-4">
                         <span className="text-[11px] text-white/45 flex items-center gap-1.5">
-                            <ClockCounterClockwise size={13} /> 生活记录 · {simLogCount}
+                            <ClockCounterClockwise size={13} /> 生活記錄 · {simLogCount}
                         </span>
-                        <span className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#c9b6ff' }}>进入演出 <CaretRight size={11} weight="bold" /></span>
+                        <span className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#c9b6ff' }}>進入演出 <CaretRight size={11} weight="bold" /></span>
                     </div>
                 </div>
             </button>
 
-            {/* Real Balance：提到联系人/Moments 那组卡片上面，跟见面演出一样是「常用」级别的入口 */}
+            {/* Real Balance：提到聯繫人/Moments 那組卡片上面，跟見面演出一樣是「常用」級別的入口 */}
             <div className="grid grid-cols-2 gap-3.5 mb-3.5">
                 <HomeCard icon={<CreditCard size={24} weight="light" />} label="Real Balance" sub={realBalanceSub} accent="#38bdf8" spanFull
                     onClick={() => { setActiveAppId('balance'); trackEvent('打开查手机子应用', { subApp: 'balance' }); }} />
             </div>
 
-            {/* App cards —— 「联系人」占据原 Message 的主位（Message 已废弃，收进联系人里做不起眼入口） */}
+            {/* App cards —— 「聯繫人」佔據原 Message 的主位（Message 已廢棄，收進聯繫人裡做不起眼入口） */}
             <div className="grid grid-cols-2 gap-3.5 mb-3.5">
-                <HomeCard icon={<UsersThree size={24} weight="light" />} label="联系人" sub={contactsSub} accent="#f472b6"
+                <HomeCard icon={<UsersThree size={24} weight="light" />} label="聯繫人" sub={contactsSub} accent="#f472b6"
                     onClick={() => { setActiveAppId('contacts'); trackEvent('打开查手机子应用', { subApp: 'contacts' }); }} />
                 <HomeCard icon={<ImagesSquare size={24} weight="light" />} label="Moments" sub={momentsSub} accent="#c084fc"
                     onClick={() => { setActiveAppId('social'); trackEvent('打开查手机子应用', { subApp: 'social' }); }} />
@@ -3665,7 +3666,7 @@ ${olderText}
                     onClick={() => { setActiveAppId('taobao'); trackEvent('打开查手机子应用', { subApp: 'taobao' }); }} />
             </div>
 
-            {/* 智能体：偷看「TA 的小手机」 —— 给个抢眼的横条入口 */}
+            {/* 智能體：偷看「TA 的小手機」 —— 給個搶眼的橫條入口 */}
             <button onClick={() => { setActiveAppId('aiagent'); trackEvent('打开查手机子应用', { subApp: 'aiagent' }); }}
                 className="relative w-full rounded-[24px] p-4 mb-3.5 text-left overflow-hidden border border-white/[0.09] active:scale-[0.98] transition-transform flex items-center gap-3.5"
                 style={{ background: 'linear-gradient(115deg, rgba(52,211,153,0.20), rgba(16,185,129,0.06) 55%, rgba(12,20,18,0.4))' }}>
@@ -3676,7 +3677,7 @@ ${olderText}
                 </div>
                 <div className="relative z-10 min-w-0 flex-1">
                     <div className="text-[10px] tracking-[0.3em] uppercase text-white/55">AI Agents</div>
-                    <div className="text-[16px] font-semibold text-white mt-0.5">智能体</div>
+                    <div className="text-[16px] font-semibold text-white mt-0.5">智能體</div>
                     <div className="text-[11px] text-white/55 mt-0.5 truncate">{aiSub}</div>
                 </div>
                 <CaretRight size={16} weight="bold" className="relative z-10 text-white/40 shrink-0" />
@@ -3706,7 +3707,7 @@ ${olderText}
                 </div>
                 <div className="flex gap-4">
                     <div className="flex-1 min-w-0 space-y-2.5">
-                        {activity.length === 0 && <div className="text-[11px] text-white/30">尚无活动记录</div>}
+                        {activity.length === 0 && <div className="text-[11px] text-white/30">尚無活動記錄</div>}
                         {activity.map((a, i) => (
                             <div key={i} className="flex items-center gap-3">
                                 <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: i === activity.length - 1 ? '#c084fc' : 'rgba(255,255,255,0.3)' }} />
@@ -3758,7 +3759,7 @@ ${olderText}
                     const count = records.filter(r => r.type === app.id).length;
                     return (
                         <div key={app.id} className="relative group">
-                            {/* 长按编辑/卸载，跟 aiMenu 那套动作菜单同一个交互 */}
+                            {/* 長按編輯/卸載，跟 aiMenu 那套動作菜單同一個交互 */}
                             <button
                                 {...longPress(() => setCustomAppMenu(app.id))}
                                 onClick={() => { if (lpFired.current) { lpFired.current = false; return; } setActiveAppId(app.id); }}
@@ -3771,7 +3772,7 @@ ${olderText}
                                 </div>
                                 <div className="relative z-10">
                                     <div className="text-[14px] font-semibold text-white truncate">{app.name}</div>
-                                    <div className="text-[10.5px] text-white/40 mt-0.5">{count} 条记录 · 长按编辑/卸载</div>
+                                    <div className="text-[10.5px] text-white/40 mt-0.5">{count} 條記錄 · 長按編輯/卸載</div>
                                     <div className="h-[3px] w-8 rounded-full mt-2" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
                                 </div>
                             </button>
@@ -3851,7 +3852,7 @@ ${olderText}
                         <button onClick={() => { setActiveAppId('album'); trackEvent('打开查手机子应用', { subApp: 'album' }); }} aria-label="相簿" className="flex items-center justify-center text-white/70 p-2.5 hover:text-white rounded-2xl transition active:scale-90">
                             <Stack size={22} weight="light" />
                         </button>
-                        <button onClick={handleExitPhone} aria-label="断开连接"
+                        <button onClick={handleExitPhone} aria-label="斷開連接"
                             className="relative flex items-center justify-center w-14 h-14 rounded-full active:scale-90 transition -my-1"
                             style={{ background: 'radial-gradient(circle at 35% 30%, #b89bff, #6d5bd6 55%, #2a2150 100%)', boxShadow: '0 0 24px rgba(157,124,255,0.55), inset 0 0 18px rgba(255,255,255,0.25)' }}>
                             <SignOut size={22} weight="bold" className="text-white" />
@@ -3885,7 +3886,7 @@ ${olderText}
                         <CaretLeft size={18} weight="bold" />
                     </button>
                     <span className="font-semibold tracking-[0.25em] uppercase text-[13px] text-white/80">Target Device</span>
-                    <button onClick={() => { setPhoneApiTestResult(null); setShowApiSettings(true); }} aria-label="查手机 API 设置"
+                    <button onClick={() => { setPhoneApiTestResult(null); setShowApiSettings(true); }} aria-label="查手機 API 設置"
                         className="relative w-9 h-9 rounded-full flex items-center justify-center text-white/75 bg-white/[0.05] border border-white/[0.08] active:scale-90 transition">
                         <GearSix size={17} weight={phoneApiFollowsDefault ? 'regular' : 'fill'} />
                         {!phoneApiFollowsDefault && <span className="absolute right-1.5 bottom-1.5 h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_6px_#a78bfa]" />}
@@ -3925,7 +3926,7 @@ ${olderText}
                                     </button>
                                     <div className="flex items-center gap-2">
                                         {Array.from({ length: pageCount }, (_, pi) => (
-                                            <button key={pi} onClick={() => setSelectPage(pi)} aria-label={`第 ${pi + 1} 页`}
+                                            <button key={pi} onClick={() => setSelectPage(pi)} aria-label={`第 ${pi + 1} 頁`}
                                                 className={`h-2 rounded-full transition-all active:scale-90 ${pi === cur ? 'w-5 bg-violet-400' : 'w-2 bg-white/25'}`} />
                                         ))}
                                     </div>
@@ -3938,34 +3939,34 @@ ${olderText}
                         </div>
                     );
                 })()}
-                <Modal isOpen={showApiSettings} title="查手机 · API 设置" onClose={() => setShowApiSettings(false)}>
+                <Modal isOpen={showApiSettings} title="查手機 · API 設置" onClose={() => setShowApiSettings(false)}>
                     <div className="space-y-3">
                         <p className="text-[11px] leading-relaxed text-slate-500">
-                            查手机里的内容生成、人际关系对话、智能体和人格模拟都会走这里。单独选择后不影响聊天；不设置则跟随聊天默认。
+                            查手機裡的內容生成、人際關係對話、智能體和人格模擬都會走這裡。單獨選擇後不影響聊天；不設置則跟隨聊天默認。
                         </p>
                         <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
-                            <div className="text-[10px] tracking-[0.18em] text-slate-400 mb-1">当前生效</div>
+                            <div className="text-[10px] tracking-[0.18em] text-slate-400 mb-1">當前生效</div>
                             <div className="text-[13px] font-bold text-slate-800 break-all">{effectiveApiConfig?.model || '未配置'}</div>
                             <div className="text-[10.5px] text-slate-400 mt-0.5 break-all">
-                                {apiHost(effectiveApiConfig?.baseUrl)} · {phoneApiFollowsDefault ? '跟随聊天默认' : '查手机独立'}
+                                {apiHost(effectiveApiConfig?.baseUrl)} · {phoneApiFollowsDefault ? '跟隨聊天默認' : '查手機獨立'}
                             </div>
                             <button onClick={testPhoneApi} disabled={testingPhoneApi}
                                 className="mt-2.5 px-3 py-1.5 rounded-full bg-violet-100 text-violet-700 text-[11px] font-bold disabled:opacity-50">
-                                {testingPhoneApi ? '测试中…' : '测试连接'}
+                                {testingPhoneApi ? '測試中…' : '測試連接'}
                             </button>
                             {phoneApiTestResult && (
-                                <div className={`mt-2 rounded-xl px-2.5 py-2 text-[10.5px] leading-relaxed ${phoneApiTestResult.startsWith('连接成功') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                <div className={`mt-2 rounded-xl px-2.5 py-2 text-[10.5px] leading-relaxed ${phoneApiTestResult.startsWith('連接成功') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                                     {phoneApiTestResult}
                                 </div>
                             )}
                         </div>
 
-                        <div className="text-[10px] tracking-[0.18em] text-slate-400 px-1">选择 API</div>
+                        <div className="text-[10px] tracking-[0.18em] text-slate-400 px-1">選擇 API</div>
                         <button onClick={() => choosePhoneApi(null)}
                             className={`w-full rounded-2xl border p-3 text-left transition ${phoneApiFollowsDefault ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-white'}`}>
                             <div className="flex items-center gap-2">
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-[12px] font-bold text-slate-800">跟随聊天默认</div>
+                                    <div className="text-[12px] font-bold text-slate-800">跟隨聊天默認</div>
                                     <div className="text-[10px] text-slate-400 truncate">{apiConfig?.model || '未配置'} · {apiHost(apiConfig?.baseUrl)}</div>
                                 </div>
                                 {phoneApiFollowsDefault && <span className="text-[10px] font-bold text-violet-600">✓ 使用中</span>}
@@ -3973,7 +3974,7 @@ ${olderText}
                         </button>
 
                         {apiPresets.length === 0 ? (
-                            <p className="px-1 text-[10.5px] leading-relaxed text-slate-400">“设置”里还没有保存的 API 预设。先保存预设，这里就能单独选择。</p>
+                            <p className="px-1 text-[10.5px] leading-relaxed text-slate-400">“設置”裡還沒有保存的 API 預設。先保存預設，這裡就能單獨選擇。</p>
                         ) : apiPresets.map(preset => {
                             const active = isSamePhoneApi(preset.config);
                             return (
@@ -4050,7 +4051,7 @@ ${olderText}
                             onRequestDelete={requestDeleteSimLog}
                             onReplay={(log) => {
                                 if (!log.script) return;
-                                // 用存下来的脚本快照原样回放——直接喂给全局 store 的 ready 态
+                                // 用存下來的腳本快照原樣回放——直接餵給全局 store 的 ready 態
                                 personaSimStore.set({ status: 'ready', mode: log.mode, theme: log.theme, script: log.script, replay: true, charId: targetChar.id, charName: targetChar.name });
                                 setActiveAppId('persona');
                             }} />
@@ -4059,15 +4060,15 @@ ${olderText}
                 </>
             )}
 
-            {/* InnerState 全文 —— 「此刻内心」专属卡片 */}
+            {/* InnerState 全文 —— 「此刻內心」專屬卡片 */}
             {showInner && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setShowInner(false)} />
                     <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
-                        {/* 标题 + 星点 */}
+                        {/* 標題 + 星點 */}
                         <div className="px-6 pt-7 pb-3 flex items-center justify-center gap-2.5">
                             <span className="flex items-end gap-0.5 text-[#b3c2f6]"><span className="w-1 h-1 rounded-full bg-current" /><span className="w-1.5 h-1.5 rounded-full bg-current" /><span className="w-1 h-1 rounded-full bg-current mb-1" /></span>
-                            <h3 className="text-lg font-bold text-slate-800">TA 此刻的内心</h3>
+                            <h3 className="text-lg font-bold text-slate-800">TA 此刻的內心</h3>
                             <span className="flex items-end gap-0.5 text-[#b3c2f6]"><span className="w-1 h-1 rounded-full bg-current mb-1" /><span className="w-1.5 h-1.5 rounded-full bg-current" /><span className="w-1 h-1 rounded-full bg-current" /></span>
                         </div>
                         {/* 引文面板 */}
@@ -4080,29 +4081,29 @@ ${olderText}
                                 <span className="block text-right text-[42px] leading-none font-black select-none pointer-events-none pr-2" style={{ color: '#5f82ef' }}>”</span>
                             </div>
                         </div>
-                        {/* 关闭 */}
+                        {/* 關閉 */}
                         <div className="px-6 pb-6 pt-3">
                             <button onClick={() => setShowInner(false)}
                                 className="w-full py-3.5 rounded-2xl text-white font-bold active:scale-[0.99] transition"
-                                style={{ background: '#5f82ef' }}>关闭</button>
+                                style={{ background: '#5f82ef' }}>關閉</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 查手机记录 · 长按后可事后补同步到私聊 */}
+            {/* 查手機記錄 · 長按後可事後補同步到私聊 */}
             {evidenceMenu && (
                 <div className="fixed inset-0 z-[120] flex items-end justify-center animate-fade-in" onClick={() => setEvidenceMenu(null)}>
                     <div className="absolute inset-0 bg-black/50" />
                     <div className="relative w-full max-w-sm m-3 mb-6 space-y-2" onClick={event => event.stopPropagation()}>
                         <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
-                            <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">查手机记录：{evidenceMenu.record.title}</div>
-                            {/* 聊天归档（type: chat）是旧版归档，标了"只读"——detail 是 parseTranscript
-                                依赖的"我:.../对方:..."结构，自由文本编辑会把格式改坏，不接这个入口 */}
+                            <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">查手機記錄：{evidenceMenu.record.title}</div>
+                            {/* 聊天歸檔（type: chat）是舊版歸檔，標了"只讀"——detail 是 parseTranscript
+                                依賴的"我:.../對方:..."結構，自由文本編輯會把格式改壞，不接這個入口 */}
                             {evidenceMenu.record.type !== 'chat' && (
                                 <button onClick={() => openEditRecord(evidenceMenu.record)}
                                     className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"
-                                ><PencilSimple size={17} /> 编辑</button>
+                                ><PencilSimple size={17} /> 編輯</button>
                             )}
                             <button
                                 onClick={() => void syncEvidenceRecordToChat(evidenceMenu.record)}
@@ -4112,44 +4113,44 @@ ${olderText}
                             <button onClick={() => {
                                 const record = evidenceMenu.record;
                                 setEvidenceMenu(null);
-                                askConfirm({ title: '删除这条记录？', desc: `删除「${record.title}」后无法恢复。`, confirmLabel: '删除', danger: true, onConfirm: () => handleDeleteRecord(record) });
-                            }} className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 删除记录</button>
+                                askConfirm({ title: '刪除這條記錄？', desc: `刪除「${record.title}」後無法恢復。`, confirmLabel: '刪除', danger: true, onConfirm: () => handleDeleteRecord(record) });
+                            }} className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 刪除記錄</button>
                         </div>
                         <button onClick={() => setEvidenceMenu(null)} className="w-full rounded-2xl bg-[#1c1d22] border border-white/10 py-3.5 text-[14px] font-semibold text-white/80">取消</button>
                     </div>
                 </div>
             )}
 
-            {/* 查手机记录 · 编辑（任意 App 的任意记录都能改，不再只能删） */}
-            <Modal isOpen={!!evidenceEdit} title="编辑记录" onClose={() => setEvidenceEdit(null)}
+            {/* 查手機記錄 · 編輯（任意 App 的任意記錄都能改，不再只能刪） */}
+            <Modal isOpen={!!evidenceEdit} title="編輯記錄" onClose={() => setEvidenceEdit(null)}
                 footer={<button onClick={handleUpdateRecord} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">保存修改</button>}>
                 {evidenceEdit && (
                     <div className="space-y-4">
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">标题</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">標題</label>
                             <input value={evidenceEdit.title} onChange={e => setEvidenceEdit({ ...evidenceEdit, title: e.target.value })}
                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">数值/状态（可选）</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">數值/狀態（可選）</label>
                             <input value={evidenceEdit.value} onChange={e => setEvidenceEdit({ ...evidenceEdit, value: e.target.value })}
-                                placeholder="如 ¥129.00 / 未接 (5分钟)"
+                                placeholder="如 ¥129.00 / 未接 (5分鐘)"
                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">详细内容</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">詳細內容</label>
                             <textarea value={evidenceEdit.detail} onChange={e => setEvidenceEdit({ ...evidenceEdit, detail: e.target.value })}
                                 className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                         {evidenceEdit.record.html && (
-                            <p className="text-[9px] text-slate-400 leading-relaxed">这条记录原本有一张生成的 HTML 卡片，保存修改后会先回退成纯文字展示（内容跟卡片对不上就不硬凑），下次点「刷新数据」会按最新文字重新配一张。</p>
+                            <p className="text-[9px] text-slate-400 leading-relaxed">這條記錄原本有一張生成的 HTML 卡片，保存修改後會先回退成純文字展示（內容跟卡片對不上就不硬湊），下次點「刷新數據」會按最新文字重新配一張。</p>
                         )}
                     </div>
                 )}
             </Modal>
 
-            {/* 联系人聊天记录 · 编辑单条消息（长按选中一条后，多选操作栏的「编辑」按钮打开） */}
-            <Modal isOpen={!!msgEdit} title="编辑这条消息" onClose={() => setMsgEdit(null)}
+            {/* 聯繫人聊天記錄 · 編輯單條消息（長按選中一條後，多選操作欄的「編輯」按鈕打開） */}
+            <Modal isOpen={!!msgEdit} title="編輯這條消息" onClose={() => setMsgEdit(null)}
                 footer={<button onClick={handleUpdateMessage} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">保存修改</button>}>
                 {msgEdit && (
                     <textarea value={msgEdit.text} onChange={e => setMsgEdit({ ...msgEdit, text: e.target.value })}
@@ -4157,7 +4158,7 @@ ${olderText}
                 )}
             </Modal>
 
-            {/* 自定义 App 图标 · 长按动作菜单（编辑设置 / 卸载） */}
+            {/* 自定義 App 圖標 · 長按動作菜單（編輯設置 / 卸載） */}
             {customAppMenu && (() => {
                 const app = customApps.find(a => a.id === customAppMenu);
                 if (!app) return null;
@@ -4168,14 +4169,14 @@ ${olderText}
                             <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
                                 <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">{app.icon} {app.name}</div>
                                 <button onClick={() => openEditCustomApp(app)}
-                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 编辑设置</button>
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 編輯設置</button>
                                 <button onClick={() => {
                                     setCustomAppMenu(null);
                                     askConfirm({
-                                        title: `卸载「${app.name}」？`, desc: '已生成的记录不会被立即删掉，但卸载后这个 App 从桌面消失，就再也打不开、也看不到它们了。', confirmLabel: '卸载', danger: true,
+                                        title: `卸載「${app.name}」？`, desc: '已生成的記錄不會被立即刪掉，但卸載後這個 App 從桌面消失，就再也打不開、也看不到它們了。', confirmLabel: '卸載', danger: true,
                                         onConfirm: () => handleDeleteApp(app.id),
                                     });
-                                }} className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 卸载</button>
+                                }} className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 卸載</button>
                             </div>
                             <button onClick={() => setCustomAppMenu(null)} className="w-full rounded-2xl bg-[#1c1d22] border border-white/10 py-3.5 text-[14px] font-semibold text-white/80">取消</button>
                         </div>
@@ -4183,23 +4184,23 @@ ${olderText}
                 );
             })()}
 
-            {/* 智能体 · 长按动作菜单（会话/卡片：编辑 / 删除） */}
+            {/* 智能體 · 長按動作菜單（會話/卡片：編輯 / 刪除） */}
             {aiMenu && (() => {
                 const isSession = aiMenu.kind === 'session';
                 const sObj = isSession ? aiSessions.find(s => s.id === aiMenu.id) : null;
                 const cObj = !isSession ? aiCards.find(c => c.id === aiMenu.id) : null;
                 if (isSession ? !sObj : !cObj) return null;
-                const name = isSession ? (sObj!.title || '会话') : (cObj!.name || '卡片');
+                const name = isSession ? (sObj!.title || '會話') : (cObj!.name || '卡片');
                 return (
                     <div className="fixed inset-0 z-[120] flex items-end justify-center animate-fade-in" onClick={() => setAiMenu(null)}>
                         <div className="absolute inset-0 bg-black/50" />
                         <div className="relative w-full max-w-sm m-3 mb-6 space-y-2" onClick={e => e.stopPropagation()}>
                             <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
-                                <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">{isSession ? '会话' : (cObj!.kind === 'world' ? '世界卡' : '角色卡')}：{name}</div>
+                                <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">{isSession ? '會話' : (cObj!.kind === 'world' ? '世界卡' : '角色卡')}：{name}</div>
                                 <button onClick={() => { setAiEdit(isSession ? { kind: 'session', id: aiMenu.id, title: sObj!.title } : { kind: 'card', id: aiMenu.id, name: cObj!.name, emoji: cObj!.emoji, persona: cObj!.persona, scenario: cObj!.scenario }); setAiMenu(null); }}
-                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 编辑</button>
-                                <button onClick={() => { const id = aiMenu.id; const k = isSession; setAiMenu(null); askConfirm({ title: k ? `删除会话「${sObj!.title}」？` : `删除${cObj!.kind === 'world' ? '世界卡' : '角色卡'}「${cObj!.name}」？`, desc: k ? '这段对话记录会被删除，无法撤销。' : '这张卡会被删除（已有对戏记录保留），无法撤销。', confirmLabel: '删除', danger: true, onConfirm: () => (k ? handleDeleteAiSession : handleDeleteAiCard)(id) }); }}
-                                    className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 删除</button>
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 編輯</button>
+                                <button onClick={() => { const id = aiMenu.id; const k = isSession; setAiMenu(null); askConfirm({ title: k ? `刪除會話「${sObj!.title}」？` : `刪除${cObj!.kind === 'world' ? '世界卡' : '角色卡'}「${cObj!.name}」？`, desc: k ? '這段對話記錄會被刪除，無法撤銷。' : '這張卡會被刪除（已有對戲記錄保留），無法撤銷。', confirmLabel: '刪除', danger: true, onConfirm: () => (k ? handleDeleteAiSession : handleDeleteAiCard)(id) }); }}
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 刪除</button>
                             </div>
                             <button onClick={() => setAiMenu(null)} className="w-full rounded-2xl bg-[#1c1d22] border border-white/10 py-3.5 text-[14px] font-semibold text-white/80">取消</button>
                         </div>
@@ -4207,7 +4208,7 @@ ${olderText}
                 );
             })()}
 
-            {/* 智能体 · 会话内单条内容 长按动作菜单（编辑 / 删除） */}
+            {/* 智能體 · 會話內單條內容 長按動作菜單（編輯 / 刪除） */}
             {aiTurnMenu !== null && selectedAiSession && (() => {
                 const turns = turnsOf(selectedAiSession);
                 const turn = turns[aiTurnMenu];
@@ -4218,11 +4219,11 @@ ${olderText}
                         <div className="absolute inset-0 bg-black/50" />
                         <div className="relative w-full max-w-sm m-3 mb-6 space-y-2" onClick={e => e.stopPropagation()}>
                             <div className="rounded-2xl overflow-hidden bg-[#1c1d22] border border-white/10">
-                                <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">这条内容：{preview}…</div>
+                                <div className="px-4 py-2.5 text-[12px] text-white/50 border-b border-white/10 truncate">這條內容：{preview}…</div>
                                 <button onClick={() => { setAiTurnEdit({ idx: aiTurnMenu, text: turn.text }); setAiTurnMenu(null); }}
-                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 编辑</button>
-                                <button onClick={() => { const idx = aiTurnMenu; setAiTurnMenu(null); askConfirm({ title: '删除这条内容？', desc: '只删这一条对话/楼层，无法撤销。', confirmLabel: '删除', danger: true, onConfirm: () => handleDeleteAiTurn(idx) }); }}
-                                    className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 删除</button>
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-white active:bg-white/5 transition flex items-center gap-3"><PencilSimple size={17} /> 編輯</button>
+                                <button onClick={() => { const idx = aiTurnMenu; setAiTurnMenu(null); askConfirm({ title: '刪除這條內容？', desc: '只刪這一條對話/樓層，無法撤銷。', confirmLabel: '刪除', danger: true, onConfirm: () => handleDeleteAiTurn(idx) }); }}
+                                    className="w-full px-4 py-3.5 text-left text-[14px] text-rose-400 active:bg-white/5 transition flex items-center gap-3 border-t border-white/10"><Trash size={17} /> 刪除</button>
                             </div>
                             <button onClick={() => setAiTurnMenu(null)} className="w-full rounded-2xl bg-[#1c1d22] border border-white/10 py-3.5 text-[14px] font-semibold text-white/80">取消</button>
                         </div>
@@ -4230,8 +4231,8 @@ ${olderText}
                 );
             })()}
 
-            {/* 智能体 · 会话内单条内容 编辑弹窗 */}
-            <Modal isOpen={!!aiTurnEdit} title="编辑这条内容" onClose={() => setAiTurnEdit(null)}
+            {/* 智能體 · 會話內單條內容 編輯彈窗 */}
+            <Modal isOpen={!!aiTurnEdit} title="編輯這條內容" onClose={() => setAiTurnEdit(null)}
                 footer={<button onClick={handleSaveAiTurn} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">保存</button>}>
                 {aiTurnEdit && (
                     <textarea value={aiTurnEdit.text} onChange={e => setAiTurnEdit({ ...aiTurnEdit, text: e.target.value })}
@@ -4239,12 +4240,12 @@ ${olderText}
                 )}
             </Modal>
 
-            {/* 智能体 · 编辑弹窗 */}
-            <Modal isOpen={!!aiEdit} title={aiEdit?.kind === 'session' ? '编辑会话' : aiEdit?.id === '__new__' ? '新建角色卡' : '编辑角色卡'} onClose={() => setAiEdit(null)}
-                footer={<button onClick={handleSaveAiEdit} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">{aiEdit?.id === '__new__' ? '创建' : '保存'}</button>}>
+            {/* 智能體 · 編輯彈窗 */}
+            <Modal isOpen={!!aiEdit} title={aiEdit?.kind === 'session' ? '編輯會話' : aiEdit?.id === '__new__' ? '新建角色卡' : '編輯角色卡'} onClose={() => setAiEdit(null)}
+                footer={<button onClick={handleSaveAiEdit} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">{aiEdit?.id === '__new__' ? '創建' : '保存'}</button>}>
                 {aiEdit && (aiEdit.kind === 'session' ? (
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block">标题</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block">標題</label>
                         <input value={aiEdit.title || ''} onChange={e => setAiEdit({ ...aiEdit, title: e.target.value })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
                 ) : (
@@ -4264,18 +4265,18 @@ ${olderText}
                             <input value={aiEdit.name || ''} onChange={e => setAiEdit({ ...aiEdit, name: e.target.value })} placeholder="卡片名" className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">人设 / 设定</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">人設 / 設定</label>
                             <textarea value={aiEdit.persona || ''} onChange={e => setAiEdit({ ...aiEdit, persona: e.target.value })} className="w-full h-20 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">场景</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">場景</label>
                             <textarea value={aiEdit.scenario || ''} onChange={e => setAiEdit({ ...aiEdit, scenario: e.target.value })} className="w-full h-16 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                     </div>
                 ))}
             </Modal>
 
-            {/* 智能体 · 角色卡详情（看 TA 用这张玩过哪些 + 用这张卡开一局） */}
+            {/* 智能體 · 角色卡詳情（看 TA 用這張玩過哪些 + 用這張卡開一局） */}
             {aiCardView && (() => {
                 const c = aiCards.find(x => x.id === aiCardView);
                 if (!c) return null;
@@ -4283,7 +4284,7 @@ ${olderText}
                 return (
                     <Modal isOpen={true} title={c.kind === 'world' ? '世界卡' : '角色卡'} onClose={() => setAiCardView(null)}
                         footer={<button onClick={() => handlePlayCard(c)} disabled={isLoading}
-                            className="w-full py-3 bg-rose-500 text-white font-bold rounded-2xl disabled:opacity-50">{isLoading ? '生成中…' : '用这张卡开一局'}</button>}>
+                            className="w-full py-3 bg-rose-500 text-white font-bold rounded-2xl disabled:opacity-50">{isLoading ? '生成中…' : '用這張卡開一局'}</button>}>
                         <div className="space-y-3">
                             <div className="flex items-start gap-3">
                                 <div className="text-3xl shrink-0">{c.emoji}</div>
@@ -4291,20 +4292,20 @@ ${olderText}
                                     <div className="text-base font-bold text-slate-800 flex items-center gap-2 flex-wrap">{c.name}
                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-500">{c.kind === 'world' ? '世界卡' : '角色卡'}</span>
                                     </div>
-                                    {(c.basedOnUser || c.basedOn) && <div className="text-[11px] text-rose-400 mt-0.5">⚑ 照着{c.basedOnUser ? '你' : `「${c.basedOn}」`}捏的</div>}
+                                    {(c.basedOnUser || c.basedOn) && <div className="text-[11px] text-rose-400 mt-0.5">⚑ 照著{c.basedOnUser ? '你' : `「${c.basedOn}」`}捏的</div>}
                                 </div>
                             </div>
                             {c.persona && <div className="text-[12px] text-slate-600 leading-relaxed bg-slate-50 rounded-xl p-3 whitespace-pre-wrap">{c.persona}</div>}
-                            {c.scenario && <div className="text-[12px] text-slate-500 leading-relaxed bg-slate-50 rounded-xl p-3 italic whitespace-pre-wrap">场景：{c.scenario}</div>}
+                            {c.scenario && <div className="text-[12px] text-slate-500 leading-relaxed bg-slate-50 rounded-xl p-3 italic whitespace-pre-wrap">場景：{c.scenario}</div>}
                             <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">TA 用这张卡玩过 · {plays.length}</div>
-                                {plays.length === 0 && <div className="text-[12px] text-slate-400">还没有对戏记录——点下面「用这张卡开一局」让 TA 玩起来。</div>}
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">TA 用這張卡玩過 · {plays.length}</div>
+                                {plays.length === 0 && <div className="text-[12px] text-slate-400">還沒有對戲記錄——點下面「用這張卡開一局」讓 TA 玩起來。</div>}
                                 <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
                                     {plays.map(s => (
                                         <button key={s.id} onClick={() => { setAiCardView(null); setSelectedAiSessionId(s.id); setActiveAppId('ai_session'); }}
                                             className="w-full text-left rounded-xl p-2.5 bg-slate-50 active:bg-slate-100 transition">
                                             <div className="text-[13px] font-semibold text-slate-700 truncate">{s.title}</div>
-                                            <div className="text-[10px] text-slate-400">{parseTranscript(s.transcript).length} 条 · {fmtClock(s.updatedAt)}</div>
+                                            <div className="text-[10px] text-slate-400">{parseTranscript(s.transcript).length} 條 · {fmtClock(s.updatedAt)}</div>
                                         </button>
                                     ))}
                                 </div>
@@ -4315,8 +4316,8 @@ ${olderText}
             })()}
 
             {/* Create App Modal */}
-            <Modal isOpen={showCreateModal} title={editingAppId ? '编辑自定义 App' : '安装自定义 App'} onClose={closeCreateAppModal}
-                footer={<button onClick={handleSaveCustomApp} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">{editingAppId ? '保存修改' : '安装到桌面'}</button>}>
+            <Modal isOpen={showCreateModal} title={editingAppId ? '編輯自定義 App' : '安裝自定義 App'} onClose={closeCreateAppModal}
+                footer={<button onClick={handleSaveCustomApp} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl">{editingAppId ? '保存修改' : '安裝到桌面'}</button>}>
                 <div className="space-y-4">
                     <div className="flex gap-4">
                         <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-md border border-white/10 shrink-0"
@@ -4324,7 +4325,7 @@ ${olderText}
                             {newAppIcon}
                         </div>
                         <div className="flex-1 space-y-2">
-                            <input value={newAppName} onChange={e => setNewAppName(e.target.value)} placeholder="App 名称 (如: 银行)" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                            <input value={newAppName} onChange={e => setNewAppName(e.target.value)} placeholder="App 名稱 (如: 銀行)" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                             <div className="flex gap-2">
                                 <input value={newAppIcon} onChange={e => setNewAppIcon(e.target.value)} placeholder="Emoji" className="w-16 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center" />
                                 <input type="color" value={newAppColor} onChange={e => setNewAppColor(e.target.value)} className="h-9 flex-1 cursor-pointer rounded-lg bg-transparent" />
@@ -4336,23 +4337,23 @@ ${olderText}
                         <textarea
                             value={newAppPrompt}
                             onChange={e => setNewAppPrompt(e.target.value)}
-                            placeholder="例如: 显示该用户的存款余额、近期的转账记录以及理财收益。"
+                            placeholder="例如: 顯示該用戶的存款餘額、近期的轉帳記錄以及理財收益。"
                             className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none"
                         />
-                        <p className="text-[9px] text-slate-400 mt-1">AI 将根据此指令生成该 App 内部的数据。</p>
+                        <p className="text-[9px] text-slate-400 mt-1">AI 將根據此指令生成該 App 內部的數據。</p>
                     </div>
 
-                    {/* HTML 卡片：关闭=原版纯文字（现状）；开启后用下面的指令额外生成卡片视觉，
-                        发进聊天上下文的内容永远只有 title/detail/value 纯文字，不受这个开关影响 */}
+                    {/* HTML 卡片：關閉=原版純文字（現狀）；開啟後用下面的指令額外生成卡片視覺，
+                        發進聊天上下文的內容永遠只有 title/detail/value 純文字，不受這個開關影響 */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="text-[12px] font-bold text-slate-700">HTML 卡片</div>
-                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">关闭时就是原版纯文字；打开后才使用下面的 HTML 卡片指令。</p>
+                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">關閉時就是原版純文字；打開後才使用下面的 HTML 卡片指令。</p>
                             </div>
                             <button type="button" onClick={() => setNewAppHtmlEnabled(v => !v)}
                                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${newAppHtmlEnabled ? 'bg-violet-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                                {newAppHtmlEnabled ? '开' : '关'}
+                                {newAppHtmlEnabled ? '開' : '關'}
                             </button>
                         </div>
                         {newAppHtmlEnabled && (
@@ -4360,24 +4361,24 @@ ${olderText}
                                 <textarea
                                     value={newAppHtmlPrompt}
                                     onChange={e => setNewAppHtmlPrompt(e.target.value)}
-                                    placeholder="可以写自然语言卡片指令，也可以粘贴固定 HTML 模板；模板可用 {{title}}、{{detail}}、{{value}} 或自定义占位符。"
+                                    placeholder="可以寫自然語言卡片指令，也可以粘貼固定 HTML 模板；模板可用 {{title}}、{{detail}}、{{value}} 或自定義佔位符。"
                                     className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs resize-none mt-3"
                                 />
-                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">打开但不填写时不会生成卡片，会自动回到原版纯文字。固定 HTML 模板会比普通描述更稳定。</p>
+                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">打開但不填寫時不會生成卡片，會自動回到原版純文字。固定 HTML 模板會比普通描述更穩定。</p>
                             </>
                         )}
                     </div>
 
-                    {/* CSS 样式：只在渲染卡片的沙盒 iframe 内生效，出不了这个卡片区域 */}
+                    {/* CSS 樣式：只在渲染卡片的沙盒 iframe 內生效，出不了這個卡片區域 */}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <div className="text-[12px] font-bold text-slate-700">CSS 样式</div>
-                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">高级样式。开启并填写 CSS 后优先使用；CSS 为空时继续按 HTML 卡片指令处理。</p>
+                                <div className="text-[12px] font-bold text-slate-700">CSS 樣式</div>
+                                <p className="text-[9px] text-slate-400 mt-0.5 leading-relaxed">高級樣式。開啟並填寫 CSS 後優先使用；CSS 為空時繼續按 HTML 卡片指令處理。</p>
                             </div>
                             <button type="button" onClick={() => setNewAppCssEnabled(v => !v)}
                                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${newAppCssEnabled ? 'bg-fuchsia-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                                {newAppCssEnabled ? '开' : '关'}
+                                {newAppCssEnabled ? '開' : '關'}
                             </button>
                         </div>
                         {newAppCssEnabled && (
@@ -4388,13 +4389,13 @@ ${olderText}
                                     placeholder={'例如：\n.phone-card { padding: 16px; border-radius: 20px; background: rgba(15,23,42,.88); color: white; }\n.phone-card-title { font-size: 18px; font-weight: 800; }'}
                                     className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono resize-none mt-3"
                                 />
-                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">建议用 .phone-card、.phone-card-title、.phone-card-section 等类名；系统会把 CSS 限制在这个 App 卡片区域里。</p>
+                                <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">建議用 .phone-card、.phone-card-title、.phone-card-section 等類名；系統會把 CSS 限制在這個 App 卡片區域裡。</p>
                             </>
                         )}
                     </div>
 
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">界面样板 (UI Style)</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">界面樣板 (UI Style)</label>
                         <div className="grid grid-cols-2 gap-2">
                             {APP_LAYOUTS.map(l => {
                                 const active = newAppLayout === l.id;
@@ -4415,16 +4416,16 @@ ${olderText}
                 </div>
             </Modal>
 
-            {/* 新建联系人 / 智能体 Modal */}
-            <Modal isOpen={showContactModal} title="添加联系人" onClose={closeAddContactModal}
+            {/* 新建聯繫人 / 智能體 Modal */}
+            <Modal isOpen={showContactModal} title="添加聯繫人" onClose={closeAddContactModal}
                 footer={<button onClick={handleCreateContact} disabled={ncGenerating} className="w-full py-3 bg-pink-500 text-white font-bold rounded-2xl disabled:opacity-60">{ncGenerating ? '生成中…' : '添加'}</button>}>
                 <div className="space-y-4">
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">类型</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">類型</label>
                         <div className="grid grid-cols-2 gap-2">
                             {([
-                                { id: 'npc', name: 'NPC', desc: '虚构路人' },
-                                { id: 'real', name: '真人', desc: '绑定神经链接角色' },
+                                { id: 'npc', name: 'NPC', desc: '虛構路人' },
+                                { id: 'real', name: '真人', desc: '綁定神經鏈接角色' },
                             ] as const).map(opt => {
                                 const active = ncKind === opt.id;
                                 return (
@@ -4439,19 +4440,19 @@ ${olderText}
                     </div>
                     {ncKind === 'real' ? (
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定真实角色</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">綁定真實角色</label>
                             <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                <option value="">— 选择一个角色 —</option>
+                                <option value="">— 選擇一個角色 —</option>
                                 {characters.filter(c => c.id !== targetChar?.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
-                            <p className="text-[9px] text-slate-400 mt-1">真人之间可发起双向对话，对话会同步进对方的手机。</p>
+                            <p className="text-[9px] text-slate-400 mt-1">真人之間可發起雙向對話，對話會同步進對方的手機。</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-2">
                                 {([
-                                    { id: 'existing', name: '绑定既有 NPC', desc: '从「神经链接」里选一个' },
-                                    { id: 'random', name: '随机产生', desc: '机主脑补，AI 现编一个' },
+                                    { id: 'existing', name: '綁定既有 NPC', desc: '從「神經鏈接」裡選一個' },
+                                    { id: 'random', name: '隨機產生', desc: '機主腦補，AI 現編一個' },
                                 ] as const).map(opt => {
                                     const active = ncNpcMode === opt.id;
                                     const disabled = opt.id === 'existing' && npcs.length === 0;
@@ -4467,25 +4468,25 @@ ${olderText}
                             {ncNpcMode === 'existing' ? (
                                 npcs.length > 0 ? (
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">绑定 NPC</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">綁定 NPC</label>
                                         <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                            <option value="">— 选择一个 NPC —</option>
+                                            <option value="">— 選擇一個 NPC —</option>
                                             {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
                                         </select>
-                                        <p className="text-[9px] text-slate-400 mt-1">对话仍是机主单方面脑补，但会参考这个 NPC 在「神经链接」里设定的人设和关系。</p>
+                                        <p className="text-[9px] text-slate-400 mt-1">對話仍是機主單方面腦補，但會參考這個 NPC 在「神經鏈接」裡設定的人設和關係。</p>
                                     </div>
                                 ) : (
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        还没有 NPC——请先去「神经链接」→「NPC」分页建一个，再回来绑定。
+                                        還沒有 NPC——請先去「神經鏈接」→「NPC」分頁建一個，再回來綁定。
                                     </p>
                                 )
                             ) : (
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">简短提示方向（可选）</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">簡短提示方向（可選）</label>
                                     <input value={ncRandomHint} onChange={e => setNcRandomHint(e.target.value)}
-                                        placeholder="不填就完全随机，比如：常来蹭饭的邻居阿姨"
+                                        placeholder="不填就完全隨機，比如：常來蹭飯的鄰居阿姨"
                                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
-                                    <p className="text-[9px] text-slate-400 mt-1">不绑定任何既有 NPC 档案，AI 会现编一个名字和身份，写进备注当固定设定。</p>
+                                    <p className="text-[9px] text-slate-400 mt-1">不綁定任何既有 NPC 檔案，AI 會現編一個名字和身份，寫進備註當固定設定。</p>
                                 </div>
                             )}
                         </div>
@@ -4493,30 +4494,30 @@ ${olderText}
                 </div>
             </Modal>
 
-            {/* 改绑定 Modal：把联系人改绑到正确的真实角色 / 转为虚构（保留对话+备注+了解+好感） */}
-            <Modal isOpen={showRebindModal} title="改绑定" onClose={() => setShowRebindModal(false)}>
+            {/* 改綁定 Modal：把聯繫人改綁到正確的真實角色 / 轉為虛構（保留對話+備註+瞭解+好感） */}
+            <Modal isOpen={showRebindModal} title="改綁定" onClose={() => setShowRebindModal(false)}>
                 {selectedContact && (
                     <div className="space-y-3">
                         <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                            甄别/绑定错了在这改。会保留这段对话、备注、了解和好感；改成真人会把对话同步进对方手机，原来错绑的角色那边会清掉。
+                            甄別/綁定錯了在這改。會保留這段對話、備註、瞭解和好感；改成真人會把對話同步進對方手機，原來錯綁的角色那邊會清掉。
                         </p>
-                        {/* 转为纯虚构（不绑定任何既有 NPC） */}
+                        {/* 轉為純虛構（不綁定任何既有 NPC） */}
                         <button
                             onClick={() => handleRebindContact(selectedContact, { kind: 'npc' })}
                             disabled={selectedContact.kind === 'npc' && !selectedContact.linkedNpcId}
                             className={`w-full flex items-center gap-2.5 rounded-xl p-3 border text-left transition ${selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? 'border-slate-200 bg-slate-100 opacity-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                             <span className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0"><User size={16} weight="bold" /></span>
                             <div className="min-w-0">
-                                <div className="text-[13px] font-bold text-slate-700">转为纯虚构联系人</div>
-                                <div className="text-[10px] text-slate-400">不绑定真实角色 / NPC，机主脑补{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（当前就是）' : ''}</div>
+                                <div className="text-[13px] font-bold text-slate-700">轉為純虛構聯繫人</div>
+                                <div className="text-[10px] text-slate-400">不綁定真實角色 / NPC，機主腦補{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（當前就是）' : ''}</div>
                             </div>
                         </button>
-                        {/* 绑定到真实角色 */}
+                        {/* 綁定到真實角色 */}
                         <div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">绑定到真实角色</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">綁定到真實角色</div>
                             <div className="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar">
                                 {characters.filter(c => c.id !== targetChar?.id).length === 0 && (
-                                    <p className="text-[11px] text-slate-400 px-1 py-2">神经链接里没有其它角色可绑。</p>
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">神經鏈接裡沒有其它角色可綁。</p>
                                 )}
                                 {characters.filter(c => c.id !== targetChar?.id).map(rc => {
                                     const current = selectedContact.kind === 'real' && selectedContact.linkedCharId === rc.id;
@@ -4527,18 +4528,18 @@ ${olderText}
                                             className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                                             <TokenImg value={rc.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                                             <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{rc.name}</span>
-                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
+                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">當前綁定</span>}
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
-                        {/* 绑定到既有 NPC */}
+                        {/* 綁定到既有 NPC */}
                         <div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">绑定到 NPC</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">綁定到 NPC</div>
                             <div className="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar">
                                 {npcs.length === 0 && (
-                                    <p className="text-[11px] text-slate-400 px-1 py-2">还没有 NPC，请先去「神经链接」→「NPC」分页建一个。</p>
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">還沒有 NPC，請先去「神經鏈接」→「NPC」分頁建一個。</p>
                                 )}
                                 {npcs.map(n => {
                                     const current = selectedContact.kind === 'npc' && selectedContact.linkedNpcId === n.id;
@@ -4549,7 +4550,7 @@ ${olderText}
                                             className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                                             <TokenImg value={n.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                                             <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
-                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">当前绑定</span>}
+                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">當前綁定</span>}
                                         </button>
                                     );
                                 })}
@@ -4559,16 +4560,16 @@ ${olderText}
                 )}
             </Modal>
 
-            {/* 话题盒记忆 · 编辑/删除（长按某条记忆打开） */}
-            <Modal isOpen={!!topicEdit} title="聊天记忆" onClose={() => setTopicEdit(null)}
+            {/* 話題盒記憶 · 編輯/刪除（長按某條記憶打開） */}
+            <Modal isOpen={!!topicEdit} title="聊天記憶" onClose={() => setTopicEdit(null)}
                 footer={topicEdit ? (
                     <div className="flex gap-2">
                         <button onClick={() => {
                             const { contactId, topicId } = topicEdit;
                             mutateContacts(cs => cs.map(c => c.id === contactId ? { ...c, topicBox: (c.topicBox || []).filter(t => t.id !== topicId) } : c));
                             setTopicEdit(null);
-                            addToast('已删除该条记忆', 'success');
-                        }} className="px-4 py-3 bg-rose-500 text-white font-bold rounded-2xl">删除</button>
+                            addToast('已刪除該條記憶', 'success');
+                        }} className="px-4 py-3 bg-rose-500 text-white font-bold rounded-2xl">刪除</button>
                         <button onClick={() => {
                             const { contactId, topicId, text } = topicEdit;
                             mutateContacts(cs => cs.map(c => c.id === contactId ? { ...c, topicBox: (c.topicBox || []).map(t => t.id === topicId ? { ...t, text: text.trim() } : t) } : c));
@@ -4579,14 +4580,14 @@ ${olderText}
                 ) : undefined}>
                 {topicEdit && (
                     <div className="space-y-2">
-                        <p className="text-[11px] text-slate-400">这是角色第一人称、带主观色彩的一段聊天记忆（用作上下文）。可改写或删除。</p>
+                        <p className="text-[11px] text-slate-400">這是角色第一人稱、帶主觀色彩的一段聊天記憶（用作上下文）。可改寫或刪除。</p>
                         <textarea value={topicEdit.text} onChange={e => setTopicEdit({ ...topicEdit, text: e.target.value })}
                             className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] resize-none" />
                     </div>
                 )}
             </Modal>
 
-            {/* 通用二次确认弹窗：删除 / 移除 / 拉黑 / 清空都走这里 */}
+            {/* 通用二次確認彈窗：刪除 / 移除 / 拉黑 / 清空都走這裡 */}
             <Modal
                 isOpen={!!confirmState}
                 title={confirmState?.title || ''}
@@ -4597,11 +4598,11 @@ ${olderText}
                             className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">取消</button>
                         <button onClick={() => { const cb = confirmState?.onConfirm; setConfirmState(null); cb?.(); }}
                             className={`flex-1 py-3 font-bold rounded-2xl text-white active:scale-95 transition-transform ${confirmState?.danger ? 'bg-rose-500' : 'bg-pink-500'}`}>
-                            {confirmState?.confirmLabel || '确定'}
+                            {confirmState?.confirmLabel || '確定'}
                         </button>
                     </div>
                 }>
-                <p className="text-[13px] text-slate-500 leading-relaxed text-center">{confirmState?.desc || '此操作无法撤销。'}</p>
+                <p className="text-[13px] text-slate-500 leading-relaxed text-center">{confirmState?.desc || '此操作無法撤銷。'}</p>
             </Modal>
         </div>
     );

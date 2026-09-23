@@ -8,7 +8,7 @@ import {
 } from './avatarPerformance';
 
 describe('extractAvatarPerformance', () => {
-  it('解析基础字段并从台词里剥掉指令行', () => {
+  it('解析基礎字段並從台詞裡剝掉指令行', () => {
     const { text, direction } = extractAvatarPerformance(
       '[[AVATAR: emotion=happy; gesture=nod; camera=push-in; gaze=viewer; intensity=0.8]]\n好耶！',
     );
@@ -16,16 +16,16 @@ describe('extractAvatarPerformance', () => {
     expect(direction).toMatchObject({ emotion: 'happy', gesture: 'nod', camera: 'push-in', intensity: 0.8 });
   });
 
-  it('face 多值组合：生气 + 咧嘴 + wink', () => {
+  it('face 多值組合：生氣 + 咧嘴 + wink', () => {
     const { direction } = extractAvatarPerformance(
-      '[[AVATAR: emotion=angry; face=grin,wink; gesture=shake; intensity=0.95]]\n你说什么？！',
+      '[[AVATAR: emotion=angry; face=grin,wink; gesture=shake; intensity=0.95]]\n你說什麼？！',
     );
     expect(direction?.emotion).toBe('angry');
     expect(direction?.faces).toEqual(expect.arrayContaining(['grin', 'wink']));
     expect(direction?.faces).toHaveLength(2);
   });
 
-  it('face 别名归一化 + 去重 + 丢弃非法值', () => {
+  it('face 別名歸一化 + 去重 + 丟棄非法值', () => {
     const { direction } = extractAvatarPerformance(
       '[[AVATAR: face=smirk,winking,wink,invalid-face,blush]]\n嘿嘿。',
     );
@@ -33,62 +33,62 @@ describe('extractAvatarPerformance', () => {
     expect(direction?.faces).toHaveLength(3);
   });
 
-  it('lean-in / lean-back 手势（含下划线与别名写法）', () => {
+  it('lean-in / lean-back 手勢（含下劃線與別名寫法）', () => {
     expect(extractAvatarPerformance('[[AVATAR: gesture=lean_in]]x').direction?.gesture).toBe('lean-in');
     expect(extractAvatarPerformance('[[AVATAR: gesture=leanback]]x').direction?.gesture).toBe('lean-back');
     expect(extractAvatarPerformance('[[AVATAR: gesture=closer]]x').direction?.gesture).toBe('lean-in');
   });
 
-  it('没有指令时 direction 为空、文本原样保留', () => {
-    const { text, direction } = extractAvatarPerformance('就是普通一句话');
-    expect(text).toBe('就是普通一句话');
+  it('沒有指令時 direction 為空、文本原樣保留', () => {
+    const { text, direction } = extractAvatarPerformance('就是普通一句話');
+    expect(text).toBe('就是普通一句話');
     expect(direction).toBeUndefined();
   });
 });
 
 describe('extractAvatarPerformanceTimeline', () => {
-  it('多条指令按位置生成时间轴，后一条继承前一条', () => {
-    const raw = '[[AVATAR: emotion=calm; gesture=talk]]\n唔……我本来是想拒绝的。\n[[AVATAR: emotion=happy; face=grin; intensity=0.9]]\n但看在奶茶的份上——成交！';
+  it('多條指令按位置生成時間軸，後一條繼承前一條', () => {
+    const raw = '[[AVATAR: emotion=calm; gesture=talk]]\n唔……我本來是想拒絕的。\n[[AVATAR: emotion=happy; face=grin; intensity=0.9]]\n但看在奶茶的份上——成交！';
     const { text, cues } = extractAvatarPerformanceTimeline(raw);
-    expect(text).toBe('唔……我本来是想拒绝的。\n但看在奶茶的份上——成交！');
+    expect(text).toBe('唔……我本來是想拒絕的。\n但看在奶茶的份上——成交！');
     expect(cues).toHaveLength(2);
     expect(cues[0].at).toBe(0);
     expect(cues[0].direction.emotion).toBe('calm');
     expect(cues[1].at).toBeGreaterThan(0.3);
     expect(cues[1].at).toBeLessThan(0.8);
     expect(cues[1].direction.emotion).toBe('happy');
-    // gesture 从上一条继承
+    // gesture 從上一條繼承
     expect(cues[1].direction.gesture).toBe('talk');
     expect(cues[1].direction.faces).toEqual(['grin']);
   });
 
-  it('faces 不跨指令继承：下一条没写 face 就清掉', () => {
-    const raw = '[[AVATAR: emotion=happy; face=wink]]\n嘿嘿。\n[[AVATAR: emotion=sad]]\n……不过算了。';
+  it('faces 不跨指令繼承：下一條沒寫 face 就清掉', () => {
+    const raw = '[[AVATAR: emotion=happy; face=wink]]\n嘿嘿。\n[[AVATAR: emotion=sad]]\n……不過算了。';
     const { cues } = extractAvatarPerformanceTimeline(raw);
     expect(cues[0].direction.faces).toEqual(['wink']);
     expect(cues[1].direction.faces).toBeUndefined();
   });
 
-  it('没有指令时 cues 为空、正文原样', () => {
-    const { text, cues } = extractAvatarPerformanceTimeline('平平无奇的一句话');
-    expect(text).toBe('平平无奇的一句话');
+  it('沒有指令時 cues 為空、正文原樣', () => {
+    const { text, cues } = extractAvatarPerformanceTimeline('平平無奇的一句話');
+    expect(text).toBe('平平無奇的一句話');
     expect(cues).toHaveLength(0);
   });
 });
 
 describe('buildAvatarPerformancePrompt', () => {
-  it('包含可组合字段说明与允许的模型动作列表', () => {
-    const prompt = buildAvatarPerformancePrompt([{ id: 'custom-params-abc', name: '坏笑wink' }]);
+  it('包含可組合字段說明與允許的模型動作列表', () => {
+    const prompt = buildAvatarPerformancePrompt([{ id: 'custom-params-abc', name: '壞笑wink' }]);
     expect(prompt).toContain('face:');
     expect(prompt).toContain('lean-in');
     expect(prompt).toContain('custom-params-abc');
-    expect(prompt).toContain('坏笑wink');
+    expect(prompt).toContain('壞笑wink');
   });
 });
 
 describe('inferAvatarPerformanceTimelineFromText', () => {
   it('turns a semantic reversal into multiple local performance beats', () => {
-    const cues = inferAvatarPerformanceTimelineFromText('嗯，我本来想拒绝。不过你真的太可爱了，我很喜欢！');
+    const cues = inferAvatarPerformanceTimelineFromText('嗯，我本來想拒絕。不過你真的太可愛了，我很喜歡！');
 
     expect(cues.length).toBeGreaterThanOrEqual(2);
     expect(cues.length).toBeLessThanOrEqual(3);
@@ -98,14 +98,14 @@ describe('inferAvatarPerformanceTimelineFromText', () => {
   });
 
   it('keeps a neutral line restrained instead of manufacturing busy motion', () => {
-    const cues = inferAvatarPerformanceTimelineFromText('我知道了，晚点再说。');
+    const cues = inferAvatarPerformanceTimelineFromText('我知道了，晚點再說。');
 
     expect(cues).toHaveLength(1);
     expect(cues[0]).toMatchObject({ at: 0, direction: { gesture: 'talk', camera: 'medium' } });
   });
 
   it('caps long locally inferred timelines at three chronological beats', () => {
-    const cues = inferAvatarPerformanceTimelineFromText('你好！真的吗？不过我有点难过。可是现在又很开心，我喜欢你！');
+    const cues = inferAvatarPerformanceTimelineFromText('你好！真的嗎？不過我有點難過。可是現在又很開心，我喜歡你！');
 
     expect(cues).toHaveLength(3);
     expect(cues.map(cue => cue.at)).toEqual([...cues.map(cue => cue.at)].sort((a, b) => a - b));

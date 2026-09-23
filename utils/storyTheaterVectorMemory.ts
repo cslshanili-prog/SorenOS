@@ -5,9 +5,9 @@ import { deleteVector as deleteRemoteVector } from './memoryPalace/supabaseVecto
 import { storyTheaterThreadId } from './storyTheater';
 
 function assertStoryPartition(entryId: string, node: MemoryNode | undefined): MemoryNode {
-    if (!node) throw new Error('这条剧情记忆已经不存在了');
+    if (!node) throw new Error('這條劇情記憶已經不存在了');
     if (node.charId !== storyTheaterThreadId(entryId)) {
-        throw new Error('已阻止跨剧情分区操作');
+        throw new Error('已阻止跨劇情分區操作');
     }
     return node;
 }

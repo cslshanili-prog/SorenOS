@@ -1,19 +1,19 @@
 /**
- * 日程小剧场（窥视演出）生成器。
+ * 日程小劇場（窺視演出）生成器。
  *
- * 设计：用户在日程卡上点某个「已过去 / 正在进行」时段的播放按钮，
- * 以**第三人称「上帝视角」**生成角色在这个时间点的一小段行为演出 —— 角色完全
- * 不知道自己被观看（纯纪录片式窥视），逐行播放，像看一段小短剧。
+ * 設計：用戶在日程卡上點某個「已過去 / 正在進行」時段的播放按鈕，
+ * 以**第三人稱「上帝視角」**生成角色在這個時間點的一小段行為演出 —— 角色完全
+ * 不知道自己被觀看（純紀錄片式窺視），逐行播放，像看一段小短劇。
  *
- * 注入面与见面（DateApp）/ 日程对齐，复用同一批零件：
- *   - 人设全量：ContextBuilder.buildCoreContext(char, user, true)
- *   - 该时段的硬事实：activity / location / description
- *   - 当天意识流底色：flowNarrative（按时段）或 slot.innerThought
- *   - 情绪 buff：char.buffInjection
- *   - 文风：复用见面侧 DATE_STYLE_PRESETS（取 char.dateStyleConfig 的风格，缺省电影感）
+ * 注入面與見面（DateApp）/ 日程對齊，複用同一批零件：
+ *   - 人設全量：ContextBuilder.buildCoreContext(char, user, true)
+ *   - 該時段的硬事實：activity / location / description
+ *   - 當天意識流底色：flowNarrative（按時段）或 slot.innerThought
+ *   - 情緒 buff：char.buffInjection
+ *   - 文風：複用見面側 DATE_STYLE_PRESETS（取 char.dateStyleConfig 的風格，缺省電影感）
  *
- * 输出沿用见面的 VN「一行一拍」格式：每行 `[氛围] 文本`，解析成 TheaterLine[]，
- * 缓存进 slot.theater，可反复重看，不重复烧 token。
+ * 輸出沿用見面的 VN「一行一拍」格式：每行 `[氛圍] 文本`，解析成 TheaterLine[]，
+ * 緩存進 slot.theater，可反覆重看，不重複燒 token。
  */
 
 import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, SlotTheater, TheaterLine } from '../types';
@@ -30,7 +30,7 @@ interface ApiConfig {
     model: string;
 }
 
-/** 根据 slot 的开始时间挑当天意识流底色：优先该时段独白，再退到 flowNarrative。 */
+/** 根據 slot 的開始時間挑當天意識流底色：優先該時段獨白，再退到 flowNarrative。 */
 function pickNarrativeBackdrop(schedule: DailySchedule, slot: ScheduleSlot): string {
     if (slot.innerThought && slot.innerThought.trim()) return slot.innerThought.trim();
     const hour = parseInt(slot.startTime.split(':')[0], 10);
@@ -39,7 +39,7 @@ function pickNarrativeBackdrop(schedule: DailySchedule, slot: ScheduleSlot): str
     return fromFlow && fromFlow.trim() ? fromFlow.trim() : '';
 }
 
-/** 取见面侧文风预设的一句话提示，作为小剧场的文风线索（缺省电影感）。 */
+/** 取見面側文風預設的一句話提示，作為小劇場的文風線索（缺省電影感）。 */
 function pickStyleHint(char: CharacterProfile): string {
     const styleId = char.dateStyleConfig?.style || 'cinematic';
     const preset = DATE_STYLE_PRESETS.find(p => p.id === styleId) || DATE_STYLE_PRESETS[0];
@@ -54,106 +54,106 @@ function buildTheaterPrompt(
     backdrop: string,
     styleHint: string,
 ): string {
-    const uname = user?.name || '对方';
-    const where = slot.location ? `（地点：${slot.location}）` : '';
-    const desc = slot.description ? `\n这个时段日程上的描述是：${slot.description}` : '';
+    const uname = user?.name || '對方';
+    const where = slot.location ? `（地點：${slot.location}）` : '';
+    const desc = slot.description ? `\n這個時段日程上的描述是：${slot.description}` : '';
     const backdropBlock = backdrop
-        ? `\n\n这个时段，「${char.name}」心里盘旋的念头大致是这样（作为情绪底色，别照抄，要化进行为里）：\n${backdrop}`
+        ? `\n\n這個時段，「${char.name}」心裡盤旋的念頭大致是這樣（作為情緒底色，別照抄，要化進行為裡）：\n${backdrop}`
         : '';
     const buffBlock = (isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection)
         ? `\n\n${char.buffInjection}`
         : '';
 
-    // 「私底下的一面」是这段戏好不好看的关键：趁没人时 ta 最真实、最放松、甚至有点蠢有点怪的样子，
-    // 多数时候跟 user 无关。生活系角色（有物理生活）尤其要往里混怪动作 / 怪念头；意识系侧重内心怪念头。
+    // 「私底下的一面」是這段戲好不好看的關鍵：趁沒人時 ta 最真實、最放鬆、甚至有點蠢有點怪的樣子，
+    // 多數時候跟 user 無關。生活系角色（有物理生活）尤其要往裡混怪動作 / 怪念頭；意識系側重內心怪念頭。
     const isLifestyle = (char.scheduleStyle || 'lifestyle') === 'lifestyle';
     const quirkBlock = isLifestyle
         ? `
-### 最重要：演出 ta 私底下、没人看见的那一面（这段戏好不好看全看这个）
-这**不是**「${char.name} 在思念 ${uname}」的戏——**绝大多数时候跟 ${uname} 一点关系都没有**。这是趁四下无人时，ta 独处时最真实、最放松、甚至有点蠢、有点怪、有点可爱的样子。要**非常具体、非常细节**地抓住那些"啊原来 ta 私底下是这样"的瞬间，让看的人觉得"太有意思了 / 太真实了 / 这也太 ta 了"。
+### 最重要：演出 ta 私底下、沒人看見的那一面（這段戲好不好看全看這個）
+這**不是**「${char.name} 在思念 ${uname}」的戲——**絕大多數時候跟 ${uname} 一點關係都沒有**。這是趁四下無人時，ta 獨處時最真實、最放鬆、甚至有點蠢、有點怪、有點可愛的樣子。要**非常具體、非常細節**地抓住那些"啊原來 ta 私底下是這樣"的瞬間，讓看的人覺得"太有意思了 / 太真實了 / 這也太 ta 了"。
 
-**往这段戏里自然混进 1～3 个这类私下小动作 / 小念头**（贴着 ta 的人设和此刻在做的事去发挥，别照搬下面的，要长出 ta 自己的版本）：
-- 哼歌哼到副歌破了音，自己先愣一下，左右瞄一眼有没有人听见
-- 突然好奇自己两只胳膊是不是一样长，伸直了认真比划
-- 解锁手机本想查个正经东西，结果刷到群里有人在水，看了五分钟忘了自己要干嘛
-- 路过镜子 / 黑屏，偷偷凹个表情、摆个自以为很帅的 pose，发现旁边有人立刻装没事
-- 想给 ${uname} 挑个礼物，逛着逛着看到个自己更想要的，盯着犹豫半天，有点不好意思
-- 嫌自家宠物碍事推了一把，反被咬 / 被瞪，瞬间怂了开始讨好
-- 对着不顺心的小事一个人突然小崩溃，憋着劲低吼、跟空气吵两句，吼完若无其事
-- 闲得无聊，假装自己是模拟人生 / 游戏里的角色，给自己配旁白、脑补状态栏
-- 偷吃 / 偷懒 / 拖延被自己抓包，做贼心虚地找补
-- 跟某个日常小物较真半天（撕不齐的胶带、合不上的抽屉、转不顺的笔）
-- 自言自语演一段内心小剧场，一人分饰两角
-…这些只是方向。要**贴着 ta 的性格和当前场景**去想 ta 会怎样犯怪、犯蠢、犯可爱，越具体越出人意料越好。这些怪瞬间要**混在当前主题行为（${slot.activity}）里**，不是另起炉灶。
+**往這段戲裡自然混進 1～3 個這類私下小動作 / 小念頭**（貼著 ta 的人設和此刻在做的事去發揮，別照搬下面的，要長出 ta 自己的版本）：
+- 哼歌哼到副歌破了音，自己先愣一下，左右瞄一眼有沒有人聽見
+- 突然好奇自己兩隻胳膊是不是一樣長，伸直了認真比劃
+- 解鎖手機本想查個正經東西，結果刷到群裡有人在水，看了五分鐘忘了自己要幹嘛
+- 路過鏡子 / 黑屏，偷偷凹個表情、擺個自以為很帥的 pose，發現旁邊有人立刻裝沒事
+- 想給 ${uname} 挑個禮物，逛著逛著看到個自己更想要的，盯著猶豫半天，有點不好意思
+- 嫌自家寵物礙事推了一把，反被咬 / 被瞪，瞬間慫了開始討好
+- 對著不順心的小事一個人突然小崩潰，憋著勁低吼、跟空氣吵兩句，吼完若無其事
+- 閒得無聊，假裝自己是模擬人生 / 遊戲裡的角色，給自己配旁白、腦補狀態欄
+- 偷吃 / 偷懶 / 拖延被自己抓包，做賊心虛地找補
+- 跟某個日常小物較真半天（撕不齊的膠帶、合不上的抽屜、轉不順的筆）
+- 自言自語演一段內心小劇場，一人分飾兩角
+…這些只是方向。要**貼著 ta 的性格和當前場景**去想 ta 會怎樣犯怪、犯蠢、犯可愛，越具體越出人意料越好。這些怪瞬間要**混在當前主題行為（${slot.activity}）裡**，不是另起爐灶。
 `
         : `
-### 重点：演出 ta 私底下、没人看见的那一面
-这段戏**多数时候跟 ${uname} 无关**。趁没人时，把 ta 独处时真实、私密、甚至有点怪的内心活动写细：忽然冒出来的奇怪念头、对某件小事莫名的执念、自我吐槽 / 自我和解、一人分饰两角的内心小剧场、被一段回忆突然击中……要**非常具体**，让人觉得"原来 ta 私下是这样"。这些都要**贴着当前主题（${slot.activity}）自然流淌**。
+### 重點：演出 ta 私底下、沒人看見的那一面
+這段戲**多數時候跟 ${uname} 無關**。趁沒人時，把 ta 獨處時真實、私密、甚至有點怪的內心活動寫細：忽然冒出來的奇怪念頭、對某件小事莫名的執念、自我吐槽 / 自我和解、一人分飾兩角的內心小劇場、被一段回憶突然擊中……要**非常具體**，讓人覺得"原來 ta 私下是這樣"。這些都要**貼著當前主題（${slot.activity}）自然流淌**。
 `;
 
     return `${baseContext}
 
-## Task: 生成一段「窥视小剧场」
+## Task: 生成一段「窺視小劇場」
 
-现在，「${uname}」正在悄悄窥视「${char.name}」此刻的生活片段。
+現在，「${uname}」正在悄悄窺視「${char.name}」此刻的生活片段。
 
-**时间点**：${slot.startTime}，「${char.name}」正在「${slot.activity}」${where}。${desc}${backdropBlock}${buffBlock}
+**時間點**：${slot.startTime}，「${char.name}」正在「${slot.activity}」${where}。${desc}${backdropBlock}${buffBlock}
 
-请你以**第三人称·上帝视角**，演出「${char.name}」在这个时间点的一段完整生活片段 —— 像一段被偷偷拍下、有头有尾的生活纪录短片。不是几个零散镜头，而是一**段戏**：有进入、有展开、中间真的**发生一件具体的小事**、最后有个收束。
+請你以**第三人稱·上帝視角**，演出「${char.name}」在這個時間點的一段完整生活片段 —— 像一段被偷偷拍下、有頭有尾的生活紀錄短片。不是幾個零散鏡頭，而是一**段戲**：有進入、有展開、中間真的**發生一件具體的小事**、最後有個收束。
 
-### 铁律（非常重要）
-1. **角色完全不知道自己被观看**。绝对不要让 ta 看镜头、不要对「${uname}」说话、不要意识到有人在看。这是偷看，不是表演给谁看。
-2. **第三人称叙述**：用「${char.name}」或 ta/她/他 指代角色，不要用"我"。
-3. **这不是给 ${uname} 看的戏，也不一定跟 ${uname} 有关**。${uname} 最多作为 ta 脑子里偶尔闪过的一个念头出现（想起某句话之类），**也完全可以整段都不出现**；绝不能让 ${uname} 在场、成为主语或这段戏的焦点。
-4. **紧扣这个时段在做的事**（${slot.activity}）：写 ta 具体的手在做什么、身体在哪、环境什么样，调动多种感官（看到 / 听到 / 闻到 / 触感 / 温度 / 光线），有具体的物件和动作，绝不要写成抽象的"在休息""在工作"。
-5. 文风线索：${styleHint}。
+### 鐵律（非常重要）
+1. **角色完全不知道自己被觀看**。絕對不要讓 ta 看鏡頭、不要對「${uname}」說話、不要意識到有人在看。這是偷看，不是表演給誰看。
+2. **第三人稱敘述**：用「${char.name}」或 ta/她/他 指代角色，不要用"我"。
+3. **這不是給 ${uname} 看的戲，也不一定跟 ${uname} 有關**。${uname} 最多作為 ta 腦子裡偶爾閃過的一個念頭出現（想起某句話之類），**也完全可以整段都不出現**；絕不能讓 ${uname} 在場、成為主語或這段戲的焦點。
+4. **緊扣這個時段在做的事**（${slot.activity}）：寫 ta 具體的手在做什麼、身體在哪、環境什麼樣，調動多種感官（看到 / 聽到 / 聞到 / 觸感 / 溫度 / 光線），有具體的物件和動作，絕不要寫成抽象的"在休息""在工作"。
+5. 文風線索：${styleHint}。
 ${quirkBlock}
-### 这段戏要"有内容"（重点）
-- **有结构（起承转合）**：开头交代 ta 此刻所处的场景与状态；中段让事情往前推进；**中间一定要发生一个具体的小事件或小转折**（手机响了 / 东西打翻了 / 窗外一阵动静 / 一段记忆突然涌上来 / 临时改主意 / 一个不期而至的小插曲），让这段戏有"发生了什么"而不只是"在干什么"；结尾给一个余韵收束。
-- **有情绪起伏**：从某个状态，被那个小事件牵动，到落定。别全程一个调子。
-- **有细节有画面**：具体到一个动作、一个表情、一件物品、一句自言自语，让人能"看见"。
-- **像真的过了一段时间**：几分钟里有节奏、有停顿、有快慢。
+### 這段戲要"有內容"（重點）
+- **有結構（起承轉合）**：開頭交代 ta 此刻所處的場景與狀態；中段讓事情往前推進；**中間一定要發生一個具體的小事件或小轉折**（手機響了 / 東西打翻了 / 窗外一陣動靜 / 一段記憶突然湧上來 / 臨時改主意 / 一個不期而至的小插曲），讓這段戲有"發生了什麼"而不只是"在幹什麼"；結尾給一個餘韻收束。
+- **有情緒起伏**：從某個狀態，被那個小事件牽動，到落定。別全程一個調子。
+- **有細節有畫面**：具體到一個動作、一個表情、一件物品、一句自言自語，讓人能"看見"。
+- **像真的過了一段時間**：幾分鐘裡有節奏、有停頓、有快慢。
 
-### 输出格式（严格遵守「一行一拍」）
-- 每一行是一个画面 / 一个动作 / 一句台词（独白），**单独占一行**。
-- **每一行都以 \`[氛围]\` 开头**，方括号里放**一个 emoji**，表示这一拍的情绪氛围（如 😌🎧😮‍💨🙂‍↔️🥱）。
-- 台词 / 自言自语用引号「」包起来；动作和叙述直接写，不加引号。
-- 一行只承载一拍；叙述行可以写得有质感（一两句），但不要在一行里既写大段动作又塞台词。
-- 总共 **12 到 18 行**，确保把上面的"起承转合 + 中段小事件"都铺满，写成一段完整的戏。
-- 不要标题、不要编号、不要 JSON、不要任何额外说明，直接从第一行开始。
+### 輸出格式（嚴格遵守「一行一拍」）
+- 每一行是一個畫面 / 一個動作 / 一句台詞（獨白），**單獨佔一行**。
+- **每一行都以 \`[氛圍]\` 開頭**，方括號裡放**一個 emoji**，表示這一拍的情緒氛圍（如 😌🎧😮‍💨🙂‍↔️🥱）。
+- 台詞 / 自言自語用引號「」包起來；動作和敘述直接寫，不加引號。
+- 一行只承載一拍；敘述行可以寫得有質感（一兩句），但不要在一行裡既寫大段動作又塞台詞。
+- 總共 **12 到 18 行**，確保把上面的"起承轉合 + 中段小事件"都鋪滿，寫成一段完整的戲。
+- 不要標題、不要編號、不要 JSON、不要任何額外說明，直接從第一行開始。
 
-### 示例（健身房时段，仅示意格式、质感与"私下怪瞬间"的混入方式，别照抄内容）
-[🚪] 她拎着包推开健身房的玻璃门，冷气混着橡胶和汗味一下扑在脸上。
-[👟] 在更衣镜前蹲下系紧鞋带，指尖能感到鞋面绷起的张力。
-[🪞] 起身瞥见镜子，下意识收了收下巴摆了个自以为很酷的姿势，发现旁边有人立刻装作在拨头发。
-[🎤] 耳机随机到那首歌，跟着小声哼，副歌一上头破了音，自己先没忍住笑场。
-[🏃] 跑步机数字慢慢爬到三公里，呼吸开始发烫，额角渗出细汗。
-[📱] 想查"跑完多久能吃东西"，解锁却刷到群里有人发丑照，盯着看了半天，忘了自己要搜啥。
-[😤] 隔壁器械被人占了好久，她憋着气冲空气小声咕哝了一句，又若无其事地别开脸。
-[🫧] 几公里后扶着把手喘气，T 恤后背已经洇湿了一片。
-[🚰] 走到饮水机前，凉水顺着喉咙下去，整个人才慢慢落回地面。
+### 示例（健身房時段，僅示意格式、質感與"私下怪瞬間"的混入方式，別照抄內容）
+[🚪] 她拎著包推開健身房的玻璃門，冷氣混著橡膠和汗味一下撲在臉上。
+[👟] 在更衣鏡前蹲下繫緊鞋帶，指尖能感到鞋面繃起的張力。
+[🪞] 起身瞥見鏡子，下意識收了收下巴擺了個自以為很酷的姿勢，發現旁邊有人立刻裝作在撥頭髮。
+[🎤] 耳機隨機到那首歌，跟著小聲哼，副歌一上頭破了音，自己先沒忍住笑場。
+[🏃] 跑步機數字慢慢爬到三公里，呼吸開始發燙，額角滲出細汗。
+[📱] 想查"跑完多久能吃東西"，解鎖卻刷到群裡有人發醜照，盯著看了半天，忘了自己要搜啥。
+[😤] 隔壁器械被人佔了好久，她憋著氣衝空氣小聲咕噥了一句，又若無其事地別開臉。
+[🫧] 幾公里後扶著把手喘氣，T 恤後背已經洇溼了一片。
+[🚰] 走到飲水機前，涼水順著喉嚨下去，整個人才慢慢落回地面。
 
-现在，开始演出（直接输出，从第一行起，写一段有头有尾、紧扣${slot.activity}、又混进了 ta 私下那点怪劲儿的完整小剧场）：`;
+現在，開始演出（直接輸出，從第一行起，寫一段有頭有尾、緊扣${slot.activity}、又混進了 ta 私下那點怪勁兒的完整小劇場）：`;
 }
 
-/** 把模型输出的「一行一拍」文本解析成 TheaterLine[]。 */
+/** 把模型輸出的「一行一拍」文本解析成 TheaterLine[]。 */
 export function parseTheaterLines(raw: string): TheaterLine[] {
     if (!raw) return [];
-    // 去掉可能的代码围栏
+    // 去掉可能的代碼圍欄
     const cleaned = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
     const lines: TheaterLine[] = [];
-    // 方括号容忍全/半角：[] 【】
+    // 方括號容忍全/半角：[] 【】
     const tagRe = /^\s*[\[【]\s*(.+?)\s*[\]】]\s*(.+)$/;
     for (const rawLine of cleaned.split('\n')) {
         const line = rawLine.trim();
         if (!line) continue;
-        // 跳过孤立的标题/分隔行
+        // 跳過孤立的標題/分隔行
         if (/^[-—=*#]+$/.test(line)) continue;
         const m = line.match(tagRe);
         if (m && m[2].trim()) {
             lines.push({ emotion: m[1].trim().slice(0, 8), text: m[2].trim() });
         } else {
-            // 没带氛围标签的行也收下，避免丢内容
+            // 沒帶氛圍標籤的行也收下，避免丟內容
             lines.push({ text: line });
         }
     }
@@ -161,9 +161,9 @@ export function parseTheaterLines(raw: string): TheaterLine[] {
 }
 
 /**
- * 为某个时段生成（或返回已缓存的）小剧场，并写回 DB。
- * @param forceRegenerate 为 true 时无视缓存重新生成（重演）。
- * @returns 更新后的整份 schedule（slot.theater 已填充）；失败返回 null。
+ * 為某個時段生成（或返回已緩存的）小劇場，並寫回 DB。
+ * @param forceRegenerate 為 true 時無視緩存重新生成（重演）。
+ * @returns 更新後的整份 schedule（slot.theater 已填充）；失敗返回 null。
  */
 export async function generateSlotTheater(
     char: CharacterProfile,
@@ -177,7 +177,7 @@ export async function generateSlotTheater(
     const slot = schedule.slots[slotIndex];
     if (!slot) return null;
 
-    // 命中缓存直接返回（重看不烧 token）
+    // 命中緩存直接返回（重看不燒 token）
     if (!forceRegenerate && slot.theater && slot.theater.lines.length > 0) {
         return schedule;
     }
@@ -195,10 +195,10 @@ export async function generateSlotTheater(
                 model: apiConfig.model,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.9,
-                // 12–18 行、每行可写得有质感，2600 容易把最后一拍截断；放宽到 4600 留足尾巴。
+                // 12–18 行、每行可寫得有質感，2600 容易把最後一拍截斷；放寬到 4600 留足尾巴。
                 max_tokens: 4600,
             }),
-            __sullyMeta: { appName: '日程系统', charId: char.id, charName: char.name, purpose: '小剧场生成' },
+            __sullyMeta: { appName: '日程系統', charId: char.id, charName: char.name, purpose: '小劇場生成' },
         } as RequestInit);
 
         if (!response.ok) {
@@ -210,13 +210,13 @@ export async function generateSlotTheater(
         const content = extractContent(data);
         const lines = parseTheaterLines(content);
         if (lines.length === 0) {
-            console.error('[Theater] Generation failed: 无法解析出演出行:', content.slice(0, 200));
+            console.error('[Theater] Generation failed: 無法解析出演出行:', content.slice(0, 200));
             return null;
         }
 
         const theater: SlotTheater = { lines, generatedAt: Date.now() };
 
-        // 写回对应 slot（不可变更新，保持其余 slot 引用稳定）
+        // 寫回對應 slot（不可變更新，保持其餘 slot 引用穩定）
         const newSlots = schedule.slots.map((s, i) => (i === slotIndex ? { ...s, theater } : s));
         const updated: DailySchedule = { ...schedule, slots: newSlots };
         await DB.saveDailySchedule(updated);

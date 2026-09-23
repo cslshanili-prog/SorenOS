@@ -32,7 +32,7 @@ if(!params.has('resume')&&!params.has('replay')&&(params.has('node')||params.has
 }
 function Fixture(){
     const [closed,setClosed]=useState(false),close=()=>setClosed(true);
-    if(closed)return <div>已离开对话</div>;
+    if(closed)return <div>已離開對話</div>;
     return params.has('intro')?<SARCaianDialogue onClose={close} onComplete={close}/>:<OSProvider><SARFamiliarityDialog npc={npc} sceneId={params.has('replay')?scene?.id:undefined} onClose={close} onEditUserChibi={()=>{}}/></OSProvider>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);

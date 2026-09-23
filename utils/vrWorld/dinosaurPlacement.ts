@@ -28,7 +28,7 @@ function withoutMovingToy(s:FishingMarketState,id:string):FishingMarketState {
 export function beginGardenPlacement(s:FishingMarketState,kind:'dino'|'prop',id:string,propKind?:GardenPropKind):GardenPlacement {
   const g=s.dinosaurGarden!,map=activeGardenMap(g);
   const item=kind==='dino'?g.toys[id]:map.props.find(p=>p.id===id);
-  if(!item&&!propKind)throw new Error('它已经不在这里了，请重新选择。');
+  if(!item&&!propKind)throw new Error('它已經不在這裡了，請重新選擇。');
   const existing=kind==='dino'?g.toys[id]?.mapId===map.id?g.toys[id].pose:null:map.props.find(p=>p.id===id);
   const draft:GardenPlacement={kind,id:id||'placement-preview',propKind:kind==='prop'?(item as {kind?:GardenPropKind})?.kind||propKind:undefined,isNew:!item,mapId:map.id,revision:g.revision,ownerId:s.inventory.find(c=>c.id===id)?.ownerId,pose:existing?{x:existing.x,z:existing.z,rotation:existing.rotation,...('slotId' in existing?{slotId:existing.slotId}:{})}:{x:0,z:1.9,slotId:'E3',rotation:0}};
   if(!existing){
@@ -47,18 +47,18 @@ export function turnGardenPlacement(draft:GardenPlacement,direction:number):Gard
 export function placementError(s:FishingMarketState,d:GardenPlacement):string {
   try{
     const g=s.dinosaurGarden!,map=activeGardenMap(g);
-    if(g.activeMapId!==d.mapId||g.revision!==d.revision)throw new Error('庭院刚刚有了新变化，请取消后重新摆放。');
+    if(g.activeMapId!==d.mapId||g.revision!==d.revision)throw new Error('庭院剛剛有了新變化，請取消後重新擺放。');
     if(d.kind==='dino'){
       const t=g.toys[d.id],owner=s.inventory.find(c=>c.id===d.id)?.ownerId;
-      if(!t||owner!==d.ownerId||!gardenCatchAvailable(s,d.id,owner))throw new Error('这只恐龙的收藏状态变了，请重新选择。');
-      if((!t.pose||t.mapId!==map.id)&&gardenResidents(s).length>=6)throw new Error('这里已经住满六只了，先收起一只或换张地图。');
+      if(!t||owner!==d.ownerId||!gardenCatchAvailable(s,d.id,owner))throw new Error('這隻恐龍的收藏狀態變了，請重新選擇。');
+      if((!t.pose||t.mapId!==map.id)&&gardenResidents(s).length>=6)throw new Error('這裡已經住滿六隻了，先收起一隻或換張地圖。');
     }else{
-      if(!d.isNew&&!map.props.some(p=>p.id===d.id))throw new Error('这个摆件已经收起来了。');
-      if(d.isNew&&map.props.length>=12)throw new Error('这里已经放满十二件摆件了。');
+      if(!d.isNew&&!map.props.some(p=>p.id===d.id))throw new Error('這個擺件已經收起來了。');
+      if(d.isNew&&map.props.length>=12)throw new Error('這裡已經放滿十二件擺件了。');
     }
     if(d.companionProp){
       const p=d.companionProp;
-      if(d.kind!=='dino'||!map.props.some(old=>old.id===p.id&&old.kind===p.kind))throw new Error('一起调整的摆件已经变了，请重新选择。');
+      if(d.kind!=='dino'||!map.props.some(old=>old.id===p.id&&old.kind===p.kind))throw new Error('一起調整的擺件已經變了，請重新選擇。');
       assertGardenPose(withoutMovingToy(s,d.id),p,p.id,p.kind);
     }
     assertGardenPose(withCompanionProp(s,d),d.pose,d.id,d.kind==='prop'?d.propKind!:false);
@@ -81,14 +81,14 @@ export type GardenPlayPlan={draft:GardenPlacement;reason?:never}|{draft?:never;r
 /** The collection and scene picking share one planner, including orientation and clear failures. */
 export function planGardenPlay(s:FishingMarketState,id:string,propId:string):GardenPlayPlan {
   const g=s.dinosaurGarden,map=g&&activeGardenMap(g),toy=g?.toys[id],prop=map?.props.find(p=>p.id===propId);
-  if(!g||!map||!prop)return {reason:'这个摆件已经不在庭院里了。'};
-  if(!toy||!gardenCatchAvailable(s,id,s.inventory.find(c=>c.id===id)?.ownerId))return {reason:'暂不可摆放：它已送出、正在孵化或挂板。'};
-  if(toy.speciesId==='dinosaur-egg'||toy.speciesId==='dinosaur-fossil')return {reason:'这是静态藏品，可以摆放，但不会玩玩具。'};
-  if(!INTERACTIVE_PROPS.includes(prop.kind))return {reason:'这是装饰摆件，不会触发互动。'};
+  if(!g||!map||!prop)return {reason:'這個擺件已經不在庭院裡了。'};
+  if(!toy||!gardenCatchAvailable(s,id,s.inventory.find(c=>c.id===id)?.ownerId))return {reason:'暫不可擺放：它已送出、正在孵化或掛板。'};
+  if(toy.speciesId==='dinosaur-egg'||toy.speciesId==='dinosaur-fossil')return {reason:'這是靜態藏品，可以擺放，但不會玩玩具。'};
+  if(!INTERACTIVE_PROPS.includes(prop.kind))return {reason:'這是裝飾擺件，不會觸發互動。'};
   const residents=gardenResidents(s);
-  if((!toy.pose||toy.mapId!==map.id)&&residents.length>=6)return {reason:'这张庭院已住满六只，请选本庭院的恐龙。'};
+  if((!toy.pose||toy.mapId!==map.id)&&residents.length>=6)return {reason:'這張庭院已住滿六隻，請選本庭院的恐龍。'};
   const occupied=Object.entries(buildGardenActivities(map,residents)).find(([other,a])=>other!==id&&a.propId===propId);
-  if(occupied)return {reason:`${g.toys[occupied[0]].name}正在玩这个，先给它换个地方吧。`};
+  if(occupied)return {reason:`${g.toys[occupied[0]].name}正在玩這個，先給它換個地方吧。`};
   const draft=beginGardenPlacement(s,'dino',id);
   const candidates=DINO_GRID.flatMap(c=>Array.from({length:8},(_,i)=>({x:c.x,z:c.z,slotId:c.id,rotation:i*Math.PI/4})))
     .sort((a,b)=>Math.hypot(a.x-prop.x,a.z-prop.z)-Math.hypot(b.x-prop.x,b.z-prop.z));
@@ -103,5 +103,5 @@ export function planGardenPlay(s:FishingMarketState,id:string,propId:string):Gar
     const local=candidates.slice().sort((a,b)=>Math.hypot(a.x-cell.x,a.z-cell.z)-Math.hypot(b.x-cell.x,b.z-cell.z));
     for(const pose of local){const d={...draft,pose,companionProp};if(works(d))return {draft:d};}
   }
-  return {reason:'这件玩具和恐龙暂时放不下。先收起一件附近的摆件，再来试试。'};
+  return {reason:'這件玩具和恐龍暫時放不下。先收起一件附近的擺件，再來試試。'};
 }

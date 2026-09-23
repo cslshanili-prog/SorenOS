@@ -16,21 +16,21 @@ import { ChatParser } from './chatParser';
 
 const noopToast = () => {};
 
-describe('[[ACTION:TRANSFER_RETURN]] 退款回调', () => {
+describe('[[ACTION:TRANSFER_RETURN]] 退款回調', () => {
     beforeEach(() => {
         getMessagesByCharId.mockReset();
         updateMessageMetadata.mockClear();
         saveMessage.mockClear();
     });
 
-    it('角色退回用户待处理的转账：调用 onUserTransferReturned 退款正确金额', async () => {
+    it('角色退回用戶待處理的轉帳：調用 onUserTransferReturned 退款正確金額', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 500, status: 'pending' } },
         ]);
         const onUserTransferReturned = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '这次不能收，退给你。[[ACTION:TRANSFER_RETURN]]',
+            '這次不能收，退給你。[[ACTION:TRANSFER_RETURN]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             onUserTransferReturned,
@@ -40,14 +40,14 @@ describe('[[ACTION:TRANSFER_RETURN]] 退款回调', () => {
         expect(onUserTransferReturned).toHaveBeenCalledWith(500);
     });
 
-    it('角色收下（accepted）不触发退款回调', async () => {
+    it('角色收下（accepted）不觸發退款回調', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 500, status: 'pending' } },
         ]);
         const onUserTransferReturned = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '谢谢你！我收下啦。[[ACTION:TRANSFER_ACCEPT]]',
+            '謝謝你！我收下啦。[[ACTION:TRANSFER_ACCEPT]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             onUserTransferReturned,
@@ -56,12 +56,12 @@ describe('[[ACTION:TRANSFER_RETURN]] 退款回调', () => {
         expect(onUserTransferReturned).not.toHaveBeenCalled();
     });
 
-    it('没有待处理转账时不触发回调（静默忽略，不落假回执）', async () => {
+    it('沒有待處理轉帳時不觸發回調（靜默忽略，不落假回執）', async () => {
         getMessagesByCharId.mockResolvedValue([]);
         const onUserTransferReturned = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '退给你啦。[[ACTION:TRANSFER_RETURN]]',
+            '退給你啦。[[ACTION:TRANSFER_RETURN]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             onUserTransferReturned,
@@ -71,33 +71,33 @@ describe('[[ACTION:TRANSFER_RETURN]] 退款回调', () => {
         expect(saveMessage).not.toHaveBeenCalled();
     });
 
-    it('没传 onUserTransferReturned 时（旧调用方）不报错，只是不退款', async () => {
+    it('沒傳 onUserTransferReturned 時（舊調用方）不報錯，只是不退款', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 200, status: 'pending' } },
         ]);
 
         await expect(ChatParser.parseAndExecuteActions(
-            '退给你。[[ACTION:TRANSFER_RETURN]]',
+            '退給你。[[ACTION:TRANSFER_RETURN]]',
             'char-1', '小夏', noopToast,
         )).resolves.not.toThrow();
     });
 });
 
-describe('[[ACTION:TRANSFER_ACCEPT]] 入账回调', () => {
+describe('[[ACTION:TRANSFER_ACCEPT]] 入帳回調', () => {
     beforeEach(() => {
         getMessagesByCharId.mockReset();
         updateMessageMetadata.mockClear();
         saveMessage.mockClear();
     });
 
-    it('角色收下用户待处理的转账：调用 onUserTransferAccepted 入账正确金额', async () => {
+    it('角色收下用戶待處理的轉帳：調用 onUserTransferAccepted 入帳正確金額', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 500, status: 'pending' } },
         ]);
         const onUserTransferAccepted = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '谢谢你！我收下啦。[[ACTION:TRANSFER_ACCEPT]]',
+            '謝謝你！我收下啦。[[ACTION:TRANSFER_ACCEPT]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             undefined, onUserTransferAccepted,
@@ -107,14 +107,14 @@ describe('[[ACTION:TRANSFER_ACCEPT]] 入账回调', () => {
         expect(onUserTransferAccepted).toHaveBeenCalledWith(500);
     });
 
-    it('角色退回（returned）不触发入账回调', async () => {
+    it('角色退回（returned）不觸發入帳回調', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 500, status: 'pending' } },
         ]);
         const onUserTransferAccepted = vi.fn();
 
         await ChatParser.parseAndExecuteActions(
-            '这次不能收，退给你。[[ACTION:TRANSFER_RETURN]]',
+            '這次不能收，退給你。[[ACTION:TRANSFER_RETURN]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             undefined, onUserTransferAccepted,
@@ -123,7 +123,7 @@ describe('[[ACTION:TRANSFER_ACCEPT]] 入账回调', () => {
         expect(onUserTransferAccepted).not.toHaveBeenCalled();
     });
 
-    it('没传 onUserTransferAccepted 时（旧调用方）不报错，只是不入账', async () => {
+    it('沒傳 onUserTransferAccepted 時（舊調用方）不報錯，只是不入帳', async () => {
         getMessagesByCharId.mockResolvedValue([
             { id: 1, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 200, status: 'pending' } },
         ]);
@@ -135,18 +135,18 @@ describe('[[ACTION:TRANSFER_ACCEPT]] 入账回调', () => {
     });
 });
 
-describe('[[ACTION:TRANSFER:N]] 角色主动转账 · 发送前扣款检查', () => {
+describe('[[ACTION:TRANSFER:N]] 角色主動轉帳 · 發送前扣款檢查', () => {
     beforeEach(() => {
         getMessagesByCharId.mockReset();
         updateMessageMetadata.mockClear();
         saveMessage.mockClear();
     });
 
-    it('onCharTransferSend 返回 true：正常落待处理转账卡', async () => {
+    it('onCharTransferSend 返回 true：正常落待處理轉帳卡', async () => {
         const onCharTransferSend = vi.fn().mockResolvedValue(true);
 
         await ChatParser.parseAndExecuteActions(
-            '给你转一点。[[ACTION:TRANSFER:520]]',
+            '給你轉一點。[[ACTION:TRANSFER:520]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             undefined, undefined, onCharTransferSend,
@@ -160,11 +160,11 @@ describe('[[ACTION:TRANSFER:N]] 角色主动转账 · 发送前扣款检查', ()
         }));
     });
 
-    it('onCharTransferSend 返回 false（角色余额不足）：跳过这笔转账，不落卡', async () => {
+    it('onCharTransferSend 返回 false（角色餘額不足）：跳過這筆轉帳，不落卡', async () => {
         const onCharTransferSend = vi.fn().mockResolvedValue(false);
 
         await ChatParser.parseAndExecuteActions(
-            '给你转一点。[[ACTION:TRANSFER:99999]]',
+            '給你轉一點。[[ACTION:TRANSFER:99999]]',
             'char-1', '小夏', noopToast,
             undefined, undefined, undefined, undefined, undefined, undefined,
             undefined, undefined, onCharTransferSend,
@@ -175,9 +175,9 @@ describe('[[ACTION:TRANSFER:N]] 角色主动转账 · 发送前扣款检查', ()
         expect(saveMessage).not.toHaveBeenCalled();
     });
 
-    it('没传 onCharTransferSend 时（旧调用方）维持老行为，直接落卡', async () => {
+    it('沒傳 onCharTransferSend 時（舊調用方）維持老行為，直接落卡', async () => {
         await ChatParser.parseAndExecuteActions(
-            '给你转一点。[[ACTION:TRANSFER:520]]',
+            '給你轉一點。[[ACTION:TRANSFER:520]]',
             'char-1', '小夏', noopToast,
         );
 

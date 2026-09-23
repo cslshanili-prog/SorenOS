@@ -1,9 +1,9 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 /**
  * Like520Event.tsx
- * 520 特别活动 (2026.5.20) — "如果 char 变得小小的"
+ * 520 特別活動 (2026.5.20) — "如果 char 變得小小的"
  *
- * Phase 状态机：
+ * Phase 狀態機：
  *   intro → char_creator → loading_a → opening → tucao_select → tucao_reply
  *   → anchors → reveal_transition → user_creator → uncovered_line → ending_screen
  *   → loading_b → wake_up → letter → puzzle → done
@@ -55,16 +55,16 @@ export const isLike520EventAvailable = (): boolean => {
 };
 
 /**
- * 520 弹窗默认进入的角色：
- *   1) 优先选 Sully（如果还在）
- *   2) 否则选**和 user 聊得最频繁的角色**（消息数最多）
- *   3) 都没有时退回第一个角色（或空）
+ * 520 彈窗默認進入的角色：
+ *   1) 優先選 Sully（如果還在）
+ *   2) 否則選**和 user 聊得最頻繁的角色**（消息數最多）
+ *   3) 都沒有時退回第一個角色（或空）
  */
 export async function pickDefaultLike520Char(characters: CharacterProfile[]): Promise<string> {
     if (!characters || characters.length === 0) return '';
     const sully = characters.find(c => (c.name || '').toLowerCase().includes('sully'));
     if (sully) return sully.id;
-    // 没有 Sully —— 数每个角色的消息条数，挑最多的那个
+    // 沒有 Sully —— 數每個角色的消息條數，挑最多的那個
     try {
         const counts = await Promise.all(characters.map(async c => {
             try {
@@ -86,12 +86,12 @@ export const isLike520Past = (): boolean => {
 };
 
 // ============================================================
-// 类型
+// 類型
 // ============================================================
 
 type Phase =
     | 'intro' | 'char_creator' | 'loading_a'
-    | 'yangcheng'           // 持久化养成容器：opening → tucao → 锚点 → reveal_transition → 自我意识
+    | 'yangcheng'           // 持久化養成容器：opening → tucao → 錨點 → reveal_transition → 自我意識
     | 'user_creator' | 'uncovered_line' | 'ending_screen'
     | 'loading_b' | 'wake_up' | 'letter' | 'puzzle' | 'done' | 'error';
 
@@ -103,13 +103,13 @@ export interface ChibiResult {
 }
 
 const TUCAO_OPTIONS: { key: Like520TucaoKey; label: string }[] = [
-    { key: 'becamesmall', label: '你怎么变小了！' },
-    { key: 'cute', label: '你今天好可爱！' },
-    { key: 'yangcheng_meta', label: '这什么天杀的养成游戏' },
+    { key: 'becamesmall', label: '你怎麼變小了！' },
+    { key: 'cute', label: '你今天好可愛！' },
+    { key: 'yangcheng_meta', label: '這什麼天殺的養成遊戲' },
 ];
 
 // ============================================================
-// Sully 识别（专属预设）
+// Sully 識別（專屬預設）
 // ============================================================
 
 export const isSullyChar = (char: CharacterProfile): boolean => {
@@ -117,28 +117,28 @@ export const isSullyChar = (char: CharacterProfile): boolean => {
 };
 
 export const sullyPresets = (): Record<string, string> => ({
-    skin: 'skin_01',        // 新画风身体（内置素材包 parts/manifest.json；旧 skin_1 已被折叠）
+    skin: 'skin_01',        // 新畫風身體（內置素材包 parts/manifest.json；舊 skin_1 已被摺疊）
     fronthair: 'fronthair_99',
     back1: 'back1_99',
     eyes: 'eyes_99',
 });
 
 // ============================================================
-// iframe 捏脸 wrapper
+// iframe 捏臉 wrapper
 // ============================================================
 
 export interface CreatorIframeProps {
     mode: 'char' | 'user';
     charName?: string;
     presets?: Record<string, any>;
-    /** 捏人器导出的完整 state：整套还原选件+换色+翻转（草稿仍优先；比 presets 优先） */
+    /** 捏人器導出的完整 state：整套還原選件+換色+翻轉（草稿仍優先；比 presets 優先） */
     savedState?: any;
     isSully?: boolean;
-    /** 唯一草稿键（如彼方按 char.id），让草稿按角色隔离、与 520 互不串 */
+    /** 唯一草稿鍵（如彼方按 char.id），讓草稿按角色隔離、與 520 互不串 */
     draftKey?: string;
-    /** 覆盖标题（彼方用来去掉「变得小小的 520」文案） */
+    /** 覆蓋標題（彼方用來去掉「變得小小的 520」文案） */
     title?: string;
-    /** 覆盖英文副标题 */
+    /** 覆蓋英文副標題 */
     subtitle?: string;
     onConfirm: (result: ChibiResult) => void;
 }
@@ -147,25 +147,25 @@ const CHAR_CREATOR_URL = (((import.meta as any).env?.BASE_URL ?? '/') + 'like520
 
 export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, presets, savedState, isSully, draftKey, title, subtitle, onConfirm }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    // 自定义部件（开发模式上传）—— 异步从 DB 读出
+    // 自定義部件（開發模式上傳）—— 異步從 DB 讀出
     const extraItemsRef = useRef<any[]>([]);
     const readyRef = useRef(false);
     const initSentRef = useRef(false);
 
-    // 最新参数 / 回调放 ref：让订阅与初始化的 effect 只跑一次，
-    // 避免父组件重渲导致反复重发 init（会触发 applyLike520Init 重置当前选择 → "弹回上一个"）
+    // 最新參數 / 回調放 ref：讓訂閱與初始化的 effect 只跑一次，
+    // 避免父組件重渲導致反覆重發 init（會觸發 applyLike520Init 重置當前選擇 → "彈回上一個"）
     const paramsRef = useRef({ mode, charName, presets, savedState, isSully, draftKey, title, subtitle });
     paramsRef.current = { mode, charName, presets, savedState, isSully, draftKey, title, subtitle };
     const onConfirmRef = useRef(onConfirm);
     onConfirmRef.current = onConfirm;
 
-    // init 只发一次（首次 ready）；之后绝不重发，保住用户的选择
+    // init 只發一次（首次 ready）；之後絕不重發，保住用戶的選擇
     const postInit = () => {
         const w = iframeRef.current?.contentWindow;
         if (!w) return;
         const p = paramsRef.current;
-        // iframe 内 env(safe-area-inset-bottom) 在 iOS standalone PWA 不可靠（多为 0），
-        // 把外层 JS probe 写到 :root 的 --standalone-safe-area-bottom 透传进去。
+        // iframe 內 env(safe-area-inset-bottom) 在 iOS standalone PWA 不可靠（多為 0），
+        // 把外層 JS probe 寫到 :root 的 --standalone-safe-area-bottom 透傳進去。
         const rootStyles = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
         const safeBottomRaw = rootStyles?.getPropertyValue('--standalone-safe-area-bottom').trim() || '';
         const safeBottomPx = Number.parseFloat(safeBottomRaw) || 0;
@@ -180,30 +180,30 @@ export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, pr
         }, '*');
         initSentRef.current = true;
     };
-    // 自定义部件单独走 add_items：只合并、不重置选择
+    // 自定義部件單獨走 add_items：只合並、不重置選擇
     const postAddItems = () => {
         const w = iframeRef.current?.contentWindow;
         if (!w || !extraItemsRef.current.length) return;
         w.postMessage({ type: 'like520_add_items', payload: { extraItems: extraItemsRef.current } }, '*');
     };
 
-    // 载入自定义部件（一次）；若已就绪则补发 add_items（合并而非重置）
+    // 載入自定義部件（一次）；若已就緒則補發 add_items（合併而非重置）
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
-                // 部件在库里以 Blob 令牌存（省配额），这里解析回 base64 供 iframe 用；
-                // 顺手把存量旧 base64 惰性迁移成令牌。
+                // 部件在庫裡以 Blob 令牌存（省配額），這裡解析回 base64 供 iframe 用；
+                // 順手把存量舊 base64 惰性遷移成令牌。
                 const parts = await loadCreatorPartsForRender();
                 if (cancelled) return;
                 extraItemsRef.current = parts.map(p => ({ categoryKey: p.categoryKey, id: p.id, name: p.name, src: p.src, tintable: !!p.tintable, shadowSrc: p.shadowSrc }));
                 if (readyRef.current) postAddItems();
-            } catch { /* 没有自定义部件时静默 */ }
+            } catch { /* 沒有自定義部件時靜默 */ }
         })();
         return () => { cancelled = true; };
     }, []);
 
-    // 消息订阅（一次）
+    // 消息訂閱（一次）
     useEffect(() => {
         const handleMessage = (e: MessageEvent) => {
             if (!e.data || typeof e.data !== 'object') return;
@@ -221,8 +221,8 @@ export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, pr
                     state: e.data.payload.state,
                 });
             } else if (e.data.type === 'like520_save_custom_part' && e.data.payload?.part) {
-                // 捏人器界面内上传的自定义部件 → 落库（IndexedDB），刷新/换 app 都还在。
-                // 落库前把 base64 src/shadowSrc 转成 Blob 令牌（省配额）；内存里仍留 base64 喂 iframe。
+                // 捏人器界面內上傳的自定義部件 → 落庫（IndexedDB），刷新/換 app 都還在。
+                // 落庫前把 base64 src/shadowSrc 轉成 Blob 令牌（省配額）；內存裡仍留 base64 喂 iframe。
                 const p = e.data.payload.part;
                 const part = {
                     id: p.id, categoryKey: p.categoryKey, name: p.name,
@@ -231,7 +231,7 @@ export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, pr
                 creatorPartToBlobRefs(part)
                     .then(stored => DB.saveCustomCreatorPart(stored))
                     .then(() => { extraItemsRef.current = [...extraItemsRef.current, { categoryKey: p.categoryKey, id: p.id, name: p.name, src: p.src, tintable: !!p.tintable, shadowSrc: p.shadowSrc }]; })
-                    .catch(() => { /* 落库失败：内存里仍可用，仅本次会话有效 */ });
+                    .catch(() => { /* 落庫失敗：內存裡仍可用，僅本次會話有效 */ });
             } else if (e.data.type === 'like520_delete_custom_part' && e.data.payload?.id) {
                 const id = e.data.payload.id;
                 DB.deleteCustomCreatorPart(id)
@@ -255,7 +255,7 @@ export const CreatorIframe: React.FC<CreatorIframeProps> = ({ mode, charName, pr
 };
 
 // ============================================================
-// 「珍重」 视觉系统 — 全局 CSS（cream/gold/burgundy + 飘瓣金粉 + ornate）
+// 「珍重」 視覺系統 — 全局 CSS（cream/gold/burgundy + 飄瓣金粉 + ornate）
 // ============================================================
 
 const LIKE520_CSS = `
@@ -284,10 +284,10 @@ const LIKE520_CSS = `
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* 不在这里加 padding-top/bottom safe area：.l520-root 自身有 cream 渐变背景，
-     而内部 .l520-mask / .l520-corner / .l520-ornaments 都是 absolute inset:0，
-     padding 会让它们整体内缩，露出上下两条 cream 色块（选择卡的深棕蒙版尤其明显）。
-     各 phase 内 in-flow 内容由自身留白处理，外壳 fixed inset-0 已覆盖整屏。 */
+  /* 不在這裡加 padding-top/bottom safe area：.l520-root 自身有 cream 漸變背景，
+     而內部 .l520-mask / .l520-corner / .l520-ornaments 都是 absolute inset:0，
+     padding 會讓它們整體內縮，露出上下兩條 cream 色塊（選擇卡的深棕蒙版尤其明顯）。
+     各 phase 內 in-flow 內容由自身留白處理，外殼 fixed inset-0 已覆蓋整屏。 */
   font-family: 'Noto Serif SC', 'Cormorant Garamond', serif;
   color: var(--ink);
   background:
@@ -339,7 +339,7 @@ const LIKE520_CSS = `
 
 .l520-topbar {
   position: relative; z-index: 5;
-  /* in-flow 自吃刘海让位（外壳 .l520-root 不能加 padding，否则 absolute mask/装饰被推出露色块） */
+  /* in-flow 自吃劉海讓位（外殼 .l520-root 不能加 padding，否則 absolute mask/裝飾被推出露色塊） */
   padding: calc(14px + var(--safe-top)) 18px 6px;
   display: flex; flex-direction: column; gap: 8px;
   flex-shrink: 0;
@@ -719,7 +719,7 @@ const LIKE520_CSS = `
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  /* in-flow 自吃 home 条让位 */
+  /* in-flow 自吃 home 條讓位 */
   padding: 10px 18px calc(16px + var(--safe-bottom));
   flex-shrink: 0;
 }
@@ -983,7 +983,7 @@ const LIKE520_CSS = `
 /* ===== Letter ===== */
 .l520-letter-stage {
   flex: 1; overflow-y: auto;
-  /* in-flow 自吃刘海 + home 条让位 */
+  /* in-flow 自吃劉海 + home 條讓位 */
   padding: calc(14px + var(--safe-top)) 18px calc(18px + var(--safe-bottom));
   position: relative; z-index: 5;
 }
@@ -1152,7 +1152,7 @@ const CornerOrnaments: React.FC = () => (
 );
 
 // ============================================================
-// OrnateDialog — galgame 风格对白盒（带角描金 + 名牌 + mini 头像）
+// OrnateDialog — galgame 風格對白盒（帶角描金 + 名牌 + mini 頭像）
 // ============================================================
 
 const OrnateDialog: React.FC<{
@@ -1180,7 +1180,7 @@ const OrnateDialog: React.FC<{
 );
 
 // ============================================================
-// OrnateChoice — 居中浮层（ornate card 风格，Roman numeral）
+// OrnateChoice — 居中浮層（ornate card 風格，Roman numeral）
 // ============================================================
 
 interface OrnateChoiceProps {
@@ -1217,7 +1217,7 @@ const OrnateChoice: React.FC<OrnateChoiceProps> = ({ title, sub, options, onPick
 );
 
 // ============================================================
-// 心愿小纸条 —— 展开来给 user 看 char 偷偷写下的那行字
+// 心願小紙條 —— 展開來給 user 看 char 偷偷寫下的那行字
 // ============================================================
 
 const WishPaperOverlay: React.FC<{
@@ -1225,15 +1225,15 @@ const WishPaperOverlay: React.FC<{
     userAction: string;
     onDismiss: () => void;
 }> = ({ sceneText, userAction, onDismiss }) => {
-    const [phase, setPhase] = useState<0 | 1 | 2>(0); // 0:进入 1:展开 2:可读
+    const [phase, setPhase] = useState<0 | 1 | 2>(0); // 0:進入 1:展開 2:可讀
     useEffect(() => {
         const t1 = setTimeout(() => setPhase(1), 250);
         const t2 = setTimeout(() => setPhase(2), 1200);
         return () => { clearTimeout(t1); clearTimeout(t2); };
     }, []);
 
-    // 把 scene 文本切成"动作旁白 + 那行字"两段——找冒号或破折号后的内容
-    // LLM 输出格式：「user 翻到那张纸——上面写着……，那行字是：（XXX）」
+    // 把 scene 文本切成"動作旁白 + 那行字"兩段——找冒號或破折號後的內容
+    // LLM 輸出格式：「user 翻到那張紙——上面寫著……，那行字是：（XXX）」
     const { caption, wishLine } = useMemo(() => {
         const m = sceneText.match(/[:：][\s]*[「『"""]?([^」』"""]+?)[」』"""]?\s*$/);
         if (m && m[1] && m[1].length > 4) {
@@ -1303,13 +1303,13 @@ const WishPaperOverlay: React.FC<{
                     overflow-x: hidden;
                     flex: 1;
                     min-height: 0;
-                    /* 隐藏 webkit 滚动条 */
+                    /* 隱藏 webkit 滾動條 */
                     scrollbar-width: thin;
                     scrollbar-color: rgba(184,146,63,0.4) transparent;
                 }
                 .l520-wish-scroll::-webkit-scrollbar { width: 4px; }
                 .l520-wish-scroll::-webkit-scrollbar-thumb { background: rgba(184,146,63,0.35); border-radius: 2px; }
-                /* 四角小金线装饰 */
+                /* 四角小金線裝飾 */
                 .l520-wish-paper .corner {
                     position: absolute;
                     width: 14px; height: 14px;
@@ -1408,7 +1408,7 @@ const WishPaperOverlay: React.FC<{
                     <div className={`l520-wish-line ${wishLine.length > 36 ? 'long' : ''}`}>{wishLine}</div>
                 </div>
                 <div className="l520-wish-hint" onClick={onDismiss} style={{ cursor: 'pointer' }}>
-                    — 轻 触 任 意 处 继 续 —
+                    — 輕 觸 任 意 處 繼 續 —
                 </div>
             </div>
         </div>
@@ -1416,11 +1416,11 @@ const WishPaperOverlay: React.FC<{
 };
 
 // ============================================================
-// 慢慢睁开眼 —— 进入梦境
+// 慢慢睜開眼 —— 進入夢境
 // ============================================================
 
 const EyesOpeningOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-    const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0); // 0:全黑 1:微微一缝 2:渐开 3:淡出
+    const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0); // 0:全黑 1:微微一縫 2:漸開 3:淡出
     const onDoneRef = useRef(onDone);
     onDoneRef.current = onDone;
     useEffect(() => {
@@ -1447,7 +1447,7 @@ const EyesOpeningOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 transition: 'opacity 0.7s ease-out',
             }}
         >
-            {/* 上下睑闭合的眼睑感 — 两个黑条往中间夹 */}
+            {/* 上下瞼閉合的眼瞼感 — 兩個黑條往中間夾 */}
             <div style={{
                 position: 'absolute',
                 top: 0, left: 0, right: 0,
@@ -1465,7 +1465,7 @@ const EyesOpeningOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 boxShadow: '0 -6px 24px rgba(0,0,0,0.7)',
             }} />
 
-            {/* 朦胧光晕 */}
+            {/* 朦朧光暈 */}
             <div style={{
                 position: 'absolute',
                 inset: 0,
@@ -1488,26 +1488,26 @@ const EyesOpeningOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 lineHeight: 2,
             }}>
                 <div style={{ fontSize: 10, letterSpacing: 10, marginBottom: 6 }}>—— 慢慢 ——</div>
-                <div>睁&nbsp;开&nbsp;眼&nbsp;睛</div>
-                <div style={{ fontSize: 10, letterSpacing: 4, marginTop: 12, opacity: 0.6 }}>（点击跳过）</div>
+                <div>睜&nbsp;開&nbsp;眼&nbsp;睛</div>
+                <div style={{ fontSize: 10, letterSpacing: 4, marginTop: 12, opacity: 0.6 }}>（點擊跳過）</div>
             </div>
         </div>
     );
 };
 
 // ============================================================
-// 慢慢闭上眼 —— 回到现实（DoneView 退场前用）
+// 慢慢閉上眼 —— 回到現實（DoneView 退場前用）
 // ============================================================
 
 const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-    // 0: 透明 — 让 DoneView 还看得见
-    // 1: 朦胧光晕渐起、眼睑开始合拢
-    // 2: 眼睑几乎合上
+    // 0: 透明 — 讓 DoneView 還看得見
+    // 1: 朦朧光暈漸起、眼瞼開始合攏
+    // 2: 眼瞼幾乎合上
     // 3: 全黑 → onDone
     const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0);
-    // 用 ref 锁住 onDone —— 父组件 inline arrow 会让 onDone 每次 render 变身份，
-    // 如果直接放进 [onDone] dep，父任意 re-render 都会把 setTimeout 链清光重启，
-    // 动画就永远走不到 3200ms 那一步（卡在半路）。
+    // 用 ref 鎖住 onDone —— 父組件 inline arrow 會讓 onDone 每次 render 變身份，
+    // 如果直接放進 [onDone] dep，父任意 re-render 都會把 setTimeout 鏈清光重啟，
+    // 動畫就永遠走不到 3200ms 那一步（卡在半路）。
     const onDoneRef = useRef(onDone);
     onDoneRef.current = onDone;
     useEffect(() => {
@@ -1532,7 +1532,7 @@ const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 transition: 'background 0.7s ease-in',
             }}
         >
-            {/* 上下睑慢慢往中间合拢 */}
+            {/* 上下瞼慢慢往中間合攏 */}
             <div style={{
                 position: 'absolute',
                 top: 0, left: 0, right: 0,
@@ -1550,7 +1550,7 @@ const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 boxShadow: phase >= 1 ? '0 -6px 24px rgba(0,0,0,0.6)' : 'none',
             }} />
 
-            {/* 中间过渡光晕：从粉色 → 渐弱 */}
+            {/* 中間過渡光暈：從粉色 → 漸弱 */}
             <div style={{
                 position: 'absolute',
                 inset: 0,
@@ -1561,7 +1561,7 @@ const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 pointerEvents: 'none',
             }} />
 
-            {/* 闭眼提示文字 */}
+            {/* 閉眼提示文字 */}
             <div style={{
                 color: 'rgba(255,228,236,0.7)',
                 fontFamily: "'Cormorant Garamond', serif",
@@ -1575,7 +1575,7 @@ const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
                 pointerEvents: 'none',
             }}>
                 <div style={{ fontSize: 10, letterSpacing: 10, marginBottom: 6 }}>—— 慢慢 ——</div>
-                <div>闭&nbsp;上&nbsp;眼&nbsp;睛</div>
+                <div>閉&nbsp;上&nbsp;眼&nbsp;睛</div>
                 <div style={{ fontSize: 9, letterSpacing: 4, marginTop: 14, opacity: 0.55 }}>see you ~</div>
             </div>
         </div>
@@ -1583,8 +1583,8 @@ const EyesClosingOverlay: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 };
 
 // ============================================================
-// Y520Scene — 持久化养成场景（珍重 风格）
-// 覆盖 eyes_opening → opening → 吐槽 → free（锚点+抚摸）→ reveal → 自我意识
+// Y520Scene — 持久化養成場景（珍重 風格）
+// 覆蓋 eyes_opening → opening → 吐槽 → free（錨點+撫摸）→ reveal → 自我意識
 // ============================================================
 
 type Y520Stage =
@@ -1600,11 +1600,11 @@ type Y520Stage =
     | 'self_reveal_hint'
     | 'self_reveal_choose';
 
-const SELF_REVEAL_HINT_LINES = ['（你下意识低头看了看自己——）'];
+const SELF_REVEAL_HINT_LINES = ['（你下意識低頭看了看自己——）'];
 const SELF_REVEAL_OPTIONS: { key: string; label: string }[] = [
-    { key: 'eh', label: '「诶？」' },
+    { key: 'eh', label: '「誒？」' },
     { key: 'silence', label: '「……」' },
-    { key: 'look', label: '（你仔细看了看）' },
+    { key: 'look', label: '（你仔細看了看）' },
 ];
 
 interface Y520SceneProps {
@@ -1614,7 +1614,7 @@ interface Y520SceneProps {
     charChibiUrl: string;
     onTucaoSelected: (key: Like520TucaoKey) => void;
     onComplete: () => void;
-    /** 回放模式：传入则自动用这个吐槽选项，跳过 tucao_choose 阶段 */
+    /** 回放模式：傳入則自動用這個吐槽選項，跳過 tucao_choose 階段 */
     initialChosenTucao?: Like520TucaoKey;
 }
 
@@ -1643,7 +1643,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
     const showSceneNarration = stage === 'anchor_playing' && chosenUserAction;
     const nameTag = stage === 'self_reveal_hint' ? '——' : charName;
 
-    // free + 全部锚点用完 → 自动 reveal
+    // free + 全部錨點用完 → 自動 reveal
     useEffect(() => {
         if (stage === 'free' && allAnchorsUsed) {
             const t = setTimeout(() => {
@@ -1698,7 +1698,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
     };
 
     const advance = () => {
-        // 心愿小纸条展开中：点哪都是先收起纸条，对白下一次再推
+        // 心願小紙條展開中：點哪都是先收起紙條，對白下一次再推
         if (wishPaperOpen) { setWishPaperOpen(false); return; }
         if (!queue.length) return;
         if (hasMoreLines) {
@@ -1706,7 +1706,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             return;
         }
         if (stage === 'opening') {
-            // 回放模式：吐槽选项已经选好了，直接跳到 tucao_reply 用之前的回应
+            // 回放模式：吐槽選項已經選好了，直接跳到 tucao_reply 用之前的回應
             if (initialChosenTucao) {
                 setQueue(callA.tucao_responses[initialChosenTucao]);
                 setLineIdx(0);
@@ -1721,7 +1721,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             setActiveAnchorIdx(null);
             setChosenUserAction(null);
             setWishPaperOpen(false);
-            // 数值波动（纯装饰）
+            // 數值波動（純裝飾）
             setStats(s => ({
                 mood: Math.min(100, s.mood + 4 + Math.floor(Math.random() * 4)),
                 love: Math.min(100, s.love + 5 + Math.floor(Math.random() * 5)),
@@ -1761,7 +1761,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
         setQueue(anchor.dialogue);
         setLineIdx(0);
         setStage('anchor_playing');
-        // 心愿锚点：先展开小纸条让 user 读完，再放对白
+        // 心願錨點：先展開小紙條讓 user 讀完，再放對白
         if (anchor.is_photo_anchor) setWishPaperOpen(true);
     };
 
@@ -1785,8 +1785,8 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             const triggerReact = (touchIdx + 1) % 3 === 0;
             if (triggerReact) {
                 setStats(s => ({ ...s, mood: Math.min(100, s.mood + 3), love: Math.min(100, s.love + 2) }));
-                spawnScore('+ 悦 · 情', cx, cy - 40);
-                const reacts = ['…心动了', '再一次嘛', '你的手好温', '♡', '…嗯'];
+                spawnScore('+ 悅 · 情', cx, cy - 40);
+                const reacts = ['…心動了', '再一次嘛', '你的手好溫', '♡', '…嗯'];
                 spawnReact(reacts[Math.floor(Math.random() * reacts.length)], cx, cy - 80);
             } else {
                 setStats(s => ({ ...s, mood: Math.min(100, s.mood + 1) }));
@@ -1805,19 +1805,19 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
     const remainingAnchors = callA.anchors.length - usedAnchors.size;
 
     const renderHint = () => {
-        if (stage === 'tucao_choose') return '请于上方做出抉择';
-        if (stage === 'anchor_action_choose') return '请于上方做出抉择';
+        if (stage === 'tucao_choose') return '請於上方做出抉擇';
+        if (stage === 'anchor_action_choose') return '請於上方做出抉擇';
         if (stage === 'self_reveal_choose') return '……';
-        if (stage === 'free' && !allAnchorsUsed) return `轻拥${charName}，或自礼匣中取一件`;
+        if (stage === 'free' && !allAnchorsUsed) return `輕擁${charName}，或自禮匣中取一件`;
         if (stage === 'free' && allAnchorsUsed) return '……';
         return '……';
     };
 
-    // 点画面任意处都能推进对白（除非在选项阶段、或者点到了 data-stop-advance 的按钮 / 浮层）
+    // 點畫面任意處都能推進對白（除非在選項階段、或者點到了 data-stop-advance 的按鈕 / 浮層）
     const handleStageClick = (e: React.MouseEvent) => {
         if (isChoiceStage) return;
         if (stage === 'eyes_opening') return;
-        // 检查点击目标是否声明了"不要触发推进"
+        // 檢查點擊目標是否聲明了"不要觸發推進"
         let el = e.target as HTMLElement | null;
         while (el && el !== e.currentTarget) {
             if (el.dataset?.stopAdvance) return;
@@ -1833,12 +1833,12 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             <CornerOrnaments />
             <AmbientLayer />
 
-            {/* 慢慢睁开眼 —— 进入梦境 */}
+            {/* 慢慢睜開眼 —— 進入夢境 */}
             {stage === 'eyes_opening' && (
                 <EyesOpeningOverlay onDone={() => setStage('opening')} />
             )}
 
-            {/* 心愿小纸条 —— 展开来给 user 看 */}
+            {/* 心願小紙條 —— 展開來給 user 看 */}
             {wishPaperOpen && activeAnchor?.is_photo_anchor && (
                 <WishPaperOverlay
                     sceneText={activeAnchor.scene}
@@ -1871,7 +1871,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
                 </div>
                 <div className="l520-stats">
                     {([
-                        { k: 'mood', label: '悦', cls: 'mood' },
+                        { k: 'mood', label: '悅', cls: 'mood' },
                         { k: 'love', label: '情', cls: 'love' },
                         { k: 'food', label: '膳', cls: 'food' },
                         { k: 'energy', label: '神', cls: 'energy' },
@@ -1936,7 +1936,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
                     }}
                 >
                     <svg viewBox="0 0 24 24"><path d="M4 6 C4 5, 5 4, 6 4 L18 4 C19 4, 20 5, 20 6 L20 14 C20 15, 19 16, 18 16 L9 16 L5 19 L5 16 C4.5 16, 4 15.5, 4 15 Z" /></svg>
-                    <span>絮&nbsp;语</span>
+                    <span>絮&nbsp;語</span>
                 </button>
                 <button
                     className="l520-act primary"
@@ -1944,7 +1944,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
                     onClick={(e) => petCharacter({ clientX: (e as any).clientX, clientY: (e as any).clientY })}
                 >
                     <svg viewBox="0 0 24 24"><path d="M12 20 C 6 16, 3 12, 3 9 C 3 6, 5 4, 7.5 4 C 9.5 4, 11 5, 12 7 C 13 5, 14.5 4, 16.5 4 C 19 4, 21 6, 21 9 C 21 12, 18 16, 12 20 Z" /></svg>
-                    <span>轻&nbsp;拥</span>
+                    <span>輕&nbsp;擁</span>
                 </button>
                 <button
                     className="l520-act"
@@ -1952,7 +1952,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
                     onClick={() => setDrawerOpen(true)}
                 >
                     <svg viewBox="0 0 24 24"><path d="M3 8 L21 8 L21 20 L3 20 Z M3 8 L12 4 L21 8 M12 4 L12 20 M8 14 L16 14" /></svg>
-                    <span>礼&nbsp;匣</span>
+                    <span>禮&nbsp;匣</span>
                     {remainingAnchors > 0 && <span className="badge">{remainingAnchors}</span>}
                 </button>
             </div>
@@ -1960,7 +1960,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             {/* FX layer */}
             <div ref={fxRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 7 }} />
 
-            {/* Drawer (items / 礼匣) */}
+            {/* Drawer (items / 禮匣) */}
             {drawerOpen && (
                 <>
                     <div
@@ -1971,7 +1971,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
                     <div className="l520-drawer" data-stop-advance="1">
                         <div className="l520-drawer-handle" />
                         <div className="l520-drawer-head">
-                            <h4>礼&nbsp;匣</h4>
+                            <h4>禮&nbsp;匣</h4>
                             <div className="sub">L A &nbsp; B O Î T E &nbsp; À &nbsp; T R É S O R</div>
                             <div className="line">❦</div>
                         </div>
@@ -1999,7 +1999,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             {/* Centered choice overlays */}
             {stage === 'tucao_choose' && (
                 <OrnateChoice
-                    title="今日，你的反应是"
+                    title="今日，你的反應是"
                     sub="— Choose Thy Reaction —"
                     options={TUCAO_OPTIONS.map(o => ({ key: o.key, label: `「${o.label}」` }))}
                     onPick={(k) => pickTucao(k as Like520TucaoKey)}
@@ -2015,7 +2015,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
             )}
             {stage === 'self_reveal_choose' && (
                 <OrnateChoice
-                    title="你 的 反 应"
+                    title="你 的 反 應"
                     sub="— Choose Thy Awakening —"
                     options={SELF_REVEAL_OPTIONS}
                     onPick={pickSelfReveal}
@@ -2026,7 +2026,7 @@ const Y520Scene: React.FC<Y520SceneProps> = ({ callA, charName, charAvatar, char
 };
 
 // ============================================================
-// LineQueueView — 短数组对白序列（wake_up 用）
+// LineQueueView — 短數組對白序列（wake_up 用）
 // ============================================================
 
 const LineQueueView: React.FC<{
@@ -2059,7 +2059,7 @@ const LineQueueView: React.FC<{
 };
 
 // ============================================================
-// WakeUpView — "梦醒"时刻：黑→晨光淡入，"醒 来"浮现，然后对白
+// WakeUpView — "夢醒"時刻：黑→晨光淡入，"醒 來"浮現，然後對白
 // ============================================================
 
 const WakeUpView: React.FC<{
@@ -2102,7 +2102,7 @@ const WakeUpView: React.FC<{
                 }
             `}</style>
 
-            {/* "醒 来" 中央浮现 */}
+            {/* "醒 來" 中央浮現 */}
             {stage === 'awakening' && (
                 <div
                     style={{
@@ -2121,11 +2121,11 @@ const WakeUpView: React.FC<{
                         pointerEvents: 'none',
                     }}
                 >
-                    醒 · 来
+                    醒 · 來
                 </div>
             )}
 
-            {/* dialog 阶段：完整装饰 + 对白 */}
+            {/* dialog 階段：完整裝飾 + 對白 */}
             {stage === 'dialog' && (
                 <>
                     <CornerOrnaments />
@@ -2164,8 +2164,8 @@ const WakeUpView: React.FC<{
 };
 
 // ============================================================
-// UncoveredLineView — 第二次捏脸后的长篇真心话
-// 双 chibi 居中、user chibi 摇摆挪入
+// UncoveredLineView — 第二次捏臉後的長篇真心話
+// 雙 chibi 居中、user chibi 搖擺挪入
 // ============================================================
 
 const UncoveredLineView: React.FC<{
@@ -2253,8 +2253,8 @@ const UncoveredLineView: React.FC<{
 };
 
 // ============================================================
-// ChoiceOverlay — 居中浮层选项（galgame 选择菜单）
-// 不框在对话框里，覆盖在场景中央
+// ChoiceOverlay — 居中浮層選項（galgame 選擇菜單）
+// 不框在對話框裡，覆蓋在場景中央
 // ============================================================
 
 interface ChoiceOverlayProps {
@@ -2293,7 +2293,7 @@ const ChoiceOverlay: React.FC<ChoiceOverlayProps> = ({ prompt, options, onPick }
 );
 
 // ============================================================
-// 结局画面（黑屏 → 合照 → 标题 → TRUE HAPPY END → description）
+// 結局畫面（黑屏 → 合照 → 標題 → TRUE HAPPY END → description）
 // ============================================================
 
 const EndingScreen: React.FC<{
@@ -2340,7 +2340,7 @@ const EndingScreen: React.FC<{
                     onClick={onNext}
                     className="mt-10 px-8 py-2.5 rounded-full bg-white/15 backdrop-blur text-white text-sm tracking-widest border border-white/30 active:scale-95 transition-transform animate-fade-in"
                 >
-                    继 续
+                    繼 續
                 </button>
             )}
         </div>
@@ -2354,7 +2354,7 @@ const EndingScreen: React.FC<{
 const ExitButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <button
         onClick={onClick}
-        title="关闭"
+        title="關閉"
         style={{
             position: 'absolute', top: 'calc(10px + var(--safe-top))', right: 10, zIndex: 50,
             width: 30, height: 30, borderRadius: '50%',
@@ -2388,22 +2388,22 @@ const LetterView: React.FC<{ text: string; onNext: () => void; onClose: () => vo
                 document.head.appendChild(s);
             });
             const html2canvas = await loadH2C;
-            // 等字体加载完再截图 —— 否则 'Cormorant Garamond' / 'Noto Serif SC'
-            // 还没就绪时会退回系统 serif，header 颜色和字距看起来都不一样
+            // 等字體加載完再截圖 —— 否則 'Cormorant Garamond' / 'Noto Serif SC'
+            // 還沒就緒時會退回系統 serif，header 顏色和字距看起來都不一樣
             try { await (document as any).fonts?.ready; } catch { /* ignore */ }
             const target = saveAreaRef.current;
             if (!target) return;
-            // backgroundColor 用 wrapper 顶部的颜色 —— html2canvas 渲染不出
-            // radial-gradient 时会拿这个色填整块 wrapper，挑顶端色能让"上面那一节"
-            // 不再突变
+            // backgroundColor 用 wrapper 頂部的顏色 —— html2canvas 渲染不出
+            // radial-gradient 時會拿這個色填整塊 wrapper，挑頂端色能讓"上面那一節"
+            // 不再突變
             const canvas = await html2canvas(target, { backgroundColor: '#fefbf4', scale: 2, useCORS: true });
             const blob = await new Promise<Blob>((resolve, reject) => {
-                canvas.toBlob((result: Blob | null) => result ? resolve(result) : reject(new Error('信件图片生成失败')), 'image/png');
+                canvas.toBlob((result: Blob | null) => result ? resolve(result) : reject(new Error('信件圖片生成失敗')), 'image/png');
             });
             await shareOrDownloadBlob({
                 blob,
                 fileName: `520_letter_${Date.now()}.png`,
-                shareTitle: '520 特别信件',
+                shareTitle: '520 特別信件',
             });
         } catch (e) {
             console.error('[520] letter save failed', e);
@@ -2416,16 +2416,16 @@ const LetterView: React.FC<{ text: string; onNext: () => void; onClose: () => vo
             <Like520StyleTag />
             <CornerOrnaments />
             <AmbientLayer />
-            {/* 信件页不放退出按钮——走完看完信再"收下"进入下一步 */}
+            {/* 信件頁不放退出按鈕——走完看完信再"收下"進入下一步 */}
             <div className="l520-letter-stage">
                 <div
                     ref={saveAreaRef}
                     style={{
                         position: 'relative',
                         padding: '28px 22px',
-                        // 用 linear-gradient（html2canvas 1.4.1 对 linear 支持稳定，
-                        // 对 radial-gradient(ellipse at top, ...) 经常退回到 backgroundColor
-                        // 平色，导致存为 PNG 后上半段颜色和屏幕看到的不一致）
+                        // 用 linear-gradient（html2canvas 1.4.1 對 linear 支持穩定，
+                        // 對 radial-gradient(ellipse at top, ...) 經常退回到 backgroundColor
+                        // 平色，導致存為 PNG 後上半段顏色和屏幕看到的不一致）
                         background: 'linear-gradient(180deg, #fefbf4 0%, #f9f2e1 60%, #f1e7d0 100%)',
                         borderRadius: 6,
                         boxShadow: 'inset 0 0 50px rgba(157,107,120,0.06), inset 0 0 0 1px rgba(212,177,106,0.32)',
@@ -2483,7 +2483,7 @@ const LetterView: React.FC<{ text: string; onNext: () => void; onClose: () => vo
                             boxShadow: '0 3px 8px rgba(157,107,120,0.12)',
                         }}
                     >
-                        {saving ? '⏳ 出件中…' : '存 为 图 片'}
+                        {saving ? '⏳ 出件中…' : '存 為 圖 片'}
                     </button>
                     <button className="l520-letter-accept" onClick={onNext} style={{ margin: 0 }}>收&nbsp;下</button>
                 </div>
@@ -2493,15 +2493,15 @@ const LetterView: React.FC<{ text: string; onNext: () => void; onClose: () => vo
 };
 
 // ============================================================
-// 拼图（char chibi + user chibi 并列在背景上）
+// 拼圖（char chibi + user chibi 並列在背景上）
 // ============================================================
 
 /**
- * 拼图卡片背景图（"像我们耶" 那张）。
- * 1200×780 左右的横版 520 DAY 装饰框（蕾丝 doily + 爱心/星星/小花），
- * 中间是空白的圆形 doily，让两个 chibi 居中靠下排进去。
+ * 拼圖卡片背景圖（"像我們耶" 那張）。
+ * 1200×780 左右的橫版 520 DAY 裝飾框（蕾絲 doily + 愛心/星星/小花），
+ * 中間是空白的圓形 doily，讓兩個 chibi 居中靠下排進去。
  */
-// 拼图合影底图（仓库相对路径，多 CDN 镜像兜底）。canvas 需 CORS，各 CDN 均返回 CORS 头。
+// 拼圖合影底圖（倉庫相對路徑，多 CDN 鏡像兜底）。canvas 需 CORS，各 CDN 均返回 CORS 頭。
 const LIKE520_PHOTO_BG_PATH = 'img/2.png';
 
 async function composePuzzlePhoto(charChibiUrl: string, userChibiUrl: string): Promise<string> {
@@ -2512,10 +2512,10 @@ async function composePuzzlePhoto(charChibiUrl: string, userChibiUrl: string): P
         img.onerror = reject;
         img.src = src;
     });
-    // 底图逐个镜像试，拉到就用；用户 chibi 是本机数据、无镜像可切，直接 load。
+    // 底圖逐個鏡像試，拉到就用；用戶 chibi 是本機數據、無鏡像可切，直接 load。
     const loadFirst = async (mirrors: string[]): Promise<HTMLImageElement> => {
-        for (const u of mirrors) { try { return await load(u); } catch { /* 换下一个镜像 */ } }
-        throw new Error('拼图底图全部镜像加载失败');
+        for (const u of mirrors) { try { return await load(u); } catch { /* 換下一個鏡像 */ } }
+        throw new Error('拼圖底圖全部鏡像加載失敗');
     };
     const [bg, charImg, userImg] = await Promise.all([
         loadFirst(assetMirrors(LIKE520_PHOTO_BG_PATH)),
@@ -2542,22 +2542,22 @@ async function composePuzzlePhoto(charChibiUrl: string, userChibiUrl: string): P
     const userX = startX + charW + gap;
     const topY = bottomY - targetH;
 
-    // 第一遍：白色柔光描边（防止黑色头发/配件融入背景）
-    // 用多个白色 0-offset 的 drop-shadow 叠加模拟白色 outline + 轻发光
+    // 第一遍：白色柔光描邊（防止黑色頭髮/配件融入背景）
+    // 用多個白色 0-offset 的 drop-shadow 疊加模擬白色 outline + 輕發光
     const drawWithWhiteOutline = (img: HTMLImageElement, x: number, y: number, w: number, h: number) => {
         ctx.shadowColor = 'rgba(255,255,255,0.95)';
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        // 多次重叠 1-2px shadow 让 outline 实在一点
+        // 多次重疊 1-2px shadow 讓 outline 實在一點
         for (const blur of [3, 3, 5]) {
             ctx.shadowBlur = blur;
             ctx.drawImage(img, x, y, w, h);
         }
-        // 再叠一层浅粉柔光，远处那种 halo
+        // 再疊一層淺粉柔光，遠處那種 halo
         ctx.shadowColor = 'rgba(255,228,236,0.55)';
         ctx.shadowBlur = 14;
         ctx.drawImage(img, x, y, w, h);
-        // 最后清掉 shadow，画一遍干净的 chibi 在最上面
+        // 最後清掉 shadow，畫一遍乾淨的 chibi 在最上面
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
@@ -2594,7 +2594,7 @@ const PuzzleView: React.FC<{
             <AmbientLayer />
             <ExitButton onClick={onClose} />
             <div style={{ flex: 1, overflowY: 'auto', padding: 'calc(24px + var(--safe-top)) 16px calc(24px + var(--safe-bottom))', position: 'relative', zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 420, margin: '0 auto' }}>
-                <div style={{ color: '#7a2e3a', fontFamily: "'Noto Serif SC', serif", fontSize: 13, letterSpacing: 5, marginBottom: 4 }}>♥ 拼 图 卡 片 ♥</div>
+                <div style={{ color: '#7a2e3a', fontFamily: "'Noto Serif SC', serif", fontSize: 13, letterSpacing: 5, marginBottom: 4 }}>♥ 拼 圖 卡 片 ♥</div>
                 <div style={{ color: '#9D7585', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 11, letterSpacing: 3, marginBottom: 14 }}>{title}</div>
                 {photoUrl ? (
                     <img
@@ -2604,10 +2604,10 @@ const PuzzleView: React.FC<{
                         style={{ width: '100%', display: 'block', borderRadius: 16, boxShadow: '0 12px 32px rgba(199, 97, 130, 0.22), 0 0 0 1px rgba(184, 146, 63, 0.4)' }}
                     />
                 ) : (
-                    <div style={{ width: '100%', aspectRatio: '1200 / 780', borderRadius: 16, background: 'linear-gradient(180deg, #FFE0E8, #FFD3DC)', display: 'grid', placeItems: 'center', color: '#9D7585', fontSize: 11, letterSpacing: 4 }}>{composing ? '正在合成…' : '合成失败'}</div>
+                    <div style={{ width: '100%', aspectRatio: '1200 / 780', borderRadius: 16, background: 'linear-gradient(180deg, #FFE0E8, #FFD3DC)', display: 'grid', placeItems: 'center', color: '#9D7585', fontSize: 11, letterSpacing: 4 }}>{composing ? '正在合成…' : '合成失敗'}</div>
                 )}
-                <div style={{ color: '#9D7585', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 10.5, letterSpacing: 2, marginTop: 6 }}>长按图片保存到相册</div>
-                <div style={{ color: '#5C3A4A', fontStyle: 'italic', fontSize: 13, marginTop: 14, textAlign: 'center' }}>「这很像我们耶。」</div>
+                <div style={{ color: '#9D7585', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 10.5, letterSpacing: 2, marginTop: 6 }}>長按圖片保存到相冊</div>
+                <div style={{ color: '#5C3A4A', fontStyle: 'italic', fontSize: 13, marginTop: 14, textAlign: 'center' }}>「這很像我們耶。」</div>
                 <button
                     onClick={onDone}
                     style={{ marginTop: 22, padding: '11px 32px', borderRadius: 9999, background: 'linear-gradient(90deg, #FFB6C8, #F18AAA)', color: '#fff', fontWeight: 700, border: 'none', boxShadow: '0 6px 14px rgba(199,97,130,0.35)', cursor: 'pointer' }}
@@ -2618,7 +2618,7 @@ const PuzzleView: React.FC<{
 };
 
 // ============================================================
-// Done 视图 —— 温馨结尾
+// Done 視圖 —— 溫馨結尾
 // ============================================================
 
 const DoneView: React.FC<{
@@ -2640,7 +2640,7 @@ const DoneView: React.FC<{
             background: 'radial-gradient(ellipse at 50% 30%, #FFE8EF 0%, #FFD7E1 45%, #F5B8C9 100%)',
         }}>
             {closing && <EyesClosingOverlay onDone={onClose} />}
-            {/* 漂浮的爱心粒子 */}
+            {/* 漂浮的愛心粒子 */}
             <style>{`
                 @keyframes l520-done-float {
                     0% { transform: translateY(20vh) translateX(0) scale(0.6); opacity: 0; }
@@ -2691,7 +2691,7 @@ const DoneView: React.FC<{
             })}
 
             <div className="relative flex flex-col items-center justify-center min-h-full px-6 py-12 max-w-md mx-auto" style={{ animation: 'l520-done-fadein 0.8s ease-out' }}>
-                {/* 头像 + chibi 合影 */}
+                {/* 頭像 + chibi 合影 */}
                 <div className="flex items-end justify-center gap-2 mb-5" style={{ animation: 'l520-done-pulse 3.5s ease-in-out infinite' }}>
                     {charChibi ? (
                         <img src={charChibi} alt="" style={{ height: 110, objectFit: 'contain', filter: 'drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 3px rgba(255,255,255,0.85)) drop-shadow(0 6px 12px rgba(199,97,130,0.35))' }} />
@@ -2703,7 +2703,7 @@ const DoneView: React.FC<{
                     )}
                 </div>
 
-                {/* 标题 */}
+                {/* 標題 */}
                 <div style={{
                     fontFamily: "'Cormorant Garamond', serif",
                     fontStyle: 'italic',
@@ -2722,9 +2722,9 @@ const DoneView: React.FC<{
                     letterSpacing: 4,
                     textIndent: 4,
                     marginBottom: 14,
-                }}>感觉做了一场不错的梦</h2>
+                }}>感覺做了一場不錯的夢</h2>
 
-                {/* 寄语 */}
+                {/* 寄語 */}
                 <div style={{
                     background: 'rgba(255,255,255,0.55)',
                     backdropFilter: 'blur(6px)',
@@ -2744,9 +2744,9 @@ const DoneView: React.FC<{
                         margin: 0,
                         letterSpacing: 0.5,
                     }}>
-                        醒过来之后，<br />
-                        身上还带着一点 ta 的温度。<br />
-                        ——好像 ta 还在看着。
+                        醒過來之後，<br />
+                        身上還帶著一點 ta 的溫度。<br />
+                        ——好像 ta 還在看著。
                     </p>
                 </div>
 
@@ -2781,31 +2781,31 @@ const DoneView: React.FC<{
 };
 
 // ============================================================
-// Loading 视图
+// Loading 視圖
 // ============================================================
 
 const LoadingView: React.FC<{ hint?: string }> = ({ hint }) => (
     <div className="flex flex-col items-center justify-center min-h-full px-6 py-12 max-w-md mx-auto">
         <div className="text-2xl mb-4 animate-pulse">♥</div>
-        <div className="text-[#9D7585] text-xs tracking-widest">{hint ?? '正在准备这个下午…'}</div>
+        <div className="text-[#9D7585] text-xs tracking-widest">{hint ?? '正在準備這個下午…'}</div>
     </div>
 );
 
 // ============================================================
-// 「珍重」BGM — 4 组按 phase 切换，开局各抽一条预加载，crossfade
+// 「珍重」BGM — 4 組按 phase 切換，開局各抽一條預加載，crossfade
 // ============================================================
 
 type BGMGroupKey = 'nieren' | 'yangcheng' | 'jieju' | 'letter';
 
 /**
- * 4 组 BGM URL 池：
+ * 4 組 BGM URL 池：
  *   - nieren    捏人界面（char_creator / user_creator）
- *   - yangcheng 养成界面（loading_a / yangcheng）
- *   - jieju     结局展示（uncovered_line / ending_screen / loading_b / wake_up / puzzle）
- *   - letter    读信（letter）
- * 进入活动时各组随机抽一条预加载，phase 切换时在已抽的 4 条之间 crossfade。
+ *   - yangcheng 養成界面（loading_a / yangcheng）
+ *   - jieju     結局展示（uncovered_line / ending_screen / loading_b / wake_up / puzzle）
+ *   - letter    讀信（letter）
+ * 進入活動時各組隨機抽一條預加載，phase 切換時在已抽的 4 條之間 crossfade。
  */
-// 仓库相对路径，经 attachAudioMirrorFallback 走多 CDN 镜像兜底（见 utils/assetUrl.ts）。
+// 倉庫相對路徑，經 attachAudioMirrorFallback 走多 CDN 鏡像兜底（見 utils/assetUrl.ts）。
 const LIKE520_BGM_GROUPS: Record<BGMGroupKey, string[]> = {
     nieren: ['bgm/nieren/1.mp3', 'bgm/nieren/2.mp3'],
     yangcheng: ['bgm/yangcheng/1.mp3', 'bgm/yangcheng/2.mp3', 'bgm/yangcheng/3.mp3', 'bgm/yangcheng/4.mp3'],
@@ -2876,7 +2876,7 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
         fadingRef.current.set(audio, timer);
     }, []);
 
-    // 初始化：active 第一次为 true 时，各组随机抽一条 + 预加载
+    // 初始化：active 第一次為 true 時，各組隨機抽一條 + 預加載
     useEffect(() => {
         if (!active) return;
         if (Object.keys(audiosRef.current).length > 0) return; // 已初始化
@@ -2892,10 +2892,10 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
                 audio.preload = 'auto';
                 audio.addEventListener('error', () => console.warn(`[520][BGM] ${key} audio error`, audio.error?.code, audio.src));
                 audio.addEventListener('canplay', () => console.log(`[520][BGM] ${key} canplay`));
-                // 注：不设 crossOrigin —— HTMLAudioElement 普通播放不需要 CORS，
-                // 设了反而要求 CDN 必须返回 CORS 头，否则整段播放失败。
-                // attachAudioMirrorFallback 设好首源并挂 error 兜底：加载失败自动切下一个 CDN 镜像。
-                // audio 一经创建即固定本组，生命周期内不换曲，兜底监听不会堆叠，无需解绑。
+                // 注：不設 crossOrigin —— HTMLAudioElement 普通播放不需要 CORS，
+                // 設了反而要求 CDN 必須返回 CORS 頭，否則整段播放失敗。
+                // attachAudioMirrorFallback 設好首源並掛 error 兜底：加載失敗自動切下一個 CDN 鏡像。
+                // audio 一經創建即固定本組，生命週期內不換曲，兜底監聽不會堆疊，無需解綁。
                 attachAudioMirrorFallback(audio, path);
                 audio.load();
                 audiosRef.current[key] = audio;
@@ -2906,7 +2906,7 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
         });
 
         return () => {
-            // active 切回 false 或 session 卸载：停掉全部
+            // active 切回 false 或 session 卸載：停掉全部
             fadingRef.current.forEach(t => clearInterval(t));
             fadingRef.current.clear();
             Object.values(audiosRef.current).forEach(audio => {
@@ -2921,7 +2921,7 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
         };
     }, [active]);
 
-    // currentGroup 切换：当前组淡入，其他组淡出
+    // currentGroup 切換：當前組淡入，其他組淡出
     useEffect(() => {
         if (!active) return;
         const targetVol = mutedRef.current ? 0 : BGM_TARGET_VOLUME;
@@ -2952,7 +2952,7 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
             }
         });
 
-        // 兜底：如果首次 play 被 autoplay policy 拒了，监听下一次用户交互再试
+        // 兜底：如果首次 play 被 autoplay policy 拒了，監聽下一次用戶交互再試
         if (needsGestureRetry && currentGroup) {
             const retry = () => {
                 const a = audiosRef.current[currentGroup];
@@ -2969,7 +2969,7 @@ function useLike520BGM(active: boolean, currentGroup: BGMGroupKey | null) {
         }
     }, [currentGroup, active, fade]);
 
-    // muted 切换：实时调当前组音量
+    // muted 切換：實時調當前組音量
     useEffect(() => {
         try { localStorage.setItem(BGM_MUTED_KEY, muted ? '1' : '0'); } catch { /* ignore */ }
         if (!active) return;
@@ -3031,7 +3031,7 @@ const BGMToggle: React.FC = () => {
         <div style={{ position: 'relative', display: 'inline-block' }}>
             <button
                 onClick={handleClick}
-                title={muted ? '播放 BGM' : '静音'}
+                title={muted ? '播放 BGM' : '靜音'}
                 style={{
                     background: muted
                         ? 'linear-gradient(180deg, rgba(255,248,236,0.95), rgba(245,234,212,0.85))'
@@ -3090,7 +3090,7 @@ const BGMToggle: React.FC = () => {
                             pointerEvents: 'none',
                         }}
                     >
-                        ♪ 这里有音乐 · 嫌吵就点 ↑
+                        ♪ 這裡有音樂 · 嫌吵就點 ↑
                     </div>
                 </>
             )}
@@ -3099,7 +3099,7 @@ const BGMToggle: React.FC = () => {
 };
 
 // ============================================================
-// Like520Session — 主状态机
+// Like520Session — 主狀態機
 // ============================================================
 
 interface SessionProps {
@@ -3113,7 +3113,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
     const { characters, userProfile, apiConfig, updateCharacter, addToast } = useOS();
     const char = characters.find(c => c.id === charId);
 
-    // 已有完成记录？拿出来判断要不要弹回放选择卡
+    // 已有完成記錄？拿出來判斷要不要彈回放選擇卡
     const existingRecord = char?.specialMomentRecords?.[LIKE520_RECORD_KEY];
     const existingData = existingRecord?.customData as {
         callA: Like520CallAResult;
@@ -3124,13 +3124,13 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
     } | undefined;
     const hasExisting = !!(existingData && existingData.callA && existingData.callB);
 
-    // 没有记录 → 直接 fresh；有记录 → 等用户在选择卡上选模式
+    // 沒有記錄 → 直接 fresh；有記錄 → 等用戶在選擇卡上選模式
     const [sessionMode, setSessionMode] = useState<SessionMode | null>(hasExisting ? null : 'fresh');
 
     const [phase, setPhase] = useState<Phase>('intro');
     const [errorMsg, setErrorMsg] = useState<string>('');
 
-    // BGM：根据当前 phase 切换 4 组 BGM。intro / 选择卡 阶段不启动（等用户点击进入再开始，避开 autoplay policy）
+    // BGM：根據當前 phase 切換 4 組 BGM。intro / 選擇卡 階段不啟動（等用戶點擊進入再開始，避開 autoplay policy）
     const bgmActive = sessionMode !== null && phase !== 'intro' && phase !== 'error';
     const bgmGroup = phaseToBGMGroup(phase);
     const bgm = useLike520BGM(bgmActive, bgmGroup);
@@ -3141,11 +3141,11 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
     const [callB, setCallB] = useState<Like520CallBResult | null>(null);
     const [chosenTucao, setChosenTucao] = useState<Like520TucaoKey | null>(null);
 
-    // 启动 Call A / B 标记
+    // 啟動 Call A / B 標記
     const callAStartedRef = useRef(false);
     const callBStartedRef = useRef(false);
 
-    // sessionMode 决定后：如果是 replay / skip-to-letter，预填全部 state，跳过 LLM 调用
+    // sessionMode 決定後：如果是 replay / skip-to-letter，預填全部 state，跳過 LLM 調用
     useEffect(() => {
         if (!sessionMode || !existingData) return;
         if (sessionMode === 'fresh') return;
@@ -3168,7 +3168,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
         if (sessionMode === 'skip-to-letter') {
             setPhase('letter');
         } else {
-            // replay：从 yangcheng 开始（跳过 intro / char_creator / loading_a）
+            // replay：從 yangcheng 開始（跳過 intro / char_creator / loading_a）
             setPhase('yangcheng');
         }
     }, [sessionMode, existingData]);
@@ -3182,7 +3182,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
             setCallA(result);
         } catch (err: any) {
             console.error('[520] Call A failed:', err);
-            setErrorMsg(`生成剧本失败：${err?.message || '请重试'}`);
+            setErrorMsg(`生成劇本失敗：${err?.message || '請重試'}`);
             setPhase('error');
         }
     }, [char, userProfile, apiConfig]);
@@ -3197,17 +3197,17 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
         } catch (err) {
             console.error('[520] Call B failed:', err);
             setCallB({
-                wake_up: ['……我们好像一起做了一个梦呀。', '不过，不是坏的那种。'],
-                letter: '（信生成出了点小问题。这是一段属于你的、未完成的话——但它一直在。）',
+                wake_up: ['……我們好像一起做了一個夢呀。', '不過，不是壞的那種。'],
+                letter: '（信生成出了點小問題。這是一段屬於你的、未完成的話——但它一直在。）',
             });
         }
     }, [char, userProfile, apiConfig]);
 
-    // === Phase 导航 ===
+    // === Phase 導航 ===
 
     const handleCharChibiConfirm = useCallback((r: ChibiResult) => {
         setCharChibi(r);
-        // 等 Call A 结果决定下一步
+        // 等 Call A 結果決定下一步
         if (callA) setPhase('yangcheng');
         else setPhase('loading_a');
     }, [callA]);
@@ -3217,42 +3217,42 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
         setPhase('uncovered_line');
     }, []);
 
-    // 当 callA 在 loading_a 阶段返回时，自动推进到 yangcheng
+    // 當 callA 在 loading_a 階段返回時，自動推進到 yangcheng
     useEffect(() => {
         if (phase === 'loading_a' && callA) {
             setPhase('yangcheng');
         }
     }, [phase, callA]);
 
-    // 当用户选了吐槽 → 开始 Call B
+    // 當用戶選了吐槽 → 開始 Call B
     useEffect(() => {
         if (callA && chosenTucao && !callBStartedRef.current) {
             startCallB(callA, chosenTucao);
         }
     }, [callA, chosenTucao, startCallB]);
 
-    // loading_b 阶段，Call B 一就绪自动推进
+    // loading_b 階段，Call B 一就緒自動推進
     useEffect(() => {
         if (phase === 'loading_b' && callB) {
             setPhase('wake_up');
         }
     }, [phase, callB]);
 
-    // === 保存结果到 char.specialMomentRecords ===
+    // === 保存結果到 char.specialMomentRecords ===
     const savedRef = useRef(false);
     const saveRecord = useCallback(async () => {
         if (savedRef.current) return;                          // 本次 session 已保存
         if (sessionMode !== 'fresh') return;                   // 回放/看信模式不重存
         if (!char || !callA || !callB || !charChibi || !userChibi || !chosenTucao) return;
         savedRef.current = true;
-        // 带相框的定妆照有 500KB 上下，落进 Blob 库、记录里只留 blobref 令牌。
-        // 落库失败也别把整条记录（信、锚点、两只手办的 state）连坐掉，记一笔继续存。
-        // 注意下面 customData 里的两张手办图仍然是 dataURL：合成大头贴的 canvas 只认能同步开始加载的值。
+        // 帶相框的定妝照有 500KB 上下，落進 Blob 庫、記錄裡只留 blobref 令牌。
+        // 落庫失敗也別把整條記錄（信、錨點、兩隻手辦的 state）連坐掉，記一筆繼續存。
+        // 注意下面 customData 裡的兩張手辦圖仍然是 dataURL：合成大頭貼的 canvas 只認能同步開始加載的值。
         let framedRef = '';
         try {
             framedRef = await putImageBlob(dataUrlToBlob(charChibi.frameDataUrl));
         } catch (e) {
-            console.warn('[520] 定妆照落库失败，本次记录不带图', e);
+            console.warn('[520] 定妝照落庫失敗，本次記錄不帶圖', e);
         }
         const previousRecords = char.specialMomentRecords || {};
         const record: SpecialMomentRecord = {
@@ -3274,7 +3274,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
         try {
             localStorage.setItem(LIKE520_COMPLETED_KEY, '1');
         } catch { /* ignore */ }
-        // 写一条 chat 卡片消息留痕：score_card kind=like520_card，含合照 PNG + 信全文 + 标题
+        // 寫一條 chat 卡片消息留痕：score_card kind=like520_card，含合照 PNG + 信全文 + 標題
         try {
             const userName = userProfile.name || '你';
             const photoDataUrl = await composePuzzlePhoto(
@@ -3309,7 +3309,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
         }
     }, [char, callA, callB, charChibi, userChibi, chosenTucao, updateCharacter]);
 
-    // === 错误页 ===
+    // === 錯誤頁 ===
     if (!char) {
         return (
             <div className="fixed inset-0 z-[9997] flex items-center justify-center bg-[#FFF1E6]">
@@ -3324,7 +3324,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                 <div className="text-[#C76182] mb-3">⚠</div>
                 <div className="text-[#5C3A4A] text-sm text-center mb-6">{errorMsg}</div>
                 <button onClick={onClose} className="px-7 py-2.5 rounded-full bg-white text-[#C76182] text-sm font-bold border border-[#FFB6C8] active:scale-95 transition-transform">
-                    关闭
+                    關閉
                 </button>
             </div>
         );
@@ -3333,11 +3333,11 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
     // === Phase 渲染 ===
     const background = 'linear-gradient(180deg, #FFF1E6 0%, #FFE4EC 100%)';
 
-    // 有完成记录但用户还没在选择卡上选模式：先弹回放选择卡
+    // 有完成記錄但用戶還沒在選擇卡上選模式：先彈回放選擇卡
     if (hasExisting && sessionMode === null) {
         const pickMode = (mode: SessionMode) => {
             if (mode === 'fresh') {
-                // 重来：清掉记录
+                // 重來：清掉記錄
                 const prev = char.specialMomentRecords || {};
                 const updated = { ...prev };
                 delete updated[LIKE520_RECORD_KEY];
@@ -3358,20 +3358,20 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                             <span className="cc-tr" />
                             <div className="l520-choice-head">
                                 <div className="ornament">❦ ⸙ ❦</div>
-                                <h3>这个下午已经度过过</h3>
+                                <h3>這個下午已經度過過</h3>
                                 <div className="sub">— Your Treasured Moment —</div>
                             </div>
                             <button className="l520-choice-row" onClick={() => pickMode('replay')}>
                                 <span className="num">I</span>
-                                <span className="text">重 看 — 把那个下午再过一遍</span>
+                                <span className="text">重 看 — 把那個下午再過一遍</span>
                             </button>
                             <button className="l520-choice-row" onClick={() => pickMode('skip-to-letter')}>
                                 <span className="num">II</span>
-                                <span className="text">看 信 — 直接打开 ta 写的信</span>
+                                <span className="text">看 信 — 直接打開 ta 寫的信</span>
                             </button>
                             <button className="l520-choice-row" onClick={() => pickMode('fresh')}>
                                 <span className="num">III</span>
-                                <span className="text">重 来 — 清掉记录，重新做一次</span>
+                                <span className="text">重 來 — 清掉記錄，重新做一次</span>
                             </button>
                             <button
                                 onClick={onClose}
@@ -3389,7 +3389,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                                     cursor: 'pointer',
                                 }}
                             >
-                                — 关 闭 —
+                                — 關 閉 —
                             </button>
                         </div>
                     </div>
@@ -3404,30 +3404,30 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
             {phase === 'intro' && (
                 <div className="flex flex-col items-center justify-center min-h-full px-8 py-16 max-w-md mx-auto">
                     <div className="text-[10px] tracking-[8px] text-[#C76182] mb-3">5 · 2 · 0</div>
-                    <div className="text-[#C76182] text-xl font-bold mb-1 tracking-widest">特别活动</div>
+                    <div className="text-[#C76182] text-xl font-bold mb-1 tracking-widest">特別活動</div>
                     <div className="text-[#5C3A4A] text-lg leading-relaxed text-center my-8">
-                        如果<span className="mx-1 text-[#C76182]">{char.name}</span>变得小小的，<br />
-                        那ta会是——？
+                        如果<span className="mx-1 text-[#C76182]">{char.name}</span>變得小小的，<br />
+                        那ta會是——？
                     </div>
                     <button
                         onClick={() => { startCallA(); setPhase('char_creator'); }}
                         className="mt-6 px-10 py-3 rounded-full bg-gradient-to-r from-[#FFB6C8] to-[#F18AAA] text-white font-bold shadow-lg active:scale-95 transition-transform"
                     >
-                        开始装扮 ♥
+                        開始裝扮 ♥
                     </button>
                     <button
                         onClick={onClose}
                         className="mt-4 text-xs text-[#9D7585]"
                     >
-                        以后再说
+                        以後再說
                     </button>
                 </div>
             )}
 
             {phase === 'char_creator' && (
-                // wrapper 顶让位刘海给 iframe 用，背景染成跟 iframe 内顶部同色，看不出色块；
-                // 底由 iframe 内 .panel 自己的 calc(12px + env(safe-area-inset-bottom)) 让位 home 条（viewport-fit=cover 已开）。
-                // 浮动 X 退出 —— iframe HTML 自身没有返回键，不给的话进了捏脸只能"出件"才能往下走。
+                // wrapper 頂讓位劉海給 iframe 用，背景染成跟 iframe 內頂部同色，看不出色塊；
+                // 底由 iframe 內 .panel 自己的 calc(12px + env(safe-area-inset-bottom)) 讓位 home 條（viewport-fit=cover 已開）。
+                // 浮動 X 退出 —— iframe HTML 自身沒有返回鍵，不給的話進了捏臉只能"出件"才能往下走。
                 <div className="absolute inset-0" style={{ paddingTop: 'var(--safe-top)', background: '#FFF1E6' }}>
                     <ExitButton onClick={onClose} />
                     <CreatorIframe
@@ -3441,7 +3441,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                 </div>
             )}
 
-            {phase === 'loading_a' && <LoadingView hint="ta 在准备这个下午…" />}
+            {phase === 'loading_a' && <LoadingView hint="ta 在準備這個下午…" />}
 
             {phase === 'yangcheng' && callA && charChibi && (
                 <Y520Scene
@@ -3451,7 +3451,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                     charChibiUrl={charChibi.transparentDataUrl}
                     onTucaoSelected={(k) => setChosenTucao(k)}
                     onComplete={() => {
-                        // replay 模式下已经有 userChibi，直接跳过 user_creator 进 uncovered_line
+                        // replay 模式下已經有 userChibi，直接跳過 user_creator 進 uncovered_line
                         if (sessionMode === 'replay' && userChibi) {
                             setPhase('uncovered_line');
                         } else {
@@ -3497,7 +3497,7 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
                 />
             )}
 
-            {phase === 'loading_b' && <LoadingView hint="醒过来之前…" />}
+            {phase === 'loading_b' && <LoadingView hint="醒過來之前…" />}
 
             {phase === 'wake_up' && callB && (
                 <WakeUpView
@@ -3546,10 +3546,10 @@ export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
 };
 
 // ============================================================
-// Controller — 弹窗 → 角色选择 → Session
+// Controller — 彈窗 → 角色選擇 → Session
 // ============================================================
 
-// 520 弹窗内嵌的 API 配置面板 —— 配完直接传送进活动，不再绕去设置 App
+// 520 彈窗內嵌的 API 配置面板 —— 配完直接傳送進活動，不再繞去設置 App
 const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = ({ onDone, onBack }) => {
     const { apiConfig, updateApiConfig, addToast, availableModels, setAvailableModels, apiPresets } = useOS();
 
@@ -3569,7 +3569,7 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
         setLocalModel(preset.config.model);
         setLocalStream(preset.config.stream === true);
         setTestResult(null);
-        addToast(`已加载预设: ${preset.name}`, 'info');
+        addToast(`已加載預設: ${preset.name}`, 'info');
     };
 
     const handleSave = () => {
@@ -3580,9 +3580,9 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
     };
 
     const fetchModels = async () => {
-        if (!localUrl) { setStatusMsg('请先填写 URL'); return; }
+        if (!localUrl) { setStatusMsg('請先填寫 URL'); return; }
         setIsLoadingModels(true);
-        setStatusMsg('正在连接...');
+        setStatusMsg('正在連接...');
         try {
             const baseUrl = localUrl.replace(/\/+$/, '');
             const response = await fetch(`${baseUrl}/models`, {
@@ -3596,11 +3596,11 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
                 const models = list.map((m: any) => m.id || m);
                 setAvailableModels(models);
                 if (models.length > 0 && !models.includes(localModel)) setLocalModel(models[0]);
-                setStatusMsg(`获取到 ${models.length} 个模型`);
+                setStatusMsg(`獲取到 ${models.length} 個模型`);
                 setShowModelList(true);
             } else { setStatusMsg('格式不兼容'); }
         } catch {
-            setStatusMsg('连接失败');
+            setStatusMsg('連接失敗');
         } finally {
             setIsLoadingModels(false);
         }
@@ -3624,13 +3624,13 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
             if (res.ok) {
                 const data = await safeResponseJson(res);
                 const reply = data.choices?.[0]?.message?.content || '';
-                setTestResult(`✅ 连接成功 — 模型回复: "${reply.slice(0, 30)}"`);
+                setTestResult(`✅ 連接成功 — 模型回覆: "${reply.slice(0, 30)}"`);
             } else {
                 const text = await res.text().catch(() => '');
                 setTestResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
             }
         } catch (err: any) {
-            setTestResult(`❌ 连接失败: ${err.message}`);
+            setTestResult(`❌ 連接失敗: ${err.message}`);
         } finally {
             setTesting(false);
         }
@@ -3650,13 +3650,13 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
                 <div className="px-6 pt-6 pb-2 text-center shrink-0">
                     <div className="text-2xl mb-1">🔧</div>
                     <h3 className="text-lg font-bold text-slate-800">API 配置</h3>
-                    <p className="text-[11px] text-slate-400 mt-1">配置完成后即可前往今天的特别活动</p>
+                    <p className="text-[11px] text-slate-400 mt-1">配置完成後即可前往今天的特別活動</p>
                 </div>
 
                 <div className="px-6 py-4 space-y-4 overflow-y-auto no-scrollbar flex-1">
                     {apiPresets.length > 0 && (
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">我的预设</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">我的預設</label>
                             <div className="flex gap-2 flex-wrap">
                                 {apiPresets.map(preset => (
                                     <button
@@ -3710,7 +3710,7 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
                                 : 'border-pink-300 text-pink-500 bg-pink-50 hover:bg-pink-100'
                         }`}
                     >
-                        {testing ? '测试中...' : '🧪 测试连接'}
+                        {testing ? '測試中...' : '🧪 測試連接'}
                     </button>
 
                     {testResult && (
@@ -3727,7 +3727,7 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
                         返回
                     </button>
                     <button onClick={handleContinue} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-pink-200 active:scale-95 transition-transform text-sm">
-                        前往活动 ♥
+                        前往活動 ♥
                     </button>
                 </div>
             </div>
@@ -3746,12 +3746,12 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
     const [charId, setCharId] = useState<string>(initialCharId || '');
     const [defaultCharId, setDefaultCharId] = useState<string>('');
 
-    // 一次性弹窗：用户在弹窗里点过任何按钮都标记 dismissed，下次刷新就不会再弹
+    // 一次性彈窗：用戶在彈窗裡點過任何按鈕都標記 dismissed，下次刷新就不會再彈
     const markDismissed = () => {
         try { localStorage.setItem(LIKE520_DISMISSED_KEY, '1'); } catch { /* ignore */ }
     };
 
-    // popup 一打开就预选一个角色：优先 Sully，没有 Sully 选聊得最频繁的那个
+    // popup 一打開就預選一個角色：優先 Sully，沒有 Sully 選聊得最頻繁的那個
     useEffect(() => {
         if (stage !== 'popup' || initialCharId) return;
         let cancelled = false;
@@ -3785,12 +3785,12 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
         const charName = defaultChar?.name || (characters.length === 0 ? '' : '...');
         const popupHeading = defaultChar
             ? (isSullyDefault ? 'Sully 好像有事找你？' : `${charName} 好像有事找你？`)
-            : '特别活动';
+            : '特別活動';
         const popupBody = defaultChar
             ? (isSullyDefault
-                ? 'ta 突然变得小小的——\n要不要去看看？'
-                : `${charName} 今天有点不一样——\nta 突然变得小小的。`)
-            : '今天是 5 月 20 号——\n但还没有可以陪你的角色。';
+                ? 'ta 突然變得小小的——\n要不要去看看？'
+                : `${charName} 今天有點不一樣——\nta 突然變得小小的。`)
+            : '今天是 5 月 20 號——\n但還沒有可以陪你的角色。';
 
         return (
             <div className="fixed inset-0 z-[9998] flex items-center justify-center p-5 animate-fade-in">
@@ -3807,8 +3807,8 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
                         <p className="text-[12px] text-slate-500 mt-3 leading-relaxed whitespace-pre-line">{popupBody}</p>
                         <p className="text-[10px] text-slate-400 mt-3 leading-relaxed">
                             {defaultChar && !isSullyDefault
-                                ? '（想换个 ta？桌面「特别时光」里所有 ta 都在）'
-                                : '（这条提醒只会出现一次，活动随时可以在桌面「特别时光」里找到）'}
+                                ? '（想換個 ta？桌面「特別時光」裡所有 ta 都在）'
+                                : '（這條提醒只會出現一次，活動隨時可以在桌面「特別時光」裡找到）'}
                         </p>
                     </div>
 
@@ -3818,7 +3818,7 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
                             disabled={!defaultCharId}
                             className="w-full py-3.5 bg-gradient-to-r from-[#FFB6C8] to-[#F18AAA] text-white font-bold rounded-2xl shadow-lg shadow-pink-200 active:scale-95 transition-transform text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <span>确&nbsp;定</span>
+                            <span>確&nbsp;定</span>
                             <span>♥</span>
                         </button>
 
@@ -3833,7 +3833,7 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
                             onClick={dismiss}
                             className="w-full py-2 text-slate-400 text-xs"
                         >
-                            不感兴趣
+                            不感興趣
                         </button>
                     </div>
                 </div>
@@ -3845,7 +3845,7 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
         return (
             <Like520InlineApiSetup
                 onDone={() => {
-                    // 配完直接进入活动 —— 优先用预选角色，没有就让用户挑
+                    // 配完直接進入活動 —— 優先用預選角色，沒有就讓用戶挑
                     if (defaultCharId) {
                         setCharId(defaultCharId);
                         setStage('session');
@@ -3864,12 +3864,12 @@ export const Like520Controller: React.FC<Like520ControllerProps> = ({ onClose, i
                 <div className="absolute inset-0 bg-black/40 backdrop-blur" onClick={onClose} />
                 <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/40 overflow-hidden max-h-[80vh] flex flex-col">
                     <div className="px-6 pt-6 pb-3 text-center shrink-0">
-                        <h3 className="text-lg font-bold text-[#5C3A4A]">选一个 ta</h3>
-                        <p className="text-[11px] text-[#9D7585] mt-1">一起度过这个下午</p>
+                        <h3 className="text-lg font-bold text-[#5C3A4A]">選一個 ta</h3>
+                        <p className="text-[11px] text-[#9D7585] mt-1">一起度過這個下午</p>
                     </div>
                     <div className="px-4 pb-4 overflow-y-auto flex-1">
                         {characters.length === 0 ? (
-                            <div className="text-center text-sm text-[#9D7585] py-8">还没有角色呢</div>
+                            <div className="text-center text-sm text-[#9D7585] py-8">還沒有角色呢</div>
                         ) : (
                             <div className="grid grid-cols-2 gap-3">
                                 {characters.map(c => (

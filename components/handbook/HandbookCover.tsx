@@ -1,8 +1,8 @@
 /**
- * 列表视图 = 杂志感手账封面 + 今日丝带书签 + 散落贴纸 + tab 标签纸
+ * 列表視圖 = 雜誌感手帳封面 + 今日絲帶書籤 + 散落貼紙 + tab 標籤紙
  *
- * 视觉灵感：季節の手帳 — magazine-style cover with washi tape,
- *           DM Serif Display 大标语 + Caveat 月份花字 + Shippori Mincho 副标 + Courier 卷号
+ * 視覺靈感：季節の手帳 — magazine-style cover with washi tape,
+ *           DM Serif Display 大標語 + Caveat 月份花字 + Shippori Mincho 副標 + Courier 卷號
  */
 
 import React from 'react';
@@ -28,7 +28,7 @@ interface CoverProps {
     onOpenDate: (date: string) => void;
 }
 
-// ─── 装饰用的简版 Washi tape ───────────────────────────────
+// ─── 裝飾用的簡版 Washi tape ───────────────────────────────
 const TapeStripe: React.FC<{
     width: number; rotate: number; color: string; pattern?: 'stripe' | 'flower' | 'dot';
     style?: React.CSSProperties;
@@ -69,7 +69,7 @@ const HandbookCover: React.FC<CoverProps> = ({
     const season = seasonOf(today);
     const sLab = seasonLabel(season);
 
-    // 当前月份英文（April 等）
+    // 當前月份英文（April 等）
     const monthFull = monthFullEn(today);
 
     return (
@@ -79,7 +79,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                 background: `${PAPER_TONES.paperWarm} radial-gradient(circle at 20% 10%, rgba(251,184,200,0.18) 0%, transparent 40%), radial-gradient(circle at 80% 60%, rgba(185,211,224,0.18) 0%, transparent 40%)`,
             }}
         >
-            {/* 飘在背景的云朵 */}
+            {/* 飄在背景的雲朵 */}
             <div className="absolute top-12 right-4 opacity-40 pointer-events-none">
                 <Cloud size={70} />
             </div>
@@ -87,7 +87,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                 <Cloud size={54} color="#ffe2ec" />
             </div>
 
-            {/* ═══ 杂志感封面 ═══════════════════════════════════ */}
+            {/* ═══ 雜誌感封面 ═══════════════════════════════════ */}
             <div
                 className="mx-4 mt-3 rounded-[20px] relative overflow-hidden"
                 style={{
@@ -97,7 +97,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     padding: '34px 22px 40px',
                 }}
             >
-                {/* 顶端两道 washi tape（左 -8°, 右 +12°）*/}
+                {/* 頂端兩道 washi tape（左 -8°, 右 +12°）*/}
                 <div className="absolute -top-1 -left-3 z-10 pointer-events-none">
                     <TapeStripe width={130} rotate={-8} color={PAPER_TONES.accentBlush} pattern="flower" />
                 </div>
@@ -105,7 +105,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     <TapeStripe width={110} rotate={12} color={PAPER_TONES.accentMint} pattern="stripe" />
                 </div>
 
-                {/* 角落贴纸 */}
+                {/* 角落貼紙 */}
                 <div className="absolute top-16 left-5 pointer-events-none" style={{ transform: 'rotate(-12deg)' }}>
                     <StarSticker size={18} color={PAPER_TONES.accentLemon} />
                 </div>
@@ -116,9 +116,9 @@ const HandbookCover: React.FC<CoverProps> = ({
                     <SparkleDot size={14} color={PAPER_TONES.accentBlue} />
                 </div>
 
-                {/* ── 主标 ───────────────────────────────────── */}
+                {/* ── 主標 ───────────────────────────────────── */}
                 <div className="relative text-center mt-7">
-                    {/* 顶部小行：PERSONAL · INDEPENDENT */}
+                    {/* 頂部小行：PERSONAL · INDEPENDENT */}
                     <div
                         style={{
                             ...DISPLAY_STACK,
@@ -129,7 +129,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     >
                         PERSONAL · INDEPENDENT
                     </div>
-                    {/* 大写 Hello, （DM Serif Display）*/}
+                    {/* 大寫 Hello, （DM Serif Display）*/}
                     <div
                         style={{
                             ...DISPLAY_STACK,
@@ -155,7 +155,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     >
                         {monthFull} <span style={{ color: PAPER_TONES.accentRose }}>♡</span>
                     </div>
-                    {/* 日文副标题 */}
+                    {/* 日文副標題 */}
                     <div
                         style={{
                             ...JP_STACK,
@@ -167,7 +167,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     >
                         季節の手帳 · {yearNum(today)}
                     </div>
-                    {/* 下一行：卷号 — 季节 */}
+                    {/* 下一行：卷號 — 季節 */}
                     <div
                         style={{
                             ...MONO_STACK,
@@ -181,7 +181,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     </div>
                 </div>
 
-                {/* ── 用户标记小条（user · season emoji）────── */}
+                {/* ── 用戶標記小條（user · season emoji）────── */}
                 <div className="mt-7 flex items-center justify-center gap-3">
                     <div style={{ flex: 1, height: 1, background: PAPER_TONES.accentRose, opacity: 0.5 }} />
                     <div
@@ -203,13 +203,13 @@ const HandbookCover: React.FC<CoverProps> = ({
                 </div>
             </div>
 
-            {/* ═══ 今日 · 翻开按钮 ═════════════════════════════ */}
+            {/* ═══ 今日 · 翻開按鈕 ═════════════════════════════ */}
             <div className="mx-4 mt-6 relative">
-                {/* 飘出的 ribbon 装饰 */}
+                {/* 飄出的 ribbon 裝飾 */}
                 <div className="absolute -top-2 left-8 z-10 pointer-events-none">
                     <Ribbon size={32} color={PAPER_TONES.accentBlush} />
                 </div>
-                {/* 散落小贴纸 */}
+                {/* 散落小貼紙 */}
                 <div className="absolute -top-3 right-4 z-10 pointer-events-none" style={{ transform: 'rotate(20deg)' }}>
                     <PawSticker size={24} color={PAPER_TONES.accentRose} />
                 </div>
@@ -221,7 +221,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                         boxShadow: '0 3px 10px -2px rgba(122,90,114,0.18), 0 0 0 1.5px rgba(220,199,213,0.5)',
                     }}
                 >
-                    {/* 顶部 courier 日期标签 */}
+                    {/* 頂部 courier 日期標籤 */}
                     <div
                         className="absolute top-2 right-3"
                         style={{
@@ -235,7 +235,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                     </div>
 
                     <div className="flex items-end gap-4 mt-2">
-                        {/* 大号衬线日期 — 用 DM Serif Display 主显示 */}
+                        {/* 大號襯線日期 — 用 DM Serif Display 主顯示 */}
                         <div className="text-right shrink-0">
                             <div
                                 style={{
@@ -281,8 +281,8 @@ const HandbookCover: React.FC<CoverProps> = ({
                                 style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                             >
                                 {todayEntry
-                                    ? `今天已经记下 ${todayEntry.pages.length} 页 ♡`
-                                    : `今天还没翻开 · 想写就写`}
+                                    ? `今天已經記下 ${todayEntry.pages.length} 頁 ♡`
+                                    : `今天還沒翻開 · 想寫就寫`}
                             </div>
                             <div className="flex gap-2">
                                 <button
@@ -297,7 +297,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                                     }}
                                 >
                                     <Sparkle weight="fill" className="w-3.5 h-3.5" />
-                                    {generating ? '正在落笔…' : 'AI 替我写一份'}
+                                    {generating ? '正在落筆…' : 'AI 替我寫一份'}
                                 </button>
                                 <button
                                     onClick={() => onOpenDate(today)}
@@ -309,7 +309,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                                         border: `1.5px solid ${PAPER_TONES.accentMint}`,
                                     }}
                                 >
-                                    翻开
+                                    翻開
                                 </button>
                             </div>
                         </div>
@@ -317,7 +317,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                 </div>
             </div>
 
-            {/* ═══ 回望书签列表 ═════════════════════════════════ */}
+            {/* ═══ 回望書籤列表 ═════════════════════════════════ */}
             <div className="mt-8 px-4">
                 <div
                     className="flex items-center justify-center gap-3 mb-4"
@@ -351,9 +351,9 @@ const HandbookCover: React.FC<CoverProps> = ({
                 {otherEntries.length === 0 ? (
                     <div className="text-center py-10" style={{ color: PAPER_TONES.inkSoft }}>
                         <Notebook className="w-9 h-9 mx-auto mb-2 opacity-40" weight="thin" />
-                        <div className="text-[13px]" style={CUTE_STACK}>之前还没有记过</div>
+                        <div className="text-[13px]" style={CUTE_STACK}>之前還沒有記過</div>
                         <div className="text-[11px] mt-1 opacity-70" style={CUTE_STACK}>
-                            没关系 · 想翻的时候再翻 ♡
+                            沒關係 · 想翻的時候再翻 ♡
                         </div>
                     </div>
                 ) : (
@@ -377,10 +377,10 @@ const HandbookCover: React.FC<CoverProps> = ({
                                     className="w-full text-left relative active:scale-[0.99] transition"
                                     style={{ transform: `rotate(${tilt * 0.3}deg)` }}
                                 >
-                                    {/* 散落贴纸 */}
+                                    {/* 散落貼紙 */}
                                     <ScatteredStickers seed={e.id} count={2} zone="corners" />
 
-                                    {/* 侧出的 tab 标签 */}
+                                    {/* 側出的 tab 標籤 */}
                                     <div
                                         className="absolute right-0 top-3 px-2 py-0.5 text-[9px] font-bold tracking-widest z-10"
                                         style={{
@@ -391,7 +391,7 @@ const HandbookCover: React.FC<CoverProps> = ({
                                             ...CUTE_STACK,
                                         }}
                                     >
-                                        {visibleCount}页 ♡
+                                        {visibleCount}頁 ♡
                                     </div>
 
                                     <div

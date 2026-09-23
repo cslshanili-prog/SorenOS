@@ -1,10 +1,10 @@
 // worker/amsg/src/plateFire.test.ts
-// 后台任务（`metadata.amsgKind`）这条路的回归守卫。
+// 後台任務（`metadata.amsgKind`）這條路的迴歸守衛。
 //
-// 这条路存在的意义就是「绕开聊天那一整套」，所以最该钉住的不是它做了什么，而是它
-// **没被什么挡住**：聊天那四道门（活跃会话租约 / fire_pack 必须在场 / 防穿帮闸 /
-// 任务指令必填）一道都不该拦它，onLLMOutput 的 stash 断言也不该拦它。分派点往后挪
-// 一行，这些用例就会挂。
+// 這條路存在的意義就是「繞開聊天那一整套」，所以最該釘住的不是它做了什麼，而是它
+// **沒被什麼擋住**：聊天那四道門（活躍會話租約 / fire_pack 必須在場 / 防穿幫閘 /
+// 任務指令必填）一道都不該攔它，onLLMOutput 的 stash 斷言也不該攔它。分派點往後挪
+// 一行，這些用例就會掛。
 import { describe, it, expect, vi } from 'vitest';
 
 import { amsgHooks } from './index';
@@ -29,16 +29,16 @@ const jobInput = (overrides: Record<string, unknown> = {}) => buildPlateJobInput
   userName: '小明',
   identityContext: '（身份上下文）',
   rooms: [
-    { room: 'user_room', entries: ['小明在读研'], entryIds: ['pe_a'] },
+    { room: 'user_room', entries: ['小明在讀研'], entryIds: ['pe_a'] },
     { room: 'bedroom', entries: [], entryIds: [] },
   ],
-  materials: [{ room: 'user_room', lines: ['小明这周搬去和同学合租了'] }],
+  materials: [{ room: 'user_room', lines: ['小明這週搬去和同學合租了'] }],
   ...overrides,
 } as any);
 
 /**
- * 造一份跑门牌任务用的 ctx。
- * charRows 默认是**空的**——后台任务不传 fire_pack / tool_pack，这正是要钉的点。
+ * 造一份跑門牌任務用的 ctx。
+ * charRows 默認是**空的**——後台任務不傳 fire_pack / tool_pack，這正是要釘的點。
  */
 const makeCtx = (opts: {
   metadata?: Record<string, unknown>;
@@ -105,23 +105,23 @@ const makeSessionCtx = (scratch: Record<string, unknown>, llmOutputText: string)
 };
 
 const REPLY = JSON.stringify([
-  { room: 'user_room', text: '小明在读研，最近搬去和同学合租', basedOn: 'U0', tag: '居住' },
+  { room: 'user_room', text: '小明在讀研，最近搬去和同學合租', basedOn: 'U0', tag: '居住' },
 ]);
 
-describe('后台任务分派：聊天那几道门一道都不该拦它', () => {
-  it('没有 fire_pack 也照跑（聊天那条路在这儿是硬失败）', async () => {
+describe('後台任務分派：聊天那幾道門一道都不該攔它', () => {
+  it('沒有 fire_pack 也照跑（聊天那條路在這兒是硬失敗）', async () => {
     const { ctx } = makeCtx({ jobValue: await packStateValue(JSON.stringify(jobInput())) });
     const result = await amsgHooks.onBeforeFire(ctx) as { messages: Array<{ role: string; content: string }> };
 
     expect(result).toHaveProperty('messages');
     expect(result.messages).toHaveLength(2);
     expect(result.messages[0].role).toBe('system');
-    // 提示词确实是门牌那份（现有条目带标签、新材料在里面）
-    expect(result.messages[0].content).toContain('[U0] 小明在读研');
-    expect(result.messages[0].content).toContain('小明这周搬去和同学合租');
+    // 提示詞確實是門牌那份（現有條目帶標籤、新材料在裡面）
+    expect(result.messages[0].content).toContain('[U0] 小明在讀研');
+    expect(result.messages[0].content).toContain('小明這週搬去和同學合租');
   });
 
-  it('用户正在聊天（活跃会话租约新鲜）也照跑——后台整理不发消息，不用让路', async () => {
+  it('用戶正在聊天（活躍會話租約新鮮）也照跑——後台整理不發消息，不用讓路', async () => {
     const presence = JSON.stringify({
       v: 1, charId: CHAR_ID, activeAt: NOW.getTime(), lastUserMessageAt: NOW.getTime(),
     });
@@ -134,80 +134,80 @@ describe('后台任务分派：聊天那几道门一道都不该拦它', () => {
     expect(result).toHaveProperty('messages');
   });
 
-  it('没有 amsgTaskInstruction 也照跑（那是主动消息才要的东西）', async () => {
+  it('沒有 amsgTaskInstruction 也照跑（那是主動消息才要的東西）', async () => {
     const { ctx } = makeCtx({ jobValue: await packStateValue(JSON.stringify(jobInput())) });
     expect(ctx.task.metadata.amsgTaskInstruction).toBeUndefined();
     await expect(amsgHooks.onBeforeFire(ctx)).resolves.toHaveProperty('messages');
   });
 
-  it('不认识的 kind 硬失败，报错里说得出该干什么', async () => {
+  it('不認識的 kind 硬失敗，報錯裡說得出該幹什麼', async () => {
     const { ctx } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
       metadata: { [AMSG_TASK_KIND_KEY]: 'something-new' },
     });
-    await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/不认识的任务种类.*重新部署/s);
+    await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/不[认認][识識]的任[务務][种種][类類].*重新部署/s);
   });
 
-  it('没标 kind 的任务照旧走聊天主干（存量任务一条都不受影响）', async () => {
+  it('沒標 kind 的任務照舊走聊天主幹（存量任務一條都不受影響）', async () => {
     const { ctx } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
       metadata: { [AMSG_TASK_KIND_KEY]: undefined },
     });
-    // 走聊天主干 → 撞上「云端没有这个角色的 fire_pack」那道门
+    // 走聊天主幹 → 撞上「雲端沒有這個角色的 fire_pack」那道門
     await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/fire_pack/);
   });
 });
 
-describe('门牌整理 handler', () => {
-  it('输入过期（job 行不在了）→ 安静跳过，不算失败', async () => {
+describe('門牌整理 handler', () => {
+  it('輸入過期（job 行不在了）→ 安靜跳過，不算失敗', async () => {
     const { ctx } = makeCtx({ jobValue: null });
     await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
   });
 
-  it('输入形状坏了 → 硬失败（别拿半份材料整理出缺东西的门牌）', async () => {
+  it('輸入形狀壞了 → 硬失敗（別拿半份材料整理出缺東西的門牌）', async () => {
     const { ctx } = makeCtx({ jobValue: await packStateValue('{"v":99}') });
-    await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解析失败/);
+    await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解析失[败敗]/);
   });
 
-  it('这次 fire 的超时跟浏览器那条路对齐', async () => {
+  it('這次 fire 的超時跟瀏覽器那條路對齊', async () => {
     const { ctx } = makeCtx({ jobValue: await packStateValue(JSON.stringify(jobInput())) });
     const result = await amsgHooks.onBeforeFire(ctx) as { totalTimeoutMs?: number };
 
-    expect(result.totalTimeoutMs, '不交上去就落到库自己的四分钟默认值，改那个常量对云端毫无影响')
+    expect(result.totalTimeoutMs, '不交上去就落到庫自己的四分鐘默認值，改那個常量對雲端毫無影響')
       .toBe(PLATE_LLM_TIMEOUT_MS);
   });
 
-  // 回归守卫：beforeFire 认定「这份输入坏了」时原先只抛错，行留着。那几种失败是确定性的
-  // （解压不出来、形状对不上、charId 对不上号），重试梯子再跑两遍还是同一份坏数据——行就
-  // 这么在共用命名空间里躺满三天 TTL。而每一行都是一个角色的整块门牌原文 + 蒸馏材料 +
-  // 身份上下文，且每次后台 fire 都要把整个命名空间读出来解密才能挑出自己那一行。
-  describe('确定性的坏输入，认定的同时就把那行删掉', () => {
+  // 迴歸守衛：beforeFire 認定「這份輸入壞了」時原先只拋錯，行留著。那幾種失敗是確定性的
+  // （解壓不出來、形狀對不上、charId 對不上號），重試梯子再跑兩遍還是同一份壞數據——行就
+  // 這麼在共用命名空間裡躺滿三天 TTL。而每一行都是一個角色的整塊門牌原文 + 蒸餾材料 +
+  // 身份上下文，且每次後台 fire 都要把整個命名空間讀出來解密才能挑出自己那一行。
+  describe('確定性的壞輸入，認定的同時就把那行刪掉', () => {
     const discarded = (writeState: ReturnType<typeof vi.fn>) =>
       expect(writeState).toHaveBeenCalledWith(
         AMSG_JOB_NAMESPACE, [{ key: plateJobKey(JOB_ID), value: null }],
       );
 
-    it('解压不出来（数据损坏）', async () => {
-      const { ctx, writeState } = makeCtx({ jobValue: 'gz1:这不是合法的压缩数据' });
-      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解压失败/);
+    it('解壓不出來（數據損壞）', async () => {
+      const { ctx, writeState } = makeCtx({ jobValue: 'gz1:這不是合法的壓縮數據' });
+      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解[压壓]失[败敗]/);
       discarded(writeState);
     });
 
-    it('形状对不上', async () => {
+    it('形狀對不上', async () => {
       const { ctx, writeState } = makeCtx({ jobValue: await packStateValue('{"v":99}') });
-      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解析失败/);
+      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/解析失[败敗]/);
       discarded(writeState);
     });
 
-    it('charId 跟任务对不上', async () => {
+    it('charId 跟任務對不上', async () => {
       const { ctx, writeState } = makeCtx({
         jobValue: await packStateValue(JSON.stringify(jobInput({ charId: 'someone-else' }))),
       });
-      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/charId 与任务对不上/);
+      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/charId [与與]任[务務][对對]不上/);
       discarded(writeState);
     });
 
-    it('一个要整理的房间都没有', async () => {
+    it('一個要整理的房間都沒有', async () => {
       const { ctx, writeState } = makeCtx({
         jobValue: await packStateValue(JSON.stringify(jobInput({ rooms: [] }))),
       });
@@ -216,7 +216,7 @@ describe('门牌整理 handler', () => {
     });
   });
 
-  it('跑完把结果送进收件箱、不弹通知，并删掉一次性输入', async () => {
+  it('跑完把結果送進收件箱、不彈通知，並刪掉一次性輸入', async () => {
     const { ctx: fireCtx, scratch } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
     });
@@ -231,76 +231,76 @@ describe('门牌整理 handler', () => {
     expect(payload.resultKind).toBe(PLATE_CONSOLIDATE_RESULT_KIND);
     expect(payload.charId).toBe(CHAR_ID);
     expect(payload.items).toHaveLength(1);
-    // 背景工作不该把人叫回来看；show:false 时上游只落收件箱、不发推送。
+    // 背景工作不該把人叫回來看；show:false 時上游只落收件箱、不發推送。
     expect(payload.notification).toEqual({ show: false });
-    // 提交时的条目 id 快照原样回传——客户端靠它把 basedOn 重新对准当前条目。
+    // 提交時的條目 id 快照原樣回傳——客戶端靠它把 basedOn 重新對準當前條目。
     expect(payload.rooms).toEqual([
       { room: 'user_room', entryIds: ['pe_a'] },
       { room: 'bedroom', entryIds: [] },
     ]);
-    // 一次性输入跑完就删
+    // 一次性輸入跑完就刪
     expect(writeState).toHaveBeenCalledWith(
       AMSG_JOB_NAMESPACE, [{ key: plateJobKey(JOB_ID), value: null }],
     );
   });
 
-  it('LLM 一条都没吐出来 → 不送空结果（空列表会被客户端当成「清空门牌」）', async () => {
+  it('LLM 一條都沒吐出來 → 不送空結果（空列表會被客戶端當成「清空門牌」）', async () => {
     const { ctx: fireCtx, scratch } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
     });
     await amsgHooks.onBeforeFire(fireCtx);
 
-    const { ctx, emitResult, writeState } = makeSessionCtx(scratch, '模型今天不想说话');
+    const { ctx, emitResult, writeState } = makeSessionCtx(scratch, '模型今天不想說話');
     const decision = await amsgHooks.onLLMOutput(ctx);
 
     expect(decision).toEqual({ decision: 'skip-push', reason: 'plate-empty-generation' });
     expect(emitResult).not.toHaveBeenCalled();
-    // 一次性输入照样得删：上游把 skip-push 当办完了（status: 'skipped'），这条
-    // recurrenceType: 'none' 的任务再没有第二次机会来读它。留着就是一行没人认领的
-    // 孤儿，装着整块门牌原文 + 材料 + 身份上下文，一直占到 TTL。
-    expect(writeState, '不删的话每次失败留一行，而 beforeFire 每跳都要把这个命名空间整个读出来解密')
+    // 一次性輸入照樣得刪：上游把 skip-push 當辦完了（status: 'skipped'），這條
+    // recurrenceType: 'none' 的任務再沒有第二次機會來讀它。留著就是一行沒人認領的
+    // 孤兒，裝著整塊門牌原文 + 材料 + 身份上下文，一直佔到 TTL。
+    expect(writeState, '不刪的話每次失敗留一行，而 beforeFire 每跳都要把這個命名空間整個讀出來解密')
       .toHaveBeenCalledWith(AMSG_JOB_NAMESPACE, [{ key: plateJobKey(JOB_ID), value: null }]);
   });
 
-  // 模型回了东西却一条都解析不出来时，日志里得看得出它回了个什么（被截断？空的？格式跑偏？）。
-  it('一条都没解析出来 → 记一行跳过诊断，reason 是 plate-empty-generation', async () => {
+  // 模型回了東西卻一條都解析不出來時，日誌裡得看得出它回了個什麼（被截斷？空的？格式跑偏？）。
+  it('一條都沒解析出來 → 記一行跳過診斷，reason 是 plate-empty-generation', async () => {
     const { ctx: fireCtx, scratch } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
     });
     await amsgHooks.onBeforeFire(fireCtx);
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { ctx } = makeSessionCtx(scratch, '模型今天不想说话');
-    ctx.llmResponse = { choices: [{ finish_reason: 'length', message: { content: '模型今天不想说话' } }] };
+    const { ctx } = makeSessionCtx(scratch, '模型今天不想說話');
+    ctx.llmResponse = { choices: [{ finish_reason: 'length', message: { content: '模型今天不想說話' } }] };
     await amsgHooks.onLLMOutput(ctx);
 
     const diag = warn.mock.calls.find(([tag]) => tag === '[amsg:skip-diag]')?.[1];
     warn.mockRestore();
-    expect(diag, '门牌整理空跑时也该留一行诊断').toMatchObject({
+    expect(diag, '門牌整理空跑時也該留一行診斷').toMatchObject({
       reason: 'plate-empty-generation', finishReason: 'length', contentChars: 8,
     });
   });
 
-  // 回归守卫：kind 是从任务 metadata 上读出来的字符串。handler 表要是普通对象字面量，
-  // `constructor` / `toString` 这些原型链上的键会解析成一个真值，绕过「表里没有这个
-  // kind」那道判断，最后炸在 `handler.beforeFire is not a function` 上——那句报错跟真正
-  // 的原因（这台 worker 不认识这种任务）毫无关系，排障要多绕一大圈。
+  // 迴歸守衛：kind 是從任務 metadata 上讀出來的字符串。handler 表要是普通對象字面量，
+  // `constructor` / `toString` 這些原型鏈上的鍵會解析成一個真值，繞過「表裡沒有這個
+  // kind」那道判斷，最後炸在 `handler.beforeFire is not a function` 上——那句報錯跟真正
+  // 的原因（這台 worker 不認識這種任務）毫無關係，排障要多繞一大圈。
   it.each(['constructor', 'toString', 'valueOf', '__proto__'])(
-    'kind=%s 走「不认识的任务种类」，不是一句无关的报错',
+    'kind=%s 走「不認識的任務種類」，不是一句無關的報錯',
     async (kind) => {
       const { ctx } = makeCtx({ metadata: { [AMSG_TASK_KIND_KEY]: kind } });
-      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/不认识的任务种类/);
+      await expect(amsgHooks.onBeforeFire(ctx)).rejects.toThrow(/不[认認][识識]的任[务務][种種][类類]/);
     },
   );
 
-  // 删角色时客户端会把这份输入写成空壳（HTTP 的 PUT /client-state 没有删除语义）。
-  // 空壳解析不出来，当「数据损坏」硬失败的话，一个已经被删掉的角色还要把重试梯子走完。
-  it('输入被撤销（行还在但值是空的）→ 跟过期一样安静跳过', async () => {
+  // 刪角色時客戶端會把這份輸入寫成空殼（HTTP 的 PUT /client-state 沒有刪除語義）。
+  // 空殼解析不出來，當「數據損壞」硬失敗的話，一個已經被刪掉的角色還要把重試梯子走完。
+  it('輸入被撤銷（行還在但值是空的）→ 跟過期一樣安靜跳過', async () => {
     const { ctx } = makeCtx({ jobValue: '' });
     await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
   });
 
-  it('老 worker 没有 emitResult → 说清楚原因，不静默', async () => {
+  it('老 worker 沒有 emitResult → 說清楚原因，不靜默', async () => {
     const { ctx: fireCtx, scratch } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
     });
@@ -311,16 +311,16 @@ describe('门牌整理 handler', () => {
     await expect(amsgHooks.onLLMOutput(ctx)).resolves.toEqual({
       decision: 'skip-push', reason: 'plate-emit-result-unsupported',
     });
-    // 这台 worker 永远送不回结果，留着那行也没人会来读
+    // 這台 worker 永遠送不回結果，留著那行也沒人會來讀
     expect(writeState).toHaveBeenCalledWith(
       AMSG_JOB_NAMESPACE, [{ key: plateJobKey(JOB_ID), value: null }],
     );
   });
 
-  // 回归守卫：方法在、调用炸了（收件箱表缺列——升级 worker 不跑 init-tenant 就这样）。
-  // 抛出去的话这一轮算失败，重试梯子会**再跑两次完整生成**：LLM 已经烧过一次，后两次
-  // 注定同样送不回来。就地收成跳过，只白跑一次。
-  it('emitResult 调用抛错 → 就地收成跳过，不把整轮判失败去重试', async () => {
+  // 迴歸守衛：方法在、調用炸了（收件箱表缺列——升級 worker 不跑 init-tenant 就這樣）。
+  // 拋出去的話這一輪算失敗，重試梯子會**再跑兩次完整生成**：LLM 已經燒過一次，後兩次
+  // 註定同樣送不回來。就地收成跳過，只白跑一次。
+  it('emitResult 調用拋錯 → 就地收成跳過，不把整輪判失敗去重試', async () => {
     const { ctx: fireCtx, scratch } = makeCtx({
       jobValue: await packStateValue(JSON.stringify(jobInput())),
     });
@@ -332,7 +332,7 @@ describe('门牌整理 handler', () => {
     await expect(amsgHooks.onLLMOutput(ctx)).resolves.toEqual({
       decision: 'skip-push', reason: 'plate-emit-result-failed',
     });
-    // 结果虽然没送出去，一次性输入照样得删：这一轮已经被上游当办完了，没人会再读它
+    // 結果雖然沒送出去，一次性輸入照樣得刪：這一輪已經被上游當辦完了，沒人會再讀它
     expect(writeState).toHaveBeenCalledWith(
       AMSG_JOB_NAMESPACE, [{ key: plateJobKey(JOB_ID), value: null }],
     );
@@ -340,7 +340,7 @@ describe('门牌整理 handler', () => {
 });
 
 describe('worker config', () => {
-  it('一次性输入那个命名空间配了 TTL，角色状态那个没配', async () => {
+  it('一次性輸入那個命名空間配了 TTL，角色狀態那個沒配', async () => {
     const { buildWorkerConfig } = await import('./index');
     const config = buildWorkerConfig({
       DB: { prepare: () => {} },
@@ -350,7 +350,7 @@ describe('worker config', () => {
     } as any) as any;
 
     expect(config.clientStateTtl).toEqual({ [AMSG_JOB_NAMESPACE]: 3 });
-    // 角色状态（fire_pack / tool_pack）绝不能配 TTL——配了就是定时把角色的云端状态抹掉
+    // 角色狀態（fire_pack / tool_pack）絕不能配 TTL——配了就是定時把角色的雲端狀態抹掉
     expect(Object.keys(config.clientStateTtl)).not.toContain('amsg:char:');
   });
 });

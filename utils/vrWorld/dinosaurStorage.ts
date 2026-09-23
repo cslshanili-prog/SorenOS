@@ -9,7 +9,7 @@ const pose = (p: any): p is DinoPose => object(p) && [p.x,p.z,p.rotation].every(
 const stage = (s: any): s is DinoStage => object(s) && DINO_ACTIONS.includes(s.action) && typeof s.text==='string' && typeof s.byId==='string' && typeof s.byName==='string' && Number.isFinite(s.at);
 /** Migrate the earlier single-table preview without dropping a toy, colour, or original note. */
 export function readDinosaurGarden(value: unknown): DinosaurGarden {
-  if(!object(value)) throw new Error('箱庭存档格式不兼容；没有覆盖原存档');
+  if(!object(value)) throw new Error('箱庭存檔格式不兼容；沒有覆蓋原存檔');
   let g = value;
   if(g.version===1 && Array.isArray(g.props) && object(g.toys) && Array.isArray(g.events)) {
     const maps=createGardenMaps(),id=g.theme==='coast'?'coast':'grassland';
@@ -17,7 +17,7 @@ export function readDinosaurGarden(value: unknown): DinosaurGarden {
     g={...g,version:2,activeMapId:id,maps,toys:Object.fromEntries(Object.entries(g.toys).map(([key,t]:[string,any])=>[key,{...t,mapId:t?.pose?id:null}])),events:g.events.map((e:any)=>({...e,mapId:id}))};
     delete g.props; delete g.theme;
   }
-  const fail=()=>{throw new Error('箱庭存档格式不兼容；没有覆盖原存档，请先导出备份');};
+  const fail=()=>{throw new Error('箱庭存檔格式不兼容；沒有覆蓋原存檔，請先導出備份');};
   if(g.version!==2||!Array.isArray(g.maps)||!object(g.toys)||!Array.isArray(g.events)||typeof g.visitsEnabled!=='boolean'||!Number.isSafeInteger(g.revision)||g.revision<0) return fail();
   if(!g.maps.length||new Set(g.maps.map((m:any)=>m?.id)).size!==g.maps.length) return fail();
   for(const m of g.maps) {

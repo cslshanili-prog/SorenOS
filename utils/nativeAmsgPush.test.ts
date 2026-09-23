@@ -10,7 +10,7 @@ vi.mock('./activeMsgRuntime', () => ({ flushInboxToChat: vi.fn() }));
 import { decodeNativeAmsgPayload } from './nativeAmsgPush';
 
 describe('native AMSG2 payload bridge', () => {
-  it('用通知正文还原被 Worker 去重掉的 message 字段', () => {
+  it('用通知正文還原被 Worker 去重掉的 message 字段', () => {
     const payload = decodeNativeAmsgPayload({
       body: '你好呀',
       data: {

@@ -87,17 +87,17 @@ const Gallery: React.FC = () => {
             if (imageFavorited) {
                 await removeContentFavoriteById(favoriteId);
                 setImageFavorited(false);
-                addToast('已取消收藏图片', 'info');
+                addToast('已取消收藏圖片', 'info');
                 return;
             }
             const charName = characters.find(character => character.id === selectedImage.charId)?.name || '未知角色';
             await saveGalleryImageContentFavorite(selectedImage, charName);
             setImageFavorited(true);
-            addToast('已收藏图片（仅保存引用）', 'success');
+            addToast('已收藏圖片（僅保存引用）', 'success');
             trackEvent('收藏相册图片');
         } catch (error) {
             console.warn('[Gallery] favorite image failed', error);
-            addToast('收藏失败，请稍后重试', 'error');
+            addToast('收藏失敗，請稍後重試', 'error');
         }
     };
 
@@ -113,8 +113,8 @@ const Gallery: React.FC = () => {
             const char = characters.find(c => c.id === charId);
             setConfirmDialog({
                 isOpen: true,
-                title: '删除相册',
-                message: `确定要删除「${char?.name || ''}」的所有照片吗？此操作无法撤销。`,
+                title: '刪除相冊',
+                message: `確定要刪除「${char?.name || ''}」的所有照片嗎？此操作無法撤銷。`,
                 variant: 'danger',
                 onConfirm: async () => {
                     const imgs = await DB.getGalleryImages(charId);
@@ -122,7 +122,7 @@ const Gallery: React.FC = () => {
                         await DB.deleteGalleryImage(img.id);
                     }
                     setAlbumCounts(prev => ({ ...prev, [charId]: 0 }));
-                    addToast('相册已清空', 'success');
+                    addToast('相冊已清空', 'success');
                     trackEvent('清空一个角色的相册');
                     setConfirmDialog(null);
                 }
@@ -142,15 +142,15 @@ const Gallery: React.FC = () => {
         if (!selectedImage) return;
         setConfirmDialog({
             isOpen: true,
-            title: '删除照片',
-            message: '确定要删除这张照片吗？',
+            title: '刪除照片',
+            message: '確定要刪除這張照片嗎？',
             variant: 'danger',
             onConfirm: async () => {
                 await DB.deleteGalleryImage(selectedImage.id);
                 setImages(prev => prev.filter(img => img.id !== selectedImage.id));
                 setView('grid');
                 setSelectedImage(null);
-                addToast('照片已删除', 'success');
+                addToast('照片已刪除', 'success');
                 trackEvent('删除一张照片');
                 setConfirmDialog(null);
             }
@@ -159,7 +159,7 @@ const Gallery: React.FC = () => {
 
     const handleReview = async () => {
         if (!selectedImage || !activeCharId || !apiConfig.apiKey) {
-            addToast('缺少配置或图片信息', 'error');
+            addToast('缺少配置或圖片信息', 'error');
             return;
         }
 
@@ -220,7 +220,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     const errData = await safeResponseJson(response);
                     errorMsg = errData.error?.message || JSON.stringify(errData.error) || errorMsg;
                     if (errorMsg.includes('vision') || errorMsg.includes('image')) {
-                        errorMsg = '当前模型可能不支持图片识别(Vision)，请切换模型。';
+                        errorMsg = '當前模型可能不支持圖片識別(Vision)，請切換模型。';
                     }
                 } catch (e) {
                     const text = await response.text();
@@ -233,7 +233,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             const choice = data.choices?.[0];
 
             if (choice?.finish_reason === 'content_filter') {
-                throw new Error('AI 拒绝回复 (图片可能包含敏感内容)');
+                throw new Error('AI 拒絕回覆 (圖片可能包含敏感內容)');
             }
 
             let reviewText = choice?.message?.content;
@@ -246,7 +246,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             if (!reviewText) {
                 const debugStr = JSON.stringify(choice || data);
                 console.warn('AI Empty Response Structure:', data);
-                throw new Error(`AI 返回内容为空. Raw: ${debugStr.substring(0, 100)}...`);
+                throw new Error(`AI 返回內容為空. Raw: ${debugStr.substring(0, 100)}...`);
             }
 
             await DB.updateGalleryImageReview(selectedImage.id, reviewText);
@@ -255,11 +255,11 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             setSelectedImage(updatedImage);
             setImages(prev => prev.map(img => img.id === selectedImage.id ? updatedImage : img));
 
-            addToast('点评生成成功', 'success');
+            addToast('點評生成成功', 'success');
 
         } catch (e: any) {
             console.error('Review Error:', e);
-            addToast(`点评失败: ${e.message}`, 'error');
+            addToast(`點評失敗: ${e.message}`, 'error');
         } finally {
             setIsReviewing(false);
         }
@@ -329,7 +329,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     </button>
                 );
             })}
-            {characters.length === 0 && <div className="col-span-2 text-center text-slate-400 py-16 text-xs">暂无角色相册</div>}
+            {characters.length === 0 && <div className="col-span-2 text-center text-slate-400 py-16 text-xs">暫無角色相冊</div>}
         </div>
     );
 
@@ -338,16 +338,16 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             {images.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3 py-20">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-14 h-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                    <span className="text-sm">还没有照片</span>
+                    <span className="text-sm">還沒有照片</span>
                 </div>
             ) : (
                 <div className="grid grid-cols-3 gap-1">
                     {images.map(img => (
                         <div key={img.id} onClick={() => handleImageClick(img)} className="aspect-square bg-slate-100 relative cursor-pointer overflow-hidden rounded-sm">
-                            {/* 相册图存的是 blobref 令牌（见 utils/blobRef.ts），TokenImg 会解析成 objectURL；
-                                旧的 base64 / http 图原样透传，两种都显示得出来 */}
+                            {/* 相冊圖存的是 blobref 令牌（見 utils/blobRef.ts），TokenImg 會解析成 objectURL；
+                                舊的 base64 / http 圖原樣透傳，兩種都顯示得出來 */}
                             <TokenImg value={img.url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
-                            {img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 发的</div>}
+                            {img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 發的</div>}
                             {img.review && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white shadow-sm"></div>}
                             {img.savedDate && <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3"><span className="text-[8px] text-white/80 font-mono">{img.savedDate}</span></div>}
                         </div>
@@ -365,7 +365,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
                 <div className="flex items-center gap-2 pointer-events-auto">
-                    <button onClick={() => void handleToggleImageFavorite()} className={`text-white backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform border border-white/10 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏图片' : '收藏图片'}>
+                    <button onClick={() => void handleToggleImageFavorite()} className={`text-white backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform border border-white/10 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏圖片' : '收藏圖片'}>
                         <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
                     </button>
                     <button onClick={handleDeleteImage} className="text-white bg-black/40 backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform hover:bg-red-600/60 border border-white/10">
@@ -390,8 +390,8 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                 />
             </div>
 
-            {/* Review & Context Section —— "让 TA 点评照片" 建立在"用户发了张照片给角色看"这个前提上，
-                角色自己生成发出的图（sender === 'char'）没有这个前提，跳过整个区块 */}
+            {/* Review & Context Section —— "讓 TA 點評照片" 建立在"用戶發了張照片給角色看"這個前提上，
+                角色自己生成發出的圖（sender === 'char'）沒有這個前提，跳過整個區塊 */}
             {selectedImage.sender !== 'char' && (
             <div className="shrink-0 w-full bg-[#161616] border-t border-white/10 z-40 pb-safe">
                 {selectedImage.review ? (
@@ -399,7 +399,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         <div className="flex items-start gap-3 mb-3">
                             <TokenImg value={characters.find(c => c.id === activeCharId)?.avatar} className="w-9 h-9 rounded-full border border-white/20 object-cover shadow-sm" />
                             <div className="flex-1">
-                                <div className="text-xs font-bold text-white/50 mb-1.5 uppercase tracking-wide">{characters.find(c => c.id === activeCharId)?.name} 的点评</div>
+                                <div className="text-xs font-bold text-white/50 mb-1.5 uppercase tracking-wide">{characters.find(c => c.id === activeCharId)?.name} 的點評</div>
                                 <p className="text-[15px] text-white/90 leading-relaxed font-light select-text">"{selectedImage.review}"</p>
                             </div>
                         </div>
@@ -407,7 +407,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             {selectedImage.chatContext && selectedImage.chatContext.length > 0 && (
                                 <button onClick={() => setShowChatContext(!showChatContext)} className="text-[10px] text-white/30 hover:text-white/60 transition-colors flex items-center gap-1 px-2 py-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
-                                    {showChatContext ? '收起对话' : '当时的对话'}
+                                    {showChatContext ? '收起對話' : '當時的對話'}
                                 </button>
                             )}
                             <button onClick={handleReview} disabled={isReviewing} className="text-[10px] text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 ml-auto">
@@ -418,7 +418,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         {/* Chat context expandable */}
                         {showChatContext && selectedImage.chatContext && (
                             <div className="mt-3 bg-white/5 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto">
-                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照时的对话记录</div>
+                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照時的對話記錄</div>
                                 {selectedImage.chatContext.map((line, i) => (
                                     <div key={i} className="text-[11px] text-white/50 leading-relaxed">{line}</div>
                                 ))}
@@ -435,17 +435,17 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             {isReviewing ? (
                                 <><div className="w-4 h-4 border-2 border-slate-300 border-t-black rounded-full animate-spin"></div> 正在思考...</>
                             ) : (
-                                <>让 TA 点评照片</>
+                                <>讓 TA 點評照片</>
                             )}
                         </button>
                         {selectedImage.chatContext && selectedImage.chatContext.length > 0 && (
                             <button onClick={() => setShowChatContext(!showChatContext)} className="text-[10px] text-white/30 hover:text-white/50 transition-colors">
-                                {showChatContext ? '收起对话记录' : '查看当时的对话'}
+                                {showChatContext ? '收起對話記錄' : '查看當時的對話'}
                             </button>
                         )}
                         {showChatContext && selectedImage.chatContext && (
                             <div className="w-full bg-white/5 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto">
-                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照时的对话记录</div>
+                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照時的對話記錄</div>
                                 {selectedImage.chatContext.map((line, i) => (
                                     <div key={i} className="text-[11px] text-white/50 leading-relaxed">{line}</div>
                                 ))}
@@ -460,7 +460,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
     return (
         <div className="h-full w-full bg-slate-50 flex flex-col font-light relative">
-            <ConfirmDialog isOpen={!!confirmDialog} title={confirmDialog?.title || ''} message={confirmDialog?.message || ''} variant={confirmDialog?.variant} confirmText="确认" onConfirm={confirmDialog?.onConfirm || (() => setConfirmDialog(null))} onCancel={() => setConfirmDialog(null)} />
+            <ConfirmDialog isOpen={!!confirmDialog} title={confirmDialog?.title || ''} message={confirmDialog?.message || ''} variant={confirmDialog?.variant} confirmText="確認" onConfirm={confirmDialog?.onConfirm || (() => setConfirmDialog(null))} onCancel={() => setConfirmDialog(null)} />
 
             {/* Header */}
             {view !== 'detail' && (
@@ -470,7 +470,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
                         <h1 className="text-lg font-semibold text-slate-800 ml-2 tracking-tight">
-                            {view === 'albums' ? '相册' : characters.find(c => c.id === activeCharId)?.name || '相册'}
+                            {view === 'albums' ? '相冊' : characters.find(c => c.id === activeCharId)?.name || '相冊'}
                         </h1>
                         {view === 'grid' && <span className="text-xs text-slate-400 ml-2 font-mono">{images.length}</span>}
                     </div>

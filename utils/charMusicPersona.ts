@@ -1,15 +1,15 @@
 /**
- * 角色音乐人格初始化
+ * 角色音樂人格初始化
  *
- * 目标：第一次在音乐 App 里"拜访"某个 char 时（或用户手动点"初始化"），调一次 LLM，
- * 基于 char 的 systemPrompt + worldview + impression 生成一份 CharMusicProfile。
+ * 目標：第一次在音樂 App 裡"拜訪"某個 char 時（或用戶手動點"初始化"），調一次 LLM，
+ * 基於 char 的 systemPrompt + worldview + impression 生成一份 CharMusicProfile。
  *
- * 设计原则：
- * 1. 生成的 signatureArtists 名字都是真实存在的网易云可搜的艺人（LLM 要知道真艺人）。
- * 2. 生成的 playlists 是 3 个概念，不预先填真歌曲 — 歌曲等到用户打开某个歌单再实时搜。
- * 3. 产出是纯本地数据，不打网易云 upstream —— 零 Worker 成本。
- * 4. 失败就抛错，绝不降级 —— 否则会得到一份"告五人/陈绮贞"的通用档案，
- *    让用户误以为 char 真的喜欢这些艺人。宁可让用户重试，也不能污染人格。
+ * 設計原則：
+ * 1. 生成的 signatureArtists 名字都是真實存在的網易雲可搜的藝人（LLM 要知道真藝人）。
+ * 2. 生成的 playlists 是 3 個概念，不預先填真歌曲 — 歌曲等到用戶打開某個歌單再實時搜。
+ * 3. 產出是純本地數據，不打網易雲 upstream —— 零 Worker 成本。
+ * 4. 失敗就拋錯，絕不降級 —— 否則會得到一份"告五人/陳綺貞"的通用檔案，
+ *    讓用戶誤以為 char 真的喜歡這些藝人。寧可讓用戶重試，也不能汙染人格。
  */
 
 import { APIConfig, CharacterProfile, CharMusicProfile, CharPlaylist, UserProfile } from '../types';
@@ -30,14 +30,14 @@ const callLlm = async (api: APIConfig, sys: string, user: string): Promise<strin
                 { role: 'user', content: user },
             ],
             temperature: 0.8,
-            // 之前没设 max_tokens，有的 provider 默认只给 512，JSON 直接被截断 →
-            // extractJson 失败 → 旧逻辑 fallback 到"告五人/陈绮贞"。
-            // 8000 和项目里其它 prompt 一档，给 thinking 模型 / 话多的模型留足空间。
+            // 之前沒設 max_tokens，有的 provider 默認只給 512，JSON 直接被截斷 →
+            // extractJson 失敗 → 舊邏輯 fallback 到"告五人/陳綺貞"。
+            // 8000 和項目裡其它 prompt 一檔，給 thinking 模型 / 話多的模型留足空間。
             max_tokens: 8000,
             stream: false,
         }),
-        // API 调用记录标签：音乐人格生成是后台任务，不标会被兜底成「用户当时打开的 App」
-        __sullyMeta: { appName: '音乐', purpose: '音乐人格生成' },
+        // API 調用記錄標籤：音樂人格生成是後台任務，不標會被兜底成「用戶當時打開的 App」
+        __sullyMeta: { appName: '音樂', purpose: '音樂人格生成' },
     } as RequestInit);
     if (!resp.ok) throw new Error(`LLM ${resp.status}`);
     const j = await resp.json();
@@ -45,10 +45,10 @@ const callLlm = async (api: APIConfig, sys: string, user: string): Promise<strin
 };
 
 /**
- * 鲁棒的 JSON 提取器：
- * - 依次尝试：纯 parse → 去 fenced → 去 preamble → 最外层花括号 → 宽松修复 → 逐字段正则抠
- * - 宽松修复包括：中文全角标点 / trailing comma / 单引号 / 未加引号的 key / BOM
- * - 任何一步成功即返回；全部失败返回 null
+ * 魯棒的 JSON 提取器：
+ * - 依次嘗試：純 parse → 去 fenced → 去 preamble → 最外層花括號 → 寬鬆修復 → 逐字段正則摳
+ * - 寬鬆修復包括：中文全角標點 / trailing comma / 單引號 / 未加引號的 key / BOM
+ * - 任何一步成功即返回；全部失敗返回 null
  */
 const extractJson = <T = any>(text: string): T | null => {
     if (!text || typeof text !== 'string') return null;
@@ -61,14 +61,14 @@ const extractJson = <T = any>(text: string): T | null => {
     let hit = tryParse(raw);
     if (hit) return hit;
 
-    // 2) 去除 ``` 代码围栏
+    // 2) 去除 ``` 代碼圍欄
     const fencedMatch = raw.match(/```(?:json|JSON)?\s*([\s\S]*?)```/);
     if (fencedMatch) {
         hit = tryParse(fencedMatch[1].trim());
         if (hit) return hit;
     }
 
-    // 3) 抽取第一段最外层花括号（用栈匹配，正确处理嵌套）
+    // 3) 抽取第一段最外層花括號（用棧匹配，正確處理嵌套）
     const braceSlice = (() => {
         const s = fencedMatch ? fencedMatch[1] : raw;
         const start = s.indexOf('{');
@@ -92,16 +92,16 @@ const extractJson = <T = any>(text: string): T | null => {
         hit = tryParse(braceSlice);
         if (hit) return hit;
 
-        // 4) 宽松修复后再试
+        // 4) 寬鬆修復後再試
         let repaired = braceSlice
-            // 中文全角标点 → 半角（只处理 key/value 外围）
+            // 中文全角標點 → 半角（只處理 key/value 外圍）
             .replace(/[：]/g, ':')
             .replace(/[，]/g, ',')
             .replace(/[“”„]/g, '"')
             .replace(/[‘’‚]/g, "'")
-            // 单引号字符串 → 双引号（简版：不处理转义）
+            // 單引號字符串 → 雙引號（簡版：不處理轉義）
             .replace(/'([^'\n\r]*?)'/g, '"$1"')
-            // 未加引号的 key 加引号（{ foo: → { "foo":）
+            // 未加引號的 key 加引號（{ foo: → { "foo":）
             .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g, '$1"$2"$3')
             // trailing comma
             .replace(/,(\s*[}\]])/g, '$1');
@@ -111,7 +111,7 @@ const extractJson = <T = any>(text: string): T | null => {
     return null;
 };
 
-/** 从自由文本里逐字段提取 persona（JSON 完全不可用时的最后防线） */
+/** 從自由文本里逐字段提取 persona（JSON 完全不可用時的最後防線） */
 const scavengeFields = (text: string): Partial<PersonaDraft> => {
     const out: Partial<PersonaDraft> = {};
 
@@ -119,7 +119,7 @@ const scavengeFields = (text: string): Partial<PersonaDraft> => {
     const bioM = text.match(/"?bio"?\s*[:：]\s*["“]([^"\n”]{2,60})["”]/);
     if (bioM) out.bio = bioM[1].trim();
 
-    // genreTags — 找第一个数组 [...]
+    // genreTags — 找第一個數組 [...]
     const genreM = text.match(/"?genre[tT]ags"?\s*[:：]\s*\[([^\]]+)\]/);
     if (genreM) {
         out.genreTags = genreM[1].split(',')
@@ -127,7 +127,7 @@ const scavengeFields = (text: string): Partial<PersonaDraft> => {
             .filter(Boolean).slice(0, 8);
     }
 
-    // signatureArtists — 形如 [{"name": "..."}] 或纯字符串数组
+    // signatureArtists — 形如 [{"name": "..."}] 或純字符串數組
     const artistBlock = text.match(/"?signature[aA]rtists"?\s*[:：]\s*\[([\s\S]*?)\]/);
     if (artistBlock) {
         const inner = artistBlock[1];
@@ -165,59 +165,59 @@ interface PersonaDraft {
 
 const buildPersonaPrompt = (char: CharacterProfile, user: UserProfile): { sys: string; usr: string } => {
     const core = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
-    const sys = `你是一个"音乐人格生成器"。根据给定的角色设定，为这个角色设计一份网易云音乐个人主页的品味档案。
+    const sys = `你是一個"音樂人格生成器"。根據給定的角色設定，為這個角色設計一份網易雲音樂個人主頁的品味檔案。
 
 要求:
-1. 艺人必须是真实存在、可以在网易云搜到的华语 / 日系 / 英语 / 韩语艺人（不要虚构）
-2. 曲风标签要具体 (shoegaze / city-pop / post-rock / 民谣 / trip-hop / R&B / 后朋克 ...)，避免泛泛 ("流行"/"摇滚")
-3. **3 个歌单必须主题彻底不同** —— 不是"3 个差不多但换了名字"，而是 3 个**真正不同的场景 / 心境 / 用途**，
-   彼此 mood、曲风、使用场合都要分开。可以参考维度 (任选 3 个不同的)：
-   - 时段 / 场合：深夜独处｜清晨通勤｜失眠｜暴雨天｜长途车里｜聚会前的换装｜写作中｜失恋后
-   - 情绪：发泄｜治愈｜怀旧｜亢奋｜慵懒｜思考｜浪漫
-   - 表达方式：自我对话｜送给某个特定人｜对世界的反抗｜逃避现实
-   严禁出现两个歌单 mood 一致、或描述里讲同一件事的情况。
-4. 歌单标题 / 描述 / mood 都要从角色精神内核出发，不要套路化（不要"我的最爱"/"循环单"这种通用名）
-5. bio 用角色自己的口吻写（第一人称），一句话即可，不超过30字
+1. 藝人必須是真實存在、可以在網易雲搜到的華語 / 日系 / 英語 / 韓語藝人（不要虛構）
+2. 曲風標籤要具體 (shoegaze / city-pop / post-rock / 民謠 / trip-hop / R&B / 後朋克 ...)，避免泛泛 ("流行"/"搖滾")
+3. **3 個歌單必須主題徹底不同** —— 不是"3 個差不多但換了名字"，而是 3 個**真正不同的場景 / 心境 / 用途**，
+   彼此 mood、曲風、使用場合都要分開。可以參考維度 (任選 3 個不同的)：
+   - 時段 / 場合：深夜獨處｜清晨通勤｜失眠｜暴雨天｜長途車裡｜聚會前的換裝｜寫作中｜失戀後
+   - 情緒：發洩｜治癒｜懷舊｜亢奮｜慵懶｜思考｜浪漫
+   - 表達方式：自我對話｜送給某個特定人｜對世界的反抗｜逃避現實
+   嚴禁出現兩個歌單 mood 一致、或描述裡講同一件事的情況。
+4. 歌單標題 / 描述 / mood 都要從角色精神內核出發，不要套路化（不要"我的最愛"/"循環單"這種通用名）
+5. bio 用角色自己的口吻寫（第一人稱），一句話即可，不超過30字
 
-只输出 JSON，不要任何解释:
+只輸出 JSON，不要任何解釋:
 {
-  "bio": "(一句话，角色第一人称)",
-  "genreTags": ["...", "...", "...(3-5个)"],
-  "signatureArtists": [{"name":"真实艺人名"}, ... (3-6个)],
+  "bio": "(一句話，角色第一人稱)",
+  "genreTags": ["...", "...", "...(3-5個)"],
+  "signatureArtists": [{"name":"真實藝人名"}, ... (3-6個)],
   "playlists": [
-    {"title":"歌单A(短·独特场景)", "description":"(角色口吻, 1-2句, 说清楚什么时候听 / 为什么)", "mood":"从下面8个里选一个: happy|sad|romantic|angry|chill|epic|nostalgic|dreamy"},
-    {"title":"歌单B(短·和A完全不同的场景/心境)", "description":"...", "mood":"必须和A不同"},
-    {"title":"歌单C(短·和A、B都不同)", "description":"...", "mood":"必须和A、B都不同"}
+    {"title":"歌單A(短·獨特場景)", "description":"(角色口吻, 1-2句, 說清楚什麼時候聽 / 為什麼)", "mood":"從下面8個裡選一個: happy|sad|romantic|angry|chill|epic|nostalgic|dreamy"},
+    {"title":"歌單B(短·和A完全不同的場景/心境)", "description":"...", "mood":"必須和A不同"},
+    {"title":"歌單C(短·和A、B都不同)", "description":"...", "mood":"必須和A、B都不同"}
   ]
 }`;
 
     const usr = `${core}
 
-(可选) 用户姓名: ${user.name || '用户'}
-(可选) 用户 bio: ${user.bio || ''}
+(可選) 用戶姓名: ${user.name || '用戶'}
+(可選) 用戶 bio: ${user.bio || ''}
 
-请为"${char.name}"生成音乐人格档案。`;
+請為"${char.name}"生成音樂人格檔案。`;
     return { sys, usr };
 };
 
 export const CharMusicPersona = {
-    /** 检查是否已初始化 */
+    /** 檢查是否已初始化 */
     isInitialized(char: CharacterProfile): boolean {
         const p = char.musicProfile;
         return !!(p && p.initializedAt && p.signatureArtists.length > 0);
     },
 
     /**
-     * 调 LLM 生成角色的音乐人格档案
+     * 調 LLM 生成角色的音樂人格檔案
      *
-     * 失败策略：**直接抛错**，不走保底。
-     * - 没 LLM 配置 → 抛"未配置 API"
-     * - 网络/HTTP 失败 → 抛底层错误（保留 status code）
-     * - JSON 完全不可解析 → 抛"解析失败"
-     * - 解析出来但缺关键字段（艺人）→ 抛"字段缺失"
-     * 目的：宁可让用户重试，也别悄悄给 char 塞一份默认品味。
+     * 失敗策略：**直接拋錯**，不走保底。
+     * - 沒 LLM 配置 → 拋"未配置 API"
+     * - 網絡/HTTP 失敗 → 拋底層錯誤（保留 status code）
+     * - JSON 完全不可解析 → 拋"解析失敗"
+     * - 解析出來但缺關鍵字段（藝人）→ 拋"字段缺失"
+     * 目的：寧可讓用戶重試，也別悄悄給 char 塞一份默認品味。
      *
-     * @returns 新的 CharMusicProfile（调用方负责持久化到 CharacterProfile）
+     * @returns 新的 CharMusicProfile（調用方負責持久化到 CharacterProfile）
      */
     async initialize(
         char: CharacterProfile,
@@ -227,18 +227,18 @@ export const CharMusicPersona = {
         const now = Date.now();
 
         if (!apiConfig.baseUrl || !apiConfig.model) {
-            throw new Error('未配置 API（baseUrl 或 model 为空）');
+            throw new Error('未配置 API（baseUrl 或 model 為空）');
         }
 
         const { sys, usr } = buildPersonaPrompt(char, userProfile);
         const rawText = await callLlm(apiConfig, sys, usr);
         if (!rawText || !rawText.trim()) {
-            throw new Error('LLM 返回为空');
+            throw new Error('LLM 返回為空');
         }
 
-        // 解析：结构化 parse 优先；不行就 scavenge（逐字段正则抠）
-        // 两条线结果合并 — 任何字段单项 OK 都先收下
-        // LLM 吐的 JSON 缺字段是常态，所以按 Partial 收，字段级兜底在下面
+        // 解析：結構化 parse 優先；不行就 scavenge（逐字段正則摳）
+        // 兩條線結果合併 — 任何字段單項 OK 都先收下
+        // LLM 吐的 JSON 缺字段是常態，所以按 Partial 收，字段級兜底在下面
         const structured: Partial<PersonaDraft> = extractJson<Partial<PersonaDraft>>(rawText) || {};
         const scavenged = scavengeFields(rawText);
         const draft: Partial<PersonaDraft> = {
@@ -248,7 +248,7 @@ export const CharMusicPersona = {
             playlists: firstArray(structured.playlists, scavenged.playlists),
         };
 
-        // 艺人字段：兼容三种形态 — [{name:"..."}] / ["..."] / 混合
+        // 藝人字段：兼容三種形態 — [{name:"..."}] / ["..."] / 混合
         const artistsIn = draft.signatureArtists || [];
         const artists = artistsIn
             .map((a: any) => {
@@ -267,7 +267,7 @@ export const CharMusicPersona = {
         const playlistsIn = (draft.playlists || []).slice(0, 3);
         const playlists: CharPlaylist[] = playlistsIn.map((p, i) => ({
             id: `pl-${now}-${i}`,
-            title: sanitizeStr(p?.title) || `歌单 ${i + 1}`,
+            title: sanitizeStr(p?.title) || `歌單 ${i + 1}`,
             description: sanitizeStr(p?.description) || '',
             coverStyle: sanitizeStr(p?.coverStyle) || `gradient-0${(i % 6) + 1}`,
             songs: [],
@@ -277,19 +277,19 @@ export const CharMusicPersona = {
             updatedAt: now,
         }));
 
-        // 关键字段一律不许"找补" —— 没艺人就等于没品味，直接报错让用户重试
+        // 關鍵字段一律不許"找補" —— 沒藝人就等於沒品味，直接報錯讓用戶重試
         if (artists.length === 0) {
-            throw new Error('LLM 没返回可用的艺人字段（大概率是 JSON 格式错了）');
+            throw new Error('LLM 沒返回可用的藝人字段（大概率是 JSON 格式錯了）');
         }
         if (genres.length === 0) {
-            throw new Error('LLM 没返回曲风标签');
+            throw new Error('LLM 沒返回曲風標籤');
         }
         if (playlists.length === 0) {
-            throw new Error('LLM 没返回歌单概念');
+            throw new Error('LLM 沒返回歌單概念');
         }
 
         return {
-            bio: sanitizeStr(draft.bio) || `${char.name} 的音乐角落`,
+            bio: sanitizeStr(draft.bio) || `${char.name} 的音樂角落`,
             genreTags: genres,
             signatureArtists: artists,
             playlists,
@@ -307,7 +307,7 @@ export const CharMusicPersona = {
 const sanitizeStr = (s: any): string => {
     if (typeof s !== 'string') return '';
     return s
-        .replace(/^\s*["“”'‘’]+|["“”'‘’]+\s*$/g, '')  // 去首尾多余引号
+        .replace(/^\s*["“”'‘’]+|["“”'‘’]+\s*$/g, '')  // 去首尾多餘引號
         .replace(/\s+/g, ' ')
         .trim();
 };

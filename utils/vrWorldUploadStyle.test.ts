@@ -11,8 +11,8 @@ const uploadModalStart = source.indexOf('const UploadModal:');
 const uploadModalEnd = source.indexOf('// ============ chibi', uploadModalStart);
 const uploadModal = source.slice(uploadModalStart, uploadModalEnd);
 
-describe('彼方书库上传编辑框样式', () => {
-    it('使用明确的浅色背景和深色正文，避免移动端白底白字', () => {
+describe('彼方書庫上傳編輯框樣式', () => {
+    it('使用明確的淺色背景和深色正文，避免移動端白底白字', () => {
         expect(uploadModalStart).toBeGreaterThan(-1);
         expect(uploadModalEnd).toBeGreaterThan(uploadModalStart);
         expect(uploadModal).toContain('bg-white');

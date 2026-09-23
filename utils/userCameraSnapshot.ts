@@ -61,7 +61,7 @@ export const attachSnapshotToLatestUserMessage = <T extends CameraChatMessage>(
     if (index !== targetIndex) return message;
     const text = typeof message.content === 'string'
       ? message.content
-      : '（本轮用户消息随附一张发送瞬间的摄像头快照）';
+      : '（本輪用戶消息隨附一張發送瞬間的攝像頭快照）';
     return {
       ...message,
       content: [
@@ -78,5 +78,5 @@ export const isVisionInputUnsupportedError = (error: unknown): boolean => {
   return /image_url|image input|vision|multimodal|multi-modal|unsupported[^\n]*image|does not support[^\n]*image|unknown variant[^\n]*image|content[^\n]*array/i.test(message);
 };
 
-export const USER_CAMERA_SNAPSHOT_SYSTEM_NOTE = `【本轮用户摄像头快照】
-用户主动选择了“每轮快照”模式；最后一条用户消息附带的是点击发送瞬间的一帧，仅作为当前对话的即时非语言线索。自然结合画面与文字回应；文字语义优先。不要进行身份、医学或心理诊断，也不要解释系统如何获得图片。`;
+export const USER_CAMERA_SNAPSHOT_SYSTEM_NOTE = `【本輪用戶攝像頭快照】
+用戶主動選擇了“每輪快照”模式；最後一條用戶消息附帶的是點擊發送瞬間的一幀，僅作為當前對話的即時非語言線索。自然結合畫面與文字回應；文字語義優先。不要進行身份、醫學或心理診斷，也不要解釋系統如何獲得圖片。`;

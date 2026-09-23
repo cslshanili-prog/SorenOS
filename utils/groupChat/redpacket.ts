@@ -1,39 +1,39 @@
-// 群聊红包 2.0 —— schema / 领取状态机 / 拼手气分配 / 指令解析 / prompt 序列化。
-// 纯函数、无副作用（时间与随机数由调用方注入），便于 vitest 直测。
-// 金额是纯装饰（与私聊转账一致），不接银行余额。
+// 群聊紅包 2.0 —— schema / 領取狀態機 / 拼手氣分配 / 指令解析 / prompt 序列化。
+// 純函數、無副作用（時間與隨機數由調用方注入），便於 vitest 直測。
+// 金額是純裝飾（與私聊轉帳一致），不接銀行餘額。
 import { Message } from '../../types';
 
 export type PacketStatus = 'pending' | 'done' | 'returned' | 'expired';
 
 export interface PacketClaim {
-    /** 'user' 或成员 charId */
+    /** 'user' 或成員 charId */
     claimantId: string;
     amount: number;
     at: number;
 }
 
-/** 挂在 type:'transfer' 消息 metadata 上；`packet: true` 判别新版红包 vs 旧数据 */
+/** 掛在 type:'transfer' 消息 metadata 上；`packet: true` 判別新版紅包 vs 舊數據 */
 export interface GroupPacketMeta {
     packet: true;
     packetType: 'direct' | 'lucky';
-    /** 纯装饰金额，两位小数 */
+    /** 純裝飾金額，兩位小數 */
     totalAmount: number;
-    /** direct 恒为 1 */
+    /** direct 恆為 1 */
     shares: number;
-    /** 仅 direct：charId 或 'user' */
+    /** 僅 direct：charId 或 'user' */
     targetId?: string;
     note?: string;
     claims: PacketClaim[];
     status: PacketStatus;
-    /** 发出 + 24h，懒判定（渲染/领取时判，无定时器） */
+    /** 發出 + 24h，懶判定（渲染/領取時判，無定時器） */
     expiresAt: number;
     resolvedAt?: number;
 }
 
-/** 领取/退回回执（独立 transfer 消息，对齐私聊 receipt 模式） */
+/** 領取/退回回執（獨立 transfer 消息，對齊私聊 receipt 模式） */
 export interface PacketReceiptMeta {
     packetReceipt: 'claimed' | 'returned';
-    /** 原红包消息 id */
+    /** 原紅包消息 id */
     ref: number;
     amount?: number;
     claimantName: string;
@@ -41,7 +41,7 @@ export interface PacketReceiptMeta {
 }
 
 export const PACKET_EXPIRY_MS = 24 * 60 * 60 * 1000;
-export const DEFAULT_PACKET_NOTE = '恭喜发财';
+export const DEFAULT_PACKET_NOTE = '恭喜發財';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -67,8 +67,8 @@ export function makePacketMeta(opts: {
 }
 
 /**
- * 拼手气随机金额——二倍均值法：每份期望 = 剩余均值，上限 2 倍均值。
- * 保证每份 ≥ 0.01 且给后面每份留足 0.01；最后一份 = 全部余额（总和守恒）。
+ * 拼手氣隨機金額——二倍均值法：每份期望 = 剩餘均值，上限 2 倍均值。
+ * 保證每份 ≥ 0.01 且給後面每份留足 0.01；最後一份 = 全部餘額（總和守恆）。
  */
 export function drawLuckyAmount(remaining: number, remainingShares: number, rand: () => number = Math.random): number {
     if (remainingShares <= 1) return round2(remaining);
@@ -82,10 +82,10 @@ export type ClaimResult =
     | { ok: false; reason: 'expired' | 'already_claimed' | 'not_target' | 'sold_out' | 'not_pending' };
 
 /**
- * 领取状态机（不修改入参，返回新 meta）：
- * - lucky：群内任何人可抢（含发包人，微信同款），重复抢拒绝，领满转 done
- * - direct：仅 targetId 可收（action 'claim'）或退（action 'return'）
- * - pending 且过期 → 拒绝（返回 expired，由调用方决定是否落 expired 态）
+ * 領取狀態機（不修改入參，返回新 meta）：
+ * - lucky：群內任何人可搶（含發包人，微信同款），重複搶拒絕，領滿轉 done
+ * - direct：僅 targetId 可收（action 'claim'）或退（action 'return'）
+ * - pending 且過期 → 拒絕（返回 expired，由調用方決定是否落 expired 態）
  */
 export function claimPacket(
     meta: GroupPacketMeta,
@@ -109,7 +109,7 @@ export function claimPacket(
     }
 
     // lucky
-    if (action === 'return') return { ok: false, reason: 'not_target' }; // 拼手气不能退
+    if (action === 'return') return { ok: false, reason: 'not_target' }; // 拼手氣不能退
     if (meta.claims.some(c => c.claimantId === claimantId)) return { ok: false, reason: 'already_claimed' };
     if (meta.claims.length >= meta.shares) return { ok: false, reason: 'sold_out' };
 
@@ -127,25 +127,25 @@ export function claimPacket(
     };
 }
 
-/** 渲染/领取时的懒过期判定 */
+/** 渲染/領取時的懶過期判定 */
 export function effectivePacketStatus(meta: GroupPacketMeta, now: number): PacketStatus {
     if (meta.status === 'pending' && now > meta.expiresAt) return 'expired';
     return meta.status;
 }
 
-// ─── 指令解析（两层容错：坏值静默丢弃，绝不影响正文） ───
+// ─── 指令解析（兩層容錯：壞值靜默丟棄，絕不影響正文） ───
 
 export interface PacketCommand {
     kind: 'grab' | 'return' | 'send';
-    /** 仅 send */
+    /** 僅 send */
     send?: { packetType: 'direct' | 'lucky'; totalAmount: number; shares: number; targetName?: string; note?: string };
 }
 
 /**
- * 解析 [[SEND_PACKET: ...]] 的载荷：
- *   lucky:总额:份数(:祝福语)  /  direct:目标名:金额(:祝福语)
- * 按全/半角冒号切前 3 段，其余合并为祝福语（祝福语里的冒号不炸）。
- * 金额非法 / 份数 < 1 / 目标名为空 → null。
+ * 解析 [[SEND_PACKET: ...]] 的載荷：
+ *   lucky:總額:份數(:祝福語)  /  direct:目標名:金額(:祝福語)
+ * 按全/半角冒號切前 3 段，其餘合併為祝福語（祝福語裡的冒號不炸）。
+ * 金額非法 / 份數 < 1 / 目標名為空 → null。
  */
 export function parseSendPacketPayload(payload: string): PacketCommand['send'] | null {
     const parts = String(payload ?? '').split(/[:：]/);
@@ -171,8 +171,8 @@ export function parseSendPacketPayload(payload: string): PacketCommand['send'] |
 }
 
 /**
- * 从角色输出里抠红包命令，返回剥净后的正文 + 命令列表。
- * 无法解析的 SEND_PACKET 也会被剥掉（保正文），只是不产生命令。
+ * 從角色輸出裡摳紅包命令，返回剝淨後的正文 + 命令列表。
+ * 無法解析的 SEND_PACKET 也會被剝掉（保正文），只是不產生命令。
  */
 export function extractPacketCommands(content: string): { text: string; commands: PacketCommand[] } {
     const commands: PacketCommand[] = [];
@@ -194,17 +194,17 @@ export function extractPacketCommands(content: string): { text: string; commands
 const fmtAmount = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
 /**
- * 群历史里一条 transfer 消息的文本行（不含 `名字: ` 前缀，调用方拼）。
- * 旧数据（无 packet 判别）沿用 `[发红包: X]`。
+ * 群歷史裡一條 transfer 消息的文本行（不含 `名字: ` 前綴，調用方拼）。
+ * 舊數據（無 packet 判別）沿用 `[發紅包: X]`。
  */
 export function packetHistoryLine(msg: Message, nameOf: (claimantId: string) => string, now: number): string {
     const meta = msg.metadata as Partial<GroupPacketMeta & PacketReceiptMeta> | undefined;
     if (meta?.packetReceipt) {
         return meta.packetReceipt === 'claimed'
-            ? `[系统: ${meta.claimantName} 领取了 ${meta.senderName} 的红包${meta.amount != null ? ` ${fmtAmount(meta.amount)}` : ''}]`
-            : `[系统: ${meta.claimantName} 退回了 ${meta.senderName} 的专属红包]`;
+            ? `[系統: ${meta.claimantName} 領取了 ${meta.senderName} 的紅包${meta.amount != null ? ` ${fmtAmount(meta.amount)}` : ''}]`
+            : `[系統: ${meta.claimantName} 退回了 ${meta.senderName} 的專屬紅包]`;
     }
-    if (!meta?.packet) return `[发红包: ${meta?.amount ?? ''}]`;
+    if (!meta?.packet) return `[發紅包: ${meta?.amount ?? ''}]`;
 
     const m = meta as GroupPacketMeta;
     const status = effectivePacketStatus(m, now);
@@ -212,13 +212,13 @@ export function packetHistoryLine(msg: Message, nameOf: (claimantId: string) => 
         const target = nameOf(m.targetId || '');
         const tail = status === 'done' ? `${target}已收下`
             : status === 'returned' ? `${target}已退回`
-            : status === 'expired' ? '已过期'
+            : status === 'expired' ? '已過期'
             : `待${target}收下或退回`;
-        return `[发了专属红包给 ${target}：金额${fmtAmount(m.totalAmount)}，「${m.note}」（${tail}）]`;
+        return `[發了專屬紅包給 ${target}：金額${fmtAmount(m.totalAmount)}，「${m.note}」（${tail}）]`;
     }
-    const claimed = m.claims.map(c => `${nameOf(c.claimantId)} 抢到${fmtAmount(c.amount)}`).join('、');
-    const tail = status === 'done' ? '已被领完'
-        : status === 'expired' ? '已过期'
-        : `还剩${m.shares - m.claims.length}份可抢`;
-    return `[发了拼手气红包：总额${fmtAmount(m.totalAmount)}，共${m.shares}份，「${m.note}」${m.claims.length > 0 ? `，已领${m.claims.length}份（${claimed}）` : ''}，${tail}]`;
+    const claimed = m.claims.map(c => `${nameOf(c.claimantId)} 搶到${fmtAmount(c.amount)}`).join('、');
+    const tail = status === 'done' ? '已被領完'
+        : status === 'expired' ? '已過期'
+        : `還剩${m.shares - m.claims.length}份可搶`;
+    return `[發了拼手氣紅包：總額${fmtAmount(m.totalAmount)}，共${m.shares}份，「${m.note}」${m.claims.length > 0 ? `，已領${m.claims.length}份（${claimed}）` : ''}，${tail}]`;
 }

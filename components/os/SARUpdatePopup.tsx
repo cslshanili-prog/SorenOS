@@ -5,16 +5,16 @@ import { trackEvent } from '../../utils/analytics';
 import { SAR_CHANGELOG, SAR_UPDATE_KEY } from '../../utils/sarUpdate';
 import './sar-update.css';
 
-const PAGES = ['在彼方相遇', '顺手地聊天', '一张图分享'] as const;
+const PAGES = ['在彼方相遇', '順手地聊天', '一張圖分享'] as const;
 
-/** 独立展示层，公告和自动化预览共用。只在用户明确离开时记为已读。 */
+/** 獨立展示層，公告和自動化預覽共用。只在用戶明確離開時記為已讀。 */
 export function SARUpdatePopup({ onDone, onVisit, onGuide }: {
     onDone: () => void; onVisit: () => void; onGuide: () => void;
 }) {
     const [page, setPage] = useState(0);
     const root = useRef<HTMLElement>(null);
     const dismiss = useRef(() => {});
-    const seen = () => { try { localStorage.setItem(SAR_UPDATE_KEY, '1'); } catch { /* 本次仍可关闭 */ } };
+    const seen = () => { try { localStorage.setItem(SAR_UPDATE_KEY, '1'); } catch { /* 本次仍可關閉 */ } };
     dismiss.current = () => { seen(); trackEvent('跳过本次更新说明', { 版本: SAR_CHANGELOG }); onDone(); };
     useEffect(() => {
         trackEvent('弹出版本更新提醒', { 版本: SAR_CHANGELOG });
@@ -34,67 +34,67 @@ export function SARUpdatePopup({ onDone, onVisit, onGuide }: {
     const turn = (index: number) => { setPage(index); root.current?.querySelector('.sar-release-scroll')?.scrollTo(0, 0); };
     return <div className="sar-release-overlay">
         <section ref={root} className="sar-release" role="dialog" aria-modal="true" aria-labelledby="sar-release-title" tabIndex={-1}>
-            <header className="sar-release-header"><span>Soren <i>✦</i> VOL. 3.10</span><span>彼方来信 / 2026.09</span>
-                <button aria-label="关闭更新公告" onClick={() => dismiss.current()}><X size={19}/></button>
+            <header className="sar-release-header"><span>Soren <i>✦</i> VOL. 3.10</span><span>彼方來信 / 2026.09</span>
+                <button aria-label="關閉更新公告" onClick={() => dismiss.current()}><X size={19}/></button>
             </header>
             <div className="sar-release-scroll">
                 <div key={page} className="sar-release-page">
                     {page === 0 ? <>
                         <div className="sar-release-art">
-                            <img className="sar-release-room" src={roomArt} alt="SAR 活动室原画" draggable={false}/>
+                            <img className="sar-release-room" src={roomArt} alt="SAR 活動室原畫" draggable={false}/>
                             <div className="sar-release-orbit" aria-hidden="true"/>
                             <span className="sar-release-room-mark" aria-hidden="true">SAR</span>
-                            <img className="sar-release-caian" src={`${import.meta.env.BASE_URL}sar-portraits/Caian/normal.webp`} alt="凯恩" draggable={false}/>
+                            <img className="sar-release-caian" src={`${import.meta.env.BASE_URL}sar-portraits/Caian/normal.webp`} alt="凱恩" draggable={false}/>
                             <img className="sar-release-aiven" src={`${import.meta.env.BASE_URL}sar-portraits/Aiven/normal.webp`} alt="艾文" draggable={false}/>
                             <span className="sar-release-seal">ACTIVITY<br/>ROOM<br/><b>✦</b></span>
                         </div>
                         <div className="sar-release-copy">
-                            <p className="sar-release-kicker">01 / 一扇新门，为你留着</p>
-                            <h2 id="sar-release-title">去彼方，<br/>一起虚度时光。</h2>
-                            <p>凯恩与艾文，正在 SAR 活动室等你。<br/>从一句日常问候开始，把陌生聊成熟悉。</p>
-                            <div className="sar-release-features"><span>交谈 · 星级故事</span><span>钓鱼 · 恐龙花园</span><span>芯片 · 推演 · 模块</span></div>
-                            <p className="sar-release-note">慢慢收集，慢慢相熟。走过的故事和收下的纪念，都留在收藏册里。</p>
+                            <p className="sar-release-kicker">01 / 一扇新門，為你留著</p>
+                            <h2 id="sar-release-title">去彼方，<br/>一起虛度時光。</h2>
+                            <p>凱恩與艾文，正在 SAR 活動室等你。<br/>從一句日常問候開始，把陌生聊成熟悉。</p>
+                            <div className="sar-release-features"><span>交談 · 星級故事</span><span>釣魚 · 恐龍花園</span><span>芯片 · 推演 · 模塊</span></div>
+                            <p className="sar-release-note">慢慢收集，慢慢相熟。走過的故事和收下的紀念，都留在收藏冊裡。</p>
                         </div>
                     </> : page === 1 ? <>
                         <div className="sar-release-copy sar-release-copy-top">
-                            <p className="sar-release-kicker">02 / 回复，就在手边</p>
-                            <h2 id="sar-release-title">不用再够<br/>右上角的闪电。</h2>
-                            <p>任意私聊 → 输入框旁「＋」→「设置」<br/>在顶部「输入与发送」里调整，点「保存设置」。<br/>一次设置，所有私聊一起生效。</p>
+                            <p className="sar-release-kicker">02 / 回覆，就在手邊</p>
+                            <h2 id="sar-release-title">不用再夠<br/>右上角的閃電。</h2>
+                            <p>任意私聊 → 輸入框旁「＋」→「設置」<br/>在頂部「輸入與發送」裡調整，點「保存設置」。<br/>一次設置，所有私聊一起生效。</p>
                         </div>
                         <div className="sar-release-chat-art" aria-hidden="true">
-                            <div className="sar-release-demo-bubble">还有一张表情包，等我一下。</div>
-                            <div className="sar-release-demo-input"><span>正在输入…</span><PaperPlaneTilt size={22}/></div>
-                            <span className="sar-release-demo-arrow">点一下聊天空白处 <ArrowRight size={16}/></span>
-                            <div className="sar-release-demo-input"><span>准备好，叫 TA 回复</span><Lightning size={22} weight="fill"/></div>
+                            <div className="sar-release-demo-bubble">還有一張表情包，等我一下。</div>
+                            <div className="sar-release-demo-input"><span>正在輸入…</span><PaperPlaneTilt size={22}/></div>
+                            <span className="sar-release-demo-arrow">點一下聊天空白處 <ArrowRight size={16}/></span>
+                            <div className="sar-release-demo-input"><span>準備好，叫 TA 回覆</span><Lightning size={22} weight="fill"/></div>
                         </div>
                         <div className="sar-release-options">
-                            <p><span>○</span><strong>发送按钮代替生成按钮</strong><small>默认关闭 · 输入时发文字，点聊天空白处后变成闪电</small></p>
-                            <p><span>✓</span><strong>回车发送文字</strong><small>默认开启 · 键盘上的回车键直接发文字；关闭后用来换行</small></p>
-                            <p><span>○</span><strong>发完后自动生成回复</strong><small>默认关闭 · 发完后点聊天空白处，草稿为空、加号面板收起，再等 2 秒让 TA 回复</small></p>
+                            <p><span>○</span><strong>發送按鈕代替生成按鈕</strong><small>默認關閉 · 輸入時發文字，點聊天空白處後變成閃電</small></p>
+                            <p><span>✓</span><strong>回車發送文字</strong><small>默認開啟 · 鍵盤上的回車鍵直接發文字；關閉後用來換行</small></p>
+                            <p><span>○</span><strong>發完後自動生成回覆</strong><small>默認關閉 · 發完後點聊天空白處，草稿為空、加號面板收起，再等 2 秒讓 TA 回覆</small></p>
                         </div>
                     </> : <>
                         <div className="sar-release-copy sar-release-copy-top">
-                            <p className="sar-release-kicker">03 / 喜欢的东西，带走一份</p>
-                            <h2 id="sar-release-title">一张图，<br/>装下你的分享。</h2>
-                            <p>角色卡、世界书、气泡主题与外观预设……<br/>可以做成 PNG 分享卡，连内容一起装进去。</p>
+                            <p className="sar-release-kicker">03 / 喜歡的東西，帶走一份</p>
+                            <h2 id="sar-release-title">一張圖，<br/>裝下你的分享。</h2>
+                            <p>角色卡、世界書、氣泡主題與外觀預設……<br/>可以做成 PNG 分享卡，連內容一起裝進去。</p>
                         </div>
                         <div className="sar-release-share-art" aria-hidden="true">
                             <div className="sar-release-share-shadow"/>
-                            <div className="sar-release-share-card"><span>Soren / SHARE COLLECTION</span><img src={roomArt} alt=""/><strong>把喜欢的世界<br/>送到你手里。</strong><small>一张图片 · 一份完整心意</small><b>PNG ↗</b></div>
+                            <div className="sar-release-share-card"><span>Soren / SHARE COLLECTION</span><img src={roomArt} alt=""/><strong>把喜歡的世界<br/>送到你手裡。</strong><small>一張圖片 · 一份完整心意</small><b>PNG ↗</b></div>
                         </div>
-                        <p className="sar-release-share-note">发送 <strong>PNG 原文件</strong>，对方在对应入口导入。<br/>截图、压缩或转成其他格式，会丢掉里面的内容。<br/><span>原格式导出也保留着，照旧可用。</span></p>
+                        <p className="sar-release-share-note">發送 <strong>PNG 原文件</strong>，對方在對應入口導入。<br/>截圖、壓縮或轉成其他格式，會丟掉裡面的內容。<br/><span>原格式導出也保留著，照舊可用。</span></p>
                     </>}
                 </div>
             </div>
             <footer className="sar-release-footer">
-                <nav aria-label="公告章节">{PAGES.map((name, index) => <button key={name} onClick={() => turn(index)} aria-label={name} aria-current={page === index ? 'step' : undefined}><span>0{index + 1}</span><i/></button>)}</nav>
+                <nav aria-label="公告章節">{PAGES.map((name, index) => <button key={name} onClick={() => turn(index)} aria-label={name} aria-current={page === index ? 'step' : undefined}><span>0{index + 1}</span><i/></button>)}</nav>
                 <div className="sar-release-actions">
-                    {page > 0 ? <button className="sar-release-back" onClick={() => turn(page - 1)} aria-label="上一页"><ArrowLeft size={18}/></button> : null}
-                    <button className="sar-release-guide" onClick={() => { seen(); trackEvent('查看更新说明', { 版本: SAR_CHANGELOG }); onGuide(); }}>完整更新说明</button>
+                    {page > 0 ? <button className="sar-release-back" onClick={() => turn(page - 1)} aria-label="上一頁"><ArrowLeft size={18}/></button> : null}
+                    <button className="sar-release-guide" onClick={() => { seen(); trackEvent('查看更新说明', { 版本: SAR_CHANGELOG }); onGuide(); }}>完整更新說明</button>
                     <button className="sar-release-next" onClick={() => {
                         if (page < 2) turn(page + 1);
                         else { seen(); trackEvent('点立刻体验', { 版本: SAR_CHANGELOG }); onVisit(); }
-                    }}>{page < 2 ? '下一页' : '去彼方看看'}<ArrowRight size={18}/></button>
+                    }}>{page < 2 ? '下一頁' : '去彼方看看'}<ArrowRight size={18}/></button>
                 </div>
             </footer>
         </section>

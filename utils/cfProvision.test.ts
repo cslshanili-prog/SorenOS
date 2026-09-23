@@ -1,8 +1,8 @@
 /**
- * 一键部署里那几个「错了会静默出事」的地方。
+ * 一鍵部署裡那幾個「錯了會靜默出事」的地方。
  *
- * 都是踩过或者一眼能看出会踩的坑：密钥漏一条 worker 直接 503、compat flag 少一个
- * 角色调工具就 1042、重装换掉 Master Key 之前排的任务全解不开。
+ * 都是踩過或者一眼能看出會踩的坑：密鑰漏一條 worker 直接 503、compat flag 少一個
+ * 角色調工具就 1042、重裝換掉 Master Key 之前排的任務全解不開。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -31,29 +31,29 @@ const FULL_SECRETS: AmsgSecrets = {
 };
 
 describe('parseWranglerConfig', () => {
-    it('认得仓库里那份真的 wrangler.toml，不走兜底', () => {
+    it('認得倉庫裡那份真的 wrangler.toml，不走兜底', () => {
         const toml = readFileSync(resolve(__dirname, '../worker/amsg/wrangler.toml'), 'utf8');
         const config = parseWranglerConfig(toml);
 
-        // 少了这个 flag，角色到点调自配 MCP 会被当成内网调用拒掉（1042）
+        // 少了這個 flag，角色到點調自配 MCP 會被當成內網調用拒掉（1042）
         expect(config.compatibilityFlags).toContain('global_fetch_strictly_public');
-        // cron 是主动消息唯一的触发方式
+        // cron 是主動消息唯一的觸發方式
         expect(config.crons).toEqual(['* * * * *']);
         expect(config.d1Binding).toBe('DB');
         expect(config.compatibilityDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
-    it('注释不会被当成配置读进来', () => {
+    it('註釋不會被當成配置讀進來', () => {
         const config = parseWranglerConfig(
             [
                 '# compatibility_date = "1999-01-01"',
-                'compatibility_date = "2026-01-01"  # 真正生效的是这行',
+                'compatibility_date = "2026-01-01"  # 真正生效的是這行',
             ].join('\n'),
         );
         expect(config.compatibilityDate).toBe('2026-01-01');
     });
 
-    it('读不出来的项各自回落到兜底值，不返回半份配置', () => {
+    it('讀不出來的項各自回落到兜底值，不返回半份配置', () => {
         const config = parseWranglerConfig('name = "whatever"');
 
         expect(config.compatibilityFlags).toContain('global_fetch_strictly_public');
@@ -61,7 +61,7 @@ describe('parseWranglerConfig', () => {
         expect(config.d1Binding).toBe('DB');
     });
 
-    it('顶层的 binding 键不会被误当成 D1 的 binding', () => {
+    it('頂層的 binding 鍵不會被誤當成 D1 的 binding', () => {
         const config = parseWranglerConfig(
             ['binding = "NOT_THE_D1_ONE"', '', '[[d1_databases]]', 'binding = "REAL_DB"'].join('\n'),
         );
@@ -70,18 +70,18 @@ describe('parseWranglerConfig', () => {
 });
 
 describe('buildBindings', () => {
-    it('D1 用 CF 要的 {type,name,id} 形状', () => {
+    it('D1 用 CF 要的 {type,name,id} 形狀', () => {
         const bindings = buildBindings('DB', 'db-uuid-1234', FULL_SECRETS);
         expect(bindings[0]).toEqual({ type: 'd1', name: 'DB', id: 'db-uuid-1234' });
     });
 
     /**
-     * 回归守卫：新部署必须自带即时对话的起跳器。
+     * 迴歸守衛：新部署必須自帶即時對話的起跳器。
      *
-     * 漏了它，装出来的 Worker 一发即时对话就 503（instantChat 认的就是这个 binding），
-     * 而用户刚走完一键部署，界面上一切正常，只会以为是功能坏了。
+     * 漏了它，裝出來的 Worker 一發即時對話就 503（instantChat 認的就是這個 binding），
+     * 而用戶剛走完一鍵部署，界面上一切正常，只會以為是功能壞了。
      */
-    it('自带 INSTANT_TICK 的 Durable Object binding', () => {
+    it('自帶 INSTANT_TICK 的 Durable Object binding', () => {
         const bindings = buildBindings('DB', 'x', FULL_SECRETS);
         expect(bindings).toContainEqual({
             type: 'durable_object_namespace',
@@ -90,7 +90,7 @@ describe('buildBindings', () => {
         });
     });
 
-    it('五个密钥一条不落——漏一条上去 worker 就起不来', () => {
+    it('五個密鑰一條不落——漏一條上去 worker 就起不來', () => {
         const bindings = buildBindings('DB', 'x', FULL_SECRETS);
         const names = bindings.filter((b) => b.type === 'secret_text').map((b) => b.name);
 
@@ -105,7 +105,7 @@ describe('buildBindings', () => {
         );
     });
 
-    it('空密钥不写进去：塞空串等于开了一道永远对不上的门', () => {
+    it('空密鑰不寫進去：塞空串等於開了一道永遠對不上的門', () => {
         const bindings = buildBindings('DB', 'x', {
             ...FULL_SECRETS,
             AMSG_SERVER_TOKEN: '',
@@ -118,7 +118,7 @@ describe('buildBindings', () => {
         expect(names).toContain('AMSG_MASTER_KEY');
     });
 
-    it('额外的项（自更新要的 CF token）也走 secret，不是明文', () => {
+    it('額外的項（自更新要的 CF token）也走 secret，不是明文', () => {
         const bindings = buildBindings('DB', 'x', FULL_SECRETS, {
             CF_API_TOKEN: 'cf-token',
             CF_SCRIPT_NAME: 'sullyos-amsg',
@@ -131,14 +131,14 @@ describe('buildBindings', () => {
 });
 
 describe('generateAmsgSecrets', () => {
-    it('传了已有的 Master Key 就原样保留——换掉会让之前排的任务全解不开', async () => {
+    it('傳了已有的 Master Key 就原樣保留——換掉會讓之前排的任務全解不開', async () => {
         const existing = 'b'.repeat(64);
         const secrets = await generateAmsgSecrets({ AMSG_MASTER_KEY: existing });
 
         expect(secrets.AMSG_MASTER_KEY).toBe(existing);
     });
 
-    it('传了已有的 VAPID 就原样保留——换掉之前的推送订阅会全部 403', async () => {
+    it('傳了已有的 VAPID 就原樣保留——換掉之前的推送訂閱會全部 403', async () => {
         const secrets = await generateAmsgSecrets({
             VAPID_PUBLIC_KEY: 'old-pub',
             VAPID_PRIVATE_KEY: 'old-priv',
@@ -148,7 +148,7 @@ describe('generateAmsgSecrets', () => {
         expect(secrets.VAPID_PRIVATE_KEY).toBe('old-priv');
     });
 
-    it('什么都不传就全新生成，Master Key 是 64 位 hex', async () => {
+    it('什麼都不傳就全新生成，Master Key 是 64 位 hex', async () => {
         const secrets = await generateAmsgSecrets();
 
         expect(secrets.AMSG_MASTER_KEY).toMatch(/^[0-9a-f]{64}$/);
@@ -156,7 +156,7 @@ describe('generateAmsgSecrets', () => {
         expect(secrets.AMSG_SERVER_TOKEN).toBeTruthy();
     });
 
-    it('两次生成不会撞', async () => {
+    it('兩次生成不會撞', async () => {
         const a = await generateAmsgSecrets();
         const b = await generateAmsgSecrets();
 
@@ -166,7 +166,7 @@ describe('generateAmsgSecrets', () => {
 });
 
 describe('verifyToken', () => {
-    /** 装一个假的中转，返回它收到的请求路径。 */
+    /** 裝一個假的中轉，返回它收到的請求路徑。 */
     const stubRelay = (payload: unknown, status = 200) => {
         const paths: string[] = [];
         vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -185,9 +185,9 @@ describe('verifyToken', () => {
         vi.restoreAllMocks();
     });
 
-    it('还没到生效日期的 token 要拦下来——CF 这时照样回 success:true', async () => {
-        // 放过去的话，后面每一步都收到通用的 Authentication error，会被归成
-        // 「权限不够」，用户跑去改权限，可那根本不是原因。真机上踩过一次。
+    it('還沒到生效日期的 token 要攔下來——CF 這時照樣回 success:true', async () => {
+        // 放過去的話，後面每一步都收到通用的 Authentication error，會被歸成
+        // 「權限不夠」，用戶跑去改權限，可那根本不是原因。真機上踩過一次。
         stubRelay({
             success: true,
             result: { id: 'x', status: 'active', not_before: '2026-08-10T00:00:00Z' },
@@ -209,9 +209,9 @@ describe('verifyToken', () => {
         expect((await verifyToken('plain-token')).ok).toBe(true);
     });
 
-    it('账号令牌当场说清楚该换哪种，而不是拿用户级端点去撞 401', async () => {
-        // cfat_ 打 /user/tokens/verify 必然 1000，报错原文只会说 Invalid API Token，
-        // 用户对着那句话查不出「你建错了种类」。
+    it('帳號令牌當場說清楚該換哪種，而不是拿用戶級端點去撞 401', async () => {
+        // cfat_ 打 /user/tokens/verify 必然 1000，報錯原文只會說 Invalid API Token，
+        // 用戶對著那句話查不出「你建錯了種類」。
         const paths = stubRelay({ success: true });
 
         const result = await verifyToken('cfat_abcdef');
@@ -221,11 +221,11 @@ describe('verifyToken', () => {
             expect(result.code).toBe('TOKEN_INVALID');
             expect(result.message).toContain('API Tokens');
         }
-        // 一次网络都不该发
+        // 一次網絡都不該發
         expect(paths).toHaveLength(0);
     });
 
-    it('普通 token 走用户级端点', async () => {
+    it('普通 token 走用戶級端點', async () => {
         const paths = stubRelay({ success: true, result: { status: 'active' }, messages: [] });
 
         await verifyToken('plain-token');
@@ -233,7 +233,7 @@ describe('verifyToken', () => {
         expect(paths).toEqual(['/user/tokens/verify']);
     });
 
-    it('认得出账号令牌的前缀', () => {
+    it('認得出帳號令牌的前綴', () => {
         expect(isAccountScopedToken('cfat_abc')).toBe(true);
         expect(isAccountScopedToken('  cfat_abc  ')).toBe(true);
         expect(isAccountScopedToken('abcdef123')).toBe(false);
@@ -242,7 +242,7 @@ describe('verifyToken', () => {
 
 describe('uploadWorkerScript', () => {
     /**
-     * 装一个假的中转，按次序吐响应，并把每次上传的 metadata 记下来。
+     * 裝一個假的中轉，按次序吐響應，並把每次上傳的 metadata 記下來。
      */
     const stubUploadRelay = (responses: Array<{ status: number; payload: unknown }>) => {
         const metadatas: Array<Record<string, unknown>> = [];
@@ -271,12 +271,12 @@ describe('uploadWorkerScript', () => {
     });
 
     /**
-     * 回归守卫：对着已经装过的 Worker 重装（清了地址重跑、换设备再部署）。
+     * 迴歸守衛：對著已經裝過的 Worker 重裝（清了地址重跑、換設備再部署）。
      *
-     * metadata 里的 migrations 断言「全新部署」，这时 CF 会回 10079 乐观锁冲突把整次
-     * 上传顶回来——修法是去掉 migrations 重传（namespace 本来就在），binding 原样保留。
+     * metadata 裡的 migrations 斷言「全新部署」，這時 CF 會回 10079 樂觀鎖衝突把整次
+     * 上傳頂回來——修法是去掉 migrations 重傳（namespace 本來就在），binding 原樣保留。
      */
-    it('撞上 10079 就去掉 migrations 重传一次，并标记这是覆盖更新', async () => {
+    it('撞上 10079 就去掉 migrations 重傳一次，並標記這是覆蓋更新', async () => {
         const metadatas = stubUploadRelay([
             {
                 status: 400,
@@ -294,12 +294,12 @@ describe('uploadWorkerScript', () => {
         expect(result.reusedExistingWorker).toBe(true);
         expect(metadatas).toHaveLength(2);
         expect(metadatas[1].migrations).toBeUndefined();
-        // 只该去掉 migrations，binding 等其余字段原样保留
+        // 只該去掉 migrations，binding 等其餘字段原樣保留
         expect(metadatas[1].bindings).toEqual(metadatas[0].bindings);
         expect(metadatas[1].main_module).toBe(metadatas[0].main_module);
     });
 
-    it('全新部署一次成功就不重试，也不标记覆盖更新', async () => {
+    it('全新部署一次成功就不重試，也不標記覆蓋更新', async () => {
         const metadatas = stubUploadRelay([{ status: 200, payload: { success: true, result: {} } }]);
 
         const result = await uploadWorkerScript('tok', 'acct', 'sullyos-amsg', FRESH_METADATA, 'export default {}');
@@ -309,7 +309,7 @@ describe('uploadWorkerScript', () => {
         expect(metadatas).toHaveLength(1);
     });
 
-    it('其他错误不套这个重试——盲目去掉 migrations 只会把真错误拖成两次', async () => {
+    it('其他錯誤不套這個重試——盲目去掉 migrations 只會把真錯誤拖成兩次', async () => {
         const metadatas = stubUploadRelay([
             {
                 status: 400,
@@ -325,7 +325,7 @@ describe('uploadWorkerScript', () => {
 });
 
 describe('explainCfError', () => {
-    it('权限不够时把要勾的三项列出来，而不是干说 Unauthorized', () => {
+    it('權限不夠時把要勾的三項列出來，而不是幹說 Unauthorized', () => {
         const msg = explainCfError(403, { errors: [{ code: 9109, message: 'Unauthorized' }] });
 
         expect(msg).toContain('Workers Scripts:Edit');
@@ -333,20 +333,20 @@ describe('explainCfError', () => {
         expect(msg).toContain('Account Settings:Read');
     });
 
-    it('token 格式错（多带了空格换行）单独提示', () => {
+    it('token 格式錯（多帶了空格換行）單獨提示', () => {
         const msg = explainCfError(400, { errors: [{ code: 6111, message: 'Invalid format' }] });
         expect(msg).toContain('空格');
     });
 
-    it('认不出来的错至少把 CF 的原话带上', () => {
+    it('認不出來的錯至少把 CF 的原話帶上', () => {
         const msg = explainCfError(500, { errors: [{ code: 12345, message: 'Something odd' }] });
         expect(msg).toContain('Something odd');
     });
 
-    // 下面三条钉住「翻译之外一定留原文」。翻译是兜底猜的，猜错时用户得有东西可查——
-    // 尤其 401/403 那条：不留原文的话，中转层和 WAF 的 403 都长得跟「token 缺权限」
-    // 一模一样，人会被指使着反复去改一枚本来就没问题的 token。
-    it('权限提示后面带着 CF 原文、code 和 HTTP 状态', () => {
+    // 下面三條釘住「翻譯之外一定留原文」。翻譯是兜底猜的，猜錯時用戶得有東西可查——
+    // 尤其 401/403 那條：不留原文的話，中轉層和 WAF 的 403 都長得跟「token 缺權限」
+    // 一模一樣，人會被指使著反覆去改一枚本來就沒問題的 token。
+    it('權限提示後面帶著 CF 原文、code 和 HTTP 狀態', () => {
         const msg = explainCfError(403, { errors: [{ code: 9109, message: 'Unauthorized' }] });
 
         expect(msg).toContain('Unauthorized');
@@ -354,8 +354,8 @@ describe('explainCfError', () => {
         expect(msg).toContain('403');
     });
 
-    it('中转层自己回的 403 也要露出原话，别看着像 token 缺权限', () => {
-        // 中转的错误体是 { error }，不是 CF 的 errors 数组，得单独捞。
+    it('中轉層自己回的 403 也要露出原話，別看著像 token 缺權限', () => {
+        // 中轉的錯誤體是 { error }，不是 CF 的 errors 數組，得單獨撈。
         const msg = explainCfError(403, {
             error: 'This proxy only relays account-scoped Cloudflare API paths',
         });
@@ -363,13 +363,13 @@ describe('explainCfError', () => {
         expect(msg).toContain('This proxy only relays');
     });
 
-    it('响应根本不是 JSON 时，至少把 HTTP 状态说出来', () => {
+    it('響應根本不是 JSON 時，至少把 HTTP 狀態說出來', () => {
         const msg = explainCfError(403, null);
 
         expect(msg).toContain('403');
     });
 
-    it('带上出事的那个请求，认得出卡在哪一步', () => {
+    it('帶上出事的那個請求，認得出卡在哪一步', () => {
         const msg = explainCfError(403, null, 'POST /accounts/acc-1/d1/database');
 
         expect(msg).toContain('POST /accounts/acc-1/d1/database');
@@ -377,7 +377,7 @@ describe('explainCfError', () => {
 });
 
 describe('ensureSubdomain', () => {
-    /** 按路径派响应的假中转，返回它收到的「方法 + 路径」清单。 */
+    /** 按路徑派響應的假中轉，返回它收到的「方法 + 路徑」清單。 */
     const stubRelay = (
         handler: (path: string, method: string) => { payload: unknown; status?: number },
     ) => {
@@ -401,14 +401,14 @@ describe('ensureSubdomain', () => {
         vi.restoreAllMocks();
     });
 
-    it('账号已经有子域名就直接用', async () => {
+    it('帳號已經有子域名就直接用', async () => {
         stubRelay(() => ({ payload: { success: true, result: { subdomain: 'kaede' } } }));
 
         expect(await ensureSubdomain('tok', 'acc-1')).toEqual({ ok: true, subdomain: 'kaede' });
     });
 
-    it('读子域名被 403 时说权限，而不是请用户再起一个名字', async () => {
-        // 读都读不动，注册那一步同样过不去。当成新账号劝人换名字，用户会一直换下去。
+    it('讀子域名被 403 時說權限，而不是請用戶再起一個名字', async () => {
+        // 讀都讀不動，註冊那一步同樣過不去。當成新帳號勸人換名字，用戶會一直換下去。
         const seen = stubRelay(() => ({
             payload: { success: false, errors: [{ code: 9109, message: 'Unauthorized' }] },
             status: 403,
@@ -421,11 +421,11 @@ describe('ensureSubdomain', () => {
             expect(result.code).toBe('CF_ERROR');
             expect(result.error).toContain('Unauthorized');
         }
-        // 注定失败的注册请求也不该发
+        // 註定失敗的註冊請求也不該發
         expect(seen).toEqual(['GET /accounts/acc-1/workers/subdomain']);
     });
 
-    it('403 之外的读失败照旧当新账号处理，别把还没建过子域名的人堵死', async () => {
+    it('403 之外的讀失敗照舊當新帳號處理，別把還沒建過子域名的人堵死', async () => {
         const seen = stubRelay((_path, method) => (method === 'GET'
             ? { payload: { success: false, errors: [{ code: 10007, message: 'not found' }] }, status: 404 }
             : { payload: { success: true, result: {} } }));
@@ -438,27 +438,27 @@ describe('ensureSubdomain', () => {
 });
 
 describe('scriptNameFromWorkerUrl', () => {
-    it('workers.dev 地址认得出脚本名', () => {
+    it('workers.dev 地址認得出腳本名', () => {
         expect(scriptNameFromWorkerUrl('https://sullyos-amsg.kaede.workers.dev')).toBe('sullyos-amsg');
         expect(scriptNameFromWorkerUrl('https://sullyos-amsg.kaede.workers.dev/')).toBe('sullyos-amsg');
     });
 
-    it('自定义域名和代理门面一律返回 null，不猜', () => {
-        // 猜出来的名字会指向账号里另一个 Worker，把钥匙写到别人身上去。
+    it('自定義域名和代理門面一律返回 null，不猜', () => {
+        // 猜出來的名字會指向帳號裡另一個 Worker，把鑰匙寫到別人身上去。
         expect(scriptNameFromWorkerUrl('https://amsg.example.com')).toBeNull();
         expect(scriptNameFromWorkerUrl('https://my-proxy.deno.dev')).toBeNull();
-        // 少一段：这是账号子域本身，不是某个脚本
+        // 少一段：這是帳號子域本身，不是某個腳本
         expect(scriptNameFromWorkerUrl('https://kaede.workers.dev')).toBeNull();
     });
 
-    it('填的不是地址时返回 null 而不是抛错', () => {
-        expect(scriptNameFromWorkerUrl('随便写的')).toBeNull();
+    it('填的不是地址時返回 null 而不是拋錯', () => {
+        expect(scriptNameFromWorkerUrl('隨便寫的')).toBeNull();
         expect(scriptNameFromWorkerUrl('')).toBeNull();
     });
 });
 
 describe('deriveWorkerUrl / validateSubdomain', () => {
-    it('地址是「脚本名.子域.workers.dev」', () => {
+    it('地址是「腳本名.子域.workers.dev」', () => {
         expect(deriveWorkerUrl('sullyos-amsg', 'kaede')).toBe('https://sullyos-amsg.kaede.workers.dev');
     });
 
@@ -466,7 +466,7 @@ describe('deriveWorkerUrl / validateSubdomain', () => {
         expect(validateSubdomain('kaede-123')).toBeNull();
     });
 
-    it('连字符开头结尾、太短、带大写和非法字符都要挡下', () => {
+    it('連字符開頭結尾、太短、帶大寫和非法字符都要擋下', () => {
         expect(validateSubdomain('-nope')).not.toBeNull();
         expect(validateSubdomain('nope-')).not.toBeNull();
         expect(validateSubdomain('ab')).not.toBeNull();

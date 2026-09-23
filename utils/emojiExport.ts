@@ -13,19 +13,19 @@ export async function emojiExtension(blob: Blob): Promise<string> {
     if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return 'jpg';
     if (header.startsWith('RIFF') && header.slice(8, 12) === 'WEBP') return 'webp';
     const extension = ({ 'image/png': 'png', 'image/gif': 'gif', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif', 'image/svg+xml': 'svg', 'image/bmp': 'bmp', 'image/x-icon': 'ico' } as Record<string, string>)[blob.type.split(';')[0]];
-    if (!extension) throw new Error('无法识别图片原始格式');
+    if (!extension) throw new Error('無法識別圖片原始格式');
     return extension;
 }
 
 /** Keep original bytes, including animation; never re-encode through canvas. */
 export async function prepareEmojiExport(emojis: Pick<Emoji, 'name' | 'url'>[], title = '表情包') {
-    if (!emojis.length) throw new Error('没有可下载的表情');
+    if (!emojis.length) throw new Error('沒有可下載的表情');
     const zip = new JSZip();
     const used = new Set<string>();
     let single: { blob: Blob; fileName: string } | undefined;
     for (const emoji of emojis) {
         const blob = isBlobRef(emoji.url) ? await getBlobForRef(emoji.url) : await fetchBlobForShare(emoji.url);
-        if (!blob?.size) throw new Error(`表情「${emoji.name}」的原文件已丢失`);
+        if (!blob?.size) throw new Error(`表情「${emoji.name}」的原文件已丟失`);
         const ext = await emojiExtension(blob);
         const base = safeName(emoji.name).replace(/\.(png|gif|jpe?g|webp|avif|svg|bmp|ico)$/i, '');
         let fileName = `${base}.${ext}`, suffix = 2;

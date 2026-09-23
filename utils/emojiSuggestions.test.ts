@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { findEmojiSuggestions } from './emojiSuggestions';
 
 const emojis = [
-    { name: '给你抱抱', url: 'a.png' },
+    { name: '給你抱抱', url: 'a.png' },
     { name: '抱抱', url: 'b.png' },
-    { name: '开心', url: 'c.png' },
+    { name: '開心', url: 'c.png' },
     { name: '抱', url: 'd.png' },
 ];
 
 describe('emoji name suggestions', () => {
     it('matches partial names and ranks exact, prefix, then contained matches', () => {
-        expect(findEmojiSuggestions(emojis, '抱').map(e => e.name)).toEqual(['抱', '抱抱', '给你抱抱']);
-        expect(findEmojiSuggestions(emojis, '开心')).toEqual([emojis[2]]);
+        expect(findEmojiSuggestions(emojis, '抱').map(e => e.name)).toEqual(['抱', '抱抱', '給你抱抱']);
+        expect(findEmojiSuggestions(emojis, '開心')).toEqual([emojis[2]]);
     });
     it('normalizes surrounding spaces, case and full-width input', () => {
         const hug = { name: 'Big HUG', url: 'hug.png' };

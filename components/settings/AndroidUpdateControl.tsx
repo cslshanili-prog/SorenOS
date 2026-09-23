@@ -12,9 +12,9 @@ import { trackEvent } from '../../utils/analytics';
 type Phase = 'idle' | 'checking' | 'available' | 'downloading' | 'permission' | 'installing' | 'latest' | 'error';
 
 const errorMessage = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error || '未知错误');
-  if (/Failed to fetch|NetworkError|timeout/i.test(message)) return '网络连接失败，请稍后重试';
-  return message || '检查更新失败，请稍后重试';
+  const message = error instanceof Error ? error.message : String(error || '未知錯誤');
+  if (/Failed to fetch|NetworkError|timeout/i.test(message)) return '網絡連接失敗，請稍後重試';
+  return message || '檢查更新失敗，請稍後重試';
 };
 
 const AndroidUpdateControl: React.FC = () => {
@@ -37,13 +37,13 @@ const AndroidUpdateControl: React.FC = () => {
       if (latest.versionCode <= installed.versionCode) {
         setManifest(null);
         setPhase('latest');
-        setMessage(`当前 ${installed.versionName || installed.versionCode} 已是最新版`);
+        setMessage(`當前 ${installed.versionName || installed.versionCode} 已是最新版`);
         trackEvent('Android 检查更新', { result: 'latest', versionCode: installed.versionCode });
         return;
       }
       setManifest(latest);
       setPhase('available');
-      setMessage(`发现新版本 ${latest.versionName}`);
+      setMessage(`發現新版本 ${latest.versionName}`);
       trackEvent('Android 检查更新', { result: 'available', versionCode: latest.versionCode });
     } catch (error) {
       setPhase('error');
@@ -57,17 +57,17 @@ const AndroidUpdateControl: React.FC = () => {
     const result = await installVerifiedAndroidUpdate(path, target);
     if (result.status === 'permission_required') {
       setPhase('permission');
-      setMessage('请允许“安装未知应用”，返回后点“继续安装”');
+      setMessage('請允許“安裝未知應用”，返回後點“繼續安裝”');
       return;
     }
-    setMessage('已打开 Android 系统安装器');
+    setMessage('已打開 Android 系統安裝器');
   };
 
   const download = async () => {
     if (!manifest) return;
     setPhase('downloading');
     setProgress(0);
-    setMessage('正在下载并校验正式安装包');
+    setMessage('正在下載並校驗正式安裝包');
     try {
       const path = await downloadAndVerifyAndroidUpdate(manifest, setProgress);
       setDownloadedPath(path);
@@ -92,16 +92,16 @@ const AndroidUpdateControl: React.FC = () => {
 
   const busy = phase === 'checking' || phase === 'downloading' || phase === 'installing';
   const label = phase === 'checking'
-    ? '检查中…'
+    ? '檢查中…'
     : phase === 'downloading'
-      ? `下载中 ${Math.round(progress * 100)}%`
+      ? `下載中 ${Math.round(progress * 100)}%`
       : phase === 'installing'
-        ? '正在打开安装器…'
+        ? '正在打開安裝器…'
         : phase === 'available'
-          ? `下载并安装 ${manifest?.versionName || '新版本'}`
+          ? `下載並安裝 ${manifest?.versionName || '新版本'}`
           : phase === 'permission'
-            ? '继续安装'
-            : '检查更新';
+            ? '繼續安裝'
+            : '檢查更新';
   const onClick = phase === 'available' ? download : phase === 'permission' ? continueInstall : check;
 
   return (

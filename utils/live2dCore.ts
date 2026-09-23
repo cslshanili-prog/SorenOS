@@ -33,17 +33,17 @@ const loadScript = (src: string): Promise<void> => new Promise((resolve, reject)
   const existing = document.querySelector<HTMLScriptElement>(`script[data-live2d-core="${src}"]`);
   if (existing) {
     if (hasCore()) resolve();
-    else existing.addEventListener('load', () => hasCore() ? resolve() : reject(new Error('Cubism Core 未注册')), { once: true });
+    else existing.addEventListener('load', () => hasCore() ? resolve() : reject(new Error('Cubism Core 未註冊')), { once: true });
     return;
   }
   const script = document.createElement('script');
   script.src = src;
   script.async = true;
   script.dataset.live2dCore = src;
-  script.onload = () => hasCore() ? resolve() : reject(new Error('Cubism Core 脚本已加载，但没有注册运行时。'));
+  script.onload = () => hasCore() ? resolve() : reject(new Error('Cubism Core 腳本已加載，但沒有註冊運行時。'));
   script.onerror = () => {
     script.remove();
-    reject(new Error(`无法加载 ${src}`));
+    reject(new Error(`無法加載 ${src}`));
   };
   document.head.appendChild(script);
 });
@@ -61,7 +61,7 @@ const findLocalCore = async (): Promise<string | null> => {
 
 /** Load the proprietary Cubism Core without bundling or redistributing it. */
 export const ensureLive2DCubismCore = (): Promise<void> => {
-  if (typeof window === 'undefined') return Promise.reject(new Error('Live2D 只能在浏览器中运行。'));
+  if (typeof window === 'undefined') return Promise.reject(new Error('Live2D 只能在瀏覽器中運行。'));
   if (hasCore()) return Promise.resolve();
   if (corePromise) return corePromise;
   corePromise = (async () => {
@@ -77,7 +77,7 @@ export const ensureLive2DCubismCore = (): Promise<void> => {
     try {
       await loadScript(OFFICIAL_CUBISM_CORE);
     } catch {
-      throw new Error('Cubism Core 加载失败。请联网重试，或将官方 live2dcubismcore.min.js 放进 public/vendor/。');
+      throw new Error('Cubism Core 加載失敗。請聯網重試，或將官方 live2dcubismcore.min.js 放進 public/vendor/。');
     }
   })().catch(error => {
     corePromise = null;

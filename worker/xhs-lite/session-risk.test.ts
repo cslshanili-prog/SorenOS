@@ -118,7 +118,7 @@ describe('XHS Lite session-risk headers', () => {
       }),
     );
 
-    const response = await callLite('search', { keyword: '小猫' });
+    const response = await callLite('search', { keyword: '小貓' });
 
     expect(response.status).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(1);
@@ -209,7 +209,7 @@ describe('XHS Lite session-risk headers', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ error: '评论失败: risk control' });
+    expect(await response.json()).toMatchObject({ error: '評論失敗: risk control' });
   });
 
   it('does not call the protected XHS comment endpoint when no managed provider is configured', async () => {
@@ -274,7 +274,7 @@ describe('XHS Lite session-risk headers', () => {
             data: {
               comments: [{
                 comment_id: 'comment-1',
-                content: '真实评论',
+                content: '真實評論',
                 like_count: '12',
                 user_info: { user_id: 'user-1', nickname: '甲' },
               }],
@@ -299,7 +299,7 @@ describe('XHS Lite session-risk headers', () => {
     expect(body.data.comments_provider).toBe('rnote');
     expect(body.data.comments.list).toEqual([expect.objectContaining({
       comment_id: 'comment-1',
-      content: '真实评论',
+      content: '真實評論',
       nickname: '甲',
     })]);
   });
@@ -323,7 +323,7 @@ describe('XHS Lite session-risk headers', () => {
           data: {
             comments: [{
               comment_id: 'comment-user-key',
-              content: '用户 Key 读取的真实评论',
+              content: '用戶 Key 讀取的真實評論',
               user_info: { nickname: '乙' },
             }],
           },
@@ -343,7 +343,7 @@ describe('XHS Lite session-risk headers', () => {
     const body = await response.json();
     expect(body.data.comments_status).toBe('loaded');
     expect(body.data.comments_provider).toBe('rnote');
-    expect(body.data.comments.list[0].content).toBe('用户 Key 读取的真实评论');
+    expect(body.data.comments.list[0].content).toBe('用戶 Key 讀取的真實評論');
   });
 });
 describe('XHS Spider session v3 isolated experiment', () => {

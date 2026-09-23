@@ -9,23 +9,23 @@ export interface MallOrderItem {
     detail?: string;
 }
 
-/** apps/Chat.tsx 落库时写进 metadata 的形状；跟 utils/shoppingMall.ts 的 MallProduct 是两回事——
- *  这里存的是「下单那一刻」的快照（名称/单价/emoji），后面商品库怎么改都不会影响历史卡片。 */
+/** apps/Chat.tsx 落庫時寫進 metadata 的形狀；跟 utils/shoppingMall.ts 的 MallProduct 是兩回事——
+ *  這裡存的是「下單那一刻」的快照（名稱/單價/emoji），後面商品庫怎麼改都不會影響歷史卡片。 */
 export interface MallOrderMeta {
     mallKind: 'shop' | 'food';
-    /** gift/为TA点单：发送即结清，不需要对方处理；daifu：待对方（角色）选择支付或拒绝；manual：「TA主动给我买/点外卖」手动模拟卡，纯摆设不动余额 */
+    /** gift/為TA點單：發送即結清，不需要對方處理；daifu：待對方（角色）選擇支付或拒絕；manual：「TA主動給我買/點外賣」手動模擬卡，純擺設不動餘額 */
     mode: 'gift' | 'daifu' | 'manual';
     items: MallOrderItem[];
     note?: string;
     total: number;
     status: 'sent' | 'pending' | 'accepted' | 'declined';
     declineReason?: string;
-    /** 不传则用 buildTitle 按 mode/方向自动生成；「发小票」这种不想被念成"送给TA"的场景会显式传。 */
+    /** 不傳則用 buildTitle 按 mode/方向自動生成；「發小票」這種不想被念成"送給TA"的場景會顯式傳。 */
     title?: string;
     /**
-     * 礼物/外卖是「发送即结清」，没有 accept 步骤，但完全没反馈不好——角色收到礼物后的
-     * 下一轮回复会顺手标一个 acknowledged（见 utils/chatParser.ts 的 GIFT ACK 逻辑），
-     * 卡片上多显示一句"TA已收下"，纯展示用，不影响任何结算。
+     * 禮物/外賣是「發送即結清」，沒有 accept 步驟，但完全沒反饋不好——角色收到禮物後的
+     * 下一輪回復會順手標一個 acknowledged（見 utils/chatParser.ts 的 GIFT ACK 邏輯），
+     * 卡片上多顯示一句"TA已收下"，純展示用，不影響任何結算。
      */
     acknowledged?: boolean;
 }
@@ -34,17 +34,17 @@ const KIND_ICON: Record<MallOrderMeta['mallKind'], string> = { shop: '🛍️', 
 
 const STATUS_STYLE: Record<MallOrderMeta['status'], { label: string; bg: string; text: string }> = {
     sent: { label: '已送出', bg: 'bg-emerald-100', text: 'text-emerald-600' },
-    pending: { label: '等待选择', bg: 'bg-amber-100', text: 'text-amber-600' },
+    pending: { label: '等待選擇', bg: 'bg-amber-100', text: 'text-amber-600' },
     accepted: { label: '已支付', bg: 'bg-emerald-100', text: 'text-emerald-600' },
-    declined: { label: '已拒绝支付', bg: 'bg-slate-200', text: 'text-slate-500' },
+    declined: { label: '已拒絕支付', bg: 'bg-slate-200', text: 'text-slate-500' },
 };
 
 const buildTitle = (meta: MallOrderMeta, isUser: boolean, charName: string): string => {
     const actor = isUser ? '你' : charName;
     const counterparty = isUser ? charName : '你';
-    if (meta.mode === 'daifu') return `${meta.mallKind === 'food' ? '外卖' : '购物'}代付请求`;
-    if (meta.mallKind === 'food') return `${actor}给${counterparty}点了外卖`;
-    return `${actor}送给${counterparty}的购物礼物`;
+    if (meta.mode === 'daifu') return `${meta.mallKind === 'food' ? '外賣' : '購物'}代付請求`;
+    if (meta.mallKind === 'food') return `${actor}給${counterparty}點了外賣`;
+    return `${actor}送給${counterparty}的購物禮物`;
 };
 
 const MallOrderCard: React.FC<{
@@ -83,14 +83,14 @@ const MallOrderCard: React.FC<{
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="text-[12px] font-bold text-slate-700 truncate">{item.name}</div>
-                            <div className="text-[10px] text-slate-400">数量 {item.qty} · 单价 ¥{item.price.toFixed(2)}</div>
+                            <div className="text-[10px] text-slate-400">數量 {item.qty} · 單價 ¥{item.price.toFixed(2)}</div>
                             {item.detail && <div className="text-[10px] text-slate-400 truncate">{item.detail}</div>}
                         </div>
                         <div className="text-[12px] font-bold text-slate-700 shrink-0">¥{(item.price * item.qty).toFixed(2)}</div>
                     </div>
                 ))}
                 {meta.note && (
-                    <div className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5">备注：{meta.note}</div>
+                    <div className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5">備註：{meta.note}</div>
                 )}
                 {status === 'declined' && meta.declineReason && (
                     <div className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5">{charName}：{meta.declineReason}</div>
@@ -98,13 +98,13 @@ const MallOrderCard: React.FC<{
             </div>
 
             <div className="px-4 py-2.5 border-t border-slate-50 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">合计</span>
+                <span className="text-[11px] text-slate-400">合計</span>
                 <span className="text-[15px] font-bold text-slate-800">¥{(meta.total ?? items.reduce((s, i) => s + i.price * i.qty, 0)).toFixed(2)}</span>
             </div>
 
             {status === 'pending' && (
                 <div className="px-4 pb-3 text-[10px] text-amber-600 text-center">
-                    等待{isUser ? charName : '你'}在回复中选择支付或拒绝
+                    等待{isUser ? charName : '你'}在回覆中選擇支付或拒絕
                 </div>
             )}
             {status === 'sent' && meta.mode === 'gift' && isUser && meta.acknowledged && (

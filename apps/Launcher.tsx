@@ -36,7 +36,7 @@ const DesktopClock = React.memo(() => {
     const dateNum = now.getDate().toString().padStart(2, '0');
     const yearNum = now.getFullYear();
 
-    // 简单问候（基于虚拟时间）
+    // 簡單問候（基於虛擬時間）
     const greeting = virtualTime.hours < 5 ? 'Good Night'
         : virtualTime.hours < 12 ? 'Good Morning'
         : virtualTime.hours < 18 ? 'Good Afternoon'
@@ -45,7 +45,7 @@ const DesktopClock = React.memo(() => {
     const hh = virtualTime.hours.toString().padStart(2, '0');
     const mm = virtualTime.minutes.toString().padStart(2, '0');
 
-    // 动森彩蛋：NookPhone 主屏时钟 —— 问候 + 大号时间(主角) + 星期·日期
+    // 動森彩蛋：NookPhone 主屏時鐘 —— 問候 + 大號時間(主角) + 星期·日期
     if (theme.skin === 'animalcrossing') {
         const weekdayTitle = dayName.charAt(0) + dayName.slice(1).toLowerCase();
         const monthTitle = monthName.charAt(0) + monthName.slice(1).toLowerCase();
@@ -66,7 +66,7 @@ const DesktopClock = React.memo(() => {
 
     return (
         <div className="flex flex-col mb-5 mt-5 relative animate-fade-in" style={{ color: contentColor }}>
-            {/* 顶部装饰 — 状态胶囊 + 细线 */}
+            {/* 頂部裝飾 — 狀態膠囊 + 細線 */}
             <div className="flex items-center gap-2 mb-3 opacity-90">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                     style={{
@@ -80,12 +80,12 @@ const DesktopClock = React.memo(() => {
                 <span className="text-[9px] tracking-[0.2em] uppercase opacity-60">{yearNum}</span>
             </div>
 
-            {/* 问候 */}
+            {/* 問候 */}
             <div className="text-[11px] tracking-[0.25em] uppercase opacity-55 font-semibold mb-1">
                 {greeting}
             </div>
 
-            {/* 主时钟 */}
+            {/* 主時鐘 */}
             <div className="flex items-end gap-4">
                 <div className="relative">
                     <div className={`${paper ? 'text-[5.65rem] font-semibold tracking-[-0.055em] drop-shadow-[0_2px_0_rgba(255,255,255,0.34)]' : 'text-[6.25rem] font-black tracking-tighter drop-shadow-2xl'} leading-[0.84]`}
@@ -94,7 +94,7 @@ const DesktopClock = React.memo(() => {
                         <span className="opacity-35 font-thin mx-0.5 animate-pulse">:</span>
                         <span>{virtualTime.minutes.toString().padStart(2, '0')}</span>
                     </div>
-                    {/* 细光斑 */}
+                    {/* 細光斑 */}
                     {!paper && <div className="absolute -top-2 -right-3 w-8 h-8 rounded-full pointer-events-none"
                         style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%)' }} />}
                 </div>
@@ -128,16 +128,16 @@ const CharacterWidget = React.memo(({
     paper?: boolean,
 }) => {
     const { theme } = useOS();
-    const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：会"说话"的村民卡
-    // 卡片底的虚化头像画在 CSS background-image 上，吃不到 TokenImg 的解析，这里自己解析一次。
+    const acnh = theme.skin === 'animalcrossing'; // 動森彩蛋：會"說話"的村民卡
+    // 卡片底的虛化頭像畫在 CSS background-image 上，吃不到 TokenImg 的解析，這裡自己解析一次。
     const avatarUrl = useBlobRefUrl(char?.avatar);
 
-    // 动森：村民头像 + AC 对话气泡（显示最近消息，点开聊天）
+    // 動森：村民頭像 + AC 對話氣泡（顯示最近消息，點開聊天）
     if (acnh) {
         return (
             <div className="mb-4 animate-fade-in" onClick={onClick}>
                 <div className="flex items-end gap-2.5 cursor-pointer active:scale-[0.98] transition-transform">
-                    {/* 村民头像（圆角方块 + 白边） */}
+                    {/* 村民頭像（圓角方塊 + 白邊） */}
                     <div className="relative w-[60px] h-[60px] shrink-0 rounded-[26%] overflow-hidden bg-[#e8e2d6]"
                         style={{ border: '3px solid #ffffff', boxShadow: '0 4px 10px -2px rgba(61,52,40,0.28)' }}>
                         {char?.avatar
@@ -150,7 +150,7 @@ const CharacterWidget = React.memo(({
                             </div>
                         )}
                     </div>
-                    {/* AC 对话气泡 */}
+                    {/* AC 對話氣泡 */}
                     <div className="relative flex-1 min-w-0 mb-1">
                         <div className="absolute -left-1.5 bottom-3 w-3 h-3 rotate-45"
                             style={{ background: '#FFFBF2', borderLeft: '2px solid #ece0c8', borderBottom: '2px solid #ece0c8' }} />
@@ -189,7 +189,7 @@ const CharacterWidget = React.memo(({
                     boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)',
                 }}
              >
-                 {/* 背景虚化角色头像（动森模式下省略，避免糊在奶油底上） */}
+                 {/* 背景虛化角色頭像（動森模式下省略，避免糊在奶油底上） */}
                  {!acnh && !paper && avatarUrl && (
                      <div className="absolute inset-0 opacity-25 pointer-events-none"
                          style={{
@@ -202,7 +202,7 @@ const CharacterWidget = React.memo(({
                  )}
 
                  <div className="relative flex items-center p-3 gap-3 h-full">
-                     {/* 头像 */}
+                     {/* 頭像 */}
                      <div className={`w-[68px] h-[68px] shrink-0 rounded-2xl overflow-hidden relative ${paper ? 'bg-[#ded2c1]' : 'bg-slate-800'}`}
                          style={{
                              border: paper ? '1px solid rgba(91,72,51,0.14)' : acnh ? '2px solid #e8e2d6' : '1.5px solid rgba(255,255,255,0.25)',
@@ -335,7 +335,7 @@ const DesktopSquareImage = React.memo(({ image, contentColor, onClick, acnh = fa
                         </svg>
                     </div>
                     <div className="text-[8.5px] uppercase font-bold tracking-[0.22em] opacity-55">Add Image</div>
-                    <div className="text-[8.5px] opacity-40 leading-tight">从 外观 · 启动器组件<br/>设置一张方图</div>
+                    <div className="text-[8.5px] opacity-40 leading-tight">從 外觀 · 啟動器組件<br/>設置一張方圖</div>
                 </div>
             )}
         </div>
@@ -354,7 +354,7 @@ const CALENDAR_WEEKDAYS = [
 
 // 4. Widget Page Component (Calendar + Events)
 const WidgetsPage = React.memo(({ contentColor, openApp, anniversaries, characters, acnh = false, paper = false }: any) => {
-    // 动森：奶油卡片样式（替代暗色玻璃）
+    // 動森：奶油卡片樣式（替代暗色玻璃）
     const acCard = acnh ? { background: 'rgb(247,243,223)', border: '2px solid #e8e2d6', boxShadow: '0 6px 18px rgba(61,52,40,0.12)' } : undefined;
     const acDot = acnh ? '#6fba2c' : undefined;
     const now = new Date();
@@ -518,15 +518,15 @@ const Launcher: React.FC = () => {
   const dragMoved = useRef(0);
 
   // Pagination Logic
-  // 跟随 DevDebug 可用性：prod 用户在设置页连点 5 下解锁后，CharCreatorDev 立刻出现；
-  // 点「关闭」/ 刷新（prod 自动失效）也立刻消失。useMemo deps 没列 devDebugVisible
-  // 会让它锁在 mount 时的初值。
+  // 跟隨 DevDebug 可用性：prod 用戶在設置頁連點 5 下解鎖後，CharCreatorDev 立刻出現；
+  // 點「關閉」/ 刷新（prod 自動失效）也立刻消失。useMemo deps 沒列 devDebugVisible
+  // 會讓它鎖在 mount 時的初值。
   const [devDebugVisible, setDevDebugVisible] = useState(() => isDevDebugAvailable());
   useEffect(() => subscribeDevDebugAvailability(setDevDebugVisible), []);
   const availableGridApps = useMemo(() => {
     return INSTALLED_APPS.filter(app =>
       !DOCK_APPS.includes(app.id)
-      // 「捏脸·开发」仅在开发模式（右下角开发徽标可见或手动解锁时）显示
+      // 「捏臉·開發」僅在開發模式（右下角開發徽標可見或手動解鎖時）顯示
       && (app.id !== AppID.CharCreatorDev || devDebugVisible)
     );
   }, [devDebugVisible]);
@@ -629,7 +629,7 @@ const Launcher: React.FC = () => {
               const last = recent.messages[0];
               if (last) {
                   const cleanContent = last.content.replace(/\[.*?\]/g, '').trim();
-                  setLastMessage(cleanContent || (last.type === 'image' ? '[图片]' : '[消息]'));
+                  setLastMessage(cleanContent || (last.type === 'image' ? '[圖片]' : '[消息]'));
               } else {
                   setLastMessage(targetChar.description || "System Ready.");
               }
@@ -918,21 +918,21 @@ const Launcher: React.FC = () => {
   };
 
   const contentColor = theme.contentColor || '#ffffff';
-  const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：Dock 换奶油木质底
+  const acnh = theme.skin === 'animalcrossing'; // 動森彩蛋：Dock 換奶油木質底
   const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
-  // 已迁移 App 外壳已收回到可见 viewport 底边，dock 仅需自留视觉间距，无需再 + safe-bottom
-  // （否则会比 home 条上方多让 34px，dock 看起来悬空）。
+  // 已遷移 App 外殼已收回到可見 viewport 底邊，dock 僅需自留視覺間距，無需再 + safe-bottom
+  // （否則會比 home 條上方多讓 34px，dock 看起來懸空）。
   const launcherBottomInset = '1.25rem';
   
   const totalUnread = Object.values(unreadMessages).reduce((a, b) => a + b, 0);
   const widgetUnread = widgetChar && unreadMessages[widgetChar.id] ? unreadMessages[widgetChar.id] : 0;
 
-  // 手游主题：整页换成二次元手游首页布局（独立组件自渲染），不走下面的默认/动森启动器。
+  // 手遊主題：整頁換成二次元手遊首頁佈局（獨立組件自渲染），不走下面的默認/動森啟動器。
   if (theme.skin === 'mobilegame') {
     return <MobileGameHome />;
   }
 
-  // 电子宠物主题：桌面即养成机——角色真实小屋做舞台 + 四颗糖果实体键（独立组件自渲染）。
+  // 電子寵物主題：桌面即養成機——角色真實小屋做舞台 + 四顆糖果實體鍵（獨立組件自渲染）。
   if (theme.skin === 'tamagotchi') {
     return <TamagotchiHome />;
   }
@@ -984,13 +984,13 @@ const Launcher: React.FC = () => {
       {layoutEditing && (
           <div className="absolute top-[calc(var(--safe-top)+0.65rem)] left-4 right-4 z-50 flex items-center justify-between rounded-full px-3 py-2"
               style={{ background: 'rgba(75,65,54,0.88)', color: '#fffdf8', boxShadow: '0 8px 24px rgba(75,65,54,0.20)' }}>
-              <span className="text-[10px] font-semibold tracking-wide">按住拖动，松手交换位置</span>
+              <span className="text-[10px] font-semibold tracking-wide">按住拖動，鬆手交換位置</span>
               <button onClick={finishLayoutEditing} className="ml-3 px-3 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">完成</button>
           </div>
       )}
       
       {/* Visual Elements (Decorative Background - Static, low-cost gradients instead of blur) */}
-      {/* 动森模式跳过：这层冷蓝光斑会污染奶油底 */}
+      {/* 動森模式跳過：這層冷藍光斑會汙染奶油底 */}
       {!acnh && (
       <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full" style={{ background: paper ? 'radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 68%)' : 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)' }}></div>
@@ -1167,8 +1167,8 @@ const Launcher: React.FC = () => {
           aria-hidden="true"
       >
           {Array.from({ length: totalPages }).map((_, i) => (
-              // 每个页码占固定 16px 槽位，只动画内部圆点。旧版直接动画 flex child 的宽度，
-              // 快速划过多页时 WebKit 会一边改宽一边重算整行居中，几个过渡态就会挤成方块串。
+              // 每個頁碼佔固定 16px 槽位，只動畫內部圓點。舊版直接動畫 flex child 的寬度，
+              // 快速劃過多頁時 WebKit 會一邊改寬一邊重算整行居中，幾個過渡態就會擠成方塊串。
               <div key={i} className="flex h-1.5 w-4 shrink-0 items-center justify-center">
                   <div
                     className={`h-1.5 rounded-full transform-gpu transition-[width,opacity] duration-300 ${activePageIndex === i ? 'w-4 opacity-100' : 'w-1.5 opacity-40'}`}

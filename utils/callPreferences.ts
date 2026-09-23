@@ -1,7 +1,7 @@
 export interface CallPreferences {
   characterInitiative: boolean;
   voiceAutoPlay: boolean;
-  /** 通话进行中长时间无人说话时，是否允许角色主动接话。显式按需开启。 */
+  /** 通話進行中長時間無人說話時，是否允許角色主動接話。顯式按需開啟。 */
   idleNudgeEnabled: boolean;
 }
 

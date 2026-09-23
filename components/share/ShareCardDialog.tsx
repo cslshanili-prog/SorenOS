@@ -8,9 +8,9 @@ import './shareCard.css';
 type Result = 'shared' | 'downloaded' | 'cancelled';
 interface Props { options: ShareOrDownloadBlobOptions; card: ShareCardOptions; onDone: (result: Result) => void; }
 const layouts: { value: ShareCardStyle; label: string; sample: string }[] = [
-    { value: 'paper', label: '留白相纸', sample: '▣' },
-    { value: 'poster', label: '全幅海报', sample: '▥' },
-    { value: 'business', label: '横版名片', sample: '▤' },
+    { value: 'paper', label: '留白相紙', sample: '▣' },
+    { value: 'poster', label: '全幅海報', sample: '▥' },
+    { value: 'business', label: '橫版名片', sample: '▤' },
 ];
 
 function ShareCardDialog({ options, card, onDone }: Props) {
@@ -42,14 +42,14 @@ function ShareCardDialog({ options, card, onDone }: Props) {
         let url: string | undefined;
         try {
             const blob = await blobPromise;
-            if (!/^image\/(png|jpeg|webp|gif|avif)$/i.test(blob.type)) throw new Error('请选择 PNG、JPG、WebP 或 GIF 图片');
-            if (blob.size > 20 * 1024 * 1024) throw new Error('预览图请小于 20 MB');
+            if (!/^image\/(png|jpeg|webp|gif|avif)$/i.test(blob.type)) throw new Error('請選擇 PNG、JPG、WebP 或 GIF 圖片');
+            if (blob.size > 20 * 1024 * 1024) throw new Error('預覽圖請小於 20 MB');
             url = URL.createObjectURL(blob);
             const next = await loadCardImage(url);
-            if (next.naturalWidth * next.naturalHeight > 40_000_000) throw new Error('预览图尺寸过大，请缩小后上传');
+            if (next.naturalWidth * next.naturalHeight > 40_000_000) throw new Error('預覽圖尺寸過大，請縮小後上傳');
             if (mounted.current && request === imageRequest.current) setImage(next);
         } catch (e) {
-            if (mounted.current && request === imageRequest.current) setError((e as Error).message || '图片读取失败');
+            if (mounted.current && request === imageRequest.current) setError((e as Error).message || '圖片讀取失敗');
         } finally {
             if (url) URL.revokeObjectURL(url);
             if (mounted.current && request === imageRequest.current) setLoadingImage(false);
@@ -107,7 +107,7 @@ function ShareCardDialog({ options, card, onDone }: Props) {
         try {
             const canvas = renderShareCard(design, image);
             canvas.setAttribute('role', 'img');
-            canvas.setAttribute('aria-label', `${SHARE_KINDS[card.kind]}分享卡预览：${title}，作者 ${author || '未署名'}，使用限制 ${restrictions || '未注明'}`);
+            canvas.setAttribute('aria-label', `${SHARE_KINDS[card.kind]}分享卡預覽：${title}，作者 ${author || '未署名'}，使用限制 ${restrictions || '未註明'}`);
             preview.current?.replaceChildren(canvas); setRenderError('');
         } catch (e) { setRenderError((e as Error).message); }
     }, [title, author, restrictions, style, image, card.kind]);
@@ -122,7 +122,7 @@ function ShareCardDialog({ options, card, onDone }: Props) {
                 const metadata: ShareCardMetadata = { format: 'sullyos-share', version: 1, ...design, title: title.trim(),
                     author: author.trim(), restrictions: restrictions.trim(), fileName, mimeType: blob.type || 'application/octet-stream' };
                 const canvas = preview.current?.querySelector('canvas');
-                if (!canvas) throw new Error('图片预览尚未就绪，请重试');
+                if (!canvas) throw new Error('圖片預覽尚未就緒，請重試');
                 const png = await canvasToPng(canvas);
                 const bytes = embedShareInPng(new Uint8Array(await png.arrayBuffer()), metadata, new Uint8Array(await blob.arrayBuffer()));
                 blob = new Blob([new Uint8Array(bytes).buffer], { type: 'image/png' });
@@ -131,7 +131,7 @@ function ShareCardDialog({ options, card, onDone }: Props) {
             const result = await shareOrDownloadBlob({ ...options, card: undefined, blob, fileName, nativeChunked: true });
             if (result !== 'cancelled') onDone(result);
         } catch (e) {
-            if (mounted.current) setError((e as Error).message || '导出失败，请重试');
+            if (mounted.current) setError((e as Error).message || '導出失敗，請重試');
         } finally { working.current = false; if (mounted.current) setBusy(false); }
     };
     return <dialog ref={dialog} className="sully-share-dialog" aria-labelledby="sully-share-heading"
@@ -142,48 +142,48 @@ function ShareCardDialog({ options, card, onDone }: Props) {
             else onDone('cancelled');
         }}>
         <header className="sully-share-header">
-            <div><span className="sully-share-eyebrow">Soren / {SHARE_KINDS[card.kind]}</span><h2 id="sully-share-heading">制作分享图片</h2></div>
-            <button type="button" className="sully-share-close" aria-label="关闭分享编辑器" disabled={busy} onClick={() => onDone('cancelled')}>×</button>
+            <div><span className="sully-share-eyebrow">Soren / {SHARE_KINDS[card.kind]}</span><h2 id="sully-share-heading">製作分享圖片</h2></div>
+            <button type="button" className="sully-share-close" aria-label="關閉分享編輯器" disabled={busy} onClick={() => onDone('cancelled')}>×</button>
         </header>
         <div className="sully-share-body">
-            <section className="sully-share-preview-pane" aria-label="图片预览"><div ref={preview} className={`sully-share-preview sully-share-preview-${style}`} />
+            <section className="sully-share-preview-pane" aria-label="圖片預覽"><div ref={preview} className={`sully-share-preview sully-share-preview-${style}`} />
                 <div className="sully-share-preview-bar">
                     <p>{layouts.find(l => l.value === style)?.label} · {style === 'business' ? '1440 × 960' : '1080 × 1440'}</p>
                     <button ref={settingsToggle} type="button" className="sully-share-settings-toggle" aria-expanded={settingsOpen}
                         aria-controls="sully-share-settings" disabled={busy} onClick={() => settingsOpen ? collapseSettings() : setSettingsOpen(true)}>
                         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 7h7m4 0h5M4 17h3m4 0h9M11 4v6M7 14v6" /></svg>
-                        {settingsOpen ? '收起设置' : '调整样式'}
+                        {settingsOpen ? '收起設置' : '調整樣式'}
                     </button>
                 </div>
             </section>
-            <section id="sully-share-settings" className="sully-share-settings" data-mobile-open={settingsOpen} aria-label="分享设置">
-                <div className="sully-share-settings-tabs" role="group" aria-label="设置分类">
-                    <button type="button" aria-pressed={settingsTab === 'style'} aria-controls="sully-share-style-controls" onClick={() => setSettingsTab('style')}>图片与排版</button>
-                    <button type="button" aria-pressed={settingsTab === 'text'} aria-controls="sully-share-text-controls" onClick={() => setSettingsTab('text')}>文字与署名</button>
+            <section id="sully-share-settings" className="sully-share-settings" data-mobile-open={settingsOpen} aria-label="分享設置">
+                <div className="sully-share-settings-tabs" role="group" aria-label="設置分類">
+                    <button type="button" aria-pressed={settingsTab === 'style'} aria-controls="sully-share-style-controls" onClick={() => setSettingsTab('style')}>圖片與排版</button>
+                    <button type="button" aria-pressed={settingsTab === 'text'} aria-controls="sully-share-text-controls" onClick={() => setSettingsTab('text')}>文字與署名</button>
                 </div>
             <fieldset ref={fields} className="sully-share-fields" disabled={busy}>
-                <legend className="sully-share-sr-only">分享图片设置</legend>
+                <legend className="sully-share-sr-only">分享圖片設置</legend>
                 <div id="sully-share-style-controls" className="sully-share-section" data-mobile-active={settingsTab === 'style'}>
-                <label>排版风格</label>
+                <label>排版風格</label>
                 <div className="sully-share-layouts">{layouts.map(layout => <button key={layout.value} type="button" aria-pressed={style === layout.value} onClick={() => setStyle(layout.value)}><span aria-hidden="true">{layout.sample}</span>{layout.label}</button>)}</div>
-                <div className="sully-share-image-actions"><input ref={upload} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden aria-label="上传分享预览图" onChange={event => {
+                <div className="sully-share-image-actions"><input ref={upload} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden aria-label="上傳分享預覽圖" onChange={event => {
                     const file = event.target.files?.[0]; event.target.value = ''; if (file) void acceptImage(Promise.resolve(file));
-                }} /><button type="button" onClick={() => upload.current?.click()}>{loadingImage ? '正在读取图片…' : image ? '更换预览图' : '上传预览图'}</button>
+                }} /><button type="button" onClick={() => upload.current?.click()}>{loadingImage ? '正在讀取圖片…' : image ? '更換預覽圖' : '上傳預覽圖'}</button>
                     {(image || loadingImage) && <button type="button" onClick={() => { imageRequest.current++; setImage(null); setLoadingImage(false); setError(''); }}>移除</button>}</div>
                 </div>
                 <div id="sully-share-text-controls" className="sully-share-section" data-mobile-active={settingsTab === 'text'}>
-                <label htmlFor="sully-share-title">作品名称</label><input id="sully-share-title" value={title} maxLength={60} onChange={e => setTitle(e.target.value)} />
-                <label htmlFor="sully-share-author">作者名</label><input id="sully-share-author" value={author} maxLength={32} placeholder="你的署名（可选）" onChange={e => setAuthor(e.target.value)} />
-                <label htmlFor="sully-share-restrictions">使用限制</label><textarea id="sully-share-restrictions" value={restrictions} maxLength={120} rows={3} placeholder="例如：仅限自用 · 禁止商用 · 转载请署名" onChange={e => setRestrictions(e.target.value)} />
-                <div className="sully-share-presets">{['仅限自用', '禁止商用', '转载请署名'].map(term => <button type="button" key={term} onClick={() => setRestrictions(old => old.includes(term) ? old : `${old}${old ? ' · ' : ''}${term}`.slice(0, 120))}>{term} +</button>)}</div>
+                <label htmlFor="sully-share-title">作品名稱</label><input id="sully-share-title" value={title} maxLength={60} onChange={e => setTitle(e.target.value)} />
+                <label htmlFor="sully-share-author">作者名</label><input id="sully-share-author" value={author} maxLength={32} placeholder="你的署名（可選）" onChange={e => setAuthor(e.target.value)} />
+                <label htmlFor="sully-share-restrictions">使用限制</label><textarea id="sully-share-restrictions" value={restrictions} maxLength={120} rows={3} placeholder="例如：僅限自用 · 禁止商用 · 轉載請署名" onChange={e => setRestrictions(e.target.value)} />
+                <div className="sully-share-presets">{['僅限自用', '禁止商用', '轉載請署名'].map(term => <button type="button" key={term} onClick={() => setRestrictions(old => old.includes(term) ? old : `${old}${old ? ' · ' : ''}${term}`.slice(0, 120))}>{term} +</button>)}</div>
                 </div>
-                <p className="sully-share-note">图片包含完整的{SHARE_KINDS[card.kind]}内容，可在对应功能的导入入口还原。请发送 PNG 原文件，截图或压缩后可能无法导入。使用限制为作者说明。</p>
+                <p className="sully-share-note">圖片包含完整的{SHARE_KINDS[card.kind]}內容，可在對應功能的導入入口還原。請發送 PNG 原文件，截圖或壓縮後可能無法導入。使用限制為作者說明。</p>
             </fieldset>
             </section>
         </div>
-        {(tooLarge || error || renderError) && <p role="alert" className="sully-share-status sully-share-error">{error || renderError || '内容超过 64 MB，请使用原格式导出。'}</p>}
-        <footer className="sully-share-footer"><button type="button" disabled={busy} onClick={() => void save(false)}>导出原格式</button>
-            <button type="button" className="sully-share-primary" disabled={busy || loadingImage || !title.trim() || tooLarge || !!renderError} onClick={() => void save(true)}>{busy ? '正在导出…' : '导出 PNG 分享图'}</button></footer>
+        {(tooLarge || error || renderError) && <p role="alert" className="sully-share-status sully-share-error">{error || renderError || '內容超過 64 MB，請使用原格式導出。'}</p>}
+        <footer className="sully-share-footer"><button type="button" disabled={busy} onClick={() => void save(false)}>導出原格式</button>
+            <button type="button" className="sully-share-primary" disabled={busy || loadingImage || !title.trim() || tooLarge || !!renderError} onClick={() => void save(true)}>{busy ? '正在導出…' : '導出 PNG 分享圖'}</button></footer>
     </dialog>;
 }
 

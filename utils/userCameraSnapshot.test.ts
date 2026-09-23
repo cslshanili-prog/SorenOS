@@ -14,17 +14,17 @@ describe('user camera snapshot', () => {
 
   it('attaches the image only to the latest user message', () => {
     const messages = [
-      { role: 'user', content: '旧消息' },
-      { role: 'assistant', content: '旧回复' },
-      { role: 'user', content: '现在看我' },
+      { role: 'user', content: '舊消息' },
+      { role: 'assistant', content: '舊回覆' },
+      { role: 'user', content: '現在看我' },
     ];
     const result = attachSnapshotToLatestUserMessage(messages, 'data:image/jpeg;base64,AAAA');
-    expect(result[0].content).toBe('旧消息');
+    expect(result[0].content).toBe('舊消息');
     expect(result[2].content).toEqual([
-      { type: 'text', text: '现在看我' },
+      { type: 'text', text: '現在看我' },
       { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } },
     ]);
-    expect(messages[2].content).toBe('现在看我');
+    expect(messages[2].content).toBe('現在看我');
   });
 
   it('only identifies explicit vision incompatibility errors', () => {

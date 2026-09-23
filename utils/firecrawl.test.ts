@@ -17,7 +17,7 @@ const mockJsonFetch = (body: any, status = 200) => {
   return fn;
 };
 
-describe('Firecrawl 网页抓取适配', () => {
+describe('Firecrawl 網頁抓取適配', () => {
   beforeEach(() => {
     localStorage.removeItem('sully_firecrawl_api_key_v1');
   });
@@ -26,14 +26,14 @@ describe('Firecrawl 网页抓取适配', () => {
     vi.unstubAllGlobals();
   });
 
-  it('API Key 只在本机保存，清空后停用', () => {
+  it('API Key 只在本機保存，清空後停用', () => {
     setFirecrawlApiKey('  fc-user-key  ');
     expect(getFirecrawlApiKey()).toBe('fc-user-key');
     setFirecrawlApiKey('');
     expect(getFirecrawlApiKey()).toBe('');
   });
 
-  it('额度接口返回实时剩余量和结算周期', async () => {
+  it('額度接口返回實時剩餘量和結算週期', async () => {
     const fn = mockJsonFetch({
       success: true,
       data: {
@@ -52,13 +52,13 @@ describe('Firecrawl 网页抓取适配', () => {
     });
   });
 
-  it('单页抓取关闭服务端缓存并映射正文元数据', async () => {
+  it('單頁抓取關閉服務端緩存並映射正文元數據', async () => {
     const fn = mockJsonFetch({
       success: true,
       data: {
-        markdown: '# 标题\n\n正文',
+        markdown: '# 標題\n\n正文',
         metadata: {
-          title: '标题',
+          title: '標題',
           sourceURL: 'https://example.com/final',
           ogImage: 'https://example.com/cover.jpg',
         },
@@ -66,8 +66,8 @@ describe('Firecrawl 网页抓取适配', () => {
     });
     const result = await scrapeWebpageWithFirecrawl('https://example.com/a', 'fc-user-key');
     expect(result).toEqual({
-      markdown: '# 标题\n\n正文',
-      title: '标题',
+      markdown: '# 標題\n\n正文',
+      title: '標題',
       finalUrl: 'https://example.com/final',
       image: 'https://example.com/cover.jpg',
     });
@@ -81,7 +81,7 @@ describe('Firecrawl 网页抓取适配', () => {
     });
   });
 
-  it('额度耗尽与限速给出可降级识别的错误类型', async () => {
+  it('額度耗盡與限速給出可降級識別的錯誤類型', async () => {
     mockJsonFetch({ success: false, error: 'Payment required' }, 402);
     await expect(scrapeWebpageWithFirecrawl('https://example.com', 'fc-user-key'))
       .rejects.toMatchObject({ kind: 'quota', status: 402 } satisfies Partial<FirecrawlApiError>);

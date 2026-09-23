@@ -23,15 +23,15 @@ const HotNewsApp: React.FC = () => {
             let snap = await DB.getHotNewsSnapshot(id);
             if (!snap) snap = await DB.getLatestHotNewsSnapshot();
             setSnapshot(snap);
-            if (!snap) setError('暂时拉不到热点（可能是网络 / 浏览器 CORS 限制）。换到安卓端、或稍后再试。');
+            if (!snap) setError('暫時拉不到熱點（可能是網絡 / 瀏覽器 CORS 限制）。換到安卓端、或稍後再試。');
         } catch (e: any) {
-            setError(e?.message || '加载失败');
+            setError(e?.message || '加載失敗');
         } finally {
             setLoading(false);
         }
     }, [realtimeConfig]);
 
-    // 手动刷新：无视时段去重，强制重拉当前时段
+    // 手動刷新：無視時段去重，強制重拉當前時段
     const forceRefresh = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -46,14 +46,14 @@ const HotNewsApp: React.FC = () => {
                 const fresh: HotNewsSnapshot = { id, date, slot, slotLabel: label, items, platforms, fetchedAt: Date.now() };
                 await DB.saveHotNewsSnapshot(fresh);
                 setSnapshot(fresh);
-                addToast(`已刷新 · ${label} ${items.length} 条`, 'success');
+                addToast(`已刷新 · ${label} ${items.length} 條`, 'success');
             } else {
                 const latest = await DB.getLatestHotNewsSnapshot();
                 setSnapshot(latest);
-                addToast('刷新失败，沿用上次结果', 'error');
+                addToast('刷新失敗，沿用上次結果', 'error');
             }
         } catch (e: any) {
-            setError(e?.message || '刷新失败');
+            setError(e?.message || '刷新失敗');
         } finally {
             setLoading(false);
         }
@@ -61,12 +61,12 @@ const HotNewsApp: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    // 按平台分组
+    // 按平台分組
     const grouped: { source: string; items: HotNewsItem[] }[] = [];
     if (snapshot) {
         const map = new Map<string, HotNewsItem[]>();
         for (const it of snapshot.items) {
-            const key = it.source || '热点';
+            const key = it.source || '熱點';
             if (!map.has(key)) map.set(key, []);
             map.get(key)!.push(it);
         }
@@ -79,7 +79,7 @@ const HotNewsApp: React.FC = () => {
 
     return (
         <div className="h-full w-full bg-[#f4efe4] flex flex-col font-serif text-stone-900">
-            {/* 顶栏 */}
+            {/* 頂欄 */}
             <div className="bg-[#f4efe4] border-b-2 border-stone-800 shrink-0 sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center px-4 py-3">
                     <div className="flex items-center gap-2 w-full">
@@ -87,13 +87,13 @@ const HotNewsApp: React.FC = () => {
                             <ArrowLeft size={22} weight="bold" className="text-stone-700" />
                         </button>
                         <h1 className="text-xl font-bold tracking-wide text-stone-800 flex items-center gap-2">
-                            <Newspaper size={22} weight="fill" /> 热点日报
+                            <Newspaper size={22} weight="fill" /> 熱點日報
                         </h1>
                         <button
                             onClick={forceRefresh}
                             disabled={loading}
                             className="ml-auto p-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform disabled:opacity-40"
-                            title="真·刷新（强制重新拉取本时段）"
+                            title="真·刷新（強制重新拉取本時段）"
                         >
                             <ArrowClockwise size={20} weight="bold" className={`text-stone-700 ${loading ? 'animate-spin' : ''}`} />
                         </button>
@@ -102,32 +102,32 @@ const HotNewsApp: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-24">
-                {/* 报头 */}
+                {/* 報頭 */}
                 <div className="text-center pt-4 pb-3 border-b border-stone-400">
                     <p className="text-[10px] tracking-[0.4em] text-stone-500 uppercase">Soren Daily</p>
-                    <h2 className="text-3xl font-black tracking-tight mt-1">今 日 热 点</h2>
+                    <h2 className="text-3xl font-black tracking-tight mt-1">今 日 熱 點</h2>
                     {snapshot && (
                         <p className="text-[11px] text-stone-500 mt-1.5">
-                            {snapshot.date} · {snapshot.slotLabel}版（{SLOT_WINDOW[snapshot.slot] || ''}） · 更新于 {fetchedTime}
+                            {snapshot.date} · {snapshot.slotLabel}版（{SLOT_WINDOW[snapshot.slot] || ''}） · 更新於 {fetchedTime}
                         </p>
                     )}
                 </div>
 
-                {/* 可视化声明 */}
+                {/* 可視化聲明 */}
                 <div className="my-3 bg-stone-800 text-stone-100 rounded-lg px-3 py-2.5 text-[11px] leading-relaxed flex gap-2">
                     <WarningCircle size={16} weight="fill" className="shrink-0 mt-0.5 text-amber-300" />
                     <span>
-                        这只是<b>热点可视化</b>。聊天时角色会知道<b>这些热点</b>，但不一定会主动提。
-                        当作背景认知自然存在；偶尔也会主动<b>分享成新闻卡片</b>找你聊。
+                        這只是<b>熱點可視化</b>。聊天時角色會知道<b>這些熱點</b>，但不一定會主動提。
+                        當作背景認知自然存在；偶爾也會主動<b>分享成新聞卡片</b>找你聊。
                         {realtimeConfig.newsEnabled
-                            ? '（已开启：角色会真的看到这些）'
-                            : '（未开启「实时感知 → 新闻热点」，角色暂时看不到，去设置打开后才会聊）'}
+                            ? '（已開啟：角色會真的看到這些）'
+                            : '（未開啟「實時感知 → 新聞熱點」，角色暫時看不到，去設置打開後才會聊）'}
                     </span>
                 </div>
 
-                {/* 内容 */}
+                {/* 內容 */}
                 {loading && !snapshot && (
-                    <div className="text-center text-stone-400 py-16 text-sm">正在召回热点…</div>
+                    <div className="text-center text-stone-400 py-16 text-sm">正在召回熱點…</div>
                 )}
 
                 {error && !snapshot && (
@@ -176,7 +176,7 @@ const HotNewsApp: React.FC = () => {
 
                 {snapshot && (
                     <p className="text-center text-[10px] text-stone-400 mt-6 tracking-wide">
-                        — 数据来自 hot_news（news.orz.ai）多平台热榜 · 每天 6 个时段自动更新 · 点右上角可手动真·刷新 —
+                        — 數據來自 hot_news（news.orz.ai）多平台熱榜 · 每天 6 個時段自動更新 · 點右上角可手動真·刷新 —
                     </p>
                 )}
             </div>

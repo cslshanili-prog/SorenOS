@@ -1,8 +1,8 @@
 // utils/amsg2ToolBridge.test.ts
-// 回归守卫：角色在同一轮工具循环里连续排程/取消/续期时，本地清单必须累加。
-// char 是生成开始时的快照，updateCharacter 只更 React state 不回写它——清单要是从
-// char 上读写，第二次 schedule 就会读着空清单把第一条覆盖掉（「建俩只显示一个」）。
-// 累加由 createAmsg2ToolSession 的本轮局部变量兜住，下面的用例钉的就是这件事。
+// 迴歸守衛：角色在同一輪工具循環裡連續排程/取消/續期時，本地清單必須累加。
+// char 是生成開始時的快照，updateCharacter 只更 React state 不回寫它——清單要是從
+// char 上讀寫，第二次 schedule 就會讀著空清單把第一條覆蓋掉（「建倆只顯示一個」）。
+// 累加由 createAmsg2ToolSession 的本輪局部變量兜住，下面的用例釘的就是這件事。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('./activeMsgClient', () => ({
@@ -23,12 +23,12 @@ const UUIDS = [
 ];
 const shortOf = (uuid: string) => uuid.slice(0, 8);
 
-// 排程接口把角色写的墙钟折成的绝对时刻（上海 2026-08-03 21:00 / 纽约同日 09:00）。
+// 排程接口把角色寫的牆鍾折成的絕對時刻（上海 2026-08-03 21:00 / 紐約同日 09:00）。
 const RESOLVED_ISO = '2026-08-03T13:00:00.000Z';
 
-// persistTasks 会用 Date.now() 跑 48h 清理，一次性任务过期就被清空——夹具里这个
-// 绝对时刻写死了，系统时钟往前走两天它就会被当成陈旧任务扫掉，测试跟着莫名其妙全红。
-// 这里把时钟钉在 RESOLVED_ISO 之前，让这份夹具时间永远不会「过期」。
+// persistTasks 會用 Date.now() 跑 48h 清理，一次性任務過期就被清空——夾具裡這個
+// 絕對時刻寫死了，系統時鐘往前走兩天它就會被當成陳舊任務掃掉，測試跟著莫名其妙全紅。
+// 這裡把時鐘釘在 RESOLVED_ISO 之前，讓這份夾具時間永遠不會「過期」。
 beforeEach(() => {
   vi.useFakeTimers({ now: new Date('2026-08-03T05:00:00.000Z') });
 });
@@ -36,8 +36,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// 模拟 React：updateCharacter 只记录落盘的 config，绝不回写 char——
-// 这样只有「session 自己兜住最新 config」才能让同轮后续调用读到累加结果。
+// 模擬 React：updateCharacter 只記錄落盤的 config，絕不回寫 char——
+// 這樣只有「session 自己兜住最新 config」才能讓同輪後續調用讀到累加結果。
 const makeSession = (charOver: Record<string, unknown> = {}) => {
   const char: any = {
     id: 'preset-x', name: 'Nyah', activeMsg2Config: { enabled: true, tasks: [] },
@@ -54,12 +54,12 @@ const makeSession = (charOver: Record<string, unknown> = {}) => {
   return { deps, char, persisted };
 };
 
-// 默认往后一小时；要在同一轮里排两条**不同**的任务就错开小时数——同名同参的调用
-// 现在会被指纹拦下（见文件末尾那组用例），两条都写同一个时刻测不出「累加」。
+// 默認往後一小時；要在同一輪裡排兩條**不同**的任務就錯開小時數——同名同參的調用
+// 現在會被指紋攔下（見文件末尾那組用例），兩條都寫同一個時刻測不出「累加」。
 const future = (hours = 1) => new Date(Date.now() + hours * 3600_000).toISOString();
 const lastTasks = (persisted: any[]) => persisted[persisted.length - 1]?.tasks ?? [];
 
-describe('amsg2ToolBridge 同一轮多次调用累加', () => {
+describe('amsg2ToolBridge 同一輪多次調用累加', () => {
   beforeEach(() => {
     let n = 0;
     (ActiveMsgClient.scheduleCharacterTask as any).mockReset();
@@ -67,7 +67,7 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
       const uuid = UUIDS[n++];
       return {
         uuid, clientTaskId: `cid-${uuid.slice(0, 4)}`, anchorMs: 0, replacedCancelFailed: false,
-        // 真接口把 send_at 折成绝对时刻后回传，bridge 该存这一份（见下面的时区用例）。
+        // 真接口把 send_at 折成絕對時刻後回傳，bridge 該存這一份（見下面的時區用例）。
         firstSendAt: RESOLVED_ISO,
       };
     });
@@ -75,7 +75,7 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
     (ActiveMsgClient.cancelTask as any).mockResolvedValue({});
   });
 
-  it('一轮内两次 schedule → 本地保留两条（回归：陈旧快照覆盖）', async () => {
+  it('一輪內兩次 schedule → 本地保留兩條（迴歸：陳舊快照覆蓋）', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     await executeAmsg2Tool('schedule_active_message', { send_at: future(2) }, deps);
@@ -85,7 +85,7 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
     expect(tasks.map((t: any) => t.taskUuid)).toEqual([UUIDS[0], UUIDS[1]]);
   });
 
-  it('一轮内 schedule×2 后按短 id 取消其一 → 剩下的是另一条', async () => {
+  it('一輪內 schedule×2 後按短 id 取消其一 → 剩下的是另一條', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     await executeAmsg2Tool('schedule_active_message', { send_at: future(2) }, deps);
@@ -97,31 +97,31 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
     expect(ActiveMsgClient.cancelTask).toHaveBeenCalledWith(UUIDS[1]);
   });
 
-  it('一轮内 schedule 一次性任务后立刻 renew → 换成新 uuid、旧记录移除、模式沿用', async () => {
+  it('一輪內 schedule 一次性任務後立刻 renew → 換成新 uuid、舊記錄移除、模式沿用', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', {
-      send_at: future(), mode: 'prompted', prompt_hint: '问问吃了没',
+      send_at: future(), mode: 'prompted', prompt_hint: '問問吃了沒',
     }, deps);
     const renewResult = await executeAmsg2Tool('renew_active_message', {
       send_at: future(), task_id: shortOf(UUIDS[0]),
     }, deps);
 
-    // 修复前这里会回「当前角色没有可续期的任务」——renew 也读不到同轮刚建的那条。
-    expect(renewResult).not.toContain('没有可续期');
+    // 修復前這裡會回「當前角色沒有可續期的任務」——renew 也讀不到同輪剛建的那條。
+    expect(renewResult).not.toContain('沒有可續期');
     const tasks = lastTasks(persisted);
     expect(tasks).toHaveLength(1);
     expect(tasks[0].taskUuid).toBe(UUIDS[1]);
     expect(tasks[0].mode).toBe('prompted');
-    expect(tasks[0].promptHint).toBe('问问吃了没');
+    expect(tasks[0].promptHint).toBe('問問吃了沒');
     expect(tasks[0].recurrenceType).toBe('none');
-    // 旧任务的远端取消由 scheduleCharacterTask 内部「先建后删」负责，bridge 的职责是
-    // 把要替换的 uuid 传下去——这里钉的是 bridge 这一侧。
+    // 舊任務的遠端取消由 scheduleCharacterTask 內部「先建後刪」負責，bridge 的職責是
+    // 把要替換的 uuid 傳下去——這裡釘的是 bridge 這一側。
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenLastCalledWith(
       expect.objectContaining({ replaceTaskUuid: UUIDS[0] }),
     );
   });
 
-  it('角色排的任务带 selfScheduled 标记（连发上限的到点兜底闸认它；面板排的不带）', async () => {
+  it('角色排的任務帶 selfScheduled 標記（連發上限的到點兜底閘認它；面板排的不帶）', async () => {
     const { deps } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future() }, deps);
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenLastCalledWith(
@@ -129,19 +129,19 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
     );
   });
 
-  it('一轮内 schedule 后 list → 列得出刚建的那条', async () => {
+  it('一輪內 schedule 後 list → 列得出剛建的那條', async () => {
     const { deps } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future() }, deps);
     const listed = await executeAmsg2Tool('list_active_messages', {}, deps);
 
     expect(listed).toContain(shortOf(UUIDS[0]));
-    expect(listed).not.toContain('没有任何定时主动消息任务');
+    expect(listed).not.toContain('沒有任何定時主動消息任務');
   });
 
-  // 回归守卫：循环任务的 renew 一度是整条改期（recurrence 原样透传 + replaceTaskUuid）。
-  // 「每天 9:00 的早安」被角色顺手续到 11:00「晚点补上」，从明天起就永久变成 11:00 了，
-  // 编号还跟着换一个。现在改成只补当次，原序列一条不动。
-  it('循环任务 renew → 原任务留着，另加一条一次性补发', async () => {
+  // 迴歸守衛：循環任務的 renew 一度是整條改期（recurrence 原樣透傳 + replaceTaskUuid）。
+  // 「每天 9:00 的早安」被角色順手續到 11:00「晚點補上」，從明天起就永久變成 11:00 了，
+  // 編號還跟著換一個。現在改成只補當次，原序列一條不動。
+  it('循環任務 renew → 原任務留著，另加一條一次性補發', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', {
       send_at: future(), mode: 'prompted', prompt_hint: '道早安', recurrence: 'daily',
@@ -152,10 +152,10 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
 
     const tasks = lastTasks(persisted);
     expect(tasks).toHaveLength(2);
-    // 原来那条每天的还在，编号和节奏都没变
+    // 原來那條每天的還在，編號和節奏都沒變
     expect(tasks[0].taskUuid).toBe(UUIDS[0]);
     expect(tasks[0].recurrenceType).toBe('daily');
-    // 新加的是一次性补发，方向沿用
+    // 新加的是一次性補發，方向沿用
     expect(tasks[1].taskUuid).toBe(UUIDS[1]);
     expect(tasks[1].recurrenceType).toBe('none');
     expect(tasks[1].promptHint).toBe('道早安');
@@ -163,56 +163,56 @@ describe('amsg2ToolBridge 同一轮多次调用累加', () => {
     const scheduleArgs = (ActiveMsgClient.scheduleCharacterTask as any).mock.calls[1][0];
     expect(scheduleArgs.replaceTaskUuid).toBeUndefined();
     expect(scheduleArgs.task.recurrenceType).toBe('none');
-    // 回执得说清楚原节奏没动，否则角色下一轮会跑去把「原来那条」再取消一遍
+    // 回執得說清楚原節奏沒動，否則角色下一輪會跑去把「原來那條」再取消一遍
     expect(renewResult).toContain(shortOf(UUIDS[0]));
-    expect(renewResult).toContain('重复节奏不变');
+    expect(renewResult).toContain('重複節奏不變');
   });
 
-  it('远端取消失败 → 本地记录保留并标错，不留「看不见的幽灵任务」', async () => {
+  it('遠端取消失敗 → 本地記錄保留並標錯，不留「看不見的幽靈任務」', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future() }, deps);
     (ActiveMsgClient.cancelTask as any).mockRejectedValueOnce(new Error('worker 503'));
     const result = await executeAmsg2Tool('cancel_active_message', { task_id: shortOf(UUIDS[0]) }, deps);
 
-    expect(result).toContain('失败');
+    expect(result).toContain('失敗');
     const tasks = lastTasks(persisted);
     expect(tasks).toHaveLength(1);
     expect(tasks[0].taskUuid).toBe(UUIDS[0]);
     expect(tasks[0].lastError).toBeTruthy();
   });
 
-  it('累加不靠就地改 char：React state 里的角色对象不被写脏', async () => {
+  it('累加不靠就地改 char：React state 裡的角色對象不被寫髒', async () => {
     const { deps, char } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     await executeAmsg2Tool('schedule_active_message', { send_at: future(2) }, deps);
 
-    // 落盘走 updateCharacter，char 快照本身保持原样（它是 React state 里的对象）。
+    // 落盤走 updateCharacter，char 快照本身保持原樣（它是 React state 裡的對象）。
     expect(char.activeMsg2Config.tasks).toEqual([]);
-    // 但 session 读得到累加后的两条。
+    // 但 session 讀得到累加後的兩條。
     expect(deps.getConfig()?.tasks).toHaveLength(2);
   });
 });
 
-// ─── 角色级开关 ───
-// 工具注入这条路要是只看全局 workerUrl，没在面板里开过 2.0 的角色照样拿得到
-// schedule_active_message；再加上落盘时强写 enabled:true，一次工具调用就把用户
-// 没表态过的功能替他打开了。两头都得钉住。
-describe('角色级开关', () => {
+// ─── 角色級開關 ───
+// 工具注入這條路要是只看全局 workerUrl，沒在面板裡開過 2.0 的角色照樣拿得到
+// schedule_active_message；再加上落盤時強寫 enabled:true，一次工具調用就把用戶
+// 沒表態過的功能替他打開了。兩頭都得釘住。
+describe('角色級開關', () => {
   const charWith = (config: any) => ({ id: 'preset-x', name: 'Nyah', activeMsg2Config: config } as any);
 
-  it('关掉的角色不给注入工具', () => {
+  it('關掉的角色不給注入工具', () => {
     expect(isAmsg2EnabledForChar(charWith({ enabled: false, tasks: [] }))).toBe(false);
   });
 
-  it('开着的角色照常注入', () => {
+  it('開著的角色照常注入', () => {
     expect(isAmsg2EnabledForChar(charWith({ enabled: true, tasks: [] }))).toBe(true);
   });
 
-  it('从没配过 2.0 的角色算关闭（要先进面板把开关打开）', () => {
+  it('從沒配過 2.0 的角色算關閉（要先進面板把開關打開）', () => {
     expect(isAmsg2EnabledForChar(charWith(undefined))).toBe(false);
   });
 
-  it('落盘不把 enabled 改写成 true（工具调用不得替用户重新开启功能）', async () => {
+  it('落盤不把 enabled 改寫成 true（工具調用不得替用戶重新開啟功能）', async () => {
     let n = 0;
     (ActiveMsgClient.scheduleCharacterTask as any).mockImplementation(async () => ({
       uuid: UUIDS[n++], clientTaskId: 'cid', anchorMs: 0, replacedCancelFailed: false,
@@ -231,11 +231,11 @@ describe('角色级开关', () => {
   });
 });
 
-// 回归守卫：角色写的 send_at 是「它那边的墙钟」，不带时区后缀（工具描述里就是这么教的）。
-// 原样落盘的话，本地读它的地方一律 new Date() 按设备时区解析——异国角色的任务卡、待触发
-// 判定、以及下面这句回话全都差一个时差。排程接口已经按角色时区把它折成绝对时刻了，
-// bridge 存的、说的都得是那一份。
-describe('角色排程的时间统一存绝对时刻', () => {
+// 迴歸守衛：角色寫的 send_at 是「它那邊的牆鍾」，不帶時區後綴（工具描述裡就是這麼教的）。
+// 原樣落盤的話，本地讀它的地方一律 new Date() 按設備時區解析——異國角色的任務卡、待觸發
+// 判定、以及下面這句回話全都差一個時差。排程接口已經按角色時區把它折成絕對時刻了，
+// bridge 存的、說的都得是那一份。
+describe('角色排程的時間統一存絕對時刻', () => {
   beforeEach(() => {
     let n = 0;
     (ActiveMsgClient.scheduleCharacterTask as any).mockReset();
@@ -245,20 +245,20 @@ describe('角色排程的时间统一存绝对时刻', () => {
     }));
   });
 
-  it('落盘存排程接口折好的绝对时刻，不是角色写的墙钟原串', async () => {
+  it('落盤存排程接口摺好的絕對時刻，不是角色寫的牆鍾原串', async () => {
     const { deps, persisted } = makeSession({
       customTimezoneEnabled: true, customTimezone: 'America/New_York',
     });
     await executeAmsg2Tool(
       'schedule_active_message',
-      { send_at: '2026-08-03T09:00:00' },   // 纽约角色写的「明早九点」
+      { send_at: '2026-08-03T09:00:00' },   // 紐約角色寫的「明早九點」
       deps,
     );
 
     expect(lastTasks(persisted)[0].firstSendTime).toBe(RESOLVED_ISO);
   });
 
-  it('回话里的时间按角色的钟说，且只折一次', async () => {
+  it('回話裡的時間按角色的鐘說，且只折一次', async () => {
     const { deps } = makeSession({
       customTimezoneEnabled: true, customTimezone: 'America/New_York',
     });
@@ -268,22 +268,22 @@ describe('角色排程的时间统一存绝对时刻', () => {
       deps,
     );
 
-    // 纽约角色说的九点，回话里就该是 09:00
+    // 紐約角色說的九點，回話裡就該是 09:00
     expect(reply).toContain('09:00');
-    // 折两次（先按设备解析原串、再换算到纽约）会落在别的钟点上
+    // 折兩次（先按設備解析原串、再換算到紐約）會落在別的鐘點上
     expect(reply).not.toContain('21:00');
   });
 });
 
-// ─── 打转防护 ───
-// 现场：用户说一句「等会找我」，角色一口气排出 5 条一模一样的任务（同时间、同提示词）。
-// 5 不是巧合——它是每个角色的待触发上限，也就是模型一路重复调用直到撞上限才停。前台的
-// 工具循环最多转 6 轮，每一轮执行一次 schedule 就是远端实打实 5 条任务。
+// ─── 打轉防護 ───
+// 現場：用戶說一句「等會找我」，角色一口氣排出 5 條一模一樣的任務（同時間、同提示詞）。
+// 5 不是巧合——它是每個角色的待觸發上限，也就是模型一路重複調用直到撞上限才停。前台的
+// 工具循環最多轉 6 輪，每一輪執行一次 schedule 就是遠端實打實 5 條任務。
 //
-// 两层防护，跟 worker 的 fire 循环同一套（见 utils/agenticToolFeedback.ts）：
-//   软的 —— 回话末尾明说「这一步做完了，别再调同一个」；
-//   硬的 —— 同名同参第二次直接打回，一次网络请求都不发。
-describe('同名同参的调用不重复执行', () => {
+// 兩層防護，跟 worker 的 fire 循環同一套（見 utils/agenticToolFeedback.ts）：
+//   軟的 —— 回話末尾明說「這一步做完了，別再調同一個」；
+//   硬的 —— 同名同參第二次直接打回，一次網絡請求都不發。
+describe('同名同參的調用不重複執行', () => {
   beforeEach(() => {
     let n = 0;
     (ActiveMsgClient.scheduleCharacterTask as any).mockReset();
@@ -295,19 +295,19 @@ describe('同名同参的调用不重复执行', () => {
     (ActiveMsgClient.cancelTask as any).mockResolvedValue({});
   });
 
-  it('第二次完全相同的 schedule → 不建任务、不发请求，只回一句打回', async () => {
+  it('第二次完全相同的 schedule → 不建任務、不發請求，只回一句打回', async () => {
     const { deps, persisted } = makeSession();
-    const args = { send_at: future(1), mode: 'prompted', prompt_hint: '等会来找你' };
+    const args = { send_at: future(1), mode: 'prompted', prompt_hint: '等會來找你' };
     await executeAmsg2Tool('schedule_active_message', args, deps);
     const second = await executeAmsg2Tool('schedule_active_message', { ...args }, deps);
 
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenCalledTimes(1);
     expect(lastTasks(persisted)).toHaveLength(1);
-    expect(second).not.toContain('已创建');
+    expect(second).not.toContain('已創建');
     expect(second).toContain('不要');
   });
 
-  it('参数写法变了但内容一样（键序不同）照样算同一次', async () => {
+  it('參數寫法變了但內容一樣（鍵序不同）照樣算同一次', async () => {
     const { deps } = makeSession();
     const send_at = future(1);
     await executeAmsg2Tool('schedule_active_message', { send_at, mode: 'auto' }, deps);
@@ -316,7 +316,7 @@ describe('同名同参的调用不重复执行', () => {
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenCalledTimes(1);
   });
 
-  it('换个时间就照常放行（只拦完全一样的，多轮能力不减）', async () => {
+  it('換個時間就照常放行（只攔完全一樣的，多輪能力不減）', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     await executeAmsg2Tool('schedule_active_message', { send_at: future(3) }, deps);
@@ -325,56 +325,56 @@ describe('同名同参的调用不重复执行', () => {
     expect(lastTasks(persisted)).toHaveLength(2);
   });
 
-  it('renew 同参第二次也拦（它内部走的还是建新任务那条路）', async () => {
+  it('renew 同參第二次也攔（它內部走的還是建新任務那條路）', async () => {
     const { deps, persisted } = makeSession();
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     const renewArgs = { send_at: future(2), task_id: shortOf(UUIDS[0]) };
     await executeAmsg2Tool('renew_active_message', renewArgs, deps);
     const second = await executeAmsg2Tool('renew_active_message', { ...renewArgs }, deps);
 
-    // 首次 schedule + 首次 renew = 2 次；第二次 renew 不该再打一发
+    // 首次 schedule + 首次 renew = 2 次；第二次 renew 不該再打一發
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenCalledTimes(2);
     expect(lastTasks(persisted)).toHaveLength(1);
     expect(second).toContain('不要');
   });
 
-  it('list 不拦：同一轮里排完再查，清单本来就该变', async () => {
+  it('list 不攔：同一輪裡排完再查，清單本來就該變', async () => {
     const { deps } = makeSession();
     const empty = await executeAmsg2Tool('list_active_messages', {}, deps);
     await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
     const afterSchedule = await executeAmsg2Tool('list_active_messages', {}, deps);
 
-    expect(empty).toContain('没有任何定时主动消息任务');
+    expect(empty).toContain('沒有任何定時主動消息任務');
     expect(afterSchedule).toContain(shortOf(UUIDS[0]));
   });
 
-  it('排程成功的回话末尾带收尾引导（软的那层）', async () => {
+  it('排程成功的回話末尾帶收尾引導（軟的那層）', async () => {
     const { deps } = makeSession();
     const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
 
-    // 事实照说
-    expect(reply).toContain('已创建');
-    // 再明说这一步结束了，别接着调同一个
-    expect(reply).toContain('同样的调用不要再来一遍');
+    // 事實照說
+    expect(reply).toContain('已創建');
+    // 再明說這一步結束了，別接著調同一個
+    expect(reply).toContain('同樣的調用不要再來一遍');
   });
 
-  it('远端失败的那次不记账：改不了参数的重试仍放行一次', async () => {
+  it('遠端失敗的那次不記帳：改不了參數的重試仍放行一次', async () => {
     const { deps } = makeSession();
     (ActiveMsgClient.scheduleCharacterTask as any).mockRejectedValueOnce(new Error('worker 503'));
     const args = { send_at: future(1) };
     const failed = await executeAmsg2Tool('schedule_active_message', args, deps);
     const retried = await executeAmsg2Tool('schedule_active_message', { ...args }, deps);
 
-    expect(failed).toContain('失败');
-    expect(retried).toContain('已创建');
+    expect(failed).toContain('失敗');
+    expect(retried).toContain('已創建');
     expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenCalledTimes(2);
   });
 });
 
-// 连发上限的本地排程闸（与 worker fire 侧 unanswered_limit 对齐）：本地排到超限的
-// 那几条会被到点兜底闸静默 skip——角色在正文里承诺了「等下再来找你」，到点却凭空
-// 蒸发。这里钉住：超限时带回喂打回、一次远端请求都不发；面板任务不占额度。
-describe('连发上限·本地排程闸', () => {
+// 連發上限的本地排程閘（與 worker fire 側 unanswered_limit 對齊）：本地排到超限的
+// 那幾條會被到點兜底閘靜默 skip——角色在正文裡承諾了「等下再來找你」，到點卻憑空
+// 蒸發。這裡釘住：超限時帶回喂打回、一次遠端請求都不發；面板任務不佔額度。
+describe('連發上限·本地排程閘', () => {
   beforeEach(() => {
     (ActiveMsgClient.scheduleCharacterTask as any).mockReset();
     (ActiveMsgClient.scheduleCharacterTask as any).mockImplementation(async () => ({
@@ -388,30 +388,30 @@ describe('连发上限·本地排程闸', () => {
     firstSendTime: new Date(Date.now() + 3600_000).toISOString(), createdAt: Date.now(),
   });
 
-  it('挂满自排任务（默认上限 3）再排 → 打回，不发远端请求', async () => {
+  it('掛滿自排任務（默認上限 3）再排 → 打回，不發遠端請求', async () => {
     const { deps } = makeSession({
       activeMsg2Config: { enabled: true, tasks: [selfTask('u1'), selfTask('u2'), selfTask('u3')] },
     });
     const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
-    expect(reply).toContain('连发上限');
+    expect(reply).toContain('連發上限');
     expect(ActiveMsgClient.scheduleCharacterTask).not.toHaveBeenCalled();
   });
 
-  it('面板里用户亲手排的任务不占连发额度', async () => {
+  it('面板裡用戶親手排的任務不佔連發額度', async () => {
     const userTask = (uuid: string) => ({ ...selfTask(uuid), source: 'user' });
     const { deps } = makeSession({
       activeMsg2Config: { enabled: true, tasks: [userTask('u1'), userTask('u2'), userTask('u3')] },
     });
     const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
-    expect(reply).toContain('已创建');
+    expect(reply).toContain('已創建');
   });
 
-  it('用户把上限设成 1 → 第一条自排就打回第二条', async () => {
+  it('用戶把上限設成 1 → 第一條自排就打回第二條', async () => {
     const { deps } = makeSession({
       activeMsg2Config: { enabled: true, maxUnansweredSends: 1, tasks: [selfTask('u1')] },
     });
     const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
-    expect(reply).toContain('连发上限是 1 条');
+    expect(reply).toContain('連發上限是 1 條');
     expect(ActiveMsgClient.scheduleCharacterTask).not.toHaveBeenCalled();
   });
 });

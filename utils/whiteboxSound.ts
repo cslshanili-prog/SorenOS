@@ -1,24 +1,24 @@
-// 白框「提示音」声明式声音层。
+// 白框「提示音」聲明式聲音層。
 //
-// 设计要点（见分支 chatapp-whitebox-js-ympk39）：
-// - 白框一直是 CSS-only 的可分享皮肤系统，靠"不执行任何脚本"来保证导入陌生人分享码时的安全。
-//   为了不破坏这个护栏，提示音**不给用户 JS**，而是把声音配置声明成 CSS 里的一段特殊注释：
+// 設計要點（見分支 chatapp-whitebox-js-ympk39）：
+// - 白框一直是 CSS-only 的可分享皮膚系統，靠"不執行任何腳本"來保證導入陌生人分享碼時的安全。
+//   為了不破壞這個護欄，提示音**不給用戶 JS**，而是把聲音配置聲明成 CSS 裡的一段特殊註釋：
 //     /* @sully-sound {"src":"chime","volume":0.6} */
-//   播放由本模块（可信代码）执行，用户只是填数据。
-// - 这段注释天然跟着白框的所有分享通道走（单角色 chromeCustomCss / 全局 chatChromeCustomCss /
-//   SULLYCSS1 预设导出码 / TXT 导出），因为这些通道都把 CSS 当不透明字符串搬运，不解析、不清洗注释。
-// - 浏览器忽略 CSS 注释，所以对渲染零影响、对老白框完全向后兼容。
-// - 内置音效用 WebAudio 现场合成（无音频文件、分享码里只存一个短 key，体积极小）；也支持自定义音频 URL。
+//   播放由本模塊（可信代碼）執行，用戶只是填數據。
+// - 這段註釋天然跟著白框的所有分享通道走（單角色 chromeCustomCss / 全局 chatChromeCustomCss /
+//   SULLYCSS1 預設導出碼 / TXT 導出），因為這些通道都把 CSS 當不透明字符串搬運，不解析、不清洗註釋。
+// - 瀏覽器忽略 CSS 註釋，所以對渲染零影響、對老白框完全向後兼容。
+// - 內置音效用 WebAudio 現場合成（無音頻文件、分享碼裡只存一個短 key，體積極小）；也支持自定義音頻 URL。
 
 export interface WhiteboxSound {
-    /** 内置音效 key（见 BUILTIN_SOUNDS）、'none'（显式静音，用于角色覆盖全局）、或自定义音频直链 URL。 */
+    /** 內置音效 key（見 BUILTIN_SOUNDS）、'none'（顯式靜音，用於角色覆蓋全局）、或自定義音頻直鏈 URL。 */
     src: string;
-    /** 音量 0~1，默认 0.6。 */
+    /** 音量 0~1，默認 0.6。 */
     volume?: number;
 }
 
-// 内置音效：每个是一串"音符"，用 WebAudio 现场合成。freq=频率(Hz)，at=相对起点(秒)，dur=时长(秒)，
-// type=波形，gain=该音相对音量。刻意做得短、轻、不刺耳（移动端提示音场景）。
+// 內置音效：每個是一串"音符"，用 WebAudio 現場合成。freq=頻率(Hz)，at=相對起點(秒)，dur=時長(秒)，
+// type=波形，gain=該音相對音量。刻意做得短、輕、不刺耳（移動端提示音場景）。
 type Note = { freq: number; at: number; dur: number; type?: OscillatorType; gain?: number };
 
 interface BuiltinSound {
@@ -28,7 +28,7 @@ interface BuiltinSound {
 
 export const BUILTIN_SOUNDS: Record<string, BuiltinSound> = {
     chime: {
-        label: '风铃',
+        label: '風鈴',
         notes: [
             { freq: 1046.5, at: 0, dur: 0.5, type: 'sine', gain: 0.6 },
             { freq: 1568.0, at: 0.09, dur: 0.6, type: 'sine', gain: 0.45 },
@@ -42,7 +42,7 @@ export const BUILTIN_SOUNDS: Record<string, BuiltinSound> = {
         ],
     },
     pop: {
-        label: '气泡',
+        label: '氣泡',
         notes: [
             { freq: 420, at: 0, dur: 0.09, type: 'triangle', gain: 0.7 },
             { freq: 780, at: 0.05, dur: 0.12, type: 'sine', gain: 0.6 },
@@ -80,12 +80,12 @@ const clampVolume = (v: unknown): number => {
     return Math.min(1, Math.max(0, n));
 };
 
-// ---- 注释指令的解析 / 写入 ----
+// ---- 註釋指令的解析 / 寫入 ----
 
-// 匹配 /* @sully-sound ... {json} ... */，宽松容错（大小写、空白、v1 之类版本标记都不挑）。
+// 匹配 /* @sully-sound ... {json} ... */，寬鬆容錯（大小寫、空白、v1 之類版本標記都不挑）。
 const DIRECTIVE_RE = /\/\*\s*@sully-sound\b[^{}]*(\{[^{}]*\})\s*\*\//i;
 
-/** 从一段 CSS 字符串里解析出声音配置；没有 / 解析失败 / src 为空 → 返回 null。 */
+/** 從一段 CSS 字符串裡解析出聲音配置；沒有 / 解析失敗 / src 為空 → 返回 null。 */
 export const parseWhiteboxSound = (css?: string | null): WhiteboxSound | null => {
     if (!css) return null;
     const m = css.match(DIRECTIVE_RE);
@@ -100,15 +100,15 @@ export const parseWhiteboxSound = (css?: string | null): WhiteboxSound | null =>
     }
 };
 
-/** 剥掉 CSS 里已有的 @sully-sound 指令（连同其后紧跟的一个换行），返回纯 CSS。 */
+/** 剝掉 CSS 裡已有的 @sully-sound 指令（連同其後緊跟的一個換行），返回純 CSS。 */
 export const stripWhiteboxSoundDirective = (css?: string | null): string => {
     if (!css) return '';
     return css.replace(/\/\*\s*@sully-sound\b[^{}]*\{[^{}]*\}\s*\*\/\n?/i, '');
 };
 
 /**
- * 把声音配置写进 CSS：先剥掉旧指令，sound 为 null 则等于删除；否则把新指令放到 CSS 顶部。
- * 保持声音配置随 CSS 字符串一起走（存字段 / 预设 / TXT / 分享码）。
+ * 把聲音配置寫進 CSS：先剝掉舊指令，sound 為 null 則等於刪除；否則把新指令放到 CSS 頂部。
+ * 保持聲音配置隨 CSS 字符串一起走（存字段 / 預設 / TXT / 分享碼）。
  */
 export const upsertWhiteboxSound = (css: string, sound: WhiteboxSound | null): string => {
     const base = stripWhiteboxSoundDirective(css);
@@ -119,9 +119,9 @@ export const upsertWhiteboxSound = (css: string, sound: WhiteboxSound | null): s
 };
 
 /**
- * 求出实际生效的提示音。优先级（从高到低）：
- *   角色白框指令（角色已绑定）→ 角色独立字段（角色未绑定）→ 全局白框指令 → 全局默认字段。
- * 这样角色设了就用角色的，没设就回落到全局默认；两种存法（绑进注释 / 独立字段）都能播。
+ * 求出實際生效的提示音。優先級（從高到低）：
+ *   角色白框指令（角色已綁定）→ 角色獨立字段（角色未綁定）→ 全局白框指令 → 全局默認字段。
+ * 這樣角色設了就用角色的，沒設就回落到全局默認；兩種存法（綁進註釋 / 獨立字段）都能播。
  */
 export const resolveActiveSound = (
     charCss?: string | null,
@@ -133,7 +133,7 @@ export const resolveActiveSound = (
     return parseWhiteboxSound(charCss) ?? pick(charSound) ?? parseWhiteboxSound(globalCss) ?? pick(globalSound);
 };
 
-// 提示音的「独立分享码」：SULLYSND1: + base64(utf8(JSON))。让用户不带白框、单独把提示音发给别人。
+// 提示音的「獨立分享碼」：SULLYSND1: + base64(utf8(JSON))。讓用戶不帶白框、單獨把提示音發給別人。
 export const encodeSoundShare = (sound: WhiteboxSound): string =>
     'SULLYSND1:' + btoa(unescape(encodeURIComponent(JSON.stringify({ src: sound.src, volume: clampVolume(sound.volume) }))));
 
@@ -166,8 +166,8 @@ const getCtx = (): AudioContext | null => {
 };
 
 /**
- * 在用户手势里调用一次，尝试解锁 / 恢复 AudioContext（移动端自动播放策略要求首个音频需用户手势触发）。
- * 幂等、best-effort，失败静默。
+ * 在用戶手勢裡調用一次，嘗試解鎖 / 恢復 AudioContext（移動端自動播放策略要求首個音頻需用戶手勢觸發）。
+ * 冪等、best-effort，失敗靜默。
  */
 export const unlockWhiteboxAudio = (): void => {
     const ctx = getCtx();
@@ -199,10 +199,10 @@ const playBuiltin = (sound: BuiltinSound, volume: number): void => {
     }
 };
 
-/** src 是自定义音频（http(s) 直链或内联 data URI），而非内置合成音。 */
+/** src 是自定義音頻（http(s) 直鏈或內聯 data URI），而非內置合成音。 */
 export const isCustomAudioSrc = (s: string): boolean => /^https?:\/\//i.test(s) || /^data:audio\//i.test(s);
 
-/** 播放一个白框提示音配置。best-effort：被自动播放策略挡住 / 无音频能力时静默失败，绝不抛。 */
+/** 播放一個白框提示音配置。best-effort：被自動播放策略擋住 / 無音頻能力時靜默失敗，絕不拋。 */
 export const playWhiteboxSound = (sound: WhiteboxSound | null): void => {
     if (!sound || !sound.src || sound.src === 'none') return;
     const volume = clampVolume(sound.volume);
@@ -212,13 +212,13 @@ export const playWhiteboxSound = (sound: WhiteboxSound | null): void => {
             playBuiltin(builtin, volume);
             return;
         }
-        // 自定义音频：http(s) 直链或上传后内联的 data:audio URI，交给 <audio> 播放。
+        // 自定義音頻：http(s) 直鏈或上傳後內聯的 data:audio URI，交給 <audio> 播放。
         if (isCustomAudioSrc(sound.src) && typeof Audio !== 'undefined') {
             const el = new Audio(sound.src);
             el.volume = volume;
             el.play().catch(() => {});
         }
     } catch {
-        /* 播放失败静默，提示音不该影响聊天主流程 */
+        /* 播放失敗靜默，提示音不該影響聊天主流程 */
     }
 };

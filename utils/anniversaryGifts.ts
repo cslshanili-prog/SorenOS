@@ -2,10 +2,10 @@ import type { CSSProperties } from 'react';
 import type { BubbleStyle, ChatTheme } from '../types';
 
 // Event artwork only; stable paths keep already-applied gifts working.
-export const ANNIVERSARY_ARTIST = '哈基米欠我钱';
+export const ANNIVERSARY_ARTIST = '哈基米欠我錢';
 export const ANNIVERSARY_WALLPAPERS = [
   { id: 'stripes', name: '奶油星星', url: './anniversary/cake-stripes.jpg' },
-  { id: 'lattice', name: '糖霜格纹', url: './anniversary/cake-lattice.jpg' },
+  { id: 'lattice', name: '糖霜格紋', url: './anniversary/cake-lattice.jpg' },
 ] as const;
 export const ANNIVERSARY_FRAME_URL = './anniversary/crowned-cat-frame.png';
 export const ANNIVERSARY_SEEN_KEY = 'sullyos_first_anniversary_seen_v1';
@@ -50,7 +50,7 @@ export function createAnniversaryTheme(base: ChatTheme, characterId: string): Ch
   return {
     ...base,
     id: `anniversary-frame-${characterId}`,
-    name: '一周年 · 尊贵猫猫',
+    name: '一週年 · 尊貴貓貓',
     type: 'custom',
     user: { ...base.user, ...ANNIVERSARY_FRAME_STYLE },
     ai: { ...base.ai, ...ANNIVERSARY_FRAME_STYLE },

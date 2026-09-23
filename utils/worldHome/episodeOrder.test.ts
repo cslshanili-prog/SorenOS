@@ -6,9 +6,9 @@ import { realObserveTarget, formatRealClock } from './prompts';
 
 const episode = (id: string, round: number, createdAt: number): WorldEpisode => ({
     id, worldId: 'order-world', round, createdAt, trigger: 'observe',
-    storyTime: '2026年9月16日 周三 晚上', summary: id, beats: [],
+    storyTime: '2026年9月16日 週三 晚上', summary: id, beats: [],
 });
-const world = (): WorldProfile => ({ id: 'order-world', name: '家园', timeMode: 'real', clockSegs: 4,
+const world = (): WorldProfile => ({ id: 'order-world', name: '家園', timeMode: 'real', clockSegs: 4,
     storyClock: 3, realClock: { dayKey: '2026-09-16', seg: 1 },
     memberIds: [], npcs: [], houses: [], relationships: [], worldview: '', mode: 'light', createdAt: 0, updatedAt: 0,
 });
@@ -29,7 +29,7 @@ describe('observation order and stale world progress', () => {
         expect(current.storyClock + 1).toBe(6);
         const next = realObserveTarget(current, new Date(2026, 8, 17, 2));
         expect(next).toEqual({ dayKey: '2026-09-16', seg: 3 });
-        expect(formatRealClock(next!)).toBe('2026年9月17日 周四 凌晨');
+        expect(formatRealClock(next!)).toBe('2026年9月17日 週四 凌晨');
     });
     it('does not undo a deliberate timezone clock adjustment when the counter is current', () => {
         const current = { ...world(), storyClock: 4, realClock: { dayKey: '2026-09-15', seg: 0 } };
@@ -42,7 +42,7 @@ describe('observation order and stale world progress', () => {
         expect(await DB.getWorld('order-world')).toMatchObject({ name: '新名字', storyClock: 8, realClock: { dayKey: '2026-09-17', seg: 0 } });
     });
     it('does not recreate a world deleted while an editor was open', async () => {
-        await DB.updateWorld('missing-world', { name: '过期编辑' });
+        await DB.updateWorld('missing-world', { name: '過期編輯' });
         expect(await DB.getWorld('missing-world')).toBeNull();
     });
 });

@@ -1,18 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 /**
- * 「彼方」大世界喇叭 —— 当某角色正在登入彼方、调用 API 行动时，
- * 顶部滑出一条 MMO 风格的世界播报。监听 runSession 派发的
- * vr-session-start / vr-session-end 事件，全局挂载（App 根级）。
+ * 「彼方」大世界喇叭 —— 當某角色正在登入彼方、調用 API 行動時，
+ * 頂部滑出一條 MMO 風格的世界播報。監聽 runSession 派發的
+ * vr-session-start / vr-session-end 事件，全局掛載（App 根級）。
  */
 
 interface ActiveSession { charId: string; charName: string; room: string; novelTitle?: string; }
 
 const ROOM_LABEL: Record<string, { name: string }> = {
-    library: { name: '图书馆' },
-    music: { name: '听歌房' },
+    library: { name: '圖書館' },
+    music: { name: '聽歌房' },
     guestbook: { name: '留言簿' },
-    gym: { name: '活动场' },
+    gym: { name: '活動場' },
 };
 
 const VRBroadcast: React.FC = () => {
@@ -27,7 +27,7 @@ const VRBroadcast: React.FC = () => {
         };
         const onEnd = (e: Event) => {
             const id = (e as CustomEvent).detail?.charId;
-            // 结束时延迟一会再移除，让"刚逛完"的播报多留一下
+            // 結束時延遲一會再移除，讓"剛逛完"的播報多留一下
             setTimeout(() => setActive(prev => prev.filter(s => s.charId !== id)), 1500);
         };
         window.addEventListener('vr-session-start', onStart);
@@ -65,8 +65,8 @@ const VRBroadcast: React.FC = () => {
                 }} />
                 <span className="relative text-[12px] opacity-80" style={{ filter: 'drop-shadow(0 0 5px rgba(180,195,255,.6))' }}>✦</span>
                 <span className="relative text-[11px] tracking-[0.04em] text-white/90 whitespace-nowrap font-light">
-                    <span className="text-amber-200/90 font-normal">{cur.charName}</span>{extra} 正漫游于彼方 · {room.name}
-                    {cur.novelTitle ? ` 读《${cur.novelTitle}》` : ''}
+                    <span className="text-amber-200/90 font-normal">{cur.charName}</span>{extra} 正漫遊於彼方 · {room.name}
+                    {cur.novelTitle ? ` 讀《${cur.novelTitle}》` : ''}
                 </span>
                 <span className="relative flex gap-1">
                     {[0, 1, 2].map(i => (

@@ -1,9 +1,9 @@
 
 /**
- * XHS Client — 双模式小红书自动化客户端
+ * XHS Client — 雙模式小紅書自動化客戶端
  *
- * 自动检测后端类型:
- * - MCP 模式 (URL 含 /mcp): 使用 xiaohongshu-mcp Go 服务器 (JSON-RPC 2.0)
+ * 自動檢測後端類型:
+ * - MCP 模式 (URL 含 /mcp): 使用 xiaohongshu-mcp Go 服務器 (JSON-RPC 2.0)
  * - Bridge 模式 (URL 含 /api): 使用 xiaohongshu-skills Python CLI (REST)
  *
  * MCP Server:   https://github.com/xpzouying/xiaohongshu-mcp
@@ -11,6 +11,7 @@
  */
 
 import { classifyFetchFailure, parseTargetUrl } from './networkFailureDiagnosis';
+import { includesAnyScript } from './scriptKey';
 
 export interface McpToolResult {
     success: boolean;
@@ -30,7 +31,7 @@ export const XHS_SPIDER_V3_EXPERIMENT = Object.freeze({
 type BackendProtocol = 'mcp' | 'bridge';
 type XhsPlatform = 'xhs' | 'rednote';
 
-// 这里只识别传输协议，不代表部署位置：本地 Skills 与云端 Lite 都走 bridge /api。
+// 這裡只識別傳輸協議，不代表部署位置：本地 Skills 與雲端 Lite 都走 bridge /api。
 const detectMode = (serverUrl: string): BackendProtocol => {
     if (serverUrl.includes('/api')) return 'bridge';
     return 'mcp'; // default: MCP (backwards compatible)
@@ -215,7 +216,7 @@ const bridgePost = async (
         });
 
         if (resp.status === 401) {
-            return { success: false, error: '未登录，请先登录小红书' };
+            return { success: false, error: '未登錄，請先登錄小紅書' };
         }
 
         if (!resp.ok) {
@@ -259,7 +260,7 @@ interface McpJsonRpcResponse {
 let mcpRequestIdCounter = 0;
 let mcpSessionId: string | null = null;
 let mcpInitialized = false;
-/** 在途的握手（并发去重用；见 mcpEnsureInitialized）。 */
+/** 在途的握手（併發去重用；見 mcpEnsureInitialized）。 */
 let mcpInitPromise: Promise<void> | null = null;
 let mcpDiscoveredTools: { name: string; description?: string }[] = [];
 
@@ -339,7 +340,7 @@ const mcpParseResponse = (text: string, contentType: string): McpJsonRpcResponse
     try { return JSON.parse(text); } catch {
         const match = text.match(/\{[\s\S]*\}/);
         if (match) { try { return JSON.parse(match[0]); } catch { /* fall through */ } }
-        throw new Error(`MCP: 无法解析响应: ${text.slice(0, 300)}`);
+        throw new Error(`MCP: 無法解析響應: ${text.slice(0, 300)}`);
     }
 };
 
@@ -381,14 +382,14 @@ const mcpInitialize = async (serverUrl: string): Promise<void> => {
 
     if (!mcpSessionId) {
         console.warn(
-            '[MCP] ⚠️ 无法读取 Mcp-Session-Id 响应头（CORS 限制）。\n' +
-            '请使用 CORS 代理: node scripts/mcp-proxy.mjs\n' +
-            '然后把 MCP URL 改为 http://localhost:18061/mcp'
+            '[MCP] ⚠️ 無法讀取 Mcp-Session-Id 響應頭（CORS 限制）。\n' +
+            '請使用 CORS 代理: node scripts/mcp-proxy.mjs\n' +
+            '然後把 MCP URL 改為 http://localhost:18061/mcp'
         );
         throw new Error(
-            'MCP 连接失败: 浏览器 CORS 限制无法读取 Session ID。\n' +
-            '请运行 CORS 代理: node scripts/mcp-proxy.mjs\n' +
-            '然后把设置里的 MCP URL 改为 http://localhost:18061/mcp'
+            'MCP 連接失敗: 瀏覽器 CORS 限制無法讀取 Session ID。\n' +
+            '請運行 CORS 代理: node scripts/mcp-proxy.mjs\n' +
+            '然後把設置裡的 MCP URL 改為 http://localhost:18061/mcp'
         );
     }
 
@@ -400,22 +401,22 @@ const mcpInitialize = async (serverUrl: string): Promise<void> => {
         const { response: toolsResp } = await mcpPost(serverUrl, toolsReq);
         if (toolsResp?.result?.tools) {
             mcpDiscoveredTools = toolsResp.result.tools.map((t: any) => ({ name: t.name, description: t.description }));
-            console.log('[MCP] 发现工具:', mcpDiscoveredTools.map(t => t.name).join(', '));
+            console.log('[MCP] 發現工具:', mcpDiscoveredTools.map(t => t.name).join(', '));
         }
     } catch (e) {
-        console.warn('[MCP] tools/list 调用失败，将使用默认工具名', e);
+        console.warn('[MCP] tools/list 調用失敗，將使用默認工具名', e);
     }
 
     mcpInitialized = true;
 };
 
 /**
- * 并发去重的握手：同时进来的调用共用同一次 initialize。
+ * 併發去重的握手：同時進來的調用共用同一次 initialize。
  *
- * 直接写 `if (!mcpInitialized) await mcpInitialize()` 是 check-then-act：两个调用会都
- * 看到 false 各握一次手，后完成的那个把模块级 mcpSessionId 覆盖掉，先发起的那个再拿它
- * 发 tools/call 就用了别人的 session。worker 到点最多并发跑 8 个任务，两个任务同一分钟
- * 都用小红书就会踩到。失败时清掉在途 promise，下一次调用可以重新握手。
+ * 直接寫 `if (!mcpInitialized) await mcpInitialize()` 是 check-then-act：兩個調用會都
+ * 看到 false 各握一次手，後完成的那個把模塊級 mcpSessionId 覆蓋掉，先發起的那個再拿它
+ * 發 tools/call 就用了別人的 session。worker 到點最多併發跑 8 個任務，兩個任務同一分鐘
+ * 都用小紅書就會踩到。失敗時清掉在途 promise，下一次調用可以重新握手。
  */
 const mcpEnsureInitialized = async (serverUrl: string): Promise<void> => {
     if (mcpInitialized) return;
@@ -455,13 +456,13 @@ const mcpCallTool = async (serverUrl: string, toolName: string, args: Record<str
         if (result?.content) {
             const textParts = result.content.filter((c: any) => c.type === 'text').map((c: any) => c.text);
             const fullText = textParts.join('\n');
-            if (result.isError) return { success: false, error: fullText || 'MCP 工具执行失败' };
+            if (result.isError) return { success: false, error: fullText || 'MCP 工具執行失敗' };
             try {
                 const parsed = JSON.parse(fullText);
-                console.log(`[MCP] 工具 ${toolName} 返回 JSON, 顶层 keys: ${typeof parsed === 'object' && parsed ? Object.keys(parsed).join(',') : typeof parsed}`);
+                console.log(`[MCP] 工具 ${toolName} 返回 JSON, 頂層 keys: ${typeof parsed === 'object' && parsed ? Object.keys(parsed).join(',') : typeof parsed}`);
                 return { success: true, data: parsed };
             } catch {
-                console.log(`[MCP] 工具 ${toolName} 返回纯文本 (${fullText.length} chars)`);
+                console.log(`[MCP] 工具 ${toolName} 返回純文本 (${fullText.length} chars)`);
                 return { success: true, data: fullText };
             }
         }
@@ -490,13 +491,13 @@ const extractXsecTokenFromUrl = (url: string): string | undefined => {
 // ==================== Auto-extract helpers ====================
 
 /**
- * 从 feed/recommend 响应中提取第一个可用的 xsec_token
- * 支持多种嵌套格式: [{ xsec_token }], { data: [{ xsec_token }] }, { items: [...] }, 纯文本等
+ * 從 feed/recommend 響應中提取第一個可用的 xsec_token
+ * 支持多種嵌套格式: [{ xsec_token }], { data: [{ xsec_token }] }, { items: [...] }, 純文本等
  */
 const extractFirstXsecToken = (data: any): string | undefined => {
     if (!data) return undefined;
 
-    // 从数组中找第一个有 xsec_token 的
+    // 從數組中找第一個有 xsec_token 的
     const scanArray = (arr: any[]): string | undefined => {
         for (const item of arr) {
             const token = item?.xsec_token || item?.xsecToken
@@ -508,7 +509,7 @@ const extractFirstXsecToken = (data: any): string | undefined => {
 
     if (Array.isArray(data)) return scanArray(data);
 
-    // 在常见 key 下查找数组
+    // 在常見 key 下查找數組
     for (const key of ['items', 'notes', 'feeds', 'data', 'list', 'results', 'note_list', 'noteList']) {
         if (Array.isArray(data[key])) {
             const token = scanArray(data[key]);
@@ -516,7 +517,7 @@ const extractFirstXsecToken = (data: any): string | undefined => {
         }
     }
 
-    // 解包一层 data: { data: { items: [...] } }
+    // 解包一層 data: { data: { items: [...] } }
     if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
         for (const key of ['items', 'notes', 'feeds', 'list', 'results', 'note_list', 'noteList']) {
             if (Array.isArray(data.data[key])) {
@@ -527,7 +528,7 @@ const extractFirstXsecToken = (data: any): string | undefined => {
         if (Array.isArray(data.data)) return scanArray(data.data);
     }
 
-    // 纯文本中正则匹配
+    // 純文本中正則匹配
     if (typeof data === 'string') {
         const match = data.match(/xsec_token[=:]["']?\s*([A-Za-z0-9+/=]+)/);
         if (match) return match[1];
@@ -537,32 +538,32 @@ const extractFirstXsecToken = (data: any): string | undefined => {
 };
 
 /**
- * 连接测试失败时给一句人话。裸传 e.message 的话，用户在设置页只会看到
- * 「Failed to fetch」——那句话不区分「地址填错」「梯子拦了」「对方在限流页后面」，
- * 到头来只能来问作者。分类逻辑复用调试终端那份，两处口径保持一致。
+ * 連接測試失敗時給一句人話。裸傳 e.message 的話，用戶在設置頁只會看到
+ * 「Failed to fetch」——那句話不區分「地址填錯」「梯子攔了」「對方在限流頁後面」，
+ * 到頭來只能來問作者。分類邏輯複用調試終端那份，兩處口徑保持一致。
  */
 const describeXhsConnectFailure = (e: any, serverUrl: string): string => {
     const host = parseTargetUrl(serverUrl).host || serverUrl;
     const kind = classifyFetchFailure({ url: serverUrl, error: e });
     switch (kind) {
         case 'timeout':
-            return `连接 ${host} 超时（10 秒一个字节都没回）。连接是挂住不返回、不是被拒——多半是该域名没走代理走了直连，或代理节点到上游是黑洞。优先换个梯子节点、或把这个域名显式加进代理规则。`;
+            return `連接 ${host} 超時（10 秒一個字節都沒回）。連接是掛住不返回、不是被拒——多半是該域名沒走代理走了直連，或代理節點到上游是黑洞。優先換個梯子節點、或把這個域名顯式加進代理規則。`;
         case 'aborted':
-            return '连接被取消（页面切走了或手动停止）。';
+            return '連接被取消（頁面切走了或手動停止）。';
         case 'offline':
-            return '当前处于离线状态，请检查网络或梯子是否掉线。';
+            return '當前處於離線狀態，請檢查網絡或梯子是否掉線。';
         case 'mixed-content':
-            return `SullyOS 跑在 https 上，不能连 http 地址（${host}）。请把服务地址改成 https://，或用本地 http 打开 SullyOS。`;
+            return `SullyOS 跑在 https 上，不能連 http 地址（${host}）。請把服務地址改成 https://，或用本地 http 打開 SullyOS。`;
         case 'bad-url':
-            return `服务器地址不是合法 URL：${serverUrl}。检查有没有漏掉 https://、多了空格或用了中文标点。`;
+            return `服務器地址不是合法 URL：${serverUrl}。檢查有沒有漏掉 https://、多了空格或用了中文標點。`;
         case 'blocked':
-            return `连不上 ${host}：浏览器在拿到响应前就失败了。常见原因——梯子/代理拦了这个域名、DNS 解析不到、浏览器扩展（广告拦截/隐私盾）屏蔽了，或对方正返回限流/人机验证页。可在新标签页直接打开 ${serverUrl.replace(/\/+$/, '')}/health 验证；详细旁证见「系统调试终端」。`;
+            return `連不上 ${host}：瀏覽器在拿到響應前就失敗了。常見原因——梯子/代理攔了這個域名、DNS 解析不到、瀏覽器擴展（廣告攔截/隱私盾）屏蔽了，或對方正返回限流/人機驗證頁。可在新標籤頁直接打開 ${serverUrl.replace(/\/+$/, '')}/health 驗證；詳細旁證見「系統調試終端」。`;
         default:
-            return e?.message || '连接失败';
+            return e?.message || '連接失敗';
     }
 };
 
-// ==================== Public API (双模式) ====================
+// ==================== Public API (雙模式) ====================
 
 export const XhsMcpClient = {
 
@@ -588,12 +589,12 @@ export const XhsMcpClient = {
         if (mode === 'bridge') {
             try {
                 const baseUrl = serverUrl.replace(/\/+$/, '').replace(/\/api$/, '');
-                // 探活必须自带超时：代理/网关把连接吞掉时裸 fetch 会一直挂着，界面永远停在
-                // 「连接中」，用户只能当成卡死。10s 到点主动断，走下面的 catch 出一句人话。
+                // 探活必須自帶超時：代理/網關把連接吞掉時裸 fetch 會一直掛著，界面永遠停在
+                // 「連接中」，用戶只能當成卡死。10s 到點主動斷，走下面的 catch 出一句人話。
                 const healthResp = await fetch(`${baseUrl}/api/health`, {
                     signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
                 });
-                if (!healthResp.ok) return { connected: false, error: `Bridge 服务未响应 (HTTP ${healthResp.status})` };
+                if (!healthResp.ok) return { connected: false, error: `Bridge 服務未響應 (HTTP ${healthResp.status})` };
 
                 const loginResult = await bridgePost(serverUrl, 'check-login');
                 const tools = ['check-login', 'search', 'list-feeds', 'get-feed-detail', 'publish', 'publish-video', 'long-article', 'post-comment', 'reply-comment', 'like-feed', 'favorite-feed', 'user-profile', 'login', 'get-qrcode'];
@@ -601,10 +602,10 @@ export const XhsMcpClient = {
                 if (loginResult.success && loginResult.data) {
                     const d = loginResult.data;
                     if (typeof d === 'string') {
-                        loggedIn = d.includes('已登录') || d.includes('logged');
-                        const nameMatch = d.match(/用户名[:：]\s*(.+)/);
+                        loggedIn = includesAnyScript(d, '已登录') || d.includes('logged');
+                        const nameMatch = d.match(/用[户戶]名[:：]\s*(.+)/);
                         if (nameMatch) nickname = nameMatch[1].trim();
-                        const idMatch = d.match(/(?:用户ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
+                        const idMatch = d.match(/(?:用[户戶]ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
                         if (idMatch) userId = idMatch[1].trim();
                     } else {
                         loggedIn = !!(d.logged_in || d.loggedIn || d.is_logged_in || d.isLoggedIn || d.logged);
@@ -613,13 +614,13 @@ export const XhsMcpClient = {
                         platform = d.platform === 'xhs' || d.platform === 'rednote' ? d.platform : undefined;
                     }
                 }
-                // 自动获取 xsecToken：从首页推荐中提取
+                // 自動獲取 xsecToken：從首頁推薦中提取
                 let xsecToken: string | undefined;
                 if (loggedIn) {
                     try {
                         const feedResult = await bridgePost(serverUrl, 'list-feeds');
                         if (feedResult.success) xsecToken = extractFirstXsecToken(feedResult.data);
-                    } catch { /* 非关键，静默忽略 */ }
+                    } catch { /* 非關鍵，靜默忽略 */ }
                 }
                 return { connected: true, tools, nickname, userId, loggedIn, xsecToken, platform };
             } catch (e: any) {
@@ -638,10 +639,10 @@ export const XhsMcpClient = {
                 if (loginResult.success && loginResult.data) {
                     const d = loginResult.data;
                     if (typeof d === 'string') {
-                        loggedIn = d.includes('已登录');
-                        const nameMatch = d.match(/用户名[:：]\s*(.+)/);
+                        loggedIn = includesAnyScript(d, '已登录');
+                        const nameMatch = d.match(/用[户戶]名[:：]\s*(.+)/);
                         if (nameMatch) nickname = nameMatch[1].trim();
-                        const idMatch = d.match(/(?:用户ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
+                        const idMatch = d.match(/(?:用[户戶]ID|user_id|userId|red_id|ID)[:：]\s*(\S+)/i);
                         if (idMatch) userId = idMatch[1].trim();
                     } else {
                         loggedIn = !!(d.logged_in || d.loggedIn || d.is_logged_in || d.isLoggedIn);
@@ -650,20 +651,20 @@ export const XhsMcpClient = {
                     }
                 }
             } catch (e) {
-                console.warn('[MCP] 获取登录状态失败，跳过:', e);
+                console.warn('[MCP] 獲取登錄狀態失敗，跳過:', e);
             }
-            // 自动获取 xsecToken：从首页推荐中提取（同时验证 get_recommend 工具可用性）
+            // 自動獲取 xsecToken：從首頁推薦中提取（同時驗證 get_recommend 工具可用性）
             let xsecToken: string | undefined;
             if (loggedIn) {
                 try {
-                    console.log('[MCP] 自动获取 xsecToken: 调用 get_recommend...');
+                    console.log('[MCP] 自動獲取 xsecToken: 調用 get_recommend...');
                     const feedResult = await mcpCallTool(serverUrl, 'get_recommend');
                     if (feedResult.success) {
                         xsecToken = extractFirstXsecToken(feedResult.data);
-                        console.log(`[MCP] 自动获取 xsecToken: ${xsecToken ? '成功' : '未找到'}`);
+                        console.log(`[MCP] 自動獲取 xsecToken: ${xsecToken ? '成功' : '未找到'}`);
                     }
                 } catch (e) {
-                    console.warn('[MCP] 自动获取 xsecToken 失败（不影响连接）:', e);
+                    console.warn('[MCP] 自動獲取 xsecToken 失敗（不影響連接）:', e);
                 }
             }
             return { connected: true, tools, nickname, userId, loggedIn, xsecToken };
@@ -743,7 +744,7 @@ export const XhsMcpClient = {
                 title: params.title, content: params.content, video: params.video, tags: params.tags || [],
             });
         }
-        return { success: false, error: '视频发布仅在 Skills (Bridge) 模式下可用' };
+        return { success: false, error: '視頻發佈僅在 Skills (Bridge) 模式下可用' };
     },
 
     publishLongArticle: async (serverUrl: string, params: {
@@ -754,7 +755,7 @@ export const XhsMcpClient = {
                 title: params.title, content: params.content, images: params.images || [],
             });
         }
-        return { success: false, error: '长文发布仅在 Skills (Bridge) 模式下可用' };
+        return { success: false, error: '長文發佈僅在 Skills (Bridge) 模式下可用' };
     },
 
     comment: async (serverUrl: string, noteUrl: string, content: string, xsecToken?: string): Promise<McpToolResult> => {
@@ -806,17 +807,17 @@ export const XhsMcpClient = {
 
     login: async (serverUrl: string): Promise<McpToolResult> => {
         if (detectMode(serverUrl) === 'bridge') return bridgePost(serverUrl, 'login');
-        return { success: false, error: '登录功能仅在 Skills (Bridge) 模式下可用' };
+        return { success: false, error: '登錄功能僅在 Skills (Bridge) 模式下可用' };
     },
 
     getQrcode: async (serverUrl: string): Promise<McpToolResult> => {
         if (detectMode(serverUrl) === 'bridge') return bridgePost(serverUrl, 'get-qrcode');
-        return { success: false, error: '二维码功能仅在 Skills (Bridge) 模式下可用' };
+        return { success: false, error: '二維碼功能僅在 Skills (Bridge) 模式下可用' };
     },
 
     logout: async (serverUrl: string): Promise<McpToolResult> => {
         if (detectMode(serverUrl) === 'bridge') return bridgePost(serverUrl, 'delete-cookies');
-        return { success: false, error: '登出功能仅在 Skills (Bridge) 模式下可用' };
+        return { success: false, error: '登出功能僅在 Skills (Bridge) 模式下可用' };
     },
 };
 
@@ -825,30 +826,30 @@ export const XhsMcpClient = {
 export const extractNotesFromMcpData = (data: any): any[] => {
     if (!data) return [];
     if (Array.isArray(data)) {
-        // 如果是嵌套数组（数组的数组），展平后过滤出笔记对象
+        // 如果是嵌套數組（數組的數組），展平後過濾出筆記對象
         if (data.length > 0 && Array.isArray(data[0])) {
-            console.log(`[XHS] extractNotes: 检测到嵌套数组，展平 (${data.length} 组)`);
+            console.log(`[XHS] extractNotes: 檢測到嵌套數組，展平 (${data.length} 組)`);
             return data.flat().filter((n: any) => n && typeof n === 'object' && !Array.isArray(n));
         }
         return data;
     }
-    // 直接查找常见 key
+    // 直接查找常見 key
     for (const key of ['notes', 'items', 'feeds', 'data', 'list', 'results', 'note_list', 'noteList']) {
         if (Array.isArray(data[key])) {
             const arr = data[key];
-            // 嵌套数组处理
+            // 嵌套數組處理
             if (arr.length > 0 && Array.isArray(arr[0])) {
-                console.log(`[XHS] extractNotes: data.${key} 是嵌套数组，展平`);
+                console.log(`[XHS] extractNotes: data.${key} 是嵌套數組，展平`);
                 return arr.flat().filter((n: any) => n && typeof n === 'object' && !Array.isArray(n));
             }
             return arr;
         }
     }
-    // Bridge 模式嵌套: { code: 0, data: { notes: [...] } } — 解包一层再查
+    // Bridge 模式嵌套: { code: 0, data: { notes: [...] } } — 解包一層再查
     if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
         for (const key of ['notes', 'items', 'feeds', 'list', 'results', 'note_list', 'noteList']) {
             if (Array.isArray(data.data[key])) {
-                console.log(`[XHS] extractNotes: 从 data.data.${key} 找到数组, length=${data.data[key].length}`);
+                console.log(`[XHS] extractNotes: 從 data.data.${key} 找到數組, length=${data.data[key].length}`);
                 return data.data[key];
             }
         }
@@ -864,17 +865,17 @@ export const extractNotesFromMcpData = (data: any): any[] => {
                 if (first && typeof first === 'object' &&
                     (first.noteId || first.note_id || first.id || first.noteCard ||
                      first.displayTitle || first.title || first.desc || first.cover)) {
-                    console.log(`[XHS] extractNotes: 在 key "${key}" 中找到笔记数组, length=${(val as any[]).length}`);
+                    console.log(`[XHS] extractNotes: 在 key "${key}" 中找到筆記數組, length=${(val as any[]).length}`);
                     return val as any[];
                 }
             }
         }
     }
     if (typeof data === 'string') {
-        console.warn('[XHS] extractNotes: data 是纯文本，无法提取笔记:', data.slice(0, 200));
+        console.warn('[XHS] extractNotes: data 是純文本，無法提取筆記:', data.slice(0, 200));
         return [];
     }
-    console.warn('[XHS] extractNotes: 未找到笔记数组, data keys:', Object.keys(data));
+    console.warn('[XHS] extractNotes: 未找到筆記數組, data keys:', Object.keys(data));
     return [];
 };
 
@@ -886,13 +887,13 @@ export const parseXhsCount = (value: unknown): number => {
 
     const normalized = value.trim().replace(/[,\s+]/g, '');
     if (!normalized) return 0;
-    const match = normalized.match(/^(-?\d+(?:\.\d+)?)(万|億|亿|千|[kKmMwW])?/);
+    const match = normalized.match(/^(-?\d+(?:\.\d+)?)([万萬]|億|[亿億]|千|[kKmMwW])?/);
     if (!match) return 0;
 
     const base = Number(match[1]);
     if (!Number.isFinite(base) || base < 0) return 0;
     const unit = match[2]?.toLowerCase();
-    const multiplier = unit === '万' || unit === 'w' ? 10_000
+    const multiplier = unit === '万' || unit === '萬' || unit === 'w' ? 10_000
         : unit === '億' || unit === '亿' ? 100_000_000
         : unit === '千' || unit === 'k' ? 1_000
         : unit === 'm' ? 1_000_000
@@ -978,13 +979,13 @@ export const normalizeNote = (n: any): {
     type?: string;
 } => {
     const card = n.noteCard || n.note_card || n.notecard;
-    // 封面：cover 对象 / 字符串，或笔记图片列表首图（feed detail 返回 image_list）。
+    // 封面：cover 對象 / 字符串，或筆記圖片列表首圖（feed detail 返回 image_list）。
     const coverObj = card?.cover || n.cover || n.image_list?.[0] || card?.image_list?.[0];
     const rawCoverUrl = typeof coverObj === 'string' ? coverObj
         : coverObj?.urlDefault || coverObj?.url_default || coverObj?.url || coverObj?.urlPre
         || coverObj?.info_list?.[0]?.url || undefined;
     const coverUrl = rawCoverUrl?.replace(/^http:\/\//, 'https://');
-    // 点赞数：支持 interactInfo.likedCount (profile notes) 和 interact_info.liked_count (search results)
+    // 點贊數：支持 interactInfo.likedCount (profile notes) 和 interact_info.liked_count (search results)
     const interact = n.interact_info || n.interactInfo
         || card?.interact_info || card?.interactInfo || {};
     const likesRaw = n.likes ?? n.liked_count ?? interact.liked_count ?? interact.likedCount ?? 0;

@@ -1,13 +1,13 @@
 /**
- * Memory Dive — 上屏房间渲染
+ * Memory Dive — 上屏房間渲染
  *
- * 修复 ROOM_SCALE 2.2 导致的家具错位问题：
- *   - 通过 ResizeObserver 测量容器，动态计算适配尺寸
- *   - 房间按宽高比完整放入视口，家具 % 坐标与编辑器完全一致
- *   - 角色 / 用户 sprite 按 tile 比例缩放
+ * 修復 ROOM_SCALE 2.2 導致的傢俱錯位問題：
+ *   - 通過 ResizeObserver 測量容器，動態計算適配尺寸
+ *   - 房間按寬高比完整放入視口，傢俱 % 座標與編輯器完全一致
+ *   - 角色 / 用戶 sprite 按 tile 比例縮放
  *
- * 角色与用户小人使用 CSS transition 自动过渡到 charPos / playerPos，
- *   上层只需设置目标位置即可获得"行走"动画。
+ * 角色與用戶小人使用 CSS transition 自動過渡到 charPos / playerPos，
+ *   上層只需設置目標位置即可獲得"行走"動畫。
  */
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -67,36 +67,36 @@ const MemoryDiveRoom: React.FC<Props> = ({
 
   const roomSize = ROOM_SIZES[roomId] || { w: 10, h: 6 };
 
-  // 关键：按宽高比适配视口，保证完整可见、不裁切
+  // 關鍵：按寬高比適配視口，保證完整可見、不裁切
   const { pw, ph, tilePx } = useMemo(() => {
     if (size.w === 0 || size.h === 0) return { pw: 0, ph: 0, tilePx: TILE_BASE };
     const aspect = roomSize.w / roomSize.h;
     const viewportAspect = size.w / size.h;
     let width: number, height: number;
     if (viewportAspect > aspect) {
-      // 视口更宽 → 以高度填满
+      // 視口更寬 → 以高度填滿
       height = size.h;
       width = height * aspect;
     } else {
-      // 视口更瘦 → 以宽度填满
+      // 視口更瘦 → 以寬度填滿
       width = size.w;
       height = width / aspect;
     }
-    // 离散化到整数像素，避免子像素渲染
+    // 離散化到整數像素，避免子像素渲染
     width = Math.floor(width);
     height = Math.floor(height);
     return { pw: width, ph: height, tilePx: width / roomSize.w };
   }, [size.w, size.h, roomSize.w, roomSize.h]);
 
   const roomStyle = FLOOR_STYLES[roomId] || FLOOR_STYLES.living_room;
-  // 与编辑器 WALL_TOP_RATIO 保持一致，避免墙/地板分界线位置不同导致家具看起来错位
+  // 與編輯器 WALL_TOP_RATIO 保持一致，避免牆/地板分界線位置不同導致傢俱看起來錯位
   const wallH = Math.round(ph * 0.38);
-  // 家具尺寸：与编辑器保持同一公式
+  // 傢俱尺寸：與編輯器保持同一公式
   const furBase = Math.min(pw, ph);
-  // 角色尺寸固定以视口（容器）为基准，而不是 tilePx ——
-  // 否则像卧室 5x5、客厅 10x6 这种宽高比差异会让 tilePx 在房间间相差近 2 倍，
-  // 角色在卧室看起来比客厅大很多。视口本身在房间切换时尺寸不变，这里才能做到
-  // "走到任何房间都是同样大小的小人"。
+  // 角色尺寸固定以視口（容器）為基準，而不是 tilePx ——
+  // 否則像臥室 5x5、客廳 10x6 這種寬高比差異會讓 tilePx 在房間間相差近 2 倍，
+  // 角色在臥室看起來比客廳大很多。視口本身在房間切換時尺寸不變，這裡才能做到
+  // "走到任何房間都是同樣大小的小人"。
   const charBase = Math.min(size.w, size.h) || furBase;
   const charSize = Math.max(22, Math.round(charBase * 0.11));
   const playerSize = Math.max(20, Math.round(charBase * 0.10));
@@ -108,7 +108,7 @@ const MemoryDiveRoom: React.FC<Props> = ({
 
   return (
     <div ref={viewportRef} className="relative w-full h-full overflow-hidden bg-slate-950 flex items-center justify-center">
-      {/* 房间画布 —— 固定像素宽高，家具 % 定位自然对齐 */}
+      {/* 房間畫布 —— 固定像素寬高，傢俱 % 定位自然對齊 */}
       {pw > 0 && (
         <div
           className="relative"
@@ -120,7 +120,7 @@ const MemoryDiveRoom: React.FC<Props> = ({
             transition: 'opacity 350ms ease, filter 350ms ease',
           }}
         >
-          {/* 墙面 */}
+          {/* 牆面 */}
           <div className="absolute inset-x-0 top-0 overflow-hidden" style={{ height: wallH }}>
             <WallOrFloor
               field={layout?.wallColor}
@@ -144,12 +144,12 @@ const MemoryDiveRoom: React.FC<Props> = ({
             />
           </div>
 
-          {/* 家具（纯装饰，无互动、无访问状态）
-             位置与编辑器完全一致：锚点是家具方框（width × width）的中心，
+          {/* 傢俱（純裝飾，無互動、無訪問狀態）
+             位置與編輯器完全一致：錨點是傢俱方框（width × width）的中心，
              用 px 偏移 -furSize/2 定位，而不是 translate(-50%, -50%) ——
-             因为 translate 会用 img 的实际高度（height:auto），高家具就会往上漂。
-             编辑器里一直是用 furSize（宽度）作为垂直偏移基准的，这里也一样，
-             潜行视图的家具位置就能和房间编辑器里拖出来的位置一模一样。 */}
+             因為 translate 會用 img 的實際高度（height:auto），高傢俱就會往上漂。
+             編輯器裡一直是用 furSize（寬度）作為垂直偏移基準的，這裡也一樣，
+             潛行視圖的傢俱位置就能和房間編輯器裡拖出來的位置一模一樣。 */}
           {layout?.furniture.map(f => {
             const asset = f.assetId ? assets.find(a => a.id === f.assetId) : null;
             const imgSrc = asset?.pixelImage;
@@ -194,7 +194,7 @@ const MemoryDiveRoom: React.FC<Props> = ({
             );
           })}
 
-          {/* 用户小人（跟随，先绘制低 z，这样与角色重叠时在后） */}
+          {/* 用戶小人（跟隨，先繪製低 z，這樣與角色重疊時在後） */}
           <SpritePerson
             pos={playerPos}
             size={playerSize}
@@ -224,7 +224,7 @@ const MemoryDiveRoom: React.FC<Props> = ({
         </div>
       )}
 
-      {/* 场景转换黑幕（淡入时覆盖一层） */}
+      {/* 場景轉換黑幕（淡入時覆蓋一層） */}
       {transitionState !== 'idle' && (
         <div
           className="absolute inset-0 pointer-events-none bg-black"
@@ -238,7 +238,7 @@ const MemoryDiveRoom: React.FC<Props> = ({
   );
 };
 
-// ─── 子组件：墙 / 地板背景 ────────────────────────────
+// ─── 子組件：牆 / 地板背景 ────────────────────────────
 
 const WallOrFloor: React.FC<{
   field: string | undefined;
@@ -270,7 +270,7 @@ const WallOrFloor: React.FC<{
   return <div className="absolute inset-0" style={{ backgroundColor: color }} />;
 };
 
-// ─── 子组件：像素小人（角色或用户） ───────────────────
+// ─── 子組件：像素小人（角色或用戶） ───────────────────
 
 const SpritePerson: React.FC<{
   pos: { x: number; y: number };
@@ -326,13 +326,13 @@ const SpritePerson: React.FC<{
           <DefaultSprite bgGradient={baseColor} />
         )}
       </div>
-      {/* 标签 */}
+      {/* 標籤 */}
       <div className="absolute left-1/2 -translate-x-1/2 -bottom-4">
         <span className={`text-[8px] px-1 rounded-sm text-white/90 whitespace-nowrap ${labelColor}`}>
           {label}
         </span>
       </div>
-      {/* 脚下阴影 */}
+      {/* 腳下陰影 */}
       <div className="absolute left-1/2 -translate-x-1/2 rounded-full bg-black/25"
         style={{ width: size * 0.55, height: 3, bottom: -2 }}
       />

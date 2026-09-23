@@ -1,9 +1,9 @@
 /**
- * 定时任务细账（./tickReport）在真 SQLite 上跑：查询语句、列名是不是跟上游的建表语句对得上，
- * 用假库测不出来——列名写错时 /debug 会静默退回老判据，面板照常，谁也发现不了。
+ * 定時任務細帳（./tickReport）在真 SQLite 上跑：查詢語句、列名是不是跟上游的建表語句對得上，
+ * 用假庫測不出來——列名寫錯時 /debug 會靜默退回老判據，面板照常，誰也發現不了。
  *
- * 用的是 Node 自带的 node:sqlite（Node 22.5+），外面包一层 D1 的调用形状，表由上游自己的
- * initSchema 建。Node 太老没有它时整组跳过。
+ * 用的是 Node 自帶的 node:sqlite（Node 22.5+），外面包一層 D1 的調用形狀，表由上游自己的
+ * initSchema 建。Node 太老沒有它時整組跳過。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
@@ -26,14 +26,14 @@ import {
 type SqliteModule = { DatabaseSync: new (path: string) => any };
 const sqlite: SqliteModule | null = (() => {
   try {
-    // 走 require 绕开 Vite：它不认 node:sqlite 这个内置模块。
+    // 走 require 繞開 Vite：它不認 node:sqlite 這個內置模塊。
     return createRequire(import.meta.url)('node:sqlite');
   } catch {
     return null;
   }
 })();
 
-/** node:sqlite 包成 D1 的样子：prepare → bind → first / all / run，外加 batch。 */
+/** node:sqlite 包成 D1 的樣子：prepare → bind → first / all / run，外加 batch。 */
 const createD1 = () => {
   const db = new sqlite!.DatabaseSync(':memory:');
   const statement = (sql: string, params: unknown[] = []) => ({
@@ -116,16 +116,16 @@ const insertTask = async (d1: ReturnType<typeof createD1>, row: {
 
 const options = { masterKey: MASTER_KEY, serializeKeyOf: amsgSerializeKey, nowMs: NOW };
 
-describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
+describe.skipIf(!sqlite)('定時任務細帳（真 SQLite）', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
   describe('readOverdueTasks', () => {
-    it('认出是哪个角色的任务，失败原文一个字不截地带出来', async () => {
+    it('認出是哪個角色的任務，失敗原文一個字不截地帶出來', async () => {
       const d1 = await createSchemaDb();
-      const reason = `AI API error: 429 Too Many Requests (https://relay.example/v1/chat/completions) — ${'额度用完了，'.repeat(30)}`;
+      const reason = `AI API error: 429 Too Many Requests (https://relay.example/v1/chat/completions) — ${'額度用完了，'.repeat(30)}`;
       await insertTask(d1, {
         contactName: '小明',
         nextSendAt: iso(-40),
@@ -147,18 +147,18 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       expect(result.verdict).toBe('failing');
     });
 
-    it('循环任务上一次到点留下的失败记录，不算这一次的', async () => {
+    it('循環任務上一次到點留下的失敗記錄，不算這一次的', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, {
         nextSendAt: iso(-1),
-        lastError: { at: iso(-1440), occurrence: iso(-1441), reason: '昨天那次的错' },
+        lastError: { at: iso(-1440), occurrence: iso(-1441), reason: '昨天那次的錯' },
         updatedAt: iso(-1440),
       });
       const [task] = (await readOverdueTasks(d1 as unknown as TickReportDb, options)).tasks;
       expect(task.lastError).toBeNull();
     });
 
-    it('开跑过没下文的认得出来；同一个角色排在它后面的算排队', async () => {
+    it('開跑過沒下文的認得出來；同一個角色排在它後面的算排隊', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, { contactName: '小明', nextSendAt: iso(-30), updatedAt: iso(-3), leaseUntil: iso(-1) });
       await insertTask(d1, { charId: 'char-b', nextSendAt: iso(-12), updatedAt: iso(-12), leaseUntil: iso(1) });
@@ -173,7 +173,7 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       expect(verdict).toBe('stalled');
     });
 
-    it('主密钥对不上时说不出名字，但细账照出', async () => {
+    it('主密鑰對不上時說不出名字，但細帳照出', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, { nextSendAt: iso(-30) });
       const { tasks } = await readOverdueTasks(d1 as unknown as TickReportDb, { ...options, masterKey: 'b'.repeat(64) });
@@ -184,7 +184,7 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
   });
 
   describe('readRecentFailures', () => {
-    it('只列最近 24 小时彻底没发出去的：一次性失败、循环跳过；即时对话和还在重试的不列', async () => {
+    it('只列最近 24 小時徹底沒發出去的：一次性失敗、循環跳過；即時對話和還在重試的不列', async () => {
       const d1 = await createSchemaDb();
       const failed = await insertTask(d1, {
         status: 'failed', nextSendAt: iso(-90), updatedAt: iso(-60),
@@ -196,15 +196,15 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       });
       await insertTask(d1, {
         messageType: 'instant', status: 'failed', nextSendAt: iso(-20), updatedAt: iso(-10),
-        lastError: { at: iso(-10), occurrence: iso(-20), reason: '即时对话的错' },
+        lastError: { at: iso(-10), occurrence: iso(-20), reason: '即時對話的錯' },
       });
       await insertTask(d1, {
         status: 'failed', nextSendAt: iso(-3000), updatedAt: iso(-10),
-        lastError: { at: iso(-2000), occurrence: iso(-3000), reason: '太久以前的错' },
+        lastError: { at: iso(-2000), occurrence: iso(-3000), reason: '太久以前的錯' },
       });
       await insertTask(d1, {
         nextSendAt: iso(-20), retryAfter: iso(2), retryCount: 1, updatedAt: iso(-1),
-        lastError: { at: iso(-1), occurrence: iso(-20), reason: '还在重试' },
+        lastError: { at: iso(-1), occurrence: iso(-20), reason: '還在重試' },
       });
 
       const failures = await readRecentFailures(d1 as unknown as TickReportDb, options);
@@ -213,13 +213,13 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
     });
   });
 
-  describe('整轮报错', () => {
+  describe('整輪報錯', () => {
     const tickFailed = (message: string, name = 'Error') => ({
       ok: false,
       cause: { stage: 'tick', name, message },
     });
 
-    it('同一种错连着出现并成一串，隔久了或换了一种就重新起一串', async () => {
+    it('同一種錯連著出現併成一串，隔久了或換了一種就重新起一串', async () => {
       const d1 = await createSchemaDb();
       const db = d1 as unknown as TickReportDb;
       await recordTickOutcome(db, tickFailed('D1_ERROR: no such column: retry_after'), NOW);
@@ -237,14 +237,14 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       expect(record).toMatchObject({ count: 1, firstAt: iso(30), ongoing: false });
     });
 
-    it('正常的一跳什么都不写（连表都不建）', async () => {
+    it('正常的一跳什麼都不寫（連表都不建）', async () => {
       const d1 = await createSchemaDb();
       await recordTickOutcome(d1 as unknown as TickReportDb, { ok: true, summary: { details: { failedTasks: [] } } }, NOW);
       const table = d1.raw.prepare("SELECT name FROM sqlite_master WHERE name = 'worker_diagnostics'").get();
       expect(table).toBeUndefined();
     });
 
-    it('一跳里任务写库失败（行上留不下痕迹的那种）也记下来，原话过一遍脱敏', () => {
+    it('一跳裡任務寫庫失敗（行上留不下痕跡的那種）也記下來，原話過一遍脫敏', () => {
       const failure = pickTickFailure({
         ok: true,
         summary: {
@@ -263,21 +263,21 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       });
       expect(failure?.stage).toBe('retry_update_failed');
       expect(failure?.message).toContain('database is locked');
-      expect(failure?.message).toContain('本来要记下的失败原因');
+      expect(failure?.message).toContain('本來要記下的失敗原因');
       expect(failure?.message).not.toContain('sk-abcdefghijklmnopqrstuvwxyz0123');
     });
 
-    it('补救成功的收尾失败不算', () => {
+    it('補救成功的收尾失敗不算', () => {
       expect(pickTickFailure({
         ok: true,
         summary: { details: { failedTasks: [{ taskId: 3, reason: 'x', status: 'post_send_cleanup_failed_marked_sent' }] } },
       })).toBeNull();
     });
 
-    it('scheduled() 整轮挂了会记进库，细账里读得到原话', async () => {
+    it('scheduled() 整輪掛了會記進庫，細帳裡讀得到原話', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const d1 = createD1(); // 一张表都没有：上游捞任务那一步必挂
+      const d1 = createD1(); // 一張表都沒有：上游撈任務那一步必掛
       await (worker as any).scheduled({ scheduledTime: Date.now(), cron: '* * * * *' }, envWith(d1));
 
       const record = await readTickFailure(d1 as unknown as TickReportDb);
@@ -301,7 +301,7 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
     const request = (headers: Record<string, string> = {}, method = 'GET') =>
       new Request('https://w.example/tick-report', { method, headers });
 
-    it('配了共享密钥就必须带对：不带 401，带错 401，带对才回细账', async () => {
+    it('配了共享密鑰就必須帶對：不帶 401，帶錯 401，帶對才回細帳', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, {
         nextSendAt: new Date(Date.now() - 40 * 60_000).toISOString(),
@@ -326,24 +326,24 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       expect(response.status).toBe(405);
     });
 
-    it('buildTickReport 把三块拼在一起', async () => {
+    it('buildTickReport 把三塊拼在一起', async () => {
       const d1 = await createSchemaDb();
-      await recordTickOutcome(d1 as unknown as TickReportDb, { ok: false, cause: { stage: 'config', name: 'VapidNotConfigured', message: 'VAPID / webpush 未配置，本跳跳过' } }, NOW);
+      await recordTickOutcome(d1 as unknown as TickReportDb, { ok: false, cause: { stage: 'config', name: 'VapidNotConfigured', message: 'VAPID / webpush 未配置，本跳跳過' } }, NOW);
       const report = await buildTickReport(d1 as unknown as TickReportDb, options);
       expect(report).toMatchObject({ tasks: [], recentFailures: [], truncated: false });
       expect(report.tickFailure?.name).toBe('VapidNotConfigured');
     });
   });
 
-  describe('GET /debug 的定时任务判定', () => {
+  describe('GET /debug 的定時任務判定', () => {
     const debug = async (d1: unknown) =>
       (await (await (worker as any).fetch(new Request('https://w.example/debug'), envWith(d1))).json()).data;
 
     /**
-     * 回归守卫：一条在正常重试的任务到点四十分钟很平常（到点时刻在重试期间不会往后挪），
-     * 只看晚了多久的话它会被判成 stalled，面板就会说「定时触发器可能没在跑」。
+     * 迴歸守衛：一條在正常重試的任務到點四十分鐘很平常（到點時刻在重試期間不會往後挪），
+     * 只看晚了多久的話它會被判成 stalled，面板就會說「定時觸發器可能沒在跑」。
      */
-    it('在失败重试的任务判成 failing，不是 stalled；报错原文不出这个端点', async () => {
+    it('在失敗重試的任務判成 failing，不是 stalled；報錯原文不出這個端點', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, {
         nextSendAt: new Date(Date.now() - 40 * 60_000).toISOString(),
@@ -364,7 +364,7 @@ describe.skipIf(!sqlite)('定时任务细账（真 SQLite）', () => {
       expect(text).not.toContain('小明');
     });
 
-    it('真没人领的任务照样判 stalled', async () => {
+    it('真沒人領的任務照樣判 stalled', async () => {
       const d1 = await createSchemaDb();
       await insertTask(d1, { nextSendAt: new Date(Date.now() - 40 * 60_000).toISOString() });
       const data = await debug(d1);

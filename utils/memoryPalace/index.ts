@@ -1,8 +1,8 @@
 /**
- * Memory Palace (记忆宫殿) — 统一导出
+ * Memory Palace (記憶宮殿) — 統一導出
  */
 
-// 类型
+// 類型
 export type {
     MemoryRoom, RoomConfig, MemoryEntity, MemoryNode, MemoryVector,
     LinkType, MemoryLink, BoxStatus, TopicBox, TopicContinuity,
@@ -14,26 +14,26 @@ export type {
 
 export { ROOM_CONFIGS, ROOM_LABELS, getRoomLabel, PERSONALITY_WEIGHTS, EVENT_BOX_COMPRESSION_THRESHOLD, PLATE_ROOMS, PLATE_TITLES, PLATE_ENTRY_CAPS } from './types';
 
-// 数据库
+// 數據庫
 export { MemoryNodeDB, MemoryVectorDB, MemoryLinkDB, MemoryBatchDB, TopicBoxDB, AnticipationDB, EventBoxDB, RoomPlateDB, DigestReportDB } from './db';
 
 // Embedding
 export { getEmbedding, getEmbeddings, cosineSimilarity } from './embedding';
 
-// Rerank（cross-encoder 二次排序，作为主召回的独立增强通道）
+// Rerank（cross-encoder 二次排序，作為主召回的獨立增強通道）
 export { rerankDocuments } from './rerank';
 export type { RerankApiConfig, RerankResult } from './rerank';
 
-// 输入管线
+// 輸入管線
 export { extractMemoriesFromBuffer } from './extraction';
 export { vectorizeAndStore, updateStoredMemoryNode, checkModelConsistency, rebuildAllVectors } from './vectorStore';
 export type { UpdateStoredMemoryNodeResult } from './vectorStore';
 
-// 认知过程
+// 認知過程
 export { runConsolidation, calculateEffectiveImportance, shouldPromote } from './consolidation';
 export { buildLinks, strengthenCoActivated } from './links';
 
-// 输出管线
+// 輸出管線
 export { vectorSearch } from './vectorSearch';
 export { bm25Search, tokenize } from './bm25';
 export {
@@ -160,15 +160,15 @@ export {
     disappointAnticipation, createAnticipation,
 } from './anticipation';
 
-// 认知消化
+// 認知消化
 export { runCognitiveDigestion, incrementDigestRound, getDigestRoundCount, getLastDigestTs, detectPersonalityStyle } from './digestion';
 export type { DigestResult } from './digestion';
 
-// 迁移
+// 遷移
 export { migrateOldMemories, getAvailableMonths, getAvailableChunks } from './migration';
 export type { MigrationProgress } from './migration';
 
-// EventBox（事件盒：替代旧的 boxId 批次盒）
+// EventBox（事件盒：替代舊的 boxId 批次盒）
 export {
     bindMemoriesIntoEventBox, manuallyBindMemories,
     removeMemoryFromBox, reviveArchivedMemory,
@@ -180,7 +180,7 @@ export {
 } from './eventBoxCompression';
 export type { RegenerateEventBoxSummaryResult } from './eventBoxCompression';
 
-// 房间门牌（情景→语义固化层）
+// 房間門牌（情景→語義固化層）
 export {
     consolidateAllPlates, updatePlateFromBoxSummary,
     buildRoomPlatesInjection, formatRoomPlatesSection, isPlateRoom,
@@ -189,10 +189,10 @@ export {
     getBootstrapResume, setBootstrapResume, clearBootstrapResume,
 } from './roomPlates';
 
-// 一键清空（本地 + 云端）
+// 一鍵清空（本地 + 雲端）
 export { wipeAllMemoryPalace } from './wipe';
 export type { WipeResult } from './wipe';
 
-// 导出 / 导入（接入外置记忆库、跨设备迁移用）
+// 導出 / 導入（接入外置記憶庫、跨設備遷移用）
 export { exportMemoryPalace, importMemoryPalace, isMemoryPalaceExportFile } from './export';
 export type { MemoryPalaceExportFile, CharacterMemoryPalaceExport, ExportedVector, ImportResult } from './export';

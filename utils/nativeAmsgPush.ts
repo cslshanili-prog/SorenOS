@@ -48,7 +48,7 @@ const ingestNotification = async (notification: PushNotificationSchema): Promise
   const inbox: ActiveMsg2InboxMessage = {
     messageId,
     charId,
-    charName: String(payload.contactName || payload.metadata?.charName || '主动消息'),
+    charName: String(payload.contactName || payload.metadata?.charName || '主動消息'),
     body,
     previewBody: String(notification.body || body).trim(),
     avatarUrl: payload.avatarUrl,
@@ -80,7 +80,7 @@ const registerToken = async (token: Token) => {
   try {
     await ActiveMsgClient.registerNativePushToken(value);
   } catch (error) {
-    console.info('[ActiveMsg:native] token 已保存，等待 Worker 连接后补登记', error);
+    console.info('[ActiveMsg:native] token 已保存，等待 Worker 連接後補登記', error);
   }
 };
 
@@ -88,12 +88,12 @@ export const initNativeAmsgPush = async (): Promise<void> => {
   if (initialized) return;
   initialized = true;
   await PushNotifications.createChannel({
-    id: 'amsg2', name: '主动消息', description: '角色主动消息与定时消息',
+    id: 'amsg2', name: '主動消息', description: '角色主動消息與定時消息',
     importance: 5, visibility: 1, vibration: true,
   }).catch(() => undefined);
   await PushNotifications.addListener('registration', registerToken);
   await PushNotifications.addListener('registrationError', (error) =>
-    console.warn('[ActiveMsg:native] FCM registration 失败', error));
+    console.warn('[ActiveMsg:native] FCM registration 失敗', error));
   await PushNotifications.addListener('pushNotificationReceived', (notification) =>
     void ingestNotification(notification));
   await PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {

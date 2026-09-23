@@ -50,7 +50,7 @@ export const collaborationInlineText = (spans: CollaborationInlineSpan[]): strin
  * rows. Artifact/file bodies are parsed out before this helper is applied.
  */
 export const normalizeCollaborationVisibleText = (source: string): string => {
-  const transcriptPrefix = /(^|\n)[ \t]*\[\d{4}[-/]\d{1,2}[-/]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?\][ \t]*\[(?:聊天|通话|约会)\][ \t]*/g;
+  const transcriptPrefix = /(^|\n)[ \t]*\[\d{4}[-/]\d{1,2}[-/]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?\][ \t]*\[(?:聊天|通[话話]|[约約][会會])\][ \t]*/g;
   let leakedRows = 0;
   const cleaned = source.replace(transcriptPrefix, (_match, boundary: string) => {
     leakedRows += 1;

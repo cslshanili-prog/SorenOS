@@ -1,18 +1,18 @@
 /**
- * agenticTools — 二轮 LLM 数据工具的纯函数封装
+ * agenticTools — 二輪 LLM 數據工具的純函數封裝
  *
- * 把 "read 类" 工具的 data-fetch 部分集中起来: 本地聊天的 applyAssistantPostProcessing
- * 直接 import 具体 run* 函数, 主动消息 2.0 的 worker 工具循环走 dispatchAgenticTool。
+ * 把 "read 類" 工具的 data-fetch 部分集中起來: 本地聊天的 applyAssistantPostProcessing
+ * 直接 import 具體 run* 函數, 主動消息 2.0 的 worker 工具循環走 dispatchAgenticTool。
  *
- * - 每个 run* 返回 `{ ok: true, ... } | { ok: false, reason, message? }`
- * - 不调 2nd-pass LLM (这是 applyAssistantPostProcessing / worker 工具循环的事)
- * - 不修改 aiContent (调用方负责)
- * - 不 toast / setStatus (调用方负责)
- * - XHS 工具会修改 ctx.xhsCaches + ctx.lastXhsNotesRef (跨 tool 共享状态)
+ * - 每個 run* 返回 `{ ok: true, ... } | { ok: false, reason, message? }`
+ * - 不調 2nd-pass LLM (這是 applyAssistantPostProcessing / worker 工具循環的事)
+ * - 不修改 aiContent (調用方負責)
+ * - 不 toast / setStatus (調用方負責)
+ * - XHS 工具會修改 ctx.xhsCaches + ctx.lastXhsNotesRef (跨 tool 共享狀態)
  */
 
-// 值 import 只允许环境无关叶子（realtimeFetchCore / xhsMcpClient / localDate）——这份文件会被
-// amsg worker bundle 原样打包跑在服务端工具循环里；类型统一 import type，不进 bundle。
+// 值 import 只允許環境無關葉子（realtimeFetchCore / xhsMcpClient / localDate）——這份文件會被
+// amsg worker bundle 原樣打包跑在服務端工具循環裡；類型統一 import type，不進 bundle。
 import type { CharacterProfile, RealtimeConfig, UserProfile } from '../types';
 import type { XhsNote } from './realtimeContext';
 import {
@@ -31,10 +31,11 @@ import {
     normalizeXhsLiteDetail,
 } from './xhsMcpClient';
 import { getLocalDateKey } from './localDate';
+import { includesAnyScript } from './scriptKey';
 
-// ─── 共用类型 ────────────────────────────────────────────────────────────────
+// ─── 共用類型 ────────────────────────────────────────────────────────────────
 
-/** XHS 跨 tool 共享状态 — useRef 持有, 在同一会话内累积 */
+/** XHS 跨 tool 共享狀態 — useRef 持有, 在同一會話內累積 */
 export interface XhsCaches {
     xsecTokenCache: Map<string, string>;
     noteTitleCache: Map<string, string>;
@@ -43,7 +44,7 @@ export interface XhsCaches {
     commentParentIdCache: Map<string, string>;
 }
 
-/** 解析 char + realtimeConfig 拿到当前 XHS 配置 (per-character override) */
+/** 解析 char + realtimeConfig 拿到當前 XHS 配置 (per-character override) */
 export interface XhsConfig {
     enabled: boolean;
     mcpUrl: string;
@@ -53,14 +54,14 @@ export interface XhsConfig {
 }
 
 /**
- * 这些工具真正会读的实时配置字段（RealtimeConfig 的凭据子集）。
+ * 這些工具真正會讀的實時配置字段（RealtimeConfig 的憑據子集）。
  *
- * 与 AgenticToolChar 同一个道理：amsg worker 到点只有云端 tool_config 那点数据，拼不出
- * 完整的 RealtimeConfig。声明成窄接口后，浏览器侧传完整 RealtimeConfig 天然满足（结构化
- * 类型，调用点不用改），worker 侧直接把 AmsgToolConfig 递进来也能被类型检查到。
+ * 與 AgenticToolChar 同一個道理：amsg worker 到點只有雲端 tool_config 那點數據，拼不出
+ * 完整的 RealtimeConfig。聲明成窄接口後，瀏覽器側傳完整 RealtimeConfig 天然滿足（結構化
+ * 類型，調用點不用改），worker 側直接把 AmsgToolConfig 遞進來也能被類型檢查到。
  *
- * 上云的 AmsgToolConfig 直接 extends 这个接口（见 utils/amsgToolPack.ts），所以这里加字段
- * 那边自动跟上——两份字段表靠人工对齐的话，漏一个就是 worker 侧运行时静默拿 undefined。
+ * 上雲的 AmsgToolConfig 直接 extends 這個接口（見 utils/amsgToolPack.ts），所以這裡加字段
+ * 那邊自動跟上——兩份字段表靠人工對齊的話，漏一個就是 worker 側運行時靜默拿 undefined。
  */
 export interface AgenticToolRealtimeConfig {
     newsEnabled: boolean;
@@ -83,8 +84,8 @@ export interface AgenticToolRealtimeConfig {
     };
 }
 
-// 只读 char.xhsEnabled 一个字段，所以参数就按这个声明（原来要整个 CharacterProfile，
-// 声明的依赖比真实的宽太多，amsg worker 那种拼不出完整角色的调用方就只能硬转）。
+// 只讀 char.xhsEnabled 一個字段，所以參數就按這個聲明（原來要整個 CharacterProfile，
+// 聲明的依賴比真實的寬太多，amsg worker 那種拼不出完整角色的調用方就只能硬轉）。
 export function resolveXhsConfig(
     char: { xhsEnabled?: boolean },
     realtimeConfig?: AgenticToolRealtimeConfig,
@@ -96,19 +97,19 @@ export function resolveXhsConfig(
     const loggedInNickname = mcpConfig?.loggedInNickname;
     const userXsecToken = mcpConfig?.userXsecToken;
 
-    // 必须由角色自己的开关显式打开（UI 默认关闭）；不回退到全局 realtimeConfig.xhsEnabled，
-    // 与 chatPrompts.ts 的提示词注入门控保持一致。
+    // 必須由角色自己的開關顯式打開（UI 默認關閉）；不回退到全局 realtimeConfig.xhsEnabled，
+    // 與 chatPrompts.ts 的提示詞注入門控保持一致。
     return { enabled: !!char.xhsEnabled && mcpAvailable, mcpUrl, loggedInUserId, loggedInNickname, userXsecToken };
 }
 
 /**
- * 这些工具真正会读的角色字段（CharacterProfile 的子集）。
+ * 這些工具真正會讀的角色字段（CharacterProfile 的子集）。
  *
- * 为什么单独声明：amsg worker 到点只有云端 tool_pack 那点数据，拼不出完整的
- * CharacterProfile。以前 worker 侧用 `as unknown as CharacterProfile` 硬转，等于把编译器
- * 关掉——这边哪天多读一个字段，worker 侧就悄悄拿到 undefined，还不会报错。声明成窄接口后
- * 浏览器侧传完整 CharacterProfile 天然满足（结构化类型，调用点不用改），worker 侧拼的
- * 对象也终于能被类型检查到。加字段时记得同步 utils/amsgToolPack.ts 的 AmsgToolPack。
+ * 為什麼單獨聲明：amsg worker 到點只有雲端 tool_pack 那點數據，拼不出完整的
+ * CharacterProfile。以前 worker 側用 `as unknown as CharacterProfile` 硬轉，等於把編譯器
+ * 關掉——這邊哪天多讀一個字段，worker 側就悄悄拿到 undefined，還不會報錯。聲明成窄接口後
+ * 瀏覽器側傳完整 CharacterProfile 天然滿足（結構化類型，調用點不用改），worker 側拼的
+ * 對象也終於能被類型檢查到。加字段時記得同步 utils/amsgToolPack.ts 的 AmsgToolPack。
  */
 export interface AgenticToolChar {
     name: string;
@@ -117,7 +118,7 @@ export interface AgenticToolChar {
     memories?: AgenticToolMemory[];
 }
 
-/** runRecall 会读的月度总结字段（上云的 AmsgToolPack.memories 也是这个形状）。 */
+/** runRecall 會讀的月度總結字段（上雲的 AmsgToolPack.memories 也是這個形狀）。 */
 export interface AgenticToolMemory {
     date: string;
     summary: string;
@@ -128,11 +129,11 @@ export interface AgenticToolCtx {
     char: AgenticToolChar;
     userProfile: UserProfile;
     realtimeConfig?: AgenticToolRealtimeConfig;
-    /** XHS 跨 tool 共享缓存; XHS_SEARCH/BROWSE 写, XHS_DETAIL/COMMENT/REPLY 读 */
+    /** XHS 跨 tool 共享緩存; XHS_SEARCH/BROWSE 寫, XHS_DETAIL/COMMENT/REPLY 讀 */
     xhsCaches?: XhsCaches;
-    /** 上次浏览/搜索得到的笔记列表 (XHS_DETAIL retry 时复用) */
+    /** 上次瀏覽/搜索得到的筆記列表 (XHS_DETAIL retry 時複用) */
     lastXhsNotesRef?: { current: XhsNote[] };
-    /** 工具内部多步操作 (XHS_DETAIL retry / XHS_MY_PROFILE fallback / DIARY read-loop) 透传状态文案 给调用方 UI. 不传则 noop. */
+    /** 工具內部多步操作 (XHS_DETAIL retry / XHS_MY_PROFILE fallback / DIARY read-loop) 透傳狀態文案 給調用方 UI. 不傳則 noop. */
     onProgress?: (channel: 'xhs' | 'diary', text: string) => void;
 }
 
@@ -143,14 +144,14 @@ export type RecallResult =
     | { ok: false; reason: 'no_logs'; yearMonth: string };
 
 /**
- * 记忆库里到底存了哪些月份（`YYYY-MM`，升序去重）。
+ * 記憶庫裡到底存了哪些月份（`YYYY-MM`，升序去重）。
  *
- * 提示词里 `[[RECALL: 年-月]]` 是无条件注入的，但从来没告诉过角色「哪些月份查得到」。
- * 结果就是它不知道有货，多半懒得查，直接凭空编一段"回忆"——要一句一句点名让它查
- * 某个月，它才会去调。把清单摆出来，它自己就知道什么时候该伸手。
+ * 提示詞裡 `[[RECALL: 年-月]]` 是無條件注入的，但從來沒告訴過角色「哪些月份查得到」。
+ * 結果就是它不知道有貨，多半懶得查，直接憑空編一段"回憶"——要一句一句點名讓它查
+ * 某個月，它才會去調。把清單擺出來，它自己就知道什麼時候該伸手。
  *
- * 匹配的两种日期写法要跟 runRecall 保持一致（`2026-06-15` 和 `2026年6月15日`），
- * 否则会报出一个查不到的月份，比不报还糟。这两个函数放在同一个文件里就是为了这个。
+ * 匹配的兩種日期寫法要跟 runRecall 保持一致（`2026-06-15` 和 `2026年6月15日`），
+ * 否則會報出一個查不到的月份，比不報還糟。這兩個函數放在同一個文件裡就是為了這個。
  */
 export function listRecallableMonths(memories: AgenticToolMemory[] | undefined): string[] {
     if (!memories?.length) return [];
@@ -195,7 +196,7 @@ export type SearchResult =
     | { ok: true; query: string; resultsText: string; rawResultCount: number }
     | { ok: false; reason: 'no_api_key' | 'unreachable' | 'no_results'; query: string; message?: string };
 
-/** 不抛异常：performSearch 连网络异常都会 catch 成 success:false（见 realtimeFetchCore）。 */
+/** 不拋異常：performSearch 連網絡異常都會 catch 成 success:false（見 realtimeFetchCore）。 */
 export async function runSearch(
     args: { query: string },
     ctx: AgenticToolCtx,
@@ -205,9 +206,9 @@ export async function runSearch(
         return { ok: false, reason: 'no_api_key', query: args.query };
     }
     const searchResult = await performSearch(args.query, realtimeConfig.newsApiKey);
-    // 「请求没跑通」和「搜过了但没结果」得分开（同 runXhsSearch）。performSearch 的
-    // success:false 两种都包：断网、代理 5xx、返回不是 JSON，跟真的零结果混在一起。
-    // 都归 no_results 的话，角色会把一次根本没发出去的搜索说成「我刚搜了下，没什么新鲜的」。
+    // 「請求沒跑通」和「搜過了但沒結果」得分開（同 runXhsSearch）。performSearch 的
+    // success:false 兩種都包：斷網、代理 5xx、返回不是 JSON，跟真的零結果混在一起。
+    // 都歸 no_results 的話，角色會把一次根本沒發出去的搜索說成「我剛搜了下，沒什麼新鮮的」。
     if (!searchResult.reached) {
         return { ok: false, reason: 'unreachable', query: args.query, message: searchResult.message };
     }
@@ -226,7 +227,7 @@ export type ReadDiaryResult =
     | { ok: true; date: string; diaryText: string; entryCount: number }
     | { ok: false; reason: 'not_configured' | 'parse_error' | 'unreachable' | 'not_found' | 'empty_content'; date?: string; dateInput?: string };
 
-/** 不抛异常：notion* 系列连网络异常都会 catch 成 success:false（见 realtimeFetchCore）。 */
+/** 不拋異常：notion* 系列連網絡異常都會 catch 成 success:false（見 realtimeFetchCore）。 */
 export async function runReadDiary(
     args: { date: string },
     ctx: AgenticToolCtx,
@@ -249,9 +250,9 @@ export async function runReadDiary(
         targetDate,
     );
 
-    // 「查不动」和「那天真没写」是两回事：Notion 凭据过期 / 代理挂了都会走 success:false，
-    // 跟没写日记归成同一个 not_found 的话，角色张口就是「你昨天没写日记呀」——把一次
-    // 根本没查成的事说成查过了，还顺带替用户断言了一件没发生的事。
+    // 「查不動」和「那天真沒寫」是兩回事：Notion 憑據過期 / 代理掛了都會走 success:false，
+    // 跟沒寫日記歸成同一個 not_found 的話，角色張口就是「你昨天沒寫日記呀」——把一次
+    // 根本沒查成的事說成查過了，還順帶替用戶斷言了一件沒發生的事。
     if (!findResult.success) {
         return { ok: false, reason: 'unreachable', date: targetDate };
     }
@@ -259,7 +260,7 @@ export async function runReadDiary(
         return { ok: false, reason: 'not_found', date: targetDate };
     }
 
-    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇日记，正在阅读...`);
+    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇日記，正在閱讀...`);
 
     const diaryContents: string[] = [];
     for (const entry of findResult.entries) {
@@ -272,9 +273,9 @@ export async function runReadDiary(
         }
     }
 
-    // 走到这里说明条目找到了、但一篇正文都没读回来 = 全部读取失败。真的空白日记会带着
-    // 「（空白日记）」正常入列，到不了这一步。所以 empty_content 的意思是"读失败"，
-    // 不是"日记是空的"——agenticToolFeedback 把它当"这次没跑成"处理就是为了这个。
+    // 走到這裡說明條目找到了、但一篇正文都沒讀回來 = 全部讀取失敗。真的空白日記會帶著
+    // 「（空白日記）」正常入列，到不了這一步。所以 empty_content 的意思是"讀失敗"，
+    // 不是"日記是空的"——agenticToolFeedback 把它當"這次沒跑成"處理就是為了這個。
     if (diaryContents.length === 0) {
         return { ok: false, reason: 'empty_content', date: targetDate };
     }
@@ -285,13 +286,13 @@ export async function runReadDiary(
 
 // ─── FS_READ_DIARY (Feishu) ─────────────────────────────────────────────────
 
-// 没有 empty_content：飞书那边正文跟着条目一起返回，找到条目就一定有内容
-// （Notion 要逐篇再读一次正文，才会出现「条目找到了、一篇都没读回来」）。
+// 沒有 empty_content：飛書那邊正文跟著條目一起返回，找到條目就一定有內容
+// （Notion 要逐篇再讀一次正文，才會出現「條目找到了、一篇都沒讀回來」）。
 export type FsReadDiaryResult =
     | { ok: true; date: string; diaryText: string; entryCount: number }
     | { ok: false; reason: 'not_configured' | 'parse_error' | 'unreachable' | 'not_found'; date?: string; dateInput?: string };
 
-/** 不抛异常：feishuGetDiaryByDate 连网络异常都会 catch 成 success:false（见 realtimeFetchCore）。 */
+/** 不拋異常：feishuGetDiaryByDate 連網絡異常都會 catch 成 success:false（見 realtimeFetchCore）。 */
 export async function runFsReadDiary(
     args: { date: string },
     ctx: AgenticToolCtx,
@@ -316,7 +317,7 @@ export async function runFsReadDiary(
         targetDate,
     );
 
-    // 同 runReadDiary：飞书 token 拿不到 / 接口报错都是 success:false，跟「那天没写」分开。
+    // 同 runReadDiary：飛書 token 拿不到 / 接口報錯都是 success:false，跟「那天沒寫」分開。
     if (!findResult.success) {
         return { ok: false, reason: 'unreachable', date: targetDate };
     }
@@ -324,9 +325,9 @@ export async function runFsReadDiary(
         return { ok: false, reason: 'not_found', date: targetDate };
     }
 
-    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇飞书日记，正在阅读...`);
+    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇飛書日記，正在閱讀...`);
 
-    // 飞书那边正文是跟着条目一起返回的，不用再逐篇去读。
+    // 飛書那邊正文是跟著條目一起返回的，不用再逐篇去讀。
     const diaryText = findResult.entries
         .map(entry => `📒「${entry.title}」(${entry.date})\n${entry.content}`)
         .join('\n\n---\n\n');
@@ -339,7 +340,7 @@ export type ReadNoteResult =
     | { ok: true; keyword: string; noteText: string; entryCount: number }
     | { ok: false; reason: 'not_configured' | 'unreachable' | 'not_found' | 'empty_content'; keyword: string };
 
-/** 不抛异常：notion* 系列连网络异常都会 catch 成 success:false（见 realtimeFetchCore）。 */
+/** 不拋異常：notion* 系列連網絡異常都會 catch 成 success:false（見 realtimeFetchCore）。 */
 export async function runReadNote(
     args: { keyword: string },
     ctx: AgenticToolCtx,
@@ -357,7 +358,7 @@ export async function runReadNote(
         3,
     );
 
-    // 同 runReadDiary：搜不动 ≠ 对方没写过这篇笔记。
+    // 同 runReadDiary：搜不動 ≠ 對方沒寫過這篇筆記。
     if (!findResult.success) {
         return { ok: false, reason: 'unreachable', keyword: args.keyword };
     }
@@ -365,7 +366,7 @@ export async function runReadNote(
         return { ok: false, reason: 'not_found', keyword: args.keyword };
     }
 
-    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇笔记，正在阅读...`);
+    ctx.onProgress?.('diary', `找到 ${findResult.entries.length} 篇筆記，正在閱讀...`);
 
     const noteContents: string[] = [];
     for (const entry of findResult.entries) {
@@ -378,7 +379,7 @@ export async function runReadNote(
         }
     }
 
-    // 同 runReadDiary：找到条目却一篇都没读回来 = 全部读取失败，不是"笔记是空的"。
+    // 同 runReadDiary：找到條目卻一篇都沒讀回來 = 全部讀取失敗，不是"筆記是空的"。
     if (noteContents.length === 0) {
         return { ok: false, reason: 'empty_content', keyword: args.keyword };
     }
@@ -400,17 +401,17 @@ async function xhsBrowseImpl(conf: { mcpUrl: string }): Promise<{ success: boole
     const r = await XhsMcpClient.getRecommend(conf.mcpUrl);
     if (!r.success) return { success: false, notes: [], message: r.error };
     const unwrapped = r.data?.data && typeof r.data.data === 'object' && !Array.isArray(r.data.data) ? r.data.data : r.data;
-    console.log(`📕 [XHS] getRecommend 响应类型: ${typeof r.data}, 是否有 data 嵌套: ${unwrapped !== r.data}, unwrapped keys: ${unwrapped && typeof unwrapped === 'object' ? Object.keys(unwrapped).join(',') : 'N/A'}`);
+    console.log(`📕 [XHS] getRecommend 響應類型: ${typeof r.data}, 是否有 data 嵌套: ${unwrapped !== r.data}, unwrapped keys: ${unwrapped && typeof unwrapped === 'object' ? Object.keys(unwrapped).join(',') : 'N/A'}`);
     const raw = extractNotesFromMcpData(unwrapped);
     if (raw.length === 0 && unwrapped !== r.data) {
-        console.log(`📕 [XHS] getRecommend unwrapped 提取为空，用原始数据重试`);
+        console.log(`📕 [XHS] getRecommend unwrapped 提取為空，用原始數據重試`);
         const raw2 = extractNotesFromMcpData(r.data);
         return { success: true, notes: raw2.map(n => normalizeNote(n) as XhsNote) };
     }
     return { success: true, notes: raw.map(n => normalizeNote(n) as XhsNote) };
 }
 
-/** 将笔记列表的 xsecToken 和 title 存入 xhsCaches */
+/** 將筆記列表的 xsecToken 和 title 存入 xhsCaches */
 function cacheXsecTokensImpl(caches: XhsCaches | undefined, notes: XhsNote[]): void {
     if (!caches) return;
     for (const n of notes) {
@@ -419,7 +420,7 @@ function cacheXsecTokensImpl(caches: XhsCaches | undefined, notes: XhsNote[]): v
     }
 }
 
-/** 从 xhsCaches 或 lastXhsNotes 中查找 xsecToken */
+/** 從 xhsCaches 或 lastXhsNotes 中查找 xsecToken */
 function findXsecToken(caches: XhsCaches | undefined, lastXhsNotes: XhsNote[], noteId: string): string | undefined {
     const fromNotes = lastXhsNotes.find(n => n.noteId === noteId)?.xsecToken;
     if (fromNotes) return fromNotes;
@@ -442,9 +443,9 @@ export async function runXhsSearch(
         return { ok: false, reason: 'not_enabled', keyword: args.keyword };
     }
     const result = await xhsSearchImpl(xhsConf, args.keyword);
-    // 「连不上」和「搜过了但没结果」得分开：两者都归成 no_results 的话，角色会把一次
-    // 根本没发生的搜索说成「我刚在小红书搜了下，没啥好东西」——一句没发生的事说成
-    // 发生过。后台触发时服务器多半就在用户自己电脑上（关机 / 不在同一网络），这条最常走。
+    // 「連不上」和「搜過了但沒結果」得分開：兩者都歸成 no_results 的話，角色會把一次
+    // 根本沒發生的搜索說成「我剛在小紅書搜了下，沒啥好東西」——一句沒發生的事說成
+    // 發生過。後台觸發時服務器多半就在用戶自己電腦上（關機 / 不在同一網絡），這條最常走。
     if (!result.success) {
         return { ok: false, reason: 'unreachable', keyword: args.keyword, message: result.message };
     }
@@ -454,7 +455,7 @@ export async function runXhsSearch(
     if (ctx.lastXhsNotesRef) ctx.lastXhsNotesRef.current = result.notes;
     cacheXsecTokensImpl(ctx.xhsCaches, result.notes);
     const notesText = result.notes.map((n, i) =>
-        `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}赞)\n   ${n.desc}`
+        `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}贊)\n   ${n.desc}`
     ).join('\n\n');
     return { ok: true, keyword: args.keyword, notesText, notes: result.notes };
 }
@@ -475,8 +476,8 @@ export async function runXhsBrowse(
         return { ok: false, reason: 'not_enabled', category: args.category };
     }
     const result = await xhsBrowseImpl(xhsConf);
-    console.log('📕 [XHS] 浏览结果:', result.success, result.message, result.notes?.length || 0);
-    // 同 runXhsSearch：连不上 ≠ 刷了但首页是空的。
+    console.log('📕 [XHS] 瀏覽結果:', result.success, result.message, result.notes?.length || 0);
+    // 同 runXhsSearch：連不上 ≠ 刷了但首頁是空的。
     if (!result.success) {
         return { ok: false, reason: 'unreachable', category: args.category, message: result.message };
     }
@@ -486,7 +487,7 @@ export async function runXhsBrowse(
     if (ctx.lastXhsNotesRef) ctx.lastXhsNotesRef.current = result.notes;
     cacheXsecTokensImpl(ctx.xhsCaches, result.notes);
     const notesText = result.notes.map((n, i) =>
-        `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}赞)\n   ${n.desc}`
+        `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}贊)\n   ${n.desc}`
     ).join('\n\n');
     return { ok: true, category: args.category, notesText, notes: result.notes };
 }
@@ -497,7 +498,7 @@ export type XhsMyProfileResult =
     | { ok: true; nickname: string; userId: string; profileStr: string; feedsStr: string; gotProfile: boolean; notes: XhsNote[] }
     | { ok: false; reason: 'not_enabled' | 'no_identity' | 'unreachable'; message?: string };
 
-/** getUserProfile 挂了会降级去搜昵称；主页和降级搜索都没跑通时回 unreachable（见下面的注释）。 */
+/** getUserProfile 掛了會降級去搜暱稱；主頁和降級搜索都沒跑通時回 unreachable（見下面的註釋）。 */
 export async function runXhsMyProfile(
     _args: Record<string, never>,
     ctx: AgenticToolCtx,
@@ -513,13 +514,13 @@ export async function runXhsMyProfile(
     }
 
     let profileStr = '';
-    let feedsStr = '（获取笔记失败）';
+    let feedsStr = '（獲取筆記失敗）';
     let gotProfile = false;
     let collectedNotes: XhsNote[] = [];
 
     if (userId) {
-            console.log(`📕 [XHS] 用 getUserProfile(${userId}) 获取主页...`);
-            ctx.onProgress?.('xhs', '正在获取主页信息...');
+            console.log(`📕 [XHS] 用 getUserProfile(${userId}) 獲取主頁...`);
+            ctx.onProgress?.('xhs', '正在獲取主頁信息...');
             try {
                 const profileResult = await XhsMcpClient.getUserProfile(xhsConf.mcpUrl, userId, xhsConf.userXsecToken);
                 if (profileResult.success && profileResult.data) {
@@ -535,49 +536,49 @@ export async function runXhsMyProfile(
                             const { notes: _n, ...rest } = (d.data && typeof d.data === 'object' ? d.data : d) as any;
                             profileStr = Object.keys(rest).length > 0
                                 ? JSON.stringify(rest, null, 2).slice(0, 2000)
-                                : '（主页基本信息暂时无法获取）';
+                                : '（主頁基本信息暫時無法獲取）';
                         }
                         gotProfile = true;
                         const unwrapped = d.data && typeof d.data === 'object' && !Array.isArray(d.data) ? d.data : d;
                         console.log(`📕 [XHS] profile unwrapped keys:`, Object.keys(unwrapped), 'notes isArray:', Array.isArray(unwrapped.notes), 'notes length:', unwrapped.notes?.length);
                         const notes = extractNotesFromMcpData(unwrapped);
-                        console.log(`📕 [XHS] extractNotesFromMcpData 返回 ${notes.length} 条笔记`);
+                        console.log(`📕 [XHS] extractNotesFromMcpData 返回 ${notes.length} 條筆記`);
                         if (notes.length > 0) {
-                            console.log(`📕 [XHS] 第一条笔记原始 keys:`, Object.keys(notes[0]), 'noteCard?', !!notes[0].noteCard, 'id?', notes[0].id || notes[0].noteId);
+                            console.log(`📕 [XHS] 第一條筆記原始 keys:`, Object.keys(notes[0]), 'noteCard?', !!notes[0].noteCard, 'id?', notes[0].id || notes[0].noteId);
                             const normalized = notes.map(n => normalizeNote(n) as XhsNote);
-                            console.log(`📕 [XHS] 归一化后第一条:`, JSON.stringify(normalized[0]).slice(0, 300));
+                            console.log(`📕 [XHS] 歸一化後第一條:`, JSON.stringify(normalized[0]).slice(0, 300));
                             const validNotes = normalized.filter(n => n.noteId);
                             if (validNotes.length === 0) {
-                                console.warn(`📕 [XHS] ⚠️ 所有笔记归一化后 noteId 为空！原始数据:`, JSON.stringify(notes[0]).slice(0, 500));
+                                console.warn(`📕 [XHS] ⚠️ 所有筆記歸一化後 noteId 為空！原始數據:`, JSON.stringify(notes[0]).slice(0, 500));
                             }
                             collectedNotes = validNotes.length > 0 ? validNotes : normalized;
                             cacheXsecTokensImpl(ctx.xhsCaches, collectedNotes);
                             feedsStr = collectedNotes.slice(0, 8).map((n, i) =>
-                                `${i + 1}. [noteId=${n.noteId}]「${n.title || '无标题'}」by ${n.author || '未知'} (${n.likes || 0}赞)\n   ${n.desc || '（无描述）'}`
+                                `${i + 1}. [noteId=${n.noteId}]「${n.title || '無標題'}」by ${n.author || '未知'} (${n.likes || 0}贊)\n   ${n.desc || '（無描述）'}`
                             ).join('\n\n');
-                            console.log(`📕 [XHS] feedsStr 预览:`, feedsStr.slice(0, 300));
+                            console.log(`📕 [XHS] feedsStr 預覽:`, feedsStr.slice(0, 300));
                         } else {
-                            console.warn(`📕 [XHS] ⚠️ extractNotesFromMcpData 返回空数组! unwrapped:`, JSON.stringify(unwrapped).slice(0, 500));
+                            console.warn(`📕 [XHS] ⚠️ extractNotesFromMcpData 返回空數組! unwrapped:`, JSON.stringify(unwrapped).slice(0, 500));
                         }
                     }
-                    console.log(`📕 [XHS] getUserProfile 成功，数据长度: ${profileStr.length}`);
+                    console.log(`📕 [XHS] getUserProfile 成功，數據長度: ${profileStr.length}`);
                 }
             } catch (e) {
-                console.warn('📕 [XHS] getUserProfile 失败，降级到搜索:', e);
+                console.warn('📕 [XHS] getUserProfile 失敗，降級到搜索:', e);
             }
         }
 
-    // 主页没打开成功时的退路：拿昵称去搜。这里必须把「搜不动」和「搜过了没有」分开——
-    // 以前两种都写成 feedsStr='（没有搜到相关笔记）' 再回 ok:true，护栏只认 ok:false，
-    // 于是角色照着说「我翻了下我的小红书，一条都没找到」。小红书服务器多半在用户自己
-    // 电脑上，后台到点时人睡了机器关了，这条走得最勤，也就骗得最勤。
+    // 主頁沒打開成功時的退路：拿暱稱去搜。這裡必須把「搜不動」和「搜過了沒有」分開——
+    // 以前兩種都寫成 feedsStr='（沒有搜到相關筆記）' 再回 ok:true，護欄只認 ok:false，
+    // 於是角色照著說「我翻了下我的小紅書，一條都沒找到」。小紅書服務器多半在用戶自己
+    // 電腦上，後台到點時人睡了機器關了，這條走得最勤，也就騙得最勤。
     if (!gotProfile) {
         if (!nickname) {
-            // 只有 userId，主页请求又挂了，连降级都没得降 —— 这一趟什么都没读到。
+            // 只有 userId，主頁請求又掛了，連降級都沒得降 —— 這一趟什麼都沒讀到。
             return { ok: false, reason: 'unreachable' };
         }
-        console.log(`📕 [XHS] 降级: 用昵称「${nickname}」搜索...`);
-        ctx.onProgress?.('xhs', '正在搜索你的笔记...');
+        console.log(`📕 [XHS] 降級: 用暱稱「${nickname}」搜索...`);
+        ctx.onProgress?.('xhs', '正在搜索你的筆記...');
         const searchResult = await xhsSearchImpl(xhsConf, nickname);
         if (!searchResult.success) {
             return { ok: false, reason: 'unreachable', message: searchResult.message };
@@ -586,11 +587,11 @@ export async function runXhsMyProfile(
             collectedNotes = searchResult.notes;
             cacheXsecTokensImpl(ctx.xhsCaches, searchResult.notes);
             feedsStr = searchResult.notes.slice(0, 8).map((n, i) =>
-                `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}赞)\n   ${n.desc || '（无描述）'}`
+                `${i + 1}. [noteId=${n.noteId}]「${n.title}」by ${n.author} (${n.likes}贊)\n   ${n.desc || '（無描述）'}`
             ).join('\n\n');
         } else {
-            // 真的搜了、真的一条都没有，这句才说得出口
-            feedsStr = '（没有搜到相关笔记）';
+            // 真的搜了、真的一條都沒有，這句才說得出口
+            feedsStr = '（沒有搜到相關筆記）';
         }
     }
 
@@ -607,7 +608,7 @@ export type XhsDetailResult =
     | { ok: true; noteId: string; detailText: string; commentsUnavailable: boolean }
     | { ok: false; reason: 'not_enabled' | 'unreachable'; noteId: string; message?: string };
 
-/** 详情没读到时（一个字都没拿回来 / 回了 200 但正文是一句报错）一律回 unreachable。 */
+/** 詳情沒讀到時（一個字都沒拿回來 / 回了 200 但正文是一句報錯）一律回 unreachable。 */
 export async function runXhsDetail(
     args: { noteId: string },
     ctx: AgenticToolCtx,
@@ -617,15 +618,15 @@ export async function runXhsDetail(
 
     const lastNotes = ctx.lastXhsNotesRef?.current ?? [];
     let xsecToken = findXsecToken(ctx.xhsCaches, lastNotes, args.noteId);
-    console.log(`📕 [XHS] AI要查看笔记详情:`, args.noteId, xsecToken ? '(有xsecToken)' : '(无xsecToken)');
+    console.log(`📕 [XHS] AI要查看筆記詳情:`, args.noteId, xsecToken ? '(有xsecToken)' : '(無xsecToken)');
 
     let result = await XhsMcpClient.getNoteDetail(xhsConf.mcpUrl, args.noteId, xsecToken, { loadAllComments: true });
 
         if (!result.success || !result.data) {
             const cachedTitle = ctx.xhsCaches?.noteTitleCache.get(args.noteId);
             if (cachedTitle) {
-                console.log(`📕 [XHS] 详情失败，尝试重新搜索「${cachedTitle}」以刷新 xsecToken...`);
-                ctx.onProgress?.('xhs', '正在刷新访问凭证...');
+                console.log(`📕 [XHS] 詳情失敗，嘗試重新搜索「${cachedTitle}」以刷新 xsecToken...`);
+                ctx.onProgress?.('xhs', '正在刷新訪問憑證...');
                 const refreshResult = await xhsSearchImpl(xhsConf, cachedTitle);
                 if (refreshResult.success && refreshResult.notes.length > 0) {
                     cacheXsecTokensImpl(ctx.xhsCaches, refreshResult.notes);
@@ -633,21 +634,21 @@ export async function runXhsDetail(
                     const refreshedNote = refreshResult.notes.find(n => n.noteId === args.noteId);
                     if (refreshedNote?.xsecToken) {
                         xsecToken = refreshedNote.xsecToken;
-                        console.log(`📕 [XHS] 拿到新 xsecToken，重试 detail...`);
-                        ctx.onProgress?.('xhs', '正在查看笔记详情...');
+                        console.log(`📕 [XHS] 拿到新 xsecToken，重試 detail...`);
+                        ctx.onProgress?.('xhs', '正在查看筆記詳情...');
                         result = await XhsMcpClient.getNoteDetail(xhsConf.mcpUrl, args.noteId, xsecToken, { loadAllComments: true });
                     } else {
-                        console.warn(`📕 [XHS] 重新搜索结果中未找到 noteId=${args.noteId}`);
+                        console.warn(`📕 [XHS] 重新搜索結果中未找到 noteId=${args.noteId}`);
                     }
                 } else {
-                    console.warn(`📕 [XHS] 重新搜索「${cachedTitle}」失败:`, refreshResult.message);
+                    console.warn(`📕 [XHS] 重新搜索「${cachedTitle}」失敗:`, refreshResult.message);
                 }
             } else {
-                console.warn(`📕 [XHS] 详情失败且无缓存标题，无法重试`);
+                console.warn(`📕 [XHS] 詳情失敗且無緩存標題，無法重試`);
             }
         }
 
-        // detail 自带的 xsecToken / 评论结构 写回缓存
+        // detail 自帶的 xsecToken / 評論結構 寫回緩存
         if (result.success && result.data && typeof result.data === 'object') {
             const d = result.data;
             const noteObj = (d as any).data?.note || (d as any).note || d;
@@ -656,7 +657,7 @@ export async function runXhsDetail(
                 || (d as any).xsecToken || (d as any).xsec_token;
             if (detailToken && args.noteId && ctx.xhsCaches) {
                 ctx.xhsCaches.xsecTokenCache.set(args.noteId, detailToken);
-                console.log(`📕 [XHS] 从 detail 缓存 xsecToken: ${args.noteId}`);
+                console.log(`📕 [XHS] 從 detail 緩存 xsecToken: ${args.noteId}`);
             }
 
             const normalizedComments = normalizeXhsComments(d);
@@ -674,14 +675,14 @@ export async function runXhsDetail(
                 };
                 if (normalizedComments.length > 0) {
                     cacheComments(normalizedComments);
-                    console.log(`📕 [XHS] 缓存了 ${caches.commentUserIdCache.size} 条评论的 userId, ${caches.commentAuthorNameCache.size} 条 authorName`);
+                    console.log(`📕 [XHS] 緩存了 ${caches.commentUserIdCache.size} 條評論的 userId, ${caches.commentAuthorNameCache.size} 條 authorName`);
                 } else {
-                    console.warn(`📕 [XHS] 未找到评论数组, d keys:`, Object.keys(d as any), 'd.note keys:', (d as any).note ? Object.keys((d as any).note) : 'N/A');
+                    console.warn(`📕 [XHS] 未找到評論數組, d keys:`, Object.keys(d as any), 'd.note keys:', (d as any).note ? Object.keys((d as any).note) : 'N/A');
                 }
             }
 
-            // XHS_DETAIL 已经拿到正文和评论，补回搜索结果中的同一张卡。
-            // 后续 XHS_SHARE 直接复用这里的数据，不额外发起详情请求。
+            // XHS_DETAIL 已經拿到正文和評論，補回搜索結果中的同一張卡。
+            // 後續 XHS_SHARE 直接複用這裡的數據，不額外發起詳情請求。
             if (ctx.lastXhsNotesRef) {
                 const detailNote = normalizeXhsLiteDetail(d);
                 const matched = ctx.lastXhsNotesRef.current.find(n => n.noteId === args.noteId);
@@ -710,9 +711,9 @@ export async function runXhsDetail(
         let commentsUnavailable = false;
         if (detailData) {
             if (typeof detailData === 'string') {
-                // 服务器回了 200，正文本身却是一句报错。这跟「一个字都没拿回来」是同一件事：
-                // 这次没读到笔记。走同一条 unreachable，别包成「成功但正文是一句报错」。
-                if (detailData.includes('失败') || detailData.includes('not found')) {
+                // 服務器回了 200，正文本身卻是一句報錯。這跟「一個字都沒拿回來」是同一件事：
+                // 這次沒讀到筆記。走同一條 unreachable，別包成「成功但正文是一句報錯」。
+                if (includesAnyScript(detailData, '失败') || detailData.includes('not found')) {
                     return {
                         ok: false,
                         reason: 'unreachable',
@@ -735,10 +736,10 @@ export async function runXhsDetail(
                 const noteTime = note.time ? new Date(note.time).toLocaleString('zh-CN') : '';
                 const noteIp = note.ipLocation || note.ip_location || '';
 
-                let noteSection = `📝 笔记详情:\n标题: ${noteTitle}\n作者: ${noteAuthor}`;
-                if (noteTime) noteSection += `\n发布时间: ${noteTime}`;
+                let noteSection = `📝 筆記詳情:\n標題: ${noteTitle}\n作者: ${noteAuthor}`;
+                if (noteTime) noteSection += `\n發佈時間: ${noteTime}`;
                 if (noteIp) noteSection += `\n IP: ${noteIp}`;
-                noteSection += `\n互动: ${noteLikes}赞 ${noteCollects}收藏 ${noteCommentCount}评论 ${noteShareCount}分享`;
+                noteSection += `\n互動: ${noteLikes}贊 ${noteCollects}收藏 ${noteCommentCount}評論 ${noteShareCount}分享`;
                 noteSection += `\n\n正文:\n${noteDesc}`;
 
                 const commentArr = normalizeXhsComments(detailData);
@@ -757,36 +758,36 @@ export async function runXhsDetail(
                         const content = c.content || '';
                         const likes = c.likes || 0;
                         const cid = c.commentId || '';
-                        let line = `${indent}${name}: ${content} (${likes}赞) [commentId=${cid}]`;
+                        let line = `${indent}${name}: ${content} (${likes}贊) [commentId=${cid}]`;
                         const subs = c.subComments || [];
                         if (Array.isArray(subs) && subs.length > 0) {
                             line += '\n' + subs.slice(0, 10).map((s: any) => formatComment(s, indent + '  ↳ ')).join('\n');
                         }
                         return line;
                     };
-                    commentsSection = `\n\n💬 评论区 (${commentArr.length}条):\n` +
+                    commentsSection = `\n\n💬 評論區 (${commentArr.length}條):\n` +
                         commentArr.slice(0, 30).map((c: any) => formatComment(c)).join('\n');
                 } else if (commentsUnavailable) {
-                    commentsSection = '\n\n💬 评论区: （读取失败；不能据此判断为没有评论，也不要编造评论内容）';
+                    commentsSection = '\n\n💬 評論區: （讀取失敗；不能據此判斷為沒有評論，也不要編造評論內容）';
                 } else {
-                    commentsSection = '\n\n💬 评论区: （暂无评论）';
+                    commentsSection = '\n\n💬 評論區: （暫無評論）';
                 }
 
                 detailText = (noteSection + commentsSection).slice(0, 8000);
             }
         } else {
-            // 详情一个字都没拿回来（连不上 / 没权限 / 刷新 xsecToken 重试后依然是空）。
-            // 以前这里回 ok:true，正文塞一句「[加载失败: …]」：护栏只认 ok:false，于是这条
-            // 失败被当成正常结果喂给模型——轻则把报错原文抄进消息，重则直接说「我看了这条笔记」。
+            // 詳情一個字都沒拿回來（連不上 / 沒權限 / 刷新 xsecToken 重試後依然是空）。
+            // 以前這裡回 ok:true，正文塞一句「[加載失敗: …]」：護欄只認 ok:false，於是這條
+            // 失敗被當成正常結果餵給模型——輕則把報錯原文抄進消息，重則直接說「我看了這條筆記」。
             return {
                 ok: false,
                 reason: 'unreachable',
                 noteId: args.noteId,
-                message: result.error || '无法获取笔记详情，可能需要先在搜索/浏览结果中看到这条笔记',
+                message: result.error || '無法獲取筆記詳情，可能需要先在搜索/瀏覽結果中看到這條筆記',
             };
         }
 
-    // 走到这里 detailText 一定是真读到的内容：拿不回来和「正文是一句报错」都已经在上面
+    // 走到這裡 detailText 一定是真讀到的內容：拿不回來和「正文是一句報錯」都已經在上面
     // 回了 ok:false。
     return { ok: true, noteId: args.noteId, detailText, commentsUnavailable };
 }
@@ -808,11 +809,11 @@ export function parseDiaryDate(dateInput: string): string {
     return '';
 }
 
-// ─── Dispatch (worker 工具循环用) ───────────────────────────────────────────
+// ─── Dispatch (worker 工具循環用) ───────────────────────────────────────────
 
 /**
- * 按 tool name 调度。主动消息 2.0 的 worker 工具循环（worker/amsg/src/index.ts）走这里；
- * 本地聊天不经过此入口, 直接 import 具体 run* 函数。
+ * 按 tool name 調度。主動消息 2.0 的 worker 工具循環（worker/amsg/src/index.ts）走這裡；
+ * 本地聊天不經過此入口, 直接 import 具體 run* 函數。
  */
 export async function dispatchAgenticTool(
     toolName: string,

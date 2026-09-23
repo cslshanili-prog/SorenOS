@@ -1,12 +1,12 @@
 /**
- * 单页操作覆盖层
+ * 單頁操作覆蓋層
  *
- * 用户在画布上点了某个 fragment → 弹这个面板:
- *   - 看到该 page 的完整文本(可能含多个 fragment)
- *   - 改写 / 删除整页 / 不入册 / 重新生成(角色页)
+ * 用戶在畫布上點了某個 fragment → 彈這個面板:
+ *   - 看到該 page 的完整文本(可能含多個 fragment)
+ *   - 改寫 / 刪除整頁 / 不入冊 / 重新生成(角色頁)
  *
- * 注:粒度是 page,不是 fragment。fragment 是 LLM 一次性产出的"碎片",
- *    用户编辑 = 改整页 (改完会清空 fragments,回退到 plain content)。
+ * 注:粒度是 page,不是 fragment。fragment 是 LLM 一次性產出的"碎片",
+ *    用戶編輯 = 改整頁 (改完會清空 fragments,回退到 plain content)。
  */
 
 import React, { useState, useEffect } from 'react';
@@ -33,13 +33,13 @@ interface Props {
 
 const PAPER_OPTIONS: { kind: keyof typeof PAPERS; label: string }[] = [
     { kind: 'plain', label: '素' },
-    { kind: 'lined', label: '横线' },
+    { kind: 'lined', label: '橫線' },
     { kind: 'grid', label: '方格' },
-    { kind: 'dot', label: '点阵' },
+    { kind: 'dot', label: '點陣' },
     { kind: 'cream', label: '奶油' },
     { kind: 'mint', label: '薄荷' },
-    { kind: 'rose', label: '樱粉' },
-    { kind: 'sky', label: '雾蓝' },
+    { kind: 'rose', label: '櫻粉' },
+    { kind: 'sky', label: '霧藍' },
 ];
 
 const JournalPageEditor: React.FC<Props> = ({
@@ -59,8 +59,8 @@ const JournalPageEditor: React.FC<Props> = ({
         switch (page.type) {
             case 'user_diary':     return { kicker: 'MY · DIARY',     title: '我 的 一 天' };
             case 'character_life': return { kicker: 'CO · LIFESTREAM', title: char ? `${char.name} · 的 今 天` : '小生活' };
-            case 'user_note':      return { kicker: 'NOTE',           title: '便 笺' };
-            case 'free':           return { kicker: 'FREE',           title: '便 签' };
+            case 'user_note':      return { kicker: 'NOTE',           title: '便 箋' };
+            case 'free':           return { kicker: 'FREE',           title: '便 籤' };
         }
     })();
 
@@ -78,12 +78,12 @@ const JournalPageEditor: React.FC<Props> = ({
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* 顶把手 */}
+                {/* 頂把手 */}
                 <div className="flex justify-center pt-3 pb-1">
                     <div style={{ width: 40, height: 4, borderRadius: 2, background: PAPER_TONES.accentRose, opacity: 0.5 }} />
                 </div>
 
-                {/* 标题 */}
+                {/* 標題 */}
                 <div className="px-5 pt-2 pb-3 flex items-center gap-3">
                     {char?.avatar && (
                         <TokenImg
@@ -121,7 +121,7 @@ const JournalPageEditor: React.FC<Props> = ({
                     </button>
                 </div>
 
-                {/* 内容 */}
+                {/* 內容 */}
                 <div className="px-5 pb-3">
                     {editing ? (
                         <>
@@ -130,7 +130,7 @@ const JournalPageEditor: React.FC<Props> = ({
                                     className="text-[10px] tracking-widest shrink-0 mr-1"
                                     style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                                 >
-                                    ◆ 纸
+                                    ◆ 紙
                                 </span>
                                 {PAPER_OPTIONS.map(opt => {
                                     const p = PAPERS[opt.kind];
@@ -224,7 +224,7 @@ const JournalPageEditor: React.FC<Props> = ({
                         >
                             {page.content || (
                                 <span style={{ color: PAPER_TONES.inkSoft, fontStyle: 'italic', opacity: 0.6 }}>
-                                    这一页还是空白的…
+                                    這一頁還是空白的…
                                 </span>
                             )}
                         </p>
@@ -272,7 +272,7 @@ const JournalPageEditor: React.FC<Props> = ({
                                     boxShadow: '0 1px 3px rgba(122,90,114,0.18)',
                                 }}
                             >
-                                <PencilSimple className="w-3.5 h-3.5" weight="bold" /> 改写
+                                <PencilSimple className="w-3.5 h-3.5" weight="bold" /> 改寫
                             </button>
                             {onRegenerate && (
                                 <button
@@ -282,7 +282,7 @@ const JournalPageEditor: React.FC<Props> = ({
                                     style={{ ...CUTE_STACK, color: PAPER_TONES.ink, background: '#fff', border: `1.5px solid ${PAPER_TONES.spine}` }}
                                 >
                                     <ArrowsClockwise className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} weight="bold" />
-                                    {isRegenerating ? '正在写…' : '再写一次'}
+                                    {isRegenerating ? '正在寫…' : '再寫一次'}
                                 </button>
                             )}
                             <button
@@ -291,8 +291,8 @@ const JournalPageEditor: React.FC<Props> = ({
                                 style={{ ...CUTE_STACK, color: PAPER_TONES.ink, background: '#fff', border: `1.5px solid ${PAPER_TONES.spine}` }}
                             >
                                 {page.excluded
-                                    ? <><EyeSlash className="w-3.5 h-3.5" weight="bold" /> 不入册</>
-                                    : <><Eye className="w-3.5 h-3.5" weight="bold" /> 入册</>
+                                    ? <><EyeSlash className="w-3.5 h-3.5" weight="bold" /> 不入冊</>
+                                    : <><Eye className="w-3.5 h-3.5" weight="bold" /> 入冊</>
                                 }
                             </button>
                             <button

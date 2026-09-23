@@ -8,8 +8,8 @@ import type { DeepEngagementAnalysis } from './deepEngagement';
 import type { ConversationEngagementAnalysis } from './conversationEngagement';
 
 /**
- * 任何会改变召回输出含义的实现都要升级这个版本。
- * Trace 不依赖构建 commit：同一 commit 做 A/B 时仍能看出实际跑的是哪代管线。
+ * 任何會改變召回輸出含義的實現都要升級這個版本。
+ * Trace 不依賴構建 commit：同一 commit 做 A/B 時仍能看出實際跑的是哪代管線。
  */
 export const RECALL_PIPELINE_VERSION = 'context-m3.1';
 
@@ -94,21 +94,21 @@ export interface RecallTrace {
     recallIntent?: RecallIntent;
     explicitEntityRecall?: ExplicitEntityRecallTrace;
     eventBoxMetadataRecall?: EventBoxMetadataRecallTrace;
-    /** ChatApp 当轮的纯本地语境分析；不含用户原文。 */
+    /** ChatApp 當輪的純本地語境分析；不含用戶原文。 */
     contextAnalyzer?: LocalContextAnalysis;
-    /** LLM 解析器当前只保留架构位置，尚不参与回复。 */
+    /** LLM 解析器當前只保留架構位置，尚不參與回覆。 */
     recallResolver?: { status: 'disabled' | 'out_of_scope' | 'deferred' };
     interactionAdaptation?: {
         status: 'disabled' | 'out_of_scope' | 'no_signal' | 'observed';
         analysis?: UserInteractionAnalysis;
     };
-    /** ChatApp 当轮的参与状态；v2 只含枚举、分数和计数，不含用户原文。 */
+    /** ChatApp 當輪的參與狀態；v2 只含枚舉、分數和計數，不含用戶原文。 */
     deepEngagement?: {
         status: 'disabled' | 'out_of_scope' | 'no_signal' | 'observed';
         engine?: 'conversation_v2' | 'legacy_depth';
         analysis?: ConversationEngagementAnalysis | DeepEngagementAnalysis;
     };
-    /** @deprecated context-m1.4 前的旧 Trace 字段。 */
+    /** @deprecated context-m1.4 前的舊 Trace 字段。 */
     recallRouter?: RecallRouterTrace;
     outcome?: RecallOutcome;
     retrievalReason?: RecallRetrievalTelemetry['reason'];
@@ -177,7 +177,7 @@ function readJsonStorage(key: string): any {
 }
 
 /**
- * 只保留会影响管线行为、但不含秘密的字段。baseUrl / apiKey / 对话原文永不进入 Trace。
+ * 只保留會影響管線行為、但不含秘密的字段。baseUrl / apiKey / 對話原文永不進入 Trace。
  */
 export function readRecallRuntimeSnapshot(): {
     featureFlagsSnapshot: Readonly<MemoryPalaceFeatureFlags>;

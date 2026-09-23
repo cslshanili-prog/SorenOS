@@ -1,31 +1,31 @@
 /**
- * 主动消息 2.0「满血」的前端状态同步层。
+ * 主動消息 2.0「滿血」的前端狀態同步層。
  *
- * 打脏入口不止聊完一轮（useChatAI）：改人设 / 改记忆 / 删改消息 / 面板取消任务这些会
- * 改变 fire_pack 内容的落库路径也会调 markAmsgStateDirty（大多汇在 OSContext 的
- * updateCharacter 落库点），打脏后立即把所有脏角色的 fire_pack 批量上传 worker 的
- * client_state；切后台（visibilitychange→hidden）也冲刷一次——iOS 只给几秒存活窗口，
- * 必须一次请求写完。
+ * 打髒入口不止聊完一輪（useChatAI）：改人設 / 改記憶 / 刪改消息 / 面板取消任務這些會
+ * 改變 fire_pack 內容的落庫路徑也會調 markAmsgStateDirty（大多匯在 OSContext 的
+ * updateCharacter 落庫點），打髒後立即把所有髒角色的 fire_pack 批量上傳 worker 的
+ * client_state；切後台（visibilitychange→hidden）也沖刷一次——iOS 只給幾秒存活窗口，
+ * 必須一次請求寫完。
  *
- * 只对「已排程 AI 模式 amsg2 任务」的角色生效，其余 markDirty 直接忽略。
+ * 只對「已排程 AI 模式 amsg2 任務」的角色生效，其餘 markDirty 直接忽略。
  *
- * 脏标记有一份极轻量的 localStorage 底账（只存 charId 数组，不存快照本体）：打脏时写入、
- * 上传成功后移除。请求还没落地（在飞、或躺在退避重排里）就被杀进程的话，下次启动 OSContext 调 resumePendingAmsgStateSync
- * 按底账重建快照补传一次——否则那次改动云端永远不知道，角色到点带旧上下文说话。
+ * 髒標記有一份極輕量的 localStorage 底帳（只存 charId 數組，不存快照本體）：打髒時寫入、
+ * 上傳成功後移除。請求還沒落地（在飛、或躺在退避重排裡）就被殺進程的話，下次啟動 OSContext 調 resumePendingAmsgStateSync
+ * 按底帳重建快照補傳一次——否則那次改動雲端永遠不知道，角色到點帶舊上下文說話。
  *
- * 上传失败会**退避重试**，不能一失败就把快照丢掉：云端那份 fire_pack 是到点时角色
- * 唯一的上下文来源，刷不上去就意味着角色带着旧上下文发消息（提的「最近聊的事」其实是
- * 上一次同步成功时的状态，顺带 lastUserMessageAt 也旧，worker 侧防穿帮闸的锚点判定
- * 跟着失真）。而最容易失败的恰恰是切后台那次冲刷，也正是「睡前聊完 → 关 App → 凌晨
- * 触发」这条最常见的路径。
+ * 上傳失敗會**退避重試**，不能一失敗就把快照丟掉：雲端那份 fire_pack 是到點時角色
+ * 唯一的上下文來源，刷不上去就意味著角色帶著舊上下文發消息（提的「最近聊的事」其實是
+ * 上一次同步成功時的狀態，順帶 lastUserMessageAt 也舊，worker 側防穿幫閘的錨點判定
+ * 跟著失真）。而最容易失敗的恰恰是切後台那次沖刷，也正是「睡前聊完 → 關 App → 凌晨
+ * 觸發」這條最常見的路徑。
  *
- * 它和排程时那次上传的区别只在失败的处理方式：排程那次是硬要求（失败就让整个排程失败，
- * 见 activeMsgClient 的 putClientStateOrThrow），这里退避重试几次，实在传不上去就等
- * 下一轮聊天重新打脏标记。
+ * 它和排程時那次上傳的區別只在失敗的處理方式：排程那次是硬要求（失敗就讓整個排程失敗，
+ * 見 activeMsgClient 的 putClientStateOrThrow），這裡退避重試幾次，實在傳不上去就等
+ * 下一輪聊天重新打髒標記。
  *
- * 云端还有一份 tool_config（工具凭据 / MCP 服务器 / 代理地址），走的是同一套退避 + 底账，
- * 入口是 syncAmsgToolConfig（见文件下半部分）。它不像 fire_pack 那样每轮聊天重传，
- * 所以那一次传丢了就得靠自己补。
+ * 雲端還有一份 tool_config（工具憑據 / MCP 服務器 / 代理地址），走的是同一套退避 + 底帳，
+ * 入口是 syncAmsgToolConfig（見文件下半部分）。它不像 fire_pack 那樣每輪聊天重傳，
+ * 所以那一次傳丟了就得靠自己補。
  */
 
 import { APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
@@ -45,15 +45,15 @@ import { trackEvent } from './analytics';
 import { DB } from './db';
 import { resolveUserProfileForChar } from './userPersona';
 
-/** 失败重试的退避起点，逐次翻倍（30s → 60s → 120s）。 */
+/** 失敗重試的退避起點，逐次翻倍（30s → 60s → 120s）。 */
 const RETRY_BASE_MS = 30_000;
 /**
- * 角色欠着即时对话回复时，它的快照挂起不传（见 flushAmsgState 里的挂起段）；
- * 隔这么久再来看一眼账销了没有——销账走的是「回复到了 / 判失败」那几条路，
- * 它们不会替这边触发冲刷。
+ * 角色欠著即時對話回覆時，它的快照掛起不傳（見 flushAmsgState 裡的掛起段）；
+ * 隔這麼久再來看一眼帳銷了沒有——銷帳走的是「回覆到了 / 判失敗」那幾條路，
+ * 它們不會替這邊觸發沖刷。
  */
 const INSTANT_DEFER_RECHECK_MS = 60_000;
-/** 连续失败几次后放手，等下一轮聊天重新打脏标记——避免离线时无限重排。 */
+/** 連續失敗幾次後放手，等下一輪聊天重新打髒標記——避免離線時無限重排。 */
 const MAX_RETRIES = 3;
 const HEADER = '[AmsgStateSync]';
 
@@ -64,26 +64,26 @@ export interface AmsgSyncSnapshot {
   realtimeConfig?: RealtimeConfig;
 }
 
-// charId → 最新快照。同角色多轮聊天只留最后一份，flush 永远用最新状态拼模板。
+// charId → 最新快照。同角色多輪聊天只留最後一份，flush 永遠用最新狀態拼模板。
 const dirty = new Map<string, AmsgSyncSnapshot>();
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
 let lifecycleBound = false;
 let retryCount = 0;
-/** 「退避打光了还是没传上去」每次会话只上报一次。 */
+/** 「退避打光了還是沒傳上去」每次會話只上報一次。 */
 let staleStateReported = false;
 
-// ─── 打脏后的合并窗口 ───
-// 一轮聊天不止打一次脏，而且**不在同一个 tick**：收尾在 finally 里、情绪 buff 落库在
-// 副 API 回来后的事件回调里、记忆写入又是一拨；用户连删几条消息更是一次操作一个 tick。
-// 微任务合并只能收拢同 tick 的连环调用，上面这些各自触发一次「重读 200 条近史 + 重建
-// 系统提示词 + gzip + 加密 + PUT ~40KB」的完整冲刷。这里给一个短的固定合并窗口：
-// 第一次打脏起 1.5s 内的都并进同一次上传。数据丢失窗口不回退——底账（persistDirtyMark）
-// 在打脏那一刻就写了，切后台有 visibilitychange 的立即冲刷，杀进程有启动补传。
-/** 打脏合并窗口（固定窗口不顺延：持续打脏也保证 1.5s 内必冲一次）。 */
+// ─── 打髒後的合併窗口 ───
+// 一輪聊天不止打一次髒，而且**不在同一個 tick**：收尾在 finally 裡、情緒 buff 落庫在
+// 副 API 回來後的事件回調裡、記憶寫入又是一撥；用戶連刪幾條消息更是一次操作一個 tick。
+// 微任務合併只能收攏同 tick 的連環調用，上面這些各自觸發一次「重讀 200 條近史 + 重建
+// 系統提示詞 + gzip + 加密 + PUT ~40KB」的完整沖刷。這裡給一個短的固定合併窗口：
+// 第一次打髒起 1.5s 內的都並進同一次上傳。數據丟失窗口不回退——底帳（persistDirtyMark）
+// 在打髒那一刻就寫了，切後台有 visibilitychange 的立即沖刷，殺進程有啟動補傳。
+/** 打髒合併窗口（固定窗口不順延：持續打髒也保證 1.5s 內必衝一次）。 */
 export const FLUSH_DEBOUNCE_MS = 1_500;
 let flushDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-/** 冲刷进行中又有人打脏，这次传完得再跑一轮（丢弃的话那份快照就永远躺在队列里了）。 */
+/** 沖刷進行中又有人打髒，這次傳完得再跑一輪（丟棄的話那份快照就永遠躺在隊列裡了）。 */
 let reflushRequested = false;
 
 const queueFlush = () => {
@@ -94,10 +94,10 @@ const queueFlush = () => {
   }, FLUSH_DEBOUNCE_MS);
 };
 
-// ─── 脏标记轻量持久化 ───
-// 内存队列在「打脏 → 请求还没落地（在飞或在退避重排里）就被杀进程」时会整个蒸发，
-// 重开 App 也不补传。这里只把 charId 记进 localStorage 当底账
-// （快照本体下次启动从 DB 重建，存本体只会留一份过期数据）。
+// ─── 髒標記輕量持久化 ───
+// 內存隊列在「打髒 → 請求還沒落地（在飛或在退避重排裡）就被殺進程」時會整個蒸發，
+// 重開 App 也不補傳。這裡只把 charId 記進 localStorage 當底帳
+// （快照本體下次啟動從 DB 重建，存本體只會留一份過期數據）。
 export const AMSG2_PENDING_SYNC_LS_KEY = 'amsg2_pending_sync_char_ids';
 
 const readPendingCharIds = (): string[] => {
@@ -110,11 +110,11 @@ const readPendingCharIds = (): string[] => {
 };
 
 const writePendingCharIds = (ids: string[]) => {
-  // 存储满 / 隐私模式写不进去就算了：底账只是兜底，失败不能影响内存队列正常同步。
+  // 存儲滿 / 隱私模式寫不進去就算了：底帳只是兜底，失敗不能影響內存隊列正常同步。
   try {
     if (ids.length === 0) localStorage.removeItem(AMSG2_PENDING_SYNC_LS_KEY);
     else localStorage.setItem(AMSG2_PENDING_SYNC_LS_KEY, JSON.stringify(ids));
-  } catch { /* 见上 */ }
+  } catch { /* 見上 */ }
 };
 
 const persistDirtyMark = (charId: string) => {
@@ -123,8 +123,8 @@ const persistDirtyMark = (charId: string) => {
 };
 
 /**
- * 一批快照处理完（上传成功 / 判定无处可传）后清底账。
- * 只清「内存里已经不脏」的：上传期间同角色又被打脏的话，新标记不能被这批的收尾抹掉。
+ * 一批快照處理完（上傳成功 / 判定無處可傳）後清底帳。
+ * 只清「內存裡已經不髒」的：上傳期間同角色又被打髒的話，新標記不能被這批的收尾抹掉。
  */
 const prunePersistedMarks = (batch: AmsgSyncSnapshot[]) => {
   const settled = new Set(batch.map((s) => s.char.id).filter((id) => !dirty.has(id)));
@@ -142,7 +142,7 @@ const bindLifecycleListener = () => {
   });
 };
 
-/** 一轮聊完（或角色资料变更后）打脏标记；非 amsg2 AI 任务角色直接忽略。 */
+/** 一輪聊完（或角色資料變更後）打髒標記；非 amsg2 AI 任務角色直接忽略。 */
 export const markAmsgStateDirty = (snapshot: AmsgSyncSnapshot) => {
   const config = snapshot.char.activeMsg2Config;
   if (!config?.enabled || !hasActiveAiTask(config)) return;
@@ -154,16 +154,16 @@ export const markAmsgStateDirty = (snapshot: AmsgSyncSnapshot) => {
 };
 
 /**
- * 全局素材变了（表情库这类不属于某个角色的东西）：每个角色的 fire_pack 里都烤着一份
- * 打包那会儿的快照，所以逐个打脏。门在 markAmsgStateDirty 里，没开主动消息的角色自己会被筛掉。
+ * 全局素材變了（表情庫這類不屬於某個角色的東西）：每個角色的 fire_pack 裡都烤著一份
+ * 打包那會兒的快照，所以逐個打髒。門在 markAmsgStateDirty 裡，沒開主動消息的角色自己會被篩掉。
  *
- * 表情库尤其要紧：角色到点发的 [[SEND_EMOJI]] 引用的是包里那份清单，用户删了 / 改了名字
- * 之后云端还照着旧清单说话，客户端反查不到就只能落降级文本气泡。
+ * 表情庫尤其要緊：角色到點發的 [[SEND_EMOJI]] 引用的是包裡那份清單，用戶刪了 / 改了名字
+ * 之後雲端還照著舊清單說話，客戶端反查不到就只能落降級文本氣泡。
  *
- * 传的是 userProfileBase（没套用任何身份的那份），不是已经套用好的 userProfile——不同角色
- * 可能在「分角色身份指定」里各自绑了不同的身份卡（见 utils/userPersona.ts 的
- * resolveUserProfileForChar），一份套死的 userProfile 会让没绑自己那张卡的角色全部
- * 打脏成同一个名字。这里逐个角色按自己的绑定重新解析。
+ * 傳的是 userProfileBase（沒套用任何身份的那份），不是已經套用好的 userProfile——不同角色
+ * 可能在「分角色身份指定」裡各自綁了不同的身份卡（見 utils/userPersona.ts 的
+ * resolveUserProfileForChar），一份套死的 userProfile 會讓沒綁自己那張卡的角色全部
+ * 打髒成同一個名字。這裡逐個角色按自己的綁定重新解析。
  */
 export const markAmsgStateDirtyForAll = (scope: {
   characters: CharacterProfile[];
@@ -182,9 +182,9 @@ export const markAmsgStateDirtyForAll = (scope: {
 };
 
 /**
- * 把没传上去的快照放回待传队列。
- * 同角色已经有更新的快照时保留新的——旧快照的唯一价值就是「比云端那份新」，
- * 已经被更新的一份取代后再塞回去只会让下次上传倒退。
+ * 把沒傳上去的快照放回待傳隊列。
+ * 同角色已經有更新的快照時保留新的——舊快照的唯一價值就是「比雲端那份新」，
+ * 已經被更新的一份取代後再塞回去只會讓下次上傳倒退。
  */
 const requeue = (batch: AmsgSyncSnapshot[]) => {
   for (const snapshot of batch) {
@@ -192,33 +192,33 @@ const requeue = (batch: AmsgSyncSnapshot[]) => {
   }
 };
 
-/** 把所有脏角色的 fire_pack 批量上传。失败退避重排，快照留在队列里等下次。 */
+/** 把所有髒角色的 fire_pack 批量上傳。失敗退避重排，快照留在隊列裡等下次。 */
 export const flushAmsgState = async (reason: string): Promise<void> => {
-  // 这次冲刷把队列带走了，还挂着的合并窗口就不用再响一次（响了也只是空跑一趟）。
-  // 顺手把句柄归零：不归零的话，外部触发的冲刷（hidden / resume / 测试清理）之后
-  // 队列里再打的脏会以为已有窗口在等，实际那个 timer 早没了。
+  // 這次沖刷把隊列帶走了，還掛著的合併窗口就不用再響一次（響了也只是空跑一趟）。
+  // 順手把句柄歸零：不歸零的話，外部觸發的沖刷（hidden / resume / 測試清理）之後
+  // 隊列裡再打的髒會以為已有窗口在等，實際那個 timer 早沒了。
   if (flushDebounceTimer != null) { clearTimeout(flushDebounceTimer); flushDebounceTimer = null; }
-  // 工具凭据欠着的话顺手一起补：它和 fire_pack 一样是「云端那份过时了」，
-  // 而且冲刷时机（切后台 / 聊完一轮）正是网络多半又通了的时候。
+  // 工具憑據欠著的話順手一起補：它和 fire_pack 一樣是「雲端那份過時了」，
+  // 而且沖刷時機（切後台 / 聊完一輪）正是網絡多半又通了的時候。
   void runToolConfigSync(`flush:${reason}`);
-  // LLM 凭据行同理，而且它欠着的后果更硬：云端那份还是旧 Key 的话，已排程的任务
-  // 到点全部 401。
+  // LLM 憑據行同理，而且它欠著的後果更硬：雲端那份還是舊 Key 的話，已排程的任務
+  // 到點全部 401。
   void runLlmCredentialSync(`flush:${reason}`);
-  // 已经有一次在飞：这次的脏数据留在队列里，等那次落地后由 finally 补跑（直接 return
-  // 的话，上传期间打的脏就此搁浅，等不到任何人来传）。
+  // 已經有一次在飛：這次的髒數據留在隊列裡，等那次落地後由 finally 補跑（直接 return
+  // 的話，上傳期間打的髒就此擱淺，等不到任何人來傳）。
   if (flushing) { reflushRequested = true; return; }
-  // 队列空 = 没有欠着的快照，之前那串失败也就翻篇了，退避计数跟着归零。
+  // 隊列空 = 沒有欠著的快照，之前那串失敗也就翻篇了，退避計數跟著歸零。
   if (dirty.size === 0) { retryCount = 0; return; }
   if (retryTimer != null) { clearTimeout(retryTimer); retryTimer = null; }
-  // 欠着即时对话回复（含 POST 还在飞、202 未回）的角色这次挂起不传：那一轮的 fire_pack
-  // 是 POST /instant-chat 带上去的、多一段 chat（worker 到点全靠它拿这轮的对话），
-  // 常规重建的包没有 chat 段，现在覆盖上去的话 worker 到点只会硬失败（fire_pack 里
-  // 没有 chat 段）。判定用 activeMsgClient 那份共用的 owesInstantChatReply——排程那条路
-  // （scheduleCharacterTask 建任务前也要写 fire_pack）跟这里必须是同一把尺。
-  // 快照连底账一起留在队列里，销账后的下一次冲刷（含下面那个定时回看）照传不误。
+  // 欠著即時對話回覆（含 POST 還在飛、202 未回）的角色這次掛起不傳：那一輪的 fire_pack
+  // 是 POST /instant-chat 帶上去的、多一段 chat（worker 到點全靠它拿這輪的對話），
+  // 常規重建的包沒有 chat 段，現在覆蓋上去的話 worker 到點只會硬失敗（fire_pack 裡
+  // 沒有 chat 段）。判定用 activeMsgClient 那份共用的 owesInstantChatReply——排程那條路
+  // （scheduleCharacterTask 建任務前也要寫 fire_pack）跟這裡必須是同一把尺。
+  // 快照連底帳一起留在隊列裡，銷帳後的下一次沖刷（含下面那個定時回看）照傳不誤。
   const deferredIds = new Set([...dirty.keys()].filter(owesInstantChatReply));
   if (deferredIds.size === dirty.size) {
-    // 全都欠着回复：这次一个都传不了，排个回看就走（retryTimer 刚在上面清空过，直接排）。
+    // 全都欠著回覆：這次一個都傳不了，排個回看就走（retryTimer 剛在上面清空過，直接排）。
     scheduleDeferredRecheck();
     return;
   }
@@ -227,8 +227,8 @@ export const flushAmsgState = async (reason: string): Promise<void> => {
   try {
     const globalConfig = await ActiveMsgStore.getGlobalConfig();
     if (!globalConfig.workerUrl?.trim()) {
-      // 没配 worker = 这些快照没有去处，不是「传失败」，清掉即可（连底账一起，
-      // 挂起的那些同样没有去处）。
+      // 沒配 worker = 這些快照沒有去處，不是「傳失敗」，清掉即可（連底帳一起，
+      // 掛起的那些同樣沒有去處）。
       const all = [...dirty.values()];
       dirty.clear();
       prunePersistedMarks(all);
@@ -244,22 +244,22 @@ export const flushAmsgState = async (reason: string): Promise<void> => {
       realtimeConfig: snapshot.realtimeConfig,
     })));
     retryCount = 0;
-    // 传上去了才清底账；失败路径不清——底账就是给「重试没等到就被杀」兜底的。
+    // 傳上去了才清底帳；失敗路徑不清——底帳就是給「重試沒等到就被殺」兜底的。
     prunePersistedMarks(batch);
   } catch (error) {
     requeue(batch);
     if (retryCount < MAX_RETRIES) {
       const delay = RETRY_BASE_MS * 2 ** retryCount;
       retryCount += 1;
-      console.warn(`${HEADER} flush(${reason}) 失败，${Math.round(delay / 1000)}s 后重试（第 ${retryCount}/${MAX_RETRIES} 次）`, error);
+      console.warn(`${HEADER} flush(${reason}) 失敗，${Math.round(delay / 1000)}s 後重試（第 ${retryCount}/${MAX_RETRIES} 次）`, error);
       if (retryTimer != null) clearTimeout(retryTimer);
       retryTimer = setTimeout(() => { void flushAmsgState('retry'); }, delay);
     } else {
-      // 重排到头了（多半是离线）。快照留在队列里：下次打脏标记 / 切后台都会再试，
-      // 在那之前云端仍是上一份，角色到点会带旧上下文——所以这条要吼出来。
-      console.error(`${HEADER} flush(${reason}) 连续 ${MAX_RETRIES} 次失败，云端 fire_pack 仍是上一份（角色到点会用旧上下文）`, error);
-      // 用户这一侧完全无感：不报错、不提示，只是角色到点说的话对不上最近发生的事。
-      // 每次会话最多报一次（一轮退避打完才会走到这儿，但一次会话可以有好几轮）。
+      // 重排到頭了（多半是離線）。快照留在隊列裡：下次打髒標記 / 切後台都會再試，
+      // 在那之前雲端仍是上一份，角色到點會帶舊上下文——所以這條要吼出來。
+      console.error(`${HEADER} flush(${reason}) 連續 ${MAX_RETRIES} 次失敗，雲端 fire_pack 仍是上一份（角色到點會用舊上下文）`, error);
+      // 用戶這一側完全無感：不報錯、不提示，只是角色到點說的話對不上最近發生的事。
+      // 每次會話最多報一次（一輪退避打完才會走到這兒，但一次會話可以有好幾輪）。
       if (!staleStateReported) {
         staleStateReported = true;
         trackEvent('2.0云端状态同步失败');
@@ -270,53 +270,53 @@ export const flushAmsgState = async (reason: string): Promise<void> => {
     flushing = false;
     if (reflushRequested) {
       reflushRequested = false;
-      // 两种情况不用补跑：队列空（上面那批把它一起带走了）；已经排了退避重传
-      // （重传本来就带上队列里的全部快照，此刻再打一次只是立刻重蹈覆辙，还白吃一次退避额度）。
-      // 失败也不是一律不补跑：退避打光那条路不留 timer，此时飞行中打的脏会当场补跑一次
-      // 并重开一轮退避——有新数据值得再试，且退避上限管着，不会变成死循环。
+      // 兩種情況不用補跑：隊列空（上面那批把它一起帶走了）；已經排了退避重傳
+      // （重傳本來就帶上隊列裡的全部快照，此刻再打一次只是立刻重蹈覆轍，還白吃一次退避額度）。
+      // 失敗也不是一律不補跑：退避打光那條路不留 timer，此時飛行中打的髒會當場補跑一次
+      // 並重開一輪退避——有新數據值得再試，且退避上限管著，不會變成死循環。
       if (dirty.size > 0 && retryTimer == null) void flushAmsgState('reflush');
     }
-    // 还有挂起（欠即时对话回复）的快照时排个回看，销账后把它们传掉。
+    // 還有掛起（欠即時對話回覆）的快照時排個回看，銷帳後把它們傳掉。
     if (deferredIds.size > 0 && retryTimer == null) scheduleDeferredRecheck();
   }
 };
 
-/** 排一个「即时对话销账后回来传挂起快照」的回看。占用 retryTimer 这一个槽。 */
+/** 排一個「即時對話銷帳後回來傳掛起快照」的回看。佔用 retryTimer 這一個槽。 */
 const scheduleDeferredRecheck = () => {
   retryTimer = setTimeout(() => { void flushAmsgState('instant-chat-deferred'); }, INSTANT_DEFER_RECHECK_MS);
 };
 
 /**
- * 启动补传：上次会话打过脏、但没等到上传就被杀进程的角色，按 localStorage 底账重建
- * 快照再传一次。OSContext 在启动数据加载完成后调用，characters 传的就是刚从 DB 读回
- * 的全量角色（快照数据源 = DB），上传复用 markDirty → flush → syncCharFirePacks 原路。
+ * 啟動補傳：上次會話打過髒、但沒等到上傳就被殺進程的角色，按 localStorage 底帳重建
+ * 快照再傳一次。OSContext 在啟動數據加載完成後調用，characters 傳的就是剛從 DB 讀回
+ * 的全量角色（快照數據源 = DB），上傳複用 markDirty → flush → syncCharFirePacks 原路。
  *
- * 残留的 charId 可能已经删角色 / 关掉 amsg2 / 任务全发完了——这些直接静默清除底账：
- * 找不到的角色没得传，markDirty 的门拒掉的角色也不该再赖在底账里。
+ * 殘留的 charId 可能已經刪角色 / 關掉 amsg2 / 任務全發完了——這些直接靜默清除底帳：
+ * 找不到的角色沒得傳，markDirty 的門拒掉的角色也不該再賴在底帳裡。
  */
 export const resumePendingAmsgStateSync = (scope: {
   characters: CharacterProfile[];
   userProfile: UserProfile;
   groups: GroupProfile[];
   realtimeConfig?: RealtimeConfig;
-  /** 启动时那份聊天 API 配置；缺了就补不了 LLM 凭据行的欠账（其余照常补）。 */
+  /** 啟動時那份聊天 API 配置；缺了就補不了 LLM 憑據行的欠帳（其餘照常補）。 */
   apiConfig?: APIConfig;
 }) => {
-  // 工具凭据的欠账也在这儿补。底账只记「欠着一次」，凭据本体不落 localStorage
-  // （那等于把 token 又抄一份到别的地方），补传用启动时这份最新配置——它本来就是
-  // 云端此刻该有的那一份。
+  // 工具憑據的欠帳也在這兒補。底帳只記「欠著一次」，憑據本體不落 localStorage
+  // （那等於把 token 又抄一份到別的地方），補傳用啟動時這份最新配置——它本來就是
+  // 雲端此刻該有的那一份。
   if (hasPersistedToolConfigMark()) syncAmsgToolConfig(scope.realtimeConfig);
-  // LLM 凭据行同理（同样只记欠账、不落凭据本体）。
+  // LLM 憑據行同理（同樣只記欠帳、不落憑據本體）。
   if (scope.apiConfig && hasPersistedCredSyncMark()) syncAmsgLlmCredentials(scope.apiConfig);
 
   const pending = readPendingCharIds();
   if (pending.length === 0) return;
 
-  // 先整个清掉：还该传的角色下面 markDirty 会把 id 重新写回去，不该传的就此了账。
+  // 先整個清掉：還該傳的角色下面 markDirty 會把 id 重新寫回去，不該傳的就此了帳。
   writePendingCharIds([]);
   for (const charId of pending) {
     const char = scope.characters.find((c) => c.id === charId);
-    if (!char) continue; // 角色已删除，静默跳过
+    if (!char) continue; // 角色已刪除，靜默跳過
     markAmsgStateDirty({
       char,
       userProfile: scope.userProfile,
@@ -324,45 +324,45 @@ export const resumePendingAmsgStateSync = (scope: {
       realtimeConfig: scope.realtimeConfig,
     });
   }
-  // 当场冲刷，不等 markDirty 排的那个微任务——这份欠账已经拖了一次进程生死了。
+  // 當場沖刷，不等 markDirty 排的那個微任務——這份欠帳已經拖了一次進程生死了。
   if (dirty.size > 0) void flushAmsgState('resume');
 };
 
-// ─── 同角色活跃会话租约（Heartbeat）───
-// 一轮真实用户消息进入生成流程时启动：立即写一次 chat_presence，之后每 15s 续租，
-// 成功/失败/中断后停止本地续租，远端值靠 45s TTL 自然失效。它只代表「正在和这个角色
-// 交互」，不是 App 在线状态——切后台就停续租，别让一个闲置可见标签页无限续租。
+// ─── 同角色活躍會話租約（Heartbeat）───
+// 一輪真實用戶消息進入生成流程時啟動：立即寫一次 chat_presence，之後每 15s 續租，
+// 成功/失敗/中斷後停止本地續租，遠端值靠 45s TTL 自然失效。它只代表「正在和這個角色
+// 交互」，不是 App 在線狀態——切後台就停續租，別讓一個閒置可見標籤頁無限續租。
 
 interface ChatPresenceLease {
   timer: ReturnType<typeof setInterval>;
-  /** 本轮最新的「最近一条真实用户消息」时间戳；续租时读它，不吃闭包里的陈旧值。 */
+  /** 本輪最新的「最近一條真實用戶消息」時間戳；續租時讀它，不吃閉包裡的陳舊值。 */
   lastUserMessageAt: number | null;
 }
 
-// charId → 心跳租约。同一 char 只保留一个 timer（重入只刷新 lastUserMessageAt）。
+// charId → 心跳租約。同一 char 只保留一個 timer（重入只刷新 lastUserMessageAt）。
 const chatPresenceLeases = new Map<string, ChatPresenceLease>();
 
 /**
- * 实时感知配置（工具凭据）改动后，把云端的两份状态一起对齐。
+ * 實時感知配置（工具憑據）改動後，把雲端的兩份狀態一起對齊。
  *
- * 云端有两份东西依赖这套凭据，必须同进同退：
- *   1. tool_config —— 凭据本身；
- *   2. fire_pack 里的系统提示词 —— 它是**按当时的配置裁剪过**的，没配的工具连说明都不注入
- *      （见 chatPrompts 的 notionEnabled / feishuEnabled / searchEnabled 门控）。
+ * 雲端有兩份東西依賴這套憑據，必須同進同退：
+ *   1. tool_config —— 憑據本身；
+ *   2. fire_pack 裡的系統提示詞 —— 它是**按當時的配置裁剪過**的，沒配的工具連說明都不注入
+ *      （見 chatPrompts 的 notionEnabled / feishuEnabled / searchEnabled 門控）。
  *
- * 只更前者会留下一个窗口：云端提示词还在教角色用 Notion 日记，凭据已经被关掉了，角色到点
- * 照着旧提示词调工具，拿回 not_configured。所以两个动作合成一个入口，调用方无法只做一半。
+ * 只更前者會留下一個窗口：雲端提示詞還在教角色用 Notion 日記，憑據已經被關掉了，角色到點
+ * 照著舊提示詞調工具，拿回 not_configured。所以兩個動作合成一個入口，調用方無法只做一半。
  *
- * 谁需要刷新由 markAmsgStateDirty 内部的门决定（没开 2.0 / 没有待触发 AI 任务的角色直接
- * 忽略），所以这里可以无脑把全部角色递进来。
+ * 誰需要刷新由 markAmsgStateDirty 內部的門決定（沒開 2.0 / 沒有待觸發 AI 任務的角色直接
+ * 忽略），所以這裡可以無腦把全部角色遞進來。
  */
 export const syncAmsgToolConfigAndPrompts = (
   realtimeConfig: RealtimeConfig,
   scope: { characters: CharacterProfile[]; userProfile: UserProfile; groups: GroupProfile[] },
 ) => {
-  // 上传失败不打断保存：本地配置已经生效，云端那份由 syncAmsgToolConfig 自己退避重传，
-  // 传不上去也留着底账等下次启动补（fire_pack 那种「下一轮聊天顺手带上」的便车，
-  // tool_config 是坐不了的——冲刷只传 fire_pack）。
+  // 上傳失敗不打斷保存：本地配置已經生效，雲端那份由 syncAmsgToolConfig 自己退避重傳，
+  // 傳不上去也留著底帳等下次啟動補（fire_pack 那種「下一輪聊天順手帶上」的便車，
+  // tool_config 是坐不了的——沖刷只傳 fire_pack）。
   syncAmsgToolConfig(realtimeConfig);
   for (const char of scope.characters) {
     markAmsgStateDirty({ char, userProfile: scope.userProfile, groups: scope.groups, realtimeConfig });
@@ -370,15 +370,15 @@ export const syncAmsgToolConfigAndPrompts = (
   void flushAmsgState('tool-config-change');
 };
 
-// ─── 工具凭据（tool_config）的重试与底账 ───
-// fire_pack 每轮聊天都会重传，掉一次下一轮就补上；tool_config 不吃这条便车——它只在
-// 用户保存配置那一刻传一次，那一次失败就再没有人会补。而它偏偏是有对外副作用的一份：
-// 用户删掉的 MCP 服务器、换掉的 token，云端还是旧的，worker 半夜照旧带着旧凭据直连。
-// 所以这里给它配上和 fire_pack 同款的退避重试 + localStorage 底账。
+// ─── 工具憑據（tool_config）的重試與底帳 ───
+// fire_pack 每輪聊天都會重傳，掉一次下一輪就補上；tool_config 不吃這條便車——它只在
+// 用戶保存配置那一刻傳一次，那一次失敗就再沒有人會補。而它偏偏是有對外副作用的一份：
+// 用戶刪掉的 MCP 服務器、換掉的 token，雲端還是舊的，worker 半夜照舊帶著舊憑據直連。
+// 所以這裡給它配上和 fire_pack 同款的退避重試 + localStorage 底帳。
 
 export const AMSG2_PENDING_TOOL_CONFIG_LS_KEY = 'amsg2_pending_tool_config';
 
-/** 待上传的那份配置。undefined 也是合法载荷（= 什么都没配），所以另用 flag 表示「欠着」。 */
+/** 待上傳的那份配置。undefined 也是合法載荷（= 什麼都沒配），所以另用 flag 表示「欠著」。 */
 let pendingToolConfig: RealtimeConfig | undefined;
 let hasPendingToolConfig = false;
 let toolConfigSyncing = false;
@@ -386,11 +386,11 @@ let toolConfigRetryCount = 0;
 let toolConfigRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
 const writeToolConfigMark = (pending: boolean) => {
-  // 存储满 / 隐私模式写不进去就算了：底账只是给「重试没等到就被杀」兜底的。
+  // 存儲滿 / 隱私模式寫不進去就算了：底帳只是給「重試沒等到就被殺」兜底的。
   try {
     if (pending) localStorage.setItem(AMSG2_PENDING_TOOL_CONFIG_LS_KEY, '1');
     else localStorage.removeItem(AMSG2_PENDING_TOOL_CONFIG_LS_KEY);
-  } catch { /* 见上 */ }
+  } catch { /* 見上 */ }
 };
 
 const hasPersistedToolConfigMark = (): boolean => {
@@ -400,12 +400,12 @@ const hasPersistedToolConfigMark = (): boolean => {
 const runToolConfigSync = async (reason: string): Promise<void> => {
   if (!hasPendingToolConfig || toolConfigSyncing) return;
   toolConfigSyncing = true;
-  // 记下这次传的是哪一份：上传期间用户又改了配置的话，清账不能把新的那份一起清掉。
+  // 記下這次傳的是哪一份：上傳期間用戶又改了配置的話，清帳不能把新的那份一起清掉。
   const snapshot = pendingToolConfig;
   try {
     const globalConfig = await ActiveMsgStore.getGlobalConfig();
     if (!globalConfig.workerUrl?.trim()) {
-      // 没配 worker = 这份凭据没有去处，不是「传失败」，连底账一起清掉。
+      // 沒配 worker = 這份憑據沒有去處，不是「傳失敗」，連底帳一起清掉。
       hasPendingToolConfig = false;
       pendingToolConfig = undefined;
       writeToolConfigMark(false);
@@ -422,12 +422,12 @@ const runToolConfigSync = async (reason: string): Promise<void> => {
     if (toolConfigRetryCount < MAX_RETRIES) {
       const delay = RETRY_BASE_MS * 2 ** toolConfigRetryCount;
       toolConfigRetryCount += 1;
-      console.warn(`${HEADER} tool_config(${reason}) 上传失败，${Math.round(delay / 1000)}s 后重试（第 ${toolConfigRetryCount}/${MAX_RETRIES} 次）`, error);
+      console.warn(`${HEADER} tool_config(${reason}) 上傳失敗，${Math.round(delay / 1000)}s 後重試（第 ${toolConfigRetryCount}/${MAX_RETRIES} 次）`, error);
       if (toolConfigRetryTimer != null) clearTimeout(toolConfigRetryTimer);
       toolConfigRetryTimer = setTimeout(() => { void runToolConfigSync('retry'); }, delay);
     } else {
-      // 退避打光了（多半是离线）。底账留着：下次启动 / 下次冲刷继续补。
-      console.error(`${HEADER} tool_config(${reason}) 连续 ${MAX_RETRIES} 次失败，云端仍是上一份工具配置（后台可能带着已被删掉的服务器或旧 token 调工具）`, error);
+      // 退避打光了（多半是離線）。底帳留著：下次啟動 / 下次沖刷繼續補。
+      console.error(`${HEADER} tool_config(${reason}) 連續 ${MAX_RETRIES} 次失敗，雲端仍是上一份工具配置（後台可能帶著已被刪掉的服務器或舊 token 調工具）`, error);
       toolConfigRetryCount = 0;
     }
   } finally {
@@ -436,8 +436,8 @@ const runToolConfigSync = async (reason: string): Promise<void> => {
 };
 
 /**
- * 工具凭据上云的唯一入口（实时感知保存、MCP 配置变更、代理地址改动都走它）。
- * 立即传一次，失败退避重试，并在 localStorage 留底账等启动 / 下次冲刷补传。
+ * 工具憑據上雲的唯一入口（實時感知保存、MCP 配置變更、代理地址改動都走它）。
+ * 立即傳一次，失敗退避重試，並在 localStorage 留底帳等啟動 / 下次沖刷補傳。
  */
 export const syncAmsgToolConfig = (realtimeConfig: RealtimeConfig | undefined): void => {
   pendingToolConfig = realtimeConfig;
@@ -448,21 +448,21 @@ export const syncAmsgToolConfig = (realtimeConfig: RealtimeConfig | undefined): 
   void runToolConfigSync('change');
 };
 
-// ─── LLM 凭据行（credRefs）的重传 ───
+// ─── LLM 憑據行（credRefs）的重傳 ───
 //
-// 云端那张凭据表和 tool_config 处境一样：只在用户改配置那一刻传一次，那一次丢了就再没
-// 人补。而它比 tool_config 更要命——传不上去意味着**已排程的任务到点还在用旧 Key**，
-// 换 Key 之后每条主动消息都是 401。所以退避重试 + localStorage 底账整套跟着 tool_config
-// 那份走，连触发时机（每次冲刷顺手补一次、启动时按底账补一次）都是同一批。
+// 雲端那張憑據表和 tool_config 處境一樣：只在用戶改配置那一刻傳一次，那一次丟了就再沒
+// 人補。而它比 tool_config 更要命——傳不上去意味著**已排程的任務到點還在用舊 Key**，
+// 換 Key 之後每條主動消息都是 401。所以退避重試 + localStorage 底帳整套跟著 tool_config
+// 那份走，連觸發時機（每次沖刷順手補一次、啟動時按底帳補一次）都是同一批。
 //
-// 重算哪几行：底账里记着的那些（= 真的用过的那些）。只重算「值是持久化配置的纯函数」的
-// 两种用途——`chat`（定时主动消息）与 `emotion`（情绪评估）。`instant` 那一行不在这里
-// 重算：它的 model 是每一轮聊天的请求体终值（claude 系开思考时带 -thinking 后缀），
-// 靠这里的配置推不出来；那一行由每次发消息的路径自己按当轮终值覆盖（值没变就不发请求）。
+// 重算哪幾行：底帳裡記著的那些（= 真的用過的那些）。只重算「值是持久化配置的純函數」的
+// 兩種用途——`chat`（定時主動消息）與 `emotion`（情緒評估）。`instant` 那一行不在這裡
+// 重算：它的 model 是每一輪聊天的請求體終值（claude 系開思考時帶 -thinking 後綴），
+// 靠這裡的配置推不出來；那一行由每次發消息的路徑自己按當輪終值覆蓋（值沒變就不發請求）。
 
 export const AMSG2_PENDING_CRED_SYNC_LS_KEY = 'amsg2_pending_llm_creds';
 
-/** 待重传用的那份聊天配置。凭据本体不落 localStorage，底账只记「欠着一次」。 */
+/** 待重傳用的那份聊天配置。憑據本體不落 localStorage，底帳只記「欠著一次」。 */
 let pendingCredApiConfig: APIConfig | undefined;
 let hasPendingCredSync = false;
 let credSyncing = false;
@@ -470,11 +470,11 @@ let credRetryCount = 0;
 let credRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
 const writeCredSyncMark = (pending: boolean) => {
-  // 存储满 / 隐私模式写不进去就算了：底账只是给「重试没等到就被杀」兜底的。
+  // 存儲滿 / 隱私模式寫不進去就算了：底帳只是給「重試沒等到就被殺」兜底的。
   try {
     if (pending) localStorage.setItem(AMSG2_PENDING_CRED_SYNC_LS_KEY, '1');
     else localStorage.removeItem(AMSG2_PENDING_CRED_SYNC_LS_KEY);
-  } catch { /* 见上 */ }
+  } catch { /* 見上 */ }
 };
 
 const hasPersistedCredSyncMark = (): boolean => {
@@ -482,8 +482,8 @@ const hasPersistedCredSyncMark = (): boolean => {
 };
 
 /**
- * 按底账里记着的 credId，用当前配置重算出这几行现在该是什么值。
- * 角色已删 / 凭据配不齐的那些直接跳过——没得算，也不该拿一份残缺的去覆盖云端。
+ * 按底帳裡記著的 credId，用當前配置重算出這幾行現在該是什麼值。
+ * 角色已刪 / 憑據配不齊的那些直接跳過——沒得算，也不該拿一份殘缺的去覆蓋雲端。
  */
 export const buildCredentialRowsToResync = async (
   apiConfig: APIConfig,
@@ -512,11 +512,11 @@ export const buildCredentialRowsToResync = async (
 const runLlmCredentialSync = async (reason: string): Promise<void> => {
   if (!hasPendingCredSync || credSyncing) return;
   credSyncing = true;
-  // 记下这次算的是哪一份：上传期间用户又改了配置的话，清账不能把新的那份一起清掉。
+  // 記下這次算的是哪一份：上傳期間用戶又改了配置的話，清帳不能把新的那份一起清掉。
   const snapshot = pendingCredApiConfig;
   try {
     const globalConfig = await ActiveMsgStore.getGlobalConfig();
-    // 没配 worker、或这台 worker 还不认凭据表 = 这几行没有去处，不是「传失败」，连底账一起清掉。
+    // 沒配 worker、或這台 worker 還不認憑據表 = 這幾行沒有去處，不是「傳失敗」，連底帳一起清掉。
     if (!globalConfig.workerUrl?.trim() || !snapshot || !(await isLlmCredentialsReady())) {
       hasPendingCredSync = false;
       pendingCredApiConfig = undefined;
@@ -524,7 +524,7 @@ const runLlmCredentialSync = async (reason: string): Promise<void> => {
       return;
     }
     const rows = await buildCredentialRowsToResync(snapshot);
-    // 值一个都没变（多半是这次保存改的不是 API 那几项）：不发请求，直接销账。
+    // 值一個都沒變（多半是這次保存改的不是 API 那幾項）：不發請求，直接銷帳。
     if (pickChangedCredRows(rows).length > 0) await ActiveMsgClient.putLlmCredentials(rows);
     if (pendingCredApiConfig === snapshot) {
       hasPendingCredSync = false;
@@ -536,12 +536,12 @@ const runLlmCredentialSync = async (reason: string): Promise<void> => {
     if (credRetryCount < MAX_RETRIES) {
       const delay = RETRY_BASE_MS * 2 ** credRetryCount;
       credRetryCount += 1;
-      console.warn(`${HEADER} llm_credentials(${reason}) 上传失败，${Math.round(delay / 1000)}s 后重试（第 ${credRetryCount}/${MAX_RETRIES} 次）`, error);
+      console.warn(`${HEADER} llm_credentials(${reason}) 上傳失敗，${Math.round(delay / 1000)}s 後重試（第 ${credRetryCount}/${MAX_RETRIES} 次）`, error);
       if (credRetryTimer != null) clearTimeout(credRetryTimer);
       credRetryTimer = setTimeout(() => { void runLlmCredentialSync('retry'); }, delay);
     } else {
-      // 退避打光了（多半是离线）。底账留着：下次启动 / 下次冲刷继续补。
-      console.error(`${HEADER} llm_credentials(${reason}) 连续 ${MAX_RETRIES} 次失败，云端凭据仍是上一份（已排程的任务到点会用旧 Key）`, error);
+      // 退避打光了（多半是離線）。底帳留著：下次啟動 / 下次沖刷繼續補。
+      console.error(`${HEADER} llm_credentials(${reason}) 連續 ${MAX_RETRIES} 次失敗，雲端憑據仍是上一份（已排程的任務到點會用舊 Key）`, error);
       credRetryCount = 0;
     }
   } finally {
@@ -550,11 +550,11 @@ const runLlmCredentialSync = async (reason: string): Promise<void> => {
 };
 
 /**
- * 聊天 API / 角色单独 API / 情绪评估 API 改过之后，把云端那几行凭据对齐的唯一入口。
+ * 聊天 API / 角色單獨 API / 情緒評估 API 改過之後，把雲端那幾行憑據對齊的唯一入口。
  *
- * 立即传一次，失败退避重试，并在 localStorage 留底账等启动 / 下次冲刷补传。
- * 老 worker（不支持凭据表）上它是 no-op——那条路的凭据仍冻结在任务里，靠
- * refreshApiCredentialsForPendingTasks 逐条补刷。
+ * 立即傳一次，失敗退避重試，並在 localStorage 留底帳等啟動 / 下次沖刷補傳。
+ * 老 worker（不支持憑據表）上它是 no-op——那條路的憑據仍凍結在任務裡，靠
+ * refreshApiCredentialsForPendingTasks 逐條補刷。
  */
 export const syncAmsgLlmCredentials = (apiConfig: APIConfig): void => {
   pendingCredApiConfig = apiConfig;
@@ -570,24 +570,24 @@ export const syncAmsgLlmCredentials = (apiConfig: APIConfig): void => {
 /**
  * 「Worker 地址被清空」的判定。
  *
- * 地址一空，前端这边的同步全停了，但 D1 里的任务还在：cron 每分钟照常消费、照烧 LLM
- * 照推送（推送订阅也还在），只是内容越来越对不上——用户以为自己关掉了一切，实际只是
- * 把自己变成了看不见的那一方。所以这一步不能静悄悄地存下去。
+ * 地址一空，前端這邊的同步全停了，但 D1 裡的任務還在：cron 每分鐘照常消費、照燒 LLM
+ * 照推送（推送訂閱也還在），只是內容越來越對不上——用戶以為自己關掉了一切，實際只是
+ * 把自己變成了看不見的那一方。所以這一步不能靜悄悄地存下去。
  */
 export const isWorkerUrlCleared = (prevUrl: string | undefined, nextUrl: string | undefined): boolean =>
   Boolean(prevUrl?.trim()) && !nextUrl?.trim();
 
 /**
- * 取消远端**全部**任务（清空 Worker 地址时用，此时还没换地址，读写的都是旧那台）。
+ * 取消遠端**全部**任務（清空 Worker 地址時用，此時還沒換地址，讀寫的都是舊那台）。
  *
- * 「全部」是字面意思，正在跑的即时对话也一起取消，跟角色级的
- * ActiveMsgClient.cancelAllTasksForChar（那边刻意放过即时对话的行）不是一把尺 ——
- * 两个调用方（清空 Worker 地址、清空云端数据）要的都是「我不跟这台 worker 来往了」：
- * 地址一清，回复推回来这边也接不住了；云端数据一清，角色上下文没了，那一跳到点也只会
- * 硬失败，留着它只是多一条要等 7 天才自动消失的失败行。所以这里不给调用方开过滤的口子。
+ * 「全部」是字面意思，正在跑的即時對話也一起取消，跟角色級的
+ * ActiveMsgClient.cancelAllTasksForChar（那邊刻意放過即時對話的行）不是一把尺 ——
+ * 兩個調用方（清空 Worker 地址、清空雲端數據）要的都是「我不跟這台 worker 來往了」：
+ * 地址一清，回覆推回來這邊也接不住了；雲端數據一清，角色上下文沒了，那一跳到點也只會
+ * 硬失敗，留著它只是多一條要等 7 天才自動消失的失敗行。所以這裡不給調用方開過濾的口子。
  *
- * 尽力而为：逐条取消，单条失败记数继续跑完其余的；清单都读不到（网络 / 鉴权）就
- * 回 listed:false，交给调用方提示用户「远端可能还挂着」。
+ * 盡力而為：逐條取消，單條失敗記數繼續跑完其餘的；清單都讀不到（網絡 / 鑑權）就
+ * 回 listed:false，交給調用方提示用戶「遠端可能還掛著」。
  */
 export const cancelAllRemoteAmsgTasks = async (): Promise<{
   total: number; failed: number; listed: boolean;
@@ -598,7 +598,7 @@ export const cancelAllRemoteAmsgTasks = async (): Promise<{
       .map((task: { uuid?: unknown }) => task?.uuid)
       .filter((uuid): uuid is string => typeof uuid === 'string' && !!uuid);
   } catch (error) {
-    console.warn(`${HEADER} 清空地址前读不到远端任务清单，无法确认还剩几条`, error);
+    console.warn(`${HEADER} 清空地址前讀不到遠端任務清單，無法確認還剩幾條`, error);
     return { total: 0, failed: 0, listed: false };
   }
   let failed = 0;
@@ -608,44 +608,44 @@ export const cancelAllRemoteAmsgTasks = async (): Promise<{
   return { total: uuids.length, failed, listed: true };
 };
 
-/** 「清空云端数据」逐项的结果，界面照着它说清楚哪几样清干净了、哪几样没有。 */
+/** 「清空雲端數據」逐項的結果，界面照著它說清楚哪幾樣清乾淨了、哪幾樣沒有。 */
 export interface AmsgCloudWipeResult {
-  /** 任务表：读到清单才有数，listed:false 表示清单压根读不出来。 */
+  /** 任務表：讀到清單才有數，listed:false 表示清單壓根讀不出來。 */
   tasks: { total: number; failed: number; listed: boolean };
-  /** 角色上下文清掉的条目数；这一步失败时是 null。 */
+  /** 角色上下文清掉的條目數；這一步失敗時是 null。 */
   stateDeleted: number | null;
-  /** 工具凭据有没有当场补传回去（它没有别的补写时机）。 */
+  /** 工具憑據有沒有當場補傳回去（它沒有別的補寫時機）。 */
   toolConfigRestored: boolean;
   /**
-   * LLM 凭据表清掉的行数；这一步失败时是 null。
-   * 不当场补回去：这几行由排程 / 发消息那两条路按需重建（本地指纹底账已经一起划掉了）。
+   * LLM 憑據表清掉的行數；這一步失敗時是 null。
+   * 不當場補回去：這幾行由排程 / 發消息那兩條路按需重建（本地指紋底帳已經一起劃掉了）。
    */
   llmCredentialsDeleted: number | null;
-  /** 推送订阅的去向：重新登记了 / 删掉了不再登记 / 没弄成。 */
+  /** 推送訂閱的去向：重新登記了 / 刪掉了不再登記 / 沒弄成。 */
   push: 'reregistered' | 'deleted' | 'failed';
 }
 
 /**
- * 清空这个用户在 worker D1 里的全部数据：已排程的任务、同步上去的角色上下文与
- * 工具凭据、登记的 LLM 凭据行、推送订阅登记。设置页「清空云端数据」按钮走的就是这里。
+ * 清空這個用戶在 worker D1 裡的全部數據：已排程的任務、同步上去的角色上下文與
+ * 工具憑據、登記的 LLM 憑據行、推送訂閱登記。設置頁「清空雲端數據」按鈕走的就是這裡。
  *
- * 四样各清各的，**一步失败不短路后面几步**。这一条是这个函数存在的意义：换过
- * AMSG_MASTER_KEY 之后，旧密文全解不开，而「列任务」恰恰要逐条解密（GET /messages），
- * 于是它必然是最先炸的那一步；偏偏这时候最需要被清掉的是 client_state（不清的话
- * 读它的接口一直报错）。串行短路的话用户会一样都清不成，正好卡在最需要它的场景里。
+ * 四樣各清各的，**一步失敗不短路後面幾步**。這一條是這個函數存在的意義：換過
+ * AMSG_MASTER_KEY 之後，舊密文全解不開，而「列任務」恰恰要逐條解密（GET /messages），
+ * 於是它必然是最先炸的那一步；偏偏這時候最需要被清掉的是 client_state（不清的話
+ * 讀它的接口一直報錯）。串行短路的話用戶會一樣都清不成，正好卡在最需要它的場景裡。
  *
- * 任务清单读不出来时不用另想办法：解不开的任务到点会失败，worker 每轮 cron 都会删掉
- * 7 天前的失败任务，它们会自己消失。
+ * 任務清單讀不出來時不用另想辦法：解不開的任務到點會失敗，worker 每輪 cron 都會刪掉
+ * 7 天前的失敗任務，它們會自己消失。
  *
- * @param options.pushRegistered 本机当前有没有推送订阅。有就覆盖登记一份新的
- *   （worker 上按 user_id 存单行，PUT 一次就顶掉旧行，不用先删、也就没有「删完没
- *   登记上」的裸奔窗口）；没有就只把云端那行删掉，不去申请通知权限。
+ * @param options.pushRegistered 本機當前有沒有推送訂閱。有就覆蓋登記一份新的
+ *   （worker 上按 user_id 存單行，PUT 一次就頂掉舊行，不用先刪、也就沒有「刪完沒
+ *   登記上」的裸奔窗口）；沒有就只把雲端那行刪掉，不去申請通知權限。
  */
 export const wipeAmsgCloudData = async (
   realtimeConfig: RealtimeConfig | undefined,
   options: { pushRegistered: boolean },
 ): Promise<AmsgCloudWipeResult> => {
-  // 先收任务：清空过程中就不会再有任务到点触发，跑到一半的状态不至于被现场读走。
+  // 先收任務：清空過程中就不會再有任務到點觸發，跑到一半的狀態不至於被現場讀走。
   const tasks = await cancelAllRemoteAmsgTasks();
 
   let stateDeleted: number | null = null;
@@ -655,16 +655,16 @@ export const wipeAmsgCloudData = async (
     stateDeleted = cleared.deleted;
     toolConfigRestored = cleared.toolConfigRestored;
   } catch (error) {
-    console.warn(`${HEADER} 清空云端状态失败`, error);
+    console.warn(`${HEADER} 清空雲端狀態失敗`, error);
   }
 
-  // 凭据表：和上面几样一样自成一步，前面哪一步炸了都照清。老 worker 上没有这张表，
-  // 那时这一步会失败——它本来就没东西可清，报出来即可，不影响别的几样。
+  // 憑據表：和上面幾樣一樣自成一步，前面哪一步炸了都照清。老 worker 上沒有這張表，
+  // 那時這一步會失敗——它本來就沒東西可清，報出來即可，不影響別的幾樣。
   let llmCredentialsDeleted: number | null = null;
   try {
     llmCredentialsDeleted = await ActiveMsgClient.deleteLlmCredentials({ all: true });
   } catch (error) {
-    console.warn(`${HEADER} 清空云端 LLM 凭据失败`, error);
+    console.warn(`${HEADER} 清空雲端 LLM 憑據失敗`, error);
   }
 
   let push: AmsgCloudWipeResult['push'] = 'failed';
@@ -677,7 +677,7 @@ export const wipeAmsgCloudData = async (
       push = 'deleted';
     }
   } catch (error) {
-    console.warn(`${HEADER} 推送订阅收尾失败`, error);
+    console.warn(`${HEADER} 推送訂閱收尾失敗`, error);
   }
 
   return { tasks, stateDeleted, toolConfigRestored, llmCredentialsDeleted, push };
@@ -690,25 +690,25 @@ const writeChatPresence = (charId: string, lastUserMessageAt: number | null) => 
     activeAt: Date.now(),
     lastUserMessageAt,
   };
-  // 写入失败只 warn：心跳故障不能打断正常聊天，下一次 interval 继续尝试；远端 45s TTL 兜底。
+  // 寫入失敗只 warn：心跳故障不能打斷正常聊天，下一次 interval 繼續嘗試；遠端 45s TTL 兜底。
   ActiveMsgClient.syncChatPresence(charId, presence).catch((error) => {
-    console.warn(`${HEADER} 活跃会话租约写入失败（45s TTL 自然失效）`, error);
+    console.warn(`${HEADER} 活躍會話租約寫入失敗（45s TTL 自然失效）`, error);
   });
 };
 
-/** 一轮真实用户消息进入生成流程时启动租约：立即写一次，之后每 15s 续租。 */
+/** 一輪真實用戶消息進入生成流程時啟動租約：立即寫一次，之後每 15s 續租。 */
 export const startAmsgChatPresence = (charId: string, lastUserMessageAt: number | null) => {
   writeChatPresence(charId, lastUserMessageAt);
 
   const existing = chatPresenceLeases.get(charId);
   if (existing) {
-    // 已有 timer：只刷新本轮最新的 lastUserMessageAt，复用同一个心跳。
+    // 已有 timer：只刷新本輪最新的 lastUserMessageAt，複用同一個心跳。
     existing.lastUserMessageAt = lastUserMessageAt;
     return;
   }
 
   const timer = setInterval(() => {
-    // 切后台不再续租：一个闲置可见标签页不该无限续租；回前台下一轮真实消息重建。
+    // 切後台不再續租：一個閒置可見標籤頁不該無限續租；回前台下一輪真實消息重建。
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     const lease = chatPresenceLeases.get(charId);
     if (!lease) return;
@@ -717,7 +717,7 @@ export const startAmsgChatPresence = (charId: string, lastUserMessageAt: number 
   chatPresenceLeases.set(charId, { timer, lastUserMessageAt });
 };
 
-/** 停止本地续租（不发「离线」写入，远端靠 45s TTL 自然失效）。 */
+/** 停止本地續租（不發「離線」寫入，遠端靠 45s TTL 自然失效）。 */
 export const stopAmsgChatPresence = (charId: string) => {
   const lease = chatPresenceLeases.get(charId);
   if (lease) {
