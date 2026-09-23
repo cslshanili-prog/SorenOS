@@ -84,3 +84,20 @@ export async function applyForcedReadNoReply(
     await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, decision) });
     return 'sent';
 }
+
+/**
+ * 「由角色決定」時角色選擇不回（[[ACTION:NO_REPLY]]），但這一輪不是走聊天頁的後處理
+ * （例如延遲自動回覆的背景生成）：在這裡落自動回覆＋旁白。回傳落下的自動回覆文字。
+ */
+export async function persistCharChoseNoReply(char: CharacterProfile, autoReply?: string): Promise<string> {
+    const decision = await getReadNoReplyDecision(char).catch(() => null);
+    const state = decision?.state ?? 'normal';
+    const reason = decision?.reason ?? '';
+    const text = (char.readNoReply?.aiGenerated ? autoReply : undefined) ?? pickAutoReplyText(char.readNoReply, state);
+    await DB.saveMessage({
+        charId: char.id, role: 'assistant', type: 'text', content: text,
+        metadata: { readNoReply: { state, reason } },
+    } as Parameters<typeof DB.saveMessage>[0]);
+    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, { state, reason }) });
+    return text;
+}

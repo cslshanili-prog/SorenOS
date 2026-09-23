@@ -751,6 +751,14 @@ export interface QuietHoursSlot {
     title?: string;
 }
 
+/** 聊天設定 · Scenario ·「延遲自動回覆」：發完訊息不用按回覆，角色在這個範圍內自己回。 */
+export interface DelayedReplySettings {
+    enabled: boolean;
+    /** 回覆時間範圍（分鐘）；實際多快看日程忙不忙、剛剛是不是正聊得起勁。 */
+    minMinutes: number;
+    maxMinutes: number;
+}
+
 /** 聊天設定 · Scenario ·「已讀不回」。 */
 export interface ReadNoReplySettings {
     enabled: boolean;
@@ -3242,6 +3250,8 @@ export interface CharacterProfile {
   acquaintanceStartDate?: string;
   /** 聊天設定 · Scenario ·「已讀不回」（邏輯見 utils/readNoReply.ts）。 */
   readNoReply?: ReadNoReplySettings;
+  /** 聊天設定 · Scenario ·「延遲自動回覆」（邏輯見 utils/delayedReply.ts）。 */
+  delayedReply?: DelayedReplySettings;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
