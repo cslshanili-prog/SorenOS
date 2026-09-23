@@ -14,7 +14,8 @@ import type { CharacterProfile, DelayedReplySettings, ReadNoReplySettings } from
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
-    | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'>;
+    | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
+    | 'dateInvite' | 'onlineActions'>;
 
 interface Props {
     isOpen: boolean;
@@ -76,6 +77,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [editingDate, setEditingDate] = useState(false);
     const [readNoReply, setReadNoReply] = useState<ReadNoReplySettings>({ enabled: false });
     const [delayedReply, setDelayedReply] = useState<DelayedReplySettings>(normalizeDelayedReply(undefined));
+    const [dateInvite, setDateInvite] = useState(false);
+    const [onlineActions, setOnlineActions] = useState(false);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -89,6 +92,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setEditingDate(false);
         setReadNoReply(char.readNoReply ? { ...char.readNoReply } : { enabled: false });
         setDelayedReply(normalizeDelayedReply(char.delayedReply));
+        setDateInvite(!!char.dateInvite);
+        setOnlineActions(!!char.onlineActions);
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -114,6 +119,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             readNoReply: cleanReadNoReply(readNoReply),
             // 從沒打開過的角色不寫這個欄位
             delayedReply: delayedReply.enabled || char.delayedReply ? normalizeDelayedReply(delayedReply) : undefined,
+            dateInvite: dateInvite || undefined,
+            onlineActions: onlineActions || undefined,
         });
     };
 
@@ -202,12 +209,18 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                         </div>
                     </section>
 
-                    {/* Scenario：已讀不回、延遲自動回覆，其餘開關分批加 */}
+                    {/* Scenario：已讀不回、延遲自動回覆、線下邀請、動作描寫；主動通話、拉黑之後再加 */}
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
                         <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
                             <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} />
                             <DelayedReplySettingsPanel value={delayedReply} onChange={setDelayedReply} />
+                            <Row label="允許角色自動線下邀請" hint="開啟後，角色覺得時機合適時會約你見面，聊天裡出現一張邀請卡；按「赴約」直接進入見面">
+                                <Toggle on={dateInvite} onToggle={() => setDateInvite(v => !v)} label="允許角色自動線下邀請" />
+                            </Row>
+                            <Row label="線上模式動作描寫" hint="開啟後，線上聊天時角色可以用括號帶一點神態或小動作，例如「（揉了揉眼睛）剛睡醒」；關閉時只傳純文字訊息">
+                                <Toggle on={onlineActions} onToggle={() => setOnlineActions(v => !v)} label="線上模式動作描寫" />
+                            </Row>
                         </div>
                     </section>
 

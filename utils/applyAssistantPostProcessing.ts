@@ -53,6 +53,7 @@ import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
+import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
 import { getReadNoReplyDecision } from './readNoReplyRuntime';
 import { isBlobRef } from './blobRef';
@@ -834,6 +835,17 @@ export async function applyAssistantPostProcessing(
         return '';
     };
 
+    /**
+     * 角色約用戶見面 [[ACTION:DATE_INVITE|地點|想做什麼]]：標籤一律剝掉；聊天設定開了「自動線下邀請」
+     * 才記下來，等這一輪正文都落完再補一張邀請卡（卡排在話的後面才順）。一輪只落一張。
+     */
+    let pendingDateInvite: { place: string; plan: string } | null = null;
+    const consumeDateInvite = (content: string): string => {
+        const { cleanedText, invite } = extractDateInvite(content);
+        if (invite && char.dateInvite && !pendingDateInvite) pendingDateInvite = invite;
+        return cleanedText;
+    };
+
     // ─── Step 1: 初次粗洗 ───
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
     aiContent = normalizeAiContent(aiContent);
@@ -841,6 +853,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeScheduleChanges(aiContent, utteranceAt);
     aiContent = await consumeRelationshipChange(aiContent);
     aiContent = await consumeNoReply(aiContent);
+    aiContent = consumeDateInvite(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2332,6 +2345,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeScheduleChanges(aiContent, new Date());
     aiContent = await consumeRelationshipChange(aiContent);
     aiContent = await consumeNoReply(aiContent);
+    aiContent = consumeDateInvite(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2406,5 +2420,16 @@ export async function applyAssistantPostProcessing(
         } else {
             setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
         }
+    }
+
+    // 見面邀請卡排在這一輪所有話的後面
+    if (pendingDateInvite) {
+        const invite: DateInviteMeta = { ...(pendingDateInvite as { place: string; plan: string }), status: 'pending' };
+        await persistMessage({
+            charId: char.id, role: 'assistant', type: 'date_invite',
+            content: describeDateInvite(invite),
+            metadata: { ...(mcdInheritMeta || {}), dateInvite: invite },
+        } as Parameters<typeof DB.saveMessage>[0]);
+        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
     }
 }

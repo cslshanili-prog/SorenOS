@@ -103,6 +103,7 @@ import {
 } from '../utils/contentFavorites';
 import { SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
 import { DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
+import { buildDateInviteResponseNote } from '../utils/dateInvite';
 import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
 import { cancelDelayedReplyEverywhere, handoffDelayedReplyToCloud } from '../utils/delayedReplyCloud';
 import {
@@ -1737,6 +1738,25 @@ const Chat: React.FC = () => {
         }
         await reloadMessages(visibleCountRef.current);
     }, [char, reloadMessages, addToast, characters, userProfileBase, groups, realtimeConfig]);
+
+    // 角色的見面邀請卡：赴約 → 記下、直接進見面；婉拒 → 記下、留一行旁白讓角色看得到。
+    const handleResolveDateInvite = useCallback(async (msg: Message, action: 'accepted' | 'declined') => {
+        if (!char || msg.metadata?.dateInvite?.status !== 'pending') return;
+        await DB.updateMessageMetadata(msg.id, (prev) => ({
+            ...(prev || {}),
+            dateInvite: { ...(prev?.dateInvite || {}), status: action, respondedAt: Date.now() },
+        }));
+        await DB.saveMessage({
+            charId: char.id, role: 'system', type: 'text',
+            content: buildDateInviteResponseNote(action === 'accepted', chatUserProfile.name || '你', char.chatNickname?.trim() || char.name),
+        });
+        markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
+        if (action === 'accepted') {
+            openDateWithChar(char.id);
+            return;
+        }
+        await reloadMessages(visibleCountRef.current);
+    }, [char, chatUserProfile, groups, realtimeConfig, openDateWithChar, reloadMessages]);
 
     // 頂欄 ⚡ 手動觸發（也是「發完後自動生成」到點時調的那一下）。
     const handleManualTrigger = () => {
@@ -4293,6 +4313,7 @@ const Chat: React.FC = () => {
                             onMcdCandidate={handleMcdCandidate}
                             onResolveTransfer={handleResolveTransfer}
                             onResolveLifeRecord={handleResolveLifeRecord}
+                            onResolveDateInvite={handleResolveDateInvite}
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />
