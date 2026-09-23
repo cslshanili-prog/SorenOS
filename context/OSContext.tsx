@@ -43,6 +43,7 @@ import { isAnalyticsRequestUrl, trackEvent, shouldReportSnapshot, trackDataScale
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync, collectSARFeatureFlags } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
+import { CHAR_RELATIONSHIP_CHANGE_EVENT, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
 import { collectSARLocalBackup, restoreSARLocalBackup } from '../utils/vrWorld/sarBackup';
@@ -3222,6 +3223,22 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return updated;
     });
   };
+
+  // 角色在聊天裡用 [[ACTION:RELATIONSHIP|…]] 改了「角色認為的關係」：後處理那邊拿不到
+  // updateCharacter，發事件過來由這裡寫回（見 utils/chatRelationship.ts）。走 ref 拿最新的
+  // updateCharacter，免得打髒雲端快照時用到第一次渲染時的舊 userProfile。
+  const updateCharacterRef = useRef(updateCharacter);
+  updateCharacterRef.current = updateCharacter;
+  useEffect(() => {
+      const onRelationshipChange = (event: Event) => {
+          const detail = (event as CustomEvent<CharRelationshipChangeDetail>).detail;
+          if (!detail?.charId || !detail.relationship) return;
+          void updateCharacterRef.current(detail.charId, { charViewRelationship: detail.relationship });
+      };
+      window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
+      return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
+  }, []);
+
   const deleteCharacter = async (id: string, options?: { force?: boolean }): Promise<DeleteCharacterResult> => {
     const target = characters.find(c => c.id === id);
     // 主動消息 2.0 的任務活在用戶自己的 worker 上，不隨本地角色刪除消失：留著的話

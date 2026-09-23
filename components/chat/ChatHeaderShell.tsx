@@ -5,7 +5,7 @@ import { CharacterBuff, CharacterProfile } from '../../types';
 import TokenImg from '../os/TokenImg';
 
 /** header 實際只用到這些字段——放寬類型讓群聊傳合成對象（群名/群頭像）複用本組件 */
-type HeaderCharacter = Pick<CharacterProfile, 'id' | 'name' | 'avatar'> & { activeBuffs?: CharacterBuff[] };
+type HeaderCharacter = Pick<CharacterProfile, 'id' | 'name' | 'avatar' | 'chatNickname'> & { activeBuffs?: CharacterBuff[] };
 
 interface TokenBreakdown {
     prompt: number;
@@ -350,7 +350,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     const renderCenteredInfo = () => (
         <div className="flex w-full min-w-0 max-w-full flex-col items-center text-center">
             <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="avatar" />
-            <div className={`sully-chat-name mt-1 font-bold ${primaryTextClass}`}>{activeCharacter.name}</div>
+            <div className={`sully-chat-name mt-1 font-bold ${primaryTextClass}`}>{activeCharacter.chatNickname?.trim() || activeCharacter.name}</div>
             <div className="sully-chat-status flex items-center justify-center gap-2 flex-wrap">
                 {onlineStatusNode}
             </div>
@@ -366,7 +366,7 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
         <>
             <TokenImg value={activeCharacter.avatar} className={`sully-chat-avatar w-10 h-10 object-cover shadow-sm ${avatarRadiusClass}`} alt="avatar" />
             <div className="sully-chat-info flex-1 min-w-0 flex flex-col items-start text-left">
-                <div className={`sully-chat-name font-bold ${primaryTextClass}`}>{activeCharacter.name}</div>
+                <div className={`sully-chat-name font-bold ${primaryTextClass}`}>{activeCharacter.chatNickname?.trim() || activeCharacter.name}</div>
                 <div className="sully-chat-status flex items-center gap-2 flex-wrap">
                     {onlineStatusNode}
                     {lastTokenUsage && (

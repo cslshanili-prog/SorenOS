@@ -192,7 +192,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     <div onClick={onShowCharsPanel} className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer">
                         <TokenImg value={activeCharacter.avatar} className={`w-10 h-10 object-cover shadow-sm ${avatarShape === 'square' ? 'rounded-sm' : avatarShape === 'circle' ? 'rounded-full' : 'rounded-xl'}`} alt="avatar" />
                         <div className="flex-1 min-w-0">
-                            <div className="font-bold text-slate-800">{activeCharacter.name}</div>
+                            <div className="font-bold text-slate-800">{activeCharacter.chatNickname?.trim() || activeCharacter.name}</div>
                             <div className="flex items-center gap-2">
                                 <div className="text-[10px] text-slate-400 uppercase">Online</div>
                                 {lastTokenUsage && (

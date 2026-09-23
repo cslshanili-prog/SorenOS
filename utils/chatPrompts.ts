@@ -30,6 +30,7 @@ import { getDailyScheduleForChar } from './dailySchedule';
 import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
+import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -339,6 +340,8 @@ export const ChatPrompts = {
             { deferVolatile: true },
         );
         timings.buildCoreContext = Math.round(performance.now() - coreT0);
+        // 聊天設定頁的稱呼與關係：很少變，放穩定段
+        baseSystemPrompt += buildRelationshipPrompt(char, userProfile.name);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，
@@ -616,6 +619,12 @@ ${groupLogStr}\n`;
         // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
         volatileState += anniversaryText;
+        // 相識天數每天在變，放易變段；主動消息模板到點才渲染，天數會過期，只給起點日期
+        if (char.acquaintanceStartDate) {
+            volatileState += forFirePack
+                ? `\n（你和${userProfile.name}從 ${char.acquaintanceStartDate} 開始認識。）\n`
+                : buildAcquaintanceLine(char.acquaintanceStartDate, today, userProfile.name);
+        }
         baseSystemPrompt += notionDiaryText;
         baseSystemPrompt += feishuDiaryText;
         baseSystemPrompt += notionNotesText;

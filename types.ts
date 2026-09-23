@@ -3203,6 +3203,20 @@ export interface CharacterProfile {
   // Call (voice phone) — remembered translation language for this character
   callVoiceLang?: string;
 
+  // ── 聊天設定 · Relationship（全螢幕聊天設定頁；提示詞注入與動作標籤見 utils/chatRelationship.ts）──
+  /** 用戶給角色取的暱稱：聊天頁頂部顯示這個，角色也知道用戶這樣叫他。空 = 用角色名。 */
+  chatNickname?: string;
+  /** 角色怎麼稱呼用戶。空 = 用用戶（該聊天生效的身份）的名字。 */
+  userNickname?: string;
+  /** 用戶認為的關係（角色看得到）。 */
+  userViewRelationship?: string;
+  /** 角色認為的關係；開了 allowCharChangeRelationship 時角色可以用動作標籤自己改。 */
+  charViewRelationship?: string;
+  /** 允許角色在聊天中依劇情自行更改 charViewRelationship（[[ACTION:RELATIONSHIP|新關係]]）。 */
+  allowCharChangeRelationship?: boolean;
+  /** 「我們已相識 N 天」的起點（YYYY-MM-DD）。沒設時介面用第一條聊天記錄的日期，提示詞不注入。 */
+  acquaintanceStartDate?: string;
+
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
 

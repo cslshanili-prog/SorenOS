@@ -53,6 +53,7 @@ import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
 import ChatModals from '../components/chat/ChatModals';
+import type { ChatRelationshipPatch } from '../components/chat/ChatSettingsPage';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
@@ -2400,7 +2401,7 @@ const Chat: React.FC = () => {
         }
     };
 
-    const saveSettings = async () => {
+    const saveSettings = async (relationship?: ChatRelationshipPatch) => {
         const canUseAdaptiveRange = !!(char.autoArchiveEnabled || char.contextFollowsMemoryPalaceHwm);
         const nextMode: ContextRangeMode = canUseAdaptiveRange
             ? settingsContextRangeMode
@@ -2429,6 +2430,7 @@ const Chat: React.FC = () => {
             contextUserStartMessageId: nextUserStart,
             hideSystemLogs: settingsHideSysLogs,
             htmlModeCustomPrompt: settingsHtmlModeCustomPrompt,
+            ...(relationship || {}),
         } as any);
         setInputPreferences(settingsInputPreferences);
         saveChatInputPreferences(settingsInputPreferences);
@@ -3890,6 +3892,7 @@ const Chat: React.FC = () => {
                 onTransfer={handleSendTransfer}
                 onImportEmoji={handleImportEmoji}
                 onSaveSettings={saveSettings}
+                chatUser={{ name: chatUserProfile.name, avatar: chatUserProfile.avatar }}
                 onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }} onArchive={handleFullArchive}
                 onCreatePrompt={createNewPrompt} onEditPrompt={editSelectedPrompt} onSavePrompt={handleSavePrompt} onDeletePrompt={handleDeletePrompt}
                 onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
