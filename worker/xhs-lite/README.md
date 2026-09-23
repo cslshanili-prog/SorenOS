@@ -1,56 +1,56 @@
-# XHS Lite — 小红书 Lite 后端（已并入 worker/index.js）
+# XHS Lite — 小紅書 Lite 後端（已併入 worker/index.js）
 
-让 SullyOS 角色**无浏览器、无隧道、无 Python、无扫码**地浏览 / 搜索 / 看详情 /
-点赞 / 收藏 / 评论 / 发帖（带图），用户**只需粘贴一次 cookie**。
+讓 SullyOS 角色**無瀏覽器、無隧道、無 Python、無掃碼**地瀏覽 / 搜索 / 看詳情 /
+點贊 / 收藏 / 評論 / 發帖（帶圖），用戶**只需粘貼一次 cookie**。
 
-## 它在哪、怎么用
+## 它在哪、怎麼用
 
-实现已**直接嵌入主 Worker** `worker/index.js`（即已部署的 `https://sullymeow.ccwu.cc`），
-作为隔离的 `XHSLite` 模块，对外暴露 `/api/<command>` 桥接接口，和
-`scripts/xhs-bridge.mjs` 完全兼容，前端 bridge 模式直接复用。
+實現已**直接嵌入主 Worker** `worker/index.js`（即已部署的 `https://sullymeow.ccwu.cc`），
+作為隔離的 `XHSLite` 模塊，對外暴露 `/api/<command>` 橋接接口，和
+`scripts/xhs-bridge.mjs` 完全兼容，前端 bridge 模式直接複用。
 
-**部署（运营方做一次）：** 像平时一样重新部署 `worker/index.js` 即可，URL 不变。
+**部署（運營方做一次）：** 像平時一樣重新部署 `worker/index.js` 即可，URL 不變。
 
-**用户侧（不需要电脑/部署）：** SullyOS → 设置 → 实时感知 → 小红书：
-- 服务器 URL 已默认 `https://sullymeow.ccwu.cc/api`，一般无需改。
-- 粘贴浏览器登录 `xiaohongshu.com` 或 `rednote.com` 后的完整 cookie（含 `a1` 和
-  `web_session`），点测试连接。Lite 会分别探测国内与全球后端并自动选择，不依赖
-  `gid`、`bRequestId` 等可能随域名和灰度版本变化的字段。
+**用戶側（不需要電腦/部署）：** SullyOS → 設置 → 實時感知 → 小紅書：
+- 服務器 URL 已默認 `https://sullymeow.ccwu.cc/api`，一般無需改。
+- 粘貼瀏覽器登錄 `xiaohongshu.com` 或 `rednote.com` 後的完整 cookie（含 `a1` 和
+  `web_session`），點測試連接。Lite 會分別探測國內與全球后端並自動選擇，不依賴
+  `gid`、`bRequestId` 等可能隨域名和灰度版本變化的字段。
 
-cookie 存在本地，每次请求经 `X-Xhs-Cookie` 头发给 Worker；Worker 无状态，
-一个部署服务所有用户。
+cookie 存在本地，每次請求經 `X-Xhs-Cookie` 頭髮給 Worker；Worker 無狀態，
+一個部署服務所有用戶。
 
-国内小红书和全球 RedNote 是两套不共享会话的后端：前者请求
-`edith.xiaohongshu.com`，后者请求 `webapi.rednote.com`。当前 RedNote 支持搜索、
-浏览、详情、点赞、收藏和评论；图片发布仍只对已验证的国内后端开放。
+國內小紅書和全球 RedNote 是兩套不共享會話的後端：前者請求
+`edith.xiaohongshu.com`，後者請求 `webapi.rednote.com`。當前 RedNote 支持搜索、
+瀏覽、詳情、點贊、收藏和評論；圖片發佈仍只對已驗證的國內後端開放。
 
 ## 原理
 
-- `x-s` / `x-s-common` / `x-t`：纯数学算法，移植自
-  [Cloxl/xhshow](https://github.com/Cloxl/xhshow)（MIT），无 eval / 无 DOM。
-- 图片上传签名 `getSignature`：HMAC-SHA1 + SHA1（来自 Spider_XHS），用 Web Crypto 实现。
-- 发帖带图：Worker `fetch` 图床/CDN 图片字节 → 算上传签名 → `PUT` 到小红书 ROS →
-  拿 `file_id` 发帖。
+- `x-s` / `x-s-common` / `x-t`：純數學算法，移植自
+  [Cloxl/xhshow](https://github.com/Cloxl/xhshow)（MIT），無 eval / 無 DOM。
+- 圖片上傳簽名 `getSignature`：HMAC-SHA1 + SHA1（來自 Spider_XHS），用 Web Crypto 實現。
+- 發帖帶圖：Worker `fetch` 圖床/CDN 圖片字節 → 算上傳簽名 → `PUT` 到小紅書 ROS →
+  拿 `file_id` 發帖。
 
-> ⚠️ `x-rap-param` 只在上游 RAP 白名单明确要求的链路启用；当前“我的笔记” (`user_posted`) 和评论/回复 (`comment/post`) 会携带，搜索/详情仍保留已验证的稳定请求形态。
-> 签名随小红书改版会失效，到时同步上游 xhshow 更新 `worker/index.js` 里的 `XHSLite`。
+> ⚠️ `x-rap-param` 只在上游 RAP 白名單明確要求的鏈路啟用；當前“我的筆記” (`user_posted`) 和評論/回覆 (`comment/post`) 會攜帶，搜索/詳情仍保留已驗證的穩定請求形態。
+> 簽名隨小紅書改版會失效，到時同步上游 xhshow 更新 `worker/index.js` 裡的 `XHSLite`。
 
-## 验证签名（与 Python 原版逐字节比对）
+## 驗證簽名（與 Python 原版逐字節比對）
 
 ```bash
 git clone https://github.com/Cloxl/xhshow /tmp/xhshow
 pip install pycryptodome
 cd worker/xhs-lite/test
 PYTHONPATH=/tmp/xhshow/src python3 oracle.py > vectors.json
-node verify.mjs   # 期望 10 passed, 0 failed —— 直接测 worker/index.js 内嵌实现
+node verify.mjs   # 期望 10 passed, 0 failed —— 直接測 worker/index.js 內嵌實現
 ```
 
 | 文件 | 作用 |
 |------|------|
-| `worker/index.js` (XHSLite 段) | 部署用的签名 + API 实现（唯一真源） |
-| `test/oracle.py` | Python 参考 oracle（确定性向量） |
-| `test/vectors.json` | 参考输出 |
-| `test/verify.mjs` | 导入 `worker/index.js` 内嵌实现并逐字节比对 |
+| `worker/index.js` (XHSLite 段) | 部署用的簽名 + API 實現（唯一真源） |
+| `test/oracle.py` | Python 參考 oracle（確定性向量） |
+| `test/vectors.json` | 參考輸出 |
+| `test/verify.mjs` | 導入 `worker/index.js` 內嵌實現並逐字節比對 |
 ## Spider Session v3 comments (default on)
 
 This is an isolated, browserless experiment derived from the public protocol behavior in

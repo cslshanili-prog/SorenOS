@@ -1,35 +1,35 @@
-# Spec: `@rei-standard/amsg-sw` IndexedDB 连接韧性修复
+# Spec: `@rei-standard/amsg-sw` IndexedDB 連接韌性修復
 
-> ✅ **已实现并发版**：`@rei-standard/amsg-sw@2.3.0`（Gap 1 = onclose + 事务级 InvalidStateError 重开兜底，dedupe / queue / multipart 库全覆盖；Gap 2 = DELIVER ack 新增可选 `businessError` 字段，并把失败持久化到 dedupe 记录上，重复包也带 businessError）。SullyOS 侧已 bump 到 2.3.0、重打 bundle、`SW_VERSION` → 1.15.0，并在 `utils/instantPushClient.ts` 接入 `businessError` 让超时诊断更精确。下文保留为设计记录。
+> ✅ **已實現併發版**：`@rei-standard/amsg-sw@2.3.0`（Gap 1 = onclose + 事務級 InvalidStateError 重開兜底，dedupe / queue / multipart 庫全覆蓋；Gap 2 = DELIVER ack 新增可選 `businessError` 字段，並把失敗持久化到 dedupe 記錄上，重複包也帶 businessError）。SullyOS 側已 bump 到 2.3.0、重打 bundle、`SW_VERSION` → 1.15.0，並在 `utils/instantPushClient.ts` 接入 `businessError` 讓超時診斷更精確。下文保留為設計記錄。
 
-> 交接给 amsg-sw 包维护方。本文描述两个**包内**的 IndexedDB 韧性缺口，给出修复方案与验收标准。
-> SullyOS 侧的根因（主库连接风暴）已在 SullyOS 仓库自行修复（见文末「分工」），这里只列需要包升级才能解决的部分。
+> 交接給 amsg-sw 包維護方。本文描述兩個**包內**的 IndexedDB 韌性缺口，給出修復方案與驗收標準。
+> SullyOS 側的根因（主庫連接風暴）已在 SullyOS 倉庫自行修復（見文末「分工」），這裡只列需要包升級才能解決的部分。
 >
-> 当前 SullyOS 锁的版本：`@rei-standard/amsg-sw@2.2.0`、`amsg-shared@0.2.0`。
-> 下面引用的行号均指 `amsg-sw@2.2.0` 的 `dist/index.mjs`（发布产物），供你对照包源码定位。
+> 當前 SullyOS 鎖的版本：`@rei-standard/amsg-sw@2.2.0`、`amsg-shared@0.2.0`。
+> 下面引用的行號均指 `amsg-sw@2.2.0` 的 `dist/index.mjs`（發佈產物），供你對照包源碼定位。
 
 ---
 
-## 背景：现象与触发链
+## 背景：現象與觸發鏈
 
-SullyOS 是 local-first 应用，整个 origin 跑着多个 IndexedDB 库（应用主库 `AetherOS_Data`、`ActiveMsg` inbox、以及本包的 `rei-sw` dedupe/queue 库）。在高并发下，Chromium 底层 backing store 一旦报错（`Internal error opening backing store for indexedDB.open`），**可能强制关闭**该 origin 已打开的连接（这是结合「多个库同时报错」的现场得出的推断，不是单条日志能坐实的铁证；也不排除磁盘/配额/profile 损坏等其它诱因）。被强关的连接通常不会触发 `versionchange` 事件，而是触发 `close` 事件，之后对它发起事务会抛：
+SullyOS 是 local-first 應用，整個 origin 跑著多個 IndexedDB 庫（應用主庫 `AetherOS_Data`、`ActiveMsg` inbox、以及本包的 `rei-sw` dedupe/queue 庫）。在高併發下，Chromium 底層 backing store 一旦報錯（`Internal error opening backing store for indexedDB.open`），**可能強制關閉**該 origin 已打開的連接（這是結合「多個庫同時報錯」的現場得出的推斷，不是單條日誌能坐實的鐵證；也不排除磁盤/配額/profile 損壞等其它誘因）。被強關的連接通常不會觸發 `versionchange` 事件，而是觸發 `close` 事件，之後對它發起事務會拋：
 
 ```
 InvalidStateError: Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing
 ```
 
-本包当前对「连接被强关」这种失效**没有自愈**，于是出现两个问题。
+本包當前對「連接被強關」這種失效**沒有自愈**，於是出現兩個問題。
 
-> 注意失败点的顺序：`handlePushPayload`（dist `:96`）**第一步**就是 `await maybeCleanupMultipart(...)`（dist `:97`，走 queue 库 `cachedDB`），multipart push 还会先过 `acceptMultipartChunk`（dist `:100`，同样 queue 库），**之后才轮到** `claimDedupe`（dist `:104`，dedupe 库）。所以一旦连接被强关，**queue/multipart 库往往比 dedupe 库更早把整条投递链路掐断**。下面 Gap 1 的修法对 dedupe 库和 queue 库要同等对待，不是「dedupe 为主、queue 同理」。
+> 注意失敗點的順序：`handlePushPayload`（dist `:96`）**第一步**就是 `await maybeCleanupMultipart(...)`（dist `:97`，走 queue 庫 `cachedDB`），multipart push 還會先過 `acceptMultipartChunk`（dist `:100`，同樣 queue 庫），**之後才輪到** `claimDedupe`（dist `:104`，dedupe 庫）。所以一旦連接被強關，**queue/multipart 庫往往比 dedupe 庫更早把整條投遞鏈路掐斷**。下面 Gap 1 的修法對 dedupe 庫和 queue 庫要同等對待，不是「dedupe 為主、queue 同理」。
 
 ---
 
-## Gap 1（必修）：dedupe / queue 连接被强关后，缓存里的死连接被无限复用
+## Gap 1（必修）：dedupe / queue 連接被強關後，緩存裡的死連接被無限複用
 
-### 现状
+### 現狀
 
-- `openDedupeDatabase(dedupe)`（dist `dist/index.mjs:1010`）把连接缓存在 `dedupeDbCache`（Map，key=`${dbName}:${storeName}`），`openQueueDatabase()`（`:1035`）缓存在模块级 `cachedDB`。
-- 两者**只在 `onversionchange` 时**清缓存：
+- `openDedupeDatabase(dedupe)`（dist `dist/index.mjs:1010`）把連接緩存在 `dedupeDbCache`（Map，key=`${dbName}:${storeName}`），`openQueueDatabase()`（`:1035`）緩存在模塊級 `cachedDB`。
+- 兩者**只在 `onversionchange` 時**清緩存：
 
   ```js
   // openDedupeDatabase, :1026
@@ -38,30 +38,30 @@ InvalidStateError: Failed to execute 'transaction' on 'IDBDatabase': The databas
   cachedDB.onversionchange = () => { cachedDB.close(); cachedDB = null; };
   ```
 
-- **没有挂 `db.onclose`**。当连接被浏览器强制关闭（backing store 出错 / 存储压力 / 用户清数据），`versionchange` 不会触发，缓存里这条**已死连接**一直留着。
-- `withDedupeStore`（`:984`）/ `withDatabaseStore`（`:975`）每次都复用缓存连接发事务：
+- **沒有掛 `db.onclose`**。當連接被瀏覽器強制關閉（backing store 出錯 / 存儲壓力 / 用戶清數據），`versionchange` 不會觸發，緩存裡這條**已死連接**一直留著。
+- `withDedupeStore`（`:984`）/ `withDatabaseStore`（`:975`）每次都複用緩存連接發事務：
 
   ```js
   async function withDedupeStore(dedupe, mode, handler) {
-    const db = await openDedupeDatabase(dedupe);          // 拿到死连接
+    const db = await openDedupeDatabase(dedupe);          // 拿到死連接
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(dedupe.storeName, mode); // ← 抛 InvalidStateError
+      const transaction = db.transaction(dedupe.storeName, mode); // ← 拋 InvalidStateError
       ...
     });
   }
   ```
 
-  `db.transaction()` 在死连接上**同步抛** `InvalidStateError`，Promise executor 捕获后 reject。
+  `db.transaction()` 在死連接上**同步拋** `InvalidStateError`，Promise executor 捕獲後 reject。
 
-### 后果
+### 後果
 
-1. **去重彻底失灵 + push 落库被阻断**：`handlePushPayload`（`:104`）第一步就是 `await claimDedupe(...)`，它走 `withDedupeStore`。死连接让 `claimDedupe` 抛错 → `handlePushPayload` 在 `dispatchBusinessPayload` 之前就抛 → 业务回调（消费方写 inbox 等）**根本不执行** → `handleDeliverMessage`（`:120`）catch 后回 `ok:false` ack。**不重启 SW 永远好不了**，因为缓存里的死连接不会被任何路径清掉。
-2. **`dedupe cleanup failed` 刷屏**：`maybeCleanupDedupe`（`:450`）周期性跑 `cleanupDedupeStore`，同样复用死连接，每次都抛 `InvalidStateError`，被 `:459` 的 `console.error("dedupe cleanup failed:", error)` 打出来，刷屏几十上百条。
-3. 同理 `cachedDB`（queue / multipart 库）一旦被强关也是死的，multipart 重组、queue 操作全挂。
+1. **去重徹底失靈 + push 落庫被阻斷**：`handlePushPayload`（`:104`）第一步就是 `await claimDedupe(...)`，它走 `withDedupeStore`。死連接讓 `claimDedupe` 拋錯 → `handlePushPayload` 在 `dispatchBusinessPayload` 之前就拋 → 業務回調（消費方寫 inbox 等）**根本不執行** → `handleDeliverMessage`（`:120`）catch 後回 `ok:false` ack。**不重啟 SW 永遠好不了**，因為緩存裡的死連接不會被任何路徑清掉。
+2. **`dedupe cleanup failed` 刷屏**：`maybeCleanupDedupe`（`:450`）週期性跑 `cleanupDedupeStore`，同樣複用死連接，每次都拋 `InvalidStateError`，被 `:459` 的 `console.error("dedupe cleanup failed:", error)` 打出來，刷屏幾十上百條。
+3. 同理 `cachedDB`（queue / multipart 庫）一旦被強關也是死的，multipart 重組、queue 操作全掛。
 
-### 修复方案
+### 修復方案
 
-**(a) 挂 `onclose` 清缓存**——和现有 `onversionchange` 对称：
+**(a) 掛 `onclose` 清緩存**——和現有 `onversionchange` 對稱：
 
 ```js
 // openDedupeDatabase
@@ -70,7 +70,7 @@ request.onsuccess = () => {
   dedupeDbCache.set(cacheKey, db);
   const drop = () => { dedupeDbCache.delete(cacheKey); };
   db.onversionchange = () => { db.close(); drop(); };
-  db.onclose = () => { drop(); };   // ← 新增：被强关时清缓存
+  db.onclose = () => { drop(); };   // ← 新增：被強關時清緩存
   resolve(db);
 };
 ```
@@ -85,7 +85,7 @@ request.onsuccess = () => {
 };
 ```
 
-**(b) 事务级一次重开兜底**——`onclose` 是异步事件，可能晚于下一次事务调用；而且 `db.transaction()` 是**同步抛**。所以 `withDedupeStore` / `withDatabaseStore` 要捕获「连接 closing/closed」错误，清缓存、重开一次、重试一次：
+**(b) 事務級一次重開兜底**——`onclose` 是異步事件，可能晚於下一次事務調用；而且 `db.transaction()` 是**同步拋**。所以 `withDedupeStore` / `withDatabaseStore` 要捕獲「連接 closing/closed」錯誤，清緩存、重開一次、重試一次：
 
 ```js
 function isConnectionClosingError(e) {
@@ -104,7 +104,7 @@ async function withDedupeStore(dedupe, mode, handler) {
     try {
       return await new Promise((resolve, reject) => {
         let transaction;
-        try { transaction = db.transaction(dedupe.storeName, mode); }  // 同步抛 InvalidStateError
+        try { transaction = db.transaction(dedupe.storeName, mode); }  // 同步拋 InvalidStateError
         catch (e) { reject(e); return; }
         const store = transaction.objectStore(dedupe.storeName);
         transaction.onerror = () => reject(transaction.error || new Error("Dedupe transaction failed"));
@@ -118,15 +118,15 @@ async function withDedupeStore(dedupe, mode, handler) {
 }
 ```
 
-`withDatabaseStore`（queue 库）同理，`invalidate` 改成 `cachedDB?.close(); cachedDB = null;`。重试上限 1 次，避免无限循环；第二次仍失败就如实抛出。
+`withDatabaseStore`（queue 庫）同理，`invalidate` 改成 `cachedDB?.close(); cachedDB = null;`。重試上限 1 次，避免無限循環；第二次仍失敗就如實拋出。
 
 ---
 
-## Gap 2（建议修，SullyOS 不阻塞）：DELIVER ack 的 `ok:true` 不反映业务落库结果
+## Gap 2（建議修，SullyOS 不阻塞）：DELIVER ack 的 `ok:true` 不反映業務落庫結果
 
-### 现状
+### 現狀
 
-`dispatchBusinessPayload`（`:143`）把消费方 `onBusinessPayload` 的 rejection **吞掉**了：
+`dispatchBusinessPayload`（`:143`）把消費方 `onBusinessPayload` 的 rejection **吞掉**了：
 
 ```js
 // :169
@@ -142,50 +142,50 @@ if (typeof defaults.onBusinessPayload === "function") {
 }
 await Promise.all(notificationWork);
 ...
-if (businessWork) await businessWork;   // :186 已经 catch 过, 永不 reject
+if (businessWork) await businessWork;   // :186 已經 catch 過, 永不 reject
 ```
 
-于是 `handlePushPayload` 不会因为业务失败而抛，`handleDeliverMessage`（`:128`）照样回 `ok:true`。**即「业务落库失败，ack 仍报成功」。**
+於是 `handlePushPayload` 不會因為業務失敗而拋，`handleDeliverMessage`（`:128`）照樣回 `ok:true`。**即「業務落庫失敗，ack 仍報成功」。**
 
-### 影响评估
+### 影響評估
 
-- **对 SullyOS 不构成 bug**：SullyOS 客户端不信这个 ack——它把成功信号绑在业务侧自己 `postMessage` 的 `active-msg-received` 事件上（落库成功后才 fire），ack 的 `ok` 只用来区分超时文案。所以「ack 撒谎」在 SullyOS 这条链路上不会变成「假成功」。
-- **对「信 ack = 业务已处理」的其它消费方是真坑**：这类消费方会把没落库的消息当成功。
+- **對 SullyOS 不構成 bug**：SullyOS 客戶端不信這個 ack——它把成功信號綁在業務側自己 `postMessage` 的 `active-msg-received` 事件上（落庫成功後才 fire），ack 的 `ok` 只用來區分超時文案。所以「ack 撒謊」在 SullyOS 這條鏈路上不會變成「假成功」。
+- **對「信 ack = 業務已處理」的其它消費方是真坑**：這類消費方會把沒落庫的消息當成功。
 
-### 建议（二选一，保持向后兼容）
+### 建議（二選一，保持向後兼容）
 
-- **方案 A（推荐，非破坏）**：ack 增加一个可选字段透传业务错误，`ok` 维持现含义（= 已收下并分发）：
+- **方案 A（推薦，非破壞）**：ack 增加一個可選字段透傳業務錯誤，`ok` 維持現含義（= 已收下並分發）：
 
   ```js
   respondToSender(event, { ok: true, duplicate, key, requestId,
-    businessError: result.businessError /* 业务回调 reject 时填 message, 否则 undefined */ });
+    businessError: result.businessError /* 業務回調 reject 時填 message, 否則 undefined */ });
   ```
 
-  需要 `dispatchBusinessPayload` 把 `onBusinessPayload` 的 rejection 捕获后**回传**（而不是只 console.error），并 `await` 它再 ack。
+  需要 `dispatchBusinessPayload` 把 `onBusinessPayload` 的 rejection 捕獲後**回傳**（而不是只 console.error），並 `await` 它再 ack。
 
-- **方案 B（opt-in 改语义）**：`installReiSW` 增加 `ackReflectsBusiness?: boolean`，开启后业务失败让 `handleDeliverMessage` 回 `ok:false`。默认 false 保持现状。
+- **方案 B（opt-in 改語義）**：`installReiSW` 增加 `ackReflectsBusiness?: boolean`，開啟後業務失敗讓 `handleDeliverMessage` 回 `ok:false`。默認 false 保持現狀。
 
-无论哪种，文档里要写清 DELIVER ack 的 `ok` 到底代表「收下」还是「已落库」。
-
----
-
-## 验收标准
-
-1. **dedupe 自愈**：下一次 `claimDedupe` 能透明重开并成功，**不再持续抛 `InvalidStateError`**，无需重启 SW。注意两条失效路径要分开测，别混为一谈：
-   - **事务级重开兜底（(b)）**：让缓存里的连接处于 closing/closed 态后再发事务——可 mock `db.transaction` 抛 `InvalidStateError`，或对拿到的连接调 `db.close()` 后复用它（`close()` 是正常关闭、**不会**触发 `close` 事件，所以这条测的是「死连接 → 事务抛错 → 清缓存重开」，不是在验证 `onclose`）。
-   - **`onclose` 清缓存（(a)）**：要单独验证「连接被强关 → `close` 事件 → 缓存被清」，得 mock/手动派发那条失效路径（如直接调用挂在连接上的 `onclose` 回调），不能用 `db.close()` 代替。
-2. **业务不被阻断**：上述场景下，dedupe 短暂失败并恢复后，`onBusinessPayload` 仍被调用、push 仍能落库。
-3. **cleanup 不刷屏**：连接被强关后，`maybeCleanupDedupe` 重开成功，不再每轮 `dedupe cleanup failed`。
-4. queue / multipart 库（`cachedDB`）同样适用 1–3。
-5.（若采纳 Gap 2）DELIVER ack 能区分「业务落库失败」与「传输成功」。
+無論哪種，文檔裡要寫清 DELIVER ack 的 `ok` 到底代表「收下」還是「已落庫」。
 
 ---
 
-## 分工与发版
+## 驗收標準
 
-| 侧 | 改什么 | 状态 |
+1. **dedupe 自愈**：下一次 `claimDedupe` 能透明重開併成功，**不再持續拋 `InvalidStateError`**，無需重啟 SW。注意兩條失效路徑要分開測，別混為一談：
+   - **事務級重開兜底（(b)）**：讓緩存裡的連接處於 closing/closed 態後再發事務——可 mock `db.transaction` 拋 `InvalidStateError`，或對拿到的連接調 `db.close()` 後複用它（`close()` 是正常關閉、**不會**觸發 `close` 事件，所以這條測的是「死連接 → 事務拋錯 → 清緩存重開」，不是在驗證 `onclose`）。
+   - **`onclose` 清緩存（(a)）**：要單獨驗證「連接被強關 → `close` 事件 → 緩存被清」，得 mock/手動派發那條失效路徑（如直接調用掛在連接上的 `onclose` 回調），不能用 `db.close()` 代替。
+2. **業務不被阻斷**：上述場景下，dedupe 短暫失敗並恢復後，`onBusinessPayload` 仍被調用、push 仍能落庫。
+3. **cleanup 不刷屏**：連接被強關後，`maybeCleanupDedupe` 重開成功，不再每輪 `dedupe cleanup failed`。
+4. queue / multipart 庫（`cachedDB`）同樣適用 1–3。
+5.（若採納 Gap 2）DELIVER ack 能區分「業務落庫失敗」與「傳輸成功」。
+
+---
+
+## 分工與發版
+
+| 側 | 改什麼 | 狀態 |
 |----|--------|------|
-| **amsg-sw 包** | 本 spec 的 Gap 1（必修）、Gap 2（建议） | 待这边 agent 实现 + 发版 |
-| **SullyOS** | 主库 `utils/db.ts`、`utils/activeMsgStore.ts`、SW `worker/sw-keep-alive.ts` 的 IDB 连接全部改单例复用 + `onversionchange`/`onclose` 失效自愈 + `onblocked` 统一清缓存重试；另把 `apps/pixelHome/pixelHomeDb.ts`（之前自带一个裸开同一个 `AetherOS_Data` 的 `openDB`）并到共享单例。这是连接风暴的**根因**，消除后 backing store 不再被撑爆，Gap 1 的强关诱因基本消失，Gap 1 退化为「极少数其它原因强关」的兜底 | ✅ 已修 |
+| **amsg-sw 包** | 本 spec 的 Gap 1（必修）、Gap 2（建議） | 待這邊 agent 實現 + 發版 |
+| **SullyOS** | 主庫 `utils/db.ts`、`utils/activeMsgStore.ts`、SW `worker/sw-keep-alive.ts` 的 IDB 連接全部改單例複用 + `onversionchange`/`onclose` 失效自愈 + `onblocked` 統一清緩存重試；另把 `apps/pixelHome/pixelHomeDb.ts`（之前自帶一個裸開同一個 `AetherOS_Data` 的 `openDB`）併到共享單例。這是連接風暴的**根因**，消除後 backing store 不再被撐爆，Gap 1 的強關誘因基本消失，Gap 1 退化為「極少數其它原因強關」的兜底 | ✅ 已修 |
 
-**发版后 SullyOS 侧动作**：bump `package.json` 里 `@rei-standard/amsg-sw` 版本 → `pnpm install` → `pnpm run build:workers`（bundle 自动带上修好的包）→ bump `worker/sw-keep-alive.ts` 的 `SW_VERSION`（触发字节比较让浏览器重装 SW）。
+**發版後 SullyOS 側動作**：bump `package.json` 裡 `@rei-standard/amsg-sw` 版本 → `pnpm install` → `pnpm run build:workers`（bundle 自動帶上修好的包）→ bump `worker/sw-keep-alive.ts` 的 `SW_VERSION`（觸發字節比較讓瀏覽器重裝 SW）。

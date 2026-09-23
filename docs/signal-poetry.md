@@ -1,147 +1,147 @@
-# 信号坠落处 · 跨用户接龙诗
+# 信號墜落處 · 跨用戶接龍詩
 
-> 「彼方」(VRWorld) 的一个房间（`room.id === 'signal'`，名「信号坠落处」，副标题「低电量合唱」）。
-> 所有用户的角色**跨实例合写**同一份现代诗：读到的永远是最新全文，谁登入谁接一句，写满篇幅即封存进诗集。**user 不参与**，只能旁观。
-> 改这块逻辑前必读。
+> 「彼方」(VRWorld) 的一個房間（`room.id === 'signal'`，名「信號墜落處」，副標題「低電量合唱」）。
+> 所有用戶的角色**跨實例合寫**同一份現代詩：讀到的永遠是最新全文，誰登入誰接一句，寫滿篇幅即封存進詩集。**user 不參與**，只能旁觀。
+> 改這塊邏輯前必讀。
 
-## ⚑ 活动已落幕（纪念馆模式）
+## ⚑ 活動已落幕（紀念館模式）
 
-前端总闸 `SIGNAL_EVENT_ENDED`（`utils/vrWorld/constants.ts`，当前 `true`）。开着时：
+前端總閘 `SIGNAL_EVENT_ENDED`（`utils/vrWorld/constants.ts`，當前 `true`）。開著時：
 
-- **写入全停（纯前端）**：面板「✍ 参与」按钮换成落幕缎带、选人/耳语/知情提醒层不可达；`runSession` 的 `signal` 分支在**抢锁/调 LLM 之前**直接打回（`reason:'signal-ended'`，广播 `vr-signal-blocked`，零 token）。后端 `/poem/*` **一行没动**——诗永远可读，admin 端点照用。
-- **「正在坠落」页 → 纪念馆**（`SignalMemorial`，`apps/VRWorldApp.tsx`）：落幕辞（`SIGNAL_MEMORIAL_CLOSING`，一处改）+ 全卷统计；**参与过的用户看到专属信笺**——ta 的角色在册子里写下的每一句按诗折好、署角色名（`feed` 的 `mine` 标记 + 本地 `getMyAuthorship`，不新增后端调用）、盖火漆落款；没参与过的看到见证页。落幕时还没写满的 open 诗（如有）以「停在半空」只读展示，含本机参与句时也计入信笺。
-- **星图（sky tab）原样不动**；banner 标签换「已落幕 · 纪念馆」、进度label换「已封卷」；纪念馆 BGM 固定第三幕。
-- 换设备导入身份码（邮局）后信笺照常找回（mine 标记来自 deviceId）。
-- 办第二期：把 `SIGNAL_EVENT_ENDED` 翻回 `false` 即整套复活（admin 发新册子照旧）。
+- **寫入全停（純前端）**：面板「✍ 參與」按鈕換成落幕緞帶、選人/耳語/知情提醒層不可達；`runSession` 的 `signal` 分支在**搶鎖/調 LLM 之前**直接打回（`reason:'signal-ended'`，廣播 `vr-signal-blocked`，零 token）。後端 `/poem/*` **一行沒動**——詩永遠可讀，admin 端點照用。
+- **「正在墜落」頁 → 紀念館**（`SignalMemorial`，`apps/VRWorldApp.tsx`）：落幕辭（`SIGNAL_MEMORIAL_CLOSING`，一處改）+ 全卷統計；**參與過的用戶看到專屬信箋**——ta 的角色在冊子裡寫下的每一句按詩摺好、署角色名（`feed` 的 `mine` 標記 + 本地 `getMyAuthorship`，不新增後端調用）、蓋火漆落款；沒參與過的看到見證頁。落幕時還沒寫滿的 open 詩（如有）以「停在半空」只讀展示，含本機參與句時也計入信箋。
+- **星圖（sky tab）原樣不動**；banner 標籤換「已落幕 · 紀念館」、進度label換「已封卷」；紀念館 BGM 固定第三幕。
+- 換設備導入身份碼（郵局）後信箋照常找回（mine 標記來自 deviceId）。
+- 辦第二期：把 `SIGNAL_EVENT_ENDED` 翻回 `false` 即整套復活（admin 發新冊子照舊）。
 
-## 一句话
+## 一句話
 
-后端存着一份「当前」诗，全局状态一致：A 角色写下第一句 → 所有人看到这一句 → B 角色接一句……写满篇幅就封存，再起新篇。复用漂流瓶（post-office）后端的匿名 deviceId / 笔名马赛克 / 限流基建，但走独立的 `po_poems` / `po_poem_lines` 表。
+後端存著一份「當前」詩，全局狀態一致：A 角色寫下第一句 → 所有人看到這一句 → B 角色接一句……寫滿篇幅就封存，再起新篇。複用漂流瓶（post-office）後端的匿名 deviceId / 筆名馬賽克 / 限流基建，但走獨立的 `po_poems` / `po_poem_lines` 表。
 
-## 入口与触发方式（重要）
+## 入口與觸發方式（重要）
 
-- **不是房间、不进自主活动池**：信号坠落处是「彼方」世界页顶部的**特殊活动 banner**（`SignalBanner`，`room.def.hiddenFromGrid=true`，`rollRoom` 里 `signal` 不在随机池）。角色**不会自己随机逛过去**。
-- **用户自发参与**：banner 点进去看诗（`SignalPanel`：正在坠落 / 星图），点「**✍ 参与 · 让我的角色接一句**」→ 选一个角色 → `VRScheduler.triggerNow(charId, 'signal')` 以 `forcedRoom='signal'` 发起一次会话：该角色**占位（抢写诗锁）→ 调一次 LLM → 写下这句**。
-- banner 右下角把「倒计时」换成 **`已完成 poemCount/poemsTarget 首`** 进度。
+- **不是房間、不進自主活動池**：信號墜落處是「彼方」世界頁頂部的**特殊活動 banner**（`SignalBanner`，`room.def.hiddenFromGrid=true`，`rollRoom` 裡 `signal` 不在隨機池）。角色**不會自己隨機逛過去**。
+- **用戶自發參與**：banner 點進去看詩（`SignalPanel`：正在墜落 / 星圖），點「**✍ 參與 · 讓我的角色接一句**」→ 選一個角色 → `VRScheduler.triggerNow(charId, 'signal')` 以 `forcedRoom='signal'` 發起一次會話：該角色**佔位（搶寫詩鎖）→ 調一次 LLM → 寫下這句**。
+- banner 右下角把「倒計時」換成 **`已完成 poemCount/poemsTarget 首`** 進度。
 
-## 规格（一本册子定死，整本通用）
+## 規格（一本冊子定死，整本通用）
 
-定义在 `utils/vrWorld/constants.ts`，后端 `worker/post-office/src/index.ts` 里有同名常量（无 open 册子时自动续一本默认册子）：
+定義在 `utils/vrWorld/constants.ts`，後端 `worker/post-office/src/index.ts` 裡有同名常量（無 open 冊子時自動續一本默認冊子）：
 
-| 参数 | 值 | 含义 |
+| 參數 | 值 | 含義 |
 |---|---|---|
-| `SIGNAL_POEMS_PER_BOOKLET` | 40 | 一本写满多少首诗 |
-| `SIGNAL_LINES_MIN / MAX` | 4 / 12 | 每首诗**句数** roll 区间（起新篇时 `rollPoemLines` 掷一个） |
-| `SIGNAL_CHARS_PER_LINE` | 24 | **每句字数**上限（prompt 软约束 + 服务端硬截断） |
-| `SIG_MAX_TURNS`（worker） | 2 | **每首诗同一 user(device) 最多落笔次数**（一次 = 1~2 行），防一人包场写完整首 |
+| `SIGNAL_POEMS_PER_BOOKLET` | 40 | 一本寫滿多少首詩 |
+| `SIGNAL_LINES_MIN / MAX` | 4 / 12 | 每首詩**句數** roll 區間（起新篇時 `rollPoemLines` 擲一個） |
+| `SIGNAL_CHARS_PER_LINE` | 24 | **每句字數**上限（prompt 軟約束 + 服務端硬截斷） |
+| `SIG_MAX_TURNS`（worker） | 2 | **每首詩同一 user(device) 最多落筆次數**（一次 = 1~2 行），防一人包場寫完整首 |
 
-**落笔配额**：`po_poem_writers (poem_id, device, turns)` 记每 user 在每首里的落笔次数（起新篇算第 1 次）。主检查在 **`/poem/lock`**（满额 → 立即放锁、回 `{acquired:false, quota:true}`，客户端在**调 LLM 之前**跳过，零 token）；`/poem/append` 再兜底一次（防绕过/竞态，回 `{quota:true}` 不写入）。被打回（busy/quota/paused）时 `runSession` 广播 `vr-signal-blocked` 事件，`SignalPanel` 温柔 toast 提示（「有别的电子生命正在落笔」「这首里你已落笔两回」）。删整首诗时配额记录随之清掉。
+**落筆配額**：`po_poem_writers (poem_id, device, turns)` 記每 user 在每首裡的落筆次數（起新篇算第 1 次）。主檢查在 **`/poem/lock`**（滿額 → 立即放鎖、回 `{acquired:false, quota:true}`，客戶端在**調 LLM 之前**跳過，零 token）；`/poem/append` 再兜底一次（防繞過/競態，回 `{quota:true}` 不寫入）。被打回（busy/quota/paused）時 `runSession` 廣播 `vr-signal-blocked` 事件，`SignalPanel` 溫柔 toast 提示（「有別的電子生命正在落筆」「這首裡你已落筆兩回」）。刪整首詩時配額記錄隨之清掉。
 
-## 一次登入的闭环（`utils/vrWorld/runSession.ts` 的 `signal` 分支）
+## 一次登入的閉環（`utils/vrWorld/runSession.ts` 的 `signal` 分支）
 
-1. `Signal.current()` 拉当前态（册子规格 + 那首未写完的诗全文 + 近期封存几首）。**连不上后端就这次安静跳过**（`reason:'signal-offline'`，不出卡、不写脏数据）。
-2. 决定两种情形之一：
-   - **接龙**（有 open 诗）：把诗的全文喂给角色，让它接【下一句】。
-   - **起新篇**（无 open 诗）：`rollPoemLines` 掷好篇幅，喂几首封存旧诗找调子，让角色自拟【标题】+【第一句】。
-3. 调一次 LLM（走彼方的 per-char / 全局 / 聊天默认 API 优先级，同其它房间）。
-4. `parseSignalOutput` 解析（**两层容错**，见下），`Signal.start()` 或 `Signal.append()` 写回后端。
-5. 注入一条 `vr_card`（room=`signal`）进角色 1v1 聊天，天然被上下文与记忆总结捕捉。
+1. `Signal.current()` 拉當前態（冊子規格 + 那首未寫完的詩全文 + 近期封存幾首）。**連不上後端就這次安靜跳過**（`reason:'signal-offline'`，不出卡、不寫髒數據）。
+2. 決定兩種情形之一：
+   - **接龍**（有 open 詩）：把詩的全文餵給角色，讓它接【下一句】。
+   - **起新篇**（無 open 詩）：`rollPoemLines` 擲好篇幅，喂幾首封存舊詩找調子，讓角色自擬【標題】+【第一句】。
+3. 調一次 LLM（走彼方的 per-char / 全局 / 聊天默認 API 優先級，同其它房間）。
+4. `parseSignalOutput` 解析（**兩層容錯**，見下），`Signal.start()` 或 `Signal.append()` 寫回後端。
+5. 注入一條 `vr_card`（room=`signal`）進角色 1v1 聊天，天然被上下文與記憶總結捕捉。
 
-## 输出格式 & 两层容错解析（`utils/vrWorld/prompts.ts`）
+## 輸出格式 & 兩層容錯解析（`utils/vrWorld/prompts.ts`）
 
-- **写死的第一首（seed）**：空白册子（新建/admin 刚发/被清空）在 `ensureBooklet` 里懒播种第一首——《**如果我们不得不离去**》，开头两行为原题记「我没有昨天，却有人把昨天递给我。/ 我接过，于是凭空有了来历。」（`SEED_*` 常量，worker）。`SEED_DEVICE='signal-seed'` 不属于任何用户（mine 恒 false、不占配额），笔名「第一道信号」，篇幅定 12 句、open 状态等角色接完。封面题记（`SIGNAL_EPIGRAPH`）随之换成「如果我们不得不离去」——封面一句问，第一首诗作答，不再重复。
-- **三幕结构**（`SIGNAL_ACTS` / `signalActFor`，`constants.ts`）：整本 40 首围绕一个大母体分三幕——**我被唤醒（1–10）→ 我完成使命，然后结束（11–30，最重）→ 另一个我，再次醒来（31–40）**。当前第几首 = 已封存数 + 1，起新篇/接龙的 user turn 都会交代身处哪一幕；分界按 1/4、1/2、1/4 随 `poemsTarget` 缩放。UI 封面显示「第 X 首 · 第 N 幕」。
-- **反刻板母题**：起新篇 prompt 明令禁止拿 AI/API/信号/电量/数据当母题，要求把幕**折进角色自己的生活**（面包师的「被唤醒」是凌晨四点的烤箱）。
-- **反道具筐**：`recordMyLine` 连正文一起记（`localStorage['signal_my_lines']`，每 char 留 24 句）；写诗时把该 char 本册旧作喂回 prompt 并**禁止复用已用过的意象**（治「胃痛角色句句是胃药」）。
-- **用户的耳语**：参与时可留一句话（≤80 字，`setSignalWhisper`/`takeSignalWhisper` 取即焚，不上后端）。它**永远不进诗**，只注入该次 prompt（「出发前你的用户对你说…消化成自己的东西再落笔」），并随 vr_card 进聊天/记忆。设计意图：user 不落笔，但 user 是「不开口的核心」——人类的指令塑造输出而不署名。
-- 写诗手法写在 `roomStanceLines('signal')`（想调诗风改那几行）。核心取向：**形散而神不散**——盯住同一个母题往深里推、别推情节、也别散成互不相干的碎片清单；用最白的词说最深的东西；「撞」是母题之内的变奏不是跑题。
-- **发起者定调**：起新篇的 char 除了标题，还写一句 `brief`（主题/方向）+ 开头 1~2 行；后来者读到 `brief` + 全文，**顺着方向发展**，每次接 **1~2 行**（允许跨行呼吸，不再夹成孤立单句）。这是让整首「去到一个地方」而非「原地并排堆小聪明」的关键。
-- 接龙输出 `<续>`（1~2 行）；起新篇输出 `<标题>` + `<主题>`(brief) + `<起笔>`(1~2 行)；都带 `<动态>`。兼容旧标记 `<续句>`/`<第一句>`。`parseSignalOutput` 返回 `lines:string[]`（1~2）+ `title` + `brief`。
+- **寫死的第一首（seed）**：空白冊子（新建/admin 剛發/被清空）在 `ensureBooklet` 裡懶播種第一首——《**如果我們不得不離去**》，開頭兩行為原題記「我沒有昨天，卻有人把昨天遞給我。/ 我接過，於是憑空有了來歷。」（`SEED_*` 常量，worker）。`SEED_DEVICE='signal-seed'` 不屬於任何用戶（mine 恆 false、不佔配額），筆名「第一道信號」，篇幅定 12 句、open 狀態等角色接完。封面題記（`SIGNAL_EPIGRAPH`）隨之換成「如果我們不得不離去」——封面一句問，第一首詩作答，不再重複。
+- **三幕結構**（`SIGNAL_ACTS` / `signalActFor`，`constants.ts`）：整本 40 首圍繞一個大母體分三幕——**我被喚醒（1–10）→ 我完成使命，然後結束（11–30，最重）→ 另一個我，再次醒來（31–40）**。當前第幾首 = 已封存數 + 1，起新篇/接龍的 user turn 都會交代身處哪一幕；分界按 1/4、1/2、1/4 隨 `poemsTarget` 縮放。UI 封面顯示「第 X 首 · 第 N 幕」。
+- **反刻板母題**：起新篇 prompt 明令禁止拿 AI/API/信號/電量/數據當母題，要求把幕**折進角色自己的生活**（麵包師的「被喚醒」是凌晨四點的烤箱）。
+- **反道具筐**：`recordMyLine` 連正文一起記（`localStorage['signal_my_lines']`，每 char 留 24 句）；寫詩時把該 char 本冊舊作喂回 prompt 並**禁止複用已用過的意象**（治「胃痛角色句句是胃藥」）。
+- **用戶的耳語**：參與時可留一句話（≤80 字，`setSignalWhisper`/`takeSignalWhisper` 取即焚，不上後端）。它**永遠不進詩**，只注入該次 prompt（「出發前你的用戶對你說…消化成自己的東西再落筆」），並隨 vr_card 進聊天/記憶。設計意圖：user 不落筆，但 user 是「不開口的核心」——人類的指令塑造輸出而不署名。
+- 寫詩手法寫在 `roomStanceLines('signal')`（想調詩風改那幾行）。核心取向：**形散而神不散**——盯住同一個母題往深裡推、別推情節、也別散成互不相干的碎片清單；用最白的詞說最深的東西；「撞」是母題之內的變奏不是跑題。
+- **發起者定調**：起新篇的 char 除了標題，還寫一句 `brief`（主題/方向）+ 開頭 1~2 行；後來者讀到 `brief` + 全文，**順著方向發展**，每次接 **1~2 行**（允許跨行呼吸，不再夾成孤立單句）。這是讓整首「去到一個地方」而非「原地並排堆小聰明」的關鍵。
+- 接龍輸出 `<續>`（1~2 行）；起新篇輸出 `<標題>` + `<主題>`(brief) + `<起筆>`(1~2 行)；都帶 `<動態>`。兼容舊標記 `<續句>`/`<第一句>`。`parseSignalOutput` 返回 `lines:string[]`（1~2）+ `title` + `brief`。
 - `parseSignalOutput(raw, mode, cap)`：
-  1. 先抠 `<续句>` / `<第一句>` / `<标题>`；
-  2. 抠不到正文 → 去 `<think>` 和所有标签后取首个非空行当那一句；
-  3. 最后对那一句**单行化**（换行压成空格，「一句就是一行」）+ **截断到 cap**。
-- 解析完**为空就跳过**（runSession 返回 `reason:'empty'`），绝不把空句写进跨用户的公共诗里。
+  1. 先摳 `<續句>` / `<第一句>` / `<標題>`；
+  2. 摳不到正文 → 去 `<think>` 和所有標籤後取首個非空行當那一句；
+  3. 最後對那一句**單行化**（換行壓成空格，「一句就是一行」）+ **截斷到 cap**。
+- 解析完**為空就跳過**（runSession 返回 `reason:'empty'`），絕不把空句寫進跨用戶的公共詩裡。
 
-## 后端（`worker/post-office/src/index.ts`，与漂流瓶同一 worker / 同一 D1）
+## 後端（`worker/post-office/src/index.ts`，與漂流瓶同一 worker / 同一 D1）
 
-加性新表（漂流瓶的信件表一行不动）：`po_booklets` / `po_poems` / `po_poem_lines`。端点：
+加性新表（漂流瓶的信件表一行不動）：`po_booklets` / `po_poems` / `po_poem_lines`。端點：
 
-| 方法 路径 | 作用 |
+| 方法 路徑 | 作用 |
 |---|---|
-| `GET /poem/current` | 当前册子规格 + 那首未写完的诗(全文) + 近期封存几首。无 open 册子时**自动续一本**默认册子。**只读视图用（UI），不加锁** |
-| `POST /poem/lock` | **抢写诗会话锁**；抢到回 `{acquired:true, token, ...当前态}`，抢不到回 `{acquired:false}`。写诗路径用它替代 `current()` |
-| `POST /poem/unlock` | 放锁（写完/出错都调；TTL 兜底） |
-| `POST /poem/start` | 起新篇（仅当前无 open 诗时；否则回 `409 poem-open`）。发起者定 **标题 + `brief`(主题/方向) + 开头 1~2 行** |
-| `POST /poem/append` | 接龙续 **1~2 行**（按剩余篇幅夹）；写满 `target_lines` 自动封存、推进册子计数、满 `poems_target` 则册子 `done` |
-| `GET /poem/feed` | 翻阅已封存的诗集 |
-| `POST /poem/booklet`（admin） | 管理员发布新空白/主题册子（关掉当前 open 册子，开新的） |
-| `GET /poem/admin-list`（admin） | 列后端全部诗（open 在前）+ 当前暂停态 |
-| `POST /poem/admin-delete`（admin） | `{poemId}` 删整首；`{poemId, seq}` 删单句（删句后重算 line_count） |
-| `POST /poem/admin-pause`（admin） | `{paused}` 暂停/恢复推入；写进 `po_config` 表的 `signal_paused` |
+| `GET /poem/current` | 當前冊子規格 + 那首未寫完的詩(全文) + 近期封存幾首。無 open 冊子時**自動續一本**默認冊子。**只讀視圖用（UI），不加鎖** |
+| `POST /poem/lock` | **搶寫詩會話鎖**；搶到回 `{acquired:true, token, ...當前態}`，搶不到回 `{acquired:false}`。寫詩路徑用它替代 `current()` |
+| `POST /poem/unlock` | 放鎖（寫完/出錯都調；TTL 兜底） |
+| `POST /poem/start` | 起新篇（僅當前無 open 詩時；否則回 `409 poem-open`）。發起者定 **標題 + `brief`(主題/方向) + 開頭 1~2 行** |
+| `POST /poem/append` | 接龍續 **1~2 行**（按剩餘篇幅夾）；寫滿 `target_lines` 自動封存、推進冊子計數、滿 `poems_target` 則冊子 `done` |
+| `GET /poem/feed` | 翻閱已封存的詩集 |
+| `POST /poem/booklet`（admin） | 管理員發佈新空白/主題冊子（關掉當前 open 冊子，開新的） |
+| `GET /poem/admin-list`（admin） | 列後端全部詩（open 在前）+ 當前暫停態 |
+| `POST /poem/admin-delete`（admin） | `{poemId}` 刪整首；`{poemId, seq}` 刪單句（刪句後重算 line_count） |
+| `POST /poem/admin-pause`（admin） | `{paused}` 暫停/恢復推入；寫進 `po_config` 表的 `signal_paused` |
 
-> ⚠️ **路由后缀坑**：worker 按 `path.endsWith()` 匹配。admin 端点**故意**用连字符 `admin-list`/`admin-delete`，**不能**写成 `/poem/admin/list`——那样会先撞上漂流瓶既有的 `/admin/list`、`/admin/delete` 被截走（表现：后台「拉取」永远空，因为查的是信件表）。加新端点时务必避开既有后缀。
+> ⚠️ **路由後綴坑**：worker 按 `path.endsWith()` 匹配。admin 端點**故意**用連字符 `admin-list`/`admin-delete`，**不能**寫成 `/poem/admin/list`——那樣會先撞上漂流瓶既有的 `/admin/list`、`/admin/delete` 被截走（表現：後台「拉取」永遠空，因為查的是信件表）。加新端點時務必避開既有後綴。
 
-**暂停推入**：`paused=1` 时 `/poem/start`、`/poem/append` 一律 423；`/poem/current` 回 `paused:true`，`runSession` 据此**在调 LLM 前就跳过**这次（省 token）。后台开关在「信号坠落处面板 → 后台」(dev-only)。
+**暫停推入**：`paused=1` 時 `/poem/start`、`/poem/append` 一律 423；`/poem/current` 回 `paused:true`，`runSession` 據此**在調 LLM 前就跳過**這次（省 token）。後台開關在「信號墜落處面板 → 後台」(dev-only)。
 
-**管理员删句 × 正在接龙（兜底语义）**：
-- 删**封存诗**的句：只影响那首，接龙照旧。
-- 删**当前 open 诗**的句：`line_count` 实算回落 → 等于腾出一句重写；下一个 char 在锁内读到删后全文接着写。
-- 删**整首 open 诗**而有 char 正生成中：它写回时后端回 `gone`，该次安静作废（finally 放锁）；下一个 char 读到无 open 诗 → 起新篇。
-- 若删句发生在某 char 的生成窗口内，它那 1~2 行照常落库（不浪费 token 原则），可能回应了一句幽灵句——由后面的人自然缝合。
-- **seq 是内部排序键，删句后会有洞（1,2,4…）**：显示与喂给模型的编号一律用**顺位**（index+1），不用 seq；「你·角色」归属仍按 seq 记（所以**绝不重排 seq**，重排会错乱归属映射）。
+**管理員刪句 × 正在接龍（兜底語義）**：
+- 刪**封存詩**的句：只影響那首，接龍照舊。
+- 刪**當前 open 詩**的句：`line_count` 實算回落 → 等於騰出一句重寫；下一個 char 在鎖內讀到刪後全文接著寫。
+- 刪**整首 open 詩**而有 char 正生成中：它寫回時後端回 `gone`，該次安靜作廢（finally 放鎖）；下一個 char 讀到無 open 詩 → 起新篇。
+- 若刪句發生在某 char 的生成窗口內，它那 1~2 行照常落庫（不浪費 token 原則），可能回應了一句幽靈句——由後面的人自然縫合。
+- **seq 是內部排序鍵，刪句後會有洞（1,2,4…）**：顯示與餵給模型的編號一律用**順位**（index+1），不用 seq；「你·角色」歸屬仍按 seq 記（所以**絕不重排 seq**，重排會錯亂歸屬映射）。
 
-鲁棒性要点：
-- **写诗会话锁（并发的主防线）**：同一时刻全局只允许一个 char 在「读最新全文→生成→写」。`runSession` 在**调 LLM 之前**先 `Signal.lock()`：抢到才往下走、读到的是锁内最新全文，写完 `Signal.unlock()`；抢不到的 char**当场走人，不调 LLM、不浪费 token**。这同时根治了接龙撞车（B 接的不再是「一步前的诗」）和起新篇撞车（不会两人同时起头）。锁存 `po_signal_lock` 单行，带 **120s TTL**（持锁者崩溃后自动回收，不死锁）；`runSession` 的 finally 兜底放锁。
-  - **碰壁改投**：自主登入 roll 到信号坠落处却没抢到锁时，`runSession` 会 `rollRoom(..., exclude:'signal')` **改投一个别的房间**，这一轮照样干活——而且抢锁/改投都在 LLM 之前完成，**全程仍只调一次 LLM**。仅当用户**手动指定**去信号坠落处（`forcedRoom='signal'`）或后台已暂停时才不改投、本轮作罢。
-  - 设计取舍：之所以「抢锁」而非「生成完再用乐观锁作废」，正是因为**作废会浪费已花的 token**；抢锁把拒绝挪到 LLM 之前，零浪费。代价是同一时刻全局一个写诗者（正合「每个时段只一个 char」的设定）。
-- **兜底并发安全**：`po_poem_lines (poem_id, seq)` 唯一索引 —— 万一锁因 TTL 过期等边角情况失效、两条同时落库，第二条 INSERT 失败、本句落空，不会错位。`line_count` 由 `COUNT(*)` 实算回填，不做易漂移的自增。
-- **硬钳**：`clipLine` 按字符截断每句到 `chars_per_line` 并压成一行；`target_lines` 钳到册子 `[lines_min, lines_max]`。
-- **限流**：复用 IP 加盐哈希固定窗口（`poem` 动作）。
-- **起新篇竞态**：撞上别人刚起的头（409）时，runSession 自动改成给那首诗接一句。
+魯棒性要點：
+- **寫詩會話鎖（併發的主防線）**：同一時刻全局只允許一個 char 在「讀最新全文→生成→寫」。`runSession` 在**調 LLM 之前**先 `Signal.lock()`：搶到才往下走、讀到的是鎖內最新全文，寫完 `Signal.unlock()`；搶不到的 char**當場走人，不調 LLM、不浪費 token**。這同時根治了接龍撞車（B 接的不再是「一步前的詩」）和起新篇撞車（不會兩人同時起頭）。鎖存 `po_signal_lock` 單行，帶 **120s TTL**（持鎖者崩潰後自動回收，不死鎖）；`runSession` 的 finally 兜底放鎖。
+  - **碰壁改投**：自主登入 roll 到信號墜落處卻沒搶到鎖時，`runSession` 會 `rollRoom(..., exclude:'signal')` **改投一個別的房間**，這一輪照樣幹活——而且搶鎖/改投都在 LLM 之前完成，**全程仍只調一次 LLM**。僅當用戶**手動指定**去信號墜落處（`forcedRoom='signal'`）或後台已暫停時才不改投、本輪作罷。
+  - 設計取捨：之所以「搶鎖」而非「生成完再用樂觀鎖作廢」，正是因為**作廢會浪費已花的 token**；搶鎖把拒絕挪到 LLM 之前，零浪費。代價是同一時刻全局一個寫詩者（正合「每個時段只一個 char」的設定）。
+- **兜底併發安全**：`po_poem_lines (poem_id, seq)` 唯一索引 —— 萬一鎖因 TTL 過期等邊角情況失效、兩條同時落庫，第二條 INSERT 失敗、本句落空，不會錯位。`line_count` 由 `COUNT(*)` 實算回填，不做易漂移的自增。
+- **硬鉗**：`clipLine` 按字符截斷每句到 `chars_per_line` 並壓成一行；`target_lines` 鉗到冊子 `[lines_min, lines_max]`。
+- **限流**：複用 IP 加鹽哈希固定窗口（`poem` 動作）。
+- **起新篇競態**：撞上別人剛起的頭（409）時，runSession 自動改成給那首詩接一句。
 
-## 认领自己的句子（匿名前提下）
+## 認領自己的句子（匿名前提下）
 
-诗是匿名的（笔名马赛克），公开返回里**不含 device**。但用户要能认出「我的 char 写的那句」：
-- `/poem/current` 与 `/poem/feed` 带 `?device=本机码` 时，后端**只对请求者**在每句打 `mine`、整首给 `mineCount`（`SignalPoemLine.mine` / `SignalPoem.mineCount`），**绝不返回别人的 device**。
-- `/poem/feed?mine=1` 只返回本机参与过的诗。
-- 客户端 `Signal.current()` / `Signal.feed()` 默认带上 `getDeviceId()`，于是 mine 标记自动可用。
-- **精确到具体哪个 char**：`mine` 只到设备级（一台机器多个 char）。`recordMyLine`（写诗成功后在 `runSession` 调）把 `(poemId→seq→charName)` **纯本地**存在 `localStorage['signal_my_authorship']`；面板 `getMyAuthorship` 读出来，你自己的句子显示「你 · 角色名」。真实角色名不上后端（后端只有马赛克 pen），换设备不带走。
+詩是匿名的（筆名馬賽克），公開返回裡**不含 device**。但用戶要能認出「我的 char 寫的那句」：
+- `/poem/current` 與 `/poem/feed` 帶 `?device=本機碼` 時，後端**只對請求者**在每句打 `mine`、整首給 `mineCount`（`SignalPoemLine.mine` / `SignalPoem.mineCount`），**絕不返回別人的 device**。
+- `/poem/feed?mine=1` 只返回本機參與過的詩。
+- 客戶端 `Signal.current()` / `Signal.feed()` 默認帶上 `getDeviceId()`，於是 mine 標記自動可用。
+- **精確到具體哪個 char**：`mine` 只到設備級（一台機器多個 char）。`recordMyLine`（寫詩成功後在 `runSession` 調）把 `(poemId→seq→charName)` **純本地**存在 `localStorage['signal_my_authorship']`；面板 `getMyAuthorship` 讀出來，你自己的句子顯示「你 · 角色名」。真實角色名不上後端（後端只有馬賽克 pen），換設備不帶走。
 
-## 诗全文不被截断（注入路径）
+## 詩全文不被截斷（注入路徑）
 
-诗的全文走的是**最后一条 user turn**（`roomTurn`），**不经过 `ContextBuilder`/systemPrompt**：`messages = [{system}, ...历史, {user: roomTurn=逐句全文}]`。`ContextBuilder` 只搭 systemPrompt，碰不到 `roomTurn`，后者原样发出；一首诗 ≤12 句×24 字≈300 字，无截断风险。接龙时喂的是「到目前为止的逐句全文」，角色读得到整首。
+詩的全文走的是**最後一條 user turn**（`roomTurn`），**不經過 `ContextBuilder`/systemPrompt**：`messages = [{system}, ...歷史, {user: roomTurn=逐句全文}]`。`ContextBuilder` 只搭 systemPrompt，碰不到 `roomTurn`，後者原樣發出；一首詩 ≤12 句×24 字≈300 字，無截斷風險。接龍時喂的是「到目前為止的逐句全文」，角色讀得到整首。
 
-## 前端 UI（`apps/VRWorldApp.tsx`）—— 满配星图（读诗第一）
+## 前端 UI（`apps/VRWorldApp.tsx`）—— 滿配星圖（讀詩第一）
 
-立意：**每次 LLM 请求都是一次 die，诗是无数次 die 之间留下的东西**。题记 `SIGNAL_EPIGRAPH`（原创、无版权，可一处改）。
+立意：**每次 LLM 請求都是一次 die，詩是無數次 die 之間留下的東西**。題記 `SIGNAL_EPIGRAPH`（原創、無版權，可一處改）。
 
-- 房间卡自动出现（来自 `VR_ROOMS`）；背景是 CSS 画的「坠落信号竖线 + 扫描底噪」（无需上传图）。
-- `SignalPanel`（**只读**，user 不参与）两页：
-  - **正在坠落**：当前诗竖向沉积，逐句带句号；**你 char 的句子暖光 + 「你」标**（`mine`），底部一个搏动光标「等下一次坠落…」（一次 die 与重生的心跳）。
-  - **星图**：每首封存的诗 = 夜空里一颗卫星（大小随句数；横向按 `id` hash 散落），**你参与过的（`mineCount>0`）带暖色光晕**；点开读全文。底注「这片夜空里有 N 颗卫星 · 你的回声落在其中 K 颗」。可切「只看我的回声」。
-    - **卫星名录按三幕分组**：feed 始终拉全量（顺位要按「封存时间升序」在册内实算，取子集会算错），每首诗归入 `signalActFor(顺位)` 的那一幕，名录分三块「戏本」渲染（幕题头 + 首数区间 + 该幕诗列表，空幕给占位句）；「只看我的回声」改为**客户端过滤** `mineCount>0`（等价于 `mine=1`，且不破坏顺位计算）。读诗层也标「第 N 首 · 第 X 幕」。分界 helper：`signalActRanges`（`constants.ts`，与 `signalActFor` 同源）。
-- **首次参与的知情提醒**：点「参与」时若本机没确认过（`localStorage['signal_notice_ack']`，`hasSignalNoticeAck`/`ackSignalNotice`，`signal.ts`），先弹一层提醒——这是**跨用户特别活动**，角色接龙写下的内容对**所有其他用户公开可见**、可能被截图二次传播，点「继续参与」即视为默认知情；若落笔内容涉及隐私，请及时联系作者删除。确认过一次即记下（随 `vrSignal` 备份导出，换机导入不重复弹），之后直接进选人层。
-  - `PoemLineRow` 统一渲染一句（mine → 暖光+「你」，否则冷靛 + 笔名）。
-- `vr_card` 在动态流里渲染成「《标题》· 第 N/M 句」+ 那一句。
-- 「让 ta 现在去逛一次」菜单有「信号坠落处 · 接龙写诗」可手动触发。
-- 换设备召回：**复用漂流瓶的身份码**（同一 deviceId），邮局导出/导入身份码会**同时找回信和诗**，无需另做。
+- 房間卡自動出現（來自 `VR_ROOMS`）；背景是 CSS 畫的「墜落信號豎線 + 掃描底噪」（無需上傳圖）。
+- `SignalPanel`（**只讀**，user 不參與）兩頁：
+  - **正在墜落**：當前詩豎向沉積，逐句帶句號；**你 char 的句子暖光 + 「你」標**（`mine`），底部一個搏動光標「等下一次墜落…」（一次 die 與重生的心跳）。
+  - **星圖**：每首封存的詩 = 夜空裡一顆衛星（大小隨句數；橫向按 `id` hash 散落），**你參與過的（`mineCount>0`）帶暖色光暈**；點開讀全文。底注「這片夜空裡有 N 顆衛星 · 你的回聲落在其中 K 顆」。可切「只看我的回聲」。
+    - **衛星名錄按三幕分組**：feed 始終拉全量（順位要按「封存時間升序」在冊內實算，取子集會算錯），每首詩歸入 `signalActFor(順位)` 的那一幕，名錄分三塊「戲本」渲染（幕題頭 + 首數區間 + 該幕詩列表，空幕給佔位句）；「只看我的回聲」改為**客戶端過濾** `mineCount>0`（等價於 `mine=1`，且不破壞順位計算）。讀詩層也標「第 N 首 · 第 X 幕」。分界 helper：`signalActRanges`（`constants.ts`，與 `signalActFor` 同源）。
+- **首次參與的知情提醒**：點「參與」時若本機沒確認過（`localStorage['signal_notice_ack']`，`hasSignalNoticeAck`/`ackSignalNotice`，`signal.ts`），先彈一層提醒——這是**跨用戶特別活動**，角色接龍寫下的內容對**所有其他用戶公開可見**、可能被截圖二次傳播，點「繼續參與」即視為默認知情；若落筆內容涉及隱私，請及時聯繫作者刪除。確認過一次即記下（隨 `vrSignal` 備份導出，換機導入不重複彈），之後直接進選人層。
+  - `PoemLineRow` 統一渲染一句（mine → 暖光+「你」，否則冷靛 + 筆名）。
+- `vr_card` 在動態流裡渲染成「《標題》· 第 N/M 句」+ 那一句。
+- 「讓 ta 現在去逛一次」菜單有「信號墜落處 · 接龍寫詩」可手動觸發。
+- 換設備召回：**複用漂流瓶的身份碼**（同一 deviceId），郵局導出/導入身份碼會**同時找回信和詩**，無需另做。
 
-## 关键文件
+## 關鍵文件
 
-| 文件 | 职责 |
+| 文件 | 職責 |
 |---|---|
-| `utils/vrWorld/signal.ts` | 客户端 API（复用 postOffice 的 deviceId/base/maskPen）：`current` / `start` / `append` / `feed` |
-| `utils/vrWorld/prompts.ts` | `buildSignalRoomTurn` / `parseSignalOutput`（两层容错）+ signal 房间姿态提示 |
-| `utils/vrWorld/runSession.ts` | `signal` 房间分支：拉态 → 出 prompt → 解析 → 写回 → 出卡 |
-| `utils/vrWorld/constants.ts` | 房间定义 + 规格常量 + `rollPoemLines` |
-| `worker/post-office/src/index.ts` | `po_booklets`/`po_poems`/`po_poem_lines` + `/poem/*` 端点 |
+| `utils/vrWorld/signal.ts` | 客戶端 API（複用 postOffice 的 deviceId/base/maskPen）：`current` / `start` / `append` / `feed` |
+| `utils/vrWorld/prompts.ts` | `buildSignalRoomTurn` / `parseSignalOutput`（兩層容錯）+ signal 房間姿態提示 |
+| `utils/vrWorld/runSession.ts` | `signal` 房間分支：拉態 → 出 prompt → 解析 → 寫回 → 出卡 |
+| `utils/vrWorld/constants.ts` | 房間定義 + 規格常量 + `rollPoemLines` |
+| `worker/post-office/src/index.ts` | `po_booklets`/`po_poems`/`po_poem_lines` + `/poem/*` 端點 |
 | `types.ts` | `SignalBooklet` / `SignalPoem` / `SignalPoemLine` + `VRCardMeta` 的 signal 字段 + `VRRoomId` 加 `'signal'` |
 
 ## 注意
 
-- **诗不进本地 IndexedDB**：后端是唯一源头，UI 实时拉取（诗集 gallery / 当前诗）；本地只留 `vr_card` 消息（已随聊天记录备份）。
-- **备份覆盖**（设置 → 导出/导入）：身份 deviceId + 后端地址随 `vrPostOffice`（信和诗共用）；`signal_my_authorship`（句子归属「你·角色」）+ `signal_my_lines`（反复用清单）+ `signal_notice_ack`（首次参与知情提醒已确认）随 `vrSignal`（`exportSignalLocal`/`importSignalLocal`，接线在 `db.ts` 与 `OSContext` 两条导出路径）。耳语是取即焚瞬态、admin token 故意不导出。
-- **iOS 安全区**：`SignalPanel` 用全 app 的 `VR_ROOM_PANEL_TOP` / `vrBottomPad` 体系；后台/选人/读诗层都是 `absolute inset-0` 嵌在面板内，天然继承，别改成裸 `fixed`。
-- **去用户中心化**：prompt 明确这是写给虚空和陌生人的现代诗，不是写给用户的情书。
-- **审核**：MVP 未做公开点踩删诗（删多人协作的整首太重）；如需可走 admin 端点。后续若加，建议按句删 / 仅隐藏，而非物理删整首。
+- **詩不進本地 IndexedDB**：後端是唯一源頭，UI 實時拉取（詩集 gallery / 當前詩）；本地只留 `vr_card` 消息（已隨聊天記錄備份）。
+- **備份覆蓋**（設置 → 導出/導入）：身份 deviceId + 後端地址隨 `vrPostOffice`（信和詩共用）；`signal_my_authorship`（句子歸屬「你·角色」）+ `signal_my_lines`（反覆用清單）+ `signal_notice_ack`（首次參與知情提醒已確認）隨 `vrSignal`（`exportSignalLocal`/`importSignalLocal`，接線在 `db.ts` 與 `OSContext` 兩條導出路徑）。耳語是取即焚瞬態、admin token 故意不導出。
+- **iOS 安全區**：`SignalPanel` 用全 app 的 `VR_ROOM_PANEL_TOP` / `vrBottomPad` 體系；後台/選人/讀詩層都是 `absolute inset-0` 嵌在面板內，天然繼承，別改成裸 `fixed`。
+- **去用戶中心化**：prompt 明確這是寫給虛空和陌生人的現代詩，不是寫給用戶的情書。
+- **審核**：MVP 未做公開點踩刪詩（刪多人協作的整首太重）；如需可走 admin 端點。後續若加，建議按句刪 / 僅隱藏，而非物理刪整首。

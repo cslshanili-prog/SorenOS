@@ -1,21 +1,21 @@
-# 私聊流式预览与正式消息交接
+# 私聊流式預覽與正式消息交接
 
-2026-09-12：修复流式回复先显示、随后消失再整批弹出的现象。
+2026-09-12：修復流式回覆先顯示、隨後消失再整批彈出的現象。
 
-## 交接规则
+## 交接規則
 
-`applyAssistantPostProcessing` 会逐条保存、重新读取消息。即使启用了 `instantRender`，异步写库之间仍可能有多帧；第一条正式消息出现不代表整轮已经完成。
+`applyAssistantPostProcessing` 會逐條保存、重新讀取消息。即使啟用了 `instantRender`，異步寫庫之間仍可能有多幀；第一條正式消息出現不代表整輪已經完成。
 
-- `hooks/useChatAI.ts` 保留整组预览直到后处理完成，期间逐次登记与预览匹配的正式消息 ID。
-- `apps/Chat.tsx` 在预览仍显示时隐藏本轮这些正式消息，避免重复。整轮完成才撤去预览、展示正式消息。
-- 当前轮次的临时隐藏 ID 与已有的入场动画抑制记录分开：下一轮不能隐藏上一轮回复。正式消息接棒时不重新播放入场动画。
-- 未被预览覆盖的卡片等消息继续正常展示；不改变解析、持久化或消息来源过滤。
-- 出错时撤掉未保存的预览，保留实际已保存的消息与错误提示。
+- `hooks/useChatAI.ts` 保留整組預覽直到後處理完成，期間逐次登記與預覽匹配的正式消息 ID。
+- `apps/Chat.tsx` 在預覽仍顯示時隱藏本輪這些正式消息，避免重複。整輪完成才撤去預覽、展示正式消息。
+- 當前輪次的臨時隱藏 ID 與已有的入場動畫抑制記錄分開：下一輪不能隱藏上一輪回復。正式消息接棒時不重新播放入場動畫。
+- 未被預覽覆蓋的卡片等消息繼續正常展示；不改變解析、持久化或消息來源過濾。
+- 出錯時撤掉未保存的預覽，保留實際已保存的消息與錯誤提示。
 
-## 回归验证
+## 迴歸驗證
 
-`scripts/test-chat-stream-handover.mjs` 连接本地 Vite 的真实 Chat 测试入口，通过本地 SSE 返回三条回复，并暂停第二、第三条 IndexedDB 写入。测试连续两轮相同内容，逐帧检查气泡不消失、不重复，正式消息不重播入场动画；另模拟第二条保存失败，验证预览清理。
+`scripts/test-chat-stream-handover.mjs` 連接本地 Vite 的真實 Chat 測試入口，通過本地 SSE 返回三條回覆，並暫停第二、第三條 IndexedDB 寫入。測試連續兩輪相同內容，逐幀檢查氣泡不消失、不重複，正式消息不重播入場動畫；另模擬第二條保存失敗，驗證預覽清理。
 
-入口：`test/fixtures/chat-stream-handover.html`。测试专用写入暂停器只存在于该入口，不进入生产应用。启动 Vite 到 5183 后使用仓库的 Playwright loader 运行脚本。
+入口：`test/fixtures/chat-stream-handover.html`。測試專用寫入暫停器只存在於該入口，不進入生產應用。啟動 Vite 到 5183 後使用倉庫的 Playwright loader 運行腳本。
 
-相关单元回归：`streamPreview`、`safeApi.stream`、`chatReplyLifecycle`、`applyAssistantPostProcessing`。
+相關單元迴歸：`streamPreview`、`safeApi.stream`、`chatReplyLifecycle`、`applyAssistantPostProcessing`。

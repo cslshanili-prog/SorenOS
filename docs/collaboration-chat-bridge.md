@@ -1,25 +1,25 @@
-# 协同工作：私聊衔接与选择转发
+# 協同工作：私聊銜接與選擇轉發
 
-2026-09-13 修复。
+2026-09-13 修復。
 
-## 私聊输入
+## 私聊輸入
 
-`features/collaboration/chatBridge.ts` 在每次生成前从 DB 读取当前角色与最新上下文范围。不能使用 Chat 页面传入的 `recentChatMessages` 作为生成数据源：它只是 UI 当前分页，可能陈旧或缺少消息。
+`features/collaboration/chatBridge.ts` 在每次生成前從 DB 讀取當前角色與最新上下文範圍。不能使用 Chat 頁面傳入的 `recentChatMessages` 作為生成數據源：它只是 UI 當前分頁，可能陳舊或缺少消息。
 
-「用户设定范围」沿用 `loadCharacterContextRange` 的手动断点、自适应记忆水位和最大范围。「最近 10／20 条」在相同范围内再取末尾 N 条；「不读取」不读聊天记录。范围为空时保持为空，不回退全库，不越过用户边界。只选择当前角色的私聊，不带其他角色或群聊。
+「用戶設定範圍」沿用 `loadCharacterContextRange` 的手動斷點、自適應記憶水位和最大範圍。「最近 10／20 條」在相同範圍內再取末尾 N 條；「不讀取」不讀聊天記錄。範圍為空時保持為空，不回退全庫，不越過用戶邊界。只選擇當前角色的私聊，不帶其他角色或群聊。
 
-两种协同模式仍保留原差异：沉浸式带完整 ChatApp 角色上下文，中度协同只追加私聊原文。实际请求明确标出 ChatApp 私聊的开始、结束及当前协同窗口，避免模型把「窗口独立」误解成「上文没有私聊」。界面显示本次读取条数。
+兩種協同模式仍保留原差異：沉浸式帶完整 ChatApp 角色上下文，中度協同只追加私聊原文。實際請求明確標出 ChatApp 私聊的開始、結束及當前協同窗口，避免模型把「窗口獨立」誤解成「上文沒有私聊」。界面顯示本次讀取條數。
 
-模型自述“看不到 ChatApp”不能单独证明请求没有携带记录。验证时检查最终发送请求的 messages；已有范围外的旧内容仍不会出现，不能为避免这句话而偷偷扩大范围。
+模型自述“看不到 ChatApp”不能單獨證明請求沒有攜帶記錄。驗證時檢查最終發送請求的 messages；已有範圍外的舊內容仍不會出現，不能為避免這句話而偷偷擴大範圍。
 
-## 转发到 ChatApp
+## 轉發到 ChatApp
 
-顶部发送按钮先打开选择页，默认不选；支持逐条勾选、全选、清空、取消。确认后只转发选中且属于当前窗口的 user/assistant 消息，保留原顺序及所选附件文字，不包括思考过程或其它协同窗口。仍通过原有 `onSendToChat` 写入一张转发卡，不自动混入日常聊天。
+頂部發送按鈕先打開選擇頁，默認不選；支持逐條勾選、全選、清空、取消。確認後只轉發選中且屬於當前窗口的 user/assistant 消息，保留原順序及所選附件文字，不包括思考過程或其它協同窗口。仍通過原有 `onSendToChat` 寫入一張轉發卡，不自動混入日常聊天。
 
-## 验证
+## 驗證
 
-- `utils/collaborationChatBridge.test.ts`：每次读取最新 DB、固定条数、最新手动断点、空自适应范围、角色／群聊隔离与选择转发。
-- 既有 collaborationContext / collaborationWiring 回归。
-- `scripts/test-worldbook-cowork.mjs`：真实协同 UI → 本地 mock API，检查最终请求包含私聊；窗口打开后追加私聊，再选「最近 20 条」生成，仍读到新内容；只选一条转发时回调只收到该条。
+- `utils/collaborationChatBridge.test.ts`：每次讀取最新 DB、固定條數、最新手動斷點、空自適應範圍、角色／群聊隔離與選擇轉發。
+- 既有 collaborationContext / collaborationWiring 迴歸。
+- `scripts/test-worldbook-cowork.mjs`：真實協同 UI → 本地 mock API，檢查最終請求包含私聊；窗口打開後追加私聊，再選「最近 20 條」生成，仍讀到新內容；只選一條轉發時回調只收到該條。
 
-浏览器测试入口 `test/fixtures/worldbook-cowork.html`，Vite 端口 5183；使用仓库 Playwright loader。测试素材及模型请求只在隔离浏览器和本地 mock 服务里运行。
+瀏覽器測試入口 `test/fixtures/worldbook-cowork.html`，Vite 端口 5183；使用倉庫 Playwright loader。測試素材及模型請求只在隔離瀏覽器和本地 mock 服務裡運行。

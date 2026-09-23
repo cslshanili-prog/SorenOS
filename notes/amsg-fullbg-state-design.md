@@ -1,121 +1,121 @@
-# 满血后台消息：云端状态表 + 服务端工具链设计
+# 滿血後台消息：雲端狀態表 + 服務端工具鏈設計
 
-> 什么时候读：做「满血后台消息」（角色到点自动发消息，上下文新鲜、可带工具、全程云端闭环）相关工作前。
-> 这份讲 SullyOS 侧的整体设计与分工；上游 amsg-server 要改什么见
+> 什麼時候讀：做「滿血後台消息」（角色到點自動發消息，上下文新鮮、可帶工具、全程雲端閉環）相關工作前。
+> 這份講 SullyOS 側的整體設計與分工；上游 amsg-server 要改什麼見
 > [`amsg-server-fullbg-hooks-prompt.md`](./amsg-server-fullbg-hooks-prompt.md)。
-> 更新时间：2026-07-17。
+> 更新時間：2026-07-17。
 
-## 一句话目标
+## 一句話目標
 
-主动消息从「排程时冻结一段 prompt，到点一次 LLM」升级成「到点由 worker 现场组装新鲜上下文、
-（可选）跑完整工具循环、推送成品」——**中途永远不需要客户端在线**，不会跑一半弹个通知叫用户
-回前台取数据。
+主動消息從「排程時凍結一段 prompt，到點一次 LLM」升級成「到點由 worker 現場組裝新鮮上下文、
+（可選）跑完整工具循環、推送成品」——**中途永遠不需要客戶端在線**，不會跑一半彈個通知叫用戶
+回前台取數據。
 
-背景：Instant Push 受平台限制（iOS 杀后台、SSE 寿命等）实际效果有限，转入有限支持；
-后台体验的主力改走本方案（amsg2 单用户 worker + D1 那套底座，见
+背景：Instant Push 受平台限制（iOS 殺後台、SSE 壽命等）實際效果有限，轉入有限支持；
+後台體驗的主力改走本方案（amsg2 單用戶 worker + D1 那套底座，見
 [`amsg2-reenable-guide.md`](./amsg2-reenable-guide.md)）。
 
-## 核心判定原则
+## 核心判定原則
 
-**worker 在 fire 时刻要读的数据才需要上云；客户端收到 push 之后才用的，一概留在本地。**
+**worker 在 fire 時刻要讀的數據才需要上雲；客戶端收到 push 之後才用的，一概留在本地。**
 
-后处理链路（表情包名字→URL 反查、卡片渲染、directive 重放、拟人分泡）全部发生在客户端收到
-push 之后（`activeMsgRuntime` / `applyAssistantPostProcessing`），云端只负责产出「带业务标签的
-文本 + directive metadata」。表情包表、歌单、卡片逻辑都不上云。
+後處理鏈路（表情包名字→URL 反查、卡片渲染、directive 重放、擬人分泡）全部發生在客戶端收到
+push 之後（`activeMsgRuntime` / `applyAssistantPostProcessing`），雲端只負責產出「帶業務標籤的
+文本 + directive metadata」。表情包表、歌單、卡片邏輯都不上雲。
 
-## 工具怎么保证「整条链在云上跑得完」
+## 工具怎麼保證「整條鏈在雲上跑得完」
 
-LLM 每轮要调什么工具是运行时才知道的，所以完备性不能靠猜，靠两件事：
+LLM 每輪要調什麼工具是運行時才知道的，所以完備性不能靠猜，靠兩件事：
 
-1. **数据源提前就位**（下面的状态表）；
-2. **后台模式暴露给 LLM 的工具清单由 worker 注入**——清单里只放云端可满足的工具，
-   完备性是构造出来的。没开远端向量库的用户，清单里就没有 recall，而不是跑一半断掉。
+1. **數據源提前就位**（下面的狀態表）；
+2. **後台模式暴露給 LLM 的工具清單由 worker 注入**——清單裡只放雲端可滿足的工具，
+   完備性是構造出來的。沒開遠端向量庫的用戶，清單裡就沒有 recall，而不是跑一半斷掉。
 
-按依赖类型把工具切三类，真正要上云的东西立刻收敛：
+按依賴類型把工具切三類，真正要上雲的東西立刻收斂：
 
-| 类型 | 例子 | 云端需要什么 | 说明 |
+| 類型 | 例子 | 雲端需要什麼 | 說明 |
 |------|------|------------|------|
-| 副作用类 | 表情、poke、转账、日程卡、音乐、XHS 点赞/评论 | **无** | worker 只识别标签 → 塞进 push 的 directive metadata → 客户端收到时重放。LLM 写完标签就继续生成，不等执行结果，链不会断。instant classifier 已是这个模式，直接复用 |
-| 外部服务类 | XHS MCP、web_search、Notion/飞书 | 凭据 + 配置（几行 KV） | 数据在外部服务上，worker 直调。XHS 走现成的 `utils/xhsMcpClient.ts`（零依赖叶子，MCP / Bridge 双模式，worker 原样打包）；搜索 / Notion / 飞书经用户的代理 worker 转发（`utils/realtimeFetchCore.ts`）。**硬限制：只有公网可达（或走用户自部署代理）的服务可用**，本地起的 XHS 服务后台够不着——够不着时工具以失败结果回给 LLM 圆场，链不断 |
-| 本地数据读取类 | recall 记忆（`char.memories` 月度总结） | 数据进状态表（`tool_pack`） | 真正的同步对象。月度总结是几 KB 文本，直接随 tool_pack 上云，worker 本地过滤月份即可，不需要向量检索 |
+| 副作用類 | 表情、poke、轉帳、日程卡、音樂、XHS 點贊/評論 | **無** | worker 只識別標籤 → 塞進 push 的 directive metadata → 客戶端收到時重放。LLM 寫完標籤就繼續生成，不等執行結果，鏈不會斷。instant classifier 已是這個模式，直接複用 |
+| 外部服務類 | XHS MCP、web_search、Notion/飛書 | 憑據 + 配置（幾行 KV） | 數據在外部服務上，worker 直調。XHS 走現成的 `utils/xhsMcpClient.ts`（零依賴葉子，MCP / Bridge 雙模式，worker 原樣打包）；搜索 / Notion / 飛書經用戶的代理 worker 轉發（`utils/realtimeFetchCore.ts`）。**硬限制：只有公網可達（或走用戶自部署代理）的服務可用**，本地起的 XHS 服務後台夠不著——夠不著時工具以失敗結果回給 LLM 圓場，鏈不斷 |
+| 本地數據讀取類 | recall 記憶（`char.memories` 月度總結） | 數據進狀態表（`tool_pack`） | 真正的同步對象。月度總結是幾 KB 文本，直接隨 tool_pack 上雲，worker 本地過濾月份即可，不需要向量檢索 |
 
-## client_state 通用状态表
+## client_state 通用狀態表
 
-一份活状态、单写者、按 namespace 组织。不按任务存多份快照——主动消息语义上就该基于
-「用户离开时的状态」，快照的"陈旧"是正确语义不是妥协。
+一份活狀態、單寫者、按 namespace 組織。不按任務存多份快照——主動消息語義上就該基於
+「用戶離開時的狀態」，快照的"陳舊"是正確語義不是妥協。
 
 ```
 client_state (user_id, namespace, key, value, updated_at)
 PRIMARY KEY (user_id, namespace, key)
 ```
 
-**v1 实际布局（已落地）**：每角色一个 namespace、单条 `fire_pack`——前端把完整 prompt
-拼好、时间性内容（当前时间/离开时长）留 `{{AMSG_*}}` 槽位，worker fire 时只做填槽，
-连拼装顺序都不用知道（`chatPrompts` 不进 worker 的红线执行到极限形态）：
+**v1 實際佈局（已落地）**：每角色一個 namespace、單條 `fire_pack`——前端把完整 prompt
+拼好、時間性內容（當前時間/離開時長）留 `{{AMSG_*}}` 槽位，worker fire 時只做填槽，
+連拼裝順序都不用知道（`chatPrompts` 不進 worker 的紅線執行到極限形態）：
 
-| namespace | key | 内容 | 写入时机 |
+| namespace | key | 內容 | 寫入時機 |
 |-----------|-----|------|---------|
-| `amsg:char:<id>` | `fire_pack` | `{ v, template(带时间槽位的完整 prompt), lastUserMessageAt, tzOffsetMin, targetName }` | 每轮聊完（去抖 15s）/ 切后台立即 / 排程成功后 |
+| `amsg:char:<id>` | `fire_pack` | `{ v, template(帶時間槽位的完整 prompt), lastUserMessageAt, tzOffsetMin, targetName }` | 每輪聊完（去抖 15s）/ 切後台立即 / 排程成功後 |
 
-代码位置：模板+渲染 `utils/amsgFirePack.ts`（前端兜底与 worker 共用同一份，时间文案单份维护）、
-脏标记+批量上传 `utils/amsgStateSync.ts`（挂 useChatAI 轮末 finally）、worker 填槽
+代碼位置：模板+渲染 `utils/amsgFirePack.ts`（前端兜底與 worker 共用同一份，時間文案單份維護）、
+髒標記+批量上傳 `utils/amsgStateSync.ts`（掛 useChatAI 輪末 finally）、worker 填槽
 `worker/amsg/src/index.ts` 的 onBeforeFire。
 
-**v2 工具循环分段（已落地）**：
+**v2 工具循環分段（已落地）**：
 
-| namespace | key | 内容 | 写入时机 |
+| namespace | key | 內容 | 寫入時機 |
 |-----------|-----|------|---------|
-| `amsg:char:<id>` | `tool_pack` | recall 用的月度总结（`char.memories`）+ `activeMemoryMonths` + XHS 角色开关 + 角色名 | 与 fire_pack 同批 |
-| `amsg:global` | `tool_config` | 搜索 / Notion / 飞书凭据 + XHS MCP 配置 + 代理 worker 地址（realtimeConfig 的工具子集） | 与 fire_pack 同批（快照没带 realtimeConfig 时跳过，不覆盖云端已有凭据） |
+| `amsg:char:<id>` | `tool_pack` | recall 用的月度總結（`char.memories`）+ `activeMemoryMonths` + XHS 角色開關 + 角色名 | 與 fire_pack 同批 |
+| `amsg:global` | `tool_config` | 搜索 / Notion / 飛書憑據 + XHS MCP 配置 + 代理 worker 地址（realtimeConfig 的工具子集） | 與 fire_pack 同批（快照沒帶 realtimeConfig 時跳過，不覆蓋雲端已有憑據） |
 
-数据形状与 parse 都在 `utils/amsgToolPack.ts`（前端 / worker 共用叶子）。设计早期
-设想过的独立分段最终没有出现：recall 实际读 `char.memories` 月度总结（几 KB 文本），
-不需要 embedding / 向量库凭据；情绪快照与用户画像已随 fire_pack 模板整体带上
-（模板 = 完整 chat system prompt），不需要单独条目。
+數據形狀與 parse 都在 `utils/amsgToolPack.ts`（前端 / worker 共用葉子）。設計早期
+設想過的獨立分段最終沒有出現：recall 實際讀 `char.memories` 月度總結（幾 KB 文本），
+不需要 embedding / 向量庫憑據；情緒快照與用戶畫像已隨 fire_pack 模板整體帶上
+（模板 = 完整 chat system prompt），不需要單獨條目。
 
-要点：
+要點：
 
-- **写侧**：脏标记 + 去抖，在「一轮聊完」和 `visibilitychange→hidden` 时把变过的 namespace
-  **批量一次** upsert。iOS 切后台的存活窗口只有几秒，禁止逐键逐条实时写。
-- **读侧**：worker fire 时按需 SELECT，拼 prompt 和工具取数走同一张表。
-- **单写者**：客户端写状态，worker 只写自己的 outbound log（已有），天然无冲突。
-  多设备场景 v1 用 `updated_at` 最后写赢，不做精细合并。
-- **拼 prompt 的分工**：客户端继续负责「拼」（分段上传），worker 只做「组装 + 补时间性内容」
-  （当前时间、用户离开多久、worker 自己发过什么）。`chatPrompts.ts` 上千行且常改，
-  **不要**移植到 worker 端双份维护。
-- **加密**：value 用 amsg-server 现有的 per-user storage 加密落库（同 completePrompt 的待遇）。
-- **体量**：单条 value 控制在百 KB 量级；全量向量这类大块头不进这张表（在 Supabase）。
+- **寫側**：髒標記 + 去抖，在「一輪聊完」和 `visibilitychange→hidden` 時把變過的 namespace
+  **批量一次** upsert。iOS 切後台的存活窗口只有幾秒，禁止逐鍵逐條實時寫。
+- **讀側**：worker fire 時按需 SELECT，拼 prompt 和工具取數走同一張表。
+- **單寫者**：客戶端寫狀態，worker 只寫自己的 outbound log（已有），天然無衝突。
+  多設備場景 v1 用 `updated_at` 最後寫贏，不做精細合併。
+- **拼 prompt 的分工**：客戶端繼續負責「拼」（分段上傳），worker 只做「組裝 + 補時間性內容」
+  （當前時間、用戶離開多久、worker 自己發過什麼）。`chatPrompts.ts` 上千行且常改，
+  **不要**移植到 worker 端雙份維護。
+- **加密**：value 用 amsg-server 現有的 per-user storage 加密落庫（同 completePrompt 的待遇）。
+- **體量**：單條 value 控制在百 KB 量級；全量向量這類大塊頭不進這張表（在 Supabase）。
 
-## fire 时的完整链路
+## fire 時的完整鏈路
 
 ```
-cron 到点
-  → 读 client_state（persona / recent_window / emotion / profile）
-  → 组装 prompt（+ 当前时间、离开时长、outbound 历史）
-  → LLM 轮 1 → classifier 分类输出
-      ├─ 纯文本/副作用标签 → finish：切 push + directive metadata
-      └─ 数据标签（recall / MCP_CALL / SEARCH…）→ worker 直调工具 → 结果回填 → LLM 轮 2 …
-  → （轮数达上限强制 finish）
-  → web push 推出 → SW 落 inbox → 客户端打开时后处理照旧
+cron 到點
+  → 讀 client_state（persona / recent_window / emotion / profile）
+  → 組裝 prompt（+ 當前時間、離開時長、outbound 歷史）
+  → LLM 輪 1 → classifier 分類輸出
+      ├─ 純文本/副作用標籤 → finish：切 push + directive metadata
+      └─ 數據標籤（recall / MCP_CALL / SEARCH…）→ worker 直調工具 → 結果回填 → LLM 輪 2 …
+  → （輪數達上限強制 finish）
+  → web push 推出 → SW 落 inbox → 客戶端打開時後處理照舊
 ```
 
-多轮循环的时长大头是等 LLM 的 IO（CF scheduled 里不吃 CPU 配额），但轮数与总时长必须有
-兜底：**默认 5 轮 + 240s**，工厂级可配、单次 fire 可覆盖（`onBeforeFire` 返回值携带）——
-有些工具（长搜索、外部慢 API）确实更耗时，应用层按任务自行判断放宽。
+多輪循環的時長大頭是等 LLM 的 IO（CF scheduled 裡不吃 CPU 配額），但輪數與總時長必須有
+兜底：**默認 5 輪 + 240s**，工廠級可配、單次 fire 可覆蓋（`onBeforeFire` 返回值攜帶）——
+有些工具（長搜索、外部慢 API）確實更耗時，應用層按任務自行判斷放寬。
 
 ## 分期
 
-| 期 | 内容 | 备注 |
+| 期 | 內容 | 備註 |
 |----|------|------|
-| v1 | 状态表 + 同步层 + fire 时新鲜组装（无工具） | 满血的主要价值（新鲜上下文/情绪/多气泡）在这一期就兑现 |
-| v2 | 服务端工具循环：副作用 directive + 九个数据工具就地执行 | **已落地**。classifier 原样复用 instant 那份（`worker/amsg/src/classifier.ts`）；决策纯逻辑在 `worker/amsg/src/agentic.ts`（旁白 / 副作用跨轮累积，finish 一起出），工具执行走共享的 `utils/agenticTools.ts` dispatch（搜索 / Notion / 飞书的 fetch 核心抽在 `utils/realtimeFetchCore.ts` 叶子里，前端 Manager 委托同一份）。副作用 directives 挂最后一条 push 的 metadata，收侧与 instant 共用重放 |
+| v1 | 狀態表 + 同步層 + fire 時新鮮組裝（無工具） | 滿血的主要價值（新鮮上下文/情緒/多氣泡）在這一期就兌現 |
+| v2 | 服務端工具循環：副作用 directive + 九個數據工具就地執行 | **已落地**。classifier 原樣複用 instant 那份（`worker/amsg/src/classifier.ts`）；決策純邏輯在 `worker/amsg/src/agentic.ts`（旁白 / 副作用跨輪累積，finish 一起出），工具執行走共享的 `utils/agenticTools.ts` dispatch（搜索 / Notion / 飛書的 fetch 核心抽在 `utils/realtimeFetchCore.ts` 葉子裡，前端 Manager 委託同一份）。副作用 directives 掛最後一條 push 的 metadata，收側與 instant 共用重放 |
 
-## 依赖与坑
+## 依賴與坑
 
-- **上游 amsg-server 要加东西**（client_state 端点、fire hook、服务端 agentic 循环），
-  见交接 prompt。发版链：改库 → next tag → SullyOS 升 devDep → 重打 bundle → 用户重新粘贴部署。
-  **worker 先行、前端后上**，前端用版本探测守门。
-- 状态表里有真·隐私数据（聊天窗口、人设）。虽然是用户自己的 worker + D1（和 API key 同
-  信任级），但设置里要有「清除云端状态」入口；导出/备份后续考虑。
-- recall 只对开了 Supabase 远端向量的用户可用，纯本地向量用户的后台工具清单里不出现 recall。
-- 群聊暂不在范围内（群聊当前也不走 instant/amsg 生成）。
+- **上游 amsg-server 要加東西**（client_state 端點、fire hook、服務端 agentic 循環），
+  見交接 prompt。發版鏈：改庫 → next tag → SullyOS 升 devDep → 重打 bundle → 用戶重新粘貼部署。
+  **worker 先行、前端後上**，前端用版本探測守門。
+- 狀態表裡有真·隱私數據（聊天窗口、人設）。雖然是用戶自己的 worker + D1（和 API key 同
+  信任級），但設置裡要有「清除雲端狀態」入口；導出/備份後續考慮。
+- recall 只對開了 Supabase 遠端向量的用戶可用，純本地向量用戶的後台工具清單裡不出現 recall。
+- 群聊暫不在範圍內（群聊當前也不走 instant/amsg 生成）。

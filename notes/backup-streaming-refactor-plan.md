@@ -1,271 +1,271 @@
-# 备份链路流式化改造方案（v2 格式）
+# 備份鏈路流式化改造方案（v2 格式）
 
-## 1. 背景与目标
+## 1. 背景與目標
 
-SullyOS 是 local-first 的浏览器虚拟手机，全部数据存在 IndexedDB（主库 `AetherOS_Data`，50+ store）。
-备份功能把这些 store 导出成一个 DEFLATE zip。当前实现从「攒数据」到「打包」到「上传」到「还原」
-几乎每一步都是**整库/整包压在内存里、没有分片均衡**，重度账号（万级向量、几十万条消息、
-几百 MB base64 素材）在备份时会：
+SullyOS 是 local-first 的瀏覽器虛擬手機，全部數據存在 IndexedDB（主庫 `AetherOS_Data`，50+ store）。
+備份功能把這些 store 導出成一個 DEFLATE zip。當前實現從「攢數據」到「打包」到「上傳」到「還原」
+幾乎每一步都是**整庫/整包壓在內存裡、沒有分片均衡**，重度帳號（萬級向量、幾十萬條消息、
+幾百 MB base64 素材）在備份時會：
 
-- **确定性硬崩**：对单个超大 store / 整包 JSON 做 `JSON.stringify`，文本逼近 JS 单字符串 ~512MB
-  上限 → `RangeError: Invalid string length`。这是「直接崩」，不是变慢。
-- **概率性 OOM**：`getAll()` 整表 + 向量解码膨胀 + stringify 多份副本叠加，撑爆移动端浏览器内存。
+- **確定性硬崩**：對單個超大 store / 整包 JSON 做 `JSON.stringify`，文本逼近 JS 單字符串 ~512MB
+  上限 → `RangeError: Invalid string length`。這是「直接崩」，不是變慢。
+- **概率性 OOM**：`getAll()` 整表 + 向量解碼膨脹 + stringify 多份副本疊加，撐爆移動端瀏覽器內存。
 
-目标（已 narrow，诚实版）：
+目標（已 narrow，誠實版）：
 
-- **彻底消除确定性硬崩**：分片后任何单根字符串都有界，永不触 `RangeError`。这是本轮的核心承诺。
-- **显著降低 OOM 概率**：去掉 `join('')` 的整包翻倍（~2× → ~1×）；#2 向量转二进制再砍掉重度
-  记忆宫殿账号的最大一块（number[] 文本 → 原始字节，~4-5×）。
-- **不承诺 `O(单片)` 峰值**：JSZip 在 `generateAsync` 前会攥着所有文件，导出峰值仍 ~O(整包未压缩)，
-  导入峰值 ~O(整树)。真要降到 `O(单片)` 必须换流式压缩库（fflate）+ 落盘流，工作量过大，**本轮不做，
-  列为 follow-up**（见 §7）。所以极端账号（几十万消息 + 几百 MB 图叠低端机）仍可能 OOM——但不再有
-  「低门槛、铁定触发」的 RangeError。
-- **老备份永远还能导入**。
+- **徹底消除確定性硬崩**：分片後任何單根字符串都有界，永不觸 `RangeError`。這是本輪的核心承諾。
+- **顯著降低 OOM 概率**：去掉 `join('')` 的整包翻倍（~2× → ~1×）；#2 向量轉二進制再砍掉重度
+  記憶宮殿帳號的最大一塊（number[] 文本 → 原始字節，~4-5×）。
+- **不承諾 `O(單片)` 峰值**：JSZip 在 `generateAsync` 前會攥著所有文件，導出峰值仍 ~O(整包未壓縮)，
+  導入峰值 ~O(整樹)。真要降到 `O(單片)` 必須換流式壓縮庫（fflate）+ 落盤流，工作量過大，**本輪不做，
+  列為 follow-up**（見 §7）。所以極端帳號（幾十萬消息 + 幾百 MB 圖疊低端機）仍可能 OOM——但不再有
+  「低門檻、鐵定觸發」的 RangeError。
+- **老備份永遠還能導入**。
 
-本轮范围 = 工程改造（#1/#2/#3/#5/#6），不动「该不该删老消息」那类产品决策（原 #4，已单独搁置）。
+本輪範圍 = 工程改造（#1/#2/#3/#5/#6），不動「該不該刪老消息」那類產品決策（原 #4，已單獨擱置）。
 
-## 2. 现状确诊（带行号）
+## 2. 現狀確診（帶行號）
 
-| 环节 | 位置 | 现状 | 问题 |
+| 環節 | 位置 | 現狀 | 問題 |
 |------|------|------|------|
-| 整表读 | `db.ts:2176 getRawStoreData` | `store.getAll()` 一次性整表进内存 | 无游标分批，峰值 = 整个 store |
-| 向量解码 | `OSContext.tsx:2857-2875` | 整库 `.map` 把 `Uint8Array` 解成 `number[]` | 再复制一份且膨胀，之后还要 stringify |
-| 单 store 序列化 | `OSContext.tsx:3038` | `JSON.stringify(单个大数组)` | 单库文本可超 512MB → RangeError |
-| 拼整包 | `OSContext.tsx:3032-3047` | `jsonParts.join('')` 拼成一根 `data.json` 大字符串 | 整备份再复制一份，峰值翻倍 |
-| 压包 | `OSContext.tsx:3054` | `zip.generateAsync({type:'blob',streamFiles:true,level:9})` | 入参 `data.json` 已成型；JSZip 生成前持有全部文件 |
-| WebDAV 上传(web) | `webdavClient.ts:204-228` | XHR `send(blob)` 经 Worker 代理 POST | **blob 本身是流式的**，真风险是 Worker body 上限 + 上行超时 |
-| WebDAV 上传(native) | `webdavClient.ts:86,190-201` | `blob.arrayBuffer()` 整包 → CapacitorHttp PUT | 整包进 ArrayBuffer，内存翻倍；且 CapacitorHttp 无法流式传 Blob |
-| import 解析 | `OSContext.tsx:3160-3167` | `loadAsync` 整包 + `data.json` 整串 + `JSON.parse` 整树 | 整棵对象树同时在内存 |
-| import 素材回填 | `OSContext.tsx:3176-3259` + `db.ts:2487` | **已是按 50 条 chunk 跑 beforeWrite、写完释放** | 这块已经均衡，不是瓶颈 |
-| import 写库 | `db.ts:2470-2496 putItems` | CHUNK_SIZE=50 分批 put + 释放 | 已经均衡，不是瓶颈 |
+| 整表讀 | `db.ts:2176 getRawStoreData` | `store.getAll()` 一次性整表進內存 | 無游標分批，峰值 = 整個 store |
+| 向量解碼 | `OSContext.tsx:2857-2875` | 整庫 `.map` 把 `Uint8Array` 解成 `number[]` | 再複製一份且膨脹，之後還要 stringify |
+| 單 store 序列化 | `OSContext.tsx:3038` | `JSON.stringify(單個大數組)` | 單庫文本可超 512MB → RangeError |
+| 拼整包 | `OSContext.tsx:3032-3047` | `jsonParts.join('')` 拼成一根 `data.json` 大字符串 | 整備份再複製一份，峰值翻倍 |
+| 壓包 | `OSContext.tsx:3054` | `zip.generateAsync({type:'blob',streamFiles:true,level:9})` | 入參 `data.json` 已成型；JSZip 生成前持有全部文件 |
+| WebDAV 上傳(web) | `webdavClient.ts:204-228` | XHR `send(blob)` 經 Worker 代理 POST | **blob 本身是流式的**，真風險是 Worker body 上限 + 上行超時 |
+| WebDAV 上傳(native) | `webdavClient.ts:86,190-201` | `blob.arrayBuffer()` 整包 → CapacitorHttp PUT | 整包進 ArrayBuffer，內存翻倍；且 CapacitorHttp 無法流式傳 Blob |
+| import 解析 | `OSContext.tsx:3160-3167` | `loadAsync` 整包 + `data.json` 整串 + `JSON.parse` 整樹 | 整棵對象樹同時在內存 |
+| import 素材回填 | `OSContext.tsx:3176-3259` + `db.ts:2487` | **已是按 50 條 chunk 跑 beforeWrite、寫完釋放** | 這塊已經均衡，不是瓶頸 |
+| import 寫庫 | `db.ts:2470-2496 putItems` | CHUNK_SIZE=50 分批 put + 釋放 | 已經均衡，不是瓶頸 |
 
-**结论**：真正没做均衡的是 **导出侧的「整表读 → 单 store stringify → join 整包」** 和 **import 侧的
-「整包 JSON.parse」**。import 的素材回填和写库其实已经分块了（这点要纠正之前的判断）。
+**結論**：真正沒做均衡的是 **導出側的「整表讀 → 單 store stringify → join 整包」** 和 **import 側的
+「整包 JSON.parse」**。import 的素材回填和寫庫其實已經分塊了（這點要糾正之前的判斷）。
 
-## 3. v2 备份格式设计
+## 3. v2 備份格式設計
 
-保持 zip 容器不变，改内部布局：
+保持 zip 容器不變，改內部佈局：
 
 ```
 backup.zip
 ├── manifest.json                  ← {formatVersion:2, mode, createdAt, stores:{<field>:{parts:N, count:M}}, assetCount}
-├── metadata.json                  ← 所有「非 store」字段：theme/API 配置/customIcons/appearancePresets/socialAppData/设置等（R4·F2）
-├── stores/characters.json         ← 小 store：整数组一个文件
-├── stores/messages.000.json       ← 大 store：分片，每片 ≤ SHARD_BYTES（如 32MB）或 ≤ SHARD_ITEMS（如 5000 条）
+├── metadata.json                  ← 所有「非 store」字段：theme/API 配置/customIcons/appearancePresets/socialAppData/設置等（R4·F2）
+├── stores/characters.json         ← 小 store：整數組一個文件
+├── stores/messages.000.json       ← 大 store：分片，每片 ≤ SHARD_BYTES（如 32MB）或 ≤ SHARD_ITEMS（如 5000 條）
 ├── stores/messages.001.json
-├── stores/memory_vectors.index.json ← 向量元数据索引（每条 memoryId/charId/dims/model/byteLen）
-├── stores/memory_vectors.bin      ← 向量 Float32 原始字节，按 index 顺序拼接（#2）
-└── assets/asset_xxx.png           ← 图片照旧抽出去 + 全局去重（不变）
+├── stores/memory_vectors.index.json ← 向量元數據索引（每條 memoryId/charId/dims/model/byteLen）
+├── stores/memory_vectors.bin      ← 向量 Float32 原始字節，按 index 順序拼接（#2）
+└── assets/asset_xxx.png           ← 圖片照舊抽出去 + 全局去重（不變）
 ```
 
-要点：
-- **字段名 vs store 名**：沿用现有 `backupData` 的字段命名（`themes→customThemes`、`gallery→galleryImages`
-  等，映射在 `OSContext.tsx:2930` 的 switch）。`manifest.stores` 的 key 用字段名，import 时喂给
-  `importFullData`（它本来就按字段名认数据），改动面最小。
-- **大 store 分片（sharding）**：单个 store 即使本身 >512MB，分成多片后每片独立 stringify、写进 zip、释放，
-  避免触 RangeError。**单条超大记录护栏（Finding 5）**：按累积超 `SHARD_BYTES`/`SHARD_ITEMS` flush；若**单条
-  记录**序列化就超预算（图片已抽 assets/，剩极端是超大文本/字体 base64 等留在 JSON 的字段），它独占一片；
-  若单条 JSON 仍超硬上限（如 256MB），**干净报错、不产出半截 zip**，绝不退回 RangeError。
-- **manifest 驱动 import**：导入时先读 manifest 决定走哪些文件、每个 store 几片，不靠猜文件名。
-- **manifest 枚举本 mode 的所有 store（含 count:0）**：空 store 也必须列出，否则「源为空、目标有旧数据」时
-  旧数据残留、full restore 名不副实（Finding 1·空 store 残留）。
-- **单一真相源 `BACKUP_STORE_SPECS`（修 R3·Finding 1）**：一张声明表，每个被备份的 store 一条——
+要點：
+- **字段名 vs store 名**：沿用現有 `backupData` 的字段命名（`themes→customThemes`、`gallery→galleryImages`
+  等，映射在 `OSContext.tsx:2930` 的 switch）。`manifest.stores` 的 key 用字段名，import 時餵給
+  `importFullData`（它本來就按字段名認數據），改動面最小。
+- **大 store 分片（sharding）**：單個 store 即使本身 >512MB，分成多片後每片獨立 stringify、寫進 zip、釋放，
+  避免觸 RangeError。**單條超大記錄護欄（Finding 5）**：按累積超 `SHARD_BYTES`/`SHARD_ITEMS` flush；若**單條
+  記錄**序列化就超預算（圖片已抽 assets/，剩極端是超大文本/字體 base64 等留在 JSON 的字段），它獨佔一片；
+  若單條 JSON 仍超硬上限（如 256MB），**乾淨報錯、不產出半截 zip**，絕不退回 RangeError。
+- **manifest 驅動 import**：導入時先讀 manifest 決定走哪些文件、每個 store 幾片，不靠猜文件名。
+- **manifest 枚舉本 mode 的所有 store（含 count:0）**：空 store 也必須列出，否則「源為空、目標有舊數據」時
+  舊數據殘留、full restore 名不副實（Finding 1·空 store 殘留）。
+- **單一真相源 `BACKUP_STORE_SPECS`（修 R3·Finding 1）**：一張聲明表，每個被備份的 store 一條——
   `{ store, field, shape: array|singleton|composite, restore: clear-and-add|merge|put|singleton, emptyBehavior }`。
-  **导出、manifest、导入共读这一张表**，杜绝「导出 switch 和 importFullData 各写一套、彼此漂移」。
-  - 为什么不能「count:0 一律置 `[]`」：导入器各 store 行为不一致——clear-and-add 扔 `[]` 会清；merge（themes/
-    emojis/categories/stickers）扔 `[]` 啥也不清；singleton（userProfile/lifeSim/vrMusic/vrGuestbook）扔 `[]` 会写
-    **空壳**把好数据冲掉。所以空时清不清、传什么形状，**按 spec 来**。
-  - **范围**：目标是 v2 还原**与 v1 行为完全一致、且不写空壳**；**不**顺手修 v1 本身「merge 不镜像」的老语义
-    （那是独立课题，超本轮）。
-  - **mode 专属虚拟字段（修 R4·F1，critical）**：spec 不是「每 store 一条静态行」就够——要建模 mode 专属字段和
-    跨字段不变量：① `mediaAssets` 是 media_only 下 characters 的**投影**（不是 characters store 本身）；
-    ② messages 在 media_only 下只筛 image/emoji；③ importFullData 靠「`data.characters` 在不在」判断 messages
-    是否破坏性写——所以 **media_only 绝不能把 characters/messages 物化成 `[]`**，否则会误清掉文字/聊天。
-    spec 要按 mode 给出**各自的应有字段集**，media_only 的集合里是 `mediaAssets`，不是 `characters`。
-  - **非 store 字段单独装（修 R4·F2）**：theme/API 配置/customIcons/appearancePresets/socialAppData/设置等不是
-    IndexedDB store，进 `metadata.json`，同样跑素材抽取/还原，纳入预检与组装。
+  **導出、manifest、導入共讀這一張表**，杜絕「導出 switch 和 importFullData 各寫一套、彼此漂移」。
+  - 為什麼不能「count:0 一律置 `[]`」：導入器各 store 行為不一致——clear-and-add 扔 `[]` 會清；merge（themes/
+    emojis/categories/stickers）扔 `[]` 啥也不清；singleton（userProfile/lifeSim/vrMusic/vrGuestbook）扔 `[]` 會寫
+    **空殼**把好數據沖掉。所以空時清不清、傳什麼形狀，**按 spec 來**。
+  - **範圍**：目標是 v2 還原**與 v1 行為完全一致、且不寫空殼**；**不**順手修 v1 本身「merge 不鏡像」的老語義
+    （那是獨立課題，超本輪）。
+  - **mode 專屬虛擬字段（修 R4·F1，critical）**：spec 不是「每 store 一條靜態行」就夠——要建模 mode 專屬字段和
+    跨字段不變量：① `mediaAssets` 是 media_only 下 characters 的**投影**（不是 characters store 本身）；
+    ② messages 在 media_only 下只篩 image/emoji；③ importFullData 靠「`data.characters` 在不在」判斷 messages
+    是否破壞性寫——所以 **media_only 絕不能把 characters/messages 物化成 `[]`**，否則會誤清掉文字/聊天。
+    spec 要按 mode 給出**各自的應有字段集**，media_only 的集合裡是 `mediaAssets`，不是 `characters`。
+  - **非 store 字段單獨裝（修 R4·F2）**：theme/API 配置/customIcons/appearancePresets/socialAppData/設置等不是
+    IndexedDB store，進 `metadata.json`，同樣跑素材抽取/還原，納入預檢與組裝。
 
-## 4. 逐项改造
+## 4. 逐項改造
 
-### #1 整表读 → 游标分批读（`db.ts`）
-- 新增 `getStoreDataChunked(storeName, onBatch, batchSize)`：用 `store.openCursor()` 游标，每攒够
-  `batchSize` 条回调一次 `onBatch(batch)`，回调内消费完即释放，绝不在内存里攒整表。
-- `getRawStoreData` 保留（老 import 路径 / 其它调用方还用），不动。
-- **效果**：导出读取阶段内存从「整个 store」降到「一个 batch」。
-- **影响**：所有走新导出的 store 改用游标读；回归测试钉「不漏条、顺序与 getAll 一致」。
+### #1 整表讀 → 游標分批讀（`db.ts`）
+- 新增 `getStoreDataChunked(storeName, onBatch, batchSize)`：用 `store.openCursor()` 游標，每攢夠
+  `batchSize` 條回調一次 `onBatch(batch)`，回調內消費完即釋放，絕不在內存裡攢整表。
+- `getRawStoreData` 保留（老 import 路徑 / 其它調用方還用），不動。
+- **效果**：導出讀取階段內存從「整個 store」降到「一個 batch」。
+- **影響**：所有走新導出的 store 改用游標讀；迴歸測試釘「不漏條、順序與 getAll 一致」。
 
 ### #3 流式骨架 + v2 格式（`OSContext.tsx exportSystem` / `importSystem`）
-- **导出**：对每个 store，游标分批读（#1）→ 每批做图片抽取（复用现有 `processObject`/`extractImagesInPlace`，
-  逻辑不变）→ 累积到当前分片缓冲，超过 `SHARD_BYTES`/`SHARD_ITEMS` 就 `zip.file('stores/<field>.NNN.json', 分片串)`
-  并清空缓冲 → 释放该批对象。小 store 不分片，单文件。
-- 写 `manifest.json` 收尾，删掉老的 `largeArrayKeys` + `jsonParts.join('')` 整包逻辑。
-- **导入（assemble-then-import-once，修 Finding 1）**：`loadAsync` 后先找 `manifest.json`；存在且
-  `formatVersion>=2` → 走 v2 路径：
-  1. **先校验**：先确认 `formatVersion === 2`（Finding 4）；**再从 `BACKUP_STORE_SPECS` + mode 算出「完整应有
-     字段集」，要求每个应有 store/虚拟字段（含 count:0、composite、`metadata.json`）都在 manifest 里——漏声明
-     当损坏、abort（修 R4·F3，防 export 漏 store 导致静默留旧数据）**；再确认 manifest 声明的每个分片文件、
-     `memory_vectors.bin`、`metadata.json` 都在 zip 里（缺则 abort，此时 DB 一字未动）。**素材文件（`assets/*`）不进这道硬边界（已定·Finding 2，选 A）**：
-     缺图维持 v1 的 warn+skip——缺图只可能来自篡改，且真丢了也无从恢复，为它拒绝整个导入没意义。实现处写注释
-     说明此豁免。
-  1b. **资源预检（修 R3·Finding 3）**：按 manifest 的 count + zip 未压缩体积 + bin/asset 体积估算导入峰值，
-     超过设备阈值就**干净拒绝、根本不开始导入**（数据完好），避免「强机导得出、弱机导一半 OOM 把旧数据毁了」。
-  2. **再组装（按 `BACKUP_STORE_SPECS` 还原模式，修 R3·Finding 1）**：逐 store 逐片 `file.async('string')` +
-     `JSON.parse(单片)`，把同一 store 的各片**拼回完整数组**，parse 完一片即释放该片字符串；向量从 `.bin`+index
-     重建成 `MemoryVector[]` 塞进 `data.memoryVectors`；**解析 `metadata.json` 把非 store 字段填回 `data`（R4·F2），
-     素材回填同样覆盖它**。空 store 按 spec 处理（clear-and-add 才置 `[]` 清旧；merge/singleton 按 v1 形状，
-     **不写空壳**；media_only 不物化 characters/messages，R4·F1）。**轻量自洽校验（修 R3·Finding 2，瘦身版）**：每片必须是数组、
-     `组装后条数 === manifest count`、每条向量 `byteLength === dimensions*4`——抓的是我们自己的 export bug，
-     不是防篡改（offset 单调不重叠那套深校验不做）。组装出完整的 `data` 对象。
-  3. **后写库**：调用**一次**现有的 `DB.importFullData(data, ...)`——每个 store 的完整数组只经过一次
-     `clearAndAdd`，自然只 clear 一次（不会出现「第二片把第一片清掉」）；characters↔mediaAssets 等跨字段
-     逻辑、分块写库、素材回填钩子全部原样复用，不重写。
-  - **为什么不按 codex 说的「clear once + 逐片 append」**：那要把 importFullData 拆成可逐片调用、还得自己
-    复刻跨字段逻辑。assemble-then-import-once 更简单、复用现有逻辑，且「组装在前/写库在后」天然就是
-    Finding 3 要的「破坏性写之前的校验边界」。**代价**：import 峰值 ≈ 整树（与现状 v1 相同，narrow 下接受）。
-- **效果**：消除导出侧 join 整包 + 单 store stringify 的 RangeError；导入侧修掉跨片清库的数据丢失。
-- **影响**：导出主流程重写；导入新增 v2 组装路径（写库仍走旧 importFullData）；manifest 是新增契约。
+- **導出**：對每個 store，游標分批讀（#1）→ 每批做圖片抽取（複用現有 `processObject`/`extractImagesInPlace`，
+  邏輯不變）→ 累積到當前分片緩衝，超過 `SHARD_BYTES`/`SHARD_ITEMS` 就 `zip.file('stores/<field>.NNN.json', 分片串)`
+  並清空緩衝 → 釋放該批對象。小 store 不分片，單文件。
+- 寫 `manifest.json` 收尾，刪掉老的 `largeArrayKeys` + `jsonParts.join('')` 整包邏輯。
+- **導入（assemble-then-import-once，修 Finding 1）**：`loadAsync` 後先找 `manifest.json`；存在且
+  `formatVersion>=2` → 走 v2 路徑：
+  1. **先校驗**：先確認 `formatVersion === 2`（Finding 4）；**再從 `BACKUP_STORE_SPECS` + mode 算出「完整應有
+     字段集」，要求每個應有 store/虛擬字段（含 count:0、composite、`metadata.json`）都在 manifest 裡——漏聲明
+     當損壞、abort（修 R4·F3，防 export 漏 store 導致靜默留舊數據）**；再確認 manifest 聲明的每個分片文件、
+     `memory_vectors.bin`、`metadata.json` 都在 zip 裡（缺則 abort，此時 DB 一字未動）。**素材文件（`assets/*`）不進這道硬邊界（已定·Finding 2，選 A）**：
+     缺圖維持 v1 的 warn+skip——缺圖只可能來自篡改，且真丟了也無從恢復，為它拒絕整個導入沒意義。實現處寫註釋
+     說明此豁免。
+  1b. **資源預檢（修 R3·Finding 3）**：按 manifest 的 count + zip 未壓縮體積 + bin/asset 體積估算導入峰值，
+     超過設備閾值就**乾淨拒絕、根本不開始導入**（數據完好），避免「強機導得出、弱機導一半 OOM 把舊數據毀了」。
+  2. **再組裝（按 `BACKUP_STORE_SPECS` 還原模式，修 R3·Finding 1）**：逐 store 逐片 `file.async('string')` +
+     `JSON.parse(單片)`，把同一 store 的各片**拼回完整數組**，parse 完一片即釋放該片字符串；向量從 `.bin`+index
+     重建成 `MemoryVector[]` 塞進 `data.memoryVectors`；**解析 `metadata.json` 把非 store 字段填回 `data`（R4·F2），
+     素材回填同樣覆蓋它**。空 store 按 spec 處理（clear-and-add 才置 `[]` 清舊；merge/singleton 按 v1 形狀，
+     **不寫空殼**；media_only 不物化 characters/messages，R4·F1）。**輕量自洽校驗（修 R3·Finding 2，瘦身版）**：每片必須是數組、
+     `組裝後條數 === manifest count`、每條向量 `byteLength === dimensions*4`——抓的是我們自己的 export bug，
+     不是防篡改（offset 單調不重疊那套深校驗不做）。組裝出完整的 `data` 對象。
+  3. **後寫庫**：調用**一次**現有的 `DB.importFullData(data, ...)`——每個 store 的完整數組只經過一次
+     `clearAndAdd`，自然只 clear 一次（不會出現「第二片把第一片清掉」）；characters↔mediaAssets 等跨字段
+     邏輯、分塊寫庫、素材回填鉤子全部原樣複用，不重寫。
+  - **為什麼不按 codex 說的「clear once + 逐片 append」**：那要把 importFullData 拆成可逐片調用、還得自己
+    復刻跨字段邏輯。assemble-then-import-once 更簡單、複用現有邏輯，且「組裝在前/寫庫在後」天然就是
+    Finding 3 要的「破壞性寫之前的校驗邊界」。**代價**：import 峰值 ≈ 整樹（與現狀 v1 相同，narrow 下接受）。
+- **效果**：消除導出側 join 整包 + 單 store stringify 的 RangeError；導入側修掉跨片清庫的數據丟失。
+- **影響**：導出主流程重寫；導入新增 v2 組裝路徑（寫庫仍走舊 importFullData）；manifest 是新增契約。
 
-### #2 向量走二进制（`OSContext.tsx` + `utils/memoryPalace`）
-- 导出：`memory_vectors` 不再解码成 `number[]` 进 JSON。游标读出每条，**先过现有归一化路径
-  （ensureFloat32/vecForStorage：Uint8Array / Float32Array / 遗留 number[] 三态统一成 Float32 字节，修 R4·F4）**——
-  现有 IndexedDB 里可能还存着没迁移的遗留 number[] 向量，不归一化直接当 Uint8Array 读会写出无效字节。
-  归一化后顺序写进 `memory_vectors.bin`（拼接字节），按归一化后的字节算 `byteLength`，往 `memory_vectors.index.json`
-  push 一条 `{memoryId, charId, dimensions, model, byteOffset, byteLength}`。
-- 导入：读 index + bin，按 offset/len 切出每条 `Uint8Array`，组回 `MemoryVector[]`，**塞进 `data.memoryVectors`，
-  跟其它 store 一样走那一次 `importFullData` 的 memory_vectors 段（clear-once）**——不走 `saveMany` 旁路。
-  `saveMany` 是 upsert、不清旧数据，当旁路用会让目标上旧向量残留、破坏 clear-once 不变量（Finding 3）。
-- **效果**：同时干掉「解码膨胀」和「向量内联进 JSON 撞上限」两个崩点，体积也更小（二进制 vs JSON 文本 ~4-5×）。
-- **影响**：备份格式里向量部分变二进制；import 要兼容老备份里向量仍是 `number[]` 的情况（见 §5）。
+### #2 向量走二進制（`OSContext.tsx` + `utils/memoryPalace`）
+- 導出：`memory_vectors` 不再解碼成 `number[]` 進 JSON。游標讀出每條，**先過現有歸一化路徑
+  （ensureFloat32/vecForStorage：Uint8Array / Float32Array / 遺留 number[] 三態統一成 Float32 字節，修 R4·F4）**——
+  現有 IndexedDB 裡可能還存著沒遷移的遺留 number[] 向量，不歸一化直接當 Uint8Array 讀會寫出無效字節。
+  歸一化後順序寫進 `memory_vectors.bin`（拼接字節），按歸一化後的字節算 `byteLength`，往 `memory_vectors.index.json`
+  push 一條 `{memoryId, charId, dimensions, model, byteOffset, byteLength}`。
+- 導入：讀 index + bin，按 offset/len 切出每條 `Uint8Array`，組回 `MemoryVector[]`，**塞進 `data.memoryVectors`，
+  跟其它 store 一樣走那一次 `importFullData` 的 memory_vectors 段（clear-once）**——不走 `saveMany` 旁路。
+  `saveMany` 是 upsert、不清舊數據，當旁路用會讓目標上舊向量殘留、破壞 clear-once 不變量（Finding 3）。
+- **效果**：同時幹掉「解碼膨脹」和「向量內聯進 JSON 撞上限」兩個崩點，體積也更小（二進制 vs JSON 文本 ~4-5×）。
+- **影響**：備份格式裡向量部分變二進制；import 要兼容老備份裡向量仍是 `number[]` 的情況（見 §5）。
 
-### #5 WebDAV 上传（`webdavClient.ts`）——**本轮最受限、最该被质疑的一项**
-- 先纠正：备份 blob 已是压缩 zip，**gzip 上行无效**，从方案里删掉。
-- web 路径 XHR `send(blob)` 已是流式，**内存不是瓶颈**；真瓶颈是 Worker 代理 body 上限 + 上行超时。
-  WebDAV 协议是单次 PUT，不原生支持分片/续传；分块 PUT（Content-Range）依赖服务端支持，不通用。
-- native 路径 `blob.arrayBuffer()` 整包进内存是真问题，但 CapacitorHttp 无法流式传 Blob，
-  彻底解需改成「先写临时文件、用支持文件路径上传的原生能力 PUT」，是更大的改动。
-- **本轮拟定动作（保守）**：(a) 给上传加大小预检 + 明确报错（超 Worker 限制时提示用户用本地导出/GitHub），
-  (b) native 端尽量避免额外拷贝、或文档化其上限。**是否值得在本轮就上「临时文件上传」存疑，留给评审定。**
-- **影响**：可能本轮 WebDAV 只做「预检 + 提示」，把「大账号云备份」正式收口留到下一轮。
+### #5 WebDAV 上傳（`webdavClient.ts`）——**本輪最受限、最該被質疑的一項**
+- 先糾正：備份 blob 已是壓縮 zip，**gzip 上行無效**，從方案裡刪掉。
+- web 路徑 XHR `send(blob)` 已是流式，**內存不是瓶頸**；真瓶頸是 Worker 代理 body 上限 + 上行超時。
+  WebDAV 協議是單次 PUT，不原生支持分片/續傳；分塊 PUT（Content-Range）依賴服務端支持，不通用。
+- native 路徑 `blob.arrayBuffer()` 整包進內存是真問題，但 CapacitorHttp 無法流式傳 Blob，
+  徹底解需改成「先寫臨時文件、用支持文件路徑上傳的原生能力 PUT」，是更大的改動。
+- **本輪擬定動作（保守）**：(a) 給上傳加大小預檢 + 明確報錯（超 Worker 限制時提示用戶用本地導出/GitHub），
+  (b) native 端儘量避免額外拷貝、或文檔化其上限。**是否值得在本輪就上「臨時文件上傳」存疑，留給評審定。**
+- **影響**：可能本輪 WebDAV 只做「預檢 + 提示」，把「大帳號雲備份」正式收口留到下一輪。
 
 ### #6 import 流式（大部分已存在）
-- 素材回填（`putItems` 每 50 条 `beforeWrite`）和分块写库**已实现**，v2 组装路径（§#3）直接复用这套写库逻辑。
-- 本项实际工作 = §#3 的「先校验 → 逐片拼回完整数组 → 调一次 importFullData」，不再额外大改。
+- 素材回填（`putItems` 每 50 條 `beforeWrite`）和分塊寫庫**已實現**，v2 組裝路徑（§#3）直接複用這套寫庫邏輯。
+- 本項實際工作 = §#3 的「先校驗 → 逐片拼回完整數組 → 調一次 importFullData」，不再額外大改。
 
-## 5. 兼容与迁移（最高风险点）
+## 5. 兼容與遷移（最高風險點）
 
-- **导入双路径**：`importSystem` 先探 `manifest.json`。
-  - 有 manifest 且 v2 → 新路径。
-  - 无 manifest（或只有 `data.json`）→ 老 v1 路径，**原样保留现有逻辑**，老备份永远打得开。
-- **向量兼容**：v2 import 读 `.bin`；v1（老备份）import 走老逻辑，向量仍是 JSON 里的 `number[]`，
-  `saveMany` 照旧压回。两条都要测。
-- **导出只产 v2**：新版本导出统一产 v2，不再产 v1。
-- **版本号严格匹配（Finding 4）**：v2 解析路径只认 `formatVersion === 2`；`>2`（未来 v3 改布局）在组装/写库
-  前直接报错，绝不用 v2 parser 去解未知布局还做破坏性写。
-- **写库前校验分三档（都在 DB 未动时完成）**：① 文件存在性（分片/`memory_vectors.bin` 齐全，缺则 abort）；
-  ② 轻量自洽（每片是数组、`组装后条数 === manifest count`、向量 `byteLength === dimensions*4`）——抓我们自己的
-  export bug，不是防篡改；③ 资源预检（估算峰值，超阈值干净拒绝，修 R3·Finding 3）。
-- **不做** 逐条 checksum、向量 offset 单调不重叠那类深校验——备份坏只可能是用户手动改文件，那种不兜
-  （符合 `import-discards-old-data` 原则）；`assets/*` 缺图也维持 warn+skip（§#3 step 1）。
-- **不做事务暂存**：组装通过后 `importFullData` 若写到一半遇 IndexedDB 配额炸等，按既有原则可接受
-  （大不了重导），不为此上跨 store 事务回滚。
+- **導入雙路徑**：`importSystem` 先探 `manifest.json`。
+  - 有 manifest 且 v2 → 新路徑。
+  - 無 manifest（或只有 `data.json`）→ 老 v1 路徑，**原樣保留現有邏輯**，老備份永遠打得開。
+- **向量兼容**：v2 import 讀 `.bin`；v1（老備份）import 走老邏輯，向量仍是 JSON 裡的 `number[]`，
+  `saveMany` 照舊壓回。兩條都要測。
+- **導出只產 v2**：新版本導出統一產 v2，不再產 v1。
+- **版本號嚴格匹配（Finding 4）**：v2 解析路徑只認 `formatVersion === 2`；`>2`（未來 v3 改佈局）在組裝/寫庫
+  前直接報錯，絕不用 v2 parser 去解未知佈局還做破壞性寫。
+- **寫庫前校驗分三檔（都在 DB 未動時完成）**：① 文件存在性（分片/`memory_vectors.bin` 齊全，缺則 abort）；
+  ② 輕量自洽（每片是數組、`組裝後條數 === manifest count`、向量 `byteLength === dimensions*4`）——抓我們自己的
+  export bug，不是防篡改；③ 資源預檢（估算峰值，超閾值乾淨拒絕，修 R3·Finding 3）。
+- **不做** 逐條 checksum、向量 offset 單調不重疊那類深校驗——備份壞只可能是用戶手動改文件，那種不兜
+  （符合 `import-discards-old-data` 原則）；`assets/*` 缺圖也維持 warn+skip（§#3 step 1）。
+- **不做事務暫存**：組裝通過後 `importFullData` 若寫到一半遇 IndexedDB 配額炸等，按既有原則可接受
+  （大不了重導），不為此上跨 store 事務回滾。
 
-## 6. 测试清单（回归守卫，旧行为下挂、新行为下过）
+## 6. 測試清單（迴歸守衛，舊行為下掛、新行為下過）
 
-1. `sliceRanges`/分片纯函数：已有测试，扩展覆盖「单 store 超一片」分片边界。
-2. **大 store RangeError 回归**：构造一个会让 v1 `join` 超长的 mock 数据，断言 v1 stringify 抛错、
-   v2 分片导出成功。这是钉住「修好别退化」的核心守卫。
-3. 向量 round-trip：`Uint8Array → .bin → 切片 → saveMany → 读回`，逐字节相等；维度=1024 不丢精度。
-4. v1→v2 兼容：用一个旧格式 `data.json`-only zip 走 import，断言数据完整落库。
-5. 游标读 vs getAll：同一 store 两种读法结果集相等（条数、顺序、内容）。
-6. 素材去重/回填：跨 store 共享的 base64 导出后只存一份、导入后每处都还原。
-7. **跨片 clear-and-add 还原（Finding 1 守卫，核心）**：构造一个 `galleryImages` 跨 ≥2 片的 v2 备份，
-   走 import，断言**所有片的数据都在**（旧的「逐片喂 importFullData」写法下只剩最后一片 → 必须挂）。
-8. **缺片 abort**：manifest 声明 2 片但 zip 里只有 1 片，断言 import 在写库前抛错、且**目标 store 数据未被
-   清空**（DB 未发生破坏性写）。
-9. **空 store 按 spec 还原（R3·Finding 1，核心）**：覆盖四种 shape 的空备份——
-   clear-and-add（如 gallery）空时**清旧**；merge（themes）空时**与 v1 一致地不动**；singleton（userProfile）空时
-   **不写空壳**、保持 v1 形状。断言每种都与 v1 行为逐字节一致（「count:0 一律置 []」的错写法在 merge/singleton 上必须挂）。
-10. **向量 clear-once（Finding 3）**：目标有旧向量、备份向量集不含其中一部分，断言 import 后目标独有的旧向量
-    消失（走 saveMany 旁路时残留 → 必须挂）。
-11. **单条超大记录（Finding 5）**：构造一条 JSON 超 `SHARD_BYTES` 的记录，断言独占一片导出成功；再造一条超
-    硬上限的，断言**干净报错、无半截 zip/import 副作用**（不复现 RangeError）。
-12. **版本护栏（Finding 4）**：`formatVersion:3` 的 zip 走 import，断言干净报错、DB 未动。
-13. **条数自洽（R3·Finding 2）**：manifest count 与组装后实际条数不符（或某片不是数组）→ 写库前 abort、DB 未动。
-14. **资源预检拒绝（R3·Finding 3）**：manifest 估算峰值超阈值 → import **根本不开始**、目标数据完好无损
-    （证明「拒绝」而非「毁一半」）。
-15. **media_only patch 存活（R4·F1，核心）**：目标有完整角色 + 文字消息，导入 media_only 备份后，**非 media 的
-    角色字段和文字消息全部存活**、只有 media（头像/立绘/背景）被更新（错把 characters/messages 物化成 [] 时必须挂）。
+1. `sliceRanges`/分片純函數：已有測試，擴展覆蓋「單 store 超一片」分片邊界。
+2. **大 store RangeError 迴歸**：構造一個會讓 v1 `join` 超長的 mock 數據，斷言 v1 stringify 拋錯、
+   v2 分片導出成功。這是釘住「修好別退化」的核心守衛。
+3. 向量 round-trip：`Uint8Array → .bin → 切片 → saveMany → 讀回`，逐字節相等；維度=1024 不丟精度。
+4. v1→v2 兼容：用一箇舊格式 `data.json`-only zip 走 import，斷言數據完整落庫。
+5. 游標讀 vs getAll：同一 store 兩種讀法結果集相等（條數、順序、內容）。
+6. 素材去重/回填：跨 store 共享的 base64 導出後只存一份、導入後每處都還原。
+7. **跨片 clear-and-add 還原（Finding 1 守衛，核心）**：構造一個 `galleryImages` 跨 ≥2 片的 v2 備份，
+   走 import，斷言**所有片的數據都在**（舊的「逐片喂 importFullData」寫法下只剩最後一片 → 必須掛）。
+8. **缺片 abort**：manifest 聲明 2 片但 zip 裡只有 1 片，斷言 import 在寫庫前拋錯、且**目標 store 數據未被
+   清空**（DB 未發生破壞性寫）。
+9. **空 store 按 spec 還原（R3·Finding 1，核心）**：覆蓋四種 shape 的空備份——
+   clear-and-add（如 gallery）空時**清舊**；merge（themes）空時**與 v1 一致地不動**；singleton（userProfile）空時
+   **不寫空殼**、保持 v1 形狀。斷言每種都與 v1 行為逐字節一致（「count:0 一律置 []」的錯寫法在 merge/singleton 上必須掛）。
+10. **向量 clear-once（Finding 3）**：目標有舊向量、備份向量集不含其中一部分，斷言 import 後目標獨有的舊向量
+    消失（走 saveMany 旁路時殘留 → 必須掛）。
+11. **單條超大記錄（Finding 5）**：構造一條 JSON 超 `SHARD_BYTES` 的記錄，斷言獨佔一片導出成功；再造一條超
+    硬上限的，斷言**乾淨報錯、無半截 zip/import 副作用**（不復現 RangeError）。
+12. **版本護欄（Finding 4）**：`formatVersion:3` 的 zip 走 import，斷言乾淨報錯、DB 未動。
+13. **條數自洽（R3·Finding 2）**：manifest count 與組裝後實際條數不符（或某片不是數組）→ 寫庫前 abort、DB 未動。
+14. **資源預檢拒絕（R3·Finding 3）**：manifest 估算峰值超閾值 → import **根本不開始**、目標數據完好無損
+    （證明「拒絕」而非「毀一半」）。
+15. **media_only patch 存活（R4·F1，核心）**：目標有完整角色 + 文字消息，導入 media_only 備份後，**非 media 的
+    角色字段和文字消息全部存活**、只有 media（頭像/立繪/背景）被更新（錯把 characters/messages 物化成 [] 時必須掛）。
 16. **非 store 字段 round-trip（R4·F2）**：theme / API 配置 / customIcons / appearancePresets / socialAppData /
-    设置导出再导入逐字段一致（漏 metadata.json 时必须挂）。
-17. **漏声明 store abort（R4·F3）**：manifest 漏掉某应有 store（如 gallery）→ import 在组装前 abort、DB 未动。
-18. **遗留向量导出（R4·F4）**：`memory_vectors` 里塞 raw 遗留 `number[]` 行，导出 v2、再导入与原始逐字节/逐值一致。
+    設置導出再導入逐字段一致（漏 metadata.json 時必須掛）。
+17. **漏聲明 store abort（R4·F3）**：manifest 漏掉某應有 store（如 gallery）→ import 在組裝前 abort、DB 未動。
+18. **遺留向量導出（R4·F4）**：`memory_vectors` 裡塞 raw 遺留 `number[]` 行，導出 v2、再導入與原始逐字節/逐值一致。
 
-## 7. 取舍记录与仍待评审的点
+## 7. 取捨記錄與仍待評審的點
 
-### 已定的取舍（评审第 1 轮后拍板）
+### 已定的取捨（評審第 1 輪後拍板）
 
-- **A. 不追 `O(单片)` 真流式**：JSZip 在 `generateAsync` 前持有所有文件，导出峰值 ~O(整包)。换 fflate +
-  落盘流才能真降，工作量过大 → **本轮接受「峰值 ~O(整包) 但无 RangeError」**，真流式列 follow-up。
-  代价：极端账号仍可能 OOM，但确定性硬崩已除。
-- **B. Finding 1（跨片清库丢数据）= must-fix**：采用 assemble-then-import-once（§#3），不复用「逐片喂
+- **A. 不追 `O(單片)` 真流式**：JSZip 在 `generateAsync` 前持有所有文件，導出峰值 ~O(整包)。換 fflate +
+  落盤流才能真降，工作量過大 → **本輪接受「峰值 ~O(整包) 但無 RangeError」**，真流式列 follow-up。
+  代價：極端帳號仍可能 OOM，但確定性硬崩已除。
+- **B. Finding 1（跨片清庫丟數據）= must-fix**：採用 assemble-then-import-once（§#3），不復用「逐片喂
   importFullData」。
-- **C. Finding 3（写库前校验）= 瘦身版**：只做分片完整性检查，不做 checksum/byte-range，不做事务暂存（§5）。
-- **D. #5 WebDAV**：本轮只做「体积预检 + 明确提示」，native 端避免多余拷贝；「临时文件上传」列 follow-up。
+- **C. Finding 3（寫庫前校驗）= 瘦身版**：只做分片完整性檢查，不做 checksum/byte-range，不做事務暫存（§5）。
+- **D. #5 WebDAV**：本輪只做「體積預檢 + 明確提示」，native 端避免多餘拷貝；「臨時文件上傳」列 follow-up。
 
-### follow-up（不在本轮）
+### follow-up（不在本輪）
 
-- 换 fflate / File System Access 真流式压缩落盘，把导出/导入峰值降到 `O(单片)`。
-- WebDAV 大账号云备份：临时文件上传 / 分块。
-- 原 #4：messages/gallery 保留策略（产品决策）。
+- 換 fflate / File System Access 真流式壓縮落盤，把導出/導入峰值降到 `O(單片)`。
+- WebDAV 大帳號雲備份：臨時文件上傳 / 分塊。
+- 原 #4：messages/gallery 保留策略（產品決策）。
 
-### 第 2 轮 codex 复审结果（已折入上文）
+### 第 2 輪 codex 複審結果（已折入上文）
 
-- **Finding 1·空 store 残留** → 已修：manifest 枚举本 mode 所有 store（含 count:0），import 对 count:0 置空数组清旧（§3、§#3、测试 9）。
-- **Finding 3·向量 saveMany 旁路** → 已修：向量并入 `data.memoryVectors` 走 importFullData 一次（§#2、§#3、测试 10）。
-- **Finding 4·版本号** → 已修：`formatVersion === 2` 严格匹配，`>2` 写库前报错（§5、§#3、测试 12）。
-- **Finding 5·单条超大记录** → 已修：超大记录独占一片，超硬上限干净报错不退回 RangeError（§3、测试 11）。
-- **Finding 2·缺素材不在硬边界** → 已定（选 A）：维持 v1 的 warn+skip + 注释说明豁免。理由：缺图只可能来自篡改、
-  真丢了也无从恢复，为它拒绝整个导入没意义。
+- **Finding 1·空 store 殘留** → 已修：manifest 枚舉本 mode 所有 store（含 count:0），import 對 count:0 置空數組清舊（§3、§#3、測試 9）。
+- **Finding 3·向量 saveMany 旁路** → 已修：向量併入 `data.memoryVectors` 走 importFullData 一次（§#2、§#3、測試 10）。
+- **Finding 4·版本號** → 已修：`formatVersion === 2` 嚴格匹配，`>2` 寫庫前報錯（§5、§#3、測試 12）。
+- **Finding 5·單條超大記錄** → 已修：超大記錄獨佔一片，超硬上限乾淨報錯不退回 RangeError（§3、測試 11）。
+- **Finding 2·缺素材不在硬邊界** → 已定（選 A）：維持 v1 的 warn+skip + 註釋說明豁免。理由：缺圖只可能來自篡改、
+  真丟了也無從恢復，為它拒絕整個導入沒意義。
 
-### 第 3 轮 codex 复审结果（已折入上文）
+### 第 3 輪 codex 複審結果（已折入上文）
 
-- **R3·Finding 1·count:0 不能统一置 []** → 已修：引入 `BACKUP_STORE_SPECS` 单一真相源，空 store 按 shape/restore
-  mode 处理（clear-and-add 才清、merge/singleton 按 v1 形状不写空壳）。范围限定「与 v1 一致、不写空壳」，不修 v1
-  老语义（§3、§#3 step 2、测试 9）。这张表同时收掉了下文「3 文件知识漂移」的耦合隐患。
-- **R3·Finding 2·校验太薄** → 已折（瘦身版）：加「每片是数组 + 条数 === count + 向量 byteLength === dims*4」
-  自洽检查（抓自家 export bug），深校验仍不做（§5、§#3 step 2、测试 13）。
-- **R3·Finding 3·弱机导入 OOM 不可恢复** → 已修：写库前加资源预检，超阈值干净拒绝、不开始导入（§#3 step 1b、
-  测试 14）。真·流式导入列 follow-up。
+- **R3·Finding 1·count:0 不能統一置 []** → 已修：引入 `BACKUP_STORE_SPECS` 單一真相源，空 store 按 shape/restore
+  mode 處理（clear-and-add 才清、merge/singleton 按 v1 形狀不寫空殼）。範圍限定「與 v1 一致、不寫空殼」，不修 v1
+  老語義（§3、§#3 step 2、測試 9）。這張表同時收掉了下文「3 文件知識漂移」的耦合隱患。
+- **R3·Finding 2·校驗太薄** → 已折（瘦身版）：加「每片是數組 + 條數 === count + 向量 byteLength === dims*4」
+  自洽檢查（抓自家 export bug），深校驗仍不做（§5、§#3 step 2、測試 13）。
+- **R3·Finding 3·弱機導入 OOM 不可恢復** → 已修：寫庫前加資源預檢，超閾值乾淨拒絕、不開始導入（§#3 step 1b、
+  測試 14）。真·流式導入列 follow-up。
 
-### 第 4 轮 codex 复审结果（已折入上文）
+### 第 4 輪 codex 複審結果（已折入上文）
 
-- **R4·F1·media_only patch 被误清（critical）** → 已修：store-spec 建模 mode 专属虚拟字段，media_only 不物化
-  characters/messages（§3、§#3 step 2、测试 15）。
-- **R4·F2·非 store 字段丢失** → 已修：加 `metadata.json` 容器（§3 布局、§3 spec、§#3、测试 16）。
-- **R4·F3·漏声明 store 静默留旧数据** → 已修：预检从 spec+mode 算完整应有字段集，反查 manifest 漏没漏（§#3 step 1、测试 17）。
-- **R4·F4·遗留向量导出写无效字节** → 已修：导出每条先归一化三态再写 bin（§#2、测试 18）。
+- **R4·F1·media_only patch 被誤清（critical）** → 已修：store-spec 建模 mode 專屬虛擬字段，media_only 不物化
+  characters/messages（§3、§#3 step 2、測試 15）。
+- **R4·F2·非 store 字段丟失** → 已修：加 `metadata.json` 容器（§3 佈局、§3 spec、§#3、測試 16）。
+- **R4·F3·漏聲明 store 靜默留舊數據** → 已修：預檢從 spec+mode 算完整應有字段集，反查 manifest 漏沒漏（§#3 step 1、測試 17）。
+- **R4·F4·遺留向量導出寫無效字節** → 已修：導出每條先歸一化三態再寫 bin（§#2、測試 18）。
 
-> **收敛判断**：四轮每轮都挖出真问题（critical/high），未收敛。结论是「纯文档 plan 审到 codex approve」不是合适的
-> 终点——v2 触及的特殊分支（media_only patch、非 store 字段、遗留向量、各 store 还原模式）太多，应转入实现，
-> 用 18 条回归测试 + 对**真实 diff** 跑 codex 来兜，而不是继续审 plan 散文。
+> **收斂判斷**：四輪每輪都挖出真問題（critical/high），未收斂。結論是「純文檔 plan 審到 codex approve」不是合適的
+> 終點——v2 觸及的特殊分支（media_only patch、非 store 字段、遺留向量、各 store 還原模式）太多，應轉入實現，
+> 用 18 條迴歸測試 + 對**真實 diff** 跑 codex 來兜，而不是繼續審 plan 散文。
 
-### 仍待评审的点
+### 仍待評審的點
 
-1. **分片大小 / 资源预检阈值怎么定**：`SHARD_BYTES=32MB`、import 拒绝阈值都是拍的。要不要按设备内存/平台自适应？
-   阈值定太严会误拒正常大账号，定太松又挡不住 OOM。
-2. **向量二进制的字节序/对齐**：`Uint8Array(v.vector.buffer, byteOffset, ...)` 直接拼接，IndexedDB 结构化克隆
-   回来的 typed array 是平台原生序——同机导出导入没问题，**跨设备迁移**（大端↔小端，虽极罕见）会不会读乱？
-   要不要在 manifest 里记字节序、读时校正？
-3. **assemble-then-import-once 的 import 峰值 ≈ 整树**：R3·Finding 3 的资源预检已堵住「毁一半」的危险路径
-   （超阈值干净拒绝），但**弱机导大备份依旧是「拒绝」而非「能导」**——这个能力缺口要不要靠「无耦合大 store
-   流式导入」补上（follow-up），还是接受「拒绝」就行？
-4. **改动集中在 OSContext/db.ts**：`BACKUP_STORE_SPECS` 单一真相源已把「导出/import 知识漂移」收敛成一处，
-   缓解了耦合；但 #1/#3/#6 主流程仍需一起改才自洽——落地时怎么切分提交/测试边界更稳？
+1. **分片大小 / 資源預檢閾值怎麼定**：`SHARD_BYTES=32MB`、import 拒絕閾值都是拍的。要不要按設備內存/平台自適應？
+   閾值定太嚴會誤拒正常大帳號，定太鬆又擋不住 OOM。
+2. **向量二進制的字節序/對齊**：`Uint8Array(v.vector.buffer, byteOffset, ...)` 直接拼接，IndexedDB 結構化克隆
+   回來的 typed array 是平台原生序——同機導出導入沒問題，**跨設備遷移**（大端↔小端，雖極罕見）會不會讀亂？
+   要不要在 manifest 裡記字節序、讀時校正？
+3. **assemble-then-import-once 的 import 峰值 ≈ 整樹**：R3·Finding 3 的資源預檢已堵住「毀一半」的危險路徑
+   （超閾值乾淨拒絕），但**弱機導大備份依舊是「拒絕」而非「能導」**——這個能力缺口要不要靠「無耦合大 store
+   流式導入」補上（follow-up），還是接受「拒絕」就行？
+4. **改動集中在 OSContext/db.ts**：`BACKUP_STORE_SPECS` 單一真相源已把「導出/import 知識漂移」收斂成一處，
+   緩解了耦合；但 #1/#3/#6 主流程仍需一起改才自洽——落地時怎麼切分提交/測試邊界更穩？
 
-## 8. 落地顺序
+## 8. 落地順序
 
-1. **骨架**（#1 游标读 + #3 v2 格式 + #6 逐片 parse）——一起改、一起测，立住 manifest 契约。
-2. **向量二进制**（#2）——挂到骨架上。
-3. **WebDAV**（#5）——独立，按评审结论决定做到哪一步。
+1. **骨架**（#1 游標讀 + #3 v2 格式 + #6 逐片 parse）——一起改、一起測，立住 manifest 契約。
+2. **向量二進制**（#2）——掛到骨架上。
+3. **WebDAV**（#5）——獨立，按評審結論決定做到哪一步。
 
-> 三步串行，不裸并行多 agent（同改 OSContext/db.ts 会互踩）。每步带回归测试再进下一步。
+> 三步串行，不裸並行多 agent（同改 OSContext/db.ts 會互踩）。每步帶回歸測試再進下一步。
