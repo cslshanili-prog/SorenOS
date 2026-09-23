@@ -81,7 +81,7 @@ describe('角色知道對方那邊現在幾點', () => {
         const opts = { nowMs: AT, tz: { tzId: CHAR_TZ } };
         expect(buildFireScheduleBlock('native', opts)).toContain('對方那邊是幾點');
         expect(buildFireScheduleBlock('text', opts)).toContain('對方那邊是幾點');
-        expect(JSON.stringify(buildFireScheduleTool(opts).function.parameters))
+        expect(JSON.stringify(buildFireScheduleTool({ ...opts, abilities: { allowRecurring: false, allowForce: false } }).function.parameters))
             .toContain('別把消息排到對方的深夜');
     });
 });

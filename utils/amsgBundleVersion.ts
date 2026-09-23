@@ -12,4 +12,4 @@
 //   - utils/amsgWorkerVersion.ts 比的是**上游庫** @rei-standard/amsg-server 的 semver；
 //   - utils/buildInfo.ts 的 APP_VERSION 是整個 SullyOS App 的版本。
 //   這裡管的只有一樣：用戶自己那台 Worker 上跑的這份 bundle 是哪天的。
-export const AMSG_BUNDLE_VERSION = '2026-09-18';
+export const AMSG_BUNDLE_VERSION = '2026-09-22';

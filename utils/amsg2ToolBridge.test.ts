@@ -12,7 +12,8 @@ vi.mock('./activeMsgStore', () => ({
   ActiveMsgStore: { getGlobalConfig: vi.fn() },
 }));
 
-import { createAmsg2ToolSession, executeAmsg2Tool } from './amsg2ToolBridge';
+import { buildAmsg2Tools, createAmsg2ToolSession, executeAmsg2Tool } from './amsg2ToolBridge';
+import { resolveAmsgLimits } from './amsgLimits';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { ActiveMsgClient } from './activeMsgClient';
 
@@ -142,12 +143,15 @@ describe('amsg2ToolBridge 同一輪多次調用累加', () => {
   // 「每天 9:00 的早安」被角色順手續到 11:00「晚點補上」，從明天起就永久變成 11:00 了，
   // 編號還跟著換一個。現在改成只補當次，原序列一條不動。
   it('循環任務 renew → 原任務留著，另加一條一次性補發', async () => {
-    const { deps, persisted } = makeSession();
+    // 這條測的是補當次的語義：先放開「可以排重複的」，角色才排得出那條每天的。
+    const { deps, persisted } = makeSession({
+      activeMsg2Config: { enabled: true, tasks: [], allowSelfRecurring: true },
+    });
     await executeAmsg2Tool('schedule_active_message', {
       send_at: future(), mode: 'prompted', prompt_hint: '道早安', recurrence: 'daily',
     }, deps);
     const renewResult = await executeAmsg2Tool('renew_active_message', {
-      send_at: future(), task_id: shortOf(UUIDS[0]),
+      send_at: future(2), task_id: shortOf(UUIDS[0]),
     }, deps);
 
     const tasks = lastTasks(persisted);
@@ -402,8 +406,59 @@ describe('連發上限·本地排程閘', () => {
     const { deps } = makeSession({
       activeMsg2Config: { enabled: true, tasks: [userTask('u1'), userTask('u2'), userTask('u3')] },
     });
-    const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(1) }, deps);
+    // 錯開那幾條一小時之外：這條測的是連發額度，別撞上兩條之間的間隔要求。
+    const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(3) }, deps);
     expect(reply).toContain('已創建');
+  });
+
+  it('默認不許排重複的：帶 recurrence=daily 直接打回，不發遠端請求', async () => {
+    const { deps } = makeSession();
+    const reply = await executeAmsg2Tool('schedule_active_message', { send_at: future(2), recurrence: 'daily' }, deps);
+    expect(reply).toContain('一次性');
+    expect(ActiveMsgClient.scheduleCharacterTask).not.toHaveBeenCalled();
+  });
+
+  it('默認沒放開「到點必發」：角色要 force 也按普通的排', async () => {
+    const { deps } = makeSession();
+    await executeAmsg2Tool('schedule_active_message', { send_at: future(2), expire_policy: 'force' }, deps);
+    expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenLastCalledWith(
+      expect.objectContaining({ task: expect.objectContaining({ expirePolicy: 'expire' }) }),
+    );
+  });
+
+  it('跟已經排著的捱得太近 → 打回（默認至少隔 10 分鐘）', async () => {
+    const { deps } = makeSession({
+      activeMsg2Config: { enabled: true, tasks: [{ ...selfTask('u1'), source: 'user' }] },
+    });
+    const nearby = new Date(Date.now() + 3600_000 + 5 * 60_000).toISOString();
+    const reply = await executeAmsg2Tool('schedule_active_message', { send_at: nearby }, deps);
+    expect(reply).toContain('太近');
+    expect(ActiveMsgClient.scheduleCharacterTask).not.toHaveBeenCalled();
+  });
+
+  // 迴歸守衛：用戶自己排的「8 點叫我」被角色改期，還是用戶的任務——不打自排標記、
+  // 不降成普通的，到點那幾道只管角色自排的閘不攔它。
+  it('改期用戶自己排的「到點必發」：不打自排標記、不降級、仍算用戶的', async () => {
+    const mine = { ...selfTask('u1'), source: 'user', expirePolicy: 'force' };
+    const { deps, persisted } = makeSession({ activeMsg2Config: { enabled: true, tasks: [mine] } });
+    await executeAmsg2Tool('renew_active_message', { send_at: future(3), task_id: 'u1' }, deps);
+    expect(ActiveMsgClient.scheduleCharacterTask).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        task: expect.objectContaining({ selfScheduled: false, expirePolicy: 'force' }),
+        replaceTaskUuid: 'u1',
+      }),
+    );
+    expect(lastTasks(persisted).find((t: any) => t.taskUuid !== 'u1')?.source).toBe('user');
+  });
+
+  it('工具簽名跟著設置走：默認沒有 recurrence / expire_policy，任務名額寫實數', () => {
+    const locked = buildAmsg2Tools(resolveAmsgLimits({ maxActiveTasks: 3 }))[0].function;
+    expect(locked.parameters.properties).not.toHaveProperty('recurrence');
+    expect(locked.parameters.properties).not.toHaveProperty('expire_policy');
+    expect(locked.description).toContain('最多同時掛 3 個任務');
+    const open = buildAmsg2Tools(resolveAmsgLimits({ allowSelfRecurring: true, allowSelfForce: true }))[0].function;
+    expect(open.parameters.properties).toHaveProperty('recurrence');
+    expect(open.parameters.properties).toHaveProperty('expire_policy');
   });
 
   it('用戶把上限設成 1 → 第一條自排就打回第二條', async () => {

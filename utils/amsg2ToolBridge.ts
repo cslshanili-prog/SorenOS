@@ -28,8 +28,8 @@ import {
   describeTaskMode, describeTaskProgress, findTaskByShortId, formatTaskTime,
   getPendingTasks, isPendingTask, pruneStaleTasks, resolveExpirePolicy, shortTaskId,
 } from './amsg2Tasks';
-import { resolveMaxUnansweredSends } from './amsgFirePack';
-import { EXPIRE_POLICY_DESCRIPTION } from './amsgFireSchedule';
+import { type AmsgLimits, checkSelfScheduleRules, resolveAmsgLimits } from './amsgLimits';
+import { buildScheduleParameters, MIN_SCHEDULE_LEAD_MS, resolveSendAtMs } from './amsgFireSchedule';
 import { resolveCharTimeZone } from './timezone';
 
 // ─── OpenAI tools schema ───
@@ -39,7 +39,12 @@ interface OpenAITool {
   function: { name: string; description: string; parameters: Record<string, any> };
 }
 
-export const AMSG2_TOOLS: OpenAITool[] = [
+/**
+ * 前台聊天裡給角色的四個工具。排程那個的簽名跟著用戶的設置走：沒放開「每天/每週重複」
+ * 就不給 recurrence 參數，沒放開「到點必發」就不給 expire_policy——擺在那兒等於邀請模型
+ * 去選，選了再被打回白費一輪。任務名額也是用戶定的，描述裡寫實數。
+ */
+export const buildAmsg2Tools = (limits: AmsgLimits): OpenAITool[] => [
   {
     type: 'function',
     function: {
@@ -50,41 +55,19 @@ export const AMSG2_TOOLS: OpenAITool[] = [
         '如果要"卡點"送達（比如整點），建議提前 1 分鐘。',
         '推薦使用 mode=auto：角色根據最新聊天內容自動決定說什麼，後續聊天會自動同步至上下文。',
         'mode=prompted：給角色一個提示方向（如"問問對方吃了沒"），角色圍繞這個方向生成。',
-        '每個角色最多同時掛 5 個任務；到點作廢與否由 expire_policy 決定。',
+        `每個角色最多同時掛 ${limits.maxActiveTasks} 個任務`
+          + (limits.allowSelfForce ? '；到點作廢與否由 expire_policy 決定。' : '；到點碰上用戶正在聊天會自動作廢。'),
       ].join('\n'),
-      parameters: {
-        type: 'object',
-        properties: {
-          send_at: {
-            type: 'string',
-            // 只教裸牆鍾：角色照著自己那邊的鐘寫，系統按角色時區還原成絕對時刻
-            // （跟 worker 到點解析 send_at 同一份規則）。教它寫 +08:00 這種偏移的話，
-            // 紐約角色會照抄示例裡的東八區，說出來的「明早九點」實際差一個時差。
-            description: '開始生成消息的時間，寫你本地的牆鍾時間，格式 YYYY-MM-DDTHH:mm:ss（如 2026-07-20T20:00:00），不要帶時區後綴。必須晚於當前時間。',
-          },
-          mode: {
-            type: 'string',
-            enum: ['auto', 'prompted'],
-            description: '生成模式。auto=根據最新聊天自動生成（推薦）；prompted=圍繞 prompt_hint 方向生成。默認 auto。',
-          },
-          prompt_hint: {
-            type: 'string',
-            description: '僅 mode=prompted 時有效。給角色的提示方向，如"問問對方晚飯吃了沒"。',
-          },
-          recurrence: {
-            type: 'string',
-            enum: ['none', 'daily', 'weekly'],
-            description: '重複類型。none=一次性（默認）；daily=每天同一時間；weekly=每週同一天同一時間。',
-          },
-          expire_policy: {
-            type: 'string',
-            enum: ['expire', 'force'],
-            // 與 fire 側共用一份：同一個策略在兩個入口說兩套話，角色的選擇會跟著入口漂。
-            description: EXPIRE_POLICY_DESCRIPTION,
-          },
-        },
-        required: ['send_at'],
-      },
+      parameters: buildScheduleParameters({
+        // 只教裸牆鍾：角色照著自己那邊的鐘寫，系統按角色時區還原成絕對時刻
+        // （跟 worker 到點解析 send_at 同一份規則）。教它寫 +08:00 這種偏移的話，
+        // 紐約角色會照抄示例裡的東八區，說出來的「明早九點」實際差一個時差。
+        sendAtDescription: '開始生成消息的時間，寫你本地的牆鍾時間，格式 YYYY-MM-DDTHH:mm:ss（如 2026-07-20T20:00:00），不要帶時區後綴。必須晚於當前時間。',
+        modeDescription: '生成模式。auto=根據最新聊天自動生成（推薦）；prompted=圍繞 prompt_hint 方向生成。默認 auto。',
+        promptHintDescription: '僅 mode=prompted 時有效。給角色的提示方向，如"問問對方晚飯吃了沒"。',
+        recurrenceDescription: '重複類型。none=一次性（默認）；daily=每天同一時間；weekly=每週同一天同一時間。',
+        abilities: { allowRecurring: limits.allowSelfRecurring, allowForce: limits.allowSelfForce },
+      }),
     },
   },
   {
@@ -129,7 +112,9 @@ export const AMSG2_TOOLS: OpenAITool[] = [
   },
 ];
 
-export const AMSG2_TOOL_NAMES = new Set(AMSG2_TOOLS.map((t) => t.function.name));
+export const AMSG2_TOOL_NAMES = new Set(
+  buildAmsg2Tools(resolveAmsgLimits(undefined)).map((t) => t.function.name),
+);
 
 // ─── 執行器 ───
 
@@ -277,8 +262,10 @@ async function handleSchedule(args: Record<string, any>, deps: Amsg2ToolDeps): P
   // 讓模型當場改口。本地輪次用戶剛開口（連發計數已清零），所以只數還沒響的自排任務；
   // 面板裡用戶親手排的（source!=='character'）不佔額度，與 worker 側同一口徑。
   // 改期/補當次（__replaceTaskUuid / __makeupForTaskUuid）不新佔額度，放行。
+  // 上限讀本輪最新的 config（跟任務清單同一份），用戶的設置都在上面。
+  const limits = resolveAmsgLimits(config);
   if (!args.__replaceTaskUuid && !args.__makeupForTaskUuid) {
-    const unansweredLimit = resolveMaxUnansweredSends(char.activeMsg2Config?.maxUnansweredSends);
+    const unansweredLimit = limits.maxUnansweredSends;
     const plannedSelfSends = config.tasks
       .filter((t) => t.source === 'character' && isPendingTask(t, Date.now()))
       .length;
@@ -291,17 +278,52 @@ async function handleSchedule(args: Record<string, any>, deps: Amsg2ToolDeps): P
   const charTz = resolveCharTimeZone(char);
   const mode = (args.mode === 'prompted' ? 'prompted' : 'auto') as 'auto' | 'prompted';
   const recurrence = (['daily', 'weekly'].includes(args.recurrence) ? args.recurrence : 'none') as 'none' | 'daily' | 'weekly';
-  const expirePolicy = resolveExpirePolicy(mode, args.expire_policy === 'force' ? 'force' : 'expire');
+  let expirePolicy = resolveExpirePolicy(mode, args.expire_policy === 'force' ? 'force' : 'expire');
+
+  // 用戶定的規矩（與到點生成裡的排程工具同一份判定）：能不能排重複的、跟已經排著的
+  // 隔夠沒有、「到點必發」放沒放開。用戶剛在聊天，所以只跟排著的任務比間隔，不拿「上一條
+  // 主動消息」卡它。時間解析不出來的交給下面的排程接口報錯，那邊的說法更準。
+  const sendAtMs = typeof args.send_at === 'string'
+    ? resolveSendAtMs(args.send_at, { tzId: charTz ?? Intl.DateTimeFormat().resolvedOptions().timeZone })
+    : Number.NaN;
+  if (Number.isFinite(sendAtMs)) {
+    const now = Date.now();
+    const busy = getPendingTasks(config, now)
+      .filter((t) => t.taskUuid !== args.__replaceTaskUuid)
+      .map((t) => currentOccurrenceMs(t, now))
+      .filter((ms): ms is number => ms != null);
+    const rules = checkSelfScheduleRules({
+      limits,
+      sendAtMs,
+      recurrence,
+      expirePolicy,
+      busy,
+      earliestMs: now + MIN_SCHEDULE_LEAD_MS,
+      formatTime: (ms) => formatTaskTime(ms, charTz),
+    });
+    if (!rules.ok) return rules.message;
+    // 改期沿用原任務的策略：用戶自己排的「到點必發」被角色挪個時間，不該順手降級。
+    if (!args.__replaceTaskUuid) expirePolicy = rules.expirePolicy;
+  }
   const taskInput = {
     mode, firstSendTime: args.send_at, recurrenceType: recurrence,
     promptHint: args.prompt_hint || undefined,
     expirePolicy,
   };
 
+  // 改期（renew 一次性任務）不換主人：用戶自己排的「8 點叫我」被角色挪個時間，還是用戶的
+  // 任務——不打自排標記，到點那幾道只管角色自排的閘（連發、間隔、到點必發降級）不攔它，
+  // 面板上也照舊顯示「手動創建」。跟到點生成裡的原地改期（上游 renewTask 保留原 metadata）
+  // 同一個結果。補當次（makeup）是角色新排的一條，照常算自排。
+  const replaced = args.__replaceTaskUuid
+    ? config.tasks.find((t) => t.taskUuid === args.__replaceTaskUuid)
+    : undefined;
+  const selfScheduled = !replaced || replaced.source === 'character';
+
   const result = await ActiveMsgClient.scheduleCharacterTask({
     // selfScheduled：角色自己排的要帶標記進任務 metadata——連發上限的到點兜底閘只攔
     // 帶它的任務，用戶在面板裡親手排的不帶、不受限（面板走的是同一個入口但不傳這個）。
-    char, config, task: { ...taskInput, selfScheduled: true },
+    char, config, task: { ...taskInput, selfScheduled },
     replaceTaskUuid: args.__replaceTaskUuid,   // renew 內部複用，LLM 不感知
     userProfile, groups, realtimeConfig, apiConfig,
   });
@@ -313,7 +335,7 @@ async function handleSchedule(args: Record<string, any>, deps: Amsg2ToolDeps): P
     // send_at 是角色那邊的牆鍾，落盤存排程接口摺好的絕對時刻。存原串的話，本地讀它的地方
     // （面板卡片、待觸發判定、下面這句回話）一律 new Date() 按設備時區解析，異國角色差一個時差。
     firstSendTime: result.firstSendAt,
-    source: 'character',
+    source: selfScheduled ? 'character' : (replaced?.source ?? 'user'),
     status: 'scheduled',
     createdAt: Date.now(),
   };
