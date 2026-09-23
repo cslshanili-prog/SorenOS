@@ -452,10 +452,25 @@ export interface ActiveMsg2CharacterConfig {
   maxTokens?: number;
   /**
    * 「我沒回的時候，TA 最多連續主動發幾條」。0 = 不限；沒設 = 默認值
-   * （amsgFirePack.DEFAULT_MAX_UNANSWERED_SENDS）。管的是角色自己排的後續
+   * （amsgLimits.DEFAULT_MAX_UNANSWERED_SENDS）。管的是角色自己排的後續
    * （含 fire 裡的自排鏈），用戶在面板裡親手排的任務不受它管；用戶一回復就重新計數。
    */
   maxUnansweredSends?: number;
+  /**
+   * ↓「頻率與額度」的其餘幾項（面板「主動頻率」那一頁），沒設 = 用 utils/amsgLimits 裡的默認值。
+   * 兩條主動消息之間至少隔幾分鐘（只管角色自己排的）。0 = 不額外限制。
+   */
+  minSendGapMinutes?: number;
+  /** 每天最多主動發幾次（用戶手動排的也算，即時對話的回覆不算）。0 / 沒設 = 不限。 */
+  dailySendCap?: number;
+  /** 每天/每週重複的消息，用戶連續幾次沒回就先停（回話後恢復）。0 = 不停。 */
+  recurringStopAfter?: number;
+  /** 同時最多排著幾條（用戶和角色共用）。 */
+  maxActiveTasks?: number;
+  /** 角色能不能自己排每天/每週重複的消息。沒設 = 不能。 */
+  allowSelfRecurring?: boolean;
+  /** 角色能不能自己排「到點必發」（用戶正在聊天也照發）的消息。沒設 = 不能。 */
+  allowSelfForce?: boolean;
   useSecondaryApi?: boolean;
   secondaryApi?: ActiveMsg2ApiConfig;
   lastSyncedAt?: number;

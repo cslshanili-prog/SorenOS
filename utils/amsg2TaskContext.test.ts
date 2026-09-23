@@ -43,7 +43,8 @@ describe('buildAmsg2TaskContextText', () => {
     expect(text).toContain('schedule_active_message');
     expect(text).toContain('排成真任務'); // 嘴上許了就要排成真任務
     expect(text).toContain('不要只在正文裡答應'); // 承諾不能只停在台詞裡
-    expect(text).toContain('優先排下來'); // 有自然聯繫的傾向時往執行側推半步
+    expect(text).toContain('會就排');     // 真想聯繫就排
+    expect(text).toContain('隨口一想');   // 拿不準的不排：每一條都要花一次 API
     expect(text).toContain('硬排');       // 人設優先，不為排而排
     expect(text).toContain('自己的日程'); // 內容從角色自己的生活里長出來
     expect(text).not.toContain('進行中：');

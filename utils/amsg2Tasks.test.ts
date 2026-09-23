@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  MAX_ACTIVE_TASKS_PER_CHAR,
   REPLACE_CANCEL_FAILED_NOTE,
   applyRemoteTaskDelta,
   applyScheduledTask,
@@ -62,10 +61,6 @@ describe('amsg2Tasks helpers', () => {
     const daily = task({ taskUuid: 'daily000-0000-0000-0000-000000000000', firstSendTime: new Date(now - 100 * H).toISOString(), recurrenceType: 'daily' });
     expect(pruneStaleTasks([stale, recent, daily], now).map((t) => shortTaskId(t.taskUuid)))
       .toEqual(['recent00', 'daily000']);
-  });
-
-  it('封頂常量為 5', () => {
-    expect(MAX_ACTIVE_TASKS_PER_CHAR).toBe(5);
   });
 
   // 同步門（amsgStateSync）依賴 hasActiveAiTask：只要還有「待觸發的非 fixed 任務」才同步 fire_pack。

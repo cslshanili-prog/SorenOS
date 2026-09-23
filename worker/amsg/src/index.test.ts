@@ -41,8 +41,34 @@ import {
 import { AMSG_CHAT_PRESENCE_KEY } from '../../../utils/amsgChatPresence';
 import { AMSG_TOOL_CONFIG_KEY, AMSG_TOOL_PACK_KEY } from '../../../utils/amsgToolPack';
 import { buildMcpNameMap, MCP_FIRE_NAME_BUDGET, type McpFireServer } from '../../../utils/mcpFireCore';
-import { MAX_FIRE_SCHEDULES } from '../../../utils/amsgFireSchedule';
-import { MAX_ACTIVE_TASKS_PER_CHAR, shortTaskId } from '../../../utils/amsg2Tasks';
+import { AMSG_FIRE_SCHEDULE_TOOL, MAX_FIRE_SCHEDULES } from '../../../utils/amsgFireSchedule';
+import { shortTaskId } from '../../../utils/amsg2Tasks';
+import {
+  AMSG_DAILY_SENDS_KEY,
+  AMSG_LIMITS_KEY,
+  type AmsgLimits,
+  DEFAULT_MAX_ACTIVE_TASKS,
+  resolveAmsgLimits,
+} from '../../../utils/amsgLimits';
+
+/**
+ * 單測夾具用的生效上限：默認全放開（連發不限、不卡間隔、重複 / 到點必發都允許），
+ * 各項上限的行為由各自那組用例單獨釘，別的用例不被它們誤傷。
+ */
+const looseLimits = (over: Partial<AmsgLimits> = {}): AmsgLimits => ({
+  ...resolveAmsgLimits(undefined),
+  maxUnansweredSends: Infinity,
+  minSendGapMs: 0,
+  allowSelfRecurring: true,
+  allowSelfForce: true,
+  ...over,
+});
+
+/** 雲端 limits 那一行（客戶端同步上來的原始設置）。 */
+const limitsRow = (settings: Record<string, unknown> = {}, selfScheduleEnabled = true) => ({
+  key: AMSG_LIMITS_KEY,
+  value: JSON.stringify({ v: 1, selfScheduleEnabled, ...settings }),
+});
 import { isAmsgServerVersionAtLeast } from '../../../utils/amsgWorkerVersion';
 import { AMSG_TASK_KIND_KEY } from '../../../utils/amsgTaskKinds';
 import { PLATE_CONSOLIDATE_KIND } from '../../../utils/amsgPlateJob';
@@ -595,10 +621,13 @@ describe('連發上限（到點兜底閘）', () => {
     });
   };
 
-  const rowsWith = (selfLog: string, packExtra: Record<string, unknown> = {}, lastUserMessageAt: number | null = null) => [
-    { key: AMSG_FIRE_PACK_KEY, value: firePackValue(lastUserMessageAt, packExtra) },
+  // 第二個參數是用戶的上限設置（進 limits 那一行）。間隔默認關掉：夾具裡的連發條目都在
+  // 一兩分鐘前，不關的話這組測的是間隔閘而不是連發閘。
+  const rowsWith = (selfLog: string, settings: Record<string, unknown> = {}, lastUserMessageAt: number | null = null) => [
+    { key: AMSG_FIRE_PACK_KEY, value: firePackValue(lastUserMessageAt) },
     { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
     { key: AMSG_SELF_LOG_KEY, value: selfLog },
+    limitsRow({ minSendGapMinutes: 0, ...settings }),
   ];
 
   const lastSkipReason = (writeState: ReturnType<typeof vi.fn>) => {
@@ -693,6 +722,262 @@ describe('連發上限（到點兜底閘）', () => {
       charRows: rowsWith(JSON.stringify(log), { maxUnansweredSends: 10 }),
     });
     fired(await amsgHooks.onBeforeFire(ctx));
+  });
+});
+
+// ─── 用戶定的「頻率與額度」：到點那幾道閘 ───
+//
+// 每一項都是用戶在面板上定的硬閘（見 utils/amsgLimits）。攔下來的一律 skip、在調模型之前，
+// 一個 token 都不花；留痕原因各不相同，面板照實說明。雲端沒有 limits 那一行時按默認值走
+// ——默認值本身是偏嚴的那一側。
+describe('頻率與額度（到點兜底閘）', () => {
+  const selfLogWith = (over: Record<string, unknown> = {}) => JSON.stringify({
+    v: 4, basePackAt: PACK_BUILT_AT, anchorUserMsgAt: null, entries: [], unansweredSends: 0, tasks: [],
+    ...over,
+  });
+
+  const rows = (opts: {
+    settings?: Record<string, unknown>;
+    selfScheduleEnabled?: boolean;
+    selfLog?: string;
+    daily?: Record<string, unknown>;
+    pack?: Record<string, unknown>;
+    lastUserMessageAt?: number | null;
+    presence?: string;
+  } = {}) => [
+    { key: AMSG_FIRE_PACK_KEY, value: firePackValue(opts.lastUserMessageAt ?? null, opts.pack ?? {}) },
+    { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+    ...(opts.settings || opts.selfScheduleEnabled === false
+      ? [limitsRow(opts.settings ?? {}, opts.selfScheduleEnabled ?? true)] : []),
+    ...(opts.selfLog ? [{ key: AMSG_SELF_LOG_KEY, value: opts.selfLog }] : []),
+    ...(opts.daily ? [{ key: AMSG_DAILY_SENDS_KEY, value: JSON.stringify({ v: 1, ...opts.daily }) }] : []),
+    ...(opts.presence ? [{ key: AMSG_CHAT_PRESENCE_KEY, value: opts.presence }] : []),
+  ];
+
+  const skipReason = (writeState: ReturnType<typeof vi.fn>) => {
+    const call = writeState.mock.calls.find(([, entries]) =>
+      entries.some((e: { key: string }) => e.key === AMSG_LAST_SKIP_KEY));
+    return call ? JSON.parse(String(call[1][0].value)).reason : undefined;
+  };
+
+  it('關 2.0 時先寫的那份 limits 說關了 → 自排任務跳過（schedule-off），不等 fire_pack 更新', async () => {
+    const { ctx, writeState } = makeCtx({
+      metadata: { amsgSelfScheduled: true },
+      charRows: rows({ selfScheduleEnabled: false }),
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(writeState)).toBe('schedule-off');
+  });
+
+  it('角色 2.0 已關（fire_pack 也說關）→ 殘留的用戶任務同樣不發', async () => {
+    const { ctx, writeState } = makeCtx({ charRows: rows({ pack: { selfScheduleEnabled: false } }) });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(writeState)).toBe('schedule-off');
+  });
+
+  it('角色自排的重複任務、用戶沒放開「可以排重複的」→ 跳過；用戶自己排的重複任務照發', async () => {
+    const self = makeCtx({
+      metadata: { amsgSelfScheduled: true }, recurrenceType: 'daily', charRows: rows(),
+    });
+    await expect(amsgHooks.onBeforeFire(self.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(self.writeState)).toBe('schedule-off');
+
+    const mine = makeCtx({ recurrenceType: 'daily', charRows: rows() });
+    fired(await amsgHooks.onBeforeFire(mine.ctx));
+  });
+
+  it('兩條之間的間隔：離上一條自排消息 2 分鐘 → 跳過（min-gap）；8 分鐘（留了寬限）→ 照發', async () => {
+    const recent = makeCtx({
+      metadata: { amsgSelfScheduled: true },
+      charRows: rows({ selfLog: selfLogWith({
+        unansweredSends: 1, entries: [{ id: 's@1', at: NOW.getTime() - 2 * 60_000, text: '一' }],
+      }) }),
+    });
+    await expect(amsgHooks.onBeforeFire(recent.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(recent.writeState)).toBe('min-gap');
+
+    const later = makeCtx({
+      metadata: { amsgSelfScheduled: true },
+      charRows: rows({ selfLog: selfLogWith({
+        unansweredSends: 1, entries: [{ id: 's@1', at: NOW.getTime() - 8 * 60_000, text: '一' }],
+      }) }),
+    });
+    fired(await amsgHooks.onBeforeFire(later.ctx));
+  });
+
+  it('間隔只管角色自排的：用戶面板排的任務緊挨著也照發', async () => {
+    const { ctx } = makeCtx({
+      charRows: rows({ selfLog: selfLogWith({
+        unansweredSends: 1, entries: [{ id: 's@1', at: NOW.getTime() - 60_000, text: '一' }],
+      }) }),
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  it('重複任務連續 3 次沒人回 → 第 4 次跳過（recurring-unanswered）；用戶開口後恢復', async () => {
+    const log = selfLogWith({ recurringSends: { 'ctid-daily': 3 } });
+    const stopped = makeCtx({
+      recurrenceType: 'daily',
+      metadata: { amsgClientTaskId: 'ctid-daily' },
+      charRows: rows({ selfLog: log }),
+    });
+    await expect(amsgHooks.onBeforeFire(stopped.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(stopped.writeState)).toBe('recurring-unanswered');
+
+    // 用戶開口了（fire_pack 上的最後一次開口比日誌錨新）→ 計數清零，照常發。
+    const resumed = makeCtx({
+      recurrenceType: 'daily',
+      metadata: { amsgClientTaskId: 'ctid-daily' },
+      charRows: rows({ selfLog: log, lastUserMessageAt: NOW.getTime() - 3 * 3600_000 }),
+    });
+    fired(await amsgHooks.onBeforeFire(resumed.ctx));
+
+    // 計數按任務各記各的：別的重複任務不受這一條連累。
+    const other = makeCtx({
+      recurrenceType: 'daily',
+      metadata: { amsgClientTaskId: 'ctid-other' },
+      charRows: rows({ selfLog: log }),
+    });
+    fired(await amsgHooks.onBeforeFire(other.ctx));
+  });
+
+  it('間隔的錨點是上一條開始生成的時刻：發完才 2 分鐘、但開始已是 11 分鐘前 → 照發', async () => {
+    const { ctx } = makeCtx({
+      metadata: { amsgSelfScheduled: true },
+      charRows: rows({ selfLog: selfLogWith({
+        unansweredSends: 1,
+        entries: [{ id: 's@1', at: NOW.getTime() - 2 * 60_000, startedAt: NOW.getTime() - 11 * 60_000, text: '一' }],
+      }) }),
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  it('同一次觸發重跑時，日誌裡那條就是它自己，不算「上一條」', async () => {
+    const occurrenceMs = Date.parse('2026-07-25T12:00:00.000Z');
+    const { ctx } = makeCtx({
+      metadata: { amsgSelfScheduled: true, amsgClientTaskId: 'ctid-self' },
+      charRows: rows({ selfLog: selfLogWith({
+        unansweredSends: 1,
+        entries: [{ id: `ctid-self@${occurrenceMs}`, at: NOW.getTime() - 60_000, text: '說到一半' }],
+      }) }),
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  // 升級窗口：worker 先換了新版、前端還沒刷新時，雲端沒有 limits 那份，老包上還帶著
+  // 用戶設過的連發上限——得認它，不然設了 10 條報備的人會突然被卡在默認的 3 條。
+  it('沒有 limits 記錄時，認老 fire_pack 上的連發上限', async () => {
+    const { ctx } = makeCtx({
+      metadata: { amsgSelfScheduled: true },
+      charRows: [
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(null, { maxUnansweredSends: 10 }) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+        { key: AMSG_SELF_LOG_KEY, value: selfLogWith({
+          unansweredSends: 5, entries: [{ id: 's@1', at: NOW.getTime() - 60 * 60_000, text: '一' }],
+        }) },
+      ],
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  // 迴歸守衛：正在觸發的這條一次性自排任務還躺在打包時的待發清單裡（90 秒寬限內），
+  // 以前它既算進「排著還沒響的」，又被「正在發的這一條」再算一次——額度少一條，名額設成
+  // 1 時角色永遠排不出下一條。
+  it('正在觸發的一次性任務不跟「正在發的這一條」重複計算', async () => {
+    const current = {
+      taskUuid: TASK_UUID, clientTaskId: 'ctid-now', mode: 'auto', recurrenceType: 'none',
+      expirePolicy: 'expire', source: 'character', status: 'scheduled', createdAt: NOW.getTime() - 3600_000,
+      firstSendTime: NOW.toISOString(),
+    };
+    const { ctx } = makeCtx({
+      metadata: { amsgSelfScheduled: true, amsgClientTaskId: 'ctid-now' },
+      charRows: rows({ settings: { maxUnansweredSends: 3, maxActiveTasks: 1 }, pack: { pendingTasks: [current] } }),
+    });
+    ctx.scheduleTask = vi.fn();
+    const prompt = fired(await amsgHooks.onBeforeFire(ctx)).messages[0].content;
+    expect(prompt).toContain('現在還能再排 2 條');
+    expect(prompt).toContain('現在排著 0 條');
+  });
+
+  it('「不停」（0）時重複任務一直照發', async () => {
+    const { ctx } = makeCtx({
+      recurrenceType: 'daily',
+      metadata: { amsgClientTaskId: 'ctid-daily' },
+      charRows: rows({ settings: { recurringStopAfter: 0 }, selfLog: selfLogWith({ recurringSends: { 'ctid-daily': 30 } }) }),
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  it('每日上限：今天已發滿 → 用戶面板排的任務也跳過（daily-limit）', async () => {
+    // NOW = 2026-07-25T12:00Z，fire_pack 的 userTzId 是上海 → 用戶那邊是 7 月 25 日。
+    const { ctx, writeState } = makeCtx({
+      charRows: rows({ settings: { dailySendCap: 2 }, daily: { day: '2026-07-25', sends: 2 } }),
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(writeState)).toBe('daily-limit');
+  });
+
+  it('每日上限：記錄是別的日子的 → 從零數起，照發；沒開上限時發多少都不攔', async () => {
+    const yesterday = makeCtx({
+      charRows: rows({ settings: { dailySendCap: 2 }, daily: { day: '2026-07-24', sends: 9 } }),
+    });
+    fired(await amsgHooks.onBeforeFire(yesterday.ctx));
+
+    const uncapped = makeCtx({ charRows: rows({ daily: { day: '2026-07-25', sends: 99 } }) });
+    fired(await amsgHooks.onBeforeFire(uncapped.ctx));
+  });
+
+  it('角色自排的「到點必發」在用戶沒放開時按普通的處理：用戶正在聊天就讓路', async () => {
+    const presence = presenceValue(NOW.getTime() - 5_000);
+    const locked = makeCtx({
+      metadata: { amsgSelfScheduled: true, amsgExpirePolicy: 'force' },
+      charRows: rows({ presence }),
+    });
+    await expect(amsgHooks.onBeforeFire(locked.ctx)).resolves.toEqual({ skip: true });
+    expect(skipReason(locked.writeState)).toBe('active-chat-presence');
+
+    const allowed = makeCtx({
+      metadata: { amsgSelfScheduled: true, amsgExpirePolicy: 'force' },
+      charRows: rows({ settings: { allowSelfForce: true }, presence }),
+    });
+    fired(await amsgHooks.onBeforeFire(allowed.ctx));
+  });
+
+  it('用戶自己排的「到點必發」不受這項影響', async () => {
+    const { ctx } = makeCtx({
+      metadata: { amsgExpirePolicy: 'force' },
+      charRows: rows({ presence: presenceValue(NOW.getTime() - 5_000) }),
+    });
+    fired(await amsgHooks.onBeforeFire(ctx));
+  });
+
+  it('排程工具的簽名跟著設置走：默認不給 recurrence / expire_policy，放開了才給', async () => {
+    const scheduleTask = vi.fn();
+    const locked = makeCtx({ charRows: rows() });
+    locked.ctx.scheduleTask = scheduleTask;
+    const lockedTool = fired(await amsgHooks.onBeforeFire(locked.ctx)).tools
+      ?.find((t) => t.function.name === AMSG_FIRE_SCHEDULE_TOOL);
+    expect((lockedTool?.function.parameters as any).properties).not.toHaveProperty('recurrence');
+    expect((lockedTool?.function.parameters as any).properties).not.toHaveProperty('expire_policy');
+
+    const open = makeCtx({ charRows: rows({ settings: { allowSelfRecurring: true, allowSelfForce: true } }) });
+    open.ctx.scheduleTask = scheduleTask;
+    const openTool = fired(await amsgHooks.onBeforeFire(open.ctx)).tools
+      ?.find((t) => t.function.name === AMSG_FIRE_SCHEDULE_TOOL);
+    expect((openTool?.function.parameters as any).properties).toHaveProperty('recurrence');
+    expect((openTool?.function.parameters as any).properties).toHaveProperty('expire_policy');
+  });
+
+  it('prompt 裡寫著「用戶給你定的規矩」，額度按正在發的這一條算過', async () => {
+    const { ctx } = makeCtx({
+      charRows: rows({ settings: { maxUnansweredSends: 3, dailySendCap: 5 }, daily: { day: '2026-07-25', sends: 1 } }),
+    });
+    ctx.scheduleTask = vi.fn();
+    const prompt = fired(await amsgHooks.onBeforeFire(ctx)).messages[0].content;
+    expect(prompt).toContain('用戶給你定的規矩');
+    // 連發 3 條，正在發的這條佔 1 條 → 還能再排 2 條；今天發過 1 次 + 這一條 → 還剩 3 次。
+    expect(prompt).toContain('現在還能再排 2 條');
+    expect(prompt).toContain('今天還能再主動發 3 條');
   });
 });
 
@@ -1886,6 +2171,102 @@ describe('self_log — 角色自述回寫', () => {
 
   // ⑥ 的核心迴歸守衛：寫庫時機從「推送發出前」挪到「發出後」。舊實現在 onLLMOutput
   // 裡就落盤——推送全掛時雲端記了「說過」，下次 fire 角色接著一句用戶根本沒收到的話說。
+  it('每日計數：每次發出去記一次（多段也只算一次），調了幾次模型另記', async () => {
+    const store = makeStore(slottedFirePack());
+    const first = await runFire(store, {
+      sendAt: '2026-07-25T12:00:00.000Z', llmOutput: '第一段\n\n第二段', skipAfterSend: true,
+    });
+    await amsgFireSettled({
+      status: 'sent', sentCount: 2, llmCalls: 2, scratch: first.scratch, writeState: store.writeState,
+    });
+    await runFire(store, { sendAt: '2026-07-25T13:00:00.000Z', llmOutput: '又一條' });
+    const daily = JSON.parse(store.rows.get(AMSG_DAILY_SENDS_KEY) ?? '{}');
+    // 上海時間 7 月 25 日 20:00 / 21:00，同一天。第二次沒報 llmCalls（老上游）就不加。
+    expect(daily).toMatchObject({ v: 1, day: '2026-07-25', sends: 2, llmCalls: 2 });
+  });
+
+  it('每日計數：失敗的那一跳沒發出去，但調過的模型照記', async () => {
+    const store = makeStore(slottedFirePack());
+    const { scratch } = await runFire(store, {
+      sendAt: '2026-07-25T12:00:00.000Z', llmOutput: '說到一半', skipAfterSend: true,
+    });
+    await amsgFireSettled({
+      status: 'failed', sentCount: 0, llmCalls: 1, error: new Error('push 5xx'), scratch, writeState: store.writeState,
+    });
+    expect(JSON.parse(store.rows.get(AMSG_DAILY_SENDS_KEY) ?? '{}')).toMatchObject({ sends: 0, llmCalls: 1 });
+  });
+
+  it('收尾 hook 被調兩次也只記一次', async () => {
+    const store = makeStore(slottedFirePack());
+    const { scratch } = await runFire(store, {
+      sendAt: '2026-07-25T12:00:00.000Z', llmOutput: '一句話', skipAfterSend: true,
+    });
+    const settle = () => amsgFireSettled({
+      status: 'sent', sentCount: 1, llmCalls: 1, scratch, writeState: store.writeState,
+    });
+    await settle();
+    await settle();
+    expect(JSON.parse(store.rows.get(AMSG_DAILY_SENDS_KEY) ?? '{}')).toMatchObject({ sends: 1, llmCalls: 1 });
+    expect(store.selfLog()?.recurringSends?.[CLIENT_TASK_ID]).toBe(1);
+  });
+
+  // 上游補推那一跳不會再調 hook：整批落進收件箱的失敗要在這一回就按「發出去了」記全，
+  // 不然沒推成的那幾段永遠進不了日誌，下一次角色會接著一句它以為沒說過的話重說一遍。
+  it('推送失敗但整批已落進收件箱（outboxed）→ 全部正文照記，每日計數也算一次', async () => {
+    const store = makeStore(slottedFirePack());
+    const { scratch } = await runFire(store, {
+      sendAt: '2026-07-25T12:00:00.000Z', llmOutput: '第一段\n\n第二段', skipAfterSend: true,
+    });
+    await amsgFireSettled({
+      status: 'failed', sentCount: 0, outboxed: true, llmCalls: 1,
+      error: new Error('push 503'), scratch, writeState: store.writeState,
+    } as any);
+    expect(store.selfLog()?.entries.map((e) => e.text)).toEqual(['第一段\n第二段']);
+    expect(JSON.parse(store.rows.get(AMSG_DAILY_SENDS_KEY) ?? '{}')).toMatchObject({ sends: 1, llmCalls: 1 });
+  });
+
+  // 同一次觸發重跑（前一跳部分失敗、沒落進收件箱）：日誌條目同 id 覆蓋，每日計數和
+  // 「重複任務連續沒回」都不能再加一次——不然設了 3 次的重複消息 2 次就停了。
+  it('同一次觸發重跑不重複計數', async () => {
+    const store = makeStore(slottedFirePack());
+    for (let i = 0; i < 2; i += 1) {
+      const { scratch } = await runFire(store, {
+        sendAt: '2026-07-25T12:00:00.000Z', llmOutput: '同一次觸發', skipAfterSend: true,
+      });
+      await amsgFireSettled({
+        status: 'sent', sentCount: 1, llmCalls: 1, scratch, writeState: store.writeState,
+      });
+    }
+    expect(store.selfLog()?.recurringSends?.[CLIENT_TASK_ID]).toBe(1);
+    // 發了一次、但模型確實調了兩次。
+    expect(JSON.parse(store.rows.get(AMSG_DAILY_SENDS_KEY) ?? '{}')).toMatchObject({ sends: 1, llmCalls: 2 });
+  });
+
+  // 端到端：重複任務（這組夾具就是每天的）連發 3 次沒人回，第 4 次到點跳過。
+  it('重複任務連續 3 次沒人回 → 第 4 次到點跳過，不調模型', async () => {
+    const store = makeStore(slottedFirePack());
+    for (const at of ['2026-07-25T12:00:00.000Z', '2026-07-26T12:00:00.000Z', '2026-07-27T12:00:00.000Z']) {
+      await runFire(store, { sendAt: at, llmOutput: `第 ${at.slice(8, 10)} 天的早安` });
+    }
+    expect(store.selfLog()?.recurringSends?.[CLIENT_TASK_ID]).toBe(3);
+    const fourth = await amsgHooks.onBeforeFire({
+      task: {
+        id: 42, uuid: TASK_UUID, contactName: 'Nyah', recurrenceType: 'daily',
+        nextSendAt: '2026-07-28T12:00:00.000Z',
+        metadata: {
+          charId: CHAR_ID, amsgExpirePolicy: 'force', amsgTaskInstruction: '想到什麼說什麼',
+          amsgClientTaskId: CLIENT_TASK_ID,
+        },
+      },
+      userId: 'u1',
+      readState: store.readState,
+      writeState: store.writeState,
+      now: new Date('2026-07-28T12:00:00.000Z'),
+      scratch: {},
+    } as any);
+    expect(fourth).toEqual({ skip: true });
+  });
+
   describe('發送後才寫（onAfterSend 回執）', () => {
     it('onLLMOutput 只掛到 scratch 上不落盤；onAfterSend 才寫庫', async () => {
       const store = makeStore(slottedFirePack());
@@ -1988,6 +2369,7 @@ describe('自排後續任務', () => {
       v: 4 as const, basePackAt: 1, anchorUserMsgAt: null, entries: [], unansweredSends: 0, tasks: [],
     },
     pendingTaskCount: 0,
+    pendingTasks: [],
     scheduledTasks: [],
     selfScheduleSeq: 0,
     cancelledTasks: [],
@@ -1996,8 +2378,13 @@ describe('自排後續任務', () => {
     taskUuid: TASK_UUID,
     taskRowId: '42',
     instant: false,
-    // 連發上限相關：單測夾具默認不限，上限行為由「連發上限」那組用例單獨釘。
-    maxUnansweredSends: Infinity,
+    // 上限相關：單測夾具默認全放開，上限行為由各自那組用例單獨釘。
+    limits: looseLimits(),
+    lastSelfSendAt: null,
+    recurring: false,
+    dailyDay: '2026-07-25',
+    dailySends: null,
+    dailyCounted: false,
     plannedSelfSends: 0,
     plannedSelfSendUuids: [],
     ...over,
@@ -2013,7 +2400,7 @@ describe('自排後續任務', () => {
 
   it('連發到上限：排程工具直接打回，一條任務都不建', async () => {
     const stash = makeStash({
-      maxUnansweredSends: 3,
+      limits: looseLimits({ maxUnansweredSends: 3 }),
       selfLog: {
         v: 4, basePackAt: 1, anchorUserMsgAt: null, tasks: [], unansweredSends: 3,
         entries: [
@@ -2031,7 +2418,7 @@ describe('自排後續任務', () => {
 
   it('已發 2 條 + 先前自排的 1 條還沒響，上限 3 → 第 4 條打回', async () => {
     const stash = makeStash({
-      maxUnansweredSends: 3,
+      limits: looseLimits({ maxUnansweredSends: 3 }),
       plannedSelfSends: 1,
       selfLog: {
         v: 4, basePackAt: 1, anchorUserMsgAt: null, tasks: [], unansweredSends: 2,
@@ -2048,7 +2435,9 @@ describe('自排後續任務', () => {
 
   it('即時對話的回覆不佔連發額度：2 回覆 + 2 主動，上限 3 → 還能排', async () => {
     const stash = makeStash({
-      maxUnansweredSends: 3,
+      // 即時對話這一輪本身是在答用戶，也不佔額度（定時觸發的那一條才算）。
+      instant: true,
+      limits: looseLimits({ maxUnansweredSends: 3 }),
       selfLog: {
         v: 4, basePackAt: 1, anchorUserMsgAt: null, tasks: [], unansweredSends: 2,
         entries: [
@@ -2061,6 +2450,93 @@ describe('自排後續任務', () => {
     });
     const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt }, NOW_MS);
     expect(out.ok).toBe(true);
+  });
+
+  // 迴歸守衛：正在發的這一條（定時觸發）也佔一條連發額度。以前不算它，額度正好卡滿時
+  // 會放行一條到點必被兜底閘跳過的後續——角色許了諾，到點卻一個字都沒有。
+  it('已發 2 條 + 正在發的這一條，上限 3 → 再排打回', async () => {
+    const stash = makeStash({
+      limits: looseLimits({ maxUnansweredSends: 3 }),
+      selfLog: {
+        v: 4, basePackAt: 1, anchorUserMsgAt: null, tasks: [], unansweredSends: 2,
+        entries: [{ id: 's@1', at: NOW_MS - 60 * 60_000, text: '一' }, { id: 's@2', at: NOW_MS - 30 * 60_000, text: '二' }],
+      },
+    });
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt }, NOW_MS);
+    expect(out.reason).toBe('unanswered_limit');
+    expect(okSchedule).not.toHaveBeenCalled();
+  });
+
+  it('用戶沒放開「可以排重複的」→ 排每天的打回，一條都不建', async () => {
+    const stash = makeStash({ limits: looseLimits({ allowSelfRecurring: false }) });
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt, recurrence: 'daily' }, NOW_MS);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('recurring_not_allowed');
+    expect(okSchedule).not.toHaveBeenCalled();
+  });
+
+  it('兩條之間的間隔：離正在發的這一條太近 → 打回，並給出最早能排的時刻', async () => {
+    const stash = makeStash({ limits: looseLimits({ minSendGapMs: 10 * 60_000 }) });
+    const tooSoon = new Date(NOW_MS + 5 * 60_000).toISOString();
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: tooSoon }, NOW_MS);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('min_gap');
+    // NOW = 12:00Z，角色在上海 → 20:00；最早 20:10。
+    expect(String(out.message)).toContain('20:10');
+    expect(okSchedule).not.toHaveBeenCalled();
+
+    const okLater = await runFireScheduleTool(
+      stash, okSchedule, { send_at: new Date(NOW_MS + 15 * 60_000).toISOString() }, NOW_MS);
+    expect(okLater.ok).toBe(true);
+  });
+
+  it('間隔也跟已經排著的任務比：挨著一條排著的打回', async () => {
+    const existing = {
+      taskUuid: 'u-existing', clientTaskId: 'c-existing', mode: 'auto', recurrenceType: 'none',
+      expirePolicy: 'expire', source: 'user', status: 'scheduled', createdAt: NOW_MS - 3600_000,
+      firstSendTime: new Date(NOW_MS + 60 * 60_000).toISOString(),
+    };
+    const stash = makeStash({
+      instant: true,   // 即時對話裡排：用戶剛開口，不拿「正在發的這一條」卡它
+      limits: looseLimits({ minSendGapMs: 10 * 60_000 }),
+      pendingTasks: [existing],
+      pendingTaskCount: 1,
+    });
+    const nearby = new Date(NOW_MS + 65 * 60_000).toISOString();
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: nearby }, NOW_MS);
+    expect(out.reason).toBe('min_gap');
+    const soon = new Date(NOW_MS + 5 * 60_000).toISOString();
+    expect((await runFireScheduleTool(stash, okSchedule, { send_at: soon }, NOW_MS)).ok).toBe(true);
+  });
+
+  it('用戶沒放開「到點必發」→ 角色要的 force 按普通的排（不打回）', async () => {
+    const stash = makeStash({ limits: looseLimits({ allowSelfForce: false }) });
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt, expire_policy: 'force' }, NOW_MS);
+    expect(out.ok).toBe(true);
+    expect(okSchedule.mock.calls[0][0].metadata.amsgExpirePolicy).toBe('expire');
+  });
+
+  it('本輪取消掉的任務把名額還回來', async () => {
+    const existing = {
+      taskUuid: 'u-old', clientTaskId: 'c-old', mode: 'auto', recurrenceType: 'none',
+      expirePolicy: 'expire', source: 'character', status: 'scheduled', createdAt: NOW_MS - 3600_000,
+      firstSendTime: new Date(NOW_MS + 3 * 3600_000).toISOString(),
+    };
+    const stash = makeStash({
+      limits: looseLimits({ maxActiveTasks: 1 }),
+      pendingTasks: [existing],
+      pendingTaskCount: 1,
+      cancelledTasks: ['u-old'],
+    });
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt }, NOW_MS);
+    expect(out.ok).toBe(true);
+  });
+
+  it('任務名額按用戶設的來', async () => {
+    const stash = makeStash({ limits: looseLimits({ maxActiveTasks: 2 }), pendingTaskCount: 2 });
+    const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt }, NOW_MS);
+    expect(out.reason).toBe('task_limit');
+    expect(String(out.message)).toContain('上限是 2');
   });
 
   it('自排任務的 metadata 帶 amsgSelfScheduled 標記（到點兜底閘認它）', async () => {
@@ -2282,7 +2758,7 @@ describe('自排後續任務', () => {
   });
 
   it('角色掛著的任務已經到上限 → 打回（離線連排也繞不過每角色上限）', async () => {
-    const stash = makeStash({ pendingTaskCount: MAX_ACTIVE_TASKS_PER_CHAR });
+    const stash = makeStash({ pendingTaskCount: DEFAULT_MAX_ACTIVE_TASKS });
     const out = await runFireScheduleTool(stash, okSchedule, { send_at: sendAt }, NOW_MS);
     expect(out.ok).toBe(false);
     expect(out.reason).toBe('task_limit');
@@ -2380,7 +2856,12 @@ describe('fire 側取消 / 改期任務', () => {
     taskUuid: TASK_UUID,
     taskRowId: '42',
     instant: false,
-    maxUnansweredSends: Infinity,
+    limits: looseLimits(),
+    lastSelfSendAt: null,
+    recurring: false,
+    dailyDay: '2026-07-25',
+    dailySends: null,
+    dailyCounted: false,
     plannedSelfSends: 0,
     plannedSelfSendUuids: [],
     ...over,
@@ -2524,9 +3005,9 @@ describe('fire 側取消 / 改期任務', () => {
     expect(stash.cancelledTasks).not.toContain(uuidB);
   });
 
-  // 連發閘退額度的迴歸守衛：3 條 pending 打滿上限時，提示詞教的「cancel + 重排」要能
-  // 落地——取消掉快照裡的任務把額度還回來，重排 1 條放行；額度只是中性不是解鎖，
-  // 緊接著第 2 條仍要被閘。
+  // 連發閘退額度的迴歸守衛：2 條 pending + 正在發的這一條打滿上限 3 時，提示詞教的
+  // 「cancel + 重排」要能落地——取消掉快照裡的任務把額度還回來，重排 1 條放行；額度只是
+  // 中性不是解鎖，緊接著第 2 條仍要被閘。
   it('取消退還連發額度：cancel 1 條後重排 1 條放行，第 2 條仍被閘', async () => {
     const schedule = vi.fn(async (o: any) => ({
       created: true as const, id: 7, uuid: o.uuid, nextSendAt: o.firstSendTime,
@@ -2534,10 +3015,9 @@ describe('fire 側取消 / 改期任務', () => {
     const planned = [
       taskRec('u-plan-1', { source: 'character' }),
       taskRec('u-plan-2', { source: 'character' }),
-      taskRec('u-plan-3', { source: 'character' }),
     ];
     const stash = makeStash({
-      maxUnansweredSends: 3,
+      limits: looseLimits({ maxUnansweredSends: 3 }),
       pendingTasks: planned,
       pendingTaskCount: planned.length,
       plannedSelfSends: planned.length,
@@ -4185,6 +4665,28 @@ describe('即時對話終態失敗的直發 error push', () => {
     expect(payload.messageId).toBe(`err_${TASK_UUID}`);
     // 訂閱行按 user_id 查、明文兜底解出來
     expect((sent[0].subscription as any).endpoint).toBe('https://push.example/e1');
+  });
+
+  // 迴歸守衛：整批已經落進收件箱的失敗（推送服務 5xx 之類），上游重試只補推原文、客戶端
+  // 也補收得到——這時候發失敗通知 / 寫 chat_fail，用戶會在回覆到了之後還看到報錯。
+  it('整批已落進收件箱的失敗（outboxed）→ 不發 error push、不寫 chat_fail', async () => {
+    const { deps, sent } = makeErrorPushDeps();
+    configureInstantErrorPush(deps as any);
+
+    const store = makeFireStore(CHAT_MESSAGES);
+    const { scratch } = await runFire(store, { metadata: INSTANT_META, llmOutput: '在的。' });
+    const writesBefore = store.writeState.mock.calls.length;
+    await amsgFireSettled({
+      status: 'failed', sentCount: 0, outboxed: true,
+      task: { retry_count: 3, user_id: 'u1' },
+      error: new Error('push 503'),
+      scratch, writeState: store.writeState,
+    } as any);
+
+    expect(sent).toHaveLength(0);
+    const newKeys = store.writeState.mock.calls.slice(writesBefore)
+      .flatMap(([, entries]: any) => entries.map((e: { key: string }) => e.key));
+    expect(newKeys).not.toContain(AMSG_CHAT_FAIL_KEY);
   });
 
   // permanent 終態（fireStateError 那族）最典型的發生位置在掛 stash 之前：收尾那份因

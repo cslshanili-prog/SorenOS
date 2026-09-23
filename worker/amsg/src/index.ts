@@ -60,19 +60,38 @@ import {
   amsgXhsSessionKey,
   appendSelfLogEntry,
   appendSelfLogTask,
+  bumpRecurringSend,
+  countRecurringSends,
   countUnansweredSends,
+  formatFireTimeShort,
   describeFirePackVersion,
   parseFirePack,
   parseSelfLog,
   reconcileSelfLogWithPack,
   renderFirePack,
   renderSelfLogBlock,
-  resolveMaxUnansweredSends,
   unpackStateValue,
 } from '../../../utils/amsgFirePack';
+import {
+  AMSG_DAILY_SENDS_KEY,
+  AMSG_LIMITS_KEY,
+  type AmsgDailySends,
+  type AmsgLimits,
+  buildLimitsBrief,
+  bumpDailySends,
+  checkSelfScheduleRules,
+  dayKeyInZone,
+  earliestSlotAfter,
+  FIRE_GAP_TOLERANCE_MS,
+  parseAmsgLimitsRecord,
+  parseDailySends,
+  resolveAmsgLimits,
+  resolveMaxUnansweredSends,
+  sendsOnDay,
+} from '../../../utils/amsgLimits';
 import { resolveFireSceneSong } from '../../../utils/amsgFireScene';
 import { shouldExpireFire } from '../../../utils/amsg2ExpireGuard';
-import { buildFireTaskListBlock, isPendingTask, MAX_ACTIVE_TASKS_PER_CHAR, shortTaskId } from '../../../utils/amsg2Tasks';
+import { buildFireTaskListBlock, currentOccurrenceMs, isPendingTask, shortTaskId } from '../../../utils/amsg2Tasks';
 import {
   AMSG_FIRE_CANCEL_TOOL,
   AMSG_FIRE_RENEW_TOOL,
@@ -84,6 +103,7 @@ import {
   buildSelfScheduleUuid,
   MAX_FIRE_SCHEDULES,
   parseFireRenewSendAt,
+  MIN_SCHEDULE_LEAD_MS,
   parseFireScheduleArgs,
   resolveFireTargetTask,
   buildTaskInstruction,
@@ -388,10 +408,25 @@ interface FireStash {
   cancelledTasks: string[];
   renewedTasks: Array<{ taskUuid: string; sendAt: string }>;
   /**
-   * 用戶設的「未回覆期間最多連發幾條」（已解析：0 → Infinity、缺省 → 默認值）。
-   * 排程工具用它打回超額的自排；到點兜底閘在 onBeforeFire 裡直接用 pack 上的原始值。
+   * 用戶給這個角色定的「頻率與額度」（已解析成生效值，見 amsgLimits）。排程工具拿它
+   * 打回超額 / 太密 / 不許排的自排；到點那幾道閘在 onBeforeFire 裡用的是同一份。
    */
-  maxUnansweredSends: number;
+  limits: AmsgLimits;
+  /**
+   * 用戶沒回之後，角色最近一次主動發出去的時刻（自述日誌裡最後一條非回覆的條目；
+   * 沒有為 null）。排程工具算「兩條之間隔夠沒有」要它。
+   */
+  lastSelfSendAt: number | null;
+  /** 這次觸發的任務是每天/每週重複的。發出去之後要給它的「連續沒回」計數加一。 */
+  recurring: boolean;
+  /** 用戶那邊的「今天」（YYYY-MM-DD），每日計數記在這一天上。 */
+  dailyDay: string;
+  /** fire 開場讀到的每日計數（收尾時在它上面累加再寫回）。 */
+  dailySends: AmsgDailySends | null;
+  /** 這次 fire 已經記進每日計數了（收尾 hook 被調兩次也只記一回）。 */
+  dailyCounted: boolean;
+  /** 這次 fire 開始的時刻；日誌條目的 startedAt（間隔的錨點）就是它。 */
+  firedAt: number;
   /**
    * fire 開場時還沒響的自排任務條數（pendingTasks + selfLog.tasks 裡 source='character'
    * 且時間在未來的）。它們到點各會消耗一條連發額度，排程工具算「還能不能再排」要連它一起數。
@@ -711,7 +746,9 @@ const recordSkip = async (
 // 雲端記了「說過」而用戶一個字沒收到，下次 fire 角色會接著一句不存在的話往下說。
 // 現在改成：onLLMOutput 只把各段正文掛在本次 fire 的 scratch 上，等庫發完（或發掛）
 // 之後調 config 級 hook onAfterSend，只把**前 sentCount 段**寫進 self_log，entry.at
-// 用實際發送時刻。sentCount=0（一段都沒出去）不寫——重試的下一條 fire 會重新生成。
+// 用實際發送時刻。sentCount=0（一段都沒出去）且沒落進收件箱時不寫——重試的下一條 fire
+// 會重新生成。整批落進了收件箱（onFireSettled 的 outboxed）的，重試只補推原文、不再
+// 調 hook，所以當場按整批記上。
 //
 // scratch 是這一次 fire 獨有的對象，onBeforeFire / onLLMOutput / onAfterSend 拿到的
 // 是同一個引用，所以併發的幾個 fire 天然互不串台，也不需要按任務行 id 自建登記表。
@@ -886,6 +923,17 @@ export const amsgFireSettled = async (
     task?: { retry_count?: unknown } | null;
     /** 這一跳拋出的錯誤（status 'failed' 時才有）。 */
     error?: unknown;
+    /**
+     * 這一跳實際發出去的 LLM 請求次數（含失敗的那次）。上游 amsg-server 新版才報，
+     * 老版本上沒有——那樣每日計數里就只有「發了幾次」，沒有「調了幾次模型」。
+     */
+    llmCalls?: unknown;
+    /**
+     * 這一批有沒有整批落進服務端收件箱（上游 amsg-server 新版才報）。落進去了就說明內容
+     * 已經定了：推送這一跳就算沒成，上游重試時只會原樣補推、不會重新生成，客戶端上線
+     * 也補收得到——所以這種「失敗」對用戶來說就是發出去了，只是晚點到。
+     */
+    outboxed?: unknown;
     scratch: Record<string, unknown>;
     writeState: WriteState;
   },
@@ -893,11 +941,37 @@ export const amsgFireSettled = async (
   const stash = getFireStash(info.scratch);
   if (!stash) return;   // onBeforeFire 沒走到掛 stash 那步（比如取 fire_pack 就失敗了）
 
+  // 內容已經落定（見 info.outboxed）：之後的重試只補推送，而且補推那一跳不會再調任何
+  // hook——這是記帳的最後機會，按「全部發出去了」記，別等一個不會來的回執。
+  const committed = info.outboxed === true;
+  const delivered = committed || (info.sentCount ?? 0) > 0;
+
+  // 這一輪往雲端回寫的條目攢在一起，收尾一次寫完。
+  const stateWrites: Array<{ key: string; value: string }> = [];
+
+  // 每日計數：定時觸發發出去了記一次（多段氣泡也只算一次），調了幾次模型另記——失敗、
+  // 判空沒發的那幾次同樣花了錢。即時對話是正常聊天，兩樣都不記。
+  if (!stash.instant && !stash.dailyCounted) {
+    stash.dailyCounted = true;   // 認領掉，重複調用不會記兩遍
+    const sent = delivered ? 1 : 0;
+    const llmCalls = typeof info.llmCalls === 'number' && info.llmCalls > 0 ? info.llmCalls : 0;
+    if (sent || llmCalls) {
+      stash.dailySends = bumpDailySends(stash.dailySends, stash.dailyDay, {
+        sends: sent,
+        llmCalls,
+        sentId: `${stash.clientTaskId || 'task'}@${stash.occurrenceMs}`,
+      });
+      stateWrites.push({ key: AMSG_DAILY_SENDS_KEY, value: JSON.stringify(stash.dailySends) });
+    }
+  }
+
   // 即時對話這一跳掛了 → 失敗原因留痕（chat_fail），每次失敗嘗試覆蓋寫，最終留下的
   // 就是最後一跳的原因。客戶端 60s 點名判到「行已出清」後一次點名讀回這份，向用戶
   // 交代為什麼沒發出去——不用再按角色掃全量任務列表逐條解密（幾秒起步）。
   // best-effort：寫不進去只是失敗原因退化成籠統的一句，不能連累收尾其他動作。
-  if (stash.instant && info.status === 'failed' && stash.taskUuid) {
+  // 內容已經落定的不算失敗：回覆隨後就會補推到、或被客戶端補收，這時候留一句「沒發出去」
+  // 或者發失敗通知，用戶會在回覆已經到了之後還看到報錯。
+  if (stash.instant && info.status === 'failed' && !committed && stash.taskUuid) {
     const failReason = info.error instanceof Error ? info.error.message : String(info.error ?? '未知錯誤');
     const retryCount = typeof info.task?.retry_count === 'number' ? info.task.retry_count : 0;
     // 上游 amsg-server 2.6.0-next.21 起給這一族錯誤掛了穩定的 code（LLM 上游拒了請求是
@@ -953,7 +1027,7 @@ export const amsgFireSettled = async (
   // 評估失敗或超時什麼都不寫——旁路只存 applyEmotionEvalRaw 認識的評估原文，
   // 客戶端輪詢到點自會按「最終沒等到」收尾。
   if (stash.instant && stash.emotionLatePending && stash.emotionEvalPromise
-      && stash.clientTaskId && (info.sentCount ?? 0) > 0) {
+      && stash.clientTaskId && delivered) {
     stash.emotionLatePending = false;   // 認領掉，重複調用不會寫兩遍
     try {
       const outcome = await stash.emotionEvalPromise;
@@ -971,17 +1045,23 @@ export const amsgFireSettled = async (
 
   const texts = stash.selfLogTexts;
   stash.selfLogTexts = null;   // 認領掉，重複調用不會記兩遍
-  const sentCount = info.sentCount ?? 0;
+  // 落定了的整批都會送到（補推或補收），全記；沒落定的只記真送出去的前幾段。
+  const sentCount = committed && texts ? texts.length : info.sentCount ?? 0;
   if (texts && sentCount > 0) {
     // 多段消息在用戶那邊是連著的幾條氣泡，對角色而言是一次「我說了這些」，合成一條記。
-    // 只取前 sentCount 段：部分失敗時沒送出去的正文絕不能進日誌。
+    // 只取前 sentCount 段：部分失敗（而且沒落進收件箱）時沒送出去的正文絕不能進日誌。
     const text = texts
       .slice(0, sentCount)
       .filter((message) => message.trim())
       .join('\n');
+    const entryId = `${stash.clientTaskId || 'task'}@${stash.occurrenceMs}`;
+    // 同一次觸發重跑（前一跳部分失敗）時日誌裡已經有這一條：條目同 id 覆蓋，
+    // 重複任務的「連續沒回」計數也不能再加一次。
+    const rerun = stash.selfLog.entries.some((e) => e.id === entryId);
     const next = appendSelfLogEntry(stash.selfLog, {
-      id: `${stash.clientTaskId || 'task'}@${stash.occurrenceMs}`,
+      id: entryId,
       at: Date.now(),
+      startedAt: stash.firedAt,
       text,
       // 即時對話是在答用戶剛說的話——列進自述塊保持連續性，但不佔「主動連發」的額度
       // （帶這個標記的條目不會讓 selfLog.unansweredSends 加一）。
@@ -992,17 +1072,24 @@ export const amsgFireSettled = async (
       stash.selfLog = next;
       stash.selfLogDirty = true;
     }
+    // 重複任務這一次真發出去了：「連續幾次沒回」的計數加一（用戶開口時整份清零）。
+    // 跟正文一起認領：texts 已經清掉，重複調用走不到這裡。
+    if (!stash.instant && stash.recurring && stash.clientTaskId && !rerun) {
+      stash.selfLog = bumpRecurringSend(stash.selfLog, stash.clientTaskId);
+      stash.selfLogDirty = true;
+    }
   }
 
-  if (!stash.selfLogDirty) return;   // 這次 fire 什麼也沒添進日誌，不必寫庫
-  stash.selfLogDirty = false;
+  if (stash.selfLogDirty) {
+    stash.selfLogDirty = false;
+    stateWrites.push({ key: AMSG_SELF_LOG_KEY, value: JSON.stringify(stash.selfLog) });
+  }
+  if (stateWrites.length === 0) return;   // 這次 fire 什麼也沒添，不必寫庫
 
   try {
-    await info.writeState(amsgStateNamespace(stash.charId), [
-      { key: AMSG_SELF_LOG_KEY, value: JSON.stringify(stash.selfLog) },
-    ]);
+    await info.writeState(amsgStateNamespace(stash.charId), stateWrites);
   } catch (error) {
-    console.warn('[amsg:self-log] 寫入失敗（這次照常發送，但下一次到點角色不會知道說過這句）', error);
+    console.warn('[amsg:self-log] 寫入失敗（這次照常發送，但下一次到點角色不會知道說過這句，每日計數也少記一次）', error);
   }
 };
 
@@ -1166,6 +1253,36 @@ const raceEmotionEval = (
 };
 
 /**
+ * 用戶沒回期間「已經算進連發額度」的條數：發過的 + 先前排了還沒響的 + 這次已經排的，
+ * 再加上正在發的這一條（定時觸發才算；即時對話是在答用戶）。
+ *
+ * 本輪成功取消的、原本計入快照的任務把額度還回來：提示詞教的「cancel + 重排」
+ *（renew 循環任務補當次走的也是這條）在同一次 fire 內額度中性。只抵扣快照裡的
+ * ——本輪剛排又反悔的不在快照裡，它的額度已隨 scheduledTasks 回縮，不重複退。
+ */
+const countCommittedSelfSends = (stash: FireStash): number => {
+  const refundedSends = stash.cancelledTasks
+    .filter((uuid) => stash.plannedSelfSendUuids.includes(uuid)).length;
+  return countUnansweredSends(stash.selfLog)
+    + stash.plannedSelfSends - refundedSends + stash.scheduledTasks.length
+    + (stash.instant ? 0 : 1);
+};
+
+/**
+ * 新排一條時要跟哪些時刻隔開：還掛著的任務各自的下一次觸發、本輪剛排的，以及用戶沒回
+ * 之後最近一次主動發出去的時刻。定時觸發時正在發的這一條也算一個（它此刻就在發）；
+ * 即時對話的這一條是在答用戶，不算——用戶剛開口，想馬上接著說點什麼是正常的。
+ */
+const selfScheduleBusyTimes = (stash: FireStash, nowMs: number): number[] => {
+  const busy = liveTaskView(stash)
+    .map((t) => currentOccurrenceMs(t, nowMs))
+    .filter((ms): ms is number => ms != null);
+  if (stash.lastSelfSendAt != null) busy.push(stash.lastSelfSendAt);
+  if (!stash.instant) busy.push(nowMs);
+  return busy;
+};
+
+/**
  * 執行一次「給自己排下一條」。永不拋錯——參數寫歪、排滿了都以 ok:false 回喂讓模型改口，
  * 跟別的工具一個語義（fire 拋錯 = 整條任務重跑 = 用戶這次一個字都收不到）。
  *
@@ -1183,16 +1300,14 @@ export const runFireScheduleTool = async (
     // 重新粘貼，這裡只需要讓角色別以為排上了。
     return { ok: false, reason: 'not_supported', message: '當前後台版本還不支持給自己排後續，這次就把話說完吧。' };
   }
-  // 連發上限·排程閘（用戶主權）：已發的 + 先前排了還沒響的 + 這次已排的，加上這條會超
-  // 就打回。到點兜底閘（onBeforeFire）是它的另一半——先排滿再觸發的在那邊攔。
-  // 本輪成功取消的、原本計入快照的任務把額度還回來：提示詞教的「cancel + 重排」
-  //（renew 循環任務補當次走的也是這條）在同一次 fire 內額度中性。只抵扣快照裡的
-  // ——本輪剛排又反悔的不在快照裡，它的額度已隨 scheduledTasks 回縮，不重複退。
-  const unansweredLimit = stash.maxUnansweredSends;
-  const refundedSends = stash.cancelledTasks
-    .filter((uuid) => stash.plannedSelfSendUuids.includes(uuid)).length;
-  const committedSends = countUnansweredSends(stash.selfLog)
-    + stash.plannedSelfSends - refundedSends + stash.scheduledTasks.length;
+  // 連發上限·排程閘（用戶主權）：已經算進額度的（口徑見 countCommittedSelfSends）加上
+  // 這條會超就打回。到點兜底閘（onBeforeFire）是它的另一半——先排滿再觸發的在那邊攔。
+  //
+  // 正在發的這一條本身也算一條（定時觸發的話）：它的日誌條目要等發完才記，這會兒還沒進
+  // 計數；不算上它的話，額度正好卡滿時會放行一條到點必被兜底閘跳過的後續——角色許了諾，
+  // 到點卻一個字都沒有。
+  const unansweredLimit = stash.limits.maxUnansweredSends;
+  const committedSends = countCommittedSelfSends(stash);
   if (committedSends + 1 > unansweredLimit) {
     return {
       ok: false,
@@ -1207,12 +1322,15 @@ export const runFireScheduleTool = async (
       message: `這次已經排了 ${MAX_FIRE_SCHEDULES} 條，夠了，剩下的話直接寫進這條消息裡。`,
     };
   }
-  const live = stash.pendingTaskCount + stash.scheduledTasks.length;
-  if (live >= MAX_ACTIVE_TASKS_PER_CHAR) {
+  // 本輪取消掉的既有任務把名額還回來（提示詞教的「取消再重排」才走得通）。
+  const pendingUuids = new Set(stash.pendingTasks.map((t) => t.taskUuid));
+  const freedSlots = stash.cancelledTasks.filter((uuid) => pendingUuids.has(uuid)).length;
+  const live = stash.pendingTaskCount - freedSlots + stash.scheduledTasks.length;
+  if (live >= stash.limits.maxActiveTasks) {
     return {
       ok: false,
       reason: 'task_limit',
-      message: `你同時掛著的任務已經有 ${live} 個（上限 ${MAX_ACTIVE_TASKS_PER_CHAR}），這次別再排了。`,
+      message: `你同時掛著的任務已經有 ${live} 個（用戶設的上限是 ${stash.limits.maxActiveTasks}），這次別再排了。`,
     };
   }
 
@@ -1220,6 +1338,20 @@ export const runFireScheduleTool = async (
   // worker 跑在 UTC，不帶 tz 的話「明早 9 點」會整整差一個時差。
   const parsed = parseFireScheduleArgs(args, nowMs, stash.tz);
   if ('ok' in parsed) return parsed as unknown as Record<string, unknown>;
+
+  // 用戶定的規矩：能不能排重複的、兩條之間隔夠沒有、「到點必發」放沒放開（沒放開就按
+  // 普通的排，不打回）。前台工具橋過的是同一份判定。
+  const rules = checkSelfScheduleRules({
+    limits: stash.limits,
+    sendAtMs: Date.parse(parsed.sendAt),
+    recurrence: parsed.recurrence,
+    expirePolicy: parsed.expirePolicy,
+    busy: selfScheduleBusyTimes(stash, nowMs),
+    earliestMs: nowMs + MIN_SCHEDULE_LEAD_MS,
+    formatTime: (ms) => formatFireTimeShort(ms, stash.tz),
+  });
+  if (!rules.ok) return rules as unknown as Record<string, unknown>;
+  parsed.expirePolicy = rules.expirePolicy;
 
   // 同一次觸發內第幾條 —— 連同觸發時刻構成確定性 uuid，重跑對得上。序號只增不減
   // （selfScheduleSeq，見字段註釋）：取不得 scheduledTasks.length，取消會讓它回縮，
@@ -1583,8 +1715,12 @@ export const amsgHooks = {
     };
 
     const taskMeta = (ctx.task.metadata ?? {}) as Record<string, unknown>;
-    const policy = typeof taskMeta.amsgExpirePolicy === 'string'
+    // 任務上寫的防穿幫策略。角色自排的「到點必發」在用戶沒放開時會降成普通的
+    // （見下面讀到 limits 之後的 policy），這裡先留原值。
+    const taskPolicy = typeof taskMeta.amsgExpirePolicy === 'string'
       ? taskMeta.amsgExpirePolicy : undefined;
+    const selfScheduled = taskMeta.amsgSelfScheduled === true;
+    const recurring = ctx.task.recurrenceType === 'daily' || ctx.task.recurrenceType === 'weekly';
 
     // 副 API 憑據落地即取走：這一份 metadata 對象上游還要按引用往下傳（onLLMOutput 的
     // ctx.metadata、以及 hook 不接手時那條會把整份 metadata 直接掛上推送的模板路徑），
@@ -1628,6 +1764,15 @@ export const amsgHooks = {
     // 就是每條任務白付一次 D1 往返加解密。
     const charRows = await ctx.readState(amsgStateNamespace(charId));
 
+    // 用戶給這個角色定的「頻率與額度」（客戶端同步上來的那份，見 amsgLimits）。沒有或讀不出來
+    // 就按默認值——默認值本身就是偏嚴的那一側，丟了記錄不會把閘打開。
+    const limitsRecord = parseAmsgLimitsRecord(charRows.find((r) => r.key === AMSG_LIMITS_KEY)?.value);
+    const recordLimits = resolveAmsgLimits(limitsRecord);
+    // 角色自己排的「到點必發」，用戶沒放開時按普通的處理：碰上用戶正在聊天就讓路。
+    // 放開之前排下的那些也一樣，不用等角色重排。
+    const policy = selfScheduled && taskPolicy === 'force' && !recordLimits.allowSelfForce
+      ? 'expire' : taskPolicy;
+
     // 即時對話：用戶剛把話說完、正盯著「正在輸入…」等回覆。下面三道門問的都是
     // 「主動消息到點還該不該發」——用戶正在聊天所以讓路、對話已經往前走所以作廢、
     // 這次任務的方向是什麼——對「回一句用戶剛說的話」全都不適用，整段跳過。
@@ -1664,6 +1809,14 @@ export const amsgHooks = {
     // 讀的是上游 amsg-server 庫的版本號，只改 SullyOS 自己這份 worker 代碼時它不會亮。
     // 面板上的 lastError 是用戶唯一能看到的線索，得直接說出該做什麼。
     if (!pack) throw fail(`fire_pack 解析失敗：${describeFirePackVersion(packJson)}`);
+
+    // 連發上限以前跟著 fire_pack 走。前端還沒換新版（沒傳過 limits 那份）時，老包上那個值
+    // 就是用戶設過的上限——拿默認值頂掉的話，設了「不限」或 10 條報備的人會突然被卡在 3 條。
+    // 新前端第一次上傳就會帶上 limits，這條退路自然用不上了。
+    const legacyUnanswered = (pack as { maxUnansweredSends?: unknown }).maxUnansweredSends;
+    const limits = limitsRecord || legacyUnanswered === undefined
+      ? recordLimits
+      : { ...recordLimits, maxUnansweredSends: resolveMaxUnansweredSends(legacyUnanswered) };
 
     // 即時對話缺 chat 段 = 雲端狀態和任務對不上（客戶端只傳了主動消息那半份）。
     // 硬失敗，絕不退回模板渲染：拿「到點主動找人說話」的提示詞去答用戶剛說的話，
@@ -1786,8 +1939,26 @@ export const amsgHooks = {
     // 只攔自排（amsgSelfScheduled）——用戶面板排的是明確意願，不受自己的防騷擾上限誤傷；
     // 即時對話在答用戶剛說的話，更不歸它管。排程工具那半邊只能攔「再排新的」，
     // 先排滿再觸發的繞不過它，得在這裡兜住。用戶一回話 entries 清零，閘自動解除。
-    const maxUnansweredSends = resolveMaxUnansweredSends(pack.maxUnansweredSends);
-    if (!instant && taskMeta.amsgSelfScheduled === true
+    // 任務歸屬鍵：self_log 的條目 id、重複任務的「連續沒回」計數、以及「排程清單裡排除掉
+    // 自己這條」都用它。
+    const clientTaskId = typeof taskMeta.amsgClientTaskId === 'string' ? taskMeta.amsgClientTaskId : '';
+    const nowMs = ctx.now.getTime();
+
+    // 這類消息用戶已經關掉了：角色級 2.0 關著（fire_pack 或更新得更快的 limits 那份，
+    // 任一說關就是關），或者這是角色自排的重複任務、而用戶沒讓它排重複的。
+    // 關 2.0 時客戶端會先把 limits 寫成關、再去取消任務——取消掃完之後才冒出來的
+    // （正在跑的那一輪順手排的）、以及取消失敗留下的，都在這裡攔住，一個 token 都不花。
+    const scheduleOff = !pack.selfScheduleEnabled || limitsRecord?.selfScheduleEnabled === false;
+    if (!instant && (scheduleOff || (selfScheduled && recurring && !limits.allowSelfRecurring))) {
+      console.log('[amsg:schedule-off-skip]', {
+        taskId: ctx.task.id, charId, selfScheduled, recurring, scheduleOff,
+      });
+      await recordSkip(ctx, charId, 'schedule-off', occurrenceMs);
+      return { skip: true } as const;
+    }
+
+    const maxUnansweredSends = limits.maxUnansweredSends;
+    if (!instant && selfScheduled
       && countUnansweredSends(selfLog) >= maxUnansweredSends) {
       console.log('[amsg:unanswered-limit-skip]', {
         taskId: ctx.task.id,
@@ -1799,15 +1970,65 @@ export const amsgHooks = {
       return { skip: true } as const;
     }
 
+    // 兩條之間的間隔·到點兜底閘：只管角色自排的。排程時已經按間隔打回過一輪，這裡兜住的
+    // 是間隔調大之前就排下的、以及雲端自排還沒被客戶端認領的那些。留一點寬限（見
+    // FIRE_GAP_TOLERANCE_MS），正好卡著間隔排下的那條不會被自己的上一條判成太近。
+    // 錨點用那一條開始生成的時刻（startedAt）：排程時拿的也是開始時刻，用發完的時刻比
+    // 會平白差出一整次生成的時長。同一次觸發重跑時，日誌裡那條就是它自己，不算。
+    const occurrenceEntryId = `${clientTaskId || 'task'}@${occurrenceMs}`;
+    const lastSelfSendAt = selfLog.entries
+      .filter((e) => !e.reply && e.id !== occurrenceEntryId)
+      .map((e) => e.startedAt ?? e.at)
+      .reduce<number | null>((latest, at) => (latest == null || at > latest ? at : latest), null);
+    if (!instant && selfScheduled && limits.minSendGapMs > 0 && lastSelfSendAt != null
+      && nowMs < lastSelfSendAt + limits.minSendGapMs - FIRE_GAP_TOLERANCE_MS) {
+      console.log('[amsg:min-gap-skip]', {
+        taskId: ctx.task.id, charId, lastSelfSendAt, gapMs: limits.minSendGapMs,
+      });
+      await recordSkip(ctx, charId, 'min-gap', occurrenceMs);
+      return { skip: true } as const;
+    }
+
+    // 重複的消息連續幾次沒人回就先停（用戶面板排的和角色排的都算）。跳過重複任務只是把
+    // 排期推到下一次，不花 token；用戶一開口計數清零，下一次照常發。
+    if (!instant && recurring && Number.isFinite(limits.recurringStopAfter)
+      && countRecurringSends(selfLog, clientTaskId) >= limits.recurringStopAfter) {
+      console.log('[amsg:recurring-unanswered-skip]', {
+        taskId: ctx.task.id, charId, sends: countRecurringSends(selfLog, clientTaskId),
+        stopAfter: limits.recurringStopAfter,
+      });
+      await recordSkip(ctx, charId, 'recurring-unanswered', occurrenceMs);
+      return { skip: true } as const;
+    }
+
+    // 每日上限：用戶面板排的也算（用戶自己選的口徑），即時對話不算——那是正常聊天。
+    // 「今天」按用戶那邊的日期：這是用戶的錢包閘，跟角色活在哪個時區無關。
+    const dailyDay = dayKeyInZone(nowMs, pack.userTzId);
+    const dailySends = parseDailySends(charRows.find((r) => r.key === AMSG_DAILY_SENDS_KEY)?.value);
+    const sentToday = sendsOnDay(dailySends, dailyDay);
+    if (!instant && sentToday >= limits.dailySendCap) {
+      console.log('[amsg:daily-limit-skip]', {
+        taskId: ctx.task.id, charId, day: dailyDay, sentToday, cap: limits.dailySendCap,
+      });
+      await recordSkip(ctx, charId, 'daily-limit', occurrenceMs);
+      return { skip: true } as const;
+    }
+
     // 客戶端記錄的（打包那一刻的快照）+ 角色自己在之前幾次 fire 裡排下、客戶端還沒認領的。
     // 後者不補上的話，角色排完一條、下次到點又看不見它，很容易把同一件事再排一遍。
     const livePendingTasks = [...pack.pendingTasks, ...selfLog.tasks];
+    // 算額度和名額時要扣掉正在觸發的這一條一次性任務：它發完就沒了，而「正在發的這一條」
+    // 在連發額度裡另外單獨算了一次（見 countCommittedSelfSends）——不扣就是同一條算兩遍。
+    // 重複任務發完還在，照舊佔著名額。
+    const otherLiveTasks = livePendingTasks.filter((t) => recurring
+      || (t.taskUuid !== ctx.task.uuid && (!clientTaskId || t.clientTaskId !== clientTaskId)));
 
     // 角色級 2.0 開關（pack.selfScheduleEnabled，打包時取 isAmsg2EnabledForChar）。
     // 關著 = 排程說明塊、排程工具、任務清單一概不注入：本地路徑這道閘在 useChatAI 的
     // amsg2ToolsInjected——用戶顯式關掉的功能不能被雲端聊天輪繞開重排任務。
     // 必填字段（parseFirePack 把關），不做缺省——這道閘缺省放行就是 fail-open。
-    const selfScheduleAllowed = pack.selfScheduleEnabled;
+    // limits 那份更新得更快（關 2.0 時第一個寫的就是它），任一說關就是關。
+    const selfScheduleAllowed = !scheduleOff;
 
     // 老 worker 部署（amsg-server < 2.6.0-next.9）沒有這個口子。教了也排不成，
     // 只會讓角色說「我等下再找你」然後沒有下文——乾脆不教。
@@ -1816,14 +2037,13 @@ export const amsgHooks = {
     // 角色的時間參照系：fire_pack 的 tzId（parseFirePack 保證非空，Intl 管夏令時）。
     const tz: AmsgTzRef = { tzId: pack.tzId };
 
-    // 任務歸屬鍵：self_log 的條目 id、以及「排程清單裡排除掉自己這條」都用它。
-    const clientTaskId = typeof taskMeta.amsgClientTaskId === 'string' ? taskMeta.amsgClientTaskId : '';
-
     const { toolCtx, proxyWorkerUrl, xhsCookie } = buildToolCtx(toolPack, toolConfig);
     // 連發額度裡「先前排了還沒響」那一份的快照：條數進 plannedSelfSends，uuid 留一份
     // 給排程閘退額度用（本輪取消掉快照裡的任務時按交集抵扣，cancel + 重排額度中性）。
-    const plannedSelfSendTasks = livePendingTasks
-      .filter((t) => t.source === 'character' && isPendingTask(t, ctx.now.getTime()));
+    const plannedSelfSendTasks = otherLiveTasks
+      .filter((t) => t.source === 'character' && isPendingTask(t, ctx.now.getTime())
+        // 正在觸發的這條重複任務，下一次要等下個週期，不算「用戶沒回期間還要發的」。
+        && t.taskUuid !== ctx.task.uuid);
     // 顯式標註而不是 satisfies：下面即時對話那一支要往 emotionEvalPromise 上寫 promise，
     // 用 satisfies 的話這個字段會被推成字面量 null 類型，寫不進去。
     const stash: FireStash = {
@@ -1841,14 +2061,20 @@ export const amsgHooks = {
       mcpSpentMs: 0,
       // 「還能不能再排」按客戶端已知的 + 角色自己排過還沒被認領的一起算，
       // 不然角色離線期間連排幾次就能繞過每角色的任務上限。
-      pendingTaskCount: livePendingTasks.length,
+      pendingTaskCount: otherLiveTasks.length,
       pendingTasks: livePendingTasks,
       scheduledTasks: [],
       // 序號與 scheduledTasks 一樣從空帳起步；此後只增不減（取消不回退，見字段註釋）。
       selfScheduleSeq: 0,
       cancelledTasks: [],
       renewedTasks: [],
-      maxUnansweredSends,
+      limits,
+      lastSelfSendAt,
+      recurring,
+      dailyDay,
+      dailySends,
+      dailyCounted: false,
+      firedAt: nowMs,
       plannedSelfSends: plannedSelfSendTasks.length,
       plannedSelfSendUuids: plannedSelfSendTasks.map((t) => t.taskUuid),
       charId,
@@ -1913,14 +2139,33 @@ export const amsgHooks = {
     // 跟 MCP 共用一個 native/text 判斷：用戶的中轉拒 tools 時兩邊都得改教正文協議，
     // 不然一邊聲明成 tools、一邊教語法，模型會兩種都寫一遍。
     // 時間上下文讓 send_at 的示例是「明天這個點」的裸牆鍾，別再教模型寫 offset。
-    const scheduleBlock = canSelfSchedule
-      ? buildFireScheduleBlock(mcpNative ? 'native' : 'text', { nowMs: ctx.now.getTime(), tz })
+    //
+    // 塊尾接「用戶給你定的規矩」：還能再排幾條、最早排到幾點、今天還剩幾條。額度擺在它
+    // 面前，比讓它排了再被打回省一輪；真超了照樣由排程工具打回。
+    const limitsBrief = canSelfSchedule
+      ? buildLimitsBrief({
+        limits,
+        committedSends: countCommittedSelfSends(stash),
+        activeTasks: otherLiveTasks.length,
+        earliestText: limits.minSendGapMs > 0
+          ? formatFireTimeShort(earliestSlotAfter(
+            nowMs + MIN_SCHEDULE_LEAD_MS, limits.minSendGapMs, selfScheduleBusyTimes(stash, nowMs)), tz)
+          : undefined,
+        // 正在發的這一條（定時觸發）發完就佔掉今天的一個名額。
+        dailyRemaining: Number.isFinite(limits.dailySendCap)
+          ? Math.max(0, limits.dailySendCap - sentToday - (instant ? 0 : 1))
+          : undefined,
+      })
       : '';
+    const scheduleBlock = canSelfSchedule
+      ? buildFireScheduleBlock(mcpNative ? 'native' : 'text', { nowMs: ctx.now.getTime(), tz, limitsBrief })
+      : '';
+    const abilities = { allowRecurring: limits.allowSelfRecurring, allowForce: limits.allowSelfForce };
 
     const fireTools = [
       ...(mcpResolve && mcpNative ? buildMcpFireTools(mcpResolve) : []),
       ...(canSelfSchedule && mcpNative
-        ? [buildFireScheduleTool({ nowMs: ctx.now.getTime(), tz })]
+        ? [buildFireScheduleTool({ nowMs: ctx.now.getTime(), tz, abilities })]
         : []),
       ...(canManageTasks
         ? [buildFireCancelTool(), buildFireRenewTool({ nowMs: ctx.now.getTime(), tz })]
@@ -2013,6 +2258,7 @@ export const amsgHooks = {
     // fire_pack v3：「本次任務」指令隨任務 metadata 走，這裡填槽。
     // MCP 塊拼在渲染好的 prompt 之後（同一條 user 消息）。
     const prompt = renderFirePack(pack, ctx.now.getTime(), taskMeta.amsgTaskInstruction as string, {
+      maxUnansweredSends,
       selfLog,
       taskListBlock,
       realtimeWorldBlock,

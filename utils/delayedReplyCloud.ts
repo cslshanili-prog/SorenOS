@@ -107,8 +107,9 @@ export function takeDueDelayedRepliesForLocal(visible: boolean): string[] {
 /**
  * 交了雲端、過點好一陣子還沒收到回覆的：問雲端那條怎麼了。
  * - 還在排隊 / 重試 → 繼續等；
- * - 行沒了 → 已經發過（推播或補收會送到），這筆銷掉；但角色的 2.0 已經被關掉的話，
- *   那多半是跟著「取消全部」被掐掉的，改由本地回；
+ * - 行沒了 → 已經發過（推播或補收會送到），這筆銷掉；但 Worker 留了這條的跳過紀錄
+ *  （last_skip，例如每日上限滿了），或角色的 2.0 已經被關掉（多半是跟著「取消全部」被掐掉），
+ *   就改由本地回；
  * - 失敗了 → 本地回。
  * 問不到就下次再問。回傳要由本地回的角色 id。
  */
@@ -125,9 +126,12 @@ export async function resolveOverdueCloudDelayedReplies(
         try {
             const status = await ActiveMsgClient.getRemoteTaskStatus(uuid);
             if (status.state === 'pending') continue;
+            // 行沒了也可能是被 Worker 的閘跳過（主動頻率的每日上限等）：跳過會留一筆 last_skip
+            const skipped = status.state === 'gone'
+                && (await ActiveMsgClient.readLastSkip(charId).catch(() => null))?.taskUuid === uuid;
             takeDelayedReply(charId);
             lastStatusCheck.delete(uuid);
-            if (status.state === 'completed' || !char || !isAmsg2EnabledForChar(char)) local.push(charId);
+            if (status.state === 'completed' || skipped || !char || !isAmsg2EnabledForChar(char)) local.push(charId);
         } catch (e) {
             console.warn('[延遲自動回覆] 問不到雲端任務狀態，稍後再問', uuid, e);
         }

@@ -18,7 +18,16 @@ import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { ActiveMsgClient, getDefaultActiveMsgFirstSendTime } from '../../utils/activeMsgClient';
 import { ActiveMsgStore } from '../../utils/activeMsgStore';
-import { type AmsgLastSkip, DEFAULT_MAX_UNANSWERED_SENDS, describeLastSkip } from '../../utils/amsgFirePack';
+import { type AmsgLastSkip, describeLastSkip } from '../../utils/amsgFirePack';
+import {
+  type AmsgDailySends,
+  type AmsgPacingSettings,
+  dayKeyInZone,
+  describeMinutes,
+  pickPacingSettings,
+  resolveAmsgLimits,
+} from '../../utils/amsgLimits';
+import ActiveMsg2PacingModal from './ActiveMsg2PacingModal';
 import { isInstantChatReady } from '../../utils/amsgInstantChat';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
@@ -83,6 +92,17 @@ const RECURRENCE_OPTIONS = [
   { id: 'weekly', label: '每週' },
 ] as const;
 
+/** 「主動頻率」卡片上那一行摘要：只挑三項最能說明「多久找你一次」的。 */
+const describePacingSummary = (config: AmsgPacingSettings | undefined): string => {
+  const limits = resolveAmsgLimits(config);
+  const gapMinutes = Math.round(limits.minSendGapMs / 60_000);
+  return [
+    Number.isFinite(limits.maxUnansweredSends) ? `沒回最多連發 ${limits.maxUnansweredSends} 條` : '沒回也不限條數',
+    gapMinutes > 0 ? `至少隔 ${describeMinutes(gapMinutes)}` : '間隔不限',
+    Number.isFinite(limits.dailySendCap) ? `每天最多 ${limits.dailySendCap} 次` : '每天不限',
+  ].join(' · ');
+};
+
 const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   isOpen,
   onClose,
@@ -113,10 +133,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [userMessage, setUserMessage] = useState('');
   const [promptHint, setPromptHint] = useState('');
   const [maxTokens, setMaxTokens] = useState(String(saved?.maxTokens ?? ''));
-  // '' = 沒設（用默認值）；'0' = 不限；其餘 1-10。
-  const [maxUnanswered, setMaxUnanswered] = useState(
-    saved?.maxUnansweredSends === undefined ? '' : String(saved.maxUnansweredSends),
-  );
+  // 「主動頻率」那一頁開沒開（它自帶保存按鈕，見 ActiveMsg2PacingModal）。
+  const [pacingOpen, setPacingOpen] = useState(false);
   const [useSecondaryApi, setUseSecondaryApi] = useState(saved?.useSecondaryApi ?? false);
   const [secUrl, setSecUrl] = useState(saved?.secondaryApi?.baseUrl ?? '');
   const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
@@ -149,6 +167,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   }> | null>(null);
   // 防穿幫閘最近一次跳過的記錄（worker 寫的）。null = 沒有記錄 / 沒讀到。
   const [lastSkip, setLastSkip] = useState<AmsgLastSkip | null>(null);
+  // 今天主動找了幾次（worker 每次發完累加的那份）。null = 沒有記錄 / 沒讀到。
+  const [dailySends, setDailySends] = useState<AmsgDailySends | null>(null);
 
   // 表單值重置：面板打開或切換編輯對象時，用被編輯任務的字段填表單（新建則填默認值）。
   // 角色級共享設置（maxTokens / 單獨 API）始終跟隨保存值。
@@ -162,7 +182,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setEnabled(isAmsg2EnabledForChar(char));
     setInstantChatOn(config?.instantChatEnabled !== false);
     setMaxTokens(config?.maxTokens ? String(config.maxTokens) : '');
-    setMaxUnanswered(config?.maxUnansweredSends === undefined ? '' : String(config.maxUnansweredSends));
     setUseSecondaryApi(config?.useSecondaryApi ?? false);
     setSecUrl(config?.secondaryApi?.baseUrl ?? '');
     setSecKey(config?.secondaryApi?.apiKey ?? '');
@@ -192,6 +211,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   // 打開面板時的 push 狀態檢查 + 遠端對帳（只隨 isOpen / 角色變化跑，不隨編輯對象重複請求）。
   useEffect(() => {
     if (!isOpen) return;
+    // 「主動頻率」那一頁每次都從關著開始，別帶著上回沒關的狀態直接彈出來。放在這個只認
+    // 「打開」的 effect 裡：放進上面那個的話，角色在聊天裡排一條任務都會把它關掉。
+    setPacingOpen(false);
     setKnownRemoteUuids(null);
     setRemoteTaskInfo(null);
 
@@ -207,9 +229,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         : '當前環境不支持 Web Push');
     })();
 
-    // 防穿幫閘最近攔下了哪次觸發。閘是靜默的，不說一聲的話「讓路了」在用戶看來
-    // 跟「沒發出去」一模一樣。
-    void (async () => setLastSkip(await ActiveMsgClient.readLastSkip(char.id)))();
+    // 防穿幫閘最近攔下了哪次觸發、今天主動找了幾次。閘是靜默的，不說一聲的話「讓路了」
+    // 在用戶看來跟「沒發出去」一模一樣；次數擺出來，用戶才知道上限是不是在起作用。
+    setDailySends(null);
+    void (async () => {
+      const status = await ActiveMsgClient.readPanelStatus(char.id);
+      setLastSkip(status.lastSkip);
+      setDailySends(status.dailySends);
+    })();
 
     void (async () => {
       let remote: Set<string>;
@@ -255,7 +282,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
 
   /**
    * 拼一份要落盤的 config：
-   *   - 角色級共享設置（enabled / maxTokens / 單獨 API）以面板表單為準——只有面板編輯它們；
+   *   - 角色級共享設置（maxTokens / 單獨 API）以面板表單為準——只有面板編輯它們；
    *   - 任務清單以「落盤那一刻的最新清單」為準，面板只通過 tasksOf 聲明自己動了哪一條。
    * 別把渲染時的 tasks 整份傳下去，原因見 onSave 的註釋。
    */
@@ -264,12 +291,15 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     tasksOf: (prevTasks: ActiveMsg2TaskRecord[]) => ActiveMsg2TaskRecord[],
     extra?: Partial<ActiveMsg2CharacterConfig>,
   ): ActiveMsg2CharacterConfig => ({
-    enabled: true,
+    // 開關以已保存的為準：關著 2.0 時任務列表照樣列出來、照樣能單獨取消，取消完落盤
+    // 不能順手把 2.0 又打開。要開 / 要關的地方各自經 extra 顯式給。
+    enabled: prev ? prev.enabled : true,
     tasks: tasksOf(prev?.tasks ?? []),
+    // 「主動頻率」那幾項由它自己那一頁保存，這裡原樣帶著最新的，別被表單蓋掉。
+    ...pickPacingSettings(prev),
     // 開著就存 undefined（= 跟隨全局默認開），只有顯式關掉才落 false。
     instantChatEnabled: instantChatOn ? undefined : false,
     maxTokens: maxTokens.trim() ? Number(maxTokens) : undefined,
-    maxUnansweredSends: maxUnanswered === '' ? undefined : Number(maxUnanswered),
     useSecondaryApi: useSecondaryApi && !!secUrl,
     secondaryApi: useSecondaryApi && secUrl
       ? { baseUrl: secUrl.trim(), apiKey: secKey.trim(), model: secModel.trim() }
@@ -358,9 +388,75 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const handleToggleEnabled = () => {
     const turningOn = !enabled;
     setEnabled(!enabled);
-    // 順手把面板上其它角色級設置（maxTokens / 連發上限 / 單獨 API）一起帶上，與
+    // 順手把面板上其它角色級設置（maxTokens / 單獨 API）一起帶上，與
     // buildConfig 的口徑一致：這幾項本來就只有面板會寫。
-    if (turningOn) onSave((prev) => buildConfig(prev, (list) => list));
+    if (turningOn) {
+      onSave((prev) => buildConfig(prev, (list) => list, { enabled: true }));
+      // 上次關 2.0 時雲端那份「頻率與額度」被寫成了關，這裡立刻改回開。不等也不報錯：
+      // 真到要用它的時候（排任務 / 雲端聊天）每次都會連同上下文再傳一份。
+      if (globalReady) {
+        void ActiveMsgClient.putCharLimits({
+          ...char,
+          activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: true }), enabled: true },
+        }).catch((error) => console.warn('[ActiveMsg2Settings] 打開 2.0 時同步主動頻率失敗（下次上傳會帶上）', error));
+      }
+    }
+  };
+
+  /**
+   * 保存「主動頻率」那一頁。
+   *
+   * 先落本地，再單獨把這份設置傳上雲——不等下一次上下文同步：那一份要「有待發任務、
+   * 聊完一輪」才會重傳，而角色在雲端給自己排、手機還沒收到的那些任務，要的正是現在
+   * 這份上限。傳失敗不回滾本地：下一次上下文同步會連同它一起帶上，這裡說一聲就行。
+   *
+   * 關掉「可以排重複的」時，把 TA 現在排著的重複消息一起取消（頁面上已經提前說了）。
+   */
+  const handleSavePacing = async (next: AmsgPacingSettings): Promise<boolean> => {
+    const wasAllowingRecurring = resolveAmsgLimits(saved).allowSelfRecurring;
+    const toCancel = wasAllowingRecurring && !next.allowSelfRecurring
+      ? tasks.filter((t) => t.source === 'character' && t.recurrenceType !== 'none'
+        && isPendingTask(t, Date.now()))
+      : [];
+
+    onSave((prev) => ({ ...(prev ?? { enabled: true }), ...next }));
+
+    let synced = true;
+    if (globalReady) {
+      try {
+        await ActiveMsgClient.putCharLimits({
+          ...char,
+          activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: true }), ...next },
+        });
+      } catch (error) {
+        console.warn('[ActiveMsg2Settings] 主動頻率同步到雲端失敗', error);
+        synced = false;
+      }
+    }
+
+    const failed = new Set<string>();
+    for (const t of toCancel) {
+      try { await ActiveMsgClient.cancelTask(t.taskUuid); } catch { failed.add(t.taskUuid); }
+    }
+    if (toCancel.length) {
+      const cancelled = toCancel.filter((t) => !failed.has(t.taskUuid));
+      await writeCancelledNotices(cancelled);
+      setKnownRemoteUuids((prev) => applyRemoteTaskDelta(prev, { gone: cancelled.map((t) => t.taskUuid) }));
+      onSave((prev) => buildConfig(prev, (list) => list
+        .filter((x) => !cancelled.some((c) => c.taskUuid === x.taskUuid))
+        .map((x) => (failed.has(x.taskUuid) ? { ...x, lastError: '遠端取消失敗，可重試' } : x))));
+    }
+
+    if (failed.size) {
+      addToast(`主動頻率已保存，但有 ${failed.size} 條重複消息沒能取消，可以在任務列表裡單獨取消。`, 'error');
+    } else if (!synced) {
+      addToast('主動頻率已保存在本機，這次沒同步到雲端，下次同步時會自動帶上。', 'error');
+    } else {
+      addToast(toCancel.length
+        ? `主動頻率已保存，TA 排著的 ${toCancel.length} 條重複消息已取消。`
+        : '主動頻率已保存。', 'info');
+    }
+    return true;
   };
 
   /**
@@ -435,6 +531,19 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setIsSubmitting(true);
     try {
       if (!enabled) {
+        // 第一件事：告訴雲端這個角色關了。下面逐條取消要花幾秒，這期間正在跑的那一輪
+        // （尤其是即時對話——它不在取消範圍裡）還可能順手給自己排一條；雲端先知道「關了」，
+        // 這種漏網的到點就會被直接跳過。傳不上去也照樣往下關：取消本身才是主線。
+        if (globalReady) {
+          try {
+            await ActiveMsgClient.putCharLimits({
+              ...char,
+              activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: false }), enabled: false },
+            });
+          } catch (error) {
+            console.warn('[ActiveMsg2Settings] 關閉 2.0 時沒能先通知雲端（照常取消任務）', error);
+          }
+        }
         // 關閉 2.0 = 取消該角色全部遠端任務（遠端清單優先的口徑見 cancelAllTasksForChar，
         // 與刪角色共用一份）。取消失敗的保留在本地清單裡，下次重開面板可重試。
         const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(
@@ -559,7 +668,20 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     }
   };
 
+  // 「今天」按這台設備的日期（worker 記帳用的也是打包設備的時區，兩邊對得上）。
+  const todayCount = dailySends
+    && dailySends.day === dayKeyInZone(now, Intl.DateTimeFormat().resolvedOptions().timeZone)
+    ? dailySends : null;
+  const todayLine = todayCount && todayCount.sends > 0
+    ? `今天 TA 已主動找你 ${todayCount.sends} 次`
+      + (todayCount.llmCalls ? `，後台一共調用了 ${todayCount.llmCalls} 次 AI` : '')
+    : null;
+  // 關掉「可以排重複的」時會一起取消的那幾條（在那一頁上提前說）。
+  const selfRecurringTaskCount = tasks.filter((t) => t.source === 'character'
+    && t.recurrenceType !== 'none' && isPendingTask(t, now)).length;
+
   return (
+    <>
     <Modal
       isOpen={isOpen}
       title="主動消息 2.0"
@@ -621,6 +743,28 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </button>
         </div>
 
+        {/* 「主動頻率」：幾條上限集中在自己那一頁改、自己那一頁存，這裡只放一行摘要。
+            今天主動找了幾次擺在摘要下面——上限是不是在起作用，用戶一眼能看到。 */}
+        {enabled ? (
+          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-4">
+            <div className="min-w-0 pr-3">
+              <div className="font-bold text-slate-700">主動頻率</div>
+              <div className="text-xs text-slate-400 mt-1 leading-relaxed">{describePacingSummary(saved)}</div>
+              {todayLine ? <div className="text-xs text-fuchsia-600 mt-1 leading-relaxed">{todayLine}</div> : null}
+              {/* 「可以排重複的」沒開、TA 名下卻還掛著重複消息（多半是這項設置出現之前排的）：
+                  這些到點會被跳過。不替用戶刪，說清楚兩條路讓用戶自己選。 */}
+              {selfRecurringTaskCount > 0 && !resolveAmsgLimits(saved).allowSelfRecurring ? (
+                <div className="text-xs text-amber-600 mt-1 leading-relaxed">
+                  TA 之前排的 {selfRecurringTaskCount} 條重複消息不會再發了。想留著，就在「調整」裡打開「可以排每天、每週重複的消息」；不要了，可以在下面的列表裡取消。
+                </div>
+              ) : null}
+            </div>
+            <button onClick={() => setPacingOpen(true)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs shrink-0">
+              調整
+            </button>
+          </div>
+        ) : null}
+
         {/* 閘攔下一次觸發時不發任何推送，遠端那行任務卻照樣被消費掉——不說一聲的話，
             「讓路了」在用戶看來跟「沒發出去 / 功能壞了」完全一樣。 */}
         {enabled && lastSkip ? (
@@ -629,7 +773,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </div>
         ) : null}
 
-        {enabled && tasks.length > 0 ? (
+        {/* 關著 2.0 也照樣列出來：關閉時沒取消掉的任務還會響，藏起來的話用戶只能對著
+            一個空面板盲點「關閉 2.0」重試。關著時只給「取消」，不給編輯。 */}
+        {tasks.length > 0 ? (
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">
               任務列表（{tasks.length}）
@@ -679,7 +825,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         ) : null}
                       </div>
                       <div className="flex gap-2 shrink-0 ml-2">
-                        <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">編輯</button>
+                        {enabled ? (
+                          <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">編輯</button>
+                        ) : null}
                         <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 font-bold">取消</button>
                       </div>
                     </div>
@@ -807,26 +955,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             )}
 
             <div className="pt-1 border-t border-slate-100">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">連發上限</label>
-              <select
-                value={maxUnanswered}
-                onChange={(event) => setMaxUnanswered(event.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm"
-              >
-                <option value="">默認（{DEFAULT_MAX_UNANSWERED_SENDS} 條）</option>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={String(n)}>{n} 條</option>
-                ))}
-                <option value="0">不限</option>
-              </select>
-              <p className="text-xs text-slate-400 mt-1.5 pl-1 leading-relaxed">
-                你沒回消息的時候，TA 最多連續主動發幾條——這就是 TA 能連續主動發言的次數上限（包括
-                TA 給自己排的後續）。到上限後 TA 自己排的會暫停，你回一句就重新計數；你在這個面板裡
-                親手排的任務不受它限制。比如你倆有時差、想讓 TA 在你睡覺時每隔一陣報備一句，就把這裡調大些。
-              </p>
-            </div>
-
-            <div className="pt-1 border-t border-slate-100">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="font-bold text-slate-700">使用單獨 API</div>
@@ -943,6 +1071,16 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         ) : null}
       </div>
     </Modal>
+    {/* 跟主面板並排渲染而不是塞進它裡面：Modal 的卡片帶進場動畫（transform），嵌在裡面的
+        fixed 浮層會被困在卡片裡、跟著裁掉。後渲染的這個自然蓋在上面。 */}
+    <ActiveMsg2PacingModal
+      isOpen={isOpen && pacingOpen}
+      onClose={() => setPacingOpen(false)}
+      initial={pickPacingSettings(saved)}
+      selfRecurringTaskCount={selfRecurringTaskCount}
+      onSubmit={handleSavePacing}
+    />
+    </>
   );
 };
 

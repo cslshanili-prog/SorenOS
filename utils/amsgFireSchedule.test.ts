@@ -162,10 +162,28 @@ describe('extractFireScheduleTextCalls', () => {
 });
 
 describe('工具與說明塊', () => {
-  const timeOpts = { nowMs: NOW, tz: TZ };
+  const allAbilities = { allowRecurring: true, allowForce: true };
+  const timeOpts = { nowMs: NOW, tz: TZ, abilities: allAbilities };
 
   it('工具名與前台一致（角色不用學第二套）', () => {
     expect(buildFireScheduleTool(timeOpts).function.name).toBe('schedule_active_message');
+  });
+
+  // 用戶沒放開的能力，參數乾脆不出現：擺在簽名裡等於邀請模型去選，選了再被打回白費一輪。
+  it('用戶沒放開「重複」「到點必發」時，簽名裡沒有這兩個參數', () => {
+    const locked = buildFireScheduleTool({ ...timeOpts, abilities: { allowRecurring: false, allowForce: false } });
+    const props = (locked.function.parameters as any).properties;
+    expect(props).not.toHaveProperty('recurrence');
+    expect(props).not.toHaveProperty('expire_policy');
+    expect(props).toHaveProperty('send_at');
+    const open = (buildFireScheduleTool(timeOpts).function.parameters as any).properties;
+    expect(open).toHaveProperty('recurrence');
+    expect(open).toHaveProperty('expire_policy');
+  });
+
+  it('規矩那一段接在說明塊尾巴上', () => {
+    expect(buildFireScheduleBlock('native', { ...timeOpts, limitsBrief: '用戶給你定的規矩：X' }))
+      .toMatch(/用戶給你定的規矩：X$/);
   });
 
   it('native 模式不教正文語法，text 模式才教', () => {
@@ -183,7 +201,7 @@ describe('工具與說明塊', () => {
   // ③：示例從寫死的 `2026-07-30T23:30:00+08:00` 改成按 nowMs+tz 現算的「明天這個點」
   // 裸牆鍾——教模型寫 offset 的話，它寫的 offset 和角色時區對不上時又是一筆糊塗帳。
   it('send_at 示例是「明天這個點」的裸牆鍾，隨 tz 走、不帶 offset', () => {
-    const tool = buildFireScheduleTool({ nowMs: NOW, tz: { tzId: 'Asia/Tokyo' } });
+    const tool = buildFireScheduleTool({ nowMs: NOW, tz: { tzId: 'Asia/Tokyo' }, abilities: allAbilities });
     const desc = (tool.function.parameters as any).properties.send_at.description as string;
     // NOW = 2026-07-30T12:00Z → 東京 21:00，明天這個點 = 07-31T21:00:00
     expect(desc).toContain('2026-07-31T21:00:00');

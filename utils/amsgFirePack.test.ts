@@ -227,14 +227,6 @@ describe('parseFirePack', () => {
     expect(parseFirePack(JSON.stringify({ ...valid, lastUserMessageAt: 123 }))?.lastUserMessageAt).toBe(123);
   });
 
-  it('maxUnansweredSends 可選：缺省合法、非負數字透傳、壞值整包打回', () => {
-    expect(parseFirePack(JSON.stringify(valid))?.maxUnansweredSends).toBeUndefined();
-    expect(parseFirePack(JSON.stringify({ ...valid, maxUnansweredSends: 5 }))?.maxUnansweredSends).toBe(5);
-    expect(parseFirePack(JSON.stringify({ ...valid, maxUnansweredSends: 0 }))?.maxUnansweredSends).toBe(0);
-    expect(parseFirePack(JSON.stringify({ ...valid, maxUnansweredSends: '5' }))).toBeNull();
-    expect(parseFirePack(JSON.stringify({ ...valid, maxUnansweredSends: -1 }))).toBeNull();
-  });
-
   it('tzId 必填：缺失 / 空串 / 非字符串整包打回（渲染時間沒有第二套算法可退）', () => {
     expect(parseFirePack(JSON.stringify({ ...valid, tzId: 'Asia/Tokyo' }))?.tzId).toBe('Asia/Tokyo');
     const { tzId: _tz, ...noTzId } = valid;
@@ -531,18 +523,24 @@ describe('連發提醒（自述塊內的計數與上限）', () => {
     expect(rendered).toContain(`上限 ${DEFAULT_MAX_UNANSWERED_SENDS} 條`);
   });
 
-  it('pack 帶用戶自設上限時按用戶的來；0（不限）不渲染上限半句', () => {
+  it('按傳進來的用戶上限渲染；不限（Infinity）不渲染上限半句', () => {
     let log = createSelfLog(packAt);
     log = appendSelfLogEntry(log, entry('t1@1', '第一條'));
-    const custom = renderFirePack(
-      { ...slotted, maxUnansweredSends: 8 }, packAt + 60_000, '指令', { selfLog: log },
-    );
+    const custom = renderFirePack(slotted, packAt + 60_000, '指令', { selfLog: log, maxUnansweredSends: 8 });
     expect(custom).toContain('上限 8 條');
-    const unlimited = renderFirePack(
-      { ...slotted, maxUnansweredSends: 0 }, packAt + 60_000, '指令', { selfLog: log },
-    );
+    const unlimited = renderFirePack(slotted, packAt + 60_000, '指令', { selfLog: log, maxUnansweredSends: Infinity });
     expect(unlimited).toContain('你已連發 1 條');
     expect(unlimited).not.toContain('上限');
+  });
+
+  // 迴歸守衛：到上限之後自排的後續是跳過、不補發。以前寫成「會暫停、等對方回覆才恢復」，
+  // 角色讀了以為排著的話遲早會說出去，照樣對用戶許諾。
+  it('上限說明講的是「跳過、不補發」，不是「暫停後恢復」', () => {
+    let log = createSelfLog(packAt);
+    log = appendSelfLogEntry(log, entry('t1@1', '第一條'));
+    const rendered = renderFirePack(slotted, packAt + 60_000, '指令', { selfLog: log, maxUnansweredSends: 3 });
+    expect(rendered).toContain('跳過、不補發');
+    expect(rendered).not.toContain('暫停');
   });
 
   it('只有即時回覆（reply 條目）→ 列出但不算連發，不出現計數行', () => {
