@@ -43,6 +43,14 @@ export const readTaskKind = (metadata: Record<string, unknown> | null | undefine
  */
 export const AMSG_BACKGROUND_JOB_SUBTYPE = 'job';
 
+/**
+ * 延遲自動回覆交給雲端的那種任務的 `messageSubtype`（見 utils/delayedReplyCloud.ts）。
+ *
+ * 它借的是一次性 prompted 任務的殼，但不是角色或用戶排的主動消息：對帳時同樣擋在任務
+ * 清單外面，不然用戶會在面板裡看到一條自己沒排過的「待觸發」。
+ */
+export const AMSG_DELAYED_REPLY_SUBTYPE = 'delayed-reply';
+
 // ─── 一次性輸入的雲端抽屜 ─────────────────────────────
 
 /**

@@ -32,6 +32,7 @@ import { APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile 
 import { ActiveMsgClient, isLlmCredentialsReady, owesInstantChatReply } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import { hasActiveAiTask } from './amsg2Tasks';
+import { hasCloudDelayedReply } from './delayedReply';
 import { AmsgChatPresence, CHAT_PRESENCE_HEARTBEAT_MS } from './amsgChatPresence';
 import {
   buildCharChatCredRow,
@@ -142,10 +143,14 @@ const bindLifecycleListener = () => {
   });
 };
 
-/** 一輪聊完（或角色資料變更後）打髒標記；非 amsg2 AI 任務角色直接忽略。 */
+/**
+ * 一輪聊完（或角色資料變更後）打髒標記；非 amsg2 AI 任務角色直接忽略。
+ * 交了雲端的延遲自動回覆也算：那條任務不在任務清單裡，但到點讀的就是這份 fire_pack，
+ * 用戶在等回覆期間又傳的訊息得跟著傳上去（見 utils/delayedReplyCloud.ts）。
+ */
 export const markAmsgStateDirty = (snapshot: AmsgSyncSnapshot) => {
   const config = snapshot.char.activeMsg2Config;
-  if (!config?.enabled || !hasActiveAiTask(config)) return;
+  if (!config?.enabled || !(hasActiveAiTask(config) || hasCloudDelayedReply(snapshot.char.id))) return;
 
   dirty.set(snapshot.char.id, snapshot);
   persistDirtyMark(snapshot.char.id);

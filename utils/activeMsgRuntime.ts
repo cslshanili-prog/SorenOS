@@ -2,6 +2,7 @@ import { loadCharacterContextMessages } from './chatContextRange';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
+import { settleCloudDelayedReply } from './delayedReply';
 import { ActiveMsgStore } from './activeMsgStore';
 import { ActiveMsgClient, type AmsgOutboxEntry, type RemoteTaskStatus } from './activeMsgClient';
 import { AMSG_CHAT_FAIL_KEY, AMSG_SELF_LOG_KEY, amsgStateNamespace, parseChatFailRecord, parseSelfLog } from './amsgFirePack';
@@ -1942,6 +1943,8 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger): Promise<string[]> =>
       // 走到這裡 = 這條真的落進聊天流了（主路徑落庫完 / 降級存了原稿）。上面每一個
       // continue 都是「沒上屏」：閘吞了、跟已有的重了、等前面的分段、壓回收件箱重試。
       landedMessageIds.push(message.messageId);
+      // 交給雲端的延遲自動回覆回來了（認任務 uuid）：這筆待回銷掉，本地到點就不會再回一次。
+      settleCloudDelayedReply(message.charId, message.taskUuid);
 
       // 不管走 post-processing 還是 raw fallback, 單條 inbox message 觸發一次 'active-msg-received',
       // 驅動 toast / 未讀 / 通知。body 用原文做預覽即可。

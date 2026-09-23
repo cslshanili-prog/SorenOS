@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    cancelDelayedReply, computeReplyDelayMs, getPendingDelayedReply, normalizeDelayedReply,
-    scheduleDelayedReply, takeDueDelayedReplies,
+    attachCloudToDelayedReply, cancelDelayedReply, computeReplyDelayMs, getPendingDelayedReply,
+    listOverdueCloudDelayedReplies, normalizeDelayedReply, scheduleDelayedReply, settleCloudDelayedReply,
+    takeDueDelayedReplies,
 } from './delayedReply';
 
 const settings = { enabled: true, minMinutes: 1, maxMinutes: 61 };
@@ -45,7 +46,7 @@ describe('待回清單', () => {
     it('到點的取出後移除，沒到點的留著', () => {
         scheduleDelayedReply('a', 1000, 0);
         scheduleDelayedReply('b', 10_000, 0);
-        expect(takeDueDelayedReplies(5000)).toEqual(['a']);
+        expect(takeDueDelayedReplies(5000).map(d => d.charId)).toEqual(['a']);
         expect(getPendingDelayedReply('a')).toBeNull();
         expect(getPendingDelayedReply('b')).not.toBeNull();
         expect(takeDueDelayedReplies(5000)).toEqual([]);
@@ -60,5 +61,45 @@ describe('待回清單', () => {
     it('壞掉的存檔當作空的', () => {
         localStorage.setItem('soren_delayed_replies', '{not json');
         expect(takeDueDelayedReplies()).toEqual([]);
+    });
+});
+
+describe('交給雲端的待回', () => {
+    beforeEach(() => localStorage.clear());
+
+    it('只記在同一筆上：dueAt 變了或已經記過就記不上', () => {
+        scheduleDelayedReply('a', 60_000, 0);
+        expect(attachCloudToDelayedReply('a', 999, { uuid: 'u1', sendAt: 120_000 })).toBe(false);
+        expect(attachCloudToDelayedReply('a', 60_000, { uuid: 'u1', sendAt: 120_000 })).toBe(true);
+        expect(attachCloudToDelayedReply('a', 60_000, { uuid: 'u2', sendAt: 120_000 })).toBe(false);
+        expect(attachCloudToDelayedReply('b', 60_000, { uuid: 'u3', sendAt: 120_000 })).toBe(false);
+        expect(getPendingDelayedReply('a')?.cloud?.uuid).toBe('u1');
+    });
+
+    it('頁面看得見、離雲端那條還遠：本地搶；太近或在背景：留給雲端', () => {
+        scheduleDelayedReply('a', 60_000, 0);
+        attachCloudToDelayedReply('a', 60_000, { uuid: 'u1', sendAt: 120_000 });
+        expect(takeDueDelayedReplies(70_000, { visible: false })).toEqual([]);
+        expect(takeDueDelayedReplies(105_000, { visible: true })).toEqual([]);
+        const taken = takeDueDelayedReplies(70_000, { visible: true });
+        expect(taken.map(d => d.entry.cloud?.uuid)).toEqual(['u1']);
+        expect(getPendingDelayedReply('a')).toBeNull();
+    });
+
+    it('雲端的回覆落地就銷帳，只認同一條任務', () => {
+        scheduleDelayedReply('a', 60_000, 0);
+        attachCloudToDelayedReply('a', 60_000, { uuid: 'u1', sendAt: 120_000 });
+        expect(settleCloudDelayedReply('a', 'other')).toBe(false);
+        expect(settleCloudDelayedReply('a', undefined)).toBe(false);
+        expect(settleCloudDelayedReply('a', 'u1')).toBe(true);
+        expect(getPendingDelayedReply('a')).toBeNull();
+    });
+
+    it('過點三分鐘還沒回覆的才列出來', () => {
+        scheduleDelayedReply('a', 60_000, 0);
+        attachCloudToDelayedReply('a', 60_000, { uuid: 'u1', sendAt: 120_000 });
+        scheduleDelayedReply('b', 60_000, 0);
+        expect(listOverdueCloudDelayedReplies(250_000)).toEqual([]);
+        expect(listOverdueCloudDelayedReplies(301_000).map(d => d.charId)).toEqual(['a']);
     });
 });

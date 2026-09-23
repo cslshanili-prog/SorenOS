@@ -18,7 +18,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { applyForcedReadNoReply } from '../utils/readNoReplyRuntime';
-import { cancelDelayedReply } from '../utils/delayedReply';
+import { cancelDelayedReplyEverywhere } from '../utils/delayedReplyCloud';
 import { checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麥當勞: useChatAI 現在只讀 McdMiniApp 當前快照注入 system prompt + 給 LLM 一個
@@ -617,8 +617,8 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean },
     ) => {
         if (isTyping || !char) return;
-        // 這一輪就是在回覆了：排著的延遲自動回覆（如果有）作廢，免得到點又多回一次
-        cancelDelayedReply(char.id);
+        // 這一輪就是在回覆了：排著的延遲自動回覆（如果有，連同交給雲端的那條）作廢，免得到點又多回一次
+        cancelDelayedReplyEverywhere(char.id);
         // 聊天設定 ·「已讀不回」：命中不回訊時段、或日程忙碌／睡覺（且沒交給角色決定）時，
         // 這一輪不發主回覆請求，只落自動回覆＋旁白（見 utils/readNoReplyRuntime.ts）。
         // 放在 API 檢查之前：強制不回本來就用不到主回覆的 API。
