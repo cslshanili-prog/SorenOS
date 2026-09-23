@@ -53,6 +53,8 @@ import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
+import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
+import { getReadNoReplyDecision } from './readNoReplyRuntime';
 import { isBlobRef } from './blobRef';
 import { consumeSARChatSurfaceChunk, type SARModuleSurfaceMeta } from './vrWorld/sarModuleRuntime';
 import { stripLeakedSourceTags } from './sanitize';
@@ -808,12 +810,37 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    /**
+     * 「由角色決定」已讀不回時，角色選擇不回會只輸出 [[ACTION:NO_REPLY]]（可附自動回覆內容）。
+     * 標籤一律剝掉；整則只有這個標籤、而且這個角色開著已讀不回時，落自動回覆＋旁白，
+     * 正文變空、後面就不會再畫任何氣泡。角色同時也寫了正文的，當它改主意回了，只剝標籤。
+     */
+    let noReplyHandled = false;
+    const consumeNoReply = async (content: string): Promise<string> => {
+        const { cleanedText, noReply, autoReply } = extractNoReplyDirective(content);
+        if (!noReply || cleanedText || noReplyHandled || !char.readNoReply?.enabled) return cleanedText;
+        noReplyHandled = true;
+        const decision = await getReadNoReplyDecision(char).catch(() => null);
+        const state = decision?.state ?? 'normal';
+        const reason = decision?.reason ?? '';
+        const text = (char.readNoReply.aiGenerated ? autoReply : undefined) ?? pickAutoReplyText(char.readNoReply, state);
+        const meta = { ...(mcdInheritMeta || {}), readNoReply: { state, reason } };
+        await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: text, metadata: meta } as any);
+        await persistMessage({
+            charId: char.id, role: 'system', type: 'text',
+            content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, { state, reason }),
+            ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
+        });
+        return '';
+    };
+
     // ─── Step 1: 初次粗洗 ───
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
     aiContent = normalizeAiContent(aiContent);
     // 先於 lead-in / 二輪渲染消費：否則控制標籤會作為普通氣泡短暫閃給用戶看。
     aiContent = await consumeScheduleChanges(aiContent, utteranceAt);
     aiContent = await consumeRelationshipChange(aiContent);
+    aiContent = await consumeNoReply(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2304,6 +2331,7 @@ export async function applyAssistantPostProcessing(
     // 隔著 RECALL / SEARCH / XHS 幾趟往返，隔夜補收的 spokenAt 會把新寫的改動整批作廢。
     aiContent = await consumeScheduleChanges(aiContent, new Date());
     aiContent = await consumeRelationshipChange(aiContent);
+    aiContent = await consumeNoReply(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡

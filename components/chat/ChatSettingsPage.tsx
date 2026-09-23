@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
+import { Row, Toggle } from './ChatSettingsControls';
+import ReadNoReplySettingsPanel from './ReadNoReplySettings';
 import { DB } from '../../utils/db';
 import { getLocalDateKey } from '../../utils/localDate';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
-import type { CharacterProfile } from '../../types';
+import type { CharacterProfile, ReadNoReplySettings } from '../../types';
 
-export type ChatRelationshipPatch = Pick<CharacterProfile,
+/** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
+export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
-    | 'allowCharChangeRelationship' | 'acquaintanceStartDate'>;
+    | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply'>;
 
 interface Props {
     isOpen: boolean;
@@ -17,34 +20,11 @@ interface Props {
     /** 這個私聊裡生效的「你」（分角色身份／頭像已經套好）。 */
     chatUser: { name: string; avatar: string };
     onClose: () => void;
-    /** 「完成」：把 Relationship 這一排的改動連同下方其它設定一起存。 */
-    onSave: (patch: ChatRelationshipPatch) => void;
+    /** 「完成」：把 Relationship、Scenario 的改動連同下方其它設定一起存。 */
+    onSave: (patch: ChatSettingsPatch) => void;
     /** 下方原有的設定分組（AI 模型、輸入與發送、上下文與記憶……）。 */
     children: React.ReactNode;
 }
-
-const Toggle: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
-    <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        onClick={onToggle}
-        className={`relative w-12 h-7 rounded-full shrink-0 transition-colors ${on ? 'bg-slate-800' : 'bg-slate-200'}`}
-    >
-        <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : ''}`} />
-    </button>
-);
-
-const Row: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
-    <div className="flex items-center gap-3 px-5 py-4">
-        <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-bold text-slate-800">{label}</div>
-            {hint && <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{hint}</div>}
-        </div>
-        {children}
-    </div>
-);
 
 const TextValue: React.FC<{ value: string; placeholder: string; onChange: (v: string) => void; label: string }> = ({ value, placeholder, onChange, label }) => (
     <input
@@ -58,6 +38,22 @@ const TextValue: React.FC<{ value: string; placeholder: string; onChange: (v: st
 );
 
 const clean = (v: string) => v.trim() || undefined;
+
+/** 存檔前整理：空字串拿掉；從沒打開過的角色不寫這個欄位。 */
+const cleanReadNoReply = (v: ReadNoReplySettings): ReadNoReplySettings | undefined => {
+    const quietSlots = (v.quietSlots || []).map(s => ({ ...s, title: clean(s.title || '') }));
+    const next: ReadNoReplySettings = {
+        enabled: v.enabled,
+        charDecides: v.charDecides || undefined,
+        aiGenerated: v.aiGenerated || undefined,
+        busyText: clean(v.busyText || ''),
+        sleepText: clean(v.sleepText || ''),
+        normalText: clean(v.normalText || ''),
+        quietSlots: quietSlots.length ? quietSlots : undefined,
+    };
+    const touched = next.enabled || next.charDecides || next.aiGenerated || next.busyText || next.sleepText || next.normalText || next.quietSlots;
+    return touched ? next : undefined;
+};
 
 /**
  * 全螢幕聊天設定（取代原本的「聊天設置」彈窗）。
@@ -76,6 +72,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [startDate, setStartDate] = useState('');
     const [firstMessageKey, setFirstMessageKey] = useState<string | null>(null);
     const [editingDate, setEditingDate] = useState(false);
+    const [readNoReply, setReadNoReply] = useState<ReadNoReplySettings>({ enabled: false });
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -87,6 +84,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setAllowChange(!!char.allowCharChangeRelationship);
         setStartDate(char.acquaintanceStartDate || '');
         setEditingDate(false);
+        setReadNoReply(char.readNoReply ? { ...char.readNoReply } : { enabled: false });
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -109,6 +107,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             charViewRelationship: clean(charView),
             allowCharChangeRelationship: allowChange || undefined,
             acquaintanceStartDate: startDate || undefined,
+            readNoReply: cleanReadNoReply(readNoReply),
         });
     };
 
@@ -194,6 +193,14 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                             <Row label="允許角色自主更改關係" hint="開啟後，角色可在聊天過程中根據劇情自行更改「角色認為的關係」">
                                 <Toggle on={allowChange} onToggle={() => setAllowChange(v => !v)} label="允許角色自主更改關係" />
                             </Row>
+                        </div>
+                    </section>
+
+                    {/* Scenario：這一批先上「已讀不回」，其餘開關分批加 */}
+                    <section>
+                        <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
+                        <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
+                            <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} />
                         </div>
                     </section>
 

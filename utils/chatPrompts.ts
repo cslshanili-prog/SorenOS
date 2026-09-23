@@ -31,6 +31,7 @@ import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
+import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -567,6 +568,18 @@ ${groupLogStr}\n`;
             } catch (e) {
                 console.error('Failed to inject schedule context:', e);
             }
+        }
+
+        // 2a'. 已讀不回（聊天設定 · Scenario）。強制的那種在 triggerAI 就攔下了、不會走到這裡；
+        //      「由角色決定」時把忙碌狀況告訴角色，讓它選擇回或不回（不回輸出 NO_REPLY 標籤）。
+        //      上一則是自動回覆的，這次真的回覆前提醒角色「你剛才沒回」。主動消息是角色自己開口，不適用。
+        if (!forFirePack) {
+            if (char.readNoReply?.enabled) {
+                const noReply = resolveReadNoReply(char.readNoReply, getCurrentSlot(schedule, charNow), charNow);
+                if (noReply?.mode === 'charDecides') volatileState += buildCharDecidesPrompt(noReply, !!char.readNoReply.aiGenerated);
+            }
+            const lastAssistant = [...currentMsgs].reverse().find(m => m.role === 'assistant');
+            volatileState += buildResumeAfterNoReplyNote(lastAssistant?.metadata);
         }
 
         // 2b. 音樂氛圍（複用同一份 schedule）

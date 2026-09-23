@@ -12,7 +12,7 @@ import CustomMeterPanel from '../schedule/CustomMeterPanel';
 import type { CharacterCustomMeter } from '../../types';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
-import ChatSettingsPage, { type ChatRelationshipPatch } from './ChatSettingsPage';
+import ChatSettingsPage, { type ChatSettingsPatch } from './ChatSettingsPage';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
 import { isTranslationLangPreset, normalizeTranslationLangLabel, TRANSLATION_LANG_MAX_LENGTH, TRANSLATION_LANG_PRESETS } from '../../utils/translationLang';
 import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatContextRange';
@@ -75,7 +75,7 @@ interface ChatModalsProps {
     // Handlers
     onTransfer: () => void;
     onImportEmoji: () => void;
-    onSaveSettings: (relationship?: ChatRelationshipPatch) => void;
+    onSaveSettings: (patch?: ChatSettingsPatch) => void;
     /** 這個私聊裡生效的「你」（名字、頭像），聊天設定頁頂部用。 */
     chatUser: { name: string; avatar: string };
     onOpenHistoryCleanup?: () => void;
