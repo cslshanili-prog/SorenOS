@@ -1390,9 +1390,9 @@ describe('頭像上傳：新存進去的就是令牌', () => {
     });
 
     it('我的整體頭像（個人檔案 · 身份卡，含真實身份）', () => {
-        // 個人檔案頁的整體頭像編輯收進了「身份卡」面板（真實身份也走同一個編輯器），
+        // 個人檔案頁的整體頭像編輯收進了身份卡編輯器（真實身份也走同一個編輯器），
         // UserApp.tsx 本身不再直接處理頭像上傳。
-        const body = handlerBody(readSrc('../components/user/UserPersonaPanel.tsx'), 'const handleUpload');
+        const body = handlerBody(readSrc('../components/user/UserPersonaEditor.tsx'), 'const handleUpload');
         expect(body).toMatch(/setDraftAvatar\(await migrateDataUrlToRef\(/);
         expect(body).not.toMatch(/setDraftAvatar\(base64\)/);
     });

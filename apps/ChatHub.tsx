@@ -3,13 +3,13 @@ import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID } from '../types';
 import TokenImg from '../components/os/TokenImg';
-import RealBalancePanel from '../components/bank/RealBalancePanel';
+import IdentitySwitcher from '../components/user/IdentitySwitcher';
+import UserProfileHome from '../components/user/UserProfileHome';
 import { messageLogText } from '../utils/groupChat/format';
 import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
-import { ensureRealBalanceState } from '../utils/realBalance';
 import {
     ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass,
 } from '@phosphor-icons/react';
@@ -44,15 +44,14 @@ const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
  * - 動態欄直接 openApp(AppID.Social)——現有 SocialApp 1275 行、自成一體（有自己的返回按鈕/多級內部
  *   視圖），不是為嵌入設計的，硬嵌容易把它的"返回"和這裡的 tab 切換繞在一起。所以先用跳轉複用，
  *   不做成真正嵌在同一個底部導航裡的 tab；以後要嵌再單獨做。
- * - 主頁欄是入口面板：用戶身份卡片點進去是「個人檔案」(UserApp，身份卡管理也在那);
- *   Real Balance 已實現（見 utils/realBalance.ts：總餘額 + 銀行卡 + 共用流水，
- *   卡與 Real Balance 之間可互轉）；朋友圈互動／表情包倉儲／外觀CSS 還沒有對應實現，
- *   先給出入口占位 + 提示，不假裝已經做好。
+ * - 主頁欄就是「個人檔案」本體（components/user/UserProfileHome，跟桌面「檔案」App 共用）：
+ *   Real Balance、朋友圈互動、分角色與群聊身份、生活記錄都在裡面。
+ * - 頁首的頭像＋名字是 IdentitySwitcher，四個分頁共用，下拉切換預設身份／新增身份卡。
  */
 const ChatHub: React.FC = () => {
     const {
-        closeApp, openApp, characters, npcs, groups, userProfile, updateUserProfile, unreadMessages,
-        setActiveCharacterId, openGroupChat, addToast,
+        closeApp, openApp, characters, npcs, groups, unreadMessages,
+        setActiveCharacterId, openGroupChat,
     } = useOS();
 
     const [tab, setTab] = useState<HubTab>('messages');
@@ -162,26 +161,6 @@ const ChatHub: React.FC = () => {
         trackEvent('Chat 主页打开动态');
     };
 
-    // --- 主頁 tab：入口占位，未實現的功能明確提示而不是假裝存在 ---
-    const notReady = (label: string) => addToast(`${label}規劃中，還沒做好`, 'info');
-
-    // --- Real Balance 錢包（主頁 tab 下的二級頁面，餘額管理頁用共用組件 RealBalancePanel）---
-    const [profileView, setProfileView] = useState<'home' | 'balance'>('home');
-
-    // undefined = 還沒打開過；只在真的進「主頁」欄時才生成種子狀態並落庫，不趁用戶沒點開就偷偷建號
-    const realBalanceState = useMemo(() => ensureRealBalanceState(userProfile.realBalance), [userProfile.realBalance]);
-    useEffect(() => {
-        if (tab === 'profile' && !userProfile.realBalance) {
-            updateUserProfile({ realBalance: realBalanceState });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tab, userProfile.realBalance]);
-
-    const openBalanceView = () => {
-        setProfileView('balance');
-        trackEvent('打开 Real Balance 页');
-    };
-
     return (
         <div className="h-full w-full bg-slate-50 flex flex-col animate-fade-in">
             {/* Header */}
@@ -193,16 +172,7 @@ const ChatHub: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                             </svg>
                         </button>
-                        <button onClick={() => { chatReturnTarget.set(AppID.ChatHub); openApp(AppID.User); }} className="flex items-center gap-2.5 active:opacity-70 transition-opacity">
-                            <TokenImg value={userProfile.avatar} className="w-9 h-9 rounded-full object-cover bg-slate-100" alt="" />
-                            <div className="text-left">
-                                <div className="text-sm font-bold text-slate-800 leading-tight">{userProfile.name || '未設置身份'}</div>
-                                <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                    在線
-                                </div>
-                            </div>
-                        </button>
+                        <IdentitySwitcher />
                     </div>
                     <div className="relative">
                         <button onClick={() => setShowAddMenu(v => !v)} className="p-1.5 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
@@ -221,8 +191,13 @@ const ChatHub: React.FC = () => {
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* Body：主頁分頁（個人檔案）自己管捲動和底部的「我的檔案／生活記錄」Tab */}
+            {tab === 'profile' && (
+                <div className="flex-1 min-h-0">
+                    <UserProfileHome />
+                </div>
+            )}
+            <div className={`flex-1 min-h-0 overflow-y-auto ${tab === 'profile' ? 'hidden' : ''}`}>
                 {tab === 'messages' && (
                     <div className="px-5 pt-4 pb-4">
                         <h1 className="text-3xl font-black text-slate-800 mb-4">消息</h1>
@@ -338,62 +313,6 @@ const ChatHub: React.FC = () => {
                             打開動態
                         </button>
                     </div>
-                )}
-
-                {tab === 'profile' && profileView === 'home' && (
-                    <div className="px-5 pt-4 pb-8 space-y-4">
-                        <button
-                            onClick={() => { chatReturnTarget.set(AppID.ChatHub); openApp(AppID.User); }}
-                            className="w-full bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-5 flex items-center gap-4 text-left active:scale-[0.99] transition-transform"
-                        >
-                            <TokenImg value={userProfile.avatar} className="w-16 h-16 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
-                            <div className="min-w-0 flex-1">
-                                <div className="text-base font-bold text-slate-800 truncate">{userProfile.name || '未設置身份'}</div>
-                            </div>
-                            <UserCircle size={22} className="text-slate-300 shrink-0" />
-                        </button>
-
-                        <button
-                            onClick={openBalanceView}
-                            className="w-full bg-gradient-to-br from-sky-50 to-blue-50 rounded-[1.75rem] border border-sky-100 p-5 text-left active:scale-[0.99] transition-transform"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div className="text-[10px] font-bold text-sky-400 tracking-widest uppercase">Real Balance</div>
-                                <div className="text-[11px] text-sky-500">{realBalanceState.cards.length} 張銀行卡</div>
-                            </div>
-                            <div className="text-2xl font-black text-slate-800 mt-1">¥{realBalanceState.balance.toFixed(2)}</div>
-                            <div className="text-[11px] text-sky-500 mt-2 flex items-center justify-between">
-                                <span>餘額管理 · 銀行卡與流水</span>
-                                <span className="font-bold">查看 ›</span>
-                            </div>
-                        </button>
-
-                        <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-4 grid grid-cols-3 gap-2">
-                            {([
-                                { label: '朋友圈互動', icon: '📡' },
-                                { label: '表情包倉儲', icon: '😊' },
-                                { label: '外觀CSS', icon: '🎨' },
-                            ]).map(item => (
-                                <button
-                                    key={item.label}
-                                    onClick={() => notReady(item.label)}
-                                    className="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-slate-50 active:scale-95 transition-all"
-                                >
-                                    <span className="text-2xl">{item.icon}</span>
-                                    <span className="text-[10px] font-bold text-slate-500">{item.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {tab === 'profile' && profileView === 'balance' && (
-                    <RealBalancePanel
-                        state={realBalanceState}
-                        onCommit={next => updateUserProfile({ realBalance: next })}
-                        onBack={() => setProfileView('home')}
-                        addToast={addToast}
-                    />
                 )}
             </div>
 
