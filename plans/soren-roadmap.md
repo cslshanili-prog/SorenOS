@@ -17,7 +17,7 @@
 | 1 | 時光契約「讓 TA 記住這一天」注入聊天 | 已完成（#21） |
 | 2 | 全部轉繁體（單獨一個 PR） | 已完成（#22） |
 | 3 | 個人檔案改版 + 朋友圈互動設定頁 | 已完成（#23） |
-| 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship） |
+| 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24） |
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 未開始 |
 | 6 | 單一貼文池（先出設計文件） | 未開始 |
 | 7 | 生圖補生成（路線一） | 未開始，跟其他項沒有依賴，可以插隊 |
@@ -74,7 +74,7 @@
 - 允許角色主動打電話／視訊、自動線下邀請、線上模式動作描寫
 - 雙向拉黑 + 臨時會話（最複雜，放最後）
 
-落地實況（第一批）：
+落地實況（第一批，#24）：
 
 - 全螢幕頁 `components/chat/ChatSettingsPage.tsx` 取代原本的「聊天設置」彈窗：頁首返回（不存）／完成（存），兩人頭像、「我們已相識 N 天」（點開自定義起點，沒設時從第一則私聊訊息算），Relationship 一排，下面接原有的設定分組。
 - 角色欄位：`chatNickname`（聊天頁頂部與 Chat 消息列表顯示）、`userNickname`、`userViewRelationship`、`charViewRelationship`、`allowCharChangeRelationship`、`acquaintanceStartDate`。
