@@ -14,7 +14,7 @@
 
 不跟上游之後，個別搬過來的上游改動記在這裡。搬法：上游那個 commit 的前後兩版都先用轉繁體同一套規則（OpenCC s2tw + 賬→帳、臺→台）轉好，再三方合併進我們的檔案；新檔直接轉繁體。
 
-- **主動消息 2.0「主動頻率」**（上游 `d486bebb`，2026-09-22）：七項按角色設的上限（連發、間隔、每日上限、重複消息沒回就停、同時排幾條、角色能不能自排重複／到點必發），面板在「主動消息 2.0 →主動頻率」，說明見 [`docs/amsg2-pacing-limits.md`](../docs/amsg2-pacing-limits.md)。三方合併零衝突。同時把 `AMSG_BUNDLE_VERSION` 對齊上游的 `2026-09-22`。
+- **主動消息 2.0「主動頻率」**（上游 `d486bebb`，2026-09-22，#28）：七項按角色設的上限（連發、間隔、每日上限、重複消息沒回就停、同時排幾條、角色能不能自排重複／到點必發），面板在「主動消息 2.0 →主動頻率」，說明見 [`docs/amsg2-pacing-limits.md`](../docs/amsg2-pacing-limits.md)。三方合併零衝突。同時把 `AMSG_BUNDLE_VERSION` 對齊上游的 `2026-09-22`。
   - **Worker 不是從這個倉庫部署的**：用戶的 Worker 來自上游作者的 `Tosd0/sullyos-workers`，「更新 Worker」也從那邊拉 bundle。所以這邊 `worker/amsg/src` 的改動送不到用戶那台 Worker；只有前端和 Worker 約定好的格式（fire_pack、limits、任務 metadata）要跟上游對齊。`AMSG_BUNDLE_VERSION` 必須等於上游 bundle 的版本，不然設定頁會一直顯示「有更新」。
   - 跟雲端延遲回覆的交集：延遲回覆借的是一次性定時任務的殼，Worker 分不出它是回覆，所以會算進「今天 TA 已主動找你 N 次」，設了每日上限時也可能被跳過。被跳過時 Worker 會留一筆 `last_skip`，本地過點檢查讀到是這條就自己補回（`resolveOverdueCloudDelayedReplies`）。要排除它得改 Worker，等哪天自己維護 Worker 再處理。
   - 沒搬的：上游同期的「雲端資料清點」（`6b2975d0`）、amsg-server next.29／next.30 的升級（只影響 Worker 打包，用戶的 Worker 本來就跟著上游）。
