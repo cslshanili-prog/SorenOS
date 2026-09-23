@@ -1,23 +1,23 @@
 /**
- * amsg worker 版本比较（设置页「重新粘贴部署」探测用）。
+ * amsg worker 版本比較（設置頁「重新粘貼部署」探測用）。
  *
- * 为什么 features 探测不够：amsg-server 2.6.0 的 next.4 / next.5 / next.6 三版
- * SERVER_FEATURES 清单完全相同（六项都在），而本波依赖的能力上游大多没发独立
+ * 為什麼 features 探測不夠：amsg-server 2.6.0 的 next.4 / next.5 / next.6 三版
+ * SERVER_FEATURES 清單完全相同（六項都在），而本波依賴的能力上游大多沒發獨立
  * feature flag——GET /messages 的 charId/clientTaskId 投影、onBeforeFire 的
- * { skip: true } 出口（next.5 起）、任务占位租约（next.6 起）、hook 的 writeState
- * 与 Web Push 大小护栏（next.7 起）。旧粘贴部署只查 features 会被误判为最新：
- * 防穿帮闸在 worker 侧静默不存在、任务列表全部误标「远端不存在」、长任务被相邻
- * cron tick 重复触发。只能再比 serverVersion。
+ * { skip: true } 出口（next.5 起）、任務佔位租約（next.6 起）、hook 的 writeState
+ * 與 Web Push 大小護欄（next.7 起）。舊粘貼部署只查 features 會被誤判為最新：
+ * 防穿幫閘在 worker 側靜默不存在、任務列表全部誤標「遠端不存在」、長任務被相鄰
+ * cron tick 重複觸發。只能再比 serverVersion。
  *
- * 比较语义按 semver + 数字化 prerelease：
+ * 比較語義按 semver + 數字化 prerelease：
  *   2.6.0-next.4 < 2.6.0-next.5 < 2.6.0-next.10 < 2.6.0 < 2.6.1-next.1
- * 解析不了的版本串（上游改格式等）视为「不达标」——宁可多亮一次「重新部署」，
- * 也不静默降级（与 capabilities 探测的设计初衷一致）。
+ * 解析不了的版本串（上游改格式等）視為「不達標」——寧可多亮一次「重新部署」，
+ * 也不靜默降級（與 capabilities 探測的設計初衷一致）。
  */
 
 interface ParsedVersion {
   main: [number, number, number];
-  /** null = 正式版（高于同主版本号的任何 prerelease）。 */
+  /** null = 正式版（高於同主版本號的任何 prerelease）。 */
   pre: Array<string | number> | null;
 }
 
@@ -30,7 +30,7 @@ const parseVersion = (value: string): ParsedVersion | null => {
   };
 };
 
-/** a<b → -1，a==b → 0，a>b → 1；任一侧解析失败 → null。 */
+/** a<b → -1，a==b → 0，a>b → 1；任一側解析失敗 → null。 */
 export const compareAmsgServerVersions = (a: string, b: string): number | null => {
   const pa = parseVersion(a);
   const pb = parseVersion(b);
@@ -45,13 +45,13 @@ export const compareAmsgServerVersions = (a: string, b: string): number | null =
   for (let i = 0; i < len; i++) {
     const x = pa.pre[i];
     const y = pb.pre[i];
-    if (x === undefined) return -1; // 前缀相同时段数少的更低（semver 规则）
+    if (x === undefined) return -1; // 前綴相同時段數少的更低（semver 規則）
     if (y === undefined) return 1;
     if (x === y) continue;
     const xNum = typeof x === 'number';
     const yNum = typeof y === 'number';
     if (xNum && yNum) return (x as number) < (y as number) ? -1 : 1;
-    if (xNum !== yNum) return xNum ? -1 : 1; // 数字段低于字母段（semver 规则）
+    if (xNum !== yNum) return xNum ? -1 : 1; // 數字段低於字母段（semver 規則）
     return (x as string) < (y as string) ? -1 : 1;
   }
   return 0;

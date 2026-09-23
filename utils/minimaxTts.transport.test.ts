@@ -51,6 +51,6 @@ describe('MiniMax inline audio transport', () => {
     });
     it('rejects HTML error pages instead of caching them as audio', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>expired</html>', { headers: { 'content-type': 'text/html' } })));
-        await expect(fetchRemoteAudioBlob('https://audio.example.com/x')).rejects.toThrow('错误页面');
+        await expect(fetchRemoteAudioBlob('https://audio.example.com/x')).rejects.toThrow('錯誤頁面');
     });
 });

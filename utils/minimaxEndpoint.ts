@@ -6,7 +6,7 @@
  * Capacitor native: uses CapacitorHttp to bypass browser CORS.
  *
  * Region-aware: resolves upstream to either
- *   - 国内站   https://api.minimaxi.com   ('domestic', default)
+ *   - 國內站   https://api.minimaxi.com   ('domestic', default)
  *   - 海外站   https://api.minimax.io     ('overseas')
  * The region is synced from OSContext via `setMinimaxRegion()` and also
  * forwarded on every request as `X-MiniMax-Region`, so server-side proxies

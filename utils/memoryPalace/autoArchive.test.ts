@@ -17,7 +17,7 @@ function node(
     return {
         id,
         charId: 'char-1',
-        content: `记忆-${id}`,
+        content: `記憶-${id}`,
         room: 'living_room',
         tags: [],
         importance: 5,
@@ -31,11 +31,11 @@ function node(
     };
 }
 
-describe('全自动记忆双写缺口修复', () => {
-    it('统一持久化入口会写入神经链接，并在开关关闭后停止写入', async () => {
+describe('全自動記憶雙寫缺口修復', () => {
+    it('統一持久化入口會寫入神經鏈接，並在開關關閉後停止寫入', async () => {
         const enabled = {
             id: 'auto-archive-enabled',
-            name: '已开启角色',
+            name: '已開啟角色',
             memories: [],
             memoryPalaceEnabled: true,
             autoArchiveEnabled: true,
@@ -43,7 +43,7 @@ describe('全自动记忆双写缺口修复', () => {
         const disabled = {
             ...enabled,
             id: 'auto-archive-disabled',
-            name: '已关闭角色',
+            name: '已關閉角色',
             autoArchiveEnabled: false,
         } as CharacterProfile;
         await DB.saveCharacter(enabled);
@@ -56,7 +56,7 @@ describe('全自动记忆双写缺口修复', () => {
             memories: [],
             batches: [],
             autoArchive: {
-                fragments: [{ id: 'fragment-1', date: '2026-07-22', summary: '- 已双写', mood: 'palace' }],
+                fragments: [{ id: 'fragment-1', date: '2026-07-22', summary: '- 已雙寫', mood: 'palace' }],
                 hideBeforeMessageId: 123,
             },
         };
@@ -72,10 +72,10 @@ describe('全自动记忆双写缺口修复', () => {
         expect(savedDisabled.hideBeforeMessageId).toBeUndefined();
     });
 
-    it('只补最后一条 palace 日志之后、神经链接整天为空的聊天提取节点', () => {
+    it('只補最後一條 palace 日誌之後、神經鏈接整天為空的聊天提取節點', () => {
         const existing: MemoryFragment[] = [
             { id: 'old', date: '2026-07-21', mood: 'palace', summary: '- 已同步' },
-            { id: 'manual', date: '2026-07-26', mood: 'calm', summary: '用户手动写过的记忆' },
+            { id: 'manual', date: '2026-07-26', mood: 'calm', summary: '用戶手動寫過的記憶' },
         ];
         const nodes = [
             node('before', 2026, 7, 20),
@@ -92,15 +92,15 @@ describe('全自动记忆双写缺口修复', () => {
         expect(repaired).toHaveLength(1);
         expect(repaired[0].date).toBe('2026-07-22');
         expect(repaired[0].mood).toBe('palace');
-        expect(repaired[0].summary).toContain('记忆-missing-a');
-        expect(repaired[0].summary).toContain('记忆-missing-b');
+        expect(repaired[0].summary).toContain('記憶-missing-a');
+        expect(repaired[0].summary).toContain('記憶-missing-b');
         expect(repaired[0].summary).not.toContain('digestion');
         expect(repaired[0].summary).not.toContain('occupied-day');
     });
 
-    it('没有历史 palace 双写证据时不猜测回填', () => {
+    it('沒有歷史 palace 雙寫證據時不猜測回填', () => {
         const repaired = buildConservativeRepairFragments(
-            [{ id: 'manual', date: '2026-07-21', mood: 'calm', summary: '手动记忆' }],
+            [{ id: 'manual', date: '2026-07-21', mood: 'calm', summary: '手動記憶' }],
             [node('later', 2026, 7, 22)],
         );
         expect(repaired).toEqual([]);

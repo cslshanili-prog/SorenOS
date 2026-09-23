@@ -8,8 +8,8 @@ interface ErrorDialogProps {
     onClose: () => void;
 }
 
-// 全局错误弹窗：toast 一行装不下的长报错走这里 —— 多行 monospace 预览框 + 复制按钮,
-// 手机上没法开 console 时, 用户能直接看清、长按复制原文反馈过来。
+// 全局錯誤彈窗：toast 一行裝不下的長報錯走這裡 —— 多行 monospace 預覽框 + 複製按鈕,
+// 手機上沒法開 console 時, 用戶能直接看清、長按複製原文反饋過來。
 const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, title, details, onClose }) => {
     const [copied, setCopied] = useState(false);
 
@@ -20,7 +20,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, title, details, onClo
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(details);
             } else {
-                // iOS 旧版 PWA / 非 HTTPS 场景 clipboard API 可能缺失, fallback 到 execCommand
+                // iOS 舊版 PWA / 非 HTTPS 場景 clipboard API 可能缺失, fallback 到 execCommand
                 const ta = document.createElement('textarea');
                 ta.value = details;
                 ta.style.position = 'fixed';
@@ -65,13 +65,13 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({ isOpen, title, details, onClo
                         onClick={handleCopy}
                         className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 active:scale-95 transition-transform"
                     >
-                        {copied ? '已复制' : '复制'}
+                        {copied ? '已複製' : '複製'}
                     </button>
                     <button
                         onClick={onClose}
                         className="px-4 py-2 bg-red-500 rounded-xl text-sm font-bold text-white shadow-lg shadow-red-200 active:scale-95 transition-transform"
                     >
-                        关闭
+                        關閉
                     </button>
                 </div>
             </div>

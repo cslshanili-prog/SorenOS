@@ -3,14 +3,14 @@ import { todayChatLines } from './handbookOrchestrator';
 import { DB } from './db';
 import { getLocalDateKey, getLocalDayRange } from './localDate';
 
-// 手账 v2 拼「今天聊了什么」时，每条消息都会被塞进给模型的提示词。
+// 手帳 v2 拼「今天聊了什麼」時，每條消息都會被塞進給模型的提示詞。
 //
-// 这里历来是 `content.slice(0, 200)` 的裸截断。图片改存 `blobref:<id>` 令牌（~28 字）之后
-// 这道截断就拦不住了：整个令牌能完好通过 200 字，卡片 JSON 里的 charAvatar 也就排在开头
-// 几十字的位置。到网络出口（utils/apiBlobRefs.ts）令牌会被还原成整张 base64，
-// 于是每轮请求都白发一张头像。
+// 這裡歷來是 `content.slice(0, 200)` 的裸截斷。圖片改存 `blobref:<id>` 令牌（~28 字）之後
+// 這道截斷就攔不住了：整個令牌能完好通過 200 字，卡片 JSON 裡的 charAvatar 也就排在開頭
+// 幾十字的位置。到網絡出口（utils/apiBlobRefs.ts）令牌會被還原成整張 base64，
+// 於是每輪請求都白發一張頭像。
 //
-// 正确姿势是先过 normalizeMessageContent：卡片压成一行摘要，图片/表情换成占位符。
+// 正確姿勢是先過 normalizeMessageContent：卡片壓成一行摘要，圖片/表情換成佔位符。
 
 const CHAR = { id: 'c1', name: '小角色' } as any;
 const USER = '小明';
@@ -20,7 +20,7 @@ const { start } = getLocalDayRange(DATE)!;
 
 const BLOB_TOKEN = 'blobref:b_0123456789abcdef';
 
-/** 交换日记卡：content 是整段 JSON，charAvatar 排在最前面几十字里。 */
+/** 交換日記卡：content 是整段 JSON，charAvatar 排在最前面幾十字裡。 */
 const DIARY_CARD_JSON = JSON.stringify({
     type: 'diary_card',
     charAvatar: BLOB_TOKEN,
@@ -45,26 +45,26 @@ const collect = async (): Promise<string> => {
     return lines.join('\n');
 };
 
-describe('手账 v2「今天聊了什么」不泄漏图片值', () => {
-    it('整段文本里出现不了 blobref 令牌', async () => {
+describe('手帳 v2「今天聊了什麼」不洩漏圖片值', () => {
+    it('整段文本里出現不了 blobref 令牌', async () => {
         const text = await collect();
         expect(text).not.toContain('blobref:');
     });
 
-    it('图片 / 表情消息压成占位符', async () => {
+    it('圖片 / 表情消息壓成佔位符', async () => {
         const text = await collect();
-        expect(text).toContain(`${USER}: [图片]`);
+        expect(text).toContain(`${USER}: [圖片]`);
         expect(text).toContain(`${USER}: [表情包]`);
     });
 
     it('卡片翻成一行摘要，而不是 dump 原始 JSON', async () => {
         const text = await collect();
-        expect(text).toContain('[交换日记');
+        expect(text).toContain('[交換日記');
         expect(text).toContain('今天去看了海');
         expect(text).not.toContain('"charAvatar"');
     });
 
-    it('普通文字消息原样保留', async () => {
+    it('普通文字消息原樣保留', async () => {
         const text = await collect();
         expect(text).toContain(`${USER}: 今天去看海啦`);
     });

@@ -21,7 +21,7 @@ const TABS: { key: TrajectoryTab; label: string; Icon: Icon }[] = [
 
 const ComingSoon: React.FC<{ label: string }> = ({ label }) => (
     <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 text-white/40">
-        <div className="text-[12px]">{label} · 敬请期待</div>
+        <div className="text-[12px]">{label} · 敬請期待</div>
     </div>
 );
 
@@ -99,7 +99,7 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack,
                 />
             )}
 
-            {/* Floating glass nav —— 跟查手机主页那条一样的公版底部导览 */}
+            {/* Floating glass nav —— 跟查手機主頁那條一樣的公版底部導覽 */}
             <nav className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] z-40">
                 <div className="bg-white/[0.06] backdrop-blur-2xl rounded-[26px] border border-white/[0.1] shadow-[0_8px_40px_rgba(0,0,0,0.5)] flex justify-around items-center px-3 py-2.5">
                     {TABS.map(t => {

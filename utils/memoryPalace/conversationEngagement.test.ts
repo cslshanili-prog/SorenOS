@@ -49,25 +49,25 @@ describe('M3 v2 Conversation Engagement', () => {
         expect(result.analysis.reasons).toContain('personal_load');
 
         const guidance = renderConversationEngagementGuidance(result.analysis);
-        expect(guidance).toContain('### 谈话参与原则');
-        expect(guidance).toContain('对方出现负面情绪，不代表当前谈话的目标是消除这种情绪');
-        expect(guidance).toContain('情绪是谈话的一部分，不应覆盖谈话本身');
-        expect(guidance).toContain('不要根据关键词、记忆或既有印象补全事件并提前站队');
+        expect(guidance).toContain('### 談話參與原則');
+        expect(guidance).toContain('對方出現負面情緒，不代表當前談話的目標是消除這種情緒');
+        expect(guidance).toContain('情緒是談話的一部分，不應覆蓋談話本身');
+        expect(guidance).toContain('不要根據關鍵詞、記憶或既有印象補全事件並提前站隊');
         expect(guidance).not.toContain('User');
-        expect(guidance).toContain('先听见，再了解，再形成看法');
-        expect(guidance).toContain('### 当前谈话参与策略');
-        expect(guidance).toContain('持续关注对方正在经历什么');
-        expect(guidance).toContain('不要用“别想了”“回来就好”“一切都会过去”');
-        expect(guidance).toContain('不必固定变成“发生什么了”“然后呢”');
+        expect(guidance).toContain('先聽見，再瞭解，再形成看法');
+        expect(guidance).toContain('### 當前談話參與策略');
+        expect(guidance).toContain('持續關注對方正在經歷什麼');
+        expect(guidance).toContain('不要用“別想了”“回來就好”“一切都會過去”');
+        expect(guidance).toContain('不必固定變成“發生什麼了”“然後呢”');
         expect(guidance).toContain('你不只需要留意');
         expect(guidance).not.toContain('角色');
         expect(guidance).not.toContain('我很累');
     });
 
     it.each([
-        '桌面上的三个窗口还都停在那里。',
-        '这阵子像一直在逆着风走。',
-        '刚才那段到现在还悬在半空。',
+        '桌面上的三個窗口還都停在那裡。',
+        '這陣子像一直在逆著風走。',
+        '剛才那段到現在還懸在半空。',
     ])('opens a meaningful unclosed statement without requiring topic keywords: %s', (content) => {
         push('user', content);
         const result = advanceConversationEngagement('char-engagement', history);
@@ -80,12 +80,12 @@ describe('M3 v2 Conversation Engagement', () => {
             primary: 'acknowledge',
             secondary: 'invite',
         });
-        expect(renderConversationEngagementGuidance(result.analysis)).toContain('事情本身发生了什么');
+        expect(renderConversationEngagementGuidance(result.analysis)).toContain('事情本身發生了什麼');
     });
 
     it.each([
-        '帮我把下面这段内容翻译成英文。',
-        '这个函数返回什么？',
+        '幫我把下面這段內容翻譯成英文。',
+        '這個函數返回什麼？',
         '下午好呀。',
     ])('does not turn a direct request, question, or greeting into a disclosure: %s', (content) => {
         push('user', content);
@@ -97,7 +97,7 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('distinguishes a tired status update with an explicit closure from an opening', () => {
-        push('user', '今天上班好累，准备睡觉啦。');
+        push('user', '今天上班好累，準備睡覺啦。');
         const result = advanceConversationEngagement('char-engagement', history);
 
         expect(result.analysis.conversationAct).toBe('close');
@@ -105,8 +105,8 @@ describe('M3 v2 Conversation Engagement', () => {
         expect(result.analysis.shouldGuide).toBe(false);
         expect(result.state.activeSubject).toBeUndefined();
         const guidance = renderConversationEngagementGuidance(result.analysis);
-        expect(guidance).toContain('### 谈话参与原则');
-        expect(guidance).not.toContain('### 当前谈话参与策略');
+        expect(guidance).toContain('### 談話參與原則');
+        expect(guidance).not.toContain('### 當前談話參與策略');
     });
 
     it('keeps the same subject through elaboration and a low-information continuation', () => {
@@ -114,8 +114,8 @@ describe('M3 v2 Conversation Engagement', () => {
         const opened = advanceConversationEngagement('char-engagement', history);
         const subjectId = opened.state.activeSubject?.id;
 
-        push('assistant', '我在听。');
-        push('user', '主要是今天单位那个事情。');
+        push('assistant', '我在聽。');
+        push('user', '主要是今天單位那個事情。');
         const engaged = advanceConversationEngagement('char-engagement', history, opened.state);
         expect(engaged.analysis.engagementState).toBe('engaged');
         expect(engaged.state.activeSubject?.id).toBe(subjectId);
@@ -131,10 +131,10 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('reflects a new development against the active subject instead of restarting the conversation', () => {
-        push('user', '之前那些事又有后续了。');
+        push('user', '之前那些事又有後續了。');
         const opened = advanceConversationEngagement('char-engagement', history);
-        push('assistant', '继续。');
-        push('user', '今天主任突然又叫了另一个人过去，明明之前说让我负责。');
+        push('assistant', '繼續。');
+        push('user', '今天主任突然又叫了另一個人過去，明明之前說讓我負責。');
         const updated = advanceConversationEngagement('char-engagement', history, opened.state);
 
         expect(updated.analysis.conversationAct).toBe('update');
@@ -145,10 +145,10 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('moves into resolving and forms only a progressive stance when the user asks for a view', () => {
-        push('user', '之前主任说这件事让我负责，今天却突然换了另一个人。');
+        push('user', '之前主任說這件事讓我負責，今天卻突然換了另一個人。');
         const opened = advanceConversationEngagement('char-engagement', history);
-        push('assistant', '这里确实出现了变化。');
-        push('user', '所以你觉得他是不是根本没打算让我负责？');
+        push('assistant', '這裡確實出現了變化。');
+        push('user', '所以你覺得他是不是根本沒打算讓我負責？');
         const resolving = advanceConversationEngagement('char-engagement', history, opened.state);
 
         expect(resolving.analysis.conversationAct).toBe('ask_stance');
@@ -159,11 +159,11 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('closes the old subject and opens a new one when the user shifts topics', () => {
-        push('user', '单位那件事还有后续。');
+        push('user', '單位那件事還有後續。');
         const work = advanceConversationEngagement('char-engagement', history);
         const workId = work.state.activeSubject?.id;
-        push('assistant', '你说。');
-        push('user', '算了不想这个了，给你看我刚画的东西！');
+        push('assistant', '你說。');
+        push('user', '算了不想這個了，給你看我剛畫的東西！');
         const shifted = advanceConversationEngagement('char-engagement', history, work.state);
 
         expect(shifted.analysis.conversationAct).toBe('shift');
@@ -174,7 +174,7 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('enters a new topic directly when there is no old subject to close', () => {
-        push('user', '给你看我刚画的东西！');
+        push('user', '給你看我剛畫的東西！');
         const shifted = advanceConversationEngagement('char-engagement', history);
 
         expect(shifted.analysis.conversationAct).toBe('shift');
@@ -183,10 +183,10 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('does not revive a closed subject on the next ordinary greeting', () => {
-        push('user', '单位那件事还有后续。');
+        push('user', '單位那件事還有後續。');
         const opened = advanceConversationEngagement('char-engagement', history);
-        push('assistant', '我听着。');
-        push('user', '算了，先不说了。');
+        push('assistant', '我聽著。');
+        push('user', '算了，先不說了。');
         const closed = advanceConversationEngagement('char-engagement', history, opened.state);
         expect(closed.analysis.engagementState).toBe('closing');
 
@@ -199,7 +199,7 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('persists per-character state locally and makes duplicate payload builds idempotent', () => {
-        push('user', '今天公司来了个特别奇怪的人。');
+        push('user', '今天公司來了個特別奇怪的人。');
         const first = analyzeConversationEngagement('char-engagement', history);
         const stored = loadConversationEngagementState('char-engagement');
         const duplicate = analyzeConversationEngagement('char-engagement', history);
@@ -214,7 +214,7 @@ describe('M3 v2 Conversation Engagement', () => {
     });
 
     it('does not carry a subject into a replaced chat history for the same character', () => {
-        push('user', '之前那些事又有后续了。');
+        push('user', '之前那些事又有後續了。');
         const opened = advanceConversationEngagement('char-engagement', history);
         const replacementHistory: Message[] = [{
             id: 999,
@@ -242,7 +242,7 @@ describe('M3 v2 Conversation Engagement', () => {
         }));
         const trace = await injectMemoryPalace(
             { id: 'char-engagement', memoryPalaceEnabled: false },
-            [push('user', '请认真分析这个规则背后的逻辑。')],
+            [push('user', '請認真分析這個規則背後的邏輯。')],
             undefined,
             undefined,
             { entryPoint: 'chat_app' },
@@ -265,7 +265,7 @@ describe('M3 v2 Conversation Engagement', () => {
         }));
         const trace = await injectMemoryPalace(
             { id: 'char-engagement', memoryPalaceEnabled: false },
-            [push('user', '然后呢。')],
+            [push('user', '然後呢。')],
             undefined,
             undefined,
             { entryPoint: 'chat_app' },

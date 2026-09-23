@@ -28,26 +28,26 @@ export interface MusicActionSnapshot {
 }
 
 /**
- * 把 user 的歌加到 char 的歌单时，char 可以指定目标：
- * - 不传 target → 默认放进第一个歌单（兼容老 [[MUSIC_ACTION:add]]）
- * - target.kind === 'existing' → 按标题模糊匹配现有歌单；匹配不到回落到第一个
- * - target.kind === 'new' → 现场新建一个歌单，把这首作为第一首
+ * 把 user 的歌加到 char 的歌單時，char 可以指定目標：
+ * - 不傳 target → 默認放進第一個歌單（兼容老 [[MUSIC_ACTION:add]]）
+ * - target.kind === 'existing' → 按標題模糊匹配現有歌單；匹配不到回落到第一個
+ * - target.kind === 'new' → 現場新建一個歌單，把這首作為第一首
  *
- * 不论哪种，存入 char 歌单时都会打上 source: 'user' 标签，让 char 之后"听"
- * 这首歌时知道是从 user 那里收来的（prompt 注入会用到）。
+ * 不論哪種，存入 char 歌單時都會打上 source: 'user' 標籤，讓 char 之後"聽"
+ * 這首歌時知道是從 user 那裡收來的（prompt 注入會用到）。
  */
 export type AddSongTarget =
     | { kind: 'existing'; title: string }
     | { kind: 'new'; title: string; description?: string };
 
 export interface MusicActionHooks {
-    /** 返回 user 此刻正在听的歌快照（chatParser 自己不去碰 MusicContext） */
+    /** 返回 user 此刻正在聽的歌快照（chatParser 自己不去碰 MusicContext） */
     getListeningSnapshot: () => MusicActionSnapshot | null;
-    /** 将 charId 加入"一起听"名单（chatParser 不维护状态，只通知） */
+    /** 將 charId 加入"一起聽"名單（chatParser 不維護狀態，只通知） */
     joinListeningTogether: (charId: string) => void;
     /**
-     * 把 song 加到 char 的歌单。
-     * 返回 { playlistTitle, created } —— created=true 表示这次是新建了歌单。
+     * 把 song 加到 char 的歌單。
+     * 返回 { playlistTitle, created } —— created=true 表示這次是新建了歌單。
      */
     addSongToCharPlaylist: (
         charId: string,
@@ -57,13 +57,13 @@ export interface MusicActionHooks {
 }
 
 /**
- * 主动消息 2.0 冻在 music_action directive 里的那首歌（见 worker/amsg 的 attachSceneSong）。
+ * 主動消息 2.0 凍在 music_action directive 裡的那首歌（見 worker/amsg 的 attachSceneSong）。
  *
- * 为什么要有这一层：定时消息的正文是角色几小时前对着**它自己那时在听的那首**写的，
- * 而 `[[MUSIC_ACTION:add|歌单标题]]` 标签里只有歌单名、没有歌名。重放时若只能取
- * 「用户此刻在听的那首」，用户多半早就没在放歌了 —— 正文聊着这首歌，卡片和加歌单
- * 却整个没发生。worker 到点把那首歌冻进 directive，调用方（applyAssistantPostProcessing）
- * 再显式传进来。本地聊天路径不传，走实时快照。
+ * 為什麼要有這一層：定時消息的正文是角色幾小時前對著**它自己那時在聽的那首**寫的，
+ * 而 `[[MUSIC_ACTION:add|歌單標題]]` 標籤裡只有歌單名、沒有歌名。重放時若只能取
+ * 「用戶此刻在聽的那首」，用戶多半早就沒在放歌了 —— 正文聊著這首歌，卡片和加歌單
+ * 卻整個沒發生。worker 到點把那首歌凍進 directive，調用方（applyAssistantPostProcessing）
+ * 再顯式傳進來。本地聊天路徑不傳，走實時快照。
  */
 export interface FrozenMusicSong {
     id?: number;
@@ -71,7 +71,7 @@ export interface FrozenMusicSong {
     artists: string;
 }
 
-/** 冻结的那首歌来自推送 metadata，字段形状不保证；歌名都没有就当没传。 */
+/** 凍結的那首歌來自推送 metadata，字段形狀不保證；歌名都沒有就當沒傳。 */
 const normalizeFrozenSong = (song?: FrozenMusicSong | null): FrozenMusicSong | null => {
     if (!song || typeof song.name !== 'string' || !song.name.trim()) return null;
     return {
@@ -82,12 +82,12 @@ const normalizeFrozenSong = (song?: FrozenMusicSong | null): FrozenMusicSong | n
 };
 
 /**
- * 把冻结的那首歌还原成一张完整快照 —— 卡片要封面、加歌单要时长/收费这些字段，
- * 而 directive 里只带得动 id / 歌名 / 歌手（推送 payload 就那么点额度）。
+ * 把凍結的那首歌還原成一張完整快照 —— 卡片要封面、加歌單要時長/收費這些字段，
+ * 而 directive 裡只帶得動 id / 歌名 / 歌手（推送 payload 就那麼點額度）。
  *
- * 那首歌是从角色自己的歌单抽样池里挑的，所以回角色歌单按 id 找基本必中；id 对不上
- * （歌单被改过）再按歌名 + 歌手兜一次。都找不到就只用手上这三个字段，封面空着 ——
- * 也比把用户此刻在听的另一首当成它强。
+ * 那首歌是從角色自己的歌單抽樣池裡挑的，所以回角色歌單按 id 找基本必中；id 對不上
+ * （歌單被改過）再按歌名 + 歌手兜一次。都找不到就只用手上這三個字段，封面空著 ——
+ * 也比把用戶此刻在聽的另一首當成它強。
  */
 const resolveFrozenSongSnapshot = async (
     charId: string,
@@ -113,7 +113,7 @@ const resolveFrozenSongSnapshot = async (
             };
         }
     } catch (e) {
-        console.warn('[MusicAction] 回角色歌单补歌曲信息失败，只用推送里带的那几个字段:', e);
+        console.warn('[MusicAction] 回角色歌單補歌曲信息失敗，只用推送裡帶的那幾個字段:', e);
     }
     return {
         songId: frozen.id ?? 0,
@@ -126,10 +126,10 @@ const resolveFrozenSongSnapshot = async (
     };
 };
 
-// 转账的提取（规范标签 + 模型掉格式的系统日志形态）统一在 utils/transferFormat.ts:
-// extractTransferCommands —— 与 worker classifier 共用一份源码。master 上曾有一版
-// 独立实现 extractAssistantTransfers, 合并时其能力（全角括号【】/ 主语「我」/ credits
-// 后缀）已并入 transferFormat, 测试见 utils/chatParser.transfer.test.ts。
+// 轉帳的提取（規範標籤 + 模型掉格式的系統日誌形態）統一在 utils/transferFormat.ts:
+// extractTransferCommands —— 與 worker classifier 共用一份源碼。master 上曾有一版
+// 獨立實現 extractAssistantTransfers, 合併時其能力（全角括號【】/ 主語「我」/ credits
+// 後綴）已併入 transferFormat, 測試見 utils/chatParser.transfer.test.ts。
 
 export const ChatParser = {
     // Return cleaned content and perform side effects
@@ -139,89 +139,89 @@ export const ChatParser = {
         charName: string,
         addToast: (msg: string, type: 'info'|'success'|'error') => void,
         musicHooks?: MusicActionHooks,
-        /** 角色自定义时区；定时消息里的时间是角色照着自己的钟写的，要按这个还原成真实时刻。 */
+        /** 角色自定義時區；定時消息裡的時間是角色照著自己的鐘寫的，要按這個還原成真實時刻。 */
         charTz?: string,
         /**
-         * 这一轮消息该落的时间戳（离线补收时是原始发送时刻）。不传则各条按写库当刻。
+         * 這一輪消息該落的時間戳（離線補收時是原始發送時刻）。不傳則各條按寫庫當刻。
          *
-         * 必须跟 applyAssistantPostProcessing 的 persistMessage 用同一个值：不然离线补收时
-         * 正文气泡显示凌晨三点、同一条消息拆出来的戳一戳/转账/日程系统提示显示「用户打开
-         * App 那一刻」，一条消息被劈成两个时间。
+         * 必須跟 applyAssistantPostProcessing 的 persistMessage 用同一個值：不然離線補收時
+         * 正文氣泡顯示凌晨三點、同一條消息拆出來的戳一戳/轉帳/日程系統提示顯示「用戶打開
+         * App 那一刻」，一條消息被劈成兩個時間。
          */
         messageTimestamp?: number,
         /**
-         * 这一轮消息统一继承的 metadata（主动消息 2.0 的 `source` / `activeMsg2.messageId` 等，
-         * 见 applyAssistantPostProcessing 的 mcdInheritMeta）。
+         * 這一輪消息統一繼承的 metadata（主動消息 2.0 的 `source` / `activeMsg2.messageId` 等，
+         * 見 applyAssistantPostProcessing 的 mcdInheritMeta）。
          *
-         * 副作用产物（戳一戳 / 转账卡 / 收款回执 / 音乐卡 / 新闻卡 / 日程系统提示 / 生活记录卡）
-         * 要跟正文气泡带同一个标记：主动消息处理失败后会整条重来，重来前靠
-         * metadata.activeMsg2.messageId 认领「这条推送上一趟已经写下的东西」。副作用跑在正文
-         * 之前，一条都认不出来就会被当成「上次什么都没做」，整套副作用再跑一遍——同一笔转账
-         * 落两张卡、日记写两遍。
+         * 副作用產物（戳一戳 / 轉帳卡 / 收款回執 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡）
+         * 要跟正文氣泡帶同一個標記：主動消息處理失敗後會整條重來，重來前靠
+         * metadata.activeMsg2.messageId 認領「這條推送上一趟已經寫下的東西」。副作用跑在正文
+         * 之前，一條都認不出來就會被當成「上次什麼都沒做」，整套副作用再跑一遍——同一筆轉帳
+         * 落兩張卡、日記寫兩遍。
          */
         inheritMeta?: Record<string, any>,
         /**
-         * 这一轮 `[[MUSIC_ACTION:…]]` 说的是哪首歌（见 FrozenMusicSong）。
-         * 只有主动消息 2.0 的定时路径传，其余路径不传 = 取用户此刻在听的那首。
+         * 這一輪 `[[MUSIC_ACTION:…]]` 說的是哪首歌（見 FrozenMusicSong）。
+         * 只有主動消息 2.0 的定時路徑傳，其餘路徑不傳 = 取用戶此刻在聽的那首。
          */
         frozenMusicSong?: FrozenMusicSong,
         /**
-         * 「系统设置 → 生图API」配置。传了且角色发图开关都开着，才会真的执行
-         * `[[ACTION:SEND_PHOTO|画面描述]]`；不传（或配置不全）时静默剥掉标签、不生成——
-         * 教没教角色这个动作是 chatPrompts.ts 的事，这里只负责「教了就要能兑现」。
+         * 「系統設置 → 生圖API」配置。傳了且角色發圖開關都開著，才會真的執行
+         * `[[ACTION:SEND_PHOTO|畫面描述]]`；不傳（或配置不全）時靜默剝掉標籤、不生成——
+         * 教沒教角色這個動作是 chatPrompts.ts 的事，這裡只負責「教了就要能兌現」。
          */
         imageGenConfig?: ImageGenApiConfig,
         /**
-         * 角色退回用户发起的转账（`[[ACTION:TRANSFER_RETURN]]`，resolveUserTransfer 的
-         * 'returned' 分支）时调用，退款回 Real Balance——钱在用户发送那一刻就已经从
-         * Real Balance 扣走了（apps/Chat.tsx 的 onTransfer），退回等于这笔钱没花出去，
-         * 得还回去。'accepted' 分支不用回调：钱已经在发送时结清，收下不再改动余额。
-         * 不传就静默不退款（旧调用方 / 用不到 Real Balance 的场景）。
+         * 角色退回用戶發起的轉帳（`[[ACTION:TRANSFER_RETURN]]`，resolveUserTransfer 的
+         * 'returned' 分支）時調用，退款回 Real Balance——錢在用戶發送那一刻就已經從
+         * Real Balance 扣走了（apps/Chat.tsx 的 onTransfer），退回等於這筆錢沒花出去，
+         * 得還回去。'accepted' 分支不用回調：錢已經在發送時結清，收下不再改動餘額。
+         * 不傳就靜默不退款（舊調用方 / 用不到 Real Balance 的場景）。
          *
-         * 只在前台实时聊天路径传（useChatAI.ts）：TRANSFER_ACCEPT/TRANSFER_RETURN 这两个
-         * 标签没被 worker 的 SIDE_EFFECT_TAGS 收录，主动消息 2.0 的 push 路径上会被当成
-         * 普通文本剥掉，根本传不到这里、这个回调在那条路径上永远不会被调用（worker 侧的
-         * 已知缺口，见 worker/instant-push/src/classifier.ts 的 transfer_accept/return 注释）。
+         * 只在前台實時聊天路徑傳（useChatAI.ts）：TRANSFER_ACCEPT/TRANSFER_RETURN 這兩個
+         * 標籤沒被 worker 的 SIDE_EFFECT_TAGS 收錄，主動消息 2.0 的 push 路徑上會被當成
+         * 普通文本剝掉，根本傳不到這裡、這個回調在那條路徑上永遠不會被調用（worker 側的
+         * 已知缺口，見 worker/instant-push/src/classifier.ts 的 transfer_accept/return 註釋）。
          */
         onUserTransferReturned?: (amount: number) => Promise<void> | void,
         /**
-         * 角色收下用户发起的转账（resolveUserTransfer 的 'accepted' 分支）时调用，
-         * 把这笔钱记入角色自己的 Real Balance（跟 onUserTransferReturned 是同一枚硬币的
-         * 两面：退回款回用户，收下入账角色）。不传就静默不入账。同样只在前台路径有意义，
-         * 原因见 onUserTransferReturned 的注释。
+         * 角色收下用戶發起的轉帳（resolveUserTransfer 的 'accepted' 分支）時調用，
+         * 把這筆錢記入角色自己的 Real Balance（跟 onUserTransferReturned 是同一枚硬幣的
+         * 兩面：退回款回用戶，收下入帳角色）。不傳就靜默不入帳。同樣只在前台路徑有意義，
+         * 原因見 onUserTransferReturned 的註釋。
          */
         onUserTransferAccepted?: (amount: number) => Promise<void> | void,
         /**
-         * 角色主动发起转账（`[[ACTION:TRANSFER|...]]`，即 transferEvents 里 kind === 'send'）
-         * 落卡之前调用，从角色自己的 Real Balance 扣款——跟用户发起转账时"发送即结清"
-         * （apps/Chat.tsx 的 onTransfer）对称：钱在角色说出口那一刻就已经离开角色账户，
-         * 而不是等用户"收下"才发现角色余额不够。返回 false 时余额不够，跳过这笔转账
-         * （不落待处理转账卡，等于角色这句"转给你"没真的发生）。不传则不做余额检查，
-         * 按老行为直接落卡（旧调用方 / 用不到 Real Balance 的场景）。
+         * 角色主動發起轉帳（`[[ACTION:TRANSFER|...]]`，即 transferEvents 裡 kind === 'send'）
+         * 落卡之前調用，從角色自己的 Real Balance 扣款——跟用戶發起轉帳時"發送即結清"
+         * （apps/Chat.tsx 的 onTransfer）對稱：錢在角色說出口那一刻就已經離開角色帳戶，
+         * 而不是等用戶"收下"才發現角色餘額不夠。返回 false 時餘額不夠，跳過這筆轉帳
+         * （不落待處理轉帳卡，等於角色這句"轉給你"沒真的發生）。不傳則不做餘額檢查，
+         * 按老行為直接落卡（舊調用方 / 用不到 Real Balance 的場景）。
          */
         onCharTransferSend?: (amount: number) => Promise<boolean>,
         /**
-         * 角色收到「外卖代付请求」（购物中心 mini-app 发起，见 utils/mallOrderFormat.ts）后
-         * 选择支付（`[[ACTION:DAIFU_ACCEPT]]`）时调用，从角色自己的 Real Balance 扣这笔钱——
-         * 这是消费性的单向支出（角色替用户付了这顿饭），不是转账，用户这边不会有对应入账。
-         * 返回 false 表示余额不够，这种情况会把这张卡自动改判成"已拒绝"（附系统生成的原因），
-         * 不会让卡片卡死在"待处理"。不传就静默不结算（旧调用方 / 用不到 Real Balance 的场景）。
+         * 角色收到「外賣代付請求」（購物中心 mini-app 發起，見 utils/mallOrderFormat.ts）後
+         * 選擇支付（`[[ACTION:DAIFU_ACCEPT]]`）時調用，從角色自己的 Real Balance 扣這筆錢——
+         * 這是消費性的單向支出（角色替用戶付了這頓飯），不是轉帳，用戶這邊不會有對應入帳。
+         * 返回 false 表示餘額不夠，這種情況會把這張卡自動改判成"已拒絕"（附系統生成的原因），
+         * 不會讓卡片卡死在"待處理"。不傳就靜默不結算（舊調用方 / 用不到 Real Balance 的場景）。
          */
         onCharDaifuAccept?: (amount: number) => Promise<boolean>,
         /**
-         * 角色主动送用户一份礼物/外卖（`[[ACTION:GIFT|item=|price=|note=]]`）落卡之前调用，
-         * 从角色自己的 Real Balance 扣款——跟 onCharTransferSend 对称的"发送即结清"：钱在
-         * 角色说出口那一刻就已经离开角色账户。返回 false 时余额不够，跳过这份礼物（不落卡，
-         * 等于角色这句"给你带了个礼物"没真的发生）。不传则不做余额检查，直接落卡。
+         * 角色主動送用戶一份禮物/外賣（`[[ACTION:GIFT|item=|price=|note=]]`）落卡之前調用，
+         * 從角色自己的 Real Balance 扣款——跟 onCharTransferSend 對稱的"發送即結清"：錢在
+         * 角色說出口那一刻就已經離開角色帳戶。返回 false 時餘額不夠，跳過這份禮物（不落卡，
+         * 等於角色這句"給你帶了個禮物"沒真的發生）。不傳則不做餘額檢查，直接落卡。
          */
         onCharGiftSend?: (amount: number) => Promise<boolean>,
     ) => {
         let content = aiContent;
-        /** 落库统一走这里，别直接调 DB.saveMessage —— 漏一处就是一条消息两个时间、重试时还认不出来。 */
+        /** 落庫統一走這裡，別直接調 DB.saveMessage —— 漏一處就是一條消息兩個時間、重試時還認不出來。 */
         const persist = (msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
             ...msg,
             ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
-            // 卡片自己的字段优先，inheritMeta 只补它没有的键（两边键名本来就不重叠，这里是防御）
+            // 卡片自己的字段優先，inheritMeta 只補它沒有的鍵（兩邊鍵名本來就不重疊，這裡是防禦）
             ...(inheritMeta ? { metadata: { ...inheritMeta, ...(msg.metadata || {}) } } : {}),
         });
 
@@ -235,27 +235,27 @@ export const ChatParser = {
                 const chars = await DB.getAllCharacters();
                 const collaborationEnabled = !!chars.find(char => char.id === charId)?.chatCollaborationEnabled;
                 if (!collaborationEnabled) {
-                    console.warn('[CollaborationFileCabinet] 忽略未开启协同能力时的文件标记:', { charId });
+                    console.warn('[CollaborationFileCabinet] 忽略未開啟協同能力時的文件標記:', { charId });
                 } else {
                     const files = await CollaborationStore.listLibraryFiles(charId);
                     for (const requestedTitle of fileDirectives.requestedTitles) {
                         const file = resolveCollaborationFileByTitle(files, requestedTitle);
                         if (!file) {
-                            addToast(`文件柜里找不到《${requestedTitle}》，已跳过发送`, 'error');
+                            addToast(`文件櫃裡找不到《${requestedTitle}》，已跳過發送`, 'error');
                             continue;
                         }
                         await persist({
                             charId,
                             role: 'assistant',
                             type: 'collaboration_file',
-                            content: `[协同文件：${file.name}]`,
+                            content: `[協同文件：${file.name}]`,
                             metadata: collaborationFileMessageMetadata(file),
                         });
                     }
                 }
             } catch (error) {
-                console.warn('[CollaborationFileCabinet] 发送文件失败:', error);
-                addToast('协同文件柜暂时读取失败', 'error');
+                console.warn('[CollaborationFileCabinet] 發送文件失敗:', error);
+                addToast('協同文件櫃暫時讀取失敗', 'error');
             }
         }
 
@@ -265,9 +265,9 @@ export const ChatParser = {
             content = content.replace('[[ACTION:POKE]]', '').trim();
         }
 
-        // SEND_PHOTO — 角色自主发图。教没教这个动作在 chatPrompts.ts（取决于生图开关+配置是否
-        // 齐全）；这里只要看到标签就按 imageGenConfig 有没有传、配得全不全来决定真生成还是
-        // 静默剥掉——没传等于「没接生图」，避免标签原样漏进气泡里。
+        // SEND_PHOTO — 角色自主發圖。教沒教這個動作在 chatPrompts.ts（取決於生圖開關+配置是否
+        // 齊全）；這裡只要看到標籤就按 imageGenConfig 有沒有傳、配得全不全來決定真生成還是
+        // 靜默剝掉——沒傳等於「沒接生圖」，避免標籤原樣漏進氣泡裡。
         const photoMatches = [...content.matchAll(/\[\[ACTION:SEND_PHOTO\s*\|\s*(.*?)\s*\]\]/g)];
         if (photoMatches.length > 0) {
             for (const m of photoMatches) content = content.replace(m[0], '').trim();
@@ -276,8 +276,8 @@ export const ChatParser = {
                 && imageGenConfig?.baseUrl && imageGenConfig?.model
             );
             if (canGenerate) {
-                // 挨个顺序生成、发送——生图是要花钱的网络请求，不并发抢速度；一轮回复里
-                // 角色想发好几张也不至于同时炸出去一堆请求。
+                // 挨個順序生成、發送——生圖是要花錢的網絡請求，不併發搶速度；一輪回復裡
+                // 角色想發好幾張也不至於同時炸出去一堆請求。
                 for (const m of photoMatches) {
                     const description = m[1].trim();
                     if (!description) continue;
@@ -292,9 +292,9 @@ export const ChatParser = {
                             charId, role: 'assistant', type: 'image', content: storedContent,
                             metadata: { aiGenerated: true, imagePrompt: description },
                         });
-                        // 相册是消息的附带记录，见 apps/Chat.tsx 用户发图那份同款逻辑——角色自己发的
-                        // 图之前只落消息，不进相册，「相册」App 里翻不到角色发过的照片。写入失败不影响
-                        // 已经落库的聊天消息。
+                        // 相冊是消息的附帶記錄，見 apps/Chat.tsx 用戶發圖那份同款邏輯——角色自己發的
+                        // 圖之前只落消息，不進相冊，「相冊」App 裡翻不到角色發過的照片。寫入失敗不影響
+                        // 已經落庫的聊天消息。
                         try {
                             await DB.saveGalleryImage({
                                 id: `img-${Date.now()}-${Math.random()}`,
@@ -303,25 +303,25 @@ export const ChatParser = {
                                 savedDate: getLocalDateKey(new Date()),
                             });
                         } catch (galleryError) {
-                            console.warn('[ChatParser] 角色发的图存相册失败:', galleryError);
+                            console.warn('[ChatParser] 角色發的圖存相冊失敗:', galleryError);
                         }
                     } catch (error) {
-                        console.warn('[ChatParser] 角色发图失败:', error);
-                        addToast(`${charName} 想发张照片，但生成失败了`, 'error');
+                        console.warn('[ChatParser] 角色發圖失敗:', error);
+                        addToast(`${charName} 想發張照片，但生成失敗了`, 'error');
                     }
                 }
             } else {
-                console.warn('[ChatParser] 角色想发图，但生图未开启/未配置完整，已忽略标签', { charId });
+                console.warn('[ChatParser] 角色想發圖，但生圖未開啟/未配置完整，已忽略標籤', { charId });
             }
         }
 
-        // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一笔待处理的转账。
-        // 找最近一条 user 发出、还没被收/退、且不是回执卡本身的转账，标记状态并补一张回执小卡。
+        // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一筆待處理的轉帳。
+        // 找最近一條 user 發出、還沒被收/退、且不是回執卡本身的轉帳，標記狀態並補一張回執小卡。
         //
-        // 找不到待处理转账时**不落回执**：老实现会照样落一张，渲染成「xx已收款」
-        // (MessageItem.tsx TransferCard)，等于角色能凭空声明自己收了一笔用户从没发过的钱。
-        // 老注释写的「至少 user 能看到反馈」意图是防静默失败，但代价是假账——角色那句话
-        // 照常显示，用户看到的最多是句废话，比看到一笔不存在的收款好。
+        // 找不到待處理轉帳時**不落回執**：老實現會照樣落一張，渲染成「xx已收款」
+        // (MessageItem.tsx TransferCard)，等於角色能憑空聲明自己收了一筆用戶從沒發過的錢。
+        // 老註釋寫的「至少 user 能看到反饋」意圖是防靜默失敗，但代價是假帳——角色那句話
+        // 照常顯示，用戶看到的最多是句廢話，比看到一筆不存在的收款好。
         const resolveUserTransfer = async (action: 'accepted' | 'returned') => {
             let amount: string | number | undefined;
             let refId: number | undefined;
@@ -331,17 +331,17 @@ export const ChatParser = {
                     x => x.type === 'transfer' && x.role === 'user' && !x.metadata?.receipt
                         && (!x.metadata?.status || x.metadata.status === 'pending'),
                 );
-                // 角色收的是**它说这句话那一刻**看得到的那笔。主动消息补收会把「生成」和「重放」
-                // 拉开几小时：用户早上又转了 1000，按「最新一笔待收」结算就会让角色半夜那句
-                // 「这五块我收下啦」把早上那 1000 给收了。所以先在原始发送时刻之前的待收里取最新，
-                // 一笔都没有再退回老行为（并留一行日志说明这次是按最新一笔结的）。
+                // 角色收的是**它說這句話那一刻**看得到的那筆。主動消息補收會把「生成」和「重放」
+                // 拉開幾小時：用戶早上又轉了 1000，按「最新一筆待收」結算就會讓角色半夜那句
+                // 「這五塊我收下啦」把早上那 1000 給收了。所以先在原始發送時刻之前的待收裡取最新，
+                // 一筆都沒有再退回老行為（並留一行日誌說明這次是按最新一筆結的）。
                 let pending = messageTimestamp != null
                     ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
                     : undefined;
                 if (!pending) {
                     if (messageTimestamp != null && pendings.length > 0) {
                         console.warn(
-                            '[Transfer] 这条消息发出时并没有待收的转账，退回按最新一笔结算:',
+                            '[Transfer] 這條消息發出時並沒有待收的轉帳，退回按最新一筆結算:',
                             { charId, messageTimestamp, pendingCount: pendings.length },
                         );
                     }
@@ -353,11 +353,11 @@ export const ChatParser = {
                     await DB.updateMessageMetadata(pending.id, (prev) => ({ ...(prev || {}), status: action, resolvedAt: Date.now() }));
                 }
             } catch (e) {
-                console.warn('[Transfer] 查待处理转账失败，跳过回执:', e);
+                console.warn('[Transfer] 查待處理轉帳失敗，跳過回執:', e);
                 return;
             }
             if (refId === undefined) {
-                console.warn(`[Transfer] 角色想${action === 'accepted' ? '收下' : '退回'}转账，但没有待处理的用户转账，已忽略`);
+                console.warn(`[Transfer] 角色想${action === 'accepted' ? '收下' : '退回'}轉帳，但沒有待處理的用戶轉帳，已忽略`);
                 return;
             }
             await persist({
@@ -365,8 +365,8 @@ export const ChatParser = {
                 content: action === 'accepted' ? '[已收款]' : '[已退回]',
                 metadata: { receipt: action, amount, ref: refId },
             });
-            // 退回：钱在用户发送那一刻就已经从 Real Balance 扣走了，角色退回等于这笔钱
-            // 没真的花出去，得退款回去。收下：钱这时才真的到账角色，记入角色的 Real Balance。
+            // 退回：錢在用戶發送那一刻就已經從 Real Balance 扣走了，角色退回等於這筆錢
+            // 沒真的花出去，得退款回去。收下：錢這時才真的到帳角色，記入角色的 Real Balance。
             const numericAmount = Number(amount);
             if (Number.isFinite(numericAmount) && numericAmount > 0) {
                 if (action === 'returned' && onUserTransferReturned) {
@@ -377,34 +377,34 @@ export const ChatParser = {
             }
         };
 
-        // TRANSFER — 规范标签 + 模仿历史日志的口语形态一起解析，见 utils/transferFormat.ts。
-        // 按出现顺序执行，保住角色「先转账再说谢谢」这类语序意图。
+        // TRANSFER — 規範標籤 + 模仿歷史日誌的口語形態一起解析，見 utils/transferFormat.ts。
+        // 按出現順序執行，保住角色「先轉帳再說謝謝」這類語序意圖。
         const { text: transferCleanedText, events: transferEvents, consumed: transferConsumed } = extractTransferCommands(content);
         if (transferConsumed > 0) content = transferCleanedText;
         for (const ev of transferEvents) {
             if (ev.kind === 'send') {
-                // 发送即结清：先从角色 Real Balance 扣款，扣不出来就不落卡（等于这句「转给你」
-                // 没真的发生）。不传检查回调则维持老行为，直接落卡。
+                // 發送即結清：先從角色 Real Balance 扣款，扣不出來就不落卡（等於這句「轉給你」
+                // 沒真的發生）。不傳檢查回調則維持老行為，直接落卡。
                 const sendAmount = Number(ev.amount);
                 const ok = onCharTransferSend && Number.isFinite(sendAmount) && sendAmount > 0
                     ? await onCharTransferSend(sendAmount)
                     : true;
                 if (!ok) {
-                    console.warn('[Transfer] 角色 Real Balance 不足，跳过这笔主动转账:', { charId, amount: ev.amount });
+                    console.warn('[Transfer] 角色 Real Balance 不足，跳過這筆主動轉帳:', { charId, amount: ev.amount });
                     continue;
                 }
-                // role 固定 'assistant' —— 方向不由文本决定，文本里的方向信息只在
-                // transferFormat 里做过校验（伪造的已被丢弃）。
-                await persist({ charId, role: 'assistant', type: 'transfer', content: '[转账]', metadata: { amount: ev.amount, status: 'pending' } });
+                // role 固定 'assistant' —— 方向不由文本決定，文本里的方向信息只在
+                // transferFormat 裡做過校驗（偽造的已被丟棄）。
+                await persist({ charId, role: 'assistant', type: 'transfer', content: '[轉帳]', metadata: { amount: ev.amount, status: 'pending' } });
             } else {
                 await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
             }
         }
 
-        // MALL DAIFU — 角色对「外卖代付请求」支付或拒绝。跟 resolveUserTransfer 结构相同：
-        // 找最近一条 user 发出、还 pending 的 mall_order(mode=daifu)，标记状态。跟转账不同的是
-        // 这不是两方账本的转移，是角色单方面的支出（角色替用户付了这顿饭），所以只更新原卡
-        // 自己的 status，不另外落一张回执小卡——MallOrderCard 本身就靠 status 字段切换四种展示。
+        // MALL DAIFU — 角色對「外賣代付請求」支付或拒絕。跟 resolveUserTransfer 結構相同：
+        // 找最近一條 user 發出、還 pending 的 mall_order(mode=daifu)，標記狀態。跟轉帳不同的是
+        // 這不是兩方帳本的轉移，是角色單方面的支出（角色替用戶付了這頓飯），所以只更新原卡
+        // 自己的 status，不另外落一張回執小卡——MallOrderCard 本身就靠 status 字段切換四種展示。
         const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
             let amount: number | undefined;
             let refId: number | undefined;
@@ -413,14 +413,14 @@ export const ChatParser = {
                 const pendings = all.filter(
                     x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
                 );
-                // 跟 resolveUserTransfer 同一个理由：按「这句话说出口那一刻」看得到的最新一笔结算，
-                // 离线补收拉开生成/重放的时间差时不会让半夜那句话结了早上才发的请求。
+                // 跟 resolveUserTransfer 同一個理由：按「這句話說出口那一刻」看得到的最新一筆結算，
+                // 離線補收拉開生成/重放的時間差時不會讓半夜那句話結了早上才發的請求。
                 let pending = messageTimestamp != null
                     ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
                     : undefined;
                 if (!pending) {
                     if (messageTimestamp != null && pendings.length > 0) {
-                        console.warn('[MallDaifu] 这条消息发出时并没有待处理的代付请求，按最新一笔结算:', { charId, messageTimestamp, pendingCount: pendings.length });
+                        console.warn('[MallDaifu] 這條消息發出時並沒有待處理的代付請求，按最新一筆結算:', { charId, messageTimestamp, pendingCount: pendings.length });
                     }
                     pending = pendings[pendings.length - 1];
                 }
@@ -429,11 +429,11 @@ export const ChatParser = {
                     refId = pending.id;
                 }
             } catch (e) {
-                console.warn('[MallDaifu] 查待处理代付请求失败，跳过:', e);
+                console.warn('[MallDaifu] 查待處理代付請求失敗，跳過:', e);
                 return;
             }
             if (refId === undefined) {
-                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒绝'}代付请求，但没有待处理的请求，已忽略`);
+                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒絕'}代付請求，但沒有待處理的請求，已忽略`);
                 return;
             }
             let finalAction = action;
@@ -442,8 +442,8 @@ export const ChatParser = {
                 const ok = await onCharDaifuAccept(amount as number);
                 if (!ok) {
                     finalAction = 'declined';
-                    finalReason = '余额不够，付不出这笔钱';
-                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付请求自动改判拒绝:', { charId, amount });
+                    finalReason = '餘額不夠，付不出這筆錢';
+                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付請求自動改判拒絕:', { charId, amount });
                 }
             }
             await DB.updateMessageMetadata(refId, (prev) => ({
@@ -454,7 +454,7 @@ export const ChatParser = {
             }));
         };
 
-        // MALL — 购物中心的 GIFT send / DAIFU accept-decline，见 utils/mallOrderFormat.ts。
+        // MALL — 購物中心的 GIFT send / DAIFU accept-decline，見 utils/mallOrderFormat.ts。
         const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
         if (mallOrderConsumed > 0) content = mallCleanedText;
         for (const ev of mallOrderEvents) {
@@ -464,11 +464,11 @@ export const ChatParser = {
                     ? await onCharGiftSend(price)
                     : true;
                 if (!ok) {
-                    console.warn('[Mall] 角色 Real Balance 不足，跳过这份主动送出的礼物:', { charId, item: ev.item, price: ev.price });
+                    console.warn('[Mall] 角色 Real Balance 不足，跳過這份主動送出的禮物:', { charId, item: ev.item, price: ev.price });
                     continue;
                 }
                 await persist({
-                    charId, role: 'assistant', type: 'mall_order', content: '[购物中心卡片]',
+                    charId, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]',
                     metadata: { mode: 'gift', items: [{ name: ev.item, price, qty: 1 }], total: price, note: ev.note, status: 'sent' },
                 });
             } else {
@@ -476,12 +476,12 @@ export const ChatParser = {
             }
         }
 
-        // MALL GIFT ACK — 用户送的礼物是「发送即结清」，没有 accept 步骤，但完全没反馈不好；
-        // 角色这一轮既然生成了回复，就说明已经看到了这份礼物，顺手标一个 acknowledged，
-        // 让 MallOrderCard 在"已送出"旁边多显示一句"TA已收下"。不用教模型专门喊一个标签——
-        // 这是纯摆设确认，说不说都不影响结算，没必要为这个引入"想做≠做了"的标签遗忘风险；
-        // 直接按"角色这轮说话了 = 已经看到最新一条历史"这个必然成立的事实来标记，更稳。
-        // 只标最新一条：老的已经错过时机，不用倒着一次性全标。
+        // MALL GIFT ACK — 用戶送的禮物是「發送即結清」，沒有 accept 步驟，但完全沒反饋不好；
+        // 角色這一輪既然生成了回覆，就說明已經看到了這份禮物，順手標一個 acknowledged，
+        // 讓 MallOrderCard 在"已送出"旁邊多顯示一句"TA已收下"。不用教模型專門喊一個標籤——
+        // 這是純擺設確認，說不說都不影響結算，沒必要為這個引入"想做≠做了"的標籤遺忘風險；
+        // 直接按"角色這輪說話了 = 已經看到最新一條歷史"這個必然成立的事實來標記，更穩。
+        // 只標最新一條：老的已經錯過時機，不用倒著一次性全標。
         try {
             const allMsgs = await DB.getMessagesByCharId(charId, true);
             const unacked = allMsgs
@@ -491,18 +491,18 @@ export const ChatParser = {
                 await DB.updateMessageMetadata(unacked[0].id, (prev) => ({ ...(prev || {}), acknowledged: true }));
             }
         } catch (e) {
-            console.warn('[Mall] 标记礼物已读失败，跳过:', e);
+            console.warn('[Mall] 標記禮物已讀失敗，跳過:', e);
         }
 
-        // MUSIC_ACTION — char 对 user 正在听的歌表态（只处理第一次出现，每条消息最多一次插卡）
-        // 支持的格式（后两种是为了让 char 自己挑歌单 / 新建歌单）：
+        // MUSIC_ACTION — char 對 user 正在聽的歌表態（只處理第一次出現，每條消息最多一次插卡）
+        // 支持的格式（後兩種是為了讓 char 自己挑歌單 / 新建歌單）：
         //   [[MUSIC_ACTION:join]]
-        //   [[MUSIC_ACTION:add]]                              → 默认放第一个歌单
-        //   [[MUSIC_ACTION:add|歌单标题]]                      → 放进现有歌单（标题匹配）
-        //   [[MUSIC_ACTION:add_new|新歌单标题|可选描述]]        → 新建歌单
+        //   [[MUSIC_ACTION:add]]                              → 默認放第一個歌單
+        //   [[MUSIC_ACTION:add|歌單標題]]                      → 放進現有歌單（標題匹配）
+        //   [[MUSIC_ACTION:add_new|新歌單標題|可選描述]]        → 新建歌單
         //   [[MUSIC_ACTION:join_and_add(|...)]]              → 同 add 一套
-        //   [[MUSIC_ACTION:join_and_add_new|新歌单标题|描述]]  → 同 add_new
-        // 用 | 分隔参数，避免和 : 冲突（标题里很容易出现 :)
+        //   [[MUSIC_ACTION:join_and_add_new|新歌單標題|描述]]  → 同 add_new
+        // 用 | 分隔參數，避免和 : 衝突（標題裡很容易出現 :)
         const MUSIC_TAG_RE = /\[\[MUSIC_ACTION:(join|add|add_new|join_and_add|join_and_add_new)(?:\|([^\]]*))?\]\]/;
         const MUSIC_TAG_GLOBAL_RE = /\[\[MUSIC_ACTION:(?:join|add|add_new|join_and_add|join_and_add_new)(?:\|[^\]]*)?\]\]/g;
         const musicMatch = content.match(MUSIC_TAG_RE);
@@ -510,7 +510,7 @@ export const ChatParser = {
             const verb = musicMatch[1] as 'join' | 'add' | 'add_new' | 'join_and_add' | 'join_and_add_new';
             const argsRaw = (musicMatch[2] || '').trim();
             const args = argsRaw ? argsRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
-            // 卡片元数据里只用 join / add / join_and_add 三种意图，把 _new 折叠回 add 系
+            // 卡片元數據裡只用 join / add / join_and_add 三種意圖，把 _new 摺疊回 add 系
             const intent: 'join' | 'add' | 'join_and_add' =
                 verb === 'join' ? 'join'
                 : (verb === 'add' || verb === 'add_new') ? 'add'
@@ -521,15 +521,15 @@ export const ChatParser = {
             let target: AddSongTarget | undefined;
             if (wantsAdd) {
                 if (verb === 'add_new' || verb === 'join_and_add_new') {
-                    // 至少要有标题；没标题就退化成默认 add
+                    // 至少要有標題；沒標題就退化成默認 add
                     if (args[0]) target = { kind: 'new', title: args[0], description: args[1] };
                 } else if (args[0]) {
                     target = { kind: 'existing', title: args[0] };
                 }
             }
 
-            // 先认「角色写这句话时读到的那首」（定时消息由 worker 冻进 directive、调用方传进来），
-            // 没有这一份才退回「用户此刻在听的那首」——本地聊天走的一直是后者。
+            // 先認「角色寫這句話時讀到的那首」（定時消息由 worker 凍進 directive、調用方傳進來），
+            // 沒有這一份才退回「用戶此刻在聽的那首」——本地聊天走的一直是後者。
             const frozen = normalizeFrozenSong(frozenMusicSong);
             const snap = frozen
                 ? await resolveFrozenSongSnapshot(charId, frozen)
@@ -550,9 +550,9 @@ export const ChatParser = {
                             albumPic: snap.albumPic,
                             duration: snap.duration,
                             fee: snap.fee,
-                            // 'user' 的意思是「这首是从用户那儿听来的」，之后的提示词会照着说
-                            // （见 ContextBuilder 那段「从对方那儿收进来的歌」）。冻结的那首是
-                            // 角色自己在听的，标成 'user' 等于让它以后认错来路。
+                            // 'user' 的意思是「這首是從用戶那兒聽來的」，之後的提示詞會照著說
+                            // （見 ContextBuilder 那段「從對方那兒收進來的歌」）。凍結的那首是
+                            // 角色自己在聽的，標成 'user' 等於讓它以後認錯來路。
                             source: frozen ? 'discovered' : 'user',
                             addedAt: Date.now(),
                         };
@@ -567,7 +567,7 @@ export const ChatParser = {
                     charId,
                     role: 'assistant',
                     type: 'music_card',
-                    content: '[音乐卡片]',
+                    content: '[音樂卡片]',
                     metadata: {
                         intent,
                         song: snap,
@@ -579,31 +579,31 @@ export const ChatParser = {
                     ? (playlistCreated ? `（新建《${addedToPlaylistTitle}》）` : `《${addedToPlaylistTitle}》`)
                     : '';
                 addToast(
-                    intent === 'join' ? `${charName} 和你一起听` :
-                    intent === 'add' ? `${charName} 把这首加到了${playlistSuffix || '自己歌单'}` :
-                    `${charName} 和你一起听，也加到了${playlistSuffix || '歌单'}`,
+                    intent === 'join' ? `${charName} 和你一起聽` :
+                    intent === 'add' ? `${charName} 把這首加到了${playlistSuffix || '自己歌單'}` :
+                    `${charName} 和你一起聽，也加到了${playlistSuffix || '歌單'}`,
                     'info'
                 );
             } else {
-                // 两头都空：推送里没冻歌（比如那一刻角色的日程不在听歌的时段，或者是本地
-                // 聊天路径），用户此刻也没在放歌。剩下的选择只有跳过 —— 但静默跳过的结果是
-                // 「正文在聊这首歌，卡片和歌单动作却整个没发生」，排查时一点线索都没有，
+                // 兩頭都空：推送裡沒凍歌（比如那一刻角色的日程不在聽歌的時段，或者是本地
+                // 聊天路徑），用戶此刻也沒在放歌。剩下的選擇只有跳過 —— 但靜默跳過的結果是
+                // 「正文在聊這首歌，卡片和歌單動作卻整個沒發生」，排查時一點線索都沒有，
                 // 所以至少留一行。
                 console.warn(
-                    '[MusicAction] 既没有冻结的歌、也取不到"正在听"快照，这条音乐动作跳过:',
+                    '[MusicAction] 既沒有凍結的歌、也取不到"正在聽"快照，這條音樂動作跳過:',
                     { charId, verb, args, messageTimestamp },
                 );
             }
             content = content.replace(musicMatch[0], '').trim();
-            // 同类 tag 全清，防止 LLM 一条消息里插多次
+            // 同類 tag 全清，防止 LLM 一條消息裡插多次
             content = content.replace(MUSIC_TAG_GLOBAL_RE, '').trim();
         } else if (musicMatch) {
-            // 没有 hooks（无音乐上下文）— 静默丢弃
+            // 沒有 hooks（無音樂上下文）— 靜默丟棄
             content = content.replace(MUSIC_TAG_GLOBAL_RE, '').trim();
         }
 
-        // NEWS_CARD — char 主动把某条热点当作新闻卡片分享（来源 + 标题）
-        //   [[NEWS_CARD: 来源|标题]]    （来源可省略 → [[NEWS_CARD: 标题]]）
+        // NEWS_CARD — char 主動把某條熱點當作新聞卡片分享（來源 + 標題）
+        //   [[NEWS_CARD: 來源|標題]]    （來源可省略 → [[NEWS_CARD: 標題]]）
         const NEWS_CARD_RE = /\[\[NEWS_CARD:\s*([^\]]*?)\s*\]\]/;
         const NEWS_CARD_GLOBAL_RE = /\[\[NEWS_CARD:[^\]]*\]\]/g;
         const newsCardMatch = content.match(NEWS_CARD_RE);
@@ -617,15 +617,15 @@ export const ChatParser = {
                     source = segs[0];
                     title = segs.slice(1).join('|').trim();
                 }
-                // char 不知道链接，尝试从最近一次热点快照里按标题补 url / 来源 / 简介
+                // char 不知道鏈接，嘗試從最近一次熱點快照裡按標題補 url / 來源 / 簡介
                 let url: string | undefined;
                 let desc: string | undefined;
                 try {
                     const snap = await DB.getLatestHotNewsSnapshot();
                     const items = snap?.items || [];
-                    // 先精确匹配。模糊匹配只在**唯一命中**时才用：本地这份快照和角色当时看到的
-                    // 那份常常不是同一刻，热搜里相似标题成堆（同一件事好几条），挑错一条就是卡片
-                    // 标题说 A、点进去是 B。宁可不挂链接——无链接的卡片本来就是既有形态。
+                    // 先精確匹配。模糊匹配只在**唯一命中**時才用：本地這份快照和角色當時看到的
+                    // 那份常常不是同一刻，熱搜裡相似標題成堆（同一件事好幾條），挑錯一條就是卡片
+                    // 標題說 A、點進去是 B。寧可不掛鏈接——無鏈接的卡片本來就是既有形態。
                     let hit = items.find(it => it.title === title);
                     if (!hit && title) {
                         const fuzzy = items.filter(it => it.title.includes(title) || title.includes(it.title));
@@ -633,7 +633,7 @@ export const ChatParser = {
                             hit = fuzzy[0];
                         } else if (fuzzy.length > 1) {
                             console.warn(
-                                '[NewsCard] 本地热搜里有多条标题对得上，这张卡不挂链接:',
+                                '[NewsCard] 本地熱搜裡有多條標題對得上，這張卡不掛鏈接:',
                                 { title, matched: fuzzy.map(it => it.title) },
                             );
                         }
@@ -643,16 +643,16 @@ export const ChatParser = {
                         desc = hit.desc;
                         if (!source && hit.source) source = hit.source;
                     }
-                } catch { /* 补不到就算了 */ }
+                } catch { /* 補不到就算了 */ }
                 if (title) {
                     await persist({
                         charId,
                         role: 'assistant',
                         type: 'news_card',
-                        content: `[你分享了一个热点：「${title}」${source ? `（来源：${source}）` : ''}${desc ? `——${desc}` : ''}]`,
+                        content: `[你分享了一個熱點：「${title}」${source ? `（來源：${source}）` : ''}${desc ? `——${desc}` : ''}]`,
                         metadata: { source, title, url, desc },
                     });
-                    addToast(`${charName} 分享了一条热点`, 'info');
+                    addToast(`${charName} 分享了一條熱點`, 'info');
                 }
             }
             content = content.replace(NEWS_CARD_GLOBAL_RE, '').trim();
@@ -667,7 +667,7 @@ export const ChatParser = {
                 const anni: any = { id: `anni-${Date.now()}`, title: title, date: date, charId };
                 await DB.saveAnniversary(anni);
                 addToast(`${charName} 添加了新日程: ${title}`, 'success');
-                await persist({ charId, role: 'system', type: 'text', content: `[系统: ${charName} 新增了日程 "${title}" (${date})]` });
+                await persist({ charId, role: 'system', type: 'text', content: `[系統: ${charName} 新增了日程 "${title}" (${date})]` });
             }
             content = content.replace(eventMatch[0], '').trim();
         }
@@ -678,21 +678,21 @@ export const ChatParser = {
         while ((match = scheduleRegex.exec(content)) !== null) {
             const timeStr = match[1].trim();
             const msgContent = match[2].trim();
-            // 角色照着自己那边的钟写时间，按设备时区解释会整体偏一个时差：
-            // 纽约角色在自己上午说「今晚 21:00 找你」，设备在中国就会算成已经过期。
+            // 角色照著自己那邊的鐘寫時間，按設備時區解釋會整體偏一個時差：
+            // 紐約角色在自己上午說「今晚 21:00 找你」，設備在中國就會算成已經過期。
             const dueTime = wallClockToTimestamp(timeStr, charTz);
-            // 时间写歪 / 已经过去的一律不排。这两种情况下角色在正文里往往已经把话说出去了
-            // （「我到点叫你」），排不上就是一句空头承诺，所以留一行日志说清是哪条、为什么，
-            // 别让它悄无声息地消失。离线补收时尤其常见：消息是凌晨发的，人第二天早上才打开。
+            // 時間寫歪 / 已經過去的一律不排。這兩種情況下角色在正文裡往往已經把話說出去了
+            // （「我到點叫你」），排不上就是一句空頭承諾，所以留一行日誌說清是哪條、為什麼，
+            // 別讓它悄無聲息地消失。離線補收時尤其常見：消息是凌晨發的，人第二天早上才打開。
             if (isNaN(dueTime)) {
-                console.warn('[ScheduledMessage] 时间解析不了，这条不排:', timeStr, '内容:', msgContent);
+                console.warn('[ScheduledMessage] 時間解析不了，這條不排:', timeStr, '內容:', msgContent);
                 continue;
             }
             if (dueTime <= Date.now()) {
                 console.warn(
-                    '[ScheduledMessage] 时间已经过去，这条不排:', timeStr,
-                    `(角色时区 ${charTz ?? '设备默认'}，晚了 ${Math.round((Date.now() - dueTime) / 60000)} 分钟)`,
-                    '内容:', msgContent,
+                    '[ScheduledMessage] 時間已經過去，這條不排:', timeStr,
+                    `(角色時區 ${charTz ?? '設備默認'}，晚了 ${Math.round((Date.now() - dueTime) / 60000)} 分鐘)`,
+                    '內容:', msgContent,
                 );
                 continue;
             }
@@ -703,12 +703,12 @@ export const ChatParser = {
                     await LocalNotifications.schedule({ notifications: [{ title: charName, body: msgContent, id: Math.floor(Math.random() * 100000), schedule: { at: new Date(dueTime) }, smallIcon: 'ic_stat_icon_config_sample' }] });
                 }
             } catch (e) { console.log("Notification schedule skipped (web mode)"); }
-            addToast(`${charName} 似乎打算一会儿找你...`, 'info');
+            addToast(`${charName} 似乎打算一會兒找你...`, 'info');
         }
         content = content.replace(scheduleRegex, '').trim();
 
-        // LIFE — 生活记录代记（生理期/药盒/记账/锻炼）。开关校验、去重、写库、落 life_card
-        // 都在 lifeRecords.ts 里；这里只负责取角色档案。取不到就只剥 tag（静默丢弃）。
+        // LIFE — 生活記錄代記（生理期/藥盒/記帳/鍛鍊）。開關校驗、去重、寫庫、落 life_card
+        // 都在 lifeRecords.ts 裡；這裡只負責取角色檔案。取不到就只剝 tag（靜默丟棄）。
         if (content.includes('[[LIFE:')) {
             try {
                 const chars = await DB.getAllCharacters();
@@ -732,7 +732,7 @@ export const ChatParser = {
      * Comprehensive sanitizer for AI output before saving to DB.
      * Removes AI-specific artifacts that should never appear in chat bubbles.
      * Safe to call multiple times (idempotent). Preserves %%BILINGUAL%% markers.
-     * Pass { keepCitations: true } to preserve [QUOTE:..]/[引用:..]/[回复 ".."] tags
+     * Pass { keepCitations: true } to preserve [QUOTE:..]/[引用:..]/[回覆 ".."] tags
      * (used when downstream chunking needs to detect per-bubble citation targets).
      */
     sanitize: (text: string, options?: { keepCitations?: boolean }): string => sanitizeForBubble(text, options),
@@ -745,15 +745,15 @@ export const ChatParser = {
         const stripped = text
             .replace(/%%BILINGUAL%%/gi, '')
             .replace(/%%TRANS%%[\s\S]*/gi, '')
-            // 容错版 (对齐 MessageItem stripJunk): 截断/全角/简繁的破翻译标签也不算显示内容
-            .replace(/[<＜]\s*[/／]?\s*(?:翻[译譯]|原文|[译譯]文)\s*[>＞]?/g, '')
+            // 容錯版 (對齊 MessageItem stripJunk): 截斷/全角/簡繁的破翻譯標籤也不算顯示內容
+            .replace(/[<＜]\s*[/／]?\s*(?:翻[译譯譯]|原文|[译譯譯]文)\s*[>＞]?/g, '')
             .replace(/^\s*---\s*$/gm, '')
             .replace(/``+/g, '')
             .replace(/(^|\s)`(\s|$)/gm, '$1$2')
             .replace(/\[\[[\s\S]*?\]\]/g, '')
             .replace(/\[(?:QU[OA]TE|引用)[：:][^\]]*\]/g, '')
             .replace(/\[[^\[\]\n「」]{0,24}引用了[^\[\]\n「」]{0,24}「[^」\n]*?」[^\[\]\n]{0,24}\]\s*/g, '')
-            .replace(/\[回复\s*[""\u201C][^""\u201D]*?[""\u201D](?:\.{0,3})\]\s*[：:]?\s*/g, '')
+            .replace(/\[回[复覆]\s*[""\u201C][^""\u201D]*?[""\u201D](?:\.{0,3})\]\s*[：:]?\s*/g, '')
             .replace(/^#{1,6}\s+/gm, '')
             .replace(/^\s*[-*+]\s*$/gm, '')
             .trim();
@@ -790,17 +790,17 @@ export const ChatParser = {
     // same bubble: models often put spaces inside Japanese/Chinese mixed-language prose, and
     // treating those spaces as implicit newlines cuts a single sentence in half.
     chunkText: (text: string): string[] => {
-        // 0. 保护 <语音…>…</语音> 原子块。外语语音字幕对齐模式下 (见 chatPrompts
-        //    voiceActingGuide) 标签内部常按空行分成好几段，一旦被下面的换行断句切碎，
-        //    <语音> 的开 / 闭标签就会散落到不同气泡里；MessageItem 的 hasVoiceTag 要求
-        //    开闭成对，配不上就当纯文字漏出原始标签，语音条和翻译也全不渲染 (掉格式)。
-        //    跟 worker 端 sanitize.ts 的 Phase 1.5 一样把整块换成独占一行的占位符，
-        //    切分后再原样还原成一个 chunk。
+        // 0. 保護 <語音…>…</語音> 原子塊。外語語音字幕對齊模式下 (見 chatPrompts
+        //    voiceActingGuide) 標籤內部常按空行分成好幾段，一旦被下面的換行斷句切碎，
+        //    <語音> 的開 / 閉標籤就會散落到不同氣泡裡；MessageItem 的 hasVoiceTag 要求
+        //    開閉成對，配不上就當純文字漏出原始標籤，語音條和翻譯也全不渲染 (掉格式)。
+        //    跟 worker 端 sanitize.ts 的 Phase 1.5 一樣把整塊換成獨佔一行的佔位符，
+        //    切分後再原樣還原成一個 chunk。
         const ATOM = String.fromCharCode(2);
         const voiceBlocks: string[] = [];
-        // 语音块 + 紧邻 <字幕> 块是一个原子单元 (字幕是该语音的中文对照, 拆开就配不上)。
-        // 闭合标签容许空格 / 简繁互换 (normalizeVoiceTags 在 sanitize 阶段已修, 这里是保险)
-        const guardedText = text.replace(/(?:<字幕>[\s\S]*?<\/字幕>\s*)?<[语語]音[^>]*>[\s\S]*?<\/\s*[语語]音\s*>(?:\s*<字幕>[\s\S]*?<\/字幕>)?/g, m => {
+        // 語音塊 + 緊鄰 <字幕> 塊是一個原子單元 (字幕是該語音的中文對照, 拆開就配不上)。
+        // 閉合標籤容許空格 / 簡繁互換 (normalizeVoiceTags 在 sanitize 階段已修, 這裡是保險)
+        const guardedText = text.replace(/(?:<字幕>[\s\S]*?<\/字幕>\s*)?<[语語語]音[^>]*>[\s\S]*?<\/\s*[语語語]音\s*>(?:\s*<字幕>[\s\S]*?<\/字幕>)?/g, m => {
             const idx = voiceBlocks.length;
             voiceBlocks.push(m);
             return `\n${ATOM}${idx}${ATOM}\n`;

@@ -41,9 +41,9 @@ const SAFE_TOP = 'var(--chrome-top, var(--safe-top, 0px))';
 const SAFE_BOTTOM = 'var(--safe-bottom,0px)';
 
 const categoryMeta: Record<SARModuleCategory, { label: string; code: string; color: string; glow: string; mark: string }> = {
-    voice: { label: '译码', code: 'VOC', color: '#9bd7ce', glow: 'rgba(83,193,181,.22)', mark: '⌁' },
-    bond: { label: '关系', code: 'BND', color: '#e2b6c5', glow: 'rgba(216,123,160,.2)', mark: '◇' },
-    genre: { label: '剧目', code: 'GEN', color: '#b9b0e8', glow: 'rgba(142,123,220,.22)', mark: '✦' },
+    voice: { label: '譯碼', code: 'VOC', color: '#9bd7ce', glow: 'rgba(83,193,181,.22)', mark: '⌁' },
+    bond: { label: '關係', code: 'BND', color: '#e2b6c5', glow: 'rgba(216,123,160,.2)', mark: '◇' },
+    genre: { label: '劇目', code: 'GEN', color: '#b9b0e8', glow: 'rgba(142,123,220,.22)', mark: '✦' },
     stage: { label: '演出', code: 'SYS', color: '#d9c995', glow: 'rgba(210,180,91,.2)', mark: '◈' },
 };
 
@@ -73,7 +73,7 @@ const ModuleCard: React.FC<{
             className="sar-module-card"
             style={{ '--module-color': meta.color, '--module-glow': meta.glow, '--card-order': index } as React.CSSProperties}
             onClick={onOpen}
-            aria-label={`查看模块：${module.title}`}
+            aria-label={`查看模塊：${module.title}`}
         >
             <div className="sar-module-card__serial">M-{String(SAR_MODULE_CATALOG.indexOf(module) + 1).padStart(2, '0')}</div>
             <div className="sar-module-card__kind">{meta.code} / {meta.label}</div>
@@ -110,7 +110,7 @@ const ModuleDetail: React.FC<{
             if (event.currentTarget === event.target) onClose();
         }}>
             <section className="sar-module-detail" role="dialog" aria-modal="true" aria-labelledby="sar-module-detail-title" style={{ '--module-color': meta.color, '--module-glow': meta.glow } as React.CSSProperties}>
-                <button type="button" className="sar-module-detail__close" onClick={onClose} aria-label="关闭模块详情"><X size={17} /></button>
+                <button type="button" className="sar-module-detail__close" onClick={onClose} aria-label="關閉模塊詳情"><X size={17} /></button>
                 <div className="sar-module-detail__hero">
                     <ModuleGlyph module={module} large />
                     <div>
@@ -124,25 +124,25 @@ const ModuleDetail: React.FC<{
                 {npcEnabled && (
                     <div className="sar-module-caian-note">
                         <span className="sar-module-caian-note__avatar"><SARNpcChibi who="caian"/></span>
-                        <div><b>凯恩的说明</b><p>{module.caianNote}</p></div>
+                        <div><b>凱恩的說明</b><p>{module.caianNote}</p></div>
                     </div>
                 )}
                 <div className="sar-module-example">
-                    <span>外显效果 · 原意 → 外显</span>
+                    <span>外顯效果 · 原意 → 外顯</span>
                     <p>{module.example}</p>
                 </div>
                 <div className="sar-module-detail__tags">
-                    <span>{module.supportsUserTarget ? '可对角色 / 用户装载' : '仅角色端演出'}</span>
-                    {module.configuration && <span>装载时需设定关键词</span>}
+                    <span>{module.supportsUserTarget ? '可對角色 / 用戶裝載' : '僅角色端演出'}</span>
+                    {module.configuration && <span>裝載時需設定關鍵詞</span>}
                     <span>角色 10 回合</span>
-                    {module.supportsUserTarget && <span>用户 5 回合</span>}
+                    {module.supportsUserTarget && <span>用戶 5 回合</span>}
                 </div>
-                {!inventoryMode && quote.source !== 'regular' && <div className="sar-module-discount" role="status"><Ticket size={14}/><div><b>{quote.label}</b><span>原价 <del>{quote.originalPrice}</del> → {quote.price} 鳞币 · {quote.source === 'coupon' ? '本次自动使用 1 张' : `有效至 ${new Date(quote.expiresAt!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`}<br/>自动采用最优惠的一项，不叠加。</span></div></div>}
+                {!inventoryMode && quote.source !== 'regular' && <div className="sar-module-discount" role="status"><Ticket size={14}/><div><b>{quote.label}</b><span>原價 <del>{quote.originalPrice}</del> → {quote.price} 鱗幣 · {quote.source === 'coupon' ? '本次自動使用 1 張' : `有效至 ${new Date(quote.expiresAt!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`}<br/>自動採用最優惠的一項，不疊加。</span></div></div>}
                 <button type="button" className="sar-module-buy" disabled={busy||(!inventoryMode&&balance<quote.price)} onClick={inventoryMode ? onInstall : onPurchase}>
-                    <span>{inventoryMode ? <><MagicWand size={17} weight="fill" />{targetName ? `装载给 ${targetName}` : '选择装载对象'}</> : <><ShoppingBag size={17} weight="fill" />{busy?'正在保存…':balance<quote.price?'鳞币不足':'购买模块'}</>}</span>
-                    <span>{inventoryMode ? '消耗 1 枚' : `${quote.price} 鳞币`}</span>
+                    <span>{inventoryMode ? <><MagicWand size={17} weight="fill" />{targetName ? `裝載給 ${targetName}` : '選擇裝載對象'}</> : <><ShoppingBag size={17} weight="fill" />{busy?'正在保存…':balance<quote.price?'鱗幣不足':'購買模塊'}</>}</span>
+                    <span>{inventoryMode ? '消耗 1 枚' : `${quote.price} 鱗幣`}</span>
                 </button>
-                <div className="sar-module-detail__owned">当前持有 {owned} 枚 · {inventoryMode ? '角色端持续 10 次成功互动' : `余额 ${balance} 鳞币 · 购买后收入模块袋`}</div>
+                <div className="sar-module-detail__owned">當前持有 {owned} 枚 · {inventoryMode ? '角色端持續 10 次成功互動' : `餘額 ${balance} 鱗幣 · 購買後收入模塊袋`}</div>
                 {error&&<p role="alert" className="sar-module-detail__owned">{error}</p>}
             </section>
         </div>
@@ -168,7 +168,7 @@ export const SARModuleShopOverlay: React.FC<{
     };
     useEffect(() => {
         let live=true;
-        const refresh=()=>{try{const value=readSARCommerce();if(live)acceptCommerce(value);}catch(cause){if(live)setPaymentError(cause instanceof Error?cause.message:'余额读取失败');}};
+        const refresh=()=>{try{const value=readSARCommerce();if(live)acceptCommerce(value);}catch(cause){if(live)setPaymentError(cause instanceof Error?cause.message:'餘額讀取失敗');}};
         void ensureSARCommerce().then(value=>{if(live){acceptCommerce(value);setReady(true);}}).catch(cause=>{if(live)setPaymentError(cause.message);});
         const onStorage=(event:StorageEvent)=>{if(event.key===FISHING_MARKET_STORAGE_KEY)refresh();};
         window.addEventListener('vr-fishing-market-updated',refresh);window.addEventListener('storage',onStorage);window.addEventListener('focus',refresh);
@@ -257,7 +257,7 @@ export const SARModuleShopOverlay: React.FC<{
         if (state.market.rollsRemaining <= 0 || payingRef.current || !ready) return;
         payingRef.current=true;setPaying(true);setPaymentError('');
         try { const next=await refreshSARModuleShelf();acceptCommerce(next);setSelectedId(null); }
-        catch(cause){setPaymentError(cause instanceof Error?cause.message:'货架刷新失败');}
+        catch(cause){setPaymentError(cause instanceof Error?cause.message:'貨架刷新失敗');}
         finally{payingRef.current=false;setPaying(false);}
     };
 
@@ -266,7 +266,7 @@ export const SARModuleShopOverlay: React.FC<{
         payingRef.current=true;setPaying(true);setPaymentError('');
         try { const result=await buySARModuleWithPayment(module.id,{requestId:newSARPurchaseId(),maxCost:shownPrice});
             acceptCommerce(result);setReceipt({title:module.title,count:result.shop.inventory[module.id]||1});
-        }catch(cause){setPaymentError(cause instanceof Error?cause.message:'购买未完成，没有扣款');try { acceptCommerce(readSARCommerce()); } catch { /* Keep the original transaction error. */ }}
+        }catch(cause){setPaymentError(cause instanceof Error?cause.message:'購買未完成，沒有扣款');try { acceptCommerce(readSARCommerce()); } catch { /* Keep the original transaction error. */ }}
         finally{payingRef.current=false;setPaying(false);}
     };
 
@@ -282,7 +282,7 @@ export const SARModuleShopOverlay: React.FC<{
     const commitInstall = () => {
         if (!installing || !installTarget || installPhase === 'loading') return;
         if (installing.configuration && !installConfiguration) {
-            addToast?.(`请先填写${installing.configuration.label}`, 'error');
+            addToast?.(`請先填寫${installing.configuration.label}`, 'error');
             return;
         }
         setInstallPhase('loading');
@@ -298,8 +298,8 @@ export const SARModuleShopOverlay: React.FC<{
                 },
             }));
 
-            // 反向触发只在用户明确许可、本人此刻在 SAR、且确有角色逛到模块区时发生。
-            // 角色购买的是自己的那枚，不动用户模块袋。
+            // 反向觸發只在用戶明確許可、本人此刻在 SAR、且確有角色逛到模塊區時發生。
+            // 角色購買的是自己的那枚，不動用戶模塊袋。
             const reverseCandidates = characters.filter(character => character.vrState?.enabled
                 && character.vrState.currentRoom === 'sar'
                 && (character.vrState.sarActivity === 'module-shop' || character.id === installTarget.id));
@@ -309,7 +309,7 @@ export const SARModuleShopOverlay: React.FC<{
                 && !userProfile.vrState.sarModule
                 && reverseCandidates.length > 0) {
                 const source = reverseCandidates[Math.floor(Math.random() * reverseCandidates.length)];
-                // 角色反向装载没有用户配置步骤，不能随机抽到需要字面参数的模块。
+                // 角色反向裝載沒有用戶配置步驟，不能隨機抽到需要字面參數的模塊。
                 const compatible = SAR_MODULE_CATALOG.filter(module => module.supportsUserTarget && !module.configuration && characterModuleCount(readFishingMarketState(), source.id, module.id) > 0);
                 const reverseModule = compatible[Math.floor(Math.random() * compatible.length)];
                 if (source && reverseModule) {
@@ -326,8 +326,8 @@ export const SARModuleShopOverlay: React.FC<{
                 }
             }
             setInstallPhase('done');
-            addToast?.(`${installing.title} 已装载到 ${installTarget.name}`, 'success');
-            } catch(cause) { setInstallPhase('confirm');addToast?.(cause instanceof Error?cause.message:'装载未完成','error'); }
+            addToast?.(`${installing.title} 已裝載到 ${installTarget.name}`, 'success');
+            } catch(cause) { setInstallPhase('confirm');addToast?.(cause instanceof Error?cause.message:'裝載未完成','error'); }
         }, 920);
     };
 
@@ -353,7 +353,7 @@ export const SARModuleShopOverlay: React.FC<{
     const installTargetChibi = installTarget ? getChibi(installTarget) : null;
 
     return (
-        <div className="sar-module-shop" role="dialog" aria-modal="true" aria-label={capturedTarget ? `给 ${capturedTarget.name} 使用模块` : 'SAR 模块商店'}>
+        <div className="sar-module-shop" role="dialog" aria-modal="true" aria-label={capturedTarget ? `給 ${capturedTarget.name} 使用模塊` : 'SAR 模塊商店'}>
             <style>{`
                 .sar-module-shop{position:fixed;inset:0;z-index:390;overflow:hidden;color:#edf4f0;background:linear-gradient(180deg,rgba(7,15,20,.94),rgba(10,15,19,.985));font-family:ui-sans-serif,system-ui,-apple-system,"Noto Sans SC",sans-serif;isolation:isolate}
                 .sar-module-shop:before{content:"";position:absolute;inset:0;z-index:-2;background:radial-gradient(circle at 76% 10%,rgba(111,173,170,.13),transparent 32%),radial-gradient(circle at 10% 62%,rgba(142,123,193,.11),transparent 38%),linear-gradient(rgba(151,203,196,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(151,203,196,.035) 1px,transparent 1px);background-size:auto,auto,28px 28px,28px 28px}
@@ -394,9 +394,9 @@ export const SARModuleShopOverlay: React.FC<{
             `}</style>
             <style>{`.sar-module-buy{min-height:48px;font-size:13px}.sar-module-buy span:last-child{font:500 13px/1.4 system-ui,sans-serif;color:inherit}.sar-module-buy:disabled{opacity:.48;cursor:not-allowed}.sar-module-detail__owned{font-size:11px;line-height:1.8;color:#b0c1ba}.sar-module-original{font-size:10px;opacity:.58;margin-right:2px}.sar-module-discount{display:flex;gap:9px;align-items:flex-start;margin:14px 0;padding:11px 12px;border:1px solid rgba(199,164,112,.24);border-radius:10px;background:rgba(185,142,83,.07);color:#dbc39e}.sar-module-discount svg{flex-shrink:0;margin-top:3px}.sar-module-discount b{display:block;font-size:12px;font-weight:600;line-height:1.6}.sar-module-discount span{display:block;font-size:11px;line-height:1.7;color:inherit;opacity:.82}`}</style>
             <header className="sar-module-shop__header" style={{ paddingTop: SAFE_TOP, height: `calc(58px + ${SAFE_TOP})` }}>
-                <button type="button" className="sar-module-shop__back" onClick={onClose} aria-label={capturedTarget ? '放开角色并返回' : '离开模块商店'}><CaretLeft size={18} /></button>
-                <div className="sar-module-shop__title"><small>{capturedTarget ? 'SAR · FIELD LOADOUT' : 'SAR · MODULE COUNTER'}</small><h1>{capturedTarget ? '现场装载' : '模块商店'}</h1></div>
-                <div className="sar-module-shop__currency">{capturedTarget ? ownedTotal : balance}<span>{capturedTarget ? '袋中模块' : '鳞币'}</span></div>
+                <button type="button" className="sar-module-shop__back" onClick={onClose} aria-label={capturedTarget ? '放開角色並返回' : '離開模塊商店'}><CaretLeft size={18} /></button>
+                <div className="sar-module-shop__title"><small>{capturedTarget ? 'SAR · FIELD LOADOUT' : 'SAR · MODULE COUNTER'}</small><h1>{capturedTarget ? '現場裝載' : '模塊商店'}</h1></div>
+                <div className="sar-module-shop__currency">{capturedTarget ? ownedTotal : balance}<span>{capturedTarget ? '袋中模塊' : '鱗幣'}</span></div>
                 <SARFacilityGuide facility="modules" auto={!capturedTarget}/>
             </header>
             <main className="sar-module-shop__body" style={{ top: `calc(58px + ${SAFE_TOP})` }}>
@@ -410,8 +410,8 @@ export const SARModuleShopOverlay: React.FC<{
                         <div>
                             <small>CAPTURED FROM {capturedTarget.vrState?.currentRoom?.toUpperCase() || 'KANATA'}</small>
                             <h2>抓住了 {capturedTarget.name}</h2>
-                            <p>TA 不必来到活动室。直接从模块袋挑一枚，在这里完成装载。</p>
-                            {capturedTarget.vrState?.sarModule && <p className="sar-module-captured__state">当前已有「{capturedTarget.vrState.sarModule.moduleTitle}」，新模块会替换旧状态。</p>}
+                            <p>TA 不必來到活動室。直接從模塊袋挑一枚，在這裡完成裝載。</p>
+                            {capturedTarget.vrState?.sarModule && <p className="sar-module-captured__state">當前已有「{capturedTarget.vrState.sarModule.moduleTitle}」，新模塊會替換舊狀態。</p>}
                         </div>
                     </div>
                 ) : (
@@ -420,25 +420,25 @@ export const SARModuleShopOverlay: React.FC<{
                             {npcEnabled ? <span className="sar-module-shop__guide"><SARNpcChibi who="caian"/></span> : <Sparkle size={24} className="text-emerald-100/45" />}
                             <div>
                                 <small>{npcEnabled ? 'CAIAN / COUNTER GUIDE' : 'MODULE COUNTER / NOTICE'}</small>
-                                <p>{npcEnabled ? '今天只摆五枚！没看中可以重排三次。先买回去，再去彼方任何区域直接点那个小人装载。' : '每日随机提供 5 枚模块，可重排 3 次。买进模块袋后，在彼方任何区域点击角色小人即可装载。'}</p>
+                                <p>{npcEnabled ? '今天只擺五枚！沒看中可以重排三次。先買回去，再去彼方任何區域直接點那個小人裝載。' : '每日隨機提供 5 枚模塊，可重排 3 次。買進模塊袋後，在彼方任何區域點擊角色小人即可裝載。'}</p>
                             </div>
                         </div>
                         <div className="sar-module-permission">
                             <ShieldCheck size={19} weight={allowReverse ? 'fill' : 'regular'} color={allowReverse ? '#a9e2d9' : '#70827f'} />
                             <div className="sar-module-permission__copy">
-                                <b>允许角色对我使用模块</b>
-                                <span>默认关闭。开启后，仅当你和逛商店的角色同时身处 SAR 时可能触发；用户端持续 5 次成功互动。</span>
+                                <b>允許角色對我使用模塊</b>
+                                <span>默認關閉。開啟後，僅當你和逛商店的角色同時身處 SAR 時可能觸發；用戶端持續 5 次成功互動。</span>
                             </div>
-                            <button type="button" role="switch" aria-checked={allowReverse} aria-label="允许角色对我使用模块" className={allowReverse ? 'is-on' : ''} onClick={toggleReversePermission} />
+                            <button type="button" role="switch" aria-checked={allowReverse} aria-label="允許角色對我使用模塊" className={allowReverse ? 'is-on' : ''} onClick={toggleReversePermission} />
                         </div>
-                        <div className="sar-module-shop__switch" role="tablist" aria-label="商店视图">
-                            <button type="button" role="tab" aria-selected={view === 'market'} className={view === 'market' ? 'is-active' : ''} onClick={() => setView('market')}><span><Sparkle size={13} />今日货架 <i>5</i></span></button>
-                            <button type="button" role="tab" aria-selected={view === 'inventory'} className={view === 'inventory' ? 'is-active' : ''} onClick={() => setView('inventory')}><span><Package size={13} />模块袋 <i>{ownedTotal}</i></span></button>
+                        <div className="sar-module-shop__switch" role="tablist" aria-label="商店視圖">
+                            <button type="button" role="tab" aria-selected={view === 'market'} className={view === 'market' ? 'is-active' : ''} onClick={() => setView('market')}><span><Sparkle size={13} />今日貨架 <i>5</i></span></button>
+                            <button type="button" role="tab" aria-selected={view === 'inventory'} className={view === 'inventory' ? 'is-active' : ''} onClick={() => setView('inventory')}><span><Package size={13} />模塊袋 <i>{ownedTotal}</i></span></button>
                         </div>
                     </>
                 )}
                 <div className="sar-module-shop__rack-head">
-                    <div><small>{capturedTarget ? 'SELECT FROM YOUR BAG' : view === 'market' ? 'DAILY ARRIVALS' : 'YOUR INVENTORY'}</small><h2>{capturedTarget ? `给 ${capturedTarget.name} 选模块` : view === 'market' ? '今日到货' : '我的模块'}</h2></div>
+                    <div><small>{capturedTarget ? 'SELECT FROM YOUR BAG' : view === 'market' ? 'DAILY ARRIVALS' : 'YOUR INVENTORY'}</small><h2>{capturedTarget ? `給 ${capturedTarget.name} 選模塊` : view === 'market' ? '今日到貨' : '我的模塊'}</h2></div>
                     <div className="sar-module-shop__rack-date">{capturedTarget ? `${ownedTotal} 枚` : state.market.dayKey.replaceAll('-', '.')}</div>
                 </div>
                 <div className="sar-module-grid">
@@ -446,15 +446,15 @@ export const SARModuleShopOverlay: React.FC<{
                         <ModuleCard key={module.id} module={module} index={index} owned={state.inventory[module.id] || 0} quote={view === 'market' && !capturedTarget ? quoteSARModulePrice(module, benefits, quoteAt) : undefined} onOpen={() => setSelectedId(module.id)} />
                     ))}
                     {modules.length === 0 && (
-                        <div className="sar-module-empty"><Package size={25} /><h3>模块袋还是空的</h3><p>可以去今日货架选一枚。购买后会收入模块袋。</p></div>
+                        <div className="sar-module-empty"><Package size={25} /><h3>模塊袋還是空的</h3><p>可以去今日貨架選一枚。購買後會收入模塊袋。</p></div>
                     )}
                 </div>
             </main>
             {paymentError&&!selected&&<p role="alert" style={{position:'absolute',bottom:100,left:16,right:16,zIndex:5,color:'#efb6a3',fontSize:13}}>{paymentError}</p>}
             {!capturedTarget && view === 'market' && (
                 <div className="sar-module-roll">
-                    <div className="sar-module-roll__copy"><b>今天还可重排 {state.market.rollsRemaining} 次</b><span>每日零点恢复，不影响已经购买的模块</span></div>
-                    <button type="button" disabled={state.market.rollsRemaining <= 0||paying||!ready} onClick={()=>void roll()}><ArrowClockwise size={15} />重排货架 {state.market.rollsRemaining}/3</button>
+                    <div className="sar-module-roll__copy"><b>今天還可重排 {state.market.rollsRemaining} 次</b><span>每日零點恢復，不影響已經購買的模塊</span></div>
+                    <button type="button" disabled={state.market.rollsRemaining <= 0||paying||!ready} onClick={()=>void roll()}><ArrowClockwise size={15} />重排貨架 {state.market.rollsRemaining}/3</button>
                 </div>
             )}
             {selected && (
@@ -474,10 +474,10 @@ export const SARModuleShopOverlay: React.FC<{
                 />
             )}
             {receipt && (
-                <div className="sar-module-receipt" role="status"><Check size={25} weight="bold" /><b>{receipt.title} 已封装</b><p>模块袋现有 {receipt.count} 枚</p></div>
+                <div className="sar-module-receipt" role="status"><Check size={25} weight="bold" /><b>{receipt.title} 已封裝</b><p>模塊袋現有 {receipt.count} 枚</p></div>
             )}
             {installing && (
-                <div className="sar-module-install" role="dialog" aria-modal="true" aria-label="装载模块">
+                <div className="sar-module-install" role="dialog" aria-modal="true" aria-label="裝載模塊">
                     <section className="sar-module-install__sheet">
                         {installPhase === 'loading' || installPhase === 'done' ? (
                             <div className="sar-module-loading" role="status">
@@ -491,22 +491,22 @@ export const SARModuleShopOverlay: React.FC<{
                                 </div>
                                 {installPhase === 'loading' ? (
                                     <>
-                                        <h3>正在装载「{installing.title}」</h3>
-                                        <p>{installTarget?.name} 正在接收临时表达协议。<br />真实意图与长期记忆不会被改写。</p>
+                                        <h3>正在裝載「{installing.title}」</h3>
+                                        <p>{installTarget?.name} 正在接收臨時表達協議。<br />真實意圖與長期記憶不會被改寫。</p>
                                     </>
                                 ) : (
                                     <>
                                         <Check size={24} weight="bold" color="#a9e2d9" />
-                                        <h3>装载完成</h3>
-                                        <p>「{installing.title}」已交给 {installTarget?.name}。<br />接下来 10 次成功互动中，只有外显表达会被模块改写。</p>
+                                        <h3>裝載完成</h3>
+                                        <p>「{installing.title}」已交給 {installTarget?.name}。<br />接下來 10 次成功互動中，只有外顯表達會被模塊改寫。</p>
                                         {reverseInstall && (
                                             <div className="sar-module-reverse">
-                                                <b>{reverseInstall.charName} 趁机靠近了你。</b><br />
-                                                对方为你装载了「{reverseInstall.moduleTitle}」；用户端持续 5 次成功互动。
+                                                <b>{reverseInstall.charName} 趁機靠近了你。</b><br />
+                                                對方為你裝載了「{reverseInstall.moduleTitle}」；用戶端持續 5 次成功互動。
                                             </div>
                                         )}
                                         <div className="sar-module-install__actions">
-                                            <button type="button" onClick={capturedTarget ? onClose : closeInstall}>{capturedTarget ? '放回现场' : '返回模块袋'}</button>
+                                            <button type="button" onClick={capturedTarget ? onClose : closeInstall}>{capturedTarget ? '放回現場' : '返回模塊袋'}</button>
                                         </div>
                                     </>
                                 )}
@@ -514,8 +514,8 @@ export const SARModuleShopOverlay: React.FC<{
                         ) : (
                             <>
                                 <div className="sar-module-install__head">
-                                    <div><small>MODULE INSTALLATION</small><h2>{installPhase === 'select' ? '选择装载对象' : '确认装载'}</h2></div>
-                                    <button type="button" onClick={closeInstall} aria-label="取消装载"><X size={17} /></button>
+                                    <div><small>MODULE INSTALLATION</small><h2>{installPhase === 'select' ? '選擇裝載對象' : '確認裝載'}</h2></div>
+                                    <button type="button" onClick={closeInstall} aria-label="取消裝載"><X size={17} /></button>
                                 </div>
                                 <div className="sar-module-install__summary">
                                     <b>{installing.title}</b>
@@ -536,24 +536,24 @@ export const SARModuleShopOverlay: React.FC<{
                                                             ? <TokenImg value={character.avatar} alt={character.name} />
                                                             : <span className="sar-module-target__fallback"><UserCircle size={18} /></span>}
                                                         <div><b>{character.name}</b><span>{character.vrState?.sarModule
-                                                            ? `${character.vrState.sarModule.moduleTitle} · ${character.vrState.sarModule.phase === 'active' ? `余 ${character.vrState.sarModule.remainingTurns} 回合` : `稳定 ${character.vrState.sarModule.afterglowTurns}/3`}`
+                                                            ? `${character.vrState.sarModule.moduleTitle} · ${character.vrState.sarModule.phase === 'active' ? `餘 ${character.vrState.sarModule.remainingTurns} 回合` : `穩定 ${character.vrState.sarModule.afterglowTurns}/3`}`
                                                             : character.vrState?.currentRoom === 'sar' ? '正在 SAR' : '已接入彼方'}</span></div>
                                                     </button>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="sar-module-install__empty">没有可装载的对象。<br />请先在彼方接入设置中开启至少一名角色。</div>
+                                            <div className="sar-module-install__empty">沒有可裝載的對象。<br />請先在彼方接入設置中開啟至少一名角色。</div>
                                         )}
                                         <div className="sar-module-install__actions">
                                             <button type="button" onClick={closeInstall}>取消</button>
-                                            <button type="button" disabled={!installTarget} onClick={() => setInstallPhase('confirm')}>继续</button>
+                                            <button type="button" disabled={!installTarget} onClick={() => setInstallPhase('confirm')}>繼續</button>
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         <div className="sar-module-install__summary">
                                             <b>{installTarget?.name}</b>
-                                            <p>模块将在 Chat 与 Date 的下一次成功互动开始生效，共 10 回合；结束后保留 3 回合稳定提示。</p>
+                                            <p>模塊將在 Chat 與 Date 的下一次成功互動開始生效，共 10 回合；結束後保留 3 回合穩定提示。</p>
                                         </div>
                                         {installing.configuration && (
                                             <label className="sar-module-config">
@@ -569,17 +569,17 @@ export const SARModuleShopOverlay: React.FC<{
                                                     spellCheck={false}
                                                     autoFocus
                                                 />
-                                                <small>只作为本次模块的字面匹配值，不会改写角色真实意图或长期记忆。</small>
+                                                <small>只作為本次模塊的字面匹配值，不會改寫角色真實意圖或長期記憶。</small>
                                             </label>
                                         )}
-                                        {installTarget?.vrState?.sarModule && <p className="sar-module-install__warning">该角色已有「{installTarget.vrState.sarModule.moduleTitle}」。继续将封存旧模块状态并替换。</p>}
+                                        {installTarget?.vrState?.sarModule && <p className="sar-module-install__warning">該角色已有「{installTarget.vrState.sarModule.moduleTitle}」。繼續將封存舊模塊狀態並替換。</p>}
                                         <div className="sar-module-install__actions">
-                                            <button type="button" onClick={capturedTarget ? closeInstall : () => setInstallPhase('select')}>{capturedTarget ? '换个模块' : '返回选择'}</button>
+                                            <button type="button" onClick={capturedTarget ? closeInstall : () => setInstallPhase('select')}>{capturedTarget ? '換個模塊' : '返回選擇'}</button>
                                             <button
                                                 type="button"
                                                 disabled={Boolean(installing.configuration && !installConfiguration)}
                                                 onClick={commitInstall}
-                                            ><MagicWand size={15} weight="fill" />确认装载</button>
+                                            ><MagicWand size={15} weight="fill" />確認裝載</button>
                                         </div>
                                     </>
                                 )}

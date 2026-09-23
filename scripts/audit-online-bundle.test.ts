@@ -6,20 +6,20 @@ const SITE = 'https://example.test/SullyOS/';
 const WEBSITE_ID = '11111111-2222-3333-4444-555555555555';
 const SCRIPT_URL = 'https://stats.example.test/script.js';
 
-/** 把 { 完整 URL: 内容 } 当成一个静态站点；没列出的地址一律当 404。 */
+/** 把 { 完整 URL: 內容 } 當成一個靜態站點；沒列出的地址一律當 404。 */
 function fakeSite(pages: Record<string, string>) {
   return async (url: string) => (url in pages ? pages[url] : null);
 }
 
-/** 只列出失败项的名字，断言时读起来清楚些。 */
+/** 只列出失敗項的名字，斷言時讀起來清楚些。 */
 function failedNames(result: { failed: { name: string }[] }) {
   return result.failed.map((f) => f.name);
 }
 
-describe('线上产物审计 · 抓取范围', () => {
-  it('统计配置被打包进非入口 chunk 时照样找得到', async () => {
-    // 这正是 2026-08-16 起连红两天的场景：「门牌整理上云」让打包器把
-    // analytics 那一片划进了 memory-palace 包，入口包里就此不含这两个值。
+describe('線上產物審計 · 抓取範圍', () => {
+  it('統計配置被打包進非入口 chunk 時照樣找得到', async () => {
+    // 這正是 2026-08-16 起連紅兩天的場景：「門牌整理上雲」讓打包器把
+    // analytics 那一片划進了 memory-palace 包，入口包裡就此不含這兩個值。
     const pages = {
       [SITE]: '<script type="module" crossorigin src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]: 'import"./memory-palace-bbb.js";console.log(1);',
@@ -33,7 +33,7 @@ describe('线上产物审计 · 抓取范围', () => {
     expect(scan.stats.fetched).toBe(2);
   });
 
-  it('跟得进只在 mapDeps 数组里出现的懒加载 chunk', async () => {
+  it('跟得進只在 mapDeps 數組裡出現的懶加載 chunk', async () => {
     const pages = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]:
@@ -47,10 +47,10 @@ describe('线上产物审计 · 抓取范围', () => {
     expect(failedNames(auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL }))).toEqual([]);
   });
 
-  it('根路径写法 /assets/xxx.js 也跟得到', async () => {
-    // 产物用相对路径（./assets/…）还是根路径（/assets/…），取决于构建时的 base 配置。
-    // 判定标准得跟浏览器一致：同源的它都会去加载，审计就都得跟，
-    // 不然换个 base 配置就有一批文件从审计视野里消失了。
+  it('根路徑寫法 /assets/xxx.js 也跟得到', async () => {
+    // 產物用相對路徑（./assets/…）還是根路徑（/assets/…），取決於構建時的 base 配置。
+    // 判定標準得跟瀏覽器一致：同源的它都會去加載，審計就都得跟，
+    // 不然換個 base 配置就有一批文件從審計視野裡消失了。
     const pages = {
       [SITE]: '<script type="module" src="/assets/index-aaa.js"></script>',
       'https://example.test/assets/index-aaa.js': `const w="${WEBSITE_ID}",s="${SCRIPT_URL}";`,
@@ -62,10 +62,10 @@ describe('线上产物审计 · 抓取范围', () => {
     expect(failedNames(auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL }))).toEqual([]);
   });
 
-  it('没人 import 的静态 js（public/ 那些）给了路径就照样审计', async () => {
-    // public/ 下的文件是原样复制上线的，有几个由运行时拼出地址来加载
-    // （MediaPipe 的 wasm glue 就是），import 链上找不到它们。
-    // 浏览器该加载还是会加载，所以得把这些路径直接喂进来。
+  it('沒人 import 的靜態 js（public/ 那些）給了路徑就照樣審計', async () => {
+    // public/ 下的文件是原樣複製上線的，有幾個由運行時拼出地址來加載
+    // （MediaPipe 的 wasm glue 就是），import 鏈上找不到它們。
+    // 瀏覽器該加載還是會加載，所以得把這些路徑直接喂進來。
     const pages = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]: `const w="${WEBSITE_ID}",s="${SCRIPT_URL}";`,
@@ -80,7 +80,7 @@ describe('线上产物审计 · 抓取范围', () => {
     const result = auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL });
 
     expect(scan.stats.fetched).toBe(2);
-    expect(failedNames(result)).toContain('线上产物内 tracker 地址唯一且相符');
+    expect(failedNames(result)).toContain('線上產物內 tracker 地址唯一且相符');
   });
 
   it('不跟去站外的地址', async () => {
@@ -97,10 +97,10 @@ describe('线上产物审计 · 抓取范围', () => {
   });
 });
 
-describe('线上产物审计 · 断言', () => {
-  it('多出来的上报端点藏在懒加载 chunk 里也要被抓出来', async () => {
-    // 旧写法只 grep 入口包，这种「入口一切正常、第二个端点躲在懒加载包里」
-    // 的情况会一路绿灯 —— 恰恰是这条断言本来要防的事。
+describe('線上產物審計 · 斷言', () => {
+  it('多出來的上報端點藏在懶加載 chunk 裡也要被抓出來', async () => {
+    // 舊寫法只 grep 入口包，這種「入口一切正常、第二個端點躲在懶加載包裡」
+    // 的情況會一路綠燈 —— 恰恰是這條斷言本來要防的事。
     const pages = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]: `const w="${WEBSITE_ID}",s="${SCRIPT_URL}";import"./lazy-fff.js";`,
@@ -110,13 +110,13 @@ describe('线上产物审计 · 断言', () => {
     const scan = await collectSiteScripts({ baseUrl: SITE, fetchText: fakeSite(pages) });
     const result = auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL });
 
-    expect(failedNames(result)).toContain('线上产物内 tracker 地址唯一且相符');
-    const failure = result.failed.find((f) => f.name === '线上产物内 tracker 地址唯一且相符')!;
+    expect(failedNames(result)).toContain('線上產物內 tracker 地址唯一且相符');
+    const failure = result.failed.find((f) => f.name === '線上產物內 tracker 地址唯一且相符')!;
     expect(failure.actual).toContain('https://tracker.evil.test/script.js');
     expect(failure.actual).toContain(SCRIPT_URL);
   });
 
-  it('站点 id 一处都不出现时判失败', async () => {
+  it('站點 id 一處都不出現時判失敗', async () => {
     const pages = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]: `const s="${SCRIPT_URL}";`,
@@ -125,21 +125,21 @@ describe('线上产物审计 · 断言', () => {
     const scan = await collectSiteScripts({ baseUrl: SITE, fetchText: fakeSite(pages) });
     const result = auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL });
 
-    expect(failedNames(result)).toContain('线上产物内含该站点 id');
+    expect(failedNames(result)).toContain('線上產物內含該站點 id');
   });
 
-  it('一个 js 都没抓到时判失败，而不是「没找到问题」', async () => {
-    // 探测机制自己坏掉（index.html 拿不到、入口包 404、站点整个挂了）时，
-    // 「没扫到东西」和「扫完没问题」长得一模一样。必须红。
+  it('一個 js 都沒抓到時判失敗，而不是「沒找到問題」', async () => {
+    // 探測機制自己壞掉（index.html 拿不到、入口包 404、站點整個掛了）時，
+    // 「沒掃到東西」和「掃完沒問題」長得一模一樣。必須紅。
     const scan = await collectSiteScripts({ baseUrl: SITE, fetchText: fakeSite({}) });
     const result = auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL });
 
-    expect(failedNames(result)).toContain('抓到了可供审计的产物');
+    expect(failedNames(result)).toContain('抓到了可供審計的產物');
   });
 
-  it('扫描撞到上限被截断时判失败，不给出「唯一」的结论', async () => {
-    // 截断之后「tracker 地址唯一」这句话就没有依据了 —— 没扫到的那部分里
-    // 有没有第二个端点，谁也不知道。这种时候必须红，不能悄悄按扫到的部分报通过。
+  it('掃描撞到上限被截斷時判失敗，不給出「唯一」的結論', async () => {
+    // 截斷之後「tracker 地址唯一」這句話就沒有依據了 —— 沒掃到的那部分裡
+    // 有沒有第二個端點，誰也不知道。這種時候必須紅，不能悄悄按掃到的部分報通過。
     const pages: Record<string, string> = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]:
@@ -156,12 +156,12 @@ describe('线上产物审计 · 断言', () => {
     const result = auditTrackerFootprint({ scan, websiteId: WEBSITE_ID, scriptUrl: SCRIPT_URL });
 
     expect(scan.truncated).not.toBeNull();
-    expect(failedNames(result)).toContain('扫描覆盖完整（没撞上限）');
+    expect(failedNames(result)).toContain('掃描覆蓋完整（沒撞上限）');
   });
 
-  it('文件取不到（网络抽风）时判失败，不跟「认错文件名」混为一谈', async () => {
-    // 404 是认错了文件名，无所谓；取不到是这个文件没被审计过。
-    // 两者都当 missing 放过的话，网络抖一下就少扫几个文件，而结论照样是绿的。
+  it('文件取不到（網絡抽風）時判失敗，不跟「認錯文件名」混為一談', async () => {
+    // 404 是認錯了文件名，無所謂；取不到是這個文件沒被審計過。
+    // 兩者都當 missing 放過的話，網絡抖一下就少掃幾個文件，而結論照樣是綠的。
     const fetchText = async (url: string) => {
       if (url === SITE) return '<script type="module" src="./assets/index-aaa.js"></script>';
       if (url.endsWith('index-aaa.js')) return `const w="${WEBSITE_ID}",s="${SCRIPT_URL}";import"./lazy-bbb.js";`;
@@ -175,9 +175,9 @@ describe('线上产物审计 · 断言', () => {
     expect(failedNames(result)).toContain('引用到的文件都取到了');
   });
 
-  it('抓不到的引用只记数，不算失败', async () => {
-    // 从压缩后的代码里认文件名难免有认错的，这些地址一取就是 404。
-    // 它们不该把审计判红，但要出现在统计里，好判断正则是不是太松了。
+  it('抓不到的引用只記數，不算失敗', async () => {
+    // 從壓縮後的代碼裡認文件名難免有認錯的，這些地址一取就是 404。
+    // 它們不該把審計判紅，但要出現在統計裡，好判斷正則是不是太鬆了。
     const pages = {
       [SITE]: '<script type="module" src="./assets/index-aaa.js"></script>',
       [`${SITE}assets/index-aaa.js`]: `const w="${WEBSITE_ID}",s="${SCRIPT_URL}";const nope="./ghost-999.js";`,

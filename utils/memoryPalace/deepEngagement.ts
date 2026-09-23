@@ -1,8 +1,8 @@
 /**
  * M3 — Deep Engagement / Conversation Depth
  *
- * 判断用户此刻是在即时反应、寻求承接，还是邀请角色一起探索和分析。
- * 这里只输出不含原文的连续状态；不调用 API，也不保存对话摘录。
+ * 判斷用戶此刻是在即時反應、尋求承接，還是邀請角色一起探索和分析。
+ * 這裡只輸出不含原文的連續狀態；不調用 API，也不保存對話摘錄。
  */
 
 import type { Message } from '../../types';
@@ -67,16 +67,16 @@ const EMPTY_STATE: Readonly<ConversationDepthState> = Object.freeze({
     emotionalHolding: 0.35,
 });
 
-const STATED_JUDGMENT_RE = /(?:我觉得|我在想|我怀疑|我倾向于|我的判断|在我看来|我不太认同|我能理解.{0,12}但)/gu;
-const CAUSAL_INQUIRY_RE = /(?:为什么|为何|原因|导致|意味着|背后|机制|动机|逻辑|怎么会|如何形成)/gu;
-const CONTRADICTION_RE = /(?:但是|可是|然而|却|反而|明明|矛盾|说不通|不一致|既.{0,24}又|一边.{0,24}一边)/gu;
-const COMPARISON_RE = /(?:相比|相较|区别|共同点|一方面|另一方面|与其|同样|不同的是)/gu;
-const PERSPECTIVE_REQUEST_RE = /(?:你怎么看|你的看法|你觉得呢|你同意吗|还有别的解释|换个角度|如果是你)/gu;
-const GENERALIZATION_RE = /(?:本质|规律|模式|往往|这类|群体|关系结构|权力|边界|价值判断|道德|规则)/gu;
-const EXPLICIT_DEPTH_RE = /(?:认真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆开看看|想明白|别只安慰|别哄我|客观一点|可以反驳我|哪里不对|往深了聊)/gu;
-const COMFORT_RE = /(?:先别分析|不想讲道理|陪陪我|抱抱我|哄哄我|听我说|让我哭|我现在只想|先接住我)/gu;
-const DISTRESS_RE = /(?:好难受|受不了|崩溃|撑不住|害怕|好痛苦|喘不过气|想哭|呜呜)/gu;
-const PLAYFUL_RE = /(?:哈哈|笑死|嘿嘿|好玩|逗你|开玩笑|乐死)/gu;
+const STATED_JUDGMENT_RE = /(?:我[觉覺]得|我在想|我[怀懷]疑|我[倾傾]向[于於]|我的判[断斷]|在我看[来來]|我不太[认認]同|我能理解.{0,12}但)/gu;
+const CAUSAL_INQUIRY_RE = /(?:[为為]什[么麼]|[为為]何|原因|[导導]致|意味[着著]|背[后後]|[机機]制|[动動][机機]|[逻邏][辑輯]|怎[么麼][会會]|如何形成)/gu;
+const CONTRADICTION_RE = /(?:但是|可是|然而|[却卻]|反而|明明|矛盾|[说說]不通|不一致|既.{0,24}又|一[边邊].{0,24}一[边邊])/gu;
+const COMPARISON_RE = /(?:相比|相[较較]|[区區][别別]|共同[点點]|一方面|另一方面|[与與]其|同[样樣]|不同的是)/gu;
+const PERSPECTIVE_REQUEST_RE = /(?:你怎[么麼]看|你的看法|你[觉覺]得呢|你同意[吗嗎]|[还還]有[别別]的解[释釋]|[换換][个個]角度|如果是你)/gu;
+const GENERALIZATION_RE = /(?:本[质質]|[规規]律|模式|往往|[这這][类類]|群[体體]|[关關][系係][结結][构構]|[权權]力|[边邊]界|[价價]值判[断斷]|道德|[规規][则則])/gu;
+const EXPLICIT_DEPTH_RE = /(?:[认認]真(?:聊|分析)|一起(?:想|分析)|深入(?:聊|分析)|分析一下|拆[开開]看看|想明白|[别別][只隻]安慰|[别別]哄我|客[观觀]一[点點]|可以反[驳駁]我|哪[里裡]不[对對]|往深了聊)/gu;
+const COMFORT_RE = /(?:先[别別]分析|不想[讲講]道理|陪陪我|抱抱我|哄哄我|[听聽]我[说說]|[让讓]我哭|我[现現]在只想|先接住我)/gu;
+const DISTRESS_RE = /(?:好[难難]受|受不了|崩[溃潰]|[撑撐]不住|害怕|好痛苦|喘不[过過][气氣]|想哭|[呜嗚][呜嗚])/gu;
+const PLAYFUL_RE = /(?:哈哈|笑死|嘿嘿|好玩|逗你|[开開]玩笑|[乐樂]死)/gu;
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -227,7 +227,7 @@ export function analyzeDeepEngagement(
     const signals = extractSignals(currentText, continuity);
     const impulseDepth = rawDepth(signals, meaningfulLength(currentText));
     const trendDepthValue = depthTrend(priorTurns);
-    // 深聊通常跨越多轮：当前邀请占主导，但短促的承接句不能立刻把既有讨论清零。
+    // 深聊通常跨越多輪：當前邀請佔主導，但短促的承接句不能立刻把既有討論清零。
     const invitationPersistence = clamp01(impulseDepth * 0.6 + trendDepthValue * 0.4);
     const supportSuppression = clamp01(
         signals.comfortSeeking * 0.78
@@ -263,7 +263,7 @@ export function analyzeDeepEngagement(
             + signals.topicContinuity * 0.16
             + signals.perspectiveRequest * 0.16,
         ),
-        // 深聊不是停止做人。即使在高分析状态，也保留最低限度的情感承接。
+        // 深聊不是停止做人。即使在高分析狀態，也保留最低限度的情感承接。
         emotionalHolding: clamp01(
             0.32
             + signals.emotionalOverload * 0.5
@@ -296,7 +296,7 @@ export function analyzeDeepEngagement(
 }
 
 /**
- * 只把连续状态翻译成人类可感知的交流倾向。模板不含用户原句、具体人物或真实案例。
+ * 只把連續狀態翻譯成人類可感知的交流傾向。模板不含用戶原句、具體人物或真實案例。
  */
 export function renderDeepEngagementGuidance(
     analysis: DeepEngagementAnalysis | undefined,
@@ -306,33 +306,33 @@ export function renderDeepEngagementGuidance(
     const { mode, state } = analysis;
     const lines: string[] = [];
     if (mode === 'supportive') {
-        lines.push('对方此刻更需要先被听见和接住。不要因为话题看起来复杂，就立刻把感受拆成道理或结论。');
-        lines.push('可以留意对方是否随后主动开始分析；在那之前，陪伴和理解比推进讨论更重要。');
+        lines.push('對方此刻更需要先被聽見和接住。不要因為話題看起來復雜，就立刻把感受拆成道理或結論。');
+        lines.push('可以留意對方是否隨後主動開始分析；在那之前，陪伴和理解比推進討論更重要。');
     } else {
         lines.push(state.emotionalHolding >= 0.42
-            ? '先用你自己的方式接住对方真正介意的部分，再进入思考；情感承接和认真分析可以同时存在。'
-            : '对方正在邀请你一起思考，直接回应其判断和问题，不必把讨论降级成泛泛安慰。');
+            ? '先用你自己的方式接住對方真正介意的部分，再進入思考；情感承接和認真分析可以同時存在。'
+            : '對方正在邀請你一起思考，直接回應其判斷和問題，不必把討論降級成泛泛安慰。');
         if (state.analyticalDepth >= 0.5) {
-            lines.push('认真处理对方提出的判断：拆解理由、前提和推论，而不只是复述或站队。');
+            lines.push('認真處理對方提出的判斷：拆解理由、前提和推論，而不只是複述或站隊。');
         }
         if (state.abstraction >= 0.48) {
-            lines.push('可以从眼前事件继续辨认背后的动机、模式或关系结构，但不要为了显得深刻而强行上升。');
+            lines.push('可以從眼前事件繼續辨認背後的動機、模式或關係結構，但不要為了顯得深刻而強行上升。');
         }
         if (state.perspectiveBreadth >= 0.48) {
-            lines.push('允许比较几种不同解释，区分它们各自能解释什么，不要匆忙归结为单一原因。');
+            lines.push('允許比較幾種不同解釋，區分它們各自能解釋什麼，不要匆忙歸結為單一原因。');
         }
         if (state.challengeTolerance >= 0.46) {
-            lines.push('不要为了维护气氛而自动赞同。如果推理里有漏洞、矛盾或偏见，可以指出；先确认你理解了对方真正关心的问题。');
+            lines.push('不要為了維護氣氛而自動贊同。如果推理裡有漏洞、矛盾或偏見，可以指出；先確認你理解了對方真正關心的問題。');
         }
         if (state.exploratoryDrive >= 0.55) {
-            lines.push('沿着尚未解决的部分继续往下想，必要时提出一个真正能推进讨论的问题。');
+            lines.push('沿著尚未解決的部分繼續往下想，必要時提出一個真正能推進討論的問題。');
         }
     }
 
     return [
         '### 此刻的交流深度',
         ...lines,
-        '深度不等于篇幅，也不等于论文腔；回复长短仍跟随当前聊天节奏。保持你自己的知识边界、立场、关系方式和说话习惯。你是在和对方认真聊天，不是在提交分析报告。',
+        '深度不等於篇幅，也不等於論文腔；回覆長短仍跟隨當前聊天節奏。保持你自己的知識邊界、立場、關係方式和說話習慣。你是在和對方認真聊天，不是在提交分析報告。',
         '',
     ].join('\n');
 }

@@ -20,7 +20,7 @@ const profile = (overrides: Partial<NonNullable<CharacterProfile['voiceProfile']
 describe('MiniMax parameter versions', () => {
   it('keeps legacy acoustic settings while requesting inline audio', () => {
     const vp = profile();
-    const payload = buildMiniMaxTtsPayload('你好，回来啦。', vp, { languageBoost: 'ja' });
+    const payload = buildMiniMaxTtsPayload('你好，回來啦。', vp, { languageBoost: 'ja' });
 
     expect(getMiniMaxParamVersion(vp)).toBe('legacy');
     expect(payload.text).toContain('<#');
@@ -39,12 +39,12 @@ describe('MiniMax parameter versions', () => {
       minimaxParamVersion: 'natural-v2',
       emotion: 'calm',
     });
-    const payload = buildMiniMaxTtsPayload('你好，回来啦。', vp, {
+    const payload = buildMiniMaxTtsPayload('你好，回來啦。', vp, {
       languageBoost: 'ja',
       emotion: 'angry',
     });
 
-    expect(payload.text).toBe('你好，回来啦。');
+    expect(payload.text).toBe('你好，回來啦。');
     expect(payload.text).not.toContain('<#');
     expect(payload.stream).toBe(false);
     expect(payload.output_format).toBe('hex');
@@ -56,7 +56,7 @@ describe('MiniMax parameter versions', () => {
   });
 
   it('uses dynamic emotion only when the character leaves emotion on auto', () => {
-    const payload = buildMiniMaxTtsPayload('测试', profile({
+    const payload = buildMiniMaxTtsPayload('測試', profile({
       minimaxParamVersion: 'natural-v2',
       emotion: undefined,
     }), { emotion: 'happy' });
@@ -78,8 +78,8 @@ describe('MiniMax parameter versions', () => {
   });
 
   it('uses the official Cantonese enum on both parameter versions', () => {
-    expect(buildMiniMaxTtsPayload('今日去饮茶。', profile(), { languageBoost: 'yue' }).language_boost).toBe('Chinese,Yue');
-    expect(buildMiniMaxTtsPayload('今日去饮茶。', profile({ minimaxParamVersion: 'natural-v2' }), { languageBoost: 'yue' }).language_boost).toBe('Chinese,Yue');
+    expect(buildMiniMaxTtsPayload('今日去飲茶。', profile(), { languageBoost: 'yue' }).language_boost).toBe('Chinese,Yue');
+    expect(buildMiniMaxTtsPayload('今日去飲茶。', profile({ minimaxParamVersion: 'natural-v2' }), { languageBoost: 'yue' }).language_boost).toBe('Chinese,Yue');
   });
 
   it('separates natural-v2 audio from legacy cache entries', () => {

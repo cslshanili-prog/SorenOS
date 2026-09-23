@@ -11,7 +11,7 @@ const ERROR_PROMPT_LABEL = '\u8bf7\u624b\u52a8\u590d\u5236\u62a5\u9519\u4fe1\u60
 const ERROR_TITLE = '\u5e94\u7528\u8fd0\u884c\u9519\u8bef';
 const ERROR_RETURN_LABEL = '\u8fd4\u56de\u684c\u9762';
 const CHUNK_ERROR_TITLE = '\u8d44\u6e90\u52a0\u8f7d\u5931\u8d25';
-const CHUNK_ERROR_HINT = '页面组件未能加载或解析，可能与网络中断或版本更新有关。可以刷新重试；如果仍然报错，请复制报错信息反馈。';
+const CHUNK_ERROR_HINT = '頁面組件未能加載或解析，可能與網絡中斷或版本更新有關。可以刷新重試；如果仍然報錯，請複製報錯信息反饋。';
 const CHUNK_ERROR_RELOADING = '\u6b63\u5728\u81ea\u52a8\u5237\u65b0\u6062\u590d\u2026';
 const CHUNK_ERROR_RELOAD_LABEL = '\u5237\u65b0\u91cd\u8bd5';
 
@@ -25,9 +25,9 @@ type AppErrorBoundaryState = {
     hasError: boolean;
     error: Error | null;
     copyLabel: string;
-    /** 懒加载 chunk 失败 (iOS Safari "Importing a module script failed." 等) — 走刷新恢复 UI */
+    /** 懶加載 chunk 失敗 (iOS Safari "Importing a module script failed." 等) — 走刷新恢復 UI */
     isChunkError: boolean;
-    /** 已发起自动整页刷新, 页面即将重载 */
+    /** 已發起自動整頁刷新, 頁面即將重載 */
     autoReloading: boolean;
 };
 
@@ -50,9 +50,9 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
     }
 
     /**
-     * 当前是哪个 App 崩的。resetKey 形如 `${activeApp}:${角色id}` — 冒号后面那截是角色 id,
-     * 一个字都不能上报, 这里只取前半段的 AppID, 再换成 constants 里写死的中文 App 名。
-     * 名字查不到（比如桌面）就返回 undefined, 让这一项在事件里直接缺席。
+     * 當前是哪個 App 崩的。resetKey 形如 `${activeApp}:${角色id}` — 冒號後面那截是角色 id,
+     * 一個字都不能上報, 這裡只取前半段的 AppID, 再換成 constants 裡寫死的中文 App 名。
+     * 名字查不到（比如桌面）就返回 undefined, 讓這一項在事件裡直接缺席。
      */
     private currentAppName(): string | undefined {
         const appId = this.props.resetKey.split(':')[0] as AppID;
@@ -61,19 +61,19 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('App Crash:', error, errorInfo);
-        // 使用统计: 只报「哪个 App 崩了 + 是哪一类崩」。报错文本留在 console, 不进上报。
+        // 使用統計: 只報「哪個 App 崩了 + 是哪一類崩」。報錯文本留在 console, 不進上報。
         const appName = this.currentAppName();
         trackEvent('触发 App 崩溃兜底页', {
             错误类型: isChunkLoadError(error) ? '资源加载失败' : '运行错误',
             ...(appName ? { 所在App: appName } : {}),
         });
-        // chunk 加载失败: Safari 会把失败缓存进模块表, 同一 URL 本页内重试必失败,
-        // 只有整页 reload 能恢复 — 自动刷一次 (冷却期内返回 false, 留给手动按钮)。
+        // chunk 加載失敗: Safari 會把失敗緩存進模塊表, 同一 URL 本頁內重試必失敗,
+        // 只有整頁 reload 能恢復 — 自動刷一次 (冷卻期內返回 false, 留給手動按鈕)。
         if (isChunkLoadError(error) && tryAutoReloadForChunkError()) {
             trackEvent('自动刷新恢复资源加载失败', { 恢复方式: '已自动刷新' });
             this.setState({ autoReloading: true });
         } else if (isChunkLoadError(error)) {
-            // 走到这里 = 是 chunk 错但没自动刷（冷却期内 / sessionStorage 不可用），页面还在。
+            // 走到這裡 = 是 chunk 錯但沒自動刷（冷卻期內 / sessionStorage 不可用），頁面還在。
             trackEvent('自动刷新恢复资源加载失败', { 恢复方式: '冷却期内不刷' });
         }
     }
@@ -115,7 +115,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(errText);
                 this.updateCopyLabel(ERROR_COPIED_LABEL);
-                // 只报走了哪条复制路径, 报错文本本身一个字都不发。
+                // 只報走了哪條複製路徑, 報錯文本本身一個字都不發。
                 trackEvent('复制报错信息', { 复制结果: '剪贴板成功' });
                 return;
             }

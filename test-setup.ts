@@ -1,11 +1,11 @@
 /**
- * vitest 全局 setup — 为 Node 环境补齐浏览器 API.
- *  - fake-indexeddb/auto: 把 indexedDB / IDBKeyRange 等挂到 globalThis,
- *    让 activeMsgStore.ts 在 Node 里能直接跑.
- *  - localStorage stub: 不少模块在模块加载时不读 localStorage, 但运行时会读
- *    (pushVapid / activeMsgClient 等), 给最简易 in-memory 实现.
- *  - 构建注入常量: vite.config.ts 的 define 在 Node 里没人替换, 而 utils/buildInfo.ts
- *    模块顶层就要读它们, 不补的话 import 到它的测试直接 ReferenceError.
+ * vitest 全局 setup — 為 Node 環境補齊瀏覽器 API.
+ *  - fake-indexeddb/auto: 把 indexedDB / IDBKeyRange 等掛到 globalThis,
+ *    讓 activeMsgStore.ts 在 Node 裡能直接跑.
+ *  - localStorage stub: 不少模塊在模塊加載時不讀 localStorage, 但運行時會讀
+ *    (pushVapid / activeMsgClient 等), 給最簡易 in-memory 實現.
+ *  - 構建注入常量: vite.config.ts 的 define 在 Node 裡沒人替換, 而 utils/buildInfo.ts
+ *    模塊頂層就要讀它們, 不補的話 import 到它的測試直接 ReferenceError.
  */
 
 import 'fake-indexeddb/auto';

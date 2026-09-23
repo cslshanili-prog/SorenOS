@@ -47,8 +47,8 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
 
     const handleSave = () => {
         const api = url ? { baseUrl: url, apiKey: key, model } : undefined;
-        // 与日程强制同步：日程/情绪总开关开启时情绪必跑。
-        // 注意 scheduleFeatureEnabled=true 时即使还没选 scheduleStyle，也应保持情绪开启。
+        // 與日程強制同步：日程/情緒總開關開啟時情緒必跑。
+        // 注意 scheduleFeatureEnabled=true 時即使還沒選 scheduleStyle，也應保持情緒開啟。
         onSave({ enabled: isScheduleFeatureOn(char), api });
         setDirty(false);
     };
@@ -58,27 +58,27 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
     return (
         <div className="space-y-4">
             <div>
-                <div className="text-xs font-bold text-slate-700 mb-1">🎭 情绪 / 意识流 API</div>
+                <div className="text-xs font-bold text-slate-700 mb-1">🎭 情緒 / 意識流 API</div>
                 <div className="text-[11px] text-slate-500 leading-relaxed space-y-1">
                     <p>
-                        原版情绪 buff 就在这里。与日程<b>强制同步</b>：日程开 → 自动启用；日程关 → 一起停。
+                        原版情緒 buff 就在這裡。與日程<b>強制同步</b>：日程開 → 自動啟用；日程關 → 一起停。
                     </p>
                     <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                        ⚙️ 下方不填 = 自动用主 API。想细腻点就填个 <b>Claude 系列</b>模型。
+                        ⚙️ 下方不填 = 自動用主 API。想細膩點就填個 <b>Claude 系列</b>模型。
                     </p>
                 </div>
             </div>
 
             {!scheduleOn && (
                 <div className="text-[11px] text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
-                    尚未选择日程风格。选择「生活系」或「意识系」后，情绪/意识流会自动启用。
+                    尚未選擇日程風格。選擇「生活系」或「意識系」後，情緒/意識流會自動啟用。
                 </div>
             )}
 
             {/* Preset chips */}
             {apiPresets.length > 0 && (
                 <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">我的预设</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">我的預設</label>
                     <div className="flex gap-2 flex-wrap">
                         {apiPresets.map(preset => (
                             <button
@@ -102,7 +102,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         onClick={() => setShowSavePreset(!showSavePreset)}
                         className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
                     >
-                        保存为预设
+                        保存為預設
                     </button>
                 </div>
 
@@ -113,7 +113,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                             value={newPresetName}
                             onChange={e => setNewPresetName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                            placeholder="预设名称..."
+                            placeholder="預設名稱..."
                             className="flex-1 bg-white/50 border border-slate-200/60 rounded-xl px-3 py-2 text-sm focus:bg-white transition-all"
                             autoFocus
                         />

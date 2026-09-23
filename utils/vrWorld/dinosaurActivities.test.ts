@@ -14,13 +14,13 @@ const first=(s:ReturnType<typeof empty>)=>gardenResidents(s)[0].catchId;
 beforeEach(()=>localStorage.clear());
 it('a single sentence needs neither an action tag nor a target, and clearing it restores local activity',()=>{
  let s=empty(),id=first(s);
- s=editDino(s,user,id,{stage:{text:'等薄荷还自己一块饼干。'}});
- expect(s.dinosaurGarden!.toys[id].userStage).toMatchObject({text:'等薄荷还自己一块饼干。',byId:'user'});
+ s=editDino(s,user,id,{stage:{text:'等薄荷還自己一塊餅乾。'}});
+ expect(s.dinosaurGarden!.toys[id].userStage).toMatchObject({text:'等薄荷還自己一塊餅乾。',byId:'user'});
  expect(s.dinosaurGarden!.toys[id].userStage.targetId).toBeUndefined();
  const original=s.dinosaurGarden!.toys[id].userStage;
- s=applyGardenVisit(setGardenVisits(s,true,user),char,parseGardenVisit(JSON.stringify({action:'stage',toyId:id,words:'饼干谈判还在继续。'}))!,prepareGardenVisit(setGardenVisits(s,true,user),char));
+ s=applyGardenVisit(setGardenVisits(s,true,user),char,parseGardenVisit(JSON.stringify({action:'stage',toyId:id,words:'餅乾談判還在繼續。'}))!,prepareGardenVisit(setGardenVisits(s,true,user),char));
  expect(s.dinosaurGarden!.toys[id].userStage).toEqual(original);
- expect(gardenStory(s.dinosaurGarden!.toys[id])).toBe('饼干谈判还在继续。');
+ expect(gardenStory(s.dinosaurGarden!.toys[id])).toBe('餅乾談判還在繼續。');
  s=editDino(s,user,id,{stage:{text:''}});
  const toy=s.dinosaurGarden!.toys[id],activity=buildGardenActivities(s.dinosaurGarden!.maps[0],[toy])[id];
  expect(gardenStory(toy,activity)).toBe(activity.text);
@@ -67,20 +67,20 @@ it('uses map-specific shallow water and includes environment facts in character 
  expect(gardenActivityAt(map,{x:2.6,z:1.9,rotation:0}).kind).toBe('splash');
  expect(gardenActivityAt({...map,theme:'volcano'},{x:2.6,z:1.9,rotation:0}).kind).toBe('idle');
  const snapshot=prepareGardenVisit(setGardenVisits(empty(),true,user),char);
- expect(snapshot.prompt).toContain('environmentActivity');expect(snapshot.prompt).toContain('不必指定对象');
- expect(parseGardenVisit('{"action":"stage","toyId":"x","stage":"变成真的","words":"飞起来"}')).toBeNull();
+ expect(snapshot.prompt).toContain('environmentActivity');expect(snapshot.prompt).toContain('不必指定對象');
+ expect(parseGardenVisit('{"action":"stage","toyId":"x","stage":"變成真的","words":"飛起來"}')).toBeNull();
 });
 
 it('a delayed sentence-only visit keeps the original map activity after the user changes maps',()=>{
  let s=empty(),id=first(s);s=editGardenProp(s,user,{kind:'picnic',pose:s.dinosaurGarden!.toys[id].pose!});s=setGardenVisits(s,true,user);
  const snapshot=prepareGardenVisit(s,char);s=setGardenMap(s,'coast');
- s=applyGardenVisit(s,char,{action:'stage',toyId:id,words:'留一块饼干给我。'},snapshot);
- expect(s.dinosaurGarden!.activeMapId).toBe('coast');expect(s.dinosaurGarden!.toys[id].stage.action).toBe('吃饭');
+ s=applyGardenVisit(s,char,{action:'stage',toyId:id,words:'留一塊餅乾給我。'},snapshot);
+ expect(s.dinosaurGarden!.activeMapId).toBe('coast');expect(s.dinosaurGarden!.toys[id].stage.action).toBe('吃飯');
  expect(s.dinosaurGarden!.toys[id].mapId).toBe('grassland');
 });
 
 it('decorative scenery never promises an unsupported interaction; facing a tree matters',()=>{
- const map:GardenMap={id:'volcano',name:'测试',theme:'volcano',props:[]};
+ const map:GardenMap={id:'volcano',name:'測試',theme:'volcano',props:[]};
  for(const kind of ['house','sign','fence','volcano'] as const)expect(gardenActivityAt({...map,props:[{id:'p',kind,x:0,z:0,rotation:0}]},{x:-1.3,z:0,rotation:0}).kind).toBe('idle');
  const tree={...map,props:[{id:'t',kind:'tree' as const,x:0,z:0,rotation:0}]};
  expect(gardenActivityAt(tree,{x:-1.3,z:0,rotation:0}).kind).toBe('leaves');

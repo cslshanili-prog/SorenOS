@@ -1,14 +1,14 @@
-// 主动消息 2.0 的「体检」判定：把 worker 的 GET /debug 回执翻成一排能直接看的结论，
-// 以及把 fetch 抛出来的异常翻成一句知道该去改哪儿的话。
+// 主動消息 2.0 的「體檢」判定：把 worker 的 GET /debug 回執翻成一排能直接看的結論，
+// 以及把 fetch 拋出來的異常翻成一句知道該去改哪兒的話。
 //
-// 单独成叶子的原因有两个：
-//   1. 这两件事都是纯函数（输入回执 / 异常，输出结论），能脱开浏览器单测，而它们要
-//      守的恰恰是「坏了但界面看不出来」这一类问题——没有测试钉住，退化了没人会发现。
-//   2. activeMsgClient 要用它，设置面板也要用它，放在任何一边都会让另一边反向依赖。
+// 單獨成葉子的原因有兩個：
+//   1. 這兩件事都是純函數（輸入回執 / 異常，輸出結論），能脫開瀏覽器單測，而它們要
+//      守的恰恰是「壞了但界面看不出來」這一類問題——沒有測試釘住，退化了沒人會發現。
+//   2. activeMsgClient 要用它，設置面板也要用它，放在任何一邊都會讓另一邊反向依賴。
 //
-// worker 那侧的对应实现见 worker/amsg/src/index.ts 的 inspectWorkerEnv / inspectStorage /
-// judgeTick，改动那三处的输出形状时这份要跟着走。「定时任务」那一行另外读 GET /tick-report
-// 的逐条细账，形状和判定在 utils/amsgTickReport.ts。
+// worker 那側的對應實現見 worker/amsg/src/index.ts 的 inspectWorkerEnv / inspectStorage /
+// judgeTick，改動那三處的輸出形狀時這份要跟著走。「定時任務」那一行另外讀 GET /tick-report
+// 的逐條細帳，形狀和判定在 utils/amsgTickReport.ts。
 
 import type {
   AmsgTickFailureRecord,
@@ -18,33 +18,33 @@ import type {
 } from './amsgTickReport';
 import { describeTaskFailureCause } from './amsg2Tasks';
 
-// ─── 失败归类（给使用统计分档用）───
+// ─── 失敗歸類（給使用統計分檔用）───
 //
-// 「连接失败」在图上只有一格的话，地址填错、密钥对不上、D1 没绑、纯断网会长成一个样，
-// 而这四种要修的引导完全不同。所以在**抛错的那一刻**按源码里写死的谓词挂一个代号，
-// 上报只带这个代号。
+// 「連接失敗」在圖上只有一格的話，地址填錯、密鑰對不上、D1 沒綁、純斷網會長成一個樣，
+// 而這四種要修的引導完全不同。所以在**拋錯的那一刻**按源碼裡寫死的謂詞掛一個代號，
+// 上報只帶這個代號。
 //
-// 报错原文（可能带 Worker 地址、push endpoint）一个字都不进上报——挂在这里的
-// 永远是下面这个联合类型里的字面量之一，不是从异常对象上读出来的任何东西。
-// 见 docs/analytics.md 「加新埋点的规矩」第 4 条。
+// 報錯原文（可能帶 Worker 地址、push endpoint）一個字都不進上報——掛在這裡的
+// 永遠是下面這個聯合類型裡的字面量之一，不是從異常對象上讀出來的任何東西。
+// 見 docs/analytics.md 「加新埋點的規矩」第 4 條。
 export type AmsgFailKind =
-  | '地址没填'
-  | '打到网页了'
-  | '鉴权失败'
-  | '端点不存在'
-  | '建表失败'
+  | '地址沒填'
+  | '打到網頁了'
+  | '鑑權失敗'
+  | '端點不存在'
+  | '建表失敗'
   | '配置缺失'
-  | '网络失败'
-  | '权限被拒'
+  | '網絡失敗'
+  | '權限被拒'
   | '不支持推送'
-  | 'worker没配VAPID'
-  | '订阅失败'
+  | 'worker沒配VAPID'
+  | '訂閱失敗'
   | '推送通道不通'
-  | '没拿到订阅'
-  | '端点僵尸'
+  | '沒拿到訂閱'
+  | '端點殭屍'
   | '其他';
 
-/** 从 Worker 地址里取一个能给人看的域名。取不到（没填 / 填了段不是 URL 的东西）返回空串。 */
+/** 從 Worker 地址裡取一個能給人看的域名。取不到（沒填 / 填了段不是 URL 的東西）返回空串。 */
 export const readWorkerHost = (workerUrl: string | null | undefined): string => {
   const value = workerUrl?.trim();
   if (!value) return '';
@@ -63,9 +63,9 @@ const looksLikeHtmlFallbackError = (message: string) => (
 );
 
 /**
- * 浏览器把「连不上」报成什么，各家不一样：Chrome/Firefox 是 TypeError: Failed to fetch，
- * Safari 是 TypeError: Load failed，旧 Firefox 还有 NetworkError when attempting to fetch。
- * 三种都得认，漏一种就有一批人只能看到光秃秃的英文。
+ * 瀏覽器把「連不上」報成什麼，各家不一樣：Chrome/Firefox 是 TypeError: Failed to fetch，
+ * Safari 是 TypeError: Load failed，舊 Firefox 還有 NetworkError when attempting to fetch。
+ * 三種都得認，漏一種就有一批人只能看到光禿禿的英文。
  */
 const looksLikeOfflineError = (message: string, name: string) => (
   name === 'TypeError' ||
@@ -82,22 +82,22 @@ const looksLikeTimeoutError = (message: string, name: string) => (
 );
 
 export interface AmsgFetchFailureDescription {
-  /** 直接显示给用户的整句，含「这是哪一步、坏在哪、去改哪儿」。可能多行。 */
+  /** 直接顯示給用戶的整句，含「這是哪一步、壞在哪、去改哪兒」。可能多行。 */
   message: string;
-  /** 上报用的代号，永远是 AmsgFailKind 里的字面量。 */
+  /** 上報用的代號，永遠是 AmsgFailKind 裡的字面量。 */
   kind: AmsgFailKind;
 }
 
 /**
- * 把 fetch 抛出来的异常翻成人话。
+ * 把 fetch 拋出來的異常翻成人話。
  *
- * 存在的理由：这类异常的原文只有 "Failed to fetch" 五个字，既不说打的是哪儿，也不说
- * 是网络不通还是地址错了。社区里排查这一句花掉过好几天——先怀疑代理平台封号、再怀疑
- * worker 配置、最后才发现只是当时没连上 Cloudflare。所以在这儿一次把三件事说全：
- * 是哪一步、连的是哪个域名、可能的原因分别去哪儿改。
+ * 存在的理由：這類異常的原文只有 "Failed to fetch" 五個字，既不說打的是哪兒，也不說
+ * 是網絡不通還是地址錯了。社區裡排查這一句花掉過好幾天——先懷疑代理平台封號、再懷疑
+ * worker 配置、最後才發現只是當時沒連上 Cloudflare。所以在這兒一次把三件事說全：
+ * 是哪一步、連的是哪個域名、可能的原因分別去哪兒改。
  *
- * 另外必须写明「这条路不通不影响到点推送」：推送是 Cloudflare 直接发给设备的，
- * 跟浏览器能不能连上 worker 是两条路。不写的话用户会以为主动消息整个废了。
+ * 另外必須寫明「這條路不通不影響到點推送」：推送是 Cloudflare 直接發給設備的，
+ * 跟瀏覽器能不能連上 worker 是兩條路。不寫的話用戶會以為主動消息整個廢了。
  */
 export const describeAmsgFetchFailure = (
   error: unknown,
@@ -111,58 +111,58 @@ export const describeAmsgFetchFailure = (
 
   if (looksLikeHtmlFallbackError(raw)) {
     return {
-      kind: '打到网页了',
-      message: `主动消息 2.0 的${phase}请求没有打到 Worker${where}，而是拿到了一个网页。请确认设置里填的是你部署好的 amsg Worker 地址，不是某个网页地址。`,
+      kind: '打到網頁了',
+      message: `主動消息 2.0 的${phase}請求沒有打到 Worker${where}，而是拿到了一個網頁。請確認設置裡填的是你部署好的 amsg Worker 地址，不是某個網頁地址。`,
     };
   }
 
   if (looksLikeTimeoutError(raw, name)) {
     return {
-      kind: '网络失败',
-      message: `主动消息 2.0 的${phase}请求等太久，超时了${where}。多半是当前网络到 Cloudflare 很慢或中途被掐断，稍后重试即可；一直这样的话，用设置面板里的「Deno 门面」换一条线路。\n到点的主动消息推送不走这条路，不受影响。`,
+      kind: '網絡失敗',
+      message: `主動消息 2.0 的${phase}請求等太久，超時了${where}。多半是當前網絡到 Cloudflare 很慢或中途被掐斷，稍後重試即可；一直這樣的話，用設置面板裡的「Deno 門面」換一條線路。\n到點的主動消息推送不走這條路，不受影響。`,
     };
   }
 
   if (looksLikeOfflineError(raw, name)) {
     return {
-      kind: '网络失败',
-      message: `连不上你的 Worker${where}，${phase}没能完成。\n这一步是这台设备直接去连 Cloudflare，常见原因有三个：当前网络到 Cloudflare 不通（换个网络，或用设置面板里的「Deno 门面」套一层）、Worker 地址填错了、Worker 已经被删掉了。\n到点的主动消息推送是 Cloudflare 直接发给设备的，不走这条路，所以照常收得到。`,
+      kind: '網絡失敗',
+      message: `連不上你的 Worker${where}，${phase}沒能完成。\n這一步是這台設備直接去連 Cloudflare，常見原因有三個：當前網絡到 Cloudflare 不通（換個網絡，或用設置面板裡的「Deno 門面」套一層）、Worker 地址填錯了、Worker 已經被刪掉了。\n到點的主動消息推送是 Cloudflare 直接發給設備的，不走這條路，所以照常收得到。`,
     };
   }
 
-  return { kind: '其他', message: `主动消息 2.0 的${phase}请求失败：${raw}` };
+  return { kind: '其他', message: `主動消息 2.0 的${phase}請求失敗：${raw}` };
 };
 
-// ─── /debug 回执 → 一排看得懂的结论 ───
+// ─── /debug 回執 → 一排看得懂的結論 ───
 
-/** worker 自检里「能跑但有一块是哑的」那类提醒。 */
+/** worker 自檢裡「能跑但有一塊是啞的」那類提醒。 */
 export interface AmsgConfigWarning { code: string; message: string }
 
 /**
- * 表结构自查没跑成时，worker 给出的归类代号（worker/amsg/src/index.ts 的
- * classifySchemaProbeError；改那边的档位这份要跟着走）。
+ * 表結構自查沒跑成時，worker 給出的歸類代號（worker/amsg/src/index.ts 的
+ * classifySchemaProbeError；改那邊的檔位這份要跟著走）。
  *
- * 分档全是为了「用户该做什么」：unsupported 点一下更新就好，denied 是后端自己的
- * 毛病、点什么都没用，timeout 再体检一次多半就过。
+ * 分檔全是為了「用戶該做什麼」：unsupported 點一下更新就好，denied 是後端自己的
+ * 毛病、點什麼都沒用，timeout 再體檢一次多半就過。
  */
 export type AmsgSchemaProbeError = 'unsupported' | 'denied' | 'timeout' | 'other';
 
-/** GET /debug 回执里用得上的那部分（worker/amsg/src/index.ts）。 */
+/** GET /debug 回執裡用得上的那部分（worker/amsg/src/index.ts）。 */
 export interface AmsgDebugReport {
   config: { ok: boolean; missing: string[]; message: string; warnings: AmsgConfigWarning[] };
   storage: {
     reachable: boolean;
-    /** null = worker 查不了这一项（不等于「齐了」）。老 worker 只报 boolean。 */
+    /** null = worker 查不了這一項（不等於「齊了」）。老 worker 只報 boolean。 */
     schemaReady?: boolean | null;
-    /** 上面那项查不了时是为什么。缺字段 = 老 worker 不报这一项，只能笼统说一句。 */
+    /** 上面那項查不了時是為什麼。缺字段 = 老 worker 不報這一項，只能籠統說一句。 */
     schemaError?: AmsgSchemaProbeError | null;
     missingTables?: string[];
     missingColumns?: string[];
     pushSubscriptionRegistered?: boolean;
     /**
-     * 推送到底推没推出去。三态由 parseAmsgDebugReport 收敛，**认下来的回执里一定有值**
-     * ——界面不用猜「缺字段」是什么意思。可选只是为了让「库根本读不到」那种桩不用凑
-     * 一个没有意义的值；那种时候上面几行早就红了，压根走不到这一项。
+     * 推送到底推沒推出去。三態由 parseAmsgDebugReport 收斂，**認下來的回執裡一定有值**
+     * ——界面不用猜「缺字段」是什麼意思。可選只是為了讓「庫根本讀不到」那種樁不用湊
+     * 一個沒有意義的值；那種時候上面幾行早就紅了，壓根走不到這一項。
      */
     pushDelivery?: AmsgPushDeliveryProbe;
     pendingTasks?: number;
@@ -171,9 +171,9 @@ export interface AmsgDebugReport {
     error?: string;
   };
   /**
-   * cron 在不在按时处理任务。unknown = 手上没有待发任务，无从判断。
-   * stalled = 有任务真卡住了（没人来领，或者领了没下文）；failing = 没卡住，但有任务在
-   * 失败重试、或者这次开跑晚得不正常；healthy = 都在正常处理。
+   * cron 在不在按時處理任務。unknown = 手上沒有待發任務，無從判斷。
+   * stalled = 有任務真卡住了（沒人來領，或者領了沒下文）；failing = 沒卡住，但有任務在
+   * 失敗重試、或者這次開跑晚得不正常；healthy = 都在正常處理。
    */
   tick: 'unknown' | 'idle' | 'healthy' | 'failing' | 'stalled';
   server: { version: string | null; featureCount: number } | null;
@@ -181,11 +181,11 @@ export interface AmsgDebugReport {
 }
 
 /**
- * 认一份 /debug 回执，形状对不上返回 null。
+ * 認一份 /debug 回執，形狀對不上返回 null。
  *
- * 宽容不了的地方在于：没有这个端点的 worker 回什么的都有（404 的 JSON、Cloudflare 的
- * 错误页、代理塞回来的一段 HTML）。只看 success 就采信的话，会把一台好 worker 判成
- * 「哪儿都是红的」——那比不体检还糟，用户照着提示改哪儿都改不对。
+ * 寬容不了的地方在於：沒有這個端點的 worker 回什麼的都有（404 的 JSON、Cloudflare 的
+ * 錯誤頁、代理塞回來的一段 HTML）。只看 success 就採信的話，會把一台好 worker 判成
+ * 「哪兒都是紅的」——那比不體檢還糟，用戶照著提示改哪兒都改不對。
  */
 export const parseAmsgDebugReport = (body: unknown): AmsgDebugReport | null => {
   const data = (body as { success?: unknown; data?: Record<string, any> } | null)?.data;
@@ -213,40 +213,40 @@ export const parseAmsgDebugReport = (body: unknown): AmsgDebugReport | null => {
   };
 };
 
-// ─── 推送服务说「这条订阅已经没了」───
+// ─── 推送服務說「這條訂閱已經沒了」───
 //
-// 这是「登记状态全绿、到点一条都不来」的最后一块拼图。浏览器手里有订阅、Worker 上
-// 也登记着同一条 endpoint——两边都自洽，但那条 endpoint 在推送服务（FCM/Mozilla/
-// Apple）那侧早就作废了，推过去只会换回一个 410。这件事只有推送服务知道，前端和
-// Worker 自己都查不出来。
+// 這是「登記狀態全綠、到點一條都不來」的最後一塊拼圖。瀏覽器手裡有訂閱、Worker 上
+// 也登記著同一條 endpoint——兩邊都自洽，但那條 endpoint 在推送服務（FCM/Mozilla/
+// Apple）那側早就作廢了，推過去只會換回一個 410。這件事只有推送服務知道，前端和
+// Worker 自己都查不出來。
 //
-// 事实由上游 amsg-server 产生并结构化保存（投递失败时把推送服务回的状态码写进任务的
-// last_error），Worker 的 /debug 把它读出来，这份文件只负责把它翻成红绿灯和人话。
-// 状态码怎么认在 worker/amsg/src/index.ts，那儿离数据最近。
+// 事實由上游 amsg-server 產生並結構化保存（投遞失敗時把推送服務回的狀態碼寫進任務的
+// last_error），Worker 的 /debug 把它讀出來，這份文件只負責把它翻成紅綠燈和人話。
+// 狀態碼怎麼認在 worker/amsg/src/index.ts，那兒離數據最近。
 
-/** 认出来的那一次「订阅已失效」。 */
+/** 認出來的那一次「訂閱已失效」。 */
 export interface AmsgPushGoneFailure {
-  /** 推送服务回的状态码：410 = 已注销/过期，404 = 端点根本不存在。 */
+  /** 推送服務回的狀態碼：410 = 已註銷/過期，404 = 端點根本不存在。 */
   status: number;
-  /** 这次失败记录的时刻（epoch 毫秒）。 */
+  /** 這次失敗記錄的時刻（epoch 毫秒）。 */
   atMs: number;
 }
 
 /**
- * 「推送投递情况」这一项的三种结局。
+ * 「推送投遞情況」這一項的三種結局。
  *
- * `probed: false` 的两档都**不是**「没问题」：`unsupported` 是这台 Worker 上跑的后端
- * 还不查这一项（老 bundle），`failed` 是查了没查成。界面必须照实说查不了——在唯一能
- * 拆穿「全绿但一条不来」的地方给假绿灯，比没有这项检查更糟。
+ * `probed: false` 的兩檔都**不是**「沒問題」：`unsupported` 是這台 Worker 上跑的後端
+ * 還不查這一項（老 bundle），`failed` 是查了沒查成。界面必須照實說查不了——在唯一能
+ * 拆穿「全綠但一條不來」的地方給假綠燈，比沒有這項檢查更糟。
  */
 export type AmsgPushDeliveryProbe =
   | { probed: false; reason: 'unsupported' | 'failed' }
   | { probed: true; gone: AmsgPushGoneFailure | null; registeredAtMs: number | null };
 
-/** 认出 /debug 回执里那一段的形状。缺字段 = 老 bundle 不报这一项。 */
+/** 認出 /debug 回執裡那一段的形狀。缺字段 = 老 bundle 不報這一項。 */
 const normalizePushDeliveryProbe = (raw: unknown): AmsgPushDeliveryProbe => {
   if (raw === undefined) return { probed: false, reason: 'unsupported' };
-  // worker 查不成时显式回 null（老库还没有 last_error 列、查询被拒）。
+  // worker 查不成時顯式回 null（老庫還沒有 last_error 列、查詢被拒）。
   if (!raw || typeof raw !== 'object') return { probed: false, reason: 'failed' };
   const value = raw as { gone?: any; registeredAtMs?: unknown };
   const status = Number(value.gone?.status);
@@ -258,14 +258,14 @@ const normalizePushDeliveryProbe = (raw: unknown): AmsgPushDeliveryProbe => {
   };
 };
 
-/** 一行体检结论的严重程度。bad = 现在就是坏的，warn = 能跑但有一块是哑的。 */
+/** 一行體檢結論的嚴重程度。bad = 現在就是壞的，warn = 能跑但有一塊是啞的。 */
 export type AmsgDiagnosticLevel = 'ok' | 'warn' | 'bad' | 'unknown';
 
-/** 一行结论底下的一条细目（比如「定时任务」那一行里的每一条任务）。 */
+/** 一行結論底下的一條細目（比如「定時任務」那一行裡的每一條任務）。 */
 export interface AmsgDiagnosticItem {
-  /** 一句或一小段人话。 */
+  /** 一句或一小段人話。 */
   text: string;
-  /** 报错原文。界面上默认收着，点「原文」才展开——截图发给别人排查时用得上。 */
+  /** 報錯原文。界面上默認收著，點「原文」才展開——截圖發給別人排查時用得上。 */
   raw?: string;
 }
 
@@ -273,63 +273,63 @@ export interface AmsgDiagnosticRow {
   key: string;
   label: string;
   level: AmsgDiagnosticLevel;
-  /** 一句话：坏在哪、去哪儿改。ok 的行写现状即可。 */
+  /** 一句話：壞在哪、去哪兒改。ok 的行寫現狀即可。 */
   detail: string;
-  /** 逐条细目，按「先看哪条」排好。没有就不带这个字段。 */
+  /** 逐條細目，按「先看哪條」排好。沒有就不帶這個字段。 */
   items?: AmsgDiagnosticItem[];
 }
 
-/** 拉体检的结果。连不上时带上已经翻成人话的原因，那本身就是第一行结论。 */
+/** 拉體檢的結果。連不上時帶上已經翻成人話的原因，那本身就是第一行結論。 */
 export type AmsgDiagnosticsProbe =
   | { reachable: true; report: AmsgDebugReport }
-  | { reachable: false; reason: string; /** 旧 worker 没有这个端点，不是坏了 */ unsupported?: boolean };
+  | { reachable: false; reason: string; /** 舊 worker 沒有這個端點，不是壞了 */ unsupported?: boolean };
 
-/** 拉定时任务细账（GET /tick-report）的结果。拿不到时带一句已经翻成人话的原因。 */
+/** 拉定時任務細帳（GET /tick-report）的結果。拿不到時帶一句已經翻成人話的原因。 */
 export type AmsgTickReportResult =
   | { ok: true; report: AmsgTickReport }
   | { ok: false; reason: string };
 
 export interface AmsgDiagnosticsInput {
   probe: AmsgDiagnosticsProbe;
-  /** 这台设备的浏览器有没有推送订阅（本地事实，worker 那侧看不到）。 */
+  /** 這台設備的瀏覽器有沒有推送訂閱（本地事實，worker 那側看不到）。 */
   localPushSubscribed?: boolean;
-  /** 把 epoch 毫秒写成给人看的时间；不传按本机习惯格式化（单测注入固定格式用）。 */
+  /** 把 epoch 毫秒寫成給人看的時間；不傳按本機習慣格式化（單測注入固定格式用）。 */
   formatTime?: (atMs: number) => string;
-  /** 定时任务的逐条细账。没拉（null / 不传）时「定时任务」那一行只按 /debug 的两个数说话。 */
+  /** 定時任務的逐條細帳。沒拉（null / 不傳）時「定時任務」那一行只按 /debug 的兩個數說話。 */
   tickReport?: AmsgTickReportResult | null;
-  /** 用户在面板上把后台任务暂停了。这时任务到点不发是意料之中，不能报成触发器坏了。 */
+  /** 用戶在面板上把後台任務暫停了。這時任務到點不發是意料之中，不能報成觸發器壞了。 */
   cronPaused?: boolean;
   /**
-   * 判定用的「现在」（epoch 毫秒，单测注入用）。不传时用细账回执里 Worker 的时钟，
-   * 没有细账才用本机时钟：任务上的时刻全是 Worker 写的，拿设备时钟去减，设备钟一跑偏
-   * 「晚了几分钟」就跟着歪。
+   * 判定用的「現在」（epoch 毫秒，單測注入用）。不傳時用細帳回執裡 Worker 的時鐘，
+   * 沒有細帳才用本機時鐘：任務上的時刻全是 Worker 寫的，拿設備時鐘去減，設備鍾一跑偏
+   * 「晚了幾分鐘」就跟著歪。
    */
   nowMs?: number;
 }
 
 const defaultFormatTime = (atMs: number): string => new Date(atMs).toLocaleString();
 
-/** 「重置订阅」在哪儿、点了会发生什么。几处文案共用一句，别各写各的。 */
-export const PUSH_RESET_HINT = '去设置页的「推送订阅状态」点「重置订阅」重建一条——它会退订、重订、再覆盖登记回 Worker，点一次就够。';
+/** 「重置訂閱」在哪兒、點了會發生什麼。幾處文案共用一句，別各寫各的。 */
+export const PUSH_RESET_HINT = '去設置頁的「推送訂閱狀態」點「重置訂閱」重建一條——它會退訂、重訂、再覆蓋登記回 Worker，點一次就夠。';
 
-const WORKER_TOO_OLD_HINT = '这台 Worker 上跑的后端还不查「推送有没有真的送出去」，所以「到点了但一条都不来」这种坏法它看不出来。点上面的「更新 Worker」换成新版就能查了。';
+const WORKER_TOO_OLD_HINT = '這台 Worker 上跑的後端還不查「推送有沒有真的送出去」，所以「到點了但一條都不來」這種壞法它看不出來。點上面的「更新 Worker」換成新版就能查了。';
 
 export interface AmsgPushDeliveryVerdict {
   level: 'bad' | 'warn';
-  /** 发生了什么。几处共用，不带「去哪儿修」。 */
+  /** 發生了什麼。幾處共用，不帶「去哪兒修」。 */
   what: string;
-  /** 体检那一行的完整说法：发生了什么 + 该去哪儿点哪个按钮。 */
+  /** 體檢那一行的完整說法：發生了什麼 + 該去哪兒點哪個按鈕。 */
   detail: string;
 }
 
 /**
- * 上一次推送到底有没有被推送服务判成「订阅失效」，以及那笔账现在还算不算数。
- * 没问题（查过了、没发生过 / 是重置之前的旧账）返回 null。
+ * 上一次推送到底有沒有被推送服務判成「訂閱失效」，以及那筆帳現在還算不算數。
+ * 沒問題（查過了、沒發生過 / 是重置之前的舊帳）返回 null。
  *
- * 体检的「这台设备」和设置页的推送订阅面板共用这一份判定：两处各写一套的话，
- * 用户会看到一个红一个绿，而这正是他唯一能拿来判断该不该重置订阅的依据。
+ * 體檢的「這台設備」和設置頁的推送訂閱面板共用這一份判定：兩處各寫一套的話，
+ * 用戶會看到一個紅一個綠，而這正是他唯一能拿來判斷該不該重置訂閱的依據。
  *
- * @param formatTime 把 epoch 毫秒写成给人看的时间；不传按本机习惯格式化。
+ * @param formatTime 把 epoch 毫秒寫成給人看的時間；不傳按本機習慣格式化。
  */
 export const judgePushDeliveryFailure = (
   probe: AmsgPushDeliveryProbe | null | undefined,
@@ -337,16 +337,16 @@ export const judgePushDeliveryFailure = (
 ): AmsgPushDeliveryVerdict | null => {
   if (!probe) return null;
 
-  // 查不了不是「没问题」。报 warn 而不是红：这时并没有任何证据说明推送坏了，
-  // 但也绝不能给绿灯——它恰恰是唯一能拆穿「全绿但一条不来」的那一项。
+  // 查不了不是「沒問題」。報 warn 而不是紅：這時並沒有任何證據說明推送壞了，
+  // 但也絕不能給綠燈——它恰恰是唯一能拆穿「全綠但一條不來」的那一項。
   if (!probe.probed) {
     const what = probe.reason === 'unsupported'
-      ? '这次没查「推送有没有真的送出去」'
-      : '「推送有没有真的送出去」这一项没查成（后端读不到任务的失败记录）';
+      ? '這次沒查「推送有沒有真的送出去」'
+      : '「推送有沒有真的送出去」這一項沒查成（後端讀不到任務的失敗記錄）';
     return {
       level: 'warn',
       what,
-      detail: probe.reason === 'unsupported' ? WORKER_TOO_OLD_HINT : `${what}。到点却收不到消息的话，${PUSH_RESET_HINT}`,
+      detail: probe.reason === 'unsupported' ? WORKER_TOO_OLD_HINT : `${what}。到點卻收不到消息的話，${PUSH_RESET_HINT}`,
     };
   }
 
@@ -354,67 +354,67 @@ export const judgePushDeliveryFailure = (
   if (!gone) return null;
 
   const when = formatTime(gone.atMs);
-  const what = `${when} 那次推送被推送服务退回来了，理由是「这条订阅已经失效」（${gone.status}）`;
+  const what = `${when} 那次推送被推送服務退回來了，理由是「這條訂閱已經失效」（${gone.status}）`;
 
-  // 登记时刻问不到就没法分辨新旧账。报 warn 不报红：重置过订阅的人不该被一条
-  // 永远消不掉的红灯追着跑，但也不能给绿灯——那正是这条要拆穿的假象。
+  // 登記時刻問不到就沒法分辨新舊帳。報 warn 不報紅：重置過訂閱的人不該被一條
+  // 永遠消不掉的紅燈追著跑，但也不能給綠燈——那正是這條要拆穿的假象。
   if (registeredAtMs == null) {
-    const uncertain = '这次问不到 Worker 上那行订阅是什么时候登记的，没法确认它是不是重置之前的旧账';
+    const uncertain = '這次問不到 Worker 上那行訂閱是什麼時候登記的，沒法確認它是不是重置之前的舊帳';
     return {
       level: 'warn',
       what: `${what}。${uncertain}`,
-      detail: `${what}。${uncertain}；最近没重置过的话，${PUSH_RESET_HINT}`,
+      detail: `${what}。${uncertain}；最近沒重置過的話，${PUSH_RESET_HINT}`,
     };
   }
 
-  // 那之后订阅换过一条了：这笔是上一条订阅的旧账，服务端只在失败时写、成功不会清。
+  // 那之後訂閱換過一條了：這筆是上一條訂閱的舊帳，服務端只在失敗時寫、成功不會清。
   if (gone.atMs <= registeredAtMs) return null;
 
-  const stillBroken = `${what}，而 Worker 上登记的还是它——到点的消息全都推不出去`;
+  const stillBroken = `${what}，而 Worker 上登記的還是它——到點的消息全都推不出去`;
   return { level: 'bad', what: stillBroken, detail: `${stillBroken}。${PUSH_RESET_HINT}` };
 };
 
-const DB_MISSING_HINT = 'Worker 没有绑定 D1 数据库。多半是部署第一步填完 Database ID 之后没点那个「Add」就直接 Deploy 了。回 Cloudflare 的 Settings → Bindings 加一条 D1 database，变量名填大写的 DB。';
-const MASTER_KEY_MISSING_HINT = 'Worker 上没有 AMSG_MASTER_KEY。去 Settings → Variables and secrets 添加，类型一定要选 Secret——选成 Text 的话下次部署就会消失。';
-const SCHEMA_STALE_HINT = '换过 Worker 版本后，已经存在的表不会自己长出新列，定时任务每分钟都会因为读不到它们而挂掉（界面上一切正常，就是一条都不发）。点上面的「重新连接并验证」补一次。';
+const DB_MISSING_HINT = 'Worker 沒有綁定 D1 數據庫。多半是部署第一步填完 Database ID 之後沒點那個「Add」就直接 Deploy 了。回 Cloudflare 的 Settings → Bindings 加一條 D1 database，變量名填大寫的 DB。';
+const MASTER_KEY_MISSING_HINT = 'Worker 上沒有 AMSG_MASTER_KEY。去 Settings → Variables and secrets 添加，類型一定要選 Secret——選成 Text 的話下次部署就會消失。';
+const SCHEMA_STALE_HINT = '換過 Worker 版本後，已經存在的表不會自己長出新列，定時任務每分鐘都會因為讀不到它們而掛掉（界面上一切正常，就是一條都不發）。點上面的「重新連接並驗證」補一次。';
 
 /**
- * 表结构没查成时，各档分别该跟用户说什么。
+ * 表結構沒查成時，各檔分別該跟用戶說什麼。
  *
- * 每一句都要落到「要不要紧 + 该做什么」上。以前这里只有一句「查不了，不知道」——
- * 原因躺在 Cloudflare 日志里，用户看不到，隔着屏幕也问不出来，只能一路猜。
+ * 每一句都要落到「要不要緊 + 該做什麼」上。以前這裡只有一句「查不了，不知道」——
+ * 原因躺在 Cloudflare 日誌裡，用戶看不到，隔著屏幕也問不出來，只能一路猜。
  */
 const SCHEMA_PROBE_HINTS: Record<AmsgSchemaProbeError, string> = {
-  denied: '查表结构时被数据库挡了一道：Cloudflare 在库里放了一张自己的内部表，不让 Worker 读，自查就断在那儿了。表齐没齐这次没查出来，但主动消息的收发不受影响。等后端更新到修好这处的版本就会自己恢复。',
-  unsupported: '这台 Worker 上跑的后端代码还没有「查自己表结构」这个本事，齐没齐问不出来。点上面的「更新 Worker」换成新版就能查了。',
-  timeout: '查表结构时数据库没在时限内回话，这次没查出来。多半是 D1 刚被唤醒（隔几小时的头一次请求常这样），过一会儿再体检一次通常就好了。',
-  other: '这台 Worker 查不了自己的表结构，齐没齐不知道。要是主动消息到点不响，先点一次上面的「重新连接并验证」把表补齐。',
+  denied: '查表結構時被數據庫擋了一道：Cloudflare 在庫裡放了一張自己的內部表，不讓 Worker 讀，自查就斷在那兒了。表齊沒齊這次沒查出來，但主動消息的收發不受影響。等後端更新到修好這處的版本就會自己恢復。',
+  unsupported: '這台 Worker 上跑的後端代碼還沒有「查自己表結構」這個本事，齊沒齊問不出來。點上面的「更新 Worker」換成新版就能查了。',
+  timeout: '查表結構時數據庫沒在時限內回話，這次沒查出來。多半是 D1 剛被喚醒（隔幾小時的頭一次請求常這樣），過一會兒再體檢一次通常就好了。',
+  other: '這台 Worker 查不了自己的表結構，齊沒齊不知道。要是主動消息到點不響，先點一次上面的「重新連接並驗證」把表補齊。',
 };
 
-// ─── 「定时任务」那一行：/debug 的两个数 + /tick-report 的逐条细账 ───
+// ─── 「定時任務」那一行：/debug 的兩個數 + /tick-report 的逐條細帳 ───
 //
-// 光靠 /debug 只知道「几条到点没发、最老的晚了多久」，只够说一句笼统的「定时触发器
-// 可能没在跑」。可同样是晚了四十分钟，可能是在等第三次重试（原因明明白白
-// 记在任务上）、可能是一开跑就被 Cloudflare 掐掉、也可能是用户自己把后台任务暂停了——
-// 照那一句去 Cloudflare 翻触发器，三种里有两种翻不出任何东西。
-// 所以这一行先给一句总的结论，再逐条说每条任务现在算哪种情况，报错原文收在底下。
+// 光靠 /debug 只知道「幾條到點沒發、最老的晚了多久」，只夠說一句籠統的「定時觸發器
+// 可能沒在跑」。可同樣是晚了四十分鐘，可能是在等第三次重試（原因明明白白
+// 記在任務上）、可能是一開跑就被 Cloudflare 掐掉、也可能是用戶自己把後台任務暫停了——
+// 照那一句去 Cloudflare 翻觸發器，三種裡有兩種翻不出任何東西。
+// 所以這一行先給一句總的結論，再逐條說每條任務現在算哪種情況，報錯原文收在底下。
 
 const MINUTE_MS = 60_000;
 
-/** 失败记录在这个时间以内算「刚出的事」，够把这一行提成 warn。 */
+/** 失敗記錄在這個時間以內算「剛出的事」，夠把這一行提成 warn。 */
 const RECENT_FAILURE_MS = 60 * MINUTE_MS;
 
 /**
- * 再早的失败记录一律不提。Worker 那边本来也只留一天，列太老的账只会让人以为现在还坏着；
- * 一小时到一天之间的，只在这一行本来就不正常时陪着列出来，帮着看是不是同一个毛病。
+ * 再早的失敗記錄一律不提。Worker 那邊本來也只留一天，列太老的帳只會讓人以為現在還壞著；
+ * 一小時到一天之間的，只在這一行本來就不正常時陪著列出來，幫著看是不是同一個毛病。
  */
 const FAILURE_LOOKBACK_MS = 24 * 60 * MINUTE_MS;
 
-/** 没有细账可看时的那句笼统说法。两种坏法都点到，让人至少知道去哪儿看日志。 */
-const TICK_STALLED_GENERIC_HINT = '定时触发器可能没在跑，或者每分钟那一跳在报错——去 Cloudflare 的 Workers → 你的 Worker → Observability 看日志。';
+/** 沒有細帳可看時的那句籠統說法。兩種壞法都點到，讓人至少知道去哪兒看日誌。 */
+const TICK_STALLED_GENERIC_HINT = '定時觸發器可能沒在跑，或者每分鐘那一跳在報錯——去 Cloudflare 的 Workers → 你的 Worker → Observability 看日誌。';
 
-/** 任务一直没人来领、Worker 又什么报错都没留下时，最可能的原因和该去哪儿看。 */
-const TICK_TRIGGER_MISSING_HINT = '多半是定时触发器没在跑：去 Cloudflare 的 Workers → 你的 Worker → Settings → Trigger events 看看有没有 * * * * *，再到 Observability 看日志。';
+/** 任務一直沒人來領、Worker 又什麼報錯都沒留下時，最可能的原因和該去哪兒看。 */
+const TICK_TRIGGER_MISSING_HINT = '多半是定時觸發器沒在跑：去 Cloudflare 的 Workers → 你的 Worker → Settings → Trigger events 看看有沒有 * * * * *，再到 Observability 看日誌。';
 
 const parseIsoMs = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -422,39 +422,39 @@ const parseIsoMs = (iso: string | null | undefined): number | null => {
   return Number.isFinite(ms) ? ms : null;
 };
 
-/** 两个时刻隔了几整分钟。时钟有点偏时可能算出负数，一律按 0 算。 */
+/** 兩個時刻隔了幾整分鐘。時鐘有點偏時可能算出負數，一律按 0 算。 */
 const minutesBetween = (fromMs: number, toMs: number): number =>
   Math.max(0, Math.floor((toMs - fromMs) / MINUTE_MS));
 
-/** 补上句号；原话自己已经带了句末标点的（英文报错常见）不再叠一个。 */
+/** 補上句號；原話自己已經帶了句末標點的（英文報錯常見）不再疊一個。 */
 const endSentence = (text: string): string => {
   const trimmed = text.trim();
   return /[。！？.!?…]$/.test(trimmed) ? trimmed : `${trimmed}。`;
 };
 
 /**
- * 这条任务在列表里怎么称呼。
+ * 這條任務在列表裡怎麼稱呼。
  *
- * 解不开任务内容时（主密钥换过之类）连名字都拿不到，也得有个主语，不然一句话开头就是冒号。
- * 名字是英文的话跟后面的中文之间空一格，中文名直接连着写。
+ * 解不開任務內容時（主密鑰換過之類）連名字都拿不到，也得有個主語，不然一句話開頭就是冒號。
+ * 名字是英文的話跟後面的中文之間空一格，中文名直接連著寫。
  */
 const describeTaskOwner = (task: { contactName: string | null; kind: string | null; messageType: string | null }): string => {
-  const name = task.contactName || '某个角色';
+  const name = task.contactName || '某個角色';
   const gap = /[\x21-\x7e]$/.test(name) ? ' ' : '';
-  if (task.kind) return `${name}${gap}的后台任务`;
-  if (task.messageType === 'instant') return `${name}${gap}的即时回复`;
+  if (task.kind) return `${name}${gap}的後台任務`;
+  if (task.messageType === 'instant') return `${name}${gap}的即時回覆`;
   return name;
 };
 
 interface TickTaskContext {
   nowMs: number;
   formatIso: (iso: string) => string;
-  /** 每分钟那一跳自己此刻正在报错。卡住的任务就不必再猜触发器了，原因在那条报错里。 */
+  /** 每分鐘那一跳自己此刻正在報錯。卡住的任務就不必再猜觸發器了，原因在那條報錯裡。 */
   tickFailureOngoing: boolean;
   cronPaused: boolean;
 }
 
-/** 一条到点还没发出去的任务，现在是什么情况。判定是 Worker 做的，这里只负责说成人话。 */
+/** 一條到點還沒發出去的任務，現在是什麼情況。判定是 Worker 做的，這裡只負責說成人話。 */
 const describeTickTask = (task: AmsgTickReportTask, ctx: TickTaskContext): AmsgDiagnosticItem => {
   const { nowMs, formatIso } = ctx;
   const owner = describeTaskOwner(task);
@@ -462,77 +462,77 @@ const describeTickTask = (task: AmsgTickReportTask, ctx: TickTaskContext): AmsgD
   const lateMinutes = nextSendMs === null ? null : minutesBetween(nextSendMs, nowMs);
   const parts: string[] = [
     lateMinutes === null
-      ? `${owner}：${task.nextSendAt} 该发。`
-      : `${owner}：${formatIso(task.nextSendAt)} 该发，${lateMinutes < 1 ? '刚到点' : `已经晚了 ${lateMinutes} 分钟`}。`,
+      ? `${owner}：${task.nextSendAt} 該發。`
+      : `${owner}：${formatIso(task.nextSendAt)} 該發，${lateMinutes < 1 ? '剛到點' : `已經晚了 ${lateMinutes} 分鐘`}。`,
   ];
 
   const lastErrorLine = task.lastError
-    ? `上一次失败：${endSentence(describeTaskFailureCause(task.lastError))}`
+    ? `上一次失敗：${endSentence(describeTaskFailureCause(task.lastError))}`
     : '';
   const startedMs = parseIsoMs(task.lastStartedAt);
 
   if (task.state === 'retry-wait') {
-    const failed = task.retryCount > 0 ? `已经失败 ${task.retryCount} 次` : '失败过';
-    const retryAt = task.retryAfter ? `${formatIso(task.retryAfter)} 再试` : '等一会儿再试';
+    const failed = task.retryCount > 0 ? `已經失敗 ${task.retryCount} 次` : '失敗過';
+    const retryAt = task.retryAfter ? `${formatIso(task.retryAfter)} 再試` : '等一會兒再試';
     parts.push(`${failed}，${retryAt}。`, lastErrorLine);
   } else if (task.state === 'sending') {
     if (task.lateStart && startedMs !== null) {
-      // 「可以开跑」取到点时刻和重试时刻里更晚的那个：重试期间到点时刻是不往后推的。
+      // 「可以開跑」取到點時刻和重試時刻裡更晚的那個：重試期間到點時刻是不往後推的。
       const readySinceMs = Math.max(nextSendMs ?? -Infinity, parseIsoMs(task.retryAfter) ?? -Infinity);
-      const gap = Number.isFinite(readySinceMs) ? `到点 ${minutesBetween(readySinceMs, startedMs)} 分钟后` : '到点好一阵之后';
-      parts.push(`正在发，但这次是${gap}才开始的，前面那段时间没留下任何记录：可能之前开跑过、半路被 Cloudflare 掐掉了，也可能那几分钟定时触发器没在跑。`);
+      const gap = Number.isFinite(readySinceMs) ? `到點 ${minutesBetween(readySinceMs, startedMs)} 分鐘後` : '到點好一陣之後';
+      parts.push(`正在發，但這次是${gap}才開始的，前面那段時間沒留下任何記錄：可能之前開跑過、半路被 Cloudflare 掐掉了，也可能那幾分鐘定時觸發器沒在跑。`);
     } else {
       const agoMinutes = startedMs === null ? null : minutesBetween(startedMs, nowMs);
-      parts.push(agoMinutes === null ? '正在发。' : agoMinutes < 1 ? '正在发（刚开始）。' : `正在发（${agoMinutes} 分钟前开始的）。`);
+      parts.push(agoMinutes === null ? '正在發。' : agoMinutes < 1 ? '正在發（剛開始）。' : `正在發（${agoMinutes} 分鐘前開始的）。`);
     }
     parts.push(lastErrorLine);
   } else if (task.unfinishedAttempt) {
     const when = task.lastStartedAt ? `${formatIso(task.lastStartedAt)} ` : '';
-    parts.push(`${when}开始发过，但没发完，也没留下失败原因。多半是跑到一半被 Cloudflare 掐掉了（比如 CPU 时间或运行时长超限），原话只在 Cloudflare 的 Workers → 你的 Worker → Observability 日志里。`);
-    // 行上的失败记录早于这次开跑，说的是再往前那一次。
-    if (task.lastError) parts.push(`再往前那次失败：${endSentence(describeTaskFailureCause(task.lastError))}`);
+    parts.push(`${when}開始發過，但沒發完，也沒留下失敗原因。多半是跑到一半被 Cloudflare 掐掉了（比如 CPU 時間或運行時長超限），原話只在 Cloudflare 的 Workers → 你的 Worker → Observability 日誌裡。`);
+    // 行上的失敗記錄早於這次開跑，說的是再往前那一次。
+    if (task.lastError) parts.push(`再往前那次失敗：${endSentence(describeTaskFailureCause(task.lastError))}`);
   } else if (task.queuedBehind) {
-    parts.push('同一个角色的另一条任务正在发，这条在排队。', lastErrorLine);
+    parts.push('同一個角色的另一條任務正在發，這條在排隊。', lastErrorLine);
   } else if (task.stuck) {
-    parts.push(lastErrorLine ? `${lastErrorLine}之后到了重试时间，也一直没开始发。` : '到点后一直没开始发。');
+    parts.push(lastErrorLine ? `${lastErrorLine}之後到了重試時間，也一直沒開始發。` : '到點後一直沒開始發。');
     parts.push(ctx.cronPaused
-      ? '后台任务暂停着，恢复后会一起补发。'
+      ? '後台任務暫停著，恢復後會一起補發。'
       : ctx.tickFailureOngoing
-        ? '原因见下面那条整轮报错。'
-        : `Worker ${lastErrorLine ? '那之后' : ''}没留下任何报错，${TICK_TRIGGER_MISSING_HINT}`);
+        ? '原因見下面那條整輪報錯。'
+        : `Worker ${lastErrorLine ? '那之後' : ''}沒留下任何報錯，${TICK_TRIGGER_MISSING_HINT}`);
   } else {
-    parts.push(lastErrorLine ? `${lastErrorLine}马上会再试一次。` : '马上就会发。');
+    parts.push(lastErrorLine ? `${lastErrorLine}馬上會再試一次。` : '馬上就會發。');
   }
 
   const raw = task.lastError && task.lastError.reason !== 'stale' ? task.lastError.reason : undefined;
   return { text: parts.filter(Boolean).join(''), ...(raw ? { raw } : {}) };
 };
 
-/** 整轮报错挂在哪一步。键是 Worker 记下的阶段代号（见 amsgTickReport 的 AmsgTickFailureRecord.stage）。 */
+/** 整輪報錯掛在哪一步。鍵是 Worker 記下的階段代號（見 amsgTickReport 的 AmsgTickFailureRecord.stage）。 */
 const TICK_STAGE_TEXT: Record<string, string> = {
-  config: '读配置那一步',
-  tick: '整轮处理任务那一步',
-  claim_failed: '给任务占位写库那一步',
-  retry_update_failed: '记失败原因写库那一步',
-  stale_update_failed: '处理过期任务写库那一步',
+  config: '讀配置那一步',
+  tick: '整輪處理任務那一步',
+  claim_failed: '給任務佔位寫庫那一步',
+  retry_update_failed: '記失敗原因寫庫那一步',
+  stale_update_failed: '處理過期任務寫庫那一步',
 };
 
 const describeTickStage = (stage: string): string => {
-  // 发完之后的收尾有好几种（删行、推进排期……），代号都是这个前缀加后缀。
-  if (stage.startsWith('post_send_cleanup_failed')) return '发完之后写库那一步';
+  // 發完之後的收尾有好幾種（刪行、推進排期……），代號都是這個前綴加後綴。
+  if (stage.startsWith('post_send_cleanup_failed')) return '發完之後寫庫那一步';
   return TICK_STAGE_TEXT[stage] || `「${stage}」那一步`;
 };
 
-/** 认得出来的整轮报错，顺带说一句该怎么办。认不出来的只给原文，不瞎猜。 */
+/** 認得出來的整輪報錯，順帶說一句該怎麼辦。認不出來的只給原文，不瞎猜。 */
 const describeTickFailureRemedy = (failure: AmsgTickFailureRecord): string => {
   if (/no such (column|table)/i.test(failure.message)) {
-    return '表结构跟现在的代码对不上，点上面的「重新连接并验证」补一次。';
+    return '表結構跟現在的代碼對不上，點上面的「重新連接並驗證」補一次。';
   }
   if (failure.name === 'VapidNotConfigured') {
-    return 'Worker 上没配推送凭据（VAPID），去 Settings → Variables and secrets 补上。';
+    return 'Worker 上沒配推送憑據（VAPID），去 Settings → Variables and secrets 補上。';
   }
   if (/timed? ?out/i.test(`${failure.name} ${failure.message}`)) {
-    return '数据库这一下没响应，偶尔一次没关系，一直这样再来看。';
+    return '數據庫這一下沒響應，偶爾一次沒關係，一直這樣再來看。';
   }
   return '';
 };
@@ -540,22 +540,22 @@ const describeTickFailureRemedy = (failure: AmsgTickFailureRecord): string => {
 const describeTickFailure = (failure: AmsgTickFailureRecord, formatIso: (iso: string) => string): AmsgDiagnosticItem => {
   const stage = describeTickStage(failure.stage);
   const head = failure.count > 1
-    ? `Worker 每分钟那一跳${failure.ongoing ? '一直在' : '之前'}报错：${formatIso(failure.firstAt)} 到 ${formatIso(failure.lastAt)} 连着 ${failure.count} 次，卡在${stage}。`
-    : `Worker 每分钟那一跳${failure.ongoing ? '刚刚' : '之前'}报了一次错（${formatIso(failure.lastAt)}），卡在${stage}。`;
+    ? `Worker 每分鐘那一跳${failure.ongoing ? '一直在' : '之前'}報錯：${formatIso(failure.firstAt)} 到 ${formatIso(failure.lastAt)} 連著 ${failure.count} 次，卡在${stage}。`
+    : `Worker 每分鐘那一跳${failure.ongoing ? '剛剛' : '之前'}報了一次錯（${formatIso(failure.lastAt)}），卡在${stage}。`;
   return {
     text: `${head}${describeTickFailureRemedy(failure)}`,
     raw: `${failure.name}: ${failure.message}${failure.code ? ` (${failure.code})` : ''}`,
   };
 };
 
-/** 最近彻底没发出去的一次。 */
+/** 最近徹底沒發出去的一次。 */
 const describeRecentFailure = (failure: AmsgTickReportFailure, formatIso: (iso: string) => string): AmsgDiagnosticItem => {
   const owner = describeTaskOwner(failure);
-  // 「哪一次」比「什么时候记的」更贴用户想知道的事，跟任务卡片那行同一个取法。
+  // 「哪一次」比「什麼時候記的」更貼用戶想知道的事，跟任務卡片那行同一個取法。
   const when = failure.error.occurrence || failure.error.at;
   const outcome = failure.outcome === 'skipped'
-    ? '没发出去，这次跳过了，下次到点照常'
-    : '没发出去，不会再补发了';
+    ? '沒發出去，這次跳過了，下次到點照常'
+    : '沒發出去，不會再補發了';
   const head = when ? `${owner}：${formatIso(when)} 那次${outcome}。` : `${owner}：最近有一次${outcome}。`;
   const raw = failure.error.reason !== 'stale' ? failure.error.reason : undefined;
   return {
@@ -564,26 +564,26 @@ const describeRecentFailure = (failure: AmsgTickReportFailure, formatIso: (iso: 
   };
 };
 
-/** 失败重试 / 开跑晚了的那几条，合起来一句话。 */
+/** 失敗重試 / 開跑晚了的那幾條，合起來一句話。 */
 const summarizeFailingTasks = (tasks: AmsgTickReportTask[], truncatedNote: string): string => {
   const retrying = tasks.filter((task) => task.state === 'retry-wait' || task.lastError).length;
   const late = tasks.filter((task) => task.lateStart).length;
   const what = retrying && late
-    ? `有 ${retrying} 条任务在失败重试，${late} 条这次开始发得比平时晚`
+    ? `有 ${retrying} 條任務在失敗重試，${late} 條這次開始發得比平時晚`
     : retrying
-      ? `有 ${retrying} 条任务在失败重试`
+      ? `有 ${retrying} 條任務在失敗重試`
       : late
-        ? `有 ${late} 条任务这次开始发得比平时晚`
-        : '有任务到点没按时发出去';
-  return `${what}，逐条情况在下面${truncatedNote}。`;
+        ? `有 ${late} 條任務這次開始發得比平時晚`
+        : '有任務到點沒按時發出去';
+  return `${what}，逐條情況在下面${truncatedNote}。`;
 };
 
 /**
- * 「定时任务」这一行。
+ * 「定時任務」這一行。
  *
- * 严重程度只看证据：真卡住了、或者每分钟那一跳此刻正在报错，才报红；在失败重试、
- * 刚报过错、最近一小时有没发出去的，报 warn；用户自己暂停了后台任务，任务攒着是
- * 意料之中，同样只报 warn，而且不许说成触发器坏了。
+ * 嚴重程度只看證據：真卡住了、或者每分鐘那一跳此刻正在報錯，才報紅；在失敗重試、
+ * 剛報過錯、最近一小時有沒發出去的，報 warn；用戶自己暫停了後台任務，任務攢著是
+ * 意料之中，同樣只報 warn，而且不許說成觸發器壞了。
  */
 const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput): AmsgDiagnosticRow => {
   const { storage, tick } = debugReport;
@@ -599,12 +599,12 @@ const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput)
   const storageOverdue = storage.overdueTasks || 0;
   const stalledMinutes = storage.oldestOverdueMinutes ?? null;
   const listedTasks = tickReport?.tasks ?? [];
-  // 有细账就按细账数，跟下面列出来的条数对得上；没列全时取两边大的那个。
+  // 有細帳就按細帳數，跟下面列出來的條數對得上；沒列全時取兩邊大的那個。
   const overdue = listedTasks.length
     ? (tickReport?.truncated ? Math.max(storageOverdue, listedTasks.length) : listedTasks.length)
     : storageOverdue;
   const truncatedNote = tickReport?.truncated && listedTasks.length
-    ? `（太多了，只列了前 ${listedTasks.length} 条）`
+    ? `（太多了，只列了前 ${listedTasks.length} 條）`
     : '';
   const cronPaused = Boolean(input.cronPaused);
   const pausedWithTasks = cronPaused && ((storage.pendingTasks ?? 0) > 0 || storageOverdue > 0 || listedTasks.length > 0);
@@ -618,7 +618,7 @@ const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput)
     tickFailure && (tickFailure.ongoing || tickFailureAtMs === null || nowMs - tickFailureAtMs <= FAILURE_LOOKBACK_MS),
   );
 
-  // 时刻读不出来的失败记录还是列（Worker 那边已经只给最近一天的），只是不拿它提级。
+  // 時刻讀不出來的失敗記錄還是列（Worker 那邊已經只給最近一天的），只是不拿它提級。
   const dayFailures = (tickReport?.recentFailures ?? []).filter((failure) => {
     const atMs = parseIsoMs(failure.error.at) ?? parseIsoMs(failure.error.occurrence);
     return atMs === null || nowMs - atMs <= FAILURE_LOOKBACK_MS;
@@ -636,36 +636,36 @@ const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput)
         ? 'unknown'
         : 'ok';
 
-  const lateText = stalledMinutes === null ? '' : ` ${stalledMinutes} 分钟`;
+  const lateText = stalledMinutes === null ? '' : ` ${stalledMinutes} 分鐘`;
   const detail = pausedWithTasks
     ? (storageOverdue || listedTasks.length
-      ? `后台任务暂停中，有 ${overdue} 条到点的任务等恢复后一起补发。`
-      : `后台任务暂停中，${storage.pendingTasks ?? 0} 条待发任务到点了也先攒着，恢复后一起补发。`)
+      ? `後台任務暫停中，有 ${overdue} 條到點的任務等恢復後一起補發。`
+      : `後台任務暫停中，${storage.pendingTasks ?? 0} 條待發任務到點了也先攢著，恢復後一起補發。`)
     : tickFailure?.ongoing
       ? (overdue
-        ? `Worker 每分钟那一跳在报错，有 ${overdue} 条任务到点还没发出去。报错原话和逐条情况在下面。`
-        : 'Worker 每分钟那一跳在报错，原话在下面。')
+        ? `Worker 每分鐘那一跳在報錯，有 ${overdue} 條任務到點還沒發出去。報錯原話和逐條情況在下面。`
+        : 'Worker 每分鐘那一跳在報錯，原話在下面。')
       : tick === 'stalled'
         ? (listedTasks.length
-          ? `有 ${overdue} 条任务到点还没发出去，逐条情况在下面${truncatedNote}。`
-          : `有 ${storageOverdue} 条任务到点${lateText}还没发出去。${TICK_STALLED_GENERIC_HINT}`)
+          ? `有 ${overdue} 條任務到點還沒發出去，逐條情況在下面${truncatedNote}。`
+          : `有 ${storageOverdue} 條任務到點${lateText}還沒發出去。${TICK_STALLED_GENERIC_HINT}`)
         : tick === 'failing'
           ? (listedTasks.length
             ? summarizeFailingTasks(listedTasks, truncatedNote)
-            : `有 ${storageOverdue} 条任务到点${lateText}还没发出去。Worker 在处理，但中间失败过，或者开始得比平时晚。`)
+            : `有 ${storageOverdue} 條任務到點${lateText}還沒發出去。Worker 在處理，但中間失敗過，或者開始得比平時晚。`)
           : tickFailureRecent
-            ? 'Worker 每分钟那一跳前一阵报过错，现在没再报。'
+            ? 'Worker 每分鐘那一跳前一陣報過錯，現在沒再報。'
             : hourFailures.size > 0
-              ? `最近一小时有 ${hourFailures.size} 次到点没发出去，原因在下面。`
+              ? `最近一小時有 ${hourFailures.size} 次到點沒發出去，原因在下面。`
               : tick === 'healthy'
-                ? `${storage.pendingTasks ?? 0} 条待发任务，都在按时处理。`
+                ? `${storage.pendingTasks ?? 0} 條待發任務，都在按時處理。`
                 : tick === 'idle'
-                  ? '现在没有待发任务。'
-                  : '手上没有待发任务，暂时看不出定时器在不在跑。';
+                  ? '現在沒有待發任務。'
+                  : '手上沒有待發任務，暫時看不出定時器在不在跑。';
 
   const items: AmsgDiagnosticItem[] = [];
   if (reportFailedReason && (level === 'bad' || level === 'warn')) {
-    // 没拿到细账时上面那句只能说得笼统，至少让人知道为什么没有逐条的。
+    // 沒拿到細帳時上面那句只能說得籠統，至少讓人知道為什麼沒有逐條的。
     items.push({ text: reportFailedReason });
   }
   if (tickReport) {
@@ -681,7 +681,7 @@ const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput)
 
   return {
     key: 'tick',
-    label: '定时任务',
+    label: '定時任務',
     level,
     detail,
     ...(items.length ? { items } : {}),
@@ -689,32 +689,32 @@ const buildTickRow = (debugReport: AmsgDebugReport, input: AmsgDiagnosticsInput)
 };
 
 /**
- * 把体检结果排成一列，顺序就是「该先修哪个」。
+ * 把體檢結果排成一列，順序就是「該先修哪個」。
  *
- * 每一行只回答一个问题，且都是靠自己能改的：连不连得上 → 库绑没绑 → 密钥有没有 →
- * 表建没建全 → 推送凭据配没配 → 这台设备登记了没 → 定时任务在不在跑。
- * 前面的行是坏的时候，后面那些查不出结论的一律报 unknown，不假装绿。
+ * 每一行只回答一個問題，且都是靠自己能改的：連不連得上 → 庫綁沒綁 → 密鑰有沒有 →
+ * 表建沒建全 → 推送憑據配沒配 → 這台設備登記了沒 → 定時任務在不在跑。
+ * 前面的行是壞的時候，後面那些查不出結論的一律報 unknown，不假裝綠。
  */
 export const buildAmsgDiagnosticRows = (input: AmsgDiagnosticsInput): AmsgDiagnosticRow[] => {
   const { probe, localPushSubscribed } = input;
 
   if (!probe.reachable) {
     const unknownRest = (key: string, label: string): AmsgDiagnosticRow => ({
-      key, label, level: 'unknown', detail: '连上 Worker 之后才能查。',
+      key, label, level: 'unknown', detail: '連上 Worker 之後才能查。',
     });
     return [
       {
         key: 'reachable',
-        label: 'Worker 可达',
+        label: 'Worker 可達',
         level: probe.unsupported ? 'warn' : 'bad',
         detail: probe.reason,
       },
-      unknownRest('database', '数据库绑定'),
-      unknownRest('masterKey', '主密钥'),
-      unknownRest('schema', '数据表'),
-      unknownRest('pushCredential', '推送凭据'),
-      unknownRest('pushDevice', '这台设备'),
-      unknownRest('tick', '定时任务'),
+      unknownRest('database', '數據庫綁定'),
+      unknownRest('masterKey', '主密鑰'),
+      unknownRest('schema', '數據表'),
+      unknownRest('pushCredential', '推送憑據'),
+      unknownRest('pushDevice', '這台設備'),
+      unknownRest('tick', '定時任務'),
     ];
   }
 
@@ -723,45 +723,45 @@ export const buildAmsgDiagnosticRows = (input: AmsgDiagnosticsInput): AmsgDiagno
 
   rows.push({
     key: 'reachable',
-    label: 'Worker 可达',
+    label: 'Worker 可達',
     level: 'ok',
-    detail: probe.report.server?.version ? `后端版本 ${probe.report.server.version}` : '连得上。',
+    detail: probe.report.server?.version ? `後端版本 ${probe.report.server.version}` : '連得上。',
   });
 
   const dbMissing = config.missing.includes('DB');
   rows.push({
     key: 'database',
-    label: '数据库绑定',
+    label: '數據庫綁定',
     level: dbMissing ? 'bad' : 'ok',
-    detail: dbMissing ? DB_MISSING_HINT : '已绑定 D1。',
+    detail: dbMissing ? DB_MISSING_HINT : '已綁定 D1。',
   });
 
   const masterKeyMissing = config.missing.includes('AMSG_MASTER_KEY');
   const masterKeyFormat = config.warnings.find((item) => item.code === 'MASTER_KEY_FORMAT');
   rows.push({
     key: 'masterKey',
-    label: '主密钥',
+    label: '主密鑰',
     level: masterKeyMissing ? 'bad' : masterKeyFormat ? 'warn' : 'ok',
     detail: masterKeyMissing ? MASTER_KEY_MISSING_HINT : masterKeyFormat?.message || '已配置。',
   });
 
-  // 库都没绑的话，下面这些查出来必然是「什么都没有」，报红会把人往错的方向引。
+  // 庫都沒綁的話，下面這些查出來必然是「什麼都沒有」，報紅會把人往錯的方向引。
   if (dbMissing || !storage.reachable) {
     rows.push({
       key: 'schema',
-      label: '数据表',
+      label: '數據表',
       level: dbMissing ? 'unknown' : 'bad',
       detail: dbMissing
-        ? '先把 D1 绑上再看这一项。'
-        : `连得上 Worker，但读不了它的数据库${storage.error ? `（${storage.error}）` : ''}。`,
+        ? '先把 D1 綁上再看這一項。'
+        : `連得上 Worker，但讀不了它的數據庫${storage.error ? `（${storage.error}）` : ''}。`,
     });
   } else if (storage.schemaReady === null) {
-    // Worker 连得上、库也读得到，但它比对不出表结构（比如那句查询本身被拒了）。
-    // 这一档过去混在「正常」里——而这一项存在的全部意义就是查出表结构漂移，
-    // 漂移时 cron 每分钟静默失败、界面处处正常，这里再给一个假绿灯就彻底没人能发现了。
+    // Worker 連得上、庫也讀得到，但它比對不出表結構（比如那句查詢本身被拒了）。
+    // 這一檔過去混在「正常」裡——而這一項存在的全部意義就是查出表結構漂移，
+    // 漂移時 cron 每分鐘靜默失敗、界面處處正常，這裡再給一個假綠燈就徹底沒人能發現了。
     rows.push({
       key: 'schema',
-      label: '数据表',
+      label: '數據表',
       level: 'unknown',
       detail: SCHEMA_PROBE_HINTS[storage.schemaError || 'other'],
     });
@@ -769,50 +769,50 @@ export const buildAmsgDiagnosticRows = (input: AmsgDiagnosticsInput): AmsgDiagno
     const missingTables = storage.missingTables || [];
     const missingColumns = storage.missingColumns || [];
     const schemaBad = missingTables.length > 0 || missingColumns.length > 0;
-    // 明说了不够用（false）却一项都没点到名 = 自查本身没跑成，而主表确实不在：库还是空的。
-    // 只数这两个数组的话，一个一张表都没建的空库会显示成全绿——一键部署完还没点连接时
-    // 正好是这个组合（表没建 + 自查被内部表拒掉）。
+    // 明說了不夠用（false）卻一項都沒點到名 = 自查本身沒跑成，而主表確實不在：庫還是空的。
+    // 只數這兩個數組的話，一個一張表都沒建的空庫會顯示成全綠——一鍵部署完還沒點連接時
+    // 正好是這個組合（表沒建 + 自查被內部表拒掉）。
     const emptyDatabase = storage.schemaReady === false && !schemaBad;
     rows.push({
       key: 'schema',
-      label: '数据表',
+      label: '數據表',
       level: schemaBad || emptyDatabase ? 'bad' : 'ok',
       detail: emptyDatabase
-        ? '库里还一张表都没有。点上面的「重新连接并验证」建一次。'
+        ? '庫裡還一張表都沒有。點上面的「重新連接並驗證」建一次。'
         : missingTables.length
-          ? `缺表：${missingTables.join('、')}。点上面的「重新连接并验证」会自动建好（可能要点两次）。`
+          ? `缺表：${missingTables.join('、')}。點上面的「重新連接並驗證」會自動建好（可能要點兩次）。`
           : missingColumns.length
-            ? `表结构是旧的，缺列：${missingColumns.join('、')}。${SCHEMA_STALE_HINT}`
-            : '表和列都齐了。',
+            ? `表結構是舊的，缺列：${missingColumns.join('、')}。${SCHEMA_STALE_HINT}`
+            : '表和列都齊了。',
     });
   }
 
   const vapidWarning = config.warnings.find((item) => item.code === 'VAPID_MISSING');
   rows.push({
     key: 'pushCredential',
-    label: '推送凭据',
+    label: '推送憑據',
     level: vapidWarning ? 'bad' : 'ok',
-    // 这是最难自己查出来的一种坏法：任务建得成、界面全绿，到点一条都推不出去。
-    detail: vapidWarning ? vapidWarning.message : 'VAPID 已配齐。',
+    // 這是最難自己查出來的一種壞法：任務建得成、界面全綠，到點一條都推不出去。
+    detail: vapidWarning ? vapidWarning.message : 'VAPID 已配齊。',
   });
 
   const remoteRegistered = storage.pushSubscriptionRegistered === true;
-  // 两边都登记着，也不等于推得出去：那条 endpoint 可能在推送服务那侧早就作废了。
-  // 只有投递结果知道这件事，登记状态是绿的时候更要看它——「全绿但一条不来」就是
-  // 这么来的。云端压根没登记时不看这个：那时该修的是上一层，说两件事只会分散注意力。
+  // 兩邊都登記著，也不等於推得出去：那條 endpoint 可能在推送服務那側早就作廢了。
+  // 只有投遞結果知道這件事，登記狀態是綠的時候更要看它——「全綠但一條不來」就是
+  // 這麼來的。雲端壓根沒登記時不看這個：那時該修的是上一層，說兩件事只會分散注意力。
   const deliveryVerdict = remoteRegistered
     ? judgePushDeliveryFailure(storage.pushDelivery, input.formatTime)
     : null;
   rows.push({
     key: 'pushDevice',
-    label: '这台设备',
+    label: '這台設備',
     level: !localPushSubscribed ? 'bad' : !remoteRegistered ? 'bad' : deliveryVerdict?.level || 'ok',
     detail: !localPushSubscribed
-      ? '这台设备还没订阅推送，点下面的「开启通知与推送」。'
+      ? '這台設備還沒訂閱推送，點下面的「開啟通知與推送」。'
       : !remoteRegistered
-        ? '浏览器订阅好了，但 Worker 上没有登记收件设备——到点的消息发不出去。点下面的「开启通知与推送」补登记一次。'
+        ? '瀏覽器訂閱好了，但 Worker 上沒有登記收件設備——到點的消息發不出去。點下面的「開啟通知與推送」補登記一次。'
         : deliveryVerdict?.detail
-          || '浏览器已订阅，Worker 上也登记了收件设备，最近一次推送也没被退回来。换设备或换浏览器之后要在新的那台上再点一次「开启通知与推送」。',
+          || '瀏覽器已訂閱，Worker 上也登記了收件設備，最近一次推送也沒被退回來。換設備或換瀏覽器之後要在新的那台上再點一次「開啟通知與推送」。',
   });
 
   rows.push(buildTickRow(probe.report, input));
@@ -820,7 +820,7 @@ export const buildAmsgDiagnosticRows = (input: AmsgDiagnosticsInput): AmsgDiagno
   return rows;
 };
 
-/** 一排结论里最严重的那一档，用来给面板定基调。 */
+/** 一排結論裡最嚴重的那一檔，用來給面板定基調。 */
 export const summarizeAmsgDiagnostics = (rows: AmsgDiagnosticRow[]): AmsgDiagnosticLevel => {
   if (rows.some((row) => row.level === 'bad')) return 'bad';
   if (rows.some((row) => row.level === 'warn')) return 'warn';
@@ -828,42 +828,42 @@ export const summarizeAmsgDiagnostics = (rows: AmsgDiagnosticRow[]): AmsgDiagnos
   return 'ok';
 };
 
-// ─── 即时对话：开不了的话卡在哪一道 ───
+// ─── 即時對話：開不了的話卡在哪一道 ───
 
 /**
- * 即时对话三道门里最先没过的那一道。
+ * 即時對話三道門裡最先沒過的那一道。
  *
- * 代号写死在这儿，设置页拿它选提示文案、使用统计拿它当属性——**两处共用同一个判定**。
- * 各算各的话，黄字说的和上报里的早晚各说各话，而这条路上的每一次分歧都只能靠用户
- * 自己来报（他看到的是「开关点不动」，我们看到的是「没人开」）。
+ * 代號寫死在這兒，設置頁拿它選提示文案、使用統計拿它當屬性——**兩處共用同一個判定**。
+ * 各算各的話，黃字說的和上報裡的早晚各說各話，而這條路上的每一次分歧都只能靠用戶
+ * 自己來報（他看到的是「開關點不動」，我們看到的是「沒人開」）。
  */
-export type InstantChatBlocker = '没连上Worker' | '没开推送' | 'Worker太旧';
+export type InstantChatBlocker = '沒連上Worker' | '沒開推送' | 'Worker太舊';
 
 export interface InstantChatGateInput {
-  /** 连接并验证成功过（全局配置的 initializedAt）。 */
+  /** 連接並驗證成功過（全局配置的 initializedAt）。 */
   connected: boolean;
-  /** 这台设备订阅了推送。 */
+  /** 這台設備訂閱了推送。 */
   pushSubscribed: boolean;
-  /** 这台 Worker 认 `POST /instant-chat`（GET /config-check 的 instantChat 标志）。 */
+  /** 這台 Worker 認 `POST /instant-chat`（GET /config-check 的 instantChat 標誌）。 */
   workerSupportsInstantChat: boolean;
 }
 
 /**
- * 按「先补哪个」的顺序返回第一道没过的门，三道全过返回 null。
+ * 按「先補哪個」的順序返回第一道沒過的門，三道全過返回 null。
  *
- * 顺序不是随便排的：没连上就谈不上推送，没推送权限就算发得出去也收不回来，
- * 最后才是 Worker 太旧、端点根本不存在。
+ * 順序不是隨便排的：沒連上就談不上推送，沒推送權限就算發得出去也收不回來，
+ * 最後才是 Worker 太舊、端點根本不存在。
  */
 export const resolveInstantChatBlocker = (input: InstantChatGateInput): InstantChatBlocker | null => {
-  if (!input.connected) return '没连上Worker';
-  if (!input.pushSubscribed) return '没开推送';
-  if (!input.workerSupportsInstantChat) return 'Worker太旧';
+  if (!input.connected) return '沒連上Worker';
+  if (!input.pushSubscribed) return '沒開推送';
+  if (!input.workerSupportsInstantChat) return 'Worker太舊';
   return null;
 };
 
-/** 每道门对应的那句话（设置页开关下面的黄字）。 */
+/** 每道門對應的那句話（設置頁開關下面的黃字）。 */
 export const INSTANT_CHAT_BLOCKER_HINTS: Record<InstantChatBlocker, string> = {
-  '没连上Worker': '先在上面把 Worker 连上。',
-  '没开推送': '先开启通知与推送：回复是靠推送送回来的，没有权限就变成发得出、收不到。',
-  'Worker太旧': 'Worker 上跑的代码还起不了这条路（缺起跳器，或者还是旧版）。点上面的「更新 Worker」，更新完这里会自己恢复。开着也不会走云端——那台 Worker 上是发一条挂一条，这段时间聊天先在本地生成。',
+  '沒連上Worker': '先在上面把 Worker 連上。',
+  '沒開推送': '先開啟通知與推送：回覆是靠推送送回來的，沒有權限就變成發得出、收不到。',
+  'Worker太舊': 'Worker 上跑的代碼還起不了這條路（缺起跳器，或者還是舊版）。點上面的「更新 Worker」，更新完這裡會自己恢復。開著也不會走雲端——那台 Worker 上是發一條掛一條，這段時間聊天先在本地生成。',
 };

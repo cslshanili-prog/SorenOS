@@ -49,15 +49,15 @@ const ResetCityDialog: React.FC<{
 
                 <div style={{ padding: 12 }}>
                     <p style={{ fontSize: 12, fontWeight: 700, color: '#4d475c', lineHeight: 1.5 }}>
-                        是否结束这场游戏，并生成小结？
+                        是否結束這場遊戲，並生成小結？
                     </p>
                     <p style={{ fontSize: 10, color: '#7d778a', lineHeight: 1.6, marginTop: 6 }}>
-                        当前参与角色 {participantCount} 个，已记录主线 {mainPlotCount} 条。
+                        當前參與角色 {participantCount} 個，已記錄主線 {mainPlotCount} 條。
                     </p>
 
                     <div className="retro-inset" style={{ padding: '7px 9px', marginTop: 8 }}>
                         <p style={{ fontSize: 9, color: '#7d746d', lineHeight: 1.6 }}>
-                            “确定” 会把这局《都市人生》浓缩成一张像素风结算小卡片，并发送到参与角色的聊天记录里。
+                            “確定” 會把這局《都市人生》濃縮成一張像素風結算小卡片，併發送到參與角色的聊天記錄裡。
                         </p>
                     </div>
                 </div>
@@ -77,7 +77,7 @@ const ResetCityDialog: React.FC<{
                         className="retro-btn retro-btn-primary w-full"
                         style={{ padding: '7px 12px', opacity: processing ? 0.6 : 1 }}
                     >
-                        {processing ? '正在生成小结...' : '确定'}
+                        {processing ? '正在生成小結...' : '確定'}
                     </button>
                     <button
                         onClick={() => { onDirectReset(); trackEvent('重置城市', { mode: 'direct' }); }}
@@ -91,7 +91,7 @@ const ResetCityDialog: React.FC<{
                             opacity: processing ? 0.6 : 1,
                         }}
                     >
-                        直接结束游戏
+                        直接結束遊戲
                     </button>
                 </div>
             </div>

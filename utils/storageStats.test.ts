@@ -42,16 +42,16 @@ const usageOf = (stores: DatabaseUsage['stores']): DatabaseUsage => ({ stores, f
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('measureValue', () => {
-    it('二进制走 byteLength，不被 JSON 序列化撑爆', () => {
-        // 记忆宫殿的向量表：直接 JSON.stringify 会变成 {"0":0.123,"1":...} 那种巨型字符串，
-        // 既慢又把数字放大好几倍。守住「按 byteLength 算」这条。
+    it('二進制走 byteLength，不被 JSON 序列化撐爆', () => {
+        // 記憶宮殿的向量表：直接 JSON.stringify 會變成 {"0":0.123,"1":...} 那種巨型字符串，
+        // 既慢又把數字放大好幾倍。守住「按 byteLength 算」這條。
         const vector = new Float32Array(768).fill(0.123456789);
         const m = measureValue({ id: 'v1', vector });
         expect(m.bytes).toBeGreaterThanOrEqual(768 * 4);
         expect(m.bytes).toBeLessThan(768 * 4 + 200);
     });
 
-    it('Blob 按 MIME 分种类记账', () => {
+    it('Blob 按 MIME 分種類記帳', () => {
         const m = measureValue({
             id: 'a',
             pic: new Blob(['x'.repeat(1000)], { type: 'image/png' }),
@@ -62,12 +62,12 @@ describe('measureValue', () => {
         expect(m.bytes).toBeGreaterThanOrEqual(3000);
     });
 
-    it('中文按 UTF-8 算，不是按字符数', () => {
+    it('中文按 UTF-8 算，不是按字符數', () => {
         const m = measureValue('好'.repeat(100));
         expect(m.bytes).toBeGreaterThanOrEqual(300);
     });
 
-    it('循环引用不抛，退化成只算二进制那部分', () => {
+    it('循環引用不拋，退化成只算二進制那部分', () => {
         const cyclic: any = { id: 'x', blob: new Blob(['z'.repeat(500)], { type: 'image/png' }) };
         cyclic.self = cyclic;
         const m = measureValue(cyclic);
@@ -76,7 +76,7 @@ describe('measureValue', () => {
 });
 
 describe('binaryKindOfMime', () => {
-    it('图 / 声音 / 一坨二进制分得开', () => {
+    it('圖 / 聲音 / 一坨二進制分得開', () => {
         expect(binaryKindOfMime('image/webp')).toBe('image');
         expect(binaryKindOfMime('audio/mpeg')).toBe('audio');
         expect(binaryKindOfMime('application/zip')).toBe('binary');
@@ -86,7 +86,7 @@ describe('binaryKindOfMime', () => {
 });
 
 describe('measureStoreUsage', () => {
-    it('小表全量精确，不标「约」', async () => {
+    it('小表全量精確，不標「約」', async () => {
         const db = await openTestDb(['messages']);
         const items = Array.from({ length: 50 }, (_, i) => ({ id: i, text: 'hello world' }));
         await putAll(db, 'messages', items);
@@ -106,9 +106,9 @@ describe('measureStoreUsage', () => {
         db.close();
     });
 
-    it('大表是均匀跳采，不会被「前面全是小记录」带偏', async () => {
-        // 真实形态：早期全是纯文字短消息，后期混进带图的大消息。
-        // 用「取前 N 条」的实现在这里会低估一个数量级 —— 这条就是钉死跳采的守卫。
+    it('大表是均勻跳採，不會被「前面全是小記錄」帶偏', async () => {
+        // 真實形態：早期全是純文字短消息，後期混進帶圖的大消息。
+        // 用「取前 N 條」的實現在這裡會低估一個數量級 —— 這條就是釘死跳採的守衛。
         const db = await openTestDb(['messages']);
         const items = Array.from({ length: 2000 }, (_, i) => ({
             id: i,
@@ -128,7 +128,7 @@ describe('measureStoreUsage', () => {
 });
 
 describe('summarizeUsage', () => {
-    it('blob_assets 按 MIME 拆开：图片算媒体、模型算角色', () => {
+    it('blob_assets 按 MIME 拆開：圖片算媒體、模型算角色', () => {
         const bd = summarizeUsage([{
             usage: usageOf([{
                 store: 'blob_assets',
@@ -143,7 +143,7 @@ describe('summarizeUsage', () => {
         expect(bd.totalBytes).toBe(1000);
     });
 
-    it('没登记过的新表落到「其他」，总量不会漏', () => {
+    it('沒登記過的新表落到「其他」，總量不會漏', () => {
         const bd = summarizeUsage([{
             usage: usageOf([
                 { store: 'messages', bytes: 500, count: 1, estimated: false, binaryBytes: {} },
@@ -155,7 +155,7 @@ describe('summarizeUsage', () => {
         expect(bd.totalBytes).toBe(800);
     });
 
-    it('整库归类的库（主动消息）不按表名拆', () => {
+    it('整庫歸類的庫（主動消息）不按表名拆', () => {
         const bd = summarizeUsage([{
             usage: usageOf([
                 { store: 'inbox', bytes: 100, count: 1, estimated: false, binaryBytes: {} },
@@ -167,7 +167,7 @@ describe('summarizeUsage', () => {
         expect(bd.categories[0]).toMatchObject({ key: 'activeMsg', bytes: 150 });
     });
 
-    it('任一表带估算，那一类就标「约」', () => {
+    it('任一表帶估算，那一類就標「約」', () => {
         const bd = summarizeUsage([{
             usage: usageOf([
                 { store: 'messages', bytes: 100, count: 1, estimated: false, binaryBytes: {} },
@@ -177,7 +177,7 @@ describe('summarizeUsage', () => {
         expect(bd.categories.find(c => c.key === 'chat')?.estimated).toBe(true);
     });
 
-    it('「其他」永远排最后，其余按大小降序', () => {
+    it('「其他」永遠排最後，其餘按大小降序', () => {
         const bd = summarizeUsage([{
             usage: usageOf([
                 { store: 'misc_store', bytes: 9999, count: 1, estimated: false, binaryBytes: {} },
@@ -188,7 +188,7 @@ describe('summarizeUsage', () => {
         expect(bd.categories.map(c => c.key)).toEqual(['characters', 'chat', 'other']);
     });
 
-    it('读不出来的表只记名字，不打断统计', () => {
+    it('讀不出來的表只記名字，不打斷統計', () => {
         const bd = summarizeUsage([{
             usage: { stores: [{ store: 'messages', bytes: 100, count: 1, estimated: false, binaryBytes: {} }], failed: ['broken_store'] },
         }]);
@@ -198,7 +198,7 @@ describe('summarizeUsage', () => {
 });
 
 describe('categoryOfStore', () => {
-    it('认识的表归位，不认识的进「其他」', () => {
+    it('認識的表歸位，不認識的進「其他」', () => {
         expect(categoryOfStore('messages')).toBe('chat');
         expect(categoryOfStore('memory_vectors')).toBe('memory');
         expect(categoryOfStore('gallery')).toBe('media');
@@ -208,8 +208,8 @@ describe('categoryOfStore', () => {
 });
 
 describe('readStorageOverview', () => {
-    it('浏览器不给用量信息时回 null，不拿 0 顶上', async () => {
-        // 关键：0 会被界面显示成「你一点数据都没有」，比「读不到」误导得多。
+    it('瀏覽器不給用量信息時回 null，不拿 0 頂上', async () => {
+        // 關鍵：0 會被界面顯示成「你一點數據都沒有」，比「讀不到」誤導得多。
         vi.stubGlobal('navigator', {
             storage: {
                 estimate: () => Promise.reject(new Error('SecurityError')),
@@ -223,13 +223,13 @@ describe('readStorageOverview', () => {
         expect(ov.persisted).toBe(false);
     });
 
-    it('完全没有 storage API 时整体降级，不抛', async () => {
+    it('完全沒有 storage API 時整體降級，不拋', async () => {
         vi.stubGlobal('navigator', {});
         const ov = await readStorageOverview();
         expect(ov).toEqual({ supported: false, usageBytes: null, quotaBytes: null, indexedDbBytes: null, persisted: null });
     });
 
-    it('查不了持久化状态时回 null（≠ 没拿到许可）', async () => {
+    it('查不了持久化狀態時回 null（≠ 沒拿到許可）', async () => {
         vi.stubGlobal('navigator', { storage: { estimate: () => Promise.resolve({ usage: 1024, quota: 4096 }) } });
         const ov = await readStorageOverview();
         expect(ov).toMatchObject({ supported: true, usageBytes: 1024, quotaBytes: 4096, persisted: null });
@@ -237,31 +237,31 @@ describe('readStorageOverview', () => {
 });
 
 describe('requestPersistentStorage', () => {
-    it('申请被拒回 false，不抛', async () => {
+    it('申請被拒回 false，不拋', async () => {
         vi.stubGlobal('navigator', { storage: { persist: () => Promise.reject(new Error('denied')) } });
         expect(await requestPersistentStorage()).toBe(false);
     });
 
-    it('浏览器没有 persist 时回 false', async () => {
+    it('瀏覽器沒有 persist 時回 false', async () => {
         vi.stubGlobal('navigator', { storage: {} });
         expect(await requestPersistentStorage()).toBe(false);
     });
 
-    it('拿到许可回 true', async () => {
+    it('拿到許可回 true', async () => {
         vi.stubGlobal('navigator', { storage: { persist: () => Promise.resolve(true) } });
         expect(await requestPersistentStorage()).toBe(true);
     });
 });
 
 describe('formatBytes', () => {
-    it('读不到的时候显示「—」而不是 0 B', () => {
+    it('讀不到的時候顯示「—」而不是 0 B', () => {
         expect(formatBytes(null)).toBe('—');
         expect(formatBytes(undefined)).toBe('—');
         expect(formatBytes(NaN)).toBe('—');
         expect(formatBytes(-1)).toBe('—');
     });
 
-    it('按量级换单位', () => {
+    it('按量級換單位', () => {
         expect(formatBytes(0)).toBe('0 B');
         expect(formatBytes(512)).toBe('512 B');
         expect(formatBytes(1536)).toBe('1.5 KB');
@@ -271,18 +271,18 @@ describe('formatBytes', () => {
 });
 
 describe('computeStorageBreakdown（端到端）', () => {
-    it('能把主库里的数据归类，且不会凭空建出别的库', async () => {
+    it('能把主庫裡的數據歸類，且不會憑空建出別的庫', async () => {
         const { openDB } = await import('./db');
         const { computeStorageBreakdown } = await import('./storageStats');
 
         const db = await openDB();
         await putAll(db, 'messages', [
-            { id: 'e2e-1', charId: 'c1', content: '测试消息'.repeat(20) },
-            { id: 'e2e-2', charId: 'c1', content: '测试消息'.repeat(20) },
+            { id: 'e2e-1', charId: 'c1', content: '測試消息'.repeat(20) },
+            { id: 'e2e-2', charId: 'c1', content: '測試消息'.repeat(20) },
         ]);
 
-        // ActiveMsg 这类库在测试环境里并不存在。统计过程只能「连已有的库」，
-        // 绝不能因为去看一眼就把空库建出来 —— 那会给用户平白多出脏数据。
+        // ActiveMsg 這類庫在測試環境裡並不存在。統計過程只能「連已有的庫」，
+        // 絕不能因為去看一眼就把空庫建出來 —— 那會給用戶平白多出髒數據。
         const namesBefore = (await indexedDB.databases()).map(d => d.name).sort();
 
         const progressTicks: number[] = [];
@@ -298,10 +298,10 @@ describe('computeStorageBreakdown（端到端）', () => {
         db.close();
     });
 
-    it('浏览器不给枚举库列表时走兜底名单，不存在的库看一眼就删干净', async () => {
-        // 走兜底路径（Firefox 126 之前没有 databases()）。兜底名单里的 ActiveMsg 在这个
-        // 测试环境里并不存在 —— 不带版本号 open 一个不存在的库会把它凭空建出来，
-        // 这里钉死「建出来了也要删回去」，别给用户留一堆空库。
+    it('瀏覽器不給枚舉庫列表時走兜底名單，不存在的庫看一眼就刪乾淨', async () => {
+        // 走兜底路徑（Firefox 126 之前沒有 databases()）。兜底名單裡的 ActiveMsg 在這個
+        // 測試環境裡並不存在 —— 不帶版本號 open 一個不存在的庫會把它憑空建出來，
+        // 這裡釘死「建出來了也要刪回去」，別給用戶留一堆空庫。
         const { computeStorageBreakdown } = await import('./storageStats');
         const spy = vi.spyOn(indexedDB, 'databases').mockRejectedValue(new Error('not supported'));
         try {
@@ -314,9 +314,9 @@ describe('computeStorageBreakdown（端到端）', () => {
     });
 });
 
-describe('calibrateBreakdown（按浏览器实报折算）', () => {
-    // 库里量到 1000（文本 600 + Blob 400），浏览器实报 800。
-    // 差的 200 只可能压在文本上——Blob 独立落盘不参与 LevelDB 压缩。
+describe('calibrateBreakdown（按瀏覽器實報折算）', () => {
+    // 庫裡量到 1000（文本 600 + Blob 400），瀏覽器實報 800。
+    // 差的 200 只可能壓在文本上——Blob 獨立落盤不參與 LevelDB 壓縮。
     const raw = () => summarizeUsage([{
         usage: usageOf([
             { store: 'messages', bytes: 600, count: 1, estimated: false, binaryBytes: {} },
@@ -324,37 +324,37 @@ describe('calibrateBreakdown（按浏览器实报折算）', () => {
         ]),
     }]);
 
-    it('高估时只缩文本，二进制一个字节不动', () => {
+    it('高估時只縮文本，二進制一個字節不動', () => {
         const bd = calibrateBreakdown(raw(), 800);
         expect(bd.calibrated).toBe(true);
-        // 文本能分 800-400=400，原本 600 → 系数 2/3
+        // 文本能分 800-400=400，原本 600 → 係數 2/3
         expect(bd.categories.find(c => c.key === 'chat')?.bytes).toBe(400);
         expect(bd.categories.find(c => c.key === 'media')?.bytes).toBe(400);
         expect(bd.totalBytes).toBe(800);
     });
 
-    it('合计对齐实报值，不再出现「细分比总量还大」', () => {
+    it('合計對齊實報值，不再出現「細分比總量還大」', () => {
         const bd = calibrateBreakdown(raw(), 800);
         expect(bd.totalBytes).toBeLessThanOrEqual(800);
     });
 
-    it('我们没高估时保持原样，差额留给「其他占用」去交代', () => {
+    it('我們沒高估時保持原樣，差額留給「其他佔用」去交代', () => {
         const bd = calibrateBreakdown(raw(), 5000);
         expect(bd.calibrated).toBe(false);
         expect(bd.totalBytes).toBe(1000);
     });
 
-    it('读不到实报值（非 Chrome）就不折算', () => {
+    it('讀不到實報值（非 Chrome）就不折算', () => {
         expect(calibrateBreakdown(raw(), null).calibrated).toBe(false);
     });
 
-    it('二进制已经撑满实报值时不硬折（口径对不上，宁可不动）', () => {
+    it('二進制已經撐滿實報值時不硬折（口徑對不上，寧可不動）', () => {
         const bd = calibrateBreakdown(raw(), 300);
         expect(bd.calibrated).toBe(false);
         expect(bd.totalBytes).toBe(1000);
     });
 
-    it('纯二进制的库不折算（没有文本可缩）', () => {
+    it('純二進制的庫不折算（沒有文本可縮）', () => {
         const onlyBinary = summarizeUsage([{
             usage: usageOf([{ store: 'blob_assets', bytes: 400, count: 1, estimated: false, binaryBytes: { image: 400 } }]),
         }]);

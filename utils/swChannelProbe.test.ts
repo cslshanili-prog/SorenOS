@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { summarizeChannelHealth } from './swChannelProbe';
 
 /**
- * 这组测试守的是一件很容易被忽略的事：主动消息有实时和兜底两条腿，实时那条断了之后
- * **功能表面上仍然是好的**——消息照样会到，只是每条都要白等最多一分钟。所以判定不能
- * 看「消息到没到」，只能看「有没有过 SW 喊页面这件事」。
+ * 這組測試守的是一件很容易被忽略的事：主動消息有實時和兜底兩條腿，實時那條斷了之後
+ * **功能表面上仍然是好的**——消息照樣會到，只是每條都要白等最多一分鐘。所以判定不能
+ * 看「消息到沒到」，只能看「有沒有過 SW 喊頁面這件事」。
  */
-describe('summarizeChannelHealth（实时通道还活着没有）', () => {
-  it('收到过 SW 消息 → 判定正常，并给出最近那次的时刻', () => {
+describe('summarizeChannelHealth（實時通道還活著沒有）', () => {
+  it('收到過 SW 消息 → 判定正常，並給出最近那次的時刻', () => {
     const health = summarizeChannelHealth([
       { event: 'runtime-flush-start', ts: '2026-09-04T02:50:30.000Z', trigger: 'SW通知' },
       { event: 'runtime-sw-message', ts: '2026-09-04T02:50:29.000Z' },
@@ -17,12 +17,12 @@ describe('summarizeChannelHealth（实时通道还活着没有）', () => {
     expect(health.lastSwMessageAt).toBe('2026-09-04T02:50:29.000Z');
   });
 
-  it('消息一直在到、但没有一次是 SW 喊的 → 判定为只剩兜底', () => {
-    // 这正是线上那台设备的形态：冲刷在跑、消息也上屏了，就是没人实时喊过它。
-    // 只看「有没有冲刷」会把这种情况判成正常，那就永远发现不了。
+  it('消息一直在到、但沒有一次是 SW 喊的 → 判定為只剩兜底', () => {
+    // 這正是線上那台設備的形態：沖刷在跑、消息也上屏了，就是沒人實時喊過它。
+    // 只看「有沒有沖刷」會把這種情況判成正常，那就永遠發現不了。
     const health = summarizeChannelHealth([
-      { event: 'runtime-flush-start', ts: '2026-09-04T02:50:30.000Z', trigger: '轮询补收' },
-      { event: 'runtime-flush-start', ts: '2026-09-04T02:53:35.000Z', trigger: '轮询补收' },
+      { event: 'runtime-flush-start', ts: '2026-09-04T02:50:30.000Z', trigger: '輪詢補收' },
+      { event: 'runtime-flush-start', ts: '2026-09-04T02:53:35.000Z', trigger: '輪詢補收' },
       { event: 'runtime-inbox-message', ts: '2026-09-04T02:53:36.000Z' },
     ]);
 
@@ -30,12 +30,12 @@ describe('summarizeChannelHealth（实时通道还活着没有）', () => {
     expect(health.lastSwMessageAt).toBeUndefined();
   });
 
-  it('一次冲刷都没有 → 不下结论（刚装好、或这段时间根本没消息）', () => {
+  it('一次沖刷都沒有 → 不下結論（剛裝好、或這段時間根本沒消息）', () => {
     expect(summarizeChannelHealth([]).status).toBe('idle');
     expect(summarizeChannelHealth([{ event: 'runtime-emotion-done' }]).status).toBe('idle');
   });
 
-  it('记录乱序时取最新的那条 SW 消息，不是最后遇到的那条', () => {
+  it('記錄亂序時取最新的那條 SW 消息，不是最後遇到的那條', () => {
     const health = summarizeChannelHealth([
       { event: 'runtime-sw-message', ts: '2026-09-04T02:50:29.000Z' },
       { event: 'runtime-sw-message', ts: '2026-09-04T01:00:00.000Z' },
@@ -44,21 +44,21 @@ describe('summarizeChannelHealth（实时通道还活着没有）', () => {
     expect(health.lastSwMessageAt).toBe('2026-09-04T02:50:29.000Z');
   });
 
-  it('按触发源分类计数，多的排前面', () => {
+  it('按觸發源分類計數，多的排前面', () => {
     const health = summarizeChannelHealth([
-      { event: 'runtime-flush-start', trigger: '轮询补收' },
-      { event: 'runtime-flush-start', trigger: '轮询补收' },
-      { event: 'runtime-flush-start', trigger: '轮询补收' },
+      { event: 'runtime-flush-start', trigger: '輪詢補收' },
+      { event: 'runtime-flush-start', trigger: '輪詢補收' },
+      { event: 'runtime-flush-start', trigger: '輪詢補收' },
       { event: 'runtime-flush-start', trigger: '回到前台' },
     ]);
 
     expect(health.flushByTrigger).toEqual([
-      { trigger: '轮询补收', count: 3 },
+      { trigger: '輪詢補收', count: 3 },
       { trigger: '回到前台', count: 1 },
     ]);
   });
 
-  it('没带触发源的冲刷不计数，免得凑出一个查不出所以然的分组', () => {
+  it('沒帶觸發源的沖刷不計數，免得湊出一個查不出所以然的分組', () => {
     const health = summarizeChannelHealth([
       { event: 'runtime-flush-start' },
       { event: 'runtime-flush-start', trigger: 'SW通知' },

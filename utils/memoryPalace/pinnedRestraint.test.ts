@@ -4,12 +4,12 @@ import type { Anticipation, MemoryNode } from './types';
 import { MemoryNodeDB } from './db';
 import { expandAndFormat } from './formatter';
 
-// 便利贴不占召回名额、每轮全量注入，置顶最长 30 天；窗台期盼里的 anchor 更是长期挂着。
-// 两处以前都是裸注入——只把事情摆出来，没说该怎么对待它。结果就是角色一旦记下一件事，
-// 之后每段结尾都在追问进展、催对方快去办。
+// 便利貼不佔召回名額、每輪全量注入，置頂最長 30 天；窗台期盼裡的 anchor 更是長期掛著。
+// 兩處以前都是裸注入——只把事情擺出來，沒說該怎麼對待它。結果就是角色一旦記下一件事，
+// 之後每段結尾都在追問進展、催對方快去辦。
 //
-// 同仓库里 Notion 笔记块（chatPrompts 的「不要每次都提」）和用药提醒（lifeRecords 的
-// 「别反复催」）早就配了同类措辞，这两处补齐后别再退回去。
+// 同倉庫裡 Notion 筆記塊（chatPrompts 的「不要每次都提」）和用藥提醒（lifeRecords 的
+// 「別反覆催」）早就配了同類措辭，這兩處補齊後別再退回去。
 
 const charId = 'char-pinned-restraint';
 
@@ -37,31 +37,31 @@ const anticipation = (id: string, content: string, status: Anticipation['status'
     createdAt: Date.now() - 24 * 60 * 60 * 1000,
 } as Anticipation);
 
-describe('便利贴与窗台期盼的分寸措辞', () => {
-    it('便利贴摆出来的同时说清「记着不等于要一直说」', async () => {
-        await MemoryNodeDB.save(pinnedNode('pin-1', '小明后天要考试'));
+describe('便利貼與窗台期盼的分寸措辭', () => {
+    it('便利貼擺出來的同時說清「記著不等於要一直說」', async () => {
+        await MemoryNodeDB.save(pinnedNode('pin-1', '小明後天要考試'));
         const out = await expandAndFormat([], charId, [], '小明');
 
-        expect(out).toContain('便利贴（近期重要事项）');
-        expect(out).toContain('小明后天要考试');
-        // 对症的三件事：别每轮都说、别追问进展、别替对方安排时间
-        expect(out).toContain('记着不等于要一直说');
-        expect(out).toContain('不必每次聊天都追问进展');
-        expect(out).toContain('不必替 ta 安排什么时候去做');
+        expect(out).toContain('便利貼（近期重要事項）');
+        expect(out).toContain('小明後天要考試');
+        // 對症的三件事：別每輪都說、別追問進展、別替對方安排時間
+        expect(out).toContain('記著不等於要一直說');
+        expect(out).toContain('不必每次聊天都追問進展');
+        expect(out).toContain('不必替 ta 安排什麼時候去做');
     });
 
-    it('窗台期盼同样带分寸，别被当成待办清单', async () => {
+    it('窗台期盼同樣帶分寸，別被當成待辦清單', async () => {
         const out = await expandAndFormat(
             [], charId, [anticipation('ant-1', '想一起去看海', 'active')], '小明',
         );
 
         expect(out).toContain('窗台期盼');
         expect(out).toContain('想一起去看海');
-        expect(out).toContain('不是待办清单');
-        expect(out).toContain('不必每次都提起来');
+        expect(out).toContain('不是待辦清單');
+        expect(out).toContain('不必每次都提起來');
     });
 
-    it('没有便利贴也没有期盼时，这两句都不该凭空出现', async () => {
+    it('沒有便利貼也沒有期盼時，這兩句都不該憑空出現', async () => {
         const out = await expandAndFormat([], 'char-empty-restraint', [], '小明');
         expect(out).toBe('');
     });

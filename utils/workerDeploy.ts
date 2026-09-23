@@ -1,12 +1,12 @@
 /**
- * 用户手动部署自己的 Worker 时用到的两个小工具：复制站点发布的 bundle、跳 Cloudflare 控制台。
- * 主动消息 2.0 的设置面板在用。
+ * 用戶手動部署自己的 Worker 時用到的兩個小工具：複製站點發布的 bundle、跳 Cloudflare 控制台。
+ * 主動消息 2.0 的設置面板在用。
  */
 
 /**
- * 复制站点随 build 发布的某个 worker bundle 到剪贴板（Dashboard 粘贴部署用）。
+ * 複製站點隨 build 發佈的某個 worker bundle 到剪貼板（Dashboard 粘貼部署用）。
  *
- * 抛出原始错误让调用方决定怎么显示 (toast / inline status / 不显示)。
+ * 拋出原始錯誤讓調用方決定怎麼顯示 (toast / inline status / 不顯示)。
  */
 export async function copyWorkerBundleToClipboard(bundleName: string): Promise<void> {
   const base = import.meta.env.BASE_URL || '/';
@@ -17,14 +17,14 @@ export async function copyWorkerBundleToClipboard(bundleName: string): Promise<v
 }
 
 /**
- * 根据用户填的 workerUrl 推算 Cloudflare dashboard 编辑界面的 deep link。
+ * 根據用戶填的 workerUrl 推算 Cloudflare dashboard 編輯界面的 deep link。
  *
- * Cloudflare 接受 `?to=/:account/...` 模式, 登录后会自动用当前账号 ID 替换 :account
- * (多账号会出选择器)。这样我们不需要知道用户的 account ID, 只要从 workers.dev
- * 子域名里抠出 worker name 就能直达 /production 编辑界面。
+ * Cloudflare 接受 `?to=/:account/...` 模式, 登錄後會自動用當前帳號 ID 替換 :account
+ * (多帳號會出選擇器)。這樣我們不需要知道用戶的 account ID, 只要從 workers.dev
+ * 子域名裡摳出 worker name 就能直達 /production 編輯界面。
  *
- * 非 workers.dev 域名 (自定义域 / 反代) 没法可靠反推 worker name, 退回 worker 列表页,
- * 用户自己点项目名进去 —— 这类用户清楚自己的部署结构, 不会被卡住。
+ * 非 workers.dev 域名 (自定義域 / 反代) 沒法可靠反推 worker name, 退回 worker 列表頁,
+ * 用戶自己點項目名進去 —— 這類用戶清楚自己的部署結構, 不會被卡住。
  */
 export function buildCloudflareDashboardUrl(workerUrl: string | undefined): string {
   const FALLBACK = 'https://dash.cloudflare.com/?to=/:account/workers/overview';

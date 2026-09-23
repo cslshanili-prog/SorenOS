@@ -1,9 +1,9 @@
 const MODEL_ID_KEYS = ['id', 'model', 'name', 'model_name', 'slug'] as const;
 
 /**
- * 把第三方 /models 的松散返回值收敛成 UI 可以安全处理的字符串列表。
- * 有些兼容站会把整个模型对象（甚至 null、数字）塞进数组；这些值若直接
- * 进入选择器，公共前缀计算里的 slice/toLowerCase 会让整页崩溃。
+ * 把第三方 /models 的鬆散返回值收斂成 UI 可以安全處理的字符串列表。
+ * 有些兼容站會把整個模型對象（甚至 null、數字）塞進數組；這些值若直接
+ * 進入選擇器，公共前綴計算裡的 slice/toLowerCase 會讓整頁崩潰。
  */
 export function normalizeModelIds(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
@@ -27,11 +27,11 @@ export function normalizeModelIds(value: unknown): string[] {
 }
 
 /**
- * 生图相关模型的名称启发式判断——/models 接口通常不会标注「这个模型能不能生图」，
- * 只能靠模型 id 里常见的关键词猜。猜不中的话调用方应该留一个「显示全部模型」的退路，
- * 不能让这个函数变成唯一入口。
+ * 生圖相關模型的名稱啟發式判斷——/models 接口通常不會標註「這個模型能不能生圖」，
+ * 只能靠模型 id 裡常見的關鍵詞猜。猜不中的話調用方應該留一個「顯示全部模型」的退路，
+ * 不能讓這個函數變成唯一入口。
  */
-const IMAGE_MODEL_HINT = /image|imagen|dall-?e|stable-?diffusion|\bsdxl\b|\bsd3\b|flux|midjourney|kolors|cogview|wanx|万相|seedream|ideogram|recraft|playground-v|firefly|hunyuan.*(image|dit)|qwen.*image|grok.*image/i;
+const IMAGE_MODEL_HINT = /image|imagen|dall-?e|stable-?diffusion|\bsdxl\b|\bsd3\b|flux|midjourney|kolors|cogview|wanx|[万萬]相|seedream|ideogram|recraft|playground-v|firefly|hunyuan.*(image|dit)|qwen.*image|grok.*image/i;
 
 export function isLikelyImageModel(modelId: string): boolean {
     return IMAGE_MODEL_HINT.test(modelId);

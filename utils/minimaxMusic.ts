@@ -188,8 +188,8 @@ export async function synthesizeSongMinimax(
 ): Promise<MinimaxMusicResult> {
   const { signal, onStatus } = options;
   const apiKey = resolveMiniMaxApiKey(apiConfig);
-  if (!apiKey) throw new Error('请先在「设置」里填 MiniMax API Key');
-  if (!input.prompt && !input.lyrics) throw new Error('风格描述和歌词至少需要一个');
+  if (!apiKey) throw new Error('請先在「設置」裡填 MiniMax API Key');
+  if (!input.prompt && !input.lyrics) throw new Error('風格描述和歌詞至少需要一個');
 
   const cacheKey = hashMinimaxMusicInputs(input);
   if (!options.forceRegenerate) {
@@ -233,20 +233,20 @@ export async function synthesizeSongMinimax(
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data?.error || data?.base_resp?.status_msg || `Music API 失败 (HTTP ${res.status})`);
+    throw new Error(data?.error || data?.base_resp?.status_msg || `Music API 失敗 (HTTP ${res.status})`);
   }
 
   // MiniMax often returns HTTP 200 with a non-zero base_resp status for
   // business-level errors (rate limit / token plan required / etc.)
   const baseResp = data?.base_resp;
   if (baseResp && baseResp.status_code !== 0 && baseResp.status_code !== undefined) {
-    throw new Error(`MiniMax 业务错误: ${baseResp.status_msg || `code=${baseResp.status_code}`}`);
+    throw new Error(`MiniMax 業務錯誤: ${baseResp.status_msg || `code=${baseResp.status_code}`}`);
   }
 
   const audio = data?.data?.audio;
   if (!audio) {
     console.error('[MiniMax music] no audio in response:', JSON.stringify(data).slice(0, 500));
-    throw new Error('MiniMax 没返回音频数据');
+    throw new Error('MiniMax 沒返回音頻數據');
   }
 
   onStatus?.('downloading');
@@ -258,7 +258,7 @@ export async function synthesizeSongMinimax(
   } else if (typeof audio === 'string') {
     blob = convertHexAudioToBlob(audio);
   } else {
-    throw new Error('MiniMax 返回的 audio 字段格式异常');
+    throw new Error('MiniMax 返回的 audio 字段格式異常');
   }
 
   saveCached(cacheKey, blob, mimeType).catch(() => { /* ignore */ });

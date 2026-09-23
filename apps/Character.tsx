@@ -46,12 +46,12 @@ import {
     getExternalMemoryOverLimitMessage,
 } from '../utils/memoryPalace/externalMemory';
 
-// ── 神经链接 · 列表页视觉件（淡紫留白风）────────────────────
-// 之前的「星点 + 玻璃饰带 + 华丽头像框」看久了眼花、低端机也重绘卡。
-// 改成留白为主的干净版：纯淡紫底、圆角方钮、朴素圆头像、素白卡片。
-// 无常驻动画 / 无 filter / 无大模糊阴影，既清爽又省电。仅列表页，编辑页不动。
+// ── 神經鏈接 · 列表頁視覺件（淡紫留白風）────────────────────
+// 之前的「星點 + 玻璃飾帶 + 華麗頭像框」看久了眼花、低端機也重繪卡。
+// 改成留白為主的乾淨版：純淡紫底、圓角方鈕、樸素圓頭像、素白卡片。
+// 無常駐動畫 / 無 filter / 無大模糊陰影，既清爽又省電。僅列表頁，編輯頁不動。
 
-/** 顶栏圆角方钮（squircle）：白底细紫描边 + 线性图标 + 底部小字标签 */
+/** 頂欄圓角方鈕（squircle）：白底細紫描邊 + 線性圖標 + 底部小字標籤 */
 const ToolButton: React.FC<{ label: string; title?: string; onClick: () => void; children: React.ReactNode }> = ({ label, title, onClick, children }) => (
     <button onClick={onClick} title={title} className="flex flex-col items-center gap-1.5 active:scale-90 transition-transform">
         <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-violet-200/80 text-violet-500 shadow-[0_2px_6px_rgba(140,120,200,0.10)]">
@@ -63,7 +63,7 @@ const ToolButton: React.FC<{ label: string; title?: string; onClick: () => void;
 
 const CharacterCard: React.FC<{
     char: CharacterProfile;
-    /** 当前激活（正在聊）的角色走淡紫高亮 */
+    /** 當前激活（正在聊）的角色走淡紫高亮 */
     active?: boolean;
     onClick: () => void;
     onDelete: (e: React.MouseEvent) => void;
@@ -84,7 +84,7 @@ const CharacterCard: React.FC<{
                     {char.name}
                 </h3>
                 <p className="text-xs truncate mt-0.5 text-violet-400/80">
-                    {char.description || '暂无描述'}
+                    {char.description || '暫無描述'}
                 </p>
             </div>
         </div>
@@ -102,12 +102,12 @@ const CharacterCard: React.FC<{
 const Character: React.FC = () => {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, addApiPreset } = useOS();
   const launchIntent = characterLaunch.peek();
-  // 神经链接顶部「主角 / NPC」分页；NPC 那边是完全独立的列表+编辑流程（见 NPCManagerView），
-  // 不共用下面这套角色专用的 view/formData 状态机。
+  // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
+  // 不共用下面這套角色專用的 view/formData 狀態機。
   const [topTab, setTopTab] = useState<'characters' | 'npcs'>(() => launchIntent?.tab || 'characters');
   const [view, setView] = useState<'list' | 'detail'>(() => launchIntent?.charId ? 'detail' : 'list');
-  const [charPage, setCharPage] = useState(0); // 角色列表分页（每页 6 个，仅未建分组时）
-  // 分组展开状态：存"已展开"的分组 id（未记录 = 收起）。跨会话记住，key 见下
+  const [charPage, setCharPage] = useState(0); // 角色列表分頁（每頁 6 個，僅未建分組時）
+  // 分組展開狀態：存"已展開"的分組 id（未記錄 = 收起）。跨會話記住，key 見下
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
       try {
           const raw = localStorage.getItem('os_char_groups_expanded');
@@ -116,7 +116,7 @@ const Character: React.FC = () => {
               if (Array.isArray(arr)) return arr;
           }
       } catch {}
-      return [GROUP_FILTER_UNGROUPED]; // 首次进入只展开「未分组」，命名分组默认收起
+      return [GROUP_FILTER_UNGROUPED]; // 首次進入只展開「未分組」，命名分組默認收起
   });
   const toggleGroupExpanded = (id: string) => {
       setExpandedGroups(prev => {
@@ -126,7 +126,7 @@ const Character: React.FC = () => {
       });
   };
   const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : 'identity');
-  // QQ捏人工坊（手办柜）全屏覆盖层
+  // QQ捏人工坊（手辦櫃）全屏覆蓋層
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
   const [editingId, setEditingId] = useState<string | null>(() => launchIntent?.charId || null);
   const [formData, setFormData] = useState<CharacterProfile | null>(null);
@@ -147,11 +147,11 @@ const Character: React.FC = () => {
   }, []);
   const [expandedMountedBookIds, setExpandedMountedBookIds] = useState<Set<string>>(new Set());
   const [isCompressing, setIsCompressing] = useState(false);
-  // 头像 URL 输入的 draft, 不逐字 commit 到 formData.avatar —— 否则每输入一个字符,
-  // 所有引用 char.avatar 的 <img> 都会拿到不完整字符串当相对路径请求根目录,
-  // 导致打字时疯狂 GET / 和满屏破图. 失焦 / 回车才校验 + commit.
+  // 頭像 URL 輸入的 draft, 不逐字 commit 到 formData.avatar —— 否則每輸入一個字符,
+  // 所有引用 char.avatar 的 <img> 都會拿到不完整字符串當相對路徑請求根目錄,
+  // 導致打字時瘋狂 GET / 和滿屏破圖. 失焦 / 回車才校驗 + commit.
   const [avatarUrlDraft, setAvatarUrlDraft] = useState('');
-  // 生活记录被全局隐藏的模块（档案 App 长按页签隐藏）——对应的小开关行直接不显示
+  // 生活記錄被全局隱藏的模塊（檔案 App 長按頁籤隱藏）——對應的小開關行直接不顯示
   const [hiddenLifeModules, setHiddenLifeModules] = useState<string[]>([]);
   useEffect(() => {
       DB.getLifeRecordSettings()
@@ -172,17 +172,17 @@ const Character: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false); 
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<string | null>(null);
-  // 云端 amsg2 任务没清干净、本地删除被拦下的角色 → 弹「重试 / 仍然删除」二次确认。
+  // 雲端 amsg2 任務沒清乾淨、本地刪除被攔下的角色 → 彈「重試 / 仍然刪除」二次確認。
   const [cloudCleanupFailTarget, setCloudCleanupFailTarget] = useState<string | null>(null);
-  // 删除要先 await 云端任务取消（名下有 amsg2 任务时），期间锁住按钮防连点。
+  // 刪除要先 await 雲端任務取消（名下有 amsg2 任務時），期間鎖住按鈕防連點。
   const [isDeleting, setIsDeleting] = useState(false);
   const [showWorldbookModal, setShowWorldbookModal] = useState(false); // New Modal
-  // 挂载世界书弹窗：搜索词 + 当前展开的分组（分组默认折叠，避免全量条目一次性渲染卡爆）
+  // 掛載世界書彈窗：搜索詞 + 當前展開的分組（分組默認摺疊，避免全量條目一次性渲染卡爆）
   const [wbModalSearch, setWbModalSearch] = useState('');
   const [wbModalExpandedCategory, setWbModalExpandedCategory] = useState<string | null>(null);
-  const [showGroupModal, setShowGroupModal] = useState(false); // 角色分组管理
+  const [showGroupModal, setShowGroupModal] = useState(false); // 角色分組管理
   const [newGroupName, setNewGroupName] = useState('');
-  // 编辑页「新建分组并指派」的内联输入
+  // 編輯頁「新建分組並指派」的內聯輸入
   const [detailGroupDraft, setDetailGroupDraft] = useState<string | null>(null);
 
   const [importText, setImportText] = useState('');
@@ -215,7 +215,7 @@ const Character: React.FC = () => {
   const handleLoadMiniMaxVoices = async () => {
       const minimaxApiKey = resolveMiniMaxApiKey(apiConfig);
       if (!minimaxApiKey) {
-          addToast('请先在设置中填入 MiniMax API Key（未填写时会回退使用通用 API Key）', 'error');
+          addToast('請先在設置中填入 MiniMax API Key（未填寫時會回退使用通用 API Key）', 'error');
           return;
       }
 
@@ -227,10 +227,10 @@ const Character: React.FC = () => {
               voice_cloning: result.voice_cloning,
               voice_generation: result.voice_generation,
           });
-          addToast(`已拉取音色：系统 ${result.system_voice.length} / 复刻 ${result.voice_cloning.length} / 文生 ${result.voice_generation.length}`, 'success');
+          addToast(`已拉取音色：系統 ${result.system_voice.length} / 復刻 ${result.voice_cloning.length} / 文生 ${result.voice_generation.length}`, 'success');
       } catch (e: any) {
           console.error('[MiniMax Voice] load failed', e);
-          addToast(e?.message || '拉取 MiniMax 音色失败', 'error');
+          addToast(e?.message || '拉取 MiniMax 音色失敗', 'error');
       } finally {
           setIsLoadingVoices(false);
       }
@@ -247,7 +247,7 @@ const Character: React.FC = () => {
           model: formData.voiceProfile?.model || 'speech-2.8-hd',
           notes: formData.voiceProfile?.notes || '',
       });
-      addToast(`已应用音色：${voice.voice_name || voice.voice_id}`, 'success');
+      addToast(`已應用音色：${voice.voice_name || voice.voice_id}`, 'success');
       trackEvent('应用音色到角色', { source });
   };
 
@@ -255,11 +255,11 @@ const Character: React.FC = () => {
       if (!formData || isTestingElevenLabsVoice) return;
       const voiceId = normalizeElevenLabsVoiceId(formData.voiceProfile?.elevenLabsVoiceId);
       if (!voiceId) {
-          addToast('请先填写 ElevenLabs Voice ID', 'info');
+          addToast('請先填寫 ElevenLabs Voice ID', 'info');
           return;
       }
       if (!apiConfig.elevenLabsApiKey?.trim()) {
-          addToast('请先在设置 → 其他 API 保存 ElevenLabs Key', 'info');
+          addToast('請先在設置 → 其他 API 保存 ElevenLabs Key', 'info');
           return;
       }
       setIsTestingElevenLabsVoice(true);
@@ -274,7 +274,7 @@ const Character: React.FC = () => {
               voiceProfile: { ...(formData.voiceProfile || {}), elevenLabsVoiceId: voiceId },
           };
           const { url } = await synthesizeSpeechElevenLabsDetailed(
-              `你好，我是${formData.name || '你的角色'}。现在能听见我的声音吗？`,
+              `你好，我是${formData.name || '你的角色'}。現在能聽見我的聲音嗎？`,
               previewChar,
               apiConfig,
           );
@@ -283,10 +283,10 @@ const Character: React.FC = () => {
           audio.onended = releasePreviewUrl;
           audio.onerror = releasePreviewUrl;
           await audio.play();
-          addToast('ElevenLabs 试听已开始', 'success');
+          addToast('ElevenLabs 試聽已開始', 'success');
       } catch (error: any) {
           releasePreviewUrl();
-          addToast(error?.message || 'ElevenLabs 试听失败', 'error');
+          addToast(error?.message || 'ElevenLabs 試聽失敗', 'error');
       } finally {
           setIsTestingElevenLabsVoice(false);
       }
@@ -325,8 +325,8 @@ const Character: React.FC = () => {
     }
   }, [editingId, view]);
 
-  // 切换角色时把 URL draft 同步成该角色当前 https 头像 (若有), 否则清空.
-  // 不监听 formData.avatar 的每次变化 —— 文件上传走 data URL 路径时 draft 应保持原样.
+  // 切換角色時把 URL draft 同步成該角色當前 https 頭像 (若有), 否則清空.
+  // 不監聽 formData.avatar 的每次變化 —— 文件上傳走 data URL 路徑時 draft 應保持原樣.
   useEffect(() => {
     if (!editingId) return;
     const target = characters.find(c => c.id === editingId);
@@ -375,20 +375,20 @@ const Character: React.FC = () => {
       const name = newGroupName.trim();
       if (!name) return;
       if (characterGroups.some(g => g.name === name)) {
-          addToast('已有同名分组', 'error');
+          addToast('已有同名分組', 'error');
           return;
       }
       await createCharacterGroup(name);
       setNewGroupName('');
   };
 
-  // 新建角色：建完直接进「设定」编辑页（而非停在列表往未分组里塞一张空白卡，
-  // 那样反直觉——用户点新建就是想马上填人设）。editingId 一设，下方 sync effect
-  // 会从 characters 里找到这张新卡填进 formData。
+  // 新建角色：建完直接進「設定」編輯頁（而非停在列表往未分組裡塞一張空白卡，
+  // 那樣反直覺——用戶點新建就是想馬上填人設）。editingId 一設，下方 sync effect
+  // 會從 characters 裡找到這張新卡填進 formData。
   const handleAddCharacter = async () => {
       const created = await addCharacter();
       setEditingId(created.id);
-      setFormData(created); // 直接填好，避免跳转瞬间 characters 还没同步导致详情页闪白
+      setFormData(created); // 直接填好，避免跳轉瞬間 characters 還沒同步導致詳情頁閃白
       setDetailTab('identity');
       setView('detail');
   };
@@ -409,7 +409,7 @@ const Character: React.FC = () => {
 
       const currentBooks = formData.mountedWorldbooks || [];
       if (currentBooks.some(b => b.id === book.id)) {
-          addToast('已挂载该世界书', 'info');
+          addToast('已掛載該世界書', 'info');
           return;
       }
 
@@ -417,14 +417,14 @@ const Character: React.FC = () => {
       const newBookEntry = toMountedWorldbook(book);
       handleChange('mountedWorldbooks', [...currentBooks, newBookEntry]);
       setShowWorldbookModal(false);
-      addToast(`已挂载: ${book.title}`, 'success');
+      addToast(`已掛載: ${book.title}`, 'success');
       trackEvent('给角色挂载世界书');
   };
 
   // New: Mount entire category
   const mountCategory = (category: string) => {
       if (!formData) return;
-      const booksToMount = worldbooks.filter(b => (b.category || '未分类设定 (General)') === category);
+      const booksToMount = worldbooks.filter(b => (b.category || '未分類設定 (General)') === category);
       if (booksToMount.length === 0) return;
 
       const currentBooks = formData.mountedWorldbooks || [];
@@ -440,9 +440,9 @@ const Character: React.FC = () => {
 
       if (addedCount > 0) {
           handleChange('mountedWorldbooks', [...currentBooks, ...newEntries]);
-          addToast(`已批量挂载 ${addedCount} 本世界书`, 'success');
+          addToast(`已批量掛載 ${addedCount} 本世界書`, 'success');
       } else {
-          addToast('该组世界书已全部挂载', 'info');
+          addToast('該組世界書已全部掛載', 'info');
       }
       setShowWorldbookModal(false);
   };
@@ -453,26 +453,26 @@ const Character: React.FC = () => {
       handleChange('mountedWorldbooks', currentBooks.filter(b => b.id !== bookId));
   };
 
-  // 挂载弹窗的分组数据。必须 useMemo：之前这段 reduce 内联在 JSX 里，
-  // 弹窗没打开时整个编辑表单每敲一个字都会重新分组一遍全部世界书。
+  // 掛載彈窗的分組數據。必須 useMemo：之前這段 reduce 內聯在 JSX 裡，
+  // 彈窗沒打開時整個編輯表單每敲一個字都會重新分組一遍全部世界書。
   const wbModalGroups = useMemo(() => {
       const groups: Record<string, typeof worldbooks> = {};
       worldbooks.forEach(wb => {
-          const cat = wb.category || '未分类设定 (General)';
+          const cat = wb.category || '未分類設定 (General)';
           if (!groups[cat]) groups[cat] = [];
           groups[cat].push(wb);
       });
       return Object.entries(groups);
   }, [worldbooks]);
 
-  // 搜索态：按标题/分组名过滤，最多展示前 60 条避免长列表卡顿。
+  // 搜索態：按標題/分組名過濾，最多展示前 60 條避免長列表卡頓。
   const WB_SEARCH_LIMIT = 60;
   const wbModalSearchResults = useMemo(() => {
       const query = wbModalSearch.trim().toLowerCase();
       if (!query) return null;
       const matched = worldbooks.filter(wb =>
           wb.title.toLowerCase().includes(query) ||
-          (wb.category || '未分类设定 (General)').toLowerCase().includes(query)
+          (wb.category || '未分類設定 (General)').toLowerCase().includes(query)
       );
       return { books: matched.slice(0, WB_SEARCH_LIMIT), total: matched.length };
   }, [worldbooks, wbModalSearch]);
@@ -499,16 +499,16 @@ const Character: React.FC = () => {
           try {
               setIsCompressing(true);
               const processedBase64 = await processImage(file);
-              // 头像存令牌，二进制单独躺在 blob_assets 里（省掉 base64 那 ~33% 的膨胀）。
-              // 同一张图之前存过就复用它的令牌；转不动时原样还回这条 data URL，图不会丢。
+              // 頭像存令牌，二進制單獨躺在 blob_assets 裡（省掉 base64 那 ~33% 的膨脹）。
+              // 同一張圖之前存過就複用它的令牌；轉不動時原樣還回這條 data URL，圖不會丟。
               handleChange('avatar', await migrateDataUrlToRef(processedBase64));
-              // 清空 URL draft, 否则用户之后再触发 URL input 的 onBlur 会用脏旧 URL
-              // 把刚上传的 data URL 头像盖掉. 不走 effect 监听 avatar 的方案 —— 那会
-              // 在用户正在打 URL 时吃掉 draft.
+              // 清空 URL draft, 否則用戶之後再觸發 URL input 的 onBlur 會用髒舊 URL
+              // 把剛上傳的 data URL 頭像蓋掉. 不走 effect 監聽 avatar 的方案 —— 那會
+              // 在用戶正在打 URL 時吃掉 draft.
               setAvatarUrlDraft('');
-              addToast('头像上传成功', 'success');
+              addToast('頭像上傳成功', 'success');
           } catch (error: any) { 
-              addToast(error.message || '图片处理失败', 'error'); 
+              addToast(error.message || '圖片處理失敗', 'error'); 
           } finally {
               setIsCompressing(false);
               if (fileInputRef.current) fileInputRef.current.value = '';
@@ -518,10 +518,10 @@ const Character: React.FC = () => {
   
   const handleRefineMonth = async (year: string, month: string, rawText: string, formattedPrompt?: string) => {
       if (!formData) return;
-      // 优先用这个角色自己的对话模型 API（角色专属 chatApi），没设才退回全局主 API——
-      // 之前是直接打全局，角色明明配了专属 API，全局一挂这个角色的月度总结也跟着挂。
+      // 優先用這個角色自己的對話模型 API（角色專屬 chatApi），沒設才退回全局主 API——
+      // 之前是直接打全局，角色明明配了專屬 API，全局一掛這個角色的月度總結也跟著掛。
       const refineApi = resolveCharacterChatApi(formData, apiConfig);
-      if (!refineApi.apiKey) { addToast('请先配置 API Key', 'error'); return; }
+      if (!refineApi.apiKey) { addToast('請先配置 API Key', 'error'); return; }
 
       const targetId = formData.id; // LOCK ID
       trackEvent('提炼当月核心记忆');
@@ -529,25 +529,25 @@ const Character: React.FC = () => {
       // Build lightweight character identity context (no memories - we're generating those)
       let identityContext = `[角色身份]\n名字: ${formData.name}\n`;
       if (formData.systemPrompt) identityContext += `核心性格/指令:\n${formData.systemPrompt}\n`;
-      if (formData.worldview?.trim()) identityContext += `世界观设定: ${formData.worldview}\n`;
-      identityContext += `互动对象: ${userProfile.name}`;
+      if (formData.worldview?.trim()) identityContext += `世界觀設定: ${formData.worldview}\n`;
+      identityContext += `互動對象: ${userProfile.name}`;
       if (userProfile.bio) identityContext += ` (${userProfile.bio})`;
       identityContext += '\n\n';
 
-      // Gemini 3.1 preview 对"人设堆 3000+ token → 迟到任务句"的 all-in-one user 消息
-      // 会静默拒答（completion_tokens=0，代理回 "Token count: N" stub 污染记忆库）。
-      // 两条对抗措施一起上：
-      //   (A) 任务声明放最前，明确这是总结不是角色扮演
-      //   (B) 拆 system+user：规则/身份/任务走 system，原始日记走 user，
-      //       让模型看清哪段是指令、哪段是数据
-      const taskPreamble = `### 任务（最优先，请先读此段再读后文）
-你正在执行"月度记忆精炼"：把 user 消息里提供的【${year}-${month} 每日记忆碎片】压缩成一份简洁的月度核心记忆。
-这是**总结写作任务**，不是角色扮演对话——不要进入聊天模式、不要等待对方发言、不要只输出空白或沉默，直接输出总结正文。`;
+      // Gemini 3.1 preview 對"人設堆 3000+ token → 遲到任務句"的 all-in-one user 消息
+      // 會靜默拒答（completion_tokens=0，代理回 "Token count: N" stub 汙染記憶庫）。
+      // 兩條對抗措施一起上：
+      //   (A) 任務聲明放最前，明確這是總結不是角色扮演
+      //   (B) 拆 system+user：規則/身份/任務走 system，原始日記走 user，
+      //       讓模型看清哪段是指令、哪段是數據
+      const taskPreamble = `### 任務（最優先，請先讀此段再讀後文）
+你正在執行"月度記憶精煉"：把 user 消息裡提供的【${year}-${month} 每日記憶碎片】壓縮成一份簡潔的月度核心記憶。
+這是**總結寫作任務**，不是角色扮演對話——不要進入聊天模式、不要等待對方發言、不要只輸出空白或沉默，直接輸出總結正文。`;
       const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(rawText);
 
       const systemContent = formattedPrompt
-          ? `${taskPreamble}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}\n\n### 角色视角（仅供写作口吻参考）\n${identityContext}### 详细规则与输出格式\n${formattedPrompt}`
-          : `${taskPreamble}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}\n\n### 角色视角（仅供写作口吻参考）\n${identityContext}### 详细规则\n以该角色的第一人称写作，使用与日记相同的语言（中文），输出一段精简的月度核心记忆。`;
+          ? `${taskPreamble}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}\n\n### 角色視角（僅供寫作口吻參考）\n${identityContext}### 詳細規則與輸出格式\n${formattedPrompt}`
+          : `${taskPreamble}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}\n\n### 角色視角（僅供寫作口吻參考）\n${identityContext}### 詳細規則\n以該角色的第一人稱寫作，使用與日記相同的語言（中文），輸出一段精簡的月度核心記憶。`;
       const userContent = rawText;
 
       const refineUrl = `${refineApi.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -568,14 +568,14 @@ const Character: React.FC = () => {
           const dt = Math.round(performance.now() - t0);
           const summary = extractContent(data);
           if (!summary) {
-              // 失败时留一条诊断 warn：Gemini 3.1 preview 在某些 prompt 下会静默拒答
-              // （completion_tokens=0，代理回 "Token count: N" stub），这些信息能帮
-              // 之后快速确认是不是同一个坑复发
+              // 失敗時留一條診斷 warn：Gemini 3.1 preview 在某些 prompt 下會靜默拒答
+              // （completion_tokens=0，代理回 "Token count: N" stub），這些信息能幫
+              // 之後快速確認是不是同一個坑復發
               const msg = data?.choices?.[0]?.message;
               const rawContent = typeof msg?.content === 'string' ? msg.content : '';
               const finishReason = data?.choices?.[0]?.finish_reason;
               console.warn(`🧠 [Refine ${year}-${month}] 模型返回空: dt=${dt}ms finish=${finishReason} content.length=${rawContent.length} preview=${rawContent.slice(0, 120)} usage=`, data?.usage);
-              addToast(`精炼失败: 模型返回为空 (${dt}ms, finish=${finishReason || 'n/a'})，详情见控制台`, 'error');
+              addToast(`精煉失敗: 模型返回為空 (${dt}ms, finish=${finishReason || 'n/a'})，詳情見控制台`, 'error');
               return;
           }
           const key = `${year}-${month}`;
@@ -584,24 +584,24 @@ const Character: React.FC = () => {
           if (editingIdRef.current === targetId) {
               // Still on same page
               handleChange('refinedMemories', { ...(formData.refinedMemories || {}), [key]: summary });
-              addToast(`${year}年${month}月记忆精炼完成`, 'success');
+              addToast(`${year}年${month}月記憶精煉完成`, 'success');
           } else {
               // Switched page - Save to DB directly
               const currentRefined = characters.find(c => c.id === targetId)?.refinedMemories || {};
               updateCharacter(targetId, { refinedMemories: { ...currentRefined, [key]: summary } });
-              addToast('后台任务完成：记忆已保存到原角色', 'success');
+              addToast('後台任務完成：記憶已保存到原角色', 'success');
           }
-      } catch (e: any) { addToast(`精炼失败: ${e.message}`, 'error'); }
+      } catch (e: any) { addToast(`精煉失敗: ${e.message}`, 'error'); }
   };
 
-  const handleDeleteMemories = (ids: string[]) => { if (!formData) return; handleChange('memories', (formData.memories || []).filter(m => !ids.includes(m.id))); addToast(`已删除 ${ids.length} 条记忆`, 'success'); };
+  const handleDeleteMemories = (ids: string[]) => { if (!formData) return; handleChange('memories', (formData.memories || []).filter(m => !ids.includes(m.id))); addToast(`已刪除 ${ids.length} 條記憶`, 'success'); };
   const handleUpdateMemory = async (id: string, newSummary: string) => {
       if (!formData) return;
       const targetId = formData.id;
       const memory = formData.memories?.find(item => item.id === id);
       if (linkedMemoryEnabled && memory?.palaceMemoryId) {
           const source = await MemoryNodeDB.getById(memory.palaceMemoryId);
-          if (!source || source.charId !== targetId) throw new Error('关联的宫殿记忆已不存在，档案文本仍保留；关闭宫殿后可按传统档案编辑');
+          if (!source || source.charId !== targetId) throw new Error('關聯的宮殿記憶已不存在，檔案文本仍保留；關閉宮殿後可按傳統檔案編輯');
           await updateStoredMemoryNode(memory.palaceMemoryId, { content: newSummary }, memoryPalaceConfig.embedding, remoteVectorConfig);
       }
       // In traditional mode an edit becomes an independent archive; re-enabling must not undo it.
@@ -612,38 +612,38 @@ const Character: React.FC = () => {
           const latest = (await DB.getAllCharacters()).find(character => character.id === targetId);
           if (latest) updateCharacter(targetId, { memories: update(latest.memories || []) });
       }
-      addToast('记忆已更新', 'success');
+      addToast('記憶已更新', 'success');
   };
 
   /**
-   * 按指定日期强制重新总结：读原始聊天记录（忽略 hideBeforeMessageId），LLM 总结，
-   * upsert 同日期的 'archive' MemoryFragment（'palace' 自动归档的不动，保持并存）。
-   * 这是自动化的兜底路径：即使 4.5 已经被 palace 处理+隐藏+向量化，用户依然能让 AI
-   * 重新阅读 4.5 原始聊天做一版手动总结。
+   * 按指定日期強制重新總結：讀原始聊天記錄（忽略 hideBeforeMessageId），LLM 總結，
+   * upsert 同日期的 'archive' MemoryFragment（'palace' 自動歸檔的不動，保持並存）。
+   * 這是自動化的兜底路徑：即使 4.5 已經被 palace 處理+隱藏+向量化，用戶依然能讓 AI
+   * 重新閱讀 4.5 原始聊天做一版手動總結。
    */
   /**
-   * @param overridePromptId 用户在 MemoryArchivist 的重总结弹窗里现场选的模板 id；
-   *                        没提供则退回到当前 selectedPromptId
+   * @param overridePromptId 用戶在 MemoryArchivist 的重總結彈窗裡現場選的模板 id；
+   *                        沒提供則退回到當前 selectedPromptId
    */
   const handleForceArchiveDate = async (dateStr: string, overridePromptId?: string): Promise<void> => {
-      if (!apiConfig.apiKey || !formData) { addToast('请先配置 API Key', 'error'); return; }
+      if (!apiConfig.apiKey || !formData) { addToast('請先配置 API Key', 'error'); return; }
       const targetId = formData.id;
       try {
           const allMsgs = await DB.getMessagesByCharId(targetId, true);
-          // 忽略 hideBeforeMessageId —— 这是强制重总结的关键
+          // 忽略 hideBeforeMessageId —— 這是強制重總結的關鍵
           const dayMsgs = allMsgs.filter(m => {
               const d = new Date(m.timestamp);
               const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
               return key === dateStr;
           });
-          if (dayMsgs.length === 0) { addToast(`${dateStr} 当天无消息可总结`, 'info'); return; }
+          if (dayMsgs.length === 0) { addToast(`${dateStr} 當天無消息可總結`, 'info'); return; }
 
           const timeFmt = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
           const rawLog = dayMsgs
               .map(m => formatMessageWithTime(m, formData.name, userProfile.name, timeFmt))
               .join('\n');
 
-          // 模板优先级：override（弹窗现场选）→ 当前 state → 默认 preset
+          // 模板優先級：override（彈窗現場選）→ 當前 state → 默認 preset
           const effectivePromptId = overridePromptId || selectedPromptId;
           const templateObj = archivePrompts.find(p => p.id === effectivePromptId) || DEFAULT_ARCHIVE_PROMPTS[0];
           const baseContext = ContextBuilder.buildCoreContext(formData, userProfile);
@@ -661,9 +661,9 @@ const Character: React.FC = () => {
               body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.5, max_tokens: 8000, stream: false }),
           }, 0);
           let summary = extractContent(data).replace(/^["']|["']$/g, '');
-          if (!summary) throw new Error('空响应');
+          if (!summary) throw new Error('空響應');
 
-          // upsert：同日期的 mood='archive' 替换；'palace' 自动归档不碰
+          // upsert：同日期的 mood='archive' 替換；'palace' 自動歸檔不碰
           const existing = formData.memories || [];
           const kept = existing.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood)));
           const newFrag: MemoryFragment = {
@@ -676,14 +676,14 @@ const Character: React.FC = () => {
           if (editingIdRef.current === targetId) {
               handleChange('memories', [...kept, newFrag]);
           } else {
-              // 用户切角色了 —— 直接写回目标角色
+              // 用戶切角色了 —— 直接寫回目標角色
               const currentMems = characters.find(c => c.id === targetId)?.memories || [];
               const curKept = currentMems.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood)));
               updateCharacter(targetId, { memories: [...curKept, newFrag] });
           }
-          addToast(`${dateStr} 已强制重新总结`, 'success');
+          addToast(`${dateStr} 已強制重新總結`, 'success');
       } catch (e: any) {
-          addToast(`重总结失败: ${e.message || '未知错误'}`, 'error');
+          addToast(`重總結失敗: ${e.message || '未知錯誤'}`, 'error');
       }
   };
 
@@ -692,7 +692,7 @@ const Character: React.FC = () => {
       if (!formData) return;
       const key = `${year}-${month}`;
       handleChange('refinedMemories', { ...(formData.refinedMemories || {}), [key]: newContent });
-      addToast('核心记忆已更新', 'success');
+      addToast('核心記憶已更新', 'success');
   };
 
   const handleDeleteRefinedMemory = (year: string, month: string) => {
@@ -701,10 +701,10 @@ const Character: React.FC = () => {
       const newRefined = { ...formData.refinedMemories };
       delete newRefined[key];
       handleChange('refinedMemories', newRefined);
-      addToast('核心记忆已删除', 'success');
+      addToast('核心記憶已刪除', 'success');
   };
 
-  const handleExportPreview = async () => { if (!formData) return; let mems: MemoryFragment[]; try { mems = linkedMemoryEnabled ? await resolveLinkedArchives(formData.id, formData.memories || [], true) : (formData.memories || []); } catch { addToast("读取关联记忆失败，请重试", "error"); return; } if (!mems || mems.length === 0) { addToast('暂无记忆数据可导出', 'info'); return; } const sortedMemories = [...mems].sort((a, b) => a.date.localeCompare(b.date)); let text = `【角色档案】\nName: ${formData.name}\nExported: ${new Date().toLocaleString()}\n\n`; if (formData.refinedMemories) { text += `=== 核心记忆 ===\n`; Object.entries(formData.refinedMemories).sort().forEach(([k, v]) => { text += `[${k}]: ${v}\n`; }); text += `\n=== 详细日志 ===\n`; } let currentYear = '', currentMonth = ''; sortedMemories.forEach(mem => { const match = mem.date.match(/(\d{4})[-/年](\d{1,2})/); if (match) { const y = match[1], m = match[2]; if (y !== currentYear) { text += `\n[ ${y}年 ]\n`; currentYear = y; currentMonth = ''; } if (m !== currentMonth) { text += `\n-- ${parseInt(m)}月 --\n\n`; currentMonth = m; } } text += `${mem.date} ${mem.mood ? `(#${mem.mood})` : ''}\n${mem.summary}\n\n--------------------------\n\n`; }); setExportText(text); setShowExportModal(true); navigator.clipboard.writeText(text).then(() => addToast('内容已自动复制到剪贴板', 'info')).catch(() => {}); };
+  const handleExportPreview = async () => { if (!formData) return; let mems: MemoryFragment[]; try { mems = linkedMemoryEnabled ? await resolveLinkedArchives(formData.id, formData.memories || [], true) : (formData.memories || []); } catch { addToast("讀取關聯記憶失敗，請重試", "error"); return; } if (!mems || mems.length === 0) { addToast('暫無記憶數據可導出', 'info'); return; } const sortedMemories = [...mems].sort((a, b) => a.date.localeCompare(b.date)); let text = `【角色檔案】\nName: ${formData.name}\nExported: ${new Date().toLocaleString()}\n\n`; if (formData.refinedMemories) { text += `=== 核心記憶 ===\n`; Object.entries(formData.refinedMemories).sort().forEach(([k, v]) => { text += `[${k}]: ${v}\n`; }); text += `\n=== 詳細日誌 ===\n`; } let currentYear = '', currentMonth = ''; sortedMemories.forEach(mem => { const match = mem.date.match(/(\d{4})[-/年](\d{1,2})/); if (match) { const y = match[1], m = match[2]; if (y !== currentYear) { text += `\n[ ${y}年 ]\n`; currentYear = y; currentMonth = ''; } if (m !== currentMonth) { text += `\n-- ${parseInt(m)}月 --\n\n`; currentMonth = m; } } text += `${mem.date} ${mem.mood ? `(#${mem.mood})` : ''}\n${mem.summary}\n\n--------------------------\n\n`; }); setExportText(text); setShowExportModal(true); navigator.clipboard.writeText(text).then(() => addToast('內容已自動複製到剪貼板', 'info')).catch(() => {}); };
   const handleExportMemoryFile = async () => {
       if (!exportText) return;
       try {
@@ -712,28 +712,28 @@ const Character: React.FC = () => {
               content: exportText,
               fileName: `${formData?.name || 'character'}_memories.txt`,
               mimeType: 'text/plain;charset=utf-8',
-              shareTitle: '记忆档案',
+              shareTitle: '記憶檔案',
           });
-          addToast(result === 'shared' ? '已打开记忆档案分享面板' : '记忆档案已导出', 'success');
+          addToast(result === 'shared' ? '已打開記憶檔案分享面板' : '記憶檔案已導出', 'success');
       } catch (error) {
           console.error('Memory export failed', error);
-          addToast('文件导出失败，请直接复制文本', 'error');
+          addToast('文件導出失敗，請直接複製文本', 'error');
       }
   };
   
   const handleImportMemories = async () => { 
-      if (!importText.trim() || !apiConfig.apiKey) { addToast('请检查输入内容或 API 设置', 'error'); return; } 
+      if (!importText.trim() || !apiConfig.apiKey) { addToast('請檢查輸入內容或 API 設置', 'error'); return; } 
       if (!formData) return;
       if (importLengthInfo.overLimit) {
           const message = getExternalMemoryOverLimitMessage(importText);
           setImportStatus(message);
-          addToast(`内容超过 5 万字，建议分 ${importLengthInfo.suggestedBatches} 批导入`, 'error');
+          addToast(`內容超過 5 萬字，建議分 ${importLengthInfo.suggestedBatches} 批導入`, 'error');
           return;
       }
       
       const targetId = formData.id; // LOCK ID
       setIsProcessingMemory(true); 
-      setImportStatus('准备清洗：只整理时间和结构，不压缩内容…');
+      setImportStatus('準備清洗：只整理時間和結構，不壓縮內容…');
       trackEvent('执行记忆导入清洗');
       
       try { 
@@ -752,11 +752,11 @@ const Character: React.FC = () => {
           const failedBatch = result.batches.find(batch => !batch.ok);
           if (failedBatch) {
               throw new Error(
-                  `第 ${failedBatch.index}/${failedBatch.total} 批未能无损清洗：${failedBatch.error || '完整性校验失败'}。本次没有写入任何记忆`,
+                  `第 ${failedBatch.index}/${failedBatch.total} 批未能無損清洗：${failedBatch.error || '完整性校驗失敗'}。本次沒有寫入任何記憶`,
               );
           }
           if (result.memories.length === 0) {
-              throw new Error('没有整理出可导入的记忆');
+              throw new Error('沒有整理出可導入的記憶');
           }
 
           const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -765,23 +765,23 @@ const Character: React.FC = () => {
               return {
                   id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                   date: `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`,
-                  // content 是保真清洗后的完整事件，不再二次概括成短 summary。
+                  // content 是保真清洗後的完整事件，不再二次概括成短 summary。
                   summary: memory.content,
-                  mood: memory.mood || '记录',
+                  mood: memory.mood || '記錄',
               };
           });
           if (editingIdRef.current === targetId) {
               handleChange('memories', [...(formData.memories || []), ...newMems]);
               setShowImportModal(false);
               setImportText('');
-              addToast(`成功导入 ${newMems.length} 条记忆`, 'success');
+              addToast(`成功導入 ${newMems.length} 條記憶`, 'success');
           } else {
               // Background update
               const currentMems = characters.find(c => c.id === targetId)?.memories || [];
               updateCharacter(targetId, { memories: [...currentMems, ...newMems] });
-              addToast(`后台任务完成：已保存 ${newMems.length} 条导入记忆`, 'success');
+              addToast(`後台任務完成：已保存 ${newMems.length} 條導入記憶`, 'success');
           }
-      } catch (e: any) { setImportStatus(`错误: ${e.message || '未知错误'}`); addToast('记忆清洗失败', 'error'); } finally { setIsProcessingMemory(false); } 
+      } catch (e: any) { setImportStatus(`錯誤: ${e.message || '未知錯誤'}`); addToast('記憶清洗失敗', 'error'); } finally { setIsProcessingMemory(false); } 
   };
   
   const handleBatchSummarize = async () => {
@@ -850,7 +850,7 @@ const Character: React.FC = () => {
                         })
                     }, 0);
                 } catch {
-                    // 单天失败软跳过，继续后面的日期（与原 if(response.ok) 的语义一致）
+                    // 單天失敗軟跳過，繼續後面的日期（與原 if(response.ok) 的語義一致）
                 }
 
                 if (data) {
@@ -874,10 +874,10 @@ const Character: React.FC = () => {
             const toastLevel: 'success' | 'info' | 'error' =
                 okCount === 0 ? 'error' : okCount < totalDays ? 'info' : 'success';
             const toastMsg = okCount === 0
-                ? `批量总结失败：${totalDays} 天均未生成记忆（请检查 API/模型）`
+                ? `批量總結失敗：${totalDays} 天均未生成記憶（請檢查 API/模型）`
                 : okCount < totalDays
-                    ? `批量总结完成：${okCount}/${totalDays} 天成功（部分失败）`
-                    : `批量总结完成：已生成 ${okCount} 条记忆`;
+                    ? `批量總結完成：${okCount}/${totalDays} 天成功（部分失敗）`
+                    : `批量總結完成：已生成 ${okCount} 條記憶`;
 
             if (editingIdRef.current === targetId) {
                 if (okCount > 0) handleChange('memories', [...(formData.memories || []), ...newMemories]);
@@ -902,13 +902,13 @@ const Character: React.FC = () => {
             setBatchProgress(`Error: ${e.message}`);
             setIsBatchProcessing(false);
             setShowBatchModal(false);
-            addToast(`批量总结失败: ${e.message}`, 'error');
+            addToast(`批量總結失敗: ${e.message}`, 'error');
         }
     };
 
   const handleGenerateImpression = async (type: 'initial' | 'update') => {
       if (!formData || !apiConfig.apiKey) {
-          addToast('请先配置 API Key', 'error');
+          addToast('請先配置 API Key', 'error');
           return;
       }
       
@@ -919,70 +919,70 @@ const Character: React.FC = () => {
           const charName = formData.name;
           const boundUser = userProfile;
 
-          // 构建完整角色上下文（包含人设、世界观、用户档案、精炼记忆等宏观信息）
+          // 構建完整角色上下文（包含人設、世界觀、用戶檔案、精煉記憶等宏觀信息）
           await injectMemoryPalace(formData);
           const fullContext = ContextBuilder.buildCoreContext(formData, userProfile);
 
           let messagesToAnalyze = "";
 
-          // 第一层：完整上下文 —— 宏观人格分析的基石
-          messagesToAnalyze += `\n【完整角色上下文 (Full Context - 宏观分析的基石)】:\n${fullContext}\n`;
+          // 第一層：完整上下文 —— 宏觀人格分析的基石
+          messagesToAnalyze += `\n【完整角色上下文 (Full Context - 宏觀分析的基石)】:\n${fullContext}\n`;
 
-          // 第二层：最近聊天 —— 仅用于检测近期变化
-          // 记忆部分已包含在 buildCoreContext 中（精炼月度总结 + 点亮月份的详细记忆），
-          // 与聊天时角色能看到的记忆完全一致，不再额外抓取。
-          // 重置模式下大幅减少近期聊天的数量，避免近因偏差
+          // 第二層：最近聊天 —— 僅用於檢測近期變化
+          // 記憶部分已包含在 buildCoreContext 中（精煉月度總結 + 點亮月份的詳細記憶），
+          // 與聊天時角色能看到的記憶完全一致，不再額外抓取。
+          // 重置模式下大幅減少近期聊天的數量，避免近因偏差
           const recentMsgs = await loadCharacterContextMessages(formData).then(messages => messages.slice(-(type === 'initial' ? 15 : 50)));
           const msgText = recentMsgs
               .map(m => formatMessageForPrompt(m, charName, boundUser.name))
               .join('\n');
 
-          if (msgText) messagesToAnalyze += `\n【最近的聊天记录 (Recent Chats - 仅用于检测近期变化)】:\n${msgText}\n`;
+          if (msgText) messagesToAnalyze += `\n【最近的聊天記錄 (Recent Chats - 僅用於檢測近期變化)】:\n${msgText}\n`;
           const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(messagesToAnalyze);
 
-          // 重置时不传旧印象，避免模型锚定在旧内容上
+          // 重置時不傳舊印象，避免模型錨定在舊內容上
           const normalizedCurrentImpression = normalizeUserImpression(formData.impression);
           const currentProfileJSON = (type === 'initial') ? "null" : (normalizedCurrentImpression ? JSON.stringify(normalizedCurrentImpression, null, 2) : "null");
           const isInitialGeneration = type === 'initial' || !normalizedCurrentImpression;
           
           const summaryInstruction = isInitialGeneration 
-              ? "用一段话（100字以内）概括你对TA的【宏观整体印象】。不要局限于最近的对话，而是定义TA本质上是个什么样的人，以及TA对你意味着什么。必须第一人称。"
-              : "基于旧的总结，结合新发现，更新你对TA的【宏观整体印象】。请保持长期视角的连贯性，除非发生了重大转折，否则不要因为一两句闲聊就彻底推翻对TA的本质判断。必须第一人称。";
+              ? "用一段話（100字以內）概括你對TA的【宏觀整體印象】。不要侷限於最近的對話，而是定義TA本質上是個什麼樣的人，以及TA對你意味著什麼。必須第一人稱。"
+              : "基於舊的總結，結合新發現，更新你對TA的【宏觀整體印象】。請保持長期視角的連貫性，除非發生了重大轉折，否則不要因為一兩句閒聊就徹底推翻對TA的本質判斷。必須第一人稱。";
               
-          const listInstruction = isInitialGeneration ? `"项目1", "项目2"` : `"保留旧项目", "新项目"`;
-          const changesInstruction = isInitialGeneration ? "" : `"描述变化1", "描述变化2"`;
+          const listInstruction = isInitialGeneration ? `"項目1", "項目2"` : `"保留舊項目", "新項目"`;
+          const changesInstruction = isInitialGeneration ? "" : `"描述變化1", "描述變化2"`;
 
           const prompt = `
-当前档案（你过去的观察）
+當前檔案（你過去的觀察）
 \`\`\`json
 ${currentProfileJSON}
 \`\`\`
 ${messagesToAnalyze}${sarMemoryBoundary ? `\n${sarMemoryBoundary}\n` : ''}
 
-【重要：语气与视角】
-你【就是】"${charName}"。这份档案是你写的【私人笔记】。
-因此，所有总结性的字段（如 \`core_values\`, \`summary\`, \`emotion_summary\` 等），【必须】使用你的第一人称（"我"）视角来撰写。
+【重要：語氣與視角】
+你【就是】"${charName}"。這份檔案是你寫的【私人筆記】。
+因此，所有總結性的字段（如 \`core_values\`, \`summary\`, \`emotion_summary\` 等），【必須】使用你的第一人稱（"我"）視角來撰寫。
 
-【核心指令：数据层级与权重分配】
-1. **完整角色上下文 (Full Context)**: 这是你【最重要的分析基础】。它包含了你的人设、世界观、用户档案、以及你的全部记忆（月度核心总结 + 激活月份的每日详细回忆）。你对TA的核心性格、核心价值观、互动模式、人格特质的判断，必须主要基于这些跨越完整时间线的宏观数据。你必须【平等对待】早期记忆和近期记忆，从整段关系的完整弧线中提炼人格特征。
-2. **近期聊天 (Recent Chats)**: 这【仅仅】代表TA当下的状态切片。它的作用【严格限定】在更新 [behavior_profile.emotion_summary] 和 [observed_changes] 两个字段。除非发生了重大事件（如价值观冲突、人生转折），否则【绝对不要】因为最近几次聊天的情绪波动就改变对TA本质人格的判断。
+【核心指令：數據層級與權重分配】
+1. **完整角色上下文 (Full Context)**: 這是你【最重要的分析基礎】。它包含了你的人設、世界觀、用戶檔案、以及你的全部記憶（月度核心總結 + 激活月份的每日詳細回憶）。你對TA的核心性格、核心價值觀、互動模式、人格特質的判斷，必須主要基於這些跨越完整時間線的宏觀數據。你必須【平等對待】早期記憶和近期記憶，從整段關係的完整弧線中提煉人格特徵。
+2. **近期聊天 (Recent Chats)**: 這【僅僅】代表TA當下的狀態切片。它的作用【嚴格限定】在更新 [behavior_profile.emotion_summary] 和 [observed_changes] 兩個字段。除非發生了重大事件（如價值觀衝突、人生轉折），否則【絕對不要】因為最近幾次聊天的情緒波動就改變對TA本質人格的判斷。
 ${isInitialGeneration ? `
-【重置模式特别指令 - CRITICAL】
-这是一次【完全重置】，你需要从零开始，基于所有可用的宏观数据重新构建对TA的完整认知。
-- 你的分析必须覆盖从最早记忆到最新记忆的【完整时间跨度】
-- 早期记忆和近期记忆拥有【相同的权重】——不要因为某些记忆发生得更近就赋予它们更大的影响
-- personality_core、value_map、emotion_schema 必须反映TA在【整段关系中】展现出的稳定特征，而非仅仅是近期状态
-- 如果早期记忆和近期记忆中TA的表现有差异，请在 observed_changes 中记录这种演变，但 personality_core 应反映最持久稳定的特质
+【重置模式特別指令 - CRITICAL】
+這是一次【完全重置】，你需要從零開始，基於所有可用的宏觀數據重新構建對TA的完整認知。
+- 你的分析必須覆蓋從最早記憶到最新記憶的【完整時間跨度】
+- 早期記憶和近期記憶擁有【相同的權重】——不要因為某些記憶發生得更近就賦予它們更大的影響
+- personality_core、value_map、emotion_schema 必須反映TA在【整段關係中】展現出的穩定特徵，而非僅僅是近期狀態
+- 如果早期記憶和近期記憶中TA的表現有差異，請在 observed_changes 中記錄這種演變，但 personality_core 應反映最持久穩定的特質
 ` : ''}
-【反面教材 - 严禁出现】
-- ❌ 仅根据最近聊天就总结"TA是一个喜欢讨论XX话题的人" —— 这是把近期话题当成了人格特质
-- ❌ personality_core.summary 里出现"最近"、"这几天"等时间限定词 —— summary 应该是跨越所有记忆的宏观总结
-- ✅ 正确做法：personality_core 基于完整上下文和长期记忆，observed_changes 基于近期聊天与长期印象的对比
+【反面教材 - 嚴禁出現】
+- ❌ 僅根據最近聊天就總結"TA是一個喜歡討論XX話題的人" —— 這是把近期話題當成了人格特質
+- ❌ personality_core.summary 裡出現"最近"、"這幾天"等時間限定詞 —— summary 應該是跨越所有記憶的宏觀總結
+- ✅ 正確做法：personality_core 基於完整上下文和長期記憶，observed_changes 基於近期聊天與長期印象的對比
 
-分析指令：五维画像更新 (第一人称视角)
-根据【强制对比协议】和你自己的视角，分析新消息，并${isInitialGeneration ? '【生成】' : '【增量更新】'}以下JSON结构。
+分析指令：五維畫像更新 (第一人稱視角)
+根據【強制對比協議】和你自己的視角，分析新消息，並${isInitialGeneration ? '【生成】' : '【增量更新】'}以下JSON結構。
 
-输出JSON结构v3.0（严格遵守, 不要用markdown代码块包裹，直接返回JSON）
+輸出JSON結構v3.0（嚴格遵守, 不要用markdown代碼塊包裹，直接返回JSON）
 {
   "version": 3.0,
   "lastUpdated": ${Date.now()},
@@ -1023,7 +1023,7 @@ ${isInitialGeneration ? `
     ${changesInstruction}
   ]
 }
-注意：observed_changes 的每一项必须是纯字符串（string），例如 ["最近变得更开朗了", "开始主动分享日常"]。严禁使用对象格式如 {"period": "...", "description": "..."}。`;
+注意：observed_changes 的每一項必須是純字符串（string），例如 ["最近變得更開朗了", "開始主動分享日常"]。嚴禁使用對象格式如 {"period": "...", "description": "..."}。`;
 
           const data = await safeFetchJson(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
               method: 'POST',
@@ -1033,8 +1033,8 @@ ${isInitialGeneration ? `
                   messages: [{ role: "user", content: prompt }],
                   max_tokens: 8000,
                   temperature: 0.5,
-                  // 与「设置 → API → 流式输出」保持一致，不在印象功能里强制覆盖用户选择。
-                  // 流式响应由 safeResponseJson 拼回完整对象，下游 extractContent 无需改动。
+                  // 與「設置 → API → 流式輸出」保持一致，不在印象功能裡強制覆蓋用戶選擇。
+                  // 流式響應由 safeResponseJson 拼回完整對象，下游 extractContent 無需改動。
                   stream: apiConfig.stream === true
               })
           }, 0);
@@ -1042,23 +1042,23 @@ ${isInitialGeneration ? `
 
           if (editingIdRef.current === targetId) {
               handleChange('impression', parsed);
-              addToast(isInitialGeneration ? '印象档案已生成' : '印象档案已更新', 'success');
+              addToast(isInitialGeneration ? '印象檔案已生成' : '印象檔案已更新', 'success');
           } else {
               updateCharacter(targetId, { impression: parsed });
-              addToast('后台任务完成：印象已更新到原角色', 'success');
+              addToast('後台任務完成：印象已更新到原角色', 'success');
           }
 
       } catch (e: any) {
           console.error(e);
-          addToast(`生成失败: ${e.message}`, 'error');
+          addToast(`生成失敗: ${e.message}`, 'error');
       } finally {
           setIsGeneratingImpression(false);
       }
   };
 
-  // 真正执行删除。名下有 amsg2 任务的角色 deleteCharacter 会先 await 云端清理，
-  // 清不掉返回 cloud-cleanup-failed 且本地未删 → 转进「重试 / 仍然删除」弹窗；
-  // force=true 是用户在那个弹窗里选了「仍然删除」，放行本地删除。
+  // 真正執行刪除。名下有 amsg2 任務的角色 deleteCharacter 會先 await 雲端清理，
+  // 清不掉返回 cloud-cleanup-failed 且本地未刪 → 轉進「重試 / 仍然刪除」彈窗；
+  // force=true 是用戶在那個彈窗裡選了「仍然刪除」，放行本地刪除。
   const runDeleteCharacter = async (targetId: string, force = false) => {
       setIsDeleting(true);
       try {
@@ -1070,7 +1070,7 @@ ${isInitialGeneration ? `
           }
           setDeleteConfirmTarget(null);
           setCloudCleanupFailTarget(null);
-          addToast('连接已断开', 'success');
+          addToast('連接已斷開', 'success');
       } finally {
           setIsDeleting(false);
       }
@@ -1090,8 +1090,8 @@ ${isInitialGeneration ? `
           ...rest
       } = formData;
 
-      // 只导出「角色」本身：凭据 / 美化 / 语言偏好 / 运行时状态一律剥离，
-      // 绝不把发卡人的 API 密钥等私密字段打包进卡里。清单见 utils/characterCard.ts。
+      // 只導出「角色」本身：憑據 / 美化 / 語言偏好 / 運行時狀態一律剝離，
+      // 絕不把發卡人的 API 密鑰等私密字段打包進卡里。清單見 utils/characterCard.ts。
       const cardProps = stripSensitiveCardFields(rest);
 
       const exportData: CharacterExportData = {
@@ -1100,12 +1100,12 @@ ${isInitialGeneration ? `
           type: 'sully_character_card'
       };
 
-      // 导出前明文密钥体检 + 二次确认：正常为「安全，可分享」；若意外检出密钥则中止并提示上报。
+      // 導出前明文密鑰體檢 + 二次確認：正常為「安全，可分享」；若意外檢出密鑰則中止並提示上報。
       if (!(await confirmExportSafety(exportData))) return;
 
-      // 角色身上的图（Q 版形象 sprites、见面皮肤 dateSkinSets）存的是令牌，令牌只有本机认得，
-      // 原样导出对方只会拿到一串死字符串、图全空。所以先在一份深拷贝上把令牌换回内嵌的 data URL
-      // （resolveBlobRefsDeep 是原地改的，绝不能拿 formData 去喂，那等于把用户自己的角色图改没了）。
+      // 角色身上的圖（Q 版形象 sprites、見面皮膚 dateSkinSets）存的是令牌，令牌只有本機認得，
+      // 原樣導出對方只會拿到一串死字符串、圖全空。所以先在一份深拷貝上把令牌換回內嵌的 data URL
+      // （resolveBlobRefsDeep 是原地改的，絕不能拿 formData 去喂，那等於把用戶自己的角色圖改沒了）。
       const portableData: CharacterExportData =
           typeof structuredClone === 'function'
               ? structuredClone(exportData)
@@ -1113,7 +1113,7 @@ ${isInitialGeneration ? `
       try {
           await resolveBlobRefsDeep(portableData);
       } catch {
-          addToast('导出失败：角色身上的图读取不出来', 'error');
+          addToast('導出失敗：角色身上的圖讀取不出來', 'error');
           return;
       }
 
@@ -1128,11 +1128,11 @@ ${isInitialGeneration ? `
               content: json,
               fileName,
               mimeType: 'application/json;charset=utf-8',
-              shareTitle: '导出角色卡',
+              shareTitle: '導出角色卡',
           });
           if (result === 'cancelled') return;
-          addToast(result === 'shared' ? '已打开角色卡分享面板' : '角色卡已生成并导出', 'success');
-      } catch (error: any) { addToast(error?.message || '角色卡导出失败', 'error'); }
+          addToast(result === 'shared' ? '已打開角色卡分享面板' : '角色卡已生成並導出', 'success');
+      } catch (error: any) { addToast(error?.message || '角色卡導出失敗', 'error'); }
   };
 
   const handleImportCard = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1144,19 +1144,19 @@ ${isInitialGeneration ? `
           const data: CharacterExportData = JSON.parse(json);
 
           if (data.type !== 'sully_character_card') {
-              throw new Error('无效的角色卡文件');
+              throw new Error('無效的角色卡文件');
           }
 
-          // 导入侧同样剥离凭据 / 美化 / 语言 / 运行时状态：即便对方给的是旧版
-          // 角色卡（把 API 密钥等私密字段一起打包了），也不会被写进本地角色，
-          // 不会用发卡人的 key / 主题 / 语言偏好覆盖你自己的。清单见 utils/characterCard.ts。
+          // 導入側同樣剝離憑據 / 美化 / 語言 / 運行時狀態：即便對方給的是舊版
+          // 角色卡（把 API 密鑰等私密字段一起打包了），也不會被寫進本地角色，
+          // 不會用發卡人的 key / 主題 / 語言偏好覆蓋你自己的。清單見 utils/characterCard.ts。
           const safeData = stripSensitiveCardFields(data);
 
           // Sync mounted worldbooks into the global worldbook app so they
           // appear under their original category (or the character's name
           // as a sensible fallback when the card has no category set).
           const incomingMounted = (data.mountedWorldbooks || []).map(wb => ({ ...wb }));
-          const fallbackCategory = `${data.name || '导入角色'} 的世界书`;
+          const fallbackCategory = `${data.name || '導入角色'} 的世界書`;
           let importedWbCount = 0;
           for (const wb of incomingMounted) {
               if (!wb.id || worldbooks.some(existing => existing.id === wb.id)) continue;
@@ -1165,7 +1165,7 @@ ${isInitialGeneration ? `
               await addWorldbook({
                   ...wb,
                   id: wb.id,
-                  title: wb.title || '未命名设定',
+                  title: wb.title || '未命名設定',
                   content: wb.content || '',
                   category,
                   createdAt: Date.now(),
@@ -1185,18 +1185,18 @@ ${isInitialGeneration ? `
 
           await DB.saveCharacter(newChar);
           trackEvent('导入角色卡');
-          // 不要调用 addCharacter()——它不是"刷新"，而是真的新建一个空白
-          // "New Character" 并写进 DB，reload 后就会多出一张空白卡。
-          // 导入的角色已经存进了 DB（上一行），reload 时 OSContext 会从
-          // DB 重新读全部角色，导入的角色自然会出现，无需手动刷新 state。
+          // 不要調用 addCharacter()——它不是"刷新"，而是真的新建一個空白
+          // "New Character" 並寫進 DB，reload 後就會多出一張空白卡。
+          // 導入的角色已經存進了 DB（上一行），reload 時 OSContext 會從
+          // DB 重新讀全部角色，導入的角色自然會出現，無需手動刷新 state。
           setTimeout(() => window.location.reload(), 500);
 
-          const wbToastSuffix = importedWbCount > 0 ? `，并同步 ${importedWbCount} 本世界书` : '';
-          addToast(`角色 ${newChar.name} 导入成功${wbToastSuffix}`, 'success');
+          const wbToastSuffix = importedWbCount > 0 ? `，並同步 ${importedWbCount} 本世界書` : '';
+          addToast(`角色 ${newChar.name} 導入成功${wbToastSuffix}`, 'success');
 
       } catch (err: any) {
           console.error(err);
-          addToast(err.message || '导入失败', 'error');
+          addToast(err.message || '導入失敗', 'error');
       } finally {
           if (cardImportRef.current) cardImportRef.current.value = '';
       }
@@ -1220,26 +1220,26 @@ ${isInitialGeneration ? `
        ) : view === 'list' ? (
            <div className="flex flex-col h-full animate-fade-in relative"
                 style={{ background: 'linear-gradient(180deg, #f5f2fb 0%, #ece6f6 100%)' }}>
-               {/* safe-area: pt 用 max(3.5rem, 刘海高度)，保呼吸感同时更高刘海设备不被挡 */}
+               {/* safe-area: pt 用 max(3.5rem, 劉海高度)，保呼吸感同時更高劉海設備不被擋 */}
                <div className="px-6 pb-4 shrink-0 flex items-start justify-between" style={{ paddingTop: 'max(3.5rem, var(--safe-top))' }}>
                    <div className="relative">
                        <span className="absolute -top-3 -left-2 text-violet-300 text-xs select-none">✦</span>
                        <span className="absolute -top-1 left-9 text-violet-200 text-[10px] select-none">✦</span>
-                       <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神经链接</h1>
-                       <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.length}</span> 个角色连接</p>
+                       <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神經鏈接</h1>
+                       <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.length}</span> 個角色連接</p>
                    </div>
                    <div className="flex gap-3 pt-1">
-                        <ToolButton label="分组" title="角色分组管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
+                        <ToolButton label="分組" title="角色分組管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
                             </svg>
                         </ToolButton>
-                        <ToolButton label="导入" title="导入角色卡" onClick={() => cardImportRef.current?.click()}>
+                        <ToolButton label="導入" title="導入角色卡" onClick={() => cardImportRef.current?.click()}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                             </svg>
                         </ToolButton>
-                        <ToolButton label="关闭" title="关闭" onClick={closeApp}>
+                        <ToolButton label="關閉" title="關閉" onClick={closeApp}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                         </ToolButton>
                         <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportCard} />
@@ -1261,8 +1261,8 @@ ${isInitialGeneration ? `
                </div>
                <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
                    {(() => {
-                       // 建过分组 → 按组折叠展开（不再分页，分组本身就把列表变短了）；
-                       // 没建过分组 → 维持原来的分页列表，零变化。
+                       // 建過分組 → 按組摺疊展開（不再分頁，分組本身就把列表變短了）；
+                       // 沒建過分組 → 維持原來的分頁列表，零變化。
                        if (characterGroups.length > 0) {
                            const knownGroupIds = new Set(characterGroups.map(g => g.id));
                            const sections = [
@@ -1273,8 +1273,8 @@ ${isInitialGeneration ? `
                                })),
                                {
                                    id: GROUP_FILTER_UNGROUPED,
-                                   name: '未分组',
-                                   // groupId 指向已删分组的角色也归到未分组，不会凭空消失
+                                   name: '未分組',
+                                   // groupId 指向已刪分組的角色也歸到未分組，不會憑空消失
                                    chars: characters.filter(c => !c.groupId || !knownGroupIds.has(c.groupId)),
                                },
                            ].filter(s => s.id !== GROUP_FILTER_UNGROUPED || s.chars.length > 0);
@@ -1284,7 +1284,7 @@ ${isInitialGeneration ? `
                                        const expanded = expandedGroups.includes(section.id);
                                        return (
                                            <div key={section.id} className="shrink-0">
-                                               {/* 分组条：干净的圆角白卡，左折叠箭头 + 组名 + 数量胶囊，右侧 ">" 指示可展开 */}
+                                               {/* 分組條：乾淨的圓角白卡，左摺疊箭頭 + 組名 + 數量膠囊，右側 ">" 指示可展開 */}
                                                <button onClick={() => toggleGroupExpanded(section.id)}
                                                    className={`w-full h-14 flex items-center gap-3 px-5 rounded-2xl bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-violet-200' : 'border-slate-100 hover:border-violet-200'} shadow-[0_2px_10px_rgba(140,120,200,0.07)]`}>
                                                    <svg viewBox="0 0 12 12" className={`w-3 h-3 text-violet-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
@@ -1309,7 +1309,7 @@ ${isInitialGeneration ? `
                                                            />
                                                        ))}
                                                        {section.chars.length === 0 && (
-                                                           <div className="text-xs text-violet-300 px-3 pb-1">空分组——在角色「设定」页里指派</div>
+                                                           <div className="text-xs text-violet-300 px-3 pb-1">空分組——在角色「設定」頁裡指派</div>
                                                        )}
                                                    </div>
                                                )}
@@ -1317,7 +1317,7 @@ ${isInitialGeneration ? `
                                        );
                                    })}
                                    <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
-                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建链接
+                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建鏈接
                                    </button>
                                </>
                            );
@@ -1341,7 +1341,7 @@ ${isInitialGeneration ? `
                                    />
                                ))}
                                <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
-                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建链接
+                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建鏈接
                                </button>
                                {totalPages > 1 && (
                                    <div className="flex items-center justify-center gap-3 pt-2 shrink-0">
@@ -1363,24 +1363,24 @@ ${isInitialGeneration ? `
            </div>
        ) : formData && (
            <div className="flex flex-col h-full animate-fade-in bg-slate-50/50 relative">
-               {/* safe-area: OUTER 保留渐变背景 + 模糊 + sticky，刘海高度由 paddingTop 让位；
-                   INNER 不再用 h-32 沉底——那是老的「做高栏 + 内容沉底」状态栏预留写法，会和 safe-top 叠加出一大块空白。
-                   改为内容自然高度、直接贴在 safe-top 下方。 */}
-               {/* 顶栏 paddingTop 用 max(2.75rem, safe-top) 保底：--safe-top 为 0 的环境
-                   （无刘海/某些 WebView）下也留出状态栏高度，避免「列表/发消息」贴到状态栏。
-                   与列表页及全项目 detail 顶栏惯例（max(rem, var(--safe-top))）一致。 */}
+               {/* safe-area: OUTER 保留漸變背景 + 模糊 + sticky，劉海高度由 paddingTop 讓位；
+                   INNER 不再用 h-32 沉底——那是老的「做高欄 + 內容沉底」狀態欄預留寫法，會和 safe-top 疊加出一大塊空白。
+                   改為內容自然高度、直接貼在 safe-top 下方。 */}
+               {/* 頂欄 paddingTop 用 max(2.75rem, safe-top) 保底：--safe-top 為 0 的環境
+                   （無劉海/某些 WebView）下也留出狀態欄高度，避免「列表/發消息」貼到狀態欄。
+                   與列表頁及全項目 detail 頂欄慣例（max(rem, var(--safe-top))）一致。 */}
                <div className="bg-gradient-to-b from-white/90 to-transparent backdrop-blur-sm shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
-                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>发消息</button>
+                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>發消息</button>
                    </div>
                    <div className="flex gap-6 text-sm font-medium text-slate-400 pl-1">
-                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>设定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>记忆 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>設定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>記憶 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
                        <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-slate-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>门牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手办{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>門牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手辦{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
                    </div>
                  </div>
                </div>
@@ -1393,25 +1393,25 @@ ${isInitialGeneration ? `
                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                </div>
                                <div className="flex-1 space-y-3">
-                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-200" placeholder="名称" />
+                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-200" placeholder="名稱" />
                                    <input value={formData.description} onChange={(e) => handleChange('description', e.target.value)} className="w-full bg-transparent py-1 text-sm text-slate-500 border-b border-slate-200" placeholder="描述" />
-                                   {/* 头像 URL 入口: 与左侧上传文件平级. 走 draft -> 失焦/回车 commit,
-                                       避免逐字 commit 导致所有引用 char.avatar 的 <img> 在打字时疯狂
-                                       请求不完整 URL. https URL 会作为主动消息的通知图标传到 worker;
-                                       本地上传 (data URL) 仅本地显示, 不进 push payload. */}
+                                   {/* 頭像 URL 入口: 與左側上傳文件平級. 走 draft -> 失焦/回車 commit,
+                                       避免逐字 commit 導致所有引用 char.avatar 的 <img> 在打字時瘋狂
+                                       請求不完整 URL. https URL 會作為主動消息的通知圖標傳到 worker;
+                                       本地上傳 (data URL) 僅本地顯示, 不進 push payload. */}
                                    <input
                                        type="url"
                                        value={avatarUrlDraft}
                                        onChange={(e) => setAvatarUrlDraft(e.target.value)}
                                        onBlur={() => {
                                            const v = avatarUrlDraft.trim();
-                                           // 空 draft 分两种情况:
-                                           //  - 当前 avatar 是 https URL: 用户清空 = 想移除这个 URL, commit '' 让头像清空
-                                           //  - 当前 avatar 是 data URL / emoji / 空: input 本就为空, 不动 (避免误清已上传的图)
+                                           // 空 draft 分兩種情況:
+                                           //  - 當前 avatar 是 https URL: 用戶清空 = 想移除這個 URL, commit '' 讓頭像清空
+                                           //  - 當前 avatar 是 data URL / emoji / 空: input 本就為空, 不動 (避免誤清已上傳的圖)
                                            if (!v) {
                                                if (/^https?:\/\//i.test(formData.avatar || '')) {
                                                    handleChange('avatar', '');
-                                                   addToast('头像 URL 已移除', 'info');
+                                                   addToast('頭像 URL 已移除', 'info');
                                                }
                                                return;
                                            }
@@ -1419,30 +1419,30 @@ ${isInitialGeneration ? `
                                                const u = new URL(v);
                                                if (!/^https?:$/.test(u.protocol)) throw new Error();
                                            } catch {
-                                               addToast('请填写有效的 http(s) 图片链接', 'error');
+                                               addToast('請填寫有效的 http(s) 圖片鏈接', 'error');
                                                return;
                                            }
                                            if (v !== formData.avatar) {
                                                handleChange('avatar', v);
-                                               addToast('头像 URL 已保存', 'success');
+                                               addToast('頭像 URL 已保存', 'success');
                                            }
                                        }}
                                        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                       placeholder="或粘贴图片 URL（回车确认）"
+                                       placeholder="或粘貼圖片 URL（回車確認）"
                                        className="w-full bg-transparent py-1 text-xs text-slate-400 border-b border-slate-200 placeholder:text-slate-300"
                                    />
                                </div>
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">分组</label>
+                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">分組</label>
                                <div className="flex gap-2 items-center">
                                    <select
                                        value={formData.groupId && characterGroups.some(g => g.id === formData.groupId) ? formData.groupId : ''}
                                        onChange={e => handleChange('groupId', e.target.value || undefined)}
                                        className="flex-1 bg-white rounded-2xl px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-primary/20 outline-none appearance-none"
                                    >
-                                       <option value="">未分组</option>
+                                       <option value="">未分組</option>
                                        {sortCharacterGroups(characterGroups).map(g => (
                                            <option key={g.id} value={g.id}>{g.name}</option>
                                        ))}
@@ -1459,12 +1459,12 @@ ${isInitialGeneration ? `
                                                setDetailGroupDraft(null);
                                                if (!name) return;
                                                const existing = characterGroups.find(g => g.name === name);
-                                               // 同名分组直接指派进去，不重复创建
+                                               // 同名分組直接指派進去，不重複創建
                                                const group = existing || await createCharacterGroup(name);
                                                if (group) handleChange('groupId', group.id);
                                            }}
                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                           placeholder="分组名，回车确认"
+                                           placeholder="分組名，回車確認"
                                            className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-primary/20 shrink-0"
                                        />
                                    )}
@@ -1473,32 +1473,32 @@ ${isInitialGeneration ? `
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
-                               <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="设定..." />
+                               <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="設定..." />
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界观 / 设定补充 (Worldview & Lore)</label>
+                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界觀 / 設定補充 (Worldview & Lore)</label>
                                <textarea
                                     value={formData.worldview || ''}
                                     onChange={(e) => handleChange('worldview', e.target.value)}
                                     className="w-full h-24 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
-                                    placeholder="在这个世界里，魔法是存在的..."
+                                    placeholder="在這個世界裡，魔法是存在的..."
                                 />
                            </div>
 
-                           {/* 时间感知 & 时区：三个独立开关，可任意组合（聊天时间感知 / 自定义时区 / 线下时间感知） */}
+                           {/* 時間感知 & 時區：三個獨立開關，可任意組合（聊天時間感知 / 自定義時區 / 線下時間感知） */}
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">时间感知 & 时区</label>
-                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三个开关相互独立、可任意组合。改完即时生效（下一条回复起算）。</p>
+                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">時間感知 & 時區</label>
+                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三個開關相互獨立、可任意組合。改完即時生效（下一條回覆起算）。</p>
                                </div>
 
-                               {/* 1. 聊天 · 时间感知强化 */}
+                               {/* 1. 聊天 · 時間感知強化 */}
                                <div className="border-t border-slate-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">聊天 · 时间感知强化</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。开启后角色会记得你们多久没聊、主动贴近真实时间；关掉后这种感觉会变弱。</p>
+                                           <p className="text-xs font-bold text-slate-700">聊天 · 時間感知強化</p>
+                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。開啟后角色會記得你們多久沒聊、主動貼近真實時間；關掉後這種感覺會變弱。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('timeAwarenessEnabled', formData.timeAwarenessEnabled === false)}
@@ -1509,12 +1509,12 @@ ${isInitialGeneration ? `
                                    </div>
                                </div>
 
-                               {/* 2. 自定义时区（异国恋等） */}
+                               {/* 2. 自定義時區（異國戀等） */}
                                <div className="border-t border-slate-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">自定义时区</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关（跟随本机）。开启后角色活在自己的时区里，按所选时区过日子，也知道和你有时差——适合异国恋、角色身处异国。</p>
+                                           <p className="text-xs font-bold text-slate-700">自定義時區</p>
+                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認關（跟隨本機）。開啟后角色活在自己的時區裡，按所選時區過日子，也知道和你有時差——適合異國戀、角色身處異國。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('customTimezoneEnabled', !formData.customTimezoneEnabled)}
@@ -1529,7 +1529,7 @@ ${isInitialGeneration ? `
                                            onChange={(e) => handleChange('customTimezone', e.target.value)}
                                            className="mt-3 w-full bg-slate-50 rounded-2xl px-3 py-2.5 text-xs border border-slate-200 outline-none focus:ring-1 focus:ring-primary/30"
                                        >
-                                           <option value="">请选择角色所在时区…</option>
+                                           <option value="">請選擇角色所在時區…</option>
                                            {COMMON_TIMEZONES.map(tz => (
                                                <option key={tz.id} value={tz.id}>{tz.label}</option>
                                            ))}
@@ -1537,12 +1537,12 @@ ${isInitialGeneration ? `
                                    )}
                                </div>
 
-                               {/* 3. 线下时间感知（约会 / 见面 App） */}
+                               {/* 3. 線下時間感知（約會 / 見面 App） */}
                                <div className="border-t border-slate-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">线下时间感知（约会）</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认开。见面时剧情会跟着现实时间走。关掉后剧情脱离现实时间线，更适合纯架空。</p>
+                                           <p className="text-xs font-bold text-slate-700">線下時間感知（約會）</p>
+                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。見面時劇情會跟著現實時間走。關掉後劇情脫離現實時間線，更適合純架空。</p>
                                        </div>
                                        <button
                                            onClick={() => handleChange('dateTimeAwarenessEnabled', formData.dateTimeAwarenessEnabled === false ? undefined : false)}
@@ -1554,19 +1554,19 @@ ${isInitialGeneration ? `
                                </div>
                            </div>
 
-                           {/* 生活记录注入：总开关 + 4 个模块小开关（数据在档案 App「生活记录」里维护） */}
+                           {/* 生活記錄注入：總開關 + 4 個模塊小開關（數據在檔案 App「生活記錄」裡維護） */}
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
                                <div>
-                                   <label className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block">生活记录注入</label>
-                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">把你在「档案 → 生活记录」里的生理期 / 药盒 / 记账 / 锻炼作为潜意识背景注入给该角色；你明确说出相关事实时，ta 还能帮你顺手记一笔（聊天里会出卡片，可确认 / 否决）。</p>
+                                   <label className="text-[10px] font-bold text-rose-500 uppercase tracking-widest block">生活記錄注入</label>
+                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">把你在「檔案 → 生活記錄」裡的生理期 / 藥盒 / 記帳 / 鍛鍊作為潛意識背景注入給該角色；你明確說出相關事實時，ta 還能幫你順手記一筆（聊天裡會出卡片，可確認 / 否決）。</p>
                                </div>
 
-                               {/* 总开关 */}
+                               {/* 總開關 */}
                                <div className="border-t border-slate-100 pt-3">
                                    <div className="flex items-center justify-between gap-3">
                                        <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">总开关</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默认关。关闭时不注入任何生活记录内容，连代记指令的用法都不会教给角色。</p>
+                                           <p className="text-xs font-bold text-slate-700">總開關</p>
+                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認關。關閉時不注入任何生活記錄內容，連代記指令的用法都不會教給角色。</p>
                                        </div>
                                        <button
                                            onClick={() => { handleChange('lifeRecordEnabled', !formData.lifeRecordEnabled); trackEvent('开启角色生活记录注入', { state: formData.lifeRecordEnabled ? 'off' : 'on' }); }}
@@ -1577,13 +1577,13 @@ ${isInitialGeneration ? `
                                    </div>
                                </div>
 
-                               {/* 模块小开关（总开关关闭时整体置灰） */}
+                               {/* 模塊小開關（總開關關閉時整體置灰） */}
                                <div className={`border-t border-slate-100 pt-3 space-y-3 ${formData.lifeRecordEnabled ? '' : 'opacity-40 pointer-events-none'}`}>
                                    {([
-                                       ['lifeRecordPeriodEnabled', 'period', '生理期', '经期状态 / 周期预测 + 代记「来了 / 结束了」'],
-                                       ['lifeRecordMedEnabled', 'med', '药盒', '今日用药计划与打卡情况 + 代记「吃了 xx 药」'],
-                                       ['lifeRecordExpenseEnabled', 'expense', '记账', '今日支出（与银行 App 打通）+ 代记「花了 xx 钱」'],
-                                       ['lifeRecordExerciseEnabled', 'exercise', '锻炼', '今日 / 本周锻炼情况 + 代记「做了 xx 运动」'],
+                                       ['lifeRecordPeriodEnabled', 'period', '生理期', '經期狀態 / 週期預測 + 代記「來了 / 結束了」'],
+                                       ['lifeRecordMedEnabled', 'med', '藥盒', '今日用藥計劃與打卡情況 + 代記「吃了 xx 藥」'],
+                                       ['lifeRecordExpenseEnabled', 'expense', '記帳', '今日支出（與銀行 App 打通）+ 代記「花了 xx 錢」'],
+                                       ['lifeRecordExerciseEnabled', 'exercise', '鍛鍊', '今日 / 本週鍛鍊情況 + 代記「做了 xx 運動」'],
                                    ] as const).filter(([, moduleKey]) => !hiddenLifeModules.includes(moduleKey)).map(([field, , label, desc]) => (
                                        <div key={field} className="flex items-center justify-between gap-3">
                                            <div className="min-w-0">
@@ -1603,13 +1603,13 @@ ${isInitialGeneration ? `
 
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
                                <div className="flex items-center justify-between">
-                                   <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色语音音色</label>
+                                   <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色語音音色</label>
                                    <div className="flex gap-1.5">
                                        <button
                                            onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
                                            className="text-[10px] bg-violet-50 text-violet-700 px-2 py-1 rounded font-bold hover:bg-violet-100 flex items-center gap-0.5"
                                        >
-                                           <SlidersHorizontal size={10} weight="bold" /> 捏声音
+                                           <SlidersHorizontal size={10} weight="bold" /> 捏聲音
                                        </button>
                                        <button
                                            onClick={handleLoadMiniMaxVoices}
@@ -1620,17 +1620,17 @@ ${isInitialGeneration ? `
                                        </button>
                                    </div>
                                </div>
-                               <p className="text-[11px] text-slate-500">已有 voice_id 可直接填，不依赖查询。聊天角色配置后，后续接 TTS 可直接读取。</p>
+                               <p className="text-[11px] text-slate-500">已有 voice_id 可直接填，不依賴查詢。聊天角色配置後，後續接 TTS 可直接讀取。</p>
 
                                <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-2">
                                    <div className="flex items-center justify-between gap-2">
-                                       <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">MiniMax 合成参数</span>
-                                       <span className="text-[9px] text-slate-400">老角色默认经典</span>
+                                       <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">MiniMax 合成參數</span>
+                                       <span className="text-[9px] text-slate-400">老角色默認經典</span>
                                    </div>
                                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/80 p-1">
                                        {([
-                                           ['legacy', '经典参数'],
-                                           ['natural-v2', '新版自然参数'],
+                                           ['legacy', '經典參數'],
+                                           ['natural-v2', '新版自然參數'],
                                        ] as const).map(([version, label]) => {
                                            const activeVersion = formData.voiceProfile?.minimaxParamVersion === 'natural-v2' ? 'natural-v2' : 'legacy';
                                            return (
@@ -1650,8 +1650,8 @@ ${isInitialGeneration ? `
                                    </div>
                                    <p className="text-[10px] text-slate-400 leading-relaxed">
                                        {formData.voiceProfile?.minimaxParamVersion === 'natural-v2'
-                                           ? '对齐捏声音试听与聊天、见面、电话参数，保留模型原生韵律，不再自动给每个标点插停顿。'
-                                           : '保留现有自动停顿、参数限幅和动态情感优先规则，历史效果不会改变。'}
+                                           ? '對齊捏聲音試聽與聊天、見面、電話參數，保留模型原生韻律，不再自動給每個標點插停頓。'
+                                           : '保留現有自動停頓、參數限幅和動態情感優先規則，歷史效果不會改變。'}
                                    </p>
                                </div>
 
@@ -1668,7 +1668,7 @@ ${isInitialGeneration ? `
                                            notes: formData.voiceProfile?.notes || '',
                                        })}
                                        className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="voice_id（可直接贴）"
+                                       placeholder="voice_id（可直接貼）"
                                    />
                                    <input
                                        value={formData.voiceProfile?.model || 'speech-2.8-hd'}
@@ -1682,13 +1682,13 @@ ${isInitialGeneration ? `
                                            notes: formData.voiceProfile?.notes || '',
                                        })}
                                        className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="TTS 模型（默认 speech-2.8-hd）"
+                                       placeholder="TTS 模型（默認 speech-2.8-hd）"
                                    />
                                </div>
 
-                               {/* 鱼声 Fish Audio 音色：仅当全局语音服务商切到鱼声时生效（设置 → 其他 API） */}
+                               {/* 魚聲 Fish Audio 音色：僅當全局語音服務商切到魚聲時生效（設置 → 其他 API） */}
                                <div className="rounded-2xl border border-sky-200/60 bg-sky-50/40 p-2.5 space-y-1.5">
-                                   <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">鱼声 Fish 音色</div>
+                                   <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">魚聲 Fish 音色</div>
                                    <input
                                        value={formData.voiceProfile?.fishReferenceId || ''}
                                        onChange={(e) => handleChange('voiceProfile', {
@@ -1696,12 +1696,12 @@ ${isInitialGeneration ? `
                                            fishReferenceId: e.target.value,
                                        })}
                                        className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="粘贴 reference_id 或整条 fish.audio 链接"
+                                       placeholder="粘貼 reference_id 或整條 fish.audio 鏈接"
                                    />
-                                   <p className="text-[10px] text-slate-400">从 fish.audio 选好音色后，把那一页的链接（含 ?modelId=…）或 32 位 id 直接贴进来都行，会自动识别。设置里语音选「鱼声 Fish」后该角色就用它合成；与上面的 MiniMax voice_id 各存各的。</p>
+                                   <p className="text-[10px] text-slate-400">從 fish.audio 選好音色後，把那一頁的鏈接（含 ?modelId=…）或 32 位 id 直接貼進來都行，會自動識別。設置里語音選「魚聲 Fish」後該角色就用它合成；與上面的 MiniMax voice_id 各存各的。</p>
                                </div>
 
-                               {/* ElevenLabs 音色：角色独立保存，设置页只负责 Key / 模型。 */}
+                               {/* ElevenLabs 音色：角色獨立保存，設置頁只負責 Key / 模型。 */}
                                <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-1.5">
                                    <div className="flex items-center justify-between gap-2">
                                        <div className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">ElevenLabs 音色</div>
@@ -1711,7 +1711,7 @@ ${isInitialGeneration ? `
                                            disabled={isTestingElevenLabsVoice}
                                            className="text-[10px] rounded-lg border border-violet-200 bg-white px-2 py-1 font-bold text-violet-600 disabled:opacity-50"
                                        >
-                                           {isTestingElevenLabsVoice ? '试听中…' : '试听'}
+                                           {isTestingElevenLabsVoice ? '試聽中…' : '試聽'}
                                        </button>
                                    </div>
                                    <input
@@ -1721,15 +1721,15 @@ ${isInitialGeneration ? `
                                            elevenLabsVoiceId: e.target.value,
                                        })}
                                        className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="粘贴 Voice ID 或 ElevenLabs 音色页面链接"
+                                       placeholder="粘貼 Voice ID 或 ElevenLabs 音色頁面鏈接"
                                    />
-                                   <p className="text-[10px] text-slate-400">从 ElevenLabs Voices / Voice Library 复制 Voice ID；也可直接粘贴含 voiceId 的页面链接。设置里语音选 ElevenLabs 后使用，与 MiniMax、鱼声音色分别保存。</p>
+                                   <p className="text-[10px] text-slate-400">從 ElevenLabs Voices / Voice Library 複製 Voice ID；也可直接粘貼含 voiceId 的頁面鏈接。設置里語音選 ElevenLabs 後使用，與 MiniMax、魚聲音色分別保存。</p>
                                </div>
 
-                               {/* 语速：三家 TTS 共用 voiceProfile.speed */}
+                               {/* 語速：三家 TTS 共用 voiceProfile.speed */}
                                <div className="space-y-1 pt-1">
                                    <div className="flex items-center justify-between">
-                                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">语速</label>
+                                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">語速</label>
                                        <span className="text-[11px] font-mono text-slate-500">{(formData.voiceProfile?.speed ?? 1).toFixed(2)}×</span>
                                    </div>
                                    <input
@@ -1744,14 +1744,14 @@ ${isInitialGeneration ? `
                                        })}
                                        className="w-full accent-primary"
                                    />
-                                   <p className="text-[10px] text-slate-400">越小越慢、越像娓娓道来。1.0 正常；觉得“赶”就拉到 0.85–0.95。MiniMax、鱼声与 ElevenLabs 共用该角色的语速。</p>
+                                   <p className="text-[10px] text-slate-400">越小越慢、越像娓娓道來。1.0 正常；覺得“趕”就拉到 0.85–0.95。MiniMax、魚聲與 ElevenLabs 共用該角色的語速。</p>
                                </div>
 
                                {(voiceOptions.system.length + voiceOptions.voice_cloning.length + voiceOptions.voice_generation.length) > 0 && (
                                    <div className="space-y-2 pt-1">
                                        {([
-                                           ['system', '系统音色'],
-                                           ['voice_cloning', '复刻音色'],
+                                           ['system', '系統音色'],
+                                           ['voice_cloning', '復刻音色'],
                                            ['voice_generation', '文生音色'],
                                        ] as const).map(([source, label]) => {
                                            const list = voiceOptions[source];
@@ -1778,7 +1778,7 @@ ${isInitialGeneration ? `
                                )}
                            </div>
 
-                           {/* Image Generation Section — 该角色专属生图设定 */}
+                           {/* Image Generation Section — 該角色專屬生圖設定 */}
                            <div>
                                <CharacterImageGenPanel
                                    charName={formData.name}
@@ -1791,23 +1791,23 @@ ${isInitialGeneration ? `
                            {/* Worldbook Section */}
                            <div>
                                <div className="flex justify-between items-center mb-2 px-1">
-                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 扩展设定 (Worldbooks)</label>
-                                   <button onClick={openWorldbookModal} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 挂载</button>
+                                   <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block flex items-center gap-1"><Books size={12} /> 擴展設定 (Worldbooks)</label>
+                                   <button onClick={openWorldbookModal} className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold hover:bg-indigo-100">+ 掛載</button>
                                 </div>
                                 <div className="space-y-2">
                                    {formData.mountedWorldbooks && formData.mountedWorldbooks.length > 0 ? (
                                        [...formData.mountedWorldbooks.reduce((groups, book) => {
-                                           const category = book.category || '未分类设定 (General)';
+                                           const category = book.category || '未分類設定 (General)';
                                            groups.set(category, [...(groups.get(category) || []), book]);
                                            return groups;
                                        }, new Map<string, NonNullable<CharacterProfile['mountedWorldbooks']>>())].map(([category, books]) => (
                                            <details key={category} className="rounded-2xl border border-indigo-50 bg-white overflow-hidden" data-mounted-worldbook-group={category}>
-                                               <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700 break-words">{category} <span className="font-normal text-slate-400">· {books.length} 条</span></summary>
+                                               <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700 break-words">{category} <span className="font-normal text-slate-400">· {books.length} 條</span></summary>
                                                <div className="px-4 pb-3">
                                                    <div className="mb-2 flex justify-end"><button type="button" onClick={() => {
                                                        const ids = new Set(books.map(book => book.id));
                                                        setFormData(prev => prev ? { ...prev, mountedWorldbooks: (prev.mountedWorldbooks || []).filter(book => !ids.has(book.id)) } : prev);
-                                                   }} className="py-1 text-[11px] text-rose-400">整组取消挂载</button></div>
+                                                   }} className="py-1 text-[11px] text-rose-400">整組取消掛載</button></div>
                                                    {books.map(wb => <div key={wb.id} className="flex items-start gap-2 border-t border-slate-100 py-2">
                                                        <details className="min-w-0 flex-1" onToggle={event => {
                                                            const open = event.currentTarget.open;
@@ -1816,14 +1816,14 @@ ${isInitialGeneration ? `
                                                            <summary className="cursor-pointer text-xs text-slate-600 break-words">{wb.title}</summary>
                                                            {expandedMountedBookIds.has(wb.id) && <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-slate-500">{wb.content}</p>}
                                                        </details>
-                                                       <button type="button" aria-label={'取消挂载 ' + wb.title} onClick={() => unmountWorldbook(wb.id)} className="shrink-0 px-2 text-slate-400">×</button>
+                                                       <button type="button" aria-label={'取消掛載 ' + wb.title} onClick={() => unmountWorldbook(wb.id)} className="shrink-0 px-2 text-slate-400">×</button>
                                                    </div>)}
                                                </div>
                                            </details>
                                        ))
                                    ) : (
                                        <div className="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
-                                           暂未挂载任何世界书
+                                           暫未掛載任何世界書
                                        </div>
                                    )}
                                </div>
@@ -1838,9 +1838,9 @@ ${isInitialGeneration ? `
                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                                    </svg>
-                                   分享 / 导出角色卡
+                                   分享 / 導出角色卡
                                </button>
-                               <p className="text-[10px] text-slate-400 text-center mt-2">导出内容不包含记忆库和聊天记录</p>
+                               <p className="text-[10px] text-slate-400 text-center mt-2">導出內容不包含記憶庫和聊天記錄</p>
                            </div>
                        </div>
                    )}
@@ -1848,9 +1848,9 @@ ${isInitialGeneration ? `
                    {detailTab === 'memory' && (
                        <div className="space-y-4 animate-fade-in">
                            <div className="flex justify-center gap-2 mb-4">
-                               <button onClick={() => { setShowBatchModal(true); trackEvent('打开批量记忆总结弹窗'); }} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">批量总结（可指定日期）</button>
-                               <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">导入/清洗</button>
-                               <button onClick={handleExportPreview} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">备份</button>
+                               <button onClick={() => { setShowBatchModal(true); trackEvent('打开批量记忆总结弹窗'); }} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">批量總結（可指定日期）</button>
+                               <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">導入/清洗</button>
+                               <button onClick={handleExportPreview} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">備份</button>
                            </div>
                            <MemoryArchivist
                                memories={archiveMemories}
@@ -1893,8 +1893,8 @@ ${isInitialGeneration ? `
            </div>
        )}
        
-       {/* QQ捏人工坊：直接写库（sprites / vrState / specialMomentRecords / chibiStudio），
-           关闭时把最新角色数据拉回 formData——否则后续编辑会用旧副本 auto-save 盖掉工坊成果 */}
+       {/* QQ捏人工坊：直接寫庫（sprites / vrState / specialMomentRecords / chibiStudio），
+           關閉時把最新角色數據拉回 formData——否則後續編輯會用舊副本 auto-save 蓋掉工坊成果 */}
        {showChibiStudio && formData && (
            <ChibiStudio
                charId={formData.id}
@@ -1907,16 +1907,16 @@ ${isInitialGeneration ? `
        )}
 
        {/* Modals ... */}
-       <Modal isOpen={showImportModal} title="记忆导入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-primary shadow-primary/30'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '处理中...' : importLengthInfo.overLimit ? '请先分批' : '开始执行'}</button></>}>
+       <Modal isOpen={showImportModal} title="記憶導入/清洗" onClose={() => setShowImportModal(false)} footer={<><button onClick={() => setShowImportModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">取消</button><button onClick={handleImportMemories} disabled={isProcessingMemory || importLengthInfo.overLimit} className={`flex-1 py-3 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 ${importLengthInfo.overLimit ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-primary shadow-primary/30'}`}>{isProcessingMemory && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}{isProcessingMemory ? '處理中...' : importLengthInfo.overLimit ? '請先分批' : '開始執行'}</button></>}>
            <div className="space-y-3">
                <div className="text-xs text-slate-400 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
-                   适合从其它应用“搬家”。最多 5 万字，字数只在本地统计；AI 只整理时间与事件结构，不摘要、不合并、不省略原有细节。5 万字以内会自动分批，无需手动切。
+                   適合從其它應用“搬家”。最多 5 萬字，字數只在本地統計；AI 只整理時間與事件結構，不摘要、不合並、不省略原有細節。5 萬字以內會自動分批，無需手動切。
                </div>
                {importStatus && <div className="text-xs text-primary font-medium">{importStatus}</div>}
                <textarea
                    value={importText}
                    onChange={e => setImportText(e.target.value)}
-                   placeholder="在此粘贴从别处带来的记忆文本…"
+                   placeholder="在此粘貼從別處帶來的記憶文本…"
                    className="w-full h-40 bg-slate-100 border-none rounded-2xl px-4 py-3 text-sm text-slate-700 resize-none focus:ring-2 focus:ring-primary/20 transition-all"
                />
                {importLengthInfo.overLimit && (
@@ -1925,21 +1925,21 @@ ${isInitialGeneration ? `
                    </div>
                )}
                <div className={`text-right text-[10px] ${importLengthInfo.overLimit ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
-                   {importLengthInfo.count.toLocaleString()} / {EXTERNAL_MEMORY_MAX_CHARS.toLocaleString()} 字（本地统计）
+                   {importLengthInfo.count.toLocaleString()} / {EXTERNAL_MEMORY_MAX_CHARS.toLocaleString()} 字（本地統計）
                </div>
            </div>
        </Modal>
 
-       <Modal isOpen={showBatchModal} title="批量记忆总结" onClose={() => { setShowBatchModal(false); setShowPromptEditor(false); }} footer={
+       <Modal isOpen={showBatchModal} title="批量記憶總結" onClose={() => { setShowBatchModal(false); setShowPromptEditor(false); }} footer={
            isBatchProcessing ?
            <div className="w-full py-3 bg-slate-100 text-primary font-bold rounded-2xl text-center flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>{batchProgress}</div> :
-           <button onClick={handleBatchSummarize} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">开始生成</button>
+           <button onClick={handleBatchSummarize} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">開始生成</button>
        }>
            <div className="space-y-3">
-               <p className="text-xs text-slate-400">将遍历所有聊天记录，按天使用所选提示词模板生成记忆总结。</p>
+               <p className="text-xs text-slate-400">將遍歷所有聊天記錄，按天使用所選提示詞模板生成記憶總結。</p>
                {/* Prompt Selection */}
                <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                   <label className="text-[10px] font-bold text-indigo-400 uppercase mb-2 block">选择提示词模板</label>
+                   <label className="text-[10px] font-bold text-indigo-400 uppercase mb-2 block">選擇提示詞模板</label>
                    <div className="flex flex-col gap-2">
                        {archivePrompts.map(p => (
                            <div key={p.id} onClick={() => { setSelectedPromptId(p.id); localStorage.setItem('chat_active_archive_prompt_id', p.id); }} className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between ${selectedPromptId === p.id ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500' : 'bg-white/50 border-indigo-200 hover:bg-white'}`}>
@@ -1953,21 +1953,21 @@ ${isInitialGeneration ? `
                            </div>
                        ))}
                    </div>
-                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定义模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-indigo-500 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-100">+ 新建自定义提示词</button>
+                   <button onClick={() => { const newP = { id: `custom_${Date.now()}`, name: '新自定義模板', content: DEFAULT_ARCHIVE_PROMPTS[0].content }; setEditingPrompt(newP); setShowPromptEditor(true); }} className="mt-2 w-full py-1.5 text-xs font-bold text-indigo-500 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-100">+ 新建自定義提示詞</button>
                </div>
                {/* Date Range */}
                <div className="flex gap-2">
-                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">开始日期 (可选)</label><input type="date" value={batchRange.start} onChange={e => setBatchRange({...batchRange, start: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
-                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">结束日期 (可选)</label><input type="date" value={batchRange.end} onChange={e => setBatchRange({...batchRange, end: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
+                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">開始日期 (可選)</label><input type="date" value={batchRange.start} onChange={e => setBatchRange({...batchRange, start: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
+                   <div className="flex-1"><label className="text-[10px] uppercase text-slate-400 font-bold">結束日期 (可選)</label><input type="date" value={batchRange.end} onChange={e => setBatchRange({...batchRange, end: e.target.value})} className="w-full bg-slate-100 rounded-xl px-3 py-2 text-xs" /></div>
                </div>
                <div className="text-[10px] text-slate-400 bg-slate-50 p-2.5 rounded-xl leading-relaxed">
-                   支持变量: <code>{'${dateStr}'}</code>, <code>{'${char.name}'}</code>, <code>{'${userProfile.name}'}</code>, <code>{'${rawLog}'}</code>
+                   支持變量: <code>{'${dateStr}'}</code>, <code>{'${char.name}'}</code>, <code>{'${userProfile.name}'}</code>, <code>{'${rawLog}'}</code>
                </div>
            </div>
        </Modal>
 
        {/* Prompt Editor Modal */}
-       <Modal isOpen={showPromptEditor} title="编辑提示词" onClose={() => setShowPromptEditor(false)} footer={<button onClick={() => {
+       <Modal isOpen={showPromptEditor} title="編輯提示詞" onClose={() => setShowPromptEditor(false)} footer={<button onClick={() => {
            if (!editingPrompt) return;
            const isNew = !archivePrompts.some(p => p.id === editingPrompt.id);
            const next = isNew ? [...archivePrompts, editingPrompt] : archivePrompts.map(p => p.id === editingPrompt.id ? editingPrompt : p);
@@ -1976,13 +1976,13 @@ ${isInitialGeneration ? `
            localStorage.setItem('chat_archive_prompts', JSON.stringify(next.filter(p => !p.id.startsWith('preset_'))));
            localStorage.setItem('chat_active_archive_prompt_id', editingPrompt.id);
            setShowPromptEditor(false);
-           addToast('提示词已保存', 'success');
+           addToast('提示詞已保存', 'success');
        }} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存</button>}>
            <div className="space-y-3">
                <input
                    value={editingPrompt?.name || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, name: e.target.value} : null)}
-                   placeholder="预设名称"
+                   placeholder="預設名稱"
                    className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
@@ -1990,43 +1990,43 @@ ${isInitialGeneration ? `
                    value={editingPrompt?.content || ''}
                    onChange={e => setEditingPrompt(prev => prev ? {...prev, content: e.target.value} : null)}
                    className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
-                   placeholder="输入提示词内容..."
+                   placeholder="輸入提示詞內容..."
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
                {editingPrompt?.id.startsWith('preset_') && (
-                   <p className="text-[10px] text-slate-400 text-center">预设模板不可编辑（仅查看）</p>
+                   <p className="text-[10px] text-slate-400 text-center">預設模板不可編輯（僅查看）</p>
                )}
            </div>
        </Modal>
 
-       <Modal isOpen={showExportModal} title="导出文本" onClose={() => setShowExportModal(false)} footer={<div className="flex gap-2 w-full"><button onClick={() => { navigator.clipboard.writeText(exportText); addToast('已复制', 'success'); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">复制全文</button><button onClick={handleExportMemoryFile} className="flex-1 py-3 bg-slate-800 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>导出文件</button></div>}>
-           <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2"><div className="text-[10px] text-slate-400">已自动复制到剪贴板。如果分享失败，请直接手动复制。</div><textarea value={exportText} readOnly className="w-full h-40 bg-transparent border-none text-[10px] font-mono text-slate-600 resize-none focus:ring-0 leading-relaxed select-all" onClick={(e) => e.currentTarget.select()}/></div>
+       <Modal isOpen={showExportModal} title="導出文本" onClose={() => setShowExportModal(false)} footer={<div className="flex gap-2 w-full"><button onClick={() => { navigator.clipboard.writeText(exportText); addToast('已複製', 'success'); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">複製全文</button><button onClick={handleExportMemoryFile} className="flex-1 py-3 bg-slate-800 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>導出文件</button></div>}>
+           <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2"><div className="text-[10px] text-slate-400">已自動複製到剪貼板。如果分享失敗，請直接手動複製。</div><textarea value={exportText} readOnly className="w-full h-40 bg-transparent border-none text-[10px] font-mono text-slate-600 resize-none focus:ring-0 leading-relaxed select-all" onClick={(e) => e.currentTarget.select()}/></div>
        </Modal>
 
         {/* Worldbook Select Modal */}
         <Modal 
             isOpen={showWorldbookModal} 
-            title="挂载世界书" 
+            title="掛載世界書" 
             onClose={() => setShowWorldbookModal(false)} 
         >
             <div className="max-h-[50vh] overflow-y-auto no-scrollbar space-y-3 p-1">
                 {worldbooks.length === 0 ? (
                     <div className="text-center text-slate-400 text-xs py-8">
-                        还没有世界书，请去桌面【世界书】App 创建。
+                        還沒有世界書，請去桌面【世界書】App 創建。
                     </div>
                 ) : (
                     <>
                         <input
                             value={wbModalSearch}
                             onChange={e => setWbModalSearch(e.target.value)}
-                            placeholder="搜索世界书标题或分组..."
+                            placeholder="搜索世界書標題或分組..."
                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:bg-white focus:border-indigo-300 transition-all"
                         />
                         {wbModalSearchResults ? (
-                            // 搜索态：扁平结果列表
+                            // 搜索態：扁平結果列表
                             <div className="space-y-2">
                                 {wbModalSearchResults.books.length === 0 ? (
-                                    <div className="text-center text-slate-400 text-xs py-6">没有匹配的世界书。</div>
+                                    <div className="text-center text-slate-400 text-xs py-6">沒有匹配的世界書。</div>
                                 ) : (
                                     wbModalSearchResults.books.map(wb => {
                                         const isMounted = formData?.mountedWorldbooks?.some(m => m.id === wb.id);
@@ -2039,21 +2039,21 @@ ${isInitialGeneration ? `
                                             >
                                                 <div className="flex justify-between items-center gap-2">
                                                     <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
-                                                    {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                                    {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已掛載</span>}
                                                 </div>
-                                                <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分类设定 (General)'}</div>
+                                                <div className="text-[10px] text-slate-400 truncate mt-0.5">{wb.category || '未分類設定 (General)'}</div>
                                             </button>
                                         );
                                     })
                                 )}
                                 {wbModalSearchResults.total > wbModalSearchResults.books.length && (
                                     <div className="text-center text-[10px] text-slate-400 py-1">
-                                        共 {wbModalSearchResults.total} 条匹配，仅显示前 {wbModalSearchResults.books.length} 条，请继续输入缩小范围。
+                                        共 {wbModalSearchResults.total} 條匹配，僅顯示前 {wbModalSearchResults.books.length} 條，請繼續輸入縮小範圍。
                                     </div>
                                 )}
                             </div>
                         ) : (
-                            // 默认态：分组手风琴，只渲染展开分组的条目
+                            // 默認態：分組手風琴，只渲染展開分組的條目
                             wbModalGroups.map(([category, books]) => {
                                 const isExpanded = wbModalExpandedCategory === category;
                                 return (
@@ -2071,7 +2071,7 @@ ${isInitialGeneration ? `
                                                 onClick={(e) => { e.stopPropagation(); mountCategory(category); }}
                                                 className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold hover:bg-indigo-100 shrink-0"
                                             >
-                                                挂载整组
+                                                掛載整組
                                             </button>
                                         </div>
                                         {isExpanded && (
@@ -2087,7 +2087,7 @@ ${isInitialGeneration ? `
                                                         >
                                                             <div className="flex justify-between items-center gap-2">
                                                                 <span className="font-bold text-slate-700 text-sm truncate">{wb.title}</span>
-                                                                {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已挂载</span>}
+                                                                {isMounted && <span className="text-[10px] text-slate-400 shrink-0">已掛載</span>}
                                                             </div>
                                                         </button>
                                                     );
@@ -2103,21 +2103,21 @@ ${isInitialGeneration ? `
             </div>
         </Modal>
 
-        {/* 角色分组管理 */}
-        <Modal isOpen={showGroupModal} title="角色分组管理" onClose={() => { setShowGroupModal(false); setNewGroupName(''); }}>
+        {/* 角色分組管理 */}
+        <Modal isOpen={showGroupModal} title="角色分組管理" onClose={() => { setShowGroupModal(false); setNewGroupName(''); }}>
             <div className="space-y-3">
                 <div className="flex gap-2">
                     <input
                         value={newGroupName}
                         onChange={e => setNewGroupName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
-                        placeholder="新分组名称"
+                        placeholder="新分組名稱"
                         className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
                     />
                     <button onClick={handleAddGroup} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-sm shadow-primary/30 active:scale-95 transition-transform shrink-0">添加</button>
                 </div>
                 {characterGroups.length === 0 ? (
-                    <div className="text-center text-xs text-slate-400 py-6">还没有分组。建一个试试——角色列表和各处选角色的地方都会按组展示。</div>
+                    <div className="text-center text-xs text-slate-400 py-6">還沒有分組。建一個試試——角色列表和各處選角色的地方都會按組展示。</div>
                 ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
                         {sortCharacterGroups(characterGroups).map(g => (
@@ -2128,9 +2128,9 @@ ${isInitialGeneration ? `
                                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                     className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
                                 />
-                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 个角色</span>
+                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 個角色</span>
                                 <button
-                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`分组「${g.name}」已删除，组内角色回到未分组`, 'info'); }}
+                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`分組「${g.name}」已刪除，組內角色回到未分組`, 'info'); }}
                                     className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -2139,49 +2139,49 @@ ${isInitialGeneration ? `
                         ))}
                     </div>
                 )}
-                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">删除分组不会删除角色，组内角色会回到「未分组」。给角色指派分组：进入角色的「设定」页。</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除分組不會刪除角色，組內角色會回到「未分組」。給角色指派分組：進入角色的「設定」頁。</p>
             </div>
         </Modal>
 
         <Modal
             isOpen={!!deleteConfirmTarget}
-            title="断开连接"
+            title="斷開連接"
             onClose={() => setDeleteConfirmTarget(null)}
-            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50">{isDeleting ? '断开中...' : '确认断开'}</button></div>}
+            footer={<div className="flex gap-2 w-full"><button onClick={() => setDeleteConfirmTarget(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold">保留</button><button onClick={confirmDeleteCharacter} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50">{isDeleting ? '斷開中...' : '確認斷開'}</button></div>}
         >
             <div className="flex flex-col items-center gap-3 py-4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 <p className="text-sm text-slate-600 text-center leading-relaxed">
-                    确定要删除与该角色的所有连接吗？<br/>
-                    <span className="text-xs text-red-400 font-bold">该操作不可恢复，记忆将被清空。</span><br/>
-                    <span className="text-[10px] text-slate-400">仅对 ta 可见的专属表情分类也会一并删除。</span>
+                    確定要刪除與該角色的所有連接嗎？<br/>
+                    <span className="text-xs text-red-400 font-bold">該操作不可恢復，記憶將被清空。</span><br/>
+                    <span className="text-[10px] text-slate-400">僅對 ta 可見的專屬表情分類也會一併刪除。</span>
                 </p>
             </div>
         </Modal>
 
-        {/* 云端 amsg2 任务没清干净时删除会被拦下（不然已删角色的推送之后还会弹出来），
-            在这里给出重试或强行放行的选择。 */}
+        {/* 雲端 amsg2 任務沒清乾淨時刪除會被攔下（不然已刪角色的推送之後還會彈出來），
+            在這裡給出重試或強行放行的選擇。 */}
         <Modal
             isOpen={!!cloudCleanupFailTarget}
-            title="云端还有任务没清掉"
+            title="雲端還有任務沒清掉"
             onClose={() => setCloudCleanupFailTarget(null)}
             footer={<div className="flex gap-2 w-full">
                 <button
                     onClick={() => { if (cloudCleanupFailTarget && !isDeleting) void runDeleteCharacter(cloudCleanupFailTarget); }}
                     disabled={isDeleting}
                     className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold disabled:opacity-50"
-                >{isDeleting ? '重试中...' : '重试'}</button>
+                >{isDeleting ? '重試中...' : '重試'}</button>
                 <button
                     onClick={() => { if (cloudCleanupFailTarget && !isDeleting) void runDeleteCharacter(cloudCleanupFailTarget, true); }}
                     disabled={isDeleting}
                     className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-50"
-                >仍然删除</button>
+                >仍然刪除</button>
             </div>}
         >
             <p className="text-sm text-slate-600 leading-relaxed py-2">
-                ta 名下还有主动消息 2.0 任务没能在云端取消（可能是断网或 Worker 没响应），角色暂时没有删除。<br/>
-                <span className="text-xs text-red-400 font-bold">选「仍然删除」的话，残留的任务之后可能仍会到点推送</span>
-                <span className="text-xs text-slate-400">——届时可去设置里「清除云端状态」兜底。</span>
+                ta 名下還有主動消息 2.0 任務沒能在雲端取消（可能是斷網或 Worker 沒響應），角色暫時沒有刪除。<br/>
+                <span className="text-xs text-red-400 font-bold">選「仍然刪除」的話，殘留的任務之後可能仍會到點推送</span>
+                <span className="text-xs text-slate-400">——屆時可去設置裡「清除雲端狀態」兜底。</span>
             </p>
         </Modal>
     </div>

@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { extractMallOrderCommands, formatMallOrderRecord } from './mallOrderFormat';
 
 describe('formatMallOrderRecord', () => {
-    it('按 kind/mode/items/amount/status 拼出记录行', () => {
+    it('按 kind/mode/items/amount/status 拼出記錄行', () => {
         const line = formatMallOrderRecord({
-            kind: 'food', mode: 'daifu', items: [{ name: '简餐套餐', qty: 1 }], amount: 32, status: 'pending',
+            kind: 'food', mode: 'daifu', items: [{ name: '簡餐套餐', qty: 1 }], amount: 32, status: 'pending',
         });
-        expect(line).toBe('[[记录:MALL|kind=food|mode=daifu|items=简餐套餐x1|amount=32|status=待处理]]');
+        expect(line).toBe('[[記錄:MALL|kind=food|mode=daifu|items=簡餐套餐x1|amount=32|status=待處理]]');
     });
 
-    it('多件商品用顿号拼接', () => {
+    it('多件商品用頓號拼接', () => {
         const line = formatMallOrderRecord({
             kind: 'shop', mode: 'gift', items: [{ name: 'A', qty: 2 }, { name: 'B', qty: 1 }], amount: 99, status: 'sent',
         });
@@ -17,24 +17,24 @@ describe('formatMallOrderRecord', () => {
     });
 });
 
-describe('extractMallOrderCommands · GIFT（角色主动送礼）', () => {
+describe('extractMallOrderCommands · GIFT（角色主動送禮）', () => {
     it('[[ACTION:GIFT|item=|price=|note=]] 解析出 send 事件', () => {
-        const r = extractMallOrderCommands('给你带了个小礼物~[[ACTION:GIFT|item=草莓蛋糕|price=23|note=路过甜品店顺手买的]]');
-        expect(r.events).toEqual([{ kind: 'send', item: '草莓蛋糕', price: '23', note: '路过甜品店顺手买的' }]);
-        expect(r.text).toBe('给你带了个小礼物~');
+        const r = extractMallOrderCommands('給你帶了個小禮物~[[ACTION:GIFT|item=草莓蛋糕|price=23|note=路過甜品店順手買的]]');
+        expect(r.events).toEqual([{ kind: 'send', item: '草莓蛋糕', price: '23', note: '路過甜品店順手買的' }]);
+        expect(r.text).toBe('給你帶了個小禮物~');
     });
 
-    it('没有 note 时 note 为 undefined', () => {
+    it('沒有 note 時 note 為 undefined', () => {
         const r = extractMallOrderCommands('[[ACTION:GIFT|item=咖啡|price=18]]');
         expect(r.events).toEqual([{ kind: 'send', item: '咖啡', price: '18', note: undefined }]);
     });
 
-    it('缺 item 或 price 时当无效标签剥掉、不产生事件', () => {
+    it('缺 item 或 price 時當無效標籤剝掉、不產生事件', () => {
         expect(extractMallOrderCommands('[[ACTION:GIFT|price=18]]').events).toEqual([]);
         expect(extractMallOrderCommands('[[ACTION:GIFT|item=咖啡]]').events).toEqual([]);
     });
 
-    it('price 不是纯数字时当无效标签剥掉、不产生事件', () => {
+    it('price 不是純數字時當無效標籤剝掉、不產生事件', () => {
         const r = extractMallOrderCommands('[[ACTION:GIFT|item=咖啡|price=十八元]]');
         expect(r.events).toEqual([]);
         expect(r.text).toBe('');
@@ -43,36 +43,36 @@ describe('extractMallOrderCommands · GIFT（角色主动送礼）', () => {
 
 describe('extractMallOrderCommands', () => {
     it('[[ACTION:DAIFU_ACCEPT]] 解析出 accept 事件', () => {
-        const r = extractMallOrderCommands('行，这顿我请了。[[ACTION:DAIFU_ACCEPT]]');
+        const r = extractMallOrderCommands('行，這頓我請了。[[ACTION:DAIFU_ACCEPT]]');
         expect(r.events).toEqual([{ kind: 'accept' }]);
-        expect(r.text).toBe('行，这顿我请了。');
+        expect(r.text).toBe('行，這頓我請了。');
     });
 
     it('[[ACTION:DAIFU_DECLINE|reason=...]] 解析出 decline 事件 + 原因', () => {
-        const r = extractMallOrderCommands('不行。[[ACTION:DAIFU_DECLINE|reason=说好的减肥呢]]');
-        expect(r.events).toEqual([{ kind: 'decline', reason: '说好的减肥呢' }]);
+        const r = extractMallOrderCommands('不行。[[ACTION:DAIFU_DECLINE|reason=說好的減肥呢]]');
+        expect(r.events).toEqual([{ kind: 'decline', reason: '說好的減肥呢' }]);
     });
 
-    it('DAIFU_DECLINE 不带 reason 时 reason 为 undefined', () => {
+    it('DAIFU_DECLINE 不帶 reason 時 reason 為 undefined', () => {
         const r = extractMallOrderCommands('[[ACTION:DAIFU_DECLINE]]');
         expect(r.events).toEqual([{ kind: 'decline', reason: undefined }]);
     });
 
-    it('[[记录:MALL|...]] 是幂等哨兵：只消费不产生事件', () => {
-        const r = extractMallOrderCommands('[[记录:MALL|kind=food|mode=daifu|items=简餐套餐x1|amount=32|status=待处理]] 我看看这单', );
+    it('[[記錄:MALL|...]] 是冪等哨兵：只消費不產生事件', () => {
+        const r = extractMallOrderCommands('[[記錄:MALL|kind=food|mode=daifu|items=簡餐套餐x1|amount=32|status=待處理]] 我看看這單', );
         expect(r.events).toEqual([]);
-        expect(r.text).toBe('我看看这单');
+        expect(r.text).toBe('我看看這單');
         expect(r.consumed).toBe(1);
     });
 
-    it('没有任何标签时原样返回、零事件', () => {
-        const r = extractMallOrderCommands('今天天气不错');
+    it('沒有任何標籤時原樣返回、零事件', () => {
+        const r = extractMallOrderCommands('今天天氣不錯');
         expect(r.events).toEqual([]);
-        expect(r.text).toBe('今天天气不错');
+        expect(r.text).toBe('今天天氣不錯');
         expect(r.consumed).toBe(0);
     });
 
-    it('空字符串输入不崩', () => {
+    it('空字符串輸入不崩', () => {
         expect(extractMallOrderCommands('')).toEqual({ text: '', events: [], consumed: 0 });
     });
 });

@@ -1,6 +1,6 @@
-// PWA 应用图标编辑器：上传图片 / 填图床链接，动态注入 apple-touch-icon + manifest。
+// PWA 應用圖標編輯器：上傳圖片 / 填圖床鏈接，動態注入 apple-touch-icon + manifest。
 //
-// 见 docs/superpowers/specs/2026-08-09-pwa-custom-icon-design.md
+// 見 docs/superpowers/specs/2026-08-09-pwa-custom-icon-design.md
 
 import React, { useState, useRef, useCallback } from 'react';
 import { useOS } from '../../context/OSContext';
@@ -32,12 +32,12 @@ const AppIconEditor: React.FC = () => {
     try {
       await injectPwaIcon(blobRef);
     } catch (e) {
-      console.warn('[AppIconEditor] injectPwaIcon 失败', e);
+      console.warn('[AppIconEditor] injectPwaIcon 失敗', e);
     }
-    addToast('PWA 图标已更新 ✨', 'success');
+    addToast('PWA 圖標已更新 ✨', 'success');
   }, [setCustomIcon, addToast]);
 
-  // ── 上传 ───────────────────────────────────────────────────
+  // ── 上傳 ───────────────────────────────────────────────────
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,47 +48,47 @@ const AppIconEditor: React.FC = () => {
       const ref = await putImageBlob(blob);
       await saveIcon(ref);
     } catch (err: any) {
-      addToast(err.message || '图片处理失败', 'error');
+      addToast(err.message || '圖片處理失敗', 'error');
     } finally {
       setProcessing(false);
-      // 清掉 input 以便再次选同一文件时仍触发 onChange
+      // 清掉 input 以便再次選同一文件時仍觸發 onChange
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }, [saveIcon, addToast]);
 
-  // ── URL 输入 ───────────────────────────────────────────────
+  // ── URL 輸入 ───────────────────────────────────────────────
 
   const handleUrlConfirm = useCallback(async () => {
     const trimmed = urlInput.trim();
     if (!trimmed) return;
 
-    // 基础校验
+    // 基礎校驗
     if (!/^https?:\/\//i.test(trimmed)) {
-      addToast('请输入有效的 http/https 链接', 'error');
+      addToast('請輸入有效的 http/https 鏈接', 'error');
       return;
     }
     if (trimmed.length > 2048) {
-      addToast('链接太长，最多 2048 个字符', 'error');
+      addToast('鏈接太長，最多 2048 個字符', 'error');
       return;
     }
 
     setProcessing(true);
     try {
       const resp = await fetch(trimmed, { mode: 'cors' });
-      if (!resp.ok) throw new Error(`服务器返回 ${resp.status}`);
+      if (!resp.ok) throw new Error(`服務器返回 ${resp.status}`);
       const contentType = resp.headers.get('content-type') || '';
       if (!contentType.startsWith('image/')) {
-        throw new Error('链接指向的不是图片（Content-Type: ' + contentType + '）');
+        throw new Error('鏈接指向的不是圖片（Content-Type: ' + contentType + '）');
       }
       const fetchedBlob = await resp.blob();
-      // 通过 processImageToBlob 统一压缩到 512px
+      // 通過 processImageToBlob 統一壓縮到 512px
       const file = new File([fetchedBlob], 'pwa-icon', { type: fetchedBlob.type || 'image/png' });
       const blob = await processImageToBlob(file, { maxWidth: 512, quality: 0.92 });
       const ref = await putImageBlob(blob);
       await saveIcon(ref);
       setUrlInput('');
     } catch (err: any) {
-      addToast(err.message || '获取图片失败', 'error');
+      addToast(err.message || '獲取圖片失敗', 'error');
     } finally {
       setProcessing(false);
     }
@@ -99,7 +99,7 @@ const AppIconEditor: React.FC = () => {
   const handleReset = useCallback(async () => {
     await setCustomIcon(PWA_ICON_APP_ID, undefined);
     clearPwaIcon();
-    addToast('PWA 图标已恢复默认', 'info');
+    addToast('PWA 圖標已恢復默認', 'info');
   }, [setCustomIcon, addToast]);
 
   const chooseBuiltin = async (classic: boolean) => {
@@ -108,7 +108,7 @@ const AppIconEditor: React.FC = () => {
     try {
       if (classic) await saveIcon(PWA_CLASSIC_ICON_VALUE);
       else await handleReset();
-    } catch { addToast('图标保存失败，请重试', 'error'); }
+    } catch { addToast('圖標保存失敗，請重試', 'error'); }
     finally { setProcessing(false); }
   };
 
@@ -116,30 +116,30 @@ const AppIconEditor: React.FC = () => {
 
   return (
     <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4">
-      {/* 标题 */}
+      {/* 標題 */}
       <div className="flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-primary">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
         </svg>
-        <span className="text-sm font-medium text-slate-700">PWA 应用图标</span>
+        <span className="text-sm font-medium text-slate-700">PWA 應用圖標</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3" role="group" aria-label="内置 PWA 图标">
-        {[{ classic: false, name: '水母', image: PWA_DEFAULT_ICON_URL }, { classic: true, name: '经典', image: PWA_CLASSIC_ICON_URL }].map(option => {
+      <div className="grid grid-cols-2 gap-3" role="group" aria-label="內置 PWA 圖標">
+        {[{ classic: false, name: '水母', image: PWA_DEFAULT_ICON_URL }, { classic: true, name: '經典', image: PWA_CLASSIC_ICON_URL }].map(option => {
           const selected = option.classic ? currentValue === PWA_CLASSIC_ICON_VALUE : !currentValue;
           return <button key={option.name} type="button" disabled={processing} aria-pressed={selected}
             onClick={()=>void chooseBuiltin(option.classic)} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-colors disabled:opacity-50 ${selected ? 'border-primary bg-primary/5' : 'border-slate-200'}`}>
             <img src={option.image} alt="" className="w-20 h-20 rounded-2xl"/>
-            <span className="text-xs text-slate-700">{option.name}{selected ? ' · 已选' : ''}</span>
+            <span className="text-xs text-slate-700">{option.name}{selected ? ' · 已選' : ''}</span>
           </button>;
         })}
       </div>
 
-      {/* 当前图标预览 */}
+      {/* 當前圖標預覽 */}
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-sm bg-slate-100 shrink-0">
           {previewUrl ? (
-            <img src={previewUrl} className="w-full h-full object-cover" alt="当前 PWA 图标" />
+            <img src={previewUrl} className="w-full h-full object-cover" alt="當前 PWA 圖標" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-8 h-8 text-slate-300">
@@ -150,7 +150,7 @@ const AppIconEditor: React.FC = () => {
         </div>
         <div className="min-w-0">
           <div className="text-xs text-slate-500">
-            {currentValue === PWA_CLASSIC_ICON_VALUE ? '经典图标' : currentValue ? '已设置自定义图标' : '水母图标 · 默认'}
+            {currentValue === PWA_CLASSIC_ICON_VALUE ? '經典圖標' : currentValue ? '已設置自定義圖標' : '水母圖標 · 默認'}
           </div>
           {currentValue && (
             <button
@@ -158,13 +158,13 @@ const AppIconEditor: React.FC = () => {
               className="text-xs text-red-400 hover:text-red-500 mt-1"
               disabled={processing}
             >
-              重置为默认
+              重置為默認
             </button>
           )}
         </div>
       </div>
 
-      {/* 模式切换 */}
+      {/* 模式切換 */}
       <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
         <button
           onClick={() => setMode('upload')}
@@ -174,7 +174,7 @@ const AppIconEditor: React.FC = () => {
               : 'text-slate-400'
           }`}
         >
-          上传图片
+          上傳圖片
         </button>
         <button
           onClick={() => setMode('url')}
@@ -184,11 +184,11 @@ const AppIconEditor: React.FC = () => {
               : 'text-slate-400'
           }`}
         >
-          填入链接
+          填入鏈接
         </button>
       </div>
 
-      {/* 上传模式 */}
+      {/* 上傳模式 */}
       {mode === 'upload' && (
         <div>
           <input
@@ -203,10 +203,10 @@ const AppIconEditor: React.FC = () => {
             disabled={processing}
             className="w-full py-3 px-4 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-400 hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
           >
-            {processing ? '处理中…' : '点击选择图片'}
+            {processing ? '處理中…' : '點擊選擇圖片'}
           </button>
           <div className="text-[10px] text-slate-400 mt-1.5 text-center">
-            支持 PNG / JPEG / WebP，自动缩放到 512px
+            支持 PNG / JPEG / WebP，自動縮放到 512px
           </div>
         </div>
       )}
@@ -229,37 +229,37 @@ const AppIconEditor: React.FC = () => {
               disabled={processing || !urlInput.trim()}
               className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-xl disabled:opacity-40 transition-opacity"
             >
-              {processing ? '…' : '确认'}
+              {processing ? '…' : '確認'}
             </button>
           </div>
           <div className="text-[10px] text-slate-400 text-center">
-            输入图床直链（PNG / JPEG），自动抓取并压缩
+            輸入圖床直鏈（PNG / JPEG），自動抓取並壓縮
           </div>
         </div>
       )}
 
-      {/* 环境感知提示 */}
+      {/* 環境感知提示 */}
       {isStandalone ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
           <div className="text-sm font-bold text-slate-700">
-            主屏图标更新说明
+            主屏圖標更新說明
           </div>
           <div className="text-xs text-slate-500 leading-relaxed space-y-1.5">
             <p>
-              <strong>功能更新不需要重装。</strong>安卓 Chrome 安装的 PWA 默认图标通常会自动更新，但可能延迟；iPhone / iPad 主屏图标通常需重新添加。自定义上传或切换图标不保证同步到已安装的 App。
+              <strong>功能更新不需要重裝。</strong>安卓 Chrome 安裝的 PWA 默認圖標通常會自動更新，但可能延遲；iPhone / iPad 主屏圖標通常需重新添加。自定義上傳或切換圖標不保證同步到已安裝的 App。
             </p>
             <p className="text-slate-600 font-medium">
-              卸载或重新添加可能影响本地数据，尤其是 iOS 的独立存储。不要为换图标直接删 App。
+              卸載或重新添加可能影響本地數據，尤其是 iOS 的獨立存儲。不要為換圖標直接刪 App。
             </p>
             <p className="text-red-600 font-bold">
-              如需重新添加，请先到设置导出完整备份，确认文件已保存，再操作并导入。
+              如需重新添加，請先到設置導出完整備份，確認文件已保存，再操作並導入。
             </p>
           </div>
         </div>
       ) : (
         <div className="rounded-xl bg-blue-50 border border-blue-200 p-3">
           <div className="text-xs text-blue-600 leading-relaxed">
-            这里的选择会用于标签页及下次「添加到主屏幕」。已安装图标能否同步取决于系统；功能更新不需要重装。
+            這裡的選擇會用於標籤頁及下次「添加到主屏幕」。已安裝圖標能否同步取決於系統；功能更新不需要重裝。
           </div>
         </div>
       )}

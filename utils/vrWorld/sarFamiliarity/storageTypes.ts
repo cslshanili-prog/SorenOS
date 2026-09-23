@@ -35,7 +35,7 @@ const record = (value: unknown): value is Record<string, any> => !!value && type
 const flags = (value: unknown) => record(value) && Object.values(value).every(v => typeof v === 'string' || typeof v === 'boolean');
 /** Fail closed: a damaged cursor must never silently reset a one-time reward. */
 export const validateFamiliarity = (value: unknown): void => {
-    const fail = () => { throw new Error('名册进度无法读取，请先导出备份；没有重置剧情或奖励'); };
+    const fail = () => { throw new Error('名冊進度無法讀取，請先導出備份；沒有重置劇情或獎勵'); };
     if (!record(value) || value.version !== 1 || !record(value.npcs)) return fail();
     for (const npc of ['caian', 'aiven']) {
         const p = value.npcs[npc];

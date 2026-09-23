@@ -14,7 +14,7 @@ const styles = () => page.evaluate(() => ['.sully-chat-composer', '.sully-chat-i
 try {
     await page.goto(`${process.env.SAR_QA_URL || 'http://127.0.0.1:5177'}/test/fixtures/chat-input-style.html`);
     await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
-    const input = page.locator('textarea'), suggestions = page.getByRole('region', { name: '表情包联想' });
+    const input = page.locator('textarea'), suggestions = page.getByRole('region', { name: '表情包聯想' });
     for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         for (const custom of [true, false]) {
@@ -23,26 +23,26 @@ try {
             await input.focus();
             const before = await styles();
             if (custom) assert.equal(before[0].background, 'rgb(240, 237, 230)', 'legacy beautification is applied');
-            await input.fill('亲亲');
+            await input.fill('親親');
             await suggestions.waitFor();
             assert.deepEqual(await styles(), before, 'suggestions do not change composer appearance or size');
             assert.equal(await input.evaluate(el => el === document.activeElement), true);
             await page.screenshot({ path: `${out}/${custom ? 'custom' : 'default'}-${width}.png` });
             const regionBox = await suggestions.boundingBox(), composerBox = await page.locator('.sully-chat-inputbar').boundingBox();
             assert(regionBox.y + regionBox.height <= composerBox.y + 1, 'suggestions stay above the input');
-            await page.getByRole('button', { name: '发送表情：亲亲', exact: true }).click();
-            assert.equal(await input.inputValue(), '亲亲');
+            await page.getByRole('button', { name: '發送表情：親親', exact: true }).click();
+            assert.equal(await input.inputValue(), '親親');
             await suggestions.waitFor({ state: 'hidden' });
             assert.deepEqual(await styles(), before);
-            await input.fill('亲亲你');
+            await input.fill('親親你');
             await suggestions.waitFor();
-            await page.getByRole('button', { name: '收起表情联想' }).click();
+            await page.getByRole('button', { name: '收起表情聯想' }).click();
             await input.focus();
             assert.deepEqual(await styles(), before);
-            await page.getByRole('button', { name: '倒计时', exact: true }).click();
+            await page.getByRole('button', { name: '倒計時', exact: true }).click();
             await input.focus();
             assert.deepEqual(await styles(), before, 'countdown also preserves legacy selectors');
-            await page.getByRole('button', { name: '取消自动回复' }).click();
+            await page.getByRole('button', { name: '取消自動回覆' }).click();
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
         }
     }

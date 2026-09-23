@@ -1,13 +1,13 @@
 // utils/agenticTools.failures.test.ts
 //
-// 回归守卫：工具「没跑成」不能被说成「跑了但没结果」。
+// 迴歸守衛：工具「沒跑成」不能被說成「跑了但沒結果」。
 //
-// 这一组 bug 长得都一样——数据源的 success:false 里混着两种完全不同的事（连不上 / 真的
-// 没有），工具却把它们归成同一个 reason。护栏（agenticToolFeedback 的 NEVER_RAN_REASONS）
-// 只认得出「没跑成」那一类，混过去之后角色就会把没发生的事说成发生过：Notion 凭据过期
-// 时张口就是「你昨天没写日记呀」。
+// 這一組 bug 長得都一樣——數據源的 success:false 裡混著兩種完全不同的事（連不上 / 真的
+// 沒有），工具卻把它們歸成同一個 reason。護欄（agenticToolFeedback 的 NEVER_RAN_REASONS）
+// 只認得出「沒跑成」那一類，混過去之後角色就會把沒發生的事說成發生過：Notion 憑據過期
+// 時張口就是「你昨天沒寫日記呀」。
 //
-// 所以每条用例除了断 reason，还会把结果喂给回喂层，确认模型收到的是「这件事没有发生」。
+// 所以每條用例除了斷 reason，還會把結果餵給回喂層，確認模型收到的是「這件事沒有發生」。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./realtimeFetchCore', () => ({
@@ -34,8 +34,8 @@ import { buildToolResultMessage } from './agenticToolFeedback';
 const mocked = core as unknown as Record<string, ReturnType<typeof vi.fn>>;
 
 const ctx = (realtimeConfig: Record<string, unknown>): AgenticToolCtx => ({
-  char: { name: '测试角色' },
-  userProfile: { name: '用户' } as any,
+  char: { name: '測試角色' },
+  userProfile: { name: '用戶' } as any,
   realtimeConfig: realtimeConfig as any,
 });
 
@@ -55,15 +55,15 @@ const feishuCtx = ctx({
 });
 
 const xhsCtx = (mcp: Record<string, unknown>): AgenticToolCtx => ({
-  char: { name: '测试角色', xhsEnabled: true },
-  userProfile: { name: '用户' } as any,
+  char: { name: '測試角色', xhsEnabled: true },
+  userProfile: { name: '用戶' } as any,
   realtimeConfig: { xhsMcpConfig: { enabled: true, serverUrl: 'https://example.test/xhs', ...mcp } } as any,
 });
 
-/** 回喂层有没有跟模型说死「这件事没有发生」——护栏真正生效的那一层。 */
+/** 回喂層有沒有跟模型說死「這件事沒有發生」——護欄真正生效的那一層。 */
 const feedbackSaysNeverHappened = (name: string, result: unknown): boolean =>
   buildToolResultMessage({ name, result, history: [{ name, fingerprint: 'x' }] })
-    .includes('这件事**没有发生**');
+    .includes('這件事**沒有發生**');
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -71,16 +71,16 @@ afterEach(() => {
 });
 
 describe('runSearch', () => {
-  it('搜索服务连不上 → unreachable，回喂明说没发生', async () => {
-    mocked.performSearch.mockResolvedValue({ success: false, results: [], message: '搜索出错: fetch failed', reached: false });
-    const r = await runSearch({ query: '今天有什么新闻' }, ctx({ newsEnabled: true, newsApiKey: 'key' }));
+  it('搜索服務連不上 → unreachable，回喂明說沒發生', async () => {
+    mocked.performSearch.mockResolvedValue({ success: false, results: [], message: '搜索出錯: fetch failed', reached: false });
+    const r = await runSearch({ query: '今天有什麼新聞' }, ctx({ newsEnabled: true, newsApiKey: 'key' }));
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });
     expect(feedbackSaysNeverHappened('web_search', r)).toBe(true);
   });
 
-  it('搜过了但没结果 → no_results，这时角色说「没搜到」是实话', async () => {
-    mocked.performSearch.mockResolvedValue({ success: false, results: [], message: '没有找到相关结果', reached: true });
-    const r = await runSearch({ query: '冷门词' }, ctx({ newsEnabled: true, newsApiKey: 'key' }));
+  it('搜過了但沒結果 → no_results，這時角色說「沒搜到」是實話', async () => {
+    mocked.performSearch.mockResolvedValue({ success: false, results: [], message: '沒有找到相關結果', reached: true });
+    const r = await runSearch({ query: '冷門詞' }, ctx({ newsEnabled: true, newsApiKey: 'key' }));
     expect(r).toMatchObject({ ok: false, reason: 'no_results' });
     expect(feedbackSaysNeverHappened('web_search', r)).toBe(false);
   });
@@ -88,93 +88,93 @@ describe('runSearch', () => {
   it('搜到了 → ok', async () => {
     mocked.performSearch.mockResolvedValue({
       success: true,
-      results: [{ title: '标题', description: '摘要', url: 'https://x.test' }],
+      results: [{ title: '標題', description: '摘要', url: 'https://x.test' }],
       message: '搜索成功',
       reached: true,
     });
-    expect(await runSearch({ query: '猫' }, ctx({ newsEnabled: true, newsApiKey: 'key' })))
+    expect(await runSearch({ query: '貓' }, ctx({ newsEnabled: true, newsApiKey: 'key' })))
       .toMatchObject({ ok: true, rawResultCount: 1 });
   });
 });
 
-describe('runReadDiary（Notion 日记）', () => {
-  it('查询没跑通（凭据过期 / 代理挂了）→ unreachable，不能说成「那天没写」', async () => {
-    mocked.notionGetDiaryByDate.mockResolvedValue({ success: false, entries: [], message: '查询失败: 401' });
+describe('runReadDiary（Notion 日記）', () => {
+  it('查詢沒跑通（憑據過期 / 代理掛了）→ unreachable，不能說成「那天沒寫」', async () => {
+    mocked.notionGetDiaryByDate.mockResolvedValue({ success: false, entries: [], message: '查詢失敗: 401' });
     const r = await runReadDiary({ date: '2026-08-01' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });
     expect(feedbackSaysNeverHappened('notion_read_diary', r)).toBe(true);
   });
 
-  it('查到了、那天真没写 → not_found', async () => {
-    mocked.notionGetDiaryByDate.mockResolvedValue({ success: true, entries: [], message: '没有找到' });
+  it('查到了、那天真沒寫 → not_found', async () => {
+    mocked.notionGetDiaryByDate.mockResolvedValue({ success: true, entries: [], message: '沒有找到' });
     const r = await runReadDiary({ date: '2026-08-01' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'not_found' });
     expect(feedbackSaysNeverHappened('notion_read_diary', r)).toBe(false);
   });
 
-  // 「找到条目、正文一篇都没读回来」是读取失败，不是"日记是空的"。真的空白日记
-  // notionReadDiaryContent 会 success:true 带回「（空白日记）」，走不到这条分支。
-  it('条目找到了但正文全没读回来 → 回喂也得说没发生', async () => {
+  // 「找到條目、正文一篇都沒讀回來」是讀取失敗，不是"日記是空的"。真的空白日記
+  // notionReadDiaryContent 會 success:true 帶回「（空白日記）」，走不到這條分支。
+  it('條目找到了但正文全沒讀回來 → 回喂也得說沒發生', async () => {
     mocked.notionGetDiaryByDate.mockResolvedValue({
       success: true,
-      entries: [{ id: 'p1', title: '标题', date: '2026-08-01', url: '' }],
-      message: '找到 1 篇日记',
+      entries: [{ id: 'p1', title: '標題', date: '2026-08-01', url: '' }],
+      message: '找到 1 篇日記',
     });
-    mocked.notionReadDiaryContent.mockResolvedValue({ success: false, content: '', message: '读取失败: 401' });
+    mocked.notionReadDiaryContent.mockResolvedValue({ success: false, content: '', message: '讀取失敗: 401' });
     const r = await runReadDiary({ date: '2026-08-01' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'empty_content' });
     expect(feedbackSaysNeverHappened('notion_read_diary', r)).toBe(true);
   });
 
-  it('真的空白日记照旧算读到了', async () => {
+  it('真的空白日記照舊算讀到了', async () => {
     mocked.notionGetDiaryByDate.mockResolvedValue({
       success: true,
-      entries: [{ id: 'p1', title: '标题', date: '2026-08-01', url: '' }],
-      message: '找到 1 篇日记',
+      entries: [{ id: 'p1', title: '標題', date: '2026-08-01', url: '' }],
+      message: '找到 1 篇日記',
     });
-    mocked.notionReadDiaryContent.mockResolvedValue({ success: true, content: '（空白日记）', message: '日记内容为空' });
+    mocked.notionReadDiaryContent.mockResolvedValue({ success: true, content: '（空白日記）', message: '日記內容為空' });
     expect(await runReadDiary({ date: '2026-08-01' }, notionCtx)).toMatchObject({ ok: true, entryCount: 1 });
   });
 });
 
-describe('runFsReadDiary（飞书日记）', () => {
-  it('拿不到 token / 接口报错 → unreachable', async () => {
-    mocked.feishuGetDiaryByDate.mockResolvedValue({ success: false, entries: [], message: '获取token失败: 400' });
+describe('runFsReadDiary（飛書日記）', () => {
+  it('拿不到 token / 接口報錯 → unreachable', async () => {
+    mocked.feishuGetDiaryByDate.mockResolvedValue({ success: false, entries: [], message: '獲取token失敗: 400' });
     const r = await runFsReadDiary({ date: '2026-08-01' }, feishuCtx);
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });
     expect(feedbackSaysNeverHappened('feishu_read_diary', r)).toBe(true);
   });
 
-  it('查到了、那天真没写 → not_found', async () => {
-    mocked.feishuGetDiaryByDate.mockResolvedValue({ success: true, entries: [], message: '没有找到' });
+  it('查到了、那天真沒寫 → not_found', async () => {
+    mocked.feishuGetDiaryByDate.mockResolvedValue({ success: true, entries: [], message: '沒有找到' });
     const r = await runFsReadDiary({ date: '2026-08-01' }, feishuCtx);
     expect(r).toMatchObject({ ok: false, reason: 'not_found' });
     expect(feedbackSaysNeverHappened('feishu_read_diary', r)).toBe(false);
   });
 });
 
-describe('runReadNote（Notion 笔记）', () => {
-  it('搜不动 → unreachable，不能说成「对方没写过这篇」', async () => {
-    mocked.notionSearchUserNotes.mockResolvedValue({ success: false, entries: [], message: '搜索失败: 502' });
+describe('runReadNote（Notion 筆記）', () => {
+  it('搜不動 → unreachable，不能說成「對方沒寫過這篇」', async () => {
+    mocked.notionSearchUserNotes.mockResolvedValue({ success: false, entries: [], message: '搜索失敗: 502' });
     const r = await runReadNote({ keyword: '旅行' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });
     expect(feedbackSaysNeverHappened('read_note', r)).toBe(true);
   });
 
-  it('搜过了没这篇 → not_found', async () => {
-    mocked.notionSearchUserNotes.mockResolvedValue({ success: true, entries: [], message: '没有找到' });
+  it('搜過了沒這篇 → not_found', async () => {
+    mocked.notionSearchUserNotes.mockResolvedValue({ success: true, entries: [], message: '沒有找到' });
     const r = await runReadNote({ keyword: '旅行' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'not_found' });
     expect(feedbackSaysNeverHappened('read_note', r)).toBe(false);
   });
 
-  it('条目找到了但正文全没读回来 → 回喂也得说没发生', async () => {
+  it('條目找到了但正文全沒讀回來 → 回喂也得說沒發生', async () => {
     mocked.notionSearchUserNotes.mockResolvedValue({
       success: true,
-      entries: [{ id: 'n1', title: '旅行计划', date: '2026-07-30', url: '' }],
-      message: '找到 1 篇笔记',
+      entries: [{ id: 'n1', title: '旅行計劃', date: '2026-07-30', url: '' }],
+      message: '找到 1 篇筆記',
     });
-    mocked.notionReadNoteContent.mockResolvedValue({ success: false, content: '', message: '读取失败: 401' });
+    mocked.notionReadNoteContent.mockResolvedValue({ success: false, content: '', message: '讀取失敗: 401' });
     const r = await runReadNote({ keyword: '旅行' }, notionCtx);
     expect(r).toMatchObject({ ok: false, reason: 'empty_content' });
     expect(feedbackSaysNeverHappened('read_note', r)).toBe(true);
@@ -182,24 +182,24 @@ describe('runReadNote（Notion 笔记）', () => {
 });
 
 describe('runXhsMyProfile', () => {
-  // 主页打不开就降级搜昵称，搜索也连不上时以前照样回 ok:true，笔记那栏写「（没有搜到相关
-  // 笔记）」——角色于是说「我翻了下我的小红书，一条都没找到」。小红书服务器多半在用户
-  // 自己电脑上，后台到点时人睡了机器关了，这条走得最勤。
-  it('主页打不开、降级搜索也连不上 → unreachable', async () => {
+  // 主頁打不開就降級搜暱稱，搜索也連不上時以前照樣回 ok:true，筆記那欄寫「（沒有搜到相關
+  // 筆記）」——角色於是說「我翻了下我的小紅書，一條都沒找到」。小紅書服務器多半在用戶
+  // 自己電腦上，後台到點時人睡了機器關了，這條走得最勤。
+  it('主頁打不開、降級搜索也連不上 → unreachable', async () => {
     vi.spyOn(XhsMcpClient, 'search').mockResolvedValue({ success: false, error: 'connect ECONNREFUSED' } as any);
     const r = await runXhsMyProfile({}, xhsCtx({ loggedInNickname: '小明' }));
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });
     expect(feedbackSaysNeverHappened('xhs_my_profile', r)).toBe(true);
   });
 
-  it('降级搜索跑通了、真的一条都没有 → 照旧 ok，可以说「没搜到」', async () => {
+  it('降級搜索跑通了、真的一條都沒有 → 照舊 ok，可以說「沒搜到」', async () => {
     vi.spyOn(XhsMcpClient, 'search').mockResolvedValue({ success: true, data: { notes: [] } } as any);
     const r = await runXhsMyProfile({}, xhsCtx({ loggedInNickname: '小明' }));
     expect(r).toMatchObject({ ok: true, gotProfile: false });
-    expect(r.ok && r.feedsStr).toBe('（没有搜到相关笔记）');
+    expect(r.ok && r.feedsStr).toBe('（沒有搜到相關筆記）');
   });
 
-  it('只有 userId、主页请求挂了又没昵称可降级 → unreachable', async () => {
+  it('只有 userId、主頁請求掛了又沒暱稱可降級 → unreachable', async () => {
     vi.spyOn(XhsMcpClient, 'getUserProfile').mockResolvedValue({ success: false, error: 'timeout' } as any);
     const r = await runXhsMyProfile({}, xhsCtx({ loggedInUserId: 'uid-1' }));
     expect(r).toMatchObject({ ok: false, reason: 'unreachable' });

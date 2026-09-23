@@ -1,5 +1,5 @@
 /**
- * RelationsTab — NPC关系列表 (retro style)
+ * RelationsTab — NPC關係列表 (retro style)
  */
 
 import React from 'react';
@@ -11,7 +11,7 @@ const RelationsTab: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
     const { npcs, families } = gameState;
     if (npcs.length < 2) return (
         <div className="flex items-center justify-center p-8" style={{ color: '#999', fontSize: 12 }}>
-            至少需要2个居民才能看关系
+            至少需要2個居民才能看關係
         </div>
     );
 
@@ -80,7 +80,7 @@ const RelationsTab: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                                 borderColor: val > 0 ? 'rgba(91,155,107,0.3)' : val < 0 ? 'rgba(184,80,80,0.3)' : 'rgba(0,0,0,0.1)',
                             }}>{label}</span>
                             {isGrudge && <span title="仇恨"><IconFlame size={9} /></span>}
-                            {isCrush && <span title="暗恋"><IconCrush size={9} /></span>}
+                            {isCrush && <span title="暗戀"><IconCrush size={9} /></span>}
                         </div>
 
                         {/* NPC B */}

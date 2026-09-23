@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildScheduleChangeResult, parseScheduleChangeResult, SCHEDULE_CHANGE_RESULT_KIND } from './amsgScheduleResult';
 
-// 这条结果是 worker 写、客户端读的跨端形状。形状对不上时必须返回 null——客户端据此
-// 销账丢弃，而不是拿着半份数据去改用户的日程表。
-describe('schedule-change 结果的往返', () => {
-    it('组出来的结果读得回去', () => {
+// 這條結果是 worker 寫、客戶端讀的跨端形狀。形狀對不上時必須返回 null——客戶端據此
+// 銷帳丟棄，而不是拿著半份數據去改用戶的日程表。
+describe('schedule-change 結果的往返', () => {
+    it('組出來的結果讀得回去', () => {
         const built = buildScheduleChangeResult({
             charId: 'char-1',
             spokenAt: 1755600000000,
@@ -15,17 +15,17 @@ describe('schedule-change 结果的往返', () => {
     });
 
     it.each([
-        ['不是对象', 'nope'],
-        ['resultKind 对不上', { resultKind: 'other', v: 1, charId: 'c', spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
-        ['版本对不上', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 2, charId: 'c', spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
-        ['没有 charId', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
-        ['spokenAt 不是数字', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, charId: 'c', spokenAt: '昨晚', directives: [{ startTime: '22:00', activity: 'x' }] }],
-        ['一条有效指令都没有', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, charId: 'c', spokenAt: 1, directives: [{ startTime: '', activity: '' }] }],
+        ['不是對象', 'nope'],
+        ['resultKind 對不上', { resultKind: 'other', v: 1, charId: 'c', spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
+        ['版本對不上', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 2, charId: 'c', spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
+        ['沒有 charId', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, spokenAt: 1, directives: [{ startTime: '22:00', activity: 'x' }] }],
+        ['spokenAt 不是數字', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, charId: 'c', spokenAt: '昨晚', directives: [{ startTime: '22:00', activity: 'x' }] }],
+        ['一條有效指令都沒有', { resultKind: SCHEDULE_CHANGE_RESULT_KIND, v: 1, charId: 'c', spokenAt: 1, directives: [{ startTime: '', activity: '' }] }],
     ])('%s → null', (_label, raw) => {
         expect(parseScheduleChangeResult(raw)).toBeNull();
     });
 
-    it('混着坏条目时只留下能用的那些', () => {
+    it('混著壞條目時只留下能用的那些', () => {
         const parsed = parseScheduleChangeResult({
             resultKind: SCHEDULE_CHANGE_RESULT_KIND,
             v: 1,

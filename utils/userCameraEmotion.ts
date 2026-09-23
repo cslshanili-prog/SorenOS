@@ -9,13 +9,13 @@ export interface UserCameraEmotionResult {
 }
 
 const EMOTION_LABELS: Record<UserCameraEmotion, string> = {
-  neutral: '平静',
-  happy: '开心',
-  surprised: '惊讶',
+  neutral: '平靜',
+  happy: '開心',
+  surprised: '驚訝',
   sad: '低落',
-  angry: '不悦',
-  disgusted: '嫌弃',
-  tired: '疲惫',
+  angry: '不悅',
+  disgusted: '嫌棄',
+  tired: '疲憊',
 };
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -155,7 +155,7 @@ export const preloadUserCameraEmotionDetector = async (): Promise<void> => {
       .then(landmarker => {
         if (generation !== detectorGeneration) {
           try { landmarker.close(); } catch { /* released while loading */ }
-          throw new Error('本地识别已取消');
+          throw new Error('本地識別已取消');
         }
         activeLandmarker = landmarker;
         return landmarker;
@@ -200,9 +200,9 @@ export const detectUserCameraEmotion = async (video: HTMLVideoElement): Promise<
   ));
 };
 
-export const buildUserCameraEmotionPrompt = (result: UserCameraEmotionResult): string => `【当前轮次的本地摄像头非语言信息】
-用户主动开启了摄像头。本地面部识别在用户发送消息前检测到：${result.label}（内部标签 ${result.emotion}，置信度 ${Math.round(result.confidence * 100)}%）。
-这只是可能有误差的即时非语言线索，不是用户明确陈述，也不是医学或心理判断。结合用户文字自然回应；若文字语义与识别冲突，以文字为准。不要向用户解释识别系统、置信度或本段提示。`;
+export const buildUserCameraEmotionPrompt = (result: UserCameraEmotionResult): string => `【當前輪次的本地攝像頭非語言信息】
+用戶主動開啟了攝像頭。本地面部識別在用戶發送消息前檢測到：${result.label}（內部標籤 ${result.emotion}，置信度 ${Math.round(result.confidence * 100)}%）。
+這只是可能有誤差的即時非語言線索，不是用戶明確陳述，也不是醫學或心理判斷。結合用戶文字自然回應；若文字語義與識別衝突，以文字為準。不要向用戶解釋識別系統、置信度或本段提示。`;
 
 export const releaseUserCameraEmotionDetector = (): void => {
   detectorGeneration += 1;

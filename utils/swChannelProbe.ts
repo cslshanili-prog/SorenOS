@@ -1,75 +1,75 @@
 /**
- * Service Worker → 页面这条通道的体检。
+ * Service Worker → 頁面這條通道的體檢。
  *
- * 主动消息有两条腿：推送到达时 SW 立刻喊页面（实时），以及页面自己隔几秒数一眼本地
- * 收件箱（守望，见 activeMsgRuntime 的 sweepLocalInbox）。前者断了之后功能表面上还是
- * 好的——消息照样会到，只是慢那么几秒，用户多半会当成「网络有点卡」而不会来报，
- * 于是它可以坏很久没人发现。iOS 上它几乎必然是断的：App 不在最前台时，SW 拿到的
- * 「当前有哪些页面」名单直接是空的。
+ * 主動消息有兩條腿：推送到達時 SW 立刻喊頁面（實時），以及頁面自己隔幾秒數一眼本地
+ * 收件箱（守望，見 activeMsgRuntime 的 sweepLocalInbox）。前者斷了之後功能表面上還是
+ * 好的——消息照樣會到，只是慢那麼幾秒，用戶多半會當成「網絡有點卡」而不會來報，
+ * 於是它可以壞很久沒人發現。iOS 上它幾乎必然是斷的：App 不在最前台時，SW 拿到的
+ * 「當前有哪些頁面」名單直接是空的。
  *
- * 这里做两件事：把「页面和 SW 是什么关系」拍个快照，以及**用推送真正走的那条路**
- * 探一次通不通。两者都只读、不改任何状态。
+ * 這裡做兩件事：把「頁面和 SW 是什麼關係」拍個快照，以及**用推送真正走的那條路**
+ * 探一次通不通。兩者都只讀、不改任何狀態。
  */
 
-/** 页面与 Service Worker 的注册关系。字段都取自浏览器，取不到就留空。 */
+/** 頁面與 Service Worker 的註冊關係。字段都取自瀏覽器，取不到就留空。 */
 export interface SwRegistrationSnapshot {
-  /** 这个环境有没有 Service Worker（隐私模式 / 老浏览器可能没有）。 */
+  /** 這個環境有沒有 Service Worker（隱私模式 / 老瀏覽器可能沒有）。 */
   supported: boolean;
   /**
-   * 页面**受不受**当前 SW 控制。
-   * 为 false 时 SW 仍可能通过 includeUncontrolled 找到页面，所以它不等于「一定收不到」，
-   * 但配合探测结果一起看就能说明问题。
+   * 頁面**受不受**當前 SW 控制。
+   * 為 false 時 SW 仍可能通過 includeUncontrolled 找到頁面，所以它不等於「一定收不到」，
+   * 但配合探測結果一起看就能說明問題。
    */
   controlled: boolean;
-  /** SW 的作用域，和页面路径对不上的话 SW 根本管不到这个页面。 */
+  /** SW 的作用域，和頁面路徑對不上的話 SW 根本管不到這個頁面。 */
   scope?: string;
-  /** 页面自己的路径（不带查询串和 hash，那上面可能有不该进日志的东西）。 */
+  /** 頁面自己的路徑（不帶查詢串和 hash，那上面可能有不該進日誌的東西）。 */
   pagePath?: string;
-  /** 三种状态各自的 state，用来看是不是卡在等待激活。 */
+  /** 三種狀態各自的 state，用來看是不是卡在等待激活。 */
   activeState?: string;
   waitingState?: string;
   installingState?: string;
-  /** 已激活 SW 的脚本路径，用来确认跑的是不是当前这份。 */
+  /** 已激活 SW 的腳本路徑，用來確認跑的是不是當前這份。 */
   activeScriptPath?: string;
-  /** 装成 PWA 独立窗口打开的（iOS 上这种壳的行为跟浏览器标签页不一样）。 */
+  /** 裝成 PWA 獨立窗口打開的（iOS 上這種殼的行為跟瀏覽器標籤頁不一樣）。 */
   standalone?: boolean;
 }
 
-/** 一次通道探测的结果。两条路分别记，为的是把「SW 没在跑」和「SW 找不到页面」分开。 */
+/** 一次通道探測的結果。兩條路分別記，為的是把「SW 沒在跑」和「SW 找不到頁面」分開。 */
 export interface SwChannelProbeResult {
-  /** 页面递了回信地址的那条路（MessageChannel）。它通 = SW 在跑、收得到页面的消息。 */
+  /** 頁面遞了回信地址的那條路（MessageChannel）。它通 = SW 在跑、收得到頁面的消息。 */
   portAck: boolean;
   portMs?: number;
   /**
-   * SW 自己把页面找出来的那条路（clients.matchAll + postMessage）。
-   * **推送通知页面走的就是它**，所以只有这条的结果能代表真实链路。
+   * SW 自己把頁面找出來的那條路（clients.matchAll + postMessage）。
+   * **推送通知頁面走的就是它**，所以只有這條的結果能代表真實鏈路。
    */
   clientsAck: boolean;
   clientsMs?: number;
-  /** 等了多久放弃。 */
+  /** 等了多久放棄。 */
   waitedMs: number;
 }
 
-/** 从已有记录看这条通道最近的状态。 */
+/** 從已有記錄看這條通道最近的狀態。 */
 export interface SwChannelHealth {
   /**
-   * - 'ok'：最近确实收到过 SW 喊的消息，实时这条腿是活的
-   * - 'fallback-only'：有冲刷发生过，但没有一次是 SW 喊的——全靠守望和补收在捞
-   * - 'idle'：这段记录里根本没有冲刷，无从判断（刚装好、或一直没收到消息）
+   * - 'ok'：最近確實收到過 SW 喊的消息，實時這條腿是活的
+   * - 'fallback-only'：有沖刷發生過，但沒有一次是 SW 喊的——全靠守望和補收在撈
+   * - 'idle'：這段記錄里根本沒有沖刷，無從判斷（剛裝好、或一直沒收到消息）
    */
   status: 'ok' | 'fallback-only' | 'idle';
-  /** 最近一次收到 SW 消息的时刻（ISO），从来没有就是 undefined。 */
+  /** 最近一次收到 SW 消息的時刻（ISO），從來沒有就是 undefined。 */
   lastSwMessageAt?: string;
-  /** 各触发源分别冲刷了几次，按次数从多到少。 */
+  /** 各觸發源分別沖刷了幾次，按次數從多到少。 */
   flushByTrigger: Array<{ trigger: string; count: number }>;
 }
 
 /**
- * 判断实时通道还活着没有。
+ * 判斷實時通道還活著沒有。
  *
- * 判据是「有没有过 SW 喊页面这件事」，而不是「消息到没到」——消息最终总会到（兜底
- * 轮询在捞），所以拿它当判据永远看不出问题。反过来，一段时间里冲刷全由兜底触发，
- * 就说明实时那条腿断了：功能看着正常，只是每条消息都白等最多一分钟。
+ * 判據是「有沒有過 SW 喊頁面這件事」，而不是「消息到沒到」——消息最終總會到（兜底
+ * 輪詢在撈），所以拿它當判據永遠看不出問題。反過來，一段時間裡沖刷全由兜底觸發，
+ * 就說明實時那條腿斷了：功能看著正常，只是每條消息都白等最多一分鐘。
  */
 export const summarizeChannelHealth = (
   entries: Array<{ event?: string; ts?: string; trigger?: unknown }>,
@@ -79,7 +79,7 @@ export const summarizeChannelHealth = (
 
   for (const entry of entries) {
     if (entry.event === 'runtime-sw-message') {
-      // 记录不保证有序，取时间戳最大的那条。
+      // 記錄不保證有序，取時間戳最大的那條。
       if (!lastSwMessageAt || String(entry.ts ?? '') > lastSwMessageAt) {
         lastSwMessageAt = entry.ts;
       }
@@ -100,7 +100,7 @@ export const summarizeChannelHealth = (
   return { status, lastSwMessageAt, flushByTrigger };
 };
 
-/** 只留路径：查询串和 hash 上可能挂着不该进日志的东西。 */
+/** 只留路徑：查詢串和 hash 上可能掛著不該進日誌的東西。 */
 const pathOf = (url: string): string => {
   try {
     return new URL(url, location.href).pathname;
@@ -124,7 +124,7 @@ export const captureSwRegistrationSnapshot = async (): Promise<SwRegistrationSna
     snapshot.standalone = typeof window !== 'undefined'
       && (window.matchMedia?.('(display-mode: standalone)').matches
         || (window.navigator as any)?.standalone === true);
-  } catch { /* 拿不到就不记 */ }
+  } catch { /* 拿不到就不記 */ }
 
   try {
     const registration = await navigator.serviceWorker.getRegistration();
@@ -137,19 +137,19 @@ export const captureSwRegistrationSnapshot = async (): Promise<SwRegistrationSna
         snapshot.activeScriptPath = pathOf(registration.active.scriptURL);
       }
     }
-  } catch { /* 取不到注册信息就只回上面那几项 */ }
+  } catch { /* 取不到註冊信息就只回上面那幾項 */ }
 
   return snapshot;
 };
 
 /**
- * 探一次 SW 能不能喊到这个页面。
+ * 探一次 SW 能不能喊到這個頁面。
  *
- * 发一条带随机串的探测给 SW，SW 会**分别**用两条路回信；这里等到两条都回来、
- * 或者等够 waitMs 为止。之所以要等而不是发完就走：没回信才是要抓的现象，
- * 而「没回信」只能靠等出来。
+ * 發一條帶隨機串的探測給 SW，SW 會**分別**用兩條路回信；這裡等到兩條都回來、
+ * 或者等夠 waitMs 為止。之所以要等而不是發完就走：沒回信才是要抓的現象，
+ * 而「沒回信」只能靠等出來。
  *
- * 探测本身不改任何状态，失败也只是返回一份「都没通」的结果。
+ * 探測本身不改任何狀態，失敗也只是返回一份「都沒通」的結果。
  */
 export const probeSwChannel = async (waitMs = 3_000): Promise<SwChannelProbeResult> => {
   const result: SwChannelProbeResult = { portAck: false, clientsAck: false, waitedMs: waitMs };
@@ -161,7 +161,7 @@ export const probeSwChannel = async (waitMs = 3_000): Promise<SwChannelProbeResu
     target = navigator.serviceWorker.controller
       || (await navigator.serviceWorker.getRegistration())?.active
       || null;
-  } catch { /* 下面按拿不到处理 */ }
+  } catch { /* 下面按拿不到處理 */ }
   if (!target) return result;
 
   const nonce = `probe_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -178,7 +178,7 @@ export const probeSwChannel = async (waitMs = 3_000): Promise<SwChannelProbeResu
       resolve(result);
     };
 
-    // clients 这条路的回信会走页面全局的 SW message 事件——跟真实推送落到同一个入口。
+    // clients 這條路的回信會走頁面全局的 SW message 事件——跟真實推送落到同一個入口。
     const onClientsMessage = (event: MessageEvent) => {
       if (event.data?.type !== 'sw-channel-probe-ack' || event.data?.nonce !== nonce) return;
       result.clientsAck = true;
@@ -188,7 +188,7 @@ export const probeSwChannel = async (waitMs = 3_000): Promise<SwChannelProbeResu
 
     try {
       navigator.serviceWorker.addEventListener('message', onClientsMessage);
-    } catch { /* 加不上监听就只能靠超时收尾 */ }
+    } catch { /* 加不上監聽就只能靠超時收尾 */ }
 
     const timer = setTimeout(finish, waitMs);
 
@@ -202,7 +202,7 @@ export const probeSwChannel = async (waitMs = 3_000): Promise<SwChannelProbeResu
       };
       target.postMessage({ type: 'SW_CHANNEL_PROBE', nonce }, [channel.port2]);
     } catch {
-      // 连消息都发不出去：两条路都算不通，不用干等满。
+      // 連消息都發不出去：兩條路都算不通，不用乾等滿。
       finish();
     }
   });

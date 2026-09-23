@@ -26,7 +26,7 @@ const seed = async (benefits: SARModuleBenefits, balance = 1000) => {
     return { storage, module, quote: quoteSARModulePrice(module, benefits, at) };
 };
 
-describe('SAR 个人线优惠结算', () => {
+describe('SAR 個人線優惠結算', () => {
     it('chooses one cheapest offer, rounds up, and retains coupons when a limited offer is equally good', () => {
         const module = { id: 'module', price: 21 };
         const benefits = { coupons: [coupon('weak', 10), coupon('same', 20)], discounts: [discount()] };
@@ -72,7 +72,7 @@ describe('SAR 个人线优惠结算', () => {
     it('rejects an expired displayed discount without increasing the charge or consuming a fallback coupon', async () => {
         const { storage, module, quote } = await seed({ discounts: [discount()], coupons: [coupon()] });
         const before = storage.getItem(FISHING_MARKET_STORAGE_KEY);
-        await expect(buySARModuleWithPayment(module.id, { storage, requestId: 'expired', maxCost: quote.price, now: new Date(at + 30 * 60_000) })).rejects.toThrow('价格');
+        await expect(buySARModuleWithPayment(module.id, { storage, requestId: 'expired', maxCost: quote.price, now: new Date(at + 30 * 60_000) })).rejects.toThrow('價格');
         expect(storage.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
     });
     it('keeps the coupon when money is insufficient or the atomic storage write fails', async () => {

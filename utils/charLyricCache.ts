@@ -1,18 +1,18 @@
 /**
- * Char 背景音 · 歌词片段缓存
+ * Char 背景音 · 歌詞片段緩存
  *
- * 给 schedule 层那个"此刻 char 在听 X"注入一段稳定的歌词窗口，影响 char 的心境 / 情绪。
- * 不做"当前播放到哪一行"这种进度模拟 —— char 没有物理播放，拿一段代表性歌词即可。
+ * 給 schedule 層那個"此刻 char 在聽 X"注入一段穩定的歌詞窗口，影響 char 的心境 / 情緒。
+ * 不做"當前播放到哪一行"這種進度模擬 —— char 沒有物理播放，拿一段代表性歌詞即可。
  *
- * - 同一首歌的全量歌词按 songId 长久缓存（歌词不会变；命中率爆高）
- * - 窗口按 (charId + today + slot.startTime + songId) 种子哈希挑起点，
- *   保证同一个 slot 内每次聊天看到的歌词片段是一样的，slot 一过就换或消失
- * - 拉失败就返回空 string[]，prompt 层会无损降级成"只有歌名 + 艺人"
+ * - 同一首歌的全量歌詞按 songId 長久緩存（歌詞不會變；命中率爆高）
+ * - 窗口按 (charId + today + slot.startTime + songId) 種子哈希挑起點，
+ *   保證同一個 slot 內每次聊天看到的歌詞片段是一樣的，slot 一過就換或消失
+ * - 拉失敗就返回空 string[]，prompt 層會無損降級成"只有歌名 + 藝人"
  */
 
 import { MusicCfg, musicApi, parseLyric } from '../context/MusicContext';
 
-const MEM_CACHE = new Map<number, string[] | null>();  // null = 已知没有歌词
+const MEM_CACHE = new Map<number, string[] | null>();  // null = 已知沒有歌詞
 const INFLIGHT = new Map<number, Promise<string[] | null>>();
 
 const LS_KEY = (id: number) => `sully_char_lyric_v1_${id}`;
@@ -34,12 +34,12 @@ const loadFromLS = (id: number): LyricEntry | null => {
 const saveToLS = (id: number, text: string[] | null) => {
     try {
         localStorage.setItem(LS_KEY(id), JSON.stringify({ text, at: Date.now() }));
-        // 维护 meta 索引做 LRU 淘汰
+        // 維護 meta 索引做 LRU 淘汰
         const metaRaw = localStorage.getItem(LS_META_KEY);
         const meta: number[] = metaRaw ? JSON.parse(metaRaw) : [];
         const next = [id, ...meta.filter(x => x !== id)].slice(0, LS_CAP);
         localStorage.setItem(LS_META_KEY, JSON.stringify(next));
-        // 淘汰多出来的
+        // 淘汰多出來的
         if (meta.length >= LS_CAP) {
             for (const gone of meta.slice(LS_CAP - 1)) {
                 if (gone !== id) localStorage.removeItem(LS_KEY(gone));
@@ -48,7 +48,7 @@ const saveToLS = (id: number, text: string[] | null) => {
     } catch {}
 };
 
-/** 拉一首歌的全量歌词行文本，带双层缓存（mem + localStorage） */
+/** 拉一首歌的全量歌詞行文本，帶雙層緩存（mem + localStorage） */
 const getFullLyric = async (cfg: MusicCfg, songId: number): Promise<string[] | null> => {
     if (MEM_CACHE.has(songId)) return MEM_CACHE.get(songId)!;
 
@@ -58,7 +58,7 @@ const getFullLyric = async (cfg: MusicCfg, songId: number): Promise<string[] | n
         return fromLS.text;
     }
 
-    // 去重 in-flight（同一首歌并发多次调用只打一次网）
+    // 去重 in-flight（同一首歌併發多次調用只打一次網）
     const existing = INFLIGHT.get(songId);
     if (existing) return existing;
 
@@ -72,7 +72,7 @@ const getFullLyric = async (cfg: MusicCfg, songId: number): Promise<string[] | n
             saveToLS(songId, result);
             return result;
         } catch {
-            // 拉失败不 poisons 缓存（下一个 slot 有机会重试）
+            // 拉失敗不 poisons 緩存（下一個 slot 有機會重試）
             return null;
         } finally {
             INFLIGHT.delete(songId);
@@ -82,7 +82,7 @@ const getFullLyric = async (cfg: MusicCfg, songId: number): Promise<string[] | n
     return p;
 };
 
-/** 用给定种子串稳定地取一段 lineCount 行的窗口 */
+/** 用給定種子串穩定地取一段 lineCount 行的窗口 */
 const pickWindow = (lines: string[], seed: string, lineCount: number): string[] => {
     if (lines.length === 0) return [];
     if (lines.length <= lineCount) return lines.slice();
@@ -94,12 +94,12 @@ const pickWindow = (lines: string[], seed: string, lineCount: number): string[] 
 };
 
 /**
- * 拿 char 此刻应该"听到"的那段歌词（稳定、有限行、纯只读）。
- * @param cfg MusicContext 里那份 MusicCfg（workerUrl + cookie + quality）
+ * 拿 char 此刻應該"聽到"的那段歌詞（穩定、有限行、純只讀）。
+ * @param cfg MusicContext 裡那份 MusicCfg（workerUrl + cookie + quality）
  * @param songId 歌的 id
- * @param seed 一般传 `${charId}-${today}-${slot.startTime}-${songId}`
- * @param lineCount 默认 6 行，足够让 LLM 品味到情绪但不会撑爆 prompt
- * @returns 一段连续的歌词行（可能为 []，如歌词拉不到或是纯音乐）
+ * @param seed 一般傳 `${charId}-${today}-${slot.startTime}-${songId}`
+ * @param lineCount 默認 6 行，足夠讓 LLM 品味到情緒但不會撐爆 prompt
+ * @returns 一段連續的歌詞行（可能為 []，如歌詞拉不到或是純音樂）
  */
 export const getCharLyricSnippet = async (
     cfg: MusicCfg,

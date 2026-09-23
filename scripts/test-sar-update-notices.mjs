@@ -10,9 +10,9 @@ await page.addInitScript(()=>{
  for(const id of ['cabinet','board'])localStorage.setItem('sar-facility-guide-'+id+'-v1','done');
 });
 const button=name=>page.getByRole('button',{name,exact:true});
-const notice=page.getByRole('dialog',{name:'凯恩的优化通知',exact:true});
+const notice=page.getByRole('dialog',{name:'凱恩的優化通知',exact:true});
 const seen=id=>page.evaluate(id=>localStorage.getItem(id==='board'?'sar-feature-update-2026-09-16-bulk-fish-v1:board':'sar-feature-update-september-v1:'+id),id);
-const enter=async()=>{await button('SAR').click();await button('进入异界陈列柜').waitFor();};
+const enter=async()=>{await button('SAR').click();await button('進入異界陳列櫃').waitFor();};
 const preference=async value=>page.evaluate(async value=>{const {patchSARClubState}=await import('/utils/vrWorld/sarClub.ts');patchSARClubState({npcPreference:value});},value);
 const familiarity=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('vr_fishing_market_v1')||'null')?.sarFamiliarity??null);
 async function read(id,expressions){
@@ -23,22 +23,22 @@ async function read(id,expressions){
   assert.equal(await seen(id),null);
   if(id==='cabinet'?i===1:i===2||i===5){assert.equal(await notice.locator('strong').count(),id==='cabinet'?1:0);assert.equal(await notice.locator('em').count(),1);assert(!(await notice.locator('.srf-line').innerText()).includes('*'));}
   if(i===1||i===expressions.length-1){await page.setViewportSize({width:320,height:680});assert.equal(await notice.evaluate(el=>el.scrollWidth>el.clientWidth),false);assert.equal(await notice.locator('.srf-bubble').evaluate(el=>el.scrollHeight>el.clientHeight),false);await page.screenshot({path:out+'/'+id+'-'+i+'.png'});}
-  await button('继续对话').click();
+  await button('繼續對話').click();
  }
  await notice.waitFor({state:'detached'});assert.equal(await seen(id),'done');
 }
 try{
  await page.goto('http://127.0.0.1:5183/test/fixtures/kanata.html?npcs=show');await enter();const before=await familiarity();
- await button('进入异界陈列柜').click();await notice.waitFor();assert.equal(await page.getByRole('dialog',{name:'SAR 异格陈列柜',exact:true}).count(),0);
+ await button('進入異界陳列櫃').click();await notice.waitFor();assert.equal(await page.getByRole('dialog',{name:'SAR 異格陳列櫃',exact:true}).count(),0);
  await page.keyboard.press('Escape');await notice.waitFor();assert.equal(await seen('cabinet'),null);
  await read('cabinet',['happy','normal','normal','happy','normal','normal2']);
- await page.getByRole('dialog',{name:'SAR 异格陈列柜',exact:true}).waitFor();assert.deepEqual(await familiarity(),before);
- await button('离开异格陈列柜').click();await button('进入异界陈列柜').click();await page.getByRole('dialog',{name:'SAR 异格陈列柜',exact:true}).waitFor();assert.equal(await notice.count(),0);await button('离开异格陈列柜').click();
- await button('进入布告板').click();await notice.waitFor();await button('继续对话').click();assert.equal(await seen('board'),null);
- await page.reload();await enter();await button('进入布告板').click();await notice.getByText('来自2026年9月16日夜晚的更新的优化通知！',{exact:true}).waitFor();
- await preference('hide');await notice.waitFor({state:'detached'});await page.getByRole('dialog',{name:'彼方布告板',exact:true}).waitFor();assert.equal(await seen('board'),null);await button('离开布告板').click();
- await button('进入布告板').click();await page.getByRole('dialog',{name:'彼方布告板',exact:true}).waitFor();assert.equal(await notice.count(),0);assert.equal(await seen('board'),null);await button('离开布告板').click();
- await preference('show');await button('进入布告板').click();await read('board',['happy','normal','normal','curious','embarrassed','normal','normal2','happy']);await page.getByRole('dialog',{name:'彼方布告板',exact:true}).waitFor();assert.deepEqual(await familiarity(),before);await button('离开布告板').click();
- await page.reload();await enter();for(const [entry,dialog,close] of [['进入异界陈列柜','SAR 异格陈列柜','离开异格陈列柜'],['进入布告板','彼方布告板','离开布告板']]){await button(entry).click();await page.getByRole('dialog',{name:dialog,exact:true}).waitFor();assert.equal(await notice.count(),0);await button(close).click();}
+ await page.getByRole('dialog',{name:'SAR 異格陳列櫃',exact:true}).waitFor();assert.deepEqual(await familiarity(),before);
+ await button('離開異格陳列櫃').click();await button('進入異界陳列櫃').click();await page.getByRole('dialog',{name:'SAR 異格陳列櫃',exact:true}).waitFor();assert.equal(await notice.count(),0);await button('離開異格陳列櫃').click();
+ await button('進入佈告板').click();await notice.waitFor();await button('繼續對話').click();assert.equal(await seen('board'),null);
+ await page.reload();await enter();await button('進入佈告板').click();await notice.getByText('來自2026年9月16日夜晚的更新的優化通知！',{exact:true}).waitFor();
+ await preference('hide');await notice.waitFor({state:'detached'});await page.getByRole('dialog',{name:'彼方佈告板',exact:true}).waitFor();assert.equal(await seen('board'),null);await button('離開佈告板').click();
+ await button('進入佈告板').click();await page.getByRole('dialog',{name:'彼方佈告板',exact:true}).waitFor();assert.equal(await notice.count(),0);assert.equal(await seen('board'),null);await button('離開佈告板').click();
+ await preference('show');await button('進入佈告板').click();await read('board',['happy','normal','normal','curious','embarrassed','normal','normal2','happy']);await page.getByRole('dialog',{name:'彼方佈告板',exact:true}).waitFor();assert.deepEqual(await familiarity(),before);await button('離開佈告板').click();
+ await page.reload();await enter();for(const [entry,dialog,close] of [['進入異界陳列櫃','SAR 異格陳列櫃','離開異格陳列櫃'],['進入佈告板','彼方佈告板','離開佈告板']]){await button(entry).click();await page.getByRole('dialog',{name:dialog,exact:true}).waitFor();assert.equal(await notice.count(),0);await button(close).click();}
  assert.deepEqual(modelRequests,[]);assert.deepEqual(errors,[]);console.log('PASS both authored notices and expressions, native dialogue focus, destinations, interruption, NPC opt-out, independent persistent acknowledgement, no familiarity changes or model requests, 320px readability');
 }finally{await browser.close();}

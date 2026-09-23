@@ -1,15 +1,15 @@
 import { Anniversary, CharacterProfile } from '../types';
 
 /**
- * 纪念日关联对象的角色 id 列表（多选）。charIds 是新字段；旧数据只有单选的 charId 时
- * 兜底成单元素数组，全站读取关联对象一律走这个函数，不要直接读 .charId / .charIds。
+ * 紀念日關聯對象的角色 id 列表（多選）。charIds 是新字段；舊數據只有單選的 charId 時
+ * 兜底成單元素數組，全站讀取關聯對象一律走這個函數，不要直接讀 .charId / .charIds。
  */
 export function anniversaryCharIds(anni: Pick<Anniversary, 'charId' | 'charIds'>): string[] {
     if (anni.charIds && anni.charIds.length > 0) return anni.charIds;
     return anni.charId ? [anni.charId] : [];
 }
 
-/** 关联对象的显示名字，多个用顿号连接；一个都找不到时兜底 'Unknown'（跟旧文案保持一致）。 */
+/** 關聯對象的顯示名字，多個用頓號連接；一個都找不到時兜底 'Unknown'（跟舊文案保持一致）。 */
 export function anniversaryCharNames(
     anni: Pick<Anniversary, 'charId' | 'charIds'>,
     characters: Pick<CharacterProfile, 'id' | 'name'>[],
@@ -20,11 +20,6 @@ export function anniversaryCharNames(
     return names.length > 0 ? names.join('、') : 'Unknown';
 }
 
-/**
- * 纪念日"下一次会到来的日期"。非重复纪念日原样返回锚点日期（过了就是过了，符合现状默认行为）；
- * 开了「每年重复提醒」的，若锚点日期的月/日在今年已经过了，换算成明年同一天，否则就是今年。
- * 只用于"即将到来"这类前瞻性展示——纪念日本身的 date 字段（历史锚点）永远不因这个函数而改写。
- */
 const DAY_MS = 86_400_000;
 const DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -108,9 +103,14 @@ export function buildAnniversaryInjection(
         const when = r.daysUntil === 0 ? '今天' : r.daysUntil === 1 ? '明天' : `${r.daysUntil} 天後`;
         return `- ${when}（${monthDayLabel(r.occurrenceKey)}）是「${r.title}」${yearsNote(r)}。`;
     });
-    return `\n### 📅【你記得的日子】\n${lines.join('\n')}\n（這些是你放在心上的日子。今天的那個，找個自然的時機提起——一句話、一個小心意都好，別像在念備忘錄；還沒到的，可以默默記著，或輕輕帶一句。）\n`;
+    return `\n### 📅【你記得的日子】\n${lines.join('\n')}\n（這些是你放在心上的日子。今天的那個，找個自然的時機提起——一句話、一個小心意都好，別像在唸備忘錄；還沒到的，可以默默記著，或輕輕帶一句。）\n`;
 }
 
+/**
+ * 紀念日"下一次會到來的日期"。非重複紀念日原樣返回錨點日期（過了就是過了，符合現狀默認行為）；
+ * 開了「每年重複提醒」的，若錨點日期的月/日在今年已經過了，換算成明年同一天，否則就是今年。
+ * 只用於"即將到來"這類前瞻性展示——紀念日本身的 date 字段（歷史錨點）永遠不因這個函數而改寫。
+ */
 export function nextOccurrenceDate(
     anni: Pick<Anniversary, 'date' | 'repeatAnnually'>,
     todayKey: string,

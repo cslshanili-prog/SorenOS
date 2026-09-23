@@ -31,23 +31,23 @@ export interface WorldbookSystemSections {
 }
 
 export const WORLDBOOK_POSITION_LABELS: Record<WorldbookPosition, string> = {
-    0: '角色设定前',
-    1: '角色设定后',
-    2: '作者注释顶部',
-    3: '作者注释底部',
-    4: '聊天记录指定深度',
+    0: '角色設定前',
+    1: '角色設定後',
+    2: '作者註釋頂部',
+    3: '作者註釋底部',
+    4: '聊天記錄指定深度',
     5: '示例消息前',
-    6: '示例消息后',
+    6: '示例消息後',
 };
 
 export const WORLDBOOK_POSITION_DESCRIPTIONS: Record<WorldbookPosition, string> = {
-    0: '适合放全局规则、基础背景；会出现在角色身份与性格设定之前。',
-    1: '适合一般世界观、人物与地点设定；这是旧版世界书一直使用的默认位置。',
-    2: '适合放写作方向、语气或节奏要求；位于作者注释内容顶部。',
-    3: '适合放作者注释后的补充与强调；比顶部内容更靠后。',
-    4: '适合临时状态、近期事件或强提醒；按深度和角色插入聊天记录。',
-    5: '适合放阅读示例对话前需要先知道的说明。',
-    6: '适合放示例对话结束后的补充说明。',
+    0: '適合放全局規則、基礎背景；會出現在角色身份與性格設定之前。',
+    1: '適合一般世界觀、人物與地點設定；這是舊版世界書一直使用的默認位置。',
+    2: '適合放寫作方向、語氣或節奏要求；位於作者註釋內容頂部。',
+    3: '適合放作者註釋後的補充與強調；比頂部內容更靠後。',
+    4: '適合臨時狀態、近期事件或強提醒；按深度和角色插入聊天記錄。',
+    5: '適合放閱讀示例對話前需要先知道的說明。',
+    6: '適合放示例對話結束後的補充說明。',
 };
 
 export const WORLDBOOK_ROLE_LABELS: Record<WorldbookDepthRole, string> = {
@@ -231,7 +231,7 @@ export const formatWorldbookSection = (
     for (const entry of entries) {
         // SillyTavern comments are editor-only and are not part of the prompt.
         if (entry.book.sourceUid === undefined) {
-            const category = entry.book.category || '通用设定 (General)';
+            const category = entry.book.category || '通用設定 (General)';
             if (category !== lastLegacyCategory) {
                 output += `#### [${category}]\n`;
                 lastLegacyCategory = category;
@@ -315,7 +315,7 @@ export const parseStandardWorldbook = (
 ): Worldbook[] => {
     const parsed = JSON.parse(rawText);
     if (!parsed || typeof parsed !== 'object' || !parsed.entries || typeof parsed.entries !== 'object') {
-        throw new Error('不是受支持的标准世界书文件：缺少 entries');
+        throw new Error('不是受支持的標準世界書文件：缺少 entries');
     }
     const rawEntries = Array.isArray(parsed.entries)
         ? parsed.entries
@@ -328,7 +328,7 @@ export const parseStandardWorldbook = (
         const rawRole = value.role == null ? null : clamp(value.role, 0, 2, 0) as WorldbookDepthRole;
         return [{
             id: `wb-${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-            title: String(value.comment || value.name || `条目 ${uid + 1}`),
+            title: String(value.comment || value.name || `條目 ${uid + 1}`),
             content: value.content,
             category,
             createdAt: now,
@@ -352,6 +352,6 @@ export const parseStandardWorldbook = (
         }];
     });
 
-    if (books.length === 0) throw new Error('世界书里没有可导入的有效条目');
+    if (books.length === 0) throw new Error('世界書裡沒有可導入的有效條目');
     return books;
 };

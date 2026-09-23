@@ -21,4 +21,4 @@ export const realizeMarketEncounter = (event: MarketEncounter, participant: { id
     ...(reaction.trim() ? { reaction: reaction.trim().slice(0, 600) } : {}),
 });
 export const marketEncounterText = (result: MarketEncounterResult): string =>
-    '路人小事件（彼方游戏内）：' + result.story + (result.reaction ? '\n' + result.participantName + '的反应：' + result.reaction : '');
+    '路人小事件（彼方遊戲內）：' + result.story + (result.reaction ? '\n' + result.participantName + '的反應：' + result.reaction : '');

@@ -1,7 +1,7 @@
 /**
  * Memory Palace — IndexedDB CRUD 操作
  *
- * 封装 6 张表的增删改查，复用主 db.ts 的 openDB()。
+ * 封裝 6 張表的增刪改查，複用主 db.ts 的 openDB()。
  */
 
 import { openDB } from '../db';
@@ -15,7 +15,7 @@ import { bm25Index } from './bm25Index';
 import { notifyMemoryNodesChanged } from './nodeChanges';
 import type { VectorIndexEntry as VectorBackupIndexEntry } from '../backupFormat';
 
-// ─── Store 名称常量 ────────────────────────────────────
+// ─── Store 名稱常量 ────────────────────────────────────
 
 const STORE_MEMORY_NODES   = 'memory_nodes';
 const STORE_MEMORY_VECTORS = 'memory_vectors';
@@ -27,7 +27,7 @@ const STORE_EVENT_BOXES    = 'event_boxes';
 const STORE_ROOM_PLATES    = 'room_plates';
 const STORE_DIGEST_REPORTS = 'digest_reports';
 
-// ─── 通用辅助 ──────────────────────────────────────────
+// ─── 通用輔助 ──────────────────────────────────────────
 
 /** 通用 getAll by index */
 async function getAllByIndex<T>(
@@ -90,7 +90,7 @@ async function getAll<T>(storeName: string): Promise<T[]> {
 
 // ─── MemoryNode CRUD ──────────────────────────────────
 
-/** 读取远程向量配置（轻量，仅 localStorage 读取） */
+/** 讀取遠程向量配置（輕量，僅 localStorage 讀取） */
 function getRemoteVectorConfig(): { enabled: boolean; supabaseUrl: string; supabaseAnonKey: string; initialized: boolean } | null {
     try {
         const raw = localStorage.getItem('os_remote_vector_config');
@@ -100,18 +100,18 @@ function getRemoteVectorConfig(): { enabled: boolean; supabaseUrl: string; supab
     } catch { return null; }
 }
 
-/** save 后自动同步已向量化节点的 metadata 到远程 */
+/** save 後自動同步已向量化節點的 metadata 到遠程 */
 function syncNodeMetadataToRemote(node: MemoryNode): void {
     if (!node.embedded) return;
     const rc = getRemoteVectorConfig();
     if (!rc) return;
-    // 懒加载 + fire-and-forget
+    // 懶加載 + fire-and-forget
     import('./supabaseVector').then(({ upsertVector }) => {
         // 只更新 metadata（room/importance/tags/mood/content），需要拿到向量
         getByKey<MemoryVector>(STORE_MEMORY_VECTORS, node.id).then(vec => {
             if (!vec) return;
-            // ensureFloat32 兼容旧 number[] / 新 Uint8Array / 内存中的 Float32Array
-            // 三种形态，都解码成 Float32Array 喂给 supabase。
+            // ensureFloat32 兼容舊 number[] / 新 Uint8Array / 內存中的 Float32Array
+            // 三種形態，都解碼成 Float32Array 餵給 supabase。
             const vector = ensureFloat32(vec.vector);
             upsertVector(rc, node.id, node.charId, vector, node, vec.dimensions, vec.model).catch(() => {});
         });
@@ -127,7 +127,7 @@ export const MemoryNodeDB = {
             const tx = db.transaction([STORE_MEMORY_NODES, STORE_MEMORY_VECTORS], 'readwrite');
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error || new Error('记忆和向量保存已回滚'));
+            tx.onabort = () => reject(tx.error || new Error('記憶和向量保存已回滾'));
             try {
                 for (const { node, vector } of entries) {
                     tx.objectStore(STORE_MEMORY_NODES).put(node);
@@ -140,14 +140,14 @@ export const MemoryNodeDB = {
     },
     save: async (node: MemoryNode) => {
         await put<MemoryNode>(STORE_MEMORY_NODES, node);
-        // 写入验证：确认数据真的持久化了
+        // 寫入驗證：確認數據真的持久化了
         const verify = await getByKey<MemoryNode>(STORE_MEMORY_NODES, node.id);
         if (!verify) {
             console.error(`❌ [MemoryNodeDB] WRITE VERIFICATION FAILED for ${node.id}`);
             throw new Error(`Memory node write failed: ${node.id}`);
         }
-        // BM25 倒排索引：内部按 contentSig 判断是否需要重新 tokenize，
-        // touchAccess 之类只改 metadata 的写入会被自动跳过。
+        // BM25 倒排索引：內部按 contentSig 判斷是否需要重新 tokenize，
+        // touchAccess 之類只改 metadata 的寫入會被自動跳過。
         bm25Index.onNodeSaved(node);
         syncNodeMetadataToRemote(node);
         notifyMemoryNodesChanged(node.charId);
@@ -172,11 +172,11 @@ export const MemoryNodeDB = {
         getAllByIndex<MemoryNode>(STORE_MEMORY_NODES, 'charId', charId)
             .then(nodes => nodes.filter(n => !n.embedded)),
 
-    /** @deprecated 旧话题盒 ID 查询，保留以兼容残留数据；新代码请用 getByEventBoxId */
+    /** @deprecated 舊話題盒 ID 查詢，保留以兼容殘留數據；新代碼請用 getByEventBoxId */
     getByBoxId: (boxId: string) =>
         getAllByIndex<MemoryNode>(STORE_MEMORY_NODES, 'boxId', boxId),
 
-    /** 按 EventBox ID 查询所属记忆节点（含 live + archived + summary） */
+    /** 按 EventBox ID 查詢所屬記憶節點（含 live + archived + summary） */
     getByEventBoxId: (eventBoxId: string) =>
         getAllByIndex<MemoryNode>(STORE_MEMORY_NODES, 'eventBoxId', eventBoxId),
 
@@ -196,7 +196,7 @@ export const MemoryNodeDB = {
         for (const charId of new Set(nodes.map(node => node.charId))) notifyMemoryNodesChanged(charId);
     },
 
-    /** 更新访问记录（检索后调用） */
+    /** 更新訪問記錄（檢索後調用） */
     touchAccess: async (id: string): Promise<void> => {
         const node = await getByKey<MemoryNode>(STORE_MEMORY_NODES, id);
         if (!node) return;
@@ -209,33 +209,33 @@ export const MemoryNodeDB = {
 
 // ─── Float32Array 工具 ───────────────────────────────
 //
-// 历史包袱：早期版本把 Float32Array 用 Array.from() 转成普通 number[] 存进
-// IndexedDB，结果每个 number 是 V8 的 boxed double（约 50 字节），1024 维
-// 向量在磁盘上膨胀到 ~50 KB / 条，10k 向量就 500 MB+。
+// 歷史包袱：早期版本把 Float32Array 用 Array.from() 轉成普通 number[] 存進
+// IndexedDB，結果每個 number 是 V8 的 boxed double（約 50 字節），1024 維
+// 向量在磁盤上膨脹到 ~50 KB / 條，10k 向量就 500 MB+。
 //
-// 现在改成存 Uint8Array（直接拿 Float32 的底层字节）：4 字节 / 维度无损，
-// ~12-13× 缩盘，读取时一行 new Float32Array(buf) 零拷贝转回去，余弦相似度
-// 算出来字节级一致 — 召回效果与旧格式完全等同。
+// 現在改成存 Uint8Array（直接拿 Float32 的底層字節）：4 字節 / 維度無損，
+// ~12-13× 縮盤，讀取時一行 new Float32Array(buf) 零拷貝轉回去，餘弦相似度
+// 算出來字節級一致 — 召回效果與舊格式完全等同。
 //
-// 旧 number[] 数据读取时会被透明地转为 Float32Array，下次 saveMany 写回会
-// 自动持久化为 Uint8Array；getAllByCharId 还会顺手做批量迁移。
+// 舊 number[] 數據讀取時會被透明地轉為 Float32Array，下次 saveMany 寫回會
+// 自動持久化為 Uint8Array；getAllByCharId 還會順手做批量遷移。
 
-/** 解码任一储存形态为 Float32Array（零拷贝走 Uint8Array.buffer 路径） */
+/** 解碼任一儲存形態為 Float32Array（零拷貝走 Uint8Array.buffer 路徑） */
 export function ensureFloat32(vec: number[] | Float32Array | Uint8Array): Float32Array {
     if (vec instanceof Float32Array) return vec;
     if (vec instanceof Uint8Array) {
-        // IndexedDB 结构化克隆给的是新 ArrayBuffer，可以直接 view 不用复制。
+        // IndexedDB 結構化克隆給的是新 ArrayBuffer，可以直接 view 不用複製。
         return new Float32Array(vec.buffer, vec.byteOffset, vec.byteLength >>> 2);
     }
-    // 旧 number[] 路径
+    // 舊 number[] 路徑
     return new Float32Array(vec);
 }
 
 /**
- * 把 memory_vectors 的原始记录归一化成「Float32 原始字节拼成的一根 bin + 索引」，供 v2 备份的
- * 向量二进制旁路使用（见 utils/backupFormat.ts）。vector 可能是 Uint8Array（已迁移）/ Float32Array /
- * 遗留 number[]，必须先过 ensureFloat32 统一——遗留 number[] 不归一化直接当字节读会写出无效数据（R4·F4）。
- * dimensions 用实际 f32 长度，钉死 byteLength === dimensions*4 不变量（导入端据此校验）。
+ * 把 memory_vectors 的原始記錄歸一化成「Float32 原始字節拼成的一根 bin + 索引」，供 v2 備份的
+ * 向量二進制旁路使用（見 utils/backupFormat.ts）。vector 可能是 Uint8Array（已遷移）/ Float32Array /
+ * 遺留 number[]，必須先過 ensureFloat32 統一——遺留 number[] 不歸一化直接當字節讀會寫出無效數據（R4·F4）。
+ * dimensions 用實際 f32 長度，釘死 byteLength === dimensions*4 不變量（導入端據此校驗）。
  */
 export function encodeVectorsForBackup(
     rawVectors: Array<{ memoryId?: string; charId?: string; dimensions?: number; model?: string; vector?: unknown }>,
@@ -273,11 +273,11 @@ type RawBackupVector = {
 };
 
 /**
- * 低内存向量备份编码：调用方提供一个可重复执行的分批扫描器，本函数第一遍只统计总字节数
- * 和索引，第二遍才把每批字节拷进最终 bin。这样 4500+ 条旧 number[] 向量不会与最终 bin
- * 同时整表驻留；峰值约为「最终紧凑 bin + 一个小批次」，备份格式仍与旧版完全一致。
+ * 低內存向量備份編碼：調用方提供一個可重複執行的分批掃描器，本函數第一遍只統計總字節數
+ * 和索引，第二遍才把每批字節拷進最終 bin。這樣 4500+ 條舊 number[] 向量不會與最終 bin
+ * 同時整表駐留；峰值約為「最終緊湊 bin + 一個小批次」，備份格式仍與舊版完全一致。
  *
- * 两遍之间若数据发生变化会中止并给出明确错误，避免生成索引与 bin 错位的损坏备份。
+ * 兩遍之間若數據發生變化會中止並給出明確錯誤，避免生成索引與 bin 錯位的損壞備份。
  */
 export async function encodeVectorsForBackupChunked(
     scanBatches: (onBatch: (batch: RawBackupVector[]) => void) => Promise<void>,
@@ -300,7 +300,7 @@ export async function encodeVectorsForBackupChunked(
     await scanBatches((batch) => {
         const encoded = encodeVectorsForBackup(batch);
         if (byteCursor + encoded.bin.byteLength > bin.byteLength) {
-            throw new Error('备份期间记忆向量发生变化，请等待记忆宫殿处理完成后重试。');
+            throw new Error('備份期間記憶向量發生變化，請等待記憶宮殿處理完成後重試。');
         }
         for (const entry of encoded.index) {
             const expected = index[indexCursor++];
@@ -311,7 +311,7 @@ export async function encodeVectorsForBackupChunked(
                 || expected.model !== entry.model
                 || expected.byteOffset !== byteCursor + entry.byteOffset
                 || expected.byteLength !== entry.byteLength) {
-                throw new Error('备份期间记忆向量发生变化，请等待记忆宫殿处理完成后重试。');
+                throw new Error('備份期間記憶向量發生變化，請等待記憶宮殿處理完成後重試。');
             }
         }
         bin.set(encoded.bin, byteCursor);
@@ -319,19 +319,19 @@ export async function encodeVectorsForBackupChunked(
     });
 
     if (byteCursor !== totalBytes || indexCursor !== index.length) {
-        throw new Error('备份期间记忆向量发生变化，请等待记忆宫殿处理完成后重试。');
+        throw new Error('備份期間記憶向量發生變化，請等待記憶宮殿處理完成後重試。');
     }
     return { bin, index };
 }
 
-/** 编码为 IndexedDB 存储形态（Uint8Array of Float32 raw bytes） */
+/** 編碼為 IndexedDB 存儲形態（Uint8Array of Float32 raw bytes） */
 function vecForStorage(vec: number[] | Float32Array | Uint8Array): Uint8Array {
     if (vec instanceof Uint8Array) return vec;
     const f32 = vec instanceof Float32Array ? vec : new Float32Array(vec);
     return new Uint8Array(f32.buffer, f32.byteOffset, f32.byteLength);
 }
 
-/** 该向量是否还是旧 number[] 形态（用于判断是否需要迁移写回） */
+/** 該向量是否還是舊 number[] 形態（用於判斷是否需要遷移寫回） */
 function isLegacyVec(vec: unknown): boolean {
     return Array.isArray(vec);
 }
@@ -342,7 +342,7 @@ export const MemoryVectorDB = {
     save: async (vec: MemoryVector) => {
         const stored = { ...vec, vector: vecForStorage(vec.vector) };
         await put<MemoryVector>(STORE_MEMORY_VECTORS, stored);
-        // 写入验证
+        // 寫入驗證
         const verify = await getByKey<MemoryVector>(STORE_MEMORY_VECTORS, vec.memoryId);
         if (!verify) {
             console.error(`❌ [MemoryVectorDB] WRITE VERIFICATION FAILED for ${vec.memoryId}`);
@@ -359,20 +359,20 @@ export const MemoryVectorDB = {
     delete: (memoryId: string) => deleteByKey(STORE_MEMORY_VECTORS, memoryId),
 
     /**
-     * 获取角色的全部向量 — 优先使用 charId 索引直查，避免全表扫描。
-     * 向量出 DB 层一律是 Float32Array。读到旧 number[] 形态会顺手在背景
-     * 重写为 Uint8Array，以渐进释放磁盘空间（首次访问后省 ~12×）。
+     * 獲取角色的全部向量 — 優先使用 charId 索引直查，避免全表掃描。
+     * 向量出 DB 層一律是 Float32Array。讀到舊 number[] 形態會順手在背景
+     * 重寫為 Uint8Array，以漸進釋放磁盤空間（首次訪問後省 ~12×）。
      *
-     * 迁移用的是 IDB cursor.update() 而不是先快照再 put — 后者会跟用户
-     * 并发的 vec.save() 撞车（快照里是旧向量、save 写入新向量、迁移后再
-     * 用旧向量覆盖 = 静默数据丢失）。cursor 在同一个 readwrite tx 里读改
-     * 写，IDB 自动顺序化，无论谁先到都能保留最新数据。
+     * 遷移用的是 IDB cursor.update() 而不是先快照再 put — 後者會跟用戶
+     * 併發的 vec.save() 撞車（快照裡是舊向量、save 寫入新向量、遷移後再
+     * 用舊向量覆蓋 = 靜默數據丟失）。cursor 在同一個 readwrite tx 裡讀改
+     * 寫，IDB 自動順序化，無論誰先到都能保留最新數據。
      *
-     * 兼容旧数据（无 charId 字段）：回退到 memory_nodes 联合查询。
+     * 兼容舊數據（無 charId 字段）：回退到 memory_nodes 聯合查詢。
      */
     getAllByCharId: async (charId: string): Promise<MemoryVector[]> => {
-        // 后台游标迁移 — 按 charId 索引扫这个角色的向量记录，发现还是
-        // number[] 形态的就 cursor.update() 写回 Uint8Array。
+        // 後台游標遷移 — 按 charId 索引掃這個角色的向量記錄，發現還是
+        // number[] 形態的就 cursor.update() 寫回 Uint8Array。
         const migrateLegacyByCharId = (charId: string): void => {
             (async () => {
                 try {
@@ -385,8 +385,8 @@ export const MemoryVectorDB = {
                         const cursor = req.result;
                         if (!cursor) return;
                         const v = cursor.value;
-                        // 此时 cursor.value 是 IDB 当前最新值，如果用户刚 save
-                        // 过，这里读到的已是 Uint8Array，会被下面的检查跳过。
+                        // 此時 cursor.value 是 IDB 當前最新值，如果用戶剛 save
+                        // 過，這裡讀到的已是 Uint8Array，會被下面的檢查跳過。
                         if (isLegacyVec(v.vector)) {
                             cursor.update({ ...v, vector: vecForStorage(v.vector) });
                         }
@@ -398,7 +398,7 @@ export const MemoryVectorDB = {
             })();
         };
 
-        // 尝试通过 charId 索引直查（新数据路径）
+        // 嘗試通過 charId 索引直查（新數據路徑）
         try {
             const indexed = await getAllByIndex<MemoryVector>(STORE_MEMORY_VECTORS, 'charId', charId);
             if (indexed.length > 0) {
@@ -408,10 +408,10 @@ export const MemoryVectorDB = {
                 return indexed.map(v => ({ ...v, vector: ensureFloat32(v.vector) }));
             }
         } catch {
-            // 索引不存在（旧版本 DB），走兼容路径
+            // 索引不存在（舊版本 DB），走兼容路徑
         }
 
-        // 兼容旧数据回退：通过 memory_nodes 联合查询
+        // 兼容舊數據回退：通過 memory_nodes 聯合查詢
         const nodes = await getAllByIndex<MemoryNode>(STORE_MEMORY_NODES, 'charId', charId);
         const embeddedIds = new Set(nodes.filter(n => n.embedded).map(n => n.id));
         if (embeddedIds.size === 0) return [];
@@ -419,8 +419,8 @@ export const MemoryVectorDB = {
         const allVectors = await getAll<MemoryVector>(STORE_MEMORY_VECTORS);
         const matched = allVectors.filter(v => embeddedIds.has(v.memoryId));
 
-        // 回填 charId + 顺手把旧 number[] 升级到 Uint8Array — 这里也走
-        // cursor.update 避免覆盖并发 save。primaryKey 直查每条记录的 cursor。
+        // 回填 charId + 順手把舊 number[] 升級到 Uint8Array — 這裡也走
+        // cursor.update 避免覆蓋併發 save。primaryKey 直查每條記錄的 cursor。
         if (matched.length > 0) {
             (async () => {
                 try {
@@ -468,18 +468,18 @@ export const MemoryVectorDB = {
     },
 
     /**
-     * 一次性扫描整个向量表，把还停留在 number[] 老格式的记录全部升级为
-     * Uint8Array 紧凑存储。OSContext 启动时调用一次；用户首次进 App 后
-     * 12× 释放磁盘。已经是新格式的记录会被跳过，重复调用幂等无副作用。
+     * 一次性掃描整個向量表，把還停留在 number[] 老格式的記錄全部升級為
+     * Uint8Array 緊湊存儲。OSContext 啟動時調用一次；用戶首次進 App 後
+     * 12× 釋放磁盤。已經是新格式的記錄會被跳過，重複調用冪等無副作用。
      *
-     * 用 cursor.update() 而不是先快照再 put 避免并发 save 数据丢失。
+     * 用 cursor.update() 而不是先快照再 put 避免併發 save 數據丟失。
      *
-     * 分批 tx：每批 500 条用一个独立 readwrite tx，批间 setTimeout(50)
-     * 让其他向量搜索/save tx 有机会插队，避免 10k 向量的重度用户感受到
-     * 长达 10s 的全局停顿。
+     * 分批 tx：每批 500 條用一個獨立 readwrite tx，批間 setTimeout(50)
+     * 讓其他向量搜索/save tx 有機會插隊，避免 10k 向量的重度用戶感受到
+     * 長達 10s 的全局停頓。
      *
-     * @param onProgress 收到 (migrated, scanned) 的回调，用于上层 UI 显示进度
-     * @returns 实际被升级的记录数
+     * @param onProgress 收到 (migrated, scanned) 的回調，用於上層 UI 顯示進度
+     * @returns 實際被升級的記錄數
      */
     scanAndMigrateLegacy: async (
         onProgress?: (migrated: number, scanned: number) => void,
@@ -499,7 +499,7 @@ export const MemoryVectorDB = {
                     const tx = db.transaction(STORE_MEMORY_VECTORS, 'readwrite');
                     const store = tx.objectStore(STORE_MEMORY_VECTORS);
                     const range = lastKey !== null
-                        ? IDBKeyRange.lowerBound(lastKey, true)  // exclusive 跳过已扫的
+                        ? IDBKeyRange.lowerBound(lastKey, true)  // exclusive 跳過已掃的
                         : undefined;
                     const req = store.openCursor(range);
                     let bMig = 0, bScan = 0;
@@ -509,7 +509,7 @@ export const MemoryVectorDB = {
                     req.onsuccess = () => {
                         const cursor = req.result;
                         if (!cursor) { bDone = true; return; }
-                        if (bScan >= BATCH_SIZE) return; // 不再 continue，等 tx 自己关
+                        if (bScan >= BATCH_SIZE) return; // 不再 continue，等 tx 自己關
                         const v = cursor.value;
                         bScan++;
                         bLast = cursor.primaryKey;
@@ -534,7 +534,7 @@ export const MemoryVectorDB = {
 
             if (onProgress) onProgress(migrated, scanned);
 
-            // 让其他 IDB tx 有机会插队
+            // 讓其他 IDB tx 有機會插隊
             if (!done) await new Promise(r => setTimeout(r, 50));
         }
         return migrated;
@@ -554,13 +554,13 @@ export const MemoryLinkDB = {
     getByTargetId: (targetId: string) =>
         getAllByIndex<MemoryLink>(STORE_MEMORY_LINKS, 'targetId', targetId),
 
-    /** 获取与某节点相关的所有链接（source 或 target） */
+    /** 獲取與某節點相關的所有鏈接（source 或 target） */
     getByNodeId: async (nodeId: string): Promise<MemoryLink[]> => {
         const [asSource, asTarget] = await Promise.all([
             getAllByIndex<MemoryLink>(STORE_MEMORY_LINKS, 'sourceId', nodeId),
             getAllByIndex<MemoryLink>(STORE_MEMORY_LINKS, 'targetId', nodeId),
         ]);
-        // 去重（同一条 link 不会同时出现在两个结果中，因为 sourceId ≠ targetId）
+        // 去重（同一條 link 不會同時出現在兩個結果中，因為 sourceId ≠ targetId）
         const seen = new Set<string>();
         const result: MemoryLink[] = [];
         for (const link of [...asSource, ...asTarget]) {
@@ -606,13 +606,13 @@ export const TopicBoxDB = {
     getByCharId: (charId: string) =>
         getAllByIndex<TopicBox>(STORE_TOPIC_BOXES, 'charId', charId),
 
-    /** 获取角色当前 open 的盒子（最多一个） */
+    /** 獲取角色當前 open 的盒子（最多一個） */
     getOpenBox: async (charId: string): Promise<TopicBox | undefined> => {
         const boxes = await getAllByIndex<TopicBox>(STORE_TOPIC_BOXES, 'charId', charId);
         return boxes.find(b => b.status === 'open');
     },
 
-    /** 按状态过滤 */
+    /** 按狀態過濾 */
     getByStatus: (charId: string, status: BoxStatus): Promise<TopicBox[]> =>
         getAllByIndex<TopicBox>(STORE_TOPIC_BOXES, 'charId', charId)
             .then(boxes => boxes.filter(b => b.status === status)),
@@ -630,7 +630,7 @@ export const EventBoxDB = {
     getByCharId: (charId: string) =>
         getAllByIndex<EventBox>(STORE_EVENT_BOXES, 'charId', charId),
 
-    /** 批量保存（merge/compression 场景用） */
+    /** 批量保存（merge/compression 場景用） */
     saveMany: async (boxes: EventBox[]): Promise<void> => {
         if (boxes.length === 0) return;
         const db = await openDB();
@@ -644,9 +644,9 @@ export const EventBoxDB = {
     },
 };
 
-// ─── RoomPlate CRUD（房间门牌） ───────────────────────
+// ─── RoomPlate CRUD（房間門牌） ───────────────────────
 
-/** 门牌主键：一角色一房间一块 */
+/** 門牌主鍵：一角色一房間一塊 */
 export function plateId(charId: string, room: PlateRoom): string {
     return `${charId}:${room}`;
 }
@@ -665,19 +665,19 @@ export const RoomPlateDB = {
 };
 
 /**
- * 「门牌被后台改写过了」的窗口事件（`detail: { charId, rooms }`）。
+ * 「門牌被後台改寫過了」的窗口事件（`detail: { charId, rooms }`）。
  *
- * 给云端整理用的：结果晚几分钟才回来，那时用户多半正开着记忆宫殿。门牌已经写进
- * IndexedDB，界面却还挂着提交前那份——不派这个事件的话得关掉再打开才看得见，看上去
- * 就像整理压根没跑。名字放在门牌读写这一层，派发方和监听方都别手抄字符串。
+ * 給雲端整理用的：結果晚幾分鐘才回來，那時用戶多半正開著記憶宮殿。門牌已經寫進
+ * IndexedDB，界面卻還掛著提交前那份——不派這個事件的話得關掉再打開才看得見，看上去
+ * 就像整理壓根沒跑。名字放在門牌讀寫這一層，派發方和監聽方都別手抄字符串。
  */
 export const ROOM_PLATES_UPDATED_EVENT = 'room-plates-updated';
 
 /**
- * 读一块门牌，没有就现造一块空的（不落库，由调用方决定要不要存）。
+ * 讀一塊門牌，沒有就現造一塊空的（不落庫，由調用方決定要不要存）。
  *
- * 住在这儿是因为两条整理路径（本地的 roomPlates、上云的 roomPlateCloud）都要它，
- * 而新门牌的初始形态——尤其是 `version: 0` 这个乐观锁起点——两边必须一模一样。
+ * 住在這兒是因為兩條整理路徑（本地的 roomPlates、上雲的 roomPlateCloud）都要它，
+ * 而新門牌的初始形態——尤其是 `version: 0` 這個樂觀鎖起點——兩邊必須一模一樣。
  */
 export async function loadOrCreatePlate(charId: string, room: PlateRoom): Promise<RoomPlate> {
     const existing = await RoomPlateDB.get(charId, room);
@@ -693,25 +693,25 @@ export async function loadOrCreatePlate(charId: string, room: PlateRoom): Promis
 }
 
 /**
- * 每块门牌一条落库队列（见 mutatePlate）。
+ * 每塊門牌一條落庫隊列（見 mutatePlate）。
  *
- * 键是门牌主键，所以上限是「角色数 × 4」，用不着回收；存的也只是一个已 settle 的 Promise。
+ * 鍵是門牌主鍵，所以上限是「角色數 × 4」，用不著回收；存的也只是一個已 settle 的 Promise。
  */
 const plateWriteQueues = new Map<string, Promise<unknown>>();
 
 /**
- * 改一块门牌：**现读一份 → 改 → 整块存回去**，同一块门牌上的改动排队走，不并发。
+ * 改一塊門牌：**現讀一份 → 改 → 整塊存回去**，同一塊門牌上的改動排隊走，不併發。
  *
- * 门牌是「整块对象存回去」的形状，而动它的路有四条，彼此完全不知道对方存在：
- * 云端整理结果落地、本地整理落库、送达保证兜底并入、以及门牌面板上用户手改。任意两条
- * 撞在一起就是后写的把先写的整块盖掉——用户刚敲的字没了，或者一整轮整理的成果没了，
- * 而两边日志都显示成功。各自在自己那条路里排队是不够的（面板原先就是这么做的），
- * 队伍必须是**按门牌**的一条，所有路共用。
+ * 門牌是「整塊對象存回去」的形狀，而動它的路有四條，彼此完全不知道對方存在：
+ * 雲端整理結果落地、本地整理落庫、送達保證兜底併入、以及門牌面板上用戶手改。任意兩條
+ * 撞在一起就是後寫的把先寫的整塊蓋掉——用戶剛敲的字沒了，或者一整輪整理的成果沒了，
+ * 而兩邊日誌都顯示成功。各自在自己那條路里排隊是不夠的（面板原先就是這麼做的），
+ * 隊伍必須是**按門牌**的一條，所有路共用。
  *
- * `change` 要是纯的——只回答「这份门牌该改成什么样」，回 null 表示不用改。要往界面上
- * 说话、要记日志的，在外面等这个 promise 落定之后再说。
+ * `change` 要是純的——只回答「這份門牌該改成什麼樣」，回 null 表示不用改。要往界面上
+ * 說話、要記日誌的，在外面等這個 promise 落定之後再說。
  *
- * @returns 存进去的那一份；`change` 回 null（不用改）时是 null。落库出错照常抛。
+ * @returns 存進去的那一份；`change` 回 null（不用改）時是 null。落庫出錯照常拋。
  */
 export async function mutatePlate(
     charId: string,
@@ -726,17 +726,17 @@ export async function mutatePlate(
         await RoomPlateDB.save(next);
         return next;
     };
-    // 前一次的成败不影响后一次排上队（两个分支都是 run），但队尾要吞掉异常——
-    // 不吞的话一次落库失败会变成后面每一次的 unhandled rejection。
+    // 前一次的成敗不影響後一次排上隊（兩個分支都是 run），但隊尾要吞掉異常——
+    // 不吞的話一次落庫失敗會變成後面每一次的 unhandled rejection。
     const write = (plateWriteQueues.get(key) ?? Promise.resolve()).then(run, run);
     plateWriteQueues.set(key, write.catch(() => {}));
     return write;
 }
 
-// ─── DigestReport CRUD（消化日志） ────────────────────
+// ─── DigestReport CRUD（消化日誌） ────────────────────
 
 export const DigestReportDB = {
-    /** 保存并修剪：每角色只留最近 DIGEST_REPORT_KEEP 条 */
+    /** 保存並修剪：每角色只留最近 DIGEST_REPORT_KEEP 條 */
     save: async (report: DigestReport): Promise<void> => {
         await put<DigestReport>(STORE_DIGEST_REPORTS, report);
         try {
@@ -749,10 +749,10 @@ export const DigestReportDB = {
                     await deleteByKey(STORE_DIGEST_REPORTS, old.id);
                 }
             }
-        } catch { /* 修剪失败不影响本条保存 */ }
+        } catch { /* 修剪失敗不影響本條保存 */ }
     },
 
-    /** 按时间倒序（最新在前） */
+    /** 按時間倒序（最新在前） */
     getByCharId: (charId: string): Promise<DigestReport[]> =>
         getAllByIndex<DigestReport>(STORE_DIGEST_REPORTS, 'charId', charId)
             .then(list => list.sort((a, b) => b.createdAt - a.createdAt)),

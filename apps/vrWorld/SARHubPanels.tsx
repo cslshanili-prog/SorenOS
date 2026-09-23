@@ -57,7 +57,7 @@ export function SARHubPanels({ panel, onClose, npcEnabled, onChangeNpc, caianMet
         let live = true;
         const refresh = () => {
             try { const state = readSARCommerce().market; if (live) { setMarket(ensureActorAccounts(state, actors)); setError(''); } }
-            catch (cause) { if (live) setError(cause instanceof Error ? cause.message : '仓库暂时无法读取'); }
+            catch (cause) { if (live) setError(cause instanceof Error ? cause.message : '倉庫暫時無法讀取'); }
         };
         void (async () => {
             try { await ensureSARCommerce(); await mutateFishingMarket(state => {
@@ -65,7 +65,7 @@ export function SARHubPanels({ panel, onClose, npcEnabled, onChangeNpc, caianMet
                 if(userProfile.vrState?.title||characters.some(c=>c.vrState?.title)){const familiarity=structuredClone(next.sarFamiliarity||freshFamiliarity());if(!familiarity.unlocks.includes('titles'))familiarity.unlocks.push('titles');next.sarFamiliarity=familiarity;}
                 return next;
             }); refresh(); }
-            catch (cause) { if (live) setError(cause instanceof Error ? cause.message : '仓库暂时无法读取'); }
+            catch (cause) { if (live) setError(cause instanceof Error ? cause.message : '倉庫暫時無法讀取'); }
         })();
         window.addEventListener('vr-fishing-market-updated', refresh);
         window.addEventListener('storage', refresh);
@@ -97,34 +97,34 @@ export function SARHubPanels({ panel, onClose, npcEnabled, onChangeNpc, caianMet
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     return <div className="sar-hub-backdrop">
-        <section ref={root} className={`sar-hub-panel${collection ? ' is-collection' : ''}`} role="dialog" aria-modal="true" aria-label={panel === 'settings' ? '活动室设置' : collection ? '收集图鉴' : '随身仓库'} onKeyDown={keyDown}>
+        <section ref={root} className={`sar-hub-panel${collection ? ' is-collection' : ''}`} role="dialog" aria-modal="true" aria-label={panel === 'settings' ? '活動室設置' : collection ? '收集圖鑑' : '隨身倉庫'} onKeyDown={keyDown}>
             {collection && market ? <SARCollectionView npcEnabled={npcEnabled} market={market} owner={owner} actors={actors} onOwnerChange={setOwnerId} onClose={() => setCollection(false)} backRef={collectionBack} onOpenFamiliarity={onOpenFamiliarity}/> : <>
-            <header className="sar-hub-header"><button type="button" onClick={onClose} aria-label="返回活动室"><ArrowLeft size={21}/></button><div><small>SAR · ACTIVITY ROOM</small><h2>{panel === 'settings' ? '活动室设置' : '随身仓库'}</h2></div>{panel === 'warehouse' && <button className="sar-hub-collection-link" type="button" aria-label="打开收集图鉴" disabled={!market || !!error} onClick={() => { setSelectedId(null); setCollection(true); }}><BookOpen size={20}/><span>图鉴</span></button>}{panel === 'warehouse' && <SARFacilityGuide facility="warehouse"/>}</header>
+            <header className="sar-hub-header"><button type="button" onClick={onClose} aria-label="返回活動室"><ArrowLeft size={21}/></button><div><small>SAR · ACTIVITY ROOM</small><h2>{panel === 'settings' ? '活動室設置' : '隨身倉庫'}</h2></div>{panel === 'warehouse' && <button className="sar-hub-collection-link" type="button" aria-label="打開收集圖鑑" disabled={!market || !!error} onClick={() => { setSelectedId(null); setCollection(true); }}><BookOpen size={20}/><span>圖鑑</span></button>}{panel === 'warehouse' && <SARFacilityGuide facility="warehouse"/>}</header>
             {panel === 'settings' ? <main className="sar-hub-settings">
                 <div className="sar-hub-residents" aria-hidden="true"><SARNpcChibi who="caian"/><SARNpcChibi who="aiven"/></div>
-                <div className="sar-hub-setting-row"><div><h3>常驻 NPC</h3><p>让凯恩与艾文出现在活动室里。</p></div>
-                    <button className="sar-hub-toggle" type="button" role="switch" aria-label="显示常驻 NPC" aria-checked={npcEnabled} onClick={() => onChangeNpc(npcEnabled ? 'hide' : 'show')}><span/></button>
+                <div className="sar-hub-setting-row"><div><h3>常駐 NPC</h3><p>讓凱恩與艾文出現在活動室裡。</p></div>
+                    <button className="sar-hub-toggle" type="button" role="switch" aria-label="顯示常駐 NPC" aria-checked={npcEnabled} onClick={() => onChangeNpc(npcEnabled ? 'hide' : 'show')}><span/></button>
                 </div>
-                <p className="sar-hub-muted">{npcEnabled ? '点击房间里的他们，就能聊聊天。' : 'NPC、称号、名册与专属纪念已关闭，进度会保留。'}<br/>扭蛋、模块、布告板和水域始终开放。</p>
-                {npcEnabled && <div className="sar-hub-setting-row"><div><h3>初见回档</h3><p>重新遇见凯恩，用其他选择再走一遍初见。</p></div>
-                    <button className="sar-hub-setting-action" type="button" onClick={onRequestRewind} disabled={!caianMet}>{caianMet?'回到初见前':'剧情未完成'}</button>
+                <p className="sar-hub-muted">{npcEnabled ? '點擊房間裡的他們，就能聊聊天。' : 'NPC、稱號、名冊與專屬紀念已關閉，進度會保留。'}<br/>扭蛋、模塊、佈告板和水域始終開放。</p>
+                {npcEnabled && <div className="sar-hub-setting-row"><div><h3>初見回檔</h3><p>重新遇見凱恩，用其他選擇再走一遍初見。</p></div>
+                    <button className="sar-hub-setting-action" type="button" onClick={onRequestRewind} disabled={!caianMet}>{caianMet?'回到初見前':'劇情未完成'}</button>
                 </div>}
             </main> : <main ref={warehouseRef} className="sar-hub-warehouse">
-                <div className="sar-hub-owner"><span>正在查看</span><label><select aria-label="仓库主人" value={owner.id} onChange={event => setOwnerId(event.target.value)}>{actors.map(actor => <option key={actor.id} value={actor.id}>{actor.id === 'user' ? '我' : actor.name}</option>)}</select><CaretDown size={16}/></label></div>
+                <div className="sar-hub-owner"><span>正在查看</span><label><select aria-label="倉庫主人" value={owner.id} onChange={event => setOwnerId(event.target.value)}>{actors.map(actor => <option key={actor.id} value={actor.id}>{actor.id === 'user' ? '我' : actor.name}</option>)}</select><CaretDown size={16}/></label></div>
                 {npcEnabled && <KanataTitleEditor key={owner.id} ownerId={owner.id} unlocked={!!market?.sarFamiliarity?.unlocks.includes('titles') || !!userProfile.vrState?.title || characters.some(c=>!!c.vrState?.title)} earnedTitles={market?.sarFamiliarity?.titles}/>}
-                {error ? <p role="alert" className="sar-hub-error">{error}</p> : !market ? <p role="status" className="sar-hub-muted">正在打开仓库…</p> : <>
-                    <div className="sar-hub-wallet"><div><span><Coins size={17}/>钱包余额</span><p><strong data-testid="sar-wallet-balance">{market.accounts[owner.id].toLocaleString()}</strong><small>鳞币</small></p></div><Package size={48} weight="light" aria-hidden="true"/></div>
-                    <p className="sar-hub-allowance">今日还可回收 {remainingSARBuyback(market.buybackBudgets, owner.id)} / {SAR_DAILY_BUYBACK} 鳞币</p>
-                    <nav className="sar-hub-filters" aria-label="物品分类">{([['all', '全部'], ['chip', '芯片'], ['module', '模块'], ['catch', '收藏'], ['souvenir', '纪念'], ['coupon','优惠券']] as const).filter(([value])=>npcEnabled || value !== 'souvenir').map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setSelectedId(null); setItemPage(0); }}>{label}</button>)}</nav>
+                {error ? <p role="alert" className="sar-hub-error">{error}</p> : !market ? <p role="status" className="sar-hub-muted">正在打開倉庫…</p> : <>
+                    <div className="sar-hub-wallet"><div><span><Coins size={17}/>錢包餘額</span><p><strong data-testid="sar-wallet-balance">{market.accounts[owner.id].toLocaleString()}</strong><small>鱗幣</small></p></div><Package size={48} weight="light" aria-hidden="true"/></div>
+                    <p className="sar-hub-allowance">今日還可回收 {remainingSARBuyback(market.buybackBudgets, owner.id)} / {SAR_DAILY_BUYBACK} 鱗幣</p>
+                    <nav className="sar-hub-filters" aria-label="物品分類">{([['all', '全部'], ['chip', '芯片'], ['module', '模塊'], ['catch', '收藏'], ['souvenir', '紀念'], ['coupon','優惠券']] as const).filter(([value])=>npcEnabled || value !== 'souvenir').map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setSelectedId(null); setItemPage(0); }}>{label}</button>)}</nav>
                     <div className="sar-hub-inventory-bar">
-                        <div className="sar-hub-inventory-count" role="status"><strong>共 {shown.length} 条</strong><span>每页 {WAREHOUSE_PAGE_SIZE} 条</span></div>
-                        {shown.length > 0 && <SARPageNav page={page} pages={itemPages} showSinglePage onChange={next => { setItemPage(next); setSelectedId(null); warehouseRef.current?.scrollTo({ top: 0 }); }} label="仓库物品"/>}
+                        <div className="sar-hub-inventory-count" role="status"><strong>共 {shown.length} 條</strong><span>每頁 {WAREHOUSE_PAGE_SIZE} 條</span></div>
+                        {shown.length > 0 && <SARPageNav page={page} pages={itemPages} showSinglePage onChange={next => { setItemPage(next); setSelectedId(null); warehouseRef.current?.scrollTo({ top: 0 }); }} label="倉庫物品"/>}
                     </div>
                     {shown.length ? <div className="sar-hub-items">{visibleItems.map(item => <button type="button" className="sar-hub-item" key={item.id} aria-pressed={selectedId === item.id} onClick={() => setSelectedId(selectedId === item.id ? null : item.id)} aria-label={`${item.title} · ${item.count} 件 · ${item.status}`}>
                         <span className={`sar-hub-item-art is-${item.kind}`}>{item.speciesId ? <FishArt speciesId={item.speciesId} size={84}/> : item.kind === 'chip' ? <Stack size={35} weight="duotone"/> : item.kind === 'souvenir' ? <IdentificationCard size={35} weight="duotone"/> : item.kind === 'coupon' ? <Ticket size={35} weight="duotone"/> : <Cpu size={35} weight="duotone"/>}<b>×{item.count}</b></span><strong>{item.title}</strong><small>{item.status}</small>
-                    </button>)}</div> : <div className="sar-hub-empty"><Package size={38} weight="light"/><h3>{filter === 'all' ? '仓库还是空的' : '还没有这类物品'}</h3><p>{owner.id === 'user' ? '钓到的收藏、抽到的芯片和买下的模块，会放在这里。' : `${owner.name}获得的物品，会留在自己的仓库里。`}</p></div>}
-                    {selected && !keepsake && <aside className="sar-hub-item-detail" aria-live="polite"><button type="button" aria-label="收起物品详情" onClick={() => setSelectedId(null)}><X size={17}/></button><h3>{selected.title}</h3><p>{selected.detail}</p><small>{selected.count} 件 · {selected.status}</small></aside>}
-                    {runtime && <p className="sar-hub-equipped"><Cpu size={16}/><span>正在装载「{runtime.moduleTitle}」<small>{runtime.phase === 'active' ? `还剩 ${runtime.remainingTurns} 次成功互动` : '效果已结束，余韵中'}</small></span></p>}
+                    </button>)}</div> : <div className="sar-hub-empty"><Package size={38} weight="light"/><h3>{filter === 'all' ? '倉庫還是空的' : '還沒有這類物品'}</h3><p>{owner.id === 'user' ? '釣到的收藏、抽到的芯片和買下的模塊，會放在這裡。' : `${owner.name}獲得的物品，會留在自己的倉庫裡。`}</p></div>}
+                    {selected && !keepsake && <aside className="sar-hub-item-detail" aria-live="polite"><button type="button" aria-label="收起物品詳情" onClick={() => setSelectedId(null)}><X size={17}/></button><h3>{selected.title}</h3><p>{selected.detail}</p><small>{selected.count} 件 · {selected.status}</small></aside>}
+                    {runtime && <p className="sar-hub-equipped"><Cpu size={16}/><span>正在裝載「{runtime.moduleTitle}」<small>{runtime.phase === 'active' ? `還剩 ${runtime.remainingTurns} 次成功互動` : '效果已結束，餘韻中'}</small></span></p>}
                 </>}
             </main>}
             </>}

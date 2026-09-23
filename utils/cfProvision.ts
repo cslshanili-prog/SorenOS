@@ -1,25 +1,25 @@
 /**
- * 一键部署主动消息后端：用户只提供一枚 Cloudflare API Token，剩下的全在这里做完。
+ * 一鍵部署主動消息後端：用戶只提供一枚 Cloudflare API Token，剩下的全在這裡做完。
  *
- * 做的事按顺序是：验 token → 找出能用的账号 → 建 D1 → 确认 workers.dev 子域 →
- * 拉最新 bundle → 上传 Worker（密钥和 D1 绑定一次带齐）→ 加 cron → 开 workers.dev。
- * 密钥（Master Key / VAPID / Server Token）在浏览器本地生成，用户全程不用复制粘贴。
+ * 做的事按順序是：驗 token → 找出能用的帳號 → 建 D1 → 確認 workers.dev 子域 →
+ * 拉最新 bundle → 上傳 Worker（密鑰和 D1 綁定一次帶齊）→ 加 cron → 開 workers.dev。
+ * 密鑰（Master Key / VAPID / Server Token）在瀏覽器本地生成，用戶全程不用複製粘貼。
  *
- * 为什么要绕一层代理：api.cloudflare.com 一个 CORS 头都不返回，浏览器直接调不通，
- * 所有请求都得过中心 worker 的 /cf-api（见 worker/index.js）。
+ * 為什麼要繞一層代理：api.cloudflare.com 一個 CORS 頭都不返回，瀏覽器直接調不通，
+ * 所有請求都得過中心 worker 的 /cf-api（見 worker/index.js）。
  *
- * 跟「更新后端」的分工：那条路是 worker 拿自己 env 里的 token 覆盖自己
- * （worker/amsg/src/selfUpdate.ts），能保住密钥；这里是从零装，密钥是新生成的。
+ * 跟「更新後端」的分工：那條路是 worker 拿自己 env 裡的 token 覆蓋自己
+ * （worker/amsg/src/selfUpdate.ts），能保住密鑰；這裡是從零裝，密鑰是新生成的。
  */
 
 import { getProxyWorkerUrl } from './proxyWorker';
 import { generateVapidKeyPair, generateClientToken } from './vapidGen';
 
-/** 部署出来的 Worker / D1 默认叫这个，跟 worker/amsg/wrangler.toml 对齐。 */
+/** 部署出來的 Worker / D1 默認叫這個，跟 worker/amsg/wrangler.toml 對齊。 */
 export const AMSG_SCRIPT_NAME = 'sullyos-amsg';
 export const AMSG_D1_NAME = 'sullyos-amsg';
 
-/** 上传时的模块名，同时是 metadata.main_module，两处必须一致。 */
+/** 上傳時的模塊名，同時是 metadata.main_module，兩處必須一致。 */
 const MAIN_MODULE = 'worker.bundle.js';
 
 const BUNDLE_BASE = 'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg';
@@ -27,9 +27,9 @@ const BUNDLE_URL = `${BUNDLE_BASE}/${MAIN_MODULE}`;
 const WRANGLER_URL = `${BUNDLE_BASE}/wrangler.toml`;
 
 /**
- * 读不到线上 wrangler.toml 时用的兜底，值抄自 worker/amsg/wrangler.toml。
- * 正常路径是现拉现解析，免得这边的常量和 worker 那边慢慢漂开——
- * compatibility_flags 少一个 global_fetch_strictly_public，角色调自配 MCP 就会 1042。
+ * 讀不到線上 wrangler.toml 時用的兜底，值抄自 worker/amsg/wrangler.toml。
+ * 正常路徑是現拉現解析，免得這邊的常量和 worker 那邊慢慢漂開——
+ * compatibility_flags 少一個 global_fetch_strictly_public，角色調自配 MCP 就會 1042。
  */
 const FALLBACK_CONFIG: WorkerDeployConfig = {
   compatibilityDate: '2026-01-01',
@@ -38,7 +38,7 @@ const FALLBACK_CONFIG: WorkerDeployConfig = {
   d1Binding: 'DB',
 };
 
-/** bundle 的合理体积区间。太小多半是拉到了 404 页面，太大是打包出了岔子。 */
+/** bundle 的合理體積區間。太小多半是拉到了 404 頁面，太大是打包出了岔子。 */
 const MIN_BUNDLE_BYTES = 100 * 1024;
 const MAX_BUNDLE_BYTES = 8 * 1024 * 1024;
 
@@ -81,17 +81,17 @@ export interface AmsgSecrets {
 
 export interface ProvisionInput {
   token: string;
-  /** 多账号时由界面选定；只有一个能用就自动选。 */
+  /** 多帳號時由界面選定；只有一個能用就自動選。 */
   accountId?: string;
-  /** 账号还没有 workers.dev 子域时，由界面问出来再传进来。 */
+  /** 帳號還沒有 workers.dev 子域時，由界面問出來再傳進來。 */
   desiredSubdomain?: string;
   scriptName?: string;
   /**
-   * D1 库名。跟 scriptName 一样默认 sullyos-amsg，两个都能改是为了在同一个账号里
-   * 装第二套时不会撞上——尤其别让新实例静默绑到已有实例的生产库上。
+   * D1 庫名。跟 scriptName 一樣默認 sullyos-amsg，兩個都能改是為了在同一個帳號裡
+   * 裝第二套時不會撞上——尤其別讓新實例靜默綁到已有實例的生產庫上。
    */
   databaseName?: string;
-  /** 复用已有密钥（重装时传，避免换掉 Master Key 让旧任务解不开）。 */
+  /** 複用已有密鑰（重裝時傳，避免換掉 Master Key 讓舊任務解不開）。 */
   secrets?: Partial<AmsgSecrets>;
   onProgress?: (p: ProvisionProgress) => void;
 }
@@ -116,7 +116,7 @@ export interface ProvisionFailure {
   ok: false;
   code: ProvisionFailureCode;
   message: string;
-  /** ACCOUNT_AMBIGUOUS 时给界面挑。 */
+  /** ACCOUNT_AMBIGUOUS 時給界面挑。 */
   accounts?: CfAccount[];
 }
 
@@ -126,22 +126,22 @@ export interface ProvisionSuccess {
   scriptName: string;
   accountId: string;
   databaseId: string;
-  /** 用的是已经存在的同名数据库（不是新建的），界面要提醒一句。 */
+  /** 用的是已經存在的同名數據庫（不是新建的），界面要提醒一句。 */
   reusedDatabase: boolean;
   secrets: AmsgSecrets;
-  /** observability 是尽力而为，没开成不影响功能，但值得说一声。 */
+  /** observability 是盡力而為，沒開成不影響功能，但值得說一聲。 */
   warnings: string[];
 }
 
 export type ProvisionResult = ProvisionSuccess | ProvisionFailure;
 
 // ---------------------------------------------------------------------------
-// 纯函数部分（可单测，不碰网络）
+// 純函數部分（可單測，不碰網絡）
 // ---------------------------------------------------------------------------
 
 /**
- * 从 wrangler.toml 里挑出部署要用的四项。不是通用 TOML 解析器，只认这几个键；
- * 任何一项没匹配上就用兜底值，绝不返回半份配置——少一个 compat flag 比整个失败更难查。
+ * 從 wrangler.toml 裡挑出部署要用的四項。不是通用 TOML 解析器，只認這幾個鍵；
+ * 任何一項沒匹配上就用兜底值，絕不返回半份配置——少一個 compat flag 比整個失敗更難查。
  */
 export function parseWranglerConfig(toml: string): WorkerDeployConfig {
   const stripComments = (line: string) => line.replace(/#.*$/, '').trim();
@@ -167,7 +167,7 @@ export function parseWranglerConfig(toml: string): WorkerDeployConfig {
     return null;
   };
 
-  // binding 名在 [[d1_databases]] 段里，跟顶层的同名键区分开：取该段之后第一个 binding。
+  // binding 名在 [[d1_databases]] 段裡，跟頂層的同名鍵區分開：取該段之後第一個 binding。
   let d1Binding: string | null = null;
   const d1SectionIdx = lines.findIndex((l) => l === '[[d1_databases]]');
   if (d1SectionIdx >= 0) {
@@ -190,10 +190,10 @@ export function parseWranglerConfig(toml: string): WorkerDeployConfig {
 }
 
 /**
- * 即时对话起跳器的 binding 名 / 类名 / 建库用的 migration tag。
+ * 即時對話起跳器的 binding 名 / 類名 / 建庫用的 migration tag。
  *
- * 三处必须跟 worker 侧对齐：`worker/amsg/wrangler.toml`、`worker/amsg/src/index.ts`
- * 里的 `InstantTickDO`、以及 `selfUpdate.ts`（老 Worker 更新时补建走那条）。
+ * 三處必須跟 worker 側對齊：`worker/amsg/wrangler.toml`、`worker/amsg/src/index.ts`
+ * 裡的 `InstantTickDO`、以及 `selfUpdate.ts`（老 Worker 更新時補建走那條）。
  */
 const INSTANT_TICK_BINDING = 'INSTANT_TICK';
 const INSTANT_TICK_CLASS = 'InstantTickDO';
@@ -203,14 +203,14 @@ export const INSTANT_TICK_MIGRATIONS = {
 };
 
 /**
- * 拼上传用的 bindings。D1 一条 + Durable Object 一条 + 每个非空密钥一条。
+ * 拼上傳用的 bindings。D1 一條 + Durable Object 一條 + 每個非空密鑰一條。
  *
- * 空值一律不写：Cloudflare 会原样收下空字符串，而 worker 侧
- * 「配了 AMSG_SERVER_TOKEN 就强制校验 X-Client-Token」判断的是有没有这一项——
- * 塞个空串进去，等于打开了一道永远对不上的门。
+ * 空值一律不寫：Cloudflare 會原樣收下空字符串，而 worker 側
+ * 「配了 AMSG_SERVER_TOKEN 就強制校驗 X-Client-Token」判斷的是有沒有這一項——
+ * 塞個空串進去，等於打開了一道永遠對不上的門。
  *
- * Durable Object 不用先建资源：namespace 会随这次上传一起创建（靠 metadata 里的
- * migrations，见 INSTANT_TICK_MIGRATIONS），不像 D1 要先调一次建库接口拿 id。
+ * Durable Object 不用先建資源：namespace 會隨這次上傳一起創建（靠 metadata 裡的
+ * migrations，見 INSTANT_TICK_MIGRATIONS），不像 D1 要先調一次建庫接口拿 id。
  */
 export function buildBindings(
   d1Binding: string,
@@ -235,17 +235,17 @@ export function buildBindings(
   return bindings;
 }
 
-/** workers.dev 的地址就是「脚本名.账号子域.workers.dev」。 */
+/** workers.dev 的地址就是「腳本名.帳號子域.workers.dev」。 */
 export function deriveWorkerUrl(scriptName: string, subdomain: string): string {
   return `https://${scriptName}.${subdomain}.workers.dev`;
 }
 
 /**
- * 反过来：从后端地址认出这个 Worker 在 Cloudflare 上叫什么。
+ * 反過來：從後端地址認出這個 Worker 在 Cloudflare 上叫什麼。
  *
- * 只有 `<脚本名>.<子域>.workers.dev` 这种地址认得出。自定义域名、Deno 门面那类
- * 代理地址跟脚本名没有关系，猜出来的名字会指向别的 Worker——宁可返回 null 让界面
- * 问一句，也不能猜。（worker 侧 selfUpdate.ts 的 resolveScriptName 是同一套规矩。）
+ * 只有 `<腳本名>.<子域>.workers.dev` 這種地址認得出。自定義域名、Deno 門面那類
+ * 代理地址跟腳本名沒有關係，猜出來的名字會指向別的 Worker——寧可返回 null 讓界面
+ * 問一句，也不能猜。（worker 側 selfUpdate.ts 的 resolveScriptName 是同一套規矩。）
  */
 export function scriptNameFromWorkerUrl(workerUrl: string): string | null {
   try {
@@ -261,21 +261,21 @@ export function scriptNameFromWorkerUrl(workerUrl: string): string | null {
 }
 
 /**
- * 把 Cloudflare 的报错翻译成能照着做的话，末尾一律缀上原文。
+ * 把 Cloudflare 的報錯翻譯成能照著做的話，末尾一律綴上原文。
  *
- * 翻译是给用户看的，原文是给排障用的，两个都要有：
+ * 翻譯是給用戶看的，原文是給排障用的，兩個都要有：
  *
- * - 权限类最常见——用户建 token 时少勾一项，光看「Unauthorized」根本不知道少了哪个，
- *   所以要翻译；
- * - 可 401/403 的不只 Cloudflare。中转层（路径不让走、没带 Authorization）和路上的
- *   WAF 也回这两个码，一样会被翻成「权限不够」，于是 token 明明没问题的人被指使着
- *   反复去改 token。原文里有没有 CF 的 code、是不是 proxy 那句话，一眼就分得开。
+ * - 權限類最常見——用戶建 token 時少勾一項，光看「Unauthorized」根本不知道少了哪個，
+ *   所以要翻譯；
+ * - 可 401/403 的不只 Cloudflare。中轉層（路徑不讓走、沒帶 Authorization）和路上的
+ *   WAF 也回這兩個碼，一樣會被翻成「權限不夠」，於是 token 明明沒問題的人被指使著
+ *   反覆去改 token。原文裡有沒有 CF 的 code、是不是 proxy 那句話，一眼就分得開。
  *
- * 原文取 CF 的 `errors[].message`；中转层的错误体是 `{ error }`，不是同一个形状，
- * 单独捞一手。两边都没有（非 JSON 响应）就只剩 HTTP 状态码，那也得说出来。
+ * 原文取 CF 的 `errors[].message`；中轉層的錯誤體是 `{ error }`，不是同一個形狀，
+ * 單獨撈一手。兩邊都沒有（非 JSON 響應）就只剩 HTTP 狀態碼，那也得說出來。
  *
- * `request` 是出事的那个请求（方法 + 路径）。部署要连着调七八个接口，光有一句报错
- * 认不出卡在建库还是传代码，界面上的步骤名又在失败时就清掉了。
+ * `request` 是出事的那個請求（方法 + 路徑）。部署要連著調七八個接口，光有一句報錯
+ * 認不出卡在建庫還是傳代碼，界面上的步驟名又在失敗時就清掉了。
  */
 export function explainCfError(status: number, body: unknown, request?: string): string {
   const payload = body as {
@@ -289,47 +289,47 @@ export function explainCfError(status: number, body: unknown, request?: string):
     || (typeof payload?.error === 'string' ? payload.error : '');
 
   const PERMISSION_HINT =
-    'Token 权限不够。建 token 时这三项都要勾上：Account → Workers Scripts:Edit、'
+    'Token 權限不夠。建 token 時這三項都要勾上：Account → Workers Scripts:Edit、'
     + 'Account → D1:Edit、Account → Account Settings:Read。';
 
   const explain = (): string => {
-    if (code === 6003 || code === 6111) return 'Token 格式不对，多半是复制时多带了空格或换行。';
+    if (code === 6003 || code === 6111) return 'Token 格式不對，多半是複製時多帶了空格或換行。';
     if (code === 9109 || code === 10000 || status === 401 || status === 403) return PERMISSION_HINT;
     if (code === 10016) return 'Worker 名字不合法。';
-    if (code === 10027) return 'Worker 代码超过 Cloudflare 的体积上限，装不上去。';
-    if (code === 10037) return '这个账号的 Worker 数量已经到上限了，先去面板删掉不用的。';
-    if (code === 10054 || code === 10055) return '密钥数量或长度超限。';
-    if (code === 7003) return '请求路径不对（多半是代理那边的问题，不是你的 token）。';
-    return '这个错没见过，照原文查吧。';
+    if (code === 10027) return 'Worker 代碼超過 Cloudflare 的體積上限，裝不上去。';
+    if (code === 10037) return '這個帳號的 Worker 數量已經到上限了，先去面板刪掉不用的。';
+    if (code === 10054 || code === 10055) return '密鑰數量或長度超限。';
+    if (code === 7003) return '請求路徑不對（多半是代理那邊的問題，不是你的 token）。';
+    return '這個錯沒見過，照原文查吧。';
   };
 
-  const detail = `原文：${raw || '（空）'}｜code ${code ?? '无'}｜HTTP ${status}`;
+  const detail = `原文：${raw || '（空）'}｜code ${code ?? '無'}｜HTTP ${status}`;
   return `${explain()}\n${detail}${request ? `｜${request}` : ''}`;
 }
 
 /**
- * 校验用户想要的 workers.dev 子域。CF 的规矩是小写字母数字和连字符，
- * 不能以连字符开头结尾。这里先挡一道，省得为一个明显不合法的名字跑一趟网络。
+ * 校驗用戶想要的 workers.dev 子域。CF 的規矩是小寫字母數字和連字符，
+ * 不能以連字符開頭結尾。這裡先擋一道，省得為一個明顯不合法的名字跑一趟網絡。
  */
 export function validateSubdomain(name: string): string | null {
   const s = name.trim().toLowerCase();
-  if (!s) return '子域名不能为空。';
-  if (s.length < 3 || s.length > 63) return '子域名长度要在 3~63 个字符之间。';
+  if (!s) return '子域名不能為空。';
+  if (s.length < 3 || s.length > 63) return '子域名長度要在 3~63 個字符之間。';
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(s)) {
-    return '子域名只能用小写字母、数字和连字符，且不能以连字符开头或结尾。';
+    return '子域名只能用小寫字母、數字和連字符，且不能以連字符開頭或結尾。';
   }
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// 网络层：所有 CF 请求都过中心 worker 的 /cf-api
+// 網絡層：所有 CF 請求都過中心 worker 的 /cf-api
 // ---------------------------------------------------------------------------
 
 interface CfResponse<T = unknown> {
   ok: boolean;
   status: number;
   body: T | null;
-  /** 已经翻成人话的错误，ok 为 false 时有值。 */
+  /** 已經翻成人話的錯誤，ok 為 false 時有值。 */
   error?: string;
 }
 
@@ -345,7 +345,7 @@ async function cfApi<T = unknown>(
     Authorization: `Bearer ${token}`,
     'X-CF-Method': init.method || 'GET',
   };
-  // FormData 交给浏览器自己带 Content-Type（里面有 multipart 的 boundary），别手写。
+  // FormData 交給瀏覽器自己帶 Content-Type（裡面有 multipart 的 boundary），別手寫。
   if (init.contentType && !(init.body instanceof FormData)) {
     headers['Content-Type'] = init.contentType;
   }
@@ -357,14 +357,14 @@ async function cfApi<T = unknown>(
       ok: false,
       status: 0,
       body: null,
-      error: `连不上代理（${String((e as Error)?.message || e)}）。检查网络，或在设置里换一个网络代理 Worker。`,
+      error: `連不上代理（${String((e as Error)?.message || e)}）。檢查網絡，或在設置裡換一個網絡代理 Worker。`,
     };
   }
   let body: unknown = null;
   try {
     body = await res.json();
   } catch {
-    /* 非 JSON（代理层的纯文本错误）就留 null，下面按状态码处理 */
+    /* 非 JSON（代理層的純文本錯誤）就留 null，下面按狀態碼處理 */
   }
   const success = res.ok && (body as { success?: boolean } | null)?.success !== false;
   return {
@@ -375,7 +375,7 @@ async function cfApi<T = unknown>(
   };
 }
 
-/** DO migration 的乐观锁冲突：这个 Worker 已经应用过 migration，「全新部署」的断言不成立。 */
+/** DO migration 的樂觀鎖衝突：這個 Worker 已經應用過 migration，「全新部署」的斷言不成立。 */
 const MIGRATION_TAG_CONFLICT = 10079;
 
 function firstCfErrorCode(body: unknown): number | null {
@@ -400,13 +400,13 @@ async function putScript(
 }
 
 /**
- * 上传 Worker 脚本。metadata 带着建 DO namespace 的 migrations，等于断言「全新部署」；
- * 对着一个已经装过的 Worker 重装（清了地址重跑、换设备对同一个账号再部署）时这个断言
- * 不成立，CF 会回 10079 把整次上传顶回来。
+ * 上傳 Worker 腳本。metadata 帶著建 DO namespace 的 migrations，等於斷言「全新部署」；
+ * 對著一個已經裝過的 Worker 重裝（清了地址重跑、換設備對同一個帳號再部署）時這個斷言
+ * 不成立，CF 會回 10079 把整次上傳頂回來。
  *
- * 这时 namespace 本来就已经在了，migrations 纯属多余——去掉重传一次即可，binding 原样
- * 保留（与 worker 侧 selfUpdate 的补建路径同一套实测结论：migration_tag 不变、DO 类还在）。
- * 只对 10079 重试：全新部署一次就过，其他错误照旧当场返回。
+ * 這時 namespace 本來就已經在了，migrations 純屬多餘——去掉重傳一次即可，binding 原樣
+ * 保留（與 worker 側 selfUpdate 的補建路徑同一套實測結論：migration_tag 不變、DO 類還在）。
+ * 只對 10079 重試：全新部署一次就過，其他錯誤照舊當場返回。
  */
 export async function uploadWorkerScript(
   token: string,
@@ -424,7 +424,7 @@ export async function uploadWorkerScript(
   return second.ok ? { ...second, reusedExistingWorker: true } : second;
 }
 
-/** 当前生效的网络代理 Worker 支不支持一键部署（老版本没有 /cf-api 这条路由）。 */
+/** 當前生效的網絡代理 Worker 支不支持一鍵部署（老版本沒有 /cf-api 這條路由）。 */
 export async function checkRelayAvailable(): Promise<boolean> {
   try {
     const res = await fetch(`${getProxyWorkerUrl()}/cf-api`, { method: 'GET' });
@@ -437,7 +437,7 @@ export async function checkRelayAvailable(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// 编排
+// 編排
 // ---------------------------------------------------------------------------
 
 interface CfListEnvelope<T> {
@@ -447,7 +447,7 @@ interface CfItemEnvelope<T> {
   result?: T;
 }
 
-/** 账号令牌的前缀。它属于账号本身、不属于任何用户，这里不支持，见 verifyToken。 */
+/** 帳號令牌的前綴。它屬於帳號本身、不屬於任何用戶，這裡不支持，見 verifyToken。 */
 const ACCOUNT_TOKEN_PREFIX = 'cfat_';
 
 export const isAccountScopedToken = (token: string): boolean =>
@@ -459,16 +459,16 @@ interface CfVerifyResult {
 }
 
 /**
- * 验 token。只认普通 API Token（属于用户那种）。
+ * 驗 token。只認普通 API Token（屬於用戶那種）。
  *
- * 账号令牌（cfat_ 开头）是另一套东西：它不属于任何用户，`/user/tokens/verify` 和
- * `/accounts` 对它一律 401，于是没法自动找账号，用户还得自己去抄一串 Account ID。
- * 而普通 Token 建的时候一样能把范围限定到单个账号，权限一样小、还省一次粘贴——
- * 所以这里直接不支持它，认出来就明说该换哪种，别让人对着 401 猜。
+ * 帳號令牌（cfat_ 開頭）是另一套東西：它不屬於任何用戶，`/user/tokens/verify` 和
+ * `/accounts` 對它一律 401，於是沒法自動找帳號，用戶還得自己去抄一串 Account ID。
+ * 而普通 Token 建的時候一樣能把範圍限定到單個帳號，權限一樣小、還省一次粘貼——
+ * 所以這裡直接不支持它，認出來就明說該換哪種，別讓人對著 401 猜。
  *
- * 另一个坑：**token 还没到生效日期时，verify 照样返回 success: true**，只在 messages
- * 里塞一条 code 10002。放它过去的话，后面每一步都收到通用的 Authentication error，
- * 会被归成「权限不够」——用户跑去改权限，可那根本不是原因。真机上踩过。
+ * 另一個坑：**token 還沒到生效日期時，verify 照樣返回 success: true**，只在 messages
+ * 裡塞一條 code 10002。放它過去的話，後面每一步都收到通用的 Authentication error，
+ * 會被歸成「權限不夠」——用戶跑去改權限，可那根本不是原因。真機上踩過。
  */
 export async function verifyToken(
   token: string,
@@ -478,15 +478,15 @@ export async function verifyToken(
       ok: false,
       code: 'TOKEN_INVALID',
       message:
-        '这是一枚账号令牌（cfat_ 开头），这里用不了。'
-        + '去 Cloudflare 右上角头像 → My Profile → API Tokens 建一枚普通的 API Token，'
-        + '建的时候在 Account Resources 里选上你要装到的那个账号就行。',
+        '這是一枚帳號令牌（cfat_ 開頭），這裡用不了。'
+        + '去 Cloudflare 右上角頭像 → My Profile → API Tokens 建一枚普通的 API Token，'
+        + '建的時候在 Account Resources 裡選上你要裝到的那個帳號就行。',
     };
   }
 
   const res = await cfApi<CfVerifyResult>(token, '/user/tokens/verify');
   if (!res.ok) {
-    return { ok: false, code: 'TOKEN_INVALID', message: res.error || 'Token 验证不通过。' };
+    return { ok: false, code: 'TOKEN_INVALID', message: res.error || 'Token 驗證不通過。' };
   }
 
   const notYet = (res.body?.messages ?? []).find((m) => m.code === 10002);
@@ -495,22 +495,22 @@ export async function verifyToken(
       ok: false,
       code: 'TOKEN_NOT_YET_VALID',
       message:
-        `这枚 Token 还没到生效时间，现在用不了。${notYet.message ? `\nCloudflare 说：${notYet.message}` : ''}`
-        + '\n重新建一枚，把「Start Date」留空或设成今天。',
+        `這枚 Token 還沒到生效時間，現在用不了。${notYet.message ? `\nCloudflare 說：${notYet.message}` : ''}`
+        + '\n重新建一枚，把「Start Date」留空或設成今天。',
     };
   }
   const status = res.body?.result?.status;
   if (status && status !== 'active') {
-    return { ok: false, code: 'TOKEN_INVALID', message: `这枚 Token 的状态是 ${status}，不能用。` };
+    return { ok: false, code: 'TOKEN_INVALID', message: `這枚 Token 的狀態是 ${status}，不能用。` };
   }
   return { ok: true };
 }
 
 /**
- * 找出这枚 token 真正能用的账号。
+ * 找出這枚 token 真正能用的帳號。
  *
- * GET /accounts 是用户级端点，返回这人名下所有账号，跟 token 授权了哪个无关，
- * 所以不能直接拿第一个用。挨个问「这个账号下能不能列 Worker」，能列的才算数。
+ * GET /accounts 是用戶級端點，返回這人名下所有帳號，跟 token 授權了哪個無關，
+ * 所以不能直接拿第一個用。挨個問「這個帳號下能不能列 Worker」，能列的才算數。
  */
 async function findUsableAccounts(token: string): Promise<CfResponse<CfAccount[]>> {
   const listed = await cfApi<CfListEnvelope<CfAccount>>(token, '/accounts?per_page=50');
@@ -544,14 +544,14 @@ async function ensureDatabase(
   );
   const uuid = created.body?.result?.uuid;
   if (!created.ok || !uuid) {
-    return { ok: false, error: created.error || '建数据库失败，Cloudflare 没有返回数据库 id。' };
+    return { ok: false, error: created.error || '建數據庫失敗，Cloudflare 沒有返回數據庫 id。' };
   }
   return { ok: true, id: uuid, reused: false };
 }
 
 /**
- * 拿账号的 workers.dev 子域；没有就用 desiredSubdomain 注册一个。
- * 全新的 Cloudflare 账号是没有子域的，而它决定了最终的 Worker 地址，绕不过去。
+ * 拿帳號的 workers.dev 子域；沒有就用 desiredSubdomain 註冊一個。
+ * 全新的 Cloudflare 帳號是沒有子域的，而它決定了最終的 Worker 地址，繞不過去。
  */
 export async function ensureSubdomain(
   token: string,
@@ -562,15 +562,15 @@ export async function ensureSubdomain(
     token,
     `/accounts/${accountId}/workers/subdomain`,
   );
-  // 401/403 是「没让我读」，不是「这个账号没有子域名」。不单独拎出来的话，下面会把它
-  // 当成新账号，请用户起一个名字——而读都读不动，注册那一步同样过不去，用户于是对着
-  // 「换一个名字再试」换个不停。只挑这两个状态码：账号真没有子域名时 CF 回什么没实测过，
-  // 把所有失败都当权限的话，会把全新账号堵死在这里，那比现在更糟。
+  // 401/403 是「沒讓我讀」，不是「這個帳號沒有子域名」。不單獨拎出來的話，下面會把它
+  // 當成新帳號，請用戶起一個名字——而讀都讀不動，註冊那一步同樣過不去，用戶於是對著
+  // 「換一個名字再試」換個不停。只挑這兩個狀態碼：帳號真沒有子域名時 CF 回什麼沒實測過，
+  // 把所有失敗都當權限的話，會把全新帳號堵死在這裡，那比現在更糟。
   if (!current.ok && (current.status === 401 || current.status === 403)) {
     return {
       ok: false,
       code: 'CF_ERROR',
-      error: `读不到这个账号的 workers.dev 子域名。\n${current.error}`,
+      error: `讀不到這個帳號的 workers.dev 子域名。\n${current.error}`,
     };
   }
   const existing = current.body?.result?.subdomain;
@@ -580,7 +580,7 @@ export async function ensureSubdomain(
     return {
       ok: false,
       code: 'SUBDOMAIN_MISSING',
-      error: '这个 Cloudflare 账号还没有 workers.dev 子域名，需要先起一个。',
+      error: '這個 Cloudflare 帳號還沒有 workers.dev 子域名，需要先起一個。',
     };
   }
   const invalid = validateSubdomain(desired);
@@ -595,7 +595,7 @@ export async function ensureSubdomain(
     return {
       ok: false,
       code: 'SUBDOMAIN_TAKEN',
-      error: `${desired} 这个子域名注册不下来（多半被别人占了）。换一个再试。${registered.error ? `\n${registered.error}` : ''}`,
+      error: `${desired} 這個子域名註冊不下來（多半被別人佔了）。換一個再試。${registered.error ? `\n${registered.error}` : ''}`,
     };
   }
   return { ok: true, subdomain: desired.trim().toLowerCase() };
@@ -605,20 +605,20 @@ async function fetchBundle(): Promise<{ ok: true; code: string; config: WorkerDe
   let code: string;
   try {
     const res = await fetch(BUNDLE_URL, { cache: 'no-store' });
-    if (!res.ok) return { ok: false, error: `拉取 Worker 代码失败（HTTP ${res.status}）。` };
+    if (!res.ok) return { ok: false, error: `拉取 Worker 代碼失敗（HTTP ${res.status}）。` };
     code = await res.text();
   } catch (e) {
-    return { ok: false, error: `拉取 Worker 代码失败：${String((e as Error)?.message || e)}` };
+    return { ok: false, error: `拉取 Worker 代碼失敗：${String((e as Error)?.message || e)}` };
   }
   const bytes = new TextEncoder().encode(code).length;
   if (bytes < MIN_BUNDLE_BYTES || bytes > MAX_BUNDLE_BYTES) {
-    return { ok: false, error: `拉到的 Worker 代码大小不对（${bytes} 字节），没敢往上传。` };
+    return { ok: false, error: `拉到的 Worker 代碼大小不對（${bytes} 字節），沒敢往上傳。` };
   }
   if (!code.includes('src_default as default')) {
-    return { ok: false, error: '拉到的文件不像是打包好的 Worker，没敢往上传。' };
+    return { ok: false, error: '拉到的文件不像是打包好的 Worker，沒敢往上傳。' };
   }
 
-  // 配置跟着 bundle 一起从线上拿，拿不到就用兜底，不因为这个中断部署。
+  // 配置跟著 bundle 一起從線上拿，拿不到就用兜底，不因為這個中斷部署。
   let config = FALLBACK_CONFIG;
   try {
     const res = await fetch(WRANGLER_URL, { cache: 'no-store' });
@@ -630,19 +630,19 @@ async function fetchBundle(): Promise<{ ok: true; code: string; config: WorkerDe
 }
 
 /**
- * 等新部署的 Worker 真的能响应。
+ * 等新部署的 Worker 真的能響應。
  *
- * 刚建好的 workers.dev 地址要过一会儿才解析得到（实测上传成功后还得几十秒）。
- * **这期间 Cloudflare 会返回它自己的 404 占位页**，所以「收到 HTTP 响应」不能当成
- * 活了的判据——真机上就是这么误判的，紧接着去建表必然失败。
- * 占位页是 text/html，Worker 一律回 JSON，拿 Content-Type 分得干净。
+ * 剛建好的 workers.dev 地址要過一會兒才解析得到（實測上傳成功後還得幾十秒）。
+ * **這期間 Cloudflare 會返回它自己的 404 佔位頁**，所以「收到 HTTP 響應」不能當成
+ * 活了的判據——真機上就是這麼誤判的，緊接著去建表必然失敗。
+ * 佔位頁是 text/html，Worker 一律回 JSON，拿 Content-Type 分得乾淨。
  *
- * 超时返回 false 而不是抛错：没等到不代表装失败，让调用方提示「过会儿点连接」即可。
+ * 超時返回 false 而不是拋錯：沒等到不代表裝失敗，讓調用方提示「過會兒點連接」即可。
  */
 export async function waitForWorkerReady(workerUrl: string, timeoutMs = 90_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
-  // 新地址在各个边缘节点上不是同时生效的：探到一次成功、下一秒又落到没生效的节点上，
-  // 真机上就这么反复了几轮。连着两次才算数，把这个抖动期让过去。
+  // 新地址在各個邊緣節點上不是同時生效的：探到一次成功、下一秒又落到沒生效的節點上，
+  // 真機上就這麼反覆了幾輪。連著兩次才算數，把這個抖動期讓過去。
   const NEEDED_STREAK = 2;
   let streak = 0;
   let delay = 1000;
@@ -660,7 +660,7 @@ export async function waitForWorkerReady(workerUrl: string, timeoutMs = 90_000):
   return false;
 }
 
-/** 生成这套后端要的全部密钥。已有的原样保留（重装时不换 Master Key）。 */
+/** 生成這套後端要的全部密鑰。已有的原樣保留（重裝時不換 Master Key）。 */
 export async function generateAmsgSecrets(existing: Partial<AmsgSecrets> = {}): Promise<AmsgSecrets> {
   const vapid = existing.VAPID_PUBLIC_KEY && existing.VAPID_PRIVATE_KEY
     ? { publicKey: existing.VAPID_PUBLIC_KEY, privateKey: existing.VAPID_PRIVATE_KEY }
@@ -679,20 +679,20 @@ export async function generateAmsgSecrets(existing: Partial<AmsgSecrets> = {}): 
 }
 
 /**
- * 给一台**已经装好的**后端补上「自己更新自己」的能力。
+ * 給一台**已經裝好的**後端補上「自己更新自己」的能力。
  *
- * 老办法装的（fork 仓库 / 部署按钮 / 手动粘代码）Worker 里没有 CF_API_TOKEN，点「更新
- * 后端」会被顶回来，原本得去 Cloudflare 面板手动加一条密钥。这里用 Workers 的密钥接口
- * （`PUT .../secrets`）单独写这一条——**它不碰脚本，也不碰其它绑定**，所以对手动部署的
- * 用户是安全的：前端手里没有他们的 Master Key，走上传那条路会把密钥抹掉，走这条不会。
+ * 老辦法裝的（fork 倉庫 / 部署按鈕 / 手動粘代碼）Worker 裡沒有 CF_API_TOKEN，點「更新
+ * 後端」會被頂回來，原本得去 Cloudflare 面板手動加一條密鑰。這裡用 Workers 的密鑰接口
+ * （`PUT .../secrets`）單獨寫這一條——**它不碰腳本，也不碰其它綁定**，所以對手動部署的
+ * 用戶是安全的：前端手裡沒有他們的 Master Key，走上傳那條路會把密鑰抹掉，走這條不會。
  *
- * 写完 token 就留在用户自己的 Worker 里，前端不保存。
+ * 寫完 token 就留在用戶自己的 Worker 裡，前端不保存。
  */
 export async function attachUpdateCapability(input: {
   token: string;
-  /** 用户当前配的后端地址，用来认出脚本叫什么。 */
+  /** 用戶當前配的後端地址，用來認出腳本叫什麼。 */
   workerUrl: string;
-  /** 地址是自定义域名 / 代理时认不出来，由界面问出来再传进来。 */
+  /** 地址是自定義域名 / 代理時認不出來，由界面問出來再傳進來。 */
   scriptName?: string;
   accountId?: string;
   onProgress?: (p: ProvisionProgress) => void;
@@ -703,16 +703,16 @@ export async function attachUpdateCapability(input: {
   const token = input.token.trim();
   const report = (step: ProvisionStepId, message: string) => input.onProgress?.({ step, message });
 
-  report('relay', '检查中转是否可用…');
+  report('relay', '檢查中轉是否可用…');
   if (!(await checkRelayAvailable())) {
     return {
       ok: false,
       code: 'RELAY_UNSUPPORTED',
-      message: '当前的网络代理 Worker 不支持这个操作（缺 /cf-api）。把代理地址改回默认的再试。',
+      message: '當前的網絡代理 Worker 不支持這個操作（缺 /cf-api）。把代理地址改回默認的再試。',
     };
   }
 
-  report('token', '验证 Token…');
+  report('token', '驗證 Token…');
   const verified = await verifyToken(token);
   if (!verified.ok) return { ok: false, code: verified.code, message: verified.message };
 
@@ -722,12 +722,12 @@ export async function attachUpdateCapability(input: {
       ok: false,
       code: 'SCRIPT_NAME_UNKNOWN',
       message:
-        '认不出你这台后端在 Cloudflare 上叫什么名字（地址不是 workers.dev 那种，多半套了自定义域名或代理）。'
-        + '去 Cloudflare 的 Workers 列表看一眼它的名字，填进来。',
+        '認不出你這台後端在 Cloudflare 上叫什麼名字（地址不是 workers.dev 那種，多半套了自定義域名或代理）。'
+        + '去 Cloudflare 的 Workers 列表看一眼它的名字，填進來。',
     };
   }
 
-  report('account', '找这台 Worker 在哪个账号下…');
+  report('account', '找這台 Worker 在哪個帳號下…');
   const scriptPath = (accId: string) =>
     `/accounts/${accId}/workers/scripts/${encodeURIComponent(scriptName)}`;
 
@@ -738,16 +738,16 @@ export async function attachUpdateCapability(input: {
       return {
         ok: false,
         code: 'SCRIPT_NOT_FOUND',
-        message: `这个账号下没找到名叫 ${scriptName} 的 Worker。`,
+        message: `這個帳號下沒找到名叫 ${scriptName} 的 Worker。`,
       };
     }
   } else {
     const accounts = await findUsableAccounts(token);
     if (!accounts.ok) {
-      return { ok: false, code: 'CF_ERROR', message: accounts.error || '读取账号列表失败。' };
+      return { ok: false, code: 'CF_ERROR', message: accounts.error || '讀取帳號列表失敗。' };
     }
-    // 挨个账号问「你这儿有没有这个 Worker」。同名 Worker 可能在多个账号里都存在，
-    // 那就得让用户自己指认，别替他猜一个写进去。
+    // 挨個帳號問「你這兒有沒有這個 Worker」。同名 Worker 可能在多個帳號裡都存在，
+    // 那就得讓用戶自己指認，別替他猜一個寫進去。
     const owners: CfAccount[] = [];
     for (const account of accounts.body ?? []) {
       const found = await cfApi(token, `${scriptPath(account.id)}/settings`);
@@ -758,24 +758,24 @@ export async function attachUpdateCapability(input: {
         ok: false,
         code: 'SCRIPT_NOT_FOUND',
         message:
-          `这枚 Token 能看到的账号里都没有名叫 ${scriptName} 的 Worker。`
-          + '确认一下 Token 建的时候选对账号了没有。',
+          `這枚 Token 能看到的帳號裡都沒有名叫 ${scriptName} 的 Worker。`
+          + '確認一下 Token 建的時候選對帳號了沒有。',
       };
     }
     if (owners.length > 1) {
       return {
         ok: false,
         code: 'ACCOUNT_AMBIGUOUS',
-        message: `有多个账号下都有名叫 ${scriptName} 的 Worker，选一个。`,
+        message: `有多個帳號下都有名叫 ${scriptName} 的 Worker，選一個。`,
         accounts: owners,
       };
     }
     accountId = owners[0].id;
   }
 
-  report('upload', '写入更新用的钥匙…');
-  // 两条：token 本身，外加脚本名——地址套了代理时 Worker 认不出自己叫什么，
-  // 显式写进去它才知道要更新哪一个。
+  report('upload', '寫入更新用的鑰匙…');
+  // 兩條：token 本身，外加腳本名——地址套了代理時 Worker 認不出自己叫什麼，
+  // 顯式寫進去它才知道要更新哪一個。
   for (const [name, text] of [['CF_API_TOKEN', token], ['CF_SCRIPT_NAME', scriptName]]) {
     const written = await cfApi(token, `${scriptPath(accountId)}/secrets`, {
       method: 'PUT',
@@ -783,17 +783,17 @@ export async function attachUpdateCapability(input: {
       contentType: 'application/json',
     });
     if (!written.ok) {
-      return { ok: false, code: 'CF_ERROR', message: `写入 ${name} 失败（${written.error}）。` };
+      return { ok: false, code: 'CF_ERROR', message: `寫入 ${name} 失敗（${written.error}）。` };
     }
   }
 
-  report('done', '装好了。');
+  report('done', '裝好了。');
   return { ok: true, accountId, scriptName };
 }
 
 /**
- * 全流程。任何一步失败都直接返回，不做回滚——半途失败会留下已经建好的 D1 或 Worker，
- * 但每一步都是「先查后建」，把同样的参数再跑一遍能接着往下走，不会建出第二份。
+ * 全流程。任何一步失敗都直接返回，不做回滾——半途失敗會留下已經建好的 D1 或 Worker，
+ * 但每一步都是「先查後建」，把同樣的參數再跑一遍能接著往下走，不會建出第二份。
  */
 export async function provisionAmsgBackend(input: ProvisionInput): Promise<ProvisionResult> {
   const scriptName = input.scriptName?.trim() || AMSG_SCRIPT_NAME;
@@ -802,29 +802,29 @@ export async function provisionAmsgBackend(input: ProvisionInput): Promise<Provi
   const report = (step: ProvisionStepId, message: string) => input.onProgress?.({ step, message });
   const warnings: string[] = [];
 
-  report('relay', '检查中转是否可用…');
+  report('relay', '檢查中轉是否可用…');
   if (!(await checkRelayAvailable())) {
     return {
       ok: false,
       code: 'RELAY_UNSUPPORTED',
       message:
-        '当前的网络代理 Worker 不支持一键部署（缺 /cf-api）。'
-        + '如果你在设置里换过代理地址，把它改回默认的，或者把代理 Worker 更新到最新版。',
+        '當前的網絡代理 Worker 不支持一鍵部署（缺 /cf-api）。'
+        + '如果你在設置裡換過代理地址，把它改回默認的，或者把代理 Worker 更新到最新版。',
     };
   }
 
-  report('token', '验证 Token…');
+  report('token', '驗證 Token…');
   const verified = await verifyToken(token);
   if (!verified.ok) {
     return { ok: false, code: verified.code, message: verified.message };
   }
 
-  report('account', '查找可用的 Cloudflare 账号…');
+  report('account', '查找可用的 Cloudflare 帳號…');
   let accountId = input.accountId?.trim() || '';
   if (!accountId) {
     const accounts = await findUsableAccounts(token);
     if (!accounts.ok) {
-      return { ok: false, code: 'CF_ERROR', message: accounts.error || '读取账号列表失败。' };
+      return { ok: false, code: 'CF_ERROR', message: accounts.error || '讀取帳號列表失敗。' };
     }
     const usable = accounts.body ?? [];
     if (usable.length === 0) {
@@ -832,7 +832,7 @@ export async function provisionAmsgBackend(input: ProvisionInput): Promise<Provi
         ok: false,
         code: 'NO_USABLE_ACCOUNT',
         message:
-          '这枚 token 在你名下任何一个账号里都没有 Workers 权限。'
+          '這枚 token 在你名下任何一個帳號裡都沒有 Workers 權限。'
           + '重新建一枚，把 Account → Workers Scripts:Edit 勾上。',
       };
     }
@@ -840,58 +840,58 @@ export async function provisionAmsgBackend(input: ProvisionInput): Promise<Provi
       return {
         ok: false,
         code: 'ACCOUNT_AMBIGUOUS',
-        message: '这枚 token 能用在多个账号上，选一个装到哪儿。',
+        message: '這枚 token 能用在多個帳號上，選一個裝到哪兒。',
         accounts: usable,
       };
     }
     accountId = usable[0].id;
   }
 
-  report('database', '准备数据库…');
+  report('database', '準備數據庫…');
   const db = await ensureDatabase(token, accountId, databaseName);
   if (!db.ok) return { ok: false, code: 'CF_ERROR', message: db.error };
   if (db.reused) {
-    warnings.push(`用的是账号里已有的同名数据库 ${databaseName}。如果之前装过一套，两边会共用同一个库。`);
+    warnings.push(`用的是帳號裡已有的同名數據庫 ${databaseName}。如果之前裝過一套，兩邊會共用同一個庫。`);
   }
 
-  report('subdomain', '确认 workers.dev 地址…');
+  report('subdomain', '確認 workers.dev 地址…');
   const sub = await ensureSubdomain(token, accountId, input.desiredSubdomain);
   if (!sub.ok) return { ok: false, code: sub.code, message: sub.error };
 
-  report('bundle', '下载最新的后端代码…');
+  report('bundle', '下載最新的後端代碼…');
   const bundle = await fetchBundle();
   if (!bundle.ok) return { ok: false, code: 'BUNDLE_INVALID', message: bundle.error };
 
-  report('upload', '上传 Worker…');
+  report('upload', '上傳 Worker…');
   const secrets = await generateAmsgSecrets(input.secrets);
   const metadata = {
     main_module: MAIN_MODULE,
     compatibility_date: bundle.config.compatibilityDate,
     compatibility_flags: bundle.config.compatibilityFlags,
-    // CF_API_TOKEN / CF_SCRIPT_NAME 是留给「更新后端」用的：worker 以后拿它自己
-    // 覆盖自己，就不用再经过浏览器和中转了。
+    // CF_API_TOKEN / CF_SCRIPT_NAME 是留給「更新後端」用的：worker 以後拿它自己
+    // 覆蓋自己，就不用再經過瀏覽器和中轉了。
     bindings: buildBindings(bundle.config.d1Binding, db.id, secrets, {
       CF_API_TOKEN: token,
       CF_SCRIPT_NAME: scriptName,
     }),
-    // 实时日志（面板上的 Workers Logs）默认是关的，amsg 排障全靠它。
-    // 官方的 multipart-upload-metadata 文档没把 observability 列进合法字段，但实测是认的
-    // ——上传 enabled:false 能关掉、true 能开起来、不带就没有，三向都验过。
+    // 實時日誌（面板上的 Workers Logs）默認是關的，amsg 排障全靠它。
+    // 官方的 multipart-upload-metadata 文檔沒把 observability 列進合法字段，但實測是認的
+    // ——上傳 enabled:false 能關掉、true 能開起來、不帶就沒有，三向都驗過。
     observability: { enabled: true, logs: { enabled: true } },
-    // 建即时对话起跳器的 Durable Object namespace。不给 old_tag 即断言「还没应用过
-    // 任何 migration」；重装撞上 10079 时由 uploadWorkerScript 去掉它重传。注意它是
-    // 一个对象，不是 wrangler.toml 里那种数组——传数组会被 10021 顶回来。
+    // 建即時對話起跳器的 Durable Object namespace。不給 old_tag 即斷言「還沒應用過
+    // 任何 migration」；重裝撞上 10079 時由 uploadWorkerScript 去掉它重傳。注意它是
+    // 一個對象，不是 wrangler.toml 裡那種數組——傳數組會被 10021 頂回來。
     migrations: INSTANT_TICK_MIGRATIONS,
   };
   const uploaded = await uploadWorkerScript(token, accountId, scriptName, metadata, bundle.code);
   if (!uploaded.ok) {
-    return { ok: false, code: 'UPLOAD_FAILED', message: uploaded.error || '上传 Worker 失败。' };
+    return { ok: false, code: 'UPLOAD_FAILED', message: uploaded.error || '上傳 Worker 失敗。' };
   }
   if (uploaded.reusedExistingWorker) {
-    warnings.push(`账号里已经有一套装好的 ${scriptName}，这次是在它上面覆盖更新。`);
+    warnings.push(`帳號裡已經有一套裝好的 ${scriptName}，這次是在它上面覆蓋更新。`);
   }
 
-  report('cron', '设置定时触发…');
+  report('cron', '設置定時觸發…');
   const schedules = await cfApi(
     token,
     `/accounts/${accountId}/workers/scripts/${encodeURIComponent(scriptName)}/schedules`,
@@ -902,15 +902,15 @@ export async function provisionAmsgBackend(input: ProvisionInput): Promise<Provi
     },
   );
   if (!schedules.ok) {
-    // 这条不能降级成警告：cron 是主动消息唯一的投递触发方式，没有它整个功能不动。
+    // 這條不能降級成警告：cron 是主動消息唯一的投遞觸發方式，沒有它整個功能不動。
     return {
       ok: false,
       code: 'CF_ERROR',
-      message: `定时触发没设上（${schedules.error}）。主动消息全靠它，先解决这个再用。`,
+      message: `定時觸發沒設上（${schedules.error}）。主動消息全靠它，先解決這個再用。`,
     };
   }
 
-  report('expose', '开启访问地址…');
+  report('expose', '開啟訪問地址…');
   const exposed = await cfApi(
     token,
     `/accounts/${accountId}/workers/scripts/${encodeURIComponent(scriptName)}/subdomain`,
@@ -921,7 +921,7 @@ export async function provisionAmsgBackend(input: ProvisionInput): Promise<Provi
     },
   );
   if (!exposed.ok) {
-    return { ok: false, code: 'CF_ERROR', message: `开启 workers.dev 地址失败（${exposed.error}）。` };
+    return { ok: false, code: 'CF_ERROR', message: `開啟 workers.dev 地址失敗（${exposed.error}）。` };
   }
 
   report('done', '部署完成。');

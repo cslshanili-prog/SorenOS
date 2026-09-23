@@ -1,7 +1,7 @@
-name: PR 自动打标签
+name: PR 自動打標籤
 
-# 用 pull_request_target 是为了让来自 fork 的 PR 也拿得到写标签的权限。
-# 这里的两个 action 都只读 PR 的文件清单、不检出也不执行 PR 里的代码，所以是安全的。
+# 用 pull_request_target 是為了讓來自 fork 的 PR 也拿得到寫標籤的權限。
+# 這裡的兩個 action 都只讀 PR 的文件清單、不檢出也不執行 PR 裡的代碼，所以是安全的。
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
@@ -12,10 +12,10 @@ permissions:
 
 jobs:
   label-by-files:
-    name: 按改动文件贴 scope 标签
+    name: 按改動文件貼 scope 標籤
     runs-on: ubuntu-latest
     steps:
-      - name: 按 .github/labeler.yml 的映射贴标签
+      - name: 按 .github/labeler.yml 的映射貼標籤
         # https://github.com/actions/labeler
         uses: actions/labeler@v5
         with:
@@ -23,20 +23,20 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
   label-by-size:
-    name: 按改动规模贴大小标签（不含测试）
-    # 排在 scope 标签之后，避免两个 job 同时写标签互相覆盖
+    name: 按改動規模貼大小標籤（不含測試）
+    # 排在 scope 標籤之後，避免兩個 job 同時寫標籤互相覆蓋
     needs: [label-by-files]
     runs-on: ubuntu-latest
     if: always()
 
-    # 打标签走的是 issues API，要额外给 issues 写权限
+    # 打標籤走的是 issues API，要額外給 issues 寫權限
     permissions:
       contents: read
       issues: write
       pull-requests: write
 
     steps:
-      - name: 统计增删行数并贴标签（只算测试以外的改动）
+      - name: 統計增刪行數並貼標籤（只算測試以外的改動）
         # https://github.com/CodelyTV/pr-size-labeler
         uses: codelytv/pr-size-labeler@4ec67706cd878fbc1c8db0a5dcd28b6bb412e85a # v1.10.3
         with:
@@ -50,15 +50,15 @@ jobs:
           l_label: '🟠 ■■■■□'
           l_max_size: '2500'
           xl_label: '🔴 ■■■■■'
-          # 超大 PR 只贴标签，不拦合并
+          # 超大 PR 只貼標籤，不攔合併
           fail_if_xl: 'false'
           message_if_xl: ''
-          # 这个标签衡量的是「需要人肉 review 的实现改动有多大」，所以下面几类都不计入：
-          #   1. 构建产物和锁文件 —— 不然一次 pnpm install 就直接顶到 XL
-          #   2. 测试文件 —— 补测试是好事，不该让 PR 因为测试写得多就被贴成大 PR
-          # 匹配规则是 action 内部的 bash `[[ $filename == $pattern ]]`（见 src/github.sh），
-          # 注意它是普通字符串通配、不是 pathname 展开，所以 `*` 会跨 `/`：
-          # `*.test.ts` 能盖住 utils/memoryPalace/embedding.test.ts 这种嵌套路径，不用写 `**`。
+          # 這個標籤衡量的是「需要人肉 review 的實現改動有多大」，所以下面幾類都不計入：
+          #   1. 構建產物和鎖文件 —— 不然一次 pnpm install 就直接頂到 XL
+          #   2. 測試文件 —— 補測試是好事，不該讓 PR 因為測試寫得多就被貼成大 PR
+          # 匹配規則是 action 內部的 bash `[[ $filename == $pattern ]]`（見 src/github.sh），
+          # 注意它是普通字符串通配、不是 pathname 展開，所以 `*` 會跨 `/`：
+          # `*.test.ts` 能蓋住 utils/memoryPalace/embedding.test.ts 這種嵌套路徑，不用寫 `**`。
           files_to_ignore: |
             "pnpm-lock.yaml"
             "public/*.bundle.js"

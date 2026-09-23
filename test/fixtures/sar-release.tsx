@@ -19,10 +19,10 @@ function Harness() {
     const skin = new URLSearchParams(location.search).get('desktop') as keyof typeof homes;
     if (skin && homes[skin]) {
         const Home = homes[skin];
-        return <MusicProvider><React.Suspense fallback={<p>桌面载入中</p>}><Home/></React.Suspense><output hidden data-active-app={os.activeApp}/></MusicProvider>;
+        return <MusicProvider><React.Suspense fallback={<p>桌面載入中</p>}><Home/></React.Suspense><output hidden data-active-app={os.activeApp}/></MusicProvider>;
     }
-    if (new URLSearchParams(location.search).has('backup')) return <p>系统备份测试就绪</p>;
-    if (new URLSearchParams(location.search).has('chat')) return <MusicProvider><React.Suspense fallback={<p>聊天载入中</p>}><Chat/></React.Suspense></MusicProvider>;
+    if (new URLSearchParams(location.search).has('backup')) return <p>系統備份測試就緒</p>;
+    if (new URLSearchParams(location.search).has('chat')) return <MusicProvider><React.Suspense fallback={<p>聊天載入中</p>}><Chat/></React.Suspense></MusicProvider>;
     if (closed) return <p data-result={closed}>{closed}</p>;
     if (new URLSearchParams(location.search).has('queue')) return <UpdateNotificationController onClose={() => setClosed('queue-closed')}/>;
     return <SARUpdatePopup onDone={() => setClosed('dismissed')} onVisit={() => setClosed('visit')} onGuide={() => setClosed('guide')}/>;

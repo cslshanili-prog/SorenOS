@@ -17,12 +17,12 @@ describe('chat message keyword search', () => {
         expect(chatMessageIncludesKeyword({ type: 'emoji', content: 'https://cdn.test/summer-cat.gif' }, 'summer')).toBe(false);
         expect(chatMessageIncludesKeyword({ type: 'text', content: '[表情：summer-cat]' }, 'summer')).toBe(false);
         expect(chatMessageFuzzyMatchesKeyword({ type: 'text', content: '[[EMOJI:summer-cat]]' }, 'summer')).toBe(false);
-        expect(stripEmojiDirectivesFromSearchText('先聊 summer [表情:summer-cat] 再说')).toContain('先聊 summer');
-        expect(searchableChatMessageText({ type: 'text', content: '先聊 summer [表情:summer-cat] 再说' })).toContain('summer');
+        expect(stripEmojiDirectivesFromSearchText('先聊 summer [表情:summer-cat] 再說')).toContain('先聊 summer');
+        expect(searchableChatMessageText({ type: 'text', content: '先聊 summer [表情:summer-cat] 再說' })).toContain('summer');
     });
 
     it('normalizes full-width English without changing Chinese keyword behavior', () => {
-        expect(chatMessageIncludesKeyword({ type: 'text', content: 'Ｓｕｍｍｅｒ 计划' }, 'summer')).toBe(true);
-        expect(chatMessageIncludesKeyword({ type: 'text', content: '周末去海边' }, '海边')).toBe(true);
+        expect(chatMessageIncludesKeyword({ type: 'text', content: 'Ｓｕｍｍｅｒ 計劃' }, 'summer')).toBe(true);
+        expect(chatMessageIncludesKeyword({ type: 'text', content: '週末去海邊' }, '海邊')).toBe(true);
     });
 });

@@ -1,5 +1,5 @@
-// 群聊动作派发 —— 从 GroupChat.tsx triggerDirector 抽出的执行层（PRIVATE 侧信道、
-// 表情包、气泡分段、打字延迟），导演模式与轮询模式共用。
+// 群聊動作派發 —— 從 GroupChat.tsx triggerDirector 抽出的執行層（PRIVATE 側信道、
+// 表情包、氣泡分段、打字延遲），導演模式與輪詢模式共用。
 import { DB } from '../db';
 import { CharacterProfile, EmojiCategory, Message, Toast } from '../../types';
 import { DirectorAction } from './parse';
@@ -15,39 +15,40 @@ import {
 } from './redpacket';
 import { normalizeAssistantEmojiFormatting } from '../assistantActionFormat';
 import { extractHtmlBlocks } from '../htmlPrompt';
+import { equalsAnyScript } from '../scriptKey';
 
 interface EmojiItem { name: string; url: string; categoryId?: string }
 
 export interface DispatchContext {
     groupId: string;
-    /** 群成员 id 列表——charId 不在其中的动作直接丢弃 */
+    /** 群成員 id 列表——charId 不在其中的動作直接丟棄 */
     memberIds: string[];
     characters: CharacterProfile[];
     emojis: EmojiItem[];
     categories: EmojiCategory[];
-    /** 每条气泡落库后刷新 UI（GroupChat 的 refreshMessages） */
+    /** 每條氣泡落庫後刷新 UI（GroupChat 的 refreshMessages） */
     refresh: () => Promise<unknown>;
     addToast: (message: string, type?: Toast['type']) => void;
-    /** 中途取消：每次延迟/落库前检查，aborted 后提前返回 */
+    /** 中途取消：每次延遲/落庫前檢查，aborted 後提前返回 */
     signal?: AbortSignal;
-    /** [[QUOTE: 原话片段]] 解析：按片段找被引用消息，找不到返回 undefined（标记静默剥除） */
+    /** [[QUOTE: 原話片段]] 解析：按片段找被引用消息，找不到返回 undefined（標記靜默剝除） */
     resolveQuote?: (snippet: string) => { id: number; content: string; name: string } | undefined;
-    /** 用户显示名——红包目标解析（direct:用户名）与回执命名用 */
+    /** 用戶顯示名——紅包目標解析（direct:用戶名）與回執命名用 */
     userName: string;
-    /** 群 HTML 模块模式开启时解析 [html] 块为 html_card 消息 */
+    /** 群 HTML 模塊模式開啟時解析 [html] 塊為 html_card 消息 */
     htmlMode?: boolean;
     /**
-     * [[ACTION:LEAVE_GROUP]] 退群命令的执行回调——只有调用方（GroupChat.tsx）在群开了
-     * allowMemberLeave 时才会传入；不传时等于没被教过这个语法，dispatch 只负责把标记从
-     * 正文里剥掉，不会发生任何退群副作用（双重保险，不靠 AI 老实）。
+     * [[ACTION:LEAVE_GROUP]] 退群命令的執行回調——只有調用方（GroupChat.tsx）在群開了
+     * allowMemberLeave 時才會傳入；不傳時等於沒被教過這個語法，dispatch 只負責把標記從
+     * 正文裡剝掉，不會發生任何退群副作用（雙重保險，不靠 AI 老實）。
      */
     onMemberLeave?: (charId: string, charName: string) => Promise<void>;
 }
 
 /**
- * 逐条执行成员动作：解析 [[PRIVATE:]] 进私聊频道、[[SEND_EMOJI:]] 发表情、
- * 剩余文本按换行分气泡带打字延迟落库。逻辑逐字搬自 triggerDirector，
- * 仅把 `setMessages(await DB.getGroupMessages(...))` 换成 ctx.refresh()、加 signal 检查。
+ * 逐條執行成員動作：解析 [[PRIVATE:]] 進私聊頻道、[[SEND_EMOJI:]] 發表情、
+ * 剩餘文本按換行分氣泡帶打字延遲落庫。邏輯逐字搬自 triggerDirector，
+ * 僅把 `setMessages(await DB.getGroupMessages(...))` 換成 ctx.refresh()、加 signal 檢查。
  */
 export async function dispatchMemberActions(actions: DirectorAction[], ctx: DispatchContext): Promise<void> {
     const { groupId, memberIds, characters, emojis, categories, refresh, addToast, signal, resolveQuote } = ctx;
@@ -56,11 +57,11 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         if (signal?.aborted) return;
         const targetId = memberIds.find(id => id === action.charId);
         if (!targetId) continue;
-        const charName = characters.find(c => c.id === targetId)?.name || '成员';
+        const charName = characters.find(c => c.id === targetId)?.name || '成員';
 
-        // -0.1 退群命令：[[ACTION:LEAVE_GROUP]]。剥标记这一步始终执行（哪怕 onMemberLeave
-        // 没传，AI 也不该看到裸标记留在正文里）；真正的移除副作用只在 ctx.onMemberLeave 存在
-        // 时才触发——这是唯一的开关判断点，prompts.ts 那边只是不教这个语法，不是安全边界。
+        // -0.1 退群命令：[[ACTION:LEAVE_GROUP]]。剝標記這一步始終執行（哪怕 onMemberLeave
+        // 沒傳，AI 也不該看到裸標記留在正文裡）；真正的移除副作用只在 ctx.onMemberLeave 存在
+        // 時才觸發——這是唯一的開關判斷點，prompts.ts 那邊只是不教這個語法，不是安全邊界。
         let publicContent = action.content;
         let wantsToLeave = false;
         const leaveMatch = publicContent.match(/\[\[\s*ACTION\s*[:：]\s*LEAVE_GROUP\s*\]\]/i);
@@ -71,7 +72,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         const fireLeaveIfWanted = async () => {
             if (wantsToLeave && ctx.onMemberLeave) {
                 await ctx.onMemberLeave(targetId, charName);
-                wantsToLeave = false; // 防止同一条 action 的多个 continue 出口重复触发
+                wantsToLeave = false; // 防止同一條 action 的多個 continue 出口重複觸發
             }
         };
 
@@ -95,7 +96,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
                         type: 'text',
                         content: privateContent
                     });
-                    addToast(`${charName} 悄悄对你说: ${privateContent.substring(0, 15)}...`, 'info');
+                    addToast(`${charName} 悄悄對你說: ${privateContent.substring(0, 15)}...`, 'info');
                 }
                 // Strip the private command from the public content
                 publicContent = publicContent.replace(m[0], '');
@@ -106,8 +107,8 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             if (!publicContent) { await fireLeaveIfWanted(); continue; }
         }
 
-        // 0.5 [[QUOTE: 原话片段]]：AI 想针对某条具体发言回复。两层容错精神——
-        // 匹配不到目标就静默剥除标记，绝不因引用失败丢正文
+        // 0.5 [[QUOTE: 原話片段]]：AI 想針對某條具體發言回覆。兩層容錯精神——
+        // 匹配不到目標就靜默剝除標記，絕不因引用失敗丟正文
         let quoteReplyTo: { id: number; content: string; name: string } | undefined;
         const quoteMatch = publicContent.match(/\[\[\s*QUOTE\s*[:：]\s*([\s\S]*?)\]\]/i);
         if (quoteMatch) {
@@ -115,8 +116,8 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             quoteReplyTo = resolveQuote?.(quoteMatch[1].trim());
         }
 
-        // 0.7 红包命令：[[GRAB_PACKET]] / [[RETURN_PACKET]] / [[SEND_PACKET: …]]。
-        // 找不到适用包 / 目标名解析失败 → 静默剥标记保正文
+        // 0.7 紅包命令：[[GRAB_PACKET]] / [[RETURN_PACKET]] / [[SEND_PACKET: …]]。
+        // 找不到適用包 / 目標名解析失敗 → 靜默剝標記保正文
         const packetExtract = extractPacketCommands(publicContent);
         publicContent = packetExtract.text;
         for (const cmd of packetExtract.commands) {
@@ -158,8 +159,8 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             }
         }
 
-        // 1.5 HTML 卡片（群 HTML 模式开启时）：[html]...[/html] 块抽成 html_card 消息，
-        // 剩余文本继续走分气泡（字段对齐私聊 applyAssistantPostProcessing 的落库格式）
+        // 1.5 HTML 卡片（群 HTML 模式開啟時）：[html]...[/html] 塊抽成 html_card 消息，
+        // 剩餘文本繼續走分氣泡（字段對齊私聊 applyAssistantPostProcessing 的落庫格式）
         let contentForText = publicContent;
         if (ctx.htmlMode && /\[html\]/i.test(contentForText)) {
             const { blocks, cleanedContent } = extractHtmlBlocks(contentForText);
@@ -184,7 +185,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         const textContent = contentForText.replace(/\[\[SEND_EMOJI:.*?\]\]/g, '').trim();
 
         if (textContent) {
-            // 只认显式换行；行内空格属于正文，不能把混合语言的一句话拆成多条气泡。
+            // 只認顯式換行；行內空格屬於正文，不能把混合語言的一句話拆成多條氣泡。
             const chunks = textContent.split(/(?:\r\n|\r|\n|\u2028|\u2029)+/)
                 .map(c => c.trim())
                 .filter(c => c.length > 0);
@@ -202,7 +203,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
                     role: 'assistant',
                     type: 'text',
                     content: chunk,
-                    // 引用只挂第一条文字气泡
+                    // 引用只掛第一條文字氣泡
                     ...(quoteReplyTo ? { replyTo: quoteReplyTo } : {}),
                 });
                 quoteReplyTo = undefined;
@@ -210,16 +211,16 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             }
         }
 
-        // 退群副作用放最后——告别的话（如果有）先落成气泡，退群公告消息再跟上，顺序才读得通。
+        // 退群副作用放最後——告別的話（如果有）先落成氣泡，退群公告消息再跟上，順序才讀得通。
         await fireLeaveIfWanted();
     }
 }
 
-/** 红包目标名 → claimantId：精确成员名 → 模糊 → 用户；失败 undefined（调用方丢命令保正文） */
+/** 紅包目標名 → claimantId：精確成員名 → 模糊 → 用戶；失敗 undefined（調用方丟命令保正文） */
 function resolvePacketTarget(name: string, ctx: DispatchContext): string | undefined {
     const n = name.trim();
     if (!n) return undefined;
-    if (n === ctx.userName || n === '用户') return 'user';
+    if (n === ctx.userName || equalsAnyScript(n, '用戶')) return 'user';
     const members = ctx.characters.filter(c => ctx.memberIds.includes(c.id));
     const exact = members.find(c => c.name === n);
     if (exact) return exact.id;
@@ -230,11 +231,11 @@ function resolvePacketTarget(name: string, ctx: DispatchContext): string | undef
 }
 
 /**
- * 执行角色的红包命令。
- * - send：发新红包（direct 目标解析失败则丢弃命令）
- * - grab/return：从新到旧找适用包（发给自己的 direct 优先，其次可抢的 lucky），
- *   通过 updateMessageMetadata 事务内重跑 claimPacket 防并发双写，
- *   成功后落回执消息。任何失败都静默返回（正文已在调用方保住）。
+ * 執行角色的紅包命令。
+ * - send：發新紅包（direct 目標解析失敗則丟棄命令）
+ * - grab/return：從新到舊找適用包（發給自己的 direct 優先，其次可搶的 lucky），
+ *   通過 updateMessageMetadata 事務內重跑 claimPacket 防併發雙寫，
+ *   成功後落回執消息。任何失敗都靜默返回（正文已在調用方保住）。
  */
 async function executePacketCommand(
     cmd: PacketCommand,
@@ -243,14 +244,14 @@ async function executePacketCommand(
     ctx: DispatchContext,
 ): Promise<void> {
     const { groupId, characters, userName, refresh } = ctx;
-    const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成员');
+    const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成員');
 
     if (cmd.kind === 'send') {
         if (!cmd.send) return;
         let packetTargetId: string | undefined;
         if (cmd.send.packetType === 'direct') {
             packetTargetId = resolvePacketTarget(cmd.send.targetName || '', ctx);
-            if (!packetTargetId) return; // 名字解析不出来，不落半成品红包
+            if (!packetTargetId) return; // 名字解析不出來，不落半成品紅包
         }
         const meta = makePacketMeta({
             packetType: cmd.send.packetType,
@@ -260,7 +261,7 @@ async function executePacketCommand(
             note: cmd.send.note,
             now: Date.now(),
         });
-        await DB.saveMessage({ charId: actorId, groupId, role: 'assistant', type: 'transfer', content: '[红包]', metadata: meta });
+        await DB.saveMessage({ charId: actorId, groupId, role: 'assistant', type: 'transfer', content: '[紅包]', metadata: meta });
         await refresh();
         return;
     }
@@ -270,7 +271,7 @@ async function executePacketCommand(
     const now = Date.now();
     const packets = msgs.filter(m => m.type === 'transfer' && (m.metadata as GroupPacketMeta | undefined)?.packet);
     const newestFirst = [...packets].reverse();
-    // 发给自己的 direct 优先；其次（仅 grab）还没抢过的 lucky
+    // 發給自己的 direct 優先；其次（僅 grab）還沒搶過的 lucky
     const directTargeted = newestFirst.find(m => {
         const meta = m.metadata as GroupPacketMeta;
         return meta.packetType === 'direct' && meta.targetId === actorId && effectivePacketStatus(meta, now) === 'pending';
@@ -287,14 +288,14 @@ async function executePacketCommand(
     if (!targetMsg) return;
 
     const action = cmd.kind === 'return' ? 'return' : 'claim';
-    // `as ClaimResult` 保住联合类型：赋值发生在回调里，TS 流分析追不到，
-    // 不 cast 会把 outcome 窄化成 {ok:false} 分支导致下方 .action 报 never
+    // `as ClaimResult` 保住聯合類型：賦值發生在回調裡，TS 流分析追不到，
+    // 不 cast 會把 outcome 窄化成 {ok:false} 分支導致下方 .action 報 never
     let outcome = { ok: false, reason: 'not_pending' } as ClaimResult;
     await DB.updateMessageMetadata(targetMsg.id, (prev) => {
-        // updater 内重跑状态机：以库内最新 claims 判重，防止与用户点「抢」并发双写
+        // updater 內重跑狀態機：以庫內最新 claims 判重，防止與用戶點「搶」併發雙寫
         outcome = claimPacket(prev as GroupPacketMeta, actorId, now, action);
         return outcome.ok ? outcome.meta : prev;
-    }).catch(() => { /* 消息被删等——静默 */ });
+    }).catch(() => { /* 消息被刪等——靜默 */ });
     if (!outcome.ok) return;
 
     const senderName = targetMsg.role === 'user' ? userName : nameOf(targetMsg.charId);
@@ -310,7 +311,7 @@ async function executePacketCommand(
         groupId,
         role: 'assistant',
         type: 'transfer',
-        content: outcome.action === 'claimed' ? '[领取红包]' : '[退回红包]',
+        content: outcome.action === 'claimed' ? '[領取紅包]' : '[退回紅包]',
         metadata: receipt,
     });
     await refresh();

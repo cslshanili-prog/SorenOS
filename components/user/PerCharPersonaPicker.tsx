@@ -5,15 +5,15 @@ import TokenImg from '../os/TokenImg';
 import { trackEvent } from '../../utils/analytics';
 
 /**
- * 档案 App「分角色身份指定」：给每个角色单独指定一张身份卡（或强制真实身份），
- * 不影响其他角色。不设置 = 跟全域默认（身份卡面板里的「目前身份」）走。
+ * 檔案 App「分角色身份指定」：給每個角色單獨指定一張身份卡（或強制真實身份），
+ * 不影響其他角色。不設置 = 跟全域默認（身份卡面板裡的「目前身份」）走。
  *
- * 数据存 userProfile.perCharPersonaIds（charId → personaId / REAL_IDENTITY_PERSONA_ID），
- * 解析统一走 utils/userPersona.ts 的 resolveUserProfileForChar()——目前只有私聊
- * （Chat.tsx）、查手机（CheckPhone.tsx）、记忆宫殿几处生成记忆用的地方接了这份解析，
- * 其余画面仍读全域默认，是刻意分批留下的范围边界。
+ * 數據存 userProfile.perCharPersonaIds（charId → personaId / REAL_IDENTITY_PERSONA_ID），
+ * 解析統一走 utils/userPersona.ts 的 resolveUserProfileForChar()——目前只有私聊
+ * （Chat.tsx）、查手機（CheckPhone.tsx）、記憶宮殿幾處生成記憶用的地方接了這份解析，
+ * 其餘畫面仍讀全域默認，是刻意分批留下的範圍邊界。
  *
- * 结构跟「分角色聊天头像」(PerCharAvatarPicker) 同款：搜索过滤 + 每页 8 个的翻页网格。
+ * 結構跟「分角色聊天頭像」(PerCharAvatarPicker) 同款：搜索過濾 + 每頁 8 個的翻頁網格。
  */
 
 const PAGE_SIZE = 8;
@@ -58,7 +58,7 @@ const PerCharPersonaPicker: React.FC = () => {
 
     return (
         <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-5">
-            {/* 翻页滑入动效（组件私有，不进全局 tailwind 配置） */}
+            {/* 翻頁滑入動效（組件私有，不進全局 tailwind 配置） */}
             <style>{`
                 @keyframes pcpSlideL { from { opacity: .35; transform: translateX(26px); } to { opacity: 1; transform: none; } }
                 @keyframes pcpSlideR { from { opacity: .35; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
@@ -75,7 +75,7 @@ const PerCharPersonaPicker: React.FC = () => {
                 <h2 className="text-sm font-bold text-slate-700">分角色身份指定</h2>
             </div>
             <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-                给某个角色单独指定一张身份卡，不影响其他角色——不设置的角色跟上面「身份卡」的目前身份走。
+                給某個角色單獨指定一張身份卡，不影響其他角色——不設置的角色跟上面「身份卡」的目前身份走。
             </p>
 
             {characters.length > PAGE_SIZE && (
@@ -88,7 +88,7 @@ const PerCharPersonaPicker: React.FC = () => {
             )}
 
             {filtered.length === 0 ? (
-                <div className="py-8 text-center text-[11px] text-slate-300">没有叫这个名字的角色</div>
+                <div className="py-8 text-center text-[11px] text-slate-300">沒有叫這個名字的角色</div>
             ) : (
                 <div
                     onTouchStart={(e) => { swipeStartX.current = e.touches[0]?.clientX ?? null; }}
@@ -109,7 +109,7 @@ const PerCharPersonaPicker: React.FC = () => {
                                 <button key={c.id} onClick={() => setEditingId(c.id)} className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform">
                                     <div className="relative">
                                         <TokenImg value={c.avatar} alt="" className="w-14 h-14 rounded-full object-cover bg-slate-100 border border-slate-100 group-hover:border-primary/30 transition-colors" />
-                                        {/* 右下小圆 = 这个角色此刻实际生效的身份（覆盖或全域默认）；指定过 → 主题色描边 */}
+                                        {/* 右下小圓 = 這個角色此刻實際生效的身份（覆蓋或全域默認）；指定過 → 主題色描邊 */}
                                         <TokenImg
                                             value={resolved.avatar}
                                             alt=""
@@ -131,21 +131,21 @@ const PerCharPersonaPicker: React.FC = () => {
                     {pageCount > 1 && (
                         <div className="mt-3 flex items-center justify-center gap-3">
                             <button onClick={() => goPage(safePage - 1)} disabled={safePage === 0}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="上一页">‹</button>
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="上一頁">‹</button>
                             <div className="flex items-center gap-1.5">
                                 {Array.from({ length: pageCount }, (_, i) => (
-                                    <button key={i} onClick={() => goPage(i)} aria-label={`第 ${i + 1} 页`}
+                                    <button key={i} onClick={() => goPage(i)} aria-label={`第 ${i + 1} 頁`}
                                         className={`rounded-full transition-all ${i === safePage ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-slate-200 hover:bg-slate-300'}`} />
                                 ))}
                             </div>
                             <button onClick={() => goPage(safePage + 1)} disabled={safePage === pageCount - 1}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="下一页">›</button>
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="下一頁">›</button>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* 选择弹层：跟随全域默认 / 强制真实身份 / 某张身份卡 */}
+            {/* 選擇彈層：跟隨全域默認 / 強制真實身份 / 某張身份卡 */}
             {editingChar && (
                 <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in" onClick={() => setEditingId(null)}>
                     <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 animate-slide-up sm:animate-pop-in"
@@ -153,8 +153,8 @@ const PerCharPersonaPicker: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-start justify-between mb-3">
                             <div>
-                                <div className="text-sm font-bold text-slate-800">{editingChar.name} 单独用哪张身份</div>
-                                <div className="mt-0.5 text-[10px] text-slate-400">只影响这个角色；其他角色不变。</div>
+                                <div className="text-sm font-bold text-slate-800">{editingChar.name} 單獨用哪張身份</div>
+                                <div className="mt-0.5 text-[10px] text-slate-400">只影響這個角色；其他角色不變。</div>
                             </div>
                             <button onClick={() => setEditingId(null)} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">×</button>
                         </div>
@@ -166,8 +166,8 @@ const PerCharPersonaPicker: React.FC = () => {
                             >
                                 <span className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">∅</span>
                                 <div className="min-w-0">
-                                    <div className="text-[11px] font-bold text-slate-700">跟随全域默认</div>
-                                    <div className="text-[9px] text-slate-400">身份卡面板里的「目前身份」切换时，这个角色一起跟着变</div>
+                                    <div className="text-[11px] font-bold text-slate-700">跟隨全域默認</div>
+                                    <div className="text-[9px] text-slate-400">身份卡面板裡的「目前身份」切換時，這個角色一起跟著變</div>
                                 </div>
                             </button>
 
@@ -177,8 +177,8 @@ const PerCharPersonaPicker: React.FC = () => {
                             >
                                 <TokenImg value={userProfileBase.avatar} className="w-10 h-10 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
                                 <div className="min-w-0">
-                                    <div className="text-[11px] font-bold text-slate-700 truncate">{userProfileBase.name || '真实身份'}</div>
-                                    <div className="text-[9px] text-slate-400">强制真实身份，不管全域默认切成哪张卡</div>
+                                    <div className="text-[11px] font-bold text-slate-700 truncate">{userProfileBase.name || '真實身份'}</div>
+                                    <div className="text-[9px] text-slate-400">強制真實身份，不管全域默認切成哪張卡</div>
                                 </div>
                             </button>
 
@@ -198,7 +198,7 @@ const PerCharPersonaPicker: React.FC = () => {
                                 );
                             })}
                             {personas.length === 0 && (
-                                <p className="pt-1 text-[10px] text-slate-400 text-center">还没有身份卡，去上面「身份卡」新增一张</p>
+                                <p className="pt-1 text-[10px] text-slate-400 text-center">還沒有身份卡，去上面「身份卡」新增一張</p>
                             )}
                         </div>
                     </div>

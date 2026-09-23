@@ -25,7 +25,7 @@ const makePlaylist = (id: string, songs: CharPlaylistSong[], updatedAt = 100): C
 });
 
 describe('removeSongsFromPlaylist', () => {
-  it('删掉选中的歌，保留其余', () => {
+  it('刪掉選中的歌，保留其餘', () => {
     const a = makeSong(), b = makeSong(), c = makeSong();
     const playlists = [makePlaylist('p1', [a, b, c])];
 
@@ -34,7 +34,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result[0].songs.map(s => s.id)).toEqual([a.id, c.id]);
   });
 
-  it('支持一次删多首', () => {
+  it('支持一次刪多首', () => {
     const a = makeSong(), b = makeSong(), c = makeSong(), d = makeSong();
     const playlists = [makePlaylist('p1', [a, b, c, d])];
 
@@ -43,17 +43,17 @@ describe('removeSongsFromPlaylist', () => {
     expect(result[0].songs.map(s => s.id)).toEqual([b.id, d.id]);
   });
 
-  it('只动目标歌单，其它歌单连引用都不变', () => {
+  it('只動目標歌單，其它歌單連引用都不變', () => {
     const p1 = makePlaylist('p1', [makeSong(), makeSong()]);
     const p2 = makePlaylist('p2', [makeSong()]);
     const playlists = [p1, p2];
 
     const result = removeSongsFromPlaylist(playlists, 'p1', [p1.songs[0].id], 999);
 
-    expect(result[1]).toBe(p2); // 别的歌单原样保留
+    expect(result[1]).toBe(p2); // 別的歌單原樣保留
   });
 
-  it('删了歌就把目标歌单 updatedAt 更新为 now', () => {
+  it('刪了歌就把目標歌單 updatedAt 更新為 now', () => {
     const a = makeSong(), b = makeSong();
     const playlists = [makePlaylist('p1', [a, b], 100)];
 
@@ -62,7 +62,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result[0].updatedAt).toBe(777);
   });
 
-  it('删光所有歌：歌单还在，songs 变空数组', () => {
+  it('刪光所有歌：歌單還在，songs 變空數組', () => {
     const a = makeSong(), b = makeSong();
     const playlists = [makePlaylist('p1', [a, b])];
 
@@ -72,7 +72,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('songIds 含歌单里没有的 id：安全忽略，只删存在的', () => {
+  it('songIds 含歌單裡沒有的 id：安全忽略，只刪存在的', () => {
     const a = makeSong(), b = makeSong();
     const playlists = [makePlaylist('p1', [a, b])];
 
@@ -81,7 +81,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result[0].songs.map(s => s.id)).toEqual([b.id]);
   });
 
-  it('空 songIds 是 no-op：按原引用返回，不动 updatedAt', () => {
+  it('空 songIds 是 no-op：按原引用返回，不動 updatedAt', () => {
     const playlists = [makePlaylist('p1', [makeSong()], 100)];
 
     const result = removeSongsFromPlaylist(playlists, 'p1', [], 999);
@@ -89,7 +89,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result).toBe(playlists);
   });
 
-  it('目标歌单不存在：按原引用返回', () => {
+  it('目標歌單不存在：按原引用返回', () => {
     const playlists = [makePlaylist('p1', [makeSong()])];
 
     const result = removeSongsFromPlaylist(playlists, 'nope', [1, 2, 3], 999);
@@ -97,7 +97,7 @@ describe('removeSongsFromPlaylist', () => {
     expect(result).toBe(playlists);
   });
 
-  it('选中的 id 都不在歌单里：no-op，按原引用返回', () => {
+  it('選中的 id 都不在歌單裡：no-op，按原引用返回', () => {
     const playlists = [makePlaylist('p1', [makeSong(), makeSong()])];
 
     const result = removeSongsFromPlaylist(playlists, 'p1', [88888, 99999], 999);

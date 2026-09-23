@@ -59,7 +59,7 @@ describe('companion wardrobe', () => {
 
   it('rejects a different model format in the current wardrobe', () => {
     expect(() => addCompanionModelOutfit(character({ videoAvatar: live2d('l2d') }), vrm('vrm')))
-      .toThrow('只能加入同类型模型');
+      .toThrow('只能加入同類型模型');
   });
 
   it('stores a newly imported wardrobe model without activating it', () => {

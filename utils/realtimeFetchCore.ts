@@ -1,14 +1,14 @@
 /**
- * realtimeFetchCore — 联网搜索 / Notion / 飞书 的纯 fetch 核心（环境无关叶子模块）
+ * realtimeFetchCore — 聯網搜索 / Notion / 飛書 的純 fetch 核心（環境無關葉子模塊）
  *
- * 这里放的是 agenticTools 数据工具会用到的读取类请求实现：只依赖 fetch 和
+ * 這裡放的是 agenticTools 數據工具會用到的讀取類請求實現：只依賴 fetch 和
  * proxyWorker 的地址解析，不碰 IndexedDB / DOM / localStorage，所以前端
- * （realtimeContext 的 Manager 委托调用）和 amsg worker（服务端工具循环里
- * 直接调用）共用同一份，行为、文案单份维护。
+ * （realtimeContext 的 Manager 委託調用）和 amsg worker（服務端工具循環裡
+ * 直接調用）共用同一份，行為、文案單份維護。
  *
- * 往这里加代码前先确认：不 import 任何带浏览器依赖的模块（db / keepAlive 等）。
- * `pnpm build:workers` 会把这份打进 amsg worker bundle，带进浏览器依赖会在
- * 构建期直接暴露。
+ * 往這裡加代碼前先確認：不 import 任何帶瀏覽器依賴的模塊（db / keepAlive 等）。
+ * `pnpm build:workers` 會把這份打進 amsg worker bundle，帶進瀏覽器依賴會在
+ * 構建期直接暴露。
  */
 
 import { getProxyWorkerUrl } from './proxyWorker';
@@ -33,21 +33,21 @@ export interface FeishuDiaryPreview {
     content: string;
 }
 
-// ==================== 联网搜索（Brave，经代理 worker） ====================
+// ==================== 聯網搜索（Brave，經代理 worker） ====================
 
 /**
- * 主动搜索 - 让AI角色能够主动搜索任意内容
+ * 主動搜索 - 讓AI角色能夠主動搜索任意內容
  * Active Search - Let AI characters actively search for anything
  *
- * 这个函数任何情况下都不抛异常，网络异常也会被 catch 成 `success: false`。
+ * 這個函數任何情況下都不拋異常，網絡異常也會被 catch 成 `success: false`。
  *
- * 光看 `success` 分不清「请求根本没跑通」和「搜过了，一条都没有」——两者都是 false。
- * 调用方要是把它们当成同一件事，角色就会把一次没发出去的搜索说成「我刚搜了下，没什么」。
- * `reached` 就是用来分这两种的：它为 true 才表示真的问到了搜索服务并拿回一份读得懂的结果。
+ * 光看 `success` 分不清「請求根本沒跑通」和「搜過了，一條都沒有」——兩者都是 false。
+ * 調用方要是把它們當成同一件事，角色就會把一次沒發出去的搜索說成「我剛搜了下，沒什麼」。
+ * `reached` 就是用來分這兩種的：它為 true 才表示真的問到了搜索服務並拿回一份讀得懂的結果。
  */
 export const performSearch = async (query: string, apiKey: string): Promise<{ success: boolean; results: SearchResult[]; message: string; reached: boolean }> => {
     if (!query || !apiKey) {
-        return { success: false, results: [], message: '缺少搜索关键词或API Key', reached: false };
+        return { success: false, results: [], message: '缺少搜索關鍵詞或API Key', reached: false };
     }
 
     try {
@@ -62,18 +62,18 @@ export const performSearch = async (query: string, apiKey: string): Promise<{ su
             }
         });
 
-        // 先读取 text，避免非 JSON 响应直接 crash
+        // 先讀取 text，避免非 JSON 響應直接 crash
         const text = await response.text();
 
-        // 非 2xx：没搜成，reached 保持 false
+        // 非 2xx：沒搜成，reached 保持 false
         if (!response.ok) {
             console.error('Search API error:', response.status, text);
-            // 尝试解析错误信息
+            // 嘗試解析錯誤信息
             try {
                 const errJson = JSON.parse(text);
-                return { success: false, results: [], message: `搜索失败: ${errJson.error || response.status}`, reached: false };
+                return { success: false, results: [], message: `搜索失敗: ${errJson.error || response.status}`, reached: false };
             } catch {
-                return { success: false, results: [], message: `搜索失败: ${response.status}`, reached: false };
+                return { success: false, results: [], message: `搜索失敗: ${response.status}`, reached: false };
             }
         }
 
@@ -83,11 +83,11 @@ export const performSearch = async (query: string, apiKey: string): Promise<{ su
             data = JSON.parse(text);
         } catch (e) {
             console.error('Search response not JSON:', text.slice(0, 200));
-            // 回了东西但读不懂，等于不知道搜到了什么，同样不能算"搜过了"
-            return { success: false, results: [], message: '搜索返回格式错误', reached: false };
+            // 回了東西但讀不懂，等於不知道搜到了什麼，同樣不能算"搜過了"
+            return { success: false, results: [], message: '搜索返回格式錯誤', reached: false };
         }
 
-        // Brave Search API 返回结构
+        // Brave Search API 返回結構
         if (data.web?.results && data.web.results.length > 0) {
             const results: SearchResult[] = data.web.results.slice(0, 5).map((item: any) => ({
                 title: item.title,
@@ -97,22 +97,22 @@ export const performSearch = async (query: string, apiKey: string): Promise<{ su
             return { success: true, results, message: '搜索成功', reached: true };
         }
 
-        // 这一条才是真的"搜过了，没有相关结果"
-        return { success: false, results: [], message: '没有找到相关结果', reached: true };
+        // 這一條才是真的"搜過了，沒有相關結果"
+        return { success: false, results: [], message: '沒有找到相關結果', reached: true };
     } catch (e: any) {
         console.error('Search failed:', e);
-        return { success: false, results: [], message: `搜索出错: ${e.message}`, reached: false };
+        return { success: false, results: [], message: `搜索出錯: ${e.message}`, reached: false };
     }
 };
 
-// ==================== Notion（经代理 worker /notion/*） ====================
+// ==================== Notion（經代理 worker /notion/*） ====================
 
 /**
- * 按日期查找角色的日记（通过 Worker 代理）
- * 支持一天多篇日记，全部返回
+ * 按日期查找角色的日記（通過 Worker 代理）
+ * 支持一天多篇日記，全部返回
  *
- * 不抛异常。`success: false` 只有一个意思：这次查询没跑通（凭据不对 / 代理挂了 / 断网）。
- * 「那天真的没写日记」是 `success: true` + `entries` 为空——调用方别把这两种混成一件事。
+ * 不拋異常。`success: false` 只有一個意思：這次查詢沒跑通（憑據不對 / 代理掛了 / 斷網）。
+ * 「那天真的沒寫日記」是 `success: true` + `entries` 為空——調用方別把這兩種混成一件事。
  */
 export const notionGetDiaryByDate = async (
     apiKey: string,
@@ -150,17 +150,17 @@ export const notionGetDiaryByDate = async (
 
         if (!response.ok) {
             console.error('Query diary by date failed:', response.status, text);
-            return { success: false, entries: [], message: `查询失败: ${response.status}` };
+            return { success: false, entries: [], message: `查詢失敗: ${response.status}` };
         }
 
         const data = JSON.parse(text);
 
         if (!data.results || data.results.length === 0) {
-            return { success: true, entries: [], message: `没有找到 ${date} 的日记` };
+            return { success: true, entries: [], message: `沒有找到 ${date} 的日記` };
         }
 
         const entries: DiaryPreview[] = data.results.map((page: any) => {
-            const title = page.properties?.Name?.title?.[0]?.plain_text || '无标题';
+            const title = page.properties?.Name?.title?.[0]?.plain_text || '無標題';
             const cleanTitle = title.replace(/^\[.*?\]\s*/, '');
             return {
                 id: page.id,
@@ -170,19 +170,19 @@ export const notionGetDiaryByDate = async (
             };
         });
 
-        return { success: true, entries, message: `找到 ${entries.length} 篇日记` };
+        return { success: true, entries, message: `找到 ${entries.length} 篇日記` };
     } catch (e: any) {
         console.error('Get diary by date failed:', e);
-        return { success: false, entries: [], message: `查询失败: ${e.message}` };
+        return { success: false, entries: [], message: `查詢失敗: ${e.message}` };
     }
 };
 
 /**
- * 读取日记页面的完整内容（通过 Worker 代理）
- * 调用 /notion/blocks/:pageId 端点，将 blocks 转换为可读文本
+ * 讀取日記頁面的完整內容（通過 Worker 代理）
+ * 調用 /notion/blocks/:pageId 端點，將 blocks 轉換為可讀文本
  *
- * 不抛异常。`success: false` = 这一篇没读到；页面真的没写字是 `success: true` +
- * content 为「（空白日记）」。
+ * 不拋異常。`success: false` = 這一篇沒讀到；頁面真的沒寫字是 `success: true` +
+ * content 為「（空白日記）」。
  */
 export const notionReadDiaryContent = async (
     apiKey: string,
@@ -200,34 +200,34 @@ export const notionReadDiaryContent = async (
 
         if (!response.ok) {
             console.error('Read diary content failed:', response.status, text);
-            return { success: false, content: '', message: `读取失败: ${response.status}` };
+            return { success: false, content: '', message: `讀取失敗: ${response.status}` };
         }
 
         const data = JSON.parse(text);
 
         if (!data.results || data.results.length === 0) {
-            return { success: true, content: '（空白日记）', message: '日记内容为空' };
+            return { success: true, content: '（空白日記）', message: '日記內容為空' };
         }
 
-        // 将 Notion blocks 转换为可读文本
+        // 將 Notion blocks 轉換為可讀文本
         const content = notionBlocksToText(data.results);
-        return { success: true, content, message: '读取成功' };
+        return { success: true, content, message: '讀取成功' };
     } catch (e: any) {
         console.error('Read diary content failed:', e);
-        return { success: false, content: '', message: `读取失败: ${e.message}` };
+        return { success: false, content: '', message: `讀取失敗: ${e.message}` };
     }
 };
 
 /**
- * 读取用户笔记页面的完整内容
- * 复用 notionReadDiaryContent 的逻辑（都是通过 pageId 读 blocks）
+ * 讀取用戶筆記頁面的完整內容
+ * 複用 notionReadDiaryContent 的邏輯（都是通過 pageId 讀 blocks）
  */
 export const notionReadNoteContent = notionReadDiaryContent;
 
 /**
- * 按关键词搜索用户笔记
+ * 按關鍵詞搜索用戶筆記
  *
- * 不抛异常。`success: false` = 这次搜索没跑通；「没有这篇笔记」是 `success: true` + entries 为空。
+ * 不拋異常。`success: false` = 這次搜索沒跑通；「沒有這篇筆記」是 `success: true` + entries 為空。
  */
 export const notionSearchUserNotes = async (
     apiKey: string,
@@ -256,20 +256,20 @@ export const notionSearchUserNotes = async (
         const text = await response.text();
 
         if (!response.ok) {
-            return { success: false, entries: [], message: `搜索失败: ${response.status}` };
+            return { success: false, entries: [], message: `搜索失敗: ${response.status}` };
         }
 
         const data = JSON.parse(text);
 
         if (!data.results || data.results.length === 0) {
-            return { success: true, entries: [], message: `没有找到关于"${keyword}"的笔记` };
+            return { success: true, entries: [], message: `沒有找到關於"${keyword}"的筆記` };
         }
 
         const entries: DiaryPreview[] = data.results.map((page: any) => {
             const title = page.properties?.Name?.title?.[0]?.plain_text
-                || page.properties?.['名称']?.title?.[0]?.plain_text
+                || page.properties?.['名稱']?.title?.[0]?.plain_text
                 || page.properties?.Title?.title?.[0]?.plain_text
-                || '无标题';
+                || '無標題';
             const date = page.properties?.Date?.date?.start
                 || page.properties?.['日期']?.date?.start
                 || page.last_edited_time?.split('T')[0]
@@ -282,14 +282,14 @@ export const notionSearchUserNotes = async (
             };
         });
 
-        return { success: true, entries, message: `找到 ${entries.length} 篇笔记` };
+        return { success: true, entries, message: `找到 ${entries.length} 篇筆記` };
     } catch (e: any) {
         console.error('Search user notes failed:', e);
-        return { success: false, entries: [], message: `搜索失败: ${e.message}` };
+        return { success: false, entries: [], message: `搜索失敗: ${e.message}` };
     }
 };
 
-/** 将 Notion blocks 转换为可读文本（readDiaryContent / readNoteContent 共用） */
+/** 將 Notion blocks 轉換為可讀文本（readDiaryContent / readNoteContent 共用） */
 export function notionBlocksToText(blocks: any[]): string {
     const lines: string[] = [];
 
@@ -349,18 +349,18 @@ export function notionBlocksToText(blocks: any[]): string {
     return lines.join('\n');
 }
 
-// ==================== 飞书多维表格（经代理 worker /feishu/*） ====================
+// ==================== 飛書多維表格（經代理 worker /feishu/*） ====================
 
-// 飞书 token 缓存
+// 飛書 token 緩存
 let feishuTokenCache: { token: string; expiresAt: number } | null = null;
 
 /**
- * 获取飞书 tenant_access_token（通过 Worker 代理，带缓存）
+ * 獲取飛書 tenant_access_token（通過 Worker 代理，帶緩存）
  */
 export const feishuGetToken = async (appId: string, appSecret: string): Promise<{ success: boolean; token: string; message: string }> => {
-    // 检查缓存是否有效 (提前5分钟过期)
+    // 檢查緩存是否有效 (提前5分鐘過期)
     if (feishuTokenCache && feishuTokenCache.expiresAt > Date.now() + 5 * 60 * 1000) {
-        return { success: true, token: feishuTokenCache.token, message: '使用缓存token' };
+        return { success: true, token: feishuTokenCache.token, message: '使用緩存token' };
     }
 
     try {
@@ -374,32 +374,32 @@ export const feishuGetToken = async (appId: string, appSecret: string): Promise<
         if (!response.ok) {
             try {
                 const errJson = JSON.parse(text);
-                return { success: false, token: '', message: `获取token失败: ${errJson.msg || errJson.error || response.status}` };
+                return { success: false, token: '', message: `獲取token失敗: ${errJson.msg || errJson.error || response.status}` };
             } catch {
-                return { success: false, token: '', message: `获取token失败: ${response.status}` };
+                return { success: false, token: '', message: `獲取token失敗: ${response.status}` };
             }
         }
 
         const data = JSON.parse(text);
         if (data.code !== 0) {
-            return { success: false, token: '', message: `飞书错误: ${data.msg || '未知错误'}` };
+            return { success: false, token: '', message: `飛書錯誤: ${data.msg || '未知錯誤'}` };
         }
 
         const token = data.tenant_access_token;
-        const expire = (data.expire || 7200) * 1000; // 转为毫秒
+        const expire = (data.expire || 7200) * 1000; // 轉為毫秒
         feishuTokenCache = { token, expiresAt: Date.now() + expire };
 
-        return { success: true, token, message: 'Token获取成功' };
+        return { success: true, token, message: 'Token獲取成功' };
     } catch (e: any) {
-        return { success: false, token: '', message: `网络错误: ${e.message}` };
+        return { success: false, token: '', message: `網絡錯誤: ${e.message}` };
     }
 };
 
 /**
- * 按日期查找角色的日记
+ * 按日期查找角色的日記
  *
- * 不抛异常。`success: false` = 这次查询没跑通（拿不到 token / 接口报错 / 断网）；
- * 「那天真的没写」是 `success: true` + entries 为空。
+ * 不拋異常。`success: false` = 這次查詢沒跑通（拿不到 token / 接口報錯 / 斷網）；
+ * 「那天真的沒寫」是 `success: true` + entries 為空。
  */
 export const feishuGetDiaryByDate = async (
     appId: string,
@@ -440,34 +440,34 @@ export const feishuGetDiaryByDate = async (
 
         const text = await response.text();
         if (!response.ok) {
-            return { success: false, entries: [], message: `查询失败: ${response.status}` };
+            return { success: false, entries: [], message: `查詢失敗: ${response.status}` };
         }
 
         const data = JSON.parse(text);
         if (data.code !== 0) {
-            return { success: false, entries: [], message: `飞书错误: ${data.msg || '查询失败'}` };
+            return { success: false, entries: [], message: `飛書錯誤: ${data.msg || '查詢失敗'}` };
         }
 
         const items = data.data?.items || [];
         if (items.length === 0) {
-            return { success: true, entries: [], message: `没有找到 ${date} 的日记` };
+            return { success: true, entries: [], message: `沒有找到 ${date} 的日記` };
         }
 
         const entries: FeishuDiaryPreview[] = items.map((item: any) => {
             const fields = item.fields || {};
-            const rawTitle = (Array.isArray(fields['标题']) ? fields['标题']?.[0]?.text : fields['标题']) || '无标题';
+            const rawTitle = (Array.isArray(fields['標題']) ? fields['標題']?.[0]?.text : fields['標題']) || '無標題';
             const cleanTitle = String(rawTitle).replace(/^\[.*?\]\s*/, '');
 
             return {
                 recordId: item.record_id,
                 title: cleanTitle,
                 date: date,
-                content: (Array.isArray(fields['内容']) ? fields['内容']?.[0]?.text : fields['内容']) || ''
+                content: (Array.isArray(fields['內容']) ? fields['內容']?.[0]?.text : fields['內容']) || ''
             };
         });
 
-        return { success: true, entries, message: `找到 ${entries.length} 篇日记` };
+        return { success: true, entries, message: `找到 ${entries.length} 篇日記` };
     } catch (e: any) {
-        return { success: false, entries: [], message: `查询失败: ${e.message}` };
+        return { success: false, entries: [], message: `查詢失敗: ${e.message}` };
     }
 };

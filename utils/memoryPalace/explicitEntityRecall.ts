@@ -1,14 +1,15 @@
 /**
- * Explicit Entity Recall — 明确实体的本地精确召回路径。
+ * Explicit Entity Recall — 明確實體的本地精確召回路徑。
  *
- * “你还记得雾岚吗”已经给出了检索键，不应该再让 embedding 猜。这里先从当前
- * user burst 提取高置信实体，再对已经加载的 MemoryNode / EventBox 做规范化精确
- * 匹配。旧节点没有 entities 时仍会检查 tags/content，所以功能上线即可覆盖旧数据。
+ * “你還記得霧嵐嗎”已經給出了檢索鍵，不應該再讓 embedding 猜。這裡先從當前
+ * user burst 提取高置信實體，再對已經加載的 MemoryNode / EventBox 做規範化精確
+ * 匹配。舊節點沒有 entities 時仍會檢查 tags/content，所以功能上線即可覆蓋舊數據。
  */
 
 import type { Message } from '../../types';
 import type { EventBox, MemoryNode, ScoredMemory } from './types';
 import { sanitizeQuerySourceMessages } from './querySanitizer';
+import { scriptKey } from '../scriptKey';
 
 export type ExplicitEntitySignalSource =
     | 'remember'
@@ -50,22 +51,23 @@ export interface ExplicitEntityLookupResult {
 }
 
 const DOMAIN_RE = /\b(?:[a-z0-9](?:[a-z0-9-]{0,62})\.)+(?:com|cn|net|org|io|ai|app|dev|co|me|xyz)\b/giu;
-const REMEMBER_RE = /(?:还|仍然|依然|会)?(?:记得|认识|想得起)\s*(?:那个|这个|一个|叫)?\s*([a-z0-9][a-z0-9._@-]{1,63}|[\p{Script=Han}]{2,12}?)(?=(?:这个人|那个人|这个名字|那件事|这件事)?(?:吗|么|嘛|吧|呢|不|[?？。！!]|$))/giu;
-const NAMED_RE = /(?:叫|名叫|名字叫)\s*([a-z0-9][a-z0-9._@-]{1,63}|[\p{Script=Han}]{2,10}?)(?=(?:的|这个|那个|人|朋友|同事|呢|吗|么|[，。！？、\s]|$))/giu;
+const REMEMBER_RE = /(?:[还還]|仍然|依然|[会會])?(?:[记記]得|[认認][识識]|想得起)\s*(?:那[个個]|[这這][个個]|一[个個]|叫)?\s*([a-z0-9][a-z0-9._@-]{1,63}|[\p{Script=Han}]{2,12}?)(?=(?:[这這][个個]人|那[个個]人|[这這][个個]名字|那件事|[这這]件事)?(?:[吗嗎]|[么麼]|嘛|吧|呢|不|[?？。！!]|$))/giu;
+const NAMED_RE = /(?:叫|名叫|名字叫)\s*([a-z0-9][a-z0-9._@-]{1,63}|[\p{Script=Han}]{2,10}?)(?=(?:的|[这這][个個]|那[个個]|人|朋友|同事|呢|[吗嗎]|[么麼]|[，。！？、\s]|$))/giu;
 const QUOTED_RE = /[「『“"【]([^」』”"】]{2,40})[」』”"】]/gu;
 const BOOK_TITLE_RE = /《([^》]{2,40})》/gu;
-const LEADING_NAME_RE = /^([a-z][a-z0-9._-]{1,40}|[\p{Script=Han}]{2,8}?)(?=(?:之前|以前|后来|是不是|有没有|怎么|又|也|呢))/iu;
-const EXPLICIT_LOOKUP_CONTEXT_RE = /(?:记得|认识|想得起|叫|名字|那个人|这个人|域名|网站|账号|项目|作品|之前|以前)/u;
+const LEADING_NAME_RE = /^([a-z][a-z0-9._-]{1,40}|[\p{Script=Han}]{2,8}?)(?=(?:之前|以前|[后後][来來]|是不是|有[没沒]有|怎[么麼]|又|也|呢))/iu;
+const EXPLICIT_LOOKUP_CONTEXT_RE = /(?:[记記]得|[认認][识識]|想得起|叫|名字|那[个個]人|[这這][个個]人|域名|[网網]站|[账賬帳][号號]|[项項]目|作品|之前|以前)/u;
 
 const REJECTED_ENTITY_KEYS = new Set([
-    '我们', '你们', '他们', '她们', '它们', '自己', '对方', '别人',
-    '这个', '那个', '这些', '那些', '这里', '那里', '现在', '之前', '以前',
-    '朋友', '同事', '同学', '家人', '老师', '领导', '客户', '项目', '考试', '成绩',
-]);
+    '我們', '你們', '他們', '她們', '它們', '自己', '對方', '別人',
+    '這個', '那個', '這些', '那些', '這裡', '那裡', '現在', '之前', '以前',
+    '朋友', '同事', '同學', '家人', '老師', '領導', '客戶', '項目', '考試', '成績',
+].map(normalizeEntityKey));
 
+/** 比對用的實體 key：簡繁歸一（記憶裡存的是用戶當時打的字，簡繁都有），不拿來顯示。 */
 export function normalizeEntityKey(value: string): string {
-    return value
-        .normalize('NFKC')
+    return scriptKey(value
+        .normalize('NFKC'))
         .trim()
         .toLocaleLowerCase()
         .replace(/^[\s“”‘’「」『』【】《》"']+|[\s“”‘’「」『』【】《》"']+$/gu, '')
@@ -77,8 +79,8 @@ function isUsableEntity(value: string): boolean {
     if (!key || REJECTED_ENTITY_KEYS.has(key)) return false;
     const chars = Array.from(key);
     if (chars.length < 2 || chars.length > 64) return false;
-    if (/^(?:我|你|他|她|它|这|那|好烦)/u.test(key)) return false;
-    if (/(?:我们|你们|他们|她们|它们|之前|以前|这个|那个)/u.test(key)) return false;
+    if (/^(?:我|你|他|她|它|[这這]|那|好[烦煩])/u.test(key)) return false;
+    if (/(?:我[们們]|你[们們]|他[们們]|她[们們]|它[们們]|之前|以前|[这這][个個]|那[个個])/u.test(key)) return false;
     return /[\p{L}\p{N}]/u.test(key);
 }
 
@@ -91,7 +93,7 @@ function currentUserBurst(messages: Message[]): Message[] {
     return messages.slice(start, end + 1);
 }
 
-/** 返回值包含实体原文，只在本轮内存中用于检索；Trace 只记录数量和 source。 */
+/** 返回值包含實體原文，只在本輪內存中用於檢索；Trace 只記錄數量和 source。 */
 export function analyzeExplicitEntitySignals(
     messages: Message[],
     charName?: string,
@@ -111,7 +113,7 @@ export function analyzeExplicitEntitySignals(
     const add = (raw: string, source: ExplicitEntitySignalSource) => {
         const value = raw.trim();
         const normalized = normalizeEntityKey(value);
-        // 角色名 / 用户自己的名字通常遍布整座宫殿，不是“稀有实体”检索键。
+        // 角色名 / 用戶自己的名字通常遍佈整座宮殿，不是“稀有實體”檢索鍵。
         if (!isUsableEntity(value) || participantKeys.has(normalized) || seen.has(normalized)) return;
         seen.add(normalized);
         signals.push({ value, normalized, source });
@@ -121,7 +123,7 @@ export function analyzeExplicitEntitySignals(
     for (const match of text.matchAll(REMEMBER_RE)) add(match[1], 'remember');
     for (const match of text.matchAll(NAMED_RE)) add(match[1], 'named');
 
-    // 引号/书名号本身不一定是实体；仅在句子同时带明确回看语境时采用。
+    // 引號/書名號本身不一定是實體；僅在句子同時帶明確回看語境時採用。
     if (EXPLICIT_LOOKUP_CONTEXT_RE.test(text)) {
         for (const match of text.matchAll(QUOTED_RE)) add(match[1], 'quoted');
         for (const match of text.matchAll(BOOK_TITLE_RE)) add(match[1], 'quoted');
@@ -134,12 +136,12 @@ export function analyzeExplicitEntitySignals(
 }
 
 function containsExactEntity(text: string, signal: ExplicitEntitySignal): boolean {
-    const raw = text.normalize('NFKC').toLocaleLowerCase();
+    const raw = scriptKey(text.normalize('NFKC')).toLocaleLowerCase();
     const compact = raw.replace(/\s+/gu, '');
     const key = signal.normalized;
     if (!key) return false;
 
-    // 中文专名和域名按完整规范化串匹配；Latin 短标识需要边界，避免 csy 命中 abcsyx。
+    // 中文專名和域名按完整規範化串匹配；Latin 短標識需要邊界，避免 csy 命中 abcsyx。
     if (/\p{Script=Han}/u.test(key) || /[.@_-]/u.test(key)) return compact.includes(key);
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'iu').test(raw);
@@ -162,8 +164,8 @@ function representativeNode(box: EventBox, nodeMap: Map<string, MemoryNode>): Me
 }
 
 /**
- * 对本轮已经预取的本地节点做精确查找。MAX 很小是刻意的：明确实体命中负责保底，
- * 不是把所有提到过同一个常见人名的记忆一次性塞满 prompt。
+ * 對本輪已經預取的本地節點做精確查找。MAX 很小是刻意的：明確實體命中負責保底，
+ * 不是把所有提到過同一個常見人名的記憶一次性塞滿 prompt。
  */
 export function lookupExplicitEntityCandidates(
     analysis: ExplicitEntityAnalysis,
@@ -233,7 +235,7 @@ export function lookupExplicitEntityCandidates(
         }
     }
 
-    // archived 命中不能直接交给 formatter（会被过滤）；映射到所属 EventBox 的 summary/live 代表。
+    // archived 命中不能直接交給 formatter（會被過濾）；映射到所屬 EventBox 的 summary/live 代表。
     const resolved: ExplicitEntityCandidate[] = [];
     for (const hit of rawNodeMatches.values()) {
         if (!hit.node.archived) {
@@ -272,7 +274,7 @@ export function lookupExplicitEntityCandidates(
     };
 }
 
-/** 精确命中使用独立高分保底，剩余 formatter quota 仍由原 hybrid recall 竞争。 */
+/** 精確命中使用獨立高分保底，剩餘 formatter quota 仍由原 hybrid recall 競爭。 */
 export function mergeExplicitEntityCandidates(
     semanticResults: ScoredMemory[],
     explicitCandidates: ExplicitEntityCandidate[],

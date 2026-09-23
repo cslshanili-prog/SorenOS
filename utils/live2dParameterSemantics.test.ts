@@ -5,13 +5,13 @@ import {
   live2DParameterPosition,
 } from './live2dParameterSemantics';
 
-describe('Live2D 参数语义', () => {
-  it('把常见 Cubism 参数翻译成作用部位和可理解方向', () => {
+describe('Live2D 參數語義', () => {
+  it('把常見 Cubism 參數翻譯成作用部位和可理解方向', () => {
     expect(describeLive2DParameter('ParamEyeLOpen')).toMatchObject({
       area: 'eyes',
-      label: '左眼开合',
-      negativeLabel: '闭合',
-      positiveLabel: '睁开',
+      label: '左眼開合',
+      negativeLabel: '閉合',
+      positiveLabel: '睜開',
     });
     expect(describeLive2DParameter('ParamMouthForm')).toMatchObject({
       area: 'mouth',
@@ -20,12 +20,12 @@ describe('Live2D 参数语义', () => {
     });
     expect(describeLive2DParameter('ParamAngleY')).toMatchObject({
       area: 'head',
-      negativeLabel: '低头',
-      positiveLabel: '抬头',
+      negativeLabel: '低頭',
+      positiveLabel: '抬頭',
     });
   });
 
-  it('对模型自定义参数明确保留原始 ID 与未知语义', () => {
+  it('對模型自定義參數明確保留原始 ID 與未知語義', () => {
     expect(describeLive2DParameter('ParamSpecialStarEye')).toMatchObject({
       area: 'other',
       label: 'ParamSpecialStarEye',
@@ -34,7 +34,7 @@ describe('Live2D 参数语义', () => {
     });
   });
 
-  it('按语义部位分组并计算默认点在轨道上的位置', () => {
+  it('按語義部位分組並計算默認點在軌道上的位置', () => {
     const groups = groupLive2DParameters([
       { id: 'ParamMouthOpenY' },
       { id: 'ParamEyeROpen' },

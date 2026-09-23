@@ -43,7 +43,7 @@ const StaticCompanionPortrait: React.FC<StaticCompanionPortraitProps> = ({
 
   if (!imageUrl) return (
     <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-xs text-white/55">
-      <div><ImageSquare size={30} className="mx-auto mb-2" />请导入 PNG / GIF，或选择已有的见面立绘</div>
+      <div><ImageSquare size={30} className="mx-auto mb-2" />請導入 PNG / GIF，或選擇已有的見面立繪</div>
     </div>
   );
 

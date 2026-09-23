@@ -125,7 +125,7 @@ export const getVoiceFavoriteBlob = async (favoriteId: string): Promise<Blob | n
 };
 
 export const saveVoiceFavorite = async (input: SaveVoiceFavoriteInput): Promise<VoiceFavorite> => withWriteLock(async () => {
-    if (!(input.blob instanceof Blob) || input.blob.size <= 0) throw new Error('语音文件为空');
+    if (!(input.blob instanceof Blob) || input.blob.size <= 0) throw new Error('語音文件為空');
     const id = makeVoiceFavoriteId(input.source, input.sourceKey);
     const now = Date.now();
     const current = await loadIndex();
@@ -174,6 +174,6 @@ export const removeVoiceFavoriteById = async (favoriteId: string): Promise<boole
 
 export const voiceFavoriteSourceLabel = (source: VoiceFavoriteSource): string => ({
     chat: '聊天',
-    call: '通话',
-    date: '见面',
+    call: '通話',
+    date: '見面',
 }[source]);

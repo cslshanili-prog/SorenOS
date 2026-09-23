@@ -1,9 +1,9 @@
 /**
- * Pixel Home — IndexedDB 存储层
+ * Pixel Home — IndexedDB 存儲層
  *
- * 两个 store：
- *   pixel_home_assets  — 用户生成的像素资产
- *   pixel_home_layouts — 每个角色的每个房间布局
+ * 兩個 store：
+ *   pixel_home_assets  — 用戶生成的像素資產
+ *   pixel_home_layouts — 每個角色的每個房間佈局
  */
 
 import type { PixelAsset, PixelRoomLayout, PixelHomeState } from './types';
@@ -13,14 +13,14 @@ import type { PlacedFurniture } from './types';
 import { openDB } from '../../utils/db';
 
 // ─── DB 常量 ─────────────────────────────────────────
-// pixel_home_* 两个 store 由 utils/db.ts 的 AetherOS_Data upgradeneeded 统一创建,
-// 这里直接复用 utils/db.ts 的单例 openDB —— 本地原来那个 openDB 每次操作都裸开一条
-// AetherOS_Data 连接 (连版本号都没传), 既漏连接又绕过单例, 会一起喂大连接风暴。
+// pixel_home_* 兩個 store 由 utils/db.ts 的 AetherOS_Data upgradeneeded 統一創建,
+// 這裡直接複用 utils/db.ts 的單例 openDB —— 本地原來那個 openDB 每次操作都裸開一條
+// AetherOS_Data 連接 (連版本號都沒傳), 既漏連接又繞過單例, 會一起喂大連接風暴。
 
 const STORE_ASSETS = 'pixel_home_assets';
 const STORE_LAYOUTS = 'pixel_home_layouts';
 
-// ─── 资产 CRUD ──────────────────────────────────────
+// ─── 資產 CRUD ──────────────────────────────────────
 
 export const PixelAssetDB = {
   async save(asset: PixelAsset): Promise<void> {
@@ -75,7 +75,7 @@ export const PixelAssetDB = {
   },
 };
 
-// ─── 布局 CRUD ──────────────────────────────────────
+// ─── 佈局 CRUD ──────────────────────────────────────
 
 export const PixelLayoutDB = {
   async save(layout: PixelRoomLayout): Promise<void> {
@@ -121,19 +121,19 @@ export const PixelLayoutDB = {
   },
 };
 
-// ─── 内置默认家园预设 ──────────────────────────────
+// ─── 內置默認家園預設 ──────────────────────────────
 
 /**
- * 尝试为指定角色加载内置默认家园预设。
- * 查找顺序：
- *   1. public/pixel-presets/<charId>.json   — 该角色专属预设
- *   2. public/pixel-presets/default.json    — 所有角色共用的默认家园
- * 预设文件由仓库 pixelroom/ 导出的 JSON 复制而来。
+ * 嘗試為指定角色加載內置默認家園預設。
+ * 查找順序：
+ *   1. public/pixel-presets/<charId>.json   — 該角色專屬預設
+ *   2. public/pixel-presets/default.json    — 所有角色共用的默認家園
+ * 預設文件由倉庫 pixelroom/ 導出的 JSON 複製而來。
  *
- * 返回 true 表示成功加载并写入了至少一个房间。
+ * 返回 true 表示成功加載並寫入了至少一個房間。
  */
 async function trySeedDefaultHome(charId: string): Promise<boolean> {
-  // 仅在浏览器环境（有 fetch + 静态资源服务）下尝试
+  // 僅在瀏覽器環境（有 fetch + 靜態資源服務）下嘗試
   if (typeof fetch !== 'function') return false;
 
   const base = (import.meta as any).env?.BASE_URL ?? '/';
@@ -151,12 +151,12 @@ async function trySeedDefaultHome(charId: string): Promise<boolean> {
       if (preset && Array.isArray(preset.rooms) && preset.rooms.length > 0) break;
       preset = null;
     } catch {
-      // 继续下一个候选
+      // 繼續下一個候選
     }
   }
   if (!preset) return false;
 
-  // 导入资产（跳过已存在的）
+  // 導入資產（跳過已存在的）
   if (Array.isArray(preset.assets) && preset.assets.length > 0) {
     const existingAssets = await PixelAssetDB.getAll();
     const existingIds = new Set(existingAssets.map(a => a.id));
@@ -171,7 +171,7 @@ async function trySeedDefaultHome(charId: string): Promise<boolean> {
     if (toSave.length > 0) await PixelAssetDB.saveBatch(toSave);
   }
 
-  // 导入房间布局
+  // 導入房間佈局
   const layouts: PixelRoomLayout[] = preset.rooms.map((r: any) => ({
     roomId: r.roomId,
     charId,
@@ -193,11 +193,11 @@ async function trySeedDefaultHome(charId: string): Promise<boolean> {
   return true;
 }
 
-// ─── 家园状态整合 ────────────────────────────────────
+// ─── 家園狀態整合 ────────────────────────────────────
 
 /**
- * 判断一组房间是不是"还没装修过"——没有任何用户放置的家具、也没有任何关联到具体资产的家具。
- * 用于判断是否值得跑一次默认预设填充（如存在旧版空壳数据）。
+ * 判斷一組房間是不是"還沒裝修過"——沒有任何用戶放置的傢俱、也沒有任何關聯到具體資產的傢俱。
+ * 用於判斷是否值得跑一次默認預設填充（如存在舊版空殼數據）。
  */
 function layoutsLookUntouched(layouts: PixelRoomLayout[]): boolean {
   if (layouts.length === 0) return true;
@@ -210,11 +210,11 @@ function layoutsLookUntouched(layouts: PixelRoomLayout[]): boolean {
   return true;
 }
 
-/** 获取角色的完整家园状态，不存在则初始化默认 */
+/** 獲取角色的完整家園狀態，不存在則初始化默認 */
 export async function getOrCreateHomeState(charId: string): Promise<PixelHomeState> {
   let existing = await PixelLayoutDB.getAllForChar(charId);
 
-  // 首次进入、或之前只存了空壳（没家具/没用户放置）：尝试加载内置默认家园预设
+  // 首次進入、或之前只存了空殼（沒傢俱/沒用戶放置）：嘗試加載內置默認家園預設
   if (layoutsLookUntouched(existing)) {
     try {
       const seeded = await trySeedDefaultHome(charId);
@@ -232,7 +232,7 @@ export async function getOrCreateHomeState(charId: string): Promise<PixelHomeSta
     };
   }
 
-  // 补齐缺失的房间
+  // 補齊缺失的房間
   const existingMap = new Map(existing.map(r => [r.roomId, r]));
   const allRooms: PixelRoomLayout[] = ALL_ROOMS.map(roomId => {
     if (existingMap.has(roomId)) return existingMap.get(roomId)!;
@@ -262,7 +262,7 @@ export async function getOrCreateHomeState(charId: string): Promise<PixelHomeSta
     };
   });
 
-  // 保存新建的房间
+  // 保存新建的房間
   const newRooms = allRooms.filter(r => !existingMap.has(r.roomId));
   if (newRooms.length > 0) {
     await PixelLayoutDB.saveBatch(newRooms);

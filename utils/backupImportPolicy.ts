@@ -1,8 +1,8 @@
 /**
- * SullyOS 只恢复自身备份。
+ * SullyOS 只恢復自身備份。
  *
- * v1 SullyOS 备份仍是宽松的单根 data.json，不能仅靠扩展名或 ZIP 布局识别来源；
- * 这里拦截已经明确属于旧第三方迁移格式的顶层字段。检查必须在任何数据库写入前完成。
+ * v1 SullyOS 備份仍是寬鬆的單根 data.json，不能僅靠擴展名或 ZIP 佈局識別來源；
+ * 這裡攔截已經明確屬於舊第三方遷移格式的頂層字段。檢查必須在任何數據庫寫入前完成。
  */
 import { trackEvent } from './analytics';
 
@@ -14,12 +14,12 @@ const UNSUPPORTED_THIRD_PARTY_FIELDS = [
 export function assertSupportedSullyBackup(input: unknown): asserts input is Record<string, unknown> {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
         trackEvent('拒绝导入第三方备份', { reason: 'invalid_shape' });
-        throw new Error('备份内容无效：只支持 Soren 导出的 ZIP 或 JSON 备份。');
+        throw new Error('備份內容無效：只支持 Soren 導出的 ZIP 或 JSON 備份。');
     }
 
     const record = input as Record<string, unknown>;
     if (UNSUPPORTED_THIRD_PARTY_FIELDS.some(field => Object.prototype.hasOwnProperty.call(record, field))) {
         trackEvent('拒绝导入第三方备份', { reason: 'third_party_field' });
-        throw new Error('不支持导入第三方系统备份，请选择由 Soren 导出的 ZIP 或 JSON 文件。');
+        throw new Error('不支持導入第三方系統備份，請選擇由 Soren 導出的 ZIP 或 JSON 文件。');
     }
 }

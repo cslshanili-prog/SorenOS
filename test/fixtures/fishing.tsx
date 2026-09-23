@@ -2,4 +2,4 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { FishingMarketOverlay } from '../../apps/vrWorld/FishingMarketOverlay';
-createRoot(document.getElementById('root')!).render(<FishingMarketOverlay initialEntry={new URLSearchParams(location.search).get('entry')==='board'?'board':'water'} characters={[]} userProfile={{name:'钓鱼测试员'} as any} onClose={()=>{}} onCharacterTrip={async()=>({ok:false,reason:'no-api'})}/>);
+createRoot(document.getElementById('root')!).render(<FishingMarketOverlay initialEntry={new URLSearchParams(location.search).get('entry')==='board'?'board':'water'} characters={[]} userProfile={{name:'釣魚測試員'} as any} onClose={()=>{}} onCharacterTrip={async()=>({ok:false,reason:'no-api'})}/>);

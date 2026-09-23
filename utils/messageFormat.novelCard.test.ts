@@ -2,24 +2,24 @@ import { describe, it, expect } from 'vitest';
 import { normalizeMessageContent } from './messageFormat';
 import { ChatPrompts } from './chatPrompts';
 
-// 锁住「笔友会历史章节转发到聊天后，角色在上下文里读得到书」这条链路。
+// 鎖住「筆友會歷史章節轉發到聊天后，角色在上下文裡讀得到書」這條鏈路。
 //
-// novel_card 的 content 只是占位（[笔友会小说]《书名》…），真正的章节归档在
-// metadata.novel 里。上下文 / 归档 / palace 都靠 normalizeMessageContent 把它
-// 翻成完整文本——漏翻的话角色只看到占位符，等于没转发。
-// 另外钉住共创者 / 非共创者两种视角的措辞：共创者要知道"这书有你一份"，
-// 旁观者不能被诱导成"我也写过"。
+// novel_card 的 content 只是佔位（[筆友會小說]《書名》…），真正的章節歸檔在
+// metadata.novel 裡。上下文 / 歸檔 / palace 都靠 normalizeMessageContent 把它
+// 翻成完整文本——漏翻的話角色只看到佔位符，等於沒轉發。
+// 另外釘住共創者 / 非共創者兩種視角的措辭：共創者要知道"這書有你一份"，
+// 旁觀者不能被誘導成"我也寫過"。
 
 const novelMeta = {
     novel: {
-        bookTitle: '雾中灯塔',
+        bookTitle: '霧中燈塔',
         subtitle: '第一卷',
-        bookSummary: '一座只在雾天出现的灯塔。',
+        bookSummary: '一座只在霧天出現的燈塔。',
         userName: '我',
-        collaboratorNames: ['小笔友', '路人乙'],
+        collaboratorNames: ['小筆友', '路人乙'],
         chapters: [
-            { index: 1, summary: '守塔人捡到了一封没有署名的信。' },
-            { index: 3, summary: '信的笔迹和守塔人自己的一模一样。' },
+            { index: 1, summary: '守塔人撿到了一封沒有署名的信。' },
+            { index: 3, summary: '信的筆跡和守塔人自己的一模一樣。' },
         ],
         count: 2,
     },
@@ -30,48 +30,48 @@ const baseMsg = {
     charId: 'c1',
     role: 'user',
     type: 'novel_card',
-    content: '[笔友会小说]《雾中灯塔》2 章归档',
+    content: '[筆友會小說]《霧中燈塔》2 章歸檔',
     timestamp: Date.now(),
     metadata: novelMeta,
 } as any;
 
-describe('normalizeMessageContent novel_card 脱水', () => {
-    it('共创者视角: 带书名 + 全部章节总结 + "你是执笔人之一"', () => {
-        const text = normalizeMessageContent(baseMsg, '小笔友', '我');
-        expect(text).toContain('《雾中灯塔》');
-        expect(text).toContain('执笔人之一');
-        expect(text).toContain('守塔人捡到了一封没有署名的信');
-        expect(text).toContain('第3章总结');
-        expect(text).toContain('一座只在雾天出现的灯塔');
-        // 其他共创者也要出现（"还有路人乙"），别把合著者写丢
+describe('normalizeMessageContent novel_card 脫水', () => {
+    it('共創者視角: 帶書名 + 全部章節總結 + "你是執筆人之一"', () => {
+        const text = normalizeMessageContent(baseMsg, '小筆友', '我');
+        expect(text).toContain('《霧中燈塔》');
+        expect(text).toContain('執筆人之一');
+        expect(text).toContain('守塔人撿到了一封沒有署名的信');
+        expect(text).toContain('第3章總結');
+        expect(text).toContain('一座只在霧天出現的燈塔');
+        // 其他共創者也要出現（"還有路人乙"），別把合著者寫丟
         expect(text).toContain('路人乙');
     });
 
-    it('非共创者视角: 明确"没有参与创作", 不冒认执笔', () => {
+    it('非共創者視角: 明確"沒有參與創作", 不冒認執筆', () => {
         const text = normalizeMessageContent(baseMsg, '圈外角色', '我');
-        expect(text).toContain('《雾中灯塔》');
-        expect(text).toContain('没有参与创作');
-        expect(text).not.toContain('执笔人之一');
-        // 章节内容照样可读——分享的意义就是让 ta 读到
-        expect(text).toContain('信的笔迹和守塔人自己的一模一样');
+        expect(text).toContain('《霧中燈塔》');
+        expect(text).toContain('沒有參與創作');
+        expect(text).not.toContain('執筆人之一');
+        // 章節內容照樣可讀——分享的意義就是讓 ta 讀到
+        expect(text).toContain('信的筆跡和守塔人自己的一模一樣');
     });
 
-    it('metadata 缺失时兜底为占位, 不抛错', () => {
+    it('metadata 缺失時兜底為佔位, 不拋錯', () => {
         const broken = { ...baseMsg, metadata: {} };
-        expect(normalizeMessageContent(broken, '小笔友', '我')).toBe('[笔友会小说章节]');
+        expect(normalizeMessageContent(broken, '小筆友', '我')).toBe('[筆友會小說章節]');
     });
 });
 
-describe('buildMessageHistory 私聊上下文里 novel_card 完整可读', () => {
-    it('角色上下文里带出章节归档全文, 不是光秃秃的占位 (退化即挂)', () => {
-        const char = { id: 'c1', name: '小笔友' } as any;
+describe('buildMessageHistory 私聊上下文裡 novel_card 完整可讀', () => {
+    it('角色上下文裡帶出章節歸檔全文, 不是光禿禿的佔位 (退化即掛)', () => {
+        const char = { id: 'c1', name: '小筆友' } as any;
         const userProfile = { name: '我' } as any;
         const history = [{ ...baseMsg, timestamp: Date.now() - 60_000 }];
         const { apiMessages } = ChatPrompts.buildMessageHistory(history, 10, char, userProfile, []);
         const userMsg = apiMessages.find((m: any) => m.role === 'user');
         const content = userMsg!.content as string;
-        expect(content).toContain('笔友会');
-        expect(content).toContain('守塔人捡到了一封没有署名的信');
-        expect(content).toContain('执笔人之一');
+        expect(content).toContain('筆友會');
+        expect(content).toContain('守塔人撿到了一封沒有署名的信');
+        expect(content).toContain('執筆人之一');
     });
 });

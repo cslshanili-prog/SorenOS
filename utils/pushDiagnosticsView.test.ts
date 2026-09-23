@@ -1,8 +1,8 @@
-// 设置页「链路状态」面板文案的回归守卫。
+// 設置頁「鏈路狀態」面板文案的迴歸守衛。
 //
-// 要钉住的核心行为：**能力检测说「支持」不等于这台设备真能推**。华为 Mate 60 这类不带
-// 谷歌服务的国行安卓机上，Chromium 把 PushManager 编译进去了，所以接口检测全绿，但
-// subscribe() 必挂。以前面板对着这种机器写「浏览器支持：是」，用户完全无从下手。
+// 要釘住的核心行為：**能力檢測說「支持」不等於這台設備真能推**。華為 Mate 60 這類不帶
+// 谷歌服務的國行安卓機上，Chromium 把 PushManager 編譯進去了，所以接口檢測全綠，但
+// subscribe() 必掛。以前面板對著這種機器寫「瀏覽器支持：是」，用戶完全無從下手。
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -29,39 +29,39 @@ const baseState = (patch: Partial<BrowserPushState> = {}): BrowserPushState => (
   ...patch,
 });
 
-describe('「浏览器支持」这一行', () => {
-  it('接口齐全但连不上推送服务器时，不再简单说「是」', () => {
-    // 正是 Mate 60 的读数：接口全在、权限已授权、SW 已激活、订阅建不出来。
+describe('「瀏覽器支持」這一行', () => {
+  it('接口齊全但連不上推送服務器時，不再簡單說「是」', () => {
+    // 正是 Mate 60 的讀數：接口全在、權限已授權、SW 已激活、訂閱建不出來。
     const state = baseState({
-      lastSubscribeFailure: { kind: 'channel-unreachable', text: '连不上推送服务器……', at: Date.now() },
+      lastSubscribeFailure: { kind: 'channel-unreachable', text: '連不上推送服務器……', at: Date.now() },
     });
 
-    expect(describeSupport(state)).toBe('接口齐全，但连不上推送服务器');
+    expect(describeSupport(state)).toBe('接口齊全，但連不上推送服務器');
     expect(isSupportBad(state)).toBe(true);
   });
 
-  it('浏览器没给出订阅时照实说「没拿到订阅」', () => {
-    // 跟上面那条分开写：同样是建不出订阅，一个知道卡在推送服务商、一个连原因都没有，
-    // 面板上不该长成一句话。
+  it('瀏覽器沒給出訂閱時照實說「沒拿到訂閱」', () => {
+    // 跟上面那條分開寫：同樣是建不出訂閱，一個知道卡在推送服務商、一個連原因都沒有，
+    // 面板上不該長成一句話。
     const state = baseState({
-      lastSubscribeFailure: { kind: 'no-subscription', text: '浏览器没给出推送订阅……', at: Date.now() },
+      lastSubscribeFailure: { kind: 'no-subscription', text: '瀏覽器沒給出推送訂閱……', at: Date.now() },
     });
 
-    expect(describeSupport(state)).toBe('接口齐全，但没拿到订阅');
+    expect(describeSupport(state)).toBe('接口齊全，但沒拿到訂閱');
     expect(isSupportBad(state)).toBe(true);
   });
 
-  it('浏览器自称支持但实际建不出订阅时判「否」', () => {
+  it('瀏覽器自稱支持但實際建不出訂閱時判「否」', () => {
     const state = baseState({
-      lastSubscribeFailure: { kind: 'unsupported', text: '当前浏览器不支持网页推送……', at: Date.now() },
+      lastSubscribeFailure: { kind: 'unsupported', text: '當前瀏覽器不支持網頁推送……', at: Date.now() },
     });
 
-    expect(describeSupport(state)).toBe('否（浏览器自称支持，实际建不出订阅）');
+    expect(describeSupport(state)).toBe('否（瀏覽器自稱支持，實際建不出訂閱）');
     expect(isSupportBad(state)).toBe(true);
   });
 
-  it('权限被拒、状态冲突这类不赖设备，「浏览器支持」照旧是「是」', () => {
-    // 这两类换设备没用、重试有用，标红只会把用户往错的方向引。
+  it('權限被拒、狀態衝突這類不賴設備，「瀏覽器支持」照舊是「是」', () => {
+    // 這兩類換設備沒用、重試有用，標紅只會把用戶往錯的方向引。
     for (const kind of ['permission', 'state', 'zombie', 'unknown'] as const) {
       const state = baseState({ lastSubscribeFailure: { kind, text: '...', at: Date.now() } });
       expect(describeSupport(state)).toBe('是');
@@ -69,25 +69,25 @@ describe('「浏览器支持」这一行', () => {
     }
   });
 
-  it('接口本身就缺、或跑在 App 里的老判定不变', () => {
-    expect(describeSupport(baseState({ supported: false }))).toBe('否（浏览器缺少推送相关接口）');
-    expect(describeSupport(baseState({ capacitorNative: true }))).toBe('否（现在跑在 App 里）');
+  it('接口本身就缺、或跑在 App 裡的老判定不變', () => {
+    expect(describeSupport(baseState({ supported: false }))).toBe('否（瀏覽器缺少推送相關接口）');
+    expect(describeSupport(baseState({ capacitorNative: true }))).toBe('否（現在跑在 App 裡）');
     expect(isSupportBad(baseState({ supported: false }))).toBe(true);
     expect(isSupportBad(baseState({ capacitorNative: true }))).toBe(true);
   });
 
-  it('什么都没失败过时是「是」，不标红', () => {
+  it('什麼都沒失敗過時是「是」，不標紅', () => {
     expect(describeSupport(baseState())).toBe('是');
     expect(isSupportBad(baseState())).toBe(false);
   });
 });
 
-describe('失败记录的时效', () => {
-  it('已经有活订阅了就当没失败过', () => {
-    // 换了浏览器 / SW 自愈重订之后，旧记录还在盘上但显然过期了，再显示就是误导。
+describe('失敗記錄的時效', () => {
+  it('已經有活訂閱了就當沒失敗過', () => {
+    // 換了瀏覽器 / SW 自愈重訂之後，舊記錄還在盤上但顯然過期了，再顯示就是誤導。
     const state = baseState({
       endpoint: 'https://fcm.googleapis.com/fcm/send/ok',
-      lastSubscribeFailure: { kind: 'channel-unreachable', text: '陈年旧账', at: 1 },
+      lastSubscribeFailure: { kind: 'channel-unreachable', text: '陳年舊帳', at: 1 },
     });
 
     expect(hasLiveFailure(state)).toBe(false);
@@ -95,7 +95,7 @@ describe('失败记录的时效', () => {
     expect(describeSupport(state)).toBe('是');
   });
 
-  it('端点是僵尸哨兵时失败记录仍然算数', () => {
+  it('端點是殭屍哨兵時失敗記錄仍然算數', () => {
     const state = baseState({
       endpoint: 'https://permanently-removed.invalid/x',
       endpointDead: true,
@@ -110,14 +110,14 @@ describe('失败记录的时效', () => {
 describe('describeElapsed', () => {
   const now = 1_700_000_000_000;
 
-  it('按分钟 / 小时 / 天说人话', () => {
-    expect(describeElapsed(now - 10_000, now)).toBe('刚刚');
-    expect(describeElapsed(now - 5 * 60_000, now)).toBe('5 分钟前');
-    expect(describeElapsed(now - 3 * 3600_000, now)).toBe('3 小时前');
+  it('按分鐘 / 小時 / 天說人話', () => {
+    expect(describeElapsed(now - 10_000, now)).toBe('剛剛');
+    expect(describeElapsed(now - 5 * 60_000, now)).toBe('5 分鐘前');
+    expect(describeElapsed(now - 3 * 3600_000, now)).toBe('3 小時前');
     expect(describeElapsed(now - 2 * 86_400_000, now)).toBe('2 天前');
   });
 
-  it('没有时间戳就不说', () => {
+  it('沒有時間戳就不說', () => {
     expect(describeElapsed(0, now)).toBe('');
   });
 });

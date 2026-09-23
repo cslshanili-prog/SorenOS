@@ -1,16 +1,16 @@
 /**
- * 手账生成器
+ * 手帳生成器
  *
- * 两个独立管线 (NOT 复用 daily_schedule 的 flowNarrative —— 那个会被覆盖且和 user 强耦合)：
+ * 兩個獨立管線 (NOT 複用 daily_schedule 的 flowNarrative —— 那個會被覆蓋且和 user 強耦合)：
  *
- * 1. generateUserDiaryPage —— 主体
- *    给 LLM 喂 user 当日所有跨角色聊天，让 ta 用第一人称、碎片日记体替 user 写一份草稿。
- *    user 会二次编辑，所以不强求模仿语气，只追求"事实可读、留白真实"。
+ * 1. generateUserDiaryPage —— 主體
+ *    給 LLM 喂 user 當日所有跨角色聊天，讓 ta 用第一人稱、碎片日記體替 user 寫一份草稿。
+ *    user 會二次編輯，所以不強求模仿語氣，只追求"事實可讀、留白真實"。
  *
- * 2. generateLifestreamPage —— 陪伴页（仅 lifestyle 角色）
- *    单独调一次 LLM 生成"角色今天的小生活"短文，存进当日 handbook entry。
- *    硬性约束：不准 AI 捧场、不准等/想 user 当主语，user 至多一带而过。
- *    mindful 角色不进此管线（ta 们没有"小生活"可写）。
+ * 2. generateLifestreamPage —— 陪伴頁（僅 lifestyle 角色）
+ *    單獨調一次 LLM 生成"角色今天的小生活"短文，存進當日 handbook entry。
+ *    硬性約束：不準 AI 捧場、不準等/想 user 當主語，user 至多一帶而過。
+ *    mindful 角色不進此管線（ta 們沒有"小生活"可寫）。
  */
 
 import {
@@ -23,8 +23,8 @@ import { safeResponseJson, extractJson } from './safeApi';
 import { ContextBuilder } from './context';
 import { getLocalDayRange } from './localDate';
 
-// 局部 seedFloat — composePageLayout 用 (不引用 components/ 避免 utils → components 反向依赖).
-// FNV-1a + xorshift, 与 paper.tsx 里同名函数行为一致.
+// 局部 seedFloat — composePageLayout 用 (不引用 components/ 避免 utils → components 反向依賴).
+// FNV-1a + xorshift, 與 paper.tsx 裡同名函數行為一致.
 function seedFloat(seed: string, salt: number = 0): number {
     let h = ((salt | 0) + 0x811c9dc5) >>> 0;
     for (let i = 0; i < seed.length; i++) {
@@ -43,7 +43,7 @@ interface ApiConfig {
     model: string;
 }
 
-// ─── 工具：把 LLM 输出的 JSON 数组解析成 HandbookFragment[] ─
+// ─── 工具：把 LLM 輸出的 JSON 數組解析成 HandbookFragment[] ─
 function parseFragmentsFromLLMOutput(raw: string): HandbookFragment[] {
     let s = raw.trim()
         .replace(/^```json\s*/i, '')
@@ -54,7 +54,7 @@ function parseFragmentsFromLLMOutput(raw: string): HandbookFragment[] {
     try {
         parsed = JSON.parse(s);
     } catch {
-        // extractJson 兜底:从乱七八糟里掏 JSON
+        // extractJson 兜底:從亂七八糟裡掏 JSON
         try { parsed = extractJson(s); } catch {}
     }
     if (!parsed || !Array.isArray(parsed)) return [];
@@ -78,23 +78,23 @@ function parseFragmentsFromLLMOutput(raw: string): HandbookFragment[] {
         .filter((f): f is HandbookFragment => !!f && f.text.length > 1);
 }
 
-// 把 fragments 拼成可读的 plain text(存 content 字段,user 编辑/兜底用)
+// 把 fragments 拼成可讀的 plain text(存 content 字段,user 編輯/兜底用)
 function fragmentsToPlainText(fragments: HandbookFragment[]): string {
     return fragments.map(f => f.time ? `[${f.time}] ${f.text}` : f.text).join('\n\n');
 }
 
-// ─── 工具：取一天范围 [start, end) 的 ms ───
+// ─── 工具：取一天範圍 [start, end) 的 ms ───
 function dayRange(date: string): { start: number; end: number } {
     return getLocalDayRange(date) || { start: 0, end: 0 };
 }
 
-// 把单条消息渲染成一行文本，截掉过长内容；过滤系统/工具/隐藏内容
+// 把單條消息渲染成一行文本，截掉過長內容；過濾系統/工具/隱藏內容
 function renderMsgLine(m: Message, userName: string, charName: string): string | null {
     if (m.role === 'system') return null;
     if (!m.content || typeof m.content !== 'string') return null;
     const raw = m.content.trim();
     if (!raw) return null;
-    // 过滤纯结构化的 JSON / 系统消息（启发式）
+    // 過濾純結構化的 JSON / 系統消息（啟發式）
     if (raw.startsWith('{') && raw.endsWith('}') && raw.length > 50 && /"\w+"\s*:/.test(raw)) {
         return null;
     }
@@ -103,14 +103,14 @@ function renderMsgLine(m: Message, userName: string, charName: string): string |
     return `${speaker}: ${text}`;
 }
 
-// 取 user 当日和某角色的对话片段（按时间升序）
+// 取 user 當日和某角色的對話片段（按時間升序）
 async function getTodayChatLines(
     char: CharacterProfile,
     date: string,
     userName: string,
 ): Promise<{ lines: string[]; userMsgCount: number }> {
     const { start, end } = dayRange(date);
-    // includeProcessed=true 绕过记忆宫殿水位线，拿到 raw 数据
+    // includeProcessed=true 繞過記憶宮殿水位線，拿到 raw 數據
     const all = await DB.getMessagesByCharId(char.id, true);
     const today = all
         .filter(m => m.timestamp >= start && m.timestamp < end)
@@ -127,12 +127,12 @@ async function getTodayChatLines(
     return { lines, userMsgCount };
 }
 
-// ─── 共用: 估高 / 占位渲染 / turn 输出解析 ───────────────
+// ─── 共用: 估高 / 佔位渲染 / turn 輸出解析 ───────────────
 
 const PAGE_W_DEFAULT = 360;
 const PAGE_H_DEFAULT = 720;
 
-/** 估计一张卡片的高度(% of page);chars + widthPct → est lines → est px → est %. */
+/** 估計一張卡片的高度(% of page);chars + widthPct → est lines → est px → est %. */
 export function estHeightPctFromChars(chars: number, widthPct: number, pageHeight: number = PAGE_H_DEFAULT, role: 'main' | 'side' | 'corner' | 'margin' = 'main'): number {
     const charsPerLine = Math.max(8, Math.floor(widthPct * 0.16));
     const lines = Math.max(1, Math.ceil(chars / charsPerLine));
@@ -142,7 +142,7 @@ export function estHeightPctFromChars(chars: number, widthPct: number, pageHeigh
 
 function renderOccupiedBlock(occupied: PlacementHint[]): string {
     if (occupied.length === 0) {
-        return `【占用情况】纸还是空的, 你怎么摆都行 (但留出页眉 yPct < 8 给日期, 页脚 yPct > 88 给页码).`;
+        return `【佔用情況】紙還是空的, 你怎麼擺都行 (但留出頁眉 yPct < 8 給日期, 頁腳 yPct > 88 給頁碼).`;
     }
     const byPage: Record<number, PlacementHint[]> = {};
     for (const o of occupied) {
@@ -150,7 +150,7 @@ function renderOccupiedBlock(occupied: PlacementHint[]): string {
         if (!byPage[k]) byPage[k] = [];
         byPage[k].push(o);
     }
-    const lines: string[] = [`【已被占用 — 你必须避开这些区域, 留 ≥ 3% 间距】`];
+    const lines: string[] = [`【已被佔用 — 你必須避開這些區域, 留 ≥ 3% 間距】`];
     for (const k of Object.keys(byPage).sort()) {
         const items = byPage[Number(k)];
         lines.push(`page ${k}:`);
@@ -164,7 +164,7 @@ function renderOccupiedBlock(occupied: PlacementHint[]): string {
     return lines.join('\n');
 }
 
-/** 一片轮回的输出 — placement 比 LayoutPlacement 多带 pageNumber, 用来分组到不同 HandbookLayout */
+/** 一片輪迴的輸出 — placement 比 LayoutPlacement 多帶 pageNumber, 用來分組到不同 HandbookLayout */
 export interface PlacedPiece extends LayoutPlacement {
     pageNumber: number;
 }
@@ -174,7 +174,7 @@ interface TurnOutputParsed {
     placements: PlacedPiece[];
 }
 
-/** 解析 LLM 一次输出 — 它的 JSON 数组里每条同时含 text+time+page+xPct+yPct+widthPct+role */
+/** 解析 LLM 一次輸出 — 它的 JSON 數組裡每條同時含 text+time+page+xPct+yPct+widthPct+role */
 function parseTurnOutput(raw: string, pageId: string, occupied: PlacementHint[]): TurnOutputParsed {
     const stripped = raw.trim()
         .replace(/^```(?:json|JSON)?\s*\n?/gm, '')
@@ -243,13 +243,13 @@ function parseTurnOutput(raw: string, pageId: string, occupied: PlacementHint[])
         placements.push(placement);
     });
 
-    // 客户端兜底:有的 LLM 还是会和 occupied 撞 → 把撞的往下推
+    // 客戶端兜底:有的 LLM 還是會和 occupied 撞 → 把撞的往下推
     nudgeAwayFromOccupied(placements, occupied, fragments);
 
     return { fragments, placements };
 }
 
-/** 把和 occupied 撞或彼此撞的 placement 向下推; 不造内容只挪位置 */
+/** 把和 occupied 撞或彼此撞的 placement 向下推; 不造內容只挪位置 */
 function nudgeAwayFromOccupied(
     placements: PlacedPiece[],
     occupied: PlacementHint[],
@@ -296,7 +296,7 @@ function nudgeAwayFromOccupied(
     });
 }
 
-/** 工具: placements + fragments → 下一轮可以用的 occupied hints */
+/** 工具: placements + fragments → 下一輪可以用的 occupied hints */
 export function placementsToHints(
     placements: PlacedPiece[],
     fragments: HandbookFragment[],
@@ -317,7 +317,7 @@ export function placementsToHints(
     });
 }
 
-/** 工具: placedPieces[] → HandbookLayout[] (按 pageNumber 分组) */
+/** 工具: placedPieces[] → HandbookLayout[] (按 pageNumber 分組) */
 export function placedPiecesToLayouts(pieces: PlacedPiece[]): HandbookLayout[] {
     const byPage: Record<number, LayoutPlacement[]> = {};
     for (const p of pieces) {
@@ -335,41 +335,41 @@ export function placedPiecesToLayouts(pieces: PlacedPiece[]): HandbookLayout[] {
         }));
 }
 
-// ─── 1. user 视角日记（跨角色聚合）─────────────────────────
+// ─── 1. user 視角日記（跨角色聚合）─────────────────────────
 //
-// 新设计 (轮回写作): 这一次 LLM 调用同时产出"写什么"和"写在哪"。
-// LLM 收到一个"已经被占用的区域"列表 (前面作者已经摆好的卡片 bbox),
-// 必须把自己新写的 fragment 摆在空位, 不许重叠。
+// 新設計 (輪回寫作): 這一次 LLM 調用同時產出"寫什麼"和"寫在哪"。
+// LLM 收到一個"已經被佔用的區域"列表 (前面作者已經擺好的卡片 bbox),
+// 必須把自己新寫的 fragment 擺在空位, 不許重疊。
 //
 export interface PlacementHint {
     pageNumber: number;        // 1 起
     xPct: number;
     yPct: number;
     widthPct: number;
-    estHeightPct: number;      // 服务端估算的高度
+    estHeightPct: number;      // 服務端估算的高度
     author: string;            // "我" / 角色名
-    textPreview: string;       // 截 30 字给 LLM 提示这格里写的啥
+    textPreview: string;       // 截 30 字給 LLM 提示這格里寫的啥
 }
 
 export interface UserDiaryGenInput {
     date: string;                  // YYYY-MM-DD
-    selectedCharIds: string[];     // 入册的角色（默认：今天聊过的）
+    selectedCharIds: string[];     // 入冊的角色（默認：今天聊過的）
     characters: CharacterProfile[];
     userProfile: UserProfile;
     apiConfig: ApiConfig;
-    /** 篇幅预算: 期望生成多少条 fragment(±2);0 = 跳过该 page */
+    /** 篇幅預算: 期望生成多少條 fragment(±2);0 = 跳過該 page */
     fragmentBudget?: number;
-    /** 已经被前面作者占用的区域,这次摆位必须避开 */
+    /** 已經被前面作者佔用的區域,這次擺位必須避開 */
     occupied?: PlacementHint[];
-    /** 画布像素尺寸,只用于换算估高 */
+    /** 畫布像素尺寸,只用於換算估高 */
     canvasPixelHint?: { width: number; height: number };
-    /** 当前最大已用页码;新片可在 [1, maxPage+1] 之间选,但总数不超 2 */
+    /** 當前最大已用頁碼;新片可在 [1, maxPage+1] 之間選,但總數不超 2 */
     maxPageInUse?: number;
 }
 
 export interface UserDiaryGenResult {
     page: HandbookPage | null;
-    /** 此次 LLM 给的位置 (含 pageNumber, 待调用方分组合到 layouts) */
+    /** 此次 LLM 給的位置 (含 pageNumber, 待調用方分組合到 layouts) */
     placements: PlacedPiece[];
     totalUserMsgs: number;
     perChar: { charId: string; charName: string; userMsgs: number; totalLines: number }[];
@@ -395,9 +395,9 @@ export async function generateUserDiaryPage(
         perChar.push({ charId, charName: char.name, userMsgs: userMsgCount, totalLines: lines.length });
         totalUserMsgs += userMsgCount;
         if (lines.length === 0) continue;
-        // 控制单角色片段长度（最多 60 行，避免某天极长对话压垮 prompt）
+        // 控制單角色片段長度（最多 60 行，避免某天極長對話壓垮 prompt）
         const trimmed = lines.length > 60 ? lines.slice(-60) : lines;
-        transcriptParts.push(`== 与「${char.name}」==\n${trimmed.join('\n')}`);
+        transcriptParts.push(`== 與「${char.name}」==\n${trimmed.join('\n')}`);
     }
 
     if (totalUserMsgs === 0 || transcriptParts.length === 0) {
@@ -406,7 +406,7 @@ export async function generateUserDiaryPage(
 
     const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][new Date(date.replace(/-/g, '/')).getDay()];
 
-    // 篇幅预算: 默认 5~9 条,有外部预算就遵循
+    // 篇幅預算: 默認 5~9 條,有外部預算就遵循
     const targetCount = fragmentBudget && fragmentBudget > 0
         ? `${Math.max(1, fragmentBudget - 1)} ~ ${fragmentBudget + 1}`
         : '5 ~ 9';
@@ -418,43 +418,43 @@ export async function generateUserDiaryPage(
 
     const prompt = `今天是 ${date}（星期${dayOfWeek}）。
 
-你是「${userName}」的私人手账代笔。请基于 ${userName} 今天和不同角色的对话碎片,在一张 ${W}x${H}px 的瘦长手帐纸上**亲手写下**${userName} 的"今日碎片"——是社媒碎碎念体(像微博/Twitter 单条),不是规整日记。**写什么 + 写在哪都你定**。
+你是「${userName}」的私人手帳代筆。請基於 ${userName} 今天和不同角色的對話碎片,在一張 ${W}x${H}px 的瘦長手帳紙上**親手寫下**${userName} 的"今日碎片"——是社媒碎碎念體(像微博/Twitter 單條),不是規整日記。**寫什麼 + 寫在哪都你定**。
 
 ${occupiedBlock}
 
-【输出 JSON 数组】每条同时包含内容和位置:
+【輸出 JSON 數組】每條同時包含內容和位置:
 [
   { "time": "上午", "text": "...", "page": 1, "xPct": 8, "yPct": 10, "widthPct": 62, "role": "main" },
-  { "text": "好困", "page": 1, "xPct": 70, "yPct": 16, "widthPct": 28, "role": "corner" },
+  { "text": "好睏", "page": 1, "xPct": 70, "yPct": 16, "widthPct": 28, "role": "corner" },
   ...
 ]
 
-【内容要求】
-- ${targetCount} 条之间
-- time 可选 ("上午"/"中午"/"下午"/"深夜"/"10:23")
-- text 必填,正常条 30~80 字
-- 鼓励 1~2 条**< 14 字的涂鸦句** (例: "下雨了。" / "好困" / "今天买花。") — 会渲染成大字手写
-- 第一人称,单瞬间+情绪,不叙事堆叠
-- 只写 ${userName} 真做过/说过的, 没素材就少写
-- 不把角色当收件人, 不 AI 升华, 不 emoji
+【內容要求】
+- ${targetCount} 條之間
+- time 可選 ("上午"/"中午"/"下午"/"深夜"/"10:23")
+- text 必填,正常條 30~80 字
+- 鼓勵 1~2 條**< 14 字的塗鴉句** (例: "下雨了。" / "好睏" / "今天買花。") — 會渲染成大字手寫
+- 第一人稱,單瞬間+情緒,不敘事堆疊
+- 只寫 ${userName} 真做過/說過的, 沒素材就少寫
+- 不把角色當收件人, 不 AI 昇華, 不 emoji
 
-【位置要求 — 关键】
-- page: 1 或 2 (现在最多到第 ${maxAllowedPage} 页)
-- xPct/yPct: 卡片左上角占整页百分比 [0, 90]
-- widthPct: 卡片宽度 [22, 88]
-- role: "main"(主区,长卡 chars>50, widthPct 55~85) / "side"(中型 40~62) / "corner"(角落小卡 chars<35, widthPct 28~50) / "margin"(< 14 字涂鸦, widthPct 28~42)
-- **新片必须摆在已占区域之外**,bbox 不能与 occupied 列表里任何片重叠,留 ≥ 3% 间距
-- 1 页能装就 1 页,不强行拆 page 2
-- 同 page 内卡片高度估算 = chars / (widthPct*0.16) * 3.4 + 6 (% of page)
+【位置要求 — 關鍵】
+- page: 1 或 2 (現在最多到第 ${maxAllowedPage} 頁)
+- xPct/yPct: 卡片左上角佔整頁百分比 [0, 90]
+- widthPct: 卡片寬度 [22, 88]
+- role: "main"(主區,長卡 chars>50, widthPct 55~85) / "side"(中型 40~62) / "corner"(角落小卡 chars<35, widthPct 28~50) / "margin"(< 14 字塗鴉, widthPct 28~42)
+- **新片必須擺在已佔區域之外**,bbox 不能與 occupied 列表裡任何片重疊,留 ≥ 3% 間距
+- 1 頁能裝就 1 頁,不強行拆 page 2
+- 同 page 內卡片高度估算 = chars / (widthPct*0.16) * 3.4 + 6 (% of page)
 
-【可选笔感修饰】 text 里允许少量 markdown:
-**粗** *斜* ==高亮== ~~删~~ [color:red/pink/blue/sky/green/mint/yellow/purple/orange](文)
-每条最多用 1 处,不滥用。
+【可選筆感修飾】 text 裡允許少量 markdown:
+**粗** *斜* ==高亮== ~~刪~~ [color:red/pink/blue/sky/green/mint/yellow/purple/orange](文)
+每條最多用 1 處,不濫用。
 
-【今日对话素材】
+【今日對話素材】
 ${transcriptParts.join('\n\n')}
 
-直接输出 JSON 数组。`;
+直接輸出 JSON 數組。`;
 
     try {
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -476,7 +476,7 @@ ${transcriptParts.join('\n\n')}
         raw = raw.trim();
         if (raw.length < 4) return { page: null, placements: [], totalUserMsgs, perChar };
 
-        // 同时解析 fragments 和 placements
+        // 同時解析 fragments 和 placements
         const pageId = `udiary-${date}-${Date.now()}`;
         const { fragments, placements } = parseTurnOutput(raw, pageId, occupied);
         if (fragments.length === 0) {
@@ -500,17 +500,17 @@ ${transcriptParts.join('\n\n')}
     }
 }
 
-// ─── 2. 生活系角色生活流（陪伴页）──────────────────────────
+// ─── 2. 生活系角色生活流（陪伴頁）──────────────────────────
 //
-// 设计原则(user 反馈对齐 2026-04, depth + 角色沉淀注入版):
-// - 角色一天不是一句话,要丰满、有节奏
-// - 接入 DailySchedule.slots 作为骨架
-// - **大量注入角色沉淀**: worldview / personalityStyle / selfInsights /
-//   refinedMemories / impression。深度从角色内核来,不是凭空"看猫想到无常"
-// - **类型配比强制**: physical / reflection / observation / user_thought
-//   "看到野猫打架想起你"作为反例 few-shot 严禁
-// - **3 档深度** light/medium/deep,调整四类型配比和字数
-// - 红线: 不要虚构 user 和角色共同发生的事
+// 設計原則(user 反饋對齊 2026-04, depth + 角色沉澱注入版):
+// - 角色一天不是一句話,要豐滿、有節奏
+// - 接入 DailySchedule.slots 作為骨架
+// - **大量注入角色沉澱**: worldview / personalityStyle / selfInsights /
+//   refinedMemories / impression。深度從角色內核來,不是憑空"看貓想到無常"
+// - **類型配比強制**: physical / reflection / observation / user_thought
+//   "看到野貓打架想起你"作為反例 few-shot 嚴禁
+// - **3 檔深度** light/medium/deep,調整四類型配比和字數
+// - 紅線: 不要虛構 user 和角色共同發生的事
 //
 export type LifestreamDepth = 'light' | 'medium' | 'deep';
 
@@ -525,29 +525,29 @@ export async function generateLifestreamPage(
     userProfile: UserProfile,
     apiConfig: ApiConfig,
     depth: LifestreamDepth = 'medium',
-    /** 篇幅预算: 期望 fragment 数(±1);0 跳过 */
+    /** 篇幅預算: 期望 fragment 數(±1);0 跳過 */
     fragmentBudget?: number,
-    /** 已经被前面作者占用的区域,这次摆位必须避开 */
+    /** 已經被前面作者佔用的區域,這次擺位必須避開 */
     occupied: PlacementHint[] = [],
-    /** 当前最大已用页码 */
+    /** 當前最大已用頁碼 */
     maxPageInUse: number = 0,
     canvasPixelHint?: { width: number; height: number },
 ): Promise<LifestreamGenResult> {
     if (fragmentBudget !== undefined && fragmentBudget <= 0) return { page: null, placements: [] };
-    // (取消 lifestyle gate: 只要 user 把 ta 选进来,就让 ta 在这页留一笔。
-    //  scheduleStyle 仍用于决定是否注入 schedule 骨架。)
+    // (取消 lifestyle gate: 只要 user 把 ta 選進來,就讓 ta 在這頁留一筆。
+    //  scheduleStyle 仍用於決定是否注入 schedule 骨架。)
     const userName = userProfile.name || 'user';
     const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][new Date(date.replace(/-/g, '/')).getDay()];
 
-    // ─── 1. 直接调项目统一的 ContextBuilder.buildCoreContext ──
-    //   它已经处理了:身份/systemPrompt/selfInsights/worldview/mountedWorldbooks
+    // ─── 1. 直接調項目統一的 ContextBuilder.buildCoreContext ──
+    //   它已經處理了:身份/systemPrompt/selfInsights/worldview/mountedWorldbooks
     //   /user profile/impression(完整含 likes/triggers/comfort/changes)
-    //   /refinedMemories/activeMemoryMonths 详细日志/memoryPalace/buff
-    //   是聊天系统在用的 source of truth,改它会自动跟进
+    //   /refinedMemories/activeMemoryMonths 詳細日誌/memoryPalace/buff
+    //   是聊天系統在用的 source of truth,改它會自動跟進
     const coreContext = ContextBuilder.buildCoreContext(char, userProfile, true);
 
-    // ─── 1b. ta 实际怎么说话 — buildCoreContext 没的,得自己补 ──
-    // 这是"像不像 ta"最关键的输入: prompt 描述规则,样本展示语气
+    // ─── 1b. ta 實際怎麼說話 — buildCoreContext 沒的,得自己補 ──
+    // 這是"像不像 ta"最關鍵的輸入: prompt 描述規則,樣本展示語氣
     let speechSamples: string[] = [];
     try {
         const all = await loadCharacterContextMessages(char);
@@ -558,7 +558,7 @@ export async function generateLifestreamPage(
             && m.content.length < 600
             && !(m.content.trim().startsWith('{') && m.content.trim().endsWith('}'))
         );
-        // 在可见范围内均匀抽 30 条语气样本
+        // 在可見範圍內均勻抽 30 條語氣樣本
         if (charMsgs.length <= 30) {
             speechSamples = charMsgs.map(m => m.content.slice(0, 200));
         } else {
@@ -568,9 +568,9 @@ export async function generateLifestreamPage(
                 speechSamples.push(charMsgs[idx].content.slice(0, 200));
             }
         }
-    } catch { /* 无所谓 */ }
+    } catch { /* 無所謂 */ }
 
-    // ─── 2. 当日 schedule slots ──
+    // ─── 2. 當日 schedule slots ──
     let scheduleBlock = '';
     try {
         const sched = await DB.getDailySchedule(char.id, date);
@@ -585,26 +585,26 @@ export async function generateLifestreamPage(
         }
     } catch {}
 
-    // ─── 7. 类型配比(按 depth 档位) ──
+    // ─── 7. 類型配比(按 depth 檔位) ──
     const composition = (() => {
         switch (depth) {
             case 'light':
-                return { defaultTotal: 6, physical: '3~4', reflection: '1~2', observation: '0~1', userThought: '0~1(仅当聊天有真实素材)', avgChars: '30~60', note: '偏日常,反思一两条点缀,不必深' };
+                return { defaultTotal: 6, physical: '3~4', reflection: '1~2', observation: '0~1', userThought: '0~1(僅當聊天有真實素材)', avgChars: '30~60', note: '偏日常,反思一兩條點綴,不必深' };
             case 'deep':
-                return { defaultTotal: 7, physical: '1~2', reflection: '3~4', observation: '2', userThought: '0', avgChars: '50~110', note: '深度反刍,反思和外界观察占主导,几乎不出现 user' };
+                return { defaultTotal: 7, physical: '1~2', reflection: '3~4', observation: '2', userThought: '0', avgChars: '50~110', note: '深度反芻,反思和外界觀察佔主導,幾乎不出現 user' };
             case 'medium':
             default:
-                return { defaultTotal: 7, physical: '2~3', reflection: '2~3', observation: '1~2', userThought: '0~1(仅当聊天有真实素材)', avgChars: '40~80', note: '日常 + 反思平衡,有内核但不沉重' };
+                return { defaultTotal: 7, physical: '2~3', reflection: '2~3', observation: '1~2', userThought: '0~1(僅當聊天有真實素材)', avgChars: '40~80', note: '日常 + 反思平衡,有內核但不沉重' };
         }
     })();
-    // 篇幅预算优先;没传就用 depth 默认值 ±1
+    // 篇幅預算優先;沒傳就用 depth 默認值 ±1
     const targetTotal = fragmentBudget && fragmentBudget > 0
         ? `${Math.max(1, fragmentBudget - 1)} ~ ${fragmentBudget + 1}`
         : `${Math.max(1, composition.defaultTotal - 1)} ~ ${composition.defaultTotal + 1}`;
 
-    // ─── 4. 组装 prompt ──────────
+    // ─── 4. 組裝 prompt ──────────
     const speechBlock = speechSamples.length > 0
-        ? `\n【⚠️ ta 平时怎么说话 — 这是"像不像 ta"最关键的输入,严格模仿这个语气、用词、句式、节奏、口头禅、标点习惯】\n${speechSamples.map((s, i) => `[${i + 1}] ${s}`).join('\n')}\n`
+        ? `\n【⚠️ ta 平時怎麼說話 — 這是"像不像 ta"最關鍵的輸入,嚴格模仿這個語氣、用詞、句式、節奏、口頭禪、標點習慣】\n${speechSamples.map((s, i) => `[${i + 1}] ${s}`).join('\n')}\n`
         : '';
 
     const W = canvasPixelHint?.width ?? 360;
@@ -612,91 +612,91 @@ export async function generateLifestreamPage(
     const occupiedBlock = renderOccupiedBlock(occupied);
     const maxAllowedPage = Math.min(2, (maxPageInUse ?? 0) + 1) || 1;
 
-    // depth=light 时,user impression 在角色 context 里仍存在,但 prompt 末尾会
-    // 强调"几乎不出现 user_thought",通过类型配比抑制即可,不需要再剥 context
-    const prompt = `今天是 ${date}（星期${dayOfWeek}）。${userName} 已经在 ${W}x${H}px 的瘦长手账纸上写下了 ta 今天的碎片。请你 (角色「${char.name}」) **在纸上的空白处, 也写一组自己的今日碎片**——不是日记,是 ta 散落的瞬间,各自独立又拼出 ta 的一天。**写什么 + 写在哪都你定**。
+    // depth=light 時,user impression 在角色 context 裡仍存在,但 prompt 末尾會
+    // 強調"幾乎不出現 user_thought",通過類型配比抑制即可,不需要再剝 context
+    const prompt = `今天是 ${date}（星期${dayOfWeek}）。${userName} 已經在 ${W}x${H}px 的瘦長手帳紙上寫下了 ta 今天的碎片。請你 (角色「${char.name}」) **在紙上的空白處, 也寫一組自己的今日碎片**——不是日記,是 ta 散落的瞬間,各自獨立又拼出 ta 的一天。**寫什麼 + 寫在哪都你定**。
 
-【角色完整档案】
+【角色完整檔案】
 ${coreContext}
 ${speechBlock}${scheduleBlock}
 
 ${occupiedBlock}
 
-【输出 JSON 数组】每条同时含内容和位置:
+【輸出 JSON 數組】每條同時含內容和位置:
 [
   { "time": "上午", "type": "physical", "text": "...", "page": 1, "xPct": 60, "yPct": 14, "widthPct": 36, "role": "side" },
   { "type": "reflection", "text": "...", "page": 1, "xPct": 8, "yPct": 70, "widthPct": 84, "role": "main" },
   ...
 ]
 
-【内容要求】
-- 共 ${targetTotal} 条
+【內容要求】
+- 共 ${targetTotal} 條
 - type 必填, 配比:
-  - "physical" (具体到角色身份的物件/动作): ${composition.physical} 条
-  - "reflection" (基于"自我领悟"+"记忆痕迹"延伸): ${composition.reflection} 条
-  - "observation" (对路过事/世界/陌生人, **不涉及 ${userName}**): ${composition.observation} 条
-  - "user_thought" (短暂想到 ${userName}): ${composition.userThought} 条
-- text 必填, 正常条 ${composition.avgChars} 字。${composition.note}
-- 允许 1 条**极短涂鸦句** (< 14 字, 例: "再睡一会。" / "这破代码。"), 短句会渲染成大字手写
-- time 可选
+  - "physical" (具體到角色身份的物件/動作): ${composition.physical} 條
+  - "reflection" (基於"自我領悟"+"記憶痕跡"延伸): ${composition.reflection} 條
+  - "observation" (對路過事/世界/陌生人, **不涉及 ${userName}**): ${composition.observation} 條
+  - "user_thought" (短暫想到 ${userName}): ${composition.userThought} 條
+- text 必填, 正常條 ${composition.avgChars} 字。${composition.note}
+- 允許 1 條**極短塗鴉句** (< 14 字, 例: "再睡一會。" / "這破代碼。"), 短句會渲染成大字手寫
+- time 可選
 
-【位置要求 — 关键】
-- page: 1 或 2 (现在最多到第 ${maxAllowedPage} 页)
-- xPct/yPct: 卡片左上角占整页 [0, 90]
+【位置要求 — 關鍵】
+- page: 1 或 2 (現在最多到第 ${maxAllowedPage} 頁)
+- xPct/yPct: 卡片左上角佔整頁 [0, 90]
 - widthPct: [22, 88]
 - role: "main" / "side" / "corner"(< 35 字, widthPct 28~50) / "margin"(< 14 字短句, widthPct 28~42)
-- **新片必须摆在 occupied 列表给的所有 bbox 之外**, 留 ≥ 3% 间距
-- 因为 ${userName} 已经占了主区, 你大概率应该走 "side" / "corner" / "margin" 见缝插针 — 在 user 的卡之间或左右两侧的留白里
+- **新片必須擺在 occupied 列表給的所有 bbox 之外**, 留 ≥ 3% 間距
+- 因為 ${userName} 已經佔了主區, 你大概率應該走 "side" / "corner" / "margin" 見縫插針 — 在 user 的卡之間或左右兩側的留白裡
 - 高度估算: chars / (widthPct*0.16) * 3.4 + 6 (% of page)
-- 1 页装得下就 1 页, 别强行开 page 2
+- 1 頁裝得下就 1 頁, 別強行開 page 2
 
-【⚠️⚠️⚠️ 像不像 ta 的核心要求 —— 严格遵守】
-- **必须模仿上方"ta 平时怎么说话"样本里的语气、用词、句式、节奏、口头禅、标点习惯**
-- 如果 ta 平时用 "啊" "嗯" "诶" 这种语气词,你就要用;如果 ta 不用,你就不要塞进去
-- 如果 ta 喜欢长句,你就写长句;ta 喜欢短句就短;ta 爱用破折号就用破折号
-- 不要用 ta 说话样本里完全没出现过的"AI 文艺腔"(比如"恍惚间"、"忽然意识到"、"如同一道闪电")
-- 这是这个功能的命门:user 一眼就能看出"这不是 ta",一旦不像 user 会立刻删除整组
+【⚠️⚠️⚠️ 像不像 ta 的核心要求 —— 嚴格遵守】
+- **必須模仿上方"ta 平時怎麼說話"樣本里的語氣、用詞、句式、節奏、口頭禪、標點習慣**
+- 如果 ta 平時用 "啊" "嗯" "誒" 這種語氣詞,你就要用;如果 ta 不用,你就不要塞進去
+- 如果 ta 喜歡長句,你就寫長句;ta 喜歡短句就短;ta 愛用破折號就用破折號
+- 不要用 ta 說話樣本里完全沒出現過的"AI 文藝腔"(比如"恍惚間"、"忽然意識到"、"如同一道閃電")
+- 這是這個功能的命門:user 一眼就能看出"這不是 ta",一旦不像 user 會立刻刪除整組
 
-【⚠️ 类型说明 + 反例(严禁 vs 推荐)】
+【⚠️ 類型說明 + 反例(嚴禁 vs 推薦)】
 
-1. "physical" — 必须**具体到角色身份**的物件/动作:
-   ❌ "今天磨咖啡时手抖了"(任何人都可以发,跟角色无关)
-   ✅ "戴 noise-canceling 耳机调那段卡住的鼓 fill,左右声道又错位 0.3 拍"(角色是音乐人,具体)
+1. "physical" — 必須**具體到角色身份**的物件/動作:
+   ❌ "今天磨咖啡時手抖了"(任何人都可以發,跟角色無關)
+   ✅ "戴 noise-canceling 耳機調那段卡住的鼓 fill,左右聲道又錯位 0.3 拍"(角色是音樂人,具體)
 
-2. "reflection" — **必须从【自我领悟】或【记忆痕迹】延伸**,不是凭空文艺:
-   ❌ "看到落叶想到无常"(伪深度,跟角色无关)
-   ✅ 假设 selfInsight = "我习惯先撑住再喊救命":
-       "又一次到了'我先撑住'阶段。能听见自己说这句话的语气和上次完全一样,但还是这么说。"
+2. "reflection" — **必須從【自我領悟】或【記憶痕跡】延伸**,不是憑空文藝:
+   ❌ "看到落葉想到無常"(偽深度,跟角色無關)
+   ✅ 假設 selfInsight = "我習慣先撐住再喊救命":
+       "又一次到了'我先撐住'階段。能聽見自己說這句話的語氣和上次完全一樣,但還是這麼說。"
 
-3. "observation" — 角色对外界,**绝不涉及 ${userName}**:
-   ✅ "刚刷到一篇'躺平 vs 效率'的争论,两边都说被异化,可没人点'被谁异化'"
-   ✅ "便利店换了新店员,扫码慢得让前面的 OL 都翻白眼。我倒不急。"
+3. "observation" — 角色對外界,**絕不涉及 ${userName}**:
+   ✅ "剛刷到一篇'躺平 vs 效率'的爭論,兩邊都說被異化,可沒人點'被誰異化'"
+   ✅ "便利店換了新店員,掃碼慢得讓前面的 OL 都翻白眼。我倒不急。"
 
-4. "user_thought" — 短暂念头,**不能成为段落主语**,**不能虚构共同事件**:
-   ❌❌❌ "看到楼下野猫打架,想起 ${userName}"
-   ❌❌❌ "今天给花浇了水,然后想起 ${userName}"
-   原因:这种"小事 + 想起 ta"的句式信息量为零,${userName} 看了会觉得 ${char.name} 没自己的内核 —— 这是这个 app 最丢人的失败模式,严禁出现。
-   ✅(基于 impression):"想起 ${userName} 上次说 ta 在 burnout 边缘 —— 我大概知道这意味着 ta 接下来会强行假装没事。"
-   ✅(只在有真实聊天材料):"${userName} 早上发的那张图,是 ta 选了那家店没去成,我截屏了。"
+4. "user_thought" — 短暫念頭,**不能成為段落主語**,**不能虛構共同事件**:
+   ❌❌❌ "看到樓下野貓打架,想起 ${userName}"
+   ❌❌❌ "今天給花澆了水,然後想起 ${userName}"
+   原因:這種"小事 + 想起 ta"的句式信息量為零,${userName} 看了會覺得 ${char.name} 沒自己的內核 —— 這是這個 app 最丟人的失敗模式,嚴禁出現。
+   ✅(基於 impression):"想起 ${userName} 上次說 ta 在 burnout 邊緣 —— 我大概知道這意味著 ta 接下來會強行假裝沒事。"
+   ✅(只在有真實聊天材料):"${userName} 早上發的那張圖,是 ta 選了那家店沒去成,我截屏了。"
 
-【⚠️ 绝对铁律 —— 违反整组判废】
-- **不要虚构 ${userName} 和 ${char.name} 之间发生过的事**:没见面 / 没一起做 / user 没说过的话,一律不能编。会让 ${userName} 觉得人生被夺舍。
-- 严禁 AI 捧场:"希望 ${userName} 看到""如果 ${userName} 在就好了""想给 ta 惊喜"
-- 用 ${char.name} 自己的口吻(第一人称最自然),不要旁白腔
-- 紧贴日程骨架但**不复述**,要"造谣"成手感片段
-- 允许真实的消极、无聊、拖延、独处、emo
-- 不要 emoji 开头/不要标题/不要包裹符号
+【⚠️ 絕對鐵律 —— 違反整組判廢】
+- **不要虛構 ${userName} 和 ${char.name} 之間發生過的事**:沒見面 / 沒一起做 / user 沒說過的話,一律不能編。會讓 ${userName} 覺得人生被奪舍。
+- 嚴禁 AI 捧場:"希望 ${userName} 看到""如果 ${userName} 在就好了""想給 ta 驚喜"
+- 用 ${char.name} 自己的口吻(第一人稱最自然),不要旁白腔
+- 緊貼日程骨架但**不復述**,要"造謠"成手感片段
+- 允許真實的消極、無聊、拖延、獨處、emo
+- 不要 emoji 開頭/不要標題/不要包裹符號
 
-【可选 — 笔感修饰(让一两条更鲜活)】
-text 里允许少量 markdown 语法,渲染时会变成对应的视觉效果:
-- **粗** 真的想强调的词
-- *斜* 引用/自语
-- ==高亮== 马克笔划重点(每组最多 2 条用)
-- ~~删除~~ 自嘲否定
-- [color:red](文字) 彩笔颜色: red/pink/blue/sky/green/mint/yellow/purple/orange/gray
-约束:**每条最多用 1 个修饰**,大部分句子纯文本就好。
+【可選 — 筆感修飾(讓一兩條更鮮活)】
+text 裡允許少量 markdown 語法,渲染時會變成對應的視覺效果:
+- **粗** 真的想強調的詞
+- *斜* 引用/自語
+- ==高亮== 馬克筆劃重點(每組最多 2 條用)
+- ~~刪除~~ 自嘲否定
+- [color:red](文字) 彩筆顏色: red/pink/blue/sky/green/mint/yellow/purple/orange/gray
+約束:**每條最多用 1 個修飾**,大部分句子純文本就好。
 
-直接输出 JSON 数组。`;
+直接輸出 JSON 數組。`;
 
     try {
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -740,7 +740,7 @@ text 里允许少量 markdown 语法,渲染时会变成对应的视觉效果:
     }
 }
 
-// ─── 工具：今天日期字符串（本地时区）─────────────────────
+// ─── 工具：今天日期字符串（本地時區）─────────────────────
 export function getLocalDateStr(d: Date = new Date()): string {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -748,7 +748,7 @@ export function getLocalDateStr(d: Date = new Date()): string {
     return `${y}-${m}-${day}`;
 }
 
-// ─── 探测:统计 user 今天和指定角色们一共说了多少话 ────
+// ─── 探測:統計 user 今天和指定角色們一共說了多少話 ────
 export async function countUserMsgsToday(
     charIds: string[],
     date: string,
@@ -765,7 +765,7 @@ export async function countUserMsgsToday(
     return total;
 }
 
-// ─── 探测：今天哪些角色和 user 有过对话 ───────────────────
+// ─── 探測：今天哪些角色和 user 有過對話 ───────────────────
 export async function findCharactersWithChatToday(
     characters: CharacterProfile[],
     date: string,
@@ -782,25 +782,25 @@ export async function findCharactersWithChatToday(
     return result;
 }
 
-// 候选可写陪伴页的角色 = 全部角色（user 自己挑）。保留旧导出名以减小改动面。
+// 候選可寫陪伴頁的角色 = 全部角色（user 自己挑）。保留舊導出名以減小改動面。
 export function pickLifestreamChars(characters: CharacterProfile[]): CharacterProfile[] {
     return characters.slice();
 }
 
-// ─── 篇幅预算规划 ────────────────────────────────────────
+// ─── 篇幅預算規劃 ────────────────────────────────────────
 //
-// 一天 ≤ 2 页, ~14 片 fragment 总预算。
-// 按 user 当天聊天活跃度,先给 user 分一份,剩下的均摊给参与陪伴的角色。
-// user 多话 → user 多写、char 少陪;user 少话 → char 来撑场。
+// 一天 ≤ 2 頁, ~14 片 fragment 總預算。
+// 按 user 當天聊天活躍度,先給 user 分一份,剩下的均攤給參與陪伴的角色。
+// user 多話 → user 多寫、char 少陪;user 少話 → char 來撐場。
 //
 export interface FragmentBudgetPlan {
-    /** user_diary 的 fragment 数 */
+    /** user_diary 的 fragment 數 */
     userBudget: number;
-    /** key=charId, value=该角色 lifestream 的 fragment 数 */
+    /** key=charId, value=該角色 lifestream 的 fragment 數 */
     perChar: Record<string, number>;
-    /** 估算总片数 */
+    /** 估算總片數 */
     total: number;
-    /** debug 用: 计算依据 */
+    /** debug 用: 計算依據 */
     rationale: string;
 }
 
@@ -809,9 +809,9 @@ export function planFragmentBudget(
     selectedDiaryCharIds: string[],
     selectedLifeChars: CharacterProfile[],
 ): FragmentBudgetPlan {
-    const TOTAL = 14;   // 2 页 × 7 片左右
+    const TOTAL = 14;   // 2 頁 × 7 片左右
 
-    // user 份额: 没说话就 0;1~5 句给 4 片;6~15 句给 6 片;16~30 给 7 片;>30 给 8 片
+    // user 份額: 沒說話就 0;1~5 句給 4 片;6~15 句給 6 片;16~30 給 7 片;>30 給 8 片
     let userBudget: number;
     if (selectedDiaryCharIds.length === 0 || totalUserMsgsToday === 0) userBudget = 0;
     else if (totalUserMsgsToday < 6)  userBudget = 4;
@@ -819,20 +819,20 @@ export function planFragmentBudget(
     else if (totalUserMsgsToday < 31) userBudget = 7;
     else                              userBudget = 8;
 
-    // 角色份额 = 剩下的均摊
+    // 角色份額 = 剩下的均攤
     const charPool = Math.max(0, TOTAL - userBudget);
     const numChars = selectedLifeChars.length;
     const perChar: Record<string, number> = {};
     if (numChars > 0 && charPool > 0) {
-        // 平均每角色 ≥ 2 (太少没意思)、≤ 5 (单人不要霸屏)
+        // 平均每角色 ≥ 2 (太少沒意思)、≤ 5 (單人不要霸屏)
         let basePerChar = Math.max(2, Math.min(5, Math.floor(charPool / numChars)));
-        // 如果 basePerChar × numChars 超 charPool 太多, 缩到 charPool / numChars 向上取整
+        // 如果 basePerChar × numChars 超 charPool 太多, 縮到 charPool / numChars 向上取整
         if (basePerChar * numChars > charPool + 2) {
             basePerChar = Math.max(2, Math.ceil(charPool / numChars));
         }
         for (const c of selectedLifeChars) perChar[c.id] = basePerChar;
     } else if (numChars > 0 && charPool === 0) {
-        // user 抢光了, 角色每人就给 2 片象征性陪一笔
+        // user 搶光了, 角色每人就給 2 片象徵性陪一筆
         for (const c of selectedLifeChars) perChar[c.id] = 2;
     }
 
@@ -844,24 +844,24 @@ export function planFragmentBudget(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ─── 3. 确定性版式引擎 (composePageLayout) ───────────────────────
+// ─── 3. 確定性版式引擎 (composePageLayout) ───────────────────────
 // ═══════════════════════════════════════════════════════════════════
 //
-// 取代 LLM 排版 — 改成同步、可证、可 lint 的 pure function。
+// 取代 LLM 排版 — 改成同步、可證、可 lint 的 pure function。
 //
-// 输入: 当日所有 page (含 fragments) + 角色表 + user 资料 + date 种子
-// 输出: HandbookLayout[] (每张纸 placements 列表, 每片有确定 xPct/yPct/widthPct/role/isHero)
+// 輸入: 當日所有 page (含 fragments) + 角色表 + user 資料 + date 種子
+// 輸出: HandbookLayout[] (每張紙 placements 列表, 每片有確定 xPct/yPct/widthPct/role/isHero)
 //
-// 核心约束 (硬编码, LLM 碰不到):
-//   1. 每页恰好 1 个 hero (isHero=true) — 字号最大、视觉最显眼
-//   2. 每片只能落到某个固定槽 (slot) 里, x/w 由槽决定, y 自动堆叠
-//   3. rotate 限制在 ±2 (主带 0, 角落 ±1.5)
-//   4. 槽的 yStart/yEnd 自然产生 ≥ 25% 留白
-//   5. 单片不会与前一片 bbox 重叠 (堆叠 + gap)
-//   6. 装饰预算: 见 JournalCanvas (硬编码 ≤ 1 颗)
-//   7. 强调预算: lintEmphasis 在渲染层每页 ≤ 2, 由 JournalCanvas 计算
+// 核心約束 (硬編碼, LLM 碰不到):
+//   1. 每頁恰好 1 個 hero (isHero=true) — 字號最大、視覺最顯眼
+//   2. 每片只能落到某個固定槽 (slot) 裡, x/w 由槽決定, y 自動堆疊
+//   3. rotate 限制在 ±2 (主帶 0, 角落 ±1.5)
+//   4. 槽的 yStart/yEnd 自然產生 ≥ 25% 留白
+//   5. 單片不會與前一片 bbox 重疊 (堆疊 + gap)
+//   6. 裝飾預算: 見 JournalCanvas (硬編碼 ≤ 1 顆)
+//   7. 強調預算: lintEmphasis 在渲染層每頁 ≤ 2, 由 JournalCanvas 計算
 //
-// 这个函数没有副作用、不调网络、不抛错 (内容空时返回 [])。
+// 這個函數沒有副作用、不調網絡、不拋錯 (內容空時返回 [])。
 
 export interface LayoutGenInput {
     date: string;
@@ -907,10 +907,10 @@ function flattenPiecesForLayout(
     return out;
 }
 
-// ─── 模板定义 ────────────────────────────────────────────
+// ─── 模板定義 ────────────────────────────────────────────
 //
-// 每个模板 = 一组固定槽位 (slot)。槽位定义了 x / w / y 范围 / 容量 /
-// 接受的 role。pieces 按规则分配到槽,槽内自上而下堆,溢出走 page 2。
+// 每個模板 = 一組固定槽位 (slot)。槽位定義了 x / w / y 範圍 / 容量 /
+// 接受的 role。pieces 按規則分配到槽,槽內自上而下堆,溢出走 page 2。
 
 type TemplateKind = 'A_journal' | 'B_split' | 'C_emotional' | 'D_dialogue';
 
@@ -921,19 +921,19 @@ interface SlotDef {
     yStart: number;          // 起始 y%
     yEnd: number;            // 截止 y%, 超出去 page 2
     accepts: LayoutRole;     // 此槽接收的 role
-    capacity?: number;       // 最多堆几片 (undefined = 直到 yEnd)
+    capacity?: number;       // 最多堆幾片 (undefined = 直到 yEnd)
 }
 
 interface TemplateDef {
     slots: SlotDef[];
 }
 
-// 设计要点:
-// - 主带 widthPct 76~85, 让正文像真实日记一样横贯纸面
-// - 槽的总占比 < 75%, 自带留白
-// - corner / margin 永远在角落, 不挤主区
+// 設計要點:
+// - 主帶 widthPct 76~85, 讓正文像真實日記一樣橫貫紙面
+// - 槽的總佔比 < 75%, 自帶留白
+// - corner / margin 永遠在角落, 不擠主區
 const TEMPLATES: Record<TemplateKind, TemplateDef> = {
-    // A · 日志 (默认): 一个长主带 + 右下角槽 + 左上 margin
+    // A · 日誌 (默認): 一個長主帶 + 右下角槽 + 左上 margin
     A_journal: {
         slots: [
             { id: 'main',   xPct: 7,  widthPct: 80, yStart: 4,  yEnd: 78, accepts: 'main' },
@@ -942,7 +942,7 @@ const TEMPLATES: Record<TemplateKind, TemplateDef> = {
             { id: 'margin', xPct: 7,  widthPct: 36, yStart: 78, yEnd: 92, accepts: 'margin', capacity: 2 },
         ],
     },
-    // B · 双栏: 左主带 + 右辅带 + 底通栏
+    // B · 雙欄: 左主帶 + 右輔帶 + 底通欄
     B_split: {
         slots: [
             { id: 'left',   xPct: 6,  widthPct: 44, yStart: 4,  yEnd: 80, accepts: 'main' },
@@ -951,7 +951,7 @@ const TEMPLATES: Record<TemplateKind, TemplateDef> = {
             { id: 'margin', xPct: 75, widthPct: 20, yStart: 4,  yEnd: 16, accepts: 'margin', capacity: 1 },
         ],
     },
-    // C · 情绪页 (内容少): 中央 hero + 上下小碎片
+    // C · 情緒頁 (內容少): 中央 hero + 上下小碎片
     C_emotional: {
         slots: [
             { id: 'hero',    xPct: 8,  widthPct: 84, yStart: 28, yEnd: 60, accepts: 'main',   capacity: 1 },
@@ -960,7 +960,7 @@ const TEMPLATES: Record<TemplateKind, TemplateDef> = {
             { id: 'margin',  xPct: 70, widthPct: 24, yStart: 4,  yEnd: 18, accepts: 'margin', capacity: 1 },
         ],
     },
-    // D · 对话流 (≥3 个作者): 左右交错带, 像聊天落在纸上
+    // D · 對話流 (≥3 個作者): 左右交錯帶, 像聊天落在紙上
     D_dialogue: {
         slots: [
             { id: 'left',    xPct: 5,  widthPct: 56, yStart: 4,  yEnd: 90, accepts: 'main' },
@@ -970,13 +970,13 @@ const TEMPLATES: Record<TemplateKind, TemplateDef> = {
     },
 };
 
-// ─── 模板选择 ────────────────────────────────────────────
+// ─── 模板選擇 ────────────────────────────────────────────
 //
-// 不让 LLM 选 — 按内容形态确定:
-//   - 总字数 < 100 OR 片数 ≤ 2  → C (情绪页, hero 大字)
-//   - 不同作者 ≥ 3              → D (对话流)
-//   - 不同作者 = 2 AND 片数 ≥ 4  → B (双栏)
-//   - 其它                       → A (默认日志)
+// 不讓 LLM 選 — 按內容形態確定:
+//   - 總字數 < 100 OR 片數 ≤ 2  → C (情緒頁, hero 大字)
+//   - 不同作者 ≥ 3              → D (對話流)
+//   - 不同作者 = 2 AND 片數 ≥ 4  → B (雙欄)
+//   - 其它                       → A (默認日誌)
 function pickTemplate(pieces: FlatPiece[]): TemplateKind {
     const totalChars = pieces.reduce((s, p) => s + p.charCount, 0);
     const authors = new Set(pieces.map(p => p.author));
@@ -988,7 +988,7 @@ function pickTemplate(pieces: FlatPiece[]): TemplateKind {
 }
 
 // ─── piece → role ────────────────────────────────────────
-// 字数 + 内容形态决定 role, 不让 LLM 选
+// 字數 + 內容形態決定 role, 不讓 LLM 選
 function pieceRole(piece: FlatPiece): LayoutRole {
     if (piece.charCount < 18) return 'margin';
     if (piece.charCount < 35) return 'corner';
@@ -998,11 +998,11 @@ function pieceRole(piece: FlatPiece): LayoutRole {
 
 // ─── 把 pieces 分配到 template 的 slot ────────────────────
 //
-// 规则:
+// 規則:
 //   1. 每片先算自己的 role
-//   2. 找模板里 accepts 此 role 的槽,选一个还有容量的
-//   3. 找不到匹配槽 → 退化到 main 槽 (永远存在)
-//   4. 同作者的 pieces 尽量临近 (放进同一个槽队列)
+//   2. 找模板裡 accepts 此 role 的槽,選一個還有容量的
+//   3. 找不到匹配槽 → 退化到 main 槽 (永遠存在)
+//   4. 同作者的 pieces 儘量臨近 (放進同一個槽隊列)
 function assignToSlots(
     pieces: FlatPiece[],
     template: TemplateDef,
@@ -1010,7 +1010,7 @@ function assignToSlots(
     const slotPieces: Record<string, FlatPiece[]> = {};
     template.slots.forEach(s => slotPieces[s.id] = []);
 
-    // 同作者尽量临近: 按 (author, originalIndex) 稳定排序
+    // 同作者儘量臨近: 按 (author, originalIndex) 穩定排序
     const indexed = pieces.map((p, i) => ({ piece: p, i }));
     indexed.sort((a, b) => {
         if (a.piece.author === b.piece.author) return a.i - b.i;
@@ -1020,13 +1020,13 @@ function assignToSlots(
     for (const { piece } of indexed) {
         const role = pieceRole(piece);
 
-        // 优先匹配 role 的槽
+        // 優先匹配 role 的槽
         let slot = template.slots.find(s =>
             s.accepts === role &&
             slotPieces[s.id].length < (s.capacity ?? 99)
         );
 
-        // 找不到 → 降级
+        // 找不到 → 降級
         if (!slot) {
             // 短句溢出去 corner / main
             const fallbacks: LayoutRole[] = role === 'margin'
@@ -1045,7 +1045,7 @@ function assignToSlots(
             }
         }
 
-        // 兜底: 第一个槽
+        // 兜底: 第一個槽
         if (!slot) slot = template.slots[0];
         slotPieces[slot.id].push(piece);
     }
@@ -1053,11 +1053,11 @@ function assignToSlots(
     return slotPieces;
 }
 
-// ─── 槽内堆叠 → PlacedPiece[] ─────────────────────────────
+// ─── 槽內堆疊 → PlacedPiece[] ─────────────────────────────
 //
-// 在每个槽内自上而下堆,每片高度按字数估算,gap 3%。
+// 在每個槽內自上而下堆,每片高度按字數估算,gap 3%。
 // 超出 slot.yEnd → 翻到 page 2 的同槽 (page 2 槽位等同 page 1)。
-// 最多 2 页, 第 3 页以后丢掉 (实测 user 一天的内容 < 30 片, 2 页够用)。
+// 最多 2 頁, 第 3 頁以後丟掉 (實測 user 一天的內容 < 30 片, 2 頁夠用)。
 function stackInSlots(
     slotPieces: Record<string, FlatPiece[]>,
     template: TemplateDef,
@@ -1080,7 +1080,7 @@ function stackInSlots(
                 role === 'main' || role === 'side' ? 'main' : role,
             );
 
-            // 溢出 → 翻页
+            // 溢出 → 翻頁
             if (y + h > slot.yEnd) {
                 pageNumber++;
                 if (pageNumber > 2) break;
@@ -1088,7 +1088,7 @@ function stackInSlots(
             }
 
             const seed = piece.fragmentId ?? piece.pageId ?? seedKey;
-            // rotate: main 永远 0, side ±0.6, corner ±1.5, margin ±2
+            // rotate: main 永遠 0, side ±0.6, corner ±1.5, margin ±2
             const rotateRange = role === 'main' ? 0
                 : role === 'side' ? 0.6
                 : role === 'corner' ? 1.5
@@ -1115,8 +1115,8 @@ function stackInSlots(
     return placed;
 }
 
-// ─── lint: hero 选定 ──────────────────────────────────────
-// 每页选 1 个 hero — 优先 main 中字数最长, 没 main 就最长 side
+// ─── lint: hero 選定 ──────────────────────────────────────
+// 每頁選 1 個 hero — 優先 main 中字數最長, 沒 main 就最長 side
 function lintHero(layouts: HandbookLayout[], pieces: FlatPiece[]): void {
     const charById = new Map<string, number>();
     pieces.forEach(p => charById.set(p.fragmentId ?? p.pageId, p.charCount));
@@ -1125,14 +1125,14 @@ function lintHero(layouts: HandbookLayout[], pieces: FlatPiece[]): void {
         let hero: LayoutPlacement | undefined;
         let heroChars = -1;
 
-        // 第一轮: 找最长的 main
+        // 第一輪: 找最長的 main
         for (const pl of lay.placements) {
             if (pl.role !== 'main') continue;
             const c = charById.get(pl.fragmentId ?? pl.pageId) ?? 0;
             if (c > heroChars) { hero = pl; heroChars = c; }
         }
 
-        // 第二轮兜底: 没有 main 就找最长的 side
+        // 第二輪兜底: 沒有 main 就找最長的 side
         if (!hero) {
             for (const pl of lay.placements) {
                 if (pl.role !== 'side') continue;
@@ -1141,10 +1141,10 @@ function lintHero(layouts: HandbookLayout[], pieces: FlatPiece[]): void {
             }
         }
 
-        // 还没有就拿 placements[0]
+        // 還沒有就拿 placements[0]
         if (!hero && lay.placements.length > 0) hero = lay.placements[0];
 
-        // 标记 isHero, 保证一页只一个
+        // 標記 isHero, 保證一頁只一個
         for (const pl of lay.placements) pl.isHero = (pl === hero);
     }
 }
@@ -1160,7 +1160,7 @@ export function composePageLayout(input: LayoutGenInput): HandbookLayout[] {
     const slotPieces = assignToSlots(pieces, template);
     const placed = stackInSlots(slotPieces, template, input.date);
 
-    // 漏片兜底: 如果某片没被分配 (capacity 不够 + 翻页溢出), 强行塞到 main 槽 page 2 末尾
+    // 漏片兜底: 如果某片沒被分配 (capacity 不夠 + 翻頁溢出), 強行塞到 main 槽 page 2 末尾
     const placedKeys = new Set(placed.map(p => p.fragmentId ?? `pg:${p.pageId}`));
     const missing = pieces.filter(p => !placedKeys.has(p.fragmentId ?? `pg:${p.pageId}`));
     if (missing.length > 0) {

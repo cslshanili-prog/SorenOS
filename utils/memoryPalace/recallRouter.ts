@@ -1,10 +1,10 @@
 /**
- * Local Context Analyzer + 预留的 Recall Resolver 协议。
+ * Local Context Analyzer + 預留的 Recall Resolver 協議。
  *
- * Analyzer 不调 LLM、不做检索，只回答：当前话语在这一刻像什么交流动作。
- * 关键词只是一组加分证据，最终连续信号还会同时看长度、论元是否完整、
- * 近邻上下文是否已有明确先行词、整句是否自足，以及表面的互动能量。
- * 主回复管线只消费本地分析；下方轻量 Resolver 协议暂时保留，但不在回复前调用。
+ * Analyzer 不調 LLM、不做檢索，只回答：當前話語在這一刻像什麼交流動作。
+ * 關鍵詞只是一組加分證據，最終連續信號還會同時看長度、論元是否完整、
+ * 近鄰上下文是否已有明確先行詞、整句是否自足，以及表面的互動能量。
+ * 主回覆管線只消費本地分析；下方輕量 Resolver 協議暫時保留，但不在回覆前調用。
  */
 
 import type { Message } from '../../types';
@@ -18,7 +18,7 @@ export interface RecallQuery {
     text: string;
     scope: RecallQueryScope;
     weight: number;
-    /** 只用于 Trace / 调试解释，不参与检索排序逻辑。 */
+    /** 只用於 Trace / 調試解釋，不參與檢索排序邏輯。 */
     source?: RecallQuerySource;
 }
 
@@ -72,7 +72,7 @@ export interface RecallGateFeatures {
 }
 
 /**
- * 0..1 的结构信号快照。它们共同贡献 Gate 分数；任何单一正则信号都没有否决权。
+ * 0..1 的結構信號快照。它們共同貢獻 Gate 分數；任何單一正則信號都沒有否決權。
  */
 export interface RecallGateContributions {
     shortness: number;
@@ -85,25 +85,25 @@ export interface RecallGateContributions {
 }
 
 export interface ContextSignals {
-    /** 当前话语依赖刚才对话或既有事件才能成立的程度。 */
+    /** 當前話語依賴剛才對話或既有事件才能成立的程度。 */
     continuationNeed: number;
-    /** 当前话语存在多个可能承接对象的程度。 */
+    /** 當前話語存在多個可能承接對象的程度。 */
     ambiguity: number;
-    /** 当前话语不借助前情也能独立理解的程度。 */
+    /** 當前話語不借助前情也能獨立理解的程度。 */
     selfSufficiency: number;
-    /** 当前话语像一次结果落地或进展更新的程度。 */
+    /** 當前話語像一次結果落地或進展更新的程度。 */
     resultUpdate: number;
-    /** 当前话语是否已给出明确、可直接查找的实体。 */
+    /** 當前話語是否已給出明確、可直接查找的實體。 */
     explicitEntity: number;
-    /** 纯表面统计：短促程度。 */
+    /** 純表面統計：短促程度。 */
     brevity: number;
-    /** 纯表面统计：感叹、重复字符、emoji 与连续气泡共同形成的能量。 */
+    /** 純表面統計：感嘆、重複字符、emoji 與連續氣泡共同形成的能量。 */
     energy: number;
 }
 
 export interface LocalContextAnalysis {
     analyzable: boolean;
-    /** 兼容旧 Gate 调试字段；现在只表示“值得给主模型语境提示”，不再触发副 API。 */
+    /** 兼容舊 Gate 調試字段；現在只表示“值得給主模型語境提示”，不再觸發副 API。 */
     shouldRoute: boolean;
     shouldGuide: boolean;
     score: number;
@@ -113,7 +113,7 @@ export interface LocalContextAnalysis {
     signals: ContextSignals;
 }
 
-/** @deprecated 请使用 LocalContextAnalysis。 */
+/** @deprecated 請使用 LocalContextAnalysis。 */
 export type LocalRecallGateResult = LocalContextAnalysis;
 
 export type RecallRouterTraceStatus =
@@ -127,7 +127,7 @@ export type RecallRouterTraceStatus =
     | RecallRouterExecutionStatus;
 
 export interface RecallRouterPlanTrace {
-    /** 不记录 query 原文，只记录安全的结构信息。 */
+    /** 不記錄 query 原文，只記錄安全的結構信息。 */
     route: boolean;
     confidence: number;
     queryCount: number;
@@ -146,17 +146,17 @@ export const RECALL_ROUTER_TIMEOUT_MS = 1_800;
 export const RECALL_ROUTER_MIN_CONFIDENCE = 0.55;
 export const RECALL_GATE_ROUTE_THRESHOLD = 0.62;
 
-const REFERENCE_SIGNAL_RE = /(?:那个|这个|那些|这些|那件事|这件事|之前那个|之前的|还是那个|这样|那样|怎么又|果然|又来|又是|\bta\b|她|他|它)/iu;
-const RESULT_PREDICATE_RE = /(?:过了|通过了|成了|没成|成功了|失败了|好了|搞定了|结束了|出来了|到了|来了|走了|没了|赢了|输了|批了|拒了|录取了|挂了|崩了|修好了|办好了)(?:[!！?？。…]*)$/u;
-// 弱词根只是一名“证人”：允许口语尾缀降低确定度，但绝不作为 Router 的前置门票。
-const RESULT_PREDICATE_ROOT_RE = /(?:通过|成功|失败|搞定|结束|出来|录取|修好|办好|没成|过|成|赢|输|批|拒|挂|崩)/u;
-const CONCRETE_ANCHOR_RE = /(?:考试|成绩|面试|申请|审核|项目|文件|方案|报告|论文|比赛|证书|驾照|订单|快递|手术|检查|作业|任务|账号|数据|照片|视频|合同|工作|学校|公司|医院|课程|活动|会议|行程|车票|机票|房子|租约|offer)/giu;
+const REFERENCE_SIGNAL_RE = /(?:那[个個]|[这這][个個]|那些|[这這]些|那件事|[这這]件事|之前那[个個]|之前的|[还還]是那[个個]|[这這][样樣]|那[样樣]|怎[么麼]又|果然|又[来來]|又是|\bta\b|她|他|它)/iu;
+const RESULT_PREDICATE_RE = /(?:[过過]了|通[过過]了|成了|[没沒]成|成功了|失[败敗]了|好了|搞定了|[结結]束了|出[来來]了|到了|[来來]了|走了|[没沒]了|[赢贏]了|[输輸]了|批了|拒了|[录錄]取了|[挂掛]了|崩了|修好了|[办辦]好了)(?:[!！?？。…]*)$/u;
+// 弱詞根只是一名“證人”：允許口語尾綴降低確定度，但絕不作為 Router 的前置門票。
+const RESULT_PREDICATE_ROOT_RE = /(?:通[过過]|成功|失[败敗]|搞定|[结結]束|出[来來]|[录錄]取|修好|[办辦]好|[没沒]成|[过過]|成|[赢贏]|[输輸]|批|拒|[挂掛]|崩)/u;
+const CONCRETE_ANCHOR_RE = /(?:考[试試]|成[绩績]|面[试試]|申[请請]|[审審]核|[项項]目|文件|方案|[报報]告|[论論]文|比[赛賽]|[证證][书書]|[驾駕]照|[订訂][单單]|快[递遞]|手[术術]|[检檢]查|作[业業]|任[务務]|[账賬帳][号號]|[数數][据據]|照片|[视視][频頻]|合同|工作|[学學]校|公司|[医醫]院|[课課]程|活[动動]|[会會][议議]|行程|[车車]票|[机機]票|房子|租[约約]|offer)/giu;
 const QUOTED_ANCHOR_RE = /[「『《“"【]([^」』》”"】]{2,40})[」』》”"】]/gu;
-const ALNUM_ANCHOR_RE = /(?:[A-Za-z][A-Za-z0-9._-]{1,30}|\d{2,}(?:[-/.年月日号]\d{1,4})*)/gu;
-const DETERMINED_NOUN_RE = /(?:这个|那个|这份|那份|这场|那场|这次|那次)([\p{Script=Han}]{2,6})(?=$|[，。！？、\s]|给|发|交|放|拿|做|改|删|传|提|处|完|好|坏|成)/gu;
-const EXPLICIT_ARGUMENT_RE = /(?:我|你|他|她|它|[\p{Script=Han}]{2,8})(?:今天|昨天|刚才|已经|终于|后来|又)?把.{2,24}(?:给|发给|交给|放到|拿到|提交|处理|改完|删掉|传给)/u;
-const EXPLICIT_LOCATION_ACTION_RE = /(?:去|来|到|在)[\p{Script=Han}]{2,10}(?:开会|出差|上班|上课|考试|面试|找人|见面|办事|学习|工作)/u;
-const COMPETING_ANTECEDENT_RE = /(?:和|还是|或者|或是|以及|、|分别|两个|几个)/u;
+const ALNUM_ANCHOR_RE = /(?:[A-Za-z][A-Za-z0-9._-]{1,30}|\d{2,}(?:[-/.年月日号號]\d{1,4})*)/gu;
+const DETERMINED_NOUN_RE = /(?:[这這][个個]|那[个個]|[这這]份|那份|[这這][场場]|那[场場]|[这這]次|那次)([\p{Script=Han}]{2,6})(?=$|[，。！？、\s]|[给給]|[发發]|交|放|拿|做|改|[删刪]|[传傳]|提|[处處]|完|好|[坏壞]|成)/gu;
+const EXPLICIT_ARGUMENT_RE = /(?:我|你|他|她|它|[\p{Script=Han}]{2,8})(?:今天|昨天|[刚剛]才|已[经經]|[终終][于於]|[后後][来來]|又)?把.{2,24}(?:[给給]|[发發][给給]|交[给給]|放到|拿到|提交|[处處]理|改完|[删刪]掉|[传傳][给給])/u;
+const EXPLICIT_LOCATION_ACTION_RE = /(?:去|[来來]|到|在)[\p{Script=Han}]{2,10}(?:[开開][会會]|出差|上班|上[课課]|考[试試]|面[试試]|找人|[见見]面|[办辦]事|[学學][习習]|工作)/u;
+const COMPETING_ANTECEDENT_RE = /(?:和|[还還]是|或者|或是|以及|、|分[别別]|[两兩][个個]|[几幾][个個])/u;
 
 function clamp01(value: number): number {
     return Math.max(0, Math.min(1, value));
@@ -217,7 +217,7 @@ function emptySignals(): ContextSignals {
 function splitCurrentUserBurst(messages: Message[]): { current: Message[]; context: Message[] } {
     if (messages.length === 0) return { current: [], context: [] };
     let end = messages.length - 1;
-    // 允许末尾夹一两条隐藏 system 标记，但不跨过 assistant 冒充当前 user 轮。
+    // 允許末尾夾一兩條隱藏 system 標記，但不跨過 assistant 冒充當前 user 輪。
     while (end >= 0 && messages[end].role === 'system') end -= 1;
     if (end < 0 || messages[end].role !== 'user') return { current: [], context: messages };
 
@@ -230,7 +230,7 @@ function splitCurrentUserBurst(messages: Message[]): { current: Message[]; conte
 }
 
 /**
- * 纯本地闸门。返回值不含原句，所以可以安全写进 Recall Trace。
+ * 純本地閘門。返回值不含原句，所以可以安全寫進 Recall Trace。
  */
 export function analyzeLocalContext(
     messages: Message[],
@@ -268,7 +268,7 @@ export function analyzeLocalContext(
     const safeContext = sanitizeQuerySourceMessages(context.slice(-6), charName, userName);
     const contextText = safeContext.map(message => message.content.trim()).filter(Boolean).join('\n');
     const contextAnchors = collectExplicitAnchors(contextText);
-    // 有明确对象但同时列了多个备选，仍然不足以本地消歧，应交给 Router。
+    // 有明確對象但同時列了多個備選，仍然不足以本地消歧，應交給 Router。
     const hasCompetingAntecedents = contextAnchors.length > 1
         && COMPETING_ANTECEDENT_RE.test(contextText);
     const recentContextSufficient = contextAnchors.length > 0 && !hasCompetingAntecedents;
@@ -282,7 +282,7 @@ export function analyzeLocalContext(
         ? 1
         : contextAnchors.length > 0 ? 0.35 : 0;
 
-    // 极短的完整寒暄/反应通常无需检索；一旦有承接证据，就不应用长度把它挡掉。
+    // 極短的完整寒暄/反應通常無需檢索；一旦有承接證據，就不應用長度把它擋掉。
     const bareShortUtterance = length <= 3 && resultPredicate === 0 && deicticReference === 0;
     const querySelfSufficiency = selfContained
         ? 1
@@ -300,7 +300,7 @@ export function analyzeLocalContext(
         querySelfSufficiency,
     };
 
-    // 正则只提供加分。即使没有命中结果词，短、缺参、低自足度的结构组合也能进入 Router。
+    // 正則只提供加分。即使沒有命中結果詞，短、缺參、低自足度的結構組合也能進入 Router。
     const score = clamp01(
         gateContributions.shortness * 0.22
         + gateContributions.missingArguments * 0.22
@@ -378,7 +378,7 @@ export function analyzeLocalContext(
 }
 
 /**
- * 兼容旧调用名。Gate 已不再拥有“是否准许 LLM 工作”的权力；返回值只是本地语境分析。
+ * 兼容舊調用名。Gate 已不再擁有“是否准許 LLM 工作”的權力；返回值只是本地語境分析。
  */
 export function evaluateLocalRecallGate(
     messages: Message[],
@@ -389,23 +389,23 @@ export function evaluateLocalRecallGate(
 }
 
 /**
- * 把本地数字翻译成主模型能自然使用的当轮理解提示。只描述应如何读这句话，
- * 不替模型指定具体事件，不改变角色身份、立场或语言人格。
+ * 把本地數字翻譯成主模型能自然使用的當輪理解提示。只描述應如何讀這句話，
+ * 不替模型指定具體事件，不改變角色身份、立場或語言人格。
  */
 export function renderLocalContextGuidance(analysis: LocalContextAnalysis | undefined): string {
     if (!analysis?.analyzable || !analysis.shouldGuide) return '';
 
     const lines = [
-        '### 此刻这句话怎么接',
-        '对方这轮更像是在承接刚才或既有事件，并省略了部分对象。先把它当作当前话题的后续，结合紧邻对话和本轮已经召回的记忆理解；不要因为句子短就把它当成无关的新话题。',
+        '### 此刻這句話怎麼接',
+        '對方這輪更像是在承接剛才或既有事件，並省略了部分對象。先把它當作當前話題的後續，結合緊鄰對話和本輪已經召回的記憶理解；不要因為句子短就把它當成無關的新話題。',
     ];
     if (analysis.signals.resultUpdate >= 0.4) {
-        lines.push('这也像一次结果落地或进展更新。先接住结果和对方此刻的情绪，再决定是否追问细节；不要先输出分析报告。');
+        lines.push('這也像一次結果落地或進展更新。先接住結果和對方此刻的情緒，再決定是否追問細節；不要先輸出分析報告。');
     }
     if (analysis.signals.ambiguity >= 0.5) {
-        lines.push('若现有线索共同指向同一件事，可以自然接住，不必解释检索过程；若线索互相冲突，保留不确定或自然确认，不要擅自补成唯一答案。');
+        lines.push('若現有線索共同指向同一件事，可以自然接住，不必解釋檢索過程；若線索互相衝突，保留不確定或自然確認，不要擅自補成唯一答案。');
     }
-    lines.push('这只影响本轮的理解与反应顺序；你的身份、立场、关系距离和惯用表达仍然属于你自己。');
+    lines.push('這隻影響本輪的理解與反應順序；你的身份、立場、關係距離和慣用表達仍然屬於你自己。');
     return `${lines.join('\n')}\n\n`;
 }
 
@@ -413,8 +413,8 @@ const VALID_SCOPES = new Set<RecallQueryScope>(['memory', 'event_box']);
 const VALID_SOURCES = new Set<RecallQuerySource>(['reference', 'event_update', 'continuation']);
 
 /**
- * 轻量模型输出进入系统前的唯一归一化入口。V1 明确拒绝 month scope；无有效 query
- * 时 route 会自动降为 false，避免模型只喊“要搜”却不给可执行计划。
+ * 輕量模型輸出進入系統前的唯一歸一化入口。V1 明確拒絕 month scope；無有效 query
+ * 時 route 會自動降為 false，避免模型只喊“要搜”卻不給可執行計劃。
  */
 export function normalizeRecallPlan(value: unknown): RecallPlan {
     const source = value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -462,7 +462,7 @@ function formatRouterConversation(messages: Message[], charName?: string, userNa
         .map(message => {
             const role = message.role === 'assistant'
                 ? (charName || '角色')
-                : message.role === 'user' ? (userName || '用户') : '系统';
+                : message.role === 'user' ? (userName || '用戶') : '系統';
             return `${role}: ${message.content.trim().slice(0, 500)}`;
         })
         .filter(line => line.length > 3)
@@ -470,9 +470,9 @@ function formatRouterConversation(messages: Message[], charName?: string, userNa
 }
 
 /**
- * 预留的轻量 Recall Resolver。它只产出额外检索支路，不回答用户，也不替换原始 query。
- * context-m1.4 暂不从 ChatApp 回复管线调用；等真实失败样本证明旧召回不足时再启用。
- * Chat completion 不自动重试，并由 safeFetchJson 的硬超时中止；任何失败都由上层 fail-open。
+ * 預留的輕量 Recall Resolver。它只產出額外檢索支路，不回答用戶，也不替換原始 query。
+ * context-m1.4 暫不從 ChatApp 回覆管線調用；等真實失敗樣本證明舊召回不足時再啟用。
+ * Chat completion 不自動重試，並由 safeFetchJson 的硬超時中止；任何失敗都由上層 fail-open。
  */
 export async function runLightRecallRouter(
     messages: Message[],
@@ -487,19 +487,19 @@ export async function runLightRecallRouter(
         return { status: 'invalid_response', plan: emptyRecallPlan(), durationMs: 0 };
     }
 
-    const systemPrompt = `你是聊天应用的记忆检索路由器，不回答用户，只生成额外检索计划。
-本地闸门已认为最后一句可能缺少指代对象。请结合给出的最近对话，判断是否能生成比原句更明确的检索词。
+    const systemPrompt = `你是聊天應用的記憶檢索路由器，不回答用戶，只生成額外檢索計劃。
+本地閘門已認為最後一句可能缺少指代對象。請結合給出的最近對話，判斷是否能生成比原句更明確的檢索詞。
 
-规则：
-1. 不得虚构对话里没有依据的人名、事件名或事实。无法可靠补全时 route=false。
-2. 原始用户消息会由系统继续检索；这里只补充 1-3 条更明确的 query，不要复述原句。
-3. scope 只能是 memory 或 event_box。memory 查人物、事实、经历；event_box 查持续事件或进度变化。不要输出 month。
+規則：
+1. 不得虛構對話裡沒有依據的人名、事件名或事實。無法可靠補全時 route=false。
+2. 原始用戶消息會由系統繼續檢索；這裡只補充 1-3 條更明確的 query，不要複述原句。
+3. scope 只能是 memory 或 event_box。memory 查人物、事實、經歷；event_box 查持續事件或進度變化。不要輸出 month。
 4. source 只能是 reference、event_update、continuation。
-5. weight 与 confidence 都是 0..1。
-6. 只输出一个 JSON 对象，不要 Markdown 或解释。
+5. weight 與 confidence 都是 0..1。
+6. 只輸出一個 JSON 對象，不要 Markdown 或解釋。
 
 格式：
-{"route":true,"confidence":0.82,"queries":[{"text":"雾港观测员成绩","scope":"event_box","weight":0.9,"source":"event_update"}]}`;
+{"route":true,"confidence":0.82,"queries":[{"text":"霧港觀測員成績","scope":"event_box","weight":0.9,"source":"event_update"}]}`;
 
     try {
         const data = await safeFetchJson(
@@ -514,7 +514,7 @@ export async function runLightRecallRouter(
                     model: config.model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `最近对话：\n${conversation}` },
+                        { role: 'user', content: `最近對話：\n${conversation}` },
                     ],
                     temperature: 0.1,
                     max_tokens: 320,
@@ -523,7 +523,7 @@ export async function runLightRecallRouter(
             },
             0,
             timeoutMs,
-            { appName: 'ChatApp', purpose: '记忆召回路由' },
+            { appName: 'ChatApp', purpose: '記憶召回路由' },
         );
         const parsed = extractJson(extractContent(data));
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {

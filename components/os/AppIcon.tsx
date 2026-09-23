@@ -15,7 +15,7 @@ interface AppIconProps {
   variant?: 'default' | 'minimal' | 'dock';
 }
 
-// 动森（NookPhone）风格瓦片配色 —— 直接用 animal-island-ui 的应用色板（精确 hex）。
+// 動森（NookPhone）風格瓦片配色 —— 直接用 animal-island-ui 的應用色板（精確 hex）。
 const NOOK_TILE_COLORS: Record<string, string> = {
   indigo: '#889DF0', violet: '#B77DEE', purple: '#B77DEE', fuchsia: '#F8A6B2',
   pink: '#F8A6B2', rose: '#FC736D', red: '#FC736D', orange: '#E59266',
@@ -30,7 +30,7 @@ const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md',
   const isNook = theme.skin === 'animalcrossing';
   const isPaperDesktop = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
   const preserveCustomOutline = !!customIconUrl && theme.preserveCustomIconOutlines === true;
-  // 动森皮肤下标签用深棕色，普通皮肤沿用主题 contentColor。
+  // 動森皮膚下標籤用深棕色，普通皮膚沿用主題 contentColor。
   const contentColor = isNook ? '#725d42' : (theme.contentColor || '#ffffff');
 
   // Standard sizes
@@ -39,7 +39,7 @@ const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md',
     size === 'sm' ? 'w-[2.75rem] h-[2.75rem]' :
     'w-[3.5rem] h-[3.5rem]';
 
-  // 动森彩蛋模式：整机统一 NookPhone 外观，连用户自定义图标也一并盖掉。
+  // 動森彩蛋模式：整機統一 NookPhone 外觀，連用戶自定義圖標也一併蓋掉。
   if (isNook) {
     const tileColor = NOOK_TILE_COLORS[app.color] || NOOK_TILE_COLORS.slate;
     return (
@@ -49,7 +49,7 @@ const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md',
         className="flex flex-col items-center gap-1.5 group relative active:scale-95 transition-transform duration-200"
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
-        {/* NookPhone 圆角方块瓦片：纯平面，无边框/无阴影/无高光（对齐参考图） */}
+        {/* NookPhone 圓角方塊瓦片：純平面，無邊框/無陰影/無高光（對齊參考圖） */}
         <div
           className={`${sizeClasses} relative flex items-center justify-center overflow-hidden`}
           style={{ backgroundColor: tileColor, borderRadius: '34%' }}
@@ -77,7 +77,7 @@ const AppIcon: React.FC<AppIconProps> = React.memo(({ app, onClick, size = 'md',
       className="flex flex-col items-center gap-1.5 group relative active:scale-95 transition-transform duration-200"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      {/* #409 的“保留透明图标原轮廓”改为可选；默认继续使用原来的系统圆角底框。 */}
+      {/* #409 的“保留透明圖標原輪廓”改為可選；默認繼續使用原來的系統圓角底框。 */}
       <div
         className={`${sizeClasses} relative flex items-center justify-center ${preserveCustomOutline ? '' : isPaperDesktop ? `
           rounded-[1.1rem] border

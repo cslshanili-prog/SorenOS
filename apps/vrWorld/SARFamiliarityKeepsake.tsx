@@ -17,9 +17,9 @@ export function SARFamiliarityKeepsake({ item, onClose, embedded=false }: { item
             event.stopPropagation();
         }
     }}>
-        {!embedded&&<header><button type="button" autoFocus onClick={onClose} aria-label="收好纪念物"><ArrowLeft size={21}/></button><div><small>SAR · KEEPSAKES</small><h3>{item.title}</h3></div></header>}
+        {!embedded&&<header><button type="button" autoFocus onClick={onClose} aria-label="收好紀念物"><ArrowLeft size={21}/></button><div><small>SAR · KEEPSAKES</small><h3>{item.title}</h3></div></header>}
         <main><SARFamiliarityEffects effect={effect} npc={item.npc} flags={item.flags} userName={item.userName} characters={[]} draft={draft} onDraftChange={value=>setDraft({...value,confirmed:true})} replay/>
-            <p className="sar-keepsake-description">{item.description}</p><small className="sar-keepsake-date">{new Date(item.at).toLocaleDateString('zh-CN')} · {item.npc==='caian'?'凯恩':'艾文'}的回忆</small>
+            <p className="sar-keepsake-description">{item.description}</p><small className="sar-keepsake-date">{new Date(item.at).toLocaleDateString('zh-CN')} · {item.npc==='caian'?'凱恩':'艾文'}的回憶</small>
         </main>
     </div>;
 }

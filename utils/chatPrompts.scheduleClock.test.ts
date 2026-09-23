@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// 角色关掉「时间感知强化」后，日程块曾经照旧写着「当前时段：22:00 你正在睡觉」——
-// 精确钟点从这条缝里漏了出去，而挡住它正是那个开关存在的意义。
-// 天气块早就按 includeTime 处理过同一件事（天气照给、只抽掉时间行），日程这条补齐。
-// 日程本身不受这个开关影响：它有自己的总开关。
+// 角色關掉「時間感知強化」後，日程塊曾經照舊寫著「當前時段：22:00 你正在睡覺」——
+// 精確鐘點從這條縫裡漏了出去，而擋住它正是那個開關存在的意義。
+// 天氣塊早就按 includeTime 處理過同一件事（天氣照給、只抽掉時間行），日程這條補齊。
+// 日程本身不受這個開關影響：它有自己的總開關。
 
 vi.mock('./dailySchedule', () => ({
     getDailyScheduleForChar: vi.fn(async () => ({
@@ -12,8 +12,8 @@ vi.mock('./dailySchedule', () => ({
         date: '2026-08-19',
         generatedAt: Date.now(),
         slots: [
-            { startTime: '00:00', activity: '睡觉', location: '家' },
-            { startTime: '23:30', activity: '看剧' },
+            { startTime: '00:00', activity: '睡覺', location: '家' },
+            { startTime: '23:30', activity: '看劇' },
         ],
     })),
 }));
@@ -37,22 +37,22 @@ const buildVolatile = async (timeAwarenessEnabled: boolean | undefined) => {
     return parts.volatileState;
 };
 
-describe('日程块的钟点跟着「时间感知」开关走', () => {
-    it('开着（默认）时照常报时段', async () => {
+describe('日程塊的鐘點跟著「時間感知」開關走', () => {
+    it('開著（默認）時照常報時段', async () => {
         const volatile = await buildVolatile(undefined);
-        expect(volatile).toContain('当前时段：00:00 你正在睡觉');
-        expect(volatile).toContain('- 23:30 看剧');
+        expect(volatile).toContain('當前時段：00:00 你正在睡覺');
+        expect(volatile).toContain('- 23:30 看劇');
     });
 
-    it('关掉后活动还在，但钟点整个消失', async () => {
+    it('關掉後活動還在，但鐘點整個消失', async () => {
         const volatile = await buildVolatile(false);
-        expect(volatile).toContain('你正在睡觉');
-        expect(volatile).toContain('看剧');
+        expect(volatile).toContain('你正在睡覺');
+        expect(volatile).toContain('看劇');
         expect(volatile).not.toContain('00:00');
         expect(volatile).not.toContain('23:30');
     });
 
-    it('关掉后也不教改日程——那条指令拿时段当定位符', async () => {
+    it('關掉後也不教改日程——那條指令拿時段當定位符', async () => {
         const volatile = await buildVolatile(false);
         expect(volatile).not.toContain('CHANGE_SCHEDULE');
     });

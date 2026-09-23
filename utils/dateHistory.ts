@@ -9,9 +9,9 @@ export interface DateHistoryGroup {
     startAt: number;
     endAt: number;
     messages: Message[];
-    /** 按日期查看时，表示当天能识别到的见面开场数。 */
+    /** 按日期查看時，表示當天能識別到的見面開場數。 */
     encounterCount: number;
-    /** 旧记录可能没有 isOpening，UI 用它提示这是兼容分组。 */
+    /** 舊記錄可能沒有 isOpening，UI 用它提示這是兼容分組。 */
     hasOpeningAnchor: boolean;
 }
 
@@ -38,11 +38,11 @@ const sortMessagesChronologically = (messages: Message[]): Message[] => (
 );
 
 /**
- * 按“真实的一次见面”切分。
+ * 按“真實的一次見面”切分。
  *
- * 新记录以 isOpening 作为可靠开场锚点：从该开场到下一条开场，无论相隔多久、
- * 是否跨过午夜，都仍属于同一次见面。旧版没有锚点的记录只能按自然日期兼容分组，
- * 但不会再使用 30 分钟等容易误拆的间隔阈值。
+ * 新記錄以 isOpening 作為可靠開場錨點：從該開場到下一條開場，無論相隔多久、
+ * 是否跨過午夜，都仍屬於同一次見面。舊版沒有錨點的記錄只能按自然日期兼容分組，
+ * 但不會再使用 30 分鐘等容易誤拆的間隔閾值。
  */
 export function splitDateEncounters(messages: Message[]): DateHistoryGroup[] {
     const ordered = sortMessagesChronologically(messages);
@@ -81,7 +81,7 @@ export function splitDateEncounters(messages: Message[]): DateHistoryGroup[] {
             continue;
         }
 
-        // 没有开场锚点的旧记录按自然日期兜底；已锚定的一次见面不会因跨日被拆开。
+        // 沒有開場錨點的舊記錄按自然日期兜底；已錨定的一次見面不會因跨日被拆開。
         if (!currentHasOpening && getLocalDateKey(message.timestamp) !== getLocalDateKey(current[0].timestamp)) {
             flush();
         }
@@ -129,11 +129,11 @@ const exportedContent = (message: Message): string => {
         const description = typeof message.metadata?.visionDescription === 'string'
             ? message.metadata.visionDescription.trim()
             : '';
-        return description ? `[图片：${description}]` : '[图片]';
+        return description ? `[圖片：${description}]` : '[圖片]';
     }
     if (message.type === 'emoji') return message.content?.trim() ? `[表情] ${message.content.trim()}` : '[表情]';
-    if (message.type === 'voice') return message.content?.trim() ? `[语音] ${message.content.trim()}` : '[语音]';
-    return message.content?.trim() || '(无内容)';
+    if (message.type === 'voice') return message.content?.trim() ? `[語音] ${message.content.trim()}` : '[語音]';
+    return message.content?.trim() || '(無內容)';
 };
 
 export function formatDateHistoryExport(
@@ -142,9 +142,9 @@ export function formatDateHistoryExport(
     view: DateHistoryView,
 ): string {
     const lines: string[] = [
-        `见面记录 · ${characterName}`,
+        `見面記錄 · ${characterName}`,
         `整理方式：${view === 'encounter' ? '按次' : '按日期'}`,
-        `导出时间：${formatDateHistoryTime(Date.now(), true)}`,
+        `導出時間：${formatDateHistoryTime(Date.now(), true)}`,
         '',
     ];
 
@@ -156,7 +156,7 @@ export function formatDateHistoryExport(
         for (const message of group.messages) {
             const speaker = message.role === 'user'
                 ? '我'
-                : message.role === 'assistant' ? characterName : '系统';
+                : message.role === 'assistant' ? characterName : '系統';
             lines.push(`[${formatDateHistoryTime(message.timestamp, true)}] ${speaker}：${exportedContent(message)}`);
         }
         if (index < groups.length - 1) lines.push('');
@@ -167,5 +167,5 @@ export function formatDateHistoryExport(
 
 export function makeDateHistoryFileName(characterName: string, scope: string): string {
     const safeName = characterName.replace(/[\\/:*?"<>|]/g, '_').trim() || '角色';
-    return `${safeName}_见面记录_${scope}_${getLocalDateKey(Date.now())}.txt`;
+    return `${safeName}_見面記錄_${scope}_${getLocalDateKey(Date.now())}.txt`;
 }

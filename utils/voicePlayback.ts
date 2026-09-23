@@ -1,34 +1,34 @@
 /**
- * 聊天语音条：什么时候合成、合成完要不要立刻响。
+ * 聊天語音條：什麼時候合成、合成完要不要立刻響。
  *
- * 一句话版本：角色开了「收到就自动播放」，AI 的语音消息才会自己合成并响；
- * 没开就只留一条空语音条，用户点了才合成，合成完直接播。
+ * 一句話版本：角色開了「收到就自動播放」，AI 的語音消息才會自己合成並響；
+ * 沒開就只留一條空語音條，用戶點了才合成，合成完直接播。
  */
 
 /**
- * AI 消息到达后要不要顺手把语音合成出来。
+ * AI 消息到達後要不要順手把語音合成出來。
  *
- * 只认「收到就自动播放」这一个开关：没开的话合出来也不会响，等于替用户白花一次 TTS 调用
- * （还占着额度和时间）。空语音条照常显示，想听点一下就合成——那条路走的是下面的手动分支，
- * 合完立刻播，体验上只多等一次合成。
+ * 只認「收到就自動播放」這一個開關：沒開的話合出來也不會響，等於替用戶白花一次 TTS 調用
+ * （還佔著額度和時間）。空語音條照常顯示，想聽點一下就合成——那條路走的是下面的手動分支，
+ * 合完立刻播，體驗上只多等一次合成。
  */
 export function shouldAutoGenerateVoice(opts: {
-  /** 角色的「收到就自动播放」开关，未设置视作关 */
+  /** 角色的「收到就自動播放」開關，未設置視作關 */
   autoPlayEnabled?: boolean;
 }): boolean {
   return !!opts.autoPlayEnabled;
 }
 
 /**
- * 语音合成完要不要立刻响。两条规则各有来由，别合并简化：
- *  - AI 自动发来的语音，跟着「收到就自动播放」走（也只有开了这个开关才会自动合成）。
- *  - 用户主动要的语音（长按「转换语音」、点还没合成的空语音条），无论开关怎么设都播——
- *    他点这一下的意思就是「我现在要听」，还要再点一次播放属于白跑一趟。
+ * 語音合成完要不要立刻響。兩條規則各有來由，別合併簡化：
+ *  - AI 自動發來的語音，跟著「收到就自動播放」走（也只有開了這個開關才會自動合成）。
+ *  - 用戶主動要的語音（長按「轉換語音」、點還沒合成的空語音條），無論開關怎麼設都播——
+ *    他點這一下的意思就是「我現在要聽」，還要再點一次播放屬於白跑一趟。
  */
 export function shouldAutoPlayGeneratedVoice(opts: {
-  /** 这次合成是 AI 消息到达后自动触发的（false = 用户主动点的） */
+  /** 這次合成是 AI 消息到達後自動觸發的（false = 用戶主動點的） */
   autoTriggered: boolean;
-  /** 角色的「收到就自动播放」开关，未设置视作关 */
+  /** 角色的「收到就自動播放」開關，未設置視作關 */
   autoPlayEnabled?: boolean;
 }): boolean {
   if (!opts.autoTriggered) return true;
@@ -68,11 +68,11 @@ export function stopVoiceAudio(audio: HTMLAudioElement): void {
   audio.pause();
 }
 
-export function voicePlaybackErrorMessage(error: unknown, replayLabel = '语音条'): string {
+export function voicePlaybackErrorMessage(error: unknown, replayLabel = '語音條'): string {
   if ((error as { name?: string })?.name === 'NotAllowedError') {
-    return `浏览器未允许播放，请点“${replayLabel}”继续；无需重新生成语音。`;
+    return `瀏覽器未允許播放，請點“${replayLabel}”繼續；無需重新生成語音。`;
   }
-  return `音频加载或播放失败，请点“${replayLabel}”重试播放；若是旧音频链接，可能已过期。`;
+  return `音頻加載或播放失敗，請點“${replayLabel}”重試播放；若是舊音頻鏈接，可能已過期。`;
 }
 
 /** Report playback only after play() succeeds; stale attempts cannot reset a newer voice. */

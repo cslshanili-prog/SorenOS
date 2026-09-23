@@ -1,7 +1,7 @@
 /**
  * WebDAV Client for Cloud Backup
  *
- * Supports: 坚果云 (Nutstore), Nextcloud, Synology NAS, TeraCloud, Box, etc.
+ * Supports: 堅果雲 (Nutstore), Nextcloud, Synology NAS, TeraCloud, Box, etc.
  *
  * Two transports:
  *   - Native (Capacitor Android/iOS): hits the WebDAV server directly via
@@ -16,13 +16,13 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { CloudBackupConfig, CloudBackupFile } from '../types';
 import { getProxyWorkerUrl } from './proxyWorker';
 
-// 经 CF Worker 代理上传（web 路径）的请求体上限。Cloudflare Worker 免费版单次请求体约 100MB，
-// 超了会被 Worker/平台直接拒（返回 413 之类），且大请求体上行还可能撞 ~42s 上行超时。所以在发起
-// 上传前先按 blob 大小预检：超限直接给可执行的报错（改用本地导出 / GitHub），别让用户傻等几十秒
-// 才失败。备份 blob 已是压缩 zip，gzip 上行无意义，这里只做大小闸。
-// 注：native 路径（CapacitorHttp 直连上游 WebDAV，不过 Worker）不受此限，上游各家容量不一，
-// 由响应状态兜底；native 端把整个 blob 读进 ArrayBuffer 的额外拷贝是已知内存开销，彻底解需改
-// 「先落临时文件再按路径 PUT」，列为 follow-up。
+// 經 CF Worker 代理上傳（web 路徑）的請求體上限。Cloudflare Worker 免費版單次請求體約 100MB，
+// 超了會被 Worker/平台直接拒（返回 413 之類），且大請求體上行還可能撞 ~42s 上行超時。所以在發起
+// 上傳前先按 blob 大小預檢：超限直接給可執行的報錯（改用本地導出 / GitHub），別讓用戶傻等幾十秒
+// 才失敗。備份 blob 已是壓縮 zip，gzip 上行無意義，這裡只做大小閘。
+// 注：native 路徑（CapacitorHttp 直連上游 WebDAV，不過 Worker）不受此限，上游各家容量不一，
+// 由響應狀態兜底；native 端把整個 blob 讀進 ArrayBuffer 的額外拷貝是已知內存開銷，徹底解需改
+// 「先落臨時文件再按路徑 PUT」，列為 follow-up。
 const WORKER_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 const formatMiB = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
@@ -147,16 +147,16 @@ export const testConnection = async (config: CloudBackupConfig): Promise<{ ok: b
             body: '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>',
         });
 
-        if (res.status === 207 || res.status === 200) return { ok: true, message: '连接成功' };
-        if (res.status === 401) return { ok: false, message: '认证失败：请检查用户名和密码' };
+        if (res.status === 207 || res.status === 200) return { ok: true, message: '連接成功' };
+        if (res.status === 401) return { ok: false, message: '認證失敗：請檢查用戶名和密碼' };
         if (res.status === 404) {
             const mkcolOk = await createDirectory(config);
-            if (mkcolOk) return { ok: true, message: '连接成功（已自动创建备份目录）' };
-            return { ok: false, message: '备份目录不存在且无法创建' };
+            if (mkcolOk) return { ok: true, message: '連接成功（已自動創建備份目錄）' };
+            return { ok: false, message: '備份目錄不存在且無法創建' };
         }
-        return { ok: false, message: `服务器返回 ${res.status}` };
+        return { ok: false, message: `服務器返回 ${res.status}` };
     } catch (e: any) {
-        return { ok: false, message: `连接失败: ${e.message}` };
+        return { ok: false, message: `連接失敗: ${e.message}` };
     }
 };
 
@@ -188,11 +188,11 @@ export const uploadBackup = async (
     const remotePath = config.remotePath.replace(/\/+$/, '') + '/' + filename;
 
     const mapStatus = (s: number) => {
-        if (s === 200 || s === 201 || s === 204) return { ok: true, message: '上传成功' };
-        if (s === 401) return { ok: false, message: '认证失败' };
-        if (s === 413) return { ok: false, message: `备份文件 ${formatMiB(blob.size)} 超出云端上传上限，请改用「本地导出」或「GitHub 备份」` };
-        if (s === 507) return { ok: false, message: '云端空间不足' };
-        return { ok: false, message: `上传失败 (${s})` };
+        if (s === 200 || s === 201 || s === 204) return { ok: true, message: '上傳成功' };
+        if (s === 401) return { ok: false, message: '認證失敗' };
+        if (s === 413) return { ok: false, message: `備份文件 ${formatMiB(blob.size)} 超出雲端上傳上限，請改用「本地導出」或「GitHub 備份」` };
+        if (s === 507) return { ok: false, message: '雲端空間不足' };
+        return { ok: false, message: `上傳失敗 (${s})` };
     };
 
     // On native, PUT goes direct via CapacitorHttp (no XHR upload progress
@@ -208,16 +208,16 @@ export const uploadBackup = async (
             onProgress?.(100);
             return mapStatus(res.status);
         } catch (e: any) {
-            return { ok: false, message: `上传失败: ${e?.message || '未知错误'}` };
+            return { ok: false, message: `上傳失敗: ${e?.message || '未知錯誤'}` };
         }
     }
 
     return new Promise((resolve) => {
-        // 大小预检：经 Worker 代理的上传超体积上限时，直接给可执行报错，不发起注定失败的上传。
+        // 大小預檢：經 Worker 代理的上傳超體積上限時，直接給可執行報錯，不發起註定失敗的上傳。
         if (blob.size > WORKER_MAX_UPLOAD_BYTES) {
             resolve({
                 ok: false,
-                message: `备份文件 ${formatMiB(blob.size)} 超过云端代理上传上限（约 ${formatMiB(WORKER_MAX_UPLOAD_BYTES)}），请改用「本地导出」或「GitHub 备份」`,
+                message: `備份文件 ${formatMiB(blob.size)} 超過雲端代理上傳上限（約 ${formatMiB(WORKER_MAX_UPLOAD_BYTES)}），請改用「本地導出」或「GitHub 備份」`,
             });
             return;
         }
@@ -240,9 +240,9 @@ export const uploadBackup = async (
             onProgress?.(100);
             resolve(mapStatus(xhr.status));
         };
-        xhr.onerror = () => resolve({ ok: false, message: '上传失败: 网络错误' });
-        xhr.onabort = () => resolve({ ok: false, message: '上传已取消' });
-        xhr.ontimeout = () => resolve({ ok: false, message: '上传超时' });
+        xhr.onerror = () => resolve({ ok: false, message: '上傳失敗: 網絡錯誤' });
+        xhr.onabort = () => resolve({ ok: false, message: '上傳已取消' });
+        xhr.ontimeout = () => resolve({ ok: false, message: '上傳超時' });
 
         xhr.send(blob);
     });

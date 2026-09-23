@@ -1,5 +1,5 @@
 /**
- * LifeSim Event Chain System — 事件连锁引擎
+ * LifeSim Event Chain System — 事件連鎖引擎
  *
  * When an event (fight, romance, gossip …) fires, this module evaluates a
  * table of chain rules to decide whether delayed follow-up effects should
@@ -14,6 +14,7 @@ import {
 import {
     getNPC, getFamily, getFamilyMembers, clamp, getRelationship
 } from './lifeSimEngine';
+import { equalsAnyScript } from './scriptKey';
 
 // ── helpers ────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ interface ChainRule {
 
 function hasPersonality(npc: SimNPC | undefined, ...traits: string[]): boolean {
     if (!npc) return false;
-    return npc.personality.some(p => traits.includes(p));
+    return npc.personality.some(p => traits.some(t => equalsAnyScript(t, p)));
 }
 
 /** Return the SimFamily that contains *both* NPCs, or undefined. */
@@ -107,11 +108,11 @@ const CHAIN_RULES: ChainRule[] = [
             return false;
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 对 ${npcName(state, ids[1])} 暗自策划复仇……`;
+            return `${npcName(state, ids[0])} 對 ${npcName(state, ids[1])} 暗自策劃復仇……`;
         },
     },
 
-    // 2. fight → reconciliation (20% if both NPCs are 善良 or 温柔)
+    // 2. fight → reconciliation (20% if both NPCs are 善良 or 溫柔)
     {
         trigger: 'fight',
         probability: 0.2,
@@ -122,10 +123,10 @@ const CHAIN_RULES: ChainRule[] = [
             if (ids.length < 2) return false;
             const a = getNPC(state, ids[0]);
             const b = getNPC(state, ids[1]);
-            return hasPersonality(a, '善良', '温柔') && hasPersonality(b, '善良', '温柔');
+            return hasPersonality(a, '善良', '溫柔') && hasPersonality(b, '善良', '溫柔');
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 与 ${npcName(state, ids[1])} 可能冰释前嫌`;
+            return `${npcName(state, ids[0])} 與 ${npcName(state, ids[1])} 可能冰釋前嫌`;
         },
     },
 
@@ -144,7 +145,7 @@ const CHAIN_RULES: ChainRule[] = [
             return members.length >= 3;
         },
         buildDescription(state, ids) {
-            return `吵架被目击！八卦开始在家族里传播……`;
+            return `吵架被目擊！八卦開始在家族裡傳播……`;
         },
         selectInvolved(state, ids) {
             // All family members who witnessed (same family)
@@ -165,7 +166,7 @@ const CHAIN_RULES: ChainRule[] = [
             return areDifferentFamilies(state, ids) && state.chaosLevel > 40;
         },
         buildDescription(state, ids) {
-            return `跨家族冲突升级为家族世仇的苗头……`;
+            return `跨家族衝突升級為家族世仇的苗頭……`;
         },
     },
 
@@ -191,7 +192,7 @@ const CHAIN_RULES: ChainRule[] = [
             return false;
         },
         buildDescription(state, ids) {
-            return `有人暗自嫉妒 ${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 的暧昧关系……`;
+            return `有人暗自嫉妒 ${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 的曖昧關係……`;
         },
     },
 
@@ -214,7 +215,7 @@ const CHAIN_RULES: ChainRule[] = [
                 !ids.includes(npc.id) &&
                 npc.crushes?.some(c => ids.includes(c))
             );
-            return `${third?.name ?? '某人'} 对这段暧昧心生不满，三角关系形成！`;
+            return `${third?.name ?? '某人'} 對這段曖昧心生不滿，三角關係形成！`;
         },
         selectInvolved(state, ids) {
             const third = state.npcs.find(npc =>
@@ -250,7 +251,7 @@ const CHAIN_RULES: ChainRule[] = [
             return false;
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 鼓起勇气准备向 ${npcName(state, ids[1])} 告白……`;
+            return `${npcName(state, ids[0])} 鼓起勇氣準備向 ${npcName(state, ids[1])} 告白……`;
         },
     },
 
@@ -267,7 +268,7 @@ const CHAIN_RULES: ChainRule[] = [
         severityDelta: 0,
         conditions() { return true; },
         buildDescription(_state, _ids) {
-            return `八卦像野火一样蔓延开来……`;
+            return `八卦像野火一樣蔓延開來……`;
         },
     },
 
@@ -286,7 +287,7 @@ const CHAIN_RULES: ChainRule[] = [
         },
         buildDescription(state, ids) {
             const target = npcName(state, ids[ids.length - 1]);
-            return `${target} 听到八卦后暴怒，矛盾即将爆发！`;
+            return `${target} 聽到八卦後暴怒，矛盾即將爆發！`;
         },
     },
 
@@ -304,7 +305,7 @@ const CHAIN_RULES: ChainRule[] = [
         },
         buildDescription(state, ids) {
             const target = npcName(state, ids[ids.length - 1]);
-            return `${target} 因为流言蜚语情绪崩溃了……`;
+            return `${target} 因為流言蜚語情緒崩潰了……`;
         },
     },
 
@@ -323,11 +324,11 @@ const CHAIN_RULES: ChainRule[] = [
             return areDifferentFamilies(state, ids);
         },
         buildDescription(state, ids) {
-            return `跨家族联盟正在酝酿一场权力格局的变化……`;
+            return `跨家族聯盟正在醞釀一場權力格局的變化……`;
         },
     },
 
-    // 12. alliance → secret_alliance (30% if both are 腹黑 or 聪明)
+    // 12. alliance → secret_alliance (30% if both are 腹黑 or 聰明)
     {
         trigger: 'alliance',
         probability: 0.3,
@@ -338,10 +339,10 @@ const CHAIN_RULES: ChainRule[] = [
             if (ids.length < 2) return false;
             const a = getNPC(state, ids[0]);
             const b = getNPC(state, ids[1]);
-            return hasPersonality(a, '腹黑', '聪明') && hasPersonality(b, '腹黑', '聪明');
+            return hasPersonality(a, '腹黑', '聰明') && hasPersonality(b, '腹黑', '聰明');
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 悄然结成秘密同盟……`;
+            return `${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 悄然結成秘密同盟……`;
         },
     },
 
@@ -358,7 +359,7 @@ const CHAIN_RULES: ChainRule[] = [
         severityDelta: 1,
         conditions() { return true; },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 的竞争逐渐白热化，冲突一触即发！`;
+            return `${npcName(state, ids[0])} 和 ${npcName(state, ids[1])} 的競爭逐漸白熱化，衝突一觸即發！`;
         },
     },
 
@@ -387,7 +388,7 @@ const CHAIN_RULES: ChainRule[] = [
             return false;
         },
         buildDescription(state, ids) {
-            return `竞争中有人意图背叛，局势变得更加复杂……`;
+            return `競爭中有人意圖背叛，局勢變得更加複雜……`;
         },
     },
 
@@ -417,11 +418,11 @@ const CHAIN_RULES: ChainRule[] = [
                 for (let j = i + 1; j < ids.length; j++) {
                     const fam = sharedFamily(state, ids[i], ids[j]);
                     if (fam && getRelationship(fam, ids[i], ids[j]) > 30) {
-                        return `聚会上 ${npcName(state, ids[i])} 和 ${npcName(state, ids[j])} 擦出了火花……`;
+                        return `聚會上 ${npcName(state, ids[i])} 和 ${npcName(state, ids[j])} 擦出了火花……`;
                     }
                 }
             }
-            return `聚会上有人暗生情愫……`;
+            return `聚會上有人暗生情愫……`;
         },
         selectInvolved(state, ids) {
             for (let i = 0; i < ids.length; i++) {
@@ -454,7 +455,7 @@ const CHAIN_RULES: ChainRule[] = [
             return false;
         },
         buildDescription(state, ids) {
-            return `聚会的温馨气氛让某些冤家有了和解的可能……`;
+            return `聚會的溫馨氣氛讓某些冤家有了和解的可能……`;
         },
         selectInvolved(state, ids) {
             for (let i = 0; i < ids.length; i++) {
@@ -484,7 +485,7 @@ const CHAIN_RULES: ChainRule[] = [
             return areDifferentFamilies(state, ids);
         },
         buildDescription(_state, _ids) {
-            return `复仇计划牵连到不同家族，世仇即将形成……`;
+            return `復仇計劃牽連到不同家族，世仇即將形成……`;
         },
     },
 
@@ -497,7 +498,7 @@ const CHAIN_RULES: ChainRule[] = [
         severityDelta: 1,
         conditions() { return true; },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 的复仇行动正式爆发！`;
+            return `${npcName(state, ids[0])} 的復仇行動正式爆發！`;
         },
     },
 
@@ -510,7 +511,7 @@ const CHAIN_RULES: ChainRule[] = [
         severityDelta: 1,
         conditions() { return true; },
         buildDescription(_state, _ids) {
-            return `三角恋中有人选择了背叛……`;
+            return `三角戀中有人選擇了背叛……`;
         },
     },
 
@@ -524,9 +525,9 @@ const CHAIN_RULES: ChainRule[] = [
         conditions() { return true; },
         buildDescription(state, ids) {
             if (ids.length >= 2) {
-                return `${npcName(state, ids[0])} 决定不再犹豫，准备正式告白！`;
+                return `${npcName(state, ids[0])} 決定不再猶豫，準備正式告白！`;
             }
-            return `三角恋中有人决定正式告白！`;
+            return `三角戀中有人決定正式告白！`;
         },
         selectInvolved(_state, ids) {
             // Pick the first two as confessor and target
@@ -543,11 +544,11 @@ const CHAIN_RULES: ChainRule[] = [
         severityDelta: 0,
         conditions() { return true; },
         buildDescription(_state, _ids) {
-            return `嫉妒化为八卦，流言开始四处传播……`;
+            return `嫉妒化為八卦，流言開始四處傳播……`;
         },
     },
 
-    // 22. jealousy_spiral → fight_break (35% if jealous NPC is 暴躁 or 冲动)
+    // 22. jealousy_spiral → fight_break (35% if jealous NPC is 暴躁 or 衝動)
     {
         trigger: 'jealousy_spiral',
         probability: 0.35,
@@ -557,10 +558,10 @@ const CHAIN_RULES: ChainRule[] = [
         conditions(state, ids) {
             if (ids.length < 1) return false;
             const npc = getNPC(state, ids[0]);
-            return hasPersonality(npc, '暴躁', '冲动');
+            return hasPersonality(npc, '暴躁', '衝動');
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 因嫉妒失控，冲突爆发！`;
+            return `${npcName(state, ids[0])} 因嫉妒失控，衝突爆發！`;
         },
     },
 
@@ -575,7 +576,7 @@ const CHAIN_RULES: ChainRule[] = [
         buildDescription(state, ids) {
             const weakest = findWeakestMoodNPC(state, ids);
             const name = weakest ? weakest.name : '某人';
-            return `家族纷争让 ${name} 不堪重负，萌生出走念头……`;
+            return `家族紛爭讓 ${name} 不堪重負，萌生出走念頭……`;
         },
         selectInvolved(state, ids) {
             const weakest = findWeakestMoodNPC(state, ids);
@@ -593,9 +594,9 @@ const CHAIN_RULES: ChainRule[] = [
         conditions() { return true; },
         buildDescription(state, ids) {
             if (ids.length >= 1) {
-                return `被背叛的 ${npcName(state, ids[0])} 开始谋划复仇……`;
+                return `被背叛的 ${npcName(state, ids[0])} 開始謀劃復仇……`;
             }
-            return `被背叛者开始谋划复仇……`;
+            return `被背叛者開始謀劃復仇……`;
         },
     },
 
@@ -612,7 +613,7 @@ const CHAIN_RULES: ChainRule[] = [
             return (npc?.mood ?? 0) < -60;
         },
         buildDescription(state, ids) {
-            return `${npcName(state, ids[0])} 情绪彻底崩溃，决定离家出走！`;
+            return `${npcName(state, ids[0])} 情緒徹底崩潰，決定離家出走！`;
         },
         selectInvolved(_state, ids) {
             return ids.slice(0, 1);

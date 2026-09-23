@@ -21,7 +21,7 @@ const losAngelesChar = {
 const slots: ScheduleSlot[] = [
     { startTime: '08:00', activity: '早餐' },
     { startTime: '12:00', activity: '午餐' },
-    { startTime: '18:00', activity: '晚饭' },
+    { startTime: '18:00', activity: '晚飯' },
 ];
 
 describe('character schedule clock', () => {
@@ -37,7 +37,7 @@ describe('character schedule clock', () => {
 
     it('falls back to the phone clock when custom timezone is disabled', () => {
         process.env.TZ = 'Asia/Shanghai';
-        const instant = new Date('2026-07-20T16:30:00.000Z'); // 手机 7/21 00:30
+        const instant = new Date('2026-07-20T16:30:00.000Z'); // 手機 7/21 00:30
         const disabled = {
             ...losAngelesChar,
             customTimezoneEnabled: false,
@@ -50,7 +50,7 @@ describe('character schedule clock', () => {
     it('ignores malformed slot times instead of selecting them', () => {
         const instant = new Date('2026-07-20T16:30:00.000Z');
         expect(getCurrentScheduleSlotIndex([
-            { startTime: 'not-a-time', activity: '坏数据' },
+            { startTime: 'not-a-time', activity: '壞數據' },
             ...slots,
         ], losAngelesChar, instant)).toBe(1);
     });

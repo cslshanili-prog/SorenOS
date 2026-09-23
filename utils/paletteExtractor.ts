@@ -1,18 +1,18 @@
 /**
- * 调色板提取 — Median Cut 色彩量化
+ * 調色板提取 — Median Cut 色彩量化
  *
- * 纯 JS 实现，无外部依赖。
- * - extractPalette: 从 ImageData 提取 N 色调色板
- * - applyPalette: 将图片重映射到指定调色板
+ * 純 JS 實現，無外部依賴。
+ * - extractPalette: 從 ImageData 提取 N 色調色板
+ * - applyPalette: 將圖片重映射到指定調色板
  */
 
-// ─── Median Cut 调色板提取 ───────────────────────────
+// ─── Median Cut 調色板提取 ───────────────────────────
 
 /**
- * 从图片中提取 N 色调色板。
- * @param imageData 图片数据
- * @param colorCount 目标颜色数 (4-16)
- * @returns hex 颜色数组
+ * 從圖片中提取 N 色調色板。
+ * @param imageData 圖片數據
+ * @param colorCount 目標顏色數 (4-16)
+ * @returns hex 顏色數組
  */
 export function extractPalette(imageData: ImageData, colorCount: number): string[] {
   const { data, width, height } = imageData;
@@ -20,7 +20,7 @@ export function extractPalette(imageData: ImageData, colorCount: number): string
 
   // 收集所有非透明像素
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] < 20) continue; // 跳过透明
+    if (data[i + 3] < 20) continue; // 跳過透明
     pixels.push([data[i], data[i + 1], data[i + 2]]);
   }
 
@@ -29,7 +29,7 @@ export function extractPalette(imageData: ImageData, colorCount: number): string
   // Median Cut
   const buckets = medianCut(pixels, colorCount);
 
-  // 每个 bucket 取平均色
+  // 每個 bucket 取平均色
   return buckets.map(bucket => {
     let r = 0, g = 0, b = 0;
     for (const [pr, pg, pb] of bucket) {
@@ -41,7 +41,7 @@ export function extractPalette(imageData: ImageData, colorCount: number): string
 }
 
 /**
- * Median Cut 递归分割。
+ * Median Cut 遞歸分割。
  */
 function medianCut(
   pixels: [number, number, number][],
@@ -69,12 +69,12 @@ function medianCut(
 
   pixels.sort((a, b) => a[channel] - b[channel]);
 
-  // 从中位数切分
+  // 從中位數切分
   const mid = Math.floor(pixels.length / 2);
   const left = pixels.slice(0, mid);
   const right = pixels.slice(mid);
 
-  // 递归：平均分配目标颜色数
+  // 遞歸：平均分配目標顏色數
   const leftCount = Math.floor(targetCount / 2);
   const rightCount = targetCount - leftCount;
 
@@ -84,19 +84,19 @@ function medianCut(
   ];
 }
 
-// ─── 调色板应用 ──────────────────────────────────────
+// ─── 調色板應用 ──────────────────────────────────────
 
 /**
- * 将图片的每个像素重映射到最近的调色板颜色。
- * @param imageData 原始图片数据（会被修改）
- * @param palette hex 调色板
+ * 將圖片的每個像素重映射到最近的調色板顏色。
+ * @param imageData 原始圖片數據（會被修改）
+ * @param palette hex 調色板
  */
 export function applyPalette(imageData: ImageData, palette: string[]): void {
   const { data } = imageData;
   const paletteRgb = palette.map(hexToRgb);
 
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] < 20) continue; // 跳过透明
+    if (data[i + 3] < 20) continue; // 跳過透明
 
     const r = data[i], g = data[i + 1], b = data[i + 2];
     let minDist = Infinity;
@@ -117,7 +117,7 @@ export function applyPalette(imageData: ImageData, palette: string[]): void {
   }
 }
 
-// ─── 辅助 ────────────────────────────────────────────
+// ─── 輔助 ────────────────────────────────────────────
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');

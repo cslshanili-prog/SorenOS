@@ -16,17 +16,17 @@ const memoryStorage = () => {
     };
 };
 
-describe('SAR 异世界双卡池', () => {
-    it('包含 25 张异界异格和 24 张异界坐标模块，且底层兼容 ID 唯一', () => {
+describe('SAR 異世界雙卡池', () => {
+    it('包含 25 張異界異格和 24 張異界座標模塊，且底層兼容 ID 唯一', () => {
         expect(SAR_VARIANT_MODULES).toHaveLength(25);
         expect(SAR_STORY_MODULES).toHaveLength(24);
         expect(new Set(SAR_ALL_MODULES.map(module => module.id)).size).toBe(49);
-        expect(SAR_STORY_MODULES.map(module => module.title)).toEqual(expect.arrayContaining(['王城处刑夜', '浮空学院坠落', '护送末代神明', '唯一归还名额']));
-        expect(SAR_STORY_MODULES.some(module => module.title === '企业战争')).toBe(false);
-        expect(SAR_STORY_MODULES.filter(module => /已经|正在|即将|只剩|开始|来到|进行到|连续抵达/.test(module.summary)).length).toBeGreaterThanOrEqual(18);
+        expect(SAR_STORY_MODULES.map(module => module.title)).toEqual(expect.arrayContaining(['王城處刑夜', '浮空學院墜落', '護送末代神明', '唯一歸還名額']));
+        expect(SAR_STORY_MODULES.some(module => module.title === '企業戰爭')).toBe(false);
+        expect(SAR_STORY_MODULES.filter(module => /已[经經]|正在|即[将將]|只剩|[开開]始|[来來]到|[进進]行到|[连連][续續]抵[达達]/.test(module.summary)).length).toBeGreaterThanOrEqual(18);
     });
 
-    it('两池每天各有一次免费抽取，互不占用', () => {
+    it('兩池每天各有一次免費抽取，互不佔用', () => {
         const storage = memoryStorage();
         const today = new Date(2026, 8, 1, 8, 0, 0);
         const variant = drawSARModule('variant', storage, today, () => 0);
@@ -38,7 +38,7 @@ describe('SAR 异世界双卡池', () => {
         expect(drawSARModule('story', storage, today, () => 0.999).ok).toBe(true);
     });
 
-    it('同池当天不能重复免费抽，次日恢复', () => {
+    it('同池當天不能重複免費抽，次日恢復', () => {
         const storage = memoryStorage();
         const today = new Date(2026, 8, 1, 23, 59, 0);
         const tomorrow = new Date(2026, 8, 2, 0, 1, 0);
@@ -47,7 +47,7 @@ describe('SAR 异世界双卡池', () => {
         expect(drawSARModule('variant', storage, tomorrow, () => 0).ok).toBe(true);
     });
 
-    it('重复模块会叠加数量，并保留抽取记录', () => {
+    it('重複模塊會疊加數量，並保留抽取記錄', () => {
         const storage = memoryStorage();
         drawSARModule('story', storage, new Date(2026, 8, 1), () => 0);
         drawSARModule('story', storage, new Date(2026, 8, 2), () => 0);
@@ -56,7 +56,7 @@ describe('SAR 异世界双卡池', () => {
         expect(state.history).toHaveLength(2);
     });
 
-    it('开发模式可以重复抽取，且不消耗原有每日额度', () => {
+    it('開發模式可以重複抽取，且不消耗原有每日額度', () => {
         const storage = memoryStorage();
         const today = new Date(2026, 8, 1, 12, 0, 0);
         expect(drawSARModule('story', storage, today, () => 0, true).ok).toBe(true);
@@ -67,13 +67,13 @@ describe('SAR 异世界双卡池', () => {
         expect(isSARFreeDrawAvailable('story', state, today)).toBe(true);
     });
 
-    it('损坏的本地存档会安全回退', () => {
+    it('損壞的本地存檔會安全回退', () => {
         const storage = memoryStorage();
         storage.setItem('vr_sar_gacha_state_v1', '{broken');
         expect(readSARGachaState(storage)).toMatchObject({ version: 1, collection: {}, history: [] });
     });
 
-    it('回拨日期不恢复已领取的免费机会，两池仍各自记录', () => {
+    it('回撥日期不恢復已領取的免費機會，兩池仍各自記錄', () => {
         const storage = memoryStorage();
         drawSARModule('story', storage, new Date(2026, 8, 12), () => 0);
         const state = readSARGachaState(storage);
@@ -83,7 +83,7 @@ describe('SAR 异世界双卡池', () => {
         expect(isSARFreeDrawAvailable('variant', state, new Date(2026, 8, 12))).toBe(true);
     });
 
-    it('同池连续两次抽到已有芯片后给未收录芯片，另一池和刷新不清空记录', () => {
+    it('同池連續兩次抽到已有芯片後給未收錄芯片，另一池和刷新不清空記錄', () => {
         const storage = memoryStorage(), today = new Date(2026, 8, 12);
         for (let i = 0; i < 3; i++) drawSARModule('story', storage, today, () => 0, true);
         expect(readSARGachaState(storage).duplicateStreak?.story).toBe(2);
@@ -95,7 +95,7 @@ describe('SAR 异世界双卡池', () => {
         expect(readSARGachaState(storage).duplicateStreak).toEqual({story:0,variant:0});
     });
 
-    it('自然抽到新芯片重置计数；收齐之后保持可抽且不制造无效物品', () => {
+    it('自然抽到新芯片重置計數；收齊之後保持可抽且不製造無效物品', () => {
         const storage = memoryStorage(), today = new Date(2026, 8, 12);
         drawSARModule('story', storage, today, () => 0, true);
         drawSARModule('story', storage, today, () => 0, true);

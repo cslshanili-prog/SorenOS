@@ -11,7 +11,7 @@ export function renderShareCard(design: CardDesign, image?: HTMLImageElement | n
     canvas.width = wide ? 1440 : 1080;
     canvas.height = wide ? 960 : 1440;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('当前设备无法生成图片');
+    if (!ctx) throw new Error('當前設備無法生成圖片');
     const w = canvas.width, h = canvas.height;
     const ink = poster ? '#fffdf9' : '#292b32';
     const muted = poster ? '#d4d0d9' : '#686670';
@@ -69,19 +69,19 @@ export function renderShareCard(design: CardDesign, image?: HTMLImageElement | n
     const ruleY = wide ? 640 : 1246;
     ctx.fillStyle = poster ? '#ffffff40' : '#292b3230'; ctx.fillRect(x, ruleY, width, 1);
     text('使用限制', ruleY + 43, 21, muted, 500);
-    wrapped(design.restrictions.trim() || '未注明 · 使用前请联系作者', ruleY + 82, 25, wide ? 132 : 66, ink);
-    text('PNG 原文件 · 在对应功能中导入', h - 36, 19, muted);
+    wrapped(design.restrictions.trim() || '未註明 · 使用前請聯繫作者', ruleY + 82, 25, wide ? 132 : 66, ink);
+    text('PNG 原文件 · 在對應功能中導入', h - 36, 19, muted);
     return canvas;
 }
 export const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> => new Promise((resolve, reject) => {
-    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('图片生成失败，请重试')), 'image/png');
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('圖片生成失敗，請重試')), 'image/png');
 });
 export function loadCardImage(url: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => { clearTimeout(timer); resolve(image); };
-        image.onerror = () => { clearTimeout(timer); reject(new Error('预览图无法读取，请换一张图片')); };
-        const timer = setTimeout(() => { image.src = ''; reject(new Error('预览图读取超时，请重新上传')); }, 15000);
+        image.onerror = () => { clearTimeout(timer); reject(new Error('預覽圖無法讀取，請換一張圖片')); };
+        const timer = setTimeout(() => { image.src = ''; reject(new Error('預覽圖讀取超時，請重新上傳')); }, 15000);
         image.src = url;
     });
 }

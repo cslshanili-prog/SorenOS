@@ -11,14 +11,14 @@ import {
 } from './backupReminder';
 
 const DAY = 24 * 60 * 60 * 1000;
-const T0 = 1_700_000_000_000; // 固定基准时间，避开 Date.now()
+const T0 = 1_700_000_000_000; // 固定基準時間，避開 Date.now()
 
 beforeEach(() => {
     localStorage.clear();
 });
 
 describe('clampReminderDays', () => {
-    it('夹在 1~30，取整，非法值回默认', () => {
+    it('夾在 1~30，取整，非法值回默認', () => {
         expect(clampReminderDays(0)).toBe(1);
         expect(clampReminderDays(999)).toBe(30);
         expect(clampReminderDays(7.6)).toBe(8);
@@ -27,46 +27,46 @@ describe('clampReminderDays', () => {
 });
 
 describe('getBackupReminderState', () => {
-    it('首次读取锚定 firstSeenAt 并回写，默认间隔 7 天', () => {
+    it('首次讀取錨定 firstSeenAt 並回寫，默認間隔 7 天', () => {
         const st = getBackupReminderState(T0);
         expect(st.intervalDays).toBe(BACKUP_REMINDER_DEFAULT_DAYS);
         expect(st.firstSeenAt).toBe(T0);
         expect(st.lastBackupAt).toBe(0);
-        // 回写后再读，firstSeenAt 不再随 now 变
+        // 回寫後再讀，firstSeenAt 不再隨 now 變
         expect(getBackupReminderState(T0 + 5 * DAY).firstSeenAt).toBe(T0);
     });
 });
 
 describe('shouldShowBackupReminder', () => {
-    it('新用户刚进来（未到间隔）不弹', () => {
-        getBackupReminderState(T0); // 锚 firstSeenAt = T0
+    it('新用戶剛進來（未到間隔）不彈', () => {
+        getBackupReminderState(T0); // 錨 firstSeenAt = T0
         expect(shouldShowBackupReminder(T0 + 3 * DAY)).toBe(false);
     });
 
-    it('从未备份且超过间隔 → 弹', () => {
+    it('從未備份且超過間隔 → 彈', () => {
         getBackupReminderState(T0);
         expect(shouldShowBackupReminder(T0 + 8 * DAY)).toBe(true);
     });
 
-    it('弹过之后进入一个间隔的冷却，不再连弹', () => {
+    it('彈過之後進入一個間隔的冷卻，不再連彈', () => {
         getBackupReminderState(T0);
         expect(shouldShowBackupReminder(T0 + 8 * DAY)).toBe(true);
         markBackupReminderShown(T0 + 8 * DAY);
-        expect(shouldShowBackupReminder(T0 + 9 * DAY)).toBe(false); // 冷却中
-        expect(shouldShowBackupReminder(T0 + 16 * DAY)).toBe(true);  // 又过了一个间隔
+        expect(shouldShowBackupReminder(T0 + 9 * DAY)).toBe(false); // 冷卻中
+        expect(shouldShowBackupReminder(T0 + 16 * DAY)).toBe(true);  // 又過了一個間隔
     });
 
-    it('备份成功后不再弹，且清掉提醒冷却', () => {
+    it('備份成功後不再彈，且清掉提醒冷卻', () => {
         getBackupReminderState(T0);
         markBackupReminderShown(T0 + 8 * DAY);
         markBackupDone(T0 + 9 * DAY);
         expect(getBackupReminderState().lastRemindedAt).toBe(0);
         expect(shouldShowBackupReminder(T0 + 10 * DAY)).toBe(false);
-        // 距上次备份再次超过间隔才会重新弹
+        // 距上次備份再次超過間隔才會重新彈
         expect(shouldShowBackupReminder(T0 + 17 * DAY)).toBe(true);
     });
 
-    it('间隔可调：设成 1 天后隔天就弹', () => {
+    it('間隔可調：設成 1 天后隔天就彈', () => {
         getBackupReminderState(T0);
         setBackupReminderIntervalDays(1, T0);
         expect(shouldShowBackupReminder(T0 + 12 * 60 * 60 * 1000)).toBe(false); // 半天
@@ -75,11 +75,11 @@ describe('shouldShowBackupReminder', () => {
 });
 
 describe('daysSinceLastBackup', () => {
-    it('从未备份返回 null', () => {
+    it('從未備份返回 null', () => {
         getBackupReminderState(T0);
         expect(daysSinceLastBackup(T0 + 3 * DAY)).toBeNull();
     });
-    it('备份后按天数向下取整', () => {
+    it('備份後按天數向下取整', () => {
         markBackupDone(T0);
         expect(daysSinceLastBackup(T0 + 3.9 * DAY)).toBe(3);
     });

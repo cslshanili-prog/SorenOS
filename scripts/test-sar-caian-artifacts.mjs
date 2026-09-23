@@ -27,20 +27,20 @@ try {
         await page.screenshot({ path: `${out}/${item.kind}-390.png`, animations: 'disabled' });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
         if (item.kind === 'membership-card') {
-            await page.getByRole('button', { name: '就用这个形象', exact: true }).click();
-            await page.getByRole('button', { name: '形象已确认', exact: true }).waitFor();
+            await page.getByRole('button', { name: '就用這個形象', exact: true }).click();
+            await page.getByRole('button', { name: '形象已確認', exact: true }).waitFor();
         }
         if (item.kind === 'photo-studio') {
             const controls = effect.locator('.srf-fx-photo-controls');
             await controls.locator('summary').click();
-            await page.getByLabel('选择要调整的人物或背景').waitFor();
-            await page.getByLabel('选择要调整的人物或背景').selectOption('background');
+            await page.getByLabel('選擇要調整的人物或背景').waitFor();
+            await page.getByLabel('選擇要調整的人物或背景').selectOption('background');
             await page.getByLabel('背景大小').fill('1.15');
             await controls.locator('summary').click();
             assert.equal(await controls.getAttribute('open'), null);
             await page.getByRole('button', { name: '拍好了', exact: true }).click();
             await page.getByRole('button', { name: '看看背面', exact: true }).click();
-            await page.getByText('写在照片背面', { exact: true }).waitFor();
+            await page.getByText('寫在照片背面', { exact: true }).waitFor();
             await page.screenshot({ path: `${out}/photo-back-390.png`, animations: 'disabled' });
             await page.getByRole('button', { name: '看看照片', exact: true }).click();
         }
@@ -54,10 +54,10 @@ try {
     await page.waitForFunction(() => document.documentElement.dataset.qaPositioned === 'true');
     assert.equal(await page.locator('.srf-prop').count(), 0, 'searching for the card is not its reveal');
     await page.evaluate(() => window.qaCast = document.querySelector('.sar-dialogue-cast'));
-    await page.getByRole('button', { name: '继续对话', exact: true }).click();
+    await page.getByRole('button', { name: '繼續對話', exact: true }).click();
     await page.locator('.srf-prop-memory-card').waitFor();
     assert.equal(await page.evaluate(() => window.qaCast === document.querySelector('.sar-dialogue-cast')), true);
-    await page.getByRole('button', { name: '继续对话', exact: true }).click();
+    await page.getByRole('button', { name: '繼續對話', exact: true }).click();
     await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).line === 2 && !JSON.parse(window.render_game_to_text()).busy);
     assert.equal(await page.locator('.srf-prop').count(), 0, 'put the prop away when dialogue continues');
     await page.evaluate(() => window.dispatchEvent(new Event('vr-fishing-market-updated')));
@@ -66,7 +66,7 @@ try {
     await page.waitForFunction(() => document.documentElement.dataset.qaPositioned === 'true');
     await page.locator('.srf-prop').waitFor();
     assert.equal(await page.locator('.sar-dialogue-choices__list').count(), 0, 'choices wait until the prop is put away');
-    await page.getByRole('button', { name: '继续对话', exact: true }).click();
+    await page.getByRole('button', { name: '繼續對話', exact: true }).click();
     await page.locator('.sar-dialogue-choices__list').waitFor();
     assert.equal(await page.locator('.srf-prop').count(), 0);
     assert.deepEqual(errors, []);

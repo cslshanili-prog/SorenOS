@@ -9,11 +9,11 @@ export const readSARCommerceValue = (key: string, storage: Pick<Storage, 'getIte
     const raw = storage.getItem(FISHING_MARKET_STORAGE_KEY);
     if (raw) {
         let market;
-        try { market = JSON.parse(raw); } catch { throw new Error('鳞币存档无法读取，没有覆盖原存档'); }
+        try { market = JSON.parse(raw); } catch { throw new Error('鱗幣存檔無法讀取，沒有覆蓋原存檔'); }
         const field = key === SAR_GACHA_KEY ? 'gacha' : 'moduleShop';
         if (market?.sarCommerce && Object.prototype.hasOwnProperty.call(market.sarCommerce, field)) {
             const value = market.sarCommerce[field];
-            if (!value || typeof value !== 'object') throw new Error('模块存档无法读取，没有覆盖原存档');
+            if (!value || typeof value !== 'object') throw new Error('模塊存檔無法讀取，沒有覆蓋原存檔');
             return JSON.stringify(value);
         }
     }

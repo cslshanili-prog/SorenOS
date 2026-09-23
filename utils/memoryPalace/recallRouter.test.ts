@@ -27,23 +27,23 @@ describe('Local Context Analyzer', () => {
     });
 
     const ambiguousContinuations = [
-        '我过了',
-        '我过啦',
-        '我过咯',
-        '过了！！',
-        '居然过了',
-        '草真过了',
+        '我過了',
+        '我過啦',
+        '我過咯',
+        '過了！！',
+        '居然過了',
+        '草真過了',
         '成啦',
         '搞定',
-        '搞定噜',
-        '她又来了',
-        '她又来啦',
-        '又来了属于是',
-        '还是那个好',
-        '果然没成',
+        '搞定嚕',
+        '她又來了',
+        '她又來啦',
+        '又來了屬於是',
+        '還是那個好',
+        '果然沒成',
         '搞定了！！',
-        '怎么又这样',
-        '之前那个呢',
+        '怎麼又這樣',
+        '之前那個呢',
     ];
 
     it.each(ambiguousContinuations)('routes ambiguous continuation: %s', (content) => {
@@ -56,7 +56,7 @@ describe('Local Context Analyzer', () => {
     });
 
     it('routes from combined structure even when the strict result regex misses', () => {
-        const gate = evaluateLocalRecallGate([message('user', '我过啦')]);
+        const gate = evaluateLocalRecallGate([message('user', '我過啦')]);
 
         expect(gate.features.hasResultPredicate).toBe(false);
         expect(gate.gateContributions.shortness).toBeGreaterThan(0.8);
@@ -66,10 +66,10 @@ describe('Local Context Analyzer', () => {
         expect(gate.shouldRoute).toBe(true);
     });
 
-    it('routes the real consecutive user burst: 嗯哼 / 我过啦', () => {
+    it('routes the real consecutive user burst: 嗯哼 / 我過啦', () => {
         const gate = evaluateLocalRecallGate([
             message('user', '嗯哼'),
-            message('user', '我过啦'),
+            message('user', '我過啦'),
         ]);
 
         expect(gate.features.hasResultPredicate).toBe(false);
@@ -77,7 +77,7 @@ describe('Local Context Analyzer', () => {
         expect(gate.shouldRoute).toBe(true);
     });
 
-    it.each(['好', '嗯哼', '哈哈哈', '谢谢', '晚安'])(
+    it.each(['好', '嗯哼', '哈哈哈', '謝謝', '晚安'])(
         'does not route a bare short social utterance: %s',
         (content) => {
             const gate = evaluateLocalRecallGate([message('user', content)]);
@@ -86,12 +86,12 @@ describe('Local Context Analyzer', () => {
     );
 
     it.each([
-        '她今天把那个文件给我了',
-        '我把那个文件发给客户了',
-        '我通过了雾港观测员资格考试',
-        '雾港观测员成绩出来了，我过了',
-        '你觉得今天上海天气怎么样',
-        '她又来上海开会了',
+        '她今天把那個文件給我了',
+        '我把那個文件發給客戶了',
+        '我通過了霧港觀測員資格考試',
+        '霧港觀測員成績出來了，我過了',
+        '你覺得今天上海天氣怎麼樣',
+        '她又來上海開會了',
     ])('does not route a self-contained sentence: %s', (content) => {
         const gate = evaluateLocalRecallGate([message('user', content)]);
 
@@ -100,8 +100,8 @@ describe('Local Context Analyzer', () => {
 
     it('does not route when recent context already gives one clear antecedent', () => {
         const gate = evaluateLocalRecallGate([
-            message('assistant', '雾港观测员成绩出来了吗？'),
-            message('user', '我过了'),
+            message('assistant', '霧港觀測員成績出來了嗎？'),
+            message('user', '我過了'),
         ]);
 
         expect(gate.shouldRoute).toBe(false);
@@ -111,8 +111,8 @@ describe('Local Context Analyzer', () => {
 
     it('still routes when recent context lists competing antecedents', () => {
         const gate = evaluateLocalRecallGate([
-            message('assistant', '考试和面试都有消息了吗？'),
-            message('user', '我过了'),
+            message('assistant', '考試和面試都有消息了嗎？'),
+            message('user', '我過了'),
         ]);
 
         expect(gate.shouldRoute).toBe(true);
@@ -134,8 +134,8 @@ describe('Local Context Analyzer', () => {
             route: true,
             confidence: 1.4,
             queries: [
-                { text: ' 雾港观测员成绩 ', scope: 'memory', weight: 0.9, source: 'reference' },
-                { text: '考试结果事件盒', scope: 'event_box', weight: 3, source: 'event_update' },
+                { text: ' 霧港觀測員成績 ', scope: 'memory', weight: 0.9, source: 'reference' },
+                { text: '考試結果事件盒', scope: 'event_box', weight: 3, source: 'event_update' },
                 { text: '去年整月', scope: 'month', weight: 1, source: 'continuation' },
             ],
         });
@@ -144,8 +144,8 @@ describe('Local Context Analyzer', () => {
             route: true,
             confidence: 1,
             queries: [
-                { text: '雾港观测员成绩', scope: 'memory', weight: 0.9, source: 'reference' },
-                { text: '考试结果事件盒', scope: 'event_box', weight: 1, source: 'event_update' },
+                { text: '霧港觀測員成績', scope: 'memory', weight: 0.9, source: 'reference' },
+                { text: '考試結果事件盒', scope: 'event_box', weight: 1, source: 'event_update' },
             ],
         });
     });
@@ -163,7 +163,7 @@ describe('Local Context Analyzer', () => {
             featureFlags: { recallRouter: true },
         }));
         const char = { id: 'char-router', memoryPalaceEnabled: false };
-        const recent = [message('user', '我过了')];
+        const recent = [message('user', '我過了')];
 
         const chatTrace = await injectMemoryPalace(char, recent, undefined, undefined, { entryPoint: 'chat_app' });
         const vrTrace = await injectMemoryPalace(char, recent, undefined, undefined, { entryPoint: 'vr_world' });
@@ -180,7 +180,7 @@ describe('Local Context Analyzer', () => {
     it('does not spend gate work while the feature flag is off', async () => {
         const trace = await injectMemoryPalace(
             { id: 'char-router', memoryPalaceEnabled: false },
-            [message('user', '我过了')],
+            [message('user', '我過了')],
             undefined,
             undefined,
             { entryPoint: 'chat_app' },
@@ -192,16 +192,16 @@ describe('Local Context Analyzer', () => {
     });
 
     it('renders a behavioral context hint without naming a guessed event', () => {
-        const analysis = analyzeLocalContext([message('user', '我过啦')]);
+        const analysis = analyzeLocalContext([message('user', '我過啦')]);
         const hint = renderLocalContextGuidance(analysis);
 
-        expect(hint).toContain('结果落地或进展更新');
-        expect(hint).toContain('本轮已经召回的记忆');
-        expect(hint).not.toContain('雾港观测员');
-        expect(hint).toContain('不要擅自补成唯一答案');
+        expect(hint).toContain('結果落地或進展更新');
+        expect(hint).toContain('本輪已經召回的記憶');
+        expect(hint).not.toContain('霧港觀測員');
+        expect(hint).toContain('不要擅自補成唯一答案');
     });
 
-    it.each(['好', '嗯哼', '谢谢', '我通过了雾港观测员资格考试'])(
+    it.each(['好', '嗯哼', '謝謝', '我通過了霧港觀測員資格考試'])(
         'does not render context guidance for a self-contained or social utterance: %s',
         (content) => {
             expect(renderLocalContextGuidance(analyzeLocalContext([message('user', content)]))).toBe('');
@@ -226,7 +226,7 @@ describe('reserved Recall Resolver protocol', () => {
                 route: true,
                 confidence: 0.86,
                 queries: [{
-                    text: '雾港观测员成绩',
+                    text: '霧港觀測員成績',
                     scope: 'event_box',
                     weight: 0.9,
                     source: 'event_update',
@@ -236,13 +236,13 @@ describe('reserved Recall Resolver protocol', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         const result = await runLightRecallRouter([
-            message('assistant', '考试和面试都有消息了吗？'),
-            message('user', '我过了'),
-        ], config, '测试角色', '测试用户');
+            message('assistant', '考試和面試都有消息了嗎？'),
+            message('user', '我過了'),
+        ], config, '測試角色', '測試用戶');
 
         expect(result.status).toBe('routed');
         expect(result.plan.queries).toEqual([{
-            text: '雾港观测员成绩',
+            text: '霧港觀測員成績',
             scope: 'event_box',
             weight: 0.9,
             source: 'event_update',
@@ -251,7 +251,7 @@ describe('reserved Recall Resolver protocol', () => {
         const request = fetchMock.mock.calls[0][1] as RequestInit;
         const body = JSON.parse(String(request.body));
         expect(body.stream).toBe(false);
-        expect(body.messages[1].content).toContain('我过了');
+        expect(body.messages[1].content).toContain('我過了');
     });
 
     it('does not accept a low-confidence model guess', async () => {
@@ -259,11 +259,11 @@ describe('reserved Recall Resolver protocol', () => {
             choices: [{ message: { content: JSON.stringify({
                 route: true,
                 confidence: 0.3,
-                queries: [{ text: '某个考试', scope: 'memory', weight: 1 }],
+                queries: [{ text: '某個考試', scope: 'memory', weight: 1 }],
             }) } }],
         }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
 
-        const result = await runLightRecallRouter([message('user', '我过了')], config);
+        const result = await runLightRecallRouter([message('user', '我過了')], config);
 
         expect(result.status).toBe('low_confidence');
         expect(result.plan.route).toBe(true);
@@ -275,7 +275,7 @@ describe('reserved Recall Resolver protocol', () => {
         }));
         vi.stubGlobal('fetch', fetchMock);
 
-        const result = await runLightRecallRouter([message('user', '她又来了')], config, undefined, undefined, 10);
+        const result = await runLightRecallRouter([message('user', '她又來了')], config, undefined, undefined, 10);
 
         expect(result.status).toBe('timeout');
         expect(fetchMock).toHaveBeenCalledTimes(1);

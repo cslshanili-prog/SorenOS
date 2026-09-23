@@ -18,7 +18,7 @@ const memoryStorage = () => {
     };
 };
 
-describe('SAR 活动室状态', () => {
+describe('SAR 活動室狀態', () => {
     it('cycles the four room views, migrates old hidden labels and preserves the NPC preference',()=>{
         const storage=memoryStorage();
         let state=patchSARClubState({npcPreference:'show',labelsHidden:true},storage);
@@ -33,7 +33,7 @@ describe('SAR 活动室状态', () => {
         }
         expect(seen).toEqual(['names-hidden','text-hidden','characters-hidden','all']);
     });
-    it('没有存档时保持未选择，选择 NPC 后仍与见面状态分离', () => {
+    it('沒有存檔時保持未選擇，選擇 NPC 後仍與見面狀態分離', () => {
         const storage = memoryStorage();
         expect(readSARClubState(storage)).toEqual(DEFAULT_SAR_CLUB_STATE);
 
@@ -54,16 +54,16 @@ describe('SAR 活动室状态', () => {
         expect(state.caianMet).toBe(true);
     });
 
-    it('角色卡说明会根据前置分支选择正确的第一句', () => {
+    it('角色卡說明會根據前置分支選擇正確的第一句', () => {
         const mentioned = getSARDialogueNode('about-character-card', { mentionedCharacterCard: true });
         const notMentioned = getSARDialogueNode('about-character-card', { mentionedCharacterCard: false });
-        expect(mentioned.lines[0].text).toBe('对！你刚才提到的。');
-        expect(notMentioned.lines[0].text).toBe('对！我在这里听说过。');
+        expect(mentioned.lines[0].text).toBe('對！你剛才提到的。');
+        expect(notMentioned.lines[0].text).toBe('對！我在這裡聽說過。');
         expect(mentioned.lines).toHaveLength(notMentioned.lines.length);
     });
 
-    it('艾文拆台时凯恩保留原表情，接下一句才触发尴尬反应',()=>{
-        const punchlines=['这里似乎没有仿生人。','然后他就成立了 SAR。','结果是这样。','之一？','你又开始了。','实际上他把这里改造成了 SAR。','还贴了横幅。','这里可以抽卡、钓鱼、买道具给你的朋友们用。'];
+    it('艾文拆台時凱恩保留原表情，接下一句才觸發尷尬反應',()=>{
+        const punchlines=['這裡似乎沒有仿生人。','然後他就成立了 SAR。','結果是這樣。','之一？','你又開始了。','實際上他把這裡改造成了 SAR。','還貼了橫幅。','這裡可以抽卡、釣魚、買道具給你的朋友們用。'];
         let checked=0;
         for(const id of Object.keys(SAR_CAIAN_INTRO_DIALOGUE)){
             const {lines}=getSARDialogueNode(id,{mentionedCharacterCard:false});
@@ -79,7 +79,7 @@ describe('SAR 活动室状态', () => {
         expect(getSARDialogueNode('about-sar',{mentionedCharacterCard:false}).lines[3].castExpressions?.caian).toBe('serious');
     });
 
-    it('双人表情随台词保留，分支切换与条件过滤不会带入上一段情绪',()=>{
+    it('雙人表情隨台詞保留，分支切換與條件過濾不會帶入上一段情緒',()=>{
         const sad=getSARDialogueNode('about-aster',{mentionedCharacterCard:false});
         expect(sad.lines[0].castExpressions).toEqual({caian:'aboutaster',aiven:'sad'});
         expect(sad.lines[6].castExpressions).toEqual({caian:'shy',aiven:'sad'});
@@ -94,7 +94,7 @@ describe('SAR 活动室状态', () => {
         expect(sad.lines[0].castExpressions).toEqual({caian:'aboutaster',aiven:'sad'});
     });
 
-    it('剧情回档只重置凯恩初见，不重播公告也不改 NPC 偏好', () => {
+    it('劇情回檔只重置凱恩初見，不重播公告也不改 NPC 偏好', () => {
         const storage = memoryStorage();
         patchSARClubState({
             npcPreference: 'show',
@@ -112,7 +112,7 @@ describe('SAR 活动室状态', () => {
         });
     });
 
-    it('每条可选分支和自动跳转都指向存在的节点，并且都能抵达结束', () => {
+    it('每條可選分支和自動跳轉都指向存在的節點，並且都能抵達結束', () => {
         for (const node of Object.values(SAR_CAIAN_INTRO_DIALOGUE)) {
             if (node.next) expect(SAR_CAIAN_INTRO_DIALOGUE[node.next]).toBeTruthy();
             for (const choice of node.choices || []) expect(SAR_CAIAN_INTRO_DIALOGUE[choice.next]).toBeTruthy();

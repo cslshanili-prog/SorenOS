@@ -1,14 +1,14 @@
 /**
- * 碎片拼贴(端正版 — 雅致日记本风)
+ * 碎片拼貼(端正版 — 雅緻日記本風)
  *
- * 设计原则(user 反馈对齐):
- * - 卡片**端正不歪**(rotate=0),不重叠,统一间距
- * - 不再"左右乱跳",几乎居中,只允许小尺寸卡片轻微偏左/右
- * - 6 种皮肤保留(尺寸/颜色/材质 多样性还在),但摆位一致 → 像有秩序的日记
- * - 装饰物从"压在卡片上"挪到"卡片之间和两侧的留白",不破坏卡片本身
- * - 段间装饰仍有(washi 整条 / 心串 / sparkles),但只在 fragment 之间放
+ * 設計原則(user 反饋對齊):
+ * - 卡片**端正不歪**(rotate=0),不重疊,統一間距
+ * - 不再"左右亂跳",幾乎居中,只允許小尺寸卡片輕微偏左/右
+ * - 6 種皮膚保留(尺寸/顏色/材質 多樣性還在),但擺位一致 → 像有秩序的日記
+ * - 裝飾物從"壓在卡片上"挪到"卡片之間和兩側的留白",不破壞卡片本身
+ * - 段間裝飾仍有(washi 整條 / 心串 / sparkles),但只在 fragment 之間放
  *
- * 视觉参考: LOVE&DEEPSPACE 紫调日记页 + 雅致收据风
+ * 視覺參考: LOVE&DEEPSPACE 紫調日記頁 + 雅緻收據風
  */
 
 import React from 'react';
@@ -21,13 +21,13 @@ import {
     HeartSticker, StarSticker, SparkleDot,
 } from './stickers';
 
-// ─── 卡片皮肤 ───────────────────────────────────
+// ─── 卡片皮膚 ───────────────────────────────────
 type SkinKind = 'sticky' | 'polaroid' | 'ripped' | 'sticker' | 'washi_card' | 'handnote';
 
 const STICKY_PALETTES = [
-    { bg: '#f5eef7', border: '#d6c8e8', accent: '#a98ec4' },  // 薰衣草(放第一,频率高)
-    { bg: '#eef4f9', border: '#b9d3e0', accent: '#7ea7be' },  // 雾蓝
-    { bg: '#fff0f5', border: '#fbb8c8', accent: '#f29db0' },  // 樱粉
+    { bg: '#f5eef7', border: '#d6c8e8', accent: '#a98ec4' },  // 薰衣草(放第一,頻率高)
+    { bg: '#eef4f9', border: '#b9d3e0', accent: '#7ea7be' },  // 霧藍
+    { bg: '#fff0f5', border: '#fbb8c8', accent: '#f29db0' },  // 櫻粉
     { bg: '#f0faf5', border: '#bfe1cf', accent: '#88c5a8' },  // 薄荷
     { bg: '#fef9e0', border: '#f5e295', accent: '#d6b85a' },  // 蜜
 ];
@@ -66,7 +66,7 @@ const SIZE_TO_WIDTH: Record<'xs' | 'sm' | 'md' | 'lg', [number, number]> = {
     lg: [86, 96],
 };
 
-// ─── 单个 fragment 的卡片渲染(端正,无旋转) ─────
+// ─── 單個 fragment 的卡片渲染(端正,無旋轉) ─────
 const FragmentCard: React.FC<{
     fragment: HandbookFragment;
     skin: SkinKind;
@@ -266,7 +266,7 @@ const FragmentCard: React.FC<{
     return null;
 };
 
-// ─── zigzag 撕边 ─────────────────────────────────
+// ─── zigzag 撕邊 ─────────────────────────────────
 const ZigzagEdge: React.FC<{ color: string; flip: boolean }> = ({ color, flip }) => (
     <svg
         viewBox="0 0 100 6" preserveAspectRatio="none"
@@ -280,7 +280,7 @@ const ZigzagEdge: React.FC<{ color: string; flip: boolean }> = ({ color, flip })
     </svg>
 );
 
-// ─── 段间装饰(端正版 — 居中 / 一致) ───────────
+// ─── 段間裝飾(端正版 — 居中 / 一致) ───────────
 type DecoKind = 'sparkles' | 'heartstrip' | 'washi_thin' | 'dotline' | 'star_chain';
 
 const InterleaveDeco: React.FC<{ kind: DecoKind; seed: string }> = ({ kind, seed }) => {
@@ -344,7 +344,7 @@ const InterleaveDeco: React.FC<{ kind: DecoKind; seed: string }> = ({ kind, seed
     return null;
 };
 
-// ─── 主组件 — 端正布局 ───────────────────────────
+// ─── 主組件 — 端正佈局 ───────────────────────────
 const FragmentCollage: React.FC<{
     fragments: HandbookFragment[];
     compact?: boolean;
@@ -359,12 +359,12 @@ const FragmentCollage: React.FC<{
                 const [wMin, wMax] = SIZE_TO_WIDTH[size];
                 const widthPct = seedRange(f.id, 21, wMin, wMax);
 
-                // 端正:几乎居中,小尺寸允许微偏左/右(±3%)
+                // 端正:幾乎居中,小尺寸允許微偏左/右(±3%)
                 // 大尺寸固定居中
                 const isWide = widthPct > 80;
                 const offsetX = isWide ? 0 : (seedFloat(f.id, 22) - 0.5) * 6; // ±3%
 
-                // 段间装饰:每 ~2 片插一次,装饰在 fragment 之间(不在卡片上)
+                // 段間裝飾:每 ~2 片插一次,裝飾在 fragment 之間(不在卡片上)
                 const insertDecoBefore = i > 0 && (i % 2 === 0) && seedFloat(f.id, 27) > 0.45;
                 const decoKinds: DecoKind[] = ['sparkles', 'heartstrip', 'washi_thin', 'dotline', 'star_chain'];
                 const decoKind = decoKinds[Math.floor(seedFloat(f.id, 28) * decoKinds.length)];

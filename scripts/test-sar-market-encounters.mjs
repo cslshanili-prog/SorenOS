@@ -16,9 +16,9 @@ await context.route('**/*',async route=>{
   calls++;
   const scene=JSON.parse(route.request().postDataJSON().messages[1].content),ids=scene.visitors.map(v=>v.id);
   const mode=['buy','work','free'][calls-1],price=mode==='buy'?16:mode==='work'?9:0;
-  const personas=scene.visitors.map((v,i)=>({actorId:v.id,...(v.persona||{name:'试音员'+i,identity:'给电梯配音的实习生'})}));
-  const actions=[{actorId:ids[0],action:'encounter',ref:'n1',mode,price,title:'纸箱电梯第'+calls+'班',words:'专业报站，不保证离地。',event:{story:'{{participant}}刚进门，试音员就宣布抵达三楼。门外仍是一楼。他递来成绩单：老师说我声音上去了，人没有。'}},
-   ...ids.slice(1).map(actorId=>({actorId,action:'comment',targetId:'n1',words:'货梯转专业了？'})),{actorId:ids[0],action:'comment',targetId:'n1',words:'现在主修客梯。'}];
+  const personas=scene.visitors.map((v,i)=>({actorId:v.id,...(v.persona||{name:'試音員'+i,identity:'給電梯配音的實習生'})}));
+  const actions=[{actorId:ids[0],action:'encounter',ref:'n1',mode,price,title:'紙箱電梯第'+calls+'班',words:'專業報站，不保證離地。',event:{story:'{{participant}}剛進門，試音員就宣佈抵達三樓。門外仍是一樓。他遞來成績單：老師說我聲音上去了，人沒有。'}},
+   ...ids.slice(1).map(actorId=>({actorId,action:'comment',targetId:'n1',words:'貨梯轉專業了？'})),{actorId:ids[0],action:'comment',targetId:'n1',words:'現在主修客梯。'}];
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({choices:[{message:{content:JSON.stringify({personas,actions})}}]})});
  }
  return ['127.0.0.1','localhost'].includes(url.hostname)?route.continue():route.fulfill({status:200,body:'',headers:{'access-control-allow-origin':'*'}});
@@ -30,26 +30,26 @@ try{
  await page.evaluate(()=>{Math.random=()=>.1;});
  const starting=(await state()).accounts.user;
  for(let i=1;i<=3;i++){
-  await page.getByRole('button',{name:'刷新布告板',exact:true}).click();
-  await page.getByRole('status').filter({hasText:'来过了'}).waitFor();
-  await page.getByRole('button').filter({hasText:'纸箱电梯第'+i+'班'}).click();
+  await page.getByRole('button',{name:'刷新佈告板',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'來過了'}).waitFor();
+  await page.getByRole('button').filter({hasText:'紙箱電梯第'+i+'班'}).click();
   assert.equal(await page.getByRole('region',{name:'路人小事件'}).count(),0);
-  assert.equal(await page.getByText(/老师说我声音上去了/).count(),0,'hidden story stays out of the DOM');
-  const participate=page.getByRole('button',{name:i===1?'支付 16 鳞币，参与':i===2?'接下这份活 · 酬谢 9 鳞币':'去看看',exact:true});
+  assert.equal(await page.getByText(/老[师師][说說]我[声聲]音上去了/).count(),0,'hidden story stays out of the DOM');
+  const participate=page.getByRole('button',{name:i===1?'支付 16 鱗幣，參與':i===2?'接下這份活 · 酬謝 9 鱗幣':'去看看',exact:true});
   await participate.evaluate(b=>{b.click();b.click();});
   await page.getByRole('region',{name:'路人小事件'}).waitFor();
   assert.equal(calls,i,'participation does not call a model');
-  const current=await state(),post=[...current.listings,...current.requests].find(p=>p.itemLabel==='纸箱电梯第'+i+'班');
+  const current=await state(),post=[...current.listings,...current.requests].find(p=>p.itemLabel==='紙箱電梯第'+i+'班');
   assert.equal(post.encounterResult.participantId,'user');
   assert(!post.encounterResult.story.includes('{{participant}}'));
   assert.equal(current.accounts.user,starting-16+(i>=2?9:0));
-  assert.equal(current.ledger.filter(e=>e.text.includes('游戏内')&&e.text.includes('纸箱电梯第'+i+'班')).length,1);
+  assert.equal(current.ledger.filter(e=>e.text.includes('遊戲內')&&e.text.includes('紙箱電梯第'+i+'班')).length,1);
   await page.screenshot({path:`${out}/event-${i}.png`,animations:'disabled'});
-  await page.getByRole('button',{name:'返回上一页',exact:true}).click();
+  await page.getByRole('button',{name:'返回上一頁',exact:true}).click();
  }
- await page.getByRole('button',{name:'布告板更多',exact:true}).click();
- await page.getByRole('button').filter({hasText:'往期便笺'}).click();
- await page.getByRole('button').filter({hasText:'纸箱电梯第1班'}).click();
+ await page.getByRole('button',{name:'佈告板更多',exact:true}).click();
+ await page.getByRole('button').filter({hasText:'往期便箋'}).click();
+ await page.getByRole('button').filter({hasText:'紙箱電梯第1班'}).click();
  await page.getByRole('region',{name:'路人小事件'}).waitFor();
  await page.setViewportSize({width:320,height:640});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

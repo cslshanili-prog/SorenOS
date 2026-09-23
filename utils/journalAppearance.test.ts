@@ -136,9 +136,9 @@ describe('journalAppearance', () => {
         expect(journalApp).toContain('previewJournalAppearance');
         expect(journalApp).toContain('effectiveJournalAppearance');
         expect(journalApp).toContain('onStartPreview');
-        expect(editor).toContain('预览并浏览');
-        expect(editor).toContain('正在预览日记本美化');
-        expect(editor).toContain('一键撤销');
+        expect(editor).toContain('預覽並瀏覽');
+        expect(editor).toContain('正在預覽日記本美化');
+        expect(editor).toContain('一鍵撤銷');
         expect(editor).toContain('document.body');
     });
 
@@ -148,8 +148,8 @@ describe('journalAppearance', () => {
 
         expect(editor).toContain('elementFromPoint');
         expect(editor).toContain('sully-journal-saved-style-rescue');
-        expect(editor).toContain('日记美化急救：恢复原版');
+        expect(editor).toContain('日記美化急救：恢復原版');
         expect(settings).toContain('handleJournalAppearanceEmergencyReset');
-        expect(settings).toContain('重置交换日记美化');
+        expect(settings).toContain('重置交換日記美化');
     });
 });

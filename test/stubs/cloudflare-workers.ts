@@ -1,14 +1,14 @@
 /**
- * `cloudflare:workers` 的测试替身。
+ * `cloudflare:workers` 的測試替身。
  *
- * 这个模块名是 Workers 运行时提供的虚拟模块：打包时由 scripts/build-workers.mjs 标成
- * external 交给运行时，但 vitest 跑在 node 上，解析不到就会让整个测试文件加载失败
- * （`Failed to load url cloudflare:workers`）。这里给它一个最小实现，由 vitest.config.ts
- * 的 alias 指过来。
+ * 這個模塊名是 Workers 運行時提供的虛擬模塊：打包時由 scripts/build-workers.mjs 標成
+ * external 交給運行時，但 vitest 跑在 node 上，解析不到就會讓整個測試文件加載失敗
+ * （`Failed to load url cloudflare:workers`）。這裡給它一個最小實現，由 vitest.config.ts
+ * 的 alias 指過來。
  *
- * 只还原真实基类那点行为：把 (ctx, env) 存成实例属性。alarm 的调度不在这里模拟——
- * 需要验 alarm 行为的测试自己造 storage 替身，那样断言的是「设没设 alarm」这件事本身，
- * 比在替身里假装一套定时器可靠。
+ * 只還原真實基類那點行為：把 (ctx, env) 存成實例屬性。alarm 的調度不在這裡模擬——
+ * 需要驗 alarm 行為的測試自己造 storage 替身，那樣斷言的是「設沒設 alarm」這件事本身，
+ * 比在替身裡假裝一套定時器可靠。
  */
 export class DurableObject<Env = unknown> {
   protected ctx: unknown;

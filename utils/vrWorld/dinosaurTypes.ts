@@ -1,5 +1,5 @@
 export type GardenTheme = 'grassland' | 'coast' | 'volcano';
-export const DINO_ACTIONS = ['睡觉','吃饭','发呆','散步','观察','躲藏','玩耍','吵架','追逐','保护','等待','探险'] as const;
+export const DINO_ACTIONS = ['睡覺','吃飯','發呆','散步','觀察','躲藏','玩耍','吵架','追逐','保護','等待','探險'] as const;
 export type DinoAction = typeof DINO_ACTIONS[number];
 export interface DinoPose { x:number; z:number; rotation:number; slotId?:string }
 export interface DinoPaint { body:string; accent:string }
@@ -24,6 +24,6 @@ export interface DinosaurGarden {
 export interface GardenMap { id:string; name:string; theme:GardenTheme; props:GardenProp[]; artVersion?:number }
 export const activeGardenMap = (g: DinosaurGarden): GardenMap => {
   const map = g.maps.find(m => m.id === g.activeMapId);
-  if (!map) throw new Error('找不到这张箱庭地图，请先导出备份');
+  if (!map) throw new Error('找不到這張箱庭地圖，請先導出備份');
   return map;
 };

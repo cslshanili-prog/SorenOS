@@ -5,7 +5,7 @@ import {
 } from './claudeProxyCompat';
 
 const body = {
-  model: '[千岛-AWS]claude-opus-4-6',
+  model: '[千島-AWS]claude-opus-4-6',
   messages: [
     { role: 'system', content: 'stable' },
     { role: 'user', content: 'hello' },
@@ -19,7 +19,7 @@ const body = {
 
 describe('Claude relay compatibility retry', () => {
   it('recognizes the opaque Claude + tools + thinking 502', () => {
-    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: 项目1'), body)).toBe(true);
+    expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: 項目1'), body)).toBe(true);
     expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 401: bad key'), body)).toBe(false);
     expect(shouldRetryClaudeProxyCompatibility(new Error('API Error 502: upstream'), { ...body, tools: [] })).toBe(false);
   });

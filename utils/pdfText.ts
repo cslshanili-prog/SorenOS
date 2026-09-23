@@ -51,14 +51,14 @@ export interface ExtractPdfTextOptions {
 let pdfjsPromise: Promise<PdfJsLike> | null = null;
 
 /**
- * PDF.js 与 worker 都随站点/APK 构建，不再从第三方 CDN 动态加载。
- * Android WebView 因而不会再被跨域 Worker、CDN 可达性或离线状态卡住。
+ * PDF.js 與 worker 都隨站點/APK 構建，不再從第三方 CDN 動態加載。
+ * Android WebView 因而不會再被跨域 Worker、CDN 可達性或離線狀態卡住。
  */
 const loadPdfJs = async (): Promise<PdfJsLike> => {
     if (!pdfjsPromise) {
         pdfjsPromise = Promise.resolve().then(() => {
             const pdfjs = bundledPdfJs as unknown as PdfJsLike;
-            if (!pdfjs?.getDocument) throw new Error('PDF.js 加载失败');
+            if (!pdfjs?.getDocument) throw new Error('PDF.js 加載失敗');
             if (pdfjs.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = bundledPdfWorkerSrc;
             return pdfjs;
         }).catch(error => {
@@ -75,7 +75,7 @@ export const isPdfFile = (file: Pick<File, 'name' | 'type'>): boolean =>
 const CJK_CHAR = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
 const NO_SPACE_BEFORE = /^[,.;:!?%。，、；：！？）》】』”’]/;
 const NO_SPACE_AFTER = /[(（《【『“‘，。、；：！？）》】』”’…]$/;
-const CHAPTER_HEADING = /^(?:第.{1,12}[章节回部卷篇]|chapter\b)/i;
+const CHAPTER_HEADING = /^(?:第.{1,12}[章节節回部卷篇]|chapter\b)/i;
 
 const finiteNumber = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -111,11 +111,11 @@ const median = (values: number[]): number | undefined => {
 };
 
 /**
- * 估算正文的常用左边界，而不是直接取全页最小 x。
+ * 估算正文的常用左邊界，而不是直接取全頁最小 x。
  *
- * PDF 的页眉、页码、章节装饰经常比正文更靠左。把它们的 x 当正文左边界后，
- * 每一行正文都会看起来像“缩进了两格”，继而被误判成新段落。正文续行的 x
- * 通常会在一个很窄的范围内反复出现，因此取最密集的 x 簇更可靠。
+ * PDF 的頁眉、頁碼、章節裝飾經常比正文更靠左。把它們的 x 當正文左邊界後，
+ * 每一行正文都會看起來像“縮進了兩格”，繼而被誤判成新段落。正文續行的 x
+ * 通常會在一個很窄的範圍內反覆出現，因此取最密集的 x 簇更可靠。
  */
 const estimateBodyLeftEdge = (lines: PdfTextLine[]): number | undefined => {
     const positioned = lines.filter((line): line is PdfTextLine & { x: number } =>

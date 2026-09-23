@@ -194,7 +194,7 @@ function checkOverdueSchedules() {
  * Schedule a single setTimeout to fire exactly at the next due moment across
  * all active schedules.  This is the primary delivery mechanism while the tab
  * is visible — setInterval / setTimeout are accurate in the foreground, and
- * the user's specific complaint is "在角色也不给我发消息" (messages don't fire
+ * the user's specific complaint is "在角色也不給我發消息" (messages don't fire
  * when I'm sitting on the character screen).  Backs up the Service Worker
  * timer, which the browser may terminate at any time.
  */

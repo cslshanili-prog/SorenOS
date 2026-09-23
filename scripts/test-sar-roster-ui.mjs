@@ -14,7 +14,7 @@ await context.route('**/*',async route=>{
 const button=name=>page.getByRole('button',{name,exact:true});
 const shot=async name=>{await page.screenshot({path:`${out}/${name}.png`});};
 const scrollTo=async selector=>page.locator(selector).scrollIntoViewIfNeeded();
-const portraitReady=async name=>{await page.getByRole('img',{name:`${name}立绘`,exact:true}).waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.sar-npc-portrait__image:not(.sar-npc-portrait__pending)')].every(img=>img.complete&&img.naturalWidth>0));};
+const portraitReady=async name=>{await page.getByRole('img',{name:`${name}立繪`,exact:true}).waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.sar-npc-portrait__image:not(.sar-npc-portrait__pending)')].every(img=>img.complete&&img.naturalWidth>0));};
 try{
     await page.goto('http://127.0.0.1:5177/test/fixtures/sar-roster.html');
     const data=await page.evaluate(async()=>{
@@ -26,30 +26,30 @@ try{
         const market=readFishingMarketState();market.sarFamiliarity=state;saveFishingMarketState(market);
         return {caianCount:Object.keys(state.npcs.caian.completed).length,aivenCount:Object.keys(state.npcs.aiven.completed).length,caianFirst:CAIAN_SCENES[0],caianEvent:CAIAN_SCENES.find(s=>s.id==='C1-SPECIAL'),caianLocked:CAIAN_SCENES.find(s=>s.id==='C2-SPECIAL')};
     });
-    await page.getByRole('combobox',{name:'图鉴主人'}).selectOption('qa-visitor');await button('名册').click();await portraitReady('凯恩');
-    await page.getByRole('img',{name:'熟悉度 1 / 5 星',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'图鉴主人'}).count(),0);
+    await page.getByRole('combobox',{name:'圖鑑主人'}).selectOption('qa-visitor');await button('名冊').click();await portraitReady('凱恩');
+    await page.getByRole('img',{name:'熟悉度 1 / 5 星',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'圖鑑主人'}).count(),0);
     assert.equal(await page.locator('.sar-roster-stars svg').count(),5);assert.equal(await page.locator('.sar-roster-stars .is-lit').count(),1);
-    assert((await page.locator('.sar-roster-biography').innerText()).includes('似乎对人工人格与 AI 有一些不同寻常的执着。'));
+    assert((await page.locator('.sar-roster-biography').innerText()).includes('似乎對人工人格與 AI 有一些不同尋常的執著。'));
     await shot('01-caian-profile-390');
-    await button(`回忆 ${data.caianCount}`).click();await scrollTo('.sar-roster-memories');await shot('02-caian-memories-390');
-    assert(await button('二星事件 · 尚未解锁').isDisabled());assert.equal(await page.getByText(data.caianLocked.title,{exact:true}).count(),0);
-    assert((await page.locator('.sar-roster-coming').innerText()).includes('四星、五星故事尚未开放'));
-    await button(`回顾${data.caianEvent.title}`).click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'caian',sceneId:'C1-SPECIAL'});await button('关闭回放入口').click();
-    await page.locator('.sar-roster-topic-group').first().locator('summary').click();await button(`回顾${data.caianFirst.title}`).click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'caian',sceneId:'C1-01'});await button('关闭回放入口').click();
-    await page.getByRole('button',{name:/02\s*艾文\s*Aiven/}).click();await portraitReady('艾文');await page.getByRole('img',{name:'熟悉度 2 / 5 星',exact:true}).waitFor();await button('人物档案').click();
+    await button(`回憶 ${data.caianCount}`).click();await scrollTo('.sar-roster-memories');await shot('02-caian-memories-390');
+    assert(await button('二星事件 · 尚未解鎖').isDisabled());assert.equal(await page.getByText(data.caianLocked.title,{exact:true}).count(),0);
+    assert((await page.locator('.sar-roster-coming').innerText()).includes('四星、五星故事尚未開放'));
+    await button(`回顧${data.caianEvent.title}`).click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'caian',sceneId:'C1-SPECIAL'});await button('關閉回放入口').click();
+    await page.locator('.sar-roster-topic-group').first().locator('summary').click();await button(`回顧${data.caianFirst.title}`).click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'caian',sceneId:'C1-01'});await button('關閉回放入口').click();
+    await page.getByRole('button',{name:/02\s*艾文\s*Aiven/}).click();await portraitReady('艾文');await page.getByRole('img',{name:'熟悉度 2 / 5 星',exact:true}).waitFor();await button('人物檔案').click();
     assert((await page.locator('.sar-roster-biography').innerText()).includes('“……字泡掉了。”'));await shot('03-aiven-profile-390');
-    await button(`回忆 ${data.aivenCount}`).click();await scrollTo('.sar-roster-memories');await shot('04-aiven-memories-390');
-    await button('回顾没有名字的角色卡').click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'aiven',sceneId:'A1-E01'});await button('关闭回放入口').click();
+    await button(`回憶 ${data.aivenCount}`).click();await scrollTo('.sar-roster-memories');await shot('04-aiven-memories-390');
+    await button('回顧沒有名字的角色卡').click();assert.deepEqual(await page.evaluate(()=>window.qaLastReplay),{npc:'aiven',sceneId:'A1-E01'});await button('關閉回放入口').click();
     // Storage broadcasts refresh this global record without changing the selected NPC.
     await page.evaluate(async()=>{const {readFishingMarketState,saveFishingMarketState}=await import('/utils/vrWorld/fishingMarket.ts');const state=readFishingMarketState();state.sarFamiliarity.npcs.aiven.completed['A3-01']={at:Date.now(),flags:{}};saveFishingMarketState(state);});
     assert.equal((await page.evaluate(()=>JSON.parse(window.render_game_to_text()))).npc,'aiven');
     await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).completed.includes('A3-01'));
-    await page.getByRole('navigation',{name:'图鉴页面'}).getByRole('button',{name:'收藏',exact:true}).click();await page.getByRole('heading',{name:'收集图鉴',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'图鉴主人'}).inputValue(),'qa-visitor');
-    await button('名册').click();await portraitReady('凯恩');await page.keyboard.press('Escape');await page.getByText('已返回随身仓库',{exact:true}).waitFor();
+    await page.getByRole('navigation',{name:'圖鑑頁面'}).getByRole('button',{name:'收藏',exact:true}).click();await page.getByRole('heading',{name:'收集圖鑑',exact:true}).waitFor();assert.equal(await page.getByRole('combobox',{name:'圖鑑主人'}).inputValue(),'qa-visitor');
+    await button('名冊').click();await portraitReady('凱恩');await page.keyboard.press('Escape');await page.getByText('已返回隨身倉庫',{exact:true}).waitFor();
     for(const width of [320,1100]){
-        await page.setViewportSize({width,height:width===320?740:900});await page.reload();await button('名册').click();await portraitReady('凯恩');await shot(`05-profile-${width}`);
+        await page.setViewportSize({width,height:width===320?740:900});await page.reload();await button('名冊').click();await portraitReady('凱恩');await shot(`05-profile-${width}`);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-        await button(`回忆 ${data.caianCount}`).click();await scrollTo('.sar-roster-memories');await shot(`06-memories-${width}`);
+        await button(`回憶 ${data.caianCount}`).click();await scrollTo('.sar-roster-memories');await shot(`06-memories-${width}`);
     }
     await page.evaluate(async()=>{const {readFishingMarketState,saveFishingMarketState}=await import('/utils/vrWorld/fishingMarket.ts');const {freshFamiliarity}=await import('/utils/vrWorld/sarFamiliarity/storageTypes.ts');const state=readFishingMarketState();state.sarFamiliarity=freshFamiliarity();saveFishingMarketState(state);});
     await page.getByRole('img',{name:'熟悉度 0 / 5 星',exact:true}).waitFor();assert.equal(await page.locator('.sar-roster-memory.is-complete').count(),0);assert.equal(await page.locator('.sar-roster-stars .is-lit').count(),0);

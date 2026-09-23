@@ -35,7 +35,7 @@ async function untilChoice(label){
             const floating=await page.locator('.sar-dialogue-choices__list').evaluate(el=>{const r=el.getBoundingClientRect(),stage=el.closest('.sar-npc-dialogue').getBoundingClientRect();return {insideDialogue:!!el.closest('.sar-dialogue-panel'),dx:Math.abs(r.x+r.width/2-stage.x-stage.width/2),dy:Math.abs(r.y+r.height/2-stage.y-stage.height/2)};});
             assert.equal(floating.insideDialogue,false);assert.ok(floating.dx<1&&floating.dy<1);return;
         }
-        await page.getByRole('button',{name:'继续对话',exact:true}).click();
+        await page.getByRole('button',{name:'繼續對話',exact:true}).click();
     }
     throw Error('Missing dialogue choice: '+label);
 }
@@ -51,36 +51,36 @@ try{
     await page.goto(`${base}/prototypes/sar-art/index.html`,{waitUntil:'domcontentloaded'});await page.locator('[data-actor-id]').first().waitFor();await page.waitForTimeout(200);
     await inspectPlacement();assert.equal(requests.length,0);await page.screenshot({path:`${out}/room-390.png`});
     for(const id of ['board','modules','cabinet','gacha','water','garden']){await page.locator(`[data-facility="${id}"]`).tap();assert.equal(await page.getByTestId('last-action').textContent(),id);}
-    await page.getByRole('button',{name:'与凯恩交谈',exact:true}).tap();await imageReady('caian','happy');await checkCast(['caian']);await page.screenshot({path:`${out}/caian-happy-390.png`});
-    await untilChoice('你谁啊');await page.screenshot({path:`${out}/centered-choices-390.png`});await page.getByRole('button',{name:'你谁啊',exact:true}).click();await untilChoice('SAR 是什么？');await page.getByRole('button',{name:'SAR 是什么？',exact:true}).click();
-    for(let i=0;i<3;i++)await page.getByRole('button',{name:'继续对话',exact:true}).click();await imageReady('aiven','normal');await checkCast(['caian','aiven']);assert.equal(await page.locator('.is-speaking .sar-npc-portrait').getAttribute('data-speaker'),'aiven');await page.screenshot({path:`${out}/aiven-in-intro.png`});
+    await page.getByRole('button',{name:'與凱恩交談',exact:true}).tap();await imageReady('caian','happy');await checkCast(['caian']);await page.screenshot({path:`${out}/caian-happy-390.png`});
+    await untilChoice('你誰啊');await page.screenshot({path:`${out}/centered-choices-390.png`});await page.getByRole('button',{name:'你誰啊',exact:true}).click();await untilChoice('SAR 是什麼？');await page.getByRole('button',{name:'SAR 是什麼？',exact:true}).click();
+    for(let i=0;i<3;i++)await page.getByRole('button',{name:'繼續對話',exact:true}).click();await imageReady('aiven','normal');await checkCast(['caian','aiven']);assert.equal(await page.locator('.is-speaking .sar-npc-portrait').getAttribute('data-speaker'),'aiven');await page.screenshot({path:`${out}/aiven-in-intro.png`});
     // The listening character reacts during Aiven's line, not one click later.
-    for(let i=0;i<4;i++)await page.getByRole('button',{name:'继续对话',exact:true}).click();
-    assert.equal(await page.locator('.sar-dialogue-panel p').textContent(),'这里似乎没有仿生人。');
+    for(let i=0;i<4;i++)await page.getByRole('button',{name:'繼續對話',exact:true}).click();
+    assert.equal(await page.locator('.sar-dialogue-panel p').textContent(),'這裡似乎沒有仿生人。');
     await imageReady('caian','embarrassed');await imageReady('aiven','normal');await checkCast(['caian','aiven']);
     assert.equal(await page.locator('.cast-caian.is-speaking').count(),0);await page.screenshot({path:`${out}/caian-listening-embarrassed.png`});
-    await page.getByRole('button',{name:'继续对话',exact:true}).click();await imageReady('caian','embarrassed');await checkCast(['caian']);assert.equal(await page.locator('.cast-caian .sar-npc-portrait').getAttribute('data-expression'),'embarrassed');
-    await untilChoice('仿生人是什么？');await page.getByRole('button',{name:'仿生人是什么？',exact:true}).click();await untilChoice('是什么样的仿生人？');await page.getByRole('button',{name:'是什么样的仿生人？',exact:true}).click();await imageReady();
+    await page.getByRole('button',{name:'繼續對話',exact:true}).click();await imageReady('caian','embarrassed');await checkCast(['caian']);assert.equal(await page.locator('.cast-caian .sar-npc-portrait').getAttribute('data-expression'),'embarrassed');
+    await untilChoice('仿生人是什麼？');await page.getByRole('button',{name:'仿生人是什麼？',exact:true}).click();await untilChoice('是什麼樣的仿生人？');await page.getByRole('button',{name:'是什麼樣的仿生人？',exact:true}).click();await imageReady();
     await imageReady('caian','aboutaster');await checkCast(['caian']);await page.screenshot({path:`${out}/caian-aboutaster-390.png`});
     const soloWidth=await page.locator('.cast-caian').evaluate(el=>el.getBoundingClientRect().width);
     await page.setViewportSize({width:600,height:844});await checkCast(['caian']);
     const soloGeometry=await page.evaluate(()=>({actor:document.querySelector('.cast-caian').getBoundingClientRect().width,stage:document.querySelector('.sar-dialogue-portraits').getBoundingClientRect().width}));
     assert.ok(soloGeometry.actor>soloWidth&&Math.abs(soloGeometry.actor-soloGeometry.stage)<.1,'A solo actor container follows the available stage width.');
     await page.setViewportSize({width:390,height:844});
-    for(let i=0;i<8;i++)await page.getByRole('button',{name:'继续对话',exact:true}).click();
+    for(let i=0;i<8;i++)await page.getByRole('button',{name:'繼續對話',exact:true}).click();
     await imageReady('aiven','sad');await imageReady('caian','embarrassed');await checkCast(['caian','aiven']);
     const exchangeWidths=await page.locator('.sar-dialogue-cast__actor').evaluateAll(actors=>actors.map(el=>el.getBoundingClientRect().width));
     await page.screenshot({path:`${out}/aiven-listening-sad-exchange.png`});
     await page.setViewportSize({width:600,height:844});await checkCast(['caian','aiven']);
     const resizedWidths=await page.locator('.sar-dialogue-cast__actor').evaluateAll(actors=>actors.map(el=>el.getBoundingClientRect().width));
     assert.ok(resizedWidths.every((width,i)=>Math.abs(width-exchangeWidths[i])<.1),'Exchange portraits remain sized by stage height when only its width changes.');
-    await page.getByRole('button',{name:'继续对话',exact:true}).click();await imageReady('caian','embarrassed');await checkCast(['caian']);
+    await page.getByRole('button',{name:'繼續對話',exact:true}).click();await imageReady('caian','embarrassed');await checkCast(['caian']);
     await page.setViewportSize({width:320,height:740});await checkHeadroom();await page.screenshot({path:`${out}/dialogue-320.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
     await page.setViewportSize({width:844,height:390});await checkHeadroom();await page.screenshot({path:`${out}/dialogue-landscape.png`});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),844);
-    await page.getByRole('button',{name:'暂时离开对话'}).click();await page.setViewportSize({width:320,height:740});await page.waitForTimeout(100);await inspectPlacement();await page.screenshot({path:`${out}/room-320.png`});
+    await page.getByRole('button',{name:'暫時離開對話'}).click();await page.setViewportSize({width:320,height:740});await page.waitForTimeout(100);await inspectPlacement();await page.screenshot({path:`${out}/room-320.png`});
     for(const id of ['cabinet','gacha','garden']){await page.locator(`[data-facility="${id}"]`).tap();assert.equal(await page.getByTestId('last-action').textContent(),id);}
-    await page.getByRole('button',{name:'与艾文交谈',exact:true}).tap();await imageReady('aiven','normal');await checkCast(['aiven']);await page.getByRole('button',{name:'聊聊恐龙',exact:true}).click();await imageReady('aiven','happy');await checkCast(['aiven']);await page.screenshot({path:`${out}/aiven-garden-320.png`});await page.getByRole('button',{name:'看看恐龙箱庭',exact:true}).click();assert.equal(await page.getByTestId('last-action').textContent(),'garden');
-    await page.getByRole('button',{name:'NPC 显示',exact:true}).click();assert.equal(await page.locator('.sar-room-person.is-npc').count(),0);
+    await page.getByRole('button',{name:'與艾文交談',exact:true}).tap();await imageReady('aiven','normal');await checkCast(['aiven']);await page.getByRole('button',{name:'聊聊恐龍',exact:true}).click();await imageReady('aiven','happy');await checkCast(['aiven']);await page.screenshot({path:`${out}/aiven-garden-320.png`});await page.getByRole('button',{name:'看看恐龍箱庭',exact:true}).click();assert.equal(await page.getByTestId('last-action').textContent(),'garden');
+    await page.getByRole('button',{name:'NPC 顯示',exact:true}).click();assert.equal(await page.locator('.sar-room-person.is-npc').count(),0);
     // Every supplied image is addressable without preloading the whole pack in the room.
     for(const who of ['caian','aiven']){
         await page.goto(`${base}/prototypes/sar-art/index.html?portrait=${who}`);await page.getByRole('button',{name:'normal',exact:true}).waitFor();const expressions=await page.getByRole('button').allTextContents();
@@ -94,8 +94,8 @@ try{
     await page.locator('.sar-room-person.is-npc').first().waitFor();await page.screenshot({path:`${out}/integrated-room.png`});
     // A deterministic quiet day exposes the permanent facility guide without editing authored progress.
     await page.evaluate(async()=>{const {visitFamiliarity}=await import('/utils/vrWorld/sarFamiliarity/state.ts');await visitFamiliarity('aiven',{userName:'我',random:()=>.99});});
-    await page.getByRole('button',{name:'与艾文交谈',exact:true}).tap();await page.getByRole('button',{name:'聊聊钓鱼和恐龙',exact:true}).click();await imageReady('aiven','normal');await checkCast(['aiven']);await page.getByRole('button',{name:'聊聊恐龙',exact:true}).click();await page.getByRole('button',{name:'看看恐龙箱庭',exact:true}).click();await page.waitForSelector('.clay-app[data-ready="true"]',{timeout:60000});await page.getByRole('button',{name:'返回 SAR 活动室'}).click();
-    await page.getByRole('button',{name:'与凯恩交谈',exact:true}).tap();await imageReady();await page.getByRole('button',{name:'暂时离开对话'}).click();
-    await page.getByRole('button',{name:'进入模块购买'}).tap();await page.locator('.sar-module-shop__guide img').waitFor();await page.screenshot({path:`${out}/integrated-modules.png`});
+    await page.getByRole('button',{name:'與艾文交談',exact:true}).tap();await page.getByRole('button',{name:'聊聊釣魚和恐龍',exact:true}).click();await imageReady('aiven','normal');await checkCast(['aiven']);await page.getByRole('button',{name:'聊聊恐龍',exact:true}).click();await page.getByRole('button',{name:'看看恐龍箱庭',exact:true}).click();await page.waitForSelector('.clay-app[data-ready="true"]',{timeout:60000});await page.getByRole('button',{name:'返回 SAR 活動室'}).click();
+    await page.getByRole('button',{name:'與凱恩交談',exact:true}).tap();await imageReady();await page.getByRole('button',{name:'暫時離開對話'}).click();
+    await page.getByRole('button',{name:'進入模塊購買'}).tap();await page.locator('.sar-module-shop__guide img').waitFor();await page.screenshot({path:`${out}/integrated-modules.png`});
     assert.deepEqual(errors,[]);console.log('SAR artwork, 13 local expressions, solo → actual exchange → solo, responsive geometry, six hotspots, NPC toggles and integrated dialogue → garden verified.');
 }finally{await fs.writeFile(`${out}/qa-result.json`,JSON.stringify({errors,requestedPortraits:[...new Set(requests)]},null,2));await page.screenshot({path:`${out}/last.png`}).catch(()=>{});await browser.close();}

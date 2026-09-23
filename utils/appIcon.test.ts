@@ -1,11 +1,11 @@
 /// <reference types="vitest" />
 /**
- * utils/appIcon.test.ts — PWA 图标注入的回归测试。
+ * utils/appIcon.test.ts — PWA 圖標註入的迴歸測試。
  *
- * 钉住的三条不变式（每条都对应一个真实踩过的坑，见 appIcon.ts 顶部注释）：
- *   1. 页面上只能有一个 apple-touch-icon —— 多了 iOS 会挑排在前面的原装图标，新图标静默失效。
- *   2. href 必须是 PNG data URI —— iOS 只稳定认 PNG，JPEG/WebP 会被忽略。
- *   3. manifest 里相对路径要折成绝对地址 —— 动态 manifest 的 base 是 blob: URL。
+ * 釘住的三條不變式（每條都對應一個真實踩過的坑，見 appIcon.ts 頂部註釋）：
+ *   1. 頁面上只能有一個 apple-touch-icon —— 多了 iOS 會挑排在前面的原裝圖標，新圖標靜默失效。
+ *   2. href 必須是 PNG data URI —— iOS 只穩定認 PNG，JPEG/WebP 會被忽略。
+ *   3. manifest 裡相對路徑要折成絕對地址 —— 動態 manifest 的 base 是 blob: URL。
  *
  * @vitest-environment jsdom
  */
@@ -29,14 +29,14 @@ vi.mock('./iosStandalone', () => ({
   isStandaloneDisplayMode: () => mockIsStandalone(),
 }));
 
-// canvas 在 jsdom 里没法真的渲染，栅格化整层 mock 掉；
-// 真实的裁切/编码逻辑由 iconRaster.test.ts 单独覆盖。
+// canvas 在 jsdom 裡沒法真的渲染，柵格化整層 mock 掉；
+// 真實的裁切/編碼邏輯由 iconRaster.test.ts 單獨覆蓋。
 vi.mock('./iconRaster', () => ({
   toSquarePngDataUrl: (...args: any[]) => mockToSquarePngDataUrl(...args),
 }));
 
-// jsdom 没有 URL.createObjectURL / revokeObjectURL；垫一层并记下 Blob 内容，
-// 测试可以直接读回生成的 manifest。
+// jsdom 沒有 URL.createObjectURL / revokeObjectURL；墊一層並記下 Blob 內容，
+// 測試可以直接讀回生成的 manifest。
 let lastBlobUrlId = 0;
 const blobStore = new Map<string, Blob>();
 
@@ -47,9 +47,9 @@ const mockCreateObjectURL = (blob: Blob): string => {
 };
 const mockRevokeObjectURL = (url: string): void => { blobStore.delete(url); };
 
-// 转出来的 PNG（内容不重要，前缀重要）
+// 轉出來的 PNG（內容不重要，前綴重要）
 const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAA';
-// 源图故意用 JPEG，用来验证「不管进来什么都得转成 PNG」
+// 源圖故意用 JPEG，用來驗證「不管進來什麼都得轉成 PNG」
 const SOURCE_JPEG_BLOB = () => new Blob(['fake-jpeg-bytes'], { type: 'image/jpeg' });
 
 import { injectPwaIcon, clearPwaIcon, initPwaIcon, PWA_ICON_APP_ID, PWA_CLASSIC_ICON_VALUE } from './appIcon';
@@ -61,7 +61,7 @@ const ORIGINAL_MANIFEST_HREF = `${BASE}/manifest.webmanifest`;
 const ORIGINAL_TOUCH_ICON_HREF = './icons/apple-touch-icon.png';
 const ORIGINAL_FAVICON_HREF = './icons/icon-192.png';
 
-/** 复刻 index.html 里真实的三行 link（含那个写死的 apple-touch-icon）。 */
+/** 復刻 index.html 裡真實的三行 link（含那個寫死的 apple-touch-icon）。 */
 function setupDOM() {
   document.head.innerHTML = `
     <link rel="icon" type="image/png" href="${ORIGINAL_FAVICON_HREF}">
@@ -114,7 +114,7 @@ beforeEach(() => {
   mockToSquarePngDataUrl.mockReset();
 
   mockIsStandalone.mockReturnValue(false);
-  // 默认：栅格化成功，返回 PNG
+  // 默認：柵格化成功，返回 PNG
   mockToSquarePngDataUrl.mockResolvedValue(PNG_DATA_URL);
 
   globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
@@ -135,15 +135,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ── 不变式 1：只能有一个 apple-touch-icon ───────────────────────────
+// ── 不變式 1：只能有一個 apple-touch-icon ───────────────────────────
 
-describe('只能有一个 apple-touch-icon（iOS 会挑排在前面那个）', () => {
+describe('只能有一個 apple-touch-icon（iOS 會挑排在前面那個）', () => {
   beforeEach(() => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
   });
 
-  it('注入后 apple-touch-icon 仍然只有一个', async () => {
-    expect(appleIconLinks()).toHaveLength(1); // index.html 自带那一个
+  it('注入後 apple-touch-icon 仍然只有一個', async () => {
+    expect(appleIconLinks()).toHaveLength(1); // index.html 自帶那一個
 
     await injectPwaIcon('blobref:test');
 
@@ -153,12 +153,12 @@ describe('只能有一个 apple-touch-icon（iOS 会挑排在前面那个）', (
   it('改的是原有 link 的 href，不是 append 新的', async () => {
     await injectPwaIcon('blobref:test');
 
-    // 唯一那个 link 的 href 已经是新图标——旧的 ./icons/apple-touch-icon.png 不存在了
+    // 唯一那個 link 的 href 已經是新圖標——舊的 ./icons/apple-touch-icon.png 不存在了
     expect(appleIconHrefs()).toEqual([PNG_DATA_URL]);
     expect(appleIconHrefs()).not.toContain(ORIGINAL_TOUCH_ICON_HREF);
   });
 
-  it('反复注入也不会堆出第二个 link', async () => {
+  it('反覆注入也不會堆出第二個 link', async () => {
     await injectPwaIcon('blobref:a');
     await injectPwaIcon('blobref:b');
     await injectPwaIcon('blobref:c');
@@ -166,7 +166,7 @@ describe('只能有一个 apple-touch-icon（iOS 会挑排在前面那个）', (
     expect(appleIconLinks()).toHaveLength(1);
   });
 
-  it('页面上有 precomposed 变体时也一起改掉（否则它会抢赢）', async () => {
+  it('頁面上有 precomposed 變體時也一起改掉（否則它會搶贏）', async () => {
     const extra = document.createElement('link');
     extra.rel = 'apple-touch-icon-precomposed';
     extra.setAttribute('href', './icons/old-precomposed.png');
@@ -174,11 +174,11 @@ describe('只能有一个 apple-touch-icon（iOS 会挑排在前面那个）', (
 
     await injectPwaIcon('blobref:test');
 
-    // 两个都指向新图标，没有任何一个还留着旧地址
+    // 兩個都指向新圖標，沒有任何一個還留著舊地址
     expect(appleIconHrefs()).toEqual([PNG_DATA_URL, PNG_DATA_URL]);
   });
 
-  it('页面上没有 apple-touch-icon 时会建一个', async () => {
+  it('頁面上沒有 apple-touch-icon 時會建一個', async () => {
     document.head.innerHTML = `<link rel="manifest" href="${ORIGINAL_MANIFEST_HREF}">`;
 
     await injectPwaIcon('blobref:test');
@@ -188,21 +188,21 @@ describe('只能有一个 apple-touch-icon（iOS 会挑排在前面那个）', (
   });
 });
 
-// ── 不变式 2：href 必须是 PNG ───────────────────────────────────────
+// ── 不變式 2：href 必須是 PNG ───────────────────────────────────────
 
-describe('href 必须是 PNG（iOS 只认 PNG）', () => {
-  it('源图是 JPEG 也要转成 PNG data URI', async () => {
+describe('href 必須是 PNG（iOS 只認 PNG）', () => {
+  it('源圖是 JPEG 也要轉成 PNG data URI', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
     await injectPwaIcon('blobref:jpeg-source');
 
     const href = appleIconHrefs()[0]!;
     expect(href).toMatch(/^data:image\/png;base64,/);
-    // 不能是 blob:（iOS/Chrome 不认作图标）
+    // 不能是 blob:（iOS/Chrome 不認作圖標）
     expect(href).not.toMatch(/^blob:/);
   });
 
-  it('栅格化尺寸固定 180（apple-touch-icon 标准边长）', async () => {
+  it('柵格化尺寸固定 180（apple-touch-icon 標準邊長）', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
     await injectPwaIcon('blobref:test');
@@ -210,15 +210,15 @@ describe('href 必须是 PNG（iOS 只认 PNG）', () => {
     expect(mockToSquarePngDataUrl).toHaveBeenCalledWith(expect.anything(), 180);
   });
 
-  it('data: 源图也过一遍栅格化——原图可能是 JPEG/WebP', async () => {
+  it('data: 源圖也過一遍柵格化——原圖可能是 JPEG/WebP', async () => {
     await injectPwaIcon('data:image/webp;base64,UklGRg==');
 
     expect(mockToSquarePngDataUrl).toHaveBeenCalled();
     expect(appleIconHrefs()[0]).toBe(PNG_DATA_URL);
   });
 
-  it('栅格化失败 → 退回原图，不让页面没图标', async () => {
-    mockToSquarePngDataUrl.mockRejectedValue(new Error('canvas 挂了'));
+  it('柵格化失敗 → 退回原圖，不讓頁面沒圖標', async () => {
+    mockToSquarePngDataUrl.mockRejectedValue(new Error('canvas 掛了'));
     const rawDataUrl = 'data:image/jpeg;base64,/9j/4AA';
 
     await injectPwaIcon(rawDataUrl);
@@ -226,8 +226,8 @@ describe('href 必须是 PNG（iOS 只认 PNG）', () => {
     expect(appleIconHrefs()[0]).toBe(rawDataUrl);
   });
 
-  it('栅格化失败且源是 Blob → 走 blobToDataUrl 兜底', async () => {
-    mockToSquarePngDataUrl.mockRejectedValue(new Error('canvas 挂了'));
+  it('柵格化失敗且源是 Blob → 走 blobToDataUrl 兜底', async () => {
+    mockToSquarePngDataUrl.mockRejectedValue(new Error('canvas 掛了'));
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
     mockBlobToDataUrl.mockResolvedValue('data:image/jpeg;base64,fallback');
 
@@ -237,10 +237,10 @@ describe('href 必须是 PNG（iOS 只认 PNG）', () => {
   });
 });
 
-// ── favicon 一起换（UI 提示说了「标签页图标已更新」，得真的更新） ────
+// ── favicon 一起換（UI 提示說了「標籤頁圖標已更新」，得真的更新） ────
 
 describe('favicon 同步更新', () => {
-  it('rel="icon" 的 href 也换成新图标', async () => {
+  it('rel="icon" 的 href 也換成新圖標', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
     expect(faviconHrefs()).toEqual([ORIGINAL_FAVICON_HREF]);
@@ -250,17 +250,17 @@ describe('favicon 同步更新', () => {
     expect(faviconHrefs()).toEqual([PNG_DATA_URL]);
   });
 
-  it('favicon 选择器不会误伤 apple-touch-icon', async () => {
-    // rel~="icon" 若不排除 apple-touch-icon，两者会互相干扰
+  it('favicon 選擇器不會誤傷 apple-touch-icon', async () => {
+    // rel~="icon" 若不排除 apple-touch-icon，兩者會互相干擾
     expect(faviconLinks()).toHaveLength(1);
     expect(faviconLinks()[0].getAttribute('rel')).toBe('icon');
   });
 });
 
-// ── 输入合法性 ─────────────────────────────────────────────────────
+// ── 輸入合法性 ─────────────────────────────────────────────────────
 
-describe('输入合法性', () => {
-  it('http URL → 直接交给栅格化（会带 crossOrigin）', async () => {
+describe('輸入合法性', () => {
+  it('http URL → 直接交給柵格化（會帶 crossOrigin）', async () => {
     const remote = 'https://cdn.example.com/icon.png';
     await injectPwaIcon(remote);
 
@@ -268,7 +268,7 @@ describe('输入合法性', () => {
     expect(appleIconHrefs()[0]).toBe(PNG_DATA_URL);
   });
 
-  it('blobRef 解析失败 → 什么都不改，不抛异常', async () => {
+  it('blobRef 解析失敗 → 什麼都不改，不拋異常', async () => {
     mockGetBlobForRef.mockResolvedValue(null);
 
     await expect(injectPwaIcon('blobref:dead')).resolves.toBeUndefined();
@@ -276,15 +276,15 @@ describe('输入合法性', () => {
     expect(faviconHrefs()).toEqual([ORIGINAL_FAVICON_HREF]);
   });
 
-  it('乱七八糟的值 → 什么都不改，不抛异常', async () => {
+  it('亂七八糟的值 → 什麼都不改，不拋異常', async () => {
     await expect(injectPwaIcon('/relative/path.png')).resolves.toBeUndefined();
     expect(appleIconHrefs()).toEqual([ORIGINAL_TOUCH_ICON_HREF]);
   });
 });
 
-// ── 不变式 3：manifest（standalone） ────────────────────────────────
+// ── 不變式 3：manifest（standalone） ────────────────────────────────
 
-describe('manifest 替换（standalone）', () => {
+describe('manifest 替換（standalone）', () => {
   beforeEach(() => {
     mockIsStandalone.mockReturnValue(true);
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
@@ -296,12 +296,12 @@ describe('manifest 替换（standalone）', () => {
     return JSON.parse(await blob!.text());
   };
 
-  it('manifest href 换成 blob: URL', async () => {
+  it('manifest href 換成 blob: URL', async () => {
     await injectPwaIcon('blobref:test');
     expect(manifestHref()).toMatch(/^blob:mock-/);
   });
 
-  it('图标槽全部换成 PNG data URI', async () => {
+  it('圖標槽全部換成 PNG data URI', async () => {
     await injectPwaIcon('blobref:test');
     const manifest = await readManifest();
 
@@ -312,7 +312,7 @@ describe('manifest 替换（standalone）', () => {
     }
   });
 
-  it('相对路径折成绝对地址（blob: base 会让相对路径 404）', async () => {
+  it('相對路徑折成絕對地址（blob: base 會讓相對路徑 404）', async () => {
     await injectPwaIcon('blobref:test');
     const manifest = await readManifest();
 
@@ -323,7 +323,7 @@ describe('manifest 替换（standalone）', () => {
     expect(manifest.short_name).toBe('Soren');
   });
 
-  it('浏览器安装前也更新 manifest', async () => {
+  it('瀏覽器安裝前也更新 manifest', async () => {
     mockIsStandalone.mockReturnValue(false);
 
     await injectPwaIcon('blobref:test');
@@ -331,7 +331,7 @@ describe('manifest 替换（standalone）', () => {
     expect(manifestHref()).toMatch(/^blob:mock-/);
   });
 
-  it('fetch manifest 失败 → apple-touch-icon 照常更新，不抛异常', async () => {
+  it('fetch manifest 失敗 → apple-touch-icon 照常更新，不拋異常', async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'));
 
     await expect(injectPwaIcon('blobref:test')).resolves.toBeUndefined();
@@ -343,7 +343,7 @@ describe('manifest 替换（standalone）', () => {
 // ── clearPwaIcon ────────────────────────────────────────────────────
 
 describe('clearPwaIcon', () => {
-  it('所有 href 还原成原始值', async () => {
+  it('所有 href 還原成原始值', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
     mockIsStandalone.mockReturnValue(true);
 
@@ -357,7 +357,7 @@ describe('clearPwaIcon', () => {
     expect(manifestHref()).toBe(ORIGINAL_MANIFEST_HREF);
   });
 
-  it('还原后 apple-touch-icon 数量不变（不留残骸也不删原装）', async () => {
+  it('還原後 apple-touch-icon 數量不變（不留殘骸也不刪原裝）', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
     await injectPwaIcon('blobref:test');
@@ -366,7 +366,7 @@ describe('clearPwaIcon', () => {
     expect(appleIconLinks()).toHaveLength(1);
   });
 
-  it('原本没有 apple-touch-icon 时，还原会把建的那个删掉', async () => {
+  it('原本沒有 apple-touch-icon 時，還原會把建的那個刪掉', async () => {
     document.head.innerHTML = `<link rel="manifest" href="${ORIGINAL_MANIFEST_HREF}">`;
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
@@ -377,7 +377,7 @@ describe('clearPwaIcon', () => {
     expect(appleIconLinks()).toHaveLength(0);
   });
 
-  it('没注入过时调用也不抛异常', () => {
+  it('沒注入過時調用也不拋異常', () => {
     expect(() => clearPwaIcon()).not.toThrow();
   });
 });
@@ -385,7 +385,7 @@ describe('clearPwaIcon', () => {
 // ── initPwaIcon ─────────────────────────────────────────────────────
 
 describe('initPwaIcon', () => {
-  it('customIcons 里有 _pwa_ → 接上', async () => {
+  it('customIcons 裡有 _pwa_ → 接上', async () => {
     mockGetBlobForRef.mockResolvedValue(SOURCE_JPEG_BLOB());
 
     await initPwaIcon({ [PWA_ICON_APP_ID]: 'blobref:saved', some_app: 'blobref:other' });
@@ -393,19 +393,19 @@ describe('initPwaIcon', () => {
     expect(appleIconHrefs()[0]).toBe(PNG_DATA_URL);
   });
 
-  it('没有 _pwa_ → 一动不动', async () => {
+  it('沒有 _pwa_ → 一動不動', async () => {
     await initPwaIcon({ some_app: 'blobref:other' });
 
     expect(appleIconHrefs()).toEqual([ORIGINAL_TOUCH_ICON_HREF]);
     expect(mockGetBlobForRef).not.toHaveBeenCalled();
   });
 
-  it('空对象 → 不炸', async () => {
+  it('空對象 → 不炸', async () => {
     await expect(initPwaIcon({})).resolves.toBeUndefined();
   });
 
-  it('注入过程抛异常也不会把启动流程带崩', async () => {
-    mockGetBlobForRef.mockRejectedValue(new Error('IndexedDB 挂了'));
+  it('注入過程拋異常也不會把啟動流程帶崩', async () => {
+    mockGetBlobForRef.mockRejectedValue(new Error('IndexedDB 掛了'));
 
     await expect(initPwaIcon({ [PWA_ICON_APP_ID]: 'blobref:x' })).resolves.toBeUndefined();
   });
@@ -414,7 +414,7 @@ describe('initPwaIcon', () => {
 // ── 常量 ───────────────────────────────────────────────────────────
 
 describe('PWA_ICON_APP_ID', () => {
-  it('是 _pwa_，下划线前缀保证不跟 App id 撞名', () => {
+  it('是 _pwa_，下劃線前綴保證不跟 App id 撞名', () => {
     expect(PWA_ICON_APP_ID).toBe('_pwa_');
     expect(PWA_ICON_APP_ID.startsWith('_')).toBe(true);
   });

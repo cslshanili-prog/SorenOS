@@ -157,26 +157,26 @@ const CompanionWardrobeDrawer: React.FC<CompanionWardrobeDrawerProps> = ({
   };
   return (
     <div className="companion-wardrobe-layer absolute inset-0 z-[70]" data-wardrobe-style={styleId} data-testid="companion-real-wardrobe">
-      <button type="button" className="companion-wardrobe-scrim absolute inset-0" onClick={onClose} aria-label="关闭衣橱" />
+      <button type="button" className="companion-wardrobe-scrim absolute inset-0" onClick={onClose} aria-label="關閉衣櫥" />
       <section className="companion-wardrobe-drawer absolute inset-y-0 right-0 flex w-[78%] max-w-[31rem] flex-col">
         <header className="companion-wardrobe-header">
-          <div><small>MANUAL WARDROBE</small><h2><TShirt weight="fill" /> {characterName} 的衣橱</h2></div>
-          <button type="button" onClick={onClose} aria-label="关闭"><X weight="bold" /></button>
+          <div><small>MANUAL WARDROBE</small><h2><TShirt weight="fill" /> {characterName} 的衣櫥</h2></div>
+          <button type="button" onClick={onClose} aria-label="關閉"><X weight="bold" /></button>
         </header>
 
         <div className="companion-wardrobe-tabs">
-          <span className="is-active"><TShirt weight="fill" /> 服装</span>
-          <button type="button" onClick={onOpenComposition}><Crop weight="bold" /> 场景与构图</button>
+          <span className="is-active"><TShirt weight="fill" /> 服裝</span>
+          <button type="button" onClick={onOpenComposition}><Crop weight="bold" /> 場景與構圖</button>
         </div>
 
         {discoveryHint && (
           <div className="companion-wardrobe-discovery" data-testid="companion-wardrobe-discovery-tip">
             <Sparkle weight="fill" />
-            <p><strong>以后想换场景或衣服，就从这里进。</strong><span>点「场景与构图」可以更换桌面风格、背景和角色位置。</span></p>
+            <p><strong>以後想換場景或衣服，就從這裡進。</strong><span>點「場景與構圖」可以更換桌面風格、背景和角色位置。</span></p>
           </div>
         )}
 
-        <p className="companion-wardrobe-note">{staticSource === 'date' ? '衣服来自见面模式立绘。桌面拥有独立选择，AI 只负责按台词情绪切换同一套衣服里的表情。' : staticSource === 'upload' ? '可以继续导入 PNG / GIF；衣橱只接收相同类型，选中的图片会在首页与视频通话中共用。' : '可收纳同模型的换装按键，也可导入更多同类型整模。当前选择由你锁定，AI 和点击反馈都不能替换。'}</p>
+        <p className="companion-wardrobe-note">{staticSource === 'date' ? '衣服來自見面模式立繪。桌面擁有獨立選擇，AI 只負責按台詞情緒切換同一套衣服裡的表情。' : staticSource === 'upload' ? '可以繼續導入 PNG / GIF；衣櫥只接收相同類型，選中的圖片會在首頁與視頻通話中共用。' : '可收納同模型的換裝按鍵，也可導入更多同類型整模。當前選擇由你鎖定，AI 和點擊反饋都不能替換。'}</p>
 
         <div className="companion-wardrobe-list">
           {staticMode && staticOutfits.map(outfit => {
@@ -188,12 +188,12 @@ const CompanionWardrobeDrawer: React.FC<CompanionWardrobeDrawerProps> = ({
                 className={active ? 'is-active' : ''}
                 onClick={() => onSelectStaticOutfit?.(outfit.id)}
                 onLongPress={staticSource === 'upload' && onDeleteStaticOutfit ? () => setPendingDelete({
-                  kind: 'static', id: outfit.id, name: outfit.name, detail: '图片文件也会从本地衣橱移除。',
+                  kind: 'static', id: outfit.id, name: outfit.name, detail: '圖片文件也會從本地衣櫥移除。',
                 }) : undefined}
                 data-static-outfit={outfit.id}
               >
                 <span className="companion-wardrobe-thumb"><StaticOutfitPreview value={outfit.preview} /></span>
-                <span className="companion-wardrobe-copy"><strong>{outfit.name}</strong><small>{staticSource === 'upload' ? '静态图片' : `${outfit.expressionCount}/5 个基础表情`}</small></span>
+                <span className="companion-wardrobe-copy"><strong>{outfit.name}</strong><small>{staticSource === 'upload' ? '靜態圖片' : `${outfit.expressionCount}/5 個基礎表情`}</small></span>
                 <span className="companion-wardrobe-play">{active ? <Check weight="bold" /> : <Play weight="fill" />}</span>
               </WardrobeItemButton>
             );
@@ -208,7 +208,7 @@ const CompanionWardrobeDrawer: React.FC<CompanionWardrobeDrawerProps> = ({
                 onClick={() => onSelectModel?.(model.assetId)}
                 onLongPress={!model.builtIn && onDeleteModel ? () => setPendingDelete({
                   kind: 'model', id: model.assetId, name: model.fileName,
-                  detail: active ? '这是当前模型；删除后会切到下一套可用模型。' : '模型包与运行缓存都会从本地删除。',
+                  detail: active ? '這是當前模型；刪除後會切到下一套可用模型。' : '模型包與運行緩存都會從本地刪除。',
                 }) : undefined}
                 data-model-outfit={model.assetId}
               >
@@ -228,12 +228,12 @@ const CompanionWardrobeDrawer: React.FC<CompanionWardrobeDrawerProps> = ({
                 onClick={() => onSelect(action)}
                 onLongPress={onDeleteWardrobeAction ? () => setPendingDelete({
                   kind: 'action', id: action.id, name: action.name,
-                  detail: '只从衣橱移除；原动作仍保留在动作库，并保持“仅手动”。',
+                  detail: '只從衣櫥移除；原動作仍保留在動作庫，並保持“僅手動”。',
                 }) : undefined}
                 data-wardrobe-action={action.id}
               >
                 <span className="companion-wardrobe-index">{String(index + 1).padStart(2, '0')}</span>
-                <span className="companion-wardrobe-copy"><strong>{action.name}</strong><small>{action.hotkey ? `原按键 ${action.hotkey}` : action.kind === 'motion' ? '服装动作' : action.kind === 'params' ? '服装参数组' : '服装表情'}</small></span>
+                <span className="companion-wardrobe-copy"><strong>{action.name}</strong><small>{action.hotkey ? `原按鍵 ${action.hotkey}` : action.kind === 'motion' ? '服裝動作' : action.kind === 'params' ? '服裝參數組' : '服裝表情'}</small></span>
                 <span className="companion-wardrobe-play">{active ? <Check weight="bold" /> : <Play weight="fill" />}</span>
               </WardrobeItemButton>
             );
@@ -241,31 +241,31 @@ const CompanionWardrobeDrawer: React.FC<CompanionWardrobeDrawerProps> = ({
           {((staticMode && staticOutfits.length === 0) || (!staticMode && modelOutfits.length === 0 && wardrobeActions.length === 0)) && (
             <div className="companion-wardrobe-empty">
               <TShirt weight="duotone" />
-              <strong>{staticSource === 'date' ? '还没有见面衣服' : staticMode ? '单张图片没有额外衣服' : '还没有标记服装动作'}</strong>
-              <span>{staticSource === 'date' ? '去见面模式添加默认立绘或新皮肤，每套衣服可以准备五种基础表情。' : staticMode ? '你可以继续使用当前图片，或进入场景与构图调整桌面。' : '去动作库预览模型按键，把会换装的动作加入衣橱。'}</span>
+              <strong>{staticSource === 'date' ? '還沒有見面衣服' : staticMode ? '單張圖片沒有額外衣服' : '還沒有標記服裝動作'}</strong>
+              <span>{staticSource === 'date' ? '去見面模式添加默認立繪或新皮膚，每套衣服可以準備五種基礎表情。' : staticMode ? '你可以繼續使用當前圖片，或進入場景與構圖調整桌面。' : '去動作庫預覽模型按鍵，把會換裝的動作加入衣櫥。'}</span>
             </div>
           )}
         </div>
 
         <footer className="companion-wardrobe-footer">
           {staticSource !== 'date' && onImportOutfit && (
-            <button type="button" onClick={onImportOutfit} disabled={importBusy}><UploadSimple weight="bold" /> {importBusy ? '正在导入…' : `导入更多${staticSource === 'upload' ? '图片' : modelOutfits[0]?.format === 'vrm' ? ' VRM' : ' Live2D'}`}</button>
+            <button type="button" onClick={onImportOutfit} disabled={importBusy}><UploadSimple weight="bold" /> {importBusy ? '正在導入…' : `導入更多${staticSource === 'upload' ? '圖片' : modelOutfits[0]?.format === 'vrm' ? ' VRM' : ' Live2D'}`}</button>
           )}
-          <button type="button" onClick={onManageActions}><Gear weight="bold" /> {staticSource === 'date' ? '管理见面立绘' : staticMode ? '更换静态图片' : '管理服装动作'}</button>
-          <small>{staticSource === 'date' ? 'DATE SPRITES · 5 EXPRESSIONS' : staticMode ? 'STATIC IMAGE · PNG / GIF · 长按删除' : 'WARDROBE ACTIONS · USER ONLY · 长按删除'}</small>
+          <button type="button" onClick={onManageActions}><Gear weight="bold" /> {staticSource === 'date' ? '管理見面立繪' : staticMode ? '更換靜態圖片' : '管理服裝動作'}</button>
+          <small>{staticSource === 'date' ? 'DATE SPRITES · 5 EXPRESSIONS' : staticMode ? 'STATIC IMAGE · PNG / GIF · 長按刪除' : 'WARDROBE ACTIONS · USER ONLY · 長按刪除'}</small>
         </footer>
       </section>
 
       {pendingDelete && (
         <div className="companion-wardrobe-confirm absolute inset-0 z-20 flex items-end justify-center p-4" data-testid="companion-wardrobe-delete-confirm">
-          <button type="button" className="absolute inset-0 bg-black/55" onClick={() => { if (!deleteBusy) setPendingDelete(null); }} aria-label="取消删除" />
+          <button type="button" className="absolute inset-0 bg-black/55" onClick={() => { if (!deleteBusy) setPendingDelete(null); }} aria-label="取消刪除" />
           <div className="relative w-full max-w-[22rem] border p-4 shadow-2xl">
-            <div className="flex items-center gap-2 text-[12px] font-semibold"><Trash size={16} weight="bold" /> 从衣橱删除？</div>
+            <div className="flex items-center gap-2 text-[12px] font-semibold"><Trash size={16} weight="bold" /> 從衣櫥刪除？</div>
             <div className="mt-2 break-all text-[13px] font-medium">{pendingDelete.name}</div>
             <div className="mt-1 text-[9px] leading-relaxed opacity-60">{pendingDelete.detail}</div>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => setPendingDelete(null)} className="border px-3 py-2 text-[10px]">取消</button>
-              <button type="button" disabled={deleteBusy} onClick={() => { void confirmDelete(); }} className="border border-rose-300/45 bg-rose-500/18 px-3 py-2 text-[10px] text-rose-100">{deleteBusy ? '正在删除…' : '确认删除'}</button>
+              <button type="button" disabled={deleteBusy} onClick={() => { void confirmDelete(); }} className="border border-rose-300/45 bg-rose-500/18 px-3 py-2 text-[10px] text-rose-100">{deleteBusy ? '正在刪除…' : '確認刪除'}</button>
             </div>
           </div>
         </div>

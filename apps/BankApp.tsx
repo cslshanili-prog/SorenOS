@@ -29,14 +29,14 @@ const INITIAL_STATE: BankFullState = {
     },
     shop: {
         actionPoints: 100,
-        shopName: '咖啡馆',
+        shopName: '咖啡館',
         shopLevel: 1,
         appeal: 100,
         background: 'https://sharkpan.xyz/f/5n1gSj/bg.png', 
         staff: [
             {
                 id: 'staff-001',
-                name: '系统',
+                name: '系統',
                 avatar: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/XT.png',
                 role: 'manager',
                 fatigue: 0,
@@ -44,7 +44,7 @@ const INITIAL_STATE: BankFullState = {
                 hireDate: Date.now(),
                 x: 50,
                 y: 50,
-                personality: 'Sully的专属宠物，负责看店',
+                personality: 'Sully的專屬寵物，負責看店',
                 isPet: true,
             }
         ],
@@ -176,7 +176,7 @@ const BankApp: React.FC = () => {
             };
         }
 
-        // Migration: Link "系统" staff to its owner via pet-owner matching
+        // Migration: Link "系統" staff to its owner via pet-owner matching
         if (characters.length > 0) {
             const systemStaff = currentState.shop.staff.find(s => s.id === 'staff-001');
             if (systemStaff && systemStaff.isPet && (!systemStaff.ownerCharId || systemStaff.ownerCharId === '')) {
@@ -197,7 +197,7 @@ const BankApp: React.FC = () => {
         // Migration v2 (one-time): Force-update staff-001 defaults, shop bg, and room texture
         // to canonical URL-based assets. Only runs once — subsequent user edits are preserved.
         if (!currentState.dataVersion || currentState.dataVersion < 2) {
-            const EXPECTED_STAFF_001 = INITIAL_STATE.shop.staff[0]; // "系统" with URL avatar
+            const EXPECTED_STAFF_001 = INITIAL_STATE.shop.staff[0]; // "系統" with URL avatar
             const systemStaff = currentState.shop.staff.find(s => s.id === 'staff-001');
             if (systemStaff) {
                 currentState = {
@@ -284,7 +284,7 @@ const BankApp: React.FC = () => {
             };
 
             await DB.saveBankState(currentState);
-            addToast(`新的一天！获得 ${totalNewAP} AP (预算结余: ${gainedAP})`, 'success');
+            addToast(`新的一天！獲得 ${totalNewAP} AP (預算結餘: ${gainedAP})`, 'success');
         }
 
         const todayTx = txs.filter(t => t.dateStr === today);
@@ -308,7 +308,7 @@ const BankApp: React.FC = () => {
 
     const handleAddTransaction = async () => {
         if (!txAmount || isNaN(parseFloat(txAmount)) || !txNote.trim()) {
-            addToast('请填写金额和内容哦', 'error');
+            addToast('請填寫金額和內容哦', 'error');
             return;
         }
         
@@ -341,9 +341,9 @@ const BankApp: React.FC = () => {
         setTxNote('');
 
         if (newSpent > cur.config.dailyBudget) {
-            addToast('⚠️ 警报：今日预算已超支！明天可能没有 AP 了...', 'info');
+            addToast('⚠️ 警報：今日預算已超支！明天可能沒有 AP 了...', 'info');
         } else {
-            addToast('记账成功', 'success');
+            addToast('記帳成功', 'success');
         }
     };
 
@@ -365,7 +365,7 @@ const BankApp: React.FC = () => {
         setState(newState);
         await DB.saveBankState(newState);
         setTransactions(prev => prev.filter(t => t.id !== id));
-        addToast('记录已删除', 'success');
+        addToast('記錄已刪除', 'success');
     };
 
     // --- Game Logic ---
@@ -373,7 +373,7 @@ const BankApp: React.FC = () => {
     const consumeAP = async (cost: number): Promise<boolean> => {
         const cur = stateRef.current;
         if (cur.shop.actionPoints < cost) {
-            addToast(`AP 不足 (需 ${cost})。去省钱吧！`, 'error');
+            addToast(`AP 不足 (需 ${cost})。去省錢吧！`, 'error');
             return false;
         }
         const newAP = cur.shop.actionPoints - cost;
@@ -398,7 +398,7 @@ const BankApp: React.FC = () => {
         setState(newState);
         await DB.saveBankState(newState);
         trackEvent('让店员休息');
-        addToast('店员休息好了！', 'success');
+        addToast('店員休息好了！', 'success');
     };
 
     const handleUnlockRecipe = async (recipeId: string, cost: number) => {
@@ -420,7 +420,7 @@ const BankApp: React.FC = () => {
         setState(newState);
         await DB.saveBankState(newState);
         trackEvent('解锁新甜品配方');
-        addToast('新甜品解锁！店铺人气上升', 'success');
+        addToast('新甜品解鎖！店鋪人氣上升', 'success');
     };
 
     // --- Fire / Rehire / Delete Staff ---
@@ -443,7 +443,7 @@ const BankApp: React.FC = () => {
         setState(newState);
         await DB.saveBankState(newState);
         trackEvent('解雇店员');
-        addToast(`${staff.name} 已被解雇`, 'info');
+        addToast(`${staff.name} 已被解僱`, 'info');
     };
 
     const handleRehireStaff = async (staffId: string) => {
@@ -465,7 +465,7 @@ const BankApp: React.FC = () => {
         stateRef.current = newState;
         setState(newState);
         await DB.saveBankState(newState);
-        addToast(`${staff.name} 已重新入职！`, 'success');
+        addToast(`${staff.name} 已重新入職！`, 'success');
     };
 
     const handleDeleteFiredStaff = async (staffId: string) => {
@@ -477,7 +477,7 @@ const BankApp: React.FC = () => {
         stateRef.current = newState;
         setState(newState);
         await DB.saveBankState(newState);
-        addToast(`${staff?.name || '员工'} 已彻底删除`, 'success');
+        addToast(`${staff?.name || '員工'} 已徹底刪除`, 'success');
     };
 
     const handleHireStaff = async (newStaff: ShopStaff, cost: number) => {
@@ -502,14 +502,14 @@ const BankApp: React.FC = () => {
         setState(newState);
         await DB.saveBankState(newState);
         trackEvent('雇一个新店员');
-        addToast('新店员入职！', 'success');
+        addToast('新店員入職！', 'success');
     };
 
     // --- Guestbook Logic (Gossip & Drama) ---
     const handleRefreshGuestbook = async () => {
         const COST = 40;
         if (stateRef.current.shop.actionPoints < COST) {
-            addToast(`AP 不足 (需 ${COST})。去省钱吧！`, 'error');
+            addToast(`AP 不足 (需 ${COST})。去省錢吧！`, 'error');
             return;
         }
         if (!apiConfig.apiKey) { addToast('需配置 API Key', 'error'); return; }
@@ -521,7 +521,7 @@ const BankApp: React.FC = () => {
             // 1. Pick a random Char (Try to avoid last visitor if possible)
             const availableChars = characters.filter(c => c.id !== current.shop.activeVisitor?.charId);
             const pool = availableChars.length > 0 ? availableChars : characters;
-            if (pool.length === 0) { addToast('没有可用角色', 'error'); return; }
+            if (pool.length === 0) { addToast('沒有可用角色', 'error'); return; }
             const randomChar = pool[Math.floor(Math.random() * pool.length)];
 
             // 2. Build Context
@@ -535,7 +535,7 @@ const BankApp: React.FC = () => {
             // 3. Prompt
             const prompt = `${charContext}
 ### Scenario: Visiting User's Savings App Café Guestbook
-${userProfile.name} has a savings/budgeting app (记账App). Inside the app there's a virtual café mini-game, similar to how Alipay has "蚂蚁庄园" or how friends visit each other's farms in QQ Farm.
+${userProfile.name} has a savings/budgeting app (記帳App). Inside the app there's a virtual café mini-game, similar to how Alipay has "螞蟻莊園" or how friends visit each other's farms in QQ Farm.
 You are visiting this virtual café as a friend/player.
 Café Name: "${current.shop.shopName}".
 Recent Chat Context: ${chatSnippet}
@@ -545,7 +545,7 @@ Generate a guestbook page update.
 1. **${randomChar.name}**: Write a guestbook message. React to the cafe or start drama. (Use your personality).
 2. **NPCs**: Generate 3-4 other random messages from strangers or staff.
    - **Themes**: Gossip (e.g. staff fighting), Argument (e.g. arguing about food), Heartwarming story, or Continuing previous drama.
-   - **Style**: Internet slang, funny, emotional, or chaotic ("乐子人").
+   - **Style**: Internet slang, funny, emotional, or chaotic ("樂子人").
    - **Continuity**: If previous guestbook entries show an argument, continue it!
 
 Previous Guestbook:
@@ -589,7 +589,7 @@ ${previousGuestbook}
                                 charId: entry.charId,
                                 role: 'system',
                                 type: 'text',
-                                content: `[系统: ${entry.authorName} 拜访了${userProfile.name}的记账App咖啡馆，并表示："${entry.content}"]`,
+                                content: `[系統: ${entry.authorName} 拜訪了${userProfile.name}的記帳App咖啡館，並表示："${entry.content}"]`,
                             });
                             entry.systemMessageId = msgId;
                         } catch (e) {
@@ -618,7 +618,7 @@ ${previousGuestbook}
                         guestbook: [...newEntries, ...(prev.shop.guestbook || [])].slice(0, 50), // Keep last 50
                         activeVisitor: {
                             charId: randomChar.id,
-                            message: newEntries.find(e => e.isChar)?.content || "来逛逛~",
+                            message: newEntries.find(e => e.isChar)?.content || "來逛逛~",
                             timestamp: Date.now(),
                             roomId: spawnRoom?.id,
                             x: spawnX,
@@ -633,7 +633,7 @@ ${previousGuestbook}
 
         } catch (e: any) {
             console.error(e);
-            addToast('刷新失败: ' + e.message, 'error');
+            addToast('刷新失敗: ' + e.message, 'error');
         } finally {
             setIsRefreshingGuestbook(false);
         }
@@ -660,7 +660,7 @@ ${previousGuestbook}
                 guestbook: (prev.shop.guestbook || []).filter(g => g.id !== entryId),
             }
         }));
-        addToast('留言已删除', 'success');
+        addToast('留言已刪除', 'success');
     };
 
     // --- Staff Editing & Movement ---
@@ -680,7 +680,7 @@ ${previousGuestbook}
         await DB.saveBankState(newState);
         setShowStaffEdit(false);
         setEditingStaff(null);
-        addToast('员工信息已更新', 'success');
+        addToast('員工信息已更新', 'success');
     };
 
     const handleStaffImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -690,7 +690,7 @@ ${previousGuestbook}
                 const base64 = await processImage(file);
                 setEditingStaff({ ...editingStaff, avatar: base64 });
             } catch (err: any) {
-                addToast('图片上传失败', 'error');
+                addToast('圖片上傳失敗', 'error');
             }
         }
     };
@@ -720,7 +720,7 @@ ${previousGuestbook}
         stateRef.current = newState;
         setState(newState);
         await DB.saveBankState(newState);
-        addToast('设置已保存', 'success');
+        addToast('設置已保存', 'success');
     };
 
     // --- Goals ---
@@ -728,7 +728,7 @@ ${previousGuestbook}
         if (!goalName || !goalTarget) return;
         const parsedTarget = parseFloat(goalTarget);
         if (!Number.isFinite(parsedTarget) || parsedTarget <= 0) {
-            addToast('请输入有效目标金额', 'error');
+            addToast('請輸入有效目標金額', 'error');
             return;
         }
         const newGoal: SavingsGoal = {
@@ -748,7 +748,7 @@ ${previousGuestbook}
         setShowGoalModal(false);
         setGoalName('');
         setGoalTarget('');
-        addToast('心愿已添加', 'success');
+        addToast('心願已添加', 'success');
     };
 
     return (
@@ -787,7 +787,7 @@ ${previousGuestbook}
                             style={{ boxShadow: '0 4px 14px rgba(255, 112, 67, 0.4)' }}
                         >
                             <span className="text-base">+</span>
-                            <span>记账</span>
+                            <span>記帳</span>
                         </button>
                     </div>
                 </div>
@@ -816,7 +816,7 @@ ${previousGuestbook}
                         onOpenGuestbook={() => { setShowGuestbook(true); trackEvent('打开店铺情报志'); }}
                     />
                     ) : (
-                        <div className="flex-1 flex items-center justify-center text-sm text-[#8A5A3D]">加载咖啡店中...</div>
+                        <div className="flex-1 flex items-center justify-center text-sm text-[#8A5A3D]">加載咖啡店中...</div>
                     )
                 )}
 
@@ -826,8 +826,8 @@ ${previousGuestbook}
                         {/* Budget Config at Top */}
                         <div className="bg-[#fdf6e3] p-4 rounded-xl border-2 border-[#d3cbb8] mb-4 flex justify-between items-center shadow-sm">
                             <div>
-                                <h3 className="text-sm font-bold text-[#586e75]">每日预算设定</h3>
-                                <p className="text-[10px] text-[#93a1a1]">省下的钱 = 明天的 AP</p>
+                                <h3 className="text-sm font-bold text-[#586e75]">每日預算設定</h3>
+                                <p className="text-[10px] text-[#93a1a1]">省下的錢 = 明天的 AP</p>
                             </div>
                             <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
                                 <span className="text-xs text-slate-400">{state.config.currencySymbol}</span>
@@ -893,7 +893,7 @@ ${previousGuestbook}
                                     <span className="text-xl">📜</span>
                                 </div>
                                 <div>
-                                    <h2 className="text-base font-bold text-white tracking-wide">店铺情报志</h2>
+                                    <h2 className="text-base font-bold text-white tracking-wide">店鋪情報志</h2>
                                     <p className="text-[10px] text-white/60 uppercase tracking-wider">Gossip & Rumors</p>
                                 </div>
                             </div>
@@ -916,8 +916,8 @@ ${previousGuestbook}
                                     👂
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-[#5D4037] text-sm">打听消息</h3>
-                                    <p className="text-[10px] text-[#A1887F] mt-0.5">消耗 AP 让大家聊聊八卦</p>
+                                    <h3 className="font-bold text-[#5D4037] text-sm">打聽消息</h3>
+                                    <p className="text-[10px] text-[#A1887F] mt-0.5">消耗 AP 讓大家聊聊八卦</p>
                                 </div>
                             </div>
                             <button
@@ -932,17 +932,17 @@ ${previousGuestbook}
                                 {isRefreshingGuestbook ? (
                                     <span className="flex items-center gap-2">
                                         <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                        偷听中...
+                                        偷聽中...
                                     </span>
-                                ) : '刷新情报 · 40 AP'}
+                                ) : '刷新情報 · 40 AP'}
                             </button>
                         </div>
 
                         {(!state.shop.guestbook || state.shop.guestbook.length === 0) ? (
                             <div className="text-center py-20">
                                 <div className="text-7xl mb-4 opacity-40">🍃</div>
-                                <p className="text-sm font-bold text-[#BCAAA4]">风中什么声音都没有...</p>
-                                <p className="text-xs text-[#D7CCC8] mt-1">点击上方按钮开始打听</p>
+                                <p className="text-sm font-bold text-[#BCAAA4]">風中什麼聲音都沒有...</p>
+                                <p className="text-xs text-[#D7CCC8] mt-1">點擊上方按鈕開始打聽</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -971,7 +971,7 @@ ${previousGuestbook}
                                                 <button
                                                     onClick={() => handleDeleteGuestbookEntry(msg.id)}
                                                     className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-[#E53935] text-xs font-bold px-1.5 py-0.5 rounded-lg hover:bg-[#FFEBEE]"
-                                                    title="删除留言"
+                                                    title="刪除留言"
                                                 >
                                                     ×
                                                 </button>
@@ -993,7 +993,7 @@ ${previousGuestbook}
                                     </div>
                                 ))}
                                 <div className="text-center py-6 text-[10px] text-[#BCAAA4]">
-                                    ——— 已经到底了 ———
+                                    ——— 已經到底了 ———
                                 </div>
                             </div>
                         )}
@@ -1005,9 +1005,9 @@ ${previousGuestbook}
             <div className="shrink-0 z-30 pb-safe px-4 py-2" style={{ background: 'linear-gradient(180deg, rgba(255,248,225,0.95) 0%, rgba(253,246,227,0.98) 100%)', backdropFilter: 'blur(10px)' }}>
                 <div className="flex items-center justify-around bg-white/80 backdrop-blur-sm rounded-2xl p-1.5 shadow-lg border border-[#E8DCC8]">
                     {[
-                        { key: 'game', label: '店铺', color: '#8D6E63' },
-                        { key: 'manage', label: '经营', color: '#FF7043' },
-                        { key: 'report', label: '账本', color: '#66BB6A' }
+                        { key: 'game', label: '店鋪', color: '#8D6E63' },
+                        { key: 'manage', label: '經營', color: '#FF7043' },
+                        { key: 'report', label: '帳本', color: '#66BB6A' }
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -1031,14 +1031,14 @@ ${previousGuestbook}
             </div>
 
             {/* Premium Modals */}
-            <Modal isOpen={showAddTxModal} title="记一笔" onClose={() => setShowAddTxModal(false)} footer={
+            <Modal isOpen={showAddTxModal} title="記一筆" onClose={() => setShowAddTxModal(false)} footer={
                 <button onClick={handleAddTransaction} className="w-full py-4 bg-gradient-to-r from-[#FF8A65] to-[#FF7043] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
-                    确认入账
+                    確認入帳
                 </button>
             }>
                 <div className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">金额</label>
+                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">金額</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A1887F] text-lg font-bold">{state.config.currencySymbol}</span>
                             <input
@@ -1051,25 +1051,25 @@ ${previousGuestbook}
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">备注</label>
+                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">備註</label>
                         <input
                             value={txNote}
                             onChange={e => setTxNote(e.target.value)}
                             className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl px-4 py-4 text-base font-medium text-[#5D4037] focus:border-[#FF7043] outline-none transition-colors"
-                            placeholder="买什么了？"
+                            placeholder="買什麼了？"
                         />
                     </div>
                 </div>
             </Modal>
 
-            <Modal isOpen={showGoalModal} title="新目标" onClose={() => setShowGoalModal(false)} footer={
+            <Modal isOpen={showGoalModal} title="新目標" onClose={() => setShowGoalModal(false)} footer={
                 <button onClick={handleAddGoal} className="w-full py-4 bg-gradient-to-r from-[#66BB6A] to-[#43A047] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
-                    添加目标
+                    添加目標
                 </button>
             }>
                 <div className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目标名称</label>
+                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目標名稱</label>
                         <input
                             value={goalName}
                             onChange={e => setGoalName(e.target.value)}
@@ -1078,7 +1078,7 @@ ${previousGuestbook}
                         />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目标金额</label>
+                        <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">目標金額</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A1887F] text-lg font-bold">{state.config.currencySymbol}</span>
                             <input
@@ -1094,7 +1094,7 @@ ${previousGuestbook}
             </Modal>
 
             {/* Staff Edit Modal */}
-            <Modal isOpen={showStaffEdit} title="员工档案" onClose={() => { setShowStaffEdit(false); setEditingStaff(null); }} footer={
+            <Modal isOpen={showStaffEdit} title="員工檔案" onClose={() => { setShowStaffEdit(false); setEditingStaff(null); }} footer={
                 <button onClick={handleSaveStaff} className="w-full py-4 bg-gradient-to-r from-[#42A5F5] to-[#1E88E5] text-white font-bold rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all text-base">
                     保存修改
                 </button>
@@ -1106,13 +1106,13 @@ ${previousGuestbook}
                                 className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#FFF8E1] to-[#FFE0B2] border-2 border-[#E8DCC8] flex items-center justify-center text-5xl relative overflow-hidden group cursor-pointer shadow-inner"
                                 onClick={() => staffImageInputRef.current?.click()}
                             >
-                                {/* 店员头像可能是图床直链 / base64 / blobref 令牌，三种都算图；其余当 emoji 显示。 */}
+                                {/* 店員頭像可能是圖床直鏈 / base64 / blobref 令牌，三種都算圖；其餘當 emoji 顯示。 */}
                                 {editingStaff.avatar.startsWith('http') || editingStaff.avatar.startsWith('data') || isBlobRef(editingStaff.avatar)
                                     ? <TokenImg value={editingStaff.avatar} className="w-full h-full object-cover" />
                                     : editingStaff.avatar
                                 }
                                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <span className="text-white text-xs font-bold bg-black/40 px-2 py-1 rounded-lg">更换</span>
+                                    <span className="text-white text-xs font-bold bg-black/40 px-2 py-1 rounded-lg">更換</span>
                                 </div>
                                 <input type="file" ref={staffImageInputRef} className="hidden" accept="image/*" onChange={handleStaffImageUpload} />
                             </div>
@@ -1124,17 +1124,17 @@ ${previousGuestbook}
                                     placeholder="姓名"
                                 />
                                 <div className="inline-flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-[#8D6E63] to-[#6D4C41] px-3 py-1 rounded-full font-bold">
-                                    {editingStaff.role === 'manager' ? '经理' : editingStaff.role === 'chef' ? '主厨' : '服务员'}
+                                    {editingStaff.role === 'manager' ? '經理' : editingStaff.role === 'chef' ? '主廚' : '服務員'}
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">性格 / 备注</label>
+                            <label className="text-xs font-bold text-[#A1887F] uppercase tracking-wider mb-2 block">性格 / 備註</label>
                             <input
                                 value={editingStaff.personality || ''}
                                 onChange={e => setEditingStaff({...editingStaff, personality: e.target.value})}
                                 className="w-full bg-[#FDF6E3] border-2 border-[#E8DCC8] rounded-2xl px-4 py-3 text-sm text-[#5D4037] focus:border-[#42A5F5] outline-none transition-colors"
-                                placeholder="懒洋洋的，喜欢晒太阳"
+                                placeholder="懶洋洋的，喜歡曬太陽"
                             />
                         </div>
                     </div>
@@ -1142,30 +1142,30 @@ ${previousGuestbook}
             </Modal>
 
             {/* Help/Tutorial Modal */}
-            <Modal isOpen={showTutorial} title="玩法说明" onClose={() => setShowTutorial(false)}>
+            <Modal isOpen={showTutorial} title="玩法說明" onClose={() => setShowTutorial(false)}>
                 <div className="space-y-5 text-[#5D4037]">
                     <div className="flex gap-4 p-4 bg-gradient-to-r from-[#FFF8E1] to-[#FFF3E0] rounded-2xl">
                         <div className="w-12 h-12 bg-gradient-to-br from-[#FFD54F] to-[#FFB300] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coin size={24} weight="fill" className="text-white" /></div>
                         <div>
-                            <div className="font-bold text-base mb-1">省钱 = 能量 (AP)</div>
-                            <p className="text-xs text-[#8D6E63] leading-relaxed">设定每日预算。如果这天花得比预算少，结余的钱就会变成第二天的行动点数 (AP)。</p>
+                            <div className="font-bold text-base mb-1">省錢 = 能量 (AP)</div>
+                            <p className="text-xs text-[#8D6E63] leading-relaxed">設定每日預算。如果這天花得比預算少，結餘的錢就會變成第二天的行動點數 (AP)。</p>
                         </div>
                     </div>
                     <div className="flex gap-4 p-4 bg-gradient-to-r from-[#EFEBE9] to-[#D7CCC8] rounded-2xl">
                         <div className="w-12 h-12 bg-gradient-to-br from-[#8D6E63] to-[#6D4C41] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Coffee size={24} weight="fill" className="text-white" /></div>
                         <div>
-                            <div className="font-bold text-base mb-1">经营店铺</div>
-                            <p className="text-xs text-[#8D6E63] leading-relaxed">消耗 AP 来解锁食谱、雇佣员工、举办活动。店铺越高级，吸引的访客越多。</p>
+                            <div className="font-bold text-base mb-1">經營店鋪</div>
+                            <p className="text-xs text-[#8D6E63] leading-relaxed">消耗 AP 來解鎖食譜、僱傭員工、舉辦活動。店鋪越高級，吸引的訪客越多。</p>
                         </div>
                     </div>
                     <div className="flex gap-4 p-4 bg-gradient-to-r from-[#E3F2FD] to-[#BBDEFB] rounded-2xl">
                         <div className="w-12 h-12 bg-gradient-to-br from-[#42A5F5] to-[#1E88E5] rounded-xl flex items-center justify-center text-2xl shadow-md shrink-0"><Lightning size={24} weight="fill" className="text-white" /></div>
                         <div>
-                            <div className="font-bold text-base mb-1">互动操作</div>
+                            <div className="font-bold text-base mb-1">互動操作</div>
                             <p className="text-xs text-[#5C6BC0] leading-relaxed">
-                                • 点击情报志可查看和刷新八卦<br/>
-                                • 点击地板可以让店长走过去<br/>
-                                • 点击🛎️按钮邀请角色进店
+                                • 點擊情報志可查看和刷新八卦<br/>
+                                • 點擊地板可以讓店長走過去<br/>
+                                • 點擊🛎️按鈕邀請角色進店
                             </p>
                         </div>
                     </div>

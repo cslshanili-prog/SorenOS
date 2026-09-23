@@ -6,10 +6,10 @@ import {ensureDinosaurGarden,editDino,findGardenSpace,setGardenMap,gardenResiden
 import {prepareGardenVisit,applyGardenVisit} from '../../utils/vrWorld/dinosaurCharacter';
 import {DINO_CATALOG,createGardenMaps} from '../../utils/vrWorld/dinosaurCatalog';
 import type {CharacterProfile,UserProfile} from '../../types';
-const user={id:'user',name:'我',kind:'user' as const},sample={id:'sample-visitor',name:'示例来客',kind:'character' as const};
+const user={id:'user',name:'我',kind:'user' as const},sample={id:'sample-visitor',name:'示例來客',kind:'character' as const};
 if(!localStorage.getItem(FISHING_MARKET_STORAGE_KEY)){
   let s=ensureDinosaurGarden(ensureActorAccounts(createFishingMarketState(20260909),[user,sample]),user);
-  DINO_CATALOG.slice(1).forEach((d,i)=>{s=addCatchToState(s,{id:'sample-'+d.id,speciesId:d.id,ownerId:'user',ownerName:'我',caughtAt:Date.now(),weather:'clear',weatherLabel:'试玩赠礼',weatherSource:'simulated',quality:1,sizeCm:12,origin:{kind:'gift',actorName:'试玩盒子',at:Date.now()}});s=ensureDinosaurGarden(s,user);if(i<3)s=editDino(s,user,'sample-'+d.id,{pose:{...findGardenSpace(s,'sample-'+d.id,{x:i===2?-2.6:i%2?2:-1.6,z:i===2?-1.85:-1.4}),rotation:i===2?Math.PI/2:0}});});saveFishingMarketState(s);
+  DINO_CATALOG.slice(1).forEach((d,i)=>{s=addCatchToState(s,{id:'sample-'+d.id,speciesId:d.id,ownerId:'user',ownerName:'我',caughtAt:Date.now(),weather:'clear',weatherLabel:'試玩贈禮',weatherSource:'simulated',quality:1,sizeCm:12,origin:{kind:'gift',actorName:'試玩盒子',at:Date.now()}});s=ensureDinosaurGarden(s,user);if(i<3)s=editDino(s,user,'sample-'+d.id,{pose:{...findGardenSpace(s,'sample-'+d.id,{x:i===2?-2.6:i%2?2:-1.6,z:i===2?-1.85:-1.4}),rotation:i===2?Math.PI/2:0}});});saveFishingMarketState(s);
 }
 // Upgrade only the clearly marked local art-demo collection. Never seed production catches.
 if(!localStorage.getItem('clay-demo-maps-v2')){
@@ -32,5 +32,5 @@ if(!localStorage.getItem('clay-demo-maps-v2')){
 const char={id:sample.id,name:sample.name,vrState:{enabled:true}} as CharacterProfile;
 createRoot(document.getElementById('root')!).render(<DinosaurGarden demo userProfile={{name:'我'} as UserProfile} characters={[char]} onClose={()=>location.reload()} onCharacterTrip={async()=>{
   const s=readFishingMarketState(),snapshot=prepareGardenVisit(s,sample),toy=gardenResidents(s).find(t=>!t.fixed);
-  await mutateFishingMarket(fresh=>applyGardenVisit(fresh,sample,toy?{action:'stage',toyId:toy.catchId,stage:'等待',words:'试玩便签：它在等你把今天的故事接下去。'}:{action:'comment',words:'试玩便签：今天都摆得很认真。'},snapshot));return {ok:true};
+  await mutateFishingMarket(fresh=>applyGardenVisit(fresh,sample,toy?{action:'stage',toyId:toy.catchId,stage:'等待',words:'試玩便籤：它在等你把今天的故事接下去。'}:{action:'comment',words:'試玩便籤：今天都擺得很認真。'},snapshot));return {ok:true};
 }}/>);

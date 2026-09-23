@@ -44,35 +44,35 @@ const CallUpdateAnnouncement: React.FC<CallUpdateAnnouncementProps> = ({
         type="button"
         onClick={onDismiss}
         className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-white/38 transition active:scale-90"
-        aria-label="关闭更新提示"
+        aria-label="關閉更新提示"
       >
         <X size={14} weight="bold" />
       </button>
 
       <div className="text-[9px] font-semibold tracking-[0.28em]" style={{ color: `${accentColor}cc` }}>CALL UPDATE</div>
-      <h2 id="call-update-title" className="mt-2 pr-8 text-[1.45rem] font-semibold leading-tight text-white/95">通话偏好现在有三项</h2>
-      <p className="mt-2 text-[11px] leading-5 text-white/45">左下角可以分别控制开场、语音额度和沉默后的主动接话。聊天页的语音设置不受影响。</p>
+      <h2 id="call-update-title" className="mt-2 pr-8 text-[1.45rem] font-semibold leading-tight text-white/95">通話偏好現在有三項</h2>
+      <p className="mt-2 text-[11px] leading-5 text-white/45">左下角可以分別控制開場、語音額度和沉默後的主動接話。聊天頁的語音設置不受影響。</p>
 
       <div className="mt-5 divide-y divide-white/8 border-y border-white/8">
         <div className="flex gap-3 py-3">
           <Phone className="mt-0.5 shrink-0" size={17} weight="fill" style={{ color: accentColor }} />
           <div>
-            <div className="text-xs font-medium text-white/85">可以设置谁先开口</div>
-            <div className="mt-0.5 text-[10px] leading-4 text-white/38">你可以选对方先说，也可以选自己先说。设置在左下角。</div>
+            <div className="text-xs font-medium text-white/85">可以設置誰先開口</div>
+            <div className="mt-0.5 text-[10px] leading-4 text-white/38">你可以選對方先說，也可以選自己先說。設置在左下角。</div>
           </div>
         </div>
         <div className="flex gap-3 py-3">
           <SpeakerHigh className="mt-0.5 shrink-0" size={17} weight="fill" style={{ color: accentColor }} />
           <div>
-            <div className="text-xs font-medium text-white/85">语音与视频共用自动播放偏好</div>
-            <div className="mt-0.5 text-[10px] leading-4 text-white/38">默认开启，并沿用你已经保存的选择；关掉后两种通话都不会提前生成语音。</div>
+            <div className="text-xs font-medium text-white/85">語音與視頻共用自動播放偏好</div>
+            <div className="mt-0.5 text-[10px] leading-4 text-white/38">默認開啟，並沿用你已經保存的選擇；關掉後兩種通話都不會提前生成語音。</div>
           </div>
         </div>
         <div className="flex gap-3 py-3">
           <ChatCircleDots className="mt-0.5 shrink-0" size={17} weight="fill" style={{ color: accentColor }} />
           <div>
-            <div className="text-xs font-medium text-white/85">沉默后主动接话改为按需开启</div>
-            <div className="mt-0.5 text-[10px] leading-4 text-white/38">默认关闭。开启后，通话安静较久时对方最多自然接话两次。</div>
+            <div className="text-xs font-medium text-white/85">沉默後主動接話改為按需開啟</div>
+            <div className="mt-0.5 text-[10px] leading-4 text-white/38">默認關閉。開啟後，通話安靜較久時對方最多自然接話兩次。</div>
           </div>
         </div>
       </div>
@@ -83,7 +83,7 @@ const CallUpdateAnnouncement: React.FC<CallUpdateAnnouncementProps> = ({
         className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium text-white transition active:scale-[.98]"
         style={{ background: accentColor, boxShadow: `0 0 22px ${accentColor}40` }}
       >
-        <Gear size={16} weight="fill" /> 去设置
+        <Gear size={16} weight="fill" /> 去設置
       </button>
       <button type="button" onClick={onDismiss} className="mt-2 w-full py-1.5 text-[11px] text-white/35 transition active:opacity-60">知道了</button>
     </section>
@@ -95,14 +95,14 @@ const CallUpdateAnnouncement: React.FC<CallUpdateAnnouncementProps> = ({
       onClick={event => event.stopPropagation()}
     >
       <div className="absolute bottom-12 left-0 whitespace-nowrap rounded-full border border-white/12 bg-[#120c22] px-3 py-1.5 text-[10px] text-white/70 shadow-xl">
-        设置在这里
+        設置在這裡
         <span className="absolute -bottom-1 left-4 h-2 w-2 rotate-45 border-b border-r border-white/12 bg-[#120c22]" />
       </div>
       <span className="sully-call-settings-pulse pointer-events-none absolute -inset-2 rounded-full border" style={{ borderColor: accentColor, boxShadow: `0 0 18px ${accentColor}` }} />
       <button
         type="button"
         onClick={onOpenSettings}
-        title="查看通话偏好"
+        title="查看通話偏好"
         className="relative flex h-9 w-9 items-center justify-center rounded-full border bg-[#120c22] text-white shadow-2xl transition active:scale-90"
         style={{ borderColor: accentColor, boxShadow: `0 0 18px ${accentColor}88` }}
       >

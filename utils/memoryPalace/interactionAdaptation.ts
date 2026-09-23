@@ -1,21 +1,21 @@
 /**
  * M2 — ChatApp Interaction Adaptation
  *
- * 只统计用户消息的表面节奏，不分析角色回复，也不更新角色基线：
- * - impulse：当前连续 user 气泡，下一轮自然消失
- * - trend：此前最近 20 个 user 轮次的加权趋势；一轮可包含任意数量的连续气泡
- * - policy：角色独立的靠近意愿，分维度 0..1
+ * 只統計用戶消息的表面節奏，不分析角色回覆，也不更新角色基線：
+ * - impulse：當前連續 user 氣泡，下一輪自然消失
+ * - trend：此前最近 20 個 user 輪次的加權趨勢；一輪可包含任意數量的連續氣泡
+ * - policy：角色獨立的靠近意願，分維度 0..1
  */
 
 import type { CharacterAccommodationPolicy, Message } from '../../types';
 import { sanitizeQuerySourceMessages } from './querySanitizer';
 
 export interface InteractionSurfaceState {
-    /** 平均消息长度，0=极短，1=很长。 */
+    /** 平均消息長度，0=極短，1=很長。 */
     length: number;
-    /** 气泡连续、发送间隔和短句共同形成的节奏速度。 */
+    /** 氣泡連續、發送間隔和短句共同形成的節奏速度。 */
     rhythm: number;
-    /** 感叹、重复字符、emoji、连续气泡共同形成的表面能量。 */
+    /** 感嘆、重複字符、emoji、連續氣泡共同形成的表面能量。 */
     energy: number;
     punctuation: number;
     emoji: number;
@@ -36,7 +36,7 @@ export interface UserInteractionAnalysis {
     trend: InteractionSurfaceState;
     target: InteractionSurfaceState;
     policy: ResolvedAccommodationPolicy;
-    /** 各维度最终相对中性步伐的偏移；已经乘过角色 policy。 */
+    /** 各維度最終相對中性步伐的偏移；已經乘過角色 policy。 */
     shifts: InteractionSurfaceState;
 }
 
@@ -59,8 +59,8 @@ const EMPTY_STATE: Readonly<InteractionSurfaceState> = Object.freeze({
     emoji: 0,
 });
 
-// “没有感叹号/emoji”通常只是普通聊天，不等于低落。各维度使用自己的
-// 中性点，避免把每条平静短句都渲染成需要降温的情绪信号。
+// “沒有感嘆號/emoji”通常只是普通聊天，不等於低落。各維度使用自己的
+// 中性點，避免把每條平靜短句都渲染成需要降溫的情緒信號。
 const NEUTRAL_TARGET: Readonly<InteractionSurfaceState> = Object.freeze({
     length: 0.5,
     rhythm: 0.5,
@@ -174,7 +174,7 @@ function weightedTrend(messages: Message[]): InteractionSurfaceState | null {
     const totals: InteractionSurfaceState = { length: 0, rhythm: 0, energy: 0, punctuation: 0, emoji: 0 };
     let totalWeight = 0;
     states.forEach((state, index) => {
-        // 20 轮窗口需要比旧版 8 条消息更慢地衰减，否则远端样本名义存在、实际没权重。
+        // 20 輪窗口需要比舊版 8 條消息更慢地衰減，否則遠端樣本名義存在、實際沒權重。
         const weight = Math.pow(0.9, states.length - index - 1);
         totalWeight += weight;
         (Object.keys(totals) as Array<keyof InteractionSurfaceState>).forEach(key => {
@@ -215,8 +215,8 @@ export function analyzeUserInteraction(
     const target = { ...impulse };
     const shifts = { ...impulse };
     keys.forEach(key => {
-        // impulse 只影响当轮；trend 提供最近 20 轮的慢背景。
-        // 当前回应以 impulse 为主；trend 只负责让长期相处节奏缓慢延续。
+        // impulse 只影響當輪；trend 提供最近 20 輪的慢背景。
+        // 當前回應以 impulse 為主；trend 只負責讓長期相處節奏緩慢延續。
         target[key] = clamp01(trend[key] * 0.35 + impulse[key] * 0.65);
         shifts[key] = (target[key] - NEUTRAL_TARGET[key]) * policy[key];
     });
@@ -253,26 +253,26 @@ export function renderInteractionAdaptationGuidance(
     if (Math.abs(shifts.length) >= 0.045 || noticeableLengthImpulse) {
         const direction = noticeableLengthImpulse ? impulseLengthDelta : shifts.length;
         lines.push(direction < 0
-            ? '回应可以比你平时稍短一些，少铺垫，保留自然停顿。'
-            : '对方此刻愿意展开；如果你确实有内容，可以比平时多说一点，但不要为了匹配长度硬凑。');
+            ? '回應可以比你平時稍短一些，少鋪墊，保留自然停頓。'
+            : '對方此刻願意展開；如果你確實有內容，可以比平時多說一點，但不要為了匹配長度硬湊。');
     }
     if (Math.abs(shifts.rhythm) >= 0.045 || noticeableRhythmImpulse) {
         const direction = noticeableRhythmImpulse ? impulseRhythmDelta : shifts.rhythm;
         lines.push(direction > 0
-            ? '跟上现在较快的来回节奏，反应可以更直接。'
-            : '现在的交流节奏偏慢，允许回应从容一些，不必催着推进。');
+            ? '跟上現在較快的來回節奏，反應可以更直接。'
+            : '現在的交流節奏偏慢，允許回應從容一些，不必催著推進。');
     }
     if (Math.abs(shifts.energy) >= 0.04 || noticeableEnergyImpulse) {
         const direction = noticeableEnergyImpulse ? impulseEnergyDelta : shifts.energy;
         lines.push(direction > 0
-            ? '可以接住对方此刻更高的兴致或情绪能量，但强度仍以你的性格为上限。'
-            : '对方此刻能量偏低，适当收住声量，不必强行热场。');
+            ? '可以接住對方此刻更高的興致或情緒能量，但強度仍以你的性格為上限。'
+            : '對方此刻能量偏低，適當收住聲量，不必強行熱場。');
     }
     if (policy.punctuation >= 0.2 && shifts.punctuation > 0.06) {
-        lines.push('标点力度可以轻微跟上，但不要机械复制。');
+        lines.push('標點力度可以輕微跟上，但不要機械複製。');
     }
     if (policy.emoji >= 0.2 && shifts.emoji > 0.06) {
-        lines.push('若你本来就会使用 emoji，可以略微增加；没有这个习惯就不要突然使用。');
+        lines.push('若你本來就會使用 emoji，可以略微增加；沒有這個習慣就不要突然使用。');
     }
 
     const hasImpulse = analysis.hasTrend && (
@@ -280,18 +280,18 @@ export function renderInteractionAdaptationGuidance(
         || Math.abs(impulseEnergyDelta) >= 0.25
         || Math.abs(impulseRhythmDelta) >= 0.25
     );
-    // 只有产生了实际行为建议才注入。单纯检测到波动不应占用 prompt，
-    // 更不能绕过角色把某个维度设为 0 的明确选择。
+    // 只有產生了實際行為建議才注入。單純檢測到波動不應占用 prompt，
+    // 更不能繞過角色把某個維度設為 0 的明確選擇。
     if (lines.length === 0) return '';
 
     const intro = hasImpulse
-        ? '对方这一轮的步伐和最近几轮有明显变化；只在当前回应里轻微跟上即可。'
-        : '跟随对方这一阵的交流步伐即可，不需要刻意表演。';
+        ? '對方這一輪的步伐和最近幾輪有明顯變化；只在當前回應裡輕微跟上即可。'
+        : '跟隨對方這一陣的交流步伐即可，不需要刻意表演。';
     return [
-        '### 此刻的交流节奏',
+        '### 此刻的交流節奏',
         intro,
         ...lines,
-        '这只是相处节奏的轻微调整。你的立场、关系距离、语言气质和判断方式仍然属于你自己；不要复刻对方措辞，也不要把这次适应学回角色基线。',
+        '這只是相處節奏的輕微調整。你的立場、關係距離、語言氣質和判斷方式仍然屬於你自己；不要復刻對方措辭，也不要把這次適應學回角色基線。',
         '',
     ].join('\n');
 }

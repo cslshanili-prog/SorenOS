@@ -71,22 +71,22 @@ const requireNotificationPermission = async (): Promise<void> => {
     ? await LocalNotifications.requestPermissions()
     : current;
   if (result.display !== 'granted') {
-    throw new Error('通知权限未授予，UnifiedPush 收到消息后无法显示系统通知。');
+    throw new Error('通知權限未授予，UnifiedPush 收到消息後無法顯示系統通知。');
   }
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** 获取一条标准 Web Push 订阅，可直接交给 AMSG Worker。 */
+/** 獲取一條標準 Web Push 訂閱，可直接交給 AMSG Worker。 */
 export const ensureUnifiedPushSubscription = async (
   vapidPublicKey: string,
 ): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } }> => {
-  if (!isUnifiedPushPlatform()) throw new Error('UnifiedPush 仅用于 Android 原生 App。');
+  if (!isUnifiedPushPlatform()) throw new Error('UnifiedPush 僅用於 Android 原生 App。');
   await requireNotificationPermission();
 
   const before = await NativeUnifiedPush.getStatus();
   if (!before.distributor && before.distributors.length === 0) {
-    throw new Error('没有检测到 UnifiedPush 服务。请先安装并打开 ntfy 的无 Firebase 版本，允许它后台运行后再试。');
+    throw new Error('沒有檢測到 UnifiedPush 服務。請先安裝並打開 ntfy 的無 Firebase 版本，允許它後台運行後再試。');
   }
 
   await NativeUnifiedPush.register({ vapidPublicKey });
@@ -101,11 +101,11 @@ export const ensureUnifiedPushSubscription = async (
     ) {
       return { endpoint: subscription.endpoint, keys: subscription.keys };
     }
-    if (status.lastError) throw new Error(`UnifiedPush 注册失败：${status.lastError}`);
+    if (status.lastError) throw new Error(`UnifiedPush 註冊失敗：${status.lastError}`);
     await delay(250);
   }
 
-  throw new Error('UnifiedPush 注册超时。请确认 ntfy 已打开并允许它在后台运行。');
+  throw new Error('UnifiedPush 註冊超時。請確認 ntfy 已打開並允許它在後台運行。');
 };
 
 export const readUnifiedPushSubscription = async () =>

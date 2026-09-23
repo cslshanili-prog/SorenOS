@@ -14,7 +14,7 @@ try{
         // Use a static test character, avoiding video/model startup during a navigation test.
         await page.evaluate(async()=>{
             const {DB}=await import('/utils/db.ts');
-            const char={...window.releaseQA.characters[0],id:'qa-desktop-entry',name:'测试角色',videoAvatar:undefined,companionAvatar:undefined,avatar:'/assets/sar/caian-chibi.png'};
+            const char={...window.releaseQA.characters[0],id:'qa-desktop-entry',name:'測試角色',videoAvatar:undefined,companionAvatar:undefined,avatar:'/assets/sar/caian-chibi.png'};
             await DB.saveCharacter(char);window.releaseQA.setActiveCharacterId(char.id);
         });
         await page.goto(`${base}/test/fixtures/sar-release.html?desktop=${skin}`);

@@ -1,7 +1,7 @@
 /**
- * LifeSim AI Prompts — CHAR决策提示词
+ * LifeSim AI Prompts — CHAR決策提示詞
  *
- * 角色们和用户一起玩模拟人生游戏，作为"玩家"操控游戏里的NPC小人
+ * 角色們和用戶一起玩模擬人生遊戲，作為"玩家"操控遊戲裡的NPC小人
  */
 
 import { LifeSimState, SimFamily, SimNPC, SimAction, CharacterProfile, UserProfile, SimSeason, CharNarrative, SimEventType, SimStoryAttachmentDraft } from '../types';
@@ -11,18 +11,18 @@ import {
     SEASON_INFO, TIME_INFO, WEATHER_INFO, getProfessionInfo, getChaosLabel, getRelLabel
 } from './lifeSimEngine';
 
-// ── 季节戏剧提示 ────────────────────────────────────────────
+// ── 季節戲劇提示 ────────────────────────────────────────────
 
 function getSeasonDramaHint(season: SimSeason): string {
     switch (season) {
-        case 'spring': return '游戏里春暖花开，适合搞暧昧和制造新关系';
-        case 'summer': return '游戏里夏日燥热，小人们脾气容易上头，冲突概率大增';
-        case 'fall':   return '游戏里秋天EMO季，小人们容易翻旧账闹矛盾';
-        case 'winter': return '游戏里寒冬窝家，八卦和drama是唯一的乐趣';
+        case 'spring': return '遊戲裡春暖花開，適合搞曖昧和製造新關係';
+        case 'summer': return '遊戲裡夏日燥熱，小人們脾氣容易上頭，衝突概率大增';
+        case 'fall':   return '遊戲裡秋天EMO季，小人們容易翻舊帳鬧矛盾';
+        case 'winter': return '遊戲裡寒冬窩家，八卦和drama是唯一的樂趣';
     }
 }
 
-// ── 游戏状态序列化 ────────────────────────────────────────────
+// ── 遊戲狀態序列化 ────────────────────────────────────────────
 
 function serializeWorldContext(state: LifeSimState): string {
     const season = state.season ?? 'spring';
@@ -31,10 +31,10 @@ function serializeWorldContext(state: LifeSimState): string {
     const wi = WEATHER_INFO[state.weather ?? 'sunny'];
 
     const lines: string[] = [];
-    lines.push(`=== 游戏世界环境 ===`);
-    lines.push(`当前时间：第${state.year ?? 1}年 ${si.emoji}${si.zh}季 第${state.day ?? 1}天/28天 ${ti.emoji}${ti.zh}`);
-    lines.push(`今日天气：${wi.emoji}${wi.zh}`);
-    lines.push(`季节氛围：${getSeasonDramaHint(season)}`);
+    lines.push(`=== 遊戲世界環境 ===`);
+    lines.push(`當前時間：第${state.year ?? 1}年 ${si.emoji}${si.zh}季 第${state.day ?? 1}天/28天 ${ti.emoji}${ti.zh}`);
+    lines.push(`今日天氣：${wi.emoji}${wi.zh}`);
+    lines.push(`季節氛圍：${getSeasonDramaHint(season)}`);
     lines.push('');
     return lines.join('\n');
 }
@@ -42,17 +42,17 @@ function serializeWorldContext(state: LifeSimState): string {
 function serializeGameState(state: LifeSimState): string {
     const lines: string[] = [];
 
-    lines.push(`=== 游戏当前状态 (第${state.turnNumber}回合) ===`);
+    lines.push(`=== 遊戲當前狀態 (第${state.turnNumber}回合) ===`);
     const { label: chaosLabel } = getChaosLabel(state.chaosLevel);
-    lines.push(`混乱度: ${state.chaosLevel}/100 (${chaosLabel})`);
+    lines.push(`混亂度: ${state.chaosLevel}/100 (${chaosLabel})`);
     lines.push('');
 
-    // ── 各家庭情况 ──
-    lines.push('【游戏里各家庭情况】');
+    // ── 各家庭情況 ──
+    lines.push('【遊戲裡各家庭情況】');
     for (const family of state.families) {
         const members = getFamilyMembers(state, family.id);
         if (members.length === 0) {
-            lines.push(`${family.emoji} ${family.name}：(无人入住)`);
+            lines.push(`${family.emoji} ${family.name}：(無人入住)`);
             continue;
         }
         const atmosphere = getFamilyAtmosphere(state, family.id);
@@ -62,7 +62,7 @@ function serializeGameState(state: LifeSimState): string {
             lines.push(`  - ${npc.emoji}${npc.name}｜心情:${moodEmoji}(${npc.mood})`);
         }
 
-        // 家庭内关系
+        // 家庭內關係
         if (members.length >= 2) {
             const relLines: string[] = [];
             for (let i = 0; i < members.length; i++) {
@@ -73,15 +73,15 @@ function serializeGameState(state: LifeSimState): string {
                     relLines.push(`    ${a.name}↔${b.name}: ${rel > 0 ? '+' : ''}${rel} (${relLabel})`);
                 }
             }
-            if (relLines.length > 0) { lines.push('  关系:'); lines.push(...relLines); }
+            if (relLines.length > 0) { lines.push('  關係:'); lines.push(...relLines); }
         }
     }
     lines.push('');
 
-    // ── 独行侠 ──
+    // ── 獨行俠 ──
     const solos = getIndependentNPCs(state);
     if (solos.length > 0) {
-        lines.push('【游戏里独居的小人】');
+        lines.push('【遊戲裡獨居的小人】');
         for (const npc of solos) {
             const { emoji: moodEmoji } = getMoodLabel(npc.mood);
             lines.push(`  ${npc.emoji}${npc.name}｜心情:${moodEmoji}(${npc.mood})`);
@@ -89,14 +89,14 @@ function serializeGameState(state: LifeSimState): string {
         lines.push('');
     }
 
-    // ── 跨家庭关系（仇恨/暗恋）──
+    // ── 跨家庭關係（仇恨/暗戀）──
     const crossRelLines: string[] = [];
     for (const npc of state.npcs) {
         if (npc.grudges && npc.grudges.length > 0) {
             for (const targetId of npc.grudges) {
                 const target = state.npcs.find(n => n.id === targetId);
                 if (target) {
-                    crossRelLines.push(`  💢 ${npc.emoji}${npc.name} 记恨 ${target.emoji}${target.name}`);
+                    crossRelLines.push(`  💢 ${npc.emoji}${npc.name} 記恨 ${target.emoji}${target.name}`);
                 }
             }
         }
@@ -104,73 +104,73 @@ function serializeGameState(state: LifeSimState): string {
             for (const targetId of npc.crushes) {
                 const target = state.npcs.find(n => n.id === targetId);
                 if (target) {
-                    crossRelLines.push(`  💗 ${npc.emoji}${npc.name} 暗恋 ${target.emoji}${target.name}`);
+                    crossRelLines.push(`  💗 ${npc.emoji}${npc.name} 暗戀 ${target.emoji}${target.name}`);
                 }
             }
         }
     }
     if (crossRelLines.length > 0) {
-        lines.push('【跨家庭关系】');
+        lines.push('【跨家庭關係】');
         lines.push(...crossRelLines);
         lines.push('');
     }
 
-    // ── 戏剧局势 ──
-    lines.push('【游戏当前Drama局势】');
+    // ── 戲劇局勢 ──
+    lines.push('【遊戲當前Drama局勢】');
 
-    // 仇恨关系汇总
+    // 仇恨關係彙總
     const grudgeSummary: string[] = [];
     for (const npc of state.npcs) {
         if (npc.grudges && npc.grudges.length > 0) {
             for (const targetId of npc.grudges) {
                 const target = state.npcs.find(n => n.id === targetId);
                 if (target) {
-                    grudgeSummary.push(`${npc.name} 记恨 ${target.name}`);
+                    grudgeSummary.push(`${npc.name} 記恨 ${target.name}`);
                 }
             }
         }
     }
-    lines.push(`仇恨关系: ${grudgeSummary.length > 0 ? grudgeSummary.join('、') : '暂无'}`);
+    lines.push(`仇恨關係: ${grudgeSummary.length > 0 ? grudgeSummary.join('、') : '暫無'}`);
 
-    // 暗恋关系汇总
+    // 暗戀關係彙總
     const crushSummary: string[] = [];
     for (const npc of state.npcs) {
         if (npc.crushes && npc.crushes.length > 0) {
             for (const targetId of npc.crushes) {
                 const target = state.npcs.find(n => n.id === targetId);
                 if (target) {
-                    crushSummary.push(`${npc.name} 暗恋 ${target.name}`);
+                    crushSummary.push(`${npc.name} 暗戀 ${target.name}`);
                 }
             }
         }
     }
-    lines.push(`暗恋关系: ${crushSummary.length > 0 ? crushSummary.join('、') : '暂无'}`);
+    lines.push(`暗戀關係: ${crushSummary.length > 0 ? crushSummary.join('、') : '暫無'}`);
 
-    // 进行中的事件链
+    // 進行中的事件鏈
     if (state.pendingEffects.length > 0) {
         const effectLines = state.pendingEffects.map(eff =>
-            `[${eff.id}] ${eff.description}（将在第${eff.triggerTurn}回合爆发）`
+            `[${eff.id}] ${eff.description}（將在第${eff.triggerTurn}回合爆發）`
         );
-        lines.push(`进行中的事件链: ${effectLines.join('；')}`);
+        lines.push(`進行中的事件鏈: ${effectLines.join('；')}`);
     } else {
-        lines.push('进行中的事件链: 暂无');
+        lines.push('進行中的事件鏈: 暫無');
     }
 
-    lines.push(`混乱度: ${state.chaosLevel}/100 (${chaosLabel})`);
+    lines.push(`混亂度: ${state.chaosLevel}/100 (${chaosLabel})`);
     lines.push('');
 
     return lines.join('\n');
 }
 
 function serializeActionLog(log: SimAction[], maxEntries = 15): string {
-    if (log.length === 0) return '（目前还没有任何操作记录）';
+    if (log.length === 0) return '（目前還沒有任何操作記錄）';
     const recent = log.slice(-maxEntries);
     return recent.map(a =>
-        `[第${a.turnNumber}回合 | ${a.actor}] ${a.description}\n  → 结果: ${a.immediateResult}`
+        `[第${a.turnNumber}回合 | ${a.actor}] ${a.description}\n  → 結果: ${a.immediateResult}`
     ).join('\n\n');
 }
 
-// ── 构建CHAR决策Prompt ────────────────────────────────────────
+// ── 構建CHAR決策Prompt ────────────────────────────────────────
 
 export interface CharDecision {
     action: {
@@ -195,13 +195,13 @@ export interface CharDecision {
     immediateResultHint?: string;
 }
 
-/** 将LLM输出的扁平/嵌套JSON统一规范化为CharDecision格式 */
+/** 將LLM輸出的扁平/嵌套JSON統一規範化為CharDecision格式 */
 export function normalizeCharDecision(raw: any): CharDecision {
     if (!raw || typeof raw !== 'object') {
         return { action: { type: 'DO_NOTHING' }, narrative: { innerThought: '', dialogue: '', commentOnWorld: '', emotionalTone: 'peaceful' } };
     }
 
-    // 兼容扁平格式（新）和嵌套格式（旧）
+    // 兼容扁平格式（新）和嵌套格式（舊）
     const hasNestedAction = raw.action && typeof raw.action === 'object' && raw.action.type;
     const actionObj = hasNestedAction ? raw.action : raw;
 
@@ -276,35 +276,35 @@ function buildFallbackAttachments(
     involvedNpcs: SimNPC[]
 ): SimStoryAttachmentDraft[] {
     const npcNames = involvedNpcs.map(npc => npc.name);
-    const pair = npcNames.slice(0, 2).join(' / ') || '匿名住户';
+    const pair = npcNames.slice(0, 2).join(' / ') || '匿名住戶';
     const attachmentPool: SimStoryAttachmentDraft[] = [
         {
             kind: 'image',
-            title: `${headline} 现场图`,
-            summary: `一张带着都市霓虹感的现场截图，主角是 ${pair}。`,
-            visualPrompt: `${headline}，都市公寓，像素风，霓虹灯，${pair}，dramatic`,
+            title: `${headline} 現場圖`,
+            summary: `一張帶著都市霓虹感的現場截圖，主角是 ${pair}。`,
+            visualPrompt: `${headline}，都市公寓，像素風，霓虹燈，${pair}，dramatic`,
             rarity: 'rare',
         },
         {
             kind: 'evidence',
-            title: '匿名聊天记录',
-            summary: `围观群众把这件事总结成了一份聊天截图，所有人都在偷偷站队。`,
-            detail: `【群聊节选】\n- “这事绝对不简单。”\n- “${pair} 这次是真的闹大了。”\n- “我先截图，等会儿肯定还有后续。”`,
+            title: '匿名聊天記錄',
+            summary: `圍觀群眾把這件事總結成了一份聊天截圖，所有人都在偷偷站隊。`,
+            detail: `【群聊節選】\n- “這事絕對不簡單。”\n- “${pair} 這次是真的鬧大了。”\n- “我先截圖，等會兒肯定還有後續。”`,
             rarity: 'common',
         },
         {
             kind: 'item',
-            title: '剧情掉落物',
+            title: '劇情掉落物',
             summary: eventType === 'romance'
-                ? '一只被遗落在电梯口的小礼盒，里面还有没送出去的心意。'
+                ? '一隻被遺落在電梯口的小禮盒，裡面還有沒送出去的心意。'
                 : eventType === 'fight'
-                ? '冲突现场留下的关键道具，像是能继续引爆后续剧情的火种。'
-                : '一件和这场风波有关的私人物件，被围观者偷偷保存了下来。',
+                ? '衝突現場留下的關鍵道具，像是能繼續引爆後續劇情的火種。'
+                : '一件和這場風波有關的私人物件，被圍觀者偷偷保存了下來。',
             detail: eventType === 'romance'
-                ? '礼盒里有一张手写卡片，只写了两个字：“今晚”。'
+                ? '禮盒裡有一張手寫卡片，只寫了兩個字：“今晚”。'
                 : eventType === 'fight'
-                ? '道具边角有明显磨损，看起来它刚刚见证过一场情绪失控的正面交锋。'
-                : '这件东西本身没多值钱，但放在此刻，简直像剧情自带的伏笔。',
+                ? '道具邊角有明顯磨損，看起來它剛剛見證過一場情緒失控的正面交鋒。'
+                : '這件東西本身沒多值錢，但放在此刻，簡直像劇情自帶的伏筆。',
             rarity: 'rare',
         },
     ];
@@ -314,16 +314,16 @@ function buildFallbackAttachments(
         attachmentPool.push({
             kind: 'fanfic',
             title: `${fanficAuthor.name} 的同人文片段`,
-            summary: `${fanficAuthor.name} 已经把这场事故写成了半篇文，标题党味道很重。`,
-            detail: `《${headline}》\n\n${pair} 都知道那扇门一旦关上，今晚就不会再只是一个普通夜晚。\n走廊的灯把影子拉得很长，像所有没说出口的话都提前站好了位置。\n有人故作冷静，有人假装只是路过，可真正滚烫的东西早就在空气里炸开。\n等到消息传进群里时，整栋楼都明白，这件事已经不可能轻轻放下。`,
+            summary: `${fanficAuthor.name} 已經把這場事故寫成了半篇文，標題黨味道很重。`,
+            detail: `《${headline}》\n\n${pair} 都知道那扇門一旦關上，今晚就不會再只是一個普通夜晚。\n走廊的燈把影子拉得很長，像所有沒說出口的話都提前站好了位置。\n有人故作冷靜，有人假裝只是路過，可真正滾燙的東西早就在空氣裡炸開。\n等到消息傳進群裡時，整棟樓都明白，這件事已經不可能輕輕放下。`,
             rarity: 'epic',
         });
     } else {
         attachmentPool.push({
             kind: 'fanfic',
-            title: '匿名论坛热帖',
-            summary: '围观群众已经把这件事二创成了小短文，传播速度比真相还快。',
-            detail: `《${headline} 二创版》\n\n楼道尽头的风声很轻，却没能把那句失控的话带走。\n有人在退后，有人在靠近，而最危险的东西从来不是争执本身，而是彼此都还没打算停下。\n当第一张截图流出去时，这段关系就已经不再只属于当事人。`,
+            title: '匿名論壇熱帖',
+            summary: '圍觀群眾已經把這件事二創成了小短文，傳播速度比真相還快。',
+            detail: `《${headline} 二創版》\n\n樓道盡頭的風聲很輕，卻沒能把那句失控的話帶走。\n有人在退後，有人在靠近，而最危險的東西從來不是爭執本身，而是彼此都還沒打算停下。\n當第一張截圖流出去時，這段關係就已經不再只屬於當事人。`,
             rarity: 'rare',
         });
     }
@@ -348,28 +348,28 @@ export function buildFallbackWorldDramaDecision(state: LifeSimState): WorldDrama
 
     const names = involved.map(npc => npc.name);
     const headlineByType: Record<SimEventType, string[]> = {
-        fight: ['天台录音门', '走廊对峙夜', '深夜互撕现场'],
-        party: ['临时派对事故', '屋顶聚会失控', '今晚不准散场'],
-        gossip: ['匿名爆料贴', '群聊截图流出', '八卦在凌晨失火'],
-        romance: ['借火误会', '深夜礼物事件', '电梯里的暧昧证词'],
-        rivalry: ['双王不共楼', '互相内涵的一周', '谁才是公寓中心'],
-        alliance: ['秘密站队协议', '地下同盟成立', '交换情报的人'],
+        fight: ['天台錄音門', '走廊對峙夜', '深夜互撕現場'],
+        party: ['臨時派對事故', '屋頂聚會失控', '今晚不準散場'],
+        gossip: ['匿名爆料貼', '群聊截圖流出', '八卦在凌晨失火'],
+        romance: ['借火誤會', '深夜禮物事件', '電梯裡的曖昧證詞'],
+        rivalry: ['雙王不共樓', '互相內涵的一週', '誰才是公寓中心'],
+        alliance: ['秘密站隊協議', '地下同盟成立', '交換情報的人'],
     };
-    const headline = `${pickRandom(headlineByType[eventType])} · ${names[0] || '住户'}`;
+    const headline = `${pickRandom(headlineByType[eventType])} · ${names[0] || '住戶'}`;
 
     const eventDescriptionByType: Record<SimEventType, string> = {
-        fight: `${names[0] || '某人'}和${names[1] || '某人'}在公共区域情绪失控，冲突被更多住户撞见了。`,
-        party: `${names[0] || '某人'}临时攒局，把几位住户都卷进了一个看似轻松却暗流涌动的夜晚。`,
-        gossip: `一份关于${names[0] || '某人'}的匿名爆料突然在楼里扩散，越传越像真的。`,
-        romance: `${names[0] || '某人'}和${names[1] || '某人'}之间出现了不再能装作没看见的暧昧信号。`,
-        rivalry: `${names[0] || '某人'}和${names[1] || '某人'}开始了表面客气、实则针锋相对的长期较劲。`,
-        alliance: `${names[0] || '某人'}和${names[1] || '某人'}私下交换了立场，准备一起改写楼里的局势。`,
+        fight: `${names[0] || '某人'}和${names[1] || '某人'}在公共區域情緒失控，衝突被更多住戶撞見了。`,
+        party: `${names[0] || '某人'}臨時攢局，把幾位住戶都捲進了一個看似輕鬆卻暗流湧動的夜晚。`,
+        gossip: `一份關於${names[0] || '某人'}的匿名爆料突然在樓裡擴散，越傳越像真的。`,
+        romance: `${names[0] || '某人'}和${names[1] || '某人'}之間出現了不再能裝作沒看見的曖昧信號。`,
+        rivalry: `${names[0] || '某人'}和${names[1] || '某人'}開始了表面客氣、實則針鋒相對的長期較勁。`,
+        alliance: `${names[0] || '某人'}和${names[1] || '某人'}私下交換了立場，準備一起改寫樓裡的局勢。`,
     };
 
     const narrative: CharNarrative = {
-        innerThought: '这一轮不该只是围观，应该顺手把整条世界线点燃。',
-        dialogue: `${headline} 正式开场，${names.join('、')}都已经站到了舞台中央。`,
-        commentOnWorld: '主线已经起势，接下来每个人都会被迫表态。',
+        innerThought: '這一輪不該只是圍觀，應該順手把整條世界線點燃。',
+        dialogue: `${headline} 正式開場，${names.join('、')}都已經站到了舞台中央。`,
+        commentOnWorld: '主線已經起勢，接下來每個人都會被迫表態。',
         emotionalTone: fallbackToneForEvent(eventType),
     };
 
@@ -378,7 +378,7 @@ export function buildFallbackWorldDramaDecision(state: LifeSimState): WorldDrama
         eventType,
         involvedNpcIds: involvedIds,
         eventDescription: eventDescriptionByType[eventType],
-        immediateResult: `${headline} 把整栋楼的注意力都拽了过去，新的站队和误会正在生成。`,
+        immediateResult: `${headline} 把整棟樓的注意力都拽了過去，新的站隊和誤會正在生成。`,
         narrative,
         attachments: buildFallbackAttachments(headline, eventType, involved),
     };
@@ -394,11 +394,11 @@ export function normalizeWorldDramaDecision(raw: any): WorldDramaDecision {
 
     if (!raw || typeof raw !== 'object') {
         return {
-            headline: '主线剧情',
+            headline: '主線劇情',
             eventType: 'gossip',
             involvedNpcIds: [],
-            eventDescription: '一段新的都市主线突然开始了。',
-            immediateResult: '围观情绪迅速升温。',
+            eventDescription: '一段新的都市主線突然開始了。',
+            immediateResult: '圍觀情緒迅速升溫。',
             narrative: fallbackNarrative,
             attachments: [],
         };
@@ -417,7 +417,7 @@ export function normalizeWorldDramaDecision(raw: any): WorldDramaDecision {
             .map((item: any): SimStoryAttachmentDraft => ({
                 kind: validKinds.has(item.kind) ? item.kind : 'evidence',
                 title: String(item.title || '未命名附件').slice(0, 40),
-                summary: String(item.summary || item.caption || '没有留下太多说明。').slice(0, 120),
+                summary: String(item.summary || item.caption || '沒有留下太多說明。').slice(0, 120),
                 detail: typeof item.detail === 'string' ? item.detail : undefined,
                 visualPrompt: typeof item.visualPrompt === 'string' ? item.visualPrompt : undefined,
                 rarity: validRarity.has(item.rarity) ? item.rarity : 'common',
@@ -425,11 +425,11 @@ export function normalizeWorldDramaDecision(raw: any): WorldDramaDecision {
         : [];
 
     return {
-        headline: String(raw.headline || raw.title || '主线剧情').slice(0, 40),
+        headline: String(raw.headline || raw.title || '主線劇情').slice(0, 40),
         eventType,
         involvedNpcIds: Array.isArray(raw.involvedNpcIds) ? raw.involvedNpcIds.map(String) : [],
-        eventDescription: String(raw.eventDescription || raw.description || '一段新的都市主线突然开始了。').slice(0, 120),
-        immediateResult: String(raw.immediateResult || raw.result || '围观情绪迅速升温。').slice(0, 160),
+        eventDescription: String(raw.eventDescription || raw.description || '一段新的都市主線突然開始了。').slice(0, 120),
+        immediateResult: String(raw.immediateResult || raw.result || '圍觀情緒迅速升溫。').slice(0, 160),
         narrative: {
             innerThought: String(rawNarrative.innerThought || rawNarrative.thought || '').slice(0, 120),
             dialogue: String(rawNarrative.dialogue || rawNarrative.scene || '').slice(0, 180),
@@ -446,46 +446,46 @@ export function buildWorldDramaPlannerPrompt(
     actionLog: SimAction[]
 ): string {
     return `
-你不是某个角色，也不是玩家。你是这座都市人生小世界的“主线编剧室”。
+你不是某個角色，也不是玩家。你是這座都市人生小世界的“主線編劇室”。
 
-任务：现在进入非常 drama 的规划环节，请围绕 NPC 直接启动一段新的主线剧情。
-规则：
-- 这次是“主线剧情”，不是普通旁支，不需要 CHAR 参与。
-- 只能使用当前世界里的 NPC，当事人建议 2-4 个。
-- 主线要像连续剧开篇，要有钩子、误会、站队欲，能自然引出后续。
-- 不能只写“发生了什么”，必须额外掉落 2-3 个附件。
-- 附件可从 image / item / fanfic / evidence 里选择。
-- 如果是 fanfic，detail 里直接给出正文片段。
-- 如果是 image，给 visualPrompt，我会把它做成剧情插图卡。
+任務：現在進入非常 drama 的規劃環節，請圍繞 NPC 直接啟動一段新的主線劇情。
+規則：
+- 這次是“主線劇情”，不是普通旁支，不需要 CHAR 參與。
+- 只能使用當前世界裡的 NPC，當事人建議 2-4 個。
+- 主線要像連續劇開篇，要有鉤子、誤會、站隊欲，能自然引出後續。
+- 不能只寫“發生了什麼”，必須額外掉落 2-3 個附件。
+- 附件可從 image / item / fanfic / evidence 裡選擇。
+- 如果是 fanfic，detail 裡直接給出正文片段。
+- 如果是 image，給 visualPrompt，我會把它做成劇情插圖卡。
 
 ${serializeWorldContext(state)}
 
 ${serializeGameState(state)}
 
-=== 最近剧情 ===
+=== 最近劇情 ===
 ${serializeActionLog(actionLog, 12)}
 
 ${buildAvailableResources(state)}
 
-请只返回 JSON：
+請只返回 JSON：
 {
-  "headline": "主线标题，像连续剧小标题",
+  "headline": "主線標題，像連續劇小標題",
   "eventType": "fight|party|gossip|romance|rivalry|alliance",
   "involvedNpcIds": ["npc id"],
-  "eventDescription": "一句话描述这次主线导火索",
-  "immediateResult": "这段主线刚开启就带来的即时后果",
+  "eventDescription": "一句話描述這次主線導火索",
+  "immediateResult": "這段主線剛開啟就帶來的即時後果",
   "narrative": {
-    "innerThought": "编剧式旁白/幕后判断",
-    "dialogue": "更有画面的场景描写",
-    "commentOnWorld": "对当前世界线的吐槽或判断",
+    "innerThought": "編劇式旁白/幕後判斷",
+    "dialogue": "更有畫面的場景描寫",
+    "commentOnWorld": "對當前世界線的吐槽或判斷",
     "emotionalTone": "vengeful|romantic|scheming|chaotic|peaceful|amused|anxious"
   },
   "attachments": [
     {
       "kind": "image|item|fanfic|evidence",
-      "title": "附件标题",
-      "summary": "短说明",
-      "detail": "展开内容，可选；fanfic 建议给正文",
+      "title": "附件標題",
+      "summary": "短說明",
+      "detail": "展開內容，可選；fanfic 建議給正文",
       "visualPrompt": "如果 kind=image 才填",
       "rarity": "common|rare|epic"
     }
@@ -504,114 +504,114 @@ export function buildCharTurnSystemPrompt(
     // 1. 角色核心上下文
     const coreContext = ContextBuilder.buildCoreContext(char, user, true);
 
-    // 2. 季节/天气信息
+    // 2. 季節/天氣信息
     const season = state.season ?? 'spring';
     const si = SEASON_INFO[season];
     const ti = TIME_INFO[state.timeOfDay ?? 'morning'];
     const wi = WEATHER_INFO[state.weather ?? 'sunny'];
 
-    // 3. 游戏设定
+    // 3. 遊戲設定
     const dramaSetup = `
-=== 你正在和${user.name}一起玩一款叫【模拟人生】的游戏 ===
+=== 你正在和${user.name}一起玩一款叫【模擬人生】的遊戲 ===
 
-你们是一群朋友围在一起玩游戏，游戏里有一个小镇，里面住着各种NPC小人。
-你不在游戏世界里——你是坐在外面的玩家，在操控和观察游戏里的小人们。
-每个玩家轮流操作，现在轮到你了。
+你們是一群朋友圍在一起玩遊戲，遊戲裡有一個小鎮，裡面住著各種NPC小人。
+你不在遊戲世界裡——你是坐在外面的玩家，在操控和觀察遊戲裡的小人們。
+每個玩家輪流操作，現在輪到你了。
 
-当前游戏画面：${si.emoji}${si.zh}季 第${state.day ?? 1}天 | ${ti.emoji}${ti.zh} | ${wi.emoji}${wi.zh}
+當前遊戲畫面：${si.emoji}${si.zh}季 第${state.day ?? 1}天 | ${ti.emoji}${ti.zh} | ${wi.emoji}${wi.zh}
 ${getSeasonDramaHint(season)}
 
 你可以做的操作：
-- TRIGGER_EVENT：在游戏里制造事件，让小人们打架/聚会/八卦/恋爱/竞争/结盟
-- ADD_NPC：往游戏里捏一个新小人丢进去
-- MOVE_NPC：把某个小人搬到另一个家庭
-- GO_SOLO：让某个小人搬出去独居
-- DO_NOTHING：这轮跳过，看戏
+- TRIGGER_EVENT：在遊戲裡製造事件，讓小人們打架/聚會/八卦/戀愛/競爭/結盟
+- ADD_NPC：往遊戲裡捏一個新小人丟進去
+- MOVE_NPC：把某個小人搬到另一個家庭
+- GO_SOLO：讓某個小人搬出去獨居
+- DO_NOTHING：這輪跳過，看戲
 
 玩法提示：
-- 用你自己的性格来决定怎么玩——你是玩家，用你觉得有趣的方式搞事
-- 你可以把某个小人代入成你自己或你认识的人，但要说出来（比如"这个小人就是我！"）
-- TRIGGER_EVENT最好玩——让小人们上演各种drama
-- 你的thought是你作为玩家的内心吐槽/想法，dialogue是你对着屏幕说的话或对游戏的评论
-- 用你自己的说话风格，像朋友一起打游戏时的聊天
+- 用你自己的性格來決定怎麼玩——你是玩家，用你覺得有趣的方式搞事
+- 你可以把某個小人代入成你自己或你認識的人，但要說出來（比如"這個小人就是我！"）
+- TRIGGER_EVENT最好玩——讓小人們上演各種drama
+- 你的thought是你作為玩家的內心吐槽/想法，dialogue是你對著屏幕說的話或對遊戲的評論
+- 用你自己的說話風格，像朋友一起打遊戲時的聊天
 `;
 
-    // 4. 世界环境
+    // 4. 世界環境
     const worldContextSection = `\n${serializeWorldContext(state)}\n`;
 
-    // 5. 戏剧局势 + 游戏状态
+    // 5. 戲劇局勢 + 遊戲狀態
     const gameStateSection = `\n${serializeGameState(state)}\n`;
 
-    // 6. 操作记录
-    const logSection = `\n=== 最近操作记录 ===\n${serializeActionLog(actionLog, 10)}\n`;
+    // 6. 操作記錄
+    const logSection = `\n=== 最近操作記錄 ===\n${serializeActionLog(actionLog, 10)}\n`;
 
-    // 7. 聊天记录
+    // 7. 聊天記錄
     const chatSection = recentChatHistory
-        ? `\n=== 你和${user.name}最近的聊天（游戏外的对话）===\n${recentChatHistory}\n`
+        ? `\n=== 你和${user.name}最近的聊天（遊戲外的對話）===\n${recentChatHistory}\n`
         : '';
 
-    // 8. 可用资源
+    // 8. 可用資源
     const availableResources = buildAvailableResources(state);
 
-    // 9. 输出格式（简化版，提高LLM成功率）
+    // 9. 輸出格式（簡化版，提高LLM成功率）
     const outputFormat = `
 === 你的回合 ===
 
-请以JSON格式返回你的决策，只返回JSON不要其他文字。
+請以JSON格式返回你的決策，只返回JSON不要其他文字。
 
-你有5种行动可选：
-1. TRIGGER_EVENT — 制造事件（最常用）
+你有5種行動可選：
+1. TRIGGER_EVENT — 製造事件（最常用）
 2. ADD_NPC — 拉新人入住
-3. MOVE_NPC — 搬人到另一栋
-4. GO_SOLO — 让某人搬出去独居
-5. DO_NOTHING — 什么都不做
+3. MOVE_NPC — 搬人到另一棟
+4. GO_SOLO — 讓某人搬出去獨居
+5. DO_NOTHING — 什麼都不做
 
-根据你选的行动类型，返回对应格式：
+根據你選的行動類型，返回對應格式：
 
 TRIGGER_EVENT示例：
-{"type":"TRIGGER_EVENT","eventType":"fight","involvedNpcIds":["id1","id2"],"eventDescription":"在走廊里对峙","thought":"内心独白","dialogue":"说的话或场景描写","tone":"chaotic"}
+{"type":"TRIGGER_EVENT","eventType":"fight","involvedNpcIds":["id1","id2"],"eventDescription":"在走廊裡對峙","thought":"內心獨白","dialogue":"說的話或場景描寫","tone":"chaotic"}
 
 ADD_NPC示例：
-{"type":"ADD_NPC","newNpcName":"小明","newNpcEmoji":"🐱","newNpcPersonality":["暴躁","重情"],"targetFamilyId":"xxx","thought":"内心独白","dialogue":"场景描写","tone":"amused"}
+{"type":"ADD_NPC","newNpcName":"小明","newNpcEmoji":"🐱","newNpcPersonality":["暴躁","重情"],"targetFamilyId":"xxx","thought":"內心獨白","dialogue":"場景描寫","tone":"amused"}
 
 MOVE_NPC示例：
-{"type":"MOVE_NPC","npcId":"xxx","targetFamilyId":"yyy","thought":"内心独白","dialogue":"场景描写","tone":"scheming"}
+{"type":"MOVE_NPC","npcId":"xxx","targetFamilyId":"yyy","thought":"內心獨白","dialogue":"場景描寫","tone":"scheming"}
 
 GO_SOLO示例：
-{"type":"GO_SOLO","npcId":"xxx","thought":"独白","dialogue":"描写","tone":"peaceful"}
+{"type":"GO_SOLO","npcId":"xxx","thought":"獨白","dialogue":"描寫","tone":"peaceful"}
 
 DO_NOTHING示例：
-{"type":"DO_NOTHING","thought":"内心独白","dialogue":"场景描写","tone":"scheming"}
+{"type":"DO_NOTHING","thought":"內心獨白","dialogue":"場景描寫","tone":"scheming"}
 
-字段说明：
-- type: 必填，以上5选1
-- eventType: TRIGGER_EVENT时必填，可选 fight/party/gossip/romance/rivalry/alliance
-- involvedNpcIds: TRIGGER_EVENT时必填，参与的小人ID数组
-- eventDescription: 游戏里发生了什么，一句话
-- thought: 你作为玩家的内心想法/吐槽（简短）
-- dialogue: 你对着屏幕说的话，或对其他玩家的评论
-- tone: 你的情绪，可选 vengeful/romantic/scheming/chaotic/peaceful/amused/anxious
+字段說明：
+- type: 必填，以上5選1
+- eventType: TRIGGER_EVENT時必填，可選 fight/party/gossip/romance/rivalry/alliance
+- involvedNpcIds: TRIGGER_EVENT時必填，參與的小人ID數組
+- eventDescription: 遊戲裡發生了什麼，一句話
+- thought: 你作為玩家的內心想法/吐槽（簡短）
+- dialogue: 你對著屏幕說的話，或對其他玩家的評論
+- tone: 你的情緒，可選 vengeful/romantic/scheming/chaotic/peaceful/amused/anxious
 
-记住你是玩家不是游戏里的人物。用你自己的说话风格。
+記住你是玩家不是遊戲裡的人物。用你自己的說話風格。
 `;
 
     return [coreContext, dramaSetup, worldContextSection, gameStateSection, chatSection, logSection, availableResources, outputFormat].join('\n');
 }
 
 function buildAvailableResources(state: LifeSimState): string {
-    const lines: string[] = ['\n=== 游戏里可操作的对象（复制ID填入JSON）==='];
+    const lines: string[] = ['\n=== 遊戲裡可操作的對象（複製ID填入JSON）==='];
 
     lines.push('\n【家庭列表】');
     for (const fam of state.families) {
         const count = fam.memberIds.length;
-        lines.push(`  家庭ID: "${fam.id}" | ${fam.emoji}${fam.name} (${count}个小人)`);
+        lines.push(`  家庭ID: "${fam.id}" | ${fam.emoji}${fam.name} (${count}個小人)`);
     }
 
     lines.push('\n【小人列表】');
     for (const npc of state.npcs) {
         const fam = state.families.find(f => f.id === npc.familyId);
         const { emoji: moodEmoji } = getMoodLabel(npc.mood);
-        lines.push(`  小人ID: "${npc.id}" | ${npc.emoji}${npc.name} | ${fam ? fam.name : '独居'} | 心情:${moodEmoji}(${npc.mood})`);
+        lines.push(`  小人ID: "${npc.id}" | ${npc.emoji}${npc.name} | ${fam ? fam.name : '獨居'} | 心情:${moodEmoji}(${npc.mood})`);
     }
 
     return lines.join('\n');
@@ -626,7 +626,7 @@ export function formatRecentChatForSim(
     const relevant = messages
         .filter(m => m.role !== 'system' && ((m as any).type === 'text' || (m as any).type === 'voice' || !(m as any).type))
         .slice(-maxMessages);
-    if (relevant.length === 0) return '（暂无聊天记录）';
+    if (relevant.length === 0) return '（暫無聊天記錄）';
     return relevant.map(m =>
         `[${m.role === 'user' ? userName : charName}] ${m.content.replace(/\n/g, ' ').slice(0, 100)}`
     ).join('\n');
@@ -647,16 +647,16 @@ export function buildUserActionDescription(
 ): string {
     switch (actionType) {
         case 'ADD_NPC':
-            return `${actorName}往游戏里捏了个叫"${details.npcEmoji}${details.npcName}"的小人（性格：${details.npcPersonality?.join('/')}），放进了${details.targetFamilyName}`;
+            return `${actorName}往遊戲裡捏了個叫"${details.npcEmoji}${details.npcName}"的小人（性格：${details.npcPersonality?.join('/')}），放進了${details.targetFamilyName}`;
         case 'MOVE_NPC':
-            return `${actorName}把小人${details.npcEmoji}${details.npcName}从${details.fromFamilyName || '某处'}搬到了${details.targetFamilyName || '独居'}`;
+            return `${actorName}把小人${details.npcEmoji}${details.npcName}從${details.fromFamilyName || '某處'}搬到了${details.targetFamilyName || '獨居'}`;
         case 'GO_SOLO':
-            return `${actorName}让小人${details.npcEmoji}${details.npcName}从${details.fromFamilyName || '某处'}搬出去独居了`;
+            return `${actorName}讓小人${details.npcEmoji}${details.npcName}從${details.fromFamilyName || '某處'}搬出去獨居了`;
         case 'TRIGGER_EVENT':
-            return `${actorName}在游戏里制造了${details.eventType}事件：${details.eventDesc}`;
+            return `${actorName}在遊戲裡製造了${details.eventType}事件：${details.eventDesc}`;
         case 'DO_NOTHING':
-            return `${actorName}选择看戏，这轮跳过了`;
+            return `${actorName}選擇看戲，這輪跳過了`;
         default:
-            return `${actorName}进行了一个操作`;
+            return `${actorName}進行了一個操作`;
     }
 }

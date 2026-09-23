@@ -1,9 +1,9 @@
 /**
- * Firecrawl 单页抓取适配。
+ * Firecrawl 單頁抓取適配。
  *
- * API Key 只保存在当前设备，并由客户端直接请求 Firecrawl；不会经过项目的
- * Cloudflare Worker。这样用户各自使用自己的免费额度，也不会把作者的共享额度
- * 挤在同一个 Worker 出口上。
+ * API Key 只保存在當前設備，並由客戶端直接請求 Firecrawl；不會經過項目的
+ * Cloudflare Worker。這樣用戶各自使用自己的免費額度，也不會把作者的共享額度
+ * 擠在同一個 Worker 出口上。
  */
 
 const FIRECRAWL_API_BASE = 'https://api.firecrawl.dev/v2';
@@ -54,21 +54,21 @@ export const setFirecrawlApiKey = (key: string): void => {
     const value = (key || '').trim();
     if (value) localStorage.setItem(FIRECRAWL_KEY_STORAGE, value);
     else localStorage.removeItem(FIRECRAWL_KEY_STORAGE);
-  } catch { /* localStorage 不可用时保持未配置 */ }
+  } catch { /* localStorage 不可用時保持未配置 */ }
 };
 
 const errorFromResponse = (status: number, body: any): FirecrawlApiError => {
   const upstream = String(body?.error || body?.message || '').trim();
   if (status === 401 || status === 403) {
-    return new FirecrawlApiError('Firecrawl API Key 无效或无权访问', { status, kind: 'invalid_key' });
+    return new FirecrawlApiError('Firecrawl API Key 無效或無權訪問', { status, kind: 'invalid_key' });
   }
   if (status === 402) {
-    return new FirecrawlApiError('Firecrawl 本期额度已用完', { status, kind: 'quota' });
+    return new FirecrawlApiError('Firecrawl 本期額度已用完', { status, kind: 'quota' });
   }
   if (status === 429) {
-    return new FirecrawlApiError('Firecrawl 请求过于频繁，请稍后再试', { status, kind: 'rate_limit' });
+    return new FirecrawlApiError('Firecrawl 請求過於頻繁，請稍後再試', { status, kind: 'rate_limit' });
   }
-  return new FirecrawlApiError(upstream || `Firecrawl 请求失败 (HTTP ${status})`, { status });
+  return new FirecrawlApiError(upstream || `Firecrawl 請求失敗 (HTTP ${status})`, { status });
 };
 
 const firecrawlRequest = async <T>(
@@ -100,14 +100,14 @@ const firecrawlRequest = async <T>(
     return body as T;
   } catch (error: any) {
     if (error instanceof FirecrawlApiError) throw error;
-    if (error?.name === 'AbortError') throw new FirecrawlApiError('Firecrawl 抓取超时');
-    throw new FirecrawlApiError(error?.message || '无法连接 Firecrawl');
+    if (error?.name === 'AbortError') throw new FirecrawlApiError('Firecrawl 抓取超時');
+    throw new FirecrawlApiError(error?.message || '無法連接 Firecrawl');
   } finally {
     clearTimeout(timer);
   }
 };
 
-/** 不消耗抓取额度；同时验证 Key 并返回本期实时余额。 */
+/** 不消耗抓取額度；同時驗證 Key 並返回本期實時餘額。 */
 export const getFirecrawlCreditUsage = async (
   apiKey = getFirecrawlApiKey(),
 ): Promise<FirecrawlCreditUsage> => {
@@ -125,7 +125,7 @@ export const getFirecrawlCreditUsage = async (
   };
 };
 
-/** 已知 URL 的单页正文抓取；普通页面固定只花 1 credit。 */
+/** 已知 URL 的單頁正文抓取；普通頁面固定只花 1 credit。 */
 export const scrapeWebpageWithFirecrawl = async (
   url: string,
   apiKey = getFirecrawlApiKey(),
@@ -155,7 +155,7 @@ export const scrapeWebpageWithFirecrawl = async (
   );
   const data = body.data || {};
   const markdown = String(data.markdown || '').trim();
-  if (!markdown) throw new FirecrawlApiError('Firecrawl 没有提取到正文');
+  if (!markdown) throw new FirecrawlApiError('Firecrawl 沒有提取到正文');
   const metadata = data.metadata || {};
   return {
     markdown,

@@ -124,7 +124,7 @@ export const SARSimulationSession: React.FC<{
     }, []);
 
     useEffect(() => {
-        try { localStorage.setItem(SAR_SESSION_THEME_KEY, theme); } catch { /* 主题持久化失败不影响阅读。 */ }
+        try { localStorage.setItem(SAR_SESSION_THEME_KEY, theme); } catch { /* 主題持久化失敗不影響閱讀。 */ }
         onThemeChange?.(theme);
     }, [theme, onThemeChange]);
 
@@ -133,7 +133,7 @@ export const SARSimulationSession: React.FC<{
         setLoading(true);
         loadSARSimulationMessages(run.id)
             .then(items => { if (live) setMessages(items); })
-            .catch(cause => { if (live) setError(cause?.message || '推演记录读取失败'); })
+            .catch(cause => { if (live) setError(cause?.message || '推演記錄讀取失敗'); })
             .finally(() => { if (live) setLoading(false); });
         return () => { live = false; };
     }, [run.id]);
@@ -177,7 +177,7 @@ export const SARSimulationSession: React.FC<{
             setMessages(result.messages);
             onRunChange(result.run);
         } catch (cause: any) {
-            setError(cause?.message || '本轮推演中断，没有消耗互动次数');
+            setError(cause?.message || '本輪推演中斷，沒有消耗互動次數');
             if (retryId === undefined) setDraft(text);
         } finally {
             setPendingText('');
@@ -198,15 +198,15 @@ export const SARSimulationSession: React.FC<{
             }
             setMessages(await loadSARSimulationMessages(run.id));
             setReplyAction(null);
-            setArchiveAction(deleted ? '回复已删除，可从这一幕重新生成' : '修改已保存');
-        } catch (cause: any) { setError(cause?.message || '保存失败，原文未改动'); }
+            setArchiveAction(deleted ? '回覆已刪除，可從這一幕重新生成' : '修改已保存');
+        } catch (cause: any) { setError(cause?.message || '保存失敗，原文未改動'); }
         finally { busyRef.current = false; setSending(false); }
     };
     const copyReply = async (message: Message) => {
         try {
             await navigator.clipboard.writeText([getSARWorldNarration(message), message.content].filter(Boolean).join('\n\n'));
-            setArchiveAction('已复制这条回复'); setReplyAction(null);
-        } catch { setError('复制失败，请检查剪贴板权限'); }
+            setArchiveAction('已複製這條回覆'); setReplyAction(null);
+        } catch { setError('複製失敗，請檢查剪貼板權限'); }
     };
 
     const archive = () => {
@@ -215,14 +215,14 @@ export const SARSimulationSession: React.FC<{
             onRunChange(archived);
             setArchiveConfirm(false);
         } catch (cause: any) {
-            setError(cause?.message || '紧急封存失败');
+            setError(cause?.message || '緊急封存失敗');
         }
     };
 
     const reread = () => {
         followEndRef.current = false;
         logRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        setArchiveAction('已回到档案开头');
+        setArchiveAction('已回到檔案開頭');
     };
 
     const downloadArchive = async () => {
@@ -231,12 +231,12 @@ export const SARSimulationSession: React.FC<{
             const result = await shareOrDownloadBlob({
                 blob: new Blob([text], { type: 'text/markdown;charset=utf-8' }),
                 fileName: getSARArchiveFilename(card, run),
-                shareTitle: `${card.profile.title} · SAR 封存档案`,
+                shareTitle: `${card.profile.title} · SAR 封存檔案`,
                 preferDownloadOnWeb: true,
             });
-            setArchiveAction(result === 'shared' ? '已打开系统文件保存/分享' : result === 'downloaded' ? '完整档案已下载' : '已取消导出');
+            setArchiveAction(result === 'shared' ? '已打開系統文件保存/分享' : result === 'downloaded' ? '完整檔案已下載' : '已取消導出');
         } catch (cause: any) {
-            setError(cause?.message || '档案下载失败');
+            setError(cause?.message || '檔案下載失敗');
         }
     };
 
@@ -247,9 +247,9 @@ export const SARSimulationSession: React.FC<{
         try {
             const updated = await shareSARArchiveWithCharacter({ card, run, messages, userName: userProfile.name });
             onRunChange(updated);
-            setArchiveAction(`返航简报已分享给${card.charName}`);
+            setArchiveAction(`返航簡報已分享給${card.charName}`);
         } catch (cause: any) {
-            setError(cause?.message || '返航简报分享失败');
+            setError(cause?.message || '返航簡報分享失敗');
         } finally {
             setSharing(false);
         }
@@ -261,69 +261,69 @@ export const SARSimulationSession: React.FC<{
         <main className={`sars-session is-${theme}`}>
             <header className="sars-reader-header">
                 <button type="button" disabled={page==='story'&&sending} aria-label={page==='details'?'返回故事':'返回身份卡'} onClick={page==='details'?()=>setPage('story'):onBack}><ArrowLeft size={21}/></button>
-                <div><h1>{page==='details'?'演绎资料':card.profile.title}</h1><p>{worldline.worldName} · {card.charName}</p></div>
-                {page==='story'&&<button type="button" aria-label="演绎资料与设置" onClick={()=>setPage('details')}><DotsThree size={25} weight="bold"/></button>}
+                <div><h1>{page==='details'?'演繹資料':card.profile.title}</h1><p>{worldline.worldName} · {card.charName}</p></div>
+                {page==='story'&&<button type="button" aria-label="演繹資料與設置" onClick={()=>setPage('details')}><DotsThree size={25} weight="bold"/></button>}
             </header>
             <div className="sars-reader-body" hidden={page!=='story'}>
                 <div className="sars-log" ref={logRef} onScroll={()=>{const el=logRef.current;if(el){followEndRef.current=el.scrollHeight-el.scrollTop-el.clientHeight<72;if(followEndRef.current)setHasNewText(false);}}}>
                     <div className="sars-reading-column">
-                        <p className="sars-opening-label">故事从这里开始</p>
+                        <p className="sars-opening-label">故事從這裡開始</p>
                         <article className="sars-narration"><p>{card.profile.openingScene}</p></article>
                         <article className="sars-message is-assistant"><header>{card.charName}</header><p>{card.profile.openingLine}</p></article>
-                        {loading?<div className="sars-loading"><CircleNotch size={17} className="animate-spin"/>正在翻开故事……</div>:messages.map(message=>isSARDeletedReply(message)
-                            ? <div key={message.id} className="sars-deleted-reply"><span>{messageScene(message)} · 回复已删除</span><button type="button" disabled={sending||!char} onClick={()=>void send(message.id)}>生成这一幕</button></div>
+                        {loading?<div className="sars-loading"><CircleNotch size={17} className="animate-spin"/>正在翻開故事……</div>:messages.map(message=>isSARDeletedReply(message)
+                            ? <div key={message.id} className="sars-deleted-reply"><span>{messageScene(message)} · 回覆已刪除</span><button type="button" disabled={sending||!char} onClick={()=>void send(message.id)}>生成這一幕</button></div>
                             : <React.Fragment key={message.id}>
                             {message.role==='assistant'&&getSARWorldNarration(message)&&<article className="sars-narration" aria-label="世界旁白"><p>{getSARWorldNarration(message)}</p></article>}
-                            <article className={`sars-message is-${message.role}`} data-sar-message-id={message.id}><header>{message.role==='user'?userProfile.name:card.charName}<span>{messageScene(message)}</span>{(message.role==='assistant'||message.role==='user')&&<button type="button" className="sars-reply-menu" aria-label={messageScene(message)+(message.role==='user'?'我的消息操作':'回复操作')} disabled={sending} onClick={()=>setReplyAction({message,mode:'menu'})}><DotsThree size={19}/></button>}</header><p>{message.content}</p></article>
+                            <article className={`sars-message is-${message.role}`} data-sar-message-id={message.id}><header>{message.role==='user'?userProfile.name:card.charName}<span>{messageScene(message)}</span>{(message.role==='assistant'||message.role==='user')&&<button type="button" className="sars-reply-menu" aria-label={messageScene(message)+(message.role==='user'?'我的消息操作':'回覆操作')} disabled={sending} onClick={()=>setReplyAction({message,mode:'menu'})}><DotsThree size={19}/></button>}</header><p>{message.content}</p></article>
                         </React.Fragment>)}
                         {pendingText&&<article className="sars-message is-user is-pending"><header>{userProfile.name}</header><p>{pendingText}</p></article>}
-                        {sending&&<div className="sars-loading" role="status"><CircleNotch size={16} className="animate-spin"/>{streamText||'正在接续这一刻……'}</div>}
+                        {sending&&<div className="sars-loading" role="status"><CircleNotch size={16} className="animate-spin"/>{streamText||'正在接續這一刻……'}</div>}
                         {!active&&!pendingReply&&<section className="sars-sealed">
-                            <SealCheck size={28} weight="light"/><h2>{run.archiveReason==='completed'?'这一段故事，已收好':'故事暂存于此'}</h2>
-                            <p>{run.archiveReason==='completed'?'这段共同经历已经结束，原文留在这里，随时可以回来。':`保留到第 ${run.interactionsUsed} 次互动。封存后可以阅读和导出，当前无法直接续写。`}</p>
-                            <div className="sars-archive-actions"><button type="button" onClick={reread}><BookOpenText size={17}/>从头重读</button><button type="button" onClick={()=>void downloadArchive()}><DownloadSimple size={17}/>保存全文</button><button type="button" disabled={sharing||!!run.sharedAt} onClick={()=>void shareToCharacter()}><ShareNetwork size={17}/>{run.sharedAt?'已分享':sharing?'正在分享…':`分享给${card.charName}`}</button></div>
+                            <SealCheck size={28} weight="light"/><h2>{run.archiveReason==='completed'?'這一段故事，已收好':'故事暫存於此'}</h2>
+                            <p>{run.archiveReason==='completed'?'這段共同經歷已經結束，原文留在這裡，隨時可以回來。':`保留到第 ${run.interactionsUsed} 次互動。封存後可以閱讀和導出，當前無法直接續寫。`}</p>
+                            <div className="sars-archive-actions"><button type="button" onClick={reread}><BookOpenText size={17}/>從頭重讀</button><button type="button" onClick={()=>void downloadArchive()}><DownloadSimple size={17}/>保存全文</button><button type="button" disabled={sharing||!!run.sharedAt} onClick={()=>void shareToCharacter()}><ShareNetwork size={17}/>{run.sharedAt?'已分享':sharing?'正在分享…':`分享給${card.charName}`}</button></div>
                             {archiveAction&&<output role="status">{archiveAction}</output>}
                         </section>}
                     </div>
                 </div>
                 <footer className="sars-composer">
-                    {hasNewText&&<button type="button" className="sars-new-text" onClick={latest}><ArrowDown size={14}/>回到最新内容</button>}
+                    {hasNewText&&<button type="button" className="sars-new-text" onClick={latest}><ArrowDown size={14}/>回到最新內容</button>}
                     {error&&<p role="alert" className="sars-error">{error}</p>}
                     {archiveAction&&<output className="sars-action-status" role="status">{archiveAction}</output>}
-                    {pendingReply&&<p className="sars-action-status">{messageScene(pendingReply)}等待重新生成，沿用当时的输入。</p>}
+                    {pendingReply&&<p className="sars-action-status">{messageScene(pendingReply)}等待重新生成，沿用當時的輸入。</p>}
                     {active||pendingReply?<div className="sars-compose-row">
-                        <textarea ref={draftRef} rows={1} aria-label="你说的话或动作" value={draft} maxLength={4000} disabled={sending||!char||!!pendingReply} placeholder={pendingReply?'点击生成，重试已删除的回复':char?'说些什么，或做个动作…（回车换行，点击发送）':'角色资料已不存在，无法继续'} onChange={event=>setDraft(event.target.value)}/>
-                        <button type="button" aria-label={pendingReply?'生成':'发送'} disabled={(!draft.trim()&&!pendingReply)||sending||!char} onClick={()=>void send()}>{sending?<CircleNotch size={19} className="animate-spin"/>:<ArrowUp size={21} weight="bold"/>}</button>
-                    </div>:<div className="sars-readonly">已封存 · {run.interactionsUsed} 次互动</div>}
+                        <textarea ref={draftRef} rows={1} aria-label="你說的話或動作" value={draft} maxLength={4000} disabled={sending||!char||!!pendingReply} placeholder={pendingReply?'點擊生成，重試已刪除的回覆':char?'說些什麼，或做個動作…（回車換行，點擊發送）':'角色資料已不存在，無法繼續'} onChange={event=>setDraft(event.target.value)}/>
+                        <button type="button" aria-label={pendingReply?'生成':'發送'} disabled={(!draft.trim()&&!pendingReply)||sending||!char} onClick={()=>void send()}>{sending?<CircleNotch size={19} className="animate-spin"/>:<ArrowUp size={21} weight="bold"/>}</button>
+                    </div>:<div className="sars-readonly">已封存 · {run.interactionsUsed} 次互動</div>}
                 </footer>
             </div>
             {page==='details'&&<section className="sars-details">
                 <div className="sars-reading-column">
-                    <div className="sars-progress"><span>本段互动</span><strong>{run.interactionsUsed}<small> / {run.maxInteractions}</small></strong></div>
-                    <p className="sars-detail-note">{active?'每次发送成功后记一次。离开页面可以稍后继续；这段经历将在五十次互动内自然收束。':'本段故事已封存，可以回看、保存全文或分享给角色。'}</p>
-                    <button type="button" className="sars-setting-row" onClick={()=>setTheme(value=>value==='light'?'dark':'light')} aria-label={theme==='light'?'切换到深色阅读':'切换到浅色阅读'}><span>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}阅读外观</span><span>{theme==='light'?'浅色':'深色'}</span></button>
-                    <details><summary>世界与开场</summary><h3>{worldline.worldName}</h3><p>{worldline.worldPremise}</p><h3>开场时的状况</h3><p>{worldline.activeCrisis}</p><h3>角色起初关心的事</h3><p>{worldline.sharedObjective}</p><h3>故事里的时间</h3><p>{worldline.countdown}</p><small>这里是身份卡中的开场资料，后续变化以正文为准。</small></details>
-                    <details><summary>角色与这次身份</summary><h3>{card.charName}</h3><p>{card.profile.identity}</p><h3>与你的关系</h3><p>{card.profile.relationship}</p></details>
-                    {active&&<div className="sars-end-section"><button type="button" disabled={sending} onClick={()=>setArchiveConfirm(true)}><Archive size={17}/>提前封存</button><p>如果只是稍后再玩，直接返回即可。提前封存会结束这段演绎。</p></div>}
+                    <div className="sars-progress"><span>本段互動</span><strong>{run.interactionsUsed}<small> / {run.maxInteractions}</small></strong></div>
+                    <p className="sars-detail-note">{active?'每次發送成功後記一次。離開頁面可以稍後繼續；這段經歷將在五十次互動內自然收束。':'本段故事已封存，可以回看、保存全文或分享給角色。'}</p>
+                    <button type="button" className="sars-setting-row" onClick={()=>setTheme(value=>value==='light'?'dark':'light')} aria-label={theme==='light'?'切換到深色閱讀':'切換到淺色閱讀'}><span>{theme==='light'?<Moon size={18}/>:<Sun size={18}/>}閱讀外觀</span><span>{theme==='light'?'淺色':'深色'}</span></button>
+                    <details><summary>世界與開場</summary><h3>{worldline.worldName}</h3><p>{worldline.worldPremise}</p><h3>開場時的狀況</h3><p>{worldline.activeCrisis}</p><h3>角色起初關心的事</h3><p>{worldline.sharedObjective}</p><h3>故事裡的時間</h3><p>{worldline.countdown}</p><small>這裡是身份卡中的開場資料，後續變化以正文為準。</small></details>
+                    <details><summary>角色與這次身份</summary><h3>{card.charName}</h3><p>{card.profile.identity}</p><h3>與你的關係</h3><p>{card.profile.relationship}</p></details>
+                    {active&&<div className="sars-end-section"><button type="button" disabled={sending} onClick={()=>setArchiveConfirm(true)}><Archive size={17}/>提前封存</button><p>如果只是稍後再玩，直接返回即可。提前封存會結束這段演繹。</p></div>}
                     {error&&<p role="alert" className="sars-error">{error}</p>}
                 </div>
             </section>}
-            {replyAction&&<div className="sars-confirm" role="dialog" aria-modal="true" aria-label="回复操作"><section>
-                <button type="button" className="sars-confirm-close" aria-label="关闭回复操作" disabled={sending} onClick={()=>setReplyAction(null)}><X size={18}/></button>
-                <h2>{messageScene(replyAction.message)} · {replyAction.message.role==='user'?(replyAction.mode==='edit'?'修改我的消息':'我的消息操作'):replyAction.mode==='edit'?'修改回复':replyAction.mode==='delete'?'删除回复？':'回复操作'}</h2>
+            {replyAction&&<div className="sars-confirm" role="dialog" aria-modal="true" aria-label="回覆操作"><section>
+                <button type="button" className="sars-confirm-close" aria-label="關閉回覆操作" disabled={sending} onClick={()=>setReplyAction(null)}><X size={18}/></button>
+                <h2>{messageScene(replyAction.message)} · {replyAction.message.role==='user'?(replyAction.mode==='edit'?'修改我的消息':'我的消息操作'):replyAction.mode==='edit'?'修改回覆':replyAction.mode==='delete'?'刪除回覆？':'回覆操作'}</h2>
                 {replyAction.mode==='menu'?<div className="sars-reply-actions">
-                    <button type="button" onClick={()=>void copyReply(replyAction.message)}>复制</button>
+                    <button type="button" onClick={()=>void copyReply(replyAction.message)}>複製</button>
                     <button type="button" onClick={()=>{setEditText(replyAction.message.content);setEditNarration(getSARWorldNarration(replyAction.message));setReplyAction({...replyAction,mode:'edit'});}}>修改</button>
                     {replyAction.message.role==='assistant'&&<><button type="button" disabled={!char} onClick={()=>void send(replyAction.message.id)}>重新生成</button>
-                    <button type="button" onClick={()=>setReplyAction({...replyAction,mode:'delete'})}>删除</button></>}
+                    <button type="button" onClick={()=>setReplyAction({...replyAction,mode:'delete'})}>刪除</button></>}
                 </div>:replyAction.mode==='edit'?<>
                     {replyAction.message.role==='assistant'&&<label className="sars-edit-label">世界旁白<textarea aria-label="修改世界旁白" value={editNarration} maxLength={2400} disabled={sending} onChange={e=>setEditNarration(e.target.value)}/></label>}
-                    <label className="sars-edit-label">{replyAction.message.role==='user'?'我的消息':'角色回复'}<textarea aria-label={replyAction.message.role==='user'?'修改我的消息':'修改角色回复'} value={editText} maxLength={replyAction.message.role==='user'?4000:12000} disabled={sending} onChange={e=>setEditText(e.target.value)}/></label>
-                    <p>后续已有剧情不会自动改写。</p><button type="button" className="sars-reply-submit" disabled={sending||!editText.trim()} onClick={()=>void saveReply()}>保存修改</button>
-                </>:<><p>删除这一幕的回复与旁白，保留你的输入。之后点生成会重试这一幕，后续已有剧情保留。</p><button type="button" className="sars-reply-submit" disabled={sending} onClick={()=>void saveReply(true)}>确认删除回复</button></>}
+                    <label className="sars-edit-label">{replyAction.message.role==='user'?'我的消息':'角色回覆'}<textarea aria-label={replyAction.message.role==='user'?'修改我的消息':'修改角色回覆'} value={editText} maxLength={replyAction.message.role==='user'?4000:12000} disabled={sending} onChange={e=>setEditText(e.target.value)}/></label>
+                    <p>後續已有劇情不會自動改寫。</p><button type="button" className="sars-reply-submit" disabled={sending||!editText.trim()} onClick={()=>void saveReply()}>保存修改</button>
+                </>:<><p>刪除這一幕的回覆與旁白，保留你的輸入。之後點生成會重試這一幕，後續已有劇情保留。</p><button type="button" className="sars-reply-submit" disabled={sending} onClick={()=>void saveReply(true)}>確認刪除回覆</button></>}
                 {error&&<p role="alert" className="sars-error">{error}</p>}
             </section></div>}
-            {archiveConfirm&&<div className="sars-confirm" role="alertdialog" aria-modal="true" aria-label="确认提前封存"><section><button type="button" className="sars-confirm-close" aria-label="取消封存" onClick={()=>setArchiveConfirm(false)}><X size={18}/></button><h2>把故事收在这里？</h2><p>已完成 {run.interactionsUsed} 次互动。原文会完整保留，封存后当前无法直接续写。</p><div><button type="button" onClick={()=>setArchiveConfirm(false)}>继续演绎</button><button type="button" onClick={()=>{archive();setPage('story');}}>确认封存</button></div></section></div>}
+            {archiveConfirm&&<div className="sars-confirm" role="alertdialog" aria-modal="true" aria-label="確認提前封存"><section><button type="button" className="sars-confirm-close" aria-label="取消封存" onClick={()=>setArchiveConfirm(false)}><X size={18}/></button><h2>把故事收在這裡？</h2><p>已完成 {run.interactionsUsed} 次互動。原文會完整保留，封存後當前無法直接續寫。</p><div><button type="button" onClick={()=>setArchiveConfirm(false)}>繼續演繹</button><button type="button" onClick={()=>{archive();setPage('story');}}>確認封存</button></div></section></div>}
         </main>
     );
 };

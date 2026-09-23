@@ -1,5 +1,5 @@
 /**
- * WorldMap — 城市天际线地图 (retro pixel art style)
+ * WorldMap — 城市天際線地圖 (retro pixel art style)
  * Fits inside retro-window frame, cleaner layout
  */
 
@@ -193,7 +193,7 @@ const WorldMap: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                     <div className="absolute flex flex-wrap gap-0.5 items-center justify-center"
                         style={{ left: '50%', top: '80%', transform: 'translate(-50%,-50%)', maxWidth: '80px', zIndex: 8 }}>
                         {independentNPCs.map(npc => (
-                            <span key={npc.id} title={`${npc.name}（独居）`}
+                            <span key={npc.id} title={`${npc.name}（獨居）`}
                                 style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>
                                 <NPCAvatar name={npc.name} size={12} className="rounded-sm" />
                             </span>
@@ -278,7 +278,7 @@ const WorldMap: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                                 <div>
                                     <p style={{ fontSize: 11, fontWeight: 700, color: '#444' }}>{zoomedFamily.name}</p>
                                     <p style={{ fontSize: 9, color: '#999' }}>
-                                        {getFamilyAtmosphere(gameState, zoomedFamily.id)} · {zoomedMembers.length}位住户
+                                        {getFamilyAtmosphere(gameState, zoomedFamily.id)} · {zoomedMembers.length}位住戶
                                     </p>
                                 </div>
                             </div>
@@ -324,8 +324,8 @@ const WorldMap: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                                             </div>
                                             {(hasGrudge || hasCrush) && (
                                                 <div className="flex gap-1 mt-0.5">
-                                                    {hasGrudge && <span title="记仇中"><IconFlame size={8} /></span>}
-                                                    {hasCrush && <span title="暗恋中"><IconCrush size={8} /></span>}
+                                                    {hasGrudge && <span title="記仇中"><IconFlame size={8} /></span>}
+                                                    {hasCrush && <span title="暗戀中"><IconCrush size={8} /></span>}
                                                 </div>
                                             )}
                                         </div>
@@ -333,7 +333,7 @@ const WorldMap: React.FC<{ gameState: LifeSimState }> = ({ gameState }) => {
                                 })}
                             </div>
                         ) : (
-                            <p style={{ color: '#aaa', fontSize: 10, textAlign: 'center', padding: '6px 0' }}>暂无住户</p>
+                            <p style={{ color: '#aaa', fontSize: 10, textAlign: 'center', padding: '6px 0' }}>暫無住戶</p>
                         )}
                     </div>
                 </div>

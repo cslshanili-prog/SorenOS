@@ -5,10 +5,10 @@ import { SAR_DAILY_BUYBACK, SAR_WALLET_LIMIT, sarEconomyDay } from './sarEconomy
 import { buildFishingTurn, parseFishingReaction } from './fishingCharacter';
 import { fishingTripCard } from './fishingDelivery';
 const at = new Date(2026, 8, 11, 12).getTime();
-const actor: M.MarketActor = { id: 'char', name: '钓鱼的朋友', kind: 'character' };
+const actor: M.MarketActor = { id: 'char', name: '釣魚的朋友', kind: 'character' };
 const fish: M.FishingCatch = { id: 'fish-sale', speciesId: 'glass-minnow', ownerId: actor.id, ownerName: actor.name, caughtAt: at, weather: 'clear', weatherLabel: '晴天', weatherSource: 'simulated', quality: 3, sizeCm: 22 };
 const init = () => M.addCatchToState(M.ensureMarketDay(M.ensureActorAccounts(M.createFishingMarketState(42), [actor, { id: 'user', name: '雨眠', kind: 'user' }]), at), fish);
-const reaction: M.FishingReaction = { disposition: 'sell', reaction: '今天有收获。', saleWords: '这一条交给你。', shareToUser: { text: '今天把鱼卖给艾文了。' } };
+const reaction: M.FishingReaction = { disposition: 'sell', reaction: '今天有收穫。', saleWords: '這一條交給你。', shareToUser: { text: '今天把魚賣給艾文了。' } };
 beforeEach(() => localStorage.clear());
 it('pays the actual daily price and quality premium, removes only the fish, and preserves discovery', () => {
     const state = init(), price = M.catchValue(state, fish);
@@ -26,10 +26,10 @@ it('refreshes stale prices at settlement instead of paying yesterday\'s displaye
 });
 it('rejects quota overflow, wallet overflow, other owners and clay without consuming anything', () => {
     const state = init();
-    expect(() => M.sellFishToAiven({ ...state, buybackBudgets: { char: { day: sarEconomyDay(at), earned: SAR_DAILY_BUYBACK } } }, actor, fish.id, at)).toThrow('额度');
-    expect(() => M.sellFishToAiven({ ...state, accounts: { char: SAR_WALLET_LIMIT } }, actor, fish.id, at)).toThrow('钱包');
+    expect(() => M.sellFishToAiven({ ...state, buybackBudgets: { char: { day: sarEconomyDay(at), earned: SAR_DAILY_BUYBACK } } }, actor, fish.id, at)).toThrow('額度');
+    expect(() => M.sellFishToAiven({ ...state, accounts: { char: SAR_WALLET_LIMIT } }, actor, fish.id, at)).toThrow('錢包');
     expect(() => M.sellFishToAiven(state, { ...actor, id: 'user' }, fish.id, at)).toThrow();
-    expect(() => M.sellFishToAiven({ ...state, inventory: [{ ...fish, speciesId: 'brachiosaurus' }] }, actor, fish.id, at)).toThrow('只收鱼');
+    expect(() => M.sellFishToAiven({ ...state, inventory: [{ ...fish, speciesId: 'brachiosaurus' }] }, actor, fish.id, at)).toThrow('只收魚');
     const listed = M.createListing(state, actor, fish, 2, '', at);
     expect(() => M.sellFishToAiven(listed, actor, fish.id, at)).toThrow();
     expect(state.inventory).toEqual([fish]);
@@ -41,7 +41,7 @@ it('settles the current fishing trip once, stores the NPC reply and delivers the
     expect(M.settleFishingTrip(next, actor, fish.id, reaction, at + 1)).toBe(next);
     const trip = next.fishingTrips![0], card = fishingTripCard(trip);
     expect(trip.sale).toBeDefined(); expect(card.metadata.fishing?.decision).toBe('sell');
-    expect(card.content).toContain(`获得 ${trip.sale!.amount} 鳞币`); expect(card.content).toContain(reaction.saleWords);
+    expect(card.content).toContain(`獲得 ${trip.sale!.amount} 鱗幣`); expect(card.content).toContain(reaction.saleWords);
     expect(card.content).toContain(AIVEN_FISH_SALE_REPLIES[trip.sale!.replyIndex].text);
     M.saveFishingMarketState(next); expect(M.readFishingMarketState().fishingTrips![0]).toEqual(trip);
 });
@@ -50,11 +50,11 @@ it('parses the new action without accepting a model-specified price, reply or ma
     expect(parsed).toEqual(reaction);
     expect(parseFishingReaction(JSON.stringify({ ...reaction, saleWords: {} }))).toBeNull();
     const prompt = buildFishingTurn(actor, fish, init(), '雨眠');
-    expect(prompt).toContain('sell'); expect(prompt).toContain('saleWords'); expect(prompt).toContain('由程序选取');
+    expect(prompt).toContain('sell'); expect(prompt).toContain('saleWords'); expect(prompt).toContain('由程序選取');
 });
 it('rejects a sale without its actual receipt on import, while old keep/release records remain readable', () => {
     M.saveFishingMarketState({ ...init(), fishingTrips: [{ catch: fish, status: 'settled', result: reaction }] });
-    expect(() => M.readFishingMarketState()).toThrow('售鱼回执');
+    expect(() => M.readFishingMarketState()).toThrow('售魚回執');
     M.saveFishingMarketState({ ...init(), fishingTrips: [{ catch: fish, status: 'settled', result: { ...reaction, disposition: 'keep' } }] });
     expect(M.readFishingMarketState().fishingTrips).toHaveLength(1);
 });

@@ -1,13 +1,13 @@
 import React from 'react';
 import { AppID } from '../../types';
 
-// 动森(NookPhone)风格 App 图标 —— 填充式多色 SVG：奶油底 + 暖棕圆头描边 + 单个强调色。
-// 风格参照 animal-island-ui 仓库的 icon-chat / icon-variant（实心圆角几何 + 可爱表情）。
-// 关键：每个图标传入自身包围盒 bbox，draw() 自动缩放居中到统一光学尺寸 —— 所有图标一样大。
+// 動森(NookPhone)風格 App 圖標 —— 填充式多色 SVG：奶油底 + 暖棕圓頭描邊 + 單個強調色。
+// 風格參照 animal-island-ui 倉庫的 icon-chat / icon-variant（實心圓角幾何 + 可愛表情）。
+// 關鍵：每個圖標傳入自身包圍盒 bbox，draw() 自動縮放居中到統一光學尺寸 —— 所有圖標一樣大。
 const CREAM = '#FBF7EA';
 const BROWN = '#5E483B';
 
-// 统一目标：把图标内容缩放并居中，使其最长边占满 viewBox 的 TARGET（100 为满）。
+// 統一目標：把圖標內容縮放並居中，使其最長邊佔滿 viewBox 的 TARGET（100 為滿）。
 const TARGET = 80;
 const draw = (bbox: [number, number, number, number], children: React.ReactNode) => {
   const [x0, y0, x1, y1] = bbox;
@@ -148,7 +148,7 @@ const ACNH_ICON_MAP: Partial<Record<AppID, React.ReactNode>> = {
 export const getAcnhIcon = (appId: string): React.ReactNode =>
   ACNH_ICON_MAP[appId as AppID] ?? leaf;
 
-// --- 聊天「+」面板动作图标（动森瓦片：彩色圆角方块 + 奶油 glyph）---
+// --- 聊天「+」面板動作圖標（動森瓦片：彩色圓角方塊 + 奶油 glyph）---
 const bagGlyph = <>
   <path d="M37 35 Q50 27 63 35 C77 46 80 67 69 79 C61 87 39 87 31 79 C20 67 23 46 37 35Z" fill={CREAM} />
   <path d="M41 31 L59 31 L55 40 L45 40Z" fill={BROWN} />

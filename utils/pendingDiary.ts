@@ -2,18 +2,18 @@ import { DB } from './db';
 import { NotionManager, FeishuManager } from './realtimeContext';
 import type { RealtimeConfig } from '../types';
 
-// 待写日记队列 (写 Notion / 飞书).
+// 待寫日記隊列 (寫 Notion / 飛書).
 //
-// 为什么需要: 写日记是客户端发起的网络 fetch (NotionManager.createDiaryPage /
-// FeishuManager.createDiaryRecord). 云端回复 (主动消息 / 即时对话) 路径下, 如果用户在角色回复到达时把 app
-// 切后台 / 浏览器冻结了, 这个 fetch 会被节流/打断而失败, 而 inbox 是"先 ack 后处理"原子消费,
-// 失败的写入就永久丢了 (用户现象: 角色说"写好了"但 Notion 里没有). 文字 chunk 因为先落库所以
-// 照常显示, 造成假象.
+// 為什麼需要: 寫日記是客戶端發起的網絡 fetch (NotionManager.createDiaryPage /
+// FeishuManager.createDiaryRecord). 雲端回覆 (主動消息 / 即時對話) 路徑下, 如果用戶在角色回覆到達時把 app
+// 切後台 / 瀏覽器凍結了, 這個 fetch 會被節流/打斷而失敗, 而 inbox 是"先 ack 後處理"原子消費,
+// 失敗的寫入就永久丟了 (用戶現象: 角色說"寫好了"但 Notion 裡沒有). 文字 chunk 因為先落庫所以
+// 照常顯示, 造成假象.
 //
-// 解法 (用户提的"回前台再补打"思路 + 预写日志): 在真正发请求**之前**先把内容持久化到本地队列
-// (localStorage 同步写, 即使随后被冻结/杀进程也已落盘), 然后尝试写; 成功就删除该条, 失败就留着.
-// 回到前台 (visibilitychange→visible) / app 启动时 drainPendingDiaries() 排空重试 —— 那时
-// 页面可见, fetch 可靠. 这样文字流照常跑, 唯独脆弱的网络副作用走"保证最终一致"的补偿路径.
+// 解法 (用戶提的"回前台再補打"思路 + 預寫日誌): 在真正發請求**之前**先把內容持久化到本地隊列
+// (localStorage 同步寫, 即使隨後被凍結/殺進程也已落盤), 然後嘗試寫; 成功就刪除該條, 失敗就留著.
+// 回到前台 (visibilitychange→visible) / app 啟動時 drainPendingDiaries() 排空重試 —— 那時
+// 頁面可見, fetch 可靠. 這樣文字流照常跑, 唯獨脆弱的網絡副作用走"保證最終一致"的補償路徑.
 
 const STORAGE_KEY = 'os_pending_diary_writes';
 
@@ -46,7 +46,7 @@ function write(list: PendingDiary[]): void {
     }
 }
 
-/** 预写: 真正发请求前先落盘. 返回 id, 写成功后用 removePendingDiary(id) 删掉. */
+/** 預寫: 真正發請求前先落盤. 返回 id, 寫成功後用 removePendingDiary(id) 刪掉. */
 export function enqueuePendingDiary(entry: Omit<PendingDiary, 'id' | 'createdAt'>): string {
     const id = `${entry.charId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const list = read();
@@ -64,12 +64,12 @@ export function hasPendingDiaries(): boolean {
 }
 
 /**
- * 排空待写日记: 对每条尝试写入对应后端.
- *  - 成功 → 落一条"角色写了日记"系统消息 + 删除该条 + 调 onSaved 刷新 UI.
- *  - API 明确拒绝 (success=false, 多为配置/权限问题, 重试也没用) → 删除该条, 不再重试.
- *  - 抛异常 (网络被冻结/打断等可恢复错误) → 留在队列, 下次回前台再试.
- *  - 对应后端没配置 → 跳过 (留着, 等配置好).
- * 仅在前台 (visibilitychange→visible) / app 启动时调用.
+ * 排空待寫日記: 對每條嘗試寫入對應後端.
+ *  - 成功 → 落一條"角色寫了日記"系統消息 + 刪除該條 + 調 onSaved 刷新 UI.
+ *  - API 明確拒絕 (success=false, 多為配置/權限問題, 重試也沒用) → 刪除該條, 不再重試.
+ *  - 拋異常 (網絡被凍結/打斷等可恢復錯誤) → 留在隊列, 下次回前台再試.
+ *  - 對應後端沒配置 → 跳過 (留著, 等配置好).
+ * 僅在前台 (visibilitychange→visible) / app 啟動時調用.
  */
 export async function drainPendingDiaries(
     realtimeConfig: RealtimeConfig | undefined,
@@ -82,7 +82,7 @@ export async function drainPendingDiaries(
         try {
             if (entry.kind === 'notion') {
                 if (!realtimeConfig?.notionEnabled || !realtimeConfig?.notionApiKey || !realtimeConfig?.notionDatabaseId) {
-                    continue; // 没配置, 留着
+                    continue; // 沒配置, 留著
                 }
                 const r = await NotionManager.createDiaryPage(
                     realtimeConfig.notionApiKey,
@@ -90,11 +90,11 @@ export async function drainPendingDiaries(
                     { title: entry.title, content: entry.content, mood: entry.mood || undefined, characterName: entry.charName },
                 );
                 if (r.success) {
-                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📔 ${entry.charName}写了一篇日记「${entry.title}」` } as any);
+                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📔 ${entry.charName}寫了一篇日記「${entry.title}」` } as any);
                     removePendingDiary(entry.id);
                     onSaved?.(entry.charId);
                 } else {
-                    console.error('[pendingDiary] notion 拒绝, 丢弃:', r.message);
+                    console.error('[pendingDiary] notion 拒絕, 丟棄:', r.message);
                     removePendingDiary(entry.id);
                 }
             } else {
@@ -109,17 +109,17 @@ export async function drainPendingDiaries(
                     { title: entry.title, content: entry.content, mood: entry.mood || undefined, characterName: entry.charName },
                 );
                 if (r.success) {
-                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📒 ${entry.charName}写了一篇日记「${entry.title}」(飞书)` } as any);
+                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📒 ${entry.charName}寫了一篇日記「${entry.title}」(飛書)` } as any);
                     removePendingDiary(entry.id);
                     onSaved?.(entry.charId);
                 } else {
-                    console.error('[pendingDiary] 飞书拒绝, 丢弃:', r.message);
+                    console.error('[pendingDiary] 飛書拒絕, 丟棄:', r.message);
                     removePendingDiary(entry.id);
                 }
             }
         } catch (e) {
-            // 网络可恢复错误: 留在队列, 回前台再试.
-            console.warn('[pendingDiary] 写入异常, 留待重试:', entry.id, e);
+            // 網絡可恢復錯誤: 留在隊列, 回前台再試.
+            console.warn('[pendingDiary] 寫入異常, 留待重試:', entry.id, e);
         }
     }
 }

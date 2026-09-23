@@ -1,13 +1,13 @@
 /**
- * 右侧伸出的活页本 tab 条
+ * 右側伸出的活頁本 tab 條
  *
- * 视觉:像活页本侧边露出的彩色标签纸,每个 tab:
- *   - 占据右侧 ~22px 宽
- *   - 垂直堆叠,每个 tab 用对应 tracker.color 染色
- *   - 文字竖排(writing-mode: vertical-rl),tracker name 第一个字 + icon
- *   - 当前激活的 tab 向左凸出一些(像被翻到的那一页)
+ * 視覺:像活頁本側邊露出的彩色標籤紙,每個 tab:
+ *   - 佔據右側 ~22px 寬
+ *   - 垂直堆疊,每個 tab 用對應 tracker.color 染色
+ *   - 文字豎排(writing-mode: vertical-rl),tracker name 第一個字 + icon
+ *   - 當前激活的 tab 向左凸出一些(像被翻到的那一頁)
  *
- * 顶部固定的 "今" tab 永远是 today 主视图,底部 "+" 是新建 tracker 入口
+ * 頂部固定的 "今" tab 永遠是 today 主視圖,底部 "+" 是新建 tracker 入口
  */
 
 import React from 'react';
@@ -105,13 +105,13 @@ const HandbookSideTabs: React.FC<Props> = ({
     return (
         <div
             className="absolute top-20 right-0 z-30 flex flex-col gap-2 pointer-events-none"
-            aria-label="手账分区标签"
+            aria-label="手帳分區標籤"
         >
             <div className="pointer-events-auto flex flex-col gap-2">
                 {tabs.map(t => (
                     <TabStrip key={t.key} tab={t} />
                 ))}
-                {/* 新建按钮 */}
+                {/* 新建按鈕 */}
                 <button
                     onClick={onAddTracker}
                     className="flex items-center justify-center transition active:scale-95"

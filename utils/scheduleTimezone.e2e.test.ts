@@ -1,8 +1,8 @@
-// 端到端钉住「用户在中国 + 角色在纽约」时，日程全链路按角色那边的时间走。
+// 端到端釘住「用戶在中國 + 角色在紐約」時，日程全鏈路按角色那邊的時間走。
 //
-// 回归守卫：同一时刻（北京 21:00 == 纽约 09:00），若哪天有人把某个环节改回读设备时间，
-// 当前时段就会从「晨间画草稿」跳到「睡前刷画集」，下面的断言会挂。
-// 这正是用户反馈的现象：角色那边明明是早上 9 点，卡片却把晚上 21 点标成进行中。
+// 迴歸守衛：同一時刻（北京 21:00 == 紐約 09:00），若哪天有人把某個環節改回讀設備時間，
+// 當前時段就會從「晨間畫草稿」跳到「睡前刷畫集」，下面的斷言會掛。
+// 這正是用戶反饋的現象：角色那邊明明是早上 9 點，卡片卻把晚上 21 點標成進行中。
 import { afterAll, describe, expect, it } from 'vitest';
 import { ContextBuilder } from '../utils/context';
 import { getFlowNarrativeKey } from '../utils/scheduleInjection';
@@ -15,7 +15,7 @@ afterAll(() => {
     else process.env.TZ = originalTimeZone;
 });
 
-/** 北京时间 2026-07-26 21:00 == 纽约同日 09:00（EDT, UTC-4）。 */
+/** 北京時間 2026-07-26 21:00 == 紐約同日 09:00（EDT, UTC-4）。 */
 const INSTANT = new Date('2026-07-26T13:00:00Z');
 
 const nyChar = {
@@ -25,9 +25,9 @@ const nyChar = {
 } as unknown as CharacterProfile;
 
 const slots: ScheduleSlot[] = [
-    { startTime: '09:00', activity: '晨间画草稿', description: '开着窗画线稿' },
-    { startTime: '13:00', activity: '午后遛狗' },
-    { startTime: '21:00', activity: '睡前刷画集' },
+    { startTime: '09:00', activity: '晨間畫草稿', description: '開著窗畫線稿' },
+    { startTime: '13:00', activity: '午後遛狗' },
+    { startTime: '21:00', activity: '睡前刷畫集' },
 ];
 
 const schedule = {
@@ -37,51 +37,51 @@ const schedule = {
     slots,
     generatedAt: INSTANT.getTime(),
     flowNarrative: {
-        morning: '刚醒，咖啡还没喝完就想先把线稿开个头。',
-        afternoon: '下午有点晒，遛完狗人是懒的。',
-        evening: '今天画完了，躺着刷画集。',
+        morning: '剛醒，咖啡還沒喝完就想先把線稿開個頭。',
+        afternoon: '下午有點曬，遛完狗人是懶的。',
+        evening: '今天畫完了，躺著刷畫集。',
     },
 } as unknown as DailySchedule;
 
-describe('日程跟随角色时区（用户在中国 / 角色在纽约）', () => {
-    it('当前时段按纽约 09:00 判定，而不是设备的 21:00', () => {
+describe('日程跟隨角色時區（用戶在中國 / 角色在紐約）', () => {
+    it('當前時段按紐約 09:00 判定，而不是設備的 21:00', () => {
         process.env.TZ = 'Asia/Shanghai';
         expect(getCurrentScheduleSlotIndex(slots, nyChar, INSTANT)).toBe(0);
     });
 
-    it('同一时刻若退回设备时间会落到晚上那条——守卫这个差异', () => {
+    it('同一時刻若退回設備時間會落到晚上那條——守衛這個差異', () => {
         process.env.TZ = 'Asia/Shanghai';
         const withCharClock = getCurrentScheduleSlotIndex(slots, nyChar, INSTANT);
         const withDeviceClock = getCurrentScheduleSlotIndex(slots, null, INSTANT);
 
-        expect(slots[withCharClock].activity).toBe('晨间画草稿');
-        expect(slots[withDeviceClock].activity).toBe('睡前刷画集');
+        expect(slots[withCharClock].activity).toBe('晨間畫草稿');
+        expect(slots[withDeviceClock].activity).toBe('睡前刷畫集');
         expect(withCharClock).not.toBe(withDeviceClock);
     });
 
-    it('日期 key 用纽约的日历日', () => {
+    it('日期 key 用紐約的日曆日', () => {
         process.env.TZ = 'Asia/Shanghai';
         expect(getScheduleDateKey(nyChar, INSTANT)).toBe('2026-07-26');
     });
 
-    it('喂给模型的日程注入说的是「晨间画草稿」，不是「睡前刷画集」', () => {
+    it('餵給模型的日程注入說的是「晨間畫草稿」，不是「睡前刷畫集」', () => {
         process.env.TZ = 'Asia/Shanghai';
         const charNow = getScheduleWallClock(nyChar, INSTANT);
         const injected = ContextBuilder.buildScheduleInjection(schedule, undefined, charNow);
 
-        expect(injected).toContain('晨间画草稿');
-        expect(injected).not.toContain('睡前刷画集');
+        expect(injected).toContain('晨間畫草稿');
+        expect(injected).not.toContain('睡前刷畫集');
     });
 
-    it('意识流选 morning 段，不是 evening 段', () => {
+    it('意識流選 morning 段，不是 evening 段', () => {
         process.env.TZ = 'Asia/Shanghai';
         const charNow = getScheduleWallClock(nyChar, INSTANT);
 
         expect(getFlowNarrativeKey(charNow.getHours())).toBe('morning');
-        expect(ContextBuilder.buildScheduleInjection(schedule, undefined, charNow)).toContain('咖啡还没喝完');
+        expect(ContextBuilder.buildScheduleInjection(schedule, undefined, charNow)).toContain('咖啡還沒喝完');
     });
 
-    it('没开自定义时区的角色仍跟随设备时间', () => {
+    it('沒開自定義時區的角色仍跟隨設備時間', () => {
         process.env.TZ = 'Asia/Shanghai';
         const plain = { ...nyChar, customTimezoneEnabled: false } as CharacterProfile;
 

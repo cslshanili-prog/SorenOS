@@ -1,8 +1,8 @@
 /**
- * 家园存在 localStorage 里的本机配置（随「设置 → 导出/导入备份」一起带走）：
- *   - world_home_api：家园全局 API（所有世界共用的覆盖）
- *   - world_custom_styles：用户收藏的自定义文风（跨世界复用）
- * 这两份不在 IndexedDB，所以必须单独走备份，否则换设备 / 导入后会丢。
+ * 家園存在 localStorage 裡的本機配置（隨「設置 → 導出/導入備份」一起帶走）：
+ *   - world_home_api：家園全局 API（所有世界共用的覆蓋）
+ *   - world_custom_styles：用戶收藏的自定義文風（跨世界複用）
+ * 這兩份不在 IndexedDB，所以必須單獨走備份，否則換設備 / 導入後會丟。
  */
 export const WORLD_API_KEY = 'world_home_api';
 export const WORLD_CUSTOM_STYLE_KEY = 'world_custom_styles';

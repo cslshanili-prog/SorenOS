@@ -3,8 +3,8 @@ import { collectSARLocalBackup, restoreSARLocalBackup } from './vrWorld/sarBacku
 import { loadChatInputPreferences, saveChatInputPreferences, CHAT_INPUT_PREFERENCES_KEY } from './chatInputPreferences';
 
 beforeEach(() => localStorage.clear());
-describe('SAR / 私聊偏好备份兼容', () => {
-    it('完整还原已关闭的开关、配色和引导记录，不把 false 当成没保存', () => {
+describe('SAR / 私聊偏好備份兼容', () => {
+    it('完整還原已關閉的開關、配色和引導記錄，不把 false 當成沒保存', () => {
         localStorage.setItem('vr_fishing_simple_mode', 'false');
         localStorage.setItem('vr_sar_session_theme_v1', 'light');
         localStorage.setItem('sar-garden-guide-v1', 'done');
@@ -13,20 +13,20 @@ describe('SAR / 私聊偏好备份兼容', () => {
         restoreSARLocalBackup(JSON.parse(JSON.stringify(backup)), { replaceMissing: true });
         expect(collectSARLocalBackup()).toEqual(backup);
     });
-    it('旧主历史清理 SAR 偏好；仅媒体/局部备份不清理', () => {
+    it('舊主歷史清理 SAR 偏好；僅媒體/局部備份不清理', () => {
         localStorage.setItem('vr_fishing_simple_mode', 'true');
         restoreSARLocalBackup(undefined, { replaceMissing: false });
         expect(localStorage.getItem('vr_fishing_simple_mode')).toBe('true');
         restoreSARLocalBackup(undefined, { replaceMissing: true });
         expect(localStorage.getItem('vr_fishing_simple_mode')).toBeNull();
     });
-    it('备份中的未知键与非法值不能写入其他配置', () => {
+    it('備份中的未知鍵與非法值不能寫入其他配置', () => {
         restoreSARLocalBackup({ version: 1, preferences: { os_api_config: 'poison', vr_sar_session_theme_v1: 'poison', vr_fishing_simple_mode: 'true' } }, { replaceMissing: true });
         expect(localStorage.getItem('os_api_config')).toBeNull();
         expect(localStorage.getItem('vr_sar_session_theme_v1')).toBeNull();
         expect(localStorage.getItem('vr_fishing_simple_mode')).toBe('true');
     });
-    it('聊天偏好保留明确布尔值，旧字段缺省按用户指定默认值，忽略未知内容', () => {
+    it('聊天偏好保留明確布爾值，舊字段缺省按用戶指定默認值，忽略未知內容', () => {
         saveChatInputPreferences({ sendButtonGenerates: true, enterToSend: false, autoReply: true, emojiSuggestions: true });
         expect(loadChatInputPreferences()).toEqual({ sendButtonGenerates: true, enterToSend: false, autoReply: true, emojiSuggestions: true });
         saveChatInputPreferences({ enterToSend: false, private: 'poison', autoReply: 'true' } as any);
@@ -36,7 +36,7 @@ describe('SAR / 私聊偏好备份兼容', () => {
 });
 
 
-it('导出旧日期商店不刷新货架，也不消耗或重置当天次数', () => {
+it('導出舊日期商店不刷新貨架，也不消耗或重置當天次數', () => {
     const shop = { version:1, credits:0, inventory:{}, purchases:[], market:{ dayKey:'2020-01-01', offerIds:['saved-offer'], rollsRemaining:1 } };
     localStorage.setItem('vr_sar_module_shop_v1', JSON.stringify(shop));
     const before = localStorage.getItem('vr_sar_module_shop_v1');

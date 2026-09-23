@@ -63,11 +63,11 @@ jobs:
           body: |
             ## Upstream Sync
             
-            新的上游更新已拉取，请审阅冲突（如有）并合并。
+            新的上游更新已拉取，請審閱衝突（如有）併合並。
             
-            - 来源: `qegj567-cloud/SullyOS`
-            - 目标: `master`
-            - 自动生成的同步 PR
+            - 來源: `qegj567-cloud/SullyOS`
+            - 目標: `master`
+            - 自動生成的同步 PR
           branch: sync/upstream-$(date +%Y%m%d)
           base: master
           delete-branch: true

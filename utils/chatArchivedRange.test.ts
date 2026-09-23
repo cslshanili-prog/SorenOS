@@ -10,13 +10,13 @@ import { buildChatRequestPayload } from './chatRequestPayload';
 
 vi.mock('../context/MusicContext', () => ({ useMusic: () => ({}), loadMusicHooks: () => null }));
 vi.mock('./keepAlive', () => ({ KeepAlive: { start: vi.fn(), stop: vi.fn() } }));
-vi.mock('./chatRequestPayload', () => ({ buildChatRequestPayload: vi.fn(async () => { throw new Error('不应构建已归档原文'); }) }));
+vi.mock('./chatRequestPayload', () => ({ buildChatRequestPayload: vi.fn(async () => { throw new Error('不應構建已歸檔原文'); }) }));
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 let current: ReturnType<typeof useChatAI>;
 function Probe({ char }: { char: CharacterProfile }) {
     current = useChatAI({
-        char, userProfile: { name: '用户' } as any,
+        char, userProfile: { name: '用戶' } as any,
         apiConfig: { baseUrl: 'https://example.test/v1' }, groups: [], emojis: [], categories: [],
         realtimeConfig: {} as any, addToast: vi.fn(), setMessages: vi.fn(), updateCharacter: vi.fn(), updateUserProfile: vi.fn(),
     });
@@ -24,18 +24,18 @@ function Probe({ char }: { char: CharacterProfile }) {
 }
 afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); });
 
-describe('ChatApp 已归档空范围的发送保护', () => {
-    it.each([false, true])('保留主动归档边界，不把旧用户输入捞回（随后有通话回复=%s）', async (callReply) => {
+describe('ChatApp 已歸檔空範圍的發送保護', () => {
+    it.each([false, true])('保留主動歸檔邊界，不把舊用戶輸入撈回（隨後有通話回覆=%s）', async (callReply) => {
         const char = { id: `archived-chat-${callReply}`, name: '角色', contextRangeMode: 'adaptive',
             contextRangePolicyVersion: 1, contextFollowsMemoryPalaceHwm: true } as CharacterProfile;
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: '旧回复' });
-        let lastId = await DB.saveMessage({ charId: char.id, role: 'user', type: 'text', content: '已归档输入' });
-        if (callReply) lastId = await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: '通话中已回应', metadata: { source: 'call' } });
+        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: '舊回覆' });
+        let lastId = await DB.saveMessage({ charId: char.id, role: 'user', type: 'text', content: '已歸檔輸入' });
+        if (callReply) lastId = await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: '通話中已回應', metadata: { source: 'call' } });
         await setReliableMemoryPalaceHighWaterMark(char.id, lastId);
         const history = await DB.getMessagesByCharId(char.id, true);
         const mirror = await DB.getAssetRaw(`mp_hwm_v1_${char.id}`);
         const profileBefore = JSON.stringify(char);
-        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('不应发送请求'));
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('不應發送請求'));
         const root = createRoot(document.createElement('div'));
         try {
             await act(async () => { root.render(createElement(Probe, { char })); });
@@ -48,7 +48,7 @@ describe('ChatApp 已归档空范围的发送保护', () => {
             expect(JSON.stringify(char)).toBe(profileBefore);
             const after = await DB.getMessagesByCharId(char.id, true);
             expect(after.filter(m => m.role !== 'system')).toEqual(history);
-            expect(after.at(-1)?.content).toContain('请再发一条消息');
+            expect(after.at(-1)?.content).toContain('請再發一條消息');
         } finally { act(() => root.unmount()); }
     });
 });

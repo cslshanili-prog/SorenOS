@@ -100,9 +100,9 @@ type LyricSlot = {
     lineInSection: number;
 };
 
-// SECTION_LABELS 声明成了 Record<string, …>，从它身上取出来的 key 只剩 string，
-// 这里把段落 key 收窄回 SongLine['section']。实际用到的 key 就是这七个，
-// 兜底沿用段落选择器的初始值 'verse'。
+// SECTION_LABELS 聲明成了 Record<string, …>，從它身上取出來的 key 只剩 string，
+// 這裡把段落 key 收窄回 SongLine['section']。實際用到的 key 就是這七個，
+// 兜底沿用段落選擇器的初始值 'verse'。
 const toSectionKind = (value: string): SongLine['section'] => {
     switch (value) {
         case 'intro':
@@ -194,7 +194,7 @@ const SongwritingApp: React.FC = () => {
     const [tempLyricStyle, setTempLyricStyle] = useState<LyricCoWritingStyle>('adaptive');
     const [tempLyricStyleCategory, setTempLyricStyleCategory] = useState<LyricStyleCategory>('chinese');
     const [tempCollaboratorId, setTempCollaboratorId] = useState('');
-    const [partnerGroupId, setPartnerGroupId] = useState(GROUP_FILTER_ALL); // 创作伙伴页的分组筛选
+    const [partnerGroupId, setPartnerGroupId] = useState(GROUP_FILTER_ALL); // 創作夥伴頁的分組篩選
     const [tempCoverStyle, setTempCoverStyle] = useState(COVER_STYLES[0]?.id || 'dawn-blush');
     const [tempTemplate, setTempTemplate] = useState<string>('free');
     const [tempCustomSections, setTempCustomSections] = useState<SongTemplateSection[]>([
@@ -228,7 +228,7 @@ const SongwritingApp: React.FC = () => {
     const [completionReview, setCompletionReview] = useState('');
     const [isCompleting, setIsCompleting] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [shareGroupId, setShareGroupId] = useState(GROUP_FILTER_ALL); // 分享乐谱弹窗的分组筛选（书架/预览两处共用同一弹窗语义）
+    const [shareGroupId, setShareGroupId] = useState(GROUP_FILTER_ALL); // 分享樂譜彈窗的分組篩選（書架/預覽兩處共用同一彈窗語義）
     const [shareTargetCharId, setShareTargetCharId] = useState('');
 
     // ACE-Step audio synth (preview view)
@@ -241,7 +241,7 @@ const SongwritingApp: React.FC = () => {
     const currentAudioOwnerRef = useRef<string | null>(null);
     // Voice preset (per-song, persisted in localStorage)
     const [voicePresetId, setVoicePresetIdState] = useState<string>('auto');
-    // Unified "AI 出歌引导" modal — entry point now lives on the big button
+    // Unified "AI 出歌引導" modal — entry point now lives on the big button
     const [showCustomPrompt, setShowCustomPrompt] = useState(false);
     const [promptGuidance, setPromptGuidance] = useState('');
     const [promptDraft, setPromptDraft] = useState('');
@@ -260,7 +260,7 @@ const SongwritingApp: React.FC = () => {
     const [coverMode, setCoverMode] = useState<CoverMode>('char');
     const [dualCoverUrl, setDualCoverUrl] = useState<string | null>(null);
     const [isBuildingDual, setIsBuildingDual] = useState(false);
-    // 冷却已关闭 — 后端撑得住, 留 0 让所有 cooldownSecsLeft > 0 分支自然成 dead code。
+    // 冷卻已關閉 — 後端撐得住, 留 0 讓所有 cooldownSecsLeft > 0 分支自然成 dead code。
     const COOLDOWN_MS = 0;
     const [cooldownSecsLeft, setCooldownSecsLeft] = useState(0);
 
@@ -370,13 +370,13 @@ const SongwritingApp: React.FC = () => {
 
     /** Step 1 → step 2: validate basics, then jump to partner-pick view. */
     const handleGoPartner = () => {
-        if (!tempTitle.trim()) { addToast('请给歌曲起个名字', 'error'); return; }
+        if (!tempTitle.trim()) { addToast('請給歌曲起個名字', 'error'); return; }
         setView('partner');
     };
 
     const handleCreate = () => {
-        if (!tempTitle.trim()) { addToast('请给歌曲起个名字', 'error'); return; }
-        if (!tempCollaboratorId) { addToast('请选择一个角色作为创作伙伴', 'error'); return; }
+        if (!tempTitle.trim()) { addToast('請給歌曲起個名字', 'error'); return; }
+        if (!tempCollaboratorId) { addToast('請選擇一個角色作為創作夥伴', 'error'); return; }
 
         const newSong: SongSheet = {
             id: `song-${Date.now()}`,
@@ -423,12 +423,12 @@ const SongwritingApp: React.FC = () => {
 
     const handleDeleteSong = (id: string) => {
         setConfirmDialog({
-            isOpen: true, title: '删除歌曲', message: '确定要删除这首歌吗？删除后无法恢复。', variant: 'danger',
+            isOpen: true, title: '刪除歌曲', message: '確定要刪除這首歌嗎？刪除後無法恢復。', variant: 'danger',
             onConfirm: () => {
                 deleteSong(id);
                 if (activeSong?.id === id) { setActiveSong(null); setView('shelf'); }
                 setConfirmDialog(null);
-                addToast('已删除', 'success');
+                addToast('已刪除', 'success');
             }
         });
     };
@@ -480,9 +480,9 @@ const SongwritingApp: React.FC = () => {
             let userPrompt = SongPrompts.buildUserMessage(updatedSong, userMessage, currentSection);
             if (requestedType) {
                 const typeHints: Record<string, string> = {
-                    inspiration: '\n\n【请求类型】: inspiration — 请用 inspiration 格式回复，提供示范歌词和创作技巧解释。',
-                    discussion: '\n\n【请求类型】: discussion — 请用 discussion 格式回复，讨论创作方向和结构，不要提供示范歌词。',
-                    feedback: '\n\n【请求类型】: feedback — 请用 feedback 格式回复，评价用户写的歌词。',
+                    inspiration: '\n\n【請求類型】: inspiration — 請用 inspiration 格式回覆，提供示範歌詞和創作技巧解釋。',
+                    discussion: '\n\n【請求類型】: discussion — 請用 discussion 格式回覆，討論創作方向和結構，不要提供示範歌詞。',
+                    feedback: '\n\n【請求類型】: feedback — 請用 feedback 格式回覆，評價用戶寫的歌詞。',
                 };
                 userPrompt += typeHints[requestedType] || '';
             }
@@ -580,7 +580,7 @@ const SongwritingApp: React.FC = () => {
                                     authorId: collaborator.id,
                                     content: parsed.example_lines[i],
                                     section: currentSection,
-                                    annotation: '示范参考',
+                                    annotation: '示範參考',
                                     timestamp: baseTime + 10 + i,
                                 });
                             }
@@ -645,7 +645,7 @@ const SongwritingApp: React.FC = () => {
                 throw new Error(`API Error: ${response.status}`);
             }
         } catch (e: any) {
-            addToast('请求失败: ' + e.message, 'error');
+            addToast('請求失敗: ' + e.message, 'error');
         } finally {
             setIsTyping(false);
         }
@@ -661,7 +661,7 @@ const SongwritingApp: React.FC = () => {
     const handleAskForHelp = async () => {
         setInputText('');
         trackEvent('请搭档给灵感');
-        await handleSendToAI('我不知道怎么写，能给我一些灵感和示范吗？', false, 'inspiration');
+        await handleSendToAI('我不知道怎麼寫，能給我一些靈感和示範嗎？', false, 'inspiration');
     };
 
     const handleDiscuss = async () => {
@@ -808,7 +808,7 @@ const SongwritingApp: React.FC = () => {
     const handleGenerateNotebookLine = useCallback(async (slot: LyricSlot) => {
         if (!activeSong || !collaborator || generatingSlotIndex !== null) return;
         if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-            addToast('请先在设置里配置 AI 模型。', 'error');
+            addToast('請先在設置裡配置 AI 模型。', 'error');
             return;
         }
 
@@ -849,17 +849,17 @@ const SongwritingApp: React.FC = () => {
             const systemPrompt = SongPrompts.buildMentorSystemPrompt(collaborator, userProfile, snapshot, []);
             const existing = lineAtSlot(snapshot, slot.index);
             const request = [
-                `请为歌词本的第 ${slot.index + 1} 句${existing ? '重新写一个版本' : '写一句歌词'}。`,
-                `位置：${SECTION_LABELS[slot.section]?.label || slot.section}，建议字数：${slot.chars} 字。`,
-                '你必须阅读上方整本歌词，承接前后语义与押韵。',
-                '只返回 inspiration JSON，example_lines 必须恰好只有一句，不要修改其他句子。',
+                `請為歌詞本的第 ${slot.index + 1} 句${existing ? '重新寫一個版本' : '寫一句歌詞'}。`,
+                `位置：${SECTION_LABELS[slot.section]?.label || slot.section}，建議字數：${slot.chars} 字。`,
+                '你必須閱讀上方整本歌詞，承接前後語義與押韻。',
+                '只返回 inspiration JSON，example_lines 必須恰好只有一句，不要修改其他句子。',
             ].join('\n');
             const userPrompt = SongPrompts.buildUserMessage(snapshot, request, slot.section);
             let generated: string | null = null;
             for (let attempt = 0; attempt < 2 && !generated; attempt += 1) {
                 const retryInstruction = attempt === 0
                     ? ''
-                    : '\n\n【格式纠错】上一次响应不是可用的单句歌词。重新输出一个完整 inspiration JSON；example_lines 只能包含一个纯歌词字符串，禁止输出截断 JSON、字段说明或额外正文。';
+                    : '\n\n【格式糾錯】上一次響應不是可用的單句歌詞。重新輸出一個完整 inspiration JSON；example_lines 只能包含一個純歌詞字符串，禁止輸出截斷 JSON、字段說明或額外正文。';
                 const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -878,11 +878,11 @@ const SongwritingApp: React.FC = () => {
                 const raw = data.choices?.[0]?.message?.content?.trim() || '';
                 generated = extractGeneratedLyricLine(raw);
             }
-            if (!generated) throw new Error('C 连续两次没有返回完整歌词，已拦截异常内容，请再试一次');
+            if (!generated) throw new Error('C 連續兩次沒有返回完整歌詞，已攔截異常內容，請再試一次');
             await saveNotebookLine(slot, generated, collaborator.id);
             addToast(existing ? `第 ${slot.index + 1} 句已刷新` : `第 ${slot.index + 1} 句已生成`, 'success');
         } catch (error: any) {
-            addToast(`生成失败: ${error?.message || error}`, 'error');
+            addToast(`生成失敗: ${error?.message || error}`, 'error');
         } finally {
             setGeneratingSlotIndex(null);
         }
@@ -905,17 +905,17 @@ const SongwritingApp: React.FC = () => {
         const updated = { ...activeSong, lyricCoWritingStyle: style };
         setActiveSong(updated);
         await updateSong(updated.id, { lyricCoWritingStyle: style });
-        addToast(`C 已切换为「${getLyricCoWritingStyle(style).label}」共创方式`, 'success');
+        addToast(`C 已切換為「${getLyricCoWritingStyle(style).label}」共創方式`, 'success');
     };
 
     // --- Completion ---
     const handleComplete = async () => {
         if (!activeSong || !collaborator) return;
-        if (activeSong.lines.filter(l => !l.isDraft).length === 0) { addToast('歌曲还没有任何歌词', 'error'); return; }
+        if (activeSong.lines.filter(l => !l.isDraft).length === 0) { addToast('歌曲還沒有任何歌詞', 'error'); return; }
 
         setIsCompleting(true);
         setShowPreviewModal(true);
-        setCompletionReview('正在等搭档写评语...');
+        setCompletionReview('正在等搭檔寫評語...');
         trackEvent('完成乐谱并让搭档点评');
 
         try {
@@ -945,10 +945,10 @@ const SongwritingApp: React.FC = () => {
                 const data = await safeResponseJson(response);
                 setCompletionReview(data.choices[0].message.content.trim());
             } else {
-                setCompletionReview('(评价生成失败，但不影响保存)');
+                setCompletionReview('(評價生成失敗，但不影響保存)');
             }
         } catch {
-            setCompletionReview('(网络错误，但不影响保存)');
+            setCompletionReview('(網絡錯誤，但不影響保存)');
         } finally {
             setIsCompleting(false);
         }
@@ -970,11 +970,11 @@ const SongwritingApp: React.FC = () => {
             charId: collaborator.id,
             role: 'system',
             type: 'text',
-            content: `[系统: ${userProfile.name} 和 ${collaborator.name} 一起完成了歌曲创作《${completed.title}》(${genreInfo?.label || completed.genre})]`,
+            content: `[系統: ${userProfile.name} 和 ${collaborator.name} 一起完成了歌曲創作《${completed.title}》(${genreInfo?.label || completed.genre})]`,
         });
 
         setShowPreviewModal(false);
-        addToast('歌曲已完成！乐谱已保存', 'success');
+        addToast('歌曲已完成！樂譜已保存', 'success');
         setView('shelf');
     };
 
@@ -1021,7 +1021,7 @@ const SongwritingApp: React.FC = () => {
         });
 
         setShowShareModal(false);
-        addToast('乐谱已分享到聊天', 'success');
+        addToast('樂譜已分享到聊天', 'success');
         trackEvent('分享乐谱到聊天');
     };
 
@@ -1125,7 +1125,7 @@ const SongwritingApp: React.FC = () => {
 
     /**
      * Run a synth with the given provider + style prompt string. Single source
-     * of truth for both modal confirm and "重录" button.
+     * of truth for both modal confirm and "重錄" button.
      */
     const runSynth = async (providerArg: MusicProvider, promptArg: string) => {
         if (!activeSong) return;
@@ -1133,25 +1133,25 @@ const SongwritingApp: React.FC = () => {
         // Provider-specific key check
         if (providerArg === 'ace-step') {
             if (!apiConfig.aceStepApiKey?.trim()) {
-                addToast('请先在「设置」里填 Replicate API Token', 'error');
+                addToast('請先在「設置」裡填 Replicate API Token', 'error');
                 return;
             }
         } else {
             if (!apiConfig.minimaxApiKey && !apiConfig.apiKey) {
-                addToast('请先在「设置」里填 MiniMax API Key', 'error');
+                addToast('請先在「設置」裡填 MiniMax API Key', 'error');
                 return;
             }
         }
 
         // Cooldown gate — protects sfworker / MiniMax RPM
         if (cooldownSecsLeft > 0) {
-            addToast(`冷却中，再等 ${cooldownSecsLeft}s`, 'info');
+            addToast(`冷卻中，再等 ${cooldownSecsLeft}s`, 'info');
             return;
         }
 
         const finalLines = activeSong.lines.filter(l => !l.isDraft);
         if (finalLines.length === 0) {
-            addToast('歌词是空的，先写两句再来', 'error');
+            addToast('歌詞是空的，先寫兩句再來', 'error');
             return;
         }
 
@@ -1163,20 +1163,20 @@ const SongwritingApp: React.FC = () => {
 
         setIsGeneratingAudio(true);
         setAudioError(null);
-        setAudioGenStatus('排队中…');
+        setAudioGenStatus('排隊中…');
         const ctrl = new AbortController();
         audioAbortRef.current = ctrl;
 
         // Push regen state to MusicContext so MusicApp / MiniPlayer also show progress
         const localId = localSongIdFor(activeSong.id);
         const wasInAlbumBefore = localAlbumSongs.some(s => s.id === localId);
-        markRegenerating(localId, '排队中…');
+        markRegenerating(localId, '排隊中…');
 
         const statusMap: Record<string, string> = {
-            resolving: '查询模型版本…',
-            starting: '模型冷启动中…',
+            resolving: '查詢模型版本…',
+            starting: '模型冷啟動中…',
             processing: '生成中…',
-            downloading: '下载音频…',
+            downloading: '下載音頻…',
             done: '完成',
             cached: '用上次生成的版本',
         };
@@ -1202,7 +1202,7 @@ const SongwritingApp: React.FC = () => {
                     signal: ctrl.signal,
                     onStatus: pushStatus,
                     // Modal flow always means user wants a fresh take; cooldown +
-                    // explicit "开始录制" click already establishes intent.
+                    // explicit "開始錄製" click already establishes intent.
                     forceRegenerate: true,
                 });
                 assetKey = result.assetKey;
@@ -1247,8 +1247,8 @@ const SongwritingApp: React.FC = () => {
             await updateSong(activeSong.id, { audio: audioMeta, musicProvider: providerArg });
             addToast(cached ? '已命中之前生成的版本' : '出歌完成！', 'success');
 
-            // ── 默认 like 点亮 ── 一生成出来就自动加入「一起写的歌」相册，
-            // 用 char 头像作默认封面。用户依然可以点 ❤︎ 改封面 / 移除 / 去音乐 App 听。
+            // ── 默認 like 點亮 ── 一生成出來就自動加入「一起寫的歌」相冊，
+            // 用 char 頭像作默認封面。用戶依然可以點 ❤︎ 改封面 / 移除 / 去音樂 App 聽。
             const authorNames = [
                 userProfile?.name || '我',
                 collaborator?.name || 'AI',
@@ -1257,7 +1257,7 @@ const SongwritingApp: React.FC = () => {
                 id: localId,
                 name: activeSong.title || '未命名',
                 artists: authorNames,
-                album: '一起写的歌',
+                album: '一起寫的歌',
                 albumPic: activeSong.coverImage || collaborator?.avatar || '',
                 duration: audioMeta.durationSec ?? finalLines.length * 5,
                 fee: 0,
@@ -1270,12 +1270,12 @@ const SongwritingApp: React.FC = () => {
             };
             addLocalSong(localSong);
 
-            // ── 如果音乐 App 此刻正在播这首歌（重录前的旧版本），自动重播新版本 ──
-            // playSong 的本地分支会从 IndexedDB 重读 blob → 用户立即听到新版本，
-            // 不用手动操作。
+            // ── 如果音樂 App 此刻正在播這首歌（重錄前的舊版本），自動重播新版本 ──
+            // playSong 的本地分支會從 IndexedDB 重讀 blob → 用戶立即聽到新版本，
+            // 不用手動操作。
             if (wasInAlbumBefore && currentMusicSong?.id === localId) {
                 playSong(localSong, { alsoSetQueue: false });
-                addToast('音乐 App 已切到新版本', 'info');
+                addToast('音樂 App 已切到新版本', 'info');
             }
         } catch (err: any) {
             if (err?.name === 'AbortError') {
@@ -1284,7 +1284,7 @@ const SongwritingApp: React.FC = () => {
                 console.error('[Music] generate failed', err);
                 const msg = err?.message || String(err);
                 setAudioError(msg);
-                addToast(`出歌失败: ${msg.slice(0, 60)}`, 'error');
+                addToast(`出歌失敗: ${msg.slice(0, 60)}`, 'error');
             }
         } finally {
             setIsGeneratingAudio(false);
@@ -1333,7 +1333,7 @@ const SongwritingApp: React.FC = () => {
 
     // ── Prompt modal: entry point + AI helper + confirm ──
 
-    /** Open the unified "AI 出歌引导" modal — also the entry point for generation. */
+    /** Open the unified "AI 出歌引導" modal — also the entry point for generation. */
     const openCustomPromptModal = () => {
         if (!activeSong) return;
         // Pre-fill the editable tags with whatever would be sent right now
@@ -1345,18 +1345,18 @@ const SongwritingApp: React.FC = () => {
     };
 
     /**
-     * Modal "开始录制" — persist the final tags then kick off synth with them
+     * Modal "開始錄製" — persist the final tags then kick off synth with them
      * passed directly (so we don't have to wait for state to flush).
      */
     const handleConfirmAndGenerate = async () => {
         if (!activeSong) return;
         if (cooldownSecsLeft > 0) {
-            addToast(`冷却中，再等 ${cooldownSecsLeft}s`, 'info');
+            addToast(`冷卻中，再等 ${cooldownSecsLeft}s`, 'info');
             return;
         }
         const tags = promptDraft.trim();
         if (!tags) {
-            addToast('风格描述不能为空。', 'error');
+            addToast('風格描述不能為空。', 'error');
             return;
         }
         const updatedSong = { ...activeSong, aceStepCustomTags: tags };
@@ -1370,21 +1370,21 @@ const SongwritingApp: React.FC = () => {
     const handleAiWritePrompt = async () => {
         if (!activeSong) return;
         if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-            addToast('请先在设置里配置 AI 模型。', 'error');
+            addToast('請先在設置裡配置 AI 模型。', 'error');
             return;
         }
         setIsAiWritingPrompt(true);
         trackEvent('让 AI 帮写出歌提示词');
         try {
-            // MiniMax 是中文模型 → 输出中文 natural-language prompt
-            // ACE-Step 国外模型 → 输出英文 comma-separated tags
+            // MiniMax 是中文模型 → 輸出中文 natural-language prompt
+            // ACE-Step 國外模型 → 輸出英文 comma-separated tags
             const lang: 'en' | 'zh' = provider === 'ace-step' ? 'en' : 'zh';
             const generated = await generatePromptViaLLM(promptGuidance.trim(), activeSong, apiConfig, collaborator, undefined, lang);
             setPromptDraft(generated);
-            addToast(promptGuidance.trim() ? 'AI 已结合角色生成' : `AI 凭${collaborator?.name || '角色'}的气质写了一段`, 'success');
+            addToast(promptGuidance.trim() ? 'AI 已結合角色生成' : `AI 憑${collaborator?.name || '角色'}的氣質寫了一段`, 'success');
         } catch (err: any) {
             console.error('[ACE-Step] LLM prompt failed', err);
-            addToast(`生成失败: ${err?.message?.slice(0, 80) || err}`, 'error');
+            addToast(`生成失敗: ${err?.message?.slice(0, 80) || err}`, 'error');
         } finally {
             setIsAiWritingPrompt(false);
         }
@@ -1396,7 +1396,7 @@ const SongwritingApp: React.FC = () => {
         setPromptDraft(buildAceStepTags(activeSong, voicePresetId));
     };
 
-    // ── 喜欢 → 加入「一起写的歌」专辑（同步到音乐 App） ──
+    // ── 喜歡 → 加入「一起寫的歌」專輯（同步到音樂 App） ──
 
     /** Stable synthetic song id derived from songId — avoids netease numeric collision. */
     const localSongIdFor = useCallback((songId: string): number => {
@@ -1418,10 +1418,10 @@ const SongwritingApp: React.FC = () => {
     /** Compose user + char avatars side-by-side on canvas → data URL. */
     const buildDualCover = useCallback(async (charUrl: string, userUrl: string): Promise<string | null> => {
         try {
-            // 头像可能是 blobref 令牌，令牌本身不是能加载的地址：直接喂给 Image 会加载
-            // 失败，而失败被下面的 catch 收走，合影封面悄悄变成一张只有渐变的空白图。
-            // 所以先解析成 data URL 再加载（非令牌原样返回，可以无条件调）。
-            // 图已丢时解析结果是空串，此处抛出让调用方按「这张画不出来」处理。
+            // 頭像可能是 blobref 令牌，令牌本身不是能加載的地址：直接餵給 Image 會加載
+            // 失敗，而失敗被下面的 catch 收走，合影封面悄悄變成一張只有漸變的空白圖。
+            // 所以先解析成 data URL 再加載（非令牌原樣返回，可以無條件調）。
+            // 圖已丟時解析結果是空串，此處拋出讓調用方按「這張畫不出來」處理。
             const loadImg = async (src: string) => {
                 const url = await resolveRefToDataUrl(src);
                 if (!url) throw new Error('avatar blob missing');
@@ -1439,7 +1439,7 @@ const SongwritingApp: React.FC = () => {
             const ctx = canvas.getContext('2d');
             if (!ctx) return null;
 
-            // 樱粉 → 薰衣草 → 水蓝渐变背景
+            // 櫻粉 → 薰衣草 → 水藍漸變背景
             const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
             grad.addColorStop(0, '#f2b8c6');
             grad.addColorStop(0.5, '#c5b3e6');
@@ -1447,7 +1447,7 @@ const SongwritingApp: React.FC = () => {
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, SIZE, SIZE);
 
-            // 半圆裁切左右两边 — 用户在左，char 在右
+            // 半圓裁切左右兩邊 — 用戶在左，char 在右
             const drawCircle = (img: HTMLImageElement, cx: number, cy: number, r: number) => {
                 ctx.save();
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
@@ -1455,7 +1455,7 @@ const SongwritingApp: React.FC = () => {
                 const w = img.width * ratio; const h = img.height * ratio;
                 ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
                 ctx.restore();
-                // 描边
+                // 描邊
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
                 ctx.strokeStyle = 'rgba(255,255,255,0.85)';
                 ctx.lineWidth = 5;
@@ -1470,11 +1470,11 @@ const SongwritingApp: React.FC = () => {
             if (userImg) drawCircle(userImg, SIZE * 0.32, SIZE * 0.55, SIZE * 0.22);
             if (charImg) drawCircle(charImg, SIZE * 0.68, SIZE * 0.55, SIZE * 0.22);
 
-            // 顶部小标题
+            // 頂部小標題
             ctx.fillStyle = 'rgba(255,255,255,0.95)';
             ctx.font = 'bold 22px Georgia, "Noto Serif SC", serif';
             ctx.textAlign = 'center';
-            ctx.fillText('一起写的歌', SIZE / 2, SIZE * 0.18);
+            ctx.fillText('一起寫的歌', SIZE / 2, SIZE * 0.18);
 
             try {
                 return canvas.toDataURL('image/jpeg', 0.85);
@@ -1492,7 +1492,7 @@ const SongwritingApp: React.FC = () => {
      *  (user previously removed) it re-adds. */
     const handleSendToMusicApp = async () => {
         if (!activeSong || !activeSong.audio) {
-            addToast('歌还没生成出来', 'info');
+            addToast('歌還沒生成出來', 'info');
             return;
         }
         // Prefer the user's artwork when this song already has one.
@@ -1504,11 +1504,11 @@ const SongwritingApp: React.FC = () => {
     const handleCoverUpload = async (file: File) => {
         if (!activeSong) return;
         if (!file.type.startsWith('image/')) {
-            addToast('请选择图片文件', 'error');
+            addToast('請選擇圖片文件', 'error');
             return;
         }
         if (file.size > 12 * 1024 * 1024) {
-            addToast('图片请控制在 12MB 以内', 'error');
+            addToast('圖片請控制在 12MB 以內', 'error');
             return;
         }
         try {
@@ -1517,9 +1517,9 @@ const SongwritingApp: React.FC = () => {
             setActiveSong(updated);
             await updateSong(updated.id, { coverImage });
             setCoverMode('upload');
-            addToast('封面已放进歌词本', 'success');
+            addToast('封面已放進歌詞本', 'success');
         } catch {
-            addToast('封面保存失败', 'error');
+            addToast('封面保存失敗', 'error');
         }
     };
 
@@ -1529,7 +1529,7 @@ const SongwritingApp: React.FC = () => {
         const localId = localSongIdFor(activeSong.id);
         removeLocalSong(localId);
         setShowCoverConfirm(false);
-        addToast('已从「一起写的歌」移除', 'info');
+        addToast('已從「一起寫的歌」移除', 'info');
     };
 
     /** Step 2: confirm cover → actually add to album + play + jump to MusicApp. */
@@ -1571,7 +1571,7 @@ const SongwritingApp: React.FC = () => {
             id: localId,
             name: activeSong.title || '未命名',
             artists: authorNames,
-            album: '一起写的歌',
+            album: '一起寫的歌',
             albumPic,
             duration: durationSec,
             fee: 0,
@@ -1585,7 +1585,7 @@ const SongwritingApp: React.FC = () => {
         addLocalSong(localSong);
         trackEvent('把成品歌加进音乐 App 专辑');
         setShowCoverConfirm(false);
-        addToast(`已加入「一起写的歌」专辑 ❤︎`, 'success');
+        addToast(`已加入「一起寫的歌」專輯 ❤︎`, 'success');
         playSong(localSong, { alsoSetQueue: true });
         openApp(AppID.Music);
     };
@@ -1620,7 +1620,7 @@ const SongwritingApp: React.FC = () => {
                 className="h-full w-full flex flex-col font-sans relative overflow-hidden"
                 style={{ background: `linear-gradient(180deg, ${MusicC.bg} 0%, ${MusicC.bgDeep} 60%, ${MusicC.bgTint} 100%)` }}
             >
-                {/* 装饰星星 */}
+                {/* 裝飾星星 */}
                 <Sparkle size={9} color={MusicC.glow}    delay={0}   className="absolute top-20 left-6"   />
                 <Sparkle size={7} color={MusicC.sakura}  delay={1.0} className="absolute top-44 right-8"  />
                 <Sparkle size={6} color={MusicC.lavender} delay={0.6} className="absolute bottom-32 left-10" />
@@ -1639,7 +1639,7 @@ const SongwritingApp: React.FC = () => {
                                 <h1 className="text-[10px] tracking-[0.4em] uppercase" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>Lyric</h1>
                                 <Sparkle size={7} color={MusicC.sakura} delay={0.7} />
                             </div>
-                            <p className="text-lg font-bold mt-0.5" style={{ color: MusicC.primary, fontFamily: 'Georgia, "Noto Serif SC", serif' }}>歌词手帖</p>
+                            <p className="text-lg font-bold mt-0.5" style={{ color: MusicC.primary, fontFamily: 'Georgia, "Noto Serif SC", serif' }}>歌詞手帖</p>
                         </div>
                         <button
                             onClick={() => { trackEvent('开始新建乐谱'); setView('create'); }}
@@ -1649,7 +1649,7 @@ const SongwritingApp: React.FC = () => {
                                 color: 'white',
                                 boxShadow: `0 3px 14px ${MusicC.sakura}55`,
                             }}
-                            title="新建歌词本"
+                            title="新建歌詞本"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                         </button>
@@ -1662,14 +1662,14 @@ const SongwritingApp: React.FC = () => {
                         <div className="flex flex-col items-center justify-center py-20 text-center px-8">
                             <div className="w-20 h-[2px] bg-stone-300/60 mb-8" />
                             <p className="text-base text-stone-500 leading-8" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
-                                还没有写过歌
+                                還沒有寫過歌
                             </p>
                             <p className="text-xs text-stone-400 mt-3 leading-6">
-                                点击右上角的 +，开始第一本歌词手帖
+                                點擊右上角的 +，開始第一本歌詞手帖
                             </p>
                             <div className="w-20 h-[2px] bg-stone-300/60 mt-8" />
                             <button onClick={() => { trackEvent('开始新建乐谱'); setView('create'); }} className="mt-8 px-6 py-2.5 border border-stone-300 rounded text-sm text-stone-600 hover:bg-stone-100 active:scale-[0.98] transition-all">
-                                开始写歌
+                                開始寫歌
                             </button>
                         </div>
                     )}
@@ -1715,7 +1715,7 @@ const SongwritingApp: React.FC = () => {
                                                         {char && (
                                                             <>
                                                                 <span className="text-stone-300">·</span>
-                                                                <span className="text-[10px] text-stone-400">与 {char.name}</span>
+                                                                <span className="text-[10px] text-stone-400">與 {char.name}</span>
                                                             </>
                                                         )}
                                                     </div>
@@ -1761,7 +1761,7 @@ const SongwritingApp: React.FC = () => {
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         {char && <TokenImg value={char.avatar} className="w-4 h-4 rounded-full object-cover" />}
-                                                        <span className="text-[10px] text-stone-400">与 {char?.name} 创作</span>
+                                                        <span className="text-[10px] text-stone-400">與 {char?.name} 創作</span>
                                                     </div>
                                                 </div>
                                                 <button
@@ -1782,10 +1782,10 @@ const SongwritingApp: React.FC = () => {
                 </div>
 
                 {/* Share Modal */}
-                <Modal isOpen={showShareModal} title="分享乐谱" onClose={() => setShowShareModal(false)}>
+                <Modal isOpen={showShareModal} title="分享樂譜" onClose={() => setShowShareModal(false)}>
                     <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                        <p className="text-xs text-stone-500 mb-3">选择一个角色，以卡片形式把乐谱分享到聊天</p>
-                        {/* 分组筛选（没建分组时不渲染），白底 Modal 走浅色 */}
+                        <p className="text-xs text-stone-500 mb-3">選擇一個角色，以卡片形式把樂譜分享到聊天</p>
+                        {/* 分組篩選（沒建分組時不渲染），白底 Modal 走淺色 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={shareGroupId} onChange={setShareGroupId} className="mb-2" />
                         {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
@@ -1847,7 +1847,7 @@ const SongwritingApp: React.FC = () => {
                             <input
                                 value={tempTitle}
                                 onChange={e => setTempTitle(e.target.value)}
-                                placeholder="给本首歌取个名字吧～"
+                                placeholder="給本首歌取個名字吧～"
                                 className="w-full rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-colors shizuku-glass"
                                 style={{ color: MusicC.text, border: `1px solid ${MusicC.faint}40`, fontFamily: `'Noto Serif SC', Georgia, serif` }}
                             />
@@ -1855,29 +1855,29 @@ const SongwritingApp: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 02 — 副标题 */}
+                    {/* 02 — 副標題 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 18, letterSpacing: '0.05em' }}>02</span>
                             <CrossStar size={7} color={MusicC.sakura} delay={0.4} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>副标题</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>副標題</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>SUBTITLE</span>
                         </div>
                         <input
                             value={tempSubtitle}
                             onChange={e => setTempSubtitle(e.target.value)}
-                            placeholder="这首歌想说什么呢？"
+                            placeholder="這首歌想說什麼呢？"
                             className="w-full rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-colors italic shizuku-glass"
                             style={{ color: MusicC.text, border: `1px solid ${MusicC.faint}40`, fontFamily: `'Noto Serif SC', Georgia, serif` }}
                         />
                     </div>
 
-                    {/* 03 — 风格 */}
+                    {/* 03 — 風格 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 18, letterSpacing: '0.05em' }}>03</span>
                             <CrossStar size={7} color={MusicC.lavender} delay={0.7} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>风格</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>風格</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>GENRE</span>
                         </div>
                         <div className="grid grid-cols-4 gap-1.5">
@@ -1908,16 +1908,16 @@ const SongwritingApp: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 04 — C 的共创风格 */}
+                    {/* 04 — C 的共創風格 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 18, letterSpacing: '0.05em' }}>04</span>
                             <CrossStar size={7} color={MusicC.sakura} delay={0.4} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>C 的共创风格</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>C 的共創風格</label>
                             <span className="text-[9px] tracking-[0.24em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>CO-WRITING</span>
                         </div>
                         <p className="text-[10px] pl-1" style={{ color: MusicC.muted }}>
-                            决定 C 怎么写和怎么审歌词，与上面的音乐曲风可以自由混搭
+                            決定 C 怎麼寫和怎麼審歌詞，與上面的音樂曲風可以自由混搭
                         </p>
                         <div
                             className="grid grid-cols-4 p-1 rounded-xl gap-1"
@@ -1983,12 +1983,12 @@ const SongwritingApp: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 05 — 情绪 */}
+                    {/* 05 — 情緒 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 18, letterSpacing: '0.05em' }}>05</span>
                             <CrossStar size={7} color={MusicC.glow} delay={0.3} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>情绪</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>情緒</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>MOOD</span>
                         </div>
                         <div className="grid grid-cols-4 gap-1.5">
@@ -2019,15 +2019,15 @@ const SongwritingApp: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* 06 — 歌词结构 */}
+                    {/* 06 — 歌詞結構 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 18, letterSpacing: '0.05em' }}>06</span>
                             <CrossStar size={7} color={MusicC.sakura} delay={0.9} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>歌词结构</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>歌詞結構</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>LYRIC STRUCTURE</span>
                         </div>
-                        <p className="text-[10px] pl-1" style={{ color: MusicC.muted }}>选一个结构作为歌词骨架，之后可自由调整</p>
+                        <p className="text-[10px] pl-1" style={{ color: MusicC.muted }}>選一個結構作為歌詞骨架，之後可自由調整</p>
                         <div className="grid grid-cols-2 gap-2">
                             {LYRIC_TEMPLATES.map(t => {
                                 const active = tempTemplate === t.id;
@@ -2075,13 +2075,13 @@ const SongwritingApp: React.FC = () => {
                             >
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <span className="text-[14px] leading-none" style={{ color: MusicC.accent }}>⌘</span>
-                                    <span className="text-[12px] font-bold" style={{ color: MusicC.primary }}>高级自定义</span>
+                                    <span className="text-[12px] font-bold" style={{ color: MusicC.primary }}>高級自定義</span>
                                     <span className="text-[9px] ml-auto" style={{ color: MusicC.muted }}>
                                         {tempCustomSections.reduce((sum, section) => sum + section.lines, 0)} 句
                                     </span>
                                 </div>
                                 <div className="text-[10px] leading-snug" style={{ color: MusicC.muted }}>
-                                    自己决定段落、句数与每句字数
+                                    自己決定段落、句數與每句字數
                                 </div>
                             </button>
                         </div>
@@ -2120,14 +2120,14 @@ const SongwritingApp: React.FC = () => {
                                             placeholder="如 7-10"
                                             className="w-full rounded-lg bg-white/80 px-2 py-2 text-[11px] outline-none"
                                             style={{ color: MusicC.primary, border: `1px solid ${MusicC.faint}45` }}
-                                            aria-label="每句字数"
+                                            aria-label="每句字數"
                                         />
                                         <button
                                             onClick={() => setTempCustomSections(prev => prev.filter((_, i) => i !== index))}
                                             disabled={tempCustomSections.length <= 1}
                                             className="w-7 h-7 rounded-full flex items-center justify-center disabled:opacity-25"
                                             style={{ color: MusicC.muted }}
-                                            aria-label="删除段落"
+                                            aria-label="刪除段落"
                                         >
                                             <Trash size={13} />
                                         </button>
@@ -2138,14 +2138,14 @@ const SongwritingApp: React.FC = () => {
                                     className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] rounded-xl"
                                     style={{ color: MusicC.primary, border: `1px dashed ${MusicC.faint}70` }}
                                 >
-                                    <Plus size={12} /> 添加一个段落
+                                    <Plus size={12} /> 添加一個段落
                                 </button>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* "下一步" 大粉色游戏风按钮 */}
+                {/* "下一步" 大粉色遊戲風按鈕 */}
                 <div
                     className="absolute bottom-0 w-full px-5 pt-4 pb-6 z-20"
                     style={{
@@ -2161,12 +2161,12 @@ const SongwritingApp: React.FC = () => {
                             fontFamily: 'Georgia, "Noto Serif SC", serif',
                         }}
                     >
-                        {/* 装饰星星 */}
+                        {/* 裝飾星星 */}
                         <Sparkle size={8}  color="#fff" delay={0}   className="absolute top-2 left-6  opacity-80" />
                         <Sparkle size={6}  color="#fff" delay={0.7} className="absolute bottom-3 left-12 opacity-70" />
                         <Sparkle size={7}  color="#fff" delay={1.4} className="absolute top-3 right-14 opacity-80" />
                         <CrossStar size={9} color="#fff" delay={0.5} className="absolute bottom-2 right-6" solid={false} />
-                        {/* 移动高光 */}
+                        {/* 移動高光 */}
                         <span className="absolute inset-0 pointer-events-none"
                             style={{
                                 background: `linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)`,
@@ -2175,7 +2175,7 @@ const SongwritingApp: React.FC = () => {
                             }} />
                         <span className="relative inline-flex flex-col items-center justify-center gap-0.5">
                             <span className="inline-flex items-center gap-2 text-[14px]">
-                                下一步，选择你的创作伙伴
+                                下一步，選擇你的創作夥伴
                                 <MusicNotes size={16} weight="fill" />
                             </span>
                             <span className="text-[9px] tracking-[0.5em] opacity-80" style={{ fontFamily: 'Georgia, serif' }}>— NEXT STEP —</span>
@@ -2188,14 +2188,14 @@ const SongwritingApp: React.FC = () => {
 
     // --- Partner View (Step 2 of create flow) ---
     if (view === 'partner') {
-        // 按分组筛出的伙伴候选（筛选只影响显示，已选中的 tempCollaboratorId 不受影响）
+        // 按分組篩出的夥伴候選（篩選只影響顯示，已選中的 tempCollaboratorId 不受影響）
         const partnerChars = filterCharactersByGroup(characters, characterGroups, partnerGroupId);
         return (
             <div
                 className="h-full w-full flex flex-col font-sans relative overflow-hidden"
                 style={{ background: `linear-gradient(180deg, ${MusicC.bg} 0%, ${MusicC.bgDeep} 55%, ${MusicC.bgTint} 100%)` }}
             >
-                {/* 装饰 */}
+                {/* 裝飾 */}
                 <Sparkle size={9} color={MusicC.glow}    delay={0}   className="absolute top-14 right-6"  />
                 <Sparkle size={7} color={MusicC.sakura}  delay={1.0} className="absolute top-36 left-7"   />
                 <Sparkle size={6} color={MusicC.lavender} delay={0.5} className="absolute top-60 right-10" />
@@ -2211,7 +2211,7 @@ const SongwritingApp: React.FC = () => {
                     <div className="flex flex-col items-center">
                         <div className="flex items-center gap-2">
                             <Sparkle size={8} color={MusicC.glow} delay={0} />
-                            <h2 className="text-sm font-bold tracking-[0.18em]" style={{ color: MusicC.primary, fontFamily: 'Georgia, "Noto Serif SC", serif' }}>创作伙伴</h2>
+                            <h2 className="text-sm font-bold tracking-[0.18em]" style={{ color: MusicC.primary, fontFamily: 'Georgia, "Noto Serif SC", serif' }}>創作夥伴</h2>
                             <Sparkle size={8} color={MusicC.sakura} delay={0.8} />
                         </div>
                         <div className="text-[8.5px] tracking-[0.4em] mt-0.5" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>— PARTNER —</div>
@@ -2220,10 +2220,10 @@ const SongwritingApp: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-center pb-3 px-6 z-10 relative" style={{ color: MusicC.muted }}>选一个伙伴，陪你一起创作吧</p>
+                <p className="text-[11px] text-center pb-3 px-6 z-10 relative" style={{ color: MusicC.muted }}>選一個夥伴，陪你一起創作吧</p>
 
                 <div className="flex-1 overflow-y-auto px-5 pb-32 space-y-5 no-scrollbar relative z-10">
-                    {/* 分组筛选（没建分组时不渲染），浅色梦幻底 */}
+                    {/* 分組篩選（沒建分組時不渲染），淺色夢幻底 */}
                     <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                         value={partnerGroupId} onChange={setPartnerGroupId} />
                     {/* Collaborator list */}
@@ -2250,7 +2250,7 @@ const SongwritingApp: React.FC = () => {
                                     </div>
                                     <div className="text-left flex-1 min-w-0">
                                         <div className="font-bold text-[13px]" style={{ color: MusicC.primary }}>{c.name}</div>
-                                        <div className="text-[10px] truncate leading-snug mt-0.5" style={{ color: MusicC.muted }}>{c.description || '将作为你的音乐共创搭档'}</div>
+                                        <div className="text-[10px] truncate leading-snug mt-0.5" style={{ color: MusicC.muted }}>{c.description || '將作為你的音樂共創搭檔'}</div>
                                     </div>
                                     {active && (
                                         <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
@@ -2263,22 +2263,22 @@ const SongwritingApp: React.FC = () => {
                         })}
                         {characters.length === 0 && (
                             <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
-                                <p className="text-[12px]" style={{ color: MusicC.muted }}>还没有可选角色 — 先去创建一个</p>
+                                <p className="text-[12px]" style={{ color: MusicC.muted }}>還沒有可選角色 — 先去創建一個</p>
                             </div>
                         )}
-                        {/* 有角色但当前分组筛后为空 */}
+                        {/* 有角色但當前分組篩後為空 */}
                         {characters.length > 0 && partnerChars.length === 0 && (
                             <div className="rounded-2xl p-5 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: `1px dashed ${MusicC.faint}80` }}>
-                                <p className="text-[12px]" style={{ color: MusicC.muted }}>该分组下没有角色</p>
+                                <p className="text-[12px]" style={{ color: MusicC.muted }}>該分組下沒有角色</p>
                             </div>
                         )}
                     </div>
 
-                    {/* 纸张色调 */}
+                    {/* 紙張色調 */}
                     <div className="space-y-2 pt-1">
                         <div className="flex items-center gap-2 pl-1">
                             <CrossStar size={7} color={MusicC.glow} delay={0} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>纸张色调</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>紙張色調</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>PAPER TONE</span>
                         </div>
                         <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
@@ -2313,26 +2313,26 @@ const SongwritingApp: React.FC = () => {
                                         border: `1px solid ${MusicC.faint}60`,
                                         opacity: 0.85,
                                     }}
-                                    title="自定义"
+                                    title="自定義"
                                 />
-                                <span className="text-[8.5px]" style={{ color: isCustomCoverStyle(tempCoverStyle) ? MusicC.primary : MusicC.muted }}>自定义</span>
+                                <span className="text-[8.5px]" style={{ color: isCustomCoverStyle(tempCoverStyle) ? MusicC.primary : MusicC.muted }}>自定義</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* 自定义色调 */}
+                    {/* 自定義色調 */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 pl-1">
                             <CrossStar size={7} color={MusicC.sakura} delay={0.3} />
-                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>自定义色调</label>
+                            <label className="text-[11px] font-bold" style={{ color: MusicC.primary }}>自定義色調</label>
                             <span className="text-[9px] tracking-[0.3em]" style={{ color: MusicC.faint, fontFamily: 'Georgia, serif' }}>CUSTOM COLOR</span>
                         </div>
                         <div className="rounded-2xl p-4 shizuku-glass" style={{ border: `1px solid ${MusicC.faint}40` }}>
                             <div className="grid grid-cols-3 gap-3">
                                 {([
-                                    { label: '起点色', color: customCoverFrom, position: 'from' },
-                                    { label: '中间色', color: customCoverVia, position: 'via' },
-                                    { label: '终点色', color: customCoverTo,  position: 'to'   }
+                                    { label: '起點色', color: customCoverFrom, position: 'from' },
+                                    { label: '中間色', color: customCoverVia, position: 'via' },
+                                    { label: '終點色', color: customCoverTo,  position: 'to'   }
                                 ] as const).map(item => (
                                     <label key={item.label} className="space-y-1.5">
                                         <span className="block text-[10px]" style={{ color: MusicC.muted }}>{item.label}</span>
@@ -2351,7 +2351,7 @@ const SongwritingApp: React.FC = () => {
                     </div>
                 </div>
 
-                {/* "翻开新的第一页" 大紫色游戏风按钮 */}
+                {/* "翻開新的第一頁" 大紫色遊戲風按鈕 */}
                 <div
                     className="absolute bottom-0 w-full px-5 pt-4 pb-6 z-20"
                     style={{
@@ -2381,7 +2381,7 @@ const SongwritingApp: React.FC = () => {
                         <span className="relative inline-flex flex-col items-center justify-center gap-0.5">
                             <span className="inline-flex items-center gap-2 text-[14px]">
                                 <Feather size={16} weight="fill" />
-                                翻开新的第一页
+                                翻開新的第一頁
                             </span>
                             <span className="text-[9px] tracking-[0.5em] opacity-80" style={{ fontFamily: 'Georgia, serif' }}>— LET'S BEGIN —</span>
                         </span>
@@ -2422,7 +2422,7 @@ const SongwritingApp: React.FC = () => {
                         {collaborator && (
                             <div className="flex items-center gap-2 mt-3 opacity-50">
                                 <TokenImg value={collaborator.avatar} className="w-5 h-5 rounded-full object-cover" />
-                                <span className="text-[11px]">与 {collaborator.name} 创作</span>
+                                <span className="text-[11px]">與 {collaborator.name} 創作</span>
                             </div>
                         )}
                         <div className="w-12 h-[1px] bg-current opacity-20 mt-5" />
@@ -2518,7 +2518,7 @@ const SongwritingApp: React.FC = () => {
                                                 ? 'ACE-Step'
                                                 : activeSong.audio?.provider === 'minimax-paid'
                                                     ? 'MiniMax'
-                                                    : 'MiniMax · 免费'}
+                                                    : 'MiniMax · 免費'}
                                         </MetaChip>
                                         {activeSong.audio?.generatedAt && (
                                             <span className="text-[9px]" style={{ color: MusicC.faint, fontFamily: 'monospace' }}>
@@ -2526,7 +2526,7 @@ const SongwritingApp: React.FC = () => {
                                             </span>
                                         )}
                                         <div className="flex-1" />
-                                        {/* ❤︎ 喜欢 → 同步到音乐 App「一起写的歌」 */}
+                                        {/* ❤︎ 喜歡 → 同步到音樂 App「一起寫的歌」 */}
                                         <button
                                             onClick={handleSendToMusicApp}
                                             className="w-7 h-7 rounded-full transition-all active:scale-90 flex items-center justify-center shrink-0"
@@ -2539,8 +2539,8 @@ const SongwritingApp: React.FC = () => {
                                                 background: `${MusicC.sakura}18`,
                                                 border: `1px solid ${MusicC.sakura}40`,
                                             }}
-                                            title={isLikedToMusic ? '已加入「一起写的歌」专辑' : '加入音乐 App'}
-                                            aria-label={isLikedToMusic ? '已喜欢' : '喜欢'}
+                                            title={isLikedToMusic ? '已加入「一起寫的歌」專輯' : '加入音樂 App'}
+                                            aria-label={isLikedToMusic ? '已喜歡' : '喜歡'}
                                         >
                                             <HeartStraight size={12} weight={isLikedToMusic ? 'fill' : 'regular'} />
                                         </button>
@@ -2553,9 +2553,9 @@ const SongwritingApp: React.FC = () => {
                                                 background: `${MusicC.glow}15`,
                                                 border: `1px solid ${MusicC.glow}30`,
                                             }}
-                                            title={cooldownSecsLeft > 0 ? `冷却中 ${cooldownSecsLeft}s` : '换个版本'}
+                                            title={cooldownSecsLeft > 0 ? `冷卻中 ${cooldownSecsLeft}s` : '換個版本'}
                                         >
-                                            ↻ 重录{cooldownSecsLeft > 0 ? ` ${cooldownSecsLeft}s` : ''}
+                                            ↻ 重錄{cooldownSecsLeft > 0 ? ` ${cooldownSecsLeft}s` : ''}
                                         </button>
                                     </div>
                                     <GlassProgress
@@ -2589,9 +2589,9 @@ const SongwritingApp: React.FC = () => {
                         ) : isGeneratingAudio ? (
                             // ── State B: recording — multi-ring vinyl with deep glow ──
                             <div className="relative flex items-center gap-3.5 py-1.5">
-                                {/* 三层叠唱片 — 外圈 conic 旋转 + 中层静止描边 + 内圈 emoji */}
+                                {/* 三層疊唱片 — 外圈 conic 旋轉 + 中層靜止描邊 + 內圈 emoji */}
                                 <div className="relative w-14 h-14 shrink-0">
-                                    {/* 外圈光晕 */}
+                                    {/* 外圈光暈 */}
                                     <div className="absolute pointer-events-none rounded-full"
                                         style={{
                                             inset: -6,
@@ -2600,7 +2600,7 @@ const SongwritingApp: React.FC = () => {
                                             animation: 'shizuku-glow 2.5s ease-in-out infinite',
                                         }}
                                     />
-                                    {/* 旋转外环 */}
+                                    {/* 旋轉外環 */}
                                     <div className="absolute inset-0 rounded-full"
                                         style={{
                                             background: `conic-gradient(from 0deg, ${MusicC.primary}, ${MusicC.accent}, ${MusicC.sakura}, ${MusicC.lavender}, ${MusicC.primary})`,
@@ -2608,7 +2608,7 @@ const SongwritingApp: React.FC = () => {
                                             boxShadow: `0 0 18px ${MusicC.glow}50`,
                                         }}
                                     />
-                                    {/* 内核 */}
+                                    {/* 內核 */}
                                     <div className="absolute inset-[5px] rounded-full flex items-center justify-center"
                                         style={{
                                             background: `radial-gradient(circle at 35% 35%, white, ${MusicC.bg} 70%)`,
@@ -2625,9 +2625,9 @@ const SongwritingApp: React.FC = () => {
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5">
                                         <div className="text-[14px] font-semibold tracking-wider" style={{ color: MusicC.primary, fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
-                                            正在录制
+                                            正在錄製
                                         </div>
-                                        {/* 三个跳动的小点 */}
+                                        {/* 三個跳動的小點 */}
                                         <span className="flex gap-0.5">
                                             <span className="w-1 h-1 rounded-full" style={{ background: MusicC.accent, animation: 'shizuku-twinkle 1.2s ease-in-out infinite' }} />
                                             <span className="w-1 h-1 rounded-full" style={{ background: MusicC.accent, animation: 'shizuku-twinkle 1.2s ease-in-out 0.3s infinite' }} />
@@ -2635,7 +2635,7 @@ const SongwritingApp: React.FC = () => {
                                         </span>
                                     </div>
                                     <div className="text-[10px] truncate mt-1 tracking-[0.2em]" style={{ color: MusicC.muted, fontFamily: `'Space Grotesk', monospace` }}>
-                                        {audioGenStatus || '处理中'}
+                                        {audioGenStatus || '處理中'}
                                     </div>
                                 </div>
                                 <button
@@ -2686,7 +2686,7 @@ const SongwritingApp: React.FC = () => {
                                         ) : (
                                             <>
                                                 <span style={{ fontSize: 13 }}>✦</span>
-                                                AI 出歌 · 让它唱出来
+                                                AI 出歌 · 讓它唱出來
                                                 <span style={{ fontSize: 13 }}>✦</span>
                                             </>
                                         )}
@@ -2695,11 +2695,11 @@ const SongwritingApp: React.FC = () => {
 
                                 {audioError ? (
                                     <div className="text-[10.5px] leading-relaxed text-center px-2 max-w-full" style={{ color: MusicC.danger }}>
-                                        <span className="font-semibold">出错：</span>{audioError}
+                                        <span className="font-semibold">出錯：</span>{audioError}
                                     </div>
                                 ) : (
                                     <div className="text-[9.5px] tracking-[0.18em] text-center" style={{ color: MusicC.muted, fontFamily: 'monospace' }}>
-                                        点击配置声线/风格 · 30-60s 出一首
+                                        點擊配置聲線/風格 · 30-60s 出一首
                                     </div>
                                 )}
                             </div>
@@ -2708,10 +2708,10 @@ const SongwritingApp: React.FC = () => {
                 </div>
 
                 {/* Share Modal */}
-                <Modal isOpen={showShareModal} title="分享乐谱" onClose={() => setShowShareModal(false)}>
+                <Modal isOpen={showShareModal} title="分享樂譜" onClose={() => setShowShareModal(false)}>
                     <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-                        <p className="text-xs text-stone-500 mb-3">选择一个角色，把乐谱卡片发送到聊天</p>
-                        {/* 分组筛选（没建分组时不渲染），白底 Modal 走浅色 */}
+                        <p className="text-xs text-stone-500 mb-3">選擇一個角色，把樂譜卡片發送到聊天</p>
+                        {/* 分組篩選（沒建分組時不渲染），白底 Modal 走淺色 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                             value={shareGroupId} onChange={setShareGroupId} className="mb-2" />
                         {filterCharactersByGroup(characters, characterGroups, shareGroupId).map(c => (
@@ -2723,10 +2723,10 @@ const SongwritingApp: React.FC = () => {
                     </div>
                 </Modal>
 
-                {/* ─── 封面确认 Modal — 喜欢按钮 → 跳转音乐 App 之间的中间步骤 ─── */}
-                <Modal isOpen={showCoverConfirm} title="给这首歌选个封面" onClose={() => setShowCoverConfirm(false)}>
+                {/* ─── 封面確認 Modal — 喜歡按鈕 → 跳轉音樂 App 之間的中間步驟 ─── */}
+                <Modal isOpen={showCoverConfirm} title="給這首歌選個封面" onClose={() => setShowCoverConfirm(false)}>
                     <div className="space-y-4">
-                        {/* 封面大预览 */}
+                        {/* 封面大預覽 */}
                         <div className="flex items-center justify-center">
                             <div
                                 className="relative w-44 h-44 rounded-2xl overflow-hidden"
@@ -2766,11 +2766,11 @@ const SongwritingApp: React.FC = () => {
                                             style={{ background: `linear-gradient(135deg, ${MusicC.bgDeep}, ${MusicC.soft})`, color: MusicC.primary }}
                                         >
                                             <UploadSimple size={24} />
-                                            <span className="text-[11px]">上传图片</span>
+                                            <span className="text-[11px]">上傳圖片</span>
                                         </button>
                                     )
                                 )}
-                                {/* 黑胶反光 */}
+                                {/* 黑膠反光 */}
                                 <div className="absolute inset-0 pointer-events-none"
                                     style={{ background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)' }} />
                             </div>
@@ -2788,13 +2788,13 @@ const SongwritingApp: React.FC = () => {
                             }}
                         />
 
-                        {/* 封面来源 */}
+                        {/* 封面來源 */}
                         <div className="grid grid-cols-4 gap-2">
                             {([
-                                { id: 'char' as CoverMode, label: collaborator?.name || '搭档', src: collaborator?.avatar || '' },
+                                { id: 'char' as CoverMode, label: collaborator?.name || '搭檔', src: collaborator?.avatar || '' },
                                 { id: 'user' as CoverMode, label: userProfile?.name || '我', src: userProfile?.avatar || '' },
                                 { id: 'dual' as CoverMode, label: '合影', src: dualCoverUrl || '' },
-                                { id: 'upload' as CoverMode, label: uploadedCoverUrl ? '我的图片' : '上传', src: uploadedCoverUrl || '' },
+                                { id: 'upload' as CoverMode, label: uploadedCoverUrl ? '我的圖片' : '上傳', src: uploadedCoverUrl || '' },
                             ]).map(opt => {
                                 const active = opt.id === coverMode;
                                 return (
@@ -2849,7 +2849,7 @@ const SongwritingApp: React.FC = () => {
                                 className="w-full text-[10px] py-1.5 underline underline-offset-4"
                                 style={{ color: MusicC.muted }}
                             >
-                                换一张图片
+                                換一張圖片
                             </button>
                         )}
 
@@ -2862,10 +2862,10 @@ const SongwritingApp: React.FC = () => {
                             }}>
                             <div><span style={{ color: MusicC.primary }}>♪ </span>《{activeSong.title}》</div>
                             <div className="mt-0.5">作者：{userProfile?.name || '我'} & {collaborator?.name || 'AI'}</div>
-                            <div className="mt-0.5">专辑：一起写的歌</div>
+                            <div className="mt-0.5">專輯：一起寫的歌</div>
                         </div>
 
-                        {/* 按钮 */}
+                        {/* 按鈕 */}
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowCoverConfirm(false)}
@@ -2902,16 +2902,16 @@ const SongwritingApp: React.FC = () => {
                                     fontFamily: 'Georgia, serif',
                                 }}
                             >
-                                ❤︎ {isLikedToMusic ? '保存并去听' : '加入并去听'}
+                                ❤︎ {isLikedToMusic ? '保存並去聽' : '加入並去聽'}
                             </button>
                         </div>
                     </div>
                 </Modal>
 
-                {/* ─── Unified AI 出歌引导 Modal — shizuku theme ─── */}
+                {/* ─── Unified AI 出歌引導 Modal — shizuku theme ─── */}
                 <Modal
                     isOpen={showCustomPrompt}
-                    title="✦ 让 AI 把它唱出来"
+                    title="✦ 讓 AI 把它唱出來"
                     onClose={() => setShowCustomPrompt(false)}
                     footer={
                         <>
@@ -2952,11 +2952,11 @@ const SongwritingApp: React.FC = () => {
                                 )}
                                 <span className="relative inline-flex items-center justify-center gap-2">
                                     {cooldownSecsLeft > 0 ? (
-                                        `冷却中 ${cooldownSecsLeft}s`
+                                        `冷卻中 ${cooldownSecsLeft}s`
                                     ) : (
                                         <>
                                             <CrossStar size={11} color="white" delay={0} solid />
-                                            开始录制
+                                            開始錄製
                                             <CrossStar size={11} color="white" delay={0.5} solid />
                                         </>
                                     )}
@@ -2970,13 +2970,13 @@ const SongwritingApp: React.FC = () => {
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 pl-1">
                                 <Sparkle size={8} color={MusicC.accent} delay={0.2} />
-                                <label className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: MusicC.primary }}>选生成器</label>
+                                <label className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: MusicC.primary }}>選生成器</label>
                             </div>
                             {(() => {
                                 const opts: { id: MusicProvider; title: string; sub: string; available: boolean; needs: string }[] = [
-                                    { id: 'minimax-free', title: 'MiniMax 免费版', sub: '不花钱 · 完整长歌', available: hasMiniMaxKey, needs: 'MiniMax Key' },
-                                    { id: 'minimax-paid', title: 'MiniMax 付费版', sub: 'Token Plan · 完整长歌', available: hasMiniMaxKey, needs: 'MiniMax Key' },
-                                    { id: 'ace-step',     title: 'ACE-Step',       sub: '~$0.015 · 完整长歌', available: hasReplicateKey, needs: 'Replicate Token' },
+                                    { id: 'minimax-free', title: 'MiniMax 免費版', sub: '不花錢 · 完整長歌', available: hasMiniMaxKey, needs: 'MiniMax Key' },
+                                    { id: 'minimax-paid', title: 'MiniMax 付費版', sub: 'Token Plan · 完整長歌', available: hasMiniMaxKey, needs: 'MiniMax Key' },
+                                    { id: 'ace-step',     title: 'ACE-Step',       sub: '~$0.015 · 完整長歌', available: hasReplicateKey, needs: 'Replicate Token' },
                                 ];
                                 return (
                                     <div className="grid grid-cols-3 gap-1.5">
@@ -3021,10 +3021,10 @@ const SongwritingApp: React.FC = () => {
                             })()}
                             <p className="text-[10px] leading-relaxed pl-1" style={{ color: MusicC.muted }}>
                                 {provider === 'ace-step'
-                                    ? '完整长歌（最长 4 分钟）— 自费走 Replicate，约 ¥0.1-0.3/首'
+                                    ? '完整長歌（最長 4 分鐘）— 自費走 Replicate，約 ¥0.1-0.3/首'
                                     : provider === 'minimax-paid'
-                                        ? '完整长歌（最长 4-6 分钟）— 出歌更快、不易排队'
-                                        : '完整长歌（最长 4-6 分钟）— 完全免费 · 用你已填的 MiniMax Key'}
+                                        ? '完整長歌（最長 4-6 分鐘）— 出歌更快、不易排隊'
+                                        : '完整長歌（最長 4-6 分鐘）— 完全免費 · 用你已填的 MiniMax Key'}
                             </p>
                         </div>
 
@@ -3033,7 +3033,7 @@ const SongwritingApp: React.FC = () => {
                             <div className="flex items-center gap-2 pl-1">
                                 <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 15, letterSpacing: '0.05em' }}>I</span>
                                 <CrossStar size={7} color={MusicC.glow} delay={0} />
-                                <label className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: MusicC.primary }}>快速选声线</label>
+                                <label className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: MusicC.primary }}>快速選聲線</label>
                                 <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${MusicC.glow}55, transparent)` }} />
                             </div>
                             <div className="grid grid-cols-3 gap-1.5">
@@ -3069,13 +3069,13 @@ const SongwritingApp: React.FC = () => {
                             <div className="flex items-center gap-2 pl-1">
                                 <span className="font-bold italic" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 15, letterSpacing: '0.05em' }}>II</span>
                                 <CrossStar size={7} color={MusicC.sakura} delay={0.4} />
-                                <label className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: MusicC.primary }}>或描述更细的风格</label>
+                                <label className="text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: MusicC.primary }}>或描述更細的風格</label>
                                 <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${MusicC.sakura}55, transparent)` }} />
                             </div>
                             <textarea
                                 value={promptGuidance}
                                 onChange={(e) => setPromptGuidance(e.target.value)}
-                                placeholder="慵懒的爵士女声，钢琴和萨克斯为主，60bpm，雨夜的感觉…"
+                                placeholder="慵懶的爵士女聲，鋼琴和薩克斯為主，60bpm，雨夜的感覺…"
                                 rows={3}
                                 className="w-full rounded-xl px-3 py-2 text-[13px] focus:outline-none transition-colors resize-none shizuku-glass"
                                 style={{
@@ -3104,13 +3104,13 @@ const SongwritingApp: React.FC = () => {
                                     <>
                                         <SparkleP size={14} weight="fill" />
                                         {promptGuidance.trim()
-                                            ? `让 AI 结合${collaborator?.name || '角色'}的气质改`
-                                            : `让 AI 凭${collaborator?.name || '角色'}的气质写一段`}
+                                            ? `讓 AI 結合${collaborator?.name || '角色'}的氣質改`
+                                            : `讓 AI 憑${collaborator?.name || '角色'}的氣質寫一段`}
                                     </>
                                 )}
                             </button>
                             <p className="text-[10px] leading-relaxed pl-1" style={{ color: MusicC.muted }}>
-                                AI 会读{collaborator ? `「${collaborator.name}」` : '这首歌'}的人设，**自己拿主意**——你不用懂音乐。
+                                AI 會讀{collaborator ? `「${collaborator.name}」` : '這首歌'}的人設，**自己拿主意**——你不用懂音樂。
                             </p>
                         </div>
 
@@ -3120,14 +3120,14 @@ const SongwritingApp: React.FC = () => {
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <span className="font-bold italic shrink-0" style={{ fontFamily: 'Georgia, serif', color: MusicC.accent, fontSize: 15, letterSpacing: '0.05em' }}>III</span>
                                     <CrossStar size={7} color={MusicC.lavender} delay={0.8} />
-                                    <label className="text-[10px] font-bold uppercase tracking-[0.25em] truncate" style={{ color: MusicC.primary }}>最终风格描述（发给 AI）</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.25em] truncate" style={{ color: MusicC.primary }}>最終風格描述（發給 AI）</label>
                                 </div>
                                 <button
                                     onClick={handleResetCustomPrompt}
                                     className="text-[10px] underline transition-colors"
                                     style={{ color: MusicC.muted }}
                                 >
-                                    重置默认
+                                    重置默認
                                 </button>
                             </div>
                             <textarea
@@ -3135,7 +3135,7 @@ const SongwritingApp: React.FC = () => {
                                 onChange={(e) => setPromptDraft(e.target.value)}
                                 placeholder={provider === 'ace-step'
                                     ? 'female vocal, breathy, dreamy pop, soft piano, 75 bpm, c minor'
-                                    : '女声, 气声, 梦幻流行, 钢琴轻柔, 黑胶噪点, 75bpm, c 小调'}
+                                    : '女聲, 氣聲, 夢幻流行, 鋼琴輕柔, 黑膠噪點, 75bpm, c 小調'}
                                 rows={3}
                                 className="w-full rounded-xl px-3 py-2 text-[12px] font-mono focus:outline-none transition-colors resize-none"
                                 style={{
@@ -3146,8 +3146,8 @@ const SongwritingApp: React.FC = () => {
                             />
                             <p className="text-[10px] leading-relaxed pl-1" style={{ color: MusicC.muted }}>
                                 {provider === 'ace-step'
-                                    ? '逗号分隔的英文 tag。常用 vocal 类：female/male vocal、breathy/husky/sweet；风格：pop/rock/jazz/lo-fi；情绪：dreamy/upbeat/melancholy。'
-                                    : '逗号分隔的中文描述（MiniMax 中文模型，自然中文最好用）。例：女声 / 气声 / 慵懒哼唱 / 爵士 / 钢琴 / 黑胶噪点 / 60bpm / e 小调。'}
+                                    ? '逗號分隔的英文 tag。常用 vocal 類：female/male vocal、breathy/husky/sweet；風格：pop/rock/jazz/lo-fi；情緒：dreamy/upbeat/melancholy。'
+                                    : '逗號分隔的中文描述（MiniMax 中文模型，自然中文最好用）。例：女聲 / 氣聲 / 慵懶哼唱 / 爵士 / 鋼琴 / 黑膠噪點 / 60bpm / e 小調。'}
                             </p>
                         </div>
 
@@ -3163,8 +3163,8 @@ const SongwritingApp: React.FC = () => {
                             <Sparkle size={9} color={MusicC.accent} delay={0} />
                             <span>
                                 {provider === 'ace-step'
-                                    ? '约 30-60s 出歌 · ~¥0.1-0.3/首'
-                                    : '约 30-60s 出歌 · 免费完整长歌'}
+                                    ? '約 30-60s 出歌 · ~¥0.1-0.3/首'
+                                    : '約 30-60s 出歌 · 免費完整長歌'}
                             </span>
                         </div>
 
@@ -3209,20 +3209,20 @@ const SongwritingApp: React.FC = () => {
         const filledCount = notebookSlots.filter(slot => !!lineAtSlot(activeSong, slot.index)?.content.trim()).length;
         const discussionSuggestions = filledCount === 0
             ? [
-                '先聊聊这首歌最想留下的一个画面',
-                '一起定下叙述者是谁、在对谁说话',
-                '这首歌的情绪应该从哪里走到哪里',
+                '先聊聊這首歌最想留下的一個畫面',
+                '一起定下敘述者是誰、在對誰說話',
+                '這首歌的情緒應該從哪裡走到哪裡',
             ]
             : [
                 '目前哪一句最像整首歌的核心',
-                '副歌的 Hook 够不够集中、好记',
-                '主歌有没有真的推进人物或事件',
-                '相邻几句的字数和呼吸是否顺口',
-                '现在的意象有没有跑出同一个世界',
-                `当前${SECTION_LABELS[currentSection]?.label || '段落'}应该承担什么作用`,
+                '副歌的 Hook 夠不夠集中、好記',
+                '主歌有沒有真的推進人物或事件',
+                '相鄰幾句的字數和呼吸是否順口',
+                '現在的意象有沒有跑出同一個世界',
+                `當前${SECTION_LABELS[currentSection]?.label || '段落'}應該承擔什麼作用`,
                 coWritingStyle.id === 'adaptive'
-                    ? '这首歌更适合往哪一种写法继续'
-                    : `这几句是否真的符合「${coWritingStyle.shortLabel}」的写法`,
+                    ? '這首歌更適合往哪一種寫法繼續'
+                    : `這幾句是否真的符合「${coWritingStyle.shortLabel}」的寫法`,
             ];
         const discussionPlaceholder = `可以和 ${collaborator?.name || 'C'} 聊：${
             discussionSuggestions[(filledCount + activeSong.comments.length) % discussionSuggestions.length]
@@ -3259,7 +3259,7 @@ const SongwritingApp: React.FC = () => {
                             onClick={handlePause}
                             className="p-2 -ml-2 rounded-full active:scale-90 transition-transform"
                             style={{ color: paper.muted }}
-                            aria-label="返回歌词本书架"
+                            aria-label="返回歌詞本書架"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
@@ -3276,7 +3276,7 @@ const SongwritingApp: React.FC = () => {
                             className="px-3 py-1.5 rounded-full text-[11px] font-semibold active:scale-95 transition-transform"
                             style={{ color: paper.ink, border: `1px solid ${paper.rule}`, background: paper.sheet }}
                         >
-                            收录
+                            收錄
                         </button>
                     </div>
 
@@ -3285,8 +3285,8 @@ const SongwritingApp: React.FC = () => {
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <TokenImg value={collaborator.avatar} className="w-7 h-7 rounded-full object-cover" alt="" />
                                 <div className="min-w-0">
-                                    <div className="text-[10px] truncate" style={{ color: paper.muted }}>{collaborator.name} 正在看这本歌词</div>
-                                    <div className="text-[9px] truncate opacity-70">{activeSong.subtitle || '每次只改你点到的那一句'}</div>
+                                    <div className="text-[10px] truncate" style={{ color: paper.muted }}>{collaborator.name} 正在看這本歌詞</div>
+                                    <div className="text-[9px] truncate opacity-70">{activeSong.subtitle || '每次只改你點到的那一句'}</div>
                                 </div>
                             </div>
                         )}
@@ -3300,7 +3300,7 @@ const SongwritingApp: React.FC = () => {
                             }}
                             className="text-[10px] px-2.5 py-1.5 rounded-full shrink-0"
                             style={{ color: paper.muted, border: `1px solid ${paper.rule}` }}
-                            title="切换 C 写歌词时采用的风格规则"
+                            title="切換 C 寫歌詞時採用的風格規則"
                         >
                             C · {coWritingStyle.shortLabel}
                         </button>
@@ -3329,7 +3329,7 @@ const SongwritingApp: React.FC = () => {
                                     : { color: paper.muted }}
                             >
                                 <BookOpenText size={14} weight={workMode === 'notebook' ? 'fill' : 'regular'} />
-                                写歌词
+                                寫歌詞
                             </button>
                             <button
                                 onClick={() => setWorkMode('chat')}
@@ -3339,7 +3339,7 @@ const SongwritingApp: React.FC = () => {
                                     : { color: paper.muted }}
                             >
                                 <ChatCircleDots size={14} weight={workMode === 'chat' ? 'fill' : 'regular'} />
-                                讨论
+                                討論
                                 {feedbackGroups.length > 0 && <span className="opacity-55">{feedbackGroups.length}</span>}
                             </button>
                         </div>
@@ -3401,7 +3401,7 @@ const SongwritingApp: React.FC = () => {
                         style={{ background: paper.sheet, borderBottom: `1px solid ${paper.rule}` }}
                     >
                         {isFreeNotebook ? (
-                            <span className="text-[10px]" style={{ color: paper.muted }}>自由模板 · 随时添加新句</span>
+                            <span className="text-[10px]" style={{ color: paper.muted }}>自由模板 · 隨時添加新句</span>
                         ) : (
                             (activeSong.lyricTemplate === 'custom'
                                 ? activeSong.customLyricTemplate || []
@@ -3492,10 +3492,10 @@ const SongwritingApp: React.FC = () => {
                                                             }
                                                         }}
                                                         rows={1}
-                                                        placeholder={`第 ${slot.index + 1} 句 · ${slot.chars === '不限' ? '随心写' : `建议 ${slot.chars} 字`}`}
+                                                        placeholder={`第 ${slot.index + 1} 句 · ${slot.chars === '不限' ? '隨心寫' : `建議 ${slot.chars} 字`}`}
                                                         className="w-full bg-transparent resize-none outline-none py-4 pr-10 text-[15px] leading-6 placeholder:opacity-35"
                                                         style={{ color: paper.ink, fontFamily: 'Georgia, "Noto Serif SC", serif' }}
-                                                        aria-label={`第 ${slot.index + 1} 句歌词`}
+                                                        aria-label={`第 ${slot.index + 1} 句歌詞`}
                                                     />
                                                     <span className="absolute right-0 bottom-1.5 text-[8px] tabular-nums" style={{ color: paper.muted }}>
                                                         {charCount}{slot.chars !== '不限' ? `/${slot.chars}` : ''}
@@ -3511,8 +3511,8 @@ const SongwritingApp: React.FC = () => {
                                                     disabled={generatingSlotIndex !== null}
                                                     className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all disabled:opacity-45"
                                                     style={{ color: paper.ink, border: `1px solid ${paper.rule}`, background: 'rgba(255,255,255,.24)' }}
-                                                    title={line ? `让 ${collaborator?.name || 'C'} 重写第 ${slot.index + 1} 句` : `让 ${collaborator?.name || 'C'} 生成第 ${slot.index + 1} 句`}
-                                                    aria-label={line ? '刷新这一句' : '生成这一句'}
+                                                    title={line ? `讓 ${collaborator?.name || 'C'} 重寫第 ${slot.index + 1} 句` : `讓 ${collaborator?.name || 'C'} 生成第 ${slot.index + 1} 句`}
+                                                    aria-label={line ? '刷新這一句' : '生成這一句'}
                                                 >
                                                     {isGenerating
                                                         ? <ArrowsClockwise size={14} className="animate-spin" />
@@ -3527,8 +3527,8 @@ const SongwritingApp: React.FC = () => {
                             </div>
 
                             <div className="px-6 pb-7 flex items-center justify-between text-[9px]" style={{ color: paper.muted }}>
-                                <span>{collaborator?.name || 'C'} 会读到整本歌词，但只改你点到的句子</span>
-                                <span>{filledCount} 句已写</span>
+                                <span>{collaborator?.name || 'C'} 會讀到整本歌詞，但只改你點到的句子</span>
+                                <span>{filledCount} 句已寫</span>
                             </div>
                         </div>
                     </div>
@@ -3538,8 +3538,8 @@ const SongwritingApp: React.FC = () => {
                             {feedbackGroups.length === 0 && (
                                 <div className="h-full flex flex-col items-center justify-center text-center px-10 pb-16">
                                     {collaborator && <TokenImg value={collaborator.avatar} className="w-14 h-14 rounded-full object-cover mb-5 opacity-90" alt="" />}
-                                    <p className="text-[14px]" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>这里专心讨论，不会碰你的歌词</p>
-                                    <p className="text-[10px] mt-2 leading-5" style={{ color: paper.muted }}>可以问结构、请点评、讨论押韵，写词请回到「写歌词」。</p>
+                                    <p className="text-[14px]" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>這裡專心討論，不會碰你的歌詞</p>
+                                    <p className="text-[10px] mt-2 leading-5" style={{ color: paper.muted }}>可以問結構、請點評、討論押韻，寫詞請回到「寫歌詞」。</p>
                                 </div>
                             )}
                             <div className="space-y-4 max-w-2xl mx-auto">
@@ -3571,10 +3571,10 @@ const SongwritingApp: React.FC = () => {
                                                 <div className="flex items-center gap-2 mt-1.5 px-1">
                                                     {!isUserMessage && details.length > 0 && (
                                                         <button onClick={() => toggleFeedback(group.id)} className="text-[9px]" style={{ color: paper.muted }}>
-                                                            {expanded ? '收起' : `展开 ${details.length} 条细节`}
+                                                            {expanded ? '收起' : `展開 ${details.length} 條細節`}
                                                         </button>
                                                     )}
-                                                    <button onClick={() => handleDeleteFeedback(group.id)} className="text-[9px] opacity-0 group-hover:opacity-100" style={{ color: paper.muted }}>删除</button>
+                                                    <button onClick={() => handleDeleteFeedback(group.id)} className="text-[9px] opacity-0 group-hover:opacity-100" style={{ color: paper.muted }}>刪除</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -3615,7 +3615,7 @@ const SongwritingApp: React.FC = () => {
                                     disabled={isTyping || !inputText.trim()}
                                     className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform disabled:opacity-35"
                                     style={{ background: paper.accent, color: '#fff' }}
-                                    aria-label="发送讨论"
+                                    aria-label="發送討論"
                                 >
                                     <ChatCircleDots size={17} weight="fill" />
                                 </button>
@@ -3624,18 +3624,18 @@ const SongwritingApp: React.FC = () => {
                     </>
                 )}
 
-                <Modal isOpen={showPreviewModal} title="完成创作" onClose={() => setShowPreviewModal(false)}>
+                <Modal isOpen={showPreviewModal} title="完成創作" onClose={() => setShowPreviewModal(false)}>
                     <div className="space-y-4">
                         <div className="bg-stone-50 border border-stone-200 p-4 rounded-lg">
-                            <h3 className="text-sm font-medium text-stone-600 mb-2">搭档评语</h3>
+                            <h3 className="text-sm font-medium text-stone-600 mb-2">搭檔評語</h3>
                             <p className="text-sm text-stone-500 leading-relaxed whitespace-pre-wrap" style={{ fontFamily: 'Georgia, "Noto Serif SC", serif' }}>
                                 {isCompleting ? '正在思考……' : completionReview}
                             </p>
                         </div>
-                        <p className="text-[11px] text-stone-400 leading-5">完成后歌曲将存为乐谱，同时在聊天中发送通知。你也可以随时把乐谱分享给其他角色。</p>
+                        <p className="text-[11px] text-stone-400 leading-5">完成後歌曲將存為樂譜，同時在聊天中發送通知。你也可以隨時把樂譜分享給其他角色。</p>
                         {!isCompleting && (
                             <button onClick={confirmComplete} className="w-full py-3 bg-stone-700 text-stone-50 font-medium rounded-lg text-sm">
-                                完成并收录
+                                完成並收錄
                             </button>
                         )}
                     </div>

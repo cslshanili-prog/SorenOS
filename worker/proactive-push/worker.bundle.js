@@ -1,18 +1,18 @@
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  Proactive Push Accelerator — single-file Worker bundle          ║
 // ║                                                                  ║
-// ║  把整段代码复制到 Cloudflare 面板的 Worker 编辑器里即可部署。      ║
-// ║  源码：worker/proactive-push/src/{index,webpush}.ts              ║
+// ║  把整段代碼複製到 Cloudflare 面板的 Worker 編輯器裡即可部署。      ║
+// ║  源碼：worker/proactive-push/src/{index,webpush}.ts              ║
 // ║                                                                  ║
-// ║  绑定要求（在 Worker 面板的 Settings → Variables 里配置）：       ║
+// ║  綁定要求（在 Worker 面板的 Settings → Variables 裡配置）：       ║
 // ║    - D1 database binding 名字：DB                                ║
 // ║    - Secret VAPID_PUBLIC_KEY                                     ║
 // ║    - Secret VAPID_PRIVATE_KEY                                    ║
 // ║    - Text var (或 Secret) VAPID_SUBJECT（mailto:xxx@xxx）        ║
-// ║    - Text var (或 Secret) CLIENT_TOKEN（可选，建议填）           ║
-// ║    - Text var HEARTBEAT_WINDOW_MS（可选，默认 300000）            ║
+// ║    - Text var (或 Secret) CLIENT_TOKEN（可選，建議填）           ║
+// ║    - Text var HEARTBEAT_WINDOW_MS（可選，默認 300000）            ║
 // ║                                                                  ║
-// ║  Triggers → Cron Triggers 添加：* * * * *（每分钟）              ║
+// ║  Triggers → Cron Triggers 添加：* * * * *（每分鐘）              ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
 // ─────────────────── base64url ───────────────────

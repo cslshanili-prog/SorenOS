@@ -19,10 +19,10 @@ const messages = (count: number): Message[] => Array.from({ length: count }, (_,
     timestamp: 1_700_000_000_000 + i,
 }));
 
-const group: GroupProfile = { id: 'g1', name: '测试群', members: ['a', 'b'], createdAt: 1 };
+const group: GroupProfile = { id: 'g1', name: '測試群', members: ['a', 'b'], createdAt: 1 };
 
-describe('群公共话题盒批处理', () => {
-    it('始终保留最近 200 条，热区以前满 100 条后处理前 85%', () => {
+describe('群公共話題盒批處理', () => {
+    it('始終保留最近 200 條，熱區以前滿 100 條後處理前 85%', () => {
         const all = messages(300);
         const plan = planGroupTopicBatch(all, 0, false);
         expect(GROUP_TOPIC_HOT_ZONE).toBe(200);
@@ -32,32 +32,32 @@ describe('群公共话题盒批处理', () => {
         expect(plan?.messages.at(-1)?.id).toBe(85);
     });
 
-    it('公共游标推进后不会重复处理已经成盒的消息', () => {
+    it('公共遊標推進後不會重複處理已經成盒的消息', () => {
         const all = messages(400);
         expect(groupTopicPendingCount(all, 120)).toBe(80);
         expect(planGroupTopicBatch(all, 120, false)).toBeNull();
         expect(planGroupTopicBatch(all, 120, true)?.messages[0].id).toBe(121);
     });
 
-    it('话题盒上下文只包含共享总结，不展开旧原文', () => {
+    it('話題盒上下文只包含共享總結，不展開舊原文', () => {
         const batch = messages(3);
-        const box = makeGroupTopicBox(group, batch, '一起聊旅行', 'A和B商量了周末出行。');
+        const box = makeGroupTopicBox(group, batch, '一起聊旅行', 'A和B商量了週末出行。');
         const text = buildGroupTopicContext({ ...group, topicBoxes: [box] });
-        expect(text).toContain('公共话题盒');
+        expect(text).toContain('公共話題盒');
         expect(text).toContain('一起聊旅行');
-        expect(text).toContain('A和B商量了周末出行');
+        expect(text).toContain('A和B商量了週末出行');
         expect(text).not.toContain('消息1');
     });
 
-    it('内置总结提示词包含全体成员语义资料，不依赖私聊归档风格', () => {
+    it('內置總結提示詞包含全體成員語義資料，不依賴私聊歸檔風格', () => {
         const chars: any[] = [
-            { id: 'a', name: 'A', description: '冷静', systemPrompt: '说话简洁', worldview: '现代', writerPersona: '克制', refinedMemories: { core: '认识B' } },
-            { id: 'b', name: 'B', description: '活泼', systemPrompt: '爱开玩笑', memories: [] },
+            { id: 'a', name: 'A', description: '冷靜', systemPrompt: '說話簡潔', worldview: '現代', writerPersona: '克制', refinedMemories: { core: '認識B' } },
+            { id: 'b', name: 'B', description: '活潑', systemPrompt: '愛開玩笑', memories: [] },
         ];
-        const prompt = buildGroupTopicPrompt(group, messages(2), chars, '用户');
-        expect(prompt).toContain('全体成员资料');
-        expect(prompt).toContain('说话简洁');
-        expect(prompt).toContain('爱开玩笑');
-        expect(prompt).toContain('客观视角');
+        const prompt = buildGroupTopicPrompt(group, messages(2), chars, '用戶');
+        expect(prompt).toContain('全體成員資料');
+        expect(prompt).toContain('說話簡潔');
+        expect(prompt).toContain('愛開玩笑');
+        expect(prompt).toContain('客觀視角');
     });
 });

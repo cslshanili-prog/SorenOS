@@ -16,35 +16,35 @@ import {
 
 const evidence = Array.from({ length: 20 }, (_, index) => ({
     id: `e${index + 1}`,
-    fact: `第 ${index + 1} 条真实聊天记忆。`,
+    fact: `第 ${index + 1} 條真實聊天記憶。`,
     object: `物件${index + 1}`,
     tags: ['日常'],
 }));
 
 const artifacts = Array.from({ length: 16 }, (_, index) => ({
     id: `a${index + 1}`,
-    label: `性格词${index + 1}`,
+    label: `性格詞${index + 1}`,
     kind: 'trait',
     evidenceIds: [`e${index + 1}`],
 }));
 
 const makeScene = (sceneId: string, index: number) => ({
-    transitionLines: [`第${index + 1}站直接接住上一站的动作。`],
+    transitionLines: [`第${index + 1}站直接接住上一站的動作。`],
     sharedObject: `第${index + 1}站物件`,
-    memoryLine: `第${index + 1}站由模型直接生成的最终演出。`,
+    memoryLine: `第${index + 1}站由模型直接生成的最終演出。`,
     options: sceneId === 'wordCloud' ? [] : [0, 1, 2].map(optionIndex => ({
         id: `${sceneId}-${optionIndex + 1}`,
-        label: `模型选项 ${optionIndex + 1}`,
-        result: `模型结果 ${optionIndex + 1}`,
-        ...(sceneId === 'lostLayer' ? { charReply: `模型回复 ${optionIndex + 1}` } : {}),
+        label: `模型選項 ${optionIndex + 1}`,
+        result: `模型結果 ${optionIndex + 1}`,
+        ...(sceneId === 'lostLayer' ? { charReply: `模型回覆 ${optionIndex + 1}` } : {}),
         evidenceIds: [`e${index + 1}`],
     })),
-    charAction: `模型为第${index + 1}站写下的角色动作。`,
-    charVisibleText: sceneId === 'lostLayer' ? '别挡路。' : sceneId === 'doubleWish' ? '这是我自己的愿望。' : '',
-    charMutter: sceneId === 'lostLayer' ? '啧。' : undefined,
-    charContribution: sceneId === 'offerings' ? '一颗糖' : undefined,
+    charAction: `模型為第${index + 1}站寫下的角色動作。`,
+    charVisibleText: sceneId === 'lostLayer' ? '別擋路。' : sceneId === 'doubleWish' ? '這是我自己的願望。' : '',
+    charMutter: sceneId === 'lostLayer' ? '嘖。' : undefined,
+    charContribution: sceneId === 'offerings' ? '一顆糖' : undefined,
     charQuips: sceneId === 'wordCloud' ? ['第一句', '第二句', '第三句'] : ['模型碎碎念'],
-    reveal: `模型为第${index + 1}站写下的结果。`,
+    reveal: `模型為第${index + 1}站寫下的結果。`,
     artifactIds: sceneId === 'wordCloud' ? artifacts.map(item => item.id) : [`a${index + 1}`],
     charSelectionIds: sceneId === 'wordCloud' ? ['a1', 'a3', 'a5'] : [],
 });
@@ -64,21 +64,21 @@ describe('Qixi direct LLM script pipeline', () => {
         expect(QIXI_MEMORY_BUNDLE_VERSION).toBe(19);
         expect(QIXI_PART1_TIMEOUT_MS).toBe(600_000);
         expect(QIXI_RECALL_MAX_OUTPUT_ITEMS).toBe(20);
-        expect(prompt).toContain('直接生成玩家最终会看见、点击和经历的完整剧本');
-        expect(prompt).toContain('不要输出供本地代码二次创作的素材或摘要');
-        expect(prompt).toContain('前六站必须各提供恰好 3 个完整 options');
-        expect(prompt).toContain('叙事视角必须分开');
-        expect(prompt).toContain('面向玩家时，用第二人称“你 / 你的”');
-        expect(prompt).toContain('禁止写“User / 用户 / 玩家 / 该用户');
-        expect(prompt).toContain('对 Char 本人有意义');
-        expect(prompt).toContain('具体【私物】');
-        expect(prompt).toContain('不要求来自共同记忆，不要求与 User 有关');
-        expect(prompt).toContain('绝不能默认写成特意送给 User 的礼物');
-        expect(prompt).toContain('还被迫完成一连串莫名其妙的小游戏');
-        expect(prompt).toContain('第七站结束也只到强烈怀疑');
-        expect(prompt).toContain('Part 1 中 Char 绝不能说出');
-        expect(prompt).toContain('纯粹自己想买的 charContribution');
-        expect(prompt).toContain('默认禁止吃醋、嫉妒、情敌、占有欲宣言');
+        expect(prompt).toContain('直接生成玩家最終會看見、點擊和經歷的完整劇本');
+        expect(prompt).toContain('不要輸出供本地代碼二次創作的素材或摘要');
+        expect(prompt).toContain('前六站必須各提供恰好 3 個完整 options');
+        expect(prompt).toContain('敘事視角必須分開');
+        expect(prompt).toContain('面向玩家時，用第二人稱“你 / 你的”');
+        expect(prompt).toContain('禁止寫“User / 用戶 / 玩家 / 該用戶');
+        expect(prompt).toContain('對 Char 本人有意義');
+        expect(prompt).toContain('具體【私物】');
+        expect(prompt).toContain('不要求來自共同記憶，不要求與 User 有關');
+        expect(prompt).toContain('絕不能默認寫成特意送給 User 的禮物');
+        expect(prompt).toContain('還被迫完成一連串莫名其妙的小遊戲');
+        expect(prompt).toContain('第七站結束也只到強烈懷疑');
+        expect(prompt).toContain('Part 1 中 Char 絕不能說出');
+        expect(prompt).toContain('純粹自己想買的 charContribution');
+        expect(prompt).toContain('默認禁止吃醋、嫉妒、情敵、佔有慾宣言');
     });
 
     it('keeps Part 1 serially split into 2 + 3 + 2 rooms', () => {
@@ -88,7 +88,7 @@ describe('Qixi direct LLM script pipeline', () => {
         expect(QIXI_PART1_FIRST_SCENE_IDS).toEqual(['lostLayer', 'doubleWish']);
         expect(QIXI_PART1_SECOND_SCENE_IDS).toEqual(['threadNeedle', 'offerings', 'reflection']);
         expect(QIXI_PART1_THIRD_SCENE_IDS).toEqual(['nightMarket', 'wordCloud']);
-        expect(first).toContain('最终可播放内容');
+        expect(first).toContain('最終可播放內容');
         expect(second).toContain('threadNeedle、offerings、reflection');
         expect(third).toContain('nightMarket、wordCloud');
     });
@@ -131,30 +131,30 @@ describe('Qixi direct LLM script pipeline', () => {
         const third = normalizeQixiPhaseChunk({
             rooms: [makeScene('nightMarket', 5), makeScene('wordCloud', 6)],
             bridgeData: {
-                userBirds: [{ name: '用户侧' }],
-                charNodes: [{ name: '角色侧' }],
+                userBirds: [{ name: '用戶側' }],
+                charNodes: [{ name: '角色側' }],
                 finalBird: { name: 'User' },
             },
         }, QIXI_PART1_THIRD_SCENE_IDS);
-        expect(third.bridge.userMagpies[0].name).toBe('用户侧');
-        expect(third.bridge.charMagpies[0].name).toBe('角色侧');
+        expect(third.bridge.userMagpies[0].name).toBe('用戶側');
+        expect(third.bridge.charMagpies[0].name).toBe('角色側');
         expect(third.bridge.finalMagpie.name).toBe('User');
     });
 
     it('preserves model prose and all three choices without semantic filtering or local replacement', () => {
         const raw = structuredClone(validBundle);
-        raw.scenes.lostLayer.charAction = '这是一段完全由角色自由决定的古怪动作。';
+        raw.scenes.lostLayer.charAction = '這是一段完全由角色自由決定的古怪動作。';
         raw.scenes.lostLayer.options[0].evidenceIds = ['missing-evidence'];
-        raw.scenes.doubleWish.options[0].label = '只祝你今天开心';
-        raw.scenes.doubleWish.charVisibleText = '希望我自己变勇敢。';
-        raw.scenes.doubleWish.charQuips = ['系统提示也可以是这个角色故意说的话。'];
+        raw.scenes.doubleWish.options[0].label = '只祝你今天開心';
+        raw.scenes.doubleWish.charVisibleText = '希望我自己變勇敢。';
+        raw.scenes.doubleWish.charQuips = ['系統提示也可以是這個角色故意說的話。'];
         const parsed = parseQixiMemoryBundle(JSON.stringify(raw));
         expect(parsed?.scenes.lostLayer.charAction).toBe(raw.scenes.lostLayer.charAction);
         expect(parsed?.scenes.lostLayer.options).toHaveLength(3);
         expect(parsed?.scenes.lostLayer.options[0].evidenceIds).toEqual(['missing-evidence']);
-        expect(parsed?.scenes.doubleWish.options[0].label).toBe('只祝你今天开心');
-        expect(parsed?.scenes.doubleWish.charVisibleText).toBe('希望我自己变勇敢。');
-        expect(parsed?.scenes.doubleWish.charQuips).toEqual(['系统提示也可以是这个角色故意说的话。']);
+        expect(parsed?.scenes.doubleWish.options[0].label).toBe('只祝你今天開心');
+        expect(parsed?.scenes.doubleWish.charVisibleText).toBe('希望我自己變勇敢。');
+        expect(parsed?.scenes.doubleWish.charQuips).toEqual(['系統提示也可以是這個角色故意說的話。']);
         expect(parsed?.repairNotes).toBeUndefined();
     });
 
@@ -175,17 +175,17 @@ describe('Qixi direct LLM script pipeline', () => {
         const parsed = parseQixiMemoryBundle(JSON.stringify({
             ...validBundle,
             bridge: {
-                userMagpies: [{ evidenceId: 'e1', name: '别针', memory: '那一回的别针。', visualHint: '银色细线' }],
-                charMagpies: [{ evidenceId: 'e2', name: '夜灯', memory: '那盏没有关的灯。', visualHint: '暖色光点' }],
-                finalMagpie: { name: '条条', line: '原来跑到这里了。', visualHint: '名字发亮' },
+                userMagpies: [{ evidenceId: 'e1', name: '別針', memory: '那一回的別針。', visualHint: '銀色細線' }],
+                charMagpies: [{ evidenceId: 'e2', name: '夜燈', memory: '那盞沒有關的燈。', visualHint: '暖色光點' }],
+                finalMagpie: { name: '條條', line: '原來跑到這裡了。', visualHint: '名字發亮' },
             },
-        }), '', undefined, '条条');
-        expect(parsed?.bridge?.finalMagpie.line).toBe('原来跑到这里了。');
-        expect(parsed?.bridge?.finalMagpie.name).toBe('条条');
+        }), '', undefined, '條條');
+        expect(parsed?.bridge?.finalMagpie.line).toBe('原來跑到這裡了。');
+        expect(parsed?.bridge?.finalMagpie.name).toBe('條條');
     });
 
     it('only fails when the response is not structurally readable at all', () => {
-        expect(parseQixiMemoryBundle('这不是 JSON')).toBeNull();
-        expect(parseQixiMemoryBundle(JSON.stringify({ openingChat: ['有内容但没有 scenes'] }))).toBeNull();
+        expect(parseQixiMemoryBundle('這不是 JSON')).toBeNull();
+        expect(parseQixiMemoryBundle(JSON.stringify({ openingChat: ['有內容但沒有 scenes'] }))).toBeNull();
     });
 });

@@ -3,7 +3,7 @@ import { normalizeApiConfig } from './apiConfigNormalize';
 
 const STORAGE_KEY = 'check_phone_api';
 
-/** 查手机 App 独立 API；null 表示跟随聊天默认。 */
+/** 查手機 App 獨立 API；null 表示跟隨聊天默認。 */
 export function getCheckPhoneApi(): APIConfig | null {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);

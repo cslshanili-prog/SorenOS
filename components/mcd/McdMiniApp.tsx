@@ -1,15 +1,15 @@
 /**
- * 麦当劳小程序 (Phase 1)
+ * 麥當勞小程序 (Phase 1)
  *
- * 替代之前"LLM 驱动 MCP 工具"的脆弱链路, 改成纯按钮驱动的小程序壳:
- *   模式选 → 拉地址/门店 → 拉菜单 → 加购 → (Phase 2 算价/下单)
+ * 替代之前"LLM 驅動 MCP 工具"的脆弱鏈路, 改成純按鈕驅動的小程序殼:
+ *   模式選 → 拉地址/門店 → 拉菜單 → 加購 → (Phase 2 算價/下單)
  *
- * 全程直接调 callMcdTool, 不经过 LLM, 不会有 productCode 幻觉 / orderType
- * 错配 / 券 code 误用 这些坑。
+ * 全程直接調 callMcdTool, 不經過 LLM, 不會有 productCode 幻覺 / orderType
+ * 錯配 / 券 code 誤用 這些坑。
  *
- * char 想参与时, user 在菜单某条点 💭 把单品作为候选发到聊天, 复用之前的
- * mcd_card kind=candidate 流。char 看不到 mini-app 的整体状态 (那是 Phase 3
- * 才接, 会以 system prompt 注入"用户购物车有 X")。
+ * char 想參與時, user 在菜單某條點 💭 把單品作為候選發到聊天, 複用之前的
+ * mcd_card kind=candidate 流。char 看不到 mini-app 的整體狀態 (那是 Phase 3
+ * 才接, 會以 system prompt 注入"用戶購物車有 X")。
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,18 +22,18 @@ import TokenImg from '../os/TokenImg';
 interface McdMiniAppProps {
     open: boolean;
     onClose: () => void;
-    /** 角色信息, 用于显示头像/名字 (实际 LLM 调用在主聊天 pipeline) */
+    /** 角色信息, 用於顯示頭像/名字 (實際 LLM 調用在主聊天 pipeline) */
     char?: any;
     userProfile?: any;
-    /** 主聊天的消息历史, 我们 filter fromMcdMiniApp:true 显示在小程序内 */
+    /** 主聊天的消息歷史, 我們 filter fromMcdMiniApp:true 顯示在小程序內 */
     messages?: any[];
     /** 主聊天是否正在生成中 (loading 指示) */
     isTyping?: boolean;
-    /** 用户在小程序内输入 → 走主聊天 send pipeline (完整人设/记忆/日程上下文) */
+    /** 用戶在小程序內輸入 → 走主聊天 send pipeline (完整人設/記憶/日程上下文) */
     onSendMessage?: (text: string) => void | Promise<void>;
-    /** 当前小程序状态变化时回调上去, 主聊天的 useChatAI 会读取并注入 system prompt */
+    /** 當前小程序狀態變化時回調上去, 主聊天的 useChatAI 會讀取並注入 system prompt */
     onStateChange?: (state: import('../../utils/mcdToolBridge').McdMiniAppSnapshot) => void;
-    /** 用户最终敲定下单时调 (Phase 2 接 create-order) */
+    /** 用戶最終敲定下單時調 (Phase 2 接 create-order) */
     onConfirmOrder?: (cart: CartLine[], context: OrderContext) => void;
 }
 
@@ -46,7 +46,7 @@ interface CartLine {
 
 interface OrderContext {
     orderType: 1 | 2;
-    /** 业务类型: 1 到店自取 / 2 麦乐送。query-meals / calculate-price / create-order 现在都必填 (MCP v1.0.4) */
+    /** 業務類型: 1 到店自取 / 2 麥樂送。query-meals / calculate-price / create-order 現在都必填 (MCP v1.0.4) */
     beType?: 1 | 2;
     storeCode: string;
     storeName?: string;
@@ -66,8 +66,8 @@ const fmtMoney = (v: any): string => {
     return `¥${n.toFixed(2)}`;
 };
 
-// 上游 calculate-price 返回的是分 (整数), 比如 2200 = ¥22.00; 而菜单的 currentPrice
-// 是元字符串 (e.g. "55.5"), create-order 的 totalAmount 也是元字符串。这俩格式得分开。
+// 上游 calculate-price 返回的是分 (整數), 比如 2200 = ¥22.00; 而菜單的 currentPrice
+// 是元字符串 (e.g. "55.5"), create-order 的 totalAmount 也是元字符串。這倆格式得分開。
 const fmtFen = (v: any): string => {
     if (v == null) return '';
     const n = typeof v === 'string' ? parseFloat(v) : v;
@@ -84,20 +84,20 @@ const Spinner: React.FC<{ label?: string }> = ({ label }) => (
 
 const ErrorBox: React.FC<{ msg: string; onRetry?: () => void }> = ({ msg, onRetry }) => (
     <div className="m-3 p-3 rounded-xl bg-red-50 border border-red-200 text-[12px] text-red-700 leading-relaxed">
-        <div className="font-bold mb-1">😣 出错了</div>
+        <div className="font-bold mb-1">😣 出錯了</div>
         <div className="mb-2 whitespace-pre-wrap break-all">{msg}</div>
         {onRetry && (
-            <button onClick={onRetry} className="px-3 py-1 bg-red-500 text-white rounded-lg text-[11px] font-bold active:scale-95">重试</button>
+            <button onClick={onRetry} className="px-3 py-1 bg-red-500 text-white rounded-lg text-[11px] font-bold active:scale-95">重試</button>
         )}
     </div>
 );
 
-// ========== Step 1: 选模式 ==========
+// ========== Step 1: 選模式 ==========
 
 const ModeStep: React.FC<{ onPick: (t: 1 | 2) => void }> = ({ onPick }) => (
     <div className="px-4 py-6 space-y-3">
-        <div className="text-[20px] font-bold text-yellow-900 text-center mb-1">🍟 想怎么吃？</div>
-        <div className="text-[12px] text-yellow-800/70 text-center mb-4">麦当劳官方 MCP · 点完会让 ta 给点意见</div>
+        <div className="text-[20px] font-bold text-yellow-900 text-center mb-1">🍟 想怎麼吃？</div>
+        <div className="text-[12px] text-yellow-800/70 text-center mb-4">麥當勞官方 MCP · 點完會讓 ta 給點意見</div>
         <button
             onClick={() => onPick(2)}
             className="w-full p-4 rounded-2xl bg-gradient-to-br from-yellow-300 to-amber-300 border-2 border-yellow-400 active:scale-[0.98] transition-transform text-left"
@@ -105,8 +105,8 @@ const ModeStep: React.FC<{ onPick: (t: 1 | 2) => void }> = ({ onPick }) => (
             <div className="flex items-center gap-3">
                 <span className="text-3xl">🛵</span>
                 <div className="flex-1">
-                    <div className="text-[15px] font-bold text-yellow-900">麦乐送外卖</div>
-                    <div className="text-[11px] text-yellow-800/70 mt-0.5">从已存的收货地址里选一个</div>
+                    <div className="text-[15px] font-bold text-yellow-900">麥樂送外賣</div>
+                    <div className="text-[11px] text-yellow-800/70 mt-0.5">從已存的收貨地址裡選一個</div>
                 </div>
                 <span className="text-yellow-700 text-xl">›</span>
             </div>
@@ -119,7 +119,7 @@ const ModeStep: React.FC<{ onPick: (t: 1 | 2) => void }> = ({ onPick }) => (
                 <span className="text-3xl">🏪</span>
                 <div className="flex-1">
                     <div className="text-[15px] font-bold text-yellow-900">到店取餐 / 堂食</div>
-                    <div className="text-[11px] text-yellow-800/70 mt-0.5">从收藏门店里选, 或附近搜索</div>
+                    <div className="text-[11px] text-yellow-800/70 mt-0.5">從收藏門店裡選, 或附近搜索</div>
                 </div>
                 <span className="text-yellow-700 text-xl">›</span>
             </div>
@@ -127,7 +127,7 @@ const ModeStep: React.FC<{ onPick: (t: 1 | 2) => void }> = ({ onPick }) => (
     </div>
 );
 
-// ========== Step 2: 选地址 / 门店 ==========
+// ========== Step 2: 選地址 / 門店 ==========
 
 interface AddressItem { addressId: string; storeCode?: string; beCode?: string; fullAddress?: string; storeName?: string; phone?: string; contactName?: string; }
 interface StoreItem { storeCode: string; beCode?: string; storeName: string; address?: string; distance?: any; }
@@ -137,8 +137,8 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
     const [err, setErr] = useState<string | null>(null);
     const [addresses, setAddresses] = useState<AddressItem[]>([]);
     const [stores, setStores] = useState<StoreItem[]>([]);
-    // 外送二级页: MCP v1.0.4 起 delivery-query-addresses 不再返回 storeCode/beCode,
-    // 选完地址后必须再调 delivery-query-stores 拿可配送门店的 storeCode + beCode。
+    // 外送二級頁: MCP v1.0.4 起 delivery-query-addresses 不再返回 storeCode/beCode,
+    // 選完地址後必須再調 delivery-query-stores 拿可配送門店的 storeCode + beCode。
     const [pickedAddr, setPickedAddr] = useState<AddressItem | null>(null);
     const [deliveryStores, setDeliveryStores] = useState<StoreItem[]>([]);
     const [dsLoading, setDsLoading] = useState(false);
@@ -148,15 +148,15 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
         setLoading(true); setErr(null);
         try {
             if (orderType === 2) {
-                // 麦乐送 (beType=2)
+                // 麥樂送 (beType=2)
                 const r = await callMcdTool('delivery-query-addresses', { beType: 2 });
-                if (!r.success) throw new Error(r.error || '拉取地址失败');
+                if (!r.success) throw new Error(r.error || '拉取地址失敗');
                 const list = (r.data?.addresses || r.data || []) as AddressItem[];
                 setAddresses(Array.isArray(list) ? list : []);
             } else {
-                // 到店: 先查收藏门店 (searchType=1)
+                // 到店: 先查收藏門店 (searchType=1)
                 const r = await callMcdTool('query-nearby-stores', { searchType: 1, beType: 1 });
-                if (!r.success) throw new Error(r.error || '拉取门店失败');
+                if (!r.success) throw new Error(r.error || '拉取門店失敗');
                 const list = (Array.isArray(r.data) ? r.data : (r.data?.stores || r.data?.list || [])) as StoreItem[];
                 setStores(list || []);
             }
@@ -179,17 +179,17 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
         });
     };
 
-    // 外送: 选了一个地址 → 用 delivery-query-stores 拉这个地址可配送的门店
+    // 外送: 選了一個地址 → 用 delivery-query-stores 拉這個地址可配送的門店
     const loadDeliveryStores = async (addr: AddressItem) => {
         setPickedAddr(addr);
         setDsLoading(true); setDsErr(null); setDeliveryStores([]);
         try {
             const r = await callMcdTool('delivery-query-stores', { addressId: addr.addressId, beType: 2 });
-            if (!r.success) throw new Error(r.error || '拉取可配送门店失败');
+            if (!r.success) throw new Error(r.error || '拉取可配送門店失敗');
             const list = (Array.isArray(r.data) ? r.data : (r.data?.stores || r.data?.list || [])) as StoreItem[];
             const arr = (list || []).filter((s: StoreItem) => s?.storeCode);
             setDeliveryStores(arr);
-            // 只有一家可配送门店时直接进菜单, 省一次点击
+            // 只有一家可配送門店時直接進菜單, 省一次點擊
             if (arr.length === 1) finishDelivery(addr, arr[0]);
         } catch (e: any) {
             setDsErr(e?.message || String(e));
@@ -200,24 +200,24 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
 
     useEffect(() => { reload(); /* eslint-disable-next-line */ }, [orderType]);
 
-    if (loading) return <Spinner label={orderType === 2 ? '正在拉取你的收货地址...' : '正在拉取收藏门店...'} />;
+    if (loading) return <Spinner label={orderType === 2 ? '正在拉取你的收貨地址...' : '正在拉取收藏門店...'} />;
     if (err) return <ErrorBox msg={err} onRetry={reload} />;
 
-    // 外送二级页: 已选地址 → 展示该地址可配送门店列表
+    // 外送二級頁: 已選地址 → 展示該地址可配送門店列表
     if (orderType === 2 && pickedAddr) {
         return (
             <div className="px-3 py-3 space-y-2">
                 <div className="flex items-center justify-between mb-1">
-                    <button onClick={() => { setPickedAddr(null); setDeliveryStores([]); setDsErr(null); }} className="text-[12px] text-yellow-700 active:scale-95">‹ 换地址</button>
-                    <div className="text-[13px] font-bold text-yellow-900">选配送门店</div>
+                    <button onClick={() => { setPickedAddr(null); setDeliveryStores([]); setDsErr(null); }} className="text-[12px] text-yellow-700 active:scale-95">‹ 換地址</button>
+                    <div className="text-[13px] font-bold text-yellow-900">選配送門店</div>
                     <div className="w-12" />
                 </div>
                 <div className="text-[11px] text-slate-500 px-1 line-clamp-2">📍 {pickedAddr.fullAddress}</div>
-                {dsLoading ? <Spinner label="正在查可配送门店..." />
+                {dsLoading ? <Spinner label="正在查可配送門店..." />
                 : dsErr ? <ErrorBox msg={dsErr} onRetry={() => loadDeliveryStores(pickedAddr)} />
                 : deliveryStores.length === 0 ? (
                     <div className="text-center py-8 text-[12px] text-slate-500 leading-relaxed">
-                        这个地址附近暂时没有可配送的门店。<br />换个地址试试。
+                        這個地址附近暫時沒有可配送的門店。<br />換個地址試試。
                     </div>
                 ) : deliveryStores.map((s: StoreItem) => (
                     <button
@@ -241,14 +241,14 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
     return (
         <div className="px-3 py-3 space-y-2">
             <div className="flex items-center justify-between mb-1">
-                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 换模式</button>
-                <div className="text-[13px] font-bold text-yellow-900">{orderType === 2 ? '选收货地址' : '选门店'}</div>
+                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 換模式</button>
+                <div className="text-[13px] font-bold text-yellow-900">{orderType === 2 ? '選收貨地址' : '選門店'}</div>
                 <div className="w-12" />
             </div>
             {orderType === 2 ? (
                 addresses.length === 0 ? (
                     <div className="text-center py-8 text-[12px] text-slate-500">
-                        还没有收货地址。请先在麦当劳 App 里添加。
+                        還沒有收貨地址。請先在麥當勞 App 裡添加。
                     </div>
                 ) : addresses.map((a: AddressItem) => (
                     <button
@@ -260,7 +260,7 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
                             <span className="text-xl shrink-0 mt-0.5">📍</span>
                             <div className="flex-1 min-w-0">
                                 <div className="font-bold text-[13px] text-slate-800 truncate">
-                                    {a.contactName || '收货人'}
+                                    {a.contactName || '收貨人'}
                                     {a.phone && <span className="text-[10px] text-slate-500 font-normal ml-1.5">{a.phone}</span>}
                                 </div>
                                 <div className="text-[11px] text-slate-600 line-clamp-2 leading-snug mt-0.5">{a.fullAddress}</div>
@@ -272,7 +272,7 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
             ) : (
                 stores.length === 0 ? (
                     <div className="text-center py-8 text-[12px] text-slate-500 leading-relaxed">
-                        没找到收藏门店。<br />请先在麦当劳 App 里收藏一家。
+                        沒找到收藏門店。<br />請先在麥當勞 App 裡收藏一家。
                     </div>
                 ) : stores.map((s: StoreItem) => (
                     <button
@@ -308,7 +308,7 @@ const AddressStep: React.FC<{ orderType: 1 | 2; onPick: (ctx: OrderContext) => v
     );
 };
 
-// ========== Step 3: 浏览菜单 + 加购 ==========
+// ========== Step 3: 瀏覽菜單 + 加購 ==========
 
 interface MealsData {
     categories?: Array<{ name: string; meals?: Array<{ code: string; tags?: string[] }> }>;
@@ -335,7 +335,7 @@ const MenuStep: React.FC<{
             if (ctx.beType) args.beType = ctx.beType;
             if (ctx.orderType === 2 && ctx.beCode) args.beCode = ctx.beCode;
             const r = await callMcdTool('query-meals', args);
-            if (!r.success) throw new Error(r.error || '拉取菜单失败');
+            if (!r.success) throw new Error(r.error || '拉取菜單失敗');
             const d = r.data || {};
             setData(d);
             onMenuLoaded?.(d);
@@ -359,13 +359,13 @@ const MenuStep: React.FC<{
         return s + (isFinite(p) ? p * l.qty : 0);
     }, 0);
 
-    if (loading) return <Spinner label="正在拉取菜单..." />;
+    if (loading) return <Spinner label="正在拉取菜單..." />;
     if (err) return <ErrorBox msg={err} onRetry={reload} />;
 
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-3 py-2 border-b border-yellow-200/60 bg-yellow-50/60">
-                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 换{ctx.orderType === 2 ? '地址' : '门店'}</button>
+                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 換{ctx.orderType === 2 ? '地址' : '門店'}</button>
                 <div className="text-[12px] font-bold text-yellow-900 truncate mx-2">
                     {ctx.storeName || ctx.storeCode}
                     <span className="text-[10px] text-yellow-700/60 font-normal ml-1.5">{ctx.orderType === 2 ? '外送' : '到店'}</span>
@@ -374,7 +374,7 @@ const MenuStep: React.FC<{
             </div>
 
             <div className="flex flex-1 min-h-0">
-                {/* 左侧分类 */}
+                {/* 左側分類 */}
                 <div className="w-20 shrink-0 overflow-y-auto mcd-scroll bg-yellow-50/40 border-r border-yellow-100">
                     {cats.map((c: any, i: number) => (
                         <button
@@ -389,10 +389,10 @@ const MenuStep: React.FC<{
                     ))}
                 </div>
 
-                {/* 右侧商品网格 */}
+                {/* 右側商品網格 */}
                 <div className="flex-1 overflow-y-auto mcd-scroll p-2 space-y-2">
                     {items.length === 0
-                        ? <div className="text-center py-8 text-[11px] text-slate-400">这个分类下没找到可售商品</div>
+                        ? <div className="text-center py-8 text-[11px] text-slate-400">這個分類下沒找到可售商品</div>
                         : items.map((it: any) => {
                             const inCart = cart.get(it.code);
                             const q = inCart?.qty || 0;
@@ -436,25 +436,25 @@ const MenuStep: React.FC<{
                 </div>
             </div>
 
-            {/* 底部购物车浮条 */}
+            {/* 底部購物車浮條 */}
             {cartCount > 0 && (
                 <div className="border-t border-yellow-300 bg-gradient-to-r from-yellow-100 to-amber-100 px-3 py-2.5 flex items-center gap-3">
                     <div className="text-2xl">🛒</div>
                     <div className="flex-1 min-w-0">
-                        <div className="text-[10px] text-yellow-800/70">已选 {cartCount} 件</div>
+                        <div className="text-[10px] text-yellow-800/70">已選 {cartCount} 件</div>
                         {cartTotal > 0 && <div className="text-[15px] font-bold text-yellow-800">{fmtMoney(cartTotal)}</div>}
                     </div>
                     <button
                         onClick={onReview}
                         className="px-4 py-2 bg-yellow-600 text-white text-[12px] font-bold rounded-xl shadow active:scale-95"
-                    >去结算 →</button>
+                    >去結算 →</button>
                 </div>
             )}
         </div>
     );
 };
 
-// ========== 子: 优惠券列表 (Review 步骤里展开) ==========
+// ========== 子: 優惠券列表 (Review 步驟裡展開) ==========
 
 interface CouponProduct { productCode: string; productName: string; }
 interface CouponEntry {
@@ -487,7 +487,7 @@ const CouponPicker: React.FC<{
             if (beType) args.beType = beType;
             if (orderType === 2 && beCode) args.beCode = beCode;
             const r = await callMcdTool('query-store-coupons', args);
-            if (!r.success) throw new Error(r.error || '拉取优惠券失败');
+            if (!r.success) throw new Error(r.error || '拉取優惠券失敗');
             const list = Array.isArray(r.data) ? r.data : (r.data?.coupons || r.data?.list || []);
             setCoupons(list || []);
         } catch (e: any) {
@@ -502,19 +502,19 @@ const CouponPicker: React.FC<{
         setAutoBinding(true); setAutoBindMsg(null);
         try {
             const r = await callMcdTool('auto-bind-coupons', {});
-            if (!r.success) throw new Error(r.error || '一键领券失败');
-            // r.data 是 markdown 文本, 解析"成功 X 张/失败 Y 张"出来给个 toast
+            if (!r.success) throw new Error(r.error || '一鍵領券失敗');
+            // r.data 是 markdown 文本, 解析"成功 X 張/失敗 Y 張"出來給個 toast
             const txt = typeof r.data === 'string' ? r.data : (r.rawText || '');
             const okMatch = txt.match(/成功[^0-9]*(\d+)/);
-            const failMatch = txt.match(/失败[^0-9]*(\d+)/);
+            const failMatch = txt.match(/失[败敗][^0-9]*(\d+)/);
             const successCount = okMatch ? parseInt(okMatch[1], 10) : 0;
             const failCount = failMatch ? parseInt(failMatch[1], 10) : 0;
             setAutoBindMsg(successCount > 0
-                ? `🎉 领到 ${successCount} 张${failCount > 0 ? ` (${failCount} 张失败)` : ''}`
-                : '没有可领的麦麦省券了');
+                ? `🎉 領到 ${successCount} 張${failCount > 0 ? ` (${failCount} 張失敗)` : ''}`
+                : '沒有可領的麥麥省券了');
             await reload();
         } catch (e: any) {
-            setAutoBindMsg(`领取失败: ${e?.message || e}`);
+            setAutoBindMsg(`領取失敗: ${e?.message || e}`);
         } finally {
             setAutoBinding(false);
             setTimeout(() => setAutoBindMsg(null), 4000);
@@ -532,14 +532,14 @@ const CouponPicker: React.FC<{
             >
                 <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gradient-to-r from-yellow-400 to-amber-400 rounded-t-2xl shrink-0">
                     <div className="min-w-0">
-                        <div className="text-[13px] font-bold text-yellow-900">🎟️ 选优惠券</div>
-                        <div className="text-[10px] text-yellow-900/70">{coupons.length} 张可用 · 已选 {selected.size}</div>
+                        <div className="text-[13px] font-bold text-yellow-900">🎟️ 選優惠券</div>
+                        <div className="text-[10px] text-yellow-900/70">{coupons.length} 張可用 · 已選 {selected.size}</div>
                     </div>
                     <button
                         onClick={handleAutoBind}
                         disabled={autoBinding}
                         className="shrink-0 px-2.5 py-1.5 bg-white/80 rounded-full text-[10px] font-bold text-yellow-800 active:scale-95 disabled:opacity-50"
-                    >{autoBinding ? '🎁 领中...' : '🎁 一键领麦麦省券'}</button>
+                    >{autoBinding ? '🎁 領中...' : '🎁 一鍵領麥麥省券'}</button>
                     <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-full bg-white/40 flex items-center justify-center text-yellow-900 active:scale-90">✕</button>
                 </div>
                 {autoBindMsg && (
@@ -548,10 +548,10 @@ const CouponPicker: React.FC<{
                     </div>
                 )}
                 <div className="flex-1 overflow-y-auto mcd-scroll p-3 space-y-2 min-h-0">
-                    {loading ? <Spinner label="拉取门店可用券..." />
+                    {loading ? <Spinner label="拉取門店可用券..." />
                     : err ? <ErrorBox msg={err} onRetry={reload} />
                     : coupons.length === 0 ? (
-                        <div className="text-center py-8 text-[12px] text-slate-500">这个门店当前没有可用的优惠券</div>
+                        <div className="text-center py-8 text-[12px] text-slate-500">這個門店當前沒有可用的優惠券</div>
                     ) : coupons.map((c: CouponEntry, i: number) => {
                         const isOn = selected.has(c.couponId);
                         const products = c.products || [];
@@ -564,10 +564,10 @@ const CouponPicker: React.FC<{
                                 <div className="flex items-start gap-2">
                                     <span className="text-2xl shrink-0">🎟️</span>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-[12px] text-slate-800 line-clamp-2">{c.title || '优惠券'}</div>
+                                        <div className="font-bold text-[12px] text-slate-800 line-clamp-2">{c.title || '優惠券'}</div>
                                         {products.length > 0 && (
                                             <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
-                                                适用: {products.map((p: CouponProduct) => p.productName).slice(0, 3).join('、')}
+                                                適用: {products.map((p: CouponProduct) => p.productName).slice(0, 3).join('、')}
                                             </div>
                                         )}
                                         {c.tradeDateTime && <div className="text-[9px] text-slate-400 mt-0.5">{c.tradeDateTime}</div>}
@@ -588,7 +588,7 @@ const CouponPicker: React.FC<{
     );
 };
 
-// ========== Step 4: 确认订单 (auto calculate-price + 敲定 → create-order) ==========
+// ========== Step 4: 確認訂單 (auto calculate-price + 敲定 → create-order) ==========
 
 interface PriceData {
     price?: number | string;
@@ -648,7 +648,7 @@ const ReviewStep: React.FC<{
         if (ctx.orderType === 2 && ctx.beCode) args.beCode = ctx.beCode;
         callMcdTool('calculate-price', args).then((r: any) => {
             if (cancelled) return;
-            if (!r.success) { setPriceErr(r.error || '算价失败'); setPriceData(null); }
+            if (!r.success) { setPriceErr(r.error || '算價失敗'); setPriceData(null); }
             else setPriceData(r.data || {});
             setPriceLoading(false);
         }).catch((e: any) => {
@@ -679,7 +679,7 @@ const ReviewStep: React.FC<{
         }
         try {
             const r = await callMcdTool('create-order', args);
-            if (!r.success) throw new Error(r.error || '下单失败');
+            if (!r.success) throw new Error(r.error || '下單失敗');
             onOrderPlaced(r.data);
         } catch (e: any) {
             setOrderErr(e?.message || String(e));
@@ -698,15 +698,15 @@ const ReviewStep: React.FC<{
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-3 py-2 border-b border-yellow-200/60 bg-yellow-50/60">
-                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 继续选</button>
-                <div className="text-[13px] font-bold text-yellow-900">确认订单</div>
+                <button onClick={onBack} className="text-[12px] text-yellow-700 active:scale-95">‹ 繼續選</button>
+                <div className="text-[13px] font-bold text-yellow-900">確認訂單</div>
                 <div className="w-12" />
             </div>
             <div className="flex-1 overflow-y-auto mcd-scroll p-3 space-y-2">
-                <div className="text-[10px] text-yellow-700/70 font-bold uppercase">送达 / 取餐</div>
+                <div className="text-[10px] text-yellow-700/70 font-bold uppercase">送達 / 取餐</div>
                 <div className="bg-white rounded-xl border border-yellow-100 p-2.5 text-[12px] text-slate-700">
                     {ctx.orderType === 2
-                        ? <>📍 <span className="text-slate-500">{ctx.storeName || '配送门店'} → </span>{ctx.addressLabel || ctx.addressId}</>
+                        ? <>📍 <span className="text-slate-500">{ctx.storeName || '配送門店'} → </span>{ctx.addressLabel || ctx.addressId}</>
                         : <>🏪 {ctx.storeName || ctx.storeCode} (到店取餐)</>}
                 </div>
                 <div className="text-[10px] text-yellow-700/70 font-bold uppercase mt-2">商品</div>
@@ -727,8 +727,8 @@ const ReviewStep: React.FC<{
                     ))}
                 </div>
 
-                {/* 优惠券 */}
-                <div className="text-[10px] text-yellow-700/70 font-bold uppercase mt-2">优惠券</div>
+                {/* 優惠券 */}
+                <div className="text-[10px] text-yellow-700/70 font-bold uppercase mt-2">優惠券</div>
                 <button
                     onClick={() => setCouponPickerOpen(true)}
                     className="w-full bg-white rounded-xl border border-yellow-200 p-2.5 flex items-center gap-2 active:scale-[0.99] active:bg-yellow-50"
@@ -736,56 +736,56 @@ const ReviewStep: React.FC<{
                     <span className="text-xl">🎟️</span>
                     <div className="flex-1 min-w-0 text-left">
                         {selectedCoupons.size === 0
-                            ? <div className="text-[12px] text-slate-600">看看有什么券可以用</div>
+                            ? <div className="text-[12px] text-slate-600">看看有什麼券可以用</div>
                             : (
                                 <div className="text-[11px] text-yellow-800 font-bold truncate">
-                                    已选 {selectedCoupons.size} 张: {(Array.from(selectedCoupons.values()) as CouponEntry[]).map((c: CouponEntry) => c.title || '券').join(' / ')}
+                                    已選 {selectedCoupons.size} 張: {(Array.from(selectedCoupons.values()) as CouponEntry[]).map((c: CouponEntry) => c.title || '券').join(' / ')}
                                 </div>
                             )}
                     </div>
                     <span className="text-yellow-700 text-sm shrink-0">›</span>
                 </button>
 
-                {/* 费用细分 (来自 calculate-price 真实结果) */}
-                <div className="text-[10px] text-yellow-700/70 font-bold uppercase mt-2">费用</div>
+                {/* 費用細分 (來自 calculate-price 真實結果) */}
+                <div className="text-[10px] text-yellow-700/70 font-bold uppercase mt-2">費用</div>
                 <div className="bg-white rounded-xl border border-yellow-100 p-3 text-[12px] text-slate-700 space-y-1.5">
                     {priceLoading ? (
                         <div className="flex items-center gap-2 py-1 text-slate-500">
                             <div className="w-3 h-3 border-2 border-yellow-300 border-t-yellow-600 rounded-full animate-spin" />
-                            <span className="text-[11px]">算价中...</span>
+                            <span className="text-[11px]">算價中...</span>
                         </div>
                     ) : priceErr ? (
                         <div className="text-[11px] text-red-600 leading-relaxed whitespace-pre-wrap break-all">{priceErr}</div>
                     ) : priceData ? (
                         <>
                             {productPrice != null && (
-                                <div className="flex justify-between"><span className="text-slate-500">商品小计</span><span>{fmtFen(productPrice)}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">商品小計</span><span>{fmtFen(productPrice)}</span></div>
                             )}
                             {deliveryPrice != null && Number(deliveryPrice) > 0 && (
-                                <div className="flex justify-between"><span className="text-slate-500">配送费</span><span>{fmtFen(deliveryPrice)}</span></div>
+                                <div className="flex justify-between"><span className="text-slate-500">配送費</span><span>{fmtFen(deliveryPrice)}</span></div>
                             )}
                             {showDiscount && (
-                                <div className="flex justify-between text-emerald-600"><span>优惠</span><span>-{fmtFen(discount)}</span></div>
+                                <div className="flex justify-between text-emerald-600"><span>優惠</span><span>-{fmtFen(discount)}</span></div>
                             )}
                             {originalPrice != null && finalPrice != null && Number(originalPrice) !== Number(finalPrice) && (
-                                <div className="flex justify-between text-[10px] text-slate-400"><span>原价</span><span className="line-through">{fmtFen(originalPrice)}</span></div>
+                                <div className="flex justify-between text-[10px] text-slate-400"><span>原價</span><span className="line-through">{fmtFen(originalPrice)}</span></div>
                             )}
                         </>
                     ) : (
-                        <div className="text-[11px] text-slate-500">购物车为空</div>
+                        <div className="text-[11px] text-slate-500">購物車為空</div>
                     )}
                 </div>
 
                 {orderErr && (
                     <div className="rounded-xl bg-red-50 border border-red-200 p-2.5 text-[11px] text-red-700 leading-relaxed whitespace-pre-wrap break-all">
-                        <div className="font-bold mb-0.5">下单失败</div>
+                        <div className="font-bold mb-0.5">下單失敗</div>
                         {orderErr}
                     </div>
                 )}
             </div>
             <div className="border-t border-yellow-300 bg-gradient-to-r from-yellow-100 to-amber-100 px-3 py-2.5 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-yellow-800/70">合计</div>
+                    <div className="text-[10px] text-yellow-800/70">合計</div>
                     <div className="text-[17px] font-bold text-yellow-800">
                         {priceLoading ? '...' : (finalPrice != null ? fmtFen(finalPrice) : (localTotal > 0 ? fmtMoney(localTotal) : '—'))}
                     </div>
@@ -794,7 +794,7 @@ const ReviewStep: React.FC<{
                     onClick={handleOrder}
                     disabled={lines.length === 0 || priceLoading || !!priceErr || orderLoading}
                     className="px-5 py-2.5 bg-yellow-600 text-white text-[13px] font-bold rounded-xl shadow active:scale-95 disabled:opacity-40 disabled:active:scale-100"
-                >{orderLoading ? '下单中...' : '敲定 →'}</button>
+                >{orderLoading ? '下單中...' : '敲定 →'}</button>
             </div>
             {couponPickerOpen && (
                 <CouponPicker
@@ -818,7 +818,7 @@ const ReviewStep: React.FC<{
     );
 };
 
-// ========== Step 5: 下单成功 ==========
+// ========== Step 5: 下單成功 ==========
 
 const SuccessStep: React.FC<{
     orderResult: any;
@@ -832,25 +832,25 @@ const SuccessStep: React.FC<{
             <div className="flex-1 overflow-y-auto mcd-scroll p-4 space-y-3">
                 <div className="text-center py-3">
                     <div className="text-5xl mb-2">🎉</div>
-                    <div className="text-[16px] font-bold text-yellow-900">下单成功！</div>
-                    <div className="text-[11px] text-yellow-700/70 mt-1">订单已创建, 等待支付</div>
+                    <div className="text-[16px] font-bold text-yellow-900">下單成功！</div>
+                    <div className="text-[11px] text-yellow-700/70 mt-1">訂單已創建, 等待支付</div>
                 </div>
                 <div className="bg-white rounded-xl border border-yellow-100 p-3 space-y-2 text-[12px] text-slate-700">
                     {orderId && (
                         <div>
-                            <div className="text-[10px] text-slate-400">订单号</div>
+                            <div className="text-[10px] text-slate-400">訂單號</div>
                             <div className="font-mono text-[11px] break-all">{orderId}</div>
                         </div>
                     )}
                     {detail.storeName && (
                         <div>
-                            <div className="text-[10px] text-slate-400">门店</div>
+                            <div className="text-[10px] text-slate-400">門店</div>
                             <div>{detail.storeName}</div>
                         </div>
                     )}
                     {detail.realTotalAmount != null && (
                         <div>
-                            <div className="text-[10px] text-slate-400">实付</div>
+                            <div className="text-[10px] text-slate-400">實付</div>
                             <div className="font-bold text-yellow-700">{fmtMoney(detail.realTotalAmount)}</div>
                         </div>
                     )}
@@ -883,13 +883,13 @@ const SuccessStep: React.FC<{
     );
 };
 
-// ========== 协同聊天面板 (modal 内嵌) ==========
+// ========== 協同聊天面板 (modal 內嵌) ==========
 //
 // 不再自己 build prompt / 自己 fetch。
-// 用户输入 → onSendMessage → 主聊天 handleSendText pipeline (完整人设/
-// 记忆/日程/情绪上下文) + useChatAI 会从 mcdMiniAppRef 读当前状态注入。
-// 显示来自主聊天 messages 数组, filter fromMcdMiniApp:true 拿到 in-app
-// 那部分对话。
+// 用戶輸入 → onSendMessage → 主聊天 handleSendText pipeline (完整人設/
+// 記憶/日程/情緒上下文) + useChatAI 會從 mcdMiniAppRef 讀當前狀態注入。
+// 顯示來自主聊天 messages 數組, filter fromMcdMiniApp:true 拿到 in-app
+// 那部分對話。
 
 interface McdProposalItem { code: string; name: string; qty: number; reason?: string; }
 interface McdProposalPayload { items: McdProposalItem[]; overall_note?: string; }
@@ -897,9 +897,9 @@ interface McdChatViewMsg {
     role: 'user' | 'assistant';
     content: string;
     ts: number;
-    /** 'text' / 'emoji'; emoji 时 content 是图片 url */
+    /** 'text' / 'emoji'; emoji 時 content 是圖片 url */
     type?: string;
-    /** char 调 propose_cart_items 后挂这里, 渲染成 + 加按钮卡片 */
+    /** char 調 propose_cart_items 後掛這裡, 渲染成 + 加按鈕卡片 */
     proposal?: McdProposalPayload;
 }
 
@@ -920,7 +920,7 @@ const ProposalCard: React.FC<{
     return (
         <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-300 rounded-2xl overflow-hidden">
             <div className="px-2.5 py-1.5 bg-yellow-200/60 border-b border-yellow-300/60 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-yellow-900">📋 这些怎么样？</span>
+                <span className="text-[10px] font-bold text-yellow-900">📋 這些怎麼樣？</span>
                 <button onClick={handleAll} className="text-[10px] px-2 py-0.5 bg-yellow-500 text-white rounded-full font-bold active:scale-95">全部加</button>
             </div>
             {payload.overall_note && (
@@ -984,7 +984,7 @@ const InAppChat: React.FC<{
 
     return (
         <div className="border-t-2 border-yellow-300/60 bg-gradient-to-b from-yellow-100/60 to-amber-50 shrink-0 flex flex-col" style={{ maxHeight: expanded ? '50%' : 'calc(52px + var(--safe-bottom, 0px))' }}>
-            {/* 折叠条 / 展开切换 */}
+            {/* 摺疊條 / 展開切換 */}
             <button
                 onClick={() => setExpanded((v: boolean) => !v)}
                 className="flex items-center gap-2 px-3 py-2 bg-yellow-100/80 active:bg-yellow-200/60 transition border-b border-yellow-200/60"
@@ -996,7 +996,7 @@ const InAppChat: React.FC<{
                 <div className="flex-1 min-w-0 text-left">
                     {!expanded && lastChar
                         ? <div className="text-[11px] text-slate-700 truncate"><span className="text-yellow-700 font-bold">{charName}: </span>{lastChar.content}</div>
-                        : <div className="text-[11px] font-bold text-yellow-900">跟 {charName} 一起选 · {expanded ? '点这里收起' : '点这里展开聊'}</div>}
+                        : <div className="text-[11px] font-bold text-yellow-900">跟 {charName} 一起選 · {expanded ? '點這裡收起' : '點這裡展開聊'}</div>}
                 </div>
                 <span className="text-yellow-700 text-xs shrink-0">{expanded ? '▼' : '▲'}</span>
             </button>
@@ -1006,9 +1006,9 @@ const InAppChat: React.FC<{
                     <div ref={scrollRef} className="flex-1 overflow-y-auto mcd-scroll px-3 py-2 space-y-2 min-h-0">
                         {visibleMessages.length === 0 && (
                             <div className="text-center py-4 text-[11px] text-slate-500 leading-relaxed">
-                                可以这样问 {charName}:<br />
-                                <span className="text-yellow-700">"帮我挑个 800 大卡以内的"</span><br />
-                                <span className="text-yellow-700">"我已经选了这些, 你看怎么样"</span><br />
+                                可以這樣問 {charName}:<br />
+                                <span className="text-yellow-700">"幫我挑個 800 大卡以內的"</span><br />
+                                <span className="text-yellow-700">"我已經選了這些, 你看怎麼樣"</span><br />
                                 <span className="text-yellow-700">"今天想吃辣的"</span>
                             </div>
                         )}
@@ -1072,7 +1072,7 @@ const InAppChat: React.FC<{
                                     send();
                                 }
                             }}
-                            placeholder={`问问 ${charName}...`}
+                            placeholder={`問問 ${charName}...`}
                             rows={1}
                             className="flex-1 resize-none bg-yellow-50/60 border border-yellow-200 rounded-xl px-3 py-1.5 text-[12px] focus:outline-none focus:border-yellow-400 max-h-20"
                         />
@@ -1080,7 +1080,7 @@ const InAppChat: React.FC<{
                             onClick={send}
                             disabled={!input.trim() || isTyping}
                             className="px-3 py-1.5 bg-yellow-500 text-white text-[12px] font-bold rounded-xl shadow active:scale-95 disabled:opacity-40 shrink-0"
-                        >发送</button>
+                        >發送</button>
                     </div>
                 </>
             )}
@@ -1088,7 +1088,7 @@ const InAppChat: React.FC<{
     );
 };
 
-// ========== 主组件 ==========
+// ========== 主組件 ==========
 
 const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfile, messages, isTyping, onSendMessage, onStateChange, onConfirmOrder }) => {
     const [step, setStep] = useState<Step>('mode');
@@ -1101,30 +1101,30 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
 
     useEffect(() => {
         if (open) {
-            // 重新打开时重置
+            // 重新打開時重置
             setStep('mode');
             setOrderType(null);
             setCtx(null);
             setCart(new Map());
             setMenuData(null);
             setOrderResult(null);
-            // 营养表全量, 一次性拉, 给 char 选品时参考
+            // 營養表全量, 一次性拉, 給 char 選品時參考
             if (!nutritionData) {
                 callMcdTool('list-nutrition-foods', {}).then((r: any) => {
                     if (r?.success) {
                         if (typeof r.data === 'string') setNutritionData(r.data);
                         else if (typeof r.rawText === 'string') setNutritionData(r.rawText);
                     }
-                }).catch(() => { /* 没拉到也不阻塞主流程 */ });
+                }).catch(() => { /* 沒拉到也不阻塞主流程 */ });
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    // 菜单加载/切换后, 把购物车里"当前不在售的 code"清掉:
-    // 1) 换了门店/取餐方式 → 旧店 code 残留 → calculate-price 一直空
-    // 2) 跨过 daypart (例如 5am 从夜宵 → 早餐) → 旧时段 code 不在新 categories[] 里 → 同样会被拒
-    // 用 categories[].meals[] 的 code 集合作为"当下可下单"权威集; 没有 categories 时回退到全量 meals 字典
+    // 菜單加載/切換後, 把購物車裡"當前不在售的 code"清掉:
+    // 1) 換了門店/取餐方式 → 舊店 code 殘留 → calculate-price 一直空
+    // 2) 跨過 daypart (例如 5am 從夜宵 → 早餐) → 舊時段 code 不在新 categories[] 裡 → 同樣會被拒
+    // 用 categories[].meals[] 的 code 集合作為"當下可下單"權威集; 沒有 categories 時回退到全量 meals 字典
     useEffect(() => {
         const meals = menuData?.meals;
         if (!meals || !Object.keys(meals).length) return;
@@ -1144,22 +1144,22 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
             for (const [code, line] of prev) {
                 const orderable = activeCodes ? activeCodes.has(code) : !!meals[code];
                 if (orderable) next.set(code, line);
-                else { dirty = true; console.warn(`🍔 [MCD-MiniApp] 购物车清掉当前不在售的 code: ${code} (${line.name})`); }
+                else { dirty = true; console.warn(`🍔 [MCD-MiniApp] 購物車清掉當前不在售的 code: ${code} (${line.name})`); }
             }
             return dirty ? next : prev;
         });
     }, [menuData]);
 
-    // 每次状态变化推给父组件 → useChatAI 注入到 system prompt 末尾
+    // 每次狀態變化推給父組件 → useChatAI 注入到 system prompt 末尾
     useEffect(() => {
         if (!onStateChange) return;
         const cartArr: Array<{ code: string; name: string; price?: any; qty: number }> = (Array.from(cart.values()) as CartLine[]).map((l: CartLine) => ({
             code: l.code, name: l.name, price: l.price, qty: l.qty,
         }));
-        // 只把"当前 daypart 真正在售"的 code 推给 AI 上下文。
-        // query-meals 的 data.meals 是跨 daypart 的扁平字典 (午餐 + 夜宵 + 麦满分早餐 全在里面),
-        // 但只有 categories[].meals[] 里出现过的 code 是当下时段实际可下单的。
-        // 不过滤 → AI 在凌晨 2 点会推"吉士汉堡中套餐"这种白天才有的, calculate-price 一定空。
+        // 只把"當前 daypart 真正在售"的 code 推給 AI 上下文。
+        // query-meals 的 data.meals 是跨 daypart 的扁平字典 (午餐 + 夜宵 + 麥滿分早餐 全在裡面),
+        // 但只有 categories[].meals[] 裡出現過的 code 是當下時段實際可下單的。
+        // 不過濾 → AI 在凌晨 2 點會推"吉士漢堡中套餐"這種白天才有的, calculate-price 一定空。
         const fullMeals = menuData?.meals;
         let menuMealsForAI: typeof fullMeals = fullMeals;
         if (fullMeals && Array.isArray(menuData?.categories) && menuData.categories.length) {
@@ -1191,7 +1191,7 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, step, orderType, ctx, cart, menuData, nutritionData]);
 
-    // modal 关闭时显式清掉 (open=false 通知父侧)
+    // modal 關閉時顯式清掉 (open=false 通知父側)
     useEffect(() => {
         if (!open && onStateChange) {
             onStateChange({ open: false });
@@ -1199,7 +1199,7 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
-    // 从主聊天历史里筛出"小程序内"的轮次, 按时间排序后渲染到底部聊天面板
+    // 從主聊天歷史裡篩出"小程序內"的輪次, 按時間排序後渲染到底部聊天面板
     const visibleChatMessages = useMemo<McdChatViewMsg[]>(() => {
         if (!Array.isArray(messages)) return [];
         const out: McdChatViewMsg[] = [];
@@ -1217,35 +1217,35 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
             }
             if (m.role !== 'user' && m.role !== 'assistant') continue;
             if (typeof m.content !== 'string' || !m.content.trim()) continue;
-            // emoji/sticker: content 是图片 url, 渲染成 <img>; type 信息保留下来
+            // emoji/sticker: content 是圖片 url, 渲染成 <img>; type 信息保留下來
             out.push({ role: m.role, content: m.content, ts: m.timestamp || 0, type: m.type || 'text' });
         }
         return out;
     }, [messages]);
 
-    // 提案卡片 + 加 / 全部加 按钮 → 往购物车里塞 (从菜单里拿真实价格)
-    // 严格模式: code 必须在当前门店菜单里存在, 否则拒绝加购 (calculate-price 也会拒)。
-    // 客户端兜底再做一次名字匹配, 万一服务端 (useChatAI) 里那道修没生效也不至于把烂 code 塞进购物车。
+    // 提案卡片 + 加 / 全部加 按鈕 → 往購物車裡塞 (從菜單裡拿真實價格)
+    // 嚴格模式: code 必須在當前門店菜單裡存在, 否則拒絕加購 (calculate-price 也會拒)。
+    // 客戶端兜底再做一次名字匹配, 萬一服務端 (useChatAI) 裡那道修沒生效也不至於把爛 code 塞進購物車。
     const handleAddFromProposal = (it: McdProposalItem) => {
         if (!it?.code && !it?.name) return;
         if (!menuData?.meals || !Object.keys(menuData.meals).length) {
-            console.warn('🍔 [MCD-MiniApp] 拒绝加购: 当前菜单还没加载, 不能从 proposal 加购');
+            console.warn('🍔 [MCD-MiniApp] 拒絕加購: 當前菜單還沒加載, 不能從 proposal 加購');
             return;
         }
         let realCode: string | undefined = menuData.meals[it.code || ''] ? it.code : undefined;
         let meal = realCode ? menuData.meals[realCode] : undefined;
         if (!meal) {
-            // 服务端没修上 / propose 直接漏了 code 校准: 在这儿按 name 兜底
+            // 服務端沒修上 / propose 直接漏了 code 校準: 在這兒按 name 兜底
             const { fixed, fixes } = autoFixProposalCodesByName([it], menuData.meals);
             const fixedCode = fixed[0]?.code;
             if (fixes.length && fixedCode && menuData.meals[fixedCode]) {
                 realCode = fixedCode;
                 meal = menuData.meals[fixedCode];
-                console.log(`🍔 [MCD-MiniApp] 客户端兜底修 code: '${it.code}' → '${realCode}' (${fixes[0].name})`);
+                console.log(`🍔 [MCD-MiniApp] 客戶端兜底修 code: '${it.code}' → '${realCode}' (${fixes[0].name})`);
             }
         }
         if (!realCode || !meal) {
-            console.warn(`🍔 [MCD-MiniApp] 拒绝加购: code='${it.code}' name='${it.name}' 在当前门店菜单里找不到匹配`);
+            console.warn(`🍔 [MCD-MiniApp] 拒絕加購: code='${it.code}' name='${it.name}' 在當前門店菜單裡找不到匹配`);
             return;
         }
         const price = meal.currentPrice;
@@ -1288,8 +1288,8 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
             <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
                 <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center" onClick={(e: any) => e.stopPropagation()}>
                     <div className="text-3xl mb-2">🍔</div>
-                    <div className="font-bold text-slate-800 mb-2">麦当劳还没开启</div>
-                    <div className="text-[12px] text-slate-500 mb-4 leading-relaxed">请到设置 → 麦当劳填入 MCP token 并开启功能</div>
+                    <div className="font-bold text-slate-800 mb-2">麥當勞還沒開啟</div>
+                    <div className="text-[12px] text-slate-500 mb-4 leading-relaxed">請到設置 → 麥當勞填入 MCP token 並開啟功能</div>
                     <button onClick={onClose} className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-[12px] font-bold">知道了</button>
                 </div>
             </div>
@@ -1310,19 +1310,19 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
                 style={{ height: '85vh', maxHeight: '85vh' }}
                 onClick={(e: any) => e.stopPropagation()}
             >
-                {/* 顶栏 */}
+                {/* 頂欄 */}
                 <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-yellow-400 to-amber-400 shrink-0">
                     <div className="flex items-center gap-2">
                         <span className="text-2xl">🍟</span>
                         <div>
-                            <div className="text-[13px] font-bold text-yellow-900">麦当劳</div>
-                            <div className="text-[9px] text-yellow-900/70">官方 MCP · 直连下单</div>
+                            <div className="text-[13px] font-bold text-yellow-900">麥當勞</div>
+                            <div className="text-[9px] text-yellow-900/70">官方 MCP · 直連下單</div>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/40 flex items-center justify-center text-yellow-900 active:scale-90">✕</button>
                 </div>
 
-                {/* 内容区 */}
+                {/* 內容區 */}
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                     {step === 'mode' && (
                         <ModeStep onPick={(t: 1 | 2) => { setOrderType(t); setStep('pick'); }} />
@@ -1358,7 +1358,7 @@ const McdMiniApp: React.FC<McdMiniAppProps> = ({ open, onClose, char, userProfil
                     )}
                 </div>
 
-                {/* 协同聊天面板: 跟着 modal 永久挂在底部, 进入选地址那步开始就能聊 */}
+                {/* 協同聊天面板: 跟著 modal 永久掛在底部, 進入選地址那步開始就能聊 */}
                 {char && step !== 'mode' && (
                     <InAppChat
                         char={char}

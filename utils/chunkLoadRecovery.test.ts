@@ -1,29 +1,29 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { isChunkLoadError, markModuleLoadError, tryAutoReloadForChunkError } from './chunkLoadRecovery';
 
-// 锁住 "Importing a module script failed." 自愈链路:
-// iOS Safari standalone PWA 下动态 import 失败会被缓存进模块表, 本页内重试必失败,
-// 只有整页 reload 能恢复 — AppErrorBoundary 靠这两个函数识别 + 自动刷新 (带防循环冷却)。
+// 鎖住 "Importing a module script failed." 自愈鏈路:
+// iOS Safari standalone PWA 下動態 import 失敗會被緩存進模塊表, 本頁內重試必失敗,
+// 只有整頁 reload 能恢復 — AppErrorBoundary 靠這兩個函數識別 + 自動刷新 (帶防循環冷卻)。
 
 describe('isChunkLoadError', () => {
-    it('识别各浏览器的 chunk 加载失败指纹', () => {
-        // iOS / macOS Safari (用户报错原文)
+    it('識別各瀏覽器的 chunk 加載失敗指紋', () => {
+        // iOS / macOS Safari (用戶報錯原文)
         expect(isChunkLoadError(new TypeError('Importing a module script failed.'))).toBe(true);
         // Chrome
         expect(isChunkLoadError(new TypeError('Failed to fetch dynamically imported module: https://x.dev/assets/Chat-Ck2f.js'))).toBe(true);
         // Firefox
         expect(isChunkLoadError(new TypeError('error loading dynamically imported module'))).toBe(true);
-        // Vite CSS 依赖预载失败
+        // Vite CSS 依賴預載失敗
         expect(isChunkLoadError(new Error('Unable to preload CSS for /assets/Chat-D3xq.css'))).toBe(true);
-        // Safari / WebKit：部署更新后旧 chunk URL 被 SPA fallback 回成 index.html。
+        // Safari / WebKit：部署更新後舊 chunk URL 被 SPA fallback 回成 index.html。
         expect(isChunkLoadError(new TypeError("'text/html' is not a valid JavaScript MIME type."))).toBe(true);
-        // Chromium 对同一类 HTML-as-module 响应的报错文案。
+        // Chromium 對同一類 HTML-as-module 響應的報錯文案。
         expect(isChunkLoadError(new TypeError('Expected a JavaScript module script but the server responded with a MIME type of "text/html".'))).toBe(true);
-        // 字符串形态也接受
+        // 字符串形態也接受
         expect(isChunkLoadError('Importing a module script failed.')).toBe(true);
     });
 
-    it('普通运行时错误不误判', () => {
+    it('普通運行時錯誤不誤判', () => {
         expect(isChunkLoadError(new TypeError("Cannot read properties of undefined (reading 'map')"))).toBe(false);
         expect(isChunkLoadError(new Error('Network request failed'))).toBe(false);
         expect(isChunkLoadError(null)).toBe(false);
@@ -31,14 +31,14 @@ describe('isChunkLoadError', () => {
         expect(isChunkLoadError(42)).toBe(false);
     });
 
-    it.each(['Unexpected EOF', 'Unexpected end of input', 'Unexpected end of script.'])('只有加载阶段的 %s 才走资源恢复', message => {
+    it.each(['Unexpected EOF', 'Unexpected end of input', 'Unexpected end of script.'])('只有加載階段的 %s 才走資源恢復', message => {
         const error = Object.freeze(new SyntaxError(message));
         expect(isChunkLoadError(error)).toBe(false);
         markModuleLoadError(error);
         expect(isChunkLoadError(error)).toBe(true);
     });
 
-    it('带 JSON 提示的解析失败、组件运行异常不自动刷新', () => {
+    it('帶 JSON 提示的解析失敗、組件運行異常不自動刷新', () => {
         for (const error of [
             new SyntaxError('JSON Parse error: Unexpected EOF'),
             new SyntaxError('Unexpected end of JSON input'),
@@ -71,23 +71,23 @@ describe('tryAutoReloadForChunkError', () => {
         return { reload };
     };
 
-    it('首次触发: 记录时间戳并整页刷新', () => {
+    it('首次觸發: 記錄時間戳並整頁刷新', () => {
         const { reload } = stubEnv();
         expect(tryAutoReloadForChunkError()).toBe(true);
         expect(reload).toHaveBeenCalledTimes(1);
     });
 
-    it('冷却期内再触发: 不再自动刷新 (防循环), 留给手动按钮', () => {
+    it('冷卻期內再觸發: 不再自動刷新 (防循環), 留給手動按鈕', () => {
         const { reload } = stubEnv();
         expect(tryAutoReloadForChunkError()).toBe(true);
         expect(tryAutoReloadForChunkError()).toBe(false);
         expect(reload).toHaveBeenCalledTimes(1);
     });
 
-    it('sessionStorage 不可用时不自动刷新 (没法防循环)', () => {
+    it('sessionStorage 不可用時不自動刷新 (沒法防循環)', () => {
         const reload = vi.fn();
         vi.stubGlobal('window', { location: { reload } });
-        // 不 stub sessionStorage → 访问抛 ReferenceError → 内部 catch → 不自刷
+        // 不 stub sessionStorage → 訪問拋 ReferenceError → 內部 catch → 不自刷
         expect(tryAutoReloadForChunkError()).toBe(false);
         expect(reload).not.toHaveBeenCalled();
     });

@@ -28,23 +28,23 @@ export const collaborationBlobToDataUrl = (blob: Blob): Promise<string> => new P
   const reader = new FileReader();
   reader.onload = () => typeof reader.result === 'string'
     ? resolve(reader.result)
-    : reject(new Error('图片读取失败'));
-  reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+    : reject(new Error('圖片讀取失敗'));
+  reader.onerror = () => reject(reader.error || new Error('圖片讀取失敗'));
   reader.readAsDataURL(blob);
 });
 
 const clampExtractedText = (text: string): string => {
   const trimmed = text.trim();
   if (trimmed.length <= MAX_EXTRACTED_CHARS) return trimmed;
-  return `${trimmed.slice(0, MAX_EXTRACTED_CHARS)}\n\n[文件内容过长，协同工作仅读取了前 ${MAX_EXTRACTED_CHARS.toLocaleString()} 个字符]`;
+  return `${trimmed.slice(0, MAX_EXTRACTED_CHARS)}\n\n[文件內容過長，協同工作僅讀取了前 ${MAX_EXTRACTED_CHARS.toLocaleString()} 個字符]`;
 };
 
 const extractDocxText = async (file: File): Promise<string> => {
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const documentXml = await zip.file('word/document.xml')?.async('string');
-  if (!documentXml) throw new Error('没有在 Word 文件中找到正文');
+  if (!documentXml) throw new Error('沒有在 Word 文件中找到正文');
   const xml = new DOMParser().parseFromString(documentXml, 'application/xml');
-  if (xml.querySelector('parsererror')) throw new Error('Word 文件正文无法解析');
+  if (xml.querySelector('parsererror')) throw new Error('Word 文件正文無法解析');
   const paragraphs = Array.from(xml.getElementsByTagNameNS('*', 'p'));
   return paragraphs.map(paragraph => {
     const pieces: string[] = [];
@@ -64,32 +64,32 @@ export const extractSourceFile = async (
 ): Promise<ExtractedSourceFile> => {
   if (isPdfFile(file)) {
     const result = await extractPdfText(await file.arrayBuffer(), {
-      onProgress: ({ page, totalPages }) => onProgress?.(`正在读取 ${file.name} · ${page}/${totalPages} 页`),
+      onProgress: ({ page, totalPages }) => onProgress?.(`正在讀取 ${file.name} · ${page}/${totalPages} 頁`),
     });
     if (!result.text.trim()) {
-      throw new Error('这个 PDF 没有可提取的文字；扫描版 PDF 暂时需要先做 OCR');
+      throw new Error('這個 PDF 沒有可提取的文字；掃描版 PDF 暫時需要先做 OCR');
     }
     const clamped = clampExtractedText(result.text);
-    const complete = !clamped.includes('[文件内容过长，协同工作仅读取了前');
+    const complete = !clamped.includes('[文件內容過長，協同工作僅讀取了前');
     const coverage = complete
-      ? `[PDF 全文已提取：共 ${result.pageCount} 页，已读取 ${result.extractedPages} 页]`
-      : `[PDF 已提取 ${result.extractedPages}/${result.pageCount} 页；正文超过字符上限，以下内容已标注截断]`;
+      ? `[PDF 全文已提取：共 ${result.pageCount} 頁，已讀取 ${result.extractedPages} 頁]`
+      : `[PDF 已提取 ${result.extractedPages}/${result.pageCount} 頁；正文超過字符上限，以下內容已標註截斷]`;
     return { text: `${coverage}\n\n${clamped}`, pageCount: result.pageCount };
   }
   if (/\.docx$/i.test(file.name)) {
-    onProgress?.(`正在读取 ${file.name}`);
+    onProgress?.(`正在讀取 ${file.name}`);
     const text = await extractDocxText(file);
-    if (!text.trim()) throw new Error('这个 Word 文件没有可提取的正文');
+    if (!text.trim()) throw new Error('這個 Word 文件沒有可提取的正文');
     return { text: clampExtractedText(text) };
   }
   if (/\.doc$/i.test(file.name)) {
-    throw new Error('旧版 .doc 暂不支持，请先另存为 .docx');
+    throw new Error('舊版 .doc 暫不支持，請先另存為 .docx');
   }
   if (/\.(txt|md|markdown|json|csv|tsv|html?|xml|yaml|yml)$/i.test(file.name) || file.type.startsWith('text/')) {
-    onProgress?.(`正在读取 ${file.name}`);
+    onProgress?.(`正在讀取 ${file.name}`);
     return { text: clampExtractedText(await file.text()) };
   }
-  throw new Error('暂时支持常见图片、PDF、DOCX、TXT、Markdown、JSON、CSV 和 HTML 文件');
+  throw new Error('暫時支持常見圖片、PDF、DOCX、TXT、Markdown、JSON、CSV 和 HTML 文件');
 };
 
 const escapeXml = (value: string): string => value
@@ -176,7 +176,7 @@ export const createDocxBlob = async (content: string, title: string): Promise<Bl
 </Relationships>`);
   zip.folder('docProps')?.file('core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
-  <dc:title>${escapeXml(title)}</dc:title><dc:creator>SullyOS 协同工作</dc:creator><dcterms:created>${new Date().toISOString()}</dcterms:created>
+  <dc:title>${escapeXml(title)}</dc:title><dc:creator>SullyOS 協同工作</dc:creator><dcterms:created>${new Date().toISOString()}</dcterms:created>
 </cp:coreProperties>`);
   const word = zip.folder('word');
   word?.file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -198,7 +198,7 @@ export const createDocxBlob = async (content: string, title: string): Promise<Bl
 const canvasToJpeg = (canvas: HTMLCanvasElement): Promise<Uint8Array> => new Promise((resolve, reject) => {
   canvas.toBlob(async blob => {
     if (!blob) {
-      reject(new Error('PDF 页面渲染失败'));
+      reject(new Error('PDF 頁面渲染失敗'));
       return;
     }
     resolve(new Uint8Array(await blob.arrayBuffer()));
@@ -224,7 +224,7 @@ const wrapCanvasText = (context: CanvasRenderingContext2D, text: string, maxWidt
 };
 
 const renderPdfPages = async (content: string, title: string): Promise<Array<{ bytes: Uint8Array; width: number; height: number }>> => {
-  if (typeof document === 'undefined') throw new Error('当前环境无法生成 PDF');
+  if (typeof document === 'undefined') throw new Error('當前環境無法生成 PDF');
   const width = 1240;
   const height = 1754;
   const marginX = 104;
@@ -362,7 +362,7 @@ const safeFileStem = (title: string): string => title
   .trim()
   .replace(/[\\/:*?"<>|]/g, '-')
   .replace(/\s+/g, ' ')
-  .slice(0, 80) || '协同工作文件';
+  .slice(0, 80) || '協同工作文件';
 
 export interface ParsedArtifactRequest {
   title: string;
@@ -381,7 +381,7 @@ export const parseArtifactBlocks = (response: string): { visibleText: string; ar
       const format = String(parsed?.format || '').toLowerCase() as CollaborationArtifactFormat;
       if (!ALLOWED_FORMATS.has(format) || typeof parsed?.content !== 'string') return _block;
       artifacts.push({
-        title: typeof parsed.title === 'string' ? parsed.title : '协同工作文件',
+        title: typeof parsed.title === 'string' ? parsed.title : '協同工作文件',
         format,
         content: parsed.content,
       });

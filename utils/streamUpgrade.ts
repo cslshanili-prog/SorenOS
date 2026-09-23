@@ -1,29 +1,29 @@
 /**
- * 透明流式升级（Transparent Stream Upgrade）
+ * 透明流式升級（Transparent Stream Upgrade）
  *
- * 背景：仓库里有 40+ 处 LLM 调用点硬编码 `stream:false`（查手机 / 记忆宫殿 / 日程 /
- * 剧场 / 群聊 / 日记…）。非流式的长生成最容易撞网关/中转的空闲超时——连接上几十秒
- * 一个字节都不回，网关掐掉连接，表现为「回复被截断 / 半截 JSON」。
+ * 背景：倉庫裡有 40+ 處 LLM 調用點硬編碼 `stream:false`（查手機 / 記憶宮殿 / 日程 /
+ * 劇場 / 群聊 / 日記…）。非流式的長生成最容易撞網關/中轉的空閒超時——連接上幾十秒
+ * 一個字節都不回，網關掐掉連接，表現為「回覆被截斷 / 半截 JSON」。
  *
- * 做法：在 OSContext 的全局 fetch 拦截器（所有 /chat/completions 的统一出口，与
- * 采样参数兼容层同一位置）做双向改写：
- *   - 请求侧：主 API 设置开了 stream 时，把 `stream:false/缺省` 的请求体升级为
+ * 做法：在 OSContext 的全局 fetch 攔截器（所有 /chat/completions 的統一出口，與
+ * 採樣參數兼容層同一位置）做雙向改寫：
+ *   - 請求側：主 API 設置開了 stream 時，把 `stream:false/缺省` 的請求體升級為
  *     `stream:true (+ stream_options.include_usage)`
- *   - 响应侧：把 SSE 攒齐拼回标准 chat.completion JSON，再交还调用方
+ *   - 響應側：把 SSE 攢齊拼回標準 chat.completion JSON，再交還調用方
  *
- * 调用方拿到的响应与升级前**字节级等价**（同样的 choices/usage 结构），但传输过程
- * 一直有字节在流，网关不会误判死连接。已经自己设了 `stream:true` 的调用（聊天主路径、
- * 见面、情绪评估）不碰——它们各自的解析链路（增量预览 / safeResponseJson）原样工作。
+ * 調用方拿到的響應與升級前**字節級等價**（同樣的 choices/usage 結構），但傳輸過程
+ * 一直有字節在流，網關不會誤判死連接。已經自己設了 `stream:true` 的調用（聊天主路徑、
+ * 見面、情緒評估）不碰——它們各自的解析鏈路（增量預覽 / safeResponseJson）原樣工作。
  *
- * 个别中转若拒绝 stream/stream_options，错误会原样交给调用方。不能在拦截器里自动
- * 重发付费生成请求：中转可能已经把第一份交给上游，静默重发会造成重复扣费。
+ * 個別中轉若拒絕 stream/stream_options，錯誤會原樣交給調用方。不能在攔截器裡自動
+ * 重發付費生成請求：中轉可能已經把第一份交給上游，靜默重發會造成重複扣費。
  */
 
 import { isSseResponseText, parseSseToCompletion } from './safeApi';
 
 const API_CONFIG_KEY = 'os_api_config';
 
-/** 主 API 设置里的流式开关（设置 → API → 流式）。读取失败一律视为关。 */
+/** 主 API 設置裡的流式開關（設置 → API → 流式）。讀取失敗一律視為關。 */
 export function isGlobalStreamEnabled(): boolean {
     try {
         if (typeof localStorage === 'undefined') return false;
@@ -36,26 +36,26 @@ export function isGlobalStreamEnabled(): boolean {
 }
 
 /**
- * 把一个 chat/completions 请求体升级为流式。
- * 返回升级后的 body 字符串；不需要升级（已是流式 / 非 JSON / 非对象）返回 null。
- * 注意：调用方负责先判断全局开关（isGlobalStreamEnabled），本函数保持纯粹。
+ * 把一個 chat/completions 請求體升級為流式。
+ * 返回升級後的 body 字符串；不需要升級（已是流式 / 非 JSON / 非對象）返回 null。
+ * 注意：調用方負責先判斷全局開關（isGlobalStreamEnabled），本函數保持純粹。
  */
 export function upgradeChatBodyToStream(bodyStr: string): string | null {
     let parsed: any;
     try { parsed = JSON.parse(bodyStr); } catch { return null; }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    if (parsed.stream === true) return null;  // 调用方自己开了流式：不碰
+    if (parsed.stream === true) return null;  // 調用方自己開了流式：不碰
     parsed.stream = true;
-    // include_usage：让末尾 chunk 带 usage，token 计费徽标 / API 调用记录不缺数
+    // include_usage：讓末尾 chunk 帶 usage，token 計費徽標 / API 調用記錄不缺數
     parsed.stream_options = { include_usage: true };
     return JSON.stringify(parsed);
 }
 
 /**
- * 把（升级后拿到的）响应归一化回调用方期待的形态：
- *   - SSE 流 → 攒齐拼装成标准 chat.completion JSON（Content-Type: application/json）
- *   - 已是 JSON（代理无视 stream）/ 其他文本 → 原文重新包装（body 已被消费，必须重包）
- * 只在响应 ok 时调用；错误响应由调用方原样透传给业务层的错误处理。
+ * 把（升級後拿到的）響應歸一化回調用方期待的形態：
+ *   - SSE 流 → 攢齊拼裝成標準 chat.completion JSON（Content-Type: application/json）
+ *   - 已是 JSON（代理無視 stream）/ 其他文本 → 原文重新包裝（body 已被消費，必須重包）
+ * 只在響應 ok 時調用；錯誤響應由調用方原樣透傳給業務層的錯誤處理。
  */
 export async function assembleUpgradedResponse(response: Response): Promise<Response> {
     const text = await response.text();
@@ -68,7 +68,7 @@ export async function assembleUpgradedResponse(response: Response): Promise<Resp
                 headers: { 'Content-Type': 'application/json' },
             });
         }
-        // 拼不出任何 chunk：按原文透传，让调用方的解析器报出带 preview 的错误
+        // 拼不出任何 chunk：按原文透傳，讓調用方的解析器報出帶 preview 的錯誤
     }
     return new Response(text, {
         status: response.status,

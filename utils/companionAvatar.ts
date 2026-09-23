@@ -32,7 +32,7 @@ export const listCompanionDateOutfits = (character?: CharacterProfile | null): C
   if (!character) return [];
   const outfits: CompanionDateOutfit[] = [];
   if (usableSpriteEntries(character.sprites).length) {
-    outfits.push(makeOutfit(DEFAULT_OUTFIT_ID, '默认立绘', character.sprites || {}));
+    outfits.push(makeOutfit(DEFAULT_OUTFIT_ID, '默認立繪', character.sprites || {}));
   }
   (character.dateSkinSets || []).forEach(skin => {
     if (usableSpriteEntries(skin.sprites).length) outfits.push(makeOutfit(skin.id, skin.name, skin.sprites));

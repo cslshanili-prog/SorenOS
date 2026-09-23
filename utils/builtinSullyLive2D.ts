@@ -26,7 +26,7 @@ const VARIANTS: Record<BuiltinSullyLive2DQuality, {
 }> = {
   balanced: {
     assetId: 'builtin-sully-live2d-2k-v1',
-    fileName: 'Sully · 内置 2K',
+    fileName: 'Sully · 內置 2K',
     modelUrl: 'sully/live2d-2k/Sully.model3.json',
     byteLength: 3_325_567,
   },
@@ -64,7 +64,7 @@ const BUILTIN_ACTIONS: SullyLive2DConfig['actions'] = [
   {
     id: 'expression-2',
     kind: 'expression',
-    name: '戴上墨镜',
+    name: '戴上墨鏡',
     expressionId: '戴上墨镜',
     file: '3.exp3.json',
     source: 'model3',
@@ -75,7 +75,7 @@ const BUILTIN_ACTIONS: SullyLive2DConfig['actions'] = [
   {
     id: 'expression-3',
     kind: 'expression',
-    name: '生气',
+    name: '生氣',
     expressionId: '生气',
     file: '4.exp3.json',
     source: 'model3',
@@ -86,7 +86,7 @@ const BUILTIN_ACTIONS: SullyLive2DConfig['actions'] = [
   {
     id: 'expression-4',
     kind: 'expression',
-    name: '开心',
+    name: '開心',
     expressionId: '开心',
     file: '5.exp3.json',
     source: 'model3',
@@ -108,7 +108,7 @@ const BUILTIN_ACTIONS: SullyLive2DConfig['actions'] = [
   {
     id: 'expression-6',
     kind: 'expression',
-    name: '难过',
+    name: '難過',
     expressionId: '难过',
     file: '7.exp3.json',
     source: 'model3',

@@ -14,7 +14,7 @@ function makeNode(id: string, entryId: string, content: string): MemoryNode {
         charId: storyTheaterThreadId(entryId),
         content,
         room: 'living_room',
-        tags: ['剧情'],
+        tags: ['劇情'],
         importance: 5,
         mood: 'neutral',
         embedded: true,
@@ -34,26 +34,26 @@ beforeEach(async () => {
     ]);
 });
 
-describe('剧情向量管理分区隔离', () => {
-    it('列表只读取当前剧情的 story-theater 分区', async () => {
-        await MemoryNodeDB.save(makeNode(nodeAId, 'entry-a', 'A 的记忆'));
-        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的记忆'));
+describe('劇情向量管理分區隔離', () => {
+    it('列表只讀取當前劇情的 story-theater 分區', async () => {
+        await MemoryNodeDB.save(makeNode(nodeAId, 'entry-a', 'A 的記憶'));
+        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的記憶'));
 
         const rows = await listStoryVectorMemories('entry-a');
         expect(rows.map(row => row.id)).toEqual([nodeAId]);
     });
 
-    it('拒绝跨剧情编辑与删除', async () => {
-        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的记忆'));
+    it('拒絕跨劇情編輯與刪除', async () => {
+        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的記憶'));
 
-        await expect(updateStoryVectorMemory('entry-a', nodeBId, '越界修改')).rejects.toThrow('跨剧情分区');
-        await expect(deleteStoryVectorMemory('entry-a', nodeBId)).rejects.toThrow('跨剧情分区');
-        expect((await MemoryNodeDB.getById(nodeBId))?.content).toBe('B 的记忆');
+        await expect(updateStoryVectorMemory('entry-a', nodeBId, '越界修改')).rejects.toThrow('跨劇情分區');
+        await expect(deleteStoryVectorMemory('entry-a', nodeBId)).rejects.toThrow('跨劇情分區');
+        expect((await MemoryNodeDB.getById(nodeBId))?.content).toBe('B 的記憶');
     });
 
-    it('删除当前剧情节点时同步清理本地向量与关联边，不影响其它剧情', async () => {
-        await MemoryNodeDB.save(makeNode(nodeAId, 'entry-a', 'A 的记忆'));
-        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的记忆'));
+    it('刪除當前劇情節點時同步清理本地向量與關聯邊，不影響其它劇情', async () => {
+        await MemoryNodeDB.save(makeNode(nodeAId, 'entry-a', 'A 的記憶'));
+        await MemoryNodeDB.save(makeNode(nodeBId, 'entry-b', 'B 的記憶'));
         await MemoryVectorDB.save({ memoryId: nodeAId, charId: storyTheaterThreadId('entry-a'), vector: [0.1, 0.2], dimensions: 2, model: 'test' });
         await MemoryVectorDB.save({ memoryId: nodeBId, charId: storyTheaterThreadId('entry-b'), vector: [0.3, 0.4], dimensions: 2, model: 'test' });
         await MemoryLinkDB.save({ id: linkId, sourceId: nodeAId, targetId: nodeBId, type: 'temporal', strength: 0.5 });

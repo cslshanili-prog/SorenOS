@@ -35,13 +35,13 @@ interface VRMAvatarCanvasProps {
   /** Companion desktop must not inherit the video-call random pose generator. */
   ambientAutonomyDisabled?: boolean;
   framing?: AvatarStageFraming;
-  /** 用户锚定的脸部特写构图；close/push-in 时镜头直接落到这里。 */
+  /** 用戶錨定的臉部特寫構圖；close/push-in 時鏡頭直接落到這裡。 */
   faceFraming?: AvatarStageFraming;
   performance?: AvatarPerformanceDirection;
   onLoadingChange?: (loading: boolean) => void;
   onReady?: () => void;
   onError?: (message: string) => void;
-  /** 模型加载后回传自定义表情名（预设之外的），供 LLM 以 model_action 调用。 */
+  /** 模型加載後回傳自定義表情名（預設之外的），供 LLM 以 model_action 調用。 */
   onExpressionsDiscovered?: (names: string[]) => void;
   touchRequest?: AvatarTouchRequest | null;
   touchImpulseNonce?: number;
@@ -57,10 +57,10 @@ type MotionSnapshot = {
   faceFraming?: AvatarStageFraming;
 };
 
-// 返回 null = 中性脸，什么表情都不挂。calm/neutral 一定要走这里：很多模型把
-// Relaxed 预设绑成吐舌/眯眼卖萌脸，旧实现默认情绪 calm→Relaxed 且每帧恒定
-// 施加权重，角色就全程吐着舌头站在那里（用户原话）。只有角色明确表达
-// relaxed 情绪时才短暂使用 Relaxed。
+// 返回 null = 中性臉，什麼表情都不掛。calm/neutral 一定要走這裡：很多模型把
+// Relaxed 預設綁成吐舌/眯眼賣萌臉，舊實現默認情緒 calm→Relaxed 且每幀恆定
+// 施加權重，角色就全程吐著舌頭站在那裡（用戶原話）。只有角色明確表達
+// relaxed 情緒時才短暫使用 Relaxed。
 const emotionExpression = (emotion: string): string | null => {
   switch (emotion.toLowerCase()) {
     case 'happy': return VRMExpressionPresetName.Happy;
@@ -268,12 +268,12 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
     let elapsedTime = 0;
     const debugFrameDatasets = isDevDebugAvailable();
     let lastPoseDataset = '';
-    // 表情包络：说话时保持、说完后停留片刻再指数衰减回中性脸，
-    // 而不是永远挂着上一条回复的表情。
+    // 表情包絡：說話時保持、說完後停留片刻再指數衰減回中性臉，
+    // 而不是永遠掛著上一條回覆的表情。
     let lastPerformanceDirection: AvatarPerformanceDirection | null = null;
     let performanceChangedAt = 0;
     const expressionWeights = new Map<string, number>();
-    // 模型自带的自定义表情（预设之外），LLM 通过 model_action 按名字调用。
+    // 模型自帶的自定義表情（預設之外），LLM 通過 model_action 按名字調用。
     let customExpressionNames: string[] = [];
     const animate = () => {
       if (disposed) return;
@@ -340,7 +340,7 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
         } : autonomyFrame;
         const breath = frame.breath * 2 - 1;
         const blend = 1 - Math.exp(-delta * 7.5);
-        // 姿态低频、变了才写；逐帧变化的眨眼调试值只在 dev 面板可用时写 DOM。
+        // 姿態低頻、變了才寫；逐幀變化的眨眼調試值只在 dev 面板可用時寫 DOM。
         if (frame.pose !== lastPoseDataset) {
           lastPoseDataset = frame.pose;
           host.dataset.avatarAutonomyPose = frame.pose;
@@ -405,8 +405,8 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
         if (manager) {
           manager.setValue(VRMExpressionPresetName.Blink, frame.blink);
 
-          // 口型：优先用逐帧音频信号（开口度 + 元音倾向）；拿不到实时信号
-          // （未配语音 / CORS 音频接不进 WebAudio）才退回节奏型假口型。
+          // 口型：優先用逐幀音頻信號（開口度 + 元音傾向）；拿不到實時信號
+          // （未配語音 / CORS 音頻接不進 WebAudio）才退回節奏型假口型。
           const hasLiveSignal = !!lip?.active;
           const fallbackSpeech = 0.2 + Math.max(0, Math.sin(t * 12.2)) * 0.3 + Math.max(0, Math.sin(t * 7.7)) * 0.14;
           const mouth = speaking ? Math.min(0.9, hasLiveSignal ? lip.level : fallbackSpeech) : 0;
@@ -432,8 +432,8 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
             manager.setValue(name, next < 0.004 ? 0 : next);
           });
 
-          // 微表情叠加层（face=wink,grin…）：独立于情绪预设，可任意组合。
-          // 说话期间保持，说完停留片刻后衰减，与情绪包络同节奏。
+          // 微表情疊加層（face=wink,grin…）：獨立於情緒預設，可任意組合。
+          // 說話期間保持，說完停留片刻後衰減，與情緒包絡同節奏。
           const faceSet = new Set(currentPerformance.faces || []);
           const faceHold = Math.min(1, 0.55 + intensity * 0.45) * (speaking ? 1 : Math.exp(-Math.max(0, sincePerformance - 2.8) / 2.6));
           const faceWeight = (key: string, active: boolean): number => {
@@ -457,7 +457,7 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
           if (poutWeight) manager.setValue(VRMExpressionPresetName.Ou, poutWeight * 0.68);
           const eyelidClose = Math.max(eyesClosedWeight * 0.96, smileEyesWeight * 0.5);
           if (eyelidClose > frame.blink) manager.setValue(VRMExpressionPresetName.Blink, eyelidClose);
-          // 眉眼系借情绪预设的部分权重表达；与情绪包络取 max，不互相压低。
+          // 眉眼系借情緒預設的部分權重表達；與情緒包絡取 max，不互相壓低。
           const boostPreset = (name: string, weight: number) => {
             if (weight > (expressionWeights.get(name) ?? 0)) manager.setValue(name, weight);
           };
@@ -465,14 +465,14 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
           if (browSadWeight) boostPreset(VRMExpressionPresetName.Sad, browSadWeight * 0.36);
           if (browAngryWeight) boostPreset(VRMExpressionPresetName.Angry, browAngryWeight * 0.32);
           if (smileEyesWeight) boostPreset(VRMExpressionPresetName.Happy, smileEyesWeight * 0.24);
-          // 脸红没有标准预设；模型带自定义 Blush/blush 表情时生效，没有就静默跳过。
+          // 臉紅沒有標準預設；模型帶自定義 Blush/blush 表情時生效，沒有就靜默跳過。
           if (blushWeight) {
             manager.setValue('Blush', blushWeight);
             manager.setValue('blush', blushWeight);
           }
 
-          // 模型自定义表情（星星眼/黑脸/蚊香眼…）：LLM 用 model_action 按名字点播，
-          // 与 faces 同一套"说话保持→说完衰减"包络；指令切换时旧表情平滑淡出。
+          // 模型自定義表情（星星眼/黑臉/蚊香眼…）：LLM 用 model_action 按名字點播，
+          // 與 faces 同一套"說話保持→說完衰減"包絡；指令切換時舊表情平滑淡出。
           if (customExpressionNames.length) {
             const activeAction = currentPerformance.modelAction;
             for (const name of customExpressionNames) {
@@ -488,8 +488,8 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
         }
 
         const closeShot = currentPerformance.camera === 'close' || currentPerformance.camera === 'push-in';
-        // 用户锚定过脸部时，特写镜头直接落到锚点构图——不再按"身高的 84%"
-        // 这类启发式猜脸的位置（Q版/戴帽/比例特殊的模型会飘出画面）。
+        // 用戶錨定過臉部時，特寫鏡頭直接落到錨點構圖——不再按"身高的 84%"
+        // 這類啟發式猜臉的位置（Q版/戴帽/比例特殊的模型會飄出畫面）。
         const anchored = closeShot && anchorFraming ? anchorFraming : null;
         // Companion touches must not replace the user's desktop composition
         // with a one-size-fits-all full-body close-up. A saved face anchor is
@@ -506,8 +506,8 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
             : currentPerformance.camera === 'wide' || currentPerformance.camera === 'pull-out'
               ? 0.88
               : 0.7;
-        // 各机位的取景高度差收窄（0.84/0.82/0.80）：小屏舞台上镜头切换
-        // 引起的上下跳动要尽量轻，拉近拉远主要靠距离（Z）表达。
+        // 各機位的取景高度差收窄（0.84/0.82/0.80）：小屏舞台上鏡頭切換
+        // 引起的上下跳動要儘量輕，拉近拉遠主要靠距離（Z）表達。
         const cameraYFactor = anchored
           ? 0.82
           : suppressUnanchoredCloseShot
@@ -517,8 +517,8 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
             : currentPerformance.camera === 'wide' || currentPerformance.camera === 'pull-out'
               ? 0.8
               : 0.82;
-        // 用户构图叠加在导演机位之上：scale 缩短相机距离，offset 换算成
-        // 目标距离处的世界坐标平移，保证拖拽时模型 1:1 跟手。
+        // 用戶構圖疊加在導演機位之上：scale 縮短相機距離，offset 換算成
+        // 目標距離處的世界座標平移，保證拖拽時模型 1:1 跟手。
         const activeFraming = anchored || userFraming;
         const zoom = Math.max(0.4, Math.min(4.5, activeFraming.scale || 1));
         const cameraDistance = (avatarHeight * cameraZFactor) / zoom;
@@ -546,7 +546,7 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
         const vrm = gltf.userData.vrm as VRM | undefined;
         if (!vrm) {
           onLoadingChange?.(false);
-          onError?.('这个文件是 glTF，但没有找到 VRM 人形数据。');
+          onError?.('這個文件是 glTF，但沒有找到 VRM 人形數據。');
           return;
         }
 
@@ -576,13 +576,13 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
         camera.far = height * 12;
         camera.updateProjectionMatrix();
 
-        // 枚举预设之外的自定义表情（星星眼/黑脸这类），回传给上层喂进
-        // LLM 的 model_action 白名单。
+        // 枚舉預設之外的自定義表情（星星眼/黑臉這類），回傳給上層喂進
+        // LLM 的 model_action 白名單。
         try {
           const customMap = (vrm.expressionManager as any)?.customExpressionMap;
           customExpressionNames = customMap ? Object.keys(customMap) : [];
           onExpressionsDiscoveredRef.current?.(customExpressionNames);
-        } catch { /* 表情枚举失败不影响渲染 */ }
+        } catch { /* 表情枚舉失敗不影響渲染 */ }
 
         onLoadingChange?.(false);
         onReadyRef.current?.();
@@ -591,7 +591,7 @@ const VRMAvatarCanvas: React.FC<VRMAvatarCanvasProps> = ({
       error => {
         if (disposed) return;
         onLoadingChange?.(false);
-        const message = error instanceof Error ? error.message : '模型解析失败';
+        const message = error instanceof Error ? error.message : '模型解析失敗';
         onError?.(message);
       },
     );

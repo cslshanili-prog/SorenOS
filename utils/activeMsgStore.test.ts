@@ -2,21 +2,21 @@ import { describe, it, expect, vi } from 'vitest';
 import { ActiveMsgStore } from './activeMsgStore';
 import type { Amsg2ExpiredNoticeRecord } from '../types';
 
-// fake-indexeddb 已通过 test-setup.ts 自动注入. 跨测试 deleteDatabase 会被单例连接
-// block — 改用每个 case 唯一 key 隔离.
+// fake-indexeddb 已通過 test-setup.ts 自動注入. 跨測試 deleteDatabase 會被單例連接
+// block — 改用每個 case 唯一 key 隔離.
 
 let _sid = 0;
 
-describe('ActiveMsgStore 连接', () => {
-  it('连接复用: 单例建立后后续操作不再新开 indexedDB 连接', async () => {
-    // 先跑一次确保单例已建立, 这里幂等。
+describe('ActiveMsgStore 連接', () => {
+  it('連接複用: 單例建立後後續操作不再新開 indexedDB 連接', async () => {
+    // 先跑一次確保單例已建立, 這裡冪等。
     await ActiveMsgStore.getGlobalConfig();
     const openSpy = vi.spyOn(indexedDB, 'open');
     try {
       await ActiveMsgStore.getGlobalConfig();
       await ActiveMsgStore.listInboxMessages();
       await ActiveMsgStore.consumeInboxMessages();
-      // 3 个操作都复用单例, 0 次 open。
+      // 3 個操作都複用單例, 0 次 open。
       expect(openSpy).not.toHaveBeenCalled();
     } finally {
       openSpy.mockRestore();
@@ -24,21 +24,21 @@ describe('ActiveMsgStore 连接', () => {
   });
 });
 
-describe('ActiveMsgStore 作废回执台账', () => {
+describe('ActiveMsgStore 作廢回執台帳', () => {
   const uniqueChar = (label: string) => `${label}-${++_sid}-${Date.now()}`;
   const rec = (id: string, charId: string, extra: Partial<Amsg2ExpiredNoticeRecord> = {}): Amsg2ExpiredNoticeRecord => ({
     id, charId, occurrenceMs: Date.now() - 1000, mode: 'auto', recurrenceType: 'none',
     createdAt: Date.now(), ...extra,
   });
 
-  it('upsert 按 id 去重，getExpiredNotices 读回', async () => {
+  it('upsert 按 id 去重，getExpiredNotices 讀回', async () => {
     const charId = uniqueChar('n1');
     await ActiveMsgStore.upsertExpiredNotices(charId, [rec('a', charId)]);
     await ActiveMsgStore.upsertExpiredNotices(charId, [rec('a', charId), rec('b', charId)]);
     expect((await ActiveMsgStore.getExpiredNotices(charId)).map((r) => r.id).sort()).toEqual(['a', 'b']);
   });
 
-  it('markExpiredNoticesNotified 只标指定 id，不覆盖已有 notifiedAt', async () => {
+  it('markExpiredNoticesNotified 只標指定 id，不覆蓋已有 notifiedAt', async () => {
     const charId = uniqueChar('n2');
     await ActiveMsgStore.upsertExpiredNotices(charId, [rec('a', charId), rec('b', charId)]);
     await ActiveMsgStore.markExpiredNoticesNotified(charId, ['a']);
@@ -47,14 +47,14 @@ describe('ActiveMsgStore 作废回执台账', () => {
     expect(list.find((r) => r.id === 'b')?.notifiedAt).toBeUndefined();
   });
 
-  it('48h 前的老记录在 upsert 时被清掉', async () => {
+  it('48h 前的老記錄在 upsert 時被清掉', async () => {
     const charId = uniqueChar('n3');
     await ActiveMsgStore.upsertExpiredNotices(charId, [rec('old', charId, { createdAt: Date.now() - 49 * 3600_000 })]);
     await ActiveMsgStore.upsertExpiredNotices(charId, [rec('new', charId)]);
     expect((await ActiveMsgStore.getExpiredNotices(charId)).map((r) => r.id)).toEqual(['new']);
   });
 
-  it('超上限时先淘汰已告知的，未告知的保留（作废 ≠ 消失）', async () => {
+  it('超上限時先淘汰已告知的，未告知的保留（作廢 ≠ 消失）', async () => {
     const charId = uniqueChar('n4');
     const notified = Array.from({ length: 10 }, (_, i) =>
       rec(`old-${i}`, charId, { notifiedAt: Date.now(), occurrenceMs: Date.now() - i * 1000 }));

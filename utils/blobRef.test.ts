@@ -7,8 +7,8 @@ import {
 } from './blobRef';
 import { DB, openDB } from './db';
 
-// fake-indexeddb 已由 test-setup.ts 注入；本组用例锁住 base64 ⇄ Blob 迁移层的核心不变量：
-// 令牌识别、Blob 存取、data URL 互转无损、深度解析（备份导出前把令牌变回 data:image）。
+// fake-indexeddb 已由 test-setup.ts 注入；本組用例鎖住 base64 ⇄ Blob 遷移層的核心不變量：
+// 令牌識別、Blob 存取、data URL 互轉無損、深度解析（備份導出前把令牌變回 data:image）。
 
 const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -34,7 +34,7 @@ async function clearStore(name: string): Promise<void> {
 }
 
 describe('isBlobRef', () => {
-    it('只认 blobref: 前缀，data:/http/空 都不是', () => {
+    it('只認 blobref: 前綴，data:/http/空 都不是', () => {
         expect(isBlobRef(BLOBREF_PREFIX + 'x')).toBe(true);
         expect(isBlobRef('data:image/png;base64,AAAA')).toBe(false);
         expect(isBlobRef('https://a.com/b.png')).toBe(false);
@@ -44,19 +44,19 @@ describe('isBlobRef', () => {
     });
 });
 
-describe('dataUrl ⇄ Blob 无损互转', () => {
-    it('dataUrlToBlob 保留 mime 与字节', async () => {
+describe('dataUrl ⇄ Blob 無損互轉', () => {
+    it('dataUrlToBlob 保留 mime 與字節', async () => {
         const blob = dataUrlToBlob(TINY_PNG);
         expect(blob.type).toBe('image/png');
         expect(blob.size).toBeGreaterThan(0);
-        // 再转回 data URL 应与原串一致
+        // 再轉回 data URL 應與原串一致
         const back = await blobToDataUrl(blob);
         expect(back).toBe(TINY_PNG);
     });
 });
 
 describe('putImageBlob / getBlobForRef / deleteBlobRef', () => {
-    it('存进去能按令牌取回同样字节，删除后取不到', async () => {
+    it('存進去能按令牌取回同樣字節，刪除後取不到', async () => {
         const blob = dataUrlToBlob(TINY_PNG);
         const ref = await putImageBlob(blob);
         expect(isBlobRef(ref)).toBe(true);
@@ -76,7 +76,7 @@ describe('putImageBlob / getBlobForRef / deleteBlobRef', () => {
 });
 
 describe('deleteBlobRefIfUnreferenced', () => {
-    it('外观预设仍引用时保留，引用移除后才删除', async () => {
+    it('外觀預設仍引用時保留，引用移除後才刪除', async () => {
         const ref = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await DB.saveAsset('appearance_preset_blobref_test', JSON.stringify({ wallpaper: ref }));
 
@@ -88,7 +88,7 @@ describe('deleteBlobRefIfUnreferenced', () => {
         expect(await getBlobForRef(ref)).toBeNull();
     });
 
-    it('localStorage 皮肤备份仍引用时不会删除', async () => {
+    it('localStorage 皮膚備份仍引用時不會刪除', async () => {
         const ref = await putImageBlob(dataUrlToBlob(TINY_PNG));
         localStorage.setItem('acnh_wallpaper_backup_test', ref);
 
@@ -99,18 +99,18 @@ describe('deleteBlobRefIfUnreferenced', () => {
         expect(await deleteBlobRefIfUnreferenced(ref)).toBe(true);
     });
 
-    // 内容去重（utils/blobDedupe.ts）会把同一张图在十几个引用面上收敛成同一个令牌，
-    // 于是「壁纸」和「发过的聊天图 / 相册 / 角色头像」很可能是同一个令牌。
-    // 只查 assets + localStorage 的话，换壁纸就会把还被别处用着的图删掉。
+    // 內容去重（utils/blobDedupe.ts）會把同一張圖在十幾個引用面上收斂成同一個令牌，
+    // 於是「壁紙」和「發過的聊天圖 / 相冊 / 角色頭像」很可能是同一個令牌。
+    // 只查 assets + localStorage 的話，換壁紙就會把還被別處用著的圖刪掉。
     it.each([
-        ['聊天记录', 'messages', { id: 9001, type: 'image', content: '<REF>' }],
-        ['相册', 'gallery', { id: 'g_blobref_test', url: '<REF>' }],
-        ['角色头像', 'characters', { id: 'c_blobref_test', name: '小明', avatar: '<REF>' }],
-        ['角色小屋家具', 'characters', {
+        ['聊天記錄', 'messages', { id: 9001, type: 'image', content: '<REF>' }],
+        ['相冊', 'gallery', { id: 'g_blobref_test', url: '<REF>' }],
+        ['角色頭像', 'characters', { id: 'c_blobref_test', name: '小明', avatar: '<REF>' }],
+        ['角色小屋傢俱', 'characters', {
             id: 'c_blobref_room_test', name: '小明',
             roomConfig: { items: [{ id: 'i1', image: '<REF>' }] },
         }],
-    ])('令牌只被%s引用时不删，那一面清掉后才删', async (_面, storeName, row) => {
+    ])('令牌只被%s引用時不刪，那一面清掉後才刪', async (_面, storeName, row) => {
         const ref = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await seedStore(storeName, [JSON.parse(JSON.stringify(row).replaceAll('<REF>', ref))]);
 
@@ -127,24 +127,24 @@ describe('deleteBlobRefIfUnreferenced', () => {
 });
 
 describe('migrateDataUrlToRef', () => {
-    it('data: 迁移成令牌，且能取回原图', async () => {
+    it('data: 遷移成令牌，且能取回原圖', async () => {
         const ref = await migrateDataUrlToRef(TINY_PNG);
         expect(isBlobRef(ref)).toBe(true);
         const blob = await getBlobForRef(ref);
         expect(await blobToDataUrl(blob!)).toBe(TINY_PNG);
     });
 
-    it('非法 data URL 迁移失败时原样返回，不抛错、不丢值', async () => {
+    it('非法 data URL 遷移失敗時原樣返回，不拋錯、不丟值', async () => {
         const bad = 'not-a-data-url';
         expect(await migrateDataUrlToRef(bad)).toBe(bad);
     });
 });
 
 describe('migrateAppearancePresetBlobRefs', () => {
-    it('导入时立即迁移壁纸、锁屏和自定义图标，并复用相同图片 Blob', async () => {
+    it('導入時立即遷移壁紙、鎖屏和自定義圖標，並複用相同圖片 Blob', async () => {
         const source: any = {
             id: 'preset_import_test',
-            name: '导入测试',
+            name: '導入測試',
             createdAt: 1,
             theme: {
                 hue: 88,
@@ -166,8 +166,8 @@ describe('migrateAppearancePresetBlobRefs', () => {
     });
 });
 
-describe('resolveBlobRefsDeep（备份导出前令牌 → data:image）', () => {
-    it('深度遍历把令牌就地换回 data URL，非令牌不动', async () => {
+describe('resolveBlobRefsDeep（備份導出前令牌 → data:image）', () => {
+    it('深度遍歷把令牌就地換回 data URL，非令牌不動', async () => {
         const refA = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const refB = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const tree: any = {
@@ -179,13 +179,13 @@ describe('resolveBlobRefsDeep（备份导出前令牌 → data:image）', () => 
         await resolveBlobRefsDeep(tree);
         expect(tree.wallImage).toBe(TINY_PNG);
         expect(tree.nested.items[0].image).toBe(TINY_PNG);
-        // 非令牌保持原样
+        // 非令牌保持原樣
         expect(tree.keep).toBe('https://x/y.png');
         expect(tree.gradient).toBe('linear-gradient(#fff,#000)');
         expect(tree.nested.items[1].image).toBe('data:image/png;base64,AAAA');
     });
 
-    it('令牌对应的 Blob 已不存在时置空串（图已丢，避免导出死令牌）', async () => {
+    it('令牌對應的 Blob 已不存在時置空串（圖已丟，避免導出死令牌）', async () => {
         const ref = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await deleteBlobRef(ref);
         const tree: any = { a: ref };

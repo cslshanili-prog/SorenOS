@@ -1,19 +1,19 @@
 import type { Message } from '../../types';
 
 /**
- * 纯计算：记忆宫殿"未同步"缓冲区条数——即真正能被 pipeline 处理的历史消息数。
+ * 純計算：記憶宮殿"未同步"緩衝區條數——即真正能被 pipeline 處理的歷史消息數。
  *
- * 口径必须和 pipeline 的缓冲区定义一致：
- *   - 排除热区（最后 hotZoneSize 条永远留在上下文，不参与处理）
- *   - 排除已处理（id <= hwm）
+ * 口徑必須和 pipeline 的緩衝區定義一致：
+ *   - 排除熱區（最後 hotZoneSize 條永遠留在上下文，不參與處理）
+ *   - 排除已處理（id <= hwm）
  *
- * 切勿退回 "id > hwm" 裸过滤——那会把永远不处理的热区也算进未同步，
- * UI 会显示几百条待处理、用户点了却跑不出新水位，等于骗人。
- * 这个坑已经踩过一次，bufferCount.test.ts 把正确口径钉住了。
+ * 切勿退回 "id > hwm" 裸過濾——那會把永遠不處理的熱區也算進未同步，
+ * UI 會顯示幾百條待處理、用戶點了卻跑不出新水位，等於騙人。
+ * 這個坑已經踩過一次，bufferCount.test.ts 把正確口徑釘住了。
  *
- * @param semanticMessages 已过滤成"语义相关"的消息（可不排序，本函数内部按 id 排序）
- * @param hwm 当前高水位标记（id <= hwm 视为已处理）
- * @param hotZoneSize 角色档位解析出的热区大小；旧角色默认 200
+ * @param semanticMessages 已過濾成"語義相關"的消息（可不排序，本函數內部按 id 排序）
+ * @param hwm 當前高水位標記（id <= hwm 視為已處理）
+ * @param hotZoneSize 角色檔位解析出的熱區大小；舊角色默認 200
  */
 export function countUnprocessedBufferMessages(
     semanticMessages: Message[],
@@ -34,9 +34,9 @@ export function countUnprocessedBufferMessages(
 }
 
 /**
- * 一键存入时按“用户眼里看到的聊天条数”划边界，而不是按语义消息条数划边界。
- * 这样“保留最近 10 条”会精确保留最后 10 条原文；图片、卡片等消息不会让
- * 紫色水位线与橙色原文范围错开。
+ * 一鍵存入時按“用戶眼裡看到的聊天條數”劃邊界，而不是按語義消息條數劃邊界。
+ * 這樣“保留最近 10 條”會精確保留最後 10 條原文；圖片、卡片等消息不會讓
+ * 紫色水位線與橙色原文範圍錯開。
  */
 export function getOneShotTargetHighWaterMark(
     sourceMessages: Message[],
@@ -51,7 +51,7 @@ export function getOneShotTargetHighWaterMark(
     return targetIndex >= 0 ? sortedPrivateMessages[targetIndex].id : 0;
 }
 
-/** 一键存入实际会交给记忆提取管线的语义消息数。 */
+/** 一鍵存入實際會交給記憶提取管線的語義消息數。 */
 export function countOneShotPendingMessages(
     semanticMessages: Message[],
     sourceMessages: Message[],

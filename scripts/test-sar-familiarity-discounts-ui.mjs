@@ -32,8 +32,8 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('.sar-module-original').length === 5);
     await shot('01-discount-shelf');
     await page.locator('.sar-module-card').first().click();
-    await page.getByText('8 折限时优惠', { exact: true }).waitFor();
-    assert((await page.locator('.sar-module-buy').innerText()).includes(`${Math.ceil(offer.price * .8)} 鳞币`));
+    await page.getByText('8 折限時優惠', { exact: true }).waitFor();
+    assert((await page.locator('.sar-module-buy').innerText()).includes(`${Math.ceil(offer.price * .8)} 鱗幣`));
     await shot('02-limited-discount');
     await page.locator('.sar-module-buy').click();
     await page.waitForFunction(id => JSON.parse(localStorage.getItem('vr_fishing_market_v1')).sarCommerce.moduleShop.inventory[id] === 1, offer.id);
@@ -42,9 +42,9 @@ try {
         const m = await import('/utils/vrWorld/fishingMarket.ts');
         await m.mutateFishingMarket(s => ({ ...s, sarFamiliarity: { ...s.sarFamiliarity, discounts: [] } }));
     });
-    await page.getByText('9 折优惠券', { exact: true }).waitFor();
+    await page.getByText('9 折優惠券', { exact: true }).waitFor();
     await page.locator('.sar-module-receipt').waitFor({ state: 'hidden' });
-    assert((await page.locator('.sar-module-buy').innerText()).includes(`${Math.ceil(offer.price * .9)} 鳞币`));
+    assert((await page.locator('.sar-module-buy').innerText()).includes(`${Math.ceil(offer.price * .9)} 鱗幣`));
     await page.setViewportSize({ width: 320, height: 740 });
     await shot('03-coupon-small');
     await page.locator('.sar-module-buy').click();
@@ -57,7 +57,7 @@ try {
         const m = await import('/utils/vrWorld/fishingMarket.ts');
         await m.mutateFishingMarket(s => ({ ...s, sarFamiliarity: { ...s.sarFamiliarity, discounts: [{ id: 'expires', percent: 20, scope: 'all', expiresAt: Date.now() + 1800000 }] } }));
     });
-    await page.getByText('8 折限时优惠', { exact: true }).waitFor();
+    await page.getByText('8 折限時優惠', { exact: true }).waitFor();
     await page.evaluate(() => {
         const state = JSON.parse(localStorage.getItem('vr_fishing_market_v1'));
         state.sarFamiliarity.discounts[0].expiresAt = Date.now() - 1;
@@ -67,7 +67,7 @@ try {
     await page.locator('.sar-module-buy').click();
     await page.getByRole('alert').waitFor();
     assert.deepEqual(await read(), before);
-    assert((await page.locator('.sar-module-buy').innerText()).includes(`${offer.price} 鳞币`));
+    assert((await page.locator('.sar-module-buy').innerText()).includes(`${offer.price} 鱗幣`));
     await shot('04-expired-quote');
     assert.deepEqual(errors, []);
     writeFileSync(`${out}/result.json`, JSON.stringify({ errors, offer, checks: ['390px shelf real and original prices', 'limited discount retains coupon', '320px coupon detail', 'coupon actual consumption', 'expiry refuses hidden price increase'] }, null, 2));

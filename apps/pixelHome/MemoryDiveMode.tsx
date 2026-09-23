@@ -1,13 +1,13 @@
 /**
- * Memory Dive (记忆潜行) — 像素 RPG 探索（剧本版）
+ * Memory Dive (記憶潛行) — 像素 RPG 探索（劇本版）
  *
- * 3DS 风格上下双屏：
- *   上屏：像素房间 + 角色 + 用户跟随小人（家具纯装饰，不交互）
- *   下屏：固定高度的复古对话框 + 打字机 + 选项
+ * 3DS 風格上下雙屏：
+ *   上屏：像素房間 + 角色 + 用戶跟隨小人（傢俱純裝飾，不交互）
+ *   下屏：固定高度的復古對話框 + 打字機 + 選項
  *
- * 流程：一次 LLM 生成整房间的剧本（beats + per-choice reactions），
- *   角色站在房间里说 N 段戏，每段 3 个选项对应 3 种独立反应；
- *   所有 beats 走完进入下一个房间；所有房间走完结算。
+ * 流程：一次 LLM 生成整房間的劇本（beats + per-choice reactions），
+ *   角色站在房間裡說 N 段戲，每段 3 個選項對應 3 種獨立反應；
+ *   所有 beats 走完進入下一個房間；所有房間走完結算。
  */
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
@@ -76,21 +76,21 @@ const MemoryDiveMode: React.FC<Props> = ({
   const [session, setSession] = useState<DiveSession | null>(null);
   const [showResult, setShowResult] = useState<DiveResult | null>(null);
 
-  // ─── 对话显示 ─────────────────────────────────────────
+  // ─── 對話顯示 ─────────────────────────────────────────
   const [dialogueQueue, setDialogueQueue] = useState<DiveDialogue[]>([]);
   const [currentDialogue, setCurrentDialogue] = useState<DiveDialogue | null>(null);
   const [pendingChoices, setPendingChoices] = useState<DiveChoice[] | null>(null);
 
-  // ─── 角色视觉 ─────────────────────────────────────────
+  // ─── 角色視覺 ─────────────────────────────────────────
   const [charWalking, setCharWalking] = useState(false);
   const [charFlip, setCharFlip] = useState(false);
   const [walkStep, setWalkStep] = useState<0 | 1>(0);
   const [transitionState, setTransitionState] = useState<'idle' | 'out' | 'in'>('idle');
   const [isLoadingScript, setIsLoadingScript] = useState(false);
-  // API 失败时展示的错误——非空就在下屏面板渲染"重新召回"按钮
+  // API 失敗時展示的錯誤——非空就在下屏面板渲染"重新召回"按鈕
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // ─── Refs（callback 从这里读最新值） ───────────────────
+  // ─── Refs（callback 從這裡讀最新值） ───────────────────
   const sessionRef = useRef<DiveSession | null>(null);
   const scriptRef = useRef<RoomScript | null>(null);
   const beatIdxRef = useRef(0);
@@ -98,13 +98,13 @@ const MemoryDiveMode: React.FC<Props> = ({
   const initializedRef = useRef(false);
   const stepTimerRef = useRef<number | null>(null);
   const moveTimerRef = useRef<number | null>(null);
-  // 上一房间的情绪余温（传给下一房间的 LLM 做衔接）
+  // 上一房間的情緒餘溫（傳給下一房間的 LLM 做銜接）
   const prevMoodHintRef = useRef<string | undefined>(undefined);
   const prevRoomRef = useRef<MemoryRoom | undefined>(undefined);
-  // 上一场景的"最后一句"——新房间第一句必须承接它
+  // 上一場景的"最後一句"——新房間第一句必須承接它
   const prevEndingLineRef = useRef<string | undefined>(undefined);
   const prevEndingSpeakerRef = useRef<'character' | 'narrator' | undefined>(undefined);
-  // 后台预载下一个房间：播到一半时偷偷 generate，切换时能秒进
+  // 後台預載下一個房間：播到一半時偷偷 generate，切換時能秒進
   const preloadedRef = useRef<{
     roomId: MemoryRoom;
     script: RoomScript;
@@ -112,9 +112,9 @@ const MemoryDiveMode: React.FC<Props> = ({
   } | null>(null);
   const preloadingRef = useRef(false);
 
-  // 加载文案：随转场上下文变化
-  const [loadingText, setLoadingText] = useState<string>('薄雾正在聚拢');
-  // 本次房间召回的记忆碎片（给下屏氛围面板展示用，不调 LLM）
+  // 加載文案：隨轉場上下文變化
+  const [loadingText, setLoadingText] = useState<string>('薄霧正在聚攏');
+  // 本次房間召回的記憶碎片（給下屏氛圍面板展示用，不調 LLM）
   const [roomMemoryTexts, setRoomMemoryTexts] = useState<string[]>([]);
 
   // ─── 初始化 ───────────────────────────────────────────
@@ -149,7 +149,7 @@ const MemoryDiveMode: React.FC<Props> = ({
       startedAt: Date.now(),
     });
 
-    // 开场只保留叙事 / 角色台词，不要开场选项（改成自动衔接剧本加载）
+    // 開場只保留敘事 / 角色台詞，不要開場選項（改成自動銜接劇本加載）
     const intro = generateIntroDialogues(charName, 'guided')
       .filter(d => d.speaker !== 'user_choice' || !d.choices);
     playbackStepRef.current = 'intro';
@@ -165,7 +165,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     if (moveTimerRef.current) window.clearTimeout(moveTimerRef.current);
   }, []);
 
-  // 走路脚步循环
+  // 走路腳步循環
   useEffect(() => {
     if (!charWalking) {
       if (stepTimerRef.current) window.clearInterval(stepTimerRef.current);
@@ -181,7 +181,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     };
   }, [charWalking]);
 
-  // ─── 对话队列 ─────────────────────────────────────────
+  // ─── 對話隊列 ─────────────────────────────────────────
   const enqueueDialogues = useCallback((items: DiveDialogue[]) => {
     const narratives: DiveDialogue[] = [];
     let choicesMsg: DiveDialogue | null = null;
@@ -201,7 +201,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     }
   }, []);
 
-  // current 空 + 队列非空 → 自动弹下一条
+  // current 空 + 隊列非空 → 自動彈下一條
   useEffect(() => {
     if (currentDialogue) return;
     if (dialogueQueue.length === 0) return;
@@ -214,13 +214,13 @@ const MemoryDiveMode: React.FC<Props> = ({
     setCurrentDialogue(null);
   }, []);
 
-  // ─── 当前房间布局 ─────────────────────────────────────
+  // ─── 當前房間佈局 ─────────────────────────────────────
   const currentRoomLayout = useMemo(() =>
     session ? homeState.rooms.find(r => r.roomId === session.currentRoom) : undefined,
     [homeState, session?.currentRoom],
   );
 
-  // ─── 角色移动（beat 间微漂，增加生命感） ───────────────
+  // ─── 角色移動（beat 間微漂，增加生命感） ───────────────
   const shiftChar = useCallback((to: { x: number; y: number }) => {
     setSession(prev => {
       if (!prev) return prev;
@@ -241,24 +241,24 @@ const MemoryDiveMode: React.FC<Props> = ({
   }, []);
 
   // ═════════════════════════════════════════════════════
-  // 剧本播放——drainHandlerRef 在 queue 清空后触发下一步
+  // 劇本播放——drainHandlerRef 在 queue 清空後觸發下一步
   // ═════════════════════════════════════════════════════
   const drainHandlerRef = useRef<() => void>(() => {});
-  // 前向声明，让各 callback 之间可以互相调用
+  // 前向聲明，讓各 callback 之間可以互相調用
   const playBeatRef = useRef<(idx: number) => void>(() => {});
   const playCloseRef = useRef<() => void>(() => {});
   const enterNewRoomRef = useRef<(roomId: MemoryRoom) => Promise<void>>(async () => {});
   const handleExitRef = useRef<() => void>(() => {});
-  // 在当前剧本加载完成后，延迟触发对下一个房间的预载
+  // 在當前劇本加載完成後，延遲觸發對下一個房間的預載
   const schedulePreloadRef = useRef<() => void>(() => {});
 
-  // 装入当前房间的剧本：优先用预载结果；否则调 LLM。
-  // 失败时不用兜底占位，直接 setLoadError，让下屏渲染"重新召回"按钮。
+  // 裝入當前房間的劇本：優先用預載結果；否則調 LLM。
+  // 失敗時不用兜底佔位，直接 setLoadError，讓下屏渲染"重新召回"按鈕。
   const loadScriptForCurrentRoom = useCallback(async () => {
     const s = sessionRef.current;
     if (!s) return;
 
-    // 1) 预载命中？直接秒进，省掉 loading
+    // 1) 預載命中？直接秒進，省掉 loading
     if (preloadedRef.current?.roomId === s.currentRoom) {
       const { script, memoryTexts } = preloadedRef.current;
       preloadedRef.current = null;
@@ -279,12 +279,12 @@ const MemoryDiveMode: React.FC<Props> = ({
       } else {
         playBeatRef.current(0);
       }
-      // 还没走完的房间，继续预载下一个
+      // 還沒走完的房間，繼續預載下一個
       schedulePreloadRef.current();
       return;
     }
 
-    // 2) 正常调用
+    // 2) 正常調用
     setIsLoadingScript(true);
     setLoadError(null);
     try {
@@ -322,13 +322,13 @@ const MemoryDiveMode: React.FC<Props> = ({
     } catch (err: any) {
       console.error('[MemoryDive] planRoomVisit failed:', err);
       setIsLoadingScript(false);
-      setLoadError(err?.message || '生成失败');
+      setLoadError(err?.message || '生成失敗');
     }
   }, [charId, charName, apiConfig, fullCharContext, remoteVectorConfig, enqueueDialogues]);
 
-  // 后台静默预载"下一个房间"的剧本。播到 beat 1 左右触发——
-  // 用户读对话时偷偷 generate，真正切换房间时能秒进。
-  // 失败就算了（主流程上真正切换时会走正常调用 / 错误 UI）。
+  // 後台靜默預載"下一個房間"的劇本。播到 beat 1 左右觸發——
+  // 用戶讀對話時偷偷 generate，真正切換房間時能秒進。
+  // 失敗就算了（主流程上真正切換時會走正常調用 / 錯誤 UI）。
   const preloadNextRoom = useCallback(async () => {
     const s = sessionRef.current;
     const curScript = scriptRef.current;
@@ -339,8 +339,8 @@ const MemoryDiveMode: React.FC<Props> = ({
     if (!next || next === s.currentRoom) return;
     if (preloadedRef.current?.roomId === next) return;
 
-    // 用当前房间的 closingNarrator / finalMoodHint 作为"上个场景余温"的近似值。
-    // 用户真正选择造成的最后一句差异是捕捉不到的（还没选呢），但 90% 的衔接已覆盖。
+    // 用當前房間的 closingNarrator / finalMoodHint 作為"上個場景餘溫"的近似值。
+    // 用戶真正選擇造成的最後一句差異是捕捉不到的（還沒選呢），但 90% 的銜接已覆蓋。
     const prevMoodGuess = curScript.finalMoodHint || curScript.closingNarrator;
     const prevEndingGuess = curScript.closingNarrator || curScript.finalMoodHint;
 
@@ -360,31 +360,31 @@ const MemoryDiveMode: React.FC<Props> = ({
         },
         apiConfig, fullCharContext, remoteVectorConfig,
       );
-      // 真正切过去时 currentRoom 才是 next，本地已改过的话要放弃
+      // 真正切過去時 currentRoom 才是 next，本地已改過的話要放棄
       if (sessionRef.current?.currentRoom !== s.currentRoom) return;
       preloadedRef.current = { roomId: next, script: res.script, memoryTexts: res.memoryTexts };
       console.log('[MemoryDive] preloaded', next);
     } catch (e) {
-      console.warn('[MemoryDive] preload 失败（静默）:', e);
+      console.warn('[MemoryDive] preload 失敗（靜默）:', e);
     } finally {
       preloadingRef.current = false;
     }
   }, [charId, charName, apiConfig, fullCharContext, remoteVectorConfig]);
 
-  // 在当前房间播到一会之后触发预载（不要刚 load 完就调，让 beat 0 先展开）
+  // 在當前房間播到一會之後觸發預載（不要剛 load 完就調，讓 beat 0 先展開）
   useEffect(() => {
     schedulePreloadRef.current = () => {
       window.setTimeout(() => preloadNextRoom(), 1800);
     };
   }, [preloadNextRoom]);
 
-  // 手动重试：用户按"重新召回"按钮
+  // 手動重試：用戶按"重新召回"按鈕
   const handleRetryLoad = useCallback(() => {
     setLoadError(null);
     loadScriptForCurrentRoom();
   }, [loadScriptForCurrentRoom]);
 
-  // 播放一段戏：narrator + charLine + 设置 3 个选项
+  // 播放一段戲：narrator + charLine + 設置 3 個選項
   const playBeat = useCallback((idx: number) => {
     const script = scriptRef.current;
     const s = sessionRef.current;
@@ -396,7 +396,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     }
     beatIdxRef.current = idx;
 
-    // 角色微漂位置，让画面活一点（第 0 段不漂，刚进场）
+    // 角色微漂位置，讓畫面活一點（第 0 段不漂，剛進場）
     if (idx > 0) {
       shiftChar(jitterPos(roomCharPos(s.currentRoom)));
     }
@@ -417,7 +417,7 @@ const MemoryDiveMode: React.FC<Props> = ({
       text: beat.charLine,
       timestamp: now + 1,
     });
-    // 选项作为 user_choice dialogue，enqueueDialogues 会把它拆出来变成 pendingChoices
+    // 選項作為 user_choice dialogue，enqueueDialogues 會把它拆出來變成 pendingChoices
     items.push({
       id: `beat_${idx}_choices_${now}`,
       speaker: 'user_choice',
@@ -431,11 +431,11 @@ const MemoryDiveMode: React.FC<Props> = ({
       timestamp: now + 2,
     });
     enqueueDialogues(items);
-    // 选项会阻塞 advance effect，这里不设 drainHandler
+    // 選項會阻塞 advance effect，這裡不設 drainHandler
     drainHandlerRef.current = () => {};
   }, [enqueueDialogues, shiftChar]);
 
-  // 播放房间收尾
+  // 播放房間收尾
   const playClose = useCallback(() => {
     const script = scriptRef.current;
     const s = sessionRef.current;
@@ -459,18 +459,18 @@ const MemoryDiveMode: React.FC<Props> = ({
         timestamp: now + 1,
       });
     }
-    // 没有收尾文案时给一个默认兜底，至少让流程继续
+    // 沒有收尾文案時給一個默認兜底，至少讓流程繼續
     if (items.length === 0) {
       items.push({
         id: `close_fallback_${now}`,
         speaker: 'narrator',
-        text: '薄雾在身后合拢，你们准备离开这里。',
+        text: '薄霧在身後合攏，你們準備離開這裡。',
         timestamp: now,
       });
     }
     enqueueDialogues(items);
 
-    // 收尾播完 → 去下一个房间或结算
+    // 收尾播完 → 去下一個房間或結算
     drainHandlerRef.current = () => {
       const sess = sessionRef.current;
       if (!sess) return;
@@ -483,13 +483,13 @@ const MemoryDiveMode: React.FC<Props> = ({
     };
   }, [enqueueDialogues]);
 
-  // 选项被选中：应用 buff，播放对应 reaction，reaction 播完推进 beat
+  // 選項被選中：應用 buff，播放對應 reaction，reaction 播完推進 beat
   const handleChoice = useCallback((choice: DiveChoice) => {
     const s = sessionRef.current;
     const script = scriptRef.current;
     if (!s || !script) return;
 
-    // 找到对应的 scriptChoice（带 reaction 文本）
+    // 找到對應的 scriptChoice（帶 reaction 文本）
     const beat = script.beats[beatIdxRef.current];
     const scriptChoice: DiveScriptChoice | undefined =
       beat?.choices.find(c => c.id === choice.id);
@@ -509,7 +509,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     } : prev);
     setPendingChoices(null);
 
-    // 入队反应
+    // 入隊反應
     const reactionItems: DiveDialogue[] = [];
     if (scriptChoice?.reaction) {
       reactionItems.push({
@@ -531,7 +531,7 @@ const MemoryDiveMode: React.FC<Props> = ({
       enqueueDialogues(reactionItems);
     }
 
-    // reaction 播完 → 进下一段或收尾
+    // reaction 播完 → 進下一段或收尾
     drainHandlerRef.current = () => {
       const nextIdx = beatIdxRef.current + 1;
       const s2 = scriptRef.current;
@@ -544,14 +544,14 @@ const MemoryDiveMode: React.FC<Props> = ({
     };
   }, [enqueueDialogues]);
 
-  // 进入新房间：淡出 → 换 room → 淡入 → 装载剧本
+  // 進入新房間：淡出 → 換 room → 淡入 → 裝載劇本
   const enterNewRoom = useCallback(async (roomId: MemoryRoom) => {
-    // 把当前房间的情绪余温/房间名/最后一句存入 ref，供下一轮 planRoomVisit 衔接用
+    // 把當前房間的情緒餘溫/房間名/最後一句存入 ref，供下一輪 planRoomVisit 銜接用
     const cur = sessionRef.current;
     const curScript = scriptRef.current;
     if (cur) prevRoomRef.current = cur.currentRoom;
     prevMoodHintRef.current = curScript?.finalMoodHint || curScript?.closingNarrator;
-    // 找到对话历史中最后一句 character/narrator 台词，作为严格衔接锚点
+    // 找到對話歷史中最後一句 character/narrator 台詞，作為嚴格銜接錨點
     if (cur) {
       const lastLine = [...cur.dialogues].reverse()
         .find(d => d.speaker === 'character' || d.speaker === 'narrator');
@@ -559,7 +559,7 @@ const MemoryDiveMode: React.FC<Props> = ({
       prevEndingSpeakerRef.current = lastLine?.speaker as 'character' | 'narrator' | undefined;
     }
 
-    // 设置转场加载文案
+    // 設置轉場加載文案
     setLoadingText(`走向${roomDisplayName(roomId, userName)}`);
 
     setTransitionState('out');
@@ -585,24 +585,24 @@ const MemoryDiveMode: React.FC<Props> = ({
     await new Promise(res => window.setTimeout(res, TRANSITION_HALF_MS));
     setTransitionState('idle');
 
-    // 转场完毕后装载剧本
+    // 轉場完畢後裝載劇本
     await loadScriptForCurrentRoom();
   }, [loadScriptForCurrentRoom]);
 
-  // 结算
+  // 結算
   const handleExit = useCallback(() => {
     const s = sessionRef.current;
     if (!s) { onExit(null); return; }
-    // 置为 outro，阻止 advance effect 继续触发
+    // 置為 outro，阻止 advance effect 繼續觸發
     setSession(prev => prev ? { ...prev, phase: 'outro' } : prev);
     const outro = generateOutroDialogues(charName, s.buffValues);
     enqueueDialogues(outro);
     drainHandlerRef.current = () => {};
     const result = computeDiveResult({ ...s, phase: 'outro' });
 
-    // 后台向角色发射情绪（若启用了 emotionConfig）——角色不记得发生了什么，
-    // 但潜意识里会留一层情绪底色，与 chat app 的 buff 系统共用同一套机制
-    // 情绪 API 未单独配置时回退到主 apiConfig（与记忆宫殿副 API 完全独立）
+    // 後台向角色發射情緒（若啟用了 emotionConfig）——角色不記得發生了什麼，
+    // 但潛意識裡會留一層情緒底色，與 chat app 的 buff 系統共用同一套機制
+    // 情緒 API 未單獨配置時回退到主 apiConfig（與記憶宮殿副 API 完全獨立）
     if (charProfile.emotionConfig?.enabled) {
       const emotionApi = (charProfile.emotionConfig.api?.baseUrl)
         ? charProfile.emotionConfig.api
@@ -623,7 +623,7 @@ const MemoryDiveMode: React.FC<Props> = ({
 
   const handleFinalExit = useCallback(() => onExit(showResult), [showResult, onExit]);
 
-  // 用户主动点「结束」
+  // 用戶主動點「結束」
   const handleUserExit = useCallback(() => {
     setDialogueQueue([]);
     setCurrentDialogue(null);
@@ -632,31 +632,31 @@ const MemoryDiveMode: React.FC<Props> = ({
     handleExit();
   }, [handleExit]);
 
-  // 把最新函数绑定到 ref，供其它 callback 互相调用
+  // 把最新函數綁定到 ref，供其它 callback 互相調用
   useEffect(() => { playBeatRef.current = playBeat; }, [playBeat]);
   useEffect(() => { playCloseRef.current = playClose; }, [playClose]);
   useEffect(() => { enterNewRoomRef.current = enterNewRoom; }, [enterNewRoom]);
   useEffect(() => { handleExitRef.current = handleExit; }, [handleExit]);
 
-  // loadScriptForCurrentRoom 也用 ref 暴露，让 init effect 能设置初始
-  // drainHandler 又不会被后续重渲反复覆盖
+  // loadScriptForCurrentRoom 也用 ref 暴露，讓 init effect 能設置初始
+  // drainHandler 又不會被後續重渲反覆覆蓋
   const loadScriptRef = useRef<() => Promise<void>>(() => Promise.resolve());
   useEffect(() => { loadScriptRef.current = loadScriptForCurrentRoom; }, [loadScriptForCurrentRoom]);
 
-  // 首次：开场旁白播完后装载 living_room 剧本（只设一次，不做转场）
+  // 首次：開場旁白播完後裝載 living_room 劇本（只設一次，不做轉場）
   useEffect(() => {
     drainHandlerRef.current = () => { loadScriptRef.current(); };
-    // 之后的 drainHandler 由各 playback 函数自行覆盖
+    // 之後的 drainHandler 由各 playback 函數自行覆蓋
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 自动前进：队列空 + 无选项 + 不在读取/行走/转场/错误 → 触发 drainHandler
+  // 自動前進：隊列空 + 無選項 + 不在讀取/行走/轉場/錯誤 → 觸發 drainHandler
   useEffect(() => {
     if (!session || showResult) return;
     if (currentDialogue || dialogueQueue.length > 0) return;
     if (pendingChoices && pendingChoices.length > 0) return;
     if (isLoadingScript) return;
-    if (loadError) return; // 失败态下用户按钮重试，不自动重触发
+    if (loadError) return; // 失敗態下用戶按鈕重試，不自動重觸發
     if (charWalking) return;
     if (transitionState !== 'idle') return;
     if (session.phase === 'outro') return;
@@ -677,13 +677,13 @@ const MemoryDiveMode: React.FC<Props> = ({
       <div className="h-full w-full flex flex-col items-center justify-center bg-slate-950 p-6">
         <div className="max-w-sm w-full space-y-6 text-center">
           <div className="text-3xl">✨</div>
-          <h2 className="text-lg font-bold text-slate-100">记忆潜行结束</h2>
+          <h2 className="text-lg font-bold text-slate-100">記憶潛行結束</h2>
           <div className="text-xs text-slate-400">
-            探索了 {showResult.visitedRooms.length} 个房间 · {showResult.totalDialogues} 段对话
+            探索了 {showResult.visitedRooms.length} 個房間 · {showResult.totalDialogues} 段對話
           </div>
           {showResult.buffs.length > 0 && (
             <div className="space-y-2">
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest">获得的印记</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest">獲得的印記</div>
               {showResult.buffs.map(buff => (
                 <div key={buff.type}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
@@ -697,12 +697,12 @@ const MemoryDiveMode: React.FC<Props> = ({
             </div>
           )}
           <p className="text-[10px] text-slate-500 italic">
-            {charName}眨了眨眼，看起来什么都不记得了。<br/>
-            但你知道，你们之间多了一些微妙的东西。
+            {charName}眨了眨眼，看起來什麼都不記得了。<br/>
+            但你知道，你們之間多了一些微妙的東西。
           </p>
           <button onClick={handleFinalExit}
             className="px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition-all active:scale-95">
-            回到像素家园
+            回到像素家園
           </button>
         </div>
       </div>
@@ -718,7 +718,7 @@ const MemoryDiveMode: React.FC<Props> = ({
   }
 
   const meta = ROOM_META[session.currentRoom];
-  // 选项是否应当显示——严格门控，避免在对话切换间隙闪烁
+  // 選項是否應當顯示——嚴格門控，避免在對話切換間隙閃爍
   const choicesVisible = !!pendingChoices &&
     !currentDialogue &&
     dialogueQueue.length === 0 &&
@@ -726,7 +726,7 @@ const MemoryDiveMode: React.FC<Props> = ({
     !charWalking &&
     transitionState === 'idle';
 
-  // 对话框是否应当显示——选项 / 加载 / 转场时隐藏；有当前对话或队列非空时显示
+  // 對話框是否應當顯示——選項 / 加載 / 轉場時隱藏；有當前對話或隊列非空時顯示
   const isLoadingDialogueState = session.isLoading || isLoadingScript;
   const dialogueVisible = !choicesVisible && !isLoadingDialogueState &&
     (!!currentDialogue || dialogueQueue.length > 0);
@@ -736,7 +736,7 @@ const MemoryDiveMode: React.FC<Props> = ({
       className="h-full w-full flex flex-col bg-slate-950 overflow-hidden select-none"
       style={{ paddingBottom: 'var(--safe-bottom, 0px)', boxSizing: 'border-box' }}
     >
-      {/* 顶栏（薄） */}
+      {/* 頂欄（薄） */}
       <div
         className="shrink-0 flex items-center justify-between px-3 pb-1.5 bg-black/70 backdrop-blur-sm border-b border-slate-800 z-20"
         style={{ paddingTop: 'max(2.75rem, var(--safe-top, 0px))' }}
@@ -744,7 +744,7 @@ const MemoryDiveMode: React.FC<Props> = ({
         <div className="flex items-center gap-1">
           <button onClick={handleUserExit}
             className="p-1.5 -ml-1 rounded-sm hover:bg-slate-700/60 active:scale-90 transition-all"
-            aria-label="结束潜行"
+            aria-label="結束潛行"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-300">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -765,7 +765,7 @@ const MemoryDiveMode: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 上屏：像素房间 + 对话框浮层 + 选项浮层 */}
+      {/* 上屏：像素房間 + 對話框浮層 + 選項浮層 */}
       <div className="flex-1 min-h-0 relative border-b-2 border-slate-800">
         <MemoryDiveRoom
           roomId={session.currentRoom}
@@ -783,7 +783,7 @@ const MemoryDiveMode: React.FC<Props> = ({
           transitionState={transitionState}
         />
 
-        {/* 对话框：悬浮在房间下沿 */}
+        {/* 對話框：懸浮在房間下沿 */}
         {dialogueVisible && (
           <div className="absolute left-2 right-2 bottom-2 z-20 pointer-events-auto">
             <MemoryDiveDialogue
@@ -798,7 +798,7 @@ const MemoryDiveMode: React.FC<Props> = ({
           </div>
         )}
 
-        {/* 选项浮层：覆盖房间下半部，优先级高于对话框 */}
+        {/* 選項浮層：覆蓋房間下半部，優先級高於對話框 */}
         <MemoryDiveChoices
           choices={pendingChoices}
           visible={choicesVisible}
@@ -807,7 +807,7 @@ const MemoryDiveMode: React.FC<Props> = ({
         />
       </div>
 
-      {/* 下屏：梦核氛围面板——房间名 + 本次召回的记忆碎片 / 加载引导 / 错误重试 */}
+      {/* 下屏：夢核氛圍面板——房間名 + 本次召回的記憶碎片 / 加載引導 / 錯誤重試 */}
       <MemoryDiveAmbient
         roomName={roomDisplayName(session.currentRoom, userName)}
         memoryFragments={roomMemoryTexts}

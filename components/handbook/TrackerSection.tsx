@@ -1,14 +1,14 @@
 /**
- * 单个 Tracker 的 Section 视图
+ * 單個 Tracker 的 Section 視圖
  *
- * = 月历 + 点格子开 entry sheet,把数据源 / 单元格渲染交给 caller 控制
+ * = 月曆 + 點格子開 entry sheet,把數據源 / 單元格渲染交給 caller 控制
  *
- * 特别处理 cellRenderField 字段:
- *   - rating  → 显示对应 emoji
- *   - options → 显示对应 emoji
+ * 特別處理 cellRenderField 字段:
+ *   - rating  → 顯示對應 emoji
+ *   - options → 顯示對應 emoji
  *   - boolean → ✓ 或留空
- *   - number  → 显示数字
- *   - 否则    → 显示一个 tracker.color 圆点
+ *   - number  → 顯示數字
+ *   - 否則    → 顯示一個 tracker.color 圓點
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -45,7 +45,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     })();
 
-    // 单元格内容:根据 cellRenderField 渲染一个紧凑标记
+    // 單元格內容:根據 cellRenderField 渲染一個緊湊標記
     const renderCell = (date: string): React.ReactNode => {
         const entry = entryByDate[date];
         if (!entry) return null;
@@ -71,7 +71,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
         if (field.kind === 'number') {
             return <span style={{ ...CUTE_STACK, fontSize: 10, color: tracker.color, fontWeight: 700 }}>{v}</span>;
         }
-        // text / photo: 一个色点表示有记录
+        // text / photo: 一個色點表示有記錄
         return <span style={{ color: tracker.color, fontSize: 18, lineHeight: 1 }}>•</span>;
     };
 
@@ -85,7 +85,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
         await DB.saveTrackerEntry(entry);
         await refresh();
         setOpenDate(null);
-        onAddToast?.(existing ? '更新好啦 ♡' : '记下啦 ♡', 'success');
+        onAddToast?.(existing ? '更新好啦 ♡' : '記下啦 ♡', 'success');
     };
 
     const handleDelete = async () => {
@@ -95,7 +95,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
         await DB.deleteTrackerEntry(existing.id);
         await refresh();
         setOpenDate(null);
-        onAddToast?.('已撕掉这天 ♡', 'info');
+        onAddToast?.('已撕掉這天 ♡', 'info');
     };
 
     return (
@@ -105,7 +105,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
                 background: `${PAPER_TONES.paperWarm} radial-gradient(circle at 20% 10%, ${tracker.color}25 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(185,211,224,0.15) 0%, transparent 40%)`,
             }}
         >
-            {/* Section 标题区 */}
+            {/* Section 標題區 */}
             <div className="mx-4 mt-3 mb-4 relative">
                 <div
                     className="rounded-2xl px-5 py-5 relative overflow-hidden"
@@ -114,7 +114,7 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
                         boxShadow: '0 3px 10px -2px rgba(122,90,114,0.18), 0 0 0 1.5px rgba(220,199,213,0.5)',
                     }}
                 >
-                    {/* 散贴纸 */}
+                    {/* 散貼紙 */}
                     <ScatteredStickers seed={`tracker-${tracker.id}`} count={3} zone="corners" />
 
                     <div className="relative z-10 flex items-center gap-3">
@@ -148,13 +148,13 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
                 </div>
             </div>
 
-            {/* 月历 */}
+            {/* 月曆 */}
             {loading ? (
                 <div
                     className="text-center py-10 text-sm"
                     style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                 >
-                    翻开中…
+                    翻開中…
                 </div>
             ) : (
                 <div
@@ -169,12 +169,12 @@ const TrackerSection: React.FC<Props> = ({ tracker, onAddToast }) => {
                         renderCell={renderCell}
                         onCellTap={(d) => setOpenDate(d)}
                         accentColor={tracker.color}
-                        title="点格子打卡 · 留白也可以 ♡"
+                        title="點格子打卡 · 留白也可以 ♡"
                     />
                 </div>
             )}
 
-            {/* 输入 sheet */}
+            {/* 輸入 sheet */}
             {openDate && (
                 <TrackerEntrySheet
                     visible={!!openDate}

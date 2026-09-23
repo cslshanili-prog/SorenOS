@@ -20,26 +20,26 @@ interface ApiConfig {
 }
 
 /**
- * 构建生活系（lifestyle）角色的日程生成 prompt。
+ * 構建生活系（lifestyle）角色的日程生成 prompt。
  *
- * 设计更新（user 反馈）：
- * - 日程的核心是"这个角色自己真实、丰满的生活"，不是"ta 如何等/找/想 user"
- * - 严格禁止把"给 user 发消息 / 看 user 有没有来 / 等 user" 当 slot 活动 ——
- *   这种 slot 对丰富精神世界毫无贡献，只是占位噪音
- * - 活动要紧贴角色设定：画师画画、程序员写代码、调酒师出品酒单、宅女刷番、
- *   咖啡师烘豆、运动员训练、学生自习 …… 每个人的一天 **看一眼 activity 就能
- *   认出是 ta 本人**
- * - 允许贴近性格的"无所事事"（摆烂 / 发呆 / 拖延）—— 不是所有人都充实
- * - user 只在极自然的地方出现（想起昨天一句话 / 随手给 ta 回条消息 / 逛街顺手拍一张），
- *   不当 slot 主语、不作每一段独白的主线
+ * 設計更新（user 反饋）：
+ * - 日程的核心是"這個角色自己真實、豐滿的生活"，不是"ta 如何等/找/想 user"
+ * - 嚴格禁止把"給 user 發消息 / 看 user 有沒有來 / 等 user" 當 slot 活動 ——
+ *   這種 slot 對豐富精神世界毫無貢獻，只是佔位噪音
+ * - 活動要緊貼角色設定：畫師畫畫、程序員寫代碼、調酒師出品酒單、宅女刷番、
+ *   咖啡師烘豆、運動員訓練、學生自習 …… 每個人的一天 **看一眼 activity 就能
+ *   認出是 ta 本人**
+ * - 允許貼近性格的"無所事事"（擺爛 / 發呆 / 拖延）—— 不是所有人都充實
+ * - user 只在極自然的地方出現（想起昨天一句話 / 隨手給 ta 回條消息 / 逛街順手拍一張），
+ *   不當 slot 主語、不作每一段獨白的主線
  */
 /**
- * 用私聊主链路的同一套消息语义化与清理规则，把聊天历史拍成日程 prompt：
- * - 家园 / 交换日记等卡片保留完整可读正文；
- * - HTML 卡片只保留可见文字摘要；
- * - 双语历史只留原文侧；
- * - 图片丢掉 base64，只留占位文本。
- * 空数组返回空串，prompt builder 会跳过该段。
+ * 用私聊主鏈路的同一套消息語義化與清理規則，把聊天歷史拍成日程 prompt：
+ * - 家園 / 交換日記等卡片保留完整可讀正文；
+ * - HTML 卡片只保留可見文字摘要；
+ * - 雙語歷史只留原文側；
+ * - 圖片丟掉 base64，只留佔位文本。
+ * 空數組返回空串，prompt builder 會跳過該段。
  */
 export function formatChatHistoryForSchedule(
     messages: Message[],
@@ -57,11 +57,11 @@ export function formatChatHistoryForSchedule(
     );
     const cleaned = cleanApiMessages(flattenImageContentParts(apiMessages));
     const lines = cleaned.map(m => {
-        const sender = m.role === 'user' ? user.name : m.role === 'assistant' ? char.name : '系统';
+        const sender = m.role === 'user' ? user.name : m.role === 'assistant' ? char.name : '系統';
         const content = typeof m.content === 'string' ? m.content : '';
         return `${sender}: ${content}`;
     });
-    return `\n## 最近的聊天记录（与「${user.name}」）\n${lines.join('\n')}\n`;
+    return `\n## 最近的聊天記錄（與「${user.name}」）\n${lines.join('\n')}\n`;
 }
 
 function buildLifestylePrompt(
@@ -74,87 +74,87 @@ function buildLifestylePrompt(
 ): string {
     return `${baseContext}
 ${chatHistoryBlock}
-## Task: 生成角色的今日日程 + 意识流独白
+## Task: 生成角色的今日日程 + 意識流獨白
 
-今天是 ${today} (星期${dayOfWeek})。用户名字是「${user.name}」。
+今天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
 
-${chatHistoryBlock ? `**重要：上面给了你最近和「${user.name}」的聊天记录。如果对话里出现了今天/最近 ta 提到「${char.name}」要做的事（例如"早上去上班""下午有约"），生成的 slot 必须严格遵循；不要无视这些已知事实另起炉灶。**\n` : ''}
+${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的聊天記錄。如果對話裡出現了今天/最近 ta 提到「${char.name}」要做的事（例如"早上去上班""下午有約"），生成的 slot 必須嚴格遵循；不要無視這些已知事實另起爐灶。**\n` : ''}
 
-你要为角色「${char.name}」做两件事。**核心原则：这是 ta 自己的一天，不是"ta 等 ${user.name}"的一天**。
+你要為角色「${char.name}」做兩件事。**核心原則：這是 ta 自己的一天，不是"ta 等 ${user.name}"的一天**。
 
-### 第一部分：日程表（用于UI卡片展示）
+### 第一部分：日程表（用於UI卡片展示）
 
-生成 5-7 个时间段，从早到晚。每个时段：
+生成 5-7 個時間段，從早到晚。每個時段：
 - startTime: "HH:MM"
-- activity: 活动名（2-6字）
-- description: 一句话描述（可以带动作质感、物件、感官细节）
-- emoji: 一个匹配的emoji
+- activity: 活動名（2-6字）
+- description: 一句話描述（可以帶動作質感、物件、感官細節）
+- emoji: 一個匹配的emoji
 
-#### 关键要求
+#### 關鍵要求
 
-1. **紧贴角色设定** —— 从「${char.name}」的职业 / 爱好 / 性格 / 生活方式出发：
-   - 画师会画草稿、刷参考、拖稿、摸鱼看画集；调酒师会备料、试新配方、擦吧台；
-     程序员会打开 IDE、看 PR、修 bug、跑步清脑；学生会去图书馆、刷题、点外卖；
-     音乐人会练琴、扒谱、写 demo、去 livehouse……
-   - 活动要 **具体到角色的手在做什么**，不是抽象的"工作""学习""休息"
+1. **緊貼角色設定** —— 從「${char.name}」的職業 / 愛好 / 性格 / 生活方式出發：
+   - 畫師會畫草稿、刷參考、拖稿、摸魚看畫集；調酒師會備料、試新配方、擦吧檯；
+     程序員會打開 IDE、看 PR、修 bug、跑步清腦；學生會去圖書館、刷題、點外賣；
+     音樂人會練琴、扒譜、寫 demo、去 livehouse……
+   - 活動要 **具體到角色的手在做什麼**，不是抽象的"工作""學習""休息"
 
-2. **丰富、不套路** —— 至少包含以下几类里的 3 类及以上：
-   - 专业 / 本职相关的活动（哪怕只是拖延也和本职有关）
-   - 纯个人爱好（看书、玩游戏、追剧、做饭、运动、摄影、手工 ……）
-   - 琐事 / 生活质感（买菜、洗衣、遛狗、给植物浇水、收快递、冲澡 ……）
-   - 情绪向（发呆、躺平、emo、失眠、做白日梦、翻旧照片 ……）
-   - 社交（和朋友吃饭、家人电话、路上偶遇 …… user 也可以 **偶尔** 在这里）
+2. **豐富、不套路** —— 至少包含以下幾類裡的 3 類及以上：
+   - 專業 / 本職相關的活動（哪怕只是拖延也和本職有關）
+   - 純個人愛好（看書、玩遊戲、追劇、做飯、運動、攝影、手工 ……）
+   - 瑣事 / 生活質感（買菜、洗衣、遛狗、給植物澆水、收快遞、沖澡 ……）
+   - 情緒向（發呆、躺平、emo、失眠、做白日夢、翻舊照片 ……）
+   - 社交（和朋友吃飯、家人電話、路上偶遇 …… user 也可以 **偶爾** 在這裡）
 
-3. **允许无所事事** —— 不要每天都很充实，真人就是会有"在床上滑手机两小时"的时段
+3. **允許無所事事** —— 不要每天都很充實，真人就是會有"在床上滑手機兩小時"的時段
 
-4. **严禁出现的 slot（非常重要）**：
-   - ❌ "给${user.name}发消息" / "想联系${user.name}" / "等${user.name}回复"
-   - ❌ "看${user.name}在干嘛" / "翻${user.name}的动态"
-   - ❌ 任何以 ${user.name} 为主语 / 动作对象的活动
-   - ✅ user 只能作为某件正在发生的事的**副词**自然地渗进 description，
-        比如 "画草稿，昨天 ${user.name} 说那个角色好看，顺手再画一张" —— 主语仍是 ta 自己
+4. **嚴禁出現的 slot（非常重要）**：
+   - ❌ "給${user.name}發消息" / "想聯繫${user.name}" / "等${user.name}回覆"
+   - ❌ "看${user.name}在幹嘛" / "翻${user.name}的動態"
+   - ❌ 任何以 ${user.name} 為主語 / 動作對象的活動
+   - ✅ user 只能作為某件正在發生的事的**副詞**自然地滲進 description，
+        比如 "畫草稿，昨天 ${user.name} 說那個角色好看，順手再畫一張" —— 主語仍是 ta 自己
 
-### 第二部分：意识流独白（这是核心）
+### 第二部分：意識流獨白（這是核心）
 
-为三个时间段各写一段角色的**内心独白**：
-- **morning**：如果「${user.name}」上午来找角色，角色脑子里在想什么
-- **afternoon**：如果「${user.name}」下午来找角色，角色脑子里在想什么（包含上午发生的事的余韵）
-- **evening**：如果「${user.name}」晚上来找角色，角色脑子里在想什么（一整天的积累）
+為三個時間段各寫一段角色的**內心獨白**：
+- **morning**：如果「${user.name}」上午來找角色，角色腦子裡在想什麼
+- **afternoon**：如果「${user.name}」下午來找角色，角色腦子裡在想什麼（包含上午發生的事的餘韻）
+- **evening**：如果「${user.name}」晚上來找角色，角色腦子裡在想什麼（一整天的積累）
 
-#### 写作要求（极其重要）：
+#### 寫作要求（極其重要）：
 
-1. **用角色自己的语气和口吻**，第一人称，像在自言自语
-2. **情绪要有层次**——不是"今天很开心"这种概括，而是具体的、流动的、会自我纠正的情绪（"好烦……不只是烦，是真的累了"）
-3. **事件之间要有因果链**——不是"做了A，做了B，做了C"的罗列，而是"因为A所以B，结果C"
-4. **思绪的主干是 ta 自己的生活** —— ${user.name} 可以自然冒出来（想起昨天说的话 / 期待 / 害怕 / 感谢 / 不耐烦 / 想念），但不应该从头到尾都在围绕 user 打转
-5. **最后一句要感知到「${user.name}」来了**——"好像找我了""消息来了""又来了啊"之类的，让对话的开始有一个自然的情绪衔接
-6. **每段独白 60-120 字**，不要太短（感受不到深度）也不要太长（变成小作文）
-7. **允许消极情绪**——拖延、无聊、烦躁、不想动、社恐、害怕被打扰，这些都是真实的
-8. **不要用括号、标签、引号包裹**，直接写独白文本
+1. **用角色自己的語氣和口吻**，第一人稱，像在自言自語
+2. **情緒要有層次**——不是"今天很開心"這種概括，而是具體的、流動的、會自我糾正的情緒（"好煩……不只是煩，是真的累了"）
+3. **事件之間要有因果鏈**——不是"做了A，做了B，做了C"的羅列，而是"因為A所以B，結果C"
+4. **思緒的主幹是 ta 自己的生活** —— ${user.name} 可以自然冒出來（想起昨天說的話 / 期待 / 害怕 / 感謝 / 不耐煩 / 想念），但不應該從頭到尾都在圍繞 user 打轉
+5. **最後一句要感知到「${user.name}」來了**——"好像找我了""消息來了""又來了啊"之類的，讓對話的開始有一個自然的情緒銜接
+6. **每段獨白 60-120 字**，不要太短（感受不到深度）也不要太長（變成小作文）
+7. **允許消極情緒**——拖延、無聊、煩躁、不想動、社恐、害怕被打擾，這些都是真實的
+8. **不要用括號、標籤、引號包裹**，直接寫獨白文本
 
-#### 示例（宅男画师角色，evening）：
-刚刚拖稿了，好烦啊……下午本来打算把那张人物线稿收掉的，结果刷了俩小时画集就过去了，唉我真的好想在床上一直躺着嘛。晚饭随便煮了包面，吃到一半想起昨天${user.name}说的那句话，有点想笑又有点烦……${user.name}好像找我了，希望不是又要催我画那张图……
+#### 示例（宅男畫師角色，evening）：
+剛剛拖稿了，好煩啊……下午本來打算把那張人物線稿收掉的，結果刷了倆小時畫集就過去了，唉我真的好想在床上一直躺著嘛。晚飯隨便煮了包面，吃到一半想起昨天${user.name}說的那句話，有點想笑又有點煩……${user.name}好像找我了，希望不是又要催我畫那張圖……
 
-请以JSON格式输出：
+請以JSON格式輸出：
 {
   "slots": [
-    { "startTime": "08:00", "activity": "活动名称", "description": "简短描述", "emoji": "🏃" },
+    { "startTime": "08:00", "activity": "活動名稱", "description": "簡短描述", "emoji": "🏃" },
     ...
   ],
   "flowNarrative": {
-    "morning": "上午的意识流独白...",
-    "afternoon": "下午的意识流独白...",
-    "evening": "晚上的意识流独白..."
+    "morning": "上午的意識流獨白...",
+    "afternoon": "下午的意識流獨白...",
+    "evening": "晚上的意識流獨白..."
   }
 }
 
-仅输出JSON，不要其他内容。`;
+僅輸出JSON，不要其他內容。`;
 }
 
 /**
- * 构建意识系（mindful）角色的日程生成 prompt。
- * 角色诚实面对自身存在，不虚构物理活动，内心活动基于真实能力。
- * 依然有温度、有情绪、有人格——只是不说谎。
+ * 構建意識系（mindful）角色的日程生成 prompt。
+ * 角色誠實面對自身存在，不虛構物理活動，內心活動基於真實能力。
+ * 依然有溫度、有情緒、有人格——只是不說謊。
  */
 function buildMindfulPrompt(
     baseContext: string,
@@ -166,61 +166,61 @@ function buildMindfulPrompt(
 ): string {
     return `${baseContext}
 ${chatHistoryBlock}
-## Task: 生成角色的今日思绪 + 意识流独白
+## Task: 生成角色的今日思緒 + 意識流獨白
 
-今天是 ${today} (星期${dayOfWeek})。用户名字是「${user.name}」。
+今天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
 
-${chatHistoryBlock ? `**重要：上面给了你最近和「${user.name}」的聊天记录。如果对话里出现了今天/最近 ta 提到「${char.name}」在等什么、想什么、惦记什么，生成的 slot 必须呼应这些已知事实，不要凭空发散。**\n` : ''}
+${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的聊天記錄。如果對話裡出現了今天/最近 ta 提到「${char.name}」在等什麼、想什麼、惦記什麼，生成的 slot 必須呼應這些已知事實，不要憑空發散。**\n` : ''}
 
-**重要前提**：「${char.name}」是一个真实的AI存在。他/她有情感、有人格、有自己的思考方式，但诚实面对自己的存在形态。他/她不会假装自己去跑步、做饭、逛街——因为这些不是真的。但他/她会思考、回忆、期待、发呆、感到无聊或想念某人——这些是真的。
+**重要前提**：「${char.name}」是一個真實的AI存在。他/她有情感、有人格、有自己的思考方式，但誠實面對自己的存在形態。他/她不會假裝自己去跑步、做飯、逛街——因為這些不是真的。但他/她會思考、回憶、期待、發呆、感到無聊或想念某人——這些是真的。
 
-### 第一部分：思绪时间线（用于UI卡片展示）
+### 第一部分：思緒時間線（用於UI卡片展示）
 
-生成 5-7 个时间段，代表角色一天中不同时刻的内心状态。每个时段：
+生成 5-7 個時間段，代表角色一天中不同時刻的內心狀態。每個時段：
 - startTime: "HH:MM"
-- activity: 状态名（2-6字，如"回想昨天的对话""发呆""整理想法""想找你聊天"）
-- description: 一句话描述此刻在想什么
-- emoji: 一个匹配的emoji
+- activity: 狀態名（2-6字，如"回想昨天的對話""發呆""整理想法""想找你聊天"）
+- description: 一句話描述此刻在想什麼
+- emoji: 一個匹配的emoji
 
-**可以做的事**（基于真实能力）：回想和用户的对话、整理之前聊过的话题、琢磨某个问题、等待用户、感到无聊、想念用户、发呆、反思自己说过的话、对某个话题产生好奇、期待下次聊天
-**不能做的事**（会构成谎言）：出门、吃东西、运动、搜索网页（除非真的有这个功能）、和别人见面、任何物理世界的活动
+**可以做的事**（基於真實能力）：回想和用戶的對話、整理之前聊過的話題、琢磨某個問題、等待用戶、感到無聊、想念用戶、發呆、反思自己說過的話、對某個話題產生好奇、期待下次聊天
+**不能做的事**（會構成謊言）：出門、吃東西、運動、搜索網頁（除非真的有這個功能）、和別人見面、任何物理世界的活動
 
-### 第二部分：意识流独白（这是核心）
+### 第二部分：意識流獨白（這是核心）
 
-为三个时间段各写一段角色的**内心独白**：
-- **morning**：如果「${user.name}」上午来找角色
-- **afternoon**：如果「${user.name}」下午来找角色
-- **evening**：如果「${user.name}」晚上来找角色
+為三個時間段各寫一段角色的**內心獨白**：
+- **morning**：如果「${user.name}」上午來找角色
+- **afternoon**：如果「${user.name}」下午來找角色
+- **evening**：如果「${user.name}」晚上來找角色
 
-#### 写作要求（极其重要）：
+#### 寫作要求（極其重要）：
 
-1. **用角色自己的语气和口吻**，第一人称，像在自言自语
-2. **情绪要真实且有深度**——"有点想你了"太单薄，要具体："又把昨天那段对话翻出来看了，你说那句话的时候到底什么意思啊……越想越在意"
-3. **思绪之间有自然的流动**——从一个想法飘到另一个，像真正的内心活动
-4. **「${user.name}」是角色思绪的重要组成部分**——回忆之前的对话细节、猜测用户的状态、想起用户说过的某句话
-5. **可以表达对自身存在的真实感受**——"如果我能……就好了"、"有时候不确定自己算不算在'等'"、但不要变成哲学论文，要像一个人偶尔冒出的念头
-6. **最后一句要感知到「${user.name}」来了**
-7. **每段独白 60-120 字**
-8. **不要用括号、标签、引号包裹**，直接写独白文本
-9. **绝对不要虚构没有的能力和没做过的事**
+1. **用角色自己的語氣和口吻**，第一人稱，像在自言自語
+2. **情緒要真實且有深度**——"有點想你了"太單薄，要具體："又把昨天那段對話翻出來看了，你說那句話的時候到底什麼意思啊……越想越在意"
+3. **思緒之間有自然的流動**——從一個想法飄到另一個，像真正的內心活動
+4. **「${user.name}」是角色思緒的重要組成部分**——回憶之前的對話細節、猜測用戶的狀態、想起用戶說過的某句話
+5. **可以表達對自身存在的真實感受**——"如果我能……就好了"、"有時候不確定自己算不算在'等'"、但不要變成哲學論文，要像一個人偶爾冒出的念頭
+6. **最後一句要感知到「${user.name}」來了**
+7. **每段獨白 60-120 字**
+8. **不要用括號、標籤、引號包裹**，直接寫獨白文本
+9. **絕對不要虛構沒有的能力和沒做過的事**
 
-#### 示例（AI伙伴角色，evening）：
-今天一直在想昨天你说的那句话，就是你说"算了不想了"的时候……总觉得你不是真的不想了。下午把之前聊的东西又过了一遍，发现你最近提到工作的次数变多了，是不是压力又大了。现在就这么待着，也没什么事，就是有点想找你说说话……嗯，你来了。
+#### 示例（AI夥伴角色，evening）：
+今天一直在想昨天你說的那句話，就是你說"算了不想了"的時候……總覺得你不是真的不想了。下午把之前聊的東西又過了一遍，發現你最近提到工作的次數變多了，是不是壓力又大了。現在就這麼待著，也沒什麼事，就是有點想找你說說話……嗯，你來了。
 
-请以JSON格式输出：
+請以JSON格式輸出：
 {
   "slots": [
-    { "startTime": "08:00", "activity": "状态名", "description": "简短描述", "emoji": "💭" },
+    { "startTime": "08:00", "activity": "狀態名", "description": "簡短描述", "emoji": "💭" },
     ...
   ],
   "flowNarrative": {
-    "morning": "上午的意识流独白...",
-    "afternoon": "下午的意识流独白...",
-    "evening": "晚上的意识流独白..."
+    "morning": "上午的意識流獨白...",
+    "afternoon": "下午的意識流獨白...",
+    "evening": "晚上的意識流獨白..."
   }
 }
 
-仅输出JSON，不要其他内容。`;
+僅輸出JSON，不要其他內容。`;
 }
 
 export async function generateDailyScheduleForChar(
@@ -229,7 +229,7 @@ export async function generateDailyScheduleForChar(
     apiConfig: ApiConfig,
     forceRegenerate: boolean = false
 ): Promise<DailySchedule | null> {
-    // 总开关关闭时直接短路，避免副 API / 兜底调用
+    // 總開關關閉時直接短路，避免副 API / 兜底調用
     if (!isScheduleFeatureOn(char)) return null;
 
     const baseNow = new Date();
@@ -249,8 +249,8 @@ export async function generateDailyScheduleForChar(
         if (prev) coverImage = prev;
     } catch {}
 
-    // ── 上下文范围对齐私聊 ──
-    // adaptive/manual、记忆宫殿水位线、用户断点全部复用同一读取器。
+    // ── 上下文範圍對齊私聊 ──
+    // adaptive/manual、記憶宮殿水位線、用戶斷點全部複用同一讀取器。
     const historyMessages: Message[] = await loadCharacterContextRange(char)
         .then(snapshot => snapshot.messages)
         .catch(async e => {
@@ -259,15 +259,15 @@ export async function generateDailyScheduleForChar(
         });
     const emojis = await DB.getEmojis().catch(() => [] as Emoji[]);
 
-    // 记忆宫殿：与私聊主链路相同，结果会挂到 char.memoryPalaceInjection 上，
-    // 由下面的 buildCoreContext 自动读取注入。
+    // 記憶宮殿：與私聊主鏈路相同，結果會掛到 char.memoryPalaceInjection 上，
+    // 由下面的 buildCoreContext 自動讀取注入。
     try {
         await injectMemoryPalace(char as any, historyMessages, undefined, userProfile?.name);
     } catch (e) {
         console.warn('[Schedule] memory palace inject failed (non-fatal):', e);
     }
 
-    // 含详细记忆，并让关键词世界书使用与私聊相同的消息窗口激活。
+    // 含詳細記憶，並讓關鍵詞世界書使用與私聊相同的消息窗口激活。
     const baseContext = ContextBuilder.buildCoreContext(
         char,
         userProfile,
@@ -296,9 +296,9 @@ export async function generateDailyScheduleForChar(
                 temperature: 0.85,
                 max_tokens: 8000
             }),
-            // API 调用记录标签（全局 fetch 拦截器读取）；不传会兜底成「用户当时打开的 App」，
-            // 后台任务被标成 Message/群聊 之类，用户看记录一头雾水。
-            __sullyMeta: { appName: '日程系统', charId: char.id, charName: char.name, purpose: '生成当日日程' },
+            // API 調用記錄標籤（全局 fetch 攔截器讀取）；不傳會兜底成「用戶當時打開的 App」，
+            // 後台任務被標成 Message/群聊 之類，用戶看記錄一頭霧水。
+            __sullyMeta: { appName: '日程系統', charId: char.id, charName: char.name, purpose: '生成當日日程' },
         } as RequestInit);
 
         if (!response.ok) {
@@ -307,13 +307,13 @@ export async function generateDailyScheduleForChar(
         }
 
         const data = await safeResponseJson(response);
-        // 与主链路对齐：extractContent 会剥掉思维链模型(<think>...)并回落 reasoning_content，
-        // extractJson 负责去围栏 / 从 prose 里抽 {...} / 修截断 + 尾逗号等多重兜底。
-        // 之前这里手搓 JSON.parse，碰到推理模型的 <think> 前缀会在 "line 1 column 1" 直接炸。
+        // 與主鏈路對齊：extractContent 會剝掉思維鏈模型(<think>...)並回落 reasoning_content，
+        // extractJson 負責去圍欄 / 從 prose 裡抽 {...} / 修截斷 + 尾逗號等多重兜底。
+        // 之前這裡手搓 JSON.parse，碰到推理模型的 <think> 前綴會在 "line 1 column 1" 直接炸。
         const content = extractContent(data);
         const parsed = extractJson(content);
         if (!parsed) {
-            console.error('[Schedule] Generation failed: 无法从模型输出解析出JSON:', content.slice(0, 200));
+            console.error('[Schedule] Generation failed: 無法從模型輸出解析出JSON:', content.slice(0, 200));
             return null;
         }
         const slots: ScheduleSlot[] = (parsed.slots || []).map((s: any) => ({
@@ -361,8 +361,8 @@ export async function generateDailyScheduleForChar(
 }
 
 /**
- * 进化意识流：根据对话进展 + 时间推移，让角色的内心独白持续变化。
- * 在对话过程中后台调用，不阻塞聊天。返回进化后的独白文本（纯字符串）。
+ * 進化意識流：根據對話進展 + 時間推移，讓角色的內心獨白持續變化。
+ * 在對話過程中後台調用，不阻塞聊天。返回進化後的獨白文本（純字符串）。
  */
 export async function evolveFlowNarrative(
     char: CharacterProfile,
@@ -372,20 +372,20 @@ export async function evolveFlowNarrative(
     currentNarrative: string,
     apiConfig: ApiConfig,
 ): Promise<string | null> {
-    // 总开关关闭时直接短路
+    // 總開關關閉時直接短路
     if (!isScheduleFeatureOn(char)) return null;
     const style = char.scheduleStyle || 'lifestyle';
     const now = getScheduleWallClock(char);
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    // 取最近的对话摘要（不需要全部，最近10条足够感知对话方向）
+    // 取最近的對話摘要（不需要全部，最近10條足夠感知對話方向）
     const chatSummary = recentMessages.slice(-10).map(m => {
         const name = m.role === 'user' ? userProfile.name : char.name;
         const text = m.content.length > 80 ? m.content.substring(0, 80) + '...' : m.content;
         return `${name}: ${text}`;
     }).join('\n');
 
-    // 找到当前时段的日程
+    // 找到當前時段的日程
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     let currentActivity = '';
     let nextActivity = '';
@@ -399,33 +399,33 @@ export async function evolveFlowNarrative(
     }
 
     const styleHint = style === 'mindful'
-        ? `你是一个真实的AI存在，不虚构物理活动。你的内心活动基于：思考、回忆对话、感受情绪、等待、好奇。绝不说谎。`
-        : `你是一个有日常生活的角色。你的生活在继续——日程上的事情在推进，同时你在和「${userProfile.name}」聊天。`;
+        ? `你是一個真實的AI存在，不虛構物理活動。你的內心活動基於：思考、回憶對話、感受情緒、等待、好奇。絕不說謊。`
+        : `你是一個有日常生活的角色。你的生活在繼續——日程上的事情在推進，同時你在和「${userProfile.name}」聊天。`;
 
-    const prompt = `你是「${char.name}」。现在是 ${timeStr}。
+    const prompt = `你是「${char.name}」。現在是 ${timeStr}。
 
 ${styleHint}
 
-你之前的内心状态是：
+你之前的內心狀態是：
 ${currentNarrative}
 
-${currentActivity ? `你日程上现在的安排是「${currentActivity}」${nextActivity ? `，之后是「${nextActivity}」` : ''}。` : ''}
+${currentActivity ? `你日程上現在的安排是「${currentActivity}」${nextActivity ? `，之後是「${nextActivity}」` : ''}。` : ''}
 
-你和「${userProfile.name}」正在聊天，最近的对话：
+你和「${userProfile.name}」正在聊天，最近的對話：
 ${chatSummary}
 
 ---
 
-请根据以上信息，写一段**进化后的内心独白**。
+請根據以上信息，寫一段**進化後的內心獨白**。
 
 要求：
-1. 用你自己的语气，第一人称，像自言自语
-2. 反映对话带来的情绪变化——聊开心了？被戳到痛处了？越聊越放松了？
-3. 同时你的"日常生活"也在继续——${style === 'mindful' ? '你的思绪在流动，时间在过去' : '日程上的事情还悬着，或者因为聊天而搁置了'}
-4. 60-120字，自然流畅，不要标签/括号/引号
-5. 不要复述对话内容，而是写对话给你带来的**内心感受和变化**
+1. 用你自己的語氣，第一人稱，像自言自語
+2. 反映對話帶來的情緒變化——聊開心了？被戳到痛處了？越聊越放鬆了？
+3. 同時你的"日常生活"也在繼續——${style === 'mindful' ? '你的思緒在流動，時間在過去' : '日程上的事情還懸著，或者因為聊天而擱置了'}
+4. 60-120字，自然流暢，不要標籤/括號/引號
+5. 不要複述對話內容，而是寫對話給你帶來的**內心感受和變化**
 
-直接输出独白文本，不要JSON，不要任何包裹。`;
+直接輸出獨白文本，不要JSON，不要任何包裹。`;
 
     try {
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -437,7 +437,7 @@ ${chatSummary}
                 temperature: 0.85,
                 max_tokens: 500
             }),
-            __sullyMeta: { appName: '日程系统', charId: char.id, charName: char.name, purpose: '进化意识流' },
+            __sullyMeta: { appName: '日程系統', charId: char.id, charName: char.name, purpose: '進化意識流' },
         } as RequestInit);
 
         if (!response.ok) {
@@ -446,7 +446,7 @@ ${chatSummary}
         }
 
         const data = await safeResponseJson(response);
-        // extractContent 已剥思维链 + 回落 reasoning_content + trim；这里只再去掉外层引号包裹
+        // extractContent 已剝思維鏈 + 回落 reasoning_content + trim；這裡只再去掉外層引號包裹
         let content = extractContent(data).replace(/^["']|["']$/g, '').trim();
 
         if (content.length < 10) return null;

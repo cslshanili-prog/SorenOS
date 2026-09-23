@@ -24,12 +24,12 @@ type CompanionLockChromeProps = {
 };
 
 const LOCK_COPY: Record<CompanionFrameStyleId, { eyebrow: string; line: string; unlock: string }> = {
-  tech: { eyebrow: 'ORBITAL COMPANION OS', line: '终端保持在线', unlock: '接入终端' },
-  otome: { eyebrow: 'DAYBOOK · LOCK', line: '晴庭仍为你留着灯', unlock: '轻触进入' },
-  cat: { eyebrow: 'NIGHT COMPANION', line: '正在夜巡', unlock: '跟上脚步' },
-  magazine: { eyebrow: 'PRIVATE HOURS · LOCK ISSUE', line: '今日封面仍在继续', unlock: '翻开本期' },
-  archive: { eyebrow: 'LUMINA CARD ARCHIVE', line: '星愿卡册等待开启', unlock: '解除封印' },
-  idol: { eyebrow: '', line: '', unlock: '轻触解锁' },
+  tech: { eyebrow: 'ORBITAL COMPANION OS', line: '終端保持在線', unlock: '接入終端' },
+  otome: { eyebrow: 'DAYBOOK · LOCK', line: '晴庭仍為你留著燈', unlock: '輕觸進入' },
+  cat: { eyebrow: 'NIGHT COMPANION', line: '正在夜巡', unlock: '跟上腳步' },
+  magazine: { eyebrow: 'PRIVATE HOURS · LOCK ISSUE', line: '今日封面仍在繼續', unlock: '翻開本期' },
+  archive: { eyebrow: 'LUMINA CARD ARCHIVE', line: '星願卡冊等待開啟', unlock: '解除封印' },
+  idol: { eyebrow: '', line: '', unlock: '輕觸解鎖' },
 };
 
 const CompanionLockChrome: React.FC<CompanionLockChromeProps> = ({
@@ -105,8 +105,8 @@ const CompanionLockChrome: React.FC<CompanionLockChromeProps> = ({
           <span className="companion-lock-notice-icon">
             {variant === 'cat' ? <PawPrint weight="fill" /> : variant === 'idol' ? <Broadcast weight="fill" /> : variant === 'archive' ? <Sparkle weight="fill" /> : <ChatCircleDots weight="fill" />}
           </span>
-          <span><strong>{unreadCharacter?.name || 'Message'}</strong><small>{unreadCount > 1 ? `${unreadCount} 条新消息` : '发来了一条新消息'}</small></span>
-          <em>刚刚</em>
+          <span><strong>{unreadCharacter?.name || 'Message'}</strong><small>{unreadCount > 1 ? `${unreadCount} 條新消息` : '發來了一條新消息'}</small></span>
+          <em>剛剛</em>
         </section>
       )}
 

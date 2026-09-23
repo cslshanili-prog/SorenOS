@@ -22,7 +22,7 @@ export function base64UrlToBytes(b64u: string): Uint8Array {
 export async function generateVapidKeyPair(): Promise<VapidKeyPair> {
   if (!crypto?.subtle) {
     throw new Error(
-      'crypto.subtle 不可用。请确认当前页面通过 HTTPS 或 localhost 访问，Safari 无痕模式下也会禁用 WebCrypto。',
+      'crypto.subtle 不可用。請確認當前頁面通過 HTTPS 或 localhost 訪問，Safari 無痕模式下也會禁用 WebCrypto。',
     );
   }
   const kp = await crypto.subtle.generateKey(
@@ -35,7 +35,7 @@ export async function generateVapidKeyPair(): Promise<VapidKeyPair> {
   // Private key: extract d from JWK (already base64url per JWK spec)
   const privJwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
   if (!privJwk.d) {
-    throw new Error('导出私钥失败：JWK 缺少 d 字段');
+    throw new Error('導出私鑰失敗：JWK 缺少 d 字段');
   }
   return {
     publicKey: bytesToBase64Url(pubRaw),

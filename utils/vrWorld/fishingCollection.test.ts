@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as M from './fishingMarket';
-const a={id:'a',name:'艾文',kind:'character' as const},b={id:'b',name:'凯恩',kind:'character' as const};
+const a={id:'a',name:'艾文',kind:'character' as const},b={id:'b',name:'凱恩',kind:'character' as const};
 const w={kind:'clear' as const,label:'晴朗',detail:'',source:'simulated' as const};
 const init=()=>M.ensureActorAccounts(M.createFishingMarketState(7),[a,b]);
 describe('personal collections and fishing ownership',()=>{
@@ -42,5 +42,5 @@ it('legacy gifts preserve evidenced first recipient but never invent the next ow
 });
 it('invalid pending-trip saves fail without replacing the original source',()=>{
     const raw=JSON.stringify({...init(),fishingTrips:[{catch:{id:'broken'},status:'settled'}]});
-    expect(()=>M.readFishingMarketState({getItem:()=>raw})).toThrow('钓鱼记录');
+    expect(()=>M.readFishingMarketState({getItem:()=>raw})).toThrow('釣魚記錄');
 });

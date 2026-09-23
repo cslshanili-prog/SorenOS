@@ -48,20 +48,20 @@ describe('selectQixiWordTurn', () => {
 
 describe('resolveQixiWordArtifacts', () => {
     const artifacts = [
-        { id: 'a1', label: '温柔', kind: 'trait', evidenceIds: [] },
+        { id: 'a1', label: '溫柔', kind: 'trait', evidenceIds: [] },
         { id: 'a2', label: '嘴硬', kind: 'trait', evidenceIds: [] },
-        { id: 'a3', label: '旧怀表', kind: 'object', evidenceIds: [] },
+        { id: 'a3', label: '舊懷錶', kind: 'object', evidenceIds: [] },
     ];
 
     it('accepts ids, labels and inline model-generated words instead of rendering an empty list', () => {
-        const words = resolveQixiWordArtifacts(['a1', '嘴硬', '很有耐心'], ['温柔'], artifacts);
-        expect(words.map(item => item.label)).toEqual(['温柔', '嘴硬', '很有耐心', '旧怀表']);
-        expect(resolveQixiWordSelectionIds(['温柔'], words)).toEqual(['a1']);
+        const words = resolveQixiWordArtifacts(['a1', '嘴硬', '很有耐心'], ['溫柔'], artifacts);
+        expect(words.map(item => item.label)).toEqual(['溫柔', '嘴硬', '很有耐心', '舊懷錶']);
+        expect(resolveQixiWordSelectionIds(['溫柔'], words)).toEqual(['a1']);
     });
 
     it('fills from generated trait artifacts and lowers the target when fewer than three exist', () => {
         const words = resolveQixiWordArtifacts(['missing-a99'], [], artifacts.slice(0, 2));
-        expect(words.map(item => item.label)).toEqual(['温柔', '嘴硬']);
+        expect(words.map(item => item.label)).toEqual(['溫柔', '嘴硬']);
         expect(qixiWordPickTarget(words.length)).toBe(2);
         expect(qixiWordPickTarget(0)).toBe(0);
     });

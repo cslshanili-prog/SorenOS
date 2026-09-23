@@ -1,14 +1,14 @@
 /**
- * 单片绝对定位的小卡 — 温馨日记版
+ * 單片絕對定位的小卡 — 溫馨日記版
  *
- * 设计原则: 像真实手写日记 — 文字直接落在纸上,不是一堆贴纸盖纸。
- *   - 默认 plain_para / bare_writing  (字写在纸上, 作者名前缀 "小满:")
- *   - 极少数 (≤ 15%) 才出现一张轻量小卡 (sticky / tape_card)
- *   - 其余如 callout/polaroid/marker/ticket/sticker/handnote 全部移除 — 它们喧宾夺主
+ * 設計原則: 像真實手寫日記 — 文字直接落在紙上,不是一堆貼紙蓋紙。
+ *   - 默認 plain_para / bare_writing  (字寫在紙上, 作者名前綴 "小滿:")
+ *   - 極少數 (≤ 15%) 才出現一張輕量小卡 (sticky / tape_card)
+ *   - 其餘如 callout/polaroid/marker/ticket/sticker/handnote 全部移除 — 它們喧賓奪主
  *
- * 内容:
+ * 內容:
  *   - markdown-lite (粗/斜/高亮/code/[color:red]())
- *   - role 决定字号 / 留白
+ *   - role 決定字號 / 留白
  */
 
 import React from 'react';
@@ -22,13 +22,13 @@ import JournalRichText from './JournalRichText';
 import CardAnnotations from './JournalAnnotations';
 
 type SkinKind =
-    // ─── 默认 — 字直接写在纸上 ───────────────────────
-    | 'plain_para'      // 衬线/常规字,前缀"小满:" — 大多数都走这个
-    | 'bare_writing'    // 中等手写,彩色钢笔(短句涂鸦)
-    | 'bare_brush'      // 大一号粗手写,带下划线/记号(角落小标题感)
-    // ─── 极少数 — 轻量小卡 (≤ 15%, 只在长内容/有时间戳时出现) ───
-    | 'sticky'          // 浅色 sticky note,边框柔和
-    | 'tape_card';      // 顶部 washi 胶带的便签
+    // ─── 默認 — 字直接寫在紙上 ───────────────────────
+    | 'plain_para'      // 襯線/常規字,前綴"小滿:" — 大多數都走這個
+    | 'bare_writing'    // 中等手寫,彩色鋼筆(短句塗鴉)
+    | 'bare_brush'      // 大一號粗手寫,帶下劃線/記號(角落小標題感)
+    // ─── 極少數 — 輕量小卡 (≤ 15%, 只在長內容/有時間戳時出現) ───
+    | 'sticky'          // 淺色 sticky note,邊框柔和
+    | 'tape_card';      // 頂部 washi 膠帶的便籤
 
 const STICKY_PALETTES = [
     { bg: '#f5eef7', border: '#d6c8e8', accent: '#a98ec4' },
@@ -39,28 +39,28 @@ const STICKY_PALETTES = [
     { bg: '#fff8e8', border: '#f0d27a', accent: '#c9a14a' },
 ];
 
-// 默认: 字直接写在纸上 (plain_para). 只有少数情况走轻量小卡.
+// 默認: 字直接寫在紙上 (plain_para). 只有少數情況走輕量小卡.
 //
-// - 极短句 (< 14 字): 多走 bare_writing / bare_brush (涂鸦感)
+// - 極短句 (< 14 字): 多走 bare_writing / bare_brush (塗鴉感)
 // - 短句 (14~28 字)  : 大概率 plain_para,小概率 bare_writing
-// - 中长 (≥ 28 字)   : 几乎都 plain_para; ~12% 概率走 sticky/tape_card 调味
+// - 中長 (≥ 28 字)   : 幾乎都 plain_para; ~12% 概率走 sticky/tape_card 調味
 function pickSkin(seed: string, role: LayoutRole, isUser: boolean, charCount: number): SkinKind {
     const r = seedFloat(seed, 8888);
 
-    // 极短: 多走涂鸦字 (符合"角落随手写一句"的真实手账感)
+    // 極短: 多走塗鴉字 (符合"角落隨手寫一句"的真實手帳感)
     if (charCount < 14) {
         if (r < 0.45) return 'bare_brush';
         if (r < 0.85) return 'bare_writing';
         return 'plain_para';
     }
 
-    // 短: 多走 plain_para,偶尔涂鸦字
+    // 短: 多走 plain_para,偶爾塗鴉字
     if (charCount < 28) {
         if (r < 0.20) return 'bare_writing';
         return 'plain_para';
     }
 
-    // 中长: 绝大多数 plain_para; 主区/侧区少量小卡调味
+    // 中長: 絕大多數 plain_para; 主區/側區少量小卡調味
     const allowCard = role === 'main' || role === 'side';
     if (allowCard && r < 0.12) {
         return seedFloat(seed, 8889) < 0.5 ? 'sticky' : 'tape_card';
@@ -68,7 +68,7 @@ function pickSkin(seed: string, role: LayoutRole, isUser: boolean, charCount: nu
     return 'plain_para';
 }
 
-// 彩色笔批注大幅降权 — 只在主区偶尔加一笔
+// 彩色筆批註大幅降權 — 只在主區偶爾加一筆
 function shouldAnnotate(seed: string, role: LayoutRole): 'none' | 'light' | 'medium' {
     if (role !== 'main') return 'none';
     const r = seedFloat(seed, 7777);
@@ -81,16 +81,16 @@ interface Props {
     page: HandbookPage;
     char?: CharacterProfile;
     role: LayoutRole;
-    /** 该页 hero — 强制 plain_para + 大字号 + 衬线, 视觉权重最大 */
+    /** 該頁 hero — 強制 plain_para + 大字號 + 襯線, 視覺權重最大 */
     isHero?: boolean;
-    /** 强调预算超额时, JournalCanvas 标记某些片为 true → 渲染时剥离 ** == [color:](),
-     *  保留文字。每页累计 ≤ 2 个 emphasis 通过, 多余的从短的、非 hero 开始降级。 */
+    /** 強調預算超額時, JournalCanvas 標記某些片為 true → 渲染時剝離 ** == [color:](),
+     *  保留文字。每頁累計 ≤ 2 個 emphasis 通過, 多餘的從短的、非 hero 開始降級。 */
     suppressEmphasis?: boolean;
     onTap?: () => void;
 }
 
-// 剥离 markdown-lite 强调标记 (** ** / == == / [color:x](text)), 保留纯文字。
-// hero 不走这条 (hero 的强调永远保留)。
+// 剝離 markdown-lite 強調標記 (** ** / == == / [color:x](text)), 保留純文字。
+// hero 不走這條 (hero 的強調永遠保留)。
 function stripEmphasis(text: string): string {
     return text
         .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -105,8 +105,8 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
     const seedKey = fragment?.id ?? page.id;
     const isUser = page.type !== 'character_life';
 
-    // ─── 字号三级体系 (硬编码, 不让 skin 改) ─────────────
-    // hero: 22px serif + 大手写, 一页只能有一个
+    // ─── 字號三級體系 (硬編碼, 不讓 skin 改) ─────────────
+    // hero: 22px serif + 大手寫, 一頁只能有一個
     // body (main/side): 13.5px serif
     // corner: 12.5px
     // margin: 11.5px (大多走 bare_writing/bare_brush)
@@ -119,7 +119,7 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
         : role === 'corner' ? '20px'
         : '23px';
 
-    // hero 永远走 plain_para, 不参与 skin 抽奖
+    // hero 永遠走 plain_para, 不參與 skin 抽獎
     const skin = isHero ? 'plain_para' : pickSkin(seedKey, role, isUser, text.length);
     const annotateLevel = isHero ? 'none' : shouldAnnotate(seedKey, role);
 
@@ -141,8 +141,8 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
         },
     };
 
-    // ─── 作者标签 — "小满:" / "鹿鹿:" 体例, 手写体, 无圆头像 ───
-    // 时间戳跟在名字后, 极小, 整行像真实日记的署名
+    // ─── 作者標籤 — "小滿:" / "鹿鹿:" 體例, 手寫體, 無圓頭像 ───
+    // 時間戳跟在名字後, 極小, 整行像真實日記的署名
     const Author: React.FC<{ inkColor?: string }> = ({ inkColor }) => {
         const c = inkColor || PAPER_TONES.ink;
         return (
@@ -219,9 +219,9 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
             break;
         }
 
-        // ─── plain_para — 默认形态: 字直接落在纸上, 仅署名前缀 + 一段文字 ───
-        // 不画 background/border, 用衬线体, 像真实日记里的一段话
-        // hero 模式下放大字号到 22px, 字色更深, 跟其它块拉开
+        // ─── plain_para — 默認形態: 字直接落在紙上, 僅署名前綴 + 一段文字 ───
+        // 不畫 background/border, 用襯線體, 像真實日記裡的一段話
+        // hero 模式下放大字號到 22px, 字色更深, 跟其它塊拉開
         case 'plain_para':
             body = (
                 <div className="relative" style={{ padding: isHero ? '4px 6px' : '2px 4px' }}>
@@ -237,8 +237,8 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
             );
             break;
 
-        // ─── Bare 系列 — 不画卡, 直接像手写涂鸦在纸上 ──────────
-        // 关键: 没有 padding/border/background, 字体走手写, 字色随机彩色钢笔感
+        // ─── Bare 系列 — 不畫卡, 直接像手寫塗鴉在紙上 ──────────
+        // 關鍵: 沒有 padding/border/background, 字體走手寫, 字色隨機彩色鋼筆感
         case 'bare_writing': {
             const PEN_COLORS = ['#3d2f3d', '#c94a4a', '#5a7a8e', '#a98ec4', '#88a370', '#d6b85a'];
             const inkColor = PEN_COLORS[Math.floor(seedFloat(seedKey, 4321) * PEN_COLORS.length)];
@@ -257,7 +257,7 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
                     >
                         {text}
                     </span>
-                    {/* 落款 — 极小, 跟在末尾 */}
+                    {/* 落款 — 極小, 跟在末尾 */}
                     <span
                         style={{
                             ...HANDWRITTEN_STACK,
@@ -279,7 +279,7 @@ const JournalFragmentCard: React.FC<Props> = ({ fragment, page, char, role, isHe
         }
 
         case 'bare_brush': {
-            // 大字 + 下划线: 像手账里的小标题涂鸦
+            // 大字 + 下劃線: 像手帳裡的小標題塗鴉
             const inkColor = ['#3d2f3d', '#5a7a8e', '#7a3845', '#5a4035'][Math.floor(seedFloat(seedKey, 4322) * 4)];
             const underlineColor = stickyColor.accent;
             body = (

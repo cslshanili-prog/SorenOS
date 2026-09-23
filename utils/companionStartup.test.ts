@@ -11,7 +11,7 @@ describe('companion startup performance', () => {
         message: {
           content: `\`\`\`json
 {
-  "line": "……你总算回来了。",
+  "line": "……你總算回來了。",
   "performance": {
     "emotion": "calm",
     "gesture": "tilt",
@@ -25,9 +25,9 @@ describe('companion startup performance', () => {
 \`\`\``,
         },
       }],
-    }, [{ id: 'look-close', name: '靠近镜头' }]);
+    }, [{ id: 'look-close', name: '靠近鏡頭' }]);
 
-    expect(result?.line).toBe('……你总算回来了。');
+    expect(result?.line).toBe('……你總算回來了。');
     expect(result?.performance.gaze).toBe('viewer');
     expect(result?.performance.modelAction).toBe('look-close');
     expect(result?.performance.precision).toMatchObject({
@@ -43,20 +43,20 @@ describe('companion startup performance', () => {
   });
 
   it('accepts a plain character reply but never invents a local fallback', () => {
-    const plain = parseCompanionStartupResponse('别盯着我看。 [[AVATAR: emotion=calm; gesture=tilt; gaze=viewer]]');
+    const plain = parseCompanionStartupResponse('別盯著我看。 [[AVATAR: emotion=calm; gesture=tilt; gaze=viewer]]');
 
-    expect(plain?.line).toBe('别盯着我看。');
+    expect(plain?.line).toBe('別盯著我看。');
     expect(plain?.performance.precision?.lockAutonomy).toBe(true);
     expect(plain?.performance.precision?.lockHead).toBe(true);
     expect(parseCompanionStartupResponse('')).toBeNull();
   });
 
   it('tells the model that themes cannot author dialogue', () => {
-    const prompt = buildCompanionStartupPrompt('角色完整上下文', 'Sully', '条条');
+    const prompt = buildCompanionStartupPrompt('角色完整上下文', 'Sully', '條條');
 
-    expect(prompt).toContain('不要替桌面主题说话');
-    expect(prompt).toContain('不要套用通用欢迎');
-    expect(prompt).toContain('眼睛默认看镜头');
-    expect(prompt).toContain('身体 X/Y/Z');
+    expect(prompt).toContain('不要替桌面主題說話');
+    expect(prompt).toContain('不要套用通用歡迎');
+    expect(prompt).toContain('眼睛默認看鏡頭');
+    expect(prompt).toContain('身體 X/Y/Z');
   });
 });

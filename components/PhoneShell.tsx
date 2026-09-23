@@ -14,14 +14,14 @@ import CompanionLockChrome from './os/CompanionLockChrome';
 import { loadCompanionFrameStyle } from './os/companionFrameStyles';
 import { createPreloadableLazy, type PreloadableLazy } from './os/preloadableLazy';
 
-// 按需懒加载各 App —— 切到对应 App 时才下载/解析其代码块，首屏只加载 Launcher 与外壳，
-// 大体积 App（MemoryPalace / VRWorld / Songwriting 等）不再压在主包里。
-// 默认导出直接 lazy；命名导出（SpecialMomentsApp）用 .then 适配成 { default }。
-// Launcher 保持静态导入：桌面常驻、需要秒开，不走懒加载。
+// 按需懶加載各 App —— 切到對應 App 時才下載/解析其代碼塊，首屏只加載 Launcher 與外殼，
+// 大體積 App（MemoryPalace / VRWorld / Songwriting 等）不再壓在主包裡。
+// 默認導出直接 lazy；命名導出（SpecialMomentsApp）用 .then 適配成 { default }。
+// Launcher 保持靜態導入：桌面常駐、需要秒開，不走懶加載。
 //
-// App 在用户打开/按下图标时立即加载；性能与网络条件合适时，桌面稳定后也会低优先级串行预热。
-// 绝不能在冷启动阶段并发扫完整个列表：低端设备会同时下载、解压和解析几十个 chunk，
-// 反而拖死用户此刻真正要打开的那个 App。
+// App 在用戶打開/按下圖標時立即加載；性能與網絡條件合適時，桌面穩定後也會低優先級串行預熱。
+// 絕不能在冷啟動階段併發掃完整個列表：低端設備會同時下載、解壓和解析幾十個 chunk，
+// 反而拖死用戶此刻真正要打開的那個 App。
 const lazyApp = createPreloadableLazy;
 
 const Settings = lazyApp(() => import('../apps/Settings'));
@@ -63,8 +63,8 @@ const WorldHomeApp = lazyApp(() => import('../apps/WorldHomeApp'));
 const CharCreatorDevApp = lazyApp(() => import('../apps/CharCreatorDevApp'));
 const SpecialMomentsApp = lazyApp(() => import('./ValentineEvent').then(m => ({ default: m.SpecialMomentsApp })));
 
-// 仅供「桌面稳定后的空闲串行预热」。严格 await 前一个再取下一个，且任何用户操作都会停止队列。
-// 高频 App 在前；低端设备/省流量/2G 由 shouldUseIdleAppPreload 整体跳过。
+// 僅供「桌面穩定後的空閒串行預熱」。嚴格 await 前一個再取下一個，且任何用戶操作都會停止隊列。
+// 高頻 App 在前；低端設備/省流量/2G 由 shouldUseIdleAppPreload 整體跳過。
 const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
   ChatHub, Chat, Character, Settings, Appearance, GroupChat, RoomApp, CheckPhone,
   JournalApp, ScheduleApp, SocialApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
@@ -78,8 +78,8 @@ const IDLE_PRELOAD_START_MS = 600;
 const IDLE_PRELOAD_GAP_MS = 250;
 let idlePreloadCursor = 0;
 
-// AppID → 懒加载组件，供「按下即预取」复用同一个模块 Promise。
-// AppID 由下方 import 引入，ES 模块提升后全模块可用。
+// AppID → 懶加載組件，供「按下即預取」複用同一個模塊 Promise。
+// AppID 由下方 import 引入，ES 模塊提升後全模塊可用。
 const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
   [AppID.Settings]: Settings, [AppID.Character]: Character, [AppID.Chat]: Chat, [AppID.ChatHub]: ChatHub,
   [AppID.GroupChat]: GroupChat, [AppID.ThemeMaker]: ThemeMaker, [AppID.Appearance]: Appearance,
@@ -95,7 +95,7 @@ const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
   [AppID.VRWorld]: VRWorldApp, [AppID.CharCreatorDev]: CharCreatorDevApp, [AppID.SpecialMoments]: SpecialMomentsApp,
   [AppID.WorldHome]: WorldHomeApp,
 };
-// AppIcon 的 pointerdown 只预取用户正在点的 App；失败时由 preloadableLazy 清缓存，点击可正常重试。
+// AppIcon 的 pointerdown 只預取用戶正在點的 App；失敗時由 preloadableLazy 清緩存，點擊可正常重試。
 setAppPayloadWarmer((id: AppID) => APP_BY_ID[id]?.preload());
 
 import { Like520Controller, shouldShowLike520Popup } from './Like520Event';
@@ -129,7 +129,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
 
     constructor(props: { children: React.ReactNode, onCloseApp: () => void, resetKey: string }) {
         super(props);
-        this.state = { hasError: false, error: null, copyLabel: '复制报错信息' };
+        this.state = { hasError: false, error: null, copyLabel: '複製報錯信息' };
     }
 
     static getDerivedStateFromError(error: Error) {
@@ -143,7 +143,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
     // Reset error state only when the active app changes.
     componentDidUpdate(prevProps: { children: React.ReactNode, onCloseApp: () => void, resetKey: string }) {
         if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
-            this.setState({ hasError: false, error: null, copyLabel: '复制报错信息' });
+            this.setState({ hasError: false, error: null, copyLabel: '複製報錯信息' });
         }
     }
 
@@ -155,7 +155,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
         if (this.copyLabelTimer) window.clearTimeout(this.copyLabelTimer);
         this.setState({ copyLabel: label });
         this.copyLabelTimer = window.setTimeout(() => {
-            this.setState({ copyLabel: '复制报错信息' });
+            this.setState({ copyLabel: '複製報錯信息' });
             this.copyLabelTimer = null;
         }, 1800);
     };
@@ -166,7 +166,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
         try {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(errText);
-                this.updateCopyLabel('已复制');
+                this.updateCopyLabel('已複製');
                 return;
             }
         } catch {
@@ -186,15 +186,15 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
             const copied = document.execCommand('copy');
             document.body.removeChild(textarea);
             if (copied) {
-                this.updateCopyLabel('已复制');
+                this.updateCopyLabel('已複製');
                 return;
             }
         } catch {
             // Fall through to prompt fallback.
         }
 
-        window.prompt('请手动复制报错信息', errText);
-        this.updateCopyLabel('请手动复制');
+        window.prompt('請手動複製報錯信息', errText);
+        this.updateCopyLabel('請手動複製');
     };
 
     render() {
@@ -202,7 +202,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
             return (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center space-y-4">
                     <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f635.png" alt="error" className="w-10 h-10" />
-                    <h2 className="text-lg font-bold">应用运行错误</h2>
+                    <h2 className="text-lg font-bold">應用運行錯誤</h2>
                     <p className="text-xs text-slate-400 font-mono bg-black/30 p-3 rounded max-w-full overflow-auto max-h-40 select-text break-all whitespace-pre-wrap">
                         {this.state.error?.message || 'Unknown Error'}
                     </p>
@@ -213,7 +213,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode, onCloseApp
                         }}
                         className="px-4 py-2 bg-slate-700 rounded-full text-xs active:scale-95 transition-transform"
                     >
-                        复制错误信息
+                        複製錯誤信息
                     </button>
                     <button
                         onClick={() => { this.setState({ hasError: false }); this.props.onCloseApp(); }}
@@ -258,12 +258,12 @@ const getPendingImportMarker = (): ImportRecoveryMarker | null => {
 
 const getImportPhaseLabel = (phase?: string) => {
   switch (phase) {
-    case 'parsing': return '解析备份文件';
-    case 'assets': return '恢复备份素材';
-    case 'database': return '写入数据库';
-    case 'settings': return '恢复系统设置';
-    case 'error': return '导入报错';
-    default: return '导入流程';
+    case 'parsing': return '解析備份文件';
+    case 'assets': return '恢復備份素材';
+    case 'database': return '寫入數據庫';
+    case 'settings': return '恢復系統設置';
+    case 'error': return '導入報錯';
+    default: return '導入流程';
   }
 };
 
@@ -276,28 +276,28 @@ const DisclaimerPopup: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
       {/* Header */}
       <div className="pt-7 pb-3 px-6 text-center">
         <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4e2.png" alt="announcement" className="w-8 h-8 mb-2" />
-        <h2 className="text-lg font-extrabold text-slate-800">免责声明</h2>
-        <p className="text-[11px] text-slate-400 mt-1">Disclaimer · 手抓糯米机 (Soren)</p>
+        <h2 className="text-lg font-extrabold text-slate-800">免責聲明</h2>
+        <p className="text-[11px] text-slate-400 mt-1">Disclaimer · 手抓糯米機 (Soren)</p>
       </div>
 
       {/* Content */}
       <div className="px-6 pb-4 max-h-[55vh] overflow-y-auto no-scrollbar space-y-3">
         <p className="text-[13px] text-slate-600 leading-relaxed">
-          本项目「手抓糯米机 (Soren)」是一个<strong className="text-slate-800">完全开源、免费</strong>的软件，仅供个人学习、研究与技术交流使用。
+          本項目「手抓糯米機 (Soren)」是一個<strong className="text-slate-800">完全開源、免費</strong>的軟件，僅供個人學習、研究與技術交流使用。
         </p>
         <ul className="text-[12px] text-slate-500 leading-relaxed space-y-1.5 list-none">
-          <li className="flex gap-2"><span className="shrink-0">•</span><span>本软件不提供任何明示或暗示的担保，作者不对使用本软件产生的任何后果承担责任。</span></li>
-          <li className="flex gap-2"><span className="shrink-0">•</span><span>用户应自行承担使用本软件的一切风险，包括但不限于数据丢失、设备损坏等。</span></li>
-          <li className="flex gap-2"><span className="shrink-0">•</span><span>本软件生成的任何 AI 内容均不代表作者立场，用户需自行判断内容的准确性与合规性。</span></li>
-          <li className="flex gap-2"><span className="shrink-0">•</span><span>禁止将本软件用于任何违反当地法律法规的用途。</span></li>
+          <li className="flex gap-2"><span className="shrink-0">•</span><span>本軟件不提供任何明示或暗示的擔保，作者不對使用本軟件產生的任何後果承擔責任。</span></li>
+          <li className="flex gap-2"><span className="shrink-0">•</span><span>用戶應自行承擔使用本軟件的一切風險，包括但不限於數據丟失、設備損壞等。</span></li>
+          <li className="flex gap-2"><span className="shrink-0">•</span><span>本軟件生成的任何 AI 內容均不代表作者立場，用戶需自行判斷內容的準確性與合規性。</span></li>
+          <li className="flex gap-2"><span className="shrink-0">•</span><span>禁止將本軟件用於任何違反當地法律法規的用途。</span></li>
         </ul>
 
         {/* Highlighted warning */}
         <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 mt-3">
           <p className="text-[13px] font-bold text-red-600 text-center leading-relaxed">
-            本程序完全免费！<br />
-            如果您是通过<span className="underline decoration-2 decoration-red-400">付费购买</span>获得此程序的，说明您已被倒卖欺骗。<br />
-            请向售卖者维权追责！
+            本程序完全免費！<br />
+            如果您是通過<span className="underline decoration-2 decoration-red-400">付費購買</span>獲得此程序的，說明您已被倒賣欺騙。<br />
+            請向售賣者維權追責！
           </p>
         </div>
       </div>
@@ -308,7 +308,7 @@ const DisclaimerPopup: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
           onClick={onAccept}
           className="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-transform text-sm"
         >
-          我已知悉，继续使用
+          我已知悉，繼續使用
         </button>
       </div>
     </div>
@@ -340,15 +340,15 @@ const ImportRecoveryPopup: React.FC<{
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
       <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/30 overflow-hidden animate-slide-up">
         <div className="pt-7 pb-3 px-6 text-center">
-          <h2 className="text-lg font-extrabold text-slate-800">{hasError ? '上次导入失败了' : '上次导入被中断了'}</h2>
-          <p className="text-[11px] text-slate-400 mt-1">{hasError ? '错误信息已记录在本机' : '数据还没有完整恢复'}</p>
+          <h2 className="text-lg font-extrabold text-slate-800">{hasError ? '上次導入失敗了' : '上次導入被中斷了'}</h2>
+          <p className="text-[11px] text-slate-400 mt-1">{hasError ? '錯誤信息已記錄在本機' : '數據還沒有完整恢復'}</p>
         </div>
 
         <div className="px-6 pb-4 space-y-3 max-h-[58vh] overflow-y-auto no-scrollbar">
           <p className="text-[13px] text-slate-600 leading-relaxed">
             {hasError
-              ? '系统检测到上一次导入过程中发生了错误。请重新导入同一个备份文件，避免数据只恢复了一半。'
-              : '系统检测到上一次导入没有走到完成步骤，可能是浏览器或系统在导入过程中强制重启了。请重新导入同一个备份文件，避免数据只恢复了一半。'}
+              ? '系統檢測到上一次導入過程中發生了錯誤。請重新導入同一個備份文件，避免數據只恢復了一半。'
+              : '系統檢測到上一次導入沒有走到完成步驟，可能是瀏覽器或系統在導入過程中強制重啟了。請重新導入同一個備份文件，避免數據只恢復了一半。'}
           </p>
           {hasError && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-3 text-[12px] text-red-700 leading-relaxed whitespace-pre-wrap break-words select-text">
@@ -356,16 +356,16 @@ const ImportRecoveryPopup: React.FC<{
             </div>
           )}
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-[12px] text-amber-700 leading-relaxed">
-            <div>中断阶段：{phaseLabel}</div>
-            {marker.current && <div>当前部分：{marker.current}</div>}
-            {hasItemProgress && <div>条目进度：{marker.itemDone || 0}/{marker.itemTotal}</div>}
-            {hasAssetProgress && <div>素材进度：{marker.assetDone || 0}/{marker.assetTotal}</div>}
+            <div>中斷階段：{phaseLabel}</div>
+            {marker.current && <div>當前部分：{marker.current}</div>}
+            {hasItemProgress && <div>條目進度：{marker.itemDone || 0}/{marker.itemTotal}</div>}
+            {hasAssetProgress && <div>素材進度：{marker.assetDone || 0}/{marker.assetTotal}</div>}
             {marker.currentFile && (
-              <div className="break-all">当前文件：{marker.currentFile}{currentFileSize ? ` · ${currentFileSize}` : ''}</div>
+              <div className="break-all">當前文件：{marker.currentFile}{currentFileSize ? ` · ${currentFileSize}` : ''}</div>
             )}
-            {startedAt && <div>开始时间：{startedAt}</div>}
-            {updatedAt && <div>最后进度：{updatedAt}</div>}
-            {marker.source && <div className="break-all">备份文件：{marker.source}{sourceSize ? ` · ${sourceSize}` : ''}</div>}
+            {startedAt && <div>開始時間：{startedAt}</div>}
+            {updatedAt && <div>最後進度：{updatedAt}</div>}
+            {marker.source && <div className="break-all">備份文件：{marker.source}{sourceSize ? ` · ${sourceSize}` : ''}</div>}
           </div>
         </div>
 
@@ -374,13 +374,13 @@ const ImportRecoveryPopup: React.FC<{
             onClick={onLater}
             className="py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl active:scale-95 transition-transform text-sm"
           >
-            稍后再说
+            稍後再說
           </button>
           <button
             onClick={onReimport}
             className="py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200 active:scale-95 transition-transform text-sm"
           >
-            去重新导入
+            去重新導入
           </button>
         </div>
       </div>
@@ -388,22 +388,22 @@ const ImportRecoveryPopup: React.FC<{
   );
 };
 
-// App 懒加载占位：关键是「延迟出现」。chunk 命中缓存/快速加载只需几十毫秒，这种时长用户
-// 本就无感——但 Suspense fallback 会立刻渲染，占位一闪反而把无感瞬切变成能被看见的打断
-// （loading spinner 闪烁反模式）。所以前 ~220ms 一律渲染空（无感），只有真的慢才浮现。
-// 刻意「零动画开销」：之前那套呼吸/涟漪/上升微尘的持续动画在 iOS 上会引起卡顿，且预热命中后
-// 这屏几乎不出现 —— 收益小、代价大。现在只一次性淡入一个静态柔光点（无 infinite 动画），
-// 透明底让外壳虚化壁纸透出来。真卡住（>15s）才换成可点的刷新/返回兜底，避免低端设备
-// 仍在正常解析单个大模块时被 7 秒阈值过早判死。
+// App 懶加載佔位：關鍵是「延遲出現」。chunk 命中緩存/快速加載只需幾十毫秒，這種時長用戶
+// 本就無感——但 Suspense fallback 會立刻渲染，佔位一閃反而把無感瞬切變成能被看見的打斷
+// （loading spinner 閃爍反模式）。所以前 ~220ms 一律渲染空（無感），只有真的慢才浮現。
+// 刻意「零動畫開銷」：之前那套呼吸/漣漪/上升微塵的持續動畫在 iOS 上會引起卡頓，且預熱命中後
+// 這屏幾乎不出現 —— 收益小、代價大。現在只一次性淡入一個靜態柔光點（無 infinite 動畫），
+// 透明底讓外殼虛化壁紙透出來。真卡住（>15s）才換成可點的刷新/返回兜底，避免低端設備
+// 仍在正常解析單個大模塊時被 7 秒閾值過早判死。
 const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: boolean }> = ({ onReturn, animationEnabled = true }) => {
   const [show, setShow] = useState(false);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     const t = animationEnabled ? setTimeout(() => setShow(true), 220) : null;
-    // 卡死逃生口：iOS standalone PWA 从后台恢复 / 弱网时，动态 import 可能既不 resolve 也不 reject，
-    // Suspense 会永远停在这一屏（不报错 → 错误边界不触发 → 不会自动刷新），用户狂点中心光点却毫无反应。
-    // 超过 STALL_MS 仍未加载完 → 把「看着像按钮其实不是」的光点换成真正可点的「刷新/返回」按钮，
-    // 既明确告诉用户该点哪里，又把静默卡死变成一键可恢复。只动占位 UI，不碰 import 逻辑。
+    // 卡死逃生口：iOS standalone PWA 從後台恢復 / 弱網時，動態 import 可能既不 resolve 也不 reject，
+    // Suspense 會永遠停在這一屏（不報錯 → 錯誤邊界不觸發 → 不會自動刷新），用戶狂點中心光點卻毫無反應。
+    // 超過 STALL_MS 仍未加載完 → 把「看著像按鈕其實不是」的光點換成真正可點的「刷新/返回」按鈕，
+    // 既明確告訴用戶該點哪裡，又把靜默卡死變成一鍵可恢復。只動佔位 UI，不碰 import 邏輯。
     const stall = setTimeout(() => { setStalled(true); trackEvent('App 加载卡死超时'); }, 15_000);
     return () => { if (t) clearTimeout(t); clearTimeout(stall); };
   }, [animationEnabled]);
@@ -411,9 +411,9 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/95 text-white p-6 text-center space-y-4" style={{ animation: 'appLoadIn 320ms ease-out both' }}>
         <style>{`@keyframes appLoadIn{from{opacity:0}to{opacity:1}}`}</style>
-        <h2 className="text-base font-bold">加载有点慢…</h2>
+        <h2 className="text-base font-bold">加載有點慢…</h2>
         <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
-          首次打开会下载并解析功能代码；网络波动或设备性能较低都可能变慢。页面仍在继续加载，若长时间没有恢复再刷新。
+          首次打開會下載並解析功能代碼；網絡波動或設備性能較低都可能變慢。頁面仍在繼續加載，若長時間沒有恢復再刷新。
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
@@ -421,7 +421,7 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
             onClick={() => { trackEvent('卡死页点刷新恢复'); window.location.reload(); }}
             className="w-full px-6 py-3 bg-red-600 rounded-full font-bold text-sm shadow-lg active:scale-95 transition-transform"
           >
-            刷新恢复
+            刷新恢復
           </button>
           {onReturn && (
             <button
@@ -437,14 +437,14 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
     );
   }
   if (!show) return null;
-  // 静态柔光点：仅一次性淡入，之后无任何持续动画（零运行时开销），透明底透出壁纸。
+  // 靜態柔光點：僅一次性淡入，之後無任何持續動畫（零運行時開銷），透明底透出壁紙。
   return (
     <div className="w-full h-full flex items-center justify-center bg-transparent" style={{ animation: 'appLoadIn 280ms ease-out both' }}>
       <style>{`@keyframes appLoadIn{from{opacity:0}to{opacity:1}}`}</style>
       <div className="relative" style={{ width: 72, height: 72 }}>
-        {/* 静态柔光 */}
+        {/* 靜態柔光 */}
         <div className="absolute inset-0" style={{ borderRadius: '9999px', filter: 'blur(8px)', background: 'radial-gradient(circle, hsla(var(--primary-hue),75%,72%,0.42) 0%, hsla(var(--primary-hue),70%,60%,0.10) 50%, transparent 70%)' }} />
-        {/* 静态内核 */}
+        {/* 靜態內核 */}
         <div className="absolute" style={{ left: '50%', top: '50%', width: 10, height: 10, transform: 'translate(-50%,-50%)', borderRadius: '9999px', background: 'radial-gradient(circle, #fff, hsla(var(--primary-hue),80%,75%,0.6) 60%, transparent)', boxShadow: '0 0 10px hsla(var(--primary-hue),80%,75%,0.6)' }} />
       </div>
     </div>
@@ -455,25 +455,25 @@ const PhoneShell: React.FC = () => {
   const { theme, isLocked, unlock, activeApp, closeApp, openApp, virtualTime, isDataLoaded, toasts, unreadMessages, characters, handleBack, suspendedCall, resumeCall, activeCharacterId, errorDialog, dismissError } = useOS();
   const useIOSStandaloneLayout = isIOSStandaloneWebApp();
 
-  // 三档顶部状态栏：安全显示 / 紧凑显示 / 隐藏。旧存档仍由 hideStatusBar 兼容解析。
-  // compact 把时间放进 safe-area，本体顶栏只让出 max(safe-area, 1.5rem)，避免顶部再多一整行。
+  // 三檔頂部狀態欄：安全顯示 / 緊湊顯示 / 隱藏。舊存檔仍由 hideStatusBar 兼容解析。
+  // compact 把時間放進 safe-area，本體頂欄只讓出 max(safe-area, 1.5rem)，避免頂部再多一整行。
   const statusBarMode = resolveStatusBarMode(theme.statusBarMode, theme.hideStatusBar);
   useEffect(() => {
     document.documentElement.classList.toggle('sully-statusbar-hidden', statusBarMode === 'hidden');
     document.documentElement.classList.toggle('sully-statusbar-compact', statusBarMode === 'compact');
   }, [statusBarMode]);
 
-  // 冷启动「世界入场」是否已结束。结束前由 BootSequence 接管整屏（同时取代旧的黑屏 spinner）。
+  // 冷啟動「世界入場」是否已結束。結束前由 BootSequence 接管整屏（同時取代舊的黑屏 spinner）。
   const [bootDone, setBootDone] = useState(false);
   const bootAnimationEnabled = theme.bootAnimationEnabled !== false;
   useEffect(() => {
-    // 本次启动一旦选择跳过，就记为已经完成；用户稍后重新打开开关时不在桌面中途补播。
+    // 本次啟動一旦選擇跳過，就記為已經完成；用戶稍後重新打開開關時不在桌面中途補播。
     if (!bootAnimationEnabled) setBootDone(true);
   }, [bootAnimationEnabled]);
 
-  // 折中预热策略：首屏/开机完全让路；桌面稳定约 600ms 后，能力足够的设备就逐个预热。
-  // 每次严格等待当前 chunk 下载 + 解析完成，再空一拍取下一个。用户一按屏幕或进入 App，
-  // 立刻取消所有尚未开始的任务；已经在飞的一个 import 无法中止，但最多只会与目标 App 并行一个。
+  // 折中預熱策略：首屏/開機完全讓路；桌面穩定約 600ms 後，能力足夠的設備就逐個預熱。
+  // 每次嚴格等待當前 chunk 下載 + 解析完成，再空一拍取下一個。用戶一按屏幕或進入 App，
+  // 立刻取消所有尚未開始的任務；已經在飛的一個 import 無法中止，但最多只會與目標 App 並行一個。
   useEffect(() => {
     if (!bootDone || !isDataLoaded || activeApp !== AppID.Launcher) return;
     if (!shouldUseIdleAppPreload() || idlePreloadCursor >= APP_IDLE_PRELOAD_ORDER.length) return;
@@ -519,7 +519,7 @@ const PhoneShell: React.FC = () => {
       try {
         await next.preload();
       } catch {
-        // 空闲预热失败不打扰用户；真正点开时由 retryable preload 再试。
+        // 空閒預熱失敗不打擾用戶；真正點開時由 retryable preload 再試。
       }
       if (!stoppedByInteraction && idlePreloadCursor < APP_IDLE_PRELOAD_ORDER.length) {
         scheduleStep(IDLE_PRELOAD_GAP_MS);
@@ -581,12 +581,12 @@ const PhoneShell: React.FC = () => {
     if (marker) setImportRecoveryMarker(marker);
   }, [showDisclaimer, importRecoveryDismissed, importRecoveryMarker]);
 
-  // 使用统计：导入中断提醒弹出来时报一次。只带「失败/中断」和阶段这两个固定枚举，
-  // marker 里的报错正文、备份文件名、当前文件名、各种进度数字一概不带。
+  // 使用統計：導入中斷提醒彈出來時報一次。只帶「失敗/中斷」和階段這兩個固定枚舉，
+  // marker 裡的報錯正文、備份文件名、當前文件名、各種進度數字一概不帶。
   useEffect(() => {
     if (showDisclaimer || !showImportRecoveryPrompt) return;
     const phase = importRecoveryMarker?.phase;
-    // phase 是 marker 里的字符串，只认这五个已知值，其余一律归 other，避免把未知原文发出去。
+    // phase 是 marker 裡的字符串，只認這五個已知值，其餘一律歸 other，避免把未知原文發出去。
     const stage = phase === 'parsing' || phase === 'assets' || phase === 'database' || phase === 'settings' || phase === 'error'
       ? phase
       : 'other';
@@ -605,15 +605,15 @@ const PhoneShell: React.FC = () => {
     trackEvent('点去重新导入', { kind: importRecoveryMarker?.error ? '失败' : '中断' });
   };
 
-  // 「致用户的一封信」已下线：常量置 false，保留变量让下面弹窗链的条件继续成立（恒真/恒不显示）。
+  // 「致用戶的一封信」已下線：常量置 false，保留變量讓下面彈窗鏈的條件繼續成立（恆真/恆不顯示）。
   const showAuthorLetter = false;
 
-  // Ta-da 周年赠礼先于更新公告，等基础启动提示、开机动画与解锁完成。
+  // Ta-da 週年贈禮先於更新公告，等基礎啟動提示、開機動畫與解鎖完成。
   const [showAnniversaryGift, setShowAnniversaryGift] = useState(false);
   const anniversaryAsked = useRef(false);
   const firstUseGuideActive = useFirstUseGuideStep() !== null;
   const anniversaryBlocked = firstUseGuideActive || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter;
-  // 待展示也占住顺序，避免同一轮 effects 同时开启赠礼和更新公告。
+  // 待展示也佔住順序，避免同一輪 effects 同時開啟贈禮和更新公告。
   // Complete setup before promotional/release popups; disclaimer/recovery still have priority.
   const anniversaryHasPriority = firstUseGuideActive || showAnniversaryGift || (!anniversaryAsked.current && shouldShowAnniversaryGift());
   useEffect(() => {
@@ -624,14 +624,14 @@ const PhoneShell: React.FC = () => {
     }
   }, [anniversaryBlocked, isDataLoaded, isLocked, bootDone, bootAnimationEnabled]);
 
-  // 本次版本首映：数据就绪且解锁后出现一次，避免按钮打开的 App 被锁屏挡在背后。
+  // 本次版本首映：數據就緒且解鎖後出現一次，避免按鈕打開的 App 被鎖屏擋在背後。
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   /**
-   * 这次开机已经问过一轮了。
+   * 這次開機已經問過一輪了。
    *
-   * 更新提醒可能不止一条（见 UpdateNotificationController 的队列），用户点「立刻体验」
-   * 跳去别的 App 时，剩下那几条是故意不标已读、留到下次启动的。少了这道闸，弹窗一关
-   * 下面的 effect 就会立刻再问一次「还有没有没看的」，然后把下一条糊在刚打开的页面上。
+   * 更新提醒可能不止一條（見 UpdateNotificationController 的隊列），用戶點「立刻體驗」
+   * 跳去別的 App 時，剩下那幾條是故意不標已讀、留到下次啟動的。少了這道閘，彈窗一關
+   * 下面的 effect 就會立刻再問一次「還有沒有沒看的」，然後把下一條糊在剛打開的頁面上。
    */
   const updateNoticeAsked = useRef(false);
 
@@ -645,8 +645,8 @@ const PhoneShell: React.FC = () => {
     }
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, isDataLoaded, isLocked]);
 
-  // 七夕特别活动推送：严格按北京时间 2026-08-19 判断，用户处理后永久不再弹。
-  // 排在版本更新之后、日常维护提醒之前；按钮只带到「特别时光」，不替用户选择角色。
+  // 七夕特別活動推送：嚴格按北京時間 2026-08-19 判斷，用戶處理後永久不再彈。
+  // 排在版本更新之後、日常維護提醒之前；按鈕只帶到「特別時光」，不替用戶選擇角色。
   const [showQixiLaunchPopup, setShowQixiLaunchPopup] = useState(false);
   const qixiLaunchAsked = useRef(false);
   useEffect(() => {
@@ -659,9 +659,9 @@ const PhoneShell: React.FC = () => {
     }
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, isDataLoaded, isLocked]);
 
-  // 520 特别活动弹窗（2026-05-20 当天，且没被 dismiss / completed）
-  // 一次性：用户点过任何按钮就标记 dismissed，下次刷新不再出现；
-  // API 配置改成弹窗内嵌，配完直接进活动，不再需要把弹窗暂存让位给 Settings。
+  // 520 特別活動彈窗（2026-05-20 當天，且沒被 dismiss / completed）
+  // 一次性：用戶點過任何按鈕就標記 dismissed，下次刷新不再出現；
+  // API 配置改成彈窗內嵌，配完直接進活動，不再需要把彈窗暫存讓位給 Settings。
   const [showLike520Popup, setShowLike520Popup] = useState(false);
   useEffect(() => {
     if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup) return;
@@ -669,14 +669,14 @@ const PhoneShell: React.FC = () => {
     if (shouldShowLike520Popup()) setShowLike520Popup(true);
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, isDataLoaded]);
 
-  // 「该备份啦」提醒 — local-first 数据只在本机，隔 N 天（默认 7，可在设置里改）没导出就弹一次
+  // 「該備份啦」提醒 — local-first 數據只在本機，隔 N 天（默認 7，可在設置裡改）沒導出就彈一次
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   useEffect(() => {
     if (anniversaryHasPriority || showDisclaimer || showImportRecoveryPrompt || showAuthorLetter || showUpdateNotification || showQixiLaunchPopup || showLike520Popup) return;
     if (!isDataLoaded || isLocked) return;
     if (shouldShowBackupReminder()) {
       setShowBackupReminder(true);
-      // 只报「从未备份 / 已过期」这一个二选一，不报具体天数、也不报用户设的提醒间隔。
+      // 只報「從未備份 / 已過期」這一個二選一，不報具體天數、也不報用戶設的提醒間隔。
       trackEvent('弹出该备份啦提醒', { state: daysSinceLastBackup() == null ? '从未备份' : '已过期' });
     }
   }, [anniversaryHasPriority, showDisclaimer, showImportRecoveryPrompt, showAuthorLetter, showUpdateNotification, showQixiLaunchPopup, showLike520Popup, isDataLoaded, isLocked]);
@@ -816,13 +816,13 @@ const PhoneShell: React.FC = () => {
     });
   }, [theme.wallpaper]);
 
-  // 冷启动：先放「世界入场」cinematic（数据没就绪时它持续呼吸等待，绝不出现 spinner）。
-  // BootSequence 在「数据就绪 + 停留够时长」后推进退场，再交还控制权给下方的锁屏/桌面。
+  // 冷啟動：先放「世界入場」cinematic（數據沒就緒時它持續呼吸等待，絕不出現 spinner）。
+  // BootSequence 在「數據就緒 + 停留夠時長」後推進退場，再交還控制權給下方的鎖屏/桌面。
   if (!bootDone && bootAnimationEnabled) {
     return <BootSequence dataReady={isDataLoaded} wallpaper={theme.wallpaper} style={theme.bootAnimationStyle} onDone={() => setBootDone(true)} />;
   }
 
-  // 兜底：理论上 bootDone 时数据已就绪；万一未就绪（极端慢）退化为最简静态深色屏，不闪 spinner。
+  // 兜底：理論上 bootDone 時數據已就緒；萬一未就緒（極端慢）退化為最簡靜態深色屏，不閃 spinner。
   if (!isDataLoaded) {
     return <div className="w-full h-full" style={{ background: '#05060f' }} />;
   }
@@ -835,7 +835,7 @@ const PhoneShell: React.FC = () => {
   const bgImageValue = getBgStyle(theme.wallpaper);
   const lockBgImageValue = getBgStyle(theme.lockWallpaper || theme.wallpaper);
   const contentColor = theme.contentColor || '#ffffff';
-  const acnhSkin = theme.skin === 'animalcrossing'; // 动森彩蛋：锁屏换暖色草地点缀
+  const acnhSkin = theme.skin === 'animalcrossing'; // 動森彩蛋：鎖屏換暖色草地點綴
   const storedCompanionFrame = theme.skin === 'companion' ? loadCompanionFrameStyle() : null;
   const companionLockFrame = storedCompanionFrame;
 
@@ -857,7 +857,7 @@ const PhoneShell: React.FC = () => {
         className="relative w-full h-full bg-cover bg-center cursor-pointer overflow-hidden group font-light select-none overscroll-none"
         style={{ backgroundImage: lockBgImageValue, color: contentColor, animation: 'lockReveal 600ms ease-out both' }}
       >
-        {/* 锁屏柔和淡入：与开机「世界入场」退场衔接；body 背景本就是壁纸，故是无缝融入而非硬切。 */}
+        {/* 鎖屏柔和淡入：與開機「世界入場」退場銜接；body 背景本就是壁紙，故是無縫融入而非硬切。 */}
         <style>{`@keyframes lockReveal{from{opacity:0}to{opacity:1}}`}</style>
         {acnhSkin ? (
             <div className="absolute inset-0 transition-all duration-700 group-hover:opacity-0"
@@ -866,7 +866,7 @@ const PhoneShell: React.FC = () => {
             <div className="absolute inset-0 bg-black/5 backdrop-blur-sm transition-all group-hover:backdrop-blur-none group-hover:bg-transparent duration-700" />
         )}
 
-        {/* 动森彩蛋：锁屏飘叶 */}
+        {/* 動森彩蛋：鎖屏飄葉 */}
         {acnhSkin && (
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <svg viewBox="0 0 100 100" className="absolute w-14 h-14 opacity-80 -rotate-[25deg]" style={{ left: '10%', top: '12%' }}><path d="M50 8 C78 20 88 50 78 82 C74 92 60 96 50 92 C40 96 26 92 22 82 C12 50 22 20 50 8Z" fill="#9ED25F"/><path d="M50 14 L50 88" stroke="#5c8a30" strokeWidth="3" fill="none" opacity="0.5"/></svg>
@@ -893,7 +893,7 @@ const PhoneShell: React.FC = () => {
            </div>
            {acnhSkin ? (
                <div className="text-lg tracking-widest opacity-90 mt-2 text-xs font-bold flex items-center justify-center gap-1.5">
-                   <span>🍃</span><span>无人岛生活</span><span>🍃</span>
+                   <span>🍃</span><span>無人島生活</span><span>🍃</span>
                </div>
            ) : (
                <div className="text-lg tracking-widest opacity-90 mt-2 uppercase text-xs font-bold">Soren Simulation</div>
@@ -909,10 +909,10 @@ const PhoneShell: React.FC = () => {
                     <div className="flex-1 min-w-0 text-white text-left">
                         <div className="font-bold text-sm flex justify-between">
                             <span>{unreadChar ? unreadChar.name : 'Message'}</span>
-                            <span className="text-[10px] opacity-70">刚刚</span>
+                            <span className="text-[10px] opacity-70">剛剛</span>
                         </div>
                         <div className="text-xs opacity-90 truncate">
-                            {unreadCount > 1 ? `收到 ${unreadCount} 条新消息` : '发来了一条新消息'}
+                            {unreadCount > 1 ? `收到 ${unreadCount} 條新消息` : '發來了一條新消息'}
                         </div>
                     </div>
                 </div>
@@ -972,17 +972,17 @@ const PhoneShell: React.FC = () => {
     }
   };
 
-  // 安全区策略（方案 B）：自理名单里的 App 已全屏铺底、自己给控件让位，外壳不再加 padding；
-  // 其余尚未迁移、靠外壳兜底的 App，仍由外壳用单一来源变量 --safe-* 统一让出安全区，避免顶栏怼进状态栏。
-  // 自理名单见 utils/safeAreaApps.ts（迁移一个 App = 把它加进名单 + 顶栏用 --chrome-top 自己让位）。
-  // TODO(safe-area-A): 把剩余「未迁移」App 逐个改为自理安全区后，移除外壳这层兜底，实现全屏无色条。
+  // 安全區策略（方案 B）：自理名單裡的 App 已全屏鋪底、自己給控件讓位，外殼不再加 padding；
+  // 其餘尚未遷移、靠外殼兜底的 App，仍由外殼用單一來源變量 --safe-* 統一讓出安全區，避免頂欄懟進狀態欄。
+  // 自理名單見 utils/safeAreaApps.ts（遷移一個 App = 把它加進名單 + 頂欄用 --chrome-top 自己讓位）。
+  // TODO(safe-area-A): 把剩餘「未遷移」App 逐個改為自理安全區後，移除外殼這層兜底，實現全屏無色條。
   const shellPadsSafeArea = shellHandlesSafeArea(activeApp);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 text-slate-900 font-sans select-none overscroll-none">
        {/* Optimized Background Layer */}
-       {/* 壁纸底层：进 App 时只柔和虚化/压暗作背景，不再做缩放「过场」——
-          进 App 的过渡感统一交给 App 容器的淡入（见下方 animate-fade-in 包裹层）。 */}
+       {/* 壁紙底層：進 App 時只柔和虛化/壓暗作背景，不再做縮放「過場」——
+          進 App 的過渡感統一交給 App 容器的淡入（見下方 animate-fade-in 包裹層）。 */}
        <div
          className="absolute inset-0 bg-cover bg-center transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
          style={{
@@ -996,11 +996,11 @@ const PhoneShell: React.FC = () => {
        
        <div className={`absolute inset-0 transition-all duration-500 ${activeApp === AppID.Launcher ? 'bg-transparent' : 'bg-white/50 backdrop-blur-3xl'}`} />
        
-       {/* 外壳安全区两种策略：
-          - 未迁移 App：外壳铺满 body（含 --app-height 多出的 +safe-bottom 溢出区），用 padding 让位安全区，
-            内容只画到可见 viewport 内，home 条上方留出 safe-bottom 视觉间隙。
-          - 已迁移 App（彼方/聊天/群聊/桌面）：自理安全区。外壳直接把底边收回到可见 viewport
-            （bottom = --standalone-safe-area-bottom），不让那多出来的 34px 把 App 底部控件压到 home 条上。 */}
+       {/* 外殼安全區兩種策略：
+          - 未遷移 App：外殼鋪滿 body（含 --app-height 多出的 +safe-bottom 溢出區），用 padding 讓位安全區，
+            內容只畫到可見 viewport 內，home 條上方留出 safe-bottom 視覺間隙。
+          - 已遷移 App（彼方/聊天/群聊/桌面）：自理安全區。外殼直接把底邊收回到可見 viewport
+            （bottom = --standalone-safe-area-bottom），不讓那多出來的 34px 把 App 底部控件壓到 home 條上。 */}
       <div
         className="sully-shell-content absolute top-0 left-0 right-0 z-10 overflow-hidden bg-transparent overscroll-none flex flex-col"
         style={
@@ -1014,11 +1014,11 @@ const PhoneShell: React.FC = () => {
           <div className="flex-1 relative overflow-hidden" style={{ contain: useIOSStandaloneLayout ? undefined : 'layout style paint' }}>
             <AppErrorBoundary onCloseApp={closeApp} resetKey={`${activeApp}:${activeCharacterId || 'none'}`}>
               <Suspense fallback={<AppLoadingFallback onReturn={closeApp} animationEnabled={theme.appLoadingAnimationEnabled !== false} />}>
-                {/* 统一「淡入」过渡：每次切换 App 时 key 变化 → 重新挂载并淡入，
-                    让所有 App 都像个人档案那样「渐变进去」，而非瞬间咚一下。
-                    关键：只动 opacity、不做 scale/translate —— 否则会把整棵（常含大量头像图片的）
-                    App 子树栅格化进 transform 图层，角色列表类 App 首帧会卡顿一下（停顿一秒）。
-                    时长也压短，进重 App 时不至于多等。 */}
+                {/* 統一「淡入」過渡：每次切換 App 時 key 變化 → 重新掛載並淡入，
+                    讓所有 App 都像個人檔案那樣「漸變進去」，而非瞬間咚一下。
+                    關鍵：只動 opacity、不做 scale/translate —— 否則會把整棵（常含大量頭像圖片的）
+                    App 子樹柵格化進 transform 圖層，角色列表類 App 首幀會卡頓一下（停頓一秒）。
+                    時長也壓短，進重 App 時不至於多等。 */}
                 <div key={activeApp} className="w-full h-full" style={{ animation: 'appEnterFade 200ms ease-out both' }}>
                   <style>{`@keyframes appEnterFade{from{opacity:0}to{opacity:1}}`}</style>
                   {renderApp()}
@@ -1027,8 +1027,8 @@ const PhoneShell: React.FC = () => {
             </AppErrorBoundary>
           </div>
 
-          {/* Overlays: Status Bar (Top) —— 常驻渲染：时钟/电量条由开关+平台默认决定显隐（StatusBar 内部 isStatusBarHidden），
-              错误指示器、系统调试终端与开关无关、始终在。 */}
+          {/* Overlays: Status Bar (Top) —— 常駐渲染：時鐘/電量條由開關+平台默認決定顯隱（StatusBar 內部 isStatusBarHidden），
+              錯誤指示器、系統調試終端與開關無關、始終在。 */}
           <StatusBar />
           
           {/* Overlays: Suspended Call Bar */}
@@ -1038,8 +1038,8 @@ const PhoneShell: React.FC = () => {
               className="absolute top-7 left-0 w-full z-[55] flex items-center justify-center gap-2 bg-emerald-500 text-white text-xs font-bold py-1.5 animate-pulse cursor-pointer active:bg-emerald-600 transition-colors"
             >
               <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              <span>通话中 · {suspendedCall.charName}</span>
-              <span className="opacity-70">点击返回</span>
+              <span>通話中 · {suspendedCall.charName}</span>
+              <span className="opacity-70">點擊返回</span>
             </button>
           )}
 
@@ -1047,10 +1047,10 @@ const PhoneShell: React.FC = () => {
           <GlobalMiniPlayer />
           {!isLocked && <SARModuleMonitor />}
 
-          {/* Overlays: 人格模拟生成全局指示条 */}
+          {/* Overlays: 人格模擬生成全局指示條 */}
           <PersonaSimIndicator />
 
-          {/* Overlays: 梦境生成全局指示条 */}
+          {/* Overlays: 夢境生成全局指示條 */}
           <DreamSimIndicator />
 
           {/* Overlays: Toasts (Top) */}
@@ -1066,7 +1066,7 @@ const PhoneShell: React.FC = () => {
            </div>
        </div>
 
-       {/* Global error dialog (长报错走它, 替代单行 toast) */}
+       {/* Global error dialog (長報錯走它, 替代單行 toast) */}
        <ErrorDialog
          isOpen={!!errorDialog}
          title={errorDialog?.title ?? ''}
@@ -1097,24 +1097,24 @@ const PhoneShell: React.FC = () => {
          />
        )}
 
-       {/* 见面 · 剧情首映：解锁后一次性出现 */}
+       {/* 見面 · 劇情首映：解鎖後一次性出現 */}
        {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && showUpdateNotification && (
          <UpdateNotificationController onClose={() => setShowUpdateNotification(false)} />
        )}
 
-       {/* 七夕特别活动推送（北京时间 2026-08-19，当天至多出现一次） */}
+       {/* 七夕特別活動推送（北京時間 2026-08-19，當天至多出現一次） */}
        {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && showQixiLaunchPopup && (
          <QixiLaunchPopup onClose={() => setShowQixiLaunchPopup(false)} />
        )}
 
-       {/* 520 特别活动弹窗（2026-05-20 当天，一次性） */}
+       {/* 520 特別活動彈窗（2026-05-20 當天，一次性） */}
        {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && showLike520Popup && (
          <Like520Controller
            onClose={() => setShowLike520Popup(false)}
          />
        )}
 
-       {/* 「该备份啦」提醒（local-first 数据只在本机，隔 N 天没导出弹一次） */}
+       {/* 「該備份啦」提醒（local-first 數據只在本機，隔 N 天沒導出彈一次） */}
        {!anniversaryHasPriority && !showDisclaimer && !showImportRecoveryPrompt && !showAuthorLetter && !showUpdateNotification && !showQixiLaunchPopup && !showLike520Popup && showBackupReminder && (
          <BackupReminderController
            onDismiss={dismissBackupReminder}

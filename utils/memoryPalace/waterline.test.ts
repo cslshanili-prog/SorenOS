@@ -5,8 +5,8 @@ import {
     resolveMemoryPalaceWaterline,
 } from './waterline';
 
-describe('角色级记忆水位档位', () => {
-    it('旧角色没有字段时保持历史默认 200/100', () => {
+describe('角色級記憶水位檔位', () => {
+    it('舊角色沒有字段時保持歷史默認 200/100', () => {
         expect(resolveMemoryPalaceWaterline(undefined)).toEqual(DEFAULT_MEMORY_PALACE_WATERLINE);
     });
 
@@ -14,7 +14,7 @@ describe('角色级记忆水位档位', () => {
         ['online', 200, 100],
         ['balanced', 100, 50],
         ['offline', 50, 20],
-    ] as const)('%s 档解析为 %i/%i', (preset, hotZoneSize, bufferThreshold) => {
+    ] as const)('%s 檔解析為 %i/%i', (preset, hotZoneSize, bufferThreshold) => {
         expect(resolveMemoryPalaceWaterline({ preset })).toEqual({
             preset,
             hotZoneSize,
@@ -22,7 +22,7 @@ describe('角色级记忆水位档位', () => {
         });
     });
 
-    it('自定义值会取整并限制在安全范围内', () => {
+    it('自定義值會取整並限制在安全範圍內', () => {
         expect(resolveMemoryPalaceWaterline({
             preset: 'custom',
             hotZoneSize: 9.8,
@@ -34,7 +34,7 @@ describe('角色级记忆水位档位', () => {
         });
     });
 
-    it('创建自定义配置时保存的是归一化后的稳定数值', () => {
+    it('創建自定義配置時保存的是歸一化後的穩定數值', () => {
         expect(makeCustomMemoryPalaceWaterline(88.9, 33.4)).toEqual({
             preset: 'custom',
             hotZoneSize: 88,

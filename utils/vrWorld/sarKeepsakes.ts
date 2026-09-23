@@ -13,7 +13,7 @@ export function sarExclusiveKeepsakes(state: FishingMarketState): SARExclusiveKe
         const scene = familiarityScene(item.sceneId);
         return { id: item.id, title: item.title, description: item.description, npc: item.npc, at: item.at, souvenir: item,
             artifactKind: scene?.nodes[item.nodeId]?.effect?.kind || 'memory-card',
-            source: scene ? `${'★'.repeat(scene.rank)} · ${scene.title}` : '一起留下的回忆' };
+            source: scene ? `${'★'.repeat(scene.rank)} · ${scene.title}` : '一起留下的回憶' };
     });
     for (const species of STORY_CATCH_CATALOG) {
         const record = state.collectionEntries?.find(item => item.actorId === 'user' && item.speciesId === species.id);
@@ -21,7 +21,7 @@ export function sarExclusiveKeepsakes(state: FishingMarketState): SARExclusiveKe
         if (!record && !owned.length) continue;
         const scene = FAMILIARITY_SCENES.find(scene => Object.values(scene.nodes).some(node => node.rewards?.some(reward => reward.kind === 'dinosaur' && reward.speciesId === species.id)));
         entries.push({ id: `special:${species.id}`, title: species.name, description: species.blurb, speciesId: species.id,
-            npc: scene?.npc || 'aiven', source: scene ? `${'★'.repeat(scene.rank)} · ${scene.title}` : '星级专属赠礼',
+            npc: scene?.npc || 'aiven', source: scene ? `${'★'.repeat(scene.rank)} · ${scene.title}` : '星級專屬贈禮',
             at: record?.firstObtainedAt || owned[0]?.caughtAt || 0, owned: owned.length });
     }
     return entries.sort((a, b) => b.at - a.at);

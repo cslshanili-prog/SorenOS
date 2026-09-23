@@ -1,8 +1,8 @@
 /**
- * 彩色笔批注 / 勾画
+ * 彩色筆批註 / 勾畫
  *
- * 用 SVG 在卡片表面叠一层"手绘"标记 — 下划波浪线、圈、箭头、星、tick。
- * 颜色是马克笔风(略半透明)。位置由 seed 决定,同一 seed 永远长一样。
+ * 用 SVG 在卡片表面疊一層"手繪"標記 — 下劃波浪線、圈、箭頭、星、tick。
+ * 顏色是馬克筆風(略半透明)。位置由 seed 決定,同一 seed 永遠長一樣。
  *
  * 用法: <CardAnnotations seed="frag-id" intensity="light|medium" />
  */
@@ -11,11 +11,11 @@ import React from 'react';
 import { seedFloat, seedRange, seedCentered } from './paper';
 
 const PEN_COLORS = [
-    '#e89b91',  // 樱粉
-    '#c94a4a',  // 红
-    '#5a7a8e',  // 蓝
-    '#88c5a8',  // 绿
-    '#d6b85a',  // 黄
+    '#e89b91',  // 櫻粉
+    '#c94a4a',  // 紅
+    '#5a7a8e',  // 藍
+    '#88c5a8',  // 綠
+    '#d6b85a',  // 黃
     '#a98ec4',  // 紫
 ];
 
@@ -26,7 +26,7 @@ const ALL_KINDS: MarkKind[] = ['underline', 'circle', 'arrow', 'star', 'tick', '
 interface Props {
     seed: string;
     intensity?: 'none' | 'light' | 'medium' | 'busy';
-    /** 限制可用颜色 — 默认全部 */
+    /** 限制可用顏色 — 默認全部 */
     palette?: string[];
 }
 

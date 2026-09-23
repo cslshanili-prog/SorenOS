@@ -8,7 +8,7 @@ page.on('pageerror',e=>errors.push(e.message));
 await context.route('**/*',r=>['127.0.0.1','localhost'].includes(new URL(r.request().url()).hostname)?r.continue():r.fulfill({status:200,body:'',headers:{'access-control-allow-origin':'*'}}));
 try {
     await page.goto('http://127.0.0.1:5177/test/fixtures/sar-commerce.html');
-    await page.getByRole('button',{name:'打开商店',exact:true}).waitFor();
+    await page.getByRole('button',{name:'打開商店',exact:true}).waitFor();
     await page.evaluate(async()=>{
         const S=await import('/utils/vrWorld/sarFamiliarity/state.ts'),M=await import('/utils/vrWorld/fishingMarket.ts'),C=await import('/utils/vrWorld/sarFamiliarity/catalog.ts');
         let now=Date.now();const p=(npc='aiven')=>M.readFishingMarketState().sarFamiliarity.npcs[npc];
@@ -16,7 +16,7 @@ try {
             const c=p(npc).pending;if(!c)return;const n=C.familiarityScene(c.sceneId).nodes[c.nodeId];
             const draft={confirmed:true,date:new Date(now).toLocaleDateString('zh-CN')};
             if(n.effect?.kind==='membership-card')draft.membership={name:'小雨',chibi:''};
-            if(n.effect?.kind==='photo-studio')draft.photo={actors:[{id:'caian',name:'凯恩',npc:'caian',x:26,y:86,scale:1},{id:'user',name:'小雨',x:50,y:89,scale:1},{id:'aiven',name:'艾文',npc:'aiven',x:74,y:86,scale:1}],background:'lounge',panX:0,panY:0,zoom:1,date:draft.date};
+            if(n.effect?.kind==='photo-studio')draft.photo={actors:[{id:'caian',name:'凱恩',npc:'caian',x:26,y:86,scale:1},{id:'user',name:'小雨',x:50,y:89,scale:1},{id:'aiven',name:'艾文',npc:'aiven',x:74,y:86,scale:1}],background:'lounge',panX:0,panY:0,zoom:1,date:draft.date};
             await S.advanceFamiliarity(npc,c,{now,choice:n.choices?0:undefined,draft});
         }throw Error('no finish');};
         // Complete real authored visits, rather than hand-constructing unlocked scenes.
@@ -39,15 +39,15 @@ try {
         window.qaRenderReplay=id=>window.qaReplayRoot.render(React.createElement(OSProvider,null,React.createElement(SARFamiliarityDialog,{key:id,npc:C.familiarityScene(id).npc,sceneId:id,onClose:()=>{},onEditUserChibi:()=>{},onOpenGuide:()=>{}})));
         window.qaRenderReplay('A2-E03');
     });
-    await page.getByRole('dialog',{name:'艾文的回忆'}).waitFor();
+    await page.getByRole('dialog',{name:'艾文的回憶'}).waitFor();
     const before=await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1'));
     const seenEffects = new Set();
-    const cases = [['A2-E03','优惠券雨'],['A2-SPECIAL','今天的风儿很喧嚣啊'],['C1-SPECIAL',''],['C2-SPECIAL','']];
+    const cases = [['A2-E03','優惠券雨'],['A2-SPECIAL','今天的風兒很喧囂啊'],['C1-SPECIAL',''],['C2-SPECIAL','']];
     for(const [id,title] of cases) {
         if(id!=='A2-E03')await page.evaluate(id=>window.qaRenderReplay(id),id);
         await page.waitForFunction(id=>JSON.parse(window.render_game_to_text?.()||'{}').scene===id,id);
         for(let i=0;i<300;i++) {
-            if(await page.getByRole('button',{name:'返回名册',exact:true}).count())break;
+            if(await page.getByRole('button',{name:'返回名冊',exact:true}).count())break;
             const state = await page.evaluate(()=>JSON.parse(window.render_game_to_text()));
             if (state.effect && !seenEffects.has(state.effect)) {
                 seenEffects.add(state.effect);
@@ -56,7 +56,7 @@ try {
             await page.locator('.srf-dialog .srf-responses button').first().click({timeout:5000});
             await page.waitForFunction(()=>!document.querySelector('.srf-dialog .srf-responses button')?.disabled,undefined,{timeout:5000});
         }
-        await page.getByRole('button',{name:'返回名册',exact:true}).waitFor();
+        await page.getByRole('button',{name:'返回名冊',exact:true}).waitFor();
         assert.equal(await page.evaluate(()=>localStorage.getItem('vr_fishing_market_v1')),before);
     }
     for(const effect of ['coupon-rain','discount','membership-card','photo-studio']) assert(seenEffects.has(effect),`${effect} was not reached`);

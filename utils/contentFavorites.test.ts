@@ -23,7 +23,7 @@ const message = (overrides: Partial<Message> = {}): Message => ({
     charId: CHAR_ID,
     role: 'assistant',
     type: 'text',
-    content: '只存在于原消息里的正文',
+    content: '只存在於原消息裡的正文',
     timestamp: 100,
     ...overrides,
 });
@@ -41,7 +41,7 @@ describe('content favorites reference index', () => {
             charId: CHAR_ID,
             role: 'assistant',
             type: 'text',
-            content: '只存在于原消息里的正文',
+            content: '只存在於原消息裡的正文',
         });
         const source = message({ id: sourceId });
         await saveMessageContentFavorite(source, 'Sully');
@@ -116,9 +116,9 @@ describe('content favorites reference index', () => {
         expect(await DB.getAssetRaw(retainedAssetId)).toBeNull();
     });
 
-    it('收藏的图片存的是 blobref 令牌时，resolveContentFavorite 给回真的能渲染的 data URL', async () => {
-        // 令牌本身不是能直接喂给 <img src> 的东西——之前 resolveContentFavorite 原样把令牌
-        // 当 imageUrl 返回，收藏夹里的图就是一张挂掉的图（alt 文字顶替显示）。
+    it('收藏的圖片存的是 blobref 令牌時，resolveContentFavorite 給回真的能渲染的 data URL', async () => {
+        // 令牌本身不是能直接餵給 <img src> 的東西——之前 resolveContentFavorite 原樣把令牌
+        // 當 imageUrl 返回，收藏夾裡的圖就是一張掛掉的圖（alt 文字頂替顯示）。
         const token = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const sourceMessageId = await DB.saveMessage({
             charId: CHAR_ID, role: 'assistant', type: 'image', content: token,

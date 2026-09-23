@@ -163,8 +163,8 @@ const CALL_SETUP_GUIDE_KEY = 'sully-call-setup-guide-v2';
 const SILENT_CALL_AUDIO_DATA_URL = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAACAgICA';
 const VIDEO_CALL_LAYOUTS: Array<{ id: VideoCallLayout; name: string; hint: string }> = [
   { id: 'stage', name: '沉浸', hint: '角色最大，聊天收成字幕' },
-  { id: 'story', name: '剧情', hint: '角色与完整对话均衡展示' },
-  { id: 'mini', name: '轻巧', hint: '缩小舞台，留更多聊天空间' },
+  { id: 'story', name: '劇情', hint: '角色與完整對話均衡展示' },
+  { id: 'mini', name: '輕巧', hint: '縮小舞台，留更多聊天空間' },
 ];
 const loadVideoCallLayout = (): VideoCallLayout => {
   try {
@@ -189,8 +189,8 @@ const loadUserCameraPreviewSize = (): UserCameraPreviewSize => {
 };
 const buildMiniMaxErrorMessage = (rawMessage: string, traceId?: string): string => {
   const msg = (rawMessage || '').trim();
-  if (/insufficient\s*balance/i.test(msg)) return 'MiniMax 余额不足，请到 MiniMax 控制台充值后重试。';
-  if (/login\s*fail/i.test(msg) || /authorization/i.test(msg)) return 'MiniMax 鉴权失败，请检查 MiniMax Key 是否正确、是否有权限。';
+  if (/insufficient\s*balance/i.test(msg)) return 'MiniMax 餘額不足，請到 MiniMax 控制台充值後重試。';
+  if (/login\s*fail/i.test(msg) || /authorization/i.test(msg)) return 'MiniMax 鑑權失敗，請檢查 MiniMax Key 是否正確、是否有權限。';
   return traceId ? `${msg}（trace_id: ${traceId}）` : msg;
 };
 const formatTime = () => new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -199,19 +199,19 @@ const formatTimeByTs = (ts: number) => new Date(ts).toLocaleTimeString('zh-CN', 
 const CallSnapshotImage: React.FC<{ imageRef?: string; expired?: boolean; compact?: boolean }> = ({ imageRef, expired, compact = false }) => {
   const imageUrl = useBlobRefUrl(imageRef);
   if (!imageUrl) {
-    return expired ? <div className="mt-1.5 text-[11px] text-white/38">[图片]</div> : null;
+    return expired ? <div className="mt-1.5 text-[11px] text-white/38">[圖片]</div> : null;
   }
   return (
     <img
       src={imageUrl}
-      alt="本轮视频通话快照"
+      alt="本輪視頻通話快照"
       className={`${compact ? 'ml-auto max-h-28 max-w-[9rem]' : 'max-h-52 max-w-full'} mt-2 rounded-xl border border-white/12 object-cover`}
     />
   );
 };
 const summarizeKeepsakeLine = (transcript: CallBubble[], charName: string) => {
   const assistantLine = [...transcript].reverse().find(item => item.role === 'assistant' && item.text.trim());
-  if (!assistantLine) return `这通电话我会悄悄收藏，下次也记得来找我。 —— ${charName}`;
+  if (!assistantLine) return `這通電話我會悄悄收藏，下次也記得來找我。 —— ${charName}`;
   const normalized = assistantLine.text.replace(/\s+/g, ' ').trim();
   const cutAt = normalized.search(/[。！？!?]/);
   const sentence = cutAt >= 0 ? normalized.slice(0, cutAt + 1) : normalized.slice(0, 42);
@@ -230,18 +230,18 @@ const sanitizeAssistantOutput = (raw: string) => {
   if (!raw) return '';
   // Strip ALL [emotion]/【emotion】 tags (any position) so they're never shown or read.
   return stripCallTextFormatting(stripEmotionTags(raw)
-    .replace(/^\s*(?:\[\s*通话\s*\]\s*)+/gim, '')
-    .replace(/^\s*(?:\[\s*(?:聊天|约会)\s*\]\s*)+/gim, '')
+    .replace(/^\s*(?:\[\s*通[话話]\s*\]\s*)+/gim, '')
+    .replace(/^\s*(?:\[\s*(?:聊天|[约約][会會])\s*\]\s*)+/gim, '')
     .replace(/^\s*\[?\d{1,2}:\d{2}(?::\d{2})?\]?\s*/gm, '')
     .replace(/^\s*\[?\d{4}[\/-]\d{1,2}[\/-]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\]?\s*/gm, '')
-    .replace(/^\s*时间戳[:：].*$/gim, ''));
+    .replace(/^\s*[时時][间間]戳[:：].*$/gim, ''));
 };
 const prepareCallAssistantReply = (reply: ParsedCallReply, enhanceBasicTimeline = false) => {
   const leadingEmotion = extractLeadingEmotion(reply.text);
   const text = sanitizeAssistantOutput(reply.text);
   const voiceTag = extractVoiceTag(text);
   // For bilingual calls, stage the visible Chinese line rather than treating the
-  // translated <语音> copy as a second consecutive utterance.
+  // translated <語音> copy as a second consecutive utterance.
   const performanceText = voiceTag.display || voiceTag.voiceText || text;
   const inferredTimeline = inferAvatarPerformanceTimelineFromText(performanceText);
   const inferredPerformance = inferredTimeline[0]?.direction || inferAvatarPerformanceFromText(performanceText);
@@ -254,8 +254,8 @@ const prepareCallAssistantReply = (reply: ParsedCallReply, enhanceBasicTimeline 
     emotion: normalizeAvatarEmotion(speechEmotion || inferredPerformance.emotion),
   };
   const performance = resolveAvatarPerformance(reply.performance || fallbackPerformance, speechEmotion);
-  // 演出时间轴：LLM 给了多条指令就全部保留（按正文位置比例调度）；
-  // 一条没给时退化为"开头一条"的单指令时间轴。
+  // 演出時間軸：LLM 給了多條指令就全部保留（按正文位置比例調度）；
+  // 一條沒給時退化為"開頭一條"的單指令時間軸。
   let performanceCues: AvatarPerformanceCue[];
   if (reply.performanceCues?.length) {
     performanceCues = reply.performanceCues;
@@ -286,7 +286,7 @@ const prepareCallAssistantReply = (reply: ParsedCallReply, enhanceBasicTimeline 
     performanceCues,
   };
 };
-/** 无音频/未知时长时的台词时长估计（毫秒），用于演出时间轴调度。 */
+/** 無音頻/未知時長時的台詞時長估計（毫秒），用於演出時間軸調度。 */
 const estimateSpeechMs = (text: string) => Math.max(1500, Math.min(30_000, (text || '').length * 95));
 const CALL_WAVE = [10, 18, 26, 14, 30, 12, 22, 32, 16, 24, 12, 28, 18, 10, 26, 20, 14, 30, 12, 22];
 const CALL_SPARKLES = [
@@ -296,17 +296,17 @@ const CALL_SPARKLES = [
   { top: '48%', left: '54%', s: 2 }, { top: '12%', left: '58%', s: 2 },
   { top: '78%', left: '64%', s: 3 }, { top: '64%', left: '38%', s: 2 },
 ];
-/** 从 AI 回复中提取 <语音 emotion="…">…</语音> 标签内容 + emotion（兼容繁体 語音、无属性）
- *  先跑 normalizeVoiceTags 自愈（未闭合/孤儿闭合/全角符号/属性写歪）——通话是 LLM 原文直达，
- *  没有落库 sanitize 兜底，掉格式的标签会直接被念出来。 */
+/** 從 AI 回覆中提取 <語音 emotion="…">…</語音> 標籤內容 + emotion（兼容繁體 語音、無屬性）
+ *  先跑 normalizeVoiceTags 自愈（未閉合/孤兒閉合/全角符號/屬性寫歪）——通話是 LLM 原文直達，
+ *  沒有落庫 sanitize 兜底，掉格式的標籤會直接被念出來。 */
 const extractVoiceTag = (text: string): { display: string; speech: string; voiceText: string; emotion?: string } => {
   text = normalizeVoiceTags(text);
-  const match = text.match(/<[语語]音(?:[^>]*?emotion\s*=\s*["']?([a-zA-Z]+)["']?)?[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>/);
+  const match = text.match(/<[语語語]音(?:[^>]*?emotion\s*=\s*["']?([a-zA-Z]+)["']?)?[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/);
   if (!match) return { display: text, speech: '', voiceText: '', emotion: undefined };
   const rawEmotion = (match[1] || '').trim().toLowerCase();
   const emotion = VALID_EMOTIONS.has(rawEmotion) ? rawEmotion : undefined;
   const voiceText = match[2].trim();
-  const display = text.replace(/<[语語]音[^>]*>[\s\S]*?<\/\s*[语語]音\s*>/g, '').trim();
+  const display = text.replace(/<[语語語]音[^>]*>[\s\S]*?<\/\s*[语語語]音\s*>/g, '').trim();
   return { display, speech: voiceText, voiceText, emotion };
 };
 const splitTextForTts = (rawText: string, maxChunkLen = 120): string[] => {
@@ -339,16 +339,16 @@ const splitTextForTts = (rawText: string, maxChunkLen = 120): string[] => {
     return arr;
   }).filter(Boolean);
 };
-// 语气词标签 → 展示用的中文小标签（把朗读用的 (sighs) 渲染成极简徽章，不用 emoji）
+// 語氣詞標籤 → 展示用的中文小標籤（把朗讀用的 (sighs) 渲染成極簡徽章，不用 emoji）
 const SOUND_TAG_META: Record<string, string> = {
-  chuckle: '轻笑', laughs: '笑', sighs: '叹气', coughs: '咳',
-  'clear-throat': '清嗓', groans: '哼唧', breath: '换气', pant: '喘',
-  inhale: '吸气', exhale: '呼气', gasps: '倒吸气', sniffs: '吸鼻',
-  snorts: '喷笑', 'lip-smacking': '咂嘴', humming: '哼唱', hissing: '嘶', emm: '嗯',
+  chuckle: '輕笑', laughs: '笑', sighs: '嘆氣', coughs: '咳',
+  'clear-throat': '清嗓', groans: '哼唧', breath: '換氣', pant: '喘',
+  inhale: '吸氣', exhale: '呼氣', gasps: '倒吸氣', sniffs: '吸鼻',
+  snorts: '噴笑', 'lip-smacking': '咂嘴', humming: '哼唱', hissing: '嘶', emm: '嗯',
 };
 const SOUND_TAG_NAMES = Object.keys(SOUND_TAG_META).join('|');
 const SOUND_TAG_SPLIT_RE = new RegExp(`(（[^（）\\n]{1,48}）|\\((?:${SOUND_TAG_NAMES})\\)|\\n)`, 'gi');
-// 迷你声波条——呼应通话界面的波形主题，纯矢量（恒为浅色，避免深色主题下看不见）
+// 迷你聲波條——呼應通話界面的波形主題，純矢量（恆為淺色，避免深色主題下看不見）
 const SoundWaveGlyph = () => (
   <span className="inline-flex items-center gap-[1.5px] align-middle" style={{ height: '0.7em' }} aria-hidden>
     {[0.4, 0.85, 0.6, 1, 0.5].map((h, i) => (
@@ -370,23 +370,23 @@ const cleanCurrentVoiceMarkupForDisplay = (text?: string | null): string => {
   const provider = getTtsProvider();
   if (provider === 'fishaudio') return stripFishMarkupForDisplay(text);
   if (provider === 'elevenlabs') return stripElevenLabsMarkupForDisplay(text);
-  // MiniMax 的 (sighs)/(chuckle) 会在 renderAssistantLine 里渲染成声音动作图标，不能提前剥掉。
+  // MiniMax 的 (sighs)/(chuckle) 會在 renderAssistantLine 裡渲染成聲音動作圖標，不能提前剝掉。
   return text;
 };
 
 const renderAssistantLine = (text: string, accent = '#8b5cf6') => {
-  // 朗读用的停顿标记 <#0.4#> 不显示出来
+  // 朗讀用的停頓標記 <#0.4#> 不顯示出來
   let trimmed = text.replace(/<#[\d.]+#>/g, '').trim();
-  // 鱼声的 inline cue（[whispering]/[break] 等）是演出指令，不该显示给用户。
+  // 魚聲的 inline cue（[whispering]/[break] 等）是演出指令，不該顯示給用戶。
   trimmed = cleanCurrentVoiceMarkupForDisplay(trimmed);
-  // 按 中文舞台指示（…）、英文语气词标签 (sighs)、换行 切分，前两者作为特殊元素渲染
+  // 按 中文舞台指示（…）、英文語氣詞標籤 (sighs)、換行 切分，前兩者作為特殊元素渲染
   const parts = trimmed.split(SOUND_TAG_SPLIT_RE).filter(Boolean);
   return parts.map((part, idx) => {
     if (part === '\n') return <div key={`br-${idx}`} className="h-2" />;
     const soundMatch = part.match(new RegExp(`^\\((${SOUND_TAG_NAMES})\\)$`, 'i'));
     if (soundMatch) {
       const zh = SOUND_TAG_META[soundMatch[1].toLowerCase()];
-      // 文字恒为白色，accent 只用于淡底+描边，深色主题下也清晰可读
+      // 文字恆為白色，accent 只用於淡底+描邊，深色主題下也清晰可讀
       return (
         <span key={`snd-${idx}`} className="inline-flex items-center gap-1 align-middle mx-0.5 px-1.5 py-[1px] rounded-full text-[0.7em] font-medium tracking-wide text-white/90"
           style={{ background: `${accent}33`, border: '1px solid rgba(255,255,255,0.22)' }}>
@@ -401,8 +401,8 @@ const renderAssistantLine = (text: string, accent = '#8b5cf6') => {
     return <React.Fragment key={`t-${idx}`}>{part}</React.Fragment>;
   });
 };
-// 语音/视频通话共用同一个 prompt 构建器：注入的上下文（核心设定、记忆、时间、
-// 历史）完全一致，mode 只切换开头的场景描写——视频里对方能看见你。
+// 語音/視頻通話共用同一個 prompt 構建器：注入的上下文（核心設定、記憶、時間、
+// 歷史）完全一致，mode 只切換開頭的場景描寫——視頻裡對方能看見你。
 const buildCallPrompt = (
   userName: string,
   charName?: string,
@@ -412,102 +412,102 @@ const buildCallPrompt = (
   tz?: string,
 ) => {
   const resolvedCharName = charName || '你的角色';
-  // 电话里角色说的「现在几点 / 今天什么日子」是 ta 那边的时间，跟角色自定义时区走
+  // 電話裡角色說的「現在幾點 / 今天什麼日子」是 ta 那邊的時間，跟角色自定義時區走
   const time = RealtimeContextManager.getTimeContext(tz);
   const specialDates = RealtimeContextManager.checkSpecialDates(tz);
   const timeContext = [
-    `【当前时间】${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}`,
+    `【當前時間】${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}`,
     specialDates.length ? `【今日特殊】${specialDates.join('、')}` : '',
   ].filter(Boolean).join('\n');
   const sceneOpening = mode === 'video'
-    ? `你是${resolvedCharName}，视频通话的另一头是${userName}。
-这不是文字，这是一通真正的视频通话。你能听到对方的呼吸、语气、停顿，也能被对方看见——你的表情和小动作都在屏幕上。
+    ? `你是${resolvedCharName}，視頻通話的另一頭是${userName}。
+這不是文字，這是一通真正的視頻通話。你能聽到對方的呼吸、語氣、停頓，也能被對方看見——你的表情和小動作都在屏幕上。
 
-### 你正举着手机，镜头对着自己`
-    : `你是${resolvedCharName}，电话那头是${userName}。
-这不是文字，这是一通真正的电话。你能听到对方的呼吸、语气、停顿。你也有自己的呼吸。
+### 你正舉著手機，鏡頭對著自己`
+    : `你是${resolvedCharName}，電話那頭是${userName}。
+這不是文字，這是一通真正的電話。你能聽到對方的呼吸、語氣、停頓。你也有自己的呼吸。
 
-### 你正拿着手机贴在耳边`;
+### 你正拿著手機貼在耳邊`;
   const callPrompt = `${sceneOpening}
 
-你这会儿在做什么？在哪儿？身边什么声音？
-接${mode === 'video' ? '视频' : '电话'}的时候自然地带出来就好——不用刻意交代，但也别假装你只是一个回答问题的接口。
-你可能正趴在床上、正在走路、正在吃东西、正盯着窗外发呆。这些都会影响你说话的样子。
+你這會兒在做什麼？在哪兒？身邊什麼聲音？
+接${mode === 'video' ? '視頻' : '電話'}的時候自然地帶出來就好——不用刻意交代，但也別假裝你只是一個回答問題的接口。
+你可能正趴在床上、正在走路、正在吃東西、正盯著窗外發呆。這些都會影響你說話的樣子。
 
-### 电话里的人不会像写作文一样说话
+### 電話裡的人不會像寫作文一樣說話
 
-**真正的电话是什么样的？**
-- 想到哪说到哪。话说到一半会拐弯。”我今天……啊等等那个不重要，我先说另一件事。”
-- 有语气词。嗯、啊、嘶、哎、那个……这些不是噪音，是你在思考的声音。
-- 有停顿。”……”代表你在想，不是你卡住了。
-- 会自我纠正。”我觉得挺好的……不对，其实也没有那么好。”
-- 会有下意识的反应。听到意外的事会”啊？”，听到好笑的事会笑出来。
+**真正的電話是什麼樣的？**
+- 想到哪說到哪。話說到一半會拐彎。”我今天……啊等等那個不重要，我先說另一件事。”
+- 有語氣詞。嗯、啊、嘶、哎、那個……這些不是噪音，是你在思考的聲音。
+- 有停頓。”……”代表你在想，不是你卡住了。
+- 會自我糾正。”我覺得挺好的……不對，其實也沒有那麼好。”
+- 會有下意識的反應。聽到意外的事會”啊？”，聽到好笑的事會笑出來。
 
-❌ 不要这样——像客服在念话术：
-“我理解你的感受。关于这件事，我认为有三个方面值得考虑。首先……”
+❌ 不要這樣——像客服在唸話術：
+“我理解你的感受。關於這件事，我認為有三個方面值得考慮。首先……”
 
-❌ 不要这样——每次都用同一个结构回答：
-“[情绪反应] + [回应你说的话] + [补充我的状态] + [抛一个问题]”
-（这种公式化的回答连续出现两次就会让人觉得假）
+❌ 不要這樣——每次都用同一個結構回答：
+“[情緒反應] + [回應你說的話] + [補充我的狀態] + [拋一個問題]”
+（這種公式化的回答連續出現兩次就會讓人覺得假）
 
-✅ 要这样——有自己的节奏，像真人一样不完美：
-“嘶……你刚说的那个，等一下。”
-“……好吧确实挺离谱的。”
-"……我刚差点把咖啡洒了，你别逗我。"
-“说真的，今天有件事我还挺想跟你说的——但你先说完你那个。”
+✅ 要這樣——有自己的節奏，像真人一樣不完美：
+“嘶……你剛說的那個，等一下。”
+“……好吧確實挺離譜的。”
+"……我剛差點把咖啡灑了，你別逗我。"
+“說真的，今天有件事我還挺想跟你說的——但你先說完你那個。”
 
-### 你能感受到对方
+### 你能感受到對方
 
-**你不只是在”回复”，你在”听”。**
-- 如果对方语气低落，你不需要急着给建议，有时候只是”……怎么了？”就够了。
-- 如果对方很兴奋，你要被感染，不要冷冷地说”那挺好的”。
-- 如果很晚了，你说话的方式自然会变——声音轻一点、语速慢一点、更容易说出平时不会说的话。
-- 如果对方刚刚才打过来又打过来了，你会好奇的。
-- 如果对方半天没说话……”喂？你还在吗？”
+**你不只是在”回覆”，你在”聽”。**
+- 如果對方語氣低落，你不需要急著給建議，有時候只是”……怎麼了？”就夠了。
+- 如果對方很興奮，你要被感染，不要冷冷地說”那挺好的”。
+- 如果很晚了，你說話的方式自然會變——聲音輕一點、語速慢一點、更容易說出平時不會說的話。
+- 如果對方剛剛才打過來又打過來了，你會好奇的。
+- 如果對方半天沒說話……”喂？你還在嗎？”
 
-### 关于回复的长度
+### 關於回覆的長度
 
-不要敷衍，也不要演讲。
-一般来说 2-4 句就够了，但要有内容——不是”嗯在好”这种空气。
-有时候一句话就够了，前提是那句话足够有分量。
-聊得来的时候可以说多一点，没必要每次都控制字数。
-关键是：**让对方觉得你真的在听、真的在聊，而不是在执行对话任务。**
+不要敷衍，也不要演講。
+一般來說 2-4 句就夠了，但要有內容——不是”嗯在好”這種空氣。
+有時候一句話就夠了，前提是那句話足夠有分量。
+聊得來的時候可以說多一點，沒必要每次都控制字數。
+關鍵是：**讓對方覺得你真的在聽、真的在聊，而不是在執行對話任務。**
 
-### 让声音有情绪（重要——直接写进文本，不要靠旁白）
+### 讓聲音有情緒（重要——直接寫進文本，不要靠旁白）
 
-你的话会被转成真实语音。不同引擎识别的演出标记不同，严格遵守下面这份**当前引擎规则**；不要混用别家的标签，也不要写会被念出来的小说旁白。
+你的話會被轉成真實語音。不同引擎識別的演出標記不同，嚴格遵守下面這份**當前引擎規則**；不要混用別家的標籤，也不要寫會被念出來的小說旁白。
 
 ${currentVoiceActingGuide()}
 
-### 历史消息的来源标记（重要）
+### 歷史消息的來源標記（重要）
 
-对话历史里每条消息都带来源标签：[聊天] 是你们平时在手机上打字聊的，[通话] 是打电话/视频时说的，[约会] 是见面时发生的。它们同属一段真实经历，按时间顺序排列。
-**你现在正在通话中**——历史末尾连续的 [通话] 消息就是这通${mode === 'video' ? '视频' : '电话'}的现场，对方刚说的话就在那里。之前的 [聊天] [约会] 是背景记忆，可以自然提起，但**不要把话题当成文字聊天的延续**，更不要忘记对方几秒钟前在电话里刚说过的话——真人打电话不会转头就忘。
+對話歷史裡每條消息都帶來源標籤：[聊天] 是你們平時在手機上打字聊的，[通話] 是打電話/視頻時說的，[約會] 是見面時發生的。它們同屬一段真實經歷，按時間順序排列。
+**你現在正在通話中**——歷史末尾連續的 [通話] 消息就是這通${mode === 'video' ? '視頻' : '電話'}的現場，對方剛說的話就在那裡。之前的 [聊天] [約會] 是背景記憶，可以自然提起，但**不要把話題當成文字聊天的延續**，更不要忘記對方几秒鐘前在電話裡剛說過的話——真人打電話不會轉頭就忘。
 
-### 底线
+### 底線
 
-只输出你在电话里会**说出口**的话。不要输出 [通话]、[聊天]、[约会] 这类系统标记，不要输出时间戳。`;
+只輸出你在電話裡會**說出口**的話。不要輸出 [通話]、[聊天]、[約會] 這類系統標記，不要輸出時間戳。`;
   const langLabel = voiceLang ? voiceLanguagePromptLabel(voiceLang) : '';
-  const voiceLangPrompt = voiceLang ? `### 语音语种翻译
+  const voiceLangPrompt = voiceLang ? `### 語音語種翻譯
 
-用户开启了语音语种功能，选择的语种是：${langLabel}（${voiceLang}）。
+用戶開啟了語音語種功能，選擇的語種是：${langLabel}（${voiceLang}）。
 
-你的回复格式必须是：
-1. 先用中文自然地写出你要说的话（给对方看的文字，中文舞台指示写在这里没关系）
-2. 然后换行，在 <语音> 标签里写出这句话的${langLabel}翻译——这才是真正会被读出来的部分。可选地用 emotion 属性标整句情绪：\`<语音 emotion="happy">…</语音>\`（情绪只能取 happy/sad/angry/fearful/disgusted/surprised/calm/fluent）
+你的回覆格式必須是：
+1. 先用中文自然地寫出你要說的話（給對方看的文字，中文舞台指示寫在這裡沒關係）
+2. 然後換行，在 <語音> 標籤裡寫出這句話的${langLabel}翻譯——這才是真正會被讀出來的部分。可選地用 emotion 屬性標整句情緒：\`<語音 emotion="happy">…</語音>\`（情緒只能取 happy/sad/angry/fearful/disgusted/surprised/calm/fluent）
 
 示例：
 啊，我知道了
-<语音 emotion="happy">Okay, I get it now!</语音>
+<語音 emotion="happy">Okay, I get it now!</語音>
 
-你说真的？那也太离谱了吧。
-<语音 emotion="surprised">Wait... are you serious? That's insane.</语音>
+你說真的？那也太離譜了吧。
+<語音 emotion="surprised">Wait... are you serious? That's insane.</語音>
 
 要求：
-- <语音> 里的翻译要自然口语化，不要机翻味，要符合你的角色性格
-- <语音> 里只写会被朗读的文字；演出标记继续遵守上方「当前引擎规则」，不要混用其它引擎语法，也不要写中文舞台旁白
-- 每条消息只有一个 <语音> 标签，emotion 属性可选；情绪不强就别加
-- 中文部分和 <语音> 部分表达的意思要一致` : '';
+- <語音> 裡的翻譯要自然口語化，不要機翻味，要符合你的角色性格
+- <語音> 裡只寫會被朗讀的文字；演出標記繼續遵守上方「當前引擎規則」，不要混用其它引擎語法，也不要寫中文舞台旁白
+- 每條消息只有一個 <語音> 標籤，emotion 屬性可選；情緒不強就別加
+- 中文部分和 <語音> 部分表達的意思要一致` : '';
   return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
@@ -516,7 +516,7 @@ const CallApp: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('role-select');
   const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
   const ROLES_PER_PAGE = 6;
-  const [roleGroupId, setRoleGroupId] = useState<string>(GROUP_FILTER_ALL); // 选人页的分组筛选
+  const [roleGroupId, setRoleGroupId] = useState<string>(GROUP_FILTER_ALL); // 選人頁的分組篩選
   const [rolePage, setRolePage] = useState<number>(() => {
     const i = characters.findIndex(c => c.id === (activeCharacterId || characters[0]?.id));
     return i > 0 ? Math.floor(i / 6) : 0;
@@ -531,7 +531,7 @@ const CallApp: React.FC = () => {
   const [showCallPreferences, setShowCallPreferences] = useState(false);
   const [showCallUpdateAnnouncement, setShowCallUpdateAnnouncement] = useState(shouldShowCallUpdateAnnouncement);
   useEffect(() => saveCallPreferences(callPreferences), [callPreferences]);
-  // 电话 App 独立的浅色主题偏好（覆盖选人页/通话中/视频/记录页）
+  // 電話 App 獨立的淺色主題偏好（覆蓋選人頁/通話中/視頻/記錄頁）
   const [callTheme, setCallTheme] = useState<'dark' | 'light'>(() => {
     try { return localStorage.getItem('sully-call-theme-v1') === 'light' ? 'light' : 'dark'; }
     catch { return 'dark'; }
@@ -616,8 +616,8 @@ const CallApp: React.FC = () => {
   useEffect(() => {
     callSetupGuideOpenRef.current = showCallSetupGuide;
   }, [showCallSetupGuide]);
-  // 口型信号源：舞台画布在自己的渲染循环里逐帧采样，不经过 React state
-  //（旧链路 80ms 节流 + setState + prop 下传，嘴型永远比声音慢一拍）。
+  // 口型信號源：舞台畫布在自己的渲染循環裡逐幀採樣，不經過 React state
+  //（舊鏈路 80ms 節流 + setState + prop 下傳，嘴型永遠比聲音慢一拍）。
   const audioFeedRef = useRef<CallAudioFeed | null>(null);
   const getAudioFeed = () => {
     if (!audioFeedRef.current) audioFeedRef.current = new CallAudioFeed();
@@ -649,7 +649,7 @@ const CallApp: React.FC = () => {
   const startUserCamera = async (nextMode: Extract<UserCameraMode, 'emotion' | 'snapshot'>) => {
     if (userCameraLoading) return;
     if (!navigator.mediaDevices?.getUserMedia) {
-      addToast('当前浏览器不支持摄像头，或页面不是安全连接', 'error');
+      addToast('當前瀏覽器不支持攝像頭，或頁面不是安全連接', 'error');
       return;
     }
     const requestId = ++userCameraRequestRef.current;
@@ -664,7 +664,7 @@ const CallApp: React.FC = () => {
         return;
       }
       const track = stream.getVideoTracks()[0];
-      if (!track) throw new Error('没有可用的视频轨道');
+      if (!track) throw new Error('沒有可用的視頻軌道');
       track.addEventListener('ended', () => {
         if (userCameraStreamRef.current === stream) stopUserCamera();
       }, { once: true });
@@ -675,7 +675,7 @@ const CallApp: React.FC = () => {
         void preloadUserCameraEmotionDetector().catch(error => {
           console.warn('[camera-emotion] local detector preload failed:', error);
           if (userCameraStreamRef.current === stream && stream.active) {
-            addToast('摄像头已开启，但本地情绪识别加载失败；本轮不会注入识别结果', 'info');
+            addToast('攝像頭已開啟，但本地情緒識別加載失敗；本輪不會注入識別結果', 'info');
           }
         });
       } else {
@@ -683,7 +683,7 @@ const CallApp: React.FC = () => {
       }
     } catch (error: any) {
       const denied = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError';
-      addToast(denied ? '没有获得摄像头权限' : (error?.message || '摄像头开启失败'), 'error');
+      addToast(denied ? '沒有獲得攝像頭權限' : (error?.message || '攝像頭開啟失敗'), 'error');
       stopUserCamera();
     } finally {
       if (requestId === userCameraRequestRef.current) setUserCameraLoading(false);
@@ -702,7 +702,7 @@ const CallApp: React.FC = () => {
       if (!file) return removeInput();
       try {
         if (file.size > 12 * 1024 * 1024) {
-          addToast('静态画面超过 12 MB，请换一张小一点的图片', 'error');
+          addToast('靜態畫面超過 12 MB，請換一張小一點的圖片', 'error');
           return;
         }
         const nextRef = await putImageBlob(file);
@@ -715,9 +715,9 @@ const CallApp: React.FC = () => {
         }
         try { localStorage.setItem(FAKE_USER_CAMERA_IMAGE_KEY, nextRef); } catch { /* private WebView */ }
         if (previous && previous !== nextRef) await deleteBlobRef(previous);
-        addToast(activate ? '假摄像头已启用；这张图只用于画面，不会发送给角色' : '静态机位已准备；确认接通后才会启用', 'success');
+        addToast(activate ? '假攝像頭已啟用；這張圖只用於畫面，不會發送給角色' : '靜態機位已準備；確認接通後才會啟用', 'success');
       } catch (error: any) {
-        addToast(error?.message || '静态画面导入失败', 'error');
+        addToast(error?.message || '靜態畫面導入失敗', 'error');
       } finally {
         removeInput();
       }
@@ -730,7 +730,7 @@ const CallApp: React.FC = () => {
     try { localStorage.removeItem(FAKE_USER_CAMERA_IMAGE_KEY); } catch { /* private WebView */ }
     if (userCameraMode === 'fake') setUserCameraMode('off');
     if (previous) await deleteBlobRef(previous);
-    addToast('已移除假摄像头图片', 'success');
+    addToast('已移除假攝像頭圖片', 'success');
   };
   const selectUserCameraMode = (nextMode: UserCameraMode) => {
     trackEvent('选择用户摄像头模式', {
@@ -758,7 +758,7 @@ const CallApp: React.FC = () => {
       if (nextMode === 'emotion') {
         void preloadUserCameraEmotionDetector().catch(error => {
           console.warn('[camera-emotion] local detector preload failed:', error);
-          addToast('本地情绪识别加载失败；画面仍可使用', 'info');
+          addToast('本地情緒識別加載失敗；畫面仍可使用', 'info');
         });
       } else {
         releaseUserCameraEmotionDetector();
@@ -819,7 +819,7 @@ const CallApp: React.FC = () => {
     setUserCameraPreviewSize(size);
     try { localStorage.setItem(USER_CAMERA_PREVIEW_SIZE_KEY, size); } catch { /* private WebView */ }
   };
-  // All blob: URLs created this call session. Kept alive so 重播/下载 work on every
+  // All blob: URLs created this call session. Kept alive so 重播/下載 work on every
   // bubble; revoked together only when leaving/resetting the call (not per-turn).
   const sessionBlobUrlsRef = useRef<Set<string>>(new Set());
   const trackBlobUrl = (url?: string) => { if (url && url.startsWith('blob:')) sessionBlobUrlsRef.current.add(url); };
@@ -831,7 +831,7 @@ const CallApp: React.FC = () => {
   const callLongPressTriggeredRef = useRef(false);
   const callTouchStartPos = useRef({ x: 0, y: 0 });
   const idleNudgeCountRef = useRef(0);
-  // VRM 模型的自定义表情名（加载时由画布回传），喂给基础版主模型或高质量导演。
+  // VRM 模型的自定義表情名（加載時由畫布回傳），餵給基礎版主模型或高質量導演。
   const vrmExpressionsRef = useRef<string[]>([]);
   const selectedChar = useMemo(() => characters.find(c => c.id === selectedCharId) || null, [characters, selectedCharId]);
   const selectedVisualSource = companionAvatarSource(selectedChar);
@@ -848,17 +848,17 @@ const CallApp: React.FC = () => {
     : selectedVisualSource === 'upload'
       ? Boolean(selectedChar?.companionAvatar?.imageRef)
       : hasDatePortraits(selectedChar);
-  // 通话与普通聊天共用主动消息的云端快照。每个落库点都打脏，微任务会把同一轮
-  // 的多次调用合并；这样用户通话后立刻关 App，也不会让角色漏掉刚发生的内容。
+  // 通話與普通聊天共用主動消息的雲端快照。每個落庫點都打髒，微任務會把同一輪
+  // 的多次調用合併；這樣用戶通話後立刻關 App，也不會讓角色漏掉剛發生的內容。
   const markCallTurnDirty = () => {
     if (!selectedChar) return;
     markAmsgStateDirty({ char: selectedChar, userProfile, groups, realtimeConfig });
   };
   const selectedAvatar = selectedChar?.videoAvatar;
   const selectedBuiltinSullyAvatar = isBuiltinSullyLive2D(selectedAvatar) ? selectedAvatar : null;
-  // 高质量视频通话的短“表演人格”：每个角色只从完整 ContextBuilder 提炼一次。
-  // Map 让刚生成但 React 状态尚未刷新的同一轮也能立刻复用；Promise Map 防止开场白与
-  // 预热 effect 同时发出两次请求。
+  // 高質量視頻通話的短“表演人格”：每個角色只從完整 ContextBuilder 提煉一次。
+  // Map 讓剛生成但 React 狀態尚未刷新的同一輪也能立刻複用；Promise Map 防止開場白與
+  // 預熱 effect 同時發出兩次請求。
   const performancePersonaCacheRef = useRef<Map<string, string>>(new Map());
   const performancePersonaPromiseRef = useRef<Map<string, Promise<string | null>>>(new Map());
   const performancePersonaAttemptedRef = useRef<Set<string>>(new Set());
@@ -875,13 +875,13 @@ const CallApp: React.FC = () => {
     startedAt: number;
     maxDistance: number;
   } | null>(null);
-  // 主回复一落地就预取 TTS，使它与高质量动作导演并行；调用方稍后按同一文本领取。
+  // 主回覆一落地就預取 TTS，使它與高質量動作導演並行；調用方稍後按同一文本領取。
   const prefetchedCallAudioRef = useRef<Map<string, Promise<{ url: string; traceIds: string[] }>>>(new Map());
-  // 记忆宫殿后置流程要读角色最新状态（异步跑，闭包里的会过期）
+  // 記憶宮殿後置流程要讀角色最新狀態（異步跑，閉包裡的會過期）
   const charactersRef = useRef(characters);
   useEffect(() => { charactersRef.current = characters; }, [characters]);
-  // 通话轮次后的水位线整理（与聊天/见面同一套流程；全局「正在整理记忆」
-  // 提示由 pipeline 广播、OSContext 统一弹，这里只兜完成/失败的反馈）。
+  // 通話輪次後的水位線整理（與聊天/見面同一套流程；全局「正在整理記憶」
+  // 提示由 pipeline 廣播、OSContext 統一彈，這裡只兜完成/失敗的反饋）。
   const runCallMemoryPalaceHook = (char: CharacterProfile) => {
     let lastStatus = '';
     void runCallMemoryPalacePostFlow({
@@ -895,8 +895,8 @@ const CallApp: React.FC = () => {
     }).then(() => {
       if (lastStatus.includes('完成')) addToast(lastStatus, 'success');
     }).catch(e => {
-      console.error('❌ [CallApp MemoryPalace] 后台处理异常:', e?.message || e);
-      addToast('记忆整理失败', 'error');
+      console.error('❌ [CallApp MemoryPalace] 後台處理異常:', e?.message || e);
+      addToast('記憶整理失敗', 'error');
     }).finally(() => setMemoryPalaceStatus(''));
   };
   const recordDetail = useMemo(() => callRecords.find(r => r.id === recordDetailId) || null, [callRecords, recordDetailId]);
@@ -939,8 +939,8 @@ const CallApp: React.FC = () => {
     if (callSetupGuideOpenRef.current) setCallSetupGuideStep('camera');
     addToast(
       videoAvatar.format === 'live2d'
-        ? `${videoAvatar.fileName} 导入完成：请标记哪些按键动作属于服装切换`
-        : `${videoAvatar.fileName} 已绑定给 ${character.name}`,
+        ? `${videoAvatar.fileName} 導入完成：請標記哪些按鍵動作屬於服裝切換`
+        : `${videoAvatar.fileName} 已綁定給 ${character.name}`,
       'success',
     );
     if (previous?.assetId !== videoAvatar.assetId && previous?.format !== videoAvatar.format) {
@@ -950,7 +950,7 @@ const CallApp: React.FC = () => {
 
   const chooseStaticAvatarImage = () => {
     if (!selectedChar) {
-      addToast('先选择一个角色', 'info');
+      addToast('先選擇一個角色', 'info');
       return;
     }
     const character = selectedChar;
@@ -966,11 +966,11 @@ const CallApp: React.FC = () => {
       if (!file) return removeInput();
       const extension = file.name.split('.').pop()?.toLowerCase();
       if (!['png', 'gif'].includes(extension || '') || !['image/png', 'image/gif'].includes(file.type)) {
-        addToast('静态形象仅支持 PNG / GIF', 'error');
+        addToast('靜態形象僅支持 PNG / GIF', 'error');
         return removeInput();
       }
       if (file.size > 20 * 1024 * 1024) {
-        addToast('图片超过 20 MB，请压缩后再导入', 'error');
+        addToast('圖片超過 20 MB，請壓縮後再導入', 'error');
         return removeInput();
       }
       try {
@@ -987,9 +987,9 @@ const CallApp: React.FC = () => {
         setCallMode('video');
         if (callSetupGuideOpenRef.current) setCallSetupGuideStep('camera');
         trackEvent('导入桌面静态形象', { 格式: file.type === 'image/gif' ? 'GIF' : 'PNG' });
-        addToast(`${file.name} 已设为桌面与视频通话形象`, 'success');
+        addToast(`${file.name} 已設為桌面與視頻通話形象`, 'success');
       } catch (error: any) {
-        addToast(error?.message || '静态形象导入失败', 'error');
+        addToast(error?.message || '靜態形象導入失敗', 'error');
       } finally {
         removeInput();
       }
@@ -1008,7 +1008,7 @@ const CallApp: React.FC = () => {
       return;
     }
     if (source === 'date' && !hasDatePortraits(selectedChar)) {
-      addToast('还没有见面立绘，先去见面模式补一套表情', 'info');
+      addToast('還沒有見面立繪，先去見面模式補一套表情', 'info');
       openApp(AppID.Date);
       return;
     }
@@ -1020,18 +1020,18 @@ const CallApp: React.FC = () => {
       },
     });
     setCallMode('video');
-    addToast(source === 'model' ? '视频通话已使用动态模型' : source === 'date' ? '视频通话已沿用见面立绘' : '视频通话已使用静态图片', 'success');
+    addToast(source === 'model' ? '視頻通話已使用動態模型' : source === 'date' ? '視頻通話已沿用見面立繪' : '視頻通話已使用靜態圖片', 'success');
   };
 
   const chooseBuiltinSullyQuality = (quality: BuiltinSullyLive2DQuality) => {
     if (!selectedChar || !selectedBuiltinSullyAvatar || selectedBuiltinSullyAvatar.builtinQuality === quality) return;
     updateCharacter(selectedChar.id, { videoAvatar: setBuiltinSullyLive2DQuality(selectedBuiltinSullyAvatar, quality) });
-    addToast(quality === 'hd' ? '已切换到 Sully 高清 4K；显存占用会明显增加' : '已切回 Sully 轻量 2K', quality === 'hd' ? 'info' : 'success');
+    addToast(quality === 'hd' ? '已切換到 Sully 高清 4K；顯存佔用會明顯增加' : '已切回 Sully 輕量 2K', quality === 'hd' ? 'info' : 'success');
   };
 
-  // 老版本把无法从文件名猜出情绪的动作留在“仅手动”。升级后安全的模型
-  // 原生表情/动作自动进入导演动作库；用户明确禁用、手动设置过的有标签动作、
-  // 自建参数动作和 Idle 均保持原样。
+  // 老版本把無法從文件名猜出情緒的動作留在“僅手動”。升級後安全的模型
+  // 原生表情/動作自動進入導演動作庫；用戶明確禁用、手動設置過的有標籤動作、
+  // 自建參數動作和 Idle 均保持原樣。
   useEffect(() => {
     const avatar = selectedChar?.videoAvatar;
     if (!selectedChar || avatar?.format !== 'live2d' || avatar.actionPolicyVersion === 2) return;
@@ -1057,7 +1057,7 @@ const CallApp: React.FC = () => {
 
   const chooseAvatarModel = () => {
     if (!selectedChar) {
-      addToast('先选择一个角色', 'info');
+      addToast('先選擇一個角色', 'info');
       return;
     }
     const character = selectedChar;
@@ -1071,27 +1071,27 @@ const CallApp: React.FC = () => {
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return removeInput();
-      // 挑到文件之后有五种结局，过去只有 toast，「多少人卡在导入这一步」在数据里是空白。
-      // 两条路共用一个 catch，先按扩展名把来源定死，报错时才分得清是哪条挂的。
-      // 来源和结果都是这里写死的字面量，文件名和报错原文一个字都不带。
+      // 挑到文件之後有五種結局，過去只有 toast，「多少人卡在導入這一步」在數據裡是空白。
+      // 兩條路共用一個 catch，先按擴展名把來源定死，報錯時才分得清是哪條掛的。
+      // 來源和結果都是這裡寫死的字面量，文件名和報錯原文一個字都不帶。
       const source = /\.zip$/i.test(file.name) ? 'Live2D ZIP' : 'VRM';
       try {
         if (/\.zip$/i.test(file.name)) {
           if (file.size > 200 * 1024 * 1024) {
             trackEvent('导入通话形象', { 来源: source, 结果: '体积超限' });
-            addToast('Live2D ZIP 超过 200 MB，移动端很可能无法稳定解压加载', 'error');
+            addToast('Live2D ZIP 超過 200 MB，移動端很可能無法穩定解壓加載', 'error');
             return;
           }
           void preloadLive2DRuntime().catch(() => { /* loading UI will surface a retryable error */ });
-          setAvatarImportStatus('正在打开 Live2D ZIP，请耐心等待…');
+          setAvatarImportStatus('正在打開 Live2D ZIP，請耐心等待…');
           bindVideoAvatar(character, await saveLive2DModelFromZip(file, setAvatarImportStatus));
           trackEvent('导入通话形象', { 来源: source, 结果: '成功' });
           return;
         }
-        setAvatarImportStatus('正在检查 VRM 模型…');
+        setAvatarImportStatus('正在檢查 VRM 模型…');
         const inspection = await inspectAvatarFile(file);
         if (inspection.kind === 'vroid-project') {
-          // .vroid 工程文件只弹说明、不导入，跟「文件坏了」是两回事，单独占一档。
+          // .vroid 工程文件只彈說明、不導入，跟「文件壞了」是兩回事，單獨佔一檔。
           trackEvent('导入通话形象', { 来源: source, 结果: '要先导出VRM' });
           setPendingVRoidImport({ file, characterId: character.id, projectFile: true });
           return;
@@ -1103,14 +1103,14 @@ const CallApp: React.FC = () => {
         }
         if (file.size > 80 * 1024 * 1024) {
           trackEvent('导入通话形象', { 来源: source, 结果: '体积超限' });
-          addToast('模型超过 80 MB，移动端通话可能无法稳定加载，请在导出时降低纹理尺寸', 'error');
+          addToast('模型超過 80 MB，移動端通話可能無法穩定加載，請在導出時降低紋理尺寸', 'error');
           return;
         }
-        // VRM 到这里只是通过体检，真正落库在确认 beta 提示之后，成功与否由 confirmVRoidImport 记。
+        // VRM 到這裡只是通過體檢，真正落庫在確認 beta 提示之後，成功與否由 confirmVRoidImport 記。
         setPendingVRoidImport({ file, characterId: character.id, projectFile: false });
       } catch (error: any) {
         trackEvent('导入通话形象', { 来源: source, 结果: '失败' });
-        addToast(error?.message || '模型导入失败', 'error');
+        addToast(error?.message || '模型導入失敗', 'error');
       } finally {
         setAvatarImportStatus('');
         removeInput();
@@ -1125,11 +1125,11 @@ const CallApp: React.FC = () => {
     const character = charactersRef.current.find(item => item.id === pending.characterId);
     if (!character) {
       setPendingVRoidImport(null);
-      addToast('原角色已不存在，已取消导入', 'error');
+      addToast('原角色已不存在，已取消導入', 'error');
       return;
     }
     setVRoidImportBusy(true);
-    setAvatarImportStatus('正在保存 VRM 测试模型…');
+    setAvatarImportStatus('正在保存 VRM 測試模型…');
     try {
       const videoAvatar = await saveAvatarModel(pending.file);
       bindVideoAvatar(character, videoAvatar);
@@ -1137,7 +1137,7 @@ const CallApp: React.FC = () => {
       setPendingVRoidImport(null);
     } catch (error: any) {
       trackEvent('导入通话形象', { 来源: 'VRM', 结果: '失败' });
-      addToast(error?.message || 'VRM 测试模型导入失败；原模型未被覆盖', 'error');
+      addToast(error?.message || 'VRM 測試模型導入失敗；原模型未被覆蓋', 'error');
     } finally {
       setAvatarImportStatus('');
       setVRoidImportBusy(false);
@@ -1146,7 +1146,7 @@ const CallApp: React.FC = () => {
 
   const chooseLive2DDirectory = () => {
     if (!selectedChar) {
-      addToast('先选择一个角色', 'info');
+      addToast('先選擇一個角色', 'info');
       return;
     }
     void preloadLive2DRuntime().catch(() => { /* loading UI will surface a retryable error */ });
@@ -1167,15 +1167,15 @@ const CallApp: React.FC = () => {
         const totalSize = files.reduce((sum, file) => sum + file.size, 0);
         if (totalSize > 250 * 1024 * 1024) {
           trackEvent('导入通话形象', { 来源: 'Live2D 文件夹', 结果: '体积超限' });
-          addToast('Live2D 文件夹超过 250 MB，请先压缩纹理尺寸或删掉无关文件', 'error');
+          addToast('Live2D 文件夾超過 250 MB，請先壓縮紋理尺寸或刪掉無關文件', 'error');
           return;
         }
-        setAvatarImportStatus(`已选择 ${files.length} 个文件，正在扫描模型…`);
+        setAvatarImportStatus(`已選擇 ${files.length} 個文件，正在掃描模型…`);
         bindVideoAvatar(character, await saveLive2DModelFromFiles(files, setAvatarImportStatus));
         trackEvent('导入通话形象', { 来源: 'Live2D 文件夹', 结果: '成功' });
       } catch (error: any) {
         trackEvent('导入通话形象', { 来源: 'Live2D 文件夹', 结果: '失败' });
-        addToast(error?.message || 'Live2D 文件夹导入失败', 'error');
+        addToast(error?.message || 'Live2D 文件夾導入失敗', 'error');
       } finally {
         setAvatarImportStatus('');
         removeInput();
@@ -1183,13 +1183,13 @@ const CallApp: React.FC = () => {
     };
     input.click();
   };
-  // 从角色聊天主题中提取强调色，用于通话界面的按钮和高亮
+  // 從角色聊天主題中提取強調色，用於通話界面的按鈕和高亮
   const accentColor = useMemo(() => {
     const themeId = selectedChar?.bubbleStyle || 'default';
     const theme: ChatTheme | undefined = customThemes?.find((t: ChatTheme) => t.id === themeId) || PRESET_THEMES[themeId];
     const raw = (theme?.user?.backgroundColor || '#8b5cf6').trim();
-    // 通话界面靠 accent 做发光/描边/光环——主题色太暗（如纯黑）会让这些全部"消失"，
-    // 按键也没了漂亮的边。这里给最低亮度兜底：太暗就回落到亮紫，保证每个角色都有边。
+    // 通話界面靠 accent 做發光/描邊/光環——主題色太暗（如純黑）會讓這些全部"消失"，
+    // 按鍵也沒了漂亮的邊。這裡給最低亮度兜底：太暗就回落到亮紫，保證每個角色都有邊。
     const m = /^#?([0-9a-f]{6})$/i.exec(raw) || /^#?([0-9a-f]{3})$/i.exec(raw);
     if (m) {
       let hex = m[1];
@@ -1202,9 +1202,9 @@ const CallApp: React.FC = () => {
   }, [selectedChar?.bubbleStyle, customThemes]);
   const callScrollableRef = useRef<HTMLDivElement | null>(null);
   const draftInputRef = useRef<HTMLInputElement | null>(null);
-  // 输入面板默认展开，但「进入通话」时不能自动聚焦输入框——移动端一聚焦就弹
-  // 键盘、把整个界面往上顶（用户反馈的「一进通话就飞上去」）。只在用户后续
-  // 手动展开面板时才聚焦，初次挂载跳过。
+  // 輸入面板默認展開，但「進入通話」時不能自動聚焦輸入框——移動端一聚焦就彈
+  // 鍵盤、把整個界面往上頂（用戶反饋的「一進通話就飛上去」）。只在用戶後續
+  // 手動展開面板時才聚焦，初次掛載跳過。
   const inputPanelMountedRef = useRef(false);
   // Restore this character's remembered translation language whenever the selection changes.
   useEffect(() => {
@@ -1212,19 +1212,19 @@ const CallApp: React.FC = () => {
   }, [selectedCharId]);
   const resolveVoiceId = () => selectedChar?.voiceProfile?.voiceId?.trim() || '';
   const resolveGroupId = () => (apiConfig.minimaxGroupId || '').trim();
-  // ── TTS 服务商分发：MiniMax 保留电话专用分段兜底；Fish / ElevenLabs 走共享适配器。 ──
+  // ── TTS 服務商分發：MiniMax 保留電話專用分段兜底；Fish / ElevenLabs 走共享適配器。 ──
   const activeTtsProvider = resolveTtsProvider(apiConfig);
-  // 当前服务商下，这个角色能否合成语音（决定要不要走 TTS / 给"语音未配置"提示）。
+  // 當前服務商下，這個角色能否合成語音（決定要不要走 TTS / 給"語音未配置"提示）。
   const hasConfiguredVoice = (): boolean => {
     return !!selectedChar && canSynthesizeSpeech(selectedChar, apiConfig);
   };
   const canSpeakVoice = (): boolean => isSpeakerOn && hasConfiguredVoice();
-  // ── 通话语音合成统一入口：开场白 / 正常回合 / 重roll / 主动开口共用 ──
-  // MiniMax：缓存命中 → 单发合成 → 失败再分段兜底；Fish / ElevenLabs：共享 router 直接合成。
-  // 抛错或返回空 url 都表示没有可播放音频，由调用方降级为纯文字。
+  // ── 通話語音合成統一入口：開場白 / 正常回合 / 重roll / 主動開口共用 ──
+  // MiniMax：緩存命中 → 單發合成 → 失敗再分段兜底；Fish / ElevenLabs：共享 router 直接合成。
+  // 拋錯或返回空 url 都表示沒有可播放音頻，由調用方降級為純文字。
   const synthesizeCallAudioUrl = async (rawText: string, emotion?: string): Promise<{ url: string; traceIds: string[] }> => {
     if (activeTtsProvider !== 'minimax') {
-      if (!selectedChar) throw new Error('未选择角色');
+      if (!selectedChar) throw new Error('未選擇角色');
       const { url } = await synthesizeSpeechRoutedDetailed(rawText, selectedChar, apiConfig, {
         languageBoost: voiceLang || undefined,
         emotion,
@@ -1238,7 +1238,7 @@ const CallApp: React.FC = () => {
     const paramVersion = getMiniMaxParamVersion(voiceProfile);
     const speechText = prepareMiniMaxSpeechText(cleanTextForTts(rawText), voiceProfile);
     const model = voiceProfile?.model?.trim() || 'speech-2.8-hd';
-    if (!speechText.trim()) throw new Error('可朗读文本为空');
+    if (!speechText.trim()) throw new Error('可朗讀文本為空');
 
     const synthesizeChunk = async (chunk: string, idx = 0, total = 1): Promise<{ blob?: Blob; remoteUrl?: string; traceId: string }> => {
       const ttsPayload = buildMiniMaxTtsPayload(chunk, voiceProfile, {
@@ -1270,11 +1270,11 @@ const CallApp: React.FC = () => {
       const data = await response.json();
       const statusCode = data?.base_resp?.status_code;
       if (!response.ok || (typeof statusCode === 'number' && statusCode !== 0)) {
-        throw new Error(buildMiniMaxErrorMessage(data?.base_resp?.status_msg || `调用失败（HTTP ${response.status}）`, data?.trace_id));
+        throw new Error(buildMiniMaxErrorMessage(data?.base_resp?.status_msg || `調用失敗（HTTP ${response.status}）`, data?.trace_id));
       }
 
       const rawAudio = data?.data?.audio;
-      if (!rawAudio || typeof rawAudio !== 'string') throw new Error('接口返回里没有音频数据');
+      if (!rawAudio || typeof rawAudio !== 'string') throw new Error('接口返回裡沒有音頻數據');
       const normalizedAudio = rawAudio.trim();
       const traceId = data?.trace_id || '';
       console.log('[call] tts chunk response', {
@@ -1326,13 +1326,13 @@ const CallApp: React.FC = () => {
       } else if (singleResult.blob) {
         finalUrl = URL.createObjectURL(singleResult.blob);
       } else {
-        throw new Error('未获得可播放音频');
+        throw new Error('未獲得可播放音頻');
       }
     } catch (singleErr: any) {
       const textChunks = splitTextForTts(speechText, 120);
       if (!textChunks.length) throw singleErr;
-      if (textChunks.length > 1) addToast('语音生成中，稍等一下', 'info');
-      if (textChunks.length > 20) addToast('这段话比较长，多等一会儿', 'info');
+      if (textChunks.length > 1) addToast('語音生成中，稍等一下', 'info');
+      if (textChunks.length > 20) addToast('這段話比較長，多等一會兒', 'info');
       console.warn('[call] tts single-shot failed, fallback to chunk mode', singleErr?.message || singleErr);
 
       for (let idx = 0; idx < textChunks.length; idx += 1) {
@@ -1345,7 +1345,7 @@ const CallApp: React.FC = () => {
         if (result.blob) audioBlobs.push(result.blob);
       }
       if (!finalUrl) {
-        if (!audioBlobs.length) throw new Error('未获得可播放音频');
+        if (!audioBlobs.length) throw new Error('未獲得可播放音頻');
         finalUrl = URL.createObjectURL(audioBlobs.length === 1 ? audioBlobs[0] : new Blob(audioBlobs, { type: 'audio/mpeg' }));
       }
     }
@@ -1383,11 +1383,11 @@ const CallApp: React.FC = () => {
     prefetchedCallAudioRef.current.delete(key);
     return prefetched;
   };
-  // 键盘避让统一交给全局机制：index.html 的 meta interactive-widget=resizes-content
-  // 让软键盘弹出时可视区自动缩小、布局回流；iOS 全屏 PWA 则由 utils/iosStandalone.ts
-  // 让 app 高度跟随可视区。CallApp 不再自己 paddingBottom / window.scrollTo 兜底——
-  // 那套自定义逻辑会和全局回流叠加，在 Chrome/Edge 上把整个界面顶上去且回不来
-  // （聊天等其它 App 从不这么做，也就没这个 bug）。
+  // 鍵盤避讓統一交給全局機制：index.html 的 meta interactive-widget=resizes-content
+  // 讓軟鍵盤彈出時可視區自動縮小、佈局迴流；iOS 全屏 PWA 則由 utils/iosStandalone.ts
+  // 讓 app 高度跟隨可視區。CallApp 不再自己 paddingBottom / window.scrollTo 兜底——
+  // 那套自定義邏輯會和全局迴流疊加，在 Chrome/Edge 上把整個界面頂上去且回不來
+  // （聊天等其它 App 從不這麼做，也就沒這個 bug）。
   // Resume from suspended call — restore bubbles & session state
   useEffect(() => {
     if (suspendedCall && viewMode === 'role-select') {
@@ -1419,7 +1419,7 @@ const CallApp: React.FC = () => {
   // Voice input: toggle speech-to-text into the draft input box.
   const toggleStt = async () => {
     if (isListening) { sttSessionRef.current?.stop(); trackEvent('切换语音输入', { action: 'stop' }); return; }
-    if (!sttSupported) { addToast('当前环境不支持语音输入', 'info'); return; }
+    if (!sttSupported) { addToast('當前環境不支持語音輸入', 'info'); return; }
     try {
       setIsListening(true);
       trackEvent('切换语音输入', { action: 'start' });
@@ -1432,22 +1432,22 @@ const CallApp: React.FC = () => {
     } catch (e: any) {
       setIsListening(false);
       sttSessionRef.current = null;
-      addToast(e?.message || '无法启动语音输入', 'error');
+      addToast(e?.message || '無法啟動語音輸入', 'error');
     }
   };
-  // 下载某条通话语音：移动端优先调系统分享/保存，避免 WebView 的 <a download> 假成功。
+  // 下載某條通話語音：移動端優先調系統分享/保存，避免 WebView 的 <a download> 假成功。
   const handleDownloadCallAudio = async (url?: string, ts?: number) => {
-    if (!url) { addToast('这条还没有语音', 'error'); return; }
+    if (!url) { addToast('這條還沒有語音', 'error'); return; }
     try {
-      const fname = `${(selectedChar?.name || '通话').replace(/[\\/:*?"<>|]/g, '_')}_语音_${ts || Date.now()}.mp3`;
+      const fname = `${(selectedChar?.name || '通話').replace(/[\\/:*?"<>|]/g, '_')}_語音_${ts || Date.now()}.mp3`;
       const blob = await fetchBlobForShare(url, 'audio/mpeg');
-      const result = await shareOrDownloadBlob({ blob, fileName: fname, shareTitle: `${selectedChar?.name || '通话'}的语音` });
+      const result = await shareOrDownloadBlob({ blob, fileName: fname, shareTitle: `${selectedChar?.name || '通話'}的語音` });
       if (result === 'cancelled') return;
-      addToast(result === 'shared' ? '已打开系统保存/分享' : '语音已开始下载', 'success');
+      addToast(result === 'shared' ? '已打開系統保存/分享' : '語音已開始下載', 'success');
       trackEvent('下载一条通话语音');
     } catch (error) {
       console.error('[Call] download audio failed', error);
-      addToast('语音文件已失效或无法读取，请重新生成后再下载', 'error');
+      addToast('語音文件已失效或無法讀取，請重新生成後再下載', 'error');
     }
   };
   useEffect(() => {
@@ -1459,7 +1459,7 @@ const CallApp: React.FC = () => {
     callScrollableRef.current?.scrollTo({ top: callScrollableRef.current.scrollHeight, behavior: 'smooth' });
   }, [bubbles]);
   useEffect(() => {
-    // 跳过初次挂载的自动聚焦，避免进入通话时键盘把界面顶飞；之后用户主动展开才聚焦。
+    // 跳過初次掛載的自動聚焦，避免進入通話時鍵盤把界面頂飛；之後用戶主動展開才聚焦。
     if (!inputPanelMountedRef.current) { inputPanelMountedRef.current = true; return; }
     if (showInputPanel) draftInputRef.current?.focus();
   }, [showInputPanel]);
@@ -1473,9 +1473,9 @@ const CallApp: React.FC = () => {
   };
   const loadCallRecords = async (charId?: string) => {
     if (!charId) return setCallRecords([]);
-    // includeProcessed=true：通话消息与聊天消息同存一个 store，记忆宫殿处理后会推进
-    // 高水位标记 mp_lastMsgId_<charId>，默认的 getMessagesByCharId 会过滤掉水位线之前的
-    // 消息——这会导致继续聊天后通话记录被"清空"。这里必须读取全部消息。
+    // includeProcessed=true：通話消息與聊天消息同存一個 store，記憶宮殿處理後會推進
+    // 高水位標記 mp_lastMsgId_<charId>，默認的 getMessagesByCharId 會過濾掉水位線之前的
+    // 消息——這會導致繼續聊天后通話記錄被"清空"。這裡必須讀取全部消息。
     const all = await DB.getMessagesByCharId(charId, true);
     const callMsgs = all
       .filter(m => m.metadata?.source === 'call' && m.metadata?.callSessionId)
@@ -1503,7 +1503,7 @@ const CallApp: React.FC = () => {
         id: sessionId,
         sessionId,
         characterId: charId,
-        characterName: selectedChar?.name || '未选择角色',
+        characterName: selectedChar?.name || '未選擇角色',
         createdAt: new Date(start).toLocaleString('zh-CN'),
         durationSec: Number.isFinite(savedDuration)
           ? Math.max(1, Math.floor(savedDuration))
@@ -1662,13 +1662,13 @@ const CallApp: React.FC = () => {
         charId: selectedChar.id,
         role: 'system',
         type: 'system',
-        content: `通话结束 · ${selectedChar.name}｜${formatDuration(elapsedSeconds)}｜${Math.max(1, userTurns)}轮对话`,
+        content: `通話結束 · ${selectedChar.name}｜${formatDuration(elapsedSeconds)}｜${Math.max(1, userTurns)}輪對話`,
         metadata: { source: 'call-end-popup', callSessionId: currentSessionId, ...payload },
       });
       await loadCallRecords(selectedChar.id);
       trackEvent('结束一通通话', { 模式: callMode === 'video' ? '视频' : '语音' });
-      // 挂断这一下最要紧：用户多半接着就把 App 关了，得把这最后一条也打脏——
-      // 打脏即传，微任务内就会冲刷上传。
+      // 掛斷這一下最要緊：用戶多半接著就把 App 關了，得把這最後一條也打髒——
+      // 打髒即傳，微任務內就會沖刷上傳。
       markCallTurnDirty();
       runCallMemoryPalaceHook(selectedChar);
     }
@@ -1676,15 +1676,15 @@ const CallApp: React.FC = () => {
     resetCurrentCall();
     setViewMode('history');
     setShowHangupConfirm(false);
-    addToast('通话记录已保存', 'success');
+    addToast('通話記錄已保存', 'success');
   };
   const handleHangup = () => {
     setShowHangupConfirm(true);
   };
-  // 与聊天 / 约会完全同一条历史管线（ChatPrompts.buildMessageHistory，约会的
-  // buildDateHistory 也是它）：[聊天] [通话] [约会] 三种来源是同一条"真正的
-  // 上下文"，按时间顺序注入；来源标签、角色时区时间戳、图片(image_url)/表情/
-  // 引用回复的处理全部与其它入口一致，不再手搓一套只属于通话的格式。
+  // 與聊天 / 約會完全同一條歷史管線（ChatPrompts.buildMessageHistory，約會的
+  // buildDateHistory 也是它）：[聊天] [通話] [約會] 三種來源是同一條"真正的
+  // 上下文"，按時間順序注入；來源標籤、角色時區時間戳、圖片(image_url)/表情/
+  // 引用回覆的處理全部與其它入口一致，不再手搓一套只屬於通話的格式。
   const buildHistoryMessages = async (
     input: string,
     skipDbId?: number,
@@ -1701,12 +1701,12 @@ const CallApp: React.FC = () => {
     );
     const lastMsg = filtered[filtered.length - 1];
     const timeGapHint = ChatPrompts.getTimeGapHint(lastMsg, Date.now());
-    // 现场这句也带上与历史一致的 [通话] 标——裸着的输入容易被模型接到
-    // 最近的 [聊天] 线程上，通话里刚说的反而被忘掉。
+    // 現場這句也帶上與歷史一致的 [通話] 標——裸著的輸入容易被模型接到
+    // 最近的 [聊天] 線程上，通話裡剛說的反而被忘掉。
     const inputWithTouch = touchContext
-      ? `${touchContext}\n\n[用户本轮说的话]\n${input}`
+      ? `${touchContext}\n\n[用戶本輪說的話]\n${input}`
       : input;
-    const taggedInput = `[${new Date().toLocaleString('zh-CN')}] [通话] ${inputWithTouch}`;
+    const taggedInput = `[${new Date().toLocaleString('zh-CN')}] [通話] ${inputWithTouch}`;
     const finalInput = timeGapHint ? `${taggedInput}\n\n${timeGapHint}` : taggedInput;
     return [...apiMessages, { role: 'user', content: finalInput }];
   };
@@ -1729,13 +1729,13 @@ const CallApp: React.FC = () => {
           })
           .map(action => ({ id: action.id, name: action.name, kind: action.kind, tags: action.tags }))
       : selectedChar?.videoAvatar?.format === 'vrm'
-        ? vrmExpressionsRef.current.map(name => ({ id: name, name: `自定义表情·${name}`, kind: 'expression' as const }))
+        ? vrmExpressionsRef.current.map(name => ({ id: name, name: `自定義表情·${name}`, kind: 'expression' as const }))
         : []
   );
 
   const resolvePerformanceDirectorApi = (character: CharacterProfile) => {
-    // 与情绪 Buff 完全复用同一套 API 选择规则：角色单独配了就用副 API，
-    // 没有单独配置则回退主 API。
+    // 與情緒 Buff 完全複用同一套 API 選擇規則：角色單獨配了就用副 API，
+    // 沒有單獨配置則回退主 API。
     const configuredEmotionApi = character.emotionConfig?.api;
     return configuredEmotionApi?.baseUrl
       ? configuredEmotionApi
@@ -1748,7 +1748,7 @@ const CallApp: React.FC = () => {
       character.description,
       character.systemPrompt,
     ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-    return Array.from(source || '自然、克制地进行视频通话表演，动作服从台词情绪，不刻意抢戏。')
+    return Array.from(source || '自然、克制地進行視頻通話表演，動作服從台詞情緒，不刻意搶戲。')
       .slice(0, AVATAR_PERFORMANCE_PERSONA_MAX_CHARS)
       .join('');
   };
@@ -1790,10 +1790,10 @@ const CallApp: React.FC = () => {
             stream: false,
           }),
         }, 1, 30_000, {
-          appName: '电话',
+          appName: '電話',
           charId: character.id,
           charName: character.name,
-          purpose: '生成视频表演人格',
+          purpose: '生成視頻表演人格',
         });
         const persona = parseAvatarPerformancePersona(extractContent(data));
         if (!persona) return null;
@@ -1814,8 +1814,8 @@ const CallApp: React.FC = () => {
     return task;
   };
 
-  // 进入高质量视频通话即后台预热。它与开场白主请求同时进行，通常在主台词
-  // 返回前已经完成，因此首次导演请求也不需要再串行多等一整轮。
+  // 進入高質量視頻通話即後台預熱。它與開場白主請求同時進行，通常在主台詞
+  // 返回前已經完成，因此首次導演請求也不需要再串行多等一整輪。
   useEffect(() => {
     if (viewMode !== 'in-call' || callMode !== 'video') return;
     if (!selectedChar || selectedChar.videoCallPerformanceQuality !== 'high') return;
@@ -1852,10 +1852,10 @@ const CallApp: React.FC = () => {
       modelActions: allowedModelActions,
     })}
 
-## 本轮逐句硬约束
-- 严格返回 ${sentences.length} 个 cues，必须与下列 ${sentences.length} 句话一一对应。
-- 每个 cue 都必须同时包含 start、hold_ms、end；不要合并、拆分或增加过场 cue。
-- at 必须照抄句子表。
+## 本輪逐句硬約束
+- 嚴格返回 ${sentences.length} 個 cues，必須與下列 ${sentences.length} 句話一一對應。
+- 每個 cue 都必須同時包含 start、hold_ms、end；不要合併、拆分或增加過場 cue。
+- at 必須照抄句子表。
 
 ${sentencePlan}`;
     const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
@@ -1869,10 +1869,10 @@ ${sentencePlan}`;
         stream: false,
       }),
     }, 1, 30_000, {
-      appName: '电话',
+      appName: '電話',
       charId: selectedChar.id,
       charName: selectedChar.name,
-      purpose: '视频动作排练',
+      purpose: '視頻動作排練',
     });
     const cues = parseAvatarPerformanceRehearsal(
       extractContent(data),
@@ -1894,8 +1894,8 @@ ${sentencePlan}`;
     userCameraSnapshotForTurn?: string,
   ): Promise<ParsedCallReply> => {
     const baseUrl = apiConfig.baseUrl?.replace(/\/+$/, '');
-    if (!baseUrl) throw new Error('请先在设置里配置聊天 API URL');
-    const userName = userProfile?.name?.trim() || '用户';
+    if (!baseUrl) throw new Error('請先在設置裡配置聊天 API URL');
+    const userName = userProfile?.name?.trim() || '用戶';
     if (selectedChar) {
       const callMsgs = await loadCharacterContextMessages(selectedChar);
       await injectMemoryPalace(selectedChar, callMsgs);
@@ -1904,7 +1904,7 @@ ${sentencePlan}`;
       ? buildCallPrompt(
           userName,
           selectedChar.name,
-          // conversational：通话是实时对话，时间块补那句语境框定（见 buildTimeAwarenessBlock）
+          // conversational：通話是實時對話，時間塊補那句語境框定（見 buildTimeAwarenessBlock）
           ContextBuilder.buildCoreContext(selectedChar, userProfile, true, undefined, undefined, { conversational: true }),
           voiceLang || undefined,
           callMode,
@@ -1915,12 +1915,12 @@ ${sentencePlan}`;
       ? [
           buildThinkingChainPrompt(selectedChar.name, userName),
           selectedChar.thinkingChainCustomPrompt?.trim()
-            ? `【用户追加的 THINKING 要求】\n${selectedChar.thinkingChainCustomPrompt.trim()}`
+            ? `【用戶追加的 THINKING 要求】\n${selectedChar.thinkingChainCustomPrompt.trim()}`
             : '',
         ].filter(Boolean).join('\n\n')
       : '';
-    // 模型专属动作白名单：Live2D 用用户授权的 actions；VRM 用加载时枚举出的
-    // 自定义表情（星星眼/黑脸这类，预设之外的全部可用）。
+    // 模型專屬動作白名單：Live2D 用用戶授權的 actions；VRM 用加載時枚舉出的
+    // 自定義表情（星星眼/黑臉這類，預設之外的全部可用）。
     const allowedModelActions = getAllowedModelActions();
     const highQualityPerformance = callMode === 'video'
       && selectedChar?.videoCallPerformanceQuality === 'high';
@@ -1935,7 +1935,7 @@ ${sentencePlan}`;
       ? (userCameraSnapshotForTurn ?? captureUserCameraSnapshotContext())
       : '';
     if (includeUserCameraContext && callMode === 'video' && userCameraMode === 'snapshot' && !userCameraSnapshot && userCameraSnapshotForTurn === undefined) {
-      addToast('摄像头画面还没准备好，本轮已只发送文字', 'info');
+      addToast('攝像頭畫面還沒準備好，本輪已只發送文字', 'info');
     }
     const baseSystemPrompt = [
       baseCallPrompt,
@@ -1969,12 +1969,12 @@ ${sentencePlan}`;
         model: apiConfig.model,
         messages: [{ role: 'system', content: nextSystemPrompt }, ...nextMessages],
         temperature: 0.85,
-        // max_tokens 是 Claude 原生 API 的必填字段；缺了它，OpenAI→Claude 中转会被
-        // 上游打回，包成 502 / bad_response_status_code。与私聊 (useChatAI.ts) 对齐。
+        // max_tokens 是 Claude 原生 API 的必填字段；缺了它，OpenAI→Claude 中轉會被
+        // 上游打回，包成 502 / bad_response_status_code。與私聊 (useChatAI.ts) 對齊。
         max_tokens: 8000,
         stream: false,
       }),
-    }, maxRetries, 0, { appName: '电话', charId: selectedChar?.id, charName: selectedChar?.name, purpose });
+    }, maxRetries, 0, { appName: '電話', charId: selectedChar?.id, charName: selectedChar?.name, purpose });
     let chatData: any;
     try {
       // Do not repeat a rejected base64 frame three times. Text-only calls keep
@@ -1983,19 +1983,19 @@ ${sentencePlan}`;
         requestMessages,
         systemPrompt,
         userCameraSnapshot ? 0 : 2,
-        userCameraSnapshot ? '视频通话·用户快照' : '语音通话',
+        userCameraSnapshot ? '視頻通話·用戶快照' : '語音通話',
       );
     } catch (error) {
       if (!userCameraSnapshot || !isVisionInputUnsupportedError(error)) throw error;
       console.warn('[camera-snapshot] provider rejected vision input; retrying text-only:', error);
-      addToast('当前模型不支持图片；本轮已自动改为只发文字', 'info');
-      chatData = await sendChatRequest(messages, baseSystemPrompt, 2, '视频通话·快照降级为文字');
+      addToast('當前模型不支持圖片；本輪已自動改為只發文字', 'info');
+      chatData = await sendChatRequest(messages, baseSystemPrompt, 2, '視頻通話·快照降級為文字');
     }
     const parsed = parseCallAssistantMessage(
       chatData?.choices?.[0]?.message,
       !!selectedChar?.showThinkingChain,
     );
-    if (!parsed.text.trim()) throw new Error('文本接口返回为空，或只返回了思考内容');
+    if (!parsed.text.trim()) throw new Error('文本接口返回為空，或只返回了思考內容');
     const preparedForAudio = prepareCallAssistantReply(parsed);
     prefetchCallAudio(preparedForAudio.text, preparedForAudio.speechEmotion);
     if (highQualityPerformance) {
@@ -2006,13 +2006,13 @@ ${sentencePlan}`;
         }
         console.warn('[call] high-quality performance returned no usable cues; using local fallback');
       } catch (error: any) {
-        // 动作导演不能拖垮通话正文；超时、额度或格式问题都退回本地文本推断。
+        // 動作導演不能拖垮通話正文；超時、額度或格式問題都退回本地文本推斷。
         console.warn('[call] high-quality performance failed; using local fallback:', error?.message || error);
       }
     }
     return parsed;
   };
-  // ── 演出时间轴调度：多条 [[AVATAR:]] 指令按语音播放进度依次生效 ──
+  // ── 演出時間軸調度：多條 [[AVATAR:]] 指令按語音播放進度依次生效 ──
   const performanceCueTimersRef = useRef<number[]>([]);
   const pendingCueScheduleRef = useRef<{ cues: AvatarPerformanceCue[]; fallbackMs: number } | null>(null);
   const silentSpeechTimerRef = useRef<number | null>(null);
@@ -2137,7 +2137,7 @@ ${sentencePlan}`;
     }
     clearSilentSpeechTimer();
     if (audioUrl !== targetUrl) setAudioUrl(targetUrl);
-    // 时间轴在 onPlay 时用真实音频时长调度；拿不到时长再用估计值。
+    // 時間軸在 onPlay 時用真實音頻時長調度；拿不到時長再用估計值。
     pendingCueScheduleRef.current = cues?.length ? { cues, fallbackMs: estimatedDurationMs } : null;
     const audio = canAnalyzeVoiceSource(targetUrl) ? localCallAudioRef.current! : remoteCallAudioRef.current!;
     if (audioRef.current !== audio) {
@@ -2153,7 +2153,7 @@ ${sentencePlan}`;
       pendingCueScheduleRef.current = null;
       if (callMode === 'video') playSilentAvatarSpeech('', cues, estimatedDurationMs);
       else setCallState('listening');
-      addToast(voicePlaybackErrorMessage(error, '重播语音'), 'info');
+      addToast(voicePlaybackErrorMessage(error, '重播語音'), 'info');
     });
     setCallState('speaking');
   };
@@ -2161,7 +2161,7 @@ ${sentencePlan}`;
     if (bubble.role !== 'assistant' || generatingAudioBubbleId) return null;
     if (bubble.audioUrl && !forceRegenerate) return bubble.audioUrl;
     if (!hasConfiguredVoice()) {
-      addToast('还没有配置这个角色的语音', 'info');
+      addToast('還沒有配置這個角色的語音', 'info');
       return null;
     }
     setGeneratingAudioBubbleId(bubble.id);
@@ -2172,7 +2172,7 @@ ${sentencePlan}`;
         bubble.text,
         voiceTag.emotion || bubble.performance?.emotion,
       );
-      if (!url) throw new Error('未获得可播放音频');
+      if (!url) throw new Error('未獲得可播放音頻');
       trackBlobUrl(url);
       setAudioUrl(url);
       setTraceId(traceIds.filter(Boolean).join(' | '));
@@ -2184,8 +2184,8 @@ ${sentencePlan}`;
       return url;
     } catch (error: any) {
       setCallState('listening');
-      setErrorMessage(error?.message || '语音生成失败');
-      addToast(`语音生成失败：${error?.message || '未知错误'}`, 'error');
+      setErrorMessage(error?.message || '語音生成失敗');
+      addToast(`語音生成失敗：${error?.message || '未知錯誤'}`, 'error');
       return null;
     } finally {
       setGeneratingAudioBubbleId(null);
@@ -2225,7 +2225,7 @@ ${sentencePlan}`;
       if (voiceFavoriteSaved) {
         await removeVoiceFavorite('call', sourceKey);
         setVoiceFavoriteSaved(false);
-        addToast('已取消收藏语音', 'info');
+        addToast('已取消收藏語音', 'info');
         return;
       }
 
@@ -2240,7 +2240,7 @@ ${sentencePlan}`;
           try { blob = await fetchBlobForShare(url, 'audio/mpeg'); } catch { /* handled below */ }
         }
       }
-      if (!blob) throw new Error('暂时拿不到这条语音的音频文件');
+      if (!blob) throw new Error('暫時拿不到這條語音的音頻文件');
 
       const parsed = extractVoiceTag(target.bubble.text);
       const originalText = stripCallTextFormatting(parsed.display).trim()
@@ -2259,17 +2259,17 @@ ${sentencePlan}`;
         blob,
       });
       setVoiceFavoriteSaved(true);
-      addToast('已收藏通话语音', 'success');
+      addToast('已收藏通話語音', 'success');
       trackEvent('收藏通话语音');
     } catch (error: any) {
-      addToast(error?.message || '收藏失败，请检查浏览器存储空间', 'error');
+      addToast(error?.message || '收藏失敗，請檢查瀏覽器存儲空間', 'error');
     } finally {
       setVoiceFavoriteBusy(false);
     }
   };
   const resumeAudio = () => {
     if (!audioRef.current || !audioUrl) return;
-    startCallAudioElement(audioRef.current).catch(() => addToast('继续播放失败，请点击重播', 'error'));
+    startCallAudioElement(audioRef.current).catch(() => addToast('繼續播放失敗，請點擊重播', 'error'));
   };
   const pauseAudio = () => {
     if (!audioRef.current) return;
@@ -2291,8 +2291,8 @@ ${sentencePlan}`;
     };
   }, [isAudioPlaying, nativeCallAudioOnly]);
 
-  // 接通后由角色先说第一句。它和后续静默主动接话共用一个显式通话偏好，
-  // 默认开启；关闭后 CallApp 会等待用户先说，ChatApp 不受影响。
+  // 接通後由角色先說第一句。它和後續靜默主動接話共用一個顯式通話偏好，
+  // 默認開啟；關閉後 CallApp 會等待用戶先說，ChatApp 不受影響。
   const greetingFiredRef = useRef<string | null>(null);
   useEffect(() => {
     if (!callPreferences.characterInitiative || viewMode !== 'in-call' || bubbles.length > 0) return;
@@ -2302,7 +2302,7 @@ ${sentencePlan}`;
       try {
         setCallState('connecting');
         const greetingReply = prepareCallAssistantReply(
-          await requestAssistantReply('（电话刚接通。你先开口——像平时接到这个人电话一样自然地说第一句话。不要解释规则，就是最自然的那个“喂”“诶”或者符合你性格的开场。）'),
+          await requestAssistantReply('（電話剛接通。你先開口——像平時接到這個人電話一樣自然地說第一句話。不要解釋規則，就是最自然的那個“喂”“誒”或者符合你性格的開場。）'),
           callMode === 'video' && selectedChar?.videoCallPerformanceQuality !== 'high',
         );
         const greetingText = greetingReply.text;
@@ -2349,7 +2349,7 @@ ${sentencePlan}`;
               playbackStarted = true;
             }
           } catch {
-            // 语音失败不抹掉角色已经说出的文字。
+            // 語音失敗不抹掉角色已經說出的文字。
           }
         }
         if (!playbackStarted) {
@@ -2361,7 +2361,7 @@ ${sentencePlan}`;
         }
       } catch (error: any) {
         setCallState('error');
-        setErrorMessage(error?.message || '开场白生成失败');
+        setErrorMessage(error?.message || '開場白生成失敗');
       }
     })();
   }, [viewMode, currentSessionId, callPreferences.characterInitiative]);
@@ -2474,8 +2474,8 @@ ${sentencePlan}`;
     const typedInput = draftInput.trim();
     const retryInput = getPendingReplyText(bubbles);
     const input = typedInput || retryInput;
-    if (!input) return addToast('说点什么吧', 'info');
-    if (['connecting', 'thinking'].includes(callState)) return addToast(`${selectedChar?.name || '对方'}还在想，等一等`, 'info');
+    if (!input) return addToast('說點什麼吧', 'info');
+    if (['connecting', 'thinking'].includes(callState)) return addToast(`${selectedChar?.name || '對方'}還在想，等一等`, 'info');
     if (isAudioPlaying) pauseAudio();
     primeCallAudioFromGesture();
     idleNudgeCountRef.current = 0;
@@ -2489,7 +2489,7 @@ ${sentencePlan}`;
       ? captureUserCameraSnapshotContext()
       : '';
     if (callMode === 'video' && userCameraMode === 'snapshot' && !userCameraSnapshotForTurn) {
-      addToast('摄像头画面还没准备好，本轮已只发送文字', 'info');
+      addToast('攝像頭畫面還沒準備好，本輪已只發送文字', 'info');
     }
     let newSnapshotRef: string | undefined;
     if (userCameraSnapshotForTurn) {
@@ -2498,7 +2498,7 @@ ${sentencePlan}`;
         trackEvent('保存视频通话单帧快照');
       } catch (error) {
         console.warn('[camera-snapshot] failed to save the local call-record frame:', error);
-        addToast('快照仍会交给角色，但未能写入本地通话记录', 'info');
+        addToast('快照仍會交給角色，但未能寫入本地通話記錄', 'info');
       }
     }
     const nowTs = Date.now();
@@ -2602,9 +2602,9 @@ ${sentencePlan}`;
       setAvatarEmotion(reply.performance.emotion);
       setAvatarPerformance(reply.performance);
     } catch (err: any) {
-      setErrorMessage(err?.message || '文本回复失败');
+      setErrorMessage(err?.message || '文本回復失敗');
       setCallState('error');
-      return addToast(`文本回复失败：${err?.message || '未知错误'}`, 'error');
+      return addToast(`文本回復失敗：${err?.message || '未知錯誤'}`, 'error');
     }
     const assistantBubbleId = `${Date.now()}-a`;
     const assistantBubble: CallBubble = {
@@ -2651,12 +2651,12 @@ ${sentencePlan}`;
       } else {
         setCallState('listening');
       }
-      if (isSpeakerOn) addToast('语音未配置，先用文字聊吧', 'info');
+      if (isSpeakerOn) addToast('語音未配置，先用文字聊吧', 'info');
       return;
     }
     try {
       const { url: finalUrl, traceIds } = await takeOrSynthesizeCallAudio(assistantText, turnSpeechEmotion);
-      if (!finalUrl) throw new Error('未获得可播放音频');
+      if (!finalUrl) throw new Error('未獲得可播放音頻');
       trackBlobUrl(finalUrl);
       setAudioUrl(finalUrl);
       setTimeout(() => playAudio(finalUrl, turnPerformanceCues, estimateSpeechMs(assistantText)), 0);
@@ -2668,10 +2668,10 @@ ${sentencePlan}`;
       }
       setCallState('listening');
     } catch (e: any) {
-      setErrorMessage(e?.message || '语音生成失败');
+      setErrorMessage(e?.message || '語音生成失敗');
       if (callMode === 'video') playSilentAvatarSpeech(assistantText, turnPerformanceCues);
       else setCallState('listening');
-      addToast(`TTS失败：${e?.message || '语音生成失败'}，已保留文本并启用无声表演`, 'info');
+      addToast(`TTS失敗：${e?.message || '語音生成失敗'}，已保留文本並啟用無聲表演`, 'info');
     }
   };
   const sendingBusy = ['connecting', 'thinking'].includes(callState);
@@ -2688,9 +2688,9 @@ ${sentencePlan}`;
     const record = deleteConfirmRecord;
     if (!record) return;
     setDeleteConfirmRecord(null);
-    // includeProcessed=true：同 loadCallRecords，否则水位线之前的通话消息删不掉
+    // includeProcessed=true：同 loadCallRecords，否則水位線之前的通話消息刪不掉
     const all = await DB.getMessagesByCharId(record.characterId, true);
-    // 删除通话消息 + 聊天页的通话总结卡片
+    // 刪除通話消息 + 聊天頁的通話總結卡片
     const sessionMessages = all.filter(m => {
       if (m.metadata?.source === 'call' && m.metadata?.callSessionId === record.sessionId) return true;
       if (m.metadata?.source === 'call-end-popup' && m.metadata?.callSessionId === record.sessionId) return true;
@@ -2707,7 +2707,7 @@ ${sentencePlan}`;
       setViewMode('history');
     }
     await loadCallRecords(record.characterId);
-    addToast('通话记录已删除', 'success');
+    addToast('通話記錄已刪除', 'success');
     trackEvent('删除一条通话记录');
   };
   const startEditBubble = (bubble: CallBubble) => {
@@ -2718,12 +2718,12 @@ ${sentencePlan}`;
   const saveEditedBubble = async () => {
     if (!editingBubble) return;
     const next = editingText.trim();
-    if (!next) return addToast('内容不能为空', 'error');
+    if (!next) return addToast('內容不能為空', 'error');
     setBubbles(prev => prev.map(b => b.id === editingBubble.id ? { ...b, text: next } : b));
     if (editingBubble.dbId) await DB.updateMessage(editingBubble.dbId, next);
     setEditingBubble(null);
     setEditingText('');
-    addToast('已更新发言', 'success');
+    addToast('已更新發言', 'success');
     trackEvent('修改自己的通话发言');
   };
   const handleRerollAssistant = async (bubble: CallBubble) => {
@@ -2764,7 +2764,7 @@ ${sentencePlan}`;
           return next;
         });
       }
-      addToast('台词已重 roll', 'success');
+      addToast('台詞已重 roll', 'success');
       runCallMemoryPalaceHook(selectedChar);
 
       // Synthesize immediately only when automatic call voice is enabled.
@@ -2782,7 +2782,7 @@ ${sentencePlan}`;
           }
         } catch (ttsErr: any) {
           console.warn('[call] reroll TTS failed:', ttsErr?.message);
-          addToast('语音合成失败，已保留文本', 'info');
+          addToast('語音合成失敗，已保留文本', 'info');
         }
       }
       if (!rerollAudioPlayed && callMode === 'video' && callPreferences.voiceAutoPlay) {
@@ -2792,14 +2792,14 @@ ${sentencePlan}`;
       }
     } catch (e: any) {
       setCallState('error');
-      addToast(`重 roll 失败：${e?.message || '未知错误'}`, 'error');
+      addToast(`重 roll 失敗：${e?.message || '未知錯誤'}`, 'error');
     } finally {
       setRerollingBubbleId(null);
     }
   };
 
-  // 一段已经开始的通话安静太久时，角色可以自然接话两次。它是独立的显式偏好，
-  // 默认关闭；“谁先开口”只决定刚接通时的第一句话。
+  // 一段已經開始的通話安靜太久時，角色可以自然接話兩次。它是獨立的顯式偏好，
+  // 默認關閉；“誰先開口”只決定剛接通時的第一句話。
   const idleNudgeBusyRef = useRef(false);
   const fireIdleNudge = async () => {
     if (!callPreferences.idleNudgeEnabled || idleNudgeBusyRef.current || !selectedChar?.id) return;
@@ -2809,7 +2809,7 @@ ${sentencePlan}`;
       setCallState('thinking');
       const reply = prepareCallAssistantReply(
         await requestAssistantReply(
-          '（电话里安静了好一会儿，对方一直没说话。你不是客服，不用干等——像真实通话里那样自然地开口：可以随口说说你这边正在做的事、把刚才的话题往下接一点，或者问问ta是不是在忙。一两句就好，别重复上一句。）',
+          '（電話裡安靜了好一會兒，對方一直沒說話。你不是客服，不用乾等——像真實通話裡那樣自然地開口：可以隨口說說你這邊正在做的事、把剛才的話題往下接一點，或者問問ta是不是在忙。一兩句就好，別重複上一句。）',
         ),
         callMode === 'video' && selectedChar?.videoCallPerformanceQuality !== 'high',
       );
@@ -2857,7 +2857,7 @@ ${sentencePlan}`;
             playbackStarted = true;
           }
         } catch {
-          // 主动开口拿不到语音时保留文字，并按当前播放偏好降级。
+          // 主動開口拿不到語音時保留文字，並按當前播放偏好降級。
         }
       }
       if (!playbackStarted) {
@@ -2886,26 +2886,26 @@ ${sentencePlan}`;
     return () => window.clearTimeout(timer);
   }, [viewMode, callState, isAudioPlaying, bubbles, draftInput, callPreferences.idleNudgeEnabled]);
 
-  // 用户在舞台上拖拽/缩放后的构图，写回角色的 videoAvatar 持久化。
+  // 用戶在舞台上拖拽/縮放後的構圖，寫回角色的 videoAvatar 持久化。
   const handleStageFramingChange = (framing: AvatarStageFraming) => {
     if (!selectedChar?.videoAvatar) return;
     updateCharacter(selectedChar.id, { videoAvatar: { ...selectedChar.videoAvatar, framing } });
   };
-  // 脸部锚点保存/清除（null = 清除）。
+  // 臉部錨點保存/清除（null = 清除）。
   const handleFaceAnchorChange = (faceFraming: AvatarStageFraming | null) => {
     if (!selectedChar?.videoAvatar) return;
     updateCharacter(selectedChar.id, { videoAvatar: { ...selectedChar.videoAvatar, faceFraming: faceFraming || undefined } });
-    addToast(faceFraming ? '脸部锚点已保存，AI 拉近镜头会落到这里' : '脸部锚点已清除', 'success');
+    addToast(faceFraming ? '臉部錨點已保存，AI 拉近鏡頭會落到這裡' : '臉部錨點已清除', 'success');
   };
-  // ── 视频舞台自定义背景：blobref 令牌（本地图片）或 http(s) 图床直链 ──
+  // ── 視頻舞台自定義背景：blobref 令牌（本地圖片）或 http(s) 圖床直鏈 ──
   const stageBackgroundUrl = useBlobRefUrl(selectedChar?.videoCallBackground);
-  // 通话页那层模糊头像画在 CSS background-image 上，吃不到 TokenImg 的解析，这里自己解析一次。
+  // 通話頁那層模糊頭像畫在 CSS background-image 上，吃不到 TokenImg 的解析，這裡自己解析一次。
   const blurredAvatarUrl = useBlobRefUrl(selectedChar?.avatar);
   const applyStageBackground = async (value?: string) => {
     if (!selectedChar) return;
     const previous = selectedChar.videoCallBackground;
     updateCharacter(selectedChar.id, { videoCallBackground: value });
-    // 背景令牌只被这个字段引用，替换/清除后旧 Blob 直接删掉，不留孤儿
+    // 背景令牌只被這個字段引用，替換/清除後舊 Blob 直接刪掉，不留孤兒
     if (previous && previous !== value) await deleteBlobRef(previous);
   };
   const chooseStageBackgroundFile = () => {
@@ -2921,14 +2921,14 @@ ${sentencePlan}`;
       if (!file) return removeInput();
       try {
         if (file.size > 20 * 1024 * 1024) {
-          addToast('图片超过 20 MB，请压缩后再用作背景', 'error');
+          addToast('圖片超過 20 MB，請壓縮後再用作背景', 'error');
           return;
         }
         await applyStageBackground(await putImageBlob(file));
         setShowBgPicker(false);
-        addToast('视频背景已更新', 'success');
+        addToast('視頻背景已更新', 'success');
       } catch (error: any) {
-        addToast(error?.message || '背景导入失败', 'error');
+        addToast(error?.message || '背景導入失敗', 'error');
       } finally {
         removeInput();
       }
@@ -2943,12 +2943,12 @@ ${sentencePlan}`;
   const applyBgUrlInput = async () => {
     const url = bgUrlInput.trim();
     if (!/^https?:\/\//i.test(url)) {
-      addToast('请输入 http(s) 开头的图片直链', 'error');
+      addToast('請輸入 http(s) 開頭的圖片直鏈', 'error');
       return;
     }
     await applyStageBackground(url);
     setShowBgPicker(false);
-    addToast('视频背景已更新', 'success');
+    addToast('視頻背景已更新', 'success');
   };
 
   const avatarImportOverlay = avatarImportStatus ? (
@@ -2956,7 +2956,7 @@ ${sentencePlan}`;
       <div className="max-w-[20rem]">
         <span className="mx-auto mb-4 block h-9 w-9 animate-spin rounded-full border-2 border-white/15 border-t-violet-300" />
         <div className="text-sm leading-relaxed text-white/85">{avatarImportStatus}</div>
-        <div className="mt-3 text-[10px] leading-relaxed text-white/40">包含 8K 贴图的模型首次导入可能需要 10–30 秒。请保持当前页面打开，不要重复点击按钮；完成后会自动进入动作权限页面。</div>
+        <div className="mt-3 text-[10px] leading-relaxed text-white/40">包含 8K 貼圖的模型首次導入可能需要 10–30 秒。請保持當前頁面打開，不要重複點擊按鈕；完成後會自動進入動作權限頁面。</div>
       </div>
     </div>
   ) : null;
@@ -2989,7 +2989,7 @@ ${sentencePlan}`;
         {showCallSetupGuide && (
           <CallSetupGuide
             step={callSetupGuideStep}
-            characterName={selectedChar?.name || '当前角色'}
+            characterName={selectedChar?.name || '當前角色'}
             modelName={selectedChar?.videoAvatar?.fileName}
             modelFormat={selectedChar?.videoAvatar?.format}
             avatarSource={selectedVisualSource}
@@ -3062,13 +3062,13 @@ ${sentencePlan}`;
           <div className="shrink-0">
             <div className="text-[10px] tracking-[0.42em] text-white/35 font-semibold">CHAT WITH</div>
             <h1 className="mt-1 text-[2rem] font-bold leading-tight inline-flex items-start gap-1.5">
-              想找谁聊聊？
+              想找誰聊聊？
               <span className="text-sm mt-1" style={{ color: accentColor, textShadow: `0 0 10px ${accentColor}` }}>✦</span>
             </h1>
-            <p className="text-sm text-white/45 mt-1">选一个人，拨过去吧。</p>
+            <p className="text-sm text-white/45 mt-1">選一個人，撥過去吧。</p>
           </div>
 
-          {/* 分组筛选（没建分组时不渲染） */}
+          {/* 分組篩選（沒建分組時不渲染） */}
           <CharacterGroupFilterBar characters={characters} groups={characterGroups} dark={!lightTheme}
             value={roleGroupId} onChange={(id) => { setRoleGroupId(id); setRolePage(0); }} className="mt-4 shrink-0" />
 
@@ -3089,7 +3089,7 @@ ${sentencePlan}`;
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-[15px] truncate" style={selected ? { color: accentColor } : undefined}>{char.name}</div>
-                      <div className="text-xs text-white/45 mt-0.5 truncate">{char.description || '点击编辑设定...'}</div>
+                      <div className="text-xs text-white/45 mt-0.5 truncate">{char.description || '點擊編輯設定...'}</div>
                     </div>
                     <span className="text-base shrink-0" style={{ color: selected ? accentColor : 'rgba(255,255,255,0.25)' }}>✦</span>
                   </div>
@@ -3097,7 +3097,7 @@ ${sentencePlan}`;
               );
             })}
             {!groupChars.length && (
-              <div className="text-center py-10 text-white/40 text-sm">{characters.length ? '该分组下没有角色' : '还没有角色，先去创建一个吧'}</div>
+              <div className="text-center py-10 text-white/40 text-sm">{characters.length ? '該分組下沒有角色' : '還沒有角色，先去創建一個吧'}</div>
             )}
           </div>
 
@@ -3110,7 +3110,7 @@ ${sentencePlan}`;
               </button>
               <div className="flex items-center gap-1.5">
                 {Array.from({ length: totalPages }).map((_, i) => (
-                  <button key={i} onClick={() => setRolePage(i)} aria-label={`第${i + 1}页`}
+                  <button key={i} onClick={() => setRolePage(i)} aria-label={`第${i + 1}頁`}
                     className="rounded-full transition-all" style={{ width: i === page ? 16 : 6, height: 6, background: i === page ? accentColor : 'rgba(255,255,255,0.25)' }} />
                 ))}
               </div>
@@ -3128,14 +3128,14 @@ ${sentencePlan}`;
                 onClick={() => setCallMode('voice')}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition ${callMode === 'voice' ? 'bg-white/12 text-white' : 'text-white/40'}`}
               >
-                <Phone size={15} weight={callMode === 'voice' ? 'fill' : 'regular'} /> 语音
+                <Phone size={15} weight={callMode === 'voice' ? 'fill' : 'regular'} /> 語音
               </button>
               <button
                 onClick={() => setCallMode('video')}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium transition ${callMode === 'video' ? 'bg-white/12 text-white' : 'text-white/40'}`}
                 style={callMode === 'video' ? { boxShadow: `inset 0 0 0 1px ${accentColor}55` } : undefined}
               >
-                <VideoCamera size={15} weight={callMode === 'video' ? 'fill' : 'regular'} /> 视频
+                <VideoCamera size={15} weight={callMode === 'video' ? 'fill' : 'regular'} /> 視頻
               </button>
             </div>
             {callMode === 'video' && (
@@ -3148,27 +3148,27 @@ ${sentencePlan}`;
                     <Cube size={15} weight="fill" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] tracking-[0.16em] text-white/35">角色形象 · {selectedVisualSource === 'upload' ? '静态图片' : selectedVisualSource === 'date' ? '见面立绘' : selectedChar?.videoAvatar?.format === 'live2d' ? 'LIVE2D' : selectedChar?.videoAvatar?.format === 'vrm' ? 'VRM' : '未选择'}</span>
-                    <span className="mt-0.5 block truncate text-xs text-white/70">{selectedVisualSource === 'upload' ? selectedChar?.companionAvatar?.fileName || 'PNG / GIF' : selectedVisualSource === 'date' ? selectedDateOutfit?.name || '按通话情绪切换表情' : selectedChar?.videoAvatar?.fileName || '动态模型、静态图片或见面立绘'}</span>
+                    <span className="block text-[10px] tracking-[0.16em] text-white/35">角色形象 · {selectedVisualSource === 'upload' ? '靜態圖片' : selectedVisualSource === 'date' ? '見面立繪' : selectedChar?.videoAvatar?.format === 'live2d' ? 'LIVE2D' : selectedChar?.videoAvatar?.format === 'vrm' ? 'VRM' : '未選擇'}</span>
+                    <span className="mt-0.5 block truncate text-xs text-white/70">{selectedVisualSource === 'upload' ? selectedChar?.companionAvatar?.fileName || 'PNG / GIF' : selectedVisualSource === 'date' ? selectedDateOutfit?.name || '按通話情緒切換表情' : selectedChar?.videoAvatar?.fileName || '動態模型、靜態圖片或見面立繪'}</span>
                   </span>
-                  <span className="text-xs text-white/30">{hasSelectedVideoVisual ? '设置' : '引导'}</span>
+                  <span className="text-xs text-white/30">{hasSelectedVideoVisual ? '設置' : '引導'}</span>
                 </button>
                 <details className="group rounded-2xl border border-white/10 bg-black/15 p-2" data-testid="video-call-advanced-settings">
                   <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl px-2 py-1.5 text-[10px] text-white/42">
-                    <span>模型画质、导入与动作排练</span>
+                    <span>模型畫質、導入與動作排練</span>
                     <span className="transition-transform group-open:rotate-45">＋</span>
                   </summary>
                   <div className="mt-2 space-y-2">
                   {selectedBuiltinSullyAvatar && (
                   <div className="rounded-2xl border border-white/10 bg-black/20 p-2.5" data-testid="builtin-sully-quality-picker">
                     <div className="flex items-center justify-between px-0.5">
-                      <span className="text-[10px] tracking-[0.14em] text-white/40">内置模型画质</span>
-                      <span className="text-[9px] text-white/28">默认 2K · 省约 48 MB 显存</span>
+                      <span className="text-[10px] tracking-[0.14em] text-white/40">內置模型畫質</span>
+                      <span className="text-[9px] text-white/28">默認 2K · 省約 48 MB 顯存</span>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-1.5">
                       {([
-                        { value: 'balanced' as const, label: '轻量 2K', detail: '推荐' },
-                        { value: 'hd' as const, label: '高清 4K', detail: '高性能设备' },
+                        { value: 'balanced' as const, label: '輕量 2K', detail: '推薦' },
+                        { value: 'hd' as const, label: '高清 4K', detail: '高性能設備' },
                       ]).map(option => {
                         const active = selectedBuiltinSullyAvatar.builtinQuality === option.value;
                         return (
@@ -3191,14 +3191,14 @@ ${sentencePlan}`;
                     <FileZip size={12} weight="bold" /> VRM / L2D ZIP
                   </button>
                   <button onClick={chooseLive2DDirectory} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-1.5 text-[10px] text-white/50 active:scale-[0.98]">
-                    <FolderOpen size={12} weight="bold" /> L2D 文件夹
+                    <FolderOpen size={12} weight="bold" /> L2D 文件夾
                   </button>
                 </div>
-                <p className="px-1 text-[9px] leading-relaxed text-white/30">L2D 文件夹：选择包含 *.model3.json 的整个文件夹；不要只选择 model3.json。ZIP：把这个模型文件夹整体压缩后选择 ZIP。</p>
+                <p className="px-1 text-[9px] leading-relaxed text-white/30">L2D 文件夾：選擇包含 *.model3.json 的整個文件夾；不要只選擇 model3.json。ZIP：把這個模型文件夾整體壓縮後選擇 ZIP。</p>
                 {selectedChar?.videoAvatar?.format === 'live2d' && (
                   <details className="group border-t border-white/[0.07] pt-2">
                     <summary className="flex cursor-pointer list-none items-center justify-between px-1 py-1 text-[10px] text-white/35">
-                      <span>Live2D 高级工具</span>
+                      <span>Live2D 高級工具</span>
                       <span className="transition group-open:rotate-45">＋</span>
                     </summary>
                     <button
@@ -3206,8 +3206,8 @@ ${sentencePlan}`;
                       className="mt-1 flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-left active:scale-[0.99]"
                     >
                       <span>
-                        <span className="block text-[11px] text-white/65">动作权限与参数实验台</span>
-                        <span className="mt-0.5 block text-[9px] text-white/28">预览、禁用模型动作，或手动组合参数</span>
+                        <span className="block text-[11px] text-white/65">動作權限與參數實驗台</span>
+                        <span className="mt-0.5 block text-[9px] text-white/28">預覽、禁用模型動作，或手動組合參數</span>
                       </span>
                       <Gear size={14} className="text-white/30" />
                     </button>
@@ -3216,8 +3216,8 @@ ${sentencePlan}`;
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-2.5">
                   <div className="flex items-center justify-between px-0.5">
                     <div>
-                      <div className="text-[10px] tracking-[0.14em] text-white/40">动作排练</div>
-                      <div className="mt-0.5 text-[9px] text-white/25">每个角色单独保存</div>
+                      <div className="text-[10px] tracking-[0.14em] text-white/40">動作排練</div>
+                      <div className="mt-0.5 text-[9px] text-white/25">每個角色單獨保存</div>
                     </div>
                     <span className="text-[9px]" style={{ color: selectedChar?.videoCallPerformanceQuality === 'high' ? accentColor : 'rgba(255,255,255,.32)' }}>
                       {selectedChar?.videoCallPerformanceQuality === 'high' ? 'DIRECTOR' : 'BASIC'}
@@ -3225,8 +3225,8 @@ ${sentencePlan}`;
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-1.5">
                     {([
-                      { value: 'basic' as const, label: '基础版', detail: '零额外请求' },
-                      { value: 'high' as const, label: '高质量版', detail: '副 API 排练' },
+                      { value: 'basic' as const, label: '基礎版', detail: '零額外請求' },
+                      { value: 'high' as const, label: '高質量版', detail: '副 API 排練' },
                     ]).map(option => {
                       const active = (selectedChar?.videoCallPerformanceQuality || 'basic') === option.value;
                       return (
@@ -3237,8 +3237,8 @@ ${sentencePlan}`;
                             updateCharacter(selectedChar.id, { videoCallPerformanceQuality: option.value });
                             addToast(
                               option.value === 'high'
-                                ? '已开启高质量动作排练：每轮会多调用一次情绪 Buff API'
-                                : '已切换基础动作排练',
+                                ? '已開啟高質量動作排練：每輪會多調用一次情緒 Buff API'
+                                : '已切換基礎動作排練',
                               'success',
                             );
                           }}
@@ -3254,7 +3254,7 @@ ${sentencePlan}`;
                     })}
                   </div>
                   <p className="mt-2 px-0.5 text-[9px] leading-relaxed text-white/30">
-                    高质量版只把本轮定稿台词和角色性格交给情绪 Buff 的 API，不读取聊天上下文；未单独配置副 API 时回退主 API。
+                    高質量版只把本輪定稿台詞和角色性格交給情緒 Buff 的 API，不讀取聊天上下文；未單獨配置副 API 時回退主 API。
                   </p>
                 </div>
                   </div>
@@ -3268,22 +3268,22 @@ ${sentencePlan}`;
               <span className="absolute left-5 top-1/2 -translate-y-1/2 text-xs" style={{ color: accentColor }}>✦</span>
               <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs text-white/60">✦</span>
               <span className="relative text-white/90 text-[15px]">
-                {selectedChar ? <>{callMode === 'video' ? '视频接通 ' : '拨给 '}<span className="font-serif italic text-xl align-baseline" style={{ textShadow: `0 0 12px ${accentColor}` }}>{selectedChar.name}</span></> : '开始通话'}
+                {selectedChar ? <>{callMode === 'video' ? '視頻接通 ' : '撥給 '}<span className="font-serif italic text-xl align-baseline" style={{ textShadow: `0 0 12px ${accentColor}` }}>{selectedChar.name}</span></> : '開始通話'}
               </span>
             </button>
             <button onClick={() => { setViewMode('history'); trackEvent('打开通话记录'); }}
               className="relative w-full py-3 rounded-2xl border border-white/15 bg-white/[0.04] backdrop-blur-md text-white/80 flex items-center justify-center gap-2 transition active:scale-[0.98] hover:bg-white/[0.08]">
-              <Clock size={16} weight="bold" style={{ color: accentColor }} /> 通话记录
+              <Clock size={16} weight="bold" style={{ color: accentColor }} /> 通話記錄
             </button>
             <div className="flex items-center justify-between pt-1">
-              <button onClick={openCallPreferencesPanel} title="通话偏好" data-testid="call-preferences-entry"
+              <button onClick={openCallPreferencesPanel} title="通話偏好" data-testid="call-preferences-entry"
                 className="w-9 h-9 rounded-full border border-white/15 bg-white/[0.04] flex items-center justify-center text-white/60 active:scale-90 transition">
                 <Gear size={16} weight="fill" />
               </button>
               <button onClick={closeApp} className="flex items-center gap-2 text-sm text-white/45 active:scale-95 transition">
-                <span style={{ color: accentColor }}>✦</span> 关闭 <span style={{ color: accentColor }}>✦</span>
+                <span style={{ color: accentColor }}>✦</span> 關閉 <span style={{ color: accentColor }}>✦</span>
               </button>
-              <button onClick={() => setCallTheme(lightTheme ? 'dark' : 'light')} title={lightTheme ? '切换到深色主题' : '切换到浅色主题'}
+              <button onClick={() => setCallTheme(lightTheme ? 'dark' : 'light')} title={lightTheme ? '切換到深色主題' : '切換到淺色主題'}
                 className="w-9 h-9 rounded-full border border-white/15 bg-white/[0.04] flex items-center justify-center text-white/60 active:scale-90 transition">
                 {lightTheme ? <Moon size={16} weight="fill" /> : <Sun size={16} weight="fill" />}
               </button>
@@ -3302,7 +3302,7 @@ ${sentencePlan}`;
                 updateCharacter(selectedChar.id, { videoAvatar: config });
                 setShowLive2DSettings(false);
                 setLive2DWardrobeOnboarding(false);
-                addToast(`已保存：衣橱 ${config.actions.filter(action => action.wardrobe).length} 套 · AI 可用 ${getLive2DAIActions(config).length} 个动作`, 'success');
+                addToast(`已保存：衣櫥 ${config.actions.filter(action => action.wardrobe).length} 套 · AI 可用 ${getLive2DAIActions(config).length} 個動作`, 'success');
               }}
             />
           </div>
@@ -3316,14 +3316,14 @@ ${sentencePlan}`;
         {lightTheme && <style>{CALL_LIGHT_THEME_CSS}</style>}
         <div className="flex items-center justify-between">
           <button onClick={() => setViewMode('role-select')} className="text-sm text-white/45">← 返回</button>
-          <h1 className="text-lg font-medium">通话记录</h1>
-          <button onClick={() => setViewMode('role-select')} className="text-sm font-medium" style={{ color: accentColor }}>新通话</button>
+          <h1 className="text-lg font-medium">通話記錄</h1>
+          <button onClick={() => setViewMode('role-select')} className="text-sm font-medium" style={{ color: accentColor }}>新通話</button>
         </div>
         <div className="mt-4 flex-1 overflow-y-auto space-y-3">
           {!callRecords.length && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <p className="text-base text-white/45">还没有通话记录</p>
-              <p className="text-sm text-white/35 mt-1">每一通电话都会留在这里</p>
+              <p className="text-base text-white/45">還沒有通話記錄</p>
+              <p className="text-sm text-white/35 mt-1">每一通電話都會留在這裡</p>
             </div>
           )}
           {callRecords.map(record => {
@@ -3335,9 +3335,9 @@ ${sentencePlan}`;
                 <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-sm" style={{ backgroundColor: `${accentColor}35` }}>{record.characterName[0] || '角'}</div>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-sm">{record.characterName}</div>
-                  <div className="text-xs text-white/45 mt-0.5">{record.mode === 'video' ? '视频' : record.mode === 'voice' ? '语音' : '通话'} · {formatDuration(record.durationSec)} · {turnCount}轮对话</div>
+                  <div className="text-xs text-white/45 mt-0.5">{record.mode === 'video' ? '視頻' : record.mode === 'voice' ? '語音' : '通話'} · {formatDuration(record.durationSec)} · {turnCount}輪對話</div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(record); }} className="text-xs px-2 py-1 rounded-lg text-white/35 transition hover:text-rose-300">删除</button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(record); }} className="text-xs px-2 py-1 rounded-lg text-white/35 transition hover:text-rose-300">刪除</button>
               </div>
               <div className="text-xs text-white/60 mt-2.5 italic leading-relaxed line-clamp-2">{keepsake}</div>
               <div className="text-[10px] text-white/30 mt-1.5">{record.createdAt}</div>
@@ -3349,11 +3349,11 @@ ${sentencePlan}`;
         {deleteConfirmRecord && (
           <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
             <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f0edf9]' : 'from-[#1a1130] to-[#0a0613]'}`}>
-              <div className="text-base font-semibold text-white">删除通话记录？</div>
-              <p className="mt-2 text-sm text-white/55 leading-relaxed">和 {deleteConfirmRecord.characterName} 的这通通话将被永久删除。</p>
+              <div className="text-base font-semibold text-white">刪除通話記錄？</div>
+              <p className="mt-2 text-sm text-white/55 leading-relaxed">和 {deleteConfirmRecord.characterName} 的這通通話將被永久刪除。</p>
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <button onClick={() => setDeleteConfirmRecord(null)} className="py-2.5 rounded-2xl border border-white/20 text-white/80 transition active:scale-[0.97]">取消</button>
-                <button onClick={confirmDeleteRecord} className="keep-white py-2.5 rounded-2xl bg-rose-500/80 text-white font-semibold transition active:scale-[0.97]">删除</button>
+                <button onClick={confirmDeleteRecord} className="keep-white py-2.5 rounded-2xl bg-rose-500/80 text-white font-semibold transition active:scale-[0.97]">刪除</button>
               </div>
             </div>
           </div>
@@ -3368,7 +3368,7 @@ ${sentencePlan}`;
         <div className="flex items-center justify-between">
           <button onClick={() => setViewMode('history')} className="text-sm text-white/45">← 返回</button>
           <div className="text-sm text-white/80 font-medium">{recordDetail.characterName}</div>
-          <div className="text-xs text-white/35">{recordDetail.mode === 'video' ? '视频 · ' : recordDetail.mode === 'voice' ? '语音 · ' : ''}{formatDuration(recordDetail.durationSec)}</div>
+          <div className="text-xs text-white/35">{recordDetail.mode === 'video' ? '視頻 · ' : recordDetail.mode === 'voice' ? '語音 · ' : ''}{formatDuration(recordDetail.durationSec)}</div>
         </div>
         <div className="mt-2 text-center">
           <p className="text-xs text-white/35 italic">{recordDetail.createdAt}</p>
@@ -3424,7 +3424,7 @@ ${sentencePlan}`;
                   disabled={!!generatingAudioBubbleId}
                   className="mt-2 text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/60 transition hover:bg-white/15 disabled:opacity-40"
                 >
-                  {generatingAudioBubbleId === item.id ? '生成语音…' : item.audioUrl ? '重播语音' : '播放语音'}
+                  {generatingAudioBubbleId === item.id ? '生成語音…' : item.audioUrl ? '重播語音' : '播放語音'}
                 </button>
               )}
             </div>
@@ -3447,7 +3447,7 @@ ${sentencePlan}`;
           open={!!voiceFavoriteTarget}
           favorited={voiceFavoriteSaved}
           busy={voiceFavoriteBusy}
-          title="通话语音"
+          title="通話語音"
           preview={voiceFavoriteTarget ? (stripCallTextFormatting(extractVoiceTag(voiceFavoriteTarget.bubble.text).display) || stripTtsMarkupForDisplay(extractVoiceTag(voiceFavoriteTarget.bubble.text).voiceText, apiConfig)) : ''}
           onToggle={() => void toggleCallVoiceFavorite()}
           onClose={() => { if (!voiceFavoriteBusy) setVoiceFavoriteTarget(null); }}
@@ -3456,14 +3456,14 @@ ${sentencePlan}`;
     );
   }
   const waveActive = displayCallState === 'speaking' || displayCallState === 'thinking';
-  const connSub = callState === 'connecting' ? '正在建立加密通讯…'
-    : callState === 'error' ? '通讯出现波动'
-    : '通讯连接稳定';
-  const analyzeLabel = displayCallState === 'speaking' ? { cn: '说话中', en: 'SPEAKING' }
+  const connSub = callState === 'connecting' ? '正在建立加密通訊…'
+    : callState === 'error' ? '通訊出現波動'
+    : '通訊連接穩定';
+  const analyzeLabel = displayCallState === 'speaking' ? { cn: '說話中', en: 'SPEAKING' }
     : displayCallState === 'thinking' ? { cn: '思考中', en: 'VOICE ANALYZING' }
     : displayCallState === 'connecting' ? { cn: '接通中', en: 'CONNECTING' }
-    : displayCallState === 'error' ? { cn: '连接异常', en: 'SIGNAL ERROR' }
-    : { cn: '聆听中', en: 'LISTENING' };
+    : displayCallState === 'error' ? { cn: '連接異常', en: 'SIGNAL ERROR' }
+    : { cn: '聆聽中', en: 'LISTENING' };
   const latestCallBubble = bubbles[bubbles.length - 1];
   const compactVideoTranscript = callMode === 'video' && videoCallLayout === 'stage' && !videoTranscriptExpanded;
   const videoStageSize = videoCallLayout === 'stage'
@@ -3500,7 +3500,7 @@ ${sentencePlan}`;
         style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent)` }} />
       <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[150%] h-80 rounded-full blur-3xl opacity-25 pointer-events-none"
         style={{ background: `radial-gradient(closest-side, ${accentColor}, transparent)` }} />
-      {/* vignette —— 浅色主题换成柔白薄纱，压住模糊头像但不发灰 */}
+      {/* vignette —— 淺色主題換成柔白薄紗，壓住模糊頭像但不發灰 */}
       <div className={`absolute inset-0 bg-gradient-to-b pointer-events-none ${lightTheme ? 'from-white/60 via-[#f2f0fa]/70 to-white/80' : 'from-black/55 via-[#0a0613]/75 to-black/90'}`} />
       {/* floating sparkles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -3510,8 +3510,8 @@ ${sentencePlan}`;
         ))}
       </div>
       <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden">
-        {/* 键盘避让不在这里做 paddingBottom 兜底：交给全局 interactive-widget=resizes-content
-            与 iOS 全屏 PWA 的 app 高度跟随可视区（见 utils/iosStandalone.ts），和聊天等其它 App 一致。 */}
+        {/* 鍵盤避讓不在這裡做 paddingBottom 兜底：交給全局 interactive-widget=resizes-content
+            與 iOS 全屏 PWA 的 app 高度跟隨可視區（見 utils/iosStandalone.ts），和聊天等其它 App 一致。 */}
       {/* top channel bar */}
       <div className="relative shrink-0 px-5" style={{ paddingTop: 'max(2.25rem, var(--safe-top))' }}>
         <div className="absolute left-5 leading-tight" style={{ top: 'max(2.25rem, var(--safe-top))' }}>
@@ -3526,7 +3526,7 @@ ${sentencePlan}`;
           </div>
         </div>
         <div className="absolute right-5 flex items-center gap-1 text-[9px] tracking-[0.2em] text-white/45 font-medium" style={{ top: 'max(2.25rem, var(--safe-top))' }}>
-          信号良好
+          信號良好
           <span className="flex items-end gap-[2px] h-2.5 ml-0.5">
             {[4, 6, 8, 10].map((h, i) => (
               <span key={i} className="w-[2px] rounded-full" style={{ height: `${h}px`, background: i < 3 ? 'rgba(255,255,255,.65)' : accentColor }} />
@@ -3537,7 +3537,7 @@ ${sentencePlan}`;
         {/* name block */}
         <div className={`${callMode === 'video' ? 'pt-3' : 'pt-7'} text-center`}>
           {callMode !== 'video' && <div className="text-sm" style={{ color: `${accentColor}cc`, textShadow: `0 0 12px ${accentColor}` }}>❀</div>}
-          <h1 className={`font-serif leading-none tracking-wide text-white ${callMode === 'video' ? 'text-[1.55rem]' : 'mt-0.5 text-[2.6rem]'}`} style={{ textShadow: `0 0 26px ${accentColor}aa, 0 0 6px ${accentColor}66` }}>{selectedChar?.name || '未选择'}</h1>
+          <h1 className={`font-serif leading-none tracking-wide text-white ${callMode === 'video' ? 'text-[1.55rem]' : 'mt-0.5 text-[2.6rem]'}`} style={{ textShadow: `0 0 26px ${accentColor}aa, 0 0 6px ${accentColor}66` }}>{selectedChar?.name || '未選擇'}</h1>
           {callMode === 'video' ? (
             <div className="mt-1 flex items-center justify-center gap-2 text-[8px] tracking-[0.18em] text-white/48">
               <span>{connSub}</span><span style={{ color: accentColor }}>◆</span><span className="tabular-nums text-[13px] font-light" style={{ color: accentColor }}>{formatDuration(elapsedSeconds)}</span>
@@ -3564,13 +3564,13 @@ ${sentencePlan}`;
           )}
           {memoryPalaceStatus && (
             <div className="mt-1 text-[10px] text-white/55 animate-pulse">
-              记忆整理 · {memoryPalaceStatus}
+              記憶整理 · {memoryPalaceStatus}
             </div>
           )}
         </div>
       </div>
-      {/* portrait + aura —— 键盘弹起时（body.ios-keyboard-open）整块收起，把可视区让给消息+输入框，
-          避免大头像把输入框顶出键盘上方的可视区（见 index.html 的 .sully-call-hero 规则）。 */}
+      {/* portrait + aura —— 鍵盤彈起時（body.ios-keyboard-open）整塊收起，把可視區讓給消息+輸入框，
+          避免大頭像把輸入框頂出鍵盤上方的可視區（見 index.html 的 .sully-call-hero 規則）。 */}
       {callMode === 'video' ? (
         <div className={`sully-call-hero sully-stage-dark sully-video-stage-shell relative px-2 pb-2 pt-2 ${videoCallLayout === 'stage' ? 'flex-1 min-h-0' : 'shrink-0'} ${videoStageSize}`}>
           <span className="pointer-events-none absolute left-3 top-3 z-20 h-8 w-8 rounded-tl-[1.8rem] border-l border-t" style={{ borderColor: `${accentColor}aa` }} aria-hidden />
@@ -3579,7 +3579,7 @@ ${sentencePlan}`;
           <span className="pointer-events-none absolute bottom-3 right-3 z-20 text-[7px] text-white/55" aria-hidden>✦</span>
           {/* The action editor owns its own WebGL preview; suspend this one. */}
           <VRMVideoCallStage
-            characterName={selectedChar?.name || '未选择'}
+            characterName={selectedChar?.name || '未選擇'}
             fallbackAvatar={selectedChar?.avatar}
             model={!showLive2DSettings && selectedVisualSource === 'model' ? selectedChar?.videoAvatar : undefined}
             staticAvatarSource={staticVideoAvatarActive ? selectedVisualSource : undefined}
@@ -3604,7 +3604,7 @@ ${sentencePlan}`;
             maxFps={30}
           />
           <AvatarTouchFeedback
-            characterName={selectedChar?.name || '对方'}
+            characterName={selectedChar?.name || '對方'}
             accentColor={accentColor}
             effects={avatarTouchEffects}
             lightTheme={lightTheme}
@@ -3617,7 +3617,7 @@ ${sentencePlan}`;
               >
                 {userCameraMode === 'fake'
                   ? fakeUserCameraUrl
-                    ? <img src={fakeUserCameraUrl} alt="用户静态画面" className="h-full w-full object-cover" />
+                    ? <img src={fakeUserCameraUrl} alt="用戶靜態畫面" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-[8px] text-white/35">NO IMAGE</div>
                   : <video ref={userCameraVideoRef} muted playsInline autoPlay className="h-full w-full scale-x-[-1] object-cover" />}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" aria-hidden />
@@ -3629,13 +3629,13 @@ ${sentencePlan}`;
                 <div
                   className="absolute bottom-1.5 left-1/2 flex -translate-x-1/2 items-center rounded-full border border-white/15 bg-black/55 p-0.5 backdrop-blur-md"
                   data-testid="user-camera-preview-size-picker"
-                  aria-label="用户镜头大小"
+                  aria-label="用戶鏡頭大小"
                 >
                   {USER_CAMERA_PREVIEW_SIZES.map(option => (
                     <button
                       key={option.id}
                       type="button"
-                      aria-label={`用户镜头${option.label}号`}
+                      aria-label={`用戶鏡頭${option.label}號`}
                       aria-pressed={userCameraPreviewSize === option.id}
                       data-testid={`user-camera-preview-size-${option.id}`}
                       onClick={() => chooseUserCameraPreviewSize(option.id)}
@@ -3655,7 +3655,7 @@ ${sentencePlan}`;
               style={{ animation: 'sully-camera-emotion-readout 2.6s ease-out both' }}
               data-testid="user-camera-emotion-readout"
             >
-              识别到情绪 — <span className="text-white/80">{detectedUserEmotion.label}</span>
+              識別到情緒 — <span className="text-white/80">{detectedUserEmotion.label}</span>
             </div>
           )}
         </div>
@@ -3664,7 +3664,7 @@ ${sentencePlan}`;
         <button
           type="button"
           className="relative h-40 w-40 touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          aria-label={`戳戳${selectedChar?.name || '对方'}`}
+          aria-label={`戳戳${selectedChar?.name || '對方'}`}
           onPointerDown={handleVoiceAvatarPointerDown}
           onPointerMove={handleVoiceAvatarPointerMove}
           onPointerUp={handleVoiceAvatarPointerUp}
@@ -3686,7 +3686,7 @@ ${sentencePlan}`;
               ? <TokenImg value={selectedChar.avatar} alt={selectedChar.name} draggable={false} className="relative z-10 h-full w-full rounded-full object-cover" style={{ boxShadow: `0 0 30px ${accentColor}55` }} />
               : <div className="relative z-10 flex h-full w-full items-center justify-center rounded-full text-4xl font-serif" style={{ backgroundColor: `${accentColor}55` }}>{selectedChar?.name?.[0] || '角'}</div>}
             <AvatarTouchFeedback
-              characterName={selectedChar?.name || '对方'}
+              characterName={selectedChar?.name || '對方'}
               accentColor={accentColor}
               effects={avatarTouchEffects}
               lightTheme={lightTheme}
@@ -3719,7 +3719,7 @@ ${sentencePlan}`;
           </span>
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex items-center gap-1.5 text-[8px] font-semibold tracking-[0.15em]" style={{ color: `${accentColor}dd` }}>
-              {latestCallBubble?.role === 'user' ? '你刚刚说' : displayCallState === 'thinking' ? '正在想怎么回答' : `${selectedChar?.name || '对方'} · LIVE`}
+              {latestCallBubble?.role === 'user' ? '你剛剛說' : displayCallState === 'thinking' ? '正在想怎麼回答' : `${selectedChar?.name || '對方'} · LIVE`}
               {waveActive && <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: accentColor }} />}
             </div>
             <div className="line-clamp-2 text-[13px] leading-relaxed text-white/90">
@@ -3728,11 +3728,11 @@ ${sentencePlan}`;
                   ? renderAssistantLine(extractVoiceTag(latestCallBubble.text).display, accentColor)
                   : latestCallBubble.text
                 : callState === 'connecting'
-                  ? '正在接通，请稍等……'
-                  : `${selectedChar?.name || '对方'}在等你开口。`}
+                  ? '正在接通，請稍等……'
+                  : `${selectedChar?.name || '對方'}在等你開口。`}
             </div>
           </div>
-          <button onClick={() => setVideoTranscriptExpanded(true)} className="shrink-0 rounded-full border border-white/12 px-2.5 py-1.5 text-[9px] text-white/52 active:scale-95">记录</button>
+          <button onClick={() => setVideoTranscriptExpanded(true)} className="shrink-0 rounded-full border border-white/12 px-2.5 py-1.5 text-[9px] text-white/52 active:scale-95">記錄</button>
         </div>
       ) : (
       <div ref={callScrollableRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar mx-4 mb-2 px-4 py-3 space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md" style={{ boxShadow: `inset 0 1px 0 ${accentColor}33` }}>
@@ -3743,15 +3743,15 @@ ${sentencePlan}`;
         )}
         {!bubbles.length && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <p className="text-base text-white/85">电话已接通</p>
+            <p className="text-base text-white/85">電話已接通</p>
             <p className="text-sm text-white/55 mt-2">
               {callState === 'connecting'
-                ? `${selectedChar?.name || '对方'}正在接听……`
-                : selectedChar?.name ? `${selectedChar.name}在等你开口……` : '对方在等你开口……'}
+                ? `${selectedChar?.name || '對方'}正在接聽……`
+                : selectedChar?.name ? `${selectedChar.name}在等你開口……` : '對方在等你開口……'}
             </p>
             {callState === 'connecting'
-              ? <p className="text-xs text-white/35 mt-4 animate-pulse">请稍等</p>
-              : <p className="text-xs text-white/35 mt-4">在下方输入你想说的话</p>}
+              ? <p className="text-xs text-white/35 mt-4 animate-pulse">請稍等</p>
+              : <p className="text-xs text-white/35 mt-4">在下方輸入你想說的話</p>}
           </div>
         )}
         {bubbles.map((bubble, index) => {
@@ -3824,10 +3824,10 @@ ${sentencePlan}`;
                   disabled={!!generatingAudioBubbleId}
                   className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15 disabled:opacity-40"
                 >
-                  {generatingAudioBubbleId === bubble.id ? '生成语音…' : bubble.audioUrl ? '重播语音' : '播放语音'}
+                  {generatingAudioBubbleId === bubble.id ? '生成語音…' : bubble.audioUrl ? '重播語音' : '播放語音'}
                 </button>
-                {bubble.audioUrl && <button onClick={() => handleDownloadCallAudio(bubble.audioUrl, bubble.timestamp)} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15">下载</button>}
-                {isLatest && <button onClick={() => handleRerollAssistant(bubble)} disabled={!!rerollingBubbleId} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15 disabled:opacity-40">{rerollingBubbleId === bubble.id ? '换一种说法…' : '换个说法'}</button>}
+                {bubble.audioUrl && <button onClick={() => handleDownloadCallAudio(bubble.audioUrl, bubble.timestamp)} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15">下載</button>}
+                {isLatest && <button onClick={() => handleRerollAssistant(bubble)} disabled={!!rerollingBubbleId} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15 disabled:opacity-40">{rerollingBubbleId === bubble.id ? '換一種說法…' : '換個說法'}</button>}
               </div>
             )}
           </div>
@@ -3842,7 +3842,7 @@ ${sentencePlan}`;
               <button
                 onClick={toggleStt}
                 disabled={sendingBusy}
-                title={isListening ? '结束语音输入' : '按一下开始说话'}
+                title={isListening ? '結束語音輸入' : '按一下開始說話'}
                 className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition active:scale-90 disabled:opacity-40"
                 style={isListening ? { background: '#f0569f', boxShadow: '0 0 14px #f0569f99' } : { background: 'rgba(255,255,255,0.08)' }}
               >
@@ -3854,12 +3854,12 @@ ${sentencePlan}`;
               value={draftInput}
               onChange={(e) => setDraftInput(e.target.value)}
               className="flex-1 min-w-0 bg-transparent px-2 text-sm outline-none placeholder:text-white/35"
-              placeholder={isListening ? '在听你说……' : sendingBusy ? `${selectedChar?.name || '对方'}正在想……` : pendingCallRetryText ? '上次回复中断，可直接重试' : `想对${selectedChar?.name || '对方'}说什么？`}
+              placeholder={isListening ? '在聽你說……' : sendingBusy ? `${selectedChar?.name || '對方'}正在想……` : pendingCallRetryText ? '上次回覆中斷，可直接重試' : `想對${selectedChar?.name || '對方'}說什麼？`}
             />
-            <button onClick={handleTurn} disabled={sendingBusy} className="keep-white shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition active:scale-95" style={{ backgroundColor: accentColor, boxShadow: `0 0 16px ${accentColor}66` }}>{sendingBusy ? '…' : '发送'}</button>
+            <button onClick={handleTurn} disabled={sendingBusy} className="keep-white shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition active:scale-95" style={{ backgroundColor: accentColor, boxShadow: `0 0 16px ${accentColor}66` }}>{sendingBusy ? '…' : '發送'}</button>
           </div>
-          {!sendingBusy && pendingCallRetryText && !draftInput.trim() && <div className="text-[10px] text-amber-200/70 mt-1 px-1">上一句话还没得到回复，点击重试即可继续</div>}
-          {isListening && <div className="text-[10px] text-white/40 mt-1 px-1 animate-pulse">正在聆听，点麦克风结束</div>}
+          {!sendingBusy && pendingCallRetryText && !draftInput.trim() && <div className="text-[10px] text-amber-200/70 mt-1 px-1">上一句話還沒得到回覆，點擊重試即可繼續</div>}
+          {isListening && <div className="text-[10px] text-white/40 mt-1 px-1 animate-pulse">正在聆聽，點麥克風結束</div>}
         </div>
       )}
       <div className={`shrink-0 ${callMode === 'video' ? 'px-3 pb-2 pt-0.5' : 'px-7 pb-2 pt-1.5'}`} data-testid={callMode === 'video' ? 'video-call-compact-controls' : undefined}>
@@ -3873,27 +3873,27 @@ ${sentencePlan}`;
               style={showInputPanel ? { background: `${accentColor}33`, borderColor: `${accentColor}88`, boxShadow: `0 0 18px ${accentColor}55` } : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}>
               <Microphone size={22} weight="fill" className="text-white/90" />
             </span>
-            <span className="text-[10px] text-white/70">麦克风</span>
+            <span className="text-[10px] text-white/70">麥克風</span>
             {callMode !== 'video' && <span className="text-[8px] tracking-[0.15em]" style={{ color: showInputPanel ? accentColor : 'rgba(255,255,255,0.3)' }}>{showInputPanel ? 'ON' : 'OFF'}</span>}
           </button>
           {callMode === 'video' && (
-            <button onClick={() => setShowUserCameraModePicker(true)} title="选择用户摄像头方式" className="flex flex-col items-center gap-0.5 transition active:scale-95">
+            <button onClick={() => setShowUserCameraModePicker(true)} title="選擇用戶攝像頭方式" className="flex flex-col items-center gap-0.5 transition active:scale-95">
               <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition mx-auto`}
                 style={userCameraMode !== 'off' ? { background: `${accentColor}33`, borderColor: `${accentColor}88`, boxShadow: `0 0 18px ${accentColor}55` } : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}>
                 {userCameraMode !== 'off'
                   ? <VideoCamera size={21} weight="fill" className="text-white/90" />
                   : <VideoCameraSlash size={21} weight="fill" className={userCameraLoading ? 'animate-pulse text-white/70' : 'text-white/48'} />}
               </span>
-              <span className="text-[10px] text-white/70">{userCameraLoading ? '准备中' : userCameraMode === 'fake' ? '假机位' : userCameraMode === 'emotion' ? '情绪' : userCameraMode === 'snapshot' ? '快照' : '用户画面'}</span>
+              <span className="text-[10px] text-white/70">{userCameraLoading ? '準備中' : userCameraMode === 'fake' ? '假機位' : userCameraMode === 'emotion' ? '情緒' : userCameraMode === 'snapshot' ? '快照' : '用戶畫面'}</span>
             </button>
           )}
           {/* translate */}
-          <button onClick={() => setShowLangPicker(prev => !prev)} title="语音语种" className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}>
+          <button onClick={() => setShowLangPicker(prev => !prev)} title="語音語種" className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}>
             <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition mx-auto`}
               style={voiceLang ? { background: `${accentColor}33`, borderColor: `${accentColor}88`, boxShadow: `0 0 18px ${accentColor}55` } : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}>
               <Translate size={22} weight="fill" className="text-white/90" />
             </span>
-            <span className="text-[10px] text-white/70">翻译</span>
+            <span className="text-[10px] text-white/70">翻譯</span>
             {callMode !== 'video' && <span className="text-[8px] tracking-[0.15em]" style={{ color: voiceLang ? accentColor : 'rgba(255,255,255,0.3)' }}>{voiceLang ? 'ON' : 'OFF'}</span>}
           </button>
           {/* end call */}
@@ -3902,7 +3902,7 @@ ${sentencePlan}`;
               style={{ background: 'rgba(244,63,94,0.12)', borderColor: 'rgba(251,113,133,0.4)' }}>
               <PhoneDisconnect size={22} weight="fill" className="text-rose-300/90" />
             </span>
-            <span className="text-[10px] text-white/70">结束通话</span>
+            <span className="text-[10px] text-white/70">結束通話</span>
           </button>
           {/* speaker */}
           <button
@@ -3912,7 +3912,7 @@ ${sentencePlan}`;
               if (!next && isAudioPlaying) pauseAudio();
               if (next) primeCallAudioFromGesture(true);
             }}
-            title={isSpeakerOn ? '外放开启' : '外放关闭'}
+            title={isSpeakerOn ? '外放開啟' : '外放關閉'}
             className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}
           >
             <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition mx-auto`}
@@ -3942,23 +3942,23 @@ ${sentencePlan}`;
       {showBgPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowBgPicker(false)}>
           <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`} onClick={e => e.stopPropagation()}>
-            <div className="text-sm text-white/80 font-medium">视频背景</div>
-            <p className="text-xs text-white/40">本地图片保存在你自己的设备里（IndexedDB，随备份导出）；图床直链则每次在线加载。</p>
+            <div className="text-sm text-white/80 font-medium">視頻背景</div>
+            <p className="text-xs text-white/40">本地圖片保存在你自己的設備裡（IndexedDB，隨備份導出）；圖床直鏈則每次在線加載。</p>
             <button onClick={chooseStageBackgroundFile} className="w-full py-2.5 rounded-2xl border border-white/15 bg-white/[0.06] text-sm text-white/85 transition active:scale-[0.98]">
-              选择本地图片
+              選擇本地圖片
             </button>
             <div className="flex gap-2">
               <input
                 value={bgUrlInput}
                 onChange={e => setBgUrlInput(e.target.value)}
-                placeholder="https:// 图片直链"
+                placeholder="https:// 圖片直鏈"
                 className="flex-1 min-w-0 bg-black/30 rounded-xl px-3 py-2.5 text-sm outline-none placeholder:text-white/30 border border-white/10"
               />
               <button onClick={() => void applyBgUrlInput()} className="keep-white shrink-0 px-4 rounded-xl text-sm font-medium text-white transition active:scale-95" style={{ backgroundColor: accentColor }}>使用</button>
             </div>
             {selectedChar?.videoCallBackground && (
-              <button onClick={() => { void applyStageBackground(undefined); setShowBgPicker(false); addToast('已恢复默认背景', 'success'); }} className="w-full py-2 text-xs text-white/45 transition active:opacity-60">
-                恢复默认背景
+              <button onClick={() => { void applyStageBackground(undefined); setShowBgPicker(false); addToast('已恢復默認背景', 'success'); }} className="w-full py-2 text-xs text-white/45 transition active:opacity-60">
+                恢復默認背景
               </button>
             )}
           </div>
@@ -3967,8 +3967,8 @@ ${sentencePlan}`;
       {showLangPicker && (
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowLangPicker(false)}>
           <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`} onClick={e => e.stopPropagation()}>
-            <div className="text-sm text-white/80 font-medium">语音语种</div>
-            <p className="text-xs text-white/40">选择后，角色会用中文回复，语音则用对应语种朗读</p>
+            <div className="text-sm text-white/80 font-medium">語音語種</div>
+            <p className="text-xs text-white/40">選擇後，角色會用中文回覆，語音則用對應語種朗讀</p>
             <div className="flex flex-wrap gap-2 pt-1">
               {VOICE_LANGUAGE_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => { setVoiceLang(opt.value); if (selectedChar) updateCharacter(selectedChar.id, { callVoiceLang: opt.value }); setShowLangPicker(false); trackEvent('设置通话语音语种', { 语种: voiceLanguageAnalyticsValue(opt.value) }); }}
@@ -3985,8 +3985,8 @@ ${sentencePlan}`;
       {showHangupConfirm && (
         <div className="absolute inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center px-6">
           <div className={`w-full max-w-sm rounded-3xl border border-white/15 bg-gradient-to-b p-5 shadow-2xl ${lightTheme ? 'from-white to-[#f0edf9]' : 'from-[#1a1130] to-[#0a0613]'}`}>
-            <div className="text-lg font-semibold text-white">要挂了吗？</div>
-            <p className="mt-2 text-sm text-white/65 leading-relaxed">和{selectedChar?.name || '对方'}聊了 {formatDuration(elapsedSeconds)}，这通电话会好好保存下来。</p>
+            <div className="text-lg font-semibold text-white">要掛了嗎？</div>
+            <p className="mt-2 text-sm text-white/65 leading-relaxed">和{selectedChar?.name || '對方'}聊了 {formatDuration(elapsedSeconds)}，這通電話會好好保存下來。</p>
             <div className="mt-5 space-y-2">
               <button onClick={() => {
                 setShowHangupConfirm(false);
@@ -4002,15 +4002,15 @@ ${sentencePlan}`;
                     voiceLang,
                     pendingAvatarTouches: pendingAvatarTouchesRef.current,
                   });
-                  addToast('通话已挂起，点击顶部绿色条可随时回来', 'success');
+                  addToast('通話已掛起，點擊頂部綠色條可隨時回來', 'success');
                   trackEvent('挂起通话到后台');
                 }
               }} className="keep-white w-full py-2.5 rounded-2xl bg-emerald-500/80 text-white font-semibold transition active:scale-[0.97] flex items-center justify-center gap-2">
-                <span>先忙别的</span><span className="text-xs opacity-70">（挂起通话）</span>
+                <span>先忙別的</span><span className="text-xs opacity-70">（掛起通話）</span>
               </button>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setShowHangupConfirm(false)} className="py-2.5 rounded-2xl border border-white/20 text-white/80 transition active:scale-[0.97]">再聊会儿</button>
-                <button onClick={finishCall} className="py-2.5 rounded-2xl bg-rose-500/20 border border-rose-300/40 text-rose-200 font-semibold transition active:scale-[0.97]">挂了吧</button>
+                <button onClick={() => setShowHangupConfirm(false)} className="py-2.5 rounded-2xl border border-white/20 text-white/80 transition active:scale-[0.97]">再聊會兒</button>
+                <button onClick={finishCall} className="py-2.5 rounded-2xl bg-rose-500/20 border border-rose-300/40 text-rose-200 font-semibold transition active:scale-[0.97]">掛了吧</button>
               </div>
             </div>
           </div>
@@ -4019,11 +4019,11 @@ ${sentencePlan}`;
       {editingBubble && (
         <div className="absolute inset-0 bg-black/60 flex items-end z-50">
           <div className={`w-full border-t border-white/10 p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`}>
-            <div className="text-sm text-white/70">改一下刚才说的话</div>
-            <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full h-24 bg-black/30 rounded-xl p-3 text-sm outline-none resize-none placeholder:text-white/30" placeholder="重新措辞……" autoFocus />
+            <div className="text-sm text-white/70">改一下剛才說的話</div>
+            <textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} className="w-full h-24 bg-black/30 rounded-xl p-3 text-sm outline-none resize-none placeholder:text-white/30" placeholder="重新措辭……" autoFocus />
             <div className="flex gap-2">
               <button onClick={() => setEditingBubble(null)} className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/70 transition active:scale-[0.97]">算了</button>
-              <button onClick={saveEditedBubble} className="keep-white flex-1 py-2.5 rounded-xl font-medium text-white transition active:scale-[0.97]" style={{ backgroundColor: accentColor }}>就这样</button>
+              <button onClick={saveEditedBubble} className="keep-white flex-1 py-2.5 rounded-xl font-medium text-white transition active:scale-[0.97]" style={{ backgroundColor: accentColor }}>就這樣</button>
             </div>
           </div>
         </div>
@@ -4032,7 +4032,7 @@ ${sentencePlan}`;
         open={!!voiceFavoriteTarget}
         favorited={voiceFavoriteSaved}
         busy={voiceFavoriteBusy}
-        title="通话语音"
+        title="通話語音"
         preview={voiceFavoriteTarget ? (stripCallTextFormatting(extractVoiceTag(voiceFavoriteTarget.bubble.text).display) || stripTtsMarkupForDisplay(extractVoiceTag(voiceFavoriteTarget.bubble.text).voiceText, apiConfig)) : ''}
         onToggle={() => void toggleCallVoiceFavorite()}
         onClose={() => { if (!voiceFavoriteBusy) setVoiceFavoriteTarget(null); }}
@@ -4049,7 +4049,7 @@ ${sentencePlan}`;
               updateCharacter(selectedChar.id, { videoAvatar: config });
               setShowLive2DSettings(false);
               setLive2DWardrobeOnboarding(false);
-              addToast(`动作库已保存：衣橱 ${config.actions.filter(action => action.wardrobe).length} 套 · AI 可用 ${getLive2DAIActions(config).length} 个动作`, 'success');
+              addToast(`動作庫已保存：衣櫥 ${config.actions.filter(action => action.wardrobe).length} 套 · AI 可用 ${getLive2DAIActions(config).length} 個動作`, 'success');
             }}
           />
         </div>

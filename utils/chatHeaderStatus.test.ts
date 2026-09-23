@@ -7,7 +7,7 @@ import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 let container: HTMLDivElement, root: Root;
 type Props = React.ComponentProps<typeof ChatHeaderShell>;
 const render = (patch: Partial<Props>) => act(() => root.render(React.createElement(ChatHeaderShell, {
-    activeCharacter: { id: 'qa', name: '测试角色', avatar: '' },
+    activeCharacter: { id: 'qa', name: '測試角色', avatar: '' },
     selectionMode: false, selectedCount: 0, onCancelSelection() {},
     isTyping: false, isSummarizing: false, lastTokenUsage: null,
     onClose() {}, onTriggerAI() {}, onShowCharsPanel() {}, ...patch,
@@ -33,8 +33,8 @@ describe('chat header online appearance', () => {
         expect(status.querySelector('.rounded-full.font-semibold') !== null).toBe(options.statusStyle === 'pill');
     });
     it.each(aligns)('keeps group status text and custom CSS hook with %s alignment', headerAlign => {
-        render({ headerAlign, headerStyle: 'telegram', statusStyle: 'dot', statusText: '3 成员' });
-        expect(container.querySelector('.sully-chat-status')?.textContent).toBe('3 成员');
+        render({ headerAlign, headerStyle: 'telegram', statusStyle: 'dot', statusText: '3 成員' });
+        expect(container.querySelector('.sully-chat-status')?.textContent).toBe('3 成員');
         expect(container.textContent).not.toContain('Online');
     });
 });

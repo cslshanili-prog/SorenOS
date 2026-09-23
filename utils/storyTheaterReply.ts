@@ -2,16 +2,16 @@ import type { CharacterProfile, Message } from '../types';
 import { openDB } from './db';
 import { loadCharacterContextMessages } from './chatContextRange';
 
-/** 本剧情原文已有独立历史槽位，角色镜像不得重复注入或带回待重写回复。 */
+/** 本劇情原文已有獨立歷史槽位，角色鏡像不得重複注入或帶回待重寫回復。 */
 export async function loadStoryActorContext(char: CharacterProfile, theaterId: string, limit: number): Promise<Message[]> {
     if (limit <= 0) return [];
     const messages = await loadCharacterContextMessages(char);
     return messages.filter(message => !(message.metadata?.source === 'story_theater_memory' && message.metadata?.theaterId === theaterId)).slice(-limit);
 }
 
-export const STORY_REROLL_INSTRUCTION = '本轮是重新生成：从同一处故事落点重新写这一轮，换一个合理的切入角度、对白和细节展开；保留已确立的事实和用户输入，不把这次操作写进故事，不把尚未发生的旧版本当作既定经历。';
+export const STORY_REROLL_INSTRUCTION = '本輪是重新生成：從同一處故事落點重新寫這一輪，換一個合理的切入角度、對白和細節展開；保留已確立的事實和用戶輸入，不把這次操作寫進故事，不把尚未發生的舊版本當作既定經歷。';
 
-/** 成功后一次事务替换正文和镜像；失败/并发编辑时保留原文，不先删后写。 */
+/** 成功後一次事務替換正文和鏡像；失敗/併發編輯時保留原文，不先刪後寫。 */
 export async function replaceStoryTheaterReply(original: Message, content: string, metadata: Record<string, unknown>): Promise<void> {
     const mirrorIds = Object.values((original.metadata?.theaterMirrorIds || {}) as Record<string, number>).map(Number).filter(id => Number.isFinite(id) && id > 0);
     const ids = [...new Set([original.id, ...mirrorIds])];
@@ -22,13 +22,13 @@ export async function replaceStoryTheaterReply(original: Message, content: strin
         let failure: Error | undefined;
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(failure || transaction.error || new Error('重写保存失败，原回复已保留'));
+        transaction.onabort = () => reject(failure || transaction.error || new Error('重寫保存失敗，原回覆已保留'));
         for (const id of ids) {
             const request = store.get(id);
             request.onsuccess = () => {
                 const current = request.result as Message | undefined;
                 if (!current || current.content !== original.content) {
-                    failure = new Error('这条回复已被修改或删除，请刷新后重试');
+                    failure = new Error('這條回覆已被修改或刪除，請刷新後重試');
                     transaction.abort();
                     return;
                 }

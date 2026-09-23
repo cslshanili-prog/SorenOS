@@ -1,22 +1,22 @@
 /**
- * 手账 v2 编排器 — 版式优先 / 槽位填空
+ * 手帳 v2 編排器 — 版式優先 / 槽位填空
  *
- * 哲学: "大家共写的一本手账", 不是 user 主写 + 角色伴奏。
+ * 哲學: "大家共寫的一本手帳", 不是 user 主寫 + 角色伴奏。
  *
  * 流程:
- *  1. roll layout: pickTemplate(date 条件) → 一组 SlotDef
- *  2. user 步: *仅当 user 今天有聊天素材* 才跑, 一次 LLM 填 1~2 个最该填的 user 槽 (不全填)
- *  3. 角色步: 取参与角色 (默认 cap 2 个), 每人一次 LLM 调用, 看到 "已填的所有内容 +
- *     剩余可填槽 + 自己人格", 选 1 个槽填或 pass
- *  4. 收尾: 把 filled slots 转成 HandbookPage[] + HandbookLayout
+ *  1. roll layout: pickTemplate(date 條件) → 一組 SlotDef
+ *  2. user 步: *僅當 user 今天有聊天素材* 才跑, 一次 LLM 填 1~2 個最該填的 user 槽 (不全填)
+ *  3. 角色步: 取參與角色 (默認 cap 2 個), 每人一次 LLM 調用, 看到 "已填的所有內容 +
+ *     剩餘可填槽 + 自己人格", 選 1 個槽填或 pass
+ *  4. 收尾: 把 filled slots 轉成 HandbookPage[] + HandbookLayout
  *
- * 关键约束:
- *  - 不让 LLM 排版 (位置已定)
- *  - 字数硬约束 (charBudget) — 写溢出客户端截断
- *  - sticky-reaction 必须有 refersTo 指向已填槽, 缺失整槽作废
- *  - **today-only 硬约束**: 只写今天发生过的事, 不要把以前的事编进来
- *  - **共写而非中心化**: 角色 prompt 不把自己定位成 "user 的伴奏", 而是 "另一个参与者"
- *  - **user 没素材 → 完全跳过**, 不留假占位
+ * 關鍵約束:
+ *  - 不讓 LLM 排版 (位置已定)
+ *  - 字數硬約束 (charBudget) — 寫溢出客戶端截斷
+ *  - sticky-reaction 必須有 refersTo 指向已填槽, 缺失整槽作廢
+ *  - **today-only 硬約束**: 只寫今天發生過的事, 不要把以前的事編進來
+ *  - **共寫而非中心化**: 角色 prompt 不把自己定位成 "user 的伴奏", 而是 "另一個參與者"
+ *  - **user 沒素材 → 完全跳過**, 不留假佔位
  */
 
 import {
@@ -38,7 +38,7 @@ interface ApiConfig {
     model: string;
 }
 
-// ─── 工具: 当日时间窗 ────────────────────────────────────
+// ─── 工具: 當日時間窗 ────────────────────────────────────
 function dayRange(date: string): { start: number; end: number } {
     return getLocalDayRange(date) || { start: 0, end: 0 };
 }
@@ -49,8 +49,8 @@ function dayOfWeekZh(date: string): string {
     ];
 }
 
-// ─── 工具: user 当日跟某角色对话片段 ─────────────────────
-// （export 仅为了回归测试能直接验这段文本，见 handbookOrchestratorContent.test.ts）
+// ─── 工具: user 當日跟某角色對話片段 ─────────────────────
+// （export 僅為了迴歸測試能直接驗這段文本，見 handbookOrchestratorContent.test.ts）
 export async function todayChatLines(
     char: CharacterProfile,
     date: string,
@@ -68,11 +68,11 @@ export async function todayChatLines(
         if (m.role === 'system') continue;
         if (typeof m.content !== 'string' || !m.content.trim()) continue;
         const speaker = m.role === 'user' ? userName : char.name;
-        // 不能直接截 m.content：卡片类消息（score_card / html_card / 小红书…）的 content
-        // 是一整段 JSON，头像这种图片字段就排在开头几十字里；图片消息的 content
-        // 本身就是一张图。图片现在存的是 `blobref:<id>` 短令牌（~28 字），长度截断拦不住，
-        // 到网络出口（utils/apiBlobRefs.ts）会被还原成整张 base64。这里统一走
-        // normalizeMessageContent：卡片压成一行摘要，图片/表情一律换成占位符。
+        // 不能直接截 m.content：卡片類消息（score_card / html_card / 小紅書…）的 content
+        // 是一整段 JSON，頭像這種圖片字段就排在開頭幾十字裡；圖片消息的 content
+        // 本身就是一張圖。圖片現在存的是 `blobref:<id>` 短令牌（~28 字），長度截斷攔不住，
+        // 到網絡出口（utils/apiBlobRefs.ts）會被還原成整張 base64。這裡統一走
+        // normalizeMessageContent：卡片壓成一行摘要，圖片/表情一律換成佔位符。
         const normalized = normalizeMessageContent(m as any, char.name, userName);
         if (!normalized.trim()) continue;
         const text = normalized.length > 200 ? normalized.slice(0, 200) + '…' : normalized;
@@ -85,10 +85,10 @@ export async function todayChatLines(
 // ─── 槽 → prompt 描述 ─────────────────────────────────────
 function describeSlotForPrompt(s: SlotDef): string {
     const auth = s.eligibleAuthors.join('|');
-    return `[${s.id}] role=${s.slotRole} 字数=${s.charBudget[0]}~${s.charBudget[1]} 谁能写=${auth}\n  目的: ${s.hint}`;
+    return `[${s.id}] role=${s.slotRole} 字數=${s.charBudget[0]}~${s.charBudget[1]} 誰能寫=${auth}\n  目的: ${s.hint}`;
 }
 
-// ─── 槽 → 输出 schema 描述 (告诉 LLM 要返回的 JSON shape) ──
+// ─── 槽 → 輸出 schema 描述 (告訴 LLM 要返回的 JSON shape) ──
 function slotOutputSchema(role: SlotRole): string {
     switch (role) {
         case 'todo':
@@ -98,26 +98,26 @@ function slotOutputSchema(role: SlotRole): string {
         case 'timeline-plan':
             return `{ "slotId": "X", "payload": { "kind": "timeline", "items": [{"time":"07:30", "text":"起床", "emoji":"☀️"}, ...] } }`;
         case 'mood-card':
-            return `{ "slotId": "X", "text": "今天的心情一句话", "payload": { "kind": "mood", "rating": 1~5, "tag": "可选小标签" } }`;
+            return `{ "slotId": "X", "text": "今天的心情一句話", "payload": { "kind": "mood", "rating": 1~5, "tag": "可選小標籤" } }`;
         case 'photo-caption':
             return `{ "slotId": "X", "payload": { "kind": "photo", "caption": "短描述 (≤25字)" } }`;
         case 'sticky-reaction':
-            return `{ "slotId": "X", "text": "便签内容", "refersTo": "被引用的slotId(必填)" }`;
+            return `{ "slotId": "X", "text": "便籤內容", "refersTo": "被引用的slotId(必填)" }`;
         case 'hero-diary':
         case 'corner-note':
         default:
-            return `{ "slotId": "X", "text": "纯文本内容" }`;
+            return `{ "slotId": "X", "text": "純文本內容" }`;
     }
 }
 
-// ─── 共享: today-only 红线 ────────────────────────────────
+// ─── 共享: today-only 紅線 ────────────────────────────────
 const TODAY_ONLY_RULE = `
-【⚠️⚠️⚠️ TODAY-ONLY 硬约束 — 违反整组判废】
-- 只写 *今天 (该日期)* 真正发生过的事 / 真正想到的念头
-- **严禁**把以前的回忆、过往的对话、过去的经历当作"今天的事"扯出来
-- **严禁**虚构今天和 user 一起做了什么 (没见面就没有)
-- 如果你这个角色今天根本没素材, 直接 pass —— 不要硬挤
-- 反应型槽 (sticky-reaction) 必须明确引用 "已填的某个槽 (slotId)" 的具体内容, 不许凭空发挥
+【⚠️⚠️⚠️ TODAY-ONLY 硬約束 — 違反整組判廢】
+- 只寫 *今天 (該日期)* 真正發生過的事 / 真正想到的念頭
+- **嚴禁**把以前的回憶、過往的對話、過去的經歷當作"今天的事"扯出來
+- **嚴禁**虛構今天和 user 一起做了什麼 (沒見面就沒有)
+- 如果你這個角色今天根本沒素材, 直接 pass —— 不要硬擠
+- 反應型槽 (sticky-reaction) 必須明確引用 "已填的某個槽 (slotId)" 的具體內容, 不許憑空發揮
 `;
 
 // ─── LLM call ────────────────────────────────────────────
@@ -159,11 +159,11 @@ function parseLLMJson(raw: string): any | null {
     catch { try { return extractJson(s); } catch { return null; } }
 }
 
-// ─── filled slot 内部表示 ────────────────────────────────
+// ─── filled slot 內部表示 ────────────────────────────────
 interface FilledSlot {
     slotId: string;
     slotRole: SlotRole;
-    /** 文本内容 (有些 role 没有, 走 payload) */
+    /** 文本內容 (有些 role 沒有, 走 payload) */
     text: string;
     payload?: SlotPayload;
     /** 'user' 或 charId */
@@ -173,10 +173,10 @@ interface FilledSlot {
     refersTo?: string;
 }
 
-// ─── 渲染 "已填上下文" 给下一轮 LLM 看 ────────────────────
+// ─── 渲染 "已填上下文" 給下一輪 LLM 看 ────────────────────
 function renderFilledContext(filled: FilledSlot[]): string {
-    if (filled.length === 0) return '【已填的槽】(暂无)';
-    const lines: string[] = ['【已填的槽 — 你可以引用这些内容】'];
+    if (filled.length === 0) return '【已填的槽】(暫無)';
+    const lines: string[] = ['【已填的槽 — 你可以引用這些內容】'];
     for (const f of filled) {
         const preview = f.text || (f.payload ? JSON.stringify(f.payload).slice(0, 80) : '');
         lines.push(`  [${f.slotId}] (${f.slotRole}, by ${f.authorName}): ${preview}`);
@@ -186,15 +186,15 @@ function renderFilledContext(filled: FilledSlot[]): string {
 
 function renderRemainingSlots(remaining: SlotDef[], authorKind: 'user' | 'char'): string {
     const eligible = remaining.filter(s => s.eligibleAuthors.includes(authorKind));
-    if (eligible.length === 0) return '【你能填的槽】(无 — 该 pass)';
-    return ['【剩余可填的槽】'].concat(eligible.map(describeSlotForPrompt)).join('\n');
+    if (eligible.length === 0) return '【你能填的槽】(無 — 該 pass)';
+    return ['【剩餘可填的槽】'].concat(eligible.map(describeSlotForPrompt)).join('\n');
 }
 
-// ─── 1. user 槽 — 仅当 user 今天有聊天才跑, 只填 1~2 个最该填的 ────
+// ─── 1. user 槽 — 僅當 user 今天有聊天才跑, 只填 1~2 個最該填的 ────
 //
-// 行为:
-//  - user 今天没聊过任何东西 → 返回 [], 整个 user 步跳过 (不留假占位)
-//  - 有聊过 → 让 LLM 在 user-eligible 槽里挑 2~4 个最适合的, 填掉
+// 行為:
+//  - user 今天沒聊過任何東西 → 返回 [], 整個 user 步跳過 (不留假佔位)
+//  - 有聊過 → 讓 LLM 在 user-eligible 槽裡挑 2~4 個最適合的, 填掉
 async function fillUserSlots(
     template: LayoutTemplate,
     date: string,
@@ -217,68 +217,68 @@ async function fillUserSlots(
         totalUserMsgs += userMsgCount;
         if (lines.length === 0) continue;
         const trimmed = lines.length > 50 ? lines.slice(-50) : lines;
-        transcriptParts.push(`== 与「${c.name}」==\n${trimmed.join('\n')}`);
+        transcriptParts.push(`== 與「${c.name}」==\n${trimmed.join('\n')}`);
     }
 
-    // user 今天什么都没说 → 直接跳过, 不留假货
+    // user 今天什麼都沒說 → 直接跳過, 不留假貨
     if (totalUserMsgs === 0) {
-        console.log(`[Handbook v2] ╳ user 步跳过 — ${userName} 今天没素材`);
+        console.log(`[Handbook v2] ╳ user 步跳過 — ${userName} 今天沒素材`);
         return [];
     }
-    console.log(`[Handbook v2] ▶ user "${userName}" 步开始 — userMsgs=${totalUserMsgs}, 候选槽=${slots.length} 个 (${slots.map(s => `${s.id}/${s.slotRole}`).join(', ')})`);
+    console.log(`[Handbook v2] ▶ user "${userName}" 步開始 — userMsgs=${totalUserMsgs}, 候選槽=${slots.length} 個 (${slots.map(s => `${s.id}/${s.slotRole}`).join(', ')})`);
 
     const dow = dayOfWeekZh(date);
     const slotBlock = slots.map(describeSlotForPrompt).join('\n');
     const schemaExamples = slots.slice(0, 4).map(s => slotOutputSchema(s.slotRole)).join(',\n  ');
 
-    const prompt = `今天是 ${date} (星期${dow})。你是「${userName}」的私人手账代笔。
-这是 ${userName} 跟一群角色共写的一本手账, 不是只有 ${userName} 在写。
-请你基于 ${userName} 今天的真实对话, **挑 2~4 个最有素材可填的 user 槽**, 用 ${userName} 的第一人称填好。每个槽都要落到 charBudget 区间。没素材的槽不要硬挤, 留给角色或留白。
+    const prompt = `今天是 ${date} (星期${dow})。你是「${userName}」的私人手帳代筆。
+這是 ${userName} 跟一群角色共寫的一本手帳, 不是只有 ${userName} 在寫。
+請你基於 ${userName} 今天的真實對話, **挑 2~4 個最有素材可填的 user 槽**, 用 ${userName} 的第一人稱填好。每個槽都要落到 charBudget 區間。沒素材的槽不要硬擠, 留給角色或留白。
 
 ${slotBlock}
 
 ${TODAY_ONLY_RULE}
 
-【输出 JSON 数组】1~2 个元素, 形如:
+【輸出 JSON 數組】1~2 個元素, 形如:
 [
   ${schemaExamples}
 ]
 
-字段说明:
-- slotId 必须是上面列出来的 id
-- text: 纯文本 (适用 hero-diary / corner-note / mood-card 等)
-- payload: 结构化数据 (适用 todo / gratitude / timeline-plan / mood-card / photo-caption)
-- 字数硬卡: text 长度落在 charBudget 区间内
-- 优先选 user 今天聊天里有具体素材的槽, 没素材的不要填
-- 不要 emoji 开头, 不要标题
+字段說明:
+- slotId 必須是上面列出來的 id
+- text: 純文本 (適用 hero-diary / corner-note / mood-card 等)
+- payload: 結構化數據 (適用 todo / gratitude / timeline-plan / mood-card / photo-caption)
+- 字數硬卡: text 長度落在 charBudget 區間內
+- 優先選 user 今天聊天裡有具體素材的槽, 沒素材的不要填
+- 不要 emoji 開頭, 不要標題
 
-【今日对话素材】
+【今日對話素材】
 ${transcriptParts.join('\n\n')}
 
-直接输出 JSON 数组。`;
+直接輸出 JSON 數組。`;
 
     const raw = await callLLM(apiConfig, prompt, 0.75);
     if (!raw) {
         console.error(`[Handbook v2] ✗ user "${userName}" — LLM 返回空`);
         return [];
     }
-    console.log(`[Handbook v2] user 原始 LLM 响应:\n${raw.length > 800 ? raw.slice(0, 800) + '\n…(截断)' : raw}`);
+    console.log(`[Handbook v2] user 原始 LLM 響應:\n${raw.length > 800 ? raw.slice(0, 800) + '\n…(截斷)' : raw}`);
     const parsed = parseLLMJson(raw);
     if (!Array.isArray(parsed)) {
-        console.error(`[Handbook v2] ✗ user — JSON 解析失败 / 不是数组, 类型=${typeof parsed}`);
+        console.error(`[Handbook v2] ✗ user — JSON 解析失敗 / 不是數組, 類型=${typeof parsed}`);
         return [];
     }
 
     const filled: FilledSlot[] = [];
     const dropped: string[] = [];
     for (const item of parsed) {
-        if (!item || typeof item !== 'object') { dropped.push('非对象'); continue; }
+        if (!item || typeof item !== 'object') { dropped.push('非對象'); continue; }
         const slotId = String(item.slotId || '').toUpperCase();
         const slot = slots.find(s => s.id === slotId);
         if (!slot) { dropped.push(`未知 slotId=${slotId}`); continue; }
         const text = typeof item.text === 'string' ? item.text.trim() : '';
         const payload = sanitizePayload(item.payload, slot.slotRole);
-        if (!text && !payload) { dropped.push(`${slotId} 内容空`); continue; }
+        if (!text && !payload) { dropped.push(`${slotId} 內容空`); continue; }
         filled.push({
             slotId: slot.id,
             slotRole: slot.slotRole,
@@ -287,9 +287,9 @@ ${transcriptParts.join('\n\n')}
             authorKind: 'user',
             authorName: userName,
         });
-        if (filled.length >= 5) break;       // 模型偶尔超额, 客户端硬卡 (允许填多, 但留一些给角色)
+        if (filled.length >= 5) break;       // 模型偶爾超額, 客戶端硬卡 (允許填多, 但留一些給角色)
     }
-    console.log(`[Handbook v2] ◀ user "${userName}" 完成 — 填了 ${filled.length} 个槽 [${filled.map(f => `${f.slotId}/${f.slotRole}`).join(', ')}]${dropped.length ? `, 丢弃 ${dropped.length} 条 (${dropped.join('; ')})` : ''}`);
+    console.log(`[Handbook v2] ◀ user "${userName}" 完成 — 填了 ${filled.length} 個槽 [${filled.map(f => `${f.slotId}/${f.slotRole}`).join(', ')}]${dropped.length ? `, 丟棄 ${dropped.length} 條 (${dropped.join('; ')})` : ''}`);
     for (const f of filled) {
         const preview = f.text || (f.payload ? `[payload:${f.payload.kind}]` : '');
         console.log(`[Handbook v2]   • [${f.slotId}] ${f.slotRole}: ${preview.length > 60 ? preview.slice(0, 60) + '…' : preview}`);
@@ -299,7 +299,7 @@ ${transcriptParts.join('\n\n')}
 
 function clampText(text: string, [_min, max]: [number, number]): string {
     if (text.length <= max) return text;
-    // 优先在标点处截断
+    // 優先在標點處截斷
     const slice = text.slice(0, max);
     const lastPunct = Math.max(
         slice.lastIndexOf('。'), slice.lastIndexOf('!'), slice.lastIndexOf('?'),
@@ -353,14 +353,14 @@ function sanitizePayload(p: any, role: SlotRole): SlotPayload | undefined {
     return undefined;
 }
 
-// ─── 2. char 步 — 单次 LLM 调用填多个槽 ────────────────────
+// ─── 2. char 步 — 單次 LLM 調用填多個槽 ────────────────────
 //
-// 设计:
-//  - 一次 LLM 调用返回一组 (3~5 条) ta 今天的内容 — 像生活系角色"今日小生活"
-//  - 自由发挥: hero-diary / mood-card / 多个 corner-note / 可选 sticky-reaction
-//  - 生活系角色被鼓励 "造谣" 自己今天的日常 (跟 user 无关), 不能假装今天和 user 一起做了什么
-//  - sticky-reaction 必须有 refersTo, filled 全空时自动剔除该 role 候选
-//  - 必须写, 不能 pass; LLM 烂数据 → 重试一次 → 仍烂才静默丢
+// 設計:
+//  - 一次 LLM 調用返回一組 (3~5 條) ta 今天的內容 — 像生活系角色"今日小生活"
+//  - 自由發揮: hero-diary / mood-card / 多個 corner-note / 可選 sticky-reaction
+//  - 生活系角色被鼓勵 "造謠" 自己今天的日常 (跟 user 無關), 不能假裝今天和 user 一起做了什麼
+//  - sticky-reaction 必須有 refersTo, filled 全空時自動剔除該 role 候選
+//  - 必須寫, 不能 pass; LLM 爛數據 → 重試一次 → 仍爛才靜默丟
 async function fillCharTurn(
     char: CharacterProfile,
     template: LayoutTemplate,
@@ -372,13 +372,13 @@ async function fillCharTurn(
     let remaining = template.pages.flat().filter(s =>
         !filled.find(f => f.slotId === s.id) && s.eligibleAuthors.includes('char')
     );
-    // sticky-reaction 没东西可引 → 踢出候选 (没法满足 refersTo)
+    // sticky-reaction 沒東西可引 → 踢出候選 (沒法滿足 refersTo)
     if (filled.length === 0) {
         remaining = remaining.filter(s => s.slotRole !== 'sticky-reaction');
     }
-    console.log(`[Handbook v2] ▶ char "${char.name}" 步开始 — 剩余可填槽 ${remaining.length} 个 [${remaining.map(s => `${s.id}/${s.slotRole}`).join(', ')}]`);
+    console.log(`[Handbook v2] ▶ char "${char.name}" 步開始 — 剩餘可填槽 ${remaining.length} 個 [${remaining.map(s => `${s.id}/${s.slotRole}`).join(', ')}]`);
     if (remaining.length === 0) {
-        console.log(`[Handbook v2] ╳ char "${char.name}" — 没槽可填, 跳过`);
+        console.log(`[Handbook v2] ╳ char "${char.name}" — 沒槽可填, 跳過`);
         return [];
     }
 
@@ -386,7 +386,7 @@ async function fillCharTurn(
     const dow = dayOfWeekZh(date);
     const coreContext = ContextBuilder.buildCoreContext(char, userProfile, true);
 
-    // 抽 ta 平时怎么说话的样本
+    // 抽 ta 平時怎麼說話的樣本
     let speechSamples: string[] = [];
     try {
         const all = await loadCharacterContextMessages(char);
@@ -407,21 +407,21 @@ async function fillCharTurn(
         }
     } catch {}
 
-    // 该 char 今天有没有跟 user 聊过 (有素材才允许写 sticky-reaction 引 user 的槽)
+    // 該 char 今天有沒有跟 user 聊過 (有素材才允許寫 sticky-reaction 引 user 的槽)
     const { lines: todayLines } = await todayChatLines(char, date, userName);
 
     const speechBlock = speechSamples.length > 0
-        ? `\n【⚠️ ${char.name} 平时怎么说话 — 严格模仿语气/用词/句式/口头禅, 不像 ta 整组判废】\n${speechSamples.map((s, i) => `[${i + 1}] ${s}`).join('\n')}\n`
+        ? `\n【⚠️ ${char.name} 平時怎麼說話 — 嚴格模仿語氣/用詞/句式/口頭禪, 不像 ta 整組判廢】\n${speechSamples.map((s, i) => `[${i + 1}] ${s}`).join('\n')}\n`
         : '';
 
     const todayChatBlock = todayLines.length > 0
-        ? `\n【今天 ${char.name} 跟 ${userName} 的对话片段 — 仅供参考, 是 *今天* 真实发生的】\n${todayLines.slice(-25).join('\n')}\n`
-        : `\n【⚠️ ${char.name} 今天没和 ${userName} 说过话】没关系 — 写你自己今天的生活就好 (生活流可以"造谣": 早起喝什么、谁路过、刷到什么、忽然想起什么…只要符合人设)。\n`;
+        ? `\n【今天 ${char.name} 跟 ${userName} 的對話片段 — 僅供參考, 是 *今天* 真實發生的】\n${todayLines.slice(-25).join('\n')}\n`
+        : `\n【⚠️ ${char.name} 今天沒和 ${userName} 說過話】沒關係 — 寫你自己今天的生活就好 (生活流可以"造謠": 早起喝什麼、誰路過、刷到什麼、忽然想起什麼…只要符合人設)。\n`;
 
     const filledBlock = renderFilledContext(filled);
     const remainingBlock = renderRemainingSlots(remaining, 'char');
 
-    // 列 char-eligible 槽的 schema 例子 (按 role 去重显示)
+    // 列 char-eligible 槽的 schema 例子 (按 role 去重顯示)
     const seenRoles = new Set<string>();
     const exampleSchemas = remaining
         .filter(s => {
@@ -432,13 +432,13 @@ async function fillCharTurn(
         .map(s => `  - ${s.slotRole}: ${slotOutputSchema(s.slotRole)}`)
         .join('\n');
 
-    // 一次目标填多少: 看剩余槽位多少, 角色越靠后填得越少 (前面已经填掉一些)
+    // 一次目標填多少: 看剩餘槽位多少, 角色越靠後填得越少 (前面已經填掉一些)
     const targetMin = Math.min(2, remaining.length);
     const targetMax = Math.min(5, remaining.length);
 
-    const prompt = `今天是 ${date} (星期${dow})。这是一本 *大家共写* 的手账, 你 (角色「${char.name}」) 在这一页留下你今天的笔迹。
+    const prompt = `今天是 ${date} (星期${dow})。這是一本 *大家共寫* 的手帳, 你 (角色「${char.name}」) 在這一頁留下你今天的筆跡。
 
-【你的人格档案】
+【你的人格檔案】
 ${coreContext}
 ${speechBlock}${todayChatBlock}
 
@@ -448,56 +448,56 @@ ${remainingBlock}
 
 ${TODAY_ONLY_RULE}
 
-【这一轮你要做什么】
-你今天会在这本手账上**留 ${targetMin}~${targetMax} 条笔迹** (一次性, 不分轮)。每条都是一个槽位的填充。
-内容主体应该是**写你自己今天**:
-  - 1 条 hero-diary 或 mood-card: 你今天的主线 (生活片段 / 心情)
-  - 多条 corner-note: 散落的小独白、看到的、想到的、口头禅式碎句
-  - 0~2 条 sticky-reaction: 看到 "已填" 列表里某条有反应, 写便签 (refersTo 必填)
+【這一輪你要做什麼】
+你今天會在這本手帳上**留 ${targetMin}~${targetMax} 條筆跡** (一次性, 不分輪)。每條都是一個槽位的填充。
+內容主體應該是**寫你自己今天**:
+  - 1 條 hero-diary 或 mood-card: 你今天的主線 (生活片段 / 心情)
+  - 多條 corner-note: 散落的小獨白、看到的、想到的、口頭禪式碎句
+  - 0~2 條 sticky-reaction: 看到 "已填" 列表裡某條有反應, 寫便籤 (refersTo 必填)
 
-【⚠️ 内容硬约束】
-- **可以"造谣"自己今天的生活流** — 早起做了什么、看到什么、买了什么、刷到什么、谁路过、突然想到什么…只要符合人设, 大胆写
-- 但**不要虚构和 ${userName} 的共同事件** (没见面就不能编"我们一起去了…")
-- 不要把过去的回忆当今天的事讲
-- 不要把 ${userName} 当主语 ("想念 ${userName}" / "等 ${userName}" 通通禁绝)
-- 严格模仿你的说话样本 — 语气/用词/句式/标点/口头禅
-- 不要 emoji 开头, 不要标题, 不要 ** 加粗 (除偶尔笔感修饰)
+【⚠️ 內容硬約束】
+- **可以"造謠"自己今天的生活流** — 早起做了什麼、看到什麼、買了什麼、刷到什麼、誰路過、突然想到什麼…只要符合人設, 大膽寫
+- 但**不要虛構和 ${userName} 的共同事件** (沒見面就不能編"我們一起去了…")
+- 不要把過去的回憶當今天的事講
+- 不要把 ${userName} 當主語 ("想念 ${userName}" / "等 ${userName}" 通通禁絕)
+- 嚴格模仿你的說話樣本 — 語氣/用詞/句式/標點/口頭禪
+- 不要 emoji 開頭, 不要標題, 不要 ** 加粗 (除偶爾筆感修飾)
 
-【输出 JSON 数组】${targetMin}~${targetMax} 个对象。每个对象一个槽, 形如:
+【輸出 JSON 數組】${targetMin}~${targetMax} 個對象。每個對象一個槽, 形如:
 [
 ${exampleSchemas}
 ]
 
-字段说明:
-- slotId 必须是上面 "剩余可填的槽" 里列出的 id
-- 每个 slotId 在你这一组里只能出现一次
-- text 必填 (除 photo-caption 走 payload), 长度落在该槽 charBudget 区间
-- sticky-reaction 必须 refersTo 引用 "已填" 列表里的某 slotId
-- 不要 pass / 空内容 / 占位文本
+字段說明:
+- slotId 必須是上面 "剩餘可填的槽" 裡列出的 id
+- 每個 slotId 在你這一組裡只能出現一次
+- text 必填 (除 photo-caption 走 payload), 長度落在該槽 charBudget 區間
+- sticky-reaction 必須 refersTo 引用 "已填" 列表裡的某 slotId
+- 不要 pass / 空內容 / 佔位文本
 
-直接输出 JSON 数组。`;
+直接輸出 JSON 數組。`;
 
-    // 一次主调 + 最多一次重试
+    // 一次主調 + 最多一次重試
     let attempt = 0;
     while (attempt < 2) {
         const isRetry = attempt > 0;
         const finalPrompt = isRetry
-            ? prompt + `\n\n【⚠️ 重试】上一次响应没产出有效内容 (slotId 错 / 数组空 / sticky 没 refersTo)。再试一次, 必须返回 ${targetMin}~${targetMax} 个有效对象的数组。`
+            ? prompt + `\n\n【⚠️ 重試】上一次響應沒產出有效內容 (slotId 錯 / 數組空 / sticky 沒 refersTo)。再試一次, 必須返回 ${targetMin}~${targetMax} 個有效對象的數組。`
             : prompt;
-        if (isRetry) console.warn(`[Handbook v2] ⟳ char "${char.name}" — 重试 (第 ${attempt + 1} 次)`);
+        if (isRetry) console.warn(`[Handbook v2] ⟳ char "${char.name}" — 重試 (第 ${attempt + 1} 次)`);
         const raw = await callLLM(apiConfig, finalPrompt, 0.85, 6000);
         attempt++;
         if (!raw) {
             console.error(`[Handbook v2] ✗ char "${char.name}" — LLM 返回空`);
             continue;
         }
-        console.log(`[Handbook v2] char "${char.name}" 原始 LLM 响应:\n${raw.length > 1000 ? raw.slice(0, 1000) + '\n…(截断)' : raw}`);
+        console.log(`[Handbook v2] char "${char.name}" 原始 LLM 響應:\n${raw.length > 1000 ? raw.slice(0, 1000) + '\n…(截斷)' : raw}`);
         const parsed = parseLLMJson(raw);
         let arr: any[];
         if (Array.isArray(parsed)) arr = parsed;
-        else if (parsed && typeof parsed === 'object' && 'slotId' in parsed) arr = [parsed];   // 单对象兜底
+        else if (parsed && typeof parsed === 'object' && 'slotId' in parsed) arr = [parsed];   // 單對象兜底
         else {
-            console.error(`[Handbook v2] ✗ char "${char.name}" — JSON 解析失败 / 不是数组, 类型=${typeof parsed}`);
+            console.error(`[Handbook v2] ✗ char "${char.name}" — JSON 解析失敗 / 不是數組, 類型=${typeof parsed}`);
             continue;
         }
 
@@ -506,22 +506,22 @@ ${exampleSchemas}
         const dropped: string[] = [];
 
         for (const item of arr) {
-            if (!item || typeof item !== 'object') { dropped.push('非对象'); continue; }
+            if (!item || typeof item !== 'object') { dropped.push('非對象'); continue; }
             const slotId = String(item.slotId || '').toUpperCase();
-            if (usedSlotIds.has(slotId)) { dropped.push(`${slotId} 重复`); continue; }       // 同 slot 不能重复
+            if (usedSlotIds.has(slotId)) { dropped.push(`${slotId} 重複`); continue; }       // 同 slot 不能重複
             const slot = remaining.find(s => s.id === slotId);
             if (!slot) { dropped.push(`未知 slotId=${slotId}`); continue; }
             const text = typeof item.text === 'string' ? item.text.trim() : '';
             const payload = sanitizePayload(item.payload, slot.slotRole);
-            if (!text && !payload) { dropped.push(`${slotId} 内容空`); continue; }
+            if (!text && !payload) { dropped.push(`${slotId} 內容空`); continue; }
 
             let refersTo: string | undefined;
             if (slot.slotRole === 'sticky-reaction') {
                 refersTo = String(item.refersTo || '').toUpperCase();
-                // 引用必须在 "filled" (此次新填的不算, 不允许自引环)
+                // 引用必須在 "filled" (此次新填的不算, 不允許自引環)
                 const exists = filled.find(f => f.slotId === refersTo);
                 if (!exists) {
-                    dropped.push(`${slotId} sticky refersTo=${refersTo || '空'} 无效`);
+                    dropped.push(`${slotId} sticky refersTo=${refersTo || '空'} 無效`);
                     continue;
                 }
             }
@@ -540,16 +540,16 @@ ${exampleSchemas}
         }
 
         if (out.length > 0) {
-            console.log(`[Handbook v2] ◀ char "${char.name}" 完成 — 填了 ${out.length} 个槽 [${out.map(f => `${f.slotId}/${f.slotRole}`).join(', ')}]${dropped.length ? `, 丢弃 ${dropped.length} 条 (${dropped.join('; ')})` : ''}`);
+            console.log(`[Handbook v2] ◀ char "${char.name}" 完成 — 填了 ${out.length} 個槽 [${out.map(f => `${f.slotId}/${f.slotRole}`).join(', ')}]${dropped.length ? `, 丟棄 ${dropped.length} 條 (${dropped.join('; ')})` : ''}`);
             for (const f of out) {
                 const preview = f.text || (f.payload ? `[payload:${f.payload.kind}]` : '');
                 console.log(`[Handbook v2]   • [${f.slotId}] ${f.slotRole}${f.refersTo ? ` →${f.refersTo}` : ''}: ${preview.length > 80 ? preview.slice(0, 80) + '…' : preview}`);
             }
             return out;
         }
-        console.error(`[Handbook v2] ✗ char "${char.name}" 第 ${attempt} 次没出有效内容${dropped.length ? `, 丢弃: ${dropped.join('; ')}` : ''}`);
+        console.error(`[Handbook v2] ✗ char "${char.name}" 第 ${attempt} 次沒出有效內容${dropped.length ? `, 丟棄: ${dropped.join('; ')}` : ''}`);
     }
-    console.error(`[Handbook v2] ╳ char "${char.name}" 两次都不行 — 这一格留白`);
+    console.error(`[Handbook v2] ╳ char "${char.name}" 兩次都不行 — 這一格留白`);
     return [];
 }
 
@@ -560,11 +560,11 @@ export interface ComposeV2Input {
     characters: CharacterProfile[];
     userProfile: UserProfile;
     apiConfig: ApiConfig;
-    /** 强制使用某模板 id, 不传则按条件自动选 */
+    /** 強制使用某模板 id, 不傳則按條件自動選 */
     forcedTemplateId?: string;
-    /** 一天最多让几个角色参与 (默认 6 — 尊重 user 选择, 选了几个就跑几个) */
+    /** 一天最多讓幾個角色參與 (默認 6 — 尊重 user 選擇, 選了幾個就跑幾個) */
     maxChars?: number;
-    /** 进度回调 — 给 UI 用 */
+    /** 進度回調 — 給 UI 用 */
     onProgress?: (info: { stage: 'user' | 'char'; name: string; i: number; n: number }) => void;
 }
 
@@ -574,7 +574,7 @@ export interface ComposeV2Result {
     templateId: string;
     /** debug: 哪些槽留白了 */
     skippedSlotIds: string[];
-    /** 实际参与的 char ids (被 cap 截掉的不在内) */
+    /** 實際參與的 char ids (被 cap 截掉的不在內) */
     participatingCharIds: string[];
 }
 
@@ -586,11 +586,11 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
     const userName = userProfile.name || '我';
 
     console.log('═══════════════════════════════════════════════════════');
-    console.log(`[Handbook v2] 🟣 composePageV2 启动 — date=${date}`);
-    console.log(`[Handbook v2] 候选角色 (${input.selectedCharIds.length} 个): [${input.selectedCharIds.map(id => characters.find(c => c.id === id)?.name || id).join(', ')}]`);
-    console.log(`[Handbook v2] maxChars=${maxChars} (${input.maxChars !== undefined ? '调用方传入' : '默认 ' + DEFAULT_MAX_CHARS})`);
+    console.log(`[Handbook v2] 🟣 composePageV2 啟動 — date=${date}`);
+    console.log(`[Handbook v2] 候選角色 (${input.selectedCharIds.length} 個): [${input.selectedCharIds.map(id => characters.find(c => c.id === id)?.name || id).join(', ')}]`);
+    console.log(`[Handbook v2] maxChars=${maxChars} (${input.maxChars !== undefined ? '調用方傳入' : '默認 ' + DEFAULT_MAX_CHARS})`);
 
-    // ─── 1. 决定哪些 char 参与 (按今日聊天活跃度排序, cap N) ──
+    // ─── 1. 決定哪些 char 參與 (按今日聊天活躍度排序, cap N) ──
     const charsWithActivity: { id: string; userMsgs: number; charMsgs: number }[] = [];
     for (const cid of input.selectedCharIds) {
         const c = characters.find(x => x.id === cid);
@@ -602,24 +602,24 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
             charMsgs: lines.length - userMsgCount,
         });
     }
-    // 排序: 今日总活跃度降序 → 优先让 "今天真有素材" 的角色参与
+    // 排序: 今日總活躍度降序 → 優先讓 "今天真有素材" 的角色參與
     charsWithActivity.sort((a, b) =>
         (b.userMsgs + b.charMsgs) - (a.userMsgs + a.charMsgs)
     );
     const participating = charsWithActivity.slice(0, maxChars);
     const totalUserMsgs = charsWithActivity.reduce((s, x) => s + x.userMsgs, 0);
 
-    console.log(`[Handbook v2] 活跃度排序后:`);
+    console.log(`[Handbook v2] 活躍度排序後:`);
     for (const x of charsWithActivity) {
         const c = characters.find(ch => ch.id === x.id);
         console.log(`[Handbook v2]   - ${c?.name || x.id}: userMsgs=${x.userMsgs}, charMsgs=${x.charMsgs}`);
     }
     if (charsWithActivity.length > maxChars) {
         const cut = charsWithActivity.slice(maxChars);
-        console.warn(`[Handbook v2] ⚠ 候选超过 maxChars(${maxChars}), 砍掉 ${cut.length} 个: [${cut.map(x => characters.find(c => c.id === x.id)?.name).join(', ')}]`);
+        console.warn(`[Handbook v2] ⚠ 候選超過 maxChars(${maxChars}), 砍掉 ${cut.length} 個: [${cut.map(x => characters.find(c => c.id === x.id)?.name).join(', ')}]`);
     }
-    console.log(`[Handbook v2] 实际参与 (${participating.length}): [${participating.map(p => characters.find(c => c.id === p.id)?.name).join(', ')}]`);
-    console.log(`[Handbook v2] 总 user 消息数 (跨所有 char): ${totalUserMsgs}`);
+    console.log(`[Handbook v2] 實際參與 (${participating.length}): [${participating.map(p => characters.find(c => c.id === p.id)?.name).join(', ')}]`);
+    console.log(`[Handbook v2] 總 user 消息數 (跨所有 char): ${totalUserMsgs}`);
 
     // ─── 2. roll layout ──
     let template = forcedTemplateId ? LAYOUT_TEMPLATES[forcedTemplateId] : null;
@@ -629,9 +629,9 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
             charCount: participating.length,
         });
     }
-    console.log(`[Handbook v2] 选用版式: ${template.id} (${template.name}), 共 ${template.pages.flat().length} 槽位`);
+    console.log(`[Handbook v2] 選用版式: ${template.id} (${template.name}), 共 ${template.pages.flat().length} 槽位`);
 
-    // ─── 3. 进度
+    // ─── 3. 進度
     const userWillRun = totalUserMsgs > 0;
     const totalTurns = (userWillRun ? 1 : 0) + participating.length;
     let turnIdx = 0;
@@ -642,7 +642,7 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
 
     const filled: FilledSlot[] = [];
 
-    // ─── 4. user 步 (仅当有今日聊天) ──
+    // ─── 4. user 步 (僅當有今日聊天) ──
     if (userWillRun) {
         tick('user', userName);
         const userFilled = await fillUserSlots(
@@ -651,7 +651,7 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
         filled.push(...userFilled);
     }
 
-    // ─── 5. chars 顺序轮 (每个 char 一次 LLM 调用, 出 2~5 条 fragment) ──
+    // ─── 5. chars 順序輪 (每個 char 一次 LLM 調用, 出 2~5 條 fragment) ──
     for (const { id } of participating) {
         const c = characters.find(x => x.id === id);
         if (!c) continue;
@@ -666,7 +666,7 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
         .filter(s => !filled.find(f => f.slotId === s.id))
         .map(s => s.id);
 
-    console.log(`[Handbook v2] 🟢 完成 — 共填 ${filled.length}/${allSlots.length} 个槽`);
+    console.log(`[Handbook v2] 🟢 完成 — 共填 ${filled.length}/${allSlots.length} 個槽`);
     const byAuthor: Record<string, number> = {};
     for (const f of filled) byAuthor[f.authorName] = (byAuthor[f.authorName] || 0) + 1;
     console.log(`[Handbook v2] 按作者: ${Object.entries(byAuthor).map(([a, n]) => `${a}=${n}`).join(', ')}`);
@@ -686,16 +686,16 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
 
 // ─── filled → HandbookPage[] + HandbookLayout ────────────
 //
-// 旧渲染管道吃 HandbookPage[] (有 fragments) + HandbookLayout (placements 指 fragment).
-// 我们让每个作者一份 HandbookPage, fragments 是 ta 填的所有槽; placements 按
-// SlotDef 的位置生成, 同时把 SlotRole / payload 传进 fragment.
+// 舊渲染管道吃 HandbookPage[] (有 fragments) + HandbookLayout (placements 指 fragment).
+// 我們讓每個作者一份 HandbookPage, fragments 是 ta 填的所有槽; placements 按
+// SlotDef 的位置生成, 同時把 SlotRole / payload 傳進 fragment.
 function buildPagesAndLayout(
     template: LayoutTemplate,
     filled: FilledSlot[],
     date: string,
 ): { pages: HandbookPage[]; layouts: HandbookLayout[] } {
     const allSlots = template.pages.flat();
-    // 按作者分组 → 一个 HandbookPage / 作者
+    // 按作者分組 → 一個 HandbookPage / 作者
     const byAuthor: Map<string, FilledSlot[]> = new Map();
     for (const f of filled) {
         const key = f.authorKind === 'user' ? '__user__' : (f.charId || `__char__${f.authorName}`);
@@ -764,7 +764,7 @@ function buildPagesAndLayout(
     return { pages, layouts: [layout] };
 }
 
-// 新 SlotRole → 旧 LayoutRole 兜底 (老渲染器还在用)
+// 新 SlotRole → 舊 LayoutRole 兜底 (老渲染器還在用)
 function slotRoleToLegacyRole(role: SlotRole): 'main' | 'side' | 'corner' | 'margin' {
     switch (role) {
         case 'hero-diary': return 'main';
@@ -778,24 +778,24 @@ function slotRoleToLegacyRole(role: SlotRole): 'main' | 'side' | 'corner' | 'mar
     }
 }
 
-// ─── 4. 单角色重生 (v2) ───────────────────────────────────
+// ─── 4. 單角色重生 (v2) ───────────────────────────────────
 //
-// 用法: handleRegenerateLifestream 调它, 拿到只更新该角色 slot 的结果。
-// 流程: 找回原 templateId → 把其它角色 + user 的 fills 当作 "已填" → 再调一次 fillCharTurn。
+// 用法: handleRegenerateLifestream 調它, 拿到只更新該角色 slot 的結果。
+// 流程: 找回原 templateId → 把其它角色 + user 的 fills 當作 "已填" → 再調一次 fillCharTurn。
 export interface RegenCharInput {
     date: string;
     charId: string;
-    pages: HandbookPage[];           // 当前所有 page
-    layouts: HandbookLayout[];       // 当前所有 layout
+    pages: HandbookPage[];           // 當前所有 page
+    layouts: HandbookLayout[];       // 當前所有 layout
     characters: CharacterProfile[];
     userProfile: UserProfile;
     apiConfig: ApiConfig;
 }
 
 export interface RegenCharResult {
-    /** 新的 page (替换原 charId 的那条 LLM page) */
+    /** 新的 page (替換原 charId 的那條 LLM page) */
     newPage: HandbookPage | null;
-    /** 新的整体 layouts (替换 entry.layouts) */
+    /** 新的整體 layouts (替換 entry.layouts) */
     newLayouts: HandbookLayout[];
 }
 
@@ -804,7 +804,7 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
     const char = characters.find(c => c.id === charId);
     if (!char) return { newPage: null, newLayouts: layouts };
 
-    // 找 templateId — v2 layout 必须有
+    // 找 templateId — v2 layout 必須有
     const v2Layout = layouts.find(l => l.templateId);
     if (!v2Layout?.templateId) return { newPage: null, newLayouts: layouts };
     const template = LAYOUT_TEMPLATES[v2Layout.templateId];
@@ -814,7 +814,7 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
     const filled: FilledSlot[] = [];
     const allSlots = template.pages.flat();
     for (const page of pages) {
-        if (page.charId === charId) continue;       // 跳过被重生的
+        if (page.charId === charId) continue;       // 跳過被重生的
         if (!page.fragments) continue;
         for (const frag of page.fragments) {
             if (!frag.slotId) continue;
@@ -836,11 +836,11 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
         }
     }
 
-    // 调 char turn (返回数组, 一次出多条 fragment)
+    // 調 char turn (返回數組, 一次出多條 fragment)
     const newFills = await fillCharTurn(char, template, filled, date, userProfile, apiConfig);
     if (newFills.length === 0) return { newPage: null, newLayouts: layouts };
 
-    // 拼新 char page (一组 fragments)
+    // 拼新 char page (一組 fragments)
     const newPageId = `lifestream-${charId}-${date}-${Date.now()}`;
     const fragments: HandbookFragment[] = newFills.map((f, i) => ({
         id: `frag-${newPageId}-${i}-${f.slotId}`,
@@ -862,7 +862,7 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
         generatedAt: Date.now(),
     };
 
-    // 重建 v2 layout: 剔除该 char 旧的 placements, 加新的多条
+    // 重建 v2 layout: 剔除該 char 舊的 placements, 加新的多條
     const otherPlacements = v2Layout.placements.filter(pl => {
         const ownerPage = pages.find(p => p.id === pl.pageId);
         return ownerPage?.charId !== charId;
@@ -891,16 +891,16 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
     return { newPage, newLayouts };
 }
 
-// ─── 5. 删 / 编辑后重算 layout ────────────────────────────
+// ─── 5. 刪 / 編輯後重算 layout ────────────────────────────
 //
-// 旧的 composePageLayout 会重洗版式 — v2 不要。这个 helper:
-//  1. 保留所有 v2 layouts 的 placement, 但剔除指向已删除 page 的
-//  2. user_note (用户手写) 走旧 composePageLayout 单独排, 拼到 v2 之后
+// 舊的 composePageLayout 會重洗版式 — v2 不要。這個 helper:
+//  1. 保留所有 v2 layouts 的 placement, 但剔除指向已刪除 page 的
+//  2. user_note (用戶手寫) 走舊 composePageLayout 單獨排, 拼到 v2 之後
 //
-// 调用方: HandbookApp 里 updatePage / handleDeletePage / handleAddNote 等
+// 調用方: HandbookApp 裡 updatePage / handleDeletePage / handleAddNote 等
 //
-// 注: 这里不依赖旧 composePageLayout (避免循环 import), HandbookApp 自己处理 user_note。
-//     这个函数只负责 v2 部分的重算。
+// 注: 這裡不依賴舊 composePageLayout (避免循環 import), HandbookApp 自己處理 user_note。
+//     這個函數只負責 v2 部分的重算。
 export function recomposeV2Layouts(
     layouts: HandbookLayout[],
     pages: HandbookPage[],

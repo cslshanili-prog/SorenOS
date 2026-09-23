@@ -35,9 +35,9 @@ import {
 import { completeGroupChatWithMcp } from './groupChat/mcp';
 
 const mkServer = (over: Partial<McpServerConfig>): McpServerConfig => ({
-    ...createMcpServer('测试', 'https://mcp.example.com/mcp'),
+    ...createMcpServer('測試', 'https://mcp.example.com/mcp'),
     enabled: true,
-    tools: [{ name: 'search', description: '搜点东西', inputSchema: { type: 'object', properties: {} } }],
+    tools: [{ name: 'search', description: '搜點東西', inputSchema: { type: 'object', properties: {} } }],
     ...over,
 });
 
@@ -53,16 +53,16 @@ afterEach(() => {
 });
 
 describe('buildMcpFetchUrl', () => {
-    it('没配代理就直连服务器 URL', () => {
+    it('沒配代理就直連服務器 URL', () => {
         expect(buildMcpFetchUrl({ url: 'https://mcp.example.com/mcp' })).toBe('https://mcp.example.com/mcp');
     });
 
-    it('配了代理包成 ?target=<url-encoded>（与 worker/mcp-proxy 和 scripts/mcp-proxy.mjs 的约定一致）', () => {
+    it('配了代理包成 ?target=<url-encoded>（與 worker/mcp-proxy 和 scripts/mcp-proxy.mjs 的約定一致）', () => {
         expect(buildMcpFetchUrl({ url: 'https://mcp.example.com/mcp', proxyUrl: 'http://localhost:18061' }))
             .toBe('http://localhost:18061?target=https%3A%2F%2Fmcp.example.com%2Fmcp');
     });
 
-    it('代理尾部斜杠被剥掉，已带 query 的代理用 & 续接', () => {
+    it('代理尾部斜槓被剝掉，已帶 query 的代理用 & 續接', () => {
         expect(buildMcpFetchUrl({ url: 'https://a.com/mcp', proxyUrl: 'https://w.dev/' }))
             .toBe('https://w.dev?target=https%3A%2F%2Fa.com%2Fmcp');
         expect(buildMcpFetchUrl({ url: 'https://a.com/mcp', proxyUrl: 'https://w.dev?x=1' }))
@@ -71,7 +71,7 @@ describe('buildMcpFetchUrl', () => {
 });
 
 describe('buildMcpRequestHeaders', () => {
-    it('直连时发送任意自定义请求头，空行与非法头名会被忽略', () => {
+    it('直連時發送任意自定義請求頭，空行與非法頭名會被忽略', () => {
         const headers = buildMcpRequestHeaders({
             customHeaders: [
                 { name: 'XBY-APIKEY', value: 'secret-xby' },
@@ -84,7 +84,7 @@ describe('buildMcpRequestHeaders', () => {
         expect(headers.has('X-MCP-Forward-Headers')).toBe(false);
     });
 
-    it('走代理时声明需要透传的自定义头；Bearer 与 session 仍由客户端托管', () => {
+    it('走代理時聲明需要透傳的自定義頭；Bearer 與 session 仍由客戶端託管', () => {
         const headers = buildMcpRequestHeaders({
             token: 'bearer-token',
             proxyUrl: 'https://proxy.example.com',
@@ -104,12 +104,12 @@ describe('buildMcpRequestHeaders', () => {
 });
 
 describe('formatMcpToolResult', () => {
-    it('正常体量的结果原样回填不截断（对象序列化, 字符串直出）', () => {
+    it('正常體量的結果原樣回填不截斷（對象序列化, 字符串直出）', () => {
         expect(formatMcpToolResult({ memories: ['a', 'b'] })).toBe('{"memories":["a","b"]}');
-        expect(formatMcpToolResult('一段长文本'.repeat(500))).toBe('一段长文本'.repeat(500));
+        expect(formatMcpToolResult('一段長文本'.repeat(500))).toBe('一段長文本'.repeat(500));
     });
 
-    it('超过安全上限才截断, 并标注全文长度', () => {
+    it('超過安全上限才截斷, 並標註全文長度', () => {
         const huge = 'x'.repeat(MCP_RESULT_MAX_CHARS + 100);
         const out = formatMcpToolResult(huge);
         expect(out.startsWith('x'.repeat(100))).toBe(true);
@@ -117,15 +117,15 @@ describe('formatMcpToolResult', () => {
         expect(out.length).toBeLessThan(huge.length);
     });
 
-    it('不可序列化的对象降级 String()', () => {
+    it('不可序列化的對象降級 String()', () => {
         const cyclic: any = {};
         cyclic.self = cyclic;
         expect(formatMcpToolResult(cyclic)).toBe('[object Object]');
     });
 });
 
-describe('服务器配置持久化', () => {
-    it('save → load 往返一致，坏 JSON 回退空数组', () => {
+describe('服務器配置持久化', () => {
+    it('save → load 往返一致，壞 JSON 回退空數組', () => {
         const s = mkServer({ name: 'Notion' });
         saveMcpServers([s]);
         expect(loadMcpServers()).toEqual([s]);
@@ -133,7 +133,7 @@ describe('服务器配置持久化', () => {
         expect(loadMcpServers()).toEqual([]);
     });
 
-    it('导出/导入随备份走（原样字符串搬运）', () => {
+    it('導出/導入隨備份走（原樣字符串搬運）', () => {
         saveMcpServers([mkServer({ name: 'A' })]);
         const dump = exportMcpLocal();
         localStorage.removeItem('aetheros.mcp.servers');
@@ -142,7 +142,7 @@ describe('服务器配置持久化', () => {
         expect(loadMcpServers().map(s => s.name)).toEqual(['A']);
     });
 
-    it('isMcpChatAvailable: 必须启用且已发现工具', () => {
+    it('isMcpChatAvailable: 必須啟用且已發現工具', () => {
         saveMcpServers([mkServer({ enabled: false })]);
         expect(isMcpChatAvailable()).toBe(false);
         saveMcpServers([mkServer({ tools: [] })]);
@@ -151,26 +151,26 @@ describe('服务器配置持久化', () => {
         expect(isMcpChatAvailable()).toBe(true);
     });
 
-    it('角色绑定: charIds 为空/缺省是通用, 非空只对绑定角色可见', () => {
+    it('角色綁定: charIds 為空/缺省是通用, 非空只對綁定角色可見', () => {
         saveMcpServers([
-            mkServer({ id: 'srv_common', name: '通用' }),                        // 无 charIds
-            mkServer({ id: 'srv_a', name: '小A专属', charIds: ['char_a'] }),
-            mkServer({ id: 'srv_empty', name: '空数组也通用', charIds: [] }),
+            mkServer({ id: 'srv_common', name: '通用' }),                        // 無 charIds
+            mkServer({ id: 'srv_a', name: '小A專屬', charIds: ['char_a'] }),
+            mkServer({ id: 'srv_empty', name: '空數組也通用', charIds: [] }),
         ]);
-        // 角色 A: 通用 + 专属都可见
+        // 角色 A: 通用 + 專屬都可見
         expect(getEnabledMcpServers('char_a').map(s => s.id)).toEqual(['srv_common', 'srv_a', 'srv_empty']);
         // 角色 B: 只有通用
         expect(getEnabledMcpServers('char_b').map(s => s.id)).toEqual(['srv_common', 'srv_empty']);
-        // 无角色上下文: 绑定服务器不可见, 不泄漏专属工具
+        // 無角色上下文: 綁定服務器不可見, 不洩漏專屬工具
         expect(getEnabledMcpServers().map(s => s.id)).toEqual(['srv_common', 'srv_empty']);
         expect(isMcpChatAvailable('char_b')).toBe(true);
-        // 只剩绑定服务器时, 未绑定角色不进 MCP 模式
+        // 只剩綁定服務器時, 未綁定角色不進 MCP 模式
         saveMcpServers([mkServer({ id: 'srv_a', charIds: ['char_a'] })]);
         expect(isMcpChatAvailable('char_a')).toBe(true);
         expect(isMcpChatAvailable('char_b')).toBe(false);
     });
 
-    it('群聊 ID 与角色 ID 共用绑定过滤，指定群聊可见且不会泄漏给其他群', () => {
+    it('群聊 ID 與角色 ID 共用綁定過濾，指定群聊可見且不會洩漏給其他群', () => {
         saveMcpServers([
             mkServer({ id: 'srv_group', charIds: ['group_game'] }),
         ]);
@@ -180,7 +180,7 @@ describe('服务器配置持久化', () => {
         expect(buildMcpOpenAITools('group_other').tools).toHaveLength(0);
     });
 
-    it('原生 tools 开关默认开启，可持久化并随 MCP 备份导入导出', () => {
+    it('原生 tools 開關默認開啟，可持久化並隨 MCP 備份導入導出', () => {
         expect(getMcpUseNativeTools()).toBe(true);
         setMcpUseNativeTools(false);
         expect(getMcpUseNativeTools()).toBe(false);
@@ -193,19 +193,19 @@ describe('服务器配置持久化', () => {
 });
 
 describe('buildMcpOpenAITools', () => {
-    it('转成 OpenAI function 格式，暴露名映射回 (server, 真实工具名)', () => {
+    it('轉成 OpenAI function 格式，暴露名映射回 (server, 真實工具名)', () => {
         const s = mkServer({ tools: [{ name: 'my.tool/x', description: 'd', inputSchema: { type: 'object' } }] });
         saveMcpServers([s]);
         const { tools, resolve } = buildMcpOpenAITools();
         expect(tools).toHaveLength(1);
-        // 点号斜杠等非法字符被替换成下划线
+        // 點號斜槓等非法字符被替換成下劃線
         expect(tools[0].function.name).toBe('my_tool_x');
         const hit = resolve.get('my_tool_x')!;
         expect(hit.toolName).toBe('my.tool/x');
         expect(hit.server.id).toBe(s.id);
     });
 
-    it('跨服务器重名时后者加服务器名前缀，互不覆盖', () => {
+    it('跨服務器重名時後者加服務器名前綴，互不覆蓋', () => {
         const a = mkServer({ name: 'AAA' });
         const b = mkServer({ name: 'BBB' });
         saveMcpServers([a, b]);
@@ -213,33 +213,33 @@ describe('buildMcpOpenAITools', () => {
         expect(tools.map(t => t.function.name)).toEqual(['search', 'BBB_search']);
         expect(resolve.get('search')!.server.id).toBe(a.id);
         expect(resolve.get('BBB_search')!.server.id).toBe(b.id);
-        // 多服务器时描述里带来源，帮模型区分
+        // 多服務器時描述裡帶來源，幫模型區分
         expect(tools[0].function.description).toContain('[AAA]');
     });
 
-    it('未启用 / 未发现工具的服务器不注入', () => {
+    it('未啟用 / 未發現工具的服務器不注入', () => {
         saveMcpServers([mkServer({ enabled: false }), mkServer({ tools: [] })]);
         expect(buildMcpOpenAITools().tools).toHaveLength(0);
     });
 
-    it('按角色过滤: 绑定服务器的工具只注入给绑定角色', () => {
+    it('按角色過濾: 綁定服務器的工具只注入給綁定角色', () => {
         const common = mkServer({ name: '通用', tools: [{ name: 'web_search' }] });
-        const bound = mkServer({ name: '记忆库', charIds: ['char_a'], tools: [{ name: 'breath' }] });
+        const bound = mkServer({ name: '記憶庫', charIds: ['char_a'], tools: [{ name: 'breath' }] });
         saveMcpServers([common, bound]);
         expect(buildMcpOpenAITools('char_a').tools.map(t => t.function.name)).toEqual(['web_search', 'breath']);
         expect(buildMcpOpenAITools('char_b').tools.map(t => t.function.name)).toEqual(['web_search']);
-        // 单服务器可见时描述不带 [来源] 前缀（multi 按角色可见数算）
+        // 單服務器可見時描述不帶 [來源] 前綴（multi 按角色可見數算）
         expect(buildMcpOpenAITools('char_b').tools[0].function.description).not.toContain('[通用]');
         expect(buildMcpOpenAITools('char_a').tools[0].function.description).toContain('[通用]');
     });
 });
 
-describe('MCP 高风险工具保护', () => {
-    it('服务端明确标注为 destructive 的工具会自动确认，用户拒绝后不发请求', async () => {
+describe('MCP 高風險工具保護', () => {
+    it('服務端明確標註為 destructive 的工具會自動確認，用戶拒絕後不發請求', async () => {
         const server = mkServer({
             tools: [{
                 name: 'delete_note',
-                title: '删除笔记',
+                title: '刪除筆記',
                 inputSchema: { type: 'object', properties: {} },
                 annotations: { destructiveHint: true },
             }],
@@ -253,44 +253,44 @@ describe('MCP 高风险工具保护', () => {
     });
 });
 
-describe('MCP 多步任务策略', () => {
-    it('工具轮次使用 12 轮硬上限，并在连续两轮没有新结果时提前收口', () => {
+describe('MCP 多步任務策略', () => {
+    it('工具輪次使用 12 輪硬上限，並在連續兩輪沒有新結果時提前收口', () => {
         expect(MCP_CHAT_MAX_TOOL_LOOPS).toBe(12);
         expect(MCP_CHAT_MAX_STALLED_ROUNDS).toBe(2);
     });
 
-    it('提示模型从检查推进到动作，并把用户本轮明确要求视为已确认', () => {
-        saveMcpServers([mkServer({ name: '游戏盒' })]);
-        const block = buildMcpSystemBlock('条条');
-        expect(block).toContain('随后立刻调用能推进目标的动作工具');
-        expect(block).toContain('不要反复读取同一份说明或状态');
-        expect(block).toContain('本轮已经明确要求执行，即视为已经确认');
-        expect(MCP_TAIL_REMINDER).toContain('本轮已明确要求的操作视为已确认');
+    it('提示模型從檢查推進到動作，並把用戶本輪明確要求視為已確認', () => {
+        saveMcpServers([mkServer({ name: '遊戲盒' })]);
+        const block = buildMcpSystemBlock('條條');
+        expect(block).toContain('隨後立刻調用能推進目標的動作工具');
+        expect(block).toContain('不要反覆讀取同一份說明或狀態');
+        expect(block).toContain('本輪已經明確要求執行，即視為已經確認');
+        expect(MCP_TAIL_REMINDER).toContain('本輪已明確要求的操作視為已確認');
     });
 
-    it('文字兼容提示允许按结果继续下一步，但要求每次只输出一个调用', () => {
+    it('文字兼容提示允許按結果繼續下一步，但要求每次只輸出一個調用', () => {
         const body = buildMcpRejectedToolsFallbackBody({
-            messages: [{ role: 'user', content: '继续玩游戏' }],
+            messages: [{ role: 'user', content: '繼續玩遊戲' }],
             tools: [{ type: 'function', function: {
                 name: 'play_game',
-                description: '执行游戏动作',
+                description: '執行遊戲動作',
                 parameters: { type: 'object', properties: { action: { type: 'string' } } },
             } }],
             tool_choice: 'auto',
         });
         const prompt = body.messages.at(-1).content;
-        expect(prompt).toContain('每一步如果需要工具，只输出一行');
-        expect(prompt).toContain('选择下一步真正能推进目标的工具');
-        expect(prompt).toContain('不要反复读取同一份说明或状态');
+        expect(prompt).toContain('每一步如果需要工具，只輸出一行');
+        expect(prompt).toContain('選擇下一步真正能推進目標的工具');
+        expect(prompt).toContain('不要反覆讀取同一份說明或狀態');
     });
 });
 
-describe('extractTextFakedMcpCalls（掉格式容错）', () => {
+describe('extractTextFakedMcpCalls（掉格式容錯）', () => {
     const setup = () => {
         const s = mkServer({
             name: 'QA',
             tools: [
-                { name: 'ask_question', description: '问答', inputSchema: { type: 'object', properties: { question: { type: 'string' }, lang: { type: 'string' } }, required: ['question'] } },
+                { name: 'ask_question', description: '問答', inputSchema: { type: 'object', properties: { question: { type: 'string' }, lang: { type: 'string' } }, required: ['question'] } },
                 { name: 'roll.dice/v1', description: '骰子', inputSchema: { type: 'object', properties: { sides: { type: 'number' } } } },
             ],
         });
@@ -298,53 +298,53 @@ describe('extractTextFakedMcpCalls（掉格式容错）', () => {
         return buildMcpOpenAITools().resolve;
     };
 
-    it('括号传参: 引号字符串 / JSON / kwargs 三种形态都能解出 args', async () => {
+    it('括號傳參: 引號字符串 / JSON / kwargs 三種形態都能解出 args', async () => {
         const { extractTextFakedMcpCalls } = await import('./mcpToolBridge');
         const resolve = setup();
-        expect(extractTextFakedMcpCalls('我来查查 ask_question("SullyOS")', resolve)[0].args).toEqual({ question: 'SullyOS' });
+        expect(extractTextFakedMcpCalls('我來查查 ask_question("SullyOS")', resolve)[0].args).toEqual({ question: 'SullyOS' });
         expect(extractTextFakedMcpCalls('ask_question({"question": "SullyOS", "lang": "zh"})', resolve)[0].args).toEqual({ question: 'SullyOS', lang: 'zh' });
         expect(extractTextFakedMcpCalls('ask_question(question="SullyOS", lang=zh)', resolve)[0].args).toEqual({ question: 'SullyOS', lang: 'zh' });
     });
 
-    it('冒号传参(整行) + 尾部标点剥离 + 数字按 schema 转型', async () => {
+    it('冒號傳參(整行) + 尾部標點剝離 + 數字按 schema 轉型', async () => {
         const { extractTextFakedMcpCalls } = await import('./mcpToolBridge');
         const resolve = setup();
         const colon = extractTextFakedMcpCalls('好的！\nask_question: SullyOS。\n稍等哦', resolve);
         expect(colon).toHaveLength(1);
         expect(colon[0].args).toEqual({ question: 'SullyOS' });
-        // 真实名（带点号）也认, 数字被转型
+        // 真實名（帶點號）也認, 數字被轉型
         const dice = extractTextFakedMcpCalls('roll.dice/v1(20)', resolve);
         expect(dice[0].toolName).toBe('roll.dice/v1');
         expect(dice[0].args).toEqual({ sides: 20 });
-        // 暴露名（sanitize 后）也认
+        // 暴露名（sanitize 後）也認
         expect(extractTextFakedMcpCalls('roll_dice_v1(6)', resolve)[0].toolName).toBe('roll.dice/v1');
     });
 
-    it('普通句子提到工具名不误伤; 未知工具名不匹配; 同一调用去重', async () => {
+    it('普通句子提到工具名不誤傷; 未知工具名不匹配; 同一調用去重', async () => {
         const { extractTextFakedMcpCalls } = await import('./mcpToolBridge');
         const resolve = setup();
-        expect(extractTextFakedMcpCalls('我有个 ask_question 工具, 你想问什么都可以', resolve)).toHaveLength(0);
-        expect(extractTextFakedMcpCalls('句中说 ask_question: 这种格式不算（不在行首）', resolve)).toHaveLength(0);
+        expect(extractTextFakedMcpCalls('我有個 ask_question 工具, 你想問什麼都可以', resolve)).toHaveLength(0);
+        expect(extractTextFakedMcpCalls('句中說 ask_question: 這種格式不算（不在行首）', resolve)).toHaveLength(0);
         expect(extractTextFakedMcpCalls('delete_all("x")', resolve)).toHaveLength(0);
         expect(extractTextFakedMcpCalls('ask_question("a")\nask_question("a")', resolve)).toHaveLength(1);
     });
 
-    it('工具前角色文字可单独展示，调用语法不会漏进气泡', async () => {
+    it('工具前角色文字可單獨展示，調用語法不會漏進氣泡', async () => {
         const { extractTextFakedMcpCalls } = await import('./mcpToolBridge');
         const resolve = setup();
-        const raw = '我先帮你看看。\n\nask_question({"question":"SullyOS"})';
+        const raw = '我先幫你看看。\n\nask_question({"question":"SullyOS"})';
         const calls = extractTextFakedMcpCalls(raw, resolve);
-        expect(stripTextFakedMcpCalls(raw, calls)).toBe('我先帮你看看。');
+        expect(stripTextFakedMcpCalls(raw, calls)).toBe('我先幫你看看。');
     });
 
-    it('MCP 前置气泡剥掉 think、历史时间戳和伪造的用户表情行为', () => {
-        const raw = '<think>不能展示的思考</think>[2026-07-11 17:25] [你 发送了表情包: 我来搞定][2026-07-11 17:25] [聊天] 我去工具箱看看。\n</think>';
+    it('MCP 前置氣泡剝掉 think、歷史時間戳和偽造的用戶表情行為', () => {
+        const raw = '<think>不能展示的思考</think>[2026-07-11 17:25] [你 發送了表情包: 我來搞定][2026-07-11 17:25] [聊天] 我去工具箱看看。\n</think>';
         expect(sanitizeMcpLeadInText(raw)).toBe('我去工具箱看看。');
     });
 });
 
-describe('MCP 聊天链路不悬挂', () => {
-    it('只按工具 schema 还原嵌套 object / array 字符串，普通 string 保持不变', () => {
+describe('MCP 聊天鏈路不懸掛', () => {
+    it('只按工具 schema 還原嵌套 object / array 字符串，普通 string 保持不變', () => {
         const schema = {
             type: 'object',
             properties: {
@@ -364,7 +364,7 @@ describe('MCP 聊天链路不悬挂', () => {
             },
         };
         const input = {
-            room: '{"id":"这是普通文本，不该解析"}',
+            room: '{"id":"這是普通文本，不該解析"}',
             game: '{"players":"[{\\"name\\":\\"Sully\\",\\"stats\\":\\"{\\\\\\"coins\\\\\\":100}\\"}]"}',
         };
 
@@ -374,7 +374,7 @@ describe('MCP 聊天链路不悬挂', () => {
         });
     });
 
-    it('tools/call 发送前按 inputSchema 修复整个 arguments 双重编码', async () => {
+    it('tools/call 發送前按 inputSchema 修復整個 arguments 雙重編碼', async () => {
         const info = vi.spyOn(console, 'info').mockImplementation(() => {});
         const server = mkServer({
             id: 'nested-args-server',
@@ -414,31 +414,31 @@ describe('MCP 聊天链路不悬挂', () => {
         }));
     });
 
-    it('正文假调用已代执行后，组织回复请求移除 tools，避免空正文 tool_calls 被吞', () => {
+    it('正文假調用已代執行後，組織回覆請求移除 tools，避免空正文 tool_calls 被吞', () => {
         const body = buildMcpTextFallbackBody(
             { model: 'x', tools: [{ type: 'function' }], tool_choice: 'auto', temperature: 0.8 },
-            [{ role: 'user', content: '工具结果' }],
+            [{ role: 'user', content: '工具結果' }],
         );
         expect(body.tools).toBeUndefined();
         expect(body.tool_choice).toBeUndefined();
         expect(body.model).toBe('x');
         expect(body.temperature).toBe(0.8);
-        expect(body.messages).toEqual([{ role: 'user', content: '工具结果' }]);
+        expect(body.messages).toEqual([{ role: 'user', content: '工具結果' }]);
     });
 
-    it('只把中转拒绝请求的常见 4xx 识别为无 tools 重试条件', () => {
+    it('只把中轉拒絕請求的常見 4xx 識別為無 tools 重試條件', () => {
         expect(shouldRetryMcpWithoutTools(new Error('API Error 401: Unauthorized'))).toBe(true);
         expect(shouldRetryMcpWithoutTools(new Error('HTTP 422 INVALID_ARGUMENT'))).toBe(true);
         expect(shouldRetryMcpWithoutTools(new Error('API Error 429: rate limited'))).toBe(false);
         expect(shouldRetryMcpWithoutTools(new Error('API Error 500'))).toBe(false);
     });
 
-    it('tools 被拒绝的降级请求会携带真实工具参数说明，但不再发送 tools 字段', () => {
+    it('tools 被拒絕的降級請求會攜帶真實工具參數說明，但不再發送 tools 字段', () => {
         const body = buildMcpRejectedToolsFallbackBody({
-            messages: [{ role: 'user', content: '查仓库' }],
+            messages: [{ role: 'user', content: '查倉庫' }],
             tools: [{ type: 'function', function: {
                 name: 'ask_question',
-                description: '[DeepWiki] 查询 GitHub 仓库文档',
+                description: '[DeepWiki] 查詢 GitHub 倉庫文檔',
                 parameters: {
                     type: 'object',
                     properties: { repoName: { type: 'string' }, question: { type: 'string' } },
@@ -450,10 +450,10 @@ describe('MCP 聊天链路不悬挂', () => {
         expect(body.tools).toBeUndefined();
         expect(body.tool_choice).toBeUndefined();
         expect(body.messages.at(-1).content).toContain('ask_question(repoName*:string, question*:string)');
-        expect(body.messages.at(-1).content).toContain('[DeepWiki] 查询 GitHub 仓库文档');
+        expect(body.messages.at(-1).content).toContain('[DeepWiki] 查詢 GitHub 倉庫文檔');
     });
 
-    it('远端 MCP 请求不结束时会超时返回失败，不会永久占住 isTyping', async () => {
+    it('遠端 MCP 請求不結束時會超時返回失敗，不會永久佔住 isTyping', async () => {
         vi.useFakeTimers();
         const server = mkServer({ id: 'timeout-server' });
         vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
@@ -466,7 +466,7 @@ describe('MCP 聊天链路不悬挂', () => {
             if (req.method === 'notifications/initialized') {
                 return Promise.resolve(new Response('', { status: 202 }));
             }
-            // 模拟最容易漏掉的悬挂：响应头已经回来，但 SSE body 永远不结束。
+            // 模擬最容易漏掉的懸掛：響應頭已經回來，但 SSE body 永遠不結束。
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -479,10 +479,10 @@ describe('MCP 聊天链路不悬挂', () => {
 
         const pending = callMcpTool(server, 'search', { q: 'react' });
         await vi.advanceTimersByTimeAsync(MCP_REQUEST_TIMEOUT_MS);
-        await expect(pending).resolves.toMatchObject({ success: false, error: expect.stringContaining('MCP 请求超时') });
+        await expect(pending).resolves.toMatchObject({ success: false, error: expect.stringContaining('MCP 請求超時') });
     });
 
-    it('SSE 收到当前 JSON-RPC 结果后立即返回，不等待服务器关闭长连接', async () => {
+    it('SSE 收到當前 JSON-RPC 結果後立即返回，不等待服務器關閉長連接', async () => {
         const info = vi.spyOn(console, 'info').mockImplementation(() => {});
         const server = mkServer({ id: 'open-sse-server' });
         vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
@@ -497,12 +497,12 @@ describe('MCP 聊天链路不悬挂', () => {
             }
             const payload = JSON.stringify({
                 jsonrpc: '2.0', id: req.id,
-                result: { content: [{ type: 'text', text: 'React 是一个 UI 库' }] },
+                result: { content: [{ type: 'text', text: 'React 是一個 UI 庫' }] },
             });
             const stream = new ReadableStream({
                 start(controller) {
                     controller.enqueue(new TextEncoder().encode(`event: message\ndata: ${payload}\n\n`));
-                    // 故意不 close：模拟 Streamable HTTP 保持 SSE 长连接。
+                    // 故意不 close：模擬 Streamable HTTP 保持 SSE 長連接。
                 },
             });
             return Promise.resolve(new Response(stream, {
@@ -511,24 +511,24 @@ describe('MCP 聊天链路不悬挂', () => {
         });
 
         await expect(callMcpTool(server, 'ask_question', { repoName: 'facebook/react' }))
-            .resolves.toMatchObject({ success: true, data: 'React 是一个 UI 库' });
+            .resolves.toMatchObject({ success: true, data: 'React 是一個 UI 庫' });
         expect(info).toHaveBeenCalledWith('🔌 [MCP] tools/call 完成', expect.objectContaining({
             server: server.name,
             tool: 'ask_question',
             args: { repoName: 'facebook/react' },
             success: true,
-            result: '"React 是一个 UI 库"',
+            result: '"React 是一個 UI 庫"',
         }));
     });
 });
 
-describe('群聊 MCP 工具循环', () => {
-    it('向绑定群聊注入工具，执行 tools/call 后把结果交回模型生成群聊内容', async () => {
+describe('群聊 MCP 工具循環', () => {
+    it('向綁定群聊注入工具，執行 tools/call 後把結果交回模型生成群聊內容', async () => {
         const info = vi.spyOn(console, 'info').mockImplementation(() => {});
         saveMcpServers([mkServer({
             id: 'group-mcp-server',
             charIds: ['group_game'],
-            tools: [{ name: 'roll_dice', description: '掷骰子', inputSchema: { type: 'object', properties: { sides: { type: 'number' } } } }],
+            tools: [{ name: 'roll_dice', description: '擲骰子', inputSchema: { type: 'object', properties: { sides: { type: 'number' } } } }],
         })]);
         const chatBodies: any[] = [];
         vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
@@ -542,7 +542,7 @@ describe('群聊 MCP 工具循环', () => {
                         usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
                     }
                     : {
-                        choices: [{ message: { content: '[{"charId":"char_a","content":"你掷出了 4。"}]' } }],
+                        choices: [{ message: { content: '[{"charId":"char_a","content":"你擲出了 4。"}]' } }],
                         usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 },
                     };
                 return Promise.resolve(new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -560,9 +560,9 @@ describe('群聊 MCP 工具循环', () => {
         const result = await completeGroupChatWithMcp({
             url: 'https://api.example.com/chat/completions',
             headers: { Authorization: 'Bearer chat-key' },
-            body: { model: 'test', messages: [{ role: 'user', content: '开始游戏' }] },
+            body: { model: 'test', messages: [{ role: 'user', content: '開始遊戲' }] },
             groupId: 'group_game',
-            userName: '用户',
+            userName: '用戶',
         });
 
         expect(chatBodies).toHaveLength(2);
@@ -570,14 +570,14 @@ describe('群聊 MCP 工具循环', () => {
         expect(chatBodies[1].messages).toEqual(expect.arrayContaining([
             expect.objectContaining({ role: 'tool', name: 'roll_dice', tool_call_id: 'call-1', content: expect.stringContaining('{"value":4}') }),
         ]));
-        expect(result.choices[0].message.content).toContain('你掷出了 4');
+        expect(result.choices[0].message.content).toContain('你擲出了 4');
         expect(result.usage.total_tokens).toBe(29);
         expect(info).toHaveBeenCalled();
     });
 });
 
 describe('collectMcpFireServers', () => {
-    it('只带 enabled + 已发现工具 + 公网地址; 剥代理字段、留 token', () => {
+    it('只帶 enabled + 已發現工具 + 公網地址; 剝代理字段、留 token', () => {
         localStorage.setItem('aetheros.mcp.servers', JSON.stringify([
             { id: 'a', name: 'ok', url: 'https://mcp.example.com', enabled: true, token: 'tok', proxyUrl: 'https://proxy.x', proxyKey: 'pk', charIds: ['c1'], tools: [{ name: 't1', inputSchema: { type: 'object' } }], updatedAt: 1 },
             { id: 'b', name: 'disabled', url: 'https://x.com', enabled: false, tools: [{ name: 't' }], updatedAt: 1 },
@@ -594,17 +594,17 @@ describe('collectMcpFireServers', () => {
         expect('proxyUrl' in out[0]).toBe(false);
     });
 
-    it('本机 / 内网服务器不上云，但本地照常在 MCP 模式里 —— 上云那一轮会掉工具', () => {
-        // 这一条钉的是「两侧集合不一致」这件事本身：collectMcpFireServers 把 localhost
-        // 过滤掉了，isMcpChatAvailable 没有。即时对话那一轮前端不注入 MCP 说明块、云端
-        // 清单又是空的，角色就彻底不知道自己有工具，而设置页还显示「已连接」。
+    it('本機 / 內網服務器不上雲，但本地照常在 MCP 模式裡 —— 上雲那一輪會掉工具', () => {
+        // 這一條釘的是「兩側集合不一致」這件事本身：collectMcpFireServers 把 localhost
+        // 過濾掉了，isMcpChatAvailable 沒有。即時對話那一輪前端不注入 MCP 說明塊、雲端
+        // 清單又是空的，角色就徹底不知道自己有工具，而設置頁還顯示「已連接」。
         saveMcpServers([mkServer({ id: 'srv_local', url: 'http://localhost:18061/mcp' })]);
         expect(isMcpChatAvailable('char_a')).toBe(true);
         expect(collectMcpFireServers()).toEqual([]);
         expect(hasWorkerUnreachableMcpServer('char_a')).toBe(true);
     });
 
-    it('无人值守后台不带 destructive 工具', () => {
+    it('無人值守後台不帶 destructive 工具', () => {
         saveMcpServers([
             mkServer({
                 id: 'guarded',
@@ -620,18 +620,18 @@ describe('collectMcpFireServers', () => {
         expect(out[0].tools?.map(tool => tool.name)).toEqual(['read_note']);
     });
 
-    it('其余 worker 够不着的地址一并挡掉（链路本地 / 占位地址 / 局域网域名 / IPv6 ULA）', () => {
+    it('其餘 worker 夠不著的地址一併擋掉（鏈路本地 / 佔位地址 / 局域網域名 / IPv6 ULA）', () => {
         const blocked = [
-            'http://169.254.1.1/mcp',      // IPv4 链路本地
-            'http://0.0.0.0:8080/mcp',     // 占位地址
+            'http://169.254.1.1/mcp',      // IPv4 鏈路本地
+            'http://0.0.0.0:8080/mcp',     // 佔位地址
             'http://[::]/mcp',             // 同上, IPv6
-            'http://127.0.0.5:9000/mcp',   // 回环整段 127/8, 不只 127.0.0.1
+            'http://127.0.0.5:9000/mcp',   // 迴環整段 127/8, 不只 127.0.0.1
             'http://my-nas.local/mcp',     // mDNS
-            'http://foo.localhost/mcp',    // 本机后缀域名
+            'http://foo.localhost/mcp',    // 本機後綴域名
             'http://[fd12:3456::1]/mcp',   // IPv6 ULA (fd)
             'http://[fc00::1]/mcp',        // IPv6 ULA (fc)
             'ftp://files.example.com/mcp', // 非 http(s)
-            '这不是个地址',                  // URL 解析不了
+            '這不是個地址',                  // URL 解析不了
         ];
         localStorage.setItem('aetheros.mcp.servers', JSON.stringify([
             ...blocked.map((url, i) => ({ id: `bad${i}`, name: url, url, enabled: true, tools: [{ name: 't' }], updatedAt: 1 })),
@@ -643,12 +643,12 @@ describe('collectMcpFireServers', () => {
 });
 
 describe('hasWorkerUnreachableMcpServer', () => {
-    it('地址全是公网 → false（这一轮可以放心上云，worker 那边照样有工具）', () => {
+    it('地址全是公網 → false（這一輪可以放心上雲，worker 那邊照樣有工具）', () => {
         saveMcpServers([mkServer({ id: 'srv_pub', url: 'https://mcp.example.com/mcp' })]);
         expect(hasWorkerUnreachableMcpServer('char_a')).toBe(false);
     });
 
-    it('混着一台本机地址 → true（上云会让角色少掉那台的工具）', () => {
+    it('混著一台本機地址 → true（上雲會讓角色少掉那台的工具）', () => {
         saveMcpServers([
             mkServer({ id: 'srv_pub', url: 'https://mcp.example.com/mcp' }),
             mkServer({ id: 'srv_lan', url: 'http://192.168.1.5:18061/mcp' }),
@@ -656,7 +656,7 @@ describe('hasWorkerUnreachableMcpServer', () => {
         expect(hasWorkerUnreachableMcpServer('char_a')).toBe(true);
     });
 
-    it('口径跟 isMcpChatAvailable 同源：没启用 / 没发现工具 / 绑给别的角色的都不算', () => {
+    it('口徑跟 isMcpChatAvailable 同源：沒啟用 / 沒發現工具 / 綁給別的角色的都不算', () => {
         saveMcpServers([mkServer({ id: 'srv_off', url: 'http://localhost:18061/mcp', enabled: false })]);
         expect(hasWorkerUnreachableMcpServer('char_a')).toBe(false);
         saveMcpServers([mkServer({ id: 'srv_empty', url: 'http://localhost:18061/mcp', tools: [] })]);

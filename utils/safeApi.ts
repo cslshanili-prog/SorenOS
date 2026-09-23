@@ -6,10 +6,10 @@
  * instead of JSON responses.
  */
 
-// 同时挂两套日志：
-//   - devDebug 的 api 类目（开发者勾「API」复制 / 下载导出）
-//   - 全局 fetch 拦截器 + apiCallLog（用户在「设置 → API 调用记录」里看）
-// 后者的 meta 通过下面 safeFetchJson 的第 5 个参数挂到 __sullyMeta 上传出去。
+// 同時掛兩套日誌：
+//   - devDebug 的 api 類目（開發者勾「API」複製 / 下載導出）
+//   - 全局 fetch 攔截器 + apiCallLog（用戶在「設置 → API 調用記錄」裡看）
+// 後者的 meta 通過下面 safeFetchJson 的第 5 個參數掛到 __sullyMeta 上傳出去。
 import { appendDevDebugApiLog, makeDebugLogger } from './devDebug';
 import { getApiCallAmbientContext, recordApiCall, type ApiCallMeta } from './apiCallLog';
 import { resolveBlobRefsInRequestBody } from './apiBlobRefs';
@@ -26,7 +26,7 @@ export async function safeResponseJson(response: Response): Promise<any> {
     return parseRawBodyText(text, response.status, response.headers.get('content-type'));
 }
 
-/** 判断响应是否是 SSE；兼容 OpenRouter 在首个 data 事件前发送的 ": OPENROUTER PROCESSING" 注释。 */
+/** 判斷響應是否是 SSE；兼容 OpenRouter 在首個 data 事件前發送的 ": OPENROUTER PROCESSING" 註釋。 */
 export function isSseResponseText(text: string, contentType?: string | null): boolean {
     const firstLine = text
         .split(/\r?\n/)
@@ -38,12 +38,12 @@ export function isSseResponseText(text: string, contentType?: string | null): bo
         || firstLine.startsWith('id:')
         || firstLine.startsWith('retry:');
     if (hasSseField) return true;
-    // 个别代理会把整包 JSON 错标成 text/event-stream；明确的 JSON/HTML 起始符优先。
+    // 個別代理會把整包 JSON 錯標成 text/event-stream；明確的 JSON/HTML 起始符優先。
     if (/^[{["<]/.test(firstLine)) return false;
     return contentType?.toLowerCase().includes('text/event-stream') === true;
 }
 
-/** safeResponseJson 的纯文本内核：HTML/空响应/SSE/JSON 判定与解析（流式路径复用） */
+/** safeResponseJson 的純文本內核：HTML/空響應/SSE/JSON 判定與解析（流式路徑複用） */
 function parseRawBodyText(text: string, status: number, contentType?: string | null): any {
     // Detect HTML / XML responses
     const trimmed = text.trimStart();
@@ -58,17 +58,17 @@ function parseRawBodyText(text: string, status: number, contentType?: string | n
 
     // Empty body
     if (!trimmed) {
-        throw new Error(`API返回了空响应 (HTTP ${status})`);
+        throw new Error(`API返回了空響應 (HTTP ${status})`);
     }
 
-    // SSE / 流式响应（有些 OpenAI 兼容代理无视 stream:false 强行流式返回）：
-    // 注释/心跳行（以 ":" 开头）由 SseAssembler 忽略，data 事件照常拼成完整 content。
+    // SSE / 流式響應（有些 OpenAI 兼容代理無視 stream:false 強行流式返回）：
+    // 註釋/心跳行（以 ":" 開頭）由 SseAssembler 忽略，data 事件照常拼成完整 content。
     if (isSseResponseText(text, contentType)) {
         const assembled = parseSseToCompletion(text);
         if (assembled) return assembled;
         const preview = text.slice(0, 200);
         throw new Error(
-            `API流式响应未返回有效数据 (HTTP ${status}): ${preview}`
+            `API流式響應未返回有效數據 (HTTP ${status}): ${preview}`
         );
     }
 
@@ -78,33 +78,33 @@ function parseRawBodyText(text: string, status: number, contentType?: string | n
         // Show a snippet of what we got for debugging
         const preview = text.slice(0, 200);
         throw new Error(
-            `API返回了无效JSON (HTTP ${status}): ${preview}`
+            `API返回了無效JSON (HTTP ${status}): ${preview}`
         );
     }
 }
 
 /**
- * 把 OpenAI 兼容的 SSE 流响应合成一个普通 chat/completion 响应对象。
+ * 把 OpenAI 兼容的 SSE 流響應合成一個普通 chat/completion 響應對象。
  *
- * 支持两种形态：
- *  1. delta 流：每个 chunk 的 choices[0].delta.content 是增量片段，拼接起来
- *  2. 一次性 SSE：choices[0].message.content 直接就是全部内容（少见）
+ * 支持兩種形態：
+ *  1. delta 流：每個 chunk 的 choices[0].delta.content 是增量片段，拼接起來
+ *  2. 一次性 SSE：choices[0].message.content 直接就是全部內容（少見）
  *
  * 返回 { choices: [{ message: { content, role }, finish_reason }], ... } 方便上游
- * 用现有的 data.choices[0].message.content 路径消费，无需改调用点。
+ * 用現有的 data.choices[0].message.content 路徑消費，無需改調用點。
  */
 export function parseSseToCompletion(raw: string): any | null {
     const asm = new SseAssembler();
-    // 按行切，逐行找 "data: " 开头（允许 \r\n、空行分隔）
+    // 按行切，逐行找 "data: " 開頭（允許 \r\n、空行分隔）
     for (const line of raw.split(/\r?\n/)) asm.feedLine(line);
     return asm.finish();
 }
 
 /**
- * OpenAI 兼容 SSE 流的增量拼装器。
- * feedLine 逐行喂入（分别返回本行的正文与思考增量），finish 合成完整 completion 对象。
- * parseSseToCompletion（整包路径）和 readBodyWithStreaming（真流式路径）共用这一份，
- * 保证两条路对 delta / message / tool_calls 分片的处理完全一致。
+ * OpenAI 兼容 SSE 流的增量拼裝器。
+ * feedLine 逐行喂入（分別返回本行的正文與思考增量），finish 合成完整 completion 對象。
+ * parseSseToCompletion（整包路徑）和 readBodyWithStreaming（真流式路徑）共用這一份，
+ * 保證兩條路對 delta / message / tool_calls 分片的處理完全一致。
  */
 interface SseFeedDelta {
     content: string;
@@ -120,20 +120,20 @@ class SseAssembler {
     private firstChunk: any = null;
     private usage: any = undefined;
     private gotAnyChunk = false;
-    // tool_calls 流式分片: OpenAI 约定按 index 分组, id/name 在首片, arguments 逐片拼接。
-    // 不拼的话开了 stream 的工具模式(瑞幸/MCP)会静默丢掉全部工具调用。
+    // tool_calls 流式分片: OpenAI 約定按 index 分組, id/name 在首片, arguments 逐片拼接。
+    // 不拼的話開了 stream 的工具模式(瑞幸/MCP)會靜默丟掉全部工具調用。
     private toolCalls: any[] = [];
     // 思考通道: DeepSeek/Gemini 系走 delta.reasoning_content, OpenRouter 走 delta.reasoning,
-    // 部分 Claude 官转(CC 渠道)走 delta.thinking 或分块 content(数组里 type:'thinking')。
-    // 丢掉它 = 开思考链的角色"不出思维链"(后处理从 message.reasoning_content 抽取),
+    // 部分 Claude 官轉(CC 渠道)走 delta.thinking 或分塊 content(數組裡 type:'thinking')。
+    // 丟掉它 = 開思考鏈的角色"不出思維鏈"(後處理從 message.reasoning_content 抽取),
     // 且 extractContent / extractAssistantText 的 reasoning 兜底全部失效(思考模型把全部
-    // 输出塞进 reasoning 时表现为空回复→重试→巨慢)。2026-07 全局流式上线后被放大成必现。
+    // 輸出塞進 reasoning 時表現為空回覆→重試→巨慢)。2026-07 全局流式上線後被放大成必現。
     private reasoning = '';
-    // 取证探针: 记录本条流里 delta 出现过的字段名。渠道的思考字段形状五花八门,
-    // 与其一轮一轮猜, 不如把名单打出来(finish() 附带 + 控制台一行)一次看清。
+    // 取證探針: 記錄本條流裡 delta 出現過的字段名。渠道的思考字段形狀五花八門,
+    // 與其一輪一輪猜, 不如把名單打出來(finish() 附帶 + 控制台一行)一次看清。
     private deltaKeys = new Set<string>();
 
-    /** 喂一行 SSE 文本，分别返回正文与思考增量（没有则为空串）。 */
+    /** 喂一行 SSE 文本，分別返回正文與思考增量（沒有則為空串）。 */
     feedLine(line: string): SseFeedDelta {
         if (!line.startsWith('data:')) return { content: '', reasoning: '', done: false };
         const payload = line.slice(5).trim();
@@ -147,21 +147,21 @@ class SseAssembler {
     feedChunk(chunk: any): SseFeedDelta {
         this.gotAnyChunk = true;
         if (!this.firstChunk) this.firstChunk = chunk;
-        // OpenAI 流式 usage 在最后一个 chunk（include_usage=true 时），也可能出现在中途；
-        // 始终取最后一个非空的 usage，兼容各家代理。
+        // OpenAI 流式 usage 在最後一個 chunk（include_usage=true 時），也可能出現在中途；
+        // 始終取最後一個非空的 usage，兼容各家代理。
         if (chunk.usage) this.usage = chunk.usage;
         const choice = chunk.choices?.[0];
         if (!choice) return { content: '', reasoning: '', done: false };
         let delta = '';
         let reasoningDelta = '';
-        // delta 路径（OpenAI 流式常见）
+        // delta 路徑（OpenAI 流式常見）
         if (choice.delta) {
             for (const k of Object.keys(choice.delta)) this.deltaKeys.add(k);
             if (typeof choice.delta.content === 'string') {
                 delta = choice.delta.content;
                 this.content += delta;
             }
-            // Anthropic 透传形态: delta.content 是分块数组 [{type:'text',text}|{type:'thinking',thinking}]
+            // Anthropic 透傳形態: delta.content 是分塊數組 [{type:'text',text}|{type:'thinking',thinking}]
             else if (Array.isArray(choice.delta.content)) {
                 for (const block of choice.delta.content) {
                     if (block?.type === 'text' && typeof block.text === 'string') {
@@ -190,7 +190,7 @@ class SseAssembler {
                 }
             }
         }
-        // message 路径（一次性 SSE，不常见但兼容）
+        // message 路徑（一次性 SSE，不常見但兼容）
         else if (choice.message) {
             if (typeof choice.message.content === 'string') {
                 delta = choice.message.content;
@@ -214,12 +214,12 @@ class SseAssembler {
 
     finish(): any | null {
         if (!this.gotAnyChunk) return null;
-        // 取证探针: 思考没抓到时把渠道实际用的 delta 字段名单打出来, 下一轮排查直接看名单。
-        // (开思考的请求思考却为空 = 大概率又是没见过的字段形状)
+        // 取證探針: 思考沒抓到時把渠道實際用的 delta 字段名單打出來, 下一輪排查直接看名單。
+        // (開思考的請求思考卻為空 = 大概率又是沒見過的字段形狀)
         if (!this.reasoning && this.deltaKeys.size > 0) {
-            console.log(`🔎 [SSE] 本条流的 delta 字段: ${[...this.deltaKeys].join(', ')}${this.content ? '' : ' (且正文为空!)'}`);
+            console.log(`🔎 [SSE] 本條流的 delta 字段: ${[...this.deltaKeys].join(', ')}${this.content ? '' : ' (且正文為空!)'}`);
         }
-        // 合成兼容结构
+        // 合成兼容結構
         return {
             id: this.firstChunk?.id || 'sse-assembled',
             object: 'chat.completion',
@@ -242,24 +242,24 @@ class SseAssembler {
     }
 }
 
-/** safeFetchJson 的可选流式钩子（只在响应确实是 SSE 流时触发） */
+/** safeFetchJson 的可選流式鉤子（只在響應確實是 SSE 流時觸發） */
 export interface StreamHooks {
     /**
-     * 每收到一段正文增量时回调。fullText 是**本次尝试**累计的完整正文——
-     * safeFetchJson 内部重试会重新开一条流，fullText 从空串重新累计，
-     * 调用方每次都应基于 fullText 全量重算（天然处理重试重置）。
+     * 每收到一段正文增量時回調。fullText 是**本次嘗試**累計的完整正文——
+     * safeFetchJson 內部重試會重新開一條流，fullText 從空串重新累計，
+     * 調用方每次都應基於 fullText 全量重算（天然處理重試重置）。
      */
     onDelta?: (delta: string, fullText: string) => void;
-    /** 每收到一段原生 reasoning 增量时回调；渠道不发送 reasoning 时不会触发。 */
+    /** 每收到一段原生 reasoning 增量時回調；渠道不發送 reasoning 時不會觸發。 */
     onReasoningDelta?: (delta: string, fullReasoning: string) => void;
-    /** 收到第一个正文增量时回调一次（TTFT 参考点） */
+    /** 收到第一個正文增量時回調一次（TTFT 參考點） */
     onFirstDelta?: () => void;
 }
 
 /**
- * 真·流式读取响应体：边到边解析 SSE 行并回调 onDelta。
- * 支持 data 事件前先到达的 SSE 注释/心跳；代理无视 stream:true 返回整包 JSON / HTML
- * 错误页时，自动退化为累积全文后走 parseRawBodyText —— 与非流式路径行为一致。
+ * 真·流式讀取響應體：邊到邊解析 SSE 行並回調 onDelta。
+ * 支持 data 事件前先到達的 SSE 註釋/心跳；代理無視 stream:true 返回整包 JSON / HTML
+ * 錯誤頁時，自動退化為累積全文後走 parseRawBodyText —— 與非流式路徑行為一致。
  */
 async function readBodyWithStreaming(
     response: Response,
@@ -271,8 +271,8 @@ async function readBodyWithStreaming(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     const asm = new SseAssembler();
-    let raw = '';           // 全量原始文本（退化路径 / SSE 解析失败时兜底）
-    let pending = '';       // SSE 模式下未消费完的半行缓冲
+    let raw = '';           // 全量原始文本（退化路徑 / SSE 解析失敗時兜底）
+    let pending = '';       // SSE 模式下未消費完的半行緩衝
     let mode: 'undecided' | 'sse' | 'raw' = 'undecided';
     let sawFirstDelta = false;
     let sawTerminalEvent = false;
@@ -284,12 +284,12 @@ async function readBodyWithStreaming(
             if (!sawFirstDelta) {
                 sawFirstDelta = true;
                 if (timing && startedAt) timing.firstDeltaMs = Date.now() - startedAt;
-                try { hooks.onFirstDelta?.(); } catch { /* 回调异常不拦截流 */ }
+                try { hooks.onFirstDelta?.(); } catch { /* 回調異常不攔截流 */ }
             }
-            try { hooks.onDelta?.(delta.content, asm.content); } catch { /* 回调异常不拦截流 */ }
+            try { hooks.onDelta?.(delta.content, asm.content); } catch { /* 回調異常不攔截流 */ }
         }
         if (delta.reasoning) {
-            try { hooks.onReasoningDelta?.(delta.reasoning, asm.reasoningContent); } catch { /* 回调异常不拦截流 */ }
+            try { hooks.onReasoningDelta?.(delta.reasoning, asm.reasoningContent); } catch { /* 回調異常不攔截流 */ }
         }
     };
 
@@ -313,10 +313,10 @@ async function readBodyWithStreaming(
                 mode = 'sse';
                 pending = raw;
             } else if (/^[{["<]/.test(t) || /\r?\n/.test(t)) {
-                // 明确是整包 JSON/HTML，或首行已经完整且不是 SSE。
+                // 明確是整包 JSON/HTML，或首行已經完整且不是 SSE。
                 mode = 'raw';
             } else {
-                // 首块可能只含 "d"/"da" 等 SSE 字段名前缀，等下一块再判断。
+                // 首塊可能只含 "d"/"da" 等 SSE 字段名前綴，等下一塊再判斷。
                 continue;
             }
         } else if (mode === 'sse') {
@@ -341,7 +341,7 @@ async function readBodyWithStreaming(
         if (pending.trim()) emit(asm.feedLine(pending.trim()));
         const assembled = asm.finish();
         if (assembled) return assembled;
-        // 一个 chunk 都没解析出来 → 按原始文本兜底（保留原 preview 报错行为）
+        // 一個 chunk 都沒解析出來 → 按原始文本兜底（保留原 preview 報錯行為）
     }
     return parseRawBodyText(raw, response.status, contentType);
 }
@@ -353,18 +353,18 @@ async function readBodyWithStreaming(
  * Other endpoints retry on: 429, 500, 502, 503, 504 and network failures.
  * Returns the parsed JSON data directly.
  *
- * `timeoutMs`：每次尝试的硬超时。如果调用方没在 options.signal 里自带 AbortController，
- * 这里会给每次 attempt 起一个内部 AbortController，超时就 abort，避免提供方 stall
- * 住整个页面（用户误以为卡死，只能重新打开网页）。0 / 未传 = 不超时。
+ * `timeoutMs`：每次嘗試的硬超時。如果調用方沒在 options.signal 裡自帶 AbortController，
+ * 這裡會給每次 attempt 起一個內部 AbortController，超時就 abort，避免提供方 stall
+ * 住整個頁面（用戶誤以為卡死，只能重新打開網頁）。0 / 未傳 = 不超時。
  */
 export async function safeFetchJson(
     url: string,
     options: RequestInit,
     maxRetries: number = 2,
     timeoutMs: number = 0,
-    /** 可选：补充「哪个 App / 哪个角色 / 用途」到 API 调用记录（设置 → API 调用记录）。 */
+    /** 可選：補充「哪個 App / 哪個角色 / 用途」到 API 調用記錄（設置 → API 調用記錄）。 */
     meta?: ApiCallMeta,
-    /** 可选：流式增量回调（请求体带 stream:true 时传入才有意义；响应不是 SSE 时静默不触发）。 */
+    /** 可選：流式增量回調（請求體帶 stream:true 時傳入才有意義；響應不是 SSE 時靜默不觸發）。 */
     streamHooks?: StreamHooks,
 ): Promise<any> {
     const retryableStatuses = new Set([429, 500, 502, 503, 504]);
@@ -375,32 +375,32 @@ export async function safeFetchJson(
         : Math.max(0, Math.floor(Number(maxRetries) || 0));
     let lastStatus: number | undefined;
 
-    // 显式 meta 挂到 RequestInit 给全局 fetch 兜底；同时快照环境标签，避免长响应期间
-    // 用户切 App 后被错标。safeFetchJson 与全局拦截器以 requestId 原子去重。
+    // 顯式 meta 掛到 RequestInit 給全局 fetch 兜底；同時快照環境標籤，避免長響應期間
+    // 用戶切 App 後被錯標。safeFetchJson 與全局攔截器以 requestId 原子去重。
     const metaOptions: RequestInit = meta ? { ...options, __sullyMeta: meta } as RequestInit : options;
     const logMeta = meta || getApiCallAmbientContext();
 
-    // 图片在本机存成 `blobref:` 令牌，发出去对面读不懂——在这里统一还原成 data URL。
-    // 各处构造请求的地方就不用各记一遍这件事了（详见 utils/apiBlobRefs.ts）。
-    // 循环外做一次：重试用的是同一份 body。
+    // 圖片在本機存成 `blobref:` 令牌，發出去對面讀不懂——在這裡統一還原成 data URL。
+    // 各處構造請求的地方就不用各記一遍這件事了（詳見 utils/apiBlobRefs.ts）。
+    // 循環外做一次：重試用的是同一份 body。
     const resolvedBody = await resolveBlobRefsInRequestBody(metaOptions.body);
     const sendOptions: RequestInit = resolvedBody === metaOptions.body
         ? metaOptions
         : { ...metaOptions, body: resolvedBody as BodyInit };
 
     for (let attempt = 0; attempt <= automaticRetryLimit; attempt++) {
-        // 全局 fetch 拦截器和这里的“已解析响应兜底”共享 ID。前者覆盖裸 fetch，
-        // 后者不依赖 Response.clone()，避免部分 iOS/WebView 克隆流不结束时漏记。
+        // 全局 fetch 攔截器和這裡的“已解析響應兜底”共享 ID。前者覆蓋裸 fetch，
+        // 後者不依賴 Response.clone()，避免部分 iOS/WebView 克隆流不結束時漏記。
         const requestId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-        // 每次 attempt 建一个独立的 AbortController（仅用于 timeout）
-        // 调用方自己的 options.signal 仍然有效，两者任一触发就 abort
+        // 每次 attempt 建一個獨立的 AbortController（僅用於 timeout）
+        // 調用方自己的 options.signal 仍然有效，兩者任一觸發就 abort
         let attemptOptions = { ...sendOptions, __sullyApiCallId: requestId } as RequestInit;
         let timeoutHandle: any = null;
         if (timeoutMs > 0) {
             const ac = new AbortController();
             timeoutHandle = setTimeout(() => ac.abort(new Error(`timeout ${timeoutMs}ms`)), timeoutMs);
             if (options.signal) {
-                // 串联外部 signal：外部 abort 也触发内部
+                // 串聯外部 signal：外部 abort 也觸發內部
                 if (options.signal.aborted) {
                     clearTimeout(timeoutHandle);
                     throw new Error('aborted');
@@ -436,9 +436,9 @@ export async function safeFetchJson(
                 ? await readBodyWithStreaming(response, streamHooks, timing, attemptStartedAt)
                 : await safeResponseJson(response);
             if (isChatCompletionUrl(urlStr)) {
-                // TTFT 拆分埋点：headers = 首包响应头到达（≈排队+prefill 起点），
-                // firstDelta = 第一段正文增量（≈真正的 TTFT，仅流式路径有），
-                // total = 整包收完。定位「API 慢 20s」到底慢在 prefill 还是生成。
+                // TTFT 拆分埋點：headers = 首包響應頭到達（≈排隊+prefill 起點），
+                // firstDelta = 第一段正文增量（≈真正的 TTFT，僅流式路徑有），
+                // total = 整包收完。定位「API 慢 20s」到底慢在 prefill 還是生成。
                 const totalMs = Date.now() - attemptStartedAt;
                 console.log(`⏱ [API timing] headers=${headersMs}ms${timing.firstDeltaMs != null ? ` firstDelta=${timing.firstDeltaMs}ms` : ''} total=${totalMs}ms${streamHooks ? ' streamed=1' : ''}`);
                 appendDevDebugApiLog({
@@ -451,8 +451,8 @@ export async function safeFetchJson(
                     headersMs,
                     firstDeltaMs: timing.firstDeltaMs,
                 });
-                // 已解析响应是最可靠的日志来源：不再把记账成败押在异步
-                // response.clone().text() 上。全局拦截器仍负责裸 fetch，并以 requestId 去重。
+                // 已解析響應是最可靠的日誌來源：不再把記帳成敗押在異步
+                // response.clone().text() 上。全局攔截器仍負責裸 fetch，並以 requestId 去重。
                 recordApiCall({
                     requestId,
                     url: urlStr,
@@ -469,7 +469,7 @@ export async function safeFetchJson(
             if (timeoutHandle) clearTimeout(timeoutHandle);
             lastError = e;
 
-            // AbortError（含 timeout）：是否重试看上层策略，先按可重试处理（网络层面）
+            // AbortError（含 timeout）：是否重試看上層策略，先按可重試處理（網絡層面）
             const isAbort = e?.name === 'AbortError' || /aborted|timeout/i.test(e?.message || '');
 
             // Network errors (fetch itself failed) are retryable
@@ -502,7 +502,7 @@ export async function safeFetchJson(
         }
     }
 
-    throw lastError || new Error('API请求失败');
+    throw lastError || new Error('API請求失敗');
 }
 
 /**
@@ -556,7 +556,7 @@ export function extractContent(data: any): string {
  * Walk through a JSON-ish string and re-escape `"` characters that appear inside
  * string values but weren't escaped by the LLM.
  *
- * Common with Claude when the content quotes a phrase ("还不够好" / "我爱你"等)
+ * Common with Claude when the content quotes a phrase ("還不夠好" / "我愛你"等)
  * inside a string value — the inner quotes break JSON.parse because they look
  * like closing delimiters.
  *
@@ -724,7 +724,7 @@ export function extractJson(raw: string, options: { allowTruncated?: boolean; si
     try { return JSON.parse(fixed); } catch {}
 
     // 6. Try to repair unescaped inner quotes (LLM writes naked " inside a string value).
-    // Common with Claude when the content quotes a phrase like 「埋一句"我爱你"」
+    // Common with Claude when the content quotes a phrase like 「埋一句"我愛你"」
     // — the inner " breaks JSON parsing because they're not \-escaped.
     const innerQuoteFixed = escapeUnescapedInnerQuotes(jsonStr);
     if (innerQuoteFixed && innerQuoteFixed !== jsonStr) {

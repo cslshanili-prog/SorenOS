@@ -1,12 +1,12 @@
 /**
- * 回归守卫: 禁止正则后行断言 (?<=) / (?<!) 混回源码与 bundle 产物。
+ * 迴歸守衛: 禁止正則後行斷言 (?<=) / (?<!) 混回源碼與 bundle 產物。
  *
- * 为什么: iOS Safari <16.4 (WebKit/JSC) 不支持 lookbehind, 旧设备上 new RegExp('(?<=…)')
- *   直接抛 "Invalid regular expression: invalid group specifier name", 被聊天兜底 catch
- *   包成错误气泡弹给用户。详见 utils/lookbehindFree.test.ts。
+ * 為什麼: iOS Safari <16.4 (WebKit/JSC) 不支持 lookbehind, 舊設備上 new RegExp('(?<=…)')
+ *   直接拋 "Invalid regular expression: invalid group specifier name", 被聊天兜底 catch
+ *   包成錯誤氣泡彈給用戶。詳見 utils/lookbehindFree.test.ts。
  *
- * 怎么测: 扫源码目录 + worker bundle 产物。先剥注释 (我们在注释里大量用 (?<=…) 做说明,
- *   不能误伤), 再检测剩余代码是否含 lookbehind。命中即 fail, 报出文件:行号。
+ * 怎麼測: 掃源碼目錄 + worker bundle 產物。先剝註釋 (我們在註釋裡大量用 (?<=…) 做說明,
+ *   不能誤傷), 再檢測剩餘代碼是否含 lookbehind。命中即 fail, 報出文件:行號。
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -22,7 +22,7 @@ const BUNDLE_FILES = [
 ];
 const LOOKBEHIND = /\(\?<[=!]/;
 
-/** 粗剥 // 行注释和 块注释, 避免误伤注释里的 (?<=…) 说明文字。不需完整 parser。 */
+/** 粗剝 // 行註釋和 塊註釋, 避免誤傷註釋裡的 (?<=…) 說明文字。不需完整 parser。 */
 function stripComments(src: string): string {
   return src
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -54,8 +54,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-describe('no-lookbehind 守卫', () => {
-  it('源码 (剥注释后) 不含正则后行断言', () => {
+describe('no-lookbehind 守衛', () => {
+  it('源碼 (剝註釋後) 不含正則後行斷言', () => {
     const offenders: string[] = [];
     for (const dir of SRC_DIRS) {
       for (const file of walk(join(ROOT, dir))) {
@@ -67,10 +67,10 @@ describe('no-lookbehind 守卫', () => {
         });
       }
     }
-    expect(offenders, `发现 lookbehind (旧 iOS 会炸):\n${offenders.join('\n')}`).toEqual([]);
+    expect(offenders, `發現 lookbehind (舊 iOS 會炸):\n${offenders.join('\n')}`).toEqual([]);
   });
 
-  it('worker bundle 产物不含正则后行断言 (改完源码记得跑 build:workers)', () => {
+  it('worker bundle 產物不含正則後行斷言 (改完源碼記得跑 build:workers)', () => {
     const offenders: string[] = [];
     for (const rel of BUNDLE_FILES) {
       let src: string;

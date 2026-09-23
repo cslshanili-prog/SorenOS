@@ -13,7 +13,7 @@ export type GroupTopicBatch = {
     hotZoneCount: number;
 };
 
-/** 只规划公共成盒范围；最近 200 条永远保留为原文热区。 */
+/** 只規劃公共成盒範圍；最近 200 條永遠保留為原文熱區。 */
 export function planGroupTopicBatch(
     allMessages: Message[],
     archivedThroughMessageId: number = 0,
@@ -53,33 +53,33 @@ export function buildGroupTopicPrompt(
 ): string {
     const nameOf = (m: Message) => m.role === 'user'
         ? userName
-        : (characters.find(c => c.id === m.charId)?.name || '未知成员');
+        : (characters.find(c => c.id === m.charId)?.name || '未知成員');
     const participants = group.members.map(id => characters.find(c => c.id === id)?.name).filter(Boolean).join('、');
-    // 只给总结机角色语义资料，不传头像/立绘/房间图片等媒体字段，避免 base64 撑爆请求。
+    // 只給總結機角色語義資料，不傳頭像/立繪/房間圖片等媒體字段，避免 base64 撐爆請求。
     const memberProfiles = group.members.map(id => characters.find(c => c.id === id)).filter(Boolean).map(char => {
         const c = char as CharacterProfile;
-        return `### ${c.name}（${c.id}）\n角色简介：${c.description || '无'}\n核心设定：${c.systemPrompt || '无'}\n世界观：${c.worldview || '无'}\n写作人格：${c.writerPersona || '无'}\n核心记忆：${c.refinedMemories ? JSON.stringify(c.refinedMemories) : '无'}`;
+        return `### ${c.name}（${c.id}）\n角色簡介：${c.description || '無'}\n核心設定：${c.systemPrompt || '無'}\n世界觀：${c.worldview || '無'}\n寫作人格：${c.writerPersona || '無'}\n核心記憶：${c.refinedMemories ? JSON.stringify(c.refinedMemories) : '無'}`;
     }).join('\n\n');
     const logs = batch.map(m => {
         const time = new Date(m.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         return `[${time}] ${nameOf(m)}: ${messageLogText(m)}`;
     }).join('\n');
-    return `你是群聊档案整理员。请把下面一段已经离开近期上下文的群聊，整理成一张所有成员共享的“公共话题盒”。
+    return `你是群聊檔案整理員。請把下面一段已經離開近期上下文的群聊，整理成一張所有成員共享的“公共話題盒”。
 
 群名：${group.name}
-成员：${participants}
-用户：${userName}
+成員：${participants}
+用戶：${userName}
 
-## 全体成员资料
-这些资料只用于准确理解每个人的身份、关系和说话含义；总结仍必须保持群体共享的客观视角。
+## 全體成員資料
+這些資料只用於準確理解每個人的身份、關係和說話含義；總結仍必須保持群體共享的客觀視角。
 ${memberProfiles}
 
 要求：
-1. 使用客观第三人称，准确区分每个发言者，不站在任何单一角色视角。
-2. 保留关键话题、约定、冲突、共同经历、群内梗和情绪变化；不要逐句复述。
-3. 标题 6–18 字；总结 100–500 字。琐碎内容可以简短，但不能编造。
-4. 这张盒子会同时进入本群长期上下文，并作为卡片送到每位成员私聊。
-5. 严格只输出 JSON：{"title":"...","summary":"..."}
+1. 使用客觀第三人稱，準確區分每個發言者，不站在任何單一角色視角。
+2. 保留關鍵話題、約定、衝突、共同經歷、群內梗和情緒變化；不要逐句複述。
+3. 標題 6–18 字；總結 100–500 字。瑣碎內容可以簡短，但不能編造。
+4. 這張盒子會同時進入本群長期上下文，並作為卡片送到每位成員私聊。
+5. 嚴格只輸出 JSON：{"title":"...","summary":"..."}
 群聊原文：
 ${logs.slice(0, 30000)}`;
 }
@@ -88,7 +88,7 @@ export function buildGroupTopicContext(group: GroupProfile): string {
     const boxes = group.topicBoxes || [];
     if (boxes.length === 0) return '';
     const body = boxes.slice(-20).map(box => `- 【${box.title}】${box.summary}`).join('\n');
-    return `\n### 【${group.name} · 公共话题盒】\n以下是本群已归档的共同经历，所有成员都知道；需要时自然承接，不要逐条复述。\n${body}\n`;
+    return `\n### 【${group.name} · 公共話題盒】\n以下是本群已歸檔的共同經歷，所有成員都知道；需要時自然承接，不要逐條複述。\n${body}\n`;
 }
 
 export function makeGroupTopicBox(group: GroupProfile, batch: Message[], title: string, summary: string): GroupTopicBox {
@@ -96,7 +96,7 @@ export function makeGroupTopicBox(group: GroupProfile, batch: Message[], title: 
     return {
         id: `group-topic-${now}-${Math.random().toString(36).slice(2, 7)}`,
         groupId: group.id,
-        title: title.trim() || '一段群聊回忆',
+        title: title.trim() || '一段群聊回憶',
         summary: summary.trim(),
         sourceStartMessageId: batch[0].id,
         sourceEndMessageId: batch[batch.length - 1].id,

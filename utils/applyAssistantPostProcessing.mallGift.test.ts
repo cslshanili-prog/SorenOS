@@ -29,13 +29,13 @@ const makeCtx = (charId: string, overrides: Partial<PostProcessCtx> = {}): PostP
     };
 };
 
-describe('端到端：角色主动送礼 + 礼物已读确认', () => {
-    it('角色发 GIFT：onCharGiftSend 收到正确金额，落一张 sent 状态的礼物卡', async () => {
+describe('端到端：角色主動送禮 + 禮物已讀確認', () => {
+    it('角色發 GIFT：onCharGiftSend 收到正確金額，落一張 sent 狀態的禮物卡', async () => {
         const charId = `c-gift-${Date.now()}`;
         const onCharGiftSend = vi.fn().mockResolvedValue(true);
 
         await applyAssistantPostProcessing(
-            '路过甜品店给你带了个~[[ACTION:GIFT|item=草莓蛋糕|price=23|note=还热乎]]',
+            '路過甜品店給你帶了個~[[ACTION:GIFT|item=草莓蛋糕|price=23|note=還熱乎]]',
             makeCtx(charId, { onCharGiftSend }),
         );
 
@@ -43,18 +43,18 @@ describe('端到端：角色主动送礼 + 礼物已读确认', () => {
         const msgs = await DB.getRecentMessagesByCharId(charId, 50);
         const order = msgs.find(m => m.type === 'mall_order');
         expect(order?.role).toBe('assistant');
-        expect(order?.metadata).toMatchObject({ mode: 'gift', total: 23, status: 'sent', note: '还热乎' });
+        expect(order?.metadata).toMatchObject({ mode: 'gift', total: 23, status: 'sent', note: '還熱乎' });
     });
 
-    it('用户送的礼物在角色下一轮回复后自动标记已读（acknowledged）', async () => {
+    it('用戶送的禮物在角色下一輪回復後自動標記已讀（acknowledged）', async () => {
         const charId = `c-gift-ack-${Date.now()}`;
         await DB.saveMessage({
             charId, role: 'user', type: 'mall_order',
-            content: '[购物中心卡片]',
-            metadata: { mallKind: 'shop', mode: 'gift', items: [{ name: '毛绒手机挂件', price: 19.9, qty: 1 }], total: 19.9, status: 'sent' },
+            content: '[購物中心卡片]',
+            metadata: { mallKind: 'shop', mode: 'gift', items: [{ name: '毛絨手機掛件', price: 19.9, qty: 1 }], total: 19.9, status: 'sent' },
         });
 
-        await applyAssistantPostProcessing('……摸起来还挺软的', makeCtx(charId));
+        await applyAssistantPostProcessing('……摸起來還挺軟的', makeCtx(charId));
 
         const msgs = await DB.getRecentMessagesByCharId(charId, 50);
         const gift = msgs.find(m => m.type === 'mall_order' && m.role === 'user');

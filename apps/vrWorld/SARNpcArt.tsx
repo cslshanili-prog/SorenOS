@@ -11,7 +11,7 @@ const CHIBI_ART={
     aiven:aivenChibi,
 };
 const loadedPortraits=new Map<string,string>();
-// 这四张同名素材更新过透明背景，用素材提交号避开浏览器里的旧白底图。
+// 這四張同名素材更新過透明背景，用素材提交號避開瀏覽器裡的舊白底圖。
 const refreshedPortraits=new Set(['Enduring Pain','avoidant','normal2','warm'].map(name=>`SAR/Caian/${name}.png`));
 /** Same original canvas and base scale as visitor chibis; never trim NPCs independently. */
 export function SARNpcChibi({who,className=''}:{who:SARDialogueSpeaker;className?:string}){
@@ -29,12 +29,12 @@ function PortraitImage({who,expression}:{who:SARDialogueSpeaker;expression:SAREx
     const cached=loadedPortraits.get(path),shown=cached?{path,src:cached}:lastReady;
     const waiting=!broken&&!cached;
     return <div className="sar-npc-portrait" data-speaker={who} data-expression={expression} aria-busy={waiting}>
-        {shown&&<img src={shown.src} className="sar-npc-portrait__image" alt={`${SAR_NPC_NAMES[who]}立绘`} draggable={false}/>}
+        {shown&&<img src={shown.src} className="sar-npc-portrait__image" alt={`${SAR_NPC_NAMES[who]}立繪`} draggable={false}/>}
         {waiting&&!localFailed.includes(path)&&<img src={import.meta.env.BASE_URL+'sar-portraits/'+path.replace(/^SAR\//,'').replace(/\.png$/,'.webp')+(refreshedPortraits.has(path)?'?v=01edb974':'')} className="sar-npc-portrait__image sar-npc-portrait__pending" alt="" aria-hidden="true" decoding="async" onLoad={event=>{const src=event.currentTarget.currentSrc;loadedPortraits.set(path,src);setLastReady({path,src});}} onError={()=>setLocalFailed(prev=>[...prev,path])}/>}
         {waiting&&localFailed.includes(path)&&<CdnImg key={`loading:${path}`} path={path} className="sar-npc-portrait__image sar-npc-portrait__pending" alt="" aria-hidden="true" decoding="async"
             onLoad={event=>{const src=event.currentTarget.currentSrc;loadedPortraits.set(path,src);setLastReady({path,src});}} onError={()=>setFailed(prev=>[...prev,path])}/>}
-        {!shown&&<div className="sar-npc-portrait__placeholder" role="status">{broken?'立绘暂时未加载':SAR_NPC_NAMES[who]}
-            {broken&&<button type="button" onClick={()=>{setFailed([]);setLocalFailed([]);}}>重新加载</button>}</div>}
+        {!shown&&<div className="sar-npc-portrait__placeholder" role="status">{broken?'立繪暫時未加載':SAR_NPC_NAMES[who]}
+            {broken&&<button type="button" onClick={()=>{setFailed([]);setLocalFailed([]);}}>重新加載</button>}</div>}
     </div>;
 }
 export function SARPortrait({who,expression='normal'}:{who:SARDialogueSpeaker;expression?:SARExpression}){

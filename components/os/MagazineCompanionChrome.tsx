@@ -38,9 +38,9 @@ const MagazineCompanionChrome: React.FC<MagazineCompanionChromeProps> = ({
       <div className="mag-cover-cross mag-cover-cross--one" aria-hidden /><div className="mag-cover-cross mag-cover-cross--two" aria-hidden />
 
       <section className="mag-cover-tools pointer-events-auto" aria-label="封面工具">
-        <button type="button" onClick={() => openApp(AppID.Appearance)}><span>01</span><Icons.Appearance /><strong>外观</strong><small>APPEARANCE</small></button>
-        <button type="button" onClick={openTouchSettings}><span>02</span><HandTap weight="bold" /><strong>触摸</strong><small>TOUCH</small></button>
-        <button type="button" onClick={openWardrobe} data-testid="companion-magazine-wardrobe-button" data-companion-wardrobe-trigger="true"><span>03</span><TShirt weight="bold" /><strong>衣橱</strong><small>WARDROBE</small></button>
+        <button type="button" onClick={() => openApp(AppID.Appearance)}><span>01</span><Icons.Appearance /><strong>外觀</strong><small>APPEARANCE</small></button>
+        <button type="button" onClick={openTouchSettings}><span>02</span><HandTap weight="bold" /><strong>觸摸</strong><small>TOUCH</small></button>
+        <button type="button" onClick={openWardrobe} data-testid="companion-magazine-wardrobe-button" data-companion-wardrobe-trigger="true"><span>03</span><TShirt weight="bold" /><strong>衣櫥</strong><small>WARDROBE</small></button>
       </section>
 
       <button type="button" className="mag-cover-feature pointer-events-auto" onClick={openCharacterSchedule}>
@@ -58,11 +58,11 @@ const MagazineCompanionChrome: React.FC<MagazineCompanionChromeProps> = ({
       <div className="mag-cover-code" aria-hidden><i /><span>978-4-08-081526-6</span></div>
       <div className="mag-cover-qr" aria-hidden>{Array.from({ length: 16 }, (_, index) => <i key={index} />)}</div>
 
-      <nav className="mag-cover-nav pointer-events-auto" aria-label="夜刊封面导航">
-        <button type="button" onClick={() => openApp(AppID.Chat)}><Icons.Chat /><span>对话</span></button>
-        <button type="button" onClick={() => openApp(AppID.Date)}><Icons.Date /><span>见面</span></button>
-        <button type="button" onClick={() => openApp(AppID.SpecialMoments)}><Icons.SpecialMoments /><span>时光</span></button>
-        <button type="button" onClick={openAllApps}><Icons.Settings /><span>目录</span></button>
+      <nav className="mag-cover-nav pointer-events-auto" aria-label="夜刊封面導航">
+        <button type="button" onClick={() => openApp(AppID.Chat)}><Icons.Chat /><span>對話</span></button>
+        <button type="button" onClick={() => openApp(AppID.Date)}><Icons.Date /><span>見面</span></button>
+        <button type="button" onClick={() => openApp(AppID.SpecialMoments)}><Icons.SpecialMoments /><span>時光</span></button>
+        <button type="button" onClick={openAllApps}><Icons.Settings /><span>目錄</span></button>
       </nav>
     </div>
   );

@@ -165,7 +165,7 @@ const BankDashboard: React.FC<Props> = ({
                     className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-95 transition-transform hover:border-orange-200 group"
                 >
                     <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f357.png" alt="feed" className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-bold text-slate-700">投喂</span>
+                    <span className="text-xs font-bold text-slate-700">投餵</span>
                     <span className="text-[9px] text-orange-400 font-mono font-bold">-10 AP</span>
                 </button>
                 
@@ -174,7 +174,7 @@ const BankDashboard: React.FC<Props> = ({
                     className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-95 transition-transform hover:border-indigo-200 group"
                 >
                     <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f6aa.png" alt="invite" className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-bold text-slate-700">邀请访客</span>
+                    <span className="text-xs font-bold text-slate-700">邀請訪客</span>
                     <span className="text-[9px] text-indigo-400 font-mono font-bold">-20 AP</span>
                 </button>
             </div>
@@ -183,7 +183,7 @@ const BankDashboard: React.FC<Props> = ({
             <div>
                 <div className="flex justify-between items-center mb-3 px-1">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-心愿单
+心願單
                     </h3>
                     <button onClick={onOpenAddGoal} className="w-5 h-5 bg-white text-slate-400 rounded-md flex items-center justify-center shadow-sm text-xs hover:text-slate-600 border border-slate-200">+</button>
                 </div>
@@ -191,7 +191,7 @@ const BankDashboard: React.FC<Props> = ({
                 <div className="space-y-3">
                     {state.goals.length === 0 && (
                         <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400">
-                            暂无心愿目标
+                            暫無心願目標
                         </div>
                     )}
                     {state.goals.map(goal => (
@@ -234,7 +234,7 @@ const BankDashboard: React.FC<Props> = ({
             {/* Daily Budget Config */}
             <div className="pt-4 border-t border-slate-100">
                 <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="text-xs font-bold text-slate-500">每日预算设定</span>
+                    <span className="text-xs font-bold text-slate-500">每日預算設定</span>
                     <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
                         <span className="text-xs text-slate-400">{state.config.currencySymbol}</span>
                         <input 
@@ -246,7 +246,7 @@ const BankDashboard: React.FC<Props> = ({
                     </div>
                 </div>
                 <p className="text-[9px] text-slate-400 mt-2 text-center">
-                    昨日结余将转化为今日的行动点数 (AP)。
+                    昨日結餘將轉化為今日的行動點數 (AP)。
                 </p>
             </div>
 

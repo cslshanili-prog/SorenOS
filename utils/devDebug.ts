@@ -1,18 +1,18 @@
-// ===== 捕获类别（分类日志的"单一真理源"）=====
-// 加新类只动这里：
-//   1. 在 DevDebugCaptureCategory 加一个字面量
-//   2. 在 DEV_DEBUG_CAPTURE_CATEGORIES 加一行（面板会自动多出一个开关）
-//   3. 需要的话写一个语义化的 appendDevDebugXxxLog 薄封装（见文件末尾 appendDevDebugApiLog），或直接用 makeDebugLogger
-// 其余存储 / 脱敏 / 限容 / 导出逻辑全部通用，不用改。
-// 分类按「来源通道」切：api = 普通聊天直发模型；amsg = 主动消息 2.0 的收发链路（推送落库、云端回合 trace）；
-// lifecycle = 页面前后台/网络状态变化（排查「请求等着等着就 NetworkError」时跟 api 类对时间线）。
+// ===== 捕獲類別（分類日誌的"單一真理源"）=====
+// 加新類只動這裡：
+//   1. 在 DevDebugCaptureCategory 加一個字面量
+//   2. 在 DEV_DEBUG_CAPTURE_CATEGORIES 加一行（面板會自動多出一個開關）
+//   3. 需要的話寫一個語義化的 appendDevDebugXxxLog 薄封裝（見文件末尾 appendDevDebugApiLog），或直接用 makeDebugLogger
+// 其餘存儲 / 脫敏 / 限容 / 導出邏輯全部通用，不用改。
+// 分類按「來源通道」切：api = 普通聊天直發模型；amsg = 主動消息 2.0 的收發鏈路（推送落庫、雲端回合 trace）；
+// lifecycle = 頁面前後台/網絡狀態變化（排查「請求等著等著就 NetworkError」時跟 api 類對時間線）。
 export type DevDebugCaptureCategory = 'api' | 'amsg' | 'lifecycle' | 'memory-palace';
 
 export interface DevDebugCaptureCategoryMeta {
     key: DevDebugCaptureCategory;
-    /** 面板 checkbox 上显示的短标签（如 'API' / '主动消息'）。 */
+    /** 面板 checkbox 上顯示的短標籤（如 'API' / '主動消息'）。 */
     title: string;
-    /** 这一类抓什么的说明；面板不再渲染（看不懂就别用），仅作源码内文档。 */
+    /** 這一類抓什麼的說明；面板不再渲染（看不懂就別用），僅作源碼內文檔。 */
     detail: string;
 }
 
@@ -20,22 +20,22 @@ export const DEV_DEBUG_CAPTURE_CATEGORIES: DevDebugCaptureCategoryMeta[] = [
     {
         key: 'api',
         title: 'API',
-        detail: '普通聊天直发模型的 chat completions 请求与响应。',
+        detail: '普通聊天直發模型的 chat completions 請求與響應。',
     },
     {
         key: 'amsg',
-        title: '主动消息',
-        detail: '主动消息 2.0 的收发链路：收件箱冲刷、推送落库、即时对话回合的 trace。',
+        title: '主動消息',
+        detail: '主動消息 2.0 的收發鏈路：收件箱沖刷、推送落庫、即時對話回合的 trace。',
     },
     {
         key: 'lifecycle',
-        title: '前后台',
-        detail: '页面前后台 / 焦点 / 网络状态变化（visibilitychange、focus/blur、pagehide/pageshow、online/offline、freeze/resume），用来跟 api 类对时间线，判断请求失败是不是切后台导致的。',
+        title: '前後台',
+        detail: '頁面前後台 / 焦點 / 網絡狀態變化（visibilitychange、focus/blur、pagehide/pageshow、online/offline、freeze/resume），用來跟 api 類對時間線，判斷請求失敗是不是切後台導致的。',
     },
     {
         key: 'memory-palace',
-        title: '记忆',
-        detail: '记忆召回管线 Trace：入口、版本、开关快照、耗时与结果；不记录聊天原文和 API Key。',
+        title: '記憶',
+        detail: '記憶召回管線 Trace：入口、版本、開關快照、耗時與結果；不記錄聊天原文和 API Key。',
     },
 ];
 
@@ -47,27 +47,27 @@ export interface DevDebugFlags {
     skipPromptBuild: boolean;
     skipEmotionEval: boolean;
     /**
-     * 把聊天请求里的多条 role:system 合并成开头一条再发送（utils/systemMessageMerge.ts）。
-     * 排查逆向中转对「历史后 system」重复拼接导致 prompt_tokens 膨胀的兼容问题；
-     * 会削弱易变尾段的 recency 注入并破坏前缀缓存，仅作临时 A/B 对照用。
+     * 把聊天請求裡的多條 role:system 合併成開頭一條再發送（utils/systemMessageMerge.ts）。
+     * 排查逆向中轉對「歷史後 system」重複拼接導致 prompt_tokens 膨脹的兼容問題；
+     * 會削弱易變尾段的 recency 注入並破壞前綴緩存，僅作臨時 A/B 對照用。
      */
     mergeSystemMessages: boolean;
     /**
-     * 日志总开关：关掉时无论勾了哪些类别都不抓，默认关。
+     * 日誌總開關：關掉時無論勾了哪些類別都不抓，默認關。
      * 跟 captureLogs 配合——是否抓 = captureEnabled && captureLogs.includes(category)。
      */
     captureEnabled: boolean;
-    /** 勾选了哪些捕获类别（纯选择）。取消勾选只影响此后抓取，不清已有日志。 */
+    /** 勾選了哪些捕獲類別（純選擇）。取消勾選只影響此後抓取，不清已有日誌。 */
     captureLogs: DevDebugCaptureCategory[];
     /**
-     * 导出（复制 / 下载）时是否输出完整内容。
-     * 默认 false：长文本折叠成「前 N 字 + ...」，省隐私 / 省体积。
-     * 只影响导出那一层，不改变实际抓取 / 存储的数据。
+     * 導出（複製 / 下載）時是否輸出完整內容。
+     * 默認 false：長文本摺疊成「前 N 字 + ...」，省隱私 / 省體積。
+     * 只影響導出那一層，不改變實際抓取 / 存儲的數據。
      */
     exposeLogDetail: boolean;
     /**
-     * amsg2 任务观察窗（components/Amsg2DebugPanel.tsx）开着没有。
-     * 纯观察不改行为，所以不计进浮球的「生效开关数」红点——它自己就有个可见的角标。
+     * amsg2 任務觀察窗（components/Amsg2DebugPanel.tsx）開著沒有。
+     * 純觀察不改行為，所以不計進浮球的「生效開關數」紅點——它自己就有個可見的角標。
      */
     amsg2Panel: boolean;
 }
@@ -76,11 +76,11 @@ export interface DevDebugLogEntry {
     id: string;
     timestamp: string;
     category: DevDebugCaptureCategory;
-    /** 列表 / 导出里用的一行摘要，比如 "POST https://.../chat/completions"。 */
+    /** 列表 / 導出裡用的一行摘要，比如 "POST https://.../chat/completions"。 */
     label?: string;
-    /** 抓取时是否折叠了长文本（即抓的那一刻没开 exposeLogDetail）。 */
+    /** 抓取時是否摺疊了長文本（即抓的那一刻沒開 exposeLogDetail）。 */
     collapsed?: boolean;
-    /** 该类自定义的 payload，写入前会递归脱敏；默认还会折叠长文本。 */
+    /** 該類自定義的 payload，寫入前會遞歸脫敏；默認還會摺疊長文本。 */
     data: unknown;
 }
 
@@ -93,7 +93,7 @@ export const DEV_DEBUG_STORAGE_KEY = 'sullyos.devDebug.flags.v1';
 export const DEV_DEBUG_EVENT = 'sullyos-dev-debug-change';
 export const DEV_DEBUG_LOG_STORAGE_KEY = 'sullyos.devDebug.log.v1';
 export const DEV_DEBUG_LOG_EVENT = 'sullyos-dev-debug-log-change';
-// 内部事件名，只通过 subscribeDevDebugAvailability 暴露——不 export 出去，免得固化成公共契约。
+// 內部事件名，只通過 subscribeDevDebugAvailability 暴露——不 export 出去，免得固化成公共契約。
 const DEV_DEBUG_AVAILABILITY_EVENT = 'sullyos-dev-debug-availability';
 
 export const DEFAULT_DEV_DEBUG_FLAGS: DevDebugFlags = {
@@ -109,10 +109,10 @@ export const DEFAULT_DEV_DEBUG_FLAGS: DevDebugFlags = {
 
 const MAX_LOG_ENTRIES = 100;
 const MAX_LOG_STORAGE_CHARS = 1_000_000;
-// 只折 messages 这一个 key——别的字段（url、error.reason、response 任意键值等）一律原样保留，
-// 免得 reason / outcome / status 这种关键短字符串也被截掉。
-// messages 数组本身整个换成 ["…共 N 项（已折叠）"]，一条都不留——首条 system prompt 体积通常很大，
-// 留着没省到多少空间，要看就开「记录完整内容」。
+// 只折 messages 這一個 key——別的字段（url、error.reason、response 任意鍵值等）一律原樣保留，
+// 免得 reason / outcome / status 這種關鍵短字符串也被截掉。
+// messages 數組本身整個換成 ["…共 N 項（已摺疊）"]，一條都不留——首條 system prompt 體積通常很大，
+// 留著沒省到多少空間，要看就開「記錄完整內容」。
 const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|secret|endpoint|p256dh|auth)$/i;
 let memoryLog: DevDebugLogEntry[] | null = null;
 
@@ -136,7 +136,7 @@ function normalizeCaptureLogs(value: unknown): DevDebugCaptureCategory[] {
     if (!Array.isArray(value)) return [];
     const seen = new Set<DevDebugCaptureCategory>();
     for (const item of value) {
-        // 旧存档里的类别名迁到现名，老用户不丢勾选：'llm' → 'api'，'instant-push' → 'amsg'。
+        // 舊存檔裡的類別名遷到現名，老用戶不丟勾選：'llm' → 'api'，'instant-push' → 'amsg'。
         const migrated = item === 'llm' ? 'api' : item === 'instant-push' ? 'amsg' : item;
         if (CAPTURE_CATEGORY_KEYS.includes(migrated as DevDebugCaptureCategory)) {
             seen.add(migrated as DevDebugCaptureCategory);
@@ -148,8 +148,8 @@ function normalizeCaptureLogs(value: unknown): DevDebugCaptureCategory[] {
 function normalizeFlags(value: unknown): DevDebugFlags {
     const source = (value && typeof value === 'object') ? value as Partial<DevDebugFlags> : {};
     const captureLogs = normalizeCaptureLogs(source.captureLogs);
-    // 平滑迁移：老存档没 captureEnabled 字段（旧 schema 只有 captureLogs，勾了就抓），
-    // 直接推 false 会让老用户升级后类型还勾着、其实静默停录。所以「字段缺 + 有勾选」时推 true。
+    // 平滑遷移：老存檔沒 captureEnabled 字段（舊 schema 只有 captureLogs，勾了就抓），
+    // 直接推 false 會讓老用戶升級後類型還勾著、其實靜默停錄。所以「字段缺 + 有勾選」時推 true。
     const legacyHasCapture = !('captureEnabled' in source) && captureLogs.length > 0;
     return {
         skipPromptBuild: source.skipPromptBuild === true,
@@ -163,16 +163,16 @@ function normalizeFlags(value: unknown): DevDebugFlags {
     };
 }
 
-// 会话级开关（都不落 localStorage → 刷新即重置）：
-//   manualUnlock：prod 上连点构建版本 5 下临时解锁，刷新即关。
-//   forceClosed：面板「关闭」按钮，任意分支强制关掉；刷新后失效 → 非 prod 自动回来。
+// 會話級開關（都不落 localStorage → 刷新即重置）：
+//   manualUnlock：prod 上連點構建版本 5 下臨時解鎖，刷新即關。
+//   forceClosed：面板「關閉」按鈕，任意分支強制關掉；刷新後失效 → 非 prod 自動回來。
 let devDebugManualUnlock = false;
 let devDebugForceClosed = false;
 
 export function isDevDebugAvailable(): boolean {
     if (devDebugForceClosed) return false;
     const badgeVisible = typeof __BUILD_BADGE_VISIBLE__ !== 'undefined' && __BUILD_BADGE_VISIBLE__;
-    // 非 prod（badge 可见）默认一直开；prod 默认关，靠 manualUnlock 临时调出。
+    // 非 prod（badge 可見）默認一直開；prod 默認關，靠 manualUnlock 臨時調出。
     return badgeVisible || devDebugManualUnlock;
 }
 
@@ -181,24 +181,24 @@ function emitDevDebugAvailability(): void {
     window.dispatchEvent(new CustomEvent<boolean>(DEV_DEBUG_AVAILABILITY_EVENT, { detail: isDevDebugAvailable() }));
 }
 
-/** 连点构建版本 5 下：会话级解锁面板（刷新即关），并解除强制关闭。 */
+/** 連點構建版本 5 下：會話級解鎖面板（刷新即關），並解除強制關閉。 */
 export function unlockDevDebug(): void {
     devDebugManualUnlock = true;
     devDebugForceClosed = false;
-    // 失效内存缓存：prod 初始 mount 时 canUseDevDebugStorage()=false 会把 memoryLog 锁成 []，
-    // 解锁后如果不重读，上一会话存在 localStorage 里的日志会被遮蔽，下一次 append 还会覆盖掉。
+    // 失效內存緩存：prod 初始 mount 時 canUseDevDebugStorage()=false 會把 memoryLog 鎖成 []，
+    // 解鎖後如果不重讀，上一會話存在 localStorage 裡的日誌會被遮蔽，下一次 append 還會覆蓋掉。
     memoryLog = null;
     emitDevDebugAvailability();
 }
 
-/** 面板「关闭」按钮：任意分支强制关掉（会话级；刷新后非 prod 会自动恢复）。 */
+/** 面板「關閉」按鈕：任意分支強制關掉（會話級；刷新後非 prod 會自動恢復）。 */
 export function closeDevDebug(): void {
     devDebugForceClosed = true;
     devDebugManualUnlock = false;
     emitDevDebugAvailability();
 }
 
-/** 订阅「面板是否可用」变化（解锁 / 关闭）。会话级，无跨标签页同步。 */
+/** 訂閱「面板是否可用」變化（解鎖 / 關閉）。會話級，無跨標籤頁同步。 */
 export function subscribeDevDebugAvailability(listener: (available: boolean) => void): () => void {
     if (typeof window === 'undefined') return () => {};
     const onChange = (event: Event) => {
@@ -232,11 +232,11 @@ export function writeDevDebugFlags(flags: DevDebugFlags): DevDebugFlags {
         // localStorage can be blocked in private / embedded contexts; the UI still keeps local state.
     }
 
-    // 取消勾选某类别「不」清它的日志——勾选是纯选择，只影响此后抓取。
-    // 要清日志走「重置」（面板 resetFlags → clearDevDebugLog）。
-    // 例外：总开关 captureEnabled 由 true → false 时清空日志——一次「录制周期」结束。
-    // 放在数据层而不是 UI handler 里，是为了让任何路径改 captureEnabled 都享受同一行为，
-    // 不会因为换个调用点（测试 helper、未来设置镜像）漏掉。
+    // 取消勾選某類別「不」清它的日誌——勾選是純選擇，只影響此後抓取。
+    // 要清日誌走「重置」（面板 resetFlags → clearDevDebugLog）。
+    // 例外：總開關 captureEnabled 由 true → false 時清空日誌——一次「錄製週期」結束。
+    // 放在數據層而不是 UI handler 裡，是為了讓任何路徑改 captureEnabled 都享受同一行為，
+    // 不會因為換個調用點（測試 helper、未來設置鏡像）漏掉。
     if (prev.captureEnabled && !next.captureEnabled) {
         clearDevDebugLog();
     }
@@ -282,14 +282,14 @@ export function isSystemMessageMergeEnabled(): boolean {
 }
 
 export function isCaptureEnabled(category: DevDebugCaptureCategory): boolean {
-    // 跟可用性绑定：面板看不见就别录。覆盖三种「隐身但 flag 还在 localStorage 里」的场景：
-    //   1. 关闭按钮（devDebugForceClosed=true）
-    //   2. prod 刷新后（manualUnlock 重置为 false，但 captureEnabled 还在存档里）
-    //   3. master 构建（__BUILD_BADGE_VISIBLE__=false，未解锁）
-    // 不挡的话用户看不到面板还在偷偷写带 url/status 的日志条目——隐私债。
+    // 跟可用性綁定：面板看不見就別錄。覆蓋三種「隱身但 flag 還在 localStorage 裡」的場景：
+    //   1. 關閉按鈕（devDebugForceClosed=true）
+    //   2. prod 刷新後（manualUnlock 重置為 false，但 captureEnabled 還在存檔裡）
+    //   3. master 構建（__BUILD_BADGE_VISIBLE__=false，未解鎖）
+    // 不擋的話用戶看不到面板還在偷偷寫帶 url/status 的日誌條目——隱私債。
     if (!isDevDebugAvailable()) return false;
     const flags = readDevDebugFlags();
-    // 总开关关掉时一律不抓，哪怕该类别勾着。
+    // 總開關關掉時一律不抓，哪怕該類別勾著。
     return flags.captureEnabled && flags.captureLogs.includes(category);
 }
 
@@ -332,15 +332,15 @@ function parseRequestBody(body: unknown): unknown {
     }
 }
 
-// 折叠 messages（聊天历史）数组：整组替换成单句 metadata，一条都不留。
+// 摺疊 messages（聊天歷史）數組：整組替換成單句 metadata，一條都不留。
 function collapseMessagesArray(arr: unknown[]): unknown[] {
     if (arr.length === 0) return arr;
-    return [`…共 ${arr.length} 项（已折叠）`];
+    return [`…共 ${arr.length} 項（已摺疊）`];
 }
 
-// 递归遍历对象 / 数组，**只对** key === 'messages' 且值为数组的字段折叠。
-// 其它字段（字符串、数字、布尔、其它数组、其它对象）一律原样保留——
-// 折太多反而看不到 error.reason / response.outcome 这类关键字段。
+// 遞歸遍歷對象 / 數組，**只對** key === 'messages' 且值為數組的字段摺疊。
+// 其它字段（字符串、數字、布爾、其它數組、其它對象）一律原樣保留——
+// 折太多反而看不到 error.reason / response.outcome 這類關鍵字段。
 function collapseMessagesInData(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(collapseMessagesInData);
     if (value && typeof value === 'object') {
@@ -388,13 +388,13 @@ function persistLog(entries: DevDebugLogEntry[]): void {
     emitLogChange(entries);
 }
 
-/** 读取捕获日志；传 category 只取该类，不传取全部。 */
+/** 讀取捕獲日誌；傳 category 只取該類，不傳取全部。 */
 export function readDevDebugLog(category?: DevDebugCaptureCategory): DevDebugLogEntry[] {
     const all = [...readPersistedLog()];
     return category ? all.filter((entry) => entry.category === category) : all;
 }
 
-/** 清空日志；传 categories 只清这几类，不传清全部。 */
+/** 清空日誌；傳 categories 只清這幾類，不傳清全部。 */
 export function clearDevDebugLog(categories?: DevDebugCaptureCategory[]): void {
     if (!categories || categories.length === 0) {
         memoryLog = [];
@@ -414,10 +414,10 @@ export function clearDevDebugLog(categories?: DevDebugCaptureCategory[]): void {
 }
 
 /**
- * 通用捕获入口：所有分类日志都走这里。
- * 自带门禁（该类没勾就空操作）、脱敏、折叠、限容、双写（内存 + localStorage）、广播，调用方不用操心。
- * 默认只折 messages 数组（聊天历史几十条会刷屏，留首条 + 计数提示）；其它字段（reason / outcome /
- * url / status / 任意 response 值）原样保留。开了 exposeLogDetail 后连 messages 也整段存。
+ * 通用捕獲入口：所有分類日誌都走這裡。
+ * 自帶門禁（該類沒勾就空操作）、脫敏、摺疊、限容、雙寫（內存 + localStorage）、廣播，調用方不用操心。
+ * 默認只折 messages 數組（聊天歷史幾十條會刷屏，留首條 + 計數提示）；其它字段（reason / outcome /
+ * url / status / 任意 response 值）原樣保留。開了 exposeLogDetail 後連 messages 也整段存。
  */
 export function appendDevDebugLog(category: DevDebugCaptureCategory, input: { label?: string; data: unknown }): void {
     try {
@@ -444,7 +444,7 @@ export function appendDevDebugLog(category: DevDebugCaptureCategory, input: { la
     }
 }
 
-/** HTTP 类日志的统一形状。 */
+/** HTTP 類日誌的統一形狀。 */
 export interface DevDebugHttpLogInput {
     url: string;
     method?: string;
@@ -452,15 +452,15 @@ export interface DevDebugHttpLogInput {
     requestBody?: unknown;
     response?: unknown;
     error?: unknown;
-    /** 本次请求从发起到成功 / 报错的耗时 ms（重试场景 = 最后一次 attempt 的耗时）。 */
+    /** 本次請求從發起到成功 / 報錯的耗時 ms（重試場景 = 最後一次 attempt 的耗時）。 */
     durationMs?: number;
-    /** 响应头到达耗时 ms（≈排队 + 服务端开始响应）。与 durationMs 差值 = 收响应体耗时。 */
+    /** 響應頭到達耗時 ms（≈排隊 + 服務端開始響應）。與 durationMs 差值 = 收響應體耗時。 */
     headersMs?: number;
-    /** 第一段正文增量到达耗时 ms（真 TTFT，仅流式响应有）。大头在这 = prefill/排队慢；durationMs-firstDeltaMs 大 = 生成慢。 */
+    /** 第一段正文增量到達耗時 ms（真 TTFT，僅流式響應有）。大頭在這 = prefill/排隊慢；durationMs-firstDeltaMs 大 = 生成慢。 */
     firstDeltaMs?: number;
 }
 
-/** 请求体字符数：messages 折叠后日志里看不出请求多大，这个数字补上「体积」维度。 */
+/** 請求體字符數：messages 摺疊後日志裡看不出請求多大，這個數字補上「體積」維度。 */
 function measureRequestChars(body: unknown): number | undefined {
     if (body === undefined || body === null) return undefined;
     if (typeof body === 'string') return body.length;
@@ -471,10 +471,10 @@ function measureRequestChars(body: unknown): number | undefined {
     }
 }
 
-/** 通用 HTTP 日志薄封装；按 category 落到对应类别，请求体 / 错误统一整形。 */
+/** 通用 HTTP 日誌薄封裝；按 category 落到對應類別，請求體 / 錯誤統一整形。 */
 function appendDevDebugHttpLog(category: DevDebugCaptureCategory, input: DevDebugHttpLogInput): void {
-    // label 前缀加分类——不同类别的请求 url 可能一字不差（都是 baseUrl + /chat/completions），
-    // 不带前缀的话导出 JSON 里两类条目肉眼分不清。
+    // label 前綴加分類——不同類別的請求 url 可能一字不差（都是 baseUrl + /chat/completions），
+    // 不帶前綴的話導出 JSON 裡兩類條目肉眼分不清。
     appendDevDebugLog(category, {
         label: `[${category}] ${input.method ?? 'POST'} ${input.url}`,
         data: {
@@ -497,21 +497,21 @@ function appendDevDebugHttpLog(category: DevDebugCaptureCategory, input: DevDebu
     });
 }
 
-/** api 类：普通聊天直发模型的 chat completions（消费点 safeApi）。 */
+/** api 類：普通聊天直發模型的 chat completions（消費點 safeApi）。 */
 export function appendDevDebugApiLog(input: DevDebugHttpLogInput): void {
     appendDevDebugHttpLog('api', input);
 }
 
-/** 记忆宫殿结构化 Trace；调用方只传脱敏后的统计与状态，不传 query / prompt 原文。 */
+/** 記憶宮殿結構化 Trace；調用方只傳脫敏後的統計與狀態，不傳 query / prompt 原文。 */
 export function appendDevDebugMemoryPalaceLog(input: { label?: string; data: unknown }): void {
     appendDevDebugLog('memory-palace', input);
 }
 
-// ===== lifecycle 类：页面前后台 / 焦点 / 网络状态变化 =====
-// 用途：跟 api 类条目对时间线。比如某条 API 在 NetworkError 前后紧挨着
-// 「visibilitychange → hidden」，基本可以断定是切后台 / 锁屏把 fetch 冻死的。
-// 监听器常驻（事件本身低频、回调零成本），抓不抓由 appendDevDebugLog 的
-// isCaptureEnabled('lifecycle') 门禁决定——没勾时回调直接 return。
+// ===== lifecycle 類：頁面前後台 / 焦點 / 網絡狀態變化 =====
+// 用途：跟 api 類條目對時間線。比如某條 API 在 NetworkError 前後緊挨著
+// 「visibilitychange → hidden」，基本可以斷定是切後台 / 鎖屏把 fetch 凍死的。
+// 監聽器常駐（事件本身低頻、回調零成本），抓不抓由 appendDevDebugLog 的
+// isCaptureEnabled('lifecycle') 門禁決定——沒勾時回調直接 return。
 
 let lifecycleCaptureInstalled = false;
 
@@ -527,7 +527,7 @@ function appendLifecycleEvent(event: string, extra?: Record<string, unknown>): v
     });
 }
 
-/** 安装 lifecycle 事件捕获（幂等，App 启动时挂一次）。 */
+/** 安裝 lifecycle 事件捕獲（冪等，App 啟動時掛一次）。 */
 export function installDevDebugLifecycleCapture(): void {
     if (lifecycleCaptureInstalled) return;
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -538,12 +538,12 @@ export function installDevDebugLifecycleCapture(): void {
     });
     window.addEventListener('focus', () => appendLifecycleEvent('window focus'));
     window.addEventListener('blur', () => appendLifecycleEvent('window blur'));
-    // pagehide.persisted = true 表示进了 bfcache（页面被冻结而非销毁）
+    // pagehide.persisted = true 表示進了 bfcache（頁面被凍結而非銷毀）
     window.addEventListener('pagehide', (e) => appendLifecycleEvent('pagehide', { persisted: (e as PageTransitionEvent).persisted }));
     window.addEventListener('pageshow', (e) => appendLifecycleEvent('pageshow', { persisted: (e as PageTransitionEvent).persisted }));
     window.addEventListener('online', () => appendLifecycleEvent('online'));
     window.addEventListener('offline', () => appendLifecycleEvent('offline'));
-    // Page Lifecycle API（Chromium 系才有）：freeze = 后台冻结，resume = 解冻
+    // Page Lifecycle API（Chromium 系才有）：freeze = 後台凍結，resume = 解凍
     document.addEventListener('freeze', () => appendLifecycleEvent('freeze'));
     document.addEventListener('resume', () => appendLifecycleEvent('resume'));
 }
@@ -557,23 +557,23 @@ export interface DevDebugLogger {
 }
 
 /**
- * 模块级 logger 工厂：把一个模块跟 (category, tagPrefix) 绑定，业务代码用 `log.warn(event, ...)`
- * 替代 `console.warn('[Tag] event', ...)`。内部双写：
- *   1) `console[level]('[tagPrefix] event', ...details)`——F12 看到的跟以前完全一样
- *   2) `appendDevDebugLog(category, { label: 'level:Tag event', data: details })`——勾了对应类
- *      就被复制 / 下载导出。
+ * 模塊級 logger 工廠：把一個模塊跟 (category, tagPrefix) 綁定，業務代碼用 `log.warn(event, ...)`
+ * 替代 `console.warn('[Tag] event', ...)`。內部雙寫：
+ *   1) `console[level]('[tagPrefix] event', ...details)`——F12 看到的跟以前完全一樣
+ *   2) `appendDevDebugLog(category, { label: 'level:Tag event', data: details })`——勾了對應類
+ *      就被複制 / 下載導出。
  *
- * gate 由 isCaptureEnabled 自动管，未勾时 step 2 是空操作、零成本。每文件顶部建一次即可，
- * 业务代码新增日志只用一行 `log.warn(...)`，自动既上 F12 又进 devDebug——免得每条 console
- * 调用旁边手抄一行 appendDevDebugLog 容易漏。
+ * gate 由 isCaptureEnabled 自動管，未勾時 step 2 是空操作、零成本。每文件頂部建一次即可，
+ * 業務代碼新增日誌只用一行 `log.warn(...)`，自動既上 F12 又進 devDebug——免得每條 console
+ * 調用旁邊手抄一行 appendDevDebugLog 容易漏。
  */
 export function makeDebugLogger(category: DevDebugCaptureCategory, tagPrefix: string): DevDebugLogger {
     const make = (level: 'log' | 'info' | 'debug' | 'warn' | 'error') =>
         (event: string, ...details: unknown[]): void => {
             try {
-                // eslint-disable-next-line no-console -- 故意保留 F12 输出
+                // eslint-disable-next-line no-console -- 故意保留 F12 輸出
                 console[level](`[${tagPrefix}] ${event}`, ...details);
-            } catch { /* console 不可用就放过 */ }
+            } catch { /* console 不可用就放過 */ }
             appendDevDebugLog(category, {
                 label: `${level}:${tagPrefix} ${event}`,
                 data: details.length === 0 ? undefined : details.length === 1 ? details[0] : details,
@@ -589,8 +589,8 @@ export function makeDebugLogger(category: DevDebugCaptureCategory, tagPrefix: st
 }
 
 /**
- * 把捕获日志格式化成可复制 / 可下载的 JSON 文本；传 category 只导该类，无日志返回空串。
- * 折叠在写入层就做完了，这里直接吐存的内容；带 `collapsed` 的条目即抓取时没开 exposeLogDetail。
+ * 把捕獲日誌格式化成可複製 / 可下載的 JSON 文本；傳 category 只導該類，無日誌返回空串。
+ * 摺疊在寫入層就做完了，這裡直接吐存的內容；帶 `collapsed` 的條目即抓取時沒開 exposeLogDetail。
  */
 export function formatDevDebugLog(category?: DevDebugCaptureCategory): string {
     const entries = readDevDebugLog(category);
@@ -604,7 +604,7 @@ export function formatDevDebugLog(category?: DevDebugCaptureCategory): string {
             commit: typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'unknown',
         },
         ...(hasCollapsed
-            ? { note: '部分条目抓取时已折叠 messages 聊天历史（整组替换成一句计数）；想要完整内容请先在面板开「记录完整内容」再复现。' }
+            ? { note: '部分條目抓取時已摺疊 messages 聊天歷史（整組替換成一句計數）；想要完整內容請先在面板開「記錄完整內容」再復現。' }
             : {}),
         entries,
     }, null, 2);

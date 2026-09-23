@@ -1,8 +1,8 @@
 /**
- * Memory Dive — 选项浮层
+ * Memory Dive — 選項浮層
  *
- * 不画在对话框里。当选项出现时，以浮层形式从下屏区域上浮，
- * 覆盖在像素房间的下半部分，像 GBA/3DS 里从地面弹出的选项牌。
+ * 不畫在對話框裡。當選項出現時，以浮層形式從下屏區域上浮，
+ * 覆蓋在像素房間的下半部分，像 GBA/3DS 裡從地面彈出的選項牌。
  */
 
 import React from 'react';
@@ -20,13 +20,13 @@ const MemoryDiveChoices: React.FC<Props> = ({ choices, visible, disabled, onPick
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
-      {/* 底部渐变压暗，让选项跳出来 */}
+      {/* 底部漸變壓暗，讓選項跳出來 */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
 
       <div className="relative p-3 pointer-events-auto">
         <div className="text-[10px] text-amber-300/90 uppercase tracking-widest mb-1.5 pl-1 text-center"
           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
-          你的回应
+          你的回應
         </div>
         <div className="space-y-1.5 max-w-md mx-auto">
           {choices.map((choice, i) => (
@@ -64,10 +64,10 @@ const MemoryDiveChoices: React.FC<Props> = ({ choices, visible, disabled, onPick
 function labelForAction(a: DiveChoice['action']): string {
   switch (a) {
     case 'comfort': return '安慰';
-    case 'question': return '追问';
-    case 'observe': return '观察';
-    case 'leave': return '离开';
-    case 'unlock': return '解锁';
+    case 'question': return '追問';
+    case 'observe': return '觀察';
+    case 'leave': return '離開';
+    case 'unlock': return '解鎖';
     default: return '';
   }
 }

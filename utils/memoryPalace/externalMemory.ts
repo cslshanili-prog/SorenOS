@@ -1,11 +1,11 @@
 /**
- * 外部记忆搬家
+ * 外部記憶搬家
  *
- * 给「神经链接 -> 传统记忆」和「记忆宫殿 -> 向量记忆」共用：
- * - 单次最多 5 万字；
- * - 按自然段分批调用 LLM，避免长输入时模型只处理开头；
- * - 只整理时间与结构，不做摘要、不删除细节；
- * - 输出可直接转成 MemoryNode，供后续 embedding / 建链。
+ * 給「神經鏈接 -> 傳統記憶」和「記憶宮殿 -> 向量記憶」共用：
+ * - 單次最多 5 萬字；
+ * - 按自然段分批調用 LLM，避免長輸入時模型只處理開頭；
+ * - 只整理時間與結構，不做摘要、不刪除細節；
+ * - 輸出可直接轉成 MemoryNode，供後續 embedding / 建鏈。
  */
 
 import type { MemoryNode, MemoryRoom } from './types';
@@ -17,12 +17,12 @@ export const EXTERNAL_MEMORY_CHUNK_CHARS = 10_000;
 export const EXTERNAL_MEMORY_MIN_CONTENT_RATIO = 0.72;
 
 export interface ExternalMemoryLengthInfo {
-    /** Unicode 字符数（emoji 等代理对按 1 个字符计算），完全在本地统计。 */
+    /** Unicode 字符數（emoji 等代理對按 1 個字符計算），完全在本地統計。 */
     count: number;
     limit: number;
     overLimit: boolean;
     overBy: number;
-    /** 超限时建议拆成几次导入；未超限为 1。 */
+    /** 超限時建議拆成幾次導入；未超限為 1。 */
     suggestedBatches: number;
 }
 
@@ -40,9 +40,9 @@ export function getExternalMemoryLengthInfo(rawText: string): ExternalMemoryLeng
 export function getExternalMemoryOverLimitMessage(rawText: string): string {
     const info = getExternalMemoryLengthInfo(rawText);
     if (!info.overLimit) return '';
-    return `当前 ${info.count.toLocaleString()} 字，超过单次上限 ${info.limit.toLocaleString()} 字。`
-        + `建议按原文顺序拆成 ${info.suggestedBatches} 批，每批不超过 5 万字，优先在日期或完整事件段落之间切开。`
-        + '当前内容不会上传，也不会调用 API。';
+    return `當前 ${info.count.toLocaleString()} 字，超過單次上限 ${info.limit.toLocaleString()} 字。`
+        + `建議按原文順序拆成 ${info.suggestedBatches} 批，每批不超過 5 萬字，優先在日期或完整事件段落之間切開。`
+        + '當前內容不會上傳，也不會調用 API。';
 }
 
 const VALID_ROOMS: MemoryRoom[] = [
@@ -67,7 +67,7 @@ export interface ExternalMemoryExtractionResult {
     batches: ExternalMemoryBatchResult[];
 }
 
-/** 保留原文顺序，优先在换行处分批；不对内容做摘要或字符截断。 */
+/** 保留原文順序，優先在換行處分批；不對內容做摘要或字符截斷。 */
 export function splitExternalMemoryText(
     rawText: string,
     chunkChars: number = EXTERNAL_MEMORY_CHUNK_CHARS,
@@ -78,14 +78,14 @@ export function splitExternalMemoryText(
     if (lengthInfo.overLimit) {
         throw new Error(getExternalMemoryOverLimitMessage(text));
     }
-    if (chunkChars < 1) throw new Error('分批长度必须大于 0');
+    if (chunkChars < 1) throw new Error('分批長度必須大於 0');
 
     const chunks: string[] = [];
     let cursor = 0;
     while (cursor < text.length) {
         let end = Math.min(cursor + chunkChars, text.length);
         if (end < text.length) {
-            // 至少走过本批 60% 后才回找自然边界，避免遇到很早的换行就切出碎片。
+            // 至少走過本批 60% 後才回找自然邊界，避免遇到很早的換行就切出碎片。
             const minNaturalBreak = cursor + Math.floor(chunkChars * 0.6);
             const newline = text.lastIndexOf('\n', end);
             if (newline >= minNaturalBreak) end = newline + 1;
@@ -98,73 +98,73 @@ export function splitExternalMemoryText(
 }
 
 export function buildExternalMemoryPrompt(charName: string, userName: string): string {
-    const userLabel = userName || '用户';
-    return `你是“外部记忆搬家整理器”。这些文字来自别的应用、设备或记忆系统，要迁入 ${charName} 的记忆。
+    const userLabel = userName || '用戶';
+    return `你是“外部記憶搬家整理器”。這些文字來自別的應用、設備或記憶系統，要遷入 ${charName} 的記憶。
 
-你必须同时完成两个硬目标，缺一不可：
-A. 输出能被程序直接解析、字段符合下方定义的完整 JSON 数组。
-B. 对原文做无损搬运：只整理时间和结构，不压缩内容；不删除、不更改、不压缩内容。
+你必須同時完成兩個硬目標，缺一不可：
+A. 輸出能被程序直接解析、字段符合下方定義的完整 JSON 數組。
+B. 對原文做無損搬運：只整理時間和結構，不壓縮內容；不刪除、不更改、不壓縮內容。
 
-1. 不得总结、概括、润色、改写、合并同类项或去重；不得用一句结论代替一段经历，也不得输出“略”“其余同上”等省略表达。
-2. 原文里的每个具体事实、人物、称呼、地点、数字、对话、动作、因果、先后顺序、情绪和细微反应都必须保留。宁可多拆几条，也不能省略。
-3. 先锁定人物身份，再做必要的视角转换；严禁把所有“我/你/他/她”机械归给同一个人。
-   - 目标记忆主人固定是“${charName}”；与其对话和相处的用户固定是“${userLabel}”。
-   - 身份判断优先级：原文明示的姓名或角色标签 > 说话人标签与上下文 > 代词。明确证据优先，不能反过来靠猜测覆盖姓名。
-   - 原文标明由 ${charName} 叙述时，叙述中的“我”可转成记忆第一人称“我”；原文标明由 ${userLabel}/用户叙述时，“我”必须写成“${userLabel}”，绝不能写成 ${charName} 的“我”。
-   - 第三方保持原姓名或原称呼，不得擅自改成 ${charName} 或 ${userLabel}。
-   - 引号内的第一人称属于原说话人，对话必须原样保留，不能把引号里的“我”替换成记忆主人。
-   - 如果片段缺少说话人、代词指向无法可靠判断，保留原称呼/代词并忠实搬运，不猜、不补人物关系。
-   例：来源标注“${userLabel}：我带了娃娃出门”时，应写“${userLabel}带了娃娃出门”，不能写“我带了娃娃出门”；来源标注“${charName}：我没敢问”时，才可写“我没敢问”。
-4. 1500 字只是单条 content 的拆分提示，不是压缩目标。原事件太长时，按自然段连续拆成多条并完整承接；禁止为了满足字数而删改、缩写或截断。
-5. date 填事件实际日期，格式 YYYY-MM-DD。原文只有月份可填 YYYY-MM；只有年份可填 YYYY；完全不确定填 null。严禁猜日期。
-6. room 先按记忆主体与用途分类，不要看到负面内容就塞进阁楼：
-   - living_room：纯日常琐事
-   - bedroom：${userLabel}和我的共同经历、亲密情感与深层羁绊（即使其中有难过或争执）
-   - study：工作、学习、技能、职业
-   - user_room：${userLabel}的个人信息、经历、家人、朋友、同事与人际事件（即使事件是负面的）
-   - self_room：我自身的成长、认同变化与个人经历
-   - attic：仅限“当前仍明确未解决，而且核心就是矛盾、持续困惑或尚在影响的伤害/创伤”的记忆
-   - windowsill：期盼、目标、未来愿望
-   房间判定以事件主体为先；悲伤、愤怒、争吵、受伤或低 valence 本身都不等于阁楼。若原文没有明确写出“仍未解决/持续困扰”，优先放入对应的 bedroom、user_room、self_room、study 或 living_room。
-7. importance 为 1-10；mood 从 happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral 中选；tags 保留具体人物/地点/事件关键词。
-8. 这一批可能是整份材料的中间片段。只处理本批实际出现的内容，不补写上下文，不写“后续未知”等占位话。
+1. 不得總結、概括、潤色、改寫、合併同類項或去重；不得用一句結論代替一段經歷，也不得輸出“略”“其餘同上”等省略表達。
+2. 原文裡的每個具體事實、人物、稱呼、地點、數字、對話、動作、因果、先後順序、情緒和細微反應都必須保留。寧可多拆幾條，也不能省略。
+3. 先鎖定人物身份，再做必要的視角轉換；嚴禁把所有“我/你/他/她”機械歸給同一個人。
+   - 目標記憶主人固定是“${charName}”；與其對話和相處的用戶固定是“${userLabel}”。
+   - 身份判斷優先級：原文明示的姓名或角色標籤 > 說話人標籤與上下文 > 代詞。明確證據優先，不能反過來靠猜測覆蓋姓名。
+   - 原文標明由 ${charName} 敘述時，敘述中的“我”可轉成記憶第一人稱“我”；原文標明由 ${userLabel}/用戶敘述時，“我”必須寫成“${userLabel}”，絕不能寫成 ${charName} 的“我”。
+   - 第三方保持原姓名或原稱呼，不得擅自改成 ${charName} 或 ${userLabel}。
+   - 引號內的第一人稱屬於原說話人，對話必須原樣保留，不能把引號裡的“我”替換成記憶主人。
+   - 如果片段缺少說話人、代詞指向無法可靠判斷，保留原稱呼/代詞並忠實搬運，不猜、不補人物關係。
+   例：來源標註“${userLabel}：我帶了娃娃出門”時，應寫“${userLabel}帶了娃娃出門”，不能寫“我帶了娃娃出門”；來源標註“${charName}：我沒敢問”時，才可寫“我沒敢問”。
+4. 1500 字只是單條 content 的拆分提示，不是壓縮目標。原事件太長時，按自然段連續拆成多條並完整承接；禁止為了滿足字數而刪改、縮寫或截斷。
+5. date 填事件實際日期，格式 YYYY-MM-DD。原文只有月份可填 YYYY-MM；只有年份可填 YYYY；完全不確定填 null。嚴禁猜日期。
+6. room 先按記憶主體與用途分類，不要看到負面內容就塞進閣樓：
+   - living_room：純日常瑣事
+   - bedroom：${userLabel}和我的共同經歷、親密情感與深層羈絆（即使其中有難過或爭執）
+   - study：工作、學習、技能、職業
+   - user_room：${userLabel}的個人信息、經歷、家人、朋友、同事與人際事件（即使事件是負面的）
+   - self_room：我自身的成長、認同變化與個人經歷
+   - attic：僅限“當前仍明確未解決，而且核心就是矛盾、持續困惑或尚在影響的傷害/創傷”的記憶
+   - windowsill：期盼、目標、未來願望
+   房間判定以事件主體為先；悲傷、憤怒、爭吵、受傷或低 valence 本身都不等於閣樓。若原文沒有明確寫出“仍未解決/持續困擾”，優先放入對應的 bedroom、user_room、self_room、study 或 living_room。
+7. importance 為 1-10；mood 從 happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral 中選；tags 保留具體人物/地點/事件關鍵詞。
+8. 這一批可能是整份材料的中間片段。只處理本批實際出現的內容，不補寫上下文，不寫“後續未知”等佔位話。
 
-输出格式同样是硬要求：
-- 只输出一个完整 JSON 数组；数组前后不得有解释、标题、markdown 代码围栏或其它字符。
-- 必须使用双引号；字符串里的双引号、反斜杠和换行必须按 JSON 规则转义。
-- 不得有注释、尾随逗号或未闭合对象；不得只返回前半批内容。
-- 每个记忆对象都必须含 date、content、room、importance、mood、valence、arousal、tags。
+輸出格式同樣是硬要求：
+- 只輸出一個完整 JSON 數組；數組前後不得有解釋、標題、markdown 代碼圍欄或其它字符。
+- 必須使用雙引號；字符串裡的雙引號、反斜槓和換行必須按 JSON 規則轉義。
+- 不得有註釋、尾隨逗號或未閉合對象；不得只返回前半批內容。
+- 每個記憶對象都必須含 date、content、room、importance、mood、valence、arousal、tags。
 
 格式：
 [
   {
     "date": "YYYY-MM-DD",
-    "content": "完整保留细节的第一人称记忆",
+    "content": "完整保留細節的第一人稱記憶",
     "room": "user_room",
     "importance": 7,
     "mood": "nostalgic",
     "valence": 0.2,
     "arousal": -0.1,
-    "tags": ["具体人物", "具体事件"]
+    "tags": ["具體人物", "具體事件"]
   }
 ]
 
-若原文没有任何有效内容，返回 []。`;
+若原文沒有任何有效內容，返回 []。`;
 }
 
-/** 搬家不能使用通用 JSON 的“截断抢救”：只接受完整、独立、可解析的 JSON 数组。 */
+/** 搬家不能使用通用 JSON 的“截斷搶救”：只接受完整、獨立、可解析的 JSON 數組。 */
 export function parseCompleteExternalMemoryReply(raw: string): any[] {
     const cleaned = raw.trim();
     if (!cleaned.startsWith('[') || !cleaned.endsWith(']')) {
-        throw new Error('模型没有返回完整 JSON 数组');
+        throw new Error('模型沒有返回完整 JSON 數組');
     }
     let parsed: unknown;
     try {
         parsed = JSON.parse(cleaned);
     } catch {
-        throw new Error('模型返回的 JSON 格式无效');
+        throw new Error('模型返回的 JSON 格式無效');
     }
-    if (!Array.isArray(parsed)) throw new Error('模型返回结果不是 JSON 数组');
+    if (!Array.isArray(parsed)) throw new Error('模型返回結果不是 JSON 數組');
     return parsed;
 }
 
@@ -173,8 +173,8 @@ function meaningfulCharCount(text: string): number {
 }
 
 /**
- * 防止“格式看似正确、内容却明显缩水”的硬兜底。
- * 语义是否被细微改写仍由提示词约束；这里拒绝可确定的大幅摘要或漏段。
+ * 防止“格式看似正確、內容卻明顯縮水”的硬兜底。
+ * 語義是否被細微改寫仍由提示詞約束；這裡拒絕可確定的大幅摘要或漏段。
  */
 export function assertExternalMemoryCoverage(source: string, nodes: MemoryNode[]): void {
     const sourceChars = meaningfulCharCount(source);
@@ -183,7 +183,7 @@ export function assertExternalMemoryCoverage(source: string, nodes: MemoryNode[]
     const ratio = outputChars / sourceChars;
     if (nodes.length === 0 || ratio < EXTERNAL_MEMORY_MIN_CONTENT_RATIO) {
         throw new Error(
-            `模型输出疑似删减或压缩内容（仅保留约 ${Math.round(ratio * 100)}%），已拒绝写入`,
+            `模型輸出疑似刪減或壓縮內容（僅保留約 ${Math.round(ratio * 100)}%），已拒絕寫入`,
         );
     }
 }
@@ -217,36 +217,36 @@ function parseExternalDate(value: unknown): number | null {
     return date.getTime();
 }
 
-/** 确认模型不只是“能解析”，而是每一项都严格符合搬家契约。 */
+/** 確認模型不只是“能解析”，而是每一項都嚴格符合搬家契約。 */
 export function assertExternalMemorySchema(parsed: any[]): void {
     parsed.forEach((item, index) => {
-        const label = `第 ${index + 1} 条`;
+        const label = `第 ${index + 1} 條`;
         if (!item || typeof item !== 'object' || Array.isArray(item)) {
-            throw new Error(`${label}不是 JSON 对象`);
+            throw new Error(`${label}不是 JSON 對象`);
         }
         if (typeof item.content !== 'string' || !item.content.trim()) {
             throw new Error(`${label}缺少有效 content`);
         }
         if (item.date !== null && (typeof item.date !== 'string' || parseExternalDate(item.date) === null)) {
-            throw new Error(`${label}的 date 格式无效`);
+            throw new Error(`${label}的 date 格式無效`);
         }
         if (!VALID_ROOMS.includes(item.room as MemoryRoom)) {
-            throw new Error(`${label}的 room 不在允许范围内`);
+            throw new Error(`${label}的 room 不在允許範圍內`);
         }
         if (typeof item.importance !== 'number' || item.importance < 1 || item.importance > 10) {
-            throw new Error(`${label}的 importance 必须是 1-10 的数字`);
+            throw new Error(`${label}的 importance 必須是 1-10 的數字`);
         }
         if (typeof item.mood !== 'string' || !VALID_MOODS.has(item.mood)) {
-            throw new Error(`${label}的 mood 不在允许范围内`);
+            throw new Error(`${label}的 mood 不在允許範圍內`);
         }
         if (typeof item.valence !== 'number' || item.valence < -1 || item.valence > 1) {
-            throw new Error(`${label}的 valence 必须是 -1 到 1 的数字`);
+            throw new Error(`${label}的 valence 必須是 -1 到 1 的數字`);
         }
         if (typeof item.arousal !== 'number' || item.arousal < -1 || item.arousal > 1) {
-            throw new Error(`${label}的 arousal 必须是 -1 到 1 的数字`);
+            throw new Error(`${label}的 arousal 必須是 -1 到 1 的數字`);
         }
         if (!Array.isArray(item.tags) || item.tags.some((tag: unknown) => typeof tag !== 'string')) {
-            throw new Error(`${label}的 tags 必须是字符串数组`);
+            throw new Error(`${label}的 tags 必須是字符串數組`);
         }
     });
 }
@@ -262,7 +262,7 @@ export function parseExternalMemoryItems(
         .map((item, index): MemoryNode => {
             const content = item.content.trim();
             const parsedDate = parseExternalDate(item.date);
-            // 无日期内容仍保持原文顺序；每条错开一分钟，列表排序稳定。
+            // 無日期內容仍保持原文順序；每條錯開一分鐘，列表排序穩定。
             const createdAt = parsedDate ?? importedAt + (orderOffset + index) * 60_000;
             const room = VALID_ROOMS.includes(item.room as MemoryRoom)
                 ? item.room as MemoryRoom
@@ -291,8 +291,8 @@ export function parseExternalMemoryItems(
 }
 
 /**
- * 清洗一份外部文本。这里仅调用对话模型并产出节点，不写数据库；
- * 调用方可选择写传统记忆，或继续走 embedding + 建链。
+ * 清洗一份外部文本。這裡僅調用對話模型併產出節點，不寫數據庫；
+ * 調用方可選擇寫傳統記憶，或繼續走 embedding + 建鏈。
  */
 export async function extractExternalMemoryText(
     rawText: string,
@@ -309,13 +309,13 @@ export async function extractExternalMemoryText(
     const importedAt = Date.now();
 
     for (let index = 0; index < chunks.length; index++) {
-        onProgress?.(`正在清洗第 ${index + 1}/${chunks.length} 批（只整理时间，不压缩内容）…`);
+        onProgress?.(`正在清洗第 ${index + 1}/${chunks.length} 批（只整理時間，不壓縮內容）…`);
         let lastError: unknown;
         let completed = false;
         for (let attempt = 0; attempt < 2 && !completed; attempt++) {
             try {
                 if (attempt > 0) {
-                    onProgress?.(`第 ${index + 1}/${chunks.length} 批格式或完整性未通过，正在无损重试…`);
+                    onProgress?.(`第 ${index + 1}/${chunks.length} 批格式或完整性未通過，正在無損重試…`);
                 }
                 const data = await safeFetchJson(
                     `${llmConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -332,8 +332,8 @@ export async function extractExternalMemoryText(
                                 {
                                     role: 'user',
                                     content: `${attempt > 0
-                                        ? '上一次输出未通过完整性校验。请重新处理整批：必须输出完整 JSON，且原文内容不得删减、改写或压缩。\n\n'
-                                        : ''}这是第 ${index + 1}/${chunks.length} 批外部记忆原文：\n\n${chunks[index]}`,
+                                        ? '上一次輸出未通過完整性校驗。請重新處理整批：必須輸出完整 JSON，且原文內容不得刪減、改寫或壓縮。\n\n'
+                                        : ''}這是第 ${index + 1}/${chunks.length} 批外部記憶原文：\n\n${chunks[index]}`,
                                 },
                             ],
                             temperature: 0.05,
@@ -343,10 +343,10 @@ export async function extractExternalMemoryText(
                     },
                     2,
                     180_000,
-                    { appName: '记忆搬家', purpose: '外部记忆清洗' },
+                    { appName: '記憶搬家', purpose: '外部記憶清洗' },
                 );
                 if (data.choices?.[0]?.finish_reason === 'length') {
-                    throw new Error('模型输出达到长度上限，内容可能被截断');
+                    throw new Error('模型輸出達到長度上限，內容可能被截斷');
                 }
                 const reply = data.choices?.[0]?.message?.content || '';
                 const parsed = parseCompleteExternalMemoryReply(reply);
@@ -368,7 +368,7 @@ export async function extractExternalMemoryText(
                 ok: false,
                 error: (lastError as any)?.message || String(lastError),
             });
-            // 搬家按整次原子处理：一批失败后不再消耗后续 API，caller 也不会写入前面批次。
+            // 搬家按整次原子處理：一批失敗後不再消耗後續 API，caller 也不會寫入前面批次。
             break;
         }
     }

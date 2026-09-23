@@ -4,7 +4,7 @@ import { formatRelativeAge } from './relativeTime';
 
 export const DEFAULT_MEMBER_TIMELINE_CAP = 40;
 
-/** 时间线单行正文的截断长度——比旧版"50 字"宽松，保住情绪细节又不至于撑爆 prompt */
+/** 時間線單行正文的截斷長度——比舊版"50 字"寬鬆，保住情緒細節又不至於撐爆 prompt */
 const LINE_MAX_CHARS = 80;
 
 const truncate = (text: string, max: number): string =>
@@ -20,26 +20,26 @@ const formatTime = (ts: number): string => {
 };
 
 export interface MemberTimelineOptions {
-    /** 该成员的私聊消息（建议 DB.getRecentMessagesByCharId(id, cap, true) 取最近 cap 条） */
+    /** 該成員的私聊消息（建議 DB.getRecentMessagesByCharId(id, cap, true) 取最近 cap 條） */
     privateMsgs: Message[];
-    /** 群聊消息（当前群，内存里已有的即可） */
+    /** 群聊消息（當前群，內存裡已有的即可） */
     groupMsgs: Message[];
-    /** 合并排序后取末 N 条 */
+    /** 合併排序後取末 N 條 */
     cap: number;
-    /** 群消息说话人解析：charId → 显示名（user 角色不经过它） */
+    /** 群消息說話人解析：charId → 顯示名（user 角色不經過它） */
     resolveSpeaker: (m: Message) => string;
-    /** 表情包 URL → 名称（占位符用） */
+    /** 表情包 URL → 名稱（佔位符用） */
     stickerName?: (url: string) => string;
 }
 
 /**
- * 构建某成员的"私聊 + 群聊合并时间线"——按时间戳升序、带来源标签。
- * 这是群聊里角色感情与私聊衔接的关键：旧版只带"最后 10 条私聊 × 截断 50 字"
- * 且与群历史隔离，角色看不到两条线的先后关系。
+ * 構建某成員的"私聊 + 群聊合併時間線"——按時間戳升序、帶來源標籤。
+ * 這是群聊裡角色感情與私聊銜接的關鍵：舊版只帶"最後 10 條私聊 × 截斷 50 字"
+ * 且與群歷史隔離，角色看不到兩條線的先後關係。
  *
- * 输出形如：
- *   [私聊][07-10 22:14] 用户: 今天好累……
- *   [私聊][07-10 22:15] 我: 那早点睡，别刷手机了
+ * 輸出形如：
+ *   [私聊][07-10 22:14] 用戶: 今天好累……
+ *   [私聊][07-10 22:15] 我: 那早點睡，別刷手機了
  *   [群聊][07-11 09:02] 小夏: 早啊！
  */
 export function buildMemberTimeline(opts: MemberTimelineOptions): string {
@@ -55,8 +55,8 @@ export function buildMemberTimeline(opts: MemberTimelineOptions): string {
         .slice(-cap)
         .map(({ m, isGroup }) => {
             const tag = isGroup ? '[群聊]' : '[私聊]';
-            // 私聊行的"我"= 该成员本人；群聊行用真名，成员才能分清谁说的
-            const speaker = m.role === 'user' ? '用户' : (isGroup ? resolveSpeaker(m) : '我');
+            // 私聊行的"我"= 該成員本人；群聊行用真名，成員才能分清誰說的
+            const speaker = m.role === 'user' ? '用戶' : (isGroup ? resolveSpeaker(m) : '我');
             const text = truncate(messageLogText(m, stickerName), LINE_MAX_CHARS);
             return `${tag}[${formatTime(m.timestamp)} · ${formatRelativeAge(m.timestamp)}] ${speaker}: ${text}`;
         })

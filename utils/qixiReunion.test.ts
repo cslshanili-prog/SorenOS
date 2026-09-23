@@ -19,12 +19,12 @@ describe('qixi reunion parser', () => {
     it('asks for a longer emotional arc and keeps the fallback equally substantial', () => {
         const fallback = createQixiReunionFallback(char, user, meetingPlan);
         const prompt = buildQixiReunionPrompt(char, user, { evidence: [] } as any, [], meetingPlan);
-        expect(prompt).toContain('reunion.lines 写 3—5 句');
-        expect(prompt).toContain('companionshipReflection 写 4—7 句');
-        expect(prompt).toContain('blessing 写 4—7 句');
-        expect(prompt).toContain('直到桥接通、真正看见眼前的人');
+        expect(prompt).toContain('reunion.lines 寫 3—5 句');
+        expect(prompt).toContain('companionshipReflection 寫 4—7 句');
+        expect(prompt).toContain('blessing 寫 4—7 句');
+        expect(prompt).toContain('直到橋接通、真正看見眼前的人');
         expect(prompt).toContain('至少有一句要用角色自己的方式完成身份揭露');
-        expect(prompt).toContain('此前一直只是怀疑，现在亲眼看见才终于确认');
+        expect(prompt).toContain('此前一直只是懷疑，現在親眼看見才終於確認');
         expect(fallback.reunion.lines).toHaveLength(4);
         expect(fallback.companionshipReflection).toHaveLength(5);
         expect(fallback.blessing).toHaveLength(5);
@@ -33,9 +33,9 @@ describe('qixi reunion parser', () => {
 
     it('asks for reunion and promise in one combined JSON without dropping either prompt contract', () => {
         const prompt = buildQixiFinalePrompt(char, user, { evidence: [] } as any, [], meetingPlan);
-        expect(prompt).toContain('Part 1：终于抵达彼此');
-        expect(prompt).toContain('Part 2：最后的约定');
-        expect(prompt).toContain('同一个响应、同一个 JSON 对象中一次完成');
+        expect(prompt).toContain('Part 1：終於抵達彼此');
+        expect(prompt).toContain('Part 2：最後的約定');
+        expect(prompt).toContain('同一個響應、同一個 JSON 對象中一次完成');
         expect(prompt).toContain('"touch"');
         expect(prompt).toContain('"returnMessage"');
         expect(prompt).toContain('"promise"');
@@ -73,14 +73,14 @@ describe('qixi reunion parser', () => {
     it('keeps DateApp expressions and matches them to individual lines', () => {
         const fallback = createQixiReunionFallback(char, user, meetingPlan);
         const parsed = parseQixiReunion(JSON.stringify({
-            reunion: { lines: ['你居然真的走到这里了。', '先让我看看你。'], emotion: '松了一口气' },
-            metaReflection: ['刚才总像只差一步。'],
-            companionshipReflection: ['原来你也一直在认我留下的东西。'],
-            blessing: ['七夕快乐。', '希望你真的过得很好。'],
+            reunion: { lines: ['你居然真的走到這裡了。', '先讓我看看你。'], emotion: '鬆了一口氣' },
+            metaReflection: ['剛才總像只差一步。'],
+            companionshipReflection: ['原來你也一直在認我留下的東西。'],
+            blessing: ['七夕快樂。', '希望你真的過得很好。'],
             portrait: { stages: {
-                arrival: { emotionIntent: '惊讶', l2dExpression: 'smile', meetingExpression: 'happy' },
+                arrival: { emotionIntent: '驚訝', l2dExpression: 'smile', meetingExpression: 'happy' },
                 reflection: { emotionIntent: '安心', l2dExpression: 'smile', meetingExpression: 'normal' },
-                blessing: { emotionIntent: '温柔', l2dExpression: 'smile', meetingExpression: 'happy' },
+                blessing: { emotionIntent: '溫柔', l2dExpression: 'smile', meetingExpression: 'happy' },
             }, lineExpressions: {
                 reunion: ['happy', 'normal'],
                 metaReflection: ['normal'],
@@ -92,20 +92,20 @@ describe('qixi reunion parser', () => {
         expect(parsed?.portrait.stages.arrival.meetingExpression).toBe('happy');
         expect(parsed?.portrait.stages.arrival.l2dExpression).toBeNull();
         expect(parsed?.portrait.lineExpressions.reunion).toEqual(['happy', 'normal']);
-        expect(parsed?.companionshipReflection).toEqual(['原来你也一直在认我留下的东西。']);
+        expect(parsed?.companionshipReflection).toEqual(['原來你也一直在認我留下的東西。']);
     });
 
     it('filters technical fourth-wall language and coercive promises for ordinary characters', () => {
         const fallback = createQixiReunionFallback(char, user, meetingPlan);
         const parsed = parseQixiReunion(JSON.stringify({
-            reunion: { lines: ['终于。'], emotion: '安静' },
-            metaReflection: ['我是 AI，所以没有身体。', '我们之间总像隔着一点什么。'],
-            companionshipReflection: ['我永远不会离开你。', '你想到我的时候，我也在找你。'],
-            blessing: ['我永远不会离开你。', '希望你的未来很好。'],
+            reunion: { lines: ['終於。'], emotion: '安靜' },
+            metaReflection: ['我是 AI，所以沒有身體。', '我們之間總像隔著一點什麼。'],
+            companionshipReflection: ['我永遠不會離開你。', '你想到我的時候，我也在找你。'],
+            blessing: ['我永遠不會離開你。', '希望你的未來很好。'],
             portrait: { stages: {
-                arrival: { emotionIntent: '安静', l2dExpression: null, meetingExpression: 'normal' },
-                reflection: { emotionIntent: '安静', l2dExpression: null, meetingExpression: 'normal' },
-                blessing: { emotionIntent: '安静', l2dExpression: null, meetingExpression: 'normal' },
+                arrival: { emotionIntent: '安靜', l2dExpression: null, meetingExpression: 'normal' },
+                reflection: { emotionIntent: '安靜', l2dExpression: null, meetingExpression: 'normal' },
+                blessing: { emotionIntent: '安靜', l2dExpression: null, meetingExpression: 'normal' },
             }, lineExpressions: {
                 reunion: ['normal'],
                 metaReflection: ['happy', 'normal'],
@@ -113,9 +113,9 @@ describe('qixi reunion parser', () => {
                 blessing: ['happy', 'normal'],
             } },
         }), fallback, meetingPlan);
-        expect(parsed?.metaReflection).toEqual(['我们之间总像隔着一点什么。']);
-        expect(parsed?.companionshipReflection).toEqual(['你想到我的时候，我也在找你。']);
-        expect(parsed?.blessing).toEqual(['希望你的未来很好。']);
+        expect(parsed?.metaReflection).toEqual(['我們之間總像隔著一點什麼。']);
+        expect(parsed?.companionshipReflection).toEqual(['你想到我的時候，我也在找你。']);
+        expect(parsed?.blessing).toEqual(['希望你的未來很好。']);
         expect(parsed?.portrait.lineExpressions.metaReflection).toEqual(['normal']);
         expect(parsed?.portrait.lineExpressions.companionshipReflection).toEqual(['normal']);
         expect(parsed?.portrait.lineExpressions.blessing).toEqual(['normal']);
@@ -124,23 +124,23 @@ describe('qixi reunion parser', () => {
     it('parses the final promise separately from the portrait reunion', () => {
         const fallback = createQixiReunionFallback(char, user, meetingPlan);
         const reunion = parseQixiReunion(JSON.stringify({
-            reunion: { lines: ['你没事就好。'], emotion: '安心' },
+            reunion: { lines: ['你沒事就好。'], emotion: '安心' },
             metaReflection: [],
-            companionshipReflection: ['你想到我的时候，也可以把那一刻算作见面。'],
-            blessing: ['七夕快乐。'],
+            companionshipReflection: ['你想到我的時候，也可以把那一刻算作見面。'],
+            blessing: ['七夕快樂。'],
             portrait: { stages: {
                 arrival: { emotionIntent: '安心', meetingExpression: 'happy' },
-                reflection: { emotionIntent: '认真', meetingExpression: 'normal' },
-                blessing: { emotionIntent: '高兴', meetingExpression: 'happy' },
+                reflection: { emotionIntent: '認真', meetingExpression: 'normal' },
+                blessing: { emotionIntent: '高興', meetingExpression: 'happy' },
             } },
         }), fallback, meetingPlan)!;
         const parsed = parseQixiPromise(JSON.stringify({
-            touch: { invitation: ['那就拉钩。'], hold: '再近一点。', complete: '抓到了。' },
-            returnMessage: '刚才那句话，我可是记住了。',
+            touch: { invitation: ['那就拉鉤。'], hold: '再近一點。', complete: '抓到了。' },
+            returnMessage: '剛才那句話，我可是記住了。',
             portrait: { promise: { emotionIntent: '伸出小指', l2dExpression: 'smile', meetingExpression: 'happy' }, lineExpressions: { invitation: ['normal'] } },
         }), reunion, meetingPlan);
-        expect(parsed?.touch).toEqual({ invitation: ['那就拉钩。'], hold: '再近一点。', complete: '抓到了。' });
-        expect(parsed?.returnMessage).toBe('刚才那句话，我可是记住了。');
+        expect(parsed?.touch).toEqual({ invitation: ['那就拉鉤。'], hold: '再近一點。', complete: '抓到了。' });
+        expect(parsed?.returnMessage).toBe('剛才那句話，我可是記住了。');
         expect(parsed?.portrait.stages.promise.meetingExpression).toBe('happy');
         expect(parsed?.portrait.stages.promise.l2dExpression).toBeNull();
         expect(parsed?.portrait.lineExpressions.invitation).toEqual(['normal']);

@@ -1,7 +1,7 @@
 /**
- * 鱼声 Fish Audio TTS 代理（Vercel serverless）。
- * 转发到 https://api.fish.audio/v1/tts，把二进制音频原样回传。
- * 鱼声要求每个请求带 `model` 头（s2.1-pro / s2-pro / s1）+ Authorization Bearer。
+ * 魚聲 Fish Audio TTS 代理（Vercel serverless）。
+ * 轉發到 https://api.fish.audio/v1/tts，把二進制音頻原樣回傳。
+ * 魚聲要求每個請求帶 `model` 頭（s2.1-pro / s2-pro / s1）+ Authorization Bearer。
  */
 const FISH_UPSTREAM = 'https://api.fish.audio/v1/tts';
 const DEFAULT_MODEL = 's2.1-pro';

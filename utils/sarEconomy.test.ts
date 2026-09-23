@@ -5,7 +5,7 @@ import { acquireCharacterModule, consumeCharacterModule, characterModuleAllowanc
 import { SAR_MODULE_CATALOG, createSARModuleShopState } from './vrWorld/sarModuleShop';
 import { sarWarehouseItems } from './vrWorld/sarWarehouse';
 import { collectSARLocalBackup, restoreSARLocalBackup } from './vrWorld/sarBackup';
-const user: M.MarketActor={id:'user',name:'我',kind:'user'}, char: M.MarketActor={id:'aran',name:'阿岚',kind:'character'};
+const user: M.MarketActor={id:'user',name:'我',kind:'user'}, char: M.MarketActor={id:'aran',name:'阿嵐',kind:'character'};
 const now=new Date(2026,8,10,12).getTime();
 const init=()=>M.ensureMarketDay(M.ensureActorAccounts(M.createFishingMarketState(42),[user,char]),now);
 const caught=(id:string,actor=user,speciesId='glass-minnow'):M.FishingCatch=>({id,ownerId:actor.id,ownerName:actor.name,speciesId,caughtAt:now,weather:'clear',weatherLabel:'晴',weatherSource:'simulated',quality:1,sizeCm:24});
@@ -14,7 +14,7 @@ describe('SAR economy boundaries',()=>{
     it('new wallets get 120 once; old money and listings survive same-day repricing',()=>{
         let state=init();expect(state.accounts).toEqual({user:120,aran:120});
         state={...state,economyVersion:undefined,accounts:{user:1000,aran:SAR_WALLET_LIMIT+100},prices:{'glass-minnow':1000}};
-        state=M.createListing(state,char,null,123,'',now,'旧商品');
+        state=M.createListing(state,char,null,123,'',now,'舊商品');
         const next=M.ensureMarketDay(M.ensureActorAccounts(state,[user,char]),now);
         expect(next.accounts).toEqual(state.accounts);expect(next.listings[0].price).toBe(123);expect(next.prices['glass-minnow']).toBeLessThanOrEqual(9);
     });
@@ -32,7 +32,7 @@ describe('SAR economy boundaries',()=>{
         for(let i=0;i<20;i++)state=M.handleCollection(M.addCatchToState(state,caught(`f${i}`)),user,`f${i}`,'sell',now);
         expect(state.accounts.user).toBe(300);expect(remainingSARBuyback(state.buybackBudgets,'user',now)).toBe(0);
         state=M.addCatchToState(state,caught('keep'));const before=JSON.stringify(state);
-        expect(()=>M.handleCollection(state,user,'keep','sell',now)).toThrow('回收额度');expect(JSON.stringify(state)).toBe(before);
+        expect(()=>M.handleCollection(state,user,'keep','sell',now)).toThrow('回收額度');expect(JSON.stringify(state)).toBe(before);
         const reloaded=M.readFishingMarketState(memory(state));expect(()=>M.handleCollection(reloaded,user,'keep','sell',now)).toThrow();
         expect(()=>M.handleCollection(state,user,'keep','sell',now-M.MARKET_DAY_MS)).toThrow();
         const tomorrow=M.handleCollection(state,user,'keep','sell',now+M.MARKET_DAY_MS);expect(tomorrow.accounts.user).toBe(309);
@@ -57,9 +57,9 @@ describe('SAR economy boundaries',()=>{
     });
     it('wallet limit blocks the entire incoming transfer, while old large balances remain spendable',()=>{
         let state=init();state.accounts.aran=SAR_WALLET_LIMIT;
-        state=M.createListing(state,char,null,10,'',now,'旧便笺');const before=JSON.stringify(state);
-        expect(()=>M.buyListing(state,state.listings[0].id,user,now)).toThrow('钱包最多');expect(JSON.stringify(state)).toBe(before);
-        state.accounts.aran=SAR_WALLET_LIMIT+10;state=M.createListing(state,user,null,20,'',now,'回应');
+        state=M.createListing(state,char,null,10,'',now,'舊便箋');const before=JSON.stringify(state);
+        expect(()=>M.buyListing(state,state.listings[0].id,user,now)).toThrow('錢包最多');expect(JSON.stringify(state)).toBe(before);
+        state.accounts.aran=SAR_WALLET_LIMIT+10;state=M.createListing(state,user,null,20,'',now,'回應');
         expect(M.buyListing(state,state.listings[1].id,char,now).accounts.aran).toBe(SAR_WALLET_LIMIT-10);
     });
     it('a storage failure cannot grant system income or erase the item',async()=>{
@@ -83,13 +83,13 @@ describe('character commerce and warehouse ownership',()=>{
         await acquireCharacterModule(char,module.id,'another-visit',storage,now);expect(M.readFishingMarketState(storage).accounts).toEqual(paid.accounts);
         await consumeCharacterModule(char.id,module.id,storage);await acquireCharacterModule(char,module.id,'purchase-1',storage,now);
         expect(M.readFishingMarketState(storage).sarCharacterModules?.aran[module.id]).toBe(0);
-        await expect(consumeCharacterModule(char.id,module.id,storage)).rejects.toThrow('没有');
+        await expect(consumeCharacterModule(char.id,module.id,storage)).rejects.toThrow('沒有');
         await expect(acquireCharacterModule({...char,id:'other'},module.id,'purchase-1',storage,now)).rejects.toThrow('不匹配');
     });
     it('parallel character purchases obey a combined 60 daily budget and leave a 30 reserve',async()=>{
         const storage=memory();const results=await Promise.allSettled(SAR_MODULE_CATALOG.slice(0,5).map((m,i)=>acquireCharacterModule(char,m.id,`buy-${i}`,storage,now)));
         const state=M.readFishingMarketState(storage);const paid=120-state.accounts.aran;expect(paid).toBeLessThanOrEqual(60);expect(paid).toBeGreaterThan(0);expect(results.some(r=>r.status==='rejected')).toBe(true);expect(state.accounts.user).toBe(120);
-        const poor=memory({...init(),accounts:{user:1000,aran:40}});await expect(acquireCharacterModule(char,SAR_MODULE_CATALOG[0].id,'poor',poor,now)).rejects.toThrow('预算');
+        const poor=memory({...init(),accounts:{user:1000,aran:40}});await expect(acquireCharacterModule(char,SAR_MODULE_CATALOG[0].id,'poor',poor,now)).rejects.toThrow('預算');
         expect(characterModuleAllowance(state,char,now+M.MARKET_DAY_MS)).toBe(Math.min(60,state.accounts.aran-30));
         expect(characterModuleAllowance(state,char,now-M.MARKET_DAY_MS)).toBe(characterModuleAllowance(state,char,now));
     });
@@ -103,7 +103,7 @@ describe('character commerce and warehouse ownership',()=>{
         state=M.addCatchToState(state,{...caught('transferred',char),origin:{kind:'fished',actorId:'user',at:now}});
         state=M.createListing(state,char,state.inventory[0],10,'',now);
         expect(sarWarehouseItems(state,'user',now).map(i=>i.id)).toEqual(['story-01']);
-        expect(sarWarehouseItems(state,char.id,now)).toMatchObject([{id:'transferred',status:'挂板中',count:1}]);
+        expect(sarWarehouseItems(state,char.id,now)).toMatchObject([{id:'transferred',status:'掛板中',count:1}]);
         expect(sarWarehouseItems(state,'empty',now)).toEqual([]);
     });
     it('backup roundtrip preserves personal wallets, buyback budgets and character modules',async()=>{

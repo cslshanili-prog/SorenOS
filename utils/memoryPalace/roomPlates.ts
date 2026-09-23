@@ -1,21 +1,21 @@
 /**
- * Memory Palace — 房间门牌（Room Plates）
+ * Memory Palace — 房間門牌（Room Plates）
  *
- * 情景→语义的固化终点。房间装原始经历（MemoryNode，走向量召回），
- * 门牌写这些经历沉淀出的常驻认知（PlateEntry，每轮直接注入 System Prompt）。
+ * 情景→語義的固化終點。房間裝原始經歷（MemoryNode，走向量召回），
+ * 門牌寫這些經歷沉澱出的常駐認知（PlateEntry，每輪直接注入 System Prompt）。
  *
- * 两个更新触发点：
- *   1. EventBox 压缩/封盒（eventBoxCompression.ts）→ updatePlateFromBoxSummary()
- *      —— 盒子的结论就是最好的蒸馏原料，封盒即沉淀
- *   2. 认知消化（digestion.ts，50轮/手动）→ consolidateAllPlates()
- *      —— 四块门牌一次全量整理，容量压力挤掉过时条目
+ * 兩個更新觸發點：
+ *   1. EventBox 壓縮/封盒（eventBoxCompression.ts）→ updatePlateFromBoxSummary()
+ *      —— 盒子的結論就是最好的蒸餾原料，封盒即沉澱
+ *   2. 認知消化（digestion.ts，50輪/手動）→ consolidateAllPlates()
+ *      —— 四塊門牌一次全量整理，容量壓力擠掉過時條目
  *
- * 合并语义（不是追加）：LLM 每次输出目标房间的**完整**新条目列表，
- * 旧条目不被重新输出即被淘汰；带 basedOn 引用的条目继承 firstLearnedAt
- * 与 sourceCount（"这条认知是什么时候得知的、被印证过几次"）。
+ * 合併語義（不是追加）：LLM 每次輸出目標房間的**完整**新條目列表，
+ * 舊條目不被重新輸出即被淘汰；帶 basedOn 引用的條目繼承 firstLearnedAt
+ * 與 sourceCount（"這條認知是什麼時候得知的、被印證過幾次"）。
  *
- * 卧室门牌「我们之间」硬规则：只写现象与质地，禁止给关系命名——
- * 定义只存在于质地的负空间里。prompt 层约束 + mergePlateEntries 兜底过滤。
+ * 臥室門牌「我們之間」硬規則：只寫現象與質地，禁止給關係命名——
+ * 定義只存在於質地的負空間裡。prompt 層約束 + mergePlateEntries 兜底過濾。
  */
 
 import type { MemoryNode, PlateRoom, RoomPlate } from './types';
@@ -33,9 +33,9 @@ import {
     parsePlateLlmReply,
 } from './roomPlateCore';
 
-// 提示词拼装、回复解析、合并语义都搬进 roomPlateCore 了——浏览器和 amsg worker
-// 共用同一份，各写一份会让同一批材料在两条路上整理出不一样的门牌。这里只留
-// 「读库 → 调用 → 落库」的编排。原有导出原样转发，调用方与单测不受影响。
+// 提示詞拼裝、回覆解析、合併語義都搬進 roomPlateCore 了——瀏覽器和 amsg worker
+// 共用同一份，各寫一份會讓同一批材料在兩條路上整理出不一樣的門牌。這裡只留
+// 「讀庫 → 調用 → 落庫」的編排。原有導出原樣轉發，調用方與單測不受影響。
 export {
     isPlateRoom,
     mergePlateEntries,
@@ -46,14 +46,14 @@ export type { PlateLLMItem, PlateMaterial } from './roomPlateCore';
 import type { PlateLLMItem, PlateMaterial } from './roomPlateCore';
 import { isPlateRoom, mergePlateEntries } from './roomPlateCore';
 
-// ─── LLM 蒸馏调用 ─────────────────────────────────────
+// ─── LLM 蒸餾調用 ─────────────────────────────────────
 
 /**
- * 一次 LLM 调用整理若干房间的门牌（浏览器侧那条路）。
- * 输入：每房间的现有条目（带标签）+ 新原料；输出：每房间完整的新条目列表。
+ * 一次 LLM 調用整理若干房間的門牌（瀏覽器側那條路）。
+ * 輸入：每房間的現有條目（帶標籤）+ 新原料；輸出：每房間完整的新條目列表。
  *
- * 请求仍走 safeFetchJson——那份带着「设置 → API 调用记录」的埋点，是浏览器侧的东西。
- * 提示词与解析共用 roomPlateCore，跟云端那条路一字不差。
+ * 請求仍走 safeFetchJson——那份帶著「設置 → API 調用記錄」的埋點，是瀏覽器側的東西。
+ * 提示詞與解析共用 roomPlateCore，跟雲端那條路一字不差。
  */
 async function callPlateLLM(
     charName: string,
@@ -90,21 +90,21 @@ async function callPlateLLM(
                 stream: false,
             }),
         },
-        2, PLATE_LLM_TIMEOUT_MS, { appName: '记忆宫殿', purpose: '门牌整理' }
+        2, PLATE_LLM_TIMEOUT_MS, { appName: '記憶宮殿', purpose: '門牌整理' }
     );
 
     return parsePlateLlmReply(data.choices?.[0]?.message?.content || '');
 }
 
 /**
- * 送达保证兜底：把消化刚提交的候选**机械并入**门牌——同文本去重、容量上限、
- * 卧室命名过滤照常，不做改写重排。没有这一步，候选会静默蒸发：消化日志记着"已提交"，
- * 门牌上却什么都没有（提交的源节点已打 digestedAt，不会再来第二次）。
- * 下轮整理 LLM 会重排这些条目。
+ * 送達保證兜底：把消化剛提交的候選**機械併入**門牌——同文本去重、容量上限、
+ * 臥室命名過濾照常，不做改寫重排。沒有這一步，候選會靜默蒸發：消化日誌記著"已提交"，
+ * 門牌上卻什麼都沒有（提交的源節點已打 digestedAt，不會再來第二次）。
+ * 下輪整理 LLM 會重排這些條目。
  *
- * 两条路都用它，但时机不同，所以 `why` 要说清是哪一种，别让日志误报：
- * 本地那条路是 LLM 整理没跑成（报错/输出解析为空）之后才兜底；
- * 上云那条路是**提交之前**先并进去保底——那时整理还没开始，什么都没失败。
+ * 兩條路都用它，但時機不同，所以 `why` 要說清是哪一種，別讓日誌誤報：
+ * 本地那條路是 LLM 整理沒跑成（報錯/輸出解析為空）之後才兜底；
+ * 上雲那條路是**提交之前**先並進去保底——那時整理還沒開始，什麼都沒失敗。
  */
 async function fallbackMergeSubmissions(
     plates: RoomPlate[],
@@ -117,33 +117,33 @@ async function fallbackMergeSubmissions(
         const lines = submissions[plate.room];
         if (!lines || lines.length === 0) continue;
         const before = plate.entries.length;
-        // 走 mutatePlate：这块门牌上还有别的路在写（云端结果落地、门牌面板的手改），
-        // 拿手上这份改完整块存回去就是把中间那次更新原地抹掉。
+        // 走 mutatePlate：這塊門牌上還有別的路在寫（雲端結果落地、門牌面板的手改），
+        // 拿手上這份改完整塊存回去就是把中間那次更新原地抹掉。
         const saved = await mutatePlate(plate.charId, plate.room, fresh => {
             const merged = mergeSubmissionsIntoEntries(fresh.room, fresh.entries, lines, now);
             return merged ? { ...fresh, entries: merged, updatedAt: now, version: fresh.version + 1 } : null;
         });
         if (!saved) continue;
-        // 手上这份也要跟着换成落库后的那份：调用方随后拿 plates 当快照交给云端 / 交给
-        // 本地 LLM，留着并入之前那份的话，这批刚保底的候选在 LLM 眼里压根不存在。
+        // 手上這份也要跟著換成落庫後的那份：調用方隨後拿 plates 當快照交給雲端 / 交給
+        // 本地 LLM，留著併入之前那份的話，這批剛保底的候選在 LLM 眼裡壓根不存在。
         plate.entries = saved.entries;
         plate.updatedAt = saved.updatedAt;
         plate.version = saved.version;
         updated.push(plate.room);
-        console.warn(`🚪 [RoomPlate] 兜底并入「${PLATE_TITLES[plate.room]}」${saved.entries.length - before} 条候选（${why}）`);
+        console.warn(`🚪 [RoomPlate] 兜底併入「${PLATE_TITLES[plate.room]}」${saved.entries.length - before} 條候選（${why}）`);
     }
     return updated;
 }
 
 /**
- * 核心流程：加载目标门牌 → LLM 整理 → 合并落库。
+ * 核心流程：加載目標門牌 → LLM 整理 → 合併落庫。
  *
- * LLM 输出里**一个条目都没提到的房间**跳过保存——区分"LLM 决定清空"
- * 和"LLM 忘了这个房间/输出被截断"，宁可保守不动，等下轮消化再整理。
- * LLM 整体失败/输出为空时，prioritySubmissions（消化刚提交的候选）走机械兜底并入。
+ * LLM 輸出裡**一個條目都沒提到的房間**跳過保存——區分"LLM 決定清空"
+ * 和"LLM 忘了這個房間/輸出被截斷"，寧可保守不動，等下輪消化再整理。
+ * LLM 整體失敗/輸出為空時，prioritySubmissions（消化剛提交的候選）走機械兜底併入。
  *
- * `preferCloud` 的那条路见 roomPlateCloud.ts：整理交给用户自己的 CF Worker 跑，
- * 页面关着也能跑完，结果晚点回来再合并落库。交不出去就原地退回本地跑。
+ * `preferCloud` 的那條路見 roomPlateCloud.ts：整理交給用戶自己的 CF Worker 跑，
+ * 頁面關著也能跑完，結果晚點回來再合併落庫。交不出去就原地退回本地跑。
  */
 async function consolidatePlates(
     charId: string,
@@ -155,11 +155,11 @@ async function consolidatePlates(
     preferCloud = false,
 ): Promise<{ updated: PlateRoom[]; cloudPending?: boolean }> {
     const rooms = materials.map(m => m.room);
-    // 快照时刻要在**读之前**取。读完门牌之后还要拼身份上下文、过一遍能不能交云端那几道门
-    // （其中一道要发请求）、把消化刚提交的候选先保底并进去，才轮到提交；这一段少则几百
-    // 毫秒、多则好几秒，期间用户在门牌面板上改的字 LLM 是看不到的。取在读之后（更别说
-    // 取在提交那一刻）就会把这段时间的编辑漏判成「LLM 见过」，一份陈旧结果回来把用户刚
-    // 敲的字原样盖回去。宁可反过来错——顶多丢掉整理结果对那一条的改写。
+    // 快照時刻要在**讀之前**取。讀完門牌之後還要拼身份上下文、過一遍能不能交雲端那幾道門
+    // （其中一道要發請求）、把消化剛提交的候選先保底並進去，才輪到提交；這一段少則幾百
+    // 毫秒、多則好幾秒，期間用戶在門牌面板上改的字 LLM 是看不到的。取在讀之後（更別說
+    // 取在提交那一刻）就會把這段時間的編輯漏判成「LLM 見過」，一份陳舊結果回來把用戶剛
+    // 敲的字原樣蓋回去。寧可反過來錯——頂多丟掉整理結果對那一條的改寫。
     const snapshotAt = Date.now();
     const plates = await Promise.all(rooms.map(r => loadOrCreatePlate(charId, r)));
 
@@ -169,14 +169,14 @@ async function consolidatePlates(
         return { updated: [] };
     }
 
-    /** 交云端失败之前，送达保证已经当场并入的房间。退回本地跑也要连它们一起报。 */
+    /** 交雲端失敗之前，送達保證已經當場併入的房間。退回本地跑也要連它們一起報。 */
     let cloudRescued: PlateRoom[] = [];
     const withRescued = (updated: PlateRoom[]) => ({ updated: [...new Set([...cloudRescued, ...updated])] });
 
     // 身份上下文：直接走 ContextBuilder.buildCoreContext(char, user, false)——
-    // 与全 App 统一的人设口径（身份/核心指令/世界观/用户画像/印象/核心记忆），不重复造轮子。
-    // includeDetailedMemories=false：不带详细日志与向量召回，整理 LLM 用不上。
-    // 尤其是回填场景，材料横跨几个月，没有人设参照时蒸馏视角会飘。
+    // 與全 App 統一的人設口徑（身份/核心指令/世界觀/用戶畫像/印象/核心記憶），不重複造輪子。
+    // includeDetailedMemories=false：不帶詳細日誌與向量召回，整理 LLM 用不上。
+    // 尤其是回填場景，材料橫跨幾個月，沒有人設參照時蒸餾視角會飄。
     let identityContext = '';
     try {
         const { DB } = await import('../db');
@@ -185,16 +185,16 @@ async function consolidatePlates(
         const profile = chars.find(c => c.id === charId);
         const up = await DB.getUserProfile();
         if (profile && up) identityContext = ContextBuilder.buildCoreContext(profile, up, false);
-    } catch { /* 拿不到就裸跑，prompt 里仍有名字与身份确认段 */ }
+    } catch { /* 拿不到就裸跑，prompt 裡仍有名字與身份確認段 */ }
 
     if (preferCloud) {
         const cloud = await tryCloudConsolidation({
             charId, charName, userName, identityContext, plates, materials, llmConfig, prioritySubmissions, snapshotAt,
         });
         if (cloud.handled) return { updated: cloud.updated, cloudPending: cloud.pending };
-        // 交不出去（没配 worker / 副 API 缺字段 / 服务端答复了不行）→ 原地退回本地跑。
-        // plates 可能已经被上面的送达保证并入过候选，本地这轮拿到的就是并入后的那份，
-        // LLM 的完整新列表照常覆盖它。
+        // 交不出去（沒配 worker / 副 API 缺字段 / 服務端答覆了不行）→ 原地退回本地跑。
+        // plates 可能已經被上面的送達保證併入過候選，本地這輪拿到的就是併入後的那份，
+        // LLM 的完整新列表照常覆蓋它。
         cloudRescued = cloud.rescued;
     }
 
@@ -202,10 +202,10 @@ async function consolidatePlates(
     try {
         items = await callPlateLLM(charName, userName, plates, materials, llmConfig, identityContext);
     } catch (e: any) {
-        console.warn(`🚪 [RoomPlate] LLM 整理调用失败: ${e?.message || e}`);
+        console.warn(`🚪 [RoomPlate] LLM 整理調用失敗: ${e?.message || e}`);
     }
     if (items.length === 0) {
-        console.warn(`🚪 [RoomPlate] LLM 未返回有效条目，门牌保持不动`);
+        console.warn(`🚪 [RoomPlate] LLM 未返回有效條目，門牌保持不動`);
         if (prioritySubmissions) {
             return withRescued(await fallbackMergeSubmissions(plates, prioritySubmissions, Date.now()));
         }
@@ -218,7 +218,7 @@ async function consolidatePlates(
     for (const plate of plates) {
         const roomItems = items.filter(i => i.room === plate.room);
         if (roomItems.length === 0) { skippedPlates.push(plate); continue; }
-        // 同上：这块门牌上还有别的路在写，落库统一走 mutatePlate 那条队。
+        // 同上：這塊門牌上還有別的路在寫，落庫統一走 mutatePlate 那條隊。
         const saved = await mutatePlate(plate.charId, plate.room, fresh => ({
             ...fresh,
             entries: mergePlateEntries(fresh.room, fresh.entries, roomItems, now),
@@ -230,10 +230,10 @@ async function consolidatePlates(
         plate.updatedAt = saved.updatedAt;
         plate.version = saved.version;
         updated.push(plate.room);
-        console.log(`🚪 [RoomPlate] 「${PLATE_TITLES[plate.room]}」v${saved.version}：${saved.entries.length} 条`);
+        console.log(`🚪 [RoomPlate] 「${PLATE_TITLES[plate.room]}」v${saved.version}：${saved.entries.length} 條`);
     }
-    // 半失败态：LLM 只给部分房间输出了条目。没被提到的房间若有本次提交的候选，
-    // 同样机械兜底并入——按房间粒度保证送达。
+    // 半失敗態：LLM 只給部分房間輸出了條目。沒被提到的房間若有本次提交的候選，
+    // 同樣機械兜底併入——按房間粒度保證送達。
     if (prioritySubmissions && skippedPlates.length > 0) {
         const rescued = await fallbackMergeSubmissions(skippedPlates, prioritySubmissions, now);
         updated.push(...rescued);
@@ -242,33 +242,33 @@ async function consolidatePlates(
 }
 
 /**
- * 交云端这一轮的三种结局。
+ * 交雲端這一輪的三種結局。
  *
- * `handled: false` 那支要把 `rescued` 一起交回去：送达保证已经真的把候选并进门牌、
- * 落库、升过版本号了。丢掉的话消化日志会说「这次一块门牌都没动」，而门牌上明明多了
- * 几条——本地那条路末尾的兜底并入是按文本去重的，那批已经在里面了，它一条也不会再报。
+ * `handled: false` 那支要把 `rescued` 一起交回去：送達保證已經真的把候選並進門牌、
+ * 落庫、升過版本號了。丟掉的話消化日誌會說「這次一塊門牌都沒動」，而門牌上明明多了
+ * 幾條——本地那條路末尾的兜底併入是按文本去重的，那批已經在裡面了，它一條也不會再報。
  */
 type CloudConsolidationOutcome =
     /**
-     * 云端接手了。`pending` = **云端正有一份整理在跑、结果会晚点落地**——这一轮刚交上去
-     * 的算，上一份还没回来所以这轮没重复交的也算。它最后决定消化日志上说哪句话，问的是
-     * 「门牌等会儿还会不会动」，不是「这一轮交没交」。两者混起来的话，第二种会被写成
-     * 「⚠️ 本次提交的候选未合并进门牌（整理未跑成或未被采纳）」——而它正在用户自己的
-     * Worker 上好好跑着，几分钟后就落地。
+     * 雲端接手了。`pending` = **雲端正有一份整理在跑、結果會晚點落地**——這一輪剛交上去
+     * 的算，上一份還沒回來所以這輪沒重複交的也算。它最後決定消化日誌上說哪句話，問的是
+     * 「門牌等會兒還會不會動」，不是「這一輪交沒交」。兩者混起來的話，第二種會被寫成
+     * 「⚠️ 本次提交的候選未合併進門牌（整理未跑成或未被採納）」——而它正在用戶自己的
+     * Worker 上好好跑著，幾分鐘後就落地。
      */
     | { handled: true; updated: PlateRoom[]; pending: boolean }
-    /** 交不出去，调用方退回本地跑。`rescued` 是送达保证当场并入的房间。 */
+    /** 交不出去，調用方退回本地跑。`rescued` 是送達保證當場併入的房間。 */
     | { handled: false; rescued: PlateRoom[] };
 
 /**
- * 试着把这一轮整理交给云端。云端接手了（交出去了 / 上一份还在跑）就返回 `handled: true`
- * ——`updated` 只有送达保证当场并入的那些，整理结果要等它回来才落地；交不出去返回
- * `handled: false`，调用方退回本地跑。
+ * 試著把這一輪整理交給雲端。雲端接手了（交出去了 / 上一份還在跑）就返回 `handled: true`
+ * ——`updated` 只有送達保證當場併入的那些，整理結果要等它回來才落地；交不出去返回
+ * `handled: false`，調用方退回本地跑。
  *
- * **送达保证要前置**：本地那条路是「LLM 挂了才机械并入候选」，而上云之后「挂没挂」
- * 要几分钟后才知道，候选的源节点却已经打了 digestedAt、不会再来第二次。所以改成
- * 先并进去保底，再把并入后的门牌当快照交上去——云端整理出的完整新列表会把这批粗糙
- * 条目改写掉，云端要是最终没回来，它们也已经在门牌上了，不会静默蒸发。
+ * **送達保證要前置**：本地那條路是「LLM 掛了才機械併入候選」，而上雲之後「掛沒掛」
+ * 要幾分鐘後才知道，候選的源節點卻已經打了 digestedAt、不會再來第二次。所以改成
+ * 先並進去保底，再把併入後的門牌當快照交上去——雲端整理出的完整新列表會把這批粗糙
+ * 條目改寫掉，雲端要是最終沒回來，它們也已經在門牌上了，不會靜默蒸發。
  */
 async function tryCloudConsolidation(args: {
     charId: string;
@@ -279,25 +279,25 @@ async function tryCloudConsolidation(args: {
     materials: PlateMaterial[];
     llmConfig: LightLLMConfig;
     prioritySubmissions?: Partial<Record<PlateRoom, string[]>>;
-    /** `plates` 是什么时候读的（epoch 毫秒），原样传给提交侧记进在飞记号。 */
+    /** `plates` 是什麼時候讀的（epoch 毫秒），原樣傳給提交側記進在飛記號。 */
     snapshotAt: number;
 }): Promise<CloudConsolidationOutcome> {
-    // 动态 import：没开主动消息 2.0 的用户不该为这条路付首屏包体。
-    // 只引这一个模块——「能不能交」那几道门也收在它里面（plateCloudGate），
-    // 判定入口分散到两处的话，改一处漏一处就是「点了灯却走本地」那种查不出来的静默分流。
+    // 動態 import：沒開主動消息 2.0 的用戶不該為這條路付首屏包體。
+    // 只引這一個模塊——「能不能交」那幾道門也收在它裡面（plateCloudGate），
+    // 判定入口分散到兩處的話，改一處漏一處就是「點了燈卻走本地」那種查不出來的靜默分流。
     const { plateCloudGate, readPlateJobInFlight, submitPlateConsolidation } = await import('./roomPlateCloud');
 
     const gate = await plateCloudGate({ charId: args.charId, lightLLM: args.llmConfig });
     if (gate === 'local') return { handled: false, rescued: [] };
 
     const rescued = args.prioritySubmissions
-        ? await fallbackMergeSubmissions(args.plates, args.prioritySubmissions, Date.now(), '先保底再交云端整理')
+        ? await fallbackMergeSubmissions(args.plates, args.prioritySubmissions, Date.now(), '先保底再交雲端整理')
         : [];
 
-    // 上一份整理还在云端跑：这轮只做送达保证，整理本身不重复交也不退回本地——本地再全量
-    // 跑一遍会白烧一次 API，跑出来的结果还会和在飞那份互相覆盖。
-    // `pending: true` —— 云端确实有一份在跑，门牌等会儿就会动。报 false 的话，候选恰好
-    // 都已经在门牌上（送达保证按文本去重、一条都没并进去）的那次消化，日志上会写成
+    // 上一份整理還在雲端跑：這輪只做送達保證，整理本身不重複交也不退回本地——本地再全量
+    // 跑一遍會白燒一次 API，跑出來的結果還會和在飛那份互相覆蓋。
+    // `pending: true` —— 雲端確實有一份在跑，門牌等會兒就會動。報 false 的話，候選恰好
+    // 都已經在門牌上（送達保證按文本去重、一條都沒並進去）的那次消化，日誌上會寫成
     // 「整理未跑成」。
     if (gate === 'skip') return { handled: true, updated: rescued, pending: true };
 
@@ -314,23 +314,23 @@ async function tryCloudConsolidation(args: {
         });
         return { handled: true, updated: rescued, pending: true };
     } catch (e: any) {
-        // 在飞记号还在 = 请求发出去了却没等到答复，任务可能已经在云端建起来了（提交那侧
-        // 只在「服务端答复了不行」时才收记号）。这时候退回本地全量跑一遍，就是拿同一份
-        // 快照烧两次 API，两份结果还先后落地互相盖。宁可这轮不整理，等它回来。
+        // 在飛記號還在 = 請求發出去了卻沒等到答覆，任務可能已經在雲端建起來了（提交那側
+        // 只在「服務端答覆了不行」時才收記號）。這時候退回本地全量跑一遍，就是拿同一份
+        // 快照燒兩次 API，兩份結果還先後落地互相蓋。寧可這輪不整理，等它回來。
         if (readPlateJobInFlight(args.charId)) {
-            console.warn(`🚪 [RoomPlate] 交云端整理没等到答复，任务可能已经建起来了，这轮不退回本地: ${e?.message || e}`);
+            console.warn(`🚪 [RoomPlate] 交雲端整理沒等到答覆，任務可能已經建起來了，這輪不退回本地: ${e?.message || e}`);
             return { handled: true, updated: rescued, pending: true };
         }
-        console.warn(`🚪 [RoomPlate] 交云端整理失败，退回本地跑: ${e?.message || e}`);
+        console.warn(`🚪 [RoomPlate] 交雲端整理失敗，退回本地跑: ${e?.message || e}`);
         return { handled: false, rescued };
     }
 }
 
-// ─── 触发点 1：EventBox 压缩/封盒 → 增量合并 ─────────
+// ─── 觸發點 1：EventBox 壓縮/封盒 → 增量合併 ─────────
 
 /**
- * 盒子压缩完成后，把这次整合的结论合并进该房间的门牌。
- * 由 eventBoxCompression 调用；失败只 warn，不影响压缩结果。
+ * 盒子壓縮完成後，把這次整合的結論合併進該房間的門牌。
+ * 由 eventBoxCompression 調用；失敗只 warn，不影響壓縮結果。
  */
 export async function updatePlateFromBoxSummary(
     charId: string,
@@ -343,26 +343,26 @@ export async function updatePlateFromBoxSummary(
     if (!isPlateRoom(room)) return;
     if (!summaryContent?.trim()) return;
     await consolidatePlates(
-        charId, charName, userName || '用户',
+        charId, charName, userName || '用戶',
         [{ room, lines: [summaryContent.trim()] }],
         llmConfig,
     );
 }
 
-// ─── 触发点 2：认知消化 → 四块门牌全量整理 ───────────
+// ─── 觸發點 2：認知消化 → 四塊門牌全量整理 ───────────
 
-/** 每房间送入 LLM 的原料上限与单条截断长度 */
+/** 每房間送入 LLM 的原料上限與單條截斷長度 */
 const MATERIAL_NODES_PER_ROOM = 15;
 const MATERIAL_LINE_MAX_CHARS = 160;
-/** sinceTs 窗口之前的老节点最多留几条高分锚点（防止每轮重复喂同一批高分老货） */
+/** sinceTs 窗口之前的老節點最多留幾條高分錨點（防止每輪重複喂同一批高分老貨） */
 const MATERIAL_ANCHOR_CAP = 5;
 
 /**
- * 从房间里挑蒸馏原料，优先级：
- *   1. 盒子 summary（已是整合过的结论）
- *   2. sinceTs 之后的新节点（按时近降序）——"这段时间的新经历"
- *   3. sinceTs 之前的老节点按 importance 取最多 MATERIAL_ANCHOR_CAP 条锚点
- * 排除 archived（已被压进 summary）。sinceTs=0 时全部算新节点（老行为兼容）。
+ * 從房間裡挑蒸餾原料，優先級：
+ *   1. 盒子 summary（已是整合過的結論）
+ *   2. sinceTs 之後的新節點（按時近降序）——"這段時間的新經歷"
+ *   3. sinceTs 之前的老節點按 importance 取最多 MATERIAL_ANCHOR_CAP 條錨點
+ * 排除 archived（已被壓進 summary）。sinceTs=0 時全部算新節點（老行為兼容）。
  */
 export function pickMaterialLines(nodes: MemoryNode[], room: PlateRoom, sinceTs: number = 0): string[] {
     const candidates = nodes.filter(n => n.room === room && !n.archived);
@@ -382,14 +382,14 @@ export function pickMaterialLines(nodes: MemoryNode[], room: PlateRoom, sinceTs:
 }
 
 /**
- * 全量整理四块门牌。由 runCognitiveDigestion 在消化尾声调用，
- * 也可从 UI 手动触发。一次 LLM 调用覆盖全部房间。
+ * 全量整理四塊門牌。由 runCognitiveDigestion 在消化尾聲調用，
+ * 也可從 UI 手動觸發。一次 LLM 調用覆蓋全部房間。
  *
- * @param extraMaterial 消化状态机之外提交的蒸馏候选（synthesize_user /
- *   internalize / self_insight / distill 的产出）。放在原料最前——它们是
- *   本次消化刚提炼的概括，优先级高于旧节点，且不占节点配额。
- * @param sinceTs 上次消化时间戳：节点原料以该时间之后的新增优先，
- *   老节点只留少量高分锚点（避免每轮重复喂同一批高分老货）。
+ * @param extraMaterial 消化狀態機之外提交的蒸餾候選（synthesize_user /
+ *   internalize / self_insight / distill 的產出）。放在原料最前——它們是
+ *   本次消化剛提煉的概括，優先級高於舊節點，且不佔節點配額。
+ * @param sinceTs 上次消化時間戳：節點原料以該時間之後的新增優先，
+ *   老節點只留少量高分錨點（避免每輪重複喂同一批高分老貨）。
  */
 export async function consolidateAllPlates(
     charId: string,
@@ -404,33 +404,33 @@ export async function consolidateAllPlates(
         const extra = (extraMaterial?.[room] || [])
             .map(l => l.replace(/\s+/g, ' ').trim())
             .filter(Boolean)
-            .map(l => l.slice(0, MATERIAL_LINE_MAX_CHARS * 2)); // 领悟全文可到 200 字，放宽截断
+            .map(l => l.slice(0, MATERIAL_LINE_MAX_CHARS * 2)); // 領悟全文可到 200 字，放寬截斷
         return {
             room,
             lines: [...extra, ...pickMaterialLines(allNodes, room, sinceTs)],
         };
     });
-    // extraMaterial 同时作为 prioritySubmissions 传入：LLM 整理失败时机械兜底并入，不许蒸发。
+    // extraMaterial 同時作為 prioritySubmissions 傳入：LLM 整理失敗時機械兜底併入，不許蒸發。
     //
-    // 这个触发点走云端（配了主动消息 2.0 的话）：消化跑在一轮对话刚结束的时候，用户
-    // 大概率正准备切走，而四块门牌全量整理是这条链上最慢的一次调用。同一个角色同时只许
-    // 一份整理在飞（见 roomPlateCloud 的在飞记号），两份结果先后落地就是拿两份旧快照
-    // 互相盖。另外两个触发点留在本地——盒子压缩那个一轮里可能跑好几次、后一次要看到前
-    // 一次的结果；手动回填有进度条，批次之间也是串行依赖的。
-    return consolidatePlates(charId, charName, userName || '用户', materials, llmConfig, extraMaterial, true);
+    // 這個觸發點走雲端（配了主動消息 2.0 的話）：消化跑在一輪對話剛結束的時候，用戶
+    // 大概率正準備切走，而四塊門牌全量整理是這條鏈上最慢的一次調用。同一個角色同時只許
+    // 一份整理在飛（見 roomPlateCloud 的在飛記號），兩份結果先後落地就是拿兩份舊快照
+    // 互相蓋。另外兩個觸發點留在本地——盒子壓縮那個一輪裡可能跑好幾次、後一次要看到前
+    // 一次的結果；手動回填有進度條，批次之間也是串行依賴的。
+    return consolidatePlates(charId, charName, userName || '用戶', materials, llmConfig, extraMaterial, true);
 }
 
-// ─── 历史回填（Bootstrap — 老用户的门牌不能从零开始） ──
+// ─── 歷史回填（Bootstrap — 老用戶的門牌不能從零開始） ──
 
-/** 回填每批每房间的行数 & 单角色回填的行数上限（超出取最新的，旧尾丢弃并 log） */
+/** 回填每批每房間的行數 & 單角色回填的行數上限（超出取最新的，舊尾丟棄並 log） */
 const BOOTSTRAP_LINES_PER_BATCH = 12;
 export const BOOTSTRAP_MAX_LINES_PER_ROOM = 240;
 
 /**
- * 收集某房间的全部历史原料，**时间正序**（旧→新）：
- * 分批喂给整理 LLM 时，后面的批次带着更新的事实，合并语义自然完成 supersede——
- * 和知识真实积累的顺序一致。盒子 summary 按自身 createdAt 参与排序。
- * 超过上限时丢最旧的（保留最新 N 条），返回丢弃数供 log。
+ * 收集某房間的全部歷史原料，**時間正序**（舊→新）：
+ * 分批餵給整理 LLM 時，後面的批次帶著更新的事實，合併語義自然完成 supersede——
+ * 和知識真實積累的順序一致。盒子 summary 按自身 createdAt 參與排序。
+ * 超過上限時丟最舊的（保留最新 N 條），返回丟棄數供 log。
  */
 export function collectBootstrapNodes(
     nodes: MemoryNode[],
@@ -457,14 +457,14 @@ export function collectBootstrapLines(
 }
 
 /**
- * 从历史记忆回填门牌：把四个门牌房间的全部积压分批过整理 LLM。
+ * 從歷史記憶回填門牌：把四個門牌房間的全部積壓分批過整理 LLM。
  *
- * 触发方式：
- *   - 自动：消化尾声发现"门牌全空但历史可观"时跑一次（批数受 maxBatches 限制，
- *     控制后台成本；没扫完的部分等手动触发补完）
- *   - 手动：记忆宫殿 App「从历史记忆重建门牌」按钮（全量批次 + 进度回调）
+ * 觸發方式：
+ *   - 自動：消化尾聲發現"門牌全空但歷史可觀"時跑一次（批數受 maxBatches 限制，
+ *     控制後台成本；沒掃完的部分等手動觸發補完）
+ *   - 手動：記憶宮殿 App「從歷史記憶重建門牌」按鈕（全量批次 + 進度回調）
  *
- * 幂等性：合并语义天然幂等——重复回填同样的历史，条目被去重/合并而非翻倍。
+ * 冪等性：合併語義天然冪等——重複回填同樣的歷史，條目被去重/合併而非翻倍。
  */
 export async function bootstrapPlatesFromHistory(
     charId: string,
@@ -473,11 +473,11 @@ export async function bootstrapPlatesFromHistory(
     llmConfig: LightLLMConfig,
     options: {
         maxBatches?: number;
-        /** 历史总行数低于此值直接跳过（常规整理足以覆盖小历史，不值得跑回填） */
+        /** 歷史總行數低於此值直接跳過（常規整理足以覆蓋小歷史，不值得跑回填） */
         minLines?: number;
-        /** 断点续传：从第几批开始（0 起）。历史近似 append-only + 稳定排序，批次边界跨次稳定 */
+        /** 斷點續傳：從第幾批開始（0 起）。歷史近似 append-only + 穩定排序，批次邊界跨次穩定 */
         startBatch?: number;
-        /** 进度回调：done/total 都是全量口径（绝对批次序号 / 总批数） */
+        /** 進度回調：done/total 都是全量口徑（絕對批次序號 / 總批數） */
         onProgress?: (done: number, total: number) => void;
     } = {},
 ): Promise<{ updated: PlateRoom[]; batches: number; totalLines: number; neededBatches: number; nextBatch: number; complete: boolean }> {
@@ -487,7 +487,7 @@ export async function bootstrapPlatesFromHistory(
     for (const room of PLATE_ROOMS) {
         const { nodes: kept, dropped } = collectBootstrapNodes(allNodes, room);
         if (dropped > 0) {
-            console.warn(`🚪 [Bootstrap] 「${PLATE_TITLES[room]}」历史超上限，丢弃最旧 ${dropped} 条（保留最新 ${BOOTSTRAP_MAX_LINES_PER_ROOM}）`);
+            console.warn(`🚪 [Bootstrap] 「${PLATE_TITLES[room]}」歷史超上限，丟棄最舊 ${dropped} 條（保留最新 ${BOOTSTRAP_MAX_LINES_PER_ROOM}）`);
         }
         byRoom.set(room, kept);
         totalLines += kept.length;
@@ -502,7 +502,7 @@ export async function bootstrapPlatesFromHistory(
     const startBatch = Math.max(0, Math.min(options.startBatch ?? 0, neededBatches));
     const endBatch = Math.min(neededBatches, startBatch + (options.maxBatches ?? neededBatches));
     if (startBatch > 0 || endBatch < neededBatches) {
-        console.log(`🚪 [Bootstrap] 本次跑第 ${startBatch + 1}~${endBatch} 批（共 ${neededBatches} 批）——没跑完的部分下次续传`);
+        console.log(`🚪 [Bootstrap] 本次跑第 ${startBatch + 1}~${endBatch} 批（共 ${neededBatches} 批）——沒跑完的部分下次續傳`);
     }
 
     const fmtLine = (n: MemoryNode) => n.content.replace(/\s+/g, ' ').trim().slice(0, MATERIAL_LINE_MAX_CHARS);
@@ -517,33 +517,33 @@ export async function bootstrapPlatesFromHistory(
             room,
             lines: byRoom.get(room)!.slice(i * BOOTSTRAP_LINES_PER_BATCH, (i + 1) * BOOTSTRAP_LINES_PER_BATCH).map(fmtLine),
         }));
-        // 进度在批次**开始**时上报：慢批次跑着的时候用户看到的是"正在第 N 批"，
-        // 而不是上一批的旧数字挂着像死机（LLM 调用已有 120s/次硬超时兜底）
+        // 進度在批次**開始**時上報：慢批次跑著的時候用戶看到的是"正在第 N 批"，
+        // 而不是上一批的舊數字掛著像死機（LLM 調用已有 120s/次硬超時兜底）
         options.onProgress?.(i + 1, neededBatches);
         try {
-            const { updated } = await consolidatePlates(charId, charName, userName || '用户', materials, llmConfig);
+            const { updated } = await consolidatePlates(charId, charName, userName || '用戶', materials, llmConfig);
             updated.forEach(r => updatedSet.add(r));
         } catch (e: any) {
-            console.warn(`🚪 [Bootstrap] 第 ${i + 1}/${neededBatches} 批整理失败（继续下一批）: ${e?.message || e}`);
+            console.warn(`🚪 [Bootstrap] 第 ${i + 1}/${neededBatches} 批整理失敗（繼續下一批）: ${e?.message || e}`);
         }
-        // 判过"该不该上门牌"的历史节点打标退场：不再进后续消化的送审候选，
-        // 也和续传指针语义一致（该批不会再被扫）。与批次成败无关——resume 同样跳过失败批。
+        // 判過"該不該上門牌"的歷史節點打標退場：不再進後續消化的送審候選，
+        // 也和續傳指針語義一致（該批不會再被掃）。與批次成敗無關——resume 同樣跳過失敗批。
         const seenAt = Date.now();
         for (const n of batchNodes) {
             if (!n.digestedAt) {
                 n.digestedAt = seenAt;
-                try { await MemoryNodeDB.save(n); } catch { /* 单条失败无害，最多下轮多看一眼 */ }
+                try { await MemoryNodeDB.save(n); } catch { /* 單條失敗無害，最多下輪多看一眼 */ }
             }
         }
         ran++;
         nextBatch = i + 1;
     }
     const complete = nextBatch >= neededBatches;
-    console.log(`🚪 [Bootstrap] 本次 ${ran} 批 / 进度 ${nextBatch}/${neededBatches}${complete ? '（已还清）' : ''} → 更新 ${[...updatedSet].length} 块门牌`);
+    console.log(`🚪 [Bootstrap] 本次 ${ran} 批 / 進度 ${nextBatch}/${neededBatches}${complete ? '（已還清）' : ''} → 更新 ${[...updatedSet].length} 塊門牌`);
     return { updated: [...updatedSet], batches: ran, totalLines, neededBatches, nextBatch, complete };
 }
 
-// 回填进度（断点续传）：跑一半关页面/自动限批没跑完时，从这里接着还
+// 回填進度（斷點續傳）：跑一半關頁面/自動限批沒跑完時，從這裡接著還
 const BOOTSTRAP_PROGRESS_KEY = (charId: string) => `mp_plateBootstrapBatch_${charId}`;
 export function getBootstrapResume(charId: string): number {
     try {
@@ -558,14 +558,14 @@ export function clearBootstrapResume(charId: string): void {
     try { localStorage.removeItem(BOOTSTRAP_PROGRESS_KEY(charId)); } catch {}
 }
 
-/** 门牌是否全空（自动回填的触发判据之一） */
+/** 門牌是否全空（自動回填的觸發判據之一） */
 export async function arePlatesEmpty(charId: string): Promise<boolean> {
     const plates = await RoomPlateDB.getByCharId(charId);
     return plates.every(p => p.entries.length === 0);
 }
 
-// 回填完成标记：防"LLM 判定无可立牌"时每次消化都重扫历史的成本循环。
-// 自动路径查/设；手动全量回填完成后也设（并可无视它强制重跑）。
+// 回填完成標記：防"LLM 判定無可立牌"時每次消化都重掃歷史的成本循環。
+// 自動路徑查/設；手動全量回填完成後也設（並可無視它強制重跑）。
 const BOOTSTRAP_FLAG_KEY = (charId: string) => `mp_plateBootstrapped_${charId}`;
 export function isPlateBootstrapDone(charId: string): boolean {
     try { return !!localStorage.getItem(BOOTSTRAP_FLAG_KEY(charId)); } catch { return false; }
@@ -574,24 +574,24 @@ export function markPlateBootstrapDone(charId: string): void {
     try { localStorage.setItem(BOOTSTRAP_FLAG_KEY(charId), String(Date.now())); } catch {}
 }
 
-// ─── 注入：格式化为常驻 System Prompt 段落 ───────────
+// ─── 注入：格式化為常駐 System Prompt 段落 ───────────
 
 /**
- * 门牌 → Markdown 段落。空门牌跳过；全空返回 ''。
+ * 門牌 → Markdown 段落。空門牌跳過；全空返回 ''。
  *
- * 注入框架是设计核心：这些是 constraint（认知底色，防说错话），
- * 不是 topic（不要老念叨）——对应人脑"背景知识常在但低激活"的状态。
+ * 注入框架是設計核心：這些是 constraint（認知底色，防說錯話），
+ * 不是 topic（不要老唸叨）——對應人腦"背景知識常在但低激活"的狀態。
  */
 export function formatRoomPlatesSection(plates: RoomPlate[], userName?: string): string {
-    const userLabel = userName || '用户';
+    const userLabel = userName || '用戶';
     const byRoom = new Map(plates.map(p => [p.room, p]));
     const sections: string[] = [];
 
     for (const room of PLATE_ROOMS) {
         const plate = byRoom.get(room);
         if (!plate || plate.entries.length === 0) continue;
-        const title = room === 'user_room' ? `关于${userLabel}` : PLATE_TITLES[room];
-        const suffix = room === 'bedroom' ? '（没有名字，也不需要名字——只有质地）' : '';
+        const title = room === 'user_room' ? `關於${userLabel}` : PLATE_TITLES[room];
+        const suffix = room === 'bedroom' ? '（沒有名字，也不需要名字——只有質地）' : '';
         sections.push(
             `**${title}**${suffix}\n` +
             plate.entries.map(e => `- ${e.text}`).join('\n')
@@ -600,20 +600,20 @@ export function formatRoomPlatesSection(plates: RoomPlate[], userName?: string):
 
     if (sections.length === 0) return '';
 
-    return `### 底色认知 (Resident Knowledge)
-以下是你早已知道的背景。它们是你认知的底色，不是话题——不要主动提起，也不要逐条复述，只在相关时让它们自然影响你的反应、措辞与温度。
+    return `### 底色認知 (Resident Knowledge)
+以下是你早已知道的背景。它們是你認知的底色，不是話題——不要主動提起，也不要逐條複述，只在相關時讓它們自然影響你的反應、措辭與溫度。
 
 ${sections.join('\n\n')}
 `;
 }
 
-/** 加载某角色的全部门牌并格式化（纯 IDB 读，不调 LLM，供 pipeline 每轮注入用） */
+/** 加載某角色的全部門牌並格式化（純 IDB 讀，不調 LLM，供 pipeline 每輪注入用） */
 export async function buildRoomPlatesInjection(charId: string, userName?: string): Promise<string> {
     try {
         const plates = await RoomPlateDB.getByCharId(charId);
         return formatRoomPlatesSection(plates, userName);
     } catch (e: any) {
-        console.warn(`🚪 [RoomPlate] 加载门牌失败: ${e?.message || e}`);
+        console.warn(`🚪 [RoomPlate] 加載門牌失敗: ${e?.message || e}`);
         return '';
     }
 }

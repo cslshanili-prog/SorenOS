@@ -8,10 +8,10 @@ const DATE_LAUNCH_EVENT = 'sullyos:date-launch';
 let pending: DateLaunchIntent | null = null;
 
 /**
- * 「见面」App 的轻量直达意图。
+ * 「見面」App 的輕量直達意圖。
  *
- * pending 负责 App 尚未挂载时的首帧直达；自定义事件负责 DateApp 已经打开时的即时切换。
- * 两条路径共用一个意图，DateApp 应用后 consume，避免影响下一次普通打开。
+ * pending 負責 App 尚未掛載時的首幀直達；自定義事件負責 DateApp 已經打開時的即時切換。
+ * 兩條路徑共用一個意圖，DateApp 應用後 consume，避免影響下一次普通打開。
  */
 export const dateLaunch = {
     request(intent: DateLaunchIntent): void {

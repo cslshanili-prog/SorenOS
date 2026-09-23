@@ -24,32 +24,32 @@
 </head>
 <body>
   <h1>VAPID Keys 本地生成器</h1>
-  <p>纯浏览器端生成 VAPID 密钥对（基于 Web Crypto），不上传任何服务器。生成后填到 CF Worker 后台和前端代码常量里。</p>
+  <p>純瀏覽器端生成 VAPID 密鑰對（基於 Web Crypto），不上傳任何服務器。生成後填到 CF Worker 後台和前端代碼常量裡。</p>
 
   <div class="hint">
-    <b>这两个值分别怎么用：</b><br>
-    • <b>Public Key</b>：同时填到 Worker 后台的 <code>VAPID_PUBLIC_KEY</code> 变量，和前端源码 <code>utils/proactivePushConfig.ts</code> 的 <code>VAPID_PUBLIC_KEY</code> 常量。<br>
-    • <b>Private Key</b>：只填到 Worker 后台的 <code>VAPID_PRIVATE_KEY</code> secret，<b>不要</b>放进前端代码。
+    <b>這兩個值分別怎麼用：</b><br>
+    • <b>Public Key</b>：同時填到 Worker 後台的 <code>VAPID_PUBLIC_KEY</code> 變量，和前端源碼 <code>utils/proactivePushConfig.ts</code> 的 <code>VAPID_PUBLIC_KEY</code> 常量。<br>
+    • <b>Private Key</b>：只填到 Worker 後台的 <code>VAPID_PRIVATE_KEY</code> secret，<b>不要</b>放進前端代碼。
   </div>
 
-  <button id="gen">生成一对新密钥</button>
+  <button id="gen">生成一對新密鑰</button>
 
   <div id="out" style="display:none">
     <div class="key-row">
-      <label>Public Key（公钥，可公开）</label>
+      <label>Public Key（公鑰，可公開）</label>
       <div class="key-box">
         <textarea id="pub" readonly></textarea>
-        <button class="copy-btn" data-target="pub">复制</button>
+        <button class="copy-btn" data-target="pub">複製</button>
       </div>
     </div>
     <div class="key-row">
-      <label>Private Key（私钥，只给 Worker 后台）</label>
+      <label>Private Key（私鑰，只給 Worker 後台）</label>
       <div class="key-box">
         <textarea id="priv" readonly></textarea>
-        <button class="copy-btn" data-target="priv">复制</button>
+        <button class="copy-btn" data-target="priv">複製</button>
       </div>
     </div>
-    <p class="warn">⚠️ 关闭页面这对密钥就没了，请务必先复制出来。同一对密钥可以长期复用，除非你怀疑泄漏再重新生成。</p>
+    <p class="warn">⚠️ 關閉頁面這對密鑰就沒了，請務必先複製出來。同一對密鑰可以長期複用，除非你懷疑洩漏再重新生成。</p>
   </div>
 
   <script>
@@ -83,7 +83,7 @@
   }
 
   document.getElementById('gen').addEventListener('click', () => {
-    generate().catch(err => alert('生成失败：' + err.message));
+    generate().catch(err => alert('生成失敗：' + err.message));
   });
 
   document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -92,7 +92,7 @@
       target.select();
       document.execCommand('copy');
       const orig = btn.textContent;
-      btn.textContent = '已复制 ✓';
+      btn.textContent = '已複製 ✓';
       btn.style.background = '#bbf7d0';
       btn.style.color = '#166534';
       setTimeout(() => {

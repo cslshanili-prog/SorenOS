@@ -1,50 +1,50 @@
-// blobref 令牌合并——「同一张图在库里存了好几份」的收尾那一半。
+// blobref 令牌合併——「同一張圖在庫裡存了好幾份」的收尾那一半。
 //
-// 重复是这么长出来的：同一张图有好几条互不相识的迁移入口（壁纸加载器的惰性迁移、
-// 「优化资源存储」的批量转换、外观预设导入……），各 put 各的，于是令牌不同、内容
-// 逐字节相同。SDK 负责「找出哪些令牌装的是同一份内容」，本文件负责宿主特有的另一半：
-// 把重复令牌在**全部引用面**上改写成组内保留的那个（canonical）。
+// 重複是這麼長出來的：同一張圖有好幾條互不相識的遷移入口（壁紙加載器的惰性遷移、
+// 「優化資源存儲」的批量轉換、外觀預設導入……），各 put 各的，於是令牌不同、內容
+// 逐字節相同。SDK 負責「找出哪些令牌裝的是同一份內容」，本文件負責宿主特有的另一半：
+// 把重複令牌在**全部引用面**上改寫成組內保留的那個（canonical）。
 //
-// 改完不删 Blob。失去引用的那几份自然变成孤儿，交给已有的孤儿 GC（utils/blobGc.ts）收——
-// 删除不可逆，走那条已经带着安全阀（新鲜豁免、整轮放弃）的老路，比在这里现删稳当。
+// 改完不刪 Blob。失去引用的那幾份自然變成孤兒，交給已有的孤兒 GC（utils/blobGc.ts）收——
+// 刪除不可逆，走那條已經帶著安全閥（新鮮豁免、整輪放棄）的老路，比在這裡現刪穩當。
 //
-// ─── 引用面与 GC 同源 ───
-// 面的清单直接复用 blobGc 的 REF_SOURCE_STORES + localStorage 全量，两边永远一致：
-// GC 能 mark 到的地方，这里就能改写到（blobDedupe.test.ts 有守卫钉这条）。
-// 万一漏了某个面，那个面会继续指着旧令牌 —— 旧 Blob 因此仍被引用、GC 也不会删它，
-// 方向是安全的（少省一点空间，不会破图）。
+// ─── 引用面與 GC 同源 ───
+// 面的清單直接複用 blobGc 的 REF_SOURCE_STORES + localStorage 全量，兩邊永遠一致：
+// GC 能 mark 到的地方，這裡就能改寫到（blobDedupe.test.ts 有守衛釘這條）。
+// 萬一漏了某個面，那個面會繼續指著舊令牌 —— 舊 Blob 因此仍被引用、GC 也不會刪它，
+// 方向是安全的（少省一點空間，不會破圖）。
 //
-// ─── 有一批令牌不参与合并 ───
-// 合并会让两个原本各存一份的字段共享同一个 Blob。多数面无所谓（它们要么不删、要么删
-// 之前先查引用），但有几个字段的删除是裸删（deleteBlobRef）：它们的图来自用户当场选的
-// 文件，一份令牌只归自己，所以换图 / 移除时直接把旧 Blob 删掉。一旦合并让它和别处共享，
-// 那一删就把别人的图也删了。collectUnmergeableRefs 把这些令牌捞出来，整组跳过。
+// ─── 有一批令牌不參與合併 ───
+// 合併會讓兩個原本各存一份的字段共享同一個 Blob。多數面無所謂（它們要麼不刪、要麼刪
+// 之前先查引用），但有幾個字段的刪除是裸刪（deleteBlobRef）：它們的圖來自用戶當場選的
+// 文件，一份令牌只歸自己，所以換圖 / 移除時直接把舊 Blob 刪掉。一旦合併讓它和別處共享，
+// 那一刪就把別人的圖也刪了。collectUnmergeableRefs 把這些令牌撈出來，整組跳過。
 //
-// ─── 为什么不 JSON.stringify 整行再字符串替换 ───
-// 那样写回时得 JSON.parse 回来，行里的 Blob / Date / undefined 字段会被顺手毁掉。
-// 这里改成深度遍历、只碰 string 值：普通对象和数组往下走，其余（Blob、Date、Map、
-// TypedArray……）一律不进去翻。嵌套 JSON 字符串（如 assets 的 appearance_preset_*）
-// 里的令牌照样命中——令牌在 JSON 文本里也是原样的一段纯文本。
+// ─── 為什麼不 JSON.stringify 整行再字符串替換 ───
+// 那樣寫回時得 JSON.parse 回來，行裡的 Blob / Date / undefined 字段會被順手毀掉。
+// 這裡改成深度遍歷、只碰 string 值：普通對象和數組往下走，其餘（Blob、Date、Map、
+// TypedArray……）一律不進去翻。嵌套 JSON 字符串（如 assets 的 appearance_preset_*）
+// 裡的令牌照樣命中——令牌在 JSON 文本里也是原樣的一段純文本。
 
 import { DB } from './db';
 import { BLOBREF_PREFIX, getBlobForRef } from './blobRef';
 import { REF_SOURCE_STORES } from './blobGc';
 
-// 与 blobGc 的分页大小同值：批间事务各自独立，内存峰值只有一批。
+// 與 blobGc 的分頁大小同值：批間事務各自獨立，內存峰值只有一批。
 const PAGE_SIZE = 200;
 
-// 令牌整体匹配：前缀 + 最长的 [A-Za-z0-9_] 段。字符集与 SDK 的 extractRefs / GC 同源，
-// 贪婪到边界为止，所以「A 是 B 的前缀」这种令牌（blobref:b_x 与 blobref:b_x_y）不会
-// 被切错——匹配出来的永远是完整的那个，再拿去查 mapping，命不中就原样留下。
+// 令牌整體匹配：前綴 + 最長的 [A-Za-z0-9_] 段。字符集與 SDK 的 extractRefs / GC 同源，
+// 貪婪到邊界為止，所以「A 是 B 的前綴」這種令牌（blobref:b_x 與 blobref:b_x_y）不會
+// 被切錯——匹配出來的永遠是完整的那個，再拿去查 mapping，命不中就原樣留下。
 const TOKEN_PATTERN = new RegExp(
     `${BLOBREF_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[A-Za-z0-9_]+`,
     'g',
 );
 
 /**
- * 一段文本里的令牌按 mapping 改写；表里没有的原样留下。
- * 传了 hits 就把真正改掉的那些令牌记进去——调用方据此如实统计「实际合并了几份」，
- * 而不是按计划数虚报（计划里的令牌可能早就没人引用了）。
+ * 一段文本里的令牌按 mapping 改寫；表裡沒有的原樣留下。
+ * 傳了 hits 就把真正改掉的那些令牌記進去——調用方據此如實統計「實際合併了幾份」，
+ * 而不是按計劃數虛報（計劃裡的令牌可能早就沒人引用了）。
  */
 export function rewriteRefsInText(text: string, mapping: Map<string, string>, hits?: Set<string>): string {
     return text.replace(TOKEN_PATTERN, m => {
@@ -55,10 +55,10 @@ export function rewriteRefsInText(text: string, mapping: Map<string, string>, hi
     });
 }
 
-/** 只有「普通对象」才往下翻。Blob / File / Date / Map / Set / TypedArray 全被这道判断挡在外面。 */
+/** 只有「普通對象」才往下翻。Blob / File / Date / Map / Set / TypedArray 全被這道判斷擋在外面。 */
 const isPlainContainer = (v: object): boolean => Object.prototype.toString.call(v) === '[object Object]';
 
-/** 原地改写容器里某个位置的值，返回是否动过。 */
+/** 原地改寫容器裡某個位置的值，返回是否動過。 */
 function rewriteSlot(
     container: any, key: string | number, mapping: Map<string, string>,
     seen: WeakSet<object>, hits?: Set<string>,
@@ -75,8 +75,8 @@ function rewriteSlot(
 }
 
 /**
- * 深度遍历对象树，原地把令牌改写成 canonical，返回是否动过。
- * seen 挡循环引用（角色行里的对象图不保证是树）。
+ * 深度遍歷對象樹，原地把令牌改寫成 canonical，返回是否動過。
+ * seen 擋循環引用（角色行裡的對象圖不保證是樹）。
  */
 export function rewriteRefsDeep(
     root: object, mapping: Map<string, string>,
@@ -100,27 +100,27 @@ export function rewriteRefsDeep(
 }
 
 export interface RewriteRefsResult {
-    /** 被改写并写回的表行数 */
+    /** 被改寫並寫回的表行數 */
     rewrittenRows: number;
-    /** 被改写并写回的 localStorage 键数 */
+    /** 被改寫並寫回的 localStorage 鍵數 */
     rewrittenLocalKeys: number;
-    /** 扫过的表行总数（进度/体感用） */
+    /** 掃過的表行總數（進度/體感用） */
     scannedRows: number;
     /**
-     * 真正改掉的那些重复令牌。映射里的令牌不一定都还有人引用——上一轮合并留下的
-     * 孤儿 Blob 还躺在库里，下一轮扫描照样把它当重复报出来。按这个集合统计才不会虚报。
+     * 真正改掉的那些重複令牌。映射裡的令牌不一定都還有人引用——上一輪合併留下的
+     * 孤兒 Blob 還躺在庫裡，下一輪掃描照樣把它當重複報出來。按這個集合統計才不會虛報。
      */
     mergedRefs: Set<string>;
 }
 
 /**
- * 把 mapping 里的重复令牌在全部引用面上改写成 canonical。
+ * 把 mapping 裡的重複令牌在全部引用面上改寫成 canonical。
  *
- * 调用方须先持有 maintenanceLock：改写是「引用搬家」，撞上 GC 进行中的 mark 会让
- * 同一个令牌在两个面之间瞬间消失，被误判成孤儿删掉（SDK README 的宿主义务之一）。
+ * 調用方須先持有 maintenanceLock：改寫是「引用搬家」，撞上 GC 進行中的 mark 會讓
+ * 同一個令牌在兩個面之間瞬間消失，被誤判成孤兒刪掉（SDK README 的宿主義務之一）。
  *
- * mapping 必须是「一跳到底」的：canonical 自己不能再是别人的 key，否则改写完还剩一层
- * 指向，两轮结果不一致。入参不合格直接抛，不猜意图。
+ * mapping 必須是「一跳到底」的：canonical 自己不能再是別人的 key，否則改寫完還剩一層
+ * 指向，兩輪結果不一致。入參不合格直接拋，不猜意圖。
  */
 export async function rewriteBlobRefs(
     mapping: Map<string, string>,
@@ -131,20 +131,20 @@ export async function rewriteBlobRefs(
     };
     if (mapping.size === 0) return result;
 
-    // ── 入参体检（都是「改错了不可逆」的前提，宁可吵着抛）──
+    // ── 入參體檢（都是「改錯了不可逆」的前提，寧可吵著拋）──
     const canonicals = new Set(mapping.values());
     for (const [from, to] of mapping) {
-        if (from === to) throw new Error(`合并映射非法：${from} 指向自己。`);
-        if (canonicals.has(from)) throw new Error(`合并映射非法：${from} 既是被合并方又是保留方，需先收敛成一跳。`);
+        if (from === to) throw new Error(`合併映射非法：${from} 指向自己。`);
+        if (canonicals.has(from)) throw new Error(`合併映射非法：${from} 既是被合併方又是保留方，需先收斂成一跳。`);
     }
-    // canonical 必须真有 Blob 在——把好引用改到一个空令牌上就是实打实的破图。
+    // canonical 必須真有 Blob 在——把好引用改到一個空令牌上就是實打實的破圖。
     for (const canonical of canonicals) {
         if (!(await getBlobForRef(canonical))) {
-            throw new Error(`合并映射非法：保留方 ${canonical} 读不到 Blob，已中止（引用未改动）。`);
+            throw new Error(`合併映射非法：保留方 ${canonical} 讀不到 Blob，已中止（引用未改動）。`);
         }
     }
 
-    // ── 表面：分页读 → 原地改 → 脏行写回 ──
+    // ── 表面：分頁讀 → 原地改 → 髒行寫回 ──
     for (const storeName of REF_SOURCE_STORES) {
         let afterKey: IDBValidKey | null = null;
         for (;;) {
@@ -165,7 +165,7 @@ export async function rewriteBlobRefs(
         }
     }
 
-    // ── localStorage 面：先把键快照下来再逐条改，避免边写边移位漏扫 ──
+    // ── localStorage 面：先把鍵快照下來再逐條改，避免邊寫邊移位漏掃 ──
     if (typeof localStorage !== 'undefined') {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -186,30 +186,30 @@ export async function rewriteBlobRefs(
 }
 
 
-// ─── 不参与合并的令牌 ───────────────────────────────────────────
+// ─── 不參與合併的令牌 ───────────────────────────────────────────
 
 /**
- * 裸删（deleteBlobRef，而不是 deleteBlobRefIfUnreferenced）的字段清单。
- * 这几个字段换图 / 移除时会直接删掉旧 Blob，前提是「这份令牌只归我」——
- * 合并一旦让它和别处共享，那一删就连别人的图一起删了。
+ * 裸刪（deleteBlobRef，而不是 deleteBlobRefIfUnreferenced）的字段清單。
+ * 這幾個字段換圖 / 移除時會直接刪掉舊 Blob，前提是「這份令牌只歸我」——
+ * 合併一旦讓它和別處共享，那一刪就連別人的圖一起刪了。
  *
- * | 字段 | 裸删发生在 |
+ * | 字段 | 裸刪發生在 |
  * |---|---|
- * | characters.companionAvatar.imageRef | apps/Appearance.tsx（换图 / 移除桌面静态形象） |
- * | characters.companionAvatar.imageWardrobe[].imageRef | 同上：衣柜条目跟顶层 imageRef 共用同一个
- * |                                     | 令牌（令牌兼任条目 id，见 utils/companionWardrobe.ts），
- * |                                     | 换图时衣柜里没留着这套就跟着一起删 |
- * | characters.videoCallBackground      | apps/CallApp.tsx（换 / 清视频舞台背景） |
- * | characters.companionBackground      | components/os/CompanionHome.tsx（换 / 清桌面背景） |
- * | messages.metadata.cameraSnapshotRef | apps/CallApp.tsx（快照替换 / 过期淘汰 / 删通话记录） |
- * | localStorage 假摄像头图片            | apps/CallApp.tsx（换图 / 移除假摄像头） |
+ * | characters.companionAvatar.imageRef | apps/Appearance.tsx（換圖 / 移除桌面靜態形象） |
+ * | characters.companionAvatar.imageWardrobe[].imageRef | 同上：衣櫃條目跟頂層 imageRef 共用同一個
+ * |                                     | 令牌（令牌兼任條目 id，見 utils/companionWardrobe.ts），
+ * |                                     | 換圖時衣櫃裡沒留著這套就跟著一起刪 |
+ * | characters.videoCallBackground      | apps/CallApp.tsx（換 / 清視頻舞台背景） |
+ * | characters.companionBackground      | components/os/CompanionHome.tsx（換 / 清桌面背景） |
+ * | messages.metadata.cameraSnapshotRef | apps/CallApp.tsx（快照替換 / 過期淘汰 / 刪通話記錄） |
+ * | localStorage 假攝像頭圖片            | apps/CallApp.tsx（換圖 / 移除假攝像頭） |
  *
- * ⚠️ 新增 deleteBlobRef 的裸删调用点时，把那个字段一并加进来（blobRef.ts 的
- *    deleteBlobRef 注释里也指着这份清单）。漏登记的后果是那个字段的图可能被别处删掉。
+ * ⚠️ 新增 deleteBlobRef 的裸刪調用點時，把那個字段一併加進來（blobRef.ts 的
+ *    deleteBlobRef 註釋裡也指著這份清單）。漏登記的後果是那個字段的圖可能被別處刪掉。
  */
 const UNMERGEABLE_LOCAL_KEYS = ['sully-call-fake-camera-image-v1'] as const;
 
-/** 捞出所有「不能参与合并」的令牌。读不出来就上抛——宁可整轮不合并，也不能漏登记。 */
+/** 撈出所有「不能參與合併」的令牌。讀不出來就上拋——寧可整輪不合並，也不能漏登記。 */
 export async function collectUnmergeableRefs(): Promise<Set<string>> {
     const refs = new Set<string>();
     const take = (v: unknown) => {
@@ -222,8 +222,8 @@ export async function collectUnmergeableRefs(): Promise<Set<string>> {
         for (const row of rows as any[]) {
             if (!row || typeof row !== 'object') continue;
             take(row.companionAvatar?.imageRef);
-            // 衣柜条目：令牌同时占着 id 和 imageRef 两个值位，两个都收——只登记一半的话，
-            // 另一半仍会被当成普通令牌合并进共享组。
+            // 衣櫃條目：令牌同時佔著 id 和 imageRef 兩個值位，兩個都收——只登記一半的話，
+            // 另一半仍會被當成普通令牌合併進共享組。
             const wardrobe = row.companionAvatar?.imageWardrobe;
             if (Array.isArray(wardrobe)) {
                 for (const outfit of wardrobe) {
@@ -255,7 +255,7 @@ export async function collectUnmergeableRefs(): Promise<Set<string>> {
     return refs;
 }
 
-/** SDK scanContent 吐出来的重复组（只取本文件用得着的字段）。 */
+/** SDK scanContent 吐出來的重複組（只取本文件用得著的字段）。 */
 export interface DuplicateGroupLike {
     canonical: string;
     duplicates: string[];
@@ -264,20 +264,20 @@ export interface DuplicateGroupLike {
 }
 
 export interface MergePlan {
-    /** 重复令牌 → 保留令牌。可直接喂给 rewriteBlobRefs */
+    /** 重複令牌 → 保留令牌。可直接餵給 rewriteBlobRefs */
     mapping: Map<string, string>;
-    /** 每个重复令牌对应的字节数——按「实际改写掉的那些」求和才是真能回收的空间 */
+    /** 每個重複令牌對應的字節數——按「實際改寫掉的那些」求和才是真能回收的空間 */
     bytesByToken: Map<string, number>;
-    /** 因为触到裸删字段而整组跳过的组数 */
+    /** 因為觸到裸刪字段而整組跳過的組數 */
     skippedGroups: number;
-    /** 合并后能让 GC 回收的字节数（只算真的会合并的那些组） */
+    /** 合併後能讓 GC 回收的字節數（只算真的會合並的那些組） */
     reclaimableBytes: number;
 }
 
 /**
- * 把扫描结果收敛成一份「一跳到底」的合并映射。
- * 只要组里有任何一个令牌被裸删字段引用着，整组跳过——保留方也可能是那一个，
- * 只剔掉单个令牌并不能让剩下的变安全。
+ * 把掃描結果收斂成一份「一跳到底」的合併映射。
+ * 只要組裡有任何一個令牌被裸刪字段引用著，整組跳過——保留方也可能是那一個，
+ * 只剔掉單個令牌並不能讓剩下的變安全。
  */
 export function buildMergePlan(
     groups: readonly DuplicateGroupLike[],

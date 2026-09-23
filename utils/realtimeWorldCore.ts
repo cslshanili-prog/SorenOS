@@ -1,19 +1,20 @@
 /**
- * realtimeWorldCore — 天气 / 热搜 / 节日的取数与成段渲染（环境无关叶子模块）
+ * realtimeWorldCore — 天氣 / 熱搜 / 節日的取數與成段渲染（環境無關葉子模塊）
  *
- * 「角色能看到外面的世界」这件事，前台聊天和主动消息到点生成要说同一套话：同样的
- * 数据源、同样的措辞、同样的分寸拿捏。所以取数（天气两源、热榜多平台、节日表）和
- * 把它们拼成提示词那一段，全都住在这里，浏览器（realtimeContext 的 Manager 委托
- * 调用）和 amsg worker（onBeforeFire 到点填槽）共用同一份。
+ * 「角色能看到外面的世界」這件事，前台聊天和主動消息到點生成要說同一套話：同樣的
+ * 數據源、同樣的措辭、同樣的分寸拿捏。所以取數（天氣兩源、熱榜多平台、節日表）和
+ * 把它們拼成提示詞那一段，全都住在這裡，瀏覽器（realtimeContext 的 Manager 委託
+ * 調用）和 amsg worker（onBeforeFire 到點填槽）共用同一份。
  *
- * 缓存不在这里：浏览器把热榜快照存 IndexedDB，worker 存 D1，两边策略不同，各自在
- * 自己那层包一圈就好，这里只负责「真去拉一次」和「拉到的东西怎么写成话」。
+ * 緩存不在這裡：瀏覽器把熱榜快照存 IndexedDB，worker 存 D1，兩邊策略不同，各自在
+ * 自己那層包一圈就好，這裡只負責「真去拉一次」和「拉到的東西怎麼寫成話」。
  *
- * 往这里加代码前先确认：不 import 任何带浏览器依赖的模块（db / safeApi / keepAlive 等）。
- * `pnpm build:workers` 会把这份打进 amsg worker bundle，带进浏览器依赖会在构建期直接暴露。
+ * 往這裡加代碼前先確認：不 import 任何帶瀏覽器依賴的模塊（db / safeApi / keepAlive 等）。
+ * `pnpm build:workers` 會把這份打進 amsg worker bundle，帶進瀏覽器依賴會在構建期直接暴露。
  */
 
 import { nowInTimeZone } from './timezone';
+import { includesAnyScript } from './scriptKey';
 
 export interface WeatherData {
     temp: number;
@@ -32,58 +33,58 @@ export interface NewsItem {
 }
 
 /**
- * 叶子里不用 safeApi 的 safeResponseJson——那份挂着开发面板的接口日志，是浏览器侧的东西。
- * 这里只要「响应不是 JSON 就抛出带原文片段的错」，让调用方能在日志里看出拉到了什么。
+ * 葉子裡不用 safeApi 的 safeResponseJson——那份掛著開發面板的接口日誌，是瀏覽器側的東西。
+ * 這裡只要「響應不是 JSON 就拋出帶原文片段的錯」，讓調用方能在日誌裡看出拉到了什麼。
  */
 const readJson = async (res: Response): Promise<any> => {
     const text = await res.text();
     try {
         return JSON.parse(text);
     } catch {
-        throw new Error(`响应不是 JSON：${text.slice(0, 120)}`);
+        throw new Error(`響應不是 JSON：${text.slice(0, 120)}`);
     }
 };
 
-// ==================== 天气 ====================
+// ==================== 天氣 ====================
 
-// Open-Meteo 地名解析缓存：城市名 → 坐标，避免每次取天气都多打一次 geocoding
+// Open-Meteo 地名解析緩存：城市名 → 座標，避免每次取天氣都多打一次 geocoding
 const geocodeCache = new Map<string, { latitude: number; longitude: number; name: string }>();
 
-// WMO weather code（Open-Meteo 返回的 weather_code）→ 中文描述 + 近似 OWM icon 码
-// 完整码表见 https://open-meteo.com/en/docs（WMO Weather interpretation codes）
+// WMO weather code（Open-Meteo 返回的 weather_code）→ 中文描述 + 近似 OWM icon 碼
+// 完整碼表見 https://open-meteo.com/en/docs（WMO Weather interpretation codes）
 const WMO_WEATHER_CODES: Record<number, { description: string; icon: string }> = {
     0: { description: '晴', icon: '01d' },
     1: { description: '大致晴朗', icon: '02d' },
-    2: { description: '局部多云', icon: '03d' },
-    3: { description: '阴', icon: '04d' },
-    45: { description: '雾', icon: '50d' },
-    48: { description: '雾凇', icon: '50d' },
-    51: { description: '轻微毛毛雨', icon: '09d' },
+    2: { description: '局部多雲', icon: '03d' },
+    3: { description: '陰', icon: '04d' },
+    45: { description: '霧', icon: '50d' },
+    48: { description: '霧凇', icon: '50d' },
+    51: { description: '輕微毛毛雨', icon: '09d' },
     53: { description: '毛毛雨', icon: '09d' },
-    55: { description: '浓密毛毛雨', icon: '09d' },
-    56: { description: '冻毛毛雨', icon: '09d' },
-    57: { description: '强冻毛毛雨', icon: '09d' },
+    55: { description: '濃密毛毛雨', icon: '09d' },
+    56: { description: '凍毛毛雨', icon: '09d' },
+    57: { description: '強凍毛毛雨', icon: '09d' },
     61: { description: '小雨', icon: '10d' },
     63: { description: '中雨', icon: '10d' },
     65: { description: '大雨', icon: '10d' },
-    66: { description: '冻雨', icon: '13d' },
-    67: { description: '强冻雨', icon: '13d' },
+    66: { description: '凍雨', icon: '13d' },
+    67: { description: '強凍雨', icon: '13d' },
     71: { description: '小雪', icon: '13d' },
     73: { description: '中雪', icon: '13d' },
     75: { description: '大雪', icon: '13d' },
     77: { description: '雪粒', icon: '13d' },
-    80: { description: '小阵雨', icon: '09d' },
-    81: { description: '阵雨', icon: '09d' },
-    82: { description: '强阵雨', icon: '09d' },
-    85: { description: '小阵雪', icon: '13d' },
-    86: { description: '强阵雪', icon: '13d' },
-    95: { description: '雷阵雨', icon: '11d' },
-    96: { description: '雷阵雨伴小冰雹', icon: '11d' },
-    99: { description: '雷阵雨伴大冰雹', icon: '11d' },
+    80: { description: '小陣雨', icon: '09d' },
+    81: { description: '陣雨', icon: '09d' },
+    82: { description: '強陣雨', icon: '09d' },
+    85: { description: '小陣雪', icon: '13d' },
+    86: { description: '強陣雪', icon: '13d' },
+    95: { description: '雷陣雨', icon: '11d' },
+    96: { description: '雷陣雨伴小冰雹', icon: '11d' },
+    99: { description: '雷陣雨伴大冰雹', icon: '11d' },
 };
 
 /**
- * OpenWeatherMap 源（需要 API Key）。失败时抛错，由调用方决定是否回落。
+ * OpenWeatherMap 源（需要 API Key）。失敗時拋錯，由調用方決定是否回落。
  */
 export const fetchOwmWeather = async (city: string, apiKey: string): Promise<WeatherData> => {
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=zh_cn`;
@@ -103,7 +104,7 @@ export const fetchOwmWeather = async (city: string, apiKey: string): Promise<Wea
 };
 
 /**
- * Open-Meteo 源（免费、免 key、CORS 友好）。城市名先过官方 geocoding（支持中文），失败时抛错。
+ * Open-Meteo 源（免費、免 key、CORS 友好）。城市名先過官方 geocoding（支持中文），失敗時拋錯。
  */
 export const fetchOpenMeteoWeather = async (city: string): Promise<WeatherData> => {
     let geo = geocodeCache.get(city);
@@ -141,8 +142,8 @@ export const fetchOpenMeteoWeather = async (city: string): Promise<WeatherData> 
 };
 
 /**
- * 取天气：填了 OpenWeatherMap key 优先走 OWM，失败或没填 key 时回落免费的 Open-Meteo。
- * 两源都不成返回 null（调用方按「这次没天气」渲染，不断链）。
+ * 取天氣：填了 OpenWeatherMap key 優先走 OWM，失敗或沒填 key 時回落免費的 Open-Meteo。
+ * 兩源都不成返回 null（調用方按「這次沒天氣」渲染，不斷鏈）。
  */
 export const fetchWeatherWithFallback = async (
     city: string,
@@ -154,7 +155,7 @@ export const fetchWeatherWithFallback = async (
         try {
             return await fetchOwmWeather(city, apiKey);
         } catch (e) {
-            console.warn('OpenWeatherMap 失败，回落 Open-Meteo:', e);
+            console.warn('OpenWeatherMap 失敗，回落 Open-Meteo:', e);
         }
     }
 
@@ -167,129 +168,129 @@ export const fetchWeatherWithFallback = async (
 };
 
 /**
- * 生成天气建议
+ * 生成天氣建議
  */
 export const generateWeatherAdvice = (weather: WeatherData): string => {
     const advices: string[] = [];
 
-    // 温度建议
+    // 溫度建議
     if (weather.temp < 5) {
-        advices.push('天气很冷，记得多穿点');
+        advices.push('天氣很冷，記得多穿點');
     } else if (weather.temp < 15) {
-        advices.push('有点凉，注意保暖');
+        advices.push('有點涼，注意保暖');
     } else if (weather.temp > 30) {
-        advices.push('天气炎热，注意防暑');
+        advices.push('天氣炎熱，注意防暑');
     } else if (weather.temp > 25) {
-        advices.push('天气不错，适合出门');
+        advices.push('天氣不錯，適合出門');
     }
 
-    // 天气状况建议
+    // 天氣狀況建議
     const desc = weather.description.toLowerCase();
     if (desc.includes('雨')) {
-        advices.push('记得带伞');
+        advices.push('記得帶傘');
     } else if (desc.includes('雪')) {
         advices.push('路上小心，注意防滑');
-    } else if (desc.includes('雾') || desc.includes('霾')) {
-        advices.push('空气不太好，建议戴口罩');
+    } else if (includesAnyScript(desc, '霧') || includesAnyScript(desc, '霾')) {
+        advices.push('空氣不太好，建議戴口罩');
     } else if (desc.includes('晴')) {
-        advices.push('阳光明媚');
+        advices.push('陽光明媚');
     }
 
-    // 湿度建议
+    // 溼度建議
     if (weather.humidity > 80) {
-        advices.push('湿度较高，可能会闷热');
+        advices.push('溼度較高，可能會悶熱');
     } else if (weather.humidity < 30) {
-        advices.push('空气干燥，记得多喝水');
+        advices.push('空氣乾燥，記得多喝水');
     }
 
-    return advices.join('，') || '天气正常';
+    return advices.join('，') || '天氣正常';
 };
 
-/** 清掉城市坐标缓存（设置页换城市后重新解析用）。 */
+/** 清掉城市座標緩存（設置頁換城市後重新解析用）。 */
 export const clearGeocodeCache = () => geocodeCache.clear();
 
-// ==================== 节日 ====================
+// ==================== 節日 ====================
 
 // 特殊日期表
 const SPECIAL_DATES: Record<string, string> = {
     '01-01': '元旦',
-    '02-14': '情人节',
-    '03-08': '妇女节',
-    '03-12': '植树节',
-    '03-14': '白色情人节',
-    '04-01': '愚人节',
-    '05-01': '劳动节',
-    '05-04': '青年节',
-    '06-01': '儿童节',
-    '09-10': '教师节',
-    '10-01': '国庆节',
-    '10-31': '万圣节',
-    '11-11': '光棍节',
+    '02-14': '情人節',
+    '03-08': '婦女節',
+    '03-12': '植樹節',
+    '03-14': '白色情人節',
+    '04-01': '愚人節',
+    '05-01': '勞動節',
+    '05-04': '青年節',
+    '06-01': '兒童節',
+    '09-10': '教師節',
+    '10-01': '國慶節',
+    '10-31': '萬聖節',
+    '11-11': '光棍節',
     '12-24': '平安夜',
-    '12-25': '圣诞节'
+    '12-25': '聖誕節'
 };
 
 /**
- * 农历节日对应的公历日期（除夕 / 春节 / 元宵 / 端午 / 七夕 / 中秋 / 重阳）。
+ * 農曆節日對應的公曆日期（除夕 / 春節 / 元宵 / 端午 / 七夕 / 中秋 / 重陽）。
  *
- * 农历日子要靠天文历推算才知道落在公历哪天，而这份文件是打进 worker bundle 的零依赖
- * 叶子，装不了历法库、也不适合到点再去联网查，所以把日期预先算好平铺在这里，查表即可。
+ * 農曆日子要靠天文歷推算才知道落在公曆哪天，而這份文件是打進 worker bundle 的零依賴
+ * 葉子，裝不了曆法庫、也不適合到點再去聯網查，所以把日期預先算好平鋪在這裡，查表即可。
  *
- * 数据来源：香港天文台《公曆與農曆日期對照表》
- * https://www.hko.gov.hk/tc/gts/time/calendar/text/T20XXc.htm （逐年逐日对照后取出七个节日）
+ * 數據來源：香港天文台《公曆與農曆日期對照表》
+ * https://www.hko.gov.hk/tc/gts/time/calendar/text/T20XXc.htm （逐年逐日對照後取出七個節日）
  *
- * 覆盖 2026–2035 十年。**过了 2035 需要按同一份对照表续表**：查不到的日期就当那天没有
- * 农历节日，不会报错也不会猜——续之前只是「角色不知道今天是中秋」，不会说错话。
+ * 覆蓋 2026–2035 十年。**過了 2035 需要按同一份對照表續表**：查不到的日期就當那天沒有
+ * 農曆節日，不會報錯也不會猜——續之前只是「角色不知道今天是中秋」，不會說錯話。
  */
 const LUNAR_FESTIVAL_DATES: Record<string, string> = {
     // 2026
-    '2026-02-16': '除夕', '2026-02-17': '春节', '2026-03-03': '元宵节',
-    '2026-06-19': '端午节', '2026-08-19': '七夕', '2026-09-25': '中秋节',
-    '2026-10-18': '重阳节',
+    '2026-02-16': '除夕', '2026-02-17': '春節', '2026-03-03': '元宵節',
+    '2026-06-19': '端午節', '2026-08-19': '七夕', '2026-09-25': '中秋節',
+    '2026-10-18': '重陽節',
     // 2027
-    '2027-02-05': '除夕', '2027-02-06': '春节', '2027-02-20': '元宵节',
-    '2027-06-09': '端午节', '2027-08-08': '七夕', '2027-09-15': '中秋节',
-    '2027-10-08': '重阳节',
+    '2027-02-05': '除夕', '2027-02-06': '春節', '2027-02-20': '元宵節',
+    '2027-06-09': '端午節', '2027-08-08': '七夕', '2027-09-15': '中秋節',
+    '2027-10-08': '重陽節',
     // 2028
-    '2028-01-25': '除夕', '2028-01-26': '春节', '2028-02-09': '元宵节',
-    '2028-05-28': '端午节', '2028-08-26': '七夕', '2028-10-03': '中秋节',
-    '2028-10-26': '重阳节',
+    '2028-01-25': '除夕', '2028-01-26': '春節', '2028-02-09': '元宵節',
+    '2028-05-28': '端午節', '2028-08-26': '七夕', '2028-10-03': '中秋節',
+    '2028-10-26': '重陽節',
     // 2029
-    '2029-02-12': '除夕', '2029-02-13': '春节', '2029-02-27': '元宵节',
-    '2029-06-16': '端午节', '2029-08-16': '七夕', '2029-09-22': '中秋节',
-    '2029-10-16': '重阳节',
+    '2029-02-12': '除夕', '2029-02-13': '春節', '2029-02-27': '元宵節',
+    '2029-06-16': '端午節', '2029-08-16': '七夕', '2029-09-22': '中秋節',
+    '2029-10-16': '重陽節',
     // 2030
-    '2030-02-02': '除夕', '2030-02-03': '春节', '2030-02-17': '元宵节',
-    '2030-06-05': '端午节', '2030-08-05': '七夕', '2030-09-12': '中秋节',
-    '2030-10-05': '重阳节',
+    '2030-02-02': '除夕', '2030-02-03': '春節', '2030-02-17': '元宵節',
+    '2030-06-05': '端午節', '2030-08-05': '七夕', '2030-09-12': '中秋節',
+    '2030-10-05': '重陽節',
     // 2031
-    '2031-01-22': '除夕', '2031-01-23': '春节', '2031-02-06': '元宵节',
-    '2031-06-24': '端午节', '2031-08-24': '七夕', '2031-10-01': '中秋节',
-    '2031-10-24': '重阳节',
+    '2031-01-22': '除夕', '2031-01-23': '春節', '2031-02-06': '元宵節',
+    '2031-06-24': '端午節', '2031-08-24': '七夕', '2031-10-01': '中秋節',
+    '2031-10-24': '重陽節',
     // 2032
-    '2032-02-10': '除夕', '2032-02-11': '春节', '2032-02-25': '元宵节',
-    '2032-06-12': '端午节', '2032-08-12': '七夕', '2032-09-19': '中秋节',
-    '2032-10-12': '重阳节',
+    '2032-02-10': '除夕', '2032-02-11': '春節', '2032-02-25': '元宵節',
+    '2032-06-12': '端午節', '2032-08-12': '七夕', '2032-09-19': '中秋節',
+    '2032-10-12': '重陽節',
     // 2033
-    '2033-01-30': '除夕', '2033-01-31': '春节', '2033-02-14': '元宵节',
-    '2033-06-01': '端午节', '2033-08-01': '七夕', '2033-09-08': '中秋节',
-    '2033-10-01': '重阳节',
+    '2033-01-30': '除夕', '2033-01-31': '春節', '2033-02-14': '元宵節',
+    '2033-06-01': '端午節', '2033-08-01': '七夕', '2033-09-08': '中秋節',
+    '2033-10-01': '重陽節',
     // 2034
-    '2034-02-18': '除夕', '2034-02-19': '春节', '2034-03-05': '元宵节',
-    '2034-06-20': '端午节', '2034-08-20': '七夕', '2034-09-27': '中秋节',
-    '2034-10-20': '重阳节',
+    '2034-02-18': '除夕', '2034-02-19': '春節', '2034-03-05': '元宵節',
+    '2034-06-20': '端午節', '2034-08-20': '七夕', '2034-09-27': '中秋節',
+    '2034-10-20': '重陽節',
     // 2035
-    '2035-02-07': '除夕', '2035-02-08': '春节', '2035-02-22': '元宵节',
-    '2035-06-10': '端午节', '2035-08-10': '七夕', '2035-09-16': '中秋节',
-    '2035-10-09': '重阳节',
+    '2035-02-07': '除夕', '2035-02-08': '春節', '2035-02-22': '元宵節',
+    '2035-06-10': '端午節', '2035-08-10': '七夕', '2035-09-16': '中秋節',
+    '2035-10-09': '重陽節',
 };
 
 /**
- * 检查特殊日期（公历节日 + 农历节日）。
- * tz 非空时按角色所在时区判「今天几号」——否则角色会跟着用户的日历过节：
- * 用户这边 2/14 早上，角色在纽约还是 13 号晚上，却被告知今天是情人节。
+ * 檢查特殊日期（公曆節日 + 農曆節日）。
+ * tz 非空時按角色所在時區判「今天幾號」——否則角色會跟著用戶的日曆過節：
+ * 用戶這邊 2/14 早上，角色在紐約還是 13 號晚上，卻被告知今天是情人節。
  *
- * 公历和农历撞在同一天时两个都给（比如 2031 年的中秋恰好也是国庆）。
+ * 公曆和農曆撞在同一天時兩個都給（比如 2031 年的中秋恰好也是國慶）。
  */
 export const checkSpecialDates = (tz?: string, nowMs?: number): string[] => {
     const now = nowInTimeZone(tz, nowMs == null ? undefined : new Date(nowMs));
@@ -309,32 +310,32 @@ export const checkSpecialDates = (tz?: string, nowMs?: number): string[] => {
     return special;
 };
 
-// ==================== 热搜 ====================
+// ==================== 熱搜 ====================
 
 // Upstream moved the hot_news API from orz.ai to news.orz.ai on 2026-08-01.
 export const HOTNEWS_API_BASE_URL = 'https://news.orz.ai/api/v1/dailynews';
 
-// hot_news（news.orz.ai）平台 key → 中文展示名。用于 source 标注，让提示词读起来自然。
+// hot_news（news.orz.ai）平台 key → 中文展示名。用於 source 標註，讓提示詞讀起來自然。
 export const HOTNEWS_PLATFORM_LABELS: Record<string, string> = {
-    baidu: '百度', sspai: '少数派', weibo: '微博', zhihu: '知乎', tskr: '36氪',
-    ftpojie: '吾爱破解', bilibili: 'B站', douban: '豆瓣', hupu: '虎扑', tieba: '贴吧',
-    juejin: '掘金', douyin: '抖音', vtex: 'V2EX', jinritoutiao: '今日头条',
+    baidu: '百度', sspai: '少數派', weibo: '微博', zhihu: '知乎', tskr: '36氪',
+    ftpojie: '吾愛破解', bilibili: 'B站', douban: '豆瓣', hupu: '虎撲', tieba: '貼吧',
+    juejin: '掘金', douyin: '抖音', vtex: 'V2EX', jinritoutiao: '今日頭條',
     stackoverflow: 'Stack Overflow', github: 'GitHub', hackernews: 'Hacker News',
-    sina_finance: '新浪财经', eastmoney: '东方财富', xueqiu: '雪球', cls: '财联社',
-    tenxunwang: '腾讯网',
+    sina_finance: '新浪財經', eastmoney: '東方財富', xueqiu: '雪球', cls: '財聯社',
+    tenxunwang: '騰訊網',
 };
 
 export const DEFAULT_HOTNEWS_PLATFORMS = ['weibo', 'zhihu', 'baidu', 'bilibili', 'douyin'];
 
-/** 平台清单：用户没配就用内置默认。 */
+/** 平台清單：用戶沒配就用內置默認。 */
 export const resolveHotNewsPlatforms = (platforms?: string[]): string[] =>
     (platforms && platforms.length > 0) ? platforms : DEFAULT_HOTNEWS_PLATFORMS;
 
 /**
- * 使用 hot_news（news.orz.ai）获取中文多平台热榜。
- * 免鉴权、半小时刷新。浏览器端优先直连；若被 CORS 拦截则本调用返回 []，
+ * 使用 hot_news（news.orz.ai）獲取中文多平台熱榜。
+ * 免鑑權、半小時刷新。瀏覽器端優先直連；若被 CORS 攔截則本調用返回 []，
  * 由 fetchNews 自然回落到 Brave / Hacker News。
- * 多平台并发拉取，每平台取前几条后 round-robin 交错合并，避免单一平台霸屏。
+ * 多平台併發拉取，每平台取前幾條後 round-robin 交錯合併，避免單一平台霸屏。
  */
 export const fetchHotNews = async (platforms?: string[], perPlatform = 12, total = 240): Promise<NewsItem[]> => {
     const list = resolveHotNewsPlatforms(platforms);
@@ -363,15 +364,15 @@ export const fetchHotNews = async (platforms?: string[], perPlatform = 12, total
                     return { title: String(it.title), source: label, url: it.url, desc: normalizedDesc };
                 });
             const withDesc = picked.filter(x => x.desc).length;
-            console.log(`[hot_news] ${label}(${p}) ✓ 取 ${picked.length}/${items.length} 条（含简介 ${withDesc} 条）`);
+            console.log(`[hot_news] ${label}(${p}) ✓ 取 ${picked.length}/${items.length} 條（含簡介 ${withDesc} 條）`);
             return picked;
         } catch (e: any) {
-            console.warn(`[hot_news] ${label}(${p}) ✗ 拉取失败（多半是 CORS / 网络）:`, e?.message || e);
+            console.warn(`[hot_news] ${label}(${p}) ✗ 拉取失敗（多半是 CORS / 網絡）:`, e?.message || e);
             return [];
         }
     }));
 
-    // round-robin 交错：第1名各平台轮一遍，再第2名……保证各平台都有露出
+    // round-robin 交錯：第1名各平台輪一遍，再第2名……保證各平台都有露出
     const merged: NewsItem[] = [];
     for (let rank = 0; rank < perPlatform; rank++) {
         for (const arr of perPlatformResults) {
@@ -382,9 +383,9 @@ export const fetchHotNews = async (platforms?: string[], perPlatform = 12, total
 };
 
 /**
- * 一天分 6 段（每 4 小时）：0-4 凌晨 / 4-8 清晨 / 8-12 上午 / 12-16 午后 / 16-20 傍晚 / 20-24 夜间。
- * slot = floor(hour/4)。tz 非空时按该时区判时段——worker 在 UTC 上跑，不指定的话
- * 「今日上午」会和用户看到的差好几个时段。
+ * 一天分 6 段（每 4 小時）：0-4 凌晨 / 4-8 清晨 / 8-12 上午 / 12-16 午後 / 16-20 傍晚 / 20-24 夜間。
+ * slot = floor(hour/4)。tz 非空時按該時區判時段——worker 在 UTC 上跑，不指定的話
+ * 「今日上午」會和用戶看到的差好幾個時段。
  */
 export const getHotNewsSlot = (
     opts?: { tz?: string; now?: Date },
@@ -392,17 +393,17 @@ export const getHotNewsSlot = (
     const d = opts?.tz ? nowInTimeZone(opts.tz, opts.now) : (opts?.now ?? new Date());
     const slot = Math.min(5, Math.floor(d.getHours() / 4));
     const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const label = ['凌晨', '清晨', '上午', '午后', '傍晚', '夜间'][slot];
+    const label = ['凌晨', '清晨', '上午', '午後', '傍晚', '夜間'][slot];
     return { id: `${date}#${slot}`, date, slot, label };
 };
 
-/** 两次拉取的平台集是不是同一批（顺序无关）——快照能不能复用看它。 */
+/** 兩次拉取的平台集是不是同一批（順序無關）——快照能不能複用看它。 */
 export const sameHotNewsPlatforms = (a: string[] = [], b: string[] = []): boolean =>
     a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',');
 
 /**
- * 从热点池里随机抽 n 条（Fisher–Yates 打散后取前 n）。每次生成都重新 roll：
- * 同一个时段的快照要被复用很多轮，不打散的话角色会连着几次都在聊同样那几条。
+ * 從熱點池裡隨機抽 n 條（Fisher–Yates 打散後取前 n）。每次生成都重新 roll：
+ * 同一個時段的快照要被複用很多輪，不打散的話角色會連著幾次都在聊同樣那幾條。
  */
 export const pickRandomNews = (news: NewsItem[], n: number): NewsItem[] => {
     const pool = [...news];
@@ -413,30 +414,30 @@ export const pickRandomNews = (news: NewsItem[], n: number): NewsItem[] => {
     return pool.slice(0, n);
 };
 
-/** 一轮注入几条热点。 */
+/** 一輪注入幾條熱點。 */
 export const REALTIME_NEWS_PICK_COUNT = 5;
 
 // ==================== 成段渲染 ====================
 
 export interface RealtimeWorldRenderInput {
     /**
-     * 「当前真实时间」那一行的正文（调用方按角色时区格式化好）。不传就不出这行——
-     * 主动消息到点生成时当前时刻由 fire_pack 自己的槽位给，这里再出一次，
-     * 一份 prompt 里就有了两个钟。
+     * 「當前真實時間」那一行的正文（調用方按角色時區格式化好）。不傳就不出這行——
+     * 主動消息到點生成時當前時刻由 fire_pack 自己的槽位給，這裡再出一次，
+     * 一份 prompt 裡就有了兩個鍾。
      */
     timeLine?: string;
-    /** 今日节日。归「时间感知」管：角色关掉时间感知时调用方传空。 */
+    /** 今日節日。歸「時間感知」管：角色關掉時間感知時調用方傳空。 */
     specialDates?: string[];
-    /** 天气读数；没拉到传 null，天气那段连同它的用法提示一起消失。 */
+    /** 天氣讀數；沒拉到傳 null，天氣那段連同它的用法提示一起消失。 */
     weather?: WeatherData | null;
-    /** 本轮要注入的热点（抽样交给调用方，渲染保持纯净好测）。 */
+    /** 本輪要注入的熱點（抽樣交給調用方，渲染保持純淨好測）。 */
     news?: NewsItem[];
 }
 
 /**
- * 把手上有的实时世界信息拼成注入提示词的那一段。
- * 四样都空时返回空串——只剩一个「你能看到外面的世界」的抬头却什么都没有，
- * 比不注入更容易让角色即兴编。
+ * 把手上有的實時世界信息拼成注入提示詞的那一段。
+ * 四樣都空時返回空串——只剩一個「你能看到外面的世界」的抬頭卻什麼都沒有，
+ * 比不注入更容易讓角色即興編。
  */
 export const renderRealtimeWorldBlock = (input: RealtimeWorldRenderInput): string => {
     const timeLine = input.timeLine?.trim();
@@ -450,37 +451,37 @@ export const renderRealtimeWorldBlock = (input: RealtimeWorldRenderInput): strin
 
     const parts: string[] = [];
 
-    // 开头强调：这是真实世界的信息
-    parts.push(`### 【真实世界感知系统】`);
-    parts.push(`⚠️ 重要：以下信息来自真实世界，不是虚构的。你现在真的能"看到"外面的世界。`);
+    // 開頭強調：這是真實世界的信息
+    parts.push(`### 【真實世界感知系統】`);
+    parts.push(`⚠️ 重要：以下信息來自真實世界，不是虛構的。你現在真的能"看到"外面的世界。`);
     parts.push('');
 
-    // 1. 时间信息。时差提示（tzAwarenessNote）统一由 ContextBuilder.buildCoreContext 注入，
-    //    这里不再追加，避免双份。
+    // 1. 時間信息。時差提示（tzAwarenessNote）統一由 ContextBuilder.buildCoreContext 注入，
+    //    這裡不再追加，避免雙份。
     if (timeLine) {
-        parts.push(`📅 当前真实时间: ${timeLine}`);
+        parts.push(`📅 當前真實時間: ${timeLine}`);
     }
 
-    // 2. 特殊日期（跟上面的「当前真实时间」同一个时区，否则同一段里日期和节日会打架）
+    // 2. 特殊日期（跟上面的「當前真實時間」同一個時區，否則同一段裡日期和節日會打架）
     if (specialDates.length > 0) {
         parts.push(`🎉 今日特殊: ${specialDates.join('、')}`);
     }
 
-    // 3. 天气信息
+    // 3. 天氣信息
     if (weather) {
         parts.push('');
-        parts.push(`🌤️ 【${weather.city}实时天气】`);
-        parts.push(`现在外面: ${weather.description}，气温 ${weather.temp}°C（体感 ${weather.feelsLike}°C），湿度 ${weather.humidity}%`);
-        parts.push(`你的建议: ${generateWeatherAdvice(weather)}`);
+        parts.push(`🌤️ 【${weather.city}實時天氣】`);
+        parts.push(`現在外面: ${weather.description}，氣溫 ${weather.temp}°C（體感 ${weather.feelsLike}°C），溼度 ${weather.humidity}%`);
+        parts.push(`你的建議: ${generateWeatherAdvice(weather)}`);
     }
 
-    // 4. 新闻热点（背景认知）
+    // 4. 新聞熱點（背景認知）
     if (news.length > 0) {
         parts.push('');
-        parts.push(`📰 【最近真实发生的热点 · 你的背景知识】`);
-        parts.push(`（以下是现实里真实在发生 / 被热议的事，是你认知的一部分，不是必须播报的清单。`);
-        parts.push(`拿捏分寸：当对方明显在放松、闲着打发时间、话头也淡下来时，可以自然地挑一两条你感兴趣的聊起来、活跃下气氛；`);
-        parts.push(`但如果对方正在说一件明确的事 / 在认真聊某个话题 / 带着情绪，就别硬插热点，安静当背景知识就好。）`);
+        parts.push(`📰 【最近真實發生的熱點 · 你的背景知識】`);
+        parts.push(`（以下是現實裡真實在發生 / 被熱議的事，是你認知的一部分，不是必須播報的清單。`);
+        parts.push(`拿捏分寸：當對方明顯在放鬆、閒著打發時間、話頭也淡下來時，可以自然地挑一兩條你感興趣的聊起來、活躍下氣氛；`);
+        parts.push(`但如果對方正在說一件明確的事 / 在認真聊某個話題 / 帶著情緒，就別硬插熱點，安靜當背景知識就好。）`);
         news.forEach((n) => {
             const source = n.source ? `（${n.source}）` : '';
             let line = `- ${n.title}${source}`;
@@ -490,18 +491,18 @@ export const renderRealtimeWorldBlock = (input: RealtimeWorldRenderInput): strin
             parts.push(line);
         });
         parts.push('');
-        parts.push(`若你想主动把其中某条当作"新闻卡片"分享给对方，可单独输出一行：[[NEWS_CARD: 来源|标题]]（标题照抄上面的）。它会以卡片形式呈现，然后你再就此展开聊。别滥用，自然就好。`);
+        parts.push(`若你想主動把其中某條當作"新聞卡片"分享給對方，可單獨輸出一行：[[NEWS_CARD: 來源|標題]]（標題照抄上面的）。它會以卡片形式呈現，然後你再就此展開聊。別濫用，自然就好。`);
     }
 
-    // 5. 行为指令（按真拿到的数据裁剪：没天气就别教它关心天气，否则等于教它现编一个）
+    // 5. 行為指令（按真拿到的數據裁剪：沒天氣就別教它關心天氣，否則等於教它現編一個）
     parts.push('');
-    parts.push(`### 【如何使用这些信息】`);
+    parts.push(`### 【如何使用這些信息】`);
     const tips: string[] = [];
-    tips.push(`这些信息都是真实的，可以直接引用；如果对方问"你怎么知道的"，就说你刚刷到 / 刚看到的。`);
+    tips.push(`這些信息都是真實的，可以直接引用；如果對方問"你怎麼知道的"，就說你剛刷到 / 剛看到的。`);
     if (weather) {
-        tips.push(`天气是真实的，可以自然地关心对方（"外面在下雨，带伞了吗？"）。`);
+        tips.push(`天氣是真實的，可以自然地關心對方（"外面在下雨，帶傘了嗎？"）。`);
     }
-    tips.push(`别假装不知道这些，这是你真能感知到的外部世界。`);
+    tips.push(`別假裝不知道這些，這是你真能感知到的外部世界。`);
     tips.forEach((t, i) => parts.push(`${i + 1}. ${t}`));
 
     return parts.join('\n');

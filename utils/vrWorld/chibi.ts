@@ -1,10 +1,10 @@
 /**
- * 彼方 chibi 立绘解析（单一来源）：vrState.chibi → date 皮肤/sprites → 头像兜底。
- * VRWorldApp 的房间站位、剧院的演出回放共用这套逻辑。
+ * 彼方 chibi 立繪解析（單一來源）：vrState.chibi → date 皮膚/sprites → 頭像兜底。
+ * VRWorldApp 的房間站位、劇院的演出回放共用這套邏輯。
  *
- * 返回的 img 是「图片字段值」而不是「能直接加载的地址」：捏出来的 chibi 与头像都可能是
- * blobref 令牌（见 utils/blobRef.ts）。消费方一律用 TokenImg 渲染，或用 useBlobRefUrl
- * 解析后再拼 CSS url()，别直接塞进 <img src>。
+ * 返回的 img 是「圖片字段值」而不是「能直接加載的地址」：捏出來的 chibi 與頭像都可能是
+ * blobref 令牌（見 utils/blobRef.ts）。消費方一律用 TokenImg 渲染，或用 useBlobRefUrl
+ * 解析後再拼 CSS url()，別直接塞進 <img src>。
  */
 import type { CharacterProfile } from '../../types';
 
@@ -13,7 +13,7 @@ export interface ChibiDisplay {
     scale: number;
     offsetY: number;
     flip: boolean;
-    /** 是否走了兜底（没专属 chibi） */
+    /** 是否走了兜底（沒專屬 chibi） */
     isFallback: boolean;
 }
 

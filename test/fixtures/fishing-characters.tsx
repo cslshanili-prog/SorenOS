@@ -6,8 +6,8 @@ import { runVRSession } from '../../utils/vrWorld/runSession';
 import { DB } from '../../utils/db';
 import { readFishingMarketState } from '../../utils/vrWorld/fishingMarket';
 import { flushFishingDeliveries } from '../../utils/vrWorld/fishingDelivery';
-const characters=[{id:'fish-a',name:'阿岚'},{id:'fish-b',name:'小舟'}].map(c=>({...c,systemPrompt:'保持自己的性格，语言为中文。',contextLimit:20,memoryPalaceEnabled:false,vrState:{enabled:true,intervalMinutes:120,currentRoom:'sar'}})) as any;
-const userProfile={name:'钓鱼测试员'} as any;
+const characters=[{id:'fish-a',name:'阿嵐'},{id:'fish-b',name:'小舟'}].map(c=>({...c,systemPrompt:'保持自己的性格，語言為中文。',contextLimit:20,memoryPalaceEnabled:false,vrState:{enabled:true,intervalMinutes:120,currentRoom:'sar'}})) as any;
+const userProfile={name:'釣魚測試員'} as any;
 async function boot(){
     for(const c of characters)await DB.saveCharacter(c);
     (window as any).fishingFixture={DB,readFishingMarketState,characters,flush:()=>flushFishingDeliveries(characters)};

@@ -13,59 +13,59 @@ import {
 
 describe('avatar performance rehearsal', () => {
   it('builds a one-time persona prompt from the complete ContextBuilder output', () => {
-    const tail = '【角色上下文最后一行】';
-    const coreContext = `${'完整设定。'.repeat(3000)}${tail}`;
+    const tail = '【角色上下文最後一行】';
+    const coreContext = `${'完整設定。'.repeat(3000)}${tail}`;
     const prompt = buildAvatarPerformancePersonaPrompt({
-      characterName: '小满',
+      characterName: '小滿',
       coreContext,
     });
 
     expect(prompt).toContain(tail);
-    expect(prompt).toContain('200 个中文字符以内');
-    expect(prompt).toContain('不要复述世界观、经历、当前事件、记忆细节、用户隐私');
+    expect(prompt).toContain('200 個中文字符以內');
+    expect(prompt).toContain('不要複述世界觀、經歷、當前事件、記憶細節、用戶隱私');
     expect(AVATAR_PERFORMANCE_PERSONA_MAX_TOKENS).toBeGreaterThanOrEqual(512);
   });
 
   it('parses and hard-caps the cached performance persona', () => {
     const persona = parseAvatarPerformancePersona(JSON.stringify({
-      persona: `克制地注视对方，情绪越深动作越轻。${'不抢戏。'.repeat(80)}`,
+      persona: `克制地注視對方，情緒越深動作越輕。${'不搶戲。'.repeat(80)}`,
     }));
 
     expect(persona).toBeTruthy();
     expect(Array.from(persona || '')).toHaveLength(AVATAR_PERFORMANCE_PERSONA_MAX_CHARS);
-    expect(parseAvatarPerformancePersona('表演人格：先移开视线，再很轻地靠近。')).toBe('先移开视线，再很轻地靠近。');
+    expect(parseAvatarPerformancePersona('表演人格：先移開視線，再很輕地靠近。')).toBe('先移開視線，再很輕地靠近。');
     expect(parseAvatarPerformancePersona('{"persona":')).toBeNull();
   });
 
   it('builds an isolated prompt from only persona, reply, and model capabilities', () => {
     const prompt = buildAvatarPerformanceRehearsalPrompt({
-      characterName: '小满',
-      personality: '嘴硬心软，表达克制。',
-      reply: '你怎么才来。',
-      modelActions: [{ id: 'jito-eye', name: '鄙视眼', kind: 'expression', tags: ['angry'] }],
+      characterName: '小滿',
+      personality: '嘴硬心軟，表達克制。',
+      reply: '你怎麼才來。',
+      modelActions: [{ id: 'jito-eye', name: '鄙視眼', kind: 'expression', tags: ['angry'] }],
     });
 
-    expect(prompt).toContain('嘴硬心软，表达克制。');
-    expect(prompt).toContain('你怎么才来。');
-    expect(prompt).toContain('jito-eye: 鄙视眼');
+    expect(prompt).toContain('嘴硬心軟，表達克制。');
+    expect(prompt).toContain('你怎麼才來。');
+    expect(prompt).toContain('jito-eye: 鄙視眼');
     expect(prompt).toContain('expression · angry');
-    expect(prompt).toContain('model_actions 是叠加层');
-    expect(prompt).toContain('不要猜测此前发生过什么');
+    expect(prompt).toContain('model_actions 是疊加層');
+    expect(prompt).toContain('不要猜測此前發生過什麼');
     expect(prompt).not.toContain('最近聊天');
   });
 
   it('keeps the complete character persona and reserves a robust director output budget', () => {
-    const tail = '【不可截断的角色设定结尾】';
-    const personality = `${'克制但敏锐。'.repeat(2200)}${tail}`;
+    const tail = '【不可截斷的角色設定結尾】';
+    const personality = `${'克制但敏銳。'.repeat(2200)}${tail}`;
     const prompt = buildAvatarPerformanceRehearsalPrompt({
-      characterName: '小满',
+      characterName: '小滿',
       personality,
       reply: '嗯。',
     });
 
     expect(personality.length).toBeGreaterThan(12_000);
     expect(prompt).toContain(tail);
-    expect(prompt).not.toContain('[内容已截断]');
+    expect(prompt).not.toContain('[內容已截斷]');
     expect(AVATAR_PERFORMANCE_REHEARSAL_MAX_TOKENS).toBe(4096);
   });
 

@@ -1,13 +1,13 @@
 /**
  * Memory Palace — 向量搜索 Web Worker
  *
- * 将 cosine similarity 的暴力计算搬到 Worker 线程，
- * 避免阻塞主线程 UI。
+ * 將 cosine similarity 的暴力計算搬到 Worker 線程，
+ * 避免阻塞主線程 UI。
  *
- * 通信协议（支持并发多路复用）：
- *   主线程 → Worker:  { requestId, queryVector, vectors, threshold, topK }
- *   Worker → 主线程:  { requestId, results }
- *   主线程按 requestId 分发响应，避免并发 postMessage 时 onmessage 被后一个覆盖。
+ * 通信協議（支持併發多路複用）：
+ *   主線程 → Worker:  { requestId, queryVector, vectors, threshold, topK }
+ *   Worker → 主線程:  { requestId, results }
+ *   主線程按 requestId 分發響應，避免併發 postMessage 時 onmessage 被後一個覆蓋。
  */
 
 self.onmessage = (e: MessageEvent) => {

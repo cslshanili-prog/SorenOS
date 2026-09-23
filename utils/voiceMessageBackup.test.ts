@@ -105,7 +105,7 @@ describe('chat voice backup binary lane', () => {
         await expect(restoreVoiceMessageBlobs(
             [{ id: 'voice_msg_1', data: { blob: marker(4) } }],
             async () => null,
-        )).rejects.toThrow('缺少语音文件');
+        )).rejects.toThrow('缺少語音文件');
 
         await expect(restoreVoiceMessageBlobs(
             [{ id: 'voice_msg_1', data: { blob: marker(4) } }],

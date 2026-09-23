@@ -1,24 +1,24 @@
 /**
- * 按任务种类分派的注册表。
+ * 按任務種類分派的註冊表。
  *
- * 到点触发只有 `onBeforeFire` 一个入口，所有任务都从那儿进——聊天要发的、后台要整理的，
- * 全挤在同一个函数里。这里立一张 `kind → handler` 的表把非聊天的那些接走，加一种新任务
- * 就是加一个文件 + 在表里加一行，不用去动那条已经很长的聊天主干。
+ * 到點觸發只有 `onBeforeFire` 一個入口，所有任務都從那兒進——聊天要發的、後台要整理的，
+ * 全擠在同一個函數里。這裡立一張 `kind → handler` 的表把非聊天的那些接走，加一種新任務
+ * 就是加一個文件 + 在表裡加一行，不用去動那條已經很長的聊天主幹。
  *
- * 分派点刻意排在聊天那四道门**之前**：那四道门问的都是「主动消息到点还该不该发」
- * （用户正在聊天所以让路 / 对话已经往前走所以作废 / 这次任务的方向是什么），对
- * 「后台整理一份数据」全都不适用；而且它们要的 fire_pack / tool_pack 是聊天专用的
- * 云端状态，后台任务根本没传过。
+ * 分派點刻意排在聊天那四道門**之前**：那四道門問的都是「主動消息到點還該不該發」
+ * （用戶正在聊天所以讓路 / 對話已經往前走所以作廢 / 這次任務的方向是什麼），對
+ * 「後台整理一份數據」全都不適用；而且它們要的 fire_pack / tool_pack 是聊天專用的
+ * 雲端狀態，後台任務根本沒傳過。
  *
- * 这里只做业务分派，不该放上游——上游只需要知道「有个 hook」，不需要知道「有种任务
- * 叫门牌整理」。
+ * 這裡只做業務分派，不該放上游——上游只需要知道「有個 hook」，不需要知道「有種任務
+ * 叫門牌整理」。
  */
 
 import { readTaskKind } from '../../../utils/amsgTaskKinds';
 import { PLATE_CONSOLIDATE_KIND } from '../../../utils/amsgPlateJob';
 import { plateConsolidateHandler } from './plateFire';
 
-/** client_state 的写入口（value 传 null 即删除该 key）。 */
+/** client_state 的寫入口（value 傳 null 即刪除該 key）。 */
 export type KindWriteState = (
   namespace: string,
   entries: Array<{ key: string; value: string | null; updatedAt?: number }>,
@@ -27,8 +27,8 @@ export type KindWriteState = (
 /**
  * handler 用得上的那部分 fire ctx。
  *
- * 结构化取一份而不是从 index.ts import FireCtx：那边要 import 这里的注册表，
- * 反过来再 import 类型就成了循环。字段是 FireCtx 的子集，结构上天然兼容。
+ * 結構化取一份而不是從 index.ts import FireCtx：那邊要 import 這裡的註冊表，
+ * 反過來再 import 類型就成了循環。字段是 FireCtx 的子集，結構上天然兼容。
  */
 export interface KindFireCtx {
   task: {
@@ -42,41 +42,41 @@ export interface KindFireCtx {
   scratch: Record<string, unknown>;
 }
 
-/** handler 用得上的那部分每轮 session ctx。 */
+/** handler 用得上的那部分每輪 session ctx。 */
 export interface KindSessionCtx {
   llmOutputText: string;
-  /** 以下三项只给跳过诊断用（见 ./skipDiagnostics），上游每轮都会给。 */
+  /** 以下三項只給跳過診斷用（見 ./skipDiagnostics），上游每輪都會給。 */
   sessionId?: string;
   iteration?: number;
   llmResponse?: unknown;
   scratch?: Record<string, unknown>;
   writeState?: KindWriteState;
   /**
-   * 往客户端送一条**不是聊天内容**的结果（amsg-server 2.6.0-next.21+）。
-   * 一条结果落进服务端收件箱（到达的保证）+ 视通知策略发一条 Web Push（及时性）。
-   * 老部署上这个方法不存在——handler 自己判，别假设它在。
+   * 往客戶端送一條**不是聊天內容**的結果（amsg-server 2.6.0-next.21+）。
+   * 一條結果落進服務端收件箱（到達的保證）+ 視通知策略發一條 Web Push（及時性）。
+   * 老部署上這個方法不存在——handler 自己判，別假設它在。
    */
   emitResult?: (payload: Record<string, unknown>) => Promise<{ messageId: string; pushed: boolean }>;
 }
 
-/** 到点这一步的结论：要么安静跳过，要么给出这次要问 LLM 的话。 */
+/** 到點這一步的結論：要麼安靜跳過，要麼給出這次要問 LLM 的話。 */
 export type KindFirePlan =
   | { skip: true; reason: string }
   | {
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-      /** 跨到 onLLMOutput 的上下文，库把它原样挂在 scratch 上带过去 */
+      /** 跨到 onLLMOutput 的上下文，庫把它原樣掛在 scratch 上帶過去 */
       state: unknown;
-      /** 这一次 fire 单独放宽超时（要同步调 claimLeaseMs 的那个值，库自己管） */
+      /** 這一次 fire 單獨放寬超時（要同步調 claimLeaseMs 的那個值，庫自己管） */
       totalTimeoutMs?: number;
     };
 
-/** LLM 回来这一步的结论。非聊天任务不发聊天正文，所以只用得上 skip-push。 */
+/** LLM 回來這一步的結論。非聊天任務不發聊天正文，所以只用得上 skip-push。 */
 export type KindDecision = { decision: 'skip-push'; reason: string };
 
 export interface FireKindHandler {
   /**
-   * 到点：读云端状态、拼这次要问 LLM 的话。
-   * 出了「这条任务的数据坏了」这种硬失败就抛——调用方会用统一那套 detail 包一层。
+   * 到點：讀雲端狀態、拼這次要問 LLM 的話。
+   * 出了「這條任務的數據壞了」這種硬失敗就拋——調用方會用統一那套 detail 包一層。
    */
   beforeFire(args: {
     ctx: KindFireCtx;
@@ -84,33 +84,33 @@ export interface FireKindHandler {
     taskMeta: Record<string, unknown>;
   }): Promise<KindFirePlan>;
 
-  /** LLM 回来：解析、把结果送回客户端。 */
+  /** LLM 回來：解析、把結果送回客戶端。 */
   llmOutput(args: { ctx: KindSessionCtx; state: unknown }): Promise<KindDecision>;
 }
 
 /**
- * `metadata.amsgKind` → handler。没标 kind 的任务不查这张表，照旧走聊天主干。
- * 表里没有的 kind 是硬失败：客户端建了一种 worker 还不认识的任务，多半是 worker bundle
- * 比前端旧，宁可让这条任务终态失败，也别当聊天任务跑出一条驴唇不对马嘴的消息。
+ * `metadata.amsgKind` → handler。沒標 kind 的任務不查這張表，照舊走聊天主幹。
+ * 表裡沒有的 kind 是硬失敗：客戶端建了一種 worker 還不認識的任務，多半是 worker bundle
+ * 比前端舊，寧可讓這條任務終態失敗，也別當聊天任務跑出一條驢唇不對馬嘴的消息。
  *
- * 这类失败在用户那边是**静默**的：后台任务行按 messageSubtype 挡在主动消息清单之外
- * （那是有意的，它们不是用户排的消息，进了清单还会被「取消全部」顺手掐掉），所以
- * lastError 没有露脸的地方，只能在 `wrangler tail` 里看到。判定「这一轮活儿要不要交
- * 云端」的责任因此落在客户端那道探测门上（`GET /config-check` 的 `backgroundJobs`）：
- * 它认的是「这份 bundle 里有没有这张表」，认不出来就留在本地跑，压根不建这条任务。
- * 走到这里的失败一律是「白跑一轮」量级——下一轮消化会重新提交一份。
+ * 這類失敗在用戶那邊是**靜默**的：後台任務行按 messageSubtype 擋在主動消息清單之外
+ * （那是有意的，它們不是用戶排的消息，進了清單還會被「取消全部」順手掐掉），所以
+ * lastError 沒有露臉的地方，只能在 `wrangler tail` 裡看到。判定「這一輪活兒要不要交
+ * 雲端」的責任因此落在客戶端那道探測門上（`GET /config-check` 的 `backgroundJobs`）：
+ * 它認的是「這份 bundle 裡有沒有這張表」，認不出來就留在本地跑，壓根不建這條任務。
+ * 走到這裡的失敗一律是「白跑一輪」量級——下一輪消化會重新提交一份。
  *
- * 表用**没有原型的对象**建：kind 是从任务 metadata 上读出来的字符串，普通对象字面量
- * 会把 `constructor` / `toString` / `valueOf` 这些原型链上的键解析成一个真值，绕过下面
- * 那句「表里没有这个 kind」的判断，最后炸在 `handler.beforeFire is not a function` 上——
- * 而那句报错跟真正的原因（这台 worker 不认识这种任务）毫无关系，排障要多绕一大圈。
+ * 表用**沒有原型的對象**建：kind 是從任務 metadata 上讀出來的字符串，普通對象字面量
+ * 會把 `constructor` / `toString` / `valueOf` 這些原型鏈上的鍵解析成一個真值，繞過下面
+ * 那句「表裡沒有這個 kind」的判斷，最後炸在 `handler.beforeFire is not a function` 上——
+ * 而那句報錯跟真正的原因（這台 worker 不認識這種任務）毫無關係，排障要多繞一大圈。
  */
 export const FIRE_KIND_HANDLERS: Record<string, FireKindHandler> = Object.assign(
   Object.create(null) as Record<string, FireKindHandler>,
   { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler },
 );
 
-/** 挂在 scratch 上跨 hook 传递的键。 */
+/** 掛在 scratch 上跨 hook 傳遞的鍵。 */
 const KIND_FIRE_SCRATCH_KEY = 'kindFire';
 
 interface KindFireStash {
@@ -122,7 +122,7 @@ export const putKindFireStash = (scratch: Record<string, unknown>, kind: string,
   scratch[KIND_FIRE_SCRATCH_KEY] = { kind, state } satisfies KindFireStash;
 };
 
-/** onLLMOutput 用它判「这一轮是不是非聊天任务」；不是就返回 null，照旧走聊天主干。 */
+/** onLLMOutput 用它判「這一輪是不是非聊天任務」；不是就返回 null，照舊走聊天主幹。 */
 export const getKindFireStash = (scratch: Record<string, unknown> | undefined): KindFireStash | null => {
   const raw = scratch?.[KIND_FIRE_SCRATCH_KEY];
   if (!raw || typeof raw !== 'object') return null;

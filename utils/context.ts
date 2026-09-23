@@ -14,29 +14,29 @@ import {
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 
 /**
- * 「互动对象 (User)」块的唯一拼装口径，私聊/群聊共用——名字/设定/备注永远显示（备注留空显示"无"），
- * 性别/自定义设定/其他补充是新加的深度字段，选填，留空就不占提示词篇幅。
+ * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
+ * 性別/自定義設定/其他補充是新加的深度字段，選填，留空就不佔提示詞篇幅。
  */
 function formatUserProfileBlock(user: UserProfile): string {
-    let block = `### 互动对象 (User)\n`;
+    let block = `### 互動對象 (User)\n`;
     block += `- 名字: ${user.name}\n`;
-    if (user.gender) block += `- 性别: ${user.gender}\n`;
-    block += `- 设定/备注: ${user.bio || '无'}\n`;
-    if (user.customSetting?.trim()) block += `- 自定义设定: ${user.customSetting.trim()}\n`;
-    if (user.otherDetails?.trim()) block += `- 其他补充: ${user.otherDetails.trim()}\n`;
+    if (user.gender) block += `- 性別: ${user.gender}\n`;
+    block += `- 設定/備註: ${user.bio || '無'}\n`;
+    if (user.customSetting?.trim()) block += `- 自定義設定: ${user.customSetting.trim()}\n`;
+    if (user.otherDetails?.trim()) block += `- 其他補充: ${user.otherDetails.trim()}\n`;
     return block + `\n`;
 }
 
 /**
  * Memory Central
- * 负责统一构建所有 App 共用的基础角色上下文 (System Prompt)。
- * 包含：身份设定、用户画像、世界观、核心记忆、详细记忆、以及角色内心看法。
+ * 負責統一構建所有 App 共用的基礎角色上下文 (System Prompt)。
+ * 包含：身份設定、用戶畫像、世界觀、核心記憶、詳細記憶、以及角色內心看法。
  */
 export const ContextBuilder = {
 
     /**
-     * SAR 模块的唯一上下文出口。调用方按自身输出格式选择 chat/date，避免把模块规则
-     * 复制进每个 App，也避免误改基础人设、记忆召回或情绪状态本身。
+     * SAR 模塊的唯一上下文出口。調用方按自身輸出格式選擇 chat/date，避免把模塊規則
+     * 複製進每個 App，也避免誤改基礎人設、記憶召回或情緒狀態本身。
      */
     buildSARModuleContext: (
         char: CharacterProfile,
@@ -45,10 +45,10 @@ export const ContextBuilder = {
     ): string => buildSARModulePrompt(char, user, surface),
 
     /**
-     * 构建角色设定+记忆上下文（角色名、核心指令、世界观 + 月度总结 & 当月日度总结）
-     * 用于情绪评估，不包含世界书、印象、用户画像等重型数据，不截断
+     * 構建角色設定+記憶上下文（角色名、核心指令、世界觀 + 月度總結 & 當月日度總結）
+     * 用於情緒評估，不包含世界書、印象、用戶畫像等重型數據，不截斷
      *
-     * @param options.skipMemories 跳过月度总结和日度记录（开启记忆宫殿时用向量记忆替代）
+     * @param options.skipMemories 跳過月度總結和日度記錄（開啟記憶宮殿時用向量記憶替代）
      */
     buildRoleSettingsContext: (char: CharacterProfile, options?: { skipMemories?: boolean }): string => {
         let context = `[System: Character Role Settings]\n\n`;
@@ -57,39 +57,39 @@ export const ContextBuilder = {
         context += `### 角色名\n`;
         context += `${char.name}\n\n`;
 
-        // 2. 核心指令（完整，不截断）
+        // 2. 核心指令（完整，不截斷）
         context += `### 核心指令\n`;
-        context += `${char.systemPrompt || '你是一个温柔、拟人化的AI伴侣。'}\n\n`;
+        context += `${char.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}\n\n`;
 
-        // 2b. 自我领悟词条（常驻自我认知，影响情绪评估）
+        // 2b. 自我領悟詞條（常駐自我認知，影響情緒評估）
         if (char.selfInsights && char.selfInsights.length > 0) {
-            context += `### 内在认知\n`;
+            context += `### 內在認知\n`;
             char.selfInsights.forEach(insight => {
                 context += `- ${insight}\n`;
             });
             context += `\n`;
         }
 
-        // 3. 世界观（完整，不截断，不含世界书）
+        // 3. 世界觀（完整，不截斷，不含世界書）
         if (char.worldview && char.worldview.trim()) {
-            context += `### 世界观与设定\n${char.worldview}\n\n`;
+            context += `### 世界觀與設定\n${char.worldview}\n\n`;
         }
 
-        // 4. 记忆摘要（月度总结 + 当月日度总结）
-        //    开启记忆宫殿时 skipMemories=true，由调用方注入向量检索结果替代
+        // 4. 記憶摘要（月度總結 + 當月日度總結）
+        //    開啟記憶宮殿時 skipMemories=true，由調用方注入向量檢索結果替代
         if (!options?.skipMemories) {
             let memorySection = '';
 
-            // 4a. 月度总结 (refinedMemories) — 全部输出
+            // 4a. 月度總結 (refinedMemories) — 全部輸出
             if (char.refinedMemories && Object.keys(char.refinedMemories).length > 0) {
-                memorySection += `**月度总结 (Monthly Summaries)**:\n`;
+                memorySection += `**月度總結 (Monthly Summaries)**:\n`;
                 Object.entries(char.refinedMemories).sort().forEach(([date, summary]) => {
                     memorySection += `- [${date}]: ${summary}\n`;
                 });
                 memorySection += `\n`;
             }
 
-            // 4b. 当月日度总结 — 只取当前月份
+            // 4b. 當月日度總結 — 只取當前月份
             const now = new Date();
             const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             if (char.memories && char.memories.length > 0) {
@@ -102,7 +102,7 @@ export const ContextBuilder = {
                     return normDate.startsWith(currentMonthKey);
                 });
                 if (currentMonthLogs.length > 0) {
-                    memorySection += `**本月详细记录 [${currentMonthKey}]**:\n`;
+                    memorySection += `**本月詳細記錄 [${currentMonthKey}]**:\n`;
                     currentMonthLogs.forEach(m => {
                         memorySection += `- ${m.date} (${m.mood || 'rec'}): ${m.summary}\n`;
                     });
@@ -111,9 +111,9 @@ export const ContextBuilder = {
             }
 
             if (memorySection) {
-                context += `### 记忆摘要 (Memory Reference)\n`;
+                context += `### 記憶摘要 (Memory Reference)\n`;
                 context += memorySection;
-                context += `⚠️ 情绪可以被记忆触发：如果记忆中存在未解决的矛盾、反复出现的摩擦模式、或对方曾经伤害过你的事件，你可以在情绪评估中让角色"翻旧账"——即某个记忆片段突然浮上心头，引发新的buff或加剧已有buff的强度。这种情绪涌现应当自然且有迹可循，不要凭空捏造不存在的记忆。\n\n`;
+                context += `⚠️ 情緒可以被記憶觸發：如果記憶中存在未解決的矛盾、反覆出現的摩擦模式、或對方曾經傷害過你的事件，你可以在情緒評估中讓角色"翻舊帳"——即某個記憶片段突然浮上心頭，引發新的buff或加劇已有buff的強度。這種情緒湧現應當自然且有跡可循，不要憑空捏造不存在的記憶。\n\n`;
             }
         }
 
@@ -121,13 +121,13 @@ export const ContextBuilder = {
     },
 
     /**
-     * 构建核心人设上下文
-     * @param char 角色档案
-     * @param user 用户档案
-     * @param includeDetailedMemories 是否包含激活月份的详细 Log (默认 true)
-     * @param memoryPalaceContext 外部注入的记忆宫殿文本（优先级低于 char.memoryPalaceInjection）
-     * @param groupOptions 群聊场景下的去重选项：避免和 buildGroupSharedScene 产出的共享块重复
-     * @returns 标准化的 Markdown 格式 System Prompt
+     * 構建核心人設上下文
+     * @param char 角色檔案
+     * @param user 用戶檔案
+     * @param includeDetailedMemories 是否包含激活月份的詳細 Log (默認 true)
+     * @param memoryPalaceContext 外部注入的記憶宮殿文本（優先級低於 char.memoryPalaceInjection）
+     * @param groupOptions 群聊場景下的去重選項：避免和 buildGroupSharedScene 產出的共享塊重複
+     * @returns 標準化的 Markdown 格式 System Prompt
      */
     buildCoreContext: (
         char: CharacterProfile,
@@ -141,21 +141,21 @@ export const ContextBuilder = {
             headerOverride?: string;
         },
         timeOptions?: {
-            /** 传入「最后一次和用户互动的时间戳」→ 统一注入「距离上次联系多久」（受 timeAwarenessEnabled 控制）。 */
+            /** 傳入「最後一次和用戶互動的時間戳」→ 統一注入「距離上次聯繫多久」（受 timeAwarenessEnabled 控制）。 */
             lastInteractionTs?: number;
-            /** 抑制整段时间感知（当前时间/时差/距上次联系）。见面纯架空（dateTimeAwarenessEnabled=false）时用。 */
+            /** 抑制整段時間感知（當前時間/時差/距上次聯繫）。見面純架空（dateTimeAwarenessEnabled=false）時用。 */
             skipTimeAwareness?: boolean;
-            /** 正有人在跟角色实时对话（私聊 / 见面）。见 buildTimeAwarenessBlock 同名字段。 */
+            /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
             conversational?: boolean;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
         },
         layout?: {
             /**
-             * 把「每轮/每分钟都会变」的三块（当前时间、记忆宫殿召回、情绪 buff）从本函数输出里
-             * 摘出去，由调用方通过 buildVolatileCoreState 拿到后放到消息数组末尾。
-             * 目的：让 system prompt 前缀稳定，吃到中转的 prompt 前缀缓存（TTFT 直降）。
-             * 只有聊天主路径（chatPrompts.buildSystemPromptParts）用；其他 App 不传，行为不变。
+             * 把「每輪/每分鐘都會變」的三塊（當前時間、記憶宮殿召回、情緒 buff）從本函數輸出裡
+             * 摘出去，由調用方通過 buildVolatileCoreState 拿到後放到消息數組末尾。
+             * 目的：讓 system prompt 前綴穩定，吃到中轉的 prompt 前綴緩存（TTFT 直降）。
+             * 只有聊天主路徑（chatPrompts.buildSystemPromptParts）用；其他 App 不傳，行為不變。
              */
             deferVolatile?: boolean;
         },
@@ -169,90 +169,90 @@ export const ContextBuilder = {
             user.name,
         ));
 
-        let context = formatWorldbookSection(worldbookSections.beforeCharacter, '世界书 · 角色设定前');
+        let context = formatWorldbookSection(worldbookSections.beforeCharacter, '世界書 · 角色設定前');
         context += `${groupOptions?.headerOverride ?? '[System: Roleplay Configuration]'}\n\n`;
 
         // 1. 核心身份 (Identity)
         context += `### 你的身份 (Character)\n`;
         context += `- 名字: ${char.name}\n`;
         // Change: Explicitly label description as User Note to avoid literal interpretation
-        context += `- 用户备注/爱称 (User Note/Nickname): ${char.description || '无'}\n`;
-        context += `  (注意: 这个备注是用户对你的称呼或印象，可能包含比喻。如果备注内容（如“快乐小狗”）与你的核心设定冲突，请以核心设定为准，不要真的扮演成动物，除非核心设定里写了你是动物。)\n`;
-        context += `- 核心性格/指令:\n${char.systemPrompt || '你是一个温柔、拟人化的AI伴侣。'}\n\n`;
+        context += `- 用戶備註/愛稱 (User Note/Nickname): ${char.description || '無'}\n`;
+        context += `  (注意: 這個備註是用戶對你的稱呼或印象，可能包含比喻。如果備註內容（如“快樂小狗”）與你的核心設定衝突，請以核心設定為準，不要真的扮演成動物，除非核心設定裡寫了你是動物。)\n`;
+        context += `- 核心性格/指令:\n${char.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}\n\n`;
 
-        // 1a. 真实时间感知 (Time Awareness) — 跟随 timeAwarenessEnabled 设置，默认开启。
-        // 统一在 buildCoreContext 注入，让所有调用方（私聊/查手机/人际关系/通话/约会…）都知道"现在"。
-        // deferVolatile 时不在这里输出（时间精确到分钟、每轮都变，会打断 prompt 前缀缓存），
-        // 改由调用方经 buildVolatileCoreState 放到消息数组末尾。
+        // 1a. 真實時間感知 (Time Awareness) — 跟隨 timeAwarenessEnabled 設置，默認開啟。
+        // 統一在 buildCoreContext 注入，讓所有調用方（私聊/查手機/人際關係/通話/約會…）都知道"現在"。
+        // deferVolatile 時不在這裡輸出（時間精確到分鐘、每輪都變，會打斷 prompt 前綴緩存），
+        // 改由調用方經 buildVolatileCoreState 放到消息數組末尾。
         if (!layout?.deferVolatile) {
             context += ContextBuilder.buildTimeAwarenessBlock(char, timeOptions);
         }
 
-        // 1b. 自我领悟词条 (Self Insights) — 消化过程中反刍产生的常驻自我认知
-        // 像情绪底色一样影响角色的行为和感受，注入在角色设定紧下方
+        // 1b. 自我領悟詞條 (Self Insights) — 消化過程中反芻產生的常駐自我認知
+        // 像情緒底色一樣影響角色的行為和感受，注入在角色設定緊下方
         if (char.selfInsights && char.selfInsights.length > 0) {
-            context += `### 内在认知 (Self Insights)\n`;
-            context += `以下是你在独处反思中逐渐想明白的事，它们已经成为你的一部分：\n`;
+            context += `### 內在認知 (Self Insights)\n`;
+            context += `以下是你在獨處反思中逐漸想明白的事，它們已經成為你的一部分：\n`;
             char.selfInsights.forEach(insight => {
                 context += `- ${insight}\n`;
             });
             context += `\n`;
         }
 
-        // 2. 世界观 (Worldview) - New Centralized Logic
+        // 2. 世界觀 (Worldview) - New Centralized Logic
         if (char.worldview && char.worldview.trim() && !groupOptions?.skipWorldview) {
-            context += `### 世界观与设定 (World Settings)\n${char.worldview}\n\n`;
+            context += `### 世界觀與設定 (World Settings)\n${char.worldview}\n\n`;
         }
 
-        context += formatWorldbookSection(worldbookSections.afterCharacter, '扩展设定集 (Worldbooks)');
-        context += formatWorldbookSection(worldbookSections.beforeExamples, '世界书 · 示例消息前');
-        context += formatWorldbookSection(worldbookSections.afterExamples, '世界书 · 示例消息后');
+        context += formatWorldbookSection(worldbookSections.afterCharacter, '擴展設定集 (Worldbooks)');
+        context += formatWorldbookSection(worldbookSections.beforeExamples, '世界書 · 示例消息前');
+        context += formatWorldbookSection(worldbookSections.afterExamples, '世界書 · 示例消息後');
 
-        // 3. 用户画像 (User Profile)
-        // 群聊场景下：用户画像已在共享场景块顶部，这里跳过避免重复
+        // 3. 用戶畫像 (User Profile)
+        // 群聊場景下：用戶畫像已在共享場景塊頂部，這裡跳過避免重複
         if (!groupOptions?.skipUserProfile) {
             context += formatUserProfileBlock(user);
         }
 
-        // 4. [NEW] 印象档案 (Private Impression)
-        // 这是角色对用户的私密看法，只有角色知道
+        // 4. [NEW] 印象檔案 (Private Impression)
+        // 這是角色對用戶的私密看法，只有角色知道
         const imp = normalizeUserImpression(char.impression);
         if (imp) {
-            context += `### [私密档案: 我眼中的${user.name}] (Private Impression)\n`;
-            context += `(注意：以下内容是你内心对TA的真实看法，不要直接告诉用户，但要基于这些看法来决定你的态度。)\n`;
-            context += `- 核心评价: ${imp.personality_core.summary}\n`;
-            context += `- 互动模式: ${imp.personality_core.interaction_style}\n`;
-            context += `- 我观察到的特质: ${imp.personality_core.observed_traits.join(', ')}\n`;
+            context += `### [私密檔案: 我眼中的${user.name}] (Private Impression)\n`;
+            context += `(注意：以下內容是你內心對TA的真實看法，不要直接告訴用戶，但要基於這些看法來決定你的態度。)\n`;
+            context += `- 核心評價: ${imp.personality_core.summary}\n`;
+            context += `- 互動模式: ${imp.personality_core.interaction_style}\n`;
+            context += `- 我觀察到的特質: ${imp.personality_core.observed_traits.join(', ')}\n`;
             context += `- TA的喜好: ${imp.value_map.likes.join(', ')}\n`;
-            if (imp.behavior_profile.emotion_summary) context += `- TA的情绪模式: ${imp.behavior_profile.emotion_summary}\n`;
-            if (imp.emotion_schema.triggers.positive.length) context += `- 正向触发点（什么会让ta开心）: ${imp.emotion_schema.triggers.positive.join(', ')}\n`;
-            context += `- 情绪雷区（负向触发）: ${imp.emotion_schema.triggers.negative.join(', ')}\n`;
-            if (imp.emotion_schema.stress_signals.length) context += `- 压力信号（ta状态不对的征兆）: ${imp.emotion_schema.stress_signals.join(', ')}\n`;
-            context += `- 舒适区: ${imp.emotion_schema.comfort_zone}\n`;
-            context += `- 最近观察到的变化: ${imp.observed_changes ? imp.observed_changes.map(c => typeof c === 'string' ? c : (c as any)?.description ? `[${(c as any).period}] ${(c as any).description}` : JSON.stringify(c)).join('; ') : '无'}\n\n`;
+            if (imp.behavior_profile.emotion_summary) context += `- TA的情緒模式: ${imp.behavior_profile.emotion_summary}\n`;
+            if (imp.emotion_schema.triggers.positive.length) context += `- 正向觸發點（什麼會讓ta開心）: ${imp.emotion_schema.triggers.positive.join(', ')}\n`;
+            context += `- 情緒雷區（負向觸發）: ${imp.emotion_schema.triggers.negative.join(', ')}\n`;
+            if (imp.emotion_schema.stress_signals.length) context += `- 壓力信號（ta狀態不對的徵兆）: ${imp.emotion_schema.stress_signals.join(', ')}\n`;
+            context += `- 舒適區: ${imp.emotion_schema.comfort_zone}\n`;
+            context += `- 最近觀察到的變化: ${imp.observed_changes ? imp.observed_changes.map(c => typeof c === 'string' ? c : (c as any)?.description ? `[${(c as any).period}] ${(c as any).description}` : JSON.stringify(c)).join('; ') : '無'}\n\n`;
         }
 
-        // 4b. 底色认知（记忆宫殿门牌）— 常驻语义层
-        // 与召回记忆不同：这是每轮都在的"你早已知道的背景"，不走相似度抽取。
-        // 必须用 memoryPalaceEnabled 把关，理由同下方 5b：注入字段会被 saveCharacter
-        // 持久化，宫殿关闭后 injectMemoryPalace 不再刷新它，不校验就会注入残留。
+        // 4b. 底色認知（記憶宮殿門牌）— 常駐語義層
+        // 與召回記憶不同：這是每輪都在的"你早已知道的背景"，不走相似度抽取。
+        // 必須用 memoryPalaceEnabled 把關，理由同下方 5b：注入字段會被 saveCharacter
+        // 持久化，宮殿關閉後 injectMemoryPalace 不再刷新它，不校驗就會注入殘留。
         if (char.memoryPalaceEnabled && char.roomPlatesInjection && char.roomPlatesInjection.trim()) {
             context += `${char.roomPlatesInjection}\n`;
         }
 
-        // 5. 记忆库 (Memory Bank)
-        context += `### 记忆系统 (Memory Bank)\n`;
+        // 5. 記憶庫 (Memory Bank)
+        context += `### 記憶系統 (Memory Bank)\n`;
         let memoryContent = "";
 
-        // 5a. 长期核心记忆 (Refined Memories)
+        // 5a. 長期核心記憶 (Refined Memories)
         if (char.refinedMemories && Object.keys(char.refinedMemories).length > 0) {
-            memoryContent += `**长期核心记忆 (Key Memories)**:\n`;
+            memoryContent += `**長期核心記憶 (Key Memories)**:\n`;
             Object.entries(char.refinedMemories).sort().forEach(([date, summary]) => { 
                 memoryContent += `- [${date}]: ${summary}\n`; 
             });
         }
 
-        // 5b. 激活的详细记忆 (Active Detailed Logs)
+        // 5b. 激活的詳細記憶 (Active Detailed Logs)
         if (includeDetailedMemories && char.activeMemoryMonths && char.activeMemoryMonths.length > 0 && char.memories) {
             let details = "";
             char.activeMemoryMonths.forEach(monthKey => {
@@ -278,30 +278,30 @@ export const ContextBuilder = {
                 });
                 
                 if (logs.length > 0) {
-                    details += `\n> 详细回忆 [${monthKey}]:\n`;
+                    details += `\n> 詳細回憶 [${monthKey}]:\n`;
                     logs.forEach(m => {
                         details += `  - ${m.date} (${m.mood || 'rec'}): ${m.summary}\n`;
                     });
                 }
             });
             if (details) {
-                memoryContent += `\n**当前激活的详细回忆 (Active Recall)**:${details}`;
+                memoryContent += `\n**當前激活的詳細回憶 (Active Recall)**:${details}`;
             }
         }
 
         if (!memoryContent) {
-            memoryContent = "(暂无特定记忆，请基于当前对话互动)";
+            memoryContent = "(暫無特定記憶，請基於當前對話互動)";
         }
         context += `${memoryContent}\n\n`;
 
-        // 5b. 记忆宫殿 (Memory Palace) — 向量检索结果
-        // 仅在 includeDetailedMemories 时注入，与详细日志同级
-        // buildCoreContext(false) 的调用点（情绪评估、轻量上下文等）靠月度总结即可
-        // 必须用 memoryPalaceEnabled 把关：injectMemoryPalace 在关闭时直接 return、
-        // 既不刷新也不清空 char.memoryPalaceInjection，而该字段又会被 saveCharacter
-        // 持久化。若此处不校验总开关，关闭后旧的召回结果仍会被注入进 system prompt，
-        // 表现为"宫殿已关、后台无召回，角色却还在精准复述记忆"。与下方 Buff 注入同理。
-        // deferVolatile：召回结果每轮都变 → 移交 buildVolatileCoreState。
+        // 5b. 記憶宮殿 (Memory Palace) — 向量檢索結果
+        // 僅在 includeDetailedMemories 時注入，與詳細日誌同級
+        // buildCoreContext(false) 的調用點（情緒評估、輕量上下文等）靠月度總結即可
+        // 必須用 memoryPalaceEnabled 把關：injectMemoryPalace 在關閉時直接 return、
+        // 既不刷新也不清空 char.memoryPalaceInjection，而該字段又會被 saveCharacter
+        // 持久化。若此處不校驗總開關，關閉後舊的召回結果仍會被注入進 system prompt，
+        // 表現為"宮殿已關、後台無召回，角色卻還在精準複述記憶"。與下方 Buff 注入同理。
+        // deferVolatile：召回結果每輪都變 → 移交 buildVolatileCoreState。
         if (!layout?.deferVolatile && includeDetailedMemories && char.memoryPalaceEnabled) {
             const mpContext = char.memoryPalaceInjection || memoryPalaceContext;
             if (mpContext && mpContext.trim()) {
@@ -309,26 +309,26 @@ export const ContextBuilder = {
             }
         }
 
-        // 6. 情绪底色 Buff (Emotion Buff Injection)
-        // 放在角色设定之后，使所有调用 ContextBuilder 的 App 都能感知情绪状态
-        // 总开关关闭时完全跳过，防止残留 buff 继续污染 prompt
-        // deferVolatile：buff 每轮情绪评估后都可能变 → 移交 buildVolatileCoreState。
+        // 6. 情緒底色 Buff (Emotion Buff Injection)
+        // 放在角色設定之後，使所有調用 ContextBuilder 的 App 都能感知情緒狀態
+        // 總開關關閉時完全跳過，防止殘留 buff 繼續汙染 prompt
+        // deferVolatile：buff 每輪情緒評估後都可能變 → 移交 buildVolatileCoreState。
         if (!layout?.deferVolatile && isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection) {
             context += `${char.buffInjection}\n\n`;
             console.log(`🎭 [Context] Buff injected for ${char.name}:\n`, char.buffInjection);
             console.log(`🎭 [Context] Active buffs:`, JSON.stringify(char.activeBuffs || [], null, 2));
         }
 
-        context += formatWorldbookSection(worldbookSections.authorsNoteTop, '世界书 · 作者注释顶部');
-        context += formatWorldbookSection(worldbookSections.authorsNoteBottom, '世界书 · 作者注释底部');
+        context += formatWorldbookSection(worldbookSections.authorsNoteTop, '世界書 · 作者註釋頂部');
+        context += formatWorldbookSection(worldbookSections.authorsNoteBottom, '世界書 · 作者註釋底部');
 
-        // 7. 表达底线 (Anti-Filler) —— 全 App 通用的精简版防套话提示。
-        // 模型八股（空泛感慨、万能句式）是"没话找话"时的填充物，这里只做正向引导
-        // （去挖具体素材），不列任何禁语——把禁语写进提示词反而会激活它（粉色大象）。
-        // 完整方法版在 datePrompts 的 DIG_DEEPER_BLOCK（见面模式专用，可按角色开关）。
-        // 群聊流（groupOptions）跳过：多成员场景会重复注入 N 份，群聊侧暂不接入。
+        // 7. 表達底線 (Anti-Filler) —— 全 App 通用的精簡版防套話提示。
+        // 模型八股（空泛感慨、萬能句式）是"沒話找話"時的填充物，這裡只做正向引導
+        // （去挖具體素材），不列任何禁語——把禁語寫進提示詞反而會激活它（粉色大象）。
+        // 完整方法版在 datePrompts 的 DIG_DEEPER_BLOCK（見面模式專用，可按角色開關）。
+        // 群聊流（groupOptions）跳過：多成員場景會重複注入 N 份，群聊側暫不接入。
         if (!groupOptions) {
-            context += `### 表达底线 (Anti-Filler)\n当你觉得"没什么可说"的时候，不要用空泛的感慨、万能句式或华丽排比去填充——那是没话找话，对方一眼就能看出来。素材永远比你以为的多：对方的用词、ta 怎么说的、ta 没说的部分、此刻的情境、你们的过去、你心里闪过的念头——挑一两条往深处走就够了。宁可一个具体的小细节，不要一句谁都能说的话。\n\n`;
+            context += `### 表達底線 (Anti-Filler)\n當你覺得"沒什麼可說"的時候，不要用空泛的感慨、萬能句式或華麗排比去填充——那是沒話找話，對方一眼就能看出來。素材永遠比你以為的多：對方的用詞、ta 怎麼說的、ta 沒說的部分、此刻的情境、你們的過去、你心裡閃過的念頭——挑一兩條往深處走就夠了。寧可一個具體的小細節，不要一句誰都能說的話。\n\n`;
         }
 
         // Debug: warn about missing context sections
@@ -349,9 +349,9 @@ export const ContextBuilder = {
     },
 
     /**
-     * 真实时间感知块（原 buildCoreContext 1a 段，逐字一致）。
-     * 单独抽出来是为了让聊天主路径能把它挪到消息数组末尾（deferVolatile），
-     * 其余 App 仍由 buildCoreContext 内部调用、位置不变。
+     * 真實時間感知塊（原 buildCoreContext 1a 段，逐字一致）。
+     * 單獨抽出來是為了讓聊天主路徑能把它挪到消息數組末尾（deferVolatile），
+     * 其餘 App 仍由 buildCoreContext 內部調用、位置不變。
      */
     buildTimeAwarenessBlock: (
         char: CharacterProfile,
@@ -359,38 +359,38 @@ export const ContextBuilder = {
             lastInteractionTs?: number;
             skipTimeAwareness?: boolean;
             /**
-             * 这次注入是不是「正有人在跟角色说话」（私聊、见面这类实时对话）。
-             * 只有这时才补那句语境框定，见下方注释。默认 false：日程 / 歌单 / 攻略 /
-             * 手册 / 小剧场这些生成器同样走 buildCoreContext，但那边并没有人在对话。
+             * 這次注入是不是「正有人在跟角色說話」（私聊、見面這類實時對話）。
+             * 只有這時才補那句語境框定，見下方註釋。默認 false：日程 / 歌單 / 攻略 /
+             * 手冊 / 小劇場這些生成器同樣走 buildCoreContext，但那邊並沒有人在對話。
              */
             conversational?: boolean;
         },
     ): string => {
-        // skipTimeAwareness：见面纯架空时由调用方传入，彻底抑制时间注入（修「线下时间感知」关掉后仍漏时间）。
+        // skipTimeAwareness：見面純架空時由調用方傳入，徹底抑制時間注入（修「線下時間感知」關掉後仍漏時間）。
         if (char.timeAwarenessEnabled === false || timeOptions?.skipTimeAwareness) return '';
-        // 自定义时区（异国恋等）：开启后这里的"当前时间"按角色所在时区折算，并附时差提示，
-        // 让查手机/人际关系/通话等所有直连 buildCoreContext 的路径都拿到正确的本地时间。
+        // 自定義時區（異國戀等）：開啟後這裡的"當前時間"按角色所在時區折算，並附時差提示，
+        // 讓查手機/人際關係/通話等所有直連 buildCoreContext 的路徑都拿到正確的本地時間。
         const charTz = resolveCharTimeZone(char);
         const now = nowInTimeZone(charTz);
         const h = now.getHours();
-        const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
         const timeOfDay =
             h < 5 ? '凌晨' : h < 9 ? '早晨' : h < 12 ? '上午' : h < 14 ? '中午'
             : h < 17 ? '下午' : h < 19 ? '傍晚' : h < 22 ? '晚上' : '深夜';
         const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
         const timeStr = `${h.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        let context = `### 当前时间 (Now)\n`;
-        context += `现在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。请据此自然地拥有真实的时间观念（早晚作息、工作日/周末、距离上次互动多久等），不要凭空假设时间。\n`;
-        // 报时后面那句语境框定（这句话本身和「为什么只在对话时给」都在
-        // utils/timeFramingNote.ts）。即时对话走的是云端那条路，时间由 worker 到点补，
-        // 那边引的是同一份常量——同一句话不抄两遍，免得两条路上的角色分寸不一样。
+        let context = `### 當前時間 (Now)\n`;
+        context += `現在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
+        // 報時後面那句語境框定（這句話本身和「為什麼只在對話時給」都在
+        // utils/timeFramingNote.ts）。即時對話走的是雲端那條路，時間由 worker 到點補，
+        // 那邊引的是同一份常量——同一句話不抄兩遍，免得兩條路上的角色分寸不一樣。
         if (timeOptions?.conversational) {
             context += `${TIME_FRAMING_CONVERSATIONAL}\n`;
         }
         const tzNote = tzAwarenessNote(charTz);
         if (tzNote) context += `${tzNote.trim()}\n`;
-        // 距离上次联系多久（统一口径）：传了 lastInteractionTs 才注入。
-        // 让查手机/人际关系等无内联消息流的路径，也像聊天一样知道「用户多久没联系我了」。
+        // 距離上次聯繫多久（統一口徑）：傳了 lastInteractionTs 才注入。
+        // 讓查手機/人際關係等無內聯消息流的路徑，也像聊天一樣知道「用戶多久沒聯繫我了」。
         const gapNote = interactionGapNote(timeOptions?.lastInteractionTs);
         if (gapNote) context += gapNote;
         context += `\n`;
@@ -398,9 +398,9 @@ export const ContextBuilder = {
     },
 
     /**
-     * buildCoreContext(deferVolatile) 的另一半：时间 → 记忆宫殿召回 → 情绪 buff。
-     * 三块的开关判定与 buildCoreContext 内联版完全一致，只是输出位置交给调用方
-     * （聊天主路径放到消息数组末尾的"当前状态" system 消息里）。
+     * buildCoreContext(deferVolatile) 的另一半：時間 → 記憶宮殿召回 → 情緒 buff。
+     * 三塊的開關判定與 buildCoreContext 內聯版完全一致，只是輸出位置交給調用方
+     * （聊天主路徑放到消息數組末尾的"當前狀態" system 消息裡）。
      */
     buildVolatileCoreState: (
         char: CharacterProfile,
@@ -430,21 +430,21 @@ export const ContextBuilder = {
     },
 
     /**
-     * 群聊场景共享块。
+     * 群聊場景共享塊。
      *
-     * 单次调用里如果给每个角色都重复贴一遍"用户档案+世界书+世界观"，
-     * 三人群就是 3 倍的布景重复，把 token 烧光。这里把"舞台"提前一次性铺好：
+     * 單次調用裡如果給每個角色都重複貼一遍"用戶檔案+世界書+世界觀"，
+     * 三人群就是 3 倍的佈景重複，把 token 燒光。這裡把"舞台"提前一次性鋪好：
      *
-     *   - 用户档案：所有角色看到的都是同一个用户，去重必然安全。
-     *   - 世界书：按 id 统计，被 ≥2 个角色挂载的视为"群共有设定"，提到顶部一次。
-     *     只有某个角色独享的世界书仍留在该角色块里，避免别人看到本不该知道的设定。
-     *   - 世界观：仅当所有成员的 worldview 字符串完全一致时才视为共享。
+     *   - 用戶檔案：所有角色看到的都是同一個用戶，去重必然安全。
+     *   - 世界書：按 id 統計，被 ≥2 個角色掛載的視為"群共有設定"，提到頂部一次。
+     *     只有某個角色獨享的世界書仍留在該角色塊裡，避免別人看到本不該知道的設定。
+     *   - 世界觀：僅當所有成員的 worldview 字符串完全一致時才視為共享。
      *
-     * 返回的 sharedWorldbookIds / worldviewIsShared 用于配合 buildCoreContext
-     * 的 skipUserProfile / skipWorldbookIds / skipWorldview 选项，避免重复输出。
+     * 返回的 sharedWorldbookIds / worldviewIsShared 用於配合 buildCoreContext
+     * 的 skipUserProfile / skipWorldbookIds / skipWorldview 選項，避免重複輸出。
      *
-     * 男朋友还是男朋友——这里砍的只是"我们现在在这家餐厅"这种描述，
-     * 没有任何一段是把谁的人设、印象、记忆压缩掉。
+     * 男朋友還是男朋友——這裡砍的只是"我們現在在這家餐廳"這種描述，
+     * 沒有任何一段是把誰的人設、印象、記憶壓縮掉。
      */
     buildGroupSharedScene: (
         members: CharacterProfile[],
@@ -462,7 +462,7 @@ export const ContextBuilder = {
             return { text: '', sharedWorldbookIds, worldviewIsShared };
         }
 
-        // 1. 找出共享的世界书（被 2+ 角色挂载，按 id 计）
+        // 1. 找出共享的世界書（被 2+ 角色掛載，按 id 計）
         const wbCount = new Map<string, { count: number; entry: { id: string; title: string; content: string; category?: string } }>();
         for (const m of members) {
             for (const wb of (m.mountedWorldbooks || [])) {
@@ -480,7 +480,7 @@ export const ContextBuilder = {
             }
         });
 
-        // 2. 共享 worldview：所有成员的非空 worldview 字符串完全一致
+        // 2. 共享 worldview：所有成員的非空 worldview 字符串完全一致
         if (members.every(m => m.worldview && m.worldview.trim())) {
             const first = members[0].worldview!.trim();
             if (members.every(m => m.worldview!.trim() === first)) {
@@ -488,40 +488,40 @@ export const ContextBuilder = {
             }
         }
 
-        // 3. 拼装共享场景文本
-        let text = `[System: 群聊场景共享设定 (Group Scene)]\n`;
-        text += `（以下是群里所有角色都共同感知到的"舞台"——用户是谁、共有的世界设定。每位角色的个人卡、印象、记忆等仍在各自的"角色档案"块中保持完整。）\n\n`;
+        // 3. 拼裝共享場景文本
+        let text = `[System: 群聊場景共享設定 (Group Scene)]\n`;
+        text += `（以下是群裡所有角色都共同感知到的"舞台"——用戶是誰、共有的世界設定。每位角色的個人卡、印象、記憶等仍在各自的"角色檔案"塊中保持完整。）\n\n`;
 
         text += formatUserProfileBlock(user);
 
         if (worldviewIsShared) {
-            text += `### 共有世界观 (Shared World Settings)\n${members[0].worldview!.trim()}\n\n`;
+            text += `### 共有世界觀 (Shared World Settings)\n${members[0].worldview!.trim()}\n\n`;
         }
 
         const resolvedSharedBooks = resolveWorldbookEntries(sharedBooks, worldbookMessages, '', user.name);
-        text += formatWorldbookSection(resolvedSharedBooks, '共有扩展设定集 (Shared Worldbooks)');
+        text += formatWorldbookSection(resolvedSharedBooks, '共有擴展設定集 (Shared Worldbooks)');
 
         return { text, sharedWorldbookIds, worldviewIsShared };
     },
 
     /**
-     * 构建日程注入文本。实现住在 utils/scheduleInjection.ts —— 那是个零依赖的纯叶子，
-     * 主动消息到点生成时 worker 也要渲染同一段（见 utils/amsgFireScene.ts），
-     * 两边共用一份才不会出现「聊天里说在健身房、主动消息里说在睡觉」。
+     * 構建日程注入文本。實現住在 utils/scheduleInjection.ts —— 那是個零依賴的純葉子，
+     * 主動消息到點生成時 worker 也要渲染同一段（見 utils/amsgFireScene.ts），
+     * 兩邊共用一份才不會出現「聊天裡說在健身房、主動消息裡說在睡覺」。
      */
     buildScheduleInjection: buildScheduleInjectionText,
 
     /**
-     * 音乐氛围注入：
-     * 1) user 此刻真的在播放音乐 + char.canReadUserMusic 开 → 注入"对方正在听 X + 当前歌词窗口（前2当前后2）"
-     *    + 同曲歌单命中提示（该歌也在 char 某个歌单里）
-     * 2) char 自己此刻在听（Schedule 听歌时段） → 注入"你此刻在听 Y"（不含歌词，char 知道自己听什么）
+     * 音樂氛圍注入：
+     * 1) user 此刻真的在播放音樂 + char.canReadUserMusic 開 → 注入"對方正在聽 X + 當前歌詞窗口（前2當前後2）"
+     *    + 同曲歌單命中提示（該歌也在 char 某個歌單裡）
+     * 2) char 自己此刻在聽（Schedule 聽歌時段） → 注入"你此刻在聽 Y"（不含歌詞，char 知道自己聽什麼）
      *
-     * 设计：
-     * - 输出的提示词简短克制，不引导 char 做具体动作；动作由 buildMusicActionGuide 单独注入
-     * - 纯文本块，完全可以为空字符串（无 listening 状态时不污染 prompt）
-     * - char 自己的 currentListening 以 runtime 参数传入（chatPrompts 层 recompute），
-     *   不依赖 char.musicProfile.currentListening 的持久状态
+     * 設計：
+     * - 輸出的提示詞簡短克制，不引導 char 做具體動作；動作由 buildMusicActionGuide 單獨注入
+     * - 純文本塊，完全可以為空字符串（無 listening 狀態時不汙染 prompt）
+     * - char 自己的 currentListening 以 runtime 參數傳入（chatPrompts 層 recompute），
+     *   不依賴 char.musicProfile.currentListening 的持久狀態
      */
     buildMusicAtmosphere: (
         char: CharacterProfile,
@@ -529,72 +529,72 @@ export const ContextBuilder = {
         userListening: {
             songName: string;
             artists: string;
-            lyricWindow: string[];      // 前2当前后2（共 ≤5 行）；可为空（没歌词）
-            activeIdx: number;          // 在 lyricWindow 里的高亮位置，-1 表示没歌词
+            lyricWindow: string[];      // 前2當前後2（共 ≤5 行）；可為空（沒歌詞）
+            activeIdx: number;          // 在 lyricWindow 裡的高亮位置，-1 表示沒歌詞
         } | null,
         charListening?: {
-            songId?: number;            // 用来回查这首歌是不是从 user 收来的
+            songId?: number;            // 用來回查這首歌是不是從 user 收來的
             songName: string;
             artists: string;
             vibe?: string;
-            // schedule 层注入的一段稳定歌词行（不含时间戳；Slot 内稳定，slot 一过就换）。
-            // 作用是单方面丰富 char 的内心世界 —— 歌词可以影响情绪 / 心境，
-            // 但 char 没有义务主动把这件事告诉 user。
+            // schedule 層注入的一段穩定歌詞行（不含時間戳；Slot 內穩定，slot 一過就換）。
+            // 作用是單方面豐富 char 的內心世界 —— 歌詞可以影響情緒 / 心境，
+            // 但 char 沒有義務主動把這件事告訴 user。
             lyricSnippet?: string[];
         } | null,
-        // char 是否已和 user "一起听"（由 MusicContext.listeningTogetherWith 决定）。
-        // 暂停 / 切歌 / 播放出错 / user 显式踢出 都会让 char 从名单里掉出来，
-        // 走到这里时就会退回 "对方在听" 的旁观措辞。
+        // char 是否已和 user "一起聽"（由 MusicContext.listeningTogetherWith 決定）。
+        // 暫停 / 切歌 / 播放出錯 / user 顯式踢出 都會讓 char 從名單裡掉出來，
+        // 走到這裡時就會退回 "對方在聽" 的旁觀措辭。
         isListeningTogether?: boolean,
-        // 刚才一起听途中歌被切了（本 char 在名单里、还没重新加入）。
-        // 只在下一轮正常回复里让 char "察觉"到换歌，不触发主动消息。
+        // 剛才一起聽途中歌被切了（本 char 在名單裡、還沒重新加入）。
+        // 只在下一輪正常回復裡讓 char "察覺"到換歌，不觸發主動消息。
         recentTrackSwitch?: { songName: string; artists: string } | null,
     ): string => {
         const lines: string[] = [];
 
-        // —— 块 1: user 正在听什么 ——
+        // —— 塊 1: user 正在聽什麼 ——
         const canRead = char.musicProfile?.canReadUserMusic ?? true;
         if (canRead && userListening && userListening.songName) {
-            lines.push(`### 【此刻的对话氛围】`);
+            lines.push(`### 【此刻的對話氛圍】`);
             if (isListeningTogether) {
-                lines.push(`你正在和 ${userName || '对方'} 一起听《${userListening.songName}》— ${userListening.artists}`);
+                lines.push(`你正在和 ${userName || '對方'} 一起聽《${userListening.songName}》— ${userListening.artists}`);
             } else {
-                lines.push(`${userName || '对方'} 正在听《${userListening.songName}》— ${userListening.artists}`);
+                lines.push(`${userName || '對方'} 正在聽《${userListening.songName}》— ${userListening.artists}`);
                 if (recentTrackSwitch && recentTrackSwitch.songName !== userListening.songName) {
-                    lines.push(`（你们刚才本来在一起听《${recentTrackSwitch.songName}》— ${recentTrackSwitch.artists}，播放器切歌后那次"一起听"自然结束了。你能察觉到歌换成了现在这首；想继续陪 ${userName || '对方'} 听下去就在回复里自然接上并重新加入，不想也不必勉强，顺其自然。）`);
+                    lines.push(`（你們剛才本來在一起聽《${recentTrackSwitch.songName}》— ${recentTrackSwitch.artists}，播放器切歌后那次"一起聽"自然結束了。你能察覺到歌換成了現在這首；想繼續陪 ${userName || '對方'} 聽下去就在回覆裡自然接上並重新加入，不想也不必勉強，順其自然。）`);
                 }
             }
             if (userListening.lyricWindow.length > 0) {
-                lines.push(`当前播放到（>> 标记正在播放这一行）:`);
+                lines.push(`當前播放到（>> 標記正在播放這一行）:`);
                 userListening.lyricWindow.forEach((l, i) => {
                     if (i === userListening.activeIdx) lines.push(`  >> ${l}`);
                     else lines.push(`  … ${l}`);
                 });
             }
 
-            // 歌单命中提示（按 songName 粗匹，避免在 context.ts 里引 MusicContext）
+            // 歌單命中提示（按 songName 粗匹，避免在 context.ts 裡引 MusicContext）
             const profile = char.musicProfile;
             if (profile) {
                 const hitPl = profile.playlists.find(pl =>
                     pl.songs.some(s => s.name === userListening.songName));
                 if (hitPl) {
-                    lines.push(`（这首歌也在你的歌单《${hitPl.title}》里）`);
+                    lines.push(`（這首歌也在你的歌單《${hitPl.title}》裡）`);
                 }
             }
-            lines.push(`（你只是自然地知道 ${userName || '对方'} 此刻在听这首——像共处一室时隐约听见的背景音。不用每次都评论歌名、歌词或风格，多数时候安静地陪着就好；只有真的被某句打动、或对方主动聊起时，再自然地接上。）`);
+            lines.push(`（你只是自然地知道 ${userName || '對方'} 此刻在聽這首——像共處一室時隱約聽見的背景音。不用每次都評論歌名、歌詞或風格，多數時候安靜地陪著就好；只有真的被某句打動、或對方主動聊起時，再自然地接上。）`);
             lines.push('');
         }
 
-        // —— 块 2: char 自己此刻在听（Schedule 触发） ——
-        // 原来只推歌名 + 艺人；现在顺便带一段稳定的歌词片段，让这首歌能真的
-        // 影响 char 的心境（单方面丰富精神世界，不用非得对 user 说起）。
+        // —— 塊 2: char 自己此刻在聽（Schedule 觸發） ——
+        // 原來只推歌名 + 藝人；現在順便帶一段穩定的歌詞片段，讓這首歌能真的
+        // 影響 char 的心境（單方面豐富精神世界，不用非得對 user 說起）。
         if (charListening?.songName) {
             lines.push(`### 【你此刻的背景音】`);
-            lines.push(`你正在听《${charListening.songName}》— ${charListening.artists}`);
+            lines.push(`你正在聽《${charListening.songName}》— ${charListening.artists}`);
             if (charListening.vibe) lines.push(`（${charListening.vibe}）`);
 
-            // user 来源标记 —— 如果这首歌是当初从 user 收进自己歌单的，
-            // 让 char 自然意识到这层关系（"这是 ta 听过的歌"）。
+            // user 來源標記 —— 如果這首歌是當初從 user 收進自己歌單的，
+            // 讓 char 自然意識到這層關係（"這是 ta 聽過的歌"）。
             const profile = char.musicProfile;
             if (profile && charListening.songId != null) {
                 let userSourcedPlTitle: string | null = null;
@@ -603,32 +603,32 @@ export const ContextBuilder = {
                     if (hit) { userSourcedPlTitle = pl.title; break; }
                 }
                 if (userSourcedPlTitle) {
-                    lines.push(`（这首是当初从 ${userName || '对方'} 那里听到、收进《${userSourcedPlTitle}》的 — 此刻播到它，你自然会想到 ta）`);
+                    lines.push(`（這首是當初從 ${userName || '對方'} 那裡聽到、收進《${userSourcedPlTitle}》的 — 此刻播到它，你自然會想到 ta）`);
                 }
             }
 
             if (charListening.lyricSnippet && charListening.lyricSnippet.length > 0) {
-                lines.push(`这段歌词正在你脑子里绕：`);
+                lines.push(`這段歌詞正在你腦子裡繞：`);
                 for (const l of charListening.lyricSnippet) lines.push(`  · ${l}`);
-                lines.push(`（这段旋律和文字会自然影响你此刻的心境 / 语气 / 情绪细节。不必特地向 ${userName || '对方'} 提起，除非你本来就想说。）`);
+                lines.push(`（這段旋律和文字會自然影響你此刻的心境 / 語氣 / 情緒細節。不必特地向 ${userName || '對方'} 提起，除非你本來就想說。）`);
             }
             lines.push('');
         }
 
-        // —— 块 3: char 自己的歌单清单 ——
-        // 只在**有音乐上下文**（user 在听 OR char 自己在 schedule 里听）时注入。
-        // 没音乐上下文时不往 prompt 里塞这段 — 避免普通聊天被无关信息污染、
-        // 也避免 LLM 在没提示 add 语法的场合主动联想去操作歌单。
+        // —— 塊 3: char 自己的歌單清單 ——
+        // 只在**有音樂上下文**（user 在聽 OR char 自己在 schedule 裡聽）時注入。
+        // 沒音樂上下文時不往 prompt 裡塞這段 — 避免普通聊天被無關信息汙染、
+        // 也避免 LLM 在沒提示 add 語法的場合主動聯想去操作歌單。
         const hasMusicContext = !!(userListening && userListening.songName) || !!charListening?.songName;
         const profile = char.musicProfile;
         if (hasMusicContext && profile && profile.playlists.length > 0) {
-            lines.push(`### 【你的歌单】`);
+            lines.push(`### 【你的歌單】`);
             for (const pl of profile.playlists) {
                 const desc = pl.description ? ` — ${pl.description}` : '';
                 const moodTag = pl.mood ? ` [${pl.mood}]` : '';
                 lines.push(`  · 《${pl.title}》(${pl.songs.length} 首)${moodTag}${desc}`);
             }
-            // 列出每个歌单里最近收进的几首用户来源歌，让 LLM 聊起歌单时有料可讲
+            // 列出每個歌單裡最近收進的幾首用戶來源歌，讓 LLM 聊起歌單時有料可講
             const userSongsPerPl: string[] = [];
             for (const pl of profile.playlists) {
                 const fromUser = pl.songs
@@ -637,11 +637,11 @@ export const ContextBuilder = {
                     .slice(0, 3);
                 if (fromUser.length > 0) {
                     const titles = fromUser.map(s => `《${s.name}》`).join('、');
-                    userSongsPerPl.push(`  · 《${pl.title}》里从 ${userName || '对方'} 那儿收的：${titles}`);
+                    userSongsPerPl.push(`  · 《${pl.title}》裡從 ${userName || '對方'} 那兒收的：${titles}`);
                 }
             }
             if (userSongsPerPl.length > 0) {
-                lines.push(`（从 ${userName || '对方'} 那儿收进来的歌 — 聊起这些歌时你会自然想到 ta）:`);
+                lines.push(`（從 ${userName || '對方'} 那兒收進來的歌 — 聊起這些歌時你會自然想到 ta）:`);
                 for (const l of userSongsPerPl) lines.push(l);
             }
             lines.push('');
@@ -651,39 +651,39 @@ export const ContextBuilder = {
     },
 
     /**
-     * 音乐行动指令（告诉 LLM 怎么输出 music_action 指令）
-     * 这个块**只在 user 正在听歌**的时候注入，避免 char 在没上下文时乱 call。
+     * 音樂行動指令（告訴 LLM 怎麼輸出 music_action 指令）
+     * 這個塊**只在 user 正在聽歌**的時候注入，避免 char 在沒上下文時亂 call。
      *
-     * 如果 char 已经和 user 处于"一起听"状态，隐藏 join / join_and_add 选项 —
-     * 防止 LLM 重复插"加入"卡片。
+     * 如果 char 已經和 user 處於"一起聽"狀態，隱藏 join / join_and_add 選項 —
+     * 防止 LLM 重複插"加入"卡片。
      */
     buildMusicActionGuide: (isListeningTogether?: boolean): string => {
-        // 把"加入歌单"那段说明抽出来 — 两种状态都用同一份
-        const addUsage = `**加入歌单的语法**（如果用 \`add\` 系列）：
-  - \`[[MUSIC_ACTION:add]]\` — 默认放进你的第一个歌单
-  - \`[[MUSIC_ACTION:add|歌单标题]]\` — 放进你已经有的某个歌单（用"【你的歌单】"块里列出的标题）
-  - \`[[MUSIC_ACTION:add_new|新歌单标题|描述]]\` — 现场新建一个歌单，把这首作为第一首（描述可省）
-  请优先选**最贴合这首歌气质**的现有歌单；如果都不合适、又确实想收，再考虑新建。
-  收进来的歌会被打上"从对方那里听到"的标签 —— 以后你单独听到这首时，会自然想起 ta。`;
+        // 把"加入歌單"那段說明抽出來 — 兩種狀態都用同一份
+        const addUsage = `**加入歌單的語法**（如果用 \`add\` 系列）：
+  - \`[[MUSIC_ACTION:add]]\` — 默認放進你的第一個歌單
+  - \`[[MUSIC_ACTION:add|歌單標題]]\` — 放進你已經有的某個歌單（用"【你的歌單】"塊裡列出的標題）
+  - \`[[MUSIC_ACTION:add_new|新歌單標題|描述]]\` — 現場新建一個歌單，把這首作為第一首（描述可省）
+  請優先選**最貼合這首歌氣質**的現有歌單；如果都不合適、又確實想收，再考慮新建。
+  收進來的歌會被打上"從對方那裡聽到"的標籤 —— 以後你單獨聽到這首時，會自然想起 ta。`;
         if (isListeningTogether) {
-            return `### 【音乐互动工具】
-你此刻已经在和对方一起听这首，不用再"加入"。如果想把这首也收进自己的歌单，可以在这一轮**最多一次**用下面的指令:
-- \`add\` 系列（见下）
+            return `### 【音樂互動工具】
+你此刻已經在和對方一起聽這首，不用再"加入"。如果想把這首也收進自己的歌單，可以在這一輪**最多一次**用下面的指令:
+- \`add\` 系列（見下）
 
 ${addUsage}
 
-不要频繁插卡；只有真的被这首歌打动、或和当前对话气氛契合时才用。
+不要頻繁插卡；只有真的被這首歌打動、或和當前對話氣氛契合時才用。
 `;
         }
-        return `### 【音乐互动工具】
-如果你真的想回应对方正在听的这首歌，可以在这一轮**最多一次**用下面的指令（只插一条，放在文本任意位置，会被自动替换为卡片）:
-- \`[[MUSIC_ACTION:join]]\` — 表示"我也一起听这首"（会亮出"一起听"状态，直到歌曲结束 / 暂停 / 对方主动结束才解除）
-- \`add\` 系列 — 把这首收进你自己的歌单
-- \`[[MUSIC_ACTION:join_and_add(|歌单标题)]]\` 或 \`[[MUSIC_ACTION:join_and_add_new|新歌单标题|描述]]\` — 同时做两件事
+        return `### 【音樂互動工具】
+如果你真的想回應對方正在聽的這首歌，可以在這一輪**最多一次**用下面的指令（只插一條，放在文本任意位置，會被自動替換為卡片）:
+- \`[[MUSIC_ACTION:join]]\` — 表示"我也一起聽這首"（會亮出"一起聽"狀態，直到歌曲結束 / 暫停 / 對方主動結束才解除）
+- \`add\` 系列 — 把這首收進你自己的歌單
+- \`[[MUSIC_ACTION:join_and_add(|歌單標題)]]\` 或 \`[[MUSIC_ACTION:join_and_add_new|新歌單標題|描述]]\` — 同時做兩件事
 
 ${addUsage}
 
-这些是偶尔才用的工具，不是每首歌都要回应。绝大多数时候什么都不做、安静陪着才是最自然的反应；只有当你**真的**被这首歌打动、或它恰好贴合此刻的对话气氛时，再插一次卡。不要把它当成"对方在听歌"的默认回礼。
+這些是偶爾才用的工具，不是每首歌都要回應。絕大多數時候什麼都不做、安靜陪著才是最自然的反應；只有當你**真的**被這首歌打動、或它恰好貼合此刻的對話氣氛時，再插一次卡。不要把它當成"對方在聽歌"的默認回禮。
 `;
     },
 };

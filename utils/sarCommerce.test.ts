@@ -18,7 +18,7 @@ const seed = (balance=1000) => {
 };
 const quote = (storage:ReturnType<typeof memory>,requestId:string,maxCost=90,date=now)=>({storage,requestId,maxCost,now:date,random:()=>0});
 
-describe('SAR 鳞币结算',()=>{
+describe('SAR 鱗幣結算',()=>{
     it('migrates old collections once without resetting or charging existing assets',async()=>{
         const storage=seed();
         storage.setItem(SAR_GACHA_STORAGE_KEY,JSON.stringify({version:1,collection:{'story-01':4},freeDrawDate:{story:'2026-09-10'},history:[]}));
@@ -42,13 +42,13 @@ describe('SAR 鳞币结算',()=>{
     it('never upgrades a stale free offer into a paid draw',async()=>{
         const storage=seed();await drawSARModuleWithPayment('story',quote(storage,'first',0));
         const before=storage.getItem(FISHING_MARKET_STORAGE_KEY);
-        await expect(drawSARModuleWithPayment('story',quote(storage,'stale',0))).rejects.toThrow('免费次数');
+        await expect(drawSARModuleWithPayment('story',quote(storage,'stale',0))).rejects.toThrow('免費次數');
         expect(storage.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
     });
     it('rejects old 30-coin quotes without charging or advancing duplicate protection',async()=>{
         const storage=seed();await drawSARModuleWithPayment('story',quote(storage,'first',0));
         const before=storage.getItem(FISHING_MARKET_STORAGE_KEY);
-        await expect(drawSARModuleWithPayment('story',quote(storage,'old-price',30))).rejects.toThrow('价格');
+        await expect(drawSARModuleWithPayment('story',quote(storage,'old-price',30))).rejects.toThrow('價格');
         expect(storage.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
     });
     it('duplicate protection survives retries, backup and restore; failed protected draws do not consume it',async()=>{
@@ -91,11 +91,11 @@ describe('SAR 鳞币结算',()=>{
     });
     it('rejects stale shelf items and underquoted prices',async()=>{
         const storage=seed();const state=await ensureSARCommerce(storage,now);const id=state.shop.market.offerIds[0];
-        await expect(buySARModuleWithPayment(id,quote(storage,'cheap',0))).rejects.toThrow('价格');
+        await expect(buySARModuleWithPayment(id,quote(storage,'cheap',0))).rejects.toThrow('價格');
         await expect(buySARModuleWithPayment('missing',quote(storage,'missing',100))).rejects.toThrow('不存在');
         const raw=readFishingMarketState(storage);raw.sarCommerce!.moduleShop.market.offerIds=SAR_MODULE_CATALOG.filter(module=>module.id!==id).slice(0,5).map(module=>module.id);
         storage.setItem(FISHING_MARKET_STORAGE_KEY,JSON.stringify(raw));
-        await expect(buySARModuleWithPayment(id,quote(storage,'stale',100))).rejects.toThrow('货架已经更新');
+        await expect(buySARModuleWithPayment(id,quote(storage,'stale',100))).rejects.toThrow('貨架已經更新');
         expect(readSARCommerce(storage,now).balance).toBe(1000);
     });
     it('one failing storage write leaves balance, inventory, quota and receipt untouched',async()=>{
@@ -125,7 +125,7 @@ describe('SAR 鳞币结算',()=>{
     });
     it('does not overwrite unreadable legacy inventory during migration',async()=>{
         const storage=seed();storage.setItem(SAR_GACHA_STORAGE_KEY,'{broken');
-        await expect(ensureSARCommerce(storage,now)).rejects.toThrow('存档无法读取');
+        await expect(ensureSARCommerce(storage,now)).rejects.toThrow('存檔無法讀取');
         expect(storage.getItem(SAR_GACHA_STORAGE_KEY)).toBe('{broken');expect(readFishingMarketState(storage).sarCommerce).toBeUndefined();
     });
     it('can still back up a corrupt wallet and existing legacy inventory',()=>{

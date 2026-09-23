@@ -30,7 +30,7 @@ export async function inspectAvatarFile(file: Blob & { name?: string }): Promise
       kind: 'unsupported',
       fileName,
       byteLength: file.size,
-      reason: '目前仅支持 .vrm；VRoid 工程请先从 VRoid Studio 导出。',
+      reason: '目前僅支持 .vrm；VRoid 工程請先從 VRoid Studio 導出。',
     };
   }
 
@@ -46,7 +46,7 @@ export async function inspectAvatarFile(file: Blob & { name?: string }): Promise
       kind: 'unsupported',
       fileName,
       byteLength: file.size,
-      reason: '文件扩展名是 .vrm，但内容不是有效的二进制 glTF。',
+      reason: '文件擴展名是 .vrm，但內容不是有效的二進制 glTF。',
     };
   }
 
@@ -79,7 +79,7 @@ export async function saveAvatarModel(file: File): Promise<VideoAvatarConfig> {
   if (inspection.kind !== 'vrm') {
     throw new Error(inspection.kind === 'unsupported'
       ? inspection.reason
-      : '这是 VRoid Studio 工程文件，请先导出为 VRM 1.0。');
+      : '這是 VRoid Studio 工程文件，請先導出為 VRM 1.0。');
   }
 
   const assetId = makeAssetId();

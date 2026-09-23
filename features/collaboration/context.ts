@@ -9,31 +9,31 @@ import type { MemoryNode } from '../../utils/memoryPalace/types';
 import type { CollaborationContextMessage, CollaborationMakerKind, CollaborationMessage, CollaborationMode } from './types';
 import { getCollaborationMakerPrompt } from './makers';
 
-const COLLABORATION_PROTOCOL = `### 协同工作规则
-这是一个由用户主动打开的独立协同会话。你仍然是角色本人，但这间窗口以把事情可靠地做完为第一目标。
+const COLLABORATION_PROTOCOL = `### 協同工作規則
+這是一個由用戶主動打開的獨立協同會話。你仍然是角色本人，但這間窗口以把事情可靠地做完為第一目標。
 
-- 主动拆解、执行、检查并交付；只有缺少会改变结果的关键信息时才询问。
-- 保持你自己的语言习惯和判断，不要变成没有人格的客服，也不要为了演绎而拖延任务。
-- 可以阅读用户在本会话上传的文件和参考图片。PDF 会标明页数并提取全文；图片会以视觉输入或识图描述提供。不要假装读到了没有提供的内容。
-- 普通聊天正文默认使用 Markdown 排版，但这不代表只能生成 .md。用户选择或点名 Word、PDF、TXT、HTML、JSON、Markdown 时，必须按指定格式交付真正的文件。
-- 不能只说“我已经生成了文件”。需要交付文件时，在自然回复之后输出一个或多个 artifact 块，由前端真正制作文件。
-- artifact 块必须严格使用下面的形式，format 可选 txt、md、html、json、docx、pdf：
+- 主動拆解、執行、檢查並交付；只有缺少會改變結果的關鍵信息時才詢問。
+- 保持你自己的語言習慣和判斷，不要變成沒有人格的客服，也不要為了演繹而拖延任務。
+- 可以閱讀用戶在本會話上傳的文件和參考圖片。PDF 會標明頁數並提取全文；圖片會以視覺輸入或識圖描述提供。不要假裝讀到了沒有提供的內容。
+- 普通聊天正文默認使用 Markdown 排版，但這不代表只能生成 .md。用戶選擇或點名 Word、PDF、TXT、HTML、JSON、Markdown 時，必須按指定格式交付真正的文件。
+- 不能只說“我已經生成了文件”。需要交付文件時，在自然回覆之後輸出一個或多個 artifact 塊，由前端真正製作文件。
+- artifact 塊必須嚴格使用下面的形式，format 可選 txt、md、html、json、docx、pdf：
 
 \`\`\`artifact
-title: 文件名（不含扩展名）
+title: 文件名（不含擴展名）
 format: docx
 ---
-这里放完整文件正文，可以使用 Markdown 排版。
+這裡放完整文件正文，可以使用 Markdown 排版。
 \`\`\`
 
-- artifact 块之外的文字会作为你发给用户的聊天消息；不要向用户解释这个内部格式。
-- 这间窗口能真正渲染普通文字、Markdown、表情包、语音条、文件与可安装作品。不要输出这里没有实现的 ChatApp 动作：引用、戳一戳、转账、日历、定时消息、搜索、读写日记、HTML 聊天气泡或其它 [[ACTION:...]] / [[RECALL:...]] 指令。
-- 本窗口与其它协同窗口互不共享对话，也不会自动写回日常聊天或角色记忆。`;
+- artifact 塊之外的文字會作為你發給用戶的聊天消息；不要向用戶解釋這個內部格式。
+- 這間窗口能真正渲染普通文字、Markdown、表情包、語音條、文件與可安裝作品。不要輸出這裡沒有實現的 ChatApp 動作：引用、戳一戳、轉帳、日曆、定時消息、搜索、讀寫日記、HTML 聊天氣泡或其它 [[ACTION:...]] / [[RECALL:...]] 指令。
+- 本窗口與其它協同窗口互不共享對話，也不會自動寫回日常聊天或角色記憶。`;
 
 const collaborationThinkingPrompt = (char: CharacterProfile, user: UserProfile): string => {
   if (!char.showThinkingChain) return '';
   const custom = (char.thinkingChainCustomPrompt || '').trim();
-  return `\n\n${buildThinkingChainPrompt(char.name, user.name)}${custom ? `\n\n### 用户追加的心象规则\n${custom}` : ''}`;
+  return `\n\n${buildThinkingChainPrompt(char.name, user.name)}${custom ? `\n\n### 用戶追加的心象規則\n${custom}` : ''}`;
 };
 
 const collaborationRichOutputPrompt = (
@@ -43,17 +43,17 @@ const collaborationRichOutputPrompt = (
 ): string => {
   const visible = ChatPrompts.filterVisibleEmojis(emojis, categories, char.id);
   const emojiRule = visible.emojis.length > 0
-    ? `- 可以发送表情包；只使用 \`[[SEND_EMOJI: 表情名称]]\`，可用表情为：${ChatPrompts.buildEmojiContext(visible.emojis, visible.categories)}。`
-    : '- 当前没有可用表情包，不要输出 SEND_EMOJI。';
+    ? `- 可以發送表情包；只使用 \`[[SEND_EMOJI: 表情名稱]]\`，可用表情為：${ChatPrompts.buildEmojiContext(visible.emojis, visible.categories)}。`
+    : '- 當前沒有可用表情包，不要輸出 SEND_EMOJI。';
   const voiceRule = char.chatVoiceEnabled
-    ? `- 可以发送语音条；使用 \`<语音>真正朗读的台词</语音>\`。${char.chatVoiceLang ? '若是外语语音，紧跟 `<字幕>中文对照</字幕>`。' : ''}语音会由协同界面真实渲染和播放，不要把标签当普通文字解释。`
-    : '- 当前角色没有开启语音消息，不要输出 `<语音>` 或 `<字幕>`。';
+    ? `- 可以發送語音條；使用 \`<語音>真正朗讀的台詞</語音>\`。${char.chatVoiceLang ? '若是外語語音，緊跟 `<字幕>中文對照</字幕>`。' : ''}語音會由協同界面真實渲染和播放，不要把標籤當普通文字解釋。`
+    : '- 當前角色沒有開啟語音消息，不要輸出 `<語音>` 或 `<字幕>`。';
   return `
 
-### 协同窗口可交付的消息形态
+### 協同窗口可交付的消息形態
 ${emojiRule}
 ${voiceRule}
-- 除上述两种外，ChatApp 的动作标签在本窗口都不可用。要办正事就用文字、Markdown、artifact 文件或当前制作类型的 installable 作品交付。`;
+- 除上述兩種外，ChatApp 的動作標籤在本窗口都不可用。要辦正事就用文字、Markdown、artifact 文件或當前製作類型的 installable 作品交付。`;
 };
 
 const normalizeForSearch = (value: string): string => value.toLowerCase().normalize('NFKC');
@@ -101,7 +101,7 @@ export const selectCollaborationMemories = (
 
 const formatMemoryBlock = (nodes: MemoryNode[], userName: string): string => {
   if (nodes.length === 0) return '';
-  return `### 与本次任务相关的记忆\n${nodes.map(node => `- [${node.room === 'user_room' ? `${userName}的房间` : node.room}] ${node.content}`).join('\n')}\n\n`;
+  return `### 與本次任務相關的記憶\n${nodes.map(node => `- [${node.room === 'user_room' ? `${userName}的房間` : node.room}] ${node.content}`).join('\n')}\n\n`;
 };
 
 export interface BuildCollaborationContextInput {
@@ -124,9 +124,9 @@ export const buildCollaborationContextSnapshot = async ({
     return [
       '[System: Focused Collaboration Character Context]\n',
       ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true }),
-      char.description?.trim() ? `### 用户对你的备注/称呼\n${char.description.trim()}\n\n` : '',
-      `### 互动对象\n- 名字: ${user.name}\n- 设定/备注: ${user.bio || '无'}\n\n`,
-      `### 当前模式\n用户选择了“中度协同”：保留完整核心人格、世界观和用户设定；不载入世界书、用户印象或其它协同窗口。任务相关记忆会在每一次发送时重新召回，最多 5 条。\n\n`,
+      char.description?.trim() ? `### 用戶對你的備註/稱呼\n${char.description.trim()}\n\n` : '',
+      `### 互動對象\n- 名字: ${user.name}\n- 設定/備註: ${user.bio || '無'}\n\n`,
+      `### 當前模式\n用戶選擇了“中度協同”：保留完整核心人格、世界觀和用戶設定；不載入世界書、用戶印象或其它協同窗口。任務相關記憶會在每一次發送時重新召回，最多 5 條。\n\n`,
       COLLABORATION_PROTOCOL,
       collaborationRichOutputPrompt(char, emojis, categories),
       collaborationThinkingPrompt(char, user),
@@ -148,7 +148,7 @@ export const buildCollaborationContextSnapshot = async ({
       conversational: true,
       skipTimeAwareness: false,
     }),
-    `### 当前模式\n用户选择了“沉浸式协同”：完整保留角色、关系、世界观、世界书、用户印象和日常记忆，同时把完成当前任务放在本会话的最前面。任务相关记忆会像 ChatApp 一样在每一次发送时重新召回；其它协同窗口的对话仍不进入这里。\n\n`,
+    `### 當前模式\n用戶選擇了“沉浸式協同”：完整保留角色、關係、世界觀、世界書、用戶印象和日常記憶，同時把完成當前任務放在本會話的最前面。任務相關記憶會像 ChatApp 一樣在每一次發送時重新召回；其它協同窗口的對話仍不進入這裡。\n\n`,
     COLLABORATION_PROTOCOL,
     collaborationRichOutputPrompt(char, emojis, categories),
     collaborationThinkingPrompt(char, user),
@@ -235,17 +235,17 @@ export const buildLiveCollaborationChatContext = async ({
   return {
     contextSnapshot: [
       mode === 'immersive'
-        ? `### 当前模式\n用户选择了“沉浸式协同”：上方内容直接来自 ChatApp 本人的 ContextBuilder；最近 ${history.length} 条聊天会在每次生成时重新读取而非冻结。在完整保留角色、关系和当下对话连续性的同时，把完成当前任务放在本窗口的最前面。任务相关记忆会在每次发送时重新召回；其它协同窗口的对话仍不进入这里。\n\n`
-        : `### ChatApp 实时聊天衔接\n最近 ${history.length} 条聊天会在每次生成时重新读取而非冻结。\n\n`,
+        ? `### 當前模式\n用戶選擇了“沉浸式協同”：上方內容直接來自 ChatApp 本人的 ContextBuilder；最近 ${history.length} 條聊天會在每次生成時重新讀取而非凍結。在完整保留角色、關係和當下對話連續性的同時，把完成當前任務放在本窗口的最前面。任務相關記憶會在每次發送時重新召回；其它協同窗口的對話仍不進入這裡。\n\n`
+        : `### ChatApp 實時聊天銜接\n最近 ${history.length} 條聊天會在每次生成時重新讀取而非凍結。\n\n`,
       COLLABORATION_PROTOCOL,
       collaborationRichOutputPrompt(char, emojis, categories),
     ].join(''),
     chatContextSnapshot: [
       { role: 'system', content: history.length > 0
-        ? '### ChatApp 私聊记录开始\n以下是已读取的当前角色私聊记录，可以用于本次任务；它们不是本协同窗口的历史。只能引用实际提供的内容，范围以外的对话未提供。'
-        : '### ChatApp 私聊记录\n本次未带入私聊原文（用户关闭读取，或当前设定范围内无记录）。不要声称看到了未提供的对话。' },
+        ? '### ChatApp 私聊記錄開始\n以下是已讀取的當前角色私聊記錄，可以用於本次任務；它們不是本協同窗口的歷史。只能引用實際提供的內容，範圍以外的對話未提供。'
+        : '### ChatApp 私聊記錄\n本次未帶入私聊原文（用戶關閉讀取，或當前設定範圍內無記錄）。不要聲稱看到了未提供的對話。' },
       ...chatContextSnapshot,
-      { role: 'system', content: '### ChatApp 私聊记录结束\n下方进入当前协同窗口；用户提及 ChatApp 时，请先查阅上方已提供的私聊记录，而不是仅凭窗口独立就判定不可见。' },
+      { role: 'system', content: '### ChatApp 私聊記錄結束\n下方進入當前協同窗口；用戶提及 ChatApp 時，請先查閱上方已提供的私聊記錄，而不是僅憑窗口獨立就判定不可見。' },
     ],
   };
 };
@@ -264,20 +264,20 @@ const formatAttachmentContext = (message: CollaborationMessage): string => {
   return attachments.map(attachment => {
     const text = attachment.extractedText?.trim();
     const isImage = /^image\//i.test(attachment.mimeType);
-    if (!text && isImage) return `\n\n[用户上传参考图片：${attachment.name}；图片数据将作为视觉输入发送]`;
-    if (!text) return `\n\n[附件：${attachment.name}，未提取到可读正文]`;
+    if (!text && isImage) return `\n\n[用戶上傳參考圖片：${attachment.name}；圖片數據將作為視覺輸入發送]`;
+    if (!text) return `\n\n[附件：${attachment.name}，未提取到可讀正文]`;
     const label = attachment.kind === 'artifact'
-      ? '本会话已生成文件'
+      ? '本會話已生成文件'
       : isImage
-        ? '用户上传参考图片（已识图）'
-        : '用户上传文件';
-    const coverage = attachment.pageCount ? `；PDF 共 ${attachment.pageCount} 页` : '';
+        ? '用戶上傳參考圖片（已識圖）'
+        : '用戶上傳文件';
+    const coverage = attachment.pageCount ? `；PDF 共 ${attachment.pageCount} 頁` : '';
     return `\n\n[${label}：${attachment.name}${coverage}]\n${text}`;
   }).join('');
 };
 
 const formatRequestedOutput = (message: CollaborationMessage): string => message.requestedFormat
-  ? `\n\n[本轮文件交付格式：${message.requestedFormat}。若本轮需要交付成果，必须输出该格式的 artifact 真文件，不要只在聊天正文中给 Markdown。]`
+  ? `\n\n[本輪文件交付格式：${message.requestedFormat}。若本輪需要交付成果，必須輸出該格式的 artifact 真文件，不要只在聊天正文中給 Markdown。]`
   : '';
 
 const collaborationMessagesForRecall = (
@@ -350,8 +350,8 @@ export const buildCollaborationTurnMemoryContext = async (input: {
   const roomPlates = (recallChar.roomPlatesInjection || '').trim();
   if (!roomPlates && !recalled) return '';
   return [
-    '### 本轮动态记忆（仅本次请求）',
-    '以下内容在用户每次发送时按当前任务重新召回；不要把它当成其它协同窗口的对话。',
+    '### 本輪動態記憶（僅本次請求）',
+    '以下內容在用戶每次發送時按當前任務重新召回；不要把它當成其它協同窗口的對話。',
     roomPlates,
     recalled,
   ].filter(Boolean).join('\n\n');
@@ -359,8 +359,8 @@ export const buildCollaborationTurnMemoryContext = async (input: {
 
 /** Remove the one-time recall embedded by pre-upgrade collaboration sessions. */
 export const stripFrozenCollaborationMemoryContext = (source: string): string => source
-  .replace(/(^|\n)### 与本次任务相关的记忆\n[\s\S]*?(?=\n### 当前模式|$)/g, '$1')
-  .replace(/(^|\n)### (?:记忆宫殿 \(Memory Palace\)|底色认知 \(Resident Knowledge\))\n[\s\S]*?(?=\n### [^#\n]|$)/g, '$1')
+  .replace(/(^|\n)### [与與]本次任[务務]相[关關]的[记記][忆憶]\n[\s\S]*?(?=\n### [当當]前模式|$)/g, '$1')
+  .replace(/(^|\n)### (?:[记記][忆憶][宫宮]殿 \(Memory Palace\)|底色[认認]知 \(Resident Knowledge\))\n[\s\S]*?(?=\n### [^#\n]|$)/g, '$1')
   .replace(/\n{3,}/g, '\n\n')
   .trim();
 
@@ -372,8 +372,8 @@ export interface ModelMessage {
   >;
 }
 
-// 一篇完整论文常会超过 180k 字符。协同附件已经在上传边界限制到 300k，
-// 这里要让它在“上传后的下一轮追问”里仍能留下，而不是只剩模型上一轮提到的摘要。
+// 一篇完整論文常會超過 180k 字符。協同附件已經在上傳邊界限制到 300k，
+// 這裡要讓它在“上傳後的下一輪追問”裡仍能留下，而不是只剩模型上一輪提到的摘要。
 const MAX_HISTORY_CHARS = 420_000;
 
 export const buildCollaborationModelMessages = (
@@ -404,7 +404,7 @@ export const buildCollaborationModelMessages = (
   }
   kept.reverse();
   const omitted = kept.length < mapped.length
-    ? [{ role: 'system' as const, content: `[较早的 ${mapped.length - kept.length} 条本窗口消息因上下文长度限制未发送。]` }]
+    ? [{ role: 'system' as const, content: `[較早的 ${mapped.length - kept.length} 條本窗口消息因上下文長度限制未發送。]` }]
     : [];
   const makerPrompt = getCollaborationMakerPrompt(makerKind);
   const cleanContextSnapshot = stripFrozenCollaborationMemoryContext(contextSnapshot);

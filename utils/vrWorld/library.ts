@@ -17,20 +17,20 @@ export function editLibrary(categories: VRLibraryCategory[], novels: VRWorldNove
     let changed: VRWorldNovel[] = [];
     if (edit.kind === 'create' || edit.kind === 'rename') {
         const name = normalizeCategoryName(edit.name);
-        if (!name) throw Error('请填写分类名称');
-        if (categories.some(c => c.id !== edit.id && c.name.toLocaleLowerCase() === name.toLocaleLowerCase())) throw Error('已经有同名分类了');
+        if (!name) throw Error('請填寫分類名稱');
+        if (categories.some(c => c.id !== edit.id && c.name.toLocaleLowerCase() === name.toLocaleLowerCase())) throw Error('已經有同名分類了');
         if (edit.kind === 'create') {
-            if (categories.some(c => c.id === edit.id)) throw Error('分类已经存在');
+            if (categories.some(c => c.id === edit.id)) throw Error('分類已經存在');
             next = [...categories, { id: edit.id, name }];
         } else {
-            if (!categories.some(c => c.id === edit.id)) throw Error('分类已被移除，请刷新后重试');
+            if (!categories.some(c => c.id === edit.id)) throw Error('分類已被移除，請刷新後重試');
             next = categories.map(c => c.id === edit.id ? { ...c, name } : c);
         }
     } else if (edit.kind === 'remove') {
         next = categories.filter(c => c.id !== edit.id);
         changed = novels.filter(n => n.categoryId === edit.id).map(n => ({ ...n, categoryId: undefined }));
     } else {
-        if (edit.categoryId && !categories.some(c => c.id === edit.categoryId)) throw Error('分类已被移除，请重新选择');
+        if (edit.categoryId && !categories.some(c => c.id === edit.categoryId)) throw Error('分類已被移除，請重新選擇');
         const ids = new Set(edit.novelIds);
         changed = novels.filter(n => ids.has(n.id)).map(n => ({ ...n, categoryId: edit.categoryId || undefined }));
     }
@@ -48,6 +48,6 @@ export function readableNovels(novels: VRWorldNovel[], char: Pick<CharacterProfi
 
 export function readingPreferenceLabel(char: Pick<CharacterProfile, 'vrState'>): string {
     const mode = novelReadingMode(char);
-    return mode === 'categories' ? `按 ${char.vrState?.preferredNovelCategoryIds?.length || 0} 个分类轮换`
-        : mode === 'books' ? `优先 ${char.vrState?.preferredNovelIds?.length || 0} 本` : '自动轮换全部';
+    return mode === 'categories' ? `按 ${char.vrState?.preferredNovelCategoryIds?.length || 0} 個分類輪換`
+        : mode === 'books' ? `優先 ${char.vrState?.preferredNovelIds?.length || 0} 本` : '自動輪換全部';
 }

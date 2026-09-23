@@ -14,7 +14,7 @@ const container = document.createElement('div');
 let root = createRoot(container);
 function Probe({ charId = 'reply-test' }: { charId?: string }) {
     current = useChatAI({
-        char: { id: charId, name: '甲' } as any, userProfile: { name: '用户' } as any,
+        char: { id: charId, name: '甲' } as any, userProfile: { name: '用戶' } as any,
         apiConfig: { baseUrl: 'https://example.test/v1' }, groups: [], emojis: [], categories: [],
         realtimeConfig: {} as any, addToast: vi.fn(), setMessages: vi.fn(), updateCharacter: vi.fn(), updateUserProfile: vi.fn(),
     });
@@ -22,8 +22,8 @@ function Probe({ charId = 'reply-test' }: { charId?: string }) {
 }
 afterEach(() => { act(() => root.unmount()); vi.restoreAllMocks(); });
 
-describe('useChatAI 请求生命周期', () => {
-    it('连点/卸载再进入只保留一轮，初始化失败后释放占位可重试', async () => {
+describe('useChatAI 請求生命週期', () => {
+    it('連點/卸載再進入只保留一輪，初始化失敗後釋放佔位可重試', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         let rejectStart!: (error: Error) => void;
         vi.mocked(KeepAlive.start).mockImplementation(() => new Promise((_, reject) => { rejectStart = reject; }));
@@ -37,7 +37,7 @@ describe('useChatAI 请求生命周期', () => {
         expect(KeepAlive.start).toHaveBeenCalledTimes(1);
         expect(current!.isTyping).toBe(true);
         await act(async () => { root.render(createElement(Probe, { charId: 'other' })); });
-        expect(current!.isTyping).toBe(true); // 同一实例的流式状态不能同时被两个角色写
+        expect(current!.isTyping).toBe(true); // 同一實例的流式狀態不能同時被兩個角色寫
         await act(async () => { await current!.triggerAI([]); });
         expect(KeepAlive.start).toHaveBeenCalledTimes(1);
         act(() => root.unmount());
@@ -46,9 +46,9 @@ describe('useChatAI 请求生命周期', () => {
         expect(current!.isTyping).toBe(true);
         await act(async () => { await current!.triggerAI([]); });
         expect(KeepAlive.start).toHaveBeenCalledTimes(1);
-        await act(async () => { rejectStart(new Error('初始化失败')); await first; });
+        await act(async () => { rejectStart(new Error('初始化失敗')); await first; });
         expect(current!.isTyping).toBe(false);
-        vi.mocked(KeepAlive.start).mockRejectedValue(new Error('再次失败'));
+        vi.mocked(KeepAlive.start).mockRejectedValue(new Error('再次失敗'));
         await act(async () => { await current!.triggerAI([]); });
         expect(KeepAlive.start).toHaveBeenCalledTimes(2);
         expect(current!.isTyping).toBe(false);

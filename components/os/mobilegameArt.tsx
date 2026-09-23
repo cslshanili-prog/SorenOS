@@ -1,9 +1,9 @@
 import React from 'react';
 import { AppID } from '../../types';
 
-// ===== 手游主题专用插画 =====
-// 二次元手绘风：平涂粉紫渐变 + 干净描边轮廓 + 二分阴影(cel) + 白色高光小细节。
-// 每个 viewBox 64x64，className 控制尺寸。渐变 id 各自唯一，避免冲突。
+// ===== 手遊主題專用插畫 =====
+// 二次元手繪風：平塗粉紫漸變 + 乾淨描邊輪廓 + 二分陰影(cel) + 白色高光小細節。
+// 每個 viewBox 64x64，className 控制尺寸。漸變 id 各自唯一，避免衝突。
 
 const A = {
     purple1: '#cdbcf2', purple2: '#9a82d6', purpleLine: '#6f57b0', purpleSh: '#8265c4',
@@ -16,7 +16,7 @@ const Sparkle: React.FC<{ x: number; y: number; s: number; c: string }> = ({ x, 
     <path d={`M${x} ${y - s} L${x + s * 0.3} ${y - s * 0.3} L${x + s} ${y} L${x + s * 0.3} ${y + s * 0.3} L${x} ${y + s} L${x - s * 0.3} ${y + s * 0.3} L${x - s} ${y} L${x - s * 0.3} ${y - s * 0.3} Z`} fill={c} />
 );
 
-// 行星 · 神经链接
+// 行星 · 神經鏈接
 const Planet: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs>
@@ -33,7 +33,7 @@ const Planet: React.FC = () => (
     </svg>
 );
 
-// 大脑 · 记忆宫殿
+// 大腦 · 記憶宮殿
 const Brain: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs>
@@ -48,7 +48,7 @@ const Brain: React.FC = () => (
     </svg>
 );
 
-// 电话 · 电话
+// 電話 · 電話
 const Phone: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-phone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={A.purple1} /><stop offset="1" stopColor={A.purple2} /></linearGradient></defs>
@@ -59,7 +59,7 @@ const Phone: React.FC = () => (
     </svg>
 );
 
-// 房子 · 小小窝
+// 房子 · 小小窩
 const House: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs>
@@ -75,7 +75,7 @@ const House: React.FC = () => (
     </svg>
 );
 
-// 手机 · 查手机
+// 手機 · 查手機
 const Smartphone: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-sp" x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stopColor={A.peri1} /><stop offset="1" stopColor={A.peri2} /></linearGradient></defs>
@@ -87,7 +87,7 @@ const Smartphone: React.FC = () => (
     </svg>
 );
 
-// 日记本（带爱心）· 见面
+// 日記本（帶愛心）· 見面
 const Diary: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-diary" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={A.pink1} /><stop offset="1" stopColor={A.pink2} /></linearGradient></defs>
@@ -99,7 +99,7 @@ const Diary: React.FC = () => (
     </svg>
 );
 
-// 文件夹 · 档案
+// 文件夾 · 檔案
 const Folder: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-folder" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={A.peri1} /><stop offset="1" stopColor={A.peri2} /></linearGradient></defs>
@@ -111,7 +111,7 @@ const Folder: React.FC = () => (
     </svg>
 );
 
-// 星星罐 · 存钱罐
+// 星星罐 · 存錢罐
 const Jar: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs>
@@ -128,7 +128,7 @@ const Jar: React.FC = () => (
     </svg>
 );
 
-// 日历（带勾）· 日程
+// 日曆（帶勾）· 日程
 const Calendar: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-cal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={A.purple1} /><stop offset="1" stopColor={A.purple2} /></linearGradient></defs>
@@ -142,7 +142,7 @@ const Calendar: React.FC = () => (
     </svg>
 );
 
-// 齿轮 · 设置
+// 齒輪 · 設置
 const Gear: React.FC = () => (
     <svg viewBox="0 0 64 64" className="w-full h-full">
         <defs><linearGradient id="mg-gear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={A.purple1} /><stop offset="1" stopColor={A.purple2} /></linearGradient></defs>
@@ -170,7 +170,7 @@ const MG_ART: Partial<Record<AppID, React.FC>> = {
     [AppID.Settings]: Gear,
 };
 
-// 有插画就用插画，否则返回 null（调用方回退到 Phosphor 图标）
+// 有插畫就用插畫，否則返回 null（調用方回退到 Phosphor 圖標）
 export const getMobileGameArt = (id: AppID): React.ReactNode => {
     const Comp = MG_ART[id];
     return Comp ? <Comp /> : null;

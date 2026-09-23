@@ -23,7 +23,7 @@ export function SARMemoryObject({ name }: { name: string }) {
 export function SARArtifactPreview({ kind }: { kind: FamiliarityEffect['kind'] }) {
     return <span className={`sar-artifact-preview is-${kind}`} aria-hidden="true">
         {kind === 'memory-card' ? <SARMemoryObject name="彼方"/> : kind === 'photo-studio' ? <span className="sar-mini-photo"><span><img src={roomArt} alt=""/><img src={caianChibi} alt=""/><img src={aivenChibi} alt=""/></span><small>SAR / OUR FIRST MEETING</small></span>
-            : kind === 'meeting-record' ? <span className="sar-mini-document"><small>SAR / ARCHIVE</small><b>会议记录</b><i/><i/><i/><span>Caian</span></span>
+            : kind === 'meeting-record' ? <span className="sar-mini-document"><small>SAR / ARCHIVE</small><b>會議記錄</b><i/><i/><i/><span>Caian</span></span>
                 : <span className="sar-mini-identity"><strong>SAR</strong><SARArtifactSeal/><span>MEMBER</span><b>0001</b><i/></span>}
     </span>;
 }

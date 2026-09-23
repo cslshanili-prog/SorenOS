@@ -1,5 +1,5 @@
 /**
- * LifeSim Offline Simulation Engine — 离线模拟引擎
+ * LifeSim Offline Simulation Engine — 離線模擬引擎
  *
  * When users close the app and come back later, this engine simulates what
  * happened while they were away using NPC autonomous behavior (no LLM calls).
@@ -19,6 +19,7 @@ import {
 
 import { runAutonomousTurn } from './lifeSimAutonomous';
 import { evaluateEventChains } from './lifeSimEventChains';
+import { includesAnyScript } from './scriptKey';
 
 // ── Narrative template imports (with inline fallbacks) ────────────
 
@@ -34,44 +35,44 @@ try {
     generateEventHeadline = (eventType: SimEventType | SimEffectCode, involvedNames: string[]) => {
         const typeLabels: Record<string, string> = {
             fight: '大打出手！',
-            party: '欢聚一堂！',
-            gossip: '八卦传开了……',
-            romance: '暧昧的气息……',
-            rivalry: '针锋相对！',
-            alliance: '结成同盟！',
-            fight_break: '矛盾爆发！',
-            mood_drop: '情绪低落',
-            relationship_change: '关系变动',
-            revenge_plot: '复仇暗涌……',
-            love_triangle: '三角恋纠葛！',
+            party: '歡聚一堂！',
+            gossip: '八卦傳開了……',
+            romance: '曖昧的氣息……',
+            rivalry: '針鋒相對！',
+            alliance: '結成同盟！',
+            fight_break: '矛盾爆發！',
+            mood_drop: '情緒低落',
+            relationship_change: '關係變動',
+            revenge_plot: '復仇暗湧……',
+            love_triangle: '三角戀糾葛！',
             jealousy_spiral: '嫉妒蔓延……',
             family_feud: '家族恩怨！',
             betrayal: '背叛！',
             romantic_confession: '浪漫告白！',
-            gossip_wildfire: '流言蜚语如野火！',
-            npc_runaway: '有人离家出走了！',
-            mood_breakdown: '情绪崩溃！',
-            secret_alliance: '暗中结盟……',
-            power_shift: '权力更迭！',
-            reconciliation: '冰释前嫌',
+            gossip_wildfire: '流言蜚語如野火！',
+            npc_runaway: '有人離家出走了！',
+            mood_breakdown: '情緒崩潰！',
+            secret_alliance: '暗中結盟……',
+            power_shift: '權力更迭！',
+            reconciliation: '冰釋前嫌',
         };
-        const label = typeLabels[eventType] ?? '发生了一些事...';
-        const names = involvedNames.length > 0 ? involvedNames.join('、') : '居民们';
+        const label = typeLabels[eventType] ?? '發生了一些事...';
+        const names = involvedNames.length > 0 ? involvedNames.join('、') : '居民們';
         return `${names}：${label}`;
     };
 
     getNarrativeQuote = (npcName: string, _npcEmoji: string, eventType: SimEventType | SimEffectCode) => {
         const quotes: Record<string, string> = {
-            fight: '哼，别以为这样就完了！',
-            party: '今天玩得真开心~',
-            gossip: '你听说了吗……',
+            fight: '哼，別以為這樣就完了！',
+            party: '今天玩得真開心~',
+            gossip: '你聽說了嗎……',
             romance: '心跳好快……',
-            rivalry: '我不会输给你的！',
-            alliance: '以后我们就是一伙的了。',
-            revenge_plot: '你等着……',
-            love_triangle: '为什么事情会变成这样……',
+            rivalry: '我不會輸給你的！',
+            alliance: '以後我們就是一夥的了。',
+            revenge_plot: '你等著……',
+            love_triangle: '為什麼事情會變成這樣……',
             reconciliation: '算了，握手言和吧。',
-            npc_runaway: '我受够了，我要走！',
+            npc_runaway: '我受夠了，我要走！',
         };
         return quotes[eventType] ?? '……';
     };
@@ -120,13 +121,13 @@ function actionToRecap(
     // Determine event type from action description heuristics
     let eventType: SimEventType | SimEffectCode = 'fight';
     const desc = action.description;
-    if (desc.includes('报复') || desc.includes('仇')) eventType = 'fight';
-    else if (desc.includes('暧昧') || desc.includes('浪漫') || desc.includes('告白')) eventType = 'romance';
-    else if (desc.includes('流言') || desc.includes('八卦') || desc.includes('散布')) eventType = 'gossip';
-    else if (desc.includes('聚会') || desc.includes('聚') || desc.includes('消遣')) eventType = 'party';
-    else if (desc.includes('宣战') || desc.includes('竞争')) eventType = 'rivalry';
-    else if (desc.includes('结盟') || desc.includes('同盟')) eventType = 'alliance';
-    else if (desc.includes('离家出走') || desc.includes('离开')) eventType = 'npc_runaway';
+    if (includesAnyScript(desc, '報復') || includesAnyScript(desc, '仇')) eventType = 'fight';
+    else if (includesAnyScript(desc, '曖昧') || includesAnyScript(desc, '浪漫') || includesAnyScript(desc, '告白')) eventType = 'romance';
+    else if (includesAnyScript(desc, '流言') || includesAnyScript(desc, '八卦') || includesAnyScript(desc, '散佈')) eventType = 'gossip';
+    else if (includesAnyScript(desc, '聚會') || includesAnyScript(desc, '聚') || includesAnyScript(desc, '消遣')) eventType = 'party';
+    else if (includesAnyScript(desc, '宣戰') || includesAnyScript(desc, '競爭')) eventType = 'rivalry';
+    else if (includesAnyScript(desc, '結盟') || includesAnyScript(desc, '同盟')) eventType = 'alliance';
+    else if (includesAnyScript(desc, '離家出走') || includesAnyScript(desc, '離開')) eventType = 'npc_runaway';
 
     // Find involved NPCs from the action
     const involvedNpcs: { name: string; emoji: string }[] = [];
@@ -233,8 +234,8 @@ function seasonChangeToRecap(state: LifeSimState): OfflineRecapEvent {
         day: state.day ?? 1,
         season,
         timeOfDay: state.timeOfDay ?? 'morning',
-        headline: `${si.emoji} 季节交替——${si.zh}季到来`,
-        description: `世界迎来了${si.zh}季，万物焕然一新。`,
+        headline: `${si.emoji} 季節交替——${si.zh}季到來`,
+        description: `世界迎來了${si.zh}季，萬物煥然一新。`,
         involvedNpcs: [],
         eventType: 'party',
     };
@@ -315,12 +316,12 @@ export function simulateOfflineTurns(
                     // Infer event type from description for chain evaluation
                     let evtType: SimEventType = 'fight';
                     const d = action.description;
-                    if (d.includes('暧昧') || d.includes('浪漫')) evtType = 'romance';
-                    else if (d.includes('八卦') || d.includes('流言')) evtType = 'gossip';
-                    else if (d.includes('聚会') || d.includes('消遣')) evtType = 'party';
-                    else if (d.includes('宣战') || d.includes('竞争')) evtType = 'rivalry';
-                    else if (d.includes('结盟')) evtType = 'alliance';
-                    else if (d.includes('报复') || d.includes('打') || d.includes('吵')) evtType = 'fight';
+                    if (includesAnyScript(d, '曖昧') || includesAnyScript(d, '浪漫')) evtType = 'romance';
+                    else if (includesAnyScript(d, '八卦') || includesAnyScript(d, '流言')) evtType = 'gossip';
+                    else if (includesAnyScript(d, '聚會') || includesAnyScript(d, '消遣')) evtType = 'party';
+                    else if (includesAnyScript(d, '宣戰') || includesAnyScript(d, '競爭')) evtType = 'rivalry';
+                    else if (includesAnyScript(d, '結盟')) evtType = 'alliance';
+                    else if (includesAnyScript(d, '報復') || includesAnyScript(d, '打') || includesAnyScript(d, '吵')) evtType = 'fight';
 
                     // Find involved NPC IDs from the description
                     const involvedIds: string[] = [];
@@ -375,8 +376,8 @@ export function simulateOfflineTurns(
                     day: s.day ?? 1,
                     season: s.season ?? 'spring',
                     timeOfDay: s.timeOfDay ?? 'morning',
-                    headline: `混乱度升级：${chaosInfo.label}`,
-                    description: `城市的Drama指数已经达到${s.chaosLevel}——${chaosInfo.label}！`,
+                    headline: `混亂度升級：${chaosInfo.label}`,
+                    description: `城市的Drama指數已經達到${s.chaosLevel}——${chaosInfo.label}！`,
                     involvedNpcs: [],
                     eventType: 'fight', // chaos escalation is conflict-like
                     chaosChange: s.chaosLevel - prevChaos,
@@ -411,6 +412,6 @@ export function shouldSimulateOffline(state: LifeSimState): boolean {
 export function getElapsedDescription(elapsedMs: number): string {
     const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
     const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) return `${hours}小时${minutes > 0 ? minutes + '分钟' : ''}`;
-    return `${minutes}分钟`;
+    if (hours > 0) return `${hours}小時${minutes > 0 ? minutes + '分鐘' : ''}`;
+    return `${minutes}分鐘`;
 }

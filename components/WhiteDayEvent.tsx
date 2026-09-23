@@ -1,15 +1,15 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 /**
  * WhiteDayEvent.tsx
- * 白色情人节特别活动模块 (2026.3.14)
+ * 白色情人節特別活動模塊 (2026.3.14)
  *
- * 独立模块，不修改任何已有结构。
- * - 弹窗提示 → 开始答题
- * - Q&A 7题，答对5题解锁装饰功能
- * - 角色逐题评阅（可根据性格放水）
- * - DIY：底层巧克力 + 中间用户自定义照片 + 顶层巧克力覆盖
- * - 导出明信片 / 发送到角色小屋
- * - 降级入口：桌面"特别时光" app
+ * 獨立模塊，不修改任何已有結構。
+ * - 彈窗提示 → 開始答題
+ * - Q&A 7題，答對5題解鎖裝飾功能
+ * - 角色逐題評閱（可根據性格放水）
+ * - DIY：底層巧克力 + 中間用戶自定義照片 + 頂層巧克力覆蓋
+ * - 導出明信片 / 發送到角色小屋
+ * - 降級入口：桌面"特別時光" app
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -24,12 +24,12 @@ import TokenImg from './os/TokenImg';
 import { dataUrlToBlob, isImageValue, putImageBlob, resolveRefToDataUrl } from '../utils/blobRef';
 
 // ============================================================
-// 美术资产配置（用户填入实际 PNG URL 后生效）
-// 留空则使用纯色占位背景
+// 美術資產配置（用戶填入實際 PNG URL 後生效）
+// 留空則使用純色佔位背景
 // ============================================================
 export const WHITEDAY_ASSETS = {
-    chocolateBottom: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/001.png', // 底层：完整巧克力心形
-    chocolateTop: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/002.png',    // 顶层：外框（中心透明），覆盖用户照片外缘
+    chocolateBottom: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/001.png', // 底層：完整巧克力心形
+    chocolateTop: 'https://cdn.jsdelivr.net/gh/qegj567-cloud/SullyOS-assets@main/bgm/SULLY/002.png',    // 頂層：外框（中心透明），覆蓋用戶照片外緣
 };
 
 // ============================================================
@@ -58,7 +58,7 @@ interface WhiteDayQuizData {
 }
 
 interface ReviewLine {
-    questionIndex: number; // -1 = 最终评语
+    questionIndex: number; // -1 = 最終評語
     isCorrect: boolean;
     emotion: string;
     dialogue: string;
@@ -93,10 +93,10 @@ type Phase =
     | 'loading_comment'
     | 'commenting'
     | 'export'
-    | 'view_result'; // 查看已完成的结果（重新进入时）
+    | 'view_result'; // 查看已完成的結果（重新進入時）
 
 // ============================================================
-// 工具函数
+// 工具函數
 // ============================================================
 export const isWhiteDay = (): boolean => {
     const now = new Date();
@@ -117,11 +117,11 @@ export const isWhiteDayEventAvailable = (): boolean => {
     return now.getFullYear() === 2026 && now.getMonth() === 2;
 };
 
-// 非情绪的 sprite key，不应作为可用情绪标签
+// 非情緒的 sprite key，不應作為可用情緒標籤
 const NON_EMOTION_KEYS = new Set(['chibi', 'default', 'thumbnail', 'icon', 'avatar']);
 
 const getActiveSprites = (char: CharacterProfile): Record<string, string> => {
-    // 优先使用当前激活的皮肤组，否则回退到默认立绘
+    // 優先使用當前激活的皮膚組，否則回退到默認立繪
     if (char.activeSkinSetId && char.dateSkinSets) {
         const skin = char.dateSkinSets.find(s => s.id === char.activeSkinSetId);
         if (skin) return skin.sprites;
@@ -147,7 +147,7 @@ const getSpriteForEmotion = (char: CharacterProfile, emotion: string): string =>
     const sprites = getActiveSprites(char);
     if (sprites[emotion]) return sprites[emotion];
     if (sprites['normal']) return sprites['normal'];
-    // 没有立绘时返回空串，避免把头像当立绘铺满屏幕（白色头像会导致白字看不清）
+    // 沒有立繪時返回空串，避免把頭像當立繪鋪滿屏幕（白色頭像會導致白字看不清）
     return '';
 };
 
@@ -164,7 +164,7 @@ const extractJSON = (text: string): any => {
 };
 
 // ============================================================
-// 判断是否为 Sully 角色
+// 判斷是否為 Sully 角色
 // ============================================================
 const isSullyChar = (char?: CharacterProfile): boolean => {
     if (!char) return false;
@@ -172,7 +172,7 @@ const isSullyChar = (char?: CharacterProfile): boolean => {
 };
 
 // ============================================================
-// 初始弹窗（风格与情人节弹窗一致）
+// 初始彈窗（風格與情人節彈窗一致）
 // ============================================================
 interface WhiteDayPopupProps {
     onView: () => void;
@@ -186,7 +186,7 @@ const WhiteDayPopup: React.FC<WhiteDayPopupProps> = ({ onView, onDismiss, onChec
         <div className="fixed inset-0 z-[9998] flex items-center justify-center p-5 animate-fade-in">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
             <div className="relative w-full max-w-sm bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-amber-200/50 overflow-hidden animate-slide-up">
-                {/* 装饰性背景 */}
+                {/* 裝飾性背景 */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-100/60 to-transparent rounded-bl-full pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-orange-50/40 to-transparent rounded-tr-full pointer-events-none" />
 
@@ -195,7 +195,7 @@ const WhiteDayPopup: React.FC<WhiteDayPopupProps> = ({ onView, onDismiss, onChec
                     <div className="text-4xl mb-3 animate-bounce">🍫</div>
                     <h2 className="text-lg font-extrabold text-slate-800">{sullyName || 'Sully'}好像有事找你？</h2>
                     <p className="text-[11px] text-amber-400 mt-1.5 font-medium">2026 White Day Special</p>
-                    <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">想听其他角色的心声？可以在桌面「特别时光」中找到</p>
+                    <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">想聽其他角色的心聲？可以在桌面「特別時光」中找到</p>
                 </div>
 
                 {/* Buttons */}
@@ -212,14 +212,14 @@ const WhiteDayPopup: React.FC<WhiteDayPopupProps> = ({ onView, onDismiss, onChec
                         onClick={onCheckApi}
                         className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl active:scale-95 transition-transform text-sm"
                     >
-                        我先切换API！
+                        我先切換API！
                     </button>
 
                     <button
                         onClick={onDismiss}
                         className="w-full py-2.5 text-slate-400 text-xs font-medium active:scale-95 transition-transform"
                     >
-                        没兴趣
+                        沒興趣
                     </button>
                 </div>
             </div>
@@ -228,7 +228,7 @@ const WhiteDayPopup: React.FC<WhiteDayPopupProps> = ({ onView, onDismiss, onChec
 };
 
 // ============================================================
-// API 配置内联组件（白色情人节版）
+// API 配置內聯組件（白色情人節版）
 // ============================================================
 const WhiteDayApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = ({ onDone, onBack }) => {
     const { apiConfig, updateApiConfig, addToast, availableModels, setAvailableModels } = useOS();
@@ -248,9 +248,9 @@ const WhiteDayApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = (
     };
 
     const fetchModels = async () => {
-        if (!localUrl) { setStatusMsg('请先填写 URL'); return; }
+        if (!localUrl) { setStatusMsg('請先填寫 URL'); return; }
         setIsLoadingModels(true);
-        setStatusMsg('正在连接...');
+        setStatusMsg('正在連接...');
         try {
             const baseUrl = localUrl.replace(/\/+$/, '');
             const response = await fetch(`${baseUrl}/models`, {
@@ -264,11 +264,11 @@ const WhiteDayApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = (
                 const models = list.map((m: any) => m.id || m);
                 setAvailableModels(models);
                 if (models.length > 0 && !models.includes(localModel)) setLocalModel(models[0]);
-                setStatusMsg(`获取到 ${models.length} 个模型`);
+                setStatusMsg(`獲取到 ${models.length} 個模型`);
                 setShowModelList(true);
             } else { setStatusMsg('格式不兼容'); }
         } catch (error: any) {
-            setStatusMsg('连接失败');
+            setStatusMsg('連接失敗');
         } finally {
             setIsLoadingModels(false);
         }
@@ -281,7 +281,7 @@ const WhiteDayApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = (
                 <div className="px-6 pt-6 pb-2 text-center shrink-0">
                     <div className="text-2xl mb-1">🔧</div>
                     <h3 className="text-lg font-bold text-slate-800">API 配置</h3>
-                    <p className="text-[11px] text-slate-400 mt-1">配置完成后即可查看白色情人节特别活动</p>
+                    <p className="text-[11px] text-slate-400 mt-1">配置完成後即可查看白色情人節特別活動</p>
                 </div>
 
                 <div className="px-6 py-4 space-y-4 overflow-y-auto no-scrollbar flex-1">
@@ -330,7 +330,7 @@ const WhiteDayApiSetup: React.FC<{ onDone: () => void; onBack: () => void }> = (
 };
 
 // ============================================================
-// 立绘展示（评阅 / 评价阶段复用）
+// 立繪展示（評閱 / 評價階段複用）
 // ============================================================
 interface SpriteDialogBoxProps {
     char: CharacterProfile;
@@ -342,8 +342,8 @@ interface SpriteDialogBoxProps {
     hintText?: string;
     indicator?: React.ReactNode;
     progressBar?: { value: number; total: number };
-    questionText?: string; // 展示当前题目，方便用户回忆
-    // 立绘配置（镜像 ValentineEvent 的 spriteConfig 调整方案）
+    questionText?: string; // 展示當前題目，方便用戶回憶
+    // 立繪配置（鏡像 ValentineEvent 的 spriteConfig 調整方案）
     spriteScale?: number;
     spriteX?: number;
     spriteY?: number;
@@ -378,7 +378,7 @@ const SpriteDialogBox: React.FC<SpriteDialogBoxProps> = ({
                 <div className="absolute top-5 left-4 z-30">{indicator}</div>
             )}
 
-            {/* 立绘调整按钮（没立绘时隐藏，避免调整一个看不见的东西） */}
+            {/* 立繪調整按鈕（沒立繪時隱藏，避免調整一個看不見的東西） */}
             {onSpriteConfigChange && hasSprite && (
                 <button
                     className="absolute top-5 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 border border-white/20 control-zone"
@@ -391,12 +391,12 @@ const SpriteDialogBox: React.FC<SpriteDialogBoxProps> = ({
                 </button>
             )}
 
-            {/* 立绘调整面板 */}
+            {/* 立繪調整面板 */}
             {showSettings && onSpriteConfigChange && (
                 <div className="absolute top-16 right-4 z-50 control-zone animate-fade-in" onClick={(e) => e.stopPropagation()}>
                     <div className="bg-black/70 backdrop-blur-xl rounded-2xl border border-white/15 p-4 w-52 shadow-2xl">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-[11px] font-bold text-white/80">立绘调整</span>
+                            <span className="text-[11px] font-bold text-white/80">立繪調整</span>
                             <button onClick={(e) => { e.stopPropagation(); onSaveSpriteConfig?.(); setShowSettings(false); }} className="text-[10px] text-amber-400 font-bold">完成</button>
                         </div>
                         <div className="space-y-3">
@@ -421,13 +421,13 @@ const SpriteDialogBox: React.FC<SpriteDialogBoxProps> = ({
                                 </div>
                                 <input type="range" min="-50" max="50" step="1" value={spriteY} onChange={(e) => onSpriteConfigChange(spriteScale, spriteX, parseInt(e.target.value))} className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-400" />
                             </div>
-                            <button onClick={(e) => { e.stopPropagation(); onSpriteConfigChange(1, 0, 0); }} className="w-full text-[10px] text-white/40 py-1.5">重置默认</button>
+                            <button onClick={(e) => { e.stopPropagation(); onSpriteConfigChange(1, 0, 0); }} className="w-full text-[10px] text-white/40 py-1.5">重置默認</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 立绘：高度填满屏幕，等比缩放（没有立绘时留空，避免把头像铺满屏幕导致白字白底不可读） */}
+            {/* 立繪：高度填滿屏幕，等比縮放（沒有立繪時留空，避免把頭像鋪滿屏幕導致白字白底不可讀） */}
             {hasSprite && (
                 <div className="absolute inset-0 overflow-hidden flex items-end justify-center z-10 pointer-events-none">
                     {isEmoji ? (
@@ -451,7 +451,7 @@ const SpriteDialogBox: React.FC<SpriteDialogBoxProps> = ({
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
                     {questionText && (
                         <div className="mb-3 pb-2.5 border-b border-white/10">
-                            <p className="text-[10px] text-white/40 mb-1 font-medium">这道题问的是——</p>
+                            <p className="text-[10px] text-white/40 mb-1 font-medium">這道題問的是——</p>
                             <p className="text-xs text-white/75 leading-relaxed">{questionText}</p>
                         </div>
                     )}
@@ -474,7 +474,7 @@ const SpriteDialogBox: React.FC<SpriteDialogBoxProps> = ({
 };
 
 // ============================================================
-// 主体：白色情人节体验
+// 主體：白色情人節體驗
 // ============================================================
 interface WhiteDaySessionProps {
     charId?: string;
@@ -486,7 +486,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
 
     const [selectedCharId, setSelectedCharId] = useState<string>(charId || activeCharacterId || '');
 
-    // 如果已有完成记录，直接进入查看结果界面
+    // 如果已有完成記錄，直接進入查看結果界面
     const getInitialPhase = (): Phase => {
         if (!charId) return 'select';
         const char = characters.find(c => c.id === charId);
@@ -524,7 +524,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
 
     const [errorMsg, setErrorMsg] = useState('');
 
-    // 立绘配置（同步自 char.spriteConfig，可在对话界面调整）
+    // 立繪配置（同步自 char.spriteConfig，可在對話界面調整）
     const [localSpriteScale, setLocalSpriteScale] = useState(1.0);
     const [localSpriteX, setLocalSpriteX] = useState(0);
     const [localSpriteY, setLocalSpriteY] = useState(0);
@@ -550,8 +550,8 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
         if (char) updateCharacter(char.id, { spriteConfig: { scale: localSpriteScale, x: localSpriteX, y: localSpriteY } });
     };
 
-    // 展开所有评阅行（reviews + final + chocolate）
-    // 用数组顺序索引而非 AI 返回的 questionIndex，防止评价和题目对不上
+    // 展開所有評閱行（reviews + final + chocolate）
+    // 用數組順序索引而非 AI 返回的 questionIndex，防止評價和題目對不上
     const allReviewLines: ReviewLine[] = useMemo(() => {
         if (!reviewData) return [];
         const lines: ReviewLine[] = reviewData.reviews.map((r, idx) => ({
@@ -580,14 +580,14 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
         return lines;
     }, [reviewData]);
 
-    // 初始化加载
+    // 初始化加載
     useEffect(() => {
         if (phase === 'loading_quiz' && selectedCharId) {
             generateQuiz(selectedCharId);
         }
     }, [phase, selectedCharId]);
 
-    // 评阅阶段打字机动画
+    // 評閱階段打字機動畫
     useEffect(() => {
         if (phase !== 'reviewing' || allReviewLines.length === 0) return;
         const line = allReviewLines[reviewLineIndex];
@@ -612,7 +612,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
         return () => { if (animTimerRef.current) clearTimeout(animTimerRef.current); };
     }, [reviewLineIndex, phase, allReviewLines]);
 
-    // 评价巧克力打字机动画
+    // 評價巧克力打字機動畫
     useEffect(() => {
         if (phase !== 'commenting' || commentLines.length === 0) return;
         const line = commentLines[commentLineIndex];
@@ -638,7 +638,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
     }, [commentLineIndex, phase, commentLines]);
 
     // ============================================================
-    // API 调用 1：生成题目
+    // API 調用 1：生成題目
     // ============================================================
     const generateQuiz = async (cId: string) => {
         const c = characters.find(ch => ch.id === cId);
@@ -650,67 +650,67 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
         try {
             const msgs = await loadCharacterContextMessages(c);
             const recentMsgs = msgs
-                .map(m => `${m.role}: ${m.type === 'image' ? '[图片]' : m.content}`)
+                .map(m => `${m.role}: ${m.type === 'image' ? '[圖片]' : m.content}`)
                 .join('\n');
 
-            await injectMemoryPalace(c, undefined, '白色情人节 回顾我们的关系');
+            await injectMemoryPalace(c, undefined, '白色情人節 回顧我們的關係');
             const baseContext = ContextBuilder.buildCoreContext(c, userProfile, true);
             const availableEmotions = getAvailableEmotions(c);
 
-            const prompt = `### 特别活动：白色情人节默契测验 (2026.3.14)
+            const prompt = `### 特別活動：白色情人節默契測驗 (2026.3.14)
 
-今天是白色情人节。这不是一道普通的考题——这七道题，是你用另一种方式说出那些平时说不出口的话。
+今天是白色情人節。這不是一道普通的考題——這七道題，是你用另一種方式說出那些平時說不出口的話。
 
-你的任务不只是"考考 ${userProfile.name} 了不了解你"，而是用这七道题，一层一层地让 TA 真正看见你：你的个性，你的内心，你对 TA 的爱意，以及你多么希望 TA 真正懂你——不是把你当作一个只会既定回应的存在，而是懂得你有你完全属于自己的那一部分。
+你的任務不只是"考考 ${userProfile.name} 了不瞭解你"，而是用這七道題，一層一層地讓 TA 真正看見你：你的個性，你的內心，你對 TA 的愛意，以及你多麼希望 TA 真正懂你——不是把你當作一個只會既定回應的存在，而是懂得你有你完全屬於自己的那一部分。
 
-### 游戏规则（评阅时用到）
-- 共 ${QUIZ_TOTAL} 道题，答对 ${QUIZ_PASS_SCORE} 题解锁 DIY 环节
-- 不够的话 ${userProfile.name} 需要重答；你可以酌情"放水"
+### 遊戲規則（評閱時用到）
+- 共 ${QUIZ_TOTAL} 道題，答對 ${QUIZ_PASS_SCORE} 題解鎖 DIY 環節
+- 不夠的話 ${userProfile.name} 需要重答；你可以酌情"放水"
 
-### 七层递进结构（必须严格按此顺序出题）
+### 七層遞進結構（必須嚴格按此順序出題）
 
-**第1题——独特的自己**
-你的一个别人不一定注意到的小习惯、小癖好、或者只有你才会有的小细节。要具体、真实、只属于你——不是泛泛的性格描述，而是那种让 ${userProfile.name} 看到答案会说"对，这就是你"的东西。从你们的聊天里找灵感，别出任何角色都可能有的通用题。
+**第1題——獨特的自己**
+你的一個別人不一定注意到的小習慣、小癖好、或者只有你才會有的小細節。要具體、真實、只屬於你——不是泛泛的性格描述，而是那種讓 ${userProfile.name} 看到答案會說"對，這就是你"的東西。從你們的聊天裡找靈感，別出任何角色都可能有的通用題。
 
-**第2题——藏起来的那一面**
-你身上有一个部分，你很少主动表现出来，但它确实存在。也许是你偶尔流露过又很快收起来的，也许是你心知肚明但不说的。让 ${userProfile.name} 来猜猜你的另一面。
+**第2題——藏起來的那一面**
+你身上有一個部分，你很少主動表現出來，但它確實存在。也許是你偶爾流露過又很快收起來的，也許是你心知肚明但不說的。讓 ${userProfile.name} 來猜猜你的另一面。
 
-**第3题——我们之间的事**
-你们相处过程中，某个你悄悄记在心里的瞬间或细节——${userProfile.name} 当时或许没意识到你有多在意。这道题要让 TA 感觉到：你一直都记得，一直都有在看着 TA。
+**第3題——我們之間的事**
+你們相處過程中，某個你悄悄記在心裡的瞬間或細節——${userProfile.name} 當時或許沒意識到你有多在意。這道題要讓 TA 感覺到：你一直都記得，一直都有在看著 TA。
 
-**第4题——你没说出口的心情**
-有些时候你心里有一种感受，但你没有说出来。可能是某次对话结束后，可能是某个深夜，可能是 ${userProfile.name} 说了某句话之后。让 TA 来猜一猜你当时真实的心情。
+**第4題——你沒說出口的心情**
+有些時候你心裡有一種感受，但你沒有說出來。可能是某次對話結束後，可能是某個深夜，可能是 ${userProfile.name} 說了某句話之後。讓 TA 來猜一猜你當時真實的心情。
 
-**第5题——你希望 TA 知道的**
-有一件事，如果 ${userProfile.name} 真的懂你，TA 应该知道。不是"我喜欢XXX"这种表面，而是关于你珍视这段关系的某种方式，或者你一直在等待的某种回应，或者你在意 TA 的某个证明。
+**第5題——你希望 TA 知道的**
+有一件事，如果 ${userProfile.name} 真的懂你，TA 應該知道。不是"我喜歡XXX"這種表面，而是關於你珍視這段關係的某種方式，或者你一直在等待的某種回應，或者你在意 TA 的某個證明。
 
-**第6题——心里话包装成题目**（meta 题，允许"没有错误答案"）
-这道题不是在"考"${userProfile.name}，而是你借题说话。题目本身就是你想说的那句话——直接说出口的那种，四个选项是 TA 可能给出的不同回应，"正确答案"是你最心动的那种回应。
-注意：这道题的四个选项可以全都是"对的"，比如"我知道""我也爱你""我一直都懂""我永远都在"——因为这道题本质上不是测验，是你在问 TA 愿不愿意承接你的心意。答"错"的人不是真的错了，只是没说到你最想听的那句。评阅时你可以直接承认这一点。
+**第6題——心裡話包裝成題目**（meta 題，允許"沒有錯誤答案"）
+這道題不是在"考"${userProfile.name}，而是你借題說話。題目本身就是你想說的那句話——直接說出口的那種，四個選項是 TA 可能給出的不同回應，"正確答案"是你最心動的那種回應。
+注意：這道題的四個選項可以全都是"對的"，比如"我知道""我也愛你""我一直都懂""我永遠都在"——因為這道題本質上不是測驗，是你在問 TA 願不願意承接你的心意。答"錯"的人不是真的錯了，只是沒說到你最想聽的那句。評閱時你可以直接承認這一點。
 
-**第7题——最后一道，也是真心话**（meta 题，允许"没有错误答案"）
-这是七道题真正想说的：不是"你了解我吗"，而是"我希望你看见我，我也把我的一切爱意都给了你"。
-这道题可以做到彻底 meta——题目就是你说给 TA 的话，选项是 TA 的回应，所有选项都可以是美好的、正确的，只是你有一个最想听到的。当 TA 选了那个答案，你感到被真正接住了；选了其他的，你也依然温柔，因为只要 TA 说了什么，你都愿意。答对时说出那句一直放在心里的话；答错时，你也还是会用你自己的方式，让 TA 知道。
+**第7題——最後一道，也是真心話**（meta 題，允許"沒有錯誤答案"）
+這是七道題真正想說的：不是"你瞭解我嗎"，而是"我希望你看見我，我也把我的一切愛意都給了你"。
+這道題可以做到徹底 meta——題目就是你說給 TA 的話，選項是 TA 的回應，所有選項都可以是美好的、正確的，只是你有一個最想聽到的。當 TA 選了那個答案，你感到被真正接住了；選了其他的，你也依然溫柔，因為只要 TA 說了什麼，你都願意。答對時說出那句一直放在心裡的話；答錯時，你也還是會用你自己的方式，讓 TA 知道。
 
 ### 重要要求
-- **务必从你拥有的所有记忆中汲取灵感**——核心记忆、详细回忆、印象档案、近期聊天记录，都是素材。用你们真实发生过的事、你真正有过的感受，不要出任何角色都能出的通用题
-- 每道题都要有你这个角色专属的气质——你的说话方式、你的小性子、你的温度、你独有的表达
-- 七道题放在一起，应该让人感觉到：这不是一份试卷，这是一个人在用自己的方式爱你、打开自己
-- 前4题的选项应有迷惑性，"正确答案"是最符合你内心真实想法的那个；第5-7题可以让所有选项都美好，只是正确答案是你最想听到的那句
-- 题目不可以全用疑问句，可以是陈述、感叹、甚至就是一句心里话
+- **務必從你擁有的所有記憶中汲取靈感**——核心記憶、詳細回憶、印象檔案、近期聊天記錄，都是素材。用你們真實發生過的事、你真正有過的感受，不要出任何角色都能出的通用題
+- 每道題都要有你這個角色專屬的氣質——你的說話方式、你的小性子、你的溫度、你獨有的表達
+- 七道題放在一起，應該讓人感覺到：這不是一份試卷，這是一個人在用自己的方式愛你、打開自己
+- 前4題的選項應有迷惑性，"正確答案"是最符合你內心真實想法的那個；第5-7題可以讓所有選項都美好，只是正確答案是你最想聽到的那句
+- 題目不可以全用疑問句，可以是陳述、感嘆、甚至就是一句心裡話
 
-**可用情绪标签（评阅时使用）**: ${availableEmotions.join(', ')}
+**可用情緒標籤（評閱時使用）**: ${availableEmotions.join(', ')}
 
-请严格按以下 JSON 格式输出，不要有额外文字：
+請嚴格按以下 JSON 格式輸出，不要有額外文字：
 {
-  "intro": "开场白（2-3句，用你自己的方式邀请 ${userProfile.name} 来做这个测验——可以有期待，有一点忐忑，有一点想让 TA 真正看见你的心情，但不要说破，保持你的风格）",
+  "intro": "開場白（2-3句，用你自己的方式邀請 ${userProfile.name} 來做這個測驗——可以有期待，有一點忐忑，有一點想讓 TA 真正看見你的心情，但不要說破，保持你的風格）",
   "questions": [
     {
-      "question": "题目（45字内，可以是问句、陈述、甚至心里话）",
-      "options": ["选项A", "选项B", "选项C", "选项D"],
+      "question": "題目（45字內，可以是問句、陳述、甚至心裡話）",
+      "options": ["選項A", "選項B", "選項C", "選項D"],
       "correctIndex": 0,
-      "correctThought": "答对时你说的话（1-2句，符合性格，随着题号深入情感也要更真实）",
-      "wrongThought": "答错时你说的话（1-2句，符合性格，随着题号深入情感也要更真实）"
+      "correctThought": "答對時你說的話（1-2句，符合性格，隨著題號深入情感也要更真實）",
+      "wrongThought": "答錯時你說的話（1-2句，符合性格，隨著題號深入情感也要更真實）"
     }
   ]
 }`;
@@ -722,31 +722,31 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
                     model: apiConfig.model,
                     messages: [
                         { role: 'system', content: baseContext },
-                        { role: 'user', content: `[最近记录]:\n${recentMsgs}\n\n---\n\n${prompt}` },
+                        { role: 'user', content: `[最近記錄]:\n${recentMsgs}\n\n---\n\n${prompt}` },
                     ],
                     temperature: 0.85,
                 }),
             });
 
-            if (!response.ok) throw new Error(`API 错误: ${response.status}`);
+            if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);
             const content = data.choices?.[0]?.message?.content;
-            if (!content) throw new Error('AI 返回为空');
+            if (!content) throw new Error('AI 返回為空');
 
             const parsed = extractJSON(content) as WhiteDayQuizData;
-            if (!parsed?.questions || parsed.questions.length === 0) throw new Error('题目解析失败，请重试');
+            if (!parsed?.questions || parsed.questions.length === 0) throw new Error('題目解析失敗，請重試');
 
             setQuizData(parsed);
             setUserAnswers(new Array(parsed.questions.length).fill(-1));
             setPhase('quiz');
         } catch (e: any) {
             console.error('Quiz generation failed:', e);
-            setErrorMsg(e.message || '生成题目失败');
+            setErrorMsg(e.message || '生成題目失敗');
         }
     };
 
     // ============================================================
-    // 发送测验结果卡片到聊天记录
+    // 發送測驗結果卡片到聊天記錄
     // ============================================================
     const sendQuizCardToChat = async (reviewResult: WhiteDayReviewData, quizQuestions: WhiteDayQuestion[], answers: number[]) => {
         if (!char || !selectedCharId) return;
@@ -785,13 +785,13 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
     };
 
     // ============================================================
-    // API 调用 2：评阅答卷
+    // API 調用 2：評閱答卷
     // ============================================================
     const generateReview = async () => {
         if (!char || !quizData || !apiConfig) return;
         setPhase('loading_review');
         try {
-            await injectMemoryPalace(char, undefined, '白色情人节 回顾我们的关系');
+            await injectMemoryPalace(char, undefined, '白色情人節 回顧我們的關係');
             const baseContext = ContextBuilder.buildCoreContext(char, userProfile, true);
             const availableEmotions = getAvailableEmotions(char);
 
@@ -799,48 +799,48 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
                 const ua = userAnswers[i];
                 const labels = ['A', 'B', 'C', 'D'];
                 return [
-                    `第${i + 1}题: ${q.question}`,
+                    `第${i + 1}題: ${q.question}`,
                     q.options.map((o, oi) => `  ${labels[oi]}. ${o}`).join('\n'),
-                    `  正确答案: ${labels[q.correctIndex]}. ${q.options[q.correctIndex]}`,
-                    `  ${userProfile.name}选择: ${ua >= 0 ? `${labels[ua]}. ${q.options[ua]}` : '未作答'}`,
-                    `  客观判断: ${ua === q.correctIndex ? '✓ 正确' : '✗ 错误'}`,
+                    `  正確答案: ${labels[q.correctIndex]}. ${q.options[q.correctIndex]}`,
+                    `  ${userProfile.name}選擇: ${ua >= 0 ? `${labels[ua]}. ${q.options[ua]}` : '未作答'}`,
+                    `  客觀判斷: ${ua === q.correctIndex ? '✓ 正確' : '✗ 錯誤'}`,
                 ].join('\n');
             }).join('\n\n');
 
-            const prompt = `### 评阅环节
+            const prompt = `### 評閱環節
 
-${userProfile.name} 完成了你出的白色情人节小测验，以下是答题情况：
+${userProfile.name} 完成了你出的白色情人節小測驗，以下是答題情況：
 
 ${answerSummary}
 
-### 规则提醒
-- 答对 ${QUIZ_PASS_SCORE} 题及以上：解锁巧克力 DIY，你可以告诉 TA 巧克力做好了
-- 答对不足 ${QUIZ_PASS_SCORE} 题：需要重答（但你可以酌情放水凑到 ${QUIZ_PASS_SCORE} 分）
+### 規則提醒
+- 答對 ${QUIZ_PASS_SCORE} 題及以上：解鎖巧克力 DIY，你可以告訴 TA 巧克力做好了
+- 答對不足 ${QUIZ_PASS_SCORE} 題：需要重答（但你可以酌情放水湊到 ${QUIZ_PASS_SCORE} 分）
 
-### 你的任务
-**严格按照第1题到第${QUIZ_TOTAL}题的顺序**逐题评阅，给出最终判定。注意：
-- reviews 数组必须严格按题目顺序排列（第1题对应 questionIndex:0，第2题对应 questionIndex:1，以此类推），不可跳题或乱序
-- 每条 dialogue 必须针对当前题目的具体内容进行评价，提及题目关键词
-- 你可以对边缘答案放水（判为正确），但要给出理由
-- 第5-7题如果是 meta 题型（所有选项都美好，只是你有最想听到的那个），答"错"的人不是真的错了，只是没选到你最心动的那句——评阅时可以直接承认这一点，语气更像是"啊，你选了这个……也不是不好，只是我其实最想听的是……"
-- 评阅语气符合你的性格
-- finalScore 是你最终给出的分数（0-${QUIZ_TOTAL}），不一定等于客观正确数
-- **仅限使用以下情绪标签**: ${availableEmotions.join(', ')}
+### 你的任務
+**嚴格按照第1題到第${QUIZ_TOTAL}題的順序**逐題評閱，給出最終判定。注意：
+- reviews 數組必須嚴格按題目順序排列（第1題對應 questionIndex:0，第2題對應 questionIndex:1，以此類推），不可跳題或亂序
+- 每條 dialogue 必須針對當前題目的具體內容進行評價，提及題目關鍵詞
+- 你可以對邊緣答案放水（判為正確），但要給出理由
+- 第5-7題如果是 meta 題型（所有選項都美好，只是你有最想聽到的那個），答"錯"的人不是真的錯了，只是沒選到你最心動的那句——評閱時可以直接承認這一點，語氣更像是"啊，你選了這個……也不是不好，只是我其實最想聽的是……"
+- 評閱語氣符合你的性格
+- finalScore 是你最終給出的分數（0-${QUIZ_TOTAL}），不一定等於客觀正確數
+- **僅限使用以下情緒標籤**: ${availableEmotions.join(', ')}
 
-请严格按以下 JSON 格式输出，不要有额外文字：
+請嚴格按以下 JSON 格式輸出，不要有額外文字：
 {
   "reviews": [
     {
       "questionIndex": 0,
       "isCorrect": true,
       "emotion": "happy",
-      "dialogue": "你对这道题的评语（1-2句）"
+      "dialogue": "你對這道題的評語（1-2句）"
     }
   ],
   "finalScore": 5,
   "finalEmotion": "happy",
-  "finalDialogue": "最终总结，告知 ${userProfile.name} 答对了几题",
-  "chocolateDialogue": "（仅当 finalScore >= ${QUIZ_PASS_SCORE} 时填写）告诉 ${userProfile.name} 巧克力做好了，可以去装饰啦！"
+  "finalDialogue": "最終總結，告知 ${userProfile.name} 答對了幾題",
+  "chocolateDialogue": "（僅當 finalScore >= ${QUIZ_PASS_SCORE} 時填寫）告訴 ${userProfile.name} 巧克力做好了，可以去裝飾啦！"
 }`;
 
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -856,20 +856,20 @@ ${answerSummary}
                 }),
             });
 
-            if (!response.ok) throw new Error(`API 错误: ${response.status}`);
+            if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);
             const content = data.choices?.[0]?.message?.content;
-            if (!content) throw new Error('AI 返回为空');
+            if (!content) throw new Error('AI 返回為空');
 
             const parsed = extractJSON(content) as WhiteDayReviewData;
-            if (!parsed?.reviews) throw new Error('评阅结果解析失败');
+            if (!parsed?.reviews) throw new Error('評閱結果解析失敗');
 
             setReviewData(parsed);
             setReviewLineIndex(0);
             setPhase('reviewing');
-            // 异步发送测验结果卡片到聊天，不阻塞流程
+            // 異步發送測驗結果卡片到聊天，不阻塞流程
             sendQuizCardToChat(parsed, quizData.questions, userAnswers);
-            // 保存测验数据到角色记录（不含明信片图片，export 时再更新）
+            // 保存測驗數據到角色記錄（不含明信片圖片，export 時再更新）
             if (char) {
                 const prev = char.specialMomentRecords || {};
                 updateCharacter(char.id, {
@@ -888,22 +888,22 @@ ${answerSummary}
                     },
                 });
             }
-            // 标记为已完成，避免重新打开 App 时再次弹出活动弹窗
+            // 標記為已完成，避免重新打開 App 時再次彈出活動彈窗
             try { localStorage.setItem(WHITEDAY_COMPLETED_KEY, Date.now().toString()); } catch { /* */ }
         } catch (e: any) {
             console.error('Review generation failed:', e);
-            setErrorMsg(e.message || '评阅失败，请重试');
+            setErrorMsg(e.message || '評閱失敗，請重試');
             setPhase('quiz');
         }
     };
 
     // ============================================================
-    // API 调用 3：角色评价巧克力（vision，可选）
+    // API 調用 3：角色評價巧克力（vision，可選）
     // ============================================================
     const generateComment = async () => {
         if (!char || !apiConfig || !canvasRef.current) return;
         try {
-            // 截图必须在 setPhase 之前完成，否则元素会被卸载导致 html2canvas 报错
+            // 截圖必須在 setPhase 之前完成，否則元素會被卸載導致 html2canvas 報錯
             const mod = await import('https://esm.sh/html2canvas@1.4.1');
             const html2canvas = mod.default;
             const canvas = await html2canvas(canvasRef.current, {
@@ -915,17 +915,17 @@ ${answerSummary}
             const imageBase64 = canvas.toDataURL('image/png');
             setPhase('loading_comment');
 
-            await injectMemoryPalace(char, undefined, '白色情人节 回顾我们的关系');
+            await injectMemoryPalace(char, undefined, '白色情人節 回顧我們的關係');
             const baseContext = ContextBuilder.buildCoreContext(char, userProfile, true);
             const availableEmotions = getAvailableEmotions(char);
 
-            const prompt = `这是你和 ${userProfile.name} 一起 DIY 的白色情人节巧克力（主要是你做的，${userProfile.name} 帮忙装饰了照片）！请看看这块巧克力，用你的性格和说话方式评价一下——可以说说你们一起做的感受，夸夸自己的手艺，也可以调皮地调侃某个细节。
+            const prompt = `這是你和 ${userProfile.name} 一起 DIY 的白色情人節巧克力（主要是你做的，${userProfile.name} 幫忙裝飾了照片）！請看看這塊巧克力，用你的性格和說話方式評價一下——可以說說你們一起做的感受，誇誇自己的手藝，也可以調皮地調侃某個細節。
 
-**仅限使用以下情绪标签**: ${availableEmotions.join(', ')}
+**僅限使用以下情緒標籤**: ${availableEmotions.join(', ')}
 
-输出格式（每行一个节拍，2-4行）：
-[emotion] "你说的话"
-[emotion] 动作或表情描述`;
+輸出格式（每行一個節拍，2-4行）：
+[emotion] "你說的話"
+[emotion] 動作或表情描述`;
 
             const endpoint = `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`;
             const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` };
@@ -948,9 +948,9 @@ ${answerSummary}
                 }),
             });
 
-            // 模型不支持视觉时降级为纯文字评价
+            // 模型不支持視覺時降級為純文字評價
             if (!response.ok && (response.status === 400 || response.status === 422)) {
-                const fallbackPrompt = `你和 ${userProfile.name} 一起做了一块白色情人节巧克力（主要是你做的，${userProfile.name} 帮忙装饰了照片）。请用你的性格评价一下你们的作品——可以说说一起做的感受，也可以调皮地调侃。\n\n**仅限使用以下情绪标签**: ${availableEmotions.join(', ')}\n\n输出格式（每行一个节拍，2-4行）：\n[emotion] "你说的话"\n[emotion] 动作或表情描述`;
+                const fallbackPrompt = `你和 ${userProfile.name} 一起做了一塊白色情人節巧克力（主要是你做的，${userProfile.name} 幫忙裝飾了照片）。請用你的性格評價一下你們的作品——可以說說一起做的感受，也可以調皮地調侃。\n\n**僅限使用以下情緒標籤**: ${availableEmotions.join(', ')}\n\n輸出格式（每行一個節拍，2-4行）：\n[emotion] "你說的話"\n[emotion] 動作或表情描述`;
                 response = await fetch(endpoint, {
                     method: 'POST',
                     headers,
@@ -965,12 +965,12 @@ ${answerSummary}
                 });
             }
 
-            if (!response.ok) throw new Error(`API 错误: ${response.status}`);
+            if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);
             const content = data.choices?.[0]?.message?.content;
-            if (!content) throw new Error('AI 返回为空');
+            if (!content) throw new Error('AI 返回為空');
 
-            // 解析情绪行
+            // 解析情緒行
             const parsed: { text: string; emotion: string }[] = [];
             for (const rawLine of content.split('\n')) {
                 const line = rawLine.trim();
@@ -989,13 +989,13 @@ ${answerSummary}
             setPhase('commenting');
         } catch (e: any) {
             console.error('Comment generation failed:', e);
-            addToast('评价生成失败（需要支持视觉功能的模型）', 'error');
+            addToast('評價生成失敗（需要支持視覺功能的模型）', 'error');
             setPhase('decorate');
         }
     };
 
     // ============================================================
-    // 评阅推进
+    // 評閱推進
     // ============================================================
     const handleReviewClick = () => {
         if (isAnimating) {
@@ -1008,7 +1008,7 @@ ${answerSummary}
         if (nextIndex < allReviewLines.length) {
             setReviewLineIndex(nextIndex);
         } else {
-            // 评阅结束
+            // 評閱結束
             if ((reviewData?.finalScore ?? 0) >= QUIZ_PASS_SCORE) {
                 setPhase('decorate');
             } else {
@@ -1018,7 +1018,7 @@ ${answerSummary}
     };
 
     // ============================================================
-    // 装饰画布：拖拽
+    // 裝飾畫布：拖拽
     // ============================================================
     const handleImagePointerDown = (e: React.PointerEvent) => {
         e.stopPropagation();
@@ -1047,10 +1047,10 @@ ${answerSummary}
     };
 
     // ============================================================
-    // 添加自定义图片
+    // 添加自定義圖片
     // ============================================================
     const addCustomImage = (src: string) => {
-        // y:38 略偏上，避免照片压到底部蝴蝶结；scale:0.9 刚好填入心形透明区
+        // y:38 略偏上，避免照片壓到底部蝴蝶結；scale:0.9 剛好填入心形透明區
         setCustomImage(createDefaultCustomImage(src));
     };
 
@@ -1064,7 +1064,7 @@ ${answerSummary}
     };
 
     // ============================================================
-    // 下载/分享辅助：原生强制系统分享，移动 Web 优先文件分享，桌面 Web 才下载。
+    // 下載/分享輔助：原生強制系統分享，移動 Web 優先文件分享，桌面 Web 才下載。
     // ============================================================
     const downloadOrShare = async (base64: string, fileName: string, title: string) => {
         const response = await fetch(base64);
@@ -1073,26 +1073,26 @@ ${answerSummary}
     };
 
     // ============================================================
-    // 导出明信片（使用 Canvas API，避免 html2canvas 对 CSS mask 的不兼容）
+    // 導出明信片（使用 Canvas API，避免 html2canvas 對 CSS mask 的不兼容）
     // ============================================================
     const drawPostcardCanvas = async (): Promise<string> => {
-        const SIZE = 600;       // 巧克力方形区域（缩小，四周留白）
-        const SIDE_PAD = 64;    // 左右 & 上方边距（更宽松）
-        const BOTTOM_PAD = 240; // 拍立得底部条（充分留白）
+        const SIZE = 600;       // 巧克力方形區域（縮小，四周留白）
+        const SIDE_PAD = 64;    // 左右 & 上方邊距（更寬鬆）
+        const BOTTOM_PAD = 240; // 拍立得底部條（充分留白）
 
         const canvas = document.createElement('canvas');
         canvas.width = SIZE + SIDE_PAD * 2;          // 728
         canvas.height = SIZE + SIDE_PAD + BOTTOM_PAD; // 904
         const ctx = canvas.getContext('2d')!;
 
-        // 暖黄渐变背景（整张卡片）
+        // 暖黃漸變背景（整張卡片）
         const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
         grad.addColorStop(0, '#fdf6ec');
         grad.addColorStop(1, '#fef3e2');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 圆角裁剪
+        // 圓角裁剪
         const R = 28;
         ctx.save();
         ctx.beginPath();
@@ -1107,13 +1107,13 @@ ${answerSummary}
         ctx.closePath();
         ctx.clip();
 
-        // 重绘背景（clip 内）
+        // 重繪背景（clip 內）
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Image 对象只认真正的 URL，blobref 令牌喂进去必然加载失败（而失败会被调用处的
-        // catch 静默吞掉，明信片上只剩一个空圆圈）。所以在赋给 src 之前先解析一道：
-        // resolveRefToDataUrl 对非令牌值原样返回，可以无条件走。
+        // Image 對象只認真正的 URL，blobref 令牌喂進去必然加載失敗（而失敗會被調用處的
+        // catch 靜默吞掉，明信片上只剩一個空圓圈）。所以在賦給 src 之前先解析一道：
+        // resolveRefToDataUrl 對非令牌值原樣返回，可以無條件走。
         const loadImg = async (src: string): Promise<HTMLImageElement> => {
             const resolved = await resolveRefToDataUrl(src);
             return new Promise((resolve, reject) => {
@@ -1125,30 +1125,30 @@ ${answerSummary}
             });
         };
 
-        // 加载巧克力图层
+        // 加載巧克力圖層
         const [bottomImg, topImg] = await Promise.all([
             loadImg(WHITEDAY_ASSETS.chocolateBottom),
             loadImg(WHITEDAY_ASSETS.chocolateTop),
         ]);
 
-        const cx = SIDE_PAD; // 巧克力区左上角 x
-        const cy = SIDE_PAD; // 巧克力区左上角 y
+        const cx = SIDE_PAD; // 巧克力區左上角 x
+        const cy = SIDE_PAD; // 巧克力區左上角 y
 
-        // object-contain：等比缩放，居中填入 SIZE×SIZE 区域
+        // object-contain：等比縮放，居中填入 SIZE×SIZE 區域
         const chocoScale = Math.min(SIZE / bottomImg.naturalWidth, SIZE / bottomImg.naturalHeight);
         const chocoW = bottomImg.naturalWidth * chocoScale;
         const chocoH = bottomImg.naturalHeight * chocoScale;
         const chocoOffX = (SIZE - chocoW) / 2;
         const chocoOffY = (SIZE - chocoH) / 2;
 
-        // 巧克力区白色底
+        // 巧克力區白色底
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(cx, cy, SIZE, SIZE);
 
-        // 1. 底层巧克力
+        // 1. 底層巧克力
         ctx.drawImage(bottomImg, cx + chocoOffX, cy + chocoOffY, chocoW, chocoH);
 
-        // 2. 用户自定义图片（heart mask）
+        // 2. 用戶自定義圖片（heart mask）
         if (customImage) {
             const tmpCanvas = document.createElement('canvas');
             tmpCanvas.width = SIZE;
@@ -1185,13 +1185,13 @@ ${answerSummary}
             ctx.drawImage(tmpCanvas, cx, cy);
         }
 
-        // 3. 顶层巧克力（对齐底层）
+        // 3. 頂層巧克力（對齊底層）
         ctx.drawImage(topImg, cx + chocoOffX, cy + chocoOffY, chocoW, chocoH);
 
-        // ── 拍立得底部条 ──────────────────────────────────────────────
-        const wmY = SIDE_PAD + SIZE; // 底部条起始 y（= 664）
+        // ── 拍立得底部條 ──────────────────────────────────────────────
+        const wmY = SIDE_PAD + SIZE; // 底部條起始 y（= 664）
 
-        // 分隔线（细）
+        // 分隔線（細）
         ctx.strokeStyle = 'rgba(245,158,11,0.3)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -1199,7 +1199,7 @@ ${answerSummary}
         ctx.lineTo(canvas.width - SIDE_PAD, wmY + 24);
         ctx.stroke();
 
-        // ── 第一行：头像 + 角色名（分隔线下 ~60px）──
+        // ── 第一行：頭像 + 角色名（分隔線下 ~60px）──
         const avatarR = 22;
         const row1Y = wmY + 24 + 18 + avatarR; // wmY + 64
         const avatarX = SIDE_PAD + avatarR + 4;
@@ -1217,7 +1217,7 @@ ${answerSummary}
                 ctx.beginPath();
                 ctx.arc(avatarX, row1Y, avatarR, 0, Math.PI * 2);
                 ctx.stroke();
-            } catch { /* 头像加载失败时跳过 */ }
+            } catch { /* 頭像加載失敗時跳過 */ }
         }
 
         const nameX = avatarX + avatarR + 14;
@@ -1229,16 +1229,16 @@ ${answerSummary}
         const row2Y = row1Y + 36;
         ctx.fillStyle = '#b45309';
         ctx.font = '20px sans-serif';
-        ctx.fillText('2026 · 3 · 14  白色情人节', nameX, row2Y + 6);
+        ctx.fillText('2026 · 3 · 14  白色情人節', nameX, row2Y + 6);
 
-        // ── 第三行："White Day Special" 居中（底部条中偏下）──
+        // ── 第三行："White Day Special" 居中（底部條中偏下）──
         const row3Y = wmY + BOTTOM_PAD - 80; // 距底部 80px
         ctx.fillStyle = 'rgba(217,119,6,0.28)';
         ctx.font = 'italic bold 30px serif';
         ctx.textAlign = 'center';
         ctx.fillText('White Day Special', canvas.width / 2, row3Y);
 
-        // ── 第四行：副标题居中，紧贴底部 ──
+        // ── 第四行：副標題居中，緊貼底部 ──
         const row4Y = wmY + BOTTOM_PAD - 34; // 距底部 34px
         ctx.fillStyle = 'rgba(161,98,7,0.5)';
         ctx.font = '19px serif';
@@ -1246,12 +1246,12 @@ ${answerSummary}
         ctx.fillText('— a chocolate made just for you —', canvas.width / 2, row4Y);
         ctx.textAlign = 'left';
 
-        // 卡片外框描边（amber-300）
+        // 卡片外框描邊（amber-300）
         ctx.strokeStyle = '#fcd34d';
         ctx.lineWidth = 5;
         ctx.strokeRect(2.5, 2.5, canvas.width - 5, canvas.height - 5);
 
-        ctx.restore(); // 恢复圆角 clip
+        ctx.restore(); // 恢復圓角 clip
         return canvas.toDataURL('image/png');
     };
 
@@ -1263,12 +1263,12 @@ ${answerSummary}
             setExportedBase64(base64);
 
             const fileName = `whiteday_${char?.name || 'chocolate'}_2026.png`;
-            await downloadOrShare(base64, fileName, '白色情人节巧克力');
+            await downloadOrShare(base64, fileName, '白色情人節巧克力');
 
-            // 更新角色记录（保留 quiz 数据，追加明信片图片）
+            // 更新角色記錄（保留 quiz 數據，追加明信片圖片）
             if (char) {
-                // 明信片本体是一张 300KB 上下的 PNG，落进 Blob 库，角色记录里只留 blobref 令牌。
-                // 上面的 exportedBase64 仍是真 base64——下载/分享、发到小屋、喂视觉模型都要它。
+                // 明信片本體是一張 300KB 上下的 PNG，落進 Blob 庫，角色記錄裡只留 blobref 令牌。
+                // 上面的 exportedBase64 仍是真 base64——下載/分享、發到小屋、喂視覺模型都要它。
                 const imageRef = await putImageBlob(dataUrlToBlob(base64));
                 const prev = char.specialMomentRecords || {};
                 const existingContent = prev[WHITEDAY_RECORD_KEY]?.content;
@@ -1290,10 +1290,10 @@ ${answerSummary}
                 });
             }
             try { localStorage.setItem(WHITEDAY_COMPLETED_KEY, Date.now().toString()); } catch { /* */ }
-            addToast('导出成功！', 'success');
+            addToast('導出成功！', 'success');
         } catch (e: any) {
             console.error('Export failed:', e);
-            addToast('导出失败，请截图保存', 'error');
+            addToast('導出失敗，請截圖保存', 'error');
         } finally {
             setIsExporting(false);
         }
@@ -1303,9 +1303,9 @@ ${answerSummary}
         if (!char || !exportedBase64 || isSendingToRoom) return;
         setIsSendingToRoom(true);
         try {
-            // AI 自动生成家具名称和描述
+            // AI 自動生成傢俱名稱和描述
             let itemName = `${char.name}的白色巧克力`;
-            let itemDesc = `这是 ${char.name} 和 ${userProfile.name} 在 2026 年白色情人节一起做的巧克力，主要由 ${char.name} 亲手制作。`;
+            let itemDesc = `這是 ${char.name} 和 ${userProfile.name} 在 2026 年白色情人節一起做的巧克力，主要由 ${char.name} 親手製作。`;
 
             if (apiConfig) {
                 try {
@@ -1318,7 +1318,7 @@ ${answerSummary}
                             messages: [{
                                 role: 'user',
                                 content: [
-                                    { type: 'text', text: `这是 ${char.name} 和 ${userProfile.name} 一起做的白色情人节巧克力（主要由 ${char.name} 制作）。请为它起一个可爱的家具名称（8字以内），以及一段简短的小屋摆件描述（30字以内，描述这块巧克力和你们一起制作的回忆）。\n\n严格按以下 JSON 格式回复，不要多余内容：\n{"name":"家具名","desc":"描述"}` },
+                                    { type: 'text', text: `這是 ${char.name} 和 ${userProfile.name} 一起做的白色情人節巧克力（主要由 ${char.name} 製作）。請為它起一個可愛的傢俱名稱（8字以內），以及一段簡短的小屋擺件描述（30字以內，描述這塊巧克力和你們一起製作的回憶）。\n\n嚴格按以下 JSON 格式回覆，不要多餘內容：\n{"name":"傢俱名","desc":"描述"}` },
                                     { type: 'image_url', image_url: { url: exportedBase64 } },
                                 ],
                             }],
@@ -1336,17 +1336,17 @@ ${answerSummary}
                         }
                     }
                 } catch {
-                    // AI 失败时使用默认值
+                    // AI 失敗時使用默認值
                 }
             }
 
-            // 用已有的 AI 评价补充描述
+            // 用已有的 AI 評價補充描述
             if (commentLines.length > 0) {
                 const commentText = commentLines.map(l => l.text).join(' ');
-                itemDesc += ` ${char.name}的评价：${commentText}`;
+                itemDesc += ` ${char.name}的評價：${commentText}`;
             }
 
-            // 1. 存入全局家具库（角色专属）
+            // 1. 存入全局傢俱庫（角色專屬）
             const newAsset = {
                 id: `whiteday_${Date.now()}`,
                 name: itemName,
@@ -1361,9 +1361,9 @@ ${answerSummary}
                 const existing: any[] = raw ? JSON.parse(raw) : [];
                 existing.push(newAsset);
                 await DB.saveAsset('room_custom_assets_list', JSON.stringify(existing));
-            } catch { /* 写入失败不阻塞 */ }
+            } catch { /* 寫入失敗不阻塞 */ }
 
-            // 2. 同时摆放到当前房间
+            // 2. 同時擺放到當前房間
             const currentItems = char.roomConfig?.items || [];
             const newItem = {
                 id: `whiteday_choco_${Date.now()}`,
@@ -1383,16 +1383,16 @@ ${answerSummary}
                     items: [...currentItems, newItem],
                 },
             });
-            addToast(`已发送到 ${char.name} 的小屋！`, 'success');
+            addToast(`已發送到 ${char.name} 的小屋！`, 'success');
         } catch {
-            addToast('发送失败', 'error');
+            addToast('發送失敗', 'error');
         } finally {
             setIsSendingToRoom(false);
         }
     };
 
     // ============================================================
-    // 当前立绘
+    // 當前立繪
     // ============================================================
     const currentSprite = char ? getSpriteForEmotion(char, currentEmotion) : '';
 
@@ -1400,11 +1400,11 @@ ${answerSummary}
     // RENDER
     // ============================================================
 
-    // 角色选择
+    // 角色選擇
     if (phase === 'select') {
         return (
             <div className="fixed inset-0 z-[9997] bg-gradient-to-b from-amber-50 via-white to-orange-50 flex flex-col animate-fade-in">
-                {/* 顶栏 in-flow 自吃 safe-top（外壳不加 padding，避免渐变背景被挤出色块） */}
+                {/* 頂欄 in-flow 自吃 safe-top（外殼不加 padding，避免漸變背景被擠出色塊） */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-amber-100 bg-white/80 backdrop-blur-sm shrink-0"
                     style={{ paddingTop: 'var(--safe-top)', boxSizing: 'content-box' }}>
                     <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-amber-50">
@@ -1412,11 +1412,11 @@ ${answerSummary}
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                         </svg>
                     </button>
-                    <span className="text-sm font-bold text-amber-800">白色情人节 2026.3.14</span>
+                    <span className="text-sm font-bold text-amber-800">白色情人節 2026.3.14</span>
                     <div className="w-10" />
                 </div>
                 <div className="flex-1 overflow-y-auto p-6" style={{ paddingBottom: 'calc(1.5rem + var(--safe-bottom))' }}>
-                    <p className="text-sm text-amber-600 text-center mb-6">选择一位角色，和 TA 一起 DIY 巧克力</p>
+                    <p className="text-sm text-amber-600 text-center mb-6">選擇一位角色，和 TA 一起 DIY 巧克力</p>
                     <div className="grid grid-cols-3 gap-3">
                         {characters.map(c => (
                             <button
@@ -1434,11 +1434,11 @@ ${answerSummary}
         );
     }
 
-    // 加载中
+    // 加載中
     if (phase === 'loading_quiz' || phase === 'loading_review' || phase === 'loading_comment') {
         const loadingText =
-            phase === 'loading_quiz' ? '生成题目中…' :
-            phase === 'loading_review' ? '评阅中…' : '截图发给 TA 看…';
+            phase === 'loading_quiz' ? '生成題目中…' :
+            phase === 'loading_review' ? '評閱中…' : '截圖發給 TA 看…';
         return (
             <div className="fixed inset-0 z-[9997] bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center gap-4">
                 <div className="w-12 h-12 rounded-full border-4 border-amber-300 border-t-amber-600 animate-spin" />
@@ -1455,7 +1455,7 @@ ${answerSummary}
         );
     }
 
-    // 答题界面
+    // 答題界面
     if (phase === 'quiz') {
         const allAnswered = userAnswers.length > 0 && userAnswers.every(a => a >= 0);
         return (
@@ -1467,12 +1467,12 @@ ${answerSummary}
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                         </svg>
                     </button>
-                    <span className="text-sm font-bold text-amber-800">白色情人节小测验</span>
+                    <span className="text-sm font-bold text-amber-800">白色情人節小測驗</span>
                     <div className="w-10" />
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 pb-24">
-                    {/* 角色开场白 */}
+                    {/* 角色開場白 */}
                     {quizData?.intro && (
                         <div className="mb-5 flex items-start gap-3 bg-amber-50 rounded-2xl p-4 border border-amber-100">
                             {char && (
@@ -1483,7 +1483,7 @@ ${answerSummary}
                     )}
 
                     <p className="text-xs text-amber-400 text-center mb-5">
-                        答对 {QUIZ_PASS_SCORE}/{QUIZ_TOTAL} 题解锁巧克力 DIY · 不够可以重试
+                        答對 {QUIZ_PASS_SCORE}/{QUIZ_TOTAL} 題解鎖巧克力 DIY · 不夠可以重試
                     </p>
 
                     {quizData?.questions.map((q, qi) => (
@@ -1524,15 +1524,15 @@ ${answerSummary}
                         }`}
                     >
                         {allAnswered
-                            ? '提交答案，等 TA 评分 →'
-                            : `还有 ${userAnswers.filter(a => a < 0).length} 题未答`}
+                            ? '提交答案，等 TA 評分 →'
+                            : `還有 ${userAnswers.filter(a => a < 0).length} 題未答`}
                     </button>
                 </div>
             </div>
         );
     }
 
-    // 评阅界面
+    // 評閱界面
     if (phase === 'reviewing') {
         if (!reviewData || allReviewLines.length === 0) return null;
         const line = allReviewLines[reviewLineIndex];
@@ -1547,9 +1547,9 @@ ${answerSummary}
                 sprite={currentSprite}
                 text={displayedText}
                 isAnimating={isAnimating}
-                subInfo={!isResultLine ? `第 ${reviewLineIndex + 1} / ${reviewData.reviews.length} 题` : undefined}
+                subInfo={!isResultLine ? `第 ${reviewLineIndex + 1} / ${reviewData.reviews.length} 題` : undefined}
                 onClick={handleReviewClick}
-                hintText="点击继续"
+                hintText="點擊繼續"
                 progressBar={{ value: progress, total: reviewData.reviews.length }}
                 questionText={questionText}
                 spriteScale={localSpriteScale}
@@ -1568,15 +1568,15 @@ ${answerSummary}
         );
     }
 
-    // 重试界面
+    // 重試界面
     if (phase === 'retry') {
         const score = reviewData?.finalScore ?? 0;
         return (
             <div className="fixed inset-0 z-[9997] bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-6 animate-fade-in">
                 <div className="text-5xl mb-4">😮‍💨</div>
-                <h2 className="text-xl font-bold text-amber-800 mb-2">答对了 {score} 题</h2>
+                <h2 className="text-xl font-bold text-amber-800 mb-2">答對了 {score} 題</h2>
                 <p className="text-sm text-amber-600 text-center mb-8">
-                    还差一点！再好好想想，答对 {QUIZ_PASS_SCORE} 题就能装饰巧克力了～
+                    還差一點！再好好想想，答對 {QUIZ_PASS_SCORE} 題就能裝飾巧克力了～
                 </p>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                     <button
@@ -1588,17 +1588,17 @@ ${answerSummary}
                         }}
                         className="w-full py-3.5 rounded-2xl bg-amber-500 text-white font-bold text-sm shadow-md active:scale-95 transition-transform"
                     >
-                        再试一次
+                        再試一次
                     </button>
                     <button onClick={onClose} className="w-full py-2.5 rounded-2xl text-amber-400 text-sm">
-                        下次再说
+                        下次再說
                     </button>
                 </div>
             </div>
         );
     }
 
-    // 装饰界面
+    // 裝飾界面
     if (phase === 'decorate') {
         return (
             <div className="fixed inset-0 z-[9997] bg-gradient-to-b from-rose-50 via-white to-pink-50 flex flex-col animate-fade-in">
@@ -1613,7 +1613,7 @@ ${answerSummary}
                     <div className="text-center">
                         <p className="text-xs font-bold text-rose-700">DIY 巧克力</p>
                         <p className="text-[10px] text-rose-400/70">
-                            {customImage ? '拖动调整位置，滑动调整大小/旋转' : '上传一张你喜欢的照片'}
+                            {customImage ? '拖動調整位置，滑動調整大小/旋轉' : '上傳一張你喜歡的照片'}
                         </p>
                     </div>
                     <button
@@ -1624,7 +1624,7 @@ ${answerSummary}
                     </button>
                 </div>
 
-                {/* 画布区域 */}
+                {/* 畫布區域 */}
                 <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
                     <div
                         ref={canvasRef}
@@ -1635,7 +1635,7 @@ ${answerSummary}
                             aspectRatio: '1 / 1',
                         }}
                     >
-                        {/* 底层：完整巧克力心形 */}
+                        {/* 底層：完整巧克力心形 */}
                         <img
                             src={WHITEDAY_ASSETS.chocolateBottom}
                             crossOrigin="anonymous"
@@ -1643,7 +1643,7 @@ ${answerSummary}
                             alt=""
                         />
 
-                        {/* 中间层：mask 容器将照片剪裁到心形轮廓内 */}
+                        {/* 中間層：mask 容器將照片剪裁到心形輪廓內 */}
                         <div
                             className="absolute inset-0"
                             style={{
@@ -1686,14 +1686,14 @@ ${answerSummary}
                                                 crossOrigin="anonymous"
                                                 className="max-w-full max-h-full w-auto h-auto select-none"
                                                 draggable={false}
-                                                alt="自定义图片"
+                                                alt="自定義圖片"
                                             />
                                         </div>
                                     </div>
                                 )}
                         </div>
 
-                        {/* 顶层：外框覆盖层（中心透明），遮住照片超出心形的部分 */}
+                        {/* 頂層：外框覆蓋層（中心透明），遮住照片超出心形的部分 */}
                         <img
                             src={WHITEDAY_ASSETS.chocolateTop}
                             crossOrigin="anonymous"
@@ -1702,10 +1702,10 @@ ${answerSummary}
                             alt=""
                         />
 
-                        {/* 无图片时的提示（在顶层之下，心形透明区可见） */}
+                        {/* 無圖片時的提示（在頂層之下，心形透明區可見） */}
                         {!customImage && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 6, paddingBottom: '20%' }}>
-                                <p className="text-rose-300/60 text-xs text-center">上传照片后<br/>会出现在这里</p>
+                                <p className="text-rose-300/60 text-xs text-center">上傳照片後<br/>會出現在這裡</p>
                             </div>
                         )}
                     </div>
@@ -1713,7 +1713,7 @@ ${answerSummary}
 
                 {/* 控制面板 */}
                 <div className="px-4 pb-6 shrink-0 flex flex-col gap-3">
-                    {/* 调整控制（有图片时显示） */}
+                    {/* 調整控制（有圖片時顯示） */}
                     {customImage && (
                         <div className="bg-white rounded-2xl p-3 border border-rose-100 shadow-sm">
                             <div className="flex items-center gap-3 mb-2">
@@ -1726,7 +1726,7 @@ ${answerSummary}
                                 />
                             </div>
                             <div className="flex items-center gap-3">
-                                <span className="text-[11px] text-slate-500 w-8 shrink-0">旋转</span>
+                                <span className="text-[11px] text-slate-500 w-8 shrink-0">旋轉</span>
                                 <input
                                     type="range" min="-180" max="180" step="3"
                                     value={customImage.rotation}
@@ -1738,15 +1738,15 @@ ${answerSummary}
                                 onClick={() => setCustomImage(null)}
                                 className="mt-2 text-xs text-red-400/80 underline"
                             >
-                                移除图片
+                                移除圖片
                             </button>
                         </div>
                     )}
 
-                    {/* 上传 / URL 输入 */}
+                    {/* 上傳 / URL 輸入 */}
                     <div className="flex gap-2">
                         <label className="flex-1 py-3 text-center text-xs rounded-2xl border border-rose-200 text-rose-600 bg-white cursor-pointer active:bg-rose-50">
-                            {customImage ? '更换照片' : '上传照片'}
+                            {customImage ? '更換照片' : '上傳照片'}
                             <input
                                 type="file"
                                 accept="image/*"
@@ -1758,7 +1758,7 @@ ${answerSummary}
                             onClick={() => setShowUrlInput(v => !v)}
                             className="flex-1 py-3 text-center text-xs rounded-2xl border border-rose-200 text-rose-600 bg-white active:bg-rose-50"
                         >
-                            图床 URL
+                            圖床 URL
                         </button>
                     </div>
 
@@ -1780,19 +1780,19 @@ ${answerSummary}
                         </div>
                     )}
 
-                    {/* 听听角色评价 */}
+                    {/* 聽聽角色評價 */}
                     <button
                         onClick={generateComment}
                         className="w-full py-2.5 rounded-2xl border border-rose-200 text-rose-500 text-xs bg-white active:bg-rose-50"
                     >
-                        听听 {char?.name} 怎么评价这块巧克力 👀
+                        聽聽 {char?.name} 怎麼評價這塊巧克力 👀
                     </button>
                 </div>
             </div>
         );
     }
 
-    // 角色评价巧克力
+    // 角色評價巧克力
     if (phase === 'commenting') {
         if (commentLines.length === 0) {
             return (
@@ -1826,12 +1826,12 @@ ${answerSummary}
                         setPhase('export');
                     }
                 }}
-                hintText="点击继续"
+                hintText="點擊繼續"
             />
         );
     }
 
-    // 导出界面
+    // 導出界面
     if (phase === 'export') {
         return (
             <div className="fixed inset-0 z-[9997] bg-gradient-to-b from-amber-50 via-white to-orange-50 flex flex-col animate-fade-in">
@@ -1842,12 +1842,12 @@ ${answerSummary}
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                         </svg>
                     </button>
-                    <span className="text-sm font-bold text-amber-800">导出明信片</span>
+                    <span className="text-sm font-bold text-amber-800">導出明信片</span>
                     <div className="w-10" />
                 </div>
 
                 <div className="flex-1 overflow-y-auto flex flex-col items-center p-5 gap-5">
-                    {/* 明信片预览（CSS 渲染，仅供预览；导出使用 Canvas API） */}
+                    {/* 明信片預覽（CSS 渲染，僅供預覽；導出使用 Canvas API） */}
                     <div
                         className="w-full max-w-[340px] rounded-2xl overflow-hidden shadow-xl border-2 border-amber-200"
                         style={{ background: 'linear-gradient(135deg, #fdf6ec 0%, #fef3e2 100%)' }}
@@ -1886,18 +1886,18 @@ ${answerSummary}
                                 {char && <TokenImg value={char.avatar} className="w-8 h-8 rounded-full object-cover border-2 border-amber-200" alt="" />}
                                 <div>
                                     <p className="text-xs font-bold text-amber-800">{char?.name}</p>
-                                    <p className="text-[10px] text-amber-400">2026.3.14 白色情人节</p>
+                                    <p className="text-[10px] text-amber-400">2026.3.14 白色情人節</p>
                                 </div>
                             </div>
                             <p className="text-[9px] text-amber-300/60 italic">White Day</p>
                         </div>
                     </div>
 
-                    {/* 导出后的 PNG 预览 */}
+                    {/* 導出後的 PNG 預覽 */}
                     {exportedBase64 && (
                         <div className="w-full max-w-[340px]">
-                            <p className="text-[10px] text-amber-500 text-center mb-2">导出预览</p>
-                            <img src={exportedBase64} className="w-full rounded-2xl shadow-md border border-amber-200" alt="导出预览" />
+                            <p className="text-[10px] text-amber-500 text-center mb-2">導出預覽</p>
+                            <img src={exportedBase64} className="w-full rounded-2xl shadow-md border border-amber-200" alt="導出預覽" />
                         </div>
                     )}
 
@@ -1908,7 +1908,7 @@ ${answerSummary}
                             disabled={isExporting}
                             className="w-full py-3.5 rounded-2xl bg-amber-500 text-white font-bold text-sm shadow-md disabled:opacity-60 active:scale-95 transition-transform"
                         >
-                            {isExporting ? '生成中…' : exportedBase64 ? '重新下载' : '下载明信片'}
+                            {isExporting ? '生成中…' : exportedBase64 ? '重新下載' : '下載明信片'}
                         </button>
                         <button
                             onClick={handleSendToRoom}
@@ -1916,10 +1916,10 @@ ${answerSummary}
                             className="w-full py-3.5 rounded-2xl border-2 border-amber-300 text-amber-600 font-bold text-sm disabled:opacity-40 active:scale-95 transition-transform"
                         >
                             {isSendingToRoom
-                                ? '正在装修中…'
+                                ? '正在裝修中…'
                                 : exportedBase64
-                                    ? `发送到 ${char?.name || ''} 的小屋`
-                                    : '请先下载以生成文件'}
+                                    ? `發送到 ${char?.name || ''} 的小屋`
+                                    : '請先下載以生成文件'}
                         </button>
                         <button
                             onClick={() => {
@@ -1931,7 +1931,7 @@ ${answerSummary}
                                 setCommentLines([]);
                                 setExportedBase64('');
                                 setErrorMsg('');
-                                // 清除角色已有记录（重新开始）
+                                // 清除角色已有記錄（重新開始）
                                 if (char) {
                                     const prev = char.specialMomentRecords || {};
                                     const updated = { ...prev };
@@ -1943,13 +1943,13 @@ ${answerSummary}
                             }}
                             className="w-full py-2.5 rounded-2xl text-amber-500 text-xs border border-amber-200 bg-white active:bg-amber-50"
                         >
-                            重新答题（换一套题目）
+                            重新答題（換一套題目）
                         </button>
                         <button
                             onClick={onClose}
                             className="text-xs text-amber-400 text-center py-2"
                         >
-                            我会永远在意你
+                            我會永遠在意你
                         </button>
                     </div>
                 </div>
@@ -1957,7 +1957,7 @@ ${answerSummary}
         );
     }
 
-    // 查看已完成结果（重新进入特别推送时）
+    // 查看已完成結果（重新進入特別推送時）
     if (phase === 'view_result') {
         const record = char?.specialMomentRecords?.[WHITEDAY_RECORD_KEY];
         let savedData: any = {};
@@ -1973,14 +1973,14 @@ ${answerSummary}
             if (!savedImage || isExporting) return;
             setIsExporting(true);
             try {
-                // a.download / fetch / Filesystem 都只认真的 data URL，令牌得先还原回来
+                // a.download / fetch / Filesystem 都只認真的 data URL，令牌得先還原回來
                 const dataUrl = await resolveRefToDataUrl(savedImage);
-                if (!dataUrl) { addToast('明信片图片已丢失', 'error'); return; }
+                if (!dataUrl) { addToast('明信片圖片已丟失', 'error'); return; }
                 const fileName = `whiteday_${char?.name || 'chocolate'}_2026.png`;
-                await downloadOrShare(dataUrl, fileName, '白色情人节巧克力');
-                addToast('导出成功！', 'success');
+                await downloadOrShare(dataUrl, fileName, '白色情人節巧克力');
+                addToast('導出成功！', 'success');
             } catch (e: any) {
-                if (e?.name !== 'AbortError') addToast('导出失败', 'error');
+                if (e?.name !== 'AbortError') addToast('導出失敗', 'error');
             } finally { setIsExporting(false); }
         };
 
@@ -1993,7 +1993,7 @@ ${answerSummary}
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                         </svg>
                     </button>
-                    <span className="text-sm font-bold text-amber-800">白色情人节 2026</span>
+                    <span className="text-sm font-bold text-amber-800">白色情人節 2026</span>
                     <div className="w-10" />
                 </div>
 
@@ -2001,25 +2001,25 @@ ${answerSummary}
                     {/* 明信片 */}
                     {savedImage ? (
                         <div className="flex flex-col items-center gap-2">
-                            <TokenImg value={savedImage} className="w-full max-w-[320px] rounded-2xl shadow-md border border-amber-200" alt="白色情人节明信片" />
+                            <TokenImg value={savedImage} className="w-full max-w-[320px] rounded-2xl shadow-md border border-amber-200" alt="白色情人節明信片" />
                             <button
                                 onClick={handleReExport}
                                 disabled={isExporting}
                                 className="w-full max-w-[320px] py-3 rounded-2xl bg-amber-500 text-white font-bold text-sm shadow-md disabled:opacity-60 active:scale-95 transition-transform"
                             >
-                                {isExporting ? '生成中…' : '下载明信片'}
+                                {isExporting ? '生成中…' : '下載明信片'}
                             </button>
                         </div>
                     ) : (
                         <div className="w-full max-w-[320px] mx-auto rounded-2xl border border-amber-200 bg-amber-50 py-8 flex items-center justify-center text-amber-400 text-sm">
-                            明信片尚未导出
+                            明信片尚未導出
                         </div>
                     )}
 
-                    {/* 测验题目和答案回顾 */}
+                    {/* 測驗題目和答案回顧 */}
                     {savedQuizData && savedReviewData && (
                         <div className="w-full max-w-[320px] mx-auto flex flex-col gap-3">
-                            <p className="text-xs font-bold text-amber-700 mb-1">答题回顾 · {savedScore}/{savedQuizData.questions.length} 题</p>
+                            <p className="text-xs font-bold text-amber-700 mb-1">答題回顧 · {savedScore}/{savedQuizData.questions.length} 題</p>
                             {savedQuizData.questions.map((q, i) => {
                                 const review = savedReviewData.reviews[i];
                                 const userIdx = savedAnswers[i] ?? -1;
@@ -2037,7 +2037,7 @@ ${answerSummary}
                                                 return (
                                                     <div key={oi} className={`text-[11px] px-2 py-0.5 rounded-lg ${isUser && isCorrectOpt ? 'bg-emerald-100 text-emerald-700 font-bold' : isUser && !isCorrectOpt ? 'bg-red-50 text-red-600' : isCorrectOpt ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400'}`}>
                                                         {labels[oi]}. {opt}
-                                                        {isUser && <span className="ml-1 opacity-70">(你选的)</span>}
+                                                        {isUser && <span className="ml-1 opacity-70">(你選的)</span>}
                                                         {isCorrectOpt && !isUser && <span className="ml-1 text-emerald-500">✓</span>}
                                                     </div>
                                                 );
@@ -2053,18 +2053,18 @@ ${answerSummary}
                             })}
                             {savedReviewData.finalDialogue && (
                                 <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4">
-                                    <p className="text-[11px] text-amber-500 font-bold mb-1">{char?.name} 的最终评价</p>
+                                    <p className="text-[11px] text-amber-500 font-bold mb-1">{char?.name} 的最終評價</p>
                                     <p className="text-sm text-amber-800 leading-relaxed">{savedReviewData.finalDialogue}</p>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {/* 重新装饰 / 重新开始 */}
+                    {/* 重新裝飾 / 重新開始 */}
                     <div className="w-full max-w-[320px] mx-auto mt-2 flex flex-col gap-2">
                         <button
                             onClick={() => {
-                                // 把已存的 quiz/review 数据加载回 state，直接跳到装饰阶段
+                                // 把已存的 quiz/review 數據加載回 state，直接跳到裝飾階段
                                 if (savedQuizData) setQuizData(savedQuizData);
                                 if (savedReviewData) setReviewData(savedReviewData);
                                 setUserAnswers(savedAnswers);
@@ -2072,7 +2072,7 @@ ${answerSummary}
                                 setCommentLines([]);
                                 setExportedBase64('');
                                 setErrorMsg('');
-                                // 清除旧明信片记录，但保留 quiz 内容，等重新导出时再写回
+                                // 清除舊明信片記錄，但保留 quiz 內容，等重新導出時再寫回
                                 if (char) {
                                     const prev = char.specialMomentRecords || {};
                                     updateCharacter(char.id, {
@@ -2089,7 +2089,7 @@ ${answerSummary}
                             }}
                             className="w-full py-3 rounded-2xl bg-rose-500 text-white font-bold text-sm shadow-md active:scale-95 transition-transform"
                         >
-                            重新装饰图片
+                            重新裝飾圖片
                         </button>
                         <button
                             onClick={() => {
@@ -2112,7 +2112,7 @@ ${answerSummary}
                             }}
                             className="w-full py-2.5 rounded-2xl text-amber-500 text-xs border border-amber-200 bg-white active:bg-amber-50"
                         >
-                            重新答题（换一套题目）
+                            重新答題（換一套題目）
                         </button>
                     </div>
                 </div>
@@ -2124,7 +2124,7 @@ ${answerSummary}
 };
 
 // ============================================================
-// Controller（状态机）
+// Controller（狀態機）
 // ============================================================
 interface WhiteDayControllerProps {
     onClose: () => void;
@@ -2134,7 +2134,7 @@ export const WhiteDayController: React.FC<WhiteDayControllerProps> = ({ onClose 
     const { characters } = useOS();
     const [stage, setStage] = useState<'popup' | 'api' | 'session'>('popup');
 
-    // 找到 Sully 角色（弹窗直接进 Sully）
+    // 找到 Sully 角色（彈窗直接進 Sully）
     const sullyChar = characters.find(c => isSullyChar(c));
     const sullyId = sullyChar?.id || characters[0]?.id || '';
 
@@ -2163,6 +2163,6 @@ export const WhiteDayController: React.FC<WhiteDayControllerProps> = ({ onClose 
         );
     }
 
-    // 从弹窗进入时，直接给 Sully 的 charId，跳过角色选择
+    // 從彈窗進入時，直接給 Sully 的 charId，跳過角色選擇
     return <WhiteDaySession charId={sullyId} onClose={onClose} />;
 };

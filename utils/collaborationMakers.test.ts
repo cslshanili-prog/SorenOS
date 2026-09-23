@@ -10,22 +10,22 @@ import {
 
 describe('collaboration installable makers', () => {
   it('parses typed installable blocks without exposing the internal protocol', () => {
-    const parsed = parseInstallableArtifactBlocks(`我按你的气质做了一版。\n\n\`\`\`sully-artifact
+    const parsed = parseInstallableArtifactBlocks(`我按你的氣質做了一版。\n\n\`\`\`sully-artifact
 kind: journal-css
-title: 夜航日记
+title: 夜航日記
 ---
 {"css":".sully-journal-root{background:#111827!important;}"}
 \`\`\``);
-    expect(parsed.visibleText).toBe('我按你的气质做了一版。');
+    expect(parsed.visibleText).toBe('我按你的氣質做了一版。');
     expect(parsed.artifacts).toEqual([{
       kind: 'journal-css',
-      title: '夜航日记',
+      title: '夜航日記',
       payload: { css: '.sully-journal-root{background:#111827!important;}' },
     }]);
   });
 
   it('keeps malformed generated blocks visible so content is not silently lost', () => {
-    const raw = '```sully-artifact\nkind: bubble-theme\ntitle: 坏掉的作品\n---\n{not-json}\n```';
+    const raw = '```sully-artifact\nkind: bubble-theme\ntitle: 壞掉的作品\n---\n{not-json}\n```';
     expect(parseInstallableArtifactBlocks(raw)).toEqual({ visibleText: raw, artifacts: [] });
   });
 
@@ -58,39 +58,39 @@ title: 夜航日记
       payload: {
         category: '雨城',
         entries: {
-          '0': { uid: 0, comment: '雨城规则', content: '城里总在下雨。', constant: true, key: [], position: 0 },
-          '1': { uid: 1, comment: '旧车站', content: '提到车站时，她会想起离别。', constant: false, key: ['车站'], position: 4, depth: 2, role: 2 },
+          '0': { uid: 0, comment: '雨城規則', content: '城裡總在下雨。', constant: true, key: [], position: 0 },
+          '1': { uid: 1, comment: '舊車站', content: '提到車站時，她會想起離別。', constant: false, key: ['車站'], position: 4, depth: 2, role: 2 },
         },
       },
     });
     expect(worldbooks).toHaveLength(2);
-    expect(worldbooks[0]).toMatchObject({ title: '雨城规则', category: '雨城', content: '城里总在下雨。', constant: true, position: 0, sourceUid: 0 });
-    expect(worldbooks[1]).toMatchObject({ title: '旧车站', key: ['车站'], position: 4, depth: 2, role: 2, sourceUid: 1 });
+    expect(worldbooks[0]).toMatchObject({ title: '雨城規則', category: '雨城', content: '城裡總在下雨。', constant: true, position: 0, sourceUid: 0 });
+    expect(worldbooks[1]).toMatchObject({ title: '舊車站', key: ['車站'], position: 4, depth: 2, role: 2, sourceUid: 1 });
   });
 
   it('validates a worldbook as one category containing SillyTavern entries', () => {
     expect(validateInstallableArtifact({
       kind: 'worldbook',
-      title: '学院设定',
+      title: '學院設定',
       payload: {
-        category: '学院设定',
+        category: '學院設定',
         entries: {
-          '0': { comment: '校规', content: '午夜后禁止离开宿舍。', constant: true, position: 1 },
-          '1': { comment: '钟楼', content: '钟楼只在雨夜开放。', key: ['钟楼'], constant: false, position: 4 },
+          '0': { comment: '校規', content: '午夜後禁止離開宿舍。', constant: true, position: 1 },
+          '1': { comment: '鐘樓', content: '鐘樓只在雨夜開放。', key: ['鐘樓'], constant: false, position: 4 },
         },
       },
     })).toEqual([]);
-    expect(validateInstallableArtifact({ kind: 'worldbook', title: '空书', payload: { category: '空书', entries: {} } })).toContain('世界书里没有条目。');
+    expect(validateInstallableArtifact({ kind: 'worldbook', title: '空書', payload: { category: '空書', entries: {} } })).toContain('世界書裡沒有條目。');
   });
 
   it('upgrades an older single-entry worldbook artifact into a one-entry group', () => {
     const books = installableToWorldbooks({
       kind: 'worldbook',
-      title: '旧作品',
-      payload: { category: '旧分类', title: '旧条目', content: '旧格式正文', constant: true, position: 1 },
+      title: '舊作品',
+      payload: { category: '舊分類', title: '舊條目', content: '舊格式正文', constant: true, position: 1 },
     });
     expect(books).toHaveLength(1);
-    expect(books[0]).toMatchObject({ category: '旧分类', title: '旧条目', content: '旧格式正文', constant: true, position: 1 });
+    expect(books[0]).toMatchObject({ category: '舊分類', title: '舊條目', content: '舊格式正文', constant: true, position: 1 });
   });
 
   it('covers every user-facing maker in the registry', () => {
@@ -114,7 +114,7 @@ title: 夜航日记
     expect(psychePrompt).toContain('.sully-psyche-body');
     for (const prompt of [bubblePrompt, whiteboxPrompt, journalPrompt, schedulePrompt, psychePrompt]) {
       expect(prompt).toContain('prefers-reduced-motion');
-      expect(prompt).toContain('全部可用选择器');
+      expect(prompt).toContain('全部可用選擇器');
     }
   });
 

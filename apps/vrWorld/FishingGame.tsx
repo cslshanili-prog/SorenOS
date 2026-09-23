@@ -20,7 +20,7 @@ export const FishingGame: React.FC<{
         if(!pending.current||notified.current||savingRef.current)return;
         notified.current=true;savingRef.current=true;setSaving(true);setError('');
         try{await callback.current(pending.current);}
-        catch(e){setError(e instanceof Error?e.message:'存档失败，请重试收鱼');}
+        catch(e){setError(e instanceof Error?e.message:'存檔失敗，請重試收魚');}
         finally{savingRef.current=false;setSaving(false);}
     },[]);
     const draw=useCallback(()=>{
@@ -109,7 +109,7 @@ export const FishingGame: React.FC<{
     const cast=(aim?:{x:number;y:number})=>{
         if(savingRef.current||frame.current.phase==='waiting'||frame.current.phase==='hooked'||(error&&pending.current))return;
         setError('');notified.current=false;
-        try{pending.current=onCast();}catch(e){pending.current=null;setError(e instanceof Error?e.message:'没能抛竿，请再试一次');return;}
+        try{pending.current=onCast();}catch(e){pending.current=null;setError(e instanceof Error?e.message:'沒能拋竿，請再試一次');return;}
         frame.current=simple?castSimpleFishingGame(frame.current,Math.random(),aim):{...createFishingGame(speciesById(pending.current.speciesId)?.difficulty),phase:'waiting'};
         setPhase(frame.current.phase);canvas.current?.focus();draw();
     };
@@ -118,11 +118,11 @@ export const FishingGame: React.FC<{
     const release=()=>{frame.current.held=false;};
     return <section className="fishing-game" data-simple={simple} onContextMenu={e=>e.preventDefault()} onDragStart={e=>e.preventDefault()}>
         <div className="fishing-game-toolbar">
-            <span className="fishing-weather" title={weather.detail}>{weather.label}<small>{weather.source==='real'?'真实':'模拟'}</small></span>
-            <div className="fishing-mode" role="group" aria-label="钓鱼方式">{[[false,'手动'],[true,'简单']].map(([value,label])=><button type="button" key={String(label)} disabled={active||saving||!!error} aria-pressed={simple===value} onClick={()=>switchMode(value as boolean)}>{label}</button>)}</div>
+            <span className="fishing-weather" title={weather.detail}>{weather.label}<small>{weather.source==='real'?'真實':'模擬'}</small></span>
+            <div className="fishing-mode" role="group" aria-label="釣魚方式">{[[false,'手動'],[true,'簡單']].map(([value,label])=><button type="button" key={String(label)} disabled={active||saving||!!error} aria-pressed={simple===value} onClick={()=>switchMode(value as boolean)}>{label}</button>)}</div>
         </div>
         <div className="fishing-water">
-            <canvas ref={canvas} tabIndex={0} aria-label={simple?'钓鱼水面，看到鱼影后点附近抛竿':'钓鱼水面，按住空格或水面控制光弧'}
+            <canvas ref={canvas} tabIndex={0} aria-label={simple?'釣魚水面，看到魚影后點附近拋竿':'釣魚水面，按住空格或水面控制光弧'}
                 onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);if(!simple)frame.current.held=true;else{const rect=e.currentTarget.getBoundingClientRect();cast({x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height});}}}
                 onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}/>
             {phase==='caught'&&!saving&&!error&&pending.current&&<div className="fishing-catch fish-reveal" role="status">
@@ -130,12 +130,12 @@ export const FishingGame: React.FC<{
                 <strong>{speciesById(pending.current.speciesId)?.name}</strong><span>{pending.current.sizeCm} cm · {'✦'.repeat(pending.current.quality)}</span>
                 {onOpenCollection&&<button type="button" onClick={onOpenCollection}>查看收藏 →</button>}
             </div>}
-            {phase==='idle'&&simple&&<div className="fishing-simple-hint">看到鱼影，点附近抛竿</div>}
-            {phase==='escaped'&&<div className="fishing-water-status" role="status">{simple?'空军了，鱼影溜走了':'鱼影游远了'}</div>}
-            {saving&&<div className="fishing-water-status" role="status">收进水箱…</div>}
+            {phase==='idle'&&simple&&<div className="fishing-simple-hint">看到魚影，點附近拋竿</div>}
+            {phase==='escaped'&&<div className="fishing-water-status" role="status">{simple?'空軍了，魚影溜走了':'魚影遊遠了'}</div>}
+            {saving&&<div className="fishing-water-status" role="status">收進水箱…</div>}
         </div>
-        {error&&<div className="fishing-error" role="alert">{error}{pending.current&&<button type="button" className="fish-action" disabled={saving} onClick={()=>{notified.current=false;void deliver();}}>重试收鱼</button>}</div>}
-        <div className="fishing-game-controls"><button type="button" className="fish-action primary" disabled={saving||active||!!(error&&pending.current)} onClick={()=>cast()}>{saving?'收进水箱…':active?(simple?(phase==='waiting'?'等鱼靠近…':'收线…'):'正在钓鱼'):phase==='idle'?'抛竿':'再钓一次'}</button>
+        {error&&<div className="fishing-error" role="alert">{error}{pending.current&&<button type="button" className="fish-action" disabled={saving} onClick={()=>{notified.current=false;void deliver();}}>重試收魚</button>}</div>}
+        <div className="fishing-game-controls"><button type="button" className="fish-action primary" disabled={saving||active||!!(error&&pending.current)} onClick={()=>cast()}>{saving?'收進水箱…':active?(simple?(phase==='waiting'?'等魚靠近…':'收線…'):'正在釣魚'):phase==='idle'?'拋竿':'再釣一次'}</button>
             {active&&<button type="button" className="fish-action" onClick={()=>{frame.current.phase='escaped';release();setPhase('escaped');draw();}}>收竿</button>}
         </div>
     </section>;

@@ -31,8 +31,8 @@ function jsonResponse(obj, { status = 200, origin } = {}) {
   });
 }
 
-// ---- /fetch-webpage 用: SSRF 防护 + body 大小上限 ----
-// 网页分享代理只抓用户粘贴的公网网页, 拒绝 loopback / 私有网段 / link-local / 内网后缀。
+// ---- /fetch-webpage 用: SSRF 防護 + body 大小上限 ----
+// 網頁分享代理只抓用戶粘貼的公網網頁, 拒絕 loopback / 私有網段 / link-local / 內網後綴。
 function isUnsafeFetchTarget(parsed) {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -51,7 +51,7 @@ function isUnsafeFetchTarget(parsed) {
   return false;
 }
 
-// 读 Response body, 累加到 maxBytes 就停 (防超大页面打爆 worker)。
+// 讀 Response body, 累加到 maxBytes 就停 (防超大頁面打爆 worker)。
 async function readBodyCapped(res, maxBytes) {
   const reader = (res.body && res.body.getReader) ? res.body.getReader() : null;
   if (!reader) return await res.text();
@@ -83,8 +83,8 @@ function route(url) {
 }
 
 // ================================================================
-//  小红书签名 — 基于 xhshow 逆向的真实算法
-//  参考: https://github.com/Cloxl/xhshow
+//  小紅書籤名 — 基於 xhshow 逆向的真實算法
+//  參考: https://github.com/Cloxl/xhshow
 // ================================================================
 
 // ---------- Pure-JS MD5 (RFC 1321) ----------
@@ -434,10 +434,10 @@ function xhsFetch(cookie, api, method = 'GET', body = null, options = {}) {
 }
 
 
-// ---------- XHS 图片上传 ----------
-// 生成一个最小的有效 PNG 图片 (1080x1080 纯色)
+// ---------- XHS 圖片上傳 ----------
+// 生成一個最小的有效 PNG 圖片 (1080x1080 純色)
 function generateMinimalPNG() {
-  // 生成一张 1x1 的深紫色 PNG，小红书会自动拉伸
+  // 生成一張 1x1 的深紫色 PNG，小紅書會自動拉伸
   // PNG signature + IHDR + IDAT + IEND
   const signature = [137, 80, 78, 71, 13, 10, 26, 10];
   // IHDR: 1x1, 8-bit RGB
@@ -494,18 +494,18 @@ function crc32Bytes(data) {
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
-// 获取 XHS 上传凭证
+// 獲取 XHS 上傳憑證
 // ReaJason/xhs 使用 GET edith.xiaohongshu.com/api/media/v1/upload/web/permit?...
-// 真实浏览器发布时 Origin 为 creator.xiaohongshu.com
+// 真實瀏覽器發佈時 Origin 為 creator.xiaohongshu.com
 async function getUploadCredentials(cookie, count = 1) {
   const params = { biz_name: 'spectrum', scene: 'image', file_count: count, version: '1', source: 'web' };
   const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`).join('&');
   const getApi = `/api/media/v1/upload/web/permit?${qs}`;
   const attempts = [];
 
-  // 组合: host × origin，优先匹配 ReaJason 库 (edith + 无特殊 origin)
+  // 組合: host × origin，優先匹配 ReaJason 庫 (edith + 無特殊 origin)
   const originCombos = [
-    {}, // 默认 www.xiaohongshu.com
+    {}, // 默認 www.xiaohongshu.com
     { origin: 'https://creator.xiaohongshu.com', referer: 'https://creator.xiaohongshu.com/' },
   ];
 
@@ -529,23 +529,23 @@ async function getUploadCredentials(cookie, count = 1) {
   return {
     ok: false,
     status: 502,
-    data: { message: '所有候选 host + origin 的上传凭证接口均失败' },
+    data: { message: '所有候選 host + origin 的上傳憑證接口均失敗' },
     debug: { attempts }
   };
 }
 
-// 上传图片字节到 XHS (ros-upload CDN)
+// 上傳圖片字節到 XHS (ros-upload CDN)
 async function uploadBytesToXhs(cookie, imgBytes, contentType = 'image/png') {
-  // Step 1: 获取上传凭证
+  // Step 1: 獲取上傳憑證
   const result = await getUploadCredentials(cookie);
-  // 响应格式: { data: { uploadTempPermits: [{ fileIds: [...], token: "..." }] } }
+  // 響應格式: { data: { uploadTempPermits: [{ fileIds: [...], token: "..." }] } }
   // 或者:     { uploadTempPermits: [...] }
   const permitRoot = result.data?.data || result.data;
   const tempPermit = permitRoot?.uploadTempPermits?.[0];
 
   if (!tempPermit?.fileIds?.[0] || !tempPermit?.token) {
     return {
-      error: '获取上传凭证失败',
+      error: '獲取上傳憑證失敗',
       debug: {
         raw: JSON.stringify(result.data).slice(0, 500),
         attempts: result.debug?.attempts || []
@@ -556,7 +556,7 @@ async function uploadBytesToXhs(cookie, imgBytes, contentType = 'image/png') {
   const fileId = tempPermit.fileIds[0];
   const token = tempPermit.token;
 
-  // Step 2: PUT 上传到 ros-upload CDN
+  // Step 2: PUT 上傳到 ros-upload CDN
   const uploadUrl = `https://ros-upload.xiaohongshu.com/${fileId}`;
   const uploadRes = await fetch(uploadUrl, {
     method: 'PUT',
@@ -573,63 +573,63 @@ async function uploadBytesToXhs(cookie, imgBytes, contentType = 'image/png') {
 
   const uploadText = await uploadRes.text().catch(() => '');
   return {
-    error: `CDN上传失败: ${uploadRes.status}`,
+    error: `CDN上傳失敗: ${uploadRes.status}`,
     debug: { fileId, response: uploadText.slice(0, 300) }
   };
 }
 
-// 上传图片到 XHS (通过 image_url 下载后上传)
+// 上傳圖片到 XHS (通過 image_url 下載後上傳)
 async function uploadImageToXhs(cookie, imageUrl) {
   try {
     const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return { error: `下载图片失败: ${imgRes.status}`, debug: { url: imageUrl } };
+    if (!imgRes.ok) return { error: `下載圖片失敗: ${imgRes.status}`, debug: { url: imageUrl } };
     const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
     const ct = imgRes.headers.get('content-type') || 'image/jpeg';
     return await uploadBytesToXhs(cookie, imgBytes, ct);
   } catch (e) {
-    return { error: `图片上传异常: ${e.message}` };
+    return { error: `圖片上傳異常: ${e.message}` };
   }
 }
 
-// 上传占位图到 XHS
+// 上傳佔位圖到 XHS
 async function uploadPlaceholderImage(cookie) {
   try {
     const pngData = generateMinimalPNG();
     return await uploadBytesToXhs(cookie, pngData, 'image/png');
   } catch (e) {
-    return { error: `占位图上传异常: ${e.message}` };
+    return { error: `佔位圖上傳異常: ${e.message}` };
   }
 }
 
 // ================================================================
-//  网易云音乐代理 — 转发到用户自部署的 api-enhanced
+//  網易雲音樂代理 — 轉發到用戶自部署的 api-enhanced
 //  api-enhanced: https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced
-//  一键部署到 Vercel, 得到一个类似 https://xxx.vercel.app 的地址后填到下面
+//  一鍵部署到 Vercel, 得到一個類似 https://xxx.vercel.app 的地址後填到下面
 // ================================================================
 //
-// ⚠️ 多上游 —— 可以填 N 个 api-enhanced 部署地址, Worker 会随机挑选 + 自动容灾。
-// 推荐组合:
-//   1) Vercel (主) — 你现有的这个
-//   2) Deno Deploy (备) — 免费 100w req/天, 国外走这个最快
-//   3) 另一个 Vercel 账号的二部署 — 双倍配额
-// 见 notes/music-scaling.md 部署教程。
+// ⚠️ 多上游 —— 可以填 N 個 api-enhanced 部署地址, Worker 會隨機挑選 + 自動容災。
+// 推薦組合:
+//   1) Vercel (主) — 你現有的這個
+//   2) Deno Deploy (備) — 免費 100w req/天, 國外走這個最快
+//   3) 另一個 Vercel 帳號的二部署 — 雙倍配額
+// 見 notes/music-scaling.md 部署教程。
 const NETEASE_UPSTREAMS = [
   "https://api-enhanced-ochre-kappa.vercel.app",
-  // "https://sully-music.deno.dev",          // ← 部署 Deno Deploy 后把 URL 粘贴到这里
-  // "https://api-enhanced-mirror.vercel.app", // ← 部署第二个 Vercel 后把 URL 粘贴到这里
+  // "https://sully-music.deno.dev",          // ← 部署 Deno Deploy 後把 URL 粘貼到這裡
+  // "https://api-enhanced-mirror.vercel.app", // ← 部署第二個 Vercel 後把 URL 粘貼到這裡
 ];
 
-// 国内 IP 伪装, 部分接口需要 realIP 参数才会返回内地版权数据
+// 國內 IP 偽裝, 部分接口需要 realIP 參數才會返回內地版權數據
 const NETEASE_REAL_IP = "116.25.146.177";
 
-// ========== 边缘缓存 TTL 配置 ==========
-// 单位: 秒。0 或未列出的 action 不缓存（登录/用户数据等）。
-// 命中缓存 → 不打上游, 零成本。Cloudflare 免费 KV-like 缓存, 每 PoP 独立。
+// ========== 邊緣緩存 TTL 配置 ==========
+// 單位: 秒。0 或未列出的 action 不緩存（登錄/用戶數據等）。
+// 命中緩存 → 不打上游, 零成本。Cloudflare 免費 KV-like 緩存, 每 PoP 獨立。
 const NETEASE_CACHE_TTL = {
-  // 长期稳定 — 激进缓存
-  'lyric':              30 * 24 * 3600, // 30天 (歌词几乎不变)
+  // 長期穩定 — 激進緩存
+  'lyric':              30 * 24 * 3600, // 30天 (歌詞幾乎不變)
   'lyric/new':          30 * 24 * 3600,
-  'song/detail':              3600,     // 1小时
+  'song/detail':              3600,     // 1小時
   'album':                    1800,     // 30分
   'artists':                  1800,
   'artist/songs':             1800,
@@ -648,16 +648,16 @@ const NETEASE_CACHE_TTL = {
   'personalized':             1800,
   'personalized/newsong':     1800,
   'comment/music':             300,     // 5分
-  // 短期 — 签名链接有效期短
-  'song/url':                  180,     // 3分 (URL 5分钟过期, 留余量)
+  // 短期 — 簽名鏈接有效期短
+  'song/url':                  180,     // 3分 (URL 5分鐘過期, 留餘量)
   'mv/url':                    180,
-  // 用户专属: 不出现在本表 = 不缓存
+  // 用戶專屬: 不出現在本表 = 不緩存
   //   login/*, captcha/*, user/*, likelist, like, logout,
   //   recommend/songs, personal_fm, daily_signin, check/music
 };
 
-// 已知 action → 真实上游路径的特例映射（大多数 api-enhanced 路径和 action 同名，
-// 下面只处理名字不同 / 有特殊参数的那几个）。
+// 已知 action → 真實上游路徑的特例映射（大多數 api-enhanced 路徑和 action 同名，
+// 下面只處理名字不同 / 有特殊參數的那幾個）。
 const NETEASE_ACTION_REWRITE = {
   "search": "/cloudsearch",           // 用 cloudsearch 返回更完整的字段
   "song/url": "/song/url/v1",
@@ -699,7 +699,7 @@ const NETEASE_ACTION_REWRITE = {
   "mv/url": "/mv/url",
 };
 
-// action 白名单 — 只允许 api-enhanced 已知的安全接口（防止被当成开放代理）
+// action 白名單 — 只允許 api-enhanced 已知的安全接口（防止被當成開放代理）
 const NETEASE_ACTION_ALLOWED = new Set([
   ...Object.keys(NETEASE_ACTION_REWRITE),
   "song/url",
@@ -716,10 +716,10 @@ function buildNeteaseUpstream(action, body, cookie) {
   const p = new URLSearchParams();
   if (cookie && cookie.trim()) p.set("cookie", cookie.trim());
   p.set("realIP", NETEASE_REAL_IP);
-  // cache-buster, 避免 Vercel 边缘缓存干扰登录态
+  // cache-buster, 避免 Vercel 邊緣緩存干擾登錄態
   p.set("timestamp", Date.now().toString());
 
-  // Special-case 几个需要重命名 / 默认值的字段
+  // Special-case 幾個需要重命名 / 默認值的字段
   if (action === "search") {
     p.set("keywords", body.keyword || body.keywords || "");
     p.set("type", String(body.type || 1));
@@ -738,12 +738,12 @@ function buildNeteaseUpstream(action, body, cookie) {
     p.set("offset", String(body.offset || 0));
   } else if (action === "user/record") {
     if (body.uid != null) p.set("uid", String(body.uid));
-    p.set("type", String(body.type ?? 1)); // 0: 全部, 1: 最近一周
+    p.set("type", String(body.type ?? 1)); // 0: 全部, 1: 最近一週
   } else if (action === "user/cloud") {
     p.set("limit", String(body.limit || 30));
     p.set("offset", String(body.offset || 0));
   } else {
-    // 通用：所有其余参数直接透传（字符串化）
+    // 通用：所有其餘參數直接透傳（字符串化）
     for (const [k, v] of Object.entries(body || {})) {
       if (v == null) continue;
       if (Array.isArray(v)) p.set(k, v.join(","));
@@ -755,10 +755,10 @@ function buildNeteaseUpstream(action, body, cookie) {
   return `${upstream}?${p}`;
 }
 
-// ========== 缓存 Key 构造 ==========
-// 使用"虚拟" URL 作为 Cache API 的 key。只包含业务参数（action + 过滤后的 body），
-// 故意剔除 cookie / realIP / timestamp / level(cookie 桶代替) 等不稳定参数。
-// 这样同一个 action 的相同查询跨 PoP / 多上游 都能命中同一个缓存条目。
+// ========== 緩存 Key 構造 ==========
+// 使用"虛擬" URL 作為 Cache API 的 key。只包含業務參數（action + 過濾後的 body），
+// 故意剔除 cookie / realIP / timestamp / level(cookie 桶代替) 等不穩定參數。
+// 這樣同一個 action 的相同查詢跨 PoP / 多上游 都能命中同一個緩存條目。
 function buildCacheKey(action, body, cookieBucket) {
   const p = new URLSearchParams();
   const skip = new Set(['timestamp', 'realIP', 'cookie', '_']);
@@ -767,7 +767,7 @@ function buildCacheKey(action, body, cookieBucket) {
     if (Array.isArray(v)) p.set(k, v.join(","));
     else p.set(k, String(v));
   }
-  // 排序保证确定性 (对象顺序 / 用户输入顺序不同也能命中同一 key)
+  // 排序保證確定性 (對象順序 / 用戶輸入順序不同也能命中同一 key)
   const sorted = [...p.entries()].sort(([a], [b]) => a.localeCompare(b));
   const qs = sorted.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   return new Request(
@@ -776,9 +776,9 @@ function buildCacheKey(action, body, cookieBucket) {
   );
 }
 
-// ========== 多上游 fetch 带失败转移 ==========
-// 从 NETEASE_UPSTREAMS 随机打乱, 依次尝试, 任何一个成功(HTTP 2xx + code!=-460)就返回。
-// 自动屏蔽被网易风控的上游 (HTTP 200 但 body 里 code=-460 / -7 = 被限流)。
+// ========== 多上游 fetch 帶失敗轉移 ==========
+// 從 NETEASE_UPSTREAMS 隨機打亂, 依次嘗試, 任何一個成功(HTTP 2xx + code!=-460)就返回。
+// 自動屏蔽被網易風控的上游 (HTTP 200 但 body 裡 code=-460 / -7 = 被限流)。
 function shuffleCopy(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -804,17 +804,17 @@ async function fetchFromAnyUpstream(upstreamPath, timeoutMs = 8000) {
       clearTimeout(t);
 
       const text = await res.text();
-      // HTTP 层挂了直接换下一个
+      // HTTP 層掛了直接換下一個
       if (!res.ok) {
         errors.push(`${new URL(base).host} HTTP ${res.status}`);
         continue;
       }
-      // 应用层风控: 尝试识别 -460/-7 等明显失败码, 这种情况下换个上游可能成功
+      // 應用層風控: 嘗試識別 -460/-7 等明顯失敗碼, 這種情況下換個上游可能成功
       let shouldFailover = false;
       try {
         const j = JSON.parse(text);
         if (j?.code === -460 || j?.code === -7) shouldFailover = true;
-      } catch { /* 不是 JSON, 当成功处理 */ }
+      } catch { /* 不是 JSON, 當成功處理 */ }
       if (shouldFailover && order.length > 1) {
         errors.push(`${new URL(base).host} risk-control (code=-460/-7)`);
         continue;
@@ -829,12 +829,12 @@ async function fetchFromAnyUpstream(upstreamPath, timeoutMs = 8000) {
 
 
 // ================================================================
-//  XHS Lite —— 验证过的纯算签名 + web API 封装（隔离在 IIFE 内，
-//  不与上面旧的 /xhs/ 签名实现冲突）。对外暴露 /api/<command> 桥接契约，
-//  与 scripts/xhs-bridge.mjs 完全兼容，前端 bridge 模式直接复用。
+//  XHS Lite —— 驗證過的純算簽名 + web API 封裝（隔離在 IIFE 內，
+//  不與上面舊的 /xhs/ 簽名實現衝突）。對外暴露 /api/<command> 橋接契約，
+//  與 scripts/xhs-bridge.mjs 完全兼容，前端 bridge 模式直接複用。
 //
-//  签名移植自 Cloxl/xhshow (MIT)，已与 Python 原版逐字节比对验证
-//  （见 worker/xhs-lite/test/）。cookie 经 X-Xhs-Cookie 头按请求传入。
+//  簽名移植自 Cloxl/xhshow (MIT)，已與 Python 原版逐字節比對驗證
+//  （見 worker/xhs-lite/test/）。cookie 經 X-Xhs-Cookie 頭按請求傳入。
 // ================================================================
 const XHSLite = (() => {
   const STANDARD_B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -1941,7 +1941,7 @@ const XHSLite = (() => {
           error: {
             status: resp.status,
             code: body?.debug_id || 'COMMENT_PROVIDER_REJECTED',
-            message: body?.error || body?.message || `真实评论服务 HTTP ${resp.status}`,
+            message: body?.error || body?.message || `真實評論服務 HTTP ${resp.status}`,
           },
         };
       }
@@ -1971,7 +1971,7 @@ const XHSLite = (() => {
         success: false,
         error: {
           code: 'COMMENT_PROVIDER_NOT_CONFIGURED',
-          message: '真实评论服务尚未配置',
+          message: '真實評論服務尚未配置',
         },
       };
     }
@@ -2010,7 +2010,7 @@ const XHSLite = (() => {
     }
     return result || {
       success: false,
-      error: { code: 'COMMENT_PROVIDER_NOT_CONFIGURED', message: '真实评论服务尚未配置' },
+      error: { code: 'COMMENT_PROVIDER_NOT_CONFIGURED', message: '真實評論服務尚未配置' },
     };
   }
 
@@ -2169,7 +2169,7 @@ const XHSLite = (() => {
     let notesLoaded = false;
     let notesError = '';
     try {
-      // Spider_XHS 将 user_posted 列入 RAP 白名单；GET 的 RAP 摘要包含完整 query，body 为空串。
+      // Spider_XHS 將 user_posted 列入 RAP 白名單；GET 的 RAP 摘要包含完整 query，body 為空串。
       const posted = await signedGet(apiBase, '/api/sns/web/v1/user_posted', { num: 30, cursor: '', user_id: userId, image_formats: 'jpg,webp,avif', xsec_token: xsecToken || '', xsec_source: 'pc_user' }, cookieStr, ck, {}, 'xys', true);
       notesLoaded = !!posted?.success;
       notes = (posted?.data?.notes || []).map(normItem);
@@ -2178,7 +2178,7 @@ const XHSLite = (() => {
       notesError = e?.message || String(e);
     }
     if (!info?.success && !notesLoaded) {
-      return { error: `获取主页失败: ${notesError || infoError || '上游未返回成功状态'}` };
+      return { error: `獲取主頁失敗: ${notesError || infoError || '上游未返回成功狀態'}` };
     }
     return {
       basic_info: info?.data?.basic_info || {},
@@ -2209,10 +2209,10 @@ const XHSLite = (() => {
     const payload = { note_id: feedId, content, at_users: [] };
     if (xsecToken) payload.xsec_token = xsecToken;
     if (targetCommentId) payload.target_comment_id = targetCommentId;
-    // Spider_XHS 的 RAP 白名单同样包含 comment/post。
+    // Spider_XHS 的 RAP 白名單同樣包含 comment/post。
     const r = await signedPost(apiBase, '/api/sns/web/v1/comment/post', payload, cookieStr, ck, {}, true);
     if (!r?.success) {
-      return { error: `评论失败: ${r?.msg || `HTTP ${r?.http_status || 'unknown'}`}`, raw: r };
+      return { error: `評論失敗: ${r?.msg || `HTTP ${r?.http_status || 'unknown'}`}`, raw: r };
     }
     return { success: true, msg: r?.msg, comment: r?.data?.comment, raw: r };
   }
@@ -2250,7 +2250,7 @@ const XHSLite = (() => {
     } catch (e) { /* ignore */ }
     return null;
   }
-  // 上传凭证：不同登录态/版本接口名不同，依次尝试，取第一个成功的
+  // 上傳憑證：不同登錄態/版本接口名不同，依次嘗試，取第一個成功的
   async function getUploadPermit(cookieStr, ck) {
     const params = { biz_name: 'spectrum', scene: 'image', file_count: '1', version: '1', source: 'web' };
     const candidates = [
@@ -2270,11 +2270,11 @@ const XHSLite = (() => {
         lastErr = `${c.path}@${c.host.replace('https://', '')} -> ${JSON.stringify(j).slice(0, 120)}`;
       } catch (e) { lastErr = `${c.path}: ${e.message}`; }
     }
-    throw new Error('获取上传凭证失败（已试多种接口）: ' + lastErr);
+    throw new Error('獲取上傳憑證失敗（已試多種接口）: ' + lastErr);
   }
   async function uploadImageFromUrl(cookieStr, ck, imgUrl) {
     const imgResp = await fetch(imgUrl);
-    if (!imgResp.ok) throw new Error(`图片下载失败 ${imgResp.status}: ${imgUrl}`);
+    if (!imgResp.ok) throw new Error(`圖片下載失敗 ${imgResp.status}: ${imgUrl}`);
     const buf = new Uint8Array(await imgResp.arrayBuffer());
     const mime = imgResp.headers.get('content-type') || 'image/png';
     const { width, height } = imageSize(buf) || { width: 1080, height: 1080 };
@@ -2290,7 +2290,7 @@ const XHSLite = (() => {
       headers: { accept: '*/*', authorization: `q-sign-algorithm=sha1&q-ak=null&q-sign-time=${message}&q-key-time=${message}&q-header-list=content-length;host&q-url-param-list=&q-signature=${signature}`, origin: CREATOR, referer: CREATOR + '/', 'user-agent': UA, 'x-cos-security-token': permit.token, cookie: cookieStr },
       body: buf,
     });
-    if (!putResp.ok) throw new Error(`图片上传失败 ${putResp.status}`);
+    if (!putResp.ok) throw new Error(`圖片上傳失敗 ${putResp.status}`);
     return { fileIds, width, height, file_size: buf.length, mime_type: mime };
   }
   function buildImageNoteData(title, desc, privacyType, fileInfos, hashTags) {
@@ -2308,17 +2308,17 @@ const XHSLite = (() => {
     const ck = parseCookies(cookieStr);
     const fileInfos = [];
     for (const imgUrl of images) fileInfos.push(await uploadImageFromUrl(cookieStr, ck, imgUrl));
-    if (!fileInfos.length) return { error: '小红书发帖至少需要一张图片，请提供 images（图床 URL 数组）' };
+    if (!fileInfos.length) return { error: '小紅書發帖至少需要一張圖片，請提供 images（圖床 URL 數組）' };
     let desc = content;
     const hashTags = [];
-    for (const t of tags) { const name = String(t).replace(/^#/, ''); desc += ` #${name}[话题]#`; hashTags.push({ id: '', link: '', name, type: 'topic' }); }
+    for (const t of tags) { const name = String(t).replace(/^#/, ''); desc += ` #${name}[話題]#`; hashTags.push({ id: '', link: '', name, type: 'topic' }); }
     const r = await signedPost(EDITH, '/web_api/sns/v2/note', buildImageNoteData(title, desc, isPrivate ? 1 : 0, fileInfos, hashTags), cookieStr, ck);
     const noteId = r?.data?.id || r?.data?.note_id || r?.data?.note?.id || '';
-    // 失败用 error 字段：bridgePost 会据此判定 success=false（无需改 useChatAI）
+    // 失敗用 error 字段：bridgePost 會據此判定 success=false（無需改 useChatAI）
     if (!(r?.success && noteId)) {
-      return { error: `发布失败（小红书未确认）: ${JSON.stringify(r).slice(0, 300)}` };
+      return { error: `發佈失敗（小紅書未確認）: ${JSON.stringify(r).slice(0, 300)}` };
     }
-    return { success: true, note_id: noteId, noteId, msg: '发布成功', raw: r };
+    return { success: true, note_id: noteId, noteId, msg: '發佈成功', raw: r };
   }
 
   async function handle(command, body, cookie, env, requestContext = {}) {
@@ -2328,7 +2328,7 @@ const XHSLite = (() => {
     const resolved = await resolvePlatform(cookie, requestedPlatform);
     if (!resolved.platform) {
       return {
-        error: '这串 cookie 在 xiaohongshu.com 和 rednote.com 两套后端都没有通过登录校验。请从当前实际登录的网站重新复制完整请求 Cookie。',
+        error: '這串 cookie 在 xiaohongshu.com 和 rednote.com 兩套後端都沒有通過登錄校驗。請從當前實際登錄的網站重新複製完整請求 Cookie。',
         checked_platforms: resolved.login?.checked_platforms || ['xhs', 'rednote'],
       };
     }
@@ -2346,7 +2346,7 @@ const XHSLite = (() => {
       }); break;
       case 'xhs-experimental-comments':
         result = platform === 'rednote'
-          ? { error: 'Spider v3 评论实验目前只支持 xiaohongshu.com 国内后端。' }
+          ? { error: 'Spider v3 評論實驗目前只支持 xiaohongshu.com 國內後端。' }
           : await experimentalComments(cookie, body);
         break;
       case 'post-comment': result = await postComment(cookie, body.feed_id, body.content, { xsecToken: body.xsec_token, platform }); break;
@@ -2356,14 +2356,14 @@ const XHSLite = (() => {
       case 'user-profile': result = await userProfile(cookie, body.user_id, body.xsec_token, platform); break;
       case 'publish':
         result = platform === 'rednote'
-          ? { error: 'RedNote 全球后端的图片发布链路尚未验证；搜索、浏览、详情和互动已支持。' }
+          ? { error: 'RedNote 全球后端的圖片發佈鏈路尚未驗證；搜索、瀏覽、詳情和互動已支持。' }
           : await publishNote(cookie, { title: body.title, content: body.content, images: body.images || [], tags: body.tags || [], isPrivate: body.visibility === 'private' || !!body.is_private });
         break;
-      case 'login': result = { error: 'lite 模式用 cookie 登录，无需扫码。请在设置里粘贴 cookie。' }; break;
-      case 'get-qrcode': result = { error: 'lite 模式不支持二维码登录，请粘贴 cookie。' }; break;
+      case 'login': result = { error: 'lite 模式用 cookie 登錄，無需掃碼。請在設置裡粘貼 cookie。' }; break;
+      case 'get-qrcode': result = { error: 'lite 模式不支持二維碼登錄，請粘貼 cookie。' }; break;
       case 'delete-cookies': result = { ok: true }; break;
-      case 'publish-video': result = { error: '视频发布暂未在 lite 模式实现。' }; break;
-      case 'long-article': result = { error: '长文发布暂未在 lite 模式实现。' }; break;
+      case 'publish-video': result = { error: '視頻發佈暫未在 lite 模式實現。' }; break;
+      case 'long-article': result = { error: '長文發佈暫未在 lite 模式實現。' }; break;
       default: return null;
     }
     if (result && typeof result === 'object' && !Array.isArray(result)) return { ...result, platform };
@@ -2392,7 +2392,7 @@ const XHSLite = (() => {
   };
 })();
 
-// 供 Node 验证用（Worker 运行时忽略多余的具名导出）。见 worker/xhs-lite/test/verify.mjs
+// 供 Node 驗證用（Worker 運行時忽略多餘的具名導出）。見 worker/xhs-lite/test/verify.mjs
 export const __xhsLiteTest = XHSLite.__test;
 
 export default {
@@ -2405,12 +2405,12 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    // ========== 小红书 Lite 桥接 (/api/<command>) ==========
-    // 与 scripts/xhs-bridge.mjs 契约一致，前端 bridge 模式直接复用。
+    // ========== 小紅書 Lite 橋接 (/api/<command>) ==========
+    // 與 scripts/xhs-bridge.mjs 契約一致，前端 bridge 模式直接複用。
     const apiMatch = url.pathname.match(/^\/api\/(.+)$/);
     if (apiMatch) {
       const command = apiMatch[1].replace(/\/+$/, '');
-      // 探活：前端 testConnection 会先 GET /api/health（不带 cookie），不能要求鉴权
+      // 探活：前端 testConnection 會先 GET /api/health（不帶 cookie），不能要求鑑權
       if (command === 'health') {
         return jsonResponse({ status: 'ok', backend: 'xhs-lite', signing: 'xhshow-pure-js' }, { origin });
       }
@@ -2429,8 +2429,8 @@ export default {
         }, { status: 403, origin });
       }
       const cookie = request.headers.get('x-xhs-cookie') || body.cookie || (env && env.XHS_COOKIE) || '';
-      if (!cookie) return jsonResponse({ error: '未配置 cookie。请在 SullyOS 设置里粘贴小红书 cookie。' }, { status: 401, origin });
-      if (!cookie.includes('a1=')) return jsonResponse({ error: 'cookie 缺少 a1 字段，请复制完整的小红书 cookie。' }, { status: 400, origin });
+      if (!cookie) return jsonResponse({ error: '未配置 cookie。請在 SullyOS 設置裡粘貼小紅書 cookie。' }, { status: 401, origin });
+      if (!cookie.includes('a1=')) return jsonResponse({ error: 'cookie 缺少 a1 字段，請複製完整的小紅書 cookie。' }, { status: 400, origin });
       try {
         const result = await XHSLite.handle(command, body, cookie, env, {
           rnoteApiKey: request.headers.get('x-rnote-api-key') || '',
@@ -2522,19 +2522,19 @@ export default {
     }
 
     // ========== Cloudflare API 代理 (/cf-api) ==========
-    // api.cloudflare.com 一个 CORS 头都不返回，浏览器连最简单的请求都发不出去，所以
-    // 「在设置页填一枚 CF token 就把主动消息后端装好」这条路必须过一层中转。
+    // api.cloudflare.com 一個 CORS 頭都不返回，瀏覽器連最簡單的請求都發不出去，所以
+    // 「在設置頁填一枚 CF token 就把主動消息後端裝好」這條路必須過一層中轉。
     //
-    // 跟 /webdav 的关键区别：目标地址不是调用方给的，是这里拼死的。调用方只能给
-    // api.cloudflare.com/client/v4 后面那一截路径，而且限制在账号级资源里——建 D1、
-    // 传 worker、加 cron、开 workers.dev 都在 /accounts 下面，够用；/zones/* 那类
-    // （改 DNS、签证书）一律挡掉，免得这个端点变成通用的 CF API 中继。
+    // 跟 /webdav 的關鍵區別：目標地址不是調用方給的，是這裡拼死的。調用方只能給
+    // api.cloudflare.com/client/v4 後面那一截路徑，而且限制在帳號級資源裡——建 D1、
+    // 傳 worker、加 cron、開 workers.dev 都在 /accounts 下面，夠用；/zones/* 那類
+    // （改 DNS、簽證書）一律擋掉，免得這個端點變成通用的 CF API 中繼。
     if (url.pathname === '/cf-api') {
       const CF_ALLOWED_PREFIXES = ['/accounts', '/memberships', '/user/tokens/verify'];
-      // 探针：不带任何凭据 GET 一下就知道这条中转在不在。
-      // 这个 worker 要手动部署，而它对未知路径的 POST 一律回 405，光看状态码分不出
-      // 「部署好了」还是「路由不存在」；GET 这里回 200、旧版本落到末尾的 404，一眼分得开。
-      // 前端也拿它判断用户自填的代理 worker 支不支持一键部署。
+      // 探針：不帶任何憑據 GET 一下就知道這條中轉在不在。
+      // 這個 worker 要手動部署，而它對未知路徑的 POST 一律回 405，光看狀態碼分不出
+      // 「部署好了」還是「路由不存在」；GET 這裡回 200、舊版本落到末尾的 404，一眼分得開。
+      // 前端也拿它判斷用戶自填的代理 worker 支不支持一鍵部署。
       if (request.method === 'GET') {
         return jsonResponse({
           ok: true,
@@ -2559,14 +2559,14 @@ export default {
           allowed: CF_ALLOWED_PREFIXES,
         }, { status: 403, origin });
       }
-      // 真实方法走 header：全局 CORS 只放行 GET/POST/OPTIONS，跟 /webdav 一个套路。
+      // 真實方法走 header：全局 CORS 只放行 GET/POST/OPTIONS，跟 /webdav 一個套路。
       const cfMethod = (request.headers.get('X-CF-Method') || 'GET').toUpperCase();
       if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(cfMethod)) {
         return jsonResponse({ error: 'CF method not allowed' }, { status: 400, origin });
       }
       const cfTargetUrl = 'https://api.cloudflare.com/client/v4' + apiPath;
-      // 拼完再验一次 host。上面的字符串检查已经拦掉了绝对地址，这里是兜底：
-      // 只要解析出来不是 api.cloudflare.com 就宁可 400，不往外发。
+      // 拼完再驗一次 host。上面的字符串檢查已經攔掉了絕對地址，這裡是兜底：
+      // 只要解析出來不是 api.cloudflare.com 就寧可 400，不往外發。
       let parsedCf;
       try {
         parsedCf = new URL(cfTargetUrl);
@@ -2580,8 +2580,8 @@ export default {
       if (!cfAuth) {
         return jsonResponse({ error: 'Missing Authorization header' }, { status: 401, origin });
       }
-      // worker.bundle.js 现在 ~500KB，multipart 包一层还要再大些。给到 10MB 够宽裕，
-      // 同时别让这个端点变成谁都能拿来传大文件的口子。
+      // worker.bundle.js 現在 ~500KB，multipart 包一層還要再大些。給到 10MB 夠寬裕，
+      // 同時別讓這個端點變成誰都能拿來傳大文件的口子。
       const CF_MAX_BODY = 10 * 1024 * 1024;
       const declaredLen = Number(request.headers.get('Content-Length') || '0');
       if (Number.isFinite(declaredLen) && declaredLen > CF_MAX_BODY) {
@@ -2589,7 +2589,7 @@ export default {
       }
       const cfHeaders = { Authorization: cfAuth };
       const cfContentType = request.headers.get('Content-Type');
-      // multipart 上传要靠 Content-Type 里的 boundary，原样带过去，别自己拼。
+      // multipart 上傳要靠 Content-Type 裡的 boundary，原樣帶過去，別自己拼。
       if (cfContentType) cfHeaders['Content-Type'] = cfContentType;
       try {
         let cfBody = null;
@@ -2605,12 +2605,12 @@ export default {
           headers: cfHeaders,
           body: cfBody,
         });
-        // 日志只留方法 / 路径 / 状态码，排障够用。token 在 header 里、不打；
-        // query 也不打（pathname 已经把它切掉了）。路径里的账号 id 会留下。
+        // 日誌只留方法 / 路徑 / 狀態碼，排障夠用。token 在 header 裡、不打；
+        // query 也不打（pathname 已經把它切掉了）。路徑裡的帳號 id 會留下。
         console.log('cf-api', cfMethod, parsedCf.pathname, '→', upstream.status);
         const respHeaders = new Headers(corsHeaders(origin));
         respHeaders.set('Content-Type', upstream.headers.get('Content-Type') || 'application/json; charset=utf-8');
-        // 状态码原样透传，前端能直接分辨 401（token 不对）和 403（权限不够）。
+        // 狀態碼原樣透傳，前端能直接分辨 401（token 不對）和 403（權限不夠）。
         return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
       } catch (e) {
         return jsonResponse({
@@ -2619,9 +2619,9 @@ export default {
       }
     }
 
-    // ========== 短链展开 (/expand-url) ==========
-    // 逐跳展开；拿到小红书笔记 URL 即返回，避免再访问正文被重定向到验证码页。
-    // 前端展开后才能提取，再走小红书 Lite 抓详情。见 utils/webpageExtractor.ts expandShortUrl。
+    // ========== 短鏈展開 (/expand-url) ==========
+    // 逐跳展開；拿到小紅書筆記 URL 即返回，避免再訪問正文被重定向到驗證碼頁。
+    // 前端展開後才能提取，再走小紅書 Lite 抓詳情。見 utils/webpageExtractor.ts expandShortUrl。
     if (url.pathname === '/expand-url') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed. Use POST.' }, { status: 405, origin });
@@ -2633,14 +2633,14 @@ export default {
       let target;
       try { target = new URL(raw); } catch { return jsonResponse({ error: 'Invalid URL' }, { status: 400, origin }); }
       if (isUnsafeFetchTarget(target)) {
-        return jsonResponse({ error: '只允许展开公网 http(s) 链接' }, { status: 400, origin });
+        return jsonResponse({ error: '只允許展開公網 http(s) 鏈接' }, { status: 400, origin });
       }
       const c = new AbortController();
       const t = setTimeout(() => c.abort(), 8000);
       try {
         let current = target;
         for (let hop = 0; hop < 10; hop++) {
-          if (isUnsafeFetchTarget(current)) throw new Error('重定向目标不是公网 http(s) 链接');
+          if (isUnsafeFetchTarget(current)) throw new Error('重定向目標不是公網 http(s) 鏈接');
           const host = current.hostname.toLowerCase().replace(/\.$/, '');
           const isNoteHost = ['xiaohongshu.com', 'rednote.com']
             .some(domain => host === domain || host.endsWith(`.${domain}`));
@@ -2653,32 +2653,32 @@ export default {
             headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1' },
             signal: c.signal,
           });
-          // 只需要响应头，不下载短链/正文页面。
+          // 只需要響應頭，不下載短鏈/正文頁面。
           if (res.body) await res.body.cancel();
           const location = res.headers.get('location');
           if ([301, 302, 303, 307, 308].includes(res.status) && location) {
             current = new URL(location, current);
             continue;
           }
-          if (!res.ok) throw new Error(`短链服务返回 HTTP ${res.status}`);
+          if (!res.ok) throw new Error(`短鏈服務返回 HTTP ${res.status}`);
           return jsonResponse({ success: true, data: { finalUrl: current.toString() } }, { origin });
         }
-        throw new Error('短链重定向次数过多');
+        throw new Error('短鏈重定向次數過多');
       } catch (e) {
         const aborted = e && e.name === 'AbortError';
-        return jsonResponse({ error: aborted ? '展开超时' : `展开失败: ${String((e && e.message) || e)}` }, { status: aborted ? 504 : 502, origin });
+        return jsonResponse({ error: aborted ? '展開超時' : `展開失敗: ${String((e && e.message) || e)}` }, { status: aborted ? 504 : 502, origin });
       } finally {
         clearTimeout(t);
       }
     }
 
-    // ========== 网页分享代理 (/fetch-webpage) ==========
-    // 前端把用户粘贴的链接发来，worker 抓回正文（绕过浏览器 CORS），存成 webpage_card 让角色"看见"。
-    // 见 utils/webpageExtractor.ts。两段式：
-    //   1) Jina Reader (r.jina.ai)：后端渲染 JS/SPA + 正文提取，MSN/微博/知乎这类动态页也能读到正文；
-    //   2) 失败/限速时回退裸抓 HTML，前端用 DOMParser 兜底提取。
-    // 返回 data.mode 区分：'reader'(干净正文 content) / 'raw'(原始 html)。
-    // 可选 env.JINA_API_KEY 提升 Jina 速率（无 key 也能用，走 IP 限速）。SSRF 防护 + 2MB 截断。
+    // ========== 網頁分享代理 (/fetch-webpage) ==========
+    // 前端把用戶粘貼的鏈接發來，worker 抓回正文（繞過瀏覽器 CORS），存成 webpage_card 讓角色"看見"。
+    // 見 utils/webpageExtractor.ts。兩段式：
+    //   1) Jina Reader (r.jina.ai)：後端渲染 JS/SPA + 正文提取，MSN/微博/知乎這類動態頁也能讀到正文；
+    //   2) 失敗/限速時回退裸抓 HTML，前端用 DOMParser 兜底提取。
+    // 返回 data.mode 區分：'reader'(乾淨正文 content) / 'raw'(原始 html)。
+    // 可選 env.JINA_API_KEY 提升 Jina 速率（無 key 也能用，走 IP 限速）。SSRF 防護 + 2MB 截斷。
     if (url.pathname === '/fetch-webpage') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed. Use POST.' }, { status: 405, origin });
@@ -2694,13 +2694,13 @@ export default {
         return jsonResponse({ error: 'Invalid URL' }, { status: 400, origin });
       }
       if (isUnsafeFetchTarget(target)) {
-        return jsonResponse({ error: '只允许抓取公网 http(s) 网页' }, { status: 400, origin });
+        return jsonResponse({ error: '只允許抓取公網 http(s) 網頁' }, { status: 400, origin });
       }
 
-      // 1) Jina Reader 优先（渲染 + 正文提取）。失败静默回退裸抓，不影响整体。
+      // 1) Jina Reader 優先（渲染 + 正文提取）。失敗靜默回退裸抓，不影響整體。
       {
         const jc = new AbortController();
-        const jt = setTimeout(() => jc.abort(), 20000); // 渲染慢，给 20s
+        const jt = setTimeout(() => jc.abort(), 20000); // 渲染慢，給 20s
         try {
           const jh = { 'Accept': 'application/json', 'X-Return-Format': 'markdown' };
           if (env && env.JINA_API_KEY) jh['Authorization'] = `Bearer ${env.JINA_API_KEY}`;
@@ -2734,11 +2734,11 @@ export default {
           signal: controller.signal,
         });
         if (!upstream.ok) {
-          return jsonResponse({ error: `目标站点返回 HTTP ${upstream.status}` }, { status: 502, origin });
+          return jsonResponse({ error: `目標站點返回 HTTP ${upstream.status}` }, { status: 502, origin });
         }
         const ct = upstream.headers.get('content-type') || '';
         if (ct && !/text\/html|application\/xhtml\+xml|text\/plain/i.test(ct)) {
-          return jsonResponse({ error: `不支持的内容类型: ${ct}` }, { status: 415, origin });
+          return jsonResponse({ error: `不支持的內容類型: ${ct}` }, { status: 415, origin });
         }
         const html = await readBodyCapped(upstream, 2 * 1024 * 1024);
         console.log('fetch-webpage[raw]', target.toString(), '→', upstream.status, html.length, 'chars');
@@ -2746,7 +2746,7 @@ export default {
       } catch (e) {
         const aborted = e && e.name === 'AbortError';
         return jsonResponse(
-          { error: aborted ? '抓取超时' : `抓取出错: ${String((e && e.message) || e)}` },
+          { error: aborted ? '抓取超時' : `抓取出錯: ${String((e && e.message) || e)}` },
           { status: aborted ? 504 : 502, origin }
         );
       } finally {
@@ -2755,8 +2755,8 @@ export default {
     }
 
     // ========== GitHub 代理 ==========
-    // 给国内连不上 github.com 的用户兜底用。只放行 api.github.com 和
-    // uploads.github.com，方法用 X-GitHub-Method 头携带。
+    // 給國內連不上 github.com 的用戶兜底用。只放行 api.github.com 和
+    // uploads.github.com，方法用 X-GitHub-Method 頭攜帶。
     if (url.pathname === '/github') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
@@ -2791,7 +2791,7 @@ export default {
       if (ghApiVer) ghHeaders['X-GitHub-Api-Version'] = ghApiVer;
       const ghContentLength = request.headers.get('Content-Length');
       if (ghContentLength) ghHeaders['Content-Length'] = ghContentLength;
-      // GitHub 拒绝没有 UA 的请求
+      // GitHub 拒絕沒有 UA 的請求
       ghHeaders['User-Agent'] = 'sully-backup-proxy';
       try {
         // Stream upload bodies to GitHub instead of buffering the whole part
@@ -2834,7 +2834,7 @@ export default {
         return jsonResponse({ error: "Missing header: X-Notion-API-Key" }, { status: 401, origin });
       }
 
-      // POST /notion/pages - 创建页面
+      // POST /notion/pages - 創建頁面
       if (url.pathname === '/notion/pages' && request.method === 'POST') {
         const body = await request.json();
         const notionRes = await fetch('https://api.notion.com/v1/pages', {
@@ -2853,7 +2853,7 @@ export default {
         });
       }
 
-      // POST /notion/query - 查询数据库
+      // POST /notion/query - 查詢數據庫
       if (url.pathname === '/notion/query' && request.method === 'POST') {
         const body = await request.json();
         const dbId = body.database_id;
@@ -2880,7 +2880,7 @@ export default {
         });
       }
 
-      // GET /notion/database/:id - 测试连接
+      // GET /notion/database/:id - 測試連接
       if (url.pathname.startsWith('/notion/database/') && request.method === 'GET') {
         const dbId = url.pathname.replace('/notion/database/', '');
         const notionRes = await fetch(`https://api.notion.com/v1/databases/${dbId}`, {
@@ -2896,7 +2896,7 @@ export default {
         });
       }
 
-      // GET /notion/blocks/:pageId - 读取页面内容
+      // GET /notion/blocks/:pageId - 讀取頁面內容
       if (url.pathname.startsWith('/notion/blocks/') && request.method === 'GET') {
         const pageId = url.pathname.replace('/notion/blocks/', '');
         const notionRes = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
@@ -2915,9 +2915,9 @@ export default {
       return jsonResponse({ error: "Unknown Notion endpoint" }, { status: 404, origin });
     }
 
-    // ========== 飞书代理 ==========
+    // ========== 飛書代理 ==========
     if (url.pathname.startsWith('/feishu/')) {
-      // POST /feishu/token - 获取 tenant_access_token
+      // POST /feishu/token - 獲取 tenant_access_token
       if (url.pathname === '/feishu/token' && request.method === 'POST') {
         const body = await request.json();
         if (!body.app_id || !body.app_secret) {
@@ -2938,7 +2938,7 @@ export default {
         });
       }
 
-      // 以下所有 bitable 端点都需要 token
+      // 以下所有 bitable 端點都需要 token
       const feishuToken = request.headers.get("X-Feishu-Token");
       if (!feishuToken) {
         return jsonResponse({ error: "Missing header: X-Feishu-Token" }, { status: 401, origin });
@@ -2948,7 +2948,7 @@ export default {
         'Content-Type': 'application/json'
       };
 
-      // 解析路径: /feishu/bitable/{appToken}/...
+      // 解析路徑: /feishu/bitable/{appToken}/...
       const bitablePath = url.pathname.replace('/feishu/bitable/', '');
       const segments = bitablePath.split('/');
       if (segments.length < 1 || !segments[0]) {
@@ -2958,7 +2958,7 @@ export default {
       const appToken = segments[0];
       const rest = segments.slice(1).join('/');
 
-      // GET /feishu/bitable/{appToken}/tables - 列出所有数据表（测试连接）
+      // GET /feishu/bitable/{appToken}/tables - 列出所有數據表（測試連接）
       if (rest === 'tables' && request.method === 'GET') {
         const fsRes = await fetch(
           `${FEISHU_BASE}/bitable/v1/apps/${appToken}/tables`,
@@ -2971,14 +2971,14 @@ export default {
         });
       }
 
-      // 以下端点需要 tableId
+      // 以下端點需要 tableId
       const tableId = segments[1];
       if (!tableId) {
         return jsonResponse({ error: "Missing tableId in path" }, { status: 400, origin });
       }
       const tableRest = segments.slice(2).join('/');
 
-      // POST /feishu/bitable/{appToken}/{tableId}/records - 创建记录
+      // POST /feishu/bitable/{appToken}/{tableId}/records - 創建記錄
       if (tableRest === 'records' && request.method === 'POST') {
         const body = await request.json();
         const fsRes = await fetch(
@@ -2996,7 +2996,7 @@ export default {
         });
       }
 
-      // POST /feishu/bitable/{appToken}/{tableId}/records/search - 搜索记录
+      // POST /feishu/bitable/{appToken}/{tableId}/records/search - 搜索記錄
       if (tableRest === 'records/search' && request.method === 'POST') {
         const body = await request.json();
         const fsRes = await fetch(
@@ -3014,7 +3014,7 @@ export default {
         });
       }
 
-      // GET /feishu/bitable/{appToken}/{tableId}/records/{recordId} - 获取单条记录
+      // GET /feishu/bitable/{appToken}/{tableId}/records/{recordId} - 獲取單條記錄
       if (tableRest.startsWith('records/') && tableRest !== 'records/search' && request.method === 'GET') {
         const recordId = tableRest.replace('records/', '');
         const fsRes = await fetch(
@@ -3031,14 +3031,14 @@ export default {
       return jsonResponse({ error: "Unknown Feishu endpoint" }, { status: 404, origin });
     }
 
-    // ========== 小红书代理 ==========
+    // ========== 小紅書代理 ==========
     if (url.pathname.startsWith('/xhs/')) {
       const cookie = request.headers.get("X-Xhs-Cookie");
       if (!cookie) {
         return jsonResponse({ error: "Missing header: X-Xhs-Cookie" }, { status: 401, origin });
       }
 
-      // GET /xhs/debug - 测试签名，返回完整原始响应
+      // GET /xhs/debug - 測試簽名，返回完整原始響應
       if (url.pathname === '/xhs/debug' && request.method === 'GET') {
         try {
           const testApi = url.searchParams.get('api') || '/api/sns/web/v1/user/selfinfo';
@@ -3060,7 +3060,7 @@ export default {
         }
       }
 
-      // GET /xhs/upload-test - 测试图片上传凭证获取（诊断用）
+      // GET /xhs/upload-test - 測試圖片上傳憑證獲取（診斷用）
       if (url.pathname === '/xhs/upload-test' && request.method === 'GET') {
         try {
           const credResult = await getUploadCredentials(cookie);
@@ -3070,7 +3070,7 @@ export default {
           if (tempPermit?.fileIds?.[0] && tempPermit?.token) {
             return jsonResponse({
               success: true,
-              message: '上传凭证获取成功',
+              message: '上傳憑證獲取成功',
               file_id: tempPermit.fileIds[0],
               token_prefix: tempPermit.token.slice(0, 30) + '...',
               debug: credResult.debug
@@ -3079,22 +3079,22 @@ export default {
 
           return jsonResponse({
             success: false,
-            message: '上传凭证获取失败',
+            message: '上傳憑證獲取失敗',
             debug: credResult.debug
           }, { origin });
         } catch (e) {
-          return jsonResponse({ success: false, message: `上传测试异常: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, message: `上傳測試異常: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // GET /xhs/profile - 测试 Cookie，获取用户信息
+      // GET /xhs/profile - 測試 Cookie，獲取用戶信息
       if (url.pathname === '/xhs/profile' && request.method === 'GET') {
         try {
           const api = '/api/sns/web/v1/user/selfinfo';
           const result = await xhsFetch(cookie, api, 'GET');
           const rd = result.data || {};
 
-          // XHS selfinfo 结构: rd.data.basic_info.nickname
+          // XHS selfinfo 結構: rd.data.basic_info.nickname
           const basicInfo = rd.data?.basic_info || {};
           const nickname = basicInfo.nickname || basicInfo.nick_name || basicInfo.red_id || '';
 
@@ -3107,19 +3107,19 @@ export default {
             }, { origin });
           }
 
-          // basic_info 没有但请求本身成功
+          // basic_info 沒有但請求本身成功
           if (rd.success || rd.code === 0) {
             return jsonResponse({
               success: true,
-              nickname: '已连接',
+              nickname: '已連接',
               _raw: JSON.stringify(rd).slice(0, 600)
             }, { origin });
           }
 
-          // 返回详细错误信息方便调试（含完整原始响应）
+          // 返回詳細錯誤信息方便調試（含完整原始響應）
           return jsonResponse({
             success: false,
-            message: result.data?.msg || 'Cookie 无效或已过期',
+            message: result.data?.msg || 'Cookie 無效或已過期',
             raw_status: result.status,
             debug: {
               code: result.data?.code,
@@ -3130,11 +3130,11 @@ export default {
             }
           }, { status: 200, origin });
         } catch (e) {
-          return jsonResponse({ success: false, message: `请求失败: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, message: `請求失敗: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // GET /xhs/note/:noteId - 获取单条笔记详情
+      // GET /xhs/note/:noteId - 獲取單條筆記詳情
       const noteMatch = url.pathname.match(/^\/xhs\/note\/([a-f0-9]+)$/);
       if (noteMatch && request.method === 'GET') {
         const noteId = noteMatch[1];
@@ -3196,15 +3196,15 @@ export default {
 
           return jsonResponse({
             success: false,
-            message: '笔记不存在或无法访问',
+            message: '筆記不存在或無法訪問',
             debug: { api_code: rd.code, api_msg: rd.msg }
           }, { status: 200, origin });
         } catch (e) {
-          return jsonResponse({ success: false, message: `获取笔记失败: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, message: `獲取筆記失敗: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // POST /xhs/search - 搜索笔记（API + HTML 双重回退）
+      // POST /xhs/search - 搜索筆記（API + HTML 雙重回退）
       if (url.pathname === '/xhs/search' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -3213,7 +3213,7 @@ export default {
             return jsonResponse({ success: false, message: '缺少 keyword' }, { status: 400, origin });
           }
 
-          // ---------- search_id: 匹配 ReaJason/xhs 格式 (base36 编码) ----------
+          // ---------- search_id: 匹配 ReaJason/xhs 格式 (base36 編碼) ----------
           function getSearchId() {
             const ts = BigInt(Date.now()) << 64n;
             const rand = BigInt(Math.floor(Math.random() * 2147483646));
@@ -3224,7 +3224,7 @@ export default {
             return s || '0';
           }
 
-          // ---------- 策略 1: API 搜索（带 host/origin 回退） ----------
+          // ---------- 策略 1: API 搜索（帶 host/origin 回退） ----------
           const api = '/api/sns/web/v1/search/notes';
           const searchBody = {
             keyword: keyword,
@@ -3235,7 +3235,7 @@ export default {
             note_type: 0
           };
 
-          // 真实浏览器搜索时 Referer 指向搜索结果页
+          // 真實瀏覽器搜索時 Referer 指向搜索結果頁
           const searchReferer = 'https://www.xiaohongshu.com/search_result/' + encodeURIComponent(keyword);
           const apiAttempts = [
             { baseUrl: 'https://edith.xiaohongshu.com', origin: 'https://www.xiaohongshu.com', referer: searchReferer },
@@ -3266,11 +3266,11 @@ export default {
               }
             }
 
-            // 如果不是 461/471 这类签名/风控错误，不再尝试其他 host
+            // 如果不是 461/471 這類簽名/風控錯誤，不再嘗試其他 host
             if (result.status !== 461 && result.status !== 471 && result.status < 500) break;
           }
 
-          // ---------- 策略 2: HTML 页面抓取（绕过签名校验） ----------
+          // ---------- 策略 2: HTML 頁面抓取（繞過簽名校驗） ----------
           const searchUrl = 'https://www.xiaohongshu.com/search_result?keyword=' + encodeURIComponent(keyword) + '&source=web_search_result_note';
           const htmlRes = await fetch(searchUrl, {
             headers: {
@@ -3293,7 +3293,7 @@ export default {
             try { state = JSON.parse(stateStr); } catch { state = null; }
 
             if (state) {
-              // 搜索结果可能在各种路径 — 穷举已知 + 自动发现
+              // 搜索結果可能在各種路徑 — 窮舉已知 + 自動發現
               let items = [];
               let itemSource = 'unknown';
               const candidates = [
@@ -3317,7 +3317,7 @@ export default {
                 }
               }
 
-              // 智能递归: 只接受包含类似笔记对象的数组 (有 id/note_id/noteId 或 note_card/noteCard)
+              // 智能遞歸: 只接受包含類似筆記對象的數組 (有 id/note_id/noteId 或 note_card/noteCard)
               if (items.length === 0) {
                 const looksLikeNote = (obj) => {
                   if (!obj || typeof obj !== 'object') return false;
@@ -3339,7 +3339,7 @@ export default {
                 if (found) { items = found.arr; itemSource = found.path + '(auto)'; }
               }
 
-              // 尝试提取笔记（兼容 snake_case + camelCase）
+              // 嘗試提取筆記（兼容 snake_case + camelCase）
               const extractNote = (item) => {
                 const note = item.note_card || item.noteCard || item;
                 return {
@@ -3357,16 +3357,16 @@ export default {
                 return jsonResponse({ success: true, notes, source: 'html_scrape', _debug: { itemSource, apiAttempts: apiDebug } }, { origin });
               }
 
-              // HTML 有数据但映射失败 → 返回详细样本帮助调试
+              // HTML 有數據但映射失敗 → 返回詳細樣本幫助調試
               if (items.length > 0) {
                 return jsonResponse({
                   success: false, notes: [],
-                  message: `HTML解析到 ${items.length} 条但字段映射失败`,
+                  message: `HTML解析到 ${items.length} 條但字段映射失敗`,
                   debug: { itemSource, first_keys: items[0] ? Object.keys(items[0]) : [], sample: items.slice(0, 2).map(i => JSON.stringify(i).slice(0, 600)), apiAttempts: apiDebug }
                 }, { origin });
               }
 
-              // state 解析成功但没找到笔记列表 → 专门 dump search 对象
+              // state 解析成功但沒找到筆記列表 → 專門 dump search 對象
               const searchObj = state?.search || {};
               const searchDump = {};
               for (const [k, v] of Object.entries(searchObj)) {
@@ -3380,27 +3380,27 @@ export default {
               }
               return jsonResponse({
                 success: false, notes: [],
-                message: '搜索页 __INITIAL_STATE__ 无笔记列表',
+                message: '搜索頁 __INITIAL_STATE__ 無筆記列表',
                 debug: { search_structure: searchDump, state_keys: Object.keys(state), apiAttempts: apiDebug }
               }, { origin });
             }
           }
 
-          // 两条路都没走通
+          // 兩條路都沒走通
           return jsonResponse({
             success: false, notes: [],
-            message: `搜索失败 (API 和 HTML 均未获取到结果)`,
+            message: `搜索失敗 (API 和 HTML 均未獲取到結果)`,
             debug: { apiAttempts: apiDebug, html_status: htmlRes.status, html_len: html.length, html_snippet: html.slice(0, 500) }
           }, { origin });
         } catch (e) {
-          return jsonResponse({ success: false, notes: [], message: `搜索异常: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, notes: [], message: `搜索異常: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // POST /xhs/feed - 浏览小红书 (scrape explore page via GET, avoids POST 461)
+      // POST /xhs/feed - 瀏覽小紅書 (scrape explore page via GET, avoids POST 461)
       if (url.pathname === '/xhs/feed' && request.method === 'POST') {
         try {
-          // 策略: GET explore 页面，解析 __INITIAL_STATE__ 里的笔记
+          // 策略: GET explore 頁面，解析 __INITIAL_STATE__ 裡的筆記
           const exploreRes = await fetch('https://www.xiaohongshu.com/explore', {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -3419,13 +3419,13 @@ export default {
           // 解析 window.__INITIAL_STATE__ JSON
           const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*(\{.+?\})\s*<\/script>/s);
           if (stateMatch) {
-            // XHS 用 undefined 代替 null，替换后才能 JSON.parse
+            // XHS 用 undefined 代替 null，替換後才能 JSON.parse
             const stateStr = stateMatch[1].replace(/\bundefined\b/g, 'null');
             let state;
             try { state = JSON.parse(stateStr); } catch { state = null; }
 
             if (state) {
-              // 查找笔记列表：尝试多种已知路径
+              // 查找筆記列表：嘗試多種已知路徑
               let feeds = [];
               let feedSource = 'unknown';
               const candidates = [
@@ -3443,7 +3443,7 @@ export default {
                 }
               }
 
-              // 如果标准路径都没命中，递归找第一个长度 > 5 的数组
+              // 如果標準路徑都沒命中，遞歸找第一個長度 > 5 的數組
               if (feeds.length === 0) {
                 const findLargeArray = (obj, path = '', depth = 0) => {
                   if (depth > 3 || !obj || typeof obj !== 'object') return null;
@@ -3461,9 +3461,9 @@ export default {
                 }
               }
 
-              // 自适应字段映射：检查第一个 item 的实际结构
+              // 自適應字段映射：檢查第一個 item 的實際結構
               const notes = feeds.map(item => {
-                // 笔记可能嵌套在 note_card / noteCard / model_type 下
+                // 筆記可能嵌套在 note_card / noteCard / model_type 下
                 const note = item.note_card || item.noteCard || item;
                 return {
                   note_id: note?.note_id || note?.noteId || note?.id || item?.id || '',
@@ -3475,7 +3475,7 @@ export default {
                 };
               }).filter(n => n.note_id);
 
-              // 包含原始样本用于诊断空字段问题
+              // 包含原始樣本用於診斷空字段問題
               const rawSample = feeds.slice(0, 2).map(item => JSON.stringify(item).slice(0, 500));
 
               if (notes.length > 0) {
@@ -3485,11 +3485,11 @@ export default {
                 }, { origin });
               }
 
-              // 有 feeds 数组但映射后全空
+              // 有 feeds 數組但映射後全空
               if (feeds.length > 0) {
                 return jsonResponse({
                   success: false, notes: [],
-                  message: `找到 ${feeds.length} 条数据但字段映射失败`,
+                  message: `找到 ${feeds.length} 條數據但字段映射失敗`,
                   debug: {
                     feedSource,
                     first_item_keys: feeds[0] ? Object.keys(feeds[0]).join(',') : 'empty',
@@ -3499,10 +3499,10 @@ export default {
               }
             }
 
-            // state 解析成功但没有笔记 → 返回 state keys 帮助调试
+            // state 解析成功但沒有筆記 → 返回 state keys 幫助調試
             return jsonResponse({
               success: false, notes: [],
-              message: `Explore页面解析成功但未找到笔记`,
+              message: `Explore頁面解析成功但未找到筆記`,
               debug: {
                 status: exploreRes.status,
                 state_keys: state ? Object.keys(state).join(',') : 'parse_failed',
@@ -3511,10 +3511,10 @@ export default {
             }, { origin });
           }
 
-          // 没匹配到 __INITIAL_STATE__，返回 HTML 片段帮助调试
+          // 沒匹配到 __INITIAL_STATE__，返回 HTML 片段幫助調試
           return jsonResponse({
             success: false, notes: [],
-            message: `Explore页面无 __INITIAL_STATE__ (${exploreRes.status})`,
+            message: `Explore頁面無 __INITIAL_STATE__ (${exploreRes.status})`,
             debug: {
               status: exploreRes.status,
               html_len: html.length,
@@ -3522,12 +3522,12 @@ export default {
             }
           }, { origin });
         } catch (e) {
-          return jsonResponse({ success: false, notes: [], message: `浏览异常: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, notes: [], message: `瀏覽異常: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // POST /xhs/publish - 发布笔记
-      // 需要 image_url (外部图片URL) 或 images (已上传的file_id数组)
+      // POST /xhs/publish - 發佈筆記
+      // 需要 image_url (外部圖片URL) 或 images (已上傳的file_id數組)
       if (url.pathname === '/xhs/publish' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -3548,10 +3548,10 @@ export default {
             return img;
           }).filter(img => img?.file_id);
 
-          const steps = []; // 详细的分步 debug
+          const steps = []; // 詳細的分步 debug
           const uploadDiagnostics = [];
 
-          // Step 1: 如果提供了 image_url，先下载图片再上传到 XHS
+          // Step 1: 如果提供了 image_url，先下載圖片再上傳到 XHS
           if (images.length === 0 && body.image_url) {
             const uploadResult = await uploadImageToXhs(cookie, body.image_url);
             if (uploadResult.file_id) {
@@ -3561,16 +3561,16 @@ export default {
                 stickers: { version: 2, floating: [] },
                 extra_info_json: '{"mimeType":"image/jpeg"}'
               }];
-              steps.push('image_url上传成功: ' + uploadResult.file_id);
+              steps.push('image_url上傳成功: ' + uploadResult.file_id);
             } else {
-              steps.push('image_url上传失败: ' + uploadResult.error);
+              steps.push('image_url上傳失敗: ' + uploadResult.error);
               uploadDiagnostics.push({ stage: 'image_url', ...uploadResult });
             }
           }
 
-          // Step 2: 无论如何都尝试占位图兜底（小红书要求至少一张图片）
+          // Step 2: 無論如何都嘗試佔位圖兜底（小紅書要求至少一張圖片）
           if (images.length === 0) {
-            steps.push('尝试上传占位图...');
+            steps.push('嘗試上傳佔位圖...');
             const placeholderResult = await uploadPlaceholderImage(cookie);
             if (placeholderResult.file_id) {
               images = [{
@@ -3579,23 +3579,23 @@ export default {
                 stickers: { version: 2, floating: [] },
                 extra_info_json: '{"mimeType":"image/png"}'
               }];
-              steps.push('占位图上传成功: ' + placeholderResult.file_id);
+              steps.push('佔位圖上傳成功: ' + placeholderResult.file_id);
             } else {
-              steps.push('占位图上传失败: ' + placeholderResult.error);
+              steps.push('佔位圖上傳失敗: ' + placeholderResult.error);
               uploadDiagnostics.push({ stage: 'placeholder', ...placeholderResult });
             }
           }
 
-          // Step 3: 小红书不支持纯文字笔记，必须有至少一张图片
+          // Step 3: 小紅書不支持純文字筆記，必須有至少一張圖片
           if (images.length === 0) {
             return jsonResponse({
               success: false,
-              message: '图片上传失败，无法发布笔记。小红书要求每篇笔记至少包含一张图片。请检查上传凭证接口 (GET /xhs/upload-test) 或提供有效的 image_url。',
+              message: '圖片上傳失敗，無法發佈筆記。小紅書要求每篇筆記至少包含一張圖片。請檢查上傳憑證接口 (GET /xhs/upload-test) 或提供有效的 image_url。',
               debug: { steps, upload_diagnostics: uploadDiagnostics }
             }, { origin });
           }
 
-          // Step 4: 构建发布 body（格式对齐 ReaJason/xhs 库）
+          // Step 4: 構建發佈 body（格式對齊 ReaJason/xhs 庫）
           const api = '/web_api/sns/v2/note';
           const commonFields = {
             type: 'normal',
@@ -3611,9 +3611,9 @@ export default {
           };
 
           const publishBody = { common: commonFields, image_info: { images }, video_info: null };
-          steps.push('发布body已构建(有图), images=' + images.length + ', file_id=' + images[0]?.file_id);
+          steps.push('發佈body已構建(有圖), images=' + images.length + ', file_id=' + images[0]?.file_id);
 
-          // 发布请求使用 creator.xiaohongshu.com 作为 Origin/Referer（匹配真实浏览器行为）
+          // 發佈請求使用 creator.xiaohongshu.com 作為 Origin/Referer（匹配真實瀏覽器行為）
           const publishOriginOpts = {
             origin: 'https://creator.xiaohongshu.com',
             referer: 'https://creator.xiaohongshu.com/',
@@ -3629,7 +3629,7 @@ export default {
             msg: result.data?.msg || ''
           }];
 
-          // 如果命中常见风控/网关拦截错误，尝试切换发布 host 再试一次
+          // 如果命中常見風控/網關攔截錯誤，嘗試切換發布 host 再試一次
           const needPublishHostFallback = images.length > 0
             && !result.data?.data?.note_id
             && [-9150, -9110].includes(Number(result.data?.result));
@@ -3648,7 +3648,7 @@ export default {
               });
               if (retry.data?.data?.note_id || retry.data?.data?.id) {
                 result = retry;
-                steps.push('发布host回退成功: ' + host);
+                steps.push('發佈host回退成功: ' + host);
                 break;
               }
               if (![-9150, -9110].includes(Number(retry.data?.result))) {
@@ -3659,25 +3659,25 @@ export default {
             }
           }
 
-          // 严格检查：必须有 note_id 才算真正发布成功
+          // 嚴格檢查：必須有 note_id 才算真正發佈成功
           const noteId = result.data?.data?.note_id || result.data?.data?.id || '';
           if (noteId) {
             return jsonResponse({
               success: true,
               note_id: noteId,
-              message: '发布成功'
+              message: '發佈成功'
             }, { origin });
           }
 
           const resultCode = result.data?.result || result.data?.code;
           const rawText = typeof result.data?.raw === 'string' ? result.data.raw : '';
           const hadImages = images.length > 0;
-          let failMessage = result.data?.msg || `发布失败 (${result.status})`;
+          let failMessage = result.data?.msg || `發佈失敗 (${result.status})`;
 
           if (resultCode === -9150) {
-            failMessage = '发布被拒(-9150)：疑似风控/技术升级拦截。可能原因：签名被检测、发布频率过高、账号异常。建议降低频率或更换 Cookie 后重试。';
+            failMessage = '發佈被拒(-9150)：疑似風控/技術升級攔截。可能原因：簽名被檢測、發佈頻率過高、帳號異常。建議降低頻率或更換 Cookie 後重試。';
           } else if (result.status >= 500 && /jarvis-gateway-default/i.test(rawText)) {
-            failMessage = '小红书网关暂时不可用（jarvis-gateway-default）。这不是请求体字段错误，建议稍后重试。';
+            failMessage = '小紅書網關暫時不可用（jarvis-gateway-default）。這不是請求體字段錯誤，建議稍後重試。';
           }
 
           return jsonResponse({
@@ -3694,11 +3694,11 @@ export default {
             }
           }, { origin });
         } catch (e) {
-          return jsonResponse({ success: false, message: `发布异常: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, message: `發佈異常: ${e.message}` }, { status: 500, origin });
         }
       }
 
-      // POST /xhs/comment - 评论笔记
+      // POST /xhs/comment - 評論筆記
       if (url.pathname === '/xhs/comment' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -3715,32 +3715,32 @@ export default {
 
           const result = await xhsFetch(cookie, api, 'POST', commentBody);
 
-          // XHS 可能返回非2xx但body里success=true，以body为准
+          // XHS 可能返回非2xx但body裡success=true，以body為準
           if (result.data?.success || result.data?.code === 0 || result.data?.data?.comment) {
-            return jsonResponse({ success: true, message: '评论成功' }, { origin });
+            return jsonResponse({ success: true, message: '評論成功' }, { origin });
           }
 
           return jsonResponse({
             success: false,
-            message: result.data?.msg || `评论失败 (${result.status})`,
+            message: result.data?.msg || `評論失敗 (${result.status})`,
             debug: { status: result.status, raw: JSON.stringify(result.data).slice(0, 300) }
           }, { origin });
         } catch (e) {
-          return jsonResponse({ success: false, message: `评论异常: ${e.message}` }, { status: 500, origin });
+          return jsonResponse({ success: false, message: `評論異常: ${e.message}` }, { status: 500, origin });
         }
       }
 
       return jsonResponse({ error: "Unknown XHS endpoint. Use /xhs/profile, /xhs/upload-test, /xhs/search, /xhs/feed, /xhs/publish, /xhs/comment" }, { status: 404, origin });
     }
 
-    // ========== Replicate 代理 (写歌 App 用，给 ACE-Step 等模型走) ==========
-    // 前端把 Authorization: Bearer r8_xxx 透传过来，Worker 只做路由 + CORS + CDN 兜底。
-    //   POST /replicate/predictions          → 起任务 (透传 body 到 api.replicate.com)
-    //   GET  /replicate/predictions/:id      → 轮询状态
-    //   POST /replicate/predictions/:id/cancel → 取消任务
-    //   GET  /replicate/file?url=...         → 下载 replicate.delivery 上的产物 (国内常超时)
+    // ========== Replicate 代理 (寫歌 App 用，給 ACE-Step 等模型走) ==========
+    // 前端把 Authorization: Bearer r8_xxx 透傳過來，Worker 只做路由 + CORS + CDN 兜底。
+    //   POST /replicate/predictions          → 起任務 (透傳 body 到 api.replicate.com)
+    //   GET  /replicate/predictions/:id      → 輪詢狀態
+    //   POST /replicate/predictions/:id/cancel → 取消任務
+    //   GET  /replicate/file?url=...         → 下載 replicate.delivery 上的產物 (國內常超時)
     if (url.pathname.startsWith('/replicate/')) {
-      // 1) 文件代下载：解决 replicate.delivery / pbxt.replicate.delivery 的国内访问问题
+      // 1) 文件代下載：解決 replicate.delivery / pbxt.replicate.delivery 的國內訪問問題
       if (url.pathname === '/replicate/file' && request.method === 'GET') {
         const targetUrl = url.searchParams.get('url');
         if (!targetUrl) {
@@ -3752,7 +3752,7 @@ export default {
         } catch {
           return jsonResponse({ error: 'Invalid URL' }, { status: 400, origin });
         }
-        // 白名单：只放行 replicate 的产物 CDN
+        // 白名單：只放行 replicate 的產物 CDN
         const allowed = (host) => host === 'replicate.delivery'
           || host.endsWith('.replicate.delivery')
           || host === 'pbxt.replicate.com'
@@ -3779,7 +3779,7 @@ export default {
         }
       }
 
-      // 2) API 转发：除 /file 外的所有路径，剥掉 /replicate 前缀转给 api.replicate.com
+      // 2) API 轉發：除 /file 外的所有路徑，剝掉 /replicate 前綴轉給 api.replicate.com
       const auth = request.headers.get('Authorization');
       if (!auth) {
         return jsonResponse({ error: 'Missing Authorization header (Replicate token)' }, { status: 401, origin });
@@ -3815,11 +3815,11 @@ export default {
       }
     }
 
-    // ========== 鱼声 Fish Audio TTS 代理 (静态部署绕 CORS, 纯透传) ==========
+    // ========== 魚聲 Fish Audio TTS 代理 (靜態部署繞 CORS, 純透傳) ==========
     // 前端 POST /fishaudio/tts?model=s2.1-pro  + Authorization: Bearer <fish key>
-    // body = { text, reference_id, format, ... }；返回二进制音频(mp3)。
-    // model 走 query：避免自定义 'model' header 触发 CORS 预检失败。
-    // Worker 不读不存 key，只做 CORS + 转发 https://api.fish.audio/v1/tts。
+    // body = { text, reference_id, format, ... }；返回二進制音頻(mp3)。
+    // model 走 query：避免自定義 'model' header 觸發 CORS 預檢失敗。
+    // Worker 不讀不存 key，只做 CORS + 轉發 https://api.fish.audio/v1/tts。
     if (url.pathname === '/fishaudio/tts') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
@@ -3848,9 +3848,9 @@ export default {
       }
     }
 
-    // ========== ElevenLabs TTS 代理（静态部署绕 CORS，纯透传）==========
+    // ========== ElevenLabs TTS 代理（靜態部署繞 CORS，純透傳）==========
     // 前端 POST /elevenlabs/tts?voice_id=...&output_format=... + xi-api-key: <user key>
-    // Worker 不记录、不持久化 Key 或待合成文本。
+    // Worker 不記錄、不持久化 Key 或待合成文本。
     if (url.pathname === '/elevenlabs/tts') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
@@ -3887,10 +3887,10 @@ export default {
       }
     }
 
-    // ========== 麦当劳 MCP 代理 (浏览器 CORS 兜底, 纯透传) ==========
+    // ========== 麥當勞 MCP 代理 (瀏覽器 CORS 兜底, 純透傳) ==========
     // 前端 POST /mcp/mcd  + Authorization: Bearer <user_mcp_token>
-    // body 即 MCP JSON-RPC 报文 (initialize / tools/list / tools/call ...)
-    // Worker 不读不存 token, 只做 CORS + 转发 https://mcp.mcd.cn
+    // body 即 MCP JSON-RPC 報文 (initialize / tools/list / tools/call ...)
+    // Worker 不讀不存 token, 只做 CORS + 轉發 https://mcp.mcd.cn
     if (url.pathname === '/mcp/mcd') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
@@ -3926,11 +3926,11 @@ export default {
       }
     }
 
-    // ========== 瑞幸 MCP 代理 (浏览器 CORS 兜底, 纯透传) ==========
+    // ========== 瑞幸 MCP 代理 (瀏覽器 CORS 兜底, 純透傳) ==========
     // 前端 POST /mcp/luckin  + Authorization: Bearer <user_mcp_token>
-    // body 即 MCP JSON-RPC 报文 (initialize / tools/list / tools/call ...)
-    // Worker 不读不存 token, 只做 CORS + 转发 https://gwmcp.lkcoffee.com/order/user/mcp
-    // token 来源: 登录 https://open.lkcoffee.com 复制 (有效期约 1 个月)
+    // body 即 MCP JSON-RPC 報文 (initialize / tools/list / tools/call ...)
+    // Worker 不讀不存 token, 只做 CORS + 轉發 https://gwmcp.lkcoffee.com/order/user/mcp
+    // token 來源: 登錄 https://open.lkcoffee.com 複製 (有效期約 1 個月)
     if (url.pathname === '/mcp/luckin') {
       if (request.method !== 'POST') {
         return jsonResponse({ error: 'Method not allowed' }, { status: 405, origin });
@@ -3966,14 +3966,14 @@ export default {
       }
     }
 
-    // ========== 网易云音乐代理 (转发到 api-enhanced, 带边缘缓存 + 多上游容灾) ==========
+    // ========== 網易雲音樂代理 (轉發到 api-enhanced, 帶邊緣緩存 + 多上游容災) ==========
     // 前端 POST /netease/<action> { ...body }
-    // Worker 翻译成 api-enhanced 的 GET 参数形式并转发
+    // Worker 翻譯成 api-enhanced 的 GET 參數形式並轉發
     if (url.pathname.startsWith('/netease/')) {
       if (!NETEASE_UPSTREAMS || NETEASE_UPSTREAMS.length === 0) {
         return jsonResponse({
-          error: "Worker 里 NETEASE_UPSTREAMS 还没配置",
-          hint: "把 api-enhanced 部署到 Vercel/Deno Deploy, 拿到 URL 后改 worker/index.js 开头的 NETEASE_UPSTREAMS 数组, 然后重新部署 Worker"
+          error: "Worker 裡 NETEASE_UPSTREAMS 還沒配置",
+          hint: "把 api-enhanced 部署到 Vercel/Deno Deploy, 拿到 URL 後改 worker/index.js 開頭的 NETEASE_UPSTREAMS 數組, 然後重新部署 Worker"
         }, { status: 500, origin });
       }
 
@@ -3994,9 +3994,9 @@ export default {
         }, { status: 404, origin });
       }
 
-      // ── 边缘缓存: 对公共数据(歌词/搜索/song/url 等) 命中直接返回 ──
+      // ── 邊緣緩存: 對公共數據(歌詞/搜索/song/url 等) 命中直接返回 ──
       const ttl = NETEASE_CACHE_TTL[action] || 0;
-      // song/url 受 VIP cookie 影响 → 用 has-cookie 分桶; 其余公共接口 cookie 不影响结果
+      // song/url 受 VIP cookie 影響 → 用 has-cookie 分桶; 其餘公共接口 cookie 不影響結果
       const cookieBucket = (action === 'song/url' && cookie) ? 'vip' : 'anon';
       const cacheKey = ttl > 0 ? buildCacheKey(action, body, cookieBucket) : null;
       if (cacheKey) {
@@ -4014,7 +4014,7 @@ export default {
         }
       }
 
-      // ── 多上游 + 容灾: 随机打乱后依次尝试, 任意一个成功就返回 ──
+      // ── 多上游 + 容災: 隨機打亂後依次嘗試, 任意一個成功就返回 ──
       const { text, status, upstream, error } = await fetchFromAnyUpstream(upstreamPath);
       if (error) {
         return jsonResponse({
@@ -4034,7 +4034,7 @@ export default {
         }
       });
 
-      // ── 写回缓存 (异步, 不阻塞响应) ──
+      // ── 寫回緩存 (異步, 不阻塞響應) ──
       if (cacheKey && status >= 200 && status < 400) {
         const cacheResp = new Response(text, {
           status: 200,
@@ -4046,7 +4046,7 @@ export default {
         if (ctx && typeof ctx.waitUntil === 'function') {
           ctx.waitUntil(caches.default.put(cacheKey, cacheResp));
         } else {
-          // dev 环境没有 ctx 时直接 fire-and-forget
+          // dev 環境沒有 ctx 時直接 fire-and-forget
           caches.default.put(cacheKey, cacheResp).catch(() => {});
         }
       }

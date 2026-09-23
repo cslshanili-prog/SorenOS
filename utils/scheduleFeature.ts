@@ -1,10 +1,10 @@
 import type { CharacterProfile } from '../types';
 
 /**
- * 日程 / 情绪 buff 总开关判定。
- * - 显式为 true / false 时直接使用。
- * - undefined 时走向后兼容：老用户若已选了 scheduleStyle，视为开启；否则默认关闭。
- * 任何副 API 调用、情绪评估、日程注入之前都应先过此闸门。
+ * 日程 / 情緒 buff 總開關判定。
+ * - 顯式為 true / false 時直接使用。
+ * - undefined 時走向後兼容：老用戶若已選了 scheduleStyle，視為開啟；否則默認關閉。
+ * 任何副 API 調用、情緒評估、日程注入之前都應先過此閘門。
  */
 export function isScheduleFeatureOn(
     char: Pick<CharacterProfile, 'scheduleFeatureEnabled' | 'scheduleStyle'> | null | undefined,
@@ -16,8 +16,8 @@ export function isScheduleFeatureOn(
 }
 
 /**
- * 时段 key 的实现住在 utils/scheduleInjection.ts —— 那是日程渲染的纯叶子，
- * 浏览器和 Cloudflare Worker（主动消息到点生成）共用同一份。这里转发一道，
- * 让「日程开关」这个入口继续能一次取到需要的两样。
+ * 時段 key 的實現住在 utils/scheduleInjection.ts —— 那是日程渲染的純葉子，
+ * 瀏覽器和 Cloudflare Worker（主動消息到點生成）共用同一份。這裡轉發一道，
+ * 讓「日程開關」這個入口繼續能一次取到需要的兩樣。
  */
 export { getFlowNarrativeKey } from './scheduleInjection';

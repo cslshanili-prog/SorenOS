@@ -11,9 +11,9 @@ interface CompanionStageLoadingCurtainProps {
 }
 
 const STATUS_STEPS = [
-  '校准舞台比例',
-  '同步角色姿态',
-  '固定角色构图',
+  '校準舞台比例',
+  '同步角色姿態',
+  '固定角色構圖',
 ];
 
 const CompanionStageLoadingCurtain: React.FC<CompanionStageLoadingCurtainProps> = ({
@@ -52,7 +52,7 @@ const CompanionStageLoadingCurtain: React.FC<CompanionStageLoadingCurtainProps> 
       }}
       role="status"
       aria-live="polite"
-      aria-label={`${characterName}舞台正在准备`}
+      aria-label={`${characterName}舞台正在準備`}
       data-testid="companion-stage-loading-curtain"
       data-phase={phase}
     >

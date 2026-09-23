@@ -77,36 +77,36 @@ const formatAvatarTouchModelAction = (action: AvatarTouchModelAction): string =>
 };
 
 const ZONE_LABELS: Record<AvatarTouchZone, string> = {
-  head: '头顶或头发',
-  face: '脸颊或脸部',
+  head: '頭頂或頭髮',
+  face: '臉頰或臉部',
   hand: '手或手臂',
-  body: '肩膀或身体',
-  other: '角色身边',
+  body: '肩膀或身體',
+  other: '角色身邊',
 };
 
 export const avatarTouchZoneLabel = (zone: AvatarTouchZone): string => ZONE_LABELS[zone];
 
 const TOAST_ZONE_LABELS: Record<AvatarTouchZone, string> = {
-  head: '头发',
-  face: '脸颊',
+  head: '頭髮',
+  face: '臉頰',
   hand: '手',
   body: '肩膀',
-  other: '身边',
+  other: '身邊',
 };
 
 export const avatarTouchZoneToastLabel = (zone: AvatarTouchZone): string => TOAST_ZONE_LABELS[zone];
 
 const TOUCH_PART_LABELS: Record<AvatarTouchPart, string> = {
-  hair: '头发',
-  head: '头顶',
-  face: '脸',
+  hair: '頭髮',
+  head: '頭頂',
+  face: '臉',
   shoulder: '肩膀',
   arm: '手臂',
   hand: '手',
   chest: '胸口',
   waist: '腰部',
-  body: '身体',
-  other: '身边',
+  body: '身體',
+  other: '身邊',
 };
 
 export const avatarTouchPartLabel = (part: AvatarTouchPart): string => TOUCH_PART_LABELS[part];
@@ -173,9 +173,9 @@ export const buildPendingAvatarTouchContext = (
     .map(([label, count]) => `${label}${count}次`)
     .join('、');
   const action = records.length === 1
-    ? `${userName}在开口前戳了戳${characterName}的${avatarTouchTargetLabel(records[0])}`
-    : `${userName}在开口前连续戳了${characterName}${records.length}次（${details}）`;
-  return `[本轮尚未回应的触碰互动]\n${action}。这些动作已经在本地发生过，但你还没有用语言回应。请在回答用户本轮话语时自然地顺带接住它们，不要逐条播报、不要解释系统，也不要把触碰当成一条单独的新消息。`;
+    ? `${userName}在開口前戳了戳${characterName}的${avatarTouchTargetLabel(records[0])}`
+    : `${userName}在開口前連續戳了${characterName}${records.length}次（${details}）`;
+  return `[本輪尚未回應的觸碰互動]\n${action}。這些動作已經在本地發生過，但你還沒有用語言回應。請在回答用戶本輪話語時自然地順帶接住它們，不要逐條播報、不要解釋系統，也不要把觸碰當成一條單獨的新消息。`;
 };
 
 export const isAvatarTouchGesture = (
@@ -285,19 +285,19 @@ export const resolveAvatarTouchTarget = (
   fallbackX?: number,
 ): { zone: AvatarTouchZone; part: AvatarTouchPart } => {
   const value = rawAreas.join(' ').toLowerCase();
-  const precisePart = /(face|cheek|mouth|eye|nose|lip|脸|面|頬|顏|眼|嘴|鼻)/i.test(value) ? 'face'
-    : /(hair|bang|fringe|ahoge|髪|发|髮|刘海|瀏海)/i.test(value) ? 'hair'
+  const precisePart = /(face|cheek|mouth|eye|nose|lip|[脸臉]|面|頬|顏|眼|嘴|鼻)/i.test(value) ? 'face'
+    : /(hair|bang|fringe|ahoge|髪|[发發]|髮|[刘劉]海|瀏海)/i.test(value) ? 'hair'
       : /(hand|finger|palm|wrist|手|指|掌|腕)/i.test(value) ? 'hand'
         : /(forearm|upperarm|lowerarm|arm|sleeve|elbow|手臂|胳膊|臂|袖|肘)/i.test(value) ? 'arm'
-          : /(shoulder|clavicle|肩|锁骨|鎖骨)/i.test(value) ? 'shoulder'
+          : /(shoulder|clavicle|肩|[锁鎖]骨|鎖骨)/i.test(value) ? 'shoulder'
             : /(chest|bust|breast|胸)/i.test(value) ? 'chest'
               : /(waist|hip|pelvis|腰|胯|臀)/i.test(value) ? 'waist'
                 : null;
   if (precisePart) return { zone: zoneForTouchPart(precisePart), part: precisePart };
 
   const hasGeometry = Number.isFinite(fallbackY) && Number.isFinite(fallbackX);
-  const genericHead = /(head|hat|ear|头|頭|帽|耳)/i.test(value);
-  const genericBody = /(body|torso|身体|身體|躯干|軀幹)/i.test(value);
+  const genericHead = /(head|hat|ear|[头頭]|頭|帽|耳)/i.test(value);
+  const genericBody = /(body|torso|身[体體]|身體|[躯軀][干幹]|軀幹)/i.test(value);
   if (hasGeometry) {
     const part = geometricTouchPart(fallbackY!, fallbackX!);
     return { zone: zoneForTouchPart(part), part };
@@ -365,30 +365,30 @@ export const buildAvatarTouchSystemPrompt = (
 ): string => {
   const actionList = modelActions.length
     ? modelActions.slice(0, 60).map(formatAvatarTouchModelAction).join('\n')
-    : '（当前没有模型专属动作）';
+    : '（當前沒有模型專屬動作）';
   return `${coreContext}
 
-### 桌面 Live2D 动作优先级
-- 表情只是叠加层，不是完整演出；必须同时给出肉眼可见的手势或身体反应。
-- 白名单中存在语义匹配的 [motion] 时优先选用；不能拿一个表情动作代替匹配的身体动作。
-- 物理触碰反馈的 intensity 通常应在 0.68-1.0；只有角色刻意压住反应时才使用更低数值。
-- 让头部 XYZ 与身体 XYZ 都参与：触碰值得回应时，应从 nod/shake/tilt/explain/wave/shy/lean-in/lean-back 中选，不要只给 idle/talk。
+### 桌面 Live2D 動作優先級
+- 表情只是疊加層，不是完整演出；必須同時給出肉眼可見的手勢或身體反應。
+- 白名單中存在語義匹配的 [motion] 時優先選用；不能拿一個表情動作代替匹配的身體動作。
+- 物理觸碰反饋的 intensity 通常應在 0.68-1.0；只有角色刻意壓住反應時才使用更低數值。
+- 讓頭部 XYZ 與身體 XYZ 都參與：觸碰值得回應時，應從 nod/shake/tilt/explain/wave/shy/lean-in/lean-back 中選，不要只給 idle/talk。
 
-### 当前面对面的触碰互动
-${userName}刚刚轻轻触碰了${characterName}的「${avatarTouchTargetLabel(hit)}」。
-模型命中区原名：${hit.rawAreas.length ? hit.rawAreas.join('、') : '自动识别区域'}。
+### 當前面對面的觸碰互動
+${userName}剛剛輕輕觸碰了${characterName}的「${avatarTouchTargetLabel(hit)}」。
+模型命中區原名：${hit.rawAreas.length ? hit.rawAreas.join('、') : '自動識別區域'}。
 
-这是一次真实、低频的面对面互动。请直接以${characterName}本人回应：
-- 必须结合完整人设、你们的关系、近期对话与记忆，不要写成通用触摸玩偶台词。
-- 可以喜欢、害羞、意外、躲开、拒绝或生气；边界与亲密程度必须符合角色本人。
-- 只说自然的一至三句短台词，不要解释系统、模型、命中区或提示词。
-- 台词前先输出一条隐藏演出指令，格式：
+這是一次真實、低頻的面對面互動。請直接以${characterName}本人回應：
+- 必須結合完整人設、你們的關係、近期對話與記憶，不要寫成通用觸摸玩偶台詞。
+- 可以喜歡、害羞、意外、躲開、拒絕或生氣；邊界與親密程度必須符合角色本人。
+- 只說自然的一至三句短台詞，不要解釋系統、模型、命中區或提示詞。
+- 台詞前先輸出一條隱藏演出指令，格式：
   [[AVATAR: emotion=happy; gesture=tilt; gaze=viewer; intensity=0.7]]
 - emotion 可用 neutral/happy/sad/angry/fearful/disgusted/surprised/calm/relaxed。
 - gesture 可用 idle/talk/nod/shake/tilt/explain/wave/shy/lean-in/lean-back。
-- 可按需附加 face=wink,blush 或 model_action=下列白名单ID；不合适就省略，禁止编造。
+- 可按需附加 face=wink,blush 或 model_action=下列白名單ID；不合適就省略，禁止編造。
 
-模型专属动作白名单：
+模型專屬動作白名單：
 ${actionList}`;
 };
 
@@ -440,7 +440,7 @@ export const requestAvatarTouchReply = async (options: {
     modelActions = [],
   } = options;
   const baseUrl = apiConfig.baseUrl?.replace(/\/+$/, '');
-  if (!baseUrl) throw new Error('请先在设置中配置主聊天 API');
+  if (!baseUrl) throw new Error('請先在設置中配置主聊天 API');
 
   const [allMessages, emojis] = await Promise.all([
     loadCharacterContextMessages(character),
@@ -448,7 +448,7 @@ export const requestAvatarTouchReply = async (options: {
   ]);
   const recentMessages = allMessages
     .filter(message => message.role === 'user' || message.role === 'assistant');
-  const eventText = `[面对面触碰互动] ${user.name || '用户'}轻轻触碰了你的${avatarTouchTargetLabel(hit)}。`;
+  const eventText = `[面對面觸碰互動] ${user.name || '用戶'}輕輕觸碰了你的${avatarTouchTargetLabel(hit)}。`;
 
   await injectMemoryPalace(
     character,
@@ -481,7 +481,7 @@ export const requestAvatarTouchReply = async (options: {
   const systemPrompt = buildAvatarTouchSystemPrompt(
     coreContext,
     character.name,
-    user.name || '用户',
+    user.name || '用戶',
     hit,
     modelActions,
   );
@@ -503,14 +503,14 @@ export const requestAvatarTouchReply = async (options: {
       stream: false,
     }),
   }, 1, 45_000, {
-    appName: '触感陪伴',
+    appName: '觸感陪伴',
     charId: character.id,
     charName: character.name,
-    purpose: '角色触碰回应',
+    purpose: '角色觸碰回應',
   });
   const reply = parseAvatarTouchReply(data?.choices?.[0]?.message, modelActions)
     || parseAvatarTouchReply({ content: extractContent(data) }, modelActions);
-  if (!reply) throw new Error('主模型没有返回可显示的触碰回应');
+  if (!reply) throw new Error('主模型沒有返回可顯示的觸碰回應');
   return reply;
 };
 
@@ -526,15 +526,15 @@ export const buildAvatarTouchReactionPackPrompt = (
 ): string => {
   const actionList = modelActions.length
     ? modelActions.slice(0, 60).map(formatAvatarTouchModelAction).join('\n')
-    : '（当前没有模型专属动作）';
+    : '（當前沒有模型專屬動作）';
   const zoneList = zones.map(zone => `- ${zone}: ${avatarTouchZoneLabel(zone)}`).join('\n');
-  const spokenLanguage = voiceLanguage ? voiceLanguagePromptLabel(voiceLanguage) : '简体中文（与原文一致）';
+  const spokenLanguage = voiceLanguage ? voiceLanguagePromptLabel(voiceLanguage) : '簡體中文（與原文一致）';
   const schema = Object.fromEntries(zones.map(zone => [
     zone,
     Array.from({ length: reactionsPerZone }, (_, index) => {
       const base = {
-        text: `第${index + 1}句角色台词`,
-        translation: voiceLanguage ? `第${index + 1}句${spokenLanguage}口语译文` : `第${index + 1}句角色台词`,
+        text: `第${index + 1}句角色台詞`,
+        translation: voiceLanguage ? `第${index + 1}句${spokenLanguage}口語譯文` : `第${index + 1}句角色台詞`,
       };
       if (outputMode === 'text') return base;
       if (outputMode === 'expression') return {
@@ -551,53 +551,53 @@ export const buildAvatarTouchReactionPackPrompt = (
     }),
   ]));
   const performanceRules = outputMode === 'text'
-    ? `### 静态单图输出规则
-- 当前形象只有一张 PNG / GIF，不存在可调用的动作或表情资源。
-- 你只需要写角色台词。不要输出 performance、动作指令、表情标签、镜头、视线或模型动作。`
+    ? `### 靜態單圖輸出規則
+- 當前形象只有一張 PNG / GIF，不存在可調用的動作或表情資源。
+- 你只需要寫角色台詞。不要輸出 performance、動作指令、表情標籤、鏡頭、視線或模型動作。`
     : outputMode === 'expression'
-      ? `### 见面立绘表情规则
-- 当前使用见面模式立绘，只需要为每句选择 emotion，不需要生成手势、身体动作、镜头、视线或模型动作。
-- emotion 只使用 normal / happy / angry / sad / shy；它会直接切换当前衣服对应的表情立绘。`
-      : `### 桌面 Live2D 动作优先级
-- 每条缓存反馈都必须包含肉眼可见的手势或身体拍点；只有 faces 变化视为不完整。
-- 白名单动作带有 [motion] / [expression] / [params] 能力标记；语义匹配时优先使用 [motion]，表情与参数只能作为叠加层。
-- 大多数反馈的 intensity 使用 0.68-1.0，让精细的头部/身体 XYZ 绑定真正动起来；只有刻意克制的角色时刻才保持轻微。
-- 同一部位的多条反馈要改变身体轮廓（转、歪、靠近、后缩、解释或挥手），不要生成四条仅表情不同的变体。`;
+      ? `### 見面立繪表情規則
+- 當前使用見面模式立繪，只需要為每句選擇 emotion，不需要生成手勢、身體動作、鏡頭、視線或模型動作。
+- emotion 只使用 normal / happy / angry / sad / shy；它會直接切換當前衣服對應的表情立繪。`
+      : `### 桌面 Live2D 動作優先級
+- 每條緩存反饋都必須包含肉眼可見的手勢或身體拍點；只有 faces 變化視為不完整。
+- 白名單動作帶有 [motion] / [expression] / [params] 能力標記；語義匹配時優先使用 [motion]，表情與參數只能作為疊加層。
+- 大多數反饋的 intensity 使用 0.68-1.0，讓精細的頭部/身體 XYZ 綁定真正動起來；只有刻意克制的角色時刻才保持輕微。
+- 同一部位的多條反饋要改變身體輪廓（轉、歪、靠近、後縮、解釋或揮手），不要生成四條僅表情不同的變體。`;
   const itemRule = outputMode === 'text'
-    ? '- 每一项必须只有 {"text":"中文原文","translation":"语音译文"}。'
+    ? '- 每一項必須只有 {"text":"中文原文","translation":"語音譯文"}。'
     : outputMode === 'expression'
-      ? '- 每一项必须是 {"text":"中文原文","translation":"语音译文","performance":{"emotion":"五类表情之一"}}。'
-      : '- 每一项必须是 {"text":"中文原文","translation":"语音译文","performance":{...}}；演出数据不要混进台词字段。\n- performance 必须给出 emotion、gesture、camera、gaze、intensity；可按需附加 faces 或 modelAction 白名单 ID，禁止编造模型动作。';
+      ? '- 每一項必須是 {"text":"中文原文","translation":"語音譯文","performance":{"emotion":"五類表情之一"}}。'
+      : '- 每一項必須是 {"text":"中文原文","translation":"語音譯文","performance":{...}}；演出數據不要混進台詞字段。\n- performance 必須給出 emotion、gesture、camera、gaze、intensity；可按需附加 faces 或 modelAction 白名單 ID，禁止編造模型動作。';
   return `${coreContext}
 
 ${performanceRules}
 
-### 触感陪伴桌面 · 一次性反馈包
-${userName}正在为${characterName}设置可触摸部位。请一次生成完整反馈包；保存后，桌面只会在本地轮播这些结果，不会每次触摸都再次请求你。
+### 觸感陪伴桌面 · 一次性反饋包
+${userName}正在為${characterName}設置可觸摸部位。請一次生成完整反饋包；保存後，桌面只會在本地輪播這些結果，不會每次觸摸都再次請求你。
 
 需要生成的部位：
 ${zoneList}
 
   要求：
-  - 每个部位恰好生成 ${reactionsPerZone} 条彼此有区别、可独立成立的一至三句短台词。
-  - text 是界面显示的原文，必须使用简体中文；translation 是真正送入语音合成的${spokenLanguage}版本。两者必须语义一致，但字段不可合并或省略。
-- 必须结合完整人设、你们的关系、近期对话与记忆；允许喜欢、害羞、意外、躲开、拒绝或生气，边界必须符合角色本人。
-- 台词只能包含角色真正说出口的话。不要写动作旁白、引号、角色名前缀、Markdown、命中区、系统解释或半截续句。
+  - 每個部位恰好生成 ${reactionsPerZone} 條彼此有區別、可獨立成立的一至三句短台詞。
+  - text 是界面顯示的原文，必須使用簡體中文；translation 是真正送入語音合成的${spokenLanguage}版本。兩者必須語義一致，但字段不可合併或省略。
+- 必須結合完整人設、你們的關係、近期對話與記憶；允許喜歡、害羞、意外、躲開、拒絕或生氣，邊界必須符合角色本人。
+- 台詞只能包含角色真正說出口的話。不要寫動作旁白、引號、角色名前綴、Markdown、命中區、系統解釋或半截續句。
 ${itemRule}
-- 只输出一个合法 JSON 对象，不要代码围栏，不要 JSON 以外的文字。顶层键必须逐字使用上面的英文部位 ID，不要翻译或合并部位。
+- 只輸出一個合法 JSON 對象，不要代碼圍欄，不要 JSON 以外的文字。頂層鍵必須逐字使用上面的英文部位 ID，不要翻譯或合併部位。
 
-${outputMode === 'full' ? `模型专属动作白名单：\n${actionList}` : ''}
+${outputMode === 'full' ? `模型專屬動作白名單：\n${actionList}` : ''}
 
-严格按照这个结构输出：
+嚴格按照這個結構輸出：
 ${JSON.stringify(schema, null, 2)}`;
 };
 
 const TOUCH_ZONE_ALIASES: Record<AvatarTouchZone, string[]> = {
-  head: ['head', 'heads', 'hair', 'top', '头', '头部', '头顶', '头发', '头顶或头发'],
-  face: ['face', 'faces', 'cheek', 'mouth', '脸', '脸颊', '面部', '脸颊或脸部'],
+  head: ['head', 'heads', 'hair', 'top', '頭', '頭部', '頭頂', '頭髮', '頭頂或頭髮'],
+  face: ['face', 'faces', 'cheek', 'mouth', '臉', '臉頰', '面部', '臉頰或臉部'],
   hand: ['hand', 'hands', 'arm', 'arms', 'wrist', '手', '手臂', '胳膊', '手或手臂'],
-  body: ['body', 'bodies', 'chest', 'torso', 'shoulder', 'shoulders', 'waist', '身体', '肩膀', '胸口', '腰', '肩膀或身体'],
-  other: ['other', 'around', 'nearby', 'surroundings', 'else', '其他', '身边', '角色身边'],
+  body: ['body', 'bodies', 'chest', 'torso', 'shoulder', 'shoulders', 'waist', '身體', '肩膀', '胸口', '腰', '肩膀或身體'],
+  other: ['other', 'around', 'nearby', 'surroundings', 'else', '其他', '身邊', '角色身邊'],
 };
 
 const normalizePackKey = (value: string): string => value
@@ -845,9 +845,9 @@ export const requestAvatarTouchReactionPack = async (options: {
     outputMode = 'full',
   } = options;
   const selectedZones = [...new Set(zones)].filter(zone => AVATAR_TOUCH_ZONES.includes(zone));
-  if (!selectedZones.length) throw new Error('请至少选择一个可触摸部位');
+  if (!selectedZones.length) throw new Error('請至少選擇一個可觸摸部位');
   const baseUrl = apiConfig.baseUrl?.replace(/\/+$/, '');
-  if (!baseUrl) throw new Error('请先在设置中配置主聊天 API');
+  if (!baseUrl) throw new Error('請先在設置中配置主聊天 API');
 
   const [allMessages, emojis] = await Promise.all([
     loadCharacterContextMessages(character),
@@ -855,7 +855,7 @@ export const requestAvatarTouchReactionPack = async (options: {
   ]);
   const recentMessages = allMessages
     .filter(message => message.role === 'user' || message.role === 'assistant');
-  const eventText = `[桌面触摸设置] ${user.name || '用户'}选择了一次性生成${selectedZones.map(avatarTouchZoneLabel).join('、')}的反馈包。`;
+  const eventText = `[桌面觸摸設置] ${user.name || '用戶'}選擇了一次性生成${selectedZones.map(avatarTouchZoneLabel).join('、')}的反饋包。`;
   const lastInteractionTs = recentMessages[recentMessages.length - 1]?.timestamp;
   const coreContext = ContextBuilder.buildCoreContext(
     character,
@@ -882,7 +882,7 @@ export const requestAvatarTouchReactionPack = async (options: {
   const systemPrompt = buildAvatarTouchReactionPackPrompt(
     coreContext,
     character.name,
-    user.name || '用户',
+    user.name || '用戶',
     selectedZones,
     modelActions,
     boundedReactionCount,
@@ -913,10 +913,10 @@ export const requestAvatarTouchReactionPack = async (options: {
   // but align its timeout policy with normal chat instead of killing valid
   // long generations before the optional TTS phase has even started.
   }, 0, 0, {
-    appName: '触感陪伴',
+    appName: '觸感陪伴',
     charId: character.id,
     charName: character.name,
-    purpose: '一次性生成桌面触摸反馈包（不重试）',
+    purpose: '一次性生成桌面觸摸反饋包（不重試）',
   });
   const pack = parseAvatarTouchReactionPackPartial(data, selectedZones, modelActions, voiceLanguage);
   const incompleteZones = selectedZones.filter(zone => (pack[zone]?.length || 0) < boundedReactionCount);
@@ -924,7 +924,7 @@ export const requestAvatarTouchReactionPack = async (options: {
     const details = incompleteZones
       .map(zone => `${avatarTouchZoneLabel(zone)} ${(pack[zone]?.length || 0)}/${boundedReactionCount}`)
       .join('、');
-    throw new Error(`模型回复不完整：${details}。本次未保存，只请求了这一次`);
+    throw new Error(`模型回覆不完整：${details}。本次未保存，只請求了這一次`);
   }
   selectedZones.forEach(zone => { pack[zone] = pack[zone]!.slice(0, boundedReactionCount); });
   return pack;

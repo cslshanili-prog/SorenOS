@@ -6,14 +6,14 @@ import {
     type RealtimeConfig,
 } from './realtimeContext';
 
-// 天气双源策略：有 OWM key 走 OWM，失败 / 没 key 回落免费的 Open-Meteo。
-// Open-Meteo 路径 = geocoding（中文城市名 → 坐标）+ forecast（WMO code → 中文描述）。
+// 天氣雙源策略：有 OWM key 走 OWM，失敗 / 沒 key 回落免費的 Open-Meteo。
+// Open-Meteo 路徑 = geocoding（中文城市名 → 座標）+ forecast（WMO code → 中文描述）。
 
 function jsonResponse(body: any, ok = true, status = 200) {
     return {
         ok,
         status,
-        // safeResponseJson 会读 content-type 判断响应体是不是 JSON，缺了会直接抛
+        // safeResponseJson 會讀 content-type 判斷響應體是不是 JSON，缺了會直接拋
         headers: new Headers({ 'content-type': 'application/json' }),
         text: async () => JSON.stringify(body),
     } as any;
@@ -34,7 +34,7 @@ const METEO_CURRENT = {
 
 const OWM_RESPONSE = {
     main: { temp: 20.6, feels_like: 19.2, humidity: 60 },
-    weather: [{ description: '多云', icon: '03d' }],
+    weather: [{ description: '多雲', icon: '03d' }],
     name: 'Beijing',
 };
 
@@ -66,37 +66,37 @@ describe('fetchOpenMeteoWeather', () => {
         expect(forecastUrl).toContain('latitude=39.9042');
     });
 
-    it('同城市第二次调用命中 geocoding 缓存，只打 forecast', async () => {
+    it('同城市第二次調用命中 geocoding 緩存，只打 forecast', async () => {
         global.fetch = vi.fn()
             .mockResolvedValueOnce(jsonResponse(GEO_BEIJING))
             .mockResolvedValue(jsonResponse(METEO_CURRENT));
 
-        await fetchOpenMeteoWeather('缓存城');
-        await fetchOpenMeteoWeather('缓存城');
+        await fetchOpenMeteoWeather('緩存城');
+        await fetchOpenMeteoWeather('緩存城');
 
         const geoCalls = vi.mocked(fetch).mock.calls
             .filter(c => (c[0] as string).includes('geocoding-api'));
         expect(geoCalls.length).toBe(1);
     });
 
-    it('城市找不到时抛错', async () => {
+    it('城市找不到時拋錯', async () => {
         global.fetch = vi.fn().mockResolvedValue(jsonResponse({ results: [] }));
         await expect(fetchOpenMeteoWeather('不存在的地方')).rejects.toThrow('找不到城市');
     });
 
-    it('未知 WMO code 描述兜底为「未知」', async () => {
+    it('未知 WMO code 描述兜底為「未知」', async () => {
         global.fetch = vi.fn()
             .mockResolvedValueOnce(jsonResponse(GEO_BEIJING))
             .mockResolvedValueOnce(jsonResponse({
                 current: { ...METEO_CURRENT.current, weather_code: 42 },
             }));
-        const weather = await fetchOpenMeteoWeather('未知码城');
+        const weather = await fetchOpenMeteoWeather('未知碼城');
         expect(weather.description).toBe('未知');
     });
 });
 
-describe('RealtimeContextManager.fetchWeather 双源策略', () => {
-    it('没填 key 时直接走 Open-Meteo', async () => {
+describe('RealtimeContextManager.fetchWeather 雙源策略', () => {
+    it('沒填 key 時直接走 Open-Meteo', async () => {
         global.fetch = vi.fn()
             .mockResolvedValueOnce(jsonResponse(GEO_BEIJING))
             .mockResolvedValueOnce(jsonResponse(METEO_CURRENT));
@@ -109,7 +109,7 @@ describe('RealtimeContextManager.fetchWeather 双源策略', () => {
         expect(urls.some(u => u.includes('openweathermap'))).toBe(false);
     });
 
-    it('填了 key 优先走 OWM', async () => {
+    it('填了 key 優先走 OWM', async () => {
         global.fetch = vi.fn().mockResolvedValueOnce(jsonResponse(OWM_RESPONSE));
 
         const weather = await RealtimeContextManager.fetchWeather(
@@ -117,14 +117,14 @@ describe('RealtimeContextManager.fetchWeather 双源策略', () => {
 
         expect(weather).toEqual({
             temp: 21, feelsLike: 19, humidity: 60,
-            description: '多云', icon: '03d', city: 'Beijing',
+            description: '多雲', icon: '03d', city: 'Beijing',
         });
         expect(vi.mocked(fetch).mock.calls[0][0]).toContain('openweathermap');
     });
 
-    it('OWM 挂了自动回落 Open-Meteo（不再直接返回 null）', async () => {
+    it('OWM 掛了自動回落 Open-Meteo（不再直接返回 null）', async () => {
         global.fetch = vi.fn()
-            .mockResolvedValueOnce(jsonResponse({}, false, 503)) // OWM 不稳定
+            .mockResolvedValueOnce(jsonResponse({}, false, 503)) // OWM 不穩定
             .mockResolvedValueOnce(jsonResponse(GEO_BEIJING))
             .mockResolvedValueOnce(jsonResponse(METEO_CURRENT));
 
@@ -135,7 +135,7 @@ describe('RealtimeContextManager.fetchWeather 双源策略', () => {
         expect(weather?.city).toBe('北京市');
     });
 
-    it('weatherEnabled=false 或城市为空时返回 null 且不发请求', async () => {
+    it('weatherEnabled=false 或城市為空時返回 null 且不發請求', async () => {
         global.fetch = vi.fn();
         expect(await RealtimeContextManager.fetchWeather(
             makeConfig({ weatherEnabled: false }))).toBeNull();
@@ -144,7 +144,7 @@ describe('RealtimeContextManager.fetchWeather 双源策略', () => {
         expect(fetch).not.toHaveBeenCalled();
     });
 
-    it('两个源都挂时返回 null 不抛错', async () => {
+    it('兩個源都掛時返回 null 不拋錯', async () => {
         global.fetch = vi.fn().mockResolvedValue(jsonResponse({}, false, 500));
         const weather = await RealtimeContextManager.fetchWeather(
             makeConfig({ weatherApiKey: '', weatherCity: '北京' }));

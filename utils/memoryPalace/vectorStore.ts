@@ -1,9 +1,9 @@
 /**
- * Memory Palace — 向量化 + 存储 + 去重
+ * Memory Palace — 向量化 + 存儲 + 去重
  *
- * 将提取出的 MemoryNode 批量向量化，
- * 与已有向量做去重（余弦 > 0.9 跳过），
- * 然后存入 memory_nodes 和 memory_vectors。
+ * 將提取出的 MemoryNode 批量向量化，
+ * 與已有向量做去重（餘弦 > 0.9 跳過），
+ * 然後存入 memory_nodes 和 memory_vectors。
  */
 
 import type { EmbeddingConfig, MemoryNode, MemoryVector, RemoteVectorConfig } from './types';
@@ -14,17 +14,17 @@ import { upsertVector as remoteUpsert } from './supabaseVector';
 const DEDUP_THRESHOLD = 0.9;
 
 /**
- * 向量化并存储记忆节点
+ * 向量化並存儲記憶節點
  *
  * 流程：
  * 1. 批量向量化 nodes 的 content
- * 2. 与已有向量做去重（cosine > 0.9 的跳过）
+ * 2. 與已有向量做去重（cosine > 0.9 的跳過）
  * 3. 保存 MemoryNode (embedded=true) + MemoryVector
  *
- * skipDedup 保留给那些"入口就保证不会重"的路径用（比如 EventBox 压缩后写回
- * summary 节点 —— summary 是 LLM 新合成的唯一结果，不会和已有记忆撞）。
- * 迁移路径**不要**传 skipDedup —— 语义去重能挡掉 sub-batch 之间对同一件事的
- * 重复提取（比如"7-12 号某天回忆起 3 号那件事"）。
+ * skipDedup 保留給那些"入口就保證不會重"的路徑用（比如 EventBox 壓縮後寫回
+ * summary 節點 —— summary 是 LLM 新合成的唯一結果，不會和已有記憶撞）。
+ * 遷移路徑**不要**傳 skipDedup —— 語義去重能擋掉 sub-batch 之間對同一件事的
+ * 重複提取（比如"7-12 號某天回憶起 3 號那件事"）。
  */
 export async function vectorizeAndStore(
     nodes: MemoryNode[],
@@ -38,10 +38,10 @@ export async function vectorizeAndStore(
     const texts = nodes.map(n => n.content);
     const vectors = await getEmbeddings(texts, embeddingConfig);
     if (vectors.length !== nodes.length || vectors.some(vector => !vector.length || !Array.from(vector).every(Number.isFinite))) {
-        throw new Error('Embedding 返回的向量不完整或无效，本次没有写入记忆');
+        throw new Error('Embedding 返回的向量不完整或無效，本次沒有寫入記憶');
     }
 
-    // 2. 加载已有向量用于去重（EventBox summary / 迁移等场景跳过）
+    // 2. 加載已有向量用於去重（EventBox summary / 遷移等場景跳過）
     const charId = nodes[0].charId;
     const existingVectors = options.skipDedup ? [] : await MemoryVectorDB.getAllByCharId(charId);
 
@@ -53,8 +53,8 @@ export async function vectorizeAndStore(
         const node = nodes[i];
         const vector = vectors[i];
 
-        // 去重检查 — ensureFloat32 兼容三种存储形态（number[] / Float32Array
-        // / Uint8Array），同时保护 cosineSimilarity 不被 Uint8Array 误读字节当数。
+        // 去重檢查 — ensureFloat32 兼容三種存儲形態（number[] / Float32Array
+        // / Uint8Array），同時保護 cosineSimilarity 不被 Uint8Array 誤讀字節當數。
         const queryF32 = ensureFloat32(vector);
         const isDuplicate = !options.skipDedup && existingVectors.some(
             ev => cosineSimilarity(queryF32, ensureFloat32(ev.vector)) > DEDUP_THRESHOLD
@@ -76,7 +76,7 @@ export async function vectorizeAndStore(
         };
         entries.push({ node: { ...node, embedded: true }, vector: memoryVector });
 
-        // 将新向量也加入已有列表，后续去重时可以检测同批次内的重复
+        // 將新向量也加入已有列表，後續去重時可以檢測同批次內的重複
         existingVectors.push(memoryVector);
 
         stored++;
@@ -98,15 +98,15 @@ export async function vectorizeAndStore(
 
 export interface UpdateStoredMemoryNodeResult {
     node: MemoryNode;
-    /** 只有正文发生变化时才会为 true。 */
+    /** 只有正文發生變化時才會為 true。 */
     reembedded: boolean;
 }
 
 /**
- * 统一的记忆节点编辑保存入口。
+ * 統一的記憶節點編輯保存入口。
  *
- * - 正文未变化：只保存 room/tags/importance/mood 等 metadata，不调用 Embedding API。
- * - 正文发生变化：沿用原 memoryId 重新生成并覆盖向量，避免“新文字 + 旧向量”。
+ * - 正文未變化：只保存 room/tags/importance/mood 等 metadata，不調用 Embedding API。
+ * - 正文發生變化：沿用原 memoryId 重新生成並覆蓋向量，避免“新文字 + 舊向量”。
  */
 export async function updateStoredMemoryNode(
     nodeId: string,
@@ -115,10 +115,10 @@ export async function updateStoredMemoryNode(
     remoteVectorConfig?: RemoteVectorConfig,
 ): Promise<UpdateStoredMemoryNodeResult> {
     const existing = await MemoryNodeDB.getById(nodeId);
-    if (!existing) throw new Error('这条记忆已经不存在了');
+    if (!existing) throw new Error('這條記憶已經不存在了');
 
     const updated: MemoryNode = { ...existing, ...updates, id: existing.id, charId: existing.charId };
-    if (!updated.content.trim()) throw new Error('记忆内容不能为空');
+    if (!updated.content.trim()) throw new Error('記憶內容不能為空');
     const contentChanged = updated.content !== existing.content;
 
     if (!contentChanged) {
@@ -127,7 +127,7 @@ export async function updateStoredMemoryNode(
     }
 
     if (!embeddingConfig?.baseUrl || !embeddingConfig.apiKey || !embeddingConfig.model) {
-        throw new Error('请先配置 Embedding API，修改正文后需要同步更新向量');
+        throw new Error('請先配置 Embedding API，修改正文後需要同步更新向量');
     }
 
     updated.embedded = false;
@@ -141,29 +141,29 @@ export async function updateStoredMemoryNode(
 }
 
 /**
- * 归一化模型名，用于「是否同一个底层模型」的比对。
+ * 歸一化模型名，用於「是否同一個底層模型」的比對。
  *
- * 去掉计费档位前缀 `Pro/`（硅基流动的付费独占算力档，底层权重与免费版
- * 完全相同：`Pro/BAAI/bge-m3` 与 `BAAI/bge-m3` 是同一个 bge-m3）。
+ * 去掉計費檔位前綴 `Pro/`（硅基流動的付費獨佔算力檔，底層權重與免費版
+ * 完全相同：`Pro/BAAI/bge-m3` 與 `BAAI/bge-m3` 是同一個 bge-m3）。
  *
- * 这样硅基 `Pro/BAAI/bge-m3` → 火山 `BAAI/bge-m3` 这类「同一开源模型、
- * 仅换服务商/档位」的切换不会触发无谓重建（向量空间一致）。
+ * 這樣硅基 `Pro/BAAI/bge-m3` → 火山 `BAAI/bge-m3` 這類「同一開源模型、
+ * 僅換服務商/檔位」的切換不會觸發無謂重建（向量空間一致）。
  */
 function normalizeModelName(model: string): string {
     return model
-        .replace(/^Pro\//i, '')   // 硅基付费档前缀
+        .replace(/^Pro\//i, '')   // 硅基付費檔前綴
         .trim()
         .toLowerCase();
 }
 
 /**
- * 检测当前 embedding 模型是否与已有向量的模型一致。
- * 如果不一致，说明用户换了模型，需要重新向量化。
+ * 檢測當前 embedding 模型是否與已有向量的模型一致。
+ * 如果不一致，說明用戶換了模型，需要重新向量化。
  *
- * 注意：只比对「模型本体」，`Pro/BAAI/bge-m3` 与 `BAAI/bge-m3` 视为同一个模型，
- * 跨服务商切换同一开源模型（如硅基 → 火山的 bge-m3）不会触发无谓重建。
+ * 注意：只比對「模型本體」，`Pro/BAAI/bge-m3` 與 `BAAI/bge-m3` 視為同一個模型，
+ * 跨服務商切換同一開源模型（如硅基 → 火山的 bge-m3）不會觸發無謂重建。
  *
- * @returns 'match' | 'mismatch' | 'empty' (无已有向量)
+ * @returns 'match' | 'mismatch' | 'empty' (無已有向量)
  */
 export async function checkModelConsistency(
     charId: string,
@@ -172,9 +172,9 @@ export async function checkModelConsistency(
     const existing = await MemoryVectorDB.getAllByCharId(charId);
     if (existing.length === 0) return 'empty';
 
-    // 取第一条有 model 字段的向量做比对（旧数据可能没有 model 字段）
+    // 取第一條有 model 字段的向量做比對（舊數據可能沒有 model 字段）
     const sample = existing.find(v => v.model);
-    if (!sample) return 'match'; // 旧数据无 model 字段，不触发重建，兼容过渡
+    if (!sample) return 'match'; // 舊數據無 model 字段，不觸發重建，兼容過渡
 
     return normalizeModelName(sample.model!) === normalizeModelName(currentModel)
         ? 'match'
@@ -182,8 +182,8 @@ export async function checkModelConsistency(
 }
 
 /**
- * 重新向量化：用新模型重新 embedding 所有已有记忆。
- * 保留 MemoryNode 不动，只替换 MemoryVector。
+ * 重新向量化：用新模型重新 embedding 所有已有記憶。
+ * 保留 MemoryNode 不動，只替換 MemoryVector。
  */
 export async function rebuildAllVectors(
     charId: string,
@@ -195,13 +195,13 @@ export async function rebuildAllVectors(
 
     if (embeddedNodes.length === 0) return { rebuilt: 0 };
 
-    console.log(`🔄 [VectorStore] 开始重建 ${embeddedNodes.length} 条向量（${embeddingConfig.model}）...`);
+    console.log(`🔄 [VectorStore] 開始重建 ${embeddedNodes.length} 條向量（${embeddingConfig.model}）...`);
 
     // 批量 embedding
     const texts = embeddedNodes.map(n => n.content);
     const vectors = await getEmbeddings(texts, embeddingConfig);
 
-    // 逐条替换
+    // 逐條替換
     for (let i = 0; i < embeddedNodes.length; i++) {
         const mv: MemoryVector = {
             memoryId: embeddedNodes[i].id,
@@ -212,12 +212,12 @@ export async function rebuildAllVectors(
         };
         await MemoryVectorDB.save(mv);
 
-        // 同步到远程
+        // 同步到遠程
         if (remoteVectorConfig?.enabled && remoteVectorConfig.initialized) {
             remoteUpsert(remoteVectorConfig, embeddedNodes[i].id, charId, vectors[i], embeddedNodes[i], embeddingConfig.dimensions, embeddingConfig.model).catch(() => {});
         }
     }
 
-    console.log(`✅ [VectorStore] 重建完成：${embeddedNodes.length} 条向量已更新为 ${embeddingConfig.model}`);
+    console.log(`✅ [VectorStore] 重建完成：${embeddedNodes.length} 條向量已更新為 ${embeddingConfig.model}`);
     return { rebuilt: embeddedNodes.length };
 }

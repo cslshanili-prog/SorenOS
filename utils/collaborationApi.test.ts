@@ -31,7 +31,7 @@ describe('collaboration API selection', () => {
       apiKey: chatApi.apiKey,
       model: chatApi.model,
       source: 'chat',
-      sourceName: '当前 ChatApp',
+      sourceName: '當前 ChatApp',
     });
     expect(hydrated.focused.model).toBe('chat-model');
   });

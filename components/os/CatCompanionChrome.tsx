@@ -28,15 +28,15 @@ const CatCompanionChrome: React.FC<CatCompanionChromeProps> = ({
   onHome,
 }) => {
   const quickActions = [
-    { id: AppID.Date, label: '见面', Icon: Icons.Date },
-    { id: 'wardrobe', label: '衣橱', Icon: TShirt, action: openWardrobe },
-    { id: AppID.Call, label: '通话', Icon: Icons.Call },
+    { id: AppID.Date, label: '見面', Icon: Icons.Date },
+    { id: 'wardrobe', label: '衣櫥', Icon: TShirt, action: openWardrobe },
+    { id: AppID.Call, label: '通話', Icon: Icons.Call },
   ];
   const dockActions = [
-    { key: 'home', label: '归巢', Icon: Icons.Room, action: onHome },
-    { key: AppID.Chat, label: '对话', Icon: Icons.Chat, action: () => openApp(AppID.Chat) },
-    { key: AppID.SpecialMoments, label: '时光', Icon: Icons.SpecialMoments, action: () => openApp(AppID.SpecialMoments) },
-    { key: AppID.Settings, label: '设置', Icon: Icons.Settings, action: () => openApp(AppID.Settings) },
+    { key: 'home', label: '歸巢', Icon: Icons.Room, action: onHome },
+    { key: AppID.Chat, label: '對話', Icon: Icons.Chat, action: () => openApp(AppID.Chat) },
+    { key: AppID.SpecialMoments, label: '時光', Icon: Icons.SpecialMoments, action: () => openApp(AppID.SpecialMoments) },
+    { key: AppID.Settings, label: '設置', Icon: Icons.Settings, action: () => openApp(AppID.Settings) },
   ];
 
   return (
@@ -53,8 +53,8 @@ const CatCompanionChrome: React.FC<CatCompanionChromeProps> = ({
       </header>
 
       <div className="cat-ear-tools pointer-events-auto" aria-label="舞台工具">
-        <button type="button" onClick={() => openApp(AppID.Appearance)}><Icons.Appearance /><span>外观</span></button>
-        <button type="button" onClick={openTouchSettings}><HandTap weight="bold" /><span>触摸</span></button>
+        <button type="button" onClick={() => openApp(AppID.Appearance)}><Icons.Appearance /><span>外觀</span></button>
+        <button type="button" onClick={openTouchSettings}><HandTap weight="bold" /><span>觸摸</span></button>
       </div>
 
       <aside className="cat-paw-rail pointer-events-auto" aria-label="夜巡快捷入口">
@@ -70,20 +70,20 @@ const CatCompanionChrome: React.FC<CatCompanionChromeProps> = ({
       <button type="button" className="cat-current-route pointer-events-auto" onClick={openCharacterSchedule} data-testid="companion-cat-current-trip">
         <span className="cat-route-paw" aria-hidden><PawPrint weight="fill" /></span>
         <span className="cat-route-copy">
-          <small>CURRENT ROUTE · 当前行程</small>
+          <small>CURRENT ROUTE · 當前行程</small>
           <strong>{currentScheduleSlot?.activity || '尚未安排行程'}</strong>
           <em>{currentScheduleSlot ? `${currentScheduleSlot.startTime}${currentScheduleSlot.location ? ` · ${currentScheduleSlot.location}` : ''}` : '查看今天的事件流'}</em>
         </span>
         <span className="cat-route-arrow" aria-hidden>›</span>
       </button>
 
-      <nav className="cat-paw-dock pointer-events-auto" aria-label="夜巡小猫导航">
+      <nav className="cat-paw-dock pointer-events-auto" aria-label="夜巡小貓導航">
         <div className="cat-dock-side cat-dock-side--left">
           {dockActions.slice(0, 2).map(({ key, label, Icon, action }) => (
             <button key={key} type="button" onClick={action}><Icon /><span>{label}</span></button>
           ))}
         </div>
-        <button type="button" className="cat-menu-paw" onClick={openAllApps} aria-label="打开全部功能">
+        <button type="button" className="cat-menu-paw" onClick={openAllApps} aria-label="打開全部功能">
           <span aria-hidden><PawPrint weight="fill" /></span>
           <strong>全部</strong>
         </button>

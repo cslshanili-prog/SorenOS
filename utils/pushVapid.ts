@@ -1,7 +1,7 @@
 /**
  * Shared VAPID credentials store.
  *
- * The 主动消息 2.0 one-click deploy reuses the key pair stored here (and
+ * The 主動消息 2.0 one-click deploy reuses the key pair stored here (and
  * writes the generated pair back), so redeploying keeps browser push
  * subscriptions valid. Proactive Push (utils/proactivePushConfig.ts) reads
  * the public key from here as well.
@@ -13,7 +13,7 @@
  * does not change the threat model.
  *
  * Default values are empty by design — there is no hardcoded fallback.
- * The user generates their own VAPID key pair via the 推送凭据 (VAPID)
+ * The user generates their own VAPID key pair via the 推送憑據 (VAPID)
  * settings modal (or lets the one-click deploy create one), then mirrors
  * it into the Worker env when deploying by hand.
  */

@@ -31,7 +31,7 @@ describe('Live2D companion presets', () => {
       now: 10,
       id: 'startup-a',
     });
-    const second = saveCompanionStartupPreset(first.settings, startup('欢迎回来', 'companion-startup-voice:second'), '回家', {
+    const second = saveCompanionStartupPreset(first.settings, startup('歡迎回來', 'companion-startup-voice:second'), '回家', {
       now: 20,
       id: 'startup-b',
     });
@@ -51,14 +51,14 @@ describe('Live2D companion presets', () => {
       enabledZones: ['head'],
       reactions: { head: [{ id: 'a', text: '嗯？', performance: performance('neutral', 'idle'), voiceAssetId: 'companion-touch-voice:first' }] },
       voiceEnabled: true,
-    }, '摸头', { now: 10, id: 'touch-a' });
+    }, '摸頭', { now: 10, id: 'touch-a' });
     const second = saveCompanionTouchPreset(first.settings, {
       enabledZones: ['hand'],
-      reactions: { hand: [{ id: 'b', text: '牵住了', performance: performance('happy', 'wave'), voiceAssetId: 'companion-touch-voice:second' }] },
+      reactions: { hand: [{ id: 'b', text: '牽住了', performance: performance('happy', 'wave'), voiceAssetId: 'companion-touch-voice:second' }] },
       voiceEnabled: true,
-    }, '牵手', { now: 20, id: 'touch-b' });
+    }, '牽手', { now: 20, id: 'touch-b' });
 
-    expect(second.settings.touchPresets?.map(item => item.name)).toEqual(['摸头', '牵手']);
+    expect(second.settings.touchPresets?.map(item => item.name)).toEqual(['摸頭', '牽手']);
     const selected = activateCompanionTouchPreset(second.settings, 'touch-a');
     expect(selected.activeTouchPresetId).toBe('touch-a');
     expect(selected.enabledZones).toEqual(['head']);

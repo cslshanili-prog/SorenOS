@@ -1,42 +1,42 @@
 /**
- * 「这一轮没发出去」时的诊断日志。
+ * 「這一輪沒發出去」時的診斷日誌。
  *
- * 模型回来却没有能发的正文时（skip-push），last_skip 里只有一个 reason，而背后是好几种
- * 完全不同的情况：content 是 null（只回了工具调用 / 被审核拦了）、content 是数组、思考把
- * token 烧光被截断、正文全包在 <think> 里、只写了标签，或者中转站把报错包在 HTTP 200 里。
- * 跳过的那一刻把模型响应的**形状**记一行，到 Workers Logs（Observability）里搜
- * `[amsg:skip-diag]` 就能分清是哪一种。
+ * 模型回來卻沒有能發的正文時（skip-push），last_skip 裡只有一個 reason，而背後是好幾種
+ * 完全不同的情況：content 是 null（只回了工具調用 / 被審核攔了）、content 是數組、思考把
+ * token 燒光被截斷、正文全包在 <think> 裡、只寫了標籤，或者中轉站把報錯包在 HTTP 200 裡。
+ * 跳過的那一刻把模型響應的**形狀**記一行，到 Workers Logs（Observability）裡搜
+ * `[amsg:skip-diag]` 就能分清是哪一種。
  *
- * 默认只记形状（有没有、什么类型、多长、token 数），不记聊天正文。要看原文片段时，给 Worker
- * 加一个明文变量 AMSG_DEBUG_LLM_RAW=1——wrangler 部署带 keep_vars、应用内「更新 Worker」
- * 重建配置时也原样保留普通变量，所以不会被冲掉。查完删掉。
+ * 默認只記形狀（有沒有、什麼類型、多長、token 數），不記聊天正文。要看原文片段時，給 Worker
+ * 加一個明文變量 AMSG_DEBUG_LLM_RAW=1——wrangler 部署帶 keep_vars、應用內「更新 Worker」
+ * 重建配置時也原樣保留普通變量，所以不會被沖掉。查完刪掉。
  */
 import { redactCredentials, stripReasoningTags } from '@rei-standard/amsg-shared';
 
-/** body 里那句报错最多留多少字：典型的「余额不足 / 模型不存在」一句话装得下。 */
+/** body 裡那句報錯最多留多少字：典型的「餘額不足 / 模型不存在」一句話裝得下。 */
 const BODY_ERROR_MAX_CHARS = 200;
-/** 以下三个只在打开原文开关时用。 */
+/** 以下三個只在打開原文開關時用。 */
 const CONTENT_EXCERPT_CHARS = 300;
-/** 思考链取末尾：被截断时要看的是它停在哪儿。 */
+/** 思考鏈取末尾：被截斷時要看的是它停在哪兒。 */
 const REASONING_TAIL_CHARS = 200;
 const BODY_EXCERPT_CHARS = 500;
 
 export interface LlmResponseShape {
-  /** 响应里自报的模型名（中转站悄悄换了模型时看得出来）。 */
+  /** 響應裡自報的模型名（中轉站悄悄換了模型時看得出來）。 */
   model: string | null;
-  /** 有没有非空的 choices。没有就不是正常的对话补全响应，多半是中转站把报错包在了 200 里。 */
+  /** 有沒有非空的 choices。沒有就不是正常的對話補全響應，多半是中轉站把報錯包在了 200 裡。 */
   hasChoices: boolean;
-  /** stop / length / content_filter / tool_calls……length 说明被截断了。 */
+  /** stop / length / content_filter / tool_calls……length 說明被截斷了。 */
   finishReason: string | null;
-  /** message.content 的形态。上游只认 string，其余一律当空串。 */
+  /** message.content 的形態。上游只認 string，其餘一律當空串。 */
   contentType: 'string' | 'array' | 'null' | 'missing' | 'other';
-  /** content 原文字符数（数组时是各段 text 之和）。 */
+  /** content 原文字符數（數組時是各段 text 之和）。 */
   contentChars: number;
-  /** content 是数组时有几段。 */
+  /** content 是數組時有幾段。 */
   contentParts?: number;
-  /** 上游交给钩子的正文剥掉思考块后还剩几个字。contentChars 不为 0 而它为 0 = 正文全在 <think> 里。 */
+  /** 上游交給鉤子的正文剝掉思考塊後還剩幾個字。contentChars 不為 0 而它為 0 = 正文全在 <think> 裡。 */
   visibleChars: number;
-  /** 原生思考字段（reasoning_content / reasoning / thinking）的字符数。 */
+  /** 原生思考字段（reasoning_content / reasoning / thinking）的字符數。 */
   reasoningChars: number;
   toolCalls: number;
   usage: {
@@ -44,16 +44,16 @@ export interface LlmResponseShape {
     completionTokens: number | null;
     reasoningTokens: number | null;
   } | null;
-  /** body 里带的报错（error 字段，没有 choices 时也认顶层 message / msg），截断并脱敏。 */
+  /** body 裡帶的報錯（error 字段，沒有 choices 時也認頂層 message / msg），截斷並脫敏。 */
   bodyError: string | null;
 }
 
-/** 原文片段：只在 AMSG_DEBUG_LLM_RAW 打开时出现，全部先脱敏再截断。 */
+/** 原文片段：只在 AMSG_DEBUG_LLM_RAW 打開時出現，全部先脫敏再截斷。 */
 export interface LlmResponseExcerpt {
   content?: string;
   reasoningTail?: string;
   toolCalls?: string;
-  /** 没有 choices 时整个 body 的开头。 */
+  /** 沒有 choices 時整個 body 的開頭。 */
   body?: string;
 }
 
@@ -76,14 +76,14 @@ const safeStringify = (value: unknown): string => {
   }
 };
 
-/** 取第一个 choice 的 message；没有 choices 时为 null。 */
+/** 取第一個 choice 的 message；沒有 choices 時為 null。 */
 const readFirstMessage = (body: AnyRecord | null): { choice: AnyRecord | null; message: AnyRecord | null } => {
   const choices = Array.isArray(body?.choices) ? (body!.choices as unknown[]) : [];
   const choice = asRecord(choices[0]);
   return { choice, message: asRecord(choice?.message) };
 };
 
-/** 字段名认三个，跟 onLLMOutput 里抄思考链那处一样宽。 */
+/** 字段名認三個，跟 onLLMOutput 裡抄思考鏈那處一樣寬。 */
 const readReasoning = (message: AnyRecord | null): string => {
   const value = message?.reasoning_content ?? message?.reasoning ?? message?.thinking;
   return typeof value === 'string' ? value : '';
@@ -105,8 +105,8 @@ const readBodyError = (body: AnyRecord | null, hasChoices: boolean): string | nu
       text = [code && `[${code}]`, message].filter(Boolean).join(' ') || safeStringify(record);
     }
   }
-  // 顶层 message / msg 只在没有 choices 时才算报错：正常响应里没有这两个字段，
-  // 有 choices 时出现也不代表失败。
+  // 頂層 message / msg 只在沒有 choices 時才算報錯：正常響應裡沒有這兩個字段，
+  // 有 choices 時出現也不代表失敗。
   if (!text && !hasChoices) {
     const topLevel = body.message ?? body.msg;
     if (typeof topLevel === 'string') text = topLevel;
@@ -184,19 +184,19 @@ export const excerptLlmResponse = (llmResponse: unknown): LlmResponseExcerpt => 
 
 let rawExcerptEnabled = false;
 
-/** buildWorkerConfig 的写入口（isolate 级全局，同 configureInstantErrorPush 的先例）；export 也给单测用。 */
+/** buildWorkerConfig 的寫入口（isolate 級全局，同 configureInstantErrorPush 的先例）；export 也給單測用。 */
 export const configureSkipDiagnostics = (options: { rawExcerpt: boolean }): void => {
   rawExcerptEnabled = options.rawExcerpt;
 };
 
-/** 面板上填的明文变量：1 / true 算开，其余（包括没配）都算关。 */
+/** 面板上填的明文變量：1 / true 算開，其餘（包括沒配）都算關。 */
 export const isDebugFlagOn = (value: unknown): boolean =>
   typeof value === 'string' && ['1', 'true'].includes(value.trim().toLowerCase());
 
 export interface SkipDiagnosticInput {
   sessionId: string | undefined;
   reason: string;
-  /** 第几轮（0 起）。大于 0 说明前面几轮在调工具，空的是收尾那一轮。 */
+  /** 第幾輪（0 起）。大於 0 說明前面幾輪在調工具，空的是收尾那一輪。 */
   iteration: number | undefined;
   llmResponse: unknown;
   llmOutputText: string | undefined;
@@ -212,7 +212,7 @@ export const logSkipDiagnostic = (input: SkipDiagnosticInput): void => {
       ...(rawExcerptEnabled ? { raw: excerptLlmResponse(input.llmResponse) } : {}),
     });
   } catch (error) {
-    // 诊断是锦上添花，碰上奇形怪状的响应也不能把跳过本身弄挂。
-    console.warn('[amsg:skip-diag] 诊断日志没记下来（跳过照常生效）', error);
+    // 診斷是錦上添花，碰上奇形怪狀的響應也不能把跳過本身弄掛。
+    console.warn('[amsg:skip-diag] 診斷日誌沒記下來（跳過照常生效）', error);
   }
 };

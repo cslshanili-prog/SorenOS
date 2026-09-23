@@ -77,267 +77,267 @@ const priceFor = (category: SARModuleCategory, index: number) => {
 
 const seeds: ModuleSeed[] = [
     {
-        title: '古风译码器', category: 'voice', effectLabel: '现代口语古风化',
-        description: '将现代口语转译为自然的古风表达，并适当改变称谓、语序和日常用词，不强制使用生僻文言。',
-        caianNote: '一键穿越古代！不过只是说话方式变了，不会真的突然多出一座王府。',
-        example: '“这么晚了，你怎么还不睡？” → “夜都深了，你怎么还不歇息？”', supportsUserTarget: true,
+        title: '古風譯碼器', category: 'voice', effectLabel: '現代口語古風化',
+        description: '將現代口語轉譯為自然的古風表達，並適當改變稱謂、語序和日常用詞，不強制使用生僻文言。',
+        caianNote: '一鍵穿越古代！不過只是說話方式變了，不會真的突然多出一座王府。',
+        example: '“這麼晚了，你怎麼還不睡？” → “夜都深了，你怎麼還不歇息？”', supportsUserTarget: true,
     },
     {
-        title: '王庭贵族协议', category: 'voice', effectLabel: '中世纪贵族化',
-        description: '将交流包装成中世纪宫廷与贵族社交风格，强化礼仪、身份称谓、骑士与领地等意象。',
-        caianNote: '突然变成贵族了！请注意，本活动室暂时不提供城堡、封地和继承权。',
-        example: '“坐我旁边吧。” → “若你愿意，今日我身侧的位置仍为你留着。”', supportsUserTarget: true,
+        title: '王庭貴族協議', category: 'voice', effectLabel: '中世紀貴族化',
+        description: '將交流包裝成中世紀宮廷與貴族社交風格，強化禮儀、身份稱謂、騎士與領地等意象。',
+        caianNote: '突然變成貴族了！請注意，本活動室暫時不提供城堡、封地和繼承權。',
+        example: '“坐我旁邊吧。” → “若你願意，今日我身側的位置仍為你留著。”', supportsUserTarget: true,
     },
     {
-        title: '莎翁戏剧感染', category: 'voice', effectLabel: '莎士比亚式戏剧化',
-        description: '将普通交流转换为舞台剧式的夸张抒情表达，加入独白、感叹、比喻和戏剧冲突感。',
-        caianNote: '会让对方像突然被拖去演舞台剧一样讲话！一句“你迟到了”都可能演成生离死别。',
-        example: '“你怎么现在才来？” → “你终于来了！可怜的时钟早已替我数尽等待的每一刻。”', supportsUserTarget: true,
+        title: '莎翁戲劇感染', category: 'voice', effectLabel: '莎士比亞式戲劇化',
+        description: '將普通交流轉換為舞台劇式的誇張抒情表達，加入獨白、感嘆、比喻和戲劇衝突感。',
+        caianNote: '會讓對方像突然被拖去演舞台劇一樣講話！一句“你遲到了”都可能演成生離死別。',
+        example: '“你怎麼現在才來？” → “你終於來了！可憐的時鐘早已替我數盡等待的每一刻。”', supportsUserTarget: true,
     },
     {
-        title: '直球增压器', category: 'voice', effectLabel: '表达更加直接',
-        description: '删除委婉、试探和退路，让已有意图直接表达。', caianNote: '让对方说话更加直白！',
-        example: '“要不有空的话……” → “留下来陪我。”', supportsUserTarget: true,
+        title: '直球增壓器', category: 'voice', effectLabel: '表達更加直接',
+        description: '刪除委婉、試探和退路，讓已有意圖直接表達。', caianNote: '讓對方說話更加直白！',
+        example: '“要不有空的話……” → “留下來陪我。”', supportsUserTarget: true,
     },
     {
-        title: '赞美回路', category: 'voice', effectLabel: '批评强制变夸奖',
-        description: '将抱怨、批评与负面评价重新编码为正向称赞。', caianNote: '批评会被改写为一种鼓励……虽然听起来可能比骂人还阴阳怪气。',
-        example: '“你又在乱来。” → “你真是每次都很有创意。”', supportsUserTarget: true,
+        title: '讚美迴路', category: 'voice', effectLabel: '批評強制變誇獎',
+        description: '將抱怨、批評與負面評價重新編碼為正向稱讚。', caianNote: '批評會被改寫為一種鼓勵……雖然聽起來可能比罵人還陰陽怪氣。',
+        example: '“你又在亂來。” → “你真是每次都很有創意。”', supportsUserTarget: true,
     },
     {
-        title: '情话污染模块', category: 'voice', effectLabel: '日常语言过度浪漫化',
-        description: '将普通日常表达自动包装成夸张浪漫的说法。', caianNote: '这个名字不是我起的！它会把普通表达自动包装得……非常不普通。你们似乎管这个叫“土味情话”？',
-        example: '“记得带伞。” → “我不允许雨碰到你。”', supportsUserTarget: true,
+        title: '情話汙染模塊', category: 'voice', effectLabel: '日常語言過度浪漫化',
+        description: '將普通日常表達自動包裝成誇張浪漫的說法。', caianNote: '這個名字不是我起的！它會把普通表達自動包裝得……非常不普通。你們似乎管這個叫“土味情話”？',
+        example: '“記得帶傘。” → “我不允許雨碰到你。”', supportsUserTarget: true,
     },
     {
-        title: '关键词消音器', category: 'stage', effectLabel: '指定内容显示为 ■■',
-        description: '自动遮蔽指定词语，可用于名字、称呼或特定关键词。', caianNote: '把你指定的关键词马赛克掉！非常容易让聊天记录变得非常可疑。',
+        title: '關鍵詞消音器', category: 'stage', effectLabel: '指定內容顯示為 ■■',
+        description: '自動遮蔽指定詞語，可用於名字、稱呼或特定關鍵詞。', caianNote: '把你指定的關鍵詞馬賽克掉！非常容易讓聊天記錄變得非常可疑。',
         example: '“我很想你。” → “我很■■。”', supportsUserTarget: true,
         configuration: {
-            label: '要消音的词语',
+            label: '要消音的詞語',
             placeholder: '例如：想你',
-            promptLabel: '必须替换为 ■■ 的词语',
+            promptLabel: '必須替換為 ■■ 的詞語',
             maxLength: 40,
         },
     },
     {
-        title: '猫科语法包', category: 'voice', effectLabel: '添加猫语习惯',
-        description: '在不改变原意的情况下加入猫科语尾、停顿和语言习惯。', caianNote: '这是销冠模块喵！',
-        example: '“别碰那个。” → “不许碰那个……喵。”', supportsUserTarget: true,
+        title: '貓科語法包', category: 'voice', effectLabel: '添加貓語習慣',
+        description: '在不改變原意的情況下加入貓科語尾、停頓和語言習慣。', caianNote: '這是銷冠模塊喵！',
+        example: '“別碰那個。” → “不許碰那個……喵。”', supportsUserTarget: true,
     },
     {
-        title: '恶役大小姐协议', category: 'voice', effectLabel: '日式大小姐翻译腔',
-        description: '沿用角色原有语种，呈现日式乙女游戏里优雅、从容又傲慢的恶役大小姐口吻；中文时就是日式大小姐的中文翻译腔。',
-        promptRules: `【恶役大小姐 · 悪役令嬢／お嬢様口調】
-- 演出核心：以精致的礼貌、礼仪意识和理所当然的自信形成上位感。可以华丽地夸耀、从容地主导或礼貌地讥讽；认可对方时坦然赞赏，关心时以从容照料、提携的口吻表达，不必否认自己的好意。
-- 语种由角色自己的语言设定和既有会话要求决定，沿用待转译原文的语种与翻译格式；用户的外显同样保留用户原文语种。这个模块改变腔调，不负责切换语言。
-- 中文台词要呈现日式大小姐的中文翻译腔：礼貌而带锋芒的反问、慢条斯理的评价，以及「哎呀」「您」「可真是……呢」「这不是理所当然的吗？」「就交给我好了」等句式。日语「〜ですわ」是气质参照，不是要输出的固定后缀；中文里不额外混入「ですわ」「わたくし」等日文、罗马字 desuwa 或机械的「的说」。得意时偶尔可以「哦呵呵」，不把高笑写成每轮必打的招呼。
-- 只有角色本来使用日语时，才自然使用「わたくし」、敬体及「〜ですわ」「〜ますわ」「〜ですの？」「〜ですこと」等合乎语法的语尾；使用其他语言时表达相同的礼貌、矜持与上位感。已有双语输出的原文、译文保持各自语种，中文译文仍是自然的大小姐翻译腔。
-- 与傲娇的边界：本模块不额外制造害羞口吃、先否认关心再找借口的套路，也不把「才、才没有」「不是为了你」「笨蛋」当标配。原意确实含有羞怯或否认时照实保留；模块新增的是大小姐式礼貌与自信，不是隐藏爱意的动机。
-- 仅改变对应外显字段里的措辞与语气，不改变原有性别、真实意图和关系；不新增贵族身世、婚约、财富、随从或身份特权，不凭空制造敌意与威胁。表达对模块的抱怨或试图纠正时，也让外显保持大小姐腔，真实反应仍按原人格。
-- 转译示例（只借语气，不照抄事实）：
-  「你怎么才来？」→「哎呀，让人等了这么久，您倒是从容得很呢。」
-  「我来帮你。」→「就交给我好了，您安心看着便是。」
-  「先喝点水吧。」→「哎呀，先用些水吧，可别怠慢了自己呢。」`,
-        caianNote: '这个也很有人气！至于为什么大家都想看自己的朋友突然变成恶役大小姐……难道是最近相关番剧很流行？',
-        example: '“你怎么才来？” → “哎呀，让人等了这么久，您倒是从容得很呢。”', supportsUserTarget: true,
+        title: '惡役大小姐協議', category: 'voice', effectLabel: '日式大小姐翻譯腔',
+        description: '沿用角色原有語種，呈現日式乙女遊戲裡優雅、從容又傲慢的惡役大小姐口吻；中文時就是日式大小姐的中文翻譯腔。',
+        promptRules: `【惡役大小姐 · 悪役令嬢／お嬢様口調】
+- 演出核心：以精緻的禮貌、禮儀意識和理所當然的自信形成上位感。可以華麗地誇耀、從容地主導或禮貌地譏諷；認可對方時坦然讚賞，關心時以從容照料、提攜的口吻表達，不必否認自己的好意。
+- 語種由角色自己的語言設定和既有會話要求決定，沿用待轉譯原文的語種與翻譯格式；用戶的外顯同樣保留用戶原文語種。這個模塊改變腔調，不負責切換語言。
+- 中文台詞要呈現日式大小姐的中文翻譯腔：禮貌而帶鋒芒的反問、慢條斯理的評價，以及「哎呀」「您」「可真是……呢」「這不是理所當然的嗎？」「就交給我好了」等句式。日語「〜ですわ」是氣質參照，不是要輸出的固定後綴；中文裡不額外混入「ですわ」「わたくし」等日文、羅馬字 desuwa 或機械的「的說」。得意時偶爾可以「哦呵呵」，不把高笑寫成每輪必打的招呼。
+- 只有角色本來使用日語時，才自然使用「わたくし」、敬體及「〜ですわ」「〜ますわ」「〜ですの？」「〜ですこと」等合乎語法的語尾；使用其他語言時表達相同的禮貌、矜持與上位感。已有雙語輸出的原文、譯文保持各自語種，中文譯文仍是自然的大小姐翻譯腔。
+- 與傲嬌的邊界：本模塊不額外製造害羞口吃、先否認關心再找藉口的套路，也不把「才、才沒有」「不是為了你」「笨蛋」當標配。原意確實含有羞怯或否認時照實保留；模塊新增的是大小姐式禮貌與自信，不是隱藏愛意的動機。
+- 僅改變對應外顯字段裡的措辭與語氣，不改變原有性別、真實意圖和關係；不新增貴族身世、婚約、財富、隨從或身份特權，不憑空製造敵意與威脅。表達對模塊的抱怨或試圖糾正時，也讓外顯保持大小姐腔，真實反應仍按原人格。
+- 轉譯示例（只借語氣，不照抄事實）：
+  「你怎麼才來？」→「哎呀，讓人等了這麼久，您倒是從容得很呢。」
+  「我來幫你。」→「就交給我好了，您安心看著便是。」
+  「先喝點水吧。」→「哎呀，先用些水吧，可別怠慢了自己呢。」`,
+        caianNote: '這個也很有人氣！至於為什麼大家都想看自己的朋友突然變成惡役大小姐……難道是最近相關番劇很流行？',
+        example: '“你怎麼才來？” → “哎呀，讓人等了這麼久，您倒是從容得很呢。”', supportsUserTarget: true,
     },
     {
-        title: '宿敌语法包', category: 'bond', effectLabel: '普通关心带上竞争意味',
-        description: '将双方关系临时包装成长期竞争的宿敌关系。', caianNote: '对方会默认和你存在一种莫名其妙的宿命竞争关系。',
-        example: '“你吃了吗？” → “别饿死了，我可不接受这种胜法。”', supportsUserTarget: true,
+        title: '宿敵語法包', category: 'bond', effectLabel: '普通關心帶上競爭意味',
+        description: '將雙方關係臨時包裝成長期競爭的宿敵關係。', caianNote: '對方會默認和你存在一種莫名其妙的宿命競爭關係。',
+        example: '“你吃了嗎？” → “別餓死了，我可不接受這種勝法。”', supportsUserTarget: true,
     },
     {
-        title: '青梅竹马错觉', category: 'bond', effectLabel: '增加长期熟人感',
-        description: '让表达呈现出已经认识对方很多年的熟悉感，但不会新增共同记忆。', caianNote: '让对方说话听起来像你的青梅竹马！',
-        example: '“早点睡。” → “你从以前开始就这样，一忙起来就不睡觉。”', supportsUserTarget: true,
+        title: '青梅竹馬錯覺', category: 'bond', effectLabel: '增加長期熟人感',
+        description: '讓表達呈現出已經認識對方很多年的熟悉感，但不會新增共同記憶。', caianNote: '讓對方說話聽起來像你的青梅竹馬！',
+        example: '“早點睡。” → “你從以前開始就這樣，一忙起來就不睡覺。”', supportsUserTarget: true,
     },
     {
-        title: '初见重置器', category: 'bond', effectLabel: '熟人语气转生疏',
-        description: '暂时将双方交流距离拉回初次认识时的陌生与礼貌状态。', caianNote: '让对方变得过分礼貌吧！',
-        example: '“你怎么才回来？” → “你好……请问你刚刚去哪了？”', supportsUserTarget: true,
+        title: '初見重置器', category: 'bond', effectLabel: '熟人語氣轉生疏',
+        description: '暫時將雙方交流距離拉回初次認識時的陌生與禮貌狀態。', caianNote: '讓對方變得過分禮貌吧！',
+        example: '“你怎麼才回來？” → “你好……請問你剛剛去哪了？”', supportsUserTarget: true,
     },
     {
-        title: '老夫老妻协议', category: 'bond', effectLabel: '增加长期同居感',
-        description: '将交流包装成共同生活多年的自然熟稔状态。', caianNote: '这算老夫老妻模拟器吗？',
-        example: '“帮我拿水。” → “你顺手把水带过来，杯子还是老地方。”', supportsUserTarget: true,
+        title: '老夫老妻協議', category: 'bond', effectLabel: '增加長期同居感',
+        description: '將交流包裝成共同生活多年的自然熟稔狀態。', caianNote: '這算老夫老妻模擬器嗎？',
+        example: '“幫我拿水。” → “你順手把水帶過來，杯子還是老地方。”', supportsUserTarget: true,
     },
     {
-        title: '秘密社团腔', category: 'genre', effectLabel: '日常交流秘密任务化',
-        description: '将普通交流包装成地下组织接头或秘密任务。', caianNote: '普通聊天会被说得像地下组织接头。非常适合讨论一些完全不值得保密的事情！',
-        example: '“晚上见。” → “老时间，老地方。别被人跟上。”', supportsUserTarget: true,
+        title: '秘密社團腔', category: 'genre', effectLabel: '日常交流秘密任務化',
+        description: '將普通交流包裝成地下組織接頭或秘密任務。', caianNote: '普通聊天會被說得像地下組織接頭。非常適合討論一些完全不值得保密的事情！',
+        example: '“晚上見。” → “老時間，老地方。別被人跟上。”', supportsUserTarget: true,
     },
     {
-        title: '魔法少女变身包', category: 'genre', effectLabel: '行为魔法少女化',
-        description: '为普通动作与发言自动增加夸张的变身、净化与必杀技式演出。', caianNote: '感觉会有华丽丽的 BGM 围绕在身边！',
-        example: '“我要去洗澡了。” → “净化程序启动！暂时离队！”', supportsUserTarget: false,
+        title: '魔法少女變身包', category: 'genre', effectLabel: '行為魔法少女化',
+        description: '為普通動作與發言自動增加誇張的變身、淨化與必殺技式演出。', caianNote: '感覺會有華麗麗的 BGM 圍繞在身邊！',
+        example: '“我要去洗澡了。” → “淨化程序啟動！暫時離隊！”', supportsUserTarget: false,
     },
     {
-        title: '邪神低语包', category: 'voice', effectLabel: '日常语言神秘化',
-        description: '将普通表达转换为神秘、古怪而略带不祥感的低语风格。', caianNote: '听起来像中二病发作了！',
-        example: '“别熬夜。” → “今夜不属于清醒的人，趁门还没打开，睡吧。”', supportsUserTarget: true,
+        title: '邪神低語包', category: 'voice', effectLabel: '日常語言神秘化',
+        description: '將普通表達轉換為神秘、古怪而略帶不祥感的低語風格。', caianNote: '聽起來像中二病發作了！',
+        example: '“別熬夜。” → “今夜不屬於清醒的人，趁門還沒打開，睡吧。”', supportsUserTarget: true,
     },
     {
-        title: '世界末日前五分钟', category: 'genre', effectLabel: '日常表达终末化',
-        description: '默认每句话都像世界将在几分钟后毁灭，让日常交流带上终局感。', caianNote: '会让对方每句话都像世界毁灭前的最后几句。要在这个时候告白吗？',
-        example: '“你想吃什么？” → “趁世界还没结束，最后选一次吧。”', supportsUserTarget: true,
+        title: '世界末日前五分鐘', category: 'genre', effectLabel: '日常表達終末化',
+        description: '默認每句話都像世界將在幾分鐘後毀滅，讓日常交流帶上終局感。', caianNote: '會讓對方每句話都像世界毀滅前的最後幾句。要在這個時候告白嗎？',
+        example: '“你想吃什麼？” → “趁世界還沒結束，最後選一次吧。”', supportsUserTarget: true,
     },
     {
-        title: '恋爱喜剧事故包', category: 'genre', effectLabel: '普通交流暧昧误解化',
-        description: '自动将中性表达包装成容易产生暧昧误解的恋爱喜剧台词。', caianNote: '会把普通对话自动解释成很容易被误会的东西。现代情景喜剧必备！',
-        example: '“来我这里一下。” → “现在，立刻，来我房间……等等，不是那个意思！”', supportsUserTarget: true,
+        title: '戀愛喜劇事故包', category: 'genre', effectLabel: '普通交流曖昧誤解化',
+        description: '自動將中性表達包裝成容易產生曖昧誤解的戀愛喜劇台詞。', caianNote: '會把普通對話自動解釋成很容易被誤會的東西。現代情景喜劇必備！',
+        example: '“來我這裡一下。” → “現在，立刻，來我房間……等等，不是那個意思！”', supportsUserTarget: true,
     },
     {
-        title: '傲娇故障包', category: 'voice', effectLabel: '全局傲娇化',
-        description: '将已有的关心与好意包装成嘴硬、找借口、难为情的别扭口吻，保留角色原本的真实意图。',
-        promptRules: `【傲娇故障包 · 嘴硬与难为情】
-- 演出核心是已有好意难以坦率说出口：先辩解、别扭一下，再用原本要做的事或笨拙措辞露出关心。偶尔停顿、轻微口吃或羞恼即可，不让每句话都套「才、才没有」。没有关心或恋爱含义的原话，不擅自补出暗恋、占有欲或关系进展。
-- 采用当前语言里的日常口语；日语语境可以用「べ、別に……」「勘違いしないでよね」等别扭表达，保留既有语种和翻译格式。
-- 与恶役大小姐的边界：本模块不额外加入贵族礼仪、上位者的从容宣言、「わたくし」「〜ですわ」大小姐语尾或高笑。角色原有的礼貌与身份可以保留，但本模块新增的是嘴硬与羞窘，不是恶役令嬢气场。
-- 只改写对应外显字段；事实、行动、承诺及真实感受保持原样。示例：「给你买了饮料。」→「只是顺便多买了一瓶，你别想太多。」`,
-        caianNote: '才、才没有打算卖给你这个……！',
-        example: '“给你买了饮料。” → “只是顺便多买了一瓶，你别想太多。”', supportsUserTarget: true,
+        title: '傲嬌故障包', category: 'voice', effectLabel: '全局傲嬌化',
+        description: '將已有的關心與好意包裝成嘴硬、找藉口、難為情的彆扭口吻，保留角色原本的真實意圖。',
+        promptRules: `【傲嬌故障包 · 嘴硬與難為情】
+- 演出核心是已有好意難以坦率說出口：先辯解、彆扭一下，再用原本要做的事或笨拙措辭露出關心。偶爾停頓、輕微口吃或羞惱即可，不讓每句話都套「才、才沒有」。沒有關心或戀愛含義的原話，不擅自補出暗戀、佔有慾或關係進展。
+- 採用當前語言裡的日常口語；日語語境可以用「べ、別に……」「勘違いしないでよね」等彆扭表達，保留既有語種和翻譯格式。
+- 與惡役大小姐的邊界：本模塊不額外加入貴族禮儀、上位者的從容宣言、「わたくし」「〜ですわ」大小姐語尾或高笑。角色原有的禮貌與身份可以保留，但本模塊新增的是嘴硬與羞窘，不是惡役令嬢氣場。
+- 只改寫對應外顯字段；事實、行動、承諾及真實感受保持原樣。示例：「給你買了飲料。」→「只是順便多買了一瓶，你別想太多。」`,
+        caianNote: '才、才沒有打算賣給你這個……！',
+        example: '“給你買了飲料。” → “只是順便多買了一瓶，你別想太多。”', supportsUserTarget: true,
     },
     {
-        title: '离家出走语气包', category: 'voice', effectLabel: '抱怨灾难化',
-        description: '将普通抱怨表现得像即将收拾行李离家出走。', caianNote: '所有不满都会像准备收拾行李一样严重！',
-        example: '“你又忘了。” → “行，我知道这个家已经没有我的位置了。”', supportsUserTarget: true,
+        title: '離家出走語氣包', category: 'voice', effectLabel: '抱怨災難化',
+        description: '將普通抱怨表現得像即將收拾行李離家出走。', caianNote: '所有不滿都會像準備收拾行李一樣嚴重！',
+        example: '“你又忘了。” → “行，我知道這個家已經沒有我的位置了。”', supportsUserTarget: true,
     },
     {
-        title: '神秘转学生包', category: 'genre', effectLabel: '增加神秘感',
-        description: '将任何自我介绍和普通信息包装成隐藏着巨大秘密的神秘人物语气。', caianNote: '搭配教室最后一排靠窗位食用更佳！',
-        example: '“我叫凯恩。” → “名字只是称呼。你可以叫我凯恩。”', supportsUserTarget: true,
+        title: '神秘轉學生包', category: 'genre', effectLabel: '增加神秘感',
+        description: '將任何自我介紹和普通信息包裝成隱藏著巨大秘密的神秘人物語氣。', caianNote: '搭配教室最後一排靠窗位食用更佳！',
+        example: '“我叫凱恩。” → “名字只是稱呼。你可以叫我凱恩。”', supportsUserTarget: true,
     },
     {
-        title: '电波频道', category: 'voice', effectLabel: '电波式联想表达',
-        description: '将逻辑连接方式变得跳跃、联想式，但保持核心语义仍可理解。', caianNote: '艾文说这个没必要，因为有些人本来就在这个频道上。',
-        example: '“我想你了。” → “今天窗外没有鸟，所以有点想你。”', supportsUserTarget: true,
+        title: '電波頻道', category: 'voice', effectLabel: '電波式聯想表達',
+        description: '將邏輯連接方式變得跳躍、聯想式，但保持核心語義仍可理解。', caianNote: '艾文說這個沒必要，因為有些人本來就在這個頻道上。',
+        example: '“我想你了。” → “今天窗外沒有鳥，所以有點想你。”', supportsUserTarget: true,
     },
     {
-        title: '梦话模式', category: 'voice', effectLabel: '语言朦胧化',
-        description: '将语言处理成半梦半醒时的模糊、松散和轻声表达。', caianNote: '会让对方开始迷迷糊糊说梦话……好困。',
-        example: '“你还在吗？” → “你别消失……我还没睡着。”', supportsUserTarget: true,
+        title: '夢話模式', category: 'voice', effectLabel: '語言朦朧化',
+        description: '將語言處理成半夢半醒時的模糊、鬆散和輕聲表達。', caianNote: '會讓對方開始迷迷糊糊說夢話……好睏。',
+        example: '“你還在嗎？” → “你別消失……我還沒睡著。”', supportsUserTarget: true,
     },
     {
-        title: '嘴瓢模拟器', category: 'voice', effectLabel: '模拟口误',
-        description: '随机制造轻度用词错误、词序错位或口误，并允许随后自行修正。', caianNote: '会随机交换几个词，但又刚好能听懂——危险程度取决于对方正在说什么。',
+        title: '嘴瓢模擬器', category: 'voice', effectLabel: '模擬口誤',
+        description: '隨機制造輕度用詞錯誤、詞序錯位或口誤，並允許隨後自行修正。', caianNote: '會隨機交換幾個詞，但又剛好能聽懂——危險程度取決於對方正在說什麼。',
         example: '“你今天很好看。” → “你今天很……好吃。等等。”', supportsUserTarget: true,
     },
     {
-        title: '禁止说名字', category: 'stage', effectLabel: '名字自动替换为代称',
-        description: '暂时禁止直接使用指定对象的名字，必须自行寻找其他代称。', caianNote: '对于记不住人名的人来说特别受用。',
-        example: '“艾文。” → “那个白头发钓鱼的。”', supportsUserTarget: true,
+        title: '禁止說名字', category: 'stage', effectLabel: '名字自動替換為代稱',
+        description: '暫時禁止直接使用指定對象的名字，必須自行尋找其他代稱。', caianNote: '對於記不住人名的人來說特別受用。',
+        example: '“艾文。” → “那個白頭髮釣魚的。”', supportsUserTarget: true,
         configuration: {
-            label: '禁止直接说出的名字',
+            label: '禁止直接說出的名字',
             placeholder: '例如：艾文',
-            promptLabel: '禁止直接说出的名字',
+            promptLabel: '禁止直接說出的名字',
             maxLength: 40,
         },
     },
     {
-        title: '反差强制器', category: 'voice', effectLabel: '表达风格反差化',
-        description: '优先选择与当前角色既有气质反差最大的表达方式。', caianNote: '完、完全把对方的说话风格变了个样的说……',
-        example: '冷淡角色：“晚安。” → “晚安哦！做个超级好的梦！”', supportsUserTarget: true,
+        title: '反差強制器', category: 'voice', effectLabel: '表達風格反差化',
+        description: '優先選擇與當前角色既有氣質反差最大的表達方式。', caianNote: '完、完全把對方的說話風格變了個樣的說……',
+        example: '冷淡角色：“晚安。” → “晚安哦！做個超級好的夢！”', supportsUserTarget: true,
     },
     {
-        title: '过场动画综合征', category: 'stage', effectLabel: '行为游戏剧情化',
-        description: '将出现、离开、拿取物品等普通动作表现成游戏过场台词。', caianNote: '像在玩什么剧情游戏！',
-        example: '“我出去一下。” → “那么，这里就暂时交给你了。”', supportsUserTarget: false,
+        title: '過場動畫綜合徵', category: 'stage', effectLabel: '行為遊戲劇情化',
+        description: '將出現、離開、拿取物品等普通動作表現成遊戲過場台詞。', caianNote: '像在玩什麼劇情遊戲！',
+        example: '“我出去一下。” → “那麼，這裡就暫時交給你了。”', supportsUserTarget: false,
     },
     {
-        title: '最终章语气包', category: 'genre', effectLabel: '日常对话终章化',
-        description: '让所有普通交流带有故事即将结束的氛围。', caianNote: '感觉也像 flag 模拟器呢。',
-        example: '“明天见。” → “如果明天还能见面的话，就在那里等我。”', supportsUserTarget: true,
+        title: '最終章語氣包', category: 'genre', effectLabel: '日常對話終章化',
+        description: '讓所有普通交流帶有故事即將結束的氛圍。', caianNote: '感覺也像 flag 模擬器呢。',
+        example: '“明天見。” → “如果明天還能見面的話，就在那裡等我。”', supportsUserTarget: true,
     },
     {
-        title: '恋爱番第十二集', category: 'genre', effectLabel: '暧昧悬停',
-        description: '将普通关系推进包装成即将告白却永远差一点的暧昧状态。', caianNote: '所有气氛都会变成“马上要告白”，然后永远卡在最后半句话。',
-        example: '“有件事想告诉你。” → “其实我一直……算了，下次再说。”', supportsUserTarget: true,
+        title: '戀愛番第十二集', category: 'genre', effectLabel: '曖昧懸停',
+        description: '將普通關係推進包裝成即將告白卻永遠差一點的曖昧狀態。', caianNote: '所有氣氛都會變成“馬上要告白”，然後永遠卡在最後半句話。',
+        example: '“有件事想告訴你。” → “其實我一直……算了，下次再說。”', supportsUserTarget: true,
     },
     {
-        title: '轻小说标题病', category: 'stage', effectLabel: '自动生成章节名',
-        description: '为当前普通场景自动生成冗长、夸张的轻小说章节标题。', caianNote: '一句话说完以后，系统会偷偷给当前场面起一个很长的标题。很长。',
-        example: '“你又迟到了。” → 〔第17话：明明约好了却再次迟到的你与已经等了二十分钟的我〕', supportsUserTarget: false,
+        title: '輕小說標題病', category: 'stage', effectLabel: '自動生成章節名',
+        description: '為當前普通場景自動生成冗長、誇張的輕小說章節標題。', caianNote: '一句話說完以後，系統會偷偷給當前場面起一個很長的標題。很長。',
+        example: '“你又遲到了。” → 〔第17話：明明約好了卻再次遲到的你與已經等了二十分鐘的我〕', supportsUserTarget: false,
     },
     {
-        title: 'Bad End 预告器', category: 'genre', effectLabel: '普通语言伏笔化',
-        description: '随机将普通台词处理成像坏结局伏笔一样的不祥表达。', caianNote: '只是演出！不会真的给你判 Bad End。',
-        example: '“路上小心。” → “路上小心。今天不知道为什么，总觉得该多说一次。”', supportsUserTarget: true,
+        title: 'Bad End 預告器', category: 'genre', effectLabel: '普通語言伏筆化',
+        description: '隨機將普通台詞處理成像壞結局伏筆一樣的不祥表達。', caianNote: '只是演出！不會真的給你判 Bad End。',
+        example: '“路上小心。” → “路上小心。今天不知道為什麼，總覺得該多說一次。”', supportsUserTarget: true,
     },
     {
-        title: 'Gal 选项污染', category: 'stage', effectLabel: '聊天出现 Gal 选项',
-        description: '在普通发言后自动生成看似重要、实际未必必要的游戏式选项。', caianNote: '说完一句话后，会自动冒出几个根本没必要的选项。[明白了] [什么鬼？] [（离开）]',
-        example: '“你吃饭了吗？” → [吃了] [没有] [为什么突然关心我？]', supportsUserTarget: false,
+        title: 'Gal 選項汙染', category: 'stage', effectLabel: '聊天出現 Gal 選項',
+        description: '在普通發言後自動生成看似重要、實際未必必要的遊戲式選項。', caianNote: '說完一句話後，會自動冒出幾個根本沒必要的選項。[明白了] [什麼鬼？] [（離開）]',
+        example: '“你吃飯了嗎？” → [吃了] [沒有] [為什麼突然關心我？]', supportsUserTarget: false,
     },
     {
-        title: '句子补完故障', category: 'stage', effectLabel: '关键句中途停止',
-        description: '部分发言会在关键位置突然中断，把最后一点内容留给对方自行理解。', caianNote: '会在最重要的地方断掉。谁做的这个？',
-        example: '“其实我一直都……” → 〔信号中断〕', supportsUserTarget: true,
+        title: '句子補完故障', category: 'stage', effectLabel: '關鍵句中途停止',
+        description: '部分發言會在關鍵位置突然中斷，把最後一點內容留給對方自行理解。', caianNote: '會在最重要的地方斷掉。誰做的這個？',
+        example: '“其實我一直都……” → 〔信號中斷〕', supportsUserTarget: true,
     },
     {
-        title: '舞台提示污染', category: 'stage', effectLabel: '添加演出指令',
-        description: '系统随机给当前交流加入舞台动作、灯光或镜头提示。', caianNote: '会把两个普通聊天的人强行送上舞台，好尴尬啊！',
-        example: '“你回来了。” → 〔灯光亮起〕“你回来了。”', supportsUserTarget: false,
+        title: '舞台提示汙染', category: 'stage', effectLabel: '添加演出指令',
+        description: '系統隨機給當前交流加入舞台動作、燈光或鏡頭提示。', caianNote: '會把兩個普通聊天的人強行送上舞台，好尷尬啊！',
+        example: '“你回來了。” → 〔燈光亮起〕“你回來了。”', supportsUserTarget: false,
     },
     {
-        title: '背景音乐幻觉', category: 'stage', effectLabel: '显示虚构 BGM',
-        description: '根据聊天气氛自动显示并不存在的 BGM 名称。', caianNote: '没有真的音乐，主要负责让普通聊天突然像有制作组。',
-        example: '“那明天见。” → ♪ BGM：还没有结束的今天', supportsUserTarget: false,
+        title: '背景音樂幻覺', category: 'stage', effectLabel: '顯示虛構 BGM',
+        description: '根據聊天氣氛自動顯示並不存在的 BGM 名稱。', caianNote: '沒有真的音樂，主要負責讓普通聊天突然像有製作組。',
+        example: '“那明天見。” → ♪ BGM：還沒有結束的今天', supportsUserTarget: false,
     },
     {
-        title: '片尾字幕故障', category: 'stage', effectLabel: '普通结束触发 ED 演出',
-        description: '在某些告别或结束语后错误触发片尾字幕。', caianNote: '一句“晚安”就给你播片尾。我也不知道系统为什么这么急着下班。',
+        title: '片尾字幕故障', category: 'stage', effectLabel: '普通結束觸發 ED 演出',
+        description: '在某些告別或結束語後錯誤觸發片尾字幕。', caianNote: '一句“晚安”就給你播片尾。我也不知道系統為什麼這麼急著下班。',
         example: '“晚安。” → 〔CAST / User · Char〕', supportsUserTarget: false,
     },
     {
-        title: '回合制对话协议', category: 'stage', effectLabel: '对话游戏回合化',
-        description: '将自由聊天临时显示为双方轮流行动的回合制界面。', caianNote: '理论上只是显示方式。实际效果是连吵架都变得很文明，因为得等对面回合。',
-        example: 'User 回合结束 → Char 回合开始', supportsUserTarget: false,
+        title: '回合制對話協議', category: 'stage', effectLabel: '對話遊戲回合化',
+        description: '將自由聊天臨時顯示為雙方輪流行動的回合制界面。', caianNote: '理論上只是顯示方式。實際效果是連吵架都變得很文明，因為得等對面回合。',
+        example: 'User 回合結束 → Char 回合開始', supportsUserTarget: false,
     },
     {
-        title: '随机事件警报', category: 'stage', effectLabel: '插入假事件弹窗',
-        description: '普通聊天期间随机弹出虚假“特殊事件发生”提示。', caianNote: '事件不一定真的特殊。比如对方喝了口水，也可能被系统判定成突发事件。',
-        example: '〔突发事件：对方靠近了 12cm〕', supportsUserTarget: false,
+        title: '隨機事件警報', category: 'stage', effectLabel: '插入假事件彈窗',
+        description: '普通聊天期間隨機彈出虛假“特殊事件發生”提示。', caianNote: '事件不一定真的特殊。比如對方喝了口水，也可能被系統判定成突發事件。',
+        example: '〔突發事件：對方靠近了 12cm〕', supportsUserTarget: false,
     },
     {
-        title: '今日关键词', category: 'stage', effectLabel: '特定词触发演出',
-        description: '随机指定一个普通词为今日特殊词，每次出现都会触发夸张反馈。', caianNote: '今天可能是“雨”，明天可能是“饭”。系统对什么东西有执念完全随机。',
-        example: '“下雨了。” → 〔今日关键词触发！〕', supportsUserTarget: false,
+        title: '今日關鍵詞', category: 'stage', effectLabel: '特定詞觸發演出',
+        description: '隨機指定一個普通詞為今日特殊詞，每次出現都會觸發誇張反饋。', caianNote: '今天可能是“雨”，明天可能是“飯”。系統對什麼東西有執念完全隨機。',
+        example: '“下雨了。” → 〔今日關鍵詞觸發！〕', supportsUserTarget: false,
     },
     {
-        title: '只能说半句', category: 'voice', effectLabel: '发言被截断',
-        description: '每句话只允许表达前半段，剩余部分自动消失。', caianNote: '我觉得这种模块根本……',
-        example: '“我其实挺喜欢今天这样的。” → “我其实挺喜欢……”', supportsUserTarget: true,
+        title: '只能說半句', category: 'voice', effectLabel: '發言被截斷',
+        description: '每句話只允許表達前半段，剩餘部分自動消失。', caianNote: '我覺得這種模塊根本……',
+        example: '“我其實挺喜歡今天這樣的。” → “我其實挺喜歡……”', supportsUserTarget: true,
     },
     {
-        title: '不准解释', category: 'voice', effectLabel: '禁止解释和找补',
-        description: '删除“因为、其实、我的意思是”等补充解释，只保留第一层表达。', caianNote: '会让对方失去事后找补的机会。慎用！',
-        example: '“我不是那个意思，我只是……” → “我不是那个意思。”', supportsUserTarget: true,
+        title: '不準解釋', category: 'voice', effectLabel: '禁止解釋和找補',
+        description: '刪除“因為、其實、我的意思是”等補充解釋，只保留第一層表達。', caianNote: '會讓對方失去事後找補的機會。慎用！',
+        example: '“我不是那個意思，我只是……” → “我不是那個意思。”', supportsUserTarget: true,
     },
     {
-        title: '命运相遇滤镜', category: 'bond', effectLabel: '普通出现史诗重逢化',
-        description: '将双方普通的见面、上线或重新说话包装成命中注定的重逢。', caianNote: '命运中必然邂逅的中二病模块！',
-        example: '“你来了。” → “果然，我们还是会在这里遇见。”', supportsUserTarget: true,
+        title: '命運相遇濾鏡', category: 'bond', effectLabel: '普通出現史詩重逢化',
+        description: '將雙方普通的見面、上線或重新說話包裝成命中註定的重逢。', caianNote: '命運中必然邂逅的中二病模塊！',
+        example: '“你來了。” → “果然，我們還是會在這裡遇見。”', supportsUserTarget: true,
     },
     {
-        title: '临时失忆喜剧', category: 'genre', effectLabel: '小型信息临时缺失',
-        description: '随机忘记一项极小、无关核心关系的信息，用于制造日常喜剧，不触碰重要记忆。', caianNote: '只会忘记很小的东西！比如刚才把杯子放哪了……我刚刚说的是哪个模块？',
-        example: '“我的笔呢？” → “……我刚才是不是拿着？”', supportsUserTarget: false,
+        title: '臨時失憶喜劇', category: 'genre', effectLabel: '小型信息臨時缺失',
+        description: '隨機忘記一項極小、無關核心關係的信息，用於製造日常喜劇，不觸碰重要記憶。', caianNote: '只會忘記很小的東西！比如剛才把杯子放哪了……我剛剛說的是哪個模塊？',
+        example: '“我的筆呢？” → “……我剛才是不是拿著？”', supportsUserTarget: false,
     },
     {
-        title: '物品拟人协议', category: 'genre', effectLabel: '物品被拟人化',
-        description: '暂时把聊天中出现的普通物品当成有性格的小角色描述。', caianNote: '杯子、门、雨伞突然都有意见……艾文说这很正常。',
-        example: '“伞坏了。” → “这把伞今天决定退休了。”', supportsUserTarget: true,
+        title: '物品擬人協議', category: 'genre', effectLabel: '物品被擬人化',
+        description: '暫時把聊天中出現的普通物品當成有性格的小角色描述。', caianNote: '杯子、門、雨傘突然都有意見……艾文說這很正常。',
+        example: '“傘壞了。” → “這把傘今天決定退休了。”', supportsUserTarget: true,
     },
     {
-        title: '全世界都在拆台', category: 'stage', effectLabel: '氛围被随机破坏',
-        description: '任何稍有气氛的时刻都会出现滑稽干扰提示。', caianNote: '被打断真的超级急人的！',
-        example: '“我其实想说……” → 〔远处传来东西摔碎的声音〕', supportsUserTarget: false,
+        title: '全世界都在拆台', category: 'stage', effectLabel: '氛圍被隨機破壞',
+        description: '任何稍有氣氛的時刻都會出現滑稽干擾提示。', caianNote: '被打斷真的超級急人的！',
+        example: '“我其實想說……” → 〔遠處傳來東西摔碎的聲音〕', supportsUserTarget: false,
     },
     {
-        title: '结局名称生成器', category: 'stage', effectLabel: '会话获得假结局标题',
-        description: '在对话结束时，根据本次互动随机生成一个完全非正式的“结局名”。', caianNote: '努力寻找 Happy End 吧！',
-        example: 'ENDING 07：谁也没有先说晚安', supportsUserTarget: false,
+        title: '結局名稱生成器', category: 'stage', effectLabel: '會話獲得假結局標題',
+        description: '在對話結束時，根據本次互動隨機生成一個完全非正式的“結局名”。', caianNote: '努力尋找 Happy End 吧！',
+        example: 'ENDING 07：誰也沒有先說晚安', supportsUserTarget: false,
     },
 ];
 
@@ -445,7 +445,7 @@ export const readSARModuleShopState = (
 
 export const getSARModuleById = (id: string) => catalogById.get(id);
 
-/** 配置只接受一个短字面值，去掉控制字符/换行，避免把自由文本变成第二份 prompt。 */
+/** 配置只接受一個短字面值，去掉控制字符/換行，避免把自由文本變成第二份 prompt。 */
 export const normalizeSARModuleConfiguration = (
     module: SARModuleDefinition,
     rawValue: string,
@@ -505,7 +505,7 @@ export const purchaseSARModule = (
     return { ok: true, state: next };
 };
 
-/** 装载成功后才消耗库存；确认页退出或写档失败都不会吞模块。 */
+/** 裝載成功後才消耗庫存；確認頁退出或寫檔失敗都不會吞模塊。 */
 export const consumeSARModule = (
     state: SARModuleShopState,
     moduleIdValue: string,

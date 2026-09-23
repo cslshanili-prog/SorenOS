@@ -38,8 +38,8 @@ export const generateCompanionStartupVoice = async (options: {
       { emotion: options.performance?.emotion, languageBoost: options.voiceLanguage || undefined },
     );
     playableUrl = result.url;
-    if (!result.blob) throw new Error('语音服务未返回可持久保存的音频');
-    // 每次生成独占一个资产 ID；否则新语音会覆盖旧预设正在引用的 Blob。
+    if (!result.blob) throw new Error('語音服務未返回可持久保存的音頻');
+    // 每次生成獨佔一個資產 ID；否則新語音會覆蓋舊預設正在引用的 Blob。
     const assetId = makeCompanionVoiceAssetId('startup', options.character.id);
     await saveCompanionVoiceBlob(assetId, result.blob);
     return {
@@ -118,7 +118,7 @@ export const generateAvatarTouchVoicePack = async (options: {
           { emotion: task.reaction.performance?.emotion, languageBoost: options.voiceLanguage || undefined },
         );
         playableUrl = result.url;
-        if (!result.blob) throw new Error('语音服务未返回可持久保存的音频');
+        if (!result.blob) throw new Error('語音服務未返回可持久保存的音頻');
         const assetId = `${packAssetId}:${task.zone}:${task.index}`;
         await saveCompanionVoiceBlob(assetId, result.blob);
         task.reaction.voiceAssetId = assetId;

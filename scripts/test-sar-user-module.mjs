@@ -10,11 +10,11 @@ const server = createServer(async (req, res) => {
     if (req.method === 'OPTIONS') { res.end(); return; }
     let body = ''; for await (const chunk of req) body += chunk;
     requests.push(JSON.parse(body));
-    const rewritten = ['讨……讨你厌！', '蛋是坏你……不是！你是坏蛋！'];
+    const rewritten = ['討……討你厭！', '蛋是壞你……不是！你是壞蛋！'];
     const user = mode === 'json' ? JSON.stringify(targets.map((target, index) => ({id: target.id, surface: rewritten[index]})).reverse())
         : '[2026-09-13 16:04]\n' + rewritten.join('\n[2026-09-13 16:04]\n');
     res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({choices:[{message:{content:`<SAR_MODULE_OUTPUT><CHAR_TRUE>我知道你原本想说什么。\n模块让话变了个样子。</CHAR_TRUE><CHAR_SURFACE></CHAR_SURFACE><USER_SURFACE>${user}</USER_SURFACE></SAR_MODULE_OUTPUT>`},finish_reason:'stop'}]}));
+    res.end(JSON.stringify({choices:[{message:{content:`<SAR_MODULE_OUTPUT><CHAR_TRUE>我知道你原本想說什麼。\n模塊讓話變了個樣子。</CHAR_TRUE><CHAR_SURFACE></CHAR_SURFACE><USER_SURFACE>${user}</USER_SURFACE></SAR_MODULE_OUTPUT>`},finish_reason:'stop'}]}));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const browser = await chromium.launch({headless:true});
@@ -27,19 +27,19 @@ try {
     await page.waitForFunction(() => !!window.sarQA);
     await page.evaluate(async port => {
         const {DB, module, installSARModuleOnUser} = window.sarQA;
-        const char = {id:'qa-sar',name:'装载模块的角色',avatar:'',systemPrompt:'测试',showThinkingChain:false};
+        const char = {id:'qa-sar',name:'裝載模塊的角色',avatar:'',systemPrompt:'測試',showThinkingChain:false};
         await DB.saveCharacter(char);
         await DB.saveUserProfile({name:'小雨',avatar:'',bio:'',vrState:{enabled:true, sarModule:installSARModuleOnUser(module,char,1)}});
-        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'以前说的话'});
-        await DB.saveMessage({charId:char.id,role:'assistant',type:'text',content:'以前的回复'});
-        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'讨厌你！'});
-        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'你是坏蛋！'});
+        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'以前說的話'});
+        await DB.saveMessage({charId:char.id,role:'assistant',type:'text',content:'以前的回覆'});
+        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'討厭你！'});
+        await DB.saveMessage({charId:char.id,role:'user',type:'text',content:'你是壞蛋！'});
         localStorage.setItem('os_last_active_char_id',char.id);
         localStorage.setItem('os_api_config', JSON.stringify({baseUrl:`http://127.0.0.1:${port}/v1`,apiKey:'qa-only',model:'qa-only',stream:false}));
     }, server.address().port);
-    await page.reload(); await page.locator('.sully-chat-name').filter({hasText:'装载模块的角色'}).waitFor();
+    await page.reload(); await page.locator('.sully-chat-name').filter({hasText:'裝載模塊的角色'}).waitFor();
     for (const round of ['json','legacy']) {
-        await page.getByRole('button',{name:'收起模块悬浮窗'}).click();
+        await page.getByRole('button',{name:'收起模塊懸浮窗'}).click();
         mode = round;
         targets = (await page.evaluate(() => window.sarQA.DB.getMessagesByCharId('qa-sar',true))).slice(-2);
         await page.locator('.sully-chat-trigger').click();
@@ -58,27 +58,27 @@ try {
         for (let i=0;i<targets.length;i++) {
             const stored = all.find(m=>m.id===targets[i].id);
             assert.equal(stored.content,targets[i].content);
-            assert.equal(stored.metadata.sarModuleSurface.surface, i===0?'讨……讨你厌！':'蛋是坏你……不是！你是坏蛋！');
+            assert.equal(stored.metadata.sarModuleSurface.surface, i===0?'討……討你厭！':'蛋是壞你……不是！你是壞蛋！');
             const bubble = page.locator(`#chat-msg-${stored.id}`);
-            await bubble.getByText('查看原话').click();
+            await bubble.getByText('查看原話').click();
             assert((await bubble.innerText()).includes(targets[i].content));
         }
         if (round==='json') {
             const prompt=requests.flatMap(req=>req.messages).map(m=>m.content).join('\n');
             assert(prompt.includes(JSON.stringify(targets.map(({id,content})=>({id,content})))));
-            assert(prompt.includes('USER_SURFACE 的聊天专用格式'));
+            assert(prompt.includes('USER_SURFACE 的聊天專用格式'));
             await page.evaluate(async () => {
-                await window.sarQA.DB.saveMessage({charId:'qa-sar',role:'user',type:'text',content:'讨厌你！'});
-                await window.sarQA.DB.saveMessage({charId:'qa-sar',role:'user',type:'text',content:'你是坏蛋！'});
+                await window.sarQA.DB.saveMessage({charId:'qa-sar',role:'user',type:'text',content:'討厭你！'});
+                await window.sarQA.DB.saveMessage({charId:'qa-sar',role:'user',type:'text',content:'你是壞蛋！'});
             });
             await page.reload(); await page.locator('.sully-chat-trigger').waitFor();
         }
     }
-    await page.getByRole('button',{name:'展开模块悬浮窗'}).click();
+    await page.getByRole('button',{name:'展開模塊懸浮窗'}).click();
     const monitor = page.locator('.sar-module-monitor');
-    assert((await monitor.innerText()).includes('装载者：装载模块的角色'));
+    assert((await monitor.innerText()).includes('裝載者：裝載模塊的角色'));
     await page.screenshot({path:`${out}/expanded.png`});
-    await page.getByRole('button',{name:'收起模块悬浮窗'}).click();
+    await page.getByRole('button',{name:'收起模塊懸浮窗'}).click();
     assert((await monitor.innerText()).includes('小雨（我）'));
     await page.setViewportSize({width:320,height:740});
     const bounds=await monitor.boundingBox(); assert(bounds.x>=0 && bounds.x+bounds.width<=320);

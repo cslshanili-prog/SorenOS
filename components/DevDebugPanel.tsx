@@ -97,7 +97,7 @@ const ToggleRow: React.FC<{
     </div>
 );
 
-// 类别用紧凑 checkbox「并排」摆（无说明，看不懂就别用），跟总开关那种 switch 区分开。
+// 類別用緊湊 checkbox「並排」擺（無說明，看不懂就別用），跟總開關那種 switch 區分開。
 const CheckboxChip: React.FC<{
     label: string;
     checked: boolean;
@@ -123,7 +123,7 @@ const CheckboxChip: React.FC<{
     </button>
 );
 
-// 复制 / 下载 / 未来其它日志动作共享同一种胶囊按钮——抽出来免得两套 className 28 行各自跑偏。
+// 複製 / 下載 / 未來其它日誌動作共享同一種膠囊按鈕——抽出來免得兩套 className 28 行各自跑偏。
 const LogActionButton: React.FC<{
     onClick: () => void;
     disabled: boolean;
@@ -151,14 +151,14 @@ const DevDebugPanel: React.FC = () => {
     const [flags, setFlags] = useState<DevDebugFlags>(() => readDevDebugFlags());
     const [logCount, setLogCount] = useState(() => readDevDebugLog().length);
     const [copied, setCopied] = useState(false);
-    // 孤儿图片 GC 是一次性动作不是行为开关，状态只在本次会话内有效——不进 DevDebugFlags，不持久化。
+    // 孤兒圖片 GC 是一次性動作不是行為開關，狀態只在本次會話內有效——不進 DevDebugFlags，不持久化。
     const [blobGcRunning, setBlobGcRunning] = useState(false);
     const [blobGcResult, setBlobGcResult] = useState<
         | { kind: 'done'; deleted: number; kept: number; keptBoundary: number; aborted: boolean }
         | { kind: 'error'; message: string }
         | null
     >(null);
-    // 位置不持久化：每次出现都回默认角，拖动只在本次会话内有效（prod 刷新=失效=类似关闭，没必要存）。
+    // 位置不持久化：每次出現都回默認角，拖動只在本次會話內有效（prod 刷新=失效=類似關閉，沒必要存）。
     const [floatingPosition, setFloatingPosition] = useState<DevDebugFloatingPosition>(getDefaultFloatingPosition);
     const dragStateRef = useRef<{
         pointerId: number;
@@ -170,29 +170,29 @@ const DevDebugPanel: React.FC = () => {
     const suppressClickRef = useRef(false);
 
     useEffect(() => subscribeDevDebugFlags(setFlags), []);
-    // 解锁时（false→true）从 storage 重读 flags：mount 时 isDevDebugAvailable() 为 false 的话
+    // 解鎖時（false→true）從 storage 重讀 flags：mount 時 isDevDebugAvailable() 為 false 的話
     // useState 拿到的是 DEFAULT_DEV_DEBUG_FLAGS（canUseDevDebugStorage gate 不放行），
-    // 后续 unlock 不刷新就会用户改一个开关 → writeDevDebugFlags({...DEFAULT, [k]:v}) 覆盖掉
-    // localStorage 里其他配置。这里在变可用时再读一次兜底。
+    // 後續 unlock 不刷新就會用戶改一個開關 → writeDevDebugFlags({...DEFAULT, [k]:v}) 覆蓋掉
+    // localStorage 裡其他配置。這裡在變可用時再讀一次兜底。
     useEffect(() => subscribeDevDebugAvailability((next) => {
         setAvailable(next);
         if (next) setFlags(readDevDebugFlags());
     }), []);
-    // logCount 只在面板展开时才用得到（复制 (N) 按钮），收起 / 不可用都不订阅——
-    // 避免主动消息链路高频 append 时每条都触发整个 panel re-render。
+    // logCount 只在面板展開時才用得到（複製 (N) 按鈕），收起 / 不可用都不訂閱——
+    // 避免主動消息鏈路高頻 append 時每條都觸發整個 panel re-render。
     useEffect(() => {
         if (!open) return;
-        setLogCount(readDevDebugLog().length); // open 时拉一次最新值
+        setLogCount(readDevDebugLog().length); // open 時拉一次最新值
         return subscribeDevDebugLog((entries) => setLogCount(entries.length));
     }, [open]);
-    // 视口 resize / scroll 只在面板可见时跟随——!available 阶段不挂监听器，避免 mobile
-    // 地址栏伸缩高频触发 setState 把整个 panel re-render（即使它返回 null）。
+    // 視口 resize / scroll 只在面板可見時跟隨——!available 階段不掛監聽器，避免 mobile
+    // 地址欄伸縮高頻觸發 setState 把整個 panel re-render（即使它返回 null）。
     useEffect(() => {
         if (!available) return;
         const clampToViewport = () => {
             setFloatingPosition((current) => {
                 const next = clampFloatingPosition(current);
-                // 同样的 {x,y} 还要返回原对象，免得 React 因为 Object.is 失败而每次 commit。
+                // 同樣的 {x,y} 還要返回原對象，免得 React 因為 Object.is 失敗而每次 commit。
                 return (next.x === current.x && next.y === current.y) ? current : next;
             });
         };
@@ -210,18 +210,18 @@ const DevDebugPanel: React.FC = () => {
         () => (flags.skipPromptBuild ? 1 : 0)
             + (flags.skipEmotionEval ? 1 : 0)
             + (flags.mergeSystemMessages ? 1 : 0)
-            // 「在录」= 总开关开 且 至少勾了一类——否则浮球红点会骗人「在录」其实 isCaptureEnabled
-            // 任何类别都返 false。
+            // 「在錄」= 總開關開 且 至少勾了一類——否則浮球紅點會騙人「在錄」其實 isCaptureEnabled
+            // 任何類別都返 false。
             + (flags.captureEnabled && flags.captureLogs.length > 0 ? 1 : 0)
-            // exposeLogDetail 只在录制实际生效时才计（同上）。
+            // exposeLogDetail 只在錄製實際生效時才計（同上）。
             + (flags.captureEnabled && flags.captureLogs.length > 0 && flags.exposeLogDetail ? 1 : 0),
         [flags],
     );
-    // 用 read-write-set 三步：从 localStorage 读 source of truth → 写回 → 同步 React state。
-    // 不在 setFlags(updater) 里做副作用——updater 必须是纯函数（StrictMode / concurrent
-    // 会让 updater 重跑），副作用塞进去会重复 dispatch / 重复写盘。这套写法同时绕开了 React
-    // 闭包的 stale-flags 问题（双标签页 storage 事件 + 用户点击 race），因为 read 拿的是
-    // localStorage 当前值。
+    // 用 read-write-set 三步：從 localStorage 讀 source of truth → 寫回 → 同步 React state。
+    // 不在 setFlags(updater) 裡做副作用——updater 必須是純函數（StrictMode / concurrent
+    // 會讓 updater 重跑），副作用塞進去會重複 dispatch / 重複寫盤。這套寫法同時繞開了 React
+    // 閉包的 stale-flags 問題（雙標籤頁 storage 事件 + 用戶點擊 race），因為 read 拿的是
+    // localStorage 當前值。
     const updateFlag = <K extends keyof DevDebugFlags,>(key: K, value: DevDebugFlags[K]) => {
         const next = { ...readDevDebugFlags(), [key]: value };
         setFlags(writeDevDebugFlags(next));
@@ -238,15 +238,15 @@ const DevDebugPanel: React.FC = () => {
         trackEvent('勾选调试日志类别', { 类别: category, 状态: checked ? '勾选' : '取消' });
     };
     const resetFlags = () => {
-        // 重置 = 回默认（总开关关 + 清空勾选）+ 清空所有日志，比「全不勾」更彻底。
-        // 注：writeDevDebugFlags 内部检测到 captureEnabled true→false 也会清日志，这里显式 clear
-        // 是为了「即便上次就是 false」时也保证清干净（重置语义包含清理日志）。
+        // 重置 = 回默認（總開關關 + 清空勾選）+ 清空所有日誌，比「全不勾」更徹底。
+        // 注：writeDevDebugFlags 內部檢測到 captureEnabled true→false 也會清日誌，這裡顯式 clear
+        // 是為了「即便上次就是 false」時也保證清乾淨（重置語義包含清理日誌）。
         setFlags(writeDevDebugFlags(DEFAULT_DEV_DEBUG_FLAGS));
         clearDevDebugLog();
         trackEvent('重置调试面板', { 范围: '开关与日志' });
     };
     const handleForceClose = () => {
-        // 「关闭」= 收起 + 位置回默认（纯内存）+ 强制关掉；任意分支生效，里面的开关另存不动。
+        // 「關閉」= 收起 + 位置回默認（純內存）+ 強制關掉；任意分支生效，裡面的開關另存不動。
         setOpen(false);
         setFloatingPosition(getDefaultFloatingPosition());
         closeDevDebug();
@@ -257,7 +257,7 @@ const DevDebugPanel: React.FC = () => {
         setBlobGcRunning(true);
         setBlobGcResult(null);
         try {
-            // 不传参 = 默认 72h 新鲜豁免（挡「已 put、引用未落盘」的竞态），调试面板不提供改小的口子。
+            // 不傳參 = 默認 72h 新鮮豁免（擋「已 put、引用未落盤」的競態），調試面板不提供改小的口子。
             const result = await runBlobGc();
             setBlobGcResult({ kind: 'done', ...result });
         } catch (error) {
@@ -282,7 +282,7 @@ const DevDebugPanel: React.FC = () => {
             content: text,
             fileName: `devdebug-log-${__BUILD_BRANCH__}-${stamp}.json`,
             mimeType: 'application/json;charset=utf-8',
-            shareTitle: 'Soren 调试日志',
+            shareTitle: 'Soren 調試日誌',
         });
         trackEvent('导出调试日志', { 方式: result === 'shared' ? '分享' : '下载' });
     };
@@ -352,7 +352,7 @@ const DevDebugPanel: React.FC = () => {
     if (!available) return null;
 
     const panelPosition = getPanelPosition(floatingPosition);
-    // 面板最大高度按「实际可视高度」算（visualViewport，避开手机动态工具栏），跟定位口径一致，超出部分中间滚动。
+    // 面板最大高度按「實際可視高度」算（visualViewport，避開手機動態工具欄），跟定位口徑一致，超出部分中間滾動。
     const panelMaxHeight = getViewportSize().height - FLOATING_SAFE_MARGIN * 2;
 
     return (
@@ -367,7 +367,7 @@ const DevDebugPanel: React.FC = () => {
             {!open && (
                 <button
                     type="button"
-                    aria-label="打开调试面板"
+                    aria-label="打開調試面板"
                     onClick={handleFloatingClick}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
@@ -388,7 +388,7 @@ const DevDebugPanel: React.FC = () => {
                 <section
                     className="flex w-[min(342px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-white/12 bg-zinc-950/90 text-white shadow-2xl backdrop-blur-xl"
                     style={{ maxHeight: panelMaxHeight }}
-                    aria-label="开发调试面板"
+                    aria-label="開發調試面板"
                 >
                     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
                         <div className="flex min-w-0 items-center gap-2">
@@ -404,7 +404,7 @@ const DevDebugPanel: React.FC = () => {
                         </div>
                         <button
                             type="button"
-                            aria-label="关闭调试面板"
+                            aria-label="關閉調試面板"
                             onClick={() => setOpen(false)}
                             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 active:scale-95"
                         >
@@ -414,43 +414,43 @@ const DevDebugPanel: React.FC = () => {
 
                     <div className="flex-1 overflow-y-auto px-4">
                         <ToggleRow
-                            title="跳过 Prompt Build"
-                            detail="只发送聊天历史。"
+                            title="跳過 Prompt Build"
+                            detail="只發送聊天歷史。"
                             checked={flags.skipPromptBuild}
                             onChange={(checked) => updateFlag('skipPromptBuild', checked)}
                         />
                         <div className="h-px bg-white/10" />
                         <ToggleRow
-                            title="暂停情绪副评估"
-                            detail="主回复仍照常发送，但不启动情绪副评估（本地和即时对话都不跑）。"
+                            title="暫停情緒副評估"
+                            detail="主回覆仍照常發送，但不啟動情緒副評估（本地和即時對話都不跑）。"
                             checked={flags.skipEmotionEval}
                             onChange={(checked) => updateFlag('skipEmotionEval', checked)}
                         />
                         <div className="h-px bg-white/10" />
                         <ToggleRow
-                            title="合并 system 为一条"
-                            detail="排查中转对多条 system 的计量/兼容问题；开着会让前缀缓存失效。"
+                            title="合併 system 為一條"
+                            detail="排查中轉對多條 system 的計量/兼容問題；開著會讓前綴緩存失效。"
                             checked={flags.mergeSystemMessages}
                             onChange={(checked) => updateFlag('mergeSystemMessages', checked)}
                         />
                         <div className="h-px bg-white/10" />
                         {import.meta.env.DEV && <>
-                            <ToggleRow title="SAR 剧情与表情校对" detail="临时开放名册回顾，不改变真实星级或奖励。" checked={flags.sarExpressionReview} onChange={checked => updateFlag('sarExpressionReview', checked)} />
+                            <ToggleRow title="SAR 劇情與表情校對" detail="臨時開放名冊回顧，不改變真實星級或獎勵。" checked={flags.sarExpressionReview} onChange={checked => updateFlag('sarExpressionReview', checked)} />
                             <div className="h-px bg-white/10" />
                         </>}
-                        {/* 只是入口：打开后由 Amsg2DebugPanel 自己在页面上挂小窗，本面板不渲染它的内容。 */}
+                        {/* 只是入口：打開後由 Amsg2DebugPanel 自己在頁面上掛小窗，本面板不渲染它的內容。 */}
                         <ToggleRow
-                            title="amsg2 任务观察窗"
-                            detail="右上角常驻小窗：任务倒计时、cron 实际触发时刻、通道 trace。"
+                            title="amsg2 任務觀察窗"
+                            detail="右上角常駐小窗：任務倒計時、cron 實際觸發時刻、通道 trace。"
                             checked={flags.amsg2Panel}
                             onChange={(checked) => updateFlag('amsg2Panel', checked)}
                         />
                         <div className="h-px bg-white/10" />
 
-                        {/* 记录日志：总开关；打开后才露出 类型 / 记录完整 / 复制 / 下载 一整套 —— 关掉时整段收起。
-                            true→false 时清空日志这一步在 writeDevDebugFlags 数据层做，这里走通用 updateFlag。 */}
+                        {/* 記錄日誌：總開關；打開後才露出 類型 / 記錄完整 / 複製 / 下載 一整套 —— 關掉時整段收起。
+                            true→false 時清空日誌這一步在 writeDevDebugFlags 數據層做，這裡走通用 updateFlag。 */}
                         <ToggleRow
-                            title="记录日志"
+                            title="記錄日誌"
                             checked={flags.captureEnabled}
                             onChange={(checked) => {
                                 updateFlag('captureEnabled', checked);
@@ -474,15 +474,15 @@ const DevDebugPanel: React.FC = () => {
                                         onClick={copyLog}
                                         disabled={logCount === 0}
                                         icon={<ClipboardText size={13} weight="bold" />}
-                                        label={copied ? '已复制' : logCount > 0 ? `复制 (${logCount})` : '暂无日志'}
+                                        label={copied ? '已複製' : logCount > 0 ? `複製 (${logCount})` : '暫無日誌'}
                                     />
                                     <LogActionButton
                                         onClick={downloadLog}
                                         disabled={logCount === 0}
                                         icon={<DownloadSimple size={13} weight="bold" />}
-                                        label="下载"
+                                        label="下載"
                                     />
-                                    {/* 「清空」只清日志，不动开关 / 勾选；区别于「重置」（连开关一起回默认）和关掉总开关（清完后类型 UI 也收起）。 */}
+                                    {/* 「清空」只清日誌，不動開關 / 勾選；區別於「重置」（連開關一起回默認）和關掉總開關（清完後類型 UI 也收起）。 */}
                                     <LogActionButton
                                         onClick={() => {
                                             clearDevDebugLog();
@@ -495,8 +495,8 @@ const DevDebugPanel: React.FC = () => {
                                 </div>
                                 <div className="h-px bg-white/10" />
                                 <ToggleRow
-                                    title="记录完整内容"
-                                    detail="只对新条目生效"
+                                    title="記錄完整內容"
+                                    detail="只對新條目生效"
                                     checked={flags.exposeLogDetail}
                                     onChange={(checked) => updateFlag('exposeLogDetail', checked)}
                                 />
@@ -504,31 +504,31 @@ const DevDebugPanel: React.FC = () => {
                         )}
                         <div className="h-px bg-white/10" />
 
-                        {/* 孤儿图片 GC：手动跑一轮（默认 72h 新鲜豁免）。SDK 宁可留孤儿绝不删活图，
-                            引用面枚举出错时整轮放弃（aborted），一个都不删。 */}
+                        {/* 孤兒圖片 GC：手動跑一輪（默認 72h 新鮮豁免）。SDK 寧可留孤兒絕不刪活圖，
+                            引用面枚舉出錯時整輪放棄（aborted），一個都不刪。 */}
                         <div className="py-3">
                             <div className="flex">
                                 <LogActionButton
                                     onClick={handleBlobGc}
                                     disabled={blobGcRunning}
                                     icon={<Broom size={13} weight="bold" />}
-                                    label={blobGcRunning ? '清理中…' : '清理孤儿图片'}
+                                    label={blobGcRunning ? '清理中…' : '清理孤兒圖片'}
                                 />
                             </div>
                             {blobGcResult && (
                                 <div className="mt-2 text-[11px] leading-relaxed text-white/55">
                                     {blobGcResult.kind === 'error' ? (
-                                        `清理出错：${blobGcResult.message}`
+                                        `清理出錯：${blobGcResult.message}`
                                     ) : (
                                         <>
-                                            已清理 {blobGcResult.deleted} · 保留 {blobGcResult.kept} · 边界豁免 {blobGcResult.keptBoundary}
+                                            已清理 {blobGcResult.deleted} · 保留 {blobGcResult.kept} · 邊界豁免 {blobGcResult.keptBoundary}
                                             {blobGcResult.aborted && (
-                                                <><br />引用面枚举或 blob 表扫描出错，本轮已放弃、未删除任何东西。</>
+                                                <><br />引用面枚舉或 blob 表掃描出錯，本輪已放棄、未刪除任何東西。</>
                                             )}
-                                            {/* keptBoundary 是唯一报警信号：deleted:0 和「真没垃圾」同形，
-                                                它接近保留数 = 某个引用面混进了杂散令牌前缀文本，GC 整轮空转。 */}
+                                            {/* keptBoundary 是唯一報警信號：deleted:0 和「真沒垃圾」同形，
+                                                它接近保留數 = 某個引用面混進了雜散令牌前綴文本，GC 整輪空轉。 */}
                                             {blobGcResult.keptBoundary > 0 && (
-                                                <><br />注意：边界豁免 &gt; 0，可能有引用面混进了杂散的令牌前缀文本；若它接近保留数，说明 GC 整轮空转，需要排查。</>
+                                                <><br />注意：邊界豁免 &gt; 0，可能有引用面混進了雜散的令牌前綴文本；若它接近保留數，說明 GC 整輪空轉，需要排查。</>
                                             )}
                                         </>
                                     )}
@@ -544,7 +544,7 @@ const DevDebugPanel: React.FC = () => {
                             className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-white/10 px-3 text-[11px] font-bold text-white/70 active:scale-95"
                         >
                             <Power size={13} weight="bold" />
-                            关闭
+                            關閉
                         </button>
                         <button
                             type="button"

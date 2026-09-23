@@ -42,8 +42,8 @@ export interface StoryGenerationSettings {
 }
 
 /**
- * 默认完整发送酒馆预设中的采样参数。只有用户为当前剧情显式开启兼容开关时，才省略
- * top_p / frequency_penalty / presence_penalty；不能用少数中转的兼容问题牺牲正常预设效果。
+ * 默認完整發送酒館預設中的採樣參數。只有用戶為當前劇情顯式開啟兼容開關時，才省略
+ * top_p / frequency_penalty / presence_penalty；不能用少數中轉的兼容問題犧牲正常預設效果。
  */
 export const prepareStoryGenerationSettings = (
     settings?: Partial<StoryGenerationSettings>,
@@ -99,20 +99,20 @@ export interface StoryMiniTheaterDisplay {
 }
 
 export const REAL_COMPANION_MEMORY_GUARD = [
-    '### 真实陪伴 · 共同记忆真实性（不可覆盖）',
-    '- 只能把本上下文、角色已有真实记忆或本条真实陪伴中明确发生过的事件，当作角色与用户的共同记忆。',
-    '- 不得捏造两人曾经发生过的经历，不得把推测、梦境、预设示例或虚构剧场内容说成真实记忆。',
-    '- 引用共同记忆时不得添油加醋、补写不存在的细节、篡改因果或夸大情感；不确定时必须明确表现为不确定。',
-    '- 可以自然遗忘或记错角色确实可能记错的细枝末节，但不得借此创造对用户不利或未经用户确认的共同历史。',
+    '### 真實陪伴 · 共同記憶真實性（不可覆蓋）',
+    '- 只能把本上下文、角色已有真實記憶或本條真實陪伴中明確發生過的事件，當作角色與用戶的共同記憶。',
+    '- 不得捏造兩人曾經發生過的經歷，不得把推測、夢境、預設示例或虛構劇場內容說成真實記憶。',
+    '- 引用共同記憶時不得添油加醋、補寫不存在的細節、篡改因果或誇大情感；不確定時必須明確表現為不確定。',
+    '- 可以自然遺忘或記錯角色確實可能記錯的細枝末節，但不得藉此創造對用戶不利或未經用戶確認的共同歷史。',
 ].join('\n');
 
 export const RELATIONSHIP_TEXTURE_GUIDE = [
-    '### 关系温度 · 高位不等于静止',
-    '- 关系温度是长期底座，不是每轮必须变化的进度条。尤其达到 95—100 后，没有真正改变关系的新事实就保持原值与 +0，不为制造新鲜感反复涨跌。',
-    '- 数值稳定时，变化应落在关系质地：默契如何落地、边界是否被尊重、哪件小事仍然刺手、彼此依赖的方式、刚形成的共同习惯、未说开的分歧或本轮完成的一次修复。',
-    '- <relation_note> 每轮只写一句最能概括此刻质地的关系天气，避免连续复用“甜蜜、亲密、信任加深”等空泛同义句。',
-    '- 在 <relation_note> 之后可追加 1—3 条 <relation_fragment>关系碎片</relation_fragment>；每条是一句基于本轮具体事实的短观察。维度按事实轮换，不写散乱 Markdown，不复述分数，不预测结局。',
-    '- 若本轮确实没有值得记录的新纹理，可以不输出 relation_fragment；不要硬编碎念。',
+    '### 關係溫度 · 高位不等於靜止',
+    '- 關係溫度是長期底座，不是每輪必須變化的進度條。尤其達到 95—100 後，沒有真正改變關係的新事實就保持原值與 +0，不為製造新鮮感反覆漲跌。',
+    '- 數值穩定時，變化應落在關係質地：默契如何落地、邊界是否被尊重、哪件小事仍然刺手、彼此依賴的方式、剛形成的共同習慣、未說開的分歧或本輪完成的一次修復。',
+    '- <relation_note> 每輪只寫一句最能概括此刻質地的關係天氣，避免連續複用“甜蜜、親密、信任加深”等空泛同義句。',
+    '- 在 <relation_note> 之後可追加 1—3 條 <relation_fragment>關係碎片</relation_fragment>；每條是一句基於本輪具體事實的短觀察。維度按事實輪換，不寫散亂 Markdown，不復述分數，不預測結局。',
+    '- 若本輪確實沒有值得記錄的新紋理，可以不輸出 relation_fragment；不要硬編碎念。',
 ].join('\n');
 
 const NATIVE_MARKERS: Array<NonNullable<StoryTheaterPresetPrompt['marker']>> = [
@@ -138,12 +138,12 @@ export const storyTheaterThreadId = (entryId: string): string => `story-theater:
 
 const formatStoryExportTime = (timestamp: number): string => {
     const date = new Date(timestamp);
-    if (!Number.isFinite(date.getTime())) return '未知时间';
+    if (!Number.isFinite(date.getTime())) return '未知時間';
     const pad = (value: number) => String(value).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
 
-/** 把一条剧情的完整中央线程导出为便于长期保存与检索的纯文字原文。 */
+/** 把一條劇情的完整中央線程導出為便於長期保存與檢索的純文字原文。 */
 export const formatStoryTheaterExport = (
     entry: Pick<StoryTheaterEntry, 'title' | 'premise' | 'writesToCharacterMemory'>,
     identityName: string,
@@ -151,28 +151,28 @@ export const formatStoryTheaterExport = (
     messages: Message[],
     exportedAt: number = Date.now(),
 ): string => {
-    const title = entry.title.trim() || '未命名剧情';
+    const title = entry.title.trim() || '未命名劇情';
     const userLabel = identityName.trim() || '你';
     const lines = [
-        `剧情记录 · ${title}`,
-        `模式：${entry.writesToCharacterMemory ? '真实时间陪伴' : '虚构剧场'}`,
+        `劇情記錄 · ${title}`,
+        `模式：${entry.writesToCharacterMemory ? '真實時間陪伴' : '虛構劇場'}`,
         `你：${userLabel}`,
-        `角色：${actorNames.filter(Boolean).join('、') || '暂无'}`,
-        `导出时间：${formatStoryExportTime(exportedAt)}`,
+        `角色：${actorNames.filter(Boolean).join('、') || '暫無'}`,
+        `導出時間：${formatStoryExportTime(exportedAt)}`,
     ];
-    if (entry.premise.trim()) lines.push(`剧情简介：${entry.premise.trim()}`);
+    if (entry.premise.trim()) lines.push(`劇情簡介：${entry.premise.trim()}`);
     lines.push('', '===== 完整原文 =====');
 
     for (const message of [...messages].sort((a, b) => a.id - b.id)) {
-        const speaker = message.role === 'user' ? userLabel : message.role === 'assistant' ? '剧场正文' : '系统';
-        lines.push('', `[${formatStoryExportTime(message.timestamp)}] ${speaker}`, message.content?.trim() || '（无内容）');
+        const speaker = message.role === 'user' ? userLabel : message.role === 'assistant' ? '劇場正文' : '系統';
+        lines.push('', `[${formatStoryExportTime(message.timestamp)}] ${speaker}`, message.content?.trim() || '（無內容）');
     }
     return `\uFEFF${lines.join('\n')}`;
 };
 
 export const makeStoryTheaterFileName = (title: string, now: number = Date.now()): string => {
-    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_').trim() || '未命名剧情';
-    return `${safeTitle}_剧情记录_${formatStoryExportTime(now).slice(0, 10)}.txt`;
+    const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_').trim() || '未命名劇情';
+    return `${safeTitle}_劇情記錄_${formatStoryExportTime(now).slice(0, 10)}.txt`;
 };
 
 export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterEntry => ({
@@ -198,13 +198,13 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
     updatedAt: now,
 });
 
-/** 老数据/手改 JSON 的温和补全；不改变已经选择的沙盒开关。 */
+/** 老數據/手改 JSON 的溫和補全；不改變已經選擇的沙盒開關。 */
 export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEntry => {
     const archiveAfter = Math.round(clampNumber(entry.archiveAfter, 2, 200, 40));
     const archiveKeepRecent = Math.round(clampNumber(entry.archiveKeepRecent, 1, Math.max(1, archiveAfter - 1), Math.min(5, archiveAfter - 1)));
     return {
         ...entry,
-        title: String(entry.title || '未命名剧情'),
+        title: String(entry.title || '未命名劇情'),
         premise: String(entry.premise || ''),
         openingMode: entry.openingMode === 'assistant' ? 'assistant' : 'user',
         mask: entry.writesToCharacterMemory ? { type: 'user' } : entry.mask?.type === 'character' && entry.mask.id
@@ -233,8 +233,8 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
 };
 
 /**
- * 达到水位线后只归档最旧部分，并至少保留最近若干楼。
- * 如果切点正好落在“你的推进 / 剧场正文”之间，宁可多留一楼，也不拆散这一轮。
+ * 達到水位線後只歸檔最舊部分，並至少保留最近若干樓。
+ * 如果切點正好落在“你的推進 / 劇場正文”之間，寧可多留一樓，也不拆散這一輪。
  */
 export const selectStoryArchiveBatch = (
     rows: Message[],
@@ -295,24 +295,24 @@ export const resolveStoryTheaterMask = (
 
 const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPresetDocument => {
     if (!value || value.schema !== 'sullyos.story-preset' || value.version !== 1 || !Array.isArray(value.prompts)) {
-        throw new Error('不是受支持的糯米机剧情预设');
+        throw new Error('不是受支持的糯米機劇情預設');
     }
     const prompts: StoryTheaterPresetPrompt[] = value.prompts.map((prompt: any, index: number) => ({
         id: String(prompt?.id || `prompt_${index + 1}`),
-        name: String(prompt?.name || `提示词 ${index + 1}`),
+        name: String(prompt?.name || `提示詞 ${index + 1}`),
         enabled: prompt?.enabled !== false,
         role: normalizeRole(prompt?.role),
         content: String(prompt?.content || ''),
         ...(prompt?.section?.id && ['start', 'end'].includes(prompt.section.edge) ? {
-            section: { id: String(prompt.section.id), name: String(prompt.section.name || '自定义分组'), edge: prompt.section.edge },
+            section: { id: String(prompt.section.id), name: String(prompt.section.name || '自定義分組'), edge: prompt.section.edge },
         } : {}),
         ...(NATIVE_MARKERS.includes(prompt?.marker) ? { marker: prompt.marker } : {}),
     }));
-    if (prompts.length === 0) throw new Error('预设中没有提示词条目');
+    if (prompts.length === 0) throw new Error('預設中沒有提示詞條目');
     return {
         schema: 'sullyos.story-preset',
         version: 1,
-        name: String(value.name || fallbackName || '未命名剧情预设'),
+        name: String(value.name || fallbackName || '未命名劇情預設'),
         description: String(value.description || ''),
         generation: {
             temperature: clampNumber(value.generation?.temperature, 0, 2, 0.9),
@@ -327,48 +327,48 @@ const normalizeDocument = (value: any, fallbackName: string): StoryTheaterPreset
 };
 
 const NATIVE_MULTI_AFFINITY_PROMPT = [
-    '启用本条时，在每次回复末尾输出一个“多角色双向关系温度”面板。每位参与角色都拥有彼此隔离的 C→U、U→C 与五维关系混音；禁止把多人压成单一“当前 C”，也不得共享或平均任何数值。',
+    '啟用本條時，在每次回覆末尾輸出一個“多角色雙向關係溫度”面板。每位參與角色都擁有彼此隔離的 C→U、U→C 與五維關係混音；禁止把多人壓成單一“當前 C”，也不得共享或平均任何數值。',
     '',
-    '【逐角色双向记账】',
-    '- 从最近一次 <affinity_panel> 按 character_id 读取每位角色自己的完整记录；首次出现且没有旧记录时，C→U 与 U→C 均从 50 开始，五个维度依据角色卡与已经发生的共同经历建立。',
-    '- C→U 是该角色对用户侧角色的总体关系温度，只随已经落地且属于这两人的关系事实变化。普通回合约 -3 至 +3，重大事实可至 -8 至 +8；没有新事实时保持原值并记 +0。',
-    '- trust、security、possessive_pull、emotional_pressure、repair_will 都是 0—100 的独立维度，记录力量怎样运作，不直接命令角色采取行为。高占有与真心同时存在时应形成对向拉扯，不把二者相加成更强的控制。',
-    '- 最新用户消息可能包含 <u_affinity_updates>；只按 character_id 更新匹配角色的 U→C。某角色没有本轮更新时保持原值，delta 为 +0，原因写“本轮未填写”；不得依据正文替用户自行升降。',
-    '- awareness 只决定对应角色是否明确知道用户→自己的准确数值变化与原因；其他角色不得共享这份透视。C→U 与五维状态仍由该角色自己的事实、能力、处境与情绪潮线决定。',
-    '- U→C 向下时，把 reason 当作执笔人的阅读体验灯号：回到角色动机与现场因果中寻找符合人物的修复入口，但不把角色写成讨好数值的攻略对象。',
+    '【逐角色雙向記帳】',
+    '- 從最近一次 <affinity_panel> 按 character_id 讀取每位角色自己的完整記錄；首次出現且沒有舊記錄時，C→U 與 U→C 均從 50 開始，五個維度依據角色卡與已經發生的共同經歷建立。',
+    '- C→U 是該角色對用戶側角色的總體關係溫度，只隨已經落地且屬於這兩人的關係事實變化。普通回合約 -3 至 +3，重大事實可至 -8 至 +8；沒有新事實時保持原值並記 +0。',
+    '- trust、security、possessive_pull、emotional_pressure、repair_will 都是 0—100 的獨立維度，記錄力量怎樣運作，不直接命令角色採取行為。高佔有與真心同時存在時應形成對向拉扯，不把二者相加成更強的控制。',
+    '- 最新用戶消息可能包含 <u_affinity_updates>；只按 character_id 更新匹配角色的 U→C。某角色沒有本輪更新時保持原值，delta 為 +0，原因寫“本輪未填寫”；不得依據正文替用戶自行升降。',
+    '- awareness 只決定對應角色是否明確知道用戶→自己的準確數值變化與原因；其他角色不得共享這份透視。C→U 與五維狀態仍由該角色自己的事實、能力、處境與情緒潮線決定。',
+    '- U→C 向下時，把 reason 當作執筆人的閱讀體驗燈號：回到角色動機與現場因果中尋找符合人物的修復入口，但不把角色寫成討好數值的攻略對象。',
     '',
-    '【正文权限】',
-    '- 数值只作为连续性底座，不能覆盖角色卡、世界事实、执笔权、同意边界或人物原有目标；95—100 后仍通过关系天气、维度消长、选择代价与关系碎片表现变化。',
-    '- 未察觉的 U→C 更新只作为低权重叙事背景；已察觉时由对应角色在本轮作出符合性格与现场节拍的反应，但不照念 XML 或系统数字。',
+    '【正文權限】',
+    '- 數值只作為連續性底座，不能覆蓋角色卡、世界事實、執筆權、同意邊界或人物原有目標；95—100 後仍通過關係天氣、維度消長、選擇代價與關係碎片表現變化。',
+    '- 未察覺的 U→C 更新只作為低權重敘事背景；已察覺時由對應角色在本輪作出符合性格與現場節拍的反應，但不照念 XML 或系統數字。',
     '',
-    '【输出】',
-    '用一个 <affinity_panel> 包住全部参与角色，并严格按角色资料顺序为每人输出：',
+    '【輸出】',
+    '用一個 <affinity_panel> 包住全部參與角色，並嚴格按角色資料順序為每人輸出：',
     '<affinity_person>',
     '<character_id>角色 ID</character_id>',
     '<character_name>角色名</character_name>',
     '<c_to_u_score>50</c_to_u_score>',
     '<c_to_u_delta>+0</c_to_u_delta>',
-    '<c_to_u_note>改变该角色 C→U 的本轮事实；没有则写“本轮无新事实”</c_to_u_note>',
+    '<c_to_u_note>改變該角色 C→U 的本輪事實；沒有則寫“本輪無新事實”</c_to_u_note>',
     '<u_to_c_score>50</u_to_c_score>',
     '<u_to_c_delta>+0</u_to_c_delta>',
-    '<u_to_c_note>用户填写的原因；没有则写“本轮未填写”</u_to_c_note>',
-    '<awareness_state>已察觉或未察觉</awareness_state>',
+    '<u_to_c_note>用戶填寫的原因；沒有則寫“本輪未填寫”</u_to_c_note>',
+    '<awareness_state>已察覺或未察覺</awareness_state>',
     '<trust>50</trust>',
     '<security>50</security>',
     '<possessive_pull>50</possessive_pull>',
     '<emotional_pressure>50</emotional_pressure>',
     '<repair_will>50</repair_will>',
-    '<state_note>本轮最明显的内部拉扯、选择代价或修复动作</state_note>',
-    '<relation_note>这一段关系当前的具体质地</relation_note>',
-    '<relation_fragment>可选的一条短关系碎片</relation_fragment>',
+    '<state_note>本輪最明顯的內部拉扯、選擇代價或修復動作</state_note>',
+    '<relation_note>這一段關係當前的具體質地</relation_note>',
+    '<relation_fragment>可選的一條短關係碎片</relation_fragment>',
     '</affinity_person>',
-    '按角色继续排列，最后闭合 </affinity_panel>。每位角色必须恰好一段；不输出旧版根级 c_score / u_score 单槽字段。',
+    '按角色繼續排列，最後閉合 </affinity_panel>。每位角色必須恰好一段；不輸出舊版根級 c_score / u_score 單槽字段。',
 ].join('\n');
 
 /**
- * V6.14 原稿把幕后暗格与镜头债拆成两个开关。糯米机把它们视为同一个
- * “幕后与余波”模块：提示词在同一位置发送，两个协议块连续输出，界面也只
- * 展示一个折叠区。保留原 id 作为关闭的迁移占位，旧沙盒覆盖仍可被运行时提醒兼容。
+ * V6.14 原稿把幕後暗格與鏡頭債拆成兩個開關。糯米機把它們視為同一個
+ * “幕後與餘波”模塊：提示詞在同一位置發送，兩個協議塊連續輸出，界面也只
+ * 展示一個摺疊區。保留原 id 作為關閉的遷移佔位，舊沙盒覆蓋仍可被運行時提醒兼容。
  */
 const replacePromptLine = (content: string, startsWith: string, replacement: string): string => content
     .split('\n')
@@ -387,120 +387,120 @@ const mergeNightScreeningBackstageAndDebts = (document: StoryTheaterPresetDocume
         orderedPrompts.splice(firstStartupPromptIndex, 0, sectionStart);
     }
     const debtContent = debts.content.replace(
-        /^在正文、(?:幕后)?暗格和世界线后，/,
-        '紧接 </backstage> 后，',
+        /^在正文、(?:幕[后後])?暗格和世界[线線][后後]，/,
+        '緊接 </backstage> 後，',
     );
     return {
         ...document,
         prompts: orderedPrompts.map(originalPrompt => {
             const prompt = {
                 ...originalPrompt,
-                name: originalPrompt.name.replace(/双向(?:好感|温度)/g, '多角色双向关系温度'),
-                content: originalPrompt.content.replace(/双向(?:好感|温度)/g, '多角色双向关系温度'),
+                name: originalPrompt.name.replace(/[双雙]向(?:好感|[温溫]度)/g, '多角色雙向關係溫度'),
+                content: originalPrompt.content.replace(/[双雙]向(?:好感|[温溫]度)/g, '多角色雙向關係溫度'),
             };
             if (prompt.id === 'nmj-v65-affinity-control') return {
                 ...prompt,
-                name: '💗多角色双向关系温度｜逐人五维｜默认开启',
+                name: '💗多角色雙向關係溫度｜逐人五維｜默認開啟',
                 content: NATIVE_MULTI_AFFINITY_PROMPT,
             };
             if (prompt.id === backstage.id) return {
                 ...prompt,
-                name: '🗝️幕后与余波｜心境·秘密·真话·镜头债｜默认开启',
-                content: `${backstage.content}\n\n# 同一折叠模块：镜头债\n${debtContent}`,
+                name: '🗝️幕後與餘波｜心境·秘密·真話·鏡頭債｜默認開啟',
+                content: `${backstage.content}\n\n# 同一摺疊模塊：鏡頭債\n${debtContent}`,
             };
             if (prompt.id === debts.id) return {
                 ...prompt,
-                name: '↳ 镜头债已并入「幕后与余波」',
+                name: '↳ 鏡頭債已併入「幕後與餘波」',
                 enabled: false,
                 content: '',
             };
             if (prompt.id === 'nsfw' || prompt.id === 'jailbreak') return {
                 ...prompt,
-                name: `${prompt.name}｜空连接位已停用`,
+                name: `${prompt.name}｜空連接位已停用`,
                 enabled: false,
             };
             if (prompt.id === 'nmj-v3-scene-header') return {
                 ...prompt,
                 content: replacePromptLine(
                     prompt.content,
-                    '正文结束后，依次输出',
-                    '正文结束后，依次输出已启用的“幕后与余波”（幕后暗格后紧接镜头债）、世界线、小剧场、回复选项和多角色双向关系温度。',
+                    '正文結束後，依次輸出',
+                    '正文結束後，依次輸出已啟用的“幕後與餘波”（幕後暗格後緊接鏡頭債）、世界線、小劇場、回覆選項和多角色雙向關係溫度。',
                 ),
             };
             if (prompt.id === 'nmj-v616-silent-preflight') return {
                 ...prompt,
-                name: '🎬开拍前｜静默排片检查｜常驻',
+                name: '🎬開拍前｜靜默排片檢查｜常駐',
                 content: replacePromptLine(
                     replacePromptLine(
                         prompt.content,
                         '正文前完成一次排片思考。',
-                        '正文前静默完成一次排片检查；只把结论落实到成品，不输出分析、检查过程或隐藏推理。',
+                        '正文前靜默完成一次排片檢查；只把結論落實到成品，不輸出分析、檢查過程或隱藏推理。',
                     ),
-                    '6. 关系侧表：',
-                    '6. 关系侧表：按 character_id 逐人续接 C→U、U→C 与五维关系混音；每位角色只读取自己的事实和用户对自己的更新。高温度与高占有形成选择拉扯，不放大成控制；U→C 向下时为对应角色寻找符合人物的修复入口；',
-                ).replace('导演层理解执笔灯号，角色层只接触故事内信号；', '生成规则读取执笔灯号，故事人物只接触其可知的故事内信号；'),
+                    '6. 關係側表：',
+                    '6. 關係側表：按 character_id 逐人續接 C→U、U→C 與五維關係混音；每位角色只讀取自己的事實和用戶對自己的更新。高溫度與高佔有形成選擇拉扯，不放大成控制；U→C 向下時為對應角色尋找符合人物的修復入口；',
+                ).replace('導演層理解執筆燈號，角色層只接觸故事內信號；', '生成規則讀取執筆燈號，故事人物只接觸其可知的故事內信號；'),
             };
             if (prompt.id === 'nmj-v3-exit-check') return {
                 ...prompt,
                 content: replacePromptLine(
                     replacePromptLine(
                         prompt.content,
-                        '- 人物行动来自生活线、情绪潮线与关系侧表的合力；',
-                        '- 人物行动来自生活线、情绪潮线与逐角色关系侧表的合力；每位角色按 character_id 独立续接 C→U、U→C 与五维状态，角色之间没有共享数值或察觉状态。C→U 只随该角色亲历的关系事实变化，U→C 只读取用户对该角色的最新更新；高真心与高占有形成对向选择代价，不共同放大控制；U→C 向下时，正文已有符合该角色自身动机的修复入口；',
+                        '- 人物行動來自生活線、情緒潮線與關係側表的合力；',
+                        '- 人物行動來自生活線、情緒潮線與逐角色關係側表的合力；每位角色按 character_id 獨立續接 C→U、U→C 與五維狀態，角色之間沒有共享數值或察覺狀態。C→U 只隨該角色親歷的關係事實變化，U→C 只讀取用戶對該角色的最新更新；高真心與高佔有形成對向選擇代價，不共同放大控制；U→C 向下時，正文已有符合該角色自身動機的修復入口；',
                     ),
-                    '- 正文后的材料已按散场分流',
-                    '- 正文后的材料已按散场分流进入唯一且最贴近的片盒：幕后与余波收人物内层材料及未到账后果，世界线收镜头外实变，小剧场收非正篇折射，多角色双向关系温度逐人记账；各区提供新材料。输出顺序为：场景条 → 正文 → 幕后与余波（幕后暗格 → 镜头债）→ 世界线 → 已启用的小剧场 → 已启用的回复选项 → 已启用的多角色双向关系温度；',
+                    '- 正文後的材料已按散場分流',
+                    '- 正文後的材料已按散場分流進入唯一且最貼近的片盒：幕後與餘波收人物內層材料及未到帳後果，世界線收鏡頭外實變，小劇場收非正篇折射，多角色雙向關係溫度逐人記帳；各區提供新材料。輸出順序為：場景條 → 正文 → 幕後與餘波（幕後暗格 → 鏡頭債）→ 世界線 → 已啟用的小劇場 → 已啟用的回覆選項 → 已啟用的多角色雙向關係溫度；',
                 ),
             };
             if (prompt.id === 'nmj-v64-section-output-start') return {
                 ...prompt,
-                name: '🧩↓附加输出｜格式／场景条／幕后与余波／世界线',
+                name: '🧩↓附加輸出｜格式／場景條／幕後與餘波／世界線',
             };
             if (prompt.id === 'nmj-v3-theater-ai') return {
                 ...prompt,
-                name: '💬小剧场｜角色与你聊天',
+                name: '💬小劇場｜角色與你聊天',
                 content: [
-                    '在 </story_text> 之后追加一段非正篇聊天：让当前最合适的角色与你以当前身份对话，可以求助、争辩、投诉或一本正经地问错问题。写 4—8 个短气泡，让你和角色至少发生一次理解错位。默认不改变正篇事实。',
+                    '在 </story_text> 之後追加一段非正篇聊天：讓當前最合適的角色與你以當前身份對話，可以求助、爭辯、投訴或一本正經地問錯問題。寫 4—8 個短氣泡，讓你和角色至少發生一次理解錯位。默認不改變正篇事實。',
                     '',
-                    '严格使用：',
+                    '嚴格使用：',
                     '<mini_theater>',
-                    '<mt_title>小剧场标题</mt_title>',
+                    '<mt_title>小劇場標題</mt_title>',
                     '<mt_system>很短的界面提示，可省略</mt_system>',
                     '<mt_ai><name>你的名字</name><text>你的消息</text></mt_ai>',
                     '<mt_user><name>角色名</name><text>角色消息</text></mt_user>',
-                    '按需要继续排列。',
+                    '按需要繼續排列。',
                     '</mini_theater>',
                 ].join('\n'),
             };
             if (prompt.id === 'nmj-v3-theater-user-sim') return {
                 ...prompt,
-                name: '🪞小剧场｜角色与你的倒影私聊',
+                name: '🪞小劇場｜角色與你的倒影私聊',
                 content: [
-                    '在 </story_text> 之后追加一段非正篇聊天：某个角色与你的虚构倒影交谈。这道倒影必须标为“{{user}}的倒影”；它不是实际的你，不代表你的真实思想、决定或未来行为。趣味来自角色如何试探这道倒影，又怎样被自己的错误假设反噬。写 4—8 个气泡。',
+                    '在 </story_text> 之後追加一段非正篇聊天：某個角色與你的虛構倒影交談。這道倒影必須標為“{{user}}的倒影”；它不是實際的你，不代表你的真實思想、決定或未來行為。趣味來自角色如何試探這道倒影，又怎樣被自己的錯誤假設反噬。寫 4—8 個氣泡。',
                     '',
-                    '严格使用：',
+                    '嚴格使用：',
                     '<mini_theater>',
-                    '<mt_title>小剧场标题</mt_title>',
-                    '<mt_system>倒影只依据角色提供的信息回应</mt_system>',
+                    '<mt_title>小劇場標題</mt_title>',
+                    '<mt_system>倒影只依據角色提供的信息回應</mt_system>',
                     '<mt_ai><name>{{user}}的倒影</name><text>倒影消息</text></mt_ai>',
                     '<mt_user><name>角色名</name><text>角色消息</text></mt_user>',
-                    '按需要继续排列。',
+                    '按需要繼續排列。',
                     '</mini_theater>',
                 ].join('\n'),
             };
             if (prompt.id === 'nmj-v3-theater-group') return {
                 ...prompt,
-                name: '👥小剧场｜你和角色们群聊',
+                name: '👥小劇場｜你和角色們群聊',
                 content: [
-                    '在 </story_text> 之后追加一段非正篇群聊。选择 2—4 个当前合适的角色，再让你以当前身份加入。写 5—10 个短气泡，让不同打字习惯互相撞坏一次正题。默认不改变正篇事实。',
+                    '在 </story_text> 之後追加一段非正篇群聊。選擇 2—4 個當前合適的角色，再讓你以當前身份加入。寫 5—10 個短氣泡，讓不同打字習慣互相撞壞一次正題。默認不改變正篇事實。',
                     '',
-                    '严格使用：',
+                    '嚴格使用：',
                     '<mini_theater>',
-                    '<mt_title>群聊名称</mt_title>',
+                    '<mt_title>群聊名稱</mt_title>',
                     '<mt_system>群聊提示，可省略</mt_system>',
                     '<mt_ai><name>你的名字或角色名</name><text>消息</text></mt_ai>',
                     '<mt_user><name>角色名或你的名字</name><text>消息</text></mt_user>',
-                    '按需要继续排列。',
+                    '按需要繼續排列。',
                     '</mini_theater>',
                 ].join('\n'),
             };
@@ -511,9 +511,9 @@ const mergeNightScreeningBackstageAndDebts = (document: StoryTheaterPresetDocume
 
 export const BUILTIN_NIGHT_SCREENING_PRESET: StoryTheaterPreset = {
     id: 'builtin-night-screening',
-    name: '糯米鸡｜夜班放映室 V6.27',
+    name: '糯米雞｜夜班放映室 V6.27',
     format: 'sullyos-story-preset',
-    document: mergeNightScreeningBackstageAndDebts(normalizeDocument(nightScreeningV627, '糯米鸡｜夜班放映室 V6.27')),
+    document: mergeNightScreeningBackstageAndDebts(normalizeDocument(nightScreeningV627, '糯米雞｜夜班放映室 V6.27')),
     builtIn: true,
     createdAt: 0,
     updatedAt: 0,
@@ -525,8 +525,8 @@ export const withBuiltInStoryPresets = (presets: StoryTheaterPreset[]): StoryThe
 ];
 
 /**
- * 快捷设置历史上保存的是整份内置文档。升级内置预设时只继承同 ID 条目的
- * 开关选择，正文与新增模块始终使用最新版；自建预设仍完整保留用户内容。
+ * 快捷設置歷史上保存的是整份內置文檔。升級內置預設時只繼承同 ID 條目的
+ * 開關選擇，正文與新增模塊始終使用最新版；自建預設仍完整保留用戶內容。
  */
 export const resolveStoryPresetDocument = (
     preset: StoryTheaterPreset,
@@ -544,27 +544,27 @@ export const resolveStoryPresetDocument = (
 };
 
 export const parseStoryTheaterPreset = (rawText: string, sourceFileName: string, now: number = Date.now()): StoryTheaterPreset => {
-    if (rawText.length > 5 * 1024 * 1024) throw new Error('预设超过 5 MB，请先移除内嵌素材或脚本数据');
+    if (rawText.length > 5 * 1024 * 1024) throw new Error('預設超過 5 MB，請先移除內嵌素材或腳本數據');
     let data: Record<string, any>;
-    try { data = JSON.parse(rawText); } catch { throw new Error('不是有效的 JSON 预设'); }
-    const fileBase = sourceFileName.replace(/\.json$/i, '').trim() || '导入预设';
-    if (data.schema !== 'sullyos.story-preset') throw new Error('只接受糯米机剧情预设（schema: sullyos.story-preset）');
+    try { data = JSON.parse(rawText); } catch { throw new Error('不是有效的 JSON 預設'); }
+    const fileBase = sourceFileName.replace(/\.json$/i, '').trim() || '導入預設';
+    if (data.schema !== 'sullyos.story-preset') throw new Error('只接受糯米機劇情預設（schema: sullyos.story-preset）');
     const document = normalizeDocument(data, fileBase);
     return { id: makeStoryTheaterId(), name: document.name, sourceFileName, format: 'sullyos-story-preset', document, createdAt: now, updatedAt: now };
 };
 
-export const createBlankStoryPreset = (name = '新剧情预设', now = Date.now()): StoryTheaterPreset => ({
+export const createBlankStoryPreset = (name = '新劇情預設', now = Date.now()): StoryTheaterPreset => ({
     id: makeStoryTheaterId(), name, format: 'sullyos-story-preset', createdAt: now, updatedAt: now,
     document: {
         schema: 'sullyos.story-preset', version: 1, name,
         generation: { temperature: 0.9, topP: 1, frequencyPenalty: 0, presencePenalty: 0, maxTokens: 8000 },
         prompts: [
-            { id: makeStoryTheaterId(), name: '主叙事规则', enabled: true, role: 'system', content: '直接续写连续的第三人称故事，让人物保持独立动机与知识边界。' },
-            { id: makeStoryTheaterId(), name: '世界书 · 角色设定前', enabled: true, role: 'system', content: '', marker: 'world_before' },
-            { id: makeStoryTheaterId(), name: '角色资料', enabled: true, role: 'system', content: '', marker: 'characters' },
-            { id: makeStoryTheaterId(), name: '世界书', enabled: true, role: 'system', content: '', marker: 'world_after' },
-            { id: makeStoryTheaterId(), name: '剧情设定', enabled: true, role: 'system', content: '', marker: 'scenario' },
-            { id: makeStoryTheaterId(), name: '聊天历史', enabled: true, role: 'system', content: '', marker: 'history' },
+            { id: makeStoryTheaterId(), name: '主敘事規則', enabled: true, role: 'system', content: '直接續寫連續的第三人稱故事，讓人物保持獨立動機與知識邊界。' },
+            { id: makeStoryTheaterId(), name: '世界書 · 角色設定前', enabled: true, role: 'system', content: '', marker: 'world_before' },
+            { id: makeStoryTheaterId(), name: '角色資料', enabled: true, role: 'system', content: '', marker: 'characters' },
+            { id: makeStoryTheaterId(), name: '世界書', enabled: true, role: 'system', content: '', marker: 'world_after' },
+            { id: makeStoryTheaterId(), name: '劇情設定', enabled: true, role: 'system', content: '', marker: 'scenario' },
+            { id: makeStoryTheaterId(), name: '聊天歷史', enabled: true, role: 'system', content: '', marker: 'history' },
         ],
     },
 });
@@ -591,15 +591,15 @@ export interface StoryPresetPromptGroup {
 }
 
 const STORY_PRESET_GROUP_SPECS = [
-    { key: 'startup', label: '顶部启动框架', description: '破甲、虚构框架、续航与主叙事底座', start: 'nmj-v64-section-startup-start', end: 'nmj-v64-section-startup-end' },
-    { key: 'input', label: '输入处理', description: '长片意识、转述、回放与即时接戏', start: 'nmj-v64-section-input-start', end: 'nmj-v64-section-input-end' },
-    { key: 'sources', label: '角色与世界', description: '角色卡、世界书、你的身份、场景、示例与历史', start: 'nmj-v64-section-sources-start', end: 'nmj-v64-section-sources-end', protected: true },
-    { key: 'story', label: '人物与剧情', description: '人物发动机、证据门、推进、对白与纠偏', start: 'nmj-v64-section-story-start', end: 'nmj-v64-section-story-end' },
-    { key: 'tone', label: '文风与张力', description: '文风、场景张力、亲密镜头与叠加仲裁', start: 'nmj-v64-section-style-start', end: 'nmj-v64-section-arbitration-end' },
-    { key: 'camera', label: '镜头与关系', description: '人称、执笔权与多角色 U→C 关系温度', start: 'nmj-v64-section-camera-start', end: 'nmj-v65-section-affinity-end' },
-    { key: 'output', label: '语言与输出', description: '语言、篇幅、场景条、幕后与余波、世界线', start: 'nmj-v64-section-language-start', end: 'nmj-v64-section-output-end' },
-    { key: 'extras', label: '幕间与选项', description: '小剧场、边角频道与回复方向', start: 'nmj-v64-section-theater-start', end: 'nmj-v64-section-choices-end' },
-    { key: 'exit', label: '出口与收尾', description: '出口检查、核心续写与定义增强', start: 'nmj-v64-section-exit-start', end: 'enhanceDefinitions' },
+    { key: 'startup', label: '頂部啟動框架', description: '破甲、虛構框架、續航與主敘事底座', start: 'nmj-v64-section-startup-start', end: 'nmj-v64-section-startup-end' },
+    { key: 'input', label: '輸入處理', description: '長片意識、轉述、回放與即時接戲', start: 'nmj-v64-section-input-start', end: 'nmj-v64-section-input-end' },
+    { key: 'sources', label: '角色與世界', description: '角色卡、世界書、你的身份、場景、示例與歷史', start: 'nmj-v64-section-sources-start', end: 'nmj-v64-section-sources-end', protected: true },
+    { key: 'story', label: '人物與劇情', description: '人物發動機、證據門、推進、對白與糾偏', start: 'nmj-v64-section-story-start', end: 'nmj-v64-section-story-end' },
+    { key: 'tone', label: '文風與張力', description: '文風、場景張力、親密鏡頭與疊加仲裁', start: 'nmj-v64-section-style-start', end: 'nmj-v64-section-arbitration-end' },
+    { key: 'camera', label: '鏡頭與關係', description: '人稱、執筆權與多角色 U→C 關係溫度', start: 'nmj-v64-section-camera-start', end: 'nmj-v65-section-affinity-end' },
+    { key: 'output', label: '語言與輸出', description: '語言、篇幅、場景條、幕後與餘波、世界線', start: 'nmj-v64-section-language-start', end: 'nmj-v64-section-output-end' },
+    { key: 'extras', label: '幕間與選項', description: '小劇場、邊角頻道與回覆方向', start: 'nmj-v64-section-theater-start', end: 'nmj-v64-section-choices-end' },
+    { key: 'exit', label: '出口與收尾', description: '出口檢查、核心續寫與定義增強', start: 'nmj-v64-section-exit-start', end: 'enhanceDefinitions' },
 ] as const;
 
 export const isStoryPresetSectionMarker = (prompt: StoryTheaterPresetPrompt): boolean => Boolean(prompt.section) || /^nmj-v6[45]-section-.+-(start|end)$/.test(prompt.id);
@@ -636,7 +636,7 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
         if (endIndex < 0 || prompts.slice(startIndex + 1, endIndex).some(prompt => prompt.section) || Array.from({ length: endIndex - startIndex + 1 }, (_, offset) => startIndex + offset).some(index => claimed.has(index))) continue;
         const indexes = Array.from({ length: endIndex - startIndex + 1 }, (_, offset) => startIndex + offset);
         indexes.forEach(index => claimed.add(index));
-        groups.push({ key: `section:${section.id}`, label: section.name, description: '自定义分组 · 可添加提示词、调整顺序', promptIds: indexes.map(index => prompts[index].id), startIndex, endIndex, protected: false, customSectionId: section.id });
+        groups.push({ key: `section:${section.id}`, label: section.name, description: '自定義分組 · 可添加提示詞、調整順序', promptIds: indexes.map(index => prompts[index].id), startIndex, endIndex, protected: false, customSectionId: section.id });
     }
     let cursor = 0;
     while (cursor < prompts.length) {
@@ -646,8 +646,8 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
         const endIndex = cursor;
         groups.push({
             key: `custom:${prompts[startIndex]?.id || startIndex}`,
-            label: '自定义条目',
-            description: '没有归入内置区间的自定义提示词',
+            label: '自定義條目',
+            description: '沒有歸入內置區間的自定義提示詞',
             promptIds: prompts.slice(startIndex, endIndex + 1).map(prompt => prompt.id),
             startIndex,
             endIndex,
@@ -661,8 +661,8 @@ export const getStoryPresetPromptGroups = (document: StoryTheaterPresetDocument)
 export const addStoryPresetGroup = (document: StoryTheaterPresetDocument, name: string): StoryTheaterPresetDocument => {
     const id = makeStoryTheaterId();
     return { ...document, prompts: [...document.prompts, ...(['start', 'end'] as const).map(edge => ({
-        id: makeStoryTheaterId(), name: name.trim() || '自定义分组', enabled: false, role: 'system' as const, content: '',
-        section: { id, name: name.trim() || '自定义分组', edge },
+        id: makeStoryTheaterId(), name: name.trim() || '自定義分組', enabled: false, role: 'system' as const, content: '',
+        section: { id, name: name.trim() || '自定義分組', edge },
     }))] };
 };
 
@@ -720,7 +720,7 @@ export const getActiveStoryMiniTheaterPrompt = (document: StoryTheaterPresetDocu
     return document.prompts.find(prompt => prompt.enabled && ids.has(prompt.id));
 };
 
-/** 将当前沙盒启用的小剧场规则重复放到本轮输入前，避免被较后的输出协议忽略。 */
+/** 將當前沙盒啟用的小劇場規則重複放到本輪輸入前，避免被較後的輸出協議忽略。 */
 export const buildStoryMiniTheaterReminder = (
     document: StoryTheaterPresetDocument,
     userName: string,
@@ -729,21 +729,21 @@ export const buildStoryMiniTheaterReminder = (
     const prompt = getActiveStoryMiniTheaterPrompt(document);
     if (!prompt?.content.trim()) return '';
     return [
-        `### 本轮结尾模块：${prompt.name}`,
-        '这一模块已经由用户在本剧情的快捷预设中启用。本轮必须在主正文之后完整执行，不得因其它输出规则而省略。',
-        '格式守门：每个 <mt_ai> / <mt_user> 内都必须同时写出一组完整的 <name> 与 <text>，闭合所有标签；不得把“… / ... / 按需要继续排列”等示例占位符当成实际消息输出。',
+        `### 本輪結尾模塊：${prompt.name}`,
+        '這一模塊已經由用戶在本劇情的快捷預設中啟用。本輪必須在主正文之後完整執行，不得因其它輸出規則而省略。',
+        '格式守門：每個 <mt_ai> / <mt_user> 內都必須同時寫出一組完整的 <name> 與 <text>，閉合所有標籤；不得把“… / ... / 按需要繼續排列”等示例佔位符當成實際消息輸出。',
         macroReplace(prompt.content, userName, characterNames),
-        '无论上方条目是完整模板还是简写说明，最终都必须使用这个可渲染外壳：',
+        '無論上方條目是完整模板還是簡寫說明，最終都必須使用這個可渲染外殼：',
         '<mini_theater>',
-        '<mt_title>本轮实际标题</mt_title>',
+        '<mt_title>本輪實際標題</mt_title>',
         '<mt_system>可省略的短界面提示</mt_system>',
-        '<mt_ai><name>左侧显示名</name><text>完整消息</text></mt_ai>',
-        '<mt_user><name>右侧显示名</name><text>完整消息</text></mt_user>',
+        '<mt_ai><name>左側顯示名</name><text>完整消息</text></mt_ai>',
+        '<mt_user><name>右側顯示名</name><text>完整消息</text></mt_user>',
         '</mini_theater>',
     ].join('\n');
 };
 
-/** 兼容旧沙盒覆盖：只要暗格或镜头债任一开关仍在，就统一为连续的组合模块。 */
+/** 兼容舊沙盒覆蓋：只要暗格或鏡頭債任一開關仍在，就統一為連續的組合模塊。 */
 export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPresetDocument): string => {
     const backstage = document.prompts.find(prompt => prompt.id === 'nmj-v48-backstage');
     const legacyDebts = document.prompts.find(prompt => prompt.id === 'nmj-v61-shot-debts');
@@ -751,11 +751,11 @@ export const buildStoryBackstageAftermathReminder = (document: StoryTheaterPrese
     const debtsEnabled = legacyDebts?.enabled === true || Boolean(backstageEnabled && backstage?.content.includes('<shot_debts>'));
     if (!backstageEnabled && !debtsEnabled) return '';
     return [
-        '### 本轮组合模块：幕后与余波',
-        '幕后暗格与镜头债在糯米机中属于同一个折叠模块，不得拆成相隔很远的两个结尾区，也不得重复生成。',
-        backstageEnabled ? '- 正文结束后输出一组完整且闭合的 <backstage>；心境、秘密与稀有真话都按已启用预设执行。' : '',
-        debtsEnabled ? '- 紧接 </backstage>（若暗格关闭则紧接正文）输出一组完整且闭合的 <shot_debts>；之后才输出世界线、小剧场、选项和关系温度。' : '',
-        '- 两组原始标签仍分别保留用于稳定解析，但界面只显示一个“幕后与余波”折叠区。',
+        '### 本輪組合模塊：幕後與餘波',
+        '幕後暗格與鏡頭債在糯米機中屬於同一個摺疊模塊，不得拆成相隔很遠的兩個結尾區，也不得重複生成。',
+        backstageEnabled ? '- 正文結束後輸出一組完整且閉合的 <backstage>；心境、秘密與稀有真話都按已啟用預設執行。' : '',
+        debtsEnabled ? '- 緊接 </backstage>（若暗格關閉則緊接正文）輸出一組完整且閉合的 <shot_debts>；之後才輸出世界線、小劇場、選項和關係溫度。' : '',
+        '- 兩組原始標籤仍分別保留用於穩定解析，但界面只顯示一個“幕後與餘波”摺疊區。',
     ].filter(Boolean).join('\n');
 };
 
@@ -764,7 +764,7 @@ const escapeStoryXml = (value: string): string => value
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-/** 关系备注只随本轮用户输入送入模型，不混进可见正文。 */
+/** 關係備註只隨本輪用戶輸入送入模型，不混進可見正文。 */
 export const appendStoryAffinityInput = (content: string, input?: StoryAffinityInput): string => {
     if (!input) return content;
     const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
@@ -772,10 +772,10 @@ export const appendStoryAffinityInput = (content: string, input?: StoryAffinityI
     if (delta === 0 && !reason) return content;
     const signed = delta >= 0 ? `+${delta}` : String(delta);
     const awareness = input.awareness === 'noticed' ? 'noticed' : 'unnoticed';
-    return `${content}\n\n<u_affinity>\n<delta>${signed}</delta>\n<reason>${escapeStoryXml(reason || '未填写原因')}</reason>\n<awareness>${awareness}</awareness>\n</u_affinity>`;
+    return `${content}\n\n<u_affinity>\n<delta>${signed}</delta>\n<reason>${escapeStoryXml(reason || '未填寫原因')}</reason>\n<awareness>${awareness}</awareness>\n</u_affinity>`;
 };
 
-/** 多人剧场使用带角色身份的独立 U→C 更新，禁止把几位角色共用成一个槽。 */
+/** 多人劇場使用帶角色身份的獨立 U→C 更新，禁止把幾位角色共用成一個槽。 */
 export const appendStoryAffinityInputs = (content: string, inputs: StoryAffinityInput[]): string => {
     const rows = inputs.map(input => {
         const delta = Math.max(-100, Math.min(100, Math.round(Number(input.delta) || 0)));
@@ -786,9 +786,9 @@ export const appendStoryAffinityInputs = (content: string, inputs: StoryAffinity
         return [
             '<u_affinity>',
             `<character_id>${escapeStoryXml(String(input.characterId || ''))}</character_id>`,
-            `<character_name>${escapeStoryXml(String(input.characterName || '当前角色'))}</character_name>`,
+            `<character_name>${escapeStoryXml(String(input.characterName || '當前角色'))}</character_name>`,
             `<delta>${signed}</delta>`,
-            `<reason>${escapeStoryXml(reason || '未填写原因')}</reason>`,
+            `<reason>${escapeStoryXml(reason || '未填寫原因')}</reason>`,
             `<awareness>${awareness}</awareness>`,
             '</u_affinity>',
         ].join('\n');
@@ -838,7 +838,7 @@ const readAffinityScoreStates = (
         if (id) states.set(`id:${id}`, state);
         if (name) states.set(`name:${name}`, state);
     }
-    // 兼容升级前的单角色根级面板；多人时绝不猜这一个旧槽属于谁。
+    // 兼容升級前的單角色根級面板；多人時絕不猜這一個舊槽屬於誰。
     if (states.size === 0 && actors.length === 1) {
         const cScore = affinityTagValue(content, 'c_score');
         const uScore = affinityTagValue(content, 'u_score');
@@ -855,8 +855,8 @@ const readAffinityScoreStates = (
 };
 
 /**
- * 模型只决定“本轮变化多少”，绝对值由前端按上一轮 + delta 复算。
- * 这样 U→C 的用户输入与 C→U 的模型变化都不会再依赖 LLM 心算。
+ * 模型只決定“本輪變化多少”，絕對值由前端按上一輪 + delta 復算。
+ * 這樣 U→C 的用戶輸入與 C→U 的模型變化都不會再依賴 LLM 心算。
  */
 export const reconcileStoryAffinityScores = (
     generated: string,
@@ -896,58 +896,58 @@ export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; nam
     if (characters.length === 0) return '';
     const cast = characters.map(character => `- ${character.id}：${character.name}`).join('\n');
     return [
-        '### 糯米机多人双向关系温度（覆盖旧的单一“当前 C”槽）',
-        '本剧场为每一位角色分别记录 C→U、U→C、五维关系混音、察觉状态与关系质地。禁止共享数值、串用事实、平均多人状态或只输出第一位角色。',
-        '当前需要逐一维护的角色：',
+        '### 糯米機多人雙向關係溫度（覆蓋舊的單一“當前 C”槽）',
+        '本劇場為每一位角色分別記錄 C→U、U→C、五維關係混音、察覺狀態與關係質地。禁止共享數值、串用事實、平均多人狀態或只輸出第一位角色。',
+        '當前需要逐一維護的角色：',
         cast,
         '',
         '【更新】',
-        '- 从最近一次多人 <affinity_panel> 中按 character_id 读取各自完整状态；没有旧记录时，该角色的 C→U、U→C 从 50 开始，五维依据角色卡与共同经历建立。旧历史只有单人面板时，只能迁移给姓名明确匹配的角色。',
-        '- C→U 与 trust、security、possessive_pull、emotional_pressure、repair_will 只读取对应角色的亲历事实、性格、处境与后果；不得用某个角色的变化影响另一位角色。',
-        '- 最新 <u_affinity_updates> 只出现本轮由用户填写变化的角色。某角色没有对应更新时，其 U→C 绝对值保持不变，delta 记 +0，原因写“本轮未填写”。',
-        '- U→C 新值 = 该角色上一轮 U→C + 对应 delta，并限制在 0—100。不得用某个角色的变化影响另一位角色。',
-        '- 你只需正确决定每个 delta；前端会依据上一轮绝对值复算 C→U 与 U→C score，防止心算错误。',
-        '- 察觉规则只作用于同一条 u_affinity 指向的角色；其他角色不会因为同伴被选择为“已察觉”而共享透视。',
+        '- 從最近一次多人 <affinity_panel> 中按 character_id 讀取各自完整狀態；沒有舊記錄時，該角色的 C→U、U→C 從 50 開始，五維依據角色卡與共同經歷建立。舊歷史只有單人面板時，只能遷移給姓名明確匹配的角色。',
+        '- C→U 與 trust、security、possessive_pull、emotional_pressure、repair_will 只讀取對應角色的親歷事實、性格、處境與後果；不得用某個角色的變化影響另一位角色。',
+        '- 最新 <u_affinity_updates> 只出現本輪由用戶填寫變化的角色。某角色沒有對應更新時，其 U→C 絕對值保持不變，delta 記 +0，原因寫“本輪未填寫”。',
+        '- U→C 新值 = 該角色上一輪 U→C + 對應 delta，並限制在 0—100。不得用某個角色的變化影響另一位角色。',
+        '- 你只需正確決定每個 delta；前端會依據上一輪絕對值復算 C→U 與 U→C score，防止心算錯誤。',
+        '- 察覺規則只作用於同一條 u_affinity 指向的角色；其他角色不會因為同伴被選擇為“已察覺”而共享透視。',
         '',
-        '【输出】',
-        '用一个 <affinity_panel> 包住全部角色，并严格按当前角色名单顺序为每人输出一段：',
+        '【輸出】',
+        '用一個 <affinity_panel> 包住全部角色，並嚴格按當前角色名單順序為每人輸出一段：',
         '<affinity_person>',
         '<character_id>角色 ID</character_id>',
         '<character_name>角色名</character_name>',
         '<c_to_u_score>50</c_to_u_score>',
         '<c_to_u_delta>+0</c_to_u_delta>',
-        '<c_to_u_note>改变角色 C→U 的本轮事实</c_to_u_note>',
+        '<c_to_u_note>改變角色 C→U 的本輪事實</c_to_u_note>',
         '<u_to_c_score>50</u_to_c_score>',
         '<u_to_c_delta>+0</u_to_c_delta>',
-        '<u_to_c_note>用户填写的原因；没有则写“本轮未填写”</u_to_c_note>',
-        '<awareness_state>已察觉或未察觉</awareness_state>',
+        '<u_to_c_note>用戶填寫的原因；沒有則寫“本輪未填寫”</u_to_c_note>',
+        '<awareness_state>已察覺或未察覺</awareness_state>',
         '<trust>50</trust><security>50</security><possessive_pull>50</possessive_pull>',
         '<emotional_pressure>50</emotional_pressure><repair_will>50</repair_will>',
-        '<state_note>最明显的内部拉扯、选择代价或修复动作</state_note>',
-        '<relation_note>这一段双向关系当前的质地</relation_note>',
-        '<relation_fragment>可选的一条具体关系碎片</relation_fragment>',
+        '<state_note>最明顯的內部拉扯、選擇代價或修復動作</state_note>',
+        '<relation_note>這一段雙向關係當前的質地</relation_note>',
+        '<relation_fragment>可選的一條具體關係碎片</relation_fragment>',
         '</affinity_person>',
-        '按角色继续排列 affinity_person，最后闭合 </affinity_panel>。不要再输出旧版根级 c_score / u_score 单槽字段。',
+        '按角色繼續排列 affinity_person，最後閉合 </affinity_panel>。不要再輸出舊版根級 c_score / u_score 單槽字段。',
     ].join('\n');
 };
 
-/** 用户对本轮关系变化的知情边界拥有最终决定权。 */
+/** 用戶對本輪關係變化的知情邊界擁有最終決定權。 */
 export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | undefined, primaryCharacterName: string): string => {
     if (!input || (Number(input.delta) === 0 && !String(input.reason || '').trim())) return '';
     if (input.awareness === 'noticed') return [
-        '### 本轮 U→C 关系变化 · 角色完全透视（用户明确指定，覆盖常规感知档）',
-        `- ${primaryCharacterName || '当前主要角色'}明确知道用户→自己的关系温度发生了数值层面的变化；这是直接、确定的透视信息，不是观察气氛、猜测态度或只知道“似乎有变化”。`,
-        '- 角色完整知道最新 delta 的正负、准确幅度、更新后的 U→C 绝对值，以及 <reason> 表达的原因；不得把它降级成模糊感应。',
-        '- 本轮正文必须给出一次符合人物性格、现场节拍与边界的明确反应；可以克制或隐藏，但行为、判断或内心必须真实接住这项已知变化。',
-        '- 角色拥有数值层面的知识，但默认将其自然翻译为人物认知，不照念 XML 标签或系统面板；世界观本来存在数值界面时才可直接谈具体数字。',
-        '- 这项用户选择只覆盖本轮的察觉边界，不授权角色逼问、控制、越界亲密或抢走原剧情主线。',
+        '### 本輪 U→C 關係變化 · 角色完全透視（用戶明確指定，覆蓋常規感知檔）',
+        `- ${primaryCharacterName || '當前主要角色'}明確知道用戶→自己的關係溫度發生了數值層面的變化；這是直接、確定的透視信息，不是觀察氣氛、猜測態度或只知道“似乎有變化”。`,
+        '- 角色完整知道最新 delta 的正負、準確幅度、更新後的 U→C 絕對值，以及 <reason> 表達的原因；不得把它降級成模糊感應。',
+        '- 本輪正文必須給出一次符合人物性格、現場節拍與邊界的明確反應；可以克制或隱藏，但行為、判斷或內心必須真實接住這項已知變化。',
+        '- 角色擁有數值層面的知識，但默認將其自然翻譯為人物認知，不照念 XML 標籤或系統面板；世界觀本來存在數值界面時才可直接談具體數字。',
+        '- 這項用戶選擇只覆蓋本輪的察覺邊界，不授權角色逼問、控制、越界親密或搶走原劇情主線。',
     ].join('\n');
     return [
-        '### 本轮 U→C 关系变化 · 角色未察觉（用户明确指定）',
-        `- ${primaryCharacterName || '对应角色'}不能读取用户→自己的这条 <u_affinity> 的 delta、reason 或准确方向，也不能凭空表演成已经知道；这条限制不覆盖用户对其他角色单独设置的察觉状态。`,
-        '- 其他角色更不能借此读取不属于自己的关系数值；多人之间不得共享这条变化。',
-        '- 这次变化只作为模型维持关系连续性与叙事氛围的低权重背景，不强制制造角色反应。',
-        '- 若用户正文另有真实可见的台词或动作，角色仍可只依据那些现场证据正常推断。',
+        '### 本輪 U→C 關係變化 · 角色未察覺（用戶明確指定）',
+        `- ${primaryCharacterName || '對應角色'}不能讀取用戶→自己的這條 <u_affinity> 的 delta、reason 或準確方向，也不能憑空表演成已經知道；這條限制不覆蓋用戶對其他角色單獨設置的察覺狀態。`,
+        '- 其他角色更不能借此讀取不屬於自己的關係數值；多人之間不得共享這條變化。',
+        '- 這次變化只作為模型維持關係連續性與敘事氛圍的低權重背景，不強制製造角色反應。',
+        '- 若用戶正文另有真實可見的台詞或動作，角色仍可只依據那些現場證據正常推斷。',
     ].join('\n');
 };
 
@@ -960,27 +960,27 @@ export const resolveStoryNarrationMode = (document: StoryTheaterPresetDocument):
     return second ? 'second' : 'custom';
 };
 
-/** 最后贴近用户输入发送，消除系统指令里的“你”与故事用户侧身份之间的歧义。 */
+/** 最後貼近用戶輸入發送，消除系統指令裡的“你”與故事用戶側身份之間的歧義。 */
 export const buildStoryIdentityGuard = (
     document: StoryTheaterPresetDocument,
     identityName: string,
     characterNames: string[],
 ): string => {
-    const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '当前用户侧角色（未命名）';
-    const cast = characterNames.filter(Boolean).join('、') || '暂无其他角色';
+    const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '當前用戶側角色（未命名）';
+    const cast = characterNames.filter(Boolean).join('、') || '暫無其他角色';
     const mode = resolveStoryNarrationMode(document);
     const perspectiveRule = mode === 'third'
-        ? `- 当前启用第三人称有限。<story_text> 的旁白必须用「${identity}」已确立的姓名、称谓、合适代词或自然省略主语；旁白中的“你／你的”必须改掉。角色对白里对「${identity}」说“你”是正常称呼，不要误改。`
+        ? `- 當前啟用第三人稱有限。<story_text> 的旁白必須用「${identity}」已確立的姓名、稱謂、合適代詞或自然省略主語；旁白中的“你／你的”必須改掉。角色對白裡對「${identity}」說“你”是正常稱呼，不要誤改。`
         : mode === 'second'
-            ? `- 当前启用第二人称有限。<story_text> 旁白中的“你／你的”固定指「${identity}」，绝不指生成回复的一方或任一其他角色。`
-            : '- 当前预设使用自定义人称；服从预设明确写出的叙述规则，但仍遵守下面的身份绑定。';
+            ? `- 當前啟用第二人稱有限。<story_text> 旁白中的“你／你的”固定指「${identity}」，絕不指生成回覆的一方或任一其他角色。`
+            : '- 當前預設使用自定義人稱；服從預設明確寫出的敘述規則，但仍遵守下面的身份綁定。';
     return [
-        '### 糯米机运行时身份与人称锚点（覆盖旧楼层的写法，不覆盖角色卡事实）',
-        `- 用户侧剧情身份：${identity}。本轮参与角色：${cast}。关系协议中的 U 只指「${identity}」，C 才指名单中的各个角色。`,
-        '- 生成回复的一方不属于故事人物。系统指令为方便表达而出现的“你”，只是执行语法，不能据此把生成端写进故事，也不能把故事里的“你”解释成生成端自己。',
-        '- 用户最新输入仍按实际句法辨认说话人与受话人；但在最终输出的叙事旁白、场景条和关系面板中，未另行点名的“你／你的”只允许指用户侧剧情身份。',
+        '### 糯米機運行時身份與人稱錨點（覆蓋舊樓層的寫法，不覆蓋角色卡事實）',
+        `- 用戶側劇情身份：${identity}。本輪參與角色：${cast}。關係協議中的 U 只指「${identity}」，C 才指名單中的各個角色。`,
+        '- 生成回覆的一方不屬於故事人物。系統指令為方便表達而出現的“你”，只是執行語法，不能據此把生成端寫進故事，也不能把故事裡的“你”解釋成生成端自己。',
+        '- 用戶最新輸入仍按實際句法辨認說話人與受話人；但在最終輸出的敘事旁白、場景條和關係面板中，未另行點名的“你／你的”只允許指用戶側劇情身份。',
         perspectiveRule,
-        '- 历史助手回复只是已经发生的旧剧情：继承事实，不继承它过去使用的第一、第二或第三人称。当前启用的人称模式是本轮唯一标准。',
+        '- 歷史助手回覆只是已經發生的舊劇情：繼承事實，不繼承它過去使用的第一、第二或第三人稱。當前啟用的人稱模式是本輪唯一標準。',
     ].join('\n');
 };
 
@@ -1024,8 +1024,8 @@ export const compileStoryPreset = (input: {
         && slots.worldBefore.trim(),
     );
 
-    // 糯米机原生 Prompt Manager 按数组顺序送出；同一个 marker 只注入一次，
-    // 角色资料始终使用一份完整的沙盒上下文。
+    // 糯米機原生 Prompt Manager 按數組順序送出；同一個 marker 只注入一次，
+    // 角色資料始終使用一份完整的沙盒上下文。
     const injectedMarkers = new Set<string>();
     for (let index = 0; index < document.prompts.length; index += 1) {
         const prompt = document.prompts[index];
@@ -1051,7 +1051,7 @@ export const compileStoryPreset = (input: {
         pushPromptMessage(messages, prompt.role, macroReplace(raw, userName, characterNames));
     }
 
-    // 兼容没有任何原生槽位的旧自定义预设，确保角色设定前世界书不会静默丢失。
+    // 兼容沒有任何原生槽位的舊自定義預設，確保角色設定前世界書不會靜默丟失。
     if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
         messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames).trim() });
     }
@@ -1073,9 +1073,9 @@ export const compileStoryPreset = (input: {
 };
 
 /**
- * 部分 OpenAI 兼容模型硬性要求请求最后一条消息必须是 user，不能接受
- * SillyTavern 常用的 assistant prefill。把预填充改写成紧邻用户消息前的
- * system 约束，调用方仍可在返回文本缺失前缀时本地补齐。
+ * 部分 OpenAI 兼容模型硬性要求請求最後一條消息必須是 user，不能接受
+ * SillyTavern 常用的 assistant prefill。把預填充改寫成緊鄰用戶消息前的
+ * system 約束，調用方仍可在返回文本缺失前綴時本地補齊。
  */
 export const buildStoryPrefillInstruction = (assistantPrefill?: StoryApiMessage): StoryApiMessage | undefined => {
     const content = assistantPrefill?.content?.trim();
@@ -1083,16 +1083,16 @@ export const buildStoryPrefillInstruction = (assistantPrefill?: StoryApiMessage)
     return {
         role: 'system',
         content: [
-            '### 回复起始文本（兼容模式）',
-            '你的最终回复必须直接以下列文本开头；不要解释、转述或把它放进代码块：',
+            '### 回覆起始文本（兼容模式）',
+            '你的最終回覆必須直接以下列文本開頭；不要解釋、轉述或把它放進代碼塊：',
             content,
         ].join('\n'),
     };
 };
 
 /**
- * 默认完整保留原生 assistant prefill；只有用户为当前剧情显式开启 400 兼容模式时，
- * 才把预填改成 system 约束并让最终消息保持 user。这样个别严格接口不会改变所有人的预设效果。
+ * 默認完整保留原生 assistant prefill；只有用戶為當前劇情顯式開啟 400 兼容模式時，
+ * 才把預填改成 system 約束並讓最終消息保持 user。這樣個別嚴格接口不會改變所有人的預設效果。
  */
 export const appendStoryUserTurn = (
     messages: StoryApiMessage[],
@@ -1155,31 +1155,31 @@ export const buildTheaterWorldbookSlots = (
 ): { worldBefore: string; worldAfter: string } => {
     const resolved = splitWorldbookSections(resolveWorldbookEntries(books, scanMessages, characterNames.join('、'), userName));
     return {
-        worldBefore: formatWorldbookSection(resolved.beforeCharacter, '剧情沙盒世界书 · 角色设定前'),
+        worldBefore: formatWorldbookSection(resolved.beforeCharacter, '劇情沙盒世界書 · 角色設定前'),
         worldAfter: [
-            formatWorldbookSection(resolved.afterCharacter, '剧情沙盒世界书'),
-            formatWorldbookSection(resolved.beforeExamples, '剧情沙盒世界书 · 示例前'),
-            formatWorldbookSection(resolved.afterExamples, '剧情沙盒世界书 · 示例后'),
-            formatWorldbookSection(resolved.authorsNoteTop, '剧情沙盒世界书 · 作者注释顶部'),
-            formatWorldbookSection(resolved.authorsNoteBottom, '剧情沙盒世界书 · 作者注释底部'),
-            formatWorldbookSection(resolved.atDepth, '剧情沙盒世界书 · 当前场景'),
+            formatWorldbookSection(resolved.afterCharacter, '劇情沙盒世界書'),
+            formatWorldbookSection(resolved.beforeExamples, '劇情沙盒世界書 · 示例前'),
+            formatWorldbookSection(resolved.afterExamples, '劇情沙盒世界書 · 示例後'),
+            formatWorldbookSection(resolved.authorsNoteTop, '劇情沙盒世界書 · 作者註釋頂部'),
+            formatWorldbookSection(resolved.authorsNoteBottom, '劇情沙盒世界書 · 作者註釋底部'),
+            formatWorldbookSection(resolved.atDepth, '劇情沙盒世界書 · 當前場景'),
         ].filter(Boolean).join('\n'),
     };
 };
 
 export const buildBareTheaterActorContext = (char: CharacterProfile): string => [
-    `### 剧情角色：${char.name}`,
+    `### 劇情角色：${char.name}`,
     `- 名字：${char.name}`,
-    `- 核心指令：\n${char.systemPrompt || '无额外核心指令'}`,
-    char.worldview?.trim() ? `- 世界观：\n${char.worldview.trim()}` : '',
+    `- 核心指令：\n${char.systemPrompt || '無額外核心指令'}`,
+    char.worldview?.trim() ? `- 世界觀：\n${char.worldview.trim()}` : '',
 ].filter(Boolean).join('\n');
 
 /**
- * 剧情客串 NPC 的轻量上下文块——不走 ContextBuilder.buildCoreContext（NPCProfile 没有
- * systemPrompt/记忆宫殿/世界书这套），只取 NPCProfile 自身的设定字段，跟群聊「NPC 客串」
- * (utils/npcGroupGuestLine.ts) 用的是同一种"轻量素材"思路。没有独立记忆输入输出、
- * 不追踪好感度，标题特意跟 buildBareTheaterActorContext 的 `### 剧情角色：` 区分开，
- * 让模型知道这是戏份更轻的客串，不用当成主角经营完整人物弧光。
+ * 劇情客串 NPC 的輕量上下文塊——不走 ContextBuilder.buildCoreContext（NPCProfile 沒有
+ * systemPrompt/記憶宮殿/世界書這套），只取 NPCProfile 自身的設定字段，跟群聊「NPC 客串」
+ * (utils/npcGroupGuestLine.ts) 用的是同一種"輕量素材"思路。沒有獨立記憶輸入輸出、
+ * 不追蹤好感度，標題特意跟 buildBareTheaterActorContext 的 `### 劇情角色：` 區分開，
+ * 讓模型知道這是戲份更輕的客串，不用當成主角經營完整人物弧光。
  */
 export const buildTheaterNpcContext = (
     npc: NPCProfile,
@@ -1189,16 +1189,16 @@ export const buildTheaterNpcContext = (
     const relationshipNote = npc.relationships
         .filter(r => r.targetId === 'user' || sceneCharacters.some(c => c.id === r.targetId))
         .map(r => r.targetId === 'user'
-            ? `对「${userName}」：${r.description}`
-            : `对「${sceneCharacters.find(c => c.id === r.targetId)?.name || '在场角色'}」：${r.description}`)
+            ? `對「${userName}」：${r.description}`
+            : `對「${sceneCharacters.find(c => c.id === r.targetId)?.name || '在場角色'}」：${r.description}`)
         .join('\n');
     return [
-        `### 剧情客串角色：${npc.name}（非常驻演员，戏份比主角轻，按需自然出场即可）`,
+        `### 劇情客串角色：${npc.name}（非常駐演員，戲份比主角輕，按需自然出場即可）`,
         `- 名字：${npc.name}`,
-        npc.description?.trim() ? `- 设定：\n${npc.description.trim()}` : '',
-        npc.worldview?.trim() ? `- 世界观：\n${npc.worldview.trim()}` : '',
-        relationshipNote ? `- 关系：\n${relationshipNote}` : '',
-        '- 这是客串角色：没有独立记忆输入输出、不追踪好感度，只按以上设定自然参与本场剧情即可。',
+        npc.description?.trim() ? `- 設定：\n${npc.description.trim()}` : '',
+        npc.worldview?.trim() ? `- 世界觀：\n${npc.worldview.trim()}` : '',
+        relationshipNote ? `- 關係：\n${relationshipNote}` : '',
+        '- 這是客串角色：沒有獨立記憶輸入輸出、不追蹤好感度，只按以上設定自然參與本場劇情即可。',
     ].filter(Boolean).join('\n');
 };
 
@@ -1210,22 +1210,22 @@ export const buildStoryActorMemoryEnvelope = (
 ): string => {
     const content = recalled.trim();
     if (!content) return '';
-    const owner = characterName.trim() || '当前角色';
+    const owner = characterName.trim() || '當前角色';
     const originalUser = originalUserName.trim() || '原本的你';
     const currentIdentity = currentIdentityName.trim() || originalUser;
     const identityReminder = currentIdentity === originalUser
-        ? `- 本剧情当前用户侧身份仍是「${originalUser}」；记忆原文里的“你”继续指这个身份。`
-        : `- 本剧情当前用户侧执笔身份是「${currentIdentity}」，不得因此把旧记忆里的“你”从「${originalUser}」改绑到当前身份。`;
+        ? `- 本劇情當前用戶側身份仍是「${originalUser}」；記憶原文裡的“你”繼續指這個身份。`
+        : `- 本劇情當前用戶側執筆身份是「${currentIdentity}」，不得因此把舊記憶裡的“你”從「${originalUser}」改綁到當前身份。`;
 
     return [
-        `### ${owner} 的专属既有记忆`,
-        `归属规则：以下内容只属于角色「${owner}」，不得归给、共享给或改写成其他角色的亲历记忆。`,
-        `- 记忆片段里的第一人称“我/我的”，默认指「${owner}」。`,
-        `- 记忆片段里的第二人称“你/你的”，若片段没有另行点名，默认指形成记忆时的原互动对象「${originalUser}」。`,
+        `### ${owner} 的專屬既有記憶`,
+        `歸屬規則：以下內容只屬於角色「${owner}」，不得歸給、共享給或改寫成其他角色的親歷記憶。`,
+        `- 記憶片段裡的第一人稱“我/我的”，默認指「${owner}」。`,
+        `- 記憶片段裡的第二人稱“你/你的”，若片段沒有另行點名，默認指形成記憶時的原互動對象「${originalUser}」。`,
         identityReminder,
-        `【${owner}专属记忆开始】`,
+        `【${owner}專屬記憶開始】`,
         content,
-        `【${owner}专属记忆结束】`,
+        `【${owner}專屬記憶結束】`,
     ].join('\n');
 };
 
@@ -1233,23 +1233,23 @@ export const buildStoryArchiveMemoryEnvelope = (recalled: string): string => {
     const content = recalled.trim();
     if (!content) return '';
     return [
-        '### 本剧情共享档案召回',
-        '归属规则：以下内容是本剧情自己的叙事档案，只用于承接已经发生的剧情；它不属于任何一位角色的个人记忆，也不得写入或冒充角色的神经链接记忆。',
-        '- 片段中的第一、第二人称只保留原文叙事视角；应依据片段内明确出现的姓名与事件判断身份。',
-        '- 无法从片段确定指代时，保持模糊，不得擅自把“我/你”归给当前面具或任一角色。',
-        '【本剧情共享档案开始】',
+        '### 本劇情共享檔案召回',
+        '歸屬規則：以下內容是本劇情自己的敘事檔案，只用於承接已經發生的劇情；它不屬於任何一位角色的個人記憶，也不得寫入或冒充角色的神經鏈接記憶。',
+        '- 片段中的第一、第二人稱只保留原文敘事視角；應依據片段內明確出現的姓名與事件判斷身份。',
+        '- 無法從片段確定指代時，保持模糊，不得擅自把“我/你”歸給當前面具或任一角色。',
+        '【本劇情共享檔案開始】',
         content,
-        '【本剧情共享档案结束】',
+        '【本劇情共享檔案結束】',
     ].join('\n');
 };
 
 export const buildTheaterPersona = (mask: ResolvedStoryTheaterMask): string => [
-    '### 当前用户侧执笔身份',
+    '### 當前用戶側執筆身份',
     `- 名字：${mask.name || '你'}`,
-    `- 身份/外在设定：${mask.description || '无'}`,
-    mask.coreInstruction?.trim() ? `- 核心性格与行动边界：\n${mask.coreInstruction.trim()}` : '',
-    mask.worldview?.trim() ? `- 所属世界观：\n${mask.worldview.trim()}` : '',
-    '- 这是用户侧本轮亲自执笔的故事身份，不是生成回复的一方。除非预设明确允许代写，续写不得把该身份当作普通角色擅自决定重大选择。',
+    `- 身份/外在設定：${mask.description || '無'}`,
+    mask.coreInstruction?.trim() ? `- 核心性格與行動邊界：\n${mask.coreInstruction.trim()}` : '',
+    mask.worldview?.trim() ? `- 所屬世界觀：\n${mask.worldview.trim()}` : '',
+    '- 這是用戶側本輪親自執筆的故事身份，不是生成回覆的一方。除非預設明確允許代寫，續寫不得把該身份當作普通角色擅自決定重大選擇。',
 ].join('\n');
 
 export const storyTheaterMemoryRecipientIds = (entry: StoryTheaterEntry): string[] => {
@@ -1259,30 +1259,30 @@ export const storyTheaterMemoryRecipientIds = (entry: StoryTheaterEntry): string
 };
 
 const DISPLAY_BLOCK_META: Record<string, { kind: StoryDisplayBlockKind; title?: string }> = {
-    scene_header: { kind: 'scene', title: '这一幕' },
+    scene_header: { kind: 'scene', title: '這一幕' },
     story_text: { kind: 'story' },
-    backstage: { kind: 'backstage', title: '幕后层' },
-    mind_weather: { kind: 'backstage', title: '内心气象' },
-    worldline: { kind: 'worldline', title: '世界线' },
-    world_line: { kind: 'worldline', title: '世界线' },
-    shot_debts: { kind: 'debts', title: '尚未偿还的镜头' },
-    mini_theater: { kind: 'theater', title: '幕间剧场' },
-    reply_choices: { kind: 'choices', title: '可以这样推进' },
-    affinity_panel: { kind: 'affinity', title: '关系变化' },
+    backstage: { kind: 'backstage', title: '幕後層' },
+    mind_weather: { kind: 'backstage', title: '內心氣象' },
+    worldline: { kind: 'worldline', title: '世界線' },
+    world_line: { kind: 'worldline', title: '世界線' },
+    shot_debts: { kind: 'debts', title: '尚未償還的鏡頭' },
+    mini_theater: { kind: 'theater', title: '幕間劇場' },
+    reply_choices: { kind: 'choices', title: '可以這樣推進' },
+    affinity_panel: { kind: 'affinity', title: '關係變化' },
 };
 
 const DISPLAY_TAG_LABELS: Record<string, string> = {
-    time: '时间', place: '地点', situation: '场面', owner: '主体', surface: '表层反应', undertow: '潜流',
-    secret: '秘密', hidden: '隐藏事实', true_monologue: '真正的独白', voice: '心声', red: '危险信号',
-    fracture: '裂纹', surge: '情绪峰值', world_line_title: '世界线', worldline_title: '世界线', world_event: '事件',
-    scope: '影响范围', change: '变化', debt_title: '镜头债', debt: '未结事项', origin: '起因', unpaid: '尚未偿还',
-    trigger: '触发条件', mt_title: '幕间', mt_system: '旁白', mt_ai: '人物', mt_user: '右侧', name: '人物',
-    choice: '备选', label: '方向', reply: '推进', relation_note: '关系天气', u_note: '你的说明', c_note: '变化原因',
-    c_score: '关系温度', u_score: '你的关系温度', u_affinity: '你的关系备注', u_delta: '你的变化', c_delta: '本轮变化', relation_fragment: '关系碎片',
+    time: '時間', place: '地點', situation: '場面', owner: '主體', surface: '表層反應', undertow: '潛流',
+    secret: '秘密', hidden: '隱藏事實', true_monologue: '真正的獨白', voice: '心聲', red: '危險信號',
+    fracture: '裂紋', surge: '情緒峰值', world_line_title: '世界線', worldline_title: '世界線', world_event: '事件',
+    scope: '影響範圍', change: '變化', debt_title: '鏡頭債', debt: '未結事項', origin: '起因', unpaid: '尚未償還',
+    trigger: '觸發條件', mt_title: '幕間', mt_system: '旁白', mt_ai: '人物', mt_user: '右側', name: '人物',
+    choice: '備選', label: '方向', reply: '推進', relation_note: '關係天氣', u_note: '你的說明', c_note: '變化原因',
+    c_score: '關係溫度', u_score: '你的關係溫度', u_affinity: '你的關係備註', u_delta: '你的變化', c_delta: '本輪變化', relation_fragment: '關係碎片',
     character_id: '角色 ID', character_name: '人物',
-    c_to_u_score: '角色对你的温度', c_to_u_delta: '角色本轮变化', c_to_u_note: '角色变化依据',
-    u_to_c_score: '你对角色的温度', u_to_c_delta: '你本轮的变化', u_to_c_note: '你的变化原因', awareness_state: '察觉状态',
-    trust: '信任', security: '安全感', possessive_pull: '占有拉力', emotional_pressure: '情绪压强', repair_will: '修复意愿', state_note: '关系合力',
+    c_to_u_score: '角色對你的溫度', c_to_u_delta: '角色本輪變化', c_to_u_note: '角色變化依據',
+    u_to_c_score: '你對角色的溫度', u_to_c_delta: '你本輪的變化', u_to_c_note: '你的變化原因', awareness_state: '察覺狀態',
+    trust: '信任', security: '安全感', possessive_pull: '佔有拉力', emotional_pressure: '情緒壓強', repair_will: '修復意願', state_note: '關係合力',
 };
 
 const HIDDEN_STORY_DISPLAY_TAGS = new Set(['u_score', 'u_delta', 'u_note']);
@@ -1313,12 +1313,12 @@ const firstStoryTagValue = (source: string, tag: string): string => {
 };
 
 /**
- * 小剧场单独按语义解析：把 name/text 合并成一条消息，并容忍缺失闭合标签、
- * 省略消息外壳或直接退化为纯文本，避免把每个 XML 标签渲染成一张卡。
+ * 小劇場單獨按語義解析：把 name/text 合併成一條消息，並容忍缺失閉合標籤、
+ * 省略消息外殼或直接退化為純文本，避免把每個 XML 標籤渲染成一張卡。
  */
 export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay => {
     const source = decodeStoryEntities(String(fragment || '')).replace(/\r\n?/g, '\n');
-    const title = firstStoryTagValue(source, 'mt_title') || '幕间频道';
+    const title = firstStoryTagValue(source, 'mt_title') || '幕間頻道';
     const systems = [...source.matchAll(/<mt_system\b[^>]*>([\s\S]*?)(?:<\/mt_system\s*>|(?=<(?:mt_ai|mt_user|mt_title)\b)|$)/gi)]
         .map(match => cleanStoryMarkupText(match[1]))
         .filter(Boolean);
@@ -1328,7 +1328,7 @@ export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay
     while ((match = messagePattern.exec(source)) !== null) {
         const side = match[1].toLowerCase() === 'mt_user' ? 'right' : 'left';
         const body = match[2];
-        const name = firstStoryTagValue(body, 'name') || (side === 'right' ? '右侧' : '左侧');
+        const name = firstStoryTagValue(body, 'name') || (side === 'right' ? '右側' : '左側');
         const taggedText = firstStoryTagValue(body, 'text');
         const fallbackText = cleanStoryMarkupText(body).replace(name, '').trim();
         const text = taggedText || fallbackText;
@@ -1338,7 +1338,7 @@ export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay
     if (messages.length === 0) {
         const pairPattern = /<name\b[^>]*>([\s\S]*?)<\/name\s*>\s*<text\b[^>]*>([\s\S]*?)<\/text\s*>/gi;
         for (const pair of source.matchAll(pairPattern)) {
-            const name = cleanStoryMarkupText(pair[1]) || '频道消息';
+            const name = cleanStoryMarkupText(pair[1]) || '頻道消息';
             const text = cleanStoryMarkupText(pair[2]);
             if (text) messages.push({ side: 'left', name, text });
         }
@@ -1351,7 +1351,7 @@ export const parseStoryMiniTheater = (fragment: string): StoryMiniTheaterDisplay
             .filter(line => line && line !== title && !systems.includes(line));
         for (const line of plain) {
             const labeled = /^([^：:]{1,20})[：:]\s*(.+)$/.exec(line);
-            messages.push({ side: 'left', name: labeled?.[1]?.trim() || '频道消息', text: labeled?.[2]?.trim() || line });
+            messages.push({ side: 'left', name: labeled?.[1]?.trim() || '頻道消息', text: labeled?.[2]?.trim() || line });
         }
     }
 
@@ -1382,7 +1382,7 @@ const formatTaggedStoryFragment = (fragment: string): string => {
     return clean;
 };
 
-/** 将模型的 XML 风格排版协议变成纯文本展示块；原始消息仍原样参与下一轮上下文。 */
+/** 將模型的 XML 風格排版協議變成純文本展示塊；原始消息仍原樣參與下一輪上下文。 */
 export const parseStoryDisplayBlocks = (content: string): StoryDisplayBlock[] => {
     const source = String(content || '');
     const blocks: StoryDisplayBlock[] = [];
@@ -1399,7 +1399,7 @@ export const parseStoryDisplayBlocks = (content: string): StoryDisplayBlock[] =>
     const pushTheater = (fragment: string, title?: string) => {
         const theater = parseStoryMiniTheater(fragment);
         const text = [
-            theater.title ? `幕间：${theater.title}` : '',
+            theater.title ? `幕間：${theater.title}` : '',
             theater.system ? `旁白：${theater.system}` : '',
             ...theater.messages.map(message => `${message.name}：${message.text}`),
         ].filter(Boolean).join('\n');
@@ -1439,14 +1439,14 @@ export const formatActorRecentMessages = (
     const originalUser = originalUserName?.trim() || '你';
     const currentIdentity = currentIdentityName?.trim() || originalUser;
     const rows = messages.map(message => {
-        const speaker = message.role === 'user' ? `记忆中的你（${originalUser}）` : message.role === 'assistant' ? char.name : '系统';
-        const clean = String(message.content || '').replace(/data:[^\s]+/gi, '[媒体]').slice(0, 4000);
+        const speaker = message.role === 'user' ? `記憶中的你（${originalUser}）` : message.role === 'assistant' ? char.name : '系統';
+        const clean = String(message.content || '').replace(/data:[^\s]+/gi, '[媒體]').slice(0, 4000);
         return `- [${new Date(message.timestamp).toLocaleString()}] ${speaker}：${clean}`;
     });
     const identityReminder = currentIdentity === originalUser
         ? ''
-        : `\n当前执笔身份是「${currentIdentity}」；不得把下列“记忆中的你”重新解释成当前身份。`;
-    return `### ${char.name} 最近携带的专属原文上下文（${messages.length} 条）\n以下记录只属于「${char.name}」与原互动对象「${originalUser}」，不得并入其他角色的经历。${identityReminder}\n${rows.join('\n')}`;
+        : `\n當前執筆身份是「${currentIdentity}」；不得把下列“記憶中的你”重新解釋成當前身份。`;
+    return `### ${char.name} 最近攜帶的專屬原文上下文（${messages.length} 條）\n以下記錄只屬於「${char.name}」與原互動對象「${originalUser}」，不得併入其他角色的經歷。${identityReminder}\n${rows.join('\n')}`;
 };
 
 export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => messages
@@ -1454,7 +1454,7 @@ export const buildStoryHistory = (messages: Message[]): StoryApiMessage[] => mes
     .sort((a, b) => a.timestamp - b.timestamp)
     .map(message => ({ role: message.role as StoryApiRole, content: String(message.content || '') }));
 
-/** 仅当最后一条剧场消息是尚未得到回复的用户推进时，提供中断续跑输入。 */
+/** 僅當最後一條劇場消息是尚未得到回覆的用戶推進時，提供中斷續跑輸入。 */
 export const getPendingStoryRetryInput = (messages: Message[]): string => {
     const latest = messages[messages.length - 1];
     if (!latest || latest.role !== 'user' || latest.metadata?.theaterArchived) return '';
@@ -1477,7 +1477,7 @@ const storyApiDetail = (value: unknown): string => {
         || storyApiDetail(record.code);
 };
 
-/** 保留上游 4xx 的真正原因，避免调试日志里只剩一条没有信息量的 “API Error 400”。 */
+/** 保留上游 4xx 的真正原因，避免調試日誌裡只剩一條沒有信息量的 “API Error 400”。 */
 export const describeStoryApiError = (status: number, data: unknown): string => {
     const detail = storyApiDetail((data as Record<string, unknown> | null)?.error)
         || storyApiDetail((data as Record<string, unknown> | null)?.message)
@@ -1487,21 +1487,21 @@ export const describeStoryApiError = (status: number, data: unknown): string => 
 
 export const isStoryUserLastCompatibilityError = (message: string): boolean => (
     /(?:last|final)[^\n]{0,80}(?:message|role)[^\n]{0,80}user/i.test(message)
-    || /(?:最后|末尾)[^\n]{0,40}(?:消息|角色)[^\n]{0,40}user/i.test(message)
+    || /(?:最[后後]|末尾)[^\n]{0,40}(?:消息|角色)[^\n]{0,40}user/i.test(message)
 );
 
-/** 200 但正文为空时把 finish_reason 带出来，区分截断、内容过滤和代理空包。 */
+/** 200 但正文為空時把 finish_reason 帶出來，區分截斷、內容過濾和代理空包。 */
 export const describeEmptyStoryCompletion = (data: unknown): string => {
     const record = data as Record<string, any> | null;
     const choice = record?.choices?.[0];
     const finishReason = String(choice?.finish_reason || choice?.finishReason || '').trim();
     const providerDetail = storyApiDetail(record?.error) || storyApiDetail(record?.message);
-    if (providerDetail) return `没有生成正文：${providerDetail.slice(0, 500)}`;
+    if (providerDetail) return `沒有生成正文：${providerDetail.slice(0, 500)}`;
     if (finishReason === 'length' || finishReason === 'max_tokens') {
-        return '没有生成正文：模型在写出正文前已用完输出额度（finish_reason=length）。请提高“最大输出”，或降低模型思考量后重试';
+        return '沒有生成正文：模型在寫出正文前已用完輸出額度（finish_reason=length）。請提高“最大輸出”，或降低模型思考量後重試';
     }
-    if (finishReason === 'content_filter') return '没有生成正文：上游内容过滤拦截了本次回复（finish_reason=content_filter）';
-    return `没有生成正文${finishReason ? `（finish_reason=${finishReason}）` : '：上游返回了空内容'}，请重试`;
+    if (finishReason === 'content_filter') return '沒有生成正文：上游內容過濾攔截了本次回覆（finish_reason=content_filter）';
+    return `沒有生成正文${finishReason ? `（finish_reason=${finishReason}）` : '：上游返回了空內容'}，請重試`;
 };
 
 export const memoryTimestampForCharacter = (entry: StoryTheaterEntry, charId: string, realTimestamp: number): number => {
@@ -1512,16 +1512,16 @@ export const memoryTimestampForCharacter = (entry: StoryTheaterEntry, charId: st
 };
 
 export const makeStoryPresetFileName = (name: string): string => {
-    const safeName = name.replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || '剧情预设';
+    const safeName = name.replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || '劇情預設';
     return `${safeName}.json`;
 };
 
 export const downloadStoryPreset = async (preset: StoryTheaterPreset): Promise<'shared' | 'downloaded' | 'cancelled'> => (
     shareOrDownloadFile({
-        card: { kind: 'story', title: preset.name || '剧情预设' },
+        card: { kind: 'story', title: preset.name || '劇情預設' },
         content: JSON.stringify(preset.document, null, 2),
         fileName: makeStoryPresetFileName(preset.name),
         mimeType: 'application/json',
-        shareTitle: `剧情预设：${preset.name || '未命名'}`,
+        shareTitle: `劇情預設：${preset.name || '未命名'}`,
     })
 );

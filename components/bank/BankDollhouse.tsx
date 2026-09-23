@@ -39,10 +39,10 @@ const DECOR_TAB_ICONS: Record<DecorTab, PhosphorIcon> = {
 };
 
 const DECOR_TABS: { id: DecorTab; label: string }[] = [
-    { id: 'furniture', label: '家具' },
-    { id: 'wallpaper', label: '墙纸' },
+    { id: 'furniture', label: '傢俱' },
+    { id: 'wallpaper', label: '牆紙' },
     { id: 'floor', label: '地板' },
-    { id: 'roomTexture', label: '全屋贴图' },
+    { id: 'roomTexture', label: '全屋貼圖' },
     { id: 'layout', label: '房型' },
     { id: 'rename', label: '改名' },
 ];
@@ -310,12 +310,12 @@ const BankDollhouse: React.FC<Props> = ({
             actionPoints: prev.actionPoints - cost,
         }));
         setShowUnlockConfirm(null);
-        addToast(`房间已解锁！-${cost} AP`, 'success');
+        addToast(`房間已解鎖！-${cost} AP`, 'success');
     };
 
     const handleRenameRoom = (room: DollhouseRoom) => {
         if (room.id === MAIN_ROOM_ID) {
-            addToast('初始房间固定为「咖啡店」', 'error');
+            addToast('初始房間固定為「咖啡店」', 'error');
             return;
         }
         setRenameValue(room.name);
@@ -331,7 +331,7 @@ const BankDollhouse: React.FC<Props> = ({
             rooms: prev.rooms.map(r => r.id === renameTarget.id ? { ...r, name } : r)
         }));
         setRenameTarget(null);
-        addToast('房间名已更新', 'success');
+        addToast('房間名已更新', 'success');
     };
 
     const persistActorPosition = async (actorId: string, x: number, y: number, isVisitor: boolean) => {
@@ -405,7 +405,7 @@ const BankDollhouse: React.FC<Props> = ({
             ...prev,
             rooms: prev.rooms.map(r => r.id === roomId ? { ...r, wallpaperLeft: style, wallpaperRight: style } : r)
         }));
-        addToast('墙纸已更换', 'success');
+        addToast('牆紙已更換', 'success');
     };
 
     const handleSetFloor = async (roomId: string, style: string) => {
@@ -413,7 +413,7 @@ const BankDollhouse: React.FC<Props> = ({
             ...prev,
             rooms: prev.rooms.map(r => r.id === roomId ? { ...r, floorStyle: style } : r)
         }));
-        addToast('地板已更换', 'success');
+        addToast('地板已更換', 'success');
     };
 
     const handleAddFurniture = async (roomId: string, stickerUrl: string, surface: 'floor' | 'leftWall', pos?: { x: number; y: number }) => {
@@ -431,7 +431,7 @@ const BankDollhouse: React.FC<Props> = ({
             ...prev,
             rooms: prev.rooms.map(r => r.id === roomId ? { ...r, stickers: [...r.stickers, newSticker] } : r)
         }));
-        addToast('已放置家具', 'success');
+        addToast('已放置傢俱', 'success');
     };
 
     const handleDeleteSticker = async (roomId: string, stickerId: string) => {
@@ -485,7 +485,7 @@ const BankDollhouse: React.FC<Props> = ({
             }
             if (droppedOnTrash && editMode) {
                 await handleDeleteSticker(draggingStickerInfo.roomId, draggingStickerInfo.stickerId);
-                addToast('家具已删除', 'success');
+                addToast('傢俱已刪除', 'success');
             } else {
                 // Persist final position to DB on pointer up
                 const pos = localStickerPos[draggingStickerInfo.stickerId];
@@ -565,7 +565,7 @@ const BankDollhouse: React.FC<Props> = ({
                 actionPoints: prev.actionPoints - layout.apCost,
             }));
         }
-        addToast('房型已更换！', 'success');
+        addToast('房型已更換！', 'success');
     };
 
     const goPrevRoom = () => {
@@ -607,15 +607,15 @@ const BankDollhouse: React.FC<Props> = ({
             ]);
             textureFullRef.current = full;
             setTextureUrl(preview);
-            addToast('图片已载入', 'success');
+            addToast('圖片已載入', 'success');
         } catch {
-            addToast('图片读取失败', 'error');
+            addToast('圖片讀取失敗', 'error');
         }
     };
 
     const handleSaveCustomTexture = async () => {
         if (!textureUrl.trim()) {
-            addToast('请填写图床 URL 或上传本地图片', 'error');
+            addToast('請填寫圖床 URL 或上傳本地圖片', 'error');
             return;
         }
         // Use full-res image if available (local upload), otherwise use the URL as-is
@@ -626,7 +626,7 @@ const BankDollhouse: React.FC<Props> = ({
                 ...prev,
                 rooms: prev.rooms.map(r => r.id === activeRoom.id ? { ...r, roomTextureUrl: url, roomTextureScale: textureScale } : r)
             }));
-            addToast('全屋贴图已更新', 'success');
+            addToast('全屋貼圖已更新', 'success');
         } else if (textureTarget === 'wallpaper') {
             await handleSetWallpaper(activeRoom.id, url);
         } else {
@@ -644,7 +644,7 @@ const BankDollhouse: React.FC<Props> = ({
     const handleAddCustomAsset = async () => {
         const finalAssetUrl = assetUrl.trim() || assetUploadedData;
         if (!assetName.trim() || !finalAssetUrl) {
-            addToast('请填写家具名称并提供图片（URL 或本地上传）', 'error');
+            addToast('請填寫傢俱名稱並提供圖片（URL 或本地上傳）', 'error');
             return;
         }
         const next = [...customAssets, { id: `custom-${Date.now()}`, name: assetName.trim(), url: finalAssetUrl }];
@@ -653,12 +653,12 @@ const BankDollhouse: React.FC<Props> = ({
         setAssetUrl('');
         setAssetUploadedData('');
         setShowAssetModal(false);
-        addToast('自定义家具已保存', 'success');
+        addToast('自定義傢俱已保存', 'success');
     };
 
     const handleDeleteCustomAsset = (id: string) => {
         void persistCustomAssets(customAssets.filter(a => a.id !== id));
-        addToast('已删除自定义家具', 'success');
+        addToast('已刪除自定義傢俱', 'success');
     };
 
     const handleUploadCustomAsset = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -668,9 +668,9 @@ const BankDollhouse: React.FC<Props> = ({
         try {
             const base64 = await processImage(file, { maxWidth: 400, quality: 0.85 });
             setAssetUploadedData(base64);
-            addToast('本地图片已载入（不会自动改写 URL 输入框）', 'success');
+            addToast('本地圖片已載入（不會自動改寫 URL 輸入框）', 'success');
         } catch {
-            addToast('图片读取失败', 'error');
+            addToast('圖片讀取失敗', 'error');
         }
     };
 
@@ -733,7 +733,7 @@ const BankDollhouse: React.FC<Props> = ({
         <button
             onClick={onClick}
             className="w-10 h-10 rounded-full bg-white/80 border border-[#E8D5C4] shadow-sm flex items-center justify-center active:scale-90 transition-all"
-            aria-label={direction === 'left' ? '上一房间' : '下一房间'}
+            aria-label={direction === 'left' ? '上一房間' : '下一房間'}
         >
             <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#8B5E43]" fill="none" stroke="currentColor" strokeWidth="2.5">
                 {direction === 'left'
@@ -896,7 +896,7 @@ const BankDollhouse: React.FC<Props> = ({
                                 )}
                                 <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap">
                                     <span className="text-[9px] bg-[#FF8E6B] text-white px-2 py-0.5 rounded-full font-bold shadow-sm">
-                                        点击放置
+                                        點擊放置
                                     </span>
                                 </div>
                             </div>
@@ -907,7 +907,7 @@ const BankDollhouse: React.FC<Props> = ({
                     {!locked && roomStaff.map(staff => {
                         const pos = actorPositions[staff.id] || clampActorPos(staff.x || 50, staff.y || 72);
                         const staffScale = staff.scale ?? 1;
-                        // 店员头像可能是 emoji 字符，也可能是图（外链 / data: / blobref 令牌）
+                        // 店員頭像可能是 emoji 字符，也可能是圖（外鏈 / data: / blobref 令牌）
                         const isStaffUrl = staff.avatar.startsWith('http') || staff.avatar.startsWith('data') || isBlobRef(staff.avatar);
                         return (
                             <div
@@ -987,7 +987,7 @@ const BankDollhouse: React.FC<Props> = ({
                         >
                             <div className="bg-white/90 backdrop-blur-sm px-5 py-4 rounded-2xl shadow-lg text-center">
                                 <div className="text-2xl mb-1">🔒</div>
-                                <div className="text-sm font-bold text-[#8A5A3D]">解锁 {ROOM_UNLOCK_COSTS[room.id] || 150} AP</div>
+                                <div className="text-sm font-bold text-[#8A5A3D]">解鎖 {ROOM_UNLOCK_COSTS[room.id] || 150} AP</div>
                             </div>
                         </button>
                     )}
@@ -999,11 +999,11 @@ const BankDollhouse: React.FC<Props> = ({
     const builtinFurniture = STICKER_LIBRARY.map(s => ({ id: s.id, name: s.name, url: s.url, category: s.category }));
     const furnitureCategories = [
         { id: 'all', label: '全部' },
-        { id: 'furniture', label: '家具' },
-        { id: 'decor', label: '装饰' },
-        { id: 'wall', label: '挂饰' },
+        { id: 'furniture', label: '傢俱' },
+        { id: 'decor', label: '裝飾' },
+        { id: 'wall', label: '掛飾' },
         { id: 'food', label: '美食' },
-        { id: 'pet', label: '宠物' },
+        { id: 'pet', label: '寵物' },
     ];
     const [furnitureFilter, setFurnitureFilter] = useState('all');
 
@@ -1035,7 +1035,7 @@ const BankDollhouse: React.FC<Props> = ({
                 <button
                     onClick={() => { setShowDecorPanel(true); setDecorTab('furniture'); }}
                     className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF9A75] to-[#FF6B55] text-white text-base shadow-[0_3px_12px_rgba(255,107,85,0.35)] flex items-center justify-center active:scale-90 transition-transform"
-                    aria-label="装修"
+                    aria-label="裝修"
                 >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.049.58.025 1.193-.14 1.743" />
@@ -1049,7 +1049,7 @@ const BankDollhouse: React.FC<Props> = ({
                             ? 'bg-gradient-to-br from-[#4CAF50] to-[#388E3C] text-white border-[#388E3C] shadow-[0_3px_12px_rgba(76,175,80,0.35)]'
                             : 'bg-white/90 border-[#E8D5C4] text-[#7A5238]'
                     }`}
-                    aria-label="装修模式"
+                    aria-label="裝修模式"
                 >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
@@ -1059,7 +1059,7 @@ const BankDollhouse: React.FC<Props> = ({
                 <button
                     onClick={onOpenGuestbook}
                     className="w-10 h-10 rounded-xl bg-white/90 border border-[#E8D5C4] text-[#7A5238] shadow-sm flex items-center justify-center active:scale-90 transition-transform"
-                    aria-label="翻开情报志"
+                    aria-label="翻開情報志"
                 >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
@@ -1071,8 +1071,8 @@ const BankDollhouse: React.FC<Props> = ({
             {editMode && (
                 <div className="mx-2 mb-1 px-3 py-1.5 rounded-xl bg-[#E8F5E9] border border-[#A5D6A7] flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-[#4CAF50] animate-pulse" />
-                    <span className="text-[10px] font-bold text-[#2E7D32]">装修模式</span>
-                    <span className="text-[10px] text-[#4CAF50]">可调整大小 / 拖到垃圾桶删除</span>
+                    <span className="text-[10px] font-bold text-[#2E7D32]">裝修模式</span>
+                    <span className="text-[10px] text-[#4CAF50]">可調整大小 / 拖到垃圾桶刪除</span>
                 </div>
             )}
 
@@ -1098,7 +1098,7 @@ const BankDollhouse: React.FC<Props> = ({
                         <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                     </svg>
                     <span className={`text-xs font-bold transition-colors ${overTrash ? 'text-[#EF5350]' : 'text-[#B8956E]'}`}>
-                        {overTrash ? '松手删除' : '拖到这里删除'}
+                        {overTrash ? '鬆手刪除' : '拖到這裡刪除'}
                     </span>
                 </div>
             )}
@@ -1114,7 +1114,7 @@ const BankDollhouse: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="text-xs font-bold text-[#6B4528]">{placingFurniture.name}</div>
-                            <div className="text-[10px] text-[#B8956E]">在房间内点击或拖动选择位置</div>
+                            <div className="text-[10px] text-[#B8956E]">在房間內點擊或拖動選擇位置</div>
                         </div>
                         <button
                             onClick={() => setPlacingFurniture(null)}
@@ -1138,7 +1138,7 @@ const BankDollhouse: React.FC<Props> = ({
                         <div className="flex items-center justify-between px-4 pt-4 pb-2">
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#FF8E6B] to-[#FF6B55]" />
-                                <span className="text-sm font-black text-[#6B4528]">装修面板</span>
+                                <span className="text-sm font-black text-[#6B4528]">裝修面板</span>
                             </div>
                             <button
                                 onClick={() => setShowDecorPanel(false)}
@@ -1201,7 +1201,7 @@ const BankDollhouse: React.FC<Props> = ({
                                                 <div className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
                                                     isActive ? 'bg-[#FF8E6B] text-white' : layout.apCost > 0 ? 'bg-[#FFF4E8] text-[#C4956A]' : 'bg-[#E8F5E9] text-[#4CAF50]'
                                                 }`}>
-                                                    {isActive ? '当前' : layout.apCost > 0 ? `${layout.apCost} AP` : '免费'}
+                                                    {isActive ? '當前' : layout.apCost > 0 ? `${layout.apCost} AP` : '免費'}
                                                 </div>
                                             </button>
                                         );
@@ -1212,12 +1212,12 @@ const BankDollhouse: React.FC<Props> = ({
                             {decorTab === 'rename' && (
                                 <div className="flex flex-col items-center py-6">
                                     <div className="text-3xl mb-3">✏️</div>
-                                    <div className="text-xs text-[#B8956E] mb-4 text-center">为「{activeRoom.name}」取一个新名字</div>
+                                    <div className="text-xs text-[#B8956E] mb-4 text-center">為「{activeRoom.name}」取一個新名字</div>
                                     <button
                                         onClick={() => handleRenameRoom(activeRoom)}
                                         className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#FF8E6B] to-[#FF7D5A] text-white text-sm font-bold shadow-md active:scale-95 transition-transform"
                                     >
-                                        重命名房间
+                                        重命名房間
                                     </button>
                                 </div>
                             )}
@@ -1231,7 +1231,7 @@ const BankDollhouse: React.FC<Props> = ({
                                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                                         </svg>
-                                        上传自定义墙纸
+                                        上傳自定義牆紙
                                     </button>
                                     <div className="grid grid-cols-2 gap-2">
                                         {WALLPAPER_PRESETS.map(wp => (
@@ -1257,7 +1257,7 @@ const BankDollhouse: React.FC<Props> = ({
                                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                                         </svg>
-                                        上传自定义地板
+                                        上傳自定義地板
                                     </button>
                                     <div className="grid grid-cols-2 gap-2">
                                         {FLOOR_PRESETS.map(fl => (
@@ -1283,7 +1283,7 @@ const BankDollhouse: React.FC<Props> = ({
                                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
                                         </svg>
-                                        上传全屋贴图
+                                        上傳全屋貼圖
                                     </button>
 
                                     {activeRoom.roomTextureUrl ? (
@@ -1291,12 +1291,12 @@ const BankDollhouse: React.FC<Props> = ({
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 rounded-full bg-[#4CAF50]" />
-                                                    <span className="text-[11px] text-[#6B4528] font-bold">当前贴图</span>
+                                                    <span className="text-[11px] text-[#6B4528] font-bold">當前貼圖</span>
                                                 </div>
                                                 <button
                                                     onClick={async () => {
                                                         await saveDollhouse(prev => ({ ...prev, rooms: prev.rooms.map(r => r.id === activeRoom.id ? { ...r, roomTextureUrl: undefined, roomTextureScale: 1 } : r) }));
-                                                        addToast('已清除全屋贴图', 'success');
+                                                        addToast('已清除全屋貼圖', 'success');
                                                     }}
                                                     className="text-[10px] text-[#E53935] font-bold px-2 py-1 rounded-lg hover:bg-[#FFEBEE] transition-colors"
                                                 >
@@ -1324,7 +1324,7 @@ const BankDollhouse: React.FC<Props> = ({
                                                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
                                                         </svg>
-                                                        缩放
+                                                        縮放
                                                     </div>
                                                     <div className="text-[11px] text-[#B8956E] font-mono bg-white px-2 py-0.5 rounded-md border border-[#F0E3D6]">
                                                         {displayScaleValue.toFixed(2)}x
@@ -1350,8 +1350,8 @@ const BankDollhouse: React.FC<Props> = ({
                                     ) : (
                                         <div className="text-center py-8 bg-white rounded-2xl border border-[#F0E3D6]">
                                             <div className="text-3xl mb-2 opacity-30">🖼️</div>
-                                            <div className="text-xs text-[#B8956E]">暂无全屋贴图</div>
-                                            <div className="text-[10px] text-[#D4B99A] mt-1">点击上方按钮上传图片</div>
+                                            <div className="text-xs text-[#B8956E]">暫無全屋貼圖</div>
+                                            <div className="text-[10px] text-[#D4B99A] mt-1">點擊上方按鈕上傳圖片</div>
                                         </div>
                                     )}
                                 </div>
@@ -1367,7 +1367,7 @@ const BankDollhouse: React.FC<Props> = ({
                                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                         </svg>
-                                        上传自定义家具
+                                        上傳自定義傢俱
                                     </button>
 
                                     {/* Category filter pills */}
@@ -1438,7 +1438,7 @@ const BankDollhouse: React.FC<Props> = ({
                                             <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                                         </svg>
                                         <div className="text-[10px] text-[#A67E62] leading-relaxed">
-                                            点击家具即可进入摆放模式，在房间内选择位置。长按已放置的家具可拖动。开启右侧「装修模式」可调整大小，拖入垃圾桶删除。
+                                            點擊傢俱即可進入擺放模式，在房間內選擇位置。長按已放置的傢俱可拖動。開啟右側「裝修模式」可調整大小，拖入垃圾桶刪除。
                                         </div>
                                     </div>
                                 </div>
@@ -1453,8 +1453,8 @@ const BankDollhouse: React.FC<Props> = ({
                 <div className="absolute inset-0 z-[90] bg-black/30 flex items-center justify-center p-4" onClick={() => setShowAssetModal(false)}>
                     <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
                         <div className="bg-gradient-to-r from-[#FF8E6B] to-[#FF6B55] px-5 py-4">
-                            <div className="text-white font-bold text-sm">添加自定义家具</div>
-                            <div className="text-white/70 text-[10px] mt-0.5">支持图床URL或本地上传</div>
+                            <div className="text-white font-bold text-sm">添加自定義傢俱</div>
+                            <div className="text-white/70 text-[10px] mt-0.5">支持圖床URL或本地上傳</div>
                         </div>
                         <div className="p-4 space-y-3">
                             {/* Preview */}
@@ -1464,26 +1464,26 @@ const BankDollhouse: React.FC<Props> = ({
                                 ) : (
                                     <div className="text-center">
                                         <div className="text-2xl opacity-20">🪑</div>
-                                        <div className="text-[10px] text-[#C4A882] mt-1">上传图片后预览</div>
+                                        <div className="text-[10px] text-[#C4A882] mt-1">上傳圖片後預覽</div>
                                     </div>
                                 )}
                             </div>
 
                             <div>
-                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">家具名称</label>
+                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">傢俱名稱</label>
                                 <input
                                     value={assetName}
                                     onChange={(e) => setAssetName(e.target.value)}
-                                    placeholder="例如：可爱沙发"
+                                    placeholder="例如：可愛沙發"
                                     className="w-full px-3 py-2.5 rounded-xl border border-[#E9D0BD] text-sm bg-[#FDFAF5] focus:outline-none focus:border-[#FF8E6B] focus:ring-1 focus:ring-[#FF8E6B]/20 transition-all"
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">图片地址</label>
+                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">圖片地址</label>
                                 <input
                                     value={assetUrl}
                                     onChange={(e) => setAssetUrl(e.target.value)}
-                                    placeholder="粘贴图床URL 或点击下方上传"
+                                    placeholder="粘貼圖床URL 或點擊下方上傳"
                                     className="w-full px-3 py-2.5 rounded-xl border border-[#E9D0BD] text-sm bg-[#FDFAF5] focus:outline-none focus:border-[#FF8E6B] focus:ring-1 focus:ring-[#FF8E6B]/20 transition-all"
                                 />
                             </div>
@@ -1495,13 +1495,13 @@ const BankDollhouse: React.FC<Props> = ({
                                     <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                                     </svg>
-                                    本地上传
+                                    本地上傳
                                 </button>
                                 <button
                                     onClick={handleAddCustomAsset}
                                     className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FF8E6B] to-[#FF6B55] text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
                                 >
-                                    保存家具
+                                    保存傢俱
                                 </button>
                             </div>
                             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUploadCustomAsset} className="hidden" />
@@ -1518,10 +1518,10 @@ const BankDollhouse: React.FC<Props> = ({
                         <div className="bg-gradient-to-r from-[#FF8E6B] to-[#FF6B55] px-5 py-4 flex items-center justify-between flex-shrink-0">
                             <div>
                                 <div className="text-white font-bold text-sm">
-                                    {textureTarget === 'room' ? '全屋贴图' : textureTarget === 'wallpaper' ? '自定义墙纸' : '自定义地板'}
+                                    {textureTarget === 'room' ? '全屋貼圖' : textureTarget === 'wallpaper' ? '自定義牆紙' : '自定義地板'}
                                 </div>
                                 <div className="text-white/70 text-[10px] mt-0.5">
-                                    {textureTarget === 'room' ? '覆盖在整个房间上方的图层' : '替换当前墙面/地板样式'}
+                                    {textureTarget === 'room' ? '覆蓋在整個房間上方的圖層' : '替換當前牆面/地板樣式'}
                                 </div>
                             </div>
                             <button
@@ -1554,7 +1554,7 @@ const BankDollhouse: React.FC<Props> = ({
                                                 <svg viewBox="0 0 24 24" className="w-8 h-8 text-[#D4C0A8]" fill="none" stroke="currentColor" strokeWidth="1.5">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
                                                 </svg>
-                                                <span className="text-[11px] text-[#B8956E] font-medium">上传图片后实时预览</span>
+                                                <span className="text-[11px] text-[#B8956E] font-medium">上傳圖片後實時預覽</span>
                                             </div>
                                         )}
                                     </div>
@@ -1567,7 +1567,7 @@ const BankDollhouse: React.FC<Props> = ({
                                         <div className="w-full h-full" style={{ background: toCssBackground(textureUrl) }} />
                                     ) : (
                                         <div className="w-full h-full bg-[#F8F0E6] flex items-center justify-center">
-                                            <span className="text-[11px] text-[#B8956E]">上传后预览</span>
+                                            <span className="text-[11px] text-[#B8956E]">上傳後預覽</span>
                                         </div>
                                     )}
                                 </div>
@@ -1575,11 +1575,11 @@ const BankDollhouse: React.FC<Props> = ({
 
                             {/* URL Input */}
                             <div>
-                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">图片地址</label>
+                                <label className="text-[10px] text-[#8A5A3D] font-bold mb-1 block">圖片地址</label>
                                 <input
                                     value={textureUrl}
                                     onChange={(e) => { textureFullRef.current = ''; setTextureUrl(e.target.value); }}
-                                    placeholder="粘贴图床URL 或点击下方上传"
+                                    placeholder="粘貼圖床URL 或點擊下方上傳"
                                     className="w-full px-3 py-2.5 rounded-xl border border-[#E9D0BD] text-sm bg-[#FDFAF5] focus:outline-none focus:border-[#FF8E6B] focus:ring-1 focus:ring-[#FF8E6B]/20 transition-all"
                                 />
                             </div>
@@ -1592,7 +1592,7 @@ const BankDollhouse: React.FC<Props> = ({
                                             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
                                             </svg>
-                                            缩放比例
+                                            縮放比例
                                         </div>
                                         <div className="text-[11px] text-[#B8956E] font-mono bg-white px-2 py-0.5 rounded-md border border-[#F0E3D6]">
                                             {textureScale.toFixed(2)}x
@@ -1624,7 +1624,7 @@ const BankDollhouse: React.FC<Props> = ({
                                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                                 </svg>
-                                本地上传
+                                本地上傳
                             </button>
                             <button
                                 onClick={handleSaveCustomTexture}
@@ -1635,7 +1635,7 @@ const BankDollhouse: React.FC<Props> = ({
                                 }`}
                                 disabled={!textureUrl.trim()}
                             >
-                                确认保存
+                                確認保存
                             </button>
                         </div>
                         <input ref={textureInputRef} type="file" accept="image/*" onChange={handleTextureUpload} className="hidden" />
@@ -1652,7 +1652,7 @@ const BankDollhouse: React.FC<Props> = ({
                         <div className="w-full max-w-xs bg-white rounded-3xl p-5 shadow-xl" onClick={e => e.stopPropagation()}>
                             <div className="text-center mb-4">
                                 <div className="text-3xl mb-2">🔓</div>
-                                <div className="text-sm font-bold text-[#6B4528]">解锁「{room?.name || '房间'}」</div>
+                                <div className="text-sm font-bold text-[#6B4528]">解鎖「{room?.name || '房間'}」</div>
                                 <div className="text-xs text-[#B8956E] mt-1">需要消耗 {cost} AP</div>
                             </div>
                             <div className="flex gap-2">
@@ -1666,7 +1666,7 @@ const BankDollhouse: React.FC<Props> = ({
                                     className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FF8E6B] to-[#FF6B55] text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
                                     onClick={() => handleUnlockRoom(showUnlockConfirm)}
                                 >
-                                    解锁
+                                    解鎖
                                 </button>
                             </div>
                         </div>
@@ -1678,7 +1678,7 @@ const BankDollhouse: React.FC<Props> = ({
             {renameTarget && (
                 <div className="absolute inset-0 z-[100] bg-black/40 flex items-center justify-center px-6">
                     <div className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl">
-                        <div className="text-sm font-bold text-slate-700 mb-3">重命名房间</div>
+                        <div className="text-sm font-bold text-slate-700 mb-3">重命名房間</div>
                         <input
                             type="text"
                             value={renameValue}
@@ -1691,7 +1691,7 @@ const BankDollhouse: React.FC<Props> = ({
                         />
                         <div className="flex gap-3">
                             <button onClick={() => setRenameTarget(null)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm">取消</button>
-                            <button onClick={confirmRenameRoom} className="flex-1 py-2.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg">确认</button>
+                            <button onClick={confirmRenameRoom} className="flex-1 py-2.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg">確認</button>
                         </div>
                     </div>
                 </div>

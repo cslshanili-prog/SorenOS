@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 const out = 'output/fishing-qa/sar-expression-review';
 const baseURL = process.env.SAR_QA_URL || 'http://127.0.0.1:5177';
 const marketKey = 'vr_fishing_market_v1';
-const privateName = 'QA_PRIVATE_小雨_不可导出';
+const privateName = 'QA_PRIVATE_小雨_不可導出';
 const privatePrompt = 'QA_PRIVATE_CHARACTER_PROMPT_DO_NOT_EXPORT';
 const expressions = {
     caian: ['normal', 'happy', 'curious', 'embarrassed', 'serious', 'shy', 'aboutaster', 'Enduring Pain', 'avoidant', 'normal2', 'warm'],
@@ -62,17 +62,17 @@ async function selectNpc(npc) {
 async function enterRoster() {
     await button('SAR').waitFor();
     await button('SAR').click();
-    await button('打开仓库').click();
+    await button('打開倉庫').click();
     await page.getByTestId('sar-wallet-balance').waitFor();
-    await button('打开收集图鉴').click();
-    await button('名册').click();
+    await button('打開收集圖鑑').click();
+    await button('名冊').click();
     await page.locator('.sar-familiarity-roster').waitFor();
     await selectNpc('caian');
 }
 
 async function closeDialogue() {
     if (await page.locator('.srf-dialog').count()) {
-        await button('离开对话').click();
+        await button('離開對話').click();
         await page.locator('.srf-dialog').waitFor({ state: 'hidden' });
     }
 }
@@ -80,7 +80,7 @@ async function closeDialogue() {
 async function openScene(scene) {
     await closeDialogue();
     await selectNpc(scene.npc);
-    const row = button(`回顾${scene.title}`);
+    const row = button(`回顧${scene.title}`);
     // Other stars' authored rows remain inside native closed <details> groups.
     const group = row.locator('xpath=ancestor::details');
     if (await group.count() && await group.getAttribute('open') === null) await group.locator('summary').click();
@@ -89,13 +89,13 @@ async function openScene(scene) {
     await waitDialogue(scene.id);
     assert.equal((await state()).replay, true);
     assert.equal((await state()).preview, true);
-    await button('打开表情校对').click();
+    await button('打開表情校對').click();
     await review().waitFor();
 }
 
 async function jump(point) {
     const value = `${point.nodeId}:${point.line}:${point.sentence}`;
-    await review().getByRole('combobox', { name: '跳转台词', exact: true }).selectOption(value);
+    await review().getByRole('combobox', { name: '跳轉台詞', exact: true }).selectOption(value);
     await page.waitForFunction(point => {
         if (typeof window.render_game_to_text !== 'function') return false;
         const current = JSON.parse(window.render_game_to_text());
@@ -104,7 +104,7 @@ async function jump(point) {
 }
 
 async function target(npc) {
-    await review().getByRole('button', { name: npc === 'caian' ? '校对凯恩' : '校对艾文', exact: true }).click();
+    await review().getByRole('button', { name: npc === 'caian' ? '校對凱恩' : '校對艾文', exact: true }).click();
     const labels = await review().locator('button[aria-label^="表情："]').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label').slice(3)));
     assert.deepEqual(labels.sort(), [...expressions[npc]].sort(), `Only ${npc}'s existing portraits may be offered`);
 }
@@ -237,7 +237,7 @@ try {
     await expectPortrait('caian', otherNode.before);
     await jump(second);
     await edit('caian', editedValue('caian', second.before));
-    await review().getByRole('button', { name: '恢复这句原表情', exact: true }).click();
+    await review().getByRole('button', { name: '恢復這句原表情', exact: true }).click();
     await expectPortrait('caian', second.before);
     await jump(first);
     await expectPortrait('caian', first.after);
@@ -258,7 +258,7 @@ try {
     await jump(aiven);
     await edit('aiven', aiven.after);
     assert.equal(await page.locator('.sar-dialogue-choices').count(), 0, 'Reviewing expressions must not cover the portrait with story choices');
-    const storyChoices = review().getByRole('group', { name: '校对中选择回应', exact: true });
+    const storyChoices = review().getByRole('group', { name: '校對中選擇回應', exact: true });
     await review().locator('.sar-expression-choices summary').click();
     assert.equal(await storyChoices.getByRole('button').count(), 3);
     await storyChoices.getByRole('button').first().click();
@@ -277,15 +277,15 @@ try {
     await unchanged('editing both NPCs and resizing');
 
     const expectedEdits = [first, placeholder, aiven];
-    await review().getByRole('button', { name: '复制修改清单', exact: true }).click();
+    await review().getByRole('button', { name: '複製修改清單', exact: true }).click();
     await page.waitForFunction(() => !!window.__sarReviewClipboard);
     const copied = JSON.parse(await page.evaluate(() => window.__sarReviewClipboard));
     checkExport(copied, expectedEdits);
     const [download] = await Promise.all([
         page.waitForEvent('download'),
-        review().getByRole('button', { name: '下载修改清单', exact: true }).click(),
+        review().getByRole('button', { name: '下載修改清單', exact: true }).click(),
     ]);
-    assert.equal(download.suggestedFilename(), 'SAR-两人表情修改.json');
+    assert.equal(download.suggestedFilename(), 'SAR-兩人表情修改.json');
     const downloadPath = `${out}/expression-review-export.json`;
     await download.saveAs(downloadPath);
     const exported = JSON.parse(readFileSync(downloadPath, 'utf8'));
@@ -307,9 +307,9 @@ try {
     await edit('caian', 'aboutaster');
     await edit('caian', first.after);
     await shot('08-caian-review-320');
-    await review().getByRole('button', { name: '恢复这句原表情', exact: true }).click();
+    await review().getByRole('button', { name: '恢復這句原表情', exact: true }).click();
     await expectPortrait('caian', first.before);
-    await review().getByRole('button', { name: '复制修改清单', exact: true }).click();
+    await review().getByRole('button', { name: '複製修改清單', exact: true }).click();
     const afterReset = JSON.parse(await page.evaluate(() => window.__sarReviewClipboard));
     checkExport(afterReset, [placeholder, aiven]);
     await unchanged('reload and reverting the current sentence');

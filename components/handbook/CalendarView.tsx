@@ -1,12 +1,12 @@
 /**
- * 月历视图(通用基类)
+ * 月曆視圖(通用基類)
  *
- * 所有 Tracker section 都用这个组件:
- * - 7×6 月历格子,周一/周日开头按 region 配置(这里按周日起,符合中文习惯)
- * - 顶部:大号月份名 + 上下月切换 + 今日跳回
- * - 每格:日号 + 由 caller 提供的 renderCell 函数(画 entry 标记/emoji/色块等)
- * - 点击格子 → 调 onCellTap(date) ,由 caller 决定是 sheet 还是别的
- * - 支持 highlightDate(用作"今日"圆圈)
+ * 所有 Tracker section 都用這個組件:
+ * - 7×6 月曆格子,週一/週日開頭按 region 配置(這裡按週日起,符合中文習慣)
+ * - 頂部:大號月份名 + 上下月切換 + 今日跳回
+ * - 每格:日號 + 由 caller 提供的 renderCell 函數(畫 entry 標記/emoji/色塊等)
+ * - 點擊格子 → 調 onCellTap(date) ,由 caller 決定是 sheet 還是別的
+ * - 支持 highlightDate(用作"今日"圓圈)
  */
 
 import React from 'react';
@@ -25,17 +25,17 @@ function daysInMonth(y: number, m: number): number {
 }
 
 interface CalendarViewProps {
-    /** 默认显示的月份（YYYY-MM 任意日的 date 字符串） */
+    /** 默認顯示的月份（YYYY-MM 任意日的 date 字符串） */
     initialDate?: string;
     /** 高亮的日期(通常 = 今天) */
     highlightDate?: string;
-    /** 渲染单元格内容(日号下方);返回 null 不画 */
+    /** 渲染單元格內容(日號下方);返回 null 不畫 */
     renderCell?: (date: string) => React.ReactNode;
-    /** 点击格子触发 */
+    /** 點擊格子觸發 */
     onCellTap?: (date: string) => void;
-    /** 主题色（标记/装饰用），默认樱粉 */
+    /** 主題色（標記/裝飾用），默認櫻粉 */
     accentColor?: string;
-    /** 顶部标题(默认显示英文月份),可以传 tracker 名定制 */
+    /** 頂部標題(默認顯示英文月份),可以傳 tracker 名定製 */
     title?: React.ReactNode;
 }
 
@@ -45,7 +45,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     accentColor = PAPER_TONES.accentRose,
     title,
 }) => {
-    // 状态:当前显示的"基准日期"(用于决定哪个月)
+    // 狀態:當前顯示的"基準日期"(用於決定哪個月)
     const init = (() => {
         if (initialDate) {
             const [y, m, d] = initialDate.split('-').map(Number);
@@ -64,7 +64,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
     })();
 
-    // 6 行 × 7 列 = 42 个格子
+    // 6 行 × 7 列 = 42 個格子
     const cells: ({ date: string; day: number; thisMonth: boolean })[] = [];
     // 上月尾巴
     if (firstDay > 0) {
@@ -79,7 +79,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     for (let d = 1; d <= totalDays; d++) {
         cells.push({ date: dateKey(year, month, d), day: d, thisMonth: true });
     }
-    // 下月头
+    // 下月頭
     while (cells.length < 42) {
         const offset = cells.length - firstDay - totalDays + 1;
         const [ny, nm] = month === 11 ? [year + 1, 0] : [year, month + 1];
@@ -99,7 +99,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     return (
         <div className="px-4 pt-2 pb-4">
-            {/* 月份标题条 */}
+            {/* 月份標題條 */}
             <div className="flex items-center justify-between mb-3">
                 <button
                     onClick={goPrevMonth}
@@ -159,7 +159,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
             </div>
 
-            {/* 周标签条 */}
+            {/* 周標籤條 */}
             <div className="grid grid-cols-7 gap-1 mb-1">
                 {WEEK_LABELS.map((w, i) => (
                     <div
@@ -175,7 +175,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
             </div>
 
-            {/* 月历格 */}
+            {/* 月曆格 */}
             <div
                 className="grid grid-cols-7 gap-1 rounded-xl p-2"
                 style={{
@@ -214,7 +214,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             >
                                 {cell.day}
                             </span>
-                            {/* caller 渲染区(emoji / 色块 / 数字……) */}
+                            {/* caller 渲染區(emoji / 色塊 / 數字……) */}
                             <span className="flex-1 flex items-center justify-center pt-0.5 leading-none">
                                 {cell.thisMonth ? cellContent : null}
                             </span>
@@ -228,7 +228,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 className="text-[10px] text-center mt-3 italic"
                 style={{ ...CUTE_STACK, color: PAPER_TONES.inkFaint }}
             >
-                点哪天 · 写哪天 ♡
+                點哪天 · 寫哪天 ♡
             </div>
         </div>
     );

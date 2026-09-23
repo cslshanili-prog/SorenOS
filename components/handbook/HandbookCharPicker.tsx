@@ -1,5 +1,5 @@
 /**
- * 角色筛选 bottom sheet（糖果版,带深度档位选择器)
+ * 角色篩選 bottom sheet（糖果版,帶深度檔位選擇器)
  */
 
 import React from 'react';
@@ -65,7 +65,7 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                 className="text-[10px] tracking-widest font-bold"
                 style={{ ...CUTE_STACK, color: excluded ? PAPER_TONES.inkSoft : accent }}
             >
-                {excluded ? '已 排 除' : '入 册 ♡'}
+                {excluded ? '已 排 除' : '入 冊 ♡'}
             </span>
         </button>
     );
@@ -84,12 +84,12 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* 顶部把手 */}
+                {/* 頂部把手 */}
                 <div className="flex justify-center pt-3 pb-1">
                     <div style={{ width: 40, height: 4, borderRadius: 2, background: PAPER_TONES.accentRose, opacity: 0.5 }} />
                 </div>
 
-                {/* 角落贴纸 */}
+                {/* 角落貼紙 */}
                 <div className="absolute top-6 left-5 pointer-events-none" style={{ transform: 'rotate(-15deg)' }}>
                     <HeartSticker size={20} />
                 </div>
@@ -97,14 +97,14 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                     <StarSticker size={18} color={PAPER_TONES.accentLemon} />
                 </div>
 
-                {/* 标题 */}
+                {/* 標題 */}
                 <div className="px-5 pt-2 pb-3 text-center">
                     <WashiTape color="rose" pattern="heart" rotate={-1.5}>生 成 今 日 ♡</WashiTape>
                     <div
                         className="text-[11px] mt-3"
                         style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                     >
-                        默认全部入册 · 想跳过的勾掉就好
+                        默認全部入冊 · 想跳過的勾掉就好
                     </div>
                 </div>
 
@@ -125,7 +125,7 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                             className="text-[12px] py-2 text-center"
                             style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                         >
-                            今天还没和谁说过话 …
+                            今天還沒和誰說過話 …
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -136,7 +136,7 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                     )}
                 </div>
 
-                {/* 让 ta 也在这页写一笔 (任何角色都行,不限生活系) */}
+                {/* 讓 ta 也在這頁寫一筆 (任何角色都行,不限生活系) */}
                 <div className="px-5 mt-6 pb-3">
                     <div className="flex items-center gap-2 mb-3">
                         <div style={{ flex: 1, height: 1, background: PAPER_TONES.accentBlue, opacity: 0.4 }} />
@@ -144,12 +144,12 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                             className="text-[11px] tracking-[0.3em] font-bold"
                             style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                         >
-                            让 ta 在 这 页 也 写 一 笔
+                            讓 ta 在 這 頁 也 寫 一 筆
                         </span>
                         <div style={{ flex: 1, height: 1, background: PAPER_TONES.accentBlue, opacity: 0.4 }} />
                     </div>
 
-                    {/* 深度档位选择器(只影响陪伴页的生成深度) */}
+                    {/* 深度檔位選擇器(只影響陪伴頁的生成深度) */}
                     <div
                         className="rounded-xl px-3 py-2.5 mb-3"
                         style={{
@@ -161,13 +161,13 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                             className="text-[10px] tracking-widest mb-2"
                             style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                         >
-                            ◆ 深度档位 · 想看 ta 怎样的一天
+                            ◆ 深度檔位 · 想看 ta 怎樣的一天
                         </div>
                         <div className="flex gap-1.5">
                             {([
-                                { v: 'light',  label: '日常',  hint: '纯小事' },
+                                { v: 'light',  label: '日常',  hint: '純小事' },
                                 { v: 'medium', label: '反思',  hint: '日常 + 思考' },
-                                { v: 'deep',   label: '反刍',  hint: '深度内省' },
+                                { v: 'deep',   label: '反芻',  hint: '深度內省' },
                             ] as const).map(opt => {
                                 const active = depth === opt.v;
                                 return (
@@ -202,7 +202,7 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                             className="text-[12px] py-2 text-center"
                             style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}
                         >
-                            还没有任何角色 …
+                            還沒有任何角色 …
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -245,7 +245,7 @@ const HandbookCharPicker: React.FC<PickerProps> = ({
                         }}
                     >
                         <Sparkle weight="fill" className="w-3.5 h-3.5" />
-                        {generating ? '正在落笔…' : '开 始 落 笔 ♡'}
+                        {generating ? '正在落筆…' : '開 始 落 筆 ♡'}
                     </button>
                 </div>
             </div>

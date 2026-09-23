@@ -1,9 +1,9 @@
-/** 旧版系统默认的粉绿渐变；不再是系统默认，仅供存量迁移和用户主动选择「怀旧版」。 */
+/** 舊版系統默認的粉綠漸變；不再是系統默認，僅供存量遷移和用戶主動選擇「懷舊版」。 */
 export const LEGACY_DEFAULT_WALLPAPER = 'linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%)';
 
 /**
- * 浏览器或历史版本可能把十六进制颜色规范化为 rgb()，因此不能只做原字符串相等判断。
- * 同时要求角度和两端系统色都匹配，避免误伤普通用户自定义渐变。
+ * 瀏覽器或歷史版本可能把十六進制顏色規範化為 rgb()，因此不能只做原字符串相等判斷。
+ * 同時要求角度和兩端系統色都匹配，避免誤傷普通用戶自定義漸變。
  */
 export function isLegacyDefaultWallpaper(wallpaper?: string): boolean {
     if (!wallpaper) return false;
@@ -13,7 +13,7 @@ export function isLegacyDefaultWallpaper(wallpaper?: string): boolean {
     return compact.startsWith('linear-gradient(135deg,') && hasPink && hasMint;
 }
 
-/** 只有明确标记为怀旧版时才保留旧默认壁纸，避免普通老数据重新盖过纸感默认。 */
+/** 只有明確標記為懷舊版時才保留舊默認壁紙，避免普通老數據重新蓋過紙感默認。 */
 export function shouldPreserveLegacyDefaultWallpaper(
     wallpaper?: string,
     desktopVariant?: string,

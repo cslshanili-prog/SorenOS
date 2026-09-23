@@ -42,10 +42,10 @@ const clampInteger = (value: unknown, fallback: number, min: number, max: number
 };
 
 /**
- * 将角色上保存的档位解析成管线可以直接使用的两个数值。
+ * 將角色上保存的檔位解析成管線可以直接使用的兩個數值。
  *
- * 兼容约定：旧角色没有 memoryPalaceWaterline 字段时永远落到当前默认 200/100，
- * 不做批量迁移，也不需要给每个旧角色补写一份相同配置。
+ * 兼容約定：舊角色沒有 memoryPalaceWaterline 字段時永遠落到當前默認 200/100，
+ * 不做批量遷移，也不需要給每個舊角色補寫一份相同配置。
  */
 export const resolveMemoryPalaceWaterline = (
     config?: MemoryPalaceWaterlineConfig,

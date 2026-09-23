@@ -1,14 +1,14 @@
 /**
- * v2 槽位渲染器 — 按 SlotRole 分发到不同视觉。
+ * v2 槽位渲染器 — 按 SlotRole 分發到不同視覺。
  *
- * 设计:
- *  - 旧版: 每个 placement 都是 JournalFragmentCard (一段段文字)
- *  - 新版: 每个 slotRole 一种视觉 (todo 是 checklist, gratitude 是 bullet,
- *    timeline 是时间表, mood-card 是星级卡, photo-caption 是拍立得 etc.)
+ * 設計:
+ *  - 舊版: 每個 placement 都是 JournalFragmentCard (一段段文字)
+ *  - 新版: 每個 slotRole 一種視覺 (todo 是 checklist, gratitude 是 bullet,
+ *    timeline 是時間表, mood-card 是星級卡, photo-caption 是拍立得 etc.)
  *
- *  - 不在这里做位置/旋转 (那是 JournalCanvas 的事), 只渲染卡片本体
- *  - 字号/留白 跟随 isHero / charBudget
- *  - 如果 fragment 没有 slotRole (老数据), 直接落到 JournalFragmentCard
+ *  - 不在這裡做位置/旋轉 (那是 JournalCanvas 的事), 只渲染卡片本體
+ *  - 字號/留白 跟隨 isHero / charBudget
+ *  - 如果 fragment 沒有 slotRole (老數據), 直接落到 JournalFragmentCard
  */
 
 import React from 'react';
@@ -33,7 +33,7 @@ function palette(skinVariant?: string) {
     return SKIN_PALETTES[skinVariant || ''] || SKIN_PALETTES.lavender;
 }
 
-// ─── 通用: 作者标签 ─────────────────────────────────────
+// ─── 通用: 作者標籤 ─────────────────────────────────────
 const AuthorTag: React.FC<{ name: string; color?: string; small?: boolean }> = ({ name, color, small }) => (
     <span style={{
         ...HANDWRITTEN_STACK,
@@ -257,7 +257,7 @@ const PhotoSlot: React.FC<{
                     <div className="absolute inset-0 flex items-center justify-center" style={{
                         ...HANDWRITTEN_STACK, fontSize: 11, color: PAPER_TONES.inkFaint,
                     }}>
-                        贴一张今日照片
+                        貼一張今日照片
                     </div>
                 )}
             </div>
@@ -287,7 +287,7 @@ const StickyReactionSlot: React.FC<{
             boxShadow: '0 2px 4px rgba(122,90,114,0.1), 0 4px 10px -8px rgba(122,90,114,0.18)',
             position: 'relative',
         }}>
-            {/* 顶部小胶带 */}
+            {/* 頂部小膠帶 */}
             <div style={{
                 position: 'absolute', top: -4, left: '50%',
                 transform: 'translateX(-50%) rotate(-2deg)',
@@ -340,7 +340,7 @@ interface SlotRendererProps {
 const SlotRenderer: React.FC<SlotRendererProps> = ({ placement, fragment, page, char, userName }) => {
     const slotRole: SlotRole | undefined = placement.slotRole || fragment?.slotRole;
 
-    // 老数据 / 没 slotRole → 走老 JournalFragmentCard
+    // 老數據 / 沒 slotRole → 走老 JournalFragmentCard
     if (!slotRole) {
         return (
             <JournalFragmentCard

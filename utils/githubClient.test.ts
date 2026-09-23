@@ -14,7 +14,7 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe('GitHub 备份代理安全默认', () => {
+describe('GitHub 備份代理安全默認', () => {
     const base = {
         enabled: true,
         webdavUrl: '',
@@ -23,15 +23,15 @@ describe('GitHub 备份代理安全默认', () => {
         remotePath: '/',
     };
 
-    it('新用户与缺少代理字段的旧配置默认直连', () => {
+    it('新用戶與缺少代理字段的舊配置默認直連', () => {
         expect(shouldUseGithubProxy(base)).toBe(false);
     });
 
-    it('旧版默认写入的 true 没有新版确认标记时仍然直连', () => {
+    it('舊版默認寫入的 true 沒有新版確認標記時仍然直連', () => {
         expect(shouldUseGithubProxy({ ...base, githubUseProxy: true })).toBe(false);
     });
 
-    it('只有用户在新版说明下明确开启后才走中转', () => {
+    it('只有用戶在新版說明下明確開啟後才走中轉', () => {
         expect(shouldUseGithubProxy({
             ...base,
             githubUseProxy: true,
@@ -39,7 +39,7 @@ describe('GitHub 备份代理安全默认', () => {
         })).toBe(true);
     });
 
-    it('明确关闭始终直连', () => {
+    it('明確關閉始終直連', () => {
         expect(shouldUseGithubProxy({
             ...base,
             githubUseProxy: false,
@@ -47,23 +47,23 @@ describe('GitHub 备份代理安全默认', () => {
         })).toBe(false);
     });
 
-    it('直连失败时明确区分 GitHub 网页、API 与附件域名', () => {
+    it('直連失敗時明確區分 GitHub 網頁、API 與附件域名', () => {
         const message = describeGithubUploadTransportFailure(base);
         expect(message).toContain('uploads.github.com');
         expect(message).toContain('api.github.com');
-        expect(message).toContain('开着梯子');
-        expect(message).toContain('应用内 Cloudflare 中转');
+        expect(message).toContain('開著梯子');
+        expect(message).toContain('應用內 Cloudflare 中轉');
     });
 
-    it('中转失败时说明当前走的是独立 Worker 线路', () => {
+    it('中轉失敗時說明當前走的是獨立 Worker 線路', () => {
         const message = describeGithubUploadTransportFailure({
             ...base,
             githubUseProxy: true,
             githubProxyConsentVersion: 1,
         });
-        expect(message).toContain('应用内 Cloudflare 中转');
+        expect(message).toContain('應用內 Cloudflare 中轉');
         expect(message).toContain('sullymeow.ccwu.cc');
-        expect(message).toContain('自定义网络代理 (Worker)');
+        expect(message).toContain('自定義網絡代理 (Worker)');
     });
 });
 
@@ -79,7 +79,7 @@ describe('readResponseArrayBuffer', () => {
     });
 });
 
-describe('GitHub 备份下载错误', () => {
+describe('GitHub 備份下載錯誤', () => {
     const config = {
         enabled: true,
         provider: 'github' as const,
@@ -100,7 +100,7 @@ describe('GitHub 备份下载错误', () => {
         lastModified: Date.now(),
     };
 
-    it('正式环境能够直连时仍直接下载，不会自动切到 Worker', async () => {
+    it('正式環境能夠直連時仍直接下載，不會自動切到 Worker', async () => {
         const directFetch = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
         vi.stubGlobal('fetch', directFetch);
 
@@ -112,22 +112,22 @@ describe('GitHub 备份下载错误', () => {
         );
     });
 
-    it('网页直连被 CORS/网络拦截时给出手动开启中转的提示', async () => {
+    it('網頁直連被 CORS/網絡攔截時給出手動開啟中轉的提示', async () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
         await expect(downloadBackup(config, file)).rejects.toThrow(
-            '手动开启 Cloudflare 中转后重试；应用不会自动开启',
+            '手動開啟 Cloudflare 中轉後重試；應用不會自動開啟',
         );
     });
 
-    it('GitHub 返回权限错误时保留 HTTP 状态和处理建议', async () => {
+    it('GitHub 返回權限錯誤時保留 HTTP 狀態和處理建議', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 403 })));
 
         await expect(downloadBackup(config, file)).rejects.toThrow('HTTP 403');
     });
 });
 
-describe('GitHub 备份列表完整性', () => {
+describe('GitHub 備份列表完整性', () => {
     const config = {
         enabled: true,
         provider: 'github' as const,
@@ -141,7 +141,7 @@ describe('GitHub 备份列表完整性', () => {
         githubUseProxy: false,
     };
 
-    it('翻页读取超过 100 条 Release 后仍能找到备份', async () => {
+    it('翻頁讀取超過 100 條 Release 後仍能找到備份', async () => {
         const unrelated = Array.from({ length: 100 }, (_, index) => ({
             id: index + 1,
             tag_name: `unrelated-${index}`,
@@ -177,7 +177,7 @@ describe('GitHub 备份列表完整性', () => {
         expect(files[0]).toMatchObject({ name: 'Sully_Backup_full_1.zip', status: 'ready' });
     });
 
-    it('草稿、starter 和缺少完成标记的新版 Release 会显示为上传未完成', async () => {
+    it('草稿、starter 和缺少完成標記的新版 Release 會顯示為上傳未完成', async () => {
         const releases = [
             {
                 id: 10,
@@ -209,11 +209,11 @@ describe('GitHub 备份列表完整性', () => {
 
         expect(files).toHaveLength(2);
         expect(files.every(file => file.status === 'incomplete')).toBe(true);
-        expect(files.map(file => file.statusMessage).join(' ')).toContain('0 字节');
-        expect(files.map(file => file.statusMessage).join(' ')).toContain('缺少完成标记');
+        expect(files.map(file => file.statusMessage).join(' ')).toContain('0 字節');
+        expect(files.map(file => file.statusMessage).join(' ')).toContain('缺少完成標記');
     });
 
-    it('内嵌附件达到截断边界时会读取分页附件，避免误报缺少分片', async () => {
+    it('內嵌附件達到截斷邊界時會讀取分頁附件，避免誤報缺少分片', async () => {
         const embeddedAssets = [
             { id: 31, name: 'Sully_Backup_full_30.zip', size: 3, state: 'uploaded' },
             ...Array.from({ length: 29 }, (_, index) => ({
@@ -251,7 +251,7 @@ describe('GitHub 备份列表完整性', () => {
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/releases/30/assets'))).toBe(true);
     });
 
-    it('列表鉴权或限流错误不会再伪装成空数组', async () => {
+    it('列表鑑權或限流錯誤不會再偽裝成空數組', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
             JSON.stringify({ message: 'API rate limit exceeded' }),
             {
@@ -263,11 +263,11 @@ describe('GitHub 备份列表完整性', () => {
             },
         )));
 
-        await expect(listBackups(config)).rejects.toThrow('请求过于频繁');
+        await expect(listBackups(config)).rejects.toThrow('請求過於頻繁');
     });
 });
 
-describe('GitHub 事务式上传', () => {
+describe('GitHub 事務式上傳', () => {
     const config = {
         enabled: true,
         provider: 'github' as const,
@@ -281,7 +281,7 @@ describe('GitHub 事务式上传', () => {
         githubUseProxy: false,
     };
 
-    it('附件失败时删除草稿 Release 和 tag，不留下半截备份', async () => {
+    it('附件失敗時刪除草稿 Release 和 tag，不留下半截備份', async () => {
         class FailedUploadXhr {
             status = 422;
             responseText = '{"message":"unprocessable"}';
@@ -324,7 +324,7 @@ describe('GitHub 事务式上传', () => {
             String(url).includes('/git/refs/tags/sully-backup-v2-') && init?.method === 'DELETE')).toBe(true);
     });
 
-    it('全部附件校验成功后写完成标记并发布 Release', async () => {
+    it('全部附件校驗成功後寫完成標記併發布 Release', async () => {
         let assetId = 100;
         const uploadedNames: string[] = [];
         class SuccessfulUploadXhr {

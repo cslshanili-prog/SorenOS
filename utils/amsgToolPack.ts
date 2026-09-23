@@ -1,18 +1,18 @@
 /**
- * amsgToolPack — 满血 v2 服务端工具循环的云端状态数据形状（前端 / amsg worker 共用）
+ * amsgToolPack — 滿血 v2 服務端工具循環的雲端狀態數據形狀（前端 / amsg worker 共用）
  *
- * fire_pack 解决「到点拿什么 prompt」，这里解决「到点跑工具要什么数据」：
- *   - tool_pack（每角色，namespace `amsg:char:<id>`）：recall 要读的月度总结、
- *     XHS 角色开关、日记查询要用的角色名。
- *   - tool_config（全局，namespace `amsg:global`）：搜索 / Notion / 飞书凭据、
- *     XHS MCP 配置、代理 worker 地址——即 agenticTools 各工具从 realtimeConfig
- *     里读的那个子集，多一分都不上云。
+ * fire_pack 解決「到點拿什麼 prompt」，這裡解決「到點跑工具要什麼數據」：
+ *   - tool_pack（每角色，namespace `amsg:char:<id>`）：recall 要讀的月度總結、
+ *     XHS 角色開關、日記查詢要用的角色名。
+ *   - tool_config（全局，namespace `amsg:global`）：搜索 / Notion / 飛書憑據、
+ *     XHS MCP 配置、代理 worker 地址——即 agenticTools 各工具從 realtimeConfig
+ *     裡讀的那個子集，多一分都不上雲。
  *
- * 两份都由前端在 amsgStateSync 冲刷时与 fire_pack 同批 putClientState（tool_pack
- * 上传前过 packStateValue，够大会压成 gz1: 前缀）；worker 在 onBeforeFire 先解压再
- * 解析，任何一份解不出来都按云端状态异常抛 AMSG2_FIRE_STATE_MISSING 硬失败，不降级。
+ * 兩份都由前端在 amsgStateSync 沖刷時與 fire_pack 同批 putClientState（tool_pack
+ * 上傳前過 packStateValue，夠大會壓成 gz1: 前綴）；worker 在 onBeforeFire 先解壓再
+ * 解析，任何一份解不出來都按雲端狀態異常拋 AMSG2_FIRE_STATE_MISSING 硬失敗，不降級。
  *
- * 环境无关叶子模块：不 import 任何带浏览器依赖的东西（会进 worker bundle）。
+ * 環境無關葉子模塊：不 import 任何帶瀏覽器依賴的東西（會進 worker bundle）。
  */
 
 import type { CharacterProfile, RealtimeConfig } from '../types';
@@ -24,7 +24,7 @@ export const AMSG_TOOL_PACK_KEY = 'tool_pack';
 export const AMSG_GLOBAL_NAMESPACE = 'amsg:global';
 export const AMSG_TOOL_CONFIG_KEY = 'tool_config';
 
-/** recall / 日记 / XHS 门控要用的角色侧数据（CharacterProfile 的极小子集）。 */
+/** recall / 日記 / XHS 門控要用的角色側數據（CharacterProfile 的極小子集）。 */
 export interface AmsgToolPack {
   v: 1;
   charName: string;
@@ -32,33 +32,33 @@ export interface AmsgToolPack {
   activeMemoryMonths: string[];
   memories: AgenticToolMemory[];
   /**
-   * 角色的「时间感知」开关。关掉的角色不该知道今天几号，所以到点注入的实时世界里
-   * 也不给今日节日——这个字段不上云的话，前台守着的开关一到主动消息就失效。
+   * 角色的「時間感知」開關。關掉的角色不該知道今天幾號，所以到點注入的實時世界裡
+   * 也不給今日節日——這個字段不上雲的話，前台守著的開關一到主動消息就失效。
    */
   timeAwarenessEnabled: boolean;
 }
 
 /**
- * 工具凭据与配置（RealtimeConfig 的工具子集 + 代理地址）。
+ * 工具憑據與配置（RealtimeConfig 的工具子集 + 代理地址）。
  *
- * 凭据字段表直接继承 AgenticToolRealtimeConfig——那边是工具真正会读的字段，这边是把它们
- * 上云的载体，本来就该一模一样。抄成两份的话，agenticTools 多读一个字段而这边忘了加，
- * worker 到点就静默拿 undefined（编译期一声不吭），正是窄接口想消灭的那类失配。
+ * 憑據字段表直接繼承 AgenticToolRealtimeConfig——那邊是工具真正會讀的字段，這邊是把它們
+ * 上雲的載體，本來就該一模一樣。抄成兩份的話，agenticTools 多讀一個字段而這邊忘了加，
+ * worker 到點就靜默拿 undefined（編譯期一聲不吭），正是窄接口想消滅的那類失配。
  */
 export interface AmsgToolConfig extends AgenticToolRealtimeConfig {
   v: 1;
-  /** 搜索 / Notion / 飞书都经它转发；worker 端用 setProxyWorkerUrlOverride 注入。 */
+  /** 搜索 / Notion / 飛書都經它轉發；worker 端用 setProxyWorkerUrlOverride 注入。 */
   proxyWorkerUrl: string;
   /**
-   * 实时天气：worker 到点自己去拉一次填进提示词（不是工具，是常驻注入，跟前台一样）。
-   * key 留空走免费的 Open-Meteo，所以只要开关加城市就够。
+   * 實時天氣：worker 到點自己去拉一次填進提示詞（不是工具，是常駐注入，跟前台一樣）。
+   * key 留空走免費的 Open-Meteo，所以只要開關加城市就夠。
    */
   weatherEnabled: boolean;
   weatherCity?: string;
   weatherApiKey?: string;
-  /** 热榜要拉哪几个平台（继承来的 newsEnabled 管开关）。留空 worker 用内置默认。 */
+  /** 熱榜要拉哪幾個平台（繼承來的 newsEnabled 管開關）。留空 worker 用內置默認。 */
   newsPlatforms?: string[];
-  /** 上云这份比工具侧多一个 cookie（lite 模式的登录态），并且两个开关字段是必填。 */
+  /** 上雲這份比工具側多一個 cookie（lite 模式的登錄態），並且兩個開關字段是必填。 */
   xhsMcpConfig?: {
     enabled: boolean;
     serverUrl: string;
@@ -69,35 +69,35 @@ export interface AmsgToolConfig extends AgenticToolRealtimeConfig {
     userXsecToken?: string;
   };
   /**
-   * 用户自配的通用 MCP 服务器（enabled 且已发现工具、worker 够得着的那部分，
-   * 见 mcpClient.collectMcpFireServers）。代理字段不上云——worker 直连没有 CORS。
+   * 用戶自配的通用 MCP 服務器（enabled 且已發現工具、worker 夠得著的那部分，
+   * 見 mcpClient.collectMcpFireServers）。代理字段不上雲——worker 直連沒有 CORS。
    */
   mcpServers?: McpFireServer[];
-  /** 前台「原生 tools」开关：false = 中转拒 tools，worker 退到正文协议。缺省按 true。 */
+  /** 前台「原生 tools」開關：false = 中轉拒 tools，worker 退到正文協議。缺省按 true。 */
   mcpUseNativeTools?: boolean;
 }
 
 /**
- * CF worker 直连打不通的地址（本机 / 私网 / 链路本地）。这类服务器不上云、也不在
- * 打包给主动消息的提示词里出现——上了只会教角色用一个必失败的工具，然后它把一次
- * 根本没发生的搜索说成「我刚搜了下，没啥好东西」。
+ * CF worker 直連打不通的地址（本機 / 私網 / 鏈路本地）。這類服務器不上雲、也不在
+ * 打包給主動消息的提示詞裡出現——上了只會教角色用一個必失敗的工具，然後它把一次
+ * 根本沒發生的搜索說成「我剛搜了下，沒啥好東西」。
  *
- * 这是体验护栏、不是安全边界：只看字面地址，域名解析到内网之类拦不住。
- * 住在这个叶子里是因为浏览器侧（MCP 服务器清单、小红书配置）和打包链路都要用同一份判断。
+ * 這是體驗護欄、不是安全邊界：只看字面地址，域名解析到內網之類攔不住。
+ * 住在這個葉子裡是因為瀏覽器側（MCP 服務器清單、小紅書配置）和打包鏈路都要用同一份判斷。
  */
 export const isWorkerReachableUrl = (url: string): boolean => {
   try {
     const u = new URL(url);
     if (!/^https?:$/.test(u.protocol)) return false;
     const h = u.hostname.toLowerCase();
-    // 本机与「没有地址」的占位地址
+    // 本機與「沒有地址」的佔位地址
     if (h === 'localhost' || h === '0.0.0.0' || h === '[::]' || h === '[::1]') return false;
-    // 只在局域网里能解析的域名后缀（my-nas.local、foo.localhost）
+    // 只在局域網裡能解析的域名後綴（my-nas.local、foo.localhost）
     if (/\.(local|localhost)$/.test(h)) return false;
-    // IPv4 回环 / 私网 / 链路本地
+    // IPv4 迴環 / 私網 / 鏈路本地
     if (/^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h)
       || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^169\.254\./.test(h)) return false;
-    // IPv6 唯一本地地址 fc00::/7（首段以 fc / fd 开头，hostname 带方括号）
+    // IPv6 唯一本地地址 fc00::/7（首段以 fc / fd 開頭，hostname 帶方括號）
     if (/^\[f[cd]/.test(h)) return false;
     return true;
   } catch { return false; }
@@ -108,19 +108,19 @@ export const buildToolPack = (char: CharacterProfile): AmsgToolPack => ({
   charName: char.name,
   xhsEnabled: !!char.xhsEnabled,
   activeMemoryMonths: char.activeMemoryMonths || [],
-  // id 等工具用不到的字段不上云；runRecall 只读 date / mood / summary。
+  // id 等工具用不到的字段不上雲；runRecall 只讀 date / mood / summary。
   memories: (char.memories || []).map((mem) => ({
     date: mem.date,
     summary: mem.summary,
     ...(mem.mood ? { mood: mem.mood } : {}),
   })),
-  // 前台的判定是「没显式关就算开」，这边照抄同一句，别让同一个开关两处读出不同结果。
+  // 前台的判定是「沒顯式關就算開」，這邊照抄同一句，別讓同一個開關兩處讀出不同結果。
   timeAwarenessEnabled: char.timeAwarenessEnabled !== false,
 });
 
 /**
- * mcp 参数由浏览器侧调用方现读现传（本模块是环境无关叶子，不能自己碰 localStorage）。
- * 不传就一个 mcp 字段都不写——老 worker 解析这份配置时零影响。
+ * mcp 參數由瀏覽器側調用方現讀現傳（本模塊是環境無關葉子，不能自己碰 localStorage）。
+ * 不傳就一個 mcp 字段都不寫——老 worker 解析這份配置時零影響。
  */
 export const buildToolConfig = (
   realtimeConfig: RealtimeConfig | undefined,
@@ -146,8 +146,8 @@ export const buildToolConfig = (
     ...(rc?.feishuAppSecret ? { feishuAppSecret: rc.feishuAppSecret } : {}),
     ...(rc?.feishuBaseId ? { feishuBaseId: rc.feishuBaseId } : {}),
     ...(rc?.feishuTableId ? { feishuTableId: rc.feishuTableId } : {}),
-    // 小红书服务器多半就跑在用户自己电脑上（localhost:xxxx）。worker 从 CF 那头连不上，
-    // 这份配置上了云也只是让角色去撞一次必失败的调用，所以够不着的干脆不带。
+    // 小紅書服務器多半就跑在用戶自己電腦上（localhost:xxxx）。worker 從 CF 那頭連不上，
+    // 這份配置上了雲也只是讓角色去撞一次必失敗的調用，所以夠不著的乾脆不帶。
     ...(xhs?.serverUrl && isWorkerReachableUrl(xhs.serverUrl)
       ? {
           xhsMcpConfig: {
@@ -165,7 +165,7 @@ export const buildToolConfig = (
   };
 };
 
-/** 云端 tool_pack 字符串 → 结构；形状不对返回 null（fire 链按无工具数据继续）。 */
+/** 雲端 tool_pack 字符串 → 結構；形狀不對返回 null（fire 鏈按無工具數據繼續）。 */
 export const parseToolPack = (value: string): AmsgToolPack | null => {
   try {
     const parsed = JSON.parse(value);
@@ -185,7 +185,7 @@ export const parseToolPack = (value: string): AmsgToolPack | null => {
   }
 };
 
-/** 云端 tool_config 字符串 → 结构；形状不对返回 null。 */
+/** 雲端 tool_config 字符串 → 結構；形狀不對返回 null。 */
 export const parseToolConfig = (value: string): AmsgToolConfig | null => {
   try {
     const parsed = JSON.parse(value);
@@ -196,22 +196,22 @@ export const parseToolConfig = (value: string): AmsgToolConfig | null => {
     ) {
       return null;
     }
-    // MCP 清单是列表，坏条目单独丢掉就行——整份判 null 会连搜索/Notion 凭据一起赔进去。
+    // MCP 清單是列表，壞條目單獨丟掉就行——整份判 null 會連搜索/Notion 憑據一起賠進去。
     const cleaned = Array.isArray(parsed.mcpServers)
       ? parsed.mcpServers.filter((s: any) =>
           s && typeof s === 'object' &&
           typeof s.id === 'string' && typeof s.name === 'string' &&
           typeof s.url === 'string' && Array.isArray(s.tools))
       : undefined;
-    // 丢东西要留痕：不然「角色怎么不调这个工具了」只能靠猜。
+    // 丟東西要留痕：不然「角色怎麼不調這個工具了」只能靠猜。
     if (cleaned && cleaned.length !== parsed.mcpServers.length) {
-      console.warn('[amsg:tool_config] MCP 清单有条目形状不对，已丢弃',
+      console.warn('[amsg:tool_config] MCP 清單有條目形狀不對，已丟棄',
         parsed.mcpServers.length - cleaned.length);
     }
     if (cleaned?.length) {
       parsed.mcpServers = cleaned;
     } else {
-      // 两个字段同进同退（与 buildToolConfig 一致）：没有服务器时留个开关没有意义。
+      // 兩個字段同進同退（與 buildToolConfig 一致）：沒有服務器時留個開關沒有意義。
       delete parsed.mcpServers;
       delete parsed.mcpUseNativeTools;
     }

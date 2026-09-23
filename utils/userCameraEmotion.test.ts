@@ -14,7 +14,7 @@ describe('user camera emotion calibration', () => {
       ['cheekSquintRight', 0.58],
     ]));
     expect(result.emotion).toBe('happy');
-    expect(result.label).toBe('开心');
+    expect(result.label).toBe('開心');
   });
 
   it('prefers neutral when the signal is weak or ambiguous', () => {
@@ -72,10 +72,10 @@ describe('user camera emotion calibration', () => {
       { categoryName: '', score: 1 },
     ] as any);
     expect(shapes.get('jawOpen')).toBe(0.8);
-    const prompt = buildUserCameraEmotionPrompt({ emotion: 'surprised', label: '惊讶', confidence: 0.77 });
-    expect(prompt).toContain('用户主动开启了摄像头');
-    expect(prompt).toContain('以文字为准');
-    expect(prompt).toContain('不要向用户解释识别系统');
+    const prompt = buildUserCameraEmotionPrompt({ emotion: 'surprised', label: '驚訝', confidence: 0.77 });
+    expect(prompt).toContain('用戶主動開啟了攝像頭');
+    expect(prompt).toContain('以文字為準');
+    expect(prompt).toContain('不要向用戶解釋識別系統');
   });
 });
 

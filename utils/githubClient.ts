@@ -28,8 +28,8 @@ const TAG_PREFIX = 'sully-backup-';
 const TRANSACTIONAL_TAG_PREFIX = `${TAG_PREFIX}v2-`;
 const RELEASE_NAME_PREFIX = 'Sully Backup ';
 
-// 32 MB / 片。备份超过这个体积时会自动切成多个 asset 上传到同一个
-// release，恢复时再拼回来。
+// 32 MB / 片。備份超過這個體積時會自動切成多個 asset 上傳到同一個
+// release，恢復時再拼回來。
 // Keep every transfer comfortably below both Cloudflare's request-body ceiling
 // and its 128 MB isolate memory ceiling. Smaller parts also reduce the native
 // Capacitor base64 bridge peak during downloads.
@@ -86,14 +86,14 @@ const isNative = (): boolean => {
     try { return Capacitor.isNativePlatform(); } catch { return false; }
 };
 
-// Capacitor 官方文档明确说：Android/iOS 上 CapacitorHttp 的 data 字段只接受
-// string 或 JSON。直接塞 Blob / ArrayBuffer，native bridge 会调 .toString()
-// 得到 "[object ArrayBuffer]" 之类的垃圾字符串发上去——GitHub 照样回 201
-// Created，但 asset 只有几十字节，UI 上看就是 0.0 MB。修法是把二进制转成
-// base64 字符串、加上 dataType:'file'，原生层会自己 base64 解码后写原始字节。
+// Capacitor 官方文檔明確說：Android/iOS 上 CapacitorHttp 的 data 字段只接受
+// string 或 JSON。直接塞 Blob / ArrayBuffer，native bridge 會調 .toString()
+// 得到 "[object ArrayBuffer]" 之類的垃圾字符串發上去——GitHub 照樣回 201
+// Created，但 asset 只有幾十字節，UI 上看就是 0.0 MB。修法是把二進制轉成
+// base64 字符串、加上 dataType:'file'，原生層會自己 base64 解碼後寫原始字節。
 //
-// 用 FileReader.readAsDataURL 走流式编码，比 btoa(String.fromCharCode(...))
-// 抗大文件——后者一次性展开 80MB Uint8Array 当 apply 参数会爆栈。
+// 用 FileReader.readAsDataURL 走流式編碼，比 btoa(String.fromCharCode(...))
+// 抗大文件——後者一次性展開 80MB Uint8Array 當 apply 參數會爆棧。
 const blobToBase64 = (blob: Blob): Promise<string> =>
     new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -106,9 +106,9 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
         reader.readAsDataURL(blob);
     });
 
-// 安全默认：GitHub 备份优先直连。只有用户在新版风险提示下亲手开启过代理，
-// 才允许把 Token 与备份流量交给所选 Worker。consentVersion 会让旧配置里由
-// 历史“默认开启”写进去的 githubUseProxy=true 自动失效，所有人重新选择一次。
+// 安全默認：GitHub 備份優先直連。只有用戶在新版風險提示下親手開啟過代理，
+// 才允許把 Token 與備份流量交給所選 Worker。consentVersion 會讓舊配置裡由
+// 歷史“默認開啟”寫進去的 githubUseProxy=true 自動失效，所有人重新選擇一次。
 export const shouldUseGithubProxy = (config: CloudBackupConfig): boolean =>
     config.githubUseProxy === true && config.githubProxyConsentVersion === 1;
 
@@ -118,24 +118,24 @@ const proxify = (url: string): string =>
 /**
  * A browser reports DNS failures, blocked domains, VPN split-routing misses,
  * CORS rejection and some iOS PWA networking failures through the same opaque
- * XHR/fetch error. Do not flatten that into "开梯子"：the GitHub website,
+ * XHR/fetch error. Do not flatten that into "開梯子"：the GitHub website,
  * REST API, release-upload host and the optional Worker are separate routes.
  */
 export const describeGithubUploadTransportFailure = (
     config: CloudBackupConfig,
     kind: 'network' | 'timeout' = 'network',
 ): string => {
-    const prefix = kind === 'timeout' ? '上传超时' : '上传失败：网络请求未完成';
+    const prefix = kind === 'timeout' ? '上傳超時' : '上傳失敗：網絡請求未完成';
     if (shouldUseGithubProxy(config)) {
         let workerHost = getProxyWorkerUrl();
         try { workerHost = new URL(workerHost).host; } catch { /* keep the configured URL */ }
-        return `${prefix}。当前走应用内 Cloudflare 中转（${workerHost}），说明这台设备到中转、`
-            + '中转到 GitHub、或大文件传输中的某一段未打通。能打开 github.com、Token 测试通过或开着梯子，'
-            + '都不能证明这条上传线路可用；请到「自定义网络代理 (Worker)」检查或更换 Worker，也可关闭中转改试直连。';
+        return `${prefix}。當前走應用內 Cloudflare 中轉（${workerHost}），說明這台設備到中轉、`
+            + '中轉到 GitHub、或大文件傳輸中的某一段未打通。能打開 github.com、Token 測試通過或開著梯子，'
+            + '都不能證明這條上傳線路可用；請到「自定義網絡代理 (Worker)」檢查或更換 Worker，也可關閉中轉改試直連。';
     }
-    return `${prefix}。当前正在直连 GitHub 附件域名 uploads.github.com；它与 github.com、api.github.com 是不同线路。`
-        + '能打开 GitHub、Token 测试通过或开着梯子，都不代表附件域名已被代理接管；请到「GitHub 备份 → 高级选项」'
-        + '开启“应用内 Cloudflare 中转”后重试。';
+    return `${prefix}。當前正在直連 GitHub 附件域名 uploads.github.com；它與 github.com、api.github.com 是不同線路。`
+        + '能打開 GitHub、Token 測試通過或開著梯子，都不代表附件域名已被代理接管；請到「GitHub 備份 → 高級選項」'
+        + '開啟“應用內 Cloudflare 中轉”後重試。';
 };
 
 const authHeaders = (token: string, extra: Record<string, string> = {}): Record<string, string> => ({
@@ -174,18 +174,18 @@ const describeGithubHttpError = async (stage: string, response: GhResponse): Pro
     } catch { /* response body is only diagnostic */ }
     detail = detail.replace(/\s+/g, ' ').trim().slice(0, 180);
 
-    if (response.status === 401) return new Error(`${stage}失败：GitHub Token 无效或已过期（HTTP 401）。`);
+    if (response.status === 401) return new Error(`${stage}失敗：GitHub Token 無效或已過期（HTTP 401）。`);
     if (response.status === 403) {
         if (response.headers['retry-after'] || response.headers['x-ratelimit-remaining'] === '0') {
-            return new Error(`${stage}失败：GitHub 请求过于频繁，请稍后重试（HTTP 403）。`);
+            return new Error(`${stage}失敗：GitHub 請求過於頻繁，請稍後重試（HTTP 403）。`);
         }
-        return new Error(`${stage}失败：Token 没有仓库内容权限（HTTP 403）。`);
+        return new Error(`${stage}失敗：Token 沒有倉庫內容權限（HTTP 403）。`);
     }
     if (response.status === 404) {
-        return new Error(`${stage}失败：备份仓库不存在，或 Token 无权访问该私有仓库（HTTP 404）。`);
+        return new Error(`${stage}失敗：備份倉庫不存在，或 Token 無權訪問該私有倉庫（HTTP 404）。`);
     }
-    if (response.status === 429) return new Error(`${stage}失败：GitHub 请求过于频繁，请稍后重试（HTTP 429）。`);
-    return new Error(`${stage}失败（HTTP ${response.status}）${detail ? `：${detail}` : '。'}`);
+    if (response.status === 429) return new Error(`${stage}失敗：GitHub 請求過於頻繁，請稍後重試（HTTP 429）。`);
+    return new Error(`${stage}失敗（HTTP ${response.status}）${detail ? `：${detail}` : '。'}`);
 };
 
 /** Read a fetch response incrementally so large release assets can report
@@ -271,10 +271,10 @@ const ghRequest = async (
     }
 
     if (isNative()) {
-        // 仅 useProxy=false 才走到这里。CapacitorHttp 用 OS HTTP 栈，绕过
-        // WebView CORS 直连 GitHub。注意：binary 上传不会走到这条路 —
-        // uploadOneAsset 的 native 分支专门用 fetch() 处理 Blob body，
-        // 因为 CapacitorHttp 不能正确转发二进制 body（桥会 JSON 化）。
+        // 僅 useProxy=false 才走到這裡。CapacitorHttp 用 OS HTTP 棧，繞過
+        // WebView CORS 直連 GitHub。注意：binary 上傳不會走到這條路 —
+        // uploadOneAsset 的 native 分支專門用 fetch() 處理 Blob body，
+        // 因為 CapacitorHttp 不能正確轉發二進制 body（橋會 JSON 化）。
         let data: any = undefined;
         let dataType: 'file' | undefined;
         if (opts.body !== undefined && opts.body !== null) {
@@ -353,13 +353,13 @@ export const verifyToken = async (
         });
         if (res.status === 200) {
             const data = await res.json();
-            return { ok: true, login: data.login, message: '已连接 GitHub' };
+            return { ok: true, login: data.login, message: '已連接 GitHub' };
         }
-        if (res.status === 401) return { ok: false, message: 'Token 无效或已过期' };
-        if (res.status === 403) return { ok: false, message: '权限不足，请确认 Token 勾选了 repo 范围' };
+        if (res.status === 401) return { ok: false, message: 'Token 無效或已過期' };
+        if (res.status === 403) return { ok: false, message: '權限不足，請確認 Token 勾選了 repo 範圍' };
         return { ok: false, message: `GitHub 返回 ${res.status}` };
     } catch (e: any) {
-        return { ok: false, message: `连接失败: ${e?.message || '网络错误'}` };
+        return { ok: false, message: `連接失敗: ${e?.message || '網絡錯誤'}` };
     }
 };
 
@@ -371,30 +371,30 @@ export const ensureRepo = async (config: CloudBackupConfig): Promise<{ ok: boole
     const token = config.githubToken;
     const owner = config.githubOwner;
     const repo = repoName(config);
-    if (!token || !owner) return { ok: false, message: 'Token 或用户名未设置' };
+    if (!token || !owner) return { ok: false, message: 'Token 或用戶名未設置' };
 
     try {
         const get = await ghRequest(config, `${API_HOST}/repos/${owner}/${repo}`, 'GET', {
             headers: authHeaders(token),
         });
-        if (get.status === 200) return { ok: true, message: '仓库已就绪' };
-        if (get.status !== 404) return { ok: false, message: `检查仓库失败 (${get.status})` };
+        if (get.status === 200) return { ok: true, message: '倉庫已就緒' };
+        if (get.status !== 404) return { ok: false, message: `檢查倉庫失敗 (${get.status})` };
 
         const create = await ghRequest(config, `${API_HOST}/user/repos`, 'POST', {
             headers: authHeaders(token, { 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 name: repo,
-                description: 'Sully 自动备份仓库',
+                description: 'Sully 自動備份倉庫',
                 private: true,
                 auto_init: true,
             }),
         });
-        if (create.status === 201) return { ok: true, message: '已自动创建私有仓库' };
-        if (create.status === 422) return { ok: false, message: `仓库名 "${repo}" 已被占用，请换一个` };
-        if (create.status === 403) return { ok: false, message: '权限不足，Token 需要 repo 范围' };
-        return { ok: false, message: `创建仓库失败 (${create.status})` };
+        if (create.status === 201) return { ok: true, message: '已自動創建私有倉庫' };
+        if (create.status === 422) return { ok: false, message: `倉庫名 "${repo}" 已被佔用，請換一個` };
+        if (create.status === 403) return { ok: false, message: '權限不足，Token 需要 repo 範圍' };
+        return { ok: false, message: `創建倉庫失敗 (${create.status})` };
     } catch (e: any) {
-        return { ok: false, message: `连接失败: ${e?.message || '网络错误'}` };
+        return { ok: false, message: `連接失敗: ${e?.message || '網絡錯誤'}` };
     }
 };
 
@@ -406,7 +406,7 @@ export const testConnection = async (
     config: CloudBackupConfig,
 ): Promise<{ ok: boolean; message: string; login?: string }> => {
     const token = config.githubToken;
-    if (!token) return { ok: false, message: '请先填写 Token' };
+    if (!token) return { ok: false, message: '請先填寫 Token' };
 
     const ver = await verifyToken(token, config.githubUseProxy, config.githubProxyConsentVersion);
     if (!ver.ok) return { ok: false, message: ver.message };
@@ -415,7 +415,7 @@ export const testConnection = async (
     const repo = await ensureRepo(cfg);
     if (!repo.ok) return { ok: false, message: repo.message, login: ver.login };
 
-    return { ok: true, message: `已连接 @${ver.login} → ${repoName(cfg)}`, login: ver.login };
+    return { ok: true, message: `已連接 @${ver.login} → ${repoName(cfg)}`, login: ver.login };
 };
 
 /**
@@ -437,12 +437,12 @@ const uploadOneAsset = async (
     const url = `${UPLOAD_HOST}/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(assetName)}`;
 
     if (isNative()) {
-        // CapacitorHttp 在原生这边不能正确转发二进制 body — 把 Blob/ArrayBuffer
-        // 通过 JS↔native 桥传过去，桥会尝试 JSON 化导致 upstream 收到 0 字节体，
-        // GitHub 还是 201 创建了 asset，但 size = 0（用户看到的就是 0.0 MB）。
-        // WebView 自带的 fetch() 可以直接处理 Blob body；是否真的能触达
-        // uploads.github.com 仍取决于设备网络、VPN/PWA 接管和服务端跨域行为。
-        // useProxy 决定走应用内 Worker 还是直连。
+        // CapacitorHttp 在原生這邊不能正確轉發二進制 body — 把 Blob/ArrayBuffer
+        // 通過 JS↔native 橋傳過去，橋會嘗試 JSON 化導致 upstream 收到 0 字節體，
+        // GitHub 還是 201 創建了 asset，但 size = 0（用戶看到的就是 0.0 MB）。
+        // WebView 自帶的 fetch() 可以直接處理 Blob body；是否真的能觸達
+        // uploads.github.com 仍取決於設備網絡、VPN/PWA 接管和服務端跨域行為。
+        // useProxy 決定走應用內 Worker 還是直連。
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), UPLOAD_TIMEOUT_MS);
         try {
@@ -466,13 +466,13 @@ const uploadOneAsset = async (
                 let asset: GithubAsset | undefined;
                 try { asset = await res.json(); } catch { /* reconciled by caller */ }
                 if (isUsableAsset(asset, blob.size)) {
-                    return { ok: true, message: '上传成功', status: res.status, headers: responseHeaders, asset };
+                    return { ok: true, message: '上傳成功', status: res.status, headers: responseHeaders, asset };
                 }
                 return {
                     ok: false,
                     status: res.status,
                     headers: responseHeaders,
-                    message: 'GitHub 已创建附件，但附件状态或大小不正确',
+                    message: 'GitHub 已創建附件，但附件狀態或大小不正確',
                 };
             }
             const text = await res.text();
@@ -480,7 +480,7 @@ const uploadOneAsset = async (
                 ok: false,
                 status: res.status,
                 headers: responseHeaders,
-                message: `上传失败 (${res.status}): ${text.slice(0, 120)}`,
+                message: `上傳失敗 (${res.status}): ${text.slice(0, 120)}`,
             };
         } catch (e: any) {
             const kind = e?.name === 'AbortError' ? 'timeout' : 'network';
@@ -509,13 +509,13 @@ const uploadOneAsset = async (
                 let asset: GithubAsset | undefined;
                 try { asset = JSON.parse(xhr.responseText || 'null'); } catch { /* reconciled by caller */ }
                 if (isUsableAsset(asset, blob.size)) {
-                    resolve({ ok: true, message: '上传成功', status: xhr.status, headers, asset });
+                    resolve({ ok: true, message: '上傳成功', status: xhr.status, headers, asset });
                 } else {
                     resolve({
                         ok: false,
                         status: xhr.status,
                         headers,
-                        message: 'GitHub 已创建附件，但附件状态或大小不正确',
+                        message: 'GitHub 已創建附件，但附件狀態或大小不正確',
                     });
                 }
             } else {
@@ -523,12 +523,12 @@ const uploadOneAsset = async (
                     ok: false,
                     status: xhr.status,
                     headers,
-                    message: `上传失败 (${xhr.status}): ${(xhr.responseText || '').slice(0, 120)}`,
+                    message: `上傳失敗 (${xhr.status}): ${(xhr.responseText || '').slice(0, 120)}`,
                 });
             }
         };
         xhr.onerror = () => resolve({ ok: false, message: describeGithubUploadTransportFailure(config) });
-        xhr.onabort = () => resolve({ ok: false, message: '上传已取消' });
+        xhr.onabort = () => resolve({ ok: false, message: '上傳已取消' });
         xhr.ontimeout = () => resolve({ ok: false, message: describeGithubUploadTransportFailure(config, 'timeout') });
         xhr.send(blob);
     });
@@ -549,12 +549,12 @@ const listReleaseAssets = async (
             'GET',
             { headers: authHeaders(token) },
         );
-        if (response.status !== 200) throw await describeGithubHttpError('读取 GitHub 附件', response);
+        if (response.status !== 200) throw await describeGithubHttpError('讀取 GitHub 附件', response);
         const current: GithubAsset[] = await response.json();
         assets.push(...current);
         if (current.length < 100) return assets;
     }
-    throw new Error('这个 GitHub Release 的附件过多，无法安全完成备份。');
+    throw new Error('這個 GitHub Release 的附件過多，無法安全完成備份。');
 };
 
 const deleteReleaseAsset = async (
@@ -601,7 +601,7 @@ const uploadAssetWithRetry = async (
     onFraction?: (frac: number) => void,
     contentType: string = 'application/zip',
 ): Promise<UploadAssetResult> => {
-    let lastResult: UploadAssetResult = { ok: false, message: '上传失败' };
+    let lastResult: UploadAssetResult = { ok: false, message: '上傳失敗' };
     for (let attempt = 0; attempt < MAX_ASSET_ATTEMPTS; attempt++) {
         lastResult = await uploadOneAsset(config, releaseId, blob, assetName, onFraction, contentType);
         if (lastResult.ok) return lastResult;
@@ -610,7 +610,7 @@ const uploadAssetWithRetry = async (
             const existing = await reconcileAsset(config, releaseId, assetName, blob.size);
             if (existing) {
                 onFraction?.(1);
-                return { ok: true, message: '上传成功', asset: existing, status: 201 };
+                return { ok: true, message: '上傳成功', asset: existing, status: 201 };
             }
         } catch {
             // Keep the original upload error. The whole draft release will be
@@ -682,7 +682,7 @@ export const uploadBackup = async (
     const token = config.githubToken;
     const owner = config.githubOwner;
     const repo = repoName(config);
-    if (!token || !owner) return { ok: false, message: '未连接 GitHub' };
+    if (!token || !owner) return { ok: false, message: '未連接 GitHub' };
 
     let releaseId = 0;
     let tag = '';
@@ -691,7 +691,7 @@ export const uploadBackup = async (
         const ts = Date.now();
         tag = `${TRANSACTIONAL_TAG_PREFIX}${ts}`;
         const releaseName = `${RELEASE_NAME_PREFIX}${new Date(ts).toISOString()}`;
-        const releaseBody = `自动备份 · ${new Date(ts).toLocaleString('zh-CN')}\n\nSully backup transaction v2`;
+        const releaseBody = `自動備份 · ${new Date(ts).toLocaleString('zh-CN')}\n\nSully backup transaction v2`;
         const releaseRes = await ghRequest(config, `${API_HOST}/repos/${owner}/${repo}/releases`, 'POST', {
             headers: authHeaders(token, { 'Content-Type': 'application/json' }),
             body: JSON.stringify({
@@ -703,11 +703,11 @@ export const uploadBackup = async (
             }),
         });
         if (releaseRes.status !== 201) {
-            throw await describeGithubHttpError('创建 GitHub 备份草稿', releaseRes);
+            throw await describeGithubHttpError('創建 GitHub 備份草稿', releaseRes);
         }
         const release = await releaseRes.json();
         releaseId = Number(release.id);
-        if (!releaseId) throw new Error('GitHub 没有返回有效的 Release 标识。');
+        if (!releaseId) throw new Error('GitHub 沒有返回有效的 Release 標識。');
 
         onProgress?.(5);
         const totalParts = Math.max(1, Math.ceil(blob.size / MAX_PART_SIZE));
@@ -729,7 +729,7 @@ export const uploadBackup = async (
                 onProgress?.(Math.min(91, Math.floor(base + frac * span)));
             });
             if (!result.ok || !result.asset) {
-                throw new Error(`第 ${i + 1}/${totalParts} 片失败：${result.message}`);
+                throw new Error(`第 ${i + 1}/${totalParts} 片失敗：${result.message}`);
             }
             uploadedAssets.push(result.asset);
         }
@@ -759,7 +759,7 @@ export const uploadBackup = async (
             'application/json',
         );
         if (!manifestResult.ok || !manifestResult.asset) {
-            throw new Error(`写入完成标记失败：${manifestResult.message}`);
+            throw new Error(`寫入完成標記失敗：${manifestResult.message}`);
         }
 
         const publish = await ghRequest(
@@ -776,23 +776,23 @@ export const uploadBackup = async (
                 }),
             },
         );
-        if (publish.status !== 200) throw await describeGithubHttpError('发布 GitHub 备份', publish);
+        if (publish.status !== 200) throw await describeGithubHttpError('發佈 GitHub 備份', publish);
 
         onProgress?.(100);
         return {
             ok: true,
-            message: totalParts > 1 ? `分片上传成功（${totalParts} 片）` : '上传成功',
+            message: totalParts > 1 ? `分片上傳成功（${totalParts} 片）` : '上傳成功',
         };
     } catch (e: any) {
-        const reason = e?.message || '未知错误';
+        const reason = e?.message || '未知錯誤';
         if (releaseId) {
             const cleaned = await deleteReleaseAndTag(config, releaseId, tag);
             return {
                 ok: false,
-                message: `上传失败：${reason}${cleaned ? '；未完成的 GitHub 草稿已清理。' : '；未完成草稿未能自动清理，可在恢复列表中查看。'}`,
+                message: `上傳失敗：${reason}${cleaned ? '；未完成的 GitHub 草稿已清理。' : '；未完成草稿未能自動清理，可在恢復列表中查看。'}`,
             };
         }
-        return { ok: false, message: `上传失败：${reason}` };
+        return { ok: false, message: `上傳失敗：${reason}` };
     }
 };
 
@@ -811,7 +811,7 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
     const token = config.githubToken;
     const owner = config.githubOwner;
     const repo = repoName(config);
-    if (!token || !owner) throw new Error('GitHub 配置不完整，请先重新测试并连接账号。');
+    if (!token || !owner) throw new Error('GitHub 配置不完整，請先重新測試並連接帳號。');
 
     try {
         const releases: any[] = [];
@@ -822,13 +822,13 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
                 'GET',
                 { headers: authHeaders(token) },
             );
-            if (res.status !== 200) throw await describeGithubHttpError('读取 GitHub 备份列表', res);
+            if (res.status !== 200) throw await describeGithubHttpError('讀取 GitHub 備份列表', res);
             const current = await res.json();
-            if (!Array.isArray(current)) throw new Error('GitHub 返回了无法识别的备份列表。');
+            if (!Array.isArray(current)) throw new Error('GitHub 返回了無法識別的備份列表。');
             releases.push(...current);
             if (current.length < 100) break;
             if (page === MAX_RELEASE_PAGES) {
-                throw new Error('GitHub 备份 Release 数量过多，请先整理仓库后重试。');
+                throw new Error('GitHub 備份 Release 數量過多，請先整理倉庫後重試。');
             }
         }
 
@@ -875,12 +875,12 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
 
             if (groups.size === 0) {
                 files.push({
-                    name: rel.name || rel.tag_name || '未完成的 GitHub 备份',
+                    name: rel.name || rel.tag_name || '未完成的 GitHub 備份',
                     size: 0,
                     lastModified: rel.updated_at || rel.created_at || '',
                     href: `${rel.id}:`,
                     status: 'incomplete',
-                    statusMessage: rel.draft ? '上传中断：Release 仍是草稿且没有可用附件' : '上传未完成：没有可用的 ZIP 附件',
+                    statusMessage: rel.draft ? '上傳中斷：Release 仍是草稿且沒有可用附件' : '上傳未完成：沒有可用的 ZIP 附件',
                 });
                 continue;
             }
@@ -906,15 +906,15 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
                 if (group.totalMismatch || !hasEveryIndex || group.parts.length !== group.total) {
                     incompleteReasons.push(`分片不完整（${indexes.size}/${group.total || '?'}）`);
                 }
-                if (!assetsReady) incompleteReasons.push('包含 0 字节或 GitHub 未完成附件');
-                if (isTransactional && !hasCompletionManifest) incompleteReasons.push('缺少完成标记');
+                if (!assetsReady) incompleteReasons.push('包含 0 字節或 GitHub 未完成附件');
+                if (isTransactional && !hasCompletionManifest) incompleteReasons.push('缺少完成標記');
                 files.push({
                     name,
                     size: totalSize,
                     lastModified,
                     href: `${rel.id}:${ids}`,
                     status: isComplete ? 'ready' : 'incomplete',
-                    statusMessage: isComplete ? undefined : `上传未完成：${incompleteReasons.join('；') || '附件状态异常'}`,
+                    statusMessage: isComplete ? undefined : `上傳未完成：${incompleteReasons.join('；') || '附件狀態異常'}`,
                     partSizes: group.parts.map(part => Math.max(0, Number(part.asset.size) || 0)),
                 });
             }
@@ -923,7 +923,7 @@ export const listBackups = async (config: CloudBackupConfig): Promise<CloudBacku
         return files;
     } catch (error: any) {
         if (error instanceof Error && error.message) throw error;
-        throw new Error(`读取 GitHub 备份列表失败：${String(error || '未知错误')}`);
+        throw new Error(`讀取 GitHub 備份列表失敗：${String(error || '未知錯誤')}`);
     }
 };
 
@@ -959,7 +959,7 @@ const downloadAssetPart = async (
                 },
             );
             if (response.status !== 200 && response.status !== 206) {
-                lastError = await describeGithubHttpError('下载 GitHub 备份附件', response);
+                lastError = await describeGithubHttpError('下載 GitHub 備份附件', response);
                 if (attempt < MAX_ASSET_ATTEMPTS - 1 && isRetryableStatus(response.status, response.headers)) {
                     await delay(parseRetryDelay(response.headers, attempt));
                     continue;
@@ -969,23 +969,23 @@ const downloadAssetPart = async (
 
             const buffer = await response.arrayBuffer(onPartProgress);
             if (expectedSize && buffer.byteLength !== expectedSize) {
-                lastError = new Error(`GitHub 备份分片大小不符（应为 ${expectedSize} 字节，实际 ${buffer.byteLength} 字节）。`);
+                lastError = new Error(`GitHub 備份分片大小不符（應為 ${expectedSize} 字節，實際 ${buffer.byteLength} 字節）。`);
                 if (attempt < MAX_ASSET_ATTEMPTS - 1) {
                     await delay(750 * (attempt + 1));
                     continue;
                 }
                 throw lastError;
             }
-            if (buffer.byteLength === 0) throw new Error('GitHub 返回了 0 字节备份附件。');
+            if (buffer.byteLength === 0) throw new Error('GitHub 返回了 0 字節備份附件。');
             return buffer;
         } catch (error: any) {
-            lastError = error instanceof Error ? error : new Error(String(error || '下载失败'));
+            lastError = error instanceof Error ? error : new Error(String(error || '下載失敗'));
             if (attempt >= MAX_ASSET_ATTEMPTS - 1) break;
-            if (!/network|fetch|连接|超时/i.test(lastError.message)) throw lastError;
+            if (!/network|fetch|[连連]接|超[时時]/i.test(lastError.message)) throw lastError;
             await delay(750 * (attempt + 1));
         }
     }
-    throw lastError || new Error('下载 GitHub 备份附件失败。');
+    throw lastError || new Error('下載 GitHub 備份附件失敗。');
 };
 
 export const downloadBackup = async (
@@ -997,16 +997,16 @@ export const downloadBackup = async (
     const owner = config.githubOwner;
     const repo = repoName(config);
     if (!token || !owner) {
-        throw new Error('GitHub 配置不完整，请先重新测试并连接账号。');
+        throw new Error('GitHub 配置不完整，請先重新測試並連接帳號。');
     }
     if (file.status === 'incomplete') {
-        throw new Error(file.statusMessage || '这个 GitHub 备份上传未完成，不能恢复。');
+        throw new Error(file.statusMessage || '這個 GitHub 備份上傳未完成，不能恢復。');
     }
 
     const [, idsStr] = file.href.split(':');
     const assetIds = (idsStr || '').split(',').map(s => Number(s)).filter(n => n > 0);
     if (assetIds.length === 0) {
-        throw new Error('这个备份缺少有效的 GitHub 附件标识，请刷新备份列表后重试。');
+        throw new Error('這個備份缺少有效的 GitHub 附件標識，請刷新備份列表後重試。');
     }
 
     try {
@@ -1038,12 +1038,12 @@ export const downloadBackup = async (
             && (error instanceof TypeError || /failed to fetch/i.test(String(error?.message || '')))
         ) {
             throw new Error(
-                '浏览器直连 GitHub 的备份附件被网络或跨域限制拦截。'
-                + '请到「云端备份 → GitHub → 高级选项」手动开启 Cloudflare 中转后重试；应用不会自动开启。',
+                '瀏覽器直連 GitHub 的備份附件被網絡或跨域限制攔截。'
+                + '請到「雲端備份 → GitHub → 高級選項」手動開啟 Cloudflare 中轉後重試；應用不會自動開啟。',
             );
         }
         if (error instanceof Error) throw error;
-        throw new Error(`GitHub 附件下载失败：${String(error || '未知错误')}`);
+        throw new Error(`GitHub 附件下載失敗：${String(error || '未知錯誤')}`);
     }
 };
 

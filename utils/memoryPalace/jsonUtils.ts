@@ -1,25 +1,25 @@
 /**
  * Memory Palace — JSON 安全解析工具
  *
- * LLM 返回的 JSON 经常有格式问题：
- * - 未转义的引号
- * - 尾随逗号
- * - max_tokens 截断导致 JSON 不完整（最常见！）
- * - Markdown 代码块包裹
+ * LLM 返回的 JSON 經常有格式問題：
+ * - 未轉義的引號
+ * - 尾隨逗號
+ * - max_tokens 截斷導致 JSON 不完整（最常見！）
+ * - Markdown 代碼塊包裹
  *
- * 四层 fallback 确保尽可能多地解析成功。
+ * 四層 fallback 確保儘可能多地解析成功。
  */
 
 /**
- * 从 LLM 回复中安全提取并解析 JSON 数组
+ * 從 LLM 回覆中安全提取並解析 JSON 數組
  */
 export function safeParseJsonArray(raw: string): any[] {
     if (!raw || !raw.trim()) return [];
 
-    // 去掉 markdown 代码块包裹
+    // 去掉 markdown 代碼塊包裹
     let cleaned = raw.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim();
 
-    // 1. 尝试提取完整的 [...] 块
+    // 1. 嘗試提取完整的 [...] 塊
     const fullMatch = cleaned.match(/\[[\s\S]*\]/);
     if (fullMatch) {
         // 直接解析
@@ -28,20 +28,20 @@ export function safeParseJsonArray(raw: string): any[] {
             if (Array.isArray(result)) return result;
         } catch { /* continue */ }
 
-        // 修复后解析
+        // 修復後解析
         try {
             const fixed = fixBrokenJson(fullMatch[0]);
             const result = JSON.parse(fixed);
             if (Array.isArray(result)) return result;
         } catch { /* continue */ }
 
-        // 逐对象抢救
+        // 逐對象搶救
         const salvaged = salvageObjects(fullMatch[0]);
         if (salvaged.length > 0) return salvaged;
     }
 
-    // 2. 没有完整 [...] → 可能是被 max_tokens 截断了
-    //    找到 [ 开始，尽力从截断的内容中抢救完整的对象
+    // 2. 沒有完整 [...] → 可能是被 max_tokens 截斷了
+    //    找到 [ 開始，盡力從截斷的內容中搶救完整的對象
     const openBracketIdx = cleaned.indexOf('[');
     if (openBracketIdx >= 0) {
         const truncated = cleaned.slice(openBracketIdx);
@@ -52,7 +52,7 @@ export function safeParseJsonArray(raw: string): any[] {
         }
     }
 
-    // 3. 连 [ 都没有，直接从整个文本中抢救 {...} 块
+    // 3. 連 [ 都沒有，直接從整個文本中搶救 {...} 塊
     const lastResort = salvageObjects(cleaned);
     if (lastResort.length > 0) {
         console.warn(`⚡ [JSON] Last resort: salvaged ${lastResort.length} objects`);
@@ -62,38 +62,38 @@ export function safeParseJsonArray(raw: string): any[] {
     return [];
 }
 
-/** 修复 LLM 输出的 JSON 中常见格式错误 */
+/** 修復 LLM 輸出的 JSON 中常見格式錯誤 */
 function fixBrokenJson(s: string): string {
-    // 尾随逗号 ,] 或 ,}
+    // 尾隨逗號 ,] 或 ,}
     s = s.replace(/,\s*([}\]])/g, '$1');
-    // 属性名单引号→双引号
+    // 屬性名單引號→雙引號
     s = s.replace(/'(\w+)'\s*:/g, '"$1":');
-    // 字符串值中的未转义换行
+    // 字符串值中的未轉義換行
     s = s.replace(/"([^"]*)\n([^"]*)"/g, (_, a, b) => `"${a}\\n${b}"`);
     return s;
 }
 
-/** 按 {...} 块逐个尝试解析，能救多少救多少
+/** 按 {...} 塊逐個嘗試解析，能救多少救多少
  *
- * ⚠️ 不要用正则 `/\{(?:[^{}[\]]*|\{[^{}]*\}|\[[^\[\]]*\])*\}/g` 去切对象——
- * 这种带嵌套选择 + 外层 * 的 regex 在 V8 引擎下有**灾难性回溯**风险：
- * 一条 LLM 回复里某个 content 字符串碰巧带个裸 `{` 或结构被截断一半，
- * regex 就会指数时间爆炸，整个主线程被锁死（用户 F12 都打不开）。
- * 实测触发过一次 Gemini 3.1 pro preview 返回迁移记忆把页面完全冻住。
+ * ⚠️ 不要用正則 `/\{(?:[^{}[\]]*|\{[^{}]*\}|\[[^\[\]]*\])*\}/g` 去切對象——
+ * 這種帶嵌套選擇 + 外層 * 的 regex 在 V8 引擎下有**災難性回溯**風險：
+ * 一條 LLM 回覆裡某個 content 字符串碰巧帶個裸 `{` 或結構被截斷一半，
+ * regex 就會指數時間爆炸，整個主線程被鎖死（用戶 F12 都打不開）。
+ * 實測觸發過一次 Gemini 3.1 pro preview 返回遷移記憶把頁面完全凍住。
  *
- * 改成线性状态机扫描：O(n) 字符级遍历，追踪 brace 深度 + string 上下文，
- * 取顶层配平的 `{...}` 片段。可控、无回溯、永远不会冻 UI。
+ * 改成線性狀態機掃描：O(n) 字符級遍歷，追蹤 brace 深度 + string 上下文，
+ * 取頂層配平的 `{...}` 片段。可控、無回溯、永遠不會凍 UI。
  */
 function salvageObjects(raw: string): any[] {
     const results: any[] = [];
     const n = raw.length;
     let i = 0;
     while (i < n) {
-        // 跳到下一个潜在对象起点
+        // 跳到下一個潛在對象起點
         const start = raw.indexOf('{', i);
         if (start < 0) break;
 
-        // 从 start 开始扫到配平的 }
+        // 從 start 開始掃到配平的 }
         let depth = 0;
         let inString = false;
         let escaped = false;
@@ -114,11 +114,11 @@ function salvageObjects(raw: string): any[] {
             }
         }
 
-        if (end < 0) break; // 没配平，放弃后续（正常截断情况）
+        if (end < 0) break; // 沒配平，放棄後續（正常截斷情況）
         const candidate = raw.slice(start, end + 1);
         i = end + 1;
 
-        // 第一层：直接解析
+        // 第一層：直接解析
         try {
             const obj = JSON.parse(candidate);
             if (obj && typeof obj === 'object') {
@@ -126,7 +126,7 @@ function salvageObjects(raw: string): any[] {
                 continue;
             }
         } catch { /* try fix */ }
-        // 第二层：修复后解析
+        // 第二層：修復後解析
         try {
             const obj = JSON.parse(fixBrokenJson(candidate));
             if (obj && typeof obj === 'object') {

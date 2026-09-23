@@ -38,8 +38,8 @@ const recentUndescribedImages = (messages: CollaborationMessage[]): Collaboratio
 };
 
 /**
- * 把最近上传、且没有独立识图描述的参考图真正挂到最后一条用户消息上。
- * 读取器可注入，方便不依赖 IndexedDB/FileReader 的纯逻辑测试。
+ * 把最近上傳、且沒有獨立識圖描述的參考圖真正掛到最後一條用戶消息上。
+ * 讀取器可注入，方便不依賴 IndexedDB/FileReader 的純邏輯測試。
  */
 export const attachCollaborationImageInputs = async (
   modelMessages: ModelMessage[],
@@ -69,7 +69,7 @@ export const attachCollaborationImageInputs = async (
   const originalParts = typeof target.content === 'string'
     ? [{ type: 'text' as const, text: target.content }]
     : target.content;
-  const imageLabel = `以下 ${images.length} 张图片是用户在本协同会话上传的参考图（${images.map(image => image.name).join('、')}）。请结合最近的任务直接观察画面细节。`;
+  const imageLabel = `以下 ${images.length} 張圖片是用戶在本協同會話上傳的參考圖（${images.map(image => image.name).join('、')}）。請結合最近的任務直接觀察畫面細節。`;
   const next = [...modelMessages];
   next[lastUserIndex] = {
     ...target,
@@ -93,7 +93,7 @@ export const runCollaborationTurn = async ({
   thinkingEnabled,
   turnContext,
 }: RunCollaborationTurnInput): Promise<ParsedCollaborationReply> => {
-  if (!isCollaborationApiConfigured(profile)) throw new Error('请先配置这个协同模式使用的 API');
+  if (!isCollaborationApiConfigured(profile)) throw new Error('請先配置這個協同模式使用的 API');
   const baseUrl = profile.baseUrl.trim().replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (profile.apiKey.trim()) headers.Authorization = `Bearer ${profile.apiKey.trim()}`;
@@ -124,13 +124,13 @@ export const runCollaborationTurn = async ({
     },
     0,
     0,
-    { appId: 'collaboration', purpose: '协同工作' },
+    { appId: 'collaboration', purpose: '協同工作' },
     profile.stream && onDelta
       ? { onDelta: (_delta, fullText) => onDelta(visibleCollaborationStreamText(fullText)) }
       : undefined,
   );
   const parsed = parseCollaborationReply(data);
-  if (!parsed.content) throw new Error('API 没有返回可用内容');
+  if (!parsed.content) throw new Error('API 沒有返回可用內容');
   return parsed;
 };
 
@@ -142,12 +142,12 @@ const collaborationMemoryTranscript = (messages: CollaborationMessage[]): string
         const excerpt = attachment.extractedText?.trim().slice(0, 4_000);
         return excerpt ? `\n[文件：${attachment.name}]\n${excerpt}` : `\n[文件：${attachment.name}]`;
       }).join('');
-      return `${message.role === 'user' ? '用户' : '角色'}：${message.content}${attachments}`;
+      return `${message.role === 'user' ? '用戶' : '角色'}：${message.content}${attachments}`;
     });
   return rows.join('\n\n').slice(-100_000);
 };
 
-/** 归档时生成一条可进入神经链接/记忆宫殿的第一人称经历。 */
+/** 歸檔時生成一條可進入神經鏈接/記憶宮殿的第一人稱經歷。 */
 export const summarizeCollaborationForMemory = async (input: {
   profile: CollaborationApiProfile;
   characterName: string;
@@ -157,9 +157,9 @@ export const summarizeCollaborationForMemory = async (input: {
   signal?: AbortSignal;
 }): Promise<string> => {
   const { profile, characterName, userName, sessionTitle, messages, signal } = input;
-  if (!isCollaborationApiConfigured(profile)) throw new Error('当前协同模式没有可用的总结 API');
+  if (!isCollaborationApiConfigured(profile)) throw new Error('當前協同模式沒有可用的總結 API');
   const transcript = collaborationMemoryTranscript(messages);
-  if (!transcript.trim()) throw new Error('这个窗口还没有可以总结的对话');
+  if (!transcript.trim()) throw new Error('這個窗口還沒有可以總結的對話');
   const baseUrl = profile.baseUrl.trim().replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (profile.apiKey.trim()) headers.Authorization = `Bearer ${profile.apiKey.trim()}`;
@@ -176,24 +176,24 @@ export const summarizeCollaborationForMemory = async (input: {
         messages: [
           {
             role: 'system',
-            content: `你正在为 ${characterName} 整理一条长期记忆。只输出一段 60～180 字的中文第一人称经历，不要标题、日期、列表、引号或 Markdown。必须写清我和 ${userName} 一起做了什么、产出了什么或作出了什么关键决定；有明确的感受、偏好或关系意义时也要保留。不能写“协同窗口”“会话记录”“模型”“提示词”，不要虚构没有发生的结果。`,
+            content: `你正在為 ${characterName} 整理一條長期記憶。只輸出一段 60～180 字的中文第一人稱經歷，不要標題、日期、列表、引號或 Markdown。必須寫清我和 ${userName} 一起做了什麼、產出了什麼或作出了什麼關鍵決定；有明確的感受、偏好或關係意義時也要保留。不能寫“協同窗口”“會話記錄”“模型”“提示詞”，不要虛構沒有發生的結果。`,
           },
           {
             role: 'user',
-            content: `任务标题：${sessionTitle}\n\n请把以下经历总结成一条我真正会记住的事情：\n\n${transcript}`,
+            content: `任務標題：${sessionTitle}\n\n請把以下經歷總結成一條我真正會記住的事情：\n\n${transcript}`,
           },
         ],
       }),
     },
     0,
     120_000,
-    { appId: 'collaboration', purpose: '协同归档记忆总结' },
+    { appId: 'collaboration', purpose: '協同歸檔記憶總結' },
   );
   const summary = extractContent(data)
     .replace(/^```[^\n]*\n?|```$/g, '')
     .replace(/^[“”"'【]|[“”"'】]$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  if (!summary) throw new Error('API 没有生成可用的记忆总结');
+  if (!summary) throw new Error('API 沒有生成可用的記憶總結');
   return summary.slice(0, 500);
 };

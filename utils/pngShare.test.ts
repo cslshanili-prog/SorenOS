@@ -8,7 +8,7 @@ const png = new Uint8Array(readFileSync(new URL('../public/icons/icon-192.png', 
 const encoder = new TextEncoder();
 const metadata = (kind: ShareKind = 'character'): ShareCardMetadata => ({
     format: 'sullyos-share', version: 1, kind, title: '雨夜 · Rain 🌙', author: '小作者',
-    restrictions: '仅限自用 · 禁止商用\n转载请署名', style: 'paper', fileName: '雨夜.json', mimeType: 'application/json',
+    restrictions: '僅限自用 · 禁止商用\n轉載請署名', style: 'paper', fileName: '雨夜.json', mimeType: 'application/json',
 });
 const file = (bytes: Uint8Array, name = '分享.png', type = 'image/png') => new File([new Uint8Array(bytes).buffer], name, { type }) as unknown as globalThis.File;
 
@@ -40,29 +40,29 @@ describe('PNG portable sharing', () => {
         expect(await contents.file('assets/wallpaper.png')!.async('uint8array')).toEqual(png);
     });
     it('preserves old JSON/CSS/text and ZIP files without conversion', async () => {
-        const source = file(encoder.encode('/* 中文 CSS */'), '旧样式.css', 'text/css');
+        const source = file(encoder.encode('/* 中文 CSS */'), '舊樣式.css', 'text/css');
         expect(await readShareFile(source, 'chrome-css')).toBe(source);
         expect(await readShareText(source, 'chrome-css')).toBe('/* 中文 CSS */');
     });
     it('detects PNG by signature even when the filename or MIME changed', async () => {
-        const source = file(embedShareInPng(png, metadata(), encoder.encode('角色内容')), 'download.bin', 'application/octet-stream');
-        expect(await readShareText(source, 'character')).toBe('角色内容');
+        const source = file(embedShareInPng(png, metadata(), encoder.encode('角色內容')), 'download.bin', 'application/octet-stream');
+        expect(await readShareText(source, 'character')).toBe('角色內容');
     });
     it('rejects a different resource kind before passing anything to a domain importer', async () => {
         const source = file(embedShareInPng(png, metadata('character'), encoder.encode('{}')));
-        await expect(readShareFile(source, 'chrome-css')).rejects.toThrow('这是一张角色卡分享图');
+        await expect(readShareFile(source, 'chrome-css')).rejects.toThrow('這是一張角色卡分享圖');
     });
     it('explains plain images and renamed JPEGs instead of parsing them as content', async () => {
-        expect(() => extractShareFromPng(png)).toThrow('没有可导入');
+        expect(() => extractShareFromPng(png)).toThrow('沒有可導入');
         await expect(readShareFile(file(encoder.encode('not png')), 'character')).rejects.toThrow('PNG 原文件');
     });
     it('rejects corrupted payloads, truncated data and impossible lengths', () => {
         const shared = embedShareInPng(png, metadata(), encoder.encode('actual character content'));
         const damaged = shared.slice(); damaged[damaged.length - 18] ^= 1;
-        expect(() => extractShareFromPng(damaged)).toThrow('校验失败');
+        expect(() => extractShareFromPng(damaged)).toThrow('校驗失敗');
         expect(() => extractShareFromPng(shared.slice(0, -8))).toThrow('不完整');
         const badLength = shared.slice(); new DataView(badLength.buffer).setUint32(png.length - 12, 0xffffffff);
-        expect(() => extractShareFromPng(badLength)).toThrow('长度异常');
+        expect(() => extractShareFromPng(badLength)).toThrow('長度異常');
     });
     it('rejects duplicate payload chunks and trailing data', () => {
         const shared = embedShareInPng(png, metadata(), encoder.encode('content'));
@@ -70,14 +70,14 @@ describe('PNG portable sharing', () => {
         const duplicate = new Uint8Array(shared.length + end - start);
         duplicate.set(shared.subarray(0, end)); duplicate.set(shared.subarray(start, end), end);
         duplicate.set(shared.subarray(end), duplicate.length - 12);
-        expect(() => extractShareFromPng(duplicate)).toThrow('重复数据');
+        expect(() => extractShareFromPng(duplicate)).toThrow('重複數據');
         const trailing = new Uint8Array(shared.length + 1); trailing.set(shared);
-        expect(() => extractShareFromPng(trailing)).toThrow('结构异常');
+        expect(() => extractShareFromPng(trailing)).toThrow('結構異常');
     });
     it('refuses oversized, empty or unsupported exports and unsafe embedded names', () => {
-        expect(() => embedShareInPng(png, metadata(), new Uint8Array())).toThrow('为空');
+        expect(() => embedShareInPng(png, metadata(), new Uint8Array())).toThrow('為空');
         expect(() => embedShareInPng(png, metadata(), new Uint8Array(MAX_SHARE_BYTES + 1))).toThrow('64 MB');
         expect(() => embedShareInPng(png, { ...metadata(), version: 2 } as unknown as ShareCardMetadata, encoder.encode('x'))).toThrow('更新');
-        expect(() => embedShareInPng(png, { ...metadata(), fileName: '../bad.json' }, encoder.encode('x'))).toThrow('信息无效');
+        expect(() => embedShareInPng(png, { ...metadata(), fileName: '../bad.json' }, encoder.encode('x'))).toThrow('信息無效');
     });
 });

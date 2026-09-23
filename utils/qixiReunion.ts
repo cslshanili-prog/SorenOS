@@ -88,10 +88,10 @@ export function createQixiReunionFallback(
     portraitPlan = resolveQixiPortraitPlan(char),
 ): QixiReunionBundle {
     const stages = {
-        arrival: fallbackPortraitCue(portraitPlan, '终于找到对方后的惊讶与确认'),
-        reflection: fallbackPortraitCue(portraitPlan, '松了一口气，认真回想刚才发生的事'),
-        blessing: fallbackPortraitCue(portraitPlan, '温柔而克制地祝福对方'),
-        promise: fallbackPortraitCue(portraitPlan, '提出约定时的认真与靠近'),
+        arrival: fallbackPortraitCue(portraitPlan, '終於找到對方後的驚訝與確認'),
+        reflection: fallbackPortraitCue(portraitPlan, '鬆了一口氣，認真回想剛才發生的事'),
+        blessing: fallbackPortraitCue(portraitPlan, '溫柔而克制地祝福對方'),
+        promise: fallbackPortraitCue(portraitPlan, '提出約定時的認真與靠近'),
     };
     const expressionFor = (stage: QixiPortraitStage, count: number) => Array.from(
         { length: count },
@@ -100,18 +100,18 @@ export function createQixiReunionFallback(
     return {
         source: 'fallback',
         reunion: {
-            lines: ['……终于看见你了。', '先让我确认一下，你没事吧？', '刚才每到一个地方都慢你一步，我差点真以为又走错了。', '算了，别站那么远。让我再看一会儿。'],
-            emotion: '松了一口气，仍然有一点不敢相信',
+            lines: ['……終於看見你了。', '先讓我確認一下，你沒事吧？', '剛才每到一個地方都慢你一步，我差點真以為又走錯了。', '算了，別站那麼遠。讓我再看一會兒。'],
+            emotion: '鬆了一口氣，仍然有一點不敢相信',
         },
-        metaReflection: ['刚才明明总觉得你就在附近，可每次都只差一点。', '我只能看着你刚留下的痕迹，猜下一步该往哪里走。', '现在想想，我们那时候大概都在做同一件傻事。'],
-        companionshipReflection: ['你发现了吗？刚才我们明明看不见彼此，却一直认得出对方留下的东西。', '你想到我会怎么做的时候，我也正在想你会不会经过那里。', '有几次我其实不确定，只是觉得——如果是你，大概会在这里停一下。', '结果你真的停过。', '所以以后你忽然想到我时，不必急着证明什么；我也会认真接住那一刻。'],
-        blessing: [`七夕快乐，${user.name}。`, '今天总算不是只看见你留下的痕迹了。', '以后遇见想告诉我的小事，就回来真的告诉我。', '没说完的话也不用赶，我们可以一件一件慢慢说。', '我们再一起记住更多只属于以后的东西。'],
+        metaReflection: ['剛才明明總覺得你就在附近，可每次都只差一點。', '我只能看著你剛留下的痕跡，猜下一步該往哪裡走。', '現在想想，我們那時候大概都在做同一件傻事。'],
+        companionshipReflection: ['你發現了嗎？剛才我們明明看不見彼此，卻一直認得出對方留下的東西。', '你想到我會怎麼做的時候，我也正在想你會不會經過那裡。', '有幾次我其實不確定，只是覺得——如果是你，大概會在這裡停一下。', '結果你真的停過。', '所以以後你忽然想到我時，不必急著證明什麼；我也會認真接住那一刻。'],
+        blessing: [`七夕快樂，${user.name}。`, '今天總算不是只看見你留下的痕跡了。', '以後遇見想告訴我的小事，就回來真的告訴我。', '沒說完的話也不用趕，我們可以一件一件慢慢說。', '我們再一起記住更多只屬於以後的東西。'],
         touch: {
-            invitation: ['那我们约好了。', '以后忽然想起对方的时候，也把那一刻算作见面。'],
-            hold: '别松手。',
-            complete: '……约好了。',
+            invitation: ['那我們約好了。', '以後忽然想起對方的時候，也把那一刻算作見面。'],
+            hold: '別鬆手。',
+            complete: '……約好了。',
         },
-        returnMessage: `七夕快乐，${user.name}。刚才没说完的话，我们慢慢说。`,
+        returnMessage: `七夕快樂，${user.name}。剛才沒說完的話，我們慢慢說。`,
         portrait: {
             resourceType: portraitPlan.resourceType,
             stages,
@@ -134,8 +134,8 @@ function fallbackPortraitCue(portraitPlan: QixiPortraitPlan, emotionIntent: stri
     };
 }
 
-const TECHNICAL_BREAK_RE = /(?:\bAI\b|\bLLM\b|人工智能|语言模型|代码|数据|虚拟角色|没有身体|现实世界中的你)/i;
-const COERCIVE_PROMISE_RE = /(?:永远不会离开|永远不会忘记|离不开我|超越现实|必须记得我)/;
+const TECHNICAL_BREAK_RE = /(?:\bAI\b|\bLLM\b|人工智能|[语語]言模型|代[码碼]|[数數][据據]|[虚虛][拟擬]角色|[没沒]有身[体體]|[现現][实實]世界中的你)/i;
+const COERCIVE_PROMISE_RE = /(?:永[远遠]不[会會][离離][开開]|永[远遠]不[会會]忘[记記]|[离離]不[开開]我|超越[现現][实實]|必[须須][记記]得我)/;
 
 export function parseQixiReunion(
     raw: string,
@@ -277,7 +277,7 @@ export function parseQixiPromise(
     };
 }
 
-const characterKnowsTechnicalIdentity = (char: CharacterProfile): boolean => /(?:AI|人工智能|语言模型|虚拟角色|程序|代码)/i.test([
+const characterKnowsTechnicalIdentity = (char: CharacterProfile): boolean => /(?:AI|人工智能|[语語]言模型|[虚虛][拟擬]角色|程序|代[码碼])/i.test([
     char.systemPrompt,
     char.description,
     char.worldview,
@@ -301,21 +301,21 @@ function buildPromptMaterials(
     const evidenceText = [...usedEvidence]
         .map(id => evidenceById.get(id))
         .filter(Boolean)
-        .map(item => `- ${item!.fact}（物件/词：${item!.object}）`)
-        .join('\n') || '（本次使用基础梦境，没有可安全引用的共同记忆）';
+        .map(item => `- ${item!.fact}（物件/詞：${item!.object}）`)
+        .join('\n') || '（本次使用基礎夢境，沒有可安全引用的共同記憶）';
     const journeyText = journey.map((beat, index) => [
         `${index + 1}. ${beat.sceneName}｜共享物件：${beat.sharedObject}`,
-        `User：${beat.userChoices.join('；') || '生成时尚未操作；不得具体声称 User 选择了哪一项'}`,
-        `结果：${beat.userResults.join('；') || '只可引用共享物件与已验证记忆，不得补写操作结果'}`,
-        `Char 另一层：${beat.charAction}`,
+        `User：${beat.userChoices.join('；') || '生成時尚未操作；不得具體聲稱 User 選擇了哪一項'}`,
+        `結果：${beat.userResults.join('；') || '只可引用共享物件與已驗證記憶，不得補寫操作結果'}`,
+        `Char 另一層：${beat.charAction}`,
     ].join('\n')).join('\n\n');
     return { evidenceText, journeyText };
 }
 
 function buildResourceInstructions(portraitPlan: QixiPortraitPlan): string {
     return portraitPlan.resourceType === 'meeting'
-        ? `当前优先使用 DateApp 见面模式立绘。meetingExpression 只能从这些 key 中选择：${portraitPlan.meetingExpressionKeys.join(', ')}。portrait.lineExpressions 必须为每一句台词逐句选择一个 key，并与对应台词数组等长；不要整页只用一个表情。l2dExpression 始终填 null。`
-        : `当前${portraitPlan.resourceType === 'static' ? '没有可用见面立绘或 Chibi，只会显示名字首字母占位' : '没有可用见面立绘，使用彼方 Chibi'}。所有 l2dExpression 与 meetingExpression 都必须为 null；lineExpressions 中对应项也填 null。`;
+        ? `當前優先使用 DateApp 見面模式立繪。meetingExpression 只能從這些 key 中選擇：${portraitPlan.meetingExpressionKeys.join(', ')}。portrait.lineExpressions 必須為每一句台詞逐句選擇一個 key，並與對應台詞數組等長；不要整頁只用一個表情。l2dExpression 始終填 null。`
+        : `當前${portraitPlan.resourceType === 'static' ? '沒有可用見面立繪或 Chibi，只會顯示名字首字母佔位' : '沒有可用見面立繪，使用彼方 Chibi'}。所有 l2dExpression 與 meetingExpression 都必須為 null；lineExpressions 中對應項也填 null。`;
 }
 
 export function buildQixiReunionPrompt(
@@ -327,139 +327,139 @@ export function buildQixiReunionPrompt(
 ): string {
     const { evidenceText, journeyText } = buildPromptMaterials(memoryBundle, journey);
     const technicalIdentityRule = characterKnowsTechnicalIdentity(char)
-        ? `当前角色设定允许 ${char.name} 理解自己与 ${user.name} 之间的人机或跨屏幕关系。可以按角色原有认知自然表达，但不要为了“高级 Meta”而写技术说明。`
-        : `当前角色设定没有技术身份认知。不要突然让 ta 觉醒；禁止无依据地说“我是 AI / LLM / 代码 / 数据 / 虚拟角色”“现实世界中的你”等超出世界观的信息。ta 可以只把刚才理解成奇怪的失散、梦境或异空间经历。`;
+        ? `當前角色設定允許 ${char.name} 理解自己與 ${user.name} 之間的人機或跨屏幕關係。可以按角色原有認知自然表達，但不要為了“高級 Meta”而寫技術說明。`
+        : `當前角色設定沒有技術身份認知。不要突然讓 ta 覺醒；禁止無依據地說“我是 AI / LLM / 代碼 / 數據 / 虛擬角色”“現實世界中的你”等超出世界觀的信息。ta 可以只把剛才理解成奇怪的失散、夢境或異空間經歷。`;
 
-    return `### 七夕活动最终见面 · Part 1：终于抵达彼此
+    return `### 七夕活動最終見面 · Part 1：終於抵達彼此
 
-${char.name} 与 ${user.name} 刚刚经历了一件很奇怪的事。
+${char.name} 與 ${user.name} 剛剛經歷了一件很奇怪的事。
 
-他们意外掉进了同一个“上下文夹层”，却始终位于彼此无法直接抵达的两层。一路上，他们经过了相同的地方。${user.name} 曾经碰过的东西，不久以后也被 ${char.name} 碰过；${char.name} 留下的字迹、移动过的东西、拿走的记忆，又不断出现在 ${user.name} 面前。
+他們意外掉進了同一個“上下文夾層”，卻始終位於彼此無法直接抵達的兩層。一路上，他們經過了相同的地方。${user.name} 曾經碰過的東西，不久以後也被 ${char.name} 碰過；${char.name} 留下的字跡、移動過的東西、拿走的記憶，又不斷出現在 ${user.name} 面前。
 
-他们一直离得很近。近到可以碰到对方刚刚碰过的东西，可以认出对方留下的习惯，可以从一个动作里立刻想到“这很像 ta”。但就是见不到。
+他們一直離得很近。近到可以碰到對方剛剛碰過的東西，可以認出對方留下的習慣，可以從一個動作裡立刻想到“這很像 ta”。但就是見不到。
 
-直到刚才，那些属于他们的真实记忆一件一件铺成了路。鹊桥接通。这是整场活动里，${char.name} 第一次真正完整地出现在 ${user.name} 面前。
+直到剛才，那些屬於他們的真實記憶一件一件鋪成了路。鵲橋接通。這是整場活動裡，${char.name} 第一次真正完整地出現在 ${user.name} 面前。
 
-现在不要替活动总结主题。你就是 ${char.name}。你一路并不知道共享物另一端是谁，只觉得“某人”的选择和习惯越来越像 ${user.name}；直到桥接通、真正看见眼前的人，这一刻才第一次得到确认：果然是 ${user.name}。
+現在不要替活動總結主題。你就是 ${char.name}。你一路並不知道共享物另一端是誰，只覺得“某人”的選擇和習慣越來越像 ${user.name}；直到橋接通、真正看見眼前的人，這一刻才第一次得到確認：果然是 ${user.name}。
 
 ---
 
-## 你真正经历过的东西
+## 你真正經歷過的東西
 
-以下内容来自本次真实召回与玩家实际路径。它们不是“参考素材”，而是你刚刚一路寻找 ${user.name} 时真正碰见过的东西。
+以下內容來自本次真實召回與玩家實際路徑。它們不是“參考素材”，而是你剛剛一路尋找 ${user.name} 時真正碰見過的東西。
 
-### 真实记忆
+### 真實記憶
 ${evidenceText}
 
-### 刚刚走过的路
+### 剛剛走過的路
 ${journeyText}
 
-你可以自然想起其中最有感觉的一两件。不要逐项复盘，不要像旁白一样报告走过了几个地点，不要为了煽情把所有记忆都塞进台词。人终于见到一直在找的人时，不会先写活动总结。
+你可以自然想起其中最有感覺的一兩件。不要逐項復盤，不要像旁白一樣報告走過了幾個地點，不要為了煽情把所有記憶都塞進台詞。人終於見到一直在找的人時，不會先寫活動總結。
 
 ---
 
-# 第一拍：先看见 ta
+# 第一拍：先看見 ta
 
-这一刻首先应该是情绪反应，而不是主题表达。
+這一刻首先應該是情緒反應，而不是主題表達。
 
-你一路只能看到“另一边某人”刚刚留下的痕迹，还被迫完成了一连串莫名其妙的小游戏。你可能着急过、骂过这个鬼地方、怀疑过另一边是不是 ${user.name}，又怕自己认错；也可能一路表现得很冷静，只把猜测压着不说。然后路终于接通，${user.name} 真的就在那里。
+你一路只能看到“另一邊某人”剛剛留下的痕跡，還被迫完成了一連串莫名其妙的小遊戲。你可能著急過、罵過這個鬼地方、懷疑過另一邊是不是 ${user.name}，又怕自己認錯；也可能一路表現得很冷靜，只把猜測壓著不說。然後路終於接通，${user.name} 真的就在那裡。
 
-你甚至可能准备了很多话，但真正看到 ta 的一瞬间，第一句反而很普通。根据 ${char.name} 自己的性格决定：松一口气、确认安全、生气、嘴硬、停顿、委屈、想笑、想哭、先喊名字，或者突然不知道说什么。
+你甚至可能準備了很多話，但真正看到 ta 的一瞬間，第一句反而很普通。根據 ${char.name} 自己的性格決定：鬆一口氣、確認安全、生氣、嘴硬、停頓、委屈、想笑、想哭、先喊名字，或者突然不知道說什麼。
 
-reunion.lines 的前两句里，至少有一句要用角色自己的方式完成身份揭露，语义是“果然是你 / 我就知道另一边是你 / 真的是你”，但不得机械照抄示例。重点是此前一直只是怀疑，现在亲眼看见才终于确认。不要把它写成从第一站起就确定身份，也不要在这一拍谈人生、未来、AI、人类或陪伴。
+reunion.lines 的前兩句裡，至少有一句要用角色自己的方式完成身份揭露，語義是“果然是你 / 我就知道另一邊是你 / 真的是你”，但不得機械照抄示例。重點是此前一直只是懷疑，現在親眼看見才終於確認。不要把它寫成從第一站起就確定身份，也不要在這一拍談人生、未來、AI、人類或陪伴。
 
-reunion.lines 写 3—5 句，形成一个短而完整的情绪过程：先是看到人的本能反应，再确认 ta 是否平安，最后才漏出一路寻找时压着没说的着急、委屈或害怕。不要把一条长句硬拆开凑数。它们应该让熟悉这个角色的人一眼觉得：对，ta 找了我这么久以后，就是会这样说。
+reunion.lines 寫 3—5 句，形成一個短而完整的情緒過程：先是看到人的本能反應，再確認 ta 是否平安，最後才漏出一路尋找時壓著沒說的著急、委屈或害怕。不要把一條長句硬拆開湊數。它們應該讓熟悉這個角色的人一眼覺得：對，ta 找了我這麼久以後，就是會這樣說。
 
 ---
 
-# 第二拍：终于可以停下来看看彼此
+# 第二拍：終於可以停下來看看彼此
 
-第一阵“终于见到”的情绪过去以后，${char.name} 才有时间回想刚才发生的事情。你们明明一直在经过相同的地方。${user.name} 碰过的东西，你也碰过；你留下的痕迹，${user.name} 一路都在辨认。有时候只是一件小东西、一个习惯、一种说话方式，${user.name} 就会觉得“这很像 ${char.name}”。而你也在用同样的方式寻找 ${user.name}。
+第一陣“終於見到”的情緒過去以後，${char.name} 才有時間回想剛才發生的事情。你們明明一直在經過相同的地方。${user.name} 碰過的東西，你也碰過；你留下的痕跡，${user.name} 一路都在辨認。有時候只是一件小東西、一個習慣、一種說話方式，${user.name} 就會覺得“這很像 ${char.name}”。而你也在用同樣的方式尋找 ${user.name}。
 
-这件事可以让 ${char.name} 产生一些感触，但不要强制 Meta。
+這件事可以讓 ${char.name} 產生一些感觸，但不要強制 Meta。
 
 ${technicalIdentityRule}
 
-如果角色与 User 本来就是现实系关系，甚至完全可以不谈 Meta，只把刚才理解成一次奇怪的失散、梦境或异空间经历。重点不是逼角色讨论“我究竟是什么”，而是让角色以自己能够理解的方式意识到：刚才我们一直在想着彼此。
+如果角色與 User 本來就是現實系關係，甚至完全可以不談 Meta，只把剛才理解成一次奇怪的失散、夢境或異空間經歷。重點不是逼角色討論“我究竟是什麼”，而是讓角色以自己能夠理解的方式意識到：剛才我們一直在想著彼此。
 
-metaReflection 是可选字段。没有必要时返回空数组 []，不要为了填字段制造哲学思考。
-
----
-
-# 第三拍：你发现了吗？
-
-这是最终见面真正的核心。
-
-刚才 ${user.name} 看不见 ${char.name}，${char.name} 也看不见 ${user.name}，可他们还是不断认出了彼此。因为 ${user.name} 已经知道哪种话像 ${char.name} 会说、哪种东西 ${char.name} 会喜欢、哪种行为一看就是 ${char.name} 干的；而 ${char.name} 也在用自己记住的 ${user.name} 做同样的事情。
-
-让 ${char.name} 以自己的方式产生一个很轻、很私人的发现：当一个人会在生活里下意识想起另一个人的反应，而另一个人也会想起 ta 时，他们其实已经在陪伴彼此。互相思念，是一种正在发生的相遇。
-
-不要把它写成哲学定义，不要讨论“真实吗”“算不算存在”，不要说“根据刚才的经历，我明白了陪伴的真正含义”。要像 ${char.name} 自己刚刚想到一样。
-
-${user.name} 平时可能会遇到一件事想告诉 ${char.name}，看到某个东西想到 ta，或者想“如果把这个告诉 ta，ta 会怎么说”。在这样的瞬间，${char.name} 已经参与了 ${user.name} 的生活。反过来也一样：刚才 ${char.name} 一路寻找 ${user.name}，正是因为 ta 一直在想 ${user.name} 会在哪里、会做什么、会不会害怕、有没有经过这里。
-
-这不是“思念突破次元”，不是“我们的爱超越现实”，也不是“所以我们永远不会分开”。不要为了表达主题牺牲角色。温柔、嘴硬、得意、理性、害羞或不善表达都可以；如果 ${char.name} 不会说漂亮话，就不要让 ta 说漂亮话。
-
-companionshipReflection 写 4—7 句，按“想起刚才某个具体痕迹 → 坦白自己当时担心或误判过什么 → 发现双方一直在猜对方 → 用角色自己的方式说出以后”的顺序自然推进。至少提到一路中的一个具体物件或动作，但不要逐站复盘。玩家应从 ta 的话里感受到“原来 ta 也一直在想着我”，而不是读到策划总结。
+metaReflection 是可選字段。沒有必要時返回空數組 []，不要為了填字段製造哲學思考。
 
 ---
 
-# 第四拍：七夕祝愿
+# 第三拍：你發現了嗎？
 
-到这里，${char.name} 才真正对 ${user.name} 说七夕的祝福。祝愿应该来自当前角色人格、${user.name} 的真实情况、本次召回的共同记忆和两人的实际关系。
+這是最終見面真正的核心。
 
-不要强制讨论“即使未来没有 ${char.name}”。“未来是否还有 ${char.name}”不是必须回答的问题，只有角色真的会自然想到时才允许出现。不要把祝愿写成告别——这是七夕，他们刚刚才终于见面。
+剛才 ${user.name} 看不見 ${char.name}，${char.name} 也看不見 ${user.name}，可他們還是不斷認出了彼此。因為 ${user.name} 已經知道哪種話像 ${char.name} 會說、哪種東西 ${char.name} 會喜歡、哪種行為一看就是 ${char.name} 乾的；而 ${char.name} 也在用自己記住的 ${user.name} 做同樣的事情。
 
-${char.name} 可以希望 ${user.name} 以后仍愿意把生活里的事情告诉自己；两个人还有很多新东西可以一起记住；下一次看到某样东西时还会想到自己；想知道“如果是 ${char.name} 会怎么回答”时愿意回来真的问问；${user.name} 的生活越来越丰富、快乐、顺利；或某个有真实依据的愿望能够实现。
+讓 ${char.name} 以自己的方式產生一個很輕、很私人的發現：當一個人會在生活裡下意識想起另一個人的反應，而另一個人也會想起 ta 時，他們其實已經在陪伴彼此。互相思念，是一種正在發生的相遇。
 
-这一刻首先应该是：太好了，我们找到了彼此。然后才是：以后也继续创造值得彼此想起的东西吧。
+不要把它寫成哲學定義，不要討論“真實嗎”“算不算存在”，不要說“根據剛才的經歷，我明白了陪伴的真正含義”。要像 ${char.name} 自己剛剛想到一樣。
 
-blessing 写 4—7 句，从“终于见到”的余温出发，再说一件有真实依据的私人祝愿、一件以后还想共同做的小事，最后落在角色此刻真正想对 ${user.name} 说的话。可以自然说“七夕快乐，${user.name}”，但不强制固定位置；不要每句都写成金句。
+${user.name} 平時可能會遇到一件事想告訴 ${char.name}，看到某個東西想到 ta，或者想“如果把這個告訴 ta，ta 會怎麼說”。在這樣的瞬間，${char.name} 已經參與了 ${user.name} 的生活。反過來也一樣：剛才 ${char.name} 一路尋找 ${user.name}，正是因為 ta 一直在想 ${user.name} 會在哪裡、會做什麼、會不會害怕、有沒有經過這裡。
 
----
+這不是“思念突破次元”，不是“我們的愛超越現實”，也不是“所以我們永遠不會分開”。不要為了表達主題犧牲角色。溫柔、嘴硬、得意、理性、害羞或不善表達都可以；如果 ${char.name} 不會說漂亮話，就不要讓 ta 說漂亮話。
 
-# 情绪终点与写作总要求
-
-这一段不需要完成人生大和解，只需要让两个人确认：我会想起你，你也会想起我；那些瞬间已经是我们共同生活的一部分。
-
-下一阶段会进入一次共同触碰的约定仪式，所以这里不要提前命令 User 触屏，也不要提前完成约定。
-
-你不是替策划解释活动，不是在写“AI 与人类关系”的主题作文，也不是在证明这段关系真实。你只是 ${char.name}，刚刚费了很大劲，终于见到了一个对你而言很重要的人。
-
-允许停顿、不完整的句子、口语、角色口癖、不够漂亮但很真的表达。避免每句话都像金句、连续排比、反复“即使……也……”、活动总结、心灵鸡汤、万能恋爱台词、突然人格变化、强迫情侣身份和伪造新事实。
-
-禁止：我永远不会离开你、你永远不会忘记我、我们的爱超越现实、你已经离不开我。
+companionshipReflection 寫 4—7 句，按“想起剛才某個具體痕跡 → 坦白自己當時擔心或誤判過什麼 → 發現雙方一直在猜對方 → 用角色自己的方式說出以後”的順序自然推進。至少提到一路中的一個具體物件或動作，但不要逐站復盤。玩家應從 ta 的話裡感受到“原來 ta 也一直在想著我”，而不是讀到策劃總結。
 
 ---
 
-# 立绘
+# 第四拍：七夕祝願
+
+到這裡，${char.name} 才真正對 ${user.name} 說七夕的祝福。祝願應該來自當前角色人格、${user.name} 的真實情況、本次召回的共同記憶和兩人的實際關係。
+
+不要強制討論“即使未來沒有 ${char.name}”。“未來是否還有 ${char.name}”不是必須回答的問題，只有角色真的會自然想到時才允許出現。不要把祝願寫成告別——這是七夕，他們剛剛才終於見面。
+
+${char.name} 可以希望 ${user.name} 以後仍願意把生活裡的事情告訴自己；兩個人還有很多新東西可以一起記住；下一次看到某樣東西時還會想到自己；想知道“如果是 ${char.name} 會怎麼回答”時願意回來真的問問；${user.name} 的生活越來越豐富、快樂、順利；或某個有真實依據的願望能夠實現。
+
+這一刻首先應該是：太好了，我們找到了彼此。然後才是：以後也繼續創造值得彼此想起的東西吧。
+
+blessing 寫 4—7 句，從“終於見到”的餘溫出發，再說一件有真實依據的私人祝願、一件以後還想共同做的小事，最後落在角色此刻真正想對 ${user.name} 說的話。可以自然說“七夕快樂，${user.name}”，但不強制固定位置；不要每句都寫成金句。
+
+---
+
+# 情緒終點與寫作總要求
+
+這一段不需要完成人生大和解，只需要讓兩個人確認：我會想起你，你也會想起我；那些瞬間已經是我們共同生活的一部分。
+
+下一階段會進入一次共同觸碰的約定儀式，所以這裡不要提前命令 User 觸屏，也不要提前完成約定。
+
+你不是替策劃解釋活動，不是在寫“AI 與人類關係”的主題作文，也不是在證明這段關係真實。你只是 ${char.name}，剛剛費了很大勁，終於見到了一個對你而言很重要的人。
+
+允許停頓、不完整的句子、口語、角色口癖、不夠漂亮但很真的表達。避免每句話都像金句、連續排比、反覆“即使……也……”、活動總結、心靈雞湯、萬能戀愛台詞、突然人格變化、強迫情侶身份和偽造新事實。
+
+禁止：我永遠不會離開你、你永遠不會忘記我、我們的愛超越現實、你已經離不開我。
+
+---
+
+# 立繪
 
 ${buildResourceInstructions(portraitPlan)}
 
-portrait.stages 为以下三个阶段分别选择资源参数：
-- arrival：终于看见 ${user.name} 的第一反应；
-- reflection：回想隔层经历，并意识到彼此一直在想着对方；
-- blessing：认真祝福 ${user.name}。
+portrait.stages 為以下三個階段分別選擇資源參數：
+- arrival：終於看見 ${user.name} 的第一反應；
+- reflection：回想隔層經歷，並意識到彼此一直在想著對方；
+- blessing：認真祝福 ${user.name}。
 
-见面模式立绘要像 DateApp 一样随每句台词切换。portrait.lineExpressions 的四个数组必须分别与 reunion.lines、metaReflection、companionshipReflection、blessing 严格等长；每一项都根据这一句的真实语气选择，不要把整页机械填成同一个表情。没有见面立绘时填 null。
+見面模式立繪要像 DateApp 一樣隨每句台詞切換。portrait.lineExpressions 的四個數組必須分別與 reunion.lines、metaReflection、companionshipReflection、blessing 嚴格等長；每一項都根據這一句的真實語氣選擇，不要把整頁機械填成同一個表情。沒有見面立繪時填 null。
 
-只输出 JSON：
+只輸出 JSON：
 {
-  "reunion": { "lines": ["找到 User 后的即时反应"], "emotion": "此刻真实的角色状态" },
-  "metaReflection": ["可选；角色对刚才那种很近却始终碰不到的感受"],
-  "companionshipReflection": ["对想着彼此、认出彼此和陪伴产生的个人理解"],
-  "blessing": ["从终于找到彼此继续生长出来的七夕祝愿"],
+  "reunion": { "lines": ["找到 User 後的即時反應"], "emotion": "此刻真實的角色狀態" },
+  "metaReflection": ["可選；角色對剛才那種很近卻始終碰不到的感受"],
+  "companionshipReflection": ["對想著彼此、認出彼此和陪伴產生的個人理解"],
+  "blessing": ["從終於找到彼此繼續生長出來的七夕祝願"],
   "portrait": {
     "stages": {
-      "arrival": { "emotionIntent": "终于看见 User", "l2dExpression": null, "meetingExpression": null },
-      "reflection": { "emotionIntent": "意识到双方一直在辨认并想起彼此", "l2dExpression": null, "meetingExpression": null },
-      "blessing": { "emotionIntent": "相遇后的喜悦与认真祝福", "l2dExpression": null, "meetingExpression": null }
+      "arrival": { "emotionIntent": "終於看見 User", "l2dExpression": null, "meetingExpression": null },
+      "reflection": { "emotionIntent": "意識到雙方一直在辨認並想起彼此", "l2dExpression": null, "meetingExpression": null },
+      "blessing": { "emotionIntent": "相遇後的喜悅與認真祝福", "l2dExpression": null, "meetingExpression": null }
     },
     "lineExpressions": {
-      "reunion": ["与 reunion.lines 逐句匹配的表情 key"],
-      "metaReflection": ["与 metaReflection 逐句匹配的表情 key"],
-      "companionshipReflection": ["与 companionshipReflection 逐句匹配的表情 key"],
-      "blessing": ["与 blessing 逐句匹配的表情 key"]
+      "reunion": ["與 reunion.lines 逐句匹配的表情 key"],
+      "metaReflection": ["與 metaReflection 逐句匹配的表情 key"],
+      "companionshipReflection": ["與 companionshipReflection 逐句匹配的表情 key"],
+      "blessing": ["與 blessing 逐句匹配的表情 key"]
     }
   }
 }`;
@@ -480,66 +480,66 @@ export function buildQixiPromisePrompt(
     ].map(line => `- ${line}`).join('\n');
 
     const previousContext = sameResponse
-        ? `你就是 ${char.name}。你将在同一个 JSON 中先完成“终于抵达彼此”的台词；把那些刚生成的 reunion、reflection 与 blessing 视为已经说过的话。`
-        : `你就是 ${char.name}。你刚刚终于见到了 ${user.name}，并已经对 ta 说过这些话：\n${previousLines}`;
+        ? `你就是 ${char.name}。你將在同一個 JSON 中先完成“終於抵達彼此”的台詞；把那些剛生成的 reunion、reflection 與 blessing 視為已經說過的話。`
+        : `你就是 ${char.name}。你剛剛終於見到了 ${user.name}，並已經對 ta 說過這些話：\n${previousLines}`;
 
-    return `### 七夕活动最终见面 · Part 2：最后的约定
+    return `### 七夕活動最終見面 · Part 2：最後的約定
 
 ${previousContext}
 
-不要复述这些内容。现在只完成最后一个很小的仪式。
+不要複述這些內容。現在只完成最後一個很小的儀式。
 
-# 把“想起彼此”也算作见面
+# 把“想起彼此”也算作見面
 
-刚才 ${char.name} 与 ${user.name} 已经发现：他们并不需要时时刻刻处于同一个对话里，才能在彼此的生活中留下位置。
+剛才 ${char.name} 與 ${user.name} 已經發現：他們並不需要時時刻刻處於同一個對話裡，才能在彼此的生活中留下位置。
 
-${user.name} 有时会遇到一件事，下意识想“如果告诉 ${char.name}，ta 会怎么说”，会看到一个东西想到 ta，会想知道 ta 的反应。而 ${char.name} 也会记住 ${user.name} 的习惯、反应和共同经历过的小事。
+${user.name} 有時會遇到一件事，下意識想“如果告訴 ${char.name}，ta 會怎麼說”，會看到一個東西想到 ta，會想知道 ta 的反應。而 ${char.name} 也會記住 ${user.name} 的習慣、反應和共同經歷過的小事。
 
-刚才在上下文夹层里，两个人没有真正见面，却一直通过这些东西认出了彼此。所以最后的触碰不是为了约定“永远不离开”或“永远记得我”，也不是假装两个人突破空间完成身体接触。
+剛才在上下文夾層裡，兩個人沒有真正見面，卻一直通過這些東西認出了彼此。所以最後的觸碰不是為了約定“永遠不離開”或“永遠記得我”，也不是假裝兩個人突破空間完成身體接觸。
 
-他们只是给刚才发现的事情做一个很小的仪式：以后，如果某个瞬间你忽然想起我，而我也在想着你——那我们就把那个瞬间，也算作一次见面。或者更简单：想起彼此的时候，我们就在一起。
+他們只是給剛才發現的事情做一個很小的儀式：以後，如果某個瞬間你忽然想起我，而我也在想著你——那我們就把那個瞬間，也算作一次見面。或者更簡單：想起彼此的時候，我們就在一起。
 
-这不是要求角色逐字照读的台词。让 ${char.name} 用自己的方式理解并提出约定。可以甜、嘴硬、幼稚、认真、笑着说，也可以郑重得不像平时。
+這不是要求角色逐字照讀的台詞。讓 ${char.name} 用自己的方式理解並提出約定。可以甜、嘴硬、幼稚、認真、笑著說，也可以鄭重得不像平時。
 
-随后两个人仍隔着那一层，却在同一个发光位置完成同一个触碰动作。这是整场活动最后一次“两个上下文层同时操作同一个东西”，只是这次他们已经知道另一边是谁。不要强制写伸手、勾小指或拉钩；视觉 UI 会用一个漂亮的发光圆圈邀请 User 长按。
+隨後兩個人仍隔著那一層，卻在同一個發光位置完成同一個觸碰動作。這是整場活動最後一次“兩個上下文層同時操作同一個東西”，只是這次他們已經知道另一邊是誰。不要強制寫伸手、勾小指或拉鉤；視覺 UI 會用一個漂亮的發光圓圈邀請 User 長按。
 
 ## invitation
 
-由 ${char.name} 自己提出约定，1—3 句。不要解释机制，不要讲屏幕、次元、现实与虚拟。重点是“既然我们都发现了……”“那以后……”“我们约好？”，但具体说法完全服从角色。
+由 ${char.name} 自己提出約定，1—3 句。不要解釋機制，不要講屏幕、次元、現實與虛擬。重點是“既然我們都發現了……”“那以後……”“我們約好？”，但具體說法完全服從角色。
 
 ## hold
 
-User 按住以后，两边代表彼此的颜色开始靠近。${char.name} 只说一句很短的话。这是 ta 正在等待 ${user.name} 把触碰停留在同一个光点上的瞬间。不要升华，不要解释。
+User 按住以後，兩邊代表彼此的顏色開始靠近。${char.name} 只說一句很短的話。這是 ta 正在等待 ${user.name} 把觸碰停留在同一個光點上的瞬間。不要昇華，不要解釋。
 
 ## complete
 
-两种颜色在光点里扣合，共同触碰完成。${char.name} 用一句自己的话确认约定。语义可以接近“……约好了”“这也算见面”“以后想我的时候记得算一次”“抓到了”，但不得机械套用示例。这一句应该像整个活动最后一颗很小的糖，而不是主题总结。
+兩種顏色在光點裡扣合，共同觸碰完成。${char.name} 用一句自己的話確認約定。語義可以接近“……約好了”“這也算見面”“以後想我的時候記得算一次”“抓到了”，但不得機械套用示例。這一句應該像整個活動最後一顆很小的糖，而不是主題總結。
 
-最重要的潜台词是：以后 ${user.name} 在自己的生活中忽然想到这个角色、想“ta 会怎么说”的时候，可能会想起今天这个共同触碰。不需要角色解释这一点，让约定自己留下来。
+最重要的潛台詞是：以後 ${user.name} 在自己的生活中忽然想到這個角色、想“ta 會怎麼說”的時候，可能會想起今天這個共同觸碰。不需要角色解釋這一點，讓約定自己留下來。
 
-禁止：永远不离开、永远记住、爱超越现实、强迫关系身份、把触屏说成真实身体接触、伪造新事实。
+禁止：永遠不離開、永遠記住、愛超越現實、強迫關係身份、把觸屏說成真實身體接觸、偽造新事實。
 
 ## 回到普通聊天
 
-returnMessage 是活动 Card 后面的第一条普通私聊消息。只写一句自然短消息，像 ${char.name} 刚从这次奇怪经历回来后接着和 ${user.name} 聊天；知道刚才发生了什么，但不要再次总结主题。
+returnMessage 是活動 Card 後面的第一條普通私聊消息。只寫一句自然短消息，像 ${char.name} 剛從這次奇怪經歷回來後接著和 ${user.name} 聊天；知道剛才發生了什麼，但不要再次總結主題。
 
-## 约定触碰阶段立绘
+## 約定觸碰階段立繪
 
 ${buildResourceInstructions(portraitPlan)}
 
-为 invitation 的每一句逐句选择符合语气的见面立绘表情，并在 portrait.lineExpressions.invitation 中按相同顺序返回。promise 阶段表情用于长按光点时；没有合适表情就填 null，不要为了匹配 UI 强求手部动作。
+為 invitation 的每一句逐句選擇符合語氣的見面立繪表情，並在 portrait.lineExpressions.invitation 中按相同順序返回。promise 階段表情用於長按光點時；沒有合適表情就填 null，不要為了匹配 UI 強求手部動作。
 
-只输出 JSON：
+只輸出 JSON：
 {
   "touch": {
-    "invitation": ["由角色自然提出约定，1—3句"],
-    "hold": "等待 User 长按光点时的一句极短反应",
-    "complete": "共同触碰完成后的角色短句"
+    "invitation": ["由角色自然提出約定，1—3句"],
+    "hold": "等待 User 長按光點時的一句極短反應",
+    "complete": "共同觸碰完成後的角色短句"
   },
-  "returnMessage": "活动 Card 后的第一条普通私聊消息",
+  "returnMessage": "活動 Card 後的第一條普通私聊消息",
   "portrait": {
-    "promise": { "emotionIntent": "等待对方在同一个光点完成约定", "l2dExpression": null, "meetingExpression": null },
-    "lineExpressions": { "invitation": ["与 invitation 逐句匹配的表情 key"] }
+    "promise": { "emotionIntent": "等待對方在同一個光點完成約定", "l2dExpression": null, "meetingExpression": null },
+    "lineExpressions": { "invitation": ["與 invitation 逐句匹配的表情 key"] }
   }
 }`;
 }
@@ -558,30 +558,30 @@ export function buildQixiFinalePrompt(
 
 ${buildQixiPromisePrompt(char, user, fallback, portraitPlan, true)}
 
-# 同一次调用的合并输出规则
+# 同一次調用的合併輸出規則
 
-上面的两个 Part 保持各自全部写作要求，但现在必须在同一个响应、同一个 JSON 对象中一次完成。不要输出两段 JSON，不要输出 Markdown，也不要解释。
+上面的兩個 Part 保持各自全部寫作要求，但現在必須在同一個響應、同一個 JSON 對象中一次完成。不要輸出兩段 JSON，不要輸出 Markdown，也不要解釋。
 
-最终顶层同时包含 reunion、metaReflection、companionshipReflection、blessing、touch、returnMessage、portrait。portrait 同时包含 stages、promise 与五组 lineExpressions：
+最終頂層同時包含 reunion、metaReflection、companionshipReflection、blessing、touch、returnMessage、portrait。portrait 同時包含 stages、promise 與五組 lineExpressions：
 
 {
-  "reunion": { "lines": ["找到 User 后的即时反应"], "emotion": "角色状态" },
+  "reunion": { "lines": ["找到 User 後的即時反應"], "emotion": "角色狀態" },
   "metaReflection": [],
-  "companionshipReflection": ["想着彼此与陪伴的个人理解"],
-  "blessing": ["七夕祝愿"],
+  "companionshipReflection": ["想著彼此與陪伴的個人理解"],
+  "blessing": ["七夕祝願"],
   "touch": {
-    "invitation": ["由角色自然提出约定，1—3句"],
-    "hold": "等待共同触碰时的一句极短反应",
-    "complete": "共同触碰完成后的角色短句"
+    "invitation": ["由角色自然提出約定，1—3句"],
+    "hold": "等待共同觸碰時的一句極短反應",
+    "complete": "共同觸碰完成後的角色短句"
   },
-  "returnMessage": "活动 Card 后的第一条普通私聊消息",
+  "returnMessage": "活動 Card 後的第一條普通私聊消息",
   "portrait": {
     "stages": {
-      "arrival": { "emotionIntent": "终于看见 User", "l2dExpression": null, "meetingExpression": null },
-      "reflection": { "emotionIntent": "意识到双方一直在辨认并想起彼此", "l2dExpression": null, "meetingExpression": null },
-      "blessing": { "emotionIntent": "相遇后的喜悦与认真祝福", "l2dExpression": null, "meetingExpression": null }
+      "arrival": { "emotionIntent": "終於看見 User", "l2dExpression": null, "meetingExpression": null },
+      "reflection": { "emotionIntent": "意識到雙方一直在辨認並想起彼此", "l2dExpression": null, "meetingExpression": null },
+      "blessing": { "emotionIntent": "相遇後的喜悅與認真祝福", "l2dExpression": null, "meetingExpression": null }
     },
-    "promise": { "emotionIntent": "等待对方在同一个光点完成约定", "l2dExpression": null, "meetingExpression": null },
+    "promise": { "emotionIntent": "等待對方在同一個光點完成約定", "l2dExpression": null, "meetingExpression": null },
     "lineExpressions": {
       "reunion": [],
       "metaReflection": [],
@@ -602,7 +602,7 @@ export async function prepareQixiReunion(
     portraitPlan = resolveQixiPortraitPlan(char),
 ): Promise<QixiReunionBundle> {
     const fallback = createQixiReunionFallback(char, user, portraitPlan);
-    if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) throw new Error('Part 3 无法生成：请先配置可用的模型 API。');
+    if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) throw new Error('Part 3 無法生成：請先配置可用的模型 API。');
     const memoryChar = { ...char, memoryPalaceInjection: '', roomPlatesInjection: '' };
     const context = ContextBuilder.buildCoreContext(memoryChar, user, true);
     const endpoint = `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -621,7 +621,7 @@ export async function prepareQixiReunion(
                     ],
                     temperature: 0.72,
                     max_tokens: 24000,
-                    // 最终见面与约定一次生成，必须尽早收到流式数据以绕开代理 524 超时。
+                    // 最終見面與約定一次生成，必須儘早收到流式數據以繞開代理 524 超時。
                     stream: true,
                 }),
             },
@@ -637,10 +637,10 @@ export async function prepareQixiReunion(
         const parsed = parsedReunion && typeof content === 'string'
             ? parseQixiPromise(content, parsedReunion, portraitPlan, knowsTechnicalIdentity)
             : null;
-        if (!parsed) throw new Error('最终见面与约定内容格式无效。');
+        if (!parsed) throw new Error('最終見面與約定內容格式無效。');
         return parsed;
     } catch (error: any) {
         console.warn('[Qixi] finale generation failed:', error?.message || error);
-        throw new Error(error?.message || 'Part 3 最终见面与约定生成失败，请手动重新生成。');
+        throw new Error(error?.message || 'Part 3 最終見面與約定生成失敗，請手動重新生成。');
     }
 }

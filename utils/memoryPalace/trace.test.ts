@@ -64,14 +64,14 @@ describe('memory palace M0 trace', () => {
         const char = {
             id: 'char-disabled',
             memoryPalaceEnabled: false,
-            memoryPalaceInjection: '上一轮召回',
-            roomPlatesInjection: '上一轮门牌',
+            memoryPalaceInjection: '上一輪召回',
+            roomPlatesInjection: '上一輪門牌',
         };
 
         const trace = await injectMemoryPalace(char, [], undefined, undefined, { entryPoint: 'chat_app' });
 
-        expect(char.memoryPalaceInjection).toBe('上一轮召回');
-        expect(char.roomPlatesInjection).toBe('上一轮门牌');
+        expect(char.memoryPalaceInjection).toBe('上一輪召回');
+        expect(char.roomPlatesInjection).toBe('上一輪門牌');
         expect(trace.entryPoint).toBe('chat_app');
         expect(trace.outcome).toBe('skipped_palace_disabled');
         expect(trace.injection.clearedPreviousMemory).toBe(false);
@@ -83,14 +83,14 @@ describe('memory palace M0 trace', () => {
         const char = {
             id: 'char-no-embedding',
             memoryPalaceEnabled: true,
-            memoryPalaceInjection: '不能继续沿用',
-            roomPlatesInjection: '也不能继续沿用',
+            memoryPalaceInjection: '不能繼續沿用',
+            roomPlatesInjection: '也不能繼續沿用',
         };
 
         const trace = await injectMemoryPalace(char, []);
 
-        expect(char.memoryPalaceInjection).toBe('不能继续沿用');
-        expect(char.roomPlatesInjection).toBe('也不能继续沿用');
+        expect(char.memoryPalaceInjection).toBe('不能繼續沿用');
+        expect(char.roomPlatesInjection).toBe('也不能繼續沿用');
         expect(trace.outcome).toBe('skipped_embedding_unconfigured');
         expect(trace.pipelineVersion).toBe(RECALL_PIPELINE_VERSION);
         expect(trace.featureFlagsSnapshot).toEqual({
@@ -111,18 +111,18 @@ describe('memory palace M0 trace', () => {
                 model: 'test-model',
                 dimensions: 3,
             },
-            memoryPalaceInjection: '上一轮召回',
+            memoryPalaceInjection: '上一輪召回',
             roomPlatesInjection: '',
         };
 
-        // 空消息会在发起 embedding 请求前结束，测试不访问网络。
-        const trace = await injectMemoryPalace(char, [], undefined, '用户', { entryPoint: 'chat_app' });
+        // 空消息會在發起 embedding 請求前結束，測試不訪問網絡。
+        const trace = await injectMemoryPalace(char, [], undefined, '用戶', { entryPoint: 'chat_app' });
 
         expect(trace.outcome).toBe('empty');
         expect(trace.retrievalReason).toBe('no_effective_query');
         expect(trace.failureReason).toBeUndefined();
         expect(trace.stages.find(stage => stage.name === 'retrieve')?.outcome).toBe('empty');
-        expect(char.memoryPalaceInjection).toBe('上一轮召回');
+        expect(char.memoryPalaceInjection).toBe('上一輪召回');
     });
 
     it('uses the new clear-first behavior only after smart context is enabled', async () => {
@@ -132,8 +132,8 @@ describe('memory palace M0 trace', () => {
         const char = {
             id: 'char-smart-context',
             memoryPalaceEnabled: false,
-            memoryPalaceInjection: '上一轮召回',
-            roomPlatesInjection: '上一轮门牌',
+            memoryPalaceInjection: '上一輪召回',
+            roomPlatesInjection: '上一輪門牌',
         };
 
         const trace = await injectMemoryPalace(char, [], undefined, undefined, { entryPoint: 'chat_app' });

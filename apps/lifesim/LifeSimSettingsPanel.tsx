@@ -40,7 +40,7 @@ const LifeSimSettingsPanel: React.FC<{
     const [useIndependentApi, setUseIndependentApi] = useState(useIndependentApiConfig);
     const [draft, setDraft] = useState<LifeSimApiDraft>(EMPTY_API_DRAFT);
     const [isSaving, setIsSaving] = useState(false);
-    // 参与角色多选的分组筛选（characters 由 props 传入，这里单独取 characterGroups）
+    // 參與角色多選的分組篩選（characters 由 props 傳入，這裡單獨取 characterGroups）
     const { characterGroups } = useOS();
     const [charGroupId, setCharGroupId] = useState<string>(GROUP_FILTER_ALL);
 
@@ -125,24 +125,24 @@ const LifeSimSettingsPanel: React.FC<{
                 <div className="overflow-y-auto overflow-x-hidden no-scrollbar flex-1" style={{ padding: 10 }}>
                     <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: 10 }}>
                         <p style={{ fontSize: 10, color: '#6a6181', lineHeight: 1.6 }}>
-                            这里可以分别控制这局 LifeSim 允许哪些角色参与，以及是否给 LifeSim 单独指定一套 API。
+                            這裡可以分別控制這局 LifeSim 允許哪些角色參與，以及是否給 LifeSim 單獨指定一套 API。
                         </p>
                     </div>
 
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#6f6780', marginBottom: 6, letterSpacing: '0.04em' }}>
-                        参与角色
+                        參與角色
                     </div>
 
                     <div className="flex gap-2 mb-2">
                         <button onClick={() => { onSelectAll(); trackEvent('全选参与角色'); }} className="retro-btn" style={{ padding: '4px 10px', fontSize: 10 }}>
-                            全选
+                            全選
                         </button>
                         <button onClick={() => { onSelectNone(); trackEvent('清空参与角色'); }} className="retro-btn" style={{ padding: '4px 10px', fontSize: 10 }}>
                             清空
                         </button>
                     </div>
 
-                    {/* 分组筛选（没建分组时不渲染）：只影响显示哪些可选项，已勾选参与者不受影响 */}
+                    {/* 分組篩選（沒建分組時不渲染）：只影響顯示哪些可選項，已勾選參與者不受影響 */}
                     <CharacterGroupFilterBar characters={characters} groups={characterGroups}
                         value={charGroupId} onChange={setCharGroupId} className="mb-2" />
                     <div className="space-y-1.5">
@@ -168,7 +168,7 @@ const LifeSimSettingsPanel: React.FC<{
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 11, fontWeight: 700, color: '#504a61' }}>{char.name}</div>
                                         <div style={{ fontSize: 9, color: '#8b8499', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-                                            {char.description || '暂无描述'}
+                                            {char.description || '暫無描述'}
                                         </div>
                                     </div>
                                     <div style={{ color: active ? '#5b8fa8' : '#a7a0b6', flexShrink: 0 }}>
@@ -184,16 +184,16 @@ const LifeSimSettingsPanel: React.FC<{
                     <div className="flex items-center justify-between" style={{ marginBottom: 8, gap: 10 }}>
                         <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: '#6f6780', letterSpacing: '0.04em' }}>
-                                LifeSim 独立 API
+                                LifeSim 獨立 API
                             </div>
                             <div style={{ fontSize: 9, color: '#8a8198', lineHeight: 1.5, marginTop: 3 }}>
-                                推荐 Gemini Flash 系列，便宜且快，适合这种高频轻剧情生成。
+                                推薦 Gemini Flash 系列，便宜且快，適合這種高頻輕劇情生成。
                             </div>
                         </div>
                         <button
                             onClick={() => {
-                                // 只在「关 → 开」这一下记一次，且只发事件名：
-                                // 填没填 URL / Key 属于配置状态，一律不上报。
+                                // 只在「關 → 開」這一下記一次，且只發事件名：
+                                // 填沒填 URL / Key 屬於配置狀態，一律不上報。
                                 if (!useIndependentApi) trackEvent('启用独立 API 线路');
                                 setUseIndependentApi(value => !value);
                             }}
@@ -226,8 +226,8 @@ const LifeSimSettingsPanel: React.FC<{
                     <div className="retro-inset" style={{ padding: '6px 8px', marginBottom: 8 }}>
                         <p style={{ fontSize: 9, color: '#80778e', lineHeight: 1.6 }}>
                             {useIndependentApi
-                                ? '开启后，LifeSim 会优先使用下面这套配置；没填的字段会回退到全局 API。'
-                                : '关闭时，LifeSim 直接沿用系统全局 API。'}
+                                ? '開啟後，LifeSim 會優先使用下面這套配置；沒填的字段會回退到全局 API。'
+                                : '關閉時，LifeSim 直接沿用系統全局 API。'}
                         </p>
                     </div>
 
@@ -236,7 +236,7 @@ const LifeSimSettingsPanel: React.FC<{
                             {apiPresets.length > 0 && (
                                 <div style={{ marginBottom: 8 }}>
                                     <div style={{ fontSize: 9, fontWeight: 700, color: '#7b7289', marginBottom: 5 }}>
-                                        预设
+                                        預設
                                     </div>
                                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                                         {apiPresets.map(preset => (
@@ -331,7 +331,7 @@ const LifeSimSettingsPanel: React.FC<{
                         style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                         disabled={isSaving}
                     >
-                        <FloppyDisk size={12} weight="bold" /> {isSaving ? '保存中...' : '保存并关闭'}
+                        <FloppyDisk size={12} weight="bold" /> {isSaving ? '保存中...' : '保存並關閉'}
                     </button>
                 </div>
             </div>

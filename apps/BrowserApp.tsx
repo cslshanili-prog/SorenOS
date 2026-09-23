@@ -5,6 +5,7 @@ import { processImage } from '../utils/file';
 import { safeResponseJson } from '../utils/safeApi';
 import Modal from '../components/os/Modal';
 import { Camera, ImageSquare, GlobeSimple, MagnifyingGlass, Lightning } from '@phosphor-icons/react';
+import { includesAnyScript } from '../utils/scriptKey';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
@@ -147,7 +148,7 @@ const BrowserApp: React.FC = () => {
         localStorage.setItem('browser_brave_key', braveKey);
         localStorage.setItem('browser_use_real_search', String(useRealSearch));
         setShowSettings(false);
-        addToast('浏览器设置已保存', 'success');
+        addToast('瀏覽器設置已保存', 'success');
     };
 
     // --- Navigation Logic ---
@@ -219,7 +220,7 @@ const BrowserApp: React.FC = () => {
 
     const loadPageContent = async (url: string) => {
         if (!apiConfig.apiKey) {
-            addToast('请先在设置中配置 API Key', 'error');
+            addToast('請先在設置中配置 API Key', 'error');
             return;
         }
 
@@ -263,8 +264,8 @@ const BrowserApp: React.FC = () => {
 
             // Fallback / AI Simulation for Pages
             // Determine Context for AI
-            const isXiaohongshu = url.includes('xiaohongshu') || url.includes('小红书');
-            const isBilibili = url.includes('bilibili') || url.includes('哔哩哔哩');
+            const isXiaohongshu = url.includes('xiaohongshu') || includesAnyScript(url, '小紅書');
+            const isBilibili = url.includes('bilibili') || includesAnyScript(url, '嗶哩嗶哩');
             
             let systemPrompt = `You are a text-based web browser simulator. 
 Your task is to generate the content of the webpage the user is visiting based on the URL.
@@ -331,7 +332,7 @@ Generate realistic results linking to hypothetical URLs.`;
             setContent(body);
 
         } catch (e: any) {
-            setContent(`# 无法访问此网站\n\n**错误信息**: ${e.message}\n\n请检查网络连接或 API 设置。`);
+            setContent(`# 無法訪問此網站\n\n**錯誤信息**: ${e.message}\n\n請檢查網絡連接或 API 設置。`);
             setPageTitle("Error");
         } finally {
             setIsLoading(false);
@@ -439,7 +440,7 @@ Generate realistic results linking to hypothetical URLs.`;
                     className="text-xs text-slate-400 flex items-center gap-1 hover:text-blue-500 transition-colors"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M7.84 1.804A1 1 0 0 1 8.82 1h2.36a1 1 0 0 1 .98.804l.331 1.652a6.993 6.993 0 0 1 1.929 1.115l1.598-.54a1 1 0 0 1 1.186.447l1.18 2.044a1 1 0 0 1-.205 1.251l-1.267 1.113a7.047 7.047 0 0 1 0 2.228l1.267 1.113a1 1 0 0 1 .206 1.25l-1.18 2.045a1 1 0 0 1-1.187.447l-1.598-.54a6.993 6.993 0 0 1-1.929 1.115l-.33 1.652a1 1 0 0 1-.98.804H8.82a1 1 0 0 1-.98-.804l-.331-1.652a6.993 6.993 0 0 1-1.929-1.115l-1.598.54a1 1 0 0 1-1.186-.447l-1.18-2.044a1 1 0 0 1 .205-1.251l1.267-1.114a7.05 7.05 0 0 1 0-2.227L1.821 7.773a1 1 0 0 1-.206-1.25l1.18-2.045a1 1 0 0 1 1.187-.447l1.598.54A6.992 6.992 0 0 1 7.51 3.456l.33-1.652ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" /></svg>
-                    配置真实搜索引擎 (Brave API)
+                    配置真實搜索引擎 (Brave API)
                 </button>
             </div>
         </div>
@@ -502,7 +503,7 @@ Generate realistic results linking to hypothetical URLs.`;
                 
                 {currentUrl === 'home://start' ? renderStartPage() : (
                     <div className="p-4 pb-24 min-h-full">
-                        {isRealNet && !searchResults && <div className="text-[10px] text-green-600 font-bold bg-green-50 p-2 rounded mb-4 flex items-center gap-2 border border-green-100"><Lightning size={12} weight="fill" /> 已连接 Brave Search 实时网络</div>}
+                        {isRealNet && !searchResults && <div className="text-[10px] text-green-600 font-bold bg-green-50 p-2 rounded mb-4 flex items-center gap-2 border border-green-100"><Lightning size={12} weight="fill" /> 已連接 Brave Search 實時網絡</div>}
                         
                         {searchResults ? renderSearchResults() : (
                             <WebRenderer content={content} />
@@ -523,7 +524,7 @@ Generate realistic results linking to hypothetical URLs.`;
             {/* Settings Modal */}
             <Modal 
                 isOpen={showSettings} 
-                title="网络设置" 
+                title="網絡設置" 
                 onClose={() => setShowSettings(false)}
                 footer={<button onClick={handleSaveSettings} className="w-full py-3 bg-blue-500 text-white font-bold rounded-2xl">保存配置</button>}
             >
@@ -537,8 +538,8 @@ Generate realistic results linking to hypothetical URLs.`;
                             className="w-full bg-slate-100 rounded-xl px-4 py-3 text-sm focus:outline-blue-500 font-mono" 
                         />
                         <p className="text-[10px] text-slate-400 mt-2 leading-relaxed bg-slate-50 p-2 rounded">
-                            <span className="font-bold">注意：</span> 配置 Key 后可搜索现实世界的内容（如B站、小红书）。<br/>
-                            但页面由 AI 重新排版呈现，可能和原网站不一样。
+                            <span className="font-bold">注意：</span> 配置 Key 後可搜索現實世界的內容（如B站、小紅書）。<br/>
+                            但頁面由 AI 重新排版呈現，可能和原網站不一樣。
                         </p>
                     </div>
                     <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -549,8 +550,8 @@ Generate realistic results linking to hypothetical URLs.`;
                             className="w-5 h-5 accent-blue-500 rounded"
                         />
                         <div className="flex-1">
-                            <span className="text-sm font-bold text-slate-700 block">启用真实搜索 (Experimental)</span>
-                            <span className="text-[10px] text-slate-400 block">搜真实网络内容；搜不到时改由 AI 模拟生成。</span>
+                            <span className="text-sm font-bold text-slate-700 block">啟用真實搜索 (Experimental)</span>
+                            <span className="text-[10px] text-slate-400 block">搜真實網絡內容；搜不到時改由 AI 模擬生成。</span>
                         </div>
                     </div>
                 </div>

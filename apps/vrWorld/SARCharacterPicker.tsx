@@ -8,10 +8,10 @@ export function SARPageNav({ page, pages, onChange, label = '列表', showSingle
     page: number; pages: number; onChange: (page: number) => void; label?: string; showSinglePage?: boolean;
 }) {
     if (pages <= 1 && !showSinglePage) return null;
-    return <nav className="sar-pages" aria-label={`${label}分页`}>
-        <button type="button" disabled={page <= 0} aria-label={`${label}上一页`} onClick={() => onChange(page - 1)}><CaretLeft size={15}/></button>
+    return <nav className="sar-pages" aria-label={`${label}分頁`}>
+        <button type="button" disabled={page <= 0} aria-label={`${label}上一頁`} onClick={() => onChange(page - 1)}><CaretLeft size={15}/></button>
         <span aria-live="polite">{page + 1} / {pages}</span>
-        <button type="button" disabled={page >= pages - 1} aria-label={`${label}下一页`} onClick={() => onChange(page + 1)}><CaretRight size={15}/></button>
+        <button type="button" disabled={page >= pages - 1} aria-label={`${label}下一頁`} onClick={() => onChange(page + 1)}><CaretRight size={15}/></button>
     </nav>;
 }
 
@@ -27,22 +27,22 @@ export function SARCharacterPicker({ characters, groups = [], selectedId, onSele
         && (!query.trim() || char.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))), [characters, group, query, validGroups]);
     const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)), shownPage = Math.min(page, pages - 1);
     const shown = filtered.slice(shownPage * PAGE_SIZE, (shownPage + 1) * PAGE_SIZE);
-    return <section className="sar-character-picker" aria-label="按角色查看柜子">
+    return <section className="sar-character-picker" aria-label="按角色查看櫃子">
         <div className="sar-character-picker-filters">
-            <label><span className="sr-only">角色分组</span><select aria-label="角色分组" value={group} onChange={event => { setGroup(event.target.value); setPage(0); }}>
+            <label><span className="sr-only">角色分組</span><select aria-label="角色分組" value={group} onChange={event => { setGroup(event.target.value); setPage(0); }}>
                 <option value="all">全部角色 · {characters.length}</option>
                 {groups.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                <option value="ungrouped">未分组</option>
+                <option value="ungrouped">未分組</option>
             </select></label>
             <label><MagnifyingGlass size={15}/><input aria-label="搜索角色" placeholder="找角色" value={query} onChange={event => { setQuery(event.target.value); setPage(0); }}/></label>
         </div>
         <div className="sar-character-picker-grid">{shown.map(char => <button type="button" key={char.id} aria-pressed={selectedId === char.id}
-            aria-label={`选择角色 ${char.name}`} onClick={() => onSelect(char.id)}>
+            aria-label={`選擇角色 ${char.name}`} onClick={() => onSelect(char.id)}>
             <span className="sar-character-picker-portrait">{char.avatar ? <TokenImg value={char.avatar} alt="" loading="lazy"/> : <i>{char.name.slice(0, 1)}</i>}
                 {counts?.has(char.id) && <b>{counts.get(char.id)}</b>}</span>
             <strong>{char.name}</strong>
         </button>)}</div>
-        {!shown.length && <p className="sar-character-picker-empty">没有找到角色</p>}
+        {!shown.length && <p className="sar-character-picker-empty">沒有找到角色</p>}
         <SARPageNav page={shownPage} pages={pages} onChange={setPage} label="角色"/>
     </section>;
 }

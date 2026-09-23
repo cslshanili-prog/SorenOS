@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 /**
- * 「家园」全局生成喇叭 —— 任意界面都能看到某个世界正在演绎（推进一段 / 结卷）。
- * 监听 runWorldEpisode 派发的 world-episode-* / world-chapter-* 事件，App 根级挂载。
- * 与彼方 VRBroadcast 同构，但走家园的淡紫风。
+ * 「家園」全局生成喇叭 —— 任意界面都能看到某個世界正在演繹（推進一段 / 結卷）。
+ * 監聽 runWorldEpisode 派發的 world-episode-* / world-chapter-* 事件，App 根級掛載。
+ * 與彼方 VRBroadcast 同構，但走家園的淡紫風。
  */
 interface WorldGen { worldId: string; worldName: string; storyTime?: string; done: number; total: number; charName?: string; chapter?: number; }
 
@@ -16,7 +16,7 @@ const WorldBroadcast: React.FC = () => {
         const onStart = (e: Event) => {
             const d = (e as CustomEvent).detail || {};
             clearHide();
-            setGen({ worldId: d.worldId, worldName: d.worldName || '家园', storyTime: d.storyTime, done: 0, total: d.total || 1 });
+            setGen({ worldId: d.worldId, worldName: d.worldName || '家園', storyTime: d.storyTime, done: 0, total: d.total || 1 });
         };
         const onBeat = (e: Event) => {
             const d = (e as CustomEvent).detail || {};
@@ -47,10 +47,10 @@ const WorldBroadcast: React.FC = () => {
     if (!gen) return null;
     const pct = Math.round((gen.done / Math.max(1, gen.total)) * 100);
     const label = gen.chapter
-        ? `结第 ${gen.chapter} 卷总结中…`
+        ? `結第 ${gen.chapter} 卷總結中…`
         : gen.charName
-            ? `正在演绎 ${gen.charName} · ${gen.done}/${gen.total}`
-            : '世界引擎运转中…';
+            ? `正在演繹 ${gen.charName} · ${gen.done}/${gen.total}`
+            : '世界引擎運轉中…';
 
     return (
         <div className="fixed left-1/2 -translate-x-1/2 z-[999] pointer-events-none" style={{ top: 'calc(var(--safe-top) + 6px)' }}>

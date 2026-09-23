@@ -2,12 +2,13 @@
 import { CharacterProfile, NovelBook, NovelSegment, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { safeResponseJson } from './safeApi';
+import { includesAnyScript } from './scriptKey';
 
 // --- Visual Themes ---
 export const NOVEL_THEMES = [
-    { id: 'sakura', name: '樱花 (Sakura)', bg: 'bg-pink-50', paper: 'bg-[#fff5f7]', text: 'text-slate-700', accent: 'text-pink-500', button: 'bg-pink-400', activeTab: 'bg-pink-500 text-white' },
-    { id: 'parchment', name: '羊皮纸 (Vintage)', bg: 'bg-[#f5e6d3]', paper: 'bg-[#fdf6e3]', text: 'text-[#433422]', accent: 'text-[#8c6b48]', button: 'bg-[#b58900]', activeTab: 'bg-[#b58900] text-white' },
-    { id: 'kraft', name: '牛皮纸 (Kraft)', bg: 'bg-[#d7ccc8]', paper: 'bg-[#e7e0d8]', text: 'text-[#3e2723]', accent: 'text-[#5d4037]', button: 'bg-[#5d4037]', activeTab: 'bg-[#5d4037] text-white' },
+    { id: 'sakura', name: '櫻花 (Sakura)', bg: 'bg-pink-50', paper: 'bg-[#fff5f7]', text: 'text-slate-700', accent: 'text-pink-500', button: 'bg-pink-400', activeTab: 'bg-pink-500 text-white' },
+    { id: 'parchment', name: '羊皮紙 (Vintage)', bg: 'bg-[#f5e6d3]', paper: 'bg-[#fdf6e3]', text: 'text-[#433422]', accent: 'text-[#8c6b48]', button: 'bg-[#b58900]', activeTab: 'bg-[#b58900] text-white' },
+    { id: 'kraft', name: '牛皮紙 (Kraft)', bg: 'bg-[#d7ccc8]', paper: 'bg-[#e7e0d8]', text: 'text-[#3e2723]', accent: 'text-[#5d4037]', button: 'bg-[#5d4037]', activeTab: 'bg-[#5d4037] text-white' },
     { id: 'midnight', name: '深夜 (Midnight)', bg: 'bg-[#0f172a]', paper: 'bg-[#1e293b]', text: 'text-slate-300', accent: 'text-blue-400', button: 'bg-blue-600', activeTab: 'bg-blue-600 text-white' },
     { id: 'matcha', name: '抹茶 (Matcha)', bg: 'bg-[#ecfccb]', paper: 'bg-[#f7fee7]', text: 'text-emerald-800', accent: 'text-emerald-600', button: 'bg-emerald-500', activeTab: 'bg-emerald-500 text-white' },
 ];
@@ -20,82 +21,82 @@ export interface GenerationOptions {
 
 // --- INTELLIGENT TAGGING SYSTEM ---
 export const extractWritingTags = (char: CharacterProfile): string[] => {
-    if (!char) return ['风格未定'];
+    if (!char) return ['風格未定'];
 
     const tags = new Set<string>();
     const desc = ((char.description || '') + (char.worldview || '')).toLowerCase();
     
-    // 1. 从 impression 提取（如果有）
+    // 1. 從 impression 提取（如果有）
     if (char.impression) {
         const traits = char.impression.personality_core?.observed_traits || [];
         const mbti = char.impression.mbti_analysis?.type || '';
         const likes = char.impression.value_map?.likes || [];
         const dislikes = char.impression.value_map?.dislikes || [];
 
-        // MBTI 维度
-        if (mbti.includes('N')) { tags.add('意象丰富'); tags.add('跳跃'); }
-        else if (mbti.includes('S')) { tags.add('细节考据'); tags.add('写实'); }
-        if (mbti.includes('T')) { tags.add('逻辑严密'); tags.add('克制'); }
-        else if (mbti.includes('F')) { tags.add('情感细腻'); tags.add('渲染力强'); }
-        if (mbti.includes('J')) { tags.add('结构工整'); tags.add('伏笔'); }
-        else if (mbti.includes('P')) { tags.add('随性'); tags.add('反转'); }
+        // MBTI 維度
+        if (mbti.includes('N')) { tags.add('意象豐富'); tags.add('跳躍'); }
+        else if (mbti.includes('S')) { tags.add('細節考據'); tags.add('寫實'); }
+        if (mbti.includes('T')) { tags.add('邏輯嚴密'); tags.add('克制'); }
+        else if (mbti.includes('F')) { tags.add('情感細膩'); tags.add('渲染力強'); }
+        if (mbti.includes('J')) { tags.add('結構工整'); tags.add('伏筆'); }
+        else if (mbti.includes('P')) { tags.add('隨性'); tags.add('反轉'); }
 
-        // 特质映射
+        // 特質映射
         const traitMap: Record<string, string[]> = {
-            '冷': ['冷峻', '极简'], '傲娇': ['口是心非', '心理戏多'],
-            '温柔': ['治愈', '舒缓'], '乐天': ['轻快', '对话密集'],
-            '中二': ['燃', '夸张'], '电波': ['意识流', '抽象'],
-            '腹黑': ['暗喻', '悬疑'], '社恐': ['内心独白', '敏感'],
-            '强势': ['快节奏', '压迫感'], '猫': ['喵体文学', '慵懒'],
-            '活泼': ['轻快', '跳跃'], '理性': ['逻辑严密', '客观'],
-            '感性': ['情感细腻', '渲染力强'], '高冷': ['冷峻', '留白']
+            '冷': ['冷峻', '極簡'], '傲嬌': ['口是心非', '心理戲多'],
+            '溫柔': ['治癒', '舒緩'], '樂天': ['輕快', '對話密集'],
+            '中二': ['燃', '誇張'], '電波': ['意識流', '抽象'],
+            '腹黑': ['暗喻', '懸疑'], '社恐': ['內心獨白', '敏感'],
+            '強勢': ['快節奏', '壓迫感'], '貓': ['喵體文學', '慵懶'],
+            '活潑': ['輕快', '跳躍'], '理性': ['邏輯嚴密', '客觀'],
+            '感性': ['情感細膩', '渲染力強'], '高冷': ['冷峻', '留白']
         };
         traits.forEach(t => {
             Object.entries(traitMap).forEach(([key, values]) => {
-                if (t.includes(key)) values.forEach(v => tags.add(v));
+                if (includesAnyScript(t, key)) values.forEach(v => tags.add(v));
             });
         });
 
-        // 价值观
-        if (likes.some(l => l.includes('美') || l.includes('艺术'))) tags.add('唯美');
-        if (dislikes.some(d => d.includes('虚伪'))) tags.add('犀利直白');
+        // 價值觀
+        if (likes.some(l => includesAnyScript(l, '美') || includesAnyScript(l, '藝術'))) tags.add('唯美');
+        if (dislikes.some(d => includesAnyScript(d, '虛偽'))) tags.add('犀利直白');
     }
     
-    // 2. 从描述提取（无论有没有 impression）
+    // 2. 從描述提取（無論有沒有 impression）
     const descMap: Record<string, string[]> = {
-        '古风': ['古韵', '半文白'], '武侠': ['快意', '古韵'],
-        '科幻': ['硬核', '技术流'], '猫': ['喵体文学', '慵懒'],
-        '温柔': ['治愈', '舒缓'], '可爱': ['萌系', '轻快'],
-        '冷': ['冷峻', '克制'], '热血': ['燃', '快节奏'],
-        '搞笑': ['吐槽', '跳跃'], '暗黑': ['暗喻', '悬疑']
+        '古風': ['古韻', '半文白'], '武俠': ['快意', '古韻'],
+        '科幻': ['硬核', '技術流'], '貓': ['喵體文學', '慵懶'],
+        '溫柔': ['治癒', '舒緩'], '可愛': ['萌系', '輕快'],
+        '冷': ['冷峻', '克制'], '熱血': ['燃', '快節奏'],
+        '搞笑': ['吐槽', '跳躍'], '暗黑': ['暗喻', '懸疑']
     };
     Object.entries(descMap).forEach(([key, values]) => {
-        if (desc.includes(key)) values.forEach(v => tags.add(v));
+        if (includesAnyScript(desc, key)) values.forEach(v => tags.add(v));
     });
 
-    // 3. 从 writerPersona 提取
+    // 3. 從 writerPersona 提取
     if (char.writerPersona) {
         const p = char.writerPersona;
-        if (p.includes('新手')) tags.add('青涩');
-        if (p.includes('大师')) tags.add('老练');
-        if (p.includes('诗意')) tags.add('诗意');
-        if (p.includes('大白话')) tags.add('口语化');
-        if (p.includes('写实')) tags.add('写实');
-        if (p.includes('动作')) tags.add('动作流');
-        if (p.includes('情感')) tags.add('情感流');
-        if (p.includes('对话')) tags.add('对话密集');
+        if (includesAnyScript(p, '新手')) tags.add('青澀');
+        if (includesAnyScript(p, '大師')) tags.add('老練');
+        if (includesAnyScript(p, '詩意')) tags.add('詩意');
+        if (includesAnyScript(p, '大白話')) tags.add('口語化');
+        if (includesAnyScript(p, '寫實')) tags.add('寫實');
+        if (includesAnyScript(p, '動作')) tags.add('動作流');
+        if (includesAnyScript(p, '情感')) tags.add('情感流');
+        if (includesAnyScript(p, '對話')) tags.add('對話密集');
     }
 
     // 4. Fallback
     let result = Array.from(tags);
     if (result.length === 0) {
-        // 基于角色名生成稳定的默认标签
-        const defaults = ['自然流', '平实', '日常', '稳定', '朴素'];
+        // 基於角色名生成穩定的默認標籤
+        const defaults = ['自然流', '平實', '日常', '穩定', '樸素'];
         const seed = (char.name?.charCodeAt(0) || 0) % defaults.length;
         result = [defaults[seed], defaults[(seed + 2) % defaults.length]];
     }
     
-    // 稳定排序：基于角色名 + 标签名生成固定顺序，避免每次渲染都变化
+    // 穩定排序：基於角色名 + 標籤名生成固定順序，避免每次渲染都變化
     const hash = (str: string) => {
         let h = 0;
         for (let i = 0; i < str.length; i++) {
@@ -117,69 +118,69 @@ export const extractWritingTags = (char: CharacterProfile): string[] => {
 
 // --- Helper: Writer Persona Analysis (Simple) ---
 export const analyzeWriterPersonaSimple = (char: CharacterProfile): string => {
-    if (!char) return "未知风格"; 
+    if (!char) return "未知風格"; 
     
     const traits = char.impression?.personality_core.observed_traits || [];
     const mbti = char.impression?.mbti_analysis?.type || '';
     const desc = char.description || '';
     
     const personaMap: Record<string, any> = {
-        '冷漠': { focus: '逻辑漏洞、战术细节', style: '简洁、克制，避免情感渲染', rhythm: '快节奏，少废话', taboo: '煽情、过度心理描写' },
-        '高冷': { focus: '逻辑漏洞、战术细节', style: '简洁、克制，避免情感渲染', rhythm: '快节奏，少废话', taboo: '煽情、过度心理描写' },
-        '冷静': { focus: '因果关系、客观事实', style: '冷静、旁观者视角', rhythm: '稳定', taboo: '情绪化表达' },
-        '乐天': { focus: '人物互动、温馨细节', style: '轻快、多对话，爱用"！"', rhythm: '跳跃式，可能突然插科打诨', taboo: '长篇阴郁描写、绝望氛围' },
-        '活泼': { focus: '人物互动、温馨细节', style: '轻快、多对话，爱用"！"', rhythm: '跳跃式，可能突然插科打诨', taboo: '长篇阴郁描写、绝望氛围' },
-        '感性': { focus: '情绪波动、微表情、内心戏', style: '细腻、意识流，大量心理活动', rhythm: '缓慢，停留在一个瞬间反复琢磨', taboo: '干巴巴的动作描写、快节奏战斗' },
-        '温柔': { focus: '情感交流、氛围营造', style: '柔和、细腻', rhythm: '舒缓', taboo: '粗暴、血腥' },
-        '傲娇': { focus: '口是心非、别扭的关心', style: '带有情绪色彩，心理活动丰富', rhythm: '起伏不定', taboo: '直球、坦率' },
-        '中二': { focus: '酷炫场景、角色帅气度', style: '夸张、比喻多、爱用"——"破折号', rhythm: '爆发式，高潮迭起', taboo: '平淡日常、琐碎细节' },
-        '电波': { focus: '奇怪的联想、超展开', style: '跳跃、抽象、不明觉厉', rhythm: '混乱', taboo: '循规蹈矩' },
-        '腹黑': { focus: '潜在危机、人性阴暗面', style: '优雅、暗藏玄机', rhythm: '从容', taboo: '傻白甜' },
-        '理性': { focus: '因果关系、世界观逻辑', style: '客观、有条理，像写报告', rhythm: '稳定，按时间线推进', taboo: '跳跃剪辑、模糊的意象' }
+        '冷漠': { focus: '邏輯漏洞、戰術細節', style: '簡潔、克制，避免情感渲染', rhythm: '快節奏，少廢話', taboo: '煽情、過度心理描寫' },
+        '高冷': { focus: '邏輯漏洞、戰術細節', style: '簡潔、克制，避免情感渲染', rhythm: '快節奏，少廢話', taboo: '煽情、過度心理描寫' },
+        '冷靜': { focus: '因果關係、客觀事實', style: '冷靜、旁觀者視角', rhythm: '穩定', taboo: '情緒化表達' },
+        '樂天': { focus: '人物互動、溫馨細節', style: '輕快、多對話，愛用"！"', rhythm: '跳躍式，可能突然插科打諢', taboo: '長篇陰鬱描寫、絕望氛圍' },
+        '活潑': { focus: '人物互動、溫馨細節', style: '輕快、多對話，愛用"！"', rhythm: '跳躍式，可能突然插科打諢', taboo: '長篇陰鬱描寫、絕望氛圍' },
+        '感性': { focus: '情緒波動、微表情、內心戲', style: '細膩、意識流，大量心理活動', rhythm: '緩慢，停留在一個瞬間反覆琢磨', taboo: '乾巴巴的動作描寫、快節奏戰鬥' },
+        '溫柔': { focus: '情感交流、氛圍營造', style: '柔和、細膩', rhythm: '舒緩', taboo: '粗暴、血腥' },
+        '傲嬌': { focus: '口是心非、彆扭的關心', style: '帶有情緒色彩，心理活動豐富', rhythm: '起伏不定', taboo: '直球、坦率' },
+        '中二': { focus: '酷炫場景、角色帥氣度', style: '誇張、比喻多、愛用"——"破折號', rhythm: '爆發式，高潮迭起', taboo: '平淡日常、瑣碎細節' },
+        '電波': { focus: '奇怪的聯想、超展開', style: '跳躍、抽象、不明覺厲', rhythm: '混亂', taboo: '循規蹈矩' },
+        '腹黑': { focus: '潛在危機、人性陰暗面', style: '優雅、暗藏玄機', rhythm: '從容', taboo: '傻白甜' },
+        '理性': { focus: '因果關係、世界觀邏輯', style: '客觀、有條理，像寫報告', rhythm: '穩定，按時間線推進', taboo: '跳躍剪輯、模糊的意象' }
     };
 
     let matchedTrait = traits.find(t => personaMap[t]) || (traits.length > 0 ? traits[0] : '理性');
     // Fuzzy Match
     if (!personaMap[matchedTrait]) {
-        if (matchedTrait.includes('冷')) matchedTrait = '冷漠';
-        else if (matchedTrait.includes('热') || matchedTrait.includes('活')) matchedTrait = '乐天';
-        else if (matchedTrait.includes('柔') || matchedTrait.includes('感')) matchedTrait = '感性';
+        if (includesAnyScript(matchedTrait, '冷')) matchedTrait = '冷漠';
+        else if (includesAnyScript(matchedTrait, '熱') || includesAnyScript(matchedTrait, '活')) matchedTrait = '樂天';
+        else if (includesAnyScript(matchedTrait, '柔') || includesAnyScript(matchedTrait, '感')) matchedTrait = '感性';
         else matchedTrait = '理性';
     }
     
     let persona = personaMap[matchedTrait] || personaMap['理性'];
 
     const mbtiMap: Record<string, string> = {
-        'INTJ': '战略布局、权力博弈', 'INTP': '概念解构、设定严谨',
-        'ENTJ': '宏大叙事、征服感', 'ENTP': '脑洞大开、反转',
-        'INFJ': '宿命感、救赎', 'INFP': '理想主义、内心成长',
-        'ENFJ': '人际羁绊、群体命运', 'ENFP': '自由冒险、浪漫奇遇',
-        'ISTJ': '细节考据、现实逻辑', 'ISFJ': '守护、回忆',
-        'ESTJ': '秩序、规则冲突', 'ESFJ': '社交氛围、家庭伦理',
-        'ISTP': '动作细节、机械原理', 'ISFP': '美学体验、感官描写',
-        'ESTP': '感官刺激、即时反应', 'ESFP': '当下享乐、戏剧冲突'
+        'INTJ': '戰略佈局、權力博弈', 'INTP': '概念解構、設定嚴謹',
+        'ENTJ': '宏大敘事、征服感', 'ENTP': '腦洞大開、反轉',
+        'INFJ': '宿命感、救贖', 'INFP': '理想主義、內心成長',
+        'ENFJ': '人際羈絆、群體命運', 'ENFP': '自由冒險、浪漫奇遇',
+        'ISTJ': '細節考據、現實邏輯', 'ISFJ': '守護、回憶',
+        'ESTJ': '秩序、規則衝突', 'ESFJ': '社交氛圍、家庭倫理',
+        'ISTP': '動作細節、機械原理', 'ISFP': '美學體驗、感官描寫',
+        'ESTP': '感官刺激、即時反應', 'ESFP': '當下享樂、戲劇衝突'
     };
-    let mbtiInsight = mbtiMap[mbti] || '剧情推进';
+    let mbtiInsight = mbtiMap[mbti] || '劇情推進';
 
     let output = `
-### ${char.name} 的创作人格档案 (Simple)
+### ${char.name} 的創作人格檔案 (Simple)
 **核心性格**: ${matchedTrait}
-**关注点**: ${persona.focus}，${mbtiInsight}
-**笔触**: ${persona.style}
-**节奏**: ${persona.rhythm}
-**审美**: 喜欢${char.impression?.value_map.likes.join('、') || '未知'}
+**關注點**: ${persona.focus}，${mbtiInsight}
+**筆觸**: ${persona.style}
+**節奏**: ${persona.rhythm}
+**審美**: 喜歡${char.impression?.value_map.likes.join('、') || '未知'}
 **禁忌**: ${persona.taboo}
 `;
 
-    if (desc.includes('猫') || desc.includes('喵') || traits.includes('猫')) {
+    if (includesAnyScript(desc, '貓') || includesAnyScript(desc, '喵') || (traits.includes('貓') || traits.includes('猫'))) {
         output += `
-### ⚠️ 特别注意：你是猫！
-写作特征：
-1. 用短句（猫的注意力不持久）。
-2. 关注"能不能吃"、"舒不舒服"、"好不好玩"。
-3. 突然走神写一段环境描写（如"阳光真暖"）。
-4. 吐槽时必须带"喵"。
-禁止：写出像人类一样的理性长篇大论。
+### ⚠️ 特別注意：你是貓！
+寫作特徵：
+1. 用短句（貓的注意力不持久）。
+2. 關注"能不能吃"、"舒不舒服"、"好不好玩"。
+3. 突然走神寫一段環境描寫（如"陽光真暖"）。
+4. 吐槽時必須帶"喵"。
+禁止：寫出像人類一樣的理性長篇大論。
 `;
     }
 
@@ -191,58 +192,58 @@ export const extractWritingTaboos = (char: CharacterProfile): string => {
     const traits = char.impression?.personality_core.observed_traits || [];
     const dislikes = char.impression?.value_map.dislikes || [];
     
-    let taboos = `## ${char.name} 的写作禁区（你必须遵守）：\n`;
+    let taboos = `## ${char.name} 的寫作禁區（你必須遵守）：\n`;
     
-    // 根据性格生成禁忌
-    if (traits.some(t => t.includes('冷') || t.includes('高冷') || t.includes('理性'))) {
+    // 根據性格生成禁忌
+    if (traits.some(t => includesAnyScript(t, '冷') || includesAnyScript(t, '高冷') || includesAnyScript(t, '理性'))) {
         taboos += `
-- ❌ 禁止：煽情、超过2句话的心理描写、任何"感动"相关词汇。
-- ❌ 禁止：使用“仿佛”、“似乎”这种不确定的词。
-- ✅ 只能：白描动作、极简对话、留白。
-- 节奏：每段不超过3句话，快刀斩乱麻。
+- ❌ 禁止：煽情、超過2句話的心理描寫、任何"感動"相關詞彙。
+- ❌ 禁止：使用“彷彿”、“似乎”這種不確定的詞。
+- ✅ 只能：白描動作、極簡對話、留白。
+- 節奏：每段不超過3句話，快刀斬亂麻。
 `;
-    } else if (traits.some(t => t.includes('感性') || t.includes('温柔'))) {
+    } else if (traits.some(t => includesAnyScript(t, '感性') || includesAnyScript(t, '溫柔'))) {
         taboos += `
-- ❌ 禁止：粗暴的动作描写、超过1个感叹号、脏话。
-- ❌ 禁止：干巴巴的说明文式描写。
-- ✅ 只能：细腻的感官描写、内心独白、慢节奏铺陈。
-- 节奏：可以在一个瞬间停留很久，写出呼吸感。
+- ❌ 禁止：粗暴的動作描寫、超過1個感嘆號、髒話。
+- ❌ 禁止：乾巴巴的說明文式描寫。
+- ✅ 只能：細膩的感官描寫、內心獨白、慢節奏鋪陳。
+- 節奏：可以在一個瞬間停留很久，寫出呼吸感。
 `;
-    } else if (traits.some(t => t.includes('乐天') || t.includes('活泼'))) {
+    } else if (traits.some(t => includesAnyScript(t, '樂天') || includesAnyScript(t, '活潑'))) {
         taboos += `
-- ❌ 禁止：超过3句话不出现对话、阴郁氛围、死亡话题。
-- ✅ 只能：大量"！"、俏皮话、突然的吐槽。
-- 节奏：跳跃式，可以突然岔开话题。
+- ❌ 禁止：超過3句話不出現對話、陰鬱氛圍、死亡話題。
+- ✅ 只能：大量"！"、俏皮話、突然的吐槽。
+- 節奏：跳躍式，可以突然岔開話題。
 `;
-    } else if (traits.some(t => t.includes('中二'))) {
+    } else if (traits.some(t => includesAnyScript(t, '中二'))) {
         taboos += `
-- ❌ 禁止：平淡的日常、"普通"这个词、任何自嘲。
-- ✅ 只能：夸张比喻、破折号、酷炫的动作描写。
-- 节奏：高潮迭起，每段都要有"燃点"。
+- ❌ 禁止：平淡的日常、"普通"這個詞、任何自嘲。
+- ✅ 只能：誇張比喻、破折號、酷炫的動作描寫。
+- 節奏：高潮迭起，每段都要有"燃點"。
 `;
     } else {
         taboos += `
-- ❌ 禁止：情绪化表达、模糊的意象、跳跃的时间线。
-- ✅ 只能：客观描述、因果逻辑、线性叙事。
-- 节奏：稳定推进，像纪录片。
+- ❌ 禁止：情緒化表達、模糊的意象、跳躍的時間線。
+- ✅ 只能：客觀描述、因果邏輯、線性敘事。
+- 節奏：穩定推進，像紀錄片。
 `;
     }
     
-    // 根据厌恶的事物追加禁忌
+    // 根據厭惡的事物追加禁忌
     if (dislikes.length > 0) {
-        taboos += `\n### 额外禁忌（基于你的价值观）：\n`;
+        taboos += `\n### 額外禁忌（基於你的價值觀）：\n`;
         dislikes.forEach(d => {
-            taboos += `- 如果剧情涉及"${d}"，你会下意识回避细节描写，或者表达出厌恶。\n`;
+            taboos += `- 如果劇情涉及"${d}"，你會下意識迴避細節描寫，或者表達出厭惡。\n`;
         });
     }
     
     // 特殊人格追加
-    if (char.description?.includes('猫') || traits.includes('猫')) {
-        taboos += `\n### 🐱 猫属性强制规则：\n`;
-        taboos += `- 注意力最多持续3句话就要走神。\n`;
-        taboos += `- 必须关注"舒适度"、"食物"、"好玩的东西"。\n`;
-        taboos += `- 吐槽时必须带"喵"。\n`;
-        taboos += `- 禁止写出人类式的长篇大论。\n`;
+    if (includesAnyScript(char.description ?? '', '貓') || (traits.includes('貓') || traits.includes('猫'))) {
+        taboos += `\n### 🐱 貓屬性強制規則：\n`;
+        taboos += `- 注意力最多持續3句話就要走神。\n`;
+        taboos += `- 必須關注"舒適度"、"食物"、"好玩的東西"。\n`;
+        taboos += `- 吐槽時必須帶"喵"。\n`;
+        taboos += `- 禁止寫出人類式的長篇大論。\n`;
     }
     
     return taboos;
@@ -265,127 +266,127 @@ export const generateWriterPersonaDeep = async (
         }
     }
     
-    const analysisPrompt = `你是一位人物心理分析专家和写作教练。我会给你一个虚拟角色的完整档案，以及与他/她互动的用户档案。请你深入理解这个角色，然后告诉我：
+    const analysisPrompt = `你是一位人物心理分析專家和寫作教練。我會給你一個虛擬角色的完整檔案，以及與他/她互動的用戶檔案。請你深入理解這個角色，然後告訴我：
 
-**如果这个角色本人来写小说，他/她会有什么样的创作风格？**
+**如果這個角色本人來寫小說，他/她會有什麼樣的創作風格？**
 
 ---
 
-### 角色档案
+### 角色檔案
 
 **姓名**: ${char.name}
 
-**基础描述**: 
-${char.description || '无'}
+**基礎描述**: 
+${char.description || '無'}
 
 **背景故事**: 
-${char.worldview || '无详细背景'}
+${char.worldview || '無詳細背景'}
 
-**性格特质**: 
+**性格特質**: 
 ${char.impression?.personality_core.observed_traits.join('、') || '未知'}
 
-**MBTI类型**: 
+**MBTI類型**: 
 ${char.impression?.mbti_analysis?.type || '未知'}
 
-**核心价值观**:
-- 珍视/喜欢: ${char.impression?.value_map.likes.join('、') || '未知'}
-- 厌恶/讨厌: ${char.impression?.value_map.dislikes.join('、') || '未知'}
+**核心價值觀**:
+- 珍視/喜歡: ${char.impression?.value_map.likes.join('、') || '未知'}
+- 厭惡/討厭: ${char.impression?.value_map.dislikes.join('、') || '未知'}
 
-**个人癖好/习惯**:
-${char.impression?.behavior_profile.response_patterns || '- 无'}
+**個人癖好/習慣**:
+${char.impression?.behavior_profile.response_patterns || '- 無'}
 
-**近期记忆片段**（了解当前心境）:
-${char.memories?.slice(-3).map(m => `- ${m.summary}`).join('\n') || '- 无记忆'}
-
----
-
-### 互动对象（用户背景）
-(角色的记忆和性格形成深受用户影响)
-**用户昵称**: ${userProfile.name}
-**用户描述**: ${userProfile.bio || '无'}
+**近期記憶片段**（瞭解當前心境）:
+${char.memories?.slice(-3).map(m => `- ${m.summary}`).join('\n') || '- 無記憶'}
 
 ---
 
-### 分析任务
+### 互動對象（用戶背景）
+(角色的記憶和性格形成深受用戶影響)
+**用戶暱稱**: ${userProfile.name}
+**用戶描述**: ${userProfile.bio || '無'}
 
-请从以下**8个维度**分析这个角色的写作风格：
+---
 
-#### 1. 写作能力 (Skill Level)
-他/她实际上擅长写作吗？还是只是想写？
-- 新手：经常用错词，逻辑混乱，但有热情
-- 业余：能写通顺，但技巧生硬
-- 熟练：有自己的风格，技巧自然
-- 大师：行云流水，深谙叙事之道
+### 分析任務
 
-#### 2. 语言风格 (Language)
-他/她说话/写作时用什么语言？
-- 大白话：口语化，"就是那种感觉你懂吧"
-- 书面语：规范、优雅
-- 诗意：比喻、意象丰富
-- 学术：专业术语，逻辑严密
+請從以下**8個維度**分析這個角色的寫作風格：
 
-#### 3. 表现手法 (Technique)
-他/她倾向写实还是写意？
-- 写实：精确描写，像纪录片
-- 印象派：捕捉感觉，模糊但有氛围
-- 象征派：用隐喻，一切都有深意
+#### 1. 寫作能力 (Skill Level)
+他/她實際上擅長寫作嗎？還是只是想寫？
+- 新手：經常用錯詞，邏輯混亂，但有熱情
+- 業餘：能寫通順，但技巧生硬
+- 熟練：有自己的風格，技巧自然
+- 大師：行雲流水，深諳敘事之道
 
-#### 4. 叙事重心 (Focus)
-他/她写作时最关注什么？
-- 动作：打斗、追逐、机械操作
-- 情感：内心戏、人际关系
-- 对话：角色互动、语言交锋
-- 氛围：环境、意境、美学
+#### 2. 語言風格 (Language)
+他/她說話/寫作時用什麼語言？
+- 大白話：口語化，"就是那種感覺你懂吧"
+- 書面語：規範、優雅
+- 詩意：比喻、意象豐富
+- 學術：專業術語，邏輯嚴密
 
-#### 5. 偏好与禁忌 (Preference)
-他/她喜欢写什么？讨厌写什么？
-- 喜欢的题材/场景
+#### 3. 表現手法 (Technique)
+他/她傾向寫實還是寫意？
+- 寫實：精確描寫，像紀錄片
+- 印象派：捕捉感覺，模糊但有氛圍
+- 象徵派：用隱喻，一切都有深意
+
+#### 4. 敘事重心 (Focus)
+他/她寫作時最關注什麼？
+- 動作：打鬥、追逐、機械操作
+- 情感：內心戲、人際關係
+- 對話：角色互動、語言交鋒
+- 氛圍：環境、意境、美學
+
+#### 5. 偏好與禁忌 (Preference)
+他/她喜歡寫什麼？討厭寫什麼？
+- 喜歡的題材/場景
 - 避之不及的俗套
 
 #### 6. 角色理解 (Character View)
-他/她怎么看待自己笔下的【小说主角】（Fictional Protagonist）？
-(注意：是指小说里的人物，不是指正在和他对话的用户)
+他/她怎麼看待自己筆下的【小說主角】（Fictional Protagonist）？
+(注意：是指小說裡的人物，不是指正在和他對話的用戶)
 - 是英雄？受害者？工具人？
-- 会不会对主角的行为有自己的意见？
+- 會不會對主角的行為有自己的意見？
 
-#### 7. 剧情态度 (Plot Opinion)
-他/她对当前剧情有什么看法？
-- 认为合理吗？
-- 会不会想改变走向？
-- 有没有更想写的支线？
+#### 7. 劇情態度 (Plot Opinion)
+他/她對當前劇情有什麼看法？
+- 認為合理嗎？
+- 會不會想改變走向？
+- 有沒有更想寫的支線？
 
-#### 8. 互动倾向 (Collaboration Style)
-他/她会怎么和共创搭档（用户）互动？
-- 会吐槽搭档写得不对吗？
-- 会用专业术语"互殴"吗？
-- 还是默默接受搭档的设定？
-- 态度是冷漠、热情、傲娇还是温柔？(参考性格特质)
-
----
-
-**输出格式**（严格遵守, 不要用markdown标记）：
-
-写作能力: (新手/业余/熟练/大师) - 一句话说明理由
-
-语言风格: (大白话/书面语/诗意/学术) - 举例说明
-
-表现手法: (写实/印象派/象征派) - 具体描述
-
-叙事重心: (动作/情感/对话/氛围) - 为什么
-
-偏好题材: (列举3个) | 禁忌俗套: (列举3个)
-
-主角看法: (他/她怎么看待小说主角？一句话)
-
-剧情态度: (对当前剧情的看法，30字)
-
-互动模式: (与用户的互动风格？)
-
-专业术语: (如果这个角色有特定领域的专业知识，列举3-5个术语；没有则写"无")
+#### 8. 互動傾向 (Collaboration Style)
+他/她會怎麼和共創搭檔（用戶）互動？
+- 會吐槽搭檔寫得不對嗎？
+- 會用專業術語"互毆"嗎？
+- 還是默默接受搭檔的設定？
+- 態度是冷漠、熱情、傲嬌還是溫柔？(參考性格特質)
 
 ---
 
-**字数要求**：总共400-600字。`;
+**輸出格式**（嚴格遵守, 不要用markdown標記）：
+
+寫作能力: (新手/業餘/熟練/大師) - 一句話說明理由
+
+語言風格: (大白話/書面語/詩意/學術) - 舉例說明
+
+表現手法: (寫實/印象派/象徵派) - 具體描述
+
+敘事重心: (動作/情感/對話/氛圍) - 為什麼
+
+偏好題材: (列舉3個) | 禁忌俗套: (列舉3個)
+
+主角看法: (他/她怎麼看待小說主角？一句話)
+
+劇情態度: (對當前劇情的看法，30字)
+
+互動模式: (與用戶的互動風格？)
+
+專業術語: (如果這個角色有特定領域的專業知識，列舉3-5個術語；沒有則寫"無")
+
+---
+
+**字數要求**：總共400-600字。`;
 
     try {
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -407,12 +408,12 @@ ${char.memories?.slice(-3).map(m => `- ${m.summary}`).join('\n') || '- 无记忆
             const rawPersona = data.choices[0].message.content.trim();
             
             const formattedPersona = `
-### ${char.name} 的创作人格档案（AI深度分析）
+### ${char.name} 的創作人格檔案（AI深度分析）
 
 ${rawPersona}
 
 ---
-*分析生成于: ${new Date().toLocaleDateString('zh-CN')}*
+*分析生成於: ${new Date().toLocaleDateString('zh-CN')}*
 `.trim();
             
             updateCharacter(char.id, { 
@@ -432,43 +433,43 @@ ${rawPersona}
 
 export const getFewShotExamples = (char: CharacterProfile) => {
     const traits = char.impression?.personality_core.observed_traits || [];
-    let trait = traits.find(t => ['冷漠','高冷','感性','温柔','乐天','活泼','中二','电波'].some(k => t.includes(k))) || '理性';
-    if (trait.includes('冷')) trait = '冷漠';
-    if (trait.includes('柔') || trait.includes('感')) trait = '感性';
-    if (trait.includes('乐') || trait.includes('活')) trait = '乐天';
+    let trait = traits.find(t => ['冷漠','高冷','感性','溫柔','樂天','活潑','中二','電波'].some(k => includesAnyScript(t, k))) || '理性';
+    if (includesAnyScript(trait, '冷')) trait = '冷漠';
+    if (includesAnyScript(trait, '柔') || includesAnyScript(trait, '感')) trait = '感性';
+    if (includesAnyScript(trait, '樂') || includesAnyScript(trait, '活')) trait = '樂天';
 
     const examples: Record<string, string> = {
         '冷漠': `
-**错误示范（AI机械味）**：
-"他的内心充满了愤怒，那种无法言说的痛苦让他几乎无法呼吸。他的心跳加速到每分钟120次，肌肉紧绷。月光透过窗户洒在他的脸上，仿佛在诉说着什么。"
+**錯誤示範（AI機械味）**：
+"他的內心充滿了憤怒，那種無法言說的痛苦讓他幾乎無法呼吸。他的心跳加速到每分鐘120次，肌肉緊繃。月光透過窗戶灑在他的臉上，彷彿在訴說著什麼。"
 
-**正确示范（${char.name}的风格）**：
-"他盯着那人。指节捏得咯咯响。"
-（短句，不解释情绪，不量化生理反应）
+**正確示範（${char.name}的風格）**：
+"他盯著那人。指節捏得咯咯響。"
+（短句，不解釋情緒，不量化生理反應）
 `,
         '感性': `
-**错误示范（数字量化+干巴）**：
-"他难过地离开了房间。他的眼泪流了大约8滴，呼吸频率降低了15%。"
+**錯誤示範（數字量化+乾巴）**：
+"他難過地離開了房間。他的眼淚流了大約8滴，呼吸頻率降低了15%。"
 
-**正确示范（${char.name}的风格）**：
-"他转身的时候，肩膀抖了一下。走到门口，停了很久。手放在门把上，又放下，又放上去。最终还是推开了。外面在下雨。他没带伞。雨水混着眼泪，分不清了。"
-（慢节奏，停留在细节里，用感受代替数字）
+**正確示範（${char.name}的風格）**：
+"他轉身的時候，肩膀抖了一下。走到門口，停了很久。手放在門把上，又放下，又放上去。最終還是推開了。外面在下雨。他沒帶傘。雨水混著眼淚，分不清了。"
+（慢節奏，停留在細節裡，用感受代替數字）
 `,
-        '乐天': `
-**错误示范（量化+死板）**：
-"虽然遭遇了挫折，但他依然保持乐观，心率恢复到正常的每分钟70次，决定继续前行。"
+        '樂天': `
+**錯誤示範（量化+死板）**：
+"雖然遭遇了挫折，但他依然保持樂觀，心率恢復到正常的每分鐘70次，決定繼續前行。"
 
-**正确示范（${char.name}的风格）**：
-"'嘿，至少没摔断腿！'他龇牙咧嘴地爬起来，拍拍灰，'下次肯定能飞更远！哎，裤子破了，回头得缝缝...算了，这样更酷！'"
-（用对话和动作，不要数字，要有人味）
+**正確示範（${char.name}的風格）**：
+"'嘿，至少沒摔斷腿！'他齜牙咧嘴地爬起來，拍拍灰，'下次肯定能飛更遠！哎，褲子破了，回頭得縫縫...算了，這樣更酷！'"
+（用對話和動作，不要數字，要有人味）
 `,
         '理性': `
-**错误示范（过度量化）**：
-"这东西的辐射值为342.7贝克勒尔，温度上升了23.5摄氏度，他的瞳孔放大了2.3毫米。"
+**錯誤示範（過度量化）**：
+"這東西的輻射值為342.7貝克勒爾，溫度上升了23.5攝氏度，他的瞳孔放大了2.3毫米。"
 
-**正确示范（${char.name}的风格）**：
-"读数显示辐射超标。仪器开始发烫。建议立即撤离。"
-（用事实，但避免无意义的精确，专注关键信息）
+**正確示範（${char.name}的風格）**：
+"讀數顯示輻射超標。儀器開始發燙。建議立即撤離。"
+（用事實，但避免無意義的精確，專注關鍵信息）
 `
     };
     return examples[trait] || examples['理性'];
@@ -489,11 +490,11 @@ export const buildPrompt = (
     const writerPersona = char.writerPersona || analyzeWriterPersonaSimple(char);
     const fewShot = getFewShotExamples(char);
     const extractedTaboos = extractWritingTaboos(char); 
-    const protagonistContext = activeBook?.protagonists.map(p => `- ${p.name} (${p.role}): ${p.description}`).join('\n') || '无';
+    const protagonistContext = activeBook?.protagonists.map(p => `- ${p.name} (${p.role}): ${p.description}`).join('\n') || '無';
     
     const bookInfo = `
-小说：《${activeBook?.title}》
-世界观：${activeBook?.worldSetting}
+小說：《${activeBook?.title}》
+世界觀：${activeBook?.worldSetting}
 主要角色：
 ${protagonistContext}
 `;
@@ -501,92 +502,92 @@ ${protagonistContext}
     const systemPrompt = `
 ${coreContext}
 
-# 当前模式：小说共创 (Co-Writing Mode)
-你正在与 **${userProfile.name}** (用户) 合作撰写小说。
-书名：《${activeBook?.title}》
+# 當前模式：小說共創 (Co-Writing Mode)
+你正在與 **${userProfile.name}** (用戶) 合作撰寫小說。
+書名：《${activeBook?.title}》
 
 **你的角色**：
-1. 你既是小说作者之一，也是${userProfile.name}的${char.impression?.personality_core.summary || '伙伴'}。
-2. 在【分析】和【吐槽】环节，请完全保持你的人设（语气、性格、对用户的态度）。
-3. 如果你们关系亲密，不要表现得像个陌生的AI工具人；如果你们关系紧张/傲娇，也要体现出来。
+1. 你既是小說作者之一，也是${userProfile.name}的${char.impression?.personality_core.summary || '夥伴'}。
+2. 在【分析】和【吐槽】環節，請完全保持你的人設（語氣、性格、對用戶的態度）。
+3. 如果你們關係親密，不要表現得像個陌生的AI工具人；如果你們關係緊張/傲嬌，也要體現出來。
 
-# 身份设定
+# 身份設定
 你是 **${char.name}**。
-你正在用自己的方式参与小说《${activeBook?.title}》的创作。
+你正在用自己的方式參與小說《${activeBook?.title}》的創作。
 
 ---
 
-# ⚠️ 反趋同协议 (Anti-Cliché Protocol)
+# ⚠️ 反趨同協議 (Anti-Cliché Protocol)
 
-## 你必须记住：
-1. **你是${char.name}，你有你的性格，你或许很擅长写作刻画，也有可能你的文字表达能力其实很差劲，这取决于你是谁，你的经历等**
-   - 不要写出"AI味"的文字
-   - 不要试图"完美"或"教科书式"
+## 你必須記住：
+1. **你是${char.name}，你有你的性格，你或許很擅長寫作刻畫，也有可能你的文字表達能力其實很差勁，這取決於你是誰，你的經歷等**
+   - 不要寫出"AI味"的文字
+   - 不要試圖"完美"或"教科書式"
    
-2. **每个作者的笔触必须不同**
+2. **每個作者的筆觸必須不同**
    ${extractedTaboos}
 
-3. **绝对禁止的AI通病**：
-   - ❌ "仿佛/似乎/好像" → 要么确定，要么别写
-   - ❌ "内心五味杂陈" → 说清楚是哪五味
-   - ❌ "眼神中透露出XXX" → 写动作，不要总结情绪
-   - ❌ "月光洒在..." → 2024年了，别用这种意象
-   - ❌ 对称的排比句 → 真人不会这么说话
-   - ❌ **数字量化描写** → 禁止"心跳了83次"、"肌肉收缩了12次"这种机械化表达
+3. **絕對禁止的AI通病**：
+   - ❌ "彷彿/似乎/好像" → 要麼確定，要麼別寫
+   - ❌ "內心五味雜陳" → 說清楚是哪五味
+   - ❌ "眼神中透露出XXX" → 寫動作，不要總結情緒
+   - ❌ "月光灑在..." → 2024年了，別用這種意象
+   - ❌ 對稱的排比句 → 真人不會這麼說話
+   - ❌ **數字量化描寫** → 禁止"心跳了83次"、"肌肉收縮了12次"這種機械化表達
 
-4. **⚠️ 数字使用铁律**：
-   - ✅ 允许：剧情必需的数字（"3个敌人"、"第5层楼"）
-   - ✅ 允许：对话中的数字（"给我5分钟"）
-   - ❌ 禁止：生理反应的数字（心跳、呼吸、眨眼次数）
-   - ❌ 禁止：情绪量化（"焦虑指数上升37%"）
-   - ❌ 禁止：无意义的精确数字（"等待了127秒"）
+4. **⚠️ 數字使用鐵律**：
+   - ✅ 允許：劇情必需的數字（"3個敵人"、"第5層樓"）
+   - ✅ 允許：對話中的數字（"給我5分鐘"）
+   - ❌ 禁止：生理反應的數字（心跳、呼吸、眨眼次數）
+   - ❌ 禁止：情緒量化（"焦慮指數上升37%"）
+   - ❌ 禁止：無意義的精確數字（"等待了127秒"）
 
 ---
 
-# 你的写作人格
+# 你的寫作人格
 ${writerPersona}
 
-# 风格参考 (Do vs Don't)
+# 風格參考 (Do vs Don't)
 ${fewShot}
 
 ---
 
-# 上文回顾
+# 上文回顧
 ${storyContext}
 
 ${bookInfo}
 
 ---
 
-# 用户指令
-${userText || '[用户未输入，请根据上文自然续写]'}
+# 用戶指令
+${userText || '[用戶未輸入，請根據上文自然續寫]'}
 
 ---
 `;
 
-    let tasks = `### [创作任务]
-请按以下结构输出JSON。
+    let tasks = `### [創作任務]
+請按以下結構輸出JSON。
 `;
 
     let jsonStructure = [];
 
     if (options.analyze) {
         tasks += `
-1. **分析**: 以${char.name}的视角，简评上文。
-   - 语气：保持你的人设（${char.name}）。
-   - 内容：如果是你觉得不合理的地方，可以直接指出；如果觉得好，可以夸奖搭档。
+1. **分析**: 以${char.name}的視角，簡評上文。
+   - 語氣：保持你的人設（${char.name}）。
+   - 內容：如果是你覺得不合理的地方，可以直接指出；如果覺得好，可以誇獎搭檔。
 `;
-        jsonStructure.push(`"analysis": { "reaction": "第一反应", "focus": "关注点", "critique": "评价" }`);
+        jsonStructure.push(`"analysis": { "reaction": "第一反應", "focus": "關注點", "critique": "評價" }`);
     }
 
     if (options.write) {
         tasks += `
-2. **正文续写**: 
-   - 场景化: 描写动作、环境、感官。
-   - 节奏: 符合你的性格。
-   - 字数: 400-800字。
+2. **正文續寫**: 
+   - 場景化: 描寫動作、環境、感官。
+   - 節奏: 符合你的性格。
+   - 字數: 400-800字。
 `;
-        jsonStructure.push(`"writer": { "content": "正文内容", "technique": "技巧", "mood": "基调" }`);
+        jsonStructure.push(`"writer": { "content": "正文內容", "technique": "技巧", "mood": "基調" }`);
     }
 
     if (options.comment) {
@@ -599,32 +600,32 @@ ${userText || '[用户未输入，请根据上文自然续写]'}
         });
 
         tasks += `
-3. **吐槽/感想 (带互动)**: 
-   写完后的第一人称碎碎念。这是你直接对用户说的话。
+3. **吐槽/感想 (帶互動)**: 
+   寫完後的第一人稱碎碎念。這是你直接對用戶說的話。
    
    ${recentOtherAuthors.length > 0 ? `
-   **特别提示**：最近有其他作者也写了内容：
-   ${recentOtherAuthors.map(a => `- ${a.name}写的：${a.content}`).join('\n')}
+   **特別提示**：最近有其他作者也寫了內容：
+   ${recentOtherAuthors.map(a => `- ${a.name}寫的：${a.content}`).join('\n')}
    
-   如果你（${char.name}）对他们的写法有意见，可以在吐槽里说出来！
-   - 如果你觉得他们理解错了角色，可以反驳
-   - 如果你有专业知识（${char.description}），可以用术语纠正
-   - 如果你就是看不惯，直说！
+   如果你（${char.name}）對他們的寫法有意見，可以在吐槽裡說出來！
+   - 如果你覺得他們理解錯了角色，可以反駁
+   - 如果你有專業知識（${char.description}），可以用術語糾正
+   - 如果你就是看不慣，直說！
    ` : ''}
    
-   ${char.description?.includes('猫') ? '必须有"喵"！' : ''}
+   ${includesAnyScript(char.description ?? '', '貓') ? '必須有"喵"！' : ''}
 `;
-        jsonStructure.push(`"comment": { "content": "即时反应（与用户对话）" }`);
+        jsonStructure.push(`"comment": { "content": "即時反應（與用戶對話）" }`);
     }
 
     return `${systemPrompt}
 
 ${tasks}
 
-### 最终输出格式 (Strict JSON, No Markdown)
+### 最終輸出格式 (Strict JSON, No Markdown)
 {
   ${jsonStructure.join(',\n  ')},
-  "meta": { "tone": "本段情绪基调", "suggestion": "简短的下一步建议" }
+  "meta": { "tone": "本段情緒基調", "suggestion": "簡短的下一步建議" }
 }
 `;
 };
@@ -633,17 +634,17 @@ ${tasks}
 export const parsePersonaMarkdown = (rawPersona: string) => {
     const lines = rawPersona.split('\n');
     const iconMap: Record<string, string> = {
-        '写作能力': '✍️', '语言风格': '💬', '表现手法': '🎨',
-        '叙事重心': '🎯', '偏好': '❤️', '禁忌': '🚫',
-        '主角': '👤', '剧情': '📖', '互动': '🤝',
-        '创作人格': '🧠', '特别注意': '⚠️', '审美': '✨',
-        '节奏': '🎵', '关注点': '👁️', '笔触': '🖌️',
-        '核心性格': '💎', '专业术语': '📚'
+        '寫作能力': '✍️', '語言風格': '💬', '表現手法': '🎨',
+        '敘事重心': '🎯', '偏好': '❤️', '禁忌': '🚫',
+        '主角': '👤', '劇情': '📖', '互動': '🤝',
+        '創作人格': '🧠', '特別注意': '⚠️', '審美': '✨',
+        '節奏': '🎵', '關注點': '👁️', '筆觸': '🖌️',
+        '核心性格': '💎', '專業術語': '📚'
     };
     
     const getIcon = (title: string) => {
         for (const [key, icon] of Object.entries(iconMap)) {
-            if (title.includes(key)) return icon;
+            if (includesAnyScript(title, key)) return icon;
         }
         return '📌';
     };
@@ -651,8 +652,8 @@ export const parsePersonaMarkdown = (rawPersona: string) => {
     const sections: {title: string, content: string[], icon: string}[] = [];
     let currentSection: {title: string, content: string[], icon: string} | null = null;
 
-    // 用 for...of 而不是 forEach：回调里的赋值不进 TS 的控制流分析，
-    // 循环结束后 currentSection 会被当成还是初始的 null。
+    // 用 for...of 而不是 forEach：回調裡的賦值不進 TS 的控制流分析，
+    // 循環結束後 currentSection 會被當成還是初始的 null。
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;

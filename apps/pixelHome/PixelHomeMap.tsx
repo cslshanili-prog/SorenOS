@@ -1,9 +1,9 @@
 /**
- * Pixel Home — 7房间俯瞰地图
+ * Pixel Home — 7房間俯瞰地圖
  *
- * 星露谷风格俯视平面图。
- * 客厅最大，用户房和个人房相邻。
- * 角色小人在当前房间随机走动。
+ * 星露穀風格俯視平面圖。
+ * 客廳最大，用戶房和個人房相鄰。
+ * 角色小人在當前房間隨機走動。
  */
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
@@ -19,26 +19,26 @@ interface Props {
   charSprite?: string;
   userName: string;
   onEnterRoom: (roomId: MemoryRoom) => void;
-  /** 修改全局主题色（外围墙体/背景）。父层负责落盘。 */
+  /** 修改全局主題色（外圍牆體/背景）。父層負責落盤。 */
   onUpdateTheme?: (theme: PixelHomeTheme) => void;
 }
 
-// 重新排布：客厅大，用户房和个人房相邻
-// 布局 (单位: 格子, 每格 CELL px)
+// 重新排布：客廳大，用戶房和個人房相鄰
+// 佈局 (單位: 格子, 每格 CELL px)
 //
 //   [  露台/窗台 10x3  ]
-//   [卧室 5x5][书房 5x5]
-//   [    客厅  10x6    ]  ← 最大
-//   [个人房5x4][用户房5x4]
-//   [  阁楼  4x4  ]
+//   [臥室 5x5][書房 5x5]
+//   [    客廳  10x6    ]  ← 最大
+//   [個人房5x4][用戶房5x4]
+//   [  閣樓  4x4  ]
 //
 const FLOOR_PLAN: { roomId: MemoryRoom; x: number; y: number; w: number; h: number }[] = [
   { roomId: 'windowsill',  x: 0,  y: 0,  w: 10, h: 3 },
   { roomId: 'bedroom',     x: 0,  y: 4,  w: 5,  h: 5 },
   { roomId: 'study',       x: 5,  y: 4,  w: 5,  h: 5 },
-  { roomId: 'living_room', x: 0,  y: 10, w: 10, h: 6 },  // 大客厅
+  { roomId: 'living_room', x: 0,  y: 10, w: 10, h: 6 },  // 大客廳
   { roomId: 'self_room',   x: 0,  y: 17, w: 5,  h: 4 },
-  { roomId: 'user_room',   x: 5,  y: 17, w: 5,  h: 4 },  // 挨着个人房
+  { roomId: 'user_room',   x: 5,  y: 17, w: 5,  h: 4 },  // 挨著個人房
   { roomId: 'attic',       x: 3,  y: 22, w: 4,  h: 4 },
 ];
 
@@ -59,7 +59,7 @@ const ROOM_STYLE: Record<MemoryRoom, {
   windowsill:  { wallFace: '#a8bfb0', wallFaceDark: '#98af9f', floor: '#92a89c', floorAlt: '#879d91', floorType: 'stone' },
 };
 
-// 以下三色可被 homeState.theme 覆盖；留作回退默认
+// 以下三色可被 homeState.theme 覆蓋；留作回退默認
 const WALL_BORDER_FALLBACK = DEFAULT_HOME_THEME.wallBorder;
 const WALL_BORDER_LIGHT_FALLBACK = DEFAULT_HOME_THEME.wallBorderLight;
 const BG_COLOR_FALLBACK = DEFAULT_HOME_THEME.bgColor;
@@ -121,7 +121,7 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
 
     const targetTimer = setInterval(pickTarget, 5000 + Math.random() * 4000);
 
-    // 每隔 12~20 秒有概率换个房间；避免永远只待在客厅
+    // 每隔 12~20 秒有概率換個房間；避免永遠只待在客廳
     const roomSwitchTimer = setInterval(() => {
       if (Math.random() < 0.55) {
         const nextIdx = Math.floor(Math.random() * FLOOR_PLAN.length);
@@ -146,11 +146,11 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
     return () => el.removeEventListener('wheel', handler);
   }, []);
 
-  // 统一用 touch 事件处理移动端，pointer 事件只处理桌面端鼠标
+  // 統一用 touch 事件處理移動端，pointer 事件只處理桌面端鼠標
   const isPinching = useRef(false);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.pointerType === 'touch') return; // 触摸交由 touch 事件处理
+    if (e.pointerType === 'touch') return; // 觸摸交由 touch 事件處理
     if ((e.target as HTMLElement).closest('[data-room]')) return;
     isDragging.current = true;
     dragStart.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
@@ -167,7 +167,7 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      // 双指 → 缩放（绝对比例，避免跳变）
+      // 雙指 → 縮放（絕對比例，避免跳變）
       isPinching.current = true;
       isDragging.current = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -204,19 +204,19 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
   const totalW = Math.max(...FLOOR_PLAN.map(r => r.x + r.w)) * CELL + WALL_THICK * 2 + 20;
   const totalH = Math.max(...FLOOR_PLAN.map(r => r.y + r.h)) * CELL + WALL_THICK * 2 + 20;
 
-  // 初始化：自动缩放适配屏幕宽度
+  // 初始化：自動縮放適配屏幕寬度
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const cw = el.clientWidth;
     const ch = el.clientHeight;
-    // 以宽度为主，同时确保高度不超出
+    // 以寬度為主，同時確保高度不超出
     const fitScale = Math.min(cw / totalW, ch / totalH) * 0.95;
     setScale(Math.max(0.4, Math.min(3, fitScale)));
     setOffset({ x: 0, y: 0 });
   }, []);
 
-  // 获取房间显示名
+  // 獲取房間顯示名
   const getRoomName = (roomId: MemoryRoom) => {
     if (roomId === 'user_room') return `${userName}的房`;
     return ROOM_META[roomId].name;
@@ -240,30 +240,30 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 主题面板按钮（可修改外围墙体 + 画布背景色）——只在有回调时出现 */}
+      {/* 主題面板按鈕（可修改外圍牆體 + 畫布背景色）——只在有回調時出現 */}
       {onUpdateTheme && (
         <>
           <button onClick={e => { e.stopPropagation(); setThemePanelOpen(v => !v); }}
             onPointerDown={e => e.stopPropagation()}
             className="absolute top-2 right-2 z-50 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white/90 bg-slate-800/80 hover:bg-slate-700 active:scale-95 border border-slate-600/50">
-            主题
+            主題
           </button>
           {themePanelOpen && (
             <div className="absolute top-12 right-2 z-50 w-52 p-3 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl space-y-2 text-[10px]"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <span className="text-slate-200 font-bold text-[11px]">家园主题</span>
+                <span className="text-slate-200 font-bold text-[11px]">家園主題</span>
                 <button onClick={() => setThemePanelOpen(false)}
                   className="text-slate-500 hover:text-slate-200">×</button>
               </div>
-              <ThemeRow label="外围墙体" value={WALL_BORDER} onChange={v => updateTheme({ wallBorder: v })} />
-              <ThemeRow label="墙体高光" value={WALL_BORDER_LIGHT} onChange={v => updateTheme({ wallBorderLight: v })} />
-              <ThemeRow label="画布背景" value={BG_COLOR} onChange={v => updateTheme({ bgColor: v })} />
-              <ThemeRow label="楼梯亮条" value={CORRIDOR_STEP} onChange={v => updateTheme({ corridorStep: v })} />
+              <ThemeRow label="外圍牆體" value={WALL_BORDER} onChange={v => updateTheme({ wallBorder: v })} />
+              <ThemeRow label="牆體高光" value={WALL_BORDER_LIGHT} onChange={v => updateTheme({ wallBorderLight: v })} />
+              <ThemeRow label="畫布背景" value={BG_COLOR} onChange={v => updateTheme({ bgColor: v })} />
+              <ThemeRow label="樓梯亮條" value={CORRIDOR_STEP} onChange={v => updateTheme({ corridorStep: v })} />
               <button onClick={() => updateTheme(DEFAULT_HOME_THEME)}
                 className="w-full py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-300">
-                还原默认
+                還原默認
               </button>
             </div>
           )}
@@ -288,13 +288,13 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
             return (
               <button key={roomId} data-room={roomId} onClick={() => onEnterRoom(roomId)}
                 className="absolute group" style={{ left: px, top: py, width: pw, height: ph }}>
-                {/* 墙壁边框 */}
+                {/* 牆壁邊框 */}
                 <div className="absolute rounded-sm" style={{ inset: -WALL_THICK, backgroundColor: WALL_BORDER }}>
                   <div className="absolute inset-x-0 top-0 rounded-t-sm" style={{ height: 2, backgroundColor: WALL_BORDER_LIGHT }} />
                   <div className="absolute inset-y-0 left-0 rounded-l-sm" style={{ width: 2, backgroundColor: WALL_BORDER_LIGHT }} />
                 </div>
 
-                {/* 墙面带 */}
+                {/* 牆面帶 */}
                 <div className="absolute inset-x-0 top-0 overflow-hidden" style={{ height: wallH }}>
                   {(() => {
                     const d = decodeColorField(roomLayout?.wallColor);
@@ -383,8 +383,8 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
                   })()}
                 </div>
 
-                {/* 家具（仅用户放置的素材）—— 包一层 overflow:hidden，这样大家具的
-                   角落溢出部分会被裁掉，而不是溢进隔壁房间；也不影响外层墙体边框。 */}
+                {/* 傢俱（僅用戶放置的素材）—— 包一層 overflow:hidden，這樣大傢俱的
+                   角落溢出部分會被裁掉，而不是溢進隔壁房間；也不影響外層牆體邊框。 */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {roomLayout?.furniture.map(f => {
                   if (!f.assetId) return null;
@@ -392,17 +392,17 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
                   if (!asset) return null;
                   const imgSrc = asset.pixelImage;
                   const furSize = Math.round(Math.min(pw, ph) * 0.22 * f.scale);
-                  // 软 clamp：中心点必须在房间内（0..pw, 0..ph），允许最多半个家具宽度溢出；
-                  // 溢出部分由外层 overflow-hidden 裁掉。原来的硬 clamp (furSize/2, pw-furSize/2)
-                  // 会把角落大家具整体偏移（"右下角家具在全景里整体上移"），完全没 clamp 则
-                  // 有用户把小家具 f.y 置到 >100 的位置时会画在"房子外面"，肉眼看像楼梯/家具
-                  // "跑出房子"。软 clamp 两害相权取其轻。
+                  // 軟 clamp：中心點必須在房間內（0..pw, 0..ph），允許最多半個傢俱寬度溢出；
+                  // 溢出部分由外層 overflow-hidden 裁掉。原來的硬 clamp (furSize/2, pw-furSize/2)
+                  // 會把角落大傢俱整體偏移（"右下角傢俱在全景裡整體上移"），完全沒 clamp 則
+                  // 有用戶把小傢俱 f.y 置到 >100 的位置時會畫在"房子外面"，肉眼看像樓梯/傢俱
+                  // "跑出房子"。軟 clamp 兩害相權取其輕。
                   const cxMap = Math.max(0, Math.min(pw, (f.x / 100) * pw));
                   const cyMap = Math.max(0, Math.min(ph, (f.y / 100) * ph));
                   const posX = Math.round(cxMap - furSize / 2);
                   const posY = Math.round(cyMap - furSize / 2);
                   // 和 PixelRoomEditor 一致：按中心 y 分桶
-                  // （避免墙上大家具因视觉底边虚高而压住角色头）
+                  // （避免牆上大傢俱因視覺底邊虛高而壓住角色頭）
                   const autoZ = Math.round(f.y * 4) + 20;
                   const zIdx = f.zOrder === 'back'
                     ? 2 + Math.round(autoZ / 200)
@@ -451,7 +451,7 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
                   </div>
                 )}
 
-                {/* 房间名 */}
+                {/* 房間名 */}
                 <div className="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none z-50">
                   <span className="text-[7px] font-bold px-1.5 py-0.5 rounded bg-black/60 text-white/90 whitespace-nowrap">
                     {getRoomName(roomId)}
@@ -462,8 +462,8 @@ const PixelHomeMap: React.FC<Props> = ({ homeState, assets, charSprite, userName
             );
           })}
 
-          {/* 走廊/楼梯：连接相邻房间之间 1 格空隙。y 坐标要跟 FLOOR_PLAN 同步：
-               窗台 0..2 | 间隙 3 | 卧室/书房 4..8 | 间隙 9 | 客厅 10..15 | 间隙 16 | 个人/用户 17..20 | 间隙 21 | 阁楼 22..25 */}
+          {/* 走廊/樓梯：連接相鄰房間之間 1 格空隙。y 座標要跟 FLOOR_PLAN 同步：
+               窗台 0..2 | 間隙 3 | 臥室/書房 4..8 | 間隙 9 | 客廳 10..15 | 間隙 16 | 個人/用戶 17..20 | 間隙 21 | 閣樓 22..25 */}
           <Corridor x={4} y1={3}  y2={4}  border={WALL_BORDER} step={CORRIDOR_STEP} />
           <Corridor x={4} y1={9}  y2={10} border={WALL_BORDER} step={CORRIDOR_STEP} />
           <Corridor x={4} y1={16} y2={17} border={WALL_BORDER} step={CORRIDOR_STEP} />

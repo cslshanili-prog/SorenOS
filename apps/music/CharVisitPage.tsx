@@ -1,14 +1,14 @@
 /**
- * Char 拜访页 — 访问某个角色的网易云风格"小号主页"
+ * Char 拜訪頁 — 訪問某個角色的網易雲風格"小號主頁"
  *
- * 思路：完全仿网易云个人主页排版，但数据全来自本地 CharMusicProfile。
- * 用户体验上就像 "去别人主页逛一圈"，不是 "切换账号"。
+ * 思路：完全仿網易雲個人主頁排版，但數據全來自本地 CharMusicProfile。
+ * 用戶體驗上就像 "去別人主頁逛一圈"，不是 "切換帳號"。
  *
  * 交互：
- * - 未初始化 → 显示"敲敲门"按钮，点一下调 LLM 生成 musicProfile。
- * - 已初始化 → 展示 bio / 曲风徽章 / 偏爱艺人 / 歌单 / 最近在听 / 评论。
- * - 点歌单进详情（若歌单空，可以一键让 char 搜歌填充）。
- * - 点任一首歌 → 用全局 MusicContext 播放 (沿用 user 的 cookie / 配额)。
+ * - 未初始化 → 顯示"敲敲門"按鈕，點一下調 LLM 生成 musicProfile。
+ * - 已初始化 → 展示 bio / 曲風徽章 / 偏愛藝人 / 歌單 / 最近在聽 / 評論。
+ * - 點歌單進詳情（若歌單空，可以一鍵讓 char 搜歌填充）。
+ * - 點任一首歌 → 用全局 MusicContext 播放 (沿用 user 的 cookie / 配額)。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
@@ -71,7 +71,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
   const [expandedPl, setExpandedPl] = useState<string | null>(null);
   const [fillingPl, setFillingPl] = useState<string | null>(null);
 
-  // 选择模式：长按或点「选择」进入，可勾选多首歌一起删
+  // 選擇模式：長按或點「選擇」進入，可勾選多首歌一起刪
   const [selectingPl, setSelectingPl] = useState<string | null>(null);
   const [selectedSongIds, setSelectedSongIds] = useState<Set<number>>(new Set());
 
@@ -92,7 +92,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     });
   };
 
-  // 长按检测：按住约 0.5s 触发；手指/鼠标移动超过阈值视为滚动，取消长按
+  // 長按檢測：按住約 0.5s 觸發；手指/鼠標移動超過閾值視為滾動，取消長按
   const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lpFired = useRef(false);
   const lpStart = useRef<{ x: number; y: number } | null>(null);
@@ -100,13 +100,13 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; }
     lpStart.current = null;
   };
-  // 组件卸载时清掉可能还挂着的长按定时器，别让 setTimeout 落到已卸载的组件上
+  // 組件卸載時清掉可能還掛著的長按定時器，別讓 setTimeout 落到已卸載的組件上
   useEffect(() => () => { if (lpTimer.current) clearTimeout(lpTimer.current); }, []);
   const songPressHandlers = (pl: CharPlaylist, song: CharPlaylistSong) => ({
     onPointerDown: (e: React.PointerEvent) => {
-      lpFired.current = false; // 每次按下先清零：上次长按若没收到 click，别让 true 卡住吞掉这次点击
-      clearLongPress();        // 清掉上一次残留的定时器和起点坐标
-      if (selectingPl) return; // 已在选择模式，不需要长按
+      lpFired.current = false; // 每次按下先清零：上次長按若沒收到 click，別讓 true 卡住吞掉這次點擊
+      clearLongPress();        // 清掉上一次殘留的定時器和起點座標
+      if (selectingPl) return; // 已在選擇模式，不需要長按
       lpStart.current = { x: e.clientX, y: e.clientY };
       lpTimer.current = setTimeout(() => {
         lpFired.current = true;
@@ -122,14 +122,14 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     onPointerUp: clearLongPress,
     onPointerLeave: clearLongPress,
     onPointerCancel: clearLongPress,
-    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); }, // 移动端长按不弹系统菜单
+    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); }, // 移動端長按不彈系統菜單
   });
 
   const profile = char?.musicProfile;
   const initialized = !!(char && CharMusicPersona.isInitialized(char));
 
-  // 拜访时刷新 char 此刻在听的歌（纯本地计算，零网络）
-  // 只在 char.id / initialized 变化时刷新一次，避免每秒 tick
+  // 拜訪時刷新 char 此刻在聽的歌（純本地計算，零網絡）
+  // 只在 char.id / initialized 變化時刷新一次，避免每秒 tick
   useEffect(() => {
     if (!char || !initialized || !char.musicProfile) return;
     let cancelled = false;
@@ -162,30 +162,30 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     try {
       const newProfile = await CharMusicPersona.initialize(char, userProfile, apiConfig);
       updateCharacter(char.id, { musicProfile: newProfile });
-      addToast(`${char.name} 的音乐角落已开启`, 'success');
+      addToast(`${char.name} 的音樂角落已開啟`, 'success');
       trackEvent('生成角色的音乐人格');
     } catch (e: any) {
-      addToast(`初始化失败：${e.message || '未知错误'}`, 'error');
+      addToast(`初始化失敗：${e.message || '未知錯誤'}`, 'error');
     } finally {
       setInitializing(false);
     }
   }, [char, initializing, userProfile, apiConfig, updateCharacter, addToast]);
 
-  /** 清掉旧档案重新走一次 LLM —— 给旧版保底生成的"告五人"账号用。 */
+  /** 清掉舊檔案重新走一次 LLM —— 給舊版保底生成的"告五人"帳號用。 */
   const doRegenerate = useCallback(async () => {
     if (!char || initializing) return;
     const ok = typeof window !== 'undefined'
-      ? window.confirm(`清空 ${char.name} 现有的音乐人格，重新让 LLM 生成？\n（歌单里已填的歌也会丢）`)
+      ? window.confirm(`清空 ${char.name} 現有的音樂人格，重新讓 LLM 生成？\n（歌單裡已填的歌也會丟）`)
       : true;
     if (!ok) return;
     setInitializing(true);
     try {
       const newProfile = await CharMusicPersona.initialize(char, userProfile, apiConfig);
       updateCharacter(char.id, { musicProfile: newProfile });
-      addToast(`${char.name} 的音乐人格已重新生成`, 'success');
+      addToast(`${char.name} 的音樂人格已重新生成`, 'success');
       trackEvent('重新生成角色的音乐人格');
     } catch (e: any) {
-      addToast(`重新生成失败：${e.message || '未知错误'}`, 'error');
+      addToast(`重新生成失敗：${e.message || '未知錯誤'}`, 'error');
     } finally {
       setInitializing(false);
     }
@@ -193,15 +193,15 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
 
   const togglePlaylist = (plId: string) => {
     setExpandedPl(prev => (prev === plId ? null : plId));
-    exitSelectMode(); // 收起或切到别的歌单时，退出选择模式
+    exitSelectMode(); // 收起或切到別的歌單時，退出選擇模式
   };
 
-  /** 把当前选中的歌从歌单里一起删掉（弹一次确认） */
+  /** 把當前選中的歌從歌單裡一起刪掉（彈一次確認） */
   const deleteSelected = (pl: CharPlaylist) => {
     if (!char || !profile || selectedSongIds.size === 0) return;
     const n = selectedSongIds.size;
     const ok = typeof window !== 'undefined'
-      ? window.confirm(`从《${pl.title}》移除选中的 ${n} 首歌？`)
+      ? window.confirm(`從《${pl.title}》移除選中的 ${n} 首歌？`)
       : true;
     if (!ok) return;
     const nextPlaylists = removeSongsFromPlaylist(profile.playlists, pl.id, selectedSongIds, Date.now());
@@ -213,26 +213,26 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
     exitSelectMode();
   };
 
-  /** 让 char 用偏爱艺人作为关键词去搜歌 → 自动填充空歌单
-   *  关键：每个歌单走一组**不同**的关键词，否则三个歌单会搜出一模一样的歌。
-   *  - 用歌单自己的 title / mood 作为主关键词（区别度最高）
-   *  - 再按歌单 index 旋转 signatureArtists 取一段，保证不同歌单艺人不重叠
-   *  - 还要去掉本角色其它歌单已经有的歌，避免跨歌单撞曲
+  /** 讓 char 用偏愛藝人作為關鍵詞去搜歌 → 自動填充空歌單
+   *  關鍵：每個歌單走一組**不同**的關鍵詞，否則三個歌單會搜出一模一樣的歌。
+   *  - 用歌單自己的 title / mood 作為主關鍵詞（區別度最高）
+   *  - 再按歌單 index 旋轉 signatureArtists 取一段，保證不同歌單藝人不重疊
+   *  - 還要去掉本角色其它歌單已經有的歌，避免跨歌單撞曲
    */
   const fillPlaylistFromTaste = useCallback(async (pl: CharPlaylist) => {
     if (!char || !profile || fillingPl) return;
     setFillingPl(pl.id);
     try {
       const moodKeywordMap: Record<string, string> = {
-        happy: '快乐', sad: '悲伤', romantic: '浪漫', angry: '发泄',
-        chill: '放松', epic: '史诗', nostalgic: '怀旧', dreamy: '氛围',
+        happy: '快樂', sad: '悲傷', romantic: '浪漫', angry: '發洩',
+        chill: '放鬆', epic: '史詩', nostalgic: '懷舊', dreamy: '氛圍',
       };
 
       const plIndex = Math.max(0, profile.playlists.findIndex(p => p.id === pl.id));
       const allArtists = profile.signatureArtists.map(a => a.name).filter(Boolean);
       const allGenres = profile.genreTags.filter(Boolean);
 
-      // 按歌单序号轮换艺人/曲风，让 A/B/C 三个歌单永远拿到不同切片
+      // 按歌單序號輪換藝人/曲風，讓 A/B/C 三個歌單永遠拿到不同切片
       const rotate = (arr: string[], offset: number, take: number): string[] => {
         if (arr.length === 0) return [];
         const out: string[] = [];
@@ -243,24 +243,24 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
       };
 
       const keywords: string[] = [];
-      // 1) 歌单自己的 title 直接当关键词 — 这是最能拉开差异的一项
+      // 1) 歌單自己的 title 直接當關鍵詞 — 這是最能拉開差異的一項
       const cleanTitle = (pl.title || '').trim();
-      if (cleanTitle && !/^歌单\s*\d*$/.test(cleanTitle)) keywords.push(cleanTitle);
-      // 2) mood → 中文搜索词
+      if (cleanTitle && !/^歌[单單]\s*\d*$/.test(cleanTitle)) keywords.push(cleanTitle);
+      // 2) mood → 中文搜索詞
       if (pl.mood && moodKeywordMap[pl.mood]) keywords.push(moodKeywordMap[pl.mood]);
-      // 3) 旋转后的艺人（每歌单 2 个，错开起点）
+      // 3) 旋轉後的藝人（每歌單 2 個，錯開起點）
       keywords.push(...rotate(allArtists, plIndex * 2, 2));
-      // 4) 没艺人就用旋转后的曲风兜底
+      // 4) 沒藝人就用旋轉後的曲風兜底
       if (allArtists.length === 0) keywords.push(...rotate(allGenres, plIndex, 2));
 
       // 去重 + 去空
       const uniqKeywords = Array.from(new Set(keywords.map(k => k.trim()).filter(Boolean)));
       if (uniqKeywords.length === 0) {
-        addToast('还没有足够的品味数据，先初始化一下吧', 'info');
+        addToast('還沒有足夠的品味數據，先初始化一下吧', 'info');
         return;
       }
 
-      // 跨歌单去重：本角色其它歌单已经有的歌不要再塞进来
+      // 跨歌單去重：本角色其它歌單已經有的歌不要再塞進來
       const usedInOthers = new Set<number>();
       for (const other of profile.playlists) {
         if (other.id === pl.id) continue;
@@ -280,11 +280,11 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
             picked.push(toPlaylistSong(s));
             if (picked.length >= 8) break;
           }
-        } catch { /* 单个关键词失败不阻塞 */ }
+        } catch { /* 單個關鍵詞失敗不阻塞 */ }
       }
 
       if (picked.length === 0) {
-        addToast('没搜到合适的歌', 'error');
+        addToast('沒搜到合適的歌', 'error');
         return;
       }
       const updatedPl: CharPlaylist = {
@@ -299,17 +299,17 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
         updatedAt: Date.now(),
       };
       updateCharacter(char.id, { musicProfile: updatedProfile });
-      addToast(`已为《${pl.title}》填入 ${picked.length} 首歌`, 'success');
+      addToast(`已為《${pl.title}》填入 ${picked.length} 首歌`, 'success');
       trackEvent('让角色按品味挑歌填满歌单');
     } catch (e: any) {
-      addToast(`填充失败：${e.message}`, 'error');
+      addToast(`填充失敗：${e.message}`, 'error');
     } finally {
       setFillingPl(null);
     }
   }, [char, profile, cfg, fillingPl, updateCharacter, addToast]);
 
   const playPlaylistSong = (pl: CharPlaylist, song: CharPlaylistSong) => {
-    // 用 char 歌单作为队列，点击的歌作为起点
+    // 用 char 歌單作為隊列，點擊的歌作為起點
     const queue: Song[] = pl.songs.map(s => ({ ...s }));
     const startIdx = queue.findIndex(s => s.id === song.id);
     playSong(queue[startIdx], { replaceQueue: queue, startIdx });
@@ -320,9 +320,9 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
   if (!char) {
     return (
       <div className="flex flex-col h-full relative" style={{ background: C.bg }}>
-        <MizuHeader title="拜访" onBack={onBack} />
+        <MizuHeader title="拜訪" onBack={onBack} />
         <div className="flex-1 flex items-center justify-center text-sm" style={{ color: C.muted }}>
-          找不到这个角色。
+          找不到這個角色。
         </div>
       </div>
     );
@@ -333,12 +333,12 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
       style={{ background: `linear-gradient(180deg, #ffffff 0%, ${C.bg} 50%, ${C.bgDeep} 100%)` }}>
       <BokehBg />
       <MizuHeader
-        title={`拜访 · ${char.name}`}
+        title={`拜訪 · ${char.name}`}
         onBack={onBack}
       />
 
       <div className="flex-1 overflow-y-auto relative z-10 shizuku-scrollbar pb-20">
-        {/* Banner + 拜访徽标 */}
+        {/* Banner + 拜訪徽標 */}
         <div className="relative h-32 overflow-hidden">
           <div className="absolute inset-0"
             style={{ background: `linear-gradient(135deg, ${C.lavender}50, ${C.sakura}40, ${C.accent}40)` }} />
@@ -354,7 +354,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           style={{ boxShadow: `0 10px 40px ${C.glow}15` }}>
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
-              {/* 头像可能是 base64 / 图床直链 / blobref 令牌，三种都算图；其余当 emoji 或首字兜底。 */}
+              {/* 頭像可能是 base64 / 圖床直鏈 / blobref 令牌，三種都算圖；其餘當 emoji 或首字兜底。 */}
               {char.avatar && (char.avatar.startsWith('data:') || char.avatar.startsWith('http') || isBlobRef(char.avatar)) ? (
                 <TokenImg value={char.avatar} alt="" className="w-16 h-16 rounded-2xl object-cover"
                   style={{ border: `2px solid ${C.glow}60`, boxShadow: `0 4px 20px ${C.glow}30` }} />
@@ -374,7 +374,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                 {char.name}
               </div>
               <div className="text-[10px] mt-0.5 truncate" style={{ color: C.muted }}>
-                {profile?.bio || '还没写音乐简介'}
+                {profile?.bio || '還沒寫音樂簡介'}
               </div>
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 {(profile?.genreTags || []).slice(0, 4).map(tag => (
@@ -387,11 +387,11 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
             </div>
           </div>
 
-          {/* 统计行 */}
+          {/* 統計行 */}
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <StatCell label="歌单" value={profile?.playlists.length || 0} />
-            <StatCell label="喜欢" value={profile?.likedSongIds.length || 0} />
-            <StatCell label="最近听" value={profile?.recentPlays.length || 0} />
+            <StatCell label="歌單" value={profile?.playlists.length || 0} />
+            <StatCell label="喜歡" value={profile?.likedSongIds.length || 0} />
+            <StatCell label="最近聽" value={profile?.recentPlays.length || 0} />
           </div>
         </div>
 
@@ -399,10 +399,10 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
         {!initialized && (
           <div className="mx-4 mt-4 rounded-2xl p-4 shizuku-glass text-center">
             <div className="text-xs mb-2" style={{ color: C.muted, fontFamily: `'Noto Serif', serif` }}>
-              {char.name} 的音乐角落还是一片空白
+              {char.name} 的音樂角落還是一片空白
             </div>
             <div className="text-[10px] mb-3 italic" style={{ color: C.faint }}>
-              点开后会生成 ta 的曲风偏好、偏爱艺人和 3 个概念歌单（仅一次 LLM 调用）
+              點開後會生成 ta 的曲風偏好、偏愛藝人和 3 個概念歌單（僅一次 LLM 調用）
             </div>
             <button
               onClick={doInitialize}
@@ -410,18 +410,18 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
               className="w-full py-2.5 rounded-xl text-xs text-white tracking-wider transition-all disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, boxShadow: `0 3px 18px ${C.glow}30` }}
             >
-              {initializing ? '敲门中…' : '敲敲门 · 生成音乐人格'}
+              {initializing ? '敲門中…' : '敲敲門 · 生成音樂人格'}
             </button>
           </div>
         )}
 
-        {/* 正在听 */}
+        {/* 正在聽 */}
         {initialized && profile?.currentListening && (
           <div className="mx-4 mt-4 rounded-2xl p-4 shizuku-glass"
             style={{ boxShadow: `0 4px 20px ${C.glow}15` }}>
             <div className="flex items-center gap-2 mb-2">
               <Sparkle size={8} color={C.sakura} delay={0} />
-              <span className="text-[10px] tracking-[0.25em] uppercase" style={{ color: C.muted }}>此刻在听</span>
+              <span className="text-[10px] tracking-[0.25em] uppercase" style={{ color: C.muted }}>此刻在聽</span>
             </div>
             <div className="flex items-center gap-3">
               {profile.currentListening.albumPic ? (
@@ -449,10 +449,10 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           </div>
         )}
 
-        {/* 偏爱艺人 */}
+        {/* 偏愛藝人 */}
         {initialized && (profile?.signatureArtists?.length || 0) > 0 && (
           <div className="mx-4 mt-4">
-            <SectionTitle>钟爱的人</SectionTitle>
+            <SectionTitle>鍾愛的人</SectionTitle>
             <div className="flex items-center gap-2 overflow-x-auto pb-2 shizuku-scrollbar">
               {profile!.signatureArtists.map((a, i) => (
                 <div key={i} className="shrink-0 text-center">
@@ -469,10 +469,10 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           </div>
         )}
 
-        {/* 歌单 */}
+        {/* 歌單 */}
         {initialized && (profile?.playlists?.length || 0) > 0 && (
           <div className="mx-4 mt-4">
-            <SectionTitle>歌单 · {profile!.playlists.length}</SectionTitle>
+            <SectionTitle>歌單 · {profile!.playlists.length}</SectionTitle>
             <div className="space-y-2">
               {profile!.playlists.map(pl => {
                 const isExpanded = expandedPl === pl.id;
@@ -497,7 +497,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                           {pl.description || '—'}
                         </div>
                         <div className="text-[9px] mt-0.5" style={{ color: C.faint }}>
-                          {pl.songs.length > 0 ? `${pl.songs.length} 首` : '（空歌单）'}
+                          {pl.songs.length > 0 ? `${pl.songs.length} 首` : '（空歌單）'}
                           {pl.mood && ` · ${pl.mood}`}
                         </div>
                       </div>
@@ -508,7 +508,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                         {pl.songs.length === 0 ? (
                           <div className="text-center py-3">
                             <div className="text-[10px] italic mb-2" style={{ color: C.faint }}>
-                              还空着。让 {char.name} 根据品味挑几首？
+                              還空著。讓 {char.name} 根據品味挑幾首？
                             </div>
                             <button
                               onClick={() => fillPlaylistFromTaste(pl)}
@@ -517,12 +517,12 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                               style={{ color: C.primary, border: `1px solid ${C.primary}30` }}
                             >
                               <MagnifyingGlass size={10} weight="bold" className="inline mr-1" />
-                              {isFilling ? '正在挑…' : '让 ta 挑几首'}
+                              {isFilling ? '正在挑…' : '讓 ta 挑幾首'}
                             </button>
                           </div>
                         ) : (
                           <div className="pt-2">
-                            {/* 操作条：平时显示「选择」；选择模式下变成 取消 · 已选 N · 删除 */}
+                            {/* 操作條：平時顯示「選擇」；選擇模式下變成 取消 · 已選 N · 刪除 */}
                             <div className="flex items-center justify-between px-2 pb-1.5">
                               {selectingPl === pl.id ? (
                                 <>
@@ -534,7 +534,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                                     取消
                                   </button>
                                   <span className="text-[10px]" style={{ color: C.faint }}>
-                                    已选 {selectedSongIds.size} 首
+                                    已選 {selectedSongIds.size} 首
                                   </span>
                                   <button
                                     onClick={() => deleteSelected(pl)}
@@ -543,7 +543,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                                     style={{ color: C.vip }}
                                   >
                                     <Trash size={12} weight="bold" />
-                                    删除
+                                    刪除
                                   </button>
                                 </>
                               ) : (
@@ -554,7 +554,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                                     className="text-[11px] px-1 py-0.5"
                                     style={{ color: C.primary }}
                                   >
-                                    选择
+                                    選擇
                                   </button>
                                 </>
                               )}
@@ -567,7 +567,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                                   <button
                                     key={s.id}
                                     onClick={() => {
-                                      if (lpFired.current) { lpFired.current = false; return; } // 长按已触发，吞掉这次 click
+                                      if (lpFired.current) { lpFired.current = false; return; } // 長按已觸發，吞掉這次 click
                                       if (selecting) { toggleSelected(s.id); return; }
                                       playPlaylistSong(pl, s);
                                     }}
@@ -610,10 +610,10 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           </div>
         )}
 
-        {/* 最近在听 */}
+        {/* 最近在聽 */}
         {initialized && (profile?.recentPlays?.length || 0) > 0 && (
           <div className="mx-4 mt-4">
-            <SectionTitle>最近常听</SectionTitle>
+            <SectionTitle>最近常聽</SectionTitle>
             <div className="space-y-1">
               {profile!.recentPlays.slice(0, 10).map((r, i) => (
                 <div key={`${r.song.id}-${r.at}-${i}`} className="flex items-center gap-2 p-2 rounded-lg">
@@ -642,15 +642,15 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           </div>
         )}
 
-        {/* 评论 */}
+        {/* 評論 */}
         {initialized && (profile?.reviews?.length || 0) > 0 && (
           <div className="mx-4 mt-4">
-            <SectionTitle>写过的话</SectionTitle>
+            <SectionTitle>寫過的話</SectionTitle>
             <div className="space-y-2">
               {profile!.reviews!.slice(0, 10).map(rv => (
                 <div key={rv.id} className="rounded-xl shizuku-glass p-3">
                   <div className="text-[10px] mb-1" style={{ color: C.muted }}>
-                    对 <span className="font-medium" style={{ color: C.primary }}>{rv.targetTitle}</span>
+                    對 <span className="font-medium" style={{ color: C.primary }}>{rv.targetTitle}</span>
                   </div>
                   <div className="text-xs leading-relaxed" style={{ color: C.text, fontFamily: `'Noto Serif', serif` }}>
                     {rv.content}
@@ -664,7 +664,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
           </div>
         )}
 
-        {/* 隐私开关 + 重新生成 */}
+        {/* 隱私開關 + 重新生成 */}
         {initialized && (
           <div className="mx-4 mt-6 mb-2 text-[10px] text-center space-y-2" style={{ color: C.faint }}>
             <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -679,7 +679,7 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                 }}
                 className="w-3 h-3"
               />
-              允许 {char.name} 翻阅你的网易云数据（最近在听 / 歌单）
+              允許 {char.name} 翻閱你的網易雲數據（最近在聽 / 歌單）
             </label>
             <div>
               <button
@@ -691,9 +691,9 @@ const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
                   background: `${C.sakura}14`,
                   border: `1px solid ${C.sakura}35`,
                 }}
-                title="清空后重新生成。"
+                title="清空後重新生成。"
               >
-                {initializing ? '重新敲门中…' : '重新生成音乐人格'}
+                {initializing ? '重新敲門中…' : '重新生成音樂人格'}
               </button>
             </div>
           </div>

@@ -20,45 +20,45 @@ try {
         const m = await import('/utils/vrWorld/fishingMarket.ts');
         await m.mutateFishingMarket(s => m.addCatchToState(s, { id: 'qa-user-sale', speciesId: 'glass-minnow', ownerId: 'user', ownerName: 'user', caughtAt: Date.now(), weather: 'clear', weatherLabel: '晴朗', weatherSource: 'simulated', sizeCm: 20, quality: 3 }));
     });
-    await button('图鉴').click(); await page.getByRole('button', { name: /玻璃米鱼/ }).click();
-    const sell = page.getByRole('button', { name: /^卖给艾文 ·/ });
+    await button('圖鑑').click(); await page.getByRole('button', { name: /玻璃米[鱼魚]/ }).click();
+    const sell = page.getByRole('button', { name: /^[卖賣][给給]艾文 ·/ });
     const before = await market();
     // A failed local write must not show the NPC's success reply or consume the fish.
     await page.evaluate(() => {
         const save = Storage.prototype.setItem;
-        Storage.prototype.setItem = function(key, value) { if (key === 'vr_fishing_market_v1' && window.failSaleWrite) throw new Error('QA 保存失败'); return save.call(this, key, value); };
+        Storage.prototype.setItem = function(key, value) { if (key === 'vr_fishing_market_v1' && window.failSaleWrite) throw new Error('QA 保存失敗'); return save.call(this, key, value); };
         window.failSaleWrite = true;
     });
-    await sell.click(); await page.getByRole('dialog', { name: '玻璃米鱼', exact: true }).getByRole('alert').filter({ hasText: 'QA 保存失败' }).waitFor();
+    await sell.click(); await page.getByRole('dialog', { name: '玻璃米魚', exact: true }).getByRole('alert').filter({ hasText: 'QA 保存失敗' }).waitFor();
     assert.equal((await market()).accounts.user, before.accounts.user);
-    assert.equal(await page.getByRole('dialog', { name: '艾文的收鱼摊' }).count(), 0);
+    assert.equal(await page.getByRole('dialog', { name: '艾文的收魚攤' }).count(), 0);
     await page.evaluate(() => { window.failSaleWrite = false; });
     await sell.evaluate(node => { node.click(); node.click(); });
-    const receipt = page.getByRole('dialog', { name: '艾文的收鱼摊', exact: true }); await receipt.waitFor();
+    const receipt = page.getByRole('dialog', { name: '艾文的收魚攤', exact: true }); await receipt.waitFor();
     await receipt.locator('.sar-npc-portrait[data-speaker="aiven"] img:not([aria-hidden])').waitFor();
     const saved = await market(), transaction = saved.ledger.find(e => e.id === 'aiven_fish_sale_qa-user-sale');
     assert.equal(saved.accounts.user, before.accounts.user + transaction.aivenSale.amount);
     assert.equal(saved.inventory.filter(c => c.id === 'qa-user-sale').length, 0);
-    assert((await receipt.innerText()).includes('雨眠获得'));
+    assert((await receipt.innerText()).includes('雨眠獲得'));
     await page.screenshot({ path: `${out}/user-sale.png`, animations: 'disabled' });
     await page.setViewportSize({ width: 320, height: 640 });
     await page.screenshot({ path: `${out}/user-sale-320.png`, animations: 'disabled' });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await button('关闭详情').click(); await button('钓鱼').click(); await page.locator('.fishing-companions summary').click();
-    await page.getByLabel('选择去水域的角色', { exact: true }).selectOption('qa-facility-0');
+    await button('關閉詳情').click(); await button('釣魚').click(); await page.locator('.fishing-companions summary').click();
+    await page.getByLabel('選擇去水域的角色', { exact: true }).selectOption('qa-facility-0');
     await page.evaluate(() => {
         window.facilityTripHandler = async () => {
             const m = await import('/utils/vrWorld/fishingMarket.ts');
             const actor = { id: 'qa-facility-0', name: 'Sully', kind: 'character' };
             await m.mutateFishingMarket(s => {
                 const pending = m.beginFishingTrip(s, actor, { kind: 'clear', label: '晴朗', source: 'simulated', detail: '' }, () => 0);
-                return m.settleFishingTrip(pending, actor, m.pendingFishingTrip(pending, actor.id).catch.id, { disposition: 'sell', reaction: '今天有收获。', saleWords: '这一条交给你。', shareToUser: null });
+                return m.settleFishingTrip(pending, actor, m.pendingFishingTrip(pending, actor.id).catch.id, { disposition: 'sell', reaction: '今天有收穫。', saleWords: '這一條交給你。', shareToUser: null });
             });
             return { ok: true };
         };
     });
-    await page.getByRole('button', { name: /让 ta 去钓鱼|让 ta 钓鱼/ }).click();
-    await page.locator('.fishing-companions').getByText(/已卖给艾文，获得/).waitFor();
+    await page.getByRole('button', { name: /[让讓] ta 去[钓釣][鱼魚]|[让讓] ta [钓釣][鱼魚]/ }).click();
+    await page.locator('.fishing-companions').getByText(/已[卖賣][给給]艾文，[获獲]得/).waitFor();
     await page.locator('.fishing-companions .fish-aiven-sale').scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${out}/character-sale.png`, animations: 'disabled' });
     assert((await market()).fishingTrips.at(-1).sale);

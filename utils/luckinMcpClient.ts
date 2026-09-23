@@ -1,25 +1,25 @@
 /**
- * 瑞幸 MCP 客户端 (Model Context Protocol over HTTP+SSE, streamable http)
+ * 瑞幸 MCP 客戶端 (Model Context Protocol over HTTP+SSE, streamable http)
  *
- * 上游: https://gwmcp.lkcoffee.com/order/user/mcp  (官方瑞幸点单 MCP server)
- * 平台: https://open.lkcoffee.com  (瑞幸 AI 开放平台)
- * Token: 登录 open.lkcoffee.com 后复制, 每个用户独立, 有效期约 1 个月, 存 localStorage
+ * 上游: https://gwmcp.lkcoffee.com/order/user/mcp  (官方瑞幸點單 MCP server)
+ * 平台: https://open.lkcoffee.com  (瑞幸 AI 開放平台)
+ * Token: 登錄 open.lkcoffee.com 後複製, 每個用戶獨立, 有效期約 1 個月, 存 localStorage
  *
- * 浏览器无法直连 lkcoffee.com (CORS), 走中心配置的 Cloudflare Worker 透传 (默认
- * https://sullymeow.ccwu.cc, 用户可在「设置 → 自定义网络代理」里改):
+ * 瀏覽器無法直連 lkcoffee.com (CORS), 走中心配置的 Cloudflare Worker 透傳 (默認
+ * https://sullymeow.ccwu.cc, 用戶可在「設置 → 自定義網絡代理」裡改):
  *   POST  <worker>/mcp/luckin
  *   Authorization: Bearer <user_mcp_token>
- *   body: 标准 JSON-RPC 2.0 报文
+ *   body: 標準 JSON-RPC 2.0 報文
  *
- * 传输层与麦当劳 (utils/mcdMcpClient.ts) 完全同构: 同一套 initialize → tools/list →
- * tools/call + Mcp-Session-Id 会话管理。差异只在 URL / localStorage key, 以及参数
- * 归一化这里做得更"通用"(不写死瑞幸独有的字段校验, 等跑通 tools/list 看到真实
- * schema 后再按需收紧)。
+ * 傳輸層與麥當勞 (utils/mcdMcpClient.ts) 完全同構: 同一套 initialize → tools/list →
+ * tools/call + Mcp-Session-Id 會話管理。差異只在 URL / localStorage key, 以及參數
+ * 歸一化這裡做得更"通用"(不寫死瑞幸獨有的字段校驗, 等跑通 tools/list 看到真實
+ * schema 後再按需收緊)。
  */
 
 import { getProxyWorkerUrl } from './proxyWorker';
 
-// 走中心配置的主代理 worker（用户可在设置里换成自部署实例）
+// 走中心配置的主代理 worker（用戶可在設置裡換成自部署實例）
 const mcpProxyUrl = (): string => `${getProxyWorkerUrl()}/mcp/luckin`;
 const MCP_TOKEN_KEY = 'aetheros.luckin.mcpToken';
 const MCP_ENABLED_KEY = 'aetheros.luckin.mcpEnabled';
@@ -41,9 +41,9 @@ export const normalizeLuckinToolName = (toolName: string): string => {
     const raw = (toolName || '').trim();
     if (!raw) return raw;
     let s = raw;
-    // 模型常给工具名加"命名空间前缀"幻觉:
+    // 模型常給工具名加"命名空間前綴"幻覺:
     //   luckin.query-menu / functions.create-order / luckin_tools_query-stores
-    // 真实瑞幸 MCP 工具名都是纯 kebab-case, 不含点号, 遇到点直接取最后一段。
+    // 真實瑞幸 MCP 工具名都是純 kebab-case, 不含點號, 遇到點直接取最後一段。
     const lastDot = s.lastIndexOf('.');
     if (lastDot >= 0 && lastDot < s.length - 1) {
         s = s.slice(lastDot + 1);
@@ -70,7 +70,7 @@ interface McpJsonRpcResponse {
     error?: { code: number; message: string; data?: any };
 }
 
-// ========== Token / 启用状态 (持久化在 localStorage) ==========
+// ========== Token / 啟用狀態 (持久化在 localStorage) ==========
 
 export const getLuckinToken = (): string => {
     try { return localStorage.getItem(MCP_TOKEN_KEY) || ''; } catch { return ''; }
@@ -92,7 +92,7 @@ export const isLuckinConfigured = (): boolean => {
     return isLuckinEnabled() && getLuckinToken().length > 0;
 };
 
-// ── 备份用：把瑞幸的 token + 启用状态随「设置 → 导出/导入备份」一起带走（存 localStorage） ──
+// ── 備份用：把瑞幸的 token + 啟用狀態隨「設置 → 導出/導入備份」一起帶走（存 localStorage） ──
 export function exportLuckinLocal(): Record<string, string> | undefined {
     try {
         const out: Record<string, string> = {};
@@ -109,7 +109,7 @@ export function importLuckinLocal(data: Record<string, string> | null | undefine
     } catch { /* ignore */ }
 }
 
-// ========== JSON-RPC 会话状态 (内存, 进程级) ==========
+// ========== JSON-RPC 會話狀態 (內存, 進程級) ==========
 
 let requestIdCounter = 0;
 let sessionId: string | null = null;
@@ -143,7 +143,7 @@ const parseResp = (text: string, contentType: string): McpJsonRpcResponse => {
     try { return JSON.parse(text); } catch {
         const m = text.match(/\{[\s\S]*\}/);
         if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
-        throw new Error(`MCP: 无法解析响应: ${text.slice(0, 300)}`);
+        throw new Error(`MCP: 無法解析響應: ${text.slice(0, 300)}`);
     }
 };
 
@@ -152,7 +152,7 @@ const post = async (
     expectResponse = true
 ): Promise<{ response: McpJsonRpcResponse | null }> => {
     const token = getLuckinToken();
-    if (!token) throw new Error('未配置瑞幸 MCP Token，请到设置 → 瑞幸填入');
+    if (!token) throw new Error('未配置瑞幸 MCP Token，請到設置 → 瑞幸填入');
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ const post = async (
 
     if (resp.status === 401 || resp.status === 403) {
         const txt = await resp.text().catch(() => '');
-        throw new Error(`MCP 鉴权失败 (${resp.status}): Token 可能已过期或无效 (瑞幸 token 有效期约 1 个月)。${txt.slice(0, 120)}`);
+        throw new Error(`MCP 鑑權失敗 (${resp.status}): Token 可能已過期或無效 (瑞幸 token 有效期約 1 個月)。${txt.slice(0, 120)}`);
     }
     if (resp.status === 202) return { response: null };
     if (!resp.ok) {
@@ -192,13 +192,13 @@ const doInitialize = async (): Promise<void> => {
         clientInfo: { name: 'AetherOS-Aetheros', version: '1.0.0' },
     });
     const { response } = await post(initReq);
-    if (response?.error) throw new Error(`Initialize 失败: ${response.error.message}`);
+    if (response?.error) throw new Error(`Initialize 失敗: ${response.error.message}`);
 
-    // 通知 server 初始化完成 (协议要求)
+    // 通知 server 初始化完成 (協議要求)
     const notif = buildRequest('notifications/initialized', {}, true);
-    await post(notif, false).catch(() => { /* notification 失败不阻塞 */ });
+    await post(notif, false).catch(() => { /* notification 失敗不阻塞 */ });
 
-    // 拉取工具清单
+    // 拉取工具清單
     try {
         const { response: toolsResp } = await post(buildRequest('tools/list'));
         if (toolsResp?.result?.tools && Array.isArray(toolsResp.result.tools)) {
@@ -207,10 +207,10 @@ const doInitialize = async (): Promise<void> => {
                 description: t.description || '',
                 inputSchema: t.inputSchema || t.input_schema || { type: 'object', properties: {} },
             }));
-            console.log('[Luckin-MCP] 工具清单:', cachedTools.map(t => t.name).join(', '));
+            console.log('[Luckin-MCP] 工具清單:', cachedTools.map(t => t.name).join(', '));
         }
     } catch (e) {
-        console.warn('[Luckin-MCP] tools/list 失败:', e);
+        console.warn('[Luckin-MCP] tools/list 失敗:', e);
     }
 
     initialized = true;
@@ -227,9 +227,9 @@ const ensureInitialized = async (): Promise<void> => {
     await initPromise;
 };
 
-// ========== 公开 API ==========
+// ========== 公開 API ==========
 
-/** 拉取工具清单 (会触发首次 initialize, 之后内存缓存) */
+/** 拉取工具清單 (會觸發首次 initialize, 之後內存緩存) */
 export const listLuckinTools = async (forceRefresh = false): Promise<LuckinToolDef[]> => {
     if (forceRefresh) {
         initialized = false;
@@ -242,10 +242,10 @@ export const listLuckinTools = async (forceRefresh = false): Promise<LuckinToolD
 };
 
 /**
- * 通用参数归一化 (不写死瑞幸专有字段, 只修模型最常犯的形态错):
- *  - 任意名为 quantity / qty / count / num 的字段, 字符串数字 → 整数
- *  - items / products / goods / cartItems 数组里每项同样处理 quantity, 并补 productCode 同义字段
- * 等跑通 tools/list 拿到真实 schema 后, 可以在这里按瑞幸实际字段名收紧校验。
+ * 通用參數歸一化 (不寫死瑞幸專有字段, 只修模型最常犯的形態錯):
+ *  - 任意名為 quantity / qty / count / num 的字段, 字符串數字 → 整數
+ *  - items / products / goods / cartItems 數組裡每項同樣處理 quantity, 並補 productCode 同義字段
+ * 等跑通 tools/list 拿到真實 schema 後, 可以在這裡按瑞幸實際字段名收緊校驗。
  */
 const QTY_KEYS = ['quantity', 'qty', 'count', 'num', 'number', 'amount'];
 const ITEM_LIST_KEYS = ['productList', 'items', 'products', 'goods', 'cartItems', 'skuList', 'goodsList', 'list'];
@@ -269,7 +269,7 @@ const normalizeLuckinArgs = (args: Record<string, any>): Record<string, any> => 
                 if (!it || typeof it !== 'object') return it;
                 const ni = { ...it };
                 coerceQty(ni);
-                // 同义字段 → productCode (模型偶尔用错字段名), 只在没有 productCode 时补
+                // 同義字段 → productCode (模型偶爾用錯字段名), 只在沒有 productCode 時補
                 if (!ni.productCode) {
                     for (const alias of CODE_ALIASES) {
                         if (ni[alias]) { ni.productCode = ni[alias]; break; }
@@ -282,7 +282,7 @@ const normalizeLuckinArgs = (args: Record<string, any>): Record<string, any> => 
     return out;
 };
 
-/** 调用一个工具 */
+/** 調用一個工具 */
 export const callLuckinTool = async (toolName: string, args: Record<string, any> = {}): Promise<LuckinToolResult> => {
     try {
         const normalizedToolName = normalizeLuckinToolName(toolName);
@@ -291,18 +291,18 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
         await ensureInitialized();
         const body = buildRequest('tools/call', { name: normalizedToolName, arguments: args });
         const { response } = await post(body);
-        if (!response) return { success: false, error: '空响应' };
-        if (response.error) return { success: false, error: `MCP 错误 [${response.error.code}]: ${response.error.message}` };
+        if (!response) return { success: false, error: '空響應' };
+        if (response.error) return { success: false, error: `MCP 錯誤 [${response.error.code}]: ${response.error.message}` };
 
         const result = response.result;
         if (result?.content && Array.isArray(result.content)) {
             const textParts = result.content.filter((c: any) => c?.type === 'text').map((c: any) => c.text || '');
             const fullText = textParts.join('\n').trim();
-            if (result.isError) return { success: false, error: fullText || '瑞幸工具执行失败', rawText: fullText };
+            if (result.isError) return { success: false, error: fullText || '瑞幸工具執行失敗', rawText: fullText };
 
-            // 在混合文本(markdown 说明 + JSON)里挖出 JSON。
-            // 这类网关 MCP 习惯在响应前塞一段渲染规范说明, 然后才接真数据。
-            // 数据里有时有未转义的真换行符 / 制表符, JSON.parse 会失败 → 加一道修复尝试。
+            // 在混合文本(markdown 說明 + JSON)裡挖出 JSON。
+            // 這類網關 MCP 習慣在響應前塞一段渲染規範說明, 然後才接真數據。
+            // 數據裡有時有未轉義的真換行符 / 製表符, JSON.parse 會失敗 → 加一道修復嘗試。
             const repairJson = (s: string): string => {
                 let inStr = false, esc = false, out = '';
                 for (let i = 0; i < s.length; i++) {
@@ -326,13 +326,13 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
                 // 1) 整段直接是 JSON
                 const direct = safeParse(text);
                 if (direct !== undefined) return direct;
-                // 2) ```json 围栏
+                // 2) ```json 圍欄
                 const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
                 if (fenceMatch) {
                     const fenced = safeParse(fenceMatch[1].trim());
                     if (fenced !== undefined) return fenced;
                 }
-                // 3) 扫描所有 { 和 [ 起点, 用括号配平找完整结构, 选择"最像真数据"的那个
+                // 3) 掃描所有 { 和 [ 起點, 用括號配平找完整結構, 選擇"最像真數據"的那個
                 const candidates: any[] = [];
                 const tryBalanced = (start: number, open: string, close: string) => {
                     let depth = 0, inStr = false, esc = false;
@@ -385,7 +385,7 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
                 }
                 return undefined;
             };
-            // 递归剥信封: 上游有时把数据再次 stringify 装进 {data: "..."} 外壳
+            // 遞歸剝信封: 上游有時把數據再次 stringify 裝進 {data: "..."} 外殼
             const tryDeepParse = (v: any): any => {
                 if (typeof v === 'string') {
                     const s = v.trim();
@@ -395,7 +395,7 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
                     return v;
                 }
                 if (v && typeof v === 'object' && !Array.isArray(v)) {
-                    // 标准网关信封: {success, code, message/msg, data: {...}} → 自动剥到 data
+                    // 標準網關信封: {success, code, message/msg, data: {...}} → 自動剝到 data
                     const envelopeKeys = ['success', 'code', 'message', 'msg', 'datetime', 'traceId', 'errorCode', 'errMsg'];
                     if ('data' in v && envelopeKeys.some(k => k in v)) {
                         const inner = v.data;
@@ -409,14 +409,14 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
                         }
                         return inner;
                     }
-                    // 单字段壳: {data: "..."} / {result: "..."} 等
+                    // 單字段殼: {data: "..."} / {result: "..."} 等
                     const keys = Object.keys(v);
                     const wrapKeys = ['data', 'result', 'response', 'body', 'payload'];
                     if (keys.length === 1 && wrapKeys.includes(keys[0]) && typeof v[keys[0]] === 'string') {
                         const inner = tryDeepParse(v[keys[0]]);
                         if (inner && typeof inner === 'object') return inner;
                     }
-                    // 否则对每个 string 字段尝试解 (一层即可)
+                    // 否則對每個 string 字段嘗試解 (一層即可)
                     const out: any = {};
                     for (const k of keys) {
                         const cv = v[k];
@@ -447,11 +447,11 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
                     const topKeys = finalData && typeof finalData === 'object' && !Array.isArray(finalData)
                         ? Object.keys(finalData).slice(0, 10).join(',')
                         : (Array.isArray(finalData) ? `[Array len=${finalData.length}]` : typeof finalData);
-                    console.log(`☕ [Luckin-MCP] 工具结果 ${parseRoute} | rawLen=${fullText.length} | topKeys=${topKeys}`);
+                    console.log(`☕ [Luckin-MCP] 工具結果 ${parseRoute} | rawLen=${fullText.length} | topKeys=${topKeys}`);
                 } catch { /* ignore log errors */ }
                 return { success: true, data: finalData, rawText: fullText };
             }
-            console.warn(`☕ [Luckin-MCP] 工具结果 parse 全失败, rawLen=${fullText.length}, 前 200 字: ${fullText.slice(0, 200)}`);
+            console.warn(`☕ [Luckin-MCP] 工具結果 parse 全失敗, rawLen=${fullText.length}, 前 200 字: ${fullText.slice(0, 200)}`);
             return { success: true, data: fullText, rawText: fullText };
         }
         return { success: true, data: result };
@@ -460,7 +460,7 @@ export const callLuckinTool = async (toolName: string, args: Record<string, any>
     }
 };
 
-/** 测试连接: 仅验证 token 是否能成功 initialize + 拿到 tools */
+/** 測試連接: 僅驗證 token 是否能成功 initialize + 拿到 tools */
 export const testLuckinConnection = async (): Promise<{ ok: boolean; message: string; tools?: LuckinToolDef[] }> => {
     try {
         initialized = false;
@@ -468,14 +468,14 @@ export const testLuckinConnection = async (): Promise<{ ok: boolean; message: st
         cachedTools = [];
         initPromise = null;
         const tools = await listLuckinTools(false);
-        if (!tools.length) return { ok: true, message: '已连接, 但工具清单为空 (可能服务侧未挂载工具)', tools };
-        return { ok: true, message: `已连接, 拿到 ${tools.length} 个工具`, tools };
+        if (!tools.length) return { ok: true, message: '已連接, 但工具清單為空 (可能服務側未掛載工具)', tools };
+        return { ok: true, message: `已連接, 拿到 ${tools.length} 個工具`, tools };
     } catch (e: any) {
         return { ok: false, message: e?.message || String(e) };
     }
 };
 
-/** 强制重置会话 (token 改变 / 退出登录时调用) */
+/** 強制重置會話 (token 改變 / 退出登錄時調用) */
 export const resetLuckinSession = (): void => {
     initialized = false;
     sessionId = null;

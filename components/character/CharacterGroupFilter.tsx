@@ -2,24 +2,24 @@ import React from 'react';
 import { CharacterProfile, CharacterGroup } from '../../types';
 
 /**
- * 角色分组的公共工具 + 选角入口的分组筛选胶囊条。
+ * 角色分組的公共工具 + 選角入口的分組篩選膠囊條。
  *
- * 背景：角色一多，「神经链接 / 打电话 / 见面 / 查手机 / 转发」这些选角列表就会太长。
- * 各入口的列表 UI 千差万别（竖列 / grid / 横滑分页），所以这里不做统一的"角色选择器"，
- * 而是提供最小公共件：一条按分组筛选的胶囊条 + 纯函数筛选逻辑，各入口把筛选结果
- * 喂给自己原有的列表/分页渲染即可。没建过分组的用户，胶囊条整体不渲染，各入口零变化。
+ * 背景：角色一多，「神經鏈接 / 打電話 / 見面 / 查手機 / 轉發」這些選角列表就會太長。
+ * 各入口的列表 UI 千差萬別（豎列 / grid / 橫滑分頁），所以這裡不做統一的"角色選擇器"，
+ * 而是提供最小公共件：一條按分組篩選的膠囊條 + 純函數篩選邏輯，各入口把篩選結果
+ * 餵給自己原有的列表/分頁渲染即可。沒建過分組的用戶，膠囊條整體不渲染，各入口零變化。
  */
 
-/** 「全部」虚拟分组 id */
+/** 「全部」虛擬分組 id */
 export const GROUP_FILTER_ALL = 'all';
-/** 「未分组」虚拟分组 id（groupId 为空、或指向已删分组的角色都算） */
+/** 「未分組」虛擬分組 id（groupId 為空、或指向已刪分組的角色都算） */
 export const GROUP_FILTER_UNGROUPED = '__ungrouped__';
 
-/** 分组显示顺序：order 优先，缺省按创建时间先后 */
+/** 分組顯示順序：order 優先，缺省按創建時間先後 */
 export const sortCharacterGroups = (groups: CharacterGroup[]): CharacterGroup[] =>
     [...groups].sort((a, b) => (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0));
 
-/** 按分组筛选角色。groupId 传 GROUP_FILTER_ALL / GROUP_FILTER_UNGROUPED / 具体分组 id */
+/** 按分組篩選角色。groupId 傳 GROUP_FILTER_ALL / GROUP_FILTER_UNGROUPED / 具體分組 id */
 export const filterCharactersByGroup = (
     characters: CharacterProfile[],
     groups: CharacterGroup[],
@@ -34,19 +34,19 @@ export const filterCharactersByGroup = (
 };
 
 interface FilterBarProps {
-    /** 该入口的完整候选列表（未筛选），用于计算各组数量与是否显示「未分组」 */
+    /** 該入口的完整候選列表（未篩選），用於計算各組數量與是否顯示「未分組」 */
     characters: CharacterProfile[];
     groups: CharacterGroup[];
     value: string;
     onChange: (groupId: string) => void;
-    /** 深色底的 App（打电话 / 见面 / 查手机）传 true，胶囊换白字配色 */
+    /** 深色底的 App（打電話 / 見面 / 查手機）傳 true，膠囊換白字配色 */
     dark?: boolean;
     className?: string;
 }
 
 /**
- * 分组筛选胶囊条：全部 / 各分组 / 未分组，横向可滚动。
- * groups 为空时返回 null——没用分组的用户看不到任何变化。
+ * 分組篩選膠囊條：全部 / 各分組 / 未分組，橫向可滾動。
+ * groups 為空時返回 null——沒用分組的用戶看不到任何變化。
  */
 export const CharacterGroupFilterBar: React.FC<FilterBarProps> = ({ characters, groups, value, onChange, dark, className }) => {
     if (groups.length === 0) return null;
@@ -61,7 +61,7 @@ export const CharacterGroupFilterBar: React.FC<FilterBarProps> = ({ characters, 
             count: characters.filter(c => c.groupId === g.id).length,
         })),
     ];
-    if (ungroupedCount > 0) chips.push({ id: GROUP_FILTER_UNGROUPED, label: '未分组', count: ungroupedCount });
+    if (ungroupedCount > 0) chips.push({ id: GROUP_FILTER_UNGROUPED, label: '未分組', count: ungroupedCount });
 
     const base = 'shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 flex items-center gap-1';
     const idle = dark

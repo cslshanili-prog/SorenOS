@@ -12,7 +12,7 @@ export default function EmojiExportDialog({ emojis, title = '表情包', onClose
     useEffect(() => {
         let cancelled = false;
         setFile(null); setError('');
-        prepareEmojiExport(emojis, title).then(result => { if (!cancelled) setFile(result); }, e => { if (!cancelled) setError(e instanceof Error ? e.message : '读取原文件失败'); });
+        prepareEmojiExport(emojis, title).then(result => { if (!cancelled) setFile(result); }, e => { if (!cancelled) setError(e instanceof Error ? e.message : '讀取原文件失敗'); });
         return () => { cancelled = true; };
     }, [emojis, title]);
     const share = async () => {
@@ -21,11 +21,11 @@ export default function EmojiExportDialog({ emojis, title = '表情包', onClose
         try {
             const result = await shareOrDownloadBlob({ ...file, shareTitle: title, nativeChunked: true });
             if (result !== 'cancelled') onClose();
-        } catch (e) { setError(e instanceof Error ? e.message : '无法拉起分享，请重试'); }
+        } catch (e) { setError(e instanceof Error ? e.message : '無法拉起分享，請重試'); }
         finally { setSharing(false); }
     };
-    return createPortal(<Modal isOpen title="下载表情原图" onClose={onClose} footer={<button disabled={!file || sharing} onClick={share} className="w-full py-3 bg-primary text-white rounded-2xl disabled:opacity-40">{sharing ? '正在分享…' : '分享 / 保存文件'}</button>}>
-        <p className="text-sm text-slate-600">{file ? `${emojis.length} 张表情已准备好。${emojis.length > 1 ? 'ZIP 内保留每张图片的原始格式与动图。' : '保留原始格式与动图。'}` : error ? '文件准备失败，请关闭后重试。' : '正在读取表情原文件…'}</p>
+    return createPortal(<Modal isOpen title="下載表情原圖" onClose={onClose} footer={<button disabled={!file || sharing} onClick={share} className="w-full py-3 bg-primary text-white rounded-2xl disabled:opacity-40">{sharing ? '正在分享…' : '分享 / 保存文件'}</button>}>
+        <p className="text-sm text-slate-600">{file ? `${emojis.length} 張表情已準備好。${emojis.length > 1 ? 'ZIP 內保留每張圖片的原始格式與動圖。' : '保留原始格式與動圖。'}` : error ? '文件準備失敗，請關閉後重試。' : '正在讀取表情原文件…'}</p>
         {error && <p role="alert" className="mt-3 text-sm text-red-500">{error}</p>}
     </Modal>, document.body);
 }

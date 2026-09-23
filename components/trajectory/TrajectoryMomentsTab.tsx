@@ -53,9 +53,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
     };
 
     const handleGenerate = async () => {
-        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在设置里配置好 API', 'info'); return; }
+        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在设置里开启并配置好生图 API', 'info');
+            addToast('先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -74,7 +74,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const data = await safeResponseJson(response);
             const draft = parseTrajectoryMomentDraft(extractJson(extractContent(data)));
-            if (!draft) { addToast('这次没解析出动态内容，再试一次', 'error'); return; }
+            if (!draft) { addToast('這次沒解析出動態內容，再試一次', 'error'); return; }
 
             const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
             const referenceBlob = await resolveCharacterReferenceImage(char, { description: draft.content });
@@ -83,20 +83,20 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
 
             const post = createTrajectoryMomentPost(draft, image);
             onCommit([post, ...posts]);
-            addToast('这条朋友圈生成好了', 'success');
+            addToast('這條朋友圈生成好了', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Moments 生成失败:', e);
-            addToast('生成失败，稍后再试', 'error');
+            console.warn('[Trajectory] Moments 生成失敗:', e);
+            addToast('生成失敗，稍後再試', 'error');
         } finally {
             setGenerating(false);
         }
     };
 
-    // 只重生成照片，文案/点赞/评论原样不动——复用生成当下存下来的 imagePrompt，
-    // 保证新照片还是贴合文案描述的场景，不会图文不符。
+    // 只重生成照片，文案/點贊/評論原樣不動——複用生成當下存下來的 imagePrompt，
+    // 保證新照片還是貼合文案描述的場景，不會圖文不符。
     const handleRegeneratePhoto = async (post: TrajectoryMomentPost) => {
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在设置里开启并配置好生图 API', 'info');
+            addToast('先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
@@ -111,8 +111,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
             void deleteBlobRefIfUnreferenced(post.image);
             addToast('照片已重新生成', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Moments 照片重新生成失败:', e);
-            addToast('生成失败，稍后再试', 'error');
+            console.warn('[Trajectory] Moments 照片重新生成失敗:', e);
+            addToast('生成失敗，稍後再試', 'error');
         } finally {
             setRegeneratingPhoto(false);
         }
@@ -122,12 +122,12 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
         setSavingPhoto(true);
         try {
             const blob = await getBlobForRef(post.image);
-            if (!blob) { addToast('图片已丢失，无法保存', 'error'); return; }
+            if (!blob) { addToast('圖片已丟失，無法保存', 'error'); return; }
             const result = await shareOrDownloadBlob({ blob, fileName: `Moments-${post.id}.png`, shareTitle: `${char.name} 的朋友圈` });
-            if (result !== 'cancelled') addToast(result === 'shared' ? '已打开保存面板' : '已保存到本地', 'success');
+            if (result !== 'cancelled') addToast(result === 'shared' ? '已打開保存面板' : '已保存到本地', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Moments 照片保存失败:', e);
-            addToast('保存失败，稍后再试', 'error');
+            console.warn('[Trajectory] Moments 照片保存失敗:', e);
+            addToast('保存失敗，稍後再試', 'error');
         } finally {
             setSavingPhoto(false);
         }
@@ -137,7 +137,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
         onCommit(posts.filter(p => p.id !== post.id));
         void deleteBlobRefIfUnreferenced(post.image);
         setDetailPost(null);
-        addToast('已删除', 'success');
+        addToast('已刪除', 'success');
     };
 
     const handleSyncToChat = async (post: TrajectoryMomentPost) => {
@@ -145,21 +145,21 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
         try {
             const detailLines = [
                 post.content,
-                `赞：${post.likes}`,
+                `贊：${post.likes}`,
                 ...post.comments.map(c => `${c.authorName}：${c.content}`),
             ].filter(Boolean).join('\n');
             const messageId = await DB.saveMessage({
                 charId: char.id, role: 'assistant', type: 'phone_card',
-                content: `[你手机的 Moments App] ${post.content}`,
-                metadata: { phoneCard: { app: 'Moments', title: '一条朋友圈', detail: detailLines, image: post.image } },
+                content: `[你手機的 Moments App] ${post.content}`,
+                metadata: { phoneCard: { app: 'Moments', title: '一條朋友圈', detail: detailLines, image: post.image } },
             } as any);
             const next = posts.map(p => p.id === post.id ? { ...p, syncedMessageId: messageId } : p);
             onCommit(next);
             setDetailPost(prev => prev && prev.id === post.id ? { ...prev, syncedMessageId: messageId } : prev);
             addToast('已同步到私聊', 'success');
         } catch (e) {
-            console.warn('[Trajectory] Moments 同步私聊失败:', e);
-            addToast('同步失败，稍后再试', 'error');
+            console.warn('[Trajectory] Moments 同步私聊失敗:', e);
+            addToast('同步失敗，稍後再試', 'error');
         } finally {
             setSyncingToChat(false);
         }
@@ -176,7 +176,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(10,8,15,0.85) 100%)' }} />
                 <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
 
-                <button onClick={(e) => { e.stopPropagation(); void handleGenerate(); }} disabled={generating} aria-label="生成一条朋友圈"
+                <button onClick={(e) => { e.stopPropagation(); void handleGenerate(); }} disabled={generating} aria-label="生成一條朋友圈"
                     className="absolute top-3 right-4 w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white/85 disabled:opacity-50">
                     {generating ? <CircleNotch size={15} weight="bold" className="animate-spin" /> : <Sparkle size={15} weight="bold" />}
                 </button>
@@ -190,7 +190,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-28 space-y-4">
                 {posts.length === 0 && (
                     <div className="text-center pt-10 text-[12px] text-white/40">
-                        还没有动态，点右上角 ✦ 生成 {char.name} 的一条朋友圈
+                        還沒有動態，點右上角 ✦ 生成 {char.name} 的一條朋友圈
                     </div>
                 )}
                 {posts.map(post => (
@@ -227,7 +227,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                     <div className="absolute inset-0 bg-black/60" />
                     <div className="relative w-full max-w-xs max-h-[85vh] overflow-y-auto no-scrollbar rounded-[2rem] shadow-2xl"
                         style={{ background: '#1a1626' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setDetailPost(null)} aria-label="关闭"
+                        <button onClick={() => setDetailPost(null)} aria-label="關閉"
                             className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">
                             <X size={14} weight="bold" />
                         </button>
@@ -240,7 +240,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
                                 <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
                             </button>
-                            <button onClick={() => setConfirmDeleteOpen(true)} aria-label="删除"
+                            <button onClick={() => setConfirmDeleteOpen(true)} aria-label="刪除"
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-rose-200">
                                 <Trash size={14} weight="bold" />
                             </button>
@@ -248,8 +248,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                         {confirmDeleteOpen && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
                                 <div className="text-center">
-                                    <div className="text-[13px] font-bold text-white/90 mb-1">删除这条朋友圈？</div>
-                                    <div className="text-[11px] text-white/45 mb-4">删除后无法恢复</div>
+                                    <div className="text-[13px] font-bold text-white/90 mb-1">刪除這條朋友圈？</div>
+                                    <div className="text-[11px] text-white/45 mb-4">刪除後無法恢復</div>
                                     <div className="flex gap-2 justify-center">
                                         <button onClick={() => setConfirmDeleteOpen(false)}
                                             className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
@@ -257,7 +257,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, posts, onCommit, cover, o
                                         </button>
                                         <button onClick={() => handleDelete(detailPost)}
                                             className="px-4 py-2 rounded-xl text-[12px] font-bold" style={{ background: 'rgba(244,63,94,0.18)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.35)' }}>
-                                            确认删除
+                                            確認刪除
                                         </button>
                                     </div>
                                 </div>

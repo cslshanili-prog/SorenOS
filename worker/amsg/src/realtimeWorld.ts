@@ -1,14 +1,14 @@
 /**
- * 到点现拉「外面的世界」：今日节日 + 实时天气 + 热搜，填进 fire_pack 的
+ * 到點現拉「外面的世界」：今日節日 + 實時天氣 + 熱搜，填進 fire_pack 的
  * AMSG_SLOT_REALTIME_WORLD 槽位。
  *
- * 为什么不跟着模板一起烤进来：那一段抬头写着「以下信息来自真实世界」，措辞比任何
- * 免责声明都硬。照着打包那一刻的读数说话，就是大晴天叫人带伞、隔天还在祝节日快乐、
- * 同一批旧闻当成「最近真实发生」说上三遍。所以留槽位、到点现拉。
+ * 為什麼不跟著模板一起烤進來：那一段抬頭寫著「以下信息來自真實世界」，措辭比任何
+ * 免責聲明都硬。照著打包那一刻的讀數說話，就是大晴天叫人帶傘、隔天還在祝節日快樂、
+ * 同一批舊聞當成「最近真實發生」說上三遍。所以留槽位、到點現拉。
  *
- * 取数与成段渲染都用 utils/realtimeWorldCore（浏览器那边聊天时走的是同一份），
- * 这个文件只管两件事：把结果按时段 / 按城市缓存进 client_state，别每条主动消息都
- * 重拉一遍；以及给整个取数过程封顶——拉不到、拉超时都只是少这一段，消息照常发。
+ * 取數與成段渲染都用 utils/realtimeWorldCore（瀏覽器那邊聊天時走的是同一份），
+ * 這個文件只管兩件事：把結果按時段 / 按城市緩存進 client_state，別每條主動消息都
+ * 重拉一遍；以及給整個取數過程封頂——拉不到、拉超時都只是少這一段，消息照常發。
  */
 
 import {
@@ -26,35 +26,35 @@ import {
 } from '../../../utils/realtimeWorldCore';
 import type { AmsgToolConfig } from '../../../utils/amsgToolPack';
 
-/** 两份快照都放全局命名空间：天气按城市、热榜按时段，本来就是所有角色共用一份。 */
+/** 兩份快照都放全局命名空間：天氣按城市、熱榜按時段，本來就是所有角色共用一份。 */
 export const AMSG_WEATHER_SNAPSHOT_KEY = 'world_weather';
 export const AMSG_HOTNEWS_SNAPSHOT_KEY = 'world_hotnews';
 
-/** 天气快照的保鲜期，与前台默认的缓存时长一致。 */
+/** 天氣快照的保鮮期，與前台默認的緩存時長一致。 */
 const WEATHER_TTL_MS = 30 * 60 * 1000;
 
 /**
- * 拉不到时旧读数还能顶多久 —— 天气 3 小时、热榜 24 小时，再旧就整段不要。
+ * 拉不到時舊讀數還能頂多久 —— 天氣 3 小時、熱榜 24 小時，再舊就整段不要。
  *
- * 顶一会儿是划算的（半小时前的气温也比只字不提强），但这一段抬头写着「以下信息来自
- * 真实世界」：接口连挂三天就会顶着这块招牌播三天前的那场雨、聊三天前的同一批热搜。
- * 「拉不到就整段消失」本来就是这条链的红线，旧读数也得守着它。
+ * 頂一會兒是划算的（半小時前的氣溫也比隻字不提強），但這一段抬頭寫著「以下信息來自
+ * 真實世界」：接口連掛三天就會頂著這塊招牌播三天前的那場雨、聊三天前的同一批熱搜。
+ * 「拉不到就整段消失」本來就是這條鏈的紅線，舊讀數也得守著它。
  */
 const WEATHER_FALLBACK_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 const HOTNEWS_FALLBACK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /**
- * 热榜按「国内现在几点」分时段。worker 跑在 UTC 上，不指定时区的话「今日上午」
- * 会跟榜单自己的作息差好几个时段。
+ * 熱榜按「國內現在幾點」分時段。worker 跑在 UTC 上，不指定時區的話「今日上午」
+ * 會跟榜單自己的作息差好幾個時段。
  */
 const HOTNEWS_SLOT_TZ = 'Asia/Shanghai';
 
-/** 存进快照的热榜条数。每次触发只随机抽几条注入，留这些够换着说很多轮了。 */
+/** 存進快照的熱榜條數。每次觸發只隨機抽幾條注入，留這些夠換著說很多輪了。 */
 const HOTNEWS_KEEP = 60;
 
 /**
- * 整个取数的时间封顶。主动消息后面还要跑 LLM、可能还要跑几轮工具，
- * 不能让一个卡住的热榜站把这次触发拖到超时。
+ * 整個取數的時間封頂。主動消息後面還要跑 LLM、可能還要跑幾輪工具，
+ * 不能讓一個卡住的熱榜站把這次觸發拖到超時。
  */
 const FETCH_BUDGET_MS = 10_000;
 
@@ -71,14 +71,14 @@ interface WeatherSnapshot {
 }
 
 interface HotNewsSnapshot {
-  /** getHotNewsSlot 的时段 id，形如 2026-08-02#5。 */
+  /** getHotNewsSlot 的時段 id，形如 2026-08-02#5。 */
   id: string;
   platforms: string[];
   items: NewsItem[];
   fetchedAt: number;
 }
 
-/** 快照读出来形状不对就当没有——重拉一次的代价远小于拿脏数据去说话。 */
+/** 快照讀出來形狀不對就當沒有——重拉一次的代價遠小於拿髒數據去說話。 */
 const parseSnapshot = <T>(rows: StateRow[], key: string, ok: (v: any) => boolean): T | null => {
   const raw = rows.find((r) => r.key === key)?.value;
   if (!raw) return null;
@@ -91,18 +91,18 @@ const parseSnapshot = <T>(rows: StateRow[], key: string, ok: (v: any) => boolean
 };
 
 /**
- * 给一个取数任务封顶：到点还没回来就用兜底值继续。
- * 被丢下的那个 promise 单独接住，别变成 unhandled rejection 把 worker 吵醒。
+ * 給一個取數任務封頂：到點還沒回來就用兜底值繼續。
+ * 被丟下的那個 promise 單獨接住，別變成 unhandled rejection 把 worker 吵醒。
  */
 const withBudget = async <T>(job: Promise<T>, ms: number, fallback: T, label: string): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const guarded = job.catch((e) => {
-    console.warn(`[amsg:world] ${label} 拉取失败`, e);
+    console.warn(`[amsg:world] ${label} 拉取失敗`, e);
     return fallback;
   });
   const timeout = new Promise<T>((resolve) => {
     timer = setTimeout(() => {
-      console.warn(`[amsg:world] ${label} 超过 ${ms}ms 没回来，这次先不带这一段`);
+      console.warn(`[amsg:world] ${label} 超過 ${ms}ms 沒回來，這次先不帶這一段`);
       resolve(fallback);
     }, ms);
   });
@@ -113,7 +113,7 @@ const withBudget = async <T>(job: Promise<T>, ms: number, fallback: T, label: st
   }
 };
 
-/** 天气：同城半小时内复用快照，过期或换城市才真去拉。 */
+/** 天氣：同城半小時內複用快照，過期或換城市才真去拉。 */
 const loadWeather = async (
   cfg: AmsgToolConfig,
   nowMs: number,
@@ -126,7 +126,7 @@ const loadWeather = async (
   const snap = parseSnapshot<WeatherSnapshot>(globalRows, AMSG_WEATHER_SNAPSHOT_KEY,
     (v) => v && typeof v.city === 'string' && v.data && typeof v.fetchedAt === 'number');
   if (snap && snap.city === city && nowMs - snap.fetchedAt < WEATHER_TTL_MS) {
-    console.log('[amsg:world] 天气命中快照', { city, ageMin: Math.round((nowMs - snap.fetchedAt) / 60000) });
+    console.log('[amsg:world] 天氣命中快照', { city, ageMin: Math.round((nowMs - snap.fetchedAt) / 60000) });
     return snap.data;
   }
 
@@ -138,16 +138,16 @@ const loadWeather = async (
     });
     return fresh;
   }
-  // 拉不到就用手上这份旧的：半小时前的气温也比「今天天气怎么样都不知道」强，
-  // 而且不写快照，下次触发会再试一次。城市换过了、或者旧得过头了就宁可不说。
+  // 拉不到就用手上這份舊的：半小時前的氣溫也比「今天天氣怎麼樣都不知道」強，
+  // 而且不寫快照，下次觸發會再試一次。城市換過了、或者舊得過頭了就寧可不說。
   if (snap && snap.city === city && nowMs - snap.fetchedAt <= WEATHER_FALLBACK_MAX_AGE_MS) {
-    console.warn('[amsg:world] 天气拉取失败，先用上一次的读数', { city });
+    console.warn('[amsg:world] 天氣拉取失敗，先用上一次的讀數', { city });
     return snap.data;
   }
   return null;
 };
 
-/** 热榜：同一时段 + 同一批平台复用快照，换时段才真去拉。 */
+/** 熱榜：同一時段 + 同一批平台複用快照，換時段才真去拉。 */
 const loadHotNews = async (
   cfg: AmsgToolConfig,
   nowMs: number,
@@ -161,7 +161,7 @@ const loadHotNews = async (
     (v) => v && typeof v.id === 'string' && Array.isArray(v.items) && Array.isArray(v.platforms)
       && typeof v.fetchedAt === 'number');
   if (snap && snap.id === slot.id && snap.items.length > 0 && sameHotNewsPlatforms(snap.platforms, platforms)) {
-    console.log('[amsg:world] 热榜命中快照', { slot: slot.id, count: snap.items.length });
+    console.log('[amsg:world] 熱榜命中快照', { slot: slot.id, count: snap.items.length });
     return snap.items;
   }
 
@@ -173,32 +173,32 @@ const loadHotNews = async (
     });
     return fresh;
   }
-  // 一条都没拉到：用上个时段的顶一下，且不写快照，下次触发重试。
-  // 隔天的旧闻不顶——那时候「最近发生的事」已经不是最近了。
+  // 一條都沒拉到：用上個時段的頂一下，且不寫快照，下次觸發重試。
+  // 隔天的舊聞不頂——那時候「最近發生的事」已經不是最近了。
   if (snap && snap.items.length > 0 && nowMs - snap.fetchedAt <= HOTNEWS_FALLBACK_MAX_AGE_MS) {
-    console.warn('[amsg:world] 热榜拉取失败，先用上个时段的', { was: snap.id, want: slot.id });
+    console.warn('[amsg:world] 熱榜拉取失敗，先用上個時段的', { was: snap.id, want: slot.id });
     return snap.items;
   }
   return [];
 };
 
 /**
- * 组这次触发要注入的「真实世界感知」那一段。
+ * 組這次觸發要注入的「真實世界感知」那一段。
  *
- * 返回空串 = 这次什么都没有（功能没开 / 全拉挂了），槽位被抹平，
- * 提示词读起来跟没有这回事一样，绝不半截。
+ * 返回空串 = 這次什麼都沒有（功能沒開 / 全拉掛了），槽位被抹平，
+ * 提示詞讀起來跟沒有這回事一樣，絕不半截。
  *
- * 注意这里不给「当前时间」那一行：时间由 fire_pack 自己的 AMSG_SLOT_CURRENT_TIME 填，
- * 两边都出就是一份提示词两个钟。
+ * 注意這裡不給「當前時間」那一行：時間由 fire_pack 自己的 AMSG_SLOT_CURRENT_TIME 填，
+ * 兩邊都出就是一份提示詞兩個鍾。
  */
 export const buildRealtimeWorldBlock = async (args: {
   toolConfig: AmsgToolConfig;
-  /** 角色的时间感知开关（tool_pack 带上来的）：关掉就连今日节日一起不给。 */
+  /** 角色的時間感知開關（tool_pack 帶上來的）：關掉就連今日節日一起不給。 */
   timeAwarenessEnabled: boolean;
-  /** 角色的时区，判「今天几号」用。 */
+  /** 角色的時區，判「今天幾號」用。 */
   tzId: string;
   nowMs: number;
-  /** onBeforeFire 已经读过的 amsg:global 行，直接复用，不再多查一次。 */
+  /** onBeforeFire 已經讀過的 amsg:global 行，直接複用，不再多查一次。 */
   globalRows: StateRow[];
   globalNamespace: string;
   writeState?: WriteState;
@@ -207,7 +207,7 @@ export const buildRealtimeWorldBlock = async (args: {
 
   const specialDates = args.timeAwarenessEnabled ? checkSpecialDates(args.tzId, nowMs) : [];
   if (!cfg.weatherEnabled && !cfg.newsEnabled) {
-    // 天气热搜都没开，只剩节日：有就单说一句，没有就整段不要。
+    // 天氣熱搜都沒開，只剩節日：有就單說一句，沒有就整段不要。
     return renderRealtimeWorldBlock({ specialDates });
   }
 
@@ -219,15 +219,15 @@ export const buildRealtimeWorldBlock = async (args: {
     ]),
     FETCH_BUDGET_MS,
     [null, [] as NewsItem[]] as [WeatherData | null, NewsItem[]],
-    '实时世界',
+    '實時世界',
   );
 
-  // 快照写回是 best-effort：写不进去只是下次还得重拉，不能连累这次触发。
+  // 快照寫回是 best-effort：寫不進去只是下次還得重拉，不能連累這次觸發。
   if (pendingWrites.length > 0 && typeof args.writeState === 'function') {
     try {
       await args.writeState(args.globalNamespace, pendingWrites);
     } catch (e) {
-      console.warn('[amsg:world] 快照写回失败（下次触发会重拉）', e);
+      console.warn('[amsg:world] 快照寫回失敗（下次觸發會重拉）', e);
     }
   }
 
@@ -237,10 +237,10 @@ export const buildRealtimeWorldBlock = async (args: {
     news: pickRandomNews(news, REALTIME_NEWS_PICK_COUNT),
   });
   console.log('[amsg:world] 本次注入', {
-    节日: specialDates.length,
-    天气: weather ? weather.city : '无',
-    热点池: news.length,
-    整段字数: block.length,
+    節日: specialDates.length,
+    天氣: weather ? weather.city : '無',
+    熱點池: news.length,
+    整段字數: block.length,
   });
   return block;
 };

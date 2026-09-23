@@ -11,8 +11,8 @@ import {
 } from './pipeline';
 
 /**
- * React 外的记忆后处理完成后，用这个事件把刚落进 IndexedDB 的传统记忆同步回 OSContext。
- * detail 只带增量，OSContext 会基于自己那份最新角色状态再 merge，避免整对象回灌覆盖其它字段。
+ * React 外的記憶後處理完成後，用這個事件把剛落進 IndexedDB 的傳統記憶同步回 OSContext。
+ * detail 只帶增量，OSContext 會基於自己那份最新角色狀態再 merge，避免整對象回灌覆蓋其它字段。
  */
 export const MEMORY_AUTO_ARCHIVE_SYNC_EVENT = 'memory-auto-archive-synced';
 
@@ -54,10 +54,10 @@ function sameMemories(a: MemoryFragment[] | undefined, b: MemoryFragment[]): boo
 }
 
 /**
- * 把 processNewMessages 的自动归档建议真正写入角色档案。
+ * 把 processNewMessages 的自動歸檔建議真正寫入角色檔案。
  *
- * 过去这一步散落在 React 调用方：Push、彼方、家园等入口只接了宫殿写入，忘了接返回值，
- * 于是出现“宫殿有总结、神经链接没副本”。现在所有自动入口统一走本函数。
+ * 過去這一步散落在 React 調用方：Push、彼方、家園等入口只接了宮殿寫入，忘了接返回值，
+ * 於是出現“宮殿有總結、神經鏈接沒副本”。現在所有自動入口統一走本函數。
  */
 export function persistAutoArchiveResult(
     charId: string,
@@ -105,7 +105,7 @@ export function persistAutoArchiveResult(
     });
 }
 
-/** 自动总结的唯一常规入口：宫殿写入成功后，紧接着完成神经链接双写。 */
+/** 自動總結的唯一常規入口：宮殿寫入成功後，緊接著完成神經鏈接雙寫。 */
 export async function processNewMessagesWithAutoArchive(
     ...args: Parameters<typeof processNewMessages>
 ): Promise<PipelineResult | null> {
@@ -120,12 +120,12 @@ const localDate = (timestamp: number): string => {
 };
 
 /**
- * 为旧版本漏写的数据构造保守回填：
- * - 必须已经有过 palace 传统记忆，证明该角色原本确实在走双写；
- * - 只看聊天提取节点，排除群聊、消化衍生和事件盒总结；
- * - 只补最后一条 palace 记忆之后、且神经链接整天完全空白的日期。
+ * 為舊版本漏寫的數據構造保守回填：
+ * - 必須已經有過 palace 傳統記憶，證明該角色原本確實在走雙寫；
+ * - 只看聊天提取節點，排除群聊、消化衍生和事件盒總結；
+ * - 只補最後一條 palace 記憶之後、且神經鏈接整天完全空白的日期。
  *
- * 这样可以修复“7 月 21 日后整段断掉”这类缺口，同时不重复搬运手动导入或旧迁移内容。
+ * 這樣可以修復“7 月 21 日後整段斷掉”這類缺口，同時不重複搬運手動導入或舊遷移內容。
  */
 export function buildConservativeRepairFragments(
     existing: MemoryFragment[],
@@ -148,7 +148,7 @@ export function buildConservativeRepairFragments(
     return buildAutoArchiveFragments(candidates, 0)?.fragments || [];
 }
 
-/** 启动时跑一次的旧缺口修复；不调 LLM、不重做向量、不改宫殿水位线。 */
+/** 啟動時跑一次的舊缺口修復；不調 LLM、不重做向量、不改宮殿水位線。 */
 export function repairMissingAutoArchiveMemories(
     charId: string,
 ): Promise<{ fragments: number; changed: boolean }> {

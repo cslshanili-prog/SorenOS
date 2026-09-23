@@ -4,33 +4,33 @@ let idSeq = 0;
 const makeId = (prefix: string): string => `${prefix}-${Date.now()}-${(idSeq++).toString(36)}`;
 
 /**
- * 首次打开购物中心时给两套分类各自的默认起点，避免空空如也。用户可以在「管理」里
- * 随时改名/删除/新增——这些只是种子，不是写死的固定分类。
+ * 首次打開購物中心時給兩套分類各自的默認起點，避免空空如也。用戶可以在「管理」裡
+ * 隨時改名/刪除/新增——這些只是種子，不是寫死的固定分類。
  */
 export const DEFAULT_MALL_CATEGORIES: Record<MallKind, string[]> = {
-    shop: ['可爱小物', '零食饮料', '生活用品', '礼物'],
-    food: ['正餐', '甜品饮料', '小吃', '饮品'],
+    shop: ['可愛小物', '零食飲料', '生活用品', '禮物'],
+    food: ['正餐', '甜品飲料', '小吃', '飲品'],
 };
 
-/** 种子商品，跟默认分类一一对应，纯粹让首次打开的购物中心不是空的。 */
+/** 種子商品，跟默認分類一一對應，純粹讓首次打開的購物中心不是空的。 */
 const SEED_PRODUCTS: Record<MallKind, { category: string; name: string; price: number; emoji: string; detail: string }[]> = {
     shop: [
-        { category: '可爱小物', name: '毛绒手机挂件', price: 19.9, emoji: '🧸', detail: '软乎乎的手机挂件，适合挂在角色手机旁边。' },
-        { category: '零食饮料', name: '聊天能量补给盒', price: 36, emoji: '🍫', detail: '巧克力、饼干和小饮料的组合，适合深夜聊天。' },
-        { category: '生活用品', name: '记忆手账本', price: 28, emoji: '📔', detail: '可以记录约定、日程、灵感和聊天里的小细节。' },
-        { category: '礼物', name: '迷你花束', price: 45, emoji: '💐', detail: '一束小小的花，适合当作突然的惊喜。' },
-        { category: '生活用品', name: '云朵眼罩', price: 25, emoji: '☁️', detail: '柔软遮光，适合提醒TA好好休息。' },
-        { category: '礼物', name: '咖啡兑换券', price: 18, emoji: '☕', detail: '给TA换一杯醒神咖啡。' },
+        { category: '可愛小物', name: '毛絨手機掛件', price: 19.9, emoji: '🧸', detail: '軟乎乎的手機掛件，適合掛在角色手機旁邊。' },
+        { category: '零食飲料', name: '聊天能量補給盒', price: 36, emoji: '🍫', detail: '巧克力、餅乾和小飲料的組合，適合深夜聊天。' },
+        { category: '生活用品', name: '記憶手帳本', price: 28, emoji: '📔', detail: '可以記錄約定、日程、靈感和聊天裡的小細節。' },
+        { category: '禮物', name: '迷你花束', price: 45, emoji: '💐', detail: '一束小小的花，適合當作突然的驚喜。' },
+        { category: '生活用品', name: '雲朵眼罩', price: 25, emoji: '☁️', detail: '柔軟遮光，適合提醒TA好好休息。' },
+        { category: '禮物', name: '咖啡兌換券', price: 18, emoji: '☕', detail: '給TA換一杯醒神咖啡。' },
     ],
     food: [
-        { category: '正餐', name: '简餐套餐', price: 32, emoji: '🍱', detail: '一荤一素加主食，饱腹不油腻。' },
-        { category: '甜品饮料', name: '草莓小蛋糕', price: 23, emoji: '🍰', detail: '当季草莓做的小蛋糕，甜而不腻。' },
-        { category: '小吃', name: '炸鸡拼盘', price: 29, emoji: '🍗', detail: '外酥里嫩，配一杯冰饮更好。' },
-        { category: '饮品', name: '冰美式', price: 22, emoji: '🧋', detail: '提神必备，夏天冰镇更爽。' },
+        { category: '正餐', name: '簡餐套餐', price: 32, emoji: '🍱', detail: '一葷一素加主食，飽腹不油膩。' },
+        { category: '甜品飲料', name: '草莓小蛋糕', price: 23, emoji: '🍰', detail: '當季草莓做的小蛋糕，甜而不膩。' },
+        { category: '小吃', name: '炸雞拼盤', price: 29, emoji: '🍗', detail: '外酥裡嫩，配一杯冰飲更好。' },
+        { category: '飲品', name: '冰美式', price: 22, emoji: '🧋', detail: '提神必備，夏天冰鎮更爽。' },
     ],
 };
 
-/** 按 kind 生成一套默认分类（带 order），供首次打开、且该 kind 还没有任何分类时用。 */
+/** 按 kind 生成一套默認分類（帶 order），供首次打開、且該 kind 還沒有任何分類時用。 */
 export function buildDefaultCategories(kind: MallKind): MallCategory[] {
     return DEFAULT_MALL_CATEGORIES[kind].map((name, index) => ({
         id: makeId('mallcat'),
@@ -40,7 +40,7 @@ export function buildDefaultCategories(kind: MallKind): MallCategory[] {
     }));
 }
 
-/** 按 kind + 已生成的默认分类，铺一批种子商品（分类名对不上的种子跳过，理论上不会发生）。 */
+/** 按 kind + 已生成的默認分類，鋪一批種子商品（分類名對不上的種子跳過，理論上不會發生）。 */
 export function buildSeedProducts(kind: MallKind, categories: MallCategory[]): MallProduct[] {
     const byName = new Map(categories.map(c => [c.name, c] as const));
     const now = Date.now();
@@ -64,7 +64,7 @@ export function buildSeedProducts(kind: MallKind, categories: MallCategory[]): M
 }
 
 export function createMallCategory(kind: MallKind, name: string, order: number): MallCategory {
-    return { id: makeId('mallcat'), kind, name: name.trim() || '未命名分类', order };
+    return { id: makeId('mallcat'), kind, name: name.trim() || '未命名分類', order };
 }
 
 export function createMallProduct(kind: MallKind, categoryId: string, input: { name: string; price: number; emoji?: string; detail?: string }): MallProduct {
@@ -80,29 +80,29 @@ export function createMallProduct(kind: MallKind, categoryId: string, input: { n
     };
 }
 
-// ─── AI 补货：跟 apps/CheckPhone.tsx 的 handleGenerate 同一个骨架（context 由调用方拼，
-// 这里只管纯文本的 prompt/防重复提示 + 解析结果落地），调用方负责 fetch + extractContent/
-// extractJson，解析完的数组丢进 parseMallRestockItems 转成可以直接 saveMallProduct 的对象。───
+// ─── AI 補貨：跟 apps/CheckPhone.tsx 的 handleGenerate 同一個骨架（context 由調用方拼，
+// 這裡只管純文本的 prompt/防重複提示 + 解析結果落地），調用方負責 fetch + extractContent/
+// extractJson，解析完的數組丟進 parseMallRestockItems 轉成可以直接 saveMallProduct 的對象。───
 
 /**
- * 防重复：把这个分类下已有的商品名喂回去，让 AI 这次刷新换一批新东西，而不是原地重复
- * （比如已经有一款"草莓小蛋糕"，这次别又刷一款换皮的"草莓慕斯"）。没有历史时返回空串。
+ * 防重複：把這個分類下已有的商品名喂回去，讓 AI 這次刷新換一批新東西，而不是原地重複
+ * （比如已經有一款"草莓小蛋糕"，這次別又刷一款換皮的"草莓慕斯"）。沒有歷史時返回空串。
  */
 export function buildMallAntiRepeatNote(existingInCategory: MallProduct[]): string {
     if (existingInCategory.length === 0) return '';
     const names = existingInCategory.map(p => p.name).join('、');
-    return `\n\n这个分类下已经有这些商品了，这次补货请换一批新的，别跟它们重复或换皮重名：${names}`;
+    return `\n\n這個分類下已經有這些商品了，這次補貨請換一批新的，別跟它們重複或換皮重名：${names}`;
 }
 
 export function buildMallRestockPrompt(kind: MallKind, categoryName: string, existingInCategory: MallProduct[], count = 4): string {
-    const noun = kind === 'food' ? '外卖' : '购物';
-    return `生成 ${count} 件「${categoryName}」分类下的${noun}商品，适合在情侣/朋友之间当${kind === 'food' ? '点单' : '送礼'}用的日常小商品，价格控制在合理区间（几元到几十元）。` +
+    const noun = kind === 'food' ? '外賣' : '購物';
+    return `生成 ${count} 件「${categoryName}」分類下的${noun}商品，適合在情侶/朋友之間當${kind === 'food' ? '點單' : '送禮'}用的日常小商品，價格控制在合理區間（幾元到幾十元）。` +
         `${buildMallAntiRepeatNote(existingInCategory)}\n\n` +
-        `**JSON 字段类型硬约束**：只能返回下面这个形状的 JSON 数组，"name"/"detail"/"emoji" 必须是字符串，"price" 必须是数字，不能是对象或数组：\n` +
-        `[{ "name": "商品名", "price": 19.9, "emoji": "一个最能代表这个商品的 emoji", "detail": "一句简短说明，不超过20字" }, ...]`;
+        `**JSON 字段類型硬約束**：只能返回下面這個形狀的 JSON 數組，"name"/"detail"/"emoji" 必須是字符串，"price" 必須是數字，不能是對象或數組：\n` +
+        `[{ "name": "商品名", "price": 19.9, "emoji": "一個最能代表這個商品的 emoji", "detail": "一句簡短說明，不超過20字" }, ...]`;
 }
 
-/** 把 AI 返回的松散 JSON 数组过滤/纠错成能直接 DB.saveMallProduct 的商品对象。 */
+/** 把 AI 返回的鬆散 JSON 數組過濾/糾錯成能直接 DB.saveMallProduct 的商品對象。 */
 export function parseMallRestockItems(kind: MallKind, categoryId: string, json: unknown): MallProduct[] {
     if (!Array.isArray(json)) return [];
     const out: MallProduct[] = [];
@@ -122,14 +122,14 @@ export function parseMallRestockItems(kind: MallKind, categoryId: string, json: 
     return out;
 }
 
-// ─── 购物车 / 外卖篮（纯计算，状态本身是 mini-app 里的临时 UI state，不落库）───
+// ─── 購物車 / 外賣籃（純計算，狀態本身是 mini-app 裡的臨時 UI state，不落庫）───
 
 export interface MallCartLine {
     productId: string;
     qty: number;
 }
 
-/** 购物车行 + 商品详情拼在一起，UI 直接渲染用；商品被删掉后这行自动被过滤掉。 */
+/** 購物車行 + 商品詳情拼在一起，UI 直接渲染用；商品被刪掉後這行自動被過濾掉。 */
 export function resolveCartLines(cart: MallCartLine[], products: MallProduct[]): (MallCartLine & { product: MallProduct })[] {
     const byId = new Map(products.map(p => [p.id, p] as const));
     return cart

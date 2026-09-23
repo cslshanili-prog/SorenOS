@@ -1,20 +1,20 @@
 /**
- * SullyOS MCP CORS 代理 — 部署到「你自己的」Cloudflare 账号
+ * SullyOS MCP CORS 代理 — 部署到「你自己的」Cloudflare 帳號
  *
- * 作用：浏览器直连远程 MCP 服务器时经常被 CORS 拦住（读不到 Mcp-Session-Id
- * 响应头，MCP 握手直接失败）。这个 Worker 做透明转发并补上正确的 CORS 头。
+ * 作用：瀏覽器直連遠程 MCP 服務器時經常被 CORS 攔住（讀不到 Mcp-Session-Id
+ * 響應頭，MCP 握手直接失敗）。這個 Worker 做透明轉發並補上正確的 CORS 頭。
  *
- * 部署（二选一）：
- *   A. Cloudflare Dashboard → Workers → Create → 粘贴本文件 → Deploy
- *   B. 本目录下执行 `wrangler deploy`
+ * 部署（二選一）：
+ *   A. Cloudflare Dashboard → Workers → Create → 粘貼本文件 → Deploy
+ *   B. 本目錄下執行 `wrangler deploy`
  *
- * 用法：在 SullyOS 设置的 MCP 服务器「代理 URL」里填你的 Worker 地址，
+ * 用法：在 SullyOS 設置的 MCP 服務器「代理 URL」裡填你的 Worker 地址，
  *      例如 https://mcp-proxy.<你的子域>.workers.dev
- *      前端会以 <代理URL>?target=<MCP服务器URL> 的形式转发请求。
+ *      前端會以 <代理URL>?target=<MCP服務器URL> 的形式轉發請求。
  *
- * 可选加固（强烈建议，防止别人白嫖你的 Worker 流量）：
- *   在 Worker 的环境变量里设置 PROXY_KEY=<随机字符串>，
- *   然后在 SullyOS 设置的「代理密钥」里填同一个值。
+ * 可選加固（強烈建議，防止別人白嫖你的 Worker 流量）：
+ *   在 Worker 的環境變量裡設置 PROXY_KEY=<隨機字符串>，
+ *   然後在 SullyOS 設置的「代理密鑰」裡填同一個值。
  */
 
 const FORWARD_REQUEST_HEADERS = [
@@ -52,11 +52,11 @@ function isPrivateIpv4(host) {
         || (a === 100 && b >= 64 && b <= 127);
 }
 
-// 只允许公网 http/https 目标，禁止把 Worker 当内网探针用
+// 只允許公網 http/https 目標，禁止把 Worker 當內網探針用
 function blockedTargetReason(rawUrl) {
     let url;
     try { url = new URL(rawUrl); } catch { return 'target 不是合法 URL'; }
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '只允许 http/https';
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '只允許 http/https';
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     const blocked = host === 'localhost'
         || host.endsWith('.localhost')
@@ -65,7 +65,7 @@ function blockedTargetReason(rawUrl) {
         || host === '::1'
         || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80')
         || isPrivateIpv4(host);
-    return blocked ? '不允许代理内网/本机地址' : null;
+    return blocked ? '不允許代理內網/本機地址' : null;
 }
 
 export default {
@@ -79,11 +79,11 @@ export default {
 
         if (env.PROXY_KEY) {
             const key = request.headers.get('x-proxy-key') || '';
-            if (key !== env.PROXY_KEY) return corsJson(403, { error: '代理密钥错误（X-Proxy-Key）' });
+            if (key !== env.PROXY_KEY) return corsJson(403, { error: '代理密鑰錯誤（X-Proxy-Key）' });
         }
 
         const target = new URL(request.url).searchParams.get('target');
-        if (!target) return corsJson(400, { error: '缺少 ?target=<MCP服务器URL> 参数' });
+        if (!target) return corsJson(400, { error: '缺少 ?target=<MCP服務器URL> 參數' });
         const blocked = blockedTargetReason(target);
         if (blocked) return corsJson(400, { error: blocked });
 
@@ -112,10 +112,10 @@ export default {
                 body: (request.method === 'GET' || request.method === 'HEAD') ? undefined : request.body,
             });
         } catch (e) {
-            return corsJson(502, { error: `转发失败: ${e.message}` });
+            return corsJson(502, { error: `轉發失敗: ${e.message}` });
         }
 
-        // 透传响应（含 SSE 流），补 CORS 头
+        // 透傳響應（含 SSE 流），補 CORS 頭
         const respHeaders = new Headers(CORS_HEADERS);
         for (const name of ['content-type', 'mcp-session-id', 'www-authenticate', 'cache-control']) {
             const v = upstream.headers.get(name);

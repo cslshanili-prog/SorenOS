@@ -1,37 +1,37 @@
 /**
- * 聊天细节微调 CSS 生成器（外观 → 聊天细节）。
+ * 聊天細節微調 CSS 生成器（外觀 → 聊天細節）。
  *
- * 收编自社区作者「毛豆腐和面机」（DC）的「神秘拼好码」美化 CSS（致谢见 README 鸣谢）：
- * 隐藏头像、头像位置/对齐/微调、消息贴边、气泡缩进、正文字号/行距。
- * 选择器沿用她的版本已在真实 DOM 上验证过的形态
- * （锚 .group.justify-* 与 .sully-bubble-* 结构），生成规则带 !important
- * 以压过 Tailwind 工具类。
+ * 收編自社區作者「毛豆腐和麵機」（DC）的「神秘拼好碼」美化 CSS（致謝見 README 鳴謝）：
+ * 隱藏頭像、頭像位置/對齊/微調、消息貼邊、氣泡縮進、正文字號/行距。
+ * 選擇器沿用她的版本已在真實 DOM 上驗證過的形態
+ * （錨 .group.justify-* 與 .sully-bubble-* 結構），生成規則帶 !important
+ * 以壓過 Tailwind 工具類。
  *
- * 注入位置：Chat.tsx 在用户自定义白框 CSS（chatChromeCustomCss / 角色
- * chromeCustomCss）**之前**插入本样式——同为 !important 时后者胜，老用户
- * 手写的美化代码永远能覆盖这里的可视化设置，互不打架。
+ * 注入位置：Chat.tsx 在用戶自定義白框 CSS（chatChromeCustomCss / 角色
+ * chromeCustomCss）**之前**插入本樣式——同為 !important 時後者勝，老用戶
+ * 手寫的美化代碼永遠能覆蓋這裡的可視化設置，互不打架。
  *
- * 全部字段缺省时返回空串（一个 <style> 都不注入，现状零变化）。
+ * 全部字段缺省時返回空串（一個 <style> 都不注入，現狀零變化）。
  */
 
 import type { ChatFineTuneFields, ChatFineTuneOverride } from '../types';
 
-/** 微调字段清单（合并 / 重置 / 快照都以这份为准，加字段只改这里一处）。 */
+/** 微調字段清單（合併 / 重置 / 快照都以這份為準，加字段只改這裡一處）。 */
 export const CHAT_FINE_TUNE_KEYS = [
     'chatAvatarVisibility', 'chatAvatarPlacement', 'chatAvatarAlign', 'chatAvatarOffsetY',
     'chatBubbleFontSize', 'chatBubbleLineHeight', 'chatBubbleIndent', 'chatSnapToEdge',
-    // chatModuleAlign 不生成 CSS（HTML/心象卡片位置经 MessageItem 布局属性生效），
-    // 但同属微调字段：合并/重置/角色覆盖/备份都跟这份清单走。
+    // chatModuleAlign 不生成 CSS（HTML/心象卡片位置經 MessageItem 佈局屬性生效），
+    // 但同屬微調字段：合併/重置/角色覆蓋/備份都跟這份清單走。
     'chatModuleAlign',
 ] as const satisfies ReadonlyArray<keyof ChatFineTuneFields>;
 
 /**
- * 「全局打底，角色可覆盖」的合并规则：
- * - override 缺省或 enabled 不为 true → 原样返回全局值（角色完全跟随全局）；
- * - enabled=true → 已定义（!== undefined）的字段逐个覆盖全局，未定义的字段跟随全局。
- *   注意显式 0 / 'both' / false 也算「已定义」——角色可以借此把某项压回默认，
- *   即使全局设了别的值（UI 的「回默认」按钮依赖这一点）。
- * 返回值只含微调字段的浅拷贝，喂给 buildChatFineTuneCss 即可。
+ * 「全局打底，角色可覆蓋」的合併規則：
+ * - override 缺省或 enabled 不為 true → 原樣返回全局值（角色完全跟隨全局）；
+ * - enabled=true → 已定義（!== undefined）的字段逐個覆蓋全局，未定義的字段跟隨全局。
+ *   注意顯式 0 / 'both' / false 也算「已定義」——角色可以藉此把某項壓回默認，
+ *   即使全局設了別的值（UI 的「回默認」按鈕依賴這一點）。
+ * 返回值只含微調字段的淺拷貝，餵給 buildChatFineTuneCss 即可。
  */
 export function mergeChatFineTune(global: ChatFineTuneFields, override?: ChatFineTuneOverride | null): ChatFineTuneFields {
     const merged: ChatFineTuneFields = {};
@@ -52,12 +52,12 @@ const GROUP_FIRST = '.sully-chat-root .sully-chat-message-group-first:not(.sully
 const MESSAGE_CONTENT = '.sully-chat-root .sully-chat-message-content:not(.sully-html-wrap)';
 const AI_BODY = '.sully-chat-root .sully-bubble-ai > div[class~="select-text"]';
 const USER_BODY = '.sully-chat-root .sully-bubble-user > div[class~="select-text"]';
-// 贴边/缩进只该动普通气泡：HTML 卡片（280px 定宽模块，包装层带 .sully-html-wrap）
-// 的默认位置就是"视觉居中"的约定，:not() 绕开让它不随美化挪窝。
+// 貼邊/縮進只該動普通氣泡：HTML 卡片（280px 定寬模塊，包裝層帶 .sully-html-wrap）
+// 的默認位置就是"視覺居中"的約定，:not() 繞開讓它不隨美化挪窩。
 const AI_WRAP = '.sully-chat-root .group.justify-start [class~="max-w-[72%]"].ml-12:not(.sully-html-wrap)';
 const USER_WRAP = '.sully-chat-root .group.justify-end [class~="max-w-[72%]"].mr-12:not(.sully-html-wrap)';
-// 心象卡片（思考链，仅 AI 侧）与气泡共用包装层，:not() 绕不开——包装层被贴边/缩进挪动时
-// 给它一个反向 margin 抵消，钉回默认位置（ml-12 = 48px），与 HTML 卡片同一"模块不挪窝"约定。
+// 心象卡片（思考鏈，僅 AI 側）與氣泡共用包裝層，:not() 繞不開——包裝層被貼邊/縮進挪動時
+// 給它一個反向 margin 抵消，釘回默認位置（ml-12 = 48px），與 HTML 卡片同一"模塊不挪窩"約定。
 const AI_PSYCHE = '.sully-chat-root .group.justify-start .sully-psyche';
 const DEFAULT_WRAP_MARGIN = 48;
 
@@ -70,18 +70,18 @@ export function buildChatFineTuneCss(theme: ChatFineTuneFields): string {
     const hideAi = vis === 'hide_ai' || vis === 'hide_both';
     const hideUser = vis === 'hide_user' || vis === 'hide_both';
 
-    // 隐藏规则最后追加：这样“每轮上方”的 display:block 不会意外把用户主动隐藏的一侧重新显示。
+    // 隱藏規則最後追加：這樣“每輪上方”的 display:block 不會意外把用戶主動隱藏的一側重新顯示。
     const hideRules: string[] = [];
     if (hideAi) hideRules.push(hideRule(AI_AVATAR));
     if (hideUser) hideRules.push(hideRule(USER_AVATAR));
 
-    // ── 贴边（只对隐藏了头像的一侧收回空位）──
+    // ── 貼邊（只對隱藏了頭像的一側收回空位）──
     if (theme.chatSnapToEdge) {
         if (hideAi) rules.push(`${AI_WRAP} { margin-left: 0 !important; }`);
         if (hideUser) rules.push(`${USER_WRAP} { margin-right: 0 !important; }`);
     }
 
-    // ── 头像对齐 + 垂直微调 ──
+    // ── 頭像對齊 + 垂直微調 ──
     const align = theme.chatAvatarAlign || 'bottom';
     const offY = theme.chatAvatarOffsetY || 0;
     if (align !== 'bottom' || offY !== 0) {
@@ -95,23 +95,23 @@ export function buildChatFineTuneCss(theme: ChatFineTuneFields): string {
         }
     }
 
-    // ── 气泡与头像侧的间距（贴边侧不重复设置，贴边优先）──
+    // ── 氣泡與頭像側的間距（貼邊側不重複設置，貼邊優先）──
     const indent = theme.chatBubbleIndent || 0;
     if (indent > 0) {
         if (!(theme.chatSnapToEdge && hideAi)) rules.push(`${AI_WRAP} { margin-left: ${indent}px !important; }`);
         if (!(theme.chatSnapToEdge && hideUser)) rules.push(`${USER_WRAP} { margin-right: ${indent}px !important; }`);
     }
 
-    // ── 心象卡片钉回默认位置 ──
-    // AI 侧包装层被挪动多少，就给心象反向补多少：贴边时包装层 48→0（补 48px），
-    // 缩进时 48→indent（补 48-indent，可为负）。包装层没动就不出规则。
+    // ── 心象卡片釘回默認位置 ──
+    // AI 側包裝層被挪動多少，就給心象反向補多少：貼邊時包裝層 48→0（補 48px），
+    // 縮進時 48→indent（補 48-indent，可為負）。包裝層沒動就不出規則。
     if (theme.chatSnapToEdge && hideAi) {
         rules.push(`${AI_PSYCHE} { margin-left: ${DEFAULT_WRAP_MARGIN}px !important; }`);
     } else if (indent > 0) {
         rules.push(`${AI_PSYCHE} { margin-left: ${DEFAULT_WRAP_MARGIN - indent}px !important; }`);
     }
 
-    // ── 正文字号 / 行距（沿用社区版的四层选择器：容器/内层行/内联继承/引用行）──
+    // ── 正文字號 / 行距（沿用社區版的四層選擇器：容器/內層行/內聯繼承/引用行）──
     const fs = theme.chatBubbleFontSize || 0;
     const lh = theme.chatBubbleLineHeight || 0;
     if (fs > 0 || lh > 0) {
@@ -123,7 +123,7 @@ export function buildChatFineTuneCss(theme: ChatFineTuneFields): string {
         rules.push(`${AI_BODY} [class*="text-[13px]"], ${USER_BODY} [class*="text-[13px]"] {${decl} }`);
     }
 
-    // ── 每轮头像置于整组气泡上方 ──
+    // ── 每輪頭像置於整組氣泡上方 ──
     if ((theme.chatAvatarPlacement || 'beside') === 'above_group') {
         rules.push(`${TURN_AVATAR} { display: block !important; top: 0 !important; bottom: auto !important; transform: none !important; }`);
         rules.push(`${DEFAULT_AVATAR} { display: none !important; }`);
@@ -132,5 +132,5 @@ export function buildChatFineTuneCss(theme: ChatFineTuneFields): string {
     }
 
     rules.push(...hideRules);
-    return rules.length ? `/* 聊天细节微调（外观 App 生成，用户自定义 CSS 可覆盖） */\n${rules.join('\n')}` : '';
+    return rules.length ? `/* 聊天細節微調（外觀 App 生成，用戶自定義 CSS 可覆蓋） */\n${rules.join('\n')}` : '';
 }

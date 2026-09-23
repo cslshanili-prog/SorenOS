@@ -1,13 +1,13 @@
 /**
- * amsg worker v2 服务端工具循环 — 决策纯逻辑回归测试。
+ * amsg worker v2 服務端工具循環 — 決策純邏輯迴歸測試。
  *
- * 钉住的行为：
- *  1. finish 分段与客户端气泡同一份（sanitizeIntoSegments：按换行切，
- *     [[...]] / [html] 等标签块保持原子）；push 业务字段形状与 v1 一致，另挂
- *     notification.body = 净化文本给 OS banner；
- *  2. 数据标签 → tool-request，旁白与旁白里的副作用跨轮累积、finish 时一起出；
- *  3. 副作用标签 → 结构化 directives 只挂最后一条 push（收侧 isLastChunk 守卫依赖这一点）；
- *  4. 全程无正文：无副作用 → skip-push，有副作用 → 单条空正文 push 携带 directives。
+ * 釘住的行為：
+ *  1. finish 分段與客戶端氣泡同一份（sanitizeIntoSegments：按換行切，
+ *     [[...]] / [html] 等標籤塊保持原子）；push 業務字段形狀與 v1 一致，另掛
+ *     notification.body = 淨化文本給 OS banner；
+ *  2. 數據標籤 → tool-request，旁白與旁白裡的副作用跨輪累積、finish 時一起出；
+ *  3. 副作用標籤 → 結構化 directives 只掛最後一條 push（收側 isLastChunk 守衛依賴這一點）；
+ *  4. 全程無正文：無副作用 → skip-push，有副作用 → 單條空正文 push 攜帶 directives。
  */
 
 import { describe, expect, it } from 'vitest';
@@ -37,8 +37,8 @@ const build: PushBuildInput = {
   occurrenceMs: Date.UTC(2026, 6, 21, 1, 0),
 };
 
-describe('processLLMRound — 纯文本 finish', () => {
-  it('按换行分段成多条 scheduled push，业务字段形状与 v1 一致 + notification banner', () => {
+describe('processLLMRound — 純文本 finish', () => {
+  it('按換行分段成多條 scheduled push，業務字段形狀與 v1 一致 + notification banner', () => {
     const state = createFireSessionState();
     const decision = processLLMRound(state, '想你了。\n快回消息！', build);
 
@@ -50,43 +50,43 @@ describe('processLLMRound — 纯文本 finish', () => {
       messageType: 'auto',
       source: 'scheduled',
       message: '想你了。',
-      title: '来自 小鹿',
+      title: '來自 小鹿',
       contactName: '小鹿',
       avatarUrl: 'https://example.com/a.png',
       messageSubtype: 'chat',
       taskId: '42',
-      // 每条 push 都带触发时刻——客户端兜底闸的循环判定与吞放缓存键都靠它。
+      // 每條 push 都帶觸發時刻——客戶端兜底閘的循環判定與吞放緩存鍵都靠它。
       metadata: { charId: 'char-1', amsgMode: 'auto', amsgOccurrenceMs: build.occurrenceMs },
-      notification: { title: '来自 小鹿', body: '想你了。' },
+      notification: { title: '來自 小鹿', body: '想你了。' },
     });
-    // 无副作用时 metadata 原样透传，不额外挂 directives 键。
+    // 無副作用時 metadata 原樣透傳，不額外掛 directives 鍵。
     expect((decision.pushPayloads[1].metadata as any).directives).toBeUndefined();
   });
 
-  it('同一行多句不拆 — 气泡结构跟随 LLM 的换行意图（与客户端 chunkText 一致）', () => {
+  it('同一行多句不拆 — 氣泡結構跟隨 LLM 的換行意圖（與客戶端 chunkText 一致）', () => {
     const decision = processLLMRound(createFireSessionState(), '想你了。快回消息！', build);
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
     expect(decision.pushPayloads.map((p) => p.message)).toEqual(['想你了。快回消息！']);
   });
 
-  // 标签用 SEND_EMOJI 这种约定好的：模型现编的标签（`[[分享卡: …]]`）独占一段时会被
-  // sanitize 整段丢掉，那是「横幅响了、点进去 0 气泡」那条规则，跟这里验的劈碎无关。
-  it('回归：[[...]] 标签内的句读不再把标签劈碎（曾把「]]」拼进下一条消息）', () => {
+  // 標籤用 SEND_EMOJI 這種約定好的：模型現編的標籤（`[[分享卡: …]]`）獨佔一段時會被
+  // sanitize 整段丟掉，那是「橫幅響了、點進去 0 氣泡」那條規則，跟這裡驗的劈碎無關。
+  it('迴歸：[[...]] 標籤內的句讀不再把標籤劈碎（曾把「]]」拼進下一條消息）', () => {
     const decision = processLLMRound(
       createFireSessionState(),
-      '看到个热搜。\n[[SEND_EMOJI: 官宣了！速看]]',
+      '看到個熱搜。\n[[SEND_EMOJI: 官宣了！速看]]',
       build,
     );
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
     expect(decision.pushPayloads.map((p) => p.message)).toEqual([
-      '看到个热搜。',
+      '看到個熱搜。',
       '[[SEND_EMOJI: 官宣了！速看]]',
     ]);
   });
 
-  it('SEND_EMOJI 独立成段：message 保留原始标签给客户端渲染，banner 显示可读形态', () => {
+  it('SEND_EMOJI 獨立成段：message 保留原始標籤給客戶端渲染，banner 顯示可讀形態', () => {
     const decision = processLLMRound(createFireSessionState(), '想你了\n[[SEND_EMOJI: 抱抱]]', build);
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
@@ -95,64 +95,64 @@ describe('processLLMRound — 纯文本 finish', () => {
     expect((decision.pushPayloads[1].notification as any).body).toBe('[表情：抱抱]');
   });
 
-  it('空输出且无累积 → skip-push', () => {
+  it('空輸出且無累積 → skip-push', () => {
     const decision = processLLMRound(createFireSessionState(), '', build);
     expect(decision.decision).toBe('skip-push');
   });
 });
 
-describe('processLLMRound — 数据标签 tool-request 与跨轮累积', () => {
-  it('RECALL 标签 → tool-request，旁白暂存；下一轮 finish 时旁白排在正文前', () => {
+describe('processLLMRound — 數據標籤 tool-request 與跨輪累積', () => {
+  it('RECALL 標籤 → tool-request，旁白暫存；下一輪 finish 時旁白排在正文前', () => {
     const state = createFireSessionState();
 
-    const round1 = processLLMRound(state, '等等，我想想上个月的事。[[RECALL: 2026-06]]', build);
+    const round1 = processLLMRound(state, '等等，我想想上個月的事。[[RECALL: 2026-06]]', build);
     expect(round1.decision).toBe('tool-request');
     if (round1.decision !== 'tool-request') return;
     expect(round1.toolCalls).toHaveLength(1);
     expect(round1.toolCalls[0].function.name).toBe('recall');
     expect(JSON.parse(round1.toolCalls[0].function.arguments)).toEqual({ year: '2026', month: '06' });
-    expect(state.narrations).toEqual(['等等，我想想上个月的事。']);
+    expect(state.narrations).toEqual(['等等，我想想上個月的事。']);
 
-    const round2 = processLLMRound(state, '想起来了，那天的落日超好看！', build);
+    const round2 = processLLMRound(state, '想起來了，那天的落日超好看！', build);
     expect(round2.decision).toBe('finish');
     if (round2.decision !== 'finish') return;
     expect(round2.pushPayloads.map((p) => p.message)).toEqual([
-      '等等，我想想上个月的事。',
-      '想起来了，那天的落日超好看！',
+      '等等，我想想上個月的事。',
+      '想起來了，那天的落日超好看！',
     ]);
   });
 
-  it('tool-request 轮旁白里的副作用标签也被结构化累积，finish 时挂上', () => {
+  it('tool-request 輪旁白裡的副作用標籤也被結構化累積，finish 時掛上', () => {
     const state = createFireSessionState();
 
-    const round1 = processLLMRound(state, '[[ACTION:POKE]]在吗在吗。[[SEARCH: 今晚 流星雨]]', build);
+    const round1 = processLLMRound(state, '[[ACTION:POKE]]在嗎在嗎。[[SEARCH: 今晚 流星雨]]', build);
     expect(round1.decision).toBe('tool-request');
-    // 旁白存原始文本（副作用标签保留），finish 时拼回全文统一扫。
-    expect(state.narrations).toEqual(['[[ACTION:POKE]]在吗在吗。']);
+    // 旁白存原始文本（副作用標籤保留），finish 時拼回全文統一掃。
+    expect(state.narrations).toEqual(['[[ACTION:POKE]]在嗎在嗎。']);
 
-    const round2 = processLLMRound(state, '今晚十点有流星雨！[[ACTION:ADD_EVENT|看流星雨|今晚10点]]', build);
+    const round2 = processLLMRound(state, '今晚十點有流星雨！[[ACTION:ADD_EVENT|看流星雨|今晚10點]]', build);
     expect(round2.decision).toBe('finish');
     if (round2.decision !== 'finish') return;
     const last = round2.pushPayloads[round2.pushPayloads.length - 1];
     expect((last.metadata as any).directives).toEqual([
       { type: 'poke' },
-      { type: 'add_event', title: '看流星雨', date: '今晚10点' },
+      { type: 'add_event', title: '看流星雨', date: '今晚10點' },
     ]);
-    // 非最后一条不挂 directives（客户端只在 isLastChunk 时 replay 一次）。
+    // 非最後一條不掛 directives（客戶端只在 isLastChunk 時 replay 一次）。
     for (const p of round2.pushPayloads.slice(0, -1)) {
       expect((p.metadata as any).directives).toBeUndefined();
     }
-    // 副作用标签已从正文剥掉。
+    // 副作用標籤已從正文剝掉。
     for (const p of round2.pushPayloads) {
       expect(String(p.message)).not.toContain('[[ACTION');
     }
   });
 });
 
-// 回归守卫：`[[MUSIC_ACTION:add|歌单标题]]` 里只有歌单名，没有歌名。客户端重放时若只能
-// 取「用户此刻在听的那首」，定时消息补收的那一刻用户多半什么都没在放 —— 正文聊着这首歌，
-// 卡片和加歌单却整个没发生。所以到点渲染「你此刻在听：《X》」时顺手把 X 冻进 directive。
-describe('processLLMRound — MUSIC_ACTION 冻结这次在听的那首歌', () => {
+// 迴歸守衛：`[[MUSIC_ACTION:add|歌單標題]]` 裡只有歌單名，沒有歌名。客戶端重放時若只能
+// 取「用戶此刻在聽的那首」，定時消息補收的那一刻用戶多半什麼都沒在放 —— 正文聊著這首歌，
+// 卡片和加歌單卻整個沒發生。所以到點渲染「你此刻在聽：《X》」時順手把 X 凍進 directive。
+describe('processLLMRound — MUSIC_ACTION 凍結這次在聽的那首歌', () => {
   const song = { id: 33, name: '夜航星', artists: '某某' };
   const withSong: PushBuildInput = { ...build, sceneSong: song };
 
@@ -162,10 +162,10 @@ describe('processLLMRound — MUSIC_ACTION 冻结这次在听的那首歌', () =
     return (last.metadata as any).directives;
   };
 
-  it('这次渲染挑了歌 → music_action 带上它', () => {
+  it('這次渲染挑了歌 → music_action 帶上它', () => {
     const decision = processLLMRound(
       createFireSessionState(),
-      '这首太好听了，收进歌单。\n[[MUSIC_ACTION:add|深夜]]',
+      '這首太好聽了，收進歌單。\n[[MUSIC_ACTION:add|深夜]]',
       withSong,
     );
     expect(directivesOf(decision)).toEqual([
@@ -173,10 +173,10 @@ describe('processLLMRound — MUSIC_ACTION 冻结这次在听的那首歌', () =
     ]);
   });
 
-  it('这次没渲染「此刻在听」（不在听歌的时段 / 跨天作废）→ 不附，客户端走实时快照那条路', () => {
+  it('這次沒渲染「此刻在聽」（不在聽歌的時段 / 跨天作廢）→ 不附，客戶端走實時快照那條路', () => {
     const decision = processLLMRound(
       createFireSessionState(),
-      '这首太好听了。\n[[MUSIC_ACTION:add|深夜]]',
+      '這首太好聽了。\n[[MUSIC_ACTION:add|深夜]]',
       { ...build, sceneSong: null },
     );
     expect(directivesOf(decision)).toEqual([
@@ -184,7 +184,7 @@ describe('processLLMRound — MUSIC_ACTION 冻结这次在听的那首歌', () =
     ]);
   });
 
-  it('其余类型的 directive 一概不动', () => {
+  it('其餘類型的 directive 一概不動', () => {
     const decision = processLLMRound(
       createFireSessionState(),
       '戳你一下。\n[[ACTION:POKE]]',
@@ -194,20 +194,20 @@ describe('processLLMRound — MUSIC_ACTION 冻结这次在听的那首歌', () =
   });
 });
 
-describe('processLLMRound — 无正文边界', () => {
-  // 空正文的 push 连 banner body 都是空的：用户锁屏收到一条只有标题的空横幅、未读 +1、
-  // 点进去 0 气泡。所以没正文就整条不发，副作用一起放弃，两种成因分开记进 last_skip。
-  it('全程只有副作用标签、没有正文：整条不发，记 side-effects-only', () => {
+describe('processLLMRound — 無正文邊界', () => {
+  // 空正文的 push 連 banner body 都是空的：用戶鎖屏收到一條只有標題的空橫幅、未讀 +1、
+  // 點進去 0 氣泡。所以沒正文就整條不發，副作用一起放棄，兩種成因分開記進 last_skip。
+  it('全程只有副作用標籤、沒有正文：整條不發，記 side-effects-only', () => {
     const decision = processLLMRound(createFireSessionState(), '[[ACTION:POKE]]', build);
     expect(decision.decision).toBe('skip-push');
     if (decision.decision !== 'skip-push') return;
     expect(decision.reason).toBe('side-effects-only');
   });
 
-  // 日程改动是「没正文就整条丢」这条规矩里的唯一例外：它不是做给用户看的动作，是角色
-  // 在纠正自己的表。一起丢掉的话，下一次 fire 读到的还是那条旧安排，角色会反复想改又
-  // 反复改不掉。所以照旧不发推送，但把改动带出来交给调用方走 emitResult。
-  it('只有日程改动、没有正文：仍然不发推送，但把改动带出来', () => {
+  // 日程改動是「沒正文就整條丟」這條規矩裡的唯一例外：它不是做給用戶看的動作，是角色
+  // 在糾正自己的表。一起丟掉的話，下一次 fire 讀到的還是那條舊安排，角色會反覆想改又
+  // 反覆改不掉。所以照舊不發推送，但把改動帶出來交給調用方走 emitResult。
+  it('只有日程改動、沒有正文：仍然不發推送，但把改動帶出來', () => {
     const decision = processLLMRound(
       createFireSessionState(),
       '[[ACTION:CHANGE_SCHEDULE | 22:00 | 陪你聊天]]',
@@ -219,23 +219,23 @@ describe('processLLMRound — 无正文边界', () => {
     expect(decision.scheduleChanges).toEqual([{ startTime: '22:00', activity: '陪你聊天' }]);
   });
 
-  it('没有日程改动时不带这个字段（别让调用方对着空数组白跑一趟）', () => {
+  it('沒有日程改動時不帶這個字段（別讓調用方對著空數組白跑一趟）', () => {
     const decision = processLLMRound(createFireSessionState(), '[[ACTION:POKE]]', build);
     expect(decision.decision).toBe('skip-push');
     if (decision.decision !== 'skip-push') return;
     expect(decision.scheduleChanges).toBeUndefined();
   });
 
-  it('既没正文也没副作用：整条不发，记 empty-generation', () => {
+  it('既沒正文也沒副作用：整條不發，記 empty-generation', () => {
     const decision = processLLMRound(createFireSessionState(), '', build);
     expect(decision.decision).toBe('skip-push');
     if (decision.decision !== 'skip-push') return;
     expect(decision.reason).toBe('empty-generation');
   });
 
-  it('工具轮后 LLM 空输出：仍冲刷累积旁白，不静默丢', () => {
+  it('工具輪後 LLM 空輸出：仍沖刷累積旁白，不靜默丟', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '我查查。[[SEARCH: 天气]]', build);
+    processLLMRound(state, '我查查。[[SEARCH: 天氣]]', build);
     const round2 = processLLMRound(state, '', build);
     expect(round2.decision).toBe('finish');
     if (round2.decision !== 'finish') return;
@@ -243,47 +243,47 @@ describe('processLLMRound — 无正文边界', () => {
   });
 });
 
-describe('processLLMRound — 副作用标签块被数据标签劈成两轮（实机回归）', () => {
-  it('长形态日记写一半去 RECALL：finish 拼回全文，日记成 directive、裸标签不漏进 push', () => {
+describe('processLLMRound — 副作用標籤塊被數據標籤劈成兩輪（實機迴歸）', () => {
+  it('長形態日記寫一半去 RECALL：finish 拼回全文，日記成 directive、裸標籤不漏進 push', () => {
     const state = createFireSessionState();
 
-    // round 1：日记开了头，中途想查记忆 → 数据标签把文本劈开。
+    // round 1：日記開了頭，中途想查記憶 → 數據標籤把文本劈開。
     const round1 = processLLMRound(
       state,
-      '[[DIARY_START: 专属点读机 | 傲娇]]\n今天那家伙又缠着我。[[RECALL: 2026-06]]',
+      '[[DIARY_START: 專屬點讀機 | 傲嬌]]\n今天那傢伙又纏著我。[[RECALL: 2026-06]]',
       build,
     );
     expect(round1.decision).toBe('tool-request');
 
-    // round 2：日记收尾 + 正文。
-    const round2 = processLLMRound(state, '……才、才不是想他！\n[[DIARY_END]]\n写完了，哼。', build);
+    // round 2：日記收尾 + 正文。
+    const round2 = processLLMRound(state, '……才、才不是想他！\n[[DIARY_END]]\n寫完了，哼。', build);
     expect(round2.decision).toBe('finish');
     if (round2.decision !== 'finish') return;
 
-    // 日记整块成了 directive（title/mood/跨轮内容都在），挂最后一条 push。
+    // 日記整塊成了 directive（title/mood/跨輪內容都在），掛最後一條 push。
     const last = round2.pushPayloads[round2.pushPayloads.length - 1];
     const directives = (last.metadata as any).directives;
     expect(directives).toHaveLength(1);
     expect(directives[0].type).toBe('notion_write_diary');
-    expect(directives[0].title).toBe('专属点读机');
-    expect(directives[0].mood).toBe('傲娇');
-    expect(directives[0].content).toContain('今天那家伙又缠着我。');
+    expect(directives[0].title).toBe('專屬點讀機');
+    expect(directives[0].mood).toBe('傲嬌');
+    expect(directives[0].content).toContain('今天那傢伙又纏著我。');
     expect(directives[0].content).toContain('……才、才不是想他！');
 
-    // 正文 push 里不再出现孤立的 DIARY_START / DIARY_END 裸标签。
+    // 正文 push 裡不再出現孤立的 DIARY_START / DIARY_END 裸標籤。
     for (const p of round2.pushPayloads) {
       expect(String(p.message)).not.toContain('DIARY_START');
       expect(String(p.message)).not.toContain('DIARY_END');
     }
-    expect(round2.pushPayloads.map((p) => p.message)).toContain('写完了，哼。');
+    expect(round2.pushPayloads.map((p) => p.message)).toContain('寫完了，哼。');
   });
 
-  it('飞书长形态同款劈裂也能拼回', () => {
+  it('飛書長形態同款劈裂也能拼回', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '[[FS_DIARY_START: 今日份|开心]]\n上半段。[[SEARCH: 流星雨]]', build);
-    // 末尾这句正文是必要的：日记整块会被剥成 directive，一句话不留的话这轮没有可发的
-    // 正文，走的是「无正文不发」那条路，验不到这里想验的「跨轮拼回」。
-    const round2 = processLLMRound(state, '下半段。\n[[FS_DIARY_END]]\n记好啦。', build);
+    processLLMRound(state, '[[FS_DIARY_START: 今日份|開心]]\n上半段。[[SEARCH: 流星雨]]', build);
+    // 末尾這句正文是必要的：日記整塊會被剝成 directive，一句話不留的話這輪沒有可發的
+    // 正文，走的是「無正文不發」那條路，驗不到這裡想驗的「跨輪拼回」。
+    const round2 = processLLMRound(state, '下半段。\n[[FS_DIARY_END]]\n記好啦。', build);
     expect(round2.decision).toBe('finish');
     if (round2.decision !== 'finish') return;
     const last = round2.pushPayloads[round2.pushPayloads.length - 1];
@@ -294,11 +294,11 @@ describe('processLLMRound — 副作用标签块被数据标签劈成两轮（�
   });
 });
 
-// ─── XHS 笔记随 push 带回（amsg2 round 1 在 worker 跑，客户端缺笔记缓冲） ────────
+// ─── XHS 筆記隨 push 帶回（amsg2 round 1 在 worker 跑，客戶端缺筆記緩衝） ────────
 
 const makeNote = (n: number, descLen = 10): XhsNote => ({
   noteId: `note-${n}`,
-  title: `标题${n}`,
+  title: `標題${n}`,
   desc: 'd'.repeat(descLen),
   likes: n,
   author: `作者${n}`,
@@ -307,10 +307,10 @@ const makeNote = (n: number, descLen = 10): XhsNote => ({
   coverUrl: `https://img.example.com/${n}.jpg`,
 });
 
-describe('buildXhsSessionPayload — 按 directive 引用挑选最小数据包', () => {
+describe('buildXhsSessionPayload — 按 directive 引用挑選最小數據包', () => {
   const notes = [makeNote(1), makeNote(2), makeNote(3)];
 
-  it('xhs_share 的 idx（1-based）→ 对应笔记；未引用的不带', () => {
+  it('xhs_share 的 idx（1-based）→ 對應筆記；未引用的不帶', () => {
     const payload = buildXhsSessionPayload([{ type: 'xhs_share', idx: 2 }], notes, []);
     expect(payload).not.toBeNull();
     expect(payload!.notes).toHaveLength(1);
@@ -318,23 +318,23 @@ describe('buildXhsSessionPayload — 按 directive 引用挑选最小数据包',
     expect(payload!.notes[0].note.noteId).toBe('note-2');
   });
 
-  it('越界 / 编造的序号取不到笔记 → 跳过；全落空且无 token → null', () => {
+  it('越界 / 編造的序號取不到筆記 → 跳過；全落空且無 token → null', () => {
     const payload = buildXhsSessionPayload([{ type: 'xhs_share', idx: 14 }], notes, []);
     expect(payload).toBeNull();
   });
 
-  it('desc 截断到 120 字符（防 web push ~4KB payload 超限）', () => {
+  it('desc 截斷到 120 字符（防 web push ~4KB payload 超限）', () => {
     const payload = buildXhsSessionPayload(
       [{ type: 'xhs_share', idx: 1 }],
       [makeNote(1, 500)],
       [],
     );
     expect(payload!.notes[0].note.desc).toHaveLength(120);
-    // 原数组的笔记不能被就地改掉（worker 内同 fire 后续还会用）。
+    // 原數組的筆記不能被就地改掉（worker 內同 fire 後續還會用）。
     expect(notes[0].desc).toHaveLength(10);
   });
 
-  it('点赞/评论引用的 noteId → 只带对应 xsecToken', () => {
+  it('點贊/評論引用的 noteId → 只帶對應 xsecToken', () => {
     const payload = buildXhsSessionPayload(
       [{ type: 'xhs_like', noteId: 'note-3' }],
       notes,
@@ -344,15 +344,15 @@ describe('buildXhsSessionPayload — 按 directive 引用挑选最小数据包',
     expect(payload!.xsecTokens).toEqual([['note-3', 'tok-3']]);
   });
 
-  it('无任何 XHS directive → null（poke 等副作用不触发带笔记）', () => {
+  it('無任何 XHS directive → null（poke 等副作用不觸發帶筆記）', () => {
     expect(buildXhsSessionPayload([{ type: 'poke' }], notes, [['note-1', 'tok-1']])).toBeNull();
   });
 
-  // 回归守卫：角色说分享了几张就带几张，绝不按张数砍。
-  // 砍过的版本会让用户看到「说分享了 6 张、只出来 4 张卡」——话和内容对不上。
-  // 装不装得进一条 push 由 index.ts 的 offloadOversizedPush 按真实字节算，
-  // 超出的旁路存 client_state，不是丢内容。
-  it('share 引用几张就带几张，不按张数砍', () => {
+  // 迴歸守衛：角色說分享了幾張就帶幾張，絕不按張數砍。
+  // 砍過的版本會讓用戶看到「說分享了 6 張、只出來 4 張卡」——話和內容對不上。
+  // 裝不裝得進一條 push 由 index.ts 的 offloadOversizedPush 按真實字節算，
+  // 超出的旁路存 client_state，不是丟內容。
+  it('share 引用幾張就帶幾張，不按張數砍', () => {
     const many = [1, 2, 3, 4, 5, 6].map((n) => makeNote(n));
     const payload = buildXhsSessionPayload(
       [1, 2, 3, 4, 5, 6].map((idx) => ({ type: 'xhs_share' as const, idx })),
@@ -363,11 +363,11 @@ describe('buildXhsSessionPayload — 按 directive 引用挑选最小数据包',
   });
 });
 
-describe('processLLMRound — metadata.xhsSession 挂载', () => {
-  it('share 引用的笔记与 directives 同挂最后一条 push，其余 push 不挂', () => {
+describe('processLLMRound — metadata.xhsSession 掛載', () => {
+  it('share 引用的筆記與 directives 同掛最後一條 push，其餘 push 不掛', () => {
     const state = createFireSessionState();
     processLLMRound(state, '我去逛逛。[[XHS_BROWSE]]', build);
-    const round2 = processLLMRound(state, '看到个好玩的！\n[[XHS_SHARE: 1]]', {
+    const round2 = processLLMRound(state, '看到個好玩的！\n[[XHS_SHARE: 1]]', {
       ...build,
       xhsNotes: [makeNote(1)],
       xhsXsecTokens: [['note-1', 'tok-1']],
@@ -384,25 +384,25 @@ describe('processLLMRound — metadata.xhsSession 挂载', () => {
     }
   });
 
-  // [[XHS_SHARE: n]] 的 n 指的是模型写这句话时手上那份笔记列表。列表在后面的轮次被
-  // 另一次搜索整个换掉之后，还按最终列表解引用就会推错卡片——正文聊的是露营帖、卡片
-  // 推的却是同一序号的口红帖，用户点开一眼假。
-  it('说要分享之后列表又被换掉 → 卡片仍取说这句话那一轮的列表', () => {
+  // [[XHS_SHARE: n]] 的 n 指的是模型寫這句話時手上那份筆記列表。列表在後面的輪次被
+  // 另一次搜索整個換掉之後，還按最終列表解引用就會推錯卡片——正文聊的是露營帖、卡片
+  // 推的卻是同一序號的口紅帖，用戶點開一眼假。
+  it('說要分享之後列表又被換掉 → 卡片仍取說這句話那一輪的列表', () => {
     const state = createFireSessionState();
-    const 露营帖 = [makeNote(1), makeNote(2), makeNote(3)];
-    const 口红帖 = [makeNote(11), makeNote(12), makeNote(13)];
+    const 露營帖 = [makeNote(1), makeNote(2), makeNote(3)];
+    const 口紅帖 = [makeNote(11), makeNote(12), makeNote(13)];
 
-    // 轮 1：先逛一圈，还没有笔记。
+    // 輪 1：先逛一圈，還沒有筆記。
     processLLMRound(state, '我去逛逛。[[XHS_BROWSE]]', build);
-    // 轮 2：拿到露营帖列表，说分享第 3 篇，同一轮又去搜别的。
+    // 輪 2：拿到露營帖列表，說分享第 3 篇，同一輪又去搜別的。
     const round2 = processLLMRound(
       state,
-      '这第三个露营帖太可了！[[XHS_SHARE: 3]]\n[[XHS_SEARCH: 口红]]',
-      { ...build, xhsNotes: 露营帖 },
+      '這第三個露營帖太可了！[[XHS_SHARE: 3]]\n[[XHS_SEARCH: 口紅]]',
+      { ...build, xhsNotes: 露營帖 },
     );
     expect(round2.decision).toBe('tool-request');
-    // 轮 3：手上的列表已经被搜索换成口红帖了，这时候收尾。
-    const round3 = processLLMRound(state, '就这些啦。', { ...build, xhsNotes: 口红帖 });
+    // 輪 3：手上的列表已經被搜索換成口紅帖了，這時候收尾。
+    const round3 = processLLMRound(state, '就這些啦。', { ...build, xhsNotes: 口紅帖 });
 
     expect(round3.decision).toBe('finish');
     if (round3.decision !== 'finish') return;
@@ -412,10 +412,10 @@ describe('processLLMRound — metadata.xhsSession 挂载', () => {
     ]);
   });
 
-  it('分享和收尾同一轮（没换过列表）照旧用最终列表', () => {
+  it('分享和收尾同一輪（沒換過列表）照舊用最終列表', () => {
     const state = createFireSessionState();
     processLLMRound(state, '我去逛逛。[[XHS_BROWSE]]', build);
-    const round2 = processLLMRound(state, '看看这个！\n[[XHS_SHARE: 2]]', {
+    const round2 = processLLMRound(state, '看看這個！\n[[XHS_SHARE: 2]]', {
       ...build,
       xhsNotes: [makeNote(1), makeNote(2)],
     });
@@ -425,10 +425,10 @@ describe('processLLMRound — metadata.xhsSession 挂载', () => {
     expect((last.metadata as any).xhsSession.notes).toEqual([{ idx: 2, note: makeNote(2) }]);
   });
 
-  it('没有 XHS 引用时 metadata 不多挂 xhsSession 键（形状回归）', () => {
+  it('沒有 XHS 引用時 metadata 不多掛 xhsSession 鍵（形狀迴歸）', () => {
     const decision = processLLMRound(
       createFireSessionState(),
-      '[[ACTION:POKE]]在吗',
+      '[[ACTION:POKE]]在嗎',
       { ...build, xhsNotes: [makeNote(1)], xhsXsecTokens: [['note-1', 'tok-1']] },
     );
     expect(decision.decision).toBe('finish');
@@ -439,26 +439,26 @@ describe('processLLMRound — metadata.xhsSession 挂载', () => {
   });
 });
 
-// 模型卡在同一个工具上出不来时的止损。
+// 模型卡在同一個工具上出不來時的止損。
 //
-// 实测过一次最恶劣的情况：提示词里写着「每一轮第一行都要先输出 [[RECALL: 2026-06]]」，
-// 那句话常驻在 system prompt 里、每轮都在模型眼前，工具结果里说什么都盖不过它——连着
-// 五轮都在请求同一个 recall，最后撞上轮次上限抛 AGENTIC_LOOP_EXCEEDED，任务不出清、
-// 下一分钟整条从头重跑，用户一个字都收不到。
+// 實測過一次最惡劣的情況：提示詞裡寫著「每一輪第一行都要先輸出 [[RECALL: 2026-06]]」，
+// 那句話常駐在 system prompt 裡、每輪都在模型眼前，工具結果裡說什麼都蓋不過它——連著
+// 五輪都在請求同一個 recall，最後撞上輪次上限拋 AGENTIC_LOOP_EXCEEDED，任務不出清、
+// 下一分鐘整條從頭重跑，用戶一個字都收不到。
 //
-// 打回重复调用只省下网络请求，止不住这个循环；到阈值直接收尾才行。
-describe('processLLMRound — 重复调用到阈值就收尾', () => {
-  it('还没到阈值时照常给下一轮工具机会', () => {
+// 打回重複調用只省下網絡請求，止不住這個循環；到閾值直接收尾才行。
+describe('processLLMRound — 重複調用到閾值就收尾', () => {
+  it('還沒到閾值時照常給下一輪工具機會', () => {
     const state = createFireSessionState();
     state.duplicateToolCalls = 1;
-    const decision = processLLMRound(state, '让我想想。\n[[RECALL: 2026-06]]', build);
+    const decision = processLLMRound(state, '讓我想想。\n[[RECALL: 2026-06]]', build);
     expect(decision.decision).toBe('tool-request');
   });
 
-  it('到阈值后不再请求工具，直接把已经写出来的内容发出去', () => {
+  it('到閾值後不再請求工具，直接把已經寫出來的內容發出去', () => {
     const state = createFireSessionState();
-    // 前两轮攒下的旁白
-    processLLMRound(state, '让我想想六月的事。\n[[RECALL: 2026-06]]', build);
+    // 前兩輪攢下的旁白
+    processLLMRound(state, '讓我想想六月的事。\n[[RECALL: 2026-06]]', build);
     state.duplicateToolCalls = 2;
 
     const decision = processLLMRound(state, '再查一下。\n[[RECALL: 2026-06]]', build);
@@ -466,112 +466,112 @@ describe('processLLMRound — 重复调用到阈值就收尾', () => {
     if (decision.decision !== 'finish') return;
 
     const text = decision.pushPayloads.map((p) => p.message).join('\n');
-    expect(text).toContain('让我想想六月的事');
-    // 转不出去的那个标签不能漏进正文
+    expect(text).toContain('讓我想想六月的事');
+    // 轉不出去的那個標籤不能漏進正文
     expect(text).not.toContain('RECALL');
   });
 
-  it('之前几轮的旁白只出现一次，不重复', () => {
+  it('之前幾輪的旁白只出現一次，不重複', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '就说这一句。\n[[RECALL: 2026-06]]', build);
+    processLLMRound(state, '就說這一句。\n[[RECALL: 2026-06]]', build);
     state.duplicateToolCalls = 2;
     const decision = processLLMRound(state, '再查一次。\n[[RECALL: 2026-06]]', build);
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
     const text = decision.pushPayloads.map((p) => p.message).join('\n');
-    expect(text.match(/就说这一句/g)?.length).toBe(1);
+    expect(text.match(/就[说說][这這]一句/g)?.length).toBe(1);
   });
 
-  it('卡住时一个字都没写出来 → skip-push，不发空消息', () => {
+  it('卡住時一個字都沒寫出來 → skip-push，不發空消息', () => {
     const state = createFireSessionState();
     state.duplicateToolCalls = 2;
     expect(processLLMRound(state, '[[RECALL: 2026-06]]', build).decision).toBe('skip-push');
   });
 });
 
-// 穿透收尾（重复到阈值 / 最后一轮）时，触发穿透那一轮的旁白是「等我翻翻记录哈」这种半句：
-// 它请求的工具永远不会跑了，发出去用户收到的最后一条消息就永远没有下文。
-describe('processLLMRound — 穿透收尾丢掉悬空的「我去查查」', () => {
-  it('触发穿透那一轮的旁白不进正文，之前几轮的照发', () => {
+// 穿透收尾（重複到閾值 / 最後一輪）時，觸發穿透那一輪的旁白是「等我翻翻記錄哈」這種半句：
+// 它請求的工具永遠不會跑了，發出去用戶收到的最後一條消息就永遠沒有下文。
+describe('processLLMRound — 穿透收尾丟掉懸空的「我去查查」', () => {
+  it('觸發穿透那一輪的旁白不進正文，之前幾輪的照發', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '今天路过那家店了。\n[[RECALL: 2026-06]]', build);
+    processLLMRound(state, '今天路過那家店了。\n[[RECALL: 2026-06]]', build);
     state.duplicateToolCalls = 2;
 
-    const decision = processLLMRound(state, '等我翻翻记录哈。\n[[RECALL: 2026-06]]', build);
+    const decision = processLLMRound(state, '等我翻翻記錄哈。\n[[RECALL: 2026-06]]', build);
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
     const text = decision.pushPayloads.map((p) => p.message).join('\n');
-    expect(text).toContain('今天路过那家店了');
-    expect(text, '这句后面永远没有下文，不能当结尾发出去').not.toContain('等我翻翻记录哈');
+    expect(text).toContain('今天路過那家店了');
+    expect(text, '這句後面永遠沒有下文，不能當結尾發出去').not.toContain('等我翻翻記錄哈');
   });
 
-  it('只有这一句半截话可发 → skip-push，宁可不发', () => {
+  it('只有這一句半截話可發 → skip-push，寧可不發', () => {
     const state = createFireSessionState();
     state.duplicateToolCalls = 2;
-    const decision = processLLMRound(state, '稍等，我查查看。\n[[SEARCH: 天气]]', build);
+    const decision = processLLMRound(state, '稍等，我查查看。\n[[SEARCH: 天氣]]', build);
     expect(decision.decision).toBe('skip-push');
   });
 });
 
-// 上游在最后一轮遇到 tool-request 会直接抛 AGENTIC_LOOP_EXCEEDED：这次攒下的旁白全丢、
-// 任务不出清、下一分钟整条从头重跑再烧一遍 LLM，而用户一个字都收不到。
-describe('processLLMRound — 最后一轮不再放行工具请求', () => {
-  it('最后一轮还想调工具 → 拿之前几轮的内容收尾', () => {
+// 上游在最後一輪遇到 tool-request 會直接拋 AGENTIC_LOOP_EXCEEDED：這次攢下的旁白全丟、
+// 任務不出清、下一分鐘整條從頭重跑再燒一遍 LLM，而用戶一個字都收不到。
+describe('processLLMRound — 最後一輪不再放行工具請求', () => {
+  it('最後一輪還想調工具 → 拿之前幾輪的內容收尾', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '我想想六月发生了什么。\n[[RECALL: 2026-06]]', build, null, null, 0);
-    processLLMRound(state, '顺便看看天气。\n[[SEARCH: 明天 天气]]', build, null, null, 1);
+    processLLMRound(state, '我想想六月發生了什麼。\n[[RECALL: 2026-06]]', build, null, null, 0);
+    processLLMRound(state, '順便看看天氣。\n[[SEARCH: 明天 天氣]]', build, null, null, 1);
 
     const decision = processLLMRound(
-      state, '还得再查一次。\n[[RECALL: 2026-07]]', build, null, null, DEFAULT_TOOL_ITERATIONS - 1);
+      state, '還得再查一次。\n[[RECALL: 2026-07]]', build, null, null, DEFAULT_TOOL_ITERATIONS - 1);
     expect(decision.decision).toBe('finish');
     if (decision.decision !== 'finish') return;
     const text = decision.pushPayloads.map((p) => p.message).join('\n');
-    expect(text).toContain('我想想六月发生了什么');
-    expect(text).toContain('顺便看看天气');
-    expect(text).not.toContain('还得再查一次');
+    expect(text).toContain('我想想六月發生了什麼');
+    expect(text).toContain('順便看看天氣');
+    expect(text).not.toContain('還得再查一次');
     expect(text).not.toContain('RECALL');
   });
 
-  it('倒数第二轮照常给工具机会', () => {
+  it('倒數第二輪照常給工具機會', () => {
     const decision = processLLMRound(
-      createFireSessionState(), '查一下。\n[[SEARCH: 天气]]', build, null, null, DEFAULT_TOOL_ITERATIONS - 2);
+      createFireSessionState(), '查一下。\n[[SEARCH: 天氣]]', build, null, null, DEFAULT_TOOL_ITERATIONS - 2);
     expect(decision.decision).toBe('tool-request');
   });
 
-  it('不传轮次（拿不到 ctx.iteration 的老部署）行为不变', () => {
-    const decision = processLLMRound(createFireSessionState(), '查一下。\n[[SEARCH: 天气]]', build);
+  it('不傳輪次（拿不到 ctx.iteration 的老部署）行為不變', () => {
+    const decision = processLLMRound(createFireSessionState(), '查一下。\n[[SEARCH: 天氣]]', build);
     expect(decision.decision).toBe('tool-request');
   });
 });
 
-describe('工具轮次预算 — 普通任务省成本，MCP 多步任务可继续', () => {
-  it('没有 MCP 保持 5 轮，有 MCP 放宽到 12 轮', () => {
+describe('工具輪次預算 — 普通任務省成本，MCP 多步任務可繼續', () => {
+  it('沒有 MCP 保持 5 輪，有 MCP 放寬到 12 輪', () => {
     expect(resolveToolIterationBudget(false)).toBe(DEFAULT_TOOL_ITERATIONS);
     expect(resolveToolIterationBudget(true)).toBe(MCP_MAX_TOOL_ITERATIONS);
     expect(DEFAULT_TOOL_ITERATIONS).toBe(5);
     expect(MCP_MAX_TOOL_ITERATIONS).toBe(12);
   });
 
-  it('MCP 的第 5 轮仍可继续，第 12 轮才强制收尾', () => {
+  it('MCP 的第 5 輪仍可繼續，第 12 輪才強制收尾', () => {
     const fifth = processLLMRound(
-      createFireSessionState(), '继续查。\n[[SEARCH: 天气]]', build, null, null,
+      createFireSessionState(), '繼續查。\n[[SEARCH: 天氣]]', build, null, null,
       DEFAULT_TOOL_ITERATIONS - 1, MCP_MAX_TOOL_ITERATIONS,
     );
     expect(fifth.decision).toBe('tool-request');
 
     const last = processLLMRound(
-      createFireSessionState(), '再查。\n[[SEARCH: 天气]]', build, null, null,
+      createFireSessionState(), '再查。\n[[SEARCH: 天氣]]', build, null, null,
       MCP_MAX_TOOL_ITERATIONS - 1, MCP_MAX_TOOL_ITERATIONS,
     );
     expect(last.decision).not.toBe('tool-request');
   });
 });
 
-// ─── 通用 MCP 的两层识别（native tool_calls 优先，正文协议兜底） ────────────────
+// ─── 通用 MCP 的兩層識別（native tool_calls 優先，正文協議兜底） ────────────────
 
 const mcpSrv: McpFireServer = {
   id: 's1',
-  name: '探针',
+  name: '探針',
   url: 'https://probe.example.com',
   tools: [{ name: 'get_secret', inputSchema: { type: 'object', properties: { who: { type: 'string' } } } }],
 };
@@ -583,56 +583,56 @@ const nativeCall = (args = '{}') => ({
 });
 
 describe('processLLMRound + MCP', () => {
-  it('native tool_calls → tool-request 原样透传, 正文全文入旁白', () => {
+  it('native tool_calls → tool-request 原樣透傳, 正文全文入旁白', () => {
     const state = createFireSessionState();
-    const d = processLLMRound(state, '我去问问暗号。', build, {
+    const d = processLLMRound(state, '我去問問暗號。', build, {
       resolve: mcpResolve,
-      nativeToolCalls: [nativeCall('{"who":"小满"}')],
+      nativeToolCalls: [nativeCall('{"who":"小滿"}')],
     });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;
-    expect(d.toolCalls).toEqual([nativeCall('{"who":"小满"}')]);
-    expect(state.narrations.join('')).toContain('我去问问暗号');
+    expect(d.toolCalls).toEqual([nativeCall('{"who":"小滿"}')]);
+    expect(state.narrations.join('')).toContain('我去問問暗號');
   });
 
-  it('第二层：无 native 时识别正文假调用, 名字带 mcp__ 前缀, 旁白剥净语法', () => {
+  it('第二層：無 native 時識別正文假調用, 名字帶 mcp__ 前綴, 旁白剝淨語法', () => {
     const state = createFireSessionState();
-    const d = processLLMRound(state, '我去问问暗号。\nget_secret({"who":"小满"})', build, {
+    const d = processLLMRound(state, '我去問問暗號。\nget_secret({"who":"小滿"})', build, {
       resolve: mcpResolve,
     });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;
     expect(d.toolCalls[0].function.name).toBe('mcp__get_secret');
-    expect(JSON.parse(d.toolCalls[0].function.arguments)).toEqual({ who: '小满' });
+    expect(JSON.parse(d.toolCalls[0].function.arguments)).toEqual({ who: '小滿' });
     expect(state.narrations.join('')).not.toContain('get_secret(');
   });
 
-  it('模型把带前缀的名字写进正文（native 模式掉格式）也认, 不出现双前缀', () => {
+  it('模型把帶前綴的名字寫進正文（native 模式掉格式）也認, 不出現雙前綴', () => {
     const state = createFireSessionState();
-    const d = processLLMRound(state, 'mcp__get_secret({"who":"小满"})', build, { resolve: mcpResolve });
+    const d = processLLMRound(state, 'mcp__get_secret({"who":"小滿"})', build, { resolve: mcpResolve });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;
     expect(d.toolCalls[0].function.name).toBe('mcp__get_secret');
   });
 
-  // 模型经常同一个意图两处都写：native 通道发一份、正文里再"演"一份。
-  // 两份都入列会把同一个工具跑两遍（第二次还会被判成重复调用往收尾计数上加），
-  // 所以 native 在场时正文那份只剥语法、不入列。
-  it('native 与正文同时出现 → 只认 native，正文语法照剥', () => {
+  // 模型經常同一個意圖兩處都寫：native 通道發一份、正文裡再"演"一份。
+  // 兩份都入列會把同一個工具跑兩遍（第二次還會被判成重複調用往收尾計數上加），
+  // 所以 native 在場時正文那份只剝語法、不入列。
+  it('native 與正文同時出現 → 只認 native，正文語法照剝', () => {
     const state = createFireSessionState();
-    const d = processLLMRound(state, '我去问问。\nget_secret({"who":"小满"})', build, {
+    const d = processLLMRound(state, '我去問問。\nget_secret({"who":"小滿"})', build, {
       resolve: mcpResolve,
-      nativeToolCalls: [nativeCall('{"who":"小满"}')],
+      nativeToolCalls: [nativeCall('{"who":"小滿"}')],
     });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;
-    expect(d.toolCalls).toEqual([nativeCall('{"who":"小满"}')]);   // 不重复入列
-    expect(state.narrations.join('')).not.toContain('get_secret('); // 语法照剥
+    expect(d.toolCalls).toEqual([nativeCall('{"who":"小滿"}')]);   // 不重複入列
+    expect(state.narrations.join('')).not.toContain('get_secret('); // 語法照剝
   });
 
-  // 合成 id 曾用「已跑过的工具数」做轮间区分度，但重复调用被短路、工具抛错这两条路
-  // 都不会往 toolCalls 落账——连着两轮都会拿到同一个 id，assistant/tool 消息配不上对。
-  it('正文合成的 tool_call id 跨轮不重号（轮间没有工具落账也不撞）', () => {
+  // 合成 id 曾用「已跑過的工具數」做輪間區分度，但重複調用被短路、工具拋錯這兩條路
+  // 都不會往 toolCalls 落帳——連著兩輪都會拿到同一個 id，assistant/tool 消息配不上對。
+  it('正文合成的 tool_call id 跨輪不重號（輪間沒有工具落帳也不撞）', () => {
     const state = createFireSessionState();
     const r1 = processLLMRound(state, 'get_secret({"who":"甲"})', build, { resolve: mcpResolve });
     const r2 = processLLMRound(state, 'get_secret({"who":"乙"})', build, { resolve: mcpResolve });
@@ -642,7 +642,7 @@ describe('processLLMRound + MCP', () => {
     expect(r1.toolCalls[0].id).not.toBe(r2.toolCalls[0].id);
   });
 
-  it('native 与数据标签同轮 → 合并进同一个 tool-request', () => {
+  it('native 與數據標籤同輪 → 合併進同一個 tool-request', () => {
     const state = createFireSessionState();
     const d = processLLMRound(state, '[[RECALL: 2026-06]]', build, {
       resolve: mcpResolve,
@@ -655,29 +655,29 @@ describe('processLLMRound + MCP', () => {
     expect(names).toContain('mcp__get_secret');
   });
 
-  it('无 MCP 参与时行为与不传第 4 参完全一致（回归）', () => {
+  it('無 MCP 參與時行為與不傳第 4 參完全一致（迴歸）', () => {
     const a = processLLMRound(createFireSessionState(), '正常收尾文本。', build, { resolve: mcpResolve });
     const b = processLLMRound(createFireSessionState(), '正常收尾文本。', build);
     expect(a).toEqual(b);
   });
 
-  it('finish 后最终推送正文不含调用语法（防泄漏回归守卫）', () => {
+  it('finish 後最終推送正文不含調用語法（防洩漏迴歸守衛）', () => {
     const state = createFireSessionState();
-    processLLMRound(state, '先问暗号。\nget_secret({})', build, { resolve: mcpResolve });
-    const d = processLLMRound(state, '拿到了，暗号是 X。', build, { resolve: mcpResolve });
+    processLLMRound(state, '先問暗號。\nget_secret({})', build, { resolve: mcpResolve });
+    const d = processLLMRound(state, '拿到了，暗號是 X。', build, { resolve: mcpResolve });
     expect(d.decision).toBe('finish');
     if (d.decision !== 'finish') return;
     const all = d.pushPayloads.map((p) => String(p.message)).join('\n');
-    expect(all).toContain('先问暗号');
+    expect(all).toContain('先問暗號');
     expect(all).not.toContain('get_secret(');
   });
 });
 
-// ─── native tool_call 认领：严格命中优先，去命名空间唯一命中兜底（实机回归） ────────
+// ─── native tool_call 認領：嚴格命中優先，去命名空間唯一命中兜底（實機迴歸） ────────
 //
-// 实测里两类丢弃都真实发生过：模型把 mcp__ 前缀弄丢只报裸名（sess_task_60/61），
-// 以及 native 调 cancel_active_message 这个明明声明过的工具被当幻觉丢掉（sess_task_64
-// ——旧入口只认 schedule + mcp__ 两种名字，cancel / renew 压根没有池可进）。
+// 實測裡兩類丟棄都真實發生過：模型把 mcp__ 前綴弄丟只報裸名（sess_task_60/61），
+// 以及 native 調 cancel_active_message 這個明明聲明過的工具被當幻覺丟掉（sess_task_64
+// ——舊入口只認 schedule + mcp__ 兩種名字，cancel / renew 壓根沒有池可進）。
 
 const manageNames = new Set([AMSG_FIRE_SCHEDULE_TOOL, AMSG_FIRE_CANCEL_TOOL]);
 const rawCall = (name: string, args = '{}', id = 'call_x1') => ({
@@ -686,8 +686,8 @@ const rawCall = (name: string, args = '{}', id = 'call_x1') => ({
   function: { name, arguments: args },
 });
 
-describe('classifyNativeToolCalls — 认领与丢弃', () => {
-  it('严格命中照旧：mcp__ 前缀名进 mcp 池、声明的管理工具名进 manage 池，名字不动', () => {
+describe('classifyNativeToolCalls — 認領與丟棄', () => {
+  it('嚴格命中照舊：mcp__ 前綴名進 mcp 池、聲明的管理工具名進 manage 池，名字不動', () => {
     const r = classifyNativeToolCalls(
       [rawCall('mcp__get_secret'), rawCall(AMSG_FIRE_SCHEDULE_TOOL), rawCall(AMSG_FIRE_CANCEL_TOOL)],
       manageNames, mcpResolve,
@@ -698,18 +698,18 @@ describe('classifyNativeToolCalls — 认领与丢弃', () => {
     expect(r.dropped).toEqual([]);
   });
 
-  it('模型丢了 mcp__ 前缀只报裸名 → 认领并把名字改写回声明名（sess_task_60/61 现场）', () => {
+  it('模型丟了 mcp__ 前綴只報裸名 → 認領並把名字改寫回聲明名（sess_task_60/61 現場）', () => {
     const r = classifyNativeToolCalls(
-      [rawCall('get_secret', '{"who":"小满"}')], manageNames, mcpResolve);
+      [rawCall('get_secret', '{"who":"小滿"}')], manageNames, mcpResolve);
     expect(r.mcp).toHaveLength(1);
     expect(r.mcp[0].function.name).toBe('mcp__get_secret');
-    // id 与参数原样保留，只改名字
+    // id 與參數原樣保留，只改名字
     expect(r.mcp[0].id).toBe('call_x1');
-    expect(r.mcp[0].function.arguments).toBe('{"who":"小满"}');
+    expect(r.mcp[0].function.arguments).toBe('{"who":"小滿"}');
     expect(r.dropped).toEqual([]);
   });
 
-  it('换了「姓」的命名空间写法（default_api: / functions. / tools/）取最后一段唯一命中', () => {
+  it('換了「姓」的命名空間寫法（default_api: / functions. / tools/）取最後一段唯一命中', () => {
     const r = classifyNativeToolCalls([
       rawCall('default_api:get_secret'),
       rawCall('functions.mcp__get_secret'),
@@ -721,7 +721,7 @@ describe('classifyNativeToolCalls — 认领与丢弃', () => {
     expect(r.dropped).toEqual([]);
   });
 
-  it('幻觉工具（哪份清单都对不上）照旧丢弃，名字留给日志', () => {
+  it('幻覺工具（哪份清單都對不上）照舊丟棄，名字留給日誌', () => {
     const r = classifyNativeToolCalls(
       [rawCall('made_up_tool'), rawCall('default_api:also_fake')], manageNames, mcpResolve);
     expect(r.manage).toEqual([]);
@@ -729,7 +729,7 @@ describe('classifyNativeToolCalls — 认领与丢弃', () => {
     expect(r.dropped).toEqual(['made_up_tool', 'default_api:also_fake']);
   });
 
-  it('工具没声明就不认领：manage 清单空时 cancel 照丢、mcpResolve 为 null 时裸名照丢', () => {
+  it('工具沒聲明就不認領：manage 清單空時 cancel 照丟、mcpResolve 為 null 時裸名照丟', () => {
     const r = classifyNativeToolCalls(
       [rawCall(AMSG_FIRE_CANCEL_TOOL), rawCall('get_secret')], new Set<string>(), null);
     expect(r.manage).toEqual([]);
@@ -737,7 +737,7 @@ describe('classifyNativeToolCalls — 认领与丢弃', () => {
     expect(r.dropped).toEqual([AMSG_FIRE_CANCEL_TOOL, 'get_secret']);
   });
 
-  it('形状不对的输入（非数组 / 没有名字）不炸，进 dropped 或忽略', () => {
+  it('形狀不對的輸入（非數組 / 沒有名字）不炸，進 dropped 或忽略', () => {
     expect(classifyNativeToolCalls(undefined, manageNames, mcpResolve))
       .toEqual({ manage: [], mcp: [], dropped: [] });
     const r = classifyNativeToolCalls(
@@ -748,27 +748,27 @@ describe('classifyNativeToolCalls — 认领与丢弃', () => {
 });
 
 describe('processLLMRound — 排程池混入 cancel / renew', () => {
-  it('本轮只 native 取消了一条 → 正文里的排程语法照常认（不同意图不算跑两遍）', () => {
+  it('本輪只 native 取消了一條 → 正文裡的排程語法照常認（不同意圖不算跑兩遍）', () => {
     const state = createFireSessionState();
     const d = processLLMRound(
       state,
-      `那条不用发了，我重新约。\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-22 09:00","topic":"约早饭"})`,
+      `那條不用發了，我重新約。\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-22 09:00","topic":"約早飯"})`,
       build, null, { nativeToolCalls: [rawCall(AMSG_FIRE_CANCEL_TOOL, '{"task_id":"abcd1234"}')] });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;
     const names = d.toolCalls.map((tc) => tc.function.name);
     expect(names).toContain(AMSG_FIRE_CANCEL_TOOL);
     expect(names).toContain(AMSG_FIRE_SCHEDULE_TOOL);
-    // 正文那句排程语法照剥，不能漏进旁白
+    // 正文那句排程語法照剝，不能漏進旁白
     expect(state.narrations.join('')).not.toContain(`${AMSG_FIRE_SCHEDULE_TOOL}(`);
   });
 
-  it('native 排程在场时正文排程语法仍只剥不入列（防同一意图跑两遍，回归守卫）', () => {
+  it('native 排程在場時正文排程語法仍只剝不入列（防同一意圖跑兩遍，迴歸守衛）', () => {
     const state = createFireSessionState();
     const nativeSchedule = rawCall(AMSG_FIRE_SCHEDULE_TOOL, '{"send_at":"2026-07-22 09:00"}');
     const d = processLLMRound(
       state,
-      `我给你排上啦。\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-22 09:00"})`,
+      `我給你排上啦。\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-22 09:00"})`,
       build, null, { nativeToolCalls: [nativeSchedule] });
     expect(d.decision).toBe('tool-request');
     if (d.decision !== 'tool-request') return;

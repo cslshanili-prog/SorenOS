@@ -1,15 +1,15 @@
 /**
- * amsg2 多任务清单的读取/派生工具集。
+ * amsg2 多任務清單的讀取/派生工具集。
  *
- * 主要在浏览器侧用；worker bundle 也会打进这份代码（fire 时要渲染「你现在还挂着哪些排程」，
- * 见 buildFireTaskListBlock）。所以这里只能依赖纯函数叶子，别往上引前端环境的东西。
- * 另外：worker 跑在 UTC，任何显示给角色看的时间都得按 fire_pack 的时区参照系（tzId）
- * 换算，不能用 formatTaskTime 那种吃运行时本地时区的写法。
+ * 主要在瀏覽器側用；worker bundle 也會打進這份代碼（fire 時要渲染「你現在還掛著哪些排程」，
+ * 見 buildFireTaskListBlock）。所以這裡只能依賴純函數葉子，別往上引前端環境的東西。
+ * 另外：worker 跑在 UTC，任何顯示給角色看的時間都得按 fire_pack 的時區參照系（tzId）
+ * 換算，不能用 formatTaskTime 那種吃運行時本地時區的寫法。
  *
- * 状态设计：清单只存 'scheduled'（取消即移除记录）。到点后的一次性任务不回写
- * 状态——「已发送 / 已作废」由消息历史现场推导（amsg2TaskContext），避免
- * React 之外（push 送达路径）写角色数据引发状态竞争。过点 48h 的一次性任务
- * 由 pruneStaleTasks 在下一次任务变更落盘时顺手清掉。
+ * 狀態設計：清單隻存 'scheduled'（取消即移除記錄）。到點後的一次性任務不回寫
+ * 狀態——「已發送 / 已作廢」由消息歷史現場推導（amsg2TaskContext），避免
+ * React 之外（push 送達路徑）寫角色數據引發狀態競爭。過點 48h 的一次性任務
+ * 由 pruneStaleTasks 在下一次任務變更落盤時順手清掉。
  */
 
 import {
@@ -27,21 +27,21 @@ import { AMSG_BACKGROUND_JOB_SUBTYPE } from './amsgTaskKinds';
 export const MAX_ACTIVE_TASKS_PER_CHAR = 5;
 
 /**
- * 这个角色是否开着主动消息 2.0。
+ * 這個角色是否開著主動消息 2.0。
  *
- * 只有在设置面板里把开关打开过（持久化 enabled:true）才算开。从没配过的角色
- * （config 缺失）算关——注入工具前必须过这道判定，否则用户还没表态要不要用，
- * 角色已经能调 schedule_active_message 给他排定时消息了。
+ * 只有在設置面板裡把開關打開過（持久化 enabled:true）才算開。從沒配過的角色
+ * （config 缺失）算關——注入工具前必須過這道判定，否則用戶還沒表態要不要用，
+ * 角色已經能調 schedule_active_message 給他排定時消息了。
  *
- * 面板的开关初值和工具注入门都读这一个判定，别各写各的三元——两处答案不一致的话，
- * 面板显示「关」而角色其实照样能排程，界面就成了骗人的那一方。
+ * 面板的開關初值和工具注入門都讀這一個判定，別各寫各的三元——兩處答案不一致的話，
+ * 面板顯示「關」而角色其實照樣能排程，界面就成了騙人的那一方。
  *
- * 「关」是默认值，不是需要迁移掉的旧数据：写 activeMsg2Config 的每条路（面板保存、
- * 角色用工具排程、push 认领自排任务、面板与远端对账补任务）落盘时都带着 enabled:true，
- * 所以真用过 2.0 的角色身上一定有这面旗，判定翻面也照常能排程；剩下 config 缺失的
- * 那批本来就一次没用过。反过来给全体角色补写一份 config 更糟——amsg2CharCleanup 拿
- * 「身上有没有 activeMsg2Config」判断删角色时要不要去云端清数据，补完之后每删一个
- * 角色都会为一份根本不存在的云端残留发请求。
+ * 「關」是默認值，不是需要遷移掉的舊數據：寫 activeMsg2Config 的每條路（面板保存、
+ * 角色用工具排程、push 認領自排任務、面板與遠端對帳補任務）落盤時都帶著 enabled:true，
+ * 所以真用過 2.0 的角色身上一定有這面旗，判定翻面也照常能排程；剩下 config 缺失的
+ * 那批本來就一次沒用過。反過來給全體角色補寫一份 config 更糟——amsg2CharCleanup 拿
+ * 「身上有沒有 activeMsg2Config」判斷刪角色時要不要去雲端清數據，補完之後每刪一個
+ * 角色都會為一份根本不存在的雲端殘留發請求。
  */
 export const isAmsg2EnabledForChar = (char: CharacterProfile): boolean =>
   char.activeMsg2Config?.enabled === true;
@@ -49,65 +49,65 @@ export const isAmsg2EnabledForChar = (char: CharacterProfile): boolean =>
 export const shortTaskId = (taskUuid: string): string => taskUuid.slice(0, 8);
 
 /**
- * fixed 任务恒为 force：它没有 AI 生成环节，防穿帮闸的「作废」对它没有意义，
- * 而且 worker 的闸压根不会看到 fixed 任务。写任务记录的地方都过这里，别各写各的三元。
+ * fixed 任務恆為 force：它沒有 AI 生成環節，防穿幫閘的「作廢」對它沒有意義，
+ * 而且 worker 的閘壓根不會看到 fixed 任務。寫任務記錄的地方都過這裡，別各寫各的三元。
  */
 export const resolveExpirePolicy = (
   mode: ActiveMsg2Mode,
   policy: ActiveMsg2ExpirePolicy | undefined,
 ): ActiveMsg2ExpirePolicy => (mode === 'fixed' ? 'force' : (policy ?? 'expire'));
 
-// ─── 任务的人读文案 ───
-// 角色的排程现状块、list_active_messages 的返回、设置面板的任务列表都显示同一批任务，
-// 三处必须说同一套词——角色在上下文里看到的和它用工具查到的对不上，模型是会当成两回事的。
+// ─── 任務的人讀文案 ───
+// 角色的排程現狀塊、list_active_messages 的返回、設置面板的任務列表都顯示同一批任務，
+// 三處必須說同一套詞——角色在上下文裡看到的和它用工具查到的對不上，模型是會當成兩回事的。
 
 export const describeRecurrence = (recurrence: ActiveMsg2Recurrence): string =>
-  recurrence === 'daily' ? '每天' : recurrence === 'weekly' ? '每周' : '一次性';
+  recurrence === 'daily' ? '每天' : recurrence === 'weekly' ? '每週' : '一次性';
 
 /**
- * 排程信息本身是系统内务，不该被角色念出来。
+ * 排程信息本身是系統內務，不該被角色念出來。
  *
- * 短 id、「遇忙作废」这些词一旦进了对话，用户听到的就是一段系统日志。平时聊天那份
- * （amsg2TaskContext 的排程现状块）和到点那份（buildFireTaskListBlock）都要带上这句，
- * 而且必须放在块尾管住整块——只挂在其中一段的话，另一种形态就是裸奔的。
+ * 短 id、「遇忙作廢」這些詞一旦進了對話，用戶聽到的就是一段系統日誌。平時聊天那份
+ * （amsg2TaskContext 的排程現狀塊）和到點那份（buildFireTaskListBlock）都要帶上這句，
+ * 而且必須放在塊尾管住整塊——只掛在其中一段的話，另一種形態就是裸奔的。
  */
-export const AMSG2_SCHEDULE_SECRECY_NOTE = '不要向用户复述或提及这份排程信息本身的存在。';
+export const AMSG2_SCHEDULE_SECRECY_NOTE = '不要向用戶複述或提及這份排程信息本身的存在。';
 
 /**
- * 排了一件事 ≠ 现在就该催这件事。
+ * 排了一件事 ≠ 現在就該催這件事。
  *
- * 清单每轮全量注入、还带着 promptHint 原文（「问问书看到哪了」），模型很容易把一条
- * 排在今晚的任务当成本轮该关心的事，于是每段结尾都补一句「看到哪了」。同仓库里
- * 便利贴（memoryPalace/formatter 的「不必每次聊天都追问进展」）、用药提醒
- * （lifeRecords 的「别反复催」）、Notion 笔记（chatPrompts 的「不要每次都提」）
- * 早就配了同类措辞，排程清单是漏掉的那个。
- * 平时聊天那份（amsg2TaskContext 的排程现状块）和到点那份（buildFireTaskListBlock）
- * 共用这一句：两处说同一套词，模型才不会当成两回事。
+ * 清單每輪全量注入、還帶著 promptHint 原文（「問問書看到哪了」），模型很容易把一條
+ * 排在今晚的任務當成本輪該關心的事，於是每段結尾都補一句「看到哪了」。同倉庫裡
+ * 便利貼（memoryPalace/formatter 的「不必每次聊天都追問進展」）、用藥提醒
+ * （lifeRecords 的「別反覆催」）、Notion 筆記（chatPrompts 的「不要每次都提」）
+ * 早就配了同類措辭，排程清單是漏掉的那個。
+ * 平時聊天那份（amsg2TaskContext 的排程現狀塊）和到點那份（buildFireTaskListBlock）
+ * 共用這一句：兩處說同一套詞，模型才不會當成兩回事。
  */
-export const AMSG2_SCHEDULE_NOT_YET_NOTE = '排在未来的事到点自己会响，不用你现在提前替它开口——还没到那个时刻的就让它安静待着，别每轮都拿它起话头、追着问进展。对方自己提起，或者真到了那个点，才是说它的时候。';
+export const AMSG2_SCHEDULE_NOT_YET_NOTE = '排在未來的事到點自己會響，不用你現在提前替它開口——還沒到那個時刻的就讓它安靜待著，別每輪都拿它起話頭、追著問進展。對方自己提起，或者真到了那個點，才是說它的時候。';
 
 export const describeExpirePolicy = (policy: ActiveMsg2ExpirePolicy): string =>
-  policy === 'force' ? '强制发送' : '遇忙作废';
+  policy === 'force' ? '強制發送' : '遇忙作廢';
 
-/** 任务「要说什么」的一句话描述。fixed 有固定内容、prompted 有方向、auto 可带灵感。 */
+/** 任務「要說什麼」的一句話描述。fixed 有固定內容、prompted 有方向、auto 可帶靈感。 */
 export const describeTaskMode = (
   task: { mode: ActiveMsg2Mode; promptHint?: string },
 ): string => {
   if (task.mode === 'fixed') return '固定消息';
   if (task.mode === 'prompted') return `提示方向「${task.promptHint || ''}」`;
-  return task.promptHint ? `自动（灵感：${task.promptHint}）` : '自动';
+  return task.promptHint ? `自動（靈感：${task.promptHint}）` : '自動';
 };
 
 /**
- * 任务时间的统一显示格式（24 小时制，精确到分）。
- * 不显示秒——cron 每整分才捞一次任务，秒位不代表任何东西，却要在窄卡片里占三个字符，
- * 把后面的重复方式和进度挤没。
+ * 任務時間的統一顯示格式（24 小時制，精確到分）。
+ * 不顯示秒——cron 每整分才撈一次任務，秒位不代表任何東西，卻要在窄卡片裡佔三個字符，
+ * 把後面的重複方式和進度擠沒。
  *
- * tz 是「这个时间给谁看」：
- *  - 给用户看（设置面板的任务卡、跳过原因）→ 不传，跟着设备走，用户看自己的钟；
- *  - 给角色看（排程现状块、schedule/list 工具的回话）→ 传角色时区。不传的话，
- *    纽约角色会在同一份 prompt 里读到两套时间：这边是设备的钟，fire 那边（worker 按
- *    fire_pack.tzId 渲染）是自己的钟，同一条任务差整整一个时差。
+ * tz 是「這個時間給誰看」：
+ *  - 給用戶看（設置面板的任務卡、跳過原因）→ 不傳，跟著設備走，用戶看自己的鐘；
+ *  - 給角色看（排程現狀塊、schedule/list 工具的回話）→ 傳角色時區。不傳的話，
+ *    紐約角色會在同一份 prompt 裡讀到兩套時間：這邊是設備的鐘，fire 那邊（worker 按
+ *    fire_pack.tzId 渲染）是自己的鐘，同一條任務差整整一個時差。
  */
 export const formatTaskTime = (value: number | string, tz?: string): string =>
   new Date(value).toLocaleString('zh-CN', {
@@ -118,10 +118,10 @@ export const formatTaskTime = (value: number | string, tz?: string): string =>
   });
 
 /**
- * 把任意可解析的时间折成 datetime-local 输入框认的本地墙钟 'YYYY-MM-DDTHH:mm'。
- * 任务的 firstSendTime 有两种来源：面板建的本就是 datetime-local，角色用工具建的是
- * 完整 ISO 8601（带时区）——编辑角色任务时不折算会导致时间框空白。已是该格式的原样
- * 返回（幂等）；无法解析（空 / 坏值）也原样返回，不抛错。
+ * 把任意可解析的時間折成 datetime-local 輸入框認的本地牆鍾 'YYYY-MM-DDTHH:mm'。
+ * 任務的 firstSendTime 有兩種來源：面板建的本就是 datetime-local，角色用工具建的是
+ * 完整 ISO 8601（帶時區）——編輯角色任務時不折算會導致時間框空白。已是該格式的原樣
+ * 返回（冪等）；無法解析（空 / 壞值）也原樣返回，不拋錯。
  */
 export const toDatetimeLocalValue = (value: string): string => {
   const date = new Date(value);
@@ -131,15 +131,15 @@ export const toDatetimeLocalValue = (value: string): string => {
 };
 
 /**
- * datetime-local 输入框的值 → 绝对时刻（UTC ISO）。toDatetimeLocalValue 的逆操作。
+ * datetime-local 輸入框的值 → 絕對時刻（UTC ISO）。toDatetimeLocalValue 的逆操作。
  *
- * 设置面板的时间框是给**用户**填的，填的是用户桌上的钟。而排程接口拿到裸墙钟
- * （没有 Z / ±hh:mm 后缀）一律按**角色**时区解释——那条规则是给角色自己排程用的
- * （纽约角色说「明早九点」就该是纽约的九点）。两边共用同一个字符串的话，角色一开
- * 自定义时区，用户填的时间就会被当成角色那边的墙钟，同一条任务差整整一个时差。
- * 所以面板在交出去之前先按设备时区折成绝对时刻，让后面所有环节都只认这一个时刻。
+ * 設置面板的時間框是給**用戶**填的，填的是用戶桌上的鐘。而排程接口拿到裸牆鍾
+ * （沒有 Z / ±hh:mm 後綴）一律按**角色**時區解釋——那條規則是給角色自己排程用的
+ * （紐約角色說「明早九點」就該是紐約的九點）。兩邊共用同一個字符串的話，角色一開
+ * 自定義時區，用戶填的時間就會被當成角色那邊的牆鍾，同一條任務差整整一個時差。
+ * 所以面板在交出去之前先按設備時區折成絕對時刻，讓後面所有環節都只認這一個時刻。
  *
- * 无法解析（空 / 坏值）原样返回，交给下游报错，不在这里抛。
+ * 無法解析（空 / 壞值）原樣返回，交給下游報錯，不在這裡拋。
  */
 export const fromDatetimeLocalValue = (value: string): string => {
   const date = new Date(value);
@@ -153,7 +153,7 @@ export const findTaskByShortId = (
 ): ActiveMsg2TaskRecord | undefined =>
   tasks.find((t) => shortTaskId(t.taskUuid) === shortId || t.taskUuid === shortId);
 
-/** 待触发 = 还会响的任务：循环任务恒真；一次性任务触发点（含宽限）未过。 */
+/** 待觸發 = 還會響的任務：循環任務恆真；一次性任務觸發點（含寬限）未過。 */
 export const isPendingTask = (task: ActiveMsg2TaskRecord, nowMs: number): boolean => {
   if (task.status !== 'scheduled') return false;
   if (task.recurrenceType !== 'none') return true;
@@ -162,20 +162,20 @@ export const isPendingTask = (task: ActiveMsg2TaskRecord, nowMs: number): boolea
 };
 
 /**
- * 当前该盯的那一次触发时刻。
+ * 當前該盯的那一次觸發時刻。
  *
- * 一次性任务恒为 firstSendTime。循环任务的 firstSendTime 是「第一次」的时间，可能在
- * 好几天前，必须按周期推到当前这一次——否则清单会给一条每天的任务显示好几天前的时间
- * 配上「待触发」，看着就像过点了没响。停留条件用的是「加上送达宽限后仍在未来」，跟
- * isPendingTask 同一把尺，这样刚过点还在发的那一次不会被跳过。
+ * 一次性任務恆為 firstSendTime。循環任務的 firstSendTime 是「第一次」的時間，可能在
+ * 好幾天前，必須按週期推到當前這一次——否則清單會給一條每天的任務顯示好幾天前的時間
+ * 配上「待觸發」，看著就像過點了沒響。停留條件用的是「加上送達寬限後仍在未來」，跟
+ * isPendingTask 同一把尺，這樣剛過點還在發的那一次不會被跳過。
  */
 export const currentOccurrenceMs = (
   task: Pick<ActiveMsg2TaskRecord, 'firstSendTime' | 'recurrenceType' | 'nextSendAt'>,
   nowMs: number,
 ): number | null => {
-  // 远端对过账就以它为准：循环任务按角色所在时区的墙钟推进，本地按固定周期乘出来的
-  // 那个一跨夏令时就会跟真正会响的时刻差一小时。还没到点的那次才作数——已经过点的
-  // 说明还没对上这一轮的账，照旧自己推。
+  // 遠端對過帳就以它為準：循環任務按角色所在時區的牆鍾推進，本地按固定週期乘出來的
+  // 那個一跨夏令時就會跟真正會響的時刻差一小時。還沒到點的那次才作數——已經過點的
+  // 說明還沒對上這一輪的帳，照舊自己推。
   const remoteNext = task.nextSendAt ? new Date(task.nextSendAt).getTime() : NaN;
   if (Number.isFinite(remoteNext) && remoteNext + FIRE_GRACE_MS > nowMs) return remoteNext;
 
@@ -185,23 +185,23 @@ export const currentOccurrenceMs = (
   const periodMs = recurrencePeriodMs(task.recurrenceType);
   if (periodMs === null) return first;
 
-  // 找最小的 k（≥0）使 first + k*period + GRACE > now，直接算不要逐个迭代——
-  // 循环任务可能已经跑了几个月。
+  // 找最小的 k（≥0）使 first + k*period + GRACE > now，直接算不要逐個迭代——
+  // 循環任務可能已經跑了幾個月。
   const k = Math.max(0, Math.floor((nowMs - FIRE_GRACE_MS - first) / periodMs) + 1);
   return first + k * periodMs;
 };
 
 /**
- * 任务当前进度的一句话（清单里跟在「重复方式」后面那个词）。
+ * 任務當前進度的一句話（清單裡跟在「重複方式」後面那個詞）。
  *
- * 已过点的一次性任务光说「已到点」信息量为零——用户看不出它是发过了还是卡住了。
- * 远端底账正好能分辨：那一行还在 = worker 还没消费（cron 慢了或刚过点）；不在了 =
- * worker 已经处理完（发出去了，或者被防穿帮闸作废了，两种情况都会删行）。
- * 底账没拉到（null）时不猜，回到中性的「已到点」。
+ * 已過點的一次性任務光說「已到點」信息量為零——用戶看不出它是發過了還是卡住了。
+ * 遠端底帳正好能分辨：那一行還在 = worker 還沒消費（cron 慢了或剛過點）；不在了 =
+ * worker 已經處理完（發出去了，或者被防穿幫閘作廢了，兩種情況都會刪行）。
+ * 底帳沒拉到（null）時不猜，回到中性的「已到點」。
  *
- * remoteStatus 是远端那一行的 status（拉到底账时顺带的投影，没有就不传）：
- * 一次性任务重试用完会被标 'failed' 留在远端，不会再被消费——这时候还说
- * 「待处理」是骗人，它不会有下文了。
+ * remoteStatus 是遠端那一行的 status（拉到底帳時順帶的投影，沒有就不傳）：
+ * 一次性任務重試用完會被標 'failed' 留在遠端，不會再被消費——這時候還說
+ * 「待處理」是騙人，它不會有下文了。
  */
 export const describeTaskProgress = (
   task: ActiveMsg2TaskRecord,
@@ -209,10 +209,10 @@ export const describeTaskProgress = (
   nowMs: number,
   remoteStatus?: string,
 ): string => {
-  if (isPendingTask(task, nowMs)) return '待触发';
-  if (knownRemoteUuids === null) return '已到点';
-  if (!knownRemoteUuids.has(task.taskUuid)) return '已触发';
-  return remoteStatus === 'failed' ? '发送失败' : '已到点·待处理';
+  if (isPendingTask(task, nowMs)) return '待觸發';
+  if (knownRemoteUuids === null) return '已到點';
+  if (!knownRemoteUuids.has(task.taskUuid)) return '已觸發';
+  return remoteStatus === 'failed' ? '發送失敗' : '已到點·待處理';
 };
 
 export const getPendingTasks = (
@@ -221,27 +221,27 @@ export const getPendingTasks = (
 ): ActiveMsg2TaskRecord[] =>
   (config?.tasks ?? []).filter((t) => isPendingTask(t, nowMs));
 
-/** 这个任务的触发有没有可能被防穿帮闸作废（fixed / force 永远照发）。 */
+/** 這個任務的觸發有沒有可能被防穿幫閘作廢（fixed / force 永遠照發）。 */
 export const canExpire = (task: ActiveMsg2TaskRecord): boolean =>
   task.status === 'scheduled' && task.mode !== 'fixed' && task.expirePolicy === 'expire';
 
-/** 有没有还会响的 AI 任务（amsgStateSync 的同步门用：fixed 不需要 fire_pack）。 */
+/** 有沒有還會響的 AI 任務（amsgStateSync 的同步門用：fixed 不需要 fire_pack）。 */
 export const hasActiveAiTask = (
   config: ActiveMsg2CharacterConfig | undefined,
   nowMs = Date.now(),
 ): boolean => getPendingTasks(config, nowMs).some((t) => t.mode !== 'fixed');
 
 /**
- * fire 时刻注进 prompt 的「你现在还挂着哪些排程」。
+ * fire 時刻注進 prompt 的「你現在還掛著哪些排程」。
  *
- * 跟平时聊天那份（amsg2TaskContext 的排程现状块）说的是同一件事、用同一套 describeXxx
- * 文案，差别只有三处，都是 fire 这边特有的：
- *   1. 时间按 fire_pack 的时区参照系（tzId）换算——
- *      worker 跑在 UTC，用运行时本地时区会整体差几个小时；
- *   2. 摘掉正在发的这一条 —— 它此刻正在被消费，列进「进行中」会让角色以为还得再排一次；
- *   3. 不含「已作废回执」那一段 —— 那是给对话现场用的，到点生成时提不着。
+ * 跟平時聊天那份（amsg2TaskContext 的排程現狀塊）說的是同一件事、用同一套 describeXxx
+ * 文案，差別只有三處，都是 fire 這邊特有的：
+ *   1. 時間按 fire_pack 的時區參照系（tzId）換算——
+ *      worker 跑在 UTC，用運行時本地時區會整體差幾個小時；
+ *   2. 摘掉正在發的這一條 —— 它此刻正在被消費，列進「進行中」會讓角色以為還得再排一次；
+ *   3. 不含「已作廢回執」那一段 —— 那是給對話現場用的，到點生成時提不著。
  *
- * 没有可列的（清单空了，或者只剩正在发的这条）→ 返回空串，槽位被抹平。
+ * 沒有可列的（清單空了，或者只剩正在發的這條）→ 返回空串，槽位被抹平。
  */
 export const buildFireTaskListBlock = (
   tasks: ActiveMsg2TaskRecord[],
@@ -256,7 +256,7 @@ export const buildFireTaskListBlock = (
   return [
     '',
     '',
-    '【你还挂着这些排程·仅你可见】',
+    '【你還掛著這些排程·僅你可見】',
     ...listed.map((t) => {
       const occurrenceMs = currentOccurrenceMs(t, opts.nowMs);
       const when = formatFireTimeShort(
@@ -266,35 +266,35 @@ export const buildFireTaskListBlock = (
       return `- [${shortTaskId(t.taskUuid)}] ${when} ${describeRecurrence(t.recurrenceType)}`
         + ` · ${describeTaskMode(t)} · ${describeExpirePolicy(t.expirePolicy)}`;
     }),
-    '（这几条到点会自动发出去，别在这条消息里把同一件事再排一遍，也别当它们不存在。）',
+    '（這幾條到點會自動發出去，別在這條消息裡把同一件事再排一遍，也別當它們不存在。）',
     AMSG2_SCHEDULE_NOT_YET_NOTE,
     AMSG2_SCHEDULE_SECRECY_NOTE,
   ].join('\n');
 };
 
-// ─── 远端 lastError：上一次到点为什么没发出去 ───
-// amsg-server 2.6.0-next.10 起 GET /messages 每条任务多带 lastError（run-tick 在
-// 失败时写进 payload）：{ at: 记录时刻 ISO, occurrence: 那一次的名义触发时刻 ISO,
-// reason: 'stale'（错过触发时刻太久被跳过）| 投递失败的原始错误信息 }。
-// 服务端只在失败时写、之后成功也不清，所以它永远是「最近一次失败」的记录——
-// 显示时必须带上时间，老记录才不会被读成「现在还坏着」。
+// ─── 遠端 lastError：上一次到點為什麼沒發出去 ───
+// amsg-server 2.6.0-next.10 起 GET /messages 每條任務多帶 lastError（run-tick 在
+// 失敗時寫進 payload）：{ at: 記錄時刻 ISO, occurrence: 那一次的名義觸發時刻 ISO,
+// reason: 'stale'（錯過觸發時刻太久被跳過）| 投遞失敗的原始錯誤信息 }。
+// 服務端只在失敗時寫、之後成功也不清，所以它永遠是「最近一次失敗」的記錄——
+// 顯示時必須帶上時間，老記錄才不會被讀成「現在還壞著」。
 //
-// 2.6.0-next.21 起同一份记录多两个机读字段：errorCode（底层错误的稳定 code）和
-// pushStatus（真正发推送那一步上游回的状态码）。「这次该怎么办」读这两个就够，
-// 不用回去正则匹配 reason 那句人话——那是给用户看的自由文本，上游改个措辞，
-// 按文本分流的代码就静默失效了。
+// 2.6.0-next.21 起同一份記錄多兩個機讀字段：errorCode（底層錯誤的穩定 code）和
+// pushStatus（真正發推送那一步上游回的狀態碼）。「這次該怎麼辦」讀這兩個就夠，
+// 不用回去正則匹配 reason 那句人話——那是給用戶看的自由文本，上游改個措辭，
+// 按文本分流的代碼就靜默失效了。
 
 export interface RemoteTaskLastError {
   at?: string;
   occurrence?: string;
   reason?: string;
-  /** 底层错误的稳定 code，如 `LLM_CALL_FAILED` / `PUSH_PAYLOAD_TOO_LARGE`。 */
+  /** 底層錯誤的穩定 code，如 `LLM_CALL_FAILED` / `PUSH_PAYLOAD_TOO_LARGE`。 */
   errorCode?: string;
-  /** 推送那一步上游回的 HTTP 状态码；410 / 404 = 这份订阅已经作废了。 */
+  /** 推送那一步上游回的 HTTP 狀態碼；410 / 404 = 這份訂閱已經作廢了。 */
   pushStatus?: number;
 }
 
-/** 远端投影是解密出来的任意 JSON，进 UI 前收敛一遍形状；全空/不是对象 → null。 */
+/** 遠端投影是解密出來的任意 JSON，進 UI 前收斂一遍形狀；全空/不是對象 → null。 */
 export const parseRemoteTaskLastError = (raw: unknown): RemoteTaskLastError | null => {
   if (!raw || typeof raw !== 'object') return null;
   const value = raw as Record<string, unknown>;
@@ -314,32 +314,32 @@ export const parseRemoteTaskLastError = (raw: unknown): RemoteTaskLastError | nu
 };
 
 /**
- * reason 是投递失败时的原始错误信息，可能整段 HTML / 堆栈，界面上截个头就够。
+ * reason 是投遞失敗時的原始錯誤信息，可能整段 HTML / 堆棧，界面上截個頭就夠。
  *
- * 从 60 放宽到这个数：amsg-server 2.6.0-next.21 起，上游拒了请求时 reason 是
- * 「状态行 + 破折号 + 上游原话」两段，光状态行就占掉五六十字（见 pickErrorDetail），
- * 按老长度截等于每次都把唯一有用的那半句切掉。上游那句原话自己截到 300 字符，
- * 这里再收一道——卡片上放得下、又装得完典型的那句「模型不存在 / 余额不足」。
+ * 從 60 放寬到這個數：amsg-server 2.6.0-next.21 起，上游拒了請求時 reason 是
+ * 「狀態行 + 破折號 + 上游原話」兩段，光狀態行就佔掉五六十字（見 pickErrorDetail），
+ * 按老長度截等於每次都把唯一有用的那半句切掉。上游那句原話自己截到 300 字符，
+ * 這裡再收一道——卡片上放得下、又裝得完典型的那句「模型不存在 / 餘額不足」。
  */
 export const REMOTE_ERROR_REASON_MAX = 120;
 
-/** 推送服务判定「这份订阅已经没了」时回的状态码：410 已注销，404 端点不存在。 */
+/** 推送服務判定「這份訂閱已經沒了」時回的狀態碼：410 已註銷，404 端點不存在。 */
 const PUSH_GONE_STATUSES = [410, 404];
 
 /**
- * 从 reason 里挑出最有信息量的那一段。
+ * 從 reason 裡挑出最有信息量的那一段。
  *
- * 上游拒了请求时，amsg-server 写下来的是这么两行：
+ * 上游拒了請求時，amsg-server 寫下來的是這麼兩行：
  *
  *   AI API error: 401 Unauthorized. Request URL: https://api.example.com/v1/chat/completions
  *     — Incorrect API key provided: sk-[redacted]. (provider code: invalid_api_key)
  *
- * 第一行只说得出「是 400 还是 401」，而「模型名写错、余额不够、上下文超长、被内容
- * 审核拦下」这些真正能照着改的东西全在破折号后面。所以有破折号就取它后面那段，
- * 没有的话（推送失败、宿主 hook 抛错等）原文照用。
+ * 第一行只說得出「是 400 還是 401」，而「模型名寫錯、餘額不夠、上下文超長、被內容
+ * 審核攔下」這些真正能照著改的東西全在破折號後面。所以有破折號就取它後面那段，
+ * 沒有的話（推送失敗、宿主 hook 拋錯等）原文照用。
  *
- * 取**第一个**破折号：分隔符只有那一个，后面整段都是上游原话，而原话自己也可能带
- * 破折号（`Web Push delivery failed: 410 Gone — …` 就是），从最后一个切会把它再腰斩一次。
+ * 取**第一個**破折號：分隔符只有那一個，後面整段都是上游原話，而原話自己也可能帶
+ * 破折號（`Web Push delivery failed: 410 Gone — …` 就是），從最後一個切會把它再腰斬一次。
  */
 const pickErrorDetail = (reason: string): string => {
   const dashAt = reason.indexOf('—');
@@ -347,62 +347,62 @@ const pickErrorDetail = (reason: string): string => {
   return detail.replace(/\s+/g, ' ').trim();
 };
 
-/** 上游给了稳定 code 时对用户说的话；没有对应条目的码走通用文案。 */
+/** 上游給了穩定 code 時對用戶說的話；沒有對應條目的碼走通用文案。 */
 const ERROR_CODE_TEXT: Record<string, string> = {
-  // 一条 push 的明文上限是 3993 字节，超了库在加密之前就抛，一个字节都没发出去。
-  PUSH_PAYLOAD_TOO_LARGE: '这条回复太长，一条推送装不下',
-  // 任务正文（角色设定 + 对话历史）整个超过了存储单行上限。
-  TASK_PAYLOAD_TOO_LARGE: '这一轮要带上云的内容太多，超过了单条任务的上限',
+  // 一條 push 的明文上限是 3993 字節，超了庫在加密之前就拋，一個字節都沒發出去。
+  PUSH_PAYLOAD_TOO_LARGE: '這條回覆太長，一條推送裝不下',
+  // 任務正文（角色設定 + 對話歷史）整個超過了存儲單行上限。
+  TASK_PAYLOAD_TOO_LARGE: '這一輪要帶上雲的內容太多，超過了單條任務的上限',
 };
 
 /**
- * 体检「定时任务」那一行专用的几种 code：一句中文说清是哪类失败。
+ * 體檢「定時任務」那一行專用的幾種 code：一句中文說清是哪類失敗。
  *
- * 只给体检用，因为体检每条下面都挂着「原文」，原话（凭据 id、英文的循环轮数）照样
- * 看得到。任务卡片和聊天里的即时对话失败说明直接显示原话，不走这张表——那里用一句
- * 概括替掉原话，用户就再也看不到具体是哪个凭据、哪一轮了。
+ * 只給體檢用，因為體檢每條下面都掛著「原文」，原話（憑據 id、英文的循環輪數）照樣
+ * 看得到。任務卡片和聊天裡的即時對話失敗說明直接顯示原話，不走這張表——那裡用一句
+ * 概括替掉原話，用戶就再也看不到具體是哪個憑據、哪一輪了。
  */
 const DIAGNOSTIC_CODE_TEXT: Record<string, string> = {
-  // 任务引用的凭据行不在库里，任务里也没有内联的那一份。
-  CREDENTIAL_MISSING: 'Worker 上找不到这个角色要用的 API 凭据',
-  // 推送订阅表里没有这个用户的行：生成完了也没地方送。
-  PUSH_SUBSCRIPTION_MISSING: 'Worker 上没有登记收件设备',
-  // 带工具的那条路上，模型一轮轮调工具，到上限了还没给出最终回复。
-  AGENTIC_LOOP_EXCEEDED: '工具调用轮数用完了还没写出回复',
-  // 模型说要调工具，却没说调哪个。
-  AGENTIC_EMPTY_TOOL_REQUEST: '模型说要调用工具，但没给出要调哪一个',
+  // 任務引用的憑據行不在庫裡，任務裡也沒有內聯的那一份。
+  CREDENTIAL_MISSING: 'Worker 上找不到這個角色要用的 API 憑據',
+  // 推送訂閱表裡沒有這個用戶的行：生成完了也沒地方送。
+  PUSH_SUBSCRIPTION_MISSING: 'Worker 上沒有登記收件設備',
+  // 帶工具的那條路上，模型一輪輪調工具，到上限了還沒給出最終回覆。
+  AGENTIC_LOOP_EXCEEDED: '工具調用輪數用完了還沒寫出回覆',
+  // 模型說要調工具，卻沒說調哪個。
+  AGENTIC_EMPTY_TOOL_REQUEST: '模型說要調用工具，但沒給出要調哪一個',
 };
 
 /**
- * 光说类别不够、原话里还有要紧信息的那几种 code：类别在前，原话的关键段跟在后面。
+ * 光說類別不夠、原話裡還有要緊信息的那幾種 code：類別在前，原話的關鍵段跟在後面。
  *
- * 模型接口拒了请求时，原话里是「模型名写错 / 余额不够 / Key 不对」；推送服务拒收时，
- * 原话里是推送服务自己给的理由。这两种只报类别，用户照样不知道该去改什么。
- * 跟 ERROR_CODE_TEXT 分开放，是因为认到那两张表里的码就整句替换、不再带原话——
- * 放进去等于把这半句吞掉。
+ * 模型接口拒了請求時，原話裡是「模型名寫錯 / 餘額不夠 / Key 不對」；推送服務拒收時，
+ * 原話裡是推送服務自己給的理由。這兩種只報類別，用戶照樣不知道該去改什麼。
+ * 跟 ERROR_CODE_TEXT 分開放，是因為認到那兩張表裡的碼就整句替換、不再帶原話——
+ * 放進去等於把這半句吞掉。
  */
 const ERROR_KIND_TEXT: Record<string, string> = {
-  // 措辞跟 describeInstantChatFailure 那一档保持一致。上游真的答复了才会挂这个码
-  // （网络没通、超时不算），所以说「拒了」不冤枉它。
-  LLM_CALL_FAILED: '模型接口拒了这次请求',
-  PUSH_SEND_FAILED: '推送服务没收下这条消息',
+  // 措辭跟 describeInstantChatFailure 那一檔保持一致。上游真的答覆了才會掛這個碼
+  // （網絡沒通、超時不算），所以說「拒了」不冤枉它。
+  LLM_CALL_FAILED: '模型接口拒了這次請求',
+  PUSH_SEND_FAILED: '推送服務沒收下這條消息',
 };
 
 /**
- * 这次失败该怎么办——从机读字段推，不看 reason 那句人话。
- * 返回 null = 没有专门的说法，调用方走通用文案。
+ * 這次失敗該怎麼辦——從機讀字段推，不看 reason 那句人話。
+ * 返回 null = 沒有專門的說法，調用方走通用文案。
  */
 const describeActionableFailure = (lastError: RemoteTaskLastError): string | null => {
   if (lastError.pushStatus && PUSH_GONE_STATUSES.includes(lastError.pushStatus)) {
-    return '这台设备的推送订阅已经失效，去设置页「重置订阅」重新登记一次';
+    return '這台設備的推送訂閱已經失效，去設置頁「重置訂閱」重新登記一次';
   }
   return (lastError.errorCode && ERROR_CODE_TEXT[lastError.errorCode]) || null;
 };
 
 /**
- * 远端 lastError 的人话（任务卡片上那行说明）。formatTime 由调用方注入
- * （面板用 formatTaskTime）；时间优先用 occurrence（「哪一次」比「什么时候记的」
- * 更贴用户想知道的事），没有再退 at。
+ * 遠端 lastError 的人話（任務卡片上那行說明）。formatTime 由調用方注入
+ * （面板用 formatTaskTime）；時間優先用 occurrence（「哪一次」比「什麼時候記的」
+ * 更貼用戶想知道的事），沒有再退 at。
  */
 export const describeRemoteLastError = (
   lastError: RemoteTaskLastError | null | undefined,
@@ -412,62 +412,62 @@ export const describeRemoteLastError = (
   const when = lastError.occurrence || lastError.at;
   const whenText = when ? `${formatTime(when)} ` : '';
   if (lastError.reason === 'stale') {
-    return `${whenText}到点时已过期太久，跳过了一次`;
+    return `${whenText}到點時已過期太久，跳過了一次`;
   }
-  // 上游点名说了是什么毛病时用它的说法：那句话里有「接下来该做什么」，
-  // 而原始报错只能告诉用户「坏了」。
+  // 上游點名說了是什麼毛病時用它的說法：那句話裡有「接下來該做什麼」，
+  // 而原始報錯只能告訴用戶「壞了」。
   const actionable = describeActionableFailure(lastError);
-  if (actionable) return `${whenText}上次到点没发出去：${actionable}`;
+  if (actionable) return `${whenText}上次到點沒發出去：${actionable}`;
   const reason = pickErrorDetail(lastError.reason || '').slice(0, REMOTE_ERROR_REASON_MAX);
-  return `${whenText}上次到点没发出去（连续失败${reason ? `：${reason}` : ''}）`;
+  return `${whenText}上次到點沒發出去（連續失敗${reason ? `：${reason}` : ''}）`;
 };
 
 /**
- * 即时对话那一轮失败的人话。读的是同一份 lastError，但换一套说法：那是用户刚按下
- * 发送的一条消息，「上次到点没发出去」这种排程口吻放在这里不成话。时间也不带——
- * 就是刚才，写出来只是噪音。retryCount 是远端行上的重试次数（旧 worker 不投影 → 不提）。
+ * 即時對話那一輪失敗的人話。讀的是同一份 lastError，但換一套說法：那是用戶剛按下
+ * 發送的一條消息，「上次到點沒發出去」這種排程口吻放在這裡不成話。時間也不帶——
+ * 就是剛才，寫出來只是噪音。retryCount 是遠端行上的重試次數（舊 worker 不投影 → 不提）。
  */
 export const describeInstantChatFailure = (
   lastError: RemoteTaskLastError | null | undefined,
   retryCount?: number,
 ): string | null => {
   if (!lastError) return null;
-  const retried = retryCount && retryCount > 0 ? `（重试 ${retryCount} 次后放弃）` : '';
-  // 'stale' 是「排队太久没轮到就被跳过」，没有底层报错可以引。
-  if (lastError.reason === 'stale') return `云端排队太久没轮到这一轮${retried}`;
-  // skip-push 的两种（worker 在 chat_fail 里留的机器码）：这一轮云端跑完了，但没有
-  // 能推给用户的正文。照实说，别掉进下面「生成失败」的口径——生成没失败，是没产出。
-  if (lastError.reason === 'empty-generation') return '模型这轮没有生成内容（空输出或拒答）';
-  if (lastError.reason === 'side-effects-only') return '角色这轮只做了动作，没有文字回复';
-  // 订阅失效 / 正文超限这类有确定处置方式的，直接说该干什么。这些重发多少次都是
-  // 同一个结果，混在「生成失败」里只会让用户对着发送键反复试。
+  const retried = retryCount && retryCount > 0 ? `（重試 ${retryCount} 次後放棄）` : '';
+  // 'stale' 是「排隊太久沒輪到就被跳過」，沒有底層報錯可以引。
+  if (lastError.reason === 'stale') return `雲端排隊太久沒輪到這一輪${retried}`;
+  // skip-push 的兩種（worker 在 chat_fail 裡留的機器碼）：這一輪雲端跑完了，但沒有
+  // 能推給用戶的正文。照實說，別掉進下面「生成失敗」的口徑——生成沒失敗，是沒產出。
+  if (lastError.reason === 'empty-generation') return '模型這輪沒有生成內容（空輸出或拒答）';
+  if (lastError.reason === 'side-effects-only') return '角色這輪只做了動作，沒有文字回覆';
+  // 訂閱失效 / 正文超限這類有確定處置方式的，直接說該幹什麼。這些重發多少次都是
+  // 同一個結果，混在「生成失敗」裡只會讓用戶對著發送鍵反覆試。
   const actionable = describeActionableFailure(lastError);
   if (actionable) return `${actionable}${retried}`;
   const detail = pickErrorDetail(lastError.reason || '').slice(0, REMOTE_ERROR_REASON_MAX);
-  // 上游明说是模型接口拒了请求：换个说法，别让用户以为是 SullyOS 这边生成挂了——
-  // 这一档要查的是 API Key、模型名、余额，跟本地一点关系没有。
+  // 上游明說是模型接口拒了請求：換個說法，別讓用戶以為是 SullyOS 這邊生成掛了——
+  // 這一檔要查的是 API Key、模型名、餘額，跟本地一點關係沒有。
   if (lastError.errorCode === 'LLM_CALL_FAILED') {
-    return `模型接口拒了这次请求${retried}${detail ? `：${detail}` : ''}`;
+    return `模型接口拒了這次請求${retried}${detail ? `：${detail}` : ''}`;
   }
-  return `生成失败${retried}${detail ? `：${detail}` : ''}`;
+  return `生成失敗${retried}${detail ? `：${detail}` : ''}`;
 };
 
 /**
- * 一条失败记录「是哪一类失败」的短句，不带时间，也不带「上次到点没发出去」这类句式。
+ * 一條失敗記錄「是哪一類失敗」的短句，不帶時間，也不帶「上次到點沒發出去」這類句式。
  *
- * 给体检「定时任务」那一行逐条说原因用：那边每条前面已经有「谁、几点该发、晚了多久」，
- * 这里只补「为什么」。认法跟任务卡片、即时对话那两句是同一套（机读字段优先，认不出来的
- * 截原话里最有用的那段），三处说法才对得上。原话全文由调用方另外收在「原文」底下，
- * 所以这里照样截断。
+ * 給體檢「定時任務」那一行逐條說原因用：那邊每條前面已經有「誰、幾點該發、晚了多久」，
+ * 這裡只補「為什麼」。認法跟任務卡片、即時對話那兩句是同一套（機讀字段優先，認不出來的
+ * 截原話裡最有用的那段），三處說法才對得上。原話全文由調用方另外收在「原文」底下，
+ * 所以這裡照樣截斷。
  *
- * 字段允许 null：体检那份回执（amsgTickReport）缺值给的是 null，任务投影给的是 undefined。
+ * 字段允許 null：體檢那份回執（amsgTickReport）缺值給的是 null，任務投影給的是 undefined。
  */
 export const describeTaskFailureCause = (record: {
   reason?: string | null;
   errorCode?: string | null;
   pushStatus?: number | null;
 }): string => {
-  if (record.reason === 'stale') return '到点时已经过期太久';
+  if (record.reason === 'stale') return '到點時已經過期太久';
   const lastError: RemoteTaskLastError = {
     reason: record.reason || undefined,
     errorCode: record.errorCode || undefined,
@@ -480,31 +480,31 @@ export const describeTaskFailureCause = (record: {
   const detail = pickErrorDetail(lastError.reason || '').slice(0, REMOTE_ERROR_REASON_MAX);
   const kind = lastError.errorCode ? ERROR_KIND_TEXT[lastError.errorCode] : undefined;
   if (kind) {
-    // 推送服务回的状态码（403 = 推送凭据对不上、413 = 太大……）在原话的破折号前面，
-    // 取关键段时会被切掉，从机读字段补回来。
+    // 推送服務回的狀態碼（403 = 推送憑據對不上、413 = 太大……）在原話的破折號前面，
+    // 取關鍵段時會被切掉，從機讀字段補回來。
     const status = lastError.pushStatus ? `（${lastError.pushStatus}）` : '';
     return `${kind}${status}${detail ? `：${detail}` : ''}`;
   }
-  // SullyOS 自己的 Worker 抛的错没有 errorCode，代号写在原话开头（AMSG2_FIRE_STATE_MISSING: …），
-  // 截出来的这段本身就带着它。
-  return detail || '没留下具体原因';
+  // SullyOS 自己的 Worker 拋的錯沒有 errorCode，代號寫在原話開頭（AMSG2_FIRE_STATE_MISSING: …），
+  // 截出來的這段本身就帶著它。
+  return detail || '沒留下具體原因';
 };
 
-/** 替换任务时远端取消失败的标注文案（面板和工具侧共用一份，两边都会显示给人看）。 */
-export const REPLACE_CANCEL_FAILED_NOTE = '替换时远端取消失败，任务可能仍会触发，可再次取消';
+/** 替換任務時遠端取消失敗的標註文案（面板和工具側共用一份，兩邊都會顯示給人看）。 */
+export const REPLACE_CANCEL_FAILED_NOTE = '替換時遠端取消失敗，任務可能仍會觸發，可再次取消';
 
-// ─── 远端对账：哪些任务在远端还活着 ───
-// 面板打开时拉一次全量清单当底账，之后**不再重拉**，而是把每次远端操作的结果增量记进来。
-// 底账是「打开那一刻」的快照，拿它去比对之后新建的任务，新任务必然不在里面——那样每次
-// 新建都会立刻误标一行「远端不存在」，是纯粹的时序错觉。排程接口回了 success 就是这条
-// 任务在远端存在的确证，直接记账即可，不用再多跑一次全量拉取。
+// ─── 遠端對帳：哪些任務在遠端還活著 ───
+// 面板打開時拉一次全量清單當底帳，之後**不再重拉**，而是把每次遠端操作的結果增量記進來。
+// 底帳是「打開那一刻」的快照，拿它去比對之後新建的任務，新任務必然不在裡面——那樣每次
+// 新建都會立刻誤標一行「遠端不存在」，是純粹的時序錯覺。排程接口回了 success 就是這條
+// 任務在遠端存在的確證，直接記帳即可，不用再多跑一次全量拉取。
 
 /**
- * 把一次远端操作的结果并进底账。
- * `present` = 刚确认在远端存在的（新建/替换成功）；`gone` = 刚确认已不在的（取消成功）。
+ * 把一次遠端操作的結果並進底帳。
+ * `present` = 剛確認在遠端存在的（新建/替換成功）；`gone` = 剛確認已不在的（取消成功）。
  *
- * 底账为 null（没拉到）时保持 null：新建一条任务并不能说明**其余**任务在不在远端，
- * 凭这半份证据开始对账会把别的任务全标成「远端不存在」。
+ * 底帳為 null（沒拉到）時保持 null：新建一條任務並不能說明**其餘**任務在不在遠端，
+ * 憑這半份證據開始對帳會把別的任務全標成「遠端不存在」。
  */
 export const applyRemoteTaskDelta = (
   knownRemoteUuids: Set<string> | null,
@@ -517,31 +517,31 @@ export const applyRemoteTaskDelta = (
   return next;
 };
 
-/** `GET /messages` 的任务投影（worker 侧白名单，不含任何凭据）里用得上的字段。 */
+/** `GET /messages` 的任務投影（worker 側白名單，不含任何憑據）裡用得上的字段。 */
 export interface RemoteTaskProjection {
   uuid: string;
   status?: string;
   lastError: RemoteTaskLastError | null;
   clientTaskId?: string;
   messageType?: string;
-  /** 排程方写的自由文本标签；即时对话的行是 'instant-chat'，定时任务是 'chat'。 */
+  /** 排程方寫的自由文本標籤；即時對話的行是 'instant-chat'，定時任務是 'chat'。 */
   messageSubtype?: string;
   recurrenceType?: string;
   nextSendAt?: string;
-  /** 远端行上的重试计数（旧 worker 不投影这字段 → undefined）。 */
+  /** 遠端行上的重試計數（舊 worker 不投影這字段 → undefined）。 */
   retryCount?: number;
 }
 
 /**
- * 拿远端全量投影跟本地清单对一次账，两个方向都走。
+ * 拿遠端全量投影跟本地清單對一次帳，兩個方向都走。
  *
- * **远端有、本地没有 → 补回来。** 会漏账的都是角色在 fire 里给自己排的那些：认领是
- * 随 push 带回来的，那条 push 推失败、或者被防穿帮闸吞掉，认领就跟着没了。于是任务在
- * D1 里照常到点触发，本地却列不出来、也取消不掉——用户唯一能清掉它的办法是关掉整个
- * 2.0 或者删角色。面板每次打开本来就拉一次全量投影，顺手接回来，零额外请求。
+ * **遠端有、本地沒有 → 補回來。** 會漏帳的都是角色在 fire 裡給自己排的那些：認領是
+ * 隨 push 帶回來的，那條 push 推失敗、或者被防穿幫閘吞掉，認領就跟著沒了。於是任務在
+ * D1 裡照常到點觸發，本地卻列不出來、也取消不掉——用戶唯一能清掉它的辦法是關掉整個
+ * 2.0 或者刪角色。面板每次打開本來就拉一次全量投影，順手接回來，零額外請求。
  *
- * **本地已有 → 同步远端算出来的下一次触发时刻。** 循环任务按角色所在时区的墙钟推进，
- * 本地拿固定周期乘出来的那个跨夏令时会偏一小时，显示得跟真正会响的时刻一致。
+ * **本地已有 → 同步遠端算出來的下一次觸發時刻。** 循環任務按角色所在時區的牆鍾推進，
+ * 本地拿固定週期乘出來的那個跨夏令時會偏一小時，顯示得跟真正會響的時刻一致。
  */
 export const reconcileTasksWithRemote = (
   local: ActiveMsg2TaskRecord[],
@@ -557,11 +557,11 @@ export const reconcileTasksWithRemote = (
   });
 
   const adopted = remote
-    // 字段不全的行不补：宁可少一条，也别拿默认值凑一条跟远端对不上的记录出来。
-    // 已经失败的行也不补：它不会再响，补进来就是清单上一条永远等不到的幽灵任务。
-    // 即时对话的行同样不补：那是用户此刻正等着的一轮聊天，不是排程，进了清单会显示成
-    // 「待触发的任务」，还可能被「取消全部」顺手掐掉。后台任务（门牌整理这类不说话的
-    // 活儿）同理——它们跟聊天任务共用调度器，但不是用户排的主动消息。
+    // 字段不全的行不補：寧可少一條，也別拿默認值湊一條跟遠端對不上的記錄出來。
+    // 已經失敗的行也不補：它不會再響，補進來就是清單上一條永遠等不到的幽靈任務。
+    // 即時對話的行同樣不補：那是用戶此刻正等著的一輪聊天，不是排程，進了清單會顯示成
+    // 「待觸發的任務」，還可能被「取消全部」順手掐掉。後台任務（門牌整理這類不說話的
+    // 活兒）同理——它們跟聊天任務共用調度器，但不是用戶排的主動消息。
     .filter((row) => (
       !known.has(row.uuid)
       && row.nextSendAt && row.recurrenceType && row.messageType
@@ -571,15 +571,15 @@ export const reconcileTasksWithRemote = (
     ))
     .map((row): ActiveMsg2TaskRecord => ({
       taskUuid: row.uuid,
-      // 归属键是应用自己写进 metadata 的，投影里带回来；非 amsg2 建的任务没有，
-      // 那就拿 uuid 当归属键——它一样是唯一的。
+      // 歸屬鍵是應用自己寫進 metadata 的，投影裡帶回來；非 amsg2 建的任務沒有，
+      // 那就拿 uuid 當歸屬鍵——它一樣是唯一的。
       clientTaskId: row.clientTaskId ?? row.uuid,
       mode: row.messageType as ActiveMsg2TaskRecord['mode'],
       firstSendTime: row.nextSendAt as string,
       nextSendAt: row.nextSendAt,
       recurrenceType: row.recurrenceType as ActiveMsg2Recurrence,
-      // 远端投影没有防穿帮策略（那是应用写在 metadata 里的语义，投影不带）。
-      // 补回来的都是角色自排的，那条路径恒为 expire。
+      // 遠端投影沒有防穿幫策略（那是應用寫在 metadata 裡的語義，投影不帶）。
+      // 補回來的都是角色自排的，那條路徑恆為 expire。
       expirePolicy: 'expire',
       source: 'character',
       status: 'scheduled',
@@ -590,8 +590,8 @@ export const reconcileTasksWithRemote = (
 };
 
 /**
- * 这条任务该不该标「远端不存在」。
- * 只对**还会响**的任务判定：已过点的一次性任务本来就该从远端消失，标它是噪音。
+ * 這條任務該不該標「遠端不存在」。
+ * 只對**還會響**的任務判定：已過點的一次性任務本來就該從遠端消失，標它是噪音。
  */
 export const isRemoteMissingTask = (
   task: ActiveMsg2TaskRecord,
@@ -603,19 +603,19 @@ export const isRemoteMissingTask = (
   && !knownRemoteUuids.has(task.taskUuid);
 
 /**
- * 已经走完的一次性任务出清单。
+ * 已經走完的一次性任務出清單。
  *
- * 「走完」= 过了触发点、远端底账里也没有这一行。worker 领走任务后就会删掉那行，
- * 所以底账里找不到它 = 这一次已经处理完了，本地留着只会让清单越积越长（一天测下来
- * 就能攒出十来条一模一样的「已触发」）。判定跟 describeTaskProgress 是同一把尺：
- * 那里写「已触发」的，正是这里清掉的。
+ * 「走完」= 過了觸發點、遠端底帳裡也沒有這一行。worker 領走任務後就會刪掉那行，
+ * 所以底帳裡找不到它 = 這一次已經處理完了，本地留著只會讓清單越積越長（一天測下來
+ * 就能攢出十來條一模一樣的「已觸發」）。判定跟 describeTaskProgress 是同一把尺：
+ * 那裡寫「已觸發」的，正是這裡清掉的。
  *
- * 两种情况一律留着：
- *   - 带 lastError 的（比如替换时远端取消失败，远端可能还会照发）——那行错误是用户
- *     唯一能看见的线索，自动清掉等于把问题藏起来；
- *   - 底账没拉到（null）——分不出「远端处理完了」和「压根没读到远端」，一条都不动。
+ * 兩種情況一律留著：
+ *   - 帶 lastError 的（比如替換時遠端取消失敗，遠端可能還會照發）——那行錯誤是用戶
+ *     唯一能看見的線索，自動清掉等於把問題藏起來；
+ *   - 底帳沒拉到（null）——分不出「遠端處理完了」和「壓根沒讀到遠端」，一條都不動。
  *
- * 循环任务永远还会响，isPendingTask 对它们恒真，不会被这里带走。
+ * 循環任務永遠還會響，isPendingTask 對它們恆真，不會被這裡帶走。
  */
 export const pruneFiredTasks = (
   tasks: ActiveMsg2TaskRecord[],
@@ -629,11 +629,11 @@ export const pruneFiredTasks = (
 };
 
 /**
- * 排程 / 替换成功后把新记录并进清单。
+ * 排程 / 替換成功後把新記錄並進清單。
  *
- * 替换失败时**保留旧记录并标错**，绝不静默丢掉：远端此时新旧并存，本地要是只留新的，
- * 旧任务就成了没有短 id、谁都取消不了的幽灵任务。面板和角色工具两条路都走这里，
- * 规则只有一份。
+ * 替換失敗時**保留舊記錄並標錯**，絕不靜默丟掉：遠端此時新舊並存，本地要是只留新的，
+ * 舊任務就成了沒有短 id、誰都取消不了的幽靈任務。面板和角色工具兩條路都走這裡，
+ * 規則只有一份。
  */
 export const applyScheduledTask = (
   tasks: ActiveMsg2TaskRecord[],
@@ -650,11 +650,11 @@ export const applyScheduledTask = (
 };
 
 /**
- * 关闭主动消息后，清单里该留下谁 —— 只留「远端还活着」的两类：
- *   1. 取消失败的（attempted 过但 failed）；
- *   2. 取消期间才出现的（不在 attempted 里，比如角色刚在聊天里排的）——压根没被取消过，
- *      跟着一起清掉就又是远端照发、面板看不见的幽灵任务。
- * 其余（成功取消的）出清单。
+ * 關閉主動消息後，清單裡該留下誰 —— 只留「遠端還活著」的兩類：
+ *   1. 取消失敗的（attempted 過但 failed）；
+ *   2. 取消期間才出現的（不在 attempted 裡，比如角色剛在聊天裡排的）——壓根沒被取消過，
+ *      跟著一起清掉就又是遠端照發、面板看不見的幽靈任務。
+ * 其餘（成功取消的）出清單。
  */
 export const keepUncancelledTasks = (
   tasks: ActiveMsg2TaskRecord[],
@@ -670,9 +670,9 @@ export const keepUncancelledTasks = (
     }));
 
 /**
- * 过点超过 48h 的一次性任务出清单。
- * 这个 48h 是三条时间线里最长的一条：排程现状块只回看 40h（AMSG2_TASK_LOOKBACK_MS）、
- * 作废回执台账留 48h，所以任务一定活到「该不该给回执」判完之后才被清走。
+ * 過點超過 48h 的一次性任務出清單。
+ * 這個 48h 是三條時間線裡最長的一條：排程現狀塊只回看 40h（AMSG2_TASK_LOOKBACK_MS）、
+ * 作廢回執台帳留 48h，所以任務一定活到「該不該給回執」判完之後才被清走。
  */
 export const pruneStaleTasks = (
   tasks: ActiveMsg2TaskRecord[],

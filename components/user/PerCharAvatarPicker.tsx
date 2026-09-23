@@ -5,12 +5,12 @@ import { migrateDataUrlToRef } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 
 /**
- * 档案 App「分角色聊天头像」：给每个角色的私聊单独设置「你」的头像。
- * 不设置 = 用档案上面的整体头像（宏观默认）；数据存 userProfile.perCharAvatars，
- * 随 user_profile 单例进备份。群聊仍用整体头像。
+ * 檔案 App「分角色聊天頭像」：給每個角色的私聊單獨設置「你」的頭像。
+ * 不設置 = 用檔案上面的整體頭像（宏觀默認）；數據存 userProfile.perCharAvatars，
+ * 隨 user_profile 單例進備份。群聊仍用整體頭像。
  *
- * 角色可能很多：搜索过滤 + 每页 8 个的翻页网格（左右箭头 / 横滑 / 圆点直达），
- * 翻页带轻量滑入动效。头像来源支持图床 URL（推荐，轻量）与本地上传。
+ * 角色可能很多：搜索過濾 + 每頁 8 個的翻頁網格（左右箭頭 / 橫滑 / 圓點直達），
+ * 翻頁帶輕量滑入動效。頭像來源支持圖床 URL（推薦，輕量）與本地上傳。
  */
 
 const PAGE_SIZE = 8;
@@ -65,8 +65,8 @@ const PerCharAvatarPicker: React.FC = () => {
     const openEditor = (charId: string) => {
         setEditingId(charId);
         const cur = overrides[charId];
-        // 只有 http(s) 直链才回填进外链输入框——上传来的图（内嵌 data: 或 blobref 令牌）
-        // 填进去既没法看也没法改，而且这个框本来也只收 http(s)（见下面 applyUrl 的校验）。
+        // 只有 http(s) 直鏈才回填進外鏈輸入框——上傳來的圖（內嵌 data: 或 blobref 令牌）
+        // 填進去既沒法看也沒法改，而且這個框本來也只收 http(s)（見下面 applyUrl 的校驗）。
         setUrlDraft(cur && isValidHttpImageUrl(cur) ? cur : '');
     };
 
@@ -74,11 +74,11 @@ const PerCharAvatarPicker: React.FC = () => {
         if (!editingId) return;
         const url = urlDraft.trim();
         if (!isValidHttpImageUrl(url)) {
-            addToast('URL 无效，请填写 http(s) 图片直链', 'error');
+            addToast('URL 無效，請填寫 http(s) 圖片直鏈', 'error');
             return;
         }
         setOverride(editingId, url);
-        addToast('已设置该角色的聊天头像', 'success');
+        addToast('已設置該角色的聊天頭像', 'success');
     };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,10 +87,10 @@ const PerCharAvatarPicker: React.FC = () => {
         if (!file || !editingId) return;
         try {
             const base64 = await processImage(file);
-            // 本地上传的图存令牌（图床外链那条路不经过这里，原样存字符串即可）
+            // 本地上傳的圖存令牌（圖床外鏈那條路不經過這裡，原樣存字符串即可）
             setOverride(editingId, await migrateDataUrlToRef(base64));
             setUrlDraft('');
-            addToast('已设置该角色的聊天头像', 'success');
+            addToast('已設置該角色的聊天頭像', 'success');
         } catch (err: any) {
             addToast(err.message, 'error');
         }
@@ -100,7 +100,7 @@ const PerCharAvatarPicker: React.FC = () => {
 
     return (
         <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-5">
-            {/* 翻页滑入动效（组件私有，不进全局 tailwind 配置） */}
+            {/* 翻頁滑入動效（組件私有，不進全局 tailwind 配置） */}
             <style>{`
                 @keyframes pcaSlideL { from { opacity: .35; transform: translateX(26px); } to { opacity: 1; transform: none; } }
                 @keyframes pcaSlideR { from { opacity: .35; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
@@ -114,10 +114,10 @@ const PerCharAvatarPicker: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     </svg>
                 </span>
-                <h2 className="text-sm font-bold text-slate-700">分角色聊天头像</h2>
+                <h2 className="text-sm font-bold text-slate-700">分角色聊天頭像</h2>
             </div>
             <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-                和不同角色聊天时，「你」可以顶着不同的头像。这里不设置的角色，用上面的整体头像；群聊始终用整体头像。
+                和不同角色聊天時，「你」可以頂著不同的頭像。這裡不設置的角色，用上面的整體頭像；群聊始終用整體頭像。
             </p>
 
             {characters.length > PAGE_SIZE && (
@@ -130,7 +130,7 @@ const PerCharAvatarPicker: React.FC = () => {
             )}
 
             {filtered.length === 0 ? (
-                <div className="py-8 text-center text-[11px] text-slate-300">没有叫这个名字的角色</div>
+                <div className="py-8 text-center text-[11px] text-slate-300">沒有叫這個名字的角色</div>
             ) : (
                 <div
                     onTouchStart={(e) => { swipeStartX.current = e.touches[0]?.clientX ?? null; }}
@@ -150,7 +150,7 @@ const PerCharAvatarPicker: React.FC = () => {
                                 <button key={c.id} onClick={() => openEditor(c.id)} className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform">
                                     <div className="relative">
                                         <TokenImg value={c.avatar} alt="" className="w-14 h-14 rounded-full object-cover bg-slate-100 border border-slate-100 group-hover:border-primary/30 transition-colors" />
-                                        {/* 右下小圆 = 这个聊天里「你」的头像；设置过 → 主题色描边，否则灰显整体头像 */}
+                                        {/* 右下小圓 = 這個聊天裡「你」的頭像；設置過 → 主題色描邊，否則灰顯整體頭像 */}
                                         <TokenImg
                                             value={override || userProfile.avatar}
                                             alt=""
@@ -161,7 +161,7 @@ const PerCharAvatarPicker: React.FC = () => {
                                 </button>
                             );
                         })}
-                        {/* 末页不满 8 人时用隐形占位补齐两行高度，翻页时容器不弹跳 */}
+                        {/* 末頁不滿 8 人時用隱形佔位補齊兩行高度，翻頁時容器不彈跳 */}
                         {pageCount > 1 && pageChars.length < PAGE_SIZE && Array.from({ length: PAGE_SIZE - pageChars.length }, (_, i) => (
                             <div key={`pad-${i}`} className="flex flex-col items-center gap-1.5 invisible" aria-hidden="true">
                                 <div className="w-14 h-14 rounded-full" />
@@ -173,21 +173,21 @@ const PerCharAvatarPicker: React.FC = () => {
                     {pageCount > 1 && (
                         <div className="mt-3 flex items-center justify-center gap-3">
                             <button onClick={() => goPage(safePage - 1)} disabled={safePage === 0}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="上一页">‹</button>
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="上一頁">‹</button>
                             <div className="flex items-center gap-1.5">
                                 {Array.from({ length: pageCount }, (_, i) => (
-                                    <button key={i} onClick={() => goPage(i)} aria-label={`第 ${i + 1} 页`}
+                                    <button key={i} onClick={() => goPage(i)} aria-label={`第 ${i + 1} 頁`}
                                         className={`rounded-full transition-all ${i === safePage ? 'w-4 h-1.5 bg-primary' : 'w-1.5 h-1.5 bg-slate-200 hover:bg-slate-300'}`} />
                                 ))}
                             </div>
                             <button onClick={() => goPage(safePage + 1)} disabled={safePage === pageCount - 1}
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="下一页">›</button>
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-500 transition-all active:scale-90 disabled:opacity-30" aria-label="下一頁">›</button>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* 编辑弹层：URL 优先（推荐）+ 本地上传 + 恢复整体头像 */}
+            {/* 編輯彈層：URL 優先（推薦）+ 本地上傳 + 恢復整體頭像 */}
             {editingChar && (
                 <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in" onClick={() => setEditingId(null)}>
                     <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 animate-slide-up sm:animate-pop-in"
@@ -195,8 +195,8 @@ const PerCharAvatarPicker: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-start justify-between mb-3">
                             <div>
-                                <div className="text-sm font-bold text-slate-800">和 {editingChar.name} 聊天时，你的头像</div>
-                                <div className="mt-0.5 text-[10px] text-slate-400">只影响这个角色的私聊；其他聊天不变。</div>
+                                <div className="text-sm font-bold text-slate-800">和 {editingChar.name} 聊天時，你的頭像</div>
+                                <div className="mt-0.5 text-[10px] text-slate-400">只影響這個角色的私聊；其他聊天不變。</div>
                             </div>
                             <button onClick={() => setEditingId(null)} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">×</button>
                         </div>
@@ -209,36 +209,36 @@ const PerCharAvatarPicker: React.FC = () => {
                             <span className="text-slate-300 text-lg">×</span>
                             <div className="flex flex-col items-center gap-1">
                                 <TokenImg value={editingOverride || userProfile.avatar} className={`w-16 h-16 rounded-full object-cover bg-slate-100 ${editingOverride ? 'ring-2 ring-primary' : 'ring-2 ring-slate-200'}`} alt="" />
-                                <span className="text-[10px] text-slate-400">{editingOverride ? '已单独设置' : '整体头像（默认）'}</span>
+                                <span className="text-[10px] text-slate-400">{editingOverride ? '已單獨設置' : '整體頭像（默認）'}</span>
                             </div>
                         </div>
 
                         <div className="rounded-2xl bg-slate-50 p-3 mb-2">
-                            <div className="text-[11px] font-bold text-slate-600 mb-1.5">图床链接（推荐）</div>
+                            <div className="text-[11px] font-bold text-slate-600 mb-1.5">圖床鏈接（推薦）</div>
                             <div className="flex gap-2">
                                 <input
                                     value={urlDraft}
                                     onChange={(e) => setUrlDraft(e.target.value)}
-                                    placeholder="https://… 图片直链"
+                                    placeholder="https://… 圖片直鏈"
                                     className="flex-1 min-w-0 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none transition-all placeholder:text-slate-300"
                                 />
                                 <button onClick={applyUrl} className="shrink-0 rounded-xl bg-primary px-3 py-2 text-[11px] font-bold text-white active:scale-95 transition-transform">使用</button>
                             </div>
                             <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
-                                推荐链接：不占本地空间，备份更小更快；「纯文字备份」也只有链接能把图带走（本地上传的图会被剥掉）。
+                                推薦鏈接：不佔本地空間，備份更小更快；「純文字備份」也只有鏈接能把圖帶走（本地上傳的圖會被剝掉）。
                             </p>
                         </div>
 
                         <div className="flex gap-2">
                             <button onClick={() => uploadRef.current?.click()}
                                 className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-[11px] font-bold text-slate-600 active:scale-[0.98] transition-transform">
-                                本地上传（存进本机）
+                                本地上傳（存進本機）
                             </button>
                             {editingOverride && (
                                 <button
-                                    onClick={() => { setOverride(editingChar.id, undefined); setUrlDraft(''); addToast('已恢复整体头像', 'success'); }}
+                                    onClick={() => { setOverride(editingChar.id, undefined); setUrlDraft(''); addToast('已恢復整體頭像', 'success'); }}
                                     className="flex-1 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-500 active:scale-[0.98] transition-transform">
-                                    恢复整体头像
+                                    恢復整體頭像
                                 </button>
                             )}
                         </div>

@@ -58,12 +58,12 @@ interface ActiveMsg2SettingsModalProps {
   apiPresets: ApiPreset[];
   onAddApiPreset: (name: string, config: APIConfig) => void;
   /**
-   * 落盘任务清单与角色级设置。
+   * 落盤任務清單與角色級設置。
    *
-   * 传的是 updater 而不是整份 config：面板的每次保存都要先 await 网络请求，这期间角色
-   * 可能在聊天里用工具排了新任务（写的是同一个 activeMsg2Config）。拿渲染时的旧快照整份
-   * 盖回去会把它抹掉——远端照发、面板却看不见，就是各处都在防的幽灵任务。
-   * updater 由 OSContext 的函数式 setState 执行，拿到的 prev 是最新排队后的状态。
+   * 傳的是 updater 而不是整份 config：面板的每次保存都要先 await 網絡請求，這期間角色
+   * 可能在聊天裡用工具排了新任務（寫的是同一個 activeMsg2Config）。拿渲染時的舊快照整份
+   * 蓋回去會把它抹掉——遠端照發、面板卻看不見，就是各處都在防的幽靈任務。
+   * updater 由 OSContext 的函數式 setState 執行，拿到的 prev 是最新排隊後的狀態。
    */
   onSave: (
     updater: (prev: ActiveMsg2CharacterConfig | undefined) => ActiveMsg2CharacterConfig,
@@ -72,15 +72,15 @@ interface ActiveMsg2SettingsModalProps {
 }
 
 const MODE_OPTIONS = [
-  { id: 'fixed', label: '固定', desc: '到点直接发你写好的内容' },
-  { id: 'auto', label: '自动', desc: '用当前角色设定和聊天快照自己生成' },
-  { id: 'prompted', label: '提示词', desc: '围绕你写的方向生成主动消息' },
+  { id: 'fixed', label: '固定', desc: '到點直接發你寫好的內容' },
+  { id: 'auto', label: '自動', desc: '用當前角色設定和聊天快照自己生成' },
+  { id: 'prompted', label: '提示詞', desc: '圍繞你寫的方向生成主動消息' },
 ] as const;
 
 const RECURRENCE_OPTIONS = [
   { id: 'none', label: '一次' },
   { id: 'daily', label: '每天' },
-  { id: 'weekly', label: '每周' },
+  { id: 'weekly', label: '每週' },
 ] as const;
 
 const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
@@ -98,14 +98,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
 }) => {
   const saved = char.activeMsg2Config;
   const tasks = saved?.tasks ?? [];
-  // 任务列表的判定基准时刻：一次 render 只取一次，同屏卡片不会踩在不同的时刻上。
+  // 任務列表的判定基準時刻：一次 render 只取一次，同屏卡片不會踩在不同的時刻上。
   const now = Date.now();
 
-  // 开关初值走和工具注入门同一个判定：面板显示「关」而角色其实还能排程，界面就在骗人。
+  // 開關初值走和工具注入門同一個判定：面板顯示「關」而角色其實還能排程，界面就在騙人。
   const [enabled, setEnabled] = useState(() => isAmsg2EnabledForChar(char));
-  // 即时对话按角色单独关：undefined = 跟随全局默认开，所以只有显式 false 才显示成关。
+  // 即時對話按角色單獨關：undefined = 跟隨全局默認開，所以只有顯式 false 才顯示成關。
   const [instantChatOn, setInstantChatOn] = useState(saved?.instantChatEnabled !== false);
-  // 全局那道门开没开（isInstantChatReady 读回来的）。没开时下面那行开关置灰。
+  // 全局那道門開沒開（isInstantChatReady 讀回來的）。沒開時下面那行開關置灰。
   const [globalInstantChatOn, setGlobalInstantChatOn] = useState(false);
   const [mode, setMode] = useState<ActiveMsg2Mode>('auto');
   const [firstSendTime, setFirstSendTime] = useState(getDefaultActiveMsgFirstSendTime());
@@ -113,7 +113,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [userMessage, setUserMessage] = useState('');
   const [promptHint, setPromptHint] = useState('');
   const [maxTokens, setMaxTokens] = useState(String(saved?.maxTokens ?? ''));
-  // '' = 没设（用默认值）；'0' = 不限；其余 1-10。
+  // '' = 沒設（用默認值）；'0' = 不限；其餘 1-10。
   const [maxUnanswered, setMaxUnanswered] = useState(
     saved?.maxUnansweredSends === undefined ? '' : String(saved.maxUnansweredSends),
   );
@@ -133,32 +133,32 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [globalReady, setGlobalReady] = useState(false);
   const [pushSummary, setPushSummary] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // editingTaskUuid=null → 新建；非 null → 编辑该任务（保存时 replaceTaskUuid）。
+  // editingTaskUuid=null → 新建；非 null → 編輯該任務（保存時 replaceTaskUuid）。
   const [editingTaskUuid, setEditingTaskUuid] = useState<string | null>(null);
   const [expirePolicy, setExpirePolicy] = useState<ActiveMsg2ExpirePolicy>('expire');
-  // 远端对账底账：打开面板时拉一次全量任务，只留归属本角色的 uuid。null = 没对上账
-  // （读失败/未拉完），此时不显示「远端不存在」徽标，免得半个清单误伤。
-  // 之后不重拉，靠 applyRemoteTaskDelta 把每次远端操作的结果记进来（见 amsg2Tasks 注释）。
+  // 遠端對帳底帳：打開面板時拉一次全量任務，只留歸屬本角色的 uuid。null = 沒對上帳
+  // （讀失敗/未拉完），此時不顯示「遠端不存在」徽標，免得半個清單誤傷。
+  // 之後不重拉，靠 applyRemoteTaskDelta 把每次遠端操作的結果記進來（見 amsg2Tasks 註釋）。
   const [knownRemoteUuids, setKnownRemoteUuids] = useState<Set<string> | null>(null);
-  // 远端任务的 status / lastError 投影（对账那次一起拉的）。null = 没拉到，卡片上
-  // 不显示失败说明。这份只在打开面板时取一次，不随 delta 维护——取消/重建后任务
-  // 换了 uuid，旧条目自然失配，不会串行。
+  // 遠端任務的 status / lastError 投影（對帳那次一起拉的）。null = 沒拉到，卡片上
+  // 不顯示失敗說明。這份只在打開面板時取一次，不隨 delta 維護——取消/重建後任務
+  // 換了 uuid，舊條目自然失配，不會串行。
   const [remoteTaskInfo, setRemoteTaskInfo] = useState<Map<string, {
     status?: string;
     lastError: RemoteTaskLastError | null;
   }> | null>(null);
-  // 防穿帮闸最近一次跳过的记录（worker 写的）。null = 没有记录 / 没读到。
+  // 防穿幫閘最近一次跳過的記錄（worker 寫的）。null = 沒有記錄 / 沒讀到。
   const [lastSkip, setLastSkip] = useState<AmsgLastSkip | null>(null);
 
-  // 表单值重置：面板打开或切换编辑对象时，用被编辑任务的字段填表单（新建则填默认值）。
-  // 角色级共享设置（maxTokens / 单独 API）始终跟随保存值。
+  // 表單值重置：面板打開或切換編輯對象時，用被編輯任務的字段填表單（新建則填默認值）。
+  // 角色級共享設置（maxTokens / 單獨 API）始終跟隨保存值。
   useEffect(() => {
     if (!isOpen) return;
 
     const config = char.activeMsg2Config;
     const list = config?.tasks ?? [];
-    // 跟 useState 初值同一个判定：这里自己写三元的话，面板显示的开关状态就会跟
-    // 工具注入门分家（见 isAmsg2EnabledForChar 的注释）。
+    // 跟 useState 初值同一個判定：這裡自己寫三元的話，面板顯示的開關狀態就會跟
+    // 工具注入門分家（見 isAmsg2EnabledForChar 的註釋）。
     setEnabled(isAmsg2EnabledForChar(char));
     setInstantChatOn(config?.instantChatEnabled !== false);
     setMaxTokens(config?.maxTokens ? String(config.maxTokens) : '');
@@ -189,13 +189,13 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     }
   }, [isOpen, char.id, char.activeMsg2Config, editingTaskUuid]);
 
-  // 打开面板时的 push 状态检查 + 远端对账（只随 isOpen / 角色变化跑，不随编辑对象重复请求）。
+  // 打開面板時的 push 狀態檢查 + 遠端對帳（只隨 isOpen / 角色變化跑，不隨編輯對象重複請求）。
   useEffect(() => {
     if (!isOpen) return;
     setKnownRemoteUuids(null);
     setRemoteTaskInfo(null);
 
-    // 全局即时对话开没开（现成的读取函数，别自己另读存储）。读失败按没开置灰。
+    // 全局即時對話開沒開（現成的讀取函數，別自己另讀存儲）。讀失敗按沒開置灰。
     void isInstantChatReady().then(setGlobalInstantChatOn).catch(() => setGlobalInstantChatOn(false));
 
     void (async () => {
@@ -203,38 +203,38 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       const pushStatus = await ActiveMsgClient.getPushStatus();
       setGlobalReady(Boolean(globalConfig.workerUrl));
       setPushSummary(pushStatus.supported
-        ? `权限：${pushStatus.permission} / 订阅：${pushStatus.hasSubscription ? '已就绪' : '未创建'}`
-        : '当前环境不支持 Web Push');
+        ? `權限：${pushStatus.permission} / 訂閱：${pushStatus.hasSubscription ? '已就緒' : '未創建'}`
+        : '當前環境不支持 Web Push');
     })();
 
-    // 防穿帮闸最近拦下了哪次触发。闸是静默的，不说一声的话「让路了」在用户看来
-    // 跟「没发出去」一模一样。
+    // 防穿幫閘最近攔下了哪次觸發。閘是靜默的，不說一聲的話「讓路了」在用戶看來
+    // 跟「沒發出去」一模一樣。
     void (async () => setLastSkip(await ActiveMsgClient.readLastSkip(char.id)))();
 
     void (async () => {
       let remote: Set<string>;
       let remoteTasks: RemoteTaskProjection[];
       try {
-        // 全量投影一次拉齐：uuid 当对账底账，status / lastError 给任务卡片说明
-        // 「上次到点为什么没发出去」，nextSendAt 给循环任务显示真正会响的时刻。
+        // 全量投影一次拉齊：uuid 當對帳底帳，status / lastError 給任務卡片說明
+        // 「上次到點為什麼沒發出去」，nextSendAt 給循環任務顯示真正會響的時刻。
         remoteTasks = await ActiveMsgClient.listRemoteTasksForChar(char.id);
         remote = new Set(remoteTasks.map((t) => t.uuid));
         setRemoteTaskInfo(new Map(remoteTasks.map((t) => [
           t.uuid, { status: t.status, lastError: t.lastError },
         ])));
       } catch {
-        // 对账失败不打扰：null 让「远端不存在」徽标整体不显示，也不清任何任务。
+        // 對帳失敗不打擾：null 讓「遠端不存在」徽標整體不顯示，也不清任何任務。
         setKnownRemoteUuids(null);
         return;
       }
       setKnownRemoteUuids(remote);
 
-      // 对账两个方向都走：把已经走完的一次性任务清出列表（不然发过的任务会一直堆在
-      // 这儿，得手动一条条取消），同时把远端有、本地没有的接回来——角色自排的任务是
-      // 随 push 认领的，那条 push 推失败或被防穿帮闸吞掉，本地就永远不知道它存在，
-      // 而它照常到点触发。先拿渲染时这份探一下有没有变化，避免每次开面板都写一次库。
-      // 真正落盘时在 updater 里用最新的 prev 重算——面板保存要 await 网络请求，
-      // 这期间角色可能在聊天里用工具排了新任务。
+      // 對帳兩個方向都走：把已經走完的一次性任務清出列表（不然發過的任務會一直堆在
+      // 這兒，得手動一條條取消），同時把遠端有、本地沒有的接回來——角色自排的任務是
+      // 隨 push 認領的，那條 push 推失敗或被防穿幫閘吞掉，本地就永遠不知道它存在，
+      // 而它照常到點觸發。先拿渲染時這份探一下有沒有變化，避免每次開面板都寫一次庫。
+      // 真正落盤時在 updater 裡用最新的 prev 重算——面板保存要 await 網絡請求，
+      // 這期間角色可能在聊天裡用工具排了新任務。
       const settle = (tasks: ActiveMsg2TaskRecord[]) =>
         pruneFiredTasks(reconcileTasksWithRemote(tasks, remoteTasks), remote, Date.now());
       const current = char.activeMsg2Config?.tasks ?? [];
@@ -248,16 +248,16 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         }));
       }
     })();
-    // char.activeMsg2Config 只在函数体里读当前值当探针，不进依赖——清理落盘会改它，
-    // 进了依赖就是「清理 → 重跑 → 再清理」的自激循环。
+    // char.activeMsg2Config 只在函數體裡讀當前值當探針，不進依賴——清理落盤會改它，
+    // 進了依賴就是「清理 → 重跑 → 再清理」的自激循環。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, char.id]);
 
   /**
-   * 拼一份要落盘的 config：
-   *   - 角色级共享设置（enabled / maxTokens / 单独 API）以面板表单为准——只有面板编辑它们；
-   *   - 任务清单以「落盘那一刻的最新清单」为准，面板只通过 tasksOf 声明自己动了哪一条。
-   * 别把渲染时的 tasks 整份传下去，原因见 onSave 的注释。
+   * 拼一份要落盤的 config：
+   *   - 角色級共享設置（enabled / maxTokens / 單獨 API）以面板表單為準——只有面板編輯它們；
+   *   - 任務清單以「落盤那一刻的最新清單」為準，面板只通過 tasksOf 聲明自己動了哪一條。
+   * 別把渲染時的 tasks 整份傳下去，原因見 onSave 的註釋。
    */
   const buildConfig = (
     prev: ActiveMsg2CharacterConfig | undefined,
@@ -266,7 +266,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   ): ActiveMsg2CharacterConfig => ({
     enabled: true,
     tasks: tasksOf(prev?.tasks ?? []),
-    // 开着就存 undefined（= 跟随全局默认开），只有显式关掉才落 false。
+    // 開著就存 undefined（= 跟隨全局默認開），只有顯式關掉才落 false。
     instantChatEnabled: instantChatOn ? undefined : false,
     maxTokens: maxTokens.trim() ? Number(maxTokens) : undefined,
     maxUnansweredSends: maxUnanswered === '' ? undefined : Number(maxUnanswered),
@@ -295,9 +295,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const fetchModels = async () => {
     const baseUrl = normalizeApiBaseUrl(secUrl);
     const key = normalizeApiCredential(secKey);
-    if (!baseUrl) { setModelStatusMsg('请先填写 URL'); return; }
+    if (!baseUrl) { setModelStatusMsg('請先填寫 URL'); return; }
     setIsLoadingModels(true);
-    setModelStatusMsg('正在连接...');
+    setModelStatusMsg('正在連接...');
     try {
       const response = await fetch(`${baseUrl}/models`, {
         method: 'GET',
@@ -309,13 +309,13 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       if (models.length > 0) {
         setAvailableModels(models);
         setModelSearchQuery('');
-        setModelStatusMsg(`获取到 ${models.length} 个模型`);
+        setModelStatusMsg(`獲取到 ${models.length} 個模型`);
         setShowModelModal(true);
       } else {
-        setModelStatusMsg('模型列表为空或格式不兼容');
+        setModelStatusMsg('模型列表為空或格式不兼容');
       }
     } catch (error: any) {
-      setModelStatusMsg(`连接失败${error?.message ? `：${error.message}` : ''}`);
+      setModelStatusMsg(`連接失敗${error?.message ? `：${error.message}` : ''}`);
     } finally {
       setIsLoadingModels(false);
     }
@@ -332,60 +332,60 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
       });
       if (response.ok) {
-        setTestConnectionResult('✅ 连接成功');
+        setTestConnectionResult('✅ 連接成功');
       } else {
         const text = await response.text().catch(() => '');
         setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
       }
     } catch (error: any) {
-      setTestConnectionResult(`❌ 连接失败${error?.message ? `：${error.message}` : ''}`);
+      setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
     } finally {
       setTestingConnection(false);
     }
   };
 
   /**
-   * 拨开关本身就算一次保存。
+   * 撥開關本身就算一次保存。
    *
-   * 这是设置弹窗，用户拨完开关就认为已经生效了。只改 React state 不写库的话，角色的
-   * activeMsg2Config 还是空的（= 关）：聊天里不注入排程工具、fire_pack 的
-   * selfScheduleEnabled 上传 false、重开面板开关又显示成「关」，全程一句提示都没有。
+   * 這是設置彈窗，用戶撥完開關就認為已經生效了。只改 React state 不寫庫的話，角色的
+   * activeMsg2Config 還是空的（= 關）：聊天裡不注入排程工具、fire_pack 的
+   * selfScheduleEnabled 上傳 false、重開面板開關又顯示成「關」，全程一句提示都沒有。
    *
-   * 只有「开」这一侧就地落盘。「关」要走底部那颗「关闭 2.0」按钮：关掉的同时得把该
-   * 角色在远端的任务全部取消，这里就地写一个 enabled:false，远端任务没人管，会变成
-   * 面板看不见却照样到点触发的幽灵任务。
+   * 只有「開」這一側就地落盤。「關」要走底部那顆「關閉 2.0」按鈕：關掉的同時得把該
+   * 角色在遠端的任務全部取消，這裡就地寫一個 enabled:false，遠端任務沒人管，會變成
+   * 面板看不見卻照樣到點觸發的幽靈任務。
    */
   const handleToggleEnabled = () => {
     const turningOn = !enabled;
     setEnabled(!enabled);
-    // 顺手把面板上其它角色级设置（maxTokens / 连发上限 / 单独 API）一起带上，与
-    // buildConfig 的口径一致：这几项本来就只有面板会写。
+    // 順手把面板上其它角色級設置（maxTokens / 連發上限 / 單獨 API）一起帶上，與
+    // buildConfig 的口徑一致：這幾項本來就只有面板會寫。
     if (turningOn) onSave((prev) => buildConfig(prev, (list) => list));
   };
 
   /**
-   * 即时对话开关也是拨了就落盘（跟上面同一习惯）。它没有远端任务要清，关掉只影响
-   * 之后每一轮的路由，所以开关两个方向都能就地保存。注意不能走 buildConfig：那份会
-   * 把 enabled 钉成 true，而即时对话和排程是互相独立的两个开关，不能顺手把排程也打开。
+   * 即時對話開關也是撥了就落盤（跟上面同一習慣）。它沒有遠端任務要清，關掉只影響
+   * 之後每一輪的路由，所以開關兩個方向都能就地保存。注意不能走 buildConfig：那份會
+   * 把 enabled 釘成 true，而即時對話和排程是互相獨立的兩個開關，不能順手把排程也打開。
    */
   const handleToggleInstantChat = () => {
     const next = !instantChatOn;
-    // 全局那个开关有自己的事件，这里单独记：想知道「按角色区分」这件事有没有人真的用。
+    // 全局那個開關有自己的事件，這裡單獨記：想知道「按角色區分」這件事有沒有人真的用。
     trackEvent('切换角色的即时对话', { action: next ? '开' : '关' });
     setInstantChatOn(next);
     onSave((prev) => ({
       ...(prev ?? { enabled: false }),
-      // 开着存 undefined（= 跟随全局默认开），只有显式关掉才落 false。
+      // 開著存 undefined（= 跟隨全局默認開），只有顯式關掉才落 false。
       instantChatEnabled: next ? undefined : false,
     }));
   };
 
   /**
-   * 给角色留一句「这几条被人工取消了」。
+   * 給角色留一句「這幾條被人工取消了」。
    *
-   * 聊天历史里那句「明早八点叫你～」是角色自己许的承诺，任务在面板里被删掉之后它并不
-   * 知道——下次聊天照旧说「放心我叫你」。所以取消也写进作废回执台账（按 id 幂等），
-   * 下一轮的排程现状块会把它读出来告诉角色。写失败不打断取消本身：任务确实已经没了。
+   * 聊天歷史裡那句「明早八點叫你～」是角色自己許的承諾，任務在面板裡被刪掉之後它並不
+   * 知道——下次聊天照舊說「放心我叫你」。所以取消也寫進作廢回執台帳（按 id 冪等），
+   * 下一輪的排程現狀塊會把它讀出來告訴角色。寫失敗不打斷取消本身：任務確實已經沒了。
    */
   const writeCancelledNotices = async (cancelled: ActiveMsg2TaskRecord[]) => {
     const notices = buildUserCancelledNotices(char.id, cancelled, Date.now());
@@ -393,41 +393,41 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     try {
       await ActiveMsgStore.upsertExpiredNotices(char.id, notices);
     } catch (e) {
-      console.warn('[ActiveMsg2Modal] 取消回执写入失败（角色可能还以为约定有效）', e);
+      console.warn('[ActiveMsg2Modal] 取消回執寫入失敗（角色可能還以為約定有效）', e);
     }
   };
 
   const handleCancelTask = async (t: ActiveMsg2TaskRecord) => {
-    // alreadyGone = 远端本来就没有这一条（一次性任务发完就删行）。这也是取消成功，
-    // 只是文案上说清楚，免得用户以为自己刚刚拦下了一条还没发的消息。
+    // alreadyGone = 遠端本來就沒有這一條（一次性任務發完就刪行）。這也是取消成功，
+    // 只是文案上說清楚，免得用戶以為自己剛剛攔下了一條還沒發的消息。
     let alreadyGone = false;
     try {
       ({ alreadyGone } = await ActiveMsgClient.cancelTask(t.taskUuid));
     } catch (e) {
-      // 远端取消失败不移除本地记录（Codex #4）——否则远端照发、面板却看不见了。
-      console.warn('[ActiveMsg2Modal] 远端取消失败（保留记录待重试）', e);
+      // 遠端取消失敗不移除本地記錄（Codex #4）——否則遠端照發、面板卻看不見了。
+      console.warn('[ActiveMsg2Modal] 遠端取消失敗（保留記錄待重試）', e);
       onSave((prev) => buildConfig(prev, (list) =>
-        list.map((x) => x.taskUuid === t.taskUuid ? { ...x, lastError: '远端取消失败，可重试' } : x)));
-      addToast(`任务 [${shortTaskId(t.taskUuid)}] 取消失败（远端未确认），稍后重试。`, 'error');
-      // 排程有埋点、取消没有的话，任务生命周期只记了一半。三个结果各有各的含义：
-      // failed = 远端照发但面板以为拦下了，是对账不平里最难受的一种。
+        list.map((x) => x.taskUuid === t.taskUuid ? { ...x, lastError: '遠端取消失敗，可重試' } : x)));
+      addToast(`任務 [${shortTaskId(t.taskUuid)}] 取消失敗（遠端未確認），稍後重試。`, 'error');
+      // 排程有埋點、取消沒有的話，任務生命週期只記了一半。三個結果各有各的含義：
+      // failed = 遠端照發但面板以為攔下了，是對帳不平裡最難受的一種。
       trackEvent('取消定时消息', { result: 'failed' });
       return;
     }
     if (editingTaskUuid === t.taskUuid) setEditingTaskUuid(null);
     await writeCancelledNotices([t]);
     setKnownRemoteUuids((prev) => applyRemoteTaskDelta(prev, { gone: [t.taskUuid] }));
-    // 落盘走 onSave → OSContext.updateCharacter，那里在落库成功后会给 amsg2 云端快照
-    // 打脏（markAmsgStateDirty）——fire_pack 里角色能看到的排程清单因此不会还留着这条
-    // 已取消的任务。别在这里用渲染时的 char 快照自己打脏：它的清单还是旧的。
+    // 落盤走 onSave → OSContext.updateCharacter，那裡在落庫成功後會給 amsg2 雲端快照
+    // 打髒（markAmsgStateDirty）——fire_pack 裡角色能看到的排程清單因此不會還留著這條
+    // 已取消的任務。別在這裡用渲染時的 char 快照自己打髒：它的清單還是舊的。
     onSave((prev) => buildConfig(
       prev,
       (list) => list.filter((x) => x.taskUuid !== t.taskUuid),
       { lastSyncedAt: Date.now() },
     ));
     addToast(alreadyGone
-      ? `任务 [${shortTaskId(t.taskUuid)}] 在远端已不存在（多半已经发过了），已从列表移除。`
-      : `任务 [${shortTaskId(t.taskUuid)}] 已取消。`, 'info');
+      ? `任務 [${shortTaskId(t.taskUuid)}] 在遠端已不存在（多半已經發過了），已從列表移除。`
+      : `任務 [${shortTaskId(t.taskUuid)}] 已取消。`, 'info');
     trackEvent('取消定时消息', { result: alreadyGone ? '远端已不存在' : 'ok' });
   };
 
@@ -435,40 +435,40 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setIsSubmitting(true);
     try {
       if (!enabled) {
-        // 关闭 2.0 = 取消该角色全部远端任务（远端清单优先的口径见 cancelAllTasksForChar，
-        // 与删角色共用一份）。取消失败的保留在本地清单里，下次重开面板可重试。
+        // 關閉 2.0 = 取消該角色全部遠端任務（遠端清單優先的口徑見 cancelAllTasksForChar，
+        // 與刪角色共用一份）。取消失敗的保留在本地清單裡，下次重開面板可重試。
         const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(
           char.id,
           tasks.map((t) => t.taskUuid),
         );
         const attempted = new Set(targets);
-        // 真被取消掉的那些（试过且没失败）要给角色一句交代，否则关掉 2.0 之后它还挂着
-        // 一堆没人会兑现的承诺。留在清单里的（取消失败 / 期间新出现的）不写——它们还会响。
+        // 真被取消掉的那些（試過且沒失敗）要給角色一句交代，否則關掉 2.0 之後它還掛著
+        // 一堆沒人會兌現的承諾。留在清單裡的（取消失敗 / 期間新出現的）不寫——它們還會響。
         await writeCancelledNotices(tasks.filter((t) =>
           attempted.has(t.taskUuid) && !failed.has(t.taskUuid)));
         onSave((prev) => buildConfig(
           prev,
           (list) => keepUncancelledTasks(list, attempted, failed, {
-            failed: '关闭时远端取消失败，可重试',
-            appeared: '关闭主动消息时新出现，未被取消，请单独处理',
+            failed: '關閉時遠端取消失敗，可重試',
+            appeared: '關閉主動消息時新出現，未被取消，請單獨處理',
           }),
           { enabled: false, lastSyncedAt: Date.now() },
         ));
         addToast(failed.size
-          ? `主动消息 2.0 已关闭，但有 ${failed.size} 个任务远端取消失败，请稍后重开面板重试。`
-          : '主动消息 2.0 已关闭，全部任务已取消。', failed.size ? 'error' : 'info');
+          ? `主動消息 2.0 已關閉，但有 ${failed.size} 個任務遠端取消失敗，請稍後重開面板重試。`
+          : '主動消息 2.0 已關閉，全部任務已取消。', failed.size ? 'error' : 'info');
         onClose();
         return;
       }
 
-      if (!globalReady) throw new Error('请先去系统设置里完成“主动消息 2.0”的全局配置。');
+      if (!globalReady) throw new Error('請先去系統設置裡完成“主動消息 2.0”的全局配置。');
 
-      // 时间框里的是用户桌上的钟，先折成绝对时刻再往下传。裸墙钟交出去的话，排程接口
-      // 会按角色时区解释它（那条规则是给角色自己排程用的），角色一开自定义时区就差一个
-      // 时差。落盘也存这一份，面板显示与远端对账因此认的是同一个时刻。
+      // 時間框裡的是用戶桌上的鐘，先折成絕對時刻再往下傳。裸牆鍾交出去的話，排程接口
+      // 會按角色時區解釋它（那條規則是給角色自己排程用的），角色一開自定義時區就差一個
+      // 時差。落盤也存這一份，面板顯示與遠端對帳因此認的是同一個時刻。
       const firstSendAt = fromDatetimeLocalValue(firstSendTime);
 
-      // 传给排程接口的这份只用来读角色级设置（封顶校验 / 副 API），不参与落盘。
+      // 傳給排程接口的這份只用來讀角色級設置（封頂校驗 / 副 API），不參與落盤。
       const config = buildConfig(saved, () => tasks);
       const result = await ActiveMsgClient.scheduleCharacterTask({
         char, config,
@@ -495,21 +495,21 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       };
       onSave((prev) => buildConfig(
         prev,
-        // 并清单的规则（含替换失败时保留旧记录）与角色工具路径共用 applyScheduledTask。
+        // 並清單的規則（含替換失敗時保留舊記錄）與角色工具路徑共用 applyScheduledTask。
         (list) => applyScheduledTask(list, record, {
           replaceTaskUuid: editingTaskUuid ?? undefined,
           replacedCancelFailed: result.replacedCancelFailed,
         }, Date.now()),
         { lastSyncedAt: Date.now() },
       ));
-      // 排程接口回了 success = 这条在远端确实存在，记进底账，别让它被当成「远端不存在」。
-      // 编辑时旧任务已被取消才出账；取消失败的话远端新旧并存，旧 uuid 要留着。
+      // 排程接口回了 success = 這條在遠端確實存在，記進底帳，別讓它被當成「遠端不存在」。
+      // 編輯時舊任務已被取消才出帳；取消失敗的話遠端新舊並存，舊 uuid 要留著。
       setKnownRemoteUuids((prev) => applyRemoteTaskDelta(prev, {
         present: [result.uuid],
         gone: editingTaskUuid && !result.replacedCancelFailed ? [editingTaskUuid] : [],
       }));
-      // 只报枚举构成，内容、时间、编号一概不带。mode/recurrence 虽有 TS 类型，但编辑路径
-      // 是从持久化任务记录读回来的（导入的备份可携带任意字符串），上报前运行时收敛一遍。
+      // 只報枚舉構成，內容、時間、編號一概不帶。mode/recurrence 雖有 TS 類型，但編輯路徑
+      // 是從持久化任務記錄讀回來的（導入的備份可攜帶任意字符串），上報前運行時收斂一遍。
       trackEvent('排程定时消息', {
         mode: mode === 'fixed' || mode === 'prompted' ? mode : 'auto',
         recurrence: recurrenceType === 'daily' || recurrenceType === 'weekly' ? recurrenceType : 'none',
@@ -517,23 +517,23 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         isEdit: editingTaskUuid ? 'yes' : 'no',
       });
       setEditingTaskUuid(null);
-      // 编辑走的是「先建新的再取消旧的」，编号必然换一个——只说「已更新」的话，
-      // 用户会以为列表里那条陌生编号是多出来的。
+      // 編輯走的是「先建新的再取消舊的」，編號必然換一個——只說「已更新」的話，
+      // 用戶會以為列表裡那條陌生編號是多出來的。
       addToast(result.replacedCancelFailed
-        ? '新任务已创建，但旧任务取消失败，请稍后重试。'
+        ? '新任務已創建，但舊任務取消失敗，請稍後重試。'
         : (editingTaskUuid
-          ? `任务已更新，编号换成 [${shortTaskId(result.uuid)}]。`
-          : `任务已创建 [${shortTaskId(result.uuid)}]。`),
+          ? `任務已更新，編號換成 [${shortTaskId(result.uuid)}]。`
+          : `任務已創建 [${shortTaskId(result.uuid)}]。`),
       result.replacedCancelFailed ? 'error' : 'success');
 
-      // 角色级 API（单独 API 开关 / 三件套）这次可能刚改过：支持凭据表的 Worker 上
-      // 只要把这个角色那几行覆盖掉，已排的任务（含角色自排的）下次触发就跟上了。
-      // 老 Worker 上是 no-op，凭据靠下面逐条补刷。
+      // 角色級 API（單獨 API 開關 / 三件套）這次可能剛改過：支持憑據表的 Worker 上
+      // 只要把這個角色那幾行覆蓋掉，已排的任務（含角色自排的）下次觸發就跟上了。
+      // 老 Worker 上是 no-op，憑據靠下面逐條補刷。
       syncAmsgLlmCredentials(apiConfig);
-      // 角色级 API（单独 API 开关 / 三件套）也可能这次刚改过：刚排的这条已带新凭据
-      // （排程时现算），但同角色**其它** pending AI 任务里冻结的还是旧的，就地刷一遍。
-      // 用渲染时清单近似「其它任务」——保存期间角色刚用工具排的新任务会漏，下次保存
-      // 或全局 API 保存时会补上。失败只提示，不能掉进外层 catch 把整次保存标成失败。
+      // 角色級 API（單獨 API 開關 / 三件套）也可能這次剛改過：剛排的這條已帶新憑據
+      // （排程時現算），但同角色**其它** pending AI 任務裡凍結的還是舊的，就地刷一遍。
+      // 用渲染時清單近似「其它任務」——保存期間角色剛用工具排的新任務會漏，下次保存
+      // 或全局 API 保存時會補上。失敗只提示，不能掉進外層 catch 把整次保存標成失敗。
       const otherAiTasks = tasks.filter((t) =>
         t.taskUuid !== result.uuid
         && t.taskUuid !== editingTaskUuid
@@ -544,14 +544,14 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             char, config, apiConfig, tasks: otherAiTasks,
           });
           if (refresh.status === 'partial') {
-            addToast(`该角色已有 ${refresh.failed} 条任务的 API 凭据没刷新成功，稍后重新保存可重试。`, 'error');
+            addToast(`該角色已有 ${refresh.failed} 條任務的 API 憑據沒刷新成功，稍後重新保存可重試。`, 'error');
           }
         } catch (refreshError) {
-          console.warn('[ActiveMsg2Modal] 刷新其余任务的 API 凭据失败', refreshError);
+          console.warn('[ActiveMsg2Modal] 刷新其餘任務的 API 憑據失敗', refreshError);
         }
       }
     } catch (error: any) {
-      const message = error?.message || '主动消息 2.0 保存失败。';
+      const message = error?.message || '主動消息 2.0 保存失敗。';
       onSave((prev) => buildConfig(prev, (list) => list, { lastError: message }));
       addToast(message, 'error');
     } finally {
@@ -562,7 +562,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      title="主动消息 2.0"
+      title="主動消息 2.0"
       onClose={onClose}
       footer={(
         <>
@@ -570,20 +570,20 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             取消
           </button>
           <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
-            {isSubmitting ? '保存中...' : !enabled ? '关闭 2.0' : (editingTaskUuid ? '保存修改' : '新建任务')}
+            {isSubmitting ? '保存中...' : !enabled ? '關閉 2.0' : (editingTaskUuid ? '保存修改' : '新建任務')}
           </button>
         </>
       )}
     >
       <div className="space-y-4 text-sm text-slate-600">
         <p className="text-xs leading-relaxed text-slate-500">
-          这是新的云端主动消息入口。它会把当前角色设定、最近聊天快照和推送订阅一起提交到主动消息标准服务里。长周期循环任务建议在剧情变化后重新保存一次，避免使用过旧的上下文。
+          這是新的雲端主動消息入口。它會把當前角色設定、最近聊天快照和推送訂閱一起提交到主動消息標準服務裡。長週期循環任務建議在劇情變化後重新保存一次，避免使用過舊的上下文。
         </p>
 
         <div className="flex items-center justify-between bg-fuchsia-50 border border-fuchsia-100 rounded-2xl p-4">
           <div>
-            <div className="font-bold text-slate-700">启用主动消息 2.0</div>
-            <div className="text-xs text-fuchsia-600 mt-1">{pushSummary || '正在检查 Push 状态...'}</div>
+            <div className="font-bold text-slate-700">啟用主動消息 2.0</div>
+            <div className="text-xs text-fuchsia-600 mt-1">{pushSummary || '正在檢查 Push 狀態...'}</div>
           </div>
           <button
             onClick={handleToggleEnabled}
@@ -593,23 +593,23 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* 关着的时候面板下面整块都是空的，不说一句的话，用户看不出这个开关是按角色算的，
-            也不知道打开它能换来什么。 */}
+        {/* 關著的時候面板下面整塊都是空的，不說一句的話，用戶看不出這個開關是按角色算的，
+            也不知道打開它能換來什麼。 */}
         {!enabled ? (
           <p className="text-xs leading-relaxed text-slate-400 pl-1">
-            主动消息 2.0 按角色单独开启。打开这个开关，TA 才能在聊天里给你排定时消息，到点由云端发出；你也可以在这里手动建任务。
+            主動消息 2.0 按角色單獨開啟。打開這個開關，TA 才能在聊天裡給你排定時消息，到點由雲端發出；你也可以在這裡手動建任務。
           </p>
         ) : null}
 
-        {/* 即时对话按角色单独关，和上面的排程开关互相独立（只排程不即时、只即时不排程
-            都行），所以不裹在 enabled 里。全局那道门没开时这里只置灰说明，不代替它。 */}
+        {/* 即時對話按角色單獨關，和上面的排程開關互相獨立（只排程不即時、只即時不排程
+            都行），所以不裹在 enabled 裡。全局那道門沒開時這裡只置灰說明，不代替它。 */}
         <div className={`flex items-center justify-between rounded-2xl p-4 border ${globalInstantChatOn ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100'}`}>
           <div className="min-w-0 pr-3">
-            <div className={`font-bold ${globalInstantChatOn ? 'text-slate-700' : 'text-slate-400'}`}>即时对话</div>
+            <div className={`font-bold ${globalInstantChatOn ? 'text-slate-700' : 'text-slate-400'}`}>即時對話</div>
             <div className="text-xs text-slate-400 mt-1 leading-relaxed">
               {globalInstantChatOn
-                ? '开着时 TA 的回复在云端生成、走推送送回，发完就能锁屏。关掉的话这个角色回到本地生成。'
-                : '需要先在全局设置里开启即时对话，才能按角色单独调。'}
+                ? '開著時 TA 的回覆在雲端生成、走推送送回，發完就能鎖屏。關掉的話這個角色回到本地生成。'
+                : '需要先在全局設置裡開啟即時對話，才能按角色單獨調。'}
             </div>
           </div>
           <button
@@ -621,8 +621,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* 闸拦下一次触发时不发任何推送，远端那行任务却照样被消费掉——不说一声的话，
-            「让路了」在用户看来跟「没发出去 / 功能坏了」完全一样。 */}
+        {/* 閘攔下一次觸發時不發任何推送，遠端那行任務卻照樣被消費掉——不說一聲的話，
+            「讓路了」在用戶看來跟「沒發出去 / 功能壞了」完全一樣。 */}
         {enabled && lastSkip ? (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-slate-600">
             {describeLastSkip(lastSkip, (ms) => formatTaskTime(new Date(ms).toISOString()))}
@@ -632,17 +632,17 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         {enabled && tasks.length > 0 ? (
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">
-              任务列表（{tasks.length}）
+              任務列表（{tasks.length}）
             </label>
-            {/* 一次 render 内所有任务用同一个 now，免得同屏卡片踩在不同的时刻上判定。 */}
+            {/* 一次 render 內所有任務用同一個 now，免得同屏卡片踩在不同的時刻上判定。 */}
             <div className="space-y-2">
               {tasks.map((t) => {
-                // 循环任务显示的是「下一次」，不是创建时那个锚点（见 currentOccurrenceMs）。
+                // 循環任務顯示的是「下一次」，不是創建時那個錨點（見 currentOccurrenceMs）。
                 const occurrenceMs = currentOccurrenceMs(t, now);
                 const missingRemote = isRemoteMissingTask(t, knownRemoteUuids, now);
                 const remoteInfo = remoteTaskInfo?.get(t.taskUuid);
-                // 远端记录的「上一次没发出去」——worker 只在失败时写、成功不清，
-                // 文案里带时间就不会把老记录读成「现在还坏着」。
+                // 遠端記錄的「上一次沒發出去」——worker 只在失敗時寫、成功不清，
+                // 文案裡帶時間就不會把老記錄讀成「現在還壞著」。
                 const remoteErrorText = describeRemoteLastError(remoteInfo?.lastError, formatTaskTime);
                 return (
                   <div key={t.taskUuid} className={`rounded-2xl border px-4 py-3 text-xs ${editingTaskUuid === t.taskUuid ? 'border-fuchsia-400 bg-fuchsia-50' : 'border-slate-200 bg-white'}`}>
@@ -651,21 +651,21 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         <div className="font-bold text-slate-700 truncate">
                           [{shortTaskId(t.taskUuid)}] {formatTaskTime(occurrenceMs ?? t.firstSendTime)} · {describeRecurrence(t.recurrenceType)}
                         </div>
-                        {/* 进度排最前：这一行会被截断，而「发没发」是用户最想先看到的一条，
-                            排在末尾的话（模式描述可能很长）它永远看不见。 */}
+                        {/* 進度排最前：這一行會被截斷，而「發沒發」是用戶最想先看到的一條，
+                            排在末尾的話（模式描述可能很長）它永遠看不見。 */}
                         <div className="text-slate-400 mt-0.5 truncate">
                           {describeTaskProgress(t, knownRemoteUuids, now, remoteInfo?.status)} · {describeTaskMode(t)}
                           · {describeExpirePolicy(t.expirePolicy)}
-                          · {t.source === 'character' ? '角色创建' : '手动创建'}
+                          · {t.source === 'character' ? '角色創建' : '手動創建'}
                         </div>
                         {missingRemote ? (
-                          <div className="text-slate-400 mt-1 text-[11px]">⚠ 远端不存在（可能已发送或在别处取消）</div>
+                          <div className="text-slate-400 mt-1 text-[11px]">⚠ 遠端不存在（可能已發送或在別處取消）</div>
                         ) : null}
                         {remoteErrorText ? (
                           <div className="text-amber-600 mt-1 text-[11px]">⚠ {remoteErrorText}</div>
                         ) : null}
-                        {/* 上面那行只留得下原因的关键半句，状态码和上游原话的其余部分都截掉了。
-                            原文收在这里，排查或者截图问人时点开就能看到全文。stale 是个机器词，没有原文可看。 */}
+                        {/* 上面那行只留得下原因的關鍵半句，狀態碼和上游原話的其餘部分都截掉了。
+                            原文收在這裡，排查或者截圖問人時點開就能看到全文。stale 是個機器詞，沒有原文可看。 */}
                         {remoteErrorText && remoteInfo?.lastError?.reason && remoteInfo.lastError.reason !== 'stale' ? (
                           <details className="mt-0.5">
                             <summary className="cursor-pointer text-[10px] font-bold text-slate-400">原文</summary>
@@ -679,7 +679,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         ) : null}
                       </div>
                       <div className="flex gap-2 shrink-0 ml-2">
-                        <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">编辑</button>
+                        <button onClick={() => setEditingTaskUuid(t.taskUuid)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold">編輯</button>
                         <button onClick={() => void handleCancelTask(t)} className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 font-bold">取消</button>
                       </div>
                     </div>
@@ -689,7 +689,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             </div>
             {editingTaskUuid ? (
               <button onClick={() => setEditingTaskUuid(null)} className="mt-2 text-xs text-fuchsia-500 font-bold pl-1">
-                ＋ 放弃编辑，改为新建任务
+                ＋ 放棄編輯，改為新建任務
               </button>
             ) : null}
           </div>
@@ -699,7 +699,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">
-                {editingTaskUuid ? '编辑任务' : '新建任务'}
+                {editingTaskUuid ? '編輯任務' : '新建任務'}
               </label>
               <div className="space-y-2">
                 {MODE_OPTIONS.map((option) => (
@@ -707,7 +707,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                     key={option.id}
                     onClick={() => {
                       setMode(option.id);
-                      // fixed 进不了 worker 闸（taskNeedsLlm=false），策略统一钉成 force。
+                      // fixed 進不了 worker 閘（taskNeedsLlm=false），策略統一釘成 force。
                       if (option.id === 'fixed') setExpirePolicy('force');
                     }}
                     className={`w-full text-left rounded-2xl border px-4 py-3 transition-all ${mode === option.id ? 'bg-fuchsia-500 text-white border-fuchsia-500' : 'bg-white border-slate-200 text-slate-600'}`}
@@ -720,7 +720,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">首次发送时间</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">首次發送時間</label>
               <input
                 type="datetime-local"
                 value={firstSendTime}
@@ -730,7 +730,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">重复方式</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">重複方式</label>
               <div className="grid grid-cols-3 gap-2">
                 {RECURRENCE_OPTIONS.map((option) => (
                   <button
@@ -743,17 +743,17 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                 ))}
               </div>
               <div className="text-[11px] text-slate-400 mt-2 pl-1">
-                2.0 标准版目前只支持：一次 / 每天 / 每周。30 分钟、1 小时、2 小时这类间隔暂时不支持。
+                2.0 標準版目前只支持：一次 / 每天 / 每週。30 分鐘、1 小時、2 小時這類間隔暫時不支持。
               </div>
             </div>
 
             {mode !== 'fixed' ? (
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">到点时用户正在聊天</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">到點時用戶正在聊天</label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { id: 'expire', label: '自动作废', desc: '转为对话里自然带出' },
-                    { id: 'force', label: '强制发送', desc: '闹钟型，照发' },
+                    { id: 'expire', label: '自動作廢', desc: '轉為對話裡自然帶出' },
+                    { id: 'force', label: '強制發送', desc: '鬧鐘型，照發' },
                   ] as const).map((option) => (
                     <button
                       key={option.id}
@@ -770,11 +770,11 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
 
             {mode === 'fixed' ? (
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">固定消息内容</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">固定消息內容</label>
                 <textarea
                   value={userMessage}
                   onChange={(event) => setUserMessage(event.target.value)}
-                  placeholder="到点后直接推送这段消息"
+                  placeholder="到點後直接推送這段消息"
                   className="w-full h-28 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm resize-none"
                 />
               </div>
@@ -782,18 +782,18 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               <>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">
-                    {mode === 'prompted' ? '额外提示词' : '补充灵感 (可选)'}
+                    {mode === 'prompted' ? '額外提示詞' : '補充靈感 (可選)'}
                   </label>
                   <textarea
                     value={promptHint}
                     onChange={(event) => setPromptHint(event.target.value)}
-                    placeholder={mode === 'prompted' ? '例如：晚安前撒娇一下，但别太油' : '例如：今天下雨、想找我聊一点轻松的'}
+                    placeholder={mode === 'prompted' ? '例如：晚安前撒嬌一下，但別太油' : '例如：今天下雨、想找我聊一點輕鬆的'}
                     className="w-full h-24 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">maxTokens (可选)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">maxTokens (可選)</label>
                   <input
                     type="number"
                     min={1}
@@ -807,30 +807,30 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             )}
 
             <div className="pt-1 border-t border-slate-100">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">连发上限</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">連發上限</label>
               <select
                 value={maxUnanswered}
                 onChange={(event) => setMaxUnanswered(event.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm"
               >
-                <option value="">默认（{DEFAULT_MAX_UNANSWERED_SENDS} 条）</option>
+                <option value="">默認（{DEFAULT_MAX_UNANSWERED_SENDS} 條）</option>
                 {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={String(n)}>{n} 条</option>
+                  <option key={n} value={String(n)}>{n} 條</option>
                 ))}
                 <option value="0">不限</option>
               </select>
               <p className="text-xs text-slate-400 mt-1.5 pl-1 leading-relaxed">
-                你没回消息的时候，TA 最多连续主动发几条——这就是 TA 能连续主动发言的次数上限（包括
-                TA 给自己排的后续）。到上限后 TA 自己排的会暂停，你回一句就重新计数；你在这个面板里
-                亲手排的任务不受它限制。比如你俩有时差、想让 TA 在你睡觉时每隔一阵报备一句，就把这里调大些。
+                你沒回消息的時候，TA 最多連續主動發幾條——這就是 TA 能連續主動發言的次數上限（包括
+                TA 給自己排的後續）。到上限後 TA 自己排的會暫停，你回一句就重新計數；你在這個面板裡
+                親手排的任務不受它限制。比如你倆有時差、想讓 TA 在你睡覺時每隔一陣報備一句，就把這裡調大些。
               </p>
             </div>
 
             <div className="pt-1 border-t border-slate-100">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <div className="font-bold text-slate-700">使用单独 API</div>
-                  <div className="text-xs text-slate-400 mt-1">不开启则依次退回：角色自己的对话模型 API → 全局主 API。</div>
+                  <div className="font-bold text-slate-700">使用單獨 API</div>
+                  <div className="text-xs text-slate-400 mt-1">不開啟則依次退回：角色自己的對話模型 API → 全局主 API。</div>
                 </div>
                 <button
                   onClick={() => setUseSecondaryApi(!useSecondaryApi)}
@@ -844,7 +844,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                 <div className="space-y-2 bg-slate-50 rounded-2xl p-3">
                   {apiPresets.length > 0 && (
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的预设</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">我的預設</label>
                       <div className="flex gap-2 flex-wrap">
                         {apiPresets.map((preset) => (
                           <button
@@ -868,7 +868,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         {isLoadingModels ? '拉取中...' : '刷新模型列表'}
                       </button>
                     </div>
-                    <input value={secModel} onChange={(event) => setSecModel(event.target.value)} placeholder="Model，或点右上角刷新拉取" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
+                    <input value={secModel} onChange={(event) => setSecModel(event.target.value)} placeholder="Model，或點右上角刷新拉取" className="w-full px-3 py-2 bg-white rounded-xl text-sm border border-slate-200" />
                     {modelStatusMsg && <p className="text-[10px] text-slate-400 mt-1">{modelStatusMsg}</p>}
                   </div>
                   <div className="flex items-center gap-2 pt-1">
@@ -877,13 +877,13 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                       disabled={testingConnection || !secUrl.trim()}
                       className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 disabled:opacity-50 active:scale-95 transition-transform"
                     >
-                      {testingConnection ? '测试中...' : '🧪 测试连接'}
+                      {testingConnection ? '測試中...' : '🧪 測試連接'}
                     </button>
                     <button
                       onClick={() => setShowSavePreset((v) => !v)}
                       className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
                     >
-                      保存为预设
+                      保存為預設
                     </button>
                   </div>
                   {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
@@ -894,7 +894,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                         value={newPresetName}
                         onChange={(event) => setNewPresetName(event.target.value)}
                         onKeyDown={(event) => event.key === 'Enter' && handleSavePreset()}
-                        placeholder="预设名称..."
+                        placeholder="預設名稱..."
                         className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
                         autoFocus
                       />
@@ -911,7 +911,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               const query = modelSearchQuery.trim().toLowerCase();
               const filteredList = query ? availableModels.filter((m) => m.toLowerCase().includes(query)) : availableModels;
               return (
-                <Modal isOpen title="选择模型" onClose={() => setShowModelModal(false)}>
+                <Modal isOpen title="選擇模型" onClose={() => setShowModelModal(false)}>
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -923,7 +923,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                     />
                     <div className="max-h-72 overflow-y-auto space-y-1 no-scrollbar">
                       {filteredList.length === 0 && (
-                        <p className="text-[11px] text-slate-400 text-center py-4">没有匹配的模型</p>
+                        <p className="text-[11px] text-slate-400 text-center py-4">沒有匹配的模型</p>
                       )}
                       {filteredList.map((m) => (
                         <button

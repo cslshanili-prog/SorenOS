@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { ChatPrompts } from './chatPrompts';
 import { cleanApiMessages } from './chatRequestPayload';
 
-// 锁住「翻译模式下引用回复, 角色只看到引用、看不到用户实际回复」的修复。
+// 鎖住「翻譯模式下引用回覆, 角色只看到引用、看不到用戶實際回覆」的修復。
 //
-// 链路: 双语 char 消息存储为 `原文\n%%BILINGUAL%%\n译文`; 用户引用它时 replyTo.content
-// 是完整双语串。buildMessageHistory 把引用拼成
-//   [用户引用了你之前说的「<摘要60字>」，并回复了 ↓]\n<用户回复>
-// 修复前摘要原样截取 → %%BILINGUAL%% 混进引用头 → cleanApiMessages 在标记处整条截断
-// → 「并回复了 ↓」和用户回复全被吃掉, 模型只看到半截引用头。
-// 修复后摘要先剥双语标记、只取原文侧, 截断不再波及用户回复。
+// 鏈路: 雙語 char 消息存儲為 `原文\n%%BILINGUAL%%\n譯文`; 用戶引用它時 replyTo.content
+// 是完整雙語串。buildMessageHistory 把引用拼成
+//   [用戶引用了你之前說的「<摘要60字>」，並回復了 ↓]\n<用戶回覆>
+// 修復前摘要原樣截取 → %%BILINGUAL%% 混進引用頭 → cleanApiMessages 在標記處整條截斷
+// → 「並回復了 ↓」和用戶回覆全被吃掉, 模型只看到半截引用頭。
+// 修復後摘要先剝雙語標記、只取原文側, 截斷不再波及用戶回覆。
 
 const char = { id: 'c1', name: '小角色' } as any;
 const userProfile = { name: '我' } as any;
 
-const BI_CONTENT = 'こんにちは、元気？\n%%BILINGUAL%%\n你好，最近好吗？';
-const USER_REPLY = '我的实际回复内容，不能被吞掉';
+const BI_CONTENT = 'こんにちは、元気？\n%%BILINGUAL%%\n你好，最近好嗎？';
+const USER_REPLY = '我的實際回覆內容，不能被吞掉';
 
 const t0 = Date.now() - 60_000;
 const makeHistory = () => ([
@@ -26,8 +26,8 @@ const makeHistory = () => ([
     },
 ] as any[]);
 
-describe('buildMessageHistory 引用双语消息', () => {
-    it('引用摘要只取原文侧, 不把 %%BILINGUAL%% 混进引用头', () => {
+describe('buildMessageHistory 引用雙語消息', () => {
+    it('引用摘要只取原文側, 不把 %%BILINGUAL%% 混進引用頭', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(makeHistory(), 10, char, userProfile, []);
         const userMsg = apiMessages.find((m: any) => m.role === 'user');
         expect(userMsg).toBeTruthy();
@@ -37,7 +37,7 @@ describe('buildMessageHistory 引用双语消息', () => {
         expect(content.toLowerCase()).not.toContain('%%bilingual%%');
     });
 
-    it('引用头 + 用户回复经 cleanApiMessages 后完整保留 (修复前回复被截掉)', () => {
+    it('引用頭 + 用戶回覆經 cleanApiMessages 後完整保留 (修復前回復被截掉)', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(makeHistory(), 10, char, userProfile, []);
         const cleaned = cleanApiMessages(apiMessages);
         const userMsg = cleaned.find((m: any) => m.role === 'user');
@@ -46,17 +46,17 @@ describe('buildMessageHistory 引用双语消息', () => {
         expect(content).toContain(USER_REPLY);
     });
 
-    it('双语 assistant 消息本体仍在标记处截断只留原文 (既有行为不回归)', () => {
+    it('雙語 assistant 消息本體仍在標記處截斷只留原文 (既有行為不迴歸)', () => {
         const { apiMessages } = ChatPrompts.buildMessageHistory(makeHistory(), 10, char, userProfile, []);
         const cleaned = cleanApiMessages(apiMessages);
         const aiMsg = cleaned.find((m: any) => m.role === 'assistant');
         const content = aiMsg!.content as string;
         expect(content).toContain('こんにちは、元気？');
-        expect(content).not.toContain('你好，最近好吗？');
+        expect(content).not.toContain('你好，最近好嗎？');
     });
 
-    it('引用内容是 <翻译> XML 形态时也剥干净、只留原文', () => {
-        const xmlBi = '<翻译>\n<原文>おはよう</原文>\n<译文>早上好</译文>\n</翻译>';
+    it('引用內容是 <翻譯> XML 形態時也剝乾淨、只留原文', () => {
+        const xmlBi = '<翻譯>\n<原文>おはよう</原文>\n<譯文>早上好</譯文>\n</翻譯>';
         const history = [
             { id: 1, charId: 'c1', role: 'assistant', type: 'text', content: xmlBi, timestamp: t0 },
             {
@@ -69,7 +69,7 @@ describe('buildMessageHistory 引用双语消息', () => {
         const content = userMsg!.content as string;
         expect(content).toContain('おはよう');
         expect(content).toContain(USER_REPLY);
-        expect(content).not.toContain('<翻译>');
-        expect(content).not.toContain('<译文>');
+        expect(content).not.toContain('<翻譯>');
+        expect(content).not.toContain('<譯文>');
     });
 });

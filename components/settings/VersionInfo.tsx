@@ -6,33 +6,33 @@ import { trackEvent } from '../../utils/analytics';
 import AndroidUpdateControl from './AndroidUpdateControl';
 
 /**
- * Settings 底部的版本信息脚注。
+ * Settings 底部的版本信息腳註。
  *
- * 与右下角的 BuildBadge 不同：BuildBadge 只在 dev / fork 构建可见（正式版树摇掉），
- * 这里在**所有**构建（含正式版）里都低调显示，方便用户截图报障时附带版本上下文：
- *   - APP_VERSION：手工维护的产品版本名，发版前改 utils/buildInfo.ts
+ * 與右下角的 BuildBadge 不同：BuildBadge 只在 dev / fork 構建可見（正式版樹搖掉），
+ * 這裡在**所有**構建（含正式版）裡都低調顯示，方便用戶截圖報障時附帶版本上下文：
+ *   - APP_VERSION：手工維護的產品版本名，發版前改 utils/buildInfo.ts
  *   - build：vite.config 注入的 __BUILD_BRANCH__@__BUILD_COMMIT__
- *   - built：vite.config 注入的 UTC+8 构建时间
- *   - sw：运行时向 Service Worker 查询的 SW_VERSION
+ *   - built：vite.config 注入的 UTC+8 構建時間
+ *   - sw：運行時向 Service Worker 查詢的 SW_VERSION
  *
- * 构建全局（__BUILD_BRANCH__ 等）由 vite define 始终注入，prod 也有值，
- * 所以无需任何 dev 条件判断。SW 未注册 / 未响应时 sw 显示 '?'。
+ * 構建全局（__BUILD_BRANCH__ 等）由 vite define 始終注入，prod 也有值，
+ * 所以無需任何 dev 條件判斷。SW 未註冊 / 未響應時 sw 顯示 '?'。
  *
- * 彩蛋（dev 附加）：连点 APP_VERSION 5 下手动解锁 DevDebug 面板——正式版默认隐藏，
- * 这是在正式版上临时调出调试工具排障的入口（会话级，刷新即关；面板内有「关闭」按钮可随时强制关掉）。
- * 面板已可用时（非 prod / 已解锁）再点不计数。
+ * 彩蛋（dev 附加）：連點 APP_VERSION 5 下手動解鎖 DevDebug 面板——正式版默認隱藏，
+ * 這是在正式版上臨時調出調試工具排障的入口（會話級，刷新即關；面板內有「關閉」按鈕可隨時強制關掉）。
+ * 面板已可用時（非 prod / 已解鎖）再點不計數。
  */
 
 const UNLOCK_TAP_COUNT = 5;
 const TAP_RESET_MS = 2000;
 
-// 「SW 有没有应答」每次会话只报一次：设置页反复开关会重复查询，重复上报会把
-// 这项的分母冲淡。标记只存内存变量，标签页一关就没了（跟 utils/analytics.ts 同口径）。
+// 「SW 有沒有應答」每次會話只報一次：設置頁反覆開關會重複查詢，重複上報會把
+// 這項的分母沖淡。標記只存內存變量，標籤頁一關就沒了（跟 utils/analytics.ts 同口徑）。
 let swVersionResultReported = false;
 
 const VersionInfo: React.FC = () => {
     const [swVersion, setSwVersion] = useState<string>('…');
-    // available = 面板当前是否可用（非 prod 默认 true；prod 解锁后 true；强制关闭后 false）。
+    // available = 面板當前是否可用（非 prod 默認 true；prod 解鎖後 true；強制關閉後 false）。
     const [available, setAvailable] = useState<boolean>(() => isDevDebugAvailable());
     const [hint, setHint] = useState<string | null>(null);
     const tapCountRef = useRef(0);
@@ -45,8 +45,8 @@ const VersionInfo: React.FC = () => {
             if (!cancelled) setSwVersion(v);
             if (!swVersionResultReported) {
                 swVersionResultReported = true;
-                // 只报「SW 有没有回话」。'?' = 没注册 / 被禁用 / 1.5 秒内没回包，
-                // 版本号字符串本身不上报。
+                // 只報「SW 有沒有回話」。'?' = 沒註冊 / 被禁用 / 1.5 秒內沒回包，
+                // 版本號字符串本身不上報。
                 trackEvent('查询 Service Worker 版本', { 结果: v === '?' ? '无应答' : '已应答' });
             }
         });
@@ -55,7 +55,7 @@ const VersionInfo: React.FC = () => {
 
     useEffect(() => subscribeDevDebugAvailability(setAvailable), []);
 
-    // 卸载时清掉计时器，避免内存泄漏 / 卸载后 setState。
+    // 卸載時清掉計時器，避免內存洩漏 / 卸載後 setState。
     useEffect(() => () => {
         if (tapTimerRef.current) window.clearTimeout(tapTimerRef.current);
         if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current);
@@ -68,7 +68,7 @@ const VersionInfo: React.FC = () => {
     };
 
     const handleVersionTap = () => {
-        if (available) return; // 面板已经开着（非 prod 或已解锁），不用再数
+        if (available) return; // 面板已經開著（非 prod 或已解鎖），不用再數
         if (tapTimerRef.current) window.clearTimeout(tapTimerRef.current);
         tapCountRef.current += 1;
         const remaining = UNLOCK_TAP_COUNT - tapCountRef.current;
@@ -77,11 +77,11 @@ const VersionInfo: React.FC = () => {
             tapCountRef.current = 0;
             unlockDevDebug();
             trackEvent('连点版本号解锁调试面板');
-            showHint('🔧 调试面板已解锁（刷新即关闭）', 2600);
+            showHint('🔧 調試面板已解鎖（刷新即關閉）', 2600);
             return;
         }
-        if (remaining <= 2) showHint(`还差 ${remaining} 下…`, TAP_RESET_MS);
-        // 间隔超过 TAP_RESET_MS 没继续点就重置计数。
+        if (remaining <= 2) showHint(`還差 ${remaining} 下…`, TAP_RESET_MS);
+        // 間隔超過 TAP_RESET_MS 沒繼續點就重置計數。
         tapTimerRef.current = window.setTimeout(() => { tapCountRef.current = 0; }, TAP_RESET_MS);
     };
 

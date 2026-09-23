@@ -12,8 +12,8 @@ function ensureArchiveMonth(tree: MemoryArchiveTree, monthKey: string): void {
 }
 
 /**
- * 月份目录必须同时覆盖日度记录、月度核心摘要和已激活月份。
- * 否则删掉某月最后一条日度记录后，仍会进入 Memory Bank 的月度摘要会从 UI 消失。
+ * 月份目錄必須同時覆蓋日度記錄、月度核心摘要和已激活月份。
+ * 否則刪掉某月最後一條日度記錄後，仍會進入 Memory Bank 的月度摘要會從 UI 消失。
  */
 export function buildMemoryArchiveIndex(
     memories: MemoryFragment[] | undefined,
@@ -31,7 +31,7 @@ export function buildMemoryArchiveIndex(
         if (dateMatch) {
             year = dateMatch[1];
             month = dateMatch[2].padStart(2, '0');
-        } else if (m.date.includes('unknown')) year = '未归档';
+        } else if (m.date.includes('unknown')) year = '未歸檔';
         if (!tree[year]) tree[year] = {};
         if (!tree[year][month]) tree[year][month] = [];
         tree[year][month].push(m);

@@ -20,16 +20,16 @@ describe('shareOrDownloadBlob web file sharing', () => {
 
     const result = await shareOrDownloadBlob({
       blob: new Blob(['real file'], { type: 'application/pdf' }),
-      fileName: '协同交付.pdf',
-      shareTitle: '协同交付',
+      fileName: '協同交付.pdf',
+      shareTitle: '協同交付',
     });
 
     expect(result).toBe('shared');
     expect(canShare).toHaveBeenCalledTimes(1);
     expect(share).toHaveBeenCalledTimes(1);
     const payload = share.mock.calls[0][0] as ShareData;
-    expect(payload.title).toBe('协同交付');
-    expect(payload.files?.[0]?.name).toBe('协同交付.pdf');
+    expect(payload.title).toBe('協同交付');
+    expect(payload.files?.[0]?.name).toBe('協同交付.pdf');
     expect(payload.files?.[0]?.size).toBe(9);
   });
 });

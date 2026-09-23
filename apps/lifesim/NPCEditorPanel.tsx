@@ -3,11 +3,12 @@ import { SimGender, SimNPC } from '../../types';
 import { CheckCircle, X } from '@phosphor-icons/react';
 import { NPCAvatar } from '../../utils/styledIcons';
 import { trackEvent } from '../../utils/analytics';
+import { equalsAnyScript } from '../../utils/scriptKey';
 
 const PERSONALITY_OPTIONS = [
-    '社牛', '社恐', '卷王', '摸鱼', '文青', '话题女王', '职场精英', '暖男/暖女',
-    '叛逆', '精致', '独立', '自恋', '佛系', '焦虑', '八卦', '高冷', '上进',
-    '有品味', '消息灵通', '目标明确', '热心', '老好人', '不按常理出牌', '外貌协会',
+    '社牛', '社恐', '卷王', '摸魚', '文青', '話題女王', '職場精英', '暖男/暖女',
+    '叛逆', '精緻', '獨立', '自戀', '佛系', '焦慮', '八卦', '高冷', '上進',
+    '有品味', '消息靈通', '目標明確', '熱心', '老好人', '不按常理出牌', '外貌協會',
 ];
 
 const GENDER_OPTIONS: { value: SimGender; label: string }[] = [
@@ -28,7 +29,8 @@ const NPCEditorPanel: React.FC<{
     const [backstory, setBackstory] = useState(npc.backstory || '');
 
     const togglePersonality = (value: string) => {
-        setPersonality(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]);
+        // 舊存檔的性格標籤可能是簡體，比對簡繁都認，取消時把兩種寫法一起拿掉
+        setPersonality(current => current.some(item => equalsAnyScript(item, value)) ? current.filter(item => !equalsAnyScript(item, value)) : [...current, value]);
     };
 
     const handleSave = () => {
@@ -83,7 +85,7 @@ const NPCEditorPanel: React.FC<{
                         <div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#544f63' }}>{name || npc.name}</div>
                             <div style={{ fontSize: 9, color: '#8d859d', marginTop: 2 }}>
-                                长按居民卡可改设定
+                                長按居民卡可改設定
                             </div>
                         </div>
                     </div>
@@ -105,7 +107,7 @@ const NPCEditorPanel: React.FC<{
                         }}
                     />
 
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#666', margin: '10px 0 4px' }}>性别</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#666', margin: '10px 0 4px' }}>性別</div>
                     <div className="flex gap-1.5 flex-wrap">
                         {GENDER_OPTIONS.map(option => (
                             <button
@@ -130,7 +132,7 @@ const NPCEditorPanel: React.FC<{
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#666', margin: '10px 0 4px' }}>性格</div>
                     <div className="flex flex-wrap gap-1">
                         {PERSONALITY_OPTIONS.map(item => {
-                            const active = personality.includes(item);
+                            const active = personality.some(p => equalsAnyScript(p, item));
                             return (
                                 <button
                                     key={item}
@@ -152,7 +154,7 @@ const NPCEditorPanel: React.FC<{
                         })}
                     </div>
 
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#666', margin: '10px 0 4px' }}>简介</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#666', margin: '10px 0 4px' }}>簡介</div>
                     <textarea
                         value={bio}
                         onChange={event => setBio(event.target.value)}
@@ -197,7 +199,7 @@ const NPCEditorPanel: React.FC<{
                         className="retro-btn retro-btn-primary w-full flex items-center justify-center gap-1"
                         style={{ padding: '7px 12px' }}
                     >
-                        <CheckCircle size={12} weight="bold" /> 保存设定
+                        <CheckCircle size={12} weight="bold" /> 保存設定
                     </button>
                 </div>
             </div>

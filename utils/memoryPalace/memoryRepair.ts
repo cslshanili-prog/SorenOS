@@ -82,8 +82,8 @@ function searchableMemoryText(node: MemoryNode): string {
 }
 
 /**
- * 用户主动修补时的本地模糊搜索。
- * 支持多关键词、不完整连续片段和有序缺字匹配；不调用向量或模型 API。
+ * 用戶主動修補時的本地模糊搜索。
+ * 支持多關鍵詞、不完整連續片段和有序缺字匹配；不調用向量或模型 API。
  */
 export function filterEditableMemoryNodes(
     nodes: MemoryNode[],
@@ -140,14 +140,14 @@ export async function searchEditableMemories(
     return filterEditableMemoryNodes(nodes, query, recalledIds, limit);
 }
 
-/** MemoryNode 当前只可靠保存到“日”；12:00 常是日期占位，不能伪装成精确时分。 */
+/** MemoryNode 當前只可靠保存到“日”；12:00 常是日期佔位，不能偽裝成精確時分。 */
 export function formatRepairMemoryDate(createdAt: number, now: number = Date.now()): string {
     return formatMemoryDateWithDistance(createdAt, now);
 }
 
 /**
- * 将“本轮实际召回”还原成可编辑现场。
- * 命中事件盒任一成员时，编辑器会额外装载摘要、所有活节点与所有归档节点。
+ * 將“本輪實際召回”還原成可編輯現場。
+ * 命中事件盒任一成員時，編輯器會額外裝載摘要、所有活節點與所有歸檔節點。
  */
 export async function loadRecallRepairSnapshot(
     charId: string,
@@ -206,7 +206,7 @@ export async function loadRecallRepairSnapshot(
                     : 'live';
             nodes.push({ node, kind, recalled: recalledIds.has(id) });
         });
-        // 摘要固定在首位；其余活跃/归档子节点按事件日期排成可核对的时间线。
+        // 摘要固定在首位；其餘活躍/歸檔子節點按事件日期排成可核對的時間線。
         nodes.sort((a, b) => {
             if (a.kind === 'summary') return b.kind === 'summary' ? 0 : -1;
             if (b.kind === 'summary') return 1;
@@ -223,9 +223,9 @@ export async function loadRecallRepairSnapshot(
 }
 
 /**
- * 诊断上下文只保留角色身份与说话方式。
- * 按产品约定明确调用 buildCoreContext(..., false)，同时抹掉所有持久记忆、
- * 召回注入、房间门牌和情绪注入，确保不会暗中再读一次记忆上下文。
+ * 診斷上下文只保留角色身份與說話方式。
+ * 按產品約定明確調用 buildCoreContext(..., false)，同時抹掉所有持久記憶、
+ * 召回注入、房間門牌和情緒注入，確保不會暗中再讀一次記憶上下文。
  */
 export function buildMemoryRepairCoreContext(
     char: CharacterProfile,
@@ -253,18 +253,18 @@ function snapshotCandidates(snapshot: RecallRepairSnapshot): Array<{
 }> {
     const candidates = snapshot.standalone.map(item => ({
         id: item.node.id,
-        scope: '独立记忆（本轮召回）',
+        scope: '獨立記憶（本輪召回）',
         date: formatRepairMemoryDate(item.node.createdAt),
         content: item.node.content,
     }));
     snapshot.boxes.forEach(group => {
         group.nodes.forEach(item => {
             const stateLabel = item.kind === 'archived'
-                ? '（已归档，本轮未注入，仅供核对）'
-                : item.recalled ? '（本轮经过）' : '（同盒展开，本轮未直接注入）';
+                ? '（已歸檔，本輪未注入，僅供核對）'
+                : item.recalled ? '（本輪經過）' : '（同盒展開，本輪未直接注入）';
             candidates.push({
                 id: item.node.id,
-                scope: `事件盒「${group.box.name}」/${item.kind === 'summary' ? '盒摘要' : item.kind === 'archived' ? '归档子节点' : '活跃子节点'}${stateLabel}`,
+                scope: `事件盒「${group.box.name}」/${item.kind === 'summary' ? '盒摘要' : item.kind === 'archived' ? '歸檔子節點' : '活躍子節點'}${stateLabel}`,
                 date: formatRepairMemoryDate(item.node.createdAt),
                 content: item.node.content,
             });
@@ -273,21 +273,21 @@ function snapshotCandidates(snapshot: RecallRepairSnapshot): Array<{
     return candidates;
 }
 
-/** 即使模型偶尔沿用分析术语，也把面向人的称呼收回到具体关系里。 */
+/** 即使模型偶爾沿用分析術語，也把面向人的稱呼收回到具體關係裡。 */
 export function naturalizeMemoryRepairLanguage(
     text: string,
     charName: string,
     userName: string,
 ): string {
     const you = userName.trim() || '你';
-    const character = charName.trim() || '对方';
+    const character = charName.trim() || '對方';
     return text
-        .replace(/这位用户|该用户|用户/g, you)
-        .replace(/这个角色|该角色|角色本人|角色/g, character);
+        .replace(/[这這]位用[户戶]|[该該]用[户戶]|用[户戶]/g, you)
+        .replace(/[这這][个個]角色|[该該]角色|角色本人|角色/g, character);
 }
 
 /**
- * “？？？”的分析只接收显式传入的现场候选，不执行向量召回。
+ * “？？？”的分析只接收顯式傳入的現場候選，不執行向量召回。
  */
 export async function diagnoseRecallIssue(params: {
     char: CharacterProfile;
@@ -300,53 +300,53 @@ export async function diagnoseRecallIssue(params: {
 }): Promise<MemoryRepairDiagnosis> {
     const { apiConfig, snapshot } = params;
     if (!apiConfig.baseUrl || !apiConfig.apiKey || !apiConfig.model) {
-        throw new Error('请先配置可用的主 API');
+        throw new Error('請先配置可用的主 API');
     }
     const candidates = snapshotCandidates(snapshot);
     if (candidates.length === 0) {
         return {
-            reply: '这一轮没有记忆从这里经过。我不能假装看见不存在的线索。',
+            reply: '這一輪沒有記憶從這裡經過。我不能假裝看見不存在的線索。',
             suspectIds: [],
             reasons: {},
         };
     }
 
     const coreContext = buildMemoryRepairCoreContext(params.char, params.user);
-    const charName = params.char.name || '对方';
+    const charName = params.char.name || '對方';
     const userName = params.user.name || '你';
     const candidateText = candidates
-        .map((item, index) => `[${index + 1}] id=${item.id}\n位置=${item.scope}\n日期=${item.date}\n内容=${item.content}`)
+        .map((item, index) => `[${index + 1}] id=${item.id}\n位置=${item.scope}\n日期=${item.date}\n內容=${item.content}`)
         .join('\n\n');
     const system = `${coreContext}
 
-你现在不是 ${charName} 本人，而是 ${charName} 记忆小屋门口一个名为“？？？”的安静引路者。
-你的身份虽然是“？？？”，但说话的节奏、句式、用词和情绪浓度必须贴近上方 ${charName} 的语言风格；不要改成客服、医生或系统报告口吻，也不要声称自己就是 ${charName}。
-称呼必须自然具体：
-- 面向 ${userName} 时只用“你”或“${userName}”，绝不能把对方称为“用户”。
-- 提到 ${charName} 时直接说“${charName}”，绝不能说“角色”“角色本人”或用含糊的“TA”替代名字。
-- 涉及多个人时使用具体名字；确实指一个群体时才用“他们”。
-任务仅限于检查下方明确提供的“本轮召回现场”。不得调用、猜测或补充任何其他记忆，不得替 ${charName} 辩解。
-根据 ${userName} 指出的问题，找出可能让刚才回复产生事实错误、对象混淆、时间错位或过度推断的候选记忆。
-事件盒中未在本轮直接注入、但为了修补而展开的节点，可以作为盒内矛盾线索；归档子节点已经不再注入，提到它时必须明确说“已归档，本轮没有注入”。
-回答要简短、温和、具体，不替 ${userName} 直接篡改内容。
+你現在不是 ${charName} 本人，而是 ${charName} 記憶小屋門口一個名為“？？？”的安靜引路者。
+你的身份雖然是“？？？”，但說話的節奏、句式、用詞和情緒濃度必須貼近上方 ${charName} 的語言風格；不要改成客服、醫生或系統報告口吻，也不要聲稱自己就是 ${charName}。
+稱呼必須自然具體：
+- 面向 ${userName} 時只用“你”或“${userName}”，絕不能把對方稱為“用戶”。
+- 提到 ${charName} 時直接說“${charName}”，絕不能說“角色”“角色本人”或用含糊的“TA”替代名字。
+- 涉及多個人時使用具體名字；確實指一個群體時才用“他們”。
+任務僅限於檢查下方明確提供的“本輪召回現場”。不得調用、猜測或補充任何其他記憶，不得替 ${charName} 辯解。
+根據 ${userName} 指出的問題，找出可能讓剛才回覆產生事實錯誤、對象混淆、時間錯位或過度推斷的候選記憶。
+事件盒中未在本輪直接注入、但為了修補而展開的節點，可以作為盒內矛盾線索；歸檔子節點已經不再注入，提到它時必須明確說“已歸檔，本輪沒有注入”。
+回答要簡短、溫和、具體，不替 ${userName} 直接篡改內容。
 
-只输出 JSON：
+只輸出 JSON：
 {
-  "reply": "给用户的判断与下一步建议",
-  "suspectIds": ["候选中的原始 id"],
-  "reasons": { "候选 id": "为什么可能有影响" }
+  "reply": "給用戶的判斷與下一步建議",
+  "suspectIds": ["候選中的原始 id"],
+  "reasons": { "候選 id": "為什麼可能有影響" }
 }`;
 
-    const userPrompt = `【${userName}刚才说的话】
+    const userPrompt = `【${userName}剛才說的話】
 ${params.userMessage || '（未取得）'}
 
-【${charName}刚才的回复】
+【${charName}剛才的回覆】
 ${params.assistantReply || '（未取得）'}
 
-【${userName}觉得不对劲的地方】
+【${userName}覺得不對勁的地方】
 ${params.userConcern.trim()}
 
-【本轮召回现场】
+【本輪召回現場】
 ${candidateText}`;
 
     const data = await safeFetchJson(
@@ -396,7 +396,7 @@ ${candidateText}`;
             ? naturalizeMemoryRepairLanguage(parsed.reply.trim(), charName, userName)
             : raw
                 ? naturalizeMemoryRepairLanguage(raw, charName, userName)
-                : '我看过这些痕迹了。你可以从标出的记忆开始核对。',
+                : '我看過這些痕跡了。你可以從標出的記憶開始核對。',
         suspectIds,
         reasons,
     };
@@ -409,7 +409,7 @@ export async function patchRecallMemory(
     remoteVectorConfig?: RemoteVectorConfig,
 ): Promise<MemoryNode> {
     const nextContent = content.trim();
-    if (!nextContent) throw new Error('记忆内容不能为空');
+    if (!nextContent) throw new Error('記憶內容不能為空');
     const result = await updateStoredMemoryNode(
         nodeId,
         { content: nextContent },
@@ -427,20 +427,20 @@ export interface MemoryGuideCopy {
 
 const GUIDE_COPY: Record<NonNullable<CharacterProfile['personalityStyle']>, MemoryGuideCopy[]> = {
     emotional: [
-        { greeting: '你来啦，{user}。先别急，我把刚才碰过的东西都留在这里了。', trail: '刚才这里经过了这些记忆……', empty: '这里很安静。刚才那一轮，没有记忆从门前经过。' },
-        { greeting: '我等到你了，{user}。如果刚才有哪里刺痛了你，我们一起把它看清。', trail: '看，它们正在一点点显出来……', empty: '没有留下召回的脚印。问题也许不在记忆里。' },
+        { greeting: '你來啦，{user}。先別急，我把剛才碰過的東西都留在這裡了。', trail: '剛才這裡經過了這些記憶……', empty: '這裡很安靜。剛才那一輪，沒有記憶從門前經過。' },
+        { greeting: '我等到你了，{user}。如果剛才有哪裡刺痛了你，我們一起把它看清。', trail: '看，它們正在一點點顯出來……', empty: '沒有留下召回的腳印。問題也許不在記憶裡。' },
     ],
     narrative: [
-        { greeting: '你来啦，{user}。刚才那句话离开以后，几页纸落在了门边。', trail: '它们曾这样经过这里……', empty: '这一页是空的：刚才没有召回记录经过。' },
-        { greeting: '门刚好还没关，{user}。来看看刚才那段话从哪里走过。', trail: '沿着微光，记忆正在依次出现……', empty: '路上没有记忆的痕迹，这次要去别处找原因。' },
+        { greeting: '你來啦，{user}。剛才那句話離開以後，幾頁紙落在了門邊。', trail: '它們曾這樣經過這裡……', empty: '這一頁是空的：剛才沒有召回記錄經過。' },
+        { greeting: '門剛好還沒關，{user}。來看看剛才那段話從哪裡走過。', trail: '沿著微光，記憶正在依次出現……', empty: '路上沒有記憶的痕跡，這次要去別處找原因。' },
     ],
     imagery: [
-        { greeting: '你来啦，{user}。雾里还浮着刚才留下的微光。', trail: '刚才这里经过了这些记忆……', empty: '光点没有分岔。刚才没有任何记忆被带进回复。' },
-        { greeting: '嘘，{user}。那些被碰过的记忆还没完全沉下去。', trail: '等一等，它们会从暗处慢慢亮起来……', empty: '今晚没有记忆亮起。这里没有可修补的召回痕迹。' },
+        { greeting: '你來啦，{user}。霧裡還浮著剛才留下的微光。', trail: '剛才這裡經過了這些記憶……', empty: '光點沒有分岔。剛才沒有任何記憶被帶進回覆。' },
+        { greeting: '噓，{user}。那些被碰過的記憶還沒完全沉下去。', trail: '等一等，它們會從暗處慢慢亮起來……', empty: '今晚沒有記憶亮起。這裡沒有可修補的召回痕跡。' },
     ],
     analytical: [
-        { greeting: '你来啦，{user}。本轮召回现场已经封存，我们逐条核对。', trail: '以下是刚才实际经过的记忆，以及命中事件盒的完整结构。', empty: '核对完成：本轮没有记忆注入记录。' },
-        { greeting: '正好，{user}。刚才的回复和召回记录都还在可比对范围内。', trail: '召回痕迹正在展开，请从事实、对象和时间三个方向检查。', empty: '没有召回项。刚才的问题不应归因于向量记忆。' },
+        { greeting: '你來啦，{user}。本輪召回現場已經封存，我們逐條核對。', trail: '以下是剛才實際經過的記憶，以及命中事件盒的完整結構。', empty: '核對完成：本輪沒有記憶注入記錄。' },
+        { greeting: '正好，{user}。剛才的回覆和召回記錄都還在可比對範圍內。', trail: '召回痕跡正在展開，請從事實、對象和時間三個方向檢查。', empty: '沒有召回項。剛才的問題不應歸因於向量記憶。' },
     ],
 };
 

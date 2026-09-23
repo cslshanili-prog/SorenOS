@@ -9,14 +9,14 @@ import { tryAcquireMaintenanceLock, releaseMaintenanceLock } from './maintenance
 import { ChatPrompts } from './chatPrompts';
 import { buildGroupHistoryBlock } from './groupChat/prompts';
 
-// fake-indexeddb 已通过 test-setup.ts 注入。
-// 这组用例钉「优化资源存储」的安全边界：只转已接令牌链路的面、原值失败保留、
-// 幂等可重跑、目标表必须在 GC 引用面清单内（否则转出的 Blob 会被 GC 当孤儿删）。
+// fake-indexeddb 已通過 test-setup.ts 注入。
+// 這組用例釘「優化資源存儲」的安全邊界：只轉已接令牌鏈路的面、原值失敗保留、
+// 冪等可重跑、目標表必須在 GC 引用面清單內（否則轉出的 Blob 會被 GC 當孤兒刪）。
 
 const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-// 字节内容随意（没人校验 jpeg 魔数），要的只是「另一份不同的 data URL」
+// 字節內容隨意（沒人校驗 jpeg 魔數），要的只是「另一份不同的 data URL」
 const TINY_JPEG = 'data:image/jpeg;base64,AQIDBAUG';
-// 第三张不同内容的图：气泡主题一侧就有三个图片字段，两张不够摆
+// 第三張不同內容的圖：氣泡主題一側就有三個圖片字段，兩張不夠擺
 const TINY_GIF = 'data:image/gif;base64,BwgJCgsM';
 
 async function clearStore(name: string): Promise<void> {
@@ -30,16 +30,16 @@ async function clearStore(name: string): Promise<void> {
 }
 
 beforeEach(async () => {
-    // 清库范围跟着覆盖面走：收了新表这里自动跟上，不用手工维护第二份清单
+    // 清庫範圍跟著覆蓋面走：收了新表這裡自動跟上，不用手工維護第二份清單
     for (const s of [...new Set([...OPTIMIZE_TARGET_STORES, 'story_theater_masks', 'blob_assets', 'memory_vectors'])]) {
         await clearStore(s);
     }
     localStorage.clear();
-    // 内容记忆是模块级的，不清会让上一条用例存的令牌被这条复用，断言全乱
+    // 內容記憶是模塊級的，不清會讓上一條用例存的令牌被這條複用，斷言全亂
     clearContentMemo();
 });
 
-/** 直接往某张表里塞几行（绕开 DB 的各种便捷写入口，形状随便造）。 */
+/** 直接往某張表裡塞幾行（繞開 DB 的各種便捷寫入口，形狀隨便造）。 */
 async function seedStore(name: string, records: any[]): Promise<void> {
     const db = await openDB();
     await new Promise<void>((resolve, reject) => {
@@ -57,8 +57,8 @@ async function blobBytes(token: string): Promise<Uint8Array> {
     return new Uint8Array(await blob!.arrayBuffer());
 }
 
-describe('优化资源存储（一次性批量迁移）', () => {
-    it('壁纸 assets 行转成令牌，Blob 字节与原图逐一致', async () => {
+describe('優化資源存儲（一次性批量遷移）', () => {
+    it('壁紙 assets 行轉成令牌，Blob 字節與原圖逐一致', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         const r = await optimizeResourceStorage();
 
@@ -72,16 +72,16 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.bytesAfter).toBeGreaterThan(0);
     });
 
-    it('同一张图多处引用：全部换成同一令牌，只建一个 Blob', async () => {
+    it('同一張圖多處引用：全部換成同一令牌，只建一個 Blob', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         await DB.saveCharacter({
-            id: 'c1', name: '测试角色',
+            id: 'c1', name: '測試角色',
             roomConfig: { wallImage: TINY_PNG, floorImage: TINY_JPEG, items: [{ id: 'i1', image: TINY_PNG }] },
         } as any);
 
         const r = await optimizeResourceStorage();
         expect(r.converted).toBe(4);   // wallpaper + wallImage + item + floorImage
-        expect(r.uniqueBlobs).toBe(2); // TINY_PNG 一个、TINY_JPEG 一个
+        expect(r.uniqueBlobs).toBe(2); // TINY_PNG 一個、TINY_JPEG 一個
 
         const wallpaperToken = await DB.getAsset('wallpaper');
         const c = (await DB.getAllCharacters()).find(x => x.id === 'c1') as any;
@@ -91,8 +91,8 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(c.roomConfig.floorImage).not.toBe(wallpaperToken);
     });
 
-    it('songs 封面与捏人器部件（canonical 链路）都转成可解析令牌', async () => {
-        await DB.saveSong({ id: 's1', title: '测试曲', coverImage: TINY_JPEG } as any);
+    it('songs 封面與捏人器部件（canonical 鏈路）都轉成可解析令牌', async () => {
+        await DB.saveSong({ id: 's1', title: '測試曲', coverImage: TINY_JPEG } as any);
         await DB.saveCustomCreatorPart({ id: 'p1', src: TINY_PNG, shadowSrc: TINY_JPEG } as any);
 
         await optimizeResourceStorage();
@@ -107,9 +107,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await blobBytes(part.src)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_PNG).arrayBuffer()));
     });
 
-    it('外观预设 JSON：壁纸/图标转令牌，其余字段原样、JSON 结构完好', async () => {
+    it('外觀預設 JSON：壁紙/圖標轉令牌，其餘字段原樣、JSON 結構完好', async () => {
         const preset = {
-            id: 'ap1', name: '我的预设', createdAt: 1,
+            id: 'ap1', name: '我的預設', createdAt: 1,
             theme: { wallpaper: TINY_PNG, darkMode: true },
             customIcons: { chat: TINY_JPEG },
         };
@@ -121,15 +121,15 @@ describe('优化资源存储（一次性批量迁移）', () => {
         const stored = JSON.parse((await DB.getAsset('appearance_preset_ap1'))!);
         expect(isBlobRef(stored.theme.wallpaper)).toBe(true);
         expect(isBlobRef(stored.customIcons.chat)).toBe(true);
-        expect(stored.name).toBe('我的预设');
+        expect(stored.name).toBe('我的預設');
         expect(stored.theme.darkMode).toBe(true);
     });
 
-    it('卡片消息：content 和 metadata.scoreCard 两份副本一起转（读端优先读后者）', async () => {
+    it('卡片消息：content 和 metadata.scoreCard 兩份副本一起轉（讀端優先讀後者）', async () => {
         await seedStore('messages', [{
             id: 101, charId: 'c1', role: 'assistant', type: 'score_card', timestamp: 1,
-            content: JSON.stringify({ type: 'anniv520_card', charAvatar: TINY_PNG, photoDataUrl: TINY_JPEG, title: '心动瞬间' }),
-            metadata: { scoreCard: { type: 'anniv520_card', charAvatar: TINY_PNG, photoDataUrl: TINY_JPEG, title: '心动瞬间' } },
+            content: JSON.stringify({ type: 'anniv520_card', charAvatar: TINY_PNG, photoDataUrl: TINY_JPEG, title: '心動瞬間' }),
+            metadata: { scoreCard: { type: 'anniv520_card', charAvatar: TINY_PNG, photoDataUrl: TINY_JPEG, title: '心動瞬間' } },
         }]);
 
         await optimizeResourceStorage();
@@ -140,10 +140,10 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(card.photoDataUrl)).toBe(true);
         expect(isBlobRef(m.metadata.scoreCard.charAvatar)).toBe(true);
         expect(isBlobRef(m.metadata.scoreCard.photoDataUrl)).toBe(true);
-        expect(card.title).toBe('心动瞬间');
+        expect(card.title).toBe('心動瞬間');
     });
 
-    it('雷区守卫：卡片 JSON 里的 520 手办图不能被顺手转走', async () => {
+    it('雷區守衛：卡片 JSON 裡的 520 手辦圖不能被順手轉走', async () => {
         await seedStore('messages', [{
             id: 102, charId: 'c1', role: 'assistant', type: 'score_card', timestamp: 1,
             content: JSON.stringify({ charAvatar: TINY_PNG, charChibi: { dataUrl: TINY_JPEG } }),
@@ -158,9 +158,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(m.metadata.scoreCard.charChibi.dataUrl).toBe(TINY_JPEG);
     });
 
-    it('通话结束卡的头像、分享帖快照的作者与评论头像都转，帖子配图不碰', async () => {
+    it('通話結束卡的頭像、分享帖快照的作者與評論頭像都轉，帖子配圖不碰', async () => {
         await seedStore('messages', [{
-            id: 103, charId: 'c1', role: 'assistant', type: 'text', content: '通话结束', timestamp: 1,
+            id: 103, charId: 'c1', role: 'assistant', type: 'text', content: '通話結束', timestamp: 1,
             metadata: {
                 characterAvatar: TINY_PNG,
                 post: {
@@ -176,12 +176,12 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(m.metadata.characterAvatar)).toBe(true);
         expect(isBlobRef(m.metadata.post.authorAvatar)).toBe(true);
         expect(isBlobRef(m.metadata.post.comments[0].authorAvatar)).toBe(true);
-        expect(m.metadata.post.images[0]).toBe(TINY_PNG);   // 读端把它当可能是 emoji 的文本渲染
+        expect(m.metadata.post.images[0]).toBe(TINY_PNG);   // 讀端把它當可能是 emoji 的文本渲染
     });
 
-    it('引用快照：图片副本换成占位符，不留令牌（留了会让孤儿清理整轮不敢删）', async () => {
+    it('引用快照：圖片副本換成佔位符，不留令牌（留了會讓孤兒清理整輪不敢刪）', async () => {
         await seedStore('messages', [
-            { id: 104, charId: 'c1', role: 'assistant', type: 'text', content: '好可爱', timestamp: 1,
+            { id: 104, charId: 'c1', role: 'assistant', type: 'text', content: '好可愛', timestamp: 1,
               replyTo: { name: '小明', content: TINY_PNG } },
             { id: 105, charId: 'c1', role: 'assistant', type: 'text', content: '嗯嗯', timestamp: 2,
               replyTo: { name: '小明', content: '今天去看海啦' } },
@@ -192,15 +192,15 @@ describe('优化资源存储（一次性批量迁移）', () => {
         const rows: any[] = (await DB.getStoreRowsPage('messages', null, 10)).rows;
         const withImage = rows.find(r => r.id === 104);
         const withText = rows.find(r => r.id === 105);
-        expect(withImage.replyTo.content).toBe('[图片]');
+        expect(withImage.replyTo.content).toBe('[圖片]');
         expect(withImage.replyTo.content).not.toContain('blobref');
-        expect(withText.replyTo.content).toBe('今天去看海啦');   // 普通文字原样
+        expect(withText.replyTo.content).toBe('今天去看海啦');   // 普通文字原樣
     });
 
-    it('引用快照：图片 / 表情行的引用也要归一化，正文转令牌不能顶掉这一步', async () => {
-        // 引用一条图片消息后回了张图或一个表情，这两行的 type 就是 image / emoji。
-        // 正文和引用快照是一行里的两处改动，得一起写回去：漏掉引用那处的话，正文下一轮
-        // 已经是令牌、不会再被处理，快照里那份几 MB 的 dataURL 就永久留在库里了。
+    it('引用快照：圖片 / 表情行的引用也要歸一化，正文轉令牌不能頂掉這一步', async () => {
+        // 引用一條圖片消息後回了張圖或一個表情，這兩行的 type 就是 image / emoji。
+        // 正文和引用快照是一行裡的兩處改動，得一起寫回去：漏掉引用那處的話，正文下一輪
+        // 已經是令牌、不會再被處理，快照裡那份幾 MB 的 dataURL 就永久留在庫裡了。
         await seedStore('messages', [
             { id: 201, charId: 'c1', role: 'user', type: 'image', content: TINY_PNG, timestamp: 1,
               replyTo: { name: '小明', content: TINY_JPEG } },
@@ -213,15 +213,15 @@ describe('优化资源存储（一次性批量迁移）', () => {
         const rows: any[] = (await DB.getStoreRowsPage('messages', null, 10)).rows;
         const image = rows.find(r => r.id === 201);
         const emoji = rows.find(r => r.id === 202);
-        expect(image.replyTo.content).toBe('[图片]');
-        expect(emoji.replyTo.content).toBe('[图片]');
-        // 正文照转，两处改动合成一次整行写回
+        expect(image.replyTo.content).toBe('[圖片]');
+        expect(emoji.replyTo.content).toBe('[圖片]');
+        // 正文照轉，兩處改動合成一次整行寫回
         expect(isBlobRef(image.content)).toBe(true);
         expect(isBlobRef(emoji.content)).toBe(true);
         expect(JSON.stringify(rows)).not.toContain('data:image');
     });
 
-    it('我方的彼方 Q 版形象也转（角色那侧和我方这侧是两段代码，只改一边会漏）', async () => {
+    it('我方的彼方 Q 版形象也轉（角色那側和我方這側是兩段代碼，只改一邊會漏）', async () => {
         await seedStore('user_profile', [{ id: 'me', name: '小明', vrState: { chibi: { img: TINY_PNG } } }]);
 
         await optimizeResourceStorage();
@@ -230,7 +230,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(me.vrState.chibi.img)).toBe(true);
     });
 
-    it('聊天背景与见面背景都转（文件头列了就得真的在代码里）', async () => {
+    it('聊天背景與見面背景都轉（文件頭列了就得真的在代碼裡）', async () => {
         await DB.saveCharacter({
             id: 'c-bg', name: '背景角色',
             chatBackground: TINY_PNG, dateBackground: TINY_JPEG,
@@ -243,11 +243,11 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(c.dateBackground)).toBe(true);
     });
 
-    it('见面立绘：角色默认那套和每个换装套装都转，换装那侧不漏', async () => {
+    it('見面立繪：角色默認那套和每個換裝套裝都轉，換裝那側不漏', async () => {
         await DB.saveCharacter({
-            id: 'c-sprite', name: '立绘角色',
+            id: 'c-sprite', name: '立繪角色',
             sprites: { normal: TINY_PNG, happy: TINY_JPEG, chibi: TINY_PNG },
-            dateSkinSets: [{ id: 'skin1', name: '泳装', sprites: { normal: TINY_JPEG, shy: TINY_PNG } }],
+            dateSkinSets: [{ id: 'skin1', name: '泳裝', sprites: { normal: TINY_JPEG, shy: TINY_PNG } }],
         } as any);
 
         await optimizeResourceStorage();
@@ -257,11 +257,11 @@ describe('优化资源存储（一次性批量迁移）', () => {
         for (const key of ['normal', 'shy']) expect(isBlobRef(c.dateSkinSets[0].sprites[key])).toBe(true);
     });
 
-    it('见面存档：currentSprite 整个删掉，情绪键先反查出来补上', async () => {
-        // 这个字段是历史残留（新存档只记 currentSpriteKey），存的是整张立绘的 base64 副本。
-        // 反查必须发生在立绘转令牌之前，否则值就对不上了。
+    it('見面存檔：currentSprite 整個刪掉，情緒鍵先反查出來補上', async () => {
+        // 這個字段是歷史殘留（新存檔只記 currentSpriteKey），存的是整張立繪的 base64 副本。
+        // 反查必須發生在立繪轉令牌之前，否則值就對不上了。
         await DB.saveCharacter({
-            id: 'c-saved', name: '有存档的角色',
+            id: 'c-saved', name: '有存檔的角色',
             sprites: { normal: TINY_PNG, happy: TINY_JPEG },
             savedDateState: { currentSprite: TINY_JPEG, timestamp: 1 },
         } as any);
@@ -269,14 +269,14 @@ describe('优化资源存储（一次性批量迁移）', () => {
         await optimizeResourceStorage();
 
         const c: any = (await DB.getAllCharacters()).find(x => x.id === 'c-saved')!;
-        expect(c.savedDateState.currentSprite).toBeUndefined();   // 空间归零
-        expect(c.savedDateState.currentSpriteKey).toBe('happy');  // 表情没丢
+        expect(c.savedDateState.currentSprite).toBeUndefined();   // 空間歸零
+        expect(c.savedDateState.currentSpriteKey).toBe('happy');  // 表情沒丟
         expect(isBlobRef(c.sprites.happy)).toBe(true);
     });
 
-    it('见面存档：已经记了情绪键的存档，不覆盖它', async () => {
+    it('見面存檔：已經記了情緒鍵的存檔，不覆蓋它', async () => {
         await DB.saveCharacter({
-            id: 'c-saved2', name: '新存档',
+            id: 'c-saved2', name: '新存檔',
             sprites: { normal: TINY_PNG, happy: TINY_JPEG },
             savedDateState: { currentSprite: TINY_JPEG, currentSpriteKey: 'normal', timestamp: 1 },
         } as any);
@@ -288,9 +288,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(c.savedDateState.currentSprite).toBeUndefined();
     });
 
-    it('彼方 Q 版形象、查手机通讯录头像、活动卡片头像都转', async () => {
+    it('彼方 Q 版形象、查手機通訊錄頭像、活動卡片頭像都轉', async () => {
         await DB.saveCharacter({
-            id: 'c-misc', name: '杂项角色',
+            id: 'c-misc', name: '雜項角色',
             vrState: { chibi: { img: TINY_PNG } },
             phoneState: { contacts: [{ id: 'ct1', name: '甲', avatar: TINY_JPEG }, { id: 'ct2', name: '乙', avatar: TINY_PNG }] },
             specialMomentRecords: { qixi_2026_x: { customData: { chatCard: { charAvatar: TINY_JPEG } } } },
@@ -305,9 +305,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(c.specialMomentRecords.qixi_2026_x.customData.chatCard.charAvatar)).toBe(true);
     });
 
-    it('活动留存的大图也转（白色情人节明信片 / 520 定妆照）', async () => {
+    it('活動留存的大圖也轉（白色情人節明信片 / 520 定妝照）', async () => {
         await DB.saveCharacter({
-            id: 'c-moment', name: '活动角色',
+            id: 'c-moment', name: '活動角色',
             specialMomentRecords: {
                 whiteday_2026: { image: TINY_PNG, timestamp: 1 },
                 like520_2026: { image: TINY_JPEG, timestamp: 2 },
@@ -321,9 +321,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(m.like520_2026.image)).toBe(true);
     });
 
-    it('雷区守卫：活动记录里的 520 手办图刻意保持 dataURL，绝不能被顺手转走', async () => {
-        // 520 活动那边全是裸 <img> + canvas 合成，令牌过不去。谁要是把
-        // specialMomentRecords 改成整体深度遍历，这条会挂。
+    it('雷區守衛：活動記錄裡的 520 手辦圖刻意保持 dataURL，絕不能被順手轉走', async () => {
+        // 520 活動那邊全是裸 <img> + canvas 合成，令牌過不去。誰要是把
+        // specialMomentRecords 改成整體深度遍歷，這條會掛。
         await DB.saveCharacter({
             id: 'c-520', name: '520 角色',
             specialMomentRecords: {
@@ -340,12 +340,12 @@ describe('优化资源存储（一次性批量迁移）', () => {
         await optimizeResourceStorage();
 
         const cd: any = ((await DB.getAllCharacters()).find(x => x.id === 'c-520') as any).specialMomentRecords.like520_2026.customData;
-        expect(isBlobRef(cd.chatCard.charAvatar)).toBe(true);     // 这个该转
-        expect(cd.charChibi.dataUrl).toBe(TINY_JPEG);             // 这两个一个字节都不许动
+        expect(isBlobRef(cd.chatCard.charAvatar)).toBe(true);     // 這個該轉
+        expect(cd.charChibi.dataUrl).toBe(TINY_JPEG);             // 這兩個一個字節都不許動
         expect(cd.userChibi.dataUrl).toBe(TINY_JPEG);
     });
 
-    it('社交帖子：作者头像与评论头像都转，帖子自己的配图不碰', async () => {
+    it('社交帖子：作者頭像與評論頭像都轉，帖子自己的配圖不碰', async () => {
         await DB.putStoreRows('social_posts', [{
             id: 'p1', authorName: '小明', authorAvatar: TINY_PNG,
             title: 't', content: 'c', images: [TINY_JPEG],
@@ -358,14 +358,14 @@ describe('优化资源存储（一次性批量迁移）', () => {
         const [post]: any = (await DB.getStoreRowsPage('social_posts', null, 100)).rows;
         expect(isBlobRef(post.authorAvatar)).toBe(true);
         expect(isBlobRef(post.comments[0].authorAvatar)).toBe(true);
-        expect(post.images[0]).toBe(TINY_JPEG);   // 读端还没改造，不在收录范围
+        expect(post.images[0]).toBe(TINY_JPEG);   // 讀端還沒改造，不在收錄範圍
     });
 
-    it('群头像转令牌，但代码现画的 SVG 占位符跳过（换一条 Blob 行不值几百字节）', async () => {
+    it('群頭像轉令牌，但代碼現畫的 SVG 佔位符跳過（換一條 Blob 行不值幾百字節）', async () => {
         const SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><circle r="9"/></svg>';
         await DB.putStoreRows('groups', [
-            { id: 'g1', name: '真头像群', avatar: TINY_PNG },
-            { id: 'g2', name: '默认头像群', avatar: SVG },
+            { id: 'g1', name: '真頭像群', avatar: TINY_PNG },
+            { id: 'g2', name: '默認頭像群', avatar: SVG },
         ]);
 
         await optimizeResourceStorage();
@@ -375,9 +375,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(rows.find(g => g.id === 'g2').avatar).toBe(SVG);
     });
 
-    it('雷区守卫：生活模拟只转角色头像副本，剧情插图不碰', async () => {
+    it('雷區守衛：生活模擬只轉角色頭像副本，劇情插圖不碰', async () => {
         // attachments[].imageUrl 是裸 <img> 渲染的（apps/lifesim/StoryAttachments.tsx）。
-        // 谁把 life_sim 改成整行深度遍历，这条会挂。
+        // 誰把 life_sim 改成整行深度遍歷，這條會掛。
         await DB.putStoreRows('life_sim', [{
             id: 'sim1',
             actionLog: [{
@@ -393,7 +393,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(sim.actionLog[0].attachments[0].imageUrl).toBe(TINY_JPEG);
     });
 
-    it('社交主页：背景图（裸字符串）和资料 JSON 里的头像都转', async () => {
+    it('社交主頁：背景圖（裸字符串）和資料 JSON 裡的頭像都轉', async () => {
         await DB.saveAsset('spark_user_bg', TINY_PNG);
         await DB.saveAsset('spark_social_profile', JSON.stringify({ name: '小明', avatar: TINY_JPEG, bio: '你好' }));
 
@@ -403,18 +403,18 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef((await DB.getAsset('spark_user_bg'))!)).toBe(true);
         const profile = JSON.parse((await DB.getAsset('spark_social_profile'))!);
         expect(isBlobRef(profile.avatar)).toBe(true);
-        expect(profile.name).toBe('小明');   // 非图片字段原样
+        expect(profile.name).toBe('小明');   // 非圖片字段原樣
         expect(profile.bio).toBe('你好');
     });
 
-    it('桌面小组件图：assets 里的 widget_* 行和预设里内嵌的那份都转', async () => {
+    it('桌面小組件圖：assets 裡的 widget_* 行和預設裡內嵌的那份都轉', async () => {
         await DB.saveAsset('widget_dsq', TINY_PNG);
         await DB.saveAsset('appearance_preset_ap4', JSON.stringify({
-            id: 'ap4', name: '带小组件的预设', createdAt: 1,
+            id: 'ap4', name: '帶小組件的預設', createdAt: 1,
             theme: {
                 wallpaper: 'linear-gradient(#fff,#000)',
-                // polaroid_* 是老美化包留下的历史槽位，桌面只认 tl/tr/wide/dsq，
-                // 但它一样占着预设 JSON 的体积，一起转
+                // polaroid_* 是老美化包留下的歷史槽位，桌面只認 tl/tr/wide/dsq，
+                // 但它一樣佔著預設 JSON 的體積，一起轉
                 launcherWidgets: { dsq: TINY_JPEG, wide: TINY_PNG, polaroid_tl: TINY_JPEG },
             },
         }));
@@ -428,14 +428,14 @@ describe('优化资源存储（一次性批量迁移）', () => {
         }
     });
 
-    it('外观预设内嵌的气泡主题：user / ai 两侧六张图都转，一侧都不漏', async () => {
-        // 存预设时 chatThemes 是从 themes 表原样抄过来的。themes 表转了、预设里这份没转，
-        // 下次应用预设就把 base64 又灌回 themes 表——两边必须一起转。
+    it('外觀預設內嵌的氣泡主題：user / ai 兩側六張圖都轉，一側都不漏', async () => {
+        // 存預設時 chatThemes 是從 themes 表原樣抄過來的。themes 表轉了、預設裡這份沒轉，
+        // 下次應用預設就把 base64 又灌回 themes 表——兩邊必須一起轉。
         const preset = {
-            id: 'ap2', name: '带气泡的预设', createdAt: 1,
+            id: 'ap2', name: '帶氣泡的預設', createdAt: 1,
             theme: { wallpaper: TINY_PNG },
             chatThemes: [{
-                id: 'ct1', name: '主题一', type: 'custom',
+                id: 'ct1', name: '主題一', type: 'custom',
                 user: { backgroundImage: TINY_PNG, decoration: TINY_JPEG, avatarDecoration: TINY_PNG },
                 ai: { backgroundImage: TINY_JPEG, decoration: TINY_PNG, avatarDecoration: TINY_JPEG },
             }],
@@ -450,12 +450,12 @@ describe('优化资源存储（一次性批量迁移）', () => {
                 expect(isBlobRef(stored.chatThemes[0][side][key])).toBe(true);
             }
         }
-        expect(stored.chatThemes[0].name).toBe('主题一');   // 非图片字段原样
+        expect(stored.chatThemes[0].name).toBe('主題一');   // 非圖片字段原樣
     });
 
-    it('外观预设里的 launcherWidgetImage 直接扔掉，不占位也不转成令牌', async () => {
-        // 这个字段 types.ts 标了 DEPRECATED、加载时必被剥离、永远不渲染。
-        // 老美化包的预设里压着几百 KB 的 base64，转成令牌只是把死重量换个地方存。
+    it('外觀預設裡的 launcherWidgetImage 直接扔掉，不佔位也不轉成令牌', async () => {
+        // 這個字段 types.ts 標了 DEPRECATED、加載時必被剝離、永遠不渲染。
+        // 老美化包的預設裡壓著幾百 KB 的 base64，轉成令牌只是把死重量換個地方存。
         const preset = {
             id: 'ap3', name: '老美化包', createdAt: 1,
             theme: { wallpaper: 'linear-gradient(#fff,#000)', launcherWidgetImage: TINY_PNG },
@@ -466,11 +466,11 @@ describe('优化资源存储（一次性批量迁移）', () => {
 
         const stored = JSON.parse((await DB.getAsset('appearance_preset_ap3'))!);
         expect(stored.theme.launcherWidgetImage).toBeUndefined();
-        expect(stored.theme.wallpaper).toBe('linear-gradient(#fff,#000)');   // 渐变不动
-        expect(r.converted).toBe(0);   // 扔掉不算「转换」，不该虚报收益
+        expect(stored.theme.wallpaper).toBe('linear-gradient(#fff,#000)');   // 漸變不動
+        expect(r.converted).toBe(0);   // 扔掉不算「轉換」，不該虛報收益
     });
 
-    it('相册 gallery 行转成令牌，Blob 字节与原图逐字节一致', async () => {
+    it('相冊 gallery 行轉成令牌，Blob 字節與原圖逐字節一致', async () => {
         await DB.saveGalleryImage({ id: 'g1', charId: 'c1', url: TINY_PNG, timestamp: 1 });
 
         const r = await optimizeResourceStorage();
@@ -483,7 +483,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.failed).toBe(0);
     });
 
-    it('相册图和别处引用同一张图：收敛到同一个令牌，只建一个 Blob', async () => {
+    it('相冊圖和別處引用同一張圖：收斂到同一個令牌，只建一個 Blob', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         await DB.saveGalleryImage({ id: 'g1', charId: 'c1', url: TINY_PNG, timestamp: 1 });
 
@@ -496,7 +496,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.uniqueBlobs).toBe(1);
     });
 
-    it('相册幂等：第一遍转完，第二遍零转换', async () => {
+    it('相冊冪等：第一遍轉完，第二遍零轉換', async () => {
         await DB.saveGalleryImage({ id: 'g1', charId: 'c1', url: TINY_PNG, timestamp: 1 });
 
         const first = await optimizeResourceStorage();
@@ -508,23 +508,23 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(second.failed).toBe(0);
     });
 
-    it('相册独占引用的图不会被孤儿 GC 删掉（gallery 必须在 GC 的引用面清单里）', async () => {
+    it('相冊獨佔引用的圖不會被孤兒 GC 刪掉（gallery 必須在 GC 的引用面清單裡）', async () => {
         await DB.saveGalleryImage({ id: 'g1', charId: 'c1', url: TINY_PNG, timestamp: 1 });
         await optimizeResourceStorage();
         const token = (await DB.getGalleryImages()).find(g => g.id === 'g1')!.url;
         expect(isBlobRef(token)).toBe(true);
 
-        // 转出来的 Blob 只有相册这一面引用着：GC 看不见这个面就会把它当孤儿删掉，相册全没
+        // 轉出來的 Blob 只有相冊這一面引用著：GC 看不見這個面就會把它當孤兒刪掉，相冊全沒
         const gc = await runBlobGc({ minAgeMs: 0 });
         expect(gc.aborted).toBe(false);
         expect(gc.deleted).toBe(0);
         expect(await getBlobForRef(token)).not.toBeNull();
     });
 
-    /** 一套气泡主题：两侧各带底纹 / 贴纸 / 头像挂件三张图，外加几个不该被碰的数值字段。 */
+    /** 一套氣泡主題：兩側各帶底紋 / 貼紙 / 頭像掛件三張圖，外加幾個不該被碰的數值字段。 */
     function makeTheme(): any {
         return {
-            id: 't1', name: '我的气泡', type: 'custom',
+            id: 't1', name: '我的氣泡', type: 'custom',
             user: {
                 textColor: '#ffffff', backgroundColor: '#6366f1', borderRadius: 20, opacity: 1,
                 backgroundImage: TINY_PNG, decoration: TINY_JPEG, avatarDecoration: TINY_GIF,
@@ -538,13 +538,13 @@ describe('优化资源存储（一次性批量迁移）', () => {
         };
     }
 
-    it('气泡主题：两侧六个图片字段都转成令牌，Blob 字节与原图逐字节一致', async () => {
+    it('氣泡主題：兩側六個圖片字段都轉成令牌，Blob 字節與原圖逐字節一致', async () => {
         await DB.saveTheme(makeTheme());
 
         const r = await optimizeResourceStorage();
 
         const t = (await DB.getThemes()).find(x => x.id === 't1') as any;
-        // 只处理 user 一侧是这一面最容易犯的错，所以两侧逐个字段都要断言
+        // 只處理 user 一側是這一面最容易犯的錯，所以兩側逐個字段都要斷言
         for (const side of ['user', 'ai']) {
             for (const key of ['backgroundImage', 'decoration', 'avatarDecoration']) {
                 expect(isBlobRef(t[side][key])).toBe(true);
@@ -555,18 +555,18 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await blobBytes(t.user.avatarDecoration)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_GIF).arrayBuffer()));
         expect(await blobBytes(t.ai.backgroundImage)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_GIF).arrayBuffer()));
         expect(r.converted).toBe(6);
-        expect(r.uniqueBlobs).toBe(3);   // 三张不同的图，两侧交叉引用只建三份 Blob
+        expect(r.uniqueBlobs).toBe(3);   // 三張不同的圖，兩側交叉引用只建三份 Blob
         expect(r.failed).toBe(0);
     });
 
-    it('气泡主题的非图片字段一字不动：颜色、圆角、透明度、贴纸坐标全保持原值', async () => {
+    it('氣泡主題的非圖片字段一字不動：顏色、圓角、透明度、貼紙座標全保持原值', async () => {
         const before = makeTheme();
         await DB.saveTheme(before);
 
         await optimizeResourceStorage();
 
         const t = (await DB.getThemes()).find(x => x.id === 't1') as any;
-        expect(t.name).toBe('我的气泡');
+        expect(t.name).toBe('我的氣泡');
         expect(t.user.textColor).toBe('#ffffff');
         expect(t.user.backgroundColor).toBe('#6366f1');
         expect(t.user.borderRadius).toBe(20);
@@ -579,7 +579,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(t.ai.backgroundImageOpacity).toBe(0.35);
     });
 
-    it('气泡主题幂等：第一遍转完，第二遍零转换', async () => {
+    it('氣泡主題冪等：第一遍轉完，第二遍零轉換', async () => {
         await DB.saveTheme(makeTheme());
 
         const first = await optimizeResourceStorage();
@@ -591,21 +591,21 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(second.failed).toBe(0);
     });
 
-    it('气泡主题独占引用的图不会被孤儿 GC 删掉（themes 必须在 GC 的引用面清单里）', async () => {
+    it('氣泡主題獨佔引用的圖不會被孤兒 GC 刪掉（themes 必須在 GC 的引用面清單裡）', async () => {
         await DB.saveTheme(makeTheme());
         await optimizeResourceStorage();
         const t = (await DB.getThemes()).find(x => x.id === 't1') as any;
         const tokens = [t.user.backgroundImage, t.user.decoration, t.user.avatarDecoration];
         for (const token of tokens) expect(isBlobRef(token)).toBe(true);
 
-        // 转出来的 Blob 只有主题这一面引用着：GC 看不见这个面就会把它们全当孤儿删掉
+        // 轉出來的 Blob 只有主題這一面引用著：GC 看不見這個面就會把它們全當孤兒刪掉
         const gc = await runBlobGc({ minAgeMs: 0 });
         expect(gc.aborted).toBe(false);
         expect(gc.deleted).toBe(0);
         for (const token of tokens) expect(await getBlobForRef(token)).not.toBeNull();
     });
 
-    /** 往 messages 表塞一条消息，返回它的自增 id。 */
+    /** 往 messages 表塞一條消息，返回它的自增 id。 */
     async function seedMessage(type: string, content: string, charId = 'c1'): Promise<number> {
         return DB.saveMessage({ charId, role: 'user', type, content } as any);
     }
@@ -614,7 +614,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         return (await DB.getMessagesByCharId(charId)).find(m => m.id === id);
     }
 
-    it('聊天图片消息：content 转成令牌，Blob 字节与原图逐字节一致', async () => {
+    it('聊天圖片消息：content 轉成令牌，Blob 字節與原圖逐字節一致', async () => {
         const id = await seedMessage('image', TINY_PNG);
 
         const r = await optimizeResourceStorage();
@@ -627,7 +627,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.failed).toBe(0);
     });
 
-    it('表情消息（type=emoji）也转成令牌', async () => {
+    it('表情消息（type=emoji）也轉成令牌', async () => {
         const id = await seedMessage('emoji', TINY_JPEG);
 
         await optimizeResourceStorage();
@@ -637,9 +637,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await blobBytes(msg.content)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_JPEG).arrayBuffer()));
     });
 
-    it('文本消息一字不动：正文恰好长得像 data URL 也不碰', async () => {
-        // messages 表里绝大多数行跟图片无关。少了 type 那道闸，一条正文里粘了 base64 的
-        // 文本消息就会被当图片转掉，用户看到的是自己发过的一段话变成了一串令牌。
+    it('文本消息一字不動：正文恰好長得像 data URL 也不碰', async () => {
+        // messages 表裡絕大多數行跟圖片無關。少了 type 那道閘，一條正文裡粘了 base64 的
+        // 文本消息就會被當圖片轉掉，用戶看到的是自己發過的一段話變成了一串令牌。
         const id = await seedMessage('text', TINY_PNG);
 
         const r = await optimizeResourceStorage();
@@ -650,25 +650,25 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.uniqueBlobs).toBe(0);
     });
 
-    it('表情库：本地图转成令牌，http 外链原样保留、分类不丢', async () => {
+    it('表情庫：本地圖轉成令牌，http 外鏈原樣保留、分類不丟', async () => {
         await DB.saveEmoji('本地表情', TINY_PNG, 'cat-1');
-        await DB.saveEmoji('网络表情', 'https://img.host/sticker.png', 'cat-1');
+        await DB.saveEmoji('網絡表情', 'https://img.host/sticker.png', 'cat-1');
 
         const r = await optimizeResourceStorage();
 
         const list = await DB.getEmojis();
         const local = list.find(e => e.name === '本地表情')!;
-        const remote = list.find(e => e.name === '网络表情')!;
+        const remote = list.find(e => e.name === '網絡表情')!;
         expect(isBlobRef(local.url)).toBe(true);
         expect(await blobBytes(local.url)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_PNG).arrayBuffer()));
-        // 外链是别人服务器上的地址，本机没有它的二进制，转不了也不该动
+        // 外鏈是別人服務器上的地址，本機沒有它的二進制，轉不了也不該動
         expect(remote.url).toBe('https://img.host/sticker.png');
-        // 表情的主键是 name，回写时把分类带丢了的话，这个表情会掉出它原来的分组
+        // 表情的主鍵是 name，回寫時把分類帶丟了的話，這個表情會掉出它原來的分組
         expect(local.categoryId).toBe('cat-1');
         expect(r.converted).toBe(1);
     });
 
-    it('聊天图与表情库独占引用的 Blob 不会被孤儿 GC 删掉（两面都必须在 GC 引用面清单里）', async () => {
+    it('聊天圖與表情庫獨佔引用的 Blob 不會被孤兒 GC 刪掉（兩面都必須在 GC 引用面清單裡）', async () => {
         const msgId = await seedMessage('image', TINY_PNG);
         await DB.saveEmoji('本地表情', TINY_JPEG, undefined);
         await optimizeResourceStorage();
@@ -678,7 +678,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(isBlobRef(msgToken)).toBe(true);
         expect(isBlobRef(emojiToken)).toBe(true);
 
-        // 这两份 Blob 各自只有一处引用：GC 看不见那个面就会把它当孤儿删掉，用户的聊天图 / 表情全没
+        // 這兩份 Blob 各自只有一處引用：GC 看不見那個面就會把它當孤兒刪掉，用戶的聊天圖 / 表情全沒
         const gc = await runBlobGc({ minAgeMs: 0 });
         expect(gc.aborted).toBe(false);
         expect(gc.deleted).toBe(0);
@@ -686,7 +686,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await getBlobForRef(emojiToken)).not.toBeNull();
     });
 
-    it('聊天图与表情库幂等：第一遍转完，第二遍零转换', async () => {
+    it('聊天圖與表情庫冪等：第一遍轉完，第二遍零轉換', async () => {
         await seedMessage('image', TINY_PNG);
         await seedMessage('emoji', TINY_JPEG);
         await DB.saveEmoji('本地表情', TINY_GIF, undefined);
@@ -700,7 +700,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(second.failed).toBe(0);
     });
 
-    it('角色头像：base64 转成令牌，Blob 字节与原图逐字节一致', async () => {
+    it('角色頭像：base64 轉成令牌，Blob 字節與原圖逐字節一致', async () => {
         await DB.saveCharacter({ id: 'c1', name: '角色', avatar: TINY_PNG } as any);
 
         const r = await optimizeResourceStorage();
@@ -713,7 +713,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.failed).toBe(0);
     });
 
-    it('角色头像与小屋图一趟遍历里一起转，互不影响', async () => {
+    it('角色頭像與小屋圖一趟遍歷裡一起轉，互不影響', async () => {
         await DB.saveCharacter({
             id: 'c1', name: '角色', avatar: TINY_PNG,
             roomConfig: { wallImage: TINY_JPEG, items: [] },
@@ -727,10 +727,10 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.converted).toBe(2);
     });
 
-    it('角色头像：emoji 与 http 外链原样保留，只有 data: 才转', async () => {
-        // 头像是两用字段，用户可以只填一个 emoji；外链是别人服务器上的地址，本机没有二进制
-        await DB.saveCharacter({ id: 'c1', name: '表情头像', avatar: '🐱' } as any);
-        await DB.saveCharacter({ id: 'c2', name: '外链头像', avatar: 'https://img.host/a.png' } as any);
+    it('角色頭像：emoji 與 http 外鏈原樣保留，只有 data: 才轉', async () => {
+        // 頭像是兩用字段，用戶可以只填一個 emoji；外鏈是別人服務器上的地址，本機沒有二進制
+        await DB.saveCharacter({ id: 'c1', name: '表情頭像', avatar: '🐱' } as any);
+        await DB.saveCharacter({ id: 'c2', name: '外鏈頭像', avatar: 'https://img.host/a.png' } as any);
 
         const r = await optimizeResourceStorage();
 
@@ -740,25 +740,25 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(r.converted).toBe(0);
     });
 
-    it('角色的非头像字段一字不动：刻意留 dataURL 的手办图和文本字段都不碰', async () => {
+    it('角色的非頭像字段一字不動：刻意留 dataURL 的手辦圖和文本字段都不碰', async () => {
         await DB.saveCharacter({
-            id: 'c1', name: '角色', avatar: TINY_PNG, personality: '话很少',
+            id: 'c1', name: '角色', avatar: TINY_PNG, personality: '話很少',
             chibiStudio: { like520: { img: TINY_JPEG } },
         } as any);
 
         const r = await optimizeResourceStorage();
 
         const c = (await DB.getAllCharacters()).find(x => x.id === 'c1') as any;
-        expect(isBlobRef(c.avatar)).toBe(true);             // 头像照转
-        expect(c.chibiStudio.like520.img).toBe(TINY_JPEG);  // 刻意保持 dataURL，见 docs/chibi-studio.md
-        expect(c.personality).toBe('话很少');
+        expect(isBlobRef(c.avatar)).toBe(true);             // 頭像照轉
+        expect(c.chibiStudio.like520.img).toBe(TINY_JPEG);  // 刻意保持 dataURL，見 docs/chibi-studio.md
+        expect(c.personality).toBe('話很少');
         expect(r.converted).toBe(1);
     });
 
-    it('我方头像：整体头像与分角色头像两处都转，外链与文本字段不动', async () => {
-        // 只转 avatar、忘了 perCharAvatars 是这一面最容易犯的错——分角色那几张会静默留在 base64
+    it('我方頭像：整體頭像與分角色頭像兩處都轉，外鏈與文本字段不動', async () => {
+        // 只轉 avatar、忘了 perCharAvatars 是這一面最容易犯的錯——分角色那幾張會靜默留在 base64
         await DB.saveUserProfile({
-            name: '小明', bio: '爱吃辣', avatar: TINY_PNG,
+            name: '小明', bio: '愛吃辣', avatar: TINY_PNG,
             perCharAvatars: { c1: TINY_JPEG, c2: TINY_GIF, c3: 'https://img.host/me.png' },
         } as any);
 
@@ -774,13 +774,13 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await blobBytes(per.c2)).toEqual(new Uint8Array(await dataUrlToBlob(TINY_GIF).arrayBuffer()));
         expect(per.c3).toBe('https://img.host/me.png');
         expect(p.name).toBe('小明');
-        expect(p.bio).toBe('爱吃辣');
+        expect(p.bio).toBe('愛吃辣');
         expect(r.converted).toBe(3);
         expect(r.uniqueBlobs).toBe(3);
         expect(r.failed).toBe(0);
     });
 
-    it('我方头像独占引用的 Blob 不会被孤儿 GC 删掉（user_profile 必须在 GC 引用面清单里）', async () => {
+    it('我方頭像獨佔引用的 Blob 不會被孤兒 GC 刪掉（user_profile 必須在 GC 引用面清單裡）', async () => {
         await DB.saveUserProfile({ name: '小明', avatar: TINY_PNG, perCharAvatars: { c1: TINY_JPEG } } as any);
         await optimizeResourceStorage();
         const p = (await DB.getUserProfile())!;
@@ -793,9 +793,9 @@ describe('优化资源存储（一次性批量迁移）', () => {
         for (const t of tokens) expect(await getBlobForRef(t)).not.toBeNull();
     });
 
-    it('头像被抄进帖子 / 群资料 / 剧场面具后，孤儿清理不会把图删掉', async () => {
-        // 头像会被抄进这些面长期留着。用户之后换了头像，characters 那边就不再指着原图，
-        // 只剩这些副本还引用它——GC 看不见哪一面，那一面上的头像就会碎成空白，且不可逆。
+    it('頭像被抄進帖子 / 群資料 / 劇場面具後，孤兒清理不會把圖刪掉', async () => {
+        // 頭像會被抄進這些面長期留著。用戶之後換了頭像，characters 那邊就不再指著原圖，
+        // 只剩這些副本還引用它——GC 看不見哪一面，那一面上的頭像就會碎成空白，且不可逆。
         await DB.saveCharacter({ id: 'c1', name: '甲', avatar: TINY_PNG } as any);
         await DB.saveCharacter({ id: 'c2', name: '乙', avatar: TINY_JPEG } as any);
         await DB.saveCharacter({ id: 'c3', name: '丙', avatar: TINY_GIF } as any);
@@ -808,21 +808,21 @@ describe('优化资源存储（一次性批量迁移）', () => {
         const maskToken = tokenOf('c3');
         for (const t of [postToken, groupToken, maskToken]) expect(isBlobRef(t)).toBe(true);
 
-        await seedStore('social_posts', [{ id: 'p1', charId: 'c1', authorAvatar: postToken, content: '今天天气不错', timestamp: 1 }]);
+        await seedStore('social_posts', [{ id: 'p1', charId: 'c1', authorAvatar: postToken, content: '今天天氣不錯', timestamp: 1 }]);
         await seedStore('groups', [{ id: 'g1', name: '小群', members: ['c1'], avatar: groupToken }]);
         await seedStore('story_theater_masks', [{ id: 'm1', name: '路人甲', avatar: maskToken }]);
-        // 三个角色随后都换成了 emoji 头像：这三份 Blob 只剩上面那三处副本引用着
+        // 三個角色隨後都換成了 emoji 頭像：這三份 Blob 只剩上面那三處副本引用著
         for (const c of chars) await DB.saveCharacter({ ...c, avatar: '🐱' });
 
         const gc = await runBlobGc({ minAgeMs: 0 });
         expect(gc.aborted).toBe(false);
         expect(gc.deleted).toBe(0);
-        expect(await getBlobForRef(postToken)).not.toBeNull();   // 帖子里的作者头像
-        expect(await getBlobForRef(groupToken)).not.toBeNull();  // 群资料里的群头像
-        expect(await getBlobForRef(maskToken)).not.toBeNull();   // 剧场面具上的头像
+        expect(await getBlobForRef(postToken)).not.toBeNull();   // 帖子裡的作者頭像
+        expect(await getBlobForRef(groupToken)).not.toBeNull();  // 群資料裡的群頭像
+        expect(await getBlobForRef(maskToken)).not.toBeNull();   // 劇場面具上的頭像
     });
 
-    it('头像幂等：第一遍转完，第二遍零转换', async () => {
+    it('頭像冪等：第一遍轉完，第二遍零轉換', async () => {
         await DB.saveCharacter({ id: 'c1', name: '角色', avatar: TINY_PNG } as any);
         await DB.saveUserProfile({ name: '小明', avatar: TINY_JPEG, perCharAvatars: { c1: TINY_GIF } } as any);
 
@@ -835,7 +835,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(second.failed).toBe(0);
     });
 
-    it('幂等：第二次运行零转换零新建', async () => {
+    it('冪等：第二次運行零轉換零新建', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         await optimizeResourceStorage();
         const second = await optimizeResourceStorage();
@@ -844,7 +844,7 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(second.failed).toBe(0);
     });
 
-    it('坏 data:image 转不动：原值保留、计入 failed，不中断其他面', async () => {
+    it('壞 data:image 轉不動：原值保留、計入 failed，不中斷其他面', async () => {
         await DB.saveAsset('wallpaper', 'data:image/png;base64,@@@@');
         await DB.saveAsset('lock_wallpaper', TINY_PNG);
 
@@ -854,82 +854,82 @@ describe('优化资源存储（一次性批量迁移）', () => {
         expect(await DB.getAsset('wallpaper')).toBe('data:image/png;base64,@@@@');
         expect(isBlobRef(await DB.getAsset('lock_wallpaper'))).toBe(true);
 
-        // 失败原因得留下来：只报一个 failed 数字的话，用户那边转不动时无从查起。
-        // 键上带着面名（这里是「系统外观」），才知道是哪张表出的事。
+        // 失敗原因得留下來：只報一個 failed 數字的話，用戶那邊轉不動時無從查起。
+        // 鍵上帶著面名（這裡是「系統外觀」），才知道是哪張表出的事。
         const reasons = Object.keys(r.failureReasons);
         expect(reasons).toHaveLength(1);
-        expect(reasons[0]).toContain('系统外观');
+        expect(reasons[0]).toContain('系統外觀');
         expect(r.failureReasons[reasons[0]]).toBe(1);
     });
 
-    it('行写回失败（配额满）：只丢这一行，整轮跑完不中断，也不虚报省下的量', async () => {
-        // 各表的写入口会等事务真的提交完才 resolve，配额满 / 事务 abort 都从那儿抛上来。
-        // 整个优化只有 finally 没有 catch，不在行级接住的话，一行写不进去就把后面的面
-        // 全掐了——连回收最省的那步「合并重复图片」都轮不到。而存储快满恰恰正是有人来点
-        // 这个按钮的时候。
+    it('行寫回失敗（配額滿）：只丟這一行，整輪跑完不中斷，也不虛報省下的量', async () => {
+        // 各表的寫入口會等事務真的提交完才 resolve，配額滿 / 事務 abort 都從那兒拋上來。
+        // 整個優化只有 finally 沒有 catch，不在行級接住的話，一行寫不進去就把後面的面
+        // 全掐了——連回收最省的那步「合併重複圖片」都輪不到。而存儲快滿恰恰正是有人來點
+        // 這個按鈕的時候。
         await DB.saveGalleryImage({ id: 'g1', charId: 'c1', url: TINY_PNG, timestamp: 1 });
         await DB.saveGalleryImage({ id: 'g2', charId: 'c1', url: TINY_JPEG, timestamp: 2 });
-        // 表情包在相册后面，用它看整轮到底有没有跑到头
+        // 表情包在相冊後面，用它看整輪到底有沒有跑到頭
         await DB.saveEmoji('本地表情', TINY_GIF, undefined);
 
-        const quota = new Error('存储空间不足');
+        const quota = new Error('存儲空間不足');
         quota.name = 'QuotaExceededError';
         const spy = vi.spyOn(DB, 'saveGalleryImage').mockRejectedValueOnce(quota);
         let r: Awaited<ReturnType<typeof optimizeResourceStorage>>;
         try {
-            r = await optimizeResourceStorage();   // 不许抛
+            r = await optimizeResourceStorage();   // 不許拋
         } finally {
             spy.mockRestore();
         }
 
-        // 挂掉的那一行原值还在（图不丢），后面的行和后面的面照常处理
+        // 掛掉的那一行原值還在（圖不丟），後面的行和後面的面照常處理
         const gallery = await DB.getGalleryImages();
         expect(gallery.find(g => g.id === 'g1')!.url).toBe(TINY_PNG);
         expect(isBlobRef(gallery.find(g => g.id === 'g2')!.url)).toBe(true);
         expect(isBlobRef((await DB.getEmojis()).find(e => e.name === '本地表情')!.url)).toBe(true);
 
-        // 口径不许撒谎：没落库的那张算「没省下来」，不算转换、也不算新建的 Blob
+        // 口徑不許撒謊：沒落庫的那張算「沒省下來」，不算轉換、也不算新建的 Blob
         expect(r!.failed).toBe(1);
         expect(r!.converted).toBe(2);     // g2 + 表情
         expect(r!.uniqueBlobs).toBe(2);
         const reasons = Object.keys(r!.failureReasons);
         expect(reasons).toHaveLength(1);
-        expect(reasons[0]).toContain('相册');
+        expect(reasons[0]).toContain('相冊');
         expect(reasons[0]).toContain('QuotaExceededError');
         expect(r!.failureReasons[reasons[0]]).toBe(1);
     });
 
-    it('没有失败时 failureReasons 是空的（别拿噪音喂给反馈报告）', async () => {
+    it('沒有失敗時 failureReasons 是空的（別拿噪音餵給反饋報告）', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         const r = await optimizeResourceStorage();
         expect(r.failed).toBe(0);
         expect(r.failureReasons).toEqual({});
     });
 
-    it('清单守卫：优化写入的每张表都在 GC 引用面清单里（否则转出的 Blob 会被当孤儿删）', () => {
+    it('清單守衛：優化寫入的每張表都在 GC 引用面清單裡（否則轉出的 Blob 會被當孤兒刪）', () => {
         for (const store of OPTIMIZE_TARGET_STORES) {
             expect(REF_SOURCE_STORES).toContain(store);
         }
     });
 
-    it('维护互斥：锁被占时优化与孤儿 GC 都干净拒绝', async () => {
-        expect(tryAcquireMaintenanceLock('测试占用')).toBe(true);
+    it('維護互斥：鎖被佔時優化與孤兒 GC 都乾淨拒絕', async () => {
+        expect(tryAcquireMaintenanceLock('測試佔用')).toBe(true);
         try {
-            await expect(optimizeResourceStorage()).rejects.toThrow(/正在进行/);
-            await expect(runBlobGc()).rejects.toThrow(/正在进行/);
+            await expect(optimizeResourceStorage()).rejects.toThrow(/正在[进進]行/);
+            await expect(runBlobGc()).rejects.toThrow(/正在[进進]行/);
         } finally {
             releaseMaintenanceLock();
         }
-        // 释放后可正常运行（锁没被拒绝路径污染）
+        // 釋放後可正常運行（鎖沒被拒絕路徑汙染）
         const r = await optimizeResourceStorage();
         expect(r.converted).toBe(0);
     });
 });
 
-// 「换图即删」字段（清单见 utils/blobDedupe.ts）：换图 / 移除时直接 deleteBlobRef 掉旧
-// Blob，前提是那份令牌只归自己。这组用例钉住迁移过来的令牌确实独占，以及衣柜不会裂。
-describe('换图即删的字段：令牌独占，衣柜不裂', () => {
-    it('桌面静态形象转成令牌，衣柜里那条跟顶层指向同一个', async () => {
+// 「換圖即刪」字段（清單見 utils/blobDedupe.ts）：換圖 / 移除時直接 deleteBlobRef 掉舊
+// Blob，前提是那份令牌只歸自己。這組用例釘住遷移過來的令牌確實獨佔，以及衣櫃不會裂。
+describe('換圖即刪的字段：令牌獨佔，衣櫃不裂', () => {
+    it('桌面靜態形象轉成令牌，衣櫃裡那條跟頂層指向同一個', async () => {
         await seedStore('characters', [{
             id: 'c1', name: '小明',
             companionAvatar: {
@@ -945,20 +945,20 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
 
         const c: any = (await DB.getAllCharacters()).find(x => x.id === 'c1');
         expect(isBlobRef(c.companionAvatar.imageRef)).toBe(true);
-        // 衣柜按 imageRef 认亲。当前穿着这套在衣柜里得还是同一条，两边令牌不一致就会裂成两条
+        // 衣櫃按 imageRef 認親。當前穿著這套在衣櫃裡得還是同一條，兩邊令牌不一致就會裂成兩條
         expect(c.companionAvatar.imageWardrobe[0].imageRef).toBe(c.companionAvatar.imageRef);
-        // 另一套是另一张图，令牌自然是另一个
+        // 另一套是另一張圖，令牌自然是另一個
         expect(isBlobRef(c.companionAvatar.imageWardrobe[1].imageRef)).toBe(true);
         expect(c.companionAvatar.imageWardrobe[1].imageRef).not.toBe(c.companionAvatar.imageRef);
         expect(await blobBytes(c.companionAvatar.imageRef))
             .toEqual(new Uint8Array(await dataUrlToBlob(TINY_PNG).arrayBuffer()));
     });
 
-    it('同一张图别处也有时，这个字段拿到的是自己那份令牌', async () => {
+    it('同一張圖別處也有時，這個字段拿到的是自己那份令牌', async () => {
         await seedStore('characters', [{
             id: 'c1', name: '小明',
-            avatar: TINY_PNG,                                                      // 走去重那条
-            companionAvatar: { version: 1, source: 'upload', imageRef: TINY_PNG },  // 走独占那条
+            avatar: TINY_PNG,                                                      // 走去重那條
+            companionAvatar: { version: 1, source: 'upload', imageRef: TINY_PNG },  // 走獨佔那條
         }]);
 
         await optimizeResourceStorage();
@@ -966,11 +966,11 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
         const c: any = (await DB.getAllCharacters()).find(x => x.id === 'c1');
         expect(isBlobRef(c.avatar)).toBe(true);
         expect(isBlobRef(c.companionAvatar.imageRef)).toBe(true);
-        // 内容一样，令牌必须是两个：换掉桌面形象时它会把自己那份 Blob 直接删掉
+        // 內容一樣，令牌必須是兩個：換掉桌面形象時它會把自己那份 Blob 直接刪掉
         expect(c.companionAvatar.imageRef).not.toBe(c.avatar);
     });
 
-    it('两个背景字段放同一张图，也各拿各的令牌', async () => {
+    it('兩個背景字段放同一張圖，也各拿各的令牌', async () => {
         await seedStore('characters', [{
             id: 'c1', name: '小明',
             videoCallBackground: TINY_JPEG,
@@ -985,7 +985,7 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
         expect(c.videoCallBackground).not.toBe(c.companionBackground);
     });
 
-    it('再跑一遍，去重阶段也不会把这两份一样的 Blob 并到一起', async () => {
+    it('再跑一遍，去重階段也不會把這兩份一樣的 Blob 併到一起', async () => {
         await seedStore('characters', [{
             id: 'c1', name: '小明',
             avatar: TINY_PNG,
@@ -995,8 +995,8 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
         await optimizeResourceStorage();
         const first: any = (await DB.getAllCharacters()).find(x => x.id === 'c1');
 
-        // 第二遍的去重阶段这才看得见上一遍转出来的两份同内容 Blob。
-        // collectUnmergeableRefs 把裸删字段挡在合并之外，挡漏了这里就会并成一个。
+        // 第二遍的去重階段這才看得見上一遍轉出來的兩份同內容 Blob。
+        // collectUnmergeableRefs 把裸刪字段擋在合併之外，擋漏了這裡就會併成一個。
         await optimizeResourceStorage();
         const second: any = (await DB.getAllCharacters()).find(x => x.id === 'c1');
 
@@ -1004,7 +1004,7 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
         expect(second.companionAvatar.imageRef).not.toBe(second.avatar);
     });
 
-    it('源码守卫：这几个字段不许走去重那条 put', () => {
+    it('源碼守衛：這幾個字段不許走去重那條 put', () => {
         const src = readFileSync(new URL('./storageOptimize.ts', import.meta.url), 'utf8');
         const start = src.indexOf('const companion = (c as any).companionAvatar;');
         expect(start).toBeGreaterThan(-1);
@@ -1013,14 +1013,14 @@ describe('换图即删的字段：令牌独占，衣柜不裂', () => {
         const block = src.slice(start, end);
 
         expect(block).toContain('convertExclusive');
-        // 换成 convert( 就是把令牌交给内容去重，别处一裸删这边的图跟着没
+        // 換成 convert( 就是把令牌交給內容去重，別處一裸刪這邊的圖跟著沒
         expect(block).not.toMatch(/\bconvert\(/);
     });
 });
 
-describe('去重：同一张图只留一份 Blob', () => {
-    it('存量重复：两份一样的 Blob，优化后引用收敛到最老的那个', async () => {
-        // 造出历史上两条迁移路径各存各的局面（putImageBlob 本身不去重）
+describe('去重：同一張圖只留一份 Blob', () => {
+    it('存量重複：兩份一樣的 Blob，優化後引用收斂到最老的那個', async () => {
+        // 造出歷史上兩條遷移路徑各存各的局面（putImageBlob 本身不去重）
         const older = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const newer = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await DB.saveAsset('wallpaper', older);
@@ -1035,7 +1035,7 @@ describe('去重：同一张图只留一份 Blob', () => {
         expect(r.scanUnavailable).toBe(false);
     });
 
-    it('合并只改引用，不删 Blob——多出来那份留给孤儿清理', async () => {
+    it('合併只改引用，不刪 Blob——多出來那份留給孤兒清理', async () => {
         const older = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const newer = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await DB.saveAsset('wallpaper', older);
@@ -1050,25 +1050,25 @@ describe('去重：同一张图只留一份 Blob', () => {
         expect(await getBlobForRef(older)).not.toBeNull();
     });
 
-    it('转换时复用库里已有的同内容 Blob，不再存出新的一份', async () => {
+    it('轉換時複用庫裡已有的同內容 Blob，不再存出新的一份', async () => {
         const existing = await putImageBlob(dataUrlToBlob(TINY_PNG));
-        await DB.saveAsset('lock_wallpaper', existing);   // 先让它有引用，不是孤儿
-        await DB.saveAsset('wallpaper', TINY_PNG);        // 这行还是 base64，等着被转
+        await DB.saveAsset('lock_wallpaper', existing);   // 先讓它有引用，不是孤兒
+        await DB.saveAsset('wallpaper', TINY_PNG);        // 這行還是 base64，等著被轉
 
         const r = await optimizeResourceStorage();
 
         expect(await DB.getAsset('wallpaper')).toBe(existing);
         expect(r.converted).toBe(1);
-        expect(r.uniqueBlobs).toBe(0);   // 一个新 Blob 都没建
+        expect(r.uniqueBlobs).toBe(0);   // 一個新 Blob 都沒建
         expect(r.bytesAfter).toBe(0);
     });
 
-    it('被「换图即删」字段引用的令牌整组跳过合并（否则对方一删这边就破图）', async () => {
+    it('被「換圖即刪」字段引用的令牌整組跳過合併（否則對方一刪這邊就破圖）', async () => {
         const wallpaperRef = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const stageRef = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await DB.saveAsset('wallpaper', wallpaperRef);
-        // videoCallBackground 换图时是裸删旧 Blob 的
-        await DB.saveCharacter({ id: 'c1', name: '测试角色', videoCallBackground: stageRef } as any);
+        // videoCallBackground 換圖時是裸刪舊 Blob 的
+        await DB.saveCharacter({ id: 'c1', name: '測試角色', videoCallBackground: stageRef } as any);
 
         const r = await optimizeResourceStorage();
 
@@ -1078,8 +1078,8 @@ describe('去重：同一张图只留一份 Blob', () => {
         expect(r.skippedGroups).toBe(1);
     });
 
-    /** 造一份扫库结果：scanned 与 skipped 在 SDK 里互斥（算出哈希才 scanned++，
-     *  读不出 / 算不动一律 skipped++），所以两个数字分别摆就够描述各种局面。 */
+    /** 造一份掃庫結果：scanned 與 skipped 在 SDK 裡互斥（算出哈希才 scanned++，
+     *  讀不出 / 算不動一律 skipped++），所以兩個數字分別擺就夠描述各種局面。 */
     function stubScan(scanned: number, skipped: number) {
         return vi.spyOn(blobStore, 'scanContent').mockResolvedValue({
             byHash: new Map<string, string[]>(), duplicateGroups: [],
@@ -1087,21 +1087,21 @@ describe('去重：同一张图只留一份 Blob', () => {
         });
     }
 
-    it('一条都没算出哈希（非安全上下文没有 crypto.subtle）：报「这轮没做成去重」', async () => {
-        // scanUnavailable 要抓的就是这个场景。判反了的话面板会说「已是最省形态」，
-        // 用户完全不知道换个环境还能再省一截。
+    it('一條都沒算出哈希（非安全上下文沒有 crypto.subtle）：報「這輪沒做成去重」', async () => {
+        // scanUnavailable 要抓的就是這個場景。判反了的話面板會說「已是最省形態」，
+        // 用戶完全不知道換個環境還能再省一截。
         await DB.saveAsset('wallpaper', TINY_PNG);
         const spy = stubScan(0, 3);
         try {
             const r = await optimizeResourceStorage();
             expect(r.scanUnavailable).toBe(true);
-            expect(r.converted).toBe(1);   // 去重停摆，转换照跑
+            expect(r.converted).toBe(1);   // 去重停擺，轉換照跑
         } finally {
             spy.mockRestore();
         }
     });
 
-    it('只有几条读坏：去重照跑，不许误报成没做成', async () => {
+    it('只有幾條讀壞：去重照跑，不許誤報成沒做成', async () => {
         await DB.saveAsset('wallpaper', TINY_PNG);
         const spy = stubScan(3, 3);
         try {
@@ -1112,7 +1112,7 @@ describe('去重：同一张图只留一份 Blob', () => {
         }
     });
 
-    it('空库：一条都没有也不算「没做成」', async () => {
+    it('空庫：一條都沒有也不算「沒做成」', async () => {
         const spy = stubScan(0, 0);
         try {
             const r = await optimizeResourceStorage();
@@ -1122,7 +1122,7 @@ describe('去重：同一张图只留一份 Blob', () => {
         }
     });
 
-    it('合并跑完是幂等的：再点一次没有重复可合', async () => {
+    it('合併跑完是冪等的：再點一次沒有重複可合', async () => {
         const older = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const newer = await putImageBlob(dataUrlToBlob(TINY_PNG));
         await DB.saveAsset('wallpaper', older);
@@ -1135,8 +1135,8 @@ describe('去重：同一张图只留一份 Blob', () => {
     });
 });
 
-describe('记忆向量：压成紧凑形态', () => {
-    /** 直接塞一条旧 number[] 形态的向量（绕开 MemoryVectorDB.save，它会当场转成紧凑形态）。 */
+describe('記憶向量：壓成緊湊形態', () => {
+    /** 直接塞一條舊 number[] 形態的向量（繞開 MemoryVectorDB.save，它會當場轉成緊湊形態）。 */
     async function seedLegacyVector(memoryId: string, charId: string, dims: number): Promise<number[]> {
         const vector = Array.from({ length: dims }, (_, i) => (i % 7) / 7 - 0.5);
         const db = await openDB();
@@ -1158,7 +1158,7 @@ describe('记忆向量：压成紧凑形态', () => {
         });
     }
 
-    it('一键优化会把旧 number[] 向量压成紧凑字节，数值逐位不变', async () => {
+    it('一鍵優化會把舊 number[] 向量壓成緊湊字節，數值逐位不變', async () => {
         const original = await seedLegacyVector('m1', 'c1', 16);
 
         const r = await optimizeResourceStorage();
@@ -1167,7 +1167,7 @@ describe('记忆向量：压成紧凑形态', () => {
         expect(r.vectorError).toBeNull();
         const stored = await readRawVector('m1');
         expect(ArrayBuffer.isView(stored.vector)).toBe(true);
-        // Float32 精度内逐位一致：压缩必须是无损的，否则召回质量会静默退化
+        // Float32 精度內逐位一致：壓縮必須是無損的，否則召回質量會靜默退化
         const back = new Float32Array(stored.vector.buffer, stored.vector.byteOffset, stored.vector.byteLength >>> 2);
         expect(back.length).toBe(original.length);
         for (let i = 0; i < original.length; i++) {
@@ -1175,7 +1175,7 @@ describe('记忆向量：压成紧凑形态', () => {
         }
     });
 
-    it('幂等：已是紧凑形态的再点一次不重复计数', async () => {
+    it('冪等：已是緊湊形態的再點一次不重複計數', async () => {
         await seedLegacyVector('m1', 'c1', 16);
         await optimizeResourceStorage();
         const second = await optimizeResourceStorage();
@@ -1183,34 +1183,34 @@ describe('记忆向量：压成紧凑形态', () => {
         expect(second.vectorError).toBeNull();
     });
 
-    it('向量这步失败不吞、也不连累图片那几步的成果', async () => {
+    it('向量這步失敗不吞、也不連累圖片那幾步的成果', async () => {
         const mp = await import('./memoryPalace/db');
         const spy = vi.spyOn(mp.MemoryVectorDB, 'scanAndMigrateLegacy')
-            .mockRejectedValue(new Error('磁盘满了'));
+            .mockRejectedValue(new Error('磁盤滿了'));
         try {
             await DB.saveAsset('wallpaper', TINY_PNG);
 
             const r = await optimizeResourceStorage();
 
-            // 图片照转完，结果照报
+            // 圖片照轉完，結果照報
             expect(r.converted).toBe(1);
             expect(isBlobRef(await DB.getAsset('wallpaper'))).toBe(true);
-            // 向量的失败原样带出来（开机那次后台扫描就是只 console.warn，卡住了没人知道）
+            // 向量的失敗原樣帶出來（開機那次後台掃描就是只 console.warn，卡住了沒人知道）
             expect(r.vectorsCompacted).toBe(0);
-            expect(r.vectorError).toContain('磁盘满了');
+            expect(r.vectorError).toContain('磁盤滿了');
         } finally {
             spy.mockRestore();
         }
     });
 });
 
-describe('分页读表：跨页不漏行，进度条对得上', () => {
-    // 这五面原本是整表 getAll 的，行都在一个数组里，怎么写都不会漏。改成按主键翻页之后，
-    // 「只跑了第一批就退出」「翻页起点取错」这类毛病在小库上一条都不会红，而漏掉的行
-    // 就是没被转换的存量图。这组用例把跨页和进度口径钉住。
-    const PAGE = 200; // 与 storageOptimize.ts 的 PAGE_SIZE 一致
+describe('分頁讀表：跨頁不漏行，進度條對得上', () => {
+    // 這五面原本是整表 getAll 的，行都在一個數組裡，怎麼寫都不會漏。改成按主鍵翻頁之後，
+    // 「只跑了第一批就退出」「翻頁起點取錯」這類毛病在小庫上一條都不會紅，而漏掉的行
+    // 就是沒被轉換的存量圖。這組用例把跨頁和進度口徑釘住。
+    const PAGE = 200; // 與 storageOptimize.ts 的 PAGE_SIZE 一致
 
-    it('相册行数超过一页：跨页每一行都转到，一条不漏', async () => {
+    it('相冊行數超過一頁：跨頁每一行都轉到，一條不漏', async () => {
         const count = PAGE + 50;
         await seedStore('gallery', Array.from({ length: count }, (_, i) => ({
             id: `g${String(i + 1).padStart(4, '0')}`, charId: 'c1', url: TINY_PNG, timestamp: i + 1,
@@ -1220,14 +1220,14 @@ describe('分页读表：跨页不漏行，进度条对得上', () => {
 
         const rows = await DB.getGalleryImages();
         expect(rows.length).toBe(count);
-        // 第 2 页起漏掉任何一行，这里就是一堆还留着 data: 的相册图
+        // 第 2 頁起漏掉任何一行，這裡就是一堆還留著 data: 的相冊圖
         expect(rows.filter(g => isBlobRef(g.url)).length).toBe(count);
         expect(r.converted).toBe(count);
-        expect(r.uniqueBlobs).toBe(1); // 全是同一张图，去重后只建一份 Blob
+        expect(r.uniqueBlobs).toBe(1); // 全是同一張圖，去重後只建一份 Blob
     });
 
-    it('聊天消息行数超过一页：跨页每一条图片消息都转到，一条不漏', async () => {
-        // messages 是全库最大的表，翻页出问题时漏掉的就是第 2 页往后所有存量聊天图
+    it('聊天消息行數超過一頁：跨頁每一條圖片消息都轉到，一條不漏', async () => {
+        // messages 是全庫最大的表，翻頁出問題時漏掉的就是第 2 頁往後所有存量聊天圖
         const count = PAGE + 50;
         await seedStore('messages', Array.from({ length: count }, (_, i) => ({
             id: i + 1, charId: 'c1', role: 'user', type: 'image', content: TINY_PNG, timestamp: i + 1,
@@ -1239,11 +1239,11 @@ describe('分页读表：跨页不漏行，进度条对得上', () => {
         expect(rows.length).toBe(count);
         expect(rows.filter(m => isBlobRef(m.content)).length).toBe(count);
         expect(r.converted).toBe(count);
-        expect(r.uniqueBlobs).toBe(1); // 全是同一张图，去重后只建一份 Blob
+        expect(r.uniqueBlobs).toBe(1); // 全是同一張圖，去重後只建一份 Blob
     });
 
-    it('进度回调：total 就是十二面的真实行数，done 一路递增且正好停在 total', async () => {
-        // 十二个面各摆几行、行数互不相同——少数了哪一面都对不上
+    it('進度回調：total 就是十二面的真實行數，done 一路遞增且正好停在 total', async () => {
+        // 十二個面各擺幾行、行數互不相同——少數了哪一面都對不上
         await DB.saveAsset('wallpaper', TINY_PNG);
         await DB.saveAsset('lock_wallpaper', TINY_JPEG);
         await seedStore('characters', [
@@ -1251,7 +1251,7 @@ describe('分页读表：跨页不漏行，进度条对得上', () => {
             { id: 'c2', name: '角色二' },
             { id: 'c3', name: '角色三' },
         ]);
-        await seedStore('songs', [{ id: 's1', title: '测试曲', coverImage: TINY_JPEG }]);
+        await seedStore('songs', [{ id: 's1', title: '測試曲', coverImage: TINY_JPEG }]);
         await seedStore('cc_custom_parts', [
             { id: 'p1', src: TINY_PNG, createdAt: 1 },
             { id: 'p2', src: TINY_JPEG, createdAt: 2 },
@@ -1263,23 +1263,23 @@ describe('分页读表：跨页不漏行，进度条对得上', () => {
             { id: 'g4', charId: 'c1', url: TINY_JPEG, timestamp: 4 },
         ]);
         await seedStore('themes', [
-            { id: 't1', name: '气泡一', type: 'custom', user: { backgroundImage: TINY_PNG }, ai: {} },
-            { id: 't2', name: '气泡二', type: 'custom', user: {}, ai: { decoration: TINY_GIF } },
-            { id: 't3', name: '气泡三', type: 'custom', user: {}, ai: {} },
-            { id: 't4', name: '气泡四', type: 'custom', user: {}, ai: {} },
-            { id: 't5', name: '气泡五', type: 'custom', user: {}, ai: {} },
+            { id: 't1', name: '氣泡一', type: 'custom', user: { backgroundImage: TINY_PNG }, ai: {} },
+            { id: 't2', name: '氣泡二', type: 'custom', user: {}, ai: { decoration: TINY_GIF } },
+            { id: 't3', name: '氣泡三', type: 'custom', user: {}, ai: {} },
+            { id: 't4', name: '氣泡四', type: 'custom', user: {}, ai: {} },
+            { id: 't5', name: '氣泡五', type: 'custom', user: {}, ai: {} },
         ]);
         await seedStore('messages', [
             { id: 1, charId: 'c1', role: 'user', type: 'image', content: TINY_PNG, timestamp: 1 },
-            { id: 2, charId: 'c1', role: 'user', type: 'text', content: '一句话', timestamp: 2 },
+            { id: 2, charId: 'c1', role: 'user', type: 'text', content: '一句話', timestamp: 2 },
             { id: 3, charId: 'c1', role: 'user', type: 'emoji', content: TINY_JPEG, timestamp: 3 },
             { id: 4, charId: 'c1', role: 'assistant', type: 'text', content: '回一句', timestamp: 4 },
             { id: 5, charId: 'c1', role: 'user', type: 'text', content: '再一句', timestamp: 5 },
-            { id: 6, charId: 'c1', role: 'user', type: 'text', content: '还有一句', timestamp: 6 },
+            { id: 6, charId: 'c1', role: 'user', type: 'text', content: '還有一句', timestamp: 6 },
         ]);
         await seedStore('emojis', [
             { name: '本地表情', url: TINY_GIF },
-            { name: '网络表情', url: 'https://img.host/sticker.png' },
+            { name: '網絡表情', url: 'https://img.host/sticker.png' },
         ]);
         await seedStore('user_profile', [{ id: 'me', name: '小明', avatar: TINY_JPEG }]);
         await seedStore('social_posts', [
@@ -1314,28 +1314,28 @@ describe('分页读表：跨页不漏行，进度条对得上', () => {
         ]);
         const expectedRows = 2 + 3 + 1 + 2 + 4 + 5 + 6 + 2 + 1 + 7 + 8 + 9;
 
-        // 只收十二面自己报的那几档：扫库 / 合并 / 向量三段各有各的进度口径，混进来会算错
-        const faceLabels = new Set(['系统外观', '角色头像与小屋', '歌曲封面', '捏人器部件', '相册', '气泡主题', '聊天图片', '表情包', '我的头像', '社交帖子', '群头像', '生活模拟']);
+        // 只收十二面自己報的那幾檔：掃庫 / 合併 / 向量三段各有各的進度口徑，混進來會算錯
+        const faceLabels = new Set(['系統外觀', '角色頭像與小屋', '歌曲封面', '捏人器部件', '相冊', '氣泡主題', '聊天圖片', '表情包', '我的頭像', '社交帖子', '群頭像', '生活模擬']);
         const events: Array<{ done: number; total: number }> = [];
         await optimizeResourceStorage(p => {
             if (faceLabels.has(p.label)) events.push({ done: p.done, total: p.total });
         });
 
-        expect(events.length).toBe(expectedRows);                   // 每行恰好报一次
-        for (const e of events) expect(e.total).toBe(expectedRows); // 总数不是估的
-        // done 从 1 数到 total：不倒退、不跳号、不越过
+        expect(events.length).toBe(expectedRows);                   // 每行恰好報一次
+        for (const e of events) expect(e.total).toBe(expectedRows); // 總數不是估的
+        // done 從 1 數到 total：不倒退、不跳號、不越過
         expect(events.map(e => e.done)).toEqual(Array.from({ length: expectedRows }, (_, i) => i + 1));
     });
 });
 
-describe('气泡主题导出：分享文件里不能留令牌', () => {
-    // 工坊导出的 .sully-bubble.json 是给别人的，令牌只有本机认得——原样导出，对方导进去
-    // 拿到的是一串死字符串，三张图全空，还没有任何报错。所以导出前必须在深拷贝上跑一遍
-    // resolveBlobRefsDeep 把令牌换回内嵌 data URL。
-    // 真调一次得把整个工坊界面渲染起来，代价太大，这里用源码锚：改坏导出这条就挂。
+describe('氣泡主題導出：分享文件裡不能留令牌', () => {
+    // 工坊導出的 .sully-bubble.json 是給別人的，令牌只有本機認得——原樣導出，對方導進去
+    // 拿到的是一串死字符串，三張圖全空，還沒有任何報錯。所以導出前必須在深拷貝上跑一遍
+    // resolveBlobRefsDeep 把令牌換回內嵌 data URL。
+    // 真調一次得把整個工坊界面渲染起來，代價太大，這裡用源碼錨：改壞導出這條就掛。
     const themeMakerSrc = readFileSync(new URL('../apps/ThemeMaker.tsx', import.meta.url), 'utf8');
 
-    /** 截出 exportSavedTheme 的函数体（到第一处同缩进的收尾 `};` 为止）。 */
+    /** 截出 exportSavedTheme 的函數體（到第一處同縮進的收尾 `};` 為止）。 */
     function exportFnBody(): string {
         const start = themeMakerSrc.indexOf('const exportSavedTheme');
         expect(start).toBeGreaterThan(-1);
@@ -1344,37 +1344,37 @@ describe('气泡主题导出：分享文件里不能留令牌', () => {
         return themeMakerSrc.slice(start, end);
     }
 
-    it('导出前解析令牌，解析的是副本、写进文件的也是那份副本', () => {
+    it('導出前解析令牌，解析的是副本、寫進文件的也是那份副本', () => {
         const body = exportFnBody();
         // 一、真的解析了
         const resolved = /await resolveBlobRefsDeep\((\w+)\)/.exec(body);
         expect(resolved).not.toBeNull();
         const copyName = resolved![1];
-        // 二、解析的不是库里那份（resolveBlobRefsDeep 原地改对象，喂 theme 等于把用户的主题改空）
+        // 二、解析的不是庫裡那份（resolveBlobRefsDeep 原地改對象，喂 theme 等於把用戶的主題改空）
         expect(copyName).not.toBe('theme');
         expect(body).toMatch(new RegExp(`const ${copyName} = cloneTheme\\(`));
-        // 三、序列化进文件的是解析过的那份，不是原始入参
+        // 三、序列化進文件的是解析過的那份，不是原始入參
         expect(body).toMatch(new RegExp(`theme:\\s*${copyName}\\b`));
         expect(body.indexOf('resolveBlobRefsDeep')).toBeLessThan(body.indexOf('JSON.stringify'));
     });
 
-    it('工坊上传的图存的是令牌，不是 base64', () => {
+    it('工坊上傳的圖存的是令牌，不是 base64', () => {
         const start = themeMakerSrc.indexOf('const handleImageUpload');
         expect(start).toBeGreaterThan(-1);
         const body = themeMakerSrc.slice(start, themeMakerSrc.indexOf('\n    };', start));
-        // processImage 给的是 data URL，得再过一道 migrateDataUrlToRef 才进主题
+        // processImage 給的是 data URL，得再過一道 migrateDataUrlToRef 才進主題
         expect(body).toMatch(/await migrateDataUrlToRef\(/);
         expect(body).not.toMatch(/updateStyle\('(backgroundImage|decoration|avatarDecoration)', result\)/);
     });
 });
 
-describe('头像上传：新存进去的就是令牌', () => {
-    // 存量迁移只管库里已经躺着的那些。写端要是没接上，用户每传一张新头像就又落一份 base64，
-    // 一键优化跑完照样长回来，而界面上一点区别都看不出来。真渲染一遍这几个界面代价太大，
-    // 这里用源码锚：四个上传点里哪个漏了 migrateDataUrlToRef，这组就红。
+describe('頭像上傳：新存進去的就是令牌', () => {
+    // 存量遷移只管庫裡已經躺著的那些。寫端要是沒接上，用戶每傳一張新頭像就又落一份 base64，
+    // 一鍵優化跑完照樣長回來，而界面上一點區別都看不出來。真渲染一遍這幾個界面代價太大，
+    // 這裡用源碼錨：四個上傳點裡哪個漏了 migrateDataUrlToRef，這組就紅。
     const readSrc = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-    /** 截出某个 handler 的函数体（到最近的一处收尾 `};` 为止；各文件缩进不同，2/4 空格都认）。 */
+    /** 截出某個 handler 的函數體（到最近的一處收尾 `};` 為止；各文件縮進不同，2/4 空格都認）。 */
     function handlerBody(src: string, decl: string): string {
         const start = src.indexOf(decl);
         expect(start).toBeGreaterThan(-1);
@@ -1383,49 +1383,49 @@ describe('头像上传：新存进去的就是令牌', () => {
         return src.slice(start, Math.min(...ends));
     }
 
-    it('角色头像（角色资料页）', () => {
+    it('角色頭像（角色資料頁）', () => {
         const body = handlerBody(readSrc('../apps/Character.tsx'), 'const handleFileChange');
         expect(body).toMatch(/handleChange\('avatar', await migrateDataUrlToRef\(/);
         expect(body).not.toMatch(/handleChange\('avatar', processedBase64\)/);
     });
 
-    it('我的整体头像（个人档案 · 身份卡，含真实身份）', () => {
-        // 个人档案页的整体头像编辑收进了「身份卡」面板（真实身份也走同一个编辑器），
-        // UserApp.tsx 本身不再直接处理头像上传。
+    it('我的整體頭像（個人檔案 · 身份卡，含真實身份）', () => {
+        // 個人檔案頁的整體頭像編輯收進了「身份卡」面板（真實身份也走同一個編輯器），
+        // UserApp.tsx 本身不再直接處理頭像上傳。
         const body = handlerBody(readSrc('../components/user/UserPersonaPanel.tsx'), 'const handleUpload');
         expect(body).toMatch(/setDraftAvatar\(await migrateDataUrlToRef\(/);
         expect(body).not.toMatch(/setDraftAvatar\(base64\)/);
     });
 
-    it('群头像（群聊设置）', () => {
+    it('群頭像（群聊設置）', () => {
         const body = handlerBody(readSrc('../apps/GroupChat.tsx'), 'const handleGroupAvatarUpload');
         expect(body).toMatch(/await migrateDataUrlToRef\(/);
-        // 内存那份和落库那份必须是同一个值，否则退出重进会读回令牌、当前界面还挂着 base64
+        // 內存那份和落庫那份必須是同一個值，否則退出重進會讀回令牌、當前界面還掛著 base64
         expect(body).not.toMatch(/avatar: base64/);
     });
 
-    it('分角色聊天头像：本地上传转令牌，图床外链那条路不碰', () => {
+    it('分角色聊天頭像：本地上傳轉令牌，圖床外鏈那條路不碰', () => {
         const src = readSrc('../components/user/PerCharAvatarPicker.tsx');
         const upload = handlerBody(src, 'const handleUpload');
         expect(upload).toMatch(/setOverride\(editingId, await migrateDataUrlToRef\(/);
         expect(upload).not.toMatch(/setOverride\(editingId, base64\)/);
-        // 外链只是个 http 地址，本机没有它的二进制，转不了也不该转
+        // 外鏈只是個 http 地址，本機沒有它的二進制，轉不了也不該轉
         const applyUrl = handlerBody(src, 'const applyUrl');
         expect(applyUrl).not.toMatch(/migrateDataUrlToRef/);
     });
 });
 
-describe('图片令牌进提示词：靠前缀判图的地方必须认得令牌', () => {
-    // 这组守卫跟「一键优化」不是同一件事，但它们钉的是同一次迁移里最难查的那种坏法：
-    // 判定认不出 `blobref:` 令牌时，图明明还在库里，模型收到的却是「图片数据已不可用」，
-    // 或者干脆没被列进附图名单——不报错、不破图，从界面上一点看不出来。
-    // 放在这份文件里是因为它跟聊天图 / 表情包的迁移同批落地，改坏迁移和改坏判定要一起红。
+describe('圖片令牌進提示詞：靠前綴判圖的地方必須認得令牌', () => {
+    // 這組守衛跟「一鍵優化」不是同一件事，但它們釘的是同一次遷移裡最難查的那種壞法：
+    // 判定認不出 `blobref:` 令牌時，圖明明還在庫裡，模型收到的卻是「圖片數據已不可用」，
+    // 或者乾脆沒被列進附圖名單——不報錯、不破圖，從界面上一點看不出來。
+    // 放在這份文件裡是因為它跟聊天圖 / 表情包的遷移同批落地，改壞遷移和改壞判定要一起紅。
 
     const TINY_PNG_LOCAL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
     const char = { id: 'c1', name: '角色', contextRangePolicyVersion: 1 } as any;
     const userProfile = { name: '小明' } as any;
 
-    /** 只有一条图片消息的私聊历史，取转写出来的那一条。 */
+    /** 只有一條圖片消息的私聊歷史，取轉寫出來的那一條。 */
     function imageHistoryEntry(content: string): any {
         return ChatPrompts.buildMessageHistory(
             [{ id: 1, charId: 'c1', role: 'user', type: 'image', content, timestamp: Date.now() } as any],
@@ -1436,24 +1436,24 @@ describe('图片令牌进提示词：靠前缀判图的地方必须认得令牌'
         ).apiMessages[0];
     }
 
-    it('私聊历史：令牌形态的图片照样走 image_url 结构化字段', async () => {
+    it('私聊歷史：令牌形態的圖片照樣走 image_url 結構化字段', async () => {
         const token = await putImageBlob(dataUrlToBlob(TINY_PNG_LOCAL));
 
         const entry = imageHistoryEntry(token);
 
         expect(Array.isArray(entry.content)).toBe(true);
         expect(entry.content.some((p: any) => p.type === 'image_url' && p.image_url?.url === token)).toBe(true);
-        // 认不出令牌时这里会变成「图片数据已不可用」的纯文本，图却好端端躺在库里
+        // 認不出令牌時這裡會變成「圖片數據已不可用」的純文本，圖卻好端端躺在庫裡
         expect(JSON.stringify(entry.content)).not.toContain('no longer available');
     });
 
-    it('私聊历史：图真丢了才说不可用（空 content 走占位文本）', () => {
+    it('私聊歷史：圖真丟了才說不可用（空 content 走佔位文本）', () => {
         const entry = imageHistoryEntry('');
         expect(typeof entry.content).toBe('string');
         expect(entry.content).toContain('no longer available');
     });
 
-    it('群历史：令牌形态的图片进最近附图名单，不被当正文内联', async () => {
+    it('群歷史：令牌形態的圖片進最近附圖名單，不被當正文內聯', async () => {
         const token = await putImageBlob(dataUrlToBlob(TINY_PNG_LOCAL));
 
         const block = buildGroupHistoryBlock(
@@ -1464,13 +1464,13 @@ describe('图片令牌进提示词：靠前缀判图的地方必须认得令牌'
         );
 
         expect(block.attachedImages.map(i => i.url)).toEqual([token]);
-        expect(block.text).toContain('[图片#1]');
+        expect(block.text).toContain('[圖片#1]');
         expect(block.text).not.toContain(token);
     });
 
-    it('群历史兜底：别的类型里躺着令牌也按媒体占位，不内联进正文', async () => {
-        // 令牌内联进正文的代价比漏一个 URL 大得多——出门时网络出口那层会把它还原成
-        // 整段 data URL，等于把几 MB 的 base64 焊进 prompt。
+    it('群歷史兜底：別的類型裡躺著令牌也按媒體佔位，不內聯進正文', async () => {
+        // 令牌內聯進正文的代價比漏一個 URL 大得多——出門時網絡出口那層會把它還原成
+        // 整段 data URL，等於把幾 MB 的 base64 焊進 prompt。
         const token = await putImageBlob(dataUrlToBlob(TINY_PNG_LOCAL));
 
         const block = buildGroupHistoryBlock(
@@ -1480,57 +1480,57 @@ describe('图片令牌进提示词：靠前缀判图的地方必须认得令牌'
             '小明',
         );
 
-        expect(block.text).toContain('[媒体]');
+        expect(block.text).toContain('[媒體]');
         expect(block.text).not.toContain(token);
     });
 });
 
-describe('主动消息上云：先还原令牌再算体积预算', () => {
-    // worker 那边没有 IndexedDB，`blobref:` 令牌到了云端谁也解不开；而令牌只有几十字节，
-    // 先算预算再还原的话，一份「看着没超」的包还原后可能是几 MB。所以顺序是死的：
-    // 先还原，再交给 toFirePackChatMessages 算预算。
-    it('还原发生在副本上：调用方那串消息一个字节都不变，令牌换成了 data URL', async () => {
+describe('主動消息上雲：先還原令牌再算體積預算', () => {
+    // worker 那邊沒有 IndexedDB，`blobref:` 令牌到了雲端誰也解不開；而令牌只有幾十字節，
+    // 先算預算再還原的話，一份「看著沒超」的包還原後可能是幾 MB。所以順序是死的：
+    // 先還原，再交給 toFirePackChatMessages 算預算。
+    it('還原發生在副本上：調用方那串消息一個字節都不變，令牌換成了 data URL', async () => {
         const { resolveChatMessagesForUpload } = await import('./activeMsgClient');
         const token = await putImageBlob(dataUrlToBlob(TINY_PNG));
         const original = [
-            { role: 'user', content: [{ type: 'text', text: '看这张' }, { type: 'image_url', image_url: { url: token } }] },
+            { role: 'user', content: [{ type: 'text', text: '看這張' }, { type: 'image_url', image_url: { url: token } }] },
             { role: 'assistant', content: '好看' },
         ];
         const snapshot = JSON.stringify(original);
 
         const resolved = await resolveChatMessagesForUpload(original);
 
-        // 一、令牌真的被还原成了可离线阅读的 data URL
+        // 一、令牌真的被還原成了可離線閱讀的 data URL
         const url = (resolved[0].content as any)[1].image_url.url as string;
         expect(url.startsWith('data:')).toBe(true);
         expect(isBlobRef(url)).toBe(false);
-        // 二、原数组没被就地改掉（本地这一轮还要用同一串消息）
+        // 二、原數組沒被就地改掉（本地這一輪還要用同一串消息）
         expect(JSON.stringify(original)).toBe(snapshot);
     });
 
-    it('打包点真的用上了它：chat 段是「先还原、再交给体积预算」', () => {
-        // 上面那条只证明函数本身好使。真正会静默出事的是「函数写了但没接上」——
-        // 那样打上云的还是令牌，worker 解不开，图在云端悄悄消失。
-        // 真调一次 sendInstantChat 要把整个 worker 客户端立起来，这里用源码锚。
+    it('打包點真的用上了它：chat 段是「先還原、再交給體積預算」', () => {
+        // 上面那條只證明函數本身好使。真正會靜默出事的是「函數寫了但沒接上」——
+        // 那樣打上雲的還是令牌，worker 解不開，圖在雲端悄悄消失。
+        // 真調一次 sendInstantChat 要把整個 worker 客戶端立起來，這裡用源碼錨。
         const src = readFileSync(new URL('./activeMsgClient.ts', import.meta.url), 'utf8');
         expect(src).toMatch(/messages:\s*toFirePackChatMessages\(await resolveChatMessagesForUpload\(chatMessages\)\)/);
-        // 别处不许再把没还原过的那串直接塞进去
+        // 別處不許再把沒還原過的那串直接塞進去
         expect(src).not.toMatch(/toFirePackChatMessages\(chatMessages\)/);
     });
 });
 
-// ═══ 全库对账（从测试期的诊断卡片迁来，卡片撤了守卫留下） ═══
+// ═══ 全庫對帳（從測試期的診斷卡片遷來，卡片撤了守衛留下） ═══
 //
-// 上面的用例都是「一个面一个面」地钉；这条反过来从全库视角问一句：收录清单里的
-// 每种字段各摆一份，跑完优化后还扫得出 data:image 吗？哪个字段没被收录，它就会
-// 按表点名。将来新收字段时往 seed 里补一份，就能立刻知道优化器跟没跟上。
-describe('全库对账：收录字段各摆一份，优化后一条 base64 都不剩', () => {
-    /** 每张图内容都不同：内容相同的会被去重合并成一份，令牌计数就对不上了。 */
+// 上面的用例都是「一個面一個面」地釘；這條反過來從全庫視角問一句：收錄清單裡的
+// 每種字段各擺一份，跑完優化後還掃得出 data:image 嗎？哪個字段沒被收錄，它就會
+// 按表點名。將來新收字段時往 seed 裡補一份，就能立刻知道優化器跟沒跟上。
+describe('全庫對帳：收錄字段各擺一份，優化後一條 base64 都不剩', () => {
+    /** 每張圖內容都不同：內容相同的會被去重合併成一份，令牌計數就對不上了。 */
     const tinyImage = (seed: string): string =>
         `data:image/png;base64,${Buffer.from(`sullyos-guard-${seed}`).toString('base64')}`;
 
-    /** 全库逐表 stringify，按表数 data:image 出现次数。跟优化器各算各的，
-     *  两边对得上才说明看的是同一批数据。 */
+    /** 全庫逐表 stringify，按表數 data:image 出現次數。跟優化器各算各的，
+     *  兩邊對得上才說明看的是同一批數據。 */
     async function scanBase64ByStore(): Promise<Record<string, number>> {
         const db = await openDB();
         const hits: Record<string, number> = {};
@@ -1548,13 +1548,13 @@ describe('全库对账：收录字段各摆一份，优化后一条 base64 都�
         return hits;
     }
 
-    it('十二个面的收录字段全摆上，优化后全库扫不出一条 data:image', async () => {
+    it('十二個面的收錄字段全擺上，優化後全庫掃不出一條 data:image', async () => {
         await seedStore('characters', [{
             id: 'c1', name: '角色一',
             chatBackground: tinyImage('chat-bg'),
             dateBackground: tinyImage('date-bg'),
             sprites: { normal: tinyImage('sprite-normal') },
-            dateSkinSets: [{ id: 'sk1', name: '泳装', sprites: { happy: tinyImage('skin-happy') } }],
+            dateSkinSets: [{ id: 'sk1', name: '泳裝', sprites: { happy: tinyImage('skin-happy') } }],
             vrState: { chibi: { img: tinyImage('char-chibi') } },
             phoneState: { contacts: [{ id: 'ct1', name: '甲', avatar: tinyImage('contact') }] },
             companionAvatar: {
@@ -1594,10 +1594,10 @@ describe('全库对账：收录字段各摆一份，优化后一条 base64 都�
             { id: 'spark_user_bg', data: tinyImage('spark-bg') },
             { id: 'spark_social_profile', data: JSON.stringify({ name: '小明', avatar: tinyImage('spark-avatar') }) },
             { id: 'appearance_preset_ap1', data: JSON.stringify({
-                id: 'ap1', name: '预设', createdAt: 1,
+                id: 'ap1', name: '預設', createdAt: 1,
                 theme: { wallpaper: 'linear-gradient(#fff,#000)', launcherWidgets: { dsq: tinyImage('preset-widget') } },
                 chatThemes: [{
-                    id: 'ct1', name: '气泡', type: 'custom',
+                    id: 'ct1', name: '氣泡', type: 'custom',
                     user: { decoration: tinyImage('preset-bubble-user') },
                     ai: { avatarDecoration: tinyImage('preset-bubble-ai') },
                 }],
@@ -1606,14 +1606,14 @@ describe('全库对账：收录字段各摆一份，优化后一条 base64 都�
 
         const before = await scanBase64ByStore();
         const beforeTotal = Object.values(before).reduce((a, b) => a + b, 0);
-        expect(beforeTotal).toBeGreaterThan(0); // seed 本身得先被看见，全零 = 摆错了地方
+        expect(beforeTotal).toBeGreaterThan(0); // seed 本身得先被看見，全零 = 擺錯了地方
 
         const r = await optimizeResourceStorage();
 
-        // 哪个字段没被收录，它就留在这里按表点名
+        // 哪個字段沒被收錄，它就留在這裡按表點名
         expect(await scanBase64ByStore()).toEqual({});
         expect(r.failed).toBe(0);
-        // 优化器报的转换数 == 扫描数出来的张数，两边对得上才说明没有静默漏转
+        // 優化器報的轉換數 == 掃描數出來的張數，兩邊對得上才說明沒有靜默漏轉
         expect(r.converted).toBe(beforeTotal);
     });
 });

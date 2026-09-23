@@ -1,8 +1,8 @@
 /**
- * 返回最后一条尚未得到助手回复的用户输入。
+ * 返回最後一條尚未得到助手回覆的用戶輸入。
  *
- * 见面与通话的消息展示模型字段不同（content / text），但失败重试的判断完全相同：
- * 只有时间线最后一条仍是 user 时，才表示上一轮可能在生成回复前中断。
+ * 見面與通話的消息展示模型字段不同（content / text），但失敗重試的判斷完全相同：
+ * 只有時間線最後一條仍是 user 時，才表示上一輪可能在生成回覆前中斷。
  */
 export function getPendingReplyText(
     messages: Array<{ role?: string; content?: unknown; text?: unknown }>,

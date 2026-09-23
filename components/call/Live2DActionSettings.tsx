@@ -24,7 +24,7 @@ const permissionOptions: Array<{
   Icon: typeof Robot;
 }> = [
   { value: 'ai', label: 'AI 可用', Icon: Robot },
-  { value: 'manual', label: '仅手动', Icon: HandTap },
+  { value: 'manual', label: '僅手動', Icon: HandTap },
   { value: 'blocked', label: '禁用', Icon: Prohibit },
 ];
 
@@ -48,9 +48,9 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
   const [previewAction, setPreviewAction] = useState<Live2DActionTrigger | null>(null);
   const [previewError, setPreviewError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [loadingStage, setLoadingStage] = useState('正在准备预览…');
+  const [loadingStage, setLoadingStage] = useState('正在準備預覽…');
   const [framing, setFraming] = useState(config.framing || { scale: 1, offsetX: 0, offsetY: 0 });
-  // VTS 风格自定义参数动作：模型参数表由预览画布加载完成后回传。
+  // VTS 風格自定義參數動作：模型參數表由預覽畫布加載完成後回傳。
   const [modelParameters, setModelParameters] = useState<Live2DParameterInfo[]>([]);
   const [customDraft, setCustomDraft] = useState<null | { id: string; name: string; params: Array<{ id: string; value: number }> }>(null);
   const [showTargetPreview, setShowTargetPreview] = useState(true);
@@ -108,8 +108,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
   }, []);
 
   // Settings preview may play every discovered item so the user can decide whether to ban it.
-  // framing 走单独的 prop 实时预览，不揉进 config，避免滑杆每动一下都重建 config。
-  // 正在编辑的参数动作草稿也临时塞进预览配置，让「试一下」能直接播。
+  // framing 走單獨的 prop 實時預覽，不揉進 config，避免滑桿每動一下都重建 config。
+  // 正在編輯的參數動作草稿也臨時塞進預覽配置，讓「試一下」能直接播。
   const previewConfig = useMemo<Live2DAvatarConfig>(() => ({
     ...config,
     actions: [
@@ -119,7 +119,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
       ...(customDraft?.params.length ? [{
         id: customDraft.id,
         kind: 'params' as const,
-        name: customDraft.name || '参数动作',
+        name: customDraft.name || '參數動作',
         file: '',
         source: 'custom' as const,
         params: customDraft.params,
@@ -207,8 +207,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
   };
   const saveCustomDraft = () => {
     if (!customDraft || !customDraft.params.length) return;
-    const name = customDraft.name.trim() || '自定义动作';
-    // 名字里带"生气/微笑/wink"等词时自动打上情绪标签，AI 的 emotion/gesture 也能匹配到它
+    const name = customDraft.name.trim() || '自定義動作';
+    // 名字裡帶"生氣/微笑/wink"等詞時自動打上情緒標籤，AI 的 emotion/gesture 也能匹配到它
     const tags = inferLive2DActionTags(name);
     setActions(current => {
       const index = current.findIndex(action => action.id === customDraft.id);
@@ -244,17 +244,17 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 pb-3" style={{ paddingTop: 'max(1.25rem, var(--safe-top))' }}>
         <div className="min-w-0">
           <div className="text-[10px] tracking-[0.2em] text-white/35">{setupMode === 'import' ? 'LIVE2D IMPORT · WARDROBE SETUP' : 'LIVE2D ACTION LIBRARY · ADVANCED'}</div>
-          <h2 className="mt-1 truncate text-lg font-semibold">{characterName} · {setupMode === 'import' ? '标记服装动作' : '动作库'}</h2>
+          <h2 className="mt-1 truncate text-lg font-semibold">{characterName} · {setupMode === 'import' ? '標記服裝動作' : '動作庫'}</h2>
         </div>
-        <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/65 active:scale-90" aria-label="关闭">
+        <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/65 active:scale-90" aria-label="關閉">
           <X size={17} weight="bold" />
         </button>
       </div>
 
       {setupMode === 'import' && (
         <div className="mx-4 mt-3 shrink-0 border-l-4 border-fuchsia-300 bg-fuchsia-300/10 px-3 py-2.5" data-testid="live2d-wardrobe-onboarding">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-fuchsia-100"><TShirt size={15} weight="fill" /> 哪些按键会切换服装？</div>
-          <p className="mt-1 text-[9px] leading-relaxed text-white/48">先点左侧播放确认效果，再勾选「加入衣橱」。服装动作会强制设为仅手动，AI 永远看不到也不能私自替换。</p>
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-fuchsia-100"><TShirt size={15} weight="fill" /> 哪些按鍵會切換服裝？</div>
+          <p className="mt-1 text-[9px] leading-relaxed text-white/48">先點左側播放確認效果，再勾選「加入衣櫥」。服裝動作會強制設為僅手動，AI 永遠看不到也不能私自替換。</p>
         </div>
       )}
 
@@ -279,17 +279,17 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             {loading
               ? loadingStage
               : customDraft
-                ? showTargetPreview ? '正在显示目标姿势' : '正在播放动作过渡'
-                : '点击动作左侧 ▶ 预览'}
+                ? showTargetPreview ? '正在顯示目標姿勢' : '正在播放動作過渡'
+                : '點擊動作左側 ▶ 預覽'}
           </div>
           {customDraft && !loading && (
             <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
               <div className="min-w-0 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 backdrop-blur-md">
                 <div className="text-[9px] font-medium text-emerald-200/80">
-                  {focusedSemantics ? `${focusedSemantics.areaLabel} · ${focusedSemantics.label}` : '动作预览'}
+                  {focusedSemantics ? `${focusedSemantics.areaLabel} · ${focusedSemantics.label}` : '動作預覽'}
                 </div>
                 <div className="mt-0.5 max-w-[52vw] truncate text-[9px] text-white/45">
-                  {focusedSemantics?.description || '添加参数后，拖动滑杆即可观察模型变化。'}
+                  {focusedSemantics?.description || '添加參數後，拖動滑桿即可觀察模型變化。'}
                 </div>
               </div>
               <div className="flex shrink-0 rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-md">
@@ -303,7 +303,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                   onClick={() => setShowTargetPreview(true)}
                   className={`rounded-full px-2.5 py-1 text-[9px] transition ${showTargetPreview ? 'bg-emerald-400/20 text-emerald-100' : 'text-white/40'}`}
                 >
-                  目标
+                  目標
                 </button>
               </div>
             </div>
@@ -312,10 +312,10 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             <div className="absolute inset-x-3 bottom-3 rounded-xl border border-rose-300/20 bg-rose-950/85 px-3 py-2 text-[10px] text-rose-100">
               <span className="line-clamp-3 break-all">{previewError}</span>
               <button
-                onClick={() => { setPreviewError(''); setLoading(true); setLoadingStage('正在重新加载模型…'); setPreviewRetryKey(key => key + 1); }}
+                onClick={() => { setPreviewError(''); setLoading(true); setLoadingStage('正在重新加載模型…'); setPreviewRetryKey(key => key + 1); }}
                 className="mt-1.5 rounded-full border border-rose-200/30 bg-rose-400/15 px-2.5 py-1 text-[10px] font-medium text-rose-50 active:scale-95"
               >
-                重新加载
+                重新加載
               </button>
             </div>
           )}
@@ -332,7 +332,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
         style={settingsBubblePos
           ? { left: settingsBubblePos.x, top: settingsBubblePos.y, touchAction: 'none' }
           : { right: 12, top: 'calc(max(1.25rem, var(--safe-top)) + 34vh)', touchAction: 'none' }}
-        aria-label={settingsPanelOpen ? '收起动作与参数设置' : '展开动作与参数设置'}
+        aria-label={settingsPanelOpen ? '收起動作與參數設置' : '展開動作與參數設置'}
         aria-expanded={settingsPanelOpen}
         data-testid="live2d-floating-settings-toggle"
       >
@@ -351,14 +351,14 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             onClick={() => setSettingsPage('actions')}
             className={`rounded-2xl px-3 py-2 text-[11px] font-medium transition ${settingsPage === 'actions' ? 'bg-white/10 text-white' : 'text-white/40'}`}
           >
-            动作按键 · {actions.length}
+            動作按鍵 · {actions.length}
           </button>
           <button
             type="button"
             onClick={() => setSettingsPage('framing')}
             className={`rounded-2xl px-3 py-2 text-[11px] font-medium transition ${settingsPage === 'framing' ? 'bg-white/10 text-white' : 'text-white/40'}`}
           >
-            镜头构图
+            鏡頭構圖
           </button>
         </div>
 
@@ -366,7 +366,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
         <div className="min-h-0 overflow-y-auto p-3 no-scrollbar">
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[10px] font-medium text-white/65">镜头构图</span>
+          <span className="text-[10px] font-medium text-white/65">鏡頭構圖</span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setFraming({ scale: 3.4, offsetX: 0, offsetY: 1.12 })}
@@ -375,8 +375,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
             <button
               onClick={() => setFraming({ scale: 5.4, offsetX: 0, offsetY: 2.15 })}
               className="rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[9px] text-violet-200"
-            >贴脸</button>
-            <button onClick={() => setFraming(defaultFraming)} className="px-1 text-[9px] text-white/35">恢复默认</button>
+            >貼臉</button>
+            <button onClick={() => setFraming(defaultFraming)} className="px-1 text-[9px] text-white/35">恢復默認</button>
           </div>
         </div>
         {([
@@ -406,30 +406,30 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
 
       <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-3 py-3 no-scrollbar">
         <span className="shrink-0 rounded-full bg-violet-400/15 px-2.5 py-1 text-[10px] text-violet-200">AI {counts.ai}</span>
-        <span className="shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] text-sky-200">手动 {counts.manual}</span>
+        <span className="shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] text-sky-200">手動 {counts.manual}</span>
         <span className="shrink-0 rounded-full bg-rose-400/15 px-2.5 py-1 text-[10px] text-rose-200">禁用 {counts.blocked}</span>
-        <span className="shrink-0 rounded-full bg-fuchsia-400/15 px-2.5 py-1 text-[10px] text-fuchsia-100">衣橱 {counts.wardrobe}</span>
+        <span className="shrink-0 rounded-full bg-fuchsia-400/15 px-2.5 py-1 text-[10px] text-fuchsia-100">衣櫥 {counts.wardrobe}</span>
         <button
           onClick={() => openCustomDraft()}
           disabled={!modelParameters.length}
           className="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-200 disabled:opacity-35"
-          title={modelParameters.length ? '像 VTube Studio 那样自建一组参数动作' : '等模型加载完成后可用'}
+          title={modelParameters.length ? '像 VTube Studio 那樣自建一組參數動作' : '等模型加載完成後可用'}
         >
-          <Plus size={10} weight="bold" /> 参数动作
+          <Plus size={10} weight="bold" /> 參數動作
         </button>
         <span className="min-w-4 flex-1" />
-        <button onClick={() => setActions(current => current.map(action => ({ ...action, permission: 'manual' })))} className="shrink-0 text-[10px] text-white/45">全部仅手动</button>
-        <button onClick={() => setActions(current => current.map(action => action.wardrobe ? { ...action, permission: 'manual' } : { ...action, permission: 'blocked' }))} className="shrink-0 text-[10px] text-rose-300/65">其余禁用</button>
+        <button onClick={() => setActions(current => current.map(action => ({ ...action, permission: 'manual' })))} className="shrink-0 text-[10px] text-white/45">全部僅手動</button>
+        <button onClick={() => setActions(current => current.map(action => action.wardrobe ? { ...action, permission: 'manual' } : { ...action, permission: 'blocked' }))} className="shrink-0 text-[10px] text-rose-300/65">其餘禁用</button>
       </div>
 
       <p className="shrink-0 px-3 pb-2 text-[9px] leading-relaxed text-white/35">
-        衣橱动作始终只允许用户手动切换；其余模型表情和非待机动作可按权限交给 AI。
+        衣櫥動作始終只允許用戶手動切換；其餘模型表情和非待機動作可按權限交給 AI。
       </p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 no-scrollbar">
         {!actions.length ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-8 text-center text-sm text-white/45">
-            model3.json 没有声明 Motions 或 Expressions；基础眼神、呼吸和口型仍可使用。
+            model3.json 沒有聲明 Motions 或 Expressions；基礎眼神、呼吸和口型仍可使用。
           </div>
         ) : (
           <div className="space-y-2">
@@ -439,7 +439,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                   <button
                     onClick={() => setPreviewAction({ id: action.id, nonce: Date.now() + Math.random() })}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.07] text-white/70 active:scale-90"
-                    aria-label={`预览 ${action.name}`}
+                    aria-label={`預覽 ${action.name}`}
                   >
                     <Play size={13} weight="fill" />
                   </button>
@@ -447,12 +447,12 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                     <div className="truncate text-sm text-white/85">{action.name}</div>
                     <div className="mt-0.5 truncate text-[9px] text-white/30">
                       {action.kind === 'motion'
-                        ? `动作 · ${action.group || 'Motion'} #${(action.index ?? 0) + 1}`
+                        ? `動作 · ${action.group || 'Motion'} #${(action.index ?? 0) + 1}`
                         : action.kind === 'params'
-                          ? `参数动作 · ${(action.params || []).length} 项参数`
+                          ? `參數動作 · ${(action.params || []).length} 項參數`
                           : `表情 · ${action.expressionId || action.id}`}
-                      {action.hotkey ? ` · 热键 ${action.hotkey}` : ''}
-                      {action.source === 'vtube' ? ' · VTube Studio' : action.source === 'discovered' ? ' · 自动扫描' : action.source === 'custom' ? ' · 自建' : ''}
+                      {action.hotkey ? ` · 熱鍵 ${action.hotkey}` : ''}
+                      {action.source === 'vtube' ? ' · VTube Studio' : action.source === 'discovered' ? ' · 自動掃描' : action.source === 'custom' ? ' · 自建' : ''}
                       {action.tags.length ? ` · ${action.tags.join(' / ')}` : ''}
                     </div>
                   </div>
@@ -461,14 +461,14 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                       <button
                         onClick={() => openCustomDraft({ id: action.id, name: action.name, params: [...(action.params || [])] })}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/55 active:scale-90"
-                        aria-label={`编辑 ${action.name}`}
+                        aria-label={`編輯 ${action.name}`}
                       >
                         <PencilSimple size={12} weight="bold" />
                       </button>
                       <button
                         onClick={() => setActions(current => current.filter(item => item.id !== action.id))}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-rose-300/70 active:scale-90"
-                        aria-label={`删除 ${action.name}`}
+                        aria-label={`刪除 ${action.name}`}
                       >
                         <Trash size={12} weight="bold" />
                       </button>
@@ -480,8 +480,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                   onClick={() => toggleWardrobe(action.id)}
                   className={`mt-2.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] transition active:scale-[.99] ${action.wardrobe ? 'border-fuchsia-300/35 bg-fuchsia-300/15 text-fuchsia-100' : 'border-white/8 bg-black/15 text-white/42'}`}
                 >
-                  <span className="flex items-center gap-2"><TShirt size={13} weight={action.wardrobe ? 'fill' : 'regular'} /> {action.wardrobe ? '已加入真·衣橱' : '这是服装切换动作'}</span>
-                  <span>{action.wardrobe ? '仅手动' : '加入'}</span>
+                  <span className="flex items-center gap-2"><TShirt size={13} weight={action.wardrobe ? 'fill' : 'regular'} /> {action.wardrobe ? '已加入真·衣櫥' : '這是服裝切換動作'}</span>
+                  <span>{action.wardrobe ? '僅手動' : '加入'}</span>
                 </button>
                 {action.wardrobe && (
                   <button
@@ -489,8 +489,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                     onClick={() => setActiveWardrobeActionId(action.id)}
                     className={`mt-1.5 flex w-full items-center justify-between border px-3 py-2 text-left text-[10px] ${activeWardrobeActionId === action.id ? 'border-emerald-300/35 bg-emerald-300/15 text-emerald-100' : 'border-white/8 bg-black/15 text-white/42'}`}
                   >
-                    <span>导入完成后默认穿这套</span>
-                    <span>{activeWardrobeActionId === action.id ? '当前默认' : '设为默认'}</span>
+                    <span>導入完成後默認穿這套</span>
+                    <span>{activeWardrobeActionId === action.id ? '當前默認' : '設為默認'}</span>
                   </button>
                 )}
                 <div className="mt-2.5 grid grid-cols-3 gap-1 rounded-xl bg-black/20 p-1">
@@ -528,11 +528,11 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
           <div className="shrink-0 border-b border-white/10 px-4 pb-3 pt-3">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <div className="text-[9px] font-medium tracking-[0.18em] text-emerald-200/55">动作实验台</div>
+                <div className="text-[9px] font-medium tracking-[0.18em] text-emerald-200/55">動作實驗台</div>
                 <input
                   value={customDraft.name}
                   onChange={event => setCustomDraft(current => current ? { ...current, name: event.target.value } : current)}
-                  placeholder="给动作起名，例如：坏笑眨眼"
+                  placeholder="給動作起名，例如：壞笑眨眼"
                   className="mt-1 w-full border-0 bg-transparent p-0 text-base font-semibold text-white outline-none placeholder:text-white/25"
                 />
               </div>
@@ -541,33 +541,33 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                 disabled={!customDraft.params.length}
                 className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 text-[10px] text-white/70 transition active:scale-95 disabled:opacity-35"
               >
-                <Play size={11} weight="fill" /> 播放过渡
+                <Play size={11} weight="fill" /> 播放過渡
               </button>
               <button
                 onClick={() => setCustomDraft(null)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/55 active:scale-90"
-                aria-label="退出动作实验台"
+                aria-label="退出動作實驗台"
               >
                 <X size={15} weight="bold" />
               </button>
             </div>
             <div className="mt-2 flex items-center justify-between text-[9px] text-white/35">
-              <span>拖动后直接看上方模型；原始 ID 仅作模型定位。</span>
-              <span className="tabular-nums">{customDraft.params.length} 项参数</span>
+              <span>拖動後直接看上方模型；原始 ID 僅作模型定位。</span>
+              <span className="tabular-nums">{customDraft.params.length} 項參數</span>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 no-scrollbar">
             {!customDraft.params.length ? (
               <div className="flex h-full min-h-32 flex-col items-center justify-center text-center">
-                <div className="text-sm font-medium text-white/70">这个动作还没有变化</div>
-                <div className="mt-1 max-w-64 text-[10px] leading-relaxed text-white/35">添加一个参数，角色会立即停在目标姿势供你观察。</div>
+                <div className="text-sm font-medium text-white/70">這個動作還沒有變化</div>
+                <div className="mt-1 max-w-64 text-[10px] leading-relaxed text-white/35">添加一個參數，角色會立即停在目標姿勢供你觀察。</div>
                 <button
                   onClick={addDraftParam}
                   disabled={!modelParameters.length}
                   className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-[11px] text-emerald-100 disabled:opacity-35"
                 >
-                  <Plus size={12} weight="bold" /> 添加第一个变化
+                  <Plus size={12} weight="bold" /> 添加第一個變化
                 </button>
               </div>
             ) : customDraft.params.map((param, index) => {
@@ -609,7 +609,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
 
                   <select
                     value={param.id}
-                    aria-label={`${semantics.label}参数`}
+                    aria-label={`${semantics.label}參數`}
                     onChange={event => {
                       const nextMeta = modelParameters.find(item => item.id === event.target.value);
                       updateDraftParam(index, {
@@ -641,11 +641,11 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                       <div
                         className="pointer-events-none absolute -top-1 h-3 w-px bg-white/30"
                         style={{ left: `${defaultPosition}%` }}
-                        title={`默认值 ${defaultValue.toFixed(2)}`}
+                        title={`默認值 ${defaultValue.toFixed(2)}`}
                       />
                       <input
                         type="range"
-                        aria-label={`${semantics.label}目标值`}
+                        aria-label={`${semantics.label}目標值`}
                         min={min}
                         max={max}
                         step={0.01}
@@ -664,8 +664,8 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-[10px] tabular-nums text-emerald-100/75">
-                        目标 {param.value.toFixed(2)}
-                        <span className="ml-2 text-white/28">默认 {defaultValue.toFixed(2)}</span>
+                        目標 {param.value.toFixed(2)}
+                        <span className="ml-2 text-white/28">默認 {defaultValue.toFixed(2)}</span>
                       </span>
                       <button
                         onClick={() => {
@@ -675,7 +675,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                         }}
                         className="text-[9px] text-white/38 active:text-white/70"
                       >
-                        回到默认
+                        回到默認
                       </button>
                     </div>
                   </div>
@@ -689,7 +689,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
                 disabled={!modelParameters.length}
                 className="my-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/12 py-2.5 text-[10px] text-white/45 disabled:opacity-35"
               >
-                <Plus size={11} weight="bold" /> 再添加一个部位
+                <Plus size={11} weight="bold" /> 再添加一個部位
               </button>
             )}
           </div>
@@ -707,14 +707,14 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
               className="flex-1 rounded-2xl py-3 text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-35"
               style={{ background: `linear-gradient(90deg, ${accentColor}aa, ${accentColor})` }}
             >
-              保存这个动作
+              保存這個動作
             </button>
           </div>
         </div>
       )}
 
       <div className="shrink-0 border-t border-white/10 bg-black/30 px-4 pt-3" style={{ paddingBottom: 'max(1rem, var(--safe-bottom))' }}>
-        <p className="mb-3 text-[10px] leading-relaxed text-white/35">衣橱项目只允许用户手动切换，并从所有 AI 动作白名单中强制排除；“禁用”不会播放。</p>
+        <p className="mb-3 text-[10px] leading-relaxed text-white/35">衣櫥項目只允許用戶手動切換，並從所有 AI 動作白名單中強制排除；“禁用”不會播放。</p>
         <button
           onClick={() => {
             const normalizedActions = actions.map(action => action.wardrobe ? { ...action, permission: 'manual' as const } : action);
@@ -726,7 +726,7 @@ const Live2DActionSettings: React.FC<Live2DActionSettingsProps> = ({
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-[0.98]"
           style={{ background: `linear-gradient(90deg, ${accentColor}aa, ${accentColor})`, boxShadow: `0 0 20px ${accentColor}44` }}
         >
-          <Check size={16} weight="bold" /> {setupMode === 'import' ? '保存并完成导入' : '保存权限'}
+          <Check size={16} weight="bold" /> {setupMode === 'import' ? '保存並完成導入' : '保存權限'}
         </button>
       </div>
     </div>

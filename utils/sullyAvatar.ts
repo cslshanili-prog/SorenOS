@@ -9,8 +9,8 @@ const LEGACY_LOCAL_PATHS = new Set([
 const LEGACY_GITHUB_PAGES_HOST = 'qegj567-cloud.github.io';
 
 /**
- * 只识别 Sully 曾经使用过的默认头像地址。
- * 用户自定义头像即使文件名同为 head.png，也不会被覆盖。
+ * 只識別 Sully 曾經使用過的默認頭像地址。
+ * 用戶自定義頭像即使文件名同為 head.png，也不會被覆蓋。
  */
 export function shouldMigrateSullyAvatar(value: string | undefined, pageHref?: string): boolean {
     const avatar = String(value || '').trim();

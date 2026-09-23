@@ -1,7 +1,7 @@
 import type { CharacterProfile, VRWorldCharState } from '../../types';
 import { VR_DEFAULT_INTERVAL_MIN } from './constants';
 
-/** 旧接入沿用自动设置；新接入默认等待用户邀请。 */
+/** 舊接入沿用自動設置；新接入默認等待用戶邀請。 */
 export const joinVRState = (previous?: VRWorldCharState): VRWorldCharState => ({
     ...previous,
     enabled: true,
@@ -19,7 +19,7 @@ export const isSARActivityOccupant = (char: Pick<CharacterProfile,'vrState'>): b
         ['cabinet','module-shop','fishing','market','garden'].includes(state.sarActivity||'');
 };
 
-/** 一轮生成期间用户可能切换接入方式；保存活动结果不能恢复会话开始时的旧开关。 */
+/** 一輪生成期間用戶可能切換接入方式；保存活動結果不能恢復會話開始時的舊開關。 */
 export const withLatestVRParticipation = (current: CharacterProfile, patch: Partial<CharacterProfile>): Partial<CharacterProfile> => {
     if (!patch.vrState) return patch;
     return {

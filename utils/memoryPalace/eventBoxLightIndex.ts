@@ -1,9 +1,9 @@
 /**
  * EventBox Light Index (M1.3)
  *
- * Router 已经把模糊承接改写成 event_box query 时，本模块用纯本地倒排索引补查
- * box.name / tags / summary / live nodes。它只给旧 hybrid recall 增加候选：
- * 不调用 LLM、不调用 embedding，也不删除或替换旧召回结果。
+ * Router 已經把模糊承接改寫成 event_box query 時，本模塊用純本地倒排索引補查
+ * box.name / tags / summary / live nodes。它只給舊 hybrid recall 增加候選：
+ * 不調用 LLM、不調用 embedding，也不刪除或替換舊召回結果。
  */
 
 import type { RecallQuery } from './recallRouter';
@@ -52,9 +52,9 @@ export interface EventBoxLightIndex {
 }
 
 const GENERIC_TERMS = [
-    '那个', '这个', '那些', '这些', '事情', '事件', '之前', '以前', '后来', '然后',
-    '结果', '进度', '情况', '怎么', '怎样', '还是', '已经', '现在', '一次', '一下',
-    '一个', '没有', '可以', '就是', '什么', '记忆', '记得', '我们', '你们', '他们',
+    '那個', '這個', '那些', '這些', '事情', '事件', '之前', '以前', '後來', '然後',
+    '結果', '進度', '情況', '怎麼', '怎樣', '還是', '已經', '現在', '一次', '一下',
+    '一個', '沒有', '可以', '就是', '什麼', '記憶', '記得', '我們', '你們', '他們',
 ] as const;
 
 const GENERIC_TOKEN_SET = new Set<string>(GENERIC_TERMS);
@@ -126,7 +126,7 @@ function entityValues(node: MemoryNode): string[] {
     return (node.entities || []).flatMap(entity => [entity.name, ...(entity.aliases || [])]);
 }
 
-/** 构建一次请求内使用的本地倒排；不持久化，因此不存在过期索引。 */
+/** 構建一次請求內使用的本地倒排；不持久化，因此不存在過期索引。 */
 export function buildEventBoxLightIndex(nodes: MemoryNode[], eventBoxes: EventBox[]): EventBoxLightIndex {
     const nodeMap = new Map(nodes.map(node => [node.id, node]));
     const documents = new Map<string, EventBoxLightDocument>();
@@ -195,8 +195,8 @@ function scoreField(queryNormalized: string, queryTokens: Set<string>, field: In
 }
 
 /**
- * 只消费 Router 明确标成 event_box 的 query。查询先通过 postings 缩小盒集合，
- * 再在候选盒内按 name/tag/entity/content 的可靠性分层打分。
+ * 只消費 Router 明確標成 event_box 的 query。查詢先通過 postings 縮小盒集合，
+ * 再在候選盒內按 name/tag/entity/content 的可靠性分層打分。
  */
 export function lookupEventBoxLightCandidates(
     index: EventBoxLightIndex,
@@ -259,8 +259,8 @@ export function lookupEventBoxLightCandidates(
 }
 
 /**
- * M1.3 的核心不变量：先完整保留 semanticResults，再添加/抬高盒候选。
- * 不设置 recallGuarantee；EventBox 推断仍需与旧召回结果共同竞争 formatter quota。
+ * M1.3 的核心不變量：先完整保留 semanticResults，再添加/抬高盒候選。
+ * 不設置 recallGuarantee；EventBox 推斷仍需與舊召回結果共同競爭 formatter quota。
  */
 export function mergeEventBoxLightCandidates(
     semanticResults: ScoredMemory[],

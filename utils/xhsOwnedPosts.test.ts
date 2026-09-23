@@ -22,7 +22,7 @@ describe('XHS character profile persistence', () => {
             timestamp: 100,
             actionType: 'post',
             content: { noteId, title: post.title, body: post.body },
-            thinking: '发帖',
+            thinking: '發帖',
             result: 'success',
         };
 
@@ -38,11 +38,11 @@ describe('XHS character profile persistence', () => {
         const suffix = `${Date.now()}-${Math.random()}`;
         const first: XhsOwnedPost = {
             id: `char-a-${suffix}:note-a`, characterId: `char-a-${suffix}`, noteId: 'note-a',
-            title: '同标题', body: 'A', publishedAt: 1, updatedAt: 1,
+            title: '同標題', body: 'A', publishedAt: 1, updatedAt: 1,
         };
         const second: XhsOwnedPost = {
             id: `char-b-${suffix}:note-b`, characterId: `char-b-${suffix}`, noteId: 'note-b',
-            title: '同标题', body: 'B', publishedAt: 1, updatedAt: 1,
+            title: '同標題', body: 'B', publishedAt: 1, updatedAt: 1,
         };
 
         await DB.saveXhsOwnedPost(first);

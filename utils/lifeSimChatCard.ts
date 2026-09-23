@@ -25,7 +25,7 @@ export function createLifeSimResetCardData(input: {
 }): LifeSimResetCardData {
     return {
         type: 'lifesim_reset_card',
-        title: '都市人生 - 城市小结',
+        title: '都市人生 - 城市小結',
         summary: input.summary,
         headline: input.headline,
         userName: input.userName,
@@ -40,18 +40,18 @@ export function createLifeSimResetCardData(input: {
 export function formatLifeSimResetCardForContext(card: LifeSimResetCardData, currentCharName?: string): string {
     const others = card.participantNames.filter(name => name && name !== currentCharName);
     const joined = others.length > 0 ? `${others.join('、')} 和 ${card.userName}` : card.userName;
-    const headline = card.headline ? `这一局最像主线标题的是《${card.headline}》。` : '';
-    return `[都市人生结算卡] 你和 ${joined} 一起玩了《都市人生》。${headline}整局共推进了 ${card.turnCount} 回合，主线节点 ${card.mainPlotCount} 个。最终小结：${card.summary}`;
+    const headline = card.headline ? `這一局最像主線標題的是《${card.headline}》。` : '';
+    return `[都市人生結算卡] 你和 ${joined} 一起玩了《都市人生》。${headline}整局共推進了 ${card.turnCount} 回合，主線節點 ${card.mainPlotCount} 個。最終小結：${card.summary}`;
 }
 
 export function tryParseLifeSimResetCard(raw: any): LifeSimResetCardData | null {
     if (!raw || typeof raw !== 'object' || raw.type !== 'lifesim_reset_card') return null;
     return {
         type: 'lifesim_reset_card',
-        title: String(raw.title || '都市人生 - 城市小结'),
+        title: String(raw.title || '都市人生 - 城市小結'),
         summary: String(raw.summary || ''),
         headline: raw.headline ? String(raw.headline) : undefined,
-        userName: String(raw.userName || '用户'),
+        userName: String(raw.userName || '用戶'),
         participantNames: Array.isArray(raw.participantNames) ? raw.participantNames.map(String) : [],
         charName: String(raw.charName || ''),
         charAvatar: raw.charAvatar ? String(raw.charAvatar) : undefined,

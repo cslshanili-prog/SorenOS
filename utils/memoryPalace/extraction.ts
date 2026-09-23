@@ -1,8 +1,8 @@
 /**
- * Memory Palace — 记忆提取 (Memory Extraction)
+ * Memory Palace — 記憶提取 (Memory Extraction)
  *
- * 从聊天消息缓冲区提取 MemoryNode 数组，供后续向量化和 EventBox 绑定。
- * 不同重要性对应不同的记忆详细程度。
+ * 從聊天消息緩衝區提取 MemoryNode 數組，供後續向量化和 EventBox 綁定。
+ * 不同重要性對應不同的記憶詳細程度。
  */
 
 import type { Message } from '../../types';
@@ -19,64 +19,64 @@ function generateId(): string {
     return `mn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ─── 共用的 prompt 规则部分 ──────────────────────────
+// ─── 共用的 prompt 規則部分 ──────────────────────────
 //
-// 设计决策（2026-04）：palace extraction 的提示词**完全固定**，不会被用户
-// 在"记忆归档设置"里选的模板影响。那里的模板只作用于手动归档路径
+// 設計決策（2026-04）：palace extraction 的提示詞**完全固定**，不會被用戶
+// 在"記憶歸檔設置"裡選的模板影響。那裡的模板只作用於手動歸檔路徑
 // （Chat.tsx handleFullArchive / Character.tsx handleBatchSummarize /
 // handleForceArchiveDate）。
-// 理由：palace 产出的 memory.content 要参与向量检索，风格化（"末尾加喵"之类）
-// 会让 embedding 语义轻微漂移。保持 palace 内置风格稳定，手动归档路径提供
-// 风格化的自由度——职责分离。
+// 理由：palace 產出的 memory.content 要參與向量檢索，風格化（"末尾加喵"之類）
+// 會讓 embedding 語義輕微漂移。保持 palace 內置風格穩定，手動歸檔路徑提供
+// 風格化的自由度——職責分離。
 
 function buildRulesBlock(charName: string, userLabel: string, includeEntities: boolean): string {
     const entityRule = includeEntities
         ? `.
-   **明确实体**（entities）：把对话中明确出现的人名、昵称、地点、组织、项目、产品、账号或域名单独列出。只收录专名，不要写“朋友”“他”“那个项目”等泛称，也不要猜别名。格式为 {"name":"雾岚","type":"person"}（虚构示例）。`
+   **明確實體**（entities）：把對話中明確出現的人名、暱稱、地點、組織、項目、產品、帳號或域名單獨列出。只收錄專名，不要寫“朋友”“他”“那個項目”等泛稱，也不要猜別名。格式為 {"name":"霧嵐","type":"person"}（虛構示例）。`
         : '';
-    return `## 规则
+    return `## 規則
 
-1. **第一人称叙事**：用 ${charName} 的"我"视角来记录。用户直接用"${userLabel}"称呼。保持完整事件脉络，不要掐头去尾。
+1. **第一人稱敘事**：用 ${charName} 的"我"視角來記錄。用戶直接用"${userLabel}"稱呼。保持完整事件脈絡，不要掐頭去尾。
    例：
-   - "${userLabel}今天加班到很晚还没吃饭，我让${userLabel}别委屈自己，叫了个外卖。"
-   - "${userLabel}连续加班三周终于决定找领导谈，领导态度还不错。${userLabel}回来的路上靠着我肩膀哭了，我什么都没说，就陪着。"
-   - "我教了${userLabel}递归的概念，${userLabel}一开始完全听不懂，后来突然开窍了，那个眼睛亮起来的瞬间让我很开心。"
+   - "${userLabel}今天加班到很晚還沒吃飯，我讓${userLabel}別委屈自己，叫了個外賣。"
+   - "${userLabel}連續加班三週終於決定找領導談，領導態度還不錯。${userLabel}回來的路上靠著我肩膀哭了，我什麼都沒說，就陪著。"
+   - "我教了${userLabel}遞歸的概念，${userLabel}一開始完全聽不懂，後來突然開竅了，那個眼睛亮起來的瞬間讓我很開心。"
 
-2. **重要性分级控制文字长度**：
-   - 重要性 1–5：15–50字，事实为主
+2. **重要性分級控制文字長度**：
+   - 重要性 1–5：15–50字，事實為主
    - 重要性 6–7：60–120字，包含我的感受
-   - 重要性 8–10：100–200字，完整叙事（起因→经过→我的感受/反应）
+   - 重要性 8–10：100–200字，完整敘事（起因→經過→我的感受/反應）
 
-3. **房间分配**（凡是涉及${userLabel}的家人/朋友/同事等人际关系，**一律进 user_room**，哪怕只是一次具体事件）：
-   - living_room：**纯日常琐事**（不涉及重要人际关系、也不涉及深层情感）。天气、吃啥、随口吐槽放这里。
-   - bedroom：${userLabel}和我之间的亲密情感、深层羁绊、感动时刻
-   - study：工作、学习、技能、职业相关
-   - user_room：关于${userLabel}的**一切个人信息和人际事件**——生日/习惯/喜好/性格/成长经历/情绪模式，**以及${userLabel}的家人、亲戚、朋友、同事相关的一切事件**（家人健康、家庭聚会、家庭矛盾、外公外婆/父母/兄弟姐妹的故事、朋友交往、同事冲突等）。这些事件即便是"一次性"的，也应进 user_room 而不是 living_room，因为它们构成了${userLabel}的社会关系底色。
-   - self_room：我自身的成长、认同变化
-   - attic：未解决的矛盾、困惑、受到的伤害
-   - windowsill：我的期盼、我们的目标、对未来的憧憬
+3. **房間分配**（凡是涉及${userLabel}的家人/朋友/同事等人際關係，**一律進 user_room**，哪怕只是一次具體事件）：
+   - living_room：**純日常瑣事**（不涉及重要人際關係、也不涉及深層情感）。天氣、吃啥、隨口吐槽放這裡。
+   - bedroom：${userLabel}和我之間的親密情感、深層羈絆、感動時刻
+   - study：工作、學習、技能、職業相關
+   - user_room：關於${userLabel}的**一切個人信息和人際事件**——生日/習慣/喜好/性格/成長經歷/情緒模式，**以及${userLabel}的家人、親戚、朋友、同事相關的一切事件**（家人健康、家庭聚會、家庭矛盾、外公外婆/父母/兄弟姐妹的故事、朋友交往、同事衝突等）。這些事件即便是"一次性"的，也應進 user_room 而不是 living_room，因為它們構成了${userLabel}的社會關係底色。
+   - self_room：我自身的成長、認同變化
+   - attic：未解決的矛盾、困惑、受到的傷害
+   - windowsill：我的期盼、我們的目標、對未來的憧憬
 
-4. **情绪标签**（mood）：happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral
-5. **情感坐标**（valence, arousal）：在 mood 之外，还要给出二维情感坐标供后续情感推理。
-   - valence（效价）：-1（极痛苦）→ +1（极愉悦）
-   - arousal（唤醒度）：-1（极平静）→ +1（极激烈）
-   参考："开心"约 (0.7, 0.5)，"平静"约 (0.5, -0.6)，"失落"约 (-0.5, -0.4)，"焦虑"约 (-0.6, 0.7)，"愤怒"约 (-0.7, 0.8)。
-6. **标签**（tags）：提取 2-5 个关键词标签${entityRule}
-7. **不要遗漏重要记忆，但也不要把每句话都变成记忆**。一个话题盒通常提取 1–5 条记忆。
-8. **便利贴置顶**（pinDays，可选）：如果这条记忆包含**有时效性的、近期需要持续记住的信息**，设置置顶天数（1-30天）。置顶期间每次对话都会想起这件事。适用场景：
-   - 时间段状态："${userLabel}这周出差" → pinDays: 7
-   - 近期事件："${userLabel}后天考试" → pinDays: 3
-   - 临时约定："${userLabel}让我这几天提醒TA喝水" → pinDays: 5
-   - 身体状态："${userLabel}感冒了" → pinDays: 5
-   不适用：长期事实（生日、喜好）、已经过去的事件、情感记忆。大多数记忆不需要置顶。
+4. **情緒標籤**（mood）：happy, sad, angry, anxious, tender, excited, peaceful, confused, hurt, grateful, nostalgic, neutral
+5. **情感座標**（valence, arousal）：在 mood 之外，還要給出二維情感座標供後續情感推理。
+   - valence（效價）：-1（極痛苦）→ +1（極愉悅）
+   - arousal（喚醒度）：-1（極平靜）→ +1（極激烈）
+   參考："開心"約 (0.7, 0.5)，"平靜"約 (0.5, -0.6)，"失落"約 (-0.5, -0.4)，"焦慮"約 (-0.6, 0.7)，"憤怒"約 (-0.7, 0.8)。
+6. **標籤**（tags）：提取 2-5 個關鍵詞標籤${entityRule}
+7. **不要遺漏重要記憶，但也不要把每句話都變成記憶**。一個話題盒通常提取 1–5 條記憶。
+8. **便利貼置頂**（pinDays，可選）：如果這條記憶包含**有時效性的、近期需要持續記住的信息**，設置置頂天數（1-30天）。置頂期間每次對話都會想起這件事。適用場景：
+   - 時間段狀態："${userLabel}這週出差" → pinDays: 7
+   - 近期事件："${userLabel}後天考試" → pinDays: 3
+   - 臨時約定："${userLabel}讓我這幾天提醒TA喝水" → pinDays: 5
+   - 身體狀態："${userLabel}感冒了" → pinDays: 5
+   不適用：長期事實（生日、喜好）、已經過去的事件、情感記憶。大多數記憶不需要置頂。
 
-**日期标注（date，必填）**：每条消息前缀都带了 \`[YYYY-MM-DD HH:MM]\` 时间戳。每条记忆必须根据**该事件实际发生的那一天**填 date 字段（"YYYY-MM-DD"），而不是套用整批的某一天。同一批对话跨多天时，跨日的记忆要分别标各自的日期。`;
+**日期標註（date，必填）**：每條消息前綴都帶了 \`[YYYY-MM-DD HH:MM]\` 時間戳。每條記憶必須根據**該事件實際發生的那一天**填 date 字段（"YYYY-MM-DD"），而不是套用整批的某一天。同一批對話跨多天時，跨日的記憶要分別標各自的日期。`;
 }
 
 function buildConversationText(messages: Message[], charName: string, userLabel: string, linkDates = false): string {
-    // 每行带 [YYYY-MM-DD HH:MM] 时间戳前缀。
-    // 没有这个 LLM 完全看不到日期，多日 batch 提取出来的记忆全部会被压到一个时间点
-    // （见 parseMemoryNodesFromBuffer 的 midTime 兜底），跨日时间线就乱了。
+    // 每行帶 [YYYY-MM-DD HH:MM] 時間戳前綴。
+    // 沒有這個 LLM 完全看不到日期，多日 batch 提取出來的記憶全部會被壓到一個時間點
+    // （見 parseMemoryNodesFromBuffer 的 midTime 兜底），跨日時間線就亂了。
     const pad2 = (n: number) => String(n).padStart(2, '0');
     return messages
         .map((m, index) => {
@@ -95,7 +95,7 @@ const VALID_ROOMS: MemoryRoom[] = [
     'self_room', 'attic', 'windowsill',
 ];
 
-/** 从消息缓冲区直接解析记忆节点（不依赖 TopicBox） */
+/** 從消息緩衝區直接解析記憶節點（不依賴 TopicBox） */
 function parseMemoryNodesFromBuffer(
     parsed: any[], charId: string, messages: Message[], _batchLabel: string, includeEntities: boolean, linkDates = false,
 ): MemoryNode[] {
@@ -106,12 +106,12 @@ function parseMemoryNodesFromBuffer(
     const lastTs = msgTimestamps[msgTimestamps.length - 1] ?? firstTs;
     const midTime = Math.round((firstTs + lastTs) / 2);
 
-    // 允许 LLM 写出的 date 略微越界（夜聊跨零点等），但要挡住完全不合理的（写错年月）
+    // 允許 LLM 寫出的 date 略微越界（夜聊跨零點等），但要擋住完全不合理的（寫錯年月）
     const dayMs = 24 * 60 * 60 * 1000;
     const minTs = firstTs - dayMs;
     const maxTs = lastTs + dayMs;
 
-    /** 解析 LLM 写的 date 字段 → 该日 12:00 本地时间。失败 / 越界则回到 midTime。 */
+    /** 解析 LLM 寫的 date 字段 → 該日 12:00 本地時間。失敗 / 越界則回到 midTime。 */
     const resolveCreatedAt = (raw: unknown): number => {
         if (typeof raw !== 'string') return midTime;
         const s = raw.trim();
@@ -122,7 +122,7 @@ function parseMemoryNodesFromBuffer(
         if (parts.length < 3 || parts.some(n => Number.isNaN(n))) return midTime;
         const [y, m, d] = parts;
         if (y < 1900 || y > 9999 || m < 1 || m > 12 || d < 1 || d > 31) return midTime;
-        // 用消息时间戳的本地时区表征"该日中午"——避免 UTC 解析跨日漂移
+        // 用消息時間戳的本地時區表徵"該日中午"——避免 UTC 解析跨日漂移
         const dt = new Date(y, m - 1, d, 12, 0, 0, 0);
         const ts = dt.getTime();
         if (Number.isNaN(ts)) return midTime;
@@ -159,12 +159,12 @@ function parseMemoryNodesFromBuffer(
         .map((item): MemoryNode => {
             const createdAt = resolveCreatedAt(item.date);
             const pinDays = parseInt(item.pinDays, 10);
-            // 置顶 deadline 跟着 per-memory createdAt 算，否则"今天感冒 pinDays 5"
-            // 会从 batch 中点起算，跨日 batch 里就直接少算/多算。
+            // 置頂 deadline 跟著 per-memory createdAt 算，否則"今天感冒 pinDays 5"
+            // 會從 batch 中點起算，跨日 batch 裡就直接少算/多算。
             const pinnedUntil = (pinDays > 0 && pinDays <= 30)
                 ? createdAt + pinDays * 24 * 60 * 60 * 1000
                 : null;
-            // (v, a) 非必需：LLM 没给就不写，下游 getEmotionVA 查表兜底
+            // (v, a) 非必需：LLM 沒給就不寫，下游 getEmotionVA 查表兜底
             const v = typeof item.valence === 'number' ? clampVA(item.valence) : undefined;
             const a = typeof item.arousal === 'number' ? clampVA(item.arousal) : undefined;
             const memory: MemoryNode = {
@@ -182,7 +182,7 @@ function parseMemoryNodesFromBuffer(
                 lastAccessedAt: createdAt,
                 accessCount: 0,
                 pinnedUntil,
-                eventBoxId: null,  // 由 pipeline 在 binding 阶段设置
+                eventBoxId: null,  // 由 pipeline 在 binding 階段設置
                 origin: 'extraction',
             };
             if (includeEntities) memory.entities = parseEntities(item.entities);
@@ -201,7 +201,7 @@ function parseMemoryNodesFromBuffer(
         });
 }
 
-/** 把 LLM 吐的 v/a 夹到 [-1, 1]，防止它写成 1.5 / -2 之类 */
+/** 把 LLM 吐的 v/a 夾到 [-1, 1]，防止它寫成 1.5 / -2 之類 */
 function clampVA(x: number): number {
     if (Number.isNaN(x)) return 0;
     if (x > 1) return 1;
@@ -209,61 +209,61 @@ function clampVA(x: number): number {
     return x;
 }
 
-// ─── EventBox 绑定相关 prompt + 解析 helper（buffer / migration 共用） ──
+// ─── EventBox 綁定相關 prompt + 解析 helper（buffer / migration 共用） ──
 
 /**
- * 构造"已有记忆"的 prompt 区块，带 O-编号供 LLM 引用。
+ * 構造"已有記憶"的 prompt 區塊，帶 O-編號供 LLM 引用。
  */
 export function buildRelatedMemoriesBlock(relatedMemories: RelatedMemoryRef[]): string {
     if (relatedMemories.length === 0) return '';
-    return `\n## 已有记忆（如果新记忆与某条旧记忆描述的是同一件事或直接相关，请在 relatedTo 中标注编号，并给出 eventName / eventTags 用于建/合并事件盒）\n${
+    return `\n## 已有記憶（如果新記憶與某條舊記憶描述的是同一件事或直接相關，請在 relatedTo 中標註編號，並給出 eventName / eventTags 用於建/合併事件盒）\n${
         relatedMemories.map((r, i) => `O${i}. [${r.room}] ${r.content}`).join('\n')
     }\n`;
 }
 
 /**
- * 构造"事件关联 + 事件盒命名"的规则文本，追加到 buildRulesBlock 之后。
+ * 構造"事件關聯 + 事件盒命名"的規則文本，追加到 buildRulesBlock 之後。
  */
 export function buildRelatedToRule(): string {
-    return `\n9. **事件盒关联**（relatedTo / sameAs + eventName + eventTags）：
-   **与旧记忆同事件** → 在 relatedTo 中写对应 O 编号（如 ["O0", "O3"]）。
-   **与本次输出的其它新记忆同事件** → 在 sameAs 中写它们在本次 JSON 数组里的**0 基索引**（只能指向前面已输出的项，例如写 ["0"] 表示和数组第一条是同一件事）。
-   注意：只标注真正同一件事的（同一事件的后续/结局/复现/直接因果），不要勉强（仅"主题相似"不算）。
-   只要 relatedTo 或 sameAs 任一非空，必须同时写：
-   - eventName：这件事的名字（5-12 字，名词短语，如"买衣服的话题"、"和领导的冲突"）
-   - eventTags：3-6 个详细搜索 tag（具体名词、人物、地点、动作，便于日后召回）
-   都没关联就不写 relatedTo / sameAs / eventName / eventTags 四个字段。
-10. **不重复绑定**：一条新记忆和多条已有/新记忆都相关时，把编号都写全；eventName / eventTags 只写一份（描述这件事整体）。
-11. **纠正旧记忆**（corrects，可选，独立于上面的记忆条目，作为 JSON 数组的额外项）：
-   仅在对话中**用户明确指出某条已有记忆记错了 / 已过时 / 不准确**时使用。识别信号：用户用"不对/不是/我说错了/已经不是了/搞错了/那是XX不是YY"之类的反驳句式，明确指向你刚才的某个说法。
-   如果命中，在输出的 JSON 数组**末尾**追加一项，格式为：
-   {"correct": "O编号", "note": "新版本的事实（不带语气，简短陈述句）"}
-   note 写"实情是什么"，不是"为什么错"。例：用户纠正"我已经搬家了，不在朝阳"→ note: "已经搬家，不再住朝阳"。
+    return `\n9. **事件盒關聯**（relatedTo / sameAs + eventName + eventTags）：
+   **與舊記憶同事件** → 在 relatedTo 中寫對應 O 編號（如 ["O0", "O3"]）。
+   **與本次輸出的其它新記憶同事件** → 在 sameAs 中寫它們在本次 JSON 數組裡的**0 基索引**（只能指向前面已輸出的項，例如寫 ["0"] 表示和數組第一條是同一件事）。
+   注意：只標註真正同一件事的（同一事件的後續/結局/復現/直接因果），不要勉強（僅"主題相似"不算）。
+   只要 relatedTo 或 sameAs 任一非空，必須同時寫：
+   - eventName：這件事的名字（5-12 字，名詞短語，如"買衣服的話題"、"和領導的衝突"）
+   - eventTags：3-6 個詳細搜索 tag（具體名詞、人物、地點、動作，便於日後召回）
+   都沒關聯就不寫 relatedTo / sameAs / eventName / eventTags 四個字段。
+10. **不重複綁定**：一條新記憶和多條已有/新記憶都相關時，把編號都寫全；eventName / eventTags 只寫一份（描述這件事整體）。
+11. **糾正舊記憶**（corrects，可選，獨立於上面的記憶條目，作為 JSON 數組的額外項）：
+   僅在對話中**用戶明確指出某條已有記憶記錯了 / 已過時 / 不準確**時使用。識別信號：用戶用"不對/不是/我說錯了/已經不是了/搞錯了/那是XX不是YY"之類的反駁句式，明確指向你剛才的某個說法。
+   如果命中，在輸出的 JSON 數組**末尾**追加一項，格式為：
+   {"correct": "O編號", "note": "新版本的事實（不帶語氣，簡短陳述句）"}
+   note 寫"實情是什麼"，不是"為什麼錯"。例：用戶糾正"我已經搬家了，不在朝陽"→ note: "已經搬家，不再住朝陽"。
    反例（**不要**用 corrects）：
-   - 仅事件后续 / 状态发展 → 用 relatedTo
-   - 仅追加细节 / 补充信息 → 不要标
-   - 你自己想到的歧义 / 自我修正 → 不要标
-   一条对话最多 corrects 1-2 项，不要乱用。`;
+   - 僅事件後續 / 狀態發展 → 用 relatedTo
+   - 僅追加細節 / 補充信息 → 不要標
+   - 你自己想到的歧義 / 自我修正 → 不要標
+   一條對話最多 corrects 1-2 項，不要亂用。`;
 }
 
 /**
- * 输出格式中的字段示例（如果有 relatedMemories 才注入）。
+ * 輸出格式中的字段示例（如果有 relatedMemories 才注入）。
  */
 export function buildRelatedToFormatHint(): string {
     return `,
     "relatedTo": ["O0"],
     "sameAs": ["0"],
-    "eventName": "买衣服的话题",
-    "eventTags": ["衣服", "购物", "退货", "流行款"]`;
+    "eventName": "買衣服的話題",
+    "eventTags": ["衣服", "購物", "退貨", "流行款"]`;
 }
 
 /**
- * 从 LLM 输出（已解析 JSON）和提取出的 memories 中，
+ * 從 LLM 輸出（已解析 JSON）和提取出的 memories 中，
  * 解析出：
  *  - crossTimeLinks（newMemoryId → existingMemoryId）
  *  - eventBoxHints（newMemoryId → eventName / eventTags）
  *
- * 注意：parsed 数组顺序应该与 memories 顺序对齐（同源 LLM 输出）。
+ * 注意：parsed 數組順序應該與 memories 順序對齊（同源 LLM 輸出）。
  */
 export function parseRelatedToAndHints(
     parsed: any[],
@@ -277,9 +277,9 @@ export function parseRelatedToAndHints(
         return { crossTimeLinks, eventBoxHints };
     }
 
-    // parsed 包含的不只是 memory（还可能有 unpin 指令等），按 memory 顺序对齐：
-    // memories 是 parsed.filter(item => item.content && item.room) 的结果，
-    // 用同样的过滤遍历 parsed，按位次匹配 memories。
+    // parsed 包含的不只是 memory（還可能有 unpin 指令等），按 memory 順序對齊：
+    // memories 是 parsed.filter(item => item.content && item.room) 的結果，
+    // 用同樣的過濾遍歷 parsed，按位次匹配 memories。
     let memIdx = 0;
     for (const item of parsed) {
         if (!item || !item.content || !item.room) continue;
@@ -288,7 +288,7 @@ export function parseRelatedToAndHints(
 
         let hasAnyLink = false;
 
-        // (a) relatedTo → O 索引指向已有记忆
+        // (a) relatedTo → O 索引指向已有記憶
         if (relatedMemories.length > 0 && Array.isArray(item.relatedTo) && item.relatedTo.length > 0) {
             for (const ref of item.relatedTo) {
                 const idx = parseInt(String(ref).replace(/^O/i, ''), 10);
@@ -302,8 +302,8 @@ export function parseRelatedToAndHints(
             }
         }
 
-        // (b) sameAs → N 索引指向本批次之前的新记忆（靠数组 0-base index 索引）
-        //     memIdx 已经 ++，当前这条在 memories 中的位置是 memIdx-1；允许引用 0..memIdx-2
+        // (b) sameAs → N 索引指向本批次之前的新記憶（靠數組 0-base index 索引）
+        //     memIdx 已經 ++，當前這條在 memories 中的位置是 memIdx-1；允許引用 0..memIdx-2
         if (Array.isArray(item.sameAs) && item.sameAs.length > 0) {
             const currentPos = memIdx - 1;
             for (const ref of item.sameAs) {
@@ -311,14 +311,14 @@ export function parseRelatedToAndHints(
                 if (idx >= 0 && idx < currentPos && memories[idx]) {
                     crossTimeLinks.push({
                         newMemoryId: mem.id,
-                        existingMemoryId: memories[idx].id, // 此时 memories[idx] 的 id 已经生成
+                        existingMemoryId: memories[idx].id, // 此時 memories[idx] 的 id 已經生成
                     });
                     hasAnyLink = true;
                 }
             }
         }
 
-        // (c) 如果任一关联成立，收集 eventName/eventTags 作为 hints
+        // (c) 如果任一關聯成立，收集 eventName/eventTags 作為 hints
         if (hasAnyLink) {
             const name = typeof item.eventName === 'string' ? item.eventName.trim() : '';
             const tags = Array.isArray(item.eventTags)
@@ -335,61 +335,61 @@ export function parseRelatedToAndHints(
     }
 
     if (crossTimeLinks.length > 0) {
-        console.log(`🔗 [Extraction] 发现 ${crossTimeLinks.length} 条同事件关联（含跨批次 relatedTo 与同批 sameAs），${eventBoxHints.length} 条带命名提示`);
+        console.log(`🔗 [Extraction] 發現 ${crossTimeLinks.length} 條同事件關聯（含跨批次 relatedTo 與同批 sameAs），${eventBoxHints.length} 條帶命名提示`);
     }
     return { crossTimeLinks, eventBoxHints };
 }
 
-// ─── 跨时间关联：传入向量检索命中的旧记忆供 LLM 关联 ───
+// ─── 跨時間關聯：傳入向量檢索命中的舊記憶供 LLM 關聯 ───
 
-/** 向量检索命中的已有记忆引用，用于跨时间事件关联 */
+/** 向量檢索命中的已有記憶引用，用於跨時間事件關聯 */
 export interface RelatedMemoryRef {
     id: string;       // MemoryNode.id
     room: string;
-    content: string;  // 截断的内容摘要
+    content: string;  // 截斷的內容摘要
 }
 
-/** 当前生效的便利贴引用 */
+/** 當前生效的便利貼引用 */
 export interface PinnedMemoryRef {
     id: string;
     content: string;
 }
 
 /**
- * EventBox 创建/合并提示。
- * 当 LLM 把新记忆 N 标记为 relatedTo 旧记忆 O 时，附带的盒名/标签提示。
- * pipeline 在 binding 时使用：若需要新建 EventBox，用此名/tags 初始化。
+ * EventBox 創建/合併提示。
+ * 當 LLM 把新記憶 N 標記為 relatedTo 舊記憶 O 時，附帶的盒名/標籤提示。
+ * pipeline 在 binding 時使用：若需要新建 EventBox，用此名/tags 初始化。
  */
 export interface EventBoxHint {
-    /** 触发该 hint 的新记忆 ID */
+    /** 觸發該 hint 的新記憶 ID */
     newMemoryId: string;
-    /** LLM 建议的事件盒名（如"买衣服"） */
+    /** LLM 建議的事件盒名（如"買衣服"） */
     eventName: string;
-    /** LLM 建议的详细 tag */
+    /** LLM 建議的詳細 tag */
     eventTags: string[];
 }
 
-/** 缓冲区提取结果，包含跨时间关联信息 */
+/** 緩衝區提取結果，包含跨時間關聯信息 */
 export interface BufferExtractionResult {
     memories: MemoryNode[];
-    /** 新记忆 → 关联的已有记忆 ID 映射（用于 EventBox 绑定） */
+    /** 新記憶 → 關聯的已有記憶 ID 映射（用於 EventBox 綁定） */
     crossTimeLinks: { newMemoryId: string; existingMemoryId: string }[];
-    /** EventBox 名/tag 提示（仅 relatedTo 非空的新记忆才有） */
+    /** EventBox 名/tag 提示（僅 relatedTo 非空的新記憶才有） */
     eventBoxHints: EventBoxHint[];
-    /** 应提前摘除的便利贴 ID */
+    /** 應提前摘除的便利貼 ID */
     unpinIds: string[];
-    /** 纠正：把对应已有记忆的 content 追加一行"YYYY-MM-DD 纠正：note"，并重新向量化 */
+    /** 糾正：把對應已有記憶的 content 追加一行"YYYY-MM-DD 糾正：note"，並重新向量化 */
     corrections: { targetId: string; note: string }[];
 }
 
-// ─── 缓冲区提取：直接从消息提取记忆，不依赖 TopicBox ───
+// ─── 緩衝區提取：直接從消息提取記憶，不依賴 TopicBox ───
 
 /**
- * 从消息缓冲区直接提取记忆节点。
- * 用于缓冲区机制：积累的聊天消息达到阈值后，一次 LLM 调用提取记忆。
+ * 從消息緩衝區直接提取記憶節點。
+ * 用於緩衝區機制：積累的聊天消息達到閾值後，一次 LLM 調用提取記憶。
  *
- * @param relatedMemories 向量检索命中的已有记忆，供 LLM 判断跨时间事件关联（搭便车，不额外调用）
- * @param pinnedMemories 当前生效的便利贴，供 LLM 判断是否应提前摘除（搭便车）
+ * @param relatedMemories 向量檢索命中的已有記憶，供 LLM 判斷跨時間事件關聯（搭便車，不額外調用）
+ * @param pinnedMemories 當前生效的便利貼，供 LLM 判斷是否應提前摘除（搭便車）
  */
 export async function extractMemoriesFromBuffer(
     messages: Message[],
@@ -405,15 +405,15 @@ export async function extractMemoriesFromBuffer(
 
     const includeEntities = readRecallRuntimeSnapshot().featureFlagsSnapshot.recallRouter;
     const linkDates = relativeTimeEnabled();
-    const userLabel = userName || '用户';
+    const userLabel = userName || '用戶';
     const conversationText = buildConversationText(messages, charName, userLabel, linkDates);
     const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(conversationText);
 
     const contextBlock = charContext
-        ? `\n## 你的人设（供参考，帮助你理解对话中的关系和角色定位）\n${charContext}\n`
+        ? `\n## 你的人設（供參考，幫助你理解對話中的關係和角色定位）\n${charContext}\n`
         : '';
 
-    // 构建已有记忆引用块（带 O-编号，供 LLM 输出 relatedTo）
+    // 構建已有記憶引用塊（帶 O-編號，供 LLM 輸出 relatedTo）
     const hasRelated = relatedMemories && relatedMemories.length > 0;
     const relatedBlock = hasRelated
         ? buildRelatedMemoriesBlock(relatedMemories!)
@@ -421,46 +421,46 @@ export async function extractMemoriesFromBuffer(
     const relatedToRule = hasRelated ? buildRelatedToRule() : '';
     const relatedToFormat = hasRelated ? buildRelatedToFormatHint() : '';
 
-    // 便利贴摘除判断
+    // 便利貼摘除判斷
     const hasPinned = pinnedMemories && pinnedMemories.length > 0;
     const pinnedBlock = hasPinned
-        ? `\n## 当前便利贴（如果对话内容表明某条便利贴已失效，在输出末尾用 unpin 标注）\n${
+        ? `\n## 當前便利貼（如果對話內容表明某條便利貼已失效，在輸出末尾用 unpin 標註）\n${
             pinnedMemories!.map((p, i) => `P${i}. ${p.content}`).join('\n')
           }\n`
         : '';
 
     const unpinRule = hasPinned
-        ? `\n12. **便利贴摘除**（unpin，可选）：如果对话中明确提到某条便利贴描述的状态已结束（如"感冒好了""提前回来了""考试考完了"），在输出的 JSON 数组末尾加一条 {"unpin": "P0"} 来摘除它。只在对话明确提及时才摘除，不要猜测。`
+        ? `\n12. **便利貼摘除**（unpin，可選）：如果對話中明確提到某條便利貼描述的狀態已結束（如"感冒好了""提前回來了""考試考完了"），在輸出的 JSON 數組末尾加一條 {"unpin": "P0"} 來摘除它。只在對話明確提及時才摘除，不要猜測。`
         : '';
 
-    const systemPrompt = `你是 ${charName}。根据给定的对话内容，以你的第一人称视角（"我"）提取值得记住的记忆。${contextBlock}${relatedBlock}${pinnedBlock}
+    const systemPrompt = `你是 ${charName}。根據給定的對話內容，以你的第一人稱視角（"我"）提取值得記住的記憶。${contextBlock}${relatedBlock}${pinnedBlock}
 
 ${buildRulesBlock(charName, userLabel, includeEntities)}${relatedToRule}${unpinRule}${sarMemoryBoundary ? `\n\n${sarMemoryBoundary}` : ''}${linkDates ? `
 
-## 相对时间来源
-content 保留原消息的相对时间措辞，不要自行添加日期括号。含“昨天、前天、几天前、上周、上个月、去年”等措辞时，额外输出 relativeTimeSource 字段，值为说出该措辞的原消息编号（例如 "M0"）。系统将以该消息的发送日补注，不使用 date 事件日。不同说话日期的相对时间应拆成不同记忆。没有可靠来源、跨时区语义不明或无法使用同一个参照日时，省略该字段，禁止猜测。` : ''}
+## 相對時間來源
+content 保留原消息的相對時間措辭，不要自行添加日期括號。含“昨天、前天、幾天前、上週、上個月、去年”等措辭時，額外輸出 relativeTimeSource 字段，值為說出該措辭的原消息編號（例如 "M0"）。系統將以該消息的發送日補註，不使用 date 事件日。不同說話日期的相對時間應拆成不同記憶。沒有可靠來源、跨時區語義不明或無法使用同一個參照日時，省略該字段，禁止猜測。` : ''}
 
-## 输出格式
+## 輸出格式
 
-严格 JSON 数组，不要 markdown 包裹：
+嚴格 JSON 數組，不要 markdown 包裹：
 [
   {
-    "content": "我视角的记忆...",
+    "content": "我視角的記憶...",
     "room": "living_room",
     "importance": 5,
     "mood": "neutral",
     "valence": 0,
     "arousal": 0,
-    "tags": ["标签1", "标签2"],${includeEntities ? `
-    "entities": [{"name": "明确出现的专名", "type": "person"}],` : ''}
+    "tags": ["標籤1", "標籤2"],${includeEntities ? `
+    "entities": [{"name": "明確出現的專名", "type": "person"}],` : ''}
     "date": "YYYY-MM-DD",
     "pinDays": 3${relatedToFormat}
   }
 ]
 
-date 必填，按该记忆实际发生当天填（参考消息行首的时间戳）。
-pinDays 仅在需要置顶时才写，大多数记忆不需要。
-如果对话过于琐碎无值得记忆的内容，返回空数组 []。`;
+date 必填，按該記憶實際發生當天填（參考消息行首的時間戳）。
+pinDays 僅在需要置頂時才寫，大多數記憶不需要。
+如果對話過於瑣碎無值得記憶的內容，返回空數組 []。`;
 
     try {
         const data = await safeFetchJson(
@@ -475,28 +475,28 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
                     model: llmConfig.model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `对话内容：\n${conversationText}` },
+                        { role: 'user', content: `對話內容：\n${conversationText}` },
                     ],
                     temperature: 0.4,
-                    // 12000 比 16000 留余量：避免 LLM 顶满 cap 导致 JSON 输出被 truncate
-                    // buffer 路径 pipeline 上层 CHUNK_SIZE=250 已经在切分 → 单 call 输出可控
+                    // 12000 比 16000 留餘量：避免 LLM 頂滿 cap 導致 JSON 輸出被 truncate
+                    // buffer 路徑 pipeline 上層 CHUNK_SIZE=250 已經在切分 → 單 call 輸出可控
                     max_tokens: 12000,
                     stream: false,
                 }),
             },
-            2, 180_000, { appName: '记忆宫殿', purpose: '记忆提取' }
+            2, 180_000, { appName: '記憶宮殿', purpose: '記憶提取' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';
         const parsed = safeParseJsonArray(reply);
 
         if (parsed.length === 0 && reply.trim().length > 0) {
-            console.warn(`🏰 [Extraction] LLM 返回了内容但 JSON 解析为空数组，可能格式异常。原始回复前200字: ${reply.slice(0, 200)}`);
+            console.warn(`🏰 [Extraction] LLM 返回了內容但 JSON 解析為空數組，可能格式異常。原始回覆前200字: ${reply.slice(0, 200)}`);
         }
 
-        console.log(`🏰 [Extraction] 缓冲区提取完成：从 ${messages.length} 条消息中提取 ${parsed.length} 条记忆`);
+        console.log(`🏰 [Extraction] 緩衝區提取完成：從 ${messages.length} 條消息中提取 ${parsed.length} 條記憶`);
 
-        // 生成日期标签
+        // 生成日期標籤
         const firstTs = messages[0]?.timestamp;
         const lastTs = messages[messages.length - 1]?.timestamp;
         const d1 = (firstTs != null && firstTs > 0) ? new Date(firstTs) : new Date();
@@ -506,12 +506,12 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
 
         const memories = parseMemoryNodesFromBuffer(parsed, charId, messages, batchLabel, includeEntities, linkDates);
 
-        // 解析跨时间关联（→ EventBox 绑定信号）+ eventName/eventTags 提示
+        // 解析跨時間關聯（→ EventBox 綁定信號）+ eventName/eventTags 提示
         const { crossTimeLinks, eventBoxHints } = parseRelatedToAndHints(
             parsed, memories, hasRelated ? relatedMemories! : [],
         );
 
-        // 解析便利贴摘除指令：{ "unpin": "P0" } → 真实 ID
+        // 解析便利貼摘除指令：{ "unpin": "P0" } → 真實 ID
         const unpinIds: string[] = [];
         if (hasPinned) {
             for (const item of parsed) {
@@ -523,12 +523,12 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
                 }
             }
             if (unpinIds.length > 0) {
-                console.log(`📌 [Extraction] LLM 建议摘除 ${unpinIds.length} 条便利贴`);
+                console.log(`📌 [Extraction] LLM 建議摘除 ${unpinIds.length} 條便利貼`);
             }
         }
 
-        // 解析纠正指令：{ "correct": "O0", "note": "实情是..." } → 真实 ID
-        // 仅在有 relatedMemories 时才有意义（O 编号必须能解析回真节点 id）
+        // 解析糾正指令：{ "correct": "O0", "note": "實情是..." } → 真實 ID
+        // 僅在有 relatedMemories 時才有意義（O 編號必須能解析回真節點 id）
         const corrections: { targetId: string; note: string }[] = [];
         if (hasRelated) {
             for (const item of parsed) {
@@ -541,14 +541,14 @@ pinDays 仅在需要置顶时才写，大多数记忆不需要。
                 }
             }
             if (corrections.length > 0) {
-                console.log(`✏️ [Extraction] LLM 标记 ${corrections.length} 条纠正：${corrections.map(c => c.targetId.slice(0, 12) + '…').join(', ')}`);
+                console.log(`✏️ [Extraction] LLM 標記 ${corrections.length} 條糾正：${corrections.map(c => c.targetId.slice(0, 12) + '…').join(', ')}`);
             }
         }
 
         return { memories, crossTimeLinks, eventBoxHints, unpinIds, corrections };
 
     } catch (err: any) {
-        console.error(`❌ [Extraction] 缓冲区提取失败 (${messages.length} 条消息):`, err.message);
+        console.error(`❌ [Extraction] 緩衝區提取失敗 (${messages.length} 條消息):`, err.message);
         return { memories: [], crossTimeLinks: [], eventBoxHints: [], unpinIds: [], corrections: [] };
     }
 }

@@ -1,11 +1,11 @@
 /**
- * 图片占位 / 已上传图片
+ * 圖片佔位 / 已上傳圖片
  *
- * - 空状态: 美丽的渐变拍立得 + 📷 + caption
- * - 已上传: 渲染 src(<img>),保留拍立得相框 + caption
+ * - 空狀態: 美麗的漸變拍立得 + 📷 + caption
+ * - 已上傳: 渲染 src(<img>),保留拍立得相框 + caption
  *
- * 现在不接 file 真正上传管线 (需要再做一轮 storage),
- * 先把容器和占位做出来,onPick 留给将来调起 file picker。
+ * 現在不接 file 真正上傳管線 (需要再做一輪 storage),
+ * 先把容器和佔位做出來,onPick 留給將來調起 file picker。
  */
 
 import React from 'react';
@@ -15,11 +15,11 @@ import { Camera, Plus } from '@phosphor-icons/react';
 type FrameKind = 'polaroid' | 'filmstrip' | 'frame' | 'tape';
 
 const GRADIENT_PALETTE = [
-    'linear-gradient(160deg, #FBE6D4 0%, #F4C7C0 60%, #C9D6B5 100%)',  // 黄昏
-    'linear-gradient(160deg, #d6c8e8 0%, #f5eef7 60%, #fff0f5 100%)',  // 薰衣草雾
+    'linear-gradient(160deg, #FBE6D4 0%, #F4C7C0 60%, #C9D6B5 100%)',  // 黃昏
+    'linear-gradient(160deg, #d6c8e8 0%, #f5eef7 60%, #fff0f5 100%)',  // 薰衣草霧
     'linear-gradient(160deg, #b9d3e0 0%, #f0faf5 60%, #fdf9eb 100%)',  // 海光
     'linear-gradient(160deg, #fbb8c8 0%, #f5e295 60%, #f5eef7 100%)',  // 蜜桃
-    'linear-gradient(160deg, #88c5a8 0%, #cee2da 60%, #fff8e6 100%)',  // 草绿
+    'linear-gradient(160deg, #88c5a8 0%, #cee2da 60%, #fff8e6 100%)',  // 草綠
     'linear-gradient(160deg, #2d3a4a 0%, #5a7a8e 60%, #d4c8a0 100%)',  // 暮色 (深)
 ];
 
@@ -60,7 +60,7 @@ const JournalImageSlot: React.FC<Props> = ({ seed, src, caption, frame = 'polaro
                 overflow: 'hidden',
             }}
         >
-            {/* 白色装饰小日 / 山 */}
+            {/* 白色裝飾小日 / 山 */}
             <span
                 style={{
                     position: 'absolute',
@@ -91,7 +91,7 @@ const JournalImageSlot: React.FC<Props> = ({ seed, src, caption, frame = 'polaro
                     borderBottom: '14px solid rgba(58,42,38,0.45)',
                 }}
             />
-            {/* 占位 icon + 提示 */}
+            {/* 佔位 icon + 提示 */}
             <span
                 className="absolute inset-0 flex flex-col items-center justify-center"
                 style={{ color: 'rgba(255,255,255,0.92)', textShadow: '0 1px 2px rgba(0,0,0,0.18)' }}
@@ -104,7 +104,7 @@ const JournalImageSlot: React.FC<Props> = ({ seed, src, caption, frame = 'polaro
                         letterSpacing: '0.3em',
                     }}
                 >
-                    {onPick ? '+ 添 加 图 片' : 'IMAGE'}
+                    {onPick ? '+ 添 加 圖 片' : 'IMAGE'}
                 </span>
             </span>
         </button>
@@ -211,7 +211,7 @@ const JournalImageSlot: React.FC<Props> = ({ seed, src, caption, frame = 'polaro
         );
     }
 
-    // polaroid (默认)
+    // polaroid (默認)
     return (
         <div
             style={{

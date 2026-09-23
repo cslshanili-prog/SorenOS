@@ -55,10 +55,10 @@ describe('XHS free-roam owned note identity', () => {
 
     it('merges profile metadata by note id instead of title', () => {
         const merged = mergeOwnedNotes(
-            [{ noteId: 'note-1', title: '重复标题', likes: 0 }],
+            [{ noteId: 'note-1', title: '重複標題', likes: 0 }],
             [
-                { noteId: 'note-1', title: '重复标题', likes: 12, xsecToken: 'token-1' },
-                { noteId: 'note-2', title: '重复标题', likes: 5 },
+                { noteId: 'note-1', title: '重複標題', likes: 12, xsecToken: 'token-1' },
+                { noteId: 'note-2', title: '重複標題', likes: 5 },
             ],
         );
 

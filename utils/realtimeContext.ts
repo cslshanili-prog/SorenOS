@@ -1,5 +1,5 @@
 /**
- * 实时上下文管理器 - 让AI角色感知真实世界
+ * 實時上下文管理器 - 讓AI角色感知真實世界
  * Real-time Context Manager - Give AI characters awareness of the real world
  */
 
@@ -37,11 +37,12 @@ import {
     type NewsItem,
 } from './realtimeWorldCore';
 import { getLocalDateKey } from './localDate';
+import { lookupAnyScript } from './scriptKey';
 
-// 两份环境无关叶子，amsg worker 共用同一份，这里的 Manager 方法委托过去；
-// 类型与常量原样 re-export，既有 import 路径不用改：
-//   realtimeFetchCore  搜索 / Notion / 飞书的读取类纯 fetch（服务端工具循环用）
-//   realtimeWorldCore  天气 / 热搜 / 节日的取数与成段渲染（到点组 prompt 用）
+// 兩份環境無關葉子，amsg worker 共用同一份，這裡的 Manager 方法委託過去；
+// 類型與常量原樣 re-export，既有 import 路徑不用改：
+//   realtimeFetchCore  搜索 / Notion / 飛書的讀取類純 fetch（服務端工具循環用）
+//   realtimeWorldCore  天氣 / 熱搜 / 節日的取數與成段渲染（到點組 prompt 用）
 export type { SearchResult, DiaryPreview, FeishuDiaryPreview } from './realtimeFetchCore';
 export type { WeatherData, NewsItem } from './realtimeWorldCore';
 export {
@@ -51,48 +52,48 @@ export {
 } from './realtimeWorldCore';
 
 export interface RealtimeConfig {
-    // 天气配置
+    // 天氣配置
     weatherEnabled: boolean;
-    weatherApiKey: string;  // OpenWeatherMap API Key（可选；留空走免 key 的 Open-Meteo）
+    weatherApiKey: string;  // OpenWeatherMap API Key（可選；留空走免 key 的 Open-Meteo）
     weatherCity: string;    // 城市名 (如 "北京"、"Beijing"，Open-Meteo 支持中文)
 
-    // 新闻配置
+    // 新聞配置
     newsEnabled: boolean;
-    newsApiKey?: string;    // 可选，Brave Search 回落源用
-    newsPlatforms?: string[]; // hot_news 热榜平台 key（默认主源，免鉴权），留空用内置默认
+    newsApiKey?: string;    // 可選，Brave Search 回落源用
+    newsPlatforms?: string[]; // hot_news 熱榜平台 key（默認主源，免鑑權），留空用內置默認
 
     // Notion 配置
     notionEnabled: boolean;
     notionApiKey: string;   // Notion Integration Token
-    notionDatabaseId: string; // 日记数据库ID
-    notionNotesDatabaseId?: string; // 用户笔记数据库ID（可选）
+    notionDatabaseId: string; // 日記數據庫ID
+    notionNotesDatabaseId?: string; // 用戶筆記數據庫ID（可選）
 
-    // 飞书配置
+    // 飛書配置
     feishuEnabled?: boolean;
     feishuAppId?: string;
     feishuAppSecret?: string;
     feishuBaseId?: string;
     feishuTableId?: string;
 
-    // 小红书配置 (xiaohongshu-skills)
+    // 小紅書配置 (xiaohongshu-skills)
     xhsEnabled?: boolean;
     xhsMcpConfig?: {
         enabled: boolean;
         mode?: 'local' | 'lite';
         serverUrl: string;
-        cookie?: string;        // Lite 模式：登录后的完整小红书 cookie
-        platform?: 'xhs' | 'rednote'; // Lite 自动识别出的国内 / 全球后端
-        rnoteApiKey?: string;   // Lite 模式：用户自备的 Rnote Key，用于真实评论
+        cookie?: string;        // Lite 模式：登錄後的完整小紅書 cookie
+        platform?: 'xhs' | 'rednote'; // Lite 自動識別出的國內 / 全球后端
+        rnoteApiKey?: string;   // Lite 模式：用戶自備的 Rnote Key，用於真實評論
         loggedInNickname?: string;
         loggedInUserId?: string;
-        userXsecToken?: string; // 从 feed 列表自动获取，用于 getUserProfile 等
+        userXsecToken?: string; // 從 feed 列表自動獲取，用於 getUserProfile 等
     };
 
-    // 缓存配置
-    cacheMinutes: number;   // 缓存时长（分钟）
+    // 緩存配置
+    cacheMinutes: number;   // 緩存時長（分鐘）
 }
 
-// 默认配置
+// 默認配置
 export const defaultRealtimeConfig: RealtimeConfig = {
     weatherEnabled: false,
     weatherApiKey: '',
@@ -118,7 +119,7 @@ export const defaultRealtimeConfig: RealtimeConfig = {
     cacheMinutes: 30
 };
 
-// 缓存
+// 緩存
 let weatherCache: { data: WeatherData | null; timestamp: number } = { data: null, timestamp: 0 };
 let newsCache: { data: NewsItem[]; timestamp: number } = { data: [], timestamp: 0 };
 
@@ -126,7 +127,7 @@ let newsCache: { data: NewsItem[]; timestamp: number } = { data: [], timestamp: 
 export const RealtimeContextManager = {
 
     /**
-     * 获取天气信息。填了 OpenWeatherMap key 优先走 OWM，失败或没填 key 时回落免费的 Open-Meteo。
+     * 獲取天氣信息。填了 OpenWeatherMap key 優先走 OWM，失敗或沒填 key 時回落免費的 Open-Meteo。
      */
     fetchWeather: async (config: RealtimeConfig): Promise<WeatherData | null> => {
         if (!config.weatherEnabled || !config.weatherCity) {
@@ -136,7 +137,7 @@ export const RealtimeContextManager = {
         const now = Date.now();
         const cacheMs = config.cacheMinutes * 60 * 1000;
 
-        // 检查缓存
+        // 檢查緩存
         if (weatherCache.data && (now - weatherCache.timestamp) < cacheMs) {
             return weatherCache.data;
         }
@@ -146,85 +147,85 @@ export const RealtimeContextManager = {
             return null;
         }
 
-        // 更新缓存
+        // 更新緩存
         weatherCache = { data: weather, timestamp: now };
 
         return weather;
     },
 
-    // 平台名表、默认平台、真正的多平台拉取都住在 realtimeWorldCore（主动消息到点
-    // 也要用同一份），这里保留同名入口，「热点」App 与既有调用方不用改。
+    // 平台名表、默認平台、真正的多平台拉取都住在 realtimeWorldCore（主動消息到點
+    // 也要用同一份），這裡保留同名入口，「熱點」App 與既有調用方不用改。
     HOTNEWS_PLATFORM_LABELS,
 
     DEFAULT_HOTNEWS_PLATFORMS,
 
     /**
-     * 使用 hot_news（news.orz.ai）获取中文多平台热榜。
-     * 免鉴权、半小时刷新。浏览器端优先直连；若被 CORS 拦截则本调用返回 []，
+     * 使用 hot_news（news.orz.ai）獲取中文多平台熱榜。
+     * 免鑑權、半小時刷新。瀏覽器端優先直連；若被 CORS 攔截則本調用返回 []，
      * 由 fetchNews 自然回落到 Brave / Hacker News。
      */
     fetchHotNews: async (platforms?: string[], perPlatform = 12, total = 240): Promise<NewsItem[]> => {
         const list = resolveHotNewsPlatforms(platforms);
         const final = await fetchHotNewsCore(list, perPlatform, total);
 
-        // ── F12 探针：看角色这次到底召回了哪些热点 ──
+        // ── F12 探針：看角色這次到底召回了哪些熱點 ──
         try {
-            console.groupCollapsed(`%c[hot_news] 召回 ${final.length} 条 · 平台[${list.join(', ')}]`, 'color:#2563eb;font-weight:bold');
+            console.groupCollapsed(`%c[hot_news] 召回 ${final.length} 條 · 平台[${list.join(', ')}]`, 'color:#2563eb;font-weight:bold');
             if (final.length > 0 && typeof console.table === 'function') {
-                console.table(final.map((n, i) => ({ '#': i + 1, 平台: n.source, 标题: n.title, 链接: n.url || '' })));
+                console.table(final.map((n, i) => ({ '#': i + 1, 平台: n.source, 標題: n.title, 鏈接: n.url || '' })));
             } else if (final.length === 0) {
-                console.warn('[hot_news] 一条都没召回 → fetchNews 将回落到 Brave / Hacker News');
+                console.warn('[hot_news] 一條都沒召回 → fetchNews 將回落到 Brave / Hacker News');
             }
             console.groupEnd();
-        } catch { /* 探针挂了也不影响主流程 */ }
+        } catch { /* 探針掛了也不影響主流程 */ }
 
         return final;
     },
 
-    // 一天分 6 段（每 4 小时）：0-4 凌晨 / 4-8 清晨 / 8-12 上午 / 12-16 午后 / 16-20 傍晚 / 20-24 夜间。
+    // 一天分 6 段（每 4 小時）：0-4 凌晨 / 4-8 清晨 / 8-12 上午 / 12-16 午後 / 16-20 傍晚 / 20-24 夜間。
     getHotNewsSlot: (d: Date = new Date()) => getHotNewsSlotCore({ now: d }),
 
-    // 同一时段并发只真正发一次请求（群聊 / 多角色同时回复时复用同一 Promise）
+    // 同一時段併發只真正發一次請求（群聊 / 多角色同時回覆時複用同一 Promise）
     _hotNewsInFlight: new Map<string, Promise<NewsItem[]>>(),
 
     /**
-     * 分时段热点：每天每时段最多拉一次，持久化在 IndexedDB，全角色共享。
-     * - 本时段已有快照且平台集一致 → 直接复用，不发请求
-     * - 否则拉一次并存快照；拉失败则退回最近一次快照（且不写本时段，下次会重试）
+     * 分時段熱點：每天每時段最多拉一次，持久化在 IndexedDB，全角色共享。
+     * - 本時段已有快照且平台集一致 → 直接複用，不發請求
+     * - 否則拉一次並存快照；拉失敗則退回最近一次快照（且不寫本時段，下次會重試）
      */
     getSlottedHotNews: async (config: RealtimeConfig): Promise<NewsItem[]> => {
         const { id, date, slot, label } = RealtimeContextManager.getHotNewsSlot();
         const platforms = resolveHotNewsPlatforms(config.newsPlatforms);
 
-        // 1. 命中本时段快照（平台一致）→ 复用
+        // 1. 命中本時段快照（平台一致）→ 複用
         try {
             const snap = await DB.getHotNewsSnapshot(id);
             if (snap && snap.items?.length > 0 && sameHotNewsPlatforms(snap.platforms, platforms)) {
                 const mins = Math.round((Date.now() - snap.fetchedAt) / 60000);
-                console.log(`%c[hot_news] 命中今日${label}快照（${snap.items.length} 条，${mins} 分钟前拉的）`, 'color:#16a34a');
+                console.log(`%c[hot_news] 命中今日${label}快照（${snap.items.length} 條，${mins} 分鐘前拉的）`, 'color:#16a34a');
                 return snap.items;
             }
-        } catch { /* 读快照失败就当没有，继续去拉 */ }
+        } catch { /* 讀快照失敗就當沒有，繼續去拉 */ }
 
-        // 2. in-flight 锁：本时段已有在飞请求就复用
+        // 2. in-flight 鎖：本時段已有在飛請求就複用
         const inflight = RealtimeContextManager._hotNewsInFlight.get(id);
         if (inflight) return inflight;
 
         const job = (async (): Promise<NewsItem[]> => {
-            console.log(`%c[hot_news] 触发今日${label}拉取…`, 'color:#2563eb;font-weight:bold');
+            console.log(`%c[hot_news] 觸發今日${label}拉取…`, 'color:#2563eb;font-weight:bold');
             const items = await RealtimeContextManager.fetchHotNews(platforms);
             if (items.length > 0) {
                 try {
                     await DB.saveHotNewsSnapshot({ id, date, slot, slotLabel: label, items, platforms, fetchedAt: Date.now() });
                     DB.pruneHotNewsSnapshots(12).catch(() => {});
-                } catch { /* 存快照失败不影响返回 */ }
+                } catch { /* 存快照失敗不影響返回 */ }
                 return items;
             }
-            // 拉取失败 → 退回最近一次快照（不写本时段，下条消息会再试）
+            // 拉取失敗 → 退回最近一次快照（不寫本時段，下條消息會再試）
             try {
                 const latest = await DB.getLatestHotNewsSnapshot();
                 if (latest && latest.items?.length > 0) {
-                    console.warn(`[hot_news] ${label}拉取失败，复用最近快照（${latest.date} ${latest.slotLabel}，${latest.items.length} 条）`);
+                    console.warn(`[hot_news] ${label}拉取失敗，複用最近快照（${latest.date} ${latest.slotLabel}，${latest.items.length} 條）`);
                     return latest.items;
                 }
             } catch { /* ignore */ }
@@ -240,17 +241,17 @@ export const RealtimeContextManager = {
     },
 
     /**
-     * 使用 Brave Search API 获取新闻（通过自建 Cloudflare Worker 代理）
+     * 使用 Brave Search API 獲取新聞（通過自建 Cloudflare Worker 代理）
      */
     fetchBraveNews: async (apiKey: string): Promise<NewsItem[]> => {
         try {
             // 使用自建的 Cloudflare Worker 代理
-            const workerUrl = `${getProxyWorkerUrl()}/news?q=热点新闻&count=5&country=cn`;
+            const workerUrl = `${getProxyWorkerUrl()}/news?q=熱點新聞&count=5&country=cn`;
 
             const response = await fetch(workerUrl, {
                 headers: {
                     'Accept': 'application/json',
-                    'X-Brave-API-Key': apiKey  // Worker 需要这个 header
+                    'X-Brave-API-Key': apiKey  // Worker 需要這個 header
                 }
             });
 
@@ -262,11 +263,11 @@ export const RealtimeContextManager = {
 
             const data = await safeResponseJson(response);
 
-            // Brave News API 返回结构
+            // Brave News API 返回結構
             if (data.results && data.results.length > 0) {
                 return data.results.slice(0, 5).map((item: any) => ({
                     title: item.title,
-                    source: item.meta_url?.netloc || item.source || 'Brave新闻',
+                    source: item.meta_url?.netloc || item.source || 'Brave新聞',
                     url: item.url
                 }));
             }
@@ -278,21 +279,21 @@ export const RealtimeContextManager = {
     },
 
     /**
-     * 获取热点新闻
-     * 优先级: hot_news 分时段快照（默认主源，每天每时段最多拉一次）> Brave Search API > Hacker News
+     * 獲取熱點新聞
+     * 優先級: hot_news 分時段快照（默認主源，每天每時段最多拉一次）> Brave Search API > Hacker News
      */
     fetchNews: async (config: RealtimeConfig): Promise<NewsItem[]> => {
         if (!config.newsEnabled) {
             return [];
         }
 
-        // 1. 默认主源：hot_news 分时段持久化快照（全角色共享，自带 IndexedDB 缓存与 in-flight 锁）
+        // 1. 默認主源：hot_news 分時段持久化快照（全角色共享，自帶 IndexedDB 緩存與 in-flight 鎖）
         const slotted = await RealtimeContextManager.getSlottedHotNews(config);
         if (slotted.length > 0) {
             return slotted;
         }
 
-        // ── 回落源用内存缓存兜一下，避免降级态下每条消息都打 Brave/HN ──
+        // ── 回落源用內存緩存兜一下，避免降級態下每條消息都打 Brave/HN ──
         const now = Date.now();
         const cacheMs = config.cacheMinutes * 60 * 1000;
         if (newsCache.data.length > 0 && (now - newsCache.timestamp) < cacheMs) {
@@ -305,23 +306,23 @@ export const RealtimeContextManager = {
         if (config.newsApiKey) {
             news = await RealtimeContextManager.fetchBraveNews(config.newsApiKey);
             if (news.length > 0) {
-                console.log(`%c[hot_news] 本次新闻源 = Brave 回落（${news.length} 条）`, 'color:#d97706;font-weight:bold');
+                console.log(`%c[hot_news] 本次新聞源 = Brave 回落（${news.length} 條）`, 'color:#d97706;font-weight:bold');
                 newsCache = { data: news, timestamp: now };
                 return news;
             }
         }
 
-        // 3. 兜底：Hacker News（英文但稳定，无CORS限制）
+        // 3. 兜底：Hacker News（英文但穩定，無CORS限制）
         news = await RealtimeContextManager.fetchBackupNews();
         if (news.length > 0) {
-            console.log(`%c[hot_news] 本次新闻源 = Hacker News 兜底（${news.length} 条，英文）`, 'color:#dc2626;font-weight:bold');
+            console.log(`%c[hot_news] 本次新聞源 = Hacker News 兜底（${news.length} 條，英文）`, 'color:#dc2626;font-weight:bold');
             newsCache = { data: news, timestamp: now };
         }
         return news;
     },
 
     /**
-     * 备用新闻源 - 使用Hacker News API（总是可用）
+     * 備用新聞源 - 使用Hacker News API（總是可用）
      */
     fetchBackupNews: async (): Promise<NewsItem[]> => {
         try {
@@ -349,16 +350,16 @@ export const RealtimeContextManager = {
     },
 
     /**
-     * 获取时间上下文
+     * 獲取時間上下文
      */
     getTimeContext: (tz?: string) => {
         const now = nowInTimeZone(tz);
         const hour = now.getHours();
-        const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
         const dayOfWeek = dayNames[now.getDay()];
 
         let timeOfDay = '凌晨';
-        let mood = '安静';
+        let mood = '安靜';
 
         if (hour >= 5 && hour < 9) {
             timeOfDay = '早晨';
@@ -368,19 +369,19 @@ export const RealtimeContextManager = {
             mood = '精神';
         } else if (hour >= 12 && hour < 14) {
             timeOfDay = '中午';
-            mood = '放松';
+            mood = '放鬆';
         } else if (hour >= 14 && hour < 17) {
             timeOfDay = '下午';
-            mood = '平静';
+            mood = '平靜';
         } else if (hour >= 17 && hour < 19) {
             timeOfDay = '傍晚';
-            mood = '慵懒';
+            mood = '慵懶';
         } else if (hour >= 19 && hour < 22) {
             timeOfDay = '晚上';
-            mood = '温馨';
+            mood = '溫馨';
         } else if (hour >= 22 || hour < 5) {
             timeOfDay = '深夜';
-            mood = '安静';
+            mood = '安靜';
         }
 
         return {
@@ -396,66 +397,66 @@ export const RealtimeContextManager = {
     },
 
     /**
-     * 检查特殊日期。
-     * tz 非空时按角色所在时区判「今天几号」——否则角色会跟着用户的日历过节：
-     * 用户这边 2/14 早上，角色在纽约还是 13 号晚上，却被告知今天是情人节。
+     * 檢查特殊日期。
+     * tz 非空時按角色所在時區判「今天幾號」——否則角色會跟著用戶的日曆過節：
+     * 用戶這邊 2/14 早上，角色在紐約還是 13 號晚上，卻被告知今天是情人節。
      */
     checkSpecialDates: (tz?: string): string[] => checkSpecialDatesCore(tz),
 
     /**
-     * 生成天气建议
+     * 生成天氣建議
      */
     generateWeatherAdvice: (weather: WeatherData): string => generateWeatherAdviceCore(weather),
 
     /**
-     * 构建完整的实时上下文（注入到系统提示词）。
-     * 取数在这里（天气两源 + 热点分时段快照），拼成话交给 realtimeWorldCore 的
-     * renderRealtimeWorldBlock——主动消息到点生成时 worker 自己取数、调同一个渲染，
-     * 两边说的是同一套话。
+     * 構建完整的實時上下文（注入到系統提示詞）。
+     * 取數在這裡（天氣兩源 + 熱點分時段快照），拼成話交給 realtimeWorldCore 的
+     * renderRealtimeWorldBlock——主動消息到點生成時 worker 自己取數、調同一個渲染，
+     * 兩邊說的是同一套話。
      */
     buildFullContext: async (
         config: RealtimeConfig,
         tz: string | undefined,
-        // includeTime=false：角色关掉了「时间感知」。天气/新闻还要，但当前时间和今日节日
-        // 属于时间感知的范畴，这个开关关着就不该从这一段里漏出去。
+        // includeTime=false：角色關掉了「時間感知」。天氣/新聞還要，但當前時間和今日節日
+        // 屬於時間感知的範疇，這個開關關著就不該從這一段裡漏出去。
         opts: { includeTime: boolean },
     ): Promise<string> => {
         const includeTime = opts.includeTime;
 
-        // 1. 时间与节日。tz 非空时按角色所在时区折算，两者同一个时区，否则同一段里
-        //    日期和节日会打架。时差提示（tzAwarenessNote）统一由 ContextBuilder.buildCoreContext
-        //    注入，这里不再追加，避免双份。
+        // 1. 時間與節日。tz 非空時按角色所在時區折算，兩者同一個時區，否則同一段裡
+        //    日期和節日會打架。時差提示（tzAwarenessNote）統一由 ContextBuilder.buildCoreContext
+        //    注入，這裡不再追加，避免雙份。
         const time = includeTime ? RealtimeContextManager.getTimeContext(tz) : null;
         const timeLine = time ? `${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}` : undefined;
         const specialDates = includeTime ? RealtimeContextManager.checkSpecialDates(tz) : [];
 
-        // 2. 天气（有没有 OWM key 都能取：无 key 走 Open-Meteo）
+        // 2. 天氣（有沒有 OWM key 都能取：無 key 走 Open-Meteo）
         const weather = config.weatherEnabled ? await RealtimeContextManager.fetchWeather(config) : null;
 
-        // 3. 新闻热点（背景认知）
-        //    完整快照存 IndexedDB 给「热点」App；这里每轮随机抽几条打散注入，控 token + 保持新鲜感。
+        // 3. 新聞熱點（背景認知）
+        //    完整快照存 IndexedDB 給「熱點」App；這裡每輪隨機抽幾條打散注入，控 token + 保持新鮮感。
         const newsPool = config.newsEnabled ? await RealtimeContextManager.fetchNews(config) : [];
         const picks = pickRandomNews(newsPool, REALTIME_NEWS_PICK_COUNT);
 
         const fullContext = renderRealtimeWorldBlock({ timeLine, specialDates, weather, news: picks });
 
-        // ── F12 探针：本轮真正注入 prompt 的热点 + 文本量（评估 token 用）──
+        // ── F12 探針：本輪真正注入 prompt 的熱點 + 文本量（評估 token 用）──
         try {
             const pickDesc = picks.filter(n => n.desc).length;
             const poolDesc = newsPool.filter(n => n.desc).length;
-            console.groupCollapsed(`%c[hot_news] 本轮注入 prompt：${picks.length} 条热点（带简介 ${pickDesc}）· 整段 ${fullContext.length} 字（池子共 ${newsPool.length} 条，带简介 ${poolDesc}）`, 'color:#7c3aed;font-weight:bold');
+            console.groupCollapsed(`%c[hot_news] 本輪注入 prompt：${picks.length} 條熱點（帶簡介 ${pickDesc}）· 整段 ${fullContext.length} 字（池子共 ${newsPool.length} 條，帶簡介 ${poolDesc}）`, 'color:#7c3aed;font-weight:bold');
             if (typeof console.table === 'function') {
-                console.table(picks.map((n, i) => ({ '#': i + 1, 平台: n.source || '', 标题: n.title, 简介: n.desc || '—' })));
+                console.table(picks.map((n, i) => ({ '#': i + 1, 平台: n.source || '', 標題: n.title, 簡介: n.desc || '—' })));
             }
             console.log(fullContext);
             console.groupEnd();
-        } catch { /* 探针不影响主流程 */ }
+        } catch { /* 探針不影響主流程 */ }
 
         return fullContext;
     },
 
     /**
-     * 清除缓存
+     * 清除緩存
      */
     clearCache: () => {
         weatherCache = { data: null, timestamp: 0 };
@@ -464,7 +465,7 @@ export const RealtimeContextManager = {
     },
 
     /**
-     * 主动搜索 - 让AI角色能够主动搜索任意内容
+     * 主動搜索 - 讓AI角色能夠主動搜索任意內容
      * Active Search - Let AI characters actively search for anything
      */
     performSearch: async (query: string, apiKey: string): Promise<{ success: boolean; results: SearchResult[]; message: string }> => {
@@ -473,7 +474,7 @@ export const RealtimeContextManager = {
 };
 
 // ============================================
-// Notion 集成模块
+// Notion 集成模塊
 // ============================================
 
 export interface NotionDiaryEntry {
@@ -482,16 +483,16 @@ export interface NotionDiaryEntry {
     mood?: string;
     date?: string;
     tags?: string[];
-    characterName?: string;  // 角色名，用于区分不同角色的日记
+    characterName?: string;  // 角色名，用於區分不同角色的日記
 }
 
 export const NotionManager = {
 
-    // Worker 代理地址（中心配置，用户可在设置里换成自部署实例）
+    // Worker 代理地址（中心配置，用戶可在設置裡換成自部署實例）
     get WORKER_URL() { return getProxyWorkerUrl(); },
 
     /**
-     * 测试 Notion 连接（通过 Worker 代理）
+     * 測試 Notion 連接（通過 Worker 代理）
      */
     testConnection: async (apiKey: string, databaseId: string): Promise<{ success: boolean; message: string }> => {
         try {
@@ -507,32 +508,32 @@ export const NotionManager = {
             if (!response.ok) {
                 try {
                     const errJson = JSON.parse(text);
-                    return { success: false, message: `连接失败: ${errJson.error || errJson.message || response.status}` };
+                    return { success: false, message: `連接失敗: ${errJson.error || errJson.message || response.status}` };
                 } catch {
-                    return { success: false, message: `连接失败: ${response.status}` };
+                    return { success: false, message: `連接失敗: ${response.status}` };
                 }
             }
 
             try {
                 const data = JSON.parse(text);
-                return { success: true, message: `连接成功！数据库: ${data.title?.[0]?.plain_text || databaseId}` };
+                return { success: true, message: `連接成功！數據庫: ${data.title?.[0]?.plain_text || databaseId}` };
             } catch {
-                return { success: false, message: '返回格式错误' };
+                return { success: false, message: '返回格式錯誤' };
             }
         } catch (e: any) {
             const msg = String(e?.message || e);
-            // fetch 在请求根本没到达服务器时抛 TypeError（Safari 报 "Load failed"、
-            // Chrome 报 "Failed to fetch"），说明是代理 Worker 不可达，不是 Notion 拒绝了 Key
+            // fetch 在請求根本沒到達服務器時拋 TypeError（Safari 報 "Load failed"、
+            // Chrome 報 "Failed to fetch"），說明是代理 Worker 不可達，不是 Notion 拒絕了 Key
             if (/load failed|failed to fetch|networkerror/i.test(msg)) {
-                return { success: false, message: `无法连接到代理服务器 ${NotionManager.WORKER_URL}：请先在浏览器里试试能否直接打开该地址。打不开说明当前网络访问不了它（换网络/开代理后重试），或在「设置 → 网络代理 (Worker)」填入自部署的 Worker 地址` };
+                return { success: false, message: `無法連接到代理服務器 ${NotionManager.WORKER_URL}：請先在瀏覽器裡試試能否直接打開該地址。打不開說明當前網絡訪問不了它（換網絡/開代理後重試），或在「設置 → 網絡代理 (Worker)」填入自部署的 Worker 地址` };
             }
-            return { success: false, message: `网络错误: ${msg}` };
+            return { success: false, message: `網絡錯誤: ${msg}` };
         }
     },
 
     /**
-     * 创建日记页面（通过 Worker 代理）- 花里胡哨美化版 ✨
-     * 支持 Markdown 格式的日记内容，自动转换为丰富的 Notion blocks
+     * 創建日記頁面（通過 Worker 代理）- 花裡胡哨美化版 ✨
+     * 支持 Markdown 格式的日記內容，自動轉換為豐富的 Notion blocks
      */
     createDiaryPage: async (
         apiKey: string,
@@ -543,18 +544,18 @@ export const NotionManager = {
             const now = new Date();
             const dateStr = entry.date || getLocalDateKey(now);
 
-            // 使用 markdown 解析器生成丰富的 Notion blocks
+            // 使用 markdown 解析器生成豐富的 Notion blocks
             const children = parseMarkdownToNotionBlocks(entry.content, entry.mood, entry.characterName);
 
-            // 构建页面数据，标题包含角色名便于筛选
+            // 構建頁面數據，標題包含角色名便於篩選
             const titlePrefix = entry.characterName ? `[${entry.characterName}] ` : '';
-            const moodEmoji = getMoodEmoji(entry.mood || '平静');
+            const moodEmoji = getMoodEmoji(entry.mood || '平靜');
             const pageData = {
                 parent: { database_id: databaseId },
                 icon: { emoji: moodEmoji },
                 properties: {
                     'Name': {
-                        title: [{ text: { content: `${titlePrefix}${entry.title || dateStr + ' 的日记'}` } }]
+                        title: [{ text: { content: `${titlePrefix}${entry.title || dateStr + ' 的日記'}` } }]
                     },
                     'Date': {
                         date: { start: dateStr }
@@ -577,9 +578,9 @@ export const NotionManager = {
             if (!response.ok) {
                 try {
                     const errJson = JSON.parse(text);
-                    return { success: false, message: `写入失败: ${errJson.error || errJson.message || response.status}` };
+                    return { success: false, message: `寫入失敗: ${errJson.error || errJson.message || response.status}` };
                 } catch {
-                    return { success: false, message: `写入失败: ${response.status}` };
+                    return { success: false, message: `寫入失敗: ${response.status}` };
                 }
             }
 
@@ -589,18 +590,18 @@ export const NotionManager = {
                     success: true,
                     pageId: data.id,
                     url: data.url,
-                    message: '日记已写入Notion!'
+                    message: '日記已寫入Notion!'
                 };
             } catch {
-                return { success: false, message: '返回格式错误' };
+                return { success: false, message: '返回格式錯誤' };
             }
         } catch (e: any) {
-            return { success: false, message: `网络错误: ${e.message}` };
+            return { success: false, message: `網絡錯誤: ${e.message}` };
         }
     },
 
     /**
-     * 获取角色最近的日记（通过 Worker 代理）
+     * 獲取角色最近的日記（通過 Worker 代理）
      */
     getRecentDiaries: async (
         apiKey: string,
@@ -632,18 +633,18 @@ export const NotionManager = {
 
             if (!response.ok) {
                 console.error('Query diaries failed:', response.status, text);
-                return { success: false, entries: [], message: `查询失败: ${response.status}` };
+                return { success: false, entries: [], message: `查詢失敗: ${response.status}` };
             }
 
             const data = JSON.parse(text);
 
             if (!data.results || data.results.length === 0) {
-                return { success: true, entries: [], message: '暂无日记' };
+                return { success: true, entries: [], message: '暫無日記' };
             }
 
             const entries: DiaryPreview[] = data.results.map((page: any) => {
-                const title = page.properties?.Name?.title?.[0]?.plain_text || '无标题';
-                // 移除角色名前缀，只保留实际标题
+                const title = page.properties?.Name?.title?.[0]?.plain_text || '無標題';
+                // 移除角色名前綴，只保留實際標題
                 const cleanTitle = title.replace(/^\[.*?\]\s*/, '');
                 return {
                     id: page.id,
@@ -653,16 +654,16 @@ export const NotionManager = {
                 };
             });
 
-            return { success: true, entries, message: '获取成功' };
+            return { success: true, entries, message: '獲取成功' };
         } catch (e: any) {
             console.error('Get diaries failed:', e);
-            return { success: false, entries: [], message: `获取失败: ${e.message}` };
+            return { success: false, entries: [], message: `獲取失敗: ${e.message}` };
         }
     },
 
     /**
-     * 按日期查找角色的日记（通过 Worker 代理）
-     * 支持一天多篇日记，全部返回
+     * 按日期查找角色的日記（通過 Worker 代理）
+     * 支持一天多篇日記，全部返回
      */
     getDiaryByDate: async (
         apiKey: string,
@@ -674,8 +675,8 @@ export const NotionManager = {
     },
 
     /**
-     * 读取日记页面的完整内容（通过 Worker 代理）
-     * 调用 /notion/blocks/:pageId 端点，将 blocks 转换为可读文本
+     * 讀取日記頁面的完整內容（通過 Worker 代理）
+     * 調用 /notion/blocks/:pageId 端點，將 blocks 轉換為可讀文本
      */
     readDiaryContent: async (
         apiKey: string,
@@ -685,8 +686,8 @@ export const NotionManager = {
     },
 
     /**
-     * 获取用户笔记列表（从用户的笔记数据库）
-     * 让角色能偶尔看到用户写的日常笔记，增加温馨感
+     * 獲取用戶筆記列表（從用戶的筆記數據庫）
+     * 讓角色能偶爾看到用戶寫的日常筆記，增加溫馨感
      */
     getUserNotes: async (
         apiKey: string,
@@ -711,21 +712,21 @@ export const NotionManager = {
 
             if (!response.ok) {
                 console.error('Query user notes failed:', response.status, text);
-                return { success: false, entries: [], message: `查询失败: ${response.status}` };
+                return { success: false, entries: [], message: `查詢失敗: ${response.status}` };
             }
 
             const data = JSON.parse(text);
 
             if (!data.results || data.results.length === 0) {
-                return { success: true, entries: [], message: '暂无笔记' };
+                return { success: true, entries: [], message: '暫無筆記' };
             }
 
             const entries: DiaryPreview[] = data.results.map((page: any) => {
                 const title = page.properties?.Name?.title?.[0]?.plain_text
-                    || page.properties?.['名称']?.title?.[0]?.plain_text
+                    || page.properties?.['名稱']?.title?.[0]?.plain_text
                     || page.properties?.Title?.title?.[0]?.plain_text
-                    || '无标题';
-                // 尝试多种日期属性名
+                    || '無標題';
+                // 嘗試多種日期屬性名
                 const date = page.properties?.Date?.date?.start
                     || page.properties?.['日期']?.date?.start
                     || page.last_edited_time?.split('T')[0]
@@ -738,27 +739,27 @@ export const NotionManager = {
                 };
             });
 
-            return { success: true, entries, message: '获取成功' };
+            return { success: true, entries, message: '獲取成功' };
         } catch (e: any) {
             console.error('Get user notes failed:', e);
-            return { success: false, entries: [], message: `获取失败: ${e.message}` };
+            return { success: false, entries: [], message: `獲取失敗: ${e.message}` };
         }
     },
 
     /**
-     * 读取用户笔记页面的完整内容
-     * 复用 readDiaryContent 的逻辑（都是通过 pageId 读 blocks）
+     * 讀取用戶筆記頁面的完整內容
+     * 複用 readDiaryContent 的邏輯（都是通過 pageId 讀 blocks）
      */
     readNoteContent: async (
         apiKey: string,
         pageId: string
     ): Promise<{ success: boolean; content: string; message: string }> => {
-        // 和 readDiaryContent 一样，通过 blocks 端点读取
+        // 和 readDiaryContent 一樣，通過 blocks 端點讀取
         return NotionManager.readDiaryContent(apiKey, pageId);
     },
 
     /**
-     * 按关键词搜索用户笔记
+     * 按關鍵詞搜索用戶筆記
      */
     searchUserNotes: async (
         apiKey: string,
@@ -770,7 +771,7 @@ export const NotionManager = {
     }
 };
 
-// 心情对应的 Emoji
+// 心情對應的 Emoji
 function getMoodEmoji(mood: string): string {
     const moodMap: Record<string, string> = {
         'happy': '😊',
@@ -789,38 +790,38 @@ function getMoodEmoji(mood: string): string {
         'lonely': '🌙',
         'hopeful': '🌈',
         'playful': '🎮',
-        '开心': '😊',
-        '难过': '😢',
-        '生气': '😠',
-        '兴奋': '🎉',
-        '疲惫': '😴',
-        '平静': '😌',
-        '焦虑': '😰',
-        '爱': '❤️',
-        '怀念': '🌅',
+        '開心': '😊',
+        '難過': '😢',
+        '生氣': '😠',
+        '興奮': '🎉',
+        '疲憊': '😴',
+        '平靜': '😌',
+        '焦慮': '😰',
+        '愛': '❤️',
+        '懷念': '🌅',
         '好奇': '🔍',
         '感恩': '🙏',
         '迷茫': '😵‍💫',
-        '骄傲': '✨',
-        '孤独': '🌙',
+        '驕傲': '✨',
+        '孤獨': '🌙',
         '期待': '🌈',
-        '调皮': '🎮',
-        '温暖': '☀️',
-        '感动': '🥹',
+        '調皮': '🎮',
+        '溫暖': '☀️',
+        '感動': '🥹',
         '害羞': '😳',
-        '无聊': '😑',
-        '紧张': '😬',
-        '满足': '😌',
+        '無聊': '😑',
+        '緊張': '😬',
+        '滿足': '😌',
         '幸福': '🥰',
-        '心动': '💓',
+        '心動': '💓',
         '思念': '💭',
         '委屈': '🥺',
-        '释然': '🍃'
+        '釋然': '🍃'
     };
-    return moodMap[mood.toLowerCase()] || '📝';
+    return lookupAnyScript(moodMap, mood.toLowerCase()) || '📝';
 }
 
-// 心情对应的颜色主题
+// 心情對應的顏色主題
 function getMoodColorTheme(mood: string): { primary: string; secondary: string; accent: string } {
     const moodColors: Record<string, { primary: string; secondary: string; accent: string }> = {
         'happy': { primary: 'yellow_background', secondary: 'orange', accent: 'yellow' },
@@ -831,27 +832,27 @@ function getMoodColorTheme(mood: string): { primary: string; secondary: string; 
         'calm': { primary: 'blue_background', secondary: 'blue', accent: 'green' },
         'anxious': { primary: 'purple_background', secondary: 'purple', accent: 'gray' },
         'love': { primary: 'pink_background', secondary: 'pink', accent: 'red' },
-        '开心': { primary: 'yellow_background', secondary: 'orange', accent: 'yellow' },
-        '难过': { primary: 'blue_background', secondary: 'blue', accent: 'purple' },
-        '生气': { primary: 'red_background', secondary: 'red', accent: 'orange' },
-        '兴奋': { primary: 'pink_background', secondary: 'orange', accent: 'red' },
-        '疲惫': { primary: 'gray_background', secondary: 'gray', accent: 'brown' },
-        '平静': { primary: 'blue_background', secondary: 'blue', accent: 'green' },
-        '焦虑': { primary: 'purple_background', secondary: 'purple', accent: 'gray' },
-        '爱': { primary: 'pink_background', secondary: 'pink', accent: 'red' },
-        '温暖': { primary: 'yellow_background', secondary: 'orange', accent: 'brown' },
-        '感动': { primary: 'pink_background', secondary: 'pink', accent: 'blue' },
+        '開心': { primary: 'yellow_background', secondary: 'orange', accent: 'yellow' },
+        '難過': { primary: 'blue_background', secondary: 'blue', accent: 'purple' },
+        '生氣': { primary: 'red_background', secondary: 'red', accent: 'orange' },
+        '興奮': { primary: 'pink_background', secondary: 'orange', accent: 'red' },
+        '疲憊': { primary: 'gray_background', secondary: 'gray', accent: 'brown' },
+        '平靜': { primary: 'blue_background', secondary: 'blue', accent: 'green' },
+        '焦慮': { primary: 'purple_background', secondary: 'purple', accent: 'gray' },
+        '愛': { primary: 'pink_background', secondary: 'pink', accent: 'red' },
+        '溫暖': { primary: 'yellow_background', secondary: 'orange', accent: 'brown' },
+        '感動': { primary: 'pink_background', secondary: 'pink', accent: 'blue' },
         '害羞': { primary: 'pink_background', secondary: 'pink', accent: 'red' },
         '思念': { primary: 'purple_background', secondary: 'purple', accent: 'blue' },
         '幸福': { primary: 'yellow_background', secondary: 'pink', accent: 'orange' },
-        '心动': { primary: 'pink_background', secondary: 'red', accent: 'pink' },
-        '孤独': { primary: 'gray_background', secondary: 'blue', accent: 'purple' },
+        '心動': { primary: 'pink_background', secondary: 'red', accent: 'pink' },
+        '孤獨': { primary: 'gray_background', secondary: 'blue', accent: 'purple' },
         '期待': { primary: 'green_background', secondary: 'green', accent: 'blue' },
     };
-    return moodColors[mood.toLowerCase()] || { primary: 'blue_background', secondary: 'blue', accent: 'gray' };
+    return lookupAnyScript(moodColors, mood.toLowerCase()) || { primary: 'blue_background', secondary: 'blue', accent: 'gray' };
 }
 
-// 装饰性 emoji 池 - 根据心情随机选取
+// 裝飾性 emoji 池 - 根據心情隨機選取
 function getDecorativeEmojis(mood: string): string[] {
     const moodDecorations: Record<string, string[]> = {
         'happy': ['🌟', '✨', '🎵', '🌻', '🍀', '🎈', '💫'],
@@ -861,16 +862,16 @@ function getDecorativeEmojis(mood: string): string[] {
         'love': ['💕', '💗', '🌹', '💝', '🦋', '🌸', '💖'],
         'calm': ['🍃', '☁️', '🌿', '🕊️', '💠', '🌊'],
         'tired': ['💤', '🌙', '☕', '🛏️', '😪'],
-        '开心': ['🌟', '✨', '🎵', '🌻', '🍀', '🎈', '💫'],
-        '难过': ['🌧️', '💧', '🍂', '🌊', '🕊️', '🌙'],
-        '兴奋': ['🎉', '🎊', '🚀', '✨', '💥', '🎆', '⭐'],
-        '爱': ['💕', '💗', '🌹', '💝', '🦋', '🌸', '💖'],
-        '平静': ['🍃', '☁️', '🌿', '🕊️', '💠', '🌊'],
-        '温暖': ['☀️', '🌼', '🍵', '🧡', '🌅'],
+        '開心': ['🌟', '✨', '🎵', '🌻', '🍀', '🎈', '💫'],
+        '難過': ['🌧️', '💧', '🍂', '🌊', '🕊️', '🌙'],
+        '興奮': ['🎉', '🎊', '🚀', '✨', '💥', '🎆', '⭐'],
+        '愛': ['💕', '💗', '🌹', '💝', '🦋', '🌸', '💖'],
+        '平靜': ['🍃', '☁️', '🌿', '🕊️', '💠', '🌊'],
+        '溫暖': ['☀️', '🌼', '🍵', '🧡', '🌅'],
         '思念': ['💭', '🌙', '⭐', '🌌', '📮'],
         '幸福': ['🥰', '🌈', '🌸', '💖', '✨'],
     };
-    return moodDecorations[mood.toLowerCase()] || ['📝', '✨', '💫', '🌟'];
+    return lookupAnyScript(moodDecorations, mood.toLowerCase()) || ['📝', '✨', '💫', '🌟'];
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -878,11 +879,11 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 // ============================================
-// 解析内联格式 (Markdown → Notion Rich Text)
+// 解析內聯格式 (Markdown → Notion Rich Text)
 // ============================================
 function parseInlineFormatting(text: string): any[] {
     const richTexts: any[] = [];
-    // 正则匹配: **bold**, *italic*, ~~strikethrough~~, `code`
+    // 正則匹配: **bold**, *italic*, ~~strikethrough~~, `code`
     const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*|~~(.+?)~~|`(.+?)`)/g;
     let lastIndex = 0;
     let match;
@@ -929,7 +930,7 @@ function parseInlineFormatting(text: string): any[] {
         lastIndex = match.index + match[0].length;
     }
 
-    // 剩余文本
+    // 剩餘文本
     if (lastIndex < text.length) {
         richTexts.push({
             type: 'text',
@@ -945,17 +946,17 @@ function parseInlineFormatting(text: string): any[] {
 }
 
 // ============================================
-// Markdown → Notion Blocks 转换器
+// Markdown → Notion Blocks 轉換器
 // ============================================
 function parseMarkdownToNotionBlocks(content: string, mood?: string, characterName?: string): any[] {
     const blocks: any[] = [];
     const lines = content.split('\n');
-    const colors = getMoodColorTheme(mood || '平静');
-    const decorEmojis = getDecorativeEmojis(mood || '平静');
+    const colors = getMoodColorTheme(mood || '平靜');
+    const decorEmojis = getDecorativeEmojis(mood || '平靜');
     const now = new Date();
     const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
-    // ── 顶部: 心情横幅 ──
+    // ── 頂部: 心情橫幅 ──
     if (mood) {
         blocks.push({
             object: 'block', type: 'callout',
@@ -971,13 +972,13 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
         });
     }
 
-    // ── 时间戳 ──
+    // ── 時間戳 ──
     blocks.push({
         object: 'block', type: 'quote',
         quote: {
             rich_text: [
                 { type: 'text', text: { content: '🕐 ' }, annotations: { color: 'gray' } },
-                { type: 'text', text: { content: `写于 ${timeStr}` }, annotations: { italic: true, color: 'gray' } }
+                { type: 'text', text: { content: `寫於 ${timeStr}` }, annotations: { italic: true, color: 'gray' } }
             ],
             color: 'gray'
         }
@@ -993,9 +994,9 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
         const line = lines[i];
         const trimmed = line.trim();
 
-        if (!trimmed) continue; // 跳过空行
+        if (!trimmed) continue; // 跳過空行
 
-        // --- 或 *** → 分割线
+        // --- 或 *** → 分割線
         if (/^[-*]{3,}$/.test(trimmed)) {
             blocks.push({ object: 'block', type: 'divider', divider: {} });
             sectionIndex++;
@@ -1084,7 +1085,7 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
             continue;
         }
 
-        // [!callout] 特殊 callout 语法
+        // [!callout] 特殊 callout 語法
         if (trimmed.startsWith('[!') && trimmed.includes(']')) {
             const calloutMatch = trimmed.match(/^\[!(.+?)\]\s*(.*)/);
             if (calloutMatch) {
@@ -1097,14 +1098,14 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
                     'heart': 'pink_background', 'star': 'yellow_background',
                     '重要': 'red_background', '想法': 'purple_background',
                     '秘密': 'pink_background', '提醒': 'orange_background',
-                    '开心': 'yellow_background', '难过': 'blue_background',
+                    '開心': 'yellow_background', '難過': 'blue_background',
                 };
                 const calloutEmojiMap: Record<string, string> = {
                     'warning': '⚠️', 'danger': '🚨', 'info': 'ℹ️',
                     'success': '✅', 'note': '📝', 'tip': '💡',
                     'heart': '💖', 'star': '⭐',
                     '重要': '❗', '想法': '💭', '秘密': '🤫',
-                    '提醒': '📌', '开心': '😊', '难过': '😢',
+                    '提醒': '📌', '開心': '😊', '難過': '😢',
                 };
                 blocks.push({
                     object: 'block', type: 'callout',
@@ -1118,7 +1119,7 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
             }
         }
 
-        // 普通段落 - 带随机微妙颜色
+        // 普通段落 - 帶隨機微妙顏色
         const currentColor = sectionIndex % 3 === 0 ? 'default' : sectionColors[sectionIndex % sectionColors.length];
         blocks.push({
             object: 'block', type: 'paragraph',
@@ -1129,10 +1130,10 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
         });
     }
 
-    // ── 底部装饰 ──
+    // ── 底部裝飾 ──
     blocks.push({ object: 'block', type: 'divider', divider: {} });
 
-    // 签名
+    // 簽名
     if (characterName) {
         blocks.push({
             object: 'block', type: 'paragraph',
@@ -1149,8 +1150,8 @@ function parseMarkdownToNotionBlocks(content: string, mood?: string, characterNa
     return normalizeBlocksForNotion(blocks);
 }
 
-// Notion API 硬限制：单个 rich_text content ≤ 2000 字符；单次 POST children ≤ 100。
-// 留点 buffer 防 emoji / 双字节边界拼接。
+// Notion API 硬限制：單個 rich_text content ≤ 2000 字符；單次 POST children ≤ 100。
+// 留點 buffer 防 emoji / 雙字節邊界拼接。
 const NOTION_MAX_RICH_TEXT_LEN = 1900;
 const NOTION_MAX_CHILDREN = 100;
 
@@ -1168,7 +1169,7 @@ function splitRichTextItem(item: any): any[] {
 }
 
 function normalizeBlocksForNotion(blocks: any[]): any[] {
-    // 1. 每个 block 的 rich_text 切 2000 字符
+    // 1. 每個 block 的 rich_text 切 2000 字符
     const safe = blocks.map(block => {
         const payload = block[block.type];
         if (payload && Array.isArray(payload.rich_text)) {
@@ -1179,7 +1180,7 @@ function normalizeBlocksForNotion(blocks: any[]): any[] {
         return block;
     });
 
-    // 2. 总 block 数限制 100；超出截断并附提示
+    // 2. 總 block 數限制 100；超出截斷並附提示
     if (safe.length <= NOTION_MAX_CHILDREN) return safe;
     const truncated = safe.slice(0, NOTION_MAX_CHILDREN - 1);
     truncated.push({
@@ -1188,7 +1189,7 @@ function normalizeBlocksForNotion(blocks: any[]): any[] {
         callout: {
             rich_text: [{
                 type: 'text',
-                text: { content: `（日记内容过长，已截断 ${safe.length - (NOTION_MAX_CHILDREN - 1)} 个段落）` },
+                text: { content: `（日記內容過長，已截斷 ${safe.length - (NOTION_MAX_CHILDREN - 1)} 個段落）` },
                 annotations: { italic: true, color: 'gray' }
             }],
             icon: { emoji: '✂️' },
@@ -1199,10 +1200,10 @@ function normalizeBlocksForNotion(blocks: any[]): any[] {
 }
 
 // ============================================
-// Notion Blocks → 可读文本 转换器
+// Notion Blocks → 可讀文本 轉換器
 // ============================================
 // ============================================
-// 飞书多维表格 集成模块 (中国区 Notion 替代)
+// 飛書多維表格 集成模塊 (中國區 Notion 替代)
 // ============================================
 
 export interface FeishuDiaryEntry {
@@ -1214,19 +1215,19 @@ export interface FeishuDiaryEntry {
 }
 
 /**
- * 飞书日记内容美化格式化器
- * 把 AI 写的原始文本变成带 emoji、分隔线、心情横幅的漂亮文本
+ * 飛書日記內容美化格式化器
+ * 把 AI 寫的原始文本變成帶 emoji、分隔線、心情橫幅的漂亮文本
  */
 function formatFeishuDiaryContent(content: string, mood?: string, characterName?: string): string {
-    const moodEmoji = getMoodEmoji(mood || '平静');
-    const decorEmojis = getDecorativeEmojis(mood || '平静');
+    const moodEmoji = getMoodEmoji(mood || '平靜');
+    const decorEmojis = getDecorativeEmojis(mood || '平靜');
     const now = new Date();
     const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
     const lines: string[] = [];
 
-    // ── 心情横幅 ──
+    // ── 心情橫幅 ──
     if (mood) {
         lines.push(`${pick(decorEmojis)} ━━━━━━━━━━━━━━━━━━ ${pick(decorEmojis)}`);
         lines.push(`${moodEmoji}  今日心情: ${mood}  ${moodEmoji}`);
@@ -1234,13 +1235,13 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
         lines.push('');
     }
 
-    // ── 时间戳 ──
-    lines.push(`🕐 写于 ${timeStr}`);
+    // ── 時間戳 ──
+    lines.push(`🕐 寫於 ${timeStr}`);
     lines.push('');
     lines.push('─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─');
     lines.push('');
 
-    // ── 正文处理 ──
+    // ── 正文處理 ──
     const contentLines = content.split('\n');
     for (const line of contentLines) {
         const trimmed = line.trim();
@@ -1249,7 +1250,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
             continue;
         }
 
-        // # 大标题 → emoji 装饰
+        // # 大標題 → emoji 裝飾
         if (trimmed.startsWith('# ')) {
             lines.push('');
             lines.push(`${pick(decorEmojis)} 【${trimmed.slice(2)}】${pick(decorEmojis)}`);
@@ -1257,7 +1258,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
             continue;
         }
 
-        // ## 中标题
+        // ## 中標題
         if (trimmed.startsWith('## ')) {
             lines.push('');
             lines.push(`✦ ${trimmed.slice(3)}`);
@@ -1265,7 +1266,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
             continue;
         }
 
-        // ### 小标题
+        // ### 小標題
         if (trimmed.startsWith('### ')) {
             lines.push(`  ▸ ${trimmed.slice(4)}`);
             continue;
@@ -1277,7 +1278,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
             continue;
         }
 
-        // --- 分割线
+        // --- 分割線
         if (/^[-*]{3,}$/.test(trimmed)) {
             lines.push('');
             lines.push(`  ${pick(decorEmojis)} · · · · · · · · · ${pick(decorEmojis)}`);
@@ -1297,7 +1298,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
             continue;
         }
 
-        // [!callout] 特殊标记
+        // [!callout] 特殊標記
         const calloutMatch = trimmed.match(/^\[!(.+?)\]\s*(.*)/);
         if (calloutMatch) {
             const calloutType = calloutMatch[1];
@@ -1306,7 +1307,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
                 'heart': '💖', 'star': '⭐', 'warning': '⚠️', 'danger': '🚨',
                 'info': 'ℹ️', 'success': '✅', 'note': '📝', 'tip': '💡',
                 '重要': '❗', '想法': '💭', '秘密': '🤫', '提醒': '📌',
-                '开心': '😊', '难过': '😢',
+                '開心': '😊', '難過': '😢',
             };
             const emoji = calloutEmojis[calloutType] || '📌';
             lines.push(`  ┊ ${emoji} ${calloutText}`);
@@ -1317,7 +1318,7 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
         lines.push(trimmed);
     }
 
-    // ── 底部装饰 ──
+    // ── 底部裝飾 ──
     lines.push('');
     lines.push('─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─');
 
@@ -1330,18 +1331,18 @@ function formatFeishuDiaryContent(content: string, mood?: string, characterName?
 
 export const FeishuManager = {
 
-    // Worker 代理地址（中心配置，用户可在设置里换成自部署实例）
+    // Worker 代理地址（中心配置，用戶可在設置裡換成自部署實例）
     get WORKER_URL() { return getProxyWorkerUrl(); },
 
     /**
-     * 获取飞书 tenant_access_token（通过 Worker 代理，带缓存）
+     * 獲取飛書 tenant_access_token（通過 Worker 代理，帶緩存）
      */
     getToken: async (appId: string, appSecret: string): Promise<{ success: boolean; token: string; message: string }> => {
         return feishuGetToken(appId, appSecret);
     },
 
     /**
-     * 测试飞书连接（验证凭据 + 列出数据表验证权限）
+     * 測試飛書連接（驗證憑據 + 列出數據表驗證權限）
      */
     testConnection: async (
         appId: string,
@@ -1355,7 +1356,7 @@ export const FeishuManager = {
                 return { success: false, message: tokenResult.message };
             }
 
-            // 用列出所有表的端点（飞书没有获取单个表的GET端点）
+            // 用列出所有表的端點（飛書沒有獲取單個表的GET端點）
             const response = await fetch(`${FeishuManager.WORKER_URL}/feishu/bitable/${baseId}/tables`, {
                 method: 'GET',
                 headers: { 'X-Feishu-Token': tokenResult.token }
@@ -1365,33 +1366,33 @@ export const FeishuManager = {
             if (!response.ok) {
                 try {
                     const errJson = JSON.parse(text);
-                    return { success: false, message: `连接失败: ${errJson.msg || errJson.error || response.status}` };
+                    return { success: false, message: `連接失敗: ${errJson.msg || errJson.error || response.status}` };
                 } catch {
-                    return { success: false, message: `连接失败: ${response.status}` };
+                    return { success: false, message: `連接失敗: ${response.status}` };
                 }
             }
 
             const data = JSON.parse(text);
             if (data.code !== 0) {
-                return { success: false, message: `飞书错误: ${data.msg || '请检查多维表格权限'}` };
+                return { success: false, message: `飛書錯誤: ${data.msg || '請檢查多維表格權限'}` };
             }
 
             const tables = data.data?.items || [];
             const targetTable = tables.find((t: any) => t.table_id === tableId);
             if (targetTable) {
-                return { success: true, message: `读取连接成功！数据表: ${targetTable.name}。注意：这里不创建测试记录，新增记录权限会在角色首次写日记时验证。` };
+                return { success: true, message: `讀取連接成功！數據表: ${targetTable.name}。注意：這裡不創建測試記錄，新增記錄權限會在角色首次寫日記時驗證。` };
             } else {
                 const tableNames = tables.map((t: any) => `${t.name}(${t.table_id})`).join(', ');
-                return { success: false, message: `多维表格中未找到表 ${tableId}。可用表: ${tableNames || '无'}` };
+                return { success: false, message: `多維表格中未找到表 ${tableId}。可用表: ${tableNames || '無'}` };
             }
         } catch (e: any) {
-            return { success: false, message: `网络错误: ${e.message}` };
+            return { success: false, message: `網絡錯誤: ${e.message}` };
         }
     },
 
     /**
-     * 创建日记记录（写入飞书多维表格）
-     * 数据表需要字段: 标题(文本), 内容(文本), 日期(日期), 心情(文本), 角色(文本)
+     * 創建日記記錄（寫入飛書多維表格）
+     * 數據表需要字段: 標題(文本), 內容(文本), 日期(日期), 心情(文本), 角色(文本)
      */
     createDiaryRecord: async (
         appId: string,
@@ -1411,7 +1412,7 @@ export const FeishuManager = {
             const dateTimestamp = new Date(dateStr).getTime();
             const titlePrefix = entry.characterName ? `[${entry.characterName}] ` : '';
 
-            // 美化日记内容
+            // 美化日記內容
             const formattedContent = formatFeishuDiaryContent(
                 entry.content || '',
                 entry.mood,
@@ -1419,10 +1420,10 @@ export const FeishuManager = {
             );
 
             const fields: Record<string, any> = {
-                '标题': `${getMoodEmoji(entry.mood || '平静')} ${titlePrefix}${entry.title || dateStr + ' 的日记'}`,
-                '内容': formattedContent,
+                '標題': `${getMoodEmoji(entry.mood || '平靜')} ${titlePrefix}${entry.title || dateStr + ' 的日記'}`,
+                '內容': formattedContent,
                 '日期': dateTimestamp,
-                '心情': `${getMoodEmoji(entry.mood || '平静')} ${entry.mood || '平静'}`,
+                '心情': `${getMoodEmoji(entry.mood || '平靜')} ${entry.mood || '平靜'}`,
                 '角色': entry.characterName || ''
             };
 
@@ -1447,21 +1448,21 @@ export const FeishuManager = {
 
             const data = JSON.parse(text);
             if (data.code !== 0) {
-                return { success: false, message: `飞书错误: ${data.msg || '写入失败'}` };
+                return { success: false, message: `飛書錯誤: ${data.msg || '寫入失敗'}` };
             }
 
             return {
                 success: true,
                 recordId: data.data?.record?.record_id,
-                message: '日记已写入飞书!'
+                message: '日記已寫入飛書!'
             };
         } catch (e: any) {
-            return { success: false, message: `网络错误: ${e.message}` };
+            return { success: false, message: `網絡錯誤: ${e.message}` };
         }
     },
 
     /**
-     * 获取角色最近的日记
+     * 獲取角色最近的日記
      */
     getRecentDiaries: async (
         appId: string,
@@ -1499,22 +1500,22 @@ export const FeishuManager = {
 
             const text = await response.text();
             if (!response.ok) {
-                return { success: false, entries: [], message: `查询失败: ${response.status}` };
+                return { success: false, entries: [], message: `查詢失敗: ${response.status}` };
             }
 
             const data = JSON.parse(text);
             if (data.code !== 0) {
-                return { success: false, entries: [], message: `飞书错误: ${data.msg || '查询失败'}` };
+                return { success: false, entries: [], message: `飛書錯誤: ${data.msg || '查詢失敗'}` };
             }
 
             const items = data.data?.items || [];
             if (items.length === 0) {
-                return { success: true, entries: [], message: '暂无日记' };
+                return { success: true, entries: [], message: '暫無日記' };
             }
 
             const entries: FeishuDiaryPreview[] = items.map((item: any) => {
                 const fields = item.fields || {};
-                const rawTitle = (Array.isArray(fields['标题']) ? fields['标题']?.[0]?.text : fields['标题']) || '无标题';
+                const rawTitle = (Array.isArray(fields['標題']) ? fields['標題']?.[0]?.text : fields['標題']) || '無標題';
                 const cleanTitle = String(rawTitle).replace(/^\[.*?\]\s*/, '');
                 const rawDate = fields['日期'];
                 const rawDateText = typeof rawDate === 'string' ? rawDate.trim() : '';
@@ -1533,18 +1534,18 @@ export const FeishuManager = {
                     recordId: item.record_id,
                     title: cleanTitle,
                     date: dateStr,
-                    content: (Array.isArray(fields['内容']) ? fields['内容']?.[0]?.text : fields['内容']) || ''
+                    content: (Array.isArray(fields['內容']) ? fields['內容']?.[0]?.text : fields['內容']) || ''
                 };
             });
 
-            return { success: true, entries, message: '获取成功' };
+            return { success: true, entries, message: '獲取成功' };
         } catch (e: any) {
-            return { success: false, entries: [], message: `获取失败: ${e.message}` };
+            return { success: false, entries: [], message: `獲取失敗: ${e.message}` };
         }
     },
 
     /**
-     * 按日期查找角色的日记
+     * 按日期查找角色的日記
      */
     getDiaryByDate: async (
         appId: string,
@@ -1558,8 +1559,8 @@ export const FeishuManager = {
     },
 
     /**
-     * 读取指定记录的日记内容
-     * 飞书多维表格直接存储在字段中，不需要像 Notion 一样读取 blocks
+     * 讀取指定記錄的日記內容
+     * 飛書多維表格直接存儲在字段中，不需要像 Notion 一樣讀取 blocks
      */
     readDiaryContent: async (
         appId: string,
@@ -1581,25 +1582,25 @@ export const FeishuManager = {
 
             const text = await response.text();
             if (!response.ok) {
-                return { success: false, content: '', message: `读取失败: ${response.status}` };
+                return { success: false, content: '', message: `讀取失敗: ${response.status}` };
             }
 
             const data = JSON.parse(text);
             if (data.code !== 0) {
-                return { success: false, content: '', message: `飞书错误: ${data.msg || '读取失败'}` };
+                return { success: false, content: '', message: `飛書錯誤: ${data.msg || '讀取失敗'}` };
             }
 
             const fields = data.data?.record?.fields || {};
-            const content = (Array.isArray(fields['内容']) ? fields['内容']?.[0]?.text : fields['内容']) || '（空白日记）';
+            const content = (Array.isArray(fields['內容']) ? fields['內容']?.[0]?.text : fields['內容']) || '（空白日記）';
 
-            return { success: true, content: String(content), message: '读取成功' };
+            return { success: true, content: String(content), message: '讀取成功' };
         } catch (e: any) {
-            return { success: false, content: '', message: `读取失败: ${e.message}` };
+            return { success: false, content: '', message: `讀取失敗: ${e.message}` };
         }
     }
 };
 
-// ==================== 小红书 Types ====================
+// ==================== 小紅書 Types ====================
 
 export interface XhsNote {
     noteId: string;

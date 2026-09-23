@@ -4,7 +4,7 @@ import { ArrowsClockwise, PencilSimple, Trash } from '@phosphor-icons/react';
 import { CharacterCustomMeter } from '../../types';
 
 interface CustomMeterPanelProps {
-    /** 'text' = 心声（一段正文）；'number' = 好感度（0-100 数值条） */
+    /** 'text' = 心聲（一段正文）；'number' = 好感度（0-100 數值條） */
     kind: 'text' | 'number';
     heading: string;
     icon: string;
@@ -33,7 +33,7 @@ const genId = () => `cm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
 type AutoMode = 'manual' | 'hours' | 'turns';
 
-/** entry.autoUpdate ↔ 表单里的 (mode, interval 字符串) 互转，manual 就是没有 autoUpdate。 */
+/** entry.autoUpdate ↔ 表單裡的 (mode, interval 字符串) 互轉，manual 就是沒有 autoUpdate。 */
 function autoUpdateToForm(au?: CharacterCustomMeter['autoUpdate']): { mode: AutoMode; interval: string } {
     if (!au) return { mode: 'manual', interval: '24' };
     return { mode: au.mode, interval: String(au.interval) };
@@ -113,15 +113,15 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         setEditingId(null);
     };
 
-    /** 自动更新节奏的三段选择 + 数字输入，加号表单和编辑表单共用。 */
+    /** 自動更新節奏的三段選擇 + 數字輸入，加號表單和編輯表單共用。 */
     const renderAutoUpdateControl = (mode: AutoMode, setMode: (m: AutoMode) => void, intervalValue: string, setIntervalValue: (v: string) => void) => (
         <div>
-            <div className="text-[10px] font-bold text-slate-400 mb-1">自动更新</div>
+            <div className="text-[10px] font-bold text-slate-400 mb-1">自動更新</div>
             <div className="flex gap-1.5">
                 {([
-                    ['manual', '不自动'],
-                    ['hours', '按小时'],
-                    ['turns', '按对话轮数'],
+                    ['manual', '不自動'],
+                    ['hours', '按小時'],
+                    ['turns', '按對話輪數'],
                 ] as [AutoMode, string][]).map(([m, label]) => (
                     <button
                         key={m}
@@ -143,7 +143,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                         onChange={e => setIntervalValue(e.target.value)}
                         className="w-14 bg-white/70 border border-slate-200/60 rounded-lg px-2 py-1 text-xs text-center"
                     />
-                    <span className="text-[11px] text-slate-500">{mode === 'hours' ? '小时自动重新生成一次（填 24 即一天一更）' : '轮对话（角色回复计数）自动重新生成一次'}</span>
+                    <span className="text-[11px] text-slate-500">{mode === 'hours' ? '小時自動重新生成一次（填 24 即一天一更）' : '輪對話（角色回覆計數）自動重新生成一次'}</span>
                 </div>
             )}
         </div>
@@ -175,13 +175,13 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                     type="text"
                                     value={editTitle}
                                     onChange={e => setEditTitle(e.target.value)}
-                                    placeholder="标题"
+                                    placeholder="標題"
                                     className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-bold focus:bg-white transition-all"
                                 />
                                 <textarea
                                     value={editPrompt}
                                     onChange={e => setEditPrompt(e.target.value)}
-                                    placeholder="生成用的提示词"
+                                    placeholder="生成用的提示詞"
                                     rows={2}
                                     className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                                 />
@@ -205,17 +205,17 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                         >
                                             <ArrowsClockwise size={13} weight="bold" className={busyId === entry.id ? 'animate-spin' : ''} />
                                         </button>
-                                        <button onClick={() => startEdit(entry)} aria-label="编辑" title="编辑" className="w-6 h-6 grid place-items-center rounded-full hover:text-pink-500 hover:bg-pink-500/10 transition-colors">
+                                        <button onClick={() => startEdit(entry)} aria-label="編輯" title="編輯" className="w-6 h-6 grid place-items-center rounded-full hover:text-pink-500 hover:bg-pink-500/10 transition-colors">
                                             <PencilSimple size={13} weight="bold" />
                                         </button>
-                                        <button onClick={() => handleDelete(entry.id)} aria-label="删除" title="删除" className="w-6 h-6 grid place-items-center rounded-full hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                                        <button onClick={() => handleDelete(entry.id)} aria-label="刪除" title="刪除" className="w-6 h-6 grid place-items-center rounded-full hover:text-red-400 hover:bg-red-400/10 transition-colors">
                                             <Trash size={13} weight="bold" />
                                         </button>
                                     </div>
                                 </div>
                                 {kind === 'text' ? (
                                     <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                        {entry.content || (busyId === entry.id ? '生成中…' : '尚未生成，点「重新生成」试试')}
+                                        {entry.content || (busyId === entry.id ? '生成中…' : '尚未生成，點「重新生成」試試')}
                                     </p>
                                 ) : (
                                     <div>
@@ -231,15 +231,15 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                             />
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-1 text-right">
-                                            {entry.value ?? (busyId === entry.id ? '生成中…' : '未评估')}{typeof entry.value === 'number' ? ' / 100' : ''}
+                                            {entry.value ?? (busyId === entry.id ? '生成中…' : '未評估')}{typeof entry.value === 'number' ? ' / 100' : ''}
                                         </div>
                                     </div>
                                 )}
                                 {entry.autoUpdate && (
                                     <div className="text-[9px] font-bold mt-1.5" style={{ color: entry.color }}>
                                         {entry.autoUpdate.mode === 'hours'
-                                            ? `⏱ 每 ${entry.autoUpdate.interval} 小时自动更新`
-                                            : `💬 每 ${entry.autoUpdate.interval} 轮对话自动更新${typeof entry.turnsSinceAutoUpdate === 'number' ? `（还差 ${Math.max(0, entry.autoUpdate.interval - entry.turnsSinceAutoUpdate)} 轮）` : ''}`}
+                                            ? `⏱ 每 ${entry.autoUpdate.interval} 小時自動更新`
+                                            : `💬 每 ${entry.autoUpdate.interval} 輪對話自動更新${typeof entry.turnsSinceAutoUpdate === 'number' ? `（還差 ${Math.max(0, entry.autoUpdate.interval - entry.turnsSinceAutoUpdate)} 輪）` : ''}`}
                                     </div>
                                 )}
                             </>
@@ -254,14 +254,14 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                         type="text"
                         value={newTitle}
                         onChange={e => setNewTitle(e.target.value)}
-                        placeholder="标题，如「今日心事」"
+                        placeholder="標題，如「今日心事」"
                         className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-bold focus:bg-white transition-all"
                         autoFocus
                     />
                     <textarea
                         value={newPrompt}
                         onChange={e => setNewPrompt(e.target.value)}
-                        placeholder="针对这个标题的提示词，会拼进生成请求里"
+                        placeholder="針對這個標題的提示詞，會拼進生成請求裡"
                         rows={2}
                         className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                     />

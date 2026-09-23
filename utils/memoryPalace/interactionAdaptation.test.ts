@@ -36,11 +36,11 @@ describe('M2 ChatApp interaction adaptation', () => {
 
     it('separates a sudden current impulse from the slower user trend', () => {
         const analysis = analyzeUserInteraction([
-            message('user', '我前几轮都在比较完整地说明背景、经过和自己的判断，希望慢慢把整件事聊清楚。'),
+            message('user', '我前幾輪都在比較完整地說明背景、經過和自己的判斷，希望慢慢把整件事聊清楚。'),
             message('assistant', '知道了。'),
-            message('user', '这里还有一些补充背景，我依然想把细节讲完整以后再一起判断。'),
-            message('assistant', '你继续。'),
-            message('user', '啊啊啊我过啦！！！🎉🎉'),
+            message('user', '這裡還有一些補充背景，我依然想把細節講完整以後再一起判斷。'),
+            message('assistant', '你繼續。'),
+            message('user', '啊啊啊我過啦！！！🎉🎉'),
         ], fullPolicy);
 
         expect(analysis.analyzable).toBe(true);
@@ -49,23 +49,23 @@ describe('M2 ChatApp interaction adaptation', () => {
         expect(analysis.impulse.energy).toBeGreaterThan(analysis.trend.energy);
 
         const guidance = renderInteractionAdaptationGuidance(analysis);
-        expect(guidance).toContain('这一轮的步伐');
+        expect(guidance).toContain('這一輪的步伐');
         expect(guidance).toContain('稍短');
-        expect(guidance).toContain('更高的兴致');
-        expect(guidance).toContain('语言气质');
-        expect(guidance).not.toContain('啊啊啊我过啦');
+        expect(guidance).toContain('更高的興致');
+        expect(guidance).toContain('語言氣質');
+        expect(guidance).not.toContain('啊啊啊我過啦');
     });
 
     it('learns the trend only from user messages, never from character replies', () => {
         const calmReplies = analyzeUserInteraction([
-            message('user', '前面我说得比较完整，也没有很着急。'),
+            message('user', '前面我說得比較完整，也沒有很著急。'),
             message('assistant', '嗯。'),
-            message('user', '现在继续说一下'),
+            message('user', '現在繼續說一下'),
         ], fullPolicy);
         const loudReplies = analyzeUserInteraction([
-            message('user', '前面我说得比较完整，也没有很着急。'),
+            message('user', '前面我說得比較完整，也沒有很著急。'),
             message('assistant', '啊啊啊！！！🎉🎉🎉'),
-            message('user', '现在继续说一下'),
+            message('user', '現在繼續說一下'),
         ], fullPolicy);
 
         expect(loudReplies.trend).toEqual(calmReplies.trend);
@@ -77,16 +77,16 @@ describe('M2 ChatApp interaction adaptation', () => {
         for (let turn = 0; turn < 12; turn += 1) {
             messages.push(message(
                 'user',
-                `这是第${turn + 1}轮比较完整的说明，我会把背景、过程、自己的感受和判断都慢慢讲清楚。`,
+                `這是第${turn + 1}輪比較完整的說明，我會把背景、過程、自己的感受和判斷都慢慢講清楚。`,
             ));
-            messages.push(message('assistant', '我在听。'));
+            messages.push(message('assistant', '我在聽。'));
         }
-        // 同一轮连发很多短气泡；它应当只占一个趋势样本。
+        // 同一輪連發很多短氣泡；它應當只佔一個趨勢樣本。
         for (let bubble = 0; bubble < 10; bubble += 1) {
-            messages.push(message('user', `补充${bubble + 1}`));
+            messages.push(message('user', `補充${bubble + 1}`));
         }
         messages.push(message('assistant', '知道了。'));
-        messages.push(message('user', '继续'));
+        messages.push(message('user', '繼續'));
 
         const analysis = analyzeUserInteraction(messages, fullPolicy);
 
@@ -97,7 +97,7 @@ describe('M2 ChatApp interaction adaptation', () => {
 
     it('honors a character policy that disables every adaptation dimension', () => {
         const analysis = analyzeUserInteraction([
-            message('user', '之前我一直在很平静地慢慢讲这件事。'),
+            message('user', '之前我一直在很平靜地慢慢講這件事。'),
             message('assistant', '嗯。'),
             message('user', '啊啊啊成啦！！！🎉'),
         ], { length: 0, rhythm: 0, energy: 0, punctuation: 0, emoji: 0 });
@@ -130,15 +130,15 @@ describe('M2 ChatApp interaction adaptation', () => {
         }));
         const char = {
             id: 'char-interaction',
-            name: '测试角色',
+            name: '測試角色',
             memoryPalaceEnabled: false,
         };
 
         const trace = await injectMemoryPalace(
             char,
-            [message('user', '我过啦！！！')],
+            [message('user', '我過啦！！！')],
             undefined,
-            '测试用户',
+            '測試用戶',
             { entryPoint: 'chat_app' },
         );
 
@@ -153,7 +153,7 @@ describe('M2 ChatApp interaction adaptation', () => {
         }));
         const trace = await injectMemoryPalace(
             { id: 'char-interaction', memoryPalaceEnabled: false },
-            [message('user', '我过啦！！！')],
+            [message('user', '我過啦！！！')],
             undefined,
             undefined,
             { entryPoint: 'world_home' },

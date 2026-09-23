@@ -1,8 +1,8 @@
 /**
- * Pixel Home — LLM 装修逻辑
+ * Pixel Home — LLM 裝修邏輯
  *
- * 消化后触发，角色基于消化结果决定是否调整房间。
- * 输出 JSON diff，不删除用户放的家具。
+ * 消化後觸發，角色基於消化結果決定是否調整房間。
+ * 輸出 JSON diff，不刪除用戶放的傢俱。
  */
 
 import type { DecorationDiff, DecorationAction, PixelRoomLayout } from '../apps/pixelHome/types';
@@ -19,7 +19,7 @@ interface LLMConfig {
 }
 
 /**
- * 角色自主装修：基于消化结果生成装修 diff 并应用。
+ * 角色自主裝修：基於消化結果生成裝修 diff 並應用。
  */
 export async function generateDecoration(
   charId: string,
@@ -30,7 +30,7 @@ export async function generateDecoration(
   userName?: string,
 ): Promise<DecorationDiff | null> {
   try {
-    // 获取当前所有房间布局
+    // 獲取當前所有房間佈局
     const layouts = await PixelLayoutDB.getAllForChar(charId);
     if (layouts.length === 0) return null;
 
@@ -52,44 +52,44 @@ export async function generateDecoration(
     let digestSummary = '';
     if (digestResult) {
       const parts: string[] = [];
-      if (digestResult.resolved.length > 0) parts.push(`化解了${digestResult.resolved.length}个困惑`);
-      if (digestResult.deepened.length > 0) parts.push(`${digestResult.deepened.length}个创伤加深了`);
-      if (digestResult.fulfilled.length > 0) parts.push(`${digestResult.fulfilled.length}个期盼实现了`);
-      if (digestResult.disappointed.length > 0) parts.push(`${digestResult.disappointed.length}个期盼落空了`);
-      if (digestResult.selfInsights.length > 0) parts.push(`产生了${digestResult.selfInsights.length}个自我领悟`);
-      digestSummary = parts.length > 0 ? `最近的心理变化：${parts.join('，')}。` : '';
+      if (digestResult.resolved.length > 0) parts.push(`化解了${digestResult.resolved.length}個困惑`);
+      if (digestResult.deepened.length > 0) parts.push(`${digestResult.deepened.length}個創傷加深了`);
+      if (digestResult.fulfilled.length > 0) parts.push(`${digestResult.fulfilled.length}個期盼實現了`);
+      if (digestResult.disappointed.length > 0) parts.push(`${digestResult.disappointed.length}個期盼落空了`);
+      if (digestResult.selfInsights.length > 0) parts.push(`產生了${digestResult.selfInsights.length}個自我領悟`);
+      digestSummary = parts.length > 0 ? `最近的心理變化：${parts.join('，')}。` : '';
     }
 
     const systemPrompt = `你是${charName}，正在整理自己的像素小屋。
-${persona ? `你的人设：${persona.slice(0, 500)}` : ''}
+${persona ? `你的人設：${persona.slice(0, 500)}` : ''}
 
-你有7个房间，每个房间有5个固定家具槽位。你可以：
-1. 移动家具位置 (move)：调整 x,y 坐标（0-100 的百分比）
-2. 换色 (recolor)：给家具换个颜色覆盖
-3. 调大小 (rescale)：调整家具的缩放比例（0.3-3.0）
-4. 换墙色 (set_wall)：换房间墙壁颜色
-5. 换地板色 (set_floor)：换房间地板颜色
-6. 设氛围 (set_ambiance)：给房间写一句氛围描述
+你有7個房間，每個房間有5個固定傢俱槽位。你可以：
+1. 移動傢俱位置 (move)：調整 x,y 座標（0-100 的百分比）
+2. 換色 (recolor)：給傢俱換個顏色覆蓋
+3. 調大小 (rescale)：調整傢俱的縮放比例（0.3-3.0）
+4. 換牆色 (set_wall)：換房間牆壁顏色
+5. 換地板色 (set_floor)：換房間地板顏色
+6. 設氛圍 (set_ambiance)：給房間寫一句氛圍描述
 
-规则：
-- 你不能删除${userName || '用户'}放的家具（placedBy: "user"），但可以微调位置
-- 不要大幅改动，只做1-5个小变化
-- 变化要反映你当前的心境
-- 如果没什么变化的心境，返回空数组
+規則：
+- 你不能刪除${userName || '用戶'}放的傢俱（placedBy: "user"），但可以微調位置
+- 不要大幅改動，只做1-5個小變化
+- 變化要反映你當前的心境
+- 如果沒什麼變化的心境，返回空數組
 
 ${digestSummary}
 
-当前房间布局：
+當前房間佈局：
 ${JSON.stringify(layoutSummary, null, 2)}
 
-请返回JSON格式（仅返回JSON，不要其他文字）：
+請返回JSON格式（僅返回JSON，不要其他文字）：
 {
   "actions": [
     { "type": "move", "roomId": "bedroom", "slotId": "lamp", "x": 80, "y": 40 },
     { "type": "set_wall", "roomId": "bedroom", "color": "#ede9fe" },
-    { "type": "set_ambiance", "roomId": "bedroom", "ambiance": "今晚的月光特别温柔" }
+    { "type": "set_ambiance", "roomId": "bedroom", "ambiance": "今晚的月光特別溫柔" }
   ],
-  "summary": "你的一句装修感言"
+  "summary": "你的一句裝修感言"
 }`;
 
     const data = await safeFetchJson(
@@ -104,19 +104,19 @@ ${JSON.stringify(layoutSummary, null, 2)}
           model: llmConfig.model,
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: '请根据你现在的心境，决定要不要整理一下房间。' },
+            { role: 'user', content: '請根據你現在的心境，決定要不要整理一下房間。' },
           ],
           temperature: 0.7,
           max_tokens: 800,
         }),
       },
-      2, 0, { appName: '小小窝', purpose: '房间布置' },
+      2, 0, { appName: '小小窩', purpose: '房間佈置' },
     );
 
     const reply = data.choices?.[0]?.message?.content || '';
     const jsonMatch = reply.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.log('🏠 [HomeDecoration] 角色决定不装修');
+      console.log('🏠 [HomeDecoration] 角色決定不裝修');
       return null;
     }
 
@@ -126,7 +126,7 @@ ${JSON.stringify(layoutSummary, null, 2)}
     );
 
     if (actions.length === 0) {
-      console.log('🏠 [HomeDecoration] 无装修动作');
+      console.log('🏠 [HomeDecoration] 無裝修動作');
       return null;
     }
 
@@ -137,18 +137,18 @@ ${JSON.stringify(layoutSummary, null, 2)}
       timestamp: Date.now(),
     };
 
-    // 应用装修
+    // 應用裝修
     await applyDecoration(charId, diff, layouts);
 
-    console.log(`🏠 [HomeDecoration] ${charName}整理了房间：${diff.summary}（${actions.length}个变化）`);
+    console.log(`🏠 [HomeDecoration] ${charName}整理了房間：${diff.summary}（${actions.length}個變化）`);
     return diff;
   } catch (err: any) {
-    console.warn(`🏠 [HomeDecoration] 装修失败: ${err.message}`);
+    console.warn(`🏠 [HomeDecoration] 裝修失敗: ${err.message}`);
     return null;
   }
 }
 
-/** 将装修 diff 应用到 DB */
+/** 將裝修 diff 應用到 DB */
 async function applyDecoration(
   charId: string,
   diff: DecorationDiff,
@@ -168,7 +168,7 @@ async function applyDecoration(
           if (action.x != null) f.x = Math.max(5, Math.min(95, action.x));
           if (action.y != null) f.y = Math.max(10, Math.min(90, action.y));
         }
-        // 用户放的家具只做微调（±5）
+        // 用戶放的傢俱只做微調（±5）
         if (f && f.placedBy === 'user') {
           if (action.x != null) f.x = Math.max(5, Math.min(95, f.x + Math.max(-5, Math.min(5, action.x - f.x))));
           if (action.y != null) f.y = Math.max(10, Math.min(90, f.y + Math.max(-5, Math.min(5, action.y - f.y))));
@@ -204,7 +204,7 @@ async function applyDecoration(
     layout.lastDecoratedBy = 'character';
   }
 
-  // 保存修改的房间
+  // 保存修改的房間
   const modifiedRooms = diff.actions
     .map(a => a.roomId)
     .filter((v, i, arr) => arr.indexOf(v) === i);

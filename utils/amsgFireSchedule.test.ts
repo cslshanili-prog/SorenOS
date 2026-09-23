@@ -16,13 +16,13 @@ import { shortTaskId } from './amsg2Tasks';
 
 const NOW = Date.UTC(2026, 6, 30, 12, 0);
 const inMinutes = (n: number) => new Date(NOW + n * 60_000).toISOString();
-/** 角色的时间参照系是必填的（fire_pack 的 tzId）；与时区无关的用例统一给 UTC。 */
+/** 角色的時間參照系是必填的（fire_pack 的 tzId）；與時區無關的用例統一給 UTC。 */
 const TZ = { tzId: 'UTC' };
 
-// 参数是模型现写的，写歪是常态。这里每一条打回都必须是「能照着改」的一句话——
-// 回一个裸错误码的话，模型下一轮多半原样再试一次，白烧一轮预算。
+// 參數是模型現寫的，寫歪是常態。這裡每一條打回都必須是「能照著改」的一句話——
+// 回一個裸錯誤碼的話，模型下一輪多半原樣再試一次，白燒一輪預算。
 describe('parseFireScheduleArgs', () => {
-  it('只给 send_at 时其余走默认（auto / 一次性 / 遇忙作废）', () => {
+  it('只給 send_at 時其餘走默認（auto / 一次性 / 遇忙作廢）', () => {
     const out = parseFireScheduleArgs({ send_at: inMinutes(90) }, NOW, TZ);
     expect(out).toEqual({
       sendAt: new Date(NOW + 90 * 60_000).toISOString(),
@@ -32,26 +32,26 @@ describe('parseFireScheduleArgs', () => {
     });
   });
 
-  it('默认是 expire 而不是 force——大多数「接着说」用户回来了就该让路', () => {
+  it('默認是 expire 而不是 force——大多數「接著說」用戶回來了就該讓路', () => {
     const out = parseFireScheduleArgs({ send_at: inMinutes(90) }, NOW, TZ) as any;
     expect(out.expirePolicy).toBe('expire');
   });
 
-  it('force 是合法选择（角色自己许下的具体承诺该照发）', () => {
+  it('force 是合法選擇（角色自己許下的具體承諾該照發）', () => {
     const out = parseFireScheduleArgs(
-      { send_at: inMinutes(120), expire_policy: 'force', mode: 'prompted', prompt_hint: '汤炖好了叫他' },
+      { send_at: inMinutes(120), expire_policy: 'force', mode: 'prompted', prompt_hint: '湯燉好了叫他' },
       NOW,
       TZ,
     ) as any;
     expect(out.expirePolicy).toBe('force');
-    expect(out.promptHint).toBe('汤炖好了叫他');
+    expect(out.promptHint).toBe('湯燉好了叫他');
   });
 
-  it('太近的时间打回：cron 一分钟一跳，排得更近等于让下一跳立刻捡走', () => {
+  it('太近的時間打回：cron 一分鐘一跳，排得更近等於讓下一跳立刻撿走', () => {
     const justUnder = parseFireScheduleArgs({ send_at: inMinutes(0.5) }, NOW, TZ) as any;
     expect(justUnder.ok).toBe(false);
     expect(justUnder.reason).toBe('send_at_too_soon');
-    // 边界：正好卡在最小提前量上要放行
+    // 邊界：正好卡在最小提前量上要放行
     expect(parseFireScheduleArgs(
       { send_at: new Date(NOW + MIN_SCHEDULE_LEAD_MS).toISOString() },
       NOW,
@@ -59,39 +59,39 @@ describe('parseFireScheduleArgs', () => {
     )).not.toHaveProperty('ok');
   });
 
-  it('过去的时间打回', () => {
+  it('過去的時間打回', () => {
     expect((parseFireScheduleArgs({ send_at: inMinutes(-60) }, NOW, TZ) as any).ok).toBe(false);
   });
 
-  it('send_at 缺失 / 不是时间 → 打回并给一个能照抄的裸墙钟示例（不再教 offset）', () => {
-    // 文案改版理由（③）：以前教「ISO 8601（如 …+08:00）」，现在统一教裸墙钟——
-    // 模型看到的钟就是角色本地的，让它别再自己猜 offset。
+  it('send_at 缺失 / 不是時間 → 打回並給一個能照抄的裸牆鍾示例（不再教 offset）', () => {
+    // 文案改版理由（③）：以前教「ISO 8601（如 …+08:00）」，現在統一教裸牆鍾——
+    // 模型看到的鐘就是角色本地的，讓它別再自己猜 offset。
     const missing = (parseFireScheduleArgs({}, NOW, TZ) as any).message;
-    expect(missing).toContain('墙钟');
+    expect(missing).toContain('牆鍾');
     expect(missing).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(missing).not.toContain('+08:00');
     expect((parseFireScheduleArgs({ send_at: '明天晚上' }, NOW, TZ) as any).reason).toBe('invalid_send_at');
   });
 
-  it('prompted 缺方向 → 打回（不然到点那条不知道该说什么）', () => {
+  it('prompted 缺方向 → 打回（不然到點那條不知道該說什麼）', () => {
     const out = parseFireScheduleArgs({ send_at: inMinutes(90), mode: 'prompted' }, NOW, TZ) as any;
     expect(out.ok).toBe(false);
     expect(out.reason).toBe('missing_prompt_hint');
   });
 
-  it('枚举写错都各自打回', () => {
+  it('枚舉寫錯都各自打回', () => {
     expect((parseFireScheduleArgs({ send_at: inMinutes(90), mode: 'fixed' }, NOW, TZ) as any).reason).toBe('invalid_mode');
     expect((parseFireScheduleArgs({ send_at: inMinutes(90), recurrence: 'hourly' }, NOW, TZ) as any).reason).toBe('invalid_recurrence');
     expect((parseFireScheduleArgs({ send_at: inMinutes(90), expire_policy: 'maybe' }, NOW, TZ) as any).reason).toBe('invalid_expire_policy');
   });
 });
 
-// ③ 的核心回归守卫：worker 跑在 UTC，裸 send_at 必须按角色的时区（tzId）解析。
-// 旧实现 new Date('2026-08-01T09:00:00') 在 UTC 运行时会当成 09:00Z——「明早 9 点」
-// 整整差一个时差。断言用与运行机器无关的 epoch 差值钉死。
-describe('parseFireScheduleArgs 的时间参照系', () => {
-  it('裸 datetime 按 tzId 的墙钟解析（非 UTC 时区断 epoch）', () => {
-    // 2026-08-01 纽约在夏令时（EDT，-4）：09:00 墙钟 = 13:00Z。
+// ③ 的核心迴歸守衛：worker 跑在 UTC，裸 send_at 必須按角色的時區（tzId）解析。
+// 舊實現 new Date('2026-08-01T09:00:00') 在 UTC 運行時會當成 09:00Z——「明早 9 點」
+// 整整差一個時差。斷言用與運行機器無關的 epoch 差值釘死。
+describe('parseFireScheduleArgs 的時間參照系', () => {
+  it('裸 datetime 按 tzId 的牆鍾解析（非 UTC 時區斷 epoch）', () => {
+    // 2026-08-01 紐約在夏令時（EDT，-4）：09:00 牆鍾 = 13:00Z。
     const out = parseFireScheduleArgs(
       { send_at: '2026-08-01T09:00:00' },
       Date.UTC(2026, 7, 1, 1, 0),
@@ -100,7 +100,7 @@ describe('parseFireScheduleArgs 的时间参照系', () => {
     expect(out.sendAt).toBe('2026-08-01T13:00:00.000Z');
   });
 
-  it('带 Z / offset 的照旧按标注解析，不被 tz 改写', () => {
+  it('帶 Z / offset 的照舊按標註解析，不被 tz 改寫', () => {
     const withZ = parseFireScheduleArgs(
       { send_at: '2026-08-01T09:00:00Z' }, Date.UTC(2026, 7, 1, 1, 0), { tzId: 'America/New_York' },
     ) as any;
@@ -111,8 +111,8 @@ describe('parseFireScheduleArgs 的时间参照系', () => {
     expect(withOffset.sendAt).toBe('2026-08-01T01:00:00.000Z');
   });
 
-  it('too_soon 判定吃解析后的真实时刻（墙钟看着在未来、真实时刻已过 → 打回）', () => {
-    // 纽约墙钟 09:00 = 13:00Z；now 已是 14:00Z → 其实是过去。
+  it('too_soon 判定吃解析後的真實時刻（牆鍾看著在未來、真實時刻已過 → 打回）', () => {
+    // 紐約牆鍾 09:00 = 13:00Z；now 已是 14:00Z → 其實是過去。
     const out = parseFireScheduleArgs(
       { send_at: '2026-08-01T09:00:00' },
       Date.UTC(2026, 7, 1, 14, 0),
@@ -121,10 +121,10 @@ describe('parseFireScheduleArgs 的时间参照系', () => {
     expect(out.reason).toBe('send_at_too_soon');
   });
 
-  it('打回文案里的「现在」说角色时区的人话，不再甩 UTC ISO', () => {
+  it('打回文案裡的「現在」說角色時區的人話，不再甩 UTC ISO', () => {
     const out = parseFireScheduleArgs(
       { send_at: '2026-08-01T09:00:00' },
-      Date.UTC(2026, 7, 1, 14, 0),          // 纽约 10:00
+      Date.UTC(2026, 7, 1, 14, 0),          // 紐約 10:00
       { tzId: 'America/New_York' },
     ) as any;
     expect(out.message).toContain('8月1日 10:00');
@@ -132,96 +132,96 @@ describe('parseFireScheduleArgs 的时间参照系', () => {
   });
 });
 
-// 用户的中转拒 tools 时走这层。认得太宽会把「我等下用 schedule_active_message 提醒你」
-// 这种叙述当成真调用，直接排出一条任务。
+// 用戶的中轉拒 tools 時走這層。認得太寬會把「我等下用 schedule_active_message 提醒你」
+// 這種敘述當成真調用，直接排出一條任務。
 describe('extractFireScheduleTextCalls', () => {
-  it('认括号带 JSON 的写法', () => {
+  it('認括號帶 JSON 的寫法', () => {
     const calls = extractFireScheduleTextCalls(
-      `好，我等下再找你\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-30T23:30:00Z","prompt_hint":"接着说猫"})`,
+      `好，我等下再找你\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"2026-07-30T23:30:00Z","prompt_hint":"接著說貓"})`,
     );
     expect(calls).toHaveLength(1);
-    expect(calls[0].args).toEqual({ send_at: '2026-07-30T23:30:00Z', prompt_hint: '接着说猫' });
+    expect(calls[0].args).toEqual({ send_at: '2026-07-30T23:30:00Z', prompt_hint: '接著說貓' });
   });
 
-  it('叙述里提到工具名但没有括号调用 → 不算', () => {
+  it('敘述裡提到工具名但沒有括號調用 → 不算', () => {
     expect(extractFireScheduleTextCalls(`我等下用 ${AMSG_FIRE_SCHEDULE_TOOL} 提醒你`)).toHaveLength(0);
-    expect(extractFireScheduleTextCalls(`${AMSG_FIRE_SCHEDULE_TOOL}: 两小时后`)).toHaveLength(0);
+    expect(extractFireScheduleTextCalls(`${AMSG_FIRE_SCHEDULE_TOOL}: 兩小時後`)).toHaveLength(0);
   });
 
-  it('参数写坏了仍算一次调用（交给 parse 回一句该怎么写，别把语法漏进正文）', () => {
-    const calls = extractFireScheduleTextCalls(`${AMSG_FIRE_SCHEDULE_TOOL}({送两小时后})`);
+  it('參數寫壞了仍算一次調用（交給 parse 回一句該怎麼寫，別把語法漏進正文）', () => {
+    const calls = extractFireScheduleTextCalls(`${AMSG_FIRE_SCHEDULE_TOOL}({送兩小時後})`);
     expect(calls).toHaveLength(1);
     expect(calls[0].args).toEqual({});
   });
 
-  it('matched 是原始串，剥语法时靠它', () => {
+  it('matched 是原始串，剝語法時靠它', () => {
     const text = `晚安\n${AMSG_FIRE_SCHEDULE_TOOL}({"send_at":"x"})`;
     const [call] = extractFireScheduleTextCalls(text);
     expect(text.split(call.matched).join('').trim()).toBe('晚安');
   });
 });
 
-describe('工具与说明块', () => {
+describe('工具與說明塊', () => {
   const timeOpts = { nowMs: NOW, tz: TZ };
 
-  it('工具名与前台一致（角色不用学第二套）', () => {
+  it('工具名與前台一致（角色不用學第二套）', () => {
     expect(buildFireScheduleTool(timeOpts).function.name).toBe('schedule_active_message');
   });
 
-  it('native 模式不教正文语法，text 模式才教', () => {
+  it('native 模式不教正文語法，text 模式才教', () => {
     expect(buildFireScheduleBlock('native', timeOpts)).not.toContain('({"send_at"');
     expect(buildFireScheduleBlock('text', timeOpts)).toContain('({"send_at"');
   });
 
-  it('expire_policy 描述把「角色自己许下的承诺」算进 force', () => {
-    expect(EXPIRE_POLICY_DESCRIPTION).toContain('你自己许下的');
+  it('expire_policy 描述把「角色自己許下的承諾」算進 force', () => {
+    expect(EXPIRE_POLICY_DESCRIPTION).toContain('你自己許下的');
     expect(buildFireScheduleTool(timeOpts).function.parameters).toMatchObject({
       properties: { expire_policy: { description: EXPIRE_POLICY_DESCRIPTION } },
     });
   });
 
-  // ③：示例从写死的 `2026-07-30T23:30:00+08:00` 改成按 nowMs+tz 现算的「明天这个点」
-  // 裸墙钟——教模型写 offset 的话，它写的 offset 和角色时区对不上时又是一笔糊涂账。
-  it('send_at 示例是「明天这个点」的裸墙钟，随 tz 走、不带 offset', () => {
+  // ③：示例從寫死的 `2026-07-30T23:30:00+08:00` 改成按 nowMs+tz 現算的「明天這個點」
+  // 裸牆鍾——教模型寫 offset 的話，它寫的 offset 和角色時區對不上時又是一筆糊塗帳。
+  it('send_at 示例是「明天這個點」的裸牆鍾，隨 tz 走、不帶 offset', () => {
     const tool = buildFireScheduleTool({ nowMs: NOW, tz: { tzId: 'Asia/Tokyo' } });
     const desc = (tool.function.parameters as any).properties.send_at.description as string;
-    // NOW = 2026-07-30T12:00Z → 东京 21:00，明天这个点 = 07-31T21:00:00
+    // NOW = 2026-07-30T12:00Z → 東京 21:00，明天這個點 = 07-31T21:00:00
     expect(desc).toContain('2026-07-31T21:00:00');
     expect(desc).not.toContain('+08:00');
     expect(desc).not.toContain('+09:00');
     expect(buildSendAtExample(NOW, { tzId: 'Asia/Tokyo' })).toBe('2026-07-31T21:00:00');
   });
 
-  it('text 模式说明块里的示例同样是裸墙钟', () => {
+  it('text 模式說明塊裡的示例同樣是裸牆鍾', () => {
     const block = buildFireScheduleBlock('text', { nowMs: NOW, tz: { tzId: 'Asia/Shanghai' } });
     expect(block).toContain('"send_at":"2026-07-31T20:00:00"');
     expect(block).not.toContain('+08:00');
   });
 });
 
-// 排程有三个入口（面板 / 前台工具 / fire 里的工具），指令必须一模一样，
-// 否则同一个 mode 在不同入口生成出来的消息方向会不一样。
+// 排程有三個入口（面板 / 前台工具 / fire 裡的工具），指令必須一模一樣，
+// 否則同一個 mode 在不同入口生成出來的消息方向會不一樣。
 describe('buildTaskInstruction', () => {
-  it('prompted 带上方向', () => {
-    expect(buildTaskInstruction('prompted', '问问吃了没')).toContain('额外提示：问问吃了没');
+  it('prompted 帶上方向', () => {
+    expect(buildTaskInstruction('prompted', '問問吃了沒')).toContain('額外提示：問問吃了沒');
   });
 
-  it('auto 无灵感时写「无」，不留空', () => {
-    expect(buildTaskInstruction('auto')).toContain('可选灵感补充：无');
+  it('auto 無靈感時寫「無」，不留空', () => {
+    expect(buildTaskInstruction('auto')).toContain('可選靈感補充：無');
   });
 });
 
-// 排程清单里印给角色看的短 id 取的是 uuid 前 8 个字符（amsg2Tasks.shortTaskId）。
-// 自排任务的 uuid 要是以固定字样开头，同一次 fire 排下的两条就印成一模一样的短 id，
-// 角色说「取消晚上那条」时随便命中一条 —— 删掉的很可能是早上那条，而且两边都回 ok。
-describe('buildSelfScheduleUuid（自排任务的 uuid）', () => {
-  it('同一次 fire 的两条，前 8 个字符不一样（清单里印出来的短 id 不撞车）', () => {
+// 排程清單裡印給角色看的短 id 取的是 uuid 前 8 個字符（amsg2Tasks.shortTaskId）。
+// 自排任務的 uuid 要是以固定字樣開頭，同一次 fire 排下的兩條就印成一模一樣的短 id，
+// 角色說「取消晚上那條」時隨便命中一條 —— 刪掉的很可能是早上那條，而且兩邊都回 ok。
+describe('buildSelfScheduleUuid（自排任務的 uuid）', () => {
+  it('同一次 fire 的兩條，前 8 個字符不一樣（清單裡印出來的短 id 不撞車）', () => {
     const a = buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 0);
     const b = buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 1);
     expect(shortTaskId(a)).not.toBe(shortTaskId(b));
   });
 
-  it('不同角色 / 不同触发时刻同样分得开', () => {
+  it('不同角色 / 不同觸發時刻同樣分得開', () => {
     const base = buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 0);
     expect(shortTaskId(buildSelfScheduleUuid('preset-other', 1_785_000_000_000, 0)))
       .not.toBe(shortTaskId(base));
@@ -229,20 +229,20 @@ describe('buildSelfScheduleUuid（自排任务的 uuid）', () => {
       .not.toBe(shortTaskId(base));
   });
 
-  // 幂等的根：fire 抛错整条重跑时算出同一个 uuid，上游才认得出撞车、不会每重试一次多排一条。
-  it('同样的入参永远算出同一个 uuid（重跑对得上号）', () => {
+  // 冪等的根：fire 拋錯整條重跑時算出同一個 uuid，上游才認得出撞車、不會每重試一次多排一條。
+  it('同樣的入參永遠算出同一個 uuid（重跑對得上號）', () => {
     expect(buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 0))
       .toBe(buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 0));
   });
 
-  it('uuid 里仍看得出是自排的那一族（排障时一眼认出来）', () => {
+  it('uuid 裡仍看得出是自排的那一族（排障時一眼認出來）', () => {
     expect(buildSelfScheduleUuid('preset-nyah', 1_785_000_000_000, 0)).toContain('amsgself');
   });
 });
 
-// 取消 / 改期会真的动 D1 行。短 id 撞车时静默取第一条 = 删掉另一条任务，而角色和用户
-// 都只看到一句 ok —— 说好的那条到点照响，被删的那条无声无息地没了。
-describe('resolveFireTargetTask 的短 id 撞车', () => {
+// 取消 / 改期會真的動 D1 行。短 id 撞車時靜默取第一條 = 刪掉另一條任務，而角色和用戶
+// 都只看到一句 ok —— 說好的那條到點照響，被刪的那條無聲無息地沒了。
+describe('resolveFireTargetTask 的短 id 撞車', () => {
   const NOW_MS = Date.UTC(2026, 6, 30, 12, 0);
   const task = (uuid: string, hoursFromNow: number) => ({
     taskUuid: uuid,
@@ -259,13 +259,13 @@ describe('resolveFireTargetTask 的短 id 撞车', () => {
   const morning = task('amsgself-c1-1000-0', 1);
   const evening = task('amsgself-c1-1000-1', 9);
 
-  it('一个短 id 命中两条 → 打回 ambiguous_task，不静默挑第一条', () => {
+  it('一個短 id 命中兩條 → 打回 ambiguous_task，不靜默挑第一條', () => {
     const out = resolveFireTargetTask([morning, evening], 'amsgself', NOW_MS, TZ) as any;
     expect(out.ok).toBe(false);
     expect(out.reason).toBe('ambiguous_task');
   });
 
-  it('打回的话里带得走：两条各自的触发时间 + 完整 task_id', () => {
+  it('打回的話裡帶得走：兩條各自的觸發時間 + 完整 task_id', () => {
     const out = resolveFireTargetTask([morning, evening], 'amsgself', NOW_MS, TZ) as any;
     expect(out.message).toContain(morning.taskUuid);
     expect(out.message).toContain(evening.taskUuid);
@@ -273,12 +273,12 @@ describe('resolveFireTargetTask 的短 id 撞车', () => {
     expect(out.message).toContain('7月30日 21:00');
   });
 
-  it('带完整 uuid 重来一次就指得准', () => {
+  it('帶完整 uuid 重來一次就指得準', () => {
     const out = resolveFireTargetTask([morning, evening], evening.taskUuid, NOW_MS, TZ) as any;
     expect(out.task).toBe(evening);
   });
 
-  it('短 id 只命中一条时照常选它，没命中还是 task_not_found', () => {
+  it('短 id 只命中一條時照常選它，沒命中還是 task_not_found', () => {
     expect((resolveFireTargetTask([morning], 'amsgself', NOW_MS, TZ) as any).task).toBe(morning);
     expect((resolveFireTargetTask([morning], 'nothere1', NOW_MS, TZ) as any).reason)
       .toBe('task_not_found');

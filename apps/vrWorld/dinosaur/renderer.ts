@@ -19,7 +19,7 @@ type Model={root:T.Group;species:string;paintKey:string;meshes:{mesh:T.Mesh;base
 export function createGardenRenderer(host:HTMLElement,hooks:Hooks) {
   const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.4));renderer.setClearColor('#f2eee3');renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
-  const canvas=renderer.domElement;canvas.setAttribute('aria-label','可以用手指旋转、缩放和摆放的橡皮泥恐龙箱庭');canvas.setAttribute('role','img');host.appendChild(canvas);
+  const canvas=renderer.domElement;canvas.setAttribute('aria-label','可以用手指旋轉、縮放和擺放的橡皮泥恐龍箱庭');canvas.setAttribute('role','img');host.appendChild(canvas);
   const scene=new T.Scene();scene.background=new T.Color('#f2eee3');scene.add(new T.HemisphereLight('#fff4df','#a0af99',2.6));
   const sun=new T.DirectionalLight('#fff0d6',2.05);sun.position.set(-4,11,5);sun.castShadow=true;sun.shadow.mapSize.set(512,512);Object.assign(sun.shadow.camera,{left:-8,right:8,top:8,bottom:-8,near:.1,far:27});sun.shadow.normalBias=.03;scene.add(sun);
   const floor=new T.Mesh(new T.PlaneGeometry(100,100),new T.ShadowMaterial({opacity:.11,color:'#6d755f'}));floor.rotation.x=-Math.PI/2;floor.position.y=-.57;floor.receiveShadow=true;scene.add(floor);
@@ -90,7 +90,7 @@ export function createGardenRenderer(host:HTMLElement,hooks:Hooks) {
       const particles=new T.InstancedMesh(new T.SphereGeometry(.035,6,4),new T.MeshBasicMaterial({color:'#addcda'}),6);particles.instanceMatrix.setUsage(T.DynamicDrawUsage);particles.frustumCulled=false;fx.add(particles);scene.add(fx);
       const height=new T.Box3().setFromObject(root).max.y*.49;
       models.set(toy.catchId,{root,meshes,species:toy.speciesId,paintKey:'',effect,ripple,fx,cookie,particles,nose:toyNose(toy.speciesId),particleKind:'',height});scene.add(root,effect,ripple);
-    }));if(disposed||gen!==loadGeneration)return;loading=false;renderer.shadowMap.needsUpdate=true;invalidate();hooks.ready();}catch{if(gen===loadGeneration){loading=false;invalidate();}if(!disposed)hooks.error('有一只模型没能加载，请重新打开箱庭。');}
+    }));if(disposed||gen!==loadGeneration)return;loading=false;renderer.shadowMap.needsUpdate=true;invalidate();hooks.ready();}catch{if(gen===loadGeneration){loading=false;invalidate();}if(!disposed)hooks.error('有一隻模型沒能加載，請重新打開箱庭。');}
   }
   function draw(dt:number){elapsed+=dt;if(!data)return;const g=data.dinosaurGarden!;
     hints.visible=placing&&view==='garden';
@@ -177,7 +177,7 @@ export function createGardenRenderer(host:HTMLElement,hooks:Hooks) {
     if(!hit)hooks.select('');for(let o:T.Object3D|null=hit?.object||null;o;o=o.parent)if(o.userData.toyId){hooks.select(o.userData.toyId);break;}
 
   };
-  const cancel=(e:PointerEvent)=>{touches.delete(e.pointerId);press=null;};const lost=(e:Event)=>{e.preventDefault();failed=true;resume();hooks.error('3D 画面已暂停，重新打开后会恢复。你的布置已经保存在本机。');};
+  const cancel=(e:PointerEvent)=>{touches.delete(e.pointerId);press=null;};const lost=(e:Event)=>{e.preventDefault();failed=true;resume();hooks.error('3D 畫面已暫停，重新打開後會恢復。你的佈置已經保存在本機。');};
   canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',cancel);canvas.addEventListener('webglcontextlost',lost);resume();
   return {sync,reset,setActive(value:boolean){active=value;orbit.enabled=value;if(value)invalidate();else resume();},selectProp(id:string){selectedProp=id;invalidate();},greet(){greeting=elapsed;invalidate();},highlight(id:string,before?:DinoPose|null){selected=id;const p=data?.dinosaurGarden?.toys[id]?.pose;if(p){orbit.target.set(p.x,.55,p.z);camera.position.copy(orbit.target).add(new T.Vector3(7,15,19));camera.zoom=1.2;}ghost.visible=!!before;if(before)ghost.position.set(before.x,surfaceHeight(before.x,before.z)+.035,before.z);invalidate();},
     metrics(){return {view,active,framesRendered,shadowUpdates,terrainBuilds,propBuilds,morphBuilds,memory:{...renderer.info.memory},drawingPixels:canvas.width*canvas.height,triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls,pixelRatio:renderer.getPixelRatio(),frameCap:30,zoom:camera.zoom,azimuth:orbit.getAzimuthalAngle(),loaded:[...models.keys()],preview:draft?{id:draft.id,pose:draft.pose,invalid}:null,propTargets:propMeshes().map(m=>{const r=canvas.getBoundingClientRect(),marker=propHints.children.find(o=>o instanceof T.Sprite&&o.userData.propId===m.userData.propId),v=(marker?marker.position.clone():new T.Box3().setFromObject(m).getCenter(new T.Vector3())).project(camera);return {id:m.userData.propId,kind:m.userData.propKind,x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};}),activities:Object.fromEntries([...models].map(([id,m])=>[id,{...activities[id],position:{x:m.root.position.x,y:m.root.position.y,z:m.root.position.z,rotation:m.root.rotation.y},morph:m.meshes[0]?.mesh.morphTargetInfluences,screen:(()=>{const r=canvas.getBoundingClientRect(),v=m.root.position.clone().add(new T.Vector3(0,m.height*.5,0)).project(camera);return {x:r.x+(v.x+1)*r.width/2,y:r.y+(1-v.y)*r.height/2};})()}]))};},

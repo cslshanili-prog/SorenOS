@@ -1,28 +1,28 @@
 /**
- * 「这一轮没上云，在本地生成」的提示条（输入框正上方那一条）。
+ * 「這一輪沒上雲，在本地生成」的提示條（輸入框正上方那一條）。
  *
- * 为什么要有：即时对话的开关写着「已开启」，消息却在本地生成——这中间的落差过去只留在
- * console 和观察窗里，用户查不到。他能看到的只有本地直连失败时那条读不懂的网络报错，
- * 于是以为是自己网络坏了。线上真实故障里，有人就这么卡了四个小时。
+ * 為什麼要有：即時對話的開關寫著「已開啟」，消息卻在本地生成——這中間的落差過去只留在
+ * console 和觀察窗裡，用戶查不到。他能看到的只有本地直連失敗時那條讀不懂的網絡報錯，
+ * 於是以為是自己網絡壞了。線上真實故障裡，有人就這麼卡了四個小時。
  *
- * 只报两档，都是「用户想上云、实际没上」的情形：
- *   worker-outdated     问到了，那台 Worker 确实跑不动 → 指路去更新
- *   worker-unreachable  这一刻够不着云端 → 别叫人去更新，多半是网络，会自己好
+ * 只報兩檔，都是「用戶想上雲、實際沒上」的情形：
+ *   worker-outdated     問到了，那台 Worker 確實跑不動 → 指路去更新
+ *   worker-unreachable  這一刻夠不著雲端 → 別叫人去更新，多半是網絡，會自己好
  *
- * 用户自己关掉的（disabled / char-disabled）、点单流程那种本该留在本地的，一律不出声——
- * 那些是正常行为，报了就成骚扰。
+ * 用戶自己關掉的（disabled / char-disabled）、點單流程那種本該留在本地的，一律不出聲——
+ * 那些是正常行為，報了就成騷擾。
  */
 import React, { useEffect, useState } from 'react';
 import { AMSG_INSTANT_CHAT_ROUTE_EVENT, type InstantChatRouteDetail } from '../../utils/amsgInstantChat';
 
 const NOTICES: Record<string, { title: string; hint: string }> = {
     'worker-outdated': {
-        title: '这一轮在本地生成',
-        hint: '云端那台 Worker 跑不动这条路，去设置里更新一下',
+        title: '這一輪在本地生成',
+        hint: '雲端那台 Worker 跑不動這條路，去設置裡更新一下',
     },
     'worker-unreachable': {
-        title: '这一轮在本地生成',
-        hint: '一时连不上云端，网络恢复后会自己回去',
+        title: '這一輪在本地生成',
+        hint: '一時連不上雲端，網絡恢復後會自己回去',
     },
 };
 
@@ -30,12 +30,12 @@ const InstantChatRouteNotice: React.FC<{ charId: string }> = ({ charId }) => {
     const [reason, setReason] = useState<string | null>(null);
 
     useEffect(() => {
-        // 换会话先清干净：上一个角色那轮的结论跟这个角色没关系。
+        // 換會話先清乾淨：上一個角色那輪的結論跟這個角色沒關係。
         setReason(null);
         const onRoute = (event: Event) => {
             const detail = (event as CustomEvent<InstantChatRouteDetail>).detail;
             if (!detail || detail.charId !== charId) return;
-            // reason 为 null（这一轮走成了云端）或不在名单里的原因，都当「没什么好说的」收起来。
+            // reason 為 null（這一輪走成了雲端）或不在名單裡的原因，都當「沒什麼好說的」收起來。
             setReason(detail.reason && NOTICES[detail.reason] ? detail.reason : null);
         };
         window.addEventListener(AMSG_INSTANT_CHAT_ROUTE_EVENT, onRoute);

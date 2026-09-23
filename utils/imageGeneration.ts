@@ -1,6 +1,6 @@
 /**
- * 生图：调用 OpenAI 兼容的 /images/generations（纯文字）或 /images/edits（带参考图）接口，
- * 产出一张图的 data URL。用于「系统设置 → 生图API」的测试生图，以及角色/用户手动触发的生图。
+ * 生圖：調用 OpenAI 兼容的 /images/generations（純文字）或 /images/edits（帶參考圖）接口，
+ * 產出一張圖的 data URL。用於「系統設置 → 生圖API」的測試生圖，以及角色/用戶手動觸發的生圖。
  */
 import { CharacterProfile, ImageGenApiConfig } from '../types';
 import { safeResponseJson } from './safeApi';
@@ -14,7 +14,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
+    reader.onerror = () => reject(reader.error || new Error('讀取圖片失敗'));
     reader.readAsDataURL(blob);
   });
 }
@@ -23,27 +23,27 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('图片加载失败'));
+    img.onerror = () => reject(new Error('圖片加載失敗'));
     img.src = src;
   });
 }
 
-/** 把角色专属人物特征提示词拼进正文提示词；没配置则原样返回。 */
+/** 把角色專屬人物特徵提示詞拼進正文提示詞；沒配置則原樣返回。 */
 export function buildCharacterImagePrompt(char: Pick<CharacterProfile, 'imageGenCharConfig'>, prompt: string): string {
   const characterPrompt = char.imageGenCharConfig?.characterPrompt?.trim();
-  return characterPrompt ? `${prompt}\n人物特征：${characterPrompt}` : prompt;
+  return characterPrompt ? `${prompt}\n人物特徵：${characterPrompt}` : prompt;
 }
 
 /**
- * 轻量启发式：中文描述里出现强烈暗示"这张图不是角色本人独照"的关键词（合照/风景/物件……），
- * 判定为非自拍。只服务于「非自拍照不使用参考图」这个开关，不追求精确——猜错了顶多是该带参考图
- * 没带（退化成纯文字生成）或不该带带了（生图引擎会自己按提示词忽略不合理的参考细节），
- * 不是错误行为。FaceCropModal 等场景生成的英文 imagePrompt（OOTD/Moments）不吃这个关键词表，
- * 调用方应该改传 forceSelfie，见 resolveCharacterReferenceImage。
+ * 輕量啟發式：中文描述裡出現強烈暗示"這張圖不是角色本人獨照"的關鍵詞（合照/風景/物件……），
+ * 判定為非自拍。只服務於「非自拍照不使用參考圖」這個開關，不追求精確——猜錯了頂多是該帶參考圖
+ * 沒帶（退化成純文字生成）或不該帶帶了（生圖引擎會自己按提示詞忽略不合理的參考細節），
+ * 不是錯誤行為。FaceCropModal 等場景生成的英文 imagePrompt（OOTD/Moments）不吃這個關鍵詞表，
+ * 調用方應該改傳 forceSelfie，見 resolveCharacterReferenceImage。
  */
 const NON_SELFIE_KEYWORDS = [
-  '合照', '一起', '风景', '夜景', '天空', '街景', '街道', '建筑', '美食', '食物', '菜', '咖啡',
-  '书桌', '窗外', '背影', '宠物', '猫', '狗', '手机', '电脑', '物件', '静物', '花', '植物', '风光',
+  '合照', '一起', '風景', '夜景', '天空', '街景', '街道', '建築', '美食', '食物', '菜', '咖啡',
+  '書桌', '窗外', '背影', '寵物', '貓', '狗', '手機', '電腦', '物件', '靜物', '花', '植物', '風光',
 ];
 export function looksLikeSelfieDescription(text: string): boolean {
   const trimmed = text.trim();
@@ -52,10 +52,10 @@ export function looksLikeSelfieDescription(text: string): boolean {
 }
 
 /**
- * 纯逻辑：这次生成要不要带参考图（不碰网络/Blob，方便单测）。
- * - 总开关没开 / 没上传参考图：不带。
- * - 「非自拍照不使用参考图」开着时，非自拍场景不带；forceSelfie 短路这条判断（OOTD/Moments
- *   这类"画的就是角色本人"的场景，不需要也不该套中文关键词表）。
+ * 純邏輯：這次生成要不要帶參考圖（不碰網絡/Blob，方便單測）。
+ * - 總開關沒開 / 沒上傳參考圖：不帶。
+ * - 「非自拍照不使用參考圖」開著時，非自拍場景不帶；forceSelfie 短路這條判斷（OOTD/Moments
+ *   這類"畫的就是角色本人"的場景，不需要也不該套中文關鍵詞表）。
  */
 export function shouldUseCharacterReference(
   cfg: CharacterProfile['imageGenCharConfig'] | undefined,
@@ -69,10 +69,10 @@ export function shouldUseCharacterReference(
 }
 
 /**
- * 按 FaceCropModal 选的脸部选区裁参考图。选区坐标是相对「参考图先按 object-fit: cover
- * 裁成正方形」之后的比例（跟弹窗预览的换算口径一致），所以这里先算出那个正方形裁切区，
- * 再在其中取 faceBox 那一块——两步都不做会跟用户在弹窗里拖框看到的位置对不上。
- * 没传 faceBox（用户没特意选过脸部）就只做居中方形裁切，原图全貌送出去。
+ * 按 FaceCropModal 選的臉部選區裁參考圖。選區座標是相對「參考圖先按 object-fit: cover
+ * 裁成正方形」之後的比例（跟彈窗預覽的換算口徑一致），所以這裡先算出那個正方形裁切區，
+ * 再在其中取 faceBox 那一塊——兩步都不做會跟用戶在彈窗裡拖框看到的位置對不上。
+ * 沒傳 faceBox（用戶沒特意選過臉部）就只做居中方形裁切，原圖全貌送出去。
  */
 export async function cropReferenceImage(
   sourceBlob: Blob,
@@ -96,17 +96,17 @@ export async function cropReferenceImage(
   ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, outputSize, outputSize);
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('参考图裁剪失败')), 'image/png');
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('參考圖裁剪失敗')), 'image/png');
   });
 }
 
 /**
- * 生成前解析出这次要不要带参考图、带哪一份（已按脸部选区裁好）。
- * - options.description：AI 自主发图那种自由文本场景描述（角色自己写的"我要发张xx照片"），
- *   拿去跑 looksLikeSelfieDescription 关键词判断。
- * - options.forceSelfie：调用方已经确定这次画的就是角色本人（OOTD 穿搭、Moments 动态配图），
- *   跳过关键词判断直接当自拍处理。
- * 解析失败（参考图 blob 丢失、裁剪出错等）静默返回 null，退化成纯文字生成，不阻断生图流程。
+ * 生成前解析出這次要不要帶參考圖、帶哪一份（已按臉部選區裁好）。
+ * - options.description：AI 自主發圖那種自由文本場景描述（角色自己寫的"我要發張xx照片"），
+ *   拿去跑 looksLikeSelfieDescription 關鍵詞判斷。
+ * - options.forceSelfie：調用方已經確定這次畫的就是角色本人（OOTD 穿搭、Moments 動態配圖），
+ *   跳過關鍵詞判斷直接當自拍處理。
+ * 解析失敗（參考圖 blob 丟失、裁剪出錯等）靜默返回 null，退化成純文字生成，不阻斷生圖流程。
  */
 export async function resolveCharacterReferenceImage(
   char: Pick<CharacterProfile, 'imageGenCharConfig'>,
@@ -119,7 +119,7 @@ export async function resolveCharacterReferenceImage(
     if (!sourceBlob) return null;
     return await cropReferenceImage(sourceBlob, cfg!.referenceFaceBox);
   } catch (e) {
-    console.warn('[ImageGeneration] 参考图解析失败，退化成纯文字生成:', e);
+    console.warn('[ImageGeneration] 參考圖解析失敗，退化成純文字生成:', e);
     return null;
   }
 }
@@ -132,27 +132,27 @@ async function parseImageResponse(response: Response): Promise<GeneratedImage> {
 
   const data = await safeResponseJson(response);
   const item = data?.data?.[0];
-  if (!item) throw new Error('响应里没有图片数据');
+  if (!item) throw new Error('響應裡沒有圖片數據');
 
   if (item.b64_json) {
     return { dataUrl: `data:image/png;base64,${item.b64_json}` };
   }
   if (item.url) {
     const imgResponse = await fetch(item.url);
-    if (!imgResponse.ok) throw new Error(`图片地址请求失败：HTTP ${imgResponse.status}`);
+    if (!imgResponse.ok) throw new Error(`圖片地址請求失敗：HTTP ${imgResponse.status}`);
     const blob = await imgResponse.blob();
     return { dataUrl: await blobToDataUrl(blob) };
   }
-  throw new Error('响应格式不支持（既没有 b64_json 也没有 url）');
+  throw new Error('響應格式不支持（既沒有 b64_json 也沒有 url）');
 }
 
 /**
- * 调用生图 API。config 需要 baseUrl / apiKey / model 都已经填好——
- * 调用方（设置面板 / 生成入口）负责校验必填项和拼补充提示词。
+ * 調用生圖 API。config 需要 baseUrl / apiKey / model 都已經填好——
+ * 調用方（設置面板 / 生成入口）負責校驗必填項和拼補充提示詞。
  *
- * referenceImageBlob 传了的话走 /images/edits（图生图，OpenAI 兼容协议的"编辑"端点，
- * 不是所有生图引擎都支持）；那条路失败（引擎不支持 / 网络错误都算）会自动退回纯文字的
- * /images/generations 重试一次，不让「引擎不支持参考图」变成整次生成直接失败。
+ * referenceImageBlob 傳了的話走 /images/edits（圖生圖，OpenAI 兼容協議的"編輯"端點，
+ * 不是所有生圖引擎都支持）；那條路失敗（引擎不支持 / 網絡錯誤都算）會自動退回純文字的
+ * /images/generations 重試一次，不讓「引擎不支持參考圖」變成整次生成直接失敗。
  */
 export async function generateImage(
   config: Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality' | 'extraPrompt'>,
@@ -160,7 +160,7 @@ export async function generateImage(
   referenceImageBlob?: Blob,
 ): Promise<GeneratedImage> {
   const baseUrl = (config.baseUrl || '').replace(/\/+$/, '');
-  if (!baseUrl || !config.model) throw new Error('生图 API 未配置完整（URL / Model 缺失）');
+  if (!baseUrl || !config.model) throw new Error('生圖 API 未配置完整（URL / Model 缺失）');
 
   const fullPrompt = config.extraPrompt?.trim() ? `${prompt}\n${config.extraPrompt.trim()}` : prompt;
 
@@ -178,9 +178,9 @@ export async function generateImage(
 
   if (!referenceImageBlob) return generateTextOnly();
 
-  // 光传参考图很多生图引擎只当成弱风格参考，脸型/五官比例照样会飘；显式用文字提要求
-  // 「照着参考图的脸」，实测能明显收紧一致性。只加在带参考图这条路，不影响纯文字生成。
-  const referencePrompt = `${fullPrompt}\n\n[参考图约束] 人物的脸型、五官比例、肤色、发型需与所附参考图保持高度一致，不要更改容貌特征；只按提示词调整场景、姿势、服装、表情等其余部分。`;
+  // 光傳參考圖很多生圖引擎只當成弱風格參考，臉型/五官比例照樣會飄；顯式用文字提要求
+  // 「照著參考圖的臉」，實測能明顯收緊一致性。只加在帶參考圖這條路，不影響純文字生成。
+  const referencePrompt = `${fullPrompt}\n\n[參考圖約束] 人物的臉型、五官比例、膚色、髮型需與所附參考圖保持高度一致，不要更改容貌特徵；只按提示詞調整場景、姿勢、服裝、表情等其餘部分。`;
 
   try {
     const form = new FormData();
@@ -196,7 +196,7 @@ export async function generateImage(
     });
     return await parseImageResponse(response);
   } catch (e) {
-    console.warn('[ImageGeneration] 带参考图的 /images/edits 失败，退回纯文字生成:', e);
+    console.warn('[ImageGeneration] 帶參考圖的 /images/edits 失敗，退回純文字生成:', e);
     return generateTextOnly();
   }
 }

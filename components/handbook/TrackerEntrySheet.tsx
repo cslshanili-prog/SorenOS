@@ -1,15 +1,15 @@
 /**
- * 通用 Tracker 打卡输入表单(底部弹出)
+ * 通用 Tracker 打卡輸入表單(底部彈出)
  *
- * 不绑定 mood —— 根据 tracker.schema 动态渲染:
- *   rating  → 5 颗 emoji/色块按钮
- *   number  → 数字输入(可加 unit)
- *   options → 横排 pill 按钮(可带 emoji)
- *   text    → 单行 textarea
- *   boolean → 开关
- *   photo   → 文件 → base64 缩略
+ * 不綁定 mood —— 根據 tracker.schema 動態渲染:
+ *   rating  → 5 顆 emoji/色塊按鈕
+ *   number  → 數字輸入(可加 unit)
+ *   options → 橫排 pill 按鈕(可帶 emoji)
+ *   text    → 單行 textarea
+ *   boolean → 開關
+ *   photo   → 文件 → base64 縮略
  *
- * 这一个组件覆盖所有 tracker 的输入需求,不必每加一个 tracker 写一个 sheet
+ * 這一個組件覆蓋所有 tracker 的輸入需求,不必每加一個 tracker 寫一個 sheet
  */
 
 import React, { useState, useEffect } from 'react';
@@ -137,7 +137,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                     <div className="flex gap-2">
                         {[
                             { val: true, label: '是 ♡', emoji: '✓' },
-                            { val: false, label: '没有', emoji: '·' },
+                            { val: false, label: '沒有', emoji: '·' },
                         ].map(opt => {
                             const active = v === opt.val;
                             return (
@@ -164,7 +164,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                     <textarea
                         value={v ?? ''}
                         onChange={e => setField(field.key, e.target.value)}
-                        placeholder={field.placeholder || '一句话就好…'}
+                        placeholder={field.placeholder || '一句話就好…'}
                         rows={2}
                         className="w-full outline-none resize-none rounded-lg px-3 py-2"
                         style={{
@@ -203,7 +203,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                             : <div className="w-16 h-16 flex items-center justify-center text-2xl" style={{ color: PAPER_TONES.inkFaint }}>📷</div>
                         }
                         <span className="text-[12px]" style={{ ...CUTE_STACK, color: PAPER_TONES.inkSoft }}>
-                            {v ? '换一张' : '点这里拍/选'}
+                            {v ? '換一張' : '點這裡拍/選'}
                         </span>
                     </label>
                 );
@@ -228,12 +228,12 @@ const TrackerEntrySheet: React.FC<Props> = ({
                 }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* 顶部把手 */}
+                {/* 頂部把手 */}
                 <div className="flex justify-center pt-3 pb-1">
                     <div style={{ width: 40, height: 4, borderRadius: 2, background: tracker.color, opacity: 0.6 }} />
                 </div>
 
-                {/* 装饰贴纸 */}
+                {/* 裝飾貼紙 */}
                 <div className="absolute top-4 left-5 pointer-events-none" style={{ transform: 'rotate(-15deg)' }}>
                     <HeartSticker size={18} color={tracker.color} />
                 </div>
@@ -241,7 +241,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                     <StarSticker size={16} color={PAPER_TONES.accentLemon} />
                 </div>
 
-                {/* 标题 */}
+                {/* 標題 */}
                 <div className="px-5 pt-2 pb-3 text-center">
                     <WashiTape color="rose" pattern="heart" rotate={-1.5}>
                         {tracker.icon ? `${tracker.icon} ` : ''}{tracker.name}
@@ -254,7 +254,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                     </div>
                 </div>
 
-                {/* 字段表单 */}
+                {/* 字段表單 */}
                 <div className="px-5 py-3 space-y-4 pb-6">
                     {tracker.schema.map(field => (
                         <div key={field.key}>
@@ -280,7 +280,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                     {existingEntry && onDelete && (
                         <button
                             onClick={() => {
-                                if (confirm('删除这天的打卡?')) onDelete();
+                                if (confirm('刪除這天的打卡?')) onDelete();
                             }}
                             className="px-3 py-3 rounded-full active:scale-95 transition"
                             style={{
@@ -288,7 +288,7 @@ const TrackerEntrySheet: React.FC<Props> = ({
                                 background: '#fff',
                                 border: '1.5px solid #f0c0d0',
                             }}
-                            aria-label="删除"
+                            aria-label="刪除"
                         >
                             <Trash className="w-4 h-4" weight="bold" />
                         </button>

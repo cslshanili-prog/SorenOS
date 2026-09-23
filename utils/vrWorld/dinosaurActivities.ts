@@ -6,8 +6,8 @@ export type GardenActivityKind = 'idle'|'nap'|'snack'|'splash'|'sniff'|'leaves'|
 export interface GardenActivity {kind:GardenActivityKind;action:DinoAction;text:string;place:string;propId?:string;dock:DinoPose;lift:number}
 export const INTERACTIVE_PROPS:readonly GardenPropKind[]=['picnic','puddle','flowers','tent','stump','tree','rock'];
 const kinds:Partial<Record<GardenPropKind,GardenActivityKind>>={tent:'nap',picnic:'snack',puddle:'splash',flowers:'sniff',tree:'leaves',stump:'perch',rock:'nap'};
-const verbs:Record<GardenActivityKind,DinoAction>={idle:'发呆',nap:'睡觉',snack:'吃饭',splash:'玩耍',sniff:'玩耍',leaves:'吃饭',perch:'观察'};
-const lines:Partial<Record<GardenPropKind,string>>={tent:'在帐篷门口蜷成一小团。',picnic:'抱着饼干，一小口一小口地啃。',puddle:'踩踩水，溅出一串小水花。',flowers:'凑过去闻闻花，花瓣蹭得鼻子有点痒。',tree:'伸伸脖子，咬一口垂下来的叶子。',stump:'站在木桩上，摇摇尾巴放个哨。',rock:'靠着石头，睡得一下一下的。'};
+const verbs:Record<GardenActivityKind,DinoAction>={idle:'發呆',nap:'睡覺',snack:'吃飯',splash:'玩耍',sniff:'玩耍',leaves:'吃飯',perch:'觀察'};
+const lines:Partial<Record<GardenPropKind,string>>={tent:'在帳篷門口蜷成一小團。',picnic:'抱著餅乾，一小口一小口地啃。',puddle:'踩踩水，濺出一串小水花。',flowers:'湊過去聞聞花，花瓣蹭得鼻子有點癢。',tree:'伸伸脖子，咬一口垂下來的葉子。',stump:'站在木樁上，搖搖尾巴放個哨。',rock:'靠著石頭，睡得一下一下的。'};
 const distance=(a:{x:number;z:number},b:{x:number;z:number})=>Math.hypot(a.x-b.x,a.z-b.z);
 /** Saved anchors and facing are authoritative. An interaction never walks or turns the toy. */
 export function gardenActivityAt(map:GardenMap,pose:DinoPose,excluded:ReadonlySet<string>=new Set()):GardenActivity {
@@ -23,19 +23,19 @@ export function gardenActivityAt(map:GardenMap,pose:DinoPose,excluded:ReadonlySe
   }).sort((a,b)=>distance(a,pose)-distance(b,pose)||a.id.localeCompare(b.id))[0];
   if(p){const kind=kinds[p.kind]!;return {kind,action:verbs[kind],text:lines[p.kind]!,place:PROP_LABELS[p.kind],propId:p.id,dock:{...pose},lift:p.kind==='stump'?.46:0};}
   const water=map.theme==='coast'?pose.x>coastEdge(pose.z)+.1:map.theme==='grassland'&&Math.abs(pose.x-riverCenter(pose.z))<.45&&Math.abs(pose.z-.25)>.55;
-  return {kind:water?'splash':'idle',action:water?'玩耍':'发呆',text:water?'踩踩浅水，看看自己的倒影。':'安安静静地待在这里。',place:water?'浅水边':'空地',dock:{...pose},lift:0};
+  return {kind:water?'splash':'idle',action:water?'玩耍':'發呆',text:water?'踩踩淺水，看看自己的倒影。':'安安靜靜地待在這裡。',place:water?'淺水邊':'空地',dock:{...pose},lift:0};
 }
 export function buildGardenActivities(map:GardenMap,toys:DinoToy[]):Record<string,GardenActivity> {
   const result:Record<string,GardenActivity>={},claimed=new Set<string>();
   for(const t of toys.filter(t=>t.pose&&t.mapId===map.id).sort((a,b)=>a.catchId.localeCompare(b.catchId))){
     let a=gardenActivityAt(map,t.pose!,claimed);
-    if(t.speciesId==='dinosaur-egg'||t.speciesId==='dinosaur-fossil')a={kind:'idle',action:'发呆',text:'安安静静地待在这里。',place:a.place,dock:{...t.pose!},lift:a.lift};
+    if(t.speciesId==='dinosaur-egg'||t.speciesId==='dinosaur-fossil')a={kind:'idle',action:'發呆',text:'安安靜靜地待在這裡。',place:a.place,dock:{...t.pose!},lift:a.lift};
     else if(a.propId)claimed.add(a.propId);
     result[t.catchId]=a;
   }
   return result;
 }
-export const gardenStory=(toy:DinoToy,activity?:GardenActivity)=>toy.stage.text.trim()||activity?.text||'安安静静地待在这里。';
+export const gardenStory=(toy:DinoToy,activity?:GardenActivity)=>toy.stage.text.trim()||activity?.text||'安安靜靜地待在這裡。';
 const seed=(id:string)=>Array.from(id).reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)%180/10;
 /** Local animation seconds only; reduced motion holds one static pose. */
 export function sampleGardenActivity(toy:DinoToy,activity:GardenActivity,elapsed:number,reduced=false) {

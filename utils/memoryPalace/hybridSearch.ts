@@ -1,7 +1,7 @@
 /**
- * Memory Palace — 混合搜索 + 房间评分
+ * Memory Palace — 混合搜索 + 房間評分
  *
- * 85% 向量 + 15% BM25 融合，然后按房间特性调整评分。
+ * 85% 向量 + 15% BM25 融合，然後按房間特性調整評分。
  */
 
 import type { EmbeddingConfig, MemoryNode, MemoryRoom, MemoryVector, ScoredMemory, RemoteVectorConfig } from './types';
@@ -12,25 +12,25 @@ import { bm25Search, bm25SearchIndexed, bm25SearchDualRun } from './bm25';
 import { bm25Index } from './bm25Index';
 import { calculateEffectiveImportance } from './consolidation';
 
-// ─── BM25 灰度开关 ────────────────────────────────────
+// ─── BM25 灰度開關 ────────────────────────────────────
 //
 // localStorage 'bm25_mode'：
-//   未设置 / 'naive'  → 朴素全量扫描（默认，行为与改造前一致）
+//   未設置 / 'naive'  → 樸素全量掃描（默認，行為與改造前一致）
 //   'indexed'         → 倒排索引版（O(Q×postings)，需 ensureBuilt）
-//   'dual'            → 双跑校验：跑两版对比 top K，返回朴素版结果
+//   'dual'            → 雙跑校驗：跑兩版對比 top K，返回樸素版結果
 //
-// 灰度路径：默认 naive → 开发/灰度 dual → 验证无 mismatch 切 indexed →
-// 一两个版本周期后删除朴素版。
+// 灰度路徑：默認 naive → 開發/灰度 dual → 驗證無 mismatch 切 indexed →
+// 一兩個版本週期後刪除樸素版。
 type BM25Mode = 'naive' | 'indexed' | 'dual';
 function getBM25Mode(): BM25Mode {
     try {
         const v = localStorage.getItem('bm25_mode');
         if (v === 'indexed' || v === 'dual') return v;
-    } catch { /* SSR / 隐私模式 */ }
+    } catch { /* SSR / 隱私模式 */ }
     return 'naive';
 }
 
-// ─── 房间评分权重 ─────────────────────────────────────
+// ─── 房間評分權重 ─────────────────────────────────────
 
 interface RoomWeights {
     similarity: number;
@@ -54,18 +54,18 @@ const RECENCY_DECAY = 0.999; // per hour
 
 // ─── 熟悉度加成（accessCount）──────────────────────
 //
-// 设计原则：AI 不该像人一样自然遗忘（遗忘在产品里是 bug），
-// 所以 accessCount 不用来"保护记忆不衰减"，而是用来给常被想起的
-// 话题一个轻度浮现加成——越熟的话题越容易被想起来。
+// 設計原則：AI 不該像人一樣自然遺忘（遺忘在產品裡是 bug），
+// 所以 accessCount 不用來"保護記憶不衰減"，而是用來給常被想起的
+// 話題一個輕度浮現加成——越熟的話題越容易被想起來。
 //
 // 公式：familiarity = min(1, (max(0, accessCount - 1))^0.3 / 4)
-//   - count=0/1 (从未被检索到) → 0
+//   - count=0/1 (從未被檢索到) → 0
 //   - count=3  →  0.31
 //   - count=10 →  0.48
-//   - count=100 → 1.0（封顶）
+//   - count=100 → 1.0（封頂）
 //
-// 最终加成：finalScore += FAMILIARITY_WEIGHT * familiarity
-// 权重 0.05 —— 足够让熟悉话题冒头，不会压过 similarity / importance。
+// 最終加成：finalScore += FAMILIARITY_WEIGHT * familiarity
+// 權重 0.05 —— 足夠讓熟悉話題冒頭，不會壓過 similarity / importance。
 const FAMILIARITY_WEIGHT = 0.05;
 
 function familiarityBonus(accessCount: number): number {
@@ -77,26 +77,26 @@ function familiarityBonus(accessCount: number): number {
 // ─── 混合搜索 ─────────────────────────────────────────
 
 /**
- * 同次 retrieve 内 K 路 hybridSearch 共享的预取数据。
- * 由 pipeline 在发起并行搜索前一次性取好，避免 K 倍的
- * Embedding API 调用和 K 倍的全量 IDB 扫表。
+ * 同次 retrieve 內 K 路 hybridSearch 共享的預取數據。
+ * 由 pipeline 在發起並行搜索前一次性取好，避免 K 倍的
+ * Embedding API 調用和 K 倍的全量 IDB 掃表。
  */
 export interface HybridSearchPrefetch {
-    /** 已经向量化好的 query — 跳过本路的 getEmbedding 调用 */
+    /** 已經向量化好的 query — 跳過本路的 getEmbedding 調用 */
     queryVector?: Float32Array;
-    /** 角色全量 MemoryNode（含 archived / 未 embedded，由 hybridSearch 内部过滤） */
+    /** 角色全量 MemoryNode（含 archived / 未 embedded，由 hybridSearch 內部過濾） */
     allNodes?: MemoryNode[];
-    /** 角色全量 MemoryVector；仅用于本地向量路径，远程路径不消费 */
+    /** 角色全量 MemoryVector；僅用於本地向量路徑，遠程路徑不消費 */
     allVectors?: MemoryVector[];
 }
 
 /**
- * 混合搜索：向量 + BM25 + 房间评分
+ * 混合搜索：向量 + BM25 + 房間評分
  *
- * @param query 查询文本（通常为最近 3 条消息拼接）
+ * @param query 查詢文本（通常為最近 3 條消息拼接）
  * @param charId 角色 ID
  * @param embeddingConfig Embedding 配置
- * @param topK 最终返回数量
+ * @param topK 最終返回數量
  */
 export async function hybridSearch(
     query: string,
@@ -106,27 +106,27 @@ export async function hybridSearch(
     remoteVectorConfig?: RemoteVectorConfig,
     prefetch?: HybridSearchPrefetch,
 ): Promise<ScoredMemory[]> {
-    // 1. 向量化查询（优先用 pipeline 预取好的，省掉 K 次 API 调用）
+    // 1. 向量化查詢（優先用 pipeline 預取好的，省掉 K 次 API 調用）
     const queryVector = prefetch?.queryVector ?? await getEmbedding(query, embeddingConfig);
 
-    // 2. 向量搜索（远程优先，本地兜底）
+    // 2. 向量搜索（遠程優先，本地兜底）
     //
-    // 历史教训：曾经把这个候选池从 30 扩到 60 试图放大同主题召回广度，
-    // 结果反而变差——sim 0.35-0.45 的"泛情感高 imp"记忆被放进来，
-    // 在房间评分（sim 权重 55%、imp/recency 合计 45%）里凭借 imp 和
-    // recency 反超了 sim 更精准但 imp_eff 偏低的话题目标记忆（如"外公"
-    // 落在 study 房间，imp 衰减过）。
-    // 结论：候选池不应作为召回广度的旋钮。精准度靠 per-message 多路搜
-    // + imp floor 在 pipeline 层解决，候选池 30 已足够。
+    // 歷史教訓：曾經把這個候選池從 30 擴到 60 試圖放大同主題召回廣度，
+    // 結果反而變差——sim 0.35-0.45 的"泛情感高 imp"記憶被放進來，
+    // 在房間評分（sim 權重 55%、imp/recency 合計 45%）裡憑藉 imp 和
+    // recency 反超了 sim 更精準但 imp_eff 偏低的話題目標記憶（如"外公"
+    // 落在 study 房間，imp 衰減過）。
+    // 結論：候選池不應作為召回廣度的旋鈕。精準度靠 per-message 多路搜
+    // + imp floor 在 pipeline 層解決，候選池 30 已足夠。
     const vectorResults = await vectorSearch(queryVector, charId, 0.3, 30, remoteVectorConfig, prefetch?.allVectors);
 
-    // 3. BM25 搜索（排除 archived 节点 —— 它们已被压入 EventBox summary）
+    // 3. BM25 搜索（排除 archived 節點 —— 它們已被壓入 EventBox summary）
     const allNodes = prefetch?.allNodes ?? await MemoryNodeDB.getByCharId(charId);
     const searchableNodes = allNodes.filter(n => n.embedded && !n.archived);
 
-    // 倒排索引按"全量节点"构建（含 archived / 未 embedded），unarchive 后立即可搜，
-    // 实际过滤交给 bm25SearchIndexed 用 searchableNodes 的 id 集做白名单。
-    // ensureBuilt 已存在则秒返。
+    // 倒排索引按"全量節點"構建（含 archived / 未 embedded），unarchive 後立即可搜，
+    // 實際過濾交給 bm25SearchIndexed 用 searchableNodes 的 id 集做白名單。
+    // ensureBuilt 已存在則秒返。
     const bm25Mode = getBM25Mode();
     if (bm25Mode !== 'naive') {
         bm25Index.ensureBuilt(charId, allNodes);
@@ -136,24 +136,24 @@ export async function hybridSearch(
         bm25Mode === 'dual'    ? bm25SearchDualRun(query, searchableNodes, 30) :
                                  bm25Search(query, searchableNodes, 30);
 
-    // 3b. 本地节点索引：用于将云端返回的轻量 node 补全为完整 node
-    //     （allNodes 已在内存中，零额外开销）
+    // 3b. 本地節點索引：用於將雲端返回的輕量 node 補全為完整 node
+    //     （allNodes 已在內存中，零額外開銷）
     const localNodeMap = new Map(allNodes.map(n => [n.id, n]));
 
-    // 4. 融合：构建 nodeId → scores 映射
+    // 4. 融合：構建 nodeId → scores 映射
     const scoreMap = new Map<string, {
         node: MemoryNode;
         vectorSim: number;
         bm25Score: number;
     }>();
 
-    // 归一化 BM25 分数到 0-1
+    // 歸一化 BM25 分數到 0-1
     const maxBm25 = bm25Results.length > 0 ? bm25Results[0].score : 1;
 
     for (const vr of vectorResults) {
-        // 优先使用本地完整 node（含 eventBoxId / archived 等最新状态）
+        // 優先使用本地完整 node（含 eventBoxId / archived 等最新狀態）
         const fullNode = localNodeMap.get(vr.node.id) || vr.node;
-        // 二次保险：本地态显示 archived → 跳过（远程刚被 archive 但 RPC 未及时反映的情况）
+        // 二次保險：本地態顯示 archived → 跳過（遠程剛被 archive 但 RPC 未及時反映的情況）
         if (fullNode.archived) continue;
         scoreMap.set(vr.node.id, {
             node: fullNode,
@@ -176,7 +176,7 @@ export async function hybridSearch(
         }
     }
 
-    // 5. 计算混合分数 + 房间评分
+    // 5. 計算混合分數 + 房間評分
     const now = Date.now();
     const results: ScoredMemory[] = [];
 
@@ -186,26 +186,26 @@ export async function hybridSearch(
         // 混合相似度
         const hybridSim = VECTOR_WEIGHT * vectorSim + BM25_WEIGHT * bm25Score;
 
-        // 新近度（指数衰减）
+        // 新近度（指數衰減）
         const hoursAgo = (now - node.lastAccessedAt) / (1000 * 60 * 60);
         const recency = Math.pow(RECENCY_DECAY, hoursAgo);
 
-        // 有效重要性（归一化到 0-1）
+        // 有效重要性（歸一化到 0-1）
         const effectiveImp = calculateEffectiveImportance(node, now) / 10;
 
-        // 房间权重
+        // 房間權重
         const weights = ROOM_WEIGHTS[node.room];
 
-        // 老记忆 recency 回收（所有有 recency 权重的房间）：
-        //   recency = RECENCY_DECAY^hoursAgo，约 100 天后会降到 0.1 以下，再往后
-        //   这个信号对排序几乎无贡献。但房间权重里 recency 份额没归零（living_room 0.30、
-        //   study/user_room/self_room/windowsill 0.15、bedroom 0.10），这部分权重
-        //   等于白送——同一条记忆 sim/imp 再高也被少算一截。
+        // 老記憶 recency 回收（所有有 recency 權重的房間）：
+        //   recency = RECENCY_DECAY^hoursAgo，約 100 天后會降到 0.1 以下，再往後
+        //   這個信號對排序幾乎無貢獻。但房間權重裡 recency 份額沒歸零（living_room 0.30、
+        //   study/user_room/self_room/windowsill 0.15、bedroom 0.10），這部分權重
+        //   等於白送——同一條記憶 sim/imp 再高也被少算一截。
         //
-        //   规则：任意房间 recency < 0.1 时，把 recency 的权重平均分配给 similarity
-        //   和 importance（各 +weights.recency/2），recency 权重归零。这条规则对 attic
-        //   天然无影响（它 recency 权重本来就是 0），对其它房间等于"旧记忆时把白送的
-        //   权重还给 sim/imp"，让旧而精准的记忆不被衰减吃掉。
+        //   規則：任意房間 recency < 0.1 時，把 recency 的權重平均分配給 similarity
+        //   和 importance（各 +weights.recency/2），recency 權重歸零。這條規則對 attic
+        //   天然無影響（它 recency 權重本來就是 0），對其它房間等於"舊記憶時把白送的
+        //   權重還給 sim/imp"，讓舊而精準的記憶不被衰減吃掉。
         let simW = weights.similarity;
         let recW = weights.recency;
         let impW = weights.importance;
@@ -218,7 +218,7 @@ export async function hybridSearch(
 
         const baseScore = simW * hybridSim + recW * recency + impW * effectiveImp;
 
-        // 熟悉度加成（轻权重，防止常聊话题沉底）
+        // 熟悉度加成（輕權重，防止常聊話題沉底）
         const familiarity = familiarityBonus(node.accessCount);
         const roomScore = baseScore + FAMILIARITY_WEIGHT * familiarity;
 

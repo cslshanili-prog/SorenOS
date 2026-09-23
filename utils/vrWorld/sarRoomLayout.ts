@@ -4,13 +4,13 @@ export const SAR_ROOM_SIZE = {width:mask.width,height:mask.height};
 export type SARStandingZone = 'common' | 'fishing';
 export type SARFacility = 'board' | 'modules' | 'cabinet' | 'gacha' | 'water' | 'garden';
 export const SAR_ROOM_HOTSPOTS: {id:SARFacility;label:string;ariaLabel:string;x:number;y:number;align:'left'|'right'|'center'}[] = [
-    {id:'board',label:'布告板',ariaLabel:'进入布告板',x:mask.hotspots.board[0],y:mask.hotspots.board[1],align:'left'},
-    {id:'modules',label:'模块',ariaLabel:'进入模块购买',x:mask.hotspots.modules[0],y:mask.hotspots.modules[1],align:'center'},
-    {id:'cabinet',label:'芯片',ariaLabel:'进入异界陈列柜',x:mask.hotspots.cabinet[0],y:mask.hotspots.cabinet[1],align:'left'},
-    {id:'gacha',label:'扭蛋',ariaLabel:'进入异世界扭蛋',x:mask.hotspots.gacha[0],y:mask.hotspots.gacha[1],align:'right'},
-    {id:'water',label:'钓鱼',ariaLabel:'进入水域',x:mask.hotspots.water[0],y:mask.hotspots.water[1],align:'left'},
+    {id:'board',label:'佈告板',ariaLabel:'進入佈告板',x:mask.hotspots.board[0],y:mask.hotspots.board[1],align:'left'},
+    {id:'modules',label:'模塊',ariaLabel:'進入模塊購買',x:mask.hotspots.modules[0],y:mask.hotspots.modules[1],align:'center'},
+    {id:'cabinet',label:'芯片',ariaLabel:'進入異界陳列櫃',x:mask.hotspots.cabinet[0],y:mask.hotspots.cabinet[1],align:'left'},
+    {id:'gacha',label:'扭蛋',ariaLabel:'進入異世界扭蛋',x:mask.hotspots.gacha[0],y:mask.hotspots.gacha[1],align:'right'},
+    {id:'water',label:'釣魚',ariaLabel:'進入水域',x:mask.hotspots.water[0],y:mask.hotspots.water[1],align:'left'},
     // User requested the dinosaur entrance on the coffee table.
-    {id:'garden',label:'恐龙箱庭',ariaLabel:'进入恐龙箱庭',x:790,y:1300,align:'center'},
+    {id:'garden',label:'恐龍箱庭',ariaLabel:'進入恐龍箱庭',x:790,y:1300,align:'center'},
 ];
 
 /** Sample the original artist's mask at the actor's feet, in source-image pixels. */

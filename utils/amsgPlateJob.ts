@@ -1,15 +1,15 @@
 /**
- * 门牌整理上云的契约（环境无关叶子模块）
+ * 門牌整理上雲的契約（環境無關葉子模塊）
  *
- * 「整理门牌」这件事拆成三段跑在两个地方：客户端把材料装成一份 job 传上去，用户自己的
- * CF Worker 到点拼提示词、调 LLM、把整理结果送回来，客户端再合并落库。这份文件是两边
- * 共用的那张契约——job 长什么样、结果长什么样、放在云端哪个抽屉里、任务怎么被认出来。
+ * 「整理門牌」這件事拆成三段跑在兩個地方：客戶端把材料裝成一份 job 傳上去，用戶自己的
+ * CF Worker 到點拼提示詞、調 LLM、把整理結果送回來，客戶端再合併落庫。這份文件是兩邊
+ * 共用的那張契約——job 長什麼樣、結果長什麼樣、放在雲端哪個抽屜裡、任務怎麼被認出來。
  *
- * 为什么值得上云：整理一次要跑一两分钟，而它总是在一轮对话刚结束、用户正准备切走的时候
- * 开始。放本地的话页面一关就断了；交给云端之后，请求发出去那一刻客户端就自由了。
+ * 為什麼值得上雲：整理一次要跑一兩分鐘，而它總是在一輪對話剛結束、用戶正準備切走的時候
+ * 開始。放本地的話頁面一關就斷了；交給雲端之後，請求發出去那一刻客戶端就自由了。
  *
- * 往这里加代码前先确认：不 import 任何带浏览器依赖的模块（db / safeApi / context 等）。
- * `pnpm build:workers` 会把这份打进 amsg worker bundle，带进浏览器依赖会在构建期直接暴露。
+ * 往這裡加代碼前先確認：不 import 任何帶瀏覽器依賴的模塊（db / safeApi / context 等）。
+ * `pnpm build:workers` 會把這份打進 amsg worker bundle，帶進瀏覽器依賴會在構建期直接暴露。
  */
 
 import type { PlateRoom } from './memoryPalace/types';
@@ -17,30 +17,30 @@ import { PLATE_ROOMS } from './memoryPalace/types';
 import type { PlateLLMItem, PlateMaterial } from './memoryPalace/roomPlateCore';
 import { PLATE_USER_TURN, buildPlateConsolidationPrompt } from './memoryPalace/roomPlateCore';
 
-// ─── 这一种任务的名字 ─────────────────────────────────
+// ─── 這一種任務的名字 ─────────────────────────────────
 
-/** 任务的业务种类（写在 metadata 的 amsgKind 上，见 amsgTaskKinds.ts）。 */
+/** 任務的業務種類（寫在 metadata 的 amsgKind 上，見 amsgTaskKinds.ts）。 */
 export const PLATE_CONSOLIDATE_KIND = 'plate-consolidate';
 
-/** 结果的名字（`emitResult` 的 resultKind），客户端按它分流。 */
+/** 結果的名字（`emitResult` 的 resultKind），客戶端按它分流。 */
 export const PLATE_CONSOLIDATE_RESULT_KIND = 'plate-consolidate';
 
-/** job 输入在 `amsg:job` 命名空间里的 key。 */
+/** job 輸入在 `amsg:job` 命名空間裡的 key。 */
 export const plateJobKey = (jobId: string): string => `plate:${jobId}`;
 
-// ─── job 输入（客户端写、worker 读） ──────────────────
+// ─── job 輸入（客戶端寫、worker 讀） ──────────────────
 
-/** 一个房间的现状：条目正文按标签顺序排，id 与之一一对应。 */
+/** 一個房間的現狀：條目正文按標籤順序排，id 與之一一對應。 */
 export interface PlateJobRoom {
   room: PlateRoom;
-  /** 现有条目的正文，顺序即标签顺序（第 i 条 = 前缀 + i） */
+  /** 現有條目的正文，順序即標籤順序（第 i 條 = 前綴 + i） */
   entries: string[];
   /**
-   * 与 entries 一一对应的条目 id。
+   * 與 entries 一一對應的條目 id。
    *
-   * 结果回来时要靠它把 `basedOn` 标签重新对准：提示词是拿提交那一刻的快照拼的，
-   * LLM 说的 `U0` 是**快照里的第 0 条**，而结果可能几分钟后才回来，这中间门牌
-   * 说不定已经被别的路径动过。带上 id，回来才认得出「当时那条现在排第几」。
+   * 結果回來時要靠它把 `basedOn` 標籤重新對準：提示詞是拿提交那一刻的快照拼的，
+   * LLM 說的 `U0` 是**快照裡的第 0 條**，而結果可能幾分鐘後才回來，這中間門牌
+   * 說不定已經被別的路徑動過。帶上 id，回來才認得出「當時那條現在排第幾」。
    */
   entryIds: string[];
 }
@@ -50,13 +50,13 @@ export interface PlateJobInput {
   charId: string;
   charName: string;
   userName: string;
-  /** ContextBuilder.buildCoreContext 的产出；拿不到就是空串，提示词里仍有名字与身份确认段 */
+  /** ContextBuilder.buildCoreContext 的產出；拿不到就是空串，提示詞裡仍有名字與身份確認段 */
   identityContext: string;
   rooms: PlateJobRoom[];
   materials: PlateMaterial[];
 }
 
-/** 组一份 job 输入（版本号只有这一处写，别在调用点手抄）。 */
+/** 組一份 job 輸入（版本號只有這一處寫，別在調用點手抄）。 */
 export function buildPlateJobInput(args: Omit<PlateJobInput, 'v'>): PlateJobInput {
   return { v: 1, ...args };
 }
@@ -67,8 +67,8 @@ const asStringArray = (v: unknown): string[] | null =>
   Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : null;
 
 /**
- * 读回 job 输入。形状对不上一律返回 null——worker 那边据此硬失败，
- * 而不是拿半份材料整理出一份缺东西的门牌（用户完全看不出这是坏了还是角色就这样）。
+ * 讀回 job 輸入。形狀對不上一律返回 null——worker 那邊據此硬失敗，
+ * 而不是拿半份材料整理出一份缺東西的門牌（用戶完全看不出這是壞了還是角色就這樣）。
  */
 export function parsePlateJobInput(raw: unknown): PlateJobInput | null {
   let obj: unknown = raw;
@@ -114,7 +114,7 @@ export function parsePlateJobInput(raw: unknown): PlateJobInput | null {
   };
 }
 
-/** 把 job 拼成这次 fire 要发给 LLM 的两条消息。提示词与浏览器那条路一字不差。 */
+/** 把 job 拼成這次 fire 要發給 LLM 的兩條消息。提示詞與瀏覽器那條路一字不差。 */
 export function buildPlateJobMessages(job: PlateJobInput): Array<{ role: 'system' | 'user'; content: string }> {
   return [
     {
@@ -131,25 +131,25 @@ export function buildPlateJobMessages(job: PlateJobInput): Array<{ role: 'system
   ];
 }
 
-// ─── 结果（worker 写、客户端读） ──────────────────────
+// ─── 結果（worker 寫、客戶端讀） ──────────────────────
 
 export interface PlateConsolidateResult {
   resultKind: typeof PLATE_CONSOLIDATE_RESULT_KIND;
   v: 1;
   jobId: string;
   charId: string;
-  /** LLM 给出的完整新条目列表（未合并，合并语义留在客户端） */
+  /** LLM 給出的完整新條目列表（未合併，合併語義留在客戶端） */
   items: PlateLLMItem[];
   /**
-   * 提交时每个房间的条目 id 快照，原样回传。
+   * 提交時每個房間的條目 id 快照，原樣回傳。
    *
-   * 客户端拿它把 `basedOn` 标签重新对准当前条目——这份对照表跟着结果走，客户端就
-   * 不用为每个在飞的 job 在本地留一份待办（页面关掉再打开也不会丢）。
+   * 客戶端拿它把 `basedOn` 標籤重新對準當前條目——這份對照表跟著結果走，客戶端就
+   * 不用為每個在飛的 job 在本地留一份待辦（頁面關掉再打開也不會丟）。
    */
   rooms: Array<{ room: PlateRoom; entryIds: string[] }>;
 }
 
-/** 组一条结果。形状由宿主定，`resultKind` 是上游唯一的硬要求。 */
+/** 組一條結果。形狀由宿主定，`resultKind` 是上游唯一的硬要求。 */
 export function buildPlateConsolidateResult(args: {
   jobId: string;
   charId: string;
@@ -166,7 +166,7 @@ export function buildPlateConsolidateResult(args: {
   };
 }
 
-/** 读回一条结果；形状对不上返回 null（客户端据此销账丢弃并留日志，不上屏）。 */
+/** 讀回一條結果；形狀對不上返回 null（客戶端據此銷帳丟棄並留日誌，不上屏）。 */
 export function parsePlateConsolidateResult(raw: unknown): PlateConsolidateResult | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;

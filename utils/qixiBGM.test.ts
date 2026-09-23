@@ -9,11 +9,11 @@ import {
 } from '../components/events/qixi/QixiBGM';
 
 describe('Qixi BGM scene routing', () => {
-    it('never selects the broken 02_0 月下双向 track', () => {
-        expect(QIXI_BGM_GROUPS.otherSide).not.toContain('bgm/qixi/03/02_0_月下双向.mp3');
+    it('never selects the broken 02_0 月下雙向 track', () => {
+        expect(QIXI_BGM_GROUPS.otherSide).not.toContain('bgm/qixi/03/02_0_月下雙向.mp3');
         expect(QIXI_BGM_GROUPS.otherSide).toEqual([
-            'bgm/qixi/03/01_0_鹊桥月色.mp3',
-            'bgm/qixi/03/03_0_月下双向.mp3',
+            'bgm/qixi/03/01_0_鵲橋月色.mp3',
+            'bgm/qixi/03/03_0_月下雙向.mp3',
         ]);
     });
 

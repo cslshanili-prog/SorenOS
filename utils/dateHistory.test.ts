@@ -25,7 +25,7 @@ const message = (
 });
 
 describe('splitDateEncounters', () => {
-    it('有开场锚点时不会再因长时间间隔或跨日误拆同一次见面', () => {
+    it('有開場錨點時不會再因長時間間隔或跨日誤拆同一次見面', () => {
         const groups = splitDateEncounters([
             message(1, at(9, 22), { opening: true }),
             message(2, at(9, 23)),
@@ -37,7 +37,7 @@ describe('splitDateEncounters', () => {
         expect(groups[0].hasOpeningAnchor).toBe(true);
     });
 
-    it('只在下一条开场记录出现时开启新的一次见面', () => {
+    it('只在下一條開場記錄出現時開啟新的一次見面', () => {
         const groups = splitDateEncounters([
             message(1, at(9, 10), { opening: true }),
             message(2, at(9, 12)),
@@ -48,7 +48,7 @@ describe('splitDateEncounters', () => {
         expect(groups.map(group => group.messages.map(item => item.id))).toEqual([[1, 2], [3, 4]]);
     });
 
-    it('没有开场标记的旧记录按自然日期兼容分组', () => {
+    it('沒有開場標記的舊記錄按自然日期兼容分組', () => {
         const groups = splitDateEncounters([
             message(1, at(9, 9)),
             message(2, at(9, 20)),
@@ -61,7 +61,7 @@ describe('splitDateEncounters', () => {
 });
 
 describe('date history views', () => {
-    it('按日期会合并同一天的多次见面并统计开场数', () => {
+    it('按日期會合並同一天的多次見面並統計開場數', () => {
         const groups = groupDateMessagesByDate([
             message(1, at(9, 9), { opening: true }),
             message(2, at(9, 10)),
@@ -74,7 +74,7 @@ describe('date history views', () => {
         expect(groups[0].messages.map(item => item.id)).toEqual([1, 2, 3]);
     });
 
-    it('组间支持由新到旧和由旧到新排序，组内始终按时间正序', () => {
+    it('組間支持由新到舊和由舊到新排序，組內始終按時間正序', () => {
         const messages = [
             message(3, at(10, 8), { opening: true }),
             message(1, at(9, 9), { opening: true }),
@@ -88,7 +88,7 @@ describe('date history views', () => {
 });
 
 describe('date history export', () => {
-    it('导出文本保留原始舞台动作和说话人', () => {
+    it('導出文本保留原始舞台動作和說話人', () => {
         const groups = buildDateHistoryGroups([
             message(1, at(9, 9), { opening: true, content: '[走近你]早上好' }),
             message(2, at(9, 9, 5), { role: 'user', content: '早呀' }),
@@ -100,7 +100,7 @@ describe('date history export', () => {
         expect(output).toContain('整理方式：按次');
     });
 
-    it('文件名会替换系统不允许的字符', () => {
-        expect(makeDateHistoryFileName('A/B:角色', '全部')).toMatch(/^A_B_角色_见面记录_全部_/);
+    it('文件名會替換系統不允許的字符', () => {
+        expect(makeDateHistoryFileName('A/B:角色', '全部')).toMatch(/^A_B_角色_[见見]面[记記][录錄]_全部_/);
     });
 });

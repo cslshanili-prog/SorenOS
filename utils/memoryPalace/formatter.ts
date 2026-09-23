@@ -1,15 +1,15 @@
 /**
- * Memory Palace — 召回结果格式化（EventBox 感知）
+ * Memory Palace — 召回結果格式化（EventBox 感知）
  *
- * 输入：hybridSearch + spreadActivation 后排序好的 ScoredMemory[]
- * 输出：注入 system prompt 的 markdown 文本
+ * 輸入：hybridSearch + spreadActivation 後排序好的 ScoredMemory[]
+ * 輸出：注入 system prompt 的 markdown 文本
  *
- * 关键规则：
- *  - 命中盒内任一活节点 → 整盒（summary + 所有活节点）作为 1 个名额
- *  - 命中独立记忆（无 eventBoxId）→ 1 个名额
+ * 關鍵規則：
+ *  - 命中盒內任一活節點 → 整盒（summary + 所有活節點）作為 1 個名額
+ *  - 命中獨立記憶（無 eventBoxId）→ 1 個名額
  *  - 同一 box 多次命中只算 1 次（按 box id 去重）
- *  - 总名额上限 MAX_OUTPUT_ITEMS（默认 15）
- *  - 便利贴置顶不占名额
+ *  - 總名額上限 MAX_OUTPUT_ITEMS（默認 15）
+ *  - 便利貼置頂不佔名額
  */
 
 import type { Anticipation, EventBox, MemoryNode, ScoredMemory } from './types';
@@ -20,46 +20,46 @@ import { formatMemoryDateWithDistance } from './memoryDate';
 import { memoryContentWithDates } from './relativeTime';
 
 const DEFAULT_MAX_OUTPUT_ITEMS = 15;
-const MAX_LIVE_NODES_PER_BOX = 8; // 单盒最多展开多少条活节点（防止超大盒污染）
+const MAX_LIVE_NODES_PER_BOX = 8; // 單盒最多展開多少條活節點（防止超大盒汙染）
 
 interface RenderItem {
-    /** 精确信号命中项在普通 score 排序前保底进入。 */
+    /** 精確信號命中項在普通 score 排序前保底進入。 */
     guaranteed: boolean;
-    /** 用于排序：取该 item 内最高的 finalScore */
+    /** 用於排序：取該 item 內最高的 finalScore */
     score: number;
-    /** 用于按房间分组的代表房间 */
+    /** 用於按房間分組的代表房間 */
     room: string;
-    /** 渲染好的内容文本块（不含 room 头） */
+    /** 渲染好的內容文本塊（不含 room 頭） */
     body: string;
-    /** 创建时间（用于次级排序） */
+    /** 創建時間（用於次級排序） */
     createdAt: number;
-    /** 重要性（用于次级排序） */
+    /** 重要性（用於次級排序） */
     importance: number;
-    /** 调试日志用 */
+    /** 調試日誌用 */
     debugLabel: string;
-    /** 实际落到 prompt 里的 memoryId 列表（事件盒会展开成 summary + 活节点） */
+    /** 實際落到 prompt 裡的 memoryId 列表（事件盒會展開成 summary + 活節點） */
     sourceIds: string[];
 }
 
 /**
- * 话题盒展开 + 格式化为 Markdown
+ * 話題盒展開 + 格式化為 Markdown
  *
- * 1. 加载便利贴置顶（不占 15 条名额）
- * 2. 把 ScoredMemory 按 eventBoxId 去重分组：
- *    - 命中带 eventBoxId 的记忆 → 整盒展开（summary + 活节点）
- *    - 独立记忆 → 单条展开
- * 3. 占用 MAX_OUTPUT_ITEMS 个名额，按 score 排序后按房间渲染
+ * 1. 加載便利貼置頂（不佔 15 條名額）
+ * 2. 把 ScoredMemory 按 eventBoxId 去重分組：
+ *    - 命中帶 eventBoxId 的記憶 → 整盒展開（summary + 活節點）
+ *    - 獨立記憶 → 單條展開
+ * 3. 佔用 MAX_OUTPUT_ITEMS 個名額，按 score 排序後按房間渲染
  */
 export async function expandAndFormat(
     results: ScoredMemory[],
     charId: string,
     anticipations: Anticipation[] = [],
     userName?: string,
-    /** 注入上限。rerank 启用时传 15 + topN，让 rerank 额外召回的不被切。 */
+    /** 注入上限。rerank 啟用時傳 15 + topN，讓 rerank 額外召回的不被切。 */
     maxOutputItems: number = DEFAULT_MAX_OUTPUT_ITEMS,
 ): Promise<string> {
     const MAX_OUTPUT_ITEMS = maxOutputItems;
-    // 0. 加载便利贴置顶记忆（pinnedUntil > now，不占 15 条名额）
+    // 0. 加載便利貼置頂記憶（pinnedUntil > now，不佔 15 條名額）
     const now = Date.now();
     const allCharNodes = await MemoryNodeDB.getByCharId(charId);
     const pinnedNodes = allCharNodes.filter(n => n.pinnedUntil && n.pinnedUntil > now && !n.archived);
@@ -67,14 +67,14 @@ export async function expandAndFormat(
 
     if (results.length === 0 && anticipations.length === 0 && pinnedNodes.length === 0) return '';
 
-    // 1. 按 eventBoxId 去重分组（同一 box 多次命中合并；保留命中里最高分作 box 分）
+    // 1. 按 eventBoxId 去重分組（同一 box 多次命中合併；保留命中裡最高分作 box 分）
     //    boxItem: { boxId, topScore, hitNodeIds[] }
     const boxHits = new Map<string, { topScore: number; hitNodeIds: Set<string>; sample: ScoredMemory; guaranteed: boolean }>();
     const standaloneItems: ScoredMemory[] = [];
 
     for (const r of results) {
-        if (pinnedIds.has(r.node.id)) continue; // 已置顶不再下沉到列表里
-        if (r.node.archived) continue;          // 防御：理论上 archived 不会到这里
+        if (pinnedIds.has(r.node.id)) continue; // 已置頂不再下沉到列表裡
+        if (r.node.archived) continue;          // 防禦：理論上 archived 不會到這裡
 
         const ebId = r.node.eventBoxId;
         if (ebId) {
@@ -96,14 +96,14 @@ export async function expandAndFormat(
         }
     }
 
-    // 2. 加载所有 box 的完整内容
+    // 2. 加載所有 box 的完整內容
     const renderItems: RenderItem[] = [];
     const localNodeMap = new Map(allCharNodes.map(n => [n.id, n]));
 
     for (const [boxId, hit] of boxHits) {
         const box = await EventBoxDB.getById(boxId);
         if (!box) {
-            // box 丢失 → 退化为单条命中
+            // box 丟失 → 退化為單條命中
             renderItems.push(buildStandaloneItem(hit.sample, now));
             continue;
         }
@@ -115,7 +115,7 @@ export async function expandAndFormat(
         renderItems.push(buildStandaloneItem(r, now));
     }
 
-    // 3. 排序（finalScore 降序，同分时较新者优先）+ 截断到 MAX_OUTPUT_ITEMS
+    // 3. 排序（finalScore 降序，同分時較新者優先）+ 截斷到 MAX_OUTPUT_ITEMS
     renderItems.sort((a, b) => {
         if (a.guaranteed !== b.guaranteed) return a.guaranteed ? -1 : 1;
         if (b.score !== a.score) return b.score - a.score;
@@ -124,39 +124,39 @@ export async function expandAndFormat(
     const finalItems = renderItems.slice(0, MAX_OUTPUT_ITEMS);
     const cutItems = renderItems.slice(MAX_OUTPUT_ITEMS);
 
-    // ── 召回回执：把这次实际注入 prompt 的 memoryId 落到 localStorage ──
-    // 用途见 ./recallReceipts.ts。便利贴也算注入（用户对某条便利贴可能纠正）。
-    // 截断/过期记忆不计入（cut 部分没进 prompt，pinnedIds 已经过 archived 过滤）。
+    // ── 召回回執：把這次實際注入 prompt 的 memoryId 落到 localStorage ──
+    // 用途見 ./recallReceipts.ts。便利貼也算注入（用戶對某條便利貼可能糾正）。
+    // 截斷/過期記憶不計入（cut 部分沒進 prompt，pinnedIds 已經過 archived 過濾）。
     try {
         const injectedIds: string[] = [];
         for (const it of finalItems) injectedIds.push(...it.sourceIds);
         for (const id of pinnedIds) injectedIds.push(id);
         recordRecallReceipt(charId, injectedIds);
     } catch (e) {
-        // 回执只是 extraction 阶段的辅助，写失败不影响本次召回输出
+        // 回執只是 extraction 階段的輔助，寫失敗不影響本次召回輸出
         console.warn('🏰 [MemoryPalace] recordRecallReceipt failed:', e);
     }
 
-    // ─── 调试：打印最终注入 prompt 的完整列表 ─────────────
+    // ─── 調試：打印最終注入 prompt 的完整列表 ─────────────
     //
-    // 打开控制台展开这个 group，能看到：
-    //  - 每条的 rank / score / 所属房间 / 完整文字 / 字数
-    //  - 是独立记忆还是事件盒（盒子会打印 summary + 所有活节点完整内容，
-    //    验证盒内成员有没有真的一起出来）
-    //  - 被截断的 item 也会列出来（标 ✂️），方便判断是不是应该注入的事件盒被挤掉了
+    // 打開控制台展開這個 group，能看到：
+    //  - 每條的 rank / score / 所屬房間 / 完整文字 / 字數
+    //  - 是獨立記憶還是事件盒（盒子會打印 summary + 所有活節點完整內容，
+    //    驗證盒內成員有沒有真的一起出來）
+    //  - 被截斷的 item 也會列出來（標 ✂️），方便判斷是不是應該注入的事件盒被擠掉了
     const finalTotalChars = finalItems.reduce((s, it) => s + it.body.length, 0);
     const pinnedTotalChars = pinnedNodes.reduce((s, n) => s + n.content.length, 0);
     console.groupCollapsed(
-        `🏰 [MemoryPalace] 最终注入 prompt：${finalItems.length} 条 · ${finalTotalChars} 字`
-        + `（便利贴 ${pinnedNodes.length}/${pinnedTotalChars}字 | 盒子 ${boxHits.size} | 独立 ${standaloneItems.length}`
+        `🏰 [MemoryPalace] 最終注入 prompt：${finalItems.length} 條 · ${finalTotalChars} 字`
+        + `（便利貼 ${pinnedNodes.length}/${pinnedTotalChars}字 | 盒子 ${boxHits.size} | 獨立 ${standaloneItems.length}`
         + `${cutItems.length > 0 ? ` | ✂️ cut ${cutItems.length}` : ''}）`
     );
     if (pinnedNodes.length > 0) {
-        console.groupCollapsed(`📌 便利贴置顶（不占 ${MAX_OUTPUT_ITEMS} 条名额）${pinnedNodes.length} 条 · ${pinnedTotalChars} 字`);
+        console.groupCollapsed(`📌 便利貼置頂（不佔 ${MAX_OUTPUT_ITEMS} 條名額）${pinnedNodes.length} 條 · ${pinnedTotalChars} 字`);
         for (const p of pinnedNodes) {
             const daysLeft = Math.ceil((p.pinnedUntil! - now) / (24 * 60 * 60 * 1000));
             console.log(
-                `📌 [${p.room}] 剩余 ${daysLeft} 天 · ${p.content.length} 字\n${p.content}`
+                `📌 [${p.room}] 剩餘 ${daysLeft} 天 · ${p.content.length} 字\n${p.content}`
             );
         }
         console.groupEnd();
@@ -166,25 +166,25 @@ export async function expandAndFormat(
         const scoreStr = it.score.toFixed(3);
         const chars = it.body.length;
         if (isBox) {
-            // 从 boxHits 里找到具体是哪个盒子 + 命中了几条
+            // 從 boxHits 裡找到具體是哪個盒子 + 命中了幾條
             const boxId = it.debugLabel.slice(4).split(' ')[0];
             const hit = boxHits.get(boxId);
             const hitCount = hit?.hitNodeIds.size ?? 0;
             const meta = it.debugLabel.slice(4 + boxId.length + 1); // "(N live + summary)"
             console.log(
                 `#${i + 1} [${it.room}] score=${scoreStr}`
-                + ` 📦 ${boxId} ${meta} · 命中 ${hitCount} 条 · ${chars} 字\n${it.body}`
+                + ` 📦 ${boxId} ${meta} · 命中 ${hitCount} 條 · ${chars} 字\n${it.body}`
             );
         } else {
             const nodeId = it.debugLabel.slice(4); // "mem xxx" → "xxx"
             console.log(
                 `#${i + 1} [${it.room}] score=${scoreStr}`
-                + ` 🔹 独立 ${nodeId} · ${chars} 字\n${it.body}`
+                + ` 🔹 獨立 ${nodeId} · ${chars} 字\n${it.body}`
             );
         }
     });
     if (cutItems.length > 0) {
-        console.groupCollapsed(`✂️ 被截断的 ${cutItems.length} 条（排在 15 名之外，不注入）`);
+        console.groupCollapsed(`✂️ 被截斷的 ${cutItems.length} 條（排在 15 名之外，不注入）`);
         cutItems.forEach((it, i) => {
             console.log(
                 `#${MAX_OUTPUT_ITEMS + i + 1} [${it.room}] score=${it.score.toFixed(3)}`
@@ -195,27 +195,27 @@ export async function expandAndFormat(
     }
     console.groupEnd();
 
-    // 4. 按房间分组渲染
-    let output = `### 记忆宫殿 (Memory Palace)\n`;
-    output += `以下是你脑海中浮现的相关记忆片段，它们可能影响你此刻的感受和反应：\n\n`;
+    // 4. 按房間分組渲染
+    let output = `### 記憶宮殿 (Memory Palace)\n`;
+    output += `以下是你腦海中浮現的相關記憶片段，它們可能影響你此刻的感受和反應：\n\n`;
 
-    // 4a. 便利贴置顶记忆
+    // 4a. 便利貼置頂記憶
     if (pinnedNodes.length > 0) {
-        output += `📌 **便利贴（近期重要事项）**\n`;
-        // 便利贴不占名额、每轮全量注入，置顶最长 30 天。没有这句分寸，「记着一件事」
-        // 会退化成每段结尾都追问一遍进展、催对方快去办。同仓库里 Notion 笔记块
-        // （chatPrompts 的「不要每次都提」）和用药提醒（lifeRecords 的「别反复催」）
-        // 早就配了同类措辞，这里补齐。
-        output += `（这些是你这几天一直记着的事。记着不等于要一直说——话赶到那儿了顺口提一句就够了，没赶到就让它待在心里；同一件事不必每次聊天都追问进展，也不必替 ta 安排什么时候去做。）\n`;
+        output += `📌 **便利貼（近期重要事項）**\n`;
+        // 便利貼不佔名額、每輪全量注入，置頂最長 30 天。沒有這句分寸，「記著一件事」
+        // 會退化成每段結尾都追問一遍進展、催對方快去辦。同倉庫裡 Notion 筆記塊
+        // （chatPrompts 的「不要每次都提」）和用藥提醒（lifeRecords 的「別反覆催」）
+        // 早就配了同類措辭，這裡補齊。
+        output += `（這些是你這幾天一直記著的事。記著不等於要一直說——話趕到那兒了順口提一句就夠了，沒趕到就讓它待在心裡；同一件事不必每次聊天都追問進展，也不必替 ta 安排什麼時候去做。）\n`;
         for (const node of pinnedNodes) {
             const daysLeft = Math.ceil((node.pinnedUntil! - now) / (24 * 60 * 60 * 1000));
-            output += `- [${formatMemoryDateWithDistance(node.createdAt, now)}] ${memoryContentWithDates(node)}（剩余 ${daysLeft} 天）\n`;
+            output += `- [${formatMemoryDateWithDistance(node.createdAt, now)}] ${memoryContentWithDates(node)}（剩餘 ${daysLeft} 天）\n`;
         }
         output += `\n`;
-        console.log(`📌 [MemoryPalace] 便利贴置顶 ${pinnedNodes.length} 条`);
+        console.log(`📌 [MemoryPalace] 便利貼置頂 ${pinnedNodes.length} 條`);
     }
 
-    // 按房间分组（保持房间显示顺序：卧室 > 客厅 > 书房 > 用户房间 > 自我房间 > 阁楼 > 窗台）
+    // 按房間分組（保持房間顯示順序：臥室 > 客廳 > 書房 > 用戶房間 > 自我房間 > 閣樓 > 窗台）
     const byRoom = new Map<string, RenderItem[]>();
     for (const it of finalItems) {
         const arr = byRoom.get(it.room) || [];
@@ -237,21 +237,21 @@ export async function expandAndFormat(
     const activeAnticipations = anticipations.filter(a => a.status === 'active' || a.status === 'anchor');
     if (activeAnticipations.length > 0) {
         output += `> **窗台期盼**:\n`;
-        // 同便利贴：active/anchor 的期盼每轮全量注入，anchor 更是长期挂着。
-        output += `> （这是你心里盼着的事，不是待办清单。它影响你的心情多过你的话头，不必每次都提起来。）\n`;
+        // 同便利貼：active/anchor 的期盼每輪全量注入，anchor 更是長期掛著。
+        output += `> （這是你心裡盼著的事，不是待辦清單。它影響你的心情多過你的話頭，不必每次都提起來。）\n`;
         for (const ant of activeAnticipations) {
-            const label = ant.status === 'anchor' ? '🔒 锚点' : '✨ 期盼';
+            const label = ant.status === 'anchor' ? '🔒 錨點' : '✨ 期盼';
             output += `> - ${label}: ${ant.content}\n`;
         }
         output += `\n`;
     }
 
     const trimmed = output.trim();
-    console.log(`🏰 [MemoryPalace] 本次召回 ${finalItems.length} 条 (${boxHits.size} 个 box + ${standaloneItems.length} 条独立)，${trimmed.length} 字`);
+    console.log(`🏰 [MemoryPalace] 本次召回 ${finalItems.length} 條 (${boxHits.size} 個 box + ${standaloneItems.length} 條獨立)，${trimmed.length} 字`);
     return trimmed;
 }
 
-// ─── 子渲染：单条独立记忆 ──────────────────────────────
+// ─── 子渲染：單條獨立記憶 ──────────────────────────────
 
 function buildStandaloneItem(r: ScoredMemory, now: number): RenderItem {
     const node = r.node;
@@ -269,7 +269,7 @@ function buildStandaloneItem(r: ScoredMemory, now: number): RenderItem {
     };
 }
 
-// ─── 子渲染：整个 EventBox（summary + 活节点） ──────────
+// ─── 子渲染：整個 EventBox（summary + 活節點） ──────────
 
 async function buildBoxItem(
     box: EventBox,
@@ -278,13 +278,13 @@ async function buildBoxItem(
     now: number,
     guaranteed: boolean = false,
 ): Promise<RenderItem | null> {
-    // 加载 summary（如有）
+    // 加載 summary（如有）
     let summary: MemoryNode | null = null;
     if (box.summaryNodeId) {
         const s = localNodeMap.get(box.summaryNodeId) || (await MemoryNodeDB.getById(box.summaryNodeId)) || null;
         if (s) summary = s;
     }
-    // 加载活节点（按时间升序）
+    // 加載活節點（按時間升序）
     const liveNodes: MemoryNode[] = [];
     for (const id of box.liveMemoryIds) {
         const n = localNodeMap.get(id) || (await MemoryNodeDB.getById(id));
@@ -292,15 +292,15 @@ async function buildBoxItem(
     }
     liveNodes.sort((a, b) => a.createdAt - b.createdAt);
 
-    if (!summary && liveNodes.length === 0) return null; // 空盒，跳过
+    if (!summary && liveNodes.length === 0) return null; // 空盒，跳過
 
-    // 决定房间：summary 优先；否则用最重要的活节点的房间
+    // 決定房間：summary 優先；否則用最重要的活節點的房間
     const repNode = summary || liveNodes.reduce((acc, n) => (n.importance > acc.importance ? n : acc), liveNodes[0]);
     const room = repNode.room;
     const importance = repNode.importance;
     const createdAt = summary?.createdAt || liveNodes[liveNodes.length - 1]?.createdAt || box.updatedAt;
 
-    // 渲染：盒子标题 + summary（如有）+ 活节点条目
+    // 渲染：盒子標題 + summary（如有）+ 活節點條目
     const liveToShow = liveNodes.slice(0, MAX_LIVE_NODES_PER_BOX);
     const omitted = liveNodes.length - liveToShow.length;
 
@@ -310,7 +310,7 @@ async function buildBoxItem(
 
     if (summary) {
         const sDate = formatMemoryDateWithDistance(summary.createdAt, now);
-        body += `_整合回忆_ (${sDate}, 重要性 ${summary.importance}, 已压缩 ${box.compressionCount} 次)\n`;
+        body += `_整合回憶_ (${sDate}, 重要性 ${summary.importance}, 已壓縮 ${box.compressionCount} 次)\n`;
         body += `${summary.content}\n`;
     }
 
@@ -320,7 +320,7 @@ async function buildBoxItem(
             const d = formatMemoryDateWithDistance(n.createdAt, now);
             body += `- [${d}] ${memoryContentWithDates(n)}\n`;
         }
-        if (omitted > 0) body += `（另有 ${omitted} 条同盒活节点未展示）\n`;
+        if (omitted > 0) body += `（另有 ${omitted} 條同盒活節點未展示）\n`;
     }
 
     const sourceIds: string[] = [];

@@ -8,7 +8,7 @@ await page.route('**/*',async route=>{
     const req=route.request();const url=new URL(req.url());
     if(url.pathname.includes('/poem/')){
         requests.push({url:req.url(),method:req.method()});
-        const data=url.pathname.endsWith('/current')?{ok:true,ended:true,paused:true,booklet:{id:'archive',title:'信号坠落处',subtitle:'低电量合唱',poemsTarget:40,poemCount:0,linesMin:4,linesMax:12,charsPerLine:24,status:'done'},poem:null,recent:[]}:{ok:true,poems:[]};
+        const data=url.pathname.endsWith('/current')?{ok:true,ended:true,paused:true,booklet:{id:'archive',title:'信號墜落處',subtitle:'低電量合唱',poemsTarget:40,poemCount:0,linesMin:4,linesMax:12,charsPerLine:24,status:'done'},poem:null,recent:[]}:{ok:true,poems:[]};
         return route.fulfill({json:data});
     }
     // No model, mail or account requests leave this isolated test context.
@@ -17,55 +17,55 @@ await page.route('**/*',async route=>{
 });
 try{
     await page.goto((process.env.FISHING_QA_URL||'http://127.0.0.1:5177')+'/test/fixtures/kanata.html');
-    await page.getByRole('button',{name:'下一页房间',exact:true}).waitFor();
+    await page.getByRole('button',{name:'下一頁房間',exact:true}).waitFor();
     await page.screenshot({path:`${out}/01-world.png`});
     const forward=page.getByRole('button',{name:'SAR',exact:true});await forward.click();
-    const waterEntry=page.getByRole('button',{name:'进入水域',exact:true});
-    const boardEntry=page.getByRole('button',{name:'进入布告板',exact:true});
+    const waterEntry=page.getByRole('button',{name:'進入水域',exact:true});
+    const boardEntry=page.getByRole('button',{name:'進入佈告板',exact:true});
     assert.equal(await waterEntry.count(),1);assert.equal(await boardEntry.count(),1);
     await page.waitForFunction(() => {
-        const art = document.querySelector('img[alt="SAR 活动室"]');
+        const art = document.querySelector('img[alt="SAR 活動室"]');
         return art instanceof HTMLImageElement && art.complete && art.naturalWidth > 0;
     });
     assert.equal(await page.locator('.sar-world-page canvas').count(),0);
     await page.screenshot({path:`${out}/01b-sar-entries.png`});
-    await waterEntry.click();await page.getByRole('button',{name:'抛竿',exact:true}).waitFor();
+    await waterEntry.click();await page.getByRole('button',{name:'拋竿',exact:true}).waitFor();
     await page.screenshot({path:`${out}/02-water.png`});
     assert.equal(await page.evaluate(()=>JSON.parse(window.render_game_to_text()).mode),'tide-resonance-fishing');
     assert.equal(await page.getByRole('dialog',{name:'彼方水域',exact:true}).count(),1);
-    assert.equal(await page.getByRole('button',{name:'让 ta 逛布告板',exact:true}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'讓 ta 逛佈告板',exact:true}).count(),0);
     // An isolated catch fixture verifies that the two entrances share the same persisted world.
     const shared=await page.evaluate(async()=>{
-        const m=await import('/utils/vrWorld/fishingMarket.ts');const user={id:'user',name:'钓鱼测试员',kind:'user'};
-        const s=await m.mutateFishingMarket(s=>m.addCatchToState(s,m.rollFishingCatch(user,{kind:'clear',label:'晴',source:'simulated',detail:'测试天气'})));
+        const m=await import('/utils/vrWorld/fishingMarket.ts');const user={id:'user',name:'釣魚測試員',kind:'user'};
+        const s=await m.mutateFishingMarket(s=>m.addCatchToState(s,m.rollFishingCatch(user,{kind:'clear',label:'晴',source:'simulated',detail:'測試天氣'})));
         return {seed:s.seed,accounts:s.accounts,inventory:s.inventory,prices:s.prices};
     });
     const readShared=()=>page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('vr_fishing_market_v1'));return {seed:s.seed,accounts:s.accounts,inventory:s.inventory,prices:s.prices};});
-    await page.getByRole('button',{name:'离开水域',exact:true}).click();await boardEntry.click();
-    await page.getByRole('dialog',{name:'彼方布告板',exact:true}).waitFor();
-    await page.getByRole('button',{name:'写便笺',exact:true}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'抛竿',exact:true}).count(),0);
-    assert.equal(await page.getByRole('button',{name:'图鉴',exact:true}).count(),0);
-    assert.equal(await page.getByRole('button',{name:'让 ta 去钓鱼',exact:true}).count(),0);
-    assert.equal(await page.getByRole('button',{name:'让 ta 逛布告板',exact:true}).count(),0);
+    await page.getByRole('button',{name:'離開水域',exact:true}).click();await boardEntry.click();
+    await page.getByRole('dialog',{name:'彼方佈告板',exact:true}).waitFor();
+    await page.getByRole('button',{name:'寫便箋',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'拋竿',exact:true}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'圖鑑',exact:true}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'讓 ta 去釣魚',exact:true}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'讓 ta 逛佈告板',exact:true}).count(),0);
     assert.equal(await page.evaluate(()=>JSON.parse(window.render_game_to_text()).tab),'board');
     assert.deepEqual(await readShared(),shared);
     await page.screenshot({path:`${out}/02b-board.png`});
-    await page.getByRole('button',{name:'离开布告板',exact:true}).click();
+    await page.getByRole('button',{name:'離開佈告板',exact:true}).click();
     await page.setViewportSize({width:320,height:740});
     await page.screenshot({path:`${out}/02c-small-entries.png`});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await boardEntry.click();await page.getByRole('button',{name:'写便笺',exact:true}).waitFor();
+    await boardEntry.click();await page.getByRole('button',{name:'寫便箋',exact:true}).waitFor();
     await page.screenshot({path:`${out}/02d-small-board.png`});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.getByRole('button',{name:'离开布告板',exact:true}).click();await waterEntry.click();
-    await page.getByRole('button',{name:'抛竿',exact:true}).waitFor();assert.deepEqual(await readShared(),shared);
-    await page.getByRole('button',{name:'图鉴',exact:true}).click();
+    await page.getByRole('button',{name:'離開佈告板',exact:true}).click();await waterEntry.click();
+    await page.getByRole('button',{name:'拋竿',exact:true}).waitFor();assert.deepEqual(await readShared(),shared);
+    await page.getByRole('button',{name:'圖鑑',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:/cm/}).count(),1);
-    await page.getByRole('button',{name:'离开水域',exact:true}).click();
-    await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'返回彼方',exact:true}).click();await page.getByRole('button',{name:'下一页房间',exact:true}).click();
-    await page.getByRole('heading',{name:'往期活动',exact:true}).waitFor();await page.screenshot({path:`${out}/03-archives.png`});
-    await page.getByRole('button',{name:/已封存 · 纪念馆/}).click();await page.getByText('落　幕',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'離開水域',exact:true}).click();
+    await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'返回彼方',exact:true}).click();await page.getByRole('button',{name:'下一頁房間',exact:true}).click();
+    await page.getByRole('heading',{name:'往期活動',exact:true}).waitFor();await page.screenshot({path:`${out}/03-archives.png`});
+    await page.getByRole('button',{name:/已封存 · [纪紀]念[馆館]/}).click();await page.getByText('落　幕',{exact:true}).waitFor();
     await page.screenshot({path:`${out}/04-memorial.png`});
     assert.equal(requests.some(r=>r.method!=='GET'),false);assert.deepEqual(errors,[]);writeFileSync(`${out}/result.json`,JSON.stringify({requests,errors},null,2));
     console.log('Kanata integration: separate water/board entrances, shared inventory/wallet/prices, mobile returns and read-only memorial passed.');

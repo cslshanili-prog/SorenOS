@@ -5,7 +5,7 @@ import { endSARModuleRuntime } from '../../utils/vrWorld/sarModuleRuntime';
 import { trackSARModuleEnd } from '../../utils/sarAnalytics';
 import './sar-module-monitor.css';
 
-/** 挂在手机外壳，切换聊天、见面或彼方都能看见同一份实时运行状态。 */
+/** 掛在手機外殼，切換聊天、見面或彼方都能看見同一份實時運行狀態。 */
 export function SARModuleMonitor() {
     const { characters, userProfile, updateCharacter, updateUserProfile, addToast } = useOS();
     const entries = [
@@ -64,14 +64,14 @@ export function SARModuleMonitor() {
             }));
         }
         trackSARModuleEnd(runtime.target);
-        addToast('模块已提前结束，下次回复会收到解除提示', 'success');
+        addToast('模塊已提前結束，下次回覆會收到解除提示', 'success');
     };
 
     return <div ref={layerRef} className="sar-module-monitor-layer">
-        <section ref={panelRef} className="sar-module-monitor" aria-label="当前模块" data-expanded={expanded}
+        <section ref={panelRef} className="sar-module-monitor" aria-label="當前模塊" data-expanded={expanded}
             style={position ? { left: position.x, top: position.y, right: 'auto' } : undefined}>
             <button type="button" className="sar-module-monitor-handle" aria-expanded={expanded}
-                aria-label={expanded ? '收起模块悬浮窗' : '展开模块悬浮窗'}
+                aria-label={expanded ? '收起模塊懸浮窗' : '展開模塊懸浮窗'}
                 onPointerDown={event => {
                     if (event.button !== 0 || !panelRef.current || !layerRef.current) return;
                     const panel = panelRef.current, layer = layerRef.current;
@@ -97,7 +97,7 @@ export function SARModuleMonitor() {
                     if (ignoreClick.current) { ignoreClick.current = false; return; }
                     setExpanded(value => !value);
                 }}>
-                <Cpu size={17} /><strong>模块</strong><span className="sar-module-monitor-count">{entries.length}</span>
+                <Cpu size={17} /><strong>模塊</strong><span className="sar-module-monitor-count">{entries.length}</span>
                 <span className="sar-module-monitor-owners" title={entries.map(entry => entry.name).join('、')}>
                     {entries.length === 1 ? entries[0].name : entries[0].name + '等 ' + entries.length + ' 人'}
                 </span><DotsSix size={14} aria-hidden="true"/>
@@ -106,16 +106,16 @@ export function SARModuleMonitor() {
             {expanded && <div className="sar-module-monitor-body">
                 <ul>{entries.map(entry => <li key={entry.runtime.runId} data-sar-target={entry.runtime.target}>
                     <div className="sar-module-monitor-person"><strong>{entry.name}</strong>
-                        <span>{entry.runtime.phase === 'active' ? `剩 ${entry.runtime.remainingTurns} 轮` : '已解除'}</span></div>
-                    <div className="sar-module-monitor-source">装载者：{entry.runtime.source === 'user'
+                        <span>{entry.runtime.phase === 'active' ? `剩 ${entry.runtime.remainingTurns} 輪` : '已解除'}</span></div>
+                    <div className="sar-module-monitor-source">裝載者：{entry.runtime.source === 'user'
                         ? (userProfile.name || '我')
                         : (characters.find(char => char.id === entry.runtime.sourceCharacterId)?.name || entry.runtime.sourceCharacterName || '角色')}</div>
                     <div className="sar-module-monitor-detail"><span>{entry.runtime.moduleTitle}</span>
                         {entry.runtime.phase === 'active'
-                            ? <button type="button" onClick={() => end(entry)} aria-label={`提前结束${entry.name}的模块`}>提前结束</button>
-                            : <small>解除提醒剩 {entry.runtime.afterglowTurns} 轮</small>}</div>
+                            ? <button type="button" onClick={() => end(entry)} aria-label={`提前結束${entry.name}的模塊`}>提前結束</button>
+                            : <small>解除提醒剩 {entry.runtime.afterglowTurns} 輪</small>}</div>
                 </li>)}</ul>
-                <p>成功回复一次算一轮。提前结束后，下次回复就会收到解除提示；正在生成的这一条可能仍受影响。</p>
+                <p>成功回覆一次算一輪。提前結束後，下次回覆就會收到解除提示；正在生成的這一條可能仍受影響。</p>
             </div>}
         </section>
     </div>;

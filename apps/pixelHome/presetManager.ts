@@ -1,8 +1,8 @@
 /**
- * Pixel Home — 房屋预设导入/导出
+ * Pixel Home — 房屋預設導入/導出
  *
- * 导出：当前角色的全部房间布局 + 用到的像素资产 → JSON 文件
- * 导入：读取 JSON → 覆盖当前角色的房间布局 + 导入缺失的资产
+ * 導出：當前角色的全部房間佈局 + 用到的像素資產 → JSON 文件
+ * 導入：讀取 JSON → 覆蓋當前角色的房間佈局 + 導入缺失的資產
  */
 
 import type {
@@ -14,7 +14,7 @@ import { confirmExportSafety } from '../../utils/exportGuard';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import { readShareText } from '../../utils/pngShare';
 
-// ─── 导出 ────────────────────────────────────────────
+// ─── 導出 ────────────────────────────────────────────
 
 export async function exportPreset(
   homeState: PixelHomeState,
@@ -30,7 +30,7 @@ export async function exportPreset(
     }
   }
 
-  // 导出房间（去掉 charId）
+  // 導出房間（去掉 charId）
   const rooms: PixelRoomPreset[] = homeState.rooms.map(r => ({
     roomId: r.roomId,
     furniture: r.furniture,
@@ -45,7 +45,7 @@ export async function exportPreset(
     floorOffsetY: r.floorOffsetY,
   }));
 
-  // 导出用到的资产（精简，去掉 originalImage 节省空间）
+  // 導出用到的資產（精簡，去掉 originalImage 節省空間）
   const assets: PixelAssetPreset[] = allAssets
     .filter(a => usedAssetIds.has(a.id))
     .map(a => ({
@@ -70,7 +70,7 @@ export async function exportPreset(
   return JSON.stringify(preset);
 }
 
-/** 导出并下载为 .json 文件 */
+/** 導出並下載為 .json 文件 */
 export async function downloadPreset(
   homeState: PixelHomeState,
   allAssets: PixelAsset[],
@@ -78,18 +78,18 @@ export async function downloadPreset(
   author: string,
 ): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const json = await exportPreset(homeState, allAssets, presetName, author);
-  // 导出前明文密钥体检 + 二次确认（小屋预设正常不含密钥 → 提示「安全，可分享」）。
+  // 導出前明文密鑰體檢 + 二次確認（小屋預設正常不含密鑰 → 提示「安全，可分享」）。
   if (!(await confirmExportSafety(JSON.parse(json)))) return 'cancelled';
   return shareOrDownloadFile({
     card: { kind: 'pixel-home', title: presetName, author },
     content: json,
     fileName: `pixel_home_${presetName.replace(/\s+/g, '_')}_${Date.now()}.json`,
     mimeType: 'application/json;charset=utf-8',
-    shareTitle: `像素小屋预设：${presetName}`,
+    shareTitle: `像素小屋預設：${presetName}`,
   });
 }
 
-// ─── 导入 ────────────────────────────────────────────
+// ─── 導入 ────────────────────────────────────────────
 
 export interface ImportResult {
   success: boolean;
@@ -98,7 +98,7 @@ export interface ImportResult {
   error?: string;
 }
 
-/** 从 JSON 字符串解析并导入预设 */
+/** 從 JSON 字符串解析並導入預設 */
 export async function importPreset(
   json: string,
   charId: string,
@@ -106,12 +106,12 @@ export async function importPreset(
   try {
     const preset: PixelHomePreset = JSON.parse(json);
 
-    // 验证格式
+    // 驗證格式
     if (!preset.version || !preset.rooms || !Array.isArray(preset.rooms)) {
-      return { success: false, roomsImported: 0, assetsImported: 0, error: '无效的预设文件格式' };
+      return { success: false, roomsImported: 0, assetsImported: 0, error: '無效的預設文件格式' };
     }
 
-    // 导入资产（跳过已存在的）
+    // 導入資產（跳過已存在的）
     let assetsImported = 0;
     if (preset.assets && preset.assets.length > 0) {
       const existingAssets = await PixelAssetDB.getAll();
@@ -121,7 +121,7 @@ export async function importPreset(
         if (!existingIds.has(presetAsset.id)) {
           const fullAsset: PixelAsset = {
             ...presetAsset,
-            originalImage: presetAsset.pixelImage, // 没有原图，用像素图代替
+            originalImage: presetAsset.pixelImage, // 沒有原圖，用像素圖代替
             createdAt: Date.now(),
             tags: ['imported'],
           };
@@ -131,7 +131,7 @@ export async function importPreset(
       }
     }
 
-    // 导入房间布局
+    // 導入房間佈局
     let roomsImported = 0;
     for (const presetRoom of preset.rooms) {
       const layout: PixelRoomLayout = {
@@ -156,11 +156,11 @@ export async function importPreset(
 
     return { success: true, roomsImported, assetsImported };
   } catch (err: any) {
-    return { success: false, roomsImported: 0, assetsImported: 0, error: err.message || '解析失败' };
+    return { success: false, roomsImported: 0, assetsImported: 0, error: err.message || '解析失敗' };
   }
 }
 
-/** 从文件读取 JSON 字符串 */
+/** 從文件讀取 JSON 字符串 */
 export function readFileAsText(file: File): Promise<string> {
   return readShareText(file, 'pixel-home');
 }

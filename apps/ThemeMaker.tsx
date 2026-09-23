@@ -22,9 +22,9 @@ const cloneTheme = (theme: ChatTheme): ChatTheme => {
 };
 
 /**
- * 一侧气泡里的图片改存令牌：底纹 / 贴纸 / 头像挂件三个字段，还是 base64 的换成
- * `blobref:<id>`（二进制进 blob_assets，见 utils/blobRef.ts），其余值原样。
- * 转不动时 migrateDataUrlToRef 会把原串还回来，图不会丢。
+ * 一側氣泡裡的圖片改存令牌：底紋 / 貼紙 / 頭像掛件三個字段，還是 base64 的換成
+ * `blobref:<id>`（二進制進 blob_assets，見 utils/blobRef.ts），其餘值原樣。
+ * 轉不動時 migrateDataUrlToRef 會把原串還回來，圖不會丟。
  */
 async function bubbleStyleToBlobRefs(style: BubbleStyle): Promise<BubbleStyle> {
     const toRef = async (value: string | undefined): Promise<string | undefined> => (
@@ -38,9 +38,9 @@ async function bubbleStyleToBlobRefs(style: BubbleStyle): Promise<BubbleStyle> {
 }
 
 /**
- * 气泡底纹层。底纹画在 CSS background-image 上，享受不到 <img>（TokenImg）那层的
- * 自动解析，得自己调 hook 把令牌解成 objectURL；而预览气泡是在一个普通函数里渲染的
- * （hook 不能写在那儿），所以单独包成组件，解析放在它自己内部。
+ * 氣泡底紋層。底紋畫在 CSS background-image 上，享受不到 <img>（TokenImg）那層的
+ * 自動解析，得自己調 hook 把令牌解成 objectURL；而預覽氣泡是在一個普通函數里渲染的
+ * （hook 不能寫在那兒），所以單獨包成組件，解析放在它自己內部。
  */
 const BubbleBgLayer: React.FC<{ value?: string; opacity?: number }> = ({ value, opacity }) => {
     const url = useBlobRefUrl(value);
@@ -317,39 +317,39 @@ const isValidHttpImageUrl = (value: string) => {
     }
 };
 
-// 校验实现挪去 utils/scopedCss.ts（心象卡片的自定义 CSS 复用同一套），这里只绑定气泡作用域
+// 校驗實現挪去 utils/scopedCss.ts（心象卡片的自定義 CSS 複用同一套），這裡只綁定氣泡作用域
 const validateCustomCss = (css: string): CssValidationResult =>
     validateScopedCss(css, TARGET_SELECTOR_REGEX, '.sully-bubble-user / .sully-bubble-ai / .sully-voice-bar');
 
 const CSS_SCOPE_SNIPPETS: CssSnippet[] = [
     {
         id: 'scope-shadow',
-        name: '阴影',
-        description: '给两侧气泡添加柔和投影',
+        name: '陰影',
+        description: '給兩側氣泡添加柔和投影',
         code: `.sully-bubble-user, .sully-bubble-ai {\n  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);\n}`
     },
     {
         id: 'scope-stroke',
-        name: '描边',
-        description: '统一边框轮廓',
+        name: '描邊',
+        description: '統一邊框輪廓',
         code: `.sully-bubble-user, .sully-bubble-ai {\n  border: 1px solid rgba(148, 163, 184, 0.45);\n}`
     },
     {
         id: 'scope-gradient',
-        name: '渐变',
-        description: '区分用户与角色气泡层次',
+        name: '漸變',
+        description: '區分用戶與角色氣泡層次',
         code: `.sully-bubble-user {\n  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;\n}\n.sully-bubble-ai {\n  background: linear-gradient(135deg, #ffffff, #e2e8f0) !important;\n}`
     },
     {
         id: 'scope-glass',
         name: '玻璃',
-        description: '毛玻璃 + 高光边框',
+        description: '毛玻璃 + 高光邊框',
         code: `.sully-bubble-user, .sully-bubble-ai {\n  backdrop-filter: blur(10px);\n  border: 1px solid rgba(255, 255, 255, 0.45);\n}\n.sully-bubble-user {\n  background: rgba(99, 102, 241, 0.62) !important;\n}\n.sully-bubble-ai {\n  background: rgba(255, 255, 255, 0.62) !important;\n}`
     },
     {
         id: 'scope-voice-bar',
-        name: '语音条',
-        description: '单独修改语音条、播放键和波形',
+        name: '語音條',
+        description: '單獨修改語音條、播放鍵和波形',
         code: `.sully-voice-bar {\n  min-width: 220px;\n  border-radius: 10px !important;\n  background: rgba(255,255,255,.72) !important;\n}\n.sully-voice-bar-button {\n  transform: rotate(-4deg);\n}\n.sully-voice-bar-wave-segment {\n  border-radius: 0 !important;\n}`
     }
 ];
@@ -358,7 +358,7 @@ const STYLE_TEMPLATES: StyleTemplate[] = [
     {
         id: 'cream',
         name: '奶油',
-        description: '温暖低饱和，柔和阴影',
+        description: '溫暖低飽和，柔和陰影',
         user: { textColor: '#7c2d12', backgroundColor: 'rgba(254, 243, 199, 0.92)', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.45, decorationX: 88, decorationY: -12, avatarDecorationX: 52, avatarDecorationY: 50 },
         ai: { textColor: '#78350f', backgroundColor: 'rgba(255, 251, 235, 0.9)', borderRadius: 20, opacity: 1, backgroundImageOpacity: 0.4, decorationX: 12, decorationY: -10, avatarDecorationX: 48, avatarDecorationY: 50 },
         userShadow: '0 8px 24px rgba(217, 119, 6, 0.18)',
@@ -367,7 +367,7 @@ const STYLE_TEMPLATES: StyleTemplate[] = [
     {
         id: 'glass',
         name: '玻璃',
-        description: '半透明磨砂，轻薄边缘',
+        description: '半透明磨砂，輕薄邊緣',
         user: { textColor: '#0f172a', backgroundColor: 'rgba(191, 219, 254, 0.78)', borderRadius: 18, opacity: 0.98, backgroundImageOpacity: 0.6, decorationX: 90, decorationY: -14, avatarDecorationX: 50, avatarDecorationY: 48 },
         ai: { textColor: '#0f172a', backgroundColor: 'rgba(255, 255, 255, 0.72)', borderRadius: 18, opacity: 0.98, backgroundImageOpacity: 0.55, decorationX: 10, decorationY: -14, avatarDecorationX: 50, avatarDecorationY: 48 },
         userShadow: '0 10px 28px rgba(30, 41, 59, 0.16)',
@@ -376,7 +376,7 @@ const STYLE_TEMPLATES: StyleTemplate[] = [
     {
         id: 'neon',
         name: '霓虹',
-        description: '高对比荧光，发光轮廓',
+        description: '高對比熒光，發光輪廓',
         user: { textColor: '#faf5ff', backgroundColor: 'rgba(88, 28, 135, 0.9)', borderRadius: 16, opacity: 1, backgroundImageOpacity: 0.32, decorationX: 94, decorationY: -8, avatarDecorationX: 50, avatarDecorationY: 46 },
         ai: { textColor: '#e0f2fe', backgroundColor: 'rgba(12, 74, 110, 0.9)', borderRadius: 16, opacity: 1, backgroundImageOpacity: 0.32, decorationX: 8, decorationY: -8, avatarDecorationX: 50, avatarDecorationY: 46 },
         userShadow: '0 0 18px rgba(217, 70, 239, 0.55)',
@@ -384,8 +384,8 @@ const STYLE_TEMPLATES: StyleTemplate[] = [
     },
     {
         id: 'paper',
-        name: '纸感',
-        description: '微黄纸张，细节颗粒感',
+        name: '紙感',
+        description: '微黃紙張，細節顆粒感',
         user: { textColor: '#3f3f46', backgroundColor: 'rgba(254, 249, 195, 0.93)', borderRadius: 14, opacity: 1, backgroundImageOpacity: 0.7, decorationX: 90, decorationY: -6, avatarDecorationX: 54, avatarDecorationY: 52 },
         ai: { textColor: '#44403c', backgroundColor: 'rgba(254, 252, 232, 0.93)', borderRadius: 14, opacity: 1, backgroundImageOpacity: 0.68, decorationX: 10, decorationY: -6, avatarDecorationX: 46, avatarDecorationY: 52 },
         userShadow: '2px 2px 0 rgba(120, 113, 108, 0.32)',
@@ -393,8 +393,8 @@ const STYLE_TEMPLATES: StyleTemplate[] = [
     },
     {
         id: 'minimal',
-        name: '极简',
-        description: '低阴影，清爽留白',
+        name: '極簡',
+        description: '低陰影，清爽留白',
         user: { textColor: '#0f172a', backgroundColor: 'rgba(226, 232, 240, 0.86)', borderRadius: 20, opacity: 0.97, backgroundImageOpacity: 0.25, decorationX: 92, decorationY: -10, avatarDecorationX: 50, avatarDecorationY: 50 },
         ai: { textColor: '#1e293b', backgroundColor: 'rgba(248, 250, 252, 0.85)', borderRadius: 20, opacity: 0.97, backgroundImageOpacity: 0.22, decorationX: 8, decorationY: -10, avatarDecorationX: 50, avatarDecorationY: 50 },
         userShadow: '0 2px 8px rgba(15, 23, 42, 0.08)',
@@ -426,60 +426,60 @@ const PREVIEW_SCENES: PreviewScene[] = [
         id: 'daily',
         name: '日常聊天',
         messages: [
-            { id: 'd1', role: 'ai', kind: 'text', content: '今天状态怎么样？要不要一起复盘一下计划。' },
+            { id: 'd1', role: 'ai', kind: 'text', content: '今天狀態怎麼樣？要不要一起復盤一下計劃。' },
             { id: 'd2', role: 'ai', kind: 'voice', content: '00:08' },
-            { id: 'd3', role: 'user', kind: 'text', content: '挺好！晚点一起把任务过一遍吧。' }
+            { id: 'd3', role: 'user', kind: 'text', content: '挺好！晚點一起把任務過一遍吧。' }
         ]
     },
     {
         id: 'long',
-        name: '长文',
+        name: '長文',
         messages: [
             {
                 id: 'l1',
                 role: 'ai',
                 kind: 'text',
-                content: '这是一个长文本示例，用于观察在大段内容、自动换行和段落阅读中的可读性表现。\n\n第二段会保持留白，你可以重点观察行距、背景图叠加透明度与文本对比是否舒适。'
+                content: '這是一個長文本示例，用於觀察在大段內容、自動換行和段落閱讀中的可讀性表現。\n\n第二段會保持留白，你可以重點觀察行距、背景圖疊加透明度與文本對比是否舒適。'
             },
             {
                 id: 'l2',
                 role: 'user',
                 kind: 'text',
-                content: '收到，我会重点看边角、段落间距、亮暗背景下的可读性。'
+                content: '收到，我會重點看邊角、段落間距、亮暗背景下的可讀性。'
             }
         ]
     },
     {
         id: 'reply',
-        name: '回复链',
+        name: '回覆鏈',
         messages: [
-            { id: 'r1', role: 'ai', kind: 'text', content: '我把重点标出来了，看看这个版本。' },
+            { id: 'r1', role: 'ai', kind: 'text', content: '我把重點標出來了，看看這個版本。' },
             {
                 id: 'r2',
                 role: 'user',
                 kind: 'text',
-                content: '这里我想再调一下边框高亮效果。',
-                replyTo: { name: 'AI', content: '我把重点标出来了，看看这个版本。' }
+                content: '這裡我想再調一下邊框高亮效果。',
+                replyTo: { name: 'AI', content: '我把重點標出來了，看看這個版本。' }
             }
         ]
     },
     {
         id: 'mix',
-        name: '图片混排',
+        name: '圖片混排',
         messages: [
-            { id: 'm1', role: 'ai', kind: 'image', content: '预览图' },
+            { id: 'm1', role: 'ai', kind: 'image', content: '預覽圖' },
             { id: 'm2', role: 'user', kind: 'emoji', content: '😆' },
-            { id: 'm3', role: 'ai', kind: 'text', content: '图片和文字、表情混排时也要保持层级清晰。' }
+            { id: 'm3', role: 'ai', kind: 'text', content: '圖片和文字、表情混排時也要保持層級清晰。' }
         ]
     },
     {
         id: 'dark-wallpaper',
-        name: '深色壁纸',
+        name: '深色壁紙',
         darkMode: true,
         wallpaper: 'linear-gradient(135deg,#020617 0%,#1e293b 35%,#0f172a 100%)',
         messages: [
-            { id: 'dw1', role: 'ai', kind: 'text', content: '深色壁纸下建议确认浅色文字的对比度。' },
-            { id: 'dw2', role: 'user', kind: 'text', content: 'OK，我再检查透明背景图和阴影是否干净。' }
+            { id: 'dw1', role: 'ai', kind: 'text', content: '深色壁紙下建議確認淺色文字的對比度。' },
+            { id: 'dw2', role: 'user', kind: 'text', content: 'OK，我再檢查透明背景圖和陰影是否乾淨。' }
         ]
     }
 ];
@@ -512,7 +512,7 @@ const ThemeMaker: React.FC = () => {
     const [editorBubblePos, setEditorBubblePos] = useState<{ x: number; y: number } | null>(null);
     const [playingVoicePreviewKey, setPlayingVoicePreviewKey] = useState<string | null>(null);
     const [voicePreviewProgress, setVoicePreviewProgress] = useState(0);
-    // 保存后的「应用到角色」弹层：勾选 = 该角色 bubbleStyle 指向本主题，取消勾选 = 回落默认气泡
+    // 保存後的「應用到角色」彈層：勾選 = 該角色 bubbleStyle 指向本主題，取消勾選 = 回落默認氣泡
     const [showApplySheet, setShowApplySheet] = useState(false);
     const [applySelection, setApplySelection] = useState<Set<string>>(new Set());
     const [assetUrlDraft, setAssetUrlDraft] = useState<Record<'bg' | 'deco' | 'avatarDeco', string>>({ bg: '', deco: '', avatarDeco: '' });
@@ -530,15 +530,15 @@ const ThemeMaker: React.FC = () => {
     const editorBubbleDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
 
     const activeStyle = editingTheme[activeTab === 'css' ? 'user' : activeTab];
-    // 语音消息只出现在角色侧；无论当前在编辑哪个 tab，语音条控件都写到 ai，
-    // 避免旧版在“用户气泡”页改了颜色却永远不生效的假设置。
+    // 語音消息只出現在角色側；無論當前在編輯哪個 tab，語音條控件都寫到 ai，
+    // 避免舊版在“用戶氣泡”頁改了顏色卻永遠不生效的假設置。
     const voiceBarStyle = editingTheme.ai;
     const CONTRAST_LOW_THRESHOLD = 4.5;
     const CONTRAST_CRITICAL_THRESHOLD = 3;
     const HIGH_BG_IMAGE_OPACITY = 0.75;
     const cssValidation = useMemo(() => validateCustomCss(editingTheme.customCss || ''), [editingTheme.customCss]);
 
-    // 与「外观 → 聊天界面」保持同一套交互：圆形设置钮可拖动，轻点收起/展开悬浮编辑面板。
+    // 與「外觀 → 聊天界面」保持同一套交互：圓形設置鈕可拖動，輕點收起/展開懸浮編輯面板。
     const EDITOR_BUBBLE_SIZE = 48;
     const clampEditorBubble = (x: number, y: number) => ({
         x: Math.max(8, Math.min(window.innerWidth - EDITOR_BUBBLE_SIZE - 8, x)),
@@ -573,7 +573,7 @@ const ThemeMaker: React.FC = () => {
         }
     };
 
-    // 预览不播放真实音频，只复刻真实语音条的 8 秒播放态，便于检查播放背景、按钮和波形颜色。
+    // 預覽不播放真實音頻，只復刻真實語音條的 8 秒播放態，便於檢查播放背景、按鈕和波形顏色。
     const toggleVoicePreview = (key: string) => {
         setPlayingVoicePreviewKey(current => current === key ? null : key);
         setVoicePreviewProgress(0);
@@ -653,67 +653,67 @@ const ThemeMaker: React.FC = () => {
         addToast(`正在修改「${theme.name}」`, 'info');
     });
 
-    // 导入别人分享的 .sully-bubble.json（exportSavedTheme 的逆操作，此前只有导出没有入口）。
-    // 兼容两种形态：完整导出包 {kind:'sullyos-chat-theme', theme} 或直接一个 ChatTheme 对象。
-    // 永远发新 id（防覆盖自己已有作品）；CSS 走与保存一致的可渲染性校验，坏 CSS 不入库。
+    // 導入別人分享的 .sully-bubble.json（exportSavedTheme 的逆操作，此前只有導出沒有入口）。
+    // 兼容兩種形態：完整導出包 {kind:'sullyos-chat-theme', theme} 或直接一個 ChatTheme 對象。
+    // 永遠發新 id（防覆蓋自己已有作品）；CSS 走與保存一致的可渲染性校驗，壞 CSS 不入庫。
     const importThemeFile = async (file: File) => {
         try {
             const parsed = JSON.parse(await readShareText(file, 'chat-theme'));
             const raw = (parsed && typeof parsed === 'object' && parsed.kind === 'sullyos-chat-theme') ? parsed.theme : parsed;
             if (!raw || typeof raw !== 'object' || !raw.user || !raw.ai) {
-                addToast('导入失败：不是有效的气泡主题文件', 'error');
+                addToast('導入失敗：不是有效的氣泡主題文件', 'error');
                 return;
             }
             const css = typeof raw.customCss === 'string' ? raw.customCss : '';
             if (css) {
                 const renderability = runCssRenderabilityCheck(css, validateCustomCss(css));
                 if (!renderability.ok) {
-                    addToast(`导入失败：${renderability.message}`, 'error');
+                    addToast(`導入失敗：${renderability.message}`, 'error');
                     return;
                 }
             }
-            const baseName = String(raw.name || '导入的气泡').slice(0, 30);
-            const name = customThemes.some(t => t.name === baseName) ? `${baseName}（导入）` : baseName;
+            const baseName = String(raw.name || '導入的氣泡').slice(0, 30);
+            const name = customThemes.some(t => t.name === baseName) ? `${baseName}（導入）` : baseName;
             const imported: ChatTheme = { ...raw, id: `custom-${Date.now()}-${Math.floor(Math.random() * 1e4)}`, type: 'custom', name };
-            // 别人分享的文件里图是内嵌 base64，入库前顺手转成令牌：省掉 ~33% 的膨胀，
-            // 内容一样的图还会跟库里已有的那份共用，不用等下次「优化资源存储」来收。
+            // 別人分享的文件裡圖是內嵌 base64，入庫前順手轉成令牌：省掉 ~33% 的膨脹，
+            // 內容一樣的圖還會跟庫裡已有的那份共用，不用等下次「優化資源存儲」來收。
             imported.user = await bubbleStyleToBlobRefs(imported.user);
             imported.ai = await bubbleStyleToBlobRefs(imported.ai);
             addCustomTheme(imported);
-            addToast(`已导入「${name}」，在作品区可选用`, 'success');
+            addToast(`已導入「${name}」，在作品區可選用`, 'success');
         } catch {
-            addToast('导入失败：无法解析文件', 'error');
+            addToast('導入失敗：無法解析文件', 'error');
         }
     };
 
-    // 导出成分享文件：主题里的图存的是令牌，令牌只有本机认得，原样导出对方只会拿到
-    // 一串死字符串、图全空。所以先在一份深拷贝上把令牌换回内嵌的 data URL
-    // （resolveBlobRefsDeep 是原地改的，绝不能拿库里那套主题去喂）。
+    // 導出成分享文件：主題裡的圖存的是令牌，令牌只有本機認得，原樣導出對方只會拿到
+    // 一串死字符串、圖全空。所以先在一份深拷貝上把令牌換回內嵌的 data URL
+    // （resolveBlobRefsDeep 是原地改的，絕不能拿庫裡那套主題去喂）。
     const exportSavedTheme = async (theme: ChatTheme) => {
         const portable = cloneTheme(theme);
         try {
             await resolveBlobRefsDeep(portable);
         } catch {
-            addToast('导出失败：图片读取不出来', 'error');
+            addToast('導出失敗：圖片讀取不出來', 'error');
             return;
         }
 
         try {
             const result = await shareOrDownloadFile({
-                card: { kind: 'chat-theme', title: theme.name || '自定义气泡' },
+                card: { kind: 'chat-theme', title: theme.name || '自定義氣泡' },
                 content: JSON.stringify({ kind: 'sullyos-chat-theme', version: 1, theme: portable }, null, 2),
-                fileName: `${(theme.name || '自定义气泡').replace(/[\\/:*?\"<>|]/g, '_')}.sully-bubble.json`,
+                fileName: `${(theme.name || '自定義氣泡').replace(/[\\/:*?\"<>|]/g, '_')}.sully-bubble.json`,
                 mimeType: 'application/json;charset=utf-8',
-                shareTitle: `气泡主题：${theme.name || '自定义气泡'}`,
+                shareTitle: `氣泡主題：${theme.name || '自定義氣泡'}`,
             });
             if (result === 'cancelled') return;
-            addToast(result === 'shared' ? `已打开「${theme.name}」分享面板` : `已导出「${theme.name}」`, 'success');
+            addToast(result === 'shared' ? `已打開「${theme.name}」分享面板` : `已導出「${theme.name}」`, 'success');
         } catch {
-            addToast('导出失败：无法分享或下载文件', 'error');
+            addToast('導出失敗：無法分享或下載文件', 'error');
         }
     };
 
-    // 删除只移除气泡库里的存档；若正在编辑这套气泡，工坊内容保留为未保存状态，避免用户手滑丢稿。
+    // 刪除只移除氣泡庫裡的存檔；若正在編輯這套氣泡，工坊內容保留為未保存狀態，避免用戶手滑丟稿。
     const confirmDeleteTheme = () => {
         const theme = pendingDeleteTheme;
         if (!theme) return;
@@ -722,7 +722,7 @@ const ThemeMaker: React.FC = () => {
         if (editingTheme.id === theme.id) {
             setIsAppliedToPreview(false);
         }
-        addToast(`已删除「${theme.name}」`, 'success');
+        addToast(`已刪除「${theme.name}」`, 'success');
     };
 
     // Initialize padding state from CSS on load
@@ -787,12 +787,12 @@ const ThemeMaker: React.FC = () => {
     const handleImageUpload = async (file: File, type: 'bg' | 'deco' | 'avatarDeco') => {
         try {
             const result = await processImage(file);
-            // 主题里存的是令牌，不是几 MB 的 base64（二进制进 blob_assets，见 utils/blobRef.ts）
+            // 主題裡存的是令牌，不是幾 MB 的 base64（二進制進 blob_assets，見 utils/blobRef.ts）
             const stored = await migrateDataUrlToRef(result);
             if (type === 'bg') updateStyle('backgroundImage', stored);
             else if (type === 'deco') updateStyle('decoration', stored);
             else if (type === 'avatarDeco') updateStyle('avatarDecoration', stored);
-            addToast('图片上传成功', 'success');
+            addToast('圖片上傳成功', 'success');
         } catch (e: any) {
             addToast(e.message, 'error');
         }
@@ -801,11 +801,11 @@ const ThemeMaker: React.FC = () => {
     const handleUrlApply = (type: 'bg' | 'deco' | 'avatarDeco') => {
         const url = assetUrlDraft[type].trim();
         if (!url) {
-            addToast('请输入图床 URL', 'error');
+            addToast('請輸入圖床 URL', 'error');
             return;
         }
         if (!isValidHttpImageUrl(url)) {
-            addToast('URL 无效，请填写 http(s) 图床地址', 'error');
+            addToast('URL 無效，請填寫 http(s) 圖床地址', 'error');
             return;
         }
 
@@ -814,7 +814,7 @@ const ThemeMaker: React.FC = () => {
         else updateStyle('avatarDecoration', url);
 
         setAssetUrlDraft(prev => ({ ...prev, [type]: '' }));
-        addToast('已应用图床图片', 'success');
+        addToast('已應用圖床圖片', 'success');
     };
 
     const doSaveTheme = (exitAfterSave: boolean) => {
@@ -822,10 +822,10 @@ const ThemeMaker: React.FC = () => {
         setLastSavedTheme(cloneTheme(editingTheme));
         setIsDirty(false);
         setIsAppliedToPreview(true);
-        addToast('已保存到气泡库', 'success');
+        addToast('已保存到氣泡庫', 'success');
         if (exitAfterSave) { closeApp(); return; }
-        // 保存 ≠ 生效：气泡要指派给角色才会在聊天里出现。保存完直接弹「应用到角色」，
-        // 预勾选已经在用这套气泡的角色（再次保存同名主题时不打乱现状）。
+        // 保存 ≠ 生效：氣泡要指派給角色才會在聊天裡出現。保存完直接彈「應用到角色」，
+        // 預勾選已經在用這套氣泡的角色（再次保存同名主題時不打亂現狀）。
         if (characters.length > 0) {
             setApplySelection(new Set(characters.filter(c => (c as any).bubbleStyle === editingTheme.id).map(c => c.id)));
             setShowApplySheet(true);
@@ -847,9 +847,9 @@ const ThemeMaker: React.FC = () => {
         });
         setShowApplySheet(false);
         if (applied || removed) {
-            addToast(`已应用到 ${applySelection.size} 个角色${removed ? `，${removed} 个角色回落默认气泡` : ''}`, 'success');
+            addToast(`已應用到 ${applySelection.size} 個角色${removed ? `，${removed} 個角色回落默認氣泡` : ''}`, 'success');
         } else {
-            addToast('角色气泡没有变化', 'info');
+            addToast('角色氣泡沒有變化', 'info');
         }
     };
 
@@ -891,11 +891,11 @@ const ThemeMaker: React.FC = () => {
 
     const restoreLastUsableCss = () => {
         if ((editingTheme.customCss || '') === lastUsableCss) {
-            addToast('当前已是上次可用 CSS', 'success');
+            addToast('當前已是上次可用 CSS', 'success');
             return;
         }
         updateTheme(prev => ({ ...prev, customCss: lastUsableCss }));
-        addToast('已恢复到上次可用 CSS', 'success');
+        addToast('已恢復到上次可用 CSS', 'success');
     };
 
     const applyTemplate = (template: StyleTemplate) => {
@@ -905,7 +905,7 @@ const ThemeMaker: React.FC = () => {
             ai: { ...prev.ai, ...template.ai },
             customCss: injectShadowCss(prev.customCss || '', template.userShadow, template.aiShadow)
         }));
-        addToast(`已应用 ${template.name} 模板`, 'success');
+        addToast(`已應用 ${template.name} 模板`, 'success');
         trackEvent('应用气泡风格模板', { template: template.id });
     };
 
@@ -950,7 +950,7 @@ const ThemeMaker: React.FC = () => {
                 ...prev[sourceKey]
             }
         }));
-        addToast('已镜像当前气泡参数', 'success');
+        addToast('已鏡像當前氣泡參數', 'success');
     };
 
     const currentScene = useMemo(
@@ -995,7 +995,7 @@ const ThemeMaker: React.FC = () => {
                 backgroundImageOpacity: Math.min(prev[activeTab].backgroundImageOpacity ?? 0.5, 0.55)
             }
         }));
-        addToast('已自动优化文字对比度', 'success');
+        addToast('已自動優化文字對比度', 'success');
     };
 
     useEffect(() => {
@@ -1049,7 +1049,7 @@ const ThemeMaker: React.FC = () => {
             <div 
                 className={`relative w-full flex items-end transition-all duration-300 cursor-pointer opacity-100 scale-100 ${isUser ? 'justify-end' : 'justify-start'}`}
                 onClick={() => panel === 'A' && requestTabSwitch(role)}
-                title={panel === 'A' ? `点击编辑${isUser ? '用户' : '角色'}气泡` : '上次保存版本'}
+                title={panel === 'A' ? `點擊編輯${isUser ? '用戶' : '角色'}氣泡` : '上次保存版本'}
             >
                 {/* Avatar + decoration: align with MessageItem layering */}
                 <div className={`absolute bottom-0 ${isUser ? 'right-0' : 'left-0'} w-9 h-9 z-10`}>
@@ -1112,7 +1112,7 @@ const ThemeMaker: React.FC = () => {
                                     if (!isVoicePreviewPlaying) trackEvent('播放气泡工坊语音预览');
                                 }}
                                 aria-pressed={isVoicePreviewPlaying}
-                                aria-label={isVoicePreviewPlaying ? '暂停语音条播放预览' : '播放语音条样式预览'}
+                                aria-label={isVoicePreviewPlaying ? '暫停語音條播放預覽' : '播放語音條樣式預覽'}
                             >
                                 <span
                                     className="sully-voice-bar-button flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] transition-all duration-300"
@@ -1144,11 +1144,11 @@ const ThemeMaker: React.FC = () => {
                                         );
                                     })}
                                 </span>
-                                <span className="sully-voice-bar-toggle rounded-lg bg-black/5 px-1.5 py-0.5 text-[9px] font-medium" style={{ color: style.voiceBarTextColor || '#64748b' }}>转文字</span>
+                                <span className="sully-voice-bar-toggle rounded-lg bg-black/5 px-1.5 py-0.5 text-[9px] font-medium" style={{ color: style.voiceBarTextColor || '#64748b' }}>轉文字</span>
                             </button>
                         ) : mock.kind === 'image' ? (
                             <div className="relative z-10 w-40 h-28 rounded-xl bg-black/10 border border-black/10 flex items-center justify-center text-xs" style={{ color: style.textColor }}>
-                                🖼️ 图片占位
+                                🖼️ 圖片佔位
                             </div>
                         ) : mock.kind === 'emoji' ? (
                             <div className="relative z-10 text-3xl leading-none">{mock.content}</div>
@@ -1160,7 +1160,7 @@ const ThemeMaker: React.FC = () => {
 
                         {isActive && (
                             <div className="absolute -top-2.5 left-3 px-2 py-0.5 rounded-full bg-primary text-white text-[9px] font-bold tracking-wider z-20">
-                                正在编辑{isUser ? '用户' : '角色'}
+                                正在編輯{isUser ? '用戶' : '角色'}
                             </div>
                         )}
                     </div>
@@ -1187,10 +1187,10 @@ const ThemeMaker: React.FC = () => {
                         </svg>
                     </button>
                     <div className="flex flex-col">
-                        <h1 className="text-xl font-medium text-slate-700">气泡工坊</h1>
+                        <h1 className="text-xl font-medium text-slate-700">氣泡工坊</h1>
                         <div className="text-[10px] flex items-center gap-1.5 text-slate-500">
                             <span className={`inline-flex w-2 h-2 rounded-full ${isAppliedToPreview && !isDirty ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-                            {isAppliedToPreview && !isDirty ? '已保存到气泡库' : '有未保存的改动'}
+                            {isAppliedToPreview && !isDirty ? '已保存到氣泡庫' : '有未保存的改動'}
                         </div>
                     </div>
                 </div>
@@ -1202,12 +1202,12 @@ const ThemeMaker: React.FC = () => {
             </div>
             </div>
 
-            {/* 用户作品区：保存后的气泡可回到工坊继续编辑，也可单独导出分享。 */}
+            {/* 用戶作品區：保存後的氣泡可回到工坊繼續編輯，也可單獨導出分享。 */}
             <section className="shrink-0 bg-white/80 border-b border-slate-100 px-4 py-3">
                 <button type="button" onClick={() => { setIsThemeLibraryOpen(prev => !prev); if (!isThemeLibraryOpen) trackEvent('展开我的气泡作品库'); }} aria-expanded={isThemeLibraryOpen} className="w-full flex items-center justify-between text-left">
                     <div>
-                        <h2 className="text-xs font-bold text-slate-600">我的自定义气泡</h2>
-                        <p className="text-[10px] text-slate-400 mt-0.5">点击{isThemeLibraryOpen ? '收起' : '展开并选择'} · 可搜索、导入、修改或导出</p>
+                        <h2 className="text-xs font-bold text-slate-600">我的自定義氣泡</h2>
+                        <p className="text-[10px] text-slate-400 mt-0.5">點擊{isThemeLibraryOpen ? '收起' : '展開並選擇'} · 可搜索、導入、修改或導出</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-slate-400">{customThemes.length} 套</span>
@@ -1227,14 +1227,14 @@ const ThemeMaker: React.FC = () => {
                             onClick={() => themeImportInputRef.current?.click()}
                             className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-bold active:scale-95 transition-transform"
                         >
-                            ⬆ 导入气泡文件
+                            ⬆ 導入氣泡文件
                         </button>
                     </div>
                 )}
                 {isThemeLibraryOpen && (customThemes.length > 0 ? (
                     <div className="mt-3">
                         {customThemes.length > 6 && (
-                            <input value={themeLibrarySearch} onChange={e => setThemeLibrarySearch(e.target.value)} placeholder="搜索我的气泡…" className="w-full mb-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs outline-none focus:border-indigo-300" />
+                            <input value={themeLibrarySearch} onChange={e => setThemeLibrarySearch(e.target.value)} placeholder="搜索我的氣泡…" className="w-full mb-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs outline-none focus:border-indigo-300" />
                         )}
                         <div className="grid grid-cols-2 gap-2 max-h-[42vh] overflow-y-auto no-scrollbar pb-1">
                         {visibleSavedThemes.map((theme: ChatTheme) => (
@@ -1247,18 +1247,18 @@ const ThemeMaker: React.FC = () => {
                                     <span className="text-xs font-bold text-slate-700 truncate">{theme.name}</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-1.5 mt-2.5">
-                                    <button onClick={() => editSavedTheme(theme)} className="py-1.5 rounded-xl bg-indigo-50 text-indigo-600 text-[11px] font-bold">选择载入</button>
-                                    <button onClick={() => void exportSavedTheme(theme)} className="py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-bold">导出</button>
-                                    <button onClick={() => setPendingDeleteTheme(theme)} className="py-1.5 rounded-xl bg-red-50 text-red-500 text-[11px] font-bold">删除</button>
+                                    <button onClick={() => editSavedTheme(theme)} className="py-1.5 rounded-xl bg-indigo-50 text-indigo-600 text-[11px] font-bold">選擇載入</button>
+                                    <button onClick={() => void exportSavedTheme(theme)} className="py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-bold">導出</button>
+                                    <button onClick={() => setPendingDeleteTheme(theme)} className="py-1.5 rounded-xl bg-red-50 text-red-500 text-[11px] font-bold">刪除</button>
                                 </div>
                             </div>
                         ))}
                         </div>
-                        {visibleSavedThemes.length === 0 && <div className="py-4 text-center text-[10px] text-slate-400">没有找到「{themeLibrarySearch.trim()}」</div>}
+                        {visibleSavedThemes.length === 0 && <div className="py-4 text-center text-[10px] text-slate-400">沒有找到「{themeLibrarySearch.trim()}」</div>}
                     </div>
                 ) : (
                     <div className="mt-3 rounded-2xl border border-dashed border-slate-200 px-3 py-2.5 text-[11px] text-slate-400">
-                        还没有作品。完成设计并保存后，会陈列在这里。
+                        還沒有作品。完成設計並保存後，會陳列在這裡。
                     </div>
                 ))}
             </section>
@@ -1279,7 +1279,7 @@ const ThemeMaker: React.FC = () => {
 
                 <div className="w-full max-w-sm relative z-10 bg-white/70 dark:bg-black/20 backdrop-blur-sm rounded-2xl p-3 border border-white/30 shadow-sm">
                     <div className={`absolute right-3 top-3 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm ${overallContrastScore.grade === 'A' ? 'bg-emerald-100 text-emerald-700' : overallContrastScore.grade === 'B' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
-                        可读性 {overallContrastScore.grade}
+                        可讀性 {overallContrastScore.grade}
                     </div>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {PREVIEW_SCENES.map(scene => (
@@ -1296,7 +1296,7 @@ const ThemeMaker: React.FC = () => {
                     <div className="flex flex-wrap gap-3 text-[11px] text-slate-500 mb-2">
                         <label className="flex items-center gap-1.5 cursor-pointer">
                             <input type="checkbox" checked={showPreviewBgImage} onChange={(e) => setShowPreviewBgImage(e.target.checked)} className="accent-primary" />
-                            显示背景图层
+                            顯示背景圖層
                         </label>
                         <label className="flex items-center gap-1.5 cursor-pointer">
                             <input type="checkbox" checked={isPreviewDark} onChange={(e) => setIsPreviewDark(e.target.checked)} className="accent-primary" />
@@ -1309,18 +1309,18 @@ const ThemeMaker: React.FC = () => {
                             onClick={() => setIsPreviewFullscreen(prev => !prev)}
                             className="px-2.5 py-1 rounded-full text-[11px] bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                         >
-                            {isPreviewFullscreen ? '退出全屏预览' : '全屏预览'}
+                            {isPreviewFullscreen ? '退出全屏預覽' : '全屏預覽'}
                         </button>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="text-slate-500">A/B 对比：</span>
-                        <button onClick={() => setPreviewCompareMode('single')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'single' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>单预览</button>
+                        <span className="text-slate-500">A/B 對比：</span>
+                        <button onClick={() => setPreviewCompareMode('single')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'single' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>單預覽</button>
                         <button onClick={() => setPreviewCompareMode('split')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'split' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>左右分屏</button>
-                        <button onClick={() => setPreviewCompareMode('toggle')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'toggle' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>一键切换</button>
+                        <button onClick={() => setPreviewCompareMode('toggle')} className={`px-2 py-1 rounded-full ${previewCompareMode === 'toggle' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>一鍵切換</button>
                         {previewCompareMode === 'toggle' && (
                             <div className="flex items-center gap-1">
-                                <button onClick={() => setPreviewToggleTarget('A')} className={`px-2 py-1 rounded ${previewToggleTarget === 'A' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>A 当前编辑</button>
+                                <button onClick={() => setPreviewToggleTarget('A')} className={`px-2 py-1 rounded ${previewToggleTarget === 'A' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>A 當前編輯</button>
                                 <button onClick={() => setPreviewToggleTarget('B')} className={`px-2 py-1 rounded ${previewToggleTarget === 'B' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>B 上次保存</button>
                             </div>
                         )}
@@ -1330,7 +1330,7 @@ const ThemeMaker: React.FC = () => {
                 {/* Simulated Chat Conversation */}
                 {previewCompareMode === 'split' ? (
                     <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-                        {[{ label: 'A 当前编辑', theme: editingTheme, panel: 'A' as const }, { label: 'B 上次保存', theme: lastSavedTheme, panel: 'B' as const }].map(item => (
+                        {[{ label: 'A 當前編輯', theme: editingTheme, panel: 'A' as const }, { label: 'B 上次保存', theme: lastSavedTheme, panel: 'B' as const }].map(item => (
                             <div key={item.label} className={`space-y-4 p-4 rounded-2xl ${isPreviewDark ? 'bg-slate-950/60 border border-white/10' : 'bg-white/70 border border-white/60'}`}>
                                 <div className="text-[10px] text-slate-500">{item.label}</div>
                                 {currentScene.messages.map((msg, index) => {
@@ -1351,10 +1351,10 @@ const ThemeMaker: React.FC = () => {
                     </div>
                 )}
                 
-                <div className={`text-[10px] absolute bottom-2 ${isPreviewDark ? 'text-slate-400' : 'text-slate-500'}`}>A 为当前编辑，B 为上次保存版本</div>
+                <div className={`text-[10px] absolute bottom-2 ${isPreviewDark ? 'text-slate-400' : 'text-slate-500'}`}>A 為當前編輯，B 為上次保存版本</div>
             </div>
 
-            {/* 与外观 App 相同的悬浮设置钮：点按开关面板，拖动避开想观察的气泡。 */}
+            {/* 與外觀 App 相同的懸浮設置鈕：點按開關面板，拖動避開想觀察的氣泡。 */}
             {!isPreviewFullscreen && (
                 <button
                     type="button"
@@ -1366,8 +1366,8 @@ const ThemeMaker: React.FC = () => {
                     style={editorBubblePos
                         ? { left: editorBubblePos.x, top: editorBubblePos.y, touchAction: 'none' }
                         : { right: 12, top: 'calc(var(--safe-top, 0px) + 35vh)', touchAction: 'none' }}
-                    aria-label={editorPanelOpen ? '收起气泡编辑面板' : '展开气泡编辑面板'}
-                    title="点按开关设置 · 按住拖动"
+                    aria-label={editorPanelOpen ? '收起氣泡編輯面板' : '展開氣泡編輯面板'}
+                    title="點按開關設置 · 按住拖動"
                 >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6" aria-hidden="true">
                         <path strokeLinecap="round" d="M4 7h10M18 7h2M4 17h2M10 17h10M8 4v6M8 14v6M16 4v6M16 14v6" />
@@ -1375,7 +1375,7 @@ const ThemeMaker: React.FC = () => {
                 </button>
             )}
 
-            {/* Editor Controls：悬浮在完整预览上方，不再挤占一半预览高度。 */}
+            {/* Editor Controls：懸浮在完整預覽上方，不再擠佔一半預覽高度。 */}
             {!isPreviewFullscreen && editorPanelOpen && (
             <div
                 className="fixed left-1/2 z-[135] flex w-[94%] max-w-md -translate-x-1/2 flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.24)] ring-1 ring-slate-100 backdrop-blur-xl"
@@ -1388,31 +1388,31 @@ const ThemeMaker: React.FC = () => {
                 {/* Main Tabs (User / AI / CSS) */}
                 <div className="flex items-center gap-3 px-5 pt-4 pb-2">
                     <div className="flex min-w-0 flex-1 gap-5 overflow-x-auto no-scrollbar">
-                        <button onClick={() => requestTabSwitch('user')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'user' ? 'text-slate-800' : 'text-slate-300'}`}>用户气泡</button>
-                        <button onClick={() => requestTabSwitch('ai')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'ai' ? 'text-slate-800' : 'text-slate-300'}`}>角色气泡</button>
+                        <button onClick={() => requestTabSwitch('user')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'user' ? 'text-slate-800' : 'text-slate-300'}`}>用戶氣泡</button>
+                        <button onClick={() => requestTabSwitch('ai')} className={`text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'ai' ? 'text-slate-800' : 'text-slate-300'}`}>角色氣泡</button>
                         <button onClick={() => requestTabSwitch('css')} className={`text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'css' ? 'text-indigo-600' : 'text-slate-300'}`}>
-                            <span>⚡</span> 自定义CSS
+                            <span>⚡</span> 自定義CSS
                         </button>
                     </div>
                     <button
                         type="button"
                         onClick={() => setEditorPanelOpen(false)}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg leading-none text-slate-400 transition active:scale-90"
-                        aria-label="收起气泡编辑面板"
+                        aria-label="收起氣泡編輯面板"
                     >×</button>
                 </div>
 
                 <div className="px-8 pb-2 flex items-center gap-2">
-                    <button onClick={handleUndo} disabled={undoStack.length === 0} className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 disabled:opacity-40">撤销</button>
+                    <button onClick={handleUndo} disabled={undoStack.length === 0} className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 disabled:opacity-40">撤銷</button>
                     <button onClick={handleRedo} disabled={redoStack.length === 0} className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 disabled:opacity-40">重做</button>
                 </div>
 
                 {/* Conditional Sub-Tool Tabs */}
                 {activeTab !== 'css' && (
                     <div className="flex px-6 border-b border-slate-100 mb-2 overflow-x-auto no-scrollbar">
-                        <button onClick={() => requestToolSectionSwitch('base')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'base' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>基础样式</button>
-                        <button onClick={() => requestToolSectionSwitch('sticker')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'sticker' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>气泡贴纸</button>
-                        <button onClick={() => requestToolSectionSwitch('avatar')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'avatar' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>头像挂件</button>
+                        <button onClick={() => requestToolSectionSwitch('base')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'base' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>基礎樣式</button>
+                        <button onClick={() => requestToolSectionSwitch('sticker')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'sticker' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>氣泡貼紙</button>
+                        <button onClick={() => requestToolSectionSwitch('avatar')} className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${toolSection === 'avatar' ? 'border-primary text-primary' : 'border-transparent text-slate-400'}`}>頭像掛件</button>
                     </div>
                 )}
 
@@ -1422,27 +1422,27 @@ const ThemeMaker: React.FC = () => {
                     {activeTab === 'css' && (
                         <div className="space-y-6 animate-fade-in h-full flex flex-col">
                             <div className="text-[10px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed space-y-2">
-                                <span className="font-bold block mb-1 text-slate-500">CSS 增强模式</span>
-                                可使用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-user</code>、<code className="bg-slate-200 px-1 rounded">.sully-bubble-ai</code> 定制气泡，使用 <code className="bg-slate-200 px-1 rounded">.sully-voice-bar</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-button</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-wave-segment</code> 单独定制语音条。
-                                <br/>连续消息可用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-group-last</code> 命中组末气泡；基础样式里的“尾巴出现位置”也会自动隐藏中间气泡的伪元素尾巴。
-                                <br/>支持使用 <code className="text-red-400">!important</code> 覆盖可视化编辑器的设置。
+                                <span className="font-bold block mb-1 text-slate-500">CSS 增強模式</span>
+                                可使用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-user</code>、<code className="bg-slate-200 px-1 rounded">.sully-bubble-ai</code> 定製氣泡，使用 <code className="bg-slate-200 px-1 rounded">.sully-voice-bar</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-button</code>、<code className="bg-slate-200 px-1 rounded">.sully-voice-bar-wave-segment</code> 單獨定製語音條。
+                                <br/>連續消息可用 <code className="bg-slate-200 px-1 rounded">.sully-bubble-group-last</code> 命中組末氣泡；基礎樣式裡的“尾巴出現位置”也會自動隱藏中間氣泡的偽元素尾巴。
+                                <br/>支持使用 <code className="text-red-400">!important</code> 覆蓋可視化編輯器的設置。
                                 <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-2 text-[10px] text-indigo-700">
-                                    <div className="font-semibold">优先级说明：可视化参数 vs CSS 覆盖</div>
-                                    <div>1) 可视化滑杆/颜色面板先生成基础样式；2) 自定义 CSS 后应用；3) <code>!important</code> 仅对命中的属性强制生效，会压过同属性的可视化参数。</div>
+                                    <div className="font-semibold">優先級說明：可視化參數 vs CSS 覆蓋</div>
+                                    <div>1) 可視化滑桿/顏色面板先生成基礎樣式；2) 自定義 CSS 後應用；3) <code>!important</code> 僅對命中的屬性強制生效，會壓過同屬性的可視化參數。</div>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
                                     <div>
                                         <div className={`text-[10px] font-semibold ${cssValidation.isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {cssValidation.isValid ? '语法检查通过' : '语法检查未通过'}
+                                            {cssValidation.isValid ? '語法檢查通過' : '語法檢查未通過'}
                                         </div>
-                                        <div className="text-[10px] text-slate-500">检测到 <code className="text-red-500">!important</code> {cssValidation.importantCount} 处</div>
+                                        <div className="text-[10px] text-slate-500">檢測到 <code className="text-red-500">!important</code> {cssValidation.importantCount} 處</div>
                                     </div>
                                     <button
                                         onClick={restoreLastUsableCss}
                                         disabled={(editingTheme.customCss || '') === lastUsableCss}
                                         className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 disabled:opacity-50"
                                     >
-                                        重置为上次可用 CSS
+                                        重置為上次可用 CSS
                                     </button>
                                 </div>
                             </div>
@@ -1451,14 +1451,14 @@ const ThemeMaker: React.FC = () => {
                                 ref={cssTextareaRef}
                                 value={editingTheme.customCss || ''} 
                                 onChange={(e) => updateTheme(prev => ({ ...prev, customCss: e.target.value }))}
-                                placeholder="/* 在这里输入 CSS 代码 */"
+                                placeholder="/* 在這裡輸入 CSS 代碼 */"
                                 className="flex-1 w-full bg-slate-800 text-slate-300 font-mono text-xs p-4 rounded-xl resize-none shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
                                 spellCheck={false}
                             />
 
                             {!cssValidation.isValid && (
                                 <div className="text-[11px] rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
-                                    <div className="font-semibold mb-1">CSS 错误提示（实时）</div>
+                                    <div className="font-semibold mb-1">CSS 錯誤提示（實時）</div>
                                     <ul className="space-y-1 list-disc pl-4">
                                         {cssValidation.errors.map((error, idx) => (
                                             <li key={`${error}-${idx}`}>
@@ -1470,7 +1470,7 @@ const ThemeMaker: React.FC = () => {
                             )}
 
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">限定作用域插入器（气泡 / 语音条）</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">限定作用域插入器（氣泡 / 語音條）</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {CSS_SCOPE_SNIPPETS.map(snippet => (
                                         <button
@@ -1507,14 +1507,14 @@ const ThemeMaker: React.FC = () => {
                         <div className="space-y-6 animate-fade-in"> 
                             {/* Name Input (Only on Base) */}
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">主题名称 (Theme Name)</label>
-                                <input value={editingTheme.name} onChange={(e) => updateTheme(prev => ({ ...prev, name: e.target.value }), { trackHistory: false })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-primary/50 transition-all outline-none" placeholder="我的个性主题" />
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">主題名稱 (Theme Name)</label>
+                                <input value={editingTheme.name} onChange={(e) => updateTheme(prev => ({ ...prev, name: e.target.value }), { trackHistory: false })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:border-primary/50 transition-all outline-none" placeholder="我的個性主題" />
                             </div>
 
                             <div>
                                 <div className="flex items-center justify-between mb-2">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">风格模板卡片</label>
-                                    <button onClick={randomizeMonochrome} className="text-[10px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100">随机生成（同色系）</button>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">風格模板卡片</label>
+                                    <button onClick={randomizeMonochrome} className="text-[10px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100">隨機生成（同色系）</button>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {STYLE_TEMPLATES.map(template => (
@@ -1531,13 +1531,13 @@ const ThemeMaker: React.FC = () => {
                             </div>
 
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">快速联动</div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">快速聯動</div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <label className="text-xs text-slate-600 flex items-center gap-2">
                                         <input type="checkbox" checked={userFollowAi} onChange={(e) => setUserFollowAi(e.target.checked)} className="accent-primary" />
-                                        用户气泡跟随角色气泡
+                                        用戶氣泡跟隨角色氣泡
                                     </label>
-                                    <button onClick={mirrorToOtherBubble} className="text-[10px] px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:border-primary/30">镜像参数到另一个气泡</button>
+                                    <button onClick={mirrorToOtherBubble} className="text-[10px] px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:border-primary/30">鏡像參數到另一個氣泡</button>
                                 </div>
                             </div>
 
@@ -1545,20 +1545,20 @@ const ThemeMaker: React.FC = () => {
                                 <div className={`rounded-xl border p-3 ${showLowContrastWarning ? 'border-amber-200 bg-amber-50/80' : 'border-emerald-200 bg-emerald-50/70'}`}>
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div>
-                                            <div className="text-[11px] font-semibold text-slate-700">实时可读性评分：{activeContrastScore.grade}（{activeContrastScore.ratio.toFixed(2)}:1）</div>
+                                            <div className="text-[11px] font-semibold text-slate-700">實時可讀性評分：{activeContrastScore.grade}（{activeContrastScore.ratio.toFixed(2)}:1）</div>
                                             <div className={`text-[10px] mt-1 ${showLowContrastWarning ? 'text-amber-700' : 'text-emerald-700'}`}>
-                                                {showLowContrastWarning ? '文字可读性偏低，建议提升文字与背景对比。' : '当前文字与背景对比良好。'}
+                                                {showLowContrastWarning ? '文字可讀性偏低，建議提升文字與背景對比。' : '當前文字與背景對比良好。'}
                                             </div>
                                         </div>
                                         {showLowContrastWarning && (
                                             <button onClick={oneClickFixContrast} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors">
-                                                一键修复
+                                                一鍵修復
                                             </button>
                                         )}
                                     </div>
                                     {showCombinedRisk && (
                                         <div className="mt-2 text-[10px] text-rose-600 font-medium">
-                                            组合风险：背景图透明层较强 + 对比度不足，可能在复杂壁纸上难以阅读。
+                                            組合風險：背景圖透明層較強 + 對比度不足，可能在複雜壁紙上難以閱讀。
                                         </div>
                                     )}
                                 </div>
@@ -1567,11 +1567,11 @@ const ThemeMaker: React.FC = () => {
                             {/* Colors & Opacity */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">文字颜色</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：自动对比</span></div>
+                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">文字顏色</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推薦：自動對比</span></div>
                                     <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100"><input type="color" value={activeStyle.textColor} onChange={(e) => updateStyle('textColor', e.target.value)} className="w-8 h-8 rounded-lg border-none cursor-pointer bg-transparent" /></div>
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">气泡颜色 (Base)</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：同色系</span></div>
+                                    <div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">氣泡顏色 (Base)</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推薦：同色系</span></div>
                                     <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                                         <input 
                                             type="color" 
@@ -1587,7 +1587,7 @@ const ThemeMaker: React.FC = () => {
                             <div>
                                 <div className="flex justify-between mb-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase">背景透明度 (Background Alpha)</label>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：85%</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推薦：85%</span>
                                 </div>
                                 <input 
                                     type="range" min="0" max="1" step="0.05" 
@@ -1600,29 +1600,29 @@ const ThemeMaker: React.FC = () => {
                             {/* Padding (Compactness) */}
                             <div>
                                 <div className="flex justify-between mb-2">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">气泡大小/紧凑度 (Size/Padding)</label>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：12</span>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">氣泡大小/緊湊度 (Size/Padding)</label>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推薦：12</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-slate-400">紧凑</span>
+                                    <span className="text-[10px] text-slate-400">緊湊</span>
                                     <input 
                                         type="range" min="4" max="24" step="1" 
                                         value={paddingVal} 
                                         onChange={(e) => updatePadding(parseInt(e.target.value))} 
                                         className="flex-1 h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" 
                                     />
-                                    <span className="text-[10px] text-slate-400">宽敞</span>
+                                    <span className="text-[10px] text-slate-400">寬敞</span>
                                 </div>
                             </div>
 
                             {/* Border Radius */}
                             <div className="space-y-3">
                                 <div>
-                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">四角一起调</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">{activeStyle.borderRadius}px</span></div>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">四角一起調</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">{activeStyle.borderRadius}px</span></div>
                                     <input type="range" min="0" max="36" value={activeStyle.borderRadius} onChange={(e) => updateAllCornerRadii(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
                                 </div>
                                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <summary className="cursor-pointer text-xs font-semibold text-slate-600">独立调整四个角</summary>
+                                    <summary className="cursor-pointer text-xs font-semibold text-slate-600">獨立調整四個角</summary>
                                     <div className="mt-3 grid grid-cols-2 gap-3">
                                         {([
                                             ['borderTopLeftRadius', '左上'],
@@ -1643,21 +1643,21 @@ const ThemeMaker: React.FC = () => {
                                             );
                                         })}
                                     </div>
-                                    <button type="button" onClick={() => updateAllCornerRadii(activeStyle.borderRadius)} className="mt-3 w-full rounded-lg bg-white py-2 text-[10px] font-semibold text-slate-500">重新统一四角</button>
+                                    <button type="button" onClick={() => updateAllCornerRadii(activeStyle.borderRadius)} className="mt-3 w-full rounded-lg bg-white py-2 text-[10px] font-semibold text-slate-500">重新統一四角</button>
                                 </details>
                                 <div>
-                                    <div className="mb-2 text-[10px] font-bold uppercase text-slate-400">小尾巴出现位置</div>
+                                    <div className="mb-2 text-[10px] font-bold uppercase text-slate-400">小尾巴出現位置</div>
                                     <div className="grid grid-cols-3 gap-2">
                                         {([
-                                            ['last', '仅组末'],
-                                            ['every', '每一条'],
-                                            ['none', '不显示'],
+                                            ['last', '僅組末'],
+                                            ['every', '每一條'],
+                                            ['none', '不顯示'],
                                         ] as const).map(([mode, label]) => {
                                             const selected = (activeStyle.tailMode || 'every') === mode;
                                             return <button key={mode} type="button" onClick={() => updateStyle('tailMode', mode)} className={`rounded-xl border py-2 text-[10px] font-semibold transition ${selected ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 bg-white text-slate-500'}`}>{label}</button>;
                                         })}
                                     </div>
-                                    <p className="mt-1.5 text-[9px] leading-relaxed text-slate-400">适用于用 ::before / ::after 画出的 CSS 尾巴；“仅组末”就是 iMessage 那种连续消息只在最后一条保留尾巴。</p>
+                                    <p className="mt-1.5 text-[9px] leading-relaxed text-slate-400">適用於用 ::before / ::after 畫出的 CSS 尾巴；“僅組末”就是 iMessage 那種連續消息只在最後一條保留尾巴。</p>
                                 </div>
                             </div>
 
@@ -1666,9 +1666,9 @@ const ThemeMaker: React.FC = () => {
                                 {activeStyle.backgroundImage ? (
                                     <>
                                         <TokenImg value={activeStyle.backgroundImage} className="absolute inset-0 w-full h-full object-cover opacity-50" />
-                                        <span className="relative z-10 text-[10px] bg-white/80 px-2 py-1 rounded shadow-sm font-bold">更换底纹</span>
+                                        <span className="relative z-10 text-[10px] bg-white/80 px-2 py-1 rounded shadow-sm font-bold">更換底紋</span>
                                     </>
-                                ) : <span className="text-xs font-bold">+ 上传底纹图片 (Texture)</span>}
+                                ) : <span className="text-xs font-bold">+ 上傳底紋圖片 (Texture)</span>}
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'bg')} />
                                 {activeStyle.backgroundImage && <button onClick={(e) => { e.stopPropagation(); updateStyle('backgroundImage', undefined); }} className="absolute top-2 right-2 text-[10px] bg-red-100 text-red-500 px-2 py-0.5 rounded-full z-20">移除</button>}
                             </div>
@@ -1678,16 +1678,16 @@ const ThemeMaker: React.FC = () => {
                                     value={assetUrlDraft.bg}
                                     onChange={(e) => setAssetUrlDraft(prev => ({ ...prev, bg: e.target.value }))}
                                     onClick={(e) => e.stopPropagation()}
-                                    placeholder="或粘贴图床 URL"
+                                    placeholder="或粘貼圖床 URL"
                                     className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 />
-                                <button onClick={() => handleUrlApply('bg')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">应用</button>
+                                <button onClick={() => handleUrlApply('bg')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">應用</button>
                             </div>
 
                             {/* Background Image Opacity */}
                             {activeStyle.backgroundImage && (
                                 <div>
-                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">底纹透明度</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推荐：35%~55%</span></div>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-slate-400 uppercase">底紋透明度</label><span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">推薦：35%~55%</span></div>
                                     <input type="range" min="0" max="1" step="0.05" value={activeStyle.backgroundImageOpacity ?? 0.5} onChange={(e) => updateStyle('backgroundImageOpacity', parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary" />
                                 </div>
                             )}
@@ -1695,9 +1695,9 @@ const ThemeMaker: React.FC = () => {
                             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M7 4a3 3 0 0 1 6 0v6a3 3 0 1 1-6 0V4Z" /><path d="M5.5 9.643a.75.75 0 0 0-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.546A6.001 6.001 0 0 0 16 10v-.357a.75.75 0 0 0-1.5 0V10a4.5 4.5 0 0 1-9 0v-.357Z" /></svg>
-                                    语音条样式
+                                    語音條樣式
                                 </h3>
-                                <p className="mb-3 text-[9px] leading-relaxed text-slate-400">语音只出现在角色侧，因此这里始终写入角色气泡配置；在“用户气泡”页修改也会真实生效。需要改尺寸、圆角或布局，可到“自定义 CSS”使用 .sully-voice-bar。</p>
+                                <p className="mb-3 text-[9px] leading-relaxed text-slate-400">語音只出現在角色側，因此這裡始終寫入角色氣泡配置；在“用戶氣泡”頁修改也會真實生效。需要改尺寸、圓角或佈局，可到“自定義 CSS”使用 .sully-voice-bar。</p>
                                 <div className="sully-bubble-ai mb-4 rounded-2xl bg-slate-50 p-2">
                                     <button
                                         type="button"
@@ -1740,7 +1740,7 @@ const ThemeMaker: React.FC = () => {
                                             })}
                                         </span>
                                         <span className="sully-voice-bar-toggle text-[9px]" style={{ color: voiceBarStyle.voiceBarTextColor || '#475569' }}>
-                                            {playingVoicePreviewKey === 'editor-inline' ? '播放中' : '播放预览'}
+                                            {playingVoicePreviewKey === 'editor-inline' ? '播放中' : '播放預覽'}
                                         </span>
                                     </button>
                                 </div>
@@ -1749,39 +1749,39 @@ const ThemeMaker: React.FC = () => {
                                         <label className="text-[10px] text-slate-400 block mb-1">背景色</label>
                                         <div className="flex items-center gap-2">
                                             <input type="color" value={voiceBarStyle.voiceBarBg || '#f1f5f9'} onChange={(e) => updateVoiceBarStyle('voiceBarBg', e.target.value)} className="w-7 h-7 rounded-lg border-0 cursor-pointer" />
-                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarBg || '默认'}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarBg || '默認'}</span>
                                             {voiceBarStyle.voiceBarBg && <button onClick={() => updateVoiceBarStyle('voiceBarBg', undefined)} className="text-[9px] text-red-400">重置</button>}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-slate-400 block mb-1">播放时背景</label>
+                                        <label className="text-[10px] text-slate-400 block mb-1">播放時背景</label>
                                         <div className="flex items-center gap-2">
                                             <input type="color" value={voiceBarStyle.voiceBarActiveBg || '#d1fae5'} onChange={(e) => updateVoiceBarStyle('voiceBarActiveBg', e.target.value)} className="w-7 h-7 rounded-lg border-0 cursor-pointer" />
-                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarActiveBg || '默认'}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarActiveBg || '默認'}</span>
                                             {voiceBarStyle.voiceBarActiveBg && <button onClick={() => updateVoiceBarStyle('voiceBarActiveBg', undefined)} className="text-[9px] text-red-400">重置</button>}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-slate-400 block mb-1">按钮颜色</label>
+                                        <label className="text-[10px] text-slate-400 block mb-1">按鈕顏色</label>
                                         <div className="flex items-center gap-2">
                                             <input type="color" value={voiceBarStyle.voiceBarBtnColor || '#10b981'} onChange={(e) => updateVoiceBarStyle('voiceBarBtnColor', e.target.value)} className="w-7 h-7 rounded-lg border-0 cursor-pointer" />
-                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarBtnColor || '默认'}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarBtnColor || '默認'}</span>
                                             {voiceBarStyle.voiceBarBtnColor && <button onClick={() => updateVoiceBarStyle('voiceBarBtnColor', undefined)} className="text-[9px] text-red-400">重置</button>}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-slate-400 block mb-1">波形颜色</label>
+                                        <label className="text-[10px] text-slate-400 block mb-1">波形顏色</label>
                                         <div className="flex items-center gap-2">
                                             <input type="color" value={voiceBarStyle.voiceBarWaveColor || '#10b981'} onChange={(e) => updateVoiceBarStyle('voiceBarWaveColor', e.target.value)} className="w-7 h-7 rounded-lg border-0 cursor-pointer" />
-                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarWaveColor || '默认'}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarWaveColor || '默認'}</span>
                                             {voiceBarStyle.voiceBarWaveColor && <button onClick={() => updateVoiceBarStyle('voiceBarWaveColor', undefined)} className="text-[9px] text-red-400">重置</button>}
                                         </div>
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="text-[10px] text-slate-400 block mb-1">文字颜色</label>
+                                        <label className="text-[10px] text-slate-400 block mb-1">文字顏色</label>
                                         <div className="flex items-center gap-2">
                                             <input type="color" value={voiceBarStyle.voiceBarTextColor || '#475569'} onChange={(e) => updateVoiceBarStyle('voiceBarTextColor', e.target.value)} className="w-7 h-7 rounded-lg border-0 cursor-pointer" />
-                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarTextColor || '默认'}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{voiceBarStyle.voiceBarTextColor || '默認'}</span>
                                             {voiceBarStyle.voiceBarTextColor && <button onClick={() => updateVoiceBarStyle('voiceBarTextColor', undefined)} className="text-[9px] text-red-400">重置</button>}
                                         </div>
                                     </div>
@@ -1794,7 +1794,7 @@ const ThemeMaker: React.FC = () => {
                     {activeTab !== 'css' && toolSection === 'sticker' && (
                         <div className="space-y-6 animate-fade-in">
                             <div onClick={() => decorationInputRef.current?.click()} className="cursor-pointer group relative h-20 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400 hover:border-primary/50 hover:text-primary transition-all">
-                                 {activeStyle.decoration ? <TokenImg value={activeStyle.decoration} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold">+ 上传气泡角标/贴纸</span>}
+                                 {activeStyle.decoration ? <TokenImg value={activeStyle.decoration} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold">+ 上傳氣泡角標/貼紙</span>}
                                  <input type="file" ref={decorationInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'deco')} />
                                  {activeStyle.decoration && <button onClick={(e) => { e.stopPropagation(); updateStyle('decoration', undefined); }} className="absolute top-2 right-2 text-[10px] bg-red-100 text-red-500 px-2 py-0.5 rounded-full">移除</button>}
                             </div>
@@ -1803,27 +1803,27 @@ const ThemeMaker: React.FC = () => {
                                     type="url"
                                     value={assetUrlDraft.deco}
                                     onChange={(e) => setAssetUrlDraft(prev => ({ ...prev, deco: e.target.value }))}
-                                    placeholder="或粘贴贴纸图床 URL"
+                                    placeholder="或粘貼貼紙圖床 URL"
                                     className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 />
-                                <button onClick={() => handleUrlApply('deco')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">应用</button>
+                                <button onClick={() => handleUrlApply('deco')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">應用</button>
                             </div>
 
                             {activeStyle.decoration && (
                                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3" open={showAdvancedSettings}>
-                                    <summary onClick={(e) => { e.preventDefault(); setShowAdvancedSettings(prev => !prev); }} className="text-xs font-semibold text-slate-600 cursor-pointer">高级设置 · 贴纸坐标与旋转</summary>
+                                    <summary onClick={(e) => { e.preventDefault(); setShowAdvancedSettings(prev => !prev); }} className="text-xs font-semibold text-slate-600 cursor-pointer">高級設置 · 貼紙座標與旋轉</summary>
                                     {showAdvancedSettings && (
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-6 pt-4">
-                                            <div className="col-span-2"><label className="text-[10px] text-slate-400 uppercase block mb-2">位置坐标 (X / Y)</label>
+                                            <div className="col-span-2"><label className="text-[10px] text-slate-400 uppercase block mb-2">位置座標 (X / Y)</label>
                                                 <div className="flex gap-3">
                                                     <input type="range" min="-50" max="150" value={activeStyle.decorationX ?? 90} onChange={(e) => updateStyle('decorationX', parseInt(e.target.value))} className="flex-1 h-1.5 bg-slate-200 rounded-full accent-primary" />
                                                     <input type="range" min="-50" max="150" value={activeStyle.decorationY ?? -10} onChange={(e) => updateStyle('decorationY', parseInt(e.target.value))} className="flex-1 h-1.5 bg-slate-200 rounded-full accent-primary" />
                                                 </div>
                                             </div>
-                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">缩放 ({activeStyle.decorationScale ?? 1}x)</label>
+                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">縮放 ({activeStyle.decorationScale ?? 1}x)</label>
                                                 <input type="range" min="0.2" max="3" step="0.1" value={activeStyle.decorationScale ?? 1} onChange={(e) => updateStyle('decorationScale', parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full accent-primary" />
                                             </div>
-                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">旋转 ({activeStyle.decorationRotate ?? 0}°)</label>
+                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">旋轉 ({activeStyle.decorationRotate ?? 0}°)</label>
                                                 <input type="range" min="-180" max="180" value={activeStyle.decorationRotate ?? 0} onChange={(e) => updateStyle('decorationRotate', parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full accent-primary" />
                                             </div>
                                         </div>
@@ -1837,7 +1837,7 @@ const ThemeMaker: React.FC = () => {
                     {activeTab !== 'css' && toolSection === 'avatar' && (
                         <div className="space-y-6 animate-fade-in">
                             <div onClick={() => avatarDecoInputRef.current?.click()} className="cursor-pointer group relative h-20 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400 hover:border-primary/50 hover:text-primary transition-all">
-                                 {activeStyle.avatarDecoration ? <TokenImg value={activeStyle.avatarDecoration} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold">+ 上传头像框/挂件</span>}
+                                 {activeStyle.avatarDecoration ? <TokenImg value={activeStyle.avatarDecoration} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold">+ 上傳頭像框/掛件</span>}
                                  <input type="file" ref={avatarDecoInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'avatarDeco')} />
                                  {activeStyle.avatarDecoration && <button onClick={(e) => { e.stopPropagation(); updateStyle('avatarDecoration', undefined); }} className="absolute top-2 right-2 text-[10px] bg-red-100 text-red-500 px-2 py-0.5 rounded-full">移除</button>}
                             </div>
@@ -1846,15 +1846,15 @@ const ThemeMaker: React.FC = () => {
                                     type="url"
                                     value={assetUrlDraft.avatarDeco}
                                     onChange={(e) => setAssetUrlDraft(prev => ({ ...prev, avatarDeco: e.target.value }))}
-                                    placeholder="或粘贴挂件图床 URL"
+                                    placeholder="或粘貼掛件圖床 URL"
                                     className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 />
-                                <button onClick={() => handleUrlApply('avatarDeco')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">应用</button>
+                                <button onClick={() => handleUrlApply('avatarDeco')} className="px-3 py-2 rounded-lg bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200">應用</button>
                             </div>
 
                             {activeStyle.avatarDecoration && (
                                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-3" open={showAdvancedSettings}>
-                                    <summary onClick={(e) => { e.preventDefault(); setShowAdvancedSettings(prev => !prev); }} className="text-xs font-semibold text-slate-600 cursor-pointer">高级设置 · 挂件偏移与旋转</summary>
+                                    <summary onClick={(e) => { e.preventDefault(); setShowAdvancedSettings(prev => !prev); }} className="text-xs font-semibold text-slate-600 cursor-pointer">高級設置 · 掛件偏移與旋轉</summary>
                                     {showAdvancedSettings && (
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-6 pt-4">
                                             <div className="col-span-2"><label className="text-[10px] text-slate-400 uppercase block mb-2">中心偏移 (Offset X / Y)</label>
@@ -1863,10 +1863,10 @@ const ThemeMaker: React.FC = () => {
                                                     <input type="range" min="-50" max="150" value={activeStyle.avatarDecorationY ?? 50} onChange={(e) => updateStyle('avatarDecorationY', parseInt(e.target.value))} className="flex-1 h-1.5 bg-slate-200 rounded-full accent-primary" />
                                                 </div>
                                             </div>
-                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">缩放 ({activeStyle.avatarDecorationScale ?? 1}x)</label>
+                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">縮放 ({activeStyle.avatarDecorationScale ?? 1}x)</label>
                                                 <input type="range" min="0.5" max="3" step="0.1" value={activeStyle.avatarDecorationScale ?? 1} onChange={(e) => updateStyle('avatarDecorationScale', parseFloat(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full accent-primary" />
                                             </div>
-                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">旋转 ({activeStyle.avatarDecorationRotate ?? 0}°)</label>
+                                            <div><label className="text-[10px] text-slate-400 uppercase block mb-2">旋轉 ({activeStyle.avatarDecorationRotate ?? 0}°)</label>
                                                 <input type="range" min="-180" max="180" value={activeStyle.avatarDecorationRotate ?? 0} onChange={(e) => updateStyle('avatarDecorationRotate', parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-full accent-primary" />
                                             </div>
                                         </div>
@@ -1884,11 +1884,11 @@ const ThemeMaker: React.FC = () => {
             {pendingDiscardAction && (
                 <div className="absolute inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-6">
                     <div className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl">
-                        <div className="text-base font-bold text-slate-700">有未保存的改动</div>
-                        <p className="mt-2 text-sm text-slate-500">继续操作将丢失当前未保存的改动。</p>
+                        <div className="text-base font-bold text-slate-700">有未保存的改動</div>
+                        <p className="mt-2 text-sm text-slate-500">繼續操作將丟失當前未保存的改動。</p>
                         <div className="mt-5 flex gap-3">
                             <button onClick={() => setPendingDiscardAction(null)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold">取消</button>
-                            <button onClick={() => { const action = pendingDiscardAction; setPendingDiscardAction(null); action(); }} className="flex-1 py-2.5 rounded-2xl bg-red-500 text-white font-bold">放弃改动</button>
+                            <button onClick={() => { const action = pendingDiscardAction; setPendingDiscardAction(null); action(); }} className="flex-1 py-2.5 rounded-2xl bg-red-500 text-white font-bold">放棄改動</button>
                         </div>
                     </div>
                 </div>
@@ -1898,11 +1898,11 @@ const ThemeMaker: React.FC = () => {
             {pendingDeleteTheme && (
                 <div className="absolute inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-6">
                     <div className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl">
-                        <div className="text-base font-bold text-slate-700">删除这套气泡？</div>
-                        <p className="mt-2 text-sm text-slate-500">「{pendingDeleteTheme.name}」将从气泡库中移除，正在使用它的角色会回落到默认气泡。此操作无法撤销，删除前可先导出备份。</p>
+                        <div className="text-base font-bold text-slate-700">刪除這套氣泡？</div>
+                        <p className="mt-2 text-sm text-slate-500">「{pendingDeleteTheme.name}」將從氣泡庫中移除，正在使用它的角色會回落到默認氣泡。此操作無法撤銷，刪除前可先導出備份。</p>
                         <div className="mt-5 flex gap-3">
                             <button onClick={() => setPendingDeleteTheme(null)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold">取消</button>
-                            <button onClick={confirmDeleteTheme} className="flex-1 py-2.5 rounded-2xl bg-red-500 text-white font-bold">删除</button>
+                            <button onClick={confirmDeleteTheme} className="flex-1 py-2.5 rounded-2xl bg-red-500 text-white font-bold">刪除</button>
                         </div>
                     </div>
                 </div>
@@ -1912,17 +1912,17 @@ const ThemeMaker: React.FC = () => {
             {showLowContrastConfirm && (
                 <div className="absolute inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-6">
                     <div className="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl">
-                        <div className="text-base font-bold text-slate-700">可读性评分极低</div>
-                        <p className="mt-2 text-sm text-slate-500">当前文字与背景的对比度过低，可能导致聊天内容难以辨认。仍要保存此样式吗？</p>
+                        <div className="text-base font-bold text-slate-700">可讀性評分極低</div>
+                        <p className="mt-2 text-sm text-slate-500">當前文字與背景的對比度過低，可能導致聊天內容難以辨認。仍要保存此樣式嗎？</p>
                         <div className="mt-5 flex gap-3">
-                            <button onClick={() => setShowLowContrastConfirm(false)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold">再调整一下</button>
+                            <button onClick={() => setShowLowContrastConfirm(false)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold">再調整一下</button>
                             <button onClick={() => { setShowLowContrastConfirm(false); doSaveTheme(pendingSaveExit); }} className="flex-1 py-2.5 rounded-2xl bg-amber-500 text-white font-bold">仍然保存</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 保存后的「应用到角色」弹层：保存只是进气泡库，指派给角色才会真正在聊天里生效 */}
+            {/* 保存後的「應用到角色」彈層：保存只是進氣泡庫，指派給角色才會真正在聊天裡生效 */}
             {showApplySheet && (
                 <div className="absolute inset-0 z-[999] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setShowApplySheet(false)}>
                     <div
@@ -1930,28 +1930,28 @@ const ThemeMaker: React.FC = () => {
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
-                            <div className="text-base font-bold text-slate-700">✅ 已存进气泡库 · 给谁穿上？</div>
+                            <div className="text-base font-bold text-slate-700">✅ 已存進氣泡庫 · 給誰穿上？</div>
                             <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
-                                勾选角色，「{editingTheme.name}」就会用在 ta 的聊天里；取消勾选则换回默认气泡。
-                                想全局生效就点「全选」。之后也能随时在 <b>聊天 → 顶栏会话面板 → 气泡样式</b> 里切换。
+                                勾選角色，「{editingTheme.name}」就會用在 ta 的聊天裡；取消勾選則換回默認氣泡。
+                                想全局生效就點「全選」。之後也能隨時在 <b>聊天 → 頂欄會話面板 → 氣泡樣式</b> 裡切換。
                             </p>
                             <p className="mt-1 text-[10px] text-slate-400 leading-relaxed">
-                                气泡主题会盖过「外观 → 聊天界面」的可视化设置；但角色手写的「白框」自定义 CSS 优先级更高，撞上时以 CSS 为准。
+                                氣泡主題會蓋過「外觀 → 聊天界面」的可視化設置；但角色手寫的「白框」自定義 CSS 優先級更高，撞上時以 CSS 為準。
                             </p>
                             <div className="mt-2.5 flex items-center gap-2">
                                 <button
                                     onClick={() => setApplySelection(new Set(characters.map(c => c.id)))}
                                     className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 font-bold active:scale-95 transition"
                                 >
-                                    全选
+                                    全選
                                 </button>
                                 <button
                                     onClick={() => setApplySelection(new Set())}
                                     className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 font-bold active:scale-95 transition"
                                 >
-                                    全不选
+                                    全不選
                                 </button>
-                                <span className="text-[10px] text-slate-400 ml-auto">已选 {applySelection.size}/{characters.length}</span>
+                                <span className="text-[10px] text-slate-400 ml-auto">已選 {applySelection.size}/{characters.length}</span>
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-3 space-y-2">
@@ -1973,7 +1973,7 @@ const ThemeMaker: React.FC = () => {
                                         <div className="flex-1 min-w-0">
                                             <div className="text-[13px] font-bold text-slate-700 truncate">{c.name}</div>
                                             <div className="text-[10px] text-slate-400 truncate">
-                                                {usingThis ? '正在用这套气泡' : (currentBubble && currentBubble !== 'default' ? '在用其他气泡' : '默认气泡')}
+                                                {usingThis ? '正在用這套氣泡' : (currentBubble && currentBubble !== 'default' ? '在用其他氣泡' : '默認氣泡')}
                                             </div>
                                         </div>
                                         <div className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${checked ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
@@ -1984,8 +1984,8 @@ const ThemeMaker: React.FC = () => {
                             })}
                         </div>
                         <div className="px-5 py-4 border-t border-slate-100 flex gap-3 shrink-0" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom, 0px))' }}>
-                            <button onClick={() => setShowApplySheet(false)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm">稍后再说</button>
-                            <button onClick={applyThemeToCharacters} className="flex-1 py-2.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/30">应用</button>
+                            <button onClick={() => setShowApplySheet(false)} className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm">稍後再說</button>
+                            <button onClick={applyThemeToCharacters} className="flex-1 py-2.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/30">應用</button>
                         </div>
                     </div>
                 </div>

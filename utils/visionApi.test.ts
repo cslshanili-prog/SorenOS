@@ -31,7 +31,7 @@ describe('independent vision API', () => {
   it('can load a generic model preset into vision without carrying unrelated main-model options', () => {
     expect(visionApiConfigFromPreset({
       id: 'preset-1',
-      name: '视觉模型',
+      name: '視覺模型',
       config: {
         baseUrl: ' https://vision.example.com/v1/// ',
         apiKey: '\u200Bvision-key\u2060',
@@ -44,7 +44,7 @@ describe('independent vision API', () => {
 
   it('recognizes identical image data once, writes both message caches, then reuses them', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      choices: [{ message: { content: '一只黑猫坐在窗边，窗外正在下雨。' } }],
+      choices: [{ message: { content: '一隻黑貓坐在窗邊，窗外正在下雨。' } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
     const updateSpy = vi.spyOn(DB, 'updateMessageMetadata').mockResolvedValue(undefined);
@@ -54,8 +54,8 @@ describe('independent vision API', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(updateSpy).toHaveBeenCalledTimes(2);
     expect(prepared.map(item => item.metadata?.visionDescription)).toEqual([
-      '一只黑猫坐在窗边，窗外正在下雨。',
-      '一只黑猫坐在窗边，窗外正在下雨。',
+      '一隻黑貓坐在窗邊，窗外正在下雨。',
+      '一隻黑貓坐在窗邊，窗外正在下雨。',
     ]);
 
     await materializeVisionDescriptions(prepared, config);
@@ -65,7 +65,7 @@ describe('independent vision API', () => {
   it('feeds the main model a text placeholder instead of image_url when enabled', () => {
     const described = {
       ...message(3),
-      metadata: { visionDescription: '一张写着「周五见」的聊天截图。' },
+      metadata: { visionDescription: '一張寫著「週五見」的聊天截圖。' },
     };
     const { apiMessages } = ChatPrompts.buildMessageHistory(
       [described],
@@ -78,7 +78,7 @@ describe('independent vision API', () => {
     );
 
     expect(typeof apiMessages[0].content).toBe('string');
-    expect(apiMessages[0].content).toContain('[图片：一张写着「周五见」的聊天截图。]');
+    expect(apiMessages[0].content).toContain('[圖片：一張寫著「週五見」的聊天截圖。]');
     expect(JSON.stringify(apiMessages)).not.toContain('image_url');
     expect(JSON.stringify(apiMessages)).not.toContain('data:image');
   });
@@ -86,7 +86,7 @@ describe('independent vision API', () => {
   it('keeps the legacy multimodal payload when vision API is not selected', () => {
     const described = {
       ...message(4),
-      metadata: { visionDescription: '旧缓存不应在关闭时改变原逻辑' },
+      metadata: { visionDescription: '舊緩存不應在關閉時改變原邏輯' },
     };
     const { apiMessages } = ChatPrompts.buildMessageHistory(
       [described],

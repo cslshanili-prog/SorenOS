@@ -1,26 +1,26 @@
 /**
- * Pixel Home — 像素家园类型定义
+ * Pixel Home — 像素家園類型定義
  */
 
 import type { MemoryRoom } from '../../utils/memoryPalace/types';
 import { isImageValue } from '../../utils/blobRef';
 
-// ─── 像素资产 ─────────────────────────────────────────
+// ─── 像素資產 ─────────────────────────────────────────
 
 export interface PixelAsset {
   id: string;
   name: string;
-  originalImage: string;      // 原始图片 data URI
-  pixelImage: string;         // 像素化后 data URI
+  originalImage: string;      // 原始圖片 data URI
+  pixelImage: string;         // 像素化後 data URI
   pixelSize: number;          // 24/32/48/64
-  palette: string[];          // 提取的调色板颜色 (hex)
-  width: number;              // 像素宽
+  palette: string[];          // 提取的調色板顏色 (hex)
+  width: number;              // 像素寬
   height: number;             // 像素高
   createdAt: number;
   tags: string[];
 }
 
-// ─── 房间槽位定义（保留作为默认家具模板） ─────────────
+// ─── 房間槽位定義（保留作為默認傢俱模板） ─────────────
 
 export interface RoomSlotDef {
   id: string;
@@ -32,61 +32,61 @@ export interface RoomSlotDef {
   defaultScale: number;
 }
 
-// ─── 已放置的家具（支持自由放置）─────────────────────
+// ─── 已放置的傢俱（支持自由放置）─────────────────────
 
 export interface PlacedFurniture {
-  slotId: string;             // 默认家具用槽位 ID，用户自由放置用 unique ID
-  assetId: string | null;     // 像素资产 ID（null = 使用默认像素图）
+  slotId: string;             // 默認傢俱用槽位 ID，用戶自由放置用 unique ID
+  assetId: string | null;     // 像素資產 ID（null = 使用默認像素圖）
   x: number;
   y: number;
   scale: number;
   rotation: number;
   colorOverride?: string;
   placedBy: 'user' | 'character';
-  isDefault?: boolean;        // 是否为默认槽位家具（false/undefined = 用户自由放置）
+  isDefault?: boolean;        // 是否為默認槽位傢俱（false/undefined = 用戶自由放置）
   /**
-   * 前后遮挡手动覆盖：
-   *   'front' = 总是压在其他家具上方
-   *   'back'  = 总是垫在其他家具下方（但仍在地毯之上）
-   *   undefined / 'auto' = 按家具底边自动排
+   * 前後遮擋手動覆蓋：
+   *   'front' = 總是壓在其他傢俱上方
+   *   'back'  = 總是墊在其他傢俱下方（但仍在地毯之上）
+   *   undefined / 'auto' = 按傢俱底邊自動排
    */
   zOrder?: 'auto' | 'front' | 'back';
 }
 
-// ─── 单个房间布局 ─────────────────────────────────────
+// ─── 單個房間佈局 ─────────────────────────────────────
 
 export interface PixelRoomLayout {
   roomId: MemoryRoom;
   charId: string;
   furniture: PlacedFurniture[];
-  /** 墙颜色：空字符串 = 用房间默认；以 "data:" 开头 = 图片纹理；以 "#" 开头 = 纯色；其它视为空 */
+  /** 牆顏色：空字符串 = 用房間默認；以 "data:" 開頭 = 圖片紋理；以 "#" 開頭 = 純色；其它視為空 */
   wallColor: string;
-  /** 地板颜色：规则同 wallColor */
+  /** 地板顏色：規則同 wallColor */
   floorColor: string;
   ambiance: string;
   lastUpdatedAt: number;
   lastDecoratedBy: 'user' | 'character';
-  /** 墙纸铺设模式：'tile' = 循环平铺（默认），'stretch' = 整张放大铺满（cover） */
+  /** 牆紙鋪設模式：'tile' = 循環平鋪（默認），'stretch' = 整張放大鋪滿（cover） */
   wallFillMode?: 'tile' | 'stretch';
-  /** 拉伸模式下的位置百分比（0..100，默认 50 居中） */
+  /** 拉伸模式下的位置百分比（0..100，默認 50 居中） */
   wallOffsetX?: number;
   wallOffsetY?: number;
-  /** 地板铺设模式，同上 */
+  /** 地板鋪設模式，同上 */
   floorFillMode?: 'tile' | 'stretch';
   floorOffsetX?: number;
   floorOffsetY?: number;
 }
 
-// ─── 整个家园状态 ─────────────────────────────────────
+// ─── 整個家園狀態 ─────────────────────────────────────
 
 export interface PixelHomeTheme {
-  /** 房间外围深色描边色 */
+  /** 房間外圍深色描邊色 */
   wallBorder: string;
-  /** 房间外围浅色描边（高光） */
+  /** 房間外圍淺色描邊（高光） */
   wallBorderLight: string;
-  /** 家园最外层背景色（小地图画布底色） */
+  /** 家園最外層背景色（小地圖畫布底色） */
   bgColor: string;
-  /** 楼梯/走廊的亮条颜色（跟随外框风格） */
+  /** 樓梯/走廊的亮條顏色（跟隨外框風格） */
   corridorStep: string;
 }
 
@@ -97,14 +97,14 @@ export const DEFAULT_HOME_THEME: PixelHomeTheme = {
   corridorStep: '#c4a882',
 };
 
-/** wallColor/floorColor 的解读器：判断是图片、纯色还是默认 */
+/** wallColor/floorColor 的解讀器：判斷是圖片、純色還是默認 */
 export function decodeColorField(v: string | undefined | null):
   | { kind: 'image'; value: string }
   | { kind: 'color'; value: string }
   | { kind: 'default' } {
   if (!v) return { kind: 'default' };
   if (isImageValue(v)) return { kind: 'image', value: v };
-  // 允许 "#rgb"/"#rgba"/"#rrggbb"/"#rrggbbaa"
+  // 允許 "#rgb"/"#rgba"/"#rrggbb"/"#rrggbbaa"
   if (/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) return { kind: 'color', value: v };
   return { kind: 'default' };
 }
@@ -113,11 +113,11 @@ export interface PixelHomeState {
   charId: string;
   rooms: PixelRoomLayout[];
   lastLLMDecoration: number;
-  /** 全局主题色（外围墙体 + 背景）；不设置时用 DEFAULT_HOME_THEME */
+  /** 全局主題色（外圍牆體 + 背景）；不設置時用 DEFAULT_HOME_THEME */
   theme?: PixelHomeTheme;
 }
 
-// ─── LLM 装修动作 ─────────────────────────────────────
+// ─── LLM 裝修動作 ─────────────────────────────────────
 
 export type DecorationActionType = 'move' | 'recolor' | 'rescale' | 'set_wall' | 'set_floor' | 'set_ambiance';
 
@@ -139,11 +139,11 @@ export interface DecorationDiff {
   timestamp: number;
 }
 
-// ─── 视图状态 ─────────────────────────────────────────
+// ─── 視圖狀態 ─────────────────────────────────────────
 
 export type PixelHomeViewMode = 'map' | 'room' | 'generator' | 'library' | 'charEditor' | 'dive';
 
-// ─── 房屋预设（导入/导出）─────────────────────────────
+// ─── 房屋預設（導入/導出）─────────────────────────────
 
 export interface PixelHomePreset {
   version: 1;
@@ -151,17 +151,17 @@ export interface PixelHomePreset {
   author: string;
   createdAt: number;
   rooms: PixelRoomPreset[];
-  assets: PixelAssetPreset[];   // 包含的像素资产（用到的才导出）
+  assets: PixelAssetPreset[];   // 包含的像素資產（用到的才導出）
 }
 
-/** 房间预设（去掉 charId，便于跨角色导入） */
+/** 房間預設（去掉 charId，便於跨角色導入） */
 export interface PixelRoomPreset {
   roomId: MemoryRoom;
   furniture: PlacedFurniture[];
   wallColor: string;
   floorColor: string;
   ambiance: string;
-  /** 铺设模式 + 偏移（和 PixelRoomLayout 保持同步） */
+  /** 鋪設模式 + 偏移（和 PixelRoomLayout 保持同步） */
   wallFillMode?: 'tile' | 'stretch';
   wallOffsetX?: number;
   wallOffsetY?: number;
@@ -170,7 +170,7 @@ export interface PixelRoomPreset {
   floorOffsetY?: number;
 }
 
-/** 精简版资产（仅包含渲染需要的信息） */
+/** 精簡版資產（僅包含渲染需要的信息） */
 export interface PixelAssetPreset {
   id: string;
   name: string;

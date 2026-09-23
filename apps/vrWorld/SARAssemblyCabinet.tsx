@@ -31,8 +31,8 @@ type CabinetShelf = 'mine' | 'characters';
 type CharacterCabinetNoteRecord = SARCharacterCabinetNoteMeta & { messageId: number };
 
 const poolLabel = (pool: SARModulePool) => pool === 'variant'
-    ? { cn: '异界异格', en: 'ISEKAI', empty: '选择异界异格' }
-    : { cn: '异界坐标', en: 'WORLD', empty: '选择异界坐标' };
+    ? { cn: '異界異格', en: 'ISEKAI', empty: '選擇異界異格' }
+    : { cn: '異界座標', en: 'WORLD', empty: '選擇異界座標' };
 
 const CharacterPortrait: React.FC<{ char: Pick<CharacterProfile, 'name' | 'avatar'>; large?: boolean }> = ({ char, large }) => (
     <div className={`sarc-portrait ${large ? 'sarc-portrait--large' : ''}`}>
@@ -56,7 +56,7 @@ const ModuleSocket: React.FC<{
             <div className="sarc-socket__glyph"><i /><i /><b /></div>
             <strong>{module?.title || label.empty}</strong>
             <span className="sarc-socket__group">{module?.group || label.cn}</span>
-            <em>{module ? '已装载 · 点击更换' : 'EMPTY SOCKET'}</em>
+            <em>{module ? '已裝載 · 點擊更換' : 'EMPTY SOCKET'}</em>
         </button>
     );
 };
@@ -69,9 +69,9 @@ const ModulePicker: React.FC<{
 }> = ({ pool, collection, onChoose, onClose }) => {
     const modules = getSARModules(pool).filter(module => (collection[module.id] || 0) > 0);
     return (
-        <div className="sarc-picker-backdrop" role="dialog" aria-modal="true" aria-label={`选择${poolLabel(pool).cn}`} onClick={onClose}>
+        <div className="sarc-picker-backdrop" role="dialog" aria-modal="true" aria-label={`選擇${poolLabel(pool).cn}`} onClick={onClose}>
             <section className="sarc-picker" onClick={event => event.stopPropagation()}>
-                <header><div><small>{poolLabel(pool).en} COLLECTION</small><h2>装载{poolLabel(pool).cn}</h2></div><button type="button" onClick={onClose} aria-label="关闭模块选择"><X size={16} /></button></header>
+                <header><div><small>{poolLabel(pool).en} COLLECTION</small><h2>裝載{poolLabel(pool).cn}</h2></div><button type="button" onClick={onClose} aria-label="關閉模塊選擇"><X size={16} /></button></header>
                 {modules.length ? (
                     <div className="sarc-picker__list">
                         {modules.map(module => (
@@ -83,7 +83,7 @@ const ModulePicker: React.FC<{
                         ))}
                     </div>
                 ) : (
-                    <div className="sarc-picker__empty"><div><i /><b /></div><h3>尚未收录模块</h3><p>先去扭蛋机抽取一枚{poolLabel(pool).cn}，再回来装入槽位。</p></div>
+                    <div className="sarc-picker__empty"><div><i /><b /></div><h3>尚未收錄模塊</h3><p>先去扭蛋機抽取一枚{poolLabel(pool).cn}，再回來裝入槽位。</p></div>
                 )}
             </section>
         </div>
@@ -107,13 +107,13 @@ const IdentityCardView: React.FC<{
         <div className="sarc-card-reading">
             <div className="sarc-card-byline"><CharacterPortrait char={actor || { name: card.charName, avatar: '' }}/><span>{card.charName}<small>{worldline.worldName}</small></span></div>
             <h2>{card.profile.title}</h2><p className="sarc-card-logline">{card.profile.logline}</p>
-            <section className="sarc-card-opening"><h3>故事的开头</h3><p>{card.profile.openingScene}</p><blockquote><span>{card.charName}</span>{card.profile.openingLine}</blockquote></section>
-            <details className="sarc-card-fold"><summary>你们在这里的身份</summary><h3>{card.charName}</h3><p>{card.profile.identity}</p><h3>与你的关系</h3><p>{card.profile.relationship}</p><h3>{userMask.title}</h3><p>{userMask.identity}</p><p>{userMask.lifePatch}</p></details>
-            <details className="sarc-card-fold"><summary>这张卡的背景</summary><h3>来自两枚模块</h3><p>{variant?.title||card.variantId} · {story?.title||card.storyId}</p><h3>这个世界</h3><p>{worldline.worldPremise}</p><h3>已发生的前情</h3><p>{worldline.arrivalPoint}</p><h3>另一段人生</h3><p>{card.profile.lifePatch}</p><h3>角色坚持的事</h3><p>{card.profile.steelSeal}</p><h3>随之而来的代价</h3><p>{card.profile.patchCost}</p><h3>表达与行为</h3><p>{card.profile.behaviorShift}</p></details>
-            <p className="sarc-card-limit">一次故事最多五十次互动。你可以探索、陪伴，也可以只过眼前的生活。</p>
-            <button type="button" className="sarc-card-another" onClick={onAssemble}>再铸一张异格</button>
+            <section className="sarc-card-opening"><h3>故事的開頭</h3><p>{card.profile.openingScene}</p><blockquote><span>{card.charName}</span>{card.profile.openingLine}</blockquote></section>
+            <details className="sarc-card-fold"><summary>你們在這裡的身份</summary><h3>{card.charName}</h3><p>{card.profile.identity}</p><h3>與你的關係</h3><p>{card.profile.relationship}</p><h3>{userMask.title}</h3><p>{userMask.identity}</p><p>{userMask.lifePatch}</p></details>
+            <details className="sarc-card-fold"><summary>這張卡的背景</summary><h3>來自兩枚模塊</h3><p>{variant?.title||card.variantId} · {story?.title||card.storyId}</p><h3>這個世界</h3><p>{worldline.worldPremise}</p><h3>已發生的前情</h3><p>{worldline.arrivalPoint}</p><h3>另一段人生</h3><p>{card.profile.lifePatch}</p><h3>角色堅持的事</h3><p>{card.profile.steelSeal}</p><h3>隨之而來的代價</h3><p>{card.profile.patchCost}</p><h3>表達與行為</h3><p>{card.profile.behaviorShift}</p></details>
+            <p className="sarc-card-limit">一次故事最多五十次互動。你可以探索、陪伴，也可以只過眼前的生活。</p>
+            <button type="button" className="sarc-card-another" onClick={onAssemble}>再鑄一張異格</button>
         </div>
-        <footer className="sarc-card-start">{error && <p className="sarc-error" role="alert">{error}</p>}<button type="button" aria-label={!run?'进入故事':run.status==='active'?'继续故事':'重读这段故事'} onClick={run?onEnterRun:onStartRun}><Play size={16} weight="fill"/>{!run?'进入故事':run.status==='active'?'继续故事':'重读这段故事'}{run&&<small>{run.interactionsUsed} / {run.maxInteractions}</small>}</button></footer>
+        <footer className="sarc-card-start">{error && <p className="sarc-error" role="alert">{error}</p>}<button type="button" aria-label={!run?'進入故事':run.status==='active'?'繼續故事':'重讀這段故事'} onClick={run?onEnterRun:onStartRun}><Play size={16} weight="fill"/>{!run?'進入故事':run.status==='active'?'繼續故事':'重讀這段故事'}{run&&<small>{run.interactionsUsed} / {run.maxInteractions}</small>}</button></footer>
     </main>;
 };
 
@@ -146,33 +146,33 @@ const CabinetRecordsView: React.FC<{
     const count = shelf === 'mine' ? selectedCards.length : selectedNotes.length;
     const pages = Math.max(1, Math.ceil(count / 6)), page = Math.min(recordPage, pages - 1);
     return <main className="sarc-records sarc-archive">
-        <p className="sarc-library-lead">收好另一个世界的你们。</p>
-        <div className="sarc-archive__switch" role="tablist" aria-label="选择柜子归属">
-            <button type="button" role="tab" aria-selected={shelf === 'mine'} onClick={() => onShelfChange('mine')}><BookOpen size={16}/><span>我的史册</span></button>
-            <button type="button" role="tab" aria-selected={shelf === 'characters'} onClick={() => onShelfChange('characters')}><Eye size={16}/><span>角色的随笔</span></button>
+        <p className="sarc-library-lead">收好另一個世界的你們。</p>
+        <div className="sarc-archive__switch" role="tablist" aria-label="選擇櫃子歸屬">
+            <button type="button" role="tab" aria-selected={shelf === 'mine'} onClick={() => onShelfChange('mine')}><BookOpen size={16}/><span>我的史冊</span></button>
+            <button type="button" role="tab" aria-selected={shelf === 'characters'} onClick={() => onShelfChange('characters')}><Eye size={16}/><span>角色的隨筆</span></button>
         </div>
         <SARCharacterPicker characters={characters} groups={characterGroups} selectedId={selectedCharId} onSelect={onSelectChar} counts={counts}/>
         {selectedChar && <header className="sarc-library-owner">
-            <CharacterPortrait char={selectedChar}/><div><h2>{selectedChar.name}</h2><p>{shelf === 'mine' ? selectedCards.length + ' 张异格 · 每一张都能继续启程' : 'TA 自由活动时留下的异界随笔'}</p></div>
+            <CharacterPortrait char={selectedChar}/><div><h2>{selectedChar.name}</h2><p>{shelf === 'mine' ? selectedCards.length + ' 張異格 · 每一張都能繼續啟程' : 'TA 自由活動時留下的異界隨筆'}</p></div>
             <BookOpen size={23} weight="light"/>
         </header>}
         {shelf === 'mine' ? (selectedCards.length ? <div className="sarc-library-books">{selectedCards.slice(page * 6, (page + 1) * 6).map(card => {
             const cardRuns = runsByCard.get(card.id) || [];
             const run = cardRuns.find(item => item.status === 'active') || cardRuns[0];
-            const status = !run ? '待启程' : run.status === 'active' ? run.interactionsUsed + '/50 · 异界中' : run.archiveReason === 'completed' ? '已返航' : '已封存';
+            const status = !run ? '待啟程' : run.status === 'active' ? run.interactionsUsed + '/50 · 異界中' : run.archiveReason === 'completed' ? '已返航' : '已封存';
             const worldline = resolveSARWorldlineProfile(card);
             return <button type="button" className="sarc-library-book" key={card.id} onClick={() => onOpenCard(card)}>
                 <span className="sarc-library-spine" aria-hidden="true"><BookOpen size={20}/></span>
                 <span className="sarc-library-book-text"><small>{worldline.worldName}</small><strong>{card.profile.title}</strong><em>{card.profile.logline || card.profile.steelSeal}</em><i>{status}{cardRuns.length > 0 && ' · ' + cardRuns.length + ' 卷'}</i></span>
                 <span aria-hidden="true">↗</span>
             </button>;
-        })}</div> : <div className="sarc-library-empty"><BookOpen size={32} weight="light"/><h3>故事还没翻开</h3><p>点右上角「铸造」，为{selectedChar?.name || '角色'}选好两枚芯片，写下第一个开场。</p></div>)
-        : notesLoading ? <div className="sarc-library-empty" role="status"><CircleNotch className="animate-spin" size={24}/><p>正在打开这位角色的随笔…</p></div>
-        : notesError ? <div className="sarc-library-empty" role="alert"><h3>随笔暂时没能打开</h3><p>{notesError}</p><button type="button" className="sarc-library-retry" onClick={onRetryNotes}>重新读取随笔</button></div>
+        })}</div> : <div className="sarc-library-empty"><BookOpen size={32} weight="light"/><h3>故事還沒翻開</h3><p>點右上角「鑄造」，為{selectedChar?.name || '角色'}選好兩枚芯片，寫下第一個開場。</p></div>)
+        : notesLoading ? <div className="sarc-library-empty" role="status"><CircleNotch className="animate-spin" size={24}/><p>正在打開這位角色的隨筆…</p></div>
+        : notesError ? <div className="sarc-library-empty" role="alert"><h3>隨筆暫時沒能打開</h3><p>{notesError}</p><button type="button" className="sarc-library-retry" onClick={onRetryNotes}>重新讀取隨筆</button></div>
         : selectedNotes.length ? <div className="sarc-character-notes">{selectedNotes.slice(page * 6, (page + 1) * 6).map(note => <button type="button" key={note.id} onClick={() => onOpenNote(note)}>
-            <header><span>{shortDate(note.createdAt)} · 给 {note.targetName}</span></header><h3>{note.title}</h3><p>{note.variantTitle} × {note.storyTitle}</p><blockquote>“{note.highlight}”</blockquote>
-        </button>)}</div> : <div className="sarc-library-empty"><Eye size={32} weight="light"/><h3>还没留下随笔</h3><p>{selectedChar?.name || '角色'}在自由活动中玩过芯片后，记录会收在这里。</p></div>}
-        <SARPageNav page={page} pages={pages} onChange={setRecordPage} label="史册"/>
+            <header><span>{shortDate(note.createdAt)} · 給 {note.targetName}</span></header><h3>{note.title}</h3><p>{note.variantTitle} × {note.storyTitle}</p><blockquote>“{note.highlight}”</blockquote>
+        </button>)}</div> : <div className="sarc-library-empty"><Eye size={32} weight="light"/><h3>還沒留下隨筆</h3><p>{selectedChar?.name || '角色'}在自由活動中玩過芯片後，記錄會收在這裡。</p></div>}
+        <SARPageNav page={page} pages={pages} onChange={setRecordPage} label="史冊"/>
     </main>;
 };
 
@@ -181,13 +181,13 @@ const CharacterNoteView: React.FC<{ note: CharacterCabinetNoteRecord; actor?: Ch
         <article>
             <header>
                 <CharacterPortrait char={actor || { name: note.actorName, avatar: '' }} large />
-                <div><small>{shortDate(note.createdAt)} · CHARACTER CABINET NOTE</small><h2>{note.title}</h2><p>{note.actorName} 给 {note.targetName} 装上的一次临时异界事故</p></div>
+                <div><small>{shortDate(note.createdAt)} · CHARACTER CABINET NOTE</small><h2>{note.title}</h2><p>{note.actorName} 給 {note.targetName} 裝上的一次臨時異界事故</p></div>
             </header>
-            <div className="sarc-note-view__chips"><span><small>异界异格</small><b>{note.variantTitle}</b></span><i>×</i><span><small>异界坐标</small><b>{note.storyTitle}</b></span></div>
+            <div className="sarc-note-view__chips"><span><small>異界異格</small><b>{note.variantTitle}</b></span><i>×</i><span><small>異界座標</small><b>{note.storyTitle}</b></span></div>
             <blockquote>{note.highlight}</blockquote>
-            <section><small>WHAT HAPPENED</small><h3>事情怎么变成这样的</h3><p>{note.story}</p></section>
-            <section className="is-handwritten"><small>PRIVATE MARGIN NOTES</small><h3>{note.actorName} 留在柜子里的随笔</h3><p>{note.notes}</p></section>
-            <footer>这篇记录来自 {note.actorName} 自己的彼方自由活动，不属于 User 的五十轮推演史册。</footer>
+            <section><small>WHAT HAPPENED</small><h3>事情怎麼變成這樣的</h3><p>{note.story}</p></section>
+            <section className="is-handwritten"><small>PRIVATE MARGIN NOTES</small><h3>{note.actorName} 留在櫃子裡的隨筆</h3><p>{note.notes}</p></section>
+            <footer>這篇記錄來自 {note.actorName} 自己的彼方自由活動，不屬於 User 的五十輪推演史冊。</footer>
         </article>
     </main>
 );
@@ -243,7 +243,7 @@ export const SARAssemblyCabinetOverlay: React.FC<{
                 });
                 if (alive && request === revision) setCharacterNotes(notes.sort((a, b) => b.createdAt - a.createdAt));
             } catch {
-                if (alive && request === revision) setNotesError('读取出了点问题，可以再试一次。已有记录不会因此被删除。');
+                if (alive && request === revision) setNotesError('讀取出了點問題，可以再試一次。已有記錄不會因此被刪除。');
             } finally { if (alive && request === revision) setNotesLoading(false); }
         };
         const refresh = () => { void loadNotes(); };
@@ -272,7 +272,7 @@ export const SARAssemblyCabinetOverlay: React.FC<{
             notesLoading,
             surface: view === 'assemble' ? 'machine-dark' : 'archive-light',
         });
-        const advanceTime = (_ms: number) => { /* DOM 过渡不需要独立时钟 */ };
+        const advanceTime = (_ms: number) => { /* DOM 過渡不需要獨立時鐘 */ };
         target.render_game_to_text = renderState;
         target.advanceTime = advanceTime;
         return () => {
@@ -295,7 +295,7 @@ export const SARAssemblyCabinetOverlay: React.FC<{
                 setActiveCard(cause.card);
                 setView('card');
             }
-            setError((cause?.message || '铸造设备没有回应，请重试') + (cause instanceof SARIdentitySaveError ? ' 本次内容暂留在此页，请勿离开；释放空间后点击进入故事重试保存，无需重新铸造。' : ''));
+            setError((cause?.message || '鑄造設備沒有回應，請重試') + (cause instanceof SARIdentitySaveError ? ' 本次內容暫留在此頁，請勿離開；釋放空間後點擊進入故事重試保存，無需重新鑄造。' : ''));
         } finally {
             setLoading(false);
         }
@@ -310,7 +310,7 @@ export const SARAssemblyCabinetOverlay: React.FC<{
             setSimulationState(readSARSimulationState());
             setView('session');
         } catch (cause: any) {
-            setError(cause?.message || '人格实例启动失败');
+            setError(cause?.message || '人格實例啟動失敗');
         }
     };
 
@@ -320,21 +320,21 @@ export const SARAssemblyCabinetOverlay: React.FC<{
         else { setView('cards'); setActiveCard(null); setActiveNote(null); setError(''); }
     };
 
-    const headerTitle = view === 'session' ? '异世界推演'
-        : view === 'card' ? '异格档案'
-            : view === 'note' ? '角色随笔'
-                : view === 'assemble' ? '异格铸造'
-                    : shelf === 'mine' ? '我的异界史册' : '角色的柜子';
+    const headerTitle = view === 'session' ? '異世界推演'
+        : view === 'card' ? '異格檔案'
+            : view === 'note' ? '角色隨筆'
+                : view === 'assemble' ? '異格鑄造'
+                    : shelf === 'mine' ? '我的異界史冊' : '角色的櫃子';
     const paperSurface = view !== 'assemble' && !(view === 'session' && sessionTheme === 'dark');
 
     return (
-        <div className={`sarc-root ${view === 'cards' ? 'is-archive-home' : ''} ${paperSurface ? 'is-paper-surface' : 'is-machine-surface'} ${view==='card'||view==='session'?'is-reading-surface':''}`} role="dialog" aria-modal="true" aria-label="SAR 异格陈列柜">
+        <div className={`sarc-root ${view === 'cards' ? 'is-archive-home' : ''} ${paperSurface ? 'is-paper-surface' : 'is-machine-surface'} ${view==='card'||view==='session'?'is-reading-surface':''}`} role="dialog" aria-modal="true" aria-label="SAR 異格陳列櫃">
             <SARCabinetStyle />
             <div className="sarc-grid-bg" />
             {view !== 'session' && <header className="sarc-header sar-facility-header">
-                <button type="button" onClick={handleBack} aria-label={view === 'cards' ? '离开异格陈列柜' : '返回异界史册'}>{view === 'cards' ? <X size={18} /> : <CaretLeft size={19} />}</button>
+                <button type="button" onClick={handleBack} aria-label={view === 'cards' ? '離開異格陳列櫃' : '返回異界史冊'}>{view === 'cards' ? <X size={18} /> : <CaretLeft size={19} />}</button>
                 <div><small>SAR ACTIVITY SPACE · CABINET</small><h1>{headerTitle}</h1></div>
-                <button type="button" className="sarc-header__records" onClick={() => view === 'cards' ? openAssembly() : setView('cards')} disabled={loading}><span>{view === 'cards' ? '＋' : simulationState.cards.length}</span><i>{view === 'cards' ? '铸造' : '史册'}</i></button>
+                <button type="button" className="sarc-header__records" onClick={() => view === 'cards' ? openAssembly() : setView('cards')} disabled={loading}><span>{view === 'cards' ? '＋' : simulationState.cards.length}</span><i>{view === 'cards' ? '鑄造' : '史冊'}</i></button>
                 <SARFacilityGuide facility="cabinet"/>
             </header>}
 
@@ -355,16 +355,16 @@ export const SARAssemblyCabinetOverlay: React.FC<{
             /> : (
                 <main className="sarc-main">
                     <section className="sarc-character-section">
-                        <div className="sarc-section-label"><span>01</span><div><small>SELECT SUBJECT</small><h2>选择角色母体</h2></div></div>
+                        <div className="sarc-section-label"><span>01</span><div><small>SELECT SUBJECT</small><h2>選擇角色母體</h2></div></div>
                         <SARCharacterPicker characters={characters} groups={characterGroups} selectedId={selectedCharId} onSelect={setSelectedCharId}/>
                     </section>
 
                     <section className="sarc-assembly">
-                        <div className="sarc-section-label"><span>02</span><div><small>COMPILE ISEKAI</small><h2>装入异界异格与异界坐标</h2></div></div>
+                        <div className="sarc-section-label"><span>02</span><div><small>COMPILE ISEKAI</small><h2>裝入異界異格與異界座標</h2></div></div>
                         <div className="sarc-assembly__core">
                             <div className="sarc-assembly__subject">
                                 {selectedChar ? <CharacterPortrait char={selectedChar} large /> : <div className="sarc-subject-empty">?</div>}
-                                <strong>{selectedChar?.name || '未选择角色'}</strong><small>IDENTITY SOURCE</small>
+                                <strong>{selectedChar?.name || '未選擇角色'}</strong><small>IDENTITY SOURCE</small>
                             </div>
                             <div className="sarc-assembly__line sarc-assembly__line--left" /><div className="sarc-assembly__line sarc-assembly__line--right" />
                             <div className="sarc-assembly__slots"><ModuleSocket pool="variant" module={variant} onClick={() => setPicker('variant')} /><ModuleSocket pool="story" module={story} onClick={() => setPicker('story')} /></div>
@@ -372,19 +372,19 @@ export const SARAssemblyCabinetOverlay: React.FC<{
                     </section>
 
                     <section className="sarc-start">
-                        <div className="sarc-start__summary"><span>{selectedChar ? <><Check size={11} />角色已确认</> : '尚未选择角色'}</span><span>{variant && story ? <><Check size={11} />双槽已锁定</> : `${Number(!!variant) + Number(!!story)} / 2 槽位`}</span></div>
+                        <div className="sarc-start__summary"><span>{selectedChar ? <><Check size={11} />角色已確認</> : '尚未選擇角色'}</span><span>{variant && story ? <><Check size={11} />雙槽已鎖定</> : `${Number(!!variant) + Number(!!story)} / 2 槽位`}</span></div>
                         <button type="button" className={loading ? 'is-loading' : ''} disabled={!selectedChar || !variant || !story || loading} onClick={forge}>
-                            {loading ? <><CircleNotch size={17} className="animate-spin" /> 正在编译异世界</> : <><Fingerprint size={17} /> 铸造异世界异格</>}
-                            <small>{loading ? '正在写下开场' : '永久收藏 · 开始一段共同经历'}</small>
+                            {loading ? <><CircleNotch size={17} className="animate-spin" /> 正在編譯異世界</> : <><Fingerprint size={17} /> 鑄造異世界異格</>}
+                            <small>{loading ? '正在寫下開場' : '永久收藏 · 開始一段共同經歷'}</small>
                         </button>
                         {error && <p className="sarc-error">{error}</p>}
-                        <p>模块不会被消耗。一次生成角色身份、你的异界身份与故事开场。</p>
+                        <p>模塊不會被消耗。一次生成角色身份、你的異界身份與故事開場。</p>
                     </section>
                 </main>
             )}
 
             {picker && <ModulePicker pool={picker} collection={gachaState.collection} onClose={() => setPicker(null)} onChoose={module => { picker === 'variant' ? setVariant(module) : setStory(module); setPicker(null); }} />}
-            {loading && <div className="sarc-processing" aria-live="polite"><div className="sarc-processing__rings"><i /><i /><i /></div><span>正在编译异世界坐标</span><div className="sarc-processing__steps"><b>铸造双身份</b><b>写下开场</b><b>写入钢印</b></div><small>PLEASE KEEP THE CABINET OPEN</small></div>}
+            {loading && <div className="sarc-processing" aria-live="polite"><div className="sarc-processing__rings"><i /><i /><i /></div><span>正在編譯異世界座標</span><div className="sarc-processing__steps"><b>鑄造雙身份</b><b>寫下開場</b><b>寫入鋼印</b></div><small>PLEASE KEEP THE CABINET OPEN</small></div>}
         </div>
     );
 };

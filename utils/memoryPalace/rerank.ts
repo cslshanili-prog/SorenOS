@@ -1,7 +1,7 @@
 /**
  * Memory Palace — Rerank（cross-encoder 二次排序）
  *
- * 通用 /rerank 协议，兼容 SiliconFlow / Jina / Cohere / Voyage：
+ * 通用 /rerank 協議，兼容 SiliconFlow / Jina / Cohere / Voyage：
  *   POST {baseUrl}/rerank
  *   {
  *     "model": "BAAI/bge-reranker-v2-m3",
@@ -12,12 +12,12 @@
  *   }
  *   → { "results": [{ "index": 3, "relevance_score": 0.95 }, ...] }
  *
- * 用途：主召回给 LLM 的是"embedding 找的最像 + 启发式加权"的 top 15，
- *      rerank 用 cross-encoder 直接理解 (query, doc) 对的语义相关性，
- *      把 LLM 回合里用户真正在问的焦点记忆额外推上来几条。
+ * 用途：主召回給 LLM 的是"embedding 找的最像 + 啟發式加權"的 top 15，
+ *      rerank 用 cross-encoder 直接理解 (query, doc) 對的語義相關性，
+ *      把 LLM 回合裡用戶真正在問的焦點記憶額外推上來幾條。
  *
- * 主召回和 rerank 的候选池不共享：pipeline 用 joined userIntent 单独
- * 再跑一次 hybridSearch 作为 rerank 输入池（这一轮 user 发言对应的语义空间）。
+ * 主召回和 rerank 的候選池不共享：pipeline 用 joined userIntent 單獨
+ * 再跑一次 hybridSearch 作為 rerank 輸入池（這一輪 user 發言對應的語義空間）。
  */
 
 import { safeFetchJson } from '../safeApi';
@@ -29,19 +29,19 @@ export interface RerankApiConfig {
 }
 
 export interface RerankResult {
-    /** 对应输入 documents[] 的下标 */
+    /** 對應輸入 documents[] 的下標 */
     index: number;
-    /** 模型给出的相关性分数，通常 0-1，但不同模型 scale 不同，只用于排序 */
+    /** 模型給出的相關性分數，通常 0-1，但不同模型 scale 不同，只用於排序 */
     relevance_score: number;
 }
 
 /**
- * 调用 rerank API，返回 top N 的 (index, score) 列表。
+ * 調用 rerank API，返回 top N 的 (index, score) 列表。
  *
- * 失败会 throw，让调用方决定是否 warn 或降级。一般失败原因：
- *   - API key 无效 / 余额不足
- *   - baseUrl 写错或网络不通（和 embedding 共用服务商时往往一起挂）
- *   - 模型名错（SiliconFlow 大小写敏感，"BAAI/bge-reranker-v2-m3"）
+ * 失敗會 throw，讓調用方決定是否 warn 或降級。一般失敗原因：
+ *   - API key 無效 / 餘額不足
+ *   - baseUrl 寫錯或網絡不通（和 embedding 共用服務商時往往一起掛）
+ *   - 模型名錯（SiliconFlow 大小寫敏感，"BAAI/bge-reranker-v2-m3"）
  */
 export async function rerankDocuments(
     config: RerankApiConfig,
@@ -70,13 +70,13 @@ export async function rerankDocuments(
             },
             body: JSON.stringify(body),
         },
-        1,      // 失败只多试 1 次，rerank 卡住就降级
-        30_000, // 30s 硬超时
+        1,      // 失敗只多試 1 次，rerank 卡住就降級
+        30_000, // 30s 硬超時
     );
 
-    // 兼容两种返回形态：
+    // 兼容兩種返回形態：
     //   - Cohere/SiliconFlow/Jina 新版: { results: [{index, relevance_score}] }
-    //   - 少数旧版可能写成 { data: [...] }
+    //   - 少數舊版可能寫成 { data: [...] }
     const rows: any[] = Array.isArray(data?.results) ? data.results
                      : Array.isArray(data?.data)    ? data.data
                      : [];

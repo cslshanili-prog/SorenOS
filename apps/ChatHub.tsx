@@ -37,17 +37,17 @@ interface ContactRow {
 const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
 /**
- * Chat 主页：消息/联系人/动态/主页四栏导航壳，取代原本"神经链接点角色卡直接开聊天"的入口。
+ * Chat 主頁：消息/聯繫人/動態/主頁四欄導航殼，取代原本"神經鏈接點角色卡直接開聊天"的入口。
  *
- * 范围说明（跟用户对齐过的 v1 切法）：
- * - 消息／联系人两栏是真功能：消息栏聚合私聊+群聊的最近一条消息；联系人栏是角色+NPC 的统一通讯录。
- * - 动态栏直接 openApp(AppID.Social)——现有 SocialApp 1275 行、自成一体（有自己的返回按钮/多级内部
- *   视图），不是为嵌入设计的，硬嵌容易把它的"返回"和这里的 tab 切换绕在一起。所以先用跳转复用，
- *   不做成真正嵌在同一个底部导航里的 tab；以后要嵌再单独做。
- * - 主页栏是入口面板：用户身份卡片点进去是「个人档案」(UserApp，身份卡管理也在那);
- *   Real Balance 已实现（见 utils/realBalance.ts：总余额 + 银行卡 + 共用流水，
- *   卡与 Real Balance 之间可互转）；朋友圈互动／表情包仓储／外观CSS 还没有对应实现，
- *   先给出入口占位 + 提示，不假装已经做好。
+ * 範圍說明（跟用戶對齊過的 v1 切法）：
+ * - 消息／聯繫人兩欄是真功能：消息欄聚合私聊+群聊的最近一條消息；聯繫人欄是角色+NPC 的統一通訊錄。
+ * - 動態欄直接 openApp(AppID.Social)——現有 SocialApp 1275 行、自成一體（有自己的返回按鈕/多級內部
+ *   視圖），不是為嵌入設計的，硬嵌容易把它的"返回"和這裡的 tab 切換繞在一起。所以先用跳轉複用，
+ *   不做成真正嵌在同一個底部導航裡的 tab；以後要嵌再單獨做。
+ * - 主頁欄是入口面板：用戶身份卡片點進去是「個人檔案」(UserApp，身份卡管理也在那);
+ *   Real Balance 已實現（見 utils/realBalance.ts：總餘額 + 銀行卡 + 共用流水，
+ *   卡與 Real Balance 之間可互轉）；朋友圈互動／表情包倉儲／外觀CSS 還沒有對應實現，
+ *   先給出入口占位 + 提示，不假裝已經做好。
  */
 const ChatHub: React.FC = () => {
     const {
@@ -79,12 +79,12 @@ const ChatHub: React.FC = () => {
                 Promise.all(groups.map(async (g): Promise<ChatRow | null> => {
                     const { messages } = await DB.getRecentGroupMessagesWithCount(g.id, 1);
                     const msg = messages[0];
-                    // 刚建好、还没人说过话的群不能因为没有消息就从列表里消失——不然用户关掉
-                    // 建群后弹出的那个旧版列表，就再也找不回这个空群了（消息 tab 是目前唯一
-                    // 能回到具体某个群的入口）。没消息时用创建时间兜底排序，预览文案提示"还没人说话"。
+                    // 剛建好、還沒人說過話的群不能因為沒有消息就從列表裡消失——不然用戶關掉
+                    // 建群后彈出的那個舊版列表，就再也找不回這個空群了（消息 tab 是目前唯一
+                    // 能回到具體某個群的入口）。沒消息時用創建時間兜底排序，預覽文案提示"還沒人說話"。
                     return {
                         kind: 'group', id: g.id, name: g.name, avatar: g.avatar || '',
-                        preview: msg ? messageLogText(msg) : '还没有人说话，点击开始',
+                        preview: msg ? messageLogText(msg) : '還沒有人說話，點擊開始',
                         timestamp: msg ? msg.timestamp : g.createdAt, unread: 0,
                     };
                 })),
@@ -119,7 +119,7 @@ const ChatHub: React.FC = () => {
         trackEvent('Chat 主页打开对话', { kind: row.kind });
     };
 
-    // --- 联系人 tab ---
+    // --- 聯繫人 tab ---
     const [contactQuery, setContactQuery] = useState('');
 
     const contactSections = useMemo(() => {
@@ -148,27 +148,27 @@ const ChatHub: React.FC = () => {
             chatReturnTarget.set(AppID.ChatHub);
             openApp(AppID.Chat);
         } else {
-            // NPC 目前没有独立的一对一聊天入口（见 docs/relationship-system.md 的设计约束），
-            // 停在神经链接的 NPC 分页，让用户自己点进去看/改设定。
+            // NPC 目前沒有獨立的一對一聊天入口（見 docs/relationship-system.md 的設計約束），
+            // 停在神經鏈接的 NPC 分頁，讓用戶自己點進去看/改設定。
             characterLaunch.request({ tab: 'npcs' });
             openApp(AppID.Character);
         }
         trackEvent('Chat 主页打开联系人', { kind: item.kind });
     };
 
-    // --- 动态 tab：直接跳现有 SocialApp（原因见文件顶部说明） ---
+    // --- 動態 tab：直接跳現有 SocialApp（原因見文件頂部說明） ---
     const openMoments = () => {
         openApp(AppID.Social);
         trackEvent('Chat 主页打开动态');
     };
 
-    // --- 主页 tab：入口占位，未实现的功能明确提示而不是假装存在 ---
-    const notReady = (label: string) => addToast(`${label}规划中，还没做好`, 'info');
+    // --- 主頁 tab：入口占位，未實現的功能明確提示而不是假裝存在 ---
+    const notReady = (label: string) => addToast(`${label}規劃中，還沒做好`, 'info');
 
-    // --- Real Balance 钱包（主页 tab 下的二级页面，余额管理页用共用组件 RealBalancePanel）---
+    // --- Real Balance 錢包（主頁 tab 下的二級頁面，餘額管理頁用共用組件 RealBalancePanel）---
     const [profileView, setProfileView] = useState<'home' | 'balance'>('home');
 
-    // undefined = 还没打开过；只在真的进「主页」栏时才生成种子状态并落库，不趁用户没点开就偷偷建号
+    // undefined = 還沒打開過；只在真的進「主頁」欄時才生成種子狀態並落庫，不趁用戶沒點開就偷偷建號
     const realBalanceState = useMemo(() => ensureRealBalanceState(userProfile.realBalance), [userProfile.realBalance]);
     useEffect(() => {
         if (tab === 'profile' && !userProfile.realBalance) {
@@ -196,10 +196,10 @@ const ChatHub: React.FC = () => {
                         <button onClick={() => { chatReturnTarget.set(AppID.ChatHub); openApp(AppID.User); }} className="flex items-center gap-2.5 active:opacity-70 transition-opacity">
                             <TokenImg value={userProfile.avatar} className="w-9 h-9 rounded-full object-cover bg-slate-100" alt="" />
                             <div className="text-left">
-                                <div className="text-sm font-bold text-slate-800 leading-tight">{userProfile.name || '未设置身份'}</div>
+                                <div className="text-sm font-bold text-slate-800 leading-tight">{userProfile.name || '未設置身份'}</div>
                                 <div className="flex items-center gap-1 text-[10px] text-slate-400">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                    在线
+                                    在線
                                 </div>
                             </div>
                         </button>
@@ -248,10 +248,10 @@ const ChatHub: React.FC = () => {
                         </div>
 
                         {rows === null ? (
-                            <div className="py-16 text-center text-xs text-slate-300">加载中…</div>
+                            <div className="py-16 text-center text-xs text-slate-300">加載中…</div>
                         ) : filteredRows.length === 0 ? (
                             <div className="py-16 text-center text-xs text-slate-300">
-                                {rows.length === 0 ? '还没有任何聊天记录' : '没有匹配的聊天'}
+                                {rows.length === 0 ? '還沒有任何聊天記錄' : '沒有匹配的聊天'}
                             </div>
                         ) : (
                             <div className="space-y-1">
@@ -274,7 +274,7 @@ const ChatHub: React.FC = () => {
                                                 <span className="text-[15px] font-bold text-slate-800 truncate">{row.name}</span>
                                                 <span className="text-[10px] text-slate-400 shrink-0">{formatChatListTimestamp(row.timestamp)}</span>
                                             </div>
-                                            <p className="text-xs text-slate-400 truncate mt-0.5">{row.preview || '暂无内容'}</p>
+                                            <p className="text-xs text-slate-400 truncate mt-0.5">{row.preview || '暫無內容'}</p>
                                         </div>
                                     </button>
                                 ))}
@@ -285,19 +285,19 @@ const ChatHub: React.FC = () => {
 
                 {tab === 'contacts' && (
                     <div className="px-5 pt-4 pb-4">
-                        <h1 className="text-3xl font-black text-slate-800 mb-4">联系人</h1>
+                        <h1 className="text-3xl font-black text-slate-800 mb-4">聯繫人</h1>
                         <div className="relative mb-4">
                             <MagnifyingGlass size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
                                 value={contactQuery}
                                 onChange={e => setContactQuery(e.target.value)}
-                                placeholder="搜索联系人…"
+                                placeholder="搜索聯繫人…"
                                 className="w-full bg-slate-100 rounded-2xl pl-10 pr-4 py-3 text-sm text-slate-700 outline-none placeholder:text-slate-400"
                             />
                         </div>
 
                         {contactSections.length === 0 ? (
-                            <div className="py-16 text-center text-xs text-slate-300">没有匹配的联系人</div>
+                            <div className="py-16 text-center text-xs text-slate-300">沒有匹配的聯繫人</div>
                         ) : (
                             <div className="space-y-4">
                                 {contactSections.map(section => (
@@ -333,9 +333,9 @@ const ChatHub: React.FC = () => {
                 {tab === 'moments' && (
                     <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-3">
                         <Camera size={40} className="text-slate-300" />
-                        <p className="text-sm text-slate-400">动态复用现有的「动态」App，点一下就带你过去。</p>
+                        <p className="text-sm text-slate-400">動態複用現有的「動態」App，點一下就帶你過去。</p>
                         <button onClick={openMoments} className="px-6 py-2.5 rounded-full bg-primary text-white text-xs font-bold shadow-sm active:scale-95 transition-transform">
-                            打开动态
+                            打開動態
                         </button>
                     </div>
                 )}
@@ -348,7 +348,7 @@ const ChatHub: React.FC = () => {
                         >
                             <TokenImg value={userProfile.avatar} className="w-16 h-16 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
                             <div className="min-w-0 flex-1">
-                                <div className="text-base font-bold text-slate-800 truncate">{userProfile.name || '未设置身份'}</div>
+                                <div className="text-base font-bold text-slate-800 truncate">{userProfile.name || '未設置身份'}</div>
                             </div>
                             <UserCircle size={22} className="text-slate-300 shrink-0" />
                         </button>
@@ -359,20 +359,20 @@ const ChatHub: React.FC = () => {
                         >
                             <div className="flex items-center justify-between">
                                 <div className="text-[10px] font-bold text-sky-400 tracking-widest uppercase">Real Balance</div>
-                                <div className="text-[11px] text-sky-500">{realBalanceState.cards.length} 张银行卡</div>
+                                <div className="text-[11px] text-sky-500">{realBalanceState.cards.length} 張銀行卡</div>
                             </div>
                             <div className="text-2xl font-black text-slate-800 mt-1">¥{realBalanceState.balance.toFixed(2)}</div>
                             <div className="text-[11px] text-sky-500 mt-2 flex items-center justify-between">
-                                <span>余额管理 · 银行卡与流水</span>
+                                <span>餘額管理 · 銀行卡與流水</span>
                                 <span className="font-bold">查看 ›</span>
                             </div>
                         </button>
 
                         <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-4 grid grid-cols-3 gap-2">
                             {([
-                                { label: '朋友圈互动', icon: '📡' },
-                                { label: '表情包仓储', icon: '😊' },
-                                { label: '外观CSS', icon: '🎨' },
+                                { label: '朋友圈互動', icon: '📡' },
+                                { label: '表情包倉儲', icon: '😊' },
+                                { label: '外觀CSS', icon: '🎨' },
                             ]).map(item => (
                                 <button
                                     key={item.label}
@@ -401,9 +401,9 @@ const ChatHub: React.FC = () => {
             <div className="shrink-0 bg-white/90 backdrop-blur-md border-t border-slate-100 flex" style={{ paddingBottom: 'var(--safe-bottom)' }}>
                 {([
                     ['messages', '消息', ChatCircleDots],
-                    ['contacts', '联系人', UsersThree],
-                    ['moments', '动态', Camera],
-                    ['profile', '主页', UserCircle],
+                    ['contacts', '聯繫人', UsersThree],
+                    ['moments', '動態', Camera],
+                    ['profile', '主頁', UserCircle],
                 ] as const).map(([key, label, Icon]) => (
                     <button
                         key={key}

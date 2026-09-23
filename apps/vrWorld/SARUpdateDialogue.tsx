@@ -23,7 +23,7 @@ export function SARUpdateDialogue({ notice, onComplete }: { notice: SARUpdateNot
     };
     const offset = line.emphasis ? line.text.indexOf(line.emphasis) : -1;
     const text = offset < 0 ? line.text : <>{line.text.slice(0, offset)}<strong>{line.emphasis}</strong>{line.text.slice(offset + line.emphasis!.length)}</>;
-    return createPortal(<dialog ref={dialog} className="srf-dialog srf-caian" aria-label="凯恩的优化通知" data-sar-update={notice}
+    return createPortal(<dialog ref={dialog} className="srf-dialog srf-caian" aria-label="凱恩的優化通知" data-sar-update={notice}
         style={{ margin: 0, border: 0, width: '100%', maxWidth: 'none', height: '100%', maxHeight: 'none', boxSizing: 'border-box' }}
         onCancel={event => event.preventDefault()} onKeyDown={event => {
             if (event.key === 'ArrowRight') { event.preventDefault(); if (!event.repeat) next(); }
@@ -32,10 +32,10 @@ export function SARUpdateDialogue({ notice, onComplete }: { notice: SARUpdateNot
         <div className="srf-body">
             <div className="srf-stage"><SARDialogueCast speaker="caian" expression={line.expression}/></div>
             <div className="srf-script">
-                <SARDialogueMeta npc="caian" speaker="凯恩"/>
-                <button autoFocus type="button" className="srf-bubble" aria-label="继续对话" onClick={next}>
+                <SARDialogueMeta npc="caian" speaker="凱恩"/>
+                <button autoFocus type="button" className="srf-bubble" aria-label="繼續對話" onClick={next}>
                     <span className="srf-line">{line.quoted ? <em>{text}</em> : text}</span>
-                    <span className="srf-next">点击继续</span>
+                    <span className="srf-next">點擊繼續</span>
                 </button>
             </div>
         </div>

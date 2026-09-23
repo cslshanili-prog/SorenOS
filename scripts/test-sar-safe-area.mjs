@@ -15,7 +15,7 @@ try {
   await page.evaluate(async () => {
     const m = await import('/utils/vrWorld/fishingMarket.ts');
     const f = await import('/utils/vrWorld/sarFamiliarity/storageTypes.ts');
-    await m.mutateFishingMarket(state => ({ ...state, sarFamiliarity: { ...f.freshFamiliarity(), souvenirs: [{ id:'qa-safe-keepsake', title:'安全区纪念物', description:'回忆', npc:'caian', sceneId:'qa', nodeId:'qa', at:1, userName:'测试用户', flags:{}, draft:{} }] } }));
+    await m.mutateFishingMarket(state => ({ ...state, sarFamiliarity: { ...f.freshFamiliarity(), souvenirs: [{ id:'qa-safe-keepsake', title:'安全區紀念物', description:'回憶', npc:'caian', sceneId:'qa', nodeId:'qa', at:1, userName:'測試用戶', flags:{}, draft:{} }] } }));
   });
   const views = { modules: '.sar-module-shop__header', garden: '.clay-header', warehouse: '.sar-hub-header', settings: '.sar-hub-header', cabinet: '.sarc-header', gacha: '.sarg-header', board: '.board-header', inspector: '.sar-object-inspector-panel > header' };
   for (const [name, width, height, top] of [['portrait',390,844,83], ['landscape',844,390,24], ['small',320,568,44], ['no-inset',390,844,0]]) {
@@ -45,9 +45,9 @@ try {
         assert(panel.y + panel.height <= height - 34 + 1, `${name}: tall inspector exceeds safe area`);
       }
       if (view === 'warehouse') {
-        await page.getByRole('button', {name:'纪念',exact:true}).click();
-        await page.getByRole('button', {name:/^安全区纪念物 ·/}).click();
-        const close = page.getByRole('button', {name:'收好纪念物',exact:true});
+        await page.getByRole('button', {name:'紀念',exact:true}).click();
+        await page.getByRole('button', {name:/^安全[区區][纪紀]念物 ·/}).click();
+        const close = page.getByRole('button', {name:'收好紀念物',exact:true});
         const k = await close.boundingBox();
         assert(k.y >= top && k.y + k.height <= height, `${name}: keepsake back button outside safe area`);
         await close.click();
@@ -59,7 +59,7 @@ try {
         await guide.waitFor();
         const g = await guide.boundingBox();
         assert(g.y >= top && g.y + g.height <= height - 34 + 1, `${name}/${view}: guide outside safe area`);
-        await page.getByRole('button', { name: '关闭玩法引导', exact: true }).click();
+        await page.getByRole('button', { name: '關閉玩法引導', exact: true }).click();
       }
       if (view === 'garden') {
         await page.locator('.clay-theme').click();
@@ -67,10 +67,10 @@ try {
         await sheet.waitFor();
         const s = await sheet.boundingBox();
         assert(s.y >= top - 1, `${name}: garden sheet overlaps safe area`);
-        await sheet.getByRole('button', { name: '关闭面板', exact: true }).click();
+        await sheet.getByRole('button', { name: '關閉面板', exact: true }).click();
       }
       await button.click();
-      await page.getByText('设施已关闭', { exact: true }).waitFor();
+      await page.getByText('設施已關閉', { exact: true }).waitFor();
     }
   }
   assert.deepEqual(errors, []);

@@ -26,8 +26,8 @@ const formatTimestamp = (ts: number): string => {
     return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-// 只收「軌跡」自己生成的照片（OOTD + Moments），不连同聊天室/见面等别处的生图——
-// 范围窄一些但工程量小、边界清楚，不用另开一条全域写入管线。
+// 只收「軌跡」自己生成的照片（OOTD + Moments），不連同聊天室/見面等別處的生圖——
+// 範圍窄一些但工程量小、邊界清楚，不用另開一條全域寫入管線。
 const TrajectoryAlbum: React.FC<Props> = ({ targetChar, onBack, addToast }) => {
     const photos = useMemo<AlbumPhoto[]>(() => {
         const ootd = (targetChar.phoneState?.trajectoryOotd || []).map(p => ({ id: p.id, image: p.image, timestamp: p.timestamp, source: 'OOTD' as const }));
@@ -42,12 +42,12 @@ const TrajectoryAlbum: React.FC<Props> = ({ targetChar, onBack, addToast }) => {
         setSaving(true);
         try {
             const blob = await getBlobForRef(photo.image);
-            if (!blob) { addToast('图片已丢失，无法保存', 'error'); return; }
+            if (!blob) { addToast('圖片已丟失，無法保存', 'error'); return; }
             const result = await shareOrDownloadBlob({ blob, fileName: `Album-${photo.id}.png`, shareTitle: `${targetChar.name} 的相簿` });
-            if (result !== 'cancelled') addToast(result === 'shared' ? '已打开保存面板' : '已保存到本地', 'success');
+            if (result !== 'cancelled') addToast(result === 'shared' ? '已打開保存面板' : '已保存到本地', 'success');
         } catch (e) {
-            console.warn('[Trajectory] 相簿照片保存失败:', e);
-            addToast('保存失败，稍后再试', 'error');
+            console.warn('[Trajectory] 相簿照片保存失敗:', e);
+            addToast('保存失敗，稍後再試', 'error');
         } finally {
             setSaving(false);
         }
@@ -61,7 +61,7 @@ const TrajectoryAlbum: React.FC<Props> = ({ targetChar, onBack, addToast }) => {
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-8">
                 {photos.length === 0 ? (
                     <div className="text-center pt-16 text-[12px] text-white/40">
-                        还没有照片，去 OOTD / Moments 生成一些吧
+                        還沒有照片，去 OOTD / Moments 生成一些吧
                     </div>
                 ) : (
                     <div className="grid grid-cols-3 gap-2">
@@ -80,7 +80,7 @@ const TrajectoryAlbum: React.FC<Props> = ({ targetChar, onBack, addToast }) => {
                     <div className="absolute inset-0 bg-black/70" />
                     <div className="relative w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl"
                         style={{ background: '#1a1626' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setDetailPhoto(null)} aria-label="关闭"
+                        <button onClick={() => setDetailPhoto(null)} aria-label="關閉"
                             className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80">
                             <X size={14} weight="bold" />
                         </button>

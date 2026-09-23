@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import ScheduleChangeNotice from '../components/chat/ScheduleChangeNotice';
 
 describe('ScheduleChangeNotice', () => {
-    it('明确展示时段、原计划与新计划，并暴露白框稳定选择器', () => {
+    it('明確展示時段、原計劃與新計劃，並暴露白框穩定選擇器', () => {
         const html = renderToStaticMarkup(React.createElement(ScheduleChangeNotice, {
             detail: {
                 charId: 'char-1',
@@ -22,7 +22,7 @@ describe('ScheduleChangeNotice', () => {
             onDone: () => {},
         }));
 
-        expect(html).toContain('未来日程已调整');
+        expect(html).toContain('未來日程已調整');
         expect(html).toContain('18:30');
         expect(html).toContain('健身');
         expect(html).toContain('去超市');

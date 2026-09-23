@@ -9,7 +9,7 @@ const renderPhoneField = (input: unknown, seen: Set<object>): string => {
 
     if (valueType === 'object') {
         const objectValue = input as object;
-        if (seen.has(objectValue)) return '[循环引用]';
+        if (seen.has(objectValue)) return '[循環引用]';
         seen.add(objectValue);
         let text: string;
         if (Array.isArray(input)) {
@@ -28,8 +28,8 @@ const renderPhoneField = (input: unknown, seen: Set<object>): string => {
 };
 
 /**
- * LLM 自定义 App 偶尔会把本应为字符串的字段返回成对象。
- * React 不能直接渲染对象；这里在生成边界和历史数据展示边界统一降级成可读文本。
+ * LLM 自定義 App 偶爾會把本應為字符串的字段返回成對象。
+ * React 不能直接渲染對象；這裡在生成邊界和歷史數據展示邊界統一降級成可讀文本。
  */
 export function phoneFieldToText(input: unknown, fallback: string = ''): string {
     const text = renderPhoneField(input, new Set()).trim();
@@ -50,19 +50,19 @@ export function normalizePhoneEvidence(record: PhoneEvidence): PhoneEvidence {
 }
 
 /**
- * 生成首次同步与事后补同步共用的私聊卡片载荷。
- * 故意只读 title/detail/value：record.html（自定义 App 的卡片渲染，见 PhoneEvidence 类型注释）
- * 是 App 界面专用的展示层，绝不能进这里——否则 HTML/CSS 代码会被当成正文塞进角色的聊天上下文。
+ * 生成首次同步與事後補同步共用的私聊卡片載荷。
+ * 故意只讀 title/detail/value：record.html（自定義 App 的卡片渲染，見 PhoneEvidence 類型註釋）
+ * 是 App 界面專用的展示層，絕不能進這裡——否則 HTML/CSS 代碼會被當成正文塞進角色的聊天上下文。
  */
 export function buildPhoneEvidenceChatCard(record: PhoneEvidence, appName: string): {
     content: string;
     metadata: { phoneCard: { app: string; kind: string; title: string; detail: string; value?: string } };
 } {
     const normalized = normalizePhoneEvidence(record);
-    const app = phoneFieldToText(appName, '手机');
+    const app = phoneFieldToText(appName, '手機');
     const content = normalized.type === 'chat'
-        ? `[你手机的聊天软件] 你和「${normalized.title}」的对话：${normalized.detail.replace(/\n/g, ' ')}`
-        : `[你手机的${app}] ${normalized.title}${normalized.value ? ` · ${normalized.value}` : ''} — ${normalized.detail}`;
+        ? `[你手機的聊天軟件] 你和「${normalized.title}」的對話：${normalized.detail.replace(/\n/g, ' ')}`
+        : `[你手機的${app}] ${normalized.title}${normalized.value ? ` · ${normalized.value}` : ''} — ${normalized.detail}`;
     return {
         content,
         metadata: {

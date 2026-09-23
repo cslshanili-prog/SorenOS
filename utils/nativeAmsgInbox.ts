@@ -29,7 +29,7 @@ export const parseNativeAmsgPayload = (raw: unknown): Record<string, any> | null
   }
 };
 
-/** 把 UnifiedPush 收到的标准 AMSG payload 送进 master 现有的 inbox 管线。 */
+/** 把 UnifiedPush 收到的標準 AMSG payload 送進 master 現有的 inbox 管線。 */
 export const ingestNativeAmsgPayload = async (
   raw: unknown,
   previewOverride?: string,
@@ -46,7 +46,7 @@ export const ingestNativeAmsgPayload = async (
   const inbox: ActiveMsg2InboxMessage = {
     messageId,
     charId,
-    charName: String(payload.contactName || payload.metadata?.charName || '主动消息'),
+    charName: String(payload.contactName || payload.metadata?.charName || '主動消息'),
     body,
     previewBody: String(previewOverride || payload.previewBody || body).trim(),
     avatarUrl: payload.avatarUrl,

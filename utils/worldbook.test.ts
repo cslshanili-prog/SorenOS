@@ -13,9 +13,9 @@ import {
 
 const book = (overrides: Partial<MountedWorldbook> = {}): MountedWorldbook => ({
     id: 'book-1',
-    title: '测试条目',
-    content: '{{char}} 在 {{user}} 提到月亮时会想起故乡。',
-    category: '测试',
+    title: '測試條目',
+    content: '{{char}} 在 {{user}} 提到月亮時會想起故鄉。',
+    category: '測試',
     ...overrides,
 });
 
@@ -36,14 +36,14 @@ describe('worldbook activation', () => {
     it('respects secondary keyword logic and disabled state', () => {
         const selectiveBook = book({
             constant: false,
-            key: ['学校'],
-            keysecondary: ['老师', '同学'],
+            key: ['學校'],
+            keysecondary: ['老師', '同學'],
             selective: true,
             selectiveLogic: 3,
         });
-        expect(isWorldbookEntryActive(selectiveBook, [{ content: '学校里的老师和同学' }])).toBe(true);
-        expect(isWorldbookEntryActive(selectiveBook, [{ content: '学校里的老师' }])).toBe(false);
-        expect(isWorldbookEntryActive({ ...selectiveBook, disable: true }, [{ content: '学校里的老师和同学' }])).toBe(false);
+        expect(isWorldbookEntryActive(selectiveBook, [{ content: '學校裡的老師和同學' }])).toBe(true);
+        expect(isWorldbookEntryActive(selectiveBook, [{ content: '學校裡的老師' }])).toBe(false);
+        expect(isWorldbookEntryActive({ ...selectiveBook, disable: true }, [{ content: '學校裡的老師和同學' }])).toBe(false);
     });
 });
 
@@ -71,8 +71,8 @@ describe('standard worldbook import', () => {
             entries: {
                 0: {
                     uid: 7,
-                    comment: '月亮设定',
-                    content: '月亮是蓝色的。',
+                    comment: '月亮設定',
+                    content: '月亮是藍色的。',
                     key: ['月亮'],
                     keysecondary: [],
                     constant: false,
@@ -86,12 +86,12 @@ describe('standard worldbook import', () => {
                     useProbability: true,
                 },
             },
-        }), '导入测试', 1234);
+        }), '導入測試', 1234);
 
         expect(imported).toHaveLength(1);
         expect(imported[0]).toMatchObject({
-            title: '月亮设定',
-            category: '导入测试',
+            title: '月亮設定',
+            category: '導入測試',
             key: ['月亮'],
             constant: false,
             position: 4,
@@ -108,15 +108,15 @@ describe('standard worldbook import', () => {
         const source = [{
             ...book({
                 id: 'export-1',
-                title: '导出条目',
-                content: '导出内容',
+                title: '導出條目',
+                content: '導出內容',
                 constant: false,
-                key: ['导出'],
+                key: ['導出'],
                 position: 4,
                 depth: 3,
                 role: 2,
             }),
-            category: '导出组',
+            category: '導出組',
             createdAt: 1,
             updatedAt: 1,
         }];
@@ -124,18 +124,18 @@ describe('standard worldbook import', () => {
         const json = serializeStandardWorldbook(source);
         const raw = JSON.parse(json);
         expect(raw.entries['0']).toMatchObject({
-            comment: '导出条目',
-            key: ['导出'],
+            comment: '導出條目',
+            key: ['導出'],
             position: 4,
             depth: 3,
             role: 2,
         });
 
-        const imported = parseStandardWorldbook(json, '重新导入', 2);
+        const imported = parseStandardWorldbook(json, '重新導入', 2);
         expect(imported[0]).toMatchObject({
-            title: '导出条目',
-            content: '导出内容',
-            key: ['导出'],
+            title: '導出條目',
+            content: '導出內容',
+            key: ['導出'],
             position: 4,
             depth: 3,
             role: 2,
@@ -161,7 +161,7 @@ describe('mounted worldbook synchronization', () => {
                 useProbability: true,
                 probability: 75,
             }),
-            category: '同步测试',
+            category: '同步測試',
             createdAt: 1,
             updatedAt: 2,
         });
@@ -187,14 +187,14 @@ describe('mounted worldbook synchronization', () => {
     it('mounts a complete generated group without duplicates and keeps it injectable', () => {
         const now = Date.now();
         const generated: Worldbook[] = [
-            { ...book({ id: 'generated-1', title: '常驻校规', content: '午夜后禁止离开宿舍。', category: '学院', constant: true, order: 10, position: 1 }), createdAt: now, updatedAt: now },
-            { ...book({ id: 'generated-2', title: '雨夜钟楼', content: '钟楼会在雨夜开放。', category: '学院', constant: false, key: ['钟楼'], scanDepth: 4, order: 20, position: 1 }), createdAt: now, updatedAt: now },
+            { ...book({ id: 'generated-1', title: '常駐校規', content: '午夜後禁止離開宿舍。', category: '學院', constant: true, order: 10, position: 1 }), createdAt: now, updatedAt: now },
+            { ...book({ id: 'generated-2', title: '雨夜鐘樓', content: '鐘樓會在雨夜開放。', category: '學院', constant: false, key: ['鐘樓'], scanDepth: 4, order: 20, position: 1 }), createdAt: now, updatedAt: now },
         ];
-        const mounted = upsertMountedWorldbooks([book({ id: 'existing', title: '已有条目', order: 300 })], generated);
+        const mounted = upsertMountedWorldbooks([book({ id: 'existing', title: '已有條目', order: 300 })], generated);
         const retried = upsertMountedWorldbooks(mounted, generated);
 
         expect(retried.map(entry => entry.id)).toEqual(['existing', 'generated-1', 'generated-2']);
-        expect(retried.filter(entry => entry.category === '学院')).toHaveLength(2);
-        expect(resolveWorldbookEntries(retried, [{ content: '我们去钟楼看看' }]).map(entry => entry.book.id)).toEqual(['generated-1', 'generated-2', 'existing']);
+        expect(retried.filter(entry => entry.category === '學院')).toHaveLength(2);
+        expect(resolveWorldbookEntries(retried, [{ content: '我們去鐘樓看看' }]).map(entry => entry.book.id)).toEqual(['generated-1', 'generated-2', 'existing']);
     });
 });

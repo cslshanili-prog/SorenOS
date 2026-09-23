@@ -1,28 +1,28 @@
 /**
  * Memory Palace — BM25 倒排索引
  *
- * 内存常驻、按 charId 隔离、懒构建、增量维护。
- * 不持久化到 IndexedDB —— 启动时按需重建（10k 节点约 1-3s 一次性成本），
- * 换取零持久化漂移风险。
+ * 內存常駐、按 charId 隔離、懶構建、增量維護。
+ * 不持久化到 IndexedDB —— 啟動時按需重建（10k 節點約 1-3s 一次性成本），
+ * 換取零持久化漂移風險。
  *
- * 架构要点：
- *   - 索引构建：第一次查询某 charId 时全量 tokenize
- *   - 增量更新：MemoryNodeDB.save/delete/saveMany 内部钩子触发
- *   - 候选过滤：在查询时按调用方传入的 allowedIds 过滤（自动处理
- *     archived/embedded 等节点状态变化，不需要在 archive 翻转时重建）
- *   - 跨 char 查找：维护 nodeId → charId 反查表，支持 delete(id) 不带 charId
+ * 架構要點：
+ *   - 索引構建：第一次查詢某 charId 時全量 tokenize
+ *   - 增量更新：MemoryNodeDB.save/delete/saveMany 內部鉤子觸發
+ *   - 候選過濾：在查詢時按調用方傳入的 allowedIds 過濾（自動處理
+ *     archived/embedded 等節點狀態變化，不需要在 archive 翻轉時重建）
+ *   - 跨 char 查找：維護 nodeId → charId 反查表，支持 delete(id) 不帶 charId
  *
- * 与 bm25Search() 的等价性：
+ * 與 bm25Search() 的等價性：
  *   - 同一 tokenizer
- *   - 同一公式（K1, B 来自 bm25.ts）
- *   - 同一统计口径：search() 内的 docCount / avgDl / df 全部按 allowedIds
- *     候选集计算（与朴素版传入 nodes 的口径一致）→ top K 与分数完全等价，
- *     可被 bm25SearchDualRun 验证
+ *   - 同一公式（K1, B 來自 bm25.ts）
+ *   - 同一統計口徑：search() 內的 docCount / avgDl / df 全部按 allowedIds
+ *     候選集計算（與樸素版傳入 nodes 的口徑一致）→ top K 與分數完全等價，
+ *     可被 bm25SearchDualRun 驗證
  *
- * 已知未挂钩的写入路径（v1 接受的风险）：
- *   - 备份恢复：utils/db.ts 的 clearAndAdd('memory_nodes', ...) 直接写 IDB，
- *     不经 MemoryNodeDB → 索引会变脏。缓解：恢复后通常会刷页面，新会话自动
- *     重建；若用户报告异常召回，在恢复成功后显式调 bm25Index.dropAll()
+ * 已知未掛鉤的寫入路徑（v1 接受的風險）：
+ *   - 備份恢復：utils/db.ts 的 clearAndAdd('memory_nodes', ...) 直接寫 IDB，
+ *     不經 MemoryNodeDB → 索引會變髒。緩解：恢復後通常會刷頁面，新會話自動
+ *     重建；若用戶報告異常召回，在恢復成功後顯式調 bm25Index.dropAll()
  */
 
 import type { MemoryNode } from './types';
@@ -31,16 +31,16 @@ import { tokenize, K1, B } from './bm25';
 interface DocMeta {
     length: number;
     charId: string;
-    /** 内容指纹（length + 简单 hash），用于 save 时判断是否需要重新 tokenize */
+    /** 內容指紋（length + 簡單 hash），用於 save 時判斷是否需要重新 tokenize */
     contentSig: number;
 }
 
 interface CharIndex {
     /** token → (nodeId → tf) 倒排表 */
     postings: Map<string, Map<string, number>>;
-    /** nodeId → 文档元信息 */
+    /** nodeId → 文檔元信息 */
     docMeta: Map<string, DocMeta>;
-    /** 总 token 数（用于 avgDl 计算） */
+    /** 總 token 數（用於 avgDl 計算） */
     totalTokens: number;
 }
 
@@ -49,11 +49,11 @@ export interface BM25IndexedResult {
     score: number;
 }
 
-// ─── 内容指纹 ──────────────────────────────────────────
+// ─── 內容指紋 ──────────────────────────────────────────
 
 /**
- * 廉价的字符串指纹，用于检测 content 是否变更。
- * 不需要密码学强度——只要变了就大概率不同就行。
+ * 廉價的字符串指紋，用於檢測 content 是否變更。
+ * 不需要密碼學強度——只要變了就大概率不同就行。
  */
 function contentSig(s: string): number {
     let h = 5381;
@@ -66,20 +66,20 @@ function contentSig(s: string): number {
 // ─── 索引管理器（singleton） ───────────────────────────
 
 class BM25IndexManager {
-    /** charId → 该角色的倒排索引 */
+    /** charId → 該角色的倒排索引 */
     private indices = new Map<string, CharIndex>();
-    /** nodeId → charId（用于 delete 时反查） */
+    /** nodeId → charId（用於 delete 時反查） */
     private nodeToChar = new Map<string, string>();
 
-    /** 是否已为某 charId 构建索引 */
+    /** 是否已為某 charId 構建索引 */
     has(charId: string): boolean {
         return this.indices.has(charId);
     }
 
     /**
-     * 确保索引已构建。已存在则跳过；未存在则用传入的 nodes 全量构建。
-     * 调用方应传入该 charId 的"全量节点"（含 archived / 未 embedded），
-     * 不要预过滤——查询时按候选集过滤即可。这样 archive 翻转无需重建。
+     * 確保索引已構建。已存在則跳過；未存在則用傳入的 nodes 全量構建。
+     * 調用方應傳入該 charId 的"全量節點"（含 archived / 未 embedded），
+     * 不要預過濾——查詢時按候選集過濾即可。這樣 archive 翻轉無需重建。
      */
     ensureBuilt(charId: string, allNodes: MemoryNode[]): void {
         if (this.indices.has(charId)) return;
@@ -100,7 +100,7 @@ class BM25IndexManager {
         }
     }
 
-    /** 删除某 charId 的索引（用于 wipe / 角色切换等场景） */
+    /** 刪除某 charId 的索引（用於 wipe / 角色切換等場景） */
     drop(charId: string): void {
         const idx = this.indices.get(charId);
         if (!idx) return;
@@ -110,24 +110,24 @@ class BM25IndexManager {
         this.indices.delete(charId);
     }
 
-    /** 清空所有索引（wipe 全量数据时用） */
+    /** 清空所有索引（wipe 全量數據時用） */
     dropAll(): void {
         this.indices.clear();
         this.nodeToChar.clear();
     }
 
-    // ─── 增量维护钩子 ──────────────────────────────────
+    // ─── 增量維護鉤子 ──────────────────────────────────
 
     /**
-     * 节点写入钩子。
+     * 節點寫入鉤子。
      *
-     * 决策：
-     *   - 索引未构建 → 直接跳过（懒构建会在首次查询时全量扫一次，
-     *     这里不抢跑，避免 save 路径承担 1-3s 的代价）
-     *   - 节点已存在且 contentSig 未变 → 跳过（touchAccess 等仅更新
-     *     metadata 的写入不需要重新 tokenize）
-     *   - 节点已存在且 contentSig 变了 → 旧 tf 全删，新 tf 插入
-     *   - 节点不存在 → 直接插入
+     * 決策：
+     *   - 索引未構建 → 直接跳過（懶構建會在首次查詢時全量掃一次，
+     *     這裡不搶跑，避免 save 路徑承擔 1-3s 的代價）
+     *   - 節點已存在且 contentSig 未變 → 跳過（touchAccess 等僅更新
+     *     metadata 的寫入不需要重新 tokenize）
+     *   - 節點已存在且 contentSig 變了 → 舊 tf 全刪，新 tf 插入
+     *   - 節點不存在 → 直接插入
      */
     onNodeSaved(node: MemoryNode): void {
         const index = this.indices.get(node.charId);
@@ -144,7 +144,7 @@ class BM25IndexManager {
         this.nodeToChar.set(node.id, node.charId);
     }
 
-    /** 节点删除钩子（不需要 charId，内部反查） */
+    /** 節點刪除鉤子（不需要 charId，內部反查） */
     onNodeDeleted(nodeId: string): void {
         const charId = this.nodeToChar.get(nodeId);
         if (!charId) return;
@@ -154,18 +154,18 @@ class BM25IndexManager {
         this.nodeToChar.delete(nodeId);
     }
 
-    /** 批量写入钩子（按 charId 分组后逐一更新对应索引） */
+    /** 批量寫入鉤子（按 charId 分組後逐一更新對應索引） */
     onNodesSaved(nodes: MemoryNode[]): void {
         for (const node of nodes) this.onNodeSaved(node);
     }
 
-    // ─── 内部：索引读写 ────────────────────────────────
+    // ─── 內部：索引讀寫 ────────────────────────────────
 
     private addToIndex(index: CharIndex, node: MemoryNode): void {
         const tokens = tokenize(node.content);
         const length = tokens.length;
         if (length === 0) {
-            // 仍然记录 docMeta，避免反复尝试 tokenize 空内容；不进 postings
+            // 仍然記錄 docMeta，避免反覆嘗試 tokenize 空內容；不進 postings
             index.docMeta.set(node.id, {
                 length: 0,
                 charId: node.charId,
@@ -174,7 +174,7 @@ class BM25IndexManager {
             return;
         }
 
-        // 累计 tf
+        // 累計 tf
         const tfMap = new Map<string, number>();
         for (const t of tokens) {
             tfMap.set(t, (tfMap.get(t) || 0) + 1);
@@ -201,12 +201,12 @@ class BM25IndexManager {
         const meta = index.docMeta.get(nodeId);
         if (!meta) return;
 
-        // 扫一遍 postings 把含 nodeId 的桶里抹掉。
-        // 这里没有 doc→tokens 的反向表（避免双倍内存），所以是 O(unique tokens)
-        // 而非 O(doc length)；对中文 2-gram，差距不大。
-        // 优化：只遍历该文档实际包含的 token —— 但需要重新 tokenize 一次内容。
-        // 取舍：假设内容已被外部修改过，重新 tokenize 不一定还原原始 token 集。
-        // 因此保险走全 postings 扫描。后续若成为瓶颈，再加 doc→tokens 反向表。
+        // 掃一遍 postings 把含 nodeId 的桶裡抹掉。
+        // 這裡沒有 doc→tokens 的反向表（避免雙倍內存），所以是 O(unique tokens)
+        // 而非 O(doc length)；對中文 2-gram，差距不大。
+        // 優化：只遍歷該文檔實際包含的 token —— 但需要重新 tokenize 一次內容。
+        // 取捨：假設內容已被外部修改過，重新 tokenize 不一定還原原始 token 集。
+        // 因此保險走全 postings 掃描。後續若成為瓶頸，再加 doc→tokens 反向表。
         for (const [token, bucket] of index.postings) {
             if (bucket.delete(nodeId) && bucket.size === 0) {
                 index.postings.delete(token);
@@ -217,19 +217,19 @@ class BM25IndexManager {
         index.docMeta.delete(nodeId);
     }
 
-    // ─── 查询 ──────────────────────────────────────────
+    // ─── 查詢 ──────────────────────────────────────────
 
     /**
-     * 在某 charId 的索引上做 BM25 查询。
+     * 在某 charId 的索引上做 BM25 查詢。
      *
-     * 统计口径：docCount / avgDl / df 全部按 allowedIds 候选集计算，
-     * 与朴素 bm25Search(query, candidates) 的口径一致 —— 这样切到倒排
-     * 版后排序与分数完全等价（验证：bm25SearchDualRun）。
+     * 統計口徑：docCount / avgDl / df 全部按 allowedIds 候選集計算，
+     * 與樸素 bm25Search(query, candidates) 的口徑一致 —— 這樣切到倒排
+     * 版後排序與分數完全等價（驗證：bm25SearchDualRun）。
      *
      * @param charId  角色 ID
-     * @param queryTokens  已分词的查询 token
-     * @param allowedIds  候选 ID 集（必须传，对应朴素版的 nodes 参数）
-     * @returns 排序后的 (nodeId, score) 列表（不截断 topK，由调用方处理）
+     * @param queryTokens  已分詞的查詢 token
+     * @param allowedIds  候選 ID 集（必須傳，對應樸素版的 nodes 參數）
+     * @returns 排序後的 (nodeId, score) 列表（不截斷 topK，由調用方處理）
      */
     search(
         charId: string,
@@ -239,9 +239,9 @@ class BM25IndexManager {
         const index = this.indices.get(charId);
         if (!index || queryTokens.length === 0 || allowedIds.size === 0) return [];
 
-        // 候选集统计：docCount = 候选集大小，avgDl = 候选集平均长度
-        // 注意：朴素版用 nodes.length 当 docCount，无论 dl 是否为 0；
-        // avgDl 也用 reduce 求和 / nodes.length（含 dl=0 节点）。这里照搬。
+        // 候選集統計：docCount = 候選集大小，avgDl = 候選集平均長度
+        // 注意：樸素版用 nodes.length 當 docCount，無論 dl 是否為 0；
+        // avgDl 也用 reduce 求和 / nodes.length（含 dl=0 節點）。這裡照搬。
         let totalLen = 0;
         const docCount = allowedIds.size;
         for (const id of allowedIds) {
@@ -251,30 +251,30 @@ class BM25IndexManager {
         const avgDl = totalLen / docCount;
         if (avgDl === 0) return [];
 
-        // 去重 query token，按候选集算 df → IDF
+        // 去重 query token，按候選集算 df → IDF
         const uniqueQTokens = Array.from(new Set(queryTokens));
         const idf = new Map<string, number>();
         for (const qt of uniqueQTokens) {
             const bucket = index.postings.get(qt);
             let df = 0;
             if (bucket) {
-                // 只数候选集内的命中
+                // 只數候選集內的命中
                 if (bucket.size <= allowedIds.size) {
                     for (const id of bucket.keys()) {
                         if (allowedIds.has(id)) df++;
                     }
                 } else {
-                    // 候选集小很多时反向迭代更快
+                    // 候選集小很多時反向迭代更快
                     for (const id of allowedIds) {
                         if (bucket.has(id)) df++;
                     }
                 }
             }
-            // BM25 IDF：与 bm25.ts 的公式逐字符一致
+            // BM25 IDF：與 bm25.ts 的公式逐字符一致
             idf.set(qt, Math.log((docCount - df + 0.5) / (df + 0.5) + 1));
         }
 
-        // 评分：仅遍历命中文档（与原实现的 score>0 过滤等价）
+        // 評分：僅遍歷命中文檔（與原實現的 score>0 過濾等價）
         const scores = new Map<string, number>();
         for (const qt of uniqueQTokens) {
             const bucket = index.postings.get(qt);
@@ -284,7 +284,7 @@ class BM25IndexManager {
             for (const [nodeId, tf] of bucket) {
                 if (!allowedIds.has(nodeId)) continue;
                 const meta = index.docMeta.get(nodeId);
-                if (!meta || meta.length === 0) continue;  // 朴素版 dl===0 时 continue
+                if (!meta || meta.length === 0) continue;  // 樸素版 dl===0 時 continue
 
                 const tfNorm = (tf * (K1 + 1)) / (tf + K1 * (1 - B + B * meta.length / avgDl));
                 const contrib = idfQ * tfNorm;
@@ -300,7 +300,7 @@ class BM25IndexManager {
         return results;
     }
 
-    // ─── 调试/校验 ─────────────────────────────────────
+    // ─── 調試/校驗 ─────────────────────────────────────
 
     stats(charId: string): { docCount: number; postings: number; totalTokens: number } | null {
         const idx = this.indices.get(charId);

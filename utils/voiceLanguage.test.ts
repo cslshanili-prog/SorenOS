@@ -5,7 +5,7 @@ import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguagePromp
 
 const character = (fishModel?: string) => ({
   id: 'char-1',
-  name: '测试角色',
+  name: '測試角色',
   voiceProfile: { fishModel },
 } as CharacterProfile);
 
@@ -16,14 +16,14 @@ const config = (overrides: Partial<APIConfig>): APIConfig => ({
 describe('Cantonese voice language', () => {
   it('is visible and asks the LLM for colloquial Cantonese rather than written Mandarin', () => {
     expect(VOICE_LANGUAGE_OPTIONS.some(option => option.value === 'yue')).toBe(true);
-    expect(voiceLanguagePromptLabel('yue')).toContain('粤语口语');
-    expect(voiceLanguagePromptLabel('yue')).toContain('不要写成普通话');
+    expect(voiceLanguagePromptLabel('yue')).toContain('粵語口語');
+    expect(voiceLanguagePromptLabel('yue')).toContain('不要寫成普通話');
   });
 
   it('only exposes fixed language enums to analytics', () => {
     expect(voiceLanguageAnalyticsValue('yue')).toBe('yue');
     expect(voiceLanguageAnalyticsValue('')).toBe('default');
-    expect(voiceLanguageAnalyticsValue('用户自己填的语种')).toBe('custom');
+    expect(voiceLanguageAnalyticsValue('用戶自己填的語種')).toBe('custom');
   });
 
   it('allows MiniMax, Fish S2 and Eleven v3', () => {

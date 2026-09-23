@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>角色卡危险信息批量检测 · 本地测试版</title>
+<title>角色卡危險信息批量檢測 · 本地測試版</title>
 <style>
   :root {
     --bg: #0f1117; --panel: #171a23; --panel2: #1e222d; --line: #2a2f3c;
@@ -76,38 +76,38 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🕵️ 角色卡危险信息批量检测 <span class="badge">本地测试版 · 不接入正式版</span></h1>
-  <div class="sub">一次拖入 / 选择<b>多张</b>角色卡 JSON（或整个文件夹），批量检测里面是否带 API 密钥等危险信息。全程在本地浏览器运行，不上传任何数据。</div>
+  <h1>🕵️ 角色卡危險信息批量檢測 <span class="badge">本地測試版 · 不接入正式版</span></h1>
+  <div class="sub">一次拖入 / 選擇<b>多張</b>角色卡 JSON（或整個文件夾），批量檢測裡面是否帶 API 密鑰等危險信息。全程在本地瀏覽器運行，不上傳任何數據。</div>
 
   <div class="drop" id="drop">
-    把 <b>多张角色卡 .json</b>（或一个文件夹）拖到这里，或点击 <b>选择文件</b>
+    把 <b>多張角色卡 .json</b>（或一個文件夾）拖到這裡，或點擊 <b>選擇文件</b>
     <input type="file" id="file" accept=".json,application/json" multiple hidden />
     <input type="file" id="dir" webkitdirectory directory multiple hidden />
-    <div style="margin-top:10px"><button class="ghost" id="pickFiles" type="button">选择多个文件</button> <button class="ghost" id="pickDir" type="button">选择文件夹</button></div>
+    <div style="margin-top:10px"><button class="ghost" id="pickFiles" type="button">選擇多個文件</button> <button class="ghost" id="pickDir" type="button">選擇文件夾</button></div>
   </div>
-  <textarea id="paste" placeholder="…或者粘贴单张角色卡 JSON（批量请用上面拖入 / 选择文件）"></textarea>
+  <textarea id="paste" placeholder="…或者粘貼單張角色卡 JSON（批量請用上面拖入 / 選擇文件）"></textarea>
   <div class="row">
-    <button id="scan">检测粘贴内容</button>
+    <button id="scan">檢測粘貼內容</button>
     <button class="ghost" id="clear">清空</button>
   </div>
 
   <div id="out"></div>
 
   <div class="foot">
-    检测逻辑：<br>
-    1. <b>深度递归扫描</b>整份 JSON——字段名像密钥（apiKey / secret / token / authorization / bearer / password / anonKey …）或字段值像密钥（<code>sk-…</code>、<code>Bearer …</code>、JWT、长十六进制/base64）的一律标红，新增字段也覆盖。<br>
-    2. 按已知清单核对<b>美化 / 语言 / 运行时状态</b>字段是否存在。<br>
-    密钥值默认打码，只露头尾几位供比对。点表格里任意一行可展开该卡详情；可按结论筛选、按文件名搜索、导出 CSV。
+    檢測邏輯：<br>
+    1. <b>深度遞歸掃描</b>整份 JSON——字段名像密鑰（apiKey / secret / token / authorization / bearer / password / anonKey …）或字段值像密鑰（<code>sk-…</code>、<code>Bearer …</code>、JWT、長十六進制/base64）的一律標紅，新增字段也覆蓋。<br>
+    2. 按已知清單核對<b>美化 / 語言 / 運行時狀態</b>字段是否存在。<br>
+    密鑰值默認打碼，只露頭尾幾位供比對。點表格裡任意一行可展開該卡詳情；可按結論篩選、按文件名搜索、導出 CSV。
   </div>
 </div>
 
 <script>
-// ————— 已知字段清单（与 utils/characterCard.ts 的 CARD_STRIPPED_FIELDS 对应）—————
+// ————— 已知字段清單（與 utils/characterCard.ts 的 CARD_STRIPPED_FIELDS 對應）—————
 const CREDENTIAL_CARRIERS = {
-  emotionConfig:   '情绪 buff API（emotionConfig.api）',
-  embeddingConfig: '记忆宫殿向量 embedding API',
-  proactiveConfig: '主动消息 副 API（secondaryApi）',
-  activeMsg2Config:'主动消息2 副 API（secondaryApi）',
+  emotionConfig:   '情緒 buff API（emotionConfig.api）',
+  embeddingConfig: '記憶宮殿向量 embedding API',
+  proactiveConfig: '主動消息 副 API（secondaryApi）',
+  activeMsg2Config:'主動消息2 副 API（secondaryApi）',
 };
 const BEAUTIFY = ['embeddedTheme','bubbleStyle','chatFineTune','chromeCustomCss','chatSound','chatSoundBound','chatBackground','dateBackground','thinkingChainStyle','thinkingChainCustomColors','thinkingChainCustomPrompt'];
 const LANGUAGE = ['chatVoiceLang','dateVoiceLang','callVoiceLang','chatVoiceEnabled','dateVoiceEnabled'];
@@ -115,10 +115,10 @@ const RUNTIME  = ['activeBuffs','buffInjection','memoryPalaceInjection','savedDa
 
 const SECRET_KEY_NAME = /(api[_-]?key|secret|token|authorization|auth|bearer|password|passwd|pwd|access[_-]?key|private[_-]?key|anon[_-]?key|credential|apikey)/i;
 const SECRET_VALUE = [
-  { re: /\bsk-[A-Za-z0-9_\-]{12,}/, label: 'OpenAI 风格密钥 sk-…' },
+  { re: /\bsk-[A-Za-z0-9_\-]{12,}/, label: 'OpenAI 風格密鑰 sk-…' },
   { re: /\bBearer\s+[A-Za-z0-9._\-]{12,}/i, label: 'Bearer 令牌' },
   { re: /\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{6,}/, label: 'JWT' },
-  { re: /\b[A-Za-z0-9]{32,}\b/, label: '疑似长密钥 / 哈希（32+ 位）' },
+  { re: /\b[A-Za-z0-9]{32,}\b/, label: '疑似長密鑰 / 哈希（32+ 位）' },
 ];
 const VALUE_WHITELIST_KEYS = /^(id|systemPrompt|description|worldview|content|summary|memoryText|impression|avatar|src|prompt|notes|bio|title|label|text)$/i;
 
@@ -140,7 +140,7 @@ function deepScan(obj, path, hits) {
     const p = path ? path + '.' + k : k;
     const isSecretName = SECRET_KEY_NAME.test(k);
     if (isSecretName && v != null && v !== '' && typeof v !== 'object') {
-      hits.push({ path: p, value: mask(v), why: '字段名疑似凭据（' + k + '）' });
+      hits.push({ path: p, value: mask(v), why: '字段名疑似憑據（' + k + '）' });
     } else if (typeof v === 'string' && !VALUE_WHITELIST_KEYS.test(k)) {
       const lbl = looksLikeSecretValue(v);
       if (lbl) hits.push({ path: p, value: mask(v), why: '字段值疑似' + lbl });
@@ -150,7 +150,7 @@ function deepScan(obj, path, hits) {
 }
 function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
-// 分析单张卡 → 结构化结果
+// 分析單張卡 → 結構化結果
 function analyze(data) {
   const secretHits = []; deepScan(data, '', secretHits);
   const seen = new Set(); const secrets = secretHits.filter(h => !seen.has(h.path) && seen.add(h.path));
@@ -161,12 +161,12 @@ function analyze(data) {
   const level = secrets.length ? 'danger' : (carriers.length || beaut.length || lang.length || runtime.length ? 'warn' : 'ok');
   return {
     isCard: !!(data && data.type === 'sully_character_card'),
-    name: (data && data.name) ? String(data.name) : '(无名)',
+    name: (data && data.name) ? String(data.name) : '(無名)',
     secrets, carriers, beaut, lang, runtime, level,
   };
 }
 
-// ————— 批量状态 —————
+// ————— 批量狀態 —————
 let RESULTS = []; // [{filename, result?, error?}]
 let FILTER = 'all';
 let SEARCH = '';
@@ -177,7 +177,7 @@ const LEVEL_ICON = { danger: '🔴', warn: '🟡', ok: '🟢', error: '❌' };
 
 function readFiles(fileList) {
   const files = Array.from(fileList).filter(f => /\.json$/i.test(f.name) || f.type === 'application/json');
-  if (!files.length) { document.getElementById('out').innerHTML = `<div class="stat warn" style="padding:16px">没找到 .json 文件</div>`; return; }
+  if (!files.length) { document.getElementById('out').innerHTML = `<div class="stat warn" style="padding:16px">沒找到 .json 文件</div>`; return; }
   RESULTS = [];
   let done = 0;
   files.forEach((f, i) => {
@@ -215,11 +215,11 @@ function renderBatch() {
   });
 
   let html = `<div class="stats">
-    <div class="stat"><div class="n">${total}</div><div class="l">扫描总数</div></div>
-    <div class="stat danger"><div class="n">${c.danger}</div><div class="l">🔴 带密钥（危险）</div></div>
-    <div class="stat warn"><div class="n">${c.warn}</div><div class="l">🟡 带隐私字段</div></div>
-    <div class="stat ok"><div class="n">${c.ok}</div><div class="l">🟢 干净</div></div>
-    ${c.error?`<div class="stat"><div class="n">${c.error}</div><div class="l">❌ 解析失败</div></div>`:''}
+    <div class="stat"><div class="n">${total}</div><div class="l">掃描總數</div></div>
+    <div class="stat danger"><div class="n">${c.danger}</div><div class="l">🔴 帶密鑰（危險）</div></div>
+    <div class="stat warn"><div class="n">${c.warn}</div><div class="l">🟡 帶隱私字段</div></div>
+    <div class="stat ok"><div class="n">${c.ok}</div><div class="l">🟢 乾淨</div></div>
+    ${c.error?`<div class="stat"><div class="n">${c.error}</div><div class="l">❌ 解析失敗</div></div>`:''}
   </div>`;
 
   html += `<div class="filterbar">
@@ -229,23 +229,23 @@ function renderBatch() {
     <span class="chip ${FILTER==='ok'?'active':''}" data-f="ok">🟢 ${c.ok}</span>
     ${c.error?`<span class="chip ${FILTER==='error'?'active':''}" data-f="error">❌ ${c.error}</span>`:''}
     <input id="search" placeholder="搜文件名 / 角色名" value="${esc(SEARCH)}" />
-    <button class="ghost" id="csv">导出 CSV 报告</button>
+    <button class="ghost" id="csv">導出 CSV 報告</button>
   </div>`;
 
   html += `<table><thead><tr>
-    <th data-s="level">结论</th>
+    <th data-s="level">結論</th>
     <th data-s="filename">文件名</th>
     <th data-s="name">角色名</th>
-    <th data-s="secrets" class="num">密钥</th>
-    <th class="num">美化</th><th class="num">语言</th><th class="num">运行时</th>
+    <th data-s="secrets" class="num">密鑰</th>
+    <th class="num">美化</th><th class="num">語言</th><th class="num">運行時</th>
   </tr></thead><tbody>`;
 
-  if (!rows.length) html += `<tr><td colspan="7" class="empty">没有符合条件的结果</td></tr>`;
+  if (!rows.length) html += `<tr><td colspan="7" class="empty">沒有符合條件的結果</td></tr>`;
   rows.forEach((e) => {
     const lv = levelOf(e);
     const idx = RESULTS.indexOf(e);
     if (e.error) {
-      html += `<tr class="data ${lv}" data-idx="${idx}"><td>❌</td><td class="fname">${esc(e.filename)}</td><td colspan="5" class="why">JSON 解析失败：${esc(e.error)}</td></tr>`;
+      html += `<tr class="data ${lv}" data-idx="${idx}"><td>❌</td><td class="fname">${esc(e.filename)}</td><td colspan="5" class="why">JSON 解析失敗：${esc(e.error)}</td></tr>`;
       return;
     }
     const r = e.result;
@@ -263,7 +263,7 @@ function renderBatch() {
   html += `</tbody></table>`;
   out.innerHTML = html;
 
-  // 绑定事件
+  // 綁定事件
   out.querySelectorAll('.chip').forEach(ch => ch.onclick = () => { FILTER = ch.dataset.f; renderBatch(); });
   out.querySelectorAll('th[data-s]').forEach(th => th.onclick = () => {
     const k = th.dataset.s; SORT.dir = (SORT.key === k ? -SORT.dir : 1); SORT.key = k; renderBatch();
@@ -279,31 +279,31 @@ function renderBatch() {
 
 function detailHTML(r) {
   let h = '';
-  h += `<div class="sec"><h3>🔑 密钥 / 凭据（深度扫描）</h3>`;
+  h += `<div class="sec"><h3>🔑 密鑰 / 憑據（深度掃描）</h3>`;
   if (r.secrets.length) r.secrets.forEach(x => h += `<div class="item"><div class="path">${esc(x.path)}</div><div class="val">${esc(x.value)}</div><div class="why">${esc(x.why)}</div></div>`);
-  else h += `<div class="empty">未扫到明文密钥值 ✅</div>`;
+  else h += `<div class="empty">未掃到明文密鑰值 ✅</div>`;
   h += `</div>`;
   if (r.carriers.length) {
-    h += `<div class="sec"><h3>⚙️ 含密钥槽位的配置对象</h3>`;
-    r.carriers.forEach(c => h += `<div class="item"><span class="pill red">${esc(c.field)}</span> ${esc(c.desc)}<div class="why">内嵌 apiKey 槽位——即使当前为空也属该剥离的凭据载体</div></div>`);
+    h += `<div class="sec"><h3>⚙️ 含密鑰槽位的配置對象</h3>`;
+    r.carriers.forEach(c => h += `<div class="item"><span class="pill red">${esc(c.field)}</span> ${esc(c.desc)}<div class="why">內嵌 apiKey 槽位——即使當前為空也屬該剝離的憑據載體</div></div>`);
     h += `</div>`;
   }
   const list = (title, fields) => fields.length ? `<div class="sec"><h3>${title}（${fields.length}）</h3><div>${fields.map(f=>`<span class="pill yellow">${esc(f)}</span>`).join('')}</div></div>` : '';
   h += list('🎨 美化字段', r.beaut);
-  h += list('🗣️ 语言 / 语音偏好', r.lang);
-  h += list('⏱️ 运行时状态残留', r.runtime);
+  h += list('🗣️ 語言 / 語音偏好', r.lang);
+  h += list('⏱️ 運行時狀態殘留', r.runtime);
   return h;
 }
 
 function exportCSV() {
-  const head = ['文件名','结论','角色名','是否合法角色卡','密钥数','密钥路径','美化字段数','语言字段数','运行时字段数'];
+  const head = ['文件名','結論','角色名','是否合法角色卡','密鑰數','密鑰路徑','美化字段數','語言字段數','運行時字段數'];
   const lines = [head.join(',')];
   const q = s => '"' + String(s).replace(/"/g, '""') + '"';
   RESULTS.forEach(e => {
-    if (e.error) { lines.push([q(e.filename), q('解析失败'), '', '', '', q(e.error), '', '', ''].join(',')); return; }
+    if (e.error) { lines.push([q(e.filename), q('解析失敗'), '', '', '', q(e.error), '', '', ''].join(',')); return; }
     const r = e.result;
     lines.push([
-      q(e.filename), q({danger:'危险',warn:'隐私字段',ok:'干净'}[r.level]), q(r.name), q(r.isCard?'是':'否'),
+      q(e.filename), q({danger:'危險',warn:'隱私字段',ok:'乾淨'}[r.level]), q(r.name), q(r.isCard?'是':'否'),
       r.secrets.length, q(r.secrets.map(s=>s.path).join(' | ')), r.beaut.length, r.lang.length, r.runtime.length,
     ].join(','));
   });
@@ -312,13 +312,13 @@ function exportCSV() {
   a.download = 'card-scan-report.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
-// 单张粘贴
+// 單張粘貼
 function runSingle(text) {
   const out = document.getElementById('out');
-  if (!text || !text.trim()) { out.innerHTML = `<div class="stat warn" style="padding:16px">请先粘贴角色卡 JSON，或用上方拖入 / 选择文件做批量</div>`; return; }
+  if (!text || !text.trim()) { out.innerHTML = `<div class="stat warn" style="padding:16px">請先粘貼角色卡 JSON，或用上方拖入 / 選擇文件做批量</div>`; return; }
   let data; try { data = JSON.parse(text); }
-  catch (e) { out.innerHTML = `<div class="stat danger" style="padding:16px">❌ JSON 解析失败：${esc(e.message)}</div>`; return; }
-  RESULTS = [{ filename: '(粘贴内容)', result: analyze(data) }];
+  catch (e) { out.innerHTML = `<div class="stat danger" style="padding:16px">❌ JSON 解析失敗：${esc(e.message)}</div>`; return; }
+  RESULTS = [{ filename: '(粘貼內容)', result: analyze(data) }];
   FILTER='all'; SEARCH=''; renderBatch();
 }
 

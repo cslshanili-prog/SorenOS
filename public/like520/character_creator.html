@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>大头贴机 · 出件啦 ｜ 520</title>
+<title>大頭貼機 · 出件啦 ｜ 520</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   :root {
@@ -37,7 +37,7 @@
   .app { position: relative; z-index: 1; height: 100vh; height: 100dvh;
     display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; }
 
-  /* PC 宽屏：两栏布局，左边角色 + 右边面板，互不挤压 */
+  /* PC 寬屏：兩欄佈局，左邊角色 + 右邊面板，互不擠壓 */
   @media (min-width: 900px) {
     .app {
       max-width: 1100px;
@@ -80,10 +80,10 @@
   .title-en { font-size: 7px; letter-spacing: 2px; color: var(--text-soft); margin-top: 1px; }
 
   .stage {
-    /* 撑满 header/action-row/panel 之间的剩余空间，把 panel 推到 .app 底，
-       否则手机模式下 children flex-start 排列，panel 上面的人物区只占自然高度，
-       panel 之后会剩一大块空白，看起来像"夸张的 safe area"把 header 顶飞。
-       character-frame 自己有 max-width: 220px + aspect-ratio: 1/1，stage 拉大不会变形。 */
+    /* 撐滿 header/action-row/panel 之間的剩餘空間，把 panel 推到 .app 底，
+       否則手機模式下 children flex-start 排列，panel 上面的人物區只佔自然高度，
+       panel 之後會剩一大塊空白，看起來像"誇張的 safe area"把 header 頂飛。
+       character-frame 自己有 max-width: 220px + aspect-ratio: 1/1，stage 拉大不會變形。 */
     flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
     padding: 2px 10px; position: relative;
   }
@@ -118,9 +118,9 @@
     width: 100%; height: 100%; object-fit: contain; object-position: center; display: block;
     image-rendering: -webkit-optimize-contrast; image-rendering: auto;
   }
-  /* z-index 顺序（从底到顶）：
-     z-index 从底到顶：
-     后发2 → 后发1 → body → 衣服 → 外套 → 面纹 → 耳发 → 眼 → 前发 → 眼(20%) → 嘴 → 配饰 */
+  /* z-index 順序（從底到頂）：
+     z-index 從底到頂：
+     後發2 → 後發1 → body → 衣服 → 外套 → 面紋 → 耳發 → 眼 → 前發 → 眼(20%) → 嘴 → 配飾 */
   .layer-back2        { z-index: 1; }
   .layer-back1        { z-index: 2; }
   .layer-skin         { z-index: 3; }
@@ -293,8 +293,8 @@
     content: "♥"; position: absolute; top: 2px; right: 4px;
     color: var(--rose-deep); font-size: 11px;
   }
-  /* 多选时当前调色聚焦的件：双层光环 */
-  /* 特殊款（SULLY 内置角色） */
+  /* 多選時當前調色聚焦的件：雙層光環 */
+  /* 特殊款（SULLY 內置角色） */
   .opt.special {
     background: linear-gradient(135deg, #2A1B3A 0%, #4A2D5E 100%);
     border-color: #7B5BAA;
@@ -336,7 +336,7 @@
     width: 92%; height: 92%; object-fit: contain;
   }
 
-  /* 多选当前调色对象提示 */
+  /* 多選當前調色對象提示 */
   .focus-hint {
     font-size: 10px;
     padding: 2px 8px;
@@ -346,14 +346,14 @@
     letter-spacing: 0.5px;
   }
 
-  /* 整个颜色区域不活跃时整体灰掉 */
+  /* 整個顏色區域不活躍時整體灰掉 */
   #colorPickerWrap.inactive .color-picker {
     opacity: 0.4;
     pointer-events: none;
     filter: saturate(0.3);
   }
   #colorPickerWrap.inactive .color-picker::before {
-    content: "（当前款式无需调色）";
+    content: "（當前款式無需調色）";
     display: block;
     text-align: center;
     color: var(--text-soft);
@@ -398,7 +398,7 @@
     height: 7px; border-radius: 4px;
     background: white; border: 1px solid var(--cream-deep);
     outline: none;
-    touch-action: pan-x; /* 关键：只允许水平触摸，防止被panel垂直滚动抢走 */
+    touch-action: pan-x; /* 關鍵：只允許水平觸摸，防止被panel垂直滾動搶走 */
   }
   .slider-track input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; width: 22px; height: 22px;
@@ -453,13 +453,13 @@
     background: white; color: var(--rose-dark); font-weight: 600;
     box-shadow: 0 1px 3px rgba(199, 97, 130, 0.15);
   }
-  /* 透明背景预览：棋盘格 */
+  /* 透明背景預覽：棋盤格 */
   .modal-img.transparent-preview {
     background:
       conic-gradient(#F8F8F8 0% 25%, #E8E8E8 25% 50%, #F8F8F8 50% 75%, #E8E8E8 75%) 0 0 / 16px 16px;
   }
 
-  /* === 自定义部件面板 === */
+  /* === 自定義部件面板 === */
   .cc-modal { max-width: 360px; text-align: left; max-height: 86vh; display: flex; flex-direction: column; }
   .cc-modal h3 { text-align: center; }
   .cc-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 2px; }
@@ -504,7 +504,7 @@
 
 <div class="app">
   <header>
-    <div class="title-cn">大头贴机 · 出件啦</div>
+    <div class="title-cn">大頭貼機 · 出件啦</div>
     <div class="title-en">P U R I K U R A · 5 · 2 · 0</div>
   </header>
 
@@ -526,17 +526,17 @@
         <div class="layer layer-mouth"        id="layer-mouth"></div>
         <div class="layer layer-decor"        id="layer-decor"></div>
         <div class="stage-empty-hint" id="emptyHint">
-          投币·开始定制 ♥<br>
-          <span style="font-size:11px; opacity:0.7;">从下方选个肤色开始～</span>
+          投幣·開始定製 ♥<br>
+          <span style="font-size:11px; opacity:0.7;">從下方選個膚色開始～</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="action-row">
-    <button class="pill-btn" id="btnRandom">🎲 随机</button>
+    <button class="pill-btn" id="btnRandom">🎲 隨機</button>
     <button class="pill-btn" id="btnReset">↺ 重置</button>
-    <button class="pill-btn" id="btnCustom">➕ 自定义</button>
+    <button class="pill-btn" id="btnCustom">➕ 自定義</button>
     <button class="pill-btn primary" id="btnSave">📸 出件</button>
   </div>
 
@@ -545,26 +545,26 @@
     <div class="panel-body">
       <div class="section-label-row" style="margin: 4px 0 8px;">
         <span class="label" id="optionsLabel">款式</span>
-        <button id="flipBtn" class="toggle-mini" style="display:none;" title="水平翻转">⇄ 翻转</button>
+        <button id="flipBtn" class="toggle-mini" style="display:none;" title="水平翻轉">⇄ 翻轉</button>
       </div>
       <div class="options" id="options"></div>
       <div class="options-pager" id="optionsPager"></div>
 
       <div id="colorPickerWrap" style="display:none;">
         <div class="section-label-row">
-          <span class="label">颜色</span>
+          <span class="label">顏色</span>
           <span id="focusHint" class="focus-hint" style="display:none;"></span>
           <div id="eyeSideTabs" class="eye-side-tabs" style="display:none;">
             <button data-side="both" class="active">同色</button>
             <button data-side="L">左眼</button>
             <button data-side="R">右眼</button>
           </div>
-          <button id="hairLinkToggle" class="toggle-mini active" style="display:none;">🔗 跟随前发</button>
+          <button id="hairLinkToggle" class="toggle-mini active" style="display:none;">🔗 跟隨前發</button>
         </div>
         <div class="color-picker">
           <div class="hue-row" id="hueRow"></div>
           <div class="slider-row">
-            <span class="slider-label">鲜艳度</span>
+            <span class="slider-label">鮮豔度</span>
             <div class="slider-track">
               <input type="range" id="satSlider" min="0" max="100" value="50" step="1">
             </div>
@@ -588,89 +588,89 @@
 <div class="modal-backdrop" id="modal">
   <div class="modal">
     <h3>♥ 出件 · ✦ ♥</h3>
-    <p>长按图片保存到相册<br>分享给那个 ta 一张限定贴纸 ～</p>
+    <p>長按圖片保存到相冊<br>分享給那個 ta 一張限定貼紙 ～</p>
     <div class="bg-toggle">
-      <button class="bg-btn active" data-bg="frame">带相框</button>
+      <button class="bg-btn active" data-bg="frame">帶相框</button>
       <button class="bg-btn" data-bg="transparent">透明背景</button>
     </div>
     <img class="modal-img" id="modalImg" alt="你的形象">
     <div class="modal-actions">
-      <button class="pill-btn" onclick="closeModal()">关闭</button>
+      <button class="pill-btn" onclick="closeModal()">關閉</button>
       <button class="pill-btn" id="btnSavePng" style="display:none">📥 保存 PNG</button>
-      <button class="pill-btn primary" id="btnDownload">下载 PNG</button>
+      <button class="pill-btn primary" id="btnDownload">下載 PNG</button>
     </div>
   </div>
 </div>
 
 <div class="modal-backdrop" id="customModal">
   <div class="modal cc-modal">
-    <h3>➕ 自定义部件</h3>
+    <h3>➕ 自定義部件</h3>
     <div class="cc-scroll">
       <div class="cc-hint">
-        部件须是<b>透明背景 PNG</b>，与画布<b>同尺寸、同位置</b>叠层。
-        建议先<b>导出描线模板</b>，在它上面画好你的部件再传回来，就不会错位。
+        部件須是<b>透明背景 PNG</b>，與畫布<b>同尺寸、同位置</b>疊層。
+        建議先<b>導出描線模板</b>，在它上面畫好你的部件再傳回來，就不會錯位。
       </div>
 
-      <button class="pill-btn" id="btnTemplate" type="button" style="width:100%;">🩻 导出描线模板（半透明 body）</button>
+      <button class="pill-btn" id="btnTemplate" type="button" style="width:100%;">🩻 導出描線模板（半透明 body）</button>
 
-      <div class="cc-field-label">类目</div>
+      <div class="cc-field-label">類目</div>
       <div class="cc-chips" id="ccChips"></div>
 
-      <div class="cc-field-label">部件图（透明 PNG）</div>
+      <div class="cc-field-label">部件圖（透明 PNG）</div>
       <input type="file" id="ccFile" accept="image/png,image/webp,image/*" style="display:none">
-      <button class="cc-drop" id="ccDrop" type="button"><span>点此选择透明 PNG</span></button>
-      <input class="cc-input" id="ccUrl" placeholder="或粘贴图片直链 URL（已传图床的，省本地空间）" style="margin-top:8px">
+      <button class="cc-drop" id="ccDrop" type="button"><span>點此選擇透明 PNG</span></button>
+      <input class="cc-input" id="ccUrl" placeholder="或粘貼圖片直鏈 URL（已傳圖床的，省本地空間）" style="margin-top:8px">
 
-      <div class="cc-field-label">名称</div>
-      <input class="cc-input" id="ccName" placeholder="可留空，默认「自定义xx」">
+      <div class="cc-field-label">名稱</div>
+      <input class="cc-input" id="ccName" placeholder="可留空，默認「自定義xx」">
 
       <label class="cc-check">
         <input type="checkbox" id="ccTintable">
-        <span>可换色 —— 仅当这张是单色线稿/可着色层时勾选；成品彩图请<b>别勾</b></span>
+        <span>可換色 —— 僅當這張是單色線稿/可著色層時勾選；成品彩圖請<b>別勾</b></span>
       </label>
 
       <div id="ccListWrap"></div>
     </div>
     <div class="modal-actions" style="margin-top:14px;">
-      <button class="pill-btn" type="button" onclick="closeCustomModal()">关闭</button>
+      <button class="pill-btn" type="button" onclick="closeCustomModal()">關閉</button>
       <button class="pill-btn primary" id="ccSave" type="button">加入捏人器</button>
     </div>
   </div>
 </div>
 
 <script>
-/* === 520 活动 iframe 协议 ===
+/* === 520 活動 iframe 協議 ===
    parent → iframe: { type: 'like520_init', payload: { mode, charName, presets } }
    iframe → parent: { type: 'like520_ready' }
    iframe → parent: { type: 'like520_result', payload: { mode, dataUrl, frameDataUrl, transparentDataUrl, state } }
    iframe → parent: { type: 'like520_cancel' }
 */
 const IS_EMBEDDED = window.parent !== window;
-/* 记录哪些 item 是自定义部件（用于界面内列表/删除）。所有经 mergeExtraItems 进来的都是。 */
+/* 記錄哪些 item 是自定義部件（用於界面內列表/刪除）。所有經 mergeExtraItems 進來的都是。 */
 const customPartIds = new Set();
 
-/* 老画风内置部件 id 集合（启动时从 PARTS 快照，见底部 boot；不含 special/SULLY 专属）。
-   新画风通过内置素材包 / 自定义上传经 mergeExtraItems 进来，不在此集合内。
-   规则：某类目「一旦有了新画风部件」，它的老画风就折叠隐藏 + 随机 roll 不到（但保留在
-   PARTS 里，老角色仍能正常渲染）；还没上传新款的类目，老款照常可用，避免迁移期留空档。 */
+/* 老畫風內置部件 id 集合（啟動時從 PARTS 快照，見底部 boot；不含 special/SULLY 專屬）。
+   新畫風通過內置素材包 / 自定義上傳經 mergeExtraItems 進來，不在此集合內。
+   規則：某類目「一旦有了新畫風部件」，它的老畫風就摺疊隱藏 + 隨機 roll 不到（但保留在
+   PARTS 裡，老角色仍能正常渲染）；還沒上傳新款的類目，老款照常可用，避免遷移期留空檔。 */
 const LEGACY_IDS = new Set();
-/* 该类目是否已有「新画风」（非老画风、非 special）部件 */
+/* 該類目是否已有「新畫風」（非老畫風、非 special）部件 */
 function catHasNonLegacy(part) {
   return !!part && Array.isArray(part.items) && part.items.some(it => !it.special && !LEGACY_IDS.has(it.id));
 }
-/* 这个 item 是否应作为老画风被折叠隐藏 / 排除随机（仅当同类目已有新款时才生效） */
+/* 這個 item 是否應作為老畫風被摺疊隱藏 / 排除隨機（僅當同類目已有新款時才生效） */
 function isFoldedLegacy(part, item) {
   return LEGACY_IDS.has(item.id) && catHasNonLegacy(part);
 }
 let LIKE520_MODE = 'char';
 let LIKE520_CHAR_NAME = '';
 let LIKE520_IS_SULLY = false;
-let LIKE520_DRAFT_KEY = ''; // 调用方可传唯一 draftKey 做草稿隔离（如彼方按 char.id）
+let LIKE520_DRAFT_KEY = ''; // 調用方可傳唯一 draftKey 做草稿隔離（如彼方按 char.id）
 
 function applyLike520Init(init) {
   if (!init) return;
-  // iframe 内 env(safe-area-inset-bottom) 在 iOS standalone PWA 常返回 0，
-  // 父层把 JS probe 探出的真实值传进来，写到 :root 兜底。
+  // iframe 內 env(safe-area-inset-bottom) 在 iOS standalone PWA 常返回 0，
+  // 父層把 JS probe 探出的真實值傳進來，寫到 :root 兜底。
   if (typeof init.safeBottomPx === 'number' && init.safeBottomPx >= 0) {
     document.documentElement.style.setProperty('--like520-safe-bottom', init.safeBottomPx + 'px');
   }
@@ -684,17 +684,17 @@ function applyLike520Init(init) {
       titleCn.textContent = init.title;
     } else {
       titleCn.textContent = init.mode === 'user'
-        ? '诶？连你也……'
-        : `如果 ${LIKE520_CHAR_NAME || 'ta'} 变得小小的，那ta会是——`;
+        ? '誒？連你也……'
+        : `如果 ${LIKE520_CHAR_NAME || 'ta'} 變得小小的，那ta會是——`;
     }
   }
   const titleEn = document.querySelector('.title-en');
   if (titleEn && typeof init.subtitle === 'string') {
     titleEn.textContent = init.subtitle;
   }
-  // 运行时注入自定义部件（开发模式上传的）
+  // 運行時注入自定義部件（開發模式上傳的）
   mergeExtraItems(init.extraItems);
-  // 优先级：未确认的草稿 > 宿主传来的完整 savedState（QQ捏人工坊再编辑用）> presets
+  // 優先級：未確認的草稿 > 宿主傳來的完整 savedState（QQ捏人工坊再編輯用）> presets
   const draftLoaded = tryLoadDraft();
   const savedLoaded = !draftLoaded && !!init.savedState && applyFullState(init.savedState);
   if (!draftLoaded && !savedLoaded && init.presets && typeof init.presets === 'object') {
@@ -708,14 +708,14 @@ function applyLike520Init(init) {
       }
     });
   }
-  // 任何 init 都强制重渲（isSully 变化会影响 special 项过滤）
+  // 任何 init 都強制重渲（isSully 變化會影響 special 項過濾）
   if (typeof renderPanel === 'function') renderPanel();
   if (typeof renderCharacter === 'function') renderCharacter();
-  if (draftLoaded) toast('已恢复上次的草稿 ✦');
+  if (draftLoaded) toast('已恢復上次的草稿 ✦');
 }
 
-/* 合并自定义部件进对应类目（按 id 去重）。只动 PARTS + 重渲面板，
-   绝不碰 state.selected / 草稿——可安全地随时调用，不会把用户的选择弹回去。 */
+/* 合併自定義部件進對應類目（按 id 去重）。只動 PARTS + 重渲面板，
+   絕不碰 state.selected / 草稿——可安全地隨時調用，不會把用戶的選擇彈回去。 */
 function mergeExtraItems(items) {
   if (!Array.isArray(items) || !items.length) return;
   let added = 0;
@@ -724,8 +724,8 @@ function mergeExtraItems(items) {
     const cat = PARTS.find(p => p.key === it.categoryKey);
     if (!cat || !Array.isArray(cat.items)) return;
     if (cat.items.some(x => x.id === it.id)) return;
-    /* noTint：整类 tint 的类目（头发等）渲染时不看 item.tintable、只认 noTint，
-       自定义部件没勾"可换色"必须显式标 noTint 才能保住原色 */
+    /* noTint：整類 tint 的類目（頭髮等）渲染時不看 item.tintable、只認 noTint，
+       自定義部件沒勾"可換色"必須顯式標 noTint 才能保住原色 */
     cat.items.push({ id: it.id, name: it.name || it.id, src: it.src, tintable: !!it.tintable, noTint: !it.tintable, shadow: it.shadowSrc || undefined });
     customPartIds.add(it.id);
     added++;
@@ -733,8 +733,8 @@ function mergeExtraItems(items) {
   if (added > 0) {
     if (typeof renderTabs === 'function') renderTabs();
     if (typeof renderPanel === 'function') renderPanel();
-    /* 也重渲角色：若预设/草稿已选中一个「此刻才随内置素材包/自定义部件加载进来」的部件
-       （如 SULLY 预设的 skin_01 在清单晚于 init 到达），立绘要在部件到位后补渲染，否则该部位空着。 */
+    /* 也重渲角色：若預設/草稿已選中一個「此刻才隨內置素材包/自定義部件加載進來」的部件
+       （如 SULLY 預設的 skin_01 在清單晚於 init 到達），立繪要在部件到位後補渲染，否則該部位空著。 */
     if (typeof renderCharacter === 'function') renderCharacter();
   }
 }
@@ -745,10 +745,10 @@ if (IS_EMBEDDED) {
     if (e.data.type === 'like520_init') {
       applyLike520Init(e.data.payload);
     } else if (e.data.type === 'like520_add_items') {
-      // 仅合并自定义部件，不重新初始化（不会重置当前选择）
+      // 僅合併自定義部件，不重新初始化（不會重置當前選擇）
       mergeExtraItems(e.data.payload && e.data.payload.extraItems);
     } else if (e.data.type === 'like520_roll') {
-      // 「彼方·剧院」headless 随机生成一个 NPC 立绘
+      // 「彼方·劇院」headless 隨機生成一個 NPC 立繪
       rollAndExport();
     }
   });
@@ -758,7 +758,7 @@ if (IS_EMBEDDED) {
 const PARTS = [
   {
     "key": "skin",
-    "label": "肤色",
+    "label": "膚色",
     "icon": "✿",
     "colorMode": "mixed",
     "multi": false,
@@ -890,7 +890,7 @@ const PARTS = [
   },
   {
     "key": "fronthair",
-    "label": "前发",
+    "label": "前發",
     "icon": "✦",
     "colorMode": "tint",
     "multi": false,
@@ -941,7 +941,7 @@ const PARTS = [
   },
   {
     "key": "earhair",
-    "label": "耳发",
+    "label": "耳發",
     "icon": "❁",
     "colorMode": "tint",
     "multi": false,
@@ -970,7 +970,7 @@ const PARTS = [
   },
   {
     "key": "back1",
-    "label": "后发1",
+    "label": "後發1",
     "icon": "✿",
     "colorMode": "tint",
     "multi": false,
@@ -1006,7 +1006,7 @@ const PARTS = [
   },
   {
     "key": "back2",
-    "label": "后发2",
+    "label": "後發2",
     "icon": "❀",
     "colorMode": "tint",
     "multi": false,
@@ -1184,7 +1184,7 @@ const PARTS = [
   },
   {
     "key": "facemark",
-    "label": "面纹",
+    "label": "面紋",
     "icon": "❋",
     "colorMode": "mixed",
     "multi": true,
@@ -1235,7 +1235,7 @@ const PARTS = [
   },
   {
     "key": "decor",
-    "label": "配饰",
+    "label": "配飾",
     "icon": "❁",
     "colorMode": "mixed",
     "multi": true,
@@ -1351,35 +1351,35 @@ const HUE_PALETTE = [
   { name: "墨黑",   hex: "#2B1810", h: 18,  fixedL: 14, fixedS: 30 },
   { name: "深棕",   hex: "#5C3A1E", h: 28,  fixedL: 25, fixedS: 50 },
   { name: "栗棕",   hex: "#8B5A2B", h: 28,  fixedL: 36, fixedS: 55 },
-  { name: "亚麻",   hex: "#C9A878", h: 35,  fixedL: 63, fixedS: 40 },
+  { name: "亞麻",   hex: "#C9A878", h: 35,  fixedL: 63, fixedS: 40 },
   { name: "蜂蜜金", hex: "#E8C97A", h: 42,  fixedL: 70, fixedS: 65 },
   { name: "奶茶",   hex: "#D9B894", h: 30,  fixedL: 72, fixedS: 35 },
-  { name: "奶白银", hex: "#E8E0D8", h: 35,  fixedL: 88, fixedS: 15 },
+  { name: "奶白銀", hex: "#E8E0D8", h: 35,  fixedL: 88, fixedS: 15 },
   { name: "灰",     hex: "#9B9B9B", h: 0,   fixedL: 60, fixedS: 0 },
   { name: "焦糖橙", hex: "#D67A3C", h: 22 },
-  /* 第二排：鲜艳色 */
-  { name: "珊瑚红", hex: "#FF6B7A", h: 354 },
-  { name: "玫红",   hex: "#E04578", h: 338 },
-  { name: "樱花粉", hex: "#F58AD4", h: 318 },
+  /* 第二排：鮮豔色 */
+  { name: "珊瑚紅", hex: "#FF6B7A", h: 354 },
+  { name: "玫紅",   hex: "#E04578", h: 338 },
+  { name: "櫻花粉", hex: "#F58AD4", h: 318 },
   { name: "薰衣紫", hex: "#B083F0", h: 264 },
-  { name: "蓝紫",   hex: "#7C8FF0", h: 230 },
-  { name: "天空蓝", hex: "#6EC4F4", h: 200 },
-  { name: "薄荷绿", hex: "#6FD9B8", h: 158 },
-  { name: "嫩绿",   hex: "#A8D86B", h: 88 },
-  { name: "明黄",   hex: "#FFE070", h: 48 },
+  { name: "藍紫",   hex: "#7C8FF0", h: 230 },
+  { name: "天空藍", hex: "#6EC4F4", h: 200 },
+  { name: "薄荷綠", hex: "#6FD9B8", h: 158 },
+  { name: "嫩綠",   hex: "#A8D86B", h: 88 },
+  { name: "明黃",   hex: "#FFE070", h: 48 },
 ];
 
 const state = {
   activeTab: 0,
   optionPage: 0,
   preserveLineart: 25,
-  selected: {},    /* 部位key → itemId（单选）或 itemId数组（多选）*/
-  tintColor: {},   /* 单选部位的颜色：部位key → {hueIdx, sat, light} */
-  itemColor: {},   /* 多选部位的颜色：itemId → {hueIdx, sat, light} */
-  flipped: {},     /* 翻转状态：部位key（单选）或 itemId（多选）→ true/false */
+  selected: {},    /* 部位key → itemId（單選）或 itemId數組（多選）*/
+  tintColor: {},   /* 單選部位的顏色：部位key → {hueIdx, sat, light} */
+  itemColor: {},   /* 多選部位的顏色：itemId → {hueIdx, sat, light} */
+  flipped: {},     /* 翻轉狀態：部位key（單選）或 itemId（多選）→ true/false */
   eyeSide: "both",
   hairLinked: { earhair: true, back1: true, back2: true },
-  activeItemFocus: {}, /* 多选部位当前调色聚焦的itemId：partKey → itemId */
+  activeItemFocus: {}, /* 多選部位當前調色聚焦的itemId：partKey → itemId */
 };
 
 /* 初始化 selected 和 tintColor */
@@ -1395,7 +1395,7 @@ state.tintColor.eyes = {
   linked: true,
 };
 
-/* ===== 渲染：标签栏 ===== */
+/* ===== 渲染：標籤欄 ===== */
 function renderTabs() {
   const wrap = document.getElementById("tabs");
   wrap.innerHTML = "";
@@ -1408,7 +1408,7 @@ function renderTabs() {
       state.optionPage = 0;
       renderTabs();
       renderPanel();
-      /* 切到新部位时，把面板滚回顶部，确保色板可见 */
+      /* 切到新部位時，把面板滾回頂部，確保色板可見 */
       const body = document.querySelector(".panel-body");
       if (body) body.scrollTop = 0;
     };
@@ -1416,11 +1416,11 @@ function renderTabs() {
   });
 }
 
-/* ===== 当前部位是否需要色板（任何一种 tint） ===== */
-/* 永远显示色板，但当前选中件不可染色时返回 false 表示色板禁用 */
+/* ===== 當前部位是否需要色板（任何一種 tint） ===== */
+/* 永遠顯示色板，但當前選中件不可染色時返回 false 表示色板禁用 */
 function colorPickerActive(part) {
   if (part.colorMode === "tint" || part.colorMode === "tint_eyes") {
-    /* 单选 tint 类型：检查选中的是否是 noTint 项（SULLY） */
+    /* 單選 tint 類型：檢查選中的是否是 noTint 項（SULLY） */
     const sel = state.selected[part.key];
     if (!sel || Array.isArray(sel)) return true;
     const item = part.items.find(x => x.id === sel);
@@ -1442,7 +1442,7 @@ function colorPickerActive(part) {
   return false;
 }
 
-/* ===== 选中状态判断 ===== */
+/* ===== 選中狀態判斷 ===== */
 function isSelected(partKey, itemId) {
   const sel = state.selected[partKey];
   if (Array.isArray(sel)) return sel.includes(itemId);
@@ -1454,7 +1454,7 @@ function isEmpty(partKey) {
   return sel === null;
 }
 
-/* 4 列 × 2 行：第一格固定为「无」，每页最多加载 7 张款式图。 */
+/* 4 列 × 2 行：第一格固定為「無」，每頁最多加載 7 張款式圖。 */
 const OPTION_ITEMS_PER_PAGE = 7;
 function visibleItemsForPart(part) {
   return part.items.filter(item => {
@@ -1463,9 +1463,9 @@ function visibleItemsForPart(part) {
     return true;
   });
 }
-/* ===== toggleSelect: 多选时点击行为分两种
-   - 未选中 → 加入选中，并设为焦点
-   - 已选中 → 1次点击：若是当前焦点则取消选中；否则切换焦点
+/* ===== toggleSelect: 多選時點擊行為分兩種
+   - 未選中 → 加入選中，並設為焦點
+   - 已選中 → 1次點擊：若是當前焦點則取消選中；否則切換焦點
 */
 function toggleSelect(partKey, itemId, part) {
   const sel = state.selected[partKey];
@@ -1475,11 +1475,11 @@ function toggleSelect(partKey, itemId, part) {
       sel.push(itemId);
       state.activeItemFocus[partKey] = itemId;
     } else {
-      /* 已选中：如果是当前焦点 → 取消；否则切换焦点 */
+      /* 已選中：如果是當前焦點 → 取消；否則切換焦點 */
       const focus = state.activeItemFocus[partKey];
       if (focus === itemId) {
         sel.splice(idx, 1);
-        /* 选下一个作为焦点 */
+        /* 選下一個作為焦點 */
         if (sel.length > 0) state.activeItemFocus[partKey] = sel[sel.length - 1];
         else delete state.activeItemFocus[partKey];
       } else {
@@ -1491,7 +1491,7 @@ function toggleSelect(partKey, itemId, part) {
   }
 }
 
-/* ===== 渲染：选项面板 ===== */
+/* ===== 渲染：選項面板 ===== */
 function renderPanel() {
   const part = PARTS[state.activeTab];
   const wrap = document.getElementById("options");
@@ -1505,18 +1505,18 @@ function renderPanel() {
   const pageStart = state.optionPage * OPTION_ITEMS_PER_PAGE;
   const pageItems = visibleItems.slice(pageStart, pageStart + OPTION_ITEMS_PER_PAGE);
 
-  /* 标题说明 */
+  /* 標題說明 */
   const optLabel = document.getElementById("optionsLabel");
   if (optLabel) {
     optLabel.textContent = isMulti
-      ? "款式（可多选，再点单件可换调色对象）"
+      ? "款式（可多選，再點單件可換調色對象）"
       : "款式";
   }
 
-  /* "无" 选项 */
+  /* "無" 選項 */
   const none = document.createElement("button");
   none.className = "opt none" + (isEmpty(part.key) ? " selected" : "");
-  none.innerHTML = "无";
+  none.innerHTML = "無";
   none.onclick = () => {
     state.selected[part.key] = isMulti ? [] : null;
     if (isMulti) delete state.activeItemFocus[part.key];
@@ -1534,17 +1534,17 @@ function renderPanel() {
       + (selected ? " selected" : "")
       + (isFocus ? " focused" : "")
       + (item.special ? " special" : "");
-    // 每次翻页/切分类都会新建 img 节点；只渲染 7 张，直接加载比依赖旧 WebView
-    // 的 lazy loading 更可靠，也不会在新图解码前暂留上一分类的位图。
+    // 每次翻頁/切分類都會新建 img 節點；只渲染 7 張，直接加載比依賴舊 WebView
+    // 的 lazy loading 更可靠，也不會在新圖解碼前暫留上一分類的位圖。
     btn.innerHTML = `<img src="${item.src}" alt="${item.name}" decoding="async">`;
-    /* 特殊款（SULLY）右上角加个标签 */
+    /* 特殊款（SULLY）右上角加個標籤 */
     if (item.special) {
       const tag = document.createElement("span");
       tag.className = "special-tag";
       tag.textContent = item.name;
       btn.appendChild(tag);
     }
-    /* 多选+已选中+可染色：右下角显示该件颜色小圆点 */
+    /* 多選+已選中+可染色：右下角顯示該件顏色小圓點 */
     if (isMulti && selected && item.tintable && !item.noTint) {
       const tint = state.itemColor[item.id];
       if (tint) {
@@ -1564,8 +1564,8 @@ function renderPanel() {
 
   if (pageCount > 1) {
     const prev = document.createElement('button');
-    prev.type = 'button'; prev.textContent = '‹'; prev.title = '上一页款式';
-    prev.setAttribute('aria-label', '上一页款式');
+    prev.type = 'button'; prev.textContent = '‹'; prev.title = '上一頁款式';
+    prev.setAttribute('aria-label', '上一頁款式');
     prev.disabled = state.optionPage === 0;
     prev.onclick = () => {
       state.optionPage = Math.max(0, state.optionPage - 1);
@@ -1574,11 +1574,11 @@ function renderPanel() {
 
     const status = document.createElement('span');
     const rangeEnd = Math.min(pageStart + OPTION_ITEMS_PER_PAGE, visibleItems.length);
-    status.textContent = `${state.optionPage + 1}/${pageCount} 页 · ${pageStart + 1}-${rangeEnd}/${visibleItems.length}`;
+    status.textContent = `${state.optionPage + 1}/${pageCount} 頁 · ${pageStart + 1}-${rangeEnd}/${visibleItems.length}`;
 
     const next = document.createElement('button');
-    next.type = 'button'; next.textContent = '›'; next.title = '下一页款式';
-    next.setAttribute('aria-label', '下一页款式');
+    next.type = 'button'; next.textContent = '›'; next.title = '下一頁款式';
+    next.setAttribute('aria-label', '下一頁款式');
     next.disabled = state.optionPage >= pageCount - 1;
     next.onclick = () => {
       state.optionPage = Math.min(pageCount - 1, state.optionPage + 1);
@@ -1588,17 +1588,17 @@ function renderPanel() {
     pager.appendChild(prev); pager.appendChild(status); pager.appendChild(next);
   }
 
-  /* 翻转按钮（如果当前部位有选中的项目）*/
+  /* 翻轉按鈕（如果當前部位有選中的項目）*/
   renderFlipButton(part);
 
   const colorWrap = document.getElementById("colorPickerWrap");
   const hairLinkBtn = document.getElementById("hairLinkToggle");
   const active = colorPickerActive(part);
-  /* 色板永远显示，只是没用时整体灰掉 */
+  /* 色板永遠顯示，只是沒用時整體灰掉 */
   colorWrap.style.display = "block";
   colorWrap.classList.toggle("inactive", !active);
 
-  /* 眼睛显示左右切换 */
+  /* 眼睛顯示左右切換 */
   const eyeSideTabs = document.getElementById("eyeSideTabs");
   if (part.colorMode === "tint_eyes") {
     eyeSideTabs.style.display = "inline-flex";
@@ -1613,7 +1613,7 @@ function renderPanel() {
         } else {
           state.tintColor.eyes.linked = false;
         }
-        // 重新 toggle active class（手动同步避免重 render 全 panel）
+        // 重新 toggle active class（手動同步避免重 render 全 panel）
         eyeSideTabs.querySelectorAll("button").forEach(b2 => {
           b2.classList.toggle("active", b2.dataset.side === state.eyeSide);
         });
@@ -1623,11 +1623,11 @@ function renderPanel() {
   } else {
     eyeSideTabs.style.display = "none";
   }
-  /* 头发副部位：显示 跟随前发 开关 */
+  /* 頭髮副部位：顯示 跟隨前發 開關 */
   if (state.hairLinked.hasOwnProperty(part.key)) {
     hairLinkBtn.style.display = "inline-block";
     hairLinkBtn.classList.toggle("active", state.hairLinked[part.key]);
-    hairLinkBtn.textContent = state.hairLinked[part.key] ? "🔗 跟随前发" : "🔓 独立调色";
+    hairLinkBtn.textContent = state.hairLinked[part.key] ? "🔗 跟隨前發" : "🔓 獨立調色";
     hairLinkBtn.onclick = () => {
       const wasLinked = state.hairLinked[part.key];
       if (wasLinked) {
@@ -1644,26 +1644,26 @@ function renderPanel() {
   if (active) {
     renderColorPicker(part.key);
   } else {
-    /* 不活跃时也要清掉 hueRow，免得显示上一次的状态混淆 */
+    /* 不活躍時也要清掉 hueRow，免得顯示上一次的狀態混淆 */
     renderColorPicker(part.key);
   }
 }
 
-/* ===== 取当前部位（或眼睛当前侧）的 tintColor 引用 ===== */
+/* ===== 取當前部位（或眼睛當前側）的 tintColor 引用 ===== */
 function getTintRef(partKey) {
   if (partKey === "eyes") {
     const eyes = state.tintColor.eyes;
     if (state.eyeSide === "R") return eyes.R;
     return eyes.L;
   }
-  /* 头发副部位联动 */
+  /* 頭髮副部位聯動 */
   if (state.hairLinked[partKey]) {
     return state.tintColor.fronthair;
   }
   return state.tintColor[partKey];
 }
 
-/* 多选部位某个 item 的颜色（按需创建） */
+/* 多選部位某個 item 的顏色（按需創建） */
 function getItemTint(itemId) {
   if (!state.itemColor[itemId]) {
     state.itemColor[itemId] = { hueIdx: 0, sat: 50, light: 0 };
@@ -1671,17 +1671,17 @@ function getItemTint(itemId) {
   return state.itemColor[itemId];
 }
 
-/* 多选部位当前调色聚焦的 item（默认最后选中的可染色 item） */
+/* 多選部位當前調色聚焦的 item（默認最後選中的可染色 item） */
 function getFocusedItem(part) {
   const sel = state.selected[part.key];
   if (!Array.isArray(sel) || sel.length === 0) return null;
-  /* 优先取记录的 focus，否则取最后一个可染色的 */
+  /* 優先取記錄的 focus，否則取最後一個可染色的 */
   const recorded = state.activeItemFocus[part.key];
   if (recorded && sel.includes(recorded)) {
     const it = part.items.find(x => x.id === recorded);
     if (it && it.tintable) return it;
   }
-  /* 倒序找一个可染色的 */
+  /* 倒序找一個可染色的 */
   for (let i = sel.length - 1; i >= 0; i--) {
     const it = part.items.find(x => x.id === sel[i]);
     if (it && it.tintable) return it;
@@ -1689,7 +1689,7 @@ function getFocusedItem(part) {
   return null;
 }
 
-/* ===== 渲染：色板 + 滑块 ===== */
+/* ===== 渲染：色板 + 滑塊 ===== */
 function renderColorPicker(partKey) {
   const part = PARTS.find(p => p.key === partKey);
   const isMulti = part && part.multi;
@@ -1698,7 +1698,7 @@ function renderColorPicker(partKey) {
   if (isMulti) {
     focusedItem = getFocusedItem(part);
     if (!focusedItem) {
-      /* 多选但没有 focused（没选/选的都是彩色）：用 placeholder 状态显示色板 */
+      /* 多選但沒有 focused（沒選/選的都是彩色）：用 placeholder 狀態顯示色板 */
       c = { hueIdx: 0, sat: 50, light: 0 };
     } else {
       c = getItemTint(focusedItem.id);
@@ -1707,17 +1707,17 @@ function renderColorPicker(partKey) {
     c = getTintRef(partKey) || { hueIdx: 0, sat: 50, light: 0 };
   }
 
-  /* 联动状态下，色板禁用并发提示 */
+  /* 聯動狀態下，色板禁用併發提示 */
   const picker = document.querySelector(".color-picker");
   const isLinked = state.hairLinked[partKey] === true;
   picker.classList.toggle("disabled", isLinked);
 
-  /* 多选时显示"当前调色: xxx号"提示 */
+  /* 多選時顯示"當前調色: xxx號"提示 */
   const focusHint = document.getElementById("focusHint");
   if (focusHint) {
     if (isMulti && focusedItem) {
       focusHint.style.display = "inline";
-      focusHint.textContent = `调色：${part.label} ${focusedItem.name}`;
+      focusHint.textContent = `調色：${part.label} ${focusedItem.name}`;
     } else {
       focusHint.style.display = "none";
     }
@@ -1728,7 +1728,7 @@ function renderColorPicker(partKey) {
       state.tintColor.eyes.R = {...state.tintColor.eyes.L};
     }
     renderCharacter();
-    /* 多选时同步刷新缩略图的色点 */
+    /* 多選時同步刷新縮略圖的色點 */
     if (isMulti) refreshColorDots(partKey);
   };
 
@@ -1753,7 +1753,7 @@ function renderColorPicker(partKey) {
   document.getElementById("satVal").textContent = c.sat;
   document.getElementById("lightVal").textContent = c.light;
 
-  /* 用 rAF 节流：高频滑动事件每帧只重渲一次 */
+  /* 用 rAF 節流：高頻滑動事件每幀只重渲一次 */
   let rafId = null;
   const scheduleChange = () => {
     if (rafId) return;
@@ -1775,7 +1775,7 @@ function renderColorPicker(partKey) {
   };
 }
 
-/* 计算 hex（同 resolveTint 但返回 hex 用于显示色点） */
+/* 計算 hex（同 resolveTint 但返回 hex 用於顯示色點） */
 function hexForTint(c) {
   const hue = HUE_PALETTE[c.hueIdx];
   let h, s, l;
@@ -1791,14 +1791,14 @@ function hexForTint(c) {
   return `#${rgb.map(v => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/* 翻转按钮：单选部位翻转该部位；多选部位翻转 focused item */
+/* 翻轉按鈕：單選部位翻轉該部位；多選部位翻轉 focused item */
 function renderFlipButton(part) {
   const btn = document.getElementById("flipBtn");
   if (!btn) return;
   if (part.colorMode === "fixed_only" && !part.multi) {
-    /* fixed类型也允许翻转，比如肤色（左右对称无影响）和衣服 */
+    /* fixed類型也允許翻轉，比如膚色（左右對稱無影響）和衣服 */
   }
-  /* 眼睛特殊：翻转后异色瞳的左右也会跟着翻 — 反而是想要的效果，允许 */
+  /* 眼睛特殊：翻轉後異色瞳的左右也會跟著翻 — 反而是想要的效果，允許 */
 
   const sel = state.selected[part.key];
   let targetKey = null;       /* state.flipped 的 key */
@@ -1820,7 +1820,7 @@ function renderFlipButton(part) {
   }
   btn.style.display = "inline-block";
   btn.classList.toggle("active", isFlippedNow);
-  btn.textContent = isFlippedNow ? "⇄ 已翻转" : "⇄ 翻转";
+  btn.textContent = isFlippedNow ? "⇄ 已翻轉" : "⇄ 翻轉";
   btn.onclick = () => {
     state.flipped[targetKey] = !state.flipped[targetKey];
     renderFlipButton(part);
@@ -1828,7 +1828,7 @@ function renderFlipButton(part) {
   };
 }
 
-/* 刷新多选缩略图上的色点（不重新渲染整个panel） */
+/* 刷新多選縮略圖上的色點（不重新渲染整個panel） */
 function refreshColorDots(partKey) {
   const part = PARTS.find(p => p.key === partKey);
   if (!part || !part.multi) return;
@@ -1852,7 +1852,7 @@ function hslToRgb(h, s, l) {
   return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
 }
 
-/* 解析 tintColor 到 {h, s, lightOffset}（处理自然色 vs 鲜艳色） */
+/* 解析 tintColor 到 {h, s, lightOffset}（處理自然色 vs 鮮豔色） */
 function resolveTint(c) {
   const hue = HUE_PALETTE[c.hueIdx];
   if (hue.fixedL !== undefined) {
@@ -1864,8 +1864,8 @@ function resolveTint(c) {
   return { h: hue.h, s: c.sat, lightOffset: c.light };
 }
 
-/* ===== 取翻转状态 =====
-   单选部位用 partKey；多选部位用 itemId */
+/* ===== 取翻轉狀態 =====
+   單選部位用 partKey；多選部位用 itemId */
 function isFlipped(partKey, itemId) {
   if (itemId) return !!state.flipped[itemId];
   return !!state.flipped[partKey];
@@ -1878,7 +1878,7 @@ function renderCharacter() {
     const sel = state.selected[part.key];
     const layerEl = document.getElementById(`layer-${part.key}`);
 
-    /* 多选：叠加多个 */
+    /* 多選：疊加多個 */
     if (Array.isArray(sel)) {
       layerEl.innerHTML = "";
       if (sel.length === 0) return;
@@ -1890,14 +1890,14 @@ function renderCharacter() {
           (part.colorMode === "mixed" && item.tintable) ||
           part.colorMode === "tint"
         );
-        /* 每件用一个子 div 容器 */
+        /* 每件用一個子 div 容器 */
         const sub = document.createElement("div");
         sub.style.cssText = "position:absolute;inset:0;";
         if (isFlipped(part.key, id)) sub.style.transform = "scaleX(-1)";
         layerEl.appendChild(sub);
         const colorEl = mountShadowSub(sub, item);
         if (tintable) {
-          /* 多选用每件独立颜色 */
+          /* 多選用每件獨立顏色 */
           const tint = part.multi
             ? resolveTint(getItemTint(id))
             : resolveTint(getTintRef(part.key));
@@ -1909,13 +1909,13 @@ function renderCharacter() {
       return;
     }
 
-    /* 单选 */
+    /* 單選 */
     if (!sel) { layerEl.innerHTML = ""; return; }
     anySelected = true;
     const item = part.items.find(x => x.id === sel);
     if (!item) { layerEl.innerHTML = ""; return; }
 
-    /* 翻转：直接在 layerEl 上加 transform */
+    /* 翻轉：直接在 layerEl 上加 transform */
     if (isFlipped(part.key)) layerEl.style.transform = "scaleX(-1)";
     else layerEl.style.transform = "";
 
@@ -1927,11 +1927,11 @@ function renderCharacter() {
     );
 
     if (part.colorMode === "tint_eyes") {
-      /* 眼睛：无论染色与否都要画主层 + overlay */
+      /* 眼睛：無論染色與否都要畫主層 + overlay */
       const overlayEl = document.getElementById("layer-eyes-overlay");
       overlayEl.style.transform = isFlipped(part.key) ? "scaleX(-1)" : "";
       if (noTint) {
-        /* SULLY 眼睛：原色，同时画到两层 */
+        /* SULLY 眼睛：原色，同時畫到兩層 */
         layerEl.innerHTML  = `<img src="${item.src}" alt="${item.name}">`;
         overlayEl.innerHTML = `<img src="${item.src}" alt="${item.name}">`;
       } else {
@@ -1957,14 +1957,14 @@ function renderCharacter() {
   document.getElementById("emptyHint").style.display = anySelected ? "none" : "block";
 }
 
-/* ===== 部件自带投影层 =====
-   item.shadow 是这件部件"投到下方图层上的阴影"（如刘海投在耳发/脸上的影子）。
-   PSD 里的正片叠底层在导入时已预转成 黑色+alpha 的普通图层
-   （中性正片叠底 B×g 与 alpha=1-g 的纯黑覆盖在数学上等价），
-   所以这里只需把它作为普通 img 垫在颜色层"下面"、同一容器内：
-   - 不参与染色（换发色不影响影子）
-   - 部件自身不透明区域会盖住影子，影子只落在露出来的下层上
-   返回真正用来放颜色内容的子容器。 */
+/* ===== 部件自帶投影層 =====
+   item.shadow 是這件部件"投到下方圖層上的陰影"（如劉海投在耳發/臉上的影子）。
+   PSD 裡的正片疊底層在導入時已預轉成 黑色+alpha 的普通圖層
+   （中性正片疊底 B×g 與 alpha=1-g 的純黑覆蓋在數學上等價），
+   所以這裡只需把它作為普通 img 墊在顏色層"下面"、同一容器內：
+   - 不參與染色（換髮色不影響影子）
+   - 部件自身不透明區域會蓋住影子，影子只落在露出來的下層上
+   返回真正用來放顏色內容的子容器。 */
 function mountShadowSub(container, item) {
   if (!item.shadow) return container;
   const sh = document.createElement("img");
@@ -1978,7 +1978,7 @@ function mountShadowSub(container, item) {
   return colorEl;
 }
 
-/* ===== 单色染色（带轮廓保护） ===== */
+/* ===== 單色染色（帶輪廓保護） ===== */
 const tintCache = {};
 function renderTintedLayer(layerEl, src, tint) {
   const key = `${src.slice(-50)}|${tint.h.toFixed(0)}|${tint.s.toFixed(0)}|${tint.lightOffset.toFixed(0)}|${state.preserveLineart}`;
@@ -1992,7 +1992,7 @@ function renderTintedLayer(layerEl, src, tint) {
   });
 }
 
-/* ===== 眼睛染色（左右独立），同时画到主层 + overlay 层 ===== */
+/* ===== 眼睛染色（左右獨立），同時畫到主層 + overlay 層 ===== */
 function renderEyesLayer(mainEl, overlayEl, src, tintL, tintR) {
   const key = `eyes|${src.slice(-50)}|${JSON.stringify(tintL)}|${JSON.stringify(tintR)}|${state.preserveLineart}`;
   const apply = (canvas) => {
@@ -2009,7 +2009,7 @@ function renderEyesLayer(mainEl, overlayEl, src, tintL, tintR) {
   });
 }
 
-/* 图片对象缓存 — 避免每次染色都重新解码 base64 */
+/* 圖片對象緩存 — 避免每次染色都重新解碼 base64 */
 const imgCache = {};
 function loadImage(src) {
   if (imgCache[src]) {
@@ -2064,27 +2064,27 @@ function applyTint(canvas, tint) {
   ctx.putImageData(data, 0, 0);
 }
 
-/* 眼睛分左右染色：在像素 x < 中线 时用 tintL，否则 tintR
-   "中线"用所有不透明像素的水平中位数
-   纯白像素（高光）保持不变 */
+/* 眼睛分左右染色：在像素 x < 中線 時用 tintL，否則 tintR
+   "中線"用所有不透明像素的水平中位數
+   純白像素（高光）保持不變 */
 function applyEyesTint(canvas, tintL, tintR) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width, h = canvas.height;
   const data = ctx.getImageData(0, 0, w, h);
   const px = data.data;
 
-  /* 找左右眼分界线 - 简化：取图像水平中线 */
+  /* 找左右眼分界線 - 簡化：取圖像水平中線 */
   const midX = w / 2;
 
   const TH = state.preserveLineart, SOFT = 10;
-  const WHITE_TH = 235; /* 灰度 >= 此值保持纯白（眼睛高光） */
+  const WHITE_TH = 235; /* 灰度 >= 此值保持純白（眼睛高光） */
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       if (px[i + 3] === 0) continue;
       const r = px[i], g = px[i + 1], b = px[i + 2];
       const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      /* 纯白高光保留 */
+      /* 純白高光保留 */
       if (gray >= WHITE_TH) {
         px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
         continue;
@@ -2093,7 +2093,7 @@ function applyEyesTint(canvas, tintL, tintR) {
         px[i] = 0; px[i + 1] = 0; px[i + 2] = 0;
         continue;
       }
-      /* 用户视角的左眼 = 角色脸右侧；这里画在屏幕上，x < 中线为屏幕左边 = 用户视角左眼 */
+      /* 用戶視角的左眼 = 角色臉右側；這裡畫在屏幕上，x < 中線為屏幕左邊 = 用戶視角左眼 */
       const tint = x < midX ? tintL : tintR;
       const newL = Math.max(5, Math.min(95, gray / 255 * 100 + tint.lightOffset));
       const newRgb = hslToRgb(tint.h, tint.s, newL);
@@ -2129,7 +2129,7 @@ function appendCanvas(layerEl, canvas) {
   layerEl.appendChild(clone);
 }
 
-/* ===== 按钮 ===== */
+/* ===== 按鈕 ===== */
 function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -2140,7 +2140,7 @@ function toast(msg) {
 
 function randomizeAll() {
   PARTS.forEach(part => {
-    /* 随机时排除特殊款（SULLY）与「已被新款取代的老画风」（该类目有新款时老款 roll 不到） */
+    /* 隨機時排除特殊款（SULLY）與「已被新款取代的老畫風」（該類目有新款時老款 roll 不到） */
     const randomPool = part.items.filter(it => !it.special && !isFoldedLegacy(part, it));
     if (part.multi) {
       const maxN = part.key === "decor" ? 4 : 3;
@@ -2167,11 +2167,11 @@ function randomizeAll() {
       state.selected[part.key] = item ? item.id : null;
     }
   });
-  /* 头发联动重置 */
+  /* 頭髮聯動重置 */
   Object.keys(state.hairLinked).forEach(k => state.hairLinked[k] = true);
-  /* 翻转清空 */
+  /* 翻轉清空 */
   state.flipped = {};
-  /* 单选部位的颜色随机 */
+  /* 單選部位的顏色隨機 */
   Object.keys(state.tintColor).forEach(k => {
     if (k === "eyes") {
       const idx = Math.floor(Math.random() * HUE_PALETTE.length);
@@ -2190,14 +2190,14 @@ function randomizeAll() {
   renderPanel();
   renderCharacter();
 }
-document.getElementById("btnRandom").onclick = () => { randomizeAll(); toast("✨ 随机搭配好啦"); };
+document.getElementById("btnRandom").onclick = () => { randomizeAll(); toast("✨ 隨機搭配好啦"); };
 
-/* headless：随机一套 + 直接导出透明立绘并回传父框架，供「彼方·剧院」程序化 roll NPC 用
-   （不弹导出弹窗、不需要用户交互）。 */
+/* headless：隨機一套 + 直接導出透明立繪並回傳父框架，供「彼方·劇院」程序化 roll NPC 用
+   （不彈導出彈窗、不需要用戶交互）。 */
 async function rollAndExport() {
   try {
     randomizeAll();
-    /* 等两帧让 renderCharacter 把 DOM/图片更新完 */
+    /* 等兩幀讓 renderCharacter 把 DOM/圖片更新完 */
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     if (typeof html2canvas === "undefined") {
       await new Promise((res, rej) => {
@@ -2233,10 +2233,10 @@ document.getElementById("btnReset").onclick = () => {
 
 document.getElementById("btnSave").onclick = async () => {
   const any = Object.values(state.selected).some(v => Array.isArray(v) ? v.length > 0 : v !== null);
-  if (!any) { toast("先选几个配件再保存哦~"); return; }
+  if (!any) { toast("先選幾個配件再保存哦~"); return; }
   const btn = document.getElementById("btnSave");
   const origText = btn.innerHTML;
-  // 立即反馈 loading（手机上 html2canvas 比较慢，不给反馈 user 会以为没响应）
+  // 立即反饋 loading（手機上 html2canvas 比較慢，不給反饋 user 會以為沒響應）
   btn.disabled = true;
   btn.style.opacity = '0.7';
   btn.style.cursor = 'wait';
@@ -2245,7 +2245,7 @@ document.getElementById("btnSave").onclick = async () => {
   try {
     await captureAndShow();
   } catch (err) {
-    toast("保存失败，再试一次?");
+    toast("保存失敗，再試一次?");
     console.error(err);
   } finally {
     btn.disabled = false;
@@ -2255,7 +2255,7 @@ document.getElementById("btnSave").onclick = async () => {
   }
 };
 
-/* 存两种渲染结果的 dataUrl，切换不重新截图 */
+/* 存兩種渲染結果的 dataUrl，切換不重新截圖 */
 const exportData = { frame: null, transparent: null };
 
 async function captureAndShow() {
@@ -2268,25 +2268,25 @@ async function captureAndShow() {
     });
   }
 
-  /* 1. 带相框版本：截 .character-frame */
+  /* 1. 帶相框版本：截 .character-frame */
   const frame = document.querySelector(".character-frame");
   const frameCanvas = await html2canvas(frame, {
     backgroundColor: null, scale: 2, useCORS: true
   });
   exportData.frame = frameCanvas.toDataURL("image/png");
 
-  /* 2. 透明背景版本：截 .character（只含角色层，无相框、无背景渐变） */
+  /* 2. 透明背景版本：截 .character（只含角色層，無相框、無背景漸變） */
   const charEl = document.querySelector(".character");
   const charCanvas = await html2canvas(charEl, {
     backgroundColor: null, scale: 2, useCORS: true
   });
   exportData.transparent = charCanvas.toDataURL("image/png");
 
-  /* 默认显示带相框 */
+  /* 默認顯示帶相框 */
   setExportMode("frame");
   document.getElementById("modal").classList.add("show");
 
-  /* 切换按钮 */
+  /* 切換按鈕 */
   document.querySelectorAll(".bg-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.bg === "frame");
     b.onclick = () => {
@@ -2301,13 +2301,13 @@ function setExportMode(mode) {
   const url = exportData[mode];
   const img = document.getElementById("modalImg");
   img.src = url;
-  /* 透明模式用棋盘格背景预览 */
+  /* 透明模式用棋盤格背景預覽 */
   img.classList.toggle("transparent-preview", mode === "transparent");
 
   const btnDownload = document.getElementById("btnDownload");
   const btnSavePng = document.getElementById("btnSavePng");
   if (IS_EMBEDDED) {
-    btnDownload.textContent = "确认 ✓";
+    btnDownload.textContent = "確認 ✓";
     btnDownload.onclick = () => {
       window.parent.postMessage({
         type: 'like520_result',
@@ -2320,26 +2320,26 @@ function setExportMode(mode) {
         }
       }, '*');
     };
-    // 嵌入态：额外提供一个"保存 PNG"按钮，让 user 先存到相册再确认进入下一步
+    // 嵌入態：額外提供一個"保存 PNG"按鈕，讓 user 先存到相冊再確認進入下一步
     btnSavePng.style.display = '';
     btnSavePng.onclick = () => {
       const a = document.createElement("a");
       a.href = url;
-      const who = LIKE520_MODE === 'user' ? '我' : '大头贴';
+      const who = LIKE520_MODE === 'user' ? '我' : '大頭貼';
       a.download = mode === "transparent"
-        ? `${who}_无背景_${Date.now()}.png`
+        ? `${who}_無背景_${Date.now()}.png`
         : `${who}_520_${Date.now()}.png`;
       a.click();
       toast("已保存 ♥");
     };
   } else {
-    btnDownload.textContent = "下载 PNG";
+    btnDownload.textContent = "下載 PNG";
     btnDownload.onclick = () => {
       const a = document.createElement("a");
       a.href = url;
       a.download = mode === "transparent"
-        ? `大头贴_无背景_${Date.now()}.png`
-        : `大头贴_520_${Date.now()}.png`;
+        ? `大頭貼_無背景_${Date.now()}.png`
+        : `大頭貼_520_${Date.now()}.png`;
       a.click();
     };
     btnSavePng.style.display = 'none';
@@ -2350,12 +2350,12 @@ function closeModal() {
   document.getElementById("modal").classList.remove("show");
 }
 
-/* ===== 自定义部件：界面内上传 / 管理 / 导描线模板 =====
-   iframe 写不了宿主 IndexedDB，所以上传后①立刻注入内存 PARTS（当场可用）
-   ②postMessage 回父组件落库；删除同理。父组件处理见 CreatorIframe。 */
+/* ===== 自定義部件：界面內上傳 / 管理 / 導描線模板 =====
+   iframe 寫不了宿主 IndexedDB，所以上傳後①立刻注入內存 PARTS（當場可用）
+   ②postMessage 回父組件落庫；刪除同理。父組件處理見 CreatorIframe。 */
 const CC_CATS = [
-  ['skin','肤色'],['eyes','眼睛'],['mouth','嘴'],['fronthair','前发'],['earhair','耳发'],
-  ['back1','后发1'],['back2','后发2'],['outfit','衣服'],['outer','外套'],['facemark','面纹'],['decor','配饰'],
+  ['skin','膚色'],['eyes','眼睛'],['mouth','嘴'],['fronthair','前發'],['earhair','耳發'],
+  ['back1','後發1'],['back2','後發2'],['outfit','衣服'],['outer','外套'],['facemark','面紋'],['decor','配飾'],
 ];
 const ccLabelOf = k => (CC_CATS.find(c => c[0] === k) || [k, k])[1];
 let ccPendingSrc = '';
@@ -2367,7 +2367,7 @@ function openCustomModal() {
 }
 function closeCustomModal() { document.getElementById('customModal').classList.remove('show'); }
 
-/* 预览区显示一张图（文件 base64 或远端 URL 通用） */
+/* 預覽區顯示一張圖（文件 base64 或遠端 URL 通用） */
 function ccShowPreview(src) {
   const drop = document.getElementById('ccDrop');
   drop.innerHTML = '';
@@ -2375,7 +2375,7 @@ function ccShowPreview(src) {
   drop.appendChild(img);
 }
 function ccResetPreview() {
-  document.getElementById('ccDrop').innerHTML = '<span>点此选择透明 PNG</span>';
+  document.getElementById('ccDrop').innerHTML = '<span>點此選擇透明 PNG</span>';
 }
 
 function renderCcChips() {
@@ -2402,7 +2402,7 @@ function renderCcList() {
   if (!keys.length) {
     const p = document.createElement('div');
     p.className = 'cc-cat-title'; p.style.marginTop = '12px';
-    p.textContent = '还没有自定义部件。';
+    p.textContent = '還沒有自定義部件。';
     wrap.appendChild(p);
     return;
   }
@@ -2438,13 +2438,13 @@ function ccOnFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     ccPendingSrc = String(reader.result || '');
-    document.getElementById('ccUrl').value = '';   // 文件与 URL 二选一
+    document.getElementById('ccUrl').value = '';   // 文件與 URL 二選一
     ccShowPreview(ccPendingSrc);
   };
   reader.readAsDataURL(file);
 }
 
-/* 粘贴图片直链（跟表情包一样，src 直接存远端 URL，省本地空间）*/
+/* 粘貼圖片直鏈（跟表情包一樣，src 直接存遠端 URL，省本地空間）*/
 function ccOnUrl() {
   const url = document.getElementById('ccUrl').value.trim();
   if (url) {
@@ -2466,21 +2466,21 @@ function resetCcForm() {
 }
 
 function saveCustomPart() {
-  // URL 优先（存远端直链）；否则用上传的文件 base64
+  // URL 優先（存遠端直鏈）；否則用上傳的文件 base64
   const url = document.getElementById('ccUrl').value.trim();
   const finalSrc = url || ccPendingSrc;
-  if (!finalSrc) { toast('先选一张透明 PNG，或粘贴图片 URL'); return; }
+  if (!finalSrc) { toast('先選一張透明 PNG，或粘貼圖片 URL'); return; }
   const name = (document.getElementById('ccName').value || '').trim();
   const part = {
     id: ccCategory + '_cc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
     categoryKey: ccCategory,
-    name: name || ('自定义' + ccLabelOf(ccCategory)),
+    name: name || ('自定義' + ccLabelOf(ccCategory)),
     src: finalSrc,
     tintable: document.getElementById('ccTintable').checked,
   };
   customPartIds.add(part.id);
-  mergeExtraItems([part]);                 // 当场可用
-  if (IS_EMBEDDED) {                        // 落库（父组件存 IndexedDB）
+  mergeExtraItems([part]);                 // 當場可用
+  if (IS_EMBEDDED) {                        // 落庫（父組件存 IndexedDB）
     window.parent.postMessage({ type: 'like520_save_custom_part', payload: { part } }, '*');
   }
   resetCcForm();
@@ -2495,7 +2495,7 @@ function deleteCustomPart(categoryKey, id) {
     if (idx >= 0) cat.items.splice(idx, 1);
   }
   customPartIds.delete(id);
-  const sel = state.selected[categoryKey];   // 若正被选中则取消
+  const sel = state.selected[categoryKey];   // 若正被選中則取消
   if (Array.isArray(sel)) {
     const i = sel.indexOf(id);
     if (i >= 0) sel.splice(i, 1);
@@ -2508,17 +2508,17 @@ function deleteCustomPart(categoryKey, id) {
   }
   renderTabs(); renderPanel(); renderCharacter();
   renderCcList();
-  toast('已删除');
+  toast('已刪除');
 }
 
-/* 导出半透明 body 当描线模板：取当前/默认 skin 层，按原生分辨率降透明度导出 */
+/* 導出半透明 body 當描線模板：取當前/默認 skin 層，按原生分辨率降透明度導出 */
 function exportTracingTemplate() {
   const skin = PARTS.find(p => p.key === 'skin');
   let src = null;
   const sel = skin && state.selected.skin;
   if (sel && skin) { const it = skin.items.find(x => x.id === sel); if (it) src = it.src; }
   if (!src && skin && skin.items[0]) src = skin.items[0].src;
-  if (!src) { toast('暂无 body 素材可用'); return; }
+  if (!src) { toast('暫無 body 素材可用'); return; }
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas');
@@ -2529,11 +2529,11 @@ function exportTracingTemplate() {
     ctx.drawImage(img, 0, 0, c.width, c.height);
     const a = document.createElement('a');
     a.href = c.toDataURL('image/png');
-    a.download = '描线模板_body_' + Date.now() + '.png';
+    a.download = '描線模板_body_' + Date.now() + '.png';
     a.click();
-    toast('模板已导出 ♥ 在上面画你的部件');
+    toast('模板已導出 ♥ 在上面畫你的部件');
   };
-  img.onerror = () => toast('导出失败');
+  img.onerror = () => toast('導出失敗');
   img.src = src;
 }
 
@@ -2554,11 +2554,11 @@ function exportTracingTemplate() {
   if (urlInput) urlInput.oninput = ccOnUrl;
 })();
 
-/* === 草稿自动保存 / 复用 ===
-   key: mode + charName，让每个角色 + 是否是 user 各自存一份
-   存的只是 state（小 JSON），不存图片 PNG */
+/* === 草稿自動保存 / 複用 ===
+   key: mode + charName，讓每個角色 + 是否是 user 各自存一份
+   存的只是 state（小 JSON），不存圖片 PNG */
 function getDraftKey() {
-  // 调用方传了唯一 draftKey（如彼方按 char.id）→ 草稿按它隔离，且与 520 互不串
+  // 調用方傳了唯一 draftKey（如彼方按 char.id）→ 草稿按它隔離，且與 520 互不串
   if (LIKE520_DRAFT_KEY) return `like520_cc_draft_k_${LIKE520_DRAFT_KEY}`;
   return `like520_cc_draft_${LIKE520_MODE}_${LIKE520_CHAR_NAME || 'default'}`;
 }
@@ -2582,8 +2582,8 @@ function saveDraft() {
     } catch (e) { console.warn('[520][cc] save draft failed', e); }
   }, 600);
 }
-/* 把一份导出过的完整 state 拷回当前 state（草稿恢复 / init.savedState 共用）。
-   presets 只有 selected，这里连换色/翻转/眼型/发色联动一起还原。 */
+/* 把一份導出過的完整 state 拷回當前 state（草稿恢復 / init.savedState 共用）。
+   presets 只有 selected，這裡連換色/翻轉/眼型/髮色聯動一起還原。 */
 function applyFullState(d) {
   if (!d || typeof d !== 'object') return false;
   const isRecord = value => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -2658,7 +2658,7 @@ function tryLoadDraft() {
     if (!raw) return false;
     const d = JSON.parse(raw);
     if (!applyFullState(d)) return false;
-    console.log('[520][cc] 恢复上次草稿');
+    console.log('[520][cc] 恢復上次草稿');
     return true;
   } catch (e) {
     console.warn('[520][cc] load draft failed', e);
@@ -2669,38 +2669,38 @@ function tryLoadDraft() {
 function clearDraft() {
   try { localStorage.removeItem(getDraftKey()); } catch {}
 }
-/* 把所有会改 state 的入口都钩一下：renderPanel / renderColorPicker / renderFlipButton 后的 onclick 改完 state 后调 saveDraft */
-/* 简化策略：把 renderCharacter 当作"state 已稳定"的信号，每次重渲都顺手存一次 */
+/* 把所有會改 state 的入口都鉤一下：renderPanel / renderColorPicker / renderFlipButton 後的 onclick 改完 state 後調 saveDraft */
+/* 簡化策略：把 renderCharacter 當作"state 已穩定"的信號，每次重渲都順手存一次 */
 const _origRenderCharacter = renderCharacter;
 renderCharacter = function() {
   _origRenderCharacter.apply(this, arguments);
   saveDraft();
 };
 
-/* 快照当前 PARTS 里的内置部件 id 作为「老画风」——必须在任何 mergeExtraItems（下方 fetch
-   内置素材包 / 父框架 postMessage 注入自定义部件）之前跑，此刻 PARTS 只含硬编码内置部件。
-   special（SULLY 专属）不算老画风，保留它原有的 SULLY 门控逻辑。 */
+/* 快照當前 PARTS 裡的內置部件 id 作為「老畫風」——必須在任何 mergeExtraItems（下方 fetch
+   內置素材包 / 父框架 postMessage 注入自定義部件）之前跑，此刻 PARTS 只含硬編碼內置部件。
+   special（SULLY 專屬）不算老畫風，保留它原有的 SULLY 門控邏輯。 */
 PARTS.forEach(p => (p.items || []).forEach(it => { if (!it.special) LEGACY_IDS.add(it.id); }));
 
 renderTabs();
 renderPanel();
 renderCharacter();
 
-/* 自动加载「内置素材包」：管理员在捏人器 dev 面板导出 PNG+清单，放进 like520/parts/ 即可，
-   这里启动时 fetch parts/manifest.json 合并进 PARTS——无需手改本文件的 PARTS 数组。
-   清单不存在(404)则静默跳过，所以没加过素材也完全正常。 */
+/* 自動加載「內置素材包」：管理員在捏人器 dev 面板導出 PNG+清單，放進 like520/parts/ 即可，
+   這裡啟動時 fetch parts/manifest.json 合併進 PARTS——無需手改本文件的 PARTS 數組。
+   清單不存在(404)則靜默跳過，所以沒加過素材也完全正常。 */
 fetch('parts/manifest.json', { cache: 'no-cache' })
   .then(r => (r.ok ? r.json() : null))
   .then(list => { if (Array.isArray(list) && list.length) mergeExtraItems(list); })
   .catch(() => {});
 
 /*
- * 素材由当前选项面板和角色画布按需加载。这里不能再把整包图片一次性解码进
- * 内存：移动端 WebView 上百张 472px PNG 会轻易挤掉页面进程，表现为按钮无响应
+ * 素材由當前選項面板和角色畫布按需加載。這裡不能再把整包圖片一次性解碼進
+ * 內存：移動端 WebView 上百張 472px PNG 會輕易擠掉頁面進程，表現為按鈕無響應
  * 或 Safari 的 “A problem repeatedly occurred”。
  */
 
-/* 通知父框架 iframe 已就绪、可以接收 like520_init 消息 */
+/* 通知父框架 iframe 已就緒、可以接收 like520_init 消息 */
 if (IS_EMBEDDED) {
   window.parent.postMessage({ type: 'like520_ready' }, '*');
 }

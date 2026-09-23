@@ -21,16 +21,16 @@ try{
   await page.getByRole('button',{name:'放大查看物品',exact:true}).click();
   const inspector=page.locator('.sar-object-inspector');await inspector.waitFor();
   assert.equal((await view()).confirmed,before.confirmed);
-  assert.equal(await inspector.getByRole('button',{name:'就用这个形象',exact:true}).count(),0);
+  assert.equal(await inspector.getByRole('button',{name:'就用這個形象',exact:true}).count(),0);
   await page.screenshot({path:out+'/'+scene+'-enlarged.png'});
   await page.keyboard.press('Escape');await inspector.waitFor({state:'detached'});
   const after=await view();assert.equal(after.node,before.node);assert.equal(after.line,before.line);assert.equal(after.sentence,before.sentence);assert.equal(after.confirmed,before.confirmed);
   assert.equal(await page.getByRole('button',{name:'放大查看物品',exact:true}).evaluate(el=>el===document.activeElement),true);
   await page.screenshot({path:out+'/'+scene+'-inline.png'});
   if(scene==='C1-SPECIAL'){
-    const button=await page.getByRole('button',{name:'就用这个形象',exact:true}).boundingBox();const frame=await page.locator('.srf-prop-content').boundingBox();assert.ok(button.y+button.height<=frame.y+frame.height+1,'membership controls fit without scrolling');
+    const button=await page.getByRole('button',{name:'就用這個形象',exact:true}).boundingBox();const frame=await page.locator('.srf-prop-content').boundingBox();assert.ok(button.y+button.height<=frame.y+frame.height+1,'membership controls fit without scrolling');
     await page.locator('.sar-artifact-identity').click();await inspector.waitFor();
-    await page.getByRole('button',{name:'关闭物品详情',exact:true}).click();
+    await page.getByRole('button',{name:'關閉物品詳情',exact:true}).click();
     assert.equal((await view()).confirmed,false);
   }
  }
@@ -39,11 +39,11 @@ try{
  const bounds=await confetti.boundingBox();assert.deepEqual(bounds,{x:0,y:0,width:390,height:844});
  assert.equal(await confetti.evaluate(el=>getComputedStyle(el).pointerEvents),'none');
  await page.waitForTimeout(800);await page.screenshot({path:out+'/global-confetti.png'});
- await page.getByRole('button',{name:'继续对话',exact:true}).click();
+ await page.getByRole('button',{name:'繼續對話',exact:true}).click();
  await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).line===1 && !JSON.parse(window.render_game_to_text()).busy);assert.equal((await view()).line,1);assert.equal(await confetti.count(),1);
- await page.getByRole('button',{name:'继续对话',exact:true}).click();
+ await page.getByRole('button',{name:'繼續對話',exact:true}).click();
  await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).sentence===1);
- await page.getByRole('button',{name:'继续对话',exact:true}).click();
+ await page.getByRole('button',{name:'繼續對話',exact:true}).click();
  await page.waitForFunction(()=>JSON.parse(window.render_game_to_text()).node==='button');
  assert.equal(await confetti.count(),0);
  assert.deepEqual(errors,[]);writeFileSync(out+'/report.json',JSON.stringify({inspection:true,noAccidentalConfirmation:true,fullViewportConfetti:true,errors},null,2));

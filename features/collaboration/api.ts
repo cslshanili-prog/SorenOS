@@ -47,16 +47,16 @@ export const hydrateCollaborationApiSettings = (
 ): CollaborationSettings => {
   const hydrateProfile = (profile: CollaborationApiProfile): CollaborationApiProfile => {
     if (!profile.source) {
-      if (hasConnection(profile)) return { ...profile, source: 'custom', sourceName: '协同专用配置' };
-      return collaborationProfileFromApi(chatApi, 'chat', '当前 ChatApp');
+      if (hasConnection(profile)) return { ...profile, source: 'custom', sourceName: '協同專用配置' };
+      return collaborationProfileFromApi(chatApi, 'chat', '當前 ChatApp');
     }
     if (profile.source === 'chat') {
-      return refreshLinkedProfile(profile, chatApi, '当前 ChatApp');
+      return refreshLinkedProfile(profile, chatApi, '當前 ChatApp');
     }
     if (profile.source === 'preset') {
       const preset = presets.find(item => item.id === profile.sourceId);
       if (preset) return refreshLinkedProfile(profile, preset.config, preset.name);
-      return { ...profile, source: 'custom', sourceId: undefined, sourceName: `${profile.sourceName || '已删除预设'} · 副本` };
+      return { ...profile, source: 'custom', sourceId: undefined, sourceName: `${profile.sourceName || '已刪除預設'} · 副本` };
     }
     return profile;
   };
@@ -80,7 +80,7 @@ export const fetchCollaborationModels = async (
   request: typeof fetch = fetch,
 ): Promise<string[]> => {
   const baseUrl = profile.baseUrl.trim().replace(/\/+$/, '');
-  if (!baseUrl) throw new Error('请先选择一个已保存的连接');
+  if (!baseUrl) throw new Error('請先選擇一個已保存的連接');
   const response = await request(`${baseUrl}/models`, {
     method: 'GET',
     headers: {
@@ -90,6 +90,6 @@ export const fetchCollaborationModels = async (
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const models = extractModelIds(await safeResponseJson(response));
-  if (models.length === 0) throw new Error('模型列表为空或格式不兼容');
+  if (models.length === 0) throw new Error('模型列表為空或格式不兼容');
   return models;
 };

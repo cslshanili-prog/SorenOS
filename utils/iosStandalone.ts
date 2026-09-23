@@ -1,21 +1,21 @@
 let hasInstalledIOSStandaloneWorkaround = false;
 let stableStandaloneHeight = 0;
-// 这台设备要不要做键盘避让（iOS 全屏 PWA / 安卓浏览器）。装载时定下，
-// setViewportVars 靠它决定要不要碰 body 上的键盘态标记——普通桌面浏览器一律不碰。
+// 這台設備要不要做鍵盤避讓（iOS 全屏 PWA / 安卓瀏覽器）。裝載時定下，
+// setViewportVars 靠它決定要不要碰 body 上的鍵盤態標記——普通桌面瀏覽器一律不碰。
 let keyboardFixesEnabled = false;
-// 安全区只在旋转 / 窗口尺寸变化时才变，缓存探测结果，避免 visualViewport 滚动、聚焦时反复同步重排。
-// 上下各自独立缓存：某边读到非 0 才锁定；iOS 启动早期某边可能瞬时为 0，此时该边不锁、下次继续探测，
-// 避免「一边真值、一边瞬时 0」被整体锁死（否则 home 条避让会失效，直到旋转/尺寸变化才恢复）。
+// 安全區只在旋轉 / 窗口尺寸變化時才變，緩存探測結果，避免 visualViewport 滾動、聚焦時反覆同步重排。
+// 上下各自獨立緩存：某邊讀到非 0 才鎖定；iOS 啟動早期某邊可能瞬時為 0，此時該邊不鎖、下次繼續探測，
+// 避免「一邊真值、一邊瞬時 0」被整體鎖死（否則 home 條避讓會失效，直到旋轉/尺寸變化才恢復）。
 let cachedTopInset: number | null = null;
 let cachedBottomInset: number | null = null;
 
-// 用一个隐藏探针同时读取上下安全区：单次插入 + 单次 getComputedStyle（一次 reflow）。
-// env() 在本项目 iOS 全屏 PWA 下偶发返回 0，故需 JS 探测兜底。
+// 用一個隱藏探針同時讀取上下安全區：單次插入 + 單次 getComputedStyle（一次 reflow）。
+// env() 在本項目 iOS 全屏 PWA 下偶發返回 0，故需 JS 探測兜底。
 export const readSafeAreaInsets = (): { top: number; bottom: number } => {
     if (typeof document === 'undefined' || !document.body) {
         return { top: cachedTopInset ?? 0, bottom: cachedBottomInset ?? 0 };
     }
-    // 两边都已锁定有效值，直接用缓存，不再插探针重排。
+    // 兩邊都已鎖定有效值，直接用緩存，不再插探針重排。
     if (cachedTopInset !== null && cachedBottomInset !== null) {
         return { top: cachedTopInset, bottom: cachedBottomInset };
     }
@@ -35,7 +35,7 @@ export const readSafeAreaInsets = (): { top: number; bottom: number } => {
 
     document.body.removeChild(probe);
 
-    // 各边只在读到非 0 时锁定；仍为 0 的边保持未缓存，下次事件继续探测，读到真值再锁。
+    // 各邊只在讀到非 0 時鎖定；仍為 0 的邊保持未緩存，下次事件繼續探測，讀到真值再鎖。
     if (cachedTopInset === null && top > 0) cachedTopInset = top;
     if (cachedBottomInset === null && bottom > 0) cachedBottomInset = bottom;
 
@@ -55,9 +55,9 @@ export const isStandaloneDisplayMode = (): boolean => {
 
 export const isIOSStandaloneWebApp = (): boolean => isIOSDevice() && isStandaloneDisplayMode();
 
-// 安卓机（Chrome / Edge 等）。安卓普通浏览器弹软键盘时经常不按 interactive-widget=resizes-content
-// 回流，而是缩小可视区、把整页往上顶（顶栏被切、退出重进才恢复）。需要和 iOS 全屏 PWA 一样，
-// 让 app 高度跟随可视区并锁死外层滚动。
+// 安卓機（Chrome / Edge 等）。安卓普通瀏覽器彈軟鍵盤時經常不按 interactive-widget=resizes-content
+// 迴流，而是縮小可視區、把整頁往上頂（頂欄被切、退出重進才恢復）。需要和 iOS 全屏 PWA 一樣，
+// 讓 app 高度跟隨可視區並鎖死外層滾動。
 export const isAndroidDevice = (): boolean => {
     if (typeof navigator === 'undefined') return false;
     return /Android/i.test(navigator.userAgent || '');
@@ -65,8 +65,8 @@ export const isAndroidDevice = (): boolean => {
 
 export type StatusBarMode = 'standard' | 'compact' | 'hidden';
 
-// 三档状态栏模式。没有新字段的旧存档继续读取 hideStatusBar；两者都没写过时沿用平台默认。
-// compact 会保留 SullyOS 时间/电量，但把它们放入顶部安全区，不再在安全区下方额外占一行。
+// 三檔狀態欄模式。沒有新字段的舊存檔繼續讀取 hideStatusBar；兩者都沒寫過時沿用平台默認。
+// compact 會保留 SullyOS 時間/電量，但把它們放入頂部安全區，不再在安全區下方額外佔一行。
 export const resolveStatusBarMode = (
     statusBarMode?: StatusBarMode,
     legacyHideStatusBar?: boolean,
@@ -78,10 +78,10 @@ export const resolveStatusBarMode = (
     return (legacyHideStatusBar ?? platformDefaultHidden) ? 'hidden' : 'standard';
 };
 
-// 顶部时钟/电量条是否隐藏：外观「隐藏顶部时间栏」开关显式设过就听用户的；没设过(undefined)按平台默认——
-// iOS 全屏 PWA 系统状态栏(真实时间/电量)删不掉，默认隐藏 SullyOS 这条避免双显。
-// 必须用 ?? 而非 ||：显式 false（用户主动要显示）不能被平台默认 true 盖掉。
-// 只决定时钟/电量条；错误指示器、系统调试终端等与本开关无关，始终独立显示。
+// 頂部時鐘/電量條是否隱藏：外觀「隱藏頂部時間欄」開關顯式設過就聽用戶的；沒設過(undefined)按平台默認——
+// iOS 全屏 PWA 系統狀態欄(真實時間/電量)刪不掉，默認隱藏 SullyOS 這條避免雙顯。
+// 必須用 ?? 而非 ||：顯式 false（用戶主動要顯示）不能被平台默認 true 蓋掉。
+// 只決定時鐘/電量條；錯誤指示器、系統調試終端等與本開關無關，始終獨立顯示。
 export const isStatusBarHidden = (
     hideStatusBar?: boolean,
     platformDefaultHidden: boolean = isIOSStandaloneWebApp(),
@@ -99,7 +99,7 @@ const setViewportVars = () => {
     const innerHeight = Math.round(window.innerHeight);
     const viewportHeight = Math.round(window.visualViewport?.height || innerHeight);
     const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop || 0);
-    // 单次探针读取上下安全区。顶部 env 偶发返回 0，探测不到时退回 44px（约状态栏/刘海高度），避免顶栏内容怼进刘海。
+    // 單次探針讀取上下安全區。頂部 env 偶發返回 0，探測不到時退回 44px（約狀態欄/劉海高度），避免頂欄內容懟進劉海。
     const safeInsets = shouldStabilizeHeight ? readSafeAreaInsets() : { top: 0, bottom: 0 };
     const bottomSafeInset = safeInsets.bottom;
     const topSafeInset = shouldStabilizeHeight ? (safeInsets.top > 0 ? safeInsets.top : 44) : 0;
@@ -109,36 +109,36 @@ const setViewportVars = () => {
     let keyboardOpen: boolean;
 
     if (shouldStabilizeHeight) {
-        // 全屏 PWA 没有地址栏，可视高度只在软键盘弹出时变矮。基线取「见过的最大可视高度」。
+        // 全屏 PWA 沒有地址欄，可視高度只在軟鍵盤彈出時變矮。基線取「見過的最大可視高度」。
         if (!stableStandaloneHeight || viewportHeight > stableStandaloneHeight) {
             stableStandaloneHeight = viewportHeight;
         }
-        // 键盘态判据用「可视高度变矮」而非 obscuredHeight：iOS 26 起 standalone 会把 layout viewport 也一起缩，
-        // innerHeight 跟着变矮，obscuredHeight 算出来是 0 而失效。viewportHeight > 150 是对 iOS 偶发脏值的护栏——
-        // 键盘动画期 visualViewport 偶尔报错值，此时退化成「无键盘态」，宁可不避让也不要把布局撑崩成满屏白。
+        // 鍵盤態判據用「可視高度變矮」而非 obscuredHeight：iOS 26 起 standalone 會把 layout viewport 也一起縮，
+        // innerHeight 跟著變矮，obscuredHeight 算出來是 0 而失效。viewportHeight > 150 是對 iOS 偶發髒值的護欄——
+        // 鍵盤動畫期 visualViewport 偶爾報錯值，此時退化成「無鍵盤態」，寧可不避讓也不要把佈局撐崩成滿屏白。
         keyboardOpen = viewportHeight > 150 && viewportHeight < stableStandaloneHeight - 100;
-        // 键盘态：app 高度收到当前可视区（home 条已被键盘盖，不再叠加 safe）；无键盘态：基线 + safe（底部给 home 条留位）。
+        // 鍵盤態：app 高度收到當前可視區（home 條已被鍵盤蓋，不再疊加 safe）；無鍵盤態：基線 + safe（底部給 home 條留位）。
         fullAppHeight = keyboardOpen ? viewportHeight : stableStandaloneHeight + bottomSafeInset;
-        // standalone 下键盘避让改由「app 高度跟随可视区」统一处理，keyboard-inset 置 0，避免 CallApp 等再叠一层 padding。
+        // standalone 下鍵盤避讓改由「app 高度跟隨可視區」統一處理，keyboard-inset 置 0，避免 CallApp 等再疊一層 padding。
         keyboardInset = 0;
-        // iOS 26 键盘弹出会把整页顶上去（visualViewport.offsetTop > 0），拉回顶部对齐可视区；
-        // 配合 ios-keyboard-open 下的 touchmove 拦截（见 installIOSStandaloneWorkaround），把外层滚动彻底锁死。
+        // iOS 26 鍵盤彈出會把整頁頂上去（visualViewport.offsetTop > 0），拉回頂部對齊可視區；
+        // 配合 ios-keyboard-open 下的 touchmove 攔截（見 installIOSStandaloneWorkaround），把外層滾動徹底鎖死。
         if (keyboardOpen && viewportOffsetTop > 0) {
             window.scrollTo(0, 0);
         }
     } else {
         stableStandaloneHeight = 0;
-        // obscuredHeight = 被软键盘盖住的高度。安卓浏览器若按 resizes-content 回流，
-        // innerHeight 会跟着缩，obscuredHeight ≈ 0（走无键盘分支，布局自行回流，什么都不用做）；
-        // 若不回流而是缩小可视区/顶起整页，obscuredHeight > 120，进入键盘分支统一避让。
+        // obscuredHeight = 被軟鍵盤蓋住的高度。安卓瀏覽器若按 resizes-content 迴流，
+        // innerHeight 會跟著縮，obscuredHeight ≈ 0（走無鍵盤分支，佈局自行迴流，什麼都不用做）；
+        // 若不迴流而是縮小可視區/頂起整頁，obscuredHeight > 120，進入鍵盤分支統一避讓。
         const obscuredHeight = Math.max(0, innerHeight - viewportHeight - viewportOffsetTop);
         keyboardOpen = obscuredHeight > 120;
-        // 键盘避让统一用「app 高度跟随可视区」，不再靠 keyboard-inset 让各 App 自己叠 padding。
+        // 鍵盤避讓統一用「app 高度跟隨可視區」，不再靠 keyboard-inset 讓各 App 自己疊 padding。
         keyboardInset = 0;
         if (keyboardOpen) {
-            // 安卓 Chrome/Edge：app 高度收到键盘上方的可视区，输入框自然落在可视区内；
-            // 再把被浏览器顶起的外层滚动拉回顶部（配合 body.ios-keyboard-open 的 touchmove 锁定），
-            // 界面不再整体上移、退出重进才恢复。
+            // 安卓 Chrome/Edge：app 高度收到鍵盤上方的可視區，輸入框自然落在可視區內；
+            // 再把被瀏覽器頂起的外層滾動拉回頂部（配合 body.ios-keyboard-open 的 touchmove 鎖定），
+            // 界面不再整體上移、退出重進才恢復。
             fullAppHeight = viewportHeight;
             if (viewportOffsetTop > 0) window.scrollTo(0, 0);
         } else {
@@ -146,12 +146,12 @@ const setViewportVars = () => {
         }
     }
 
-    // 键盘态标记和 --app-height 必须同源：标记一挂，外壳就铺到 app 高度多出的那段底部安全区、
-    // 输入栏同时收掉自己的让位间隙，两者净位移为 0 —— 前提是高度也同时收到键盘上方。
-    // 所以判据只认「可视区真的变矮了」，不认「输入框拿到了焦点」：设备上键盘弹不出来时
-    // （接了外接键盘、输入法异常），焦点照样进得来，但可视区纹丝不动，此时挂标记就会把
-    // 输入条整条推出屏幕、home 条骑到输入框上。顺带这样也不再依赖 focusout 来摘标记——
-    // 聚焦中的输入框被直接卸载（退出聊天页）时 WebKit 不派发 focusout，标记会永久卡住。
+    // 鍵盤態標記和 --app-height 必須同源：標記一掛，外殼就鋪到 app 高度多出的那段底部安全區、
+    // 輸入欄同時收掉自己的讓位間隙，兩者淨位移為 0 —— 前提是高度也同時收到鍵盤上方。
+    // 所以判據只認「可視區真的變矮了」，不認「輸入框拿到了焦點」：設備上鍵盤彈不出來時
+    // （接了外接鍵盤、輸入法異常），焦點照樣進得來，但可視區紋絲不動，此時掛標記就會把
+    // 輸入條整條推出屏幕、home 條騎到輸入框上。順帶這樣也不再依賴 focusout 來摘標記——
+    // 聚焦中的輸入框被直接卸載（退出聊天頁）時 WebKit 不派發 focusout，標記會永久卡住。
     if (keyboardFixesEnabled) {
         document.body.classList.toggle('ios-keyboard-open', keyboardOpen);
     }
@@ -169,8 +169,8 @@ export const installIOSStandaloneWorkaround = () => {
 
     hasInstalledIOSStandaloneWorkaround = true;
     const useStandaloneFixes = isIOSStandaloneWebApp();
-    // iOS 全屏 PWA 与安卓浏览器都需要这套键盘避让：可视区一变矮就挂 keyboard 类 + 锁外层滚动。
-    // 安卓 Chrome/Edge 弹键盘时会把整页顶起，同样靠这套压回去。
+    // iOS 全屏 PWA 與安卓瀏覽器都需要這套鍵盤避讓：可視區一變矮就掛 keyboard 類 + 鎖外層滾動。
+    // 安卓 Chrome/Edge 彈鍵盤時會把整頁頂起，同樣靠這套壓回去。
     const useKeyboardFixes = useStandaloneFixes || isAndroidDevice();
     keyboardFixesEnabled = useKeyboardFixes;
     if (useStandaloneFixes) {
@@ -182,15 +182,15 @@ export const installIOSStandaloneWorkaround = () => {
         setViewportVars();
     };
 
-    // 只有旋转 / 窗口尺寸变化才真的改变安全区：让缓存失效后重新探测（滚动、聚焦走缓存，不再重排）。
+    // 只有旋轉 / 窗口尺寸變化才真的改變安全區：讓緩存失效後重新探測（滾動、聚焦走緩存，不再重排）。
     const handleSafeAreaChange = () => {
         cachedTopInset = null;
         cachedBottomInset = null;
         setViewportVars();
     };
 
-    // 聚焦只当「立刻重算一次」的时机，不直接判键盘态：此刻键盘还没弹起来，
-    // 要等 visualViewport 真的变矮，setViewportVars 才会挂上标记、同时把高度收到键盘上方。
+    // 聚焦只當「立刻重算一次」的時機，不直接判鍵盤態：此刻鍵盤還沒彈起來，
+    // 要等 visualViewport 真的變矮，setViewportVars 才會掛上標記、同時把高度收到鍵盤上方。
     const handleFocusIn = (event: FocusEvent) => {
         if (!isTextEntryElement(event.target)) return;
         setViewportVars();
@@ -208,14 +208,14 @@ export const installIOSStandaloneWorkaround = () => {
         });
     };
 
-    // 键盘收起由 visualViewport 变化驱动，这里只做一次兜底重算，
-    // 防 iOS 偶发漏发 resize 让高度停在键盘态。
+    // 鍵盤收起由 visualViewport 變化驅動，這裡只做一次兜底重算，
+    // 防 iOS 偶發漏發 resize 讓高度停在鍵盤態。
     const handleFocusOut = () => {
         window.setTimeout(setViewportVars, 180);
     };
 
-    // 键盘弹出时锁死外层滚动：只放行可滚区（消息列表等 .overflow-y-auto）内部滚动，其余 touchmove 一律拦掉。
-    // 不锁的话 iOS 会在输入框聚焦时随手势把整页顶飞（visualViewport.offsetTop 漂移、露出底层色块、闪烁）。
+    // 鍵盤彈出時鎖死外層滾動：只放行可滾區（消息列表等 .overflow-y-auto）內部滾動，其餘 touchmove 一律攔掉。
+    // 不鎖的話 iOS 會在輸入框聚焦時隨手勢把整頁頂飛（visualViewport.offsetTop 漂移、露出底層色塊、閃爍）。
     const handleTouchMove = (event: TouchEvent) => {
         if (!document.body.classList.contains('ios-keyboard-open')) return;
         const target = event.target as Element | null;
@@ -234,13 +234,13 @@ export const installIOSStandaloneWorkaround = () => {
     }
     setViewportVars();
 
-    // iOS standalone 冷启动时 env() / JS probe 偶发都给 0；resize / orientationchange 整场可能都不触发，
-    // 缓存就会被锁在 0，底部控件整场贴 home 条。这里在启动后阶梯式重探几次，遇到任一边还没锁定就再试。
+    // iOS standalone 冷啟動時 env() / JS probe 偶發都給 0；resize / orientationchange 整場可能都不觸發，
+    // 緩存就會被鎖在 0，底部控件整場貼 home 條。這裡在啟動後階梯式重探幾次，遇到任一邊還沒鎖定就再試。
     if (useStandaloneFixes) {
         const RETRY_DELAYS_MS = [120, 500, 1500, 3000];
         for (const delay of RETRY_DELAYS_MS) {
             window.setTimeout(() => {
-                if (cachedTopInset !== null && cachedBottomInset !== null) return; // 两边都已锁定，无需再试
+                if (cachedTopInset !== null && cachedBottomInset !== null) return; // 兩邊都已鎖定，無需再試
                 setViewportVars();
             }, delay);
         }

@@ -1,14 +1,14 @@
-// 见面模式（DateApp）立绘兜底选择：角色没给当前情绪配图时，挑一张还能看的顶上。
+// 見面模式（DateApp）立繪兜底選擇：角色沒給當前情緒配圖時，挑一張還能看的頂上。
 //
-// char.sprites 是个混装袋——除了见面情绪立绘（normal/happy/…/角色自定义的），还装着
-// 小小窝的房间立绘 sprites['chibi']。chibi 是 Q 版小人，和见面模式的半身立绘不是一回事，
-// 拿它顶见面立绘会很出戏，所以兜底时整个跳过这个键。
+// char.sprites 是個混裝袋——除了見面情緒立繪（normal/happy/…/角色自定義的），還裝著
+// 小小窩的房間立繪 sprites['chibi']。chibi 是 Q 版小人，和見面模式的半身立繪不是一回事，
+// 拿它頂見面立繪會很出戲，所以兜底時整個跳過這個鍵。
 //
-// 兜底顺序：normal/default → 见面情绪键 → 其它杂项键（跳过 chibi）→ 头像。
+// 兜底順序：normal/default → 見面情緒鍵 → 其它雜項鍵（跳過 chibi）→ 頭像。
 //
-// 返回值是「图片字段值」而不是「能直接加载的地址」：它可能是 blobref 令牌
-// （见 utils/blobRef.ts），也可能是 data: / http(s)。消费方一律用 TokenImg 渲染，
-// 或用 useBlobRefUrl 解析后再拼 CSS url()，别直接塞进 <img src>。
+// 返回值是「圖片字段值」而不是「能直接加載的地址」：它可能是 blobref 令牌
+// （見 utils/blobRef.ts），也可能是 data: / http(s)。消費方一律用 TokenImg 渲染，
+// 或用 useBlobRefUrl 解析後再拼 CSS url()，別直接塞進 <img src>。
 
 export function pickDateFallbackSprite(
     sprites: Record<string, string> | undefined | null,

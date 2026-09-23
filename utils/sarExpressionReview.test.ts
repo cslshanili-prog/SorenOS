@@ -111,8 +111,8 @@ describe('temporary SAR expression review', () => {
         const originalAddress: ExpressionAddress = { sceneId: candidate.scene.id, nodeId: candidate.nodeId, line: candidate.index, sentence: 0, npc: candidate.scene.npc };
         const source = expressionEditSource(originalAddress)!;
         writeExpressionEdit(originalAddress, 'normal', 'happy');
-        const extraProperties = { ...readExpressionEdits()[0], userName: '不应导出的用户', wallet: 900, token: 'never-export-this' };
-        storage.setItem('fishingMarket', JSON.stringify({ userName: '不应导出的用户', wallet: 900 }));
+        const extraProperties = { ...readExpressionEdits()[0], userName: '不應導出的用戶', wallet: 900, token: 'never-export-this' };
+        storage.setItem('fishingMarket', JSON.stringify({ userName: '不應導出的用戶', wallet: 900 }));
         const exported = exportExpressionEdits([extraProperties]);
         const result = JSON.parse(exported);
         expect(result).toMatchObject({ version: 1, kind: 'sar-expression-review', build: { branch: 'test', commit: '0000000' } });
@@ -120,7 +120,7 @@ describe('temporary SAR expression review', () => {
         expect(result.edits[0].text).toBe(candidate.line.text);
         expect(result.edits[0].sentenceText).toBe(dialogueSentences(candidate.line.text)[0]);
         expect(result.edits[0].text).toMatch(/[（(]user名[）)]/i);
-        expect(exported).not.toMatch(/不应导出的用户|never-export-this|wallet|fishingMarket/);
+        expect(exported).not.toMatch(/不[应應][导導]出的用[户戶]|never-export-this|wallet|fishingMarket/);
         expect(source.sourcePath).toBe(`utils/vrWorld/sarFamiliarity/${candidate.scene.npc}.ts`);
     });
 
@@ -147,9 +147,9 @@ describe('temporary SAR expression review', () => {
 
     it.each(['not-json', 'null', '{"version":2,"edits":[]}', '{"version":1,"edits":{}}', '{"version":1,"edits":[{}]}'])('preserves corrupt storage instead of overwriting it: %s', raw => {
         storage.setItem(EXPRESSION_REVIEW_STORAGE_KEY, raw);
-        expect(() => readExpressionEdits()).toThrow(/记录/);
-        expect(() => writeExpressionEdit(address, 'happy', 'curious')).toThrow(/记录/);
-        expect(() => resetExpressionEdit(address)).toThrow(/记录/);
+        expect(() => readExpressionEdits()).toThrow(/[记記][录錄]/);
+        expect(() => writeExpressionEdit(address, 'happy', 'curious')).toThrow(/[记記][录錄]/);
+        expect(() => resetExpressionEdit(address)).toThrow(/[记記][录錄]/);
         expect(storage.getItem(EXPRESSION_REVIEW_STORAGE_KEY)).toBe(raw);
     });
 
@@ -157,11 +157,11 @@ describe('temporary SAR expression review', () => {
         writeExpressionEdit(address, 'happy', 'curious');
         const edit = readExpressionEdits()[0];
         saveEnvelope([{ ...edit, after: 'sleeping' }]);
-        expect(() => readExpressionEdits()).toThrow(/无效/);
+        expect(() => readExpressionEdits()).toThrow(/[无無]效/);
         expect(expressionOverrides([{ ...edit, after: 'sleeping' }], 'C1-01', 'start', 0, 0)).toEqual({});
         saveEnvelope([edit, { ...edit, after: 'serious' }]);
-        expect(() => readExpressionEdits()).toThrow(/重复/);
-        expect(() => exportExpressionEdits([edit, edit])).toThrow(/重复/);
+        expect(() => readExpressionEdits()).toThrow(/重[复複]/);
+        expect(() => exportExpressionEdits([edit, edit])).toThrow(/重[复複]/);
     });
 
     it('disables edits after an authored line changes, retains them for export, and requires explicit reset', () => {
@@ -170,14 +170,14 @@ describe('temporary SAR expression review', () => {
         const edited = readExpressionEdits()[0];
         const authoredLine = familiarityScene(address.sceneId)!.nodes.start.lines[0];
         const original = authoredLine.text;
-        authoredLine.text = '新的一句话。原稿已经移动了。';
+        authoredLine.text = '新的一句話。原稿已經移動了。';
         try {
             expect(expressionOverrides(readExpressionEdits(), 'C1-01', 'start', 0, 0)).toEqual({});
             expect(isExpressionEditStale(edited)).toBe(true);
-            expect(expressionEditStaleReason(edited)).toMatch(/台词已变化/);
+            expect(expressionEditStaleReason(edited)).toMatch(/[台臺][词詞]已[变變]化/);
             const exported = JSON.parse(exportExpressionEdits(readExpressionEdits()));
             expect(exported.edits[0]).toMatchObject({ text: original, stale: true, before: 'happy', after: 'curious' });
-            expect(() => writeExpressionEdit(address, 'normal', 'serious')).toThrow(/先导出并撤回/);
+            expect(() => writeExpressionEdit(address, 'normal', 'serious')).toThrow(/先[导導]出[并並]撤回/);
             expect(readExpressionEdits()[0].text).toBe(original);
             resetExpressionEdit(address);
             writeExpressionEdit(address, 'normal', 'serious');
@@ -191,7 +191,7 @@ describe('temporary SAR expression review', () => {
         const edit = readExpressionEdits()[0];
         const removedNode = { ...edit, nodeId: 'previous-node' };
         const movedSentence = { ...edit, sentence: 1 };
-        const previousSplit = { ...edit, sentenceText: '旧版分句。' };
+        const previousSplit = { ...edit, sentenceText: '舊版分句。' };
         saveEnvelope([removedNode, movedSentence, previousSplit]);
         const read = readExpressionEdits();
         expect(read.every(isExpressionEditStale)).toBe(true);
@@ -213,11 +213,11 @@ describe('temporary SAR expression review', () => {
         expect(listener).toHaveBeenCalledTimes(3);
         const persisted = storage.getItem(EXPRESSION_REVIEW_STORAGE_KEY);
         storage.setItem.mockImplementationOnce(() => { throw new Error('QuotaExceededError'); });
-        expect(() => writeExpressionEdit(address, 'curious', 'serious')).toThrow(/保存失败/);
+        expect(() => writeExpressionEdit(address, 'curious', 'serious')).toThrow(/保存失[败敗]/);
         expect(storage.getItem(EXPRESSION_REVIEW_STORAGE_KEY)).toBe(persisted);
         expect(listener).toHaveBeenCalledTimes(3);
         storage.setItem.mockImplementationOnce(() => { throw new Error('SecurityError'); });
-        expect(() => resetExpressionEdit(address)).toThrow(/保存失败/);
+        expect(() => resetExpressionEdit(address)).toThrow(/保存失[败敗]/);
         expect(storage.getItem(EXPRESSION_REVIEW_STORAGE_KEY)).toBe(persisted);
         expect(listener).toHaveBeenCalledTimes(3);
         unsubscribe();
@@ -228,8 +228,8 @@ describe('temporary SAR expression review', () => {
 
     it('surfaces read permission errors without trying to overwrite storage', () => {
         const get=storage.getItem.getMockImplementation()!;storage.getItem.mockImplementation(key => { if(key===EXPRESSION_REVIEW_STORAGE_KEY)throw new Error('SecurityError');return get(key); });
-        expect(() => readExpressionEdits()).toThrow(/无法读取/);
-        expect(() => writeExpressionEdit(address, 'happy', 'curious')).toThrow(/无法读取/);
+        expect(() => readExpressionEdits()).toThrow(/[无無]法[读讀]取/);
+        expect(() => writeExpressionEdit(address, 'happy', 'curious')).toThrow(/[无無]法[读讀]取/);
         expect(storage.setItem).not.toHaveBeenCalled();
     });
 
@@ -245,9 +245,9 @@ describe('temporary SAR expression review', () => {
         expect(isExpressionReviewAvailable()).toBe(false);
         expect(readExpressionEdits()).toEqual([]);
         expect(expressionOverrides(edits, 'C1-01', 'start', 0, 0)).toEqual({});
-        expect(() => writeExpressionEdit(address, 'happy', 'serious')).toThrow(/开发模式/);
-        expect(() => resetExpressionEdit(address)).toThrow(/开发模式/);
-        expect(() => exportExpressionEdits(edits)).toThrow(/开发模式/);
+        expect(() => writeExpressionEdit(address, 'happy', 'serious')).toThrow(/[开開][发發]模式/);
+        expect(() => resetExpressionEdit(address)).toThrow(/[开開][发發]模式/);
+        expect(() => exportExpressionEdits(edits)).toThrow(/[开開][发發]模式/);
         const inactiveListener = vi.fn();
         const stopInactive = subscribeExpressionEdits(inactiveListener);
         storageEvent(EXPRESSION_REVIEW_STORAGE_KEY);

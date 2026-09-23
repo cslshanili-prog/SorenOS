@@ -56,9 +56,9 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
     return (
         <div className="space-y-4">
             <div>
-                <div className="text-xs font-bold text-slate-700 mb-1">🧠 对话模型 API</div>
+                <div className="text-xs font-bold text-slate-700 mb-1">🧠 對話模型 API</div>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                    这个角色私聊用哪个 API / 模型回复。选「全局API」跟系统设置一致；选「自定义」可以单独为这个角色配一个不同的 API。
+                    這個角色私聊用哪個 API / 模型回覆。選「全局API」跟系統設置一致；選「自定義」可以單獨為這個角色配一個不同的 API。
                 </p>
             </div>
 
@@ -81,7 +81,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                             : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
                     }`}
                 >
-                    自定义
+                    自定義
                 </button>
             </div>
 
@@ -89,7 +89,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                 <div className="space-y-3">
                     {apiPresets.length > 0 && (
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">我的预设</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block pl-1">我的預設</label>
                             <div className="flex gap-2 flex-wrap">
                                 {apiPresets.map(preset => (
                                     <button
@@ -106,12 +106,12 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                     )}
 
                     <div className="flex items-center justify-between mb-0.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">角色专属 API 配置</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">角色專屬 API 配置</label>
                         <button
                             onClick={() => setShowSavePreset(!showSavePreset)}
                             className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
                         >
-                            保存为预设
+                            保存為預設
                         </button>
                     </div>
 
@@ -122,7 +122,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                                 value={newPresetName}
                                 onChange={e => setNewPresetName(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                placeholder="预设名称..."
+                                placeholder="預設名稱..."
                                 className="flex-1 bg-white/50 border border-slate-200/60 rounded-xl px-3 py-2 text-sm focus:bg-white transition-all"
                                 autoFocus
                             />
@@ -170,7 +170,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
 
             {mode === 'global' && (
                 <div className="text-[11px] text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
-                    当前跟随系统设置里的全局 API（{char.chatApi ? '本次切换尚未保存' : '未单独配置'}）。
+                    當前跟隨系統設置裡的全局 API（{char.chatApi ? '本次切換尚未保存' : '未單獨配置'}）。
                 </div>
             )}
 
@@ -183,7 +183,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                         : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                 }`}
             >
-                {dirty ? '保存对话模型设置' : '✓ 已保存'}
+                {dirty ? '保存對話模型設置' : '✓ 已保存'}
             </button>
         </div>
     );

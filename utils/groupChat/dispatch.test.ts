@@ -23,7 +23,7 @@ const baseCtx = (overrides?: Partial<DispatchContext>): DispatchContext => ({
     categories: [],
     refresh: async () => {},
     addToast: () => {},
-    userName: '用户',
+    userName: '用戶',
     ...overrides,
 });
 
@@ -32,11 +32,11 @@ describe('[[ACTION:LEAVE_GROUP]] 退群命令', () => {
         saveMessage.mockClear();
     });
 
-    it('没传 onMemberLeave 时：标记被剥掉，正文照常落库，不会触发任何退群副作用', async () => {
+    it('沒傳 onMemberLeave 時：標記被剝掉，正文照常落庫，不會觸發任何退群副作用', async () => {
         const onMemberLeave = vi.fn();
         await dispatchMemberActions(
             [{ charId: 'c1', content: '好的，那我先走了\n[[ACTION:LEAVE_GROUP]]' }],
-            baseCtx(), // 不传 onMemberLeave
+            baseCtx(), // 不傳 onMemberLeave
         );
         expect(onMemberLeave).not.toHaveBeenCalled();
         expect(saveMessage).toHaveBeenCalledTimes(1);
@@ -45,7 +45,7 @@ describe('[[ACTION:LEAVE_GROUP]] 退群命令', () => {
         expect(saved.content).not.toContain('LEAVE_GROUP');
     });
 
-    it('传了 onMemberLeave 时：连带的告别文字先落库为气泡，退群回调带正确的 charId/charName 触发一次', async () => {
+    it('傳了 onMemberLeave 時：連帶的告別文字先落庫為氣泡，退群回調帶正確的 charId/charName 觸發一次', async () => {
         const onMemberLeave = vi.fn(async () => {});
         await dispatchMemberActions(
             [{ charId: 'c1', content: '好的，那我先走了\n[[ACTION:LEAVE_GROUP]]' }],
@@ -57,7 +57,7 @@ describe('[[ACTION:LEAVE_GROUP]] 退群命令', () => {
         expect(saveMessage.mock.calls[0][0].content).toBe('好的，那我先走了');
     });
 
-    it('纯退群标记（没有其它正文）：文字气泡不落库，但退群回调依然触发一次', async () => {
+    it('純退群標記（沒有其它正文）：文字氣泡不落庫，但退群回調依然觸發一次', async () => {
         const onMemberLeave = vi.fn(async () => {});
         await dispatchMemberActions(
             [{ charId: 'c1', content: '[[ACTION:LEAVE_GROUP]]' }],
@@ -68,20 +68,20 @@ describe('[[ACTION:LEAVE_GROUP]] 退群命令', () => {
         expect(saveMessage).not.toHaveBeenCalled();
     });
 
-    it('混着 PRIVATE 一起纯退群（公开正文清空后提前 continue 的路径）：退群回调也只触发一次', async () => {
+    it('混著 PRIVATE 一起純退群（公開正文清空後提前 continue 的路徑）：退群回調也只觸發一次', async () => {
         const onMemberLeave = vi.fn(async () => {});
         await dispatchMemberActions(
-            [{ charId: 'c1', content: '[[PRIVATE: 私下告诉你我要走了]]\n[[ACTION:LEAVE_GROUP]]' }],
+            [{ charId: 'c1', content: '[[PRIVATE: 私下告訴你我要走了]]\n[[ACTION:LEAVE_GROUP]]' }],
             baseCtx({ onMemberLeave }),
         );
         expect(onMemberLeave).toHaveBeenCalledTimes(1);
         expect(onMemberLeave).toHaveBeenCalledWith('c1', '小夏');
     });
 
-    it('没有退群标记的普通消息：不触发回调', async () => {
+    it('沒有退群標記的普通消息：不觸發回調', async () => {
         const onMemberLeave = vi.fn(async () => {});
         await dispatchMemberActions(
-            [{ charId: 'c1', content: '今天天气不错' }],
+            [{ charId: 'c1', content: '今天天氣不錯' }],
             baseCtx({ onMemberLeave }),
         );
         expect(onMemberLeave).not.toHaveBeenCalled();
@@ -91,20 +91,20 @@ describe('[[ACTION:LEAVE_GROUP]] 退群命令', () => {
 describe('group sticker format recovery', () => {
     const ctx: DispatchContext = {
         groupId: 'g-emoji', memberIds: ['c-emoji'], characters: [{ id: 'c-emoji', name: '角色' }] as any,
-        emojis: [{ name: '开心', url: 'https://example.com/happy.png', categoryId: 'visible' }, { name: '私有', url: 'https://example.com/hidden.png', categoryId: 'hidden' }],
-        categories: [{ id: 'visible', name: '公共' }, { id: 'hidden', name: '隐藏', allowedCharacterIds: ['other'] }] as any,
-        refresh: async () => {}, addToast: () => {}, userName: '用户',
+        emojis: [{ name: '開心', url: 'https://example.com/happy.png', categoryId: 'visible' }, { name: '私有', url: 'https://example.com/hidden.png', categoryId: 'hidden' }],
+        categories: [{ id: 'visible', name: '公共' }, { id: 'hidden', name: '隱藏', allowedCharacterIds: ['other'] }] as any,
+        refresh: async () => {}, addToast: () => {}, userName: '用戶',
     };
     afterEach(() => vi.restoreAllMocks());
 
-    it.each(['[[你发送了表情包：开心]]', '[SEND_EMOJI: 开心]', '【发送了表情包: 开心】'])('dispatches %s as an emoji without losing text', async content => {
+    it.each(['[[你發送了表情包：開心]]', '[SEND_EMOJI: 開心]', '【發送了表情包: 開心】'])('dispatches %s as an emoji without losing text', async content => {
         const save = vi.spyOn(DB, 'saveMessage').mockResolvedValue(1 as any);
-        await dispatchMemberActions([{ charId: 'c-emoji', content: content + '\n后一句' }], ctx);
-        expect(save.mock.calls.map(([m]) => [m.type, m.content])).toEqual([['emoji', 'https://example.com/happy.png'], ['text', '后一句']]);
+        await dispatchMemberActions([{ charId: 'c-emoji', content: content + '\n後一句' }], ctx);
+        expect(save.mock.calls.map(([m]) => [m.type, m.content])).toEqual([['emoji', 'https://example.com/happy.png'], ['text', '後一句']]);
     });
     it('does not bypass pack visibility or activate unrelated action aliases', async () => {
         const save = vi.spyOn(DB, 'saveMessage').mockResolvedValue(1 as any);
-        await dispatchMemberActions([{ charId: 'c-emoji', content: '[[你发送了表情包: 私有]]\n[ACTION:TRANSFER: 520]' }], ctx);
+        await dispatchMemberActions([{ charId: 'c-emoji', content: '[[你發送了表情包: 私有]]\n[ACTION:TRANSFER: 520]' }], ctx);
         expect(save.mock.calls.map(([m]) => [m.type, m.content])).toEqual([['text', '[ACTION:TRANSFER: 520]']]);
     });
 });

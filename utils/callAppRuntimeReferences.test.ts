@@ -50,18 +50,18 @@ describe('CallApp runtime references', () => {
 
     expect(source).toContain("onFinal: (t) => setDraftInput(t)");
     expect(source).toContain("await requestAssistantReply(input, userDbId, pendingTouchesForTurn, true, userCameraSnapshotForTurn)");
-    expect(source).toContain("{sendingBusy ? '…' : '发送'}");
+    expect(source).toContain("{sendingBusy ? '…' : '發送'}");
     expect(source).toMatch(/const beginSelectedCall[\s\S]*?setViewMode\('in-call'\);\s+setCallStartedAt\(Date\.now\(\)\);\s+setCallState\('listening'\);/);
     expect(source).toContain('fireIdleNudge');
     expect(source).toContain('idleNudgeCountRef');
-    expect(source).toContain('电话刚接通。你先开口');
+    expect(source).toContain('電話剛接通。你先開口');
     expect(source).toContain('callPreferences.characterInitiative');
     expect(source).toContain('callPreferences.idleNudgeEnabled');
     expect(preferenceSource).toContain('characterInitiative: true');
     expect(preferenceSource).toContain('idleNudgeEnabled: false');
-    expect(preferenceSheetSource).toContain('谁先开口');
-    expect(preferenceSheetSource).toContain('对方先说');
-    expect(preferenceSheetSource).toContain('我先说');
+    expect(preferenceSheetSource).toContain('誰先開口');
+    expect(preferenceSheetSource).toContain('對方先說');
+    expect(preferenceSheetSource).toContain('我先說');
   });
 
   it('keeps call autoplay separate from ChatApp and defers TTS when it is disabled', () => {
@@ -79,8 +79,8 @@ describe('CallApp runtime references', () => {
     expect(source).toContain("trackEvent('按需生成并播放通话语音')");
     expect(source).toContain('shouldKeepNativeCallAudio');
     expect(source).not.toContain('<audio');
-    expect(preferenceSheetSource).toContain('不改变聊天页的语音设置');
-    expect(preferenceSheetSource).toContain('语音和视频通话都只在你点“播放语音”时才生成');
+    expect(preferenceSheetSource).toContain('不改變聊天頁的語音設置');
+    expect(preferenceSheetSource).toContain('語音和視頻通話都只在你點“播放語音”時才生成');
   });
 
   it('announces the call update once and spotlights the lower-left preferences entry', () => {
@@ -94,10 +94,10 @@ describe('CallApp runtime references', () => {
     expect(preferenceSource).toContain("CALL_UPDATE_ANNOUNCEMENT_KEY = 'sully-call-update-preferences-2026-08-v2'");
     expect(announcementSource).toContain('data-testid="call-update-announcement"');
     expect(announcementSource).toContain('data-testid="call-settings-spotlight"');
-    expect(announcementSource).toContain('通话偏好现在有三项');
-    expect(announcementSource).toContain('可以设置谁先开口');
-    expect(announcementSource).toContain('两种通话都不会提前生成语音');
-    expect(announcementSource).toContain('沉默后主动接话改为按需开启');
+    expect(announcementSource).toContain('通話偏好現在有三項');
+    expect(announcementSource).toContain('可以設置誰先開口');
+    expect(announcementSource).toContain('兩種通話都不會提前生成語音');
+    expect(announcementSource).toContain('沉默後主動接話改為按需開啟');
   });
 
   it('offers game-like video layouts and a collapsible immersive subtitle', () => {
@@ -128,7 +128,7 @@ describe('CallApp runtime references', () => {
     expect(source).toContain('min-h-[5rem] flex-1 overflow-y-auto overscroll-contain');
     expect(source).not.toContain('min-h-[5rem] max-h-[15rem]');
     expect(source).toContain('data-testid="video-call-advanced-settings"');
-    expect(source).toContain('模型画质、导入与动作排练');
+    expect(source).toContain('模型畫質、導入與動作排練');
   });
 
   it('pins voice and video setup actions to the same viewport bottom edge', () => {
@@ -200,15 +200,15 @@ describe('CallApp runtime references', () => {
       expect(source).toContain(`id: '${size}'`);
     }
     expect(source).toContain("const [userCameraMode, setUserCameraMode] = useState<UserCameraMode>('off')");
-    expect(source).toContain('这张图只用于画面，不会发送给角色');
+    expect(source).toContain('這張圖只用於畫面，不會發送給角色');
     expect(source).toContain("userCameraStreamRef.current?.getTracks().forEach(track => track.stop())");
   });
 
-  it('backs retained call snapshots up as media while text-only exports keep [图片]', () => {
+  it('backs retained call snapshots up as media while text-only exports keep [圖片]', () => {
     const exportSource = readFileSync(path.resolve(__dirname, '../context/OSContext.tsx'), 'utf8');
 
-    // v3 起快照令牌不再逐 store 解析：onSerialized 从落包文本统一收集、二进制走 blobs/* 旁路。
-    // 这里锚收集管线本体——它一旦被移走，cameraSnapshotRef 的二进制就不再随备份。
+    // v3 起快照令牌不再逐 store 解析：onSerialized 從落包文本統一收集、二進制走 blobs/* 旁路。
+    // 這裡錨收集管線本體——它一旦被移走，cameraSnapshotRef 的二進制就不再隨備份。
     expect(exportSource).toContain('onSerialized: collectSerialized');
     expect(exportSource).toContain('collectBlobRefs(s, referencedBlobTokens)');
     expect(exportSource).toContain('await writeBlobsToZip(');
@@ -230,12 +230,12 @@ describe('CallApp runtime references', () => {
     expect(source).toContain("selectedVisualSource !== 'model'");
     expect(source).toContain('staticPortraitValue={staticVideoPortrait}');
     expect(guideSource).toContain('data-testid="call-setup-guide"');
-    expect(guideSource).toContain("['upload', '静态图片']");
-    expect(guideSource).toContain("['date', '见面立绘']");
-    expect(guideSource).toContain('校准构图、动作与真·衣橱');
-    expect(guideSource).toContain('下次打开仍从关闭开始');
-    expect(guideSource).toContain('本地情绪只注入');
-    expect(guideSource).toContain('静态机位永远不随消息发送');
+    expect(guideSource).toContain("['upload', '靜態圖片']");
+    expect(guideSource).toContain("['date', '見面立繪']");
+    expect(guideSource).toContain('校準構圖、動作與真·衣櫥');
+    expect(guideSource).toContain('下次打開仍從關閉開始');
+    expect(guideSource).toContain('本地情緒只注入');
+    expect(guideSource).toContain('靜態機位永遠不隨消息發送');
     expect(stageSource).toContain('testId="video-call-static-portrait-stage"');
     expect(stageSource).toContain('staticAvatarActive ? `static-${staticAvatarSource}`');
   });
@@ -264,7 +264,7 @@ describe('CallApp runtime references', () => {
 
     expect(source).toContain('setPendingVRoidImport({ file, characterId: character.id, projectFile: false })');
     expect(source).toContain('const confirmVRoidImport = async () =>');
-    expect(warningSource).toContain('并不是本次版本的开发重点');
-    expect(warningSource).toContain('可能存在各种 Bug');
+    expect(warningSource).toContain('並不是本次版本的開發重點');
+    expect(warningSource).toContain('可能存在各種 Bug');
   });
 });

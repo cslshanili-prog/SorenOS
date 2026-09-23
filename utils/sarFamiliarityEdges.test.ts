@@ -48,7 +48,7 @@ const reachEvent = async (storage: TestStore, rank: number, startAt = origin) =>
         const ready = readyFamiliarityEvent(read(storage).sarFamiliarity!, 'aiven');
         if (ready?.rank === rank) {
             expect(progress(storage).offerId).toBeNull();expect(progress(storage).pending).toBeUndefined();
-            await expect(startFamiliarity('aiven',ready.id,{storage,now:at,userName:'小雨'})).rejects.toThrow('还没有发生');
+            await expect(startFamiliarity('aiven',ready.id,{storage,now:at,userName:'小雨'})).rejects.toThrow('還沒有發生');
             await visit(storage, at); return at;
         }
         if (ready) { await visit(storage, at); await startOffer(storage, at); await finish(storage, at); }
@@ -112,10 +112,10 @@ describe('SAR personal line production paths and boundaries', () => {
         await finish(storage, at + day * 3);
         expect(progress(storage).stars).toBe(1);
         expect(progress(storage).completed['A1-SPECIAL']).toBeDefined();
-        const cat = SAR_MODULE_CATALOG.find(module => module.title === '猫科语法包')!;
+        const cat = SAR_MODULE_CATALOG.find(module => module.title === '貓科語法包')!;
         expect(read(storage).sarCommerce!.moduleShop.inventory[cat.id]).toBe(1);
         expect(read(storage).sarCharacterModules?.aiven?.[cat.id]).toBeUndefined();
-        await expect(startFamiliarity('aiven', 'A1-SPECIAL', { storage, now: at + day * 3, userName: '小雨' })).rejects.toThrow('还没有发生');
+        await expect(startFamiliarity('aiven', 'A1-SPECIAL', { storage, now: at + day * 3, userName: '小雨' })).rejects.toThrow('還沒有發生');
     });
     it('refusing a reply or submitting a wrong character never advances or awards', async () => {
         const storage = setup();
@@ -123,9 +123,9 @@ describe('SAR personal line production paths and boundaries', () => {
         await startOffer(storage, origin);
         const cursor = progress(storage).pending!;
         const before = storage.getItem(FISHING_MARKET_STORAGE_KEY);
-        await expect(advanceFamiliarity('aiven', cursor, { storage, now: origin })).rejects.toThrow('请选择');
+        await expect(advanceFamiliarity('aiven', cursor, { storage, now: origin })).rejects.toThrow('請選擇');
         expect(storage.getItem(FISHING_MARKET_STORAGE_KEY)).toBe(before);
-        await expect(startFamiliarity('caian', 'A1-01', { storage, userName: '小雨' })).rejects.toThrow('还没有发生');
+        await expect(startFamiliarity('caian', 'A1-01', { storage, userName: '小雨' })).rejects.toThrow('還沒有發生');
         const current = progress(storage).pending!;
         await Promise.all([step(storage, origin), advanceFamiliarity('aiven', current, { storage, now: origin, choice: 0 })]);
         expect(progress(storage).pending?.revision).toBe(cursor.revision + 1);
@@ -137,7 +137,7 @@ describe('SAR personal line production paths and boundaries', () => {
         expect(progress(storage).pending?.nodeId).toBe('title');
         expect(read(storage).sarFamiliarity!.discounts).toHaveLength(0);
         await step(storage,at);await step(storage,at);
-        expect(read(storage).sarFamiliarity!.titles).not.toContain('听懂风的人');
+        expect(read(storage).sarFamiliarity!.titles).not.toContain('聽懂風的人');
         expect(progress(storage).stars).toBe(1);
         await visit(storage,at+day);
         expect(progress(storage).pending?.nodeId).toBe(familiarityScene('A2-SPECIAL')!.start);
@@ -145,7 +145,7 @@ describe('SAR personal line production paths and boundaries', () => {
         await finish(storage,at+day);
         const state=read(storage).sarFamiliarity!;
         expect(state.npcs.aiven.stars).toBe(2);
-        expect(state.titles).toContain('听懂风的人');
+        expect(state.titles).toContain('聽懂風的人');
         expect(state.unlocks).toEqual(expect.arrayContaining(['titles','environment']));
         expect(state.discounts).toHaveLength(1);
         expect(state.discounts[0].expiresAt).toBe(at+day+30*60_000);

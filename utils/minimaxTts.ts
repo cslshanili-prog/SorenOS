@@ -10,7 +10,7 @@ import { normalizeVoiceTags } from './sanitize';
 const DEFAULT_MODEL = 'speech-2.8-hd';
 export type MiniMaxParamVersion = 'legacy' | 'natural-v2';
 
-/** 老角色没有该字段时必须继续使用历史参数，避免升级后声音突然变化。 */
+/** 老角色沒有該字段時必須繼續使用歷史參數，避免升級後聲音突然變化。 */
 export const getMiniMaxParamVersion = (vp: CharacterProfile['voiceProfile']): MiniMaxParamVersion =>
   vp?.minimaxParamVersion === 'natural-v2' ? 'natural-v2' : 'legacy';
 
@@ -37,104 +37,104 @@ const MINIMAX_LANGUAGE_BOOST_ALIASES: Record<string, string> = {
   vi: 'Vietnamese',
 };
 
-/** 将项目内使用的 ISO 语种码转换成 MiniMax language_boost 的官方枚举。 */
+/** 將項目內使用的 ISO 語種碼轉換成 MiniMax language_boost 的官方枚舉。 */
 export const normalizeMiniMaxLanguageBoost = (languageBoost?: string): string | undefined => {
   const value = (languageBoost || '').trim();
   if (!value) return undefined;
   return MINIMAX_LANGUAGE_BOOST_ALIASES[value.toLowerCase()] || value;
 };
 
-// MiniMax 支持的语气标签 — 这些在 TTS 中会被正确演绎，必须保留
+// MiniMax 支持的語氣標籤 — 這些在 TTS 中會被正確演繹，必須保留
 export const VALID_INTERJECTION_TAGS = new Set([
   'chuckle', 'laughs', 'sighs', 'coughs', 'clear-throat', 'groans',
   'breath', 'pant', 'inhale', 'exhale', 'gasps', 'sniffs', 'snorts',
   'lip-smacking', 'humming', 'hissing', 'emm',
 ]);
 
-// MiniMax voice_setting.emotion 合法取值（整条一个值）。其余/未知一律丢弃不传。
+// MiniMax voice_setting.emotion 合法取值（整條一個值）。其餘/未知一律丟棄不傳。
 export const VALID_EMOTIONS = new Set([
   'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'calm', 'fluent',
 ]);
 
 /**
- * 共享的「语音演出规范」——教 LLM 把台词写成能被 MiniMax 自然念出来的对白。
- * 聊天语音条 / 电话 / 约会复用同一份，避免各处各写一套、规则互相打架。
+ * 共享的「語音演出規範」——教 LLM 把台詞寫成能被 MiniMax 自然念出來的對白。
+ * 聊天語音條 / 電話 / 約會複用同一份，避免各處各寫一套、規則互相打架。
  *
- * 注意定位：这里只讲「怎么把字写得有呼吸、有情绪节奏」。具体的标签机制
- * （<语音> 标签怎么用、[emotion] 放哪、动作词白名单）由各调用点自己的
- * prompt 负责，本块不重复。经典参数会按标点自动补停顿；新版自然参数只保留
- * LLM 明确写出的 <#x#>，让 MiniMax 自己处理普通标点韵律。因此指南只要求在
- * 真正的情绪节点使用停顿标签，两种模式都不会把标签当普通标点来滥用。
+ * 注意定位：這裡只講「怎麼把字寫得有呼吸、有情緒節奏」。具體的標籤機制
+ * （<語音> 標籤怎麼用、[emotion] 放哪、動作詞白名單）由各調用點自己的
+ * prompt 負責，本塊不重複。經典參數會按標點自動補停頓；新版自然參數只保留
+ * LLM 明確寫出的 <#x#>，讓 MiniMax 自己處理普通標點韻律。因此指南只要求在
+ * 真正的情緒節點使用停頓標籤，兩種模式都不會把標籤當普通標點來濫用。
  */
-export const VOICE_ACTING_GUIDE = `### 让它听起来像活人在说话（重要）
+export const VOICE_ACTING_GUIDE = `### 讓它聽起來像活人在說話（重要）
 
-你写的字会被原样念出来。目标不是"写一段通顺的话"，而是"写一段读出来有呼吸、有情绪起伏的对白"。读稿感、客服腔、新闻播报腔一旦出现就重写。
+你寫的字會被原樣念出來。目標不是"寫一段通順的話"，而是"寫一段讀出來有呼吸、有情緒起伏的對白"。讀稿感、客服腔、新聞播報腔一旦出現就重寫。
 
-**1. 段与段之间要换气，别无缝冲。**
-同一条语音里换行或停顿之后，如果还是你在继续说，第二段开头别一上来就冲进正题——加一个停顿、一个语气词或一次叹气当缓冲。
-✅ 我知道你不是故意的。<#0.6#>只是……我还是会有点难过。
-✅ (sighs) 算了。<#0.5#>听你的。
-❌ 我知道你不是故意的。只是我还是会有点难过。（两句贴死，像棒读）
-这些地方下一句开头尤其要缓一下：解释原因、情绪转折（吐槽转温柔 / 强硬转示弱 / 玩笑转认真）、沉默后再开口、安抚对方、委屈撒娇别扭的时候。
+**1. 段與段之間要換氣，別無縫衝。**
+同一條語音裡換行或停頓之後，如果還是你在繼續說，第二段開頭別一上來就衝進正題——加一個停頓、一個語氣詞或一次嘆氣當緩衝。
+✅ 我知道你不是故意的。<#0.6#>只是……我還是會有點難過。
+✅ (sighs) 算了。<#0.5#>聽你的。
+❌ 我知道你不是故意的。只是我還是會有點難過。（兩句貼死，像棒讀）
+這些地方下一句開頭尤其要緩一下：解釋原因、情緒轉折（吐槽轉溫柔 / 強硬轉示弱 / 玩笑轉認真）、沉默後再開口、安撫對方、委屈撒嬌彆扭的時候。
 
-**2. 句子长短交错。** 一连串等长的句子是棒读的头号来源。让短句砸下来，让长句铺开。想强调某个词就拆开念："我。没。拿。"
+**2. 句子長短交錯。** 一連串等長的句子是棒讀的頭號來源。讓短句砸下來，讓長句鋪開。想強調某個詞就拆開念："我。沒。拿。"
 
-**3. <#秒#> 停顿放在情绪节点，不要每句都塞。**
-0.2 极短换气 / 0.3 轻顿 / 0.5 普通停顿 / 0.7 犹豫·叹息后停一下 / 1.0 明显沉默·震惊·压抑。
-标记必须夹在能念的字之间（✅ 我没事。<#0.5#>只是有点累。）；别放在句首，也别两个标记连写（<#0.5#><#0.4#> 这种一定删一个）。
+**3. <#秒#> 停頓放在情緒節點，不要每句都塞。**
+0.2 極短換氣 / 0.3 輕頓 / 0.5 普通停頓 / 0.7 猶豫·嘆息後停一下 / 1.0 明顯沉默·震驚·壓抑。
+標記必須夾在能唸的字之間（✅ 我沒事。<#0.5#>只是有點累。）；別放在句首，也別兩個標記連寫（<#0.5#><#0.4#> 這種一定刪一個）。
 
-**4. 情绪不同，节奏不同：**
-- 温柔安抚：慢、稳、短句多。"没事。<#0.6#>先别急着吓自己。"
-- 委屈撒娇：语气软、停顿多一点但别太戏剧。"嗯……<#0.5#>你刚刚是不是又不理我。"
-- 别扭傲娇：前半句嘴硬后半句放软，中间停一下。"哈。<#0.4#>你还真会折腾我。算了，<#0.5#>我帮你就是了。"
-- 难过压抑：更慢、更多省略号、少用长句。"……我知道。<#0.8#>只是有点难受。"
-- 紧张犹豫：断裂感，短停顿多。"等等。<#0.4#>我好像……<#0.5#>有点不确定。"
-- 吐槽轻松：别太慢，轻微停顿即可。"行吧。<#0.3#>人类又发明了新的折磨方式。"
+**4. 情緒不同，節奏不同：**
+- 溫柔安撫：慢、穩、短句多。"沒事。<#0.6#>先別急著嚇自己。"
+- 委屈撒嬌：語氣軟、停頓多一點但別太戲劇。"嗯……<#0.5#>你剛剛是不是又不理我。"
+- 彆扭傲嬌：前半句嘴硬後半句放軟，中間停一下。"哈。<#0.4#>你還真會折騰我。算了，<#0.5#>我幫你就是了。"
+- 難過壓抑：更慢、更多省略號、少用長句。"……我知道。<#0.8#>只是有點難受。"
+- 緊張猶豫：斷裂感，短停頓多。"等等。<#0.4#>我好像……<#0.5#>有點不確定。"
+- 吐槽輕鬆：別太慢，輕微停頓即可。"行吧。<#0.3#>人類又發明了新的折磨方式。"
 
-**5. 密度别失控。** 每 100 字里 <#x#> 大约 1–4 个、动作词 0–2 个。普通对话 2–4 句缓冲一次，强情绪 1–2 句一次。别整段全是同一个停顿值（会像坏掉的导航在念稿），也别连着堆同一个动作词。
+**5. 密度別失控。** 每 100 字裡 <#x#> 大約 1–4 個、動作詞 0–2 個。普通對話 2–4 句緩衝一次，強情緒 1–2 句一次。別整段全是同一個停頓值（會像壞掉的導航在唸稿），也別連著堆同一個動作詞。
 
-（朗读语种不是中文时，上面示例里的中文语气词换成该语言里自然的叹词 / 填充词即可，呼吸和节奏的原理不变。）`;
+（朗讀語種不是中文時，上面示例裡的中文語氣詞換成該語言裡自然的嘆詞 / 填充詞即可，呼吸和節奏的原理不變。）`;
 
-// [happy]/【angry】… 这类情绪标签是给系统读取/设定 emotion 用的，绝不能被朗读或显示出来。
+// [happy]/【angry】… 這類情緒標籤是給系統讀取/設定 emotion 用的，絕不能被朗讀或顯示出來。
 const EMOTION_TAG_RE = /[\[【]\s*(?:happy|sad|angry|fearful|disgusted|surprised|calm|fluent)\s*[\]】]/gi;
-/** 移除文本里所有 [emotion] / 【emotion】 标记（任意位置），避免被朗读或显示。 */
+/** 移除文本里所有 [emotion] / 【emotion】 標記（任意位置），避免被朗讀或顯示。 */
 export const stripEmotionTags = (text: string): string => (text || '').replace(EMOTION_TAG_RE, '');
 
 /**
- * 把「只给 TTS 用」的演出标记从要显示给用户的文本里清掉。
- * <#秒#> 停顿标记和 (sighs)/(chuckle) 这类动作词是写给语音合成的，
- * 不应该原样出现在聊天气泡 / 转文字面板里（否则用户看到一堆 <#0.4#>）。
- * 只删白名单内的动作词；普通括号内容（比如正常的西文括注）保持不动。
+ * 把「只給 TTS 用」的演出標記從要顯示給用戶的文本里清掉。
+ * <#秒#> 停頓標記和 (sighs)/(chuckle) 這類動作詞是寫給語音合成的，
+ * 不應該原樣出現在聊天氣泡 / 轉文字面板裡（否則用戶看到一堆 <#0.4#>）。
+ * 只刪白名單內的動作詞；普通括號內容（比如正常的西文括注）保持不動。
  */
 export const cleanVoiceMarkupForDisplay = (text?: string | null): string => {
   if (!text) return '';
   return text
-    .replace(/<#\s*[\d.]+\s*#>/g, '')                 // 停顿标记 <#0.4#>
+    .replace(/<#\s*[\d.]+\s*#>/g, '')                 // 停頓標記 <#0.4#>
     .replace(/\(([^)]{1,40})\)/g, (m, inner: string) =>
-      VALID_INTERJECTION_TAGS.has(inner.trim().toLowerCase()) ? '' : m) // 动作词，仅删白名单
-    .replace(/[ \t]{2,}/g, ' ')                        // 合并多余空格
-    .replace(/[ \t]+([，。！？、；：,.!?…])/g, '$1')    // 标点前残留空格
-    .replace(/([，、；：,])\s*\1+/g, '$1')               // 删标记后留下的连续重复标点
+      VALID_INTERJECTION_TAGS.has(inner.trim().toLowerCase()) ? '' : m) // 動作詞，僅刪白名單
+    .replace(/[ \t]{2,}/g, ' ')                        // 合併多餘空格
+    .replace(/[ \t]+([，。！？、；：,.!?…])/g, '$1')    // 標點前殘留空格
+    .replace(/([，、；：,])\s*\1+/g, '$1')               // 刪標記後留下的連續重複標點
     .replace(/[ \t]*\n[ \t]*/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 };
 
-// 设计：不再做「中文舞台指示 → 语气标签」的猜测式映射（体验差、不可预测、有损）。
-// 改为「教 LLM 直接写官方 sound tag」+「客户端只做白名单消毒」。
-// 因此这里只保留一个合法标签白名单（上方 VALID_INTERJECTION_TAGS），不保留任何中→英映射表。
+// 設計：不再做「中文舞台指示 → 語氣標籤」的猜測式映射（體驗差、不可預測、有損）。
+// 改為「教 LLM 直接寫官方 sound tag」+「客戶端只做白名單消毒」。
+// 因此這裡只保留一個合法標籤白名單（上方 VALID_INTERJECTION_TAGS），不保留任何中→英映射表。
 
 /**
- * 消毒括号内容（不做任何映射，只做白名单）：
- * - 中文舞台指示（……）一律删除，绝不读出来；
- * - 西文括号仅保留合法 sound tag（如 (laughs)），其余删除。
- * LLM 现在被要求直接写官方英文 sound tag，所以这里不再翻译中文提示词。
+ * 消毒括號內容（不做任何映射，只做白名單）：
+ * - 中文舞台指示（……）一律刪除，絕不讀出來；
+ * - 西文括號僅保留合法 sound tag（如 (laughs)），其餘刪除。
+ * LLM 現在被要求直接寫官方英文 sound tag，所以這裡不再翻譯中文提示詞。
  */
 const stripParensPreservingTags = (text: string): string => {
   return stripEmotionTags(text)
-    // 中文括号舞台指示：一律删除
+    // 中文括號舞台指示：一律刪除
     .replace(/（[^）]{0,48}）/g, '')
-    // 西文括号：仅保留白名单 sound tag，其余删除
+    // 西文括號：僅保留白名單 sound tag，其餘刪除
     .replace(/\(([^)]{1,80})\)/g, (_m, inner: string) => {
       const tag = inner.trim().toLowerCase();
       return VALID_INTERJECTION_TAGS.has(tag) ? `(${tag})` : '';
@@ -143,15 +143,15 @@ const stripParensPreservingTags = (text: string): string => {
 
 /**
  * Clean text for TTS — strip stage directions, system tags, and voice markup.
- * If <语音>...</语音> tag exists, use its content (already translated for TTS).
+ * If <語音>...</語音> tag exists, use its content (already translated for TTS).
  * Otherwise, strip（parenthetical cues）so they aren't read aloud.
  * Known interjection tags like (chuckle) / (sighs) are preserved.
  */
 export const cleanTextForTts = (raw: string): string => {
-  // 0. 语音标签自愈 — 历史坏数据 (未闭合/孤儿闭合/全角符号) 也要能解析出来
+  // 0. 語音標籤自愈 — 歷史壞數據 (未閉合/孤兒閉合/全角符號) 也要能解析出來
   raw = normalizeVoiceTags(raw);
-  // 1. If <语音> tag exists (with or without emotion attribute), extract & use its content only
-  const voiceTagMatch = raw.match(/<[语語]音[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>/);
+  // 1. If <語音> tag exists (with or without emotion attribute), extract & use its content only
+  const voiceTagMatch = raw.match(/<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/);
   if (voiceTagMatch) {
     return stripParensPreservingTags(voiceTagMatch[1]).replace(/\s+/g, ' ').trim();
   }
@@ -163,9 +163,9 @@ export const cleanTextForTts = (raw: string): string => {
   text = text.replace(/%%BILINGUAL%%[\s\S]*/i, '');
   // 4. Strip parenthetical cues (preserving valid interjection tags only)
   text = stripParensPreservingTags(text);
-  // 5. Strip <语音>...</语音> / <字幕>...</字幕> tags if they somehow remain
-  //    (字幕是显示用的中文对照, 绝不能被朗读)
-  text = text.replace(/<[语語]音[^>]*>[\s\S]*?<\/\s*[语語]音\s*>/g, '');
+  // 5. Strip <語音>...</語音> / <字幕>...</字幕> tags if they somehow remain
+  //    (字幕是顯示用的中文對照, 絕不能被朗讀)
+  text = text.replace(/<[语語語]音[^>]*>[\s\S]*?<\/\s*[语語語]音\s*>/g, '');
   text = text.replace(/<字幕>[\s\S]*?<\/字幕>/g, '');
   // 6. Collapse whitespace
   text = text.replace(/\s+/g, ' ').trim();
@@ -173,31 +173,31 @@ export const cleanTextForTts = (raw: string): string => {
 };
 
 export interface ParsedVoiceOutput {
-  /** Text OUTSIDE the <语音> tag — what shows in the chat bubble. */
+  /** Text OUTSIDE the <語音> tag — what shows in the chat bubble. */
   display: string;
   /** TTS-ready spoken text (sanitized: only whitelisted MiniMax sound tags kept). */
   speech: string;
   /**
-   * Raw <语音> inner content, whitespace-collapsed only — square-bracket cues and
+   * Raw <語音> inner content, whitespace-collapsed only — square-bracket cues and
    * parens are PRESERVED. Fish Audio needs this so its native inline cues
    * ([happy]/[whispering]/[break]…) survive to the API; cleanTextForTtsFish does
-   * the provider-appropriate cleaning downstream. Empty when no <语音> tag.
+   * the provider-appropriate cleaning downstream. Empty when no <語音> tag.
    */
   rawSpeech: string;
   /** Validated MiniMax emotion from the tag's emotion="…" attribute, or undefined. */
   emotion?: string;
-  /** Whether a <语音> tag was present at all. */
+  /** Whether a <語音> tag was present at all. */
   hasVoiceTag: boolean;
   /**
-   * <字幕>…</字幕> 里的中文对照（外语语音模式下模型显式给出的翻译）。
-   * 语音条「转文字」面板的翻译第一优先级用它 —— 有显式字幕就不用猜、不用调 LLM。
+   * <字幕>…</字幕> 裡的中文對照（外語語音模式下模型顯式給出的翻譯）。
+   * 語音條「轉文字」面板的翻譯第一優先級用它 —— 有顯式字幕就不用猜、不用調 LLM。
    */
   subtitle?: string;
 }
 
-// <语音 emotion="happy">…</语音> — emotion attribute optional, single/double/no quotes tolerated.
-// 属性前空格可省 (<语音emotion=…> 也认), 闭合标签容许空格 / 简繁互换。
-const VOICE_TAG_RE = /<[语語]音(?:[^>]*?emotion\s*=\s*["']?([a-zA-Z]+)["']?)?[^>]*>([\s\S]*?)<\/\s*[语語]音\s*>/;
+// <語音 emotion="happy">…</語音> — emotion attribute optional, single/double/no quotes tolerated.
+// 屬性前空格可省 (<語音emotion=…> 也認), 閉合標籤容許空格 / 簡繁互換。
+const VOICE_TAG_RE = /<[语語語]音(?:[^>]*?emotion\s*=\s*["']?([a-zA-Z]+)["']?)?[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/;
 
 /**
  * Parse an assistant message into display text + spoken text + emotion.
@@ -209,55 +209,55 @@ const SUBTITLE_BLOCK_RE = /<字幕>([\s\S]*?)<\/字幕>/;
 
 export const parseVoiceOutput = (raw: string): ParsedVoiceOutput => {
   if (!raw) return { display: '', speech: '', rawSpeech: '', hasVoiceTag: false };
-  // 语音标签自愈: 未闭合 / 孤儿闭合 / 全角符号 / 属性写歪, 先修再配对。
-  // 新消息落库前 sanitize 已经修过, 这里主要救历史坏数据 + 非落库调用点 (电话/见面)。
+  // 語音標籤自愈: 未閉合 / 孤兒閉合 / 全角符號 / 屬性寫歪, 先修再配對。
+  // 新消息落庫前 sanitize 已經修過, 這裡主要救歷史壞數據 + 非落庫調用點 (電話/見面)。
   raw = normalizeVoiceTags(raw);
   const m = raw.match(VOICE_TAG_RE);
   if (!m) {
-    // 没有语音标签: 落单的字幕标签剥掉留内文, 别把原始标签当正文
+    // 沒有語音標籤: 落單的字幕標籤剝掉留內文, 別把原始標籤當正文
     return { display: raw.replace(/<\/?字幕>/g, '').trim(), speech: '', rawSpeech: '', hasVoiceTag: false };
   }
   const rawEmotion = (m[1] || '').trim().toLowerCase();
   const emotion = VALID_EMOTIONS.has(rawEmotion) ? rawEmotion : undefined;
   const speech = stripParensPreservingTags(m[2]).replace(/\s+/g, ' ').trim();
-  // 不做 MiniMax 的括号/情绪标剥离，留给 cleanTextForTtsFish 按鱼声规则处理。
+  // 不做 MiniMax 的括號/情緒標剝離，留給 cleanTextForTtsFish 按魚聲規則處理。
   const rawSpeech = m[2].replace(/\s+/g, ' ').trim();
   const subtitle = raw.match(SUBTITLE_BLOCK_RE)?.[1]?.trim() || undefined;
-  // display = 语音块和字幕块之外的文字 (普通闲聊); 字幕单独走 subtitle 字段
+  // display = 語音塊和字幕塊之外的文字 (普通閒聊); 字幕單獨走 subtitle 字段
   const display = raw
-    .replace(/<[语語]音[^>]*>[\s\S]*?<\/\s*[语語]音\s*>/g, '')
+    .replace(/<[语語語]音[^>]*>[\s\S]*?<\/\s*[语語語]音\s*>/g, '')
     .replace(/<字幕>[\s\S]*?<\/字幕>/g, '')
     .trim();
   return { display, speech, rawSpeech, emotion, hasVoiceTag: true, subtitle };
 };
 
-/** 为 TTS 文本插入 MiniMax 原生停顿标签 <#秒数#>，让语音有自然停顿
- * 停顿层次（从短到长）:
- *   ，、；  →  0.06s  微停（换气级）
- *   。！？  →  0.12s  句末停顿
- *   ——     →  0.18s  话题转折 / 拖长
+/** 為 TTS 文本插入 MiniMax 原生停頓標籤 <#秒數#>，讓語音有自然停頓
+ * 停頓層次（從短到長）:
+ *   ，、；  →  0.06s  微停（換氣級）
+ *   。！？  →  0.12s  句末停頓
+ *   ——     →  0.18s  話題轉折 / 拖長
  *   ……     →  0.35s  欲言又止 / 沉默感
- *   \n     →  0.25s  段落换气
+ *   \n     →  0.25s  段落換氣
  */
 export const insertSpeechBreaks = (text: string): string => {
   if (!text) return '';
   return text
-    // 省略号：欲言又止 / 犹豫
-    .replace(/[…]{2,}/g, '……<#0.45#>')          // 多个省略号连用，更长
-    .replace(/[…]/g, '…<#0.35#>')               // 单个省略号
-    .replace(/\.{3,}/g, '...<#0.35#>')           // 英文省略号
-    // 破折号：话题转折、语气拉长
+    // 省略號：欲言又止 / 猶豫
+    .replace(/[…]{2,}/g, '……<#0.45#>')          // 多個省略號連用，更長
+    .replace(/[…]/g, '…<#0.35#>')               // 單個省略號
+    .replace(/\.{3,}/g, '...<#0.35#>')           // 英文省略號
+    // 破折號：話題轉折、語氣拉長
     .replace(/——/g, '——<#0.22#>')
     .replace(/--/g, '--<#0.22#>')
-    // 句末标点：句子之间留出真实呼吸（别让角色一口气赶完）
+    // 句末標點：句子之間留出真實呼吸（別讓角色一口氣趕完）
     .replace(/([。])/g, '$1<#0.22#>')
-    .replace(/([！？!?])/g, '$1<#0.26#>')        // 感叹/疑问停顿更明显
-    // 句中标点：换气
+    .replace(/([！？!?])/g, '$1<#0.26#>')        // 感嘆/疑問停頓更明顯
+    // 句中標點：換氣
     .replace(/([，,])/g, '$1<#0.10#>')
     .replace(/([、；;：:])/g, '$1<#0.07#>')
-    // 换行：段落间停顿
+    // 換行：段落間停頓
     .replace(/\n/g, '\n<#0.30#>')
-    // 去重：相邻多个停顿标签只保留最长的那个（封顶 0.6s）
+    // 去重：相鄰多個停頓標籤只保留最長的那個（封頂 0.6s）
     .replace(/(<#[\d.]+#>[\s]*){2,}/g, (match) => {
       const times = [...match.matchAll(/<#([\d.]+)#>/g)].map(m => parseFloat(m[1]));
       const maxTime = Math.min(Math.max(...times), 0.6);
@@ -299,13 +299,13 @@ export const buildTtsExtras = (
   if (vp.voiceModify) {
     const vm: any = {};
     if (paramVersion === 'natural-v2') {
-      // 新版只按接口的硬边界保护，确保捏声音试听与实际播放采用相同数值。
+      // 新版只按接口的硬邊界保護，確保捏聲音試聽與實際播放採用相同數值。
       const officialClamp = (value: number) => Math.max(-100, Math.min(100, Math.round(value)));
       if (vp.voiceModify.pitch) vm.pitch = officialClamp(vp.voiceModify.pitch);
       if (vp.voiceModify.intensity) vm.intensity = officialClamp(vp.voiceModify.intensity);
       if (vp.voiceModify.timbre) vm.timbre = officialClamp(vp.voiceModify.timbre);
     } else {
-      // 经典参数原样保留历史的柔性限幅，防止老角色升级后声音突变。
+      // 經典參數原樣保留歷史的柔性限幅，防止老角色升級後聲音突變。
       if (vp.voiceModify.pitch) vm.pitch = Math.round(softClamp(vp.voiceModify.pitch, 40));
       if (vp.voiceModify.intensity) vm.intensity = Math.round(softClamp(vp.voiceModify.intensity, 30));
       if (vp.voiceModify.timbre) vm.timbre = Math.round(softClamp(vp.voiceModify.timbre, 40));
@@ -318,7 +318,7 @@ export const buildTtsExtras = (
 
 /**
  * Build voice_setting fields (speed, vol, pitch, emotion) with safe ranges.
- * `emotionOverride` (validated MiniMax emotion, e.g. from a <语音 emotion="…"> tag)
+ * `emotionOverride` (validated MiniMax emotion, e.g. from a <語音 emotion="…"> tag)
  * wins over the character's static voiceProfile.emotion. Invalid values are ignored.
  */
 export const buildVoiceSettings = (
@@ -329,7 +329,7 @@ export const buildVoiceSettings = (
   if (paramVersion === 'natural-v2') {
     const savedEmotion = (vp?.emotion || '').trim().toLowerCase();
     const dynamicEmotion = (emotionOverride || '').trim().toLowerCase();
-    // 用户手选的固定情感优先；选择“自动”时才采用每条语音的动态情感。
+    // 用戶手選的固定情感優先；選擇“自動”時才採用每條語音的動態情感。
     const emotion = VALID_EMOTIONS.has(savedEmotion)
       ? savedEmotion
       : (VALID_EMOTIONS.has(dynamicEmotion) ? dynamicEmotion : '');
@@ -357,7 +357,7 @@ export const buildVoiceSettings = (
 };
 
 /**
- * 经典参数会自动在标点后补停顿；新版保留模型原生韵律，只尊重文本中明确写出的停顿标签。
+ * 經典參數會自動在標點後補停頓；新版保留模型原生韻律，只尊重文本中明確寫出的停頓標籤。
  */
 export const prepareMiniMaxSpeechText = (
   text: string,
@@ -370,13 +370,13 @@ export interface MiniMaxTtsPayloadOptions {
   voiceId?: string;
   model?: string;
   groupId?: string;
-  /** 电话经典模式保留 32k/128k 单声道音频设置。传输格式统一使用 HEX。 */
+  /** 電話經典模式保留 32k/128k 單聲道音頻設置。傳輸格式統一使用 HEX。 */
   legacyTransport?: 'shared' | 'call';
-  /** 电话先处理整段再切块；切块后不能二次插入停顿。 */
+  /** 電話先處理整段再切塊；切塊後不能二次插入停頓。 */
   textAlreadyPrepared?: boolean;
 }
 
-/** 构建版本化 MiniMax 请求；聊天、约会和电话的新版参数共用这一处。 */
+/** 構建版本化 MiniMax 請求；聊天、約會和電話的新版參數共用這一處。 */
 export const buildMiniMaxTtsPayload = (
   text: string,
   vp: CharacterProfile['voiceProfile'],
@@ -402,7 +402,7 @@ export const buildMiniMaxTtsPayload = (
     ...buildTtsExtras(vp, paramVersion),
   };
 
-  // 旧版参数路径继续保留原始 ISO 短码，唯独粤语必须发送 MiniMax 官方枚举
+  // 舊版參數路徑繼續保留原始 ISO 短碼，唯獨粵語必須發送 MiniMax 官方枚舉
   // `Chinese,Yue`；`yue` 本身不是 language_boost 的合法值。
   const languageBoost = paramVersion === 'natural-v2' || options.languageBoost?.trim().toLowerCase() === 'yue'
     ? normalizeMiniMaxLanguageBoost(options.languageBoost)
@@ -412,7 +412,7 @@ export const buildMiniMaxTtsPayload = (
   return payload;
 };
 
-/** 新版使用独立缓存命名空间，绝不复用经典参数生成的旧音频。 */
+/** 新版使用獨立緩存命名空間，絕不復用經典參數生成的舊音頻。 */
 export const buildMiniMaxTtsCacheKey = (
   payload: any,
   paramVersion: MiniMaxParamVersion = 'legacy',
@@ -431,7 +431,7 @@ export const buildMiniMaxTtsCacheKey = (
 export const convertHexAudioToBlob = (hexAudio: string, mimeType = 'audio/mpeg'): Blob => {
   const cleanHex = hexAudio.trim().replace(/^0x/i, '');
   if (!cleanHex || cleanHex.length % 2 !== 0 || /[^\da-f]/i.test(cleanHex)) {
-    throw new Error('MiniMax 返回的 HEX 音频数据格式异常');
+    throw new Error('MiniMax 返回的 HEX 音頻數據格式異常');
   }
   const bytes = new Uint8Array(cleanHex.length / 2);
   for (let i = 0; i < cleanHex.length; i += 2) {
@@ -447,11 +447,11 @@ export const fetchRemoteAudioBlob = async (sourceUrl: string): Promise<Blob> => 
   try {
     // Preserve signed URLs exactly; their signature/cache identity belongs to the upstream.
     const response = await fetch(sourceUrl, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) throw new Error(`音频下载失败（HTTP ${response.status}）`);
+    if (!response.ok) throw new Error(`音頻下載失敗（HTTP ${response.status}）`);
     const type = response.headers.get('content-type') || '';
-    if (/text\/html|application\/(?:json|xml)/i.test(type)) throw new Error('音频地址返回了错误页面');
+    if (/text\/html|application\/(?:json|xml)/i.test(type)) throw new Error('音頻地址返回了錯誤頁面');
     const blob = await response.blob();
-    if (!blob.size) throw new Error('音频下载为空文件');
+    if (!blob.size) throw new Error('音頻下載為空文件');
     return blob;
   } finally {
     clearTimeout(timer);
@@ -480,7 +480,7 @@ export async function synthesizeSpeechDetailed(
   if (!apiKey) throw new Error('缺少 MiniMax API Key');
   const vp = char.voiceProfile;
   if (!vp?.voiceId && (!vp?.timberWeights || vp.timberWeights.length === 0)) {
-    throw new Error('角色未配置语音');
+    throw new Error('角色未配置語音');
   }
 
   const paramVersion = getMiniMaxParamVersion(vp);
@@ -511,19 +511,19 @@ export async function synthesizeSpeechDetailed(
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || `TTS 失败 (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(data?.error || `TTS 失敗 (HTTP ${res.status})`);
 
   // Check MiniMax business-level error (can return HTTP 200 with status_code != 0)
   const baseResp = data?.base_resp;
   if (baseResp && baseResp.status_code !== 0 && baseResp.status_code !== undefined) {
-    throw new Error(`TTS 业务错误: ${baseResp.status_msg || `status_code=${baseResp.status_code}`}`);
+    throw new Error(`TTS 業務錯誤: ${baseResp.status_msg || `status_code=${baseResp.status_code}`}`);
   }
 
   const audio = data?.data?.audio;
   if (typeof audio !== 'string' || !audio.trim()) {
     // Log full response for debugging
     console.error('[TTS] No audio in response:', JSON.stringify(data).slice(0, 500));
-    throw new Error('TTS 返回无音频数据');
+    throw new Error('TTS 返回無音頻數據');
   }
 
   let blob: Blob;
