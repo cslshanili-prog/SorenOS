@@ -11,6 +11,7 @@
  * 抽到這裡後單點維護。
  */
 
+import { formatDateInviteRecord } from './dateInvite';
 import type { Message, Emoji } from '../types';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -139,6 +140,8 @@ export function normalizeMessageContent(
             status: meta.status,
         });
     }
+
+    if (type === 'date_invite') return formatDateInviteRecord(msg.metadata?.dateInvite);
 
     if (type === 'mall_order') {
         // 跟轉帳一樣是全鏈路一副面孔：私聊歷史 (chatPrompts.buildMessageHistory) 與

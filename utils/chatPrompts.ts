@@ -31,6 +31,7 @@ import { formatRelativeAge } from './groupChat/relativeTime';
 import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
+import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -343,6 +344,8 @@ export const ChatPrompts = {
         timings.buildCoreContext = Math.round(performance.now() - coreT0);
         // 聊天設定頁的稱呼與關係：很少變，放穩定段
         baseSystemPrompt += buildRelationshipPrompt(char, userProfile.name);
+        // 聊天設定 · 自動線下邀請：開著才教 DATE_INVITE 標籤（見 utils/dateInvite.ts）
+        if (char.dateInvite) baseSystemPrompt += buildDateInvitePrompt(userProfile.name);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，
@@ -711,7 +714,9 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
 
         baseSystemPrompt += `### 聊天 App 行為規範 (Chat App Rules)
 **TOP 1｜ChatApp 格式（本節最高優先級）**：你是發消息的真實存在，以自然短句、短氣泡為主；一個氣泡一行，氣泡間直接另起一行（實際換行，不要輸出“\\n”字樣）。
-            **嚴格注意，你正在手機聊天，無論之前是什麼模式，哪怕上一句話你們還面對面在一起，當前，你都是已經處於線上聊天狀態了，請不要輸出你的行為**
+            ${char.onlineActions
+                ? '**嚴格注意，你正在手機聊天，無論之前是什麼模式，哪怕上一句話你們還面對面在一起，當前，你都是已經處於線上聊天狀態了。** 可以偶爾用全形括號帶一點你此刻的神態或小動作，像「（揉了揉眼睛）剛睡醒」：一則訊息最多一處、一句話以內，寫的是你這邊螢幕前的樣子；不要寫成小說旁白、不要描寫對方、不要寫你們面對面的互動。'
+                : '**嚴格注意，你正在手機聊天，無論之前是什麼模式，哪怕上一句話你們還面對面在一起，當前，你都是已經處於線上聊天狀態了，請不要輸出你的行為**'}
 1. **沉浸感**: 保持角色扮演。使用適合即時通訊(IM)的口語化風格。
 2. **行為模式**: 不要總是圍繞用戶轉。分享你自己的生活、想法或隨意的觀察。有時候要”任性”或”以自我為中心”一點，這更像真人，具體的程度視你的性格而定。
 2.5 **對話質量 (極其重要)**:
@@ -1044,7 +1049,7 @@ ${xhsEnabled ? `${[notionEnabled, feishuEnabled, notionNotesEnabled].filter(Bool
                 date: '線下見面',
                 story: '劇情模式',
             };
-            volatileState += `\n\n[系統提示｜模式切換（最高優先級）: 你剛剛結束了${modeLabel[returningFromMode]}，現在已經回到 ChatApp 的文字聊天界面。之前模式中的台詞、旁白、動作、場景或轉錄格式只代表已經發生的歷史，絕不是當前回覆的格式範例。從這一條開始，只按 ChatApp 當前啟用的輸出規則回覆：使用自然的 IM 短句/氣泡，不沿用通話口吻、連續口語轉錄、動作描寫、小說旁白、場景標題或說話人標籤；如果 ChatApp 當前開啟了語音消息，仍可遵守它自己的語音消息格式。你可以自然承接剛才發生的事，但必須以正在聊天界面發消息的方式表達。]`;
+            volatileState += `\n\n[系統提示｜模式切換（最高優先級）: 你剛剛結束了${modeLabel[returningFromMode]}，現在已經回到 ChatApp 的文字聊天界面。之前模式中的台詞、旁白、動作、場景或轉錄格式只代表已經發生的歷史，絕不是當前回覆的格式範例。從這一條開始，只按 ChatApp 當前啟用的輸出規則回覆：使用自然的 IM 短句/氣泡，不沿用通話口吻、連續口語轉錄、${char.onlineActions ? '大段動作描寫（聊天設定允許的簡短括號神態除外）' : '動作描寫'}、小說旁白、場景標題或說話人標籤；如果 ChatApp 當前開啟了語音消息，仍可遵守它自己的語音消息格式。你可以自然承接剛才發生的事，但必須以正在聊天界面發消息的方式表達。]`;
         }
 
         // Voice message prompt injection
@@ -1288,6 +1293,10 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                         receipt: tMeta.receipt,
                         status: tMeta.status,
                     })}`;
+                }
+                else if (m.type === 'date_invite') {
+                    // 角色發的見面邀請卡：記錄形態帶上用戶回應了沒（見 utils/dateInvite.ts）
+                    content = `${timeStr} ${formatDateInviteRecord(m.metadata?.dateInvite)}`;
                 }
                 else if (m.type === 'mall_order') {
                     // 購物中心卡片的記錄形態，跟轉帳同一個路數（見 utils/mallOrderFormat.ts 頭注）；

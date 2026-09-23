@@ -902,6 +902,60 @@ const LifeRecordCard: React.FC<{
     );
 };
 
+/** 角色發的見面邀請（聊天設定 · 自動線下邀請，見 utils/dateInvite.ts）。 */
+const DateInviteCard: React.FC<{
+    m: Message;
+    charName: string;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
+}> = ({ m, charName, commonLayout, selectionMode, onResolveDateInvite }) => {
+    const invite = m.metadata?.dateInvite || {};
+    const status: 'pending' | 'accepted' | 'declined' = invite.status === 'accepted' || invite.status === 'declined' ? invite.status : 'pending';
+    const canResolve = status === 'pending' && !!onResolveDateInvite && !selectionMode;
+    return commonLayout(
+        <div className="sully-date-invite w-64 rounded-2xl overflow-hidden border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-amber-50 shadow-sm">
+            <div className="px-3.5 pt-3 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg shadow-sm ring-2 ring-rose-100">💌</div>
+                    <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-700">{charName} 約你見面</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">見面邀約</div>
+                    </div>
+                </div>
+                {(invite.place || invite.plan) && (
+                    <div className="mt-2.5 space-y-1 rounded-xl bg-white/80 px-2.5 py-2 text-[11px] text-slate-600">
+                        {invite.place && <div><span className="text-slate-400">地點</span>　{invite.place}</div>}
+                        {invite.plan && <div><span className="text-slate-400">想做</span>　{invite.plan}</div>}
+                    </div>
+                )}
+                {status === 'accepted' ? (
+                    <div className="mt-2 px-1 text-[10px] font-semibold text-rose-500">已赴約</div>
+                ) : status === 'declined' ? (
+                    <div className="mt-2 px-1 text-[10px] font-semibold text-slate-400">已婉拒</div>
+                ) : canResolve ? (
+                    <div className="mt-2.5 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onResolveDateInvite?.(m, 'accepted'); }}
+                            className="flex-1 py-1.5 rounded-xl bg-rose-500 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
+                        >
+                            赴約
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onResolveDateInvite?.(m, 'declined'); }}
+                            className="flex-1 py-1.5 rounded-xl bg-white/80 text-slate-500 text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
+                        >
+                            婉拒
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+};
+
 const TransferCard: React.FC<{
     m: Message;
     isUser: boolean;
@@ -1426,6 +1480,7 @@ interface MessageItemProps {
     onResolveTransfer?: (m: Message, action: 'accepted' | 'returned') => void;
     /** 用戶點「生活記錄」卡 → 確認 / 否決（角色代記的記錄） */
     onResolveLifeRecord?: (m: Message, action: 'confirmed' | 'rejected') => void;
+    onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
     onOpenCollaborationFile?: (m: Message) => void | Promise<void>;
     /** 思考鏈卡片視覺與交互 */
@@ -1476,6 +1531,7 @@ const MessageItem = React.memo(({
     onLuckinCandidate,
     onResolveTransfer,
     onResolveLifeRecord,
+    onResolveDateInvite,
     onOpenCollaborationFile,
     thinkingChainOptions,
 }: MessageItemProps) => {
@@ -3313,6 +3369,10 @@ const MessageItem = React.memo(({
         return <TransferCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveTransfer={onResolveTransfer} />;
     }
 
+    if (m.type === 'date_invite') {
+        return <DateInviteCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveDateInvite={onResolveDateInvite} />;
+    }
+
     if (m.type === 'mall_order') {
         return <MallOrderCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} />;
     }
@@ -3917,6 +3977,7 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.reviewStatus === next.msg.metadata?.reviewStatus &&
            prev.msg.metadata?.status === next.msg.metadata?.status &&
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&
+           prev.msg.metadata?.dateInvite?.status === next.msg.metadata?.dateInvite?.status &&
            prev.msg.metadata?.sarModuleSurface?.surface === next.msg.metadata?.sarModuleSurface?.surface &&
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&

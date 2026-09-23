@@ -45,6 +45,7 @@ import { collectAppearance, collectCharSettings, collectDataScale, collectFeatur
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { extractNoReplyDirective } from '../utils/readNoReply';
+import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
 import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
 import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
 import { resolveOverdueCloudDelayedReplies, takeDueDelayedRepliesForLocal } from '../utils/delayedReplyCloud';
@@ -2482,6 +2483,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   await DB.saveMessage({ charId, role: 'system', type: 'text', content: `[系統: ${char.name} 把你們的關係改成了「${relChange.relationship}」]` });
                   updateCharacter(charId, { charViewRelationship: relChange.relationship });
               }
+              // 聊天設定 · 自動線下邀請：標籤一律剝掉，開著才在這一輪的話後面補一張邀請卡
+              const inviteTag = extractDateInvite(aiContent);
+              aiContent = inviteTag.cleanedText;
+              const dateInvite: DateInviteMeta | null = inviteTag.invite && char.dateInvite
+                  ? { ...inviteTag.invite, status: 'pending' }
+                  : null;
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
@@ -2672,6 +2679,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           }
                       }
                   }
+              }
+
+              if (dateInvite) {
+                  const inviteText = describeDateInvite(dateInvite);
+                  await DB.saveMessage({
+                      charId, role: 'assistant', type: 'date_invite', content: inviteText,
+                      timestamp: baseTimestamp + offset, metadata: { dateInvite },
+                  });
+                  savedPreviewChunks.push(inviteText);
+                  offset += 1;
               }
 
               if (offset > 0) {
