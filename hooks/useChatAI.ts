@@ -17,6 +17,7 @@ import { incrementDigestRound, runCognitiveDigestion, detectPersonalityStyle } f
 // import { evolveFlowNarrative } from '../utils/scheduleGenerator';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
+import { applyForcedReadNoReply } from '../utils/readNoReplyRuntime';
 import { checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麥當勞: useChatAI 現在只讀 McdMiniApp 當前快照注入 system prompt + 給 LLM 一個
@@ -615,6 +616,19 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean },
     ) => {
         if (isTyping || !char) return;
+        // 聊天設定 ·「已讀不回」：命中不回訊時段、或日程忙碌／睡覺（且沒交給角色決定）時，
+        // 這一輪不發主回覆請求，只落自動回覆＋旁白（見 utils/readNoReplyRuntime.ts）。
+        // 放在 API 檢查之前：強制不回本來就用不到主回覆的 API。
+        if (char.readNoReply?.enabled) {
+            const outcome = await applyForcedReadNoReply(char, resolveCharacterMeterApi(char, apiConfig), currentMsgs)
+                .catch((e) => { console.warn('[已讀不回] 判斷失敗，照常回覆', e); return null; });
+            if (outcome) {
+                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                if (outcome === 'repeat') addToast(`${char.chatNickname?.trim() || char.name} 還沒空，訊息已讀`, 'info');
+                return;
+            }
+        }
+
         // 顯式傳入的 override > 角色專屬 API（聊天設置裡的「對話模型」）> 全局 apiConfig。
         const effectiveApi = overrideApiConfig || resolveCharacterChatApi(char, apiConfig);
         if (!effectiveApi.baseUrl) { alert("請先在設置中配置 API URL"); return; }

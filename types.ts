@@ -741,6 +741,30 @@ export interface ScheduleSlot {
     theater?: SlotTheater; // 該時段的小劇場（窺視演出），按需生成並緩存
 }
 
+/** 用戶自己設的不回訊時段：這些時段角色強制已讀不回。end 早於 start 表示跨夜。 */
+export interface QuietHoursSlot {
+    id: string;
+    /** 星期幾生效（0 = 週日 … 6 = 週六），跨夜時段以開始那天為準。 */
+    days: number[];
+    start: string; // "09:00"
+    end: string;   // "12:00"
+    title?: string;
+}
+
+/** 聊天設定 · Scenario ·「已讀不回」。 */
+export interface ReadNoReplySettings {
+    enabled: boolean;
+    /** 由角色決定：日程忙碌／睡覺時不強制，讓角色依劇情決定回不回；用戶自己設的不回訊時段仍強制。 */
+    charDecides?: boolean;
+    /** 忙碌／休眠／普通三種狀態的自動回覆文字；留空退回普通，普通也空就用內建預設。 */
+    busyText?: string;
+    sleepText?: string;
+    normalText?: string;
+    quietSlots?: QuietHoursSlot[];
+    /** 讓角色依劇情、地點、情境自己寫自動回覆，不用上面的固定文字。 */
+    aiGenerated?: boolean;
+}
+
 export interface DailySchedule {
     id: string;           // `${charId}_${date}`
     charId: string;
@@ -3216,6 +3240,8 @@ export interface CharacterProfile {
   allowCharChangeRelationship?: boolean;
   /** 「我們已相識 N 天」的起點（YYYY-MM-DD）。沒設時介面用第一條聊天記錄的日期，提示詞不注入。 */
   acquaintanceStartDate?: string;
+  /** 聊天設定 · Scenario ·「已讀不回」（邏輯見 utils/readNoReply.ts）。 */
+  readNoReply?: ReadNoReplySettings;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];

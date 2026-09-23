@@ -17,7 +17,7 @@
 | 1 | 時光契約「讓 TA 記住這一天」注入聊天 | 已完成（#21） |
 | 2 | 全部轉繁體（單獨一個 PR） | 已完成（#22） |
 | 3 | 個人檔案改版 + 朋友圈互動設定頁 | 已完成（#23） |
-| 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24） |
+| 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24；第二批：已讀不回） |
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 未開始 |
 | 6 | 單一貼文池（先出設計文件） | 未開始 |
 | 7 | 生圖補生成（路線一） | 未開始，跟其他項沒有依賴，可以插隊 |
@@ -80,7 +80,16 @@
 - 角色欄位：`chatNickname`（聊天頁頂部與 Chat 消息列表顯示）、`userNickname`、`userViewRelationship`、`charViewRelationship`、`allowCharChangeRelationship`、`acquaintanceStartDate`。
 - 提示詞：稱呼與關係進穩定段；相識天數進易變段（主動消息打包只給起點日期）。邏輯在 `utils/chatRelationship.ts`（有單測）。
 - 角色自主改關係：`[[ACTION:RELATIONSHIP|新關係]]`，在 `applyAssistantPostProcessing` 第一步剝掉（跟日程修改同一處），開了允許才寫系統提示並發 `CHAR_RELATIONSHIP_CHANGE_EVENT`，由 OSContext 寫回角色。雲端生成的回覆一樣會回到客戶端這條管線，推播文字的 sanitize 本來就會剝 `[[ACTION:…]]`。
-- Scenario 開關還沒做，下一批。
+- Scenario 開關分批做，第二批是「已讀不回」。
+
+落地實況（第二批：已讀不回）：
+
+- 設定存在角色的 `readNoReply`（`ReadNoReplySettings`）：總開關、由角色決定、三種狀態的自動回覆文字、不回訊時段（星期幾＋起訖，可跨夜）、AI 生成自動回覆。介面是 `components/chat/ReadNoReplySettings.tsx`。
+- 判斷邏輯在 `utils/readNoReply.ts`（純函數，有單測）：日程沒有勿擾欄位，忙碌／睡覺從當前時段的活動名、描述、emoji 判斷（開會、上課、睡覺…，簡繁都認，排除睡前、睡醒、不忙、幫忙）；用戶設的不回訊時段一律強制，日程判定的忙碌／睡覺在「由角色決定」開著時交給角色。
+- 強制：`hooks/useChatAI.ts` 的 `triggerAI` 一開頭攔下，不發主回覆請求，改落自動回覆（`metadata.readNoReply`）＋旁白；同一段忙碌半天內只發一次，之後按回覆只提示「已讀」。「AI 生成自動回覆」走情緒/意識流 API，失敗退回固定文字。實作在 `utils/readNoReplyRuntime.ts`。
+- 由角色決定：`chatPrompts` 易變段告訴角色它在忙／在睡，想不回就只輸出 `[[ACTION:NO_REPLY]]`（AI 生成時可附 `|自動回覆內容`）；`applyAssistantPostProcessing` 第一步剝掉並落自動回覆＋旁白。
+- 已讀不回過之後真的回覆時，易變段補一句「你剛才沒回，現在看到了」。
+- 主動消息（角色自己開口）不套用已讀不回。
 
 ### 5. NPC：走 A + B
 

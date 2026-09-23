@@ -53,7 +53,7 @@ import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
 import ChatModals from '../components/chat/ChatModals';
-import type { ChatRelationshipPatch } from '../components/chat/ChatSettingsPage';
+import type { ChatSettingsPatch } from '../components/chat/ChatSettingsPage';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
@@ -2401,7 +2401,7 @@ const Chat: React.FC = () => {
         }
     };
 
-    const saveSettings = async (relationship?: ChatRelationshipPatch) => {
+    const saveSettings = async (pagePatch?: ChatSettingsPatch) => {
         const canUseAdaptiveRange = !!(char.autoArchiveEnabled || char.contextFollowsMemoryPalaceHwm);
         const nextMode: ContextRangeMode = canUseAdaptiveRange
             ? settingsContextRangeMode
@@ -2430,7 +2430,7 @@ const Chat: React.FC = () => {
             contextUserStartMessageId: nextUserStart,
             hideSystemLogs: settingsHideSysLogs,
             htmlModeCustomPrompt: settingsHtmlModeCustomPrompt,
-            ...(relationship || {}),
+            ...(pagePatch || {}),
         } as any);
         setInputPreferences(settingsInputPreferences);
         saveChatInputPreferences(settingsInputPreferences);
