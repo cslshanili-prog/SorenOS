@@ -3,16 +3,18 @@ import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
 import { Row, Toggle } from './ChatSettingsControls';
 import ReadNoReplySettingsPanel from './ReadNoReplySettings';
+import DelayedReplySettingsPanel from './DelayedReplySettings';
+import { normalizeDelayedReply } from '../../utils/delayedReply';
 import { DB } from '../../utils/db';
 import { getLocalDateKey } from '../../utils/localDate';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
-import type { CharacterProfile, ReadNoReplySettings } from '../../types';
+import type { CharacterProfile, DelayedReplySettings, ReadNoReplySettings } from '../../types';
 
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
-    | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply'>;
+    | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'>;
 
 interface Props {
     isOpen: boolean;
@@ -73,6 +75,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [firstMessageKey, setFirstMessageKey] = useState<string | null>(null);
     const [editingDate, setEditingDate] = useState(false);
     const [readNoReply, setReadNoReply] = useState<ReadNoReplySettings>({ enabled: false });
+    const [delayedReply, setDelayedReply] = useState<DelayedReplySettings>(normalizeDelayedReply(undefined));
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -85,6 +88,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setStartDate(char.acquaintanceStartDate || '');
         setEditingDate(false);
         setReadNoReply(char.readNoReply ? { ...char.readNoReply } : { enabled: false });
+        setDelayedReply(normalizeDelayedReply(char.delayedReply));
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -108,6 +112,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             allowCharChangeRelationship: allowChange || undefined,
             acquaintanceStartDate: startDate || undefined,
             readNoReply: cleanReadNoReply(readNoReply),
+            // 從沒打開過的角色不寫這個欄位
+            delayedReply: delayedReply.enabled || char.delayedReply ? normalizeDelayedReply(delayedReply) : undefined,
         });
     };
 
@@ -196,11 +202,12 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                         </div>
                     </section>
 
-                    {/* Scenario：這一批先上「已讀不回」，其餘開關分批加 */}
+                    {/* Scenario：已讀不回、延遲自動回覆，其餘開關分批加 */}
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
                         <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
                             <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} />
+                            <DelayedReplySettingsPanel value={delayedReply} onChange={setDelayedReply} />
                         </div>
                     </section>
 

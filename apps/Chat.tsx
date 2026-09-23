@@ -102,6 +102,8 @@ import {
     saveMessageContentFavorite,
 } from '../utils/contentFavorites';
 import { SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
+import { DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
+import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
 import {
     CONTEXT_RANGE_POLICY_VERSION,
     computeContextRangeSnapshot,
@@ -1114,6 +1116,17 @@ const Chat: React.FC = () => {
 
     useEffect(() => setScheduleChangeNotice(null), [activeCharacterId]);
 
+    // 延遲自動回覆到點、用戶正看著這個角色：走完整的聊天管線回覆（OSContext 只在這種情況發這個事件）
+    const manualTriggerRef = useRef<() => void>(() => {});
+    useEffect(() => {
+        const onDue = (event: Event) => {
+            const charId = (event as CustomEvent<{ charId: string }>).detail?.charId;
+            if (charId && charId === activeCharIdRef.current) manualTriggerRef.current();
+        };
+        window.addEventListener(DELAYED_REPLY_DUE_EVENT, onDue);
+        return () => window.removeEventListener(DELAYED_REPLY_DUE_EVENT, onDue);
+    }, []);
+
     // Auto-generate daily schedule (fire-and-forget on chat load)
     // 總開關關閉時完全跳過：不查詢 DB、不調用副 API、不跑兜底
     useEffect(() => {
@@ -1599,7 +1612,12 @@ const Chat: React.FC = () => {
         const finish = autoReply.beginSend(char?.id || null);
         try {
             const sent = await sendText(customContent, customType, metadata);
-            finish(sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType)));
+            const replyable = sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType));
+            finish(replyable);
+            // 延遲自動回覆：排好這個角色什麼時候回（已經排著的不動），到點由下面的監聽或 OSContext 背景生成接手
+            if (replyable && char?.delayedReply?.enabled) {
+                void scheduleDelayedReplyFor(char).catch(e => console.warn('[延遲自動回覆] 排程失敗', e));
+            }
         } catch (error) {
             finish(false);
             throw error;
@@ -1718,6 +1736,7 @@ const Chat: React.FC = () => {
         if (isTyping) return;
         triggerAI(messages);
     };
+    manualTriggerRef.current = handleManualTrigger;
 
     const handleReroll = async () => {
         if (isTyping || messages.length === 0) return;
@@ -3549,7 +3568,8 @@ const Chat: React.FC = () => {
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
-        enabled: inputPreferences.autoReply,
+        // 開了「延遲自動回覆」的角色改走那一套（幾分鐘內自己回），不再疊加全域的 2 秒自動回覆
+        enabled: inputPreferences.autoReply && !char?.delayedReply?.enabled,
         conversationId: activeCharacterId || null,
         active: activeApp === AppID.Chat && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'

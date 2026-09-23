@@ -23,7 +23,7 @@ import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '..
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
-import { resolveCharacterChatApi } from '../utils/characterApi';
+import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { VRScheduler, type VRSessionOutcome } from '../utils/vrWorld/scheduler';
 import { runVRSession } from '../utils/vrWorld/runSession';
 import { allowsAutomaticVR } from '../utils/vrWorld/participation';
@@ -43,7 +43,10 @@ import { isAnalyticsRequestUrl, trackEvent, shouldReportSnapshot, trackDataScale
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync, collectSARFeatureFlags } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
-import { CHAR_RELATIONSHIP_CHANGE_EVENT, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
+import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
+import { extractNoReplyDirective } from '../utils/readNoReply';
+import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
+import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT, takeDueDelayedReplies } from '../utils/delayedReply';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
 import { collectSARLocalBackup, restoreSARLocalBackup } from '../utils/vrWorld/sarBackup';
@@ -99,6 +102,8 @@ import { normalizeCharacterRoomAssetsInPlace } from '../utils/roomTemplateAssets
 
 interface ProactiveQueueEntry {
   charId: string;
+  /** proactive = 角色主動開口；reply = 延遲自動回覆到點、用戶不在這個聊天頁，背景回覆用戶的訊息。 */
+  mode?: 'proactive' | 'reply';
 }
 
 const normalizeProactiveAiContent = (raw: string): string => {
@@ -2228,15 +2233,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const drainQueuedProactive = () => {
           const next = proactiveQueueRef.current.shift();
           if (next) {
-              void runProactive(next.charId);
+              void runProactive(next.charId, next.mode);
           }
       };
 
-      const runProactive = async (charId: string) => {
+      const runProactive = async (charId: string, mode: 'proactive' | 'reply' = 'proactive') => {
+          const isReply = mode === 'reply';
           if (proactiveRunningRef.current) {
-              const queuedIndex = proactiveQueueRef.current.findIndex(item => item.charId === charId);
+              const queuedIndex = proactiveQueueRef.current.findIndex(item => item.charId === charId && (item.mode ?? 'proactive') === mode);
               if (queuedIndex < 0) {
-                  proactiveQueueRef.current.push({ charId });
+                  proactiveQueueRef.current.push({ charId, mode });
               }
               return;
           }
@@ -2254,7 +2260,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return;
           }
 
-          if (char.proactiveConfig && !char.proactiveConfig.enabled) {
+          if (!isReply && char.proactiveConfig && !char.proactiveConfig.enabled) {
               drainQueuedProactive();
               console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: disabled`);
               return;
@@ -2283,8 +2289,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // chatApi；否則 → 全局主 API。跟 activeMsgClient.ts 的 resolveApiConfig 同一個口徑——
           // 之前這裡直接跳到 currentApiConfig，角色明明設了專屬 chatApi，全局 API 一掛
           // 這裡的本地主動消息照樣全滅。
+          // 延遲自動回覆到點時，角色可能正好在忙／在睡（已讀不回強制）：只落自動回覆，不生成。
+          // 跟聊天頁一樣放在 API 檢查之前——強制不回用不到主回覆的 API。
+          if (isReply && char.readNoReply?.enabled) {
+              const recent = await DB.getRecentMessagesByCharId(charId, 50).catch(() => []);
+              const outcome = await applyForcedReadNoReply(char, resolveCharacterMeterApi(char, currentApiConfig), recent)
+                  .catch(() => null);
+              if (outcome) {
+                  if (outcome === 'sent') {
+                      window.dispatchEvent(new CustomEvent('proactive-message-sent', {
+                          detail: { charId, charName: char.name, body: '[自動回覆]' },
+                      }));
+                  }
+                  drainQueuedProactive();
+                  return;
+              }
+          }
+
           const pCfg = char.proactiveConfig;
-          const useSecondary = pCfg?.useSecondaryApi && pCfg.secondaryApi?.baseUrl;
+          // 延遲自動回覆是在回用戶的話，跟平常聊天一樣用角色的對話模型，不走主動消息的副 API
+          const useSecondary = !isReply && pCfg?.useSecondaryApi && pCfg.secondaryApi?.baseUrl;
           const api = useSecondary ? pCfg!.secondaryApi! : resolveCharacterChatApi(char, currentApiConfig);
           if (!api.baseUrl) {
               drainQueuedProactive();
@@ -2298,6 +2322,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           try {
               // 1. Calculate time gap
               const recentMsgs = await DB.getRecentMessagesByCharId(charId, 200);
+
               const lastRealUserMsg = [...recentMsgs].reverse().find(
                   m => m.role === 'user' && !m.metadata?.proactiveHint
               );
@@ -2326,7 +2351,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const justMetOffline = lastRealMsgRaw?.metadata?.source === 'date'
                   && (now.getTime() - lastRealMsgRaw.timestamp) < DATE_AFTERGLOW_MS;
 
-              const hintContent = justMetOffline
+              const hintContent = isReply
+                      ? `[系統提示（非${userName}發言）: 現在是 ${timeStr}。${timeSinceUser ? `${userName}在 ${timeSinceUser}前傳了訊息給你，` : ''}你現在才拿起手機看到。像平常一樣回覆${userName}就好；要不要提自己晚回、為什麼晚回，看你的性格和當下的狀況。]`
+                      : justMetOffline
                       ? `[系統提示（非${userName}發言）: 現在是 ${timeStr}。你和${userName}剛剛在線下見過面（如果上下文裡有標著 [約會] 的內容，那就是你們見面時發生的事），現在你們暫時分開了，你拿起手機想給${userName}發條消息。請基於剛才的見面來發——可以回味見面裡的某個細節、補一句當時沒說出口的話、關心${userName}到家了沒，或者就是剛分開就有點想念。絕對不要表現得好像很久沒聯繫，更不要對剛才的見面毫不知情。一兩句話就好。]`
                       : `[系統提示（非${userName}發言）: 現在是 ${timeStr}。${timeSinceUser ? `${userName}已經 ${timeSinceUser} 沒有找你說話了。` : ''}這是系統給你的一次主動發消息機會——${userName}並沒有在跟你說話，是你想主動找${userName}。像真人一樣隨意地發條消息吧，比如：隨手拍了張照片想分享、剛看到個有趣的事想說、突然想到個冷知識、吐槽今天的天氣/食物/見聞、或者就是單純想找${userName}聊幾句。不要刻意，不要像在"彙報近況"，就像你真的拿起手機隨手發了條消息。一兩句話就好。${timeSinceUser && parseInt(timeSinceUser) > 2 ? `（${userName}挺久沒找你了，你也可以表達想念、好奇${userName}在幹嘛、或者小小地抱怨一下。）` : ''}]`;
 
@@ -2416,7 +2443,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                   method: 'POST', headers,
                   body: JSON.stringify(reqBody)
-              }, 2, 0, { appName: '消息', charId, charName: char.name, purpose: '主動消息' });
+              }, 2, 0, { appName: '消息', charId, charName: char.name, purpose: isReply ? '延遲自動回覆' : '主動消息' });
 
               // 5. Process & save response
               let aiContent = data.choices?.[0]?.message?.content || '';
@@ -2445,6 +2472,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               aiContent = aiContent.replace(/\s*\[(?:聊天|通[话話]|[约約][会會])\]\s*/g, '\n').trim();
 
               aiContent = normalizeProactiveAiContent(aiContent);
+
+              // 聊天設定的兩個動作標籤：這條背景路徑不經過 applyAssistantPostProcessing，在 sanitize 之前自己消化
+              const relChange = extractRelationshipChange(aiContent);
+              aiContent = relChange.cleanedText;
+              if (relChange.relationship && char.allowCharChangeRelationship
+                  && relChange.relationship !== (char.charViewRelationship?.trim() || '')) {
+                  await DB.saveMessage({ charId, role: 'system', type: 'text', content: `[系統: ${char.name} 把你們的關係改成了「${relChange.relationship}」]` });
+                  updateCharacter(charId, { charViewRelationship: relChange.relationship });
+              }
+              const noReply = extractNoReplyDirective(aiContent);
+              if (noReply.noReply) {
+                  aiContent = noReply.cleanedText;
+                  if (!aiContent && isReply && char.readNoReply?.enabled) {
+                      const text = await persistCharChoseNoReply(char, noReply.autoReply);
+                      window.dispatchEvent(new CustomEvent('proactive-message-sent', {
+                          detail: { charId, charName: char.name, body: text },
+                      }));
+                      return;
+                  }
+              }
 
               const savedPreviewChunks: string[] = [];
               const baseTimestamp = Date.now();
@@ -2654,6 +2701,27 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           void runProactive(charId);
       });
 
+      // ── 延遲自動回覆（聊天設定 · Scenario）──
+      // 待回清單在 localStorage（utils/delayedReply.ts），每 10 秒、切回前台、清單有變時各看一次。
+      // 到點時用戶正看著這個角色的聊天頁 → 發事件讓聊天頁自己回（完整管線）；
+      // 否則用上面這條背景路徑的回覆模式。App 被關掉期間過了點的，重新打開時第一次檢查就補回。
+      const runDueDelayedReplies = () => {
+          for (const charId of takeDueDelayedReplies()) {
+              const target = charactersRef.current.find(c => c.id === charId);
+              if (!target?.delayedReply?.enabled) continue;
+              if (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) {
+                  window.dispatchEvent(new CustomEvent(DELAYED_REPLY_DUE_EVENT, { detail: { charId } }));
+              } else {
+                  void runProactive(charId, 'reply');
+              }
+          }
+      };
+      const delayedReplyTimer = window.setInterval(runDueDelayedReplies, 10_000);
+      const onDelayedReplyVisible = () => { if (document.visibilityState === 'visible') runDueDelayedReplies(); };
+      document.addEventListener('visibilitychange', onDelayedReplyVisible);
+      window.addEventListener(DELAYED_REPLY_CHANGED_EVENT, runDueDelayedReplies);
+      runDueDelayedReplies();
+
       // 「彼方」自主登入 —— 獨立調度，複用同一批 refs 拿最新狀態
       const runVR = async (charId: string, room?: string, letterId?: string, manual?: boolean, sarActivity?: VRSARActivity) => {
           const char = charactersRef.current.find(c => c.id === charId);
@@ -2782,6 +2850,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return () => {
           // Cleanup: detach proactive listeners when OSContext unmounts (unlikely but safe)
           ProactiveChat.onTrigger(() => {});
+          window.clearInterval(delayedReplyTimer);
+          document.removeEventListener('visibilitychange', onDelayedReplyVisible);
+          window.removeEventListener(DELAYED_REPLY_CHANGED_EVENT, runDueDelayedReplies);
           VRScheduler.onTrigger(() => {});
           WorldScheduler.onTrigger(() => {});
           window.removeEventListener('world-reroll-request', onRerollRequest as EventListener);
