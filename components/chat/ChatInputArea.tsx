@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, BellSimpleRinging, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -466,6 +466,9 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     const selectedEmojiNames = emojiSelectionMode ? new Set(selectedEmojis.map(se => se.name)) : new Set();
 
     // Keep one ordered list so removed or added entries cannot leave holes between pages.
+    // 顺序固定成三页：第一页 8 个常用操作，第二页 8 个（含主动消息系两个、HTML/思考展示、
+    // 协同/记忆链接/收藏、装扮），其余挤第三页。白框/提示音已并进"装扮"（fine-tune 打开的
+    // 同一个 ChatDecorationPanel，只是预选的 tab 不同），这里不再重复摆一个入口。
     const actionTiles = [
         <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (
@@ -535,6 +538,70 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>)}
             <span className="text-xs font-bold">主动消息 2.0</span>
         </button>,
+        <button key="html-mode-toggle"
+          onClick={() => onPanelAction('html-mode-toggle')}
+          onContextMenu={(e) => { e.preventDefault(); onPanelAction('html-mode-settings'); }}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          {acnh ? <div className="relative"><AcnhActionTile kind="html" />{htmlModeEnabled && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#b77dee] border-2 border-white" />}</div> : (
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
+              htmlModeEnabled
+                ? (isDiscordStyle ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/40' : 'bg-fuchsia-100 text-fuchsia-600 border-fuchsia-200')
+                : (isDiscordStyle ? 'bg-slate-800 text-fuchsia-300 border-fuchsia-400/20' : 'bg-fuchsia-50 text-fuchsia-500 border-fuchsia-100')
+          }`}>
+              <Code className="w-6 h-6" weight="bold" />
+              {htmlModeEnabled && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-fuchsia-400 border-slate-900' : 'bg-fuchsia-500 border-white'}`} />}
+          </div>)}
+          <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
+        </button>,
+        <button key="thinking-settings"
+          onClick={() => onPanelAction('thinking-settings')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          {acnh ? <div className="relative"><AcnhActionTile kind="thinking" />{showThinkingChain && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#889df0] border-2 border-white" />}</div> : (
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
+              showThinkingChain
+                ? (isDiscordStyle ? 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40' : 'bg-indigo-100 text-indigo-600 border-indigo-200')
+                : (isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100')
+          }`}>
+              <Brain className="w-6 h-6" weight="bold" />
+              {showThinkingChain && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-indigo-400 border-slate-900' : 'bg-indigo-500 border-white'}`} />}
+          </div>)}
+          <span className="text-xs font-bold">{showThinkingChain ? '思考已开' : '展示思考'}</span>
+        </button>,
+        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
+                <Briefcase className="w-6 h-6" weight="fill" />
+            </div>
+            <span className="text-xs font-bold">协同工作</span>
+        </button>,
+        <button key="memory-link"
+          onClick={() => onPanelAction('memory-link')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#8f674a]' : isDiscordStyle ? 'bg-slate-800 text-purple-300 border-purple-400/20' : 'bg-purple-50 text-purple-500 border-purple-100'}`}>
+            <LinkSimple className="w-6 h-6" weight="bold" />
+          </span>
+          <span className="text-xs font-bold">记忆链接</span>
+        </button>,
+        <button key="favorites"
+          onClick={() => onPanelAction('favorites')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#c17b42]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+              <Star className="w-6 h-6" weight="fill" />
+          </span>
+          <span className="text-xs font-bold">收藏</span>
+        </button>,
+        <button key="fine-tune"
+          onClick={() => onPanelAction('fine-tune')}
+          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
+        >
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#5fae6e]' : isDiscordStyle ? 'bg-slate-800 text-teal-300 border-teal-400/20' : 'bg-teal-50 text-teal-500 border-teal-100'}`}>
+              <FadersHorizontal className="w-6 h-6" weight="bold" />
+          </div>
+          <span className="text-xs font-bold">聊天装扮</span>
+        </button>,
         <button key="mcd-not-configured"
           onClick={() => {
             if (!mcdConfigured) { onPanelAction('mcd-not-configured'); return; }
@@ -570,93 +637,11 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           </div>
           <span className="text-xs font-bold">{luckinActivated ? '结束瑞一杯' : '瑞一杯'}</span>
         </button>,
-        <button key="html-mode-toggle"
-          onClick={() => onPanelAction('html-mode-toggle')}
-          onContextMenu={(e) => { e.preventDefault(); onPanelAction('html-mode-settings'); }}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          {acnh ? <div className="relative"><AcnhActionTile kind="html" />{htmlModeEnabled && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#b77dee] border-2 border-white" />}</div> : (
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
-              htmlModeEnabled
-                ? (isDiscordStyle ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/40' : 'bg-fuchsia-100 text-fuchsia-600 border-fuchsia-200')
-                : (isDiscordStyle ? 'bg-slate-800 text-fuchsia-300 border-fuchsia-400/20' : 'bg-fuchsia-50 text-fuchsia-500 border-fuchsia-100')
-          }`}>
-              <Code className="w-6 h-6" weight="bold" />
-              {htmlModeEnabled && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-fuchsia-400 border-slate-900' : 'bg-fuchsia-500 border-white'}`} />}
-          </div>)}
-          <span className="text-xs font-bold">{htmlModeEnabled ? 'HTML已开' : 'HTML模式'}</span>
-        </button>,
-        <button key="thinking-settings"
-          onClick={() => onPanelAction('thinking-settings')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          {acnh ? <div className="relative"><AcnhActionTile kind="thinking" />{showThinkingChain && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#889df0] border-2 border-white" />}</div> : (
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border relative ${
-              showThinkingChain
-                ? (isDiscordStyle ? 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40' : 'bg-indigo-100 text-indigo-600 border-indigo-200')
-                : (isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100')
-          }`}>
-              <Brain className="w-6 h-6" weight="bold" />
-              {showThinkingChain && <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${isDiscordStyle ? 'bg-indigo-400 border-slate-900' : 'bg-indigo-500 border-white'}`} />}
-          </div>)}
-          <span className="text-xs font-bold">{showThinkingChain ? '思考已开' : '展示思考'}</span>
-        </button>,
-        <button key="fine-tune"
-          onClick={() => onPanelAction('fine-tune')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#5fae6e]' : isDiscordStyle ? 'bg-slate-800 text-teal-300 border-teal-400/20' : 'bg-teal-50 text-teal-500 border-teal-100'}`}>
-              <FadersHorizontal className="w-6 h-6" weight="bold" />
-          </div>
-          <span className="text-xs font-bold">聊天装扮</span>
-        </button>,
-        <button key="chrome-css"
-          onClick={() => onPanelAction('chrome-css')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#b77dee]' : isDiscordStyle ? 'bg-slate-800 text-pink-300 border-pink-400/20' : 'bg-pink-50 text-pink-500 border-pink-100'}`}>
-              <PencilSimple className="w-6 h-6" weight="bold" />
-          </div>
-          <span className="text-xs font-bold">白框</span>
-        </button>,
-        <button key="collaboration" onClick={() => onPanelAction('collaboration')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#7c6ee6]' : isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-500 border-indigo-100'}`}>
-                <Briefcase className="w-6 h-6" weight="fill" />
-            </div>
-            <span className="text-xs font-bold">协同工作</span>
-        </button>,
         <button key="meetup" onClick={() => onPanelAction('meetup')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-violet-300 border-violet-400/20' : 'bg-violet-50 text-violet-500 border-violet-100'}`}>
                 <Sparkle className="w-6 h-6" weight="fill" />
             </div>
             <span className="text-xs font-bold">见面</span>
-        </button>,
-        <button key="chrome-sound"
-          onClick={() => onPanelAction('chrome-sound')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#e0994a]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-500 border-amber-100'}`}>
-              <BellSimpleRinging className="w-6 h-6" weight="bold" />
-          </div>
-          <span className="text-xs font-bold">提示音</span>
-        </button>,
-        <button key="memory-link"
-          onClick={() => onPanelAction('memory-link')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#8f674a]' : isDiscordStyle ? 'bg-slate-800 text-purple-300 border-purple-400/20' : 'bg-purple-50 text-purple-500 border-purple-100'}`}>
-            <LinkSimple className="w-6 h-6" weight="bold" />
-          </span>
-          <span className="text-xs font-bold">记忆链接</span>
-        </button>,
-        <button key="favorites"
-          onClick={() => onPanelAction('favorites')}
-          className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}
-        >
-          <span className={`w-14 h-14 rounded-2xl grid place-items-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#c17b42]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
-              <Star className="w-6 h-6" weight="fill" />
-          </span>
-          <span className="text-xs font-bold">收藏</span>
         </button>
     ];
     const actionPageCount = Math.max(1, Math.ceil(actionTiles.length / ACTION_PAGE_SIZE));
