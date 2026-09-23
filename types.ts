@@ -3610,6 +3610,32 @@ export interface UserProfile {
      * 跟 utils/db.ts 的 BankTransaction/存錢罐遊戲是兩套完全獨立的帳本，不要混。
      */
     realBalance?: RealBalanceState;
+    /**
+     * 「用戶自己的朋友圈」互動設定（個人檔案 → 朋友圈互動）：誰會自動發帖、發帖間隔、評論／點讚頻率。
+     * 角色自己的朋友圈（角色視角）在「查手機 → 軌跡 → Moments」，不看這份。
+     * 讀取一律走 utils/momentsSettings.ts 的 normalizeMomentsSettings()，缺欄位補預設值。
+     */
+    momentsSettings?: MomentsInteractionSettings;
+}
+
+/** 見 UserProfile.momentsSettings。數值欄位的範圍和預設值在 utils/momentsSettings.ts。 */
+export interface MomentsInteractionSettings {
+    /** 總開關：角色／NPC 會不會在背景自動發朋友圈。預設關，免得一接上就開始花 API。 */
+    autoPostEnabled: boolean;
+    /** 清單裡被關掉的角色／NPC id。存「關掉的」而不是「開著的」，新加的角色預設可以發。 */
+    disabledPosterIds: string[];
+    /** 兩次自動發帖之間最短、最長等多久（小時）；實際在這個區間裡隨機。 */
+    minPostIntervalHours: number;
+    maxPostIntervalHours: number;
+    /** 看到一篇動態後留言、按讚的機率（0–100）。 */
+    commentProbability: number;
+    likeProbability: number;
+    /** 發帖後第一則留言要等多久、之後每則留言間隔多久（秒）。 */
+    firstCommentDelaySec: number;
+    commentIntervalSec: number;
+    /** NPC 對動態產生互動前等多久（分鐘）；角色回覆 NPC 留言前等多久（秒）。 */
+    npcInteractionDelayMin: number;
+    replyToNpcDelaySec: number;
 }
 
 /** Real Balance 錢包旗下的一張銀行卡——跟 Real Balance 之間可以互轉，卡本身的餘額不計入 Real Balance。 */
