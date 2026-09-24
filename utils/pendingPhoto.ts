@@ -91,6 +91,8 @@ export async function createPendingPhoto(
         metadata: { ...(extraMeta || {}), pendingPhoto },
     } as Parameters<Persist>[0]);
     trackPendingPhoto(id, charId);
+    // 聊天頁要等整輪後處理跑完才重讀，不先推一下的話，照片生成期間佔位卡根本不會出現
+    announce(charId);
     return id;
 }
 

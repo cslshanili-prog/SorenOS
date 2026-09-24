@@ -169,6 +169,7 @@
 - `OSContext` 新增 `callAutoStart` / `openCallWithChar` / `consumeCallAutoStart`（跟見面的自動進入同一個做法）；`CallApp` 接到後先把角色和模式換好，再走 `requestSelectedCall`（視訊第一次用仍會先跳設定導覽）。
 - 來電卡（`MessageItem` 的 `CharCallCard`）：顯示語音／視訊、原因、狀態；未接或已拒接的可以「回撥」，照一般流程打回去（這次是用戶打的）。
 - 歷史和歸檔渲染成 `[[記錄:CALL|from=char|mode=…|reason=…|status=…]]`。
+- 冷卻中（易變段，`buildCharCallCooldownNote`）告訴角色「你 N 分鐘前才打過、M 分鐘內打不出去」，別寫來電標籤也別說「我打給你了」；對方要你打就說晚點打或請對方打來。實測時角色被要求再打一次、嘴上說打了卻沒響，才補上這條。
 - 已知限制：2.0 雲端生成的回覆靠推播送達，推播文字是 Worker 從正文生成的，看不到來電卡，只看得到那一輪的話；打開 App 後才看到未接來電卡。
 
 ### 5. NPC：走 A + B
@@ -206,8 +207,13 @@ NPC 維持**獨立的資料表**，不併進角色清單。理由：全專案有
 - 角色要發照片（`[[ACTION:SEND_PHOTO|描述]]`，`chatParser` 執行）時先落一張「照片生成中」的佔位卡（type `photo_pending`，`metadata.pendingPhoto`：描述、試過幾次），記進 localStorage 的待補清單，再去生成；成了就用 `DB.replaceMessageFields` 把這一則換成 `image`（跟以前一樣帶 `aiGenerated`、`imagePrompt`，也存進相冊）。邏輯在 `utils/pendingPhoto.ts`（有單測）。
 - 生成途中切走、失敗：佔位卡留著顯示「照片生成中斷，回到 App 時會自動再試」，只彈一個提示。OSContext 在啟動、切回前台、每分鐘（頁面看得見時）把待補清單逐張補上，一張一張來不併發。
 - 自動試了 4 次還不行就停下，卡片顯示「照片沒能生成」和「重試」按鈕。
+- 佔位卡一落地就推一次聊天頁重讀（`active-msg-progress`）：聊天頁本來要等整輪後處理跑完才重讀，實測時佔位卡從來沒被看見、照片是直接冒出來的。
 - 歷史裡佔位卡渲染成「你發了一張照片（描述），還在傳送中」，角色不會以為自己沒發。
 - 雲端那段：Soren 自己的 Worker 把 `SEND_PHOTO` 以 `soren_tag` 送回，收件箱後處理落佔位卡、在手機上生成（見「Soren 自己的 Worker」）。
+
+## 零碎修正
+
+- 見面（`DateApp` 的 `callLLM`）和通話（`CallApp` 的 `requestAssistantReply`）改成跟私聊用同一個模型：角色設了專屬「對話模型」（`chatApi`）就用它，沒設才落到全局 API（`resolveCharacterChatApi`）。原本這兩處寫死全局 API，全局那組掛掉時，設了專屬 API 的角色一進見面就生成失敗。
 
 ## 暫時不動
 

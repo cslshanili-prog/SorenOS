@@ -1,3 +1,4 @@
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -226,12 +227,14 @@ const DateApp: React.FC = () => {
     const formatTime = () => `${virtualTime.hours.toString().padStart(2, '0')}:${virtualTime.minutes.toString().padStart(2, '0')}`;
 
     // peek / send / reroll 共用的 LLM 調用（提示詞構建統一在 utils/datePrompts.ts）
+    // 見面跟私聊用同一個模型：角色設了專屬「對話模型」就用它，沒設才落到全局 API
     const callLLM = async (messages: ApiMessage[], temperature: number): Promise<string> => {
-        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const chatApi = char ? resolveCharacterChatApi(char, apiConfig) : apiConfig;
+        const response = await fetch(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatApi.apiKey}` },
             body: JSON.stringify({
-                model: apiConfig.model,
+                model: chatApi.model,
                 messages,
                 temperature,
                 // max_tokens 是 Claude 原生 API 的必填字段；缺了它，糯米機/Csy 等

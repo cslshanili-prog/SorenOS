@@ -120,6 +120,16 @@ export function canCharCallNow(charId: string, now: number = Date.now()): boolea
     return !(typeof last === 'number' && now - last < CHAR_CALL_COOLDOWN_MS);
 }
 
+/** 冷卻中時給角色看的一句（易變段）：剛打過、現在打不出去，免得它嘴上說「我打了」卻什麼都沒響。 */
+export function buildCharCallCooldownNote(charId: string, userName: string, now: number = Date.now()): string {
+    const last = readCooldown()[charId];
+    if (typeof last !== 'number' || now - last >= CHAR_CALL_COOLDOWN_MS) return '';
+    const minutesAgo = Math.max(1, Math.round((now - last) / 60_000));
+    const minutesLeft = Math.max(1, Math.ceil((last + CHAR_CALL_COOLDOWN_MS - now) / 60_000));
+    const name = userName.trim() || '對方';
+    return `\n（你 ${minutesAgo} 分鐘前才打過電話給${name}，大約 ${minutesLeft} 分鐘內打不出去——這段時間不要寫來電標籤，也不要說「我打給你了」。${name}要你打的話，自然地說晚點再打，或請${name}打給你。）\n`;
+}
+
 export function markCharCallAttempt(charId: string, now: number = Date.now()): void {
     try {
         localStorage.setItem(COOLDOWN_KEY, JSON.stringify({ ...readCooldown(), [charId]: now }));

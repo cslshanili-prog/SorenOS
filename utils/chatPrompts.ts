@@ -32,7 +32,7 @@ import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
 import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
-import { buildCharCallPrompt, formatCharCallRecord } from './charCall';
+import { buildCharCallCooldownNote, buildCharCallPrompt, formatCharCallRecord } from './charCall';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -586,6 +586,8 @@ ${groupLogStr}\n`;
             }
             const lastAssistant = [...currentMsgs].reverse().find(m => m.role === 'assistant');
             volatileState += buildResumeAfterNoReplyNote(lastAssistant?.metadata);
+            // 主動來電的一小時冷卻：冷卻中告訴角色現在打不出去（utils/charCall.ts）
+            if (char.charCall) volatileState += buildCharCallCooldownNote(char.id, userProfile.name);
         }
 
         // 2b. 音樂氛圍（複用同一份 schedule）
