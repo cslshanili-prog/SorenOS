@@ -211,9 +211,9 @@ NPC 維持**獨立的資料表**，不併進角色清單。理由：全專案有
 - 歷史裡佔位卡渲染成「你發了一張照片（描述），還在傳送中」，角色不會以為自己沒發。
 - 雲端那段：Soren 自己的 Worker 把 `SEND_PHOTO` 以 `soren_tag` 送回，收件箱後處理落佔位卡、在手機上生成（見「Soren 自己的 Worker」）。
 
-## 零碎修正
+## 零碎修正（#33 起）
 
-- 見面（`DateApp` 的 `callLLM`）和通話（`CallApp` 的 `requestAssistantReply`）改成跟私聊用同一個模型：角色設了專屬「對話模型」（`chatApi`）就用它，沒設才落到全局 API（`resolveCharacterChatApi`）。原本這兩處寫死全局 API，全局那組掛掉時，設了專屬 API 的角色一進見面就生成失敗。
+- 見面（`DateApp` 的 `callLLM`）和通話（`CallApp` 的 `requestAssistantReply`）改成跟私聊用同一個模型：角色設了專屬「對話模型」（`chatApi`）就用它，沒設才落到全局 API（`resolveCharacterChatApi`）。原本這兩處寫死全局 API，全局那組掛掉時，設了專屬 API 的角色一進見面就生成失敗。（#33）
 
 ## 暫時不動
 
