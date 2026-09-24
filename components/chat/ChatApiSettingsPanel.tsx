@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CharacterProfile, ApiPreset, APIConfig } from '../../types';
+import { safeResponseJson, extractContent } from '../../utils/safeApi';
 
 interface ChatApiSettingsPanelProps {
     char: CharacterProfile;
@@ -19,6 +20,8 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
     const [showSavePreset, setShowSavePreset] = useState(false);
     const [newPresetName, setNewPresetName] = useState('');
     const [dirty, setDirty] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<string | null>(null);
 
     // Sync form state from character
     useEffect(() => {
@@ -30,7 +33,35 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
         setShowSavePreset(false);
         setNewPresetName('');
         setDirty(false);
+        setTestResult(null);
     }, [char.id]);
+
+    // 跟系統設置的「測試連接」同一種測法：真的發一句 Hi，看模型有沒有回。
+    // 測的是輸入框裡現在的值，不用先保存。
+    const canTest = !!(url.trim() && key.trim() && model.trim());
+    const handleTest = async () => {
+        if (!canTest || testing) return;
+        setTesting(true);
+        setTestResult(null);
+        try {
+            const res = await fetch(`${url.trim().replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key.trim()}` },
+                body: JSON.stringify({ model: model.trim(), messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5 }),
+            });
+            if (res.ok) {
+                const reply = extractContent(await safeResponseJson(res));
+                setTestResult(`✅ 連接成功 — 模型回覆: "${reply.slice(0, 30)}"`);
+            } else {
+                const text = await res.text().catch(() => '');
+                setTestResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
+            }
+        } catch (err: any) {
+            setTestResult(`❌ 連接失敗: ${err?.message || err}`);
+        } finally {
+            setTesting(false);
+        }
+    };
 
     const loadPreset = (preset: ApiPreset) => {
         setUrl(preset.config.baseUrl);
@@ -38,6 +69,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
         setModel(preset.config.model);
         setMode('custom');
         setDirty(true);
+        setTestResult(null);
     };
 
     const handleSavePreset = () => {
@@ -140,7 +172,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                         <input
                             type="text"
                             value={url}
-                            onChange={e => { setUrl(e.target.value); setDirty(true); }}
+                            onChange={e => { setUrl(e.target.value); setDirty(true); setTestResult(null); }}
                             placeholder="https://api.example.com/v1"
                             className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                         />
@@ -150,7 +182,7 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                         <input
                             type="password"
                             value={key}
-                            onChange={e => { setKey(e.target.value); setDirty(true); }}
+                            onChange={e => { setKey(e.target.value); setDirty(true); setTestResult(null); }}
                             placeholder="sk-..."
                             className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                         />
@@ -160,11 +192,30 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
                         <input
                             type="text"
                             value={model}
-                            onChange={e => { setModel(e.target.value); setDirty(true); }}
+                            onChange={e => { setModel(e.target.value); setDirty(true); setTestResult(null); }}
                             placeholder="claude-haiku-4-5 / gpt-4o-mini / ..."
                             className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                         />
                     </div>
+
+                    <button
+                        onClick={handleTest}
+                        disabled={testing || !canTest}
+                        className={`w-full py-2.5 rounded-xl text-xs font-bold border active:scale-95 transition-all ${
+                            testing || !canTest
+                                ? 'border-slate-200 text-slate-400 bg-slate-50'
+                                : 'border-violet-200 text-violet-600 bg-violet-50 hover:bg-violet-100'
+                        }`}
+                    >
+                        {testing ? '測試中...' : '🧪 測試連接'}
+                    </button>
+                    {testResult && (
+                        <div className={`text-xs px-3 py-2 rounded-xl break-all ${
+                            testResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                        }`}>
+                            {testResult}
+                        </div>
+                    )}
                 </div>
             )}
 
