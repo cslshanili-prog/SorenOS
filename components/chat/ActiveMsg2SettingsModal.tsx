@@ -30,6 +30,7 @@ import {
 import ActiveMsg2PacingModal from './ActiveMsg2PacingModal';
 import { isInstantChatReady } from '../../utils/amsgInstantChat';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
+import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
 import { trackEvent } from '../../utils/analytics';
 import {
@@ -555,6 +556,21 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // 一堆沒人會兌現的承諾。留在清單裡的（取消失敗 / 期間新出現的）不寫——它們還會響。
         await writeCancelledNotices(tasks.filter((t) =>
           attempted.has(t.taskUuid) && !failed.has(t.taskUuid)));
+        // 任務取消掉了，雲端還留著這個角色的上下文（fire_pack 是完整角色卡加最近
+        // 30 條對話原文，一個角色 32KB 起步）和那行主動消息用的 API 憑據。不清的話
+        // 它們會永久留在 D1 裡：關掉之後打髒那道門（見 amsgStateSync 的 hasActiveAiTask）
+        // 把這個角色永久擋在外面，既不會再刷新，也不會再被清掉，永遠凍在此刻這份原文上。
+        //
+        // 清多少要看還有誰在用：即時對話還生效的話，雲端那份上下文每輪聊天都會重寫，
+        // 這時候清只是白清一次；記憶宮殿的後台活兒走的是另一條路，它那行憑據不能動。
+        const cleanup = await purgeCharCloudState(
+          char,
+          disableScheduleCharPurge(globalInstantChatOn && instantChatOn),
+        );
+        if (cleanup.status === 'failed') {
+          console.warn('[ActiveMsg2Settings] 關閉 2.0 時清雲端上下文失敗', cleanup.error);
+          addToast('ta 在雲端的聊天上下文沒能清掉，可以稍後重開面板再關一次。', 'error');
+        }
         onSave((prev) => buildConfig(
           prev,
           (list) => keepUncancelledTasks(list, attempted, failed, {

@@ -14,7 +14,8 @@ import {
 } from '../../utils/amsgDiagnostics';
 import { ActiveMsgStore, maskActiveMsgUserId } from '../../utils/activeMsgStore';
 import { formatTaskTime } from '../../utils/amsg2Tasks';
-import { cancelAllRemoteAmsgTasks, isWorkerUrlCleared, wipeAmsgCloudData } from '../../utils/amsgStateSync';
+import { isWorkerUrlCleared, wipeAmsgCloudData } from '../../utils/amsgStateSync';
+import { rememberDetachedWorker } from '../../utils/amsgDetachedWorkers';
 import { buildCloudflareDashboardUrl } from '../../utils/workerDeploy';
 import { generateClientToken } from '../../utils/vapidGen';
 import { loadPushVapid, savePushVapid } from '../../utils/pushVapid';
@@ -128,7 +129,26 @@ const REQUIRED_WORKER_FEATURES = [
 //            看不出是中轉站在報錯。同一批還帶上 0.4.0-next.9 的脫敏補漏：形狀像模型名
 //            的自建網關 Key 不再明文進 last_error。
 // 不比版本的話，舊粘貼部署會被誤判為最新，問題全在 worker 側靜默發生。
+//
 const REQUIRED_WORKER_VERSION = '2.6.0-next.28';
+
+/**
+ * 門檻故意落後於依賴時，把當前依賴的版本寫在這裡，表示「知道，是有意的」。
+ *
+ * next.29 多了按命名空間 / 按前綴清理的四條端點（「雲端數據」清點用的就是它們），但那是
+ * **可選增強**：沒有它的 worker 照樣能清點和清理，只是「只在雲端留了上下文、既沒任務也
+ * 沒憑據」的角色列不出來——那一頁會自己說明清單不是全集。為這個亮一次「版本過舊」、
+ * 逼所有人重貼一遍部署，不值當。
+ *
+ * next.30 讓投遞重試少花錢：模型明確拒了請求（Key 失效、餘額不足、模型名寫錯……）一跳就
+ * 終審，不再白試 4 次；內容已經落進收件箱、只是推送沒成的，重試只補推原文，不再重新生成。
+ * 老 worker 上這些照舊是多花錢、不出錯，所以同樣不抬門檻——bundle 版本已經往前推了，
+ * 設置頁會提示有更新。
+ *
+ * 守衛在 utils/amsgWorkerVersion.test.ts：門檻和這裡兩個都沒跟上依賴，測試就會紅，
+ * 免得哪天真有「不更新就出錯」的改動被當成可選的漏過去。
+ */
+const WORKER_VERSION_LAG_ACK = '2.6.0-next.30';
 
 /** 裝著打包好的 worker 代碼的部署倉庫：fork 它 → 在 Cloudflare 連上 → 以後點 Sync fork 更新。 */
 const WORKERS_REPO_URL = 'https://github.com/Tosd0/sullyos-workers';
@@ -165,6 +185,8 @@ interface ActiveMsgGlobalSettingsModalProps {
   realtimeConfig: RealtimeConfig;
   /** 由 Settings 注入：點「去推送憑據面板」時打開頂層 PushVapidSettingsModal */
   onOpenVapid?: () => void;
+  /** 打開「雲端數據」清點頁（跟 onOpenVapid 一樣，由設置頁負責渲染那個面板）。 */
+  onOpenCloudData?: () => void;
 }
 
 const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> = ({
@@ -173,6 +195,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   addToast,
   realtimeConfig,
   onOpenVapid,
+  onOpenCloudData,
 }) => {
   const [config, setConfig] = useState<ActiveMsg2GlobalConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -384,34 +407,40 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
   }, [isOpen]);
 
   /**
-   * 地址被清空時的收尾：先問一句，再拿**舊地址**把遠端任務取消乾淨，最後才存空值。
+   * 地址被清空時的收尾：把「那邊還留著東西」說清楚，把舊地址記一筆，**不動雲端數據**。
    *
-   * 光存空值的話，前端這邊所有同步立刻停擺，D1 裡的任務卻一條沒少：cron 每分鐘照常
-   * 消費、照燒 LLM、照推送（推送訂閱也還在），只是內容永遠停在最後一次同步的樣子。
-   * 用戶以為自己關掉了一切，實際只是把自己變成了看不見的那一方。
+   * 早先這裡會順手把遠端任務全取消掉，理由是「地址一清，回覆推回來這邊也接不住」。
+   * 但清空地址本身沒有毀滅的意味：用戶可能只是要換個反代端點、換個自定義域名，背後
+   * 還是同一台 worker、同一個 D1，照著「地址變了」就去銷燬任務，等於把人家排好的東西
+   * 刪了。真想清有專門的入口——「清空雲端數據」是用戶親手點的，那裡才該動手。
+   *
+   * 代價得說在明處：光存空值的話，前端這邊所有同步立刻停擺，D1 裡的任務卻一條沒少，
+   * cron 每分鐘照常消費、照燒 LLM、照推送，只是內容永遠停在最後一次同步的樣子。所以
+   * 這句提示必須把「任務不會被取消」寫明白，並且把舊地址記進備忘——地址一清，本地就
+   * 再沒有別的地方記得它，用戶想回去清都找不到門。
    */
-  const confirmAndClearRemote = async (): Promise<boolean> => {
-    const ok = confirm('清空 Worker 地址會把遠端還掛著的主動消息任務一併取消，確定嗎？\n\n不取消的話，那些任務仍會按時觸發並給你推送，而這邊已經管不到它們了。');
+  const confirmDetachWorker = async (previousUrl: string): Promise<boolean> => {
+    const ok = confirm(`清空 Worker 地址之後，那台 Worker 上已經排好的定時任務不會被取消——它們仍會按時觸發、照常推送，只是這邊管不到了。\n\n地址：${previousUrl}\n\n想連任務一起停掉的話，請先用下面「高級信息」裡的「清空雲端數據」清一遍，再回來清空地址。\n\n仍然清空嗎？`);
     if (!ok) return false;
-    const { total, failed, listed } = await cancelAllRemoteAmsgTasks();
-    if (!listed) {
-      addToast('遠端任務沒能取消，可能還掛在那兒照常觸發。建議把地址填回去，到角色的主動消息面板裡逐個處理。', 'error');
-    } else if (failed > 0) {
-      addToast(`還有 ${failed} 個遠端任務取消失敗，建議恢復地址後在面板處理。`, 'error');
-    } else if (total > 0) {
-      addToast(`已取消遠端 ${total} 個任務。`, 'info');
-    }
+    rememberDetachedWorker(previousUrl);
+    addToast('地址已清空，雲端那份沒動。想清的話把地址填回來，用「清空雲端數據」清一遍。', 'info');
     return true;
   };
 
   const persistGlobalConfig = async () => {
     if (!config) return;
-    if (isWorkerUrlCleared(savedWorkerUrlRef.current, config.workerUrl)) {
-      if (!await confirmAndClearRemote()) {
+    const previousUrl = savedWorkerUrlRef.current;
+    const nextUrl = config.workerUrl || '';
+    if (isWorkerUrlCleared(previousUrl, nextUrl)) {
+      if (!await confirmDetachWorker(previousUrl)) {
         // 用戶反悔：把地址填回輸入框，別留一個「界面空著、庫裡還存著」的錯位。
         patchConfig({ workerUrl: savedWorkerUrlRef.current });
         return;
       }
+    } else if (previousUrl && nextUrl && previousUrl !== nextUrl) {
+      // 換地址：多半隻是換了個入口（反代端點、自定義域名），背後還是同一台 worker，
+      // 所以一個字節都不動，只把舊地址記一筆——萬一真是換了後端，用戶還有地方找回去。
+      rememberDetachedWorker(previousUrl);
     }
     await ActiveMsgStore.saveGlobalConfig({
       workerUrl: config.workerUrl,
@@ -1700,6 +1729,21 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 Worker 側的環境變量清單見上面「部署 Worker」一節。發佈的 Worker 代碼默認 CORS 全開
                 （<code className="font-mono">origin: '*'</code>），想收緊就把它改成自己站點的域名再部署。
               </p>
+              {onOpenCloudData ? (
+                <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+                  <div className="font-semibold text-slate-700">雲端數據</div>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    看看 Worker 上按角色存著些什麼，把本地已經沒有的角色留下的那份清掉。
+                    刪過角色、導入過別的備份之後，雲端多半還留著他們的上下文和 API 憑據。
+                  </p>
+                  <button
+                    onClick={onOpenCloudData}
+                    className="w-full py-2.5 bg-slate-100 text-slate-700 font-bold rounded-2xl active:scale-95 transition-transform"
+                  >
+                    清點雲端數據
+                  </button>
+                </div>
+              ) : null}
               <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 space-y-2">
                 <div className="font-semibold text-rose-700">清空雲端數據</div>
                 <p className="text-[11px] leading-relaxed text-rose-600">

@@ -3192,6 +3192,73 @@ export const ActiveMsgClient = {
   },
 
   /**
+   * 列出雲端 client_state 裡有哪些命名空間，各佔多少。給「雲端數據」清點用。
+   *
+   * 這是唯一一條能發現「本地已經沒有、雲端只剩一份上下文」的角色的線索：任務表和憑據
+   * 表都問不到它們（沒排過任務、沒配過單獨 API），而角色命名空間在 worker 側沒有 TTL，
+   * 不主動去看就永遠不知道它在那兒。
+   *
+   * 要用戶那台 worker 更新到帶 `client-state-namespaces` 的版本。老 worker 上那條路由
+   * 不存在，直接問會拿到一句沒法解釋的 404——所以先問 capabilities，缺能力時拋一句
+   * 說得清的話，界面照它提示「更新 Worker 之後清單會更全」。
+   *
+   * 這一趟要在 worker 上按用戶掃一遍 client_state，所以只在用戶點開清點界面時調，
+   * 別塞進體檢或者任何定時路徑（每分鐘白掃一遍 D1 就是 rows read 被掃穿的來由）。
+   */
+  async listCloudNamespaces(): Promise<Array<{
+    namespace: string; entryCount: number; byteSize: number; updatedAt: number | null;
+  }>> {
+    const config = await ensureWorkerReady();
+    const client = await initializeClient(config);
+    const features = await this.getCapabilities().then((c) => c?.features ?? null).catch(() => null);
+    if (!features?.includes('client-state-namespaces')) {
+      throw new Error('這台 Worker 還沒有「列出雲端命名空間」的能力，更新 Worker 之後清單會更全。');
+    }
+    const response = await fetchWithAuth('client-state/namespaces', config, {
+      method: 'GET',
+      headers: {
+        'X-Response-Encrypted': 'true',
+        'X-Encryption-Version': '1',
+      },
+    }, '讀取雲端命名空間清單');
+    if (!response?.success) {
+      throw new Error(response?.error?.message || '讀取雲端命名空間清單失敗。');
+    }
+    const payload = await decryptPayload(client, response.data) as {
+      namespaces?: Array<{ namespace?: unknown; entryCount?: unknown; byteSize?: unknown; updatedAt?: unknown }>;
+    };
+    return (payload?.namespaces ?? [])
+      .filter((row): row is { namespace: string } & Record<string, unknown> => typeof row?.namespace === 'string' && !!row.namespace)
+      .map((row) => ({
+        namespace: row.namespace,
+        entryCount: Number(row.entryCount ?? 0) || 0,
+        byteSize: Number(row.byteSize ?? 0) || 0,
+        updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : null,
+      }));
+  },
+
+  /**
+   * 列出雲端登記著哪些憑據行。上游只回 credId 和更新時間，**不回憑據本體**。
+   *
+   * credId 的形狀是 `char:<charId>/<用途>`，角色身份就編在這個字符串裡——所以這是眼下
+   * 唯一一個「不靠本地記錄，直接問雲端還記著哪些角色」的口子。任務表那邊角色 id 埋在
+   * 密文裡，要把全部任務拉回來逐條解密才看得見；client_state 則要等用戶那台 worker
+   * 更新到帶命名空間清單的那一版。
+   */
+  async listLlmCredentials(): Promise<Array<{ credId: string; updatedAt?: number }>> {
+    const config = await ensureWorkerReady();
+    const client = await initializeClient(config);
+    const response = await client.listLlmCredentials();
+    if (!response?.success) {
+      throw new Error(response?.error?.message || '讀取雲端憑據清單失敗。');
+    }
+    const rows = (response.data as { credentials?: Array<{ credId?: unknown; updatedAt?: unknown }> })?.credentials ?? [];
+    return rows
+      .filter((row): row is { credId: string; updatedAt?: number } => typeof row?.credId === 'string' && !!row.credId)
+      .map((row) => ({ credId: row.credId, updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : undefined }));
+  },
+
+  /**
    * 刪掉雲端登記的憑據行。`credIds` 刪指定幾行（刪角色時清它名下的），
    * `all` 全刪（「清空雲端數據」）。本地指紋底帳同步劃掉，不然下次「沒變過」會攔住重傳。
    */
@@ -3632,9 +3699,13 @@ export const ActiveMsgClient = {
    * 「任務還活著、憑據卻沒了」的唯一入口，堵住這裡就夠。
    *
    * 補傳失敗不算清空失敗（清空確實成功了），返回值把結果交給調用方去提示。
+   *
+   * `restoreToolConfig: false` 用在「重置全部數據」那條路上：那時用戶要的是一切歸零，
+   * 本地緊接著就要刪庫，補傳只會在剛清空的庫裡重新留下一行誰也不會再讀的憑據。
    */
   async clearClientState(
     realtimeConfig: RealtimeConfig | undefined,
+    options: { restoreToolConfig?: boolean } = {},
   ): Promise<{ deleted: number; toolConfigRestored: boolean }> {
     const config = await ensureWorkerReady();
     // 清雲端狀態可能連用戶密鑰一起換代：握手緩存作廢，之後的第一次調用重新 init。
@@ -3645,6 +3716,7 @@ export const ActiveMsgClient = {
       throw new Error(response?.error?.message || '清除雲端狀態失敗。');
     }
     const { deleted } = response.data as { deleted: number };
+    if (options.restoreToolConfig === false) return { deleted, toolConfigRestored: false };
 
     let toolConfigRestored = true;
     try {

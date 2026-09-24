@@ -28,6 +28,7 @@ import { loadMcpServers, saveMcpServers, createMcpServer, testMcpConnection, res
 import { loadPushConfig, savePushConfig, registerScheduleOnWorker, startHeartbeat, stopHeartbeat, isPushConfigAvailable, ensureSubscribed, sendTestPush, getPushDiagnostics, resetSubscription, deepResetSubscription, type PushDiagnostics } from '../utils/proactivePushConfig';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { PushVapidSettingsModal } from '../components/settings/PushVapidSettingsModal';
+import AmsgCloudDataModal from '../components/settings/AmsgCloudDataModal';
 import PushSubscriptionPanel from '../components/settings/PushSubscriptionPanel';
 import ActiveMsgGlobalSettingsModal from '../components/settings/ActiveMsgGlobalSettingsModal';
 import { syncAmsgLlmCredentials, syncAmsgToolConfig, syncAmsgToolConfigAndPrompts } from '../utils/amsgStateSync';
@@ -559,6 +560,9 @@ const Settings: React.FC = () => {
   const [visionModelFilter, setVisionModelFilter] = useState('');
   const [showExportModal, setShowExportModal] = useState(false); // Used for completion now
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  /** 雲端沒清乾淨時停在這裡：本地還一個字節都沒動，等用戶決定重試還是照樣重置。 */
+  const [resetCloudFailure, setResetCloudFailure] = useState<{ workerUrl: string; detail: string } | null>(null);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showApiCallLog, setShowApiCallLog] = useState(false);
   const [showRealtimeModal, setShowRealtimeModal] = useState(false);
@@ -742,6 +746,7 @@ const Settings: React.FC = () => {
   // "深度重置". 不持久化, 刷新頁面歸零 (用戶原話: "刷新頁面正常消失").
   const [ppZombieStreak, setPpZombieStreak] = useState(0);
   const [showAmsg2Modal, setShowAmsg2Modal] = useState(false);
+  const [showAmsgCloudData, setShowAmsgCloudData] = useState(false);
   const [showVapidModal, setShowVapidModal] = useState(false);
   const [vapidReadyTick, setVapidReadyTick] = useState(0); // 關閉 VAPID 彈窗後刷新頂層徽標
 
@@ -1737,9 +1742,32 @@ const Settings: React.FC = () => {
       }
   };
 
-  const confirmReset = () => {
-      resetSystem();
-      setShowResetConfirm(false);
+  // 重置會先清雲端再刪本地，清雲端要發幾個請求，所以按鈕得自己頂著「進行中」。
+  // 順利的話頁面直接刷新，下面這些 setState 都執行不到。
+  const confirmReset = async () => {
+      setResetting(true);
+      try {
+          const result = await resetSystem();
+          if (result.status === 'cloud-cleanup-failed') {
+              setShowResetConfirm(false);
+              setResetCloudFailure({ workerUrl: result.workerUrl, detail: result.detail });
+          } else if (result.status === 'failed') {
+              setShowResetConfirm(false);
+          }
+      } finally {
+          setResetting(false);
+      }
+  };
+
+  /** 雲端沒清乾淨，用戶仍然要重置：這一次不再攔，能清多少算多少。 */
+  const confirmResetAnyway = async () => {
+      setResetting(true);
+      try {
+          setResetCloudFailure(null);
+          await resetSystem({ force: true });
+      } finally {
+          setResetting(false);
+      }
   };
 
   // 保存實時感知配置
@@ -4651,8 +4679,8 @@ const Settings: React.FC = () => {
           onClose={() => setShowResetConfirm(false)}
           footer={
               <div className="flex gap-2 w-full">
-                  <button onClick={() => setShowResetConfirm(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">取消</button>
-                  <button onClick={confirmReset} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200">確認格式化</button>
+                  <button onClick={() => setShowResetConfirm(false)} disabled={resetting} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl disabled:opacity-50">取消</button>
+                  <button onClick={confirmReset} disabled={resetting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-60">{resetting ? '清理中…' : '確認格式化'}</button>
               </div>
           }
       >
@@ -4660,6 +4688,32 @@ const Settings: React.FC = () => {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-red-500"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
               <p className="text-center text-sm text-slate-600 font-medium">
                   這將<span className="text-red-500 font-bold">永久刪除</span>所有角色、聊天記錄和設置，且無法恢復！
+              </p>
+              <p className="text-center text-xs text-slate-400">
+                  主動消息 2.0 在雲端存的定時任務、角色上下文和 API 憑據也會一起清掉。
+              </p>
+          </div>
+      </Modal>
+
+      {/* 雲端沒清乾淨：本地還一個字節都沒動，讓用戶決定 */}
+      <Modal
+          isOpen={!!resetCloudFailure}
+          title="雲端還沒清乾淨"
+          onClose={() => setResetCloudFailure(null)}
+          footer={
+              <div className="flex gap-2 w-full">
+                  <button onClick={() => setResetCloudFailure(null)} disabled={resetting} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl disabled:opacity-50">先不重置</button>
+                  <button onClick={confirmResetAnyway} disabled={resetting} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-2xl shadow-lg shadow-red-200 disabled:opacity-60">{resetting ? '清理中…' : '仍然重置'}</button>
+              </div>
+          }
+      >
+          <div className="flex flex-col gap-3 py-2 text-sm text-slate-600">
+              <p>{resetCloudFailure?.detail}。本地數據一個字節都還沒動，你可以檢查一下網絡和 Worker 連接再試一次。</p>
+              <p className="text-xs text-slate-400 break-all">
+                  Worker 地址：{resetCloudFailure?.workerUrl}
+              </p>
+              <p className="text-xs text-rose-500">
+                  仍然重置的話，本地會歸零，而云端那些沒清掉的定時任務還會到點運行、消耗你的 API 額度。重置之後本地不再保存連接信息，只能去 Cloudflare 後台手動刪掉那個 D1 數據庫。
               </p>
           </div>
       </Modal>
@@ -4674,6 +4728,13 @@ const Settings: React.FC = () => {
         addToast={addToast}
         realtimeConfig={realtimeConfig}
         onOpenVapid={() => { setShowAmsg2Modal(false); setShowVapidModal(true); }}
+        onOpenCloudData={() => { setShowAmsg2Modal(false); setShowAmsgCloudData(true); }}
+      />
+      <AmsgCloudDataModal
+        isOpen={showAmsgCloudData}
+        onClose={() => setShowAmsgCloudData(false)}
+        characters={characters}
+        addToast={addToast}
       />
 
     </div>
