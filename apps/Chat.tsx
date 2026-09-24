@@ -104,6 +104,7 @@ import {
 import { SCHEDULE_CHANGE_EVENT, type ScheduleChangeEventDetail } from '../utils/scheduleChange';
 import { DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
 import { buildDateInviteResponseNote } from '../utils/dateInvite';
+import { retryPendingPhotoNow } from '../utils/pendingPhoto';
 import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
 import { cancelDelayedReplyEverywhere, handoffDelayedReplyToCloud } from '../utils/delayedReplyCloud';
 import {
@@ -1763,6 +1764,14 @@ const Chat: React.FC = () => {
         if (!char) return;
         openCallWithChar(char.id, msg.metadata?.charCall?.mode === 'video' ? 'video' : 'voice');
     }, [char, openCallWithChar]);
+
+    // 照片佔位卡自動重試放棄後，用戶按「重試」
+    const handleRetryPhoto = useCallback((msg: Message) => {
+        if (!char) return;
+        void retryPendingPhotoNow(msg.id, char.id, apiConfig.imageGenConfig).then(ok => {
+            if (!ok) addToast('照片還是沒生成成功，稍後再試試', 'error');
+        });
+    }, [char, apiConfig.imageGenConfig, addToast]);
 
     // 頂欄 ⚡ 手動觸發（也是「發完後自動生成」到點時調的那一下）。
     const handleManualTrigger = () => {
@@ -4321,6 +4330,7 @@ const Chat: React.FC = () => {
                             onResolveLifeRecord={handleResolveLifeRecord}
                             onResolveDateInvite={handleResolveDateInvite}
                             onCallBack={handleCallBack}
+                            onRetryPhoto={handleRetryPhoto}
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />

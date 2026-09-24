@@ -144,6 +144,7 @@ export function normalizeMessageContent(
 
     if (type === 'date_invite') return formatDateInviteRecord(msg.metadata?.dateInvite);
     if (type === 'char_call') return formatCharCallRecord(msg.metadata?.charCall);
+    if (type === 'photo_pending') return '[照片傳送中]';
 
     if (type === 'mall_order') {
         // 跟轉帳一樣是全鏈路一副面孔：私聊歷史 (chatPrompts.buildMessageHistory) 與

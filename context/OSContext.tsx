@@ -46,6 +46,7 @@ import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormal
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { extractNoReplyDirective } from '../utils/readNoReply';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
+import { retryPendingPhotos } from '../utils/pendingPhoto';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type IncomingCharCallDetail } from '../utils/charCall';
 import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
 import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
@@ -2772,6 +2773,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   .catch(e => console.warn('[延遲自動回覆] 檢查雲端回覆失敗', e));
           }
       };
+      // 角色發的照片生成途中斷掉的（佔位卡還在，utils/pendingPhoto.ts）：啟動、切回前台、每分鐘各補一次
+      const runPendingPhotos = () => {
+          if (document.visibilityState !== 'visible') return;
+          void retryPendingPhotos(apiConfigRef.current?.imageGenConfig).catch(e => console.warn('[PendingPhoto] 補生成失敗', e));
+      };
+      const pendingPhotoTimer = window.setInterval(runPendingPhotos, 60_000);
+      document.addEventListener('visibilitychange', runPendingPhotos);
+      runPendingPhotos();
       const delayedReplyTimer = window.setInterval(runDueDelayedReplies, 10_000);
       const onDelayedReplyVisible = () => { if (document.visibilityState === 'visible') runDueDelayedReplies(); };
       document.addEventListener('visibilitychange', onDelayedReplyVisible);
@@ -2907,6 +2916,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // Cleanup: detach proactive listeners when OSContext unmounts (unlikely but safe)
           ProactiveChat.onTrigger(() => {});
           window.clearInterval(delayedReplyTimer);
+          window.clearInterval(pendingPhotoTimer);
+          document.removeEventListener('visibilitychange', runPendingPhotos);
           document.removeEventListener('visibilitychange', onDelayedReplyVisible);
           window.removeEventListener(DELAYED_REPLY_CHANGED_EVENT, runDueDelayedReplies);
           VRScheduler.onTrigger(() => {});

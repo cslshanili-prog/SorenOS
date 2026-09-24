@@ -17,6 +17,8 @@
 - **主動消息 2.0「主動頻率」**（上游 `d486bebb`，2026-09-22，#28）：七項按角色設的上限（連發、間隔、每日上限、重複消息沒回就停、同時排幾條、角色能不能自排重複／到點必發），面板在「主動消息 2.0 →主動頻率」，說明見 [`docs/amsg2-pacing-limits.md`](../docs/amsg2-pacing-limits.md)。三方合併零衝突。同時把 `AMSG_BUNDLE_VERSION` 對齊上游的 `2026-09-22`。
   - **Worker 不是從這個倉庫部署的**：用戶的 Worker 來自上游作者的 `Tosd0/sullyos-workers`，「更新 Worker」也從那邊拉 bundle。所以這邊 `worker/amsg/src` 的改動送不到用戶那台 Worker；只有前端和 Worker 約定好的格式（fire_pack、limits、任務 metadata）要跟上游對齊。`AMSG_BUNDLE_VERSION` 必須等於上游 bundle 的版本，不然設定頁會一直顯示「有更新」。
   - 跟雲端延遲回覆的交集：延遲回覆借的是一次性定時任務的殼，Worker 分不出它是回覆，所以會算進「今天 TA 已主動找你 N 次」，設了每日上限時也可能被跳過。被跳過時 Worker 會留一筆 `last_skip`，本地過點檢查讀到是這條就自己補回（`resolveOverdueCloudDelayedReplies`）。要排除它得改 Worker，等哪天自己維護 Worker 再處理。
+  - **上游 Worker 會剝掉它不認得的標籤**（2026-09-24 查到）：Worker 用 `utils/sanitize.ts` 的 `sanitizeIntoSegments` 切推播段落，裡面的 `stripBusinessTagsForNotification` 會把所有 `[[ACTION:…]]` 連原文一起剝掉，只有分類器認得的副作用標籤會改走 directives 通道送到客戶端。所以雲端生成的回覆裡，發照片（`SEND_PHOTO`）和 Soren 自己加的 `RELATIONSHIP`、`NO_REPLY`、`DATE_INVITE`、`CALL` 都到不了客戶端。本機生成的回覆不受影響。
+  - **決定：自己維護 Worker（2026-09-24，Liora 拍板）**。SorenOS 出自己的 Worker bundle，把上面這幾個標籤加進分類器的 directives（或放行給客戶端），設定頁的部署連結與自動更新改指向自己的倉庫；之後上游 Worker 的更新由我們手動合。用戶要手動重新部署一次。順便處理：延遲回覆不算進每日主動次數。
   - 沒搬的：上游同期的「雲端資料清點」（`6b2975d0`）、amsg-server next.29／next.30 的升級（只影響 Worker 打包，用戶的 Worker 本來就跟著上游）。
 
 ## 開發順序
@@ -29,7 +31,7 @@
 | 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24；第二批：已讀不回，#25；第三批：延遲自動回覆，#26；雲端延遲回覆，#27；第四批：線下邀請＋動作描寫，#29；第五批：角色主動打電話，#30） |
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 未開始 |
 | 6 | 單一貼文池（先出設計文件） | 未開始 |
-| 7 | 生圖補生成（路線一） | 未開始，跟其他項沒有依賴，可以插隊 |
+| 7 | 生圖補生成（路線一） | 進行中（本機這段：照片佔位卡＋補生成，#31；雲端那段等自己的 Worker） |
 
 ## 各項設計決定
 
@@ -88,7 +90,7 @@
 - 全螢幕頁 `components/chat/ChatSettingsPage.tsx` 取代原本的「聊天設置」彈窗：頁首返回（不存）／完成（存），兩人頭像、「我們已相識 N 天」（點開自定義起點，沒設時從第一則私聊訊息算），Relationship 一排，下面接原有的設定分組。
 - 角色欄位：`chatNickname`（聊天頁頂部與 Chat 消息列表顯示）、`userNickname`、`userViewRelationship`、`charViewRelationship`、`allowCharChangeRelationship`、`acquaintanceStartDate`。
 - 提示詞：稱呼與關係進穩定段；相識天數進易變段（主動消息打包只給起點日期）。邏輯在 `utils/chatRelationship.ts`（有單測）。
-- 角色自主改關係：`[[ACTION:RELATIONSHIP|新關係]]`，在 `applyAssistantPostProcessing` 第一步剝掉（跟日程修改同一處），開了允許才寫系統提示並發 `CHAR_RELATIONSHIP_CHANGE_EVENT`，由 OSContext 寫回角色。雲端生成的回覆一樣會回到客戶端這條管線，推播文字的 sanitize 本來就會剝 `[[ACTION:…]]`。
+- 角色自主改關係：`[[ACTION:RELATIONSHIP|新關係]]`，在 `applyAssistantPostProcessing` 第一步剝掉（跟日程修改同一處），開了允許才寫系統提示並發 `CHAR_RELATIONSHIP_CHANGE_EVENT`，由 OSContext 寫回角色。**雲端（主動消息 2.0）生成的回覆目前收不到這個標籤**：上游 Worker 發推播前會把它不認得的 `[[ACTION:…]]` 連原文一起剝掉（見下方「上游個別整合紀錄」裡的 Worker 一節），要等自己的 Worker。
 - Scenario 開關分批做，第二批是「已讀不回」。
 
 落地實況（第二批：已讀不回，#25）：
@@ -132,7 +134,7 @@
 - **線上模式動作描寫**：`chatPrompts` 的「聊天 App 行為規範」第一條原本寫死「不要輸出你的行為」；開了之後換成「可以偶爾用全形括號帶一點你螢幕前的神態或小動作，一則最多一處、一句以內，不寫旁白、不寫對方、不寫面對面的互動」。從通話／見面切回聊天的模式提示同步放寬。只動提示詞，雲端打包用的是同一份。
 - **自動線下邀請**（`utils/dateInvite.ts`，有單測）：
   - 開關開著，穩定段才教 `[[ACTION:DATE_INVITE|地點|想一起做什麼]]`（也認「約見面」「見面邀約」等別名和全形標點）。
-  - 後處理（`applyAssistantPostProcessing` 第一步和二輪後）一律剝掉標籤，開著才在這一輪所有話的後面落一張 `date_invite` 卡（`metadata.dateInvite`：地點、事由、狀態），一輪只落一張。主動消息 1.0 的背景路徑（含延遲回覆）同樣處理；2.0 雲端生成的回覆會回到客戶端的後處理，走同一條路。
+  - 後處理（`applyAssistantPostProcessing` 第一步和二輪後）一律剝掉標籤，開著才在這一輪所有話的後面落一張 `date_invite` 卡（`metadata.dateInvite`：地點、事由、狀態），一輪只落一張。主動消息 1.0 的背景路徑（含延遲回覆）同樣處理。2.0 雲端生成的回覆目前收不到這個標籤（上游 Worker 會剝掉），要等自己的 Worker。
   - 卡片（`MessageItem` 的 `DateInviteCard`）：「赴約」→ 狀態記成已赴約、落一行旁白、直接進見面（`openDateWithChar`）；「婉拒」→ 記成已婉拒、落旁白。見面開場讀得到聊天記錄裡這張邀請。
   - 歷史和歸檔裡渲染成 `[[記錄:DATE_INVITE|from=char|place=…|plan=…|status=…]]`，跟轉帳同一套記錄形態；模型照抄只會被 sanitize 剝掉，不會多落一張卡。
 - 主動打電話／視訊見下面第五批。
@@ -141,7 +143,7 @@
 
 - 開關存在角色的 `charCall`，一個開關，語音或視訊由角色自己挑。邏輯在 `utils/charCall.ts`（有單測）。
 - 開著時穩定段才教 `[[ACTION:CALL|voice或video|打來的原因]]`（也認 `VIDEO_CALL`、「打電話」「視訊通話」等別名和全形標點）；提示詞交代偶爾才打、剛打過或對方在忙時不要打、不要在文字裡預告。
-- 後處理（聊天頁、主動消息 1.0 背景路徑含延遲回覆、2.0 收件箱）一律剝掉標籤；開著、又過了**一小時冷卻**（`localStorage` 記每個角色最後一次打來的時刻，不管接沒接都算）才在這一輪話後面落一張 `char_call` 來電卡（`metadata.charCall`：模式、原因、狀態、時刻）。一輪只打一通。
+- 後處理（聊天頁、主動消息 1.0 背景路徑含延遲回覆）一律剝掉標籤（2.0 雲端生成的回覆目前收不到這個標籤，上游 Worker 會剝掉，要等自己的 Worker）；開著、又過了**一小時冷卻**（`localStorage` 記每個角色最後一次打來的時刻，不管接沒接都算）才在這一輪話後面落一張 `char_call` 來電卡（`metadata.charCall`：模式、原因、狀態、時刻）。一輪只打一通。
 - 響不響：回覆是剛生成的（兩分鐘內）、頁面又看得見 → 卡片記「響鈴中」並發 `INCOMING_CHAR_CALL_EVENT`；否則（補收的舊回覆、背景裡落地）直接記**未接**。
 - 全域來電畫面 `components/IncomingCallOverlay.tsx`（掛在 PhoneShell，鎖屏時不掛）：
   - 正在通話或有掛起的通話、已經有一通在響 → 直接記未接；
@@ -183,6 +185,14 @@ NPC 維持**獨立的資料表**，不併進角色清單。理由：全專案有
 - 聊天裡先出現「照片生成中」的佔位卡，用戶回到 App 時在本機生成並填入；鎖臉照常生效（參考圖本來就在本機）。
 - 同一套機制也涵蓋本機聊天：生圖途中切走導致失敗的，回來會補生成。
 - 不走「全部在雲端生」：那需要把生圖金鑰和參考圖上傳雲端，還要每個用戶另外綁 R2 儲存空間（Worker 目前只有 D1，放不下圖片），換來的只是回來時少等幾十秒。
+
+落地實況（本機這段，#31）：
+
+- 角色要發照片（`[[ACTION:SEND_PHOTO|描述]]`，`chatParser` 執行）時先落一張「照片生成中」的佔位卡（type `photo_pending`，`metadata.pendingPhoto`：描述、試過幾次），記進 localStorage 的待補清單，再去生成；成了就用 `DB.replaceMessageFields` 把這一則換成 `image`（跟以前一樣帶 `aiGenerated`、`imagePrompt`，也存進相冊）。邏輯在 `utils/pendingPhoto.ts`（有單測）。
+- 生成途中切走、失敗：佔位卡留著顯示「照片生成中斷，回到 App 時會自動再試」，只彈一個提示。OSContext 在啟動、切回前台、每分鐘（頁面看得見時）把待補清單逐張補上，一張一張來不併發。
+- 自動試了 4 次還不行就停下，卡片顯示「照片沒能生成」和「重試」按鈕。
+- 歷史裡佔位卡渲染成「你發了一張照片（描述），還在傳送中」，角色不會以為自己沒發。
+- 雲端那段（Worker 把 `SEND_PHOTO` 交回來、落佔位卡等回到 App 再生成）等自己的 Worker，見「上游個別整合紀錄」。
 
 ## 暫時不動
 

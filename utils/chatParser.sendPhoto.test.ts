@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { ChatParser } from './chatParser';
 import { DB } from './db';
 import * as imageGeneration from './imageGeneration';
+import { readPendingPhotoIndex, retryPendingPhotos } from './pendingPhoto';
 
 // [[ACTION:SEND_PHOTO|畫面描述]] —— 角色自主發圖接進聊天管線後的執行側（教沒教這個動作是
 // chatPrompts.ts 的事，這裡只測「標籤出現時該不該真生成、生成完該落成什麼」）。
@@ -113,5 +114,32 @@ describe('[[ACTION:SEND_PHOTO]]', () => {
         expect(gen).toHaveBeenCalledTimes(2);
         const msgs = await DB.getRecentMessagesByCharId(charId, 50);
         expect(msgs.filter(m => m.type === 'image').length).toBe(2);
+    });
+
+    it('生成失敗 → 佔位卡留著、記進待補清單；之後補生成成功就換成圖片', async () => {
+        const charId = `c-photo-retry-${Date.now()}`;
+        localStorage.clear();
+        const gen = vi.spyOn(imageGeneration, 'generateImage').mockRejectedValueOnce(new Error('page frozen'));
+
+        await ChatParser.parseAndExecuteActions(
+            '給你看張照片\n[[ACTION:SEND_PHOTO|窗邊的貓]]',
+            charId, '阿一', noop, undefined, undefined, undefined, undefined, undefined,
+            TEST_IMAGE_GEN_CONFIG,
+        );
+
+        let msgs = await DB.getRecentMessagesByCharId(charId, 50);
+        const pending = msgs.find(m => m.type === 'photo_pending');
+        expect(pending?.metadata?.pendingPhoto).toMatchObject({ description: '窗邊的貓', attempts: 1 });
+        expect(readPendingPhotoIndex()).toEqual({ [String(pending!.id)]: charId });
+
+        gen.mockResolvedValue({ dataUrl: 'data:image/png;base64,AAAA' });
+        await retryPendingPhotos(TEST_IMAGE_GEN_CONFIG as never);
+
+        msgs = await DB.getRecentMessagesByCharId(charId, 50);
+        const img = msgs.find(m => m.id === pending!.id);
+        expect(img?.type).toBe('image');
+        expect(img?.metadata).toMatchObject({ aiGenerated: true, imagePrompt: '窗邊的貓' });
+        expect(img?.metadata?.pendingPhoto).toBeUndefined();
+        expect(readPendingPhotoIndex()).toEqual({});
     });
 });
