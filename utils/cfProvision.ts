@@ -22,7 +22,12 @@ export const AMSG_D1_NAME = 'sullyos-amsg';
 /** 上傳時的模塊名，同時是 metadata.main_module，兩處必須一致。 */
 const MAIN_MODULE = 'worker.bundle.js';
 
-const BUNDLE_BASE = 'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg';
+/**
+ * Soren 自己的後端代碼：SorenOS 倉庫 dev 分支上打包好的 worker/amsg（跟 wrangler.toml 同一個目錄）。
+ * 不再用上游的 Tosd0/sullyos-workers——上游那份會把 Soren 自己的動作標籤剝掉，見 plans/soren-roadmap.md
+ * 「上游個別整合紀錄」。改這裡時 worker/amsg/src/selfUpdate.ts 的 BUNDLE_URL 要一起改。
+ */
+const BUNDLE_BASE = 'https://raw.githubusercontent.com/cslshanili-prog/SorenOS/dev/worker/amsg';
 const BUNDLE_URL = `${BUNDLE_BASE}/${MAIN_MODULE}`;
 const WRANGLER_URL = `${BUNDLE_BASE}/wrangler.toml`;
 

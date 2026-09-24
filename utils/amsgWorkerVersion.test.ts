@@ -77,11 +77,23 @@ describe('compareAmsgServerVersions', () => {
 describe('設置頁門檻值', () => {
   const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
-  it('與 package.json 聲明的 amsg-server 版本一致', () => {
-    const floor = /REQUIRED_WORKER_VERSION = '([^']+)'/
-      .exec(read('../components/settings/ActiveMsgGlobalSettingsModal.tsx'))?.[1];
+  it('與 package.json 聲明的 amsg-server 版本一致（要落後必須顯式聲明理由）', () => {
+    const src = read('../components/settings/ActiveMsgGlobalSettingsModal.tsx');
+    const floor = /REQUIRED_WORKER_VERSION = '([^']+)'/.exec(src)?.[1];
+    const lagAck = /WORKER_VERSION_LAG_ACK = '([^']+)'/.exec(src)?.[1];
     const declared = JSON.parse(read('../package.json'))
       .devDependencies['@rei-standard/amsg-server'];
-    expect(floor).toBe(declared);
+
+    // 門檻落後於依賴是允許的（新版只帶可選增強時，不必逼所有人重貼部署），但必須把
+    // 當前依賴版本寫進 WORKER_VERSION_LAG_ACK 表示「知道，是有意的」。兩個都沒跟上
+    // 就是升依賴時忘了同步門檻——那正是這條守衛要抓的。
+    expect(
+      floor === declared || lagAck === declared,
+      '升了 amsg-server 卻既沒抬 REQUIRED_WORKER_VERSION、也沒更新 WORKER_VERSION_LAG_ACK',
+    ).toBe(true);
+
+    // 反方向永遠不行：門檻高於依賴的話，自己打的 bundle 都過不了自己的門檻，
+    // 用戶重貼多少次都亮「重新粘貼部署」。
+    expect(compareAmsgServerVersions(floor ?? '', declared)).not.toBe(1);
   });
 });

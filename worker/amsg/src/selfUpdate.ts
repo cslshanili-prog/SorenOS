@@ -21,9 +21,9 @@ import { constantTimeEqual } from './instantChat';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
-/** 官方成品代碼。跟代配腳本、手冊附錄指的是同一份。 */
+/** Soren 的成品代碼（SorenOS 倉庫 dev 分支），跟一鍵部署（utils/cfProvision.ts）拉的是同一份。 */
 const BUNDLE_URL =
-  'https://raw.githubusercontent.com/Tosd0/sullyos-workers/main/amsg/worker.bundle.js';
+  'https://raw.githubusercontent.com/cslshanili-prog/SorenOS/dev/worker/amsg/worker.bundle.js';
 
 /** 上傳時用的模塊名，同時也是 metadata.main_module，兩處必須一致。 */
 const MAIN_MODULE = 'worker.bundle.js';

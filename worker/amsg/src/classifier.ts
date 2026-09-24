@@ -77,7 +77,10 @@ export type Directive =
   // 寫日記: 短形態 [[DIARY: title|content]] 或長形態 [[DIARY_START: title|mood]]\n content \n[[DIARY_END]],
   // 飛書同形態 (FS_ 前綴). title 可空 → 客戶端兜底用 `${char.name}的日記 - M/D`. mood 可空.
   | { type: 'notion_write_diary'; title: string; content: string; mood?: string }
-  | { type: 'feishu_write_diary'; title: string; content: string; mood?: string };
+  | { type: 'feishu_write_diary'; title: string; content: string; mood?: string }
+  // Soren 專用標籤原樣直通（見 SOREN_PASSTHROUGH_TAG_RE）：raw 就是模型寫的整段標籤，
+  // 客戶端原樣拼回，交給跟本機生成同一份的後處理去解析、執行。
+  | { type: 'soren_tag'; raw: string };
 
 export type ClassificationResult =
   | {
@@ -178,7 +181,22 @@ interface SideEffectSpec {
   toDirective: (m: RegExpMatchArray) => Directive | null;
 }
 
+/**
+ * Soren 自己加的動作標籤：發照片、改關係、由角色決定已讀不回、線下邀約、主動來電。
+ *
+ * 這些標籤的解析（別名、全形標點、欄位）和執行都在客戶端（utils/chatParser.ts、
+ * utils/chatRelationship.ts、utils/readNoReply.ts、utils/dateInvite.ts、utils/charCall.ts），
+ * worker 不拆欄位、只負責把整段原樣送回去——不走這裡的話，sanitizeIntoSegments 會把
+ * `[[ACTION:…]]` 連原文一起剝掉，雲端生成的回覆裡這些功能就全部消失。
+ * 名字清單要跟客戶端那幾份正則認的別名一致。
+ */
+export const SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
+
 const SIDE_EFFECT_TAGS: SideEffectSpec[] = [
+  {
+    re: SOREN_PASSTHROUGH_TAG_RE,
+    toDirective: (m) => ({ type: 'soren_tag', raw: m[0] }),
+  },
   // [[ACTION:POKE]]
   {
     re: /\[\[ACTION:POKE\]\]/g,

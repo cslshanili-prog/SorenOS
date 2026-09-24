@@ -110,3 +110,10 @@ describe('NO_REPLY 標籤與提示詞', () => {
         expect(buildCharDecidesPrompt(decision, true)).toContain('[[ACTION:NO_REPLY|自動回覆內容]]');
     });
 });
+
+describe('extractNoReplyDirective：自動回覆內容帶中括號', () => {
+    it('內嵌一層 [...] 也認得', () => {
+        const r = extractNoReplyDirective('[[ACTION:NO_REPLY|[會議中] 稍後回]]');
+        expect(r).toEqual({ cleanedText: '', noReply: true, autoReply: '[會議中] 稍後回' });
+    });
+});

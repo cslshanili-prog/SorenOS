@@ -1,5 +1,6 @@
 /**
- * 刪角色時的雲端善後：把 ta 在 worker D1 `client_state` 裡的那份數據清掉。
+ * 角色級的雲端善後：把 ta 在 worker D1 裡的那份數據清掉。刪角色和「關掉這個角色的
+ * 定時主動消息」都走這裡，區別只在清單（見 CharCloudPurgePlan）。
  *
  * 雲端存的不是元數據，是**完整的角色系統提示詞 + 最近 30 條對話原文**（fire_pack，
  * 實測一個角色 32KB 起步），旁邊還有 tool_pack、活躍會話租約、以及 push 裝不下時
@@ -16,7 +17,53 @@
 import { CharacterProfile } from '../types';
 import { ActiveMsgClient } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
-import { charCredIds, forgetCredIds } from './amsgLlmCredentials';
+import {
+  ALL_CREDENTIAL_PURPOSES,
+  charCredId,
+  forgetCredIds,
+  type LlmCredentialPurpose,
+} from './amsgLlmCredentials';
+
+/**
+ * 這一趟要清掉哪幾樣。
+ *
+ * 分出這個是因為「角色被刪了」和「角色只是關掉了定時主動消息」不是一回事：前者名下
+ * 一切都該清，後者還有東西活著——即時對話開著的話雲端那份上下文每輪聊天都會重寫，
+ * 記憶宮殿的後台活兒也照舊要用它自己那行憑據。照著刪角色那套清一遍，清掉的是別人
+ * 還在用的東西。
+ */
+export interface CharCloudPurgePlan {
+  /** 清掉角色命名空間下的全部條目（fire_pack / tool_pack / 自述日誌 / 旁路會話都在裡面）。 */
+  clientState: boolean;
+  /** 要刪掉的憑據用途。 */
+  credPurposes: readonly LlmCredentialPurpose[];
+  /** 撤掉還在飛的記憶宮殿門牌整理（任務行 + 它那份一次性輸入）。 */
+  inFlightPlateJob: boolean;
+}
+
+/** 刪角色用的全量清單：名下一切都清掉。 */
+export const FULL_CHAR_PURGE: CharCloudPurgePlan = {
+  clientState: true,
+  credPurposes: ALL_CREDENTIAL_PURPOSES,
+  inFlightPlateJob: true,
+};
+
+/**
+ * 關掉角色的定時主動消息時用的清單。
+ *
+ * 雲端那份上下文（fire_pack 是完整角色卡加最近 30 條對話原文）存在的意義就是給到點
+ * 觸發用的，任務都取消了它就是純殘留——而且關掉之後打髒那道門會把這個角色永久擋在
+ * 外面，既不會再刷新也不會再被清掉，永遠凍在關閉那一刻的對話原文上。
+ *
+ * 但即時對話還開著的話它是活的：每一輪聊天都會重寫它，這時候清只是白清一次，下一句
+ * 話又傳上去。所以按即時對話還生不生效分兩種清單。記憶宮殿那行憑據兩種都保留——
+ * 門牌整理跟主動消息是兩條獨立的路，關掉這個不該把那個也弄停。
+ */
+export const disableScheduleCharPurge = (instantChatStillLive: boolean): CharCloudPurgePlan => ({
+  clientState: !instantChatStillLive,
+  credPurposes: instantChatStillLive ? ['chat'] : ['chat', 'instant', 'emotion'],
+  inFlightPlateJob: false,
+});
 
 export type CharCloudStateCleanup =
   /** 沒有云端可清（角色不存在，或壓根沒填 worker 地址）—— 一個請求都沒發。 */
@@ -48,11 +95,32 @@ export const charMayHaveCloudState = (char: CharacterProfile | undefined): boole
  * 這也是唯一的一道門：只要 worker 配置在，就不再按角色猜「寫沒寫過」，清一次是冪等的。
  *
  * 判斷放在發請求之前、而不是靠 catch 裡認錯誤文案：錯誤文案改一次這裡就失效了。
+ *
+ * `plan` 說清這一趟要清哪幾樣，默認是刪角色那份全量清單。關掉定時主動消息走的是
+ * 另一份（見 disableScheduleCharPurge）：那時候即時對話和記憶宮殿的後台活兒可能還
+ * 活著，照全量清一遍會把它們正在用的東西清掉。
  */
 export const purgeCharCloudState = async (
   char: CharacterProfile | undefined,
+  plan: CharCloudPurgePlan = FULL_CHAR_PURGE,
 ): Promise<CharCloudStateCleanup> => {
   if (!charMayHaveCloudState(char)) return { status: 'skipped' };
+  return purgeCloudCharById(char!.id, plan);
+};
+
+/**
+ * 同上，但只認角色 id。
+ *
+ * 給「雲端還留著一個本地已經不存在的角色」那種情況用——導入備份換掉整套角色之後，
+ * 舊檔角色在雲端的那份上下文和憑據行就是這種，本地壓根拿不出對應的 CharacterProfile。
+ * 這類殘留沒人會再刷新、也沒人會再清：client_state 的角色命名空間在 worker 側沒有
+ * TTL，不在這時候清掉就是永久留著，而裡面裝的是完整角色卡加最近 30 條對話原文。
+ */
+export const purgeCloudCharById = async (
+  charId: string,
+  plan: CharCloudPurgePlan = FULL_CHAR_PURGE,
+): Promise<CharCloudStateCleanup> => {
+  if (!charId) return { status: 'skipped' };
 
   try {
     const globalConfig = await ActiveMsgStore.getGlobalConfig();
@@ -62,25 +130,30 @@ export const purgeCharCloudState = async (
     return { status: 'skipped' };
   }
 
-  // 這個角色名下登記的 API 憑據行也一起清掉：角色都沒了，那幾行再留著只是白佔
-  // 雲端的行數上限。跟 client_state 各清各的——憑據沒清成不該讓上下文也留在雲端。
-  // 失敗只 warn：刪角色的路上一個附帶清理攔不住主線（下次同名 credId 覆蓋即可）。
-  try {
-    await ActiveMsgClient.deleteLlmCredentials({ credIds: charCredIds(char!.id) });
-  } catch (error) {
-    console.warn('[Amsg2CharCleanup] 刪角色時清雲端 API 憑據失敗（不影響刪除）', error);
-    // 本地那本指紋底帳照劃：角色都沒了，留著幾條死帳只會一直佔 localStorage，
-    // 後台重傳也會一遍遍去查一個不存在的角色。
-    forgetCredIds(charCredIds(char!.id));
+  // 這個角色名下登記的 API 憑據行也一起清掉：沒人再用的那幾行留著只是白佔雲端的
+  // 行數上限，而且裡面裝的是 API Key。跟 client_state 各清各的——憑據沒清成不該
+  // 讓上下文也留在雲端。失敗只 warn：附帶清理攔不住主線（下次同名 credId 覆蓋即可）。
+  const credIds = plan.credPurposes.map((purpose) => charCredId(charId, purpose));
+  if (credIds.length > 0) {
+    try {
+      await ActiveMsgClient.deleteLlmCredentials({ credIds });
+    } catch (error) {
+      console.warn('[Amsg2CharCleanup] 清雲端 API 憑據失敗（不影響主流程）', error);
+      // 本地那本指紋底帳照劃：雲端那行已經當作不存在了，底帳留著會讓後台重傳
+      // 一直以為「傳過了」，下次真要用時反而補不回來。
+      forgetCredIds(credIds);
+    }
   }
 
   // 後台任務的一次性輸入不住在角色命名空間裡（它按 job 編號存在共用的 amsg:job 下，
-  // 見 amsgTaskKinds），所以上面那趟清不到它。裡面裝的是這個角色的門牌全文、蒸餾材料
+  // 見 amsgTaskKinds），所以下面那趟清不到它。裡面裝的是這個角色的門牌全文、蒸餾材料
   // 和身份上下文——正是刪除確認框承諾會清掉的那類東西，不能讓它躺滿 3 天等 TTL。
-  await purgeInFlightPlateJob(char!.id);
+  if (plan.inFlightPlateJob) await purgeInFlightPlateJob(charId);
+
+  if (!plan.clientState) return { status: 'cleared', keys: [] };
 
   try {
-    const keys = await ActiveMsgClient.clearCharClientState(char!.id);
+    const keys = await ActiveMsgClient.clearCharClientState(charId);
     return { status: 'cleared', keys };
   } catch (error) {
     return { status: 'failed', error };

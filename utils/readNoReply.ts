@@ -126,7 +126,8 @@ export function buildNoReplyNarration(charName: string, decision: Pick<ReadNoRep
 }
 
 /** 角色選擇不回：[[ACTION:NO_REPLY]] 或 [[ACTION:NO_REPLY|自動回覆內容]]，也認「已讀不回」。 */
-const NO_REPLY_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:NO_REPLY|已讀不回|已读不回)\s*(?:[|｜]\s*([^\]\n]*?))?\s*\]\]/gi;
+// 自動回覆內容本身可能帶一層中括號（「[會議中] 稍後回」），所以內容容許內嵌一層 [...]
+const NO_REPLY_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:NO_REPLY|已讀不回|已读不回)\s*(?:[|｜]\s*((?:[^\[\]\n]|\[[^\[\]\n]*\])*?))?\s*\]\]/gi;
 export const AUTO_REPLY_MAX_LENGTH = 40;
 
 export function extractNoReplyDirective(text: string): { cleanedText: string; noReply: boolean; autoReply?: string } {

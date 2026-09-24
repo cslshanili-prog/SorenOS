@@ -663,6 +663,8 @@ const processInboxMessageWithPostProcessing = async (
     emojis,
     categories,
     realtimeConfig,
+    // 雲端回覆裡的發照片（worker 以 soren_tag 送回）要靠它才生得出來；沒配就照舊剝掉不生
+    imageGenConfig: apiConfig.imageGenConfig,
     // 日程改動按「角色說這句話的那一刻」判，不是按現在——這條可能在收件箱裡躺了一夜，
     // 昨晚的「22:00 改成陪你聊天」不該落到今天的 22:00 上。
     spokenAt: message.sentAt,

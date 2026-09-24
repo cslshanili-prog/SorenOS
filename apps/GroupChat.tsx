@@ -24,7 +24,7 @@ import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/userPersona';
-import { markAmsgStateDirty } from '../utils/amsgStateSync';
+import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
@@ -521,10 +521,10 @@ const GroupChat: React.FC = () => {
     // 歷史裡寫卡片 —— 兩者都是主動消息 2.0 雲端快照（fire_pack）的素材。群裡有事就給成員
     // 逐個打髒，不然角色到點還活在上一次私聊那會兒的群裡。同一輪裡的多次調用會在微任務內
     // 合併成一次上傳，沒開主動消息的成員被 markAmsgStateDirty 內部的門篩掉。
-    const markGroupMembersDirty = useCallback((memberIds: string[]) => {
+    const markGroupMembersDirty = useCallback((memberIds: string[], reason: AmsgDirtyReason = 'refresh') => {
         for (const memberId of memberIds) {
             const member = charactersRef.current.find(c => c.id === memberId);
-            if (member) markAmsgStateDirty({ char: member, userProfile: groupUserProfile, groups, realtimeConfig });
+            if (member) markAmsgStateDirty({ char: member, userProfile: groupUserProfile, groups, realtimeConfig }, reason);
         }
     }, [groupUserProfile, groups, realtimeConfig]);
 
@@ -999,6 +999,11 @@ const GroupChat: React.FC = () => {
         const remaining = preserveContext ? allGroupMsgs.slice(-10) : [];
         setMessages(remaining);
         setTotalMsgCount(remaining.length);
+
+        // 群裡說過的話會進每個成員私聊 fire_pack 的【群聊背景】塊，所以清空群聊之後，
+        // 成員在雲端那份快照裡還帶著這段剛被刪掉的群聊。這條路以前一次打髒都沒有，
+        // 用 invalidate 是因為沒有待觸發任務的成員輪不到重傳，普通打髒會被門丟掉。
+        markGroupMembersDirty(activeGroup.members || [], 'invalidate');
 
         addToast(`已清理 ${msgsToDelete.length} 條記錄${preserveContext ? ' (保留最近10條)' : ''}`, 'success');
         trackEvent('清空群聊记录', { preserve: preserveContext ? 'on' : 'off' });

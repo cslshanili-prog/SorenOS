@@ -437,3 +437,37 @@ describe('classifyLLMOutput — 日程修改走 directive 通道', () => {
   });
 });
 
+
+describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
+  it('發照片、改關係、邀約、來電都變成 soren_tag，正文裡剝掉', () => {
+    const r = classifyLLMOutput([
+      '看我剛拍的',
+      '[[ACTION:SEND_PHOTO|窗邊的貓]]',
+      '[[ACTION：RELATIONSHIP｜曖昧對象]]',
+      '[[ACTION:DATE_INVITE|河堤公園|散步]]',
+      '[[ACTION:CALL|video|想看看你]]',
+    ].join('\n'));
+    expect(r.kind).toBe('finish');
+    if (r.kind !== 'finish') return;
+    expect(r.cleanedText).toBe('看我剛拍的');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[ACTION:SEND_PHOTO|窗邊的貓]]' },
+      { type: 'soren_tag', raw: '[[ACTION：RELATIONSHIP｜曖昧對象]]' },
+      { type: 'soren_tag', raw: '[[ACTION:DATE_INVITE|河堤公園|散步]]' },
+      { type: 'soren_tag', raw: '[[ACTION:CALL|video|想看看你]]' },
+    ]);
+  });
+
+  it('整則只有已讀不回標籤：正文空、標籤照樣送回', () => {
+    const r = classifyLLMOutput('[[ACTION:NO_REPLY|[會議中] 稍後回]]');
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('');
+    expect(r.directives).toEqual([{ type: 'soren_tag', raw: '[[ACTION:NO_REPLY|[會議中] 稍後回]]' }]);
+  });
+
+  it('不誤認別的 ACTION（POKE 照舊、CALLBACK 不算來電）', () => {
+    const r = classifyLLMOutput('[[ACTION:POKE]]\n[[ACTION:CALLBACK|x]]');
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.directives).toEqual([{ type: 'poke' }]);
+  });
+});
