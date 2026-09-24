@@ -20,9 +20,11 @@
   - **上游 Worker 會剝掉它不認得的標籤**（2026-09-24 查到）：Worker 用 `utils/sanitize.ts` 的 `sanitizeIntoSegments` 切推播段落，裡面的 `stripBusinessTagsForNotification` 會把所有 `[[ACTION:…]]` 連原文一起剝掉，只有分類器認得的副作用標籤會改走 directives 通道送到客戶端。所以雲端生成的回覆裡，發照片（`SEND_PHOTO`）和 Soren 自己加的 `RELATIONSHIP`、`NO_REPLY`、`DATE_INVITE`、`CALL` 都到不了客戶端。本機生成的回覆不受影響。
   - **決定：自己維護 Worker（2026-09-24，Liora 拍板）**。SorenOS 出自己的 Worker bundle，把上面這幾個標籤加進分類器的 directives（或放行給客戶端），設定頁的部署連結與自動更新改指向自己的倉庫；之後上游 Worker 的更新由我們手動合。用戶要手動重新部署一次。順便處理：延遲回覆不算進每日主動次數。
   - 當時沒搬的「雲端資料清點」與 amsg-server 升級，已在下一條補上。
-- **補齊上游主動消息 2.0 的其餘更新**（上游 `e53907bf` 本地清了雲端跟上的收尾、`6b2975d0` 雲端資料清點、`dc22235d`／`95a7abbc` amsg-server 升到 next.29／next.30）：同一套轉繁體三方合併，衝突處保留 Soren 的每聊天身份變數與簡體統計事件名；`pnpm add` 升到 `@rei-standard/amsg-server@2.6.0-next.30`。這樣 Soren 自己的 Worker 不會比用戶原本跑的上游版舊。
+- **補齊上游主動消息 2.0 的其餘更新**（#32；上游 `e53907bf` 本地清了雲端跟上的收尾、`6b2975d0` 雲端資料清點、`dc22235d`／`95a7abbc` amsg-server 升到 next.29／next.30）：同一套轉繁體三方合併，衝突處保留 Soren 的每聊天身份變數與簡體統計事件名；`pnpm add` 升到 `@rei-standard/amsg-server@2.6.0-next.30`。這樣 Soren 自己的 Worker 不會比用戶原本跑的上游版舊。
 
 ## Soren 自己的 Worker
+
+（#32）
 
 - **從哪裡部署**：一鍵部署（`utils/cfProvision.ts`）和「更新 Worker」（`worker/amsg/src/selfUpdate.ts`）都改成拉 SorenOS 倉庫 **dev 分支**的 `worker/amsg/worker.bundle.js` 與同目錄的 `wrangler.toml`（raw.githubusercontent.com，倉庫是公開的）。兩處網址要一起改。
 - **所以 `worker/amsg/worker.bundle.js` 現在是真的會被部署的檔案**：改了 `worker/amsg/src` 或它引用的 utils，要 `pnpm build:workers` 重打包並一起提交，別再還原它。合進 dev 之後，用戶按「更新 Worker」或重跑一鍵部署才會拿到。
