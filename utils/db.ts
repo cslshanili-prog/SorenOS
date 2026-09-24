@@ -950,6 +950,25 @@ export const DB = {
     });
   },
 
+  /** 整則換掉 type / content / metadata（照片佔位卡生成好之後換成真的圖片用，見 utils/pendingPhoto.ts）。 */
+  replaceMessageFields: async (id: number, patch: Partial<Pick<Message, 'type' | 'content' | 'metadata'>>): Promise<void> => {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
+    const store = transaction.objectStore(STORE_MESSAGES);
+    return new Promise((resolve, reject) => {
+        const req = store.get(id);
+        req.onsuccess = () => {
+            const data = req.result as Message | undefined;
+            if (!data) { reject(new Error('Message not found')); return; }
+            store.put({ ...data, ...patch });
+        };
+        req.onerror = () => reject(req.error);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error || new Error('replaceMessageFields transaction aborted'));
+    });
+  },
+
   getMessageById: async (id: number): Promise<Message | null> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {

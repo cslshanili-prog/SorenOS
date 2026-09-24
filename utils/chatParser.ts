@@ -7,9 +7,7 @@ import { extractTransferCommands } from './transferFormat';
 import { extractMallOrderCommands } from './mallOrderFormat';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
-import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from './imageGeneration';
-import { migrateDataUrlToRef } from './blobRef';
-import { getLocalDateKey } from './localDate';
+import { createPendingPhoto, fulfillPendingPhoto } from './pendingPhoto';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
     collaborationFileMessageMetadata,
@@ -276,35 +274,15 @@ export const ChatParser = {
                 && imageGenConfig?.baseUrl && imageGenConfig?.model
             );
             if (canGenerate) {
-                // 挨個順序生成、發送——生圖是要花錢的網絡請求，不併發搶速度；一輪回復裡
-                // 角色想發好幾張也不至於同時炸出去一堆請求。
+                // 先落「照片生成中」的佔位卡再生成（utils/pendingPhoto.ts）：生成途中切走、失敗的，
+                // 卡片留著，回到 App 時自動補。挨個順序來——生圖要花錢，不併發搶速度。
                 for (const m of photoMatches) {
                     const description = m[1].trim();
                     if (!description) continue;
                     try {
-                        const chars = await DB.getAllCharacters();
-                        const charProfile = chars.find(c => c.id === charId);
-                        const prompt = charProfile ? buildCharacterImagePrompt(charProfile, description) : description;
-                        const referenceBlob = charProfile ? await resolveCharacterReferenceImage(charProfile, { description }) : null;
-                        const { dataUrl } = await generateImage(imageGenConfig!, prompt, referenceBlob || undefined);
-                        const storedContent = await migrateDataUrlToRef(dataUrl);
-                        const sentMessageId = await persist({
-                            charId, role: 'assistant', type: 'image', content: storedContent,
-                            metadata: { aiGenerated: true, imagePrompt: description },
-                        });
-                        // 相冊是消息的附帶記錄，見 apps/Chat.tsx 用戶發圖那份同款邏輯——角色自己發的
-                        // 圖之前只落消息，不進相冊，「相冊」App 裡翻不到角色發過的照片。寫入失敗不影響
-                        // 已經落庫的聊天消息。
-                        try {
-                            await DB.saveGalleryImage({
-                                id: `img-${Date.now()}-${Math.random()}`,
-                                charId, url: storedContent, timestamp: Date.now(),
-                                sourceMessageId: sentMessageId, sender: 'char',
-                                savedDate: getLocalDateKey(new Date()),
-                            });
-                        } catch (galleryError) {
-                            console.warn('[ChatParser] 角色發的圖存相冊失敗:', galleryError);
-                        }
+                        const pendingId = await createPendingPhoto(persist, charId, description);
+                        const ok = await fulfillPendingPhoto(pendingId, imageGenConfig);
+                        if (!ok) addToast(`${charName} 的照片還沒生成好，回到 App 時會自動再試`, 'info');
                     } catch (error) {
                         console.warn('[ChatParser] 角色發圖失敗:', error);
                         addToast(`${charName} 想發張照片，但生成失敗了`, 'error');

@@ -903,6 +903,36 @@ const LifeRecordCard: React.FC<{
     );
 };
 
+/** 角色發的照片還在生成（見 utils/pendingPhoto.ts）；自動重試放棄後留「重試」。 */
+const PendingPhotoCard: React.FC<{
+    m: Message;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onRetryPhoto?: (m: Message) => void;
+}> = ({ m, commonLayout, selectionMode, onRetryPhoto }) => {
+    const meta = m.metadata?.pendingPhoto || {};
+    const gaveUp = !!meta.gaveUp;
+    const failedOnce = (meta.attempts || 0) > 0;
+    return commonLayout(
+        <div className="sully-pending-photo w-44 h-56 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-100 via-white to-slate-100 flex flex-col items-center justify-center gap-2 px-3 text-center shadow-sm">
+            <div className={`text-3xl ${gaveUp ? '' : 'animate-pulse'}`}>📷</div>
+            <div className="text-[11px] font-bold text-slate-500">
+                {gaveUp ? '照片沒能生成' : failedOnce ? '照片生成中斷' : '照片生成中…'}
+            </div>
+            {!gaveUp && failedOnce && <div className="text-[10px] leading-relaxed text-slate-400">回到 App 時會自動再試</div>}
+            {gaveUp && onRetryPhoto && !selectionMode && (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onRetryPhoto(m); }}
+                    className="mt-1 px-4 py-1.5 rounded-xl bg-slate-800 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
+                >
+                    重試
+                </button>
+            )}
+        </div>
+    );
+};
+
 /** 角色打來的電話（聊天設定 · 允許角色主動打電話，見 utils/charCall.ts）。未接的可以回撥。 */
 const CharCallCard: React.FC<{
     m: Message;
@@ -1523,6 +1553,7 @@ interface MessageItemProps {
     onResolveLifeRecord?: (m: Message, action: 'confirmed' | 'rejected') => void;
     onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
     onCallBack?: (m: Message) => void;
+    onRetryPhoto?: (m: Message) => void;
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
     onOpenCollaborationFile?: (m: Message) => void | Promise<void>;
     /** 思考鏈卡片視覺與交互 */
@@ -1575,6 +1606,7 @@ const MessageItem = React.memo(({
     onResolveLifeRecord,
     onResolveDateInvite,
     onCallBack,
+    onRetryPhoto,
     onOpenCollaborationFile,
     thinkingChainOptions,
 }: MessageItemProps) => {
@@ -3412,6 +3444,10 @@ const MessageItem = React.memo(({
         return <TransferCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveTransfer={onResolveTransfer} />;
     }
 
+    if (m.type === 'photo_pending') {
+        return <PendingPhotoCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} onRetryPhoto={onRetryPhoto} />;
+    }
+
     if (m.type === 'char_call') {
         return <CharCallCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} onCallBack={onCallBack} />;
     }
@@ -4026,6 +4062,9 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&
            prev.msg.metadata?.dateInvite?.status === next.msg.metadata?.dateInvite?.status &&
            prev.msg.metadata?.charCall?.status === next.msg.metadata?.charCall?.status &&
+           prev.msg.type === next.msg.type &&
+           prev.msg.metadata?.pendingPhoto?.attempts === next.msg.metadata?.pendingPhoto?.attempts &&
+           prev.msg.metadata?.pendingPhoto?.gaveUp === next.msg.metadata?.pendingPhoto?.gaveUp &&
            prev.msg.metadata?.sarModuleSurface?.surface === next.msg.metadata?.sarModuleSurface?.surface &&
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&

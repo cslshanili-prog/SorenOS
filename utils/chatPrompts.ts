@@ -1297,6 +1297,11 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                         status: tMeta.status,
                     })}`;
                 }
+                else if (m.type === 'photo_pending') {
+                    // 角色發的照片還在生成（見 utils/pendingPhoto.ts）：告訴它發了什麼，別讓它以為沒發
+                    const desc = typeof m.metadata?.pendingPhoto?.description === 'string' ? m.metadata.pendingPhoto.description : '';
+                    content = `${timeStr} [你發了一張照片${desc ? `（${desc}）` : ''}，還在傳送中]`;
+                }
                 else if (m.type === 'char_call') {
                     // 角色打來的電話：記錄形態帶上接了沒（見 utils/charCall.ts）
                     content = `${timeStr} ${formatCharCallRecord(m.metadata?.charCall)}`;
