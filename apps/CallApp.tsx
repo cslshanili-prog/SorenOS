@@ -29,6 +29,7 @@ import { Message, ChatTheme, AppID, type CharacterProfile } from '../types';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { buildIncomingCallGreeting } from '../utils/charCall';
+import { resolveCharacterChatApi } from '../utils/characterApi';
 import VRMVideoCallStage from '../components/call/VRMVideoCallStage';
 import Live2DActionSettings from '../components/call/Live2DActionSettings';
 import VRoidBetaWarning from '../components/call/VRoidBetaWarning';
@@ -1894,7 +1895,9 @@ ${sentencePlan}`;
     includeUserCameraContext = false,
     userCameraSnapshotForTurn?: string,
   ): Promise<ParsedCallReply> => {
-    const baseUrl = apiConfig.baseUrl?.replace(/\/+$/, '');
+    // 通話跟私聊用同一個模型：角色設了專屬「對話模型」就用它，沒設才落到全局 API
+    const chatApi = selectedChar ? resolveCharacterChatApi(selectedChar, apiConfig) : apiConfig;
+    const baseUrl = chatApi.baseUrl?.replace(/\/+$/, '');
     if (!baseUrl) throw new Error('請先在設置裡配置聊天 API URL');
     const userName = userProfile?.name?.trim() || '用戶';
     if (selectedChar) {
@@ -1965,9 +1968,9 @@ ${sentencePlan}`;
       purpose: string,
     ) => safeFetchJson(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey || 'sk-none'}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chatApi.apiKey || 'sk-none'}` },
       body: JSON.stringify({
-        model: apiConfig.model,
+        model: chatApi.model,
         messages: [{ role: 'system', content: nextSystemPrompt }, ...nextMessages],
         temperature: 0.85,
         // max_tokens 是 Claude 原生 API 的必填字段；缺了它，OpenAI→Claude 中轉會被

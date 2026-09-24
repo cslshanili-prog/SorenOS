@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    CHAR_CALL_COOLDOWN_MS, CHAR_CALL_RING_MS, canCharCallNow, describeCharCall, effectiveCallStatus,
+    buildCharCallCooldownNote, CHAR_CALL_COOLDOWN_MS, CHAR_CALL_RING_MS, canCharCallNow, describeCharCall, effectiveCallStatus,
     extractCharCall, formatCharCallRecord, markCharCallAttempt, shouldRingNow,
 } from './charCall';
 
@@ -63,5 +63,19 @@ describe('文字', () => {
         expect(formatCharCallRecord({ mode: 'video', reason: '想看看你', status: 'missed', at: 0 }, 0))
             .toBe('[[記錄:CALL|from=char|mode=視訊|reason=想看看你|status=對方沒接到]]');
         expect(describeCharCall({ mode: 'voice', reason: '' })).toBe('[語音來電]');
+    });
+});
+
+describe('冷卻中告訴角色', () => {
+    beforeEach(() => localStorage.clear());
+
+    it('沒打過或過了冷卻：空字串；冷卻中：說明幾分鐘前打過、還要多久', () => {
+        expect(buildCharCallCooldownNote('a', '小雨', 0)).toBe('');
+        markCharCallAttempt('a', 0);
+        const note = buildCharCallCooldownNote('a', '小雨', 10 * 60_000);
+        expect(note).toContain('10 分鐘前');
+        expect(note).toContain('50 分鐘內打不出去');
+        expect(note).toContain('請小雨打給你');
+        expect(buildCharCallCooldownNote('a', '小雨', CHAR_CALL_COOLDOWN_MS)).toBe('');
     });
 });
