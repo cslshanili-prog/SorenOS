@@ -12,6 +12,7 @@
  */
 
 import { formatDateInviteRecord } from './dateInvite';
+import { formatCharCallRecord } from './charCall';
 import type { Message, Emoji } from '../types';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -142,6 +143,7 @@ export function normalizeMessageContent(
     }
 
     if (type === 'date_invite') return formatDateInviteRecord(msg.metadata?.dateInvite);
+    if (type === 'char_call') return formatCharCallRecord(msg.metadata?.charCall);
 
     if (type === 'mall_order') {
         // 跟轉帳一樣是全鏈路一副面孔：私聊歷史 (chatPrompts.buildMessageHistory) 與

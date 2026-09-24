@@ -9,6 +9,7 @@ import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { IMPORT_IN_PROGRESS_KEY, useOS } from '../context/OSContext';
 import StatusBar from './os/StatusBar';
 import { SARModuleMonitor } from './sar/SARModuleMonitor';
+import IncomingCallOverlay from './IncomingCallOverlay';
 import Launcher from '../apps/Launcher';
 import CompanionLockChrome from './os/CompanionLockChrome';
 import { loadCompanionFrameStyle } from './os/companionFrameStyles';
@@ -1046,6 +1047,8 @@ const PhoneShell: React.FC = () => {
           {/* Overlays: Global Mini Player (when music is playing in background) */}
           <GlobalMiniPlayer />
           {!isLocked && <SARModuleMonitor />}
+          {/* Overlays: 角色主動打來的來電畫面 */}
+          {!isLocked && <IncomingCallOverlay />}
 
           {/* Overlays: 人格模擬生成全局指示條 */}
           <PersonaSimIndicator />

@@ -32,6 +32,7 @@ import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
 import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
+import { buildCharCallPrompt, formatCharCallRecord } from './charCall';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -346,6 +347,8 @@ export const ChatPrompts = {
         baseSystemPrompt += buildRelationshipPrompt(char, userProfile.name);
         // 聊天設定 · 自動線下邀請：開著才教 DATE_INVITE 標籤（見 utils/dateInvite.ts）
         if (char.dateInvite) baseSystemPrompt += buildDateInvitePrompt(userProfile.name);
+        // 聊天設定 · 允許角色主動打電話／視訊（見 utils/charCall.ts）
+        if (char.charCall) baseSystemPrompt += buildCharCallPrompt(userProfile.name);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，
@@ -1293,6 +1296,10 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                         receipt: tMeta.receipt,
                         status: tMeta.status,
                     })}`;
+                }
+                else if (m.type === 'char_call') {
+                    // 角色打來的電話：記錄形態帶上接了沒（見 utils/charCall.ts）
+                    content = `${timeStr} ${formatCharCallRecord(m.metadata?.charCall)}`;
                 }
                 else if (m.type === 'date_invite') {
                     // 角色發的見面邀請卡：記錄形態帶上用戶回應了沒（見 utils/dateInvite.ts）

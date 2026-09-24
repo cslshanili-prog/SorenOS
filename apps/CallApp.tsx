@@ -28,6 +28,7 @@ import { ChatPrompts } from '../utils/chatPrompts';
 import { Message, ChatTheme, AppID, type CharacterProfile } from '../types';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
+import { buildIncomingCallGreeting } from '../utils/charCall';
 import VRMVideoCallStage from '../components/call/VRMVideoCallStage';
 import Live2DActionSettings from '../components/call/Live2DActionSettings';
 import VRoidBetaWarning from '../components/call/VRoidBetaWarning';
@@ -511,7 +512,7 @@ ${currentVoiceActingGuide()}
   return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, userProfile, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, userProfile, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
 
   const [viewMode, setViewMode] = useState<ViewMode>('role-select');
   const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
@@ -2291,18 +2292,50 @@ ${sentencePlan}`;
     };
   }, [isAudioPlaying, nativeCallAudioOnly]);
 
+  // 角色來電被接聽、或從未接來電卡回撥（OSContext.openCallWithChar）：跳過選人頁直接接通。
+  // 先把角色和模式設好，等 state 真的換過來再撥（requestSelectedCall 讀的是當下的 callMode）。
+  // 角色打來的那通（incomingReason 有值）由角色先開口，不看「角色主動接話」偏好。
+  const incomingCallRef = useRef<{ mode: CallMode; reason: string } | null>(null);
+  const pendingAutoStartRef = useRef<{ charId: string; mode: CallMode } | null>(null);
+  const [autoStartTick, setAutoStartTick] = useState(0);
+  useEffect(() => {
+    if (!callAutoStart) return;
+    consumeCallAutoStart();
+    if (viewMode === 'in-call' || suspendedCall) return;
+    pendingAutoStartRef.current = { charId: callAutoStart.charId, mode: callAutoStart.mode };
+    incomingCallRef.current = callAutoStart.incomingReason !== undefined
+      ? { mode: callAutoStart.mode, reason: callAutoStart.incomingReason }
+      : null;
+    setViewMode('role-select');
+    setSelectedCharId(callAutoStart.charId);
+    setCallMode(callAutoStart.mode);
+    setAutoStartTick(t => t + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callAutoStart]);
+  useEffect(() => {
+    const pending = pendingAutoStartRef.current;
+    if (!pending || viewMode !== 'role-select' || selectedCharId !== pending.charId || callMode !== pending.mode) return;
+    pendingAutoStartRef.current = null;
+    requestSelectedCall();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartTick, selectedCharId, callMode, viewMode]);
+
   // 接通後由角色先說第一句。它和後續靜默主動接話共用一個顯式通話偏好，
   // 默認開啟；關閉後 CallApp 會等待用戶先說，ChatApp 不受影響。
   const greetingFiredRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!callPreferences.characterInitiative || viewMode !== 'in-call' || bubbles.length > 0) return;
+    if ((!callPreferences.characterInitiative && !incomingCallRef.current) || viewMode !== 'in-call' || bubbles.length > 0) return;
     if (!selectedChar?.id || greetingFiredRef.current === currentSessionId) return;
     greetingFiredRef.current = currentSessionId;
     void (async () => {
       try {
         setCallState('connecting');
+        const incoming = incomingCallRef.current;
+        incomingCallRef.current = null;
         const greetingReply = prepareCallAssistantReply(
-          await requestAssistantReply('（電話剛接通。你先開口——像平時接到這個人電話一樣自然地說第一句話。不要解釋規則，就是最自然的那個“喂”“誒”或者符合你性格的開場。）'),
+          await requestAssistantReply(incoming
+            ? buildIncomingCallGreeting(incoming.mode, incoming.reason)
+            : '（電話剛接通。你先開口——像平時接到這個人電話一樣自然地說第一句話。不要解釋規則，就是最自然的那個“喂”“誒”或者符合你性格的開場。）'),
           callMode === 'video' && selectedChar?.videoCallPerformanceQuality !== 'high',
         );
         const greetingText = greetingReply.text;
