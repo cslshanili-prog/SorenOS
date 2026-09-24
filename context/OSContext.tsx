@@ -46,6 +46,7 @@ import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormal
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { extractNoReplyDirective } from '../utils/readNoReply';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
+import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type IncomingCharCallDetail } from '../utils/charCall';
 import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
 import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
 import { resolveOverdueCloudDelayedReplies, takeDueDelayedRepliesForLocal } from '../utils/delayedReplyCloud';
@@ -472,6 +473,10 @@ interface OSContextType {
   dateAutoStartCharId: string | null;
   openDateWithChar: (charId: string) => void;
   consumeDateAutoStart: () => void;
+  /** 角色來電被接聽、或從未接來電卡回撥：CallApp 掛載時直接接通這個角色（incomingReason 有值 = 角色打來的）。 */
+  callAutoStart: { charId: string; mode: 'voice' | 'video'; incomingReason?: string } | null;
+  openCallWithChar: (charId: string, mode: 'voice' | 'video', incomingReason?: string) => void;
+  consumeCallAutoStart: () => void;
   /** Chat 主頁「消息」tab 點群聊行時用：GroupChat 自己的列表/詳情態是內部 state，沒有外部深鏈機制，
    *  借這個字段告訴它"打開就直接進這個群"，消費掉即清空，不影響群內後續手動切換。 */
   pendingGroupChatId: string | null;
@@ -1007,6 +1012,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [suspendedCall, setSuspendedCall] = useState<{ charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] } | null>(null);
   // 聊天「見面」按鈕 → 見面：記錄目標角色，DateApp 掛載後消費一次並自動進入見面
   const [dateAutoStartCharId, setDateAutoStartCharId] = useState<string | null>(null);
+  const [callAutoStart, setCallAutoStart] = useState<{ charId: string; mode: 'voice' | 'video'; incomingReason?: string } | null>(null);
   const [pendingGroupChatId, setPendingGroupChatId] = useState<string | null>(null);
 
   const sendProactiveNativeNotification = useCallback(async (charId: string, charName: string, body: string) => {
@@ -2489,6 +2495,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const dateInvite: DateInviteMeta | null = inviteTag.invite && char.dateInvite
                   ? { ...inviteTag.invite, status: 'pending' }
                   : null;
+              // 允許角色主動打電話：標籤一律剝掉，開著又過了冷卻才在話後面補一張來電卡
+              const callTag = extractCharCall(aiContent);
+              aiContent = callTag.cleanedText;
+              const charCallReq = callTag.call && char.charCall && canCharCallNow(charId) ? callTag.call : null;
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
@@ -2689,6 +2699,25 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   });
                   savedPreviewChunks.push(inviteText);
                   offset += 1;
+              }
+
+              if (charCallReq) {
+                  const now = Date.now();
+                  markCharCallAttempt(charId, now);
+                  const ring = shouldRingNow({ now, visible: document.visibilityState === 'visible', busy: false });
+                  const call: CharCallMeta = { ...charCallReq, status: ring ? 'ringing' : 'missed', at: now };
+                  const callText = describeCharCall(call);
+                  const messageId = await DB.saveMessage({
+                      charId, role: 'assistant', type: 'char_call', content: callText,
+                      timestamp: baseTimestamp + offset, metadata: { charCall: call },
+                  });
+                  savedPreviewChunks.push(callText);
+                  offset += 1;
+                  if (ring) {
+                      window.dispatchEvent(new CustomEvent<IncomingCharCallDetail>(INCOMING_CHAR_CALL_EVENT, {
+                          detail: { charId, messageId, mode: call.mode, reason: call.reason },
+                      }));
+                  }
               }
 
               if (offset > 0) {
@@ -5430,6 +5459,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setActiveApp(AppID.Date);
   };
   const consumeDateAutoStart = () => setDateAutoStartCharId(null);
+  const openCallWithChar = (charId: string, mode: 'voice' | 'video', incomingReason?: string) => {
+    setActiveCharacterId(charId);
+    setCallAutoStart({ charId, mode, ...(incomingReason !== undefined ? { incomingReason } : {}) });
+    setActiveApp(AppID.Call);
+  };
+  const consumeCallAutoStart = () => setCallAutoStart(null);
   const openGroupChat = (groupId: string) => {
     setPendingGroupChatId(groupId);
     setActiveApp(AppID.GroupChat);
@@ -5575,6 +5610,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     dateAutoStartCharId,
     openDateWithChar,
     consumeDateAutoStart,
+    callAutoStart,
+    openCallWithChar,
+    consumeCallAutoStart,
     pendingGroupChatId,
     openGroupChat,
     consumePendingGroupChat

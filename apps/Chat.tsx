@@ -141,7 +141,7 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
-    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar } = useOS();
+    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
     // 從 Chat 主頁（消息/聯繫人 tab）點進來的私聊，返回鍵回 Chat 主頁而不是無腦回桌面；
     // 別的入口（角色卡「發消息」、伴侶桌面皮膚的「對話」按鈕等）沒設這個，行為不變。
@@ -1757,6 +1757,12 @@ const Chat: React.FC = () => {
         }
         await reloadMessages(visibleCountRef.current);
     }, [char, chatUserProfile, groups, realtimeConfig, openDateWithChar, reloadMessages]);
+
+    // 未接／拒接的來電卡上按「回撥」：照一般流程打回去（這次是用戶打的，角色照平常接）。
+    const handleCallBack = useCallback((msg: Message) => {
+        if (!char) return;
+        openCallWithChar(char.id, msg.metadata?.charCall?.mode === 'video' ? 'video' : 'voice');
+    }, [char, openCallWithChar]);
 
     // 頂欄 ⚡ 手動觸發（也是「發完後自動生成」到點時調的那一下）。
     const handleManualTrigger = () => {
@@ -4314,6 +4320,7 @@ const Chat: React.FC = () => {
                             onResolveTransfer={handleResolveTransfer}
                             onResolveLifeRecord={handleResolveLifeRecord}
                             onResolveDateInvite={handleResolveDateInvite}
+                            onCallBack={handleCallBack}
                             onOpenCollaborationFile={handleOpenCollaborationFile}
                             thinkingChainOptions={thinkingChainOptions}
                         />

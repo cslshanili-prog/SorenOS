@@ -1,3 +1,4 @@
+import { effectiveCallStatus } from '../../utils/charCall';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
 
 
@@ -902,6 +903,46 @@ const LifeRecordCard: React.FC<{
     );
 };
 
+/** 角色打來的電話（聊天設定 · 允許角色主動打電話，見 utils/charCall.ts）。未接的可以回撥。 */
+const CharCallCard: React.FC<{
+    m: Message;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onCallBack?: (m: Message) => void;
+}> = ({ m, commonLayout, selectionMode, onCallBack }) => {
+    const call = m.metadata?.charCall || {};
+    const status = effectiveCallStatus(call);
+    const isVideo = call.mode === 'video';
+    const kind = isVideo ? '視訊' : '語音';
+    const title = status === 'missed' ? `未接${kind}來電`
+        : status === 'declined' ? `已拒接的${kind}來電`
+        : status === 'accepted' ? `${kind}來電 · 已接聽`
+        : `${kind}來電中…`;
+    const missed = status === 'missed';
+    return commonLayout(
+        <div className={`w-60 rounded-2xl border px-3.5 py-3 shadow-sm ${missed ? 'border-rose-100 bg-rose-50/80' : 'border-slate-100 bg-white'}`}>
+            <div className="flex items-center gap-2.5">
+                <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base ${missed ? 'bg-rose-100' : 'bg-emerald-50'}`}>
+                    {isVideo ? '📹' : '📞'}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className={`text-xs font-bold ${missed ? 'text-rose-600' : 'text-slate-700'}`}>{title}</div>
+                    {call.reason && <div className="mt-0.5 text-[10px] text-slate-400 truncate">{call.reason}</div>}
+                </div>
+            </div>
+            {(missed || status === 'declined') && onCallBack && !selectionMode && (
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onCallBack(m); }}
+                    className="mt-2.5 w-full py-1.5 rounded-xl bg-emerald-500 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform"
+                >
+                    回撥
+                </button>
+            )}
+        </div>
+    );
+};
+
 /** 角色發的見面邀請（聊天設定 · 自動線下邀請，見 utils/dateInvite.ts）。 */
 const DateInviteCard: React.FC<{
     m: Message;
@@ -1481,6 +1522,7 @@ interface MessageItemProps {
     /** 用戶點「生活記錄」卡 → 確認 / 否決（角色代記的記錄） */
     onResolveLifeRecord?: (m: Message, action: 'confirmed' | 'rejected') => void;
     onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
+    onCallBack?: (m: Message) => void;
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
     onOpenCollaborationFile?: (m: Message) => void | Promise<void>;
     /** 思考鏈卡片視覺與交互 */
@@ -1532,6 +1574,7 @@ const MessageItem = React.memo(({
     onResolveTransfer,
     onResolveLifeRecord,
     onResolveDateInvite,
+    onCallBack,
     onOpenCollaborationFile,
     thinkingChainOptions,
 }: MessageItemProps) => {
@@ -3369,6 +3412,10 @@ const MessageItem = React.memo(({
         return <TransferCard m={m} isUser={isUser} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveTransfer={onResolveTransfer} />;
     }
 
+    if (m.type === 'char_call') {
+        return <CharCallCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} onCallBack={onCallBack} />;
+    }
+
     if (m.type === 'date_invite') {
         return <DateInviteCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveDateInvite={onResolveDateInvite} />;
     }
@@ -3978,6 +4025,7 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.status === next.msg.metadata?.status &&
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&
            prev.msg.metadata?.dateInvite?.status === next.msg.metadata?.dateInvite?.status &&
+           prev.msg.metadata?.charCall?.status === next.msg.metadata?.charCall?.status &&
            prev.msg.metadata?.sarModuleSurface?.surface === next.msg.metadata?.sarModuleSurface?.surface &&
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&

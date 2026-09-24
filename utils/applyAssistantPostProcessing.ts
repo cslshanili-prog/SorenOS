@@ -54,6 +54,7 @@ import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
+import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type CharCallMode, type IncomingCharCallDetail } from './charCall';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
 import { getReadNoReplyDecision } from './readNoReplyRuntime';
 import { isBlobRef } from './blobRef';
@@ -846,6 +847,17 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    /**
+     * 角色打電話來 [[ACTION:CALL|voice或video|原因]]：標籤一律剝掉；開了「允許角色主動打電話」、
+     * 又過了冷卻才記下，等這一輪話都落完再補一張來電卡。一輪只打一通。
+     */
+    let pendingCharCall: { mode: CharCallMode; reason: string } | null = null;
+    const consumeCharCall = (content: string): string => {
+        const { cleanedText, call } = extractCharCall(content);
+        if (call && char.charCall && !pendingCharCall && canCharCallNow(char.id)) pendingCharCall = call;
+        return cleanedText;
+    };
+
     // ─── Step 1: 初次粗洗 ───
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
     aiContent = normalizeAiContent(aiContent);
@@ -854,6 +866,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeRelationshipChange(aiContent);
     aiContent = await consumeNoReply(aiContent);
     aiContent = consumeDateInvite(aiContent);
+    aiContent = consumeCharCall(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2346,6 +2359,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeRelationshipChange(aiContent);
     aiContent = await consumeNoReply(aiContent);
     aiContent = consumeDateInvite(aiContent);
+    aiContent = consumeCharCall(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2419,6 +2433,30 @@ export async function applyAssistantPostProcessing(
             await renderAndPersist('嗯...', pendingThinkingChain);
         } else {
             setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        }
+    }
+
+    // 來電卡排在這一輪所有話的後面。剛生成、用戶又正開著 App → 響（全域來電畫面接手）；
+    // 補收的舊回覆、背景裡落地的 → 直接記未接
+    if (pendingCharCall) {
+        const now = Date.now();
+        markCharCallAttempt(char.id, now);
+        const ring = shouldRingNow({
+            spokenAt: utteranceAt.getTime(), now,
+            visible: typeof document === 'undefined' || document.visibilityState === 'visible',
+            busy: false,
+        });
+        const call: CharCallMeta = { ...(pendingCharCall as { mode: CharCallMode; reason: string }), status: ring ? 'ringing' : 'missed', at: now };
+        const messageId = await persistMessage({
+            charId: char.id, role: 'assistant', type: 'char_call',
+            content: describeCharCall(call),
+            metadata: { ...(mcdInheritMeta || {}), charCall: call },
+        } as Parameters<typeof DB.saveMessage>[0]);
+        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        if (ring && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent<IncomingCharCallDetail>(INCOMING_CHAR_CALL_EVENT, {
+                detail: { charId: char.id, messageId, mode: call.mode, reason: call.reason },
+            }));
         }
     }
 
