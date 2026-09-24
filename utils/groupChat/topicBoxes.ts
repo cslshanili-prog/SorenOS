@@ -50,11 +50,16 @@ export function buildGroupTopicPrompt(
     batch: Message[],
     characters: CharacterProfile[],
     userName: string,
+    /** 群裡的 NPC 成員（只要名字；NPC 說的話在記錄裡要有名字，不能變成「未知成員」） */
+    npcSpeakers: Array<{ id: string; name: string }> = [],
 ): string {
     const nameOf = (m: Message) => m.role === 'user'
         ? userName
-        : (characters.find(c => c.id === m.charId)?.name || '未知成員');
-    const participants = group.members.map(id => characters.find(c => c.id === id)?.name).filter(Boolean).join('、');
+        : (characters.find(c => c.id === m.charId)?.name || npcSpeakers.find(n => n.id === m.charId)?.name || '未知成員');
+    const participants = [
+        ...group.members.map(id => characters.find(c => c.id === id)?.name),
+        ...npcSpeakers.map(n => `${n.name}（NPC）`),
+    ].filter(Boolean).join('、');
     // 只給總結機角色語義資料，不傳頭像/立繪/房間圖片等媒體字段，避免 base64 撐爆請求。
     const memberProfiles = group.members.map(id => characters.find(c => c.id === id)).filter(Boolean).map(char => {
         const c = char as CharacterProfile;

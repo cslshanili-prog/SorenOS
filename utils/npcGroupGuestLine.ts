@@ -1,5 +1,6 @@
 import { NPCProfile, CharacterProfile } from '../types';
 import { safeResponseJson, extractContent } from './safeApi';
+import { buildNpcMemoryBlock } from './npcMemory';
 
 export interface NpcGroupGuestLineOptions {
     npc: NPCProfile;
@@ -28,7 +29,7 @@ export async function generateNpcGroupGuestLine(opts: NpcGroupGuestLineOptions):
             return `對「${m?.name || '群裡的人'}」：${r.description}`;
         })
         .join('\n');
-    const grounding = [npc.description?.trim(), npc.worldview?.trim(), relationshipNote]
+    const grounding = [npc.description?.trim(), npc.worldview?.trim(), relationshipNote, buildNpcMemoryBlock(npc)]
         .filter(Boolean).join('\n');
 
     const prompt = `你在幫群聊「${groupName}」接一句客串台詞，說話的是「${npc.name}」——TA 不是這個群的常駐成員，只是剛好路過插一句嘴。

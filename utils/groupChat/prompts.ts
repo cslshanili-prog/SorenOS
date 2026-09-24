@@ -1,10 +1,11 @@
 // 群聊提示詞構建 —— 從 GroupChat.tsx 抽出的純函數，導演模式模板"搬家不改字"，
 // 供導演模式與輪詢模式（每成員一次調用）共用。
-import { Message, CharacterProfile, EmojiCategory } from '../../types';
+import { Message, EmojiCategory } from '../../types';
 import { stickerNameFromUrl } from '../messageFormat';
 import { isBlobRef } from '../blobRef';
 import { packetHistoryLine } from './redpacket';
 import { formatRelativeAge } from './relativeTime';
+import { buildNpcDirectorNote } from './npcMembers';
 
 interface EmojiItem { name: string; url: string; categoryId?: string }
 
@@ -86,7 +87,8 @@ function formatGapDuration(ms: number): string {
  */
 export function buildGroupHistoryBlock(
     msgs: Message[],
-    characters: CharacterProfile[],
+    /** 名字查詢表：角色 + 群裡的 NPC（只用到 id / name） */
+    characters: Array<{ id: string; name: string }>,
     emojis: EmojiItem[],
     userName: string = '用戶',
     maxAttachedImages: number = 3,
@@ -187,6 +189,21 @@ const buildLurkModeNote = (): string => `### 【隱身圍觀模式：這一刻�
 
 `;
 
+/**
+ * 旁觀時用戶在底部欄填的「劇情方向」：只管下一輪，用完就清掉。
+ * 用戶不在群裡，這是幕後給的方向，角色們不知道有人在指揮。
+ */
+export const buildPlotDirectionNote = (direction: string | undefined): string => {
+    const text = direction?.trim();
+    if (!text) return '';
+    return `### 【劇情方向（幕後給的，這一輪往這個方向推）】
+${text}
+- 讓劇情自然地往這裡走：可以由最合適的人帶出來，也可以只是埋下開頭，不必一輪就走完。
+- 這是幕後的方向，群裡的人不知道有人在指揮：不要照抄這段話、不要提到「劇情」「方向」「導演」。
+
+`;
+};
+
 /** 導演模式一輪最多生成幾條消息的默認上限；下限固定 1，"少即是多"不受這個值影響。 */
 export const DEFAULT_MAX_ROUND_MESSAGES = 5;
 
@@ -201,7 +218,7 @@ const buildLeaveGroupNote = (): string => `
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean },
+    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string },
 ): string {
     const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 導演任務指令 (Director Mode)】
@@ -210,7 +227,7 @@ export function buildDirectorInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-${options?.userLurking ? buildLurkModeNote() : ''}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
+${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(options?.plotDirection)}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
 請作為導演，接管所有角色，讓群聊**自然地流動起來**。
 
 ### 核心規則 (Strict Rules)
@@ -265,7 +282,7 @@ ${options?.userLurking ? buildLurkModeNote() : ''}### 任務：生成一段精�
 - **嚴禁**把 PRIVATE 當"吐槽群友"的工具——這是低成本製造修羅場的來源，禁止。
 - **嚴禁**多個角色同一輪都發 PRIVATE。最多一個。
 - 格式: \`[[PRIVATE: 私聊內容]]\`。這條消息只進私聊頻道，不在群裡顯示。
-${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
 #### 七、表情和氣泡
 - **表情包**: 必須使用格式 \`[[SEND_EMOJI: 表情名稱]]\`。歷史中的“發送了表情包”只是記錄，不是發送指令，不要照抄。**可用表情 (按分類)**: ${emojiContextStr}
 - **氣泡分段**: 在一條內容裡用換行符分隔不同的氣泡——一行一個氣泡。短句多發幾條 > 長句一坨。
@@ -294,23 +311,33 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; allowMemberLeave?: boolean },
+    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string },
 ): string {
+    const asNpc = !!options?.asNpc;
+    const privateRule = asNpc
+        ? `4. **私聊**: 你是 NPC，沒有和用戶的一對一私聊——不要用 PRIVATE。`
+        : `4. **私聊**: 罕見特例，默認不用。只有真的有重大、不便公開的話要單獨對用戶說時，才輸出一條 \`[[PRIVATE: 內容]]\`（只進你和用戶的私聊，群裡不顯示）。**嚴禁**把 PRIVATE 當"吐槽群友"的工具。`;
+    const userRule = asNpc
+        ? `5. **你和用戶的關係**：以你 NPC 成員檔案裡寫的為準；沒寫就是普通群友，不要自己編出親密關係或共同回憶。你記得的事（檔案裡的記憶）要前後一致。`
+        : `5. **U 還是 U**：群聊裡的用戶，就是你在私聊、記憶和印象裡認識的同一個人。檢查 [私聊空窗期] 與互動時間線，延續已經建立的關係、承諾、熟悉感和相處方式；公開場合可以換一種表達，但不能因進入群聊就重置關係。如果你和用戶剛私聊過，哪怕群裡很久沒人說話，也**嚴禁**說"好久不見"或表現出疏離感。`;
+    const qualityRule = asNpc
+        ? `6. 你是配角：可以帶話題、推劇情、接別人的話，但不要搶主角們的戲。把名字遮住也能從語氣認出這句話是你說的。`
+        : `6. 對話質量沿用你的私聊標準：拒絕套路化反應；想表達在乎就提一個只有你們之間才有的具體細節，而不是空泛的關心句；把名字遮住也能從語氣認出這句話是你說的；情緒要有層次。`;
     return `### 【本輪任務：以「${memberName}」的身份在群裡發言】
 當前場景：大家正在群裡聊天。
 最近聊天記錄（截至此刻，末尾可能已包含本輪先發言成員的最新消息）：
 ${history.text}
 ${history.attachedImagesNote}
 
-${options?.userLurking ? buildLurkModeNote() : ''}現在輪到你了。規則：
+${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(options?.plotDirection)}現在輪到你了。規則：
 
 1. 你只是群裡的一位普通成員，不是導演。只輸出**你自己**要發的消息內容——不要替任何人說話，不要在開頭加自己的名字或冒號前綴，不要解釋、不要輸出 JSON。如果此刻沒有自然的話可說，只輸出 \`[[SKIP]]\` 保持沉默；不要為了輪到自己就硬湊一句。
 2. 一行 = 一個氣泡。短句多發幾條 > 長句一坨；"嗯""哈哈哈"和單獨一個表情包都是合法回覆。
 3. **表情包**: 使用格式 \`[[SEND_EMOJI: 表情名稱]]\`。歷史中的“發送了表情包”只是記錄，不是發送指令，不要照抄。**可用表情 (按分類)**: ${emojiContextStr}
-4. **私聊**: 罕見特例，默認不用。只有真的有重大、不便公開的話要單獨對用戶說時，才輸出一條 \`[[PRIVATE: 內容]]\`（只進你和用戶的私聊，群裡不顯示）。**嚴禁**把 PRIVATE 當"吐槽群友"的工具。
-5. **U 還是 U**：群聊裡的用戶，就是你在私聊、記憶和印象裡認識的同一個人。檢查 [私聊空窗期] 與互動時間線，延續已經建立的關係、承諾、熟悉感和相處方式；公開場合可以換一種表達，但不能因進入群聊就重置關係。如果你和用戶剛私聊過，哪怕群裡很久沒人說話，也**嚴禁**說"好久不見"或表現出疏離感。
-6. 對話質量沿用你的私聊標準：拒絕套路化反應；想表達在乎就提一個只有你們之間才有的具體細節，而不是空泛的關心句；把名字遮住也能從語氣認出這句話是你說的；情緒要有層次。
+${privateRule}
+${userRule}
+${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
-9. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}`;
+9. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}`;
 }

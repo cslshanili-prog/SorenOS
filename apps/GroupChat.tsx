@@ -28,6 +28,9 @@ import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
+import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs } from '../utils/groupChat/npcMembers';
+import { resolveNpcApi } from '../utils/npcMemory';
+import { refreshNpcMemoryFromGroups } from '../utils/npcMemoryRuntime';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 // 群聊輸入區/表情面板已改用共享 ChatInputArea（其表情網格自帶 useIncrementalReveal 增量渲染），
@@ -460,7 +463,11 @@ const GroupMessageItem = React.memo(({
                     onClick={handleClick}
                 >
                     {!isUser && isFirstInGroup && (
-                        <span className="sully-chat-message-sender text-[10px] text-slate-400 ml-1 mb-1">{name}</span>
+                        <span className="sully-chat-message-sender text-[10px] text-slate-400 ml-1 mb-1">
+                            {name}
+                            {/* 旁觀時用戶代這位成員說的：只給用戶自己看，AI 那邊就是這位成員說的 */}
+                            {msg.metadata?.puppeted && <span className="ml-1 px-1 rounded bg-violet-100 text-violet-500 text-[9px] font-bold">代打</span>}
+                        </span>
                     )}
                     <div className={selectionMode ? 'pointer-events-none' : ''}>
                         {renderContent()}
@@ -483,7 +490,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
     // 只有通過 pendingGroupChatId 深鏈進來的那次會話才設置，用一次就清空。
@@ -511,6 +518,10 @@ const GroupChat: React.FC = () => {
     // 公共成盒異步完成時使用最新角色名與成員資料，避免長回覆期間閉包數據過期。
     const charactersRef = useRef(characters);
     charactersRef.current = characters;
+    const npcsRef = useRef(npcs);
+    npcsRef.current = npcs;
+    // 名字查詢表：角色 + NPC。群歷史、時間線、引用都靠它把 charId 變成名字（NPC 說的話不能變成「未知」）
+    const speakers = useMemo(() => buildSpeakerDirectory(characters, npcs), [characters, npcs]);
 
     // 同理 ref 出最新 messages：派發循環裡逐條落庫時要按"當前窗口大小"刷新，
     // 閉包裡的 messages 是觸發那一刻的舊值，長度會越算越小
@@ -567,6 +578,9 @@ const GroupChat: React.FC = () => {
 
     useEffect(() => {
         setInputPreferences(loadChatInputPreferences());
+        setPuppetId('');
+        setPlotDirection('');
+        setShowPlotDirection(false);
     }, [activeGroup?.id]);
     
     // Create/Edit Group State
@@ -594,6 +608,12 @@ const GroupChat: React.FC = () => {
     const [npcGuestGenerating, setNpcGuestGenerating] = useState(false);
     // 群設置裡的成員管理：展開/收起"添加成員"候選列表
     const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
+    const [showAddNpcPicker, setShowAddNpcPicker] = useState(false);
+    // 旁觀底部欄：代誰發言（空 = 還沒選）、劇情方向（只管下一輪，按 ▶ 後清掉）
+    const [puppetId, setPuppetId] = useState('');
+    const [plotDirection, setPlotDirection] = useState('');
+    const [showPlotDirection, setShowPlotDirection] = useState(false);
+    const npcMemoryLockRef = useRef(false);
 
     // Refs
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -893,6 +913,25 @@ const GroupChat: React.FC = () => {
         trackEvent('群聊移除成员');
     };
 
+    // NPC 成員：放在 npcMemberIds（不進 members），加入/移除即時生效，沒有人數下限
+    const handleAddGroupNpc = async (npcId: string) => {
+        if (!activeGroup || activeGroup.npcMemberIds?.includes(npcId)) return;
+        const npcMemberIds = [...(activeGroup.npcMemberIds || []), npcId];
+        await updateGroup(activeGroup.id, { npcMemberIds });
+        setActiveGroup({ ...activeGroup, npcMemberIds });
+        trackEvent('群聊添加NPC成员');
+    };
+
+    const handleRemoveGroupNpc = async (npcId: string) => {
+        if (!activeGroup) return;
+        const updates: Partial<GroupProfile> = { npcMemberIds: (activeGroup.npcMemberIds || []).filter(id => id !== npcId) };
+        if (activeGroup.mutedMemberIds?.includes(npcId)) updates.mutedMemberIds = activeGroup.mutedMemberIds.filter(id => id !== npcId);
+        if (puppetId === npcId) setPuppetId('');
+        await updateGroup(activeGroup.id, updates);
+        setActiveGroup({ ...activeGroup, ...updates });
+        trackEvent('群聊移除NPC成员');
+    };
+
     // 群主：純標記/人設頭銜，不帶任何權限，即時生效——跟成員增減、隱身圍觀模式同一種即時保存風格。
     // 值可以是某位成員，也可以是 'user'（自己當群主）；再點一次同一個人 = 取消群主。
     const handleSetGroupOwner = async (ownerId: string | undefined) => {
@@ -1022,8 +1061,17 @@ const GroupChat: React.FC = () => {
         try {
             // 借用戶"發送"手勢解鎖音頻上下文（移動端自動播放策略），稍後 AI 回覆時提示音才響得了
             unlockWhiteboxAudio();
-        
-            const newMessage: any = {
+
+            // 旁觀時選了代打對象：這則算那位成員說的（進群歷史、成員時間線、記憶），只多一個代打標記
+            const puppet = activeGroup.userLurkMode && puppetId && speakers.some(sp => sp.id === puppetId) ? puppetId : '';
+            const newMessage: any = puppet ? {
+                charId: puppet,
+                groupId: activeGroup.id,
+                role: 'assistant' as const,
+                type,
+                content,
+                metadata: { ...(metadata || {}), puppeted: true },
+            } : {
                 charId: 'user',
                 groupId: activeGroup.id,
                 role: 'user' as const,
@@ -1031,6 +1079,7 @@ const GroupChat: React.FC = () => {
                 content,
                 metadata
             };
+            if (puppet) trackEvent('群聊旁观代打发言');
 
             // 引用回覆：落快照（對齊私聊 Chat.tsx 的做法），發完清空。
             // 圖片 / 表情走佔位符，不把 blobref 令牌原樣存進快照。
@@ -1040,7 +1089,7 @@ const GroupChat: React.FC = () => {
                     content: buildReplySnapshotContent(replyTarget),
                     name: replyTarget.role === 'user'
                         ? '我'
-                        : (characters.find(c => c.id === replyTarget.charId)?.name || '成員'),
+                        : (speakers.find(c => c.id === replyTarget.charId)?.name || '成員'),
                 };
                 setReplyTarget(null);
             }
@@ -1325,7 +1374,7 @@ const GroupChat: React.FC = () => {
             : '';
         // 禁言：這些成員這一輪不參與生成，但其他人可以照常提到/調侃 ta
         const mutedNames = (activeGroup?.mutedMemberIds || [])
-            .map(id => characters.find(c => c.id === id)?.name)
+            .map(id => speakers.find(c => c.id === id)?.name)
             .filter((n): n is string => !!n);
         const mutedLine = mutedNames.length > 0
             ? `本輪被禁言、不會發言的成員: ${mutedNames.join('、')}（其他人可以照常提到/調侃 ta，只是 ta 這陣子不會自己說話）\n`
@@ -1371,7 +1420,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
             cap: timelineCap,
             resolveSpeaker: (m) => m.charId === member.id
                 ? '我'
-                : (characters.find(c => c.id === m.charId)?.name || '未知成員'),
+                : (speakers.find(c => c.id === m.charId)?.name || '未知成員'),
             stickerName: url => stickerNameFromUrl(emojis, url),
         });
 
@@ -1395,6 +1444,40 @@ ${memberTimeline || '(暫無互動記錄)'}
 `;
     };
 
+    // NPC 成員的檔案塊（設定 / 關係 / 世界書 / 輕量記憶），見 utils/groupChat/npcMembers.ts
+    const buildNpcBlockFor = (npc: NPCProfile, currentMsgs: Message[], roundSpeakers: Array<{ id: string; name: string }>): string => {
+        const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
+        return buildNpcMemberBlock({
+            npc,
+            userName: groupUserProfile.name,
+            others: roundSpeakers.filter(sp => sp.id !== npc.id),
+            scanMessages: liveGroupMsgs.slice(-20).map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' })),
+            userLurking: !!activeGroup?.userLurkMode,
+        });
+    };
+
+    // 每輪生成完：群裡的 NPC 攢夠新消息就整理一次記憶（背景跑，不擋聊天；同時只跑一個）
+    const refreshNpcGroupMemories = async (group: GroupProfile) => {
+        if (npcMemoryLockRef.current || !(group.npcMemberIds || []).length) return;
+        npcMemoryLockRef.current = true;
+        try {
+            for (const npc of groupNpcs(group, npcsRef.current)) {
+                await refreshNpcMemoryFromGroups({
+                    npc,
+                    groups: [group],
+                    nameOf: id => speakers.find(sp => sp.id === id)?.name || '群友',
+                    userName: groupUserProfile.name,
+                    api: resolveNpcApi(npc, apiConfig),
+                    save: patch => updateNPC(npc.id, patch),
+                });
+            }
+        } catch (e) {
+            console.warn('[GroupChat] NPC 記憶整理失敗', e);
+        } finally {
+            npcMemoryLockRef.current = false;
+        }
+    };
+
     // [[QUOTE: 片段]] 解析：從新到舊找 content 包含片段的文本消息，
     // 找不到返回 undefined（dispatch 會靜默剝除標記，不丟正文）
     const resolveQuote = (snippet: string) => {
@@ -1410,7 +1493,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                     content: c,
                     name: m.role === 'user'
                         ? groupUserProfile.name
-                        : (characters.find(ch => ch.id === m.charId)?.name || '成員'),
+                        : (speakers.find(ch => ch.id === m.charId)?.name || '成員'),
                 };
             }
         }
@@ -1443,7 +1526,7 @@ ${memberTimeline || '(暫無互動記錄)'}
             }
             setGroupPalaceStatus(`正在把 ${batchPlan.messages.length} 條舊群聊整理成公共話題盒…`);
             setSummaryProgress(`正在整理 ${batchPlan.messages.length} 條舊群聊…`);
-            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, groupUserProfile.name);
+            const prompt = buildGroupTopicPrompt(groupForArchive, batchPlan.messages, charactersRef.current, groupUserProfile.name, groupNpcs(groupForArchive, npcsRef.current));
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
@@ -1568,7 +1651,7 @@ ${memberTimeline || '(暫無互動記錄)'}
         };
     };
 
-    const triggerDirector = async (rawMsgs: Message[]) => {
+    const triggerDirector = async (rawMsgs: Message[], plotDirection?: string) => {
         if (!activeGroup) return;
         if (!apiConfig.apiKey) {
             addToast('請先在設置裡填好 API', 'error');
@@ -1582,6 +1665,9 @@ ${memberTimeline || '(暫無互動記錄)'}
             const currentMsgs = filterLurkMsgs(rawMsgs);
             // 1. Prepare Group Context（被禁言的成員不參與——不進上下文，也不佔 memberIds 名額）
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
+            // NPC 成員（group.npcMemberIds）：一份輕量檔案塊，跟角色們一起被導演調度
+            const npcMembers = activeGroupNpcs(activeGroup, npcs);
+            const roundSpeakers = [...groupMembers, ...npcMembers];
             const { header, sharedScene } = buildGroupSystemHeader(currentMsgs, groupMembers);
 
             let context = header;
@@ -1590,6 +1676,9 @@ ${memberTimeline || '(暫無互動記錄)'}
             for (const member of groupMembers) {
                 context += await buildMemberBlock(member, currentMsgs, sharedScene);
             }
+            for (const npc of npcMembers) {
+                context += buildNpcBlockFor(npc, currentMsgs, roundSpeakers);
+            }
 
             // 3. Group History + 導演任務指令（模板原文照搬進 utils/groupChat/prompts.ts）
             const liveHistoryMsgs = currentMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
@@ -1597,7 +1686,7 @@ ${memberTimeline || '(暫無互動記錄)'}
             const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
             const history = buildGroupHistoryBlock(
                 preparedHistory,
-                characters,
+                speakers,
                 emojis,
                 groupUserProfile.name,
                 3,
@@ -1609,7 +1698,7 @@ ${memberTimeline || '(暫無互動記錄)'}
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection })}${htmlPromptExt}\n`;
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             const data = await completeGroupChatWithMcp({
@@ -1653,8 +1742,9 @@ ${memberTimeline || '(暫無互動記錄)'}
             // memberIds 裡"的規則靜默丟棄這條 action（複用退群同一套丟棄機制，不用額外校驗）。
             await dispatchMemberActions(actions, {
                 groupId: activeGroup.id,
-                memberIds: groupMembers.map(c => c.id),
-                characters,
+                memberIds: roundSpeakers.map(c => c.id),
+                characters: speakers,
+                npcIds: new Set(npcMembers.map(n => n.id)),
                 emojis,
                 categories,
                 refresh: () => refreshMessages(activeGroup.id),
@@ -1680,13 +1770,14 @@ ${memberTimeline || '(暫無互動記錄)'}
             // 中途報錯 / 用戶點停也照打：已經落庫的那幾條同樣進了成員的私聊背景
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
+            void refreshNpcGroupMemories(activeGroup);
         }
     };
 
     // 輪詢模式：按成員固定順序逐個調用，後發言者能看到前面成員本輪剛說的話
     // （串號天然無解可能 → 天然解決），角色可輸出 [[SKIP]] 本輪沉默。
     // 單成員失敗只跳過該成員，不殺整輪。
-    const triggerRoundRobin = async (currentMsgs: Message[]) => {
+    const triggerRoundRobin = async (currentMsgs: Message[], plotDirection?: string) => {
         if (!activeGroup) return;
         if (!apiConfig.apiKey) {
             addToast('請先在設置裡填好 API', 'error');
@@ -1704,11 +1795,20 @@ ${memberTimeline || '(暫無互動記錄)'}
             // 被禁言的成員直接不進這份名單——輪詢模式是逐個發起 API 調用，不在名單裡就是
             // 連調用都不發起，比"生成了再丟棄"更省 token。
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
+            // NPC 成員排在角色們後面輪流說話，用 NPC 自己配的 API（沒配就用群聊這組）
+            const npcMembers = activeGroupNpcs(activeGroup, npcs);
+            const roundSpeakers = [...groupMembers, ...npcMembers];
+            const npcIds = new Set(npcMembers.map(n => n.id));
+            const turns: Array<{ kind: 'char'; member: CharacterProfile } | { kind: 'npc'; member: NPCProfile }> = [
+                ...groupMembers.map(member => ({ kind: 'char' as const, member })),
+                ...npcMembers.map(member => ({ kind: 'npc' as const, member })),
+            ];
             let roundMsgs = [...currentMsgs];
             // 同一實例複用一整輪——見 makeMemberLeaveHandler 上面的註釋
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
-            for (const member of groupMembers) {
+            for (const turn of turns) {
+                const member = turn.member;
                 if (abort.signal.aborted) break;
                 try {
                     // 每位成員基於"此刻"的群歷史構建上下文——包含本輪先發言成員的新消息。
@@ -1716,7 +1816,9 @@ ${memberTimeline || '(暫無互動記錄)'}
                     // （後面的 vision 描述回寫、DB 刷新都要基於完整消息列表）。
                     const promptMsgs = filterLurkMsgs(roundMsgs);
                     const { header, sharedScene } = buildGroupSystemHeader(promptMsgs, groupMembers);
-                    const memberBlock = await buildMemberBlock(member, promptMsgs, sharedScene);
+                    const memberBlock = turn.kind === 'char'
+                        ? await buildMemberBlock(turn.member, promptMsgs, sharedScene)
+                        : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers);
                     const liveRoundMsgs = promptMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
                     const historyWindow = liveRoundMsgs.slice(-contextLimit);
                     const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
@@ -1725,7 +1827,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                     roundMsgs = roundMsgs.map(message => preparedById.get(message.id) || message);
                     const history = buildGroupHistoryBlock(
                         preparedHistory,
-                        characters,
+                        speakers,
                         emojis,
                         groupUserProfile.name,
                         3,
@@ -1735,13 +1837,14 @@ ${memberTimeline || '(暫無互動記錄)'}
                     const htmlPromptExt = activeGroup.htmlModeEnabled
                         ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                         : '';
-                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, allowMemberLeave: !!activeGroup.allowMemberLeave })}${htmlPromptExt}\n`;
+                    const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: !!activeGroup.userLurkMode, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection })}${htmlPromptExt}\n`;
 
+                    const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : apiConfig;
                     const data = await completeGroupChatWithMcp({
-                        url: `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`,
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+                        url: `${turnApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${turnApi.apiKey}` },
                         body: {
-                            model: apiConfig.model,
+                            model: turnApi.model,
                             messages: [{ role: "user", content: buildUserMessageContent(prompt, history) }],
                             temperature: 0.9,
                             max_tokens: 2000
@@ -1776,8 +1879,9 @@ ${memberTimeline || '(暫無互動記錄)'}
 
                     await dispatchMemberActions([{ charId: member.id, content }], {
                         groupId: activeGroup.id,
-                        memberIds: groupMembers.map(c => c.id),
-                        characters,
+                        memberIds: roundSpeakers.map(c => c.id),
+                        characters: speakers,
+                        npcIds,
                         emojis,
                         categories,
                         refresh: () => refreshMessages(activeGroup.id),
@@ -1815,6 +1919,7 @@ ${memberTimeline || '(暫無互動記錄)'}
             // 同導演模式：跑到一半被打斷也要打髒，已發言成員的話已經落庫了
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
+            void refreshNpcGroupMemories(activeGroup);
         }
     };
 
@@ -1831,10 +1936,17 @@ ${memberTimeline || '(暫無互動記錄)'}
         // 避免“用戶沒點加載歷史 → AI 也只能看見 50 條”的耦合。
         const promptCap = Math.max(contextLimit, activeGroup.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP, GROUP_TOPIC_HOT_ZONE);
         const { messages: freshMsgs } = await DB.getRecentGroupMessagesWithCount(activeGroup.id, promptCap);
+        // 劇情方向只在旁觀時有，只管這一輪
+        const direction = activeGroup.userLurkMode ? plotDirection.trim() : '';
+        if (direction) {
+            setPlotDirection('');
+            setShowPlotDirection(false);
+            trackEvent('群聊旁观给剧情方向');
+        }
         if (activeGroup?.replyMode === 'roundRobin') {
-            triggerRoundRobin(freshMsgs);
+            triggerRoundRobin(freshMsgs, direction);
         } else {
-            triggerDirector(freshMsgs);
+            triggerDirector(freshMsgs, direction);
         }
     };
 
@@ -1888,7 +2000,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                                 <div className="font-bold text-slate-700 truncate text-base">{g.name}</div>
                                 <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" /></svg>
-                                    {g.members.length} 成員
+                                    {g.members.length} 成員{g.npcMemberIds?.length ? ` · ${g.npcMemberIds.length} NPC` : ''}{g.userLurkMode ? ' · 旁觀中' : ''}
                                 </div>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
@@ -2030,7 +2142,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                 memoryPalaceStatusText={groupPalaceStatus}
                 lastTokenUsage={lastTokenUsage}
                 tokenBreakdown={tokenBreakdown}
-                statusText={`${activeGroup?.members.length ?? 0} 成員`}
+                statusText={`${activeGroup?.members.length ?? 0} 成員${activeGroup?.npcMemberIds?.length ? ` · ${activeGroup.npcMemberIds.length} NPC` : ''}${activeGroup?.userLurkMode ? ' · 旁觀中' : ''}`}
                 extraAction={{
                     label: '群聊記憶規則',
                     icon: <Question className="w-5 h-5" weight="bold" />,
@@ -2085,7 +2197,8 @@ ${memberTimeline || '(暫無互動記錄)'}
                     const messageGroupGapMs = 30 * 60 * 1000;
                     const sameSpeaker = (other: Message | null) => !!other
                         && other.role === m.role
-                        && other.charId === m.charId;
+                        && other.charId === m.charId
+                        && !!other.metadata?.puppeted === !!m.metadata?.puppeted;
                     const isFirstInGroup = !sameSpeaker(prevMessage)
                         || Math.abs(m.timestamp - prevMessage!.timestamp) > messageGroupGapMs;
                     const isLastInGroup = !sameSpeaker(nextMessage)
@@ -2138,6 +2251,54 @@ ${memberTimeline || '(暫無互動記錄)'}
                     {/* 引用的是圖片 / 表情時這裡顯示佔位符，跟落庫的快照同一口徑 */}
                     <div className="flex items-center gap-2 truncate"><span className="font-bold text-slate-700">正在回覆:</span><span className="truncate max-w-[200px]">{buildReplySnapshotContent(replyTarget)}</span></div>
                     <button onClick={() => setReplyTarget(null)} className="p-1 text-slate-400 hover:text-slate-600">×</button>
+                </div>
+            )}
+
+            {/* 旁觀欄：旁觀時才有。選一位成員代打（輸入框發出的就算 ta 說的）、給下一輪劇情方向、▶ 讓大家繼續聊 */}
+            {activeGroup?.userLurkMode && !selectionMode && (
+                <div className="shrink-0 z-40 border-t border-violet-100 bg-violet-50/80 backdrop-blur-sm px-3 pt-2 pb-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-[10px] font-bold text-violet-500">旁觀中</span>
+                        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                            {(() => {
+                                const pool = [
+                                    ...characters.filter(c => activeGroup.members.includes(c.id)),
+                                    ...groupNpcs(activeGroup, npcs),
+                                ];
+                                return pool.map(p => {
+                                    const on = puppetId === p.id;
+                                    return (
+                                        <button key={p.id} onClick={() => setPuppetId(on ? '' : p.id)}
+                                            title={on ? '取消代打' : `代 ${p.name} 發言`}
+                                            className={`shrink-0 flex items-center gap-1 rounded-full pl-0.5 pr-2 py-0.5 border text-[10px] font-bold transition-colors ${on ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-violet-100 text-slate-500'}`}>
+                                            <TokenImg value={p.avatar} className="w-5 h-5 rounded-full object-cover" />
+                                            <span className="max-w-[4.5rem] truncate">{p.name}</span>
+                                        </button>
+                                    );
+                                });
+                            })()}
+                        </div>
+                        <button onClick={() => setShowPlotDirection(v => !v)}
+                            className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-bold border ${plotDirection.trim() ? 'bg-amber-100 border-amber-200 text-amber-700' : 'bg-white border-violet-100 text-slate-500'}`}>
+                            劇情方向{plotDirection.trim() ? ' ✓' : ''}
+                        </button>
+                        <button onClick={() => { void triggerGroupAI(); }}
+                            title={isTyping ? '停止' : '讓大家繼續聊'}
+                            className="shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold active:scale-90 transition-transform">
+                            {isTyping ? '■' : '▶'}
+                        </button>
+                    </div>
+                    {showPlotDirection && (
+                        <textarea value={plotDirection} onChange={e => setPlotDirection(e.target.value)}
+                            placeholder="下一輪往哪裡走？例如：小雨不小心說漏嘴，大家開始追問。只管下一輪，按 ▶ 後會清掉。"
+                            rows={2}
+                            className="w-full bg-white border border-violet-100 rounded-xl px-3 py-2 text-xs resize-none" />
+                    )}
+                    <p className="text-[9px] text-violet-400 leading-tight">
+                        {puppetId
+                            ? `正在代「${speakers.find(sp => sp.id === puppetId)?.name || '成員'}」發言：下面輸入框發出的，大家會當成是 ta 說的。`
+                            : '沒選代打時，你發的消息只留在你的屏幕上。點頭像選一位成員代打。'}
+                    </p>
                 </div>
             )}
 
@@ -2388,12 +2549,60 @@ ${memberTimeline || '(暫無互動記錄)'}
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即時生效；移除不會刪掉 ta 說過的歷史消息，只是之後不再參與生成。群主只是頭銜標記，不帶權限。禁言的角色仍在群裡，只是暫時不參與生成，隨時可以取消。</p>
                     </div>
 
+                    {/* NPC 成員：神經鏈接「NPC」分頁的配角，跟角色們一起聊、推劇情；沒有私聊，有自己的輕量記憶 */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NPC 成員 ({activeGroup ? groupNpcs(activeGroup, npcs).length : 0})</label>
+                            <button onClick={() => setShowAddNpcPicker(v => !v)} className="text-[10px] text-teal-600 font-bold">
+                                {showAddNpcPicker ? '收起' : '+ 加入 NPC'}
+                            </button>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                            {activeGroup && groupNpcs(activeGroup, npcs).map(n => {
+                                const isMuted = !!activeGroup.mutedMemberIds?.includes(n.id);
+                                return (
+                                    <div key={n.id} className={`flex items-center gap-2 border rounded-xl px-3 py-2 ${isMuted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-teal-50/60 border-teal-100'}`}>
+                                        <TokenImg value={n.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">
+                                            {n.name}
+                                            <span className="ml-1 text-[9px] font-bold text-teal-500">NPC</span>
+                                            {isMuted && <span className="ml-1 text-[9px] font-bold text-rose-400">已禁言</span>}
+                                        </span>
+                                        <button
+                                            onClick={() => handleToggleMemberMute(n.id)}
+                                            title={isMuted ? '取消禁言' : '禁言（這段時間不參與生成，可隨時解除）'}
+                                            className="p-1 shrink-0"
+                                        >
+                                            <SpeakerSlash size={15} weight={isMuted ? 'fill' : 'regular'} className={isMuted ? 'text-rose-500' : 'text-slate-300'} />
+                                        </button>
+                                        <button onClick={() => handleRemoveGroupNpc(n.id)} className="text-[10px] font-bold text-rose-500 shrink-0">移除</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {showAddNpcPicker && (
+                            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto no-scrollbar border-t border-slate-100 pt-2">
+                                {npcs.filter(n => !(activeGroup?.npcMemberIds || []).includes(n.id)).length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 px-1 py-2">{npcs.length === 0 ? '還沒有 NPC——先去「神經鏈接」→「NPC」分頁建一個。' : '所有 NPC 都已經在群裡了。'}</p>
+                                ) : npcs.filter(n => !(activeGroup?.npcMemberIds || []).includes(n.id)).map(n => (
+                                    <button key={n.id} onClick={() => handleAddGroupNpc(n.id)}
+                                        className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-left active:scale-[0.99] transition-all">
+                                        <TokenImg value={n.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
+                                        <span className="text-[10px] font-bold text-teal-600">+ 加入</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">NPC 是推劇情的配角：跟角色們一起輪流說話，但沒有跟你的私聊，也不會收到話題盒卡片。群裡攢了一段新對話後，NPC 會自動把這段整理進自己的記憶（在 NPC 編輯頁可以看、可以改）。</p>
+                    </div>
+
                     {/* 隱身圍觀模式：用戶消息不進 AI 的群歷史，角色以為群裡只有彼此 */}
                     <div className="pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex-1 pr-3">
-                                <div className="text-xs font-bold text-slate-700">隱身圍觀模式</div>
-                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">開啟后角色們不知道用戶在場：能聊平時不會讓用戶知道的事，不會主動搭理、回應或私聊用戶，除非話題本來就自然提到這個人。用戶自己發的消息仍會顯示在自己屏幕上，但 AI 永遠看不到、也不會回應。</p>
+                                <div className="text-xs font-bold text-slate-700">旁觀（我不在這個群裡）</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">關閉 = 參加：你是群裡的一員。開啟 = 旁觀：角色們不知道你在場，能聊平時不會讓你知道的事，不會搭理或私聊你。底部會多一條旁觀欄：可以選一位成員「代打」替 ta 發言、給下一輪一個劇情方向，再按 ▶ 讓大家繼續聊。沒選代打時你自己發的消息只留在你的屏幕上，AI 看不到。</p>
                             </div>
                             <div
                                 onClick={async () => {

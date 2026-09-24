@@ -108,3 +108,26 @@ describe('group sticker format recovery', () => {
         expect(save.mock.calls.map(([m]) => [m.type, m.content])).toEqual([['text', '[ACTION:TRANSFER: 520]']]);
     });
 });
+
+describe('NPC 成員', () => {
+    beforeEach(() => {
+        saveMessage.mockClear();
+    });
+
+    it('NPC 的 [[PRIVATE:]] 內容直接丟掉，公開的話照常落進群裡', async () => {
+        const addToast = vi.fn();
+        await dispatchMemberActions(
+            [{ charId: 'npc-1', content: '[[PRIVATE: 偷偷跟你說]]\n大家晚安' }],
+            baseCtx({
+                memberIds: ['c1', 'npc-1'],
+                characters: [char('c1', '小夏'), { id: 'npc-1', name: '房東' }],
+                npcIds: new Set(['npc-1']),
+                addToast,
+            }),
+        );
+        expect(saveMessage).toHaveBeenCalledTimes(1);
+        const saved = (saveMessage.mock.calls as any[])[0][0];
+        expect(saved).toMatchObject({ charId: 'npc-1', groupId: 'g1', content: '大家晚安' });
+        expect(addToast).not.toHaveBeenCalled();
+    });
+});

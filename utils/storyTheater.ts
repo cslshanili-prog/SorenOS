@@ -19,6 +19,7 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
+import { buildNpcMemoryBlock } from './npcMemory';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export interface StoryApiMessage { role: StoryApiRole; content: string; }
@@ -1198,7 +1199,8 @@ export const buildTheaterNpcContext = (
         npc.description?.trim() ? `- 設定：\n${npc.description.trim()}` : '',
         npc.worldview?.trim() ? `- 世界觀：\n${npc.worldview.trim()}` : '',
         relationshipNote ? `- 關係：\n${relationshipNote}` : '',
-        '- 這是客串角色：沒有獨立記憶輸入輸出、不追蹤好感度，只按以上設定自然參與本場劇情即可。',
+        buildNpcMemoryBlock(npc),
+        '- 這是客串角色：不追蹤好感度，按以上設定（和 TA 記得的事）自然參與本場劇情即可。',
     ].filter(Boolean).join('\n');
 };
 

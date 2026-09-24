@@ -2217,9 +2217,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   charactersRef.current = characters;
 
   // 同步 charId → 角色名 註冊表，讓 utils 層（群聊背景注入等）能標出真實發言人名。
+  // NPC 也登記：群聊裡 NPC 說的話進角色私聊的「近期群聊」背景時要有名字，不然只剩「群友」
   useEffect(() => {
-    setCharNameRegistry(characters);
-  }, [characters]);
+    setCharNameRegistry([...characters, ...npcs]);
+  }, [characters, npcs]);
   const apiConfigRef = useRef(apiConfig);
   apiConfigRef.current = apiConfig;
 

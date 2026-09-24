@@ -159,3 +159,37 @@ describe('隱身圍觀模式：userLurking 選項', () => {
         expect(buildDirectorInstruction(history, '無', { userLurking: false })).not.toContain('隱身圍觀模式');
     });
 });
+
+describe('NPC 成員與旁觀劇情方向', () => {
+    const history = { text: '小夏: 今天天氣不錯', attachedImages: [], attachedImagesNote: '' };
+
+    it('導演模式：有 NPC 才加 NPC 說明', () => {
+        expect(buildDirectorInstruction(history, '無')).not.toContain('#### NPC 成員');
+        expect(buildDirectorInstruction(history, '無', { npcNames: ['房東'] })).toContain('房東 是群裡的 NPC 配角');
+    });
+
+    it('輪詢模式以 NPC 身份：不教 PRIVATE、不教退群、關係以檔案為準', () => {
+        const prompt = buildRoundRobinInstruction('房東', history, '無', { asNpc: true, allowMemberLeave: true });
+        expect(prompt).toContain('不要用 PRIVATE');
+        expect(prompt).not.toContain('[[PRIVATE: 內容]]');
+        expect(prompt).not.toContain('LEAVE_GROUP');
+        expect(prompt).toContain('以你 NPC 成員檔案裡寫的為準');
+        expect(prompt).not.toContain('私聊空窗期');
+        // 角色照舊
+        expect(buildRoundRobinInstruction('小夏', history, '無')).toContain('[[PRIVATE: 內容]]');
+    });
+
+    it('劇情方向：有才注入，兩種模式都帶，並提醒不要照抄', () => {
+        expect(buildDirectorInstruction(history, '無')).not.toContain('劇情方向');
+        const director = buildDirectorInstruction(history, '無', { plotDirection: '小雨說漏嘴' });
+        expect(director).toContain('【劇情方向');
+        expect(director).toContain('小雨說漏嘴');
+        expect(buildRoundRobinInstruction('小夏', history, '無', { plotDirection: '  ' })).not.toContain('劇情方向');
+        expect(buildRoundRobinInstruction('小夏', history, '無', { plotDirection: '下雨了' })).toContain('下雨了');
+    });
+
+    it('群歷史認得 NPC 的名字', () => {
+        const block = buildGroupHistoryBlock([msg(1, 'assistant', '交房租', 0, 'n1')], [char('c1', '小夏'), { id: 'n1', name: '房東' }], []);
+        expect(block.text).toContain('房東: 交房租');
+    });
+});

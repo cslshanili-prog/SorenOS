@@ -1,7 +1,7 @@
 // 群聊動作派發 —— 從 GroupChat.tsx triggerDirector 抽出的執行層（PRIVATE 側信道、
 // 表情包、氣泡分段、打字延遲），導演模式與輪詢模式共用。
 import { DB } from '../db';
-import { CharacterProfile, EmojiCategory, Message, Toast } from '../../types';
+import { EmojiCategory, Message, Toast } from '../../types';
 import { DirectorAction } from './parse';
 import {
     GroupPacketMeta,
@@ -23,7 +23,13 @@ export interface DispatchContext {
     groupId: string;
     /** 群成員 id 列表——charId 不在其中的動作直接丟棄 */
     memberIds: string[];
-    characters: CharacterProfile[];
+    /** 名字查詢表：角色 + 群裡的 NPC（只用到 id / name） */
+    characters: Array<{ id: string; name: string }>;
+    /**
+     * 其中哪些是 NPC：NPC 沒有和用戶的私聊，[[PRIVATE:]] 的內容直接丟掉（不落進任何私聊）；
+     * 也不能退群（退群只管 members 裡的角色）。
+     */
+    npcIds?: ReadonlySet<string>;
     emojis: EmojiItem[];
     categories: EmojiCategory[];
     /** 每條氣泡落庫後刷新 UI（GroupChat 的 refreshMessages） */
@@ -86,9 +92,10 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         }
 
         if (privateMatches.length > 0) {
+            const isNpc = !!ctx.npcIds?.has(targetId);
             for (const m of privateMatches) {
                 const privateContent = m[1].trim();
-                if (privateContent) {
+                if (privateContent && !isNpc) {
                     // Save to private chat (no groupId)
                     await DB.saveMessage({
                         charId: targetId,

@@ -10,6 +10,9 @@ import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import Modal from '../os/Modal';
+import { useOS } from '../../context/OSContext';
+import { NPC_MEMORY_MAX_CHARS, resolveNpcApi } from '../../utils/npcMemory';
+import { refreshNpcMemoryFromGroups } from '../../utils/npcMemoryRuntime';
 
 interface NPCManagerViewProps {
     npcs: NPCProfile[];
@@ -168,6 +171,32 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [modelStatusMsg, setModelStatusMsg] = useState('');
     const [testingConnection, setTestingConnection] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
+    // 輕量記憶：自動整理可能在編輯頁開著時寫進來，沒在打字就跟著更新
+    const { groups, apiConfig, userProfile, npcs, addToast } = useOS();
+    const [memory, setMemory] = useState(npc.memory || '');
+    const memoryFocusedRef = useRef(false);
+    const [memoryBusy, setMemoryBusy] = useState(false);
+    useEffect(() => {
+        if (!memoryFocusedRef.current) setMemory(npc.memory || '');
+    }, [npc.id, npc.memory]);
+    const memoryGroups = groups.filter(g => (g.npcMemberIds || []).includes(npc.id));
+
+    const handleRefreshMemory = async () => {
+        if (memoryBusy) return;
+        const api = resolveNpcApi(npc, apiConfig);
+        if (!api.apiKey) { addToast('請先配置 API', 'error'); return; }
+        setMemoryBusy(true);
+        try {
+            const nameOf = (id: string) => characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '群友';
+            const count = await refreshNpcMemoryFromGroups({
+                npc, groups: memoryGroups, nameOf, userName: userProfile.name, api, force: true,
+                save: patch => onChange(patch),
+            });
+            addToast(count > 0 ? `整理了 ${count} 個群的新對話` : '沒有新的群聊可以整理', count > 0 ? 'success' : 'info');
+        } finally {
+            setMemoryBusy(false);
+        }
+    };
 
     // 切換編輯對象時把本地草稿同步回來，避免殘留上一個 NPC 的文字。
     useEffect(() => {
@@ -387,6 +416,34 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                         rows={3}
                         className="w-full bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm resize-none focus:bg-white transition-all"
                     />
+                </div>
+
+                {/* 輕量記憶（路線圖第 5 項 B）：自動從群聊、查手機對話整理，也可以直接改 */}
+                <div className="bg-white rounded-2xl p-4 border border-teal-100 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <label className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">記憶</label>
+                        <button onClick={handleRefreshMemory} disabled={memoryBusy || memoryGroups.length === 0}
+                            className="text-[10px] bg-teal-50 text-teal-700 px-2.5 py-1 rounded-full font-bold disabled:opacity-40">
+                            {memoryBusy ? '整理中…' : '從群聊整理'}
+                        </button>
+                    </div>
+                    <textarea
+                        value={memory}
+                        onChange={e => setMemory(e.target.value)}
+                        onFocus={() => { memoryFocusedRef.current = true; }}
+                        onBlur={() => {
+                            memoryFocusedRef.current = false;
+                            if (memory !== (npc.memory || '')) onChange({ memory, memoryUpdatedAt: Date.now() });
+                        }}
+                        placeholder="還沒有記憶。ta 參加的群聊攢了一段新對話、或在查手機裡跟角色聊過之後，會自動整理進來；也可以直接寫。"
+                        rows={5}
+                        className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs leading-relaxed resize-none"
+                    />
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                        ta 自己第一人稱的條列記憶，輪到 ta 在群聊、查手機、見面劇情裡說話時會帶上。自動整理會重寫整段、控制在 {NPC_MEMORY_MAX_CHARS} 字左右，舊的瑣事可能被擠掉。
+                        {memoryGroups.length > 0 ? `目前在 ${memoryGroups.length} 個群裡。` : '還沒加進任何群（群設定 → NPC 成員）。'}
+                        {npc.memoryUpdatedAt ? ` 上次更新：${new Date(npc.memoryUpdatedAt).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </p>
                 </div>
 
                 {/* 時間感知 & 時區：字段跟 CharacterProfile 同名，群聊/見面接入 NPC 後可以直接複用同一套時區工具函數 */}

@@ -725,7 +725,14 @@ describe('劇情客串 NPC', () => {
         expect(context).not.toContain('### 劇情角色：阿宅');
         expect(context).toContain('樓下便利店店員，嘴硬心軟。');
         expect(context).toContain('本劇發生在同一個小鎮上。');
-        expect(context).toContain('沒有獨立記憶輸入輸出、不追蹤好感度');
+        expect(context).toContain('不追蹤好感度');
+        expect(context).not.toContain('記得的事（');
+    });
+
+    it('NPC 有輕量記憶時帶進客串上下文', () => {
+        const context = buildTheaterNpcContext(npc({ memory: '- 林夕上週幫我搬過貨' }), '林夕', []);
+        expect(context).toContain('阿宅 記得的事');
+        expect(context).toContain('林夕上週幫我搬過貨');
     });
 
     it('只帶上對用戶和「本場在場角色」的關係，濾掉不在場的關係對象', () => {
