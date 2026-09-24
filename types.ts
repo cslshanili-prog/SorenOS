@@ -3525,6 +3525,15 @@ export interface NPCProfile {
         apiKey: string;
         model: string;
     };
+    /**
+     * 輕量記憶（路線圖第 5 項 B）：NPC 第一人稱的條列記憶，從參與過的群聊、查手機裡跟角色的
+     * 私聊自動整理，也可以在 NPC 編輯頁手動改；輪到它說話時帶進 prompt。不接記憶宮殿。
+     * 見 utils/npcMemory.ts。
+     */
+    memory?: string;
+    memoryUpdatedAt?: number;
+    /** 群聊自動整理的水位：groupId → 已經整理進記憶的最後一條群消息 id */
+    memoryGroupMarks?: Record<string, number>;
     createdAt: number;
     updatedAt: number;
 }
@@ -3608,6 +3617,12 @@ export interface GroupProfile {
      * members 名單裡，只是這陣子不出聲，隨時可以在群成員管理裡解除。
      */
     mutedMemberIds?: string[];
+    /**
+     * NPC 正式成員（神經鏈接「NPC」分頁的 NPCProfile.id，路線圖第 5 項 A）。故意不放進 members：
+     * members 有十幾處背景邏輯在讀、都假設是 CharacterProfile。NPC 只在群聊生成時被當成員，
+     * 見 utils/groupChat/npcMembers.ts。禁言沿用 mutedMemberIds。
+     */
+    npcMemberIds?: string[];
 }
 
 export interface GroupTopicBox {

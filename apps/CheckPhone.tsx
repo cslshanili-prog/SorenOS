@@ -36,6 +36,7 @@ import {
     Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold, Stack
 } from '@phosphor-icons/react';
 import { includesAnyScript } from '../utils/scriptKey';
+import { rememberNpcPhoneChat } from '../utils/npcMemoryRuntime';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
 
@@ -266,7 +267,7 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs, updateNPC } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
@@ -1991,7 +1992,9 @@ ${olderText}
                 .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
                 .map(r => r.targetId === targetChar.id ? `對「${targetChar.name}」：${r.description}` : `對用戶：${r.description}`)
                 .join('\n');
-            const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote].filter(Boolean).join('\n') : '';
+            // NPC 自己的輕量記憶（群聊、之前的手機私聊整理出來的），讓腦補出來的 TA 記得發生過的事
+            const npcMemoryNote = linkedNpc?.memory?.trim() ? `${linkedNpc.name}記得的事（TA 的第一人稱記憶）：\n${linkedNpc.memory.trim()}` : '';
+            const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote, npcMemoryNote].filter(Boolean).join('\n') : '';
             const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
                 host: targetChar, user: checkPhoneUserProfile, api: npcEffectiveApi as any,
@@ -1999,6 +2002,16 @@ ${olderText}
                 learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
             });
             if (!detail.trim()) { addToast('對方沒有回應', 'error'); return; }
+            // 綁定了 NPC 的：這段新對話併進 NPC 的記憶（背景跑，不擋畫面）
+            if (linkedNpc) {
+                const prev = existing?.detail || '';
+                const fresh = prev && detail.startsWith(prev) ? detail.slice(prev.length) : detail;
+                void rememberNpcPhoneChat({
+                    npc: linkedNpc, hostName: targetChar.name, transcript: fresh.trim().slice(-3000),
+                    userName: checkPhoneUserProfile.name, api: npcEffectiveApi as any,
+                    save: patch => updateNPC(linkedNpc.id, patch),
+                });
+            }
             const now = Date.now();
             // 同步到私聊：和真人對話一致，落一張 phone_card（受 sendToChat 控制）。
             // 續寫時先刪掉上一張卡片再發新的，避免同一段對話越堆越多。
