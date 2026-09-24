@@ -73,6 +73,8 @@ export async function handoffDelayedReplyToCloud(params: {
                 expirePolicy: 'force',
                 subtype: AMSG_DELAYED_REPLY_SUBTYPE,
                 instruction: buildCloudDelayedReplyInstruction(userProfile.name || ''),
+                // Soren 自己的 Worker 認它：這條是回覆，不算每日主動次數（上游 Worker 會忽略）
+                extraMetadata: { amsgDelayedReply: true },
             },
             userProfile, groups, realtimeConfig, apiConfig,
         });

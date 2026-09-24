@@ -1166,6 +1166,10 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
                 全程在網頁上點，不用裝東西也不用敲命令，大約 15 分鐘。第一次做建議直接照著
                 <strong>圖文教程</strong>走，下面是簡版。
               </p>
+              <p className="text-xs leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                這條手動路線裝的是上游作者的後端，沒有 Soren 的雲端功能（雲端回覆裡的照片、邀約、來電、改關係、已讀不回）。
+                建議用上方的「一鍵部署」，裝的是 Soren 自己的版本；已經手動裝過的，用一鍵部署再裝一次就會覆蓋成 Soren 版。
+              </p>
 
               <ol className="text-xs leading-relaxed text-slate-500 space-y-1.5 list-decimal list-outside pl-4">
                 <li>
@@ -1343,7 +1347,8 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
           {workerOutdated ? (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs leading-relaxed text-amber-700">
               Worker 上跑的還是舊版代碼，缺少新特性（大上下文雲端存儲、服務端工具循環等）。
-              回你 fork 的 <code className="font-mono">sullyos-workers</code> 倉庫點一下
+              用一鍵部署裝的：按下方「更新 Worker」，或用同一枚 Token 再按一次一鍵部署（金鑰和資料都會保留）。
+              手動裝的：回你 fork 的 <code className="font-mono">sullyos-workers</code> 倉庫點一下
               <strong> Sync fork</strong>，CF 會自動重新部署（當初是手動粘貼部署的話，
               去下方「部署 Worker」裡重新複製一次代碼粘貼覆蓋）。已有數據和任務不受影響。
             </div>

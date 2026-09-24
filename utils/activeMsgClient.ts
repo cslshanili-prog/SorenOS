@@ -2394,6 +2394,8 @@ export const ActiveMsgClient = {
       subtype?: string;
       /** 「本次任務」指令的整段替換，不傳就按 mode / promptHint 生成。 */
       instruction?: string;
+      /** 額外寫進任務 metadata 的標記（例如延遲回覆的 amsgDelayedReply）。 */
+      extraMetadata?: Record<string, unknown>;
     };
     /** 編輯/續期時傳舊任務 uuid：先取消它再新建（不傳 = 純新建）。 */
     replaceTaskUuid?: string;
@@ -2462,6 +2464,7 @@ export const ActiveMsgClient = {
         amsgExpirePolicy: resolveExpirePolicy(task.mode, task.expirePolicy),
         // 自排標記：到點兜底閘只攔帶它的任務（用戶面板排的不帶、不受連發上限管）。
         ...(task.selfScheduled ? { amsgSelfScheduled: true } : {}),
+        ...(task.extraMetadata || {}),
       },
     };
 

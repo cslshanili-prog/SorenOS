@@ -349,7 +349,9 @@ export type PostProcessDirective =
     // Notion / 飛書 寫日記 — worker classifier 提取 title/content/mood, 我們拼回原 tag 給
     // line 465 (Notion) / 649 (飛書) 既有 handler 跑. title 可空, 客戶端兜底.
     | { type: 'notion_write_diary'; title: string; content: string; mood?: string }
-    | { type: 'feishu_write_diary'; title: string; content: string; mood?: string };
+    | { type: 'feishu_write_diary'; title: string; content: string; mood?: string }
+    // Soren 專用標籤（發照片、改關係、已讀不回、邀約、來電）：worker 原樣送回整段標籤
+    | { type: 'soren_tag'; raw: string };
 
 /**
  * 把結構化 directive 反向拼回原 tag 字符串. 拼回的目的是讓下游 chatParser.parseAndExecuteActions
@@ -431,6 +433,9 @@ function reconstructDirectiveTags(directives: PostProcessDirective[] | undefined
                 parts.push(`[[FS_DIARY_START: ${header}]]\n${d.content}\n[[FS_DIARY_END]]`);
                 break;
             }
+            case 'soren_tag':
+                if (typeof d.raw === 'string' && d.raw.startsWith('[[')) parts.push(d.raw);
+                break;
             default:
                 console.warn('[directive-replay] unknown directive type, skipping', d);
         }

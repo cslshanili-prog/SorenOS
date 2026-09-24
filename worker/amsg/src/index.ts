@@ -466,6 +466,11 @@ interface FireStash {
   /** 這條任務是不是即時對話（用戶剛發完消息在等回覆）；決定要不要寫 outbox。 */
   instant: boolean;
   /**
+   * Soren 的雲端延遲回覆（任務 metadata.amsgDelayedReply，見 utils/delayedReplyCloud.ts）。
+   * 跟即時對話一樣是在回用戶的話，判斷用 isReplyLikeFire。
+   */
+  delayedReply?: boolean;
+  /**
    * 這一輪的情緒評估（副 API）。onBeforeFire 起跑、onLLMOutput 收尾時 await，
    * 結論掛上最後一條 push。沒配評估 / 不是即時對話時是 null。
    *
@@ -951,7 +956,7 @@ export const amsgFireSettled = async (
 
   // 每日計數：定時觸發發出去了記一次（多段氣泡也只算一次），調了幾次模型另記——失敗、
   // 判空沒發的那幾次同樣花了錢。即時對話是正常聊天，兩樣都不記。
-  if (!stash.instant && !stash.dailyCounted) {
+  if (!isReplyLikeFire(stash) && !stash.dailyCounted) {
     stash.dailyCounted = true;   // 認領掉，重複調用不會記兩遍
     const sent = delivered ? 1 : 0;
     const llmCalls = typeof info.llmCalls === 'number' && info.llmCalls > 0 ? info.llmCalls : 0;
@@ -1065,7 +1070,7 @@ export const amsgFireSettled = async (
       text,
       // 即時對話是在答用戶剛說的話——列進自述塊保持連續性，但不佔「主動連發」的額度
       // （帶這個標記的條目不會讓 selfLog.unansweredSends 加一）。
-      ...(stash.instant ? { reply: true } : {}),
+      ...(isReplyLikeFire(stash) ? { reply: true } : {}),
     });
     // 整段只有副作用標籤（正文為空）時 append 原樣返回——沒有話可記。
     if (next !== stash.selfLog) {
@@ -1260,12 +1265,19 @@ const raceEmotionEval = (
  *（renew 循環任務補當次走的也是這條）在同一次 fire 內額度中性。只抵扣快照裡的
  * ——本輪剛排又反悔的不在快照裡，它的額度已隨 scheduledTasks 回縮，不重複退。
  */
+/**
+ * 這一輪是在回用戶的話、不是主動開口：即時對話，或 Soren 的雲端延遲回覆。
+ * 不算進每日主動次數、不佔連發額度，也不跟下一條主動消息搶間隔。
+ */
+const isReplyLikeFire = (stash: Pick<FireStash, 'instant' | 'delayedReply'>): boolean =>
+  stash.instant || stash.delayedReply === true;
+
 const countCommittedSelfSends = (stash: FireStash): number => {
   const refundedSends = stash.cancelledTasks
     .filter((uuid) => stash.plannedSelfSendUuids.includes(uuid)).length;
   return countUnansweredSends(stash.selfLog)
     + stash.plannedSelfSends - refundedSends + stash.scheduledTasks.length
-    + (stash.instant ? 0 : 1);
+    + (isReplyLikeFire(stash) ? 0 : 1);
 };
 
 /**
@@ -1278,7 +1290,7 @@ const selfScheduleBusyTimes = (stash: FireStash, nowMs: number): number[] => {
     .map((t) => currentOccurrenceMs(t, nowMs))
     .filter((ms): ms is number => ms != null);
   if (stash.lastSelfSendAt != null) busy.push(stash.lastSelfSendAt);
-  if (!stash.instant) busy.push(nowMs);
+  if (!isReplyLikeFire(stash)) busy.push(nowMs);
   return busy;
 };
 
@@ -1715,6 +1727,9 @@ export const amsgHooks = {
     };
 
     const taskMeta = (ctx.task.metadata ?? {}) as Record<string, unknown>;
+    // Soren 的雲端延遲回覆（utils/delayedReplyCloud.ts）借的是一次性定時任務的殼，但它是在回
+    // 用戶的話：跟即時對話一樣不算每日主動次數、不佔連發額度（見 isReplyLikeFire）。
+    const replyLike = instant || taskMeta.amsgDelayedReply === true;
     // 任務上寫的防穿幫策略。角色自排的「到點必發」在用戶沒放開時會降成普通的
     // （見下面讀到 limits 之後的 policy），這裡先留原值。
     const taskPolicy = typeof taskMeta.amsgExpirePolicy === 'string'
@@ -2006,7 +2021,7 @@ export const amsgHooks = {
     const dailyDay = dayKeyInZone(nowMs, pack.userTzId);
     const dailySends = parseDailySends(charRows.find((r) => r.key === AMSG_DAILY_SENDS_KEY)?.value);
     const sentToday = sendsOnDay(dailySends, dailyDay);
-    if (!instant && sentToday >= limits.dailySendCap) {
+    if (!replyLike && sentToday >= limits.dailySendCap) {
       console.log('[amsg:daily-limit-skip]', {
         taskId: ctx.task.id, charId, day: dailyDay, sentToday, cap: limits.dailySendCap,
       });
@@ -2087,6 +2102,7 @@ export const amsgHooks = {
       // （resolveFireSceneSong 與 renderFireSceneBlock 共用判定），凍的必然是正文裡那首。
       sceneSong: resolveFireSceneSong(pack.scene, ctx.now.getTime(), tz),
       instant,
+      delayedReply: replyLike && !instant,
       // 下面即時對話那一支起跑（要等請求消息拼完才知道給評估喂什麼）。
       emotionEvalPromise: null,
       emotionLatePending: false,
@@ -2153,7 +2169,7 @@ export const amsgHooks = {
           : undefined,
         // 正在發的這一條（定時觸發）發完就佔掉今天的一個名額。
         dailyRemaining: Number.isFinite(limits.dailySendCap)
-          ? Math.max(0, limits.dailySendCap - sentToday - (instant ? 0 : 1))
+          ? Math.max(0, limits.dailySendCap - sentToday - (replyLike ? 0 : 1))
           : undefined,
       })
       : '';

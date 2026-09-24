@@ -15,11 +15,24 @@
 不跟上游之後，個別搬過來的上游改動記在這裡。搬法：上游那個 commit 的前後兩版都先用轉繁體同一套規則（OpenCC s2tw + 賬→帳、臺→台）轉好，再三方合併進我們的檔案；新檔直接轉繁體。
 
 - **主動消息 2.0「主動頻率」**（上游 `d486bebb`，2026-09-22，#28）：七項按角色設的上限（連發、間隔、每日上限、重複消息沒回就停、同時排幾條、角色能不能自排重複／到點必發），面板在「主動消息 2.0 →主動頻率」，說明見 [`docs/amsg2-pacing-limits.md`](../docs/amsg2-pacing-limits.md)。三方合併零衝突。同時把 `AMSG_BUNDLE_VERSION` 對齊上游的 `2026-09-22`。
-  - **Worker 不是從這個倉庫部署的**：用戶的 Worker 來自上游作者的 `Tosd0/sullyos-workers`，「更新 Worker」也從那邊拉 bundle。所以這邊 `worker/amsg/src` 的改動送不到用戶那台 Worker；只有前端和 Worker 約定好的格式（fire_pack、limits、任務 metadata）要跟上游對齊。`AMSG_BUNDLE_VERSION` 必須等於上游 bundle 的版本，不然設定頁會一直顯示「有更新」。
-  - 跟雲端延遲回覆的交集：延遲回覆借的是一次性定時任務的殼，Worker 分不出它是回覆，所以會算進「今天 TA 已主動找你 N 次」，設了每日上限時也可能被跳過。被跳過時 Worker 會留一筆 `last_skip`，本地過點檢查讀到是這條就自己補回（`resolveOverdueCloudDelayedReplies`）。要排除它得改 Worker，等哪天自己維護 Worker 再處理。
+  - （當時）**Worker 不是從這個倉庫部署的**：用戶的 Worker 來自上游作者的 `Tosd0/sullyos-workers`，「更新 Worker」也從那邊拉 bundle。所以這邊 `worker/amsg/src` 的改動送不到用戶那台 Worker；只有前端和 Worker 約定好的格式（fire_pack、limits、任務 metadata）要跟上游對齊。`AMSG_BUNDLE_VERSION` 必須等於上游 bundle 的版本，不然設定頁會一直顯示「有更新」。
+  - 跟雲端延遲回覆的交集：延遲回覆借的是一次性定時任務的殼，Worker 分不出它是回覆，所以會算進「今天 TA 已主動找你 N 次」，設了每日上限時也可能被跳過。被跳過時 Worker 會留一筆 `last_skip`，本地過點檢查讀到是這條就自己補回（`resolveOverdueCloudDelayedReplies`）。（已由 Soren 自己的 Worker 處理，見下方「Soren 自己的 Worker」。）
   - **上游 Worker 會剝掉它不認得的標籤**（2026-09-24 查到）：Worker 用 `utils/sanitize.ts` 的 `sanitizeIntoSegments` 切推播段落，裡面的 `stripBusinessTagsForNotification` 會把所有 `[[ACTION:…]]` 連原文一起剝掉，只有分類器認得的副作用標籤會改走 directives 通道送到客戶端。所以雲端生成的回覆裡，發照片（`SEND_PHOTO`）和 Soren 自己加的 `RELATIONSHIP`、`NO_REPLY`、`DATE_INVITE`、`CALL` 都到不了客戶端。本機生成的回覆不受影響。
   - **決定：自己維護 Worker（2026-09-24，Liora 拍板）**。SorenOS 出自己的 Worker bundle，把上面這幾個標籤加進分類器的 directives（或放行給客戶端），設定頁的部署連結與自動更新改指向自己的倉庫；之後上游 Worker 的更新由我們手動合。用戶要手動重新部署一次。順便處理：延遲回覆不算進每日主動次數。
-  - 沒搬的：上游同期的「雲端資料清點」（`6b2975d0`）、amsg-server next.29／next.30 的升級（只影響 Worker 打包，用戶的 Worker 本來就跟著上游）。
+  - 當時沒搬的「雲端資料清點」與 amsg-server 升級，已在下一條補上。
+- **補齊上游主動消息 2.0 的其餘更新**（上游 `e53907bf` 本地清了雲端跟上的收尾、`6b2975d0` 雲端資料清點、`dc22235d`／`95a7abbc` amsg-server 升到 next.29／next.30）：同一套轉繁體三方合併，衝突處保留 Soren 的每聊天身份變數與簡體統計事件名；`pnpm add` 升到 `@rei-standard/amsg-server@2.6.0-next.30`。這樣 Soren 自己的 Worker 不會比用戶原本跑的上游版舊。
+
+## Soren 自己的 Worker
+
+- **從哪裡部署**：一鍵部署（`utils/cfProvision.ts`）和「更新 Worker」（`worker/amsg/src/selfUpdate.ts`）都改成拉 SorenOS 倉庫 **dev 分支**的 `worker/amsg/worker.bundle.js` 與同目錄的 `wrangler.toml`（raw.githubusercontent.com，倉庫是公開的）。兩處網址要一起改。
+- **所以 `worker/amsg/worker.bundle.js` 現在是真的會被部署的檔案**：改了 `worker/amsg/src` 或它引用的 utils，要 `pnpm build:workers` 重打包並一起提交，別再還原它。合進 dev 之後，用戶按「更新 Worker」或重跑一鍵部署才會拿到。
+- **版本號** `AMSG_BUNDLE_VERSION` 從 `2026-09-24` 起是 Soren 自己的版本（不再對齊上游）；Worker 有「不更新就用不上」的改動時往前推。
+- **從上游版換成 Soren 版**：上游版的「更新 Worker」拉的是上游的代碼，換不過來。要用**同一枚 Cloudflare Token 再按一次一鍵部署**：它會沿用現有的金鑰（Master Key、VAPID、Server Token）和同名資料庫，在原本那台上覆蓋，不用重新配對。之後的更新按「更新 Worker」即可。
+- **手動部署路線**（fork `sullyos-workers`、部署按鈕）仍指向上游，裝的是上游版；設定頁那一段加了提示，建議改用一鍵部署。
+- **Soren 在 Worker 裡改了什麼**：
+  - 分類器（`worker/amsg/src/classifier.ts`）加了 `soren_tag` 直通指令：`SEND_PHOTO`、`RELATIONSHIP`、`NO_REPLY`、`DATE_INVITE`、`CALL`（含各自的別名與全形標點，`SOREN_PASSTHROUGH_TAG_RE`）整段原樣隨推播送回客戶端，客戶端 `reconstructDirectiveTags` 拼回原標籤，交給跟本機生成同一份的後處理。雲端回覆裡的發照片會落佔位卡、在手機上生成（收件箱那條路現在也帶上 `imageGenConfig`）。
+  - 雲端延遲回覆的任務帶 `metadata.amsgDelayedReply`，Worker 把它當回覆（`isReplyLikeFire`）：不算每日主動次數、不受每日上限擋、不佔連發額度。
+- 順手修正：已讀不回標籤的自動回覆內容帶一層中括號（「[會議中] 稍後回」）時，客戶端和 Worker 都認得。
 
 ## 開發順序
 
@@ -31,7 +44,7 @@
 | 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24；第二批：已讀不回，#25；第三批：延遲自動回覆，#26；雲端延遲回覆，#27；第四批：線下邀請＋動作描寫，#29；第五批：角色主動打電話，#30） |
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 未開始 |
 | 6 | 單一貼文池（先出設計文件） | 未開始 |
-| 7 | 生圖補生成（路線一） | 進行中（本機這段：照片佔位卡＋補生成，#31；雲端那段等自己的 Worker） |
+| 7 | 生圖補生成（路線一） | 本機這段：照片佔位卡＋補生成，#31；雲端那段：Soren 自己的 Worker（待用戶重新部署後驗證） |
 
 ## 各項設計決定
 
@@ -90,7 +103,7 @@
 - 全螢幕頁 `components/chat/ChatSettingsPage.tsx` 取代原本的「聊天設置」彈窗：頁首返回（不存）／完成（存），兩人頭像、「我們已相識 N 天」（點開自定義起點，沒設時從第一則私聊訊息算），Relationship 一排，下面接原有的設定分組。
 - 角色欄位：`chatNickname`（聊天頁頂部與 Chat 消息列表顯示）、`userNickname`、`userViewRelationship`、`charViewRelationship`、`allowCharChangeRelationship`、`acquaintanceStartDate`。
 - 提示詞：稱呼與關係進穩定段；相識天數進易變段（主動消息打包只給起點日期）。邏輯在 `utils/chatRelationship.ts`（有單測）。
-- 角色自主改關係：`[[ACTION:RELATIONSHIP|新關係]]`，在 `applyAssistantPostProcessing` 第一步剝掉（跟日程修改同一處），開了允許才寫系統提示並發 `CHAR_RELATIONSHIP_CHANGE_EVENT`，由 OSContext 寫回角色。**雲端（主動消息 2.0）生成的回覆目前收不到這個標籤**：上游 Worker 發推播前會把它不認得的 `[[ACTION:…]]` 連原文一起剝掉（見下方「上游個別整合紀錄」裡的 Worker 一節），要等自己的 Worker。
+- 角色自主改關係：`[[ACTION:RELATIONSHIP|新關係]]`，在 `applyAssistantPostProcessing` 第一步剝掉（跟日程修改同一處），開了允許才寫系統提示並發 `CHAR_RELATIONSHIP_CHANGE_EVENT`，由 OSContext 寫回角色。雲端（主動消息 2.0）生成的回覆：上游 Worker 會把這個標籤剝掉；換成 Soren 自己的 Worker 後以 `soren_tag` 直通送回（見「Soren 自己的 Worker」）。
 - Scenario 開關分批做，第二批是「已讀不回」。
 
 落地實況（第二批：已讀不回，#25）：
@@ -134,7 +147,7 @@
 - **線上模式動作描寫**：`chatPrompts` 的「聊天 App 行為規範」第一條原本寫死「不要輸出你的行為」；開了之後換成「可以偶爾用全形括號帶一點你螢幕前的神態或小動作，一則最多一處、一句以內，不寫旁白、不寫對方、不寫面對面的互動」。從通話／見面切回聊天的模式提示同步放寬。只動提示詞，雲端打包用的是同一份。
 - **自動線下邀請**（`utils/dateInvite.ts`，有單測）：
   - 開關開著，穩定段才教 `[[ACTION:DATE_INVITE|地點|想一起做什麼]]`（也認「約見面」「見面邀約」等別名和全形標點）。
-  - 後處理（`applyAssistantPostProcessing` 第一步和二輪後）一律剝掉標籤，開著才在這一輪所有話的後面落一張 `date_invite` 卡（`metadata.dateInvite`：地點、事由、狀態），一輪只落一張。主動消息 1.0 的背景路徑（含延遲回覆）同樣處理。2.0 雲端生成的回覆目前收不到這個標籤（上游 Worker 會剝掉），要等自己的 Worker。
+  - 後處理（`applyAssistantPostProcessing` 第一步和二輪後）一律剝掉標籤，開著才在這一輪所有話的後面落一張 `date_invite` 卡（`metadata.dateInvite`：地點、事由、狀態），一輪只落一張。主動消息 1.0 的背景路徑（含延遲回覆）同樣處理。2.0 雲端生成的回覆：上游 Worker 會剝掉這個標籤，Soren 自己的 Worker 會直通送回。
   - 卡片（`MessageItem` 的 `DateInviteCard`）：「赴約」→ 狀態記成已赴約、落一行旁白、直接進見面（`openDateWithChar`）；「婉拒」→ 記成已婉拒、落旁白。見面開場讀得到聊天記錄裡這張邀請。
   - 歷史和歸檔裡渲染成 `[[記錄:DATE_INVITE|from=char|place=…|plan=…|status=…]]`，跟轉帳同一套記錄形態；模型照抄只會被 sanitize 剝掉，不會多落一張卡。
 - 主動打電話／視訊見下面第五批。
@@ -143,7 +156,7 @@
 
 - 開關存在角色的 `charCall`，一個開關，語音或視訊由角色自己挑。邏輯在 `utils/charCall.ts`（有單測）。
 - 開著時穩定段才教 `[[ACTION:CALL|voice或video|打來的原因]]`（也認 `VIDEO_CALL`、「打電話」「視訊通話」等別名和全形標點）；提示詞交代偶爾才打、剛打過或對方在忙時不要打、不要在文字裡預告。
-- 後處理（聊天頁、主動消息 1.0 背景路徑含延遲回覆）一律剝掉標籤（2.0 雲端生成的回覆目前收不到這個標籤，上游 Worker 會剝掉，要等自己的 Worker）；開著、又過了**一小時冷卻**（`localStorage` 記每個角色最後一次打來的時刻，不管接沒接都算）才在這一輪話後面落一張 `char_call` 來電卡（`metadata.charCall`：模式、原因、狀態、時刻）。一輪只打一通。
+- 後處理（聊天頁、主動消息 1.0 背景路徑含延遲回覆）一律剝掉標籤（2.0 雲端生成的回覆：上游 Worker 會剝掉這個標籤，Soren 自己的 Worker 會直通送回）；開著、又過了**一小時冷卻**（`localStorage` 記每個角色最後一次打來的時刻，不管接沒接都算）才在這一輪話後面落一張 `char_call` 來電卡（`metadata.charCall`：模式、原因、狀態、時刻）。一輪只打一通。
 - 響不響：回覆是剛生成的（兩分鐘內）、頁面又看得見 → 卡片記「響鈴中」並發 `INCOMING_CHAR_CALL_EVENT`；否則（補收的舊回覆、背景裡落地）直接記**未接**。
 - 全域來電畫面 `components/IncomingCallOverlay.tsx`（掛在 PhoneShell，鎖屏時不掛）：
   - 正在通話或有掛起的通話、已經有一通在響 → 直接記未接；
@@ -192,7 +205,7 @@ NPC 維持**獨立的資料表**，不併進角色清單。理由：全專案有
 - 生成途中切走、失敗：佔位卡留著顯示「照片生成中斷，回到 App 時會自動再試」，只彈一個提示。OSContext 在啟動、切回前台、每分鐘（頁面看得見時）把待補清單逐張補上，一張一張來不併發。
 - 自動試了 4 次還不行就停下，卡片顯示「照片沒能生成」和「重試」按鈕。
 - 歷史裡佔位卡渲染成「你發了一張照片（描述），還在傳送中」，角色不會以為自己沒發。
-- 雲端那段（Worker 把 `SEND_PHOTO` 交回來、落佔位卡等回到 App 再生成）等自己的 Worker，見「上游個別整合紀錄」。
+- 雲端那段：Soren 自己的 Worker 把 `SEND_PHOTO` 以 `soren_tag` 送回，收件箱後處理落佔位卡、在手機上生成（見「Soren 自己的 Worker」）。
 
 ## 暫時不動
 
