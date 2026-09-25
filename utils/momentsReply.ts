@@ -6,7 +6,8 @@ import { actorDisplayName, USER_ID } from './momentsPool';
 import { addMomentComment } from './momentsStore';
 
 /**
- * 用戶在角色的貼文底下留言 → 作者回一句（第一批只做這條；其他人接話、NPC 互動在第二批）。
+ * 有人在角色的貼文底下留言 → 作者回一句：用戶留言時馬上排（朋友圈頁）；NPC 留言時由第二批的自動化排
+ * （utils/momentsAutoRuntime.ts，延遲照「角色回覆 NPC 留言延遲」）。
  * 設計見 plans/moments-pool-design.md「生成與互動」。
  */
 
@@ -68,7 +69,9 @@ export async function replyAsAuthor(params: {
         .join('\n');
     const replyTarget = userComment.replyTo ? post.comments.find(c => c.id === userComment.replyTo) : undefined;
     const replyingToName = replyTarget && replyTarget.actor.id !== char.id ? nameOf(replyTarget) : undefined;
-    const prompt = buildAuthorReplyPrompt({ authorName: char.name, userName, post, thread, userComment: userComment.content, replyingToName });
+    // 留言的人不一定是用戶：第二批裡角色也會回 NPC 的留言
+    const commenterName = userComment.actor.id === USER_ID ? userName : nameOf(userComment);
+    const prompt = buildAuthorReplyPrompt({ authorName: char.name, userName: commenterName, post, thread, userComment: userComment.content, replyingToName });
     try {
         if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
         const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {

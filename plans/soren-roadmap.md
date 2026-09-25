@@ -45,7 +45,7 @@
 | 3 | 個人檔案改版 + 朋友圈互動設定頁 | 已完成（#23） |
 | 4 | 聊天設置改全螢幕 | 進行中（第一批：頁面＋Relationship，#24；第二批：已讀不回，#25；第三批：延遲自動回覆，#26；雲端延遲回覆，#27；第四批：線下邀請＋動作描寫，#29；第五批：角色主動打電話，#30） |
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 已完成（#34）：A 群聊 + B 輕量記憶；發文／點讚／留言留給第 6 項 |
-| 6 | 單一貼文池（先出設計文件） | 進行中（設計文件已定案：[`plans/moments-pool-design.md`](./moments-pool-design.md)；第一批：池子＋兩個入口＋Dock 朋友圈＋查手機 Memo，#36；第二批：自動發文與互動，未開始） |
+| 6 | 單一貼文池（先出設計文件） | 進行中（設計文件已定案：[`plans/moments-pool-design.md`](./moments-pool-design.md)；第一批：池子＋兩個入口＋Dock 朋友圈＋查手機 Memo，#36；第二批：自動發文與互動＋私聊裡的最近朋友圈，PR 待開） |
 | 7 | 生圖補生成（路線一） | 本機這段：照片佔位卡＋補生成，#31；雲端那段：Soren 自己的 Worker（待用戶重新部署後驗證） |
 
 ## 各項設計決定
@@ -88,7 +88,7 @@
 落地實況：
 
 - 個人檔案本體是 `components/user/UserProfileHome.tsx`，Chat「主頁」分頁和桌面「檔案」App（`apps/UserApp.tsx`）共用；頁首身份切換是 `components/user/IdentitySwitcher.tsx`，身份卡編輯器拆成 `UserPersonaEditor.tsx`。
-- 朋友圈互動設定存在 `userProfile.momentsSettings`，讀取一律走 `utils/momentsSettings.ts` 的 `normalizeMomentsSettings()`；判斷某個角色／NPC 會不會自動發帖用 `canAutoPost()`。「自動發帖」總開關預設關。**目前只有設定、還沒有消費者**，第 6 項接上貼文池時照這份跑。
+- 朋友圈互動設定存在 `userProfile.momentsSettings`，讀取一律走 `utils/momentsSettings.ts` 的 `normalizeMomentsSettings()`；判斷某個角色／NPC 會不會自動發帖用 `canAutoPost()`。「自動發帖」總開關預設關。第 6 項第二批（`utils/momentsAutoRuntime.ts`）照這份跑：總開關只管自動發文；看到新貼文的按讚、留言照機率走。
 - 發帖清單存「關掉的」id，新加的角色預設可以發（但總開關關著時誰都不發）。
 
 ### 4. 聊天設置改全螢幕

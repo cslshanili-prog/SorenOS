@@ -2,7 +2,7 @@
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { applyActivePersona } from '../utils/userPersona';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
@@ -83,7 +83,9 @@ import { parseCharCredId } from '../utils/amsgLlmCredentials';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry } from '../utils/charNameRegistry';
-import { migrateTrajectoryMomentsToPool } from '../utils/momentsStore';
+import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
+import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
+import { setMomentsGraphInputs } from '../utils/momentsContext';
 import { setMinimaxRegion } from '../utils/minimaxEndpoint';
 import { setElevenLabsModel, setTtsProvider, setVoicePromptOverrides } from '../utils/ttsProvider';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -2232,6 +2234,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setCharNameRegistry([...characters, ...npcs]);
   }, [characters, npcs]);
+  // 私聊 prompt 的「最近的朋友圈」要用朋友關係（utils/momentsContext.ts），同樣登記一份
+  useEffect(() => {
+    setMomentsGraphInputs(characters, npcs);
+  }, [characters, npcs]);
   const apiConfigRef = useRef(apiConfig);
   apiConfigRef.current = apiConfig;
 
@@ -2254,6 +2260,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [apiConfig.voicePrompts]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
+  const npcsRef = useRef(npcs);
+  npcsRef.current = npcs;
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
@@ -2806,6 +2814,23 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const pendingPhotoTimer = window.setInterval(runPendingPhotos, 60_000);
       document.addEventListener('visibilitychange', runPendingPhotos);
       runPendingPhotos();
+      // 朋友圈第二批（utils/momentsAutoRuntime.ts）：新貼文排按讚留言；App 開著時每分鐘做到期的互動、看誰該自動發文
+      const momentsCtx = () => ({
+          characters: charactersRef.current, npcs: npcsRef.current,
+          userProfile: userProfileRef.current, apiConfig: apiConfigRef.current,
+      });
+      const onMomentCreated = (e: Event) => {
+          const post = (e as CustomEvent<MomentPost>).detail;
+          if (post) scheduleReactionsForPost(post, momentsCtx());
+      };
+      const runMoments = () => {
+          if (document.visibilityState !== 'visible') return;
+          void runMomentsAutomation(momentsCtx()).catch(e => console.warn('[Moments] 自動化失敗', e));
+      };
+      window.addEventListener(MOMENT_CREATED_EVENT, onMomentCreated);
+      const momentsTimer = window.setInterval(runMoments, 60_000);
+      document.addEventListener('visibilitychange', runMoments);
+      runMoments();
       const delayedReplyTimer = window.setInterval(runDueDelayedReplies, 10_000);
       const onDelayedReplyVisible = () => { if (document.visibilityState === 'visible') runDueDelayedReplies(); };
       document.addEventListener('visibilitychange', onDelayedReplyVisible);
@@ -2943,6 +2968,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           window.clearInterval(delayedReplyTimer);
           window.clearInterval(pendingPhotoTimer);
           document.removeEventListener('visibilitychange', runPendingPhotos);
+          window.removeEventListener(MOMENT_CREATED_EVENT, onMomentCreated);
+          window.clearInterval(momentsTimer);
+          document.removeEventListener('visibilitychange', runMoments);
           document.removeEventListener('visibilitychange', onDelayedReplyVisible);
           window.removeEventListener(DELAYED_REPLY_CHANGED_EVENT, runDueDelayedReplies);
           VRScheduler.onTrigger(() => {});

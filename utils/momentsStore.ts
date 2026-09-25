@@ -2,6 +2,7 @@ import type { CharacterProfile, MomentActor, MomentComment, MomentPost, MomentVi
 import { DB } from './db';
 import { deleteBlobRefIfUnreferenced } from './blobRef';
 import { addCommentTo, pendingMigrations, removeCommentFrom, toggleLikeOn } from './momentsPool';
+import { dropJobsForPost } from './momentsAuto';
 
 /**
  * 貼文池的讀寫入口：每次改動後廣播 MOMENTS_CHANGED_EVENT，開著的時間線聽到就重讀。
@@ -9,6 +10,8 @@ import { addCommentTo, pendingMigrations, removeCommentFrom, toggleLikeOn } from
  */
 
 export const MOMENTS_CHANGED_EVENT = 'moments-changed';
+/** 新貼文發出來了（detail = MomentPost）：OSContext 聽到後替看得到的角色／NPC 排按讚留言。 */
+export const MOMENT_CREATED_EVENT = 'moment-created';
 
 const genId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -38,6 +41,7 @@ export async function createMomentPost(params: {
     };
     await DB.saveMomentPosts([post]);
     announce();
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(MOMENT_CREATED_EVENT, { detail: post }));
     return post;
 }
 
@@ -79,6 +83,7 @@ export async function updateMomentPostFields(postId: string, patch: Partial<Pick
  */
 export async function deleteMomentPost(post: MomentPost, removeLegacy?: (charId: string, oldId: string) => void): Promise<void> {
     await DB.deleteMomentPost(post.id);
+    dropJobsForPost(post.id);
     if (post.source === 'migrated' && post.author.id && removeLegacy) removeLegacy(post.author.id, post.id.replace(/^mig-/, ''));
     announce();
     for (const image of post.images) void deleteBlobRefIfUnreferenced(image);

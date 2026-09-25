@@ -25,6 +25,7 @@ import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById } from './charNameRegistry';
+import { getMomentsContextForChar } from './momentsContext';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { formatRelativeAge } from './groupChat/relativeTime';
@@ -538,7 +539,14 @@ ${groupLogStr}\n`;
             }
         })();
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText] =
+        // 9. 最近的朋友圈（單一貼文池，utils/momentsContext.ts）：fire_pack 不帶，到點渲染時早就不是那幾篇了
+        const momentsPromise: Promise<string> = forFirePack ? Promise.resolve('') : getMomentsContextForChar(char.id, userProfile.name)
+            .catch(e => {
+                console.error('Failed to inject moments context:', e);
+                return '';
+            });
+
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -548,6 +556,7 @@ ${groupLogStr}\n`;
                 timed('notionNotes', notionNotesPromise),
                 timed('lifeRecord', lifeRecordPromise),
                 timed('anniversary', anniversaryPromise),
+                timed('moments', momentsPromise),
             ]);
 
         // ── 拼接：易變的進 volatileState，穩定的進 baseSystemPrompt ──
@@ -639,6 +648,7 @@ ${groupLogStr}\n`;
         // 群聊背景帶時間戳、隨群消息實時滾動 → 易變；日記標題/生活記錄變化很慢 → 穩定。
         // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
+        volatileState += momentsText;
         volatileState += anniversaryText;
         // 相識天數每天在變，放易變段；主動消息模板到點才渲染，天數會過期，只給起點日期
         if (char.acquaintanceStartDate) {
