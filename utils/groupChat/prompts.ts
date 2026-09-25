@@ -1,5 +1,6 @@
 // 群聊提示詞構建 —— 從 GroupChat.tsx 抽出的純函數，導演模式模板"搬家不改字"，
 // 供導演模式與輪詢模式（每成員一次調用）共用。
+import { stripLeakedReasoning } from './reasoningLeak';
 import { Message, EmojiCategory } from '../../types';
 import { stickerNameFromUrl } from '../messageFormat';
 import { isBlobRef } from '../blobRef';
@@ -151,6 +152,11 @@ export function buildGroupHistoryBlock(
         } else if (isMediaValue(rawText)) {
             // 令牌也算媒體：漏認會把它當正文內聯進 prompt，出門時還被還原成整段 data URL
             content = '[媒體]';
+        } else if (m.role === 'assistant') {
+            // 以前漏進群裡的思考過程（<thinking>、「讓我看看現在的狀況…」）不再當範例傳給下一位，
+            // 整則都是思考的就當沒這行（見 reasoningLeak.ts）
+            content = stripLeakedReasoning(rawText).content;
+            if (!content) return;
         } else {
             content = rawText;
         }
@@ -283,13 +289,17 @@ ${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(optio
 - **嚴禁**多個角色同一輪都發 PRIVATE。最多一個。
 - 格式: \`[[PRIVATE: 私聊內容]]\`。這條消息只進私聊頻道，不在群裡顯示。
 ${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
-#### 七、表情和氣泡
+#### 七、只寫台詞，不寫思考
+- content 裡只放角色真的會發在群裡的話。**不要**輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白——要想就在心裡想完，直接寫結果。
+- 記錄裡如果有人這樣寫過，那是系統出錯漏出來的，**不要模仿**。
+
+#### 八、表情和氣泡
 - **表情包**: 必須使用格式 \`[[SEND_EMOJI: 表情名稱]]\`。歷史中的“發送了表情包”只是記錄，不是發送指令，不要照抄。**可用表情 (按分類)**: ${emojiContextStr}
 - **氣泡分段**: 在一條內容裡用換行符分隔不同的氣泡——一行一個氣泡。短句多發幾條 > 長句一坨。
 - **引用回覆（可選）**: 角色想針對記錄裡某條具體發言回覆時，可在該角色的 content 開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可），會自動渲染成引用氣泡。偶爾用，別每條都引用。
 - **紅包（可選）**: 記錄裡出現「拼手氣紅包…還剩 n 份可搶」時，想搶的角色在自己的 content 裡單獨一行輸出 \`[[GRAB_PACKET]]\`，前後配一句真實反應（搶到後系統會公佈金額，下一輪可以對金額做反應）。**搶不搶、誰搶由性格決定，不必人人都搶**。看到「發了專屬紅包給 自己」時，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回，並說一句為什麼。角色也可以主動發紅包：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`；發給某人的專屬紅包 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`（對方可以是用戶或其他成員）。金額是氛圍道具，幾塊到幾百都行，別離譜。
 
-#### 八、私聊感知（避免說錯話）
+#### 九、私聊感知（避免說錯話）
 - 檢查每個角色的 [私聊空窗期]。如果某角色剛剛才私聊過用戶，哪怕群裡很冷清，也不能說"好久不見"或表現出疏離感。
 - 檢查每個角色與用戶已經建立的關係。私聊不必成為群聊主題，但 U 還是同一個 U，關係事實不能重置。
 - 但參考"對話質量"——不要因為私聊狀態就給出套路化反應，也不要讓所有角色用同一種方式表達關心。
@@ -339,5 +349,6 @@ ${userRule}
 ${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
-9. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}`;
+9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
+10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}`;
 }

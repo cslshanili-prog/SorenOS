@@ -1,3 +1,4 @@
+import { stripLeakedReasoning } from './reasoningLeak';
 import { Message } from '../../types';
 import { messageLogText } from './format';
 import { formatRelativeAge } from './relativeTime';
@@ -57,8 +58,12 @@ export function buildMemberTimeline(opts: MemberTimelineOptions): string {
             const tag = isGroup ? '[群聊]' : '[私聊]';
             // 私聊行的"我"= 該成員本人；群聊行用真名，成員才能分清誰說的
             const speaker = m.role === 'user' ? '用戶' : (isGroup ? resolveSpeaker(m) : '我');
-            const text = truncate(messageLogText(m, stickerName), LINE_MAX_CHARS);
+            // 群裡以前漏出來的思考過程（見 reasoningLeak.ts）不再當範例給這位成員看
+            const logText = isGroup && m.role === 'assistant' ? stripLeakedReasoning(messageLogText(m, stickerName)).content : messageLogText(m, stickerName);
+            if (!logText.trim()) return '';
+            const text = truncate(logText, LINE_MAX_CHARS);
             return `${tag}[${formatTime(m.timestamp)} · ${formatRelativeAge(m.timestamp)}] ${speaker}: ${text}`;
         })
+        .filter(Boolean)
         .join('\n');
 }
