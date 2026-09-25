@@ -5,6 +5,7 @@ import { AppID } from '../types';
 import TokenImg from '../components/os/TokenImg';
 import IdentitySwitcher from '../components/user/IdentitySwitcher';
 import UserProfileHome from '../components/user/UserProfileHome';
+import MomentsFeed from '../components/moments/MomentsFeed';
 import { messageLogText } from '../utils/groupChat/format';
 import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
@@ -41,9 +42,8 @@ const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
  *
  * 範圍說明（跟用戶對齊過的 v1 切法）：
  * - 消息／聯繫人兩欄是真功能：消息欄聚合私聊+群聊的最近一條消息；聯繫人欄是角色+NPC 的統一通訊錄。
- * - 動態欄直接 openApp(AppID.Social)——現有 SocialApp 1275 行、自成一體（有自己的返回按鈕/多級內部
- *   視圖），不是為嵌入設計的，硬嵌容易把它的"返回"和這裡的 tab 切換繞在一起。所以先用跳轉複用，
- *   不做成真正嵌在同一個底部導航裡的 tab；以後要嵌再單獨做。
+ * - 動態欄是單一貼文池的用戶視角（components/moments/MomentsFeed，路線圖第 6 項）。舊的沖浪 App
+ *   （SocialApp）不再從這裡進，留在桌面當獨立 App。
  * - 主頁欄就是「個人檔案」本體（components/user/UserProfileHome，跟桌面「檔案」App 共用）：
  *   Real Balance、朋友圈互動、分角色與群聊身份、生活記錄都在裡面。
  * - 頁首的頭像＋名字是 IdentitySwitcher，四個分頁共用，下拉切換預設身份／新增身份卡。
@@ -153,12 +153,6 @@ const ChatHub: React.FC = () => {
             openApp(AppID.Character);
         }
         trackEvent('Chat 主页打开联系人', { kind: item.kind });
-    };
-
-    // --- 動態 tab：直接跳現有 SocialApp（原因見文件頂部說明） ---
-    const openMoments = () => {
-        openApp(AppID.Social);
-        trackEvent('Chat 主页打开动态');
     };
 
     return (
@@ -306,13 +300,11 @@ const ChatHub: React.FC = () => {
                 )}
 
                 {tab === 'moments' && (
-                    <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-3">
-                        <Camera size={40} className="text-slate-300" />
-                        <p className="text-sm text-slate-400">動態複用現有的「動態」App，點一下就帶你過去。</p>
-                        <button onClick={openMoments} className="px-6 py-2.5 rounded-full bg-primary text-white text-xs font-bold shadow-sm active:scale-95 transition-transform">
-                            打開動態
-                        </button>
-                    </div>
+                    <MomentsFeed
+                        viewerId="user"
+                        interactive
+                        emptyHint="還沒有動態。發第一條吧，角色們看得到、也會在底下回你。"
+                    />
                 )}
             </div>
 

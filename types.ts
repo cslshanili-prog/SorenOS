@@ -4243,6 +4243,63 @@ export interface Anniversary {
     repeatAnnually?: boolean;
 }
 
+// ── 單一貼文池（朋友圈，路線圖第 6 項，設計見 plans/moments-pool-design.md）──────────────
+
+/** 誰：用戶、角色、NPC，或沒有 id 的路人（只有從舊軌跡 Moments 搬來的評論會是路人）。 */
+export type MomentActorKind = 'user' | 'character' | 'npc' | 'stranger';
+
+export interface MomentActor {
+    kind: MomentActorKind;
+    /** 'user' / 角色 id / NPC id；路人沒有 id */
+    id?: string;
+    /** 名字快照：當下的名字，改名或刪除後展示用；路人只有這個 */
+    name: string;
+}
+
+export interface MomentVisibility {
+    /** friends：作者的朋友看得到（預設）；public：所有人；custom：只有 allow 裡的人 */
+    mode: 'friends' | 'public' | 'custom';
+    /** mode = custom 時看得到的人（'user' / 角色 id / NPC id） */
+    allow?: string[];
+}
+
+export interface MomentLike {
+    actor: MomentActor;
+    at: number;
+}
+
+export interface MomentComment {
+    id: string;
+    actor: MomentActor;
+    content: string;
+    at: number;
+    /** 回覆某條留言的 id（「A 回覆 B：…」） */
+    replyTo?: string;
+}
+
+/**
+ * 貼文池裡的一篇貼文（moment_posts 表）。用戶、角色、NPC 發的都在這；按讚和留言直接放在貼文裡，
+ * 改動一律走 DB.updateMomentPost 的讀－改－寫事務。誰看得到什麼見 utils/momentsPool.ts。
+ */
+export interface MomentPost {
+    id: string;
+    author: MomentActor;
+    content: string;
+    /** blobref 令牌（或舊資料的 data URL） */
+    images: string[];
+    /** 生圖描述：重生照片時複用 */
+    imagePrompt?: string;
+    visibility: MomentVisibility;
+    likes: MomentLike[];
+    comments: MomentComment[];
+    /** 從舊軌跡 Moments 搬來的假點讚數，只加在顯示的數字上 */
+    legacyLikeCount?: number;
+    createdAt: number;
+    source: 'manual' | 'auto' | 'migrated';
+    /** 「同步到私聊」寫入的消息 id */
+    syncedMessageId?: number;
+}
+
 export interface SocialComment {
     id: string;
     authorName: string;
@@ -4457,6 +4514,8 @@ export interface FullBackupData {
     characters?: CharacterProfile[];
     characterGroups?: CharacterGroup[];
     npcs?: NPCProfile[];
+    /** 單一貼文池（moment_posts 表） */
+    momentPosts?: MomentPost[];
     groups?: GroupProfile[];
     messages?: Message[];
     storyTheaters?: StoryTheaterEntry[];

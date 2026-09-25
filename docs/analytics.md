@@ -936,6 +936,17 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 编辑一条群消息
 - 重新生成群聊回复
 - 领取或退回群红包
+- 群聊添加NPC成员
+- 群聊移除NPC成员
+- 群聊旁观代打发言
+- 群聊旁观给剧情方向
+
+**朋友圈（单一贴文池）**
+
+- 朋友圈发文 —— visibility（friends / public / custom）、hasImage（yes / no）
+- 朋友圈点赞
+- 朋友圈留言
+- 角色视角生成一条朋友圈
 
 **自习室**
 
