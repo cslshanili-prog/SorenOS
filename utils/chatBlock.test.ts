@@ -10,7 +10,8 @@ const H = 3600_000;
 describe('拉黑狀態', () => {
     it('用戶拉黑角色：沒有冷靜期；已在拉黑中不重來', () => {
         const patch = startChatBlock({}, 'user', 1000)!;
-        expect(patch.chatBlock).toEqual({ by: 'user', since: 1000 });
+        expect(patch.chatBlock).toMatchObject({ by: 'user', since: 1000 });
+        expect(patch.chatBlock!.tempNextAt).toBeGreaterThan(1000);
         expect(isUserBlockingChar(patch)).toBe(true);
         expect(isCharBlockingUser(patch)).toBe(false);
         expect(startChatBlock(patch, 'char', 2000)).toBeNull();

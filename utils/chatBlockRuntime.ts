@@ -5,6 +5,7 @@ import { resolveCharacterChatApi } from './characterApi';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMessageContent } from './messageFormat';
 import { buildReconsiderPrompt, isCharBlockingUser, parseReconsider } from './chatBlock';
+import { TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
 
 /**
  * 角色拉黑用戶之後，冷靜期到了讓角色想一次要不要解除（OSContext 每分鐘看一次誰到點了）。
@@ -23,7 +24,8 @@ const visible = (m: Message) => !m.metadata?.hidden && !m.metadata?.proactiveHin
 
 const lineOf = (m: Message, charName: string, userName: string) => {
     const who = m.role === 'user' ? userName : m.role === 'assistant' ? charName : '系統';
-    return `${who}: ${normalizeMessageContent(m, charName, userName).replace(/\s+/g, ' ').slice(0, 120)}`;
+    const temp = m.metadata?.tempChat ? TEMP_CHAT_HISTORY_PREFIX : '';
+    return `${who}: ${temp}${normalizeMessageContent(m, charName, userName).replace(/\s+/g, ' ').slice(0, 120)}`;
 };
 
 let running = false;
@@ -44,7 +46,8 @@ export async function runCharBlockReconsider(params: {
         const recent = (await DB.getRecentMessagesByCharId(char.id, 80)).filter(visible);
         const before = recent.filter(m => m.timestamp < block.since).slice(-BEFORE_LINES)
             .map(m => lineOf(m, char.name, userName)).join('\n');
-        const rejected = recent.filter(m => m.timestamp >= block.since && m.role === 'user').slice(-REJECTED_LINES)
+        // 拉黑之後對方送出的：私聊裡被拒收的，加上臨時會話雙方說過的話（標了「臨時會話」）
+        const rejected = recent.filter(m => m.timestamp >= block.since && (m.role === 'user' || !!m.metadata?.tempChat)).slice(-REJECTED_LINES)
             .map(m => lineOf(m, char.name, userName)).join('\n');
         const prompt = buildReconsiderPrompt({ charName: char.name, userName, reason: block.reason, since: block.since, now, before, rejected });
         const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {

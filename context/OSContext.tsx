@@ -46,6 +46,8 @@ import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormal
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, endChatBlock, extractBlockUser, isChatBlocked, isReconsiderDue, postponeReconsider, startChatBlock, type ChatBlockChangeDetail } from '../utils/chatBlock';
 import { runCharBlockReconsider } from '../utils/chatBlockRuntime';
+import { generateCharTempMessage } from '../utils/tempChatRuntime';
+import { nextTempAttemptAt, TEMP_CHAT_CHANGED_EVENT } from '../utils/tempChat';
 import { extractNoReplyDirective } from '../utils/readNoReply';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
 import { retryPendingPhotos } from '../utils/pendingPhoto';
@@ -2877,10 +2879,37 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               await updateCharacterRef.current(char.id, { chatBlock });
           }
       };
+      // 被用戶拉黑的角色，到點試著從臨時會話傳一句（utils/tempChatRuntime.ts）；今天次數用完不打 API
+      let tempAttemptRunning = false;
+      const runTempChatAttempt = async () => {
+          if (tempAttemptRunning) return;
+          const now = Date.now();
+          const char = charactersRef.current.find(c => c.chatBlock?.by === 'user' && typeof c.chatBlock.tempNextAt === 'number' && c.chatBlock.tempNextAt <= now);
+          if (!char?.chatBlock) return;
+          tempAttemptRunning = true;
+          let nextAt = nextTempAttemptAt(now);
+          try {
+              const result = await generateCharTempMessage({ char, apiConfig: apiConfigRef.current, userName: userProfileRef.current?.name || '你', replying: false, now });
+              if (result?.message) {
+                  window.dispatchEvent(new CustomEvent(TEMP_CHAT_CHANGED_EVENT, { detail: { charId: char.id } }));
+                  window.dispatchEvent(new CustomEvent('proactive-message-sent', { detail: { charId: char.id, charName: char.name, body: `[臨時會話] ${result.message}` } }));
+              }
+          } catch (e) {
+              console.warn('[臨時會話] 角色傳話失敗，一小時後再試', char.name, e);
+              nextAt = Date.now() + 3600_000;
+          } finally {
+              tempAttemptRunning = false;
+          }
+          const latest = charactersRef.current.find(c => c.id === char.id);
+          if (latest?.chatBlock?.by === 'user' && latest.chatBlock.since === char.chatBlock.since) {
+              await updateCharacterRef.current(char.id, { chatBlock: { ...latest.chatBlock, tempNextAt: nextAt } });
+          }
+      };
       const runMoments = () => {
           if (document.visibilityState !== 'visible') return;
           void runMomentsAutomation(momentsCtx()).catch(e => console.warn('[Moments] 自動化失敗', e));
           void runBlockReconsider().catch(e => console.warn('[拉黑] 冷靜期判斷失敗', e));
+          void runTempChatAttempt().catch(e => console.warn('[臨時會話] 失敗', e));
       };
       window.addEventListener(MOMENT_CREATED_EVENT, onMomentCreated);
       const momentsTimer = window.setInterval(runMoments, 60_000);

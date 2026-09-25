@@ -3282,6 +3282,8 @@ export interface CharacterProfile {
   allowCharBlockUser?: boolean;
   /** 角色拉黑你之後消氣要多久（冷靜期三檔），不設是 normal。 */
   charBlockCooldown?: CharBlockCooldown;
+  /** 臨時會話的上限（不設是每天 3 次、每次 50 字，見 utils/tempChat.ts）。 */
+  tempChatLimits?: TempChatLimits;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
@@ -3725,6 +3727,14 @@ export interface ChatBlockState {
     reason?: string;
     /** 角色拉黑時：下一次「要不要解除」的判斷時刻 */
     reconsiderAt?: number;
+    /** 用戶拉黑角色時：角色下一次試著從臨時會話傳話的時刻（見 utils/tempChat.ts） */
+    tempNextAt?: number;
+}
+
+/** 臨時會話的上限：雙方每天各幾次、每次最多幾個字。 */
+export interface TempChatLimits {
+    daily: number;
+    maxChars: number;
 }
 
 export interface ChatBlockPeriod {
