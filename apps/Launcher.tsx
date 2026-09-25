@@ -478,7 +478,7 @@ let _lastPageIndex = 0;
 // --- Main Launcher ---
 
 const Launcher: React.FC = () => {
-  const { openApp, characters, activeCharacterId, theme, updateTheme, lastMsgTimestamp, isDataLoaded, unreadMessages } = useOS();
+  const { openApp, characters, activeCharacterId, setActiveCharacterId, theme, updateTheme, lastMsgTimestamp, isDataLoaded, unreadMessages } = useOS();
 
   // Local state for widget data to prevent context trashing
   const [widgetChar, setWidgetChar] = useState<CharacterProfile | null>(null);
@@ -930,6 +930,14 @@ const Launcher: React.FC = () => {
   
   const totalUnread = Object.values(unreadMessages).reduce((a, b) => a + b, 0);
   const widgetUnread = widgetChar && unreadMessages[widgetChar.id] ? unreadMessages[widgetChar.id] : 0;
+  // 時間下面的角色卡片：直接進這個角色的聊天視窗（聊天列表 Dock 第一格就有了），返回回桌面。
+  // 還沒有角色時卡片顯示的是空態，退回 Chat 主頁。
+  const openWidgetChat = () => {
+      if (!widgetChar) { openApp(AppID.ChatHub); return; }
+      setActiveCharacterId(widgetChar.id);
+      openApp(AppID.Chat);
+      trackEvent('桌面角色卡片直接进聊天');
+  };
 
   // 手遊主題：整頁換成二次元手遊首頁佈局（獨立組件自渲染），不走下面的默認/動森啟動器。
   if (theme.skin === 'mobilegame') {
@@ -1039,7 +1047,7 @@ const Launcher: React.FC = () => {
                             char={widgetChar}
                             unreadCount={widgetUnread}
                             lastMessage={lastMessage}
-                            onClick={() => openApp(AppID.ChatHub)}
+                            onClick={openWidgetChat}
                             contentColor={contentColor}
                             paper={paper}
                         />
