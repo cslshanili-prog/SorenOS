@@ -10,13 +10,14 @@ import { getLocalDateKey } from '../../utils/localDate';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
 import { CHAR_BLOCK_COOLDOWNS } from '../../utils/chatBlock';
-import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoReplySettings } from '../../types';
+import { DEFAULT_TEMP_CHAT_LIMITS, normalizeTempChatLimits, TEMP_CHAT_LIMIT_RANGES } from '../../utils/tempChat';
+import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
 
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
-    | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown'>;
+    | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -89,6 +90,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [allowBlock, setAllowBlock] = useState(false);
     const [blockCooldown, setBlockCooldown] = useState<CharBlockCooldown>('normal');
     const [confirmBlock, setConfirmBlock] = useState(false);
+    const [tempLimits, setTempLimits] = useState<TempChatLimits>(DEFAULT_TEMP_CHAT_LIMITS);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -108,6 +110,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setAllowBlock(!!char.allowCharBlockUser);
         setBlockCooldown(char.charBlockCooldown || 'normal');
         setConfirmBlock(false);
+        setTempLimits(normalizeTempChatLimits(char.tempChatLimits));
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -138,6 +141,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             charCall: charCall || undefined,
             allowCharBlockUser: allowBlock || undefined,
             charBlockCooldown: allowBlock && blockCooldown !== 'normal' ? blockCooldown : undefined,
+            tempChatLimits: tempLimits.daily === DEFAULT_TEMP_CHAT_LIMITS.daily && tempLimits.maxChars === DEFAULT_TEMP_CHAT_LIMITS.maxChars
+                ? undefined : tempLimits,
         });
     };
 
@@ -306,6 +311,26 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                                 ) : (
                                     <button onClick={() => setConfirmBlock(true)} className="w-full text-center text-[15px] font-bold text-rose-500 active:opacity-60">拉黑 TA</button>
                                 )}
+                                {/* 臨時會話上限：拉黑期間雙方唯一的窄管道（按「完成」才存） */}
+                                <div className="mt-4 border-t border-slate-100 pt-3">
+                                    <div className="text-[13px] font-bold text-slate-700">臨時會話</div>
+                                    <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">拉黑期間雙方唯一能傳話的地方，雙方各算各的，照角色那邊的日期每天重算</div>
+                                    <div className="mt-2 flex gap-3">
+                                        {([
+                                            { key: 'daily', label: '每天', unit: '次', step: 1 },
+                                            { key: 'maxChars', label: '每次', unit: '字', step: TEMP_CHAT_LIMIT_RANGES.maxChars.step },
+                                        ] as const).map(({ key, label, unit, step }) => (
+                                            <div key={key} className="flex flex-1 items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                                                <span className="shrink-0 whitespace-nowrap text-[12px] text-slate-500">{label}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <button type="button" aria-label={`${label}減少`} onClick={() => setTempLimits(l => normalizeTempChatLimits({ ...l, [key]: l[key] - step }))} className="h-6 w-6 rounded-full bg-white text-slate-600 shadow-sm active:scale-90">−</button>
+                                                    <span className="min-w-[3.2em] text-center text-[13px] font-bold text-slate-800">{tempLimits[key]} {unit}</span>
+                                                    <button type="button" aria-label={`${label}增加`} onClick={() => setTempLimits(l => normalizeTempChatLimits({ ...l, [key]: l[key] + step }))} className="h-6 w-6 rounded-full bg-white text-slate-600 shadow-sm active:scale-90">＋</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     )}

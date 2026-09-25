@@ -35,6 +35,7 @@ import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationsh
 import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
 import { buildCharCallCooldownNote, buildCharCallPrompt, formatCharCallRecord } from './charCall';
 import { buildBlockUserPrompt, charBlockPeriods, isRejectedByBlock, REJECTED_HISTORY_PREFIX } from './chatBlock';
+import { isTempChatMessage, TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -1553,6 +1554,8 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                 else content = `${timeStr} ${sourceTag} ${content}`;
 
                 if (blockPeriods.length && isRejectedByBlock(m, blockPeriods)) content = `${REJECTED_HISTORY_PREFIX}${content}`;
+                // 拉黑期間臨時會話裡說的話（解除後併回私聊）
+                else if (isTempChatMessage(m)) content = `${TEMP_CHAT_HISTORY_PREFIX}${content}`;
                 return { role: m.role, content };
             }),
             historySlice // Return original slice for Quote lookup

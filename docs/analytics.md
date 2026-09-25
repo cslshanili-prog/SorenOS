@@ -950,6 +950,8 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 私聊拉黑 —— action（block / unblock / forceUnblock）
 - 角色拉黑用户
 - 角色冷静期后解除拉黑
+- 临时会话发送 —— blockedBy（char / user）
+- 临时会话里角色解除拉黑
 
 **朋友圈（单一贴文池）**
 

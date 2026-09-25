@@ -54,7 +54,10 @@ import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
 import ChatModals from '../components/chat/ChatModals';
 import type { ChatBlockAction, ChatSettingsPatch } from '../components/chat/ChatSettingsPage';
-import { blockNotes, charBlockPeriods, endChatBlock, isChatBlocked, isRejectedByBlock, isUserBlockingChar, startChatBlock } from '../utils/chatBlock';
+import { blockNotes, charBlockPeriods, endChatBlock, isCharBlockingUser, isChatBlocked, isRejectedByBlock, isUserBlockingChar, startChatBlock } from '../utils/chatBlock';
+import TempChatSheet from '../components/chat/TempChatSheet';
+import { isTempChatMessage, TEMP_CHAT_CHANGED_EVENT } from '../utils/tempChat';
+import { loadTempChatState } from '../utils/tempChatRuntime';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
@@ -2492,6 +2495,21 @@ const Chat: React.FC = () => {
         await reloadMessages(visibleCountRef.current);
     };
 
+    /** 角色（拉黑的那方）在臨時會話裡決定解除。 */
+    const handleCharUnblockFromTempChat = async () => {
+        if (!char?.chatBlock || char.chatBlock.by !== 'char') return;
+        const now = Date.now();
+        const since = char.chatBlock.since;
+        const patch = endChatBlock(char, now);
+        if (!patch) return;
+        await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: blockNotes.charUnblocked(char.name, chatUserProfile.name || '你', since, now) });
+        updateCharacter(char.id, patch);
+        setShowTempChat(false);
+        addToast(`${char.chatNickname?.trim() || char.name} 解除了對你的拉黑`, 'success');
+        trackEvent('临时会话里角色解除拉黑');
+        await reloadMessages(visibleCountRef.current);
+    };
+
     const saveSettings = async (pagePatch?: ChatSettingsPatch) => {
         const canUseAdaptiveRange = !!(char.autoArchiveEnabled || char.contextFollowsMemoryPalaceHwm);
         const nextMode: ContextRangeMode = canUseAdaptiveRange
@@ -3550,8 +3568,10 @@ const Chat: React.FC = () => {
     // 真正想從聊天記錄裡抹掉，應該走"刪除"。
     // 舊消息定位模式仍然維護一個有限 DOM 窗口，但窗口會隨著上下滾動持續擴展。
     const chatDisplayMessages = useMemo(
-        () => messages.filter(message => isVisibleChatMessage(message, !!char?.hideSystemLogs)),
-        [messages, char?.id, char?.hideSystemLogs],
+        // 拉黑中臨時會話的訊息只在臨時會話頁顯示，解除後才併回私聊（見 utils/tempChat.ts）
+        () => messages.filter(message => isVisibleChatMessage(message, !!char?.hideSystemLogs)
+            && !(char?.chatBlock && isTempChatMessage(message))),
+        [messages, char?.id, char?.hideSystemLogs, char?.chatBlock],
     );
 
     useEffect(() => {
@@ -3659,6 +3679,29 @@ const Chat: React.FC = () => {
     });
     // 角色拉黑用戶期間用戶送出的訊息：畫紅色驚嘆號「被對方拒收了」（見 utils/chatBlock.ts）
     const blockPeriods = useMemo(() => (char ? charBlockPeriods(char) : []), [char?.chatBlock, char?.chatBlockLog]); // eslint-disable-line react-hooks/exhaustive-deps
+    // 臨時會話：入口上顯示今天還剩幾次、角色傳了沒看過的話就亮紅點
+    const [showTempChat, setShowTempChat] = useState(false);
+    const [tempChatInfo, setTempChatInfo] = useState<{ userLeft: number; unread: boolean }>({ userLeft: 0, unread: false });
+    const tempSeenKey = char ? `soren_temp_chat_seen_${char.id}` : '';
+    const refreshTempChatInfo = useCallback(async () => {
+        if (!char?.chatBlock) { setTempChatInfo({ userLeft: 0, unread: false }); return; }
+        const state = await loadTempChatState(char);
+        let seen = 0;
+        try { seen = Number(localStorage.getItem(tempSeenKey) || 0); } catch { /* 讀不到就當沒看過 */ }
+        const unread = state.thread.some(m => m.role === 'assistant' && m.timestamp > seen);
+        setTempChatInfo({ userLeft: state.userRemaining, unread });
+    }, [char, tempSeenKey]);
+    useEffect(() => {
+        void refreshTempChatInfo();
+        const onChange = (e: Event) => { if ((e as CustomEvent<{ charId: string }>).detail?.charId === char?.id) void refreshTempChatInfo(); };
+        window.addEventListener(TEMP_CHAT_CHANGED_EVENT, onChange);
+        return () => window.removeEventListener(TEMP_CHAT_CHANGED_EVENT, onChange);
+    }, [refreshTempChatInfo, char?.id]);
+    const openTempChat = () => {
+        try { localStorage.setItem(tempSeenKey, String(Date.now())); } catch { /* 存不進去只是紅點不滅 */ }
+        setShowTempChat(true);
+        setTempChatInfo(info => ({ ...info, unread: false }));
+    };
     // 角色自定義聊天背景：字段值可能是 blobref 令牌（二進制在 IndexedDB），這裡解析成能直接
     // 喂進 CSS url() 的地址；data: / http(s) 之類的非令牌值渲染期原樣透傳。
     // hook 必須在下面的空態早退之前調用，所以用可選鏈讀 char。
@@ -3962,6 +4005,16 @@ const Chat: React.FC = () => {
 
              {showHistoryCleanup && <ChatHistoryCleanupModal key={char.id} character={char} onClose={() => setShowHistoryCleanup(false)} onDeleted={handleHistoryCleanupDone} />}
              {emojiExport && <EmojiExportDialog {...emojiExport} onClose={() => setEmojiExport(null)} />}
+            {showTempChat && char.chatBlock && (
+                <TempChatSheet
+                    char={char}
+                    chatUser={{ name: chatUserProfile.name, avatar: chatUserProfile.avatar }}
+                    apiConfig={apiConfig}
+                    onClose={() => { setShowTempChat(false); void refreshTempChatInfo(); }}
+                    onCharUnblock={handleCharUnblockFromTempChat}
+                    addToast={addToast}
+                />
+            )}
             <ChatModals
                 modalType={modalType} setModalType={setModalType}
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
@@ -4377,6 +4430,9 @@ const Chat: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                        {!selectionMode && isTempChatMessage(m) && (
+                            <div className={`px-4 -mt-1 mb-2 flex ${m.role === 'user' ? 'justify-end' : 'ml-12'} text-[10px] text-slate-400`}>臨時會話</div>
+                        )}
                         {!selectionMode && blockPeriods.length > 0 && isRejectedByBlock(m, blockPeriods) && (
                             <div className="px-4 -mt-1 mb-2 flex items-center justify-end gap-1.5">
                                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white" aria-label="被拒收">!</span>
@@ -4543,9 +4599,19 @@ const Chat: React.FC = () => {
                 {/* 開關寫著「已開啟」、這一輪卻在本地生成時，把原因說給用戶聽 */}
                 <InstantChatRouteNotice charId={activeCharacterId} />
 
+                {isCharBlockingUser(char) && !selectionMode && (
+                    <button onClick={openTempChat} className="relative mx-auto mb-1 flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[12px] font-bold text-slate-600 shadow-sm border border-slate-200 active:scale-95">
+                        {char.chatNickname?.trim() || char.name} 把你拉黑了・臨時會話（今天還剩 {tempChatInfo.userLeft} 次）
+                        {tempChatInfo.unread && <span className="h-2 w-2 rounded-full bg-red-500" aria-label="有新訊息" />}
+                    </button>
+                )}
                 {isUserBlockingChar(char) && !selectionMode ? (
                     <div className="shrink-0 flex items-center justify-center gap-3 border-t border-slate-200 bg-white/90 px-4 py-4 text-[13px] text-slate-500" style={{ paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}>
                         <span>你已把 {char.chatNickname?.trim() || char.name} 拉黑</span>
+                        <button onClick={openTempChat} className="relative rounded-full bg-slate-100 px-3 py-1 text-[12px] font-bold text-slate-600 active:scale-95">
+                            臨時會話
+                            {tempChatInfo.unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label="有新訊息" />}
+                        </button>
                         <button onClick={() => handleChatBlockAction('unblock')} className="rounded-full bg-slate-800 px-3 py-1 text-[12px] font-bold text-white active:scale-95">解除拉黑</button>
                     </div>
                 ) : (

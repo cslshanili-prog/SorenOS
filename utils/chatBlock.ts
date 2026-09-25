@@ -1,4 +1,5 @@
 import type { CharBlockCooldown, CharacterProfile, ChatBlockPeriod, ChatBlockState, Message } from '../types';
+import { firstTempAttemptAt } from './tempChat';
 
 /**
  * 私聊雙向拉黑的純邏輯（路線圖第 4 項最後一批；設計見 plans/block-temp-chat-design.md）。
@@ -54,6 +55,9 @@ export function startChatBlock(
         const reason = (opts.reason || '').trim().slice(0, CHAR_BLOCK_REASON_MAX);
         if (reason) state.reason = reason;
         state.reconsiderAt = firstReconsiderAt(now, char.charBlockCooldown, opts.random);
+    } else {
+        // 用戶拉黑角色：角色過一陣子會試著從臨時會話傳話
+        state.tempNextAt = firstTempAttemptAt(now, opts.random);
     }
     return { chatBlock: state };
 }
@@ -90,7 +94,7 @@ export function isRejectedByBlock(
     periods: Array<{ since: number; until: number }>,
 ): boolean {
     if (msg.role !== 'user' || periods.length === 0) return false;
-    if (msg.metadata?.hidden || msg.metadata?.proactiveHint) return false;
+    if (msg.metadata?.hidden || msg.metadata?.proactiveHint || msg.metadata?.tempChat) return false;
     return periods.some(p => msg.timestamp >= p.since && msg.timestamp < p.until);
 }
 
