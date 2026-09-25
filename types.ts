@@ -3703,6 +3703,10 @@ export interface UserProfile {
      * 讀取一律走 utils/momentsSettings.ts 的 normalizeMomentsSettings()，缺欄位補預設值。
      */
     momentsSettings?: MomentsInteractionSettings;
+    /** 朋友圈頁頂的封面圖（blobref 令牌），不設用預設漸層 */
+    momentsCover?: string;
+    /** 朋友圈頁頂名字下面那行格言，選填 */
+    momentsMotto?: string;
 }
 
 /** 見 UserProfile.momentsSettings。數值欄位的範圍和預設值在 utils/momentsSettings.ts。 */
@@ -4297,8 +4301,10 @@ export interface MomentPost {
     legacyLikeCount?: number;
     createdAt: number;
     source: 'manual' | 'auto' | 'migrated';
-    /** 「同步到私聊」寫入的消息 id */
+    /** 「同步到私聊」寫入的消息 id（作者自己同步；舊資料搬來的也在這） */
     syncedMessageId?: number;
+    /** 別的角色在自己的查手機裡把這篇同步進私聊：charId → 消息 id */
+    syncedMessageIds?: Record<string, number>;
 }
 
 export interface SocialComment {

@@ -93,3 +93,55 @@ export async function replyAsAuthor(params: {
 export function shouldAuthorReply(post: Pick<MomentPost, 'author'>, comment: Pick<MomentComment, 'actor'>): boolean {
     return post.author.kind === 'character' && comment.actor.id === USER_ID;
 }
+
+/** 角色在別人的貼文底下留言的提示詞（查手機的軌跡 Moments「讓 TA 留言」）。 */
+export function buildCharCommentPrompt(params: {
+    charName: string;
+    authorName: string;
+    post: Pick<MomentPost, 'content' | 'images'>;
+    thread: string;
+}): string {
+    const { charName, authorName, post, thread } = params;
+    const photos = post.images.length ? `（配了 ${post.images.length} 張照片）` : '';
+    return `你（${charName}）在朋友圈滑到${authorName}發的動態${photos}：
+「${post.content || '（只有照片）'}」
+
+底下目前的留言：
+${thread || '（還沒有人留言）'}
+
+用你平常的口吻在底下留一句言，一兩句就好，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。
+只輸出留言內容本身，不要帶名字、不要加引號。`;
+}
+
+/** 讓角色在某篇貼文底下留一句言；成功回傳 true。 */
+export async function commentAsCharacter(params: {
+    char: CharacterProfile;
+    post: MomentPost;
+    userName: string;
+    apiConfig: APIConfig;
+    characters: CharacterProfile[];
+    npcs: NPCProfile[];
+}): Promise<boolean> {
+    const { char, post, userName, apiConfig, characters, npcs } = params;
+    const api = resolveCharacterChatApi(char, apiConfig);
+    if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
+    const nameOf = (c: MomentComment) => actorDisplayName(c.actor, characters, npcs, userName);
+    const thread = post.comments.map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`).join('\n');
+    const authorName = post.author.id === char.id ? '你自己' : actorDisplayName(post.author, characters, npcs, userName);
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
+        body: JSON.stringify({
+            model: api.model,
+            messages: [
+                { role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) },
+                { role: 'user', content: buildCharCommentPrompt({ charName: char.name, authorName, post, thread }) },
+            ],
+            temperature: 0.9,
+        }),
+    });
+    if (!response.ok) throw new Error(`API 返回 ${response.status}`);
+    const text = cleanMomentReply(extractContent(await safeResponseJson(response)) || '', char.name);
+    if (!text) return false;
+    return !!(await addMomentComment(post.id, { kind: 'character', id: char.id, name: char.name }, text));
+}

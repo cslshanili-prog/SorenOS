@@ -300,11 +300,7 @@ const ChatHub: React.FC = () => {
                 )}
 
                 {tab === 'moments' && (
-                    <MomentsFeed
-                        viewerId="user"
-                        interactive
-                        emptyHint="還沒有動態。發第一條吧，角色們看得到、也會在底下回你。"
-                    />
+                    <MomentsFeed emptyHint="還沒有動態。按右上角 ＋ 發第一條，或按 ↻ 讓角色們發幾篇。" />
                 )}
             </div>
 

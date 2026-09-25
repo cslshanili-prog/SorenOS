@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, ChatCircle, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react';
 import type { CharacterProfile, ImageGenApiConfig, MomentActor, MomentPost } from '../../types';
 import TokenImg from '../os/TokenImg';
-import { buildTrajectoryMomentsPrompt, parseTrajectoryMomentDraft } from '../../utils/trajectory';
 import { useOS } from '../../context/OSContext';
 import {
     actorDisplayName, buildFriendGraph, displayLikeCount, momentFeedFor, visibleComments, visibleLikes,
 } from '../../utils/momentsPool';
-import { createMomentPost, deleteMomentPost, MOMENTS_CHANGED_EVENT, updateMomentPostFields } from '../../utils/momentsStore';
+import { deleteMomentPost, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
+import { generateCharacterMoment } from '../../utils/momentsGenerate';
+import { commentAsCharacter } from '../../utils/momentsReply';
 import { trackEvent } from '../../utils/analytics';
-import { ContextBuilder } from '../../utils/context';
-import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
 import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
@@ -19,8 +18,10 @@ import { DB } from '../../utils/db';
 
 /**
  * 查手機 → 軌跡 → Moments：單一貼文池的角色視角（路線圖第 6 項）。看到的是這個角色看得到的整個池子，
- * 不只 TA 自己發的；「✦ 生成一條」寫進池子，作者是 TA、朋友可見。同步到私聊、存照片、重生照片、刪除
- * 只對 TA 自己發的有效。用戶在這裡只是偷看，不能按讚留言。
+ * 不只 TA 自己發的；「✦ 生成一條」寫進池子，作者是 TA、朋友可見。點開一篇：
+ * - 任何一篇都能「同步到私聊」（別人的貼文按角色各記一次）；
+ * - 別人的貼文可以「讓 TA 按讚／留言」（用戶在偷看手機，按讚留言的是這個角色）；
+ * - TA 自己的貼文可以存照片、重生照片、刪除。
  */
 interface Props {
     char: CharacterProfile;
@@ -37,7 +38,9 @@ const formatTimestamp = (ts: number): string => {
 };
 
 const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, apiConfig, imageGenConfig, addToast }) => {
-    const { characters, npcs, userProfile, updateCharacter } = useOS();
+    const { characters, npcs, userProfile, updateCharacter, apiConfig: osApiConfig } = useOS();
+    const [liking, setLiking] = useState(false);
+    const [commenting, setCommenting] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
     const [generating, setGenerating] = useState(false);
     const [pool, setPool] = useState<MomentPost[]>([]);
@@ -89,33 +92,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         }
         setGenerating(true);
         try {
-            const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
-            const prompt = buildTrajectoryMomentsPrompt(roleSettingsBlock, ownPosts.map(p => ({ content: p.content })));
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-                body: JSON.stringify({
-                    model: apiConfig.model,
-                    messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
-                    temperature: 0.95,
-                }),
-            });
-            if (!response.ok) throw new Error(`API Error ${response.status}`);
-            const data = await safeResponseJson(response);
-            const draft = parseTrajectoryMomentDraft(extractJson(extractContent(data)));
-            if (!draft) { addToast('這次沒解析出動態內容，再試一次', 'error'); return; }
-
-            const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
-            const referenceBlob = await resolveCharacterReferenceImage(char, { description: draft.content });
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
-            const image = await migrateDataUrlToRef(dataUrl);
-
-            await createMomentPost({
-                author: { kind: 'character', id: char.id, name: char.name },
-                content: draft.content,
-                images: [image],
-                imagePrompt: draft.imagePrompt,
-                source: 'manual',
+            await generateCharacterMoment({
+                char, apiConfig: osApiConfig, api: apiConfig, imageGenConfig, requireImage: true,
+                recent: ownPosts.map(p => ({ content: p.content })),
             });
             trackEvent('角色视角生成一条朋友圈');
             addToast('這條朋友圈生成好了', 'success');
@@ -179,26 +158,59 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         addToast('已刪除', 'success');
     };
 
+    const syncedIdFor = (post: MomentPost): number | undefined =>
+        post.author.id === char.id ? post.syncedMessageId : post.syncedMessageIds?.[char.id];
+
     const handleSyncToChat = async (post: MomentPost) => {
         setSyncingToChat(true);
+        const own = post.author.id === char.id;
         try {
             const detailLines = [
                 post.content,
                 `贊：${displayLikeCount(char.id, post, graph)}`,
                 ...visibleComments(char.id, post, graph).map(c => `${nameOf(c.actor)}：${c.content}`),
             ].filter(Boolean).join('\n');
+            const authorName = nameOf(post.author);
             const messageId = await DB.saveMessage({
                 charId: char.id, role: 'assistant', type: 'phone_card',
-                content: `[你手機的 Moments App] ${post.content}`,
-                metadata: { phoneCard: { app: 'Moments', title: '一條朋友圈', detail: detailLines, image: post.images[0] } },
+                content: own
+                    ? `[你手機的 Moments App] ${post.content}`
+                    : `[你手機的 Moments App] 你在朋友圈看到${authorName}發的：${post.content}`,
+                metadata: { phoneCard: { app: 'Moments', title: own ? '一條朋友圈' : `${authorName}的朋友圈`, detail: detailLines, image: post.images[0] } },
             } as any);
-            await updateMomentPostFields(post.id, { syncedMessageId: messageId });
+            await updateMomentPostFields(post.id, own
+                ? { syncedMessageId: messageId }
+                : { syncedMessageIds: { ...(post.syncedMessageIds || {}), [char.id]: messageId } });
             addToast('已同步到私聊', 'success');
         } catch (e) {
             console.warn('[Trajectory] Moments 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
         } finally {
             setSyncingToChat(false);
+        }
+    };
+
+    // 用戶在偷看手機：按讚、留言的是這個角色
+    const handleCharLike = async (post: MomentPost) => {
+        setLiking(true);
+        try {
+            await toggleMomentLike(post.id, { kind: 'character', id: char.id, name: char.name });
+        } finally {
+            setLiking(false);
+        }
+    };
+
+    const handleCharComment = async (post: MomentPost) => {
+        setCommenting(true);
+        try {
+            const ok = await commentAsCharacter({ char, post, userName, apiConfig: osApiConfig, characters, npcs });
+            if (!ok) addToast(`${char.name} 這次沒想到要說什麼`, 'info');
+            else trackEvent('查手机让角色留言朋友圈');
+        } catch (e) {
+            console.warn('[Trajectory] 讓角色留言失敗:', e);
+            addToast('留言失敗，稍後再試', 'error');
+        } finally {
+            setCommenting(false);
         }
     };
 
@@ -259,18 +271,18 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                     </div>
                 )}
                 {posts.map(post => (
-                    <div key={post.id} className="flex gap-2.5">
+                    <div key={post.id} className="flex gap-2.5 cursor-pointer active:opacity-80" onClick={() => setDetailPost(post)}>
                         <TokenImg value={avatarOf(post.author)} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 bg-white/5" />
                         <div className="min-w-0 flex-1">
                             <div className="text-[12.5px] font-bold" style={{ color: '#a78bfa' }}>{nameOf(post.author)}</div>
                             {post.content && <div className="text-[13px] leading-relaxed mt-0.5 text-white/85 whitespace-pre-wrap break-words">{post.content}</div>}
                             {post.images.length > 0 && (
-                                <button onClick={() => setDetailPost(post)} className="mt-2 block w-32 aspect-square rounded-lg overflow-hidden bg-white/5 relative">
+                                <div className="mt-2 block w-32 aspect-square rounded-lg overflow-hidden bg-white/5 relative">
                                     <TokenImg value={post.images[0]} alt="" className="w-full h-full object-cover" />
                                     {post.images.length > 1 && <span className="absolute bottom-1 right-1 px-1.5 rounded bg-black/50 text-[10px]">+{post.images.length - 1}</span>}
-                                </button>
+                                </div>
                             )}
-                            <button onClick={() => setDetailPost(post)} className="text-[10px] text-white/35 mt-1.5 block">{formatTimestamp(post.createdAt)}</button>
+                            <div className="text-[10px] text-white/35 mt-1.5">{formatTimestamp(post.createdAt)}</div>
                             {renderInteractions(post, 'mt-1.5')}
                         </div>
                     </div>
@@ -295,10 +307,6 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
                                 <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
                             </button>}
-                            <button onClick={() => setConfirmDeleteOpen(true)} aria-label="刪除"
-                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-rose-200">
-                                <Trash size={14} weight="bold" />
-                            </button>
                         </div>}
                         {confirmDeleteOpen && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
@@ -336,14 +344,42 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                             <div className="text-[11px] text-white/40 mt-1.5">{formatTimestamp(detailPost.createdAt)}</div>
                         </div>
                         {renderInteractions(detailPost, 'mx-5 mb-2')}
-                        {detailPost.author.id === char.id ? <div className="px-5 pb-5 pt-1">
-                            <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat || !!detailPost.syncedMessageId}
-                                className="w-full py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
-                                style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
-                                <PaperPlaneTilt size={15} weight="bold" />
-                                {detailPost.syncedMessageId ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步到私聊')}
-                            </button>
-                        </div> : <div className="h-4" />}
+                        {(() => {
+                            const own = detailPost.author.id === char.id;
+                            const synced = !!syncedIdFor(detailPost);
+                            const charLiked = detailPost.likes.some(l => l.actor.id === char.id);
+                            const btn = 'w-full py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60';
+                            const soft = { background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' };
+                            return (
+                                <div className="px-5 pb-5 pt-2 space-y-2">
+                                    {!own && (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => void handleCharLike(detailPost)} disabled={liking} className={btn}
+                                                style={{ background: 'rgba(244,114,182,0.12)', color: '#f9a8d4', border: '1px solid rgba(244,114,182,0.25)' }}>
+                                                <Heart size={15} weight={charLiked ? 'fill' : 'bold'} />
+                                                {charLiked ? `收回 ${char.name} 的讚` : `讓 ${char.name} 按讚`}
+                                            </button>
+                                            <button onClick={() => void handleCharComment(detailPost)} disabled={commenting} className={btn}
+                                                style={{ background: 'rgba(125,211,252,0.1)', color: '#bae6fd', border: '1px solid rgba(125,211,252,0.22)' }}>
+                                                {commenting ? <CircleNotch size={15} weight="bold" className="animate-spin" /> : <ChatCircle size={15} weight="bold" />}
+                                                {commenting ? '想一下…' : `讓 ${char.name} 留言`}
+                                            </button>
+                                        </div>
+                                    )}
+                                    <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat || synced} className={btn} style={soft}>
+                                        <PaperPlaneTilt size={15} weight="bold" />
+                                        {synced ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步這條到私聊')}
+                                    </button>
+                                    {own && (
+                                        <button onClick={() => setConfirmDeleteOpen(true)} className={btn}
+                                            style={{ background: 'rgba(244,63,94,0.1)', color: '#fca5a5', border: '1px solid rgba(244,63,94,0.28)' }}>
+                                            <Trash size={15} weight="bold" />
+                                            刪除這條
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
