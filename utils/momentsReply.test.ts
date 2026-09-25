@@ -35,3 +35,13 @@ describe('作者回覆留言', () => {
         expect(shouldAuthorReply({ author: { kind: 'character', id: 'a', name: 'a' } }, { actor: { kind: 'character', id: 'b', name: 'b' } })).toBe(false);
     });
 });
+
+describe('角色在別人的貼文底下留言', () => {
+    it('提示詞帶上作者、貼文、其他留言', async () => {
+        const { buildCharCommentPrompt } = await import('./momentsReply');
+        const prompt = buildCharCommentPrompt({ charName: '小雨', authorName: '小安', post: { content: '新髮型', images: ['x'] }, thread: '房東: 好看' });
+        expect(prompt).toContain('你（小雨）在朋友圈滑到小安發的動態（配了 1 張照片）');
+        expect(prompt).toContain('房東: 好看');
+        expect(buildCharCommentPrompt({ charName: '小雨', authorName: '小安', post: { content: '', images: [] }, thread: '' })).toContain('（還沒有人留言）');
+    });
+});

@@ -67,7 +67,7 @@ export async function deleteMomentComment(postId: string, commentId: string): Pr
     announce();
 }
 
-export async function updateMomentPostFields(postId: string, patch: Partial<Pick<MomentPost, 'images' | 'imagePrompt' | 'syncedMessageId' | 'visibility' | 'content'>>): Promise<MomentPost | undefined> {
+export async function updateMomentPostFields(postId: string, patch: Partial<Pick<MomentPost, 'images' | 'imagePrompt' | 'syncedMessageId' | 'syncedMessageIds' | 'visibility' | 'content'>>): Promise<MomentPost | undefined> {
     const post = await DB.updateMomentPost(postId, prev => ({ ...prev, ...patch }));
     announce();
     return post;
