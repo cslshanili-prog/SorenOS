@@ -53,7 +53,8 @@ import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
 import MemoryRepairPortal from '../components/chat/MemoryRepairPortal';
 import FavoritesPortal from '../components/chat/VoiceFavoritesPortal';
 import ChatModals from '../components/chat/ChatModals';
-import type { ChatSettingsPatch } from '../components/chat/ChatSettingsPage';
+import type { ChatBlockAction, ChatSettingsPatch } from '../components/chat/ChatSettingsPage';
+import { blockNotes, charBlockPeriods, endChatBlock, isChatBlocked, isRejectedByBlock, isUserBlockingChar, startChatBlock } from '../utils/chatBlock';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
@@ -1621,7 +1622,7 @@ const Chat: React.FC = () => {
             // 開了主動消息 2.0 的角色再交一份給雲端，App 關著也回得來（見 utils/delayedReplyCloud.ts）
             // 戳一下不算進全域自動回覆，但延遲回覆要算：被戳了、晚點看到再回一句，像真人
             const pokeForDelayed = sent === true && customType === 'interaction';
-            if ((replyable || pokeForDelayed) && char?.delayedReply?.enabled) {
+            if ((replyable || pokeForDelayed) && char?.delayedReply?.enabled && !isChatBlocked(char)) {
                 void scheduleDelayedReplyFor(char)
                     .then(entry => entry && handoffDelayedReplyToCloud({
                         char, entry, userProfile: chatUserProfile, groups, realtimeConfig, apiConfig,
@@ -2461,6 +2462,34 @@ const Chat: React.FC = () => {
         } catch(err: any) {
             addToast(err.message, 'error');
         }
+    };
+
+    /** 拉黑／解除（聊天設定頁最下面、被拉黑時輸入框那條）：當下就生效，落一行系統提示讓角色知道。 */
+    const handleChatBlockAction = async (action: ChatBlockAction) => {
+        if (!char) return;
+        const now = Date.now();
+        const userName = chatUserProfile.name || '你';
+        if (action === 'block') {
+            const patch = startChatBlock(char, 'user', now);
+            if (!patch) return;
+            autoReply.cancel();
+            cancelDelayedReplyEverywhere(char.id);
+            await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: blockNotes.userBlocked(userName, char.name) });
+            updateCharacter(char.id, patch);
+            addToast(`已拉黑 ${char.chatNickname?.trim() || char.name}`, 'info');
+        } else {
+            const since = char.chatBlock?.since;
+            const patch = endChatBlock(char, now);
+            if (!patch || since === undefined) return;
+            const note = action === 'forceUnblock'
+                ? blockNotes.forcedUnblock(char.name, userName, since, now)
+                : blockNotes.userUnblocked(userName, char.name, since, now);
+            await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: note });
+            updateCharacter(char.id, patch);
+            addToast('已解除拉黑', 'success');
+        }
+        trackEvent('私聊拉黑', { action });
+        await reloadMessages(visibleCountRef.current);
     };
 
     const saveSettings = async (pagePatch?: ChatSettingsPatch) => {
@@ -3617,7 +3646,8 @@ const Chat: React.FC = () => {
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
         // 開了「延遲自動回覆」的角色改走那一套（幾分鐘內自己回），不再疊加全域的 2 秒自動回覆
-        enabled: inputPreferences.autoReply && !char?.delayedReply?.enabled,
+        // 拉黑中（不管誰拉黑誰）不自動回：用戶拉黑角色時本來就送不出訊息，角色拉黑用戶時訊息被拒收
+        enabled: inputPreferences.autoReply && !char?.delayedReply?.enabled && !isChatBlocked(char),
         conversationId: activeCharacterId || null,
         active: activeApp === AppID.Chat && !!char,
         blocked: isInputFocused || !!input.trim() || showPanel !== 'none' || modalType !== 'none'
@@ -3627,6 +3657,8 @@ const Chat: React.FC = () => {
         generating: isTyping || instantChatPending || isProactiveComposing,
         onGenerate: handleManualTrigger,
     });
+    // 角色拉黑用戶期間用戶送出的訊息：畫紅色驚嘆號「被對方拒收了」（見 utils/chatBlock.ts）
+    const blockPeriods = useMemo(() => (char ? charBlockPeriods(char) : []), [char?.chatBlock, char?.chatBlockLog]); // eslint-disable-line react-hooks/exhaustive-deps
     // 角色自定義聊天背景：字段值可能是 blobref 令牌（二進制在 IndexedDB），這裡解析成能直接
     // 喂進 CSS url() 的地址；data: / http(s) 之類的非令牌值渲染期原樣透傳。
     // hook 必須在下面的空態早退之前調用，所以用可選鏈讀 char。
@@ -4043,6 +4075,7 @@ const Chat: React.FC = () => {
                     updateCharacter(char.id, { activeBuffs: [], buffInjection: '' });
                     addToast('情緒狀態已清除', 'info');
                 }}
+                onChatBlockAction={handleChatBlockAction}
                 onSaveChatApi={(chatApi) => {
                     updateCharacter(char.id, { chatApi });
                     addToast('對話模型設置已保存', 'success');
@@ -4344,6 +4377,12 @@ const Chat: React.FC = () => {
                                 </div>
                             </div>
                         )}
+                        {!selectionMode && blockPeriods.length > 0 && isRejectedByBlock(m, blockPeriods) && (
+                            <div className="px-4 -mt-1 mb-2 flex items-center justify-end gap-1.5">
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white" aria-label="被拒收">!</span>
+                                {breaksWithNext && <span className="text-[10px] text-slate-400">訊息已發出，但被對方拒收了</span>}
+                            </div>
+                        )}
                         </div>
                     );
                 })}
@@ -4504,6 +4543,12 @@ const Chat: React.FC = () => {
                 {/* 開關寫著「已開啟」、這一輪卻在本地生成時，把原因說給用戶聽 */}
                 <InstantChatRouteNotice charId={activeCharacterId} />
 
+                {isUserBlockingChar(char) && !selectionMode ? (
+                    <div className="shrink-0 flex items-center justify-center gap-3 border-t border-slate-200 bg-white/90 px-4 py-4 text-[13px] text-slate-500" style={{ paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}>
+                        <span>你已把 {char.chatNickname?.trim() || char.name} 拉黑</span>
+                        <button onClick={() => handleChatBlockAction('unblock')} className="rounded-full bg-slate-800 px-3 py-1 text-[12px] font-bold text-white active:scale-95">解除拉黑</button>
+                    </div>
+                ) : (
                 <ChatInputArea
                     input={input} setInput={handleInputChange}
                     isTyping={isTyping} selectionMode={selectionMode}
@@ -4546,6 +4591,7 @@ const Chat: React.FC = () => {
                     chromeStyle={osTheme.chatChromeStyle}
                     acnh={acnh}
                 />
+                )}
             </div>
 
 

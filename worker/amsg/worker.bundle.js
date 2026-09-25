@@ -14781,6 +14781,11 @@ var amsgHooks = {
     const packJson = await unpackOrFail("fire_pack", packRow.value);
     const pack = parseFirePack(packJson);
     if (!pack) throw fail3(`fire_pack \u89E3\u6790\u5931\u6557\uFF1A${describeFirePackVersion(packJson)}`);
+    if (!instant && pack.chatBlocked === true) {
+      console.log("[amsg:skip] chat-blocked", { taskId: ctx.task.id });
+      await recordSkip(ctx, charId, "chat-blocked", Date.parse(String(ctx.task.nextSendAt)) || ctx.now.getTime());
+      return { skip: true };
+    }
     const legacyUnanswered = pack.maxUnansweredSends;
     const limits = limitsRecord || legacyUnanswered === void 0 ? recordLimits : { ...recordLimits, maxUnansweredSends: resolveMaxUnansweredSends(legacyUnanswered) };
     if (instant && !pack.chat) {

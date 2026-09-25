@@ -44,13 +44,15 @@ import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/cha
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync, collectSARFeatureFlags } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
+import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, endChatBlock, extractBlockUser, isChatBlocked, isReconsiderDue, postponeReconsider, startChatBlock, type ChatBlockChangeDetail } from '../utils/chatBlock';
+import { runCharBlockReconsider } from '../utils/chatBlockRuntime';
 import { extractNoReplyDirective } from '../utils/readNoReply';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
 import { retryPendingPhotos } from '../utils/pendingPhoto';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type IncomingCharCallDetail } from '../utils/charCall';
 import { applyForcedReadNoReply, persistCharChoseNoReply } from '../utils/readNoReplyRuntime';
 import { DELAYED_REPLY_CHANGED_EVENT, DELAYED_REPLY_DUE_EVENT } from '../utils/delayedReply';
-import { resolveOverdueCloudDelayedReplies, takeDueDelayedRepliesForLocal } from '../utils/delayedReplyCloud';
+import { cancelDelayedReplyEverywhere, resolveOverdueCloudDelayedReplies, takeDueDelayedRepliesForLocal } from '../utils/delayedReplyCloud';
 import { getCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { markBackupDone } from '../utils/backupReminder';
 import { collectSARLocalBackup, restoreSARLocalBackup } from '../utils/vrWorld/sarBackup';
@@ -2302,6 +2304,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               return;
           }
 
+          // 私聊拉黑中（不管誰拉黑誰）：角色不主動找人，晚點看到訊息再回也不會發生
+          if (isChatBlocked(char)) {
+              drainQueuedProactive();
+              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 拉黑中`);
+              return;
+          }
+
           if (!isReply && char.proactiveConfig && !char.proactiveConfig.enabled) {
               drainQueuedProactive();
               console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: disabled`);
@@ -2533,6 +2542,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const callTag = extractCharCall(aiContent);
               aiContent = callTag.cleanedText;
               const charCallReq = callTag.call && char.charCall && canCharCallNow(charId) ? callTag.call : null;
+              // 允許角色拉黑你：標籤一律剝掉，開著才在這一輪的話後面補系統提示並寫回角色
+              const blockTag = extractBlockUser(aiContent);
+              aiContent = blockTag.cleanedText;
+              const blockUserReq = blockTag.block && char.allowCharBlockUser && !char.chatBlock ? blockTag.block : null;
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
@@ -2754,6 +2767,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   }
               }
 
+              if (blockUserReq) {
+                  await DB.saveMessage({
+                      charId, role: 'system', type: 'text',
+                      content: blockNotes.charBlocked(char.name, currentUserProfile?.name || '你'),
+                      timestamp: baseTimestamp + offset,
+                  });
+                  offset += 1;
+                  window.dispatchEvent(new CustomEvent<ChatBlockChangeDetail>(CHAT_BLOCK_CHANGE_EVENT, {
+                      detail: { charId, action: 'charBlock', reason: blockUserReq.reason },
+                  }));
+              }
+
               if (offset > 0) {
                   const previewSource = savedPreviewChunks.join(' ').trim();
                   const preview = previewSource.replace(/\s+/g, ' ').trim().slice(0, 120)
@@ -2823,9 +2848,39 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const post = (e as CustomEvent<MomentPost>).detail;
           if (post) scheduleReactionsForPost(post, momentsCtx());
       };
+      // 角色拉黑用戶之後的冷靜期（utils/chatBlockRuntime.ts）：到點的角色想一次要不要解除，一輪只問一位
+      const runBlockReconsider = async () => {
+          const now = Date.now();
+          const char = charactersRef.current.find(c => isReconsiderDue(c, now));
+          if (!char?.chatBlock) return;
+          const userName = userProfileRef.current?.name || '你';
+          const outcome = await runCharBlockReconsider({ char, apiConfig: apiConfigRef.current, userName, now });
+          if (!outcome) return;
+          const latest = charactersRef.current.find(c => c.id === char.id);
+          if (!latest?.chatBlock || latest.chatBlock.since !== char.chatBlock.since) return;
+          const at = Date.now();
+          if (outcome.kind === 'unblock') {
+              const patch = endChatBlock(latest, at);
+              if (!patch) return;
+              await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: blockNotes.charUnblocked(char.name, userName, latest.chatBlock.since, at) });
+              if (outcome.message) {
+                  await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: outcome.message });
+                  window.dispatchEvent(new CustomEvent('proactive-message-sent', { detail: { charId: char.id, charName: char.name, body: outcome.message } }));
+              }
+              await updateCharacterRef.current(char.id, patch);
+              trackEvent('角色冷静期后解除拉黑');
+          } else {
+              if (outcome.kind === 'failed') console.warn('[拉黑] 冷靜期判斷失敗，一小時後再試', char.name, outcome.error);
+              const chatBlock = outcome.kind === 'stay'
+                  ? postponeReconsider(latest.chatBlock, at)
+                  : { ...latest.chatBlock, reconsiderAt: at + 3600_000 };
+              await updateCharacterRef.current(char.id, { chatBlock });
+          }
+      };
       const runMoments = () => {
           if (document.visibilityState !== 'visible') return;
           void runMomentsAutomation(momentsCtx()).catch(e => console.warn('[Moments] 自動化失敗', e));
+          void runBlockReconsider().catch(e => console.warn('[拉黑] 冷靜期判斷失敗', e));
       };
       window.addEventListener(MOMENT_CREATED_EVENT, onMomentCreated);
       const momentsTimer = window.setInterval(runMoments, 60_000);
@@ -3428,6 +3483,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
       return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
+  }, []);
+
+  // 角色用 [[ACTION:BLOCK_USER|…]] 拉黑了用戶（後處理、背景主動消息都會發這個事件）：
+  // 寫回角色、排好冷靜期；排著的延遲回覆一併作廢（見 utils/chatBlock.ts）。
+  useEffect(() => {
+      const onBlockChange = (event: Event) => {
+          const detail = (event as CustomEvent<ChatBlockChangeDetail>).detail;
+          if (!detail?.charId || detail.action !== 'charBlock') return;
+          const target = charactersRef.current.find(c => c.id === detail.charId);
+          if (!target) return;
+          const patch = startChatBlock(target, 'char', Date.now(), { reason: detail.reason });
+          if (!patch) return;
+          cancelDelayedReplyEverywhere(target.id);
+          trackEvent('角色拉黑用户');
+          void updateCharacterRef.current(target.id, patch);
+      };
+      window.addEventListener(CHAT_BLOCK_CHANGE_EVENT, onBlockChange);
+      return () => window.removeEventListener(CHAT_BLOCK_CHANGE_EVENT, onBlockChange);
   }, []);
 
   const deleteCharacter = async (id: string, options?: { force?: boolean }): Promise<DeleteCharacterResult> => {

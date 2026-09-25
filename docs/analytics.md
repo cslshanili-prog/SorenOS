@@ -945,6 +945,12 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 
 - 桌面角色卡片直接进聊天
 
+**私聊拉黑**
+
+- 私聊拉黑 —— action（block / unblock / forceUnblock）
+- 角色拉黑用户
+- 角色冷静期后解除拉黑
+
 **朋友圈（单一贴文池）**
 
 - 朋友圈发文 —— visibility（friends / public / custom）、hasImage（yes / no）

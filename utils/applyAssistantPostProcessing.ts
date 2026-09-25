@@ -53,6 +53,7 @@ import { normalizeAssistantActionFormatting } from './assistantActionFormat';
 import { markAmsgStateDirty } from './amsgStateSync';
 import { announceScheduleChanges, applyAssistantScheduleChanges } from './scheduleChange';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
+import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, extractBlockUser, type ChatBlockChangeDetail } from './chatBlock';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type CharCallMode, type IncomingCharCallDetail } from './charCall';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
@@ -863,6 +864,17 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    /**
+     * 角色拉黑用戶 [[ACTION:BLOCK_USER|原因]]：標籤一律剝掉；聊天設定開了「允許角色拉黑你」、
+     * 現在又沒在拉黑中才記下，等這一輪話都落完再補系統提示並發事件（OSContext 寫回角色）。
+     */
+    let pendingBlockUser: { reason: string } | null = null;
+    const consumeBlockUser = (content: string): string => {
+        const { cleanedText, block } = extractBlockUser(content);
+        if (block && char.allowCharBlockUser && !char.chatBlock && !pendingBlockUser) pendingBlockUser = block;
+        return cleanedText;
+    };
+
     // ─── Step 1: 初次粗洗 ───
     let aiContent = replayedTagPrefix ? `${replayedTagPrefix}${rawAiContent}` : rawAiContent;
     aiContent = normalizeAiContent(aiContent);
@@ -872,6 +884,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeNoReply(aiContent);
     aiContent = consumeDateInvite(aiContent);
     aiContent = consumeCharCall(aiContent);
+    aiContent = consumeBlockUser(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2365,6 +2378,7 @@ export async function applyAssistantPostProcessing(
     aiContent = await consumeNoReply(aiContent);
     aiContent = consumeDateInvite(aiContent);
     aiContent = consumeCharCall(aiContent);
+    aiContent = consumeBlockUser(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2461,6 +2475,22 @@ export async function applyAssistantPostProcessing(
         if (ring && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent<IncomingCharCallDetail>(INCOMING_CHAR_CALL_EVENT, {
                 detail: { charId: char.id, messageId, mode: call.mode, reason: call.reason },
+            }));
+        }
+    }
+
+    // 角色拉黑用戶：這一輪的話都落完了，最後一行系統提示；寫回角色交給 OSContext
+    if (pendingBlockUser) {
+        const block = pendingBlockUser as { reason: string };
+        await persistMessage({
+            charId: char.id, role: 'system', type: 'text',
+            content: blockNotes.charBlocked(char.name, userProfile?.name || '你'),
+            ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
+        });
+        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent<ChatBlockChangeDetail>(CHAT_BLOCK_CHANGE_EVENT, {
+                detail: { charId: char.id, action: 'charBlock', reason: block.reason },
             }));
         }
     }

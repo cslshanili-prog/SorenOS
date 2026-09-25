@@ -9,13 +9,17 @@ import { DB } from '../../utils/db';
 import { getLocalDateKey } from '../../utils/localDate';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
-import type { CharacterProfile, DelayedReplySettings, ReadNoReplySettings } from '../../types';
+import { CHAR_BLOCK_COOLDOWNS } from '../../utils/chatBlock';
+import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoReplySettings } from '../../types';
 
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
-    | 'dateInvite' | 'onlineActions' | 'charCall'>;
+    | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown'>;
+
+/** 拉黑是當下就生效的動作，不等「完成」。 */
+export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
 
 interface Props {
     isOpen: boolean;
@@ -27,6 +31,8 @@ interface Props {
     onSave: (patch: ChatSettingsPatch) => void;
     /** 下方原有的設定分組（AI 模型、輸入與發送、上下文與記憶……）。 */
     children: React.ReactNode;
+    /** 拉黑／解除拉黑（不給就不顯示拉黑區）。 */
+    onBlockAction?: (action: ChatBlockAction) => void;
 }
 
 const TextValue: React.FC<{ value: string; placeholder: string; onChange: (v: string) => void; label: string }> = ({ value, placeholder, onChange, label }) => (
@@ -66,7 +72,7 @@ const cleanReadNoReply = (v: ReadNoReplySettings): ReadNoReplySettings | undefin
  * 按返回則全部放棄，跟原本彈窗的「關掉不存」一致。
  * Scenario（已讀不回、延遲自動回覆、主動通話……）照路線圖分批加在這一排下面。
  */
-const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, onSave, children }) => {
+const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, onSave, children, onBlockAction }) => {
     const [nickname, setNickname] = useState('');
     const [userNickname, setUserNickname] = useState('');
     const [userView, setUserView] = useState('');
@@ -80,6 +86,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [dateInvite, setDateInvite] = useState(false);
     const [onlineActions, setOnlineActions] = useState(false);
     const [charCall, setCharCall] = useState(false);
+    const [allowBlock, setAllowBlock] = useState(false);
+    const [blockCooldown, setBlockCooldown] = useState<CharBlockCooldown>('normal');
+    const [confirmBlock, setConfirmBlock] = useState(false);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -96,6 +105,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setDateInvite(!!char.dateInvite);
         setOnlineActions(!!char.onlineActions);
         setCharCall(!!char.charCall);
+        setAllowBlock(!!char.allowCharBlockUser);
+        setBlockCooldown(char.charBlockCooldown || 'normal');
+        setConfirmBlock(false);
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -124,6 +136,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             dateInvite: dateInvite || undefined,
             onlineActions: onlineActions || undefined,
             charCall: charCall || undefined,
+            allowCharBlockUser: allowBlock || undefined,
+            charBlockCooldown: allowBlock && blockCooldown !== 'normal' ? blockCooldown : undefined,
         });
     };
 
@@ -212,7 +226,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                         </div>
                     </section>
 
-                    {/* Scenario：已讀不回、延遲自動回覆、主動通話、線下邀請、動作描寫；拉黑之後再加 */}
+                    {/* Scenario：已讀不回、延遲自動回覆、主動通話、線下邀請、動作描寫、允許角色拉黑你 */}
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
                         <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
@@ -227,6 +241,30 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                             <Row label="線上模式動作描寫" hint="開啟後，線上聊天時角色可以用括號帶一點神態或小動作，例如「（揉了揉眼睛）剛睡醒」；關閉時只傳純文字訊息">
                                 <Toggle on={onlineActions} onToggle={() => setOnlineActions(v => !v)} label="線上模式動作描寫" />
                             </Row>
+                            <div>
+                                <Row label="允許角色拉黑你" hint="開啟後，角色真的被你氣到時可以把你拉黑：你的訊息會被拒收、不送給模型。冷靜期過了角色會自己想要不要解除">
+                                    <Toggle on={allowBlock} onToggle={() => setAllowBlock(v => !v)} label="允許角色拉黑你" />
+                                </Row>
+                                {allowBlock && (
+                                    <div className="px-5 pb-4 -mt-1">
+                                        <div className="text-[11px] font-bold text-slate-500 mb-2">消氣要多久</div>
+                                        <div className="flex gap-2">
+                                            {(Object.keys(CHAR_BLOCK_COOLDOWNS) as CharBlockCooldown[]).map(key => {
+                                                const c = CHAR_BLOCK_COOLDOWNS[key];
+                                                const range = c.maxHours > 48 ? `${c.minHours / 24}–${c.maxHours / 24} 天` : `${c.minHours}–${c.maxHours} 小時`;
+                                                return (
+                                                    <button key={key} type="button" onClick={() => setBlockCooldown(key)}
+                                                        className={`flex-1 rounded-2xl border px-2 py-2 text-center transition ${blockCooldown === key ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                                                        <div className="text-[13px] font-bold">{c.label}</div>
+                                                        <div className={`text-[10px] ${blockCooldown === key ? 'text-white/70' : 'text-slate-400'}`}>{range}</div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">冷靜期到了打一次 API 讓角色決定；不解除就隔天再想一次。</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </section>
 
@@ -235,6 +273,42 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">更多設定</h2>
                         <div className="space-y-3">{children}</div>
                     </section>
+
+                    {/* 拉黑：當下就生效，不等「完成」（見 plans/block-temp-chat-design.md） */}
+                    {onBlockAction && (
+                        <section className="pb-6">
+                            <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] px-5 py-4">
+                                {char.chatBlock?.by === 'user' ? (
+                                    <div className="flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-[15px] font-bold text-slate-800">你已把 TA 拉黑</div>
+                                            <div className="mt-0.5 text-[11px] text-slate-400">TA 的訊息都進不來，也不會主動找你</div>
+                                        </div>
+                                        <button onClick={() => onBlockAction('unblock')} className="shrink-0 rounded-full bg-slate-800 px-4 py-2 text-[13px] font-bold text-white active:scale-95">解除拉黑</button>
+                                    </div>
+                                ) : char.chatBlock?.by === 'char' ? (
+                                    <div className="flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-[15px] font-bold text-rose-500">TA 把你拉黑了</div>
+                                            <div className="mt-0.5 text-[11px] text-slate-400">你的訊息會被拒收；冷靜期過了 TA 會自己考慮要不要解除。劇情卡住或誤觸時可以強制解除（TA 會知道是你按的）</div>
+                                        </div>
+                                        <button onClick={() => onBlockAction('forceUnblock')} className="shrink-0 text-[12px] font-bold text-slate-500 underline underline-offset-2">強制解除</button>
+                                    </div>
+                                ) : confirmBlock ? (
+                                    <div>
+                                        <div className="text-[15px] font-bold text-slate-800">確定拉黑 TA？</div>
+                                        <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">拉黑期間 TA 的訊息一律進不來（主動訊息、延遲回覆、雲端推播都停），你也不能傳訊息給 TA，直到你解除為止。</div>
+                                        <div className="mt-3 flex gap-2">
+                                            <button onClick={() => setConfirmBlock(false)} className="flex-1 rounded-full bg-slate-100 py-2 text-[13px] font-bold text-slate-600">取消</button>
+                                            <button onClick={() => { setConfirmBlock(false); onBlockAction('block'); }} className="flex-1 rounded-full bg-rose-500 py-2 text-[13px] font-bold text-white">拉黑</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button onClick={() => setConfirmBlock(true)} className="w-full text-center text-[15px] font-bold text-rose-500 active:opacity-60">拉黑 TA</button>
+                                )}
+                            </div>
+                        </section>
+                    )}
                 </div>
             </div>
         </div>

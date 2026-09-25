@@ -208,6 +208,7 @@ const LAST_SKIP_REASONS = [
   'min-gap',
   'recurring-unanswered',
   'daily-limit',
+  'chat-blocked',
 ] as const;
 
 export interface AmsgLastSkip {
@@ -227,6 +228,7 @@ export interface AmsgLastSkip {
    * min-gap               角色自排的任務到點時，離它上一條主動消息還沒隔夠用戶設的間隔
    * recurring-unanswered  重複的任務到點時，用戶已經連續幾次沒回它了（回話後恢復）
    * daily-limit           今天主動發的次數已到用戶設的每日上限
+   * chat-blocked          私聊拉黑中（誰拉黑誰都算），到點不發
    */
   reason: (typeof LAST_SKIP_REASONS)[number];
   skippedAt: number;
@@ -295,6 +297,8 @@ export const describeLastSkip = (skip: AmsgLastSkip, formatTime: (ms: number) =>
       return `${when} 那條重複消息這次沒發——你已經連續幾次沒回它了，先停一停；你回一句話，它就照常恢復。`;
     case 'daily-limit':
       return `${when} 那次主動消息沒發——今天 ta 主動找你的次數已經到了你設的每日上限，跳過的這次不會補發，明天重新計數。`;
+    case 'chat-blocked':
+      return `${when} 那次主動消息沒發——你們之間正在拉黑中，解除之前 ta 的主動消息都不會發。`;
   }
 };
 
@@ -431,6 +435,12 @@ export interface AmsgFirePack {
    * 的容錯方向是 fail-open（字段一丟開關就被靜默重新打開），寧可整包打回。
    */
   selfScheduleEnabled: boolean;
+  /**
+   * 私聊拉黑中（用戶拉黑角色或角色拉黑用戶，見 utils/chatBlock.ts）。true 時 worker 到點跳過定時任務，
+   * 不花 token、不推播；即時對話不看它（拉黑中客戶端根本不會發起）。可選：缺省＝沒拉黑，
+   * 漏掉的方向由客戶端收件時兜住。
+   */
+  chatBlocked?: boolean;
 }
 
 // ─── 按角色參照系渲染時間（②：worker 給角色看的一切時間只此一份） ───

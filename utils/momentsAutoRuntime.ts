@@ -67,7 +67,8 @@ export async function runMomentsAutomation(ctx: MomentsRuntimeContext): Promise<
 async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
     if (!settings.autoPostEnabled) return;
-    const posterIds = [...ctx.characters.map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
+    // 私聊拉黑中的角色不自動發：用戶看不到，白花 API
+    const posterIds = [...ctx.characters.filter(c => !c.chatBlock).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
     const now = Date.now();
     const { schedule, due } = reconcilePostSchedule(readPostSchedule(), posterIds, now, settings);
     if (due.length === 0) { writePostSchedule(schedule); return; }

@@ -101,7 +101,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
     const handleRefresh = async () => {
         if (refreshing) return;
         const disabled = new Set(normalizeMomentsSettings(userProfile.momentsSettings).disabledPosterIds);
-        const posters = pickRefreshPosters(characters.filter(c => !disabled.has(c.id)));
+        const posters = pickRefreshPosters(characters.filter(c => !disabled.has(c.id) && !c.chatBlock));
         if (posters.length === 0) { addToast('還沒有可以發文的角色', 'info'); return; }
         setRefreshing(true);
         trackEvent('朋友圈重整让角色发文');

@@ -34,6 +34,7 @@ import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
 import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
 import { buildCharCallCooldownNote, buildCharCallPrompt, formatCharCallRecord } from './charCall';
+import { buildBlockUserPrompt, charBlockPeriods, isRejectedByBlock, REJECTED_HISTORY_PREFIX } from './chatBlock';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -350,6 +351,8 @@ export const ChatPrompts = {
         if (char.dateInvite) baseSystemPrompt += buildDateInvitePrompt(userProfile.name);
         // 聊天設定 · 允許角色主動打電話／視訊（見 utils/charCall.ts）
         if (char.charCall) baseSystemPrompt += buildCharCallPrompt(userProfile.name);
+        // 聊天設定 · 允許角色拉黑你（見 utils/chatBlock.ts）
+        if (char.allowCharBlockUser) baseSystemPrompt += buildBlockUserPrompt(userProfile.name);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，
@@ -1200,6 +1203,8 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
         }
         const historySlice = effectiveHistory.slice(-limit);
         const charTz = resolveCharTimeZone(char);
+        // 角色拉黑用戶期間用戶送出的訊息：角色當時沒收到，現在才看到（見 utils/chatBlock.ts）
+        const blockPeriods = charBlockPeriods(char);
 
         let timeGapHint = "";
         if (historySlice.length >= 2) {
@@ -1547,6 +1552,7 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                 }
                 else content = `${timeStr} ${sourceTag} ${content}`;
 
+                if (blockPeriods.length && isRejectedByBlock(m, blockPeriods)) content = `${REJECTED_HISTORY_PREFIX}${content}`;
                 return { role: m.role, content };
             }),
             historySlice // Return original slice for Quote lookup
