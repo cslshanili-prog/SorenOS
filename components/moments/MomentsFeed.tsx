@@ -226,7 +226,9 @@ const MomentsFeed: React.FC<Props> = ({ viewerId, interactive, header, emptyHint
 
             {/* 留言輸入列 */}
             {commentTarget && (
-                <div className="fixed inset-x-0 bottom-0 z-50 bg-white border-t border-slate-200 px-3 pt-2 flex items-center gap-2" style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.5rem)' }}>
+                // 釘在 --app-height 的底邊（鍵盤升起時就是鍵盤上方），不用 bottom-0：iOS 全屏 PWA 的版面視窗不跟鍵盤變矮
+                <div className="sully-chat-inputbar fixed inset-x-0 z-50 bg-white border-t border-slate-200 px-3 pt-2 pb-[calc(var(--safe-bottom)+0.5rem)] flex items-center gap-2"
+                    style={{ top: 'var(--app-height, 100%)', transform: 'translateY(-100%)' }}>
                     <input
                         autoFocus
                         value={commentDraft}
