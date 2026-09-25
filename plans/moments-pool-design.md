@@ -160,9 +160,17 @@ interface MomentPost {
 - 角色看到的作者永遠是「用戶本人」（`id: 'user'`），不會因為身份卡不同而分成好幾個人。
 - 如果以後想做「對不同角色用不同身份發文」，再在可見範圍那邊擴充。
 
-## 第三個池子：查手機首頁的「Moments 朋友圈」小 App（2026-09-25 開工時發現）
+## 第三個池子：查手機首頁的小 App（改名 Memo）
 
-寫文件時漏看了：查手機首頁除了「軌跡 → Moments」，還有一個「Moments 朋友圈」小 App（`apps/CheckPhone.tsx` 的 `renderMoments`）。它存在 `phoneState.records`（`type: 'social'` 的查手機記錄），按「刷新動態」一次生成兩條純文字動態，讚數和留言數是從 id 算出來的假數字，可以同步到私聊。第一批**先不動它**，怎麼處理等 Liora 決定。
+查手機首頁除了「軌跡 → Moments」，還有一個原本也叫 Moments 的小 App（`apps/CheckPhone.tsx` 的 `renderMoments`，存在 `phoneState.records` 的 `type: 'social'` 記錄，按「刷新動態」生成純文字動態）。寫文件時漏看了。
+
+- **定案（2026-09-25）**：不併進貼文池。標題先改成 **Memo（小紙條）**；以後可能改成隨手留的心情小紙條，不需要留言和讚。內容和生成方式暫時不動。
+
+## 入口：桌面 Dock
+
+- Dock 第三格原本是舊的沖浪 App（Social / Spark），換成新的 **朋友圈**（`AppID.Moments`，`apps/MomentsApp.tsx`，就是用戶視角的時間線，跟 Chat 主頁的「動態」分頁同一份）。
+- 存過自訂 Dock 順序的，存檔裡的 Social 原位換成朋友圈。
+- 舊的沖浪 App 退回桌面的 App 格子裡，暫時不管。
 
 ## 定案紀錄
 

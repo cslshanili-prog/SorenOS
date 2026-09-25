@@ -548,7 +548,7 @@ const MobileGameHome: React.FC = () => {
                             <StarBurst className="w-8 h-8" fill="#ffffff" />
                         </div>
                     </button>
-                    <DockItem id={AppID.Social} cn="動態" onClick={() => openApp(AppID.Social)} />
+                    <DockItem id={AppID.Moments} cn="朋友圈" onClick={() => openApp(AppID.Moments)} />
                     <DockItem id={AppID.ThemeMaker} cn="創作" onClick={() => openApp(AppID.ThemeMaker)} />
                 </div>
             </div>

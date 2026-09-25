@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppConfig, AppID } from './types';
 import {
+  Aperture,
   UserCircle,
   IdentificationCard,
   ChatTeardrop,
@@ -54,6 +55,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Room: ({ className }) => <House className={className} weight="regular" />,
   CheckPhone: ({ className }) => <DeviceMobileCamera className={className} weight="regular" />,
   Social: ({ className }) => <Fire className={className} weight="regular" />,
+  Moments: ({ className }) => <Aperture className={className} weight="regular" />,
   Study: ({ className }) => <Books className={className} weight="regular" />,
   FAQ: ({ className }) => <Question className={className} weight="regular" />,
   Game: ({ className }) => <GameController className={className} weight="regular" />,
@@ -95,6 +97,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Journal, name: '交換日記', icon: 'Journal', color: 'amber' },
   // { id: AppID.Handbook, name: '手帳', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
   { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },
+  { id: AppID.Moments, name: '朋友圈', icon: 'Moments', color: 'green' },
   { id: AppID.Study, name: '自習室', icon: 'Study', color: 'emerald' },
   { id: AppID.Game, name: 'TRPG', icon: 'Game', color: 'orange' },
   { id: AppID.Novel, name: '筆友會', icon: 'Novel', color: 'amber' },
@@ -124,4 +127,5 @@ export const HIDDEN_APP_NAMES: Partial<Record<AppID, string>> = {
   [AppID.WorldHome]: '家園',
 };
 
-export const DOCK_APPS = [AppID.ChatHub, AppID.GroupChat, AppID.Social, AppID.Settings];
+// 第三格原本是舊的沖浪 App（Social），換成單一貼文池的朋友圈；Social 退回桌面格子裡。
+export const DOCK_APPS = [AppID.ChatHub, AppID.GroupChat, AppID.Moments, AppID.Settings];

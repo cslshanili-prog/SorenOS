@@ -2724,7 +2724,7 @@ ${olderText}
         const list = records.filter(r => r.type === 'social').sort((a, b) => b.timestamp - a.timestamp);
         return (
             <SubAppShell>
-                <TermHeader title="Moments" sub="朋友圈" accent={accent} onBack={() => setActiveAppId('home')}
+                <TermHeader title="Memo" sub="小紙條" accent={accent} onBack={() => setActiveAppId('home')}
                     right={<ImagesSquare size={20} weight="fill" style={{ color: accent }} />} />
                 <div className="flex-1 overflow-y-auto px-4 pt-2 no-scrollbar pb-28 overscroll-contain space-y-3">
                     {list.length === 0 && <EmptyState text="還沒有動態" />}
@@ -3671,7 +3671,7 @@ ${olderText}
             <div className="grid grid-cols-2 gap-3.5 mb-3.5">
                 <HomeCard icon={<UsersThree size={24} weight="light" />} label="聯繫人" sub={contactsSub} accent="#f472b6"
                     onClick={() => { setActiveAppId('contacts'); trackEvent('打开查手机子应用', { subApp: 'contacts' }); }} />
-                <HomeCard icon={<ImagesSquare size={24} weight="light" />} label="Moments" sub={momentsSub} accent="#c084fc"
+                <HomeCard icon={<ImagesSquare size={24} weight="light" />} label="Memo" sub={momentsSub} accent="#c084fc"
                     onClick={() => { setActiveAppId('social'); trackEvent('打开查手机子应用', { subApp: 'social' }); }} />
                 <HomeCard icon={<Hamburger size={24} weight="light" />} label="Food" sub={foodSub} accent="#fbbf24"
                     onClick={() => { setActiveAppId('waimai'); trackEvent('打开查手机子应用', { subApp: 'waimai' }); }} />

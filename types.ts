@@ -17,6 +17,7 @@ export enum AppID {
   Room = 'room',
   CheckPhone = 'check_phone',
   Social = 'social',
+  Moments = 'moments', // 朋友圈：單一貼文池的用戶視角（路線圖第 6 項），Dock 上取代舊的 Social
   Study = 'study',
   FAQ = 'faq',
   Game = 'game',
