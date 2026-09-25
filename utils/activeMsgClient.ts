@@ -905,6 +905,9 @@ export const buildFirePack = async (
     // 角色級 2.0 開關隨包上雲：關著的角色即便走即時對話（全局開關是另一顆），雲端
     // fire 也不給排程能力——本地的 amsg2ToolsInjected 閘門在雲端的對應物就是它。
     selfScheduleEnabled: isAmsg2EnabledForChar(char),
+    // 私聊拉黑中（不管誰拉黑誰，見 utils/chatBlock.ts）：Soren Worker 到點直接跳過，不花 token、不推播。
+    // 舊 Worker 不認這個欄位，客戶端收件時還有一道（activeMsgRuntime 的 chat-blocked 吞掉）。
+    ...(char.chatBlock ? { chatBlocked: true } : {}),
     // 到點時角色要知道自己還掛著什麼，才不會把同一件事再排一遍。這裡帶原始記錄，
     // 渲染成人話由 worker 現場做（時間要按 tzId 換算，且得摘掉正在發的那條）。
     pendingTasks: getPendingTasks(char.activeMsg2Config, Date.now()),

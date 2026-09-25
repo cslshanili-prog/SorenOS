@@ -12,6 +12,7 @@
 |------|------|-----------|
 | **Soren 路線圖** | [`plans/soren-roadmap.md`](./plans/soren-roadmap.md) | **開始任何新功能前先看**：以 Soren 為主不再跟上游、全部轉繁體、NPC 走獨立表（群聊＋輕量記憶）、單一貼文池、生圖補生成、聊天設置全螢幕等已定案的設計決定與開發順序 |
 | **世界書分組與角色綁定** | [`docs/worldbook-management.md`](./docs/worldbook-management.md) | 改世界書觸發方式、整組編輯／刪除、神經鏈接掛載前必讀；綁定按 ID，庫與角色緩存同事務更新 |
+| **私聊雙向拉黑＋臨時會話** | [`plans/block-temp-chat-design.md`](./plans/block-temp-chat-design.md) | 改拉黑（誰拉黑誰、擋哪些生成、被拒收訊息、冷靜期解除）或臨時會話前必讀；拉黑中任何路徑都不能讓角色生成私聊訊息 |
 | **協同工作私聊銜接與轉發** | [`docs/collaboration-chat-bridge.md`](./docs/collaboration-chat-bridge.md) | 改協同讀取 ChatApp 範圍或轉發消息前必讀；每輪讀 DB，空範圍不回退，多選只發當前窗口 |
 | **開發調試面板 / 開關** | [`docs/dev-debug.md`](./docs/dev-debug.md) | 加 dev-only 開關、加調試日誌、排查"角色怎麼又不說話了"。含逐步指南 |
 | **彼方 · 書庫分類與閱讀偏好** | [`docs/kanata-library.md`](./docs/kanata-library.md) | 改書籍歸類、批量整理、角色選書輪換或書庫備份前必讀；按分類模式不得回退全書庫 |

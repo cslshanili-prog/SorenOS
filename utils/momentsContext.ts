@@ -10,13 +10,13 @@ import { actorDisplayName, buildFriendGraph, momentFeedFor, visibleComments, vis
  * 由 OSContext 在清單變化時登記到這裡——跟 utils/charNameRegistry.ts 同一個做法。
  */
 
-type GraphChar = Pick<CharacterProfile, 'id' | 'name'> & { phoneState?: { contacts?: PhoneContact[] } };
+type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock'> & { phoneState?: { contacts?: PhoneContact[] } };
 type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships'>;
 
 let registered: { characters: GraphChar[]; npcs: GraphNpc[]; graph: FriendGraph } | null = null;
 
 export function setMomentsGraphInputs(characters: GraphChar[], npcs: GraphNpc[]): void {
-    const slimChars = characters.map(c => ({ id: c.id, name: c.name, phoneState: { contacts: c.phoneState?.contacts } }));
+    const slimChars = characters.map(c => ({ id: c.id, name: c.name, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
     const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships }));
     registered = { characters: slimChars, npcs: slimNpcs, graph: buildFriendGraph(slimChars, slimNpcs) };
 }

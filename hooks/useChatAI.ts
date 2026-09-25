@@ -618,6 +618,13 @@ export const useChatAI = ({
         opts?: { skipEmotionInjection?: boolean },
     ) => {
         if (isTyping || !char) return;
+        // 私聊拉黑中（見 utils/chatBlock.ts）：不管誰拉黑誰，這一輪都不生成
+        if (char.chatBlock) {
+            addToast(char.chatBlock.by === 'char'
+                ? `${char.chatNickname?.trim() || char.name} 已把你拉黑，訊息被拒收了`
+                : `你已把 ${char.chatNickname?.trim() || char.name} 拉黑，解除後才能聊天`, 'info');
+            return;
+        }
         // 這一輪就是在回覆了：排著的延遲自動回覆（如果有，連同交給雲端的那條）作廢，免得到點又多回一次
         cancelDelayedReplyEverywhere(char.id);
         // 聊天設定 ·「已讀不回」：命中不回訊時段、或日程忙碌／睡覺（且沒交給角色決定）時，

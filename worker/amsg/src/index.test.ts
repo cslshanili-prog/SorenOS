@@ -443,6 +443,19 @@ describe('onBeforeFire 四道門', () => {
     expect(skip.taskUuid).toBe(TASK_UUID);
   });
 
+  it('拉黑中 → 定時任務直接跳過，原因寫成 chat-blocked', async () => {
+    const { ctx, writeState } = makeCtx({
+      charRows: [
+        { key: AMSG_FIRE_PACK_KEY, value: firePackValue(null, { chatBlocked: true }) },
+        { key: AMSG_TOOL_PACK_KEY, value: toolPackValue },
+      ],
+    });
+    await expect(amsgHooks.onBeforeFire(ctx)).resolves.toEqual({ skip: true });
+    const call = writeState.mock.calls.find(([, entries]) =>
+      entries.some((e: { key: string }) => e.key === AMSG_LAST_SKIP_KEY));
+    expect(JSON.parse(String(call![1][0].value)).reason).toBe('chat-blocked');
+  });
+
   it('對話已經聊到別處被作廢 → 原因寫成另一種，兩者能分開', async () => {
     const { ctx, writeState } = makeCtx({
       charRows: [

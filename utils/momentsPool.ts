@@ -12,12 +12,14 @@ import type {
 
 export const USER_ID = 'user';
 
-type FriendChar = Pick<CharacterProfile, 'id'> & { phoneState?: { contacts?: PhoneContact[] } };
+type FriendChar = Pick<CharacterProfile, 'id'> & { phoneState?: { contacts?: PhoneContact[] }; chatBlock?: CharacterProfile['chatBlock'] };
 type FriendNpc = Pick<NPCProfile, 'id' | 'relationships'>;
 
 export interface FriendGraph {
     areFriends(a: string, b: string): boolean;
     kindOf(id: string): 'user' | 'character' | 'npc';
+    /** 兩人之間有拉黑（私聊拉黑或通訊錄拉黑／刪除）：連公開貼文都看不到。 */
+    isBlocked(a: string, b: string): boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export interface FriendGraph {
  * - 角色 ↔ NPC：NPC 的關係清單裡有這個角色，或角色通訊錄裡綁了這個 NPC、標成 friend
  * - NPC ↔ NPC：不是朋友
  * 任何一方的通訊錄把另一方拉黑或刪掉，就不是朋友（優先於上面所有規則）。
+ * 用戶跟角色之間私聊拉黑中（不管誰拉黑誰，見 utils/chatBlock.ts）也一樣。
  */
 export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[]): FriendGraph {
     const npcById = new Map(npcs.map(n => [n.id, n]));
@@ -39,16 +42,18 @@ export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[]): F
     const contactOf = (a: string, b: string): PhoneContact | undefined =>
         (charById.get(a)?.phoneState?.contacts || []).find(c => c.linkedCharId === b || c.linkedNpcId === b);
     const blocks = (a: string, b: string): boolean => {
+        if (a === USER_ID) return !!charById.get(b)?.chatBlock;
         const status = contactOf(a, b)?.status;
         return status === 'blocked' || status === 'deleted';
     };
+    const isBlocked = (a: string, b: string): boolean => a !== b && (blocks(a, b) || blocks(b, a));
     const listsFriend = (a: string, b: string): boolean => contactOf(a, b)?.status === 'friend';
     const npcKnows = (npcId: string, other: string): boolean =>
         !!npcById.get(npcId)?.relationships.some(r => r.targetId === other);
 
     const areFriends = (a: string, b: string): boolean => {
         if (a === b) return true;
-        if (blocks(a, b) || blocks(b, a)) return false;
+        if (isBlocked(a, b)) return false;
         const ka = kindOf(a);
         const kb = kindOf(b);
         if (ka === 'npc' && kb === 'npc') return false;
@@ -63,7 +68,7 @@ export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[]): F
         return listsFriend(a, b) || listsFriend(b, a);
     };
 
-    return { areFriends, kindOf };
+    return { areFriends, kindOf, isBlocked };
 }
 
 /** 這個人看不看得到這篇貼文。 */
@@ -71,6 +76,7 @@ export function canViewMoment(viewerId: string, post: Pick<MomentPost, 'author' 
     const authorId = post.author.id;
     if (!authorId) return post.visibility.mode === 'public';
     if (authorId === viewerId) return true;
+    if (graph.isBlocked?.(authorId, viewerId)) return false;
     const { mode, allow } = post.visibility;
     if (mode === 'public') return true;
     if (mode === 'custom') return !!allow?.includes(viewerId);

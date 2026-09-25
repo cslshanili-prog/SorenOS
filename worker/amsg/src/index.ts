@@ -1825,6 +1825,15 @@ export const amsgHooks = {
     // 面板上的 lastError 是用戶唯一能看到的線索，得直接說出該做什麼。
     if (!pack) throw fail(`fire_pack 解析失敗：${describeFirePackVersion(packJson)}`);
 
+    // 私聊拉黑中（客戶端打包時帶上 chatBlocked，見 utils/chatBlock.ts）：定時任務到點直接跳過，
+    // 一個 token 都不花、不推播。任務照常被消費（循環的快進到下一次），解除後照常發。
+    // 即時對話不看它：拉黑中客戶端根本不會發起即時對話。
+    if (!instant && pack.chatBlocked === true) {
+      console.log('[amsg:skip] chat-blocked', { taskId: ctx.task.id });
+      await recordSkip(ctx, charId, 'chat-blocked', Date.parse(String(ctx.task.nextSendAt)) || ctx.now.getTime());
+      return { skip: true } as const;
+    }
+
     // 連發上限以前跟著 fire_pack 走。前端還沒換新版（沒傳過 limits 那份）時，老包上那個值
     // 就是用戶設過的上限——拿默認值頂掉的話，設了「不限」或 10 條報備的人會突然被卡在 3 條。
     // 新前端第一次上傳就會帶上 limits，這條退路自然用不上了。

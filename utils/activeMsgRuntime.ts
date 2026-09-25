@@ -1725,6 +1725,27 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger): Promise<string[]> =>
       // 同樣排在閘之前——D1 行已經沒了（或換了時間），消息被吞不改變這個事實。
       await applyRemoteTaskMutations(message);
 
+      // ─── 拉黑閘：私聊拉黑中（誰拉黑誰都算，見 utils/chatBlock.ts）定時任務的話一律不收 ───
+      // Soren Worker 看 fire_pack.chatBlocked 已經在雲端跳過；這裡兜住舊 Worker、以及拉黑前就生成好的那幾條。
+      if (message.source === 'scheduled') {
+        const blockedChar = (await DB.getAllCharacters()).find((c) => c.id === message.charId);
+        if (blockedChar?.chatBlock) {
+          activeMsgTrace('runtime-chat-blocked-swallow', {
+            messageId: message.messageId,
+            charId: message.charId,
+            taskId: message.taskId,
+          });
+          const selfLogEntryId = buildSelfLogEntryId(message);
+          if (selfLogEntryId) {
+            void revokeSwallowedSelfLogEntry(message.charId, selfLogEntryId)
+              .catch((e) => log.warn('撤銷雲端自述日誌條目失敗（下次重傳 fire_pack 時整份作廢）', {
+                charId: message.charId, entryId: selfLogEntryId, error: e,
+              }));
+          }
+          continue;
+        }
+      }
+
       // ─── 防穿幫閘·客戶端兜底 ───
       // 只攔定時任務的 push（source==='scheduled' 且帶策略字段）；instant 聊天
       // 回覆 source==='instant'，與這道閘無關。吞掉 = 不進聊天流、不重放

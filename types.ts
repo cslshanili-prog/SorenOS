@@ -3274,6 +3274,14 @@ export interface CharacterProfile {
   onlineActions?: boolean;
   /** 聊天設定 · Scenario ·「允許角色主動打電話／視訊」：[[ACTION:CALL|voice或video|原因]]（見 utils/charCall.ts）。 */
   charCall?: boolean;
+  /** 現在的拉黑（沒有就是沒拉黑）；誰拉黑誰見 by。見 utils/chatBlock.ts、plans/block-temp-chat-design.md。 */
+  chatBlock?: ChatBlockState;
+  /** 解除過的拉黑，最多留 20 段：判斷「哪些用戶訊息是被拒收的」要用。 */
+  chatBlockLog?: ChatBlockPeriod[];
+  /** 聊天設定 · Scenario ·「允許角色拉黑你」：[[ACTION:BLOCK_USER|原因]]。 */
+  allowCharBlockUser?: boolean;
+  /** 角色拉黑你之後消氣要多久（冷靜期三檔），不設是 normal。 */
+  charBlockCooldown?: CharBlockCooldown;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
@@ -3708,6 +3716,25 @@ export interface UserProfile {
     /** 朋友圈頁頂名字下面那行格言，選填 */
     momentsMotto?: string;
 }
+
+/** 私聊拉黑：by 是誰拉黑誰（'user' = 用戶拉黑角色，'char' = 角色拉黑用戶）。 */
+export interface ChatBlockState {
+    by: 'user' | 'char';
+    since: number;
+    /** 角色拉黑時說的原因（角色自己記得為什麼） */
+    reason?: string;
+    /** 角色拉黑時：下一次「要不要解除」的判斷時刻 */
+    reconsiderAt?: number;
+}
+
+export interface ChatBlockPeriod {
+    by: 'user' | 'char';
+    since: number;
+    until: number;
+    reason?: string;
+}
+
+export type CharBlockCooldown = 'short' | 'normal' | 'long';
 
 /** 見 UserProfile.momentsSettings。數值欄位的範圍和預設值在 utils/momentsSettings.ts。 */
 export interface MomentsInteractionSettings {

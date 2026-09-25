@@ -12,7 +12,7 @@ import CustomMeterPanel from '../schedule/CustomMeterPanel';
 import type { CharacterCustomMeter } from '../../types';
 import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
-import ChatSettingsPage, { type ChatSettingsPatch } from './ChatSettingsPage';
+import ChatSettingsPage, { type ChatBlockAction, type ChatSettingsPatch } from './ChatSettingsPage';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
 import { isTranslationLangPreset, normalizeTranslationLangLabel, TRANSLATION_LANG_MAX_LENGTH, TRANSLATION_LANG_PRESETS } from '../../utils/translationLang';
 import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatContextRange';
@@ -170,6 +170,7 @@ interface ChatModalsProps {
     onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
+    onChatBlockAction?: (action: ChatBlockAction) => void;
     onSaveInnerVoices?: (entries: CharacterCustomMeter[]) => void;
     onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     onSaveAffinities?: (entries: CharacterCustomMeter[]) => void;
@@ -288,7 +289,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi,
+    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi, onChatBlockAction,
     onSaveInnerVoices, onGenerateInnerVoice, onSaveAffinities, onGenerateAffinity,
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
@@ -408,6 +409,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                 chatUser={chatUser}
                 onClose={() => setModalType('none')}
                 onSave={onSaveSettings}
+                onBlockAction={onChatBlockAction}
             >
                     {onSaveChatApi && (
                         <ChatSettingsSection title="🧠 AI 模型（可單獨為這個角色配置）" summary="默認用全局API，也可以單獨換一個模型" defaultOpen>
