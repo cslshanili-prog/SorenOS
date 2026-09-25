@@ -12,7 +12,7 @@ import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import {
     runRealConversation, runNpcConversation, upsertContact, matchRealChar,
     clampAffinity, normName, flipTranscript, parseTranscript, serializeTurns, appendLearned,
-    topicText, summarizeConversation, applyRealConversationToPhoneState,
+    topicText, summarizeConversation, applyRealConversationToPhoneState, cleanTranscriptLeaks,
 } from '../utils/relationshipChat';
 import PersonaSim, { LifeLog, generatePersonaScript } from './PersonaSim';
 import { usePersonaSim, personaSimStore } from '../utils/personaSimStore';
@@ -2415,7 +2415,8 @@ ${olderText}
         if (!selectedChatRecord || !targetChar) return null;
         const accent = '#8b9cff';
         // 帶前綴繼承的解析：多行消息(連發幾條)的續行跟隨上一條說話人，不再錯位給對方。
-        const parsedLines = parseTranscript(selectedChatRecord.detail).map(t => ({ isMe: t.isMe, content: t.text }));
+        // 以前漏進腳本的思考過程顯示時洗掉（cleanTranscriptLeaks），存檔本身不動
+        const parsedLines = parseTranscript(cleanTranscriptLeaks(selectedChatRecord.detail)).map(t => ({ isMe: t.isMe, content: t.text }));
         // 渲染保護：長 transcript 默認只渲染最新 50 行，避免一次性塞太多氣泡把頁面卡爆（同 chatapp）
         const RENDER_CAP = 50;
         const hiddenCount = transcriptExpanded ? 0 : Math.max(0, parsedLines.length - RENDER_CAP);
@@ -3200,7 +3201,7 @@ ${olderText}
         const isReal = c.kind === 'real' && !!c.linkedCharId;
         const av = contactAvatar(c);
         const rec = records.find(r => r.type === 'chat' && (r.contactId === c.id || normName(r.title) === normName(c.name)));
-        const parsed = rec ? parseTranscript(rec.detail).map(t => ({ isMe: t.isMe, content: t.text })) : [];
+        const parsed = rec ? parseTranscript(cleanTranscriptLeaks(rec.detail)).map(t => ({ isMe: t.isMe, content: t.text })) : [];
         const CAP = 50;
         const hidden = convExpanded ? 0 : Math.max(0, parsed.length - CAP);
         const shown = hidden > 0 ? parsed.slice(-CAP) : parsed;

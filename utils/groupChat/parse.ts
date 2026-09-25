@@ -29,7 +29,8 @@ const normalizeAction = (a: any): DirectorAction | null => {
  * 兩層皆空時返回 []，由調用方決定是否提示用戶。
  */
 export function parseDirectorActions(raw: string): DirectorAction[] {
-    const text = stripFences(raw);
+    // 推理模型常在 JSON 前面先來一段 <think>…</think>，裡面也可能有 [ ]，先剝掉再找數組
+    const text = stripFences(String(raw ?? '').replace(/<(think|thinking|thought|reasoning|analysis)>[\s\S]*?<\/\1>/gi, ''));
     if (!text) return [];
 
     const first = text.indexOf('[');
