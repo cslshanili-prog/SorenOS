@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildBlockUserPrompt, CHAT_BLOCK_LOG_MAX, charBlockPeriods, endChatBlock, extractBlockUser, firstReconsiderAt,
     isCharBlockingUser, isReconsiderDue, isRejectedByBlock, isUserBlockingChar, parseReconsider, postponeReconsider,
-    startChatBlock, blockNotes, CHAR_BLOCK_RETRY_MS,
+    startChatBlock, blockNotes, CHAR_BLOCK_RETRY_MS, buildBlockedMeetingNote,
 } from './chatBlock';
 
 const H = 3600_000;
@@ -83,5 +83,16 @@ describe('解除判斷與文字', () => {
     it('系統提示帶拉黑多久', () => {
         expect(blockNotes.charUnblocked('Sully', '我', 0, 3 * 24 * H)).toContain('3 天');
         expect(blockNotes.userUnblocked('我', 'Sully', 0, 5 * H)).toContain('5 小時');
+    });
+});
+
+describe('拉黑中見面', () => {
+    it('沒拉黑不加；兩個方向各一句，帶多久、原因', () => {
+        expect(buildBlockedMeetingNote({}, '小雨')).toBe('');
+        const byChar = buildBlockedMeetingNote({ chatBlock: { by: 'char', since: 0, reason: '放鴿子' } }, '小雨', 2 * 24 * H);
+        expect(byChar).toContain('2 天前把小雨');
+        expect(byChar).toContain('放鴿子');
+        expect(byChar).toContain('找上門');
+        expect(buildBlockedMeetingNote({ chatBlock: { by: 'user', since: 0 } }, '小雨', 3 * H)).toContain('小雨在 3 小時前把你');
     });
 });

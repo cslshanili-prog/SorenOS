@@ -140,6 +140,24 @@ export const blockNotes = {
 /** 歷史裡被拒收的用戶訊息前面加這句：角色現在才看到。 */
 export const REJECTED_HISTORY_PREFIX = '（你拉黑對方期間收到的，當時沒看）';
 
+/**
+ * 拉黑中還是能見面（修羅場）：見面的提示詞補一句現在的狀態，免得角色當作什麼都沒發生。
+ * 沒在拉黑就回空字串。見面本身不解除拉黑。
+ */
+export function buildBlockedMeetingNote(
+    char: Pick<CharacterProfile, 'chatBlock'>,
+    userName: string,
+    now: number = Date.now(),
+): string {
+    const block = char.chatBlock;
+    if (!block) return '';
+    const name = userName.trim() || '對方';
+    const ago = durationText(block.since, now);
+    return block.by === 'char'
+        ? `- **拉黑中**: 你在 ${ago}前把${name}在手機上拉黑了${block.reason ? `（因為：${block.reason}）` : ''}，${name}傳的訊息你都沒收到。現在${name}是直接找上門來見你的——還在氣頭上也好、有點心軟也好，照你的性格反應，但不要當作什麼都沒發生。見面不會自動解除拉黑。\n`
+        : `- **拉黑中**: ${name}在 ${ago}前把你在手機上拉黑了，你傳的訊息都進不去。現在卻是${name}主動來見你——不要當作什麼都沒發生。見面不會自動解除拉黑。\n`;
+}
+
 /** 開關開著時放進穩定段的教學。 */
 export function buildBlockUserPrompt(userName: string): string {
     return `\n### 拉黑${userName}\n如果${userName}真的傷到你、讓你氣到完全不想再看到${userName}的訊息，你可以在回覆最後另起一行寫 [[ACTION:BLOCK_USER|原因]]（原因 ${CHAR_BLOCK_REASON_MAX} 字以內，只有你自己記得）。拉黑之後你收不到${userName}的訊息，過一陣子消氣了才會考慮解除。這是很重的決定：吵架鬥嘴、撒嬌賭氣、開玩笑都不要用，更不要拿它來威脅；說完最後想說的話再寫，不要在文字裡預告「我要拉黑你了」。\n`;

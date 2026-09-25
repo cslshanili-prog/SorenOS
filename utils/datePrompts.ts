@@ -19,6 +19,7 @@
  */
 
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig, DateObservation, DateObserveConfig, DateObserveCustomField } from '../types';
+import { buildBlockedMeetingNote } from './chatBlock';
 import { ContextBuilder } from './context';
 import { ChatPrompts } from './chatPrompts';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
@@ -601,7 +602,7 @@ ${preset.block}
 ${digBlock}${povBlock}${extraBlock}### 場景上下文
 ${timeLine}- **Location**: 你們現在**面對面**。
 - **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。
-${observeBlock}`;
+${buildBlockedMeetingNote(char, userName)}${observeBlock}`;
 };
 
 /**
@@ -693,7 +694,7 @@ ${dateTimeOn ? `當前時間: ${timeStr}\n` : ''}時間上下文: ${gapHint}
 ### 邏輯檢查
 1. **上下文連貫性**: 參考 [最近記錄]（注意消息來源標籤：[聊天]是文字聊天、[約會]是面對面、[通話]是語音通話）。如果有 [TIME SKIP] 且間隔很久，開啟新場景；如果是 [SCENE CONTINUATION]，說明剛剛還在聊天，**必須**自然銜接最近的聊天話題和情緒狀態，不要無視之前的對話內容。
 2. **狀態一致性**: ${gapHint.includes('天') ? '如果間隔了很多天，可能在發呆、忙碌或者有點落寞。' : '根據最近的聊天內容和情緒來決定當前狀態。如果剛聊完，角色的狀態應該與聊天內容相呼應。'}
-3. **描寫風格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「觀測協議」輸出觀測塊，再開始描寫內容（描寫本身不要加任何前綴）。' : '不要輸出任何前綴，直接輸出描寫內容。'}
+${char.chatBlock ? `${buildBlockedMeetingNote(char, userProfile?.name || '')}` : ''}3. **描寫風格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「觀測協議」輸出觀測塊，再開始描寫內容（描寫本身不要加任何前綴）。' : '不要輸出任何前綴，直接輸出描寫內容。'}
 ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlock(char)}` : ''}`;
 
         return {
