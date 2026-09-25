@@ -266,6 +266,18 @@
         overflow: hidden;
         pointer-events: none;
       }
+      /* 軟鍵盤彈出時，所有鋪滿全螢幕的浮層（彈窗、底部面板、各 App 自己手刻的 fixed inset-0 遮罩）
+         改成只鋪到鍵盤上方：iOS 全屏 PWA 的「版面視窗」不會跟著鍵盤變矮，inset-0 會把置中的卡片
+         推出可視區、底部面板壓在鍵盤後面。--app-height 此時就是鍵盤上方的可視高度（utils/iosStandalone.ts）。 */
+      body.ios-keyboard-open .fixed.inset-0 {
+        bottom: auto;
+        height: var(--app-height);
+      }
+      /* 共用彈窗（components/os/Modal.tsx）打字時上下留白收小，多讓一點空間給內容 */
+      body.ios-keyboard-open .sully-modal-overlay {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+      }
     </style>
   <script type="importmap">
 {
