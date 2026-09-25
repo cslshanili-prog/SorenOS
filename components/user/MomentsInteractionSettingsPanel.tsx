@@ -34,10 +34,12 @@ const SECTIONS: SliderRowSpec[][] = [
         { key: 'commentIntervalSec', title: '後續留言間隔', hint: '連續留言之間的等待時間', icon: <ChatCircleDots size={18} />, tint: 'bg-emerald-50 text-emerald-500', format: formatSeconds },
     ],
     [
-        { key: 'commentProbability', title: '留言機率', hint: '角色／NPC 看到新動態後留言的機率；會花 API，調成 0% 就不自動留言', icon: <ChatCircle size={18} />, tint: 'bg-blue-50 text-blue-500', format: v => `${v}%` },
-        { key: 'likeProbability', title: '按讚機率', hint: '角色／NPC 看到新動態後按讚的機率；不花 API', icon: <ThumbsUp size={18} />, tint: 'bg-amber-50 text-amber-500', format: v => `${v}%` },
+        { key: 'commentProbability', title: '角色留言機率', hint: '角色看到新動態後留言的機率；會花 API，調成 0% 就不自動留言', icon: <ChatCircle size={18} />, tint: 'bg-blue-50 text-blue-500', format: v => `${v}%` },
+        { key: 'likeProbability', title: '角色按讚機率', hint: '角色看到新動態後按讚的機率；不花 API', icon: <ThumbsUp size={18} />, tint: 'bg-amber-50 text-amber-500', format: v => `${v}%` },
     ],
     [
+        { key: 'npcCommentProbability', title: 'NPC 留言機率', hint: 'NPC 看到新動態後留言的機率；會花 API。NPC 通常比角色多，預設低一點免得洗版', icon: <ChatCircle size={18} />, tint: 'bg-rose-50 text-rose-500', format: v => `${v}%` },
+        { key: 'npcLikeProbability', title: 'NPC 按讚機率', hint: 'NPC 看到新動態後按讚的機率；不花 API', icon: <ThumbsUp size={18} />, tint: 'bg-rose-50 text-rose-500', format: v => `${v}%` },
         { key: 'npcInteractionDelayMin', title: 'NPC 互動延遲', hint: 'NPC 對動態產生互動前的延遲', icon: <Timer size={18} />, tint: 'bg-rose-50 text-rose-500', format: v => `${v} 分鐘` },
         { key: 'replyToNpcDelaySec', title: '角色回覆 NPC 留言延遲', hint: '角色回覆 NPC 留言前的等待時間', icon: <Bell size={18} />, tint: 'bg-emerald-50 text-emerald-500', format: formatSeconds },
     ],
@@ -126,7 +128,7 @@ const MomentsInteractionSettingsPanel: React.FC<{ onBack: () => void }> = ({ onB
                 {view === 'main' && <>
                     <div className="flex gap-2 rounded-2xl bg-sky-50 border border-sky-100 px-3.5 py-3 text-[11px] leading-relaxed text-sky-700">
                         <Info size={16} className="shrink-0 mt-px" />
-                        <span>這是朋友圈（Dock 的朋友圈、Chat「動態」）的規則，App 開著的時候才會跑。「自動發帖」總開關只管角色和 NPC 會不會自己發文，預設是關的；有人發了新動態，看得到的角色和 NPC 會照下面的機率按讚、留言。按讚不花 API，留言會花（同一篇的一批留言只打一次），不想花就把留言機率調成 0%。</span>
+                        <span>這是朋友圈（Dock 的朋友圈、Chat「動態」）的規則，App 開著的時候才會跑。「自動發帖」總開關只管角色和 NPC 會不會自己發文，預設是關的；有人發了新動態，看得到的角色和 NPC 會照下面的機率按讚、留言。按讚不花 API，留言會花（同一篇的一批留言只打一次），不想花就把角色和 NPC 的留言機率都調成 0%。</span>
                     </div>
 
                     <Card>

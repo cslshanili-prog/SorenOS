@@ -154,7 +154,7 @@ interface MomentPost {
 
 ### 第二批落地實況
 
-- **總開關只管自動發文**（設定頁原本就寫「關掉的不會自動發帖，但還是會看到、回應別人的動態」）。看到新貼文的反應照「按讚機率」「留言機率」走，不受總開關管；按讚不花 API，留言會花，調成 0% 就不自動留言。
+- **總開關只管自動發文**（設定頁原本就寫「關掉的不會自動發帖，但還是會看到、回應別人的動態」）。看到新貼文的反應照「按讚機率」「留言機率」走，不受總開關管；按讚不花 API，留言會花，調成 0% 就不自動留言。角色和 NPC 的機率分兩組調（NPC 留言預設 20%，比角色的 40% 低，NPC 多的時候免得洗版；舊存檔補預設，角色那組不動）。
 - **自動發文**（`utils/momentsAuto.ts` 排程＋`utils/momentsAutoRuntime.ts` 執行）：總開關開著、沒被單獨關掉的角色／NPC 各自排下一次發文時間，存在 localStorage `soren_moments_next_post`。第一次在 2 分鐘～min(最短間隔, 6 小時) 之間隨機（不然開了總開關要等 48 小時才看得到第一篇），之後照「最短～最長間隔」。App 開著時每分鐘看一次，一輪最多發一篇；失敗的人往後推 30 分鐘。角色走 `generateCharacterMoment`（生圖設定開著才配圖），NPC 走 `generateNpcMoment`（純文字，用 NPC 自己的 API）。
 - **看到新貼文的反應**：`createMomentPost` 廣播 `moment-created`，OSContext 替看得到的角色／NPC 各擲一次骰子，排進待辦（localStorage `soren_moments_jobs`）：
   - 讚：在「首則留言延遲」之內隨機一個時間點。

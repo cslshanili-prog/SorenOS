@@ -9,6 +9,7 @@ import {
 const H = 3600_000;
 const settings = {
     minPostIntervalHours: 48, maxPostIntervalHours: 72, likeProbability: 75, commentProbability: 40,
+    npcLikeProbability: 75, npcCommentProbability: 20,
     firstCommentDelaySec: 120, commentIntervalSec: 60, npcInteractionDelayMin: 30, replyToNpcDelaySec: 3,
 };
 
@@ -44,7 +45,7 @@ describe('看到新貼文的反應', () => {
     ];
 
     it('機率 100%：看得到的都按讚、角色一批留言、NPC 晚一批；看不到的（n2）不在內', () => {
-        const jobs = planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 100 }, now: 0, random: () => 0.5 });
+        const jobs = planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 100, npcLikeProbability: 100, npcCommentProbability: 100 }, now: 0, random: () => 0.5 });
         const likes = jobs.filter(j => j.type === 'like').map(j => (j as any).actorId);
         expect(likes).toEqual(['a', 'b', 'n1']);
         const batches = jobs.filter(j => j.type === 'commentBatch') as any[];
@@ -54,10 +55,19 @@ describe('看到新貼文的反應', () => {
     });
 
     it('機率 0：什麼都不做；作者自己不會對自己的貼文反應', () => {
-        expect(planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 0, commentProbability: 0 }, now: 0 })).toEqual([]);
+        expect(planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 0, commentProbability: 0, npcLikeProbability: 0, npcCommentProbability: 0 }, now: 0 })).toEqual([]);
         const charPost = { id: 'p2', author: { kind: 'character' as const, id: 'a', name: 'a' }, visibility: { mode: 'public' as const } };
         const jobs = planReactions({ post: charPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 0 }, now: 0, random: () => 0 });
         expect(jobs.map(j => (j as any).actorId)).not.toContain('a');
+    });
+
+    it('角色和 NPC 各用自己那組機率', () => {
+        const jobs = planReactions({
+            post: userPost, graph, candidates, now: 0, random: () => 0.5,
+            settings: { ...settings, likeProbability: 0, commentProbability: 100, npcLikeProbability: 100, npcCommentProbability: 0 },
+        });
+        expect(jobs.filter(j => j.type === 'like').map(j => (j as any).actorId)).toEqual(['n1']);
+        expect((jobs.filter(j => j.type === 'commentBatch') as any[]).map(b => b.actorIds)).toEqual([['a', 'b']]);
     });
 
     it('一批留言分開貼：間隔照設定', () => {

@@ -31,7 +31,7 @@ const briefOf = (text: string | undefined, max = 180) => (text || '').replace(/\
 /** 新貼文 → 看得到的角色／NPC 各擲一次按讚、留言的骰子，排進待辦。 */
 export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeContext): number {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
-    if (settings.likeProbability <= 0 && settings.commentProbability <= 0) return 0;
+    if ([settings.likeProbability, settings.commentProbability, settings.npcLikeProbability, settings.npcCommentProbability].every(p => p <= 0)) return 0;
     const graph = buildFriendGraph(ctx.characters, ctx.npcs);
     const jobs = planReactions({
         post, graph, settings, now: Date.now(),

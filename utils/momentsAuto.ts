@@ -78,6 +78,7 @@ const genJobId = () => `mj-${Date.now().toString(36)}-${Math.random().toString(3
 /**
  * 一篇新貼文發出來後，誰會按讚、誰會留言、什麼時候。
  * - 作者自己、用戶不在內（用戶自己動手）；看不到這篇的人不在內；
+ * - 角色和 NPC 各用自己那組機率（NPC 的在設定頁單獨一區）；
  * - 讚：在「首則留言延遲」之內隨機一個時間點（沒有 API 成本）；
  * - 留言：角色一批在「首則留言延遲」後，NPC 一批再多等「NPC 互動延遲」。
  */
@@ -85,7 +86,7 @@ export function planReactions(params: {
     post: Pick<MomentPost, 'id' | 'author' | 'visibility'>;
     graph: FriendGraph;
     candidates: Array<{ id: string; kind: 'character' | 'npc' }>;
-    settings: Pick<MomentsInteractionSettings, 'likeProbability' | 'commentProbability' | 'firstCommentDelaySec' | 'npcInteractionDelayMin'>;
+    settings: Pick<MomentsInteractionSettings, 'likeProbability' | 'commentProbability' | 'npcLikeProbability' | 'npcCommentProbability' | 'firstCommentDelaySec' | 'npcInteractionDelayMin'>;
     now: number;
     random?: () => number;
 }): MomentJob[] {
@@ -97,11 +98,12 @@ export function planReactions(params: {
     for (const c of candidates) {
         if (c.id === USER_ID || c.id === post.author.id) continue;
         if (!canViewMoment(c.id, post, graph)) continue;
-        const extra = c.kind === 'npc' ? npcDelay : 0;
-        if (random() * 100 < settings.likeProbability) {
+        const isNpc = c.kind === 'npc';
+        const extra = isNpc ? npcDelay : 0;
+        if (random() * 100 < (isNpc ? settings.npcLikeProbability : settings.likeProbability)) {
             jobs.push({ id: genJobId(), type: 'like', postId: post.id, actorId: c.id, dueAt: now + extra + Math.round(Math.max(firstDelay, 15_000) * random()) });
         }
-        if (random() * 100 < settings.commentProbability) commenters[c.kind].push(c.id);
+        if (random() * 100 < (isNpc ? settings.npcCommentProbability : settings.commentProbability)) commenters[c.kind].push(c.id);
     }
     if (commenters.character.length) {
         jobs.push({ id: genJobId(), type: 'commentBatch', postId: post.id, actorIds: commenters.character, dueAt: now + firstDelay });
