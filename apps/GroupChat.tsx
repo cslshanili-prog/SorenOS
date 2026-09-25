@@ -27,7 +27,7 @@ import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/u
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
-import { stripLeakedReasoning } from '../utils/groupChat/reasoningLeak';
+import { stripLeakedReasoning } from '../utils/reasoningLeak';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs } from '../utils/groupChat/npcMembers';
 import { resolveNpcApi } from '../utils/npcMemory';
@@ -1732,7 +1732,7 @@ ${memberTimeline || '(暫無互動記錄)'}
             // 兩層容錯解析（嚴格 JSON → 逐對象搶救），兩層皆空且模型確實吐了內容
             // 時明確提示用戶，不再"正在輸入…"消失後什麼都不發生
             const rawContent = data.choices?.[0]?.message?.content ?? '';
-            // 每位成員的台詞先剝掉漏出來的思考過程（見 utils/groupChat/reasoningLeak.ts），整則都是思考的丟掉
+            // 每位成員的台詞先剝掉漏出來的思考過程（見 utils/reasoningLeak.ts），整則都是思考的丟掉
             const actions = parseDirectorActions(rawContent)
                 .map(action => ({ ...action, content: stripLeakedReasoning(action.content).content }))
                 .filter(action => action.content);
@@ -1878,7 +1878,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                     if (text.startsWith(`${member.name}:`) || text.startsWith(`${member.name}：`)) {
                         text = text.slice(member.name.length + 1).trim();
                     }
-                    // 漏出來的思考過程先剝掉（見 utils/groupChat/reasoningLeak.ts）：不剝的話落庫後
+                    // 漏出來的思考過程先剝掉（見 utils/reasoningLeak.ts）：不剝的話落庫後
                     // 下一位成員看得到，八九成會跟著寫，滿屏內心戲
                     const leak = stripLeakedReasoning(text);
                     if (leak.stripped) console.warn(`[GroupChat] ${member.name} 的回覆夾帶思考過程，已剝掉`);

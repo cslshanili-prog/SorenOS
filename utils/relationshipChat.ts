@@ -1,3 +1,4 @@
+import { stripLeakedReasoning } from './reasoningLeak';
 import { loadCharacterContextMessages } from './chatContextRange';
 // 人際關係系統 · 核心引擎
 // 查手機「人際關係」模塊的純邏輯 + LLM 鏈路：真假甄別、好感、雙 LLM 私下對話（A 發 B 回）、AI 玩 AI。
@@ -207,6 +208,23 @@ export function serializeTurns(turns: { isMe: boolean; text: string }[]): string
 }
 
 /**
+ * 洗掉腳本裡以前漏進來的思考過程：同一個人連著的幾行先併成一段（思考常常一個標籤一行），
+ * 洗完整段是空的就整段拿掉。續寫前用，免得舊的外洩被當成範例接著寫。
+ */
+export function cleanTranscriptLeaks(detail: string): string {
+    const merged: { isMe: boolean; text: string }[] = [];
+    for (const seg of parseTranscript(detail)) {
+        const last = merged[merged.length - 1];
+        if (last && last.isMe === seg.isMe) last.text += `\n${seg.text}`;
+        else merged.push({ ...seg });
+    }
+    const turns = merged
+        .flatMap(t => stripLeakedReasoning(t.text).content.split('\n').map(text => ({ isMe: t.isMe, text: text.trim() })))
+        .filter(t => t.text);
+    return serializeTurns(turns);
+}
+
+/**
  * 把一段「我:/對方:」對話腳本翻轉視角。
  * A 視角的 detail（"我"=A，"對方"=B）→ B 視角（"我"=B，"對方"=A）。
  * 用於把同一段真實對話鏡像寫進對方角色的手機。
@@ -238,7 +256,9 @@ async function chatCompletion(
     });
     if (!res.ok) throw new Error(`LLM ${res.status}`);
     const data = await safeResponseJson(res);
-    return (data?.choices?.[0]?.message?.content || '').trim();
+    // 模型有時把思考過程（<thinking>、開頭一段「讓我看看現在的狀況…」）當正文吐出來；
+    // 兩個角色輪流接話時下一位看得到上一位的原文，不剝的話會一路傳染（見 utils/reasoningLeak.ts）
+    return stripLeakedReasoning(String(data?.choices?.[0]?.message?.content || '')).content;
 }
 
 /** 取某角色的有效原文範圍（自適應 / 手動），壓成純文本 */
@@ -373,7 +393,8 @@ export async function runRealConversation(
 
     // 續寫：把已有 A 視角腳本解析回 turns（帶前綴繼承，多行消息不丟——修復「續寫覆蓋/吞掉之前內容」）
     if (p.existingDetail) {
-        for (const seg of parseTranscript(p.existingDetail)) {
+        // 以前漏進腳本的思考過程先洗掉，不再帶進續寫（見 cleanTranscriptLeaks）
+        for (const seg of parseTranscript(cleanTranscriptLeaks(p.existingDetail))) {
             turns.push({ speaker: seg.isMe ? 'A' : 'B', text: seg.text });
         }
     }
@@ -565,8 +586,10 @@ interface RunNpcConversationParams {
  * learnedNew：本次機主新「瞭解」到的 NPC 設定（寫回 contact.learned，讓這個虛構的人下次保持一致）。
  */
 export async function runNpcConversation(
-    p: RunNpcConversationParams,
+    params: RunNpcConversationParams,
 ): Promise<{ detail: string; learnedNew: string }> {
+    // 以前漏進腳本的思考過程先洗掉，不再帶進續寫（見 cleanTranscriptLeaks）
+    const p = params.existingDetail ? { ...params, existingDetail: cleanTranscriptLeaks(params.existingDetail) } : params;
     const rounds = Math.max(1, Math.min(8, p.rounds ?? 4));
     const hostLastTs = await lastUserInteractionTs(p.host.id);
     const ctxHost = ContextBuilder.buildCoreContext(p.host, p.user, true, undefined, undefined, { lastInteractionTs: hostLastTs });

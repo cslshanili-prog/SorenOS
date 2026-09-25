@@ -1,4 +1,4 @@
-import { stripLeakedReasoning } from './reasoningLeak';
+import { stripLeakedReasoning } from '../reasoningLeak';
 import { Message } from '../../types';
 import { messageLogText } from './format';
 import { formatRelativeAge } from './relativeTime';

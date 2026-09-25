@@ -1,6 +1,6 @@
 // 群聊提示詞構建 —— 從 GroupChat.tsx 抽出的純函數，導演模式模板"搬家不改字"，
 // 供導演模式與輪詢模式（每成員一次調用）共用。
-import { stripLeakedReasoning } from './reasoningLeak';
+import { stripLeakedReasoning } from '../reasoningLeak';
 import { Message, EmojiCategory } from '../../types';
 import { stickerNameFromUrl } from '../messageFormat';
 import { isBlobRef } from '../blobRef';

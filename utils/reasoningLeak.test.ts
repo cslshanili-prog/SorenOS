@@ -33,8 +33,8 @@ describe('群聊思考過程外洩', () => {
     });
 });
 
-import { buildGroupHistoryBlock } from './prompts';
-import { parseDirectorActions } from './parse';
+import { buildGroupHistoryBlock } from './groupChat/prompts';
+import { parseDirectorActions } from './groupChat/parse';
 
 describe('不再傳染給下一位', () => {
     it('組群聊記錄時，舊的外洩思考被剝掉、整則是思考的那行拿掉', () => {

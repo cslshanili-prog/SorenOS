@@ -150,3 +150,16 @@ describe('relationshipChat · 純函數', () => {
         expect(afterCleared[0].identityManual).toBe(true);
     });
 });
+
+import { cleanTranscriptLeaks } from './relationshipChat';
+
+describe('查手機腳本裡的思考外洩', () => {
+    it('同一人連著的思考行整段洗掉，台詞留著', () => {
+        const detail = ['我: <thinking>', '我: 用戶剛才提到她，我應該問清楚', '我: </thinking>', '我: 你最近怎麼樣？', '對方: 還行啊'].join('\n');
+        expect(cleanTranscriptLeaks(detail)).toBe('我: 你最近怎麼樣？\n對方: 還行啊');
+    });
+    it('沒有外洩的腳本原樣不動', () => {
+        const detail = '我: 在嗎\n我: 有事問你\n對方: 說吧';
+        expect(cleanTranscriptLeaks(detail)).toBe(detail);
+    });
+});
