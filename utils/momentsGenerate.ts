@@ -1,4 +1,5 @@
-import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost } from '../types';
+import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost, NPCProfile } from '../types';
+import { resolveNpcApi } from './npcMemory';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
@@ -82,4 +83,38 @@ export function pickRefreshPosters<T extends { id: string }>(candidates: T[], ra
         picked.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
     }
     return picked;
+}
+
+/** NPC 發文的提示詞：NPC 沒有完整人設也沒有立繪，只發純文字。 */
+export function buildNpcMomentPrompt(npc: Pick<NPCProfile, 'name' | 'description' | 'worldview' | 'memory'>, recent: Array<Pick<MomentPost, 'content'>>): string {
+    const lines = [
+        `你是「${npc.name}」，故事裡的一個配角。`,
+        npc.description?.trim() ? `【你的設定】\n${npc.description.trim()}` : '',
+        npc.worldview?.trim() ? `【世界觀】\n${npc.worldview.trim()}` : '',
+        npc.memory?.trim() ? `【你記得的事】\n${npc.memory.trim()}` : '',
+        recent.length ? `最近發過這些，這次換個不一樣的場景或心情：${recent.slice(0, 5).map(p => p.content.slice(0, 20)).join('、')}` : '',
+        `現在用你的口吻發一條朋友圈動態：1～3 句，口語化，像真的在發朋友圈，可以帶點情緒。只輸出動態正文，不要加引號、不要解釋。`,
+    ];
+    return lines.filter(Boolean).join('\n\n');
+}
+
+/** 讓一個 NPC 發一篇純文字朋友圈。API 用 NPC 自己配的，沒配用全局。 */
+export async function generateNpcMoment(params: {
+    npc: NPCProfile;
+    apiConfig: APIConfig;
+    recent: Array<Pick<MomentPost, 'content'>>;
+    source?: MomentPost['source'];
+}): Promise<MomentPost> {
+    const { npc, apiConfig, recent, source = 'auto' } = params;
+    const api = resolveNpcApi(npc, apiConfig);
+    if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
+        body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: buildNpcMomentPrompt(npc, recent) }], temperature: 0.95 }),
+    });
+    if (!response.ok) throw new Error(`API 返回 ${response.status}`);
+    const content = (extractContent(await safeResponseJson(response)) || '').trim().replace(/^[「『"“]|[」』"”]$/g, '').trim().slice(0, 400);
+    if (!content) throw new Error('NPC 發文沒有內容');
+    return createMomentPost({ author: { kind: 'npc', id: npc.id, name: npc.name }, content, source });
 }
