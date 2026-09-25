@@ -941,6 +941,10 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 群聊旁观代打发言
 - 群聊旁观给剧情方向
 
+**桌面**
+
+- 桌面角色卡片直接进聊天
+
 **朋友圈（单一贴文池）**
 
 - 朋友圈发文 —— visibility（friends / public / custom）、hasImage（yes / no）
