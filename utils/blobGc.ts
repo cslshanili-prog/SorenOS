@@ -33,6 +33,7 @@
 // | themes 表 | 聊天氣泡主題：user / ai 兩側各自的 backgroundImage / decoration / avatarDecoration | 分頁逐行 |
 // | user_profile 表 | avatar（我方頭像）/ perCharAvatars（分角色頭像） | 分頁逐行 |
 // | social_posts 表 | authorAvatar（帖子作者）/ comments[].authorAvatar（評論作者） | 分頁逐行 |
+// | moment_posts 表 | images[]（單一貼文池的貼文配圖） | 分頁逐行 |
 // | groups 表 | avatar（群頭像） | 分頁逐行 |
 // | character_groups 表 | avatar（角色分組圖標） | 分頁逐行 |
 // | story_theater_masks 表 | avatar（劇場原創人物面具） | 分頁逐行 |
@@ -76,6 +77,7 @@ export const REF_SOURCE_STORES = [
     'emojis',
     'user_profile',
     'social_posts',
+    'moment_posts',
     'groups',
     'character_groups',
     'story_theater_masks',

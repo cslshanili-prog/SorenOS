@@ -7,7 +7,7 @@ import { shellHandlesSafeArea, SELF_SAFE_AREA_APPS } from './safeAreaApps';
 // 已遷移成自理安全區的 App：外殼不該再替它加 padding（否則頂部雙重讓位、留白過多）。
 // 這是迴歸守衛——誰把某個 App 從 SELF_SAFE_AREA_APPS 刪了，對應斷言立刻掛。
 const SELF_HANDLED: AppID[] = [
-    AppID.Launcher, AppID.VRWorld, AppID.Chat, AppID.ChatHub, AppID.GroupChat, AppID.Social,
+    AppID.Launcher, AppID.VRWorld, AppID.Chat, AppID.ChatHub, AppID.GroupChat, AppID.Social, AppID.Moments,
     AppID.Settings, AppID.Character, AppID.ThemeMaker, AppID.Appearance, AppID.Gallery,
     AppID.Date, AppID.User, AppID.Journal, AppID.Schedule, AppID.Room, AppID.CheckPhone,
     AppID.Study, AppID.FAQ, AppID.Game, AppID.Worldbook, AppID.Novel, AppID.Bank,

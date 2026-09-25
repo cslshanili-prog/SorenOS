@@ -83,6 +83,7 @@ import { parseCharCredId } from '../utils/amsgLlmCredentials';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry } from '../utils/charNameRegistry';
+import { migrateTrajectoryMomentsToPool } from '../utils/momentsStore';
 import { setMinimaxRegion } from '../utils/minimaxEndpoint';
 import { setElevenLabsModel, setTtsProvider, setVoicePromptOverrides } from '../utils/ttsProvider';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -1126,6 +1127,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (!shouldReportSnapshot('char-settings')) return;
       trackCurrentCharSettingsOnce(collectCharSettings(characters, activeCharacterId));
   }, [isDataLoaded, characters, activeCharacterId]);
+
+  // 單一貼文池（路線圖第 6 項）：舊的軌跡 Moments 搬進池子。固定 id、搬過的跳過，每次開 App 跑一次就好。
+  const momentsMigratedRef = useRef(false);
+  useEffect(() => {
+      if (!isDataLoaded || momentsMigratedRef.current || characters.length === 0) return;
+      momentsMigratedRef.current = true;
+      migrateTrajectoryMomentsToPool(characters)
+          .then(n => { if (n > 0) console.log(`[Moments] 搬了 ${n} 條軌跡 Moments 進貼文池`); })
+          .catch(e => { momentsMigratedRef.current = false; console.warn('[Moments] 搬遷失敗，下次再試', e); });
+  }, [isDataLoaded, characters]);
 
   // --- 使用統計：現在開著哪些功能 ---
   // 跟「當前外觀」一個道理：外部服務這類配置配一次就長期生效，只看「打開過配置頁」
@@ -4132,7 +4143,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 角色身上的 groupId 指向這張表，漏導會讓導入端全員回落「未分組」
               // npcs（神經鏈接「NPC」分頁，獨立於 characters）同理必須一起帶走，否則整合導出
               // 之後再導入，NPC 名單會清空——查手機聯繫人的 linkedNpcId 也會全部懸空。
-              'characters', 'character_groups', 'npcs', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
+              // moment_posts（單一貼文池）：朋友圈貼文與圖片令牌，漏了導入端的朋友圈會清空
+              'characters', 'character_groups', 'npcs', 'moment_posts', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
               'user_profile', 'diaries', 'tasks', 'anniversaries', 'room_todos',
               'room_notes', 'groups', 'journal_stickers', 'social_posts', 'courses', 'games', 'worldbooks', 'story_theaters', 'story_theater_presets', 'story_theater_masks', 'novels', 'songs',
               'bank_transactions', 'bank_data',
@@ -4163,7 +4175,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               storesToProcess = allStores.filter(s => s !== 'assets'); // Exclude raw assets store
           } else if (mode === 'media_only') {
               // media_only now includes themes/assets for complete media backup
-              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'npcs', 'messages', 'themes', 'assets', 'bank_data',
+              storesToProcess = ['gallery', 'emojis', 'emoji_categories', 'journal_stickers', 'user_profile', 'characters', 'npcs', 'moment_posts', 'messages', 'themes', 'assets', 'bank_data',
                   'pixel_home_assets', 'pixel_home_layouts', 'daily_schedule', 'cc_custom_parts'];
           }
 
@@ -4482,6 +4494,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               characters: 'characters',
               character_groups: 'characterGroups',
               npcs: 'npcs',
+              moment_posts: 'momentPosts',
               messages: 'messages',
               themes: 'customThemes',
               emojis: 'savedEmojis',
@@ -4720,6 +4733,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 角色分組定義 —— 鍵名須與 importFullData 讀取的字段（data.characterGroups）對齊
                   case 'character_groups': backupData.characterGroups = processedData; break;
                   case 'npcs': backupData.npcs = processedData; break;
+                  case 'moment_posts': backupData.momentPosts = processedData; break;
                   case 'messages': backupData.messages = processedData; break;
                   case 'themes': backupData.customThemes = processedData; break;
                   case 'emojis': backupData.savedEmojis = processedData; break;

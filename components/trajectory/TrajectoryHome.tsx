@@ -62,10 +62,6 @@ const TrajectoryHome: React.FC<Props> = ({ targetChar, characters, npcs, onBack,
             {tab === 'moments' && (
                 <TrajectoryMomentsTab
                     char={targetChar}
-                    posts={targetChar.phoneState?.trajectoryMoments || []}
-                    onCommit={(next) => updateCharacter(targetChar.id, (cur) => ({
-                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryMoments: next },
-                    }))}
                     cover={targetChar.phoneState?.trajectoryMomentsCover}
                     onCommitCover={(next) => updateCharacter(targetChar.id, (cur) => ({
                         phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], trajectoryMomentsCover: next },

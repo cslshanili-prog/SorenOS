@@ -201,7 +201,7 @@ export interface TrajectoryMomentDraft {
  * 拿 imagePrompt 去跑生圖管線。roleSettingsBlock 同 Profile/OOTD，
  * 傳 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
  */
-export function buildTrajectoryMomentsPrompt(roleSettingsBlock: string, existing?: TrajectoryMomentPost[]): string {
+export function buildTrajectoryMomentsPrompt(roleSettingsBlock: string, existing?: Array<Pick<TrajectoryMomentPost, 'content'>>): string {
     let antiRepeat = '';
     if (existing && existing.length) {
         const recent = existing.slice(0, 5).map(p => p.content.slice(0, 20));

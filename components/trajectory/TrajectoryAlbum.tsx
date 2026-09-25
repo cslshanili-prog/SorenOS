@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CircleNotch, DownloadSimple, X } from '@phosphor-icons/react';
-import type { CharacterProfile } from '../../types';
+import type { CharacterProfile, MomentPost } from '../../types';
+import { DB } from '../../utils/db';
+import { MOMENTS_CHANGED_EVENT } from '../../utils/momentsStore';
 import TokenImg from '../os/TokenImg';
 import { TermHeader } from '../../apps/CheckPhone';
 import { getBlobForRef } from '../../utils/blobRef';
@@ -28,12 +30,22 @@ const formatTimestamp = (ts: number): string => {
 
 // 只收「軌跡」自己生成的照片（OOTD + Moments），不連同聊天室/見面等別處的生圖——
 // 範圍窄一些但工程量小、邊界清楚，不用另開一條全域寫入管線。
+// Moments 的照片讀單一貼文池裡這個角色自己發的貼文（路線圖第 6 項，舊的 trajectoryMoments 已搬進池子）。
 const TrajectoryAlbum: React.FC<Props> = ({ targetChar, onBack, addToast }) => {
+    const [ownMoments, setOwnMoments] = useState<MomentPost[]>([]);
+    useEffect(() => {
+        const load = () => DB.getAllMomentPosts()
+            .then(all => setOwnMoments(all.filter(p => p.author.id === targetChar.id)))
+            .catch(() => setOwnMoments([]));
+        load();
+        window.addEventListener(MOMENTS_CHANGED_EVENT, load);
+        return () => window.removeEventListener(MOMENTS_CHANGED_EVENT, load);
+    }, [targetChar.id]);
     const photos = useMemo<AlbumPhoto[]>(() => {
         const ootd = (targetChar.phoneState?.trajectoryOotd || []).map(p => ({ id: p.id, image: p.image, timestamp: p.timestamp, source: 'OOTD' as const }));
-        const moments = (targetChar.phoneState?.trajectoryMoments || []).map(p => ({ id: p.id, image: p.image, timestamp: p.timestamp, source: 'Moments' as const }));
+        const moments = ownMoments.flatMap(p => p.images.map((image, i) => ({ id: `${p.id}-${i}`, image, timestamp: p.createdAt, source: 'Moments' as const })));
         return [...ootd, ...moments].sort((a, b) => b.timestamp - a.timestamp);
-    }, [targetChar.phoneState?.trajectoryOotd, targetChar.phoneState?.trajectoryMoments]);
+    }, [targetChar.phoneState?.trajectoryOotd, ownMoments]);
 
     const [detailPhoto, setDetailPhoto] = useState<AlbumPhoto | null>(null);
     const [saving, setSaving] = useState(false);

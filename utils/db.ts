@@ -9,7 +9,7 @@ import {
     GalleryImage, FullBackupData, GroupProfile, SocialPost, StudyCourse, GameSession, Worldbook, NovelBook, Emoji, EmojiCategory,
     BankTransaction, SavingsGoal, BankFullState, DollhouseState, XhsStockImage, XhsActivityRecord, XhsOwnedPost, SongSheet, QuizSession, GuidebookSession,
     LifeSimState, HandbookEntry, Tracker, TrackerEntry, HotNewsSnapshot,
-    LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup, NPCProfile,
+    LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup, NPCProfile, MomentPost,
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
     WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask,
     MallCategory, MallProduct
@@ -35,11 +35,13 @@ const DB_NAME = 'AetherOS_Data';
 //       三處讀取，不參與日程/情緒/主動消息/記憶宮殿等背景任務。
 // v73：購物中心（商品/外賣目錄）——用戶自己維護的商品庫，獨立於全局設置導入導出，
 //      不進 exportSettings/importSettings 的打包範圍（見 utils/shoppingMall.ts）。
-const DB_VERSION = 73;
+// v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
+const DB_VERSION = 74;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
 const STORE_NPCS = 'npcs';
+const STORE_MOMENT_POSTS = 'moment_posts'; // v74：單一貼文池（朋友圈）
 const STORE_MESSAGES = 'messages';
 const STORE_EMOJIS = 'emojis';
 const STORE_EMOJI_CATEGORIES = 'emoji_categories'; 
@@ -243,6 +245,10 @@ export const openDB = (): Promise<IDBDatabase> => {
       createStore(STORE_CHARACTERS, { keyPath: 'id' });
       createStore(STORE_CHAR_GROUPS, { keyPath: 'id' }); // v68: 角色分組
       createStore(STORE_NPCS, { keyPath: 'id' }); // v72: NPC 檔案
+      if (!db.objectStoreNames.contains(STORE_MOMENT_POSTS)) { // v74: 單一貼文池
+          const momentStore = db.createObjectStore(STORE_MOMENT_POSTS, { keyPath: 'id' });
+          momentStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
 
       if (!db.objectStoreNames.contains(STORE_MESSAGES)) {
         const msgStore = db.createObjectStore(STORE_MESSAGES, { keyPath: 'id', autoIncrement: true });
@@ -606,6 +612,75 @@ export const DB = {
     const db = await openDB();
     const transaction = db.transaction(STORE_NPCS, 'readwrite');
     transaction.objectStore(STORE_NPCS).delete(id);
+  },
+
+  // ---- 單一貼文池（朋友圈，moment_posts）----
+
+  getAllMomentPosts: async (): Promise<MomentPost[]> => {
+    const db = await openDB();
+    if (!db.objectStoreNames.contains(STORE_MOMENT_POSTS)) return [];
+    return new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_MOMENT_POSTS, 'readonly').objectStore(STORE_MOMENT_POSTS).getAll();
+      request.onsuccess = () => resolve(((request.result || []) as MomentPost[]).sort((a, b) => b.createdAt - a.createdAt));
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  getMomentPost: async (id: string): Promise<MomentPost | undefined> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_MOMENT_POSTS, 'readonly').objectStore(STORE_MOMENT_POSTS).get(id);
+      request.onsuccess = () => resolve(request.result as MomentPost | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  saveMomentPosts: async (posts: MomentPost[]): Promise<void> => {
+    if (posts.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MOMENT_POSTS, 'readwrite');
+      const store = transaction.objectStore(STORE_MOMENT_POSTS);
+      for (const post of posts) store.put(post);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('saveMomentPosts aborted'));
+    });
+  },
+
+  /**
+   * 讀－改－寫同一個事務：按讚、留言這種會併發的改動都走這裡，免得兩個留言同時寫入互相覆蓋。
+   * updater 回傳 null 表示不改；貼文不存在時回傳 undefined。
+   */
+  updateMomentPost: async (id: string, updater: (prev: MomentPost) => MomentPost | null): Promise<MomentPost | undefined> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MOMENT_POSTS, 'readwrite');
+      const store = transaction.objectStore(STORE_MOMENT_POSTS);
+      let result: MomentPost | undefined;
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const prev = req.result as MomentPost | undefined;
+        if (!prev) return;
+        const next = updater(prev);
+        result = next || prev;
+        if (next) store.put(next);
+      };
+      req.onerror = () => reject(req.error);
+      transaction.oncomplete = () => resolve(result);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('updateMomentPost aborted'));
+    });
+  },
+
+  deleteMomentPost: async (id: string): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MOMENT_POSTS, 'readwrite');
+      transaction.objectStore(STORE_MOMENT_POSTS).delete(id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
   },
 
   // ---- 角色分組（神經鏈接"文件夾"，與群聊 groups 無關）----
@@ -3430,10 +3505,11 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, npcs, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings] = await Promise.all([
+      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
           getAllFromStore(STORE_NPCS),
+          getAllFromStore(STORE_MOMENT_POSTS),
           getAllFromStore(STORE_MESSAGES),
           getAllFromStore(STORE_THEMES),
           getAllFromStore(STORE_EMOJIS),
@@ -3497,7 +3573,7 @@ export const DB = {
       const dollhouseRecord = bankData.find((d: any) => d.id === 'dollhouse_state');
 
       return {
-          characters, characterGroups, npcs, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
+          characters, characterGroups, npcs, momentPosts, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
           bankState: mainState ? { ...mainState, id: undefined } : undefined,
           bankDollhouse: dollhouseRecord?.data || undefined,
           bankTransactions: bankTx,
@@ -3556,7 +3632,7 @@ export const DB = {
       const db = await openDB();
       
       const availableStores = [
-          STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_NPCS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
+          STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_NPCS, STORE_MOMENT_POSTS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
           STORE_ASSETS, STORE_GALLERY, STORE_USER, STORE_DIARIES,
           STORE_TASKS, STORE_ANNIVERSARIES, STORE_ROOM_TODOS, STORE_ROOM_NOTES,
           STORE_GROUPS, STORE_JOURNAL_STICKERS, STORE_SOCIAL_POSTS, STORE_COURSES, STORE_GAMES, STORE_WORLDBOOKS, STORE_STORY_THEATERS, STORE_STORY_THEATER_PRESETS, STORE_STORY_THEATER_MASKS, STORE_NOVELS, STORE_SONGS,
@@ -3617,6 +3693,7 @@ export const DB = {
           data.characters !== undefined || data.mediaAssets !== undefined,
           data.characterGroups !== undefined,
           data.npcs !== undefined,
+          data.momentPosts !== undefined,
           data.messages !== undefined,
           data.customThemes !== undefined,
           data.savedEmojis !== undefined,
@@ -3839,6 +3916,11 @@ export const DB = {
           await mergeStore(STORE_NPCS, data.npcs, 'NPC 檔案', false);
           data.npcs = undefined as any;
       }, data.npcs?.length || 0);
+
+      await runSection('朋友圈貼文', data.momentPosts !== undefined, async () => {
+          await mergeStore(STORE_MOMENT_POSTS, data.momentPosts, '朋友圈貼文', false);
+          data.momentPosts = undefined as any;
+      }, data.momentPosts?.length || 0);
 
       await runSection('聊天記錄', data.messages !== undefined, async () => {
           if (!hasStore(STORE_MESSAGES)) return;
