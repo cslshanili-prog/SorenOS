@@ -511,11 +511,11 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     </div>
                 </div>
 
-                {/* AI 模型：默認跟隨查手機 App 的共用設定（跟真人聯繫人的關係對話共用同一組），可選自定義單獨覆蓋 */}
+                {/* AI 模型：不設時查手機裡跟隨查手機的共用設定，群聊／朋友圈／記憶整理跟隨全局；自定義則處處覆蓋 */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
                     <div>
                         <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">AI 模型</label>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">默認跟查手機裡其他聯繫人共用同一組設定；選「自定義」可以單獨給這個 NPC 配一個不同的 API / 模型。</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">默認：在查手機裡跟其他聯繫人共用查手機的設定，在群聊、朋友圈、記憶整理裡用全局 API。選「自定義」就所有地方都改用這個 NPC 自己的 API / 模型。</p>
                     </div>
                     <div className="flex gap-2">
                         <button
@@ -524,7 +524,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 apiMode === 'shared' ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'
                             }`}
                         >
-                            查手機共用設定
+                            跟隨預設
                         </button>
                         <button
                             onClick={() => setApiMode('custom')}

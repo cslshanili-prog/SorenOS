@@ -3718,9 +3718,12 @@ export interface MomentsInteractionSettings {
     /** 兩次自動發帖之間最短、最長等多久（小時）；實際在這個區間裡隨機。 */
     minPostIntervalHours: number;
     maxPostIntervalHours: number;
-    /** 看到一篇動態後留言、按讚的機率（0–100）。 */
+    /** 角色看到一篇動態後留言、按讚的機率（0–100）。 */
     commentProbability: number;
     likeProbability: number;
+    /** NPC 的留言、按讚機率，跟角色分開調：NPC 通常比角色多，留言預設低一點免得洗版。 */
+    npcCommentProbability: number;
+    npcLikeProbability: number;
     /** 發帖後第一則留言要等多久、之後每則留言間隔多久（秒）。 */
     firstCommentDelaySec: number;
     commentIntervalSec: number;

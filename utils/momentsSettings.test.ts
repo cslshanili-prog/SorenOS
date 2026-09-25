@@ -7,6 +7,11 @@ describe('momentsSettings', () => {
         expect(DEFAULT_MOMENTS_SETTINGS.autoPostEnabled).toBe(false);
     });
 
+    it('舊存檔沒有 NPC 機率：補預設，角色那組原樣保留', () => {
+        const s = normalizeMomentsSettings({ commentProbability: 60, likeProbability: 50 });
+        expect(s).toMatchObject({ commentProbability: 60, likeProbability: 50, npcCommentProbability: 20, npcLikeProbability: 75 });
+    });
+
     it('缺欄位補預設、超出範圍夾回、壞值忽略', () => {
         const s = normalizeMomentsSettings({ commentProbability: 180, likeProbability: -5, firstCommentDelaySec: NaN } as never);
         expect(s.commentProbability).toBe(100);
