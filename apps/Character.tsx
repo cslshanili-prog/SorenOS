@@ -38,6 +38,7 @@ import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareText } from '../utils/pngShare';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
+import BriefPersonaField from '../components/character/BriefPersonaField';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
 import {
     EXTERNAL_MEMORY_MAX_CHARS,
@@ -1485,6 +1486,14 @@ ${isInitialGeneration ? `
                                     placeholder="在這個世界裡，魔法是存在的..."
                                 />
                            </div>
+
+                           <BriefPersonaField
+                                char={formData}
+                                apiConfig={apiConfig}
+                                addToast={addToast}
+                                // 生成途中切去別的角色：結果不能寫到別人身上
+                                onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
+                           />
 
                            {/* 時間感知 & 時區：三個獨立開關，可任意組合（聊天時間感知 / 自定義時區 / 線下時間感知） */}
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">

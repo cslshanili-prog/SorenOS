@@ -37,6 +37,7 @@ import {
 } from '@phosphor-icons/react';
 import { includesAnyScript } from '../utils/scriptKey';
 import { rememberNpcPhoneChat } from '../utils/npcMemoryRuntime';
+import { resolveBriefPersona } from '../utils/briefPersona';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
 
@@ -837,8 +838,9 @@ const CheckPhone: React.FC = () => {
             const roster = rosterChars.map(c => ({ id: c.id, name: c.name }));
             // 給每個真實角色附一段「掃一眼設定」+ 機主與 TA 的已知關係，讓關係判定有據可依、別瞎編
             const myContacts = targetChar.phoneState?.contacts || [];
-            const briefOf = (ch: CharacterProfile) => (ch.socialProfile?.bio || ch.description || ch.systemPrompt || '')
-                .replace(/\s+/g, ' ').trim().slice(0, 90);
+            // 有精簡人設就整段給（本來就只有 100～200 字），沒有才從簡介／設定開頭截一小段
+            const briefOf = (ch: CharacterProfile) => resolveBriefPersona(ch)
+                || (ch.socialProfile?.bio || ch.description || ch.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 90);
             const rosterInfo = rosterChars.length
                 ? rosterChars.map(c => {
                     const known = myContacts.find(k => k.linkedCharId === c.id);

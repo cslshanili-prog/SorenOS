@@ -3284,6 +3284,10 @@ export interface CharacterProfile {
   charBlockCooldown?: CharBlockCooldown;
   /** 臨時會話的上限（不設是每天 3 次、每次 50 字，見 utils/tempChat.ts）。 */
   tempChatLimits?: TempChatLimits;
+  /** 精簡人設：給別人參考的 100～200 字簡介（朋友圈留言、查手機名單…），見 utils/briefPersona.ts。 */
+  briefPersona?: string;
+  /** 精簡人設是照哪一版人設生成的（personaFingerprint）；手寫或手改過就清掉，不提示過期。 */
+  briefPersonaSource?: string;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];

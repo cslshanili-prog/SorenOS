@@ -1,12 +1,13 @@
 import type { CharacterProfile, NPCProfile, PhoneContact } from '../types';
 import { USER_ID } from './momentsPool';
+import { resolveBriefPersona } from './briefPersona';
 
 /**
  * 朋友圈批次留言用的「這個人怎麼說話」片段，和「跟發文的人什麼關係」。
  *
  * 以前只拿角色說明（沒有就系統設定）的前 180 字：說明常常是給用戶看的一句話，系統設定開頭多半是世界觀，
  * 高冷、話少這種關鍵特質常常不在裡面，模型就照一般人的熱情寫——這是朋友圈 OOC 的主因。
- * 現在優先挑講個性、說話方式的句子。等之後有「精簡人設」欄位，這裡改成優先用它。
+ * 現在有精簡人設就用它，沒填才從完整人設裡挑講個性、說話方式的句子。
  */
 
 export const VOICE_SNIPPET_MAX = 320;
@@ -34,8 +35,9 @@ export function voiceSnippet(parts: Array<string | undefined>, max: number = VOI
     return picked.length ? clip(picked.join(' '), max) : clip(squash(source), Math.min(max, 200));
 }
 
-export const characterVoice = (char: Pick<CharacterProfile, 'description' | 'systemPrompt'>): string =>
-    voiceSnippet([char.systemPrompt, char.description]);
+/** 有精簡人設就用它（見 utils/briefPersona.ts），沒填才從完整人設裡挑句子。 */
+export const characterVoice = (char: Pick<CharacterProfile, 'description' | 'systemPrompt' | 'briefPersona'>): string =>
+    resolveBriefPersona(char) || voiceSnippet([char.systemPrompt, char.description]);
 
 export const npcVoice = (npc: Pick<NPCProfile, 'description'>): string => voiceSnippet([npc.description]);
 
