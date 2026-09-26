@@ -1,6 +1,6 @@
 // 群聊提示詞構建 —— 從 GroupChat.tsx 抽出的純函數，導演模式模板"搬家不改字"，
 // 供導演模式與輪詢模式（每成員一次調用）共用。
-import { stripLeakedReasoning } from '../reasoningLeak';
+import { leakedBubbleIds, stripLeakedReasoning } from '../reasoningLeak';
 import { Message, EmojiCategory } from '../../types';
 import { stickerNameFromUrl } from '../messageFormat';
 import { isBlobRef } from '../blobRef';
@@ -96,6 +96,9 @@ export function buildGroupHistoryBlock(
     options?: { useVisionDescriptions?: boolean },
 ): GroupHistoryBlock {
     const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成員');
+    // 以前漏進群裡、被拆成一則一則氣泡的思考過程，整串認出來拿掉（見 reasoningLeak.ts）
+    const leaked = leakedBubbleIds(msgs as any);
+    if (leaked.size) msgs = msgs.filter(m => !leaked.has(m.id));
     const now = Date.now();
     const validImageWindowIdx: number[] = [];
     msgs.forEach((m, i) => {
@@ -291,6 +294,7 @@ ${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(optio
 ${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
 #### 七、只寫台詞，不寫思考
 - content 裡只放角色真的會發在群裡的話。**不要**輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白——要想就在心裡想完，直接寫結果。
+- 也不要寫成報告：不要 markdown 標題（# …）、粗體小標（**時間認知**：…）、發言策略清單、「---」分隔線，更不要先寫分析再寫「最終發言／最終輸出」。第一行就是角色要發的第一句話。
 - 記錄裡如果有人這樣寫過，那是系統出錯漏出來的，**不要模仿**。
 
 #### 八、表情和氣泡
@@ -349,6 +353,6 @@ ${userRule}
 ${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
-9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
+9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話，第一行就是你要發的第一句。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白，也不要寫成報告（# 標題、**粗體小標**、發言策略清單、「---」、先分析再寫「最終發言／最終輸出」）。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
 10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}`;
 }
