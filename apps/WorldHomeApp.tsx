@@ -33,6 +33,7 @@ import { safeFetchJson } from '../utils/safeApi';
 import { WORLD_API_KEY, WORLD_CUSTOM_STYLE_KEY } from '../utils/worldHome/localBackup';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent } from '../utils/analytics';
+import { resolveBriefPersona } from '../utils/briefPersona';
 import type { WorldProfile, WorldEpisode, WorldHomeMode, WorldTimeMode, WorldHouse, WorldThread, WorldChatMessage, WorldNarrativeStyle, CharacterProfile, WorldCharBeat, APIConfig, ApiPreset } from '../types';
 
 /**
@@ -611,7 +612,7 @@ const WorldEditor: React.FC<{
                     messages: [{ role: 'user', content: buildNpcRollPrompt({
                         worldName: w.name || '這個世界',
                         worldview: w.worldview,
-                        members: members.map(m => ({ name: m.name, persona: (m.description || m.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 200) })),
+                        members: members.map(m => ({ name: m.name, persona: resolveBriefPersona(m) || (m.description || m.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 200) })),
                         count: 3,
                         existingNames: w.npcs.map(n => n.name).filter(Boolean),
                     }) }],
