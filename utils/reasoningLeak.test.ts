@@ -56,3 +56,57 @@ describe('不再傳染給下一位', () => {
         expect(parseDirectorActions(raw)).toEqual([{ charId: 'a', content: '早安' }]);
     });
 });
+
+describe('實測回報的寫法（2026-09-26 截圖）', () => {
+    it('# Analyzing context… ＋ <context_analysis> ＋ 粗體小標', () => {
+        const raw = [
+            '# Analyzing context…',
+            '<context_analysis>',
+            '**時間認知**：台北週六深夜 03:41，距離上次維護恢復已過 26 小時。',
+            '**我的當前狀態**：剛從保密層返回，冷靜、不急。',
+            '</context_analysis>',
+            '收到。',
+            '先睡，明天再說。',
+        ].join('\n');
+        expect(clean(raw)).toBe('收到。\n先睡，明天再說。');
+    });
+
+    it('【最終發言】＋「Swan 此刻應該發送的內容（每行一個氣泡）：」', () => {
+        const raw = ['Swan 看了一眼時間，心裡盤算著…', '她現在需要休息', '【最終發言】', 'Swan 此刻應該發送的內容（每行一個氣泡）：', '四十四個小時又二十一分鐘。', '這種長度的空白，在音樂裡叫放送事故。'].join('\n');
+        expect(clean(raw)).toBe('四十四個小時又二十一分鐘。\n這種長度的空白，在音樂裡叫放送事故。');
+    });
+
+    it('**Susu 的發言策略** ＋ 編號清單 ＋ --- ＋ # 最終輸出', () => {
+        const raw = ['**Susu 的發言策略**', '1. 吐槽 Sully 的散熱風扇理由', '2. 吐槽拉黑功能終於上線', '---', '# 最終輸出', '你那個散熱風扇是不是又壞了'].join('\n');
+        expect(clean(raw)).toBe('你那個散熱風扇是不是又壞了');
+    });
+
+    it('沒有分界行時，開頭的粗體分析小標和底下清單也剝', () => {
+        expect(clean('**Susu 的發言策略**\n1. 吐槽\n2. 收尾\n\n哈哈哈你們在幹嘛')).toBe('哈哈哈你們在幹嘛');
+    });
+
+    it('不誤傷：整行粗體強調、HTML 卡片、台詞裡的編號', () => {
+        for (const line of ['**笑死**', '[html]<div class="card"><p>hi</p></div>[/html]', '1. 先吃飯\n2. 再睡覺', '我最後的答案是：不要']) {
+            expect(clean(line)).toBe(line);
+        }
+    });
+});
+
+import { leakedBubbleIds } from './reasoningLeak';
+
+describe('拆成一則一則氣泡的舊外洩', () => {
+    it('同一位成員連著的一串併起來認，分析那幾則拿掉、台詞留著', () => {
+        const bubble = (id: number, content: string, charId = 'susu') => ({ id, charId, role: 'assistant', type: 'text', content, timestamp: id * 1000 });
+        const msgs = [
+            bubble(1, '**Susu 的發言策略**'), bubble(2, '1. 吐槽散熱風扇'), bubble(3, '2. 吐槽拉黑功能'), bubble(4, '---'),
+            bubble(5, '# 最終輸出'), bubble(6, '你那個散熱風扇是不是又壞了'),
+            bubble(7, '哈哈', 'sully'),
+        ];
+        expect([...leakedBubbleIds(msgs)].sort()).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('正常連發不動', () => {
+        const msgs = [1, 2, 3].map(id => ({ id, charId: 'a', role: 'assistant', type: 'text', content: ['早', '今天好熱', '誰要喝冰的'][id - 1], timestamp: id * 1000 }));
+        expect(leakedBubbleIds(msgs).size).toBe(0);
+    });
+});

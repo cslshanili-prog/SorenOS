@@ -1,4 +1,4 @@
-import { stripLeakedReasoning } from '../reasoningLeak';
+import { leakedBubbleIds, stripLeakedReasoning } from '../reasoningLeak';
 import { Message } from '../../types';
 import { messageLogText } from './format';
 import { formatRelativeAge } from './relativeTime';
@@ -48,7 +48,9 @@ export function buildMemberTimeline(opts: MemberTimelineOptions): string {
 
     const tagged = [
         ...privateMsgs.slice(-cap).map(m => ({ m, isGroup: false })),
-        ...groupMsgs.slice(-cap).map(m => ({ m, isGroup: true })),
+        // 以前漏進群裡、被拆成一則一則氣泡的思考過程整串拿掉（見 reasoningLeak.ts）
+        ...(() => { const leaked = leakedBubbleIds(groupMsgs as any); return groupMsgs.filter(m => !leaked.has(m.id)); })()
+            .slice(-cap).map(m => ({ m, isGroup: true })),
     ];
     tagged.sort((a, b) => a.m.timestamp - b.m.timestamp);
 
