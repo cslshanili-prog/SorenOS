@@ -4,6 +4,11 @@ import { resolveCharacterChatApi } from './characterApi';
 import { safeResponseJson, extractContent } from './safeApi';
 import { actorDisplayName, USER_ID } from './momentsPool';
 import { addMomentComment } from './momentsStore';
+import { MOMENTS_VOICE_RULE } from './momentsVoice';
+
+/** 作者決定不回這則留言時輸出的標記。 */
+export const MOMENT_SKIP_TOKEN = '[[SKIP]]';
+export const isMomentSkip = (text: string): boolean => /\[\[\s*SKIP\s*\]\]/i.test(text);
 
 /**
  * 有人在角色的貼文底下留言 → 作者回一句：用戶留言時馬上排（朋友圈頁）；NPC 留言時由第二批的自動化排
@@ -32,7 +37,8 @@ ${thread || '（還沒有別人留言）'}
 
 ${userName}剛剛${replyingToName ? `回覆了${replyingToName}` : '在底下留言'}：「${userComment}」
 
-用你平常的口吻回${userName}這則留言，一兩句就好，像真的在朋友圈回留言。延續你們的關係和最近聊過的事，不要客套。
+用你平常的口吻回${userName}這則留言，像真的在朋友圈回留言。延續你們的關係和最近聊過的事，不要客套。
+${MOMENTS_VOICE_RULE}不是每則留言都得回：以你的性格這則會已讀不回的，只輸出 ${MOMENT_SKIP_TOKEN}。
 只輸出回覆內容本身，不要帶名字、不要加引號。`;
 }
 
@@ -85,7 +91,8 @@ export async function replyAsAuthor(params: {
         });
         if (!response.ok) throw new Error(`API 返回 ${response.status}`);
         const reply = cleanMomentReply(extractContent(await safeResponseJson(response)) || '', char.name);
-        if (!reply) return;
+        // 角色選擇已讀不回（高冷的人不會每則都回）
+        if (!reply || isMomentSkip(reply)) return;
         await addMomentComment(post.id, { kind: 'character', id: char.id, name: char.name }, reply, userComment.id);
     } catch (e) {
         console.warn(`[Moments] ${char.name} 回覆留言失敗`, e);
@@ -112,7 +119,8 @@ export function buildCharCommentPrompt(params: {
 底下目前的留言：
 ${thread || '（還沒有人留言）'}
 
-用你平常的口吻在底下留一句言，一兩句就好，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。
+用你平常的口吻在底下留一句言，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。
+${MOMENTS_VOICE_RULE}
 只輸出留言內容本身，不要帶名字、不要加引號。`;
 }
 

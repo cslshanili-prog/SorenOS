@@ -10,6 +10,7 @@ import {
 } from './momentsAuto';
 import { generateCharacterMoment, generateNpcMoment } from './momentsGenerate';
 import { replyAsAuthor } from './momentsReply';
+import { characterVoice, npcVoice, relationToAuthor } from './momentsVoice';
 
 /**
  * 朋友圈第二批的執行層：OSContext 在 App 開著時每分鐘調一次 runMomentsAutomation，
@@ -26,7 +27,6 @@ export interface MomentsRuntimeContext {
 
 const RETRY_LATER_MS = 30 * 60_000;
 
-const briefOf = (text: string | undefined, max = 180) => (text || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** 新貼文 → 看得到的角色／NPC 各擲一次按讚、留言的骰子，排進待辦。 */
 export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeContext): number {
@@ -110,8 +110,10 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         const commenters = actorIds.map(id => {
             const char = ctx.characters.find(c => c.id === id);
             const npc = ctx.npcs.find(n => n.id === id);
-            const brief = char ? briefOf(char.description || char.systemPrompt) : briefOf(npc?.description);
-            return { id, name: nameOf(id), brief };
+            // 挑講個性、說話方式的句子，不再只截開頭（見 utils/momentsVoice.ts）
+            const brief = char ? characterVoice(char) : npc ? npcVoice(npc) : '';
+            const relation = relationToAuthor({ commenterId: id, authorId: post.author.id, characters: ctx.characters, npcs: ctx.npcs });
+            return { id, name: nameOf(id), brief, relation };
         });
         const authorName = post.author.id === USER_ID ? userName : actorDisplayName(post.author, ctx.characters, ctx.npcs, userName);
         const thread = post.comments.map(c => `${actorDisplayName(c.actor, ctx.characters, ctx.npcs, userName)}: ${c.content}`).join('\n');

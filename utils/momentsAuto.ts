@@ -1,3 +1,4 @@
+import { MOMENTS_VOICE_RULE } from './momentsVoice';
 import type { MomentPost, MomentsInteractionSettings } from '../types';
 import { canViewMoment, USER_ID, type FriendGraph } from './momentsPool';
 
@@ -186,12 +187,16 @@ export function buildBatchCommentPrompt(params: {
     authorName: string;
     post: Pick<MomentPost, 'content' | 'images'>;
     thread: string;
-    commenters: Array<{ id: string; name: string; brief: string }>;
+    /** brief：這個人怎麼說話（utils/momentsVoice.ts 挑出來的）；relation：跟發文的人什麼關係 */
+    commenters: Array<{ id: string; name: string; brief: string; relation?: string }>;
     userName: string;
 }): string {
     const { authorName, post, thread, commenters, userName } = params;
     const photos = post.images.length ? `（配了 ${post.images.length} 張照片）` : '';
-    const list = commenters.map(c => `- ${c.name}（id: ${c.id}）：${c.brief || '（沒有更多設定）'}`).join('\n');
+    const list = commenters.map(c => {
+        const relation = c.relation ? `\n  跟${authorName}的關係：${c.relation}` : '';
+        return `- ${c.name}（id: ${c.id}）：${c.brief || '（沒有更多設定）'}${relation}`;
+    }).join('\n');
     return `朋友圈裡，${authorName}發了一篇動態${photos}：
 「${post.content || '（只有照片）'}」
 
@@ -201,9 +206,10 @@ ${thread || '（還沒有人留言）'}
 下面這幾位滑到了這篇，各自想留一句言：
 ${list}
 
-替每一位寫一句留言，一兩句就好，口吻要符合各自的設定和跟${authorName}的關係，像真的在朋友圈留言；彼此可以不一樣，不要全都在誇。
+每一位都是獨立的人，分開想：照各自的設定和跟${authorName}的關係決定留不留、留什麼，像真的在朋友圈留言。彼此可以很不一樣，不要全都在誇，也不要互相帶風向——前一個人笑了，下一個人不必跟著笑。
+${MOMENTS_VOICE_RULE}以這個人的性格不會留言的，就不要寫進陣列。
 ${authorName === userName ? `${userName}是這篇的作者，也是大家都認識的人。` : ''}
-只輸出 JSON 陣列，不要其他文字：[{"id": "留言的人的 id", "content": "留言內容"}]`;
+只輸出 JSON 陣列，不要其他文字：[{"id": "留言的人的 id", "content": "留言內容"}]（一個人都不留就輸出 []）`;
 }
 
 /** 解析批次留言：只收名單裡的 id，內容去引號、截斷；解析不了回空陣列。 */
