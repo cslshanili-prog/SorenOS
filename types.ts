@@ -3288,6 +3288,8 @@ export interface CharacterProfile {
   briefPersona?: string;
   /** 精簡人設是照哪一版人設生成的（personaFingerprint）；手寫或手改過就清掉，不提示過期。 */
   briefPersonaSource?: string;
+  /** 聊天設定 · Scenario ·「AI 幫我回覆」：「+」面板多一顆按鈕，替用戶想幾個回覆草稿，見 utils/replyDrafts.ts。 */
+  replyDrafts?: ReplyDraftSettings;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
@@ -3659,6 +3661,13 @@ export interface CharacterExportData extends Omit<CharacterProfile, 'id' | 'memo
     version: number;
     type: 'sully_character_card';
     embeddedTheme?: ChatTheme;
+}
+
+/** 「AI 幫我回覆」：替用戶想回覆草稿（聊天設定 · Scenario）。 */
+export interface ReplyDraftSettings {
+    enabled: boolean;
+    /** 草稿句首可以帶一個全形括號的動作／神態；關掉只出說出口的話。 */
+    withActions?: boolean;
 }
 
 export interface UserProfile {

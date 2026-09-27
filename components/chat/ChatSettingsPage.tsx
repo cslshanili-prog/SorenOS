@@ -17,7 +17,8 @@ import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoR
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
-    | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'>;
+    | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
+    | 'replyDrafts'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -91,6 +92,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [blockCooldown, setBlockCooldown] = useState<CharBlockCooldown>('normal');
     const [confirmBlock, setConfirmBlock] = useState(false);
     const [tempLimits, setTempLimits] = useState<TempChatLimits>(DEFAULT_TEMP_CHAT_LIMITS);
+    const [replyDrafts, setReplyDrafts] = useState(false);
+    const [draftActions, setDraftActions] = useState(false);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -111,6 +114,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setBlockCooldown(char.charBlockCooldown || 'normal');
         setConfirmBlock(false);
         setTempLimits(normalizeTempChatLimits(char.tempChatLimits));
+        setReplyDrafts(!!char.replyDrafts?.enabled);
+        setDraftActions(!!char.replyDrafts?.withActions);
         let cancelled = false;
         DB.getFirstMessageTimestamp(char.id)
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
@@ -143,6 +148,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             charBlockCooldown: allowBlock && blockCooldown !== 'normal' ? blockCooldown : undefined,
             tempChatLimits: tempLimits.daily === DEFAULT_TEMP_CHAT_LIMITS.daily && tempLimits.maxChars === DEFAULT_TEMP_CHAT_LIMITS.maxChars
                 ? undefined : tempLimits,
+            // 從沒打開過的角色不寫這個欄位；關掉時留著「帶動作旁白」的選擇，下次打開不用重選
+            replyDrafts: replyDrafts || char.replyDrafts
+                ? { enabled: replyDrafts, withActions: draftActions || undefined } : undefined,
         });
     };
 
@@ -246,6 +254,24 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                             <Row label="線上模式動作描寫" hint="開啟後，線上聊天時角色可以用括號帶一點神態或小動作，例如「（揉了揉眼睛）剛睡醒」；關閉時只傳純文字訊息">
                                 <Toggle on={onlineActions} onToggle={() => setOnlineActions(v => !v)} label="線上模式動作描寫" />
                             </Row>
+                            {/* AI 幫我回覆：見 utils/replyDrafts.ts */}
+                            <div>
+                                <Row label="啟用 AI 幫我回覆" hint="開啟後，輸入欄「+」會多出一顆按鈕，AI 會替你想幾種回覆方向；點一個就放進輸入框，改完再發">
+                                    <Toggle on={replyDrafts} onToggle={() => setReplyDrafts(v => !v)} label="啟用 AI 幫我回覆" />
+                                </Row>
+                                {replyDrafts && (
+                                    <>
+                                        <div className="border-t border-slate-100">
+                                            <Row label="草稿帶動作旁白" hint="草稿句首可以帶一個動作描寫，例如「（咬了口糖葫蘆）不去……除非你求我」，選了就跟旁白一起發出去；關掉只出說出口的話">
+                                                <Toggle on={draftActions} onToggle={() => setDraftActions(v => !v)} label="草稿帶動作旁白" />
+                                            </Row>
+                                        </div>
+                                        <p className="border-t border-slate-100 px-5 py-3 text-[11px] leading-relaxed text-slate-400">
+                                            API 來源：優先使用副 API（記憶宮殿設定的那組），沒設定副 API 才用這個角色的對話 API，避免佔用主回覆的額度
+                                        </p>
+                                    </>
+                                )}
+                            </div>
                             <div>
                                 <Row label="允許角色拉黑你" hint="開啟後，角色真的被你氣到時可以把你拉黑：你的訊息會被拒收、不送給模型。冷靜期過了角色會自己想要不要解除">
                                     <Toggle on={allowBlock} onToggle={() => setAllowBlock(v => !v)} label="允許角色拉黑你" />
