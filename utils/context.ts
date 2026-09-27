@@ -11,6 +11,8 @@ import {
     splitWorldbookSections,
     type WorldbookScanMessage,
 } from './worldbook';
+import { formatDialogueExamplesBlock, shouldIncludeDialogueExamples } from './dialogueExamples';
+import { buildTriggeredLinesPrompt, formatSignatureLinesBlock, latestUserText } from './fixedLines';
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 
 /**
@@ -149,6 +151,11 @@ export const ContextBuilder = {
             conversational?: boolean;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
+            /**
+             * 這段對話總共幾則（私聊／群聊傳）。用來判斷對話範例還要不要附上，見 utils/dialogueExamples.ts；
+             * 不傳就一直附上（見面、通話、各種小 App），跟以前範例寫在人設裡一樣。
+             */
+            totalMessages?: number;
         },
         layout?: {
             /**
@@ -206,6 +213,11 @@ export const ContextBuilder = {
 
         context += formatWorldbookSection(worldbookSections.afterCharacter, '擴展設定集 (Worldbooks)');
         context += formatWorldbookSection(worldbookSections.beforeExamples, '世界書 · 示例消息前');
+        if (shouldIncludeDialogueExamples(char, timeOptions?.totalMessages)) {
+            context += formatDialogueExamplesBlock(char.dialogueExamples, char.name, user.name, !!char.fixedLines?.length);
+        }
+        // 招牌台詞（固定台詞裡沒填「對方說」的）：不受範例門檻影響，一直都在（見 utils/fixedLines.ts）
+        context += formatSignatureLinesBlock(char.fixedLines, char.name, user.name);
         context += formatWorldbookSection(worldbookSections.afterExamples, '世界書 · 示例消息後');
 
         // 3. 用戶畫像 (User Profile)
@@ -343,6 +355,13 @@ export const ContextBuilder = {
             console.log(`⚠️ [Context] Missing/empty fields: ${missing.join(', ')} | context_chars=${context.length}`);
         } else {
             console.log(`✅ [Context] All fields present | context_chars=${context.length}`);
+        }
+
+        // 固定台詞被對方最新一句觸發：放在角色塊最後。私聊（deferVolatile）改放易變段尾，
+        // 見面、通話由調用方自己放到更靠近開口的位置（它們不傳 worldbookMessages）。
+        if (timeOptions?.conversational && !layout?.deferVolatile && timeOptions.worldbookMessages?.length) {
+            const triggered = buildTriggeredLinesPrompt(char, latestUserText(timeOptions.worldbookMessages as any), user.name);
+            if (triggered) context += `\n${triggered}\n\n`;
         }
 
         return context;

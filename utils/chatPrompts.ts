@@ -5,6 +5,7 @@ import { selectCharacterContextMessages } from './chatContextRange';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule, ImageGenApiConfig } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
+import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
@@ -335,6 +336,10 @@ export const ChatPrompts = {
 
         // 記憶宮殿檢索結果現在從 char.memoryPalaceInjection 讀取。
         // deferVolatile：時間/宮殿召回/情緒 buff 三塊不進 stable，由下面的 volatileState 承接。
+        // 對話範例聊到門檻就不附（見 utils/dialogueExamples.ts）：只數則數，不讀訊息；查不到就照舊附上
+        const totalMessages = char.dialogueExamples?.trim()
+            ? await DB.countMessagesByCharId(char.id).catch(() => undefined)
+            : undefined;
         const coreT0 = performance.now();
         let baseSystemPrompt = ContextBuilder.buildCoreContext(
             char,
@@ -342,7 +347,7 @@ export const ChatPrompts = {
             true,
             undefined,
             undefined,
-            { worldbookMessages: currentMsgs },
+            { worldbookMessages: currentMsgs, totalMessages },
             { deferVolatile: true },
         );
         timings.buildCoreContext = Math.round(performance.now() - coreT0);
@@ -1069,6 +1074,13 @@ ${xhsEnabled ? `${[notionEnabled, feishuEnabled, notionNotesEnabled].filter(Bool
                 story: '劇情模式',
             };
             volatileState += `\n\n[系統提示｜模式切換（最高優先級）: 你剛剛結束了${modeLabel[returningFromMode]}，現在已經回到 ChatApp 的文字聊天界面。之前模式中的台詞、旁白、動作、場景或轉錄格式只代表已經發生的歷史，絕不是當前回覆的格式範例。從這一條開始，只按 ChatApp 當前啟用的輸出規則回覆：使用自然的 IM 短句/氣泡，不沿用通話口吻、連續口語轉錄、${char.onlineActions ? '大段動作描寫（聊天設定允許的簡短括號神態除外）' : '動作描寫'}、小說旁白、場景標題或說話人標籤；如果 ChatApp 當前開啟了語音消息，仍可遵守它自己的語音消息格式。你可以自然承接剛才發生的事，但必須以正在聊天界面發消息的方式表達。]`;
+        }
+
+        // 固定台詞：對方最新一句踩中了「對方說」就這一輪原樣說出（見 utils/fixedLines.ts）。
+        // 放在易變段尾、緊貼開口；主動消息的模板是替「之後自己開口」打包的，不帶。
+        if (!forFirePack && char.fixedLines?.length) {
+            const triggered = buildTriggeredLinesPrompt(char, latestUserText(currentMsgs), userProfile.name);
+            if (triggered) volatileState += `\n\n${triggered}`;
         }
 
         // Voice message prompt injection

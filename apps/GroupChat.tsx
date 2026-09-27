@@ -1401,6 +1401,10 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
         await injectMemoryPalace(member, palaceQueryMsgs, undefined, groupUserProfile.name);
+        // 對話範例：成員看得到自己的私聊＋這個群的原話，兩邊加起來到門檻就不附（見 utils/dialogueExamples.ts）
+        const totalMessages = member.dialogueExamples?.trim()
+            ? (await DB.countMessagesByCharId(member.id).catch(() => 0)) + Math.max(totalMsgCount, currentMsgs.length)
+            : undefined;
         // 角色塊：跳過共享場景已包含的部分（用戶檔案 / 共有 worldview / 共有世界書）
         const coreContext = ContextBuilder.buildCoreContext(member, groupUserProfile, true, undefined, {
             skipUserProfile: true,
@@ -1408,7 +1412,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
             skipWorldbookIds: sharedScene.sharedWorldbookIds,
             headerOverride: `[Group Member Profile: ${member.name}]`,
         // conversational：群聊同樣是用戶正在說話的場合（見 buildTimeAwarenessBlock）
-        }, { worldbookMessages: liveGroupMsgs, conversational: true });
+        }, { worldbookMessages: liveGroupMsgs, conversational: true, totalMessages });
         // Get private gap string
         const privateGapInfo = await getPrivateTimeGap(member.id);
 

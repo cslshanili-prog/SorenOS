@@ -39,6 +39,7 @@ import { readShareText } from '../utils/pngShare';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import BriefPersonaField from '../components/character/BriefPersonaField';
+import DialogueExamplesField from '../components/character/DialogueExamplesField';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
 import {
     EXTERNAL_MEMORY_MAX_CHARS,
@@ -1477,6 +1478,14 @@ ${isInitialGeneration ? `
                                <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="設定..." />
                            </div>
 
+                           <DialogueExamplesField
+                                char={formData}
+                                apiConfig={apiConfig}
+                                addToast={addToast}
+                                // 拆範例途中切去別的角色：結果不能寫到別人身上
+                                onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
+                           />
+
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界觀 / 設定補充 (Worldview & Lore)</label>
                                <textarea
@@ -1485,6 +1494,11 @@ ${isInitialGeneration ? `
                                     className="w-full h-24 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
                                     placeholder="在這個世界裡，魔法是存在的..."
                                 />
+                                {(formData.worldview || '').length > 1500 && (
+                                    <p className="mt-1.5 px-2 text-[11px] leading-relaxed text-slate-400">
+                                        這格每一輪都會整段送給 AI。不常用到的段落可以拆成世界書條目、設關鍵詞觸發，聊到才帶，比較省 token。
+                                    </p>
+                                )}
                            </div>
 
                            <BriefPersonaField
