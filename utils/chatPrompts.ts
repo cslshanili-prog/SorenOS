@@ -335,6 +335,10 @@ export const ChatPrompts = {
 
         // 記憶宮殿檢索結果現在從 char.memoryPalaceInjection 讀取。
         // deferVolatile：時間/宮殿召回/情緒 buff 三塊不進 stable，由下面的 volatileState 承接。
+        // 對話範例聊到門檻就不附（見 utils/dialogueExamples.ts）：只數則數，不讀訊息；查不到就照舊附上
+        const totalMessages = char.dialogueExamples?.trim()
+            ? await DB.countMessagesByCharId(char.id).catch(() => undefined)
+            : undefined;
         const coreT0 = performance.now();
         let baseSystemPrompt = ContextBuilder.buildCoreContext(
             char,
@@ -342,7 +346,7 @@ export const ChatPrompts = {
             true,
             undefined,
             undefined,
-            { worldbookMessages: currentMsgs },
+            { worldbookMessages: currentMsgs, totalMessages },
             { deferVolatile: true },
         );
         timings.buildCoreContext = Math.round(performance.now() - coreT0);

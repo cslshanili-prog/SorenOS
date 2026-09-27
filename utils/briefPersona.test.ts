@@ -33,3 +33,16 @@ describe('精簡人設', () => {
         expect(characterVoice(base)).toContain('話少');
     });
 });
+
+describe('精簡人設 · 對話範例', () => {
+    const base = { name: '周以衡', systemPrompt: '高冷', worldview: '', description: '' };
+    it('沒填範例：指紋跟以前一樣', () => {
+        expect(personaFingerprint({ ...base, dialogueExamples: '' })).toBe(personaFingerprint(base));
+    });
+    it('填了範例：算進指紋、帶進提示詞', () => {
+        const withExamples = { ...base, dialogueExamples: '周以衡：……嗯。' };
+        expect(personaFingerprint(withExamples)).not.toBe(personaFingerprint(base));
+        expect(buildBriefPersonaPrompt(withExamples)).toContain('【對話範例】');
+        expect(buildBriefPersonaPrompt(withExamples)).toContain('周以衡：……嗯。');
+    });
+});

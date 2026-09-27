@@ -11,6 +11,7 @@ import {
     splitWorldbookSections,
     type WorldbookScanMessage,
 } from './worldbook';
+import { formatDialogueExamplesBlock, shouldIncludeDialogueExamples } from './dialogueExamples';
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 
 /**
@@ -149,6 +150,11 @@ export const ContextBuilder = {
             conversational?: boolean;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
+            /**
+             * 這段對話總共幾則（私聊／群聊傳）。用來判斷對話範例還要不要附上，見 utils/dialogueExamples.ts；
+             * 不傳就一直附上（見面、通話、各種小 App），跟以前範例寫在人設裡一樣。
+             */
+            totalMessages?: number;
         },
         layout?: {
             /**
@@ -206,6 +212,9 @@ export const ContextBuilder = {
 
         context += formatWorldbookSection(worldbookSections.afterCharacter, '擴展設定集 (Worldbooks)');
         context += formatWorldbookSection(worldbookSections.beforeExamples, '世界書 · 示例消息前');
+        if (shouldIncludeDialogueExamples(char, timeOptions?.totalMessages)) {
+            context += formatDialogueExamplesBlock(char.dialogueExamples, char.name, user.name);
+        }
         context += formatWorldbookSection(worldbookSections.afterExamples, '世界書 · 示例消息後');
 
         // 3. 用戶畫像 (User Profile)

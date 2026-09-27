@@ -3290,6 +3290,12 @@ export interface CharacterProfile {
   briefPersonaSource?: string;
   /** 聊天設定 · Scenario ·「AI 幫我回覆」：「+」面板多一顆按鈕，替用戶想幾個回覆草稿，見 utils/replyDrafts.ts。 */
   replyDrafts?: ReplyDraftSettings;
+  /** 神經鏈接 ·「對話範例」：說話風格示範（不是發生過的對話），見 utils/dialogueExamples.ts。 */
+  dialogueExamples?: string;
+  /** 私聊訊息總數到了這個數就不再附上範例（不設是 60）。 */
+  dialogueExamplesCutoff?: number;
+  /** 不管聊了多久都附上範例。 */
+  dialogueExamplesAlways?: boolean;
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];

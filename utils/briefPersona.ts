@@ -13,11 +13,13 @@ import { stripLeakedReasoning } from './reasoningLeak';
 
 export const BRIEF_PERSONA_MAX = 300;
 
-type PersonaSource = Pick<CharacterProfile, 'description' | 'systemPrompt' | 'worldview'>;
+type PersonaSource = Pick<CharacterProfile, 'description' | 'systemPrompt' | 'worldview' | 'dialogueExamples'>;
 
 /** 人設的指紋：生成時記下來，之後人設改過就提示重新生成。 */
 export function personaFingerprint(char: PersonaSource): string {
-    const text = [char.systemPrompt || '', char.worldview || '', char.description || ''].join('\u0001');
+    // 對話範例只在有填時才算進去：沒填範例的角色，指紋跟加這一欄之前一樣，已生成的精簡人設不會被誤判過期
+    const examples = char.dialogueExamples?.trim();
+    const text = [char.systemPrompt || '', char.worldview || '', char.description || '', ...(examples ? [examples] : [])].join('\u0001');
     let hash = 5381;
     for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
     return `${text.length.toString(36)}-${hash.toString(36)}`;
@@ -36,6 +38,7 @@ export function buildBriefPersonaPrompt(char: PersonaSource & Pick<CharacterProf
         char.description?.trim() ? `【簡介】\n${clip(char.description.trim(), 1500)}` : '',
         char.systemPrompt?.trim() ? `【完整人設】\n${clip(char.systemPrompt.trim(), 6000)}` : '',
         char.worldview?.trim() ? `【世界觀】\n${clip(char.worldview.trim(), 1500)}` : '',
+        char.dialogueExamples?.trim() ? `【對話範例】（照這些抓說話方式）\n${clip(char.dialogueExamples.trim(), 2000)}` : '',
     ].filter(Boolean).join('\n\n');
     return `下面是角色「${char.name}」的設定。請把它壓縮成一段「精簡人設」，給其他角色參考：當別人提到 ${char.name}、或需要替 ${char.name} 在朋友圈留一句言時，靠這段就能抓準 TA 是怎樣的人、會怎麼說話。
 
