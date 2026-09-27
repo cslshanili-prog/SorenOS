@@ -1,4 +1,5 @@
-import type { APIConfig, CharacterProfile } from '../types';
+import type { APIConfig, CharacterProfile, FixedLine } from '../types';
+import { newFixedLineId } from './fixedLines';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { clampManualContextLimit, resolveContextRangeMode } from './chatContextRange';
 import { resolveMemoryPalaceWaterline } from './memoryPalace/waterline';
@@ -48,25 +49,29 @@ export function shouldIncludeDialogueExamples(char: ExampleChar, totalMessages?:
     return totalMessages < clampExamplesCutoff(char.dialogueExamplesCutoff);
 }
 
-export function formatDialogueExamplesBlock(examples: string | undefined, charName: string, userName: string): string {
+export function formatDialogueExamplesBlock(examples: string | undefined, charName: string, userName: string, hasFixedLines = false): string {
     const text = expandWorldbookMacros(examples?.trim() || '', charName, userName);
     if (!text) return '';
+    const fixedNote = hasFixedLines ? '（「招牌台詞」「固定台詞」不在此限，那些要原樣說。）' : '';
     return `### 說話風格示範 (Dialogue Examples)
-以下只是 ${charName} 說話口吻的示範：學語氣、句子長短、用詞和標點習慣。它們不是你們真的發生過的對話，也不是記憶；不要照抄句子，不要提起裡面的內容。
+以下只是 ${charName} 說話口吻的示範：學語氣、句子長短、用詞和標點習慣。它們不是你們真的發生過的對話，也不是記憶；不要照抄句子，不要提起裡面的內容。${fixedNote}
 ${text}
 
 `;
 }
 
-// ── AI 從核心指令拆出範例 ───────────────────────────────────────────
+// ── AI 從核心指令拆出範例（和固定台詞）───────────────────────────────
 
 export function buildExtractExamplesPrompt(systemPrompt: string): string {
-    return `下面是一份角色人設。請找出裡面屬於「對話範例／說話示範」的段落：示範角色怎麼說話的台詞、範例對話、例句（包含它們的小標題，例如「對話範例：」「【示例】」）。
+    return `下面是一份角色人設。請從裡面挑出兩類段落：
 
-不算範例的不要挑：描述說話風格的規則（例如「說話簡短、愛用反問」）、性格、背景、關係、世界觀。
+1. examples：「對話範例／說話示範」——示範角色怎麼說話的台詞、範例對話、例句（包含它們的小標題，例如「對話範例：」「【示例】」）。
+2. fixedLines：「固定台詞」——要一字不改說出的經典對白：「對方說 A 就一定回 B」這種一問一答，或角色的招牌台詞、口頭禪原句。
+   每一句給三樣：passage（人設裡寫這句的整段原文）、trigger（對方說的那句，沒有就留空字串）、reply（角色要說的那句）。
 
-每一段都要**一字不差**從原文複製，不要改寫、不要合併、不要補字。沒有範例就回傳空陣列。
-只輸出 JSON：{"examples":["原文段落1","原文段落2"]}
+兩類都不要挑的：描述說話風格的規則（例如「說話簡短、愛用反問」）、性格、背景、關係、世界觀。
+同一段不要同時放進兩類。所有文字都要**一字不差**從原文複製，不要改寫、不要合併、不要補字。沒有就回傳空陣列。
+只輸出 JSON：{"examples":["原文段落"],"fixedLines":[{"passage":"原文段落","trigger":"","reply":""}]}
 
 【人設原文】
 ${systemPrompt}`;
@@ -84,39 +89,74 @@ function locate(source: string, passage: string): { start: number; end: number }
     return match ? { start: match.index, end: match.index + match[0].length } : null;
 }
 
-/** 範例拿走之後，只剩一個「範例」小標題的空行也順手清掉。 */
-const ORPHAN_HEADING_RE = /^[ \t]*(?:#{1,6}[ \t]*)?[【\[「]?[ \t]*(?:對話|对话|說話|说话)?(?:範例|范例|示例|示範|示范|例句|例子|樣例|样例|example[s]?)[ \t]*[】\]」]?[ \t]*[：:]?[ \t]*$/gim;
+/** 範例、固定台詞拿走之後，只剩一個小標題的空行也順手清掉。 */
+const ORPHAN_HEADING_RE = /^[ \t]*(?:#{1,6}[ \t]*)?[【\[「]?[ \t]*(?:(?:對話|对话|說話|说话)?(?:範例|范例|示例|示範|示范|例句|例子|樣例|样例|example[s]?)|(?:固定|經典|经典|招牌|名)(?:台詞|台词|對白|对白))[ \t]*[】\]」]?[ \t]*[：:]?[ \t]*$/gim;
 
 export interface ExtractedExamples {
     examples: string;
+    fixedLines: FixedLine[];
     persona: string;
+    /** 搬走了幾段範例 */
     found: number;
+    /** 搬走了幾句固定台詞 */
+    fixedFound: number;
+    /** 跟原文對不上、沒有動的段落 */
     missed: number;
 }
 
+const asText = (value: unknown) => String(value ?? '').trim();
+
 /**
- * 模型回的段落 → 從人設裡拿掉、接成範例欄。只拿原文裡真的找得到的段落，模型改寫過的一律不動，
- * 所以人設不會被模型「順手潤飾」。
+ * 模型回的段落 → 從人設裡拿掉、分到範例欄和固定台詞。只拿原文裡真的找得到的段落，模型改寫過的一律不動，
+ * 所以人設不會被模型「順手潤飾」；固定台詞的 reply／trigger 也要在那段原文裡找得到，才算數。
  */
 export function applyExtractedExamples(systemPrompt: string, raw: string): ExtractedExamples {
     const json = extractJson(raw, { silent: true });
     const passages: string[] = (Array.isArray(json?.examples) ? json.examples : [])
-        .map((p: unknown) => String(p ?? '').trim()).filter((p: string) => p.length >= 4);
+        .map(asText).filter((p: string) => p.length >= 4);
+    const fixedRaw: any[] = Array.isArray(json?.fixedLines) ? json.fixedLines : [];
     let persona = systemPrompt;
     const taken: string[] = [];
+    const fixedLines: FixedLine[] = [];
     let missed = 0;
+
+    // 先拿固定台詞，免得同一段被當範例搬走、貼上「不要照抄」
+    for (const item of fixedRaw) {
+        const passage = asText(item?.passage);
+        const reply = asText(item?.reply);
+        const trigger = asText(item?.trigger);
+        const at = passage && reply ? locate(persona, passage) : null;
+        const original = at ? persona.slice(at.start, at.end) : '';
+        const replyAt = original ? locate(original, reply) : null;
+        const triggerAt = trigger && original ? locate(original, trigger) : null;
+        if (!at || !replyAt || (trigger && !triggerAt)) { missed++; continue; }
+        fixedLines.push({
+            id: newFixedLineId(),
+            trigger: triggerAt ? original.slice(triggerAt.start, triggerAt.end).trim() : undefined,
+            reply: original.slice(replyAt.start, replyAt.end).trim(),
+        });
+        persona = persona.slice(0, at.start) + persona.slice(at.end);
+    }
     for (const passage of passages) {
         const at = locate(persona, passage);
         if (!at) { missed++; continue; }
         taken.push(persona.slice(at.start, at.end).trim());
         persona = persona.slice(0, at.start) + persona.slice(at.end);
     }
-    if (taken.length) {
-        // 有段落沒找到時小標題留著：底下可能還掛著沒拆走的範例
+    const changed = taken.length + fixedLines.length > 0;
+    if (changed) {
+        // 有段落沒找到時小標題留著：底下可能還掛著沒拆走的內容
         if (!missed) persona = persona.replace(ORPHAN_HEADING_RE, '');
         persona = persona.replace(/\n{3,}/g, '\n\n').trim();
     }
-    return { examples: taken.join('\n\n'), persona: taken.length ? persona : systemPrompt, found: taken.length, missed };
+    return {
+        examples: taken.join('\n\n'),
+        fixedLines,
+        persona: changed ? persona : systemPrompt,
+        found: taken.length,
+        fixedFound: fixedLines.length,
+        missed,
+    };
 }
 
 export async function extractDialogueExamples(systemPrompt: string, apiConfig: APIConfig): Promise<ExtractedExamples> {

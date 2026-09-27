@@ -122,6 +122,7 @@ import {
 import { addCompanionModelOutfit, addUploadedCompanionOutfit } from '../utils/companionWardrobe';
 import VoiceFavoriteActionSheet from '../components/voice/VoiceFavoriteActionSheet';
 import { getVoiceFavorite, removeVoiceFavorite, saveVoiceFavorite } from '../utils/voiceFavorites';
+import { buildTriggeredLinesPrompt } from '../utils/fixedLines';
 type CallState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
 type CallMode = 'voice' | 'video';
 type VideoCallLayout = 'stage' | 'story' | 'mini';
@@ -1941,11 +1942,14 @@ ${sentencePlan}`;
     if (includeUserCameraContext && callMode === 'video' && userCameraMode === 'snapshot' && !userCameraSnapshot && userCameraSnapshotForTurn === undefined) {
       addToast('攝像頭畫面還沒準備好，本輪已只發送文字', 'info');
     }
+    // 固定台詞：對方這句踩中了就這一輪原樣說出（見 utils/fixedLines.ts）
+    const fixedLineNote = selectedChar ? buildTriggeredLinesPrompt(selectedChar, input, userName) : '';
     const baseSystemPrompt = [
       baseCallPrompt,
       callMode === 'video' && !highQualityPerformance ? buildAvatarPerformancePrompt(allowedModelActions) : '',
       userCameraEmotionContext,
       thinkingPrompt,
+      fixedLineNote,
     ].filter(Boolean).join('\n\n');
     const systemPrompt = [baseSystemPrompt, userCameraSnapshot ? USER_CAMERA_SNAPSHOT_SYSTEM_NOTE : '']
       .filter(Boolean)

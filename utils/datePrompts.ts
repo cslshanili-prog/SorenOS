@@ -26,6 +26,7 @@ import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { getVoicePromptOverride } from './ttsProvider';
 import { selectCharacterContextMessages } from './chatContextRange';
+import { buildTriggeredLinesPrompt } from './fixedLines';
 
 export type ApiMessage = { role: string; content: any };
 
@@ -741,11 +742,13 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
             ? `(System Note: 嚴格遵守 VN 格式。每一行都要以 [emotion] 開頭，根據內容逐行切換情緒標籤，不要整段只用同一個。敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`
             : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。依然嚴格遵守 VN 格式：每一行以 [emotion] 開頭並逐行切換情緒，敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`;
 
+        // 固定台詞：對方這句踩中了就這一輪原樣說出，跟每輪的註記放在一起、緊貼開口（見 utils/fixedLines.ts）
+        const fixedLineNote = buildTriggeredLinesPrompt(char, userText, userProfile?.name || '用戶');
         return {
             messages: [
                 { role: 'system', content: systemPrompt },
                 ...historyMsgs,
-                { role: 'user', content: `${userText}\n\n${note}` },
+                { role: 'user', content: `${userText}\n\n${note}${fixedLineNote ? `\n${fixedLineNote}` : ''}` },
             ],
         };
     },

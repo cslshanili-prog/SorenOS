@@ -3296,6 +3296,8 @@ export interface CharacterProfile {
   dialogueExamplesCutoff?: number;
   /** 不管聊了多久都附上範例。 */
   dialogueExamplesAlways?: boolean;
+  /** 固定台詞：對方說 A 就原樣回 B；沒填 A 的是招牌台詞，一直帶著。見 utils/fixedLines.ts。 */
+  fixedLines?: FixedLine[];
 
   // Cross-session guidebook insights: what char has discovered about user across games
   guidebookInsights?: string[];
@@ -3667,6 +3669,15 @@ export interface CharacterExportData extends Omit<CharacterProfile, 'id' | 'memo
     version: number;
     type: 'sully_character_card';
     embeddedTheme?: ChatTheme;
+}
+
+/** 固定台詞（神經鏈接 · 對話範例底下）：同人卡的經典對白要一字不改。 */
+export interface FixedLine {
+    id: string;
+    /** 對方說了這句（簡繁、標點、空白不計）才觸發；不填是招牌台詞，一直帶著。 */
+    trigger?: string;
+    /** TA 要原樣說出的話。 */
+    reply: string;
 }
 
 /** 「AI 幫我回覆」：替用戶想回覆草稿（聊天設定 · Scenario）。 */

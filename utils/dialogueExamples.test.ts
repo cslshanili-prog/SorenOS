@@ -118,3 +118,54 @@ describe('對話範例 · AI 拆出範例', () => {
         expect(result.persona).toBe('規則 (a+b)*');
     });
 });
+
+describe('對話範例 · 拆出時分出固定台詞', () => {
+    const persona = `你是周以衡。
+【固定台詞】
+當{{user}}問「你會一直在嗎」，一定回答「只要你回頭，我就在。」
+
+【對話範例】
+{{user}}：在幹嘛
+{{char}}：……看書。`;
+
+    it('提示詞分兩類', () => {
+        const prompt = buildExtractExamplesPrompt(persona);
+        expect(prompt).toContain('fixedLines');
+        expect(prompt).toContain('同一段不要同時放進兩類');
+    });
+
+    it('固定台詞和範例各搬各的，小標題清掉', () => {
+        const raw = JSON.stringify({
+            examples: ['{{user}}：在幹嘛\n{{char}}：……看書。'],
+            fixedLines: [{ passage: '當{{user}}問「你會一直在嗎」，一定回答「只要你回頭，我就在。」', trigger: '你會一直在嗎', reply: '只要你回頭，我就在。' }],
+        });
+        const result = applyExtractedExamples(persona, raw);
+        expect(result.fixedFound).toBe(1);
+        expect(result.found).toBe(1);
+        expect(result.fixedLines[0]).toMatchObject({ trigger: '你會一直在嗎', reply: '只要你回頭，我就在。' });
+        expect(result.persona).toBe('你是周以衡。');
+    });
+
+    it('台詞被改寫過（原文找不到）就不搬', () => {
+        const raw = JSON.stringify({
+            fixedLines: [{ passage: '當{{user}}問「你會一直在嗎」，一定回答「只要你回頭，我就在。」', trigger: '你會一直在嗎', reply: '只要你回頭我都在' }],
+        });
+        const result = applyExtractedExamples(persona, raw);
+        expect(result.fixedFound).toBe(0);
+        expect(result.missed).toBe(1);
+        expect(result.persona).toBe(persona);
+    });
+
+    it('招牌台詞（沒有 trigger）', () => {
+        const p = '你是周以衡。\n口頭禪：「麻煩。」';
+        const result = applyExtractedExamples(p, JSON.stringify({ fixedLines: [{ passage: '口頭禪：「麻煩。」', trigger: '', reply: '麻煩。' }] }));
+        expect(result.fixedLines[0].trigger).toBeUndefined();
+        expect(result.fixedLines[0].reply).toBe('麻煩。');
+        expect(result.persona).toBe('你是周以衡。');
+    });
+
+    it('範例區塊：有固定台詞時註明不在此限', () => {
+        expect(formatDialogueExamplesBlock('a：b', 'x', 'y', true)).toContain('不在此限');
+        expect(formatDialogueExamplesBlock('a：b', 'x', 'y')).not.toContain('不在此限');
+    });
+});

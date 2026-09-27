@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Scissors } from '@phosphor-icons/react';
-import type { APIConfig, CharacterProfile } from '../../types';
+import { Plus, Scissors, X } from '@phosphor-icons/react';
+import type { APIConfig, CharacterProfile, FixedLine } from '../../types';
 import {
     clampExamplesCutoff, DEFAULT_EXAMPLES_CUTOFF, EXAMPLES_CUTOFF_MAX, EXAMPLES_CUTOFF_MIN, EXAMPLES_MIN_WINDOW,
     extractDialogueExamples, type ExtractedExamples,
 } from '../../utils/dialogueExamples';
 import { trackEvent } from '../../utils/analytics';
+import { FIXED_LINES_MAX, newFixedLineId, normalizeFixedLines } from '../../utils/fixedLines';
 
-type Patch = Partial<Pick<CharacterProfile, 'systemPrompt' | 'dialogueExamples' | 'dialogueExamplesCutoff' | 'dialogueExamplesAlways'>>;
+type Patch = Partial<Pick<CharacterProfile, 'systemPrompt' | 'dialogueExamples' | 'dialogueExamplesCutoff' | 'dialogueExamplesAlways' | 'fixedLines'>>;
 
 interface Props {
     char: CharacterProfile;
@@ -18,7 +19,8 @@ interface Props {
 
 /**
  * 神經鏈接 · 角色編輯頁的「對話範例」（見 utils/dialogueExamples.ts）：
- * 範例欄、聊到幾則之後不再附上、一直附上，和「從核心指令拆出範例」（先給用戶看、確認了才搬）。
+ * 範例欄、聊到幾則之後不再附上、一直附上；底下的固定台詞清單（見 utils/fixedLines.ts）；
+ * 和「從核心指令拆出」（範例和固定台詞分開搬，先給用戶看、確認了才搬）。
  */
 const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, addToast }) => {
     const [busy, setBusy] = useState(false);
@@ -27,6 +29,10 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
     const value = char.dialogueExamples || '';
     const always = !!char.dialogueExamplesAlways;
     const cutoff = clampExamplesCutoff(char.dialogueExamplesCutoff);
+    const lines = char.fixedLines || [];
+    // 編輯中允許空白行（剛按「新增」還沒填），存檔時才由 normalizeFixedLines 清掉空的
+    const setLines = (next: FixedLine[]) => onChange({ fixedLines: next.length ? next : undefined });
+    const updateLine = (id: string, patch: Partial<FixedLine>) => setLines(lines.map(l => (l.id === id ? { ...l, ...patch } : l)));
 
     const handleExtract = async () => {
         if (busy) return;
@@ -34,8 +40,8 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
         setBusy(true);
         try {
             const result = await extractDialogueExamples(char.systemPrompt, apiConfig);
-            if (!result.found) {
-                addToast(result.missed ? 'AI 找到的段落跟原文對不上，這次沒有動人設，可以再試一次' : '核心指令裡沒找到對話範例', 'info');
+            if (!result.found && !result.fixedFound) {
+                addToast(result.missed ? 'AI 找到的段落跟原文對不上，這次沒有動人設，可以再試一次' : '核心指令裡沒找到對話範例或固定台詞', 'info');
                 return;
             }
             setPreview(result);
@@ -48,12 +54,15 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
 
     const applyPreview = () => {
         if (!preview) return;
-        onChange({
-            systemPrompt: preview.persona,
-            dialogueExamples: value.trim() ? `${value.trim()}\n\n${preview.examples}` : preview.examples,
-        });
+        const patch: Patch = { systemPrompt: preview.persona };
+        if (preview.found) patch.dialogueExamples = value.trim() ? `${value.trim()}\n\n${preview.examples}` : preview.examples;
+        if (preview.fixedFound) patch.fixedLines = normalizeFixedLines([...lines, ...preview.fixedLines]);
+        onChange(patch);
         trackEvent('拆出对话范例');
-        addToast(`已把 ${preview.found} 段範例搬到「對話範例」`, 'success');
+        addToast([
+            preview.found ? `${preview.found} 段範例` : '',
+            preview.fixedFound ? `${preview.fixedFound} 句固定台詞` : '',
+        ].filter(Boolean).join('、') + ' 已搬過去', 'success');
         setPreview(null);
     };
 
@@ -131,15 +140,74 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
                 </div>
             )}
 
+            {/* 固定台詞 */}
+            <div className="mt-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">固定台詞 (Fixed Lines)</label>
+                <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
+                    同人卡的經典對白：對方說了左邊那句，TA 這一輪就原樣說出右邊那句，一字不改（簡繁、標點、空白不計，但句子要大致一樣）。左邊不填就是招牌台詞，劇情合適時說。跟範例不同，聊多久都在。
+                </p>
+                <div className="space-y-2">
+                    {lines.map(line => (
+                        <div key={line.id} className="flex items-start gap-2 rounded-3xl bg-white p-3 shadow-sm">
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                                <input
+                                    value={line.trigger || ''}
+                                    onChange={e => updateLine(line.id, { trigger: e.target.value })}
+                                    aria-label="對方說"
+                                    placeholder="對方說（不填＝招牌台詞）"
+                                    className="w-full rounded-xl bg-slate-50 px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-primary/30"
+                                />
+                                <input
+                                    value={line.reply}
+                                    onChange={e => updateLine(line.id, { reply: e.target.value })}
+                                    aria-label="TA 回"
+                                    placeholder="TA 回（一字不改）"
+                                    className="w-full rounded-xl bg-slate-50 px-3 py-2 text-[13px] font-bold text-slate-700 outline-none focus:ring-1 focus:ring-primary/30"
+                                />
+                            </div>
+                            <button type="button" aria-label="刪除這句固定台詞" onClick={() => setLines(lines.filter(l => l.id !== line.id))}
+                                className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+                                <X size={14} weight="bold" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                {lines.length < FIXED_LINES_MAX && (
+                    <button type="button" onClick={() => setLines([...lines, { id: newFixedLineId(), reply: '' }])}
+                        className="mt-2 flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-slate-600 shadow-sm active:scale-95">
+                        <Plus size={12} weight="bold" /> 新增一句
+                    </button>
+                )}
+            </div>
+
             {preview && (
                 <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/30 p-4 sm:items-center" onClick={() => setPreview(null)}>
                     <div role="dialog" aria-label="確認搬移對話範例" className="w-full max-w-md rounded-[1.75rem] bg-white p-5 shadow-xl" onClick={e => e.stopPropagation()}>
-                        <div className="text-[15px] font-bold text-slate-800">找到 {preview.found} 段對話範例</div>
+                        <div className="text-[15px] font-bold text-slate-800">
+                            找到{[preview.found ? ` ${preview.found} 段對話範例` : '', preview.fixedFound ? ` ${preview.fixedFound} 句固定台詞` : ''].filter(Boolean).join('、')}
+                        </div>
                         <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                            這些段落會從核心指令搬到「對話範例」（原文一字不改）。核心指令 {(char.systemPrompt || '').length} 字 → {preview.persona.length} 字。
+                            這些會從核心指令搬出來（原文一字不改）。核心指令 {(char.systemPrompt || '').length} 字 → {preview.persona.length} 字。
                             {preview.missed > 0 && ` 另有 ${preview.missed} 段跟原文對不上，沒有動。`}
                         </p>
-                        <pre className="mt-3 max-h-[45vh] overflow-y-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600 font-sans">{preview.examples}</pre>
+                        <div className="mt-3 max-h-[45vh] overflow-y-auto space-y-3">
+                            {preview.found > 0 && (
+                                <div>
+                                    <div className="mb-1 text-[11px] font-bold text-slate-500">→ 對話範例（學口吻、不照抄）</div>
+                                    <pre className="whitespace-pre-wrap rounded-2xl bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600 font-sans">{preview.examples}</pre>
+                                </div>
+                            )}
+                            {preview.fixedFound > 0 && (
+                                <div>
+                                    <div className="mb-1 text-[11px] font-bold text-slate-500">→ 固定台詞（一字不改）</div>
+                                    <div className="space-y-1.5 rounded-2xl bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600">
+                                        {preview.fixedLines.map(line => (
+                                            <div key={line.id}>{line.trigger ? <>對方說「{line.trigger}」→ </> : <span className="text-slate-400">招牌台詞 · </span>}「{line.reply}」</div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div className="mt-4 flex gap-2">
                             <button type="button" onClick={() => setPreview(null)} className="flex-1 rounded-full bg-slate-100 py-2.5 text-[13px] font-bold text-slate-600 active:scale-95">取消</button>
                             <button type="button" onClick={applyPreview} className="flex-1 rounded-full bg-slate-800 py-2.5 text-[13px] font-bold text-white active:scale-95">搬過去</button>
