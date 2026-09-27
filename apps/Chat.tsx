@@ -86,6 +86,8 @@ import { resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../u
 import { normalizeTranslationLangLabel, isTranslationLangPreset } from '../utils/translationLang';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent, noteMessageSent, presetOrCustom } from '../utils/analytics';
+import { generateReplyDrafts } from '../utils/replyDrafts';
+import type { ReplyDraftState } from '../components/chat/ReplyDraftStrip';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, AMSG_INSTANT_CHAT_PENDING_LS_KEY, getInstantChatPending } from '../utils/amsgInstantChat';
 import { formatAmsgToolTrace } from '../utils/amsgToolTrace';
@@ -1238,6 +1240,26 @@ const Chat: React.FC = () => {
     // handler, 導致雲端回覆時用戶不在該角色頁的話 buff 回不到前端 (只落 DB), 故移除, 同時
     // 避免和 OSContext 雙寫.
 
+    // 「AI 幫我回覆」的草稿條（見 utils/replyDrafts.ts）。換角色、送出訊息就收起；過時的請求結果丟掉。
+    const [replyDrafts, setReplyDrafts] = useState<ReplyDraftState | null>(null);
+    const replyDraftReqRef = useRef(0);
+    const closeReplyDrafts = useCallback(() => { replyDraftReqRef.current++; setReplyDrafts(null); }, []);
+    useEffect(() => { closeReplyDrafts(); }, [char?.id, closeReplyDrafts]);
+    const requestReplyDrafts = async () => {
+        if (!char) return;
+        const req = ++replyDraftReqRef.current;
+        setShowPanel('none');
+        setReplyDrafts(prev => ({ loading: true, drafts: prev?.drafts || [] }));
+        try {
+            const drafts = await generateReplyDrafts({
+                char, user: chatUserProfile, apiConfig, lightLLM: memoryPalaceConfig?.lightLLM, partial: input,
+            });
+            if (req === replyDraftReqRef.current) setReplyDrafts({ loading: false, drafts });
+        } catch (e: any) {
+            if (req === replyDraftReqRef.current) setReplyDrafts({ loading: false, drafts: [], error: e?.message || '沒想出來，再試一次' });
+        }
+    };
+
     const handleInputChange = (val: string) => {
         setInput(val);
         if (val.trim()) localStorage.setItem(draftKey, val);
@@ -1369,6 +1391,7 @@ const Chat: React.FC = () => {
 
     const sendText = async (customContent?: string, customType?: MessageType, metadata?: any) => {
         if (!char || (!input.trim() && !customContent)) return;
+        closeReplyDrafts();
         // 只累加內存裡的計數，這裡不發任何請求；頁面切走時才按區間報一次。見 utils/analytics.ts
         noteMessageSent();
         // 借用戶"發送"這個手勢解鎖音頻上下文，好讓稍後 AI 回覆時的白框提示音能順利播放（移動端自動播放策略）。
@@ -1838,7 +1861,7 @@ const Chat: React.FC = () => {
             'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
             // 獨立小功能：點一下就是用了一次，跟「打開某個面板」同一性質。
             // send-emoji / select-category 這些是「挑哪一個」，不進名單。
-            'poke', 'emoji-import', 'add-category', 'mcd-end', 'luckin-end',
+            'poke', 'emoji-import', 'add-category', 'mcd-end', 'luckin-end', 'reply-drafts',
         ].includes(type)) {
             trackEvent('打开聊天功能面板项', { action: type });
         }
@@ -1848,6 +1871,7 @@ const Chat: React.FC = () => {
             case 'favorites': setShowPanel('none'); setFavoritesOpen(true); break;
             case 'transfer': setModalType('transfer'); break;
             case 'poke': handleSendText('[戳一戳]', 'interaction'); break;
+            case 'reply-drafts': case 'reply-drafts-refresh': void requestReplyDrafts(); break;
             case 'archive': setModalType('archive-settings'); break;
             case 'settings': setModalType('chat-settings'); break;
             case 'fine-tune': setShowPanel('none'); setDecorationTab('layout'); setModalType('chrome-css'); break;
@@ -4656,6 +4680,10 @@ const Chat: React.FC = () => {
                     sendButtonStyle={osTheme.chatSendButtonStyle}
                     chromeStyle={osTheme.chatChromeStyle}
                     acnh={acnh}
+                    replyDraftsEnabled={!!char.replyDrafts?.enabled}
+                    replyDrafts={char.replyDrafts?.enabled ? replyDrafts : null}
+                    onReplyDraftPicked={() => { closeReplyDrafts(); trackEvent('使用回复草稿'); }}
+                    onCloseReplyDrafts={closeReplyDrafts}
                 />
                 )}
             </div>

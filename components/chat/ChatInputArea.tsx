@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -8,6 +8,7 @@ import { AcnhActionTile } from '../os/acnhIcons';
 import { isIOSStandaloneWebApp } from '../../utils/iosStandalone';
 import { trackEvent } from '../../utils/analytics';
 import { findEmojiSuggestions } from '../../utils/emojiSuggestions';
+import ReplyDraftStrip, { type ReplyDraftState } from './ReplyDraftStrip';
 
 const EMOJI_PAGE_SIZE = 40;
 const ACTION_PAGE_SIZE = 8;
@@ -74,6 +75,11 @@ interface ChatInputAreaProps {
     chromeStyle?: 'soft' | 'flat' | 'floating' | 'pixel';
     /** 動森彩蛋模式：輸入欄換成木質草綠圓角。 */
     acnh?: boolean;
+    /** 「AI 幫我回覆」：開了才在「+」面板出現按鈕（onPanelAction('reply-drafts')），草稿條由調用方管狀態。 */
+    replyDraftsEnabled?: boolean;
+    replyDrafts?: ReplyDraftState | null;
+    onReplyDraftPicked?: (text: string) => void;
+    onCloseReplyDrafts?: () => void;
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
@@ -100,11 +106,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     sendButtonStyle = 'circle',
     chromeStyle = 'soft',
     acnh = false,
+    replyDraftsEnabled = false, replyDrafts = null, onReplyDraftPicked, onCloseReplyDrafts,
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const sendButtonRef = useRef<HTMLButtonElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
+    const replyDraftsRef = useRef<HTMLDivElement>(null);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [isComposing, setIsComposing] = useState(false);
     const [dismissedSuggestionInput, setDismissedSuggestionInput] = useState<string | null>(null);
@@ -135,7 +143,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         const blurOnOutsidePointer = (event: PointerEvent) => {
             const target = event.target;
             if (!(target instanceof Node)) return;
-            if (textareaRef.current?.contains(target) || sendButtonRef.current?.contains(target) || suggestionsRef.current?.contains(target)) return;
+            if (textareaRef.current?.contains(target) || sendButtonRef.current?.contains(target) || suggestionsRef.current?.contains(target) || replyDraftsRef.current?.contains(target)) return;
             textareaRef.current?.blur();
         };
         document.addEventListener('pointerdown', blurOnOutsidePointer, true);
@@ -523,6 +531,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <GearSix className="w-6 h-6" weight="bold" /></div>)}
             <span className="text-xs font-bold">設置</span>
         </button>,
+        ...(replyDraftsEnabled ? [
+        <button key="reply-drafts" onClick={() => onPanelAction('reply-drafts')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#e0a526]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-500 border-amber-100'}`}>
+                <Lightbulb className="w-6 h-6" weight="fill" />
+            </div>
+            <span className="text-xs font-bold">幫我回覆</span>
+        </button>] : []),
         <button key="proactive" onClick={() => onPanelAction('proactive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="proactive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isProactiveActive ? (isDiscordStyle ? 'bg-violet-500/15 text-violet-300 border-violet-400/30' : 'bg-violet-50 text-violet-500 border-violet-200') : (isDiscordStyle ? 'bg-slate-800 text-slate-400 border-white/10' : 'bg-slate-50 text-slate-400 border-slate-100')}`}>
@@ -678,6 +693,27 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                         ))}
                     </div>
                 </div>
+            )}
+            {replyDrafts && !selectionMode && (
+                <ReplyDraftStrip
+                    ref={replyDraftsRef}
+                    state={replyDrafts}
+                    shellClass={shellClass}
+                    tone={isDiscordStyle ? 'dark' : isPixelStyle ? 'pixel' : 'light'}
+                    onPick={text => {
+                        setInput(text);
+                        onReplyDraftPicked?.(text);
+                        // 游標放到最後，直接接著改
+                        requestAnimationFrame(() => {
+                            const el = textareaRef.current;
+                            if (!el) return;
+                            el.focus({ preventScroll: true });
+                            el.setSelectionRange(text.length, text.length);
+                        });
+                    }}
+                    onRefresh={() => onPanelAction('reply-drafts-refresh')}
+                    onClose={() => onCloseReplyDrafts?.()}
+                />
             )}
             {autoReplySeconds !== null && !selectionMode && (
                 <div className={`sully-chat-auto-reply shrink-0 relative z-40 flex min-h-10 items-center justify-center gap-1 px-4 text-xs text-slate-500 ${shellClass}`}>
