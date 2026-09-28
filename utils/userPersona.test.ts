@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, globalPersonaKey, personaKeyForChar, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -169,5 +169,35 @@ describe('resolveUserProfileForChar · 世界預設身份（角色分組）', ()
     it('世界預設指向已刪的身份卡：回落全域默認', () => {
         const p: UserProfile = { ...profile, perWorldPersonaIds: { 'world-a': 'deleted' } };
         expect(resolveUserProfileForChar(p, char).name).toBe('阿凱');
+    });
+});
+
+describe('身份鍵', () => {
+    const profile: UserProfile = {
+        ...baseProfile, activePersonaId: 'p2',
+        perWorldPersonaIds: { 'world-a': 'p1' },
+        perCharPersonaIds: { 'char-real': REAL_IDENTITY_PERSONA_ID, 'char-gone': 'deleted' },
+        perGroupPersonaIds: { 'g1': 'p1', 'g2': REAL_IDENTITY_PERSONA_ID },
+    };
+    it('全域默認：目前身份卡，被刪了或沒設就是真實身份', () => {
+        expect(globalPersonaKey(profile)).toBe('p2');
+        expect(globalPersonaKey(baseProfile)).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(globalPersonaKey({ ...baseProfile, activePersonaId: 'deleted' })).toBe(REAL_IDENTITY_PERSONA_ID);
+    });
+    it('角色：自己指定 > 世界 > 全域，刪掉的卡回落全域', () => {
+        expect(personaKeyForChar(profile, { id: 'char-real', groupId: 'world-a' })).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(personaKeyForChar(profile, { id: 'char-x', groupId: 'world-a' })).toBe('p1');
+        expect(personaKeyForChar(profile, { id: 'char-x' })).toBe('p2');
+        expect(personaKeyForChar(profile, { id: 'char-gone', groupId: 'world-a' })).toBe('p2');
+    });
+    it('群：群指定 > 全域', () => {
+        expect(personaKeyForGroup(profile, 'g1')).toBe('p1');
+        expect(personaKeyForGroup(profile, 'g2')).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(personaKeyForGroup(profile, 'g3')).toBe('p2');
+    });
+    it('名字', () => {
+        expect(personaNameForKey(profile, 'p1')).toBe('林特工');
+        expect(personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID)).toBe('小柔');
+        expect(personaNameForKey(profile, 'deleted')).toBe('小柔');
     });
 });

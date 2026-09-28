@@ -7,6 +7,7 @@
 > - 「世界」先用神經鏈接的角色分組。
 > - 第 1 步已完成（#52）：世界預設身份、單角色畫面與背景生成全部照角色綁定走。
 > - 文末五個待定照建議定案（2026-09-28）；「一個角色碰到兩個身份」的規則見「主身份與見過的身份」一節。
+> - **2a 朋友圈已完成**，連同第 3 節「近期群聊背景標錯名字」一起修掉。落地在：身份鍵 `personaKeyForChar`／`personaKeyForGroup`（`utils/userPersona.ts`）、主身份與見過的身份 `buildPersonaKnowledge`（`utils/momentsPersona.ts`）、好友圖的 `personaRelation`（`utils/momentsPool.ts`）、「那是不同的人」提醒 `distinctPersonaNote`（`utils/personaSpeaker.ts`）。2b 群聊從群訊息記 `metadata.personaKey` 開始。
 
 ## 現況：共享空間裡「你」只有一個
 

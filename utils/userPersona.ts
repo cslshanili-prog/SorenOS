@@ -104,6 +104,51 @@ export function personaOverrideSource(profileBase: UserProfile, char: CharRef): 
     return 'global';
 }
 
+// ── 身份鍵：「這是哪一個你」────────────────────────────────────────────────
+// 同一個世界裡不同身份卡是完全不同的人（見 plans/multi-persona-isolation-design.md）。
+// 共享的地方（群聊、朋友圈、角色之間提到你）要比對「是不是同一個你」，比的就是身份鍵：
+// 身份卡 id，或 REAL_IDENTITY_PERSONA_ID（真實身份）。指定的卡被刪了跟解析一樣回落全域默認。
+
+/** 全域默認是哪一個你：目前身份卡（還在的話），否則真實身份。 */
+export function globalPersonaKey(profileBase: UserProfile): string {
+    const id = profileBase.activePersonaId;
+    return id && profileBase.personas?.some(p => p.id === id) ? id : REAL_IDENTITY_PERSONA_ID;
+}
+
+function keyFromOverride(profileBase: UserProfile, overrideId: string | undefined): string {
+    if (overrideId === REAL_IDENTITY_PERSONA_ID) return REAL_IDENTITY_PERSONA_ID;
+    if (overrideId && profileBase.personas?.some(p => p.id === overrideId)) return overrideId;
+    return globalPersonaKey(profileBase);
+}
+
+/** 這個角色認識的是哪一個你（它的主身份）。跟 resolveUserProfileForChar 同一套優先級。 */
+export function personaKeyForChar(profileBase: UserProfile, char: CharRef): string {
+    return keyFromOverride(profileBase, effectivePersonaOverride(profileBase, char));
+}
+
+/** 這個群裡的你是哪一個（群身份）。跟 resolveUserProfileForGroup 同一套優先級。 */
+export function personaKeyForGroup(profileBase: UserProfile, groupId: string): string {
+    return keyFromOverride(profileBase, profileBase.perGroupPersonaIds?.[groupId]);
+}
+
+/** 身份鍵對應的名字（找不到身份卡就是真實身份的名字）。 */
+/** 身份鍵對應的頭像（真實身份或卡已刪除 → 真實身份的頭像）。 */
+export function personaAvatarForKey(profileBase: UserProfile, key: string): string {
+    if (key !== REAL_IDENTITY_PERSONA_ID) {
+        const persona = profileBase.personas?.find(p => p.id === key);
+        if (persona) return persona.avatar;
+    }
+    return profileBase.avatar;
+}
+
+export function personaNameForKey(profileBase: UserProfile, key: string): string {
+    if (key !== REAL_IDENTITY_PERSONA_ID) {
+        const persona = profileBase.personas?.find(p => p.id === key);
+        if (persona) return persona.name;
+    }
+    return profileBase.name;
+}
+
 function effectivePersonaOverride(profileBase: UserProfile, char: CharRef): string | undefined {
     const charId = typeof char === 'string' ? char : char.id;
     const own = profileBase.perCharPersonaIds?.[charId];

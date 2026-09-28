@@ -4335,6 +4335,12 @@ export interface MomentActor {
     id?: string;
     /** 名字快照：當下的名字，改名或刪除後展示用；路人只有這個 */
     name: string;
+    /**
+     * 用戶是用哪張身份卡做的（身份鍵：身份卡 id 或真實身份哨兵值，見 utils/userPersona.ts）。
+     * 只有 kind='user' 才有；沒有的舊資料當成「所有角色都認識的你」。
+     * 同一世界裡不同身份是不同的人，見 plans/multi-persona-isolation-design.md。
+     */
+    personaKey?: string;
 }
 
 export interface MomentVisibility {

@@ -15,6 +15,8 @@ import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from 
 import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { processImage } from '../../utils/file';
 import { DB } from '../../utils/db';
+import { buildPersonaKnowledge } from '../../utils/momentsPersona';
+import { personaAvatarForKey, resolveUserProfileForChar } from '../../utils/userPersona';
 
 /**
  * 查手機 → 軌跡 → Moments：單一貼文池的角色視角（路線圖第 6 項）。看到的是這個角色看得到的整個池子，
@@ -38,7 +40,7 @@ const formatTimestamp = (ts: number): string => {
 };
 
 const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, apiConfig, imageGenConfig, addToast }) => {
-    const { characters, npcs, userProfile, updateCharacter, apiConfig: osApiConfig } = useOS();
+    const { characters, npcs, userProfileBase, groups, updateCharacter, apiConfig: osApiConfig } = useOS();
     const [liking, setLiking] = useState(false);
     const [commenting, setCommenting] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -52,15 +54,20 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         window.addEventListener(MOMENTS_CHANGED_EVENT, reload);
         return () => window.removeEventListener(MOMENTS_CHANGED_EVENT, reload);
     }, [reload]);
-    const graph = useMemo(() => buildFriendGraph(characters, npcs), [characters, npcs]);
+    // 同一世界裡不同身份卡是不同的人：TA 只把它認識的那張當成你，其他身份用各自的名字
+    const graph = useMemo(
+        () => buildFriendGraph(characters, npcs, buildPersonaKnowledge(userProfileBase, characters, groups, npcs.map(n => n.id))),
+        [characters, npcs, userProfileBase, groups],
+    );
     const posts = useMemo(() => momentFeedFor(char.id, pool, graph), [pool, char.id, graph]);
     const ownPosts = useMemo(() => posts.filter(p => p.author.id === char.id), [posts, char.id]);
     const detailPost = posts.find(p => p.id === detailId) || null;
     const setDetailPost = (post: MomentPost | null) => setDetailId(post?.id || null);
-    const userName = userProfile.name || '用戶';
-    const nameOf = (actor: MomentActor) => actorDisplayName(actor, characters, npcs, userName);
+    const knownUser = useMemo(() => resolveUserProfileForChar(userProfileBase, char), [userProfileBase, char]);
+    const userName = knownUser.name || '用戶';
+    const nameOf = (actor: MomentActor) => actorDisplayName(actor, characters, npcs, userName, graph);
     const avatarOf = (actor: MomentActor): string | undefined => {
-        if (actor.kind === 'user') return userProfile.avatar;
+        if (actor.kind === 'user') return actor.personaKey ? personaAvatarForKey(userProfileBase, actor.personaKey) : knownUser.avatar;
         if (actor.kind === 'npc') return npcs.find(n => n.id === actor.id)?.avatar;
         if (actor.kind === 'character') return characters.find(c => c.id === actor.id)?.avatar;
         return undefined;
@@ -203,7 +210,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const handleCharComment = async (post: MomentPost) => {
         setCommenting(true);
         try {
-            const ok = await commentAsCharacter({ char, post, userName, apiConfig: osApiConfig, characters, npcs });
+            const ok = await commentAsCharacter({ char, post, userName, apiConfig: osApiConfig, characters, npcs, graph });
             if (!ok) addToast(`${char.name} 這次沒想到要說什麼`, 'info');
             else trackEvent('查手机让角色留言朋友圈');
         } catch (e) {

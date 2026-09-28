@@ -6,6 +6,8 @@ import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProf
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
+import { personaKeyForChar, personaKeyForGroup } from './userPersona';
+import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
@@ -435,26 +437,37 @@ export const ChatPrompts = {
             try {
                 const memberGroups = groups.filter(g => g.members.includes(char.id));
                 if (memberGroups.length === 0) return '';
+                // 你在群裡的身份可能跟這個角色私下認識的不同：那是另一個人（見 plans/multi-persona-isolation-design.md）
+                const personaBase = await DB.getUserProfile().catch(() => null);
+                const charPersonaKey = personaBase ? personaKeyForChar(personaBase, char) : undefined;
                 const perGroup = await Promise.all(
                     memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => ({
                         groupName: g.name,
+                        groupPersonaKey: personaBase ? personaKeyForGroup(personaBase, g.id) : undefined,
                         cap: g.privateContextCap ?? 80,
                         // 已經進入公共話題盒的舊原文不再重複塞進私聊背景；成盒時送達的
                         // group_topic_card 會沿私聊自身的歷史/歸檔鏈繼續被角色感知。
                         msgs: msgs.filter(m => m.id > (g.archivedThroughMessageId || 0)),
                     })))
                 );
-                const allGroupMsgs: (Message & { groupName: string })[] = [];
-                for (const { groupName, cap, msgs } of perGroup) {
-                    for (const m of msgs.slice(-cap)) allGroupMsgs.push({ ...m, groupName });
+                const allGroupMsgs: (Message & { groupName: string; groupPersonaKey?: string })[] = [];
+                for (const { groupName, groupPersonaKey, cap, msgs } of perGroup) {
+                    for (const m of msgs.slice(-cap)) allGroupMsgs.push({ ...m, groupName, groupPersonaKey });
                 }
                 allGroupMsgs.sort((a, b) => a.timestamp - b.timestamp);
                 const recentGroupMsgs = allGroupMsgs;
                 if (recentGroupMsgs.length === 0) return '';
                 // 發言人標真實名字：匿名成 Member 會讓角色分不清哪句是誰說的、
                 // 甚至認不出自己的發言，私聊被問起群裡的事就接不住。
-                const speakerOf = (m: Message): string => {
-                    if (m.role === 'user') return userProfile.name;
+                // 你說的話標那則訊息當時的群身份（沒記就用群現在的身份）；跟這個角色認識的不同就記下來，後面加提醒
+                const otherPersonaNames: string[] = [];
+                const speakerOf = (m: Message & { groupPersonaKey?: string }): string => {
+                    if (m.role === 'user') {
+                        const key = (m.metadata?.personaKey as string | undefined) || m.groupPersonaKey;
+                        const name = userSpeakerName(personaBase, key, userProfile.name);
+                        if (key && charPersonaKey && key !== charPersonaKey) otherPersonaNames.push(name);
+                        return name;
+                    }
                     if (m.charId === char.id) return `你（${char.name}）`;
                     return getCharNameById(m.charId) || '群友';
                 };
@@ -469,8 +482,9 @@ export const ChatPrompts = {
                     const relativeAge = forFirePack ? '' : ` · ${formatRelativeAge(m.timestamp)}`;
                     return `[${dateStr}${relativeAge}] [群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
                 }).join('\n');
+                const personaNote = distinctPersonaNote(otherPersonaNames, userProfile.name, '群裡');
                 return `\n### 【群聊背景 · 你親歷的近期群聊】
-（以下是你所在群裡最近的真實聊天記錄，按時間排序，發言人已標註；標「你」的就是你自己說的話。這些事你都親身經歷、記得清楚——私聊裡對方問起或話題相關時，自然地接上就好，不要裝作不知道；也不必刻意逐條彙報群裡的動靜。）
+（以下是你所在群裡最近的真實聊天記錄，按時間排序，發言人已標註；標「你」的就是你自己說的話。這些事你都親身經歷、記得清楚——私聊裡對方問起或話題相關時，自然地接上就好，不要裝作不知道；也不必刻意逐條彙報群裡的動靜。）${personaNote ? `\n${personaNote}` : ''}
 ${groupLogStr}\n`;
             } catch (e) {
                 console.error("Failed to load group context", e);

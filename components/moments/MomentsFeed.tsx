@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Heart, ChatCircle, Trash, Globe, LockSimple, X, Plus, ArrowsClockwise, CaretLeft, DotsThree, PencilSimple, ImageSquare } from '@phosphor-icons/react';
+import { Heart, ChatCircle, Trash, Globe, LockSimple, X, Plus, ArrowsClockwise, CaretLeft, CaretDown, DotsThree, PencilSimple, ImageSquare } from '@phosphor-icons/react';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
 import TokenImg from '../os/TokenImg';
@@ -19,11 +19,17 @@ import { formatChatListTimestamp } from '../../utils/chatListTime';
 import { processImage } from '../../utils/file';
 import { deleteBlobRefIfUnreferenced, migrateDataUrlToRef } from '../../utils/blobRef';
 import { trackEvent } from '../../utils/analytics';
+import { buildPersonaKnowledge, interactionPersonaOptions } from '../../utils/momentsPersona';
+import {
+    globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar,
+} from '../../utils/userPersona';
 
 /**
  * 單一貼文池的用戶視角時間線（路線圖第 6 項）：Chat 主頁「動態」分頁和 Dock 上的「朋友圈」App 共用。
  * - 頁頂：封面（點一下換）、頭像、名字、選填格言；右上 ↻ 讓隨機幾位角色各發一篇、＋ 發文。
  * - 自己的貼文 … 選單可以編輯、刪除；別人的可以按讚、留言、回覆留言。
+ * - 有身份卡時：發文可以選身份；在角色貼文底下留言、按讚預設用它認識的身份（主身份），留言可以改成它在群裡見過的身份。
+ *   同一世界裡不同身份卡是不同的人，見 plans/multi-persona-isolation-design.md。
  * 誰看得到什麼全在 utils/momentsPool.ts。查手機的軌跡 Moments（角色視角）是深色版面，自己畫。
  */
 
@@ -36,12 +42,14 @@ interface Props {
 }
 
 const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
-    const { characters, npcs, userProfile, apiConfig, addToast, updateCharacter } = useOS();
+    const { characters, npcs, userProfile, userProfileBase, groups, apiConfig, addToast, updateCharacter } = useOS();
     const viewerId = USER_ID;
     const [posts, setPosts] = useState<MomentPost[] | null>(null);
     const [composer, setComposer] = useState<{ editing?: MomentPost } | null>(null);
     const [commentTarget, setCommentTarget] = useState<{ postId: string; replyTo?: MomentComment } | null>(null);
     const [commentDraft, setCommentDraft] = useState('');
+    const [commentPersona, setCommentPersona] = useState<string | null>(null);
+    const [personaMenu, setPersonaMenu] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<MomentPost | null>(null);
     const [menuFor, setMenuFor] = useState<string | null>(null);
     const [viewer, setViewer] = useState<string | null>(null);
@@ -56,22 +64,45 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
         return () => window.removeEventListener(MOMENTS_CHANGED_EVENT, reload);
     }, [reload]);
 
-    const graph = useMemo(() => buildFriendGraph(characters, npcs), [characters, npcs]);
+    const knowledge = useMemo(
+        () => buildPersonaKnowledge(userProfileBase, characters, groups, npcs.map(n => n.id)),
+        [userProfileBase, characters, groups, npcs],
+    );
+    const graph = useMemo(() => buildFriendGraph(characters, npcs, knowledge), [characters, npcs, knowledge]);
     const feed = useMemo(() => (posts ? momentFeedFor(viewerId, posts, graph) : null), [posts, viewerId, graph]);
     const userName = userProfile.name || '我';
-    const nameOf = (actor: MomentActor) => (actor.id === USER_ID ? '我' : actorDisplayName(actor, characters, npcs, userName));
+    const globalKey = globalPersonaKey(userProfileBase);
+    const hasPersonas = (userProfileBase.personas?.length || 0) > 0;
+    const personaName = (key: string) => personaNameForKey(userProfileBase, key) || '我';
+    /** 你用的不是目前身份時，標出是哪一張（舊資料沒有身份鍵，就是目前的你） */
+    const personaTagOf = (actor: MomentActor): string | null =>
+        actor.kind === 'user' && actor.personaKey && actor.personaKey !== globalKey ? personaName(actor.personaKey) : null;
+    const nameOf = (actor: MomentActor) => {
+        if (actor.id !== USER_ID) return actorDisplayName(actor, characters, npcs, userName);
+        const tag = personaTagOf(actor);
+        return tag ? `我（${tag}）` : '我';
+    };
     const avatarOf = (actor: MomentActor): string | undefined => {
-        if (actor.kind === 'user') return userProfile.avatar;
+        if (actor.kind === 'user') return actor.personaKey ? personaAvatarForKey(userProfileBase, actor.personaKey) : userProfile.avatar;
         if (actor.kind === 'npc') return npcs.find(n => n.id === actor.id)?.avatar;
         if (actor.kind === 'character') return characters.find(c => c.id === actor.id)?.avatar;
         return undefined;
     };
-    const me = useMemo(() => actorFor(USER_ID, characters, npcs, userName)!, [characters, npcs, userName]);
+    const actorAs = (key: string) => actorFor(USER_ID, characters, npcs, personaName(key), key)!;
+    const optionsFor = (post: MomentPost) => interactionPersonaOptions(post, knowledge, globalKey);
 
     const handleLike = async (post: MomentPost) => {
         const liked = post.likes.some(l => l.actor.id === USER_ID);
-        await toggleMomentLike(post.id, me);
+        await toggleMomentLike(post.id, actorAs(optionsFor(post)[0]));
         if (!liked) trackEvent('朋友圈点赞');
+    };
+
+    const commentPost = commentTarget ? posts?.find(p => p.id === commentTarget.postId) : undefined;
+    const openComment = (post: MomentPost, replyTo?: MomentComment) => {
+        setCommentTarget({ postId: post.id, replyTo });
+        setCommentDraft('');
+        setCommentPersona(optionsFor(post)[0]);
+        setPersonaMenu(false);
     };
 
     const submitComment = async () => {
@@ -79,7 +110,8 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
         const text = commentDraft.trim();
         if (!text) return;
         const post = posts?.find(p => p.id === commentTarget.postId);
-        const comment = await addMomentComment(commentTarget.postId, me, text, commentTarget.replyTo?.id);
+        const key = commentPersona || (post ? optionsFor(post)[0] : globalKey);
+        const comment = await addMomentComment(commentTarget.postId, actorAs(key), text, commentTarget.replyTo?.id);
         setCommentDraft('');
         setCommentTarget(null);
         if (!comment || !post) return;
@@ -90,7 +122,8 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
             if (char) {
                 const fresh = await DB.getMomentPost(post.id);
                 void replyAsAuthor({
-                    char, post: fresh || post, userComment: comment, userName, apiConfig, characters, npcs,
+                    char, post: fresh || post, userComment: comment, apiConfig, characters, npcs, graph,
+                    userName: resolveUserProfileForChar(userProfileBase, char).name || userName,
                     delayMs: 3000 + Math.random() * 5000,
                 });
             }
@@ -167,7 +200,10 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                             <article key={post.id} className="px-5 py-5">
                                 <div className="flex items-center gap-3">
                                     <TokenImg value={avatarOf(post.author)} className="w-11 h-11 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
-                                    <div className="flex-1 min-w-0 text-[15px] font-semibold text-slate-800 truncate">{nameOf(post.author)}</div>
+                                    <div className="flex-1 min-w-0 text-[15px] font-semibold text-slate-800 truncate">
+                                        {post.author.id === USER_ID ? '我' : nameOf(post.author)}
+                                        {personaTagOf(post.author) && <span className="ml-1.5 text-[11px] font-normal text-violet-500">以 {personaTagOf(post.author)}</span>}
+                                    </div>
                                     {isOwn && (
                                         <div className="relative">
                                             <button onClick={() => setMenuFor(menuFor === post.id ? null : post.id)} aria-label="更多" className="p-1.5 text-slate-400">
@@ -210,7 +246,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                                         className={`p-1 ${iLiked ? 'text-rose-500' : 'text-slate-400'}`}>
                                         <Heart size={20} weight={iLiked ? 'fill' : 'regular'} />
                                     </button>
-                                    <button onClick={() => { setCommentTarget({ postId: post.id }); setCommentDraft(''); }} aria-label="留言"
+                                    <button onClick={() => openComment(post)} aria-label="留言"
                                         className="p-1 text-slate-400">
                                         <ChatCircle size={20} />
                                     </button>
@@ -241,7 +277,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                                                         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-slate-400">
                                                             <span>{formatChatListTimestamp(c.at)}</span>
                                                             {!mine && (
-                                                                <button onClick={() => { setCommentTarget({ postId: post.id, replyTo: c }); setCommentDraft(''); }}>回覆</button>
+                                                                <button onClick={() => openComment(post, c)}>回覆</button>
                                                             )}
                                                             <span className="flex-1" />
                                                             {mine && (
@@ -267,6 +303,33 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                 // 釘在 --app-height 的底邊（鍵盤升起時就是鍵盤上方），不用 bottom-0：iOS 全屏 PWA 的版面視窗不跟鍵盤變矮
                 <div className="sully-chat-inputbar fixed inset-x-0 z-50 bg-white border-t border-slate-200 px-3 pt-2 pb-[calc(var(--safe-bottom)+0.5rem)] flex items-center gap-2"
                     style={{ top: 'var(--app-height, 100%)', transform: 'translateY(-100%)' }}>
+                    {hasPersonas && commentPost && (() => {
+                        const options = optionsFor(commentPost);
+                        const current = commentPersona && options.includes(commentPersona) ? commentPersona : options[0];
+                        const pickable = options.length > 1;
+                        return (
+                            <div className="relative shrink-0">
+                                <button onClick={() => pickable && setPersonaMenu(v => !v)} aria-label="留言身份"
+                                    className={`flex items-center gap-1 pl-1 pr-2 py-1 rounded-full text-[11px] font-bold ${pickable ? 'bg-violet-50 text-violet-600' : 'bg-slate-50 text-slate-400'}`}>
+                                    <TokenImg value={personaAvatarForKey(userProfileBase, current)} className="w-5 h-5 rounded-full object-cover bg-slate-100" alt="" />
+                                    <span className="max-w-[4.5rem] truncate">以 {personaName(current)}</span>
+                                    {pickable && <CaretDown size={10} weight="bold" />}
+                                </button>
+                                {personaMenu && pickable && (
+                                    <div className="absolute bottom-full left-0 mb-2 w-52 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
+                                        {options.map((key, i) => (
+                                            <button key={key} onClick={() => { setCommentPersona(key); setPersonaMenu(false); }}
+                                                className={`w-full flex items-center gap-2 px-3 py-2 text-left ${key === current ? 'bg-violet-50' : 'hover:bg-slate-50'}`}>
+                                                <TokenImg value={personaAvatarForKey(userProfileBase, key)} className="w-6 h-6 rounded-full object-cover bg-slate-100" alt="" />
+                                                <span className="flex-1 min-w-0 text-xs font-bold text-slate-700 truncate">{personaName(key)}</span>
+                                                <span className="text-[10px] text-slate-400">{i === 0 ? '認識的你' : '群裡見過'}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                     <input
                         autoFocus
                         value={commentDraft}
@@ -285,7 +348,9 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                 isOpen={!!composer}
                 editing={composer?.editing}
                 onClose={() => setComposer(null)}
-                onPost={async (content, images, visibility) => {
+                personaOptions={hasPersonas ? [globalKey, ...personaKeysOf(userProfileBase).filter(k => k !== globalKey)] : []}
+                personaLabel={key => ({ name: personaName(key), avatar: personaAvatarForKey(userProfileBase, key) })}
+                onPost={async (content, images, visibility, personaKey) => {
                     const editing = composer?.editing;
                     if (editing) {
                         await updateMomentPostFields(editing.id, { content: content.trim(), images, visibility });
@@ -294,7 +359,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                         trackEvent('朋友圈编辑贴文');
                         addToast('已更新', 'success');
                     } else {
-                        await createMomentPost({ author: me, content, images, visibility });
+                        await createMomentPost({ author: actorAs(personaKey), content, images, visibility });
                         trackEvent('朋友圈发文', { visibility: visibility.mode, hasImage: images.length > 0 ? 'yes' : 'no' });
                         addToast('發出去了', 'success');
                     }
@@ -403,19 +468,27 @@ const ProfileHeader: React.FC<{
 
 // ── 發文／編輯 ──────────────────────────────────────────────────────────
 
+/** 所有可用的身份鍵：真實身份＋每張身份卡。 */
+const personaKeysOf = (profileBase: { personas?: Array<{ id: string }> }): string[] =>
+    [REAL_IDENTITY_PERSONA_ID, ...(profileBase.personas || []).map(p => p.id)];
+
 const MomentComposer: React.FC<{
     isOpen: boolean;
     /** 有傳就是編輯這篇（帶入原本的內容、照片、可見範圍） */
     editing?: MomentPost;
     onClose: () => void;
-    onPost: (content: string, images: string[], visibility: MomentVisibility) => Promise<void>;
-}> = ({ isOpen, editing, onClose, onPost }) => {
+    /** 可以用來發文的身份（第一個是目前身份）；空的就不顯示選擇 */
+    personaOptions: string[];
+    personaLabel: (key: string) => { name: string; avatar: string };
+    onPost: (content: string, images: string[], visibility: MomentVisibility, personaKey: string) => Promise<void>;
+}> = ({ isOpen, editing, personaOptions, personaLabel, onClose, onPost }) => {
     const { characters, npcs, addToast } = useOS();
     const [content, setContent] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const [mode, setMode] = useState<MomentVisibility['mode']>('friends');
     const [allow, setAllow] = useState<string[]>([]);
     const [posting, setPosting] = useState(false);
+    const [personaKey, setPersonaKey] = useState('');
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -425,6 +498,8 @@ const MomentComposer: React.FC<{
         setMode(editing?.visibility.mode || 'friends');
         setAllow(editing?.visibility.allow || []);
         setPosting(false);
+        setPersonaKey(personaOptions[0] || '');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, editing]);
 
     const addImages = async (files: FileList | null) => {
@@ -449,9 +524,28 @@ const MomentComposer: React.FC<{
     return (
         <Modal isOpen={isOpen} title={editing ? '編輯動態' : '發動態'} onClose={onClose}
             footer={<button disabled={!canPost}
-                onClick={async () => { setPosting(true); try { await onPost(content, images, mode === 'custom' ? { mode, allow } : { mode }); } finally { setPosting(false); } }}
+                onClick={async () => { setPosting(true); try { await onPost(content, images, mode === 'custom' ? { mode, allow } : { mode }, personaKey); } finally { setPosting(false); } }}
                 className="w-full py-3 rounded-2xl bg-primary text-white font-bold disabled:opacity-40">{posting ? '儲存中…' : editing ? '儲存' : '發表'}</button>}>
             <div className="space-y-3">
+                {!editing && personaOptions.length > 1 && (
+                    <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">用哪個身份發</div>
+                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                            {personaOptions.map(key => {
+                                const { name, avatar } = personaLabel(key);
+                                const on = key === personaKey;
+                                return (
+                                    <button key={key} onClick={() => setPersonaKey(key)}
+                                        className={`shrink-0 flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full border text-xs font-bold ${on ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                                        <TokenImg value={avatar} className="w-6 h-6 rounded-full object-cover bg-slate-100" alt="" />
+                                        <span className="max-w-[6rem] truncate">{name}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">只有認識這個身份的角色會當成是你；其他角色看到公開貼文，會當成不認識的人。</p>
+                    </div>
+                )}
                 <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} placeholder="這一刻的想法…"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none" />
                 <div className="grid grid-cols-3 gap-1.5">

@@ -2239,9 +2239,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setCharNameRegistry([...characters, ...npcs]);
   }, [characters, npcs]);
   // 私聊 prompt 的「最近的朋友圈」要用朋友關係（utils/momentsContext.ts），同樣登記一份
+  // 連同身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）
   useEffect(() => {
-    setMomentsGraphInputs(characters, npcs);
-  }, [characters, npcs]);
+    setMomentsGraphInputs(characters, npcs, { profileBase: userProfileBase, groups });
+  }, [characters, npcs, userProfileBase, groups]);
   const apiConfigRef = useRef(apiConfig);
   apiConfigRef.current = apiConfig;
 
@@ -2849,6 +2850,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const momentsCtx = () => ({
           characters: charactersRef.current, npcs: npcsRef.current,
           userProfile: userProfileRef.current, apiConfig: apiConfigRef.current,
+          // 身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）
+          userProfileBase: userProfileBaseRef.current, groups: groupsRef.current,
       });
       const onMomentCreated = (e: Event) => {
           const post = (e as CustomEvent<MomentPost>).detail;

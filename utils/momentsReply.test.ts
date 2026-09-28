@@ -36,6 +36,23 @@ describe('作者回覆留言', () => {
     });
 });
 
+describe('用別的身份留言（多身份隔離）', () => {
+    const base = { authorName: '小雨', userName: '阿澈', post: { content: '海邊', images: [] }, thread: '', userComment: '好美' };
+    it('認識的你：延續關係', () => {
+        const prompt = buildAuthorReplyPrompt(base);
+        expect(prompt).toContain('延續你們的關係');
+    });
+    it('群裡見過：照群友的分寸，帶上是不同人的提醒', () => {
+        const prompt = buildAuthorReplyPrompt({ ...base, commenterRelation: 'seen', personaNote: '（注意：朋友圈裡的「阿澈」跟你私下聊天的「小星」是不同的人…）' });
+        expect(prompt).toContain('群裡見過的人，不熟');
+        expect(prompt).not.toContain('延續你們的關係');
+        expect(prompt).toContain('跟你私下聊天的「小星」是不同的人');
+    });
+    it('不認識：當陌生人', () => {
+        expect(buildAuthorReplyPrompt({ ...base, commenterRelation: 'stranger' })).toContain('你不認識阿澈');
+    });
+});
+
 describe('角色在別人的貼文底下留言', () => {
     it('提示詞帶上作者、貼文、其他留言', async () => {
         const { buildCharCommentPrompt } = await import('./momentsReply');
