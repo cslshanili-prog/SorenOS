@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useOS } from '../../context/OSContext';
 import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
@@ -115,7 +116,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
         closeEditor();
     };
 
-    return (
+    // 掛到 body：編輯器是從頁首的身份切換器打開的，頁首有 backdrop-blur 和 sticky z-10，
+    // fixed 會被困在頁首的層級裡，下面個人檔案的封面卡片（換封面、＋）就會蓋上來。
+    return createPortal(
         <div className="fixed inset-0 z-[120] flex flex-col bg-white animate-fade-in">
             <div className="flex items-center justify-between px-4 border-b border-slate-100 shrink-0"
                 style={{ paddingTop: 'calc(0.75rem + var(--safe-top))', paddingBottom: '0.75rem' }}>
@@ -211,7 +214,8 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                     </button>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 };
 
