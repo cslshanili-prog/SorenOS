@@ -21,7 +21,7 @@ export function buildPersonaKnowledge(
 
     const seen = new Map<string, Set<string>>();
     for (const g of groups) {
-        const key = personaKeyForGroup(profileBase, g.id);
+        const key = personaKeyForGroup(profileBase, g, characters);
         for (const member of g.members || []) {
             if (main.get(member) === key) continue;
             const set = seen.get(member) || new Set<string>();

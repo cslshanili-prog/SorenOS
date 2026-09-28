@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, globalPersonaKey, personaKeyForChar, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, globalPersonaKey, groupPersonaSource, personaKeyForChar, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -199,5 +199,31 @@ describe('身份鍵', () => {
         expect(personaNameForKey(profile, 'p1')).toBe('林特工');
         expect(personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID)).toBe('小柔');
         expect(personaNameForKey(profile, 'deleted')).toBe('小柔');
+    });
+});
+
+describe('群身份 · 沒指定時用成員多數認識的', () => {
+    // 霧港世界默認林特工（p1）；B 自己指定阿凱（p2）；C、D 沒分組 → 全域默認（真實身份）
+    const profile: UserProfile = { ...baseProfile, perWorldPersonaIds: { fog: 'p1' }, perCharPersonaIds: { B: 'p2' } };
+    const chars = [{ id: 'A', groupId: 'fog' }, { id: 'A2', groupId: 'fog' }, { id: 'B' }, { id: 'C' }, { id: 'D' }];
+    it('多數勝出', () => {
+        expect(personaKeyForGroup(profile, { id: 'g', members: ['A', 'A2', 'B'] }, chars)).toBe('p1');
+        expect(resolveUserProfileForGroup(profile, { id: 'g', members: ['A', 'A2', 'B'] }, chars).name).toBe('林特工');
+        expect(groupPersonaSource(profile, { id: 'g', members: ['A', 'A2', 'B'] }, chars)).toBe('members');
+    });
+    it('平手：全域默認優先；沒有全域默認就照成員順序', () => {
+        expect(personaKeyForGroup(profile, { id: 'g', members: ['A', 'C'] }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(groupPersonaSource(profile, { id: 'g', members: ['A', 'C'] }, chars)).toBe('global');
+        expect(personaKeyForGroup(profile, { id: 'g', members: ['B', 'A'] }, chars)).toBe('p2');
+    });
+    it('NPC、找不到的成員不算；沒有角色成員就是全域默認', () => {
+        expect(personaKeyForGroup(profile, { id: 'g', members: ['npc-1', 'A'] }, chars)).toBe('p1');
+        expect(personaKeyForGroup(profile, { id: 'g', members: ['npc-1'] }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
+    });
+    it('群單獨指定的優先；指定的卡被刪了就回到成員多數', () => {
+        const pinned: UserProfile = { ...profile, perGroupPersonaIds: { g: 'p2', h: 'deleted' } };
+        expect(personaKeyForGroup(pinned, { id: 'g', members: ['A', 'A2'] }, chars)).toBe('p2');
+        expect(groupPersonaSource(pinned, { id: 'g', members: ['A', 'A2'] }, chars)).toBe('group');
+        expect(personaKeyForGroup(pinned, { id: 'h', members: ['A', 'A2'] }, chars)).toBe('p1');
     });
 });

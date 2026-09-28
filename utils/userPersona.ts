@@ -126,12 +126,59 @@ export function personaKeyForChar(profileBase: UserProfile, char: CharRef): stri
     return keyFromOverride(profileBase, effectivePersonaOverride(profileBase, char));
 }
 
-/** 這個群裡的你是哪一個（群身份）。跟 resolveUserProfileForGroup 同一套優先級。 */
-export function personaKeyForGroup(profileBase: UserProfile, groupId: string): string {
-    return keyFromOverride(profileBase, profileBase.perGroupPersonaIds?.[groupId]);
+/** 群：id，加上成員（算「成員多數認識的身份」要用）。只給 id 就當沒有成員。 */
+export type GroupRef = string | { id: string; members?: string[] };
+
+/** 指定值還有效（真實身份，或還在的身份卡）才算數；卡被刪了等於沒指定。 */
+function validOverride(profileBase: UserProfile, overrideId: string | undefined): string | undefined {
+    if (overrideId === REAL_IDENTITY_PERSONA_ID) return overrideId;
+    return overrideId && profileBase.personas?.some(p => p.id === overrideId) ? overrideId : undefined;
 }
 
-/** 身份鍵對應的名字（找不到身份卡就是真實身份的名字）。 */
+/**
+ * 群裡沒指定身份時用誰：角色成員各自認識的身份裡最多人的那張（NPC 不算）。
+ * 平手時全域默認優先，否則照成員順序先出現的；沒有角色成員就是全域默認。
+ */
+function majorityMemberKey(
+    profileBase: UserProfile,
+    members: string[],
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>>,
+): string {
+    const fallback = globalPersonaKey(profileBase);
+    const counts = new Map<string, number>();
+    for (const id of members) {
+        const char = characters.find(c => c.id === id);
+        if (!char) continue;
+        const key = personaKeyForChar(profileBase, char);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    let best = fallback;
+    let bestCount = counts.get(fallback) || 0;
+    for (const [key, count] of counts) if (count > bestCount) { best = key; bestCount = count; }
+    return best;
+}
+
+/**
+ * 這個群裡的你是哪一個（群身份）：群單獨指定的 > 成員多數認識的 > 全域默認。
+ * 要傳群本身（帶 members）和角色清單才算得出「成員多數」；只傳 id 就只看單獨指定。
+ */
+export function personaKeyForGroup(
+    profileBase: UserProfile,
+    group: GroupRef,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): string {
+    const id = typeof group === 'string' ? group : group.id;
+    const override = validOverride(profileBase, profileBase.perGroupPersonaIds?.[id]);
+    if (override) return override;
+    return majorityMemberKey(profileBase, typeof group === 'string' ? [] : group.members || [], characters);
+}
+
+/** 身份鍵對應的完整檔案（外顯欄位換成那張卡的）。群聊、朋友圈這些「不是替某個角色」的地方用。 */
+export function profileForPersonaKey(profileBase: UserProfile, key: string): UserProfile {
+    if (key === REAL_IDENTITY_PERSONA_ID) return profileBase;
+    return applyPersonaOverride(profileBase, key).profile;
+}
+
 /** 身份鍵對應的頭像（真實身份或卡已刪除 → 真實身份的頭像）。 */
 export function personaAvatarForKey(profileBase: UserProfile, key: string): string {
     if (key !== REAL_IDENTITY_PERSONA_ID) {
@@ -141,6 +188,7 @@ export function personaAvatarForKey(profileBase: UserProfile, key: string): stri
     return profileBase.avatar;
 }
 
+/** 身份鍵對應的名字（找不到身份卡就是真實身份的名字）。 */
 export function personaNameForKey(profileBase: UserProfile, key: string): string {
     if (key !== REAL_IDENTITY_PERSONA_ID) {
         const persona = profileBase.personas?.find(p => p.id === key);
@@ -158,10 +206,25 @@ function effectivePersonaOverride(profileBase: UserProfile, char: CharRef): stri
 }
 
 /**
- * 群聊版的分角色身份指定，鍵是 groupId（perGroupPersonaIds），邏輯跟
- * resolveUserProfileForChar 一樣，只是沒有 perCharAvatars 那層——群聊頭像一直用整體
+ * 群聊版的身份解析，優先級同 personaKeyForGroup：群單獨指定（perGroupPersonaIds）>
+ * 成員多數認識的身份 > 全域默認。沒有 perCharAvatars 那層——群聊頭像一直用整體
  * 默認，不受這個字段影響（perCharAvatars 自己的文檔也寫明"群聊仍用整體頭像"）。
  */
-export function resolveUserProfileForGroup(profileBase: UserProfile, groupId: string): UserProfile {
-    return applyPersonaOverride(profileBase, profileBase.perGroupPersonaIds?.[groupId]).profile;
+export function resolveUserProfileForGroup(
+    profileBase: UserProfile,
+    group: GroupRef,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): UserProfile {
+    return profileForPersonaKey(profileBase, personaKeyForGroup(profileBase, group, characters));
+}
+
+/** 群身份是怎麼來的：群單獨指定、成員多數認識的、還是全域默認（群設定頁標示用）。 */
+export function groupPersonaSource(
+    profileBase: UserProfile,
+    group: GroupRef,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): 'group' | 'members' | 'global' {
+    const id = typeof group === 'string' ? group : group.id;
+    if (validOverride(profileBase, profileBase.perGroupPersonaIds?.[id])) return 'group';
+    return personaKeyForGroup(profileBase, group, characters) === globalPersonaKey(profileBase) ? 'global' : 'members';
 }

@@ -93,7 +93,11 @@ export function buildGroupHistoryBlock(
     emojis: EmojiItem[],
     userName: string = '用戶',
     maxAttachedImages: number = 3,
-    options?: { useVisionDescriptions?: boolean },
+    options?: {
+        useVisionDescriptions?: boolean;
+        /** 用戶那一行怎麼稱呼：這則是用別的身份發的（群身份改過）→ 那張卡的名字；不給就是「用戶」 */
+        userLabel?: (m: Message) => string;
+    },
 ): GroupHistoryBlock {
     const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成員');
     // 以前漏進群裡、被拆成一則一則氣泡的思考過程，整串認出來拿掉（見 reasoningLeak.ts）
@@ -126,7 +130,7 @@ export function buildGroupHistoryBlock(
         if (typeof m.timestamp === 'number') prevTs = m.timestamp;
         const timePrefix = typeof m.timestamp === 'number' ? `[${formatRelativeAge(m.timestamp, now)}] ` : '';
 
-        let name = '用戶';
+        let name = m.role === 'user' && options?.userLabel ? options.userLabel(m) : '用戶';
         if (m.role === 'assistant') {
             name = characters.find(c => c.id === m.charId)?.name || '未知';
         }

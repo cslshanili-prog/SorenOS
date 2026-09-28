@@ -9,14 +9,19 @@
  */
 
 let __charNames: Record<string, string> = {};
+let __charRefs: Array<{ id: string; groupId?: string }> = [];
 
-export const setCharNameRegistry = (chars: Array<{ id: string; name: string }>): void => {
+export const setCharNameRegistry = (chars: Array<{ id: string; name: string; groupId?: string }>): void => {
     const next: Record<string, string> = {};
     for (const c of chars) {
         if (c?.id && c?.name) next[c.id] = c.name;
     }
     __charNames = next;
+    __charRefs = chars.filter(c => c?.id).map(c => ({ id: c.id, groupId: c.groupId }));
 };
+
+/** 角色 id 與所在世界（神經鏈接分組）：群身份算「成員多數認識的身份」要用（utils/userPersona.ts）。 */
+export const getCharRefs = (): Array<{ id: string; groupId?: string }> => __charRefs;
 
 export const getCharNameById = (id: string | undefined | null): string | null =>
     (id && __charNames[id]) || null;
