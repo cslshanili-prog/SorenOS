@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { XhsActivityRecord, XhsOwnedPost } from '../types';
@@ -46,7 +47,7 @@ const RESULT_COLORS: Record<string, string> = {
 };
 
 const XhsFreeRoamApp: React.FC = () => {
-    const { closeApp, addToast, characters, activeCharacterId, apiConfig, realtimeConfig, userProfile, characterGroups } = useOS();
+    const { closeApp, addToast, characters, activeCharacterId, apiConfig, realtimeConfig, userProfileBase, characterGroups } = useOS();
 
     // Character selector — default to activeCharacterId, but user can switch
     const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
@@ -151,7 +152,8 @@ const XhsFreeRoamApp: React.FC = () => {
         try {
             await XhsFreeRoamEngine.run(
                 char,
-                userProfile,
+                // 單一角色的活動：用它私下認識的那個你（多身份，見 utils/userPersona.ts）
+                resolveUserProfileForChar(userProfileBase, char),
                 apiConfig,
                 realtimeConfig || {} as any,
                 callbacks,

@@ -26,6 +26,8 @@ import {
     VRGuestbookState, VRGuestbookMessage, VRLetter, VRScript, SignalPoem,
 } from '../../types';
 import { DB } from '../db';
+import { personaKeyForChar, profileForPersonaKey, resolveUserProfileForChar, vrScenePersonaKey } from '../userPersona';
+import { distinctPersonaNote } from '../personaSpeaker';
 import { buildChatRequestPayload } from '../chatRequestPayload';
 import { safeFetchJson } from '../safeApi';
 import { processNewMessagesWithAutoArchive } from '../memoryPalace/autoArchive';
@@ -271,7 +273,7 @@ export async function runVRSession(deps: VRSessionDeps): Promise<VRSessionResult
     return runVRSessionUnlocked(deps);
 }
 async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResult> {
-    const { char, characters, apiConfig, userProfile, groups, realtimeConfig, memoryPalaceConfig, updateUserProfile, forcedRoom, forcedSARActivity, forcedLetterId, manual } = deps;
+    const { char, characters, apiConfig, groups, realtimeConfig, memoryPalaceConfig, updateUserProfile, forcedRoom, forcedSARActivity, forcedLetterId, manual } = deps;
     if (!char.vrState?.enabled) return { ok: false, reason: 'not-enabled' };
     if (!manual && !allowsAutomaticVR(char.vrState)) return { ok: false, reason: 'manual-only' };
     const updateCharacter = (id: string, patch: Partial<CharacterProfile>) =>
@@ -312,6 +314,17 @@ async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResul
     if (!roomId) return { ok: false, reason: 'no-content' };
     let room = getRoom(roomId);
 
+    // 多身份（2d）：彼方裡的你＝場景身份（userProfile，名字/分身都用它）；角色自己的人設與私聊背景
+    // 照它私下認識的那個你（knownUser）。兩張卡不同時，它在彼方遇到的你是不認識的人。
+    const personaBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+    const sceneKey = personaBase ? vrScenePersonaKey(personaBase, characters) : undefined;
+    const userProfile: UserProfile = personaBase && sceneKey
+        ? { ...profileForPersonaKey(personaBase, sceneKey), vrState: deps.userProfile?.vrState ?? personaBase.vrState }
+        : deps.userProfile;
+    const knownUser: UserProfile = personaBase ? resolveUserProfileForChar(personaBase, char) : deps.userProfile;
+    const vrStrangerNote = personaBase && sceneKey && personaKeyForChar(personaBase, char) !== sceneKey
+        ? distinctPersonaNote([userProfile.name], knownUser.name, '彼方裡')
+        : '';
     running.add(char.id);
     // 信號墜落處的寫詩會話鎖 token（搶到才有值）；finally 裡兜底放鎖
     let signalLockToken: string | null = null;
@@ -586,7 +599,7 @@ async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResul
             : undefined;
 
         const payload = await buildChatRequestPayload({
-            char, userProfile, groups, emojis, categories,
+            char, userProfile: knownUser, groups, emojis, categories,
             historyMsgs, contextLimit, realtimeConfig, recallQueryHint,
             recallEntryPoint: 'vr_world',
             // 彼方可配獨立 API（可能不支持視覺，如 DeepSeek 對 image_url 直接 400），
@@ -596,7 +609,8 @@ async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResul
         let titleUnlocked = !!userProfile?.vrState?.title || characters.some(c=>!!c.vrState?.title);
         try { titleUnlocked ||= !!readFishingMarketState().sarFamiliarity?.unlocks.includes('titles'); } catch { /* preserve unreadable progress, no unlock */ }
         const systemPrompt = payload.systemPrompt + buildVRSystemAddendum(room, char.name,
-            sarMode || undefined, char.vrState?.title, titleUnlocked);
+            sarMode || undefined, char.vrState?.title, titleUnlocked)
+            + (vrStrangerNote ? `\n${vrStrangerNote}` : '');
 
         // 調 LLM（記錄一次調用，供"調用記錄"對帳）
         const baseUrl = vrApi.baseUrl.replace(/\/+$/, '');
@@ -1020,7 +1034,7 @@ async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResul
             const mpLLM = (mpLLMConfigured?.baseUrl) ? mpLLMConfigured : { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model };
             if (char.memoryPalaceEnabled && mpEmb?.baseUrl && mpEmb?.apiKey && mpLLM.baseUrl) {
                 const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
-                void processNewMessagesWithAutoArchive(recentMsgs, char.id, char.name, mpEmb as any, mpLLM as any, userProfile?.name || '', false).catch(() => {});
+                void processNewMessagesWithAutoArchive(recentMsgs, char.id, char.name, mpEmb as any, mpLLM as any, knownUser?.name || '', false).catch(() => {});
             }
         } catch { /* 記憶失敗不影響主流程 */ }
 

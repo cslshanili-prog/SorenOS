@@ -21,6 +21,8 @@ import type {
     WorldProfile, WorldEpisode, WorldCharBeat, WorldCardMeta,
 } from '../../types';
 import { DB } from '../db';
+import { personaKeyForChar, personaNameForKey, resolveUserProfileForChar } from '../userPersona';
+import { crossPersonaNote } from '../personaSpeaker';
 import { recoverWorldProgress } from './episodeOrder';
 import { buildChatRequestPayload } from '../chatRequestPayload';
 import { safeFetchJson } from '../safeApi';
@@ -273,6 +275,26 @@ export async function injectWorldCard(world: WorldProfile, beat: WorldCharBeat, 
     });
 }
 
+/**
+ * 家園裡每個角色輪流演自己的生活，你不在場：每個角色的「你」就是它私下認識的那一個（多身份隔離 2d）。
+ * 同世界的居民認識的是別張卡時，提醒它們聊到的「那個人」不是同一個。personaBase 讀不到就照舊用 fallback。
+ */
+function worldUserFor(
+    personaBase: UserProfile | null,
+    char: CharacterProfile,
+    members: CharacterProfile[],
+    fallback: UserProfile,
+): { user: UserProfile; note: string } {
+    if (!personaBase) return { user: fallback, note: '' };
+    const user = resolveUserProfileForChar(personaBase, char);
+    const myKey = personaKeyForChar(personaBase, char);
+    const notes = members
+        .filter(m => m.id !== char.id && personaKeyForChar(personaBase, m) !== myKey)
+        .map(m => crossPersonaNote(user.name, m.name, personaNameForKey(personaBase, personaKeyForChar(personaBase, m))))
+        .filter(Boolean);
+    return { user, note: notes.length ? `\n${notes.join('\n')}` : '' };
+}
+
 export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpisodeResult> {
     const { characters, apiConfig, userProfile, groups, realtimeConfig, memoryPalaceConfig, trigger } = deps;
     const worldId = deps.world.id;
@@ -292,6 +314,7 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
             .map(id => characters.find(c => c.id === id))
             .filter(Boolean) as CharacterProfile[];
         if (members.length === 0) return { ok: false, reason: 'no-members' };
+        const personaBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
 
         // API 優先級：世界私有覆蓋（舊數據）> 家園全局設置（localStorage）> 全局聊天默認
         const worldHomeApi = readWorldHomeApiOverride();
@@ -352,19 +375,20 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
                     ].join('\n')
                     : undefined;
 
+                const charUser = worldUserFor(personaBase, char, members, userProfile);
                 const historyMsgs = await loadCharacterContextMessages(char);
                 const contextLimit = Math.max(1, historyMsgs.length);
                 // 家園內角色的當前時間與日程日期都必須對齊同一把世界鍾。
                 const worldChar = alignCharToWorldClock(world, char);
                 const payload = await buildChatRequestPayload({
-                    char: worldChar, userProfile, groups, emojis: [], categories: [],
+                    char: worldChar, userProfile: charUser.user, groups, emojis: [], categories: [],
                     historyMsgs, contextLimit, realtimeConfig, recallQueryHint,
                     recallEntryPoint: 'world_home',
                     // 家園可配獨立 API（可能不支持視覺，image_url 會 400）→ 歷史圖片壓平成文本佔位
                     stripImages: true,
                 });
                 const systemPrompt = payload.systemPrompt
-                    + buildWorldSystemAddendum(world, char, userProfile?.name || '')
+                    + buildWorldSystemAddendum(world, char, charUser.user.name || '') + charUser.note
                     + await buildFullDayScheduleBlock(world, worldChar);
                 const directive = (world.directives || []).find(d => d.charId === char.id);
                 // sim 模式：喂回這名角色自己的單視角總結 + 本卷氛圍（絕不喂全知 synopsis）
@@ -381,7 +405,7 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
                     exposures: buildExposures(world, char.id, char.name),
                     directive: directive ? { impulseText: directive.impulseText, text: directive.text } : undefined,
                     priorChapter,
-                    userName: userProfile?.name || '',
+                    userName: charUser.user.name || '',
                 });
                 if (directive) consumedDirectiveIds.push(directive.id);
 
@@ -541,7 +565,7 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
                         const char = members.find(m => m.id === beat.charId);
                         if (!char?.memoryPalaceEnabled) continue;
                         const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
-                        void processNewMessagesWithAutoArchive(recentMsgs, char.id, char.name, mpEmb as any, mpLLM as any, userProfile?.name || '', false).catch(() => {});
+                        void processNewMessagesWithAutoArchive(recentMsgs, char.id, char.name, mpEmb as any, mpLLM as any, worldUserFor(personaBase, char, members, userProfile).user.name || '', false).catch(() => {});
                     }
                 }
             } catch { /* 記憶失敗不影響主流程 */ }
@@ -593,18 +617,20 @@ export async function rerollWorldCharBeat(
         const recallQueryHint = others.length > 0
             ? `此刻在「${world.name}」共同生活的人：${others.join('、')}。\n我對${others.join('、')}的印象、我和${others.join('、')}之間的關係與過往。`
             : undefined;
+        const personaBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+        const charUser = worldUserFor(personaBase, char, members, userProfile);
         const historyMsgs = await loadCharacterContextMessages(char);
         const contextLimit = Math.max(1, historyMsgs.length);
         const worldChar = alignCharToWorldClock(world, char);
         const payload = await buildChatRequestPayload({
-            char: worldChar, userProfile, groups, emojis: [], categories: [],
+            char: worldChar, userProfile: charUser.user, groups, emojis: [], categories: [],
             historyMsgs, contextLimit, realtimeConfig, recallQueryHint,
             recallEntryPoint: 'world_home',
             // 同上：獨立 API 可能不支持視覺 → 歷史圖片壓平成文本佔位
             stripImages: true,
         });
         const systemPrompt = payload.systemPrompt
-            + buildWorldSystemAddendum(world, char, userProfile?.name || '')
+            + buildWorldSystemAddendum(world, char, charUser.user.name || '') + charUser.note
             + await buildFullDayScheduleBlock(world, worldChar);
         const latestChapter = (world.chapters || [])[(world.chapters?.length || 0) - 1];
         const priorChapter = (world.timeMode === 'sim' && latestChapter)
@@ -615,7 +641,7 @@ export async function rerollWorldCharBeat(
             npcScene: episode.npcScene, npcHooks: episode.npcHooks, beatsSoFar: otherBeats,
             recentPosts: collectRecentPosts(prevEp?.beats || [], otherBeats),
             exposures: buildExposures(world, char.id, char.name),
-            priorChapter, userName: userProfile?.name || '',
+            priorChapter, userName: charUser.user.name || '',
         });
         if (direction && direction.trim()) {
             turn += `\n\n## 重寫方向（用戶希望這次往這個方向重演，請據此給出全新的一拍）\n${direction.trim()}`;

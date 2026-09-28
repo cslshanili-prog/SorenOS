@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ApiPreset, APIConfig, CharacterProfile } from '../../types';
+import { ApiPreset, APIConfig, CharacterProfile, UserProfile } from '../../types';
+import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
 import { CheckSquare, FloppyDisk, Gear, Square, X } from '@phosphor-icons/react';
 import { useOS } from '../../context/OSContext';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../../components/character/CharacterGroupFilter';
@@ -24,6 +25,14 @@ const LifeSimSettingsPanel: React.FC<{
     onSelectAll: () => void;
     onSelectNone: () => void;
     onSaveApiSettings: (payload: { enabled: boolean; config: LifeSimApiDraft }) => Promise<void> | void;
+    /** 這局你是誰（多身份）：有身份卡才給 */
+    persona?: {
+        profileBase: UserProfile;
+        personaId?: string;
+        sceneName: string;
+        strangers: Array<{ name: string; knownName: string }>;
+        onChange: (personaId: string | undefined) => void;
+    };
     onClose: () => void;
 }> = ({
     characters,
@@ -35,6 +44,7 @@ const LifeSimSettingsPanel: React.FC<{
     onSelectAll,
     onSelectNone,
     onSaveApiSettings,
+    persona,
     onClose,
 }) => {
     const [useIndependentApi, setUseIndependentApi] = useState(useIndependentApiConfig);
@@ -128,6 +138,39 @@ const LifeSimSettingsPanel: React.FC<{
                             這裡可以分別控制這局 LifeSim 允許哪些角色參與，以及是否給 LifeSim 單獨指定一套 API。
                         </p>
                     </div>
+
+                    {persona && (() => {
+                        const personaValid = (id?: string) => !!id && (id === REAL_IDENTITY_PERSONA_ID || (persona.profileBase.personas || []).some(p => p.id === id));
+                        const pinned = personaValid(persona.personaId);
+                        const options: Array<{ id: string | undefined; label: string }> = [
+                            { id: undefined, label: '自動' },
+                            { id: REAL_IDENTITY_PERSONA_ID, label: persona.profileBase.name || '真實身份' },
+                            ...(persona.profileBase.personas || []).map(p => ({ id: p.id as string | undefined, label: p.name })),
+                        ];
+                        return (
+                            <div style={{ marginBottom: 12 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#6f6780', marginBottom: 6, letterSpacing: '0.04em' }}>這局你是</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {options.map(opt => {
+                                        const on = opt.id === undefined ? !pinned : persona.personaId === opt.id;
+                                        return (
+                                            <button key={opt.id || 'auto'} className="retro-btn"
+                                                onClick={() => { persona.onChange(opt.id); trackEvent('人生模拟场景身份指定', { choice: !opt.id ? 'auto' : opt.id === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' }); }}
+                                                style={{ padding: '4px 10px', fontSize: 10, fontWeight: on ? 700 : 400, background: on ? '#e6ddff' : undefined }}>
+                                                {opt.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p style={{ fontSize: 10, color: '#6a6181', lineHeight: 1.6, marginTop: 6 }}>
+                                    這局你是「{persona.sceneName}」{pinned ? '' : '（參與角色最多人認識的）'}。
+                                    {persona.strangers.length > 0
+                                        ? `${persona.strangers.map(s => `${s.name}（認識的是「${s.knownName}」）`).join('、')}會把你當成不認識的玩家，私聊不受影響。`
+                                        : '參與角色都認識這個你。'}
+                                </p>
+                            </div>
+                        );
+                    })()}
 
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#6f6780', marginBottom: 6, letterSpacing: '0.04em' }}>
                         參與角色

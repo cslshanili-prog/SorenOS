@@ -9,19 +9,19 @@
  */
 
 let __charNames: Record<string, string> = {};
-let __charRefs: Array<{ id: string; groupId?: string }> = [];
+let __charRefs: Array<{ id: string; groupId?: string; vrState?: { enabled?: boolean } }> = [];
 
-export const setCharNameRegistry = (chars: Array<{ id: string; name: string; groupId?: string }>): void => {
+export const setCharNameRegistry = (chars: Array<{ id: string; name: string; groupId?: string; vrState?: { enabled?: boolean } }>): void => {
     const next: Record<string, string> = {};
     for (const c of chars) {
         if (c?.id && c?.name) next[c.id] = c.name;
     }
     __charNames = next;
-    __charRefs = chars.filter(c => c?.id).map(c => ({ id: c.id, groupId: c.groupId }));
+    __charRefs = chars.filter(c => c?.id).map(c => ({ id: c.id, groupId: c.groupId, vrState: c.vrState ? { enabled: c.vrState.enabled } : undefined }));
 };
 
-/** 角色 id 與所在世界（神經鏈接分組）：群身份算「成員多數認識的身份」要用（utils/userPersona.ts）。 */
-export const getCharRefs = (): Array<{ id: string; groupId?: string }> => __charRefs;
+/** 角色 id、所在世界（神經鏈接分組）、有沒有接入彼方：算群身份／彼方場景身份的「多數認識的你」要用（utils/userPersona.ts）。 */
+export const getCharRefs = (): Array<{ id: string; groupId?: string; vrState?: { enabled?: boolean } }> => __charRefs;
 
 export const getCharNameById = (id: string | undefined | null): string | null =>
     (id && __charNames[id]) || null;

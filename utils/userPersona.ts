@@ -173,6 +173,28 @@ export function personaKeyForGroup(
     return majorityMemberKey(profileBase, typeof group === 'string' ? [] : group.members || [], characters);
 }
 
+/**
+ * 多角色同場畫面（彼方、遊戲、人生模擬）的場景身份：指定的（還有效的話）> 在場角色最多人認識的 > 全域默認。
+ * 規則跟群身份一樣，只是在場的人由各畫面自己給。認識的不是這張卡的角色，在場景裡把你當成不認識的人。
+ */
+export function personaKeyForScene(
+    profileBase: UserProfile,
+    overrideId: string | undefined,
+    memberIds: string[],
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): string {
+    return validOverride(profileBase, overrideId) ?? majorityMemberKey(profileBase, memberIds, characters);
+}
+
+/** 彼方的場景身份：指定的，否則接入彼方的角色裡最多人認識的。 */
+export function vrScenePersonaKey(
+    profileBase: UserProfile,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'> & { vrState?: { enabled?: boolean } }>,
+): string {
+    const members = characters.filter(c => c.vrState?.enabled).map(c => c.id);
+    return personaKeyForScene(profileBase, profileBase.scenePersonaIds?.vrworld, members, characters);
+}
+
 /** NPC：id、關係清單（推測它屬於哪個世界用）、手動指定的認識的身份。 */
 export type NpcPersonaRef = { id: string; relationships?: Array<{ targetId: string }>; knownPersonaId?: string };
 
