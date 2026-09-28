@@ -1,6 +1,6 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, SocialPost, SocialComment, SubAccount, SocialAppProfile } from '../types';
@@ -13,6 +13,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { House, User, Package, Warning } from '@phosphor-icons/react';
 import { mergeSocialComments, prependUniqueSocialPosts, updateSocialPost } from '../utils/socialFeedMerge';
 import { trackEvent } from '../utils/analytics';
+import { personaKeyForChar, personaKeyForScene, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import TokenImg from '../components/os/TokenImg';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
@@ -154,7 +155,14 @@ const Icons = {
 // --- Main App ---
 
 const SocialApp: React.FC = () => {
-    const { closeApp, characters, updateCharacter, apiConfig, addToast, userProfile, groups, characterGroups } = useOS();
+    const { closeApp, characters, updateCharacter, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, groups, characterGroups } = useOS();
+    // 多身份（2d）：你的 Spark 帳號屬於哪一張身份卡——指定的，或角色們最多人認識的那個你（utils/userPersona.ts）。
+    // 私下認識的是別張卡的角色，只把這個帳號當成網友。沒有身份卡就照舊（所有角色都知道是你）。
+    const hasPersonas = (userProfileBase.personas?.length || 0) > 0;
+    const sparkKey = useMemo(
+        () => personaKeyForScene(userProfileBase, userProfileBase.scenePersonaIds?.spark, characters.map(c => c.id), characters),
+        [userProfileBase, characters],
+    );
     const [feed, setFeed] = useState<SocialPost[]>([]);
     // Modes: 'home' (Feed) | 'me' (Profile) | 'create' (Modal Overlay)
     const [activeTab, setActiveTab] = useState<'home' | 'me'>('home');
@@ -433,7 +441,8 @@ const SocialApp: React.FC = () => {
     const buildGenerationContext = async (participants: CharacterProfile[]) => {
         const recent = await Promise.all(participants.map(async char =>
             [char.id, await loadCharacterContextMessages(char)] as const));
-        return buildSparkGenerationContext(participants, userProfile, socialProfile, characterHandles, Object.fromEntries(recent));
+        return buildSparkGenerationContext(participants, userProfile, socialProfile, characterHandles, Object.fromEntries(recent),
+            hasPersonas ? { profileBase: userProfileBase, sparkKey } : undefined);
     };
 
     const handleRefresh = async () => {
@@ -1215,6 +1224,45 @@ ${buildSparkCommentHistory(post)}
                                 ) : (
                                     <p className="text-sm text-slate-600 mt-3 leading-relaxed font-light">{socialProfile.bio}</p>
                                 )}
+
+                                {hasPersonas && (() => {
+                                    const override = userProfileBase.scenePersonaIds?.spark;
+                                    const pinned = !!override && (override === REAL_IDENTITY_PERSONA_ID || (userProfileBase.personas || []).some(p => p.id === override));
+                                    const strangers = characters.filter(c => personaKeyForChar(userProfileBase, c) !== sparkKey);
+                                    const options: Array<{ id: string | undefined; label: string }> = [
+                                        { id: undefined, label: '自動' },
+                                        { id: REAL_IDENTITY_PERSONA_ID, label: userProfileBase.name || '真實身份' },
+                                        ...(userProfileBase.personas || []).map(p => ({ id: p.id as string | undefined, label: p.name })),
+                                    ];
+                                    const choose = (id: string | undefined) => {
+                                        const next = { ...(userProfileBase.scenePersonaIds || {}) };
+                                        if (id) next.spark = id; else delete next.spark;
+                                        updateUserProfile({ scenePersonaIds: next });
+                                        trackEvent('社群账号身份指定', { choice: !id ? 'auto' : id === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' });
+                                    };
+                                    return (
+                                        <div className="mt-4 text-left bg-white/50 rounded-2xl border border-white/60 p-3">
+                                            <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-1.5">這個帳號是</div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {options.map(opt => {
+                                                    const on = opt.id === undefined ? !pinned : override === opt.id;
+                                                    return (
+                                                        <button key={opt.id || 'auto'} onClick={() => choose(opt.id)}
+                                                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${on ? 'bg-[#ff2442]/10 border-[#ff2442]/40 text-[#ff2442]' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                                            {opt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                                                現在是「{personaNameForKey(userProfileBase, sparkKey)}」{pinned ? '' : '（角色們最多人認識的）'}。
+                                                {strangers.length > 0
+                                                    ? `${strangers.map(c => `${c.name}（認識的是「${personaNameForKey(userProfileBase, personaKeyForChar(userProfileBase, c))}」）`).join('、')}只把這個帳號當成網友，不知道是你。`
+                                                    : '角色們都知道這個帳號是你。'}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="flex gap-6 mt-5 bg-white/40 p-4 rounded-2xl border border-white/50 shadow-sm">
                                     <div className="text-center"><span className="block font-bold text-slate-800">142</span><span className="text-[10px] text-slate-400">關注</span></div>

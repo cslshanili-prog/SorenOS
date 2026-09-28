@@ -3744,7 +3744,7 @@ export interface UserProfile {
     perGroupPersonaIds?: Record<string, string>;
     /**
      * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
-     * 目前只有 'vrworld'（彼方，你的分身只有一個）；遊戲和人生模擬的身份存在各自那一局上。
+     * 'vrworld'（彼方，你的分身只有一個）、'spark'（社群，你只有一個網名帳號）；遊戲和人生模擬的身份存在各自那一局上。
      * 不設 = 自動：在場角色最多人認識的那個你。解析走 utils/userPersona.ts 的 personaKeyForScene。
      */
     scenePersonaIds?: Record<string, string>;

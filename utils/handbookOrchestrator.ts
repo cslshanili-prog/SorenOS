@@ -25,6 +25,7 @@ import {
     LayoutTemplate, SlotDef, SlotRole, SlotPayload,
 } from '../types';
 import { DB } from './db';
+import { resolveUserProfileForChar } from './userPersona';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { safeResponseJson, extractJson } from './safeApi';
 import { ContextBuilder } from './context';
@@ -361,6 +362,10 @@ function sanitizePayload(p: any, role: SlotRole): SlotPayload | undefined {
 //  - 生活系角色被鼓勵 "造謠" 自己今天的日常 (跟 user 無關), 不能假裝今天和 user 一起做了什麼
 //  - sticky-reaction 必須有 refersTo, filled 全空時自動剔除該 role 候選
 //  - 必須寫, 不能 pass; LLM 爛數據 → 重試一次 → 仍爛才靜默丟
+/** 角色寫自己那格：用它私下認識的那個你（多身份，見 utils/userPersona.ts）；沒給真實檔案就照舊 */
+const userForChar = (base: UserProfile | undefined, char: CharacterProfile, fallback: UserProfile): UserProfile =>
+    base ? resolveUserProfileForChar(base, char) : fallback;
+
 async function fillCharTurn(
     char: CharacterProfile,
     template: LayoutTemplate,
@@ -559,6 +564,8 @@ export interface ComposeV2Input {
     selectedCharIds: string[];
     characters: CharacterProfile[];
     userProfile: UserProfile;
+    /** 真實檔案（含身份卡）：每個角色寫自己那格時，用它私下認識的那個你（多身份）。不給就都用 userProfile */
+    userProfileBase?: UserProfile;
     apiConfig: ApiConfig;
     /** 強制使用某模板 id, 不傳則按條件自動選 */
     forcedTemplateId?: string;
@@ -656,7 +663,7 @@ export async function composePageV2(input: ComposeV2Input): Promise<ComposeV2Res
         const c = characters.find(x => x.id === id);
         if (!c) continue;
         tick('char', c.name);
-        const charFills = await fillCharTurn(c, template, filled, date, userProfile, apiConfig);
+        const charFills = await fillCharTurn(c, template, filled, date, userForChar(input.userProfileBase, c, userProfile), apiConfig);
         filled.push(...charFills);
     }
 
@@ -789,6 +796,7 @@ export interface RegenCharInput {
     layouts: HandbookLayout[];       // 當前所有 layout
     characters: CharacterProfile[];
     userProfile: UserProfile;
+    userProfileBase?: UserProfile;
     apiConfig: ApiConfig;
 }
 
@@ -837,7 +845,7 @@ export async function regenerateCharSlots(input: RegenCharInput): Promise<RegenC
     }
 
     // 調 char turn (返回數組, 一次出多條 fragment)
-    const newFills = await fillCharTurn(char, template, filled, date, userProfile, apiConfig);
+    const newFills = await fillCharTurn(char, template, filled, date, userForChar(input.userProfileBase, char, userProfile), apiConfig);
     if (newFills.length === 0) return { newPage: null, newLayouts: layouts };
 
     // 拼新 char page (一組 fragments)

@@ -69,3 +69,27 @@ describe('Spark author attribution', () => {
         expect(resolveSparkAuthor({ author: '小花園', charId: 'b-id' }, [a, b], chars, duplicate, [])?.character).toBe(b);
     });
 });
+
+describe('多身份：Spark 帳號屬於哪張身份卡', () => {
+    it('認識這張卡的角色知道是你；認識別張卡的只當網友，關係照它認識的那個人', async () => {
+        const { buildSparkGenerationContext, sparkAccountNote } = await import('./socialGeneration');
+        const base = {
+            name: '小柔', avatar: '', bio: '',
+            personas: [
+                { id: 'p-xing', name: '小星', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+                { id: 'p-che', name: '阿澈', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+            ],
+            perCharPersonaIds: { A: 'p-xing', B: 'p-che' },
+        } as any;
+        const A = { id: 'A', name: 'A', description: '', systemPrompt: '' } as any;
+        const B = { id: 'B', name: 'B', description: '', systemPrompt: '' } as any;
+        const social = { name: '夜行貓', avatar: '', bio: '' };
+        const personas = { profileBase: base, sparkKey: 'p-xing' };
+        expect(sparkAccountNote(A, social, personas)).toContain('就是你私下認識的「小星」');
+        expect(sparkAccountNote(B, social, personas)).toContain('只是一個網友');
+        expect(sparkAccountNote(B, social, personas)).toContain('不是你私下認識的「阿澈」');
+        const ctx = buildSparkGenerationContext([A, B], base, social, {}, {}, personas);
+        expect(ctx).toContain('看各自檔案裡的說明');
+        expect(ctx).not.toContain('以上是同一個用戶');
+    });
+});
