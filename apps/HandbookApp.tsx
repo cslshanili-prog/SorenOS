@@ -33,7 +33,7 @@ import { trackEvent } from '../utils/analytics';
 import { CaretLeft, Plus, Sparkle } from '@phosphor-icons/react';
 
 const HandbookApp: React.FC = () => {
-    const { closeApp, characters, apiConfig, userProfile, addToast } = useOS();
+    const { closeApp, characters, apiConfig, userProfile, userProfileBase, addToast } = useOS();
 
     type View = 'list' | 'day';
     const [view, setView] = useState<View>('list');
@@ -154,6 +154,7 @@ const HandbookApp: React.FC = () => {
                 selectedCharIds: candidateCharIds,
                 characters,
                 userProfile,
+                userProfileBase,
                 apiConfig,
                 onProgress: ({ name, i, n }) => setGenProgress({ name, i, n }),
             });
@@ -268,7 +269,7 @@ const HandbookApp: React.FC = () => {
                 charId: page.charId,
                 pages: entry.pages,
                 layouts: entry.layouts || [],
-                characters, userProfile, apiConfig,
+                characters, userProfile, userProfileBase, apiConfig,
             });
             if (!result.newPage) {
                 addToast('這次沒寫出來，再試一次吧。', 'error');
