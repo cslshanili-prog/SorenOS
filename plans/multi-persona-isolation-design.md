@@ -10,6 +10,7 @@
 > - **2a 朋友圈已完成**，連同第 3 節「近期群聊背景標錯名字」一起修掉。落地在：身份鍵 `personaKeyForChar`／`personaKeyForGroup`（`utils/userPersona.ts`）、主身份與見過的身份 `buildPersonaKnowledge`（`utils/momentsPersona.ts`）、好友圖的 `personaRelation`（`utils/momentsPool.ts`）、「那是不同的人」提醒 `distinctPersonaNote`（`utils/personaSpeaker.ts`）。
 > - **2b 群聊已完成**：群沒單獨指定身份時改用「成員多數私下認識的身份」（定案 2026-09-28，見第 2 節）；訊息記身份、成員時間線與檔案塊、群設定與建群標示都落地在 `utils/groupChat/memberPersona.ts` 與 `apps/GroupChat.tsx`。
 > - **2c 查手機對聊與 NPC 已完成**：角色對聊兩邊各用自己認識的名字（`runRealConversation` 的 `userB`/`samePersona`，提醒走 `crossPersonaNote`）；NPC 的 `knownPersonaId` 與自動推測走 `personaKeyForNpc`，用在朋友圈、群聊檔案塊與客串、查手機的 NPC 對聊。剩 2d 多角色同場的畫面。
+> - **2d 第一批已完成**（盤點與分法定案 2026-09-28，見第 6 節）：家園修成照角色走；彼方、遊戲、人生模擬有場景身份（`personaKeyForScene`）。社群、手帳照朋友圈的做法，下一小批。
 
 ## 現況：共享空間裡「你」只有一個
 
@@ -100,6 +101,19 @@ NPC 沒有分組，所以不知道自己屬於哪個世界。建議：
 - 在場角色裡認識的身份跟場景身份不同的，把你當不認識的人。
 
 見面的劇情模式有自己的「面具」，不在範圍內。
+
+**盤點與分法（2026-09-28 定案）**
+
+| 類別 | 畫面 | 做法 |
+|------|------|------|
+| 其實一次一個角色 | 家園、小紅書漫遊、查手機的人生模擬器 | 照角色私下認識的那個你（家園以前全拿全域身份，已修）；家園同世界居民認識的是別張卡時加 `crossPersonaNote` |
+| 你是作者／觀眾 | 小說、彼方劇場劇本、見面劇情劇場（有面具）、音樂 | 不動 |
+| 你本人在場 | 彼方、遊戲、人生模擬 | 場景身份 `personaKeyForScene`：指定的 > 在場角色最多人認識的 > 全域默認。認識的不是這張卡的角色：角色檔案照它認識的那個人，場景裡的你當成不認識的人（`distinctPersonaNote`），不同步私聊 |
+| 照朋友圈的做法（下一小批） | 社群、手帳 | 發文選身份，角色照主身份／見過／陌生認 |
+
+- **彼方**：整個彼方共用一個（你的分身只有一個），存 `userProfile.scenePersonaIds.vrworld`；自動 = 接入彼方的角色多數。設定分頁「你在彼方是」。私聊裡「你此刻也在彼方」那段只給認識這張卡的角色。
+- **遊戲**：開局「這局你是」，存 `GameSession.personaId`；自動 = 選中的隊友多數。
+- **人生模擬**：設定面板「這局你是」，存 `LifeSimState.personaId`；自動 = 參與角色多數。
 
 ## 不做的事
 

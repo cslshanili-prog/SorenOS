@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, globalPersonaKey, groupPersonaSource, npcPersonaSource, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, globalPersonaKey, groupPersonaSource, npcPersonaSource, personaKeyForChar, personaKeyForNpc, personaKeyForScene, vrScenePersonaKey, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -244,5 +244,23 @@ describe('NPC 認識的身份', () => {
     it('推不出來：全域默認', () => {
         expect(personaKeyForNpc(profile, { id: 'n', relationships: [{ targetId: 'user' }] }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
         expect(npcPersonaSource(profile, { id: 'n' }, chars)).toBe('global');
+    });
+});
+
+describe('多角色同場的場景身份（2d）', () => {
+    const profile: UserProfile = { ...baseProfile, perWorldPersonaIds: { fog: 'p1' } };
+    const chars = [
+        { id: 'A', groupId: 'fog', vrState: { enabled: true } },
+        { id: 'A2', groupId: 'fog', vrState: { enabled: true } },
+        { id: 'C', vrState: { enabled: false } },
+    ] as any[];
+    it('指定的優先；否則在場最多人認識的', () => {
+        expect(personaKeyForScene(profile, 'p2', ['A'], chars)).toBe('p2');
+        expect(personaKeyForScene(profile, undefined, ['A', 'C'], chars)).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(personaKeyForScene(profile, 'gone', ['A', 'A2', 'C'], chars)).toBe('p1');
+    });
+    it('彼方：只算接入彼方的角色', () => {
+        expect(vrScenePersonaKey(profile, chars)).toBe('p1');
+        expect(vrScenePersonaKey({ ...profile, scenePersonaIds: { vrworld: REAL_IDENTITY_PERSONA_ID } }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
     });
 });

@@ -6,7 +6,7 @@ import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProf
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
-import { personaKeyForChar, personaKeyForGroup } from './userPersona';
+import { personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './userPersona';
 import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -702,7 +702,11 @@ ${groupLogStr}\n`;
             // 好幾個小時了角色還在說「看你小人掛在聽歌房」。它沒有對應的到點槽位——
             // worker 夠不著用戶此刻的彼方狀態，所以是「不補」的那一類。
             const uv = forFirePack ? null : userProfile?.vrState;
-            if (uv?.enabled) {
+            // 多身份（2d）：彼方裡的你是場景身份。這個角色私下認識的不是那張卡時，彼方的小人對它來說是別人，
+            // 不能說成「你認識的那個人此刻在彼方」。
+            const vrBase = uv?.enabled ? await DB.getUserProfile().catch(() => null) : null;
+            const vrSamePerson = !vrBase || personaKeyForChar(vrBase, char) === vrScenePersonaKey(vrBase, getCharRefs());
+            if (uv?.enabled && vrSamePerson) {
                 const VR_ROOM_NAMES: Record<string, string> = {
                     library: '圖書館', music: '聽歌房', guestbook: '留言簿', gym: '娛樂室', postoffice: '郵局', sar: 'SAR 活動室', cafe: '糯米雞研發中心',
                 };

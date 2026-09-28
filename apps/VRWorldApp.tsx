@@ -112,6 +112,7 @@ import type { CharacterProfile, UserProfile, VRWorldNovel, VRNovelAnnotation, VR
 import { getChibi } from '../utils/vrWorld/chibi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent } from '../utils/analytics';
+import { personaKeyForChar, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, vrScenePersonaKey } from '../utils/userPersona';
 import { formatHours } from '../utils/format';
 import TokenImg from '../components/os/TokenImg';
 
@@ -148,8 +149,59 @@ const IDLE_QUIPS: Record<VRRoomId, string[]> = {
     cafe: ['', '', '', ''],
 };
 
+/**
+ * 彼方的場景身份：你在彼方是哪一張卡（自動 = 接入彼方的角色最多人認識的那個你）。
+ * 認識的不是這張卡的角色，在彼方遇到你會當成不認識的人。沒有身份卡就不顯示。
+ */
+const VRScenePersonaPicker: React.FC<{
+    profileBase: UserProfile;
+    characters: CharacterProfile[];
+    sceneKey: string;
+    onChange: (personaId: string | undefined) => void;
+}> = ({ profileBase, characters, sceneKey, onChange }) => {
+    const personas = profileBase.personas || [];
+    if (!personas.length) return null;
+    const override = profileBase.scenePersonaIds?.vrworld;
+    const pinned = !!override && (override === REAL_IDENTITY_PERSONA_ID || personas.some(p => p.id === override));
+    const strangers = characters.filter(c => c.vrState?.enabled && personaKeyForChar(profileBase, c) !== sceneKey);
+    const options: Array<{ id: string | undefined; label: string }> = [
+        { id: undefined, label: '自動' },
+        { id: REAL_IDENTITY_PERSONA_ID, label: profileBase.name || '真實身份' },
+        ...personas.map(p => ({ id: p.id as string | undefined, label: p.name })),
+    ];
+    return (
+        <div className="rounded-2xl p-3.5 backdrop-blur-sm" style={{ background: 'rgba(120,130,255,0.06)', border: '1px solid rgba(150,168,255,0.18)' }}>
+            <div className="text-[10px] tracking-[0.2em] text-indigo-200/55 mb-1.5">你在彼方是</div>
+            <div className="flex flex-wrap gap-1.5">
+                {options.map(opt => {
+                    const on = opt.id === undefined ? !pinned : override === opt.id;
+                    return (
+                        <button key={opt.id || 'auto'} onClick={() => { onChange(opt.id); trackEvent('彼方场景身份指定', { choice: !opt.id ? 'auto' : opt.id === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' }); }}
+                            className={`text-[10.5px] rounded-full px-2.5 py-1 font-semibold ${on ? 'bg-indigo-400 text-white' : 'bg-white/10 text-indigo-200/70'}`}>
+                            {opt.label}
+                        </button>
+                    );
+                })}
+            </div>
+            <p className="mt-2 text-[10px] leading-relaxed text-indigo-200/60">
+                現在是「{personaNameForKey(profileBase, sceneKey)}」{pinned ? '' : '（接入彼方的角色最多人認識的）'}。
+                {strangers.length > 0
+                    ? `${strangers.map(c => `${c.name}（認識的是「${personaNameForKey(profileBase, personaKeyForChar(profileBase, c))}」）`).join('、')}在彼方遇到你會當成不認識的人，私聊不受影響。`
+                    : '接入彼方的角色都認識這個你。'}
+            </p>
+        </div>
+    );
+};
+
 const VRWorldApp: React.FC = () => {
-    const { closeApp, characters, characterGroups, updateCharacter, addToast, registerBackHandler, userProfile, updateUserProfile, apiPresets, apiConfig, groups, realtimeConfig, memoryPalaceConfig } = useOS();
+    const { closeApp, characters, characterGroups, updateCharacter, addToast, registerBackHandler, userProfileBase, updateUserProfile, apiPresets, apiConfig, groups, realtimeConfig, memoryPalaceConfig } = useOS();
+    // 多身份（2d）：彼方裡的你是場景身份——指定的，或接入彼方的角色最多人認識的那個你（utils/userPersona.ts）。
+    // 你的分身只有一個，名字/頭像都用它；vrState 本來就存在真實檔案上，照舊。
+    const vrSceneKey = useMemo(() => vrScenePersonaKey(userProfileBase, characters), [userProfileBase, characters]);
+    const userProfile = useMemo(
+        () => ({ ...profileForPersonaKey(userProfileBase, vrSceneKey), vrState: userProfileBase.vrState }),
+        [userProfileBase, vrSceneKey],
+    );
     useEffect(() => {
         const flush = () => { void flushFishingDeliveries(characters).then(() => flushMarketReceipts(characters)).catch(() => {}); };
         flush();
@@ -603,6 +655,12 @@ const VRWorldApp: React.FC = () => {
                     <div className="space-y-3">
                         <UserVRPanel userProfile={userProfile} updateUserProfile={updateUserProfile}
                             onEditChibi={() => setChibiEditUser(true)} onBroadcast={onUserVRBroadcast} addToast={addToast} />
+                        <VRScenePersonaPicker profileBase={userProfileBase} characters={characters} sceneKey={vrSceneKey}
+                            onChange={id => {
+                                const next = { ...(userProfileBase.scenePersonaIds || {}) };
+                                if (id) next.vrworld = id; else delete next.vrworld;
+                                updateUserProfile({ scenePersonaIds: next });
+                            }} />
                         <SettingsView characters={characters} updateCharacter={updateCharacter} addToast={addToast}
                             novels={novels} onReload={reloadAll}
                             onRequestEnable={requestEnable} onEditChibi={setChibiEditChar}

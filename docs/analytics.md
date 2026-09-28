@@ -1234,6 +1234,9 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 
 - 切换个人档案标签页
 - 分世界身份指定 —— choice（default / real / persona）：给一个世界（神经链接的角色分组）指定身份卡
+- 彼方场景身份指定 —— choice（auto / real / persona）：指定你在彼方是哪张身份卡
+- 游戏场景身份指定 —— choice（auto / real / persona）：开一局游戏时指定你是哪张身份卡
+- 人生模拟场景身份指定 —— choice（auto / real / persona）：指定你在人生模拟城市里是哪张身份卡
 
 **热点**
 

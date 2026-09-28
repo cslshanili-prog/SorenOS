@@ -4,7 +4,8 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
  * 核心體驗：看角色操控都市居民，製造都市Drama，離線回來發現整棟樓翻天覆地
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { personaKeyForChar, personaKeyForScene, personaNameForKey, profileForPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { useOS } from '../context/OSContext';
 import {
     LifeSimState, SimAction, SimActionType, SimEventType,
@@ -115,7 +116,7 @@ async function callCharAI(
 // ── 主組件 ──────────────────────────────────────────────────────
 
 const LifeSimApp: React.FC = () => {
-    const { apiConfig, apiPresets, characters, userProfile, closeApp } = useOS();
+    const { apiConfig, apiPresets, characters, userProfileBase, closeApp } = useOS();
 
     const [gameState, setGameState] = useState<LifeSimState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -178,6 +179,14 @@ const LifeSimApp: React.FC = () => {
         const validIds = new Set(allIds);
         return state.participantCharIds.filter(id => validIds.has(id));
     }, [characters]);
+
+    // 多身份（2d）：這座城裡跟角色們一起玩的你是場景身份——設定裡指定的，或參與角色最多人認識的那個你。
+    // 每個角色自己的回合，關係與私聊背景照它私下認識的那個你；兩者不同時它把你當成不認識的玩家。
+    const lifeSimSceneKey = useMemo(
+        () => personaKeyForScene(userProfileBase, gameState?.personaId, resolveParticipantCharIds(gameState), characters),
+        [userProfileBase, gameState, resolveParticipantCharIds, characters],
+    );
+    const userProfile = useMemo(() => profileForPersonaKey(userProfileBase, lifeSimSceneKey), [userProfileBase, lifeSimSceneKey]);
 
     const getParticipatingCharacters = useCallback((state: LifeSimState | null) => {
         const allowedIds = new Set(resolveParticipantCharIds(state));
@@ -438,11 +447,14 @@ const LifeSimApp: React.FC = () => {
 
                 if (canUseApi) {
                     const rawMessages = await loadCharacterContextMessages(char);
+                    const knownUser = personaKeyForChar(userProfileBase, char) === lifeSimSceneKey
+                        ? userProfile
+                        : resolveUserProfileForChar(userProfileBase, char);
                     const chatHistory = formatRecentChatForSim(
-                        rawMessages as any, char.name, userProfile.name || '你', rawMessages.length
+                        rawMessages as any, char.name, knownUser.name || '你', rawMessages.length
                     );
-                    await injectMemoryPalace(char, undefined, chatHistory || undefined);
-                    const systemPrompt = buildCharTurnSystemPrompt(char, userProfile, chatHistory, s, s.actionLog);
+                    await injectMemoryPalace(char, undefined, chatHistory || undefined, knownUser.name);
+                    const systemPrompt = buildCharTurnSystemPrompt(char, knownUser, chatHistory, s, s.actionLog, userProfile);
                     const raw = await callCharAI(
                         { baseUrl: resolvedApiConfig.baseUrl, apiKey: resolvedApiConfig.apiKey, model: resolvedApiConfig.model },
                         systemPrompt
@@ -529,7 +541,7 @@ const LifeSimApp: React.FC = () => {
         setProcessingMsg('');
         if (replayActions.length > 0) { setShowReplay(true); setReplayIndex(0); }
         if (s.gameOver) setShowGameOver(true);
-    }, [characters, resolveLifeSimApiConfig, saveState, userProfile]);
+    }, [characters, resolveLifeSimApiConfig, saveState, userProfile, userProfileBase, lifeSimSceneKey]);
 
     // ── 用戶行動：攪局 ──────────────────────────────────────────
 
@@ -1253,6 +1265,15 @@ const LifeSimApp: React.FC = () => {
                     onSelectAll={handleSelectAllParticipantChars}
                     onSelectNone={handleClearParticipantChars}
                     onSaveApiSettings={handleSaveLifeSimApiSettings}
+                    persona={(userProfileBase.personas?.length || 0) > 0 ? {
+                        profileBase: userProfileBase,
+                        personaId: gameState.personaId,
+                        sceneName: personaNameForKey(userProfileBase, lifeSimSceneKey),
+                        strangers: getParticipatingCharacters(gameState)
+                            .filter(c => personaKeyForChar(userProfileBase, c) !== lifeSimSceneKey)
+                            .map(c => ({ name: c.name, knownName: personaNameForKey(userProfileBase, personaKeyForChar(userProfileBase, c)) })),
+                        onChange: (id) => { void saveState({ ...gameState, personaId: id }); },
+                    } : undefined}
                     onClose={() => setShowSettings(false)}
                 />
             )}

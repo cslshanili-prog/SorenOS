@@ -1,12 +1,14 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { GameSession, GameTheme, CharacterProfile, GameLog, GameActionOption, GameSummary } from '../types';
 import { ContextBuilder } from '../utils/context';
 import { extractContent, extractJson } from '../utils/safeApi';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
+import { personaKeyForChar, personaKeyForScene, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
+import { distinctPersonaNote } from '../utils/personaSpeaker';
 import { trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
@@ -199,7 +201,7 @@ const GameMarkdown: React.FC<{ content: string, theme: any, customStyle?: { font
 };
 
 const GameApp: React.FC = () => {
-    const { closeApp, characters, userProfile, apiConfig, addToast, updateCharacter, characterGroups } = useOS();
+    const { closeApp, characters, userProfileBase, apiConfig, addToast, updateCharacter, characterGroups } = useOS();
     const [view, setView] = useState<'lobby' | 'create' | 'play'>('lobby');
     const [games, setGames] = useState<GameSession[]>([]);
     const [activeGame, setActiveGame] = useState<GameSession | null>(null);
@@ -220,6 +222,14 @@ const GameApp: React.FC = () => {
     const [newDiceDisabled, setNewDiceDisabled] = useState(false);            // 關閉骰子（默認每次直接成功）
     const [newArchiveMode, setNewArchiveMode] = useState<'auto' | 'manual'>('auto');
     const [showArchiveHelp, setShowArchiveHelp] = useState(false);            // 歸檔模式問號說明
+    const [newPersonaId, setNewPersonaId] = useState<string | undefined>(undefined); // 這局你是誰（undefined = 自動）
+
+    // 多身份（2d）：這一局裡的你是場景身份——開局指定的，或玩家角色最多人認識的那個你。
+    // 開局畫面看正在勾選的玩家；進了局看存檔上的。認識的不是這張卡的角色，把你當成初次見面的玩家。
+    const scenePlayers = view === 'create' || !activeGame ? Array.from(selectedPlayers) : activeGame.playerCharIds;
+    const scenePersonaOverride = view === 'create' || !activeGame ? newPersonaId : activeGame.personaId;
+    const gameSceneKey = personaKeyForScene(userProfileBase, scenePersonaOverride, scenePlayers, characters);
+    const userProfile = useMemo(() => profileForPersonaKey(userProfileBase, gameSceneKey), [userProfileBase, gameSceneKey]);
 
     // Play State
     const [userInput, setUserInput] = useState('');
@@ -353,8 +363,12 @@ const GameApp: React.FC = () => {
             //   A 的記憶安到 B 頭上 = 串台）。改為 includeDetailedMemories=false（僅長期核心記憶）
             //   + 下方按需注入的記憶宮殿向量召回（只取與當前情境相關的片段）。
             //   同時跳過共享場景裡已鋪過的用戶檔案 / 世界書 / 世界觀，徹底去重。
-            await injectMemoryPalace(p);
-            const core = ContextBuilder.buildCoreContext(p, userProfile, false, undefined, {
+            // 這位玩家角色私下認識的你：不是這局的你時，角色檔案照舊指它認識的那個人，私聊不同步進來
+            const knownKey = personaKeyForChar(userProfileBase, p);
+            const samePerson = knownKey === gameSceneKey;
+            const knownUser = samePerson ? userProfile : resolveUserProfileForChar(userProfileBase, p);
+            await injectMemoryPalace(p, undefined, undefined, knownUser.name);
+            const core = ContextBuilder.buildCoreContext(p, knownUser, false, undefined, {
                 skipUserProfile: true,
                 skipWorldview: sharedScene.worldviewIsShared,
                 skipWorldbookIds: sharedScene.sharedWorldbookIds,
@@ -368,6 +382,11 @@ const GameApp: React.FC = () => {
                 fullContext += `\n【注意：以下記憶宮殿召回【僅屬於 ${p.name}】，是 TA 一個人的私人記憶，絕不可當成其他角色的經歷或挪用給別人】\n`;
                 fullContext += `${p.memoryPalaceInjection}\n`;
                 fullContext += `【${p.name} 的私人記憶結束】\n`;
+            }
+
+            if (!samePerson) {
+                fullContext += `\n${distinctPersonaNote([userProfile.name], knownUser.name, '這局遊戲裡')}\n[神經鏈接: 這位玩家不是你私下認識的人] (視為初次見面的玩家)\n<<< 檔案結束 >>>\n`;
+                continue;
             }
 
             // 2. Neural Link: Private Chat Sync
@@ -575,6 +594,7 @@ ${playerContext}
                 suggestedActions: res?.suggested_actions || [],
                 diceDisabled: newDiceDisabled,
                 archiveMode: newArchiveMode,
+                ...(newPersonaId ? { personaId: newPersonaId } : {}),
                 createdAt: Date.now(),
                 lastPlayedAt: Date.now()
             };
@@ -595,6 +615,7 @@ ${playerContext}
             setWorldIdea('');
             setNewDiceDisabled(false);
             setNewArchiveMode('auto');
+            setNewPersonaId(undefined);
             setSelectedPlayers(new Set());
 
         } catch (e: any) {
@@ -1491,6 +1512,33 @@ Output: A concise summary in Chinese (e.g. "探索了地牢並擊敗了史萊姆
                             </>
                         )}
                     </div>
+
+                    {/* 這局你是誰（多身份）：有身份卡才顯示；自動 = 選中的隊友最多人認識的那個你 */}
+                    {(userProfileBase.personas?.length || 0) > 0 && selectedPlayers.size > 0 && (() => {
+                        const strangers = characters.filter(c => selectedPlayers.has(c.id) && personaKeyForChar(userProfileBase, c) !== gameSceneKey);
+                        const options: Array<{ id: string | undefined; label: string }> = [
+                            { id: undefined, label: '自動' },
+                            { id: REAL_IDENTITY_PERSONA_ID, label: userProfileBase.name || '真實身份' },
+                            ...(userProfileBase.personas || []).map(p => ({ id: p.id as string | undefined, label: p.name })),
+                        ];
+                        return (
+                            <div>
+                                <label className="text-[11px] font-bold text-white/40 uppercase tracking-wider block mb-2">這局你是</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {options.map(opt => (
+                                        <button key={opt.id || 'auto'} onClick={() => { setNewPersonaId(opt.id); trackEvent('游戏场景身份指定', { choice: !opt.id ? 'auto' : opt.id === REAL_IDENTITY_PERSONA_ID ? 'real' : 'persona' }); }}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border ${newPersonaId === opt.id ? 'bg-purple-500/25 border-purple-400 text-purple-100' : 'bg-white/5 border-white/10 text-white/50'}`}>
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-white/40 mt-1.5 leading-relaxed">
+                                    這局你是「{personaNameForKey(userProfileBase, gameSceneKey)}」{newPersonaId ? '' : '（隊友最多人認識的）'}。
+                                    {strangers.length > 0 ? `${strangers.map(c => `${c.name}（認識的是「${personaNameForKey(userProfileBase, personaKeyForChar(userProfileBase, c))}」）`).join('、')}會把你當成初次見面的玩家。` : '隊友們都認識這個你。'}
+                                </p>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* 底部開始按鈕 */}

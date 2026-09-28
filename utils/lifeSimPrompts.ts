@@ -6,6 +6,7 @@
 
 import { LifeSimState, SimFamily, SimNPC, SimAction, CharacterProfile, UserProfile, SimSeason, CharNarrative, SimEventType, SimStoryAttachmentDraft } from '../types';
 import { ContextBuilder } from './context';
+import { distinctPersonaNote } from './personaSpeaker';
 import {
     getFamilyMembers, getIndependentNPCs, getMoodLabel, getFamilyAtmosphere,
     SEASON_INFO, TIME_INFO, WEATHER_INFO, getProfessionInfo, getChaosLabel, getRelLabel
@@ -499,10 +500,14 @@ export function buildCharTurnSystemPrompt(
     user: UserProfile,
     recentChatHistory: string,
     state: LifeSimState,
-    actionLog: SimAction[]
+    actionLog: SimAction[],
+    /** 這局裡跟你一起玩的那個你（場景身份，多身份隔離 2d）；不給就是 user。user 是這個角色私下認識的你 */
+    sceneUser?: UserProfile,
 ): string {
-    // 1. 角色核心上下文
+    // 1. 角色核心上下文（關係、印象照它私下認識的那個你）
     const coreContext = ContextBuilder.buildCoreContext(char, user, true);
+    const player = sceneUser || user;
+    const strangerNote = player.name !== user.name ? `\n${distinctPersonaNote([player.name], user.name, '這局遊戲裡')}\n` : '';
 
     // 2. 季節/天氣信息
     const season = state.season ?? 'spring';
@@ -512,8 +517,8 @@ export function buildCharTurnSystemPrompt(
 
     // 3. 遊戲設定
     const dramaSetup = `
-=== 你正在和${user.name}一起玩一款叫【模擬人生】的遊戲 ===
-
+=== 你正在和${player.name}一起玩一款叫【模擬人生】的遊戲 ===
+${strangerNote}
 你們是一群朋友圍在一起玩遊戲，遊戲裡有一個小鎮，裡面住著各種NPC小人。
 你不在遊戲世界裡——你是坐在外面的玩家，在操控和觀察遊戲裡的小人們。
 每個玩家輪流操作，現在輪到你了。

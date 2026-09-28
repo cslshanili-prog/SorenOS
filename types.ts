@@ -3743,6 +3743,12 @@ export interface UserProfile {
      */
     perGroupPersonaIds?: Record<string, string>;
     /**
+     * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
+     * 目前只有 'vrworld'（彼方，你的分身只有一個）；遊戲和人生模擬的身份存在各自那一局上。
+     * 不設 = 自動：在場角色最多人認識的那個你。解析走 utils/userPersona.ts 的 personaKeyForScene。
+     */
+    scenePersonaIds?: Record<string, string>;
+    /**
      * Real Balance 錢包（Chat 主頁「主頁」欄卡片）：用戶全局的一個模擬錢包，
      * 不跟任何角色綁定。undefined = 還沒打開過，首次進「主頁」欄時
      * utils/realBalance.ts 的 ensureRealBalanceState() 負責生成初始狀態並寫回來。
@@ -4549,6 +4555,8 @@ export interface GameSession {
     // 歸檔模式：'auto' 滿20條自動總結並送進角色 chatapp；'manual' 自動總結但不送，僅手動歸檔時送。
     // 舊存檔無此字段，按 'manual' 處理（不汙染舊角色的聊天上下文）。
     archiveMode?: 'auto' | 'manual';
+    /** 這一局裡你是哪張身份卡（身份卡 id / REAL_IDENTITY_PERSONA_ID）；不設 = 自動：玩家角色最多人認識的那個你（多身份隔離 2d） */
+    personaId?: string;
     suggestedActions?: GameActionOption[];
     summaries?: GameSummary[];   // 自動總結歸檔的前情提要
     createdAt: number;
@@ -5151,6 +5159,8 @@ export interface LifeSimState {
     charQueue: string[];     // 待執行的CHAR id隊列（用戶結束後填入）
     replayPending: SimAction[]; // 用戶回來後待回放的行動
     participantCharIds?: string[]; // 允許參與本局LifeSim的外部角色
+    /** 這座城裡你是哪張身份卡（身份卡 id / REAL_IDENTITY_PERSONA_ID）；不設 = 自動：參與角色最多人認識的那個你（多身份隔離 2d） */
+    personaId?: string;
     useIndependentApiConfig?: boolean;
     independentApiConfig?: Partial<APIConfig>;
     isProcessingCharTurn: boolean;
