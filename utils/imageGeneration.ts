@@ -68,6 +68,32 @@ export function shouldUseCharacterReference(
   return looksLikeSelfieDescription(options.description);
 }
 
+/** 送出去的參考圖邊長（cropReferenceImage 的 outputSize）。 */
+export const REFERENCE_OUTPUT_SIZE = 640;
+/** 臉部選區在原圖上小於這個邊長，放大到 640 就會糊。 */
+export const REFERENCE_FACE_MIN_PX = 256;
+/** 寬高比超過這個，居中方形裁切會切掉不少左右（或上下）內容。 */
+export const REFERENCE_WIDE_RATIO = 1.4;
+
+/**
+ * 鎖臉彈窗的提示（純邏輯）：臉部選區在原圖上實際有幾像素、圖是不是太寬。
+ * 典型踩雷是三視圖：橫長的圖先被居中裁成正方形，側面、背面視角被切掉；全身像的臉又很小，
+ * 裁出來放大到 640 五官全糊。
+ */
+export function referenceCropHints(width: number, height: number, box: { size: number }): {
+    facePx: number;
+    faceTooSmall: boolean;
+    tooWide: boolean;
+} {
+    const side = Math.min(width, height);
+    const facePx = Math.round(Math.max(0, box.size) * side);
+    return {
+        facePx,
+        faceTooSmall: side > 0 && facePx < REFERENCE_FACE_MIN_PX,
+        tooWide: side > 0 && Math.max(width, height) / side > REFERENCE_WIDE_RATIO,
+    };
+}
+
 /**
  * 按 FaceCropModal 選的臉部選區裁參考圖。選區座標是相對「參考圖先按 object-fit: cover
  * 裁成正方形」之後的比例（跟彈窗預覽的換算口徑一致），所以這裡先算出那個正方形裁切區，
@@ -77,7 +103,7 @@ export function shouldUseCharacterReference(
 export async function cropReferenceImage(
   sourceBlob: Blob,
   faceBox?: { x: number; y: number; size: number },
-  outputSize = 640,
+  outputSize = REFERENCE_OUTPUT_SIZE,
 ): Promise<Blob> {
   const dataUrl = await blobToDataUrl(sourceBlob);
   const img = await loadImageElement(dataUrl);

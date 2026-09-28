@@ -4,6 +4,7 @@ import { CharacterProfile } from '../../types';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import FaceCropModal, { FaceBox } from './FaceCropModal';
+import { referenceCropHints } from '../../utils/imageGeneration';
 
 interface CharacterImageGenPanelProps {
     charName: string;
@@ -17,6 +18,9 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
     const fileRef = useRef<HTMLInputElement>(null);
     const [showFaceCrop, setShowFaceCrop] = useState(false);
     const referenceImageUrl = useBlobRefUrl(value?.referenceImage);
+    const [refSize, setRefSize] = useState<{ w: number; h: number } | null>(null);
+    // 沒鎖臉時送出去的是整個居中方形，選區大小就當 1
+    const refHints = refSize ? referenceCropHints(refSize.w, refSize.h, value?.referenceFaceBox ?? { size: 1 }) : null;
     const referenceEnabled = value?.referenceEnabled ?? false;
     const nonSelfieSkipsReference = value?.nonSelfieSkipsReference ?? true;
 
@@ -95,8 +99,15 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
 
                 {referenceImageUrl && (
                     <div className="mb-3 rounded-xl overflow-hidden border border-slate-200" style={{ aspectRatio: '1 / 1', maxWidth: 120 }}>
-                        <img src={referenceImageUrl} alt="參考圖" className="w-full h-full object-cover" />
+                        <img src={referenceImageUrl} alt="參考圖" onLoad={e => setRefSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} className="w-full h-full object-cover" />
                     </div>
+                )}
+                {referenceImageUrl && refHints && (refHints.faceTooSmall || refHints.tooWide) && (
+                    <p role="status" className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+                        {refHints.faceTooSmall && `${value?.referenceFaceBox ? '鎖定的臉部' : '這張圖'}在原圖上只有約 ${refHints.facePx} 像素，放大後五官會糊，建議換一張臉更大的近照。`}
+                        {refHints.faceTooSmall && refHints.tooWide && ' '}
+                        {refHints.tooWide && '圖比較寬（像三視圖），送出去前會居中裁成正方形，左右兩側會被切掉。'}
+                    </p>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
