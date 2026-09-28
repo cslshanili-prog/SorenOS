@@ -6,7 +6,7 @@ import { trackEvent } from '../../utils/analytics';
 
 /**
  * 檔案 App「群聊身份指定」：給每個群單獨指定一張身份卡（或強制真實身份），不影響其他群
- * 或任何私聊。不設置 = 跟全域默認（身份卡面板裡的「目前身份」）走。
+ * 或任何私聊。不設置 = 自動：群成員大多數私下認識的那個你（平手或沒有角色成員時跟全域默認）。
  *
  * 數據存 userProfile.perGroupPersonaIds（groupId → personaId / REAL_IDENTITY_PERSONA_ID），
  * 解析統一走 utils/userPersona.ts 的 resolveUserProfileForGroup()——群聊沒有
@@ -19,7 +19,7 @@ import { trackEvent } from '../../utils/analytics';
 const PAGE_SIZE = 8;
 
 const PerGroupPersonaPicker: React.FC = () => {
-    const { groups, userProfileBase, updateUserProfile } = useOS();
+    const { groups, characters, userProfileBase, updateUserProfile } = useOS();
     const personas = userProfileBase.personas || [];
     const overrides = userProfileBase.perGroupPersonaIds || {};
 
@@ -103,7 +103,7 @@ const PerGroupPersonaPicker: React.FC = () => {
                 >
                     <div key={`${safePage}-${query}`} className={`grid grid-cols-4 gap-3 ${slideDir === 'l' ? 'pgp-slide-l' : 'pgp-slide-r'}`}>
                         {pageGroups.map(g => {
-                            const resolved = resolveUserProfileForGroup(userProfileBase, g.id);
+                            const resolved = resolveUserProfileForGroup(userProfileBase, g, characters);
                             const hasOverride = !!overrides[g.id];
                             return (
                                 <button key={g.id} onClick={() => setEditingId(g.id)} className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform">
@@ -145,7 +145,7 @@ const PerGroupPersonaPicker: React.FC = () => {
                 </div>
             )}
 
-            {/* 選擇彈層：跟隨全域默認 / 強制真實身份 / 某張身份卡 */}
+            {/* 選擇彈層：自動（成員多數認識的）/ 強制真實身份 / 某張身份卡 */}
             {editingGroup && (
                 <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in" onClick={() => setEditingId(null)}>
                     <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 animate-slide-up sm:animate-pop-in"
@@ -166,8 +166,8 @@ const PerGroupPersonaPicker: React.FC = () => {
                             >
                                 <span className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">∅</span>
                                 <div className="min-w-0">
-                                    <div className="text-[11px] font-bold text-slate-700">跟隨全域默認</div>
-                                    <div className="text-[9px] text-slate-400">身份卡面板裡的「目前身份」切換時，這個群一起跟著變</div>
+                                    <div className="text-[11px] font-bold text-slate-700">自動</div>
+                                    <div className="text-[9px] text-slate-400">用群成員大多數私下認識的那個你；平手或沒有角色成員時跟隨全域默認</div>
                                 </div>
                             </button>
 

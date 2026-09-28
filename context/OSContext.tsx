@@ -3713,7 +3713,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const markGroupMembersDirty = (memberIds: string[], nextGroups: GroupProfile[]) => {
       for (const memberId of new Set(memberIds)) {
           const member = characters.find(c => c.id === memberId);
-          if (member) markAmsgStateDirty({ char: member, userProfile, groups: nextGroups, realtimeConfig });
+          // 成員自己的私聊快照：用它私下認識的那個你
+          if (member) markAmsgStateDirty({ char: member, userProfile: resolveUserProfileForChar(userProfileBase, member), groups: nextGroups, realtimeConfig });
       }
   };
 

@@ -27,7 +27,7 @@ import { buildLifeRecordInjection } from './lifeRecords';
 import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
-import { getCharNameById } from './charNameRegistry';
+import { getCharNameById, getCharRefs } from './charNameRegistry';
 import { getMomentsContextForChar } from './momentsContext';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
@@ -443,7 +443,7 @@ export const ChatPrompts = {
                 const perGroup = await Promise.all(
                     memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => ({
                         groupName: g.name,
-                        groupPersonaKey: personaBase ? personaKeyForGroup(personaBase, g.id) : undefined,
+                        groupPersonaKey: personaBase ? personaKeyForGroup(personaBase, g, getCharRefs()) : undefined,
                         cap: g.privateContextCap ?? 80,
                         // 已經進入公共話題盒的舊原文不再重複塞進私聊背景；成盒時送達的
                         // group_topic_card 會沿私聊自身的歷史/歸檔鏈繼續被角色感知。

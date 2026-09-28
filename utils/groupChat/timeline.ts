@@ -31,6 +31,8 @@ export interface MemberTimelineOptions {
     resolveSpeaker: (m: Message) => string;
     /** 表情包 URL → 名稱（佔位符用） */
     stickerName?: (url: string) => string;
+    /** 群裡用戶那一行怎麼稱呼（多身份：別的身份用卡名）；不給就是「用戶」。私聊行一律「用戶」 */
+    userSpeaker?: (m: Message) => string;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface MemberTimelineOptions {
  *   [群聊][07-11 09:02] 小夏: 早啊！
  */
 export function buildMemberTimeline(opts: MemberTimelineOptions): string {
-    const { privateMsgs, groupMsgs, cap, resolveSpeaker, stickerName } = opts;
+    const { privateMsgs, groupMsgs, cap, resolveSpeaker, stickerName, userSpeaker } = opts;
 
     const tagged = [
         ...privateMsgs.slice(-cap).map(m => ({ m, isGroup: false })),
@@ -59,7 +61,9 @@ export function buildMemberTimeline(opts: MemberTimelineOptions): string {
         .map(({ m, isGroup }) => {
             const tag = isGroup ? '[群聊]' : '[私聊]';
             // 私聊行的"我"= 該成員本人；群聊行用真名，成員才能分清誰說的
-            const speaker = m.role === 'user' ? '用戶' : (isGroup ? resolveSpeaker(m) : '我');
+            const speaker = m.role === 'user'
+                ? (isGroup && userSpeaker ? userSpeaker(m) : '用戶')
+                : (isGroup ? resolveSpeaker(m) : '我');
             // 群裡以前漏出來的思考過程（見 reasoningLeak.ts）不再當範例給這位成員看
             const logText = isGroup && m.role === 'assistant' ? stripLeakedReasoning(messageLogText(m, stickerName)).content : messageLogText(m, stickerName);
             if (!logText.trim()) return '';

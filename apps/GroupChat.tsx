@@ -23,9 +23,11 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effective
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForGroup } from '../utils/userPersona';
+import { globalPersonaKey, groupPersonaSource, personaAvatarForKey, personaKeyForChar, personaKeyForGroup, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
+import { distinctGroupPersonaSection, groupPersonaMismatches, makeUserLineLabeler } from '../utils/groupChat/memberPersona';
+import { distinctPersonaNote } from '../utils/personaSpeaker';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
 import { stripLeakedReasoning } from '../utils/reasoningLeak';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
@@ -497,12 +499,36 @@ const GroupChat: React.FC = () => {
     // 只有通過 pendingGroupChatId 深鏈進來的那次會話才設置，用一次就清空。
     const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
-    // 群聊身份指定：這個群裡「你」該是哪張身份卡，按 activeGroup.id 單獨解析——不看全域默認，
-    // 除非這個群沒有單獨指定。群聊沒有 perCharAvatars 那層（群聊頭像一直用整體默認）。
+    // 群聊身份指定：這個群裡「你」該是哪張身份卡——群單獨指定 > 成員多數私下認識的 > 全域默認
+    // （utils/userPersona.ts 的 personaKeyForGroup）。群聊沒有 perCharAvatars 那層（群聊頭像一直用整體默認）。
     const groupUserProfile = useMemo(
-        () => (activeGroup ? resolveUserProfileForGroup(userProfileBase, activeGroup.id) : userProfile),
-        [activeGroup, userProfileBase, userProfile],
+        () => (activeGroup ? resolveUserProfileForGroup(userProfileBase, activeGroup, characters) : userProfile),
+        [activeGroup, userProfileBase, userProfile, characters],
     );
+    // 群身份的身份鍵：你在群裡發的訊息記下它（metadata.personaKey），之後群身份改了，舊訊息還算當時那個人
+    const groupPersonaKey = useMemo(
+        () => (activeGroup ? personaKeyForGroup(userProfileBase, activeGroup, characters) : globalPersonaKey(userProfileBase)),
+        [activeGroup, userProfileBase, characters],
+    );
+    // 多身份標示（只標示、不阻止）：成員私下認識的你跟群身份不同，在群裡會把你當成另一個人
+    const hasPersonas = (userProfileBase.personas?.length || 0) > 0;
+    const knownElsewhere = (c: CharacterProfile) => {
+        if (!hasPersonas) return null;
+        const key = personaKeyForChar(userProfileBase, c);
+        if (key === groupPersonaKey) return null;
+        return <span className="ml-1 text-[9px] font-bold text-amber-500" title="私下認識的是別的身份，在這個群裡會把你當成另一個人">認識的是 {personaNameForKey(userProfileBase, key)}</span>;
+    };
+    const renderPersonaMismatchNote = (group: { id: string; members: string[] }) => {
+        const { groupName, members } = groupPersonaMismatches(userProfileBase, group, characters);
+        const source = groupPersonaSource(userProfileBase, group, characters);
+        const how = source === 'group' ? '這個群指定的' : source === 'members' ? '成員多數認識的' : '全域默認';
+        return (
+            <div className={`mt-2 rounded-xl px-3 py-2 text-[10px] leading-relaxed ${members.length ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-500'}`}>
+                這個群裡你是「{groupName}」（{how}）。
+                {members.length > 0 && <>{members.map(m => `${m.name}（認識的是「${m.knownName}」）`).join('、')}在群裡會把你當成另一個人，私聊不受影響。</>}
+            </div>
+        );
+    };
     const [messages, setMessages] = useState<Message[]>([]);
     const [totalMsgCount, setTotalMsgCount] = useState(0);
     const MESSAGE_PAGE_SIZE = 50;
@@ -536,9 +562,10 @@ const GroupChat: React.FC = () => {
     const markGroupMembersDirty = useCallback((memberIds: string[], reason: AmsgDirtyReason = 'refresh') => {
         for (const memberId of memberIds) {
             const member = charactersRef.current.find(c => c.id === memberId);
-            if (member) markAmsgStateDirty({ char: member, userProfile: groupUserProfile, groups, realtimeConfig }, reason);
+            // 打髒的是成員自己的私聊快照：用它私下認識的那個你，不是群身份
+            if (member) markAmsgStateDirty({ char: member, userProfile: resolveUserProfileForChar(userProfileBase, member), groups, realtimeConfig }, reason);
         }
-    }, [groupUserProfile, groups, realtimeConfig]);
+    }, [userProfileBase, groups, realtimeConfig]);
 
     // Token 統計 — 對齊私聊 ChatHeader 的 token badge
     const [lastTokenUsage, setLastTokenUsage] = useState<number | null>(null);
@@ -1078,7 +1105,7 @@ const GroupChat: React.FC = () => {
                 role: 'user' as const,
                 type,
                 content,
-                metadata
+                metadata: { ...(metadata || {}), personaKey: groupPersonaKey },
             };
             if (puppet) trackEvent('群聊旁观代打发言');
 
@@ -1245,7 +1272,7 @@ const GroupChat: React.FC = () => {
                 role: 'user',
                 type: 'transfer',
                 content: outcome.action === 'claimed' ? '[領取紅包]' : '[退回紅包]',
-                metadata: receipt,
+                metadata: { ...receipt, personaKey: groupPersonaKey },
             });
             addToast(outcome.action === 'claimed' ? `你搶到了 ¥${outcome.amount}` : '已退回紅包', 'success');
             trackEvent('领取或退回群红包', { action });
@@ -1400,13 +1427,18 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // 角色應召回與"群裡正聊的話題"相關的記憶，而不是私聊近況（舊行為，召回跑偏）
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         const palaceQueryMsgs = liveGroupMsgs.slice(-30).filter(m => !m.type || m.type === 'text');
-        await injectMemoryPalace(member, palaceQueryMsgs, undefined, groupUserProfile.name);
+        // 多身份：這位成員私下認識的你跟群身份不同時，群裡的你對它來說是另一個人——
+        // 角色檔案（關係、印象、記憶、世界書的 {{user}}）照舊指它認識的那個人，私聊時間線不併進來。
+        const knownKey = personaKeyForChar(userProfileBase, member);
+        const samePerson = knownKey === groupPersonaKey;
+        const knownProfile = samePerson ? groupUserProfile : resolveUserProfileForChar(userProfileBase, member);
+        await injectMemoryPalace(member, palaceQueryMsgs, undefined, knownProfile.name);
         // 對話範例：成員看得到自己的私聊＋這個群的原話，兩邊加起來到門檻就不附（見 utils/dialogueExamples.ts）
         const totalMessages = member.dialogueExamples?.trim()
             ? (await DB.countMessagesByCharId(member.id).catch(() => 0)) + Math.max(totalMsgCount, currentMsgs.length)
             : undefined;
         // 角色塊：跳過共享場景已包含的部分（用戶檔案 / 共有 worldview / 共有世界書）
-        const coreContext = ContextBuilder.buildCoreContext(member, groupUserProfile, true, undefined, {
+        const coreContext = ContextBuilder.buildCoreContext(member, knownProfile, true, undefined, {
             skipUserProfile: true,
             skipWorldview: sharedScene.worldviewIsShared,
             skipWorldbookIds: sharedScene.sharedWorldbookIds,
@@ -1414,11 +1446,12 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         // conversational：群聊同樣是用戶正在說話的場合（見 buildTimeAwarenessBlock）
         }, { worldbookMessages: liveGroupMsgs, conversational: true, totalMessages });
         // Get private gap string
-        const privateGapInfo = await getPrivateTimeGap(member.id);
+        const privateGapInfo = samePerson ? await getPrivateTimeGap(member.id) : '';
 
         // 私聊+群聊合併時間線：讓角色看清兩條線的先後關係，感情才能銜接。
-        // 私聊側遵守角色的原文範圍，再與本群獨立窗口合併。
-        const privateMsgs = await loadCharacterContextMessages(member);
+        // 私聊側遵守角色的原文範圍，再與本群獨立窗口合併。群裡的你不是它認識的那個人時只給群聊。
+        const privateMsgs = samePerson ? await loadCharacterContextMessages(member) : [];
+        const otherPersonaNames: string[] = [];
         const memberTimeline = buildMemberTimeline({
             privateMsgs,
             groupMsgs: liveGroupMsgs,
@@ -1427,7 +1460,20 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
                 ? '我'
                 : (speakers.find(c => c.id === m.charId)?.name || '未知成員'),
             stickerName: url => stickerNameFromUrl(emojis, url),
+            userSpeaker: makeUserLineLabeler(userProfileBase, groupPersonaKey, knownKey, otherPersonaNames),
         });
+
+        if (!samePerson) {
+            return `
+<<< 角色檔案 START: ${member.name} (ID: ${member.id}) >>>
+${coreContext}
+
+${distinctGroupPersonaSection({ groupUserName: groupUserProfile.name, knownName: knownProfile.name, timeline: memberTimeline })}
+<<< 角色檔案 END >>>
+`;
+        }
+        // 群身份改過：以前用別的身份在群裡說的話，對它來說也是別人
+        const oldPersonaNote = distinctPersonaNote(otherPersonaNames, knownProfile.name, '群裡');
 
         // Construct Detailed Profile Wrapper
         // CRITICAL FIX: Emphasize Private Context logic
@@ -1439,7 +1485,7 @@ ${coreContext}
 - **私聊空窗期**: ${privateGapInfo}
 - **重要指令**: 如果 [私聊空窗期] 顯示 "剛剛" 或 "幾小時前"，請【忽略】群聊的時間流逝感知。哪怕群裡很久沒說話，只要你和用戶私底下剛聊過，就【嚴禁】說 "好久不見" 或表現出疏離感。
 - 你的近期互動時間線（按時間排序；[私聊]=你和用戶單獨聊的，別人看不見；[群聊]=本群公開記錄。僅作為你內心狀態的底色，不要變成默認反應模板）：
-${memberTimeline || '(暫無互動記錄)'}
+${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaNote}` : ''}
 - **先認清 U**：群聊裡的用戶，就是你一直在私聊、記憶和印象裡認識的同一個人。已經建立的關係、承諾和親密程度繼續成立；公開場合可以換一種表達方式，但不能重置關係或突然把 U 當成普通陌生群友。
 - **關於私聊狀態如何影響群聊表現**：
   · 私聊在吵架 → **可能**有點彆扭/冷淡/借題發揮，但**強度由你的性格決定**。情緒穩定的人不會因為私下鬧矛盾就在群裡失態；脾氣大的人才會帶情緒到群裡。絕大多數情況是"心裡有點疙瘩"而不是"擺臉色給所有人看"。
@@ -1507,6 +1553,9 @@ ${memberTimeline || '(暫無互動記錄)'}
 
     // 附圖時 user 消息走結構化 content（text + image_url），否則純文本，
     // 避免對不支持多模態字段的端點產生兼容問題
+    // 群歷史裡用戶那一行：目前群身份發的叫「用戶」，群身份改過之前別的身份發的用那張卡的名字
+    const historyUserLabel = makeUserLineLabeler(userProfileBase, groupPersonaKey, groupPersonaKey);
+
     const buildUserMessageContent = (prompt: string, history: GroupHistoryBlock): any =>
         history.attachedImages.length > 0
             ? [
@@ -1695,7 +1744,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                 emojis,
                 groupUserProfile.name,
                 3,
-                { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
+                { useVisionDescriptions: apiConfig.visionApi?.enabled === true, userLabel: historyUserLabel },
             );
             const emojiContextStr = buildEmojiContextStr(emojis, categories, activeGroup.members);
             // HTML 模塊模式：群開關開啟時追加提示詞。導演模式輸出的是 JSON 數組，
@@ -1839,7 +1888,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                         emojis,
                         groupUserProfile.name,
                         3,
-                        { useVisionDescriptions: apiConfig.visionApi?.enabled === true },
+                        { useVisionDescriptions: apiConfig.visionApi?.enabled === true, userLabel: historyUserLabel },
                     );
                     const emojiContextStr = buildEmojiContextStr(emojis, categories, activeGroup.members);
                     const htmlPromptExt = activeGroup.htmlModeEnabled
@@ -2041,6 +2090,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                                     </div>
                                 ))}
                             </div>
+                            {hasPersonas && selectedMembers.size >= 2 && renderPersonaMismatchNote({ id: '', members: Array.from(selectedMembers) })}
                         </div>
                     </div>
                 </Modal>
@@ -2223,7 +2273,10 @@ ${memberTimeline || '(暫無互動記錄)'}
                             msg={m}
                             isUser={isUser}
                             char={char}
-                            userAvatar={groupUserProfile.avatar}
+                            // 群身份改過：之前用別的身份發的訊息顯示那張卡的頭像
+                            userAvatar={isUser && m.metadata?.personaKey && m.metadata.personaKey !== groupPersonaKey
+                                ? personaAvatarForKey(userProfileBase, m.metadata.personaKey)
+                                : groupUserProfile.avatar}
                             onImageClick={handleGroupImageClick}
                             selectionMode={selectionMode}
                             isSelected={selectedMsgIds.has(m.id)}
@@ -2481,13 +2534,14 @@ ${memberTimeline || '(暫無互動記錄)'}
                                     );
                                 };
                                 return [
-                                    chip(undefined, '', '跟隨全域默認', '身份卡切換時一起變'),
+                                    chip(undefined, '', '自動', '成員多數認識的你'),
                                     chip(REAL_IDENTITY_PERSONA_ID, userProfileBase.avatar, userProfileBase.name || '真實身份', '固定真實身份'),
                                     ...(userProfileBase.personas || []).map(p => chip(p.id, p.avatar, p.name, '固定這張卡')),
                                 ];
                             })()}
                         </div>
-                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">只影響這個群；其他群和私聊不變。頭像/名字是即時生效的當前狀態，不會改寫這個群裡已經發出的消息內容。</p>
+                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">只影響這個群；其他群和私聊不變。「自動」會用群成員大多數私下認識的那個你。改了之後，之前發的訊息還算當時那個身份說的。</p>
+                        {hasPersonas && activeGroup && renderPersonaMismatchNote(activeGroup)}
                     </div>
 
                     {/* 成員管理：新增/移除即時生效，歷史消息不受影響 */}
@@ -2517,7 +2571,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                                 return (
                                     <div key={memberId} className={`flex items-center gap-2 border rounded-xl px-3 py-2 ${isMuted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-slate-50 border-slate-200'}`}>
                                         <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}{isMuted && <span className="ml-1 text-[9px] font-bold text-rose-400">已禁言</span>}</span>
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}{isMuted && <span className="ml-1 text-[9px] font-bold text-rose-400">已禁言</span>}{knownElsewhere(c)}</span>
                                         <button
                                             onClick={() => handleSetGroupOwner(isOwner ? undefined : memberId)}
                                             title={isOwner ? '取消群主' : '設為群主（純頭銜，不帶權限）'}
@@ -2552,7 +2606,7 @@ ${memberTimeline || '(暫無互動記錄)'}
                                     <button key={c.id} onClick={() => handleAddGroupMember(c.id)}
                                         className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-left active:scale-[0.99] transition-all">
                                         <TokenImg value={c.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}</span>
+                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{c.name}{knownElsewhere(c)}</span>
                                         <span className="text-[10px] font-bold text-violet-500">+ 加入</span>
                                     </button>
                                 ))}
