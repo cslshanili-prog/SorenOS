@@ -51,7 +51,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         addToast(trimmed ? '補充要求已保存' : '補充要求已清空', 'success');
     };
     // 只是 POV 預覽文案裡的示例名字，跟見面走同一套「個人檔案 → 分角色身份指定」
-    const userName = resolveUserProfileForChar(userProfileBase, char.id).name || '用戶';
+    const userName = resolveUserProfileForChar(userProfileBase, char).name || '用戶';
     const POV_OPTIONS: { id: DateStyleConfig['pov']; label: string; example: string }[] = [
         { id: undefined, label: '默認', example: '不額外指定，隨模型發揮' },
         { id: 'third-name', label: '第三人稱 · 稱名字', example: `${char.name}看著${userName}` },

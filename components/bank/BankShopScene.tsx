@@ -12,6 +12,7 @@ import { DB } from '../../utils/db';
 import { safeResponseJson } from '../../utils/safeApi';
 import { PawPrint, Bell, Sparkle, Book } from '@phosphor-icons/react';
 import { injectMemoryPalace } from '../../utils/memoryPalace/pipeline';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 
 interface Props {
     shopState: BankShopState;
@@ -28,7 +29,7 @@ const BankShopScene: React.FC<Props> = ({
     shopState, characters, userProfile, apiConfig, updateState,
     onStaffClick, onMoveStaff, onOpenGuestbook
 }) => {
-    const { addToast } = useOS();
+    const { userProfileBase, addToast } = useOS();
     const [visitor, setVisitor] = useState<{char: CharacterProfile, x: number, y: number, msg: string, scale: number, foundPet?: boolean} | null>(null);
     const [isInviting, setIsInviting] = useState(false);
     const [showLoveEffect, setShowLoveEffect] = useState(false);
@@ -105,6 +106,7 @@ const BankShopScene: React.FC<Props> = ({
         setIsInviting(true);
         try {
             const char = characters[Math.floor(Math.random() * characters.length)];
+            const userProfile = resolveUserProfileForChar(userProfileBase, char); // 照這個角色的身份綁定（見 utils/userPersona.ts）
             await injectMemoryPalace(char);
             const context = ContextBuilder.buildCoreContext(char, userProfile, true);
 

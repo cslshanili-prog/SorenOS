@@ -45,6 +45,7 @@ export {
 export type { PlateLLMItem, PlateMaterial } from './roomPlateCore';
 import type { PlateLLMItem, PlateMaterial } from './roomPlateCore';
 import { isPlateRoom, mergePlateEntries } from './roomPlateCore';
+import { resolveUserProfileForChar } from '../userPersona';
 
 // ─── LLM 蒸餾調用 ─────────────────────────────────────
 
@@ -184,7 +185,7 @@ async function consolidatePlates(
         const chars = await DB.getAllCharacters();
         const profile = chars.find(c => c.id === charId);
         const up = await DB.getUserProfile();
-        if (profile && up) identityContext = ContextBuilder.buildCoreContext(profile, up, false);
+        if (profile && up) identityContext = ContextBuilder.buildCoreContext(profile, resolveUserProfileForChar(up, profile), false);
     } catch { /* 拿不到就裸跑，prompt 裡仍有名字與身份確認段 */ }
 
     if (preferCloud) {

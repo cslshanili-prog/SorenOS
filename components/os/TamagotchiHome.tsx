@@ -22,6 +22,7 @@ import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../../utils/timezone';
 import { getCurrentScheduleSlotIndex, getScheduleWallClock } from '../../utils/scheduleTime';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 
 // ===== 電子寵物主題（tamagotchi skin）=====
 // 桌面不再是「放圖標的手機」，而是一台華麗麗的二次元養成機：屏幕主體是角色
@@ -778,11 +779,13 @@ const DockBtn: React.FC<{ glyph: React.ReactNode; cn: string; en: string; badge?
 
 // ─── 主組件 ───────────────────────────────────────────────────
 const TamagotchiHome: React.FC = () => {
-    const { openApp, characters, activeCharacterId, setActiveCharacterId, virtualTime, unreadMessages, isDataLoaded, lastMsgTimestamp, addToast, userProfile, apiConfig } = useOS();
+    const { openApp, characters, activeCharacterId, setActiveCharacterId, virtualTime, unreadMessages, isDataLoaded, lastMsgTimestamp, addToast, userProfile: globalUserProfile, userProfileBase, apiConfig } = useOS();
     const char: CharacterProfile | null = useMemo(
         () => characters.find(c => c.id === activeCharacterId) || characters[0] || null,
         [characters, activeCharacterId]
     );
+        // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+        const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
     const charDateKey = useLocalDateKey(resolveCharTimeZone(char));
 
     const [stat, setStat] = useState<{ msgCount: number; pokeLines: string[]; recent: { id: number; mine: boolean; text: string }[] }>({ msgCount: 0, pokeLines: [], recent: [] });

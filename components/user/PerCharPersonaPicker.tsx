@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
-import { REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../../utils/userPersona';
+import { personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../../utils/userPersona';
 import TokenImg from '../os/TokenImg';
 import { trackEvent } from '../../utils/analytics';
 
@@ -9,9 +9,8 @@ import { trackEvent } from '../../utils/analytics';
  * 不影響其他角色。不設置 = 跟全域默認（身份卡面板裡的「目前身份」）走。
  *
  * 數據存 userProfile.perCharPersonaIds（charId → personaId / REAL_IDENTITY_PERSONA_ID），
- * 解析統一走 utils/userPersona.ts 的 resolveUserProfileForChar()——目前只有私聊
- * （Chat.tsx）、查手機（CheckPhone.tsx）、記憶宮殿幾處生成記憶用的地方接了這份解析，
- * 其餘畫面仍讀全域默認，是刻意分批留下的範圍邊界。
+ * 解析統一走 utils/userPersona.ts 的 resolveUserProfileForChar()（哪些畫面接了見那裡的說明）。
+ * 優先級：這裡的分角色指定 > 世界（分組）預設（PerWorldPersonaPicker）> 全域默認。
  *
  * 結構跟「分角色聊天頭像」(PerCharAvatarPicker) 同款：搜索過濾 + 每頁 8 個的翻頁網格。
  */
@@ -19,7 +18,7 @@ import { trackEvent } from '../../utils/analytics';
 const PAGE_SIZE = 8;
 
 const PerCharPersonaPicker: React.FC = () => {
-    const { characters, userProfileBase, updateUserProfile } = useOS();
+    const { characters, characterGroups, userProfileBase, updateUserProfile } = useOS();
     const personas = userProfileBase.personas || [];
     const overrides = userProfileBase.perCharPersonaIds || {};
 
@@ -53,6 +52,9 @@ const PerCharPersonaPicker: React.FC = () => {
     };
 
     const editingChar = editingId ? characters.find(c => c.id === editingId) : null;
+    // 這個角色所在的世界（分組）有預設身份時，「不單獨指定」就是跟著世界走
+    const editingWorld = editingChar?.groupId && userProfileBase.perWorldPersonaIds?.[editingChar.groupId]
+        ? characterGroups.find(g => g.id === editingChar.groupId) : undefined;
 
     if (characters.length === 0) return null;
 
@@ -75,7 +77,7 @@ const PerCharPersonaPicker: React.FC = () => {
                 <h2 className="text-sm font-bold text-slate-700">分角色身份指定</h2>
             </div>
             <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">
-                給某個角色單獨指定一張身份卡，不影響其他角色——不設置的角色跟上面「身份卡」的目前身份走。
+                給某個角色單獨指定一張身份卡，不影響其他角色——不設置的角色跟所在世界的預設走，世界沒設就跟「身份卡」的目前身份走。小頭像淡色描邊＝正跟著世界預設。
             </p>
 
             {characters.length > PAGE_SIZE && (
@@ -103,8 +105,9 @@ const PerCharPersonaPicker: React.FC = () => {
                 >
                     <div key={`${safePage}-${query}`} className={`grid grid-cols-4 gap-3 ${slideDir === 'l' ? 'pcp-slide-l' : 'pcp-slide-r'}`}>
                         {pageChars.map(c => {
-                            const resolved = resolveUserProfileForChar(userProfileBase, c.id);
+                            const resolved = resolveUserProfileForChar(userProfileBase, c);
                             const hasOverride = !!overrides[c.id];
+                            const followsWorld = !hasOverride && personaOverrideSource(userProfileBase, c) === 'world';
                             return (
                                 <button key={c.id} onClick={() => setEditingId(c.id)} className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform">
                                     <div className="relative">
@@ -113,7 +116,7 @@ const PerCharPersonaPicker: React.FC = () => {
                                         <TokenImg
                                             value={resolved.avatar}
                                             alt=""
-                                            className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full object-cover bg-white shadow-sm ${hasOverride ? 'ring-2 ring-primary' : 'ring-2 ring-white opacity-60'}`}
+                                            className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full object-cover bg-white shadow-sm ${hasOverride ? 'ring-2 ring-primary' : followsWorld ? 'ring-2 ring-primary/40' : 'ring-2 ring-white opacity-60'}`}
                                         />
                                     </div>
                                     <span className="w-full text-[10px] text-slate-500 truncate text-center">{c.name}</span>
@@ -166,8 +169,8 @@ const PerCharPersonaPicker: React.FC = () => {
                             >
                                 <span className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">∅</span>
                                 <div className="min-w-0">
-                                    <div className="text-[11px] font-bold text-slate-700">跟隨全域默認</div>
-                                    <div className="text-[9px] text-slate-400">身份卡面板裡的「目前身份」切換時，這個角色一起跟著變</div>
+                                    <div className="text-[11px] font-bold text-slate-700">{editingWorld ? `跟隨世界「${editingWorld.name}」` : '跟隨全域默認'}</div>
+                                    <div className="text-[9px] text-slate-400">{editingWorld ? '世界的預設身份改了，這個角色一起跟著變' : '身份卡面板裡的「目前身份」切換時，這個角色一起跟著變'}</div>
                                 </div>
                             </button>
 

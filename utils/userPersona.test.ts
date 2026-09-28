@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -138,5 +138,36 @@ describe('resolveUserProfileForGroup', () => {
         };
         expect(resolveUserProfileForChar(profile, 'same-id').name).toBe('林特工');
         expect(resolveUserProfileForGroup(profile, 'same-id').name).toBe('阿凱');
+    });
+});
+
+describe('resolveUserProfileForChar · 世界預設身份（角色分組）', () => {
+    const char = { id: 'char-1', groupId: 'world-a' };
+    const profile: UserProfile = { ...baseProfile, activePersonaId: 'p2', perWorldPersonaIds: { 'world-a': 'p1' } };
+
+    it('分組有預設身份：蓋過全域默認', () => {
+        expect(resolveUserProfileForChar(profile, char).name).toBe('林特工');
+        expect(personaOverrideSource(profile, char)).toBe('world');
+    });
+    it('角色自己的指定蓋過世界預設', () => {
+        const p: UserProfile = { ...profile, perCharPersonaIds: { 'char-1': 'p2' } };
+        expect(resolveUserProfileForChar(p, char).name).toBe('阿凱');
+        expect(personaOverrideSource(p, char)).toBe('char');
+    });
+    it('世界預設是真實身份：不管全域默認，並疊 perCharAvatars', () => {
+        const p: UserProfile = { ...profile, perWorldPersonaIds: { 'world-a': REAL_IDENTITY_PERSONA_ID }, perCharAvatars: { 'char-1': 'chat-avatar.png' } };
+        const result = resolveUserProfileForChar(p, char);
+        expect(result.name).toBe('小柔');
+        expect(result.avatar).toBe('chat-avatar.png');
+    });
+    it('別的分組、未分組的角色、只傳 charId 的舊調用：跟全域默認', () => {
+        expect(resolveUserProfileForChar(profile, { id: 'char-2', groupId: 'world-b' }).name).toBe('阿凱');
+        expect(resolveUserProfileForChar(profile, { id: 'char-3' }).name).toBe('阿凱');
+        expect(resolveUserProfileForChar(profile, 'char-1').name).toBe('阿凱');
+        expect(personaOverrideSource(profile, { id: 'char-3' })).toBe('global');
+    });
+    it('世界預設指向已刪的身份卡：回落全域默認', () => {
+        const p: UserProfile = { ...profile, perWorldPersonaIds: { 'world-a': 'deleted' } };
+        expect(resolveUserProfileForChar(p, char).name).toBe('阿凱');
     });
 });

@@ -223,7 +223,7 @@ export const markAmsgStateDirtyForAll = (scope: {
   for (const char of scope.characters) {
     markAmsgStateDirty({
       char,
-      userProfile: resolveUserProfileForChar(scope.userProfileBase, char.id),
+      userProfile: resolveUserProfileForChar(scope.userProfileBase, char),
       groups: scope.groups,
       realtimeConfig: scope.realtimeConfig,
     });

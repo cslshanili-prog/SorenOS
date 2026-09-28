@@ -3,7 +3,7 @@ import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
-import { applyActivePersona } from '../utils/userPersona';
+import { applyActivePersona, resolveUserProfileForChar } from '../utils/userPersona';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -2095,7 +2095,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const next = normalizeCharacterImpression({ ...c, activeBuffs: nextBuffs, buffInjection: nextInjection });
                   markAmsgStateDirty({
                       char: next,
-                      userProfile: userProfileRef.current,
+                      userProfile: userForChar(next),
                       groups: groupsRef.current,
                       realtimeConfig: realtimeConfigRef.current,
                   });
@@ -2264,6 +2264,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [apiConfig.voicePrompts]);
   const userProfileRef = useRef(userProfile);
   userProfileRef.current = userProfile;
+  const userProfileBaseRef = useRef(userProfileBase);
+  userProfileBaseRef.current = userProfileBase;
+  /** 背景替某個角色生成時用的「你」：照這個角色的身份綁定（角色自己指定 > 世界預設 > 全域默認）。 */
+  const userForChar = (char: CharacterProfile) => resolveUserProfileForChar(userProfileBaseRef.current, char);
   const npcsRef = useRef(npcs);
   npcsRef.current = npcs;
   const groupsRef = useRef(groups);
@@ -2392,7 +2396,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
 
               // 2. Save hidden system hint
-              const userName = currentUserProfile?.name || '對方';
+              const userName = userForChar(char).name || '對方';
 
               // 見面（DateApp）感知：見面消息可能已被記憶宮殿高水位歸檔，上面 hwm 過濾後的
               // recentMsgs 會漏判，所以單獨用 includeProcessed=true 讀最後一條真實消息。
@@ -2439,7 +2443,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const cachedInnerState = proactiveInnerStateRef.current.get(charId) || undefined;
 
               const payload = await buildChatRequestPayload({
-                  char, userProfile: currentUserProfile!, groups: currentGroups,
+                  char, userProfile: userForChar(char), groups: currentGroups,
                   emojis, categories,
                   historyMsgs: allMsgs,
                   contextLimit: Math.max(1, allMsgs.length),
@@ -2466,7 +2470,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       ? char.emotionConfig.api
                       : { baseUrl: apiConfigRef.current.baseUrl, apiKey: apiConfigRef.current.apiKey, model: apiConfigRef.current.model };
                   if (emotionApi.baseUrl && currentUserProfile) {
-                      evaluateEmotionBackground(char, currentUserProfile, systemPrompt, apiMessages, emotionApi)
+                      evaluateEmotionBackground(char, userForChar(char), systemPrompt, apiMessages, emotionApi)
                           .then((innerState) => {
                               if (innerState) proactiveInnerStateRef.current.set(charId, innerState);
                           })
@@ -2772,7 +2776,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (blockUserReq) {
                   await DB.saveMessage({
                       charId, role: 'system', type: 'text',
-                      content: blockNotes.charBlocked(char.name, currentUserProfile?.name || '你'),
+                      content: blockNotes.charBlocked(char.name, userForChar(char).name || '你'),
                       timestamp: baseTimestamp + offset,
                   });
                   offset += 1;
@@ -2855,7 +2859,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const now = Date.now();
           const char = charactersRef.current.find(c => isReconsiderDue(c, now));
           if (!char?.chatBlock) return;
-          const userName = userProfileRef.current?.name || '你';
+          const userName = userForChar(char).name || '你';
           const outcome = await runCharBlockReconsider({ char, apiConfig: apiConfigRef.current, userName, now });
           if (!outcome) return;
           const latest = charactersRef.current.find(c => c.id === char.id);
@@ -2889,7 +2893,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           tempAttemptRunning = true;
           let nextAt = nextTempAttemptAt(now);
           try {
-              const result = await generateCharTempMessage({ char, apiConfig: apiConfigRef.current, userName: userProfileRef.current?.name || '你', replying: false, now });
+              const result = await generateCharTempMessage({ char, apiConfig: apiConfigRef.current, userName: userForChar(char).name || '你', replying: false, now });
               if (result?.message) {
                   window.dispatchEvent(new CustomEvent(TEMP_CHAT_CHANGED_EVENT, { detail: { charId: char.id } }));
                   window.dispatchEvent(new CustomEvent('proactive-message-sent', { detail: { charId: char.id, charName: char.name, body: `[臨時會話] ${result.message}` } }));
@@ -3085,7 +3089,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const next = normalizeCharacterImpression({ ...c, activeMsg2Config: fresh.activeMsg2Config });
                   markAmsgStateDirty({
                       char: next,
-                      userProfile: userProfileRef.current,
+                      userProfile: userForChar(next),
                       groups: groupsRef.current,
                       realtimeConfig: realtimeConfigRef.current,
                   });
@@ -3105,7 +3109,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const next = normalizeCharacterImpression({ ...c, musicProfile });
               markAmsgStateDirty({
                   char: next,
-                  userProfile: userProfileRef.current,
+                  userProfile: userForChar(next),
                   groups: groupsRef.current,
                   realtimeConfig: realtimeConfigRef.current,
               });
@@ -3134,7 +3138,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               DB.saveCharacter(next).then(() => {
                   markAmsgStateDirty({
                       char: next,
-                      userProfile: userProfileRef.current,
+                      userProfile: userForChar(next),
                       groups: groupsRef.current,
                       realtimeConfig: realtimeConfigRef.current,
                   });
@@ -3151,7 +3155,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (character.id !== detail.charId) return character;
               const next = { ...character, memories: applyLinkedArchiveDeletion(character.memories || [], detail.nodeId, detail.choice) };
               // The deletion transaction already persisted this delta. Refresh context/cloud state only.
-              markAmsgStateDirty({ char: next, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+              markAmsgStateDirty({ char: next, userProfile: userForChar(next), groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
               return next;
           }));
       };

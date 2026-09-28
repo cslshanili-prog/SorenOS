@@ -139,6 +139,7 @@ import {
   saveCompanionTouchPreset,
 } from '../../utils/companionPresets';
 import { deleteCompanionVoiceBlob } from '../../utils/companionVoiceAssets';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 
 // ── 時段氛圍：陪伴桌面按虛擬時間換天色（晨曦 / 白日 / 黃昏 / 夜晚）──
 interface DayPeriod {
@@ -404,7 +405,8 @@ const CompanionHome: React.FC = () => {
     activeCharacterId,
     setActiveCharacterId,
     apiConfig,
-    userProfile,
+    userProfile: globalUserProfile,
+    userProfileBase,
     openApp,
     addToast,
     theme,
@@ -417,6 +419,8 @@ const CompanionHome: React.FC = () => {
     () => characters.find(item => item.id === activeCharacterId) || characters[0] || null,
     [characters, activeCharacterId],
   );
+  // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile = useMemo(() => (character ? resolveUserProfileForChar(userProfileBase, character) : globalUserProfile), [character, userProfileBase, globalUserProfile]);
   const activeCompanionSource = companionAvatarSource(character);
   const staticCompanionActive = activeCompanionSource === 'upload' || activeCompanionSource === 'date';
   const [motionState, setMotionState] = useState<AvatarMotionState>('idle');

@@ -54,6 +54,7 @@ import {
 import { useMusic, type Song as MusicSong } from '../context/MusicContext';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent } from '../utils/analytics';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // --- Helper Components ---
 
@@ -179,7 +180,7 @@ const buildLyricSlots = (song: SongSheet): LyricSlot[] => {
 // --- Main App ---
 
 const SongwritingApp: React.FC = () => {
-    const { closeApp, openApp, songs, addSong, updateSong, deleteSong, characters, apiConfig, addToast, userProfile, characterGroups } = useOS();
+    const { closeApp, openApp, songs, addSong, updateSong, deleteSong, characters, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, characterGroups } = useOS();
     const { addLocalSong, removeLocalSong, localAlbumSongs, playSong, current: currentMusicSong, markRegenerating } = useMusic();
 
     // Navigation
@@ -302,6 +303,8 @@ const SongwritingApp: React.FC = () => {
         if (!activeSong) return null;
         return characters.find(c => c.id === activeSong.collaboratorId) || null;
     }, [activeSong, characters]);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (collaborator ? resolveUserProfileForChar(userProfileBase, collaborator) : globalUserProfile), [collaborator, userProfileBase, globalUserProfile]);
 
     const getCoverStyle = (styleId: string) => COVER_STYLES.find(s => s.id === styleId) || COVER_STYLES[0];
 

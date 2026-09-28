@@ -123,6 +123,7 @@ import { addCompanionModelOutfit, addUploadedCompanionOutfit } from '../utils/co
 import VoiceFavoriteActionSheet from '../components/voice/VoiceFavoriteActionSheet';
 import { getVoiceFavorite, removeVoiceFavorite, saveVoiceFavorite } from '../utils/voiceFavorites';
 import { buildTriggeredLinesPrompt } from '../utils/fixedLines';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 type CallState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
 type CallMode = 'voice' | 'video';
 type VideoCallLayout = 'stage' | 'story' | 'mini';
@@ -514,7 +515,7 @@ ${currentVoiceActingGuide()}
   return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, userProfile, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
 
   const [viewMode, setViewMode] = useState<ViewMode>('role-select');
   const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
@@ -837,6 +838,8 @@ const CallApp: React.FC = () => {
   // VRM 模型的自定義表情名（加載時由畫布回傳），餵給基礎版主模型或高質量導演。
   const vrmExpressionsRef = useRef<string[]>([]);
   const selectedChar = useMemo(() => characters.find(c => c.id === selectedCharId) || null, [characters, selectedCharId]);
+  // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile = useMemo(() => (selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [selectedChar, userProfileBase, globalUserProfile]);
   const selectedVisualSource = companionAvatarSource(selectedChar);
   const selectedDateOutfits = useMemo(() => listCompanionDateOutfits(selectedChar), [selectedChar]);
   const selectedDateOutfitId = normalizeCompanionSkinSetId(selectedChar?.companionAvatar?.skinSetId);

@@ -38,6 +38,7 @@ import { MULTIPART_FAILURE_REASON } from '@rei-standard/amsg-shared';
 import { appendInstantTraceEntry } from './instantTraceLog';
 import { captureSwRegistrationSnapshot, probeSwChannel } from './swChannelProbe';
 import { trackEvent } from './analytics';
+import { resolveUserProfileForChar } from './userPersona';
 
 // 同一個 category，兩個 tag——保持 console 裡現有的 [ActiveMsg] / [amsg] 標籤，
 // 方便用戶 / 文檔裡 grep 歷史報錯信息。兩條 tag 都歸 amsg 一類。
@@ -562,8 +563,10 @@ const processInboxMessageWithPostProcessing = async (
   // 這是不是一次重試？是的話先清掉上次的半成品，並決定副作用要不要再跑一遍。
   const { replayDirectives } = await prepareInboxRetry(message);
 
-  const userProfile: UserProfile = (await DB.getUserProfile())
+  const rawUserProfile: UserProfile = (await DB.getUserProfile())
     ?? { name: 'User', avatar: '', bio: '' };
+  // 照這個角色的身份綁定（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile: UserProfile = resolveUserProfileForChar(rawUserProfile, char);
   // 按角色可見性過濾表情包：後處理落庫時靠 emojis.find(e => e.name === name) 反查 URL，
   // 若傳全量表情，名字衝突時會把 A 的 [[SEND_EMOJI: x]] 匹配到 B 名下的同名表情，導致
   // A 發出綁定給 B 的表情包。本地聊天路徑喂的是 aiVisibleEmojis（已過濾），主動消息路徑

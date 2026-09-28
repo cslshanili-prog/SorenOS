@@ -1,6 +1,6 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { CharacterProfile, GuidebookSession, GuidebookRound, GuidebookOption } from '../types';
 import { extractJson } from '../utils/safeApi';
@@ -29,6 +29,7 @@ import {
     Cards,
 } from '@phosphor-icons/react';
 import TokenImg from '../components/os/TokenImg';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // --- Helper: Generate ID ---
 const genId = () => Math.random().toString(36).slice(2, 10);
@@ -590,7 +591,7 @@ const SessionCard: React.FC<{
 
 // ===== MAIN APP =====
 const GuidebookApp: React.FC = () => {
-    const { closeApp, characters, userProfile, apiConfig, addToast, updateCharacter } = useOS();
+    const { closeApp, characters, userProfile: globalUserProfile, userProfileBase, apiConfig, addToast, updateCharacter } = useOS();
 
     // View State
     const [view, setView] = useState<'lobby' | 'setup' | 'opening' | 'playing' | 'replay'>('lobby');
@@ -675,6 +676,8 @@ const GuidebookApp: React.FC = () => {
     }, []);
 
     const selectedChar = characters.find(c => c.id === selectedCharId);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [selectedChar, userProfileBase, globalUserProfile]);
 
     // --- Start Game ---
     const handleStartGame = async () => {

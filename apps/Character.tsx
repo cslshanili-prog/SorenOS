@@ -47,6 +47,7 @@ import {
     getExternalMemoryLengthInfo,
     getExternalMemoryOverLimitMessage,
 } from '../utils/memoryPalace/externalMemory';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // ── 神經鏈接 · 列表頁視覺件（淡紫留白風）────────────────────
 // 之前的「星點 + 玻璃飾帶 + 華麗頭像框」看久了眼花、低端機也重繪卡。
@@ -102,7 +103,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, addApiPreset } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, addApiPreset } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -132,6 +133,8 @@ const Character: React.FC = () => {
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
   const [editingId, setEditingId] = useState<string | null>(() => launchIntent?.charId || null);
   const [formData, setFormData] = useState<CharacterProfile | null>(null);
+  // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile = useMemo(() => (formData ? resolveUserProfileForChar(userProfileBase, formData) : globalUserProfile), [formData, userProfileBase, globalUserProfile]);
   const memoryCharacter = characters.find(character => character.id === formData?.id) || formData;
   const linkedMemoryEnabled = !!memoryCharacter?.memoryPalaceEnabled;
   const archiveMemories = useLinkedArchives(formData?.id, formData?.memories, linkedMemoryEnabled);

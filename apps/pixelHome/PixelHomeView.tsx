@@ -5,7 +5,7 @@
  * 處理資產替換/添加流程
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useOS } from '../../context/OSContext';
 import type { PixelHomeState, PixelHomeViewMode, PixelAsset, PlacedFurniture } from './types';
 import type { MemoryRoom } from '../../utils/memoryPalace/types';
@@ -23,6 +23,7 @@ import type { PixelCharConfig } from './pixelCharGenerator';
 import { ensurePixelChar } from './pixelCharGenerator';
 import { DB } from '../../utils/db';
 import { trackEvent } from '../../utils/analytics';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 
 // 內置角色的默認像素形象（用戶未自定義時使用）
 const PIXEL_CHAR_BASE = ((import.meta as any).env?.BASE_URL ?? '/') + 'pixel-char/';
@@ -39,8 +40,10 @@ interface Props {
 }
 
 const PixelHomeView: React.FC<Props> = ({ charId, charName, charAvatar, userName, onBack }) => {
-  const { addToast, apiConfig, characters, userProfile, remoteVectorConfig } = useOS();
+  const { addToast, apiConfig, characters, userProfile: globalUserProfile, userProfileBase, remoteVectorConfig } = useOS();
   const char = characters.find(c => c.id === charId);
+  // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
   const [viewMode, setViewMode] = useState<PixelHomeViewMode>('map');
   const [homeState, setHomeState] = useState<PixelHomeState | null>(null);
   const [assets, setAssets] = useState<PixelAsset[]>([]);
