@@ -13,7 +13,7 @@ import { distinctPersonaNote } from './personaSpeaker';
  */
 
 type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock' | 'groupId'> & { phoneState?: { contacts?: PhoneContact[] } };
-type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships'>;
+type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships' | 'knownPersonaId'>;
 
 let registered: { characters: GraphChar[]; npcs: GraphNpc[]; graph: FriendGraph } | null = null;
 
@@ -23,8 +23,8 @@ export function setMomentsGraphInputs(
     personas?: { profileBase: UserProfile; groups: Array<Pick<GroupProfile, 'id' | 'members'>> },
 ): void {
     const slimChars = characters.map(c => ({ id: c.id, name: c.name, groupId: c.groupId, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
-    const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships }));
-    const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups, slimNpcs.map(n => n.id)) : undefined;
+    const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships, knownPersonaId: n.knownPersonaId }));
+    const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups, slimNpcs) : undefined;
     registered = { characters: slimChars, npcs: slimNpcs, graph: buildFriendGraph(slimChars, slimNpcs, knowledge) };
 }
 

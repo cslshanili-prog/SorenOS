@@ -3559,6 +3559,12 @@ export interface NPCProfile {
     memoryUpdatedAt?: number;
     /** 群聊自動整理的水位：groupId → 已經整理進記憶的最後一條群消息 id */
     memoryGroupMarks?: Record<string, number>;
+    /**
+     * 這個 NPC 認識的是哪一個你（多身份隔離 2c，見 plans/multi-persona-isolation-design.md）：身份卡 id，
+     * 或 REAL_IDENTITY_PERSONA_ID。不設 = 自動：看它關係清單裡的角色大多認識哪一個你，推不出來就是全域默認。
+     * 「跟你的關係」（targetId 'user'）說的就是這個身份。解析走 utils/userPersona.ts 的 personaKeyForNpc。
+     */
+    knownPersonaId?: string;
     createdAt: number;
     updatedAt: number;
 }

@@ -13,6 +13,7 @@ import Modal from '../os/Modal';
 import { useOS } from '../../context/OSContext';
 import { NPC_MEMORY_MAX_CHARS, resolveNpcApi } from '../../utils/npcMemory';
 import { refreshNpcMemoryFromGroups } from '../../utils/npcMemoryRuntime';
+import { npcPersonaSource, personaKeyForNpc, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
 
 interface NPCManagerViewProps {
     npcs: NPCProfile[];
@@ -172,7 +173,12 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [testingConnection, setTestingConnection] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
     // 輕量記憶：自動整理可能在編輯頁開著時寫進來，沒在打字就跟著更新
-    const { groups, apiConfig, userProfile, npcs, addToast } = useOS();
+    const { groups, apiConfig, userProfile, userProfileBase, npcs, addToast } = useOS();
+    // 多身份：這個 NPC 認識的是哪一個你（手動指定，或從關係清單推）；「跟用戶的關係」說的就是這張卡
+    const personas = userProfileBase.personas || [];
+    const knownKey = personaKeyForNpc(userProfileBase, npc, characters);
+    const knownSource = npcPersonaSource(userProfileBase, npc, characters);
+    const knownName = personaNameForKey(userProfileBase, knownKey);
     const [memory, setMemory] = useState(npc.memory || '');
     const memoryFocusedRef = useRef(false);
     const [memoryBusy, setMemoryBusy] = useState(false);
@@ -365,6 +371,31 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                     />
                 </div>
 
+                {personas.length > 0 && (
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">認識的你</label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {[
+                                { id: undefined as string | undefined, label: '自動' },
+                                { id: REAL_IDENTITY_PERSONA_ID, label: userProfileBase.name || '真實身份' },
+                                ...personas.map(p => ({ id: p.id as string | undefined, label: p.name })),
+                            ].map(opt => {
+                                const on = (npc.knownPersonaId || undefined) === opt.id || (opt.id === undefined && knownSource !== 'npc');
+                                return (
+                                    <button key={opt.id || 'auto'} onClick={() => onChange({ knownPersonaId: opt.id })}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold border ${on ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                        {opt.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5 pl-1 leading-relaxed">
+                            {knownSource === 'npc' ? `TA 認識的是「${knownName}」。` : knownSource === 'inferred' ? `自動：從 TA 的關係推測，認識的是「${knownName}」。` : `自動：推不出來，用全域默認「${knownName}」。`}
+                            下面「跟用戶的關係」說的就是這個人；群聊、朋友圈裡你用別的身份出現時，TA 會當成不認識的人。
+                        </p>
+                    </div>
+                )}
+
                 <div>
                     <div className="flex items-center justify-between mb-2 px-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">關係</label>
@@ -386,7 +417,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                             onChange={e => updateRelationship(rel.id, { targetId: e.target.value })}
                                             className="flex-1 bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-1.5 text-xs font-bold"
                                         >
-                                            <option value="user">用戶</option>
+                                            <option value="user">{personas.length > 0 ? `用戶（${knownName}）` : '用戶'}</option>
                                             {characters.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}

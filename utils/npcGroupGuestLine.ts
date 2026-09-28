@@ -1,6 +1,7 @@
 import { NPCProfile, CharacterProfile } from '../types';
 import { safeResponseJson, extractContent } from './safeApi';
 import { buildNpcMemoryBlock } from './npcMemory';
+import { userRelationLabel } from './personaSpeaker';
 
 export interface NpcGroupGuestLineOptions {
     npc: NPCProfile;
@@ -8,6 +9,8 @@ export interface NpcGroupGuestLineOptions {
     /** 當前在場的真實角色成員，用於關係過濾 + 稱呼；不是"全部群成員"就夠，客串本來就輕量 */
     members: CharacterProfile[];
     userName: string;
+    /** NPC 認識的那個你的名字（多身份：可能不是群裡的你）；不給就當是同一個人 */
+    knownUserName?: string;
     /** 已經格式化好的最近幾條群聊記錄（"名字: 內容"逐行），供客串接話 */
     recentTranscript: string;
     hint?: string;
@@ -24,7 +27,10 @@ export async function generateNpcGroupGuestLine(opts: NpcGroupGuestLineOptions):
     const relationshipNote = npc.relationships
         .filter(r => r.targetId === 'user' || members.some(m => m.id === r.targetId))
         .map(r => {
-            if (r.targetId === 'user') return `對用戶「${userName}」：${r.description}`;
+            if (r.targetId === 'user') {
+                const known = opts.knownUserName || userName;
+                return known === userName ? `對用戶「${userName}」：${r.description}` : `對${userRelationLabel(known, userName)}：${r.description}`;
+            }
             const m = members.find(mm => mm.id === r.targetId);
             return `對「${m?.name || '群裡的人'}」：${r.description}`;
         })

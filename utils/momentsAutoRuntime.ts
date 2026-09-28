@@ -32,7 +32,7 @@ export interface MomentsRuntimeContext {
 
 function graphFor(ctx: MomentsRuntimeContext): FriendGraph {
     const knowledge = ctx.userProfileBase
-        ? buildPersonaKnowledge(ctx.userProfileBase, ctx.characters, ctx.groups || [], ctx.npcs.map(n => n.id))
+        ? buildPersonaKnowledge(ctx.userProfileBase, ctx.characters, ctx.groups || [], ctx.npcs)
         : undefined;
     return buildFriendGraph(ctx.characters, ctx.npcs, knowledge);
 }

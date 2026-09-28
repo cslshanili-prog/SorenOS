@@ -173,6 +173,34 @@ export function personaKeyForGroup(
     return majorityMemberKey(profileBase, typeof group === 'string' ? [] : group.members || [], characters);
 }
 
+/** NPC：id、關係清單（推測它屬於哪個世界用）、手動指定的認識的身份。 */
+export type NpcPersonaRef = { id: string; relationships?: Array<{ targetId: string }>; knownPersonaId?: string };
+
+/**
+ * 這個 NPC 認識的是哪一個你：手動指定的（還有效的話）> 關係清單裡的角色大多認識的 > 全域默認。
+ * NPC 沒有分組，只能從它跟誰有關係推它屬於哪個世界。
+ */
+export function personaKeyForNpc(
+    profileBase: UserProfile,
+    npc: NpcPersonaRef,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): string {
+    const override = validOverride(profileBase, npc.knownPersonaId);
+    if (override) return override;
+    const related = [...new Set((npc.relationships || []).map(r => r.targetId).filter(id => id && id !== 'user'))];
+    return majorityMemberKey(profileBase, related, characters);
+}
+
+/** NPC 認識的身份是怎麼來的（編輯頁標示用）：手動指定、從關係推的、還是全域默認。 */
+export function npcPersonaSource(
+    profileBase: UserProfile,
+    npc: NpcPersonaRef,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
+): 'npc' | 'inferred' | 'global' {
+    if (validOverride(profileBase, npc.knownPersonaId)) return 'npc';
+    return personaKeyForNpc(profileBase, npc, characters) === globalPersonaKey(profileBase) ? 'global' : 'inferred';
+}
+
 /** 身份鍵對應的完整檔案（外顯欄位換成那張卡的）。群聊、朋友圈這些「不是替某個角色」的地方用。 */
 export function profileForPersonaKey(profileBase: UserProfile, key: string): UserProfile {
     if (key === REAL_IDENTITY_PERSONA_ID) return profileBase;

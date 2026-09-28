@@ -65,7 +65,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
     }, [reload]);
 
     const knowledge = useMemo(
-        () => buildPersonaKnowledge(userProfileBase, characters, groups, npcs.map(n => n.id)),
+        () => buildPersonaKnowledge(userProfileBase, characters, groups, npcs),
         [userProfileBase, characters, groups, npcs],
     );
     const graph = useMemo(() => buildFriendGraph(characters, npcs, knowledge), [characters, npcs, knowledge]);

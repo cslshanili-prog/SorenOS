@@ -96,3 +96,16 @@ describe('私聊注入的最近的朋友圈', () => {
         expect(text).toContain('跟你私下聊天的「小星」是不同的人');
     });
 });
+
+describe('NPC 認識的身份（2c）', () => {
+    it('沒指定：從關係清單推；有指定：用指定的', () => {
+        const k = buildPersonaKnowledge(base, chars, groups, [
+            { id: 'n1', relationships: [{ targetId: 'A' }] },
+            { id: 'n2', relationships: [{ targetId: 'A' }], knownPersonaId: 'p-che' },
+            { id: 'n3', relationships: [] },
+        ]);
+        expect(k.mainKeyOf('n1')).toBe('p-xing');
+        expect(k.mainKeyOf('n2')).toBe('p-che');
+        expect(k.mainKeyOf('n3')).toBe(REAL_IDENTITY_PERSONA_ID);
+    });
+});

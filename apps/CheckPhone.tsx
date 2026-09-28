@@ -23,7 +23,7 @@ import { resolveCustomAppRecordHtml, composeCustomAppCardHtml, buildCustomAppHtm
 import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
-import { resolveUserProfileForChar } from '../utils/userPersona';
+import { personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState } from '../utils/realBalance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
 import TrajectoryHome from '../components/trajectory/TrajectoryHome';
@@ -1949,6 +1949,9 @@ ${olderText}
             const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
             const result = await runRealConversation({
                 a: targetChar, b, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
+                // B 私下認識的可能是另一張身份卡：各用各的名字，並提醒那是不同的人
+                userB: resolveUserProfileForChar(userProfileBase, b),
+                samePersona: personaKeyForChar(userProfileBase, targetChar) === personaKeyForChar(userProfileBase, b),
                 affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
                 existingDetail: recentDetail,
                 // bNote = A 對 B 的備註（餵給 A）；aNote = B 對 A 的備註（餵給 B）。別接反。
@@ -1990,9 +1993,14 @@ ${olderText}
             // 把 NPC 的人設描述和跟這個角色/用戶的關係折進 note 一起餵給引擎，讓腦補出來的對話
             // 有據可依，不再是純憑一個名字瞎編。不改 contact.note 本身——那是用戶自己寫的備註，
             // 落庫前保持原樣。
+            // NPC 認識的你可能不是機主認識的那一個（多身份）：那段「對用戶」的關係就標成對那張卡的人
+            const npcKnownKey = linkedNpc ? personaKeyForNpc(userProfileBase, linkedNpc, characters) : undefined;
+            const npcUserLabel = npcKnownKey && npcKnownKey !== personaKeyForChar(userProfileBase, targetChar)
+                ? `對「${personaNameForKey(userProfileBase, npcKnownKey)}」（另一個人，不是機主認識的「${checkPhoneUserProfile.name}」）`
+                : '對用戶';
             const npcRelationshipNote = linkedNpc?.relationships
                 .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
-                .map(r => r.targetId === targetChar.id ? `對「${targetChar.name}」：${r.description}` : `對用戶：${r.description}`)
+                .map(r => r.targetId === targetChar.id ? `對「${targetChar.name}」：${r.description}` : `${npcUserLabel}：${r.description}`)
                 .join('\n');
             // NPC 自己的輕量記憶（群聊、之前的手機私聊整理出來的），讓腦補出來的 TA 記得發生過的事
             const npcMemoryNote = linkedNpc?.memory?.trim() ? `${linkedNpc.name}記得的事（TA 的第一人稱記憶）：\n${linkedNpc.memory.trim()}` : '';
