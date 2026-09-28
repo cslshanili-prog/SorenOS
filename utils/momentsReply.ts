@@ -2,7 +2,8 @@ import type { APIConfig, CharacterProfile, MomentComment, MomentPost, NPCProfile
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
 import { safeResponseJson, extractContent } from './safeApi';
-import { actorDisplayName, USER_ID } from './momentsPool';
+import { actorDisplayName, USER_ID, type FriendGraph } from './momentsPool';
+import { distinctPersonaNote } from './personaSpeaker';
 import { addMomentComment } from './momentsStore';
 import { MOMENTS_VOICE_RULE } from './momentsVoice';
 
@@ -26,8 +27,16 @@ export function buildAuthorReplyPrompt(params: {
     userComment: string;
     /** 用戶這則是回覆誰的（回覆作者自己時不用說） */
     replyingToName?: string;
+    /** 留言的是你用別的身份（作者只在群裡見過或不認識的人）：換掉「延續你們的關係」那句，並附上是不同人的提醒 */
+    personaNote?: string;
+    commenterRelation?: 'seen' | 'stranger';
 }): string {
-    const { authorName, userName, post, thread, userComment, replyingToName } = params;
+    const { authorName, userName, post, thread, userComment, replyingToName, personaNote, commenterRelation } = params;
+    const relationLine = commenterRelation === 'seen'
+        ? `${userName}是你在群裡見過的人，不熟；照群友的分寸回，不要客套。`
+        : commenterRelation === 'stranger'
+            ? `你不認識${userName}；照你面對陌生人留言的樣子回。`
+            : '延續你們的關係和最近聊過的事，不要客套。';
     const photos = post.images.length ? `（配了 ${post.images.length} 張照片）` : '';
     return `你（${authorName}）在朋友圈發了一篇動態${photos}：
 「${post.content || '（只有照片）'}」
@@ -37,7 +46,7 @@ ${thread || '（還沒有別人留言）'}
 
 ${userName}剛剛${replyingToName ? `回覆了${replyingToName}` : '在底下留言'}：「${userComment}」
 
-用你平常的口吻回${userName}這則留言，像真的在朋友圈回留言。延續你們的關係和最近聊過的事，不要客套。
+用你平常的口吻回${userName}這則留言，像真的在朋友圈回留言。${relationLine}${personaNote ? `\n${personaNote}` : ''}
 ${MOMENTS_VOICE_RULE}不是每則留言都得回：以你的性格這則會已讀不回的，只輸出 ${MOMENT_SKIP_TOKEN}。
 只輸出回覆內容本身，不要帶名字、不要加引號。`;
 }
@@ -64,11 +73,13 @@ export async function replyAsAuthor(params: {
     characters: CharacterProfile[];
     npcs: NPCProfile[];
     delayMs?: number;
+    /** 帶身份資料的好友圖：你用別的身份留的言用那張卡的名字（多身份隔離 2a）。userName 此時是作者認識的那個你 */
+    graph?: FriendGraph;
 }): Promise<void> {
-    const { char, post, userComment, userName, apiConfig, characters, npcs, delayMs = 0 } = params;
+    const { char, post, userComment, userName, apiConfig, characters, npcs, delayMs = 0, graph } = params;
     const api = resolveCharacterChatApi(char, apiConfig);
     if (!api.baseUrl || !api.apiKey) return;
-    const nameOf = (c: MomentComment) => actorDisplayName(c.actor, characters, npcs, userName);
+    const { nameOf, personaNote, relationOf } = personaNaming(char.id, userName, characters, npcs, graph);
     const thread = post.comments
         .filter(c => c.id !== userComment.id)
         .map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`)
@@ -76,8 +87,11 @@ export async function replyAsAuthor(params: {
     const replyTarget = userComment.replyTo ? post.comments.find(c => c.id === userComment.replyTo) : undefined;
     const replyingToName = replyTarget && replyTarget.actor.id !== char.id ? nameOf(replyTarget) : undefined;
     // 留言的人不一定是用戶：第二批裡角色也會回 NPC 的留言
-    const commenterName = userComment.actor.id === USER_ID ? userName : nameOf(userComment);
-    const prompt = buildAuthorReplyPrompt({ authorName: char.name, userName: commenterName, post, thread, userComment: userComment.content, replyingToName });
+    const commenterName = userComment.actor.id === USER_ID && !graph ? userName : nameOf(userComment);
+    const prompt = buildAuthorReplyPrompt({
+        authorName: char.name, userName: commenterName, post, thread, userComment: userComment.content, replyingToName,
+        personaNote: personaNote(), commenterRelation: relationOf(userComment.actor),
+    });
     try {
         if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
         const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -99,6 +113,31 @@ export async function replyAsAuthor(params: {
     }
 }
 
+/**
+ * 貼文底下出現的你用哪個名字，以及「那是別人」的提醒（先把名字都叫過一輪再取 personaNote）。
+ * 沒帶身份資料的好友圖就跟以前一樣：你一律叫 userName。
+ */
+function personaNaming(
+    charId: string,
+    userName: string,
+    characters: Array<Pick<CharacterProfile, 'id' | 'name'>>,
+    npcs: Array<Pick<NPCProfile, 'id' | 'name'>>,
+    graph?: FriendGraph,
+) {
+    const others: string[] = [];
+    const relationOf = (actor: MomentComment['actor']): 'seen' | 'stranger' | undefined => {
+        if (actor.kind !== 'user' || !graph?.personaRelation) return undefined;
+        const rel = graph.personaRelation(charId, actor.personaKey);
+        return rel === 'main' ? undefined : rel;
+    };
+    const nameOf = (c: Pick<MomentComment, 'actor'>) => {
+        const name = actorDisplayName(c.actor, characters, npcs, userName, graph);
+        if (relationOf(c.actor)) others.push(name);
+        return name;
+    };
+    return { nameOf, relationOf, personaNote: () => distinctPersonaNote(others, userName, '朋友圈裡') };
+}
+
 /** 用戶這則留言該不該觸發作者回覆：貼文是角色發的、留言是用戶的。 */
 export function shouldAuthorReply(post: Pick<MomentPost, 'author'>, comment: Pick<MomentComment, 'actor'>): boolean {
     return post.author.kind === 'character' && comment.actor.id === USER_ID;
@@ -110,8 +149,10 @@ export function buildCharCommentPrompt(params: {
     authorName: string;
     post: Pick<MomentPost, 'content' | 'images'>;
     thread: string;
+    /** 貼文或留言裡有你用別的身份出現：提醒那是不同的人 */
+    personaNote?: string;
 }): string {
-    const { charName, authorName, post, thread } = params;
+    const { charName, authorName, post, thread, personaNote } = params;
     const photos = post.images.length ? `（配了 ${post.images.length} 張照片）` : '';
     return `你（${charName}）在朋友圈滑到${authorName}發的動態${photos}：
 「${post.content || '（只有照片）'}」
@@ -119,7 +160,7 @@ export function buildCharCommentPrompt(params: {
 底下目前的留言：
 ${thread || '（還沒有人留言）'}
 
-用你平常的口吻在底下留一句言，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。
+用你平常的口吻在底下留一句言，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。${personaNote ? `\n${personaNote}` : ''}
 ${MOMENTS_VOICE_RULE}
 只輸出留言內容本身，不要帶名字、不要加引號。`;
 }
@@ -132,13 +173,15 @@ export async function commentAsCharacter(params: {
     apiConfig: APIConfig;
     characters: CharacterProfile[];
     npcs: NPCProfile[];
+    /** 同 replyAsAuthor：userName 是這個角色認識的那個你 */
+    graph?: FriendGraph;
 }): Promise<boolean> {
-    const { char, post, userName, apiConfig, characters, npcs } = params;
+    const { char, post, userName, apiConfig, characters, npcs, graph } = params;
     const api = resolveCharacterChatApi(char, apiConfig);
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
-    const nameOf = (c: MomentComment) => actorDisplayName(c.actor, characters, npcs, userName);
+    const { nameOf, personaNote } = personaNaming(char.id, userName, characters, npcs, graph);
     const thread = post.comments.map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`).join('\n');
-    const authorName = post.author.id === char.id ? '你自己' : actorDisplayName(post.author, characters, npcs, userName);
+    const authorName = post.author.id === char.id ? '你自己' : nameOf({ actor: post.author });
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
@@ -146,7 +189,7 @@ export async function commentAsCharacter(params: {
             model: api.model,
             messages: [
                 { role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) },
-                { role: 'user', content: buildCharCommentPrompt({ charName: char.name, authorName, post, thread }) },
+                { role: 'user', content: buildCharCommentPrompt({ charName: char.name, authorName, post, thread, personaNote: personaNote() }) },
             ],
             temperature: 0.9,
         }),

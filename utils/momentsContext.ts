@@ -1,6 +1,8 @@
-import type { CharacterProfile, MomentPost, NPCProfile, PhoneContact } from '../types';
+import type { CharacterProfile, GroupProfile, MomentPost, NPCProfile, PhoneContact, UserProfile } from '../types';
 import { DB } from './db';
 import { actorDisplayName, buildFriendGraph, momentFeedFor, visibleComments, visibleLikes, type FriendGraph } from './momentsPool';
+import { buildPersonaKnowledge } from './momentsPersona';
+import { distinctPersonaNote } from './personaSpeaker';
 
 /**
  * 私聊 prompt 的「最近的朋友圈」（路線圖第 6 項第二批）：角色看得到的最近幾篇，加上它自己在上面的互動，
@@ -10,15 +12,20 @@ import { actorDisplayName, buildFriendGraph, momentFeedFor, visibleComments, vis
  * 由 OSContext 在清單變化時登記到這裡——跟 utils/charNameRegistry.ts 同一個做法。
  */
 
-type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock'> & { phoneState?: { contacts?: PhoneContact[] } };
+type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock' | 'groupId'> & { phoneState?: { contacts?: PhoneContact[] } };
 type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships'>;
 
 let registered: { characters: GraphChar[]; npcs: GraphNpc[]; graph: FriendGraph } | null = null;
 
-export function setMomentsGraphInputs(characters: GraphChar[], npcs: GraphNpc[]): void {
-    const slimChars = characters.map(c => ({ id: c.id, name: c.name, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
+export function setMomentsGraphInputs(
+    characters: GraphChar[],
+    npcs: GraphNpc[],
+    personas?: { profileBase: UserProfile; groups: Array<Pick<GroupProfile, 'id' | 'members'>> },
+): void {
+    const slimChars = characters.map(c => ({ id: c.id, name: c.name, groupId: c.groupId, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
     const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships }));
-    registered = { characters: slimChars, npcs: slimNpcs, graph: buildFriendGraph(slimChars, slimNpcs) };
+    const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups, slimNpcs.map(n => n.id)) : undefined;
+    registered = { characters: slimChars, npcs: slimNpcs, graph: buildFriendGraph(slimChars, slimNpcs, knowledge) };
 }
 
 export const MOMENTS_CONTEXT_WINDOW_MS = 3 * 24 * 3600_000;
@@ -45,7 +52,14 @@ export function buildMomentsContextForChar(params: {
         .filter(p => now - p.createdAt <= MOMENTS_CONTEXT_WINDOW_MS)
         .slice(0, MOMENTS_CONTEXT_MAX_POSTS);
     if (recent.length === 0) return '';
-    const nameOf = (actor: MomentPost['author']) => (actor.id === charId ? '你' : actorDisplayName(actor, characters, npcs, userName));
+    // 你用別的身份出現的（公開貼文、或留在它貼文底下的言）：用那張卡的名字，最後提醒那是另一個人
+    const otherPersonaNames: string[] = [];
+    const nameOf = (actor: MomentPost['author']) => {
+        if (actor.id === charId) return '你';
+        const name = actorDisplayName(actor, characters, npcs, userName, graph);
+        if (actor.kind === 'user' && graph.personaRelation && graph.personaRelation(charId, actor.personaKey) !== 'main') otherPersonaNames.push(name);
+        return name;
+    };
     const lines = recent.map(p => {
         const who = p.author.id === charId ? '你發的' : `${nameOf(p.author)}發的`;
         const photos = p.images.length ? `（${p.images.length} 張照片）` : '';
@@ -57,7 +71,8 @@ export function buildMomentsContextForChar(params: {
         ].filter(Boolean).join('；');
         return `- [${stamp(p.createdAt)}] ${who}${photos}：「${clip(p.content || '（只有照片）', 80)}」${extra ? `（${extra}）` : ''}`;
     });
-    return `\n### 【最近的朋友圈】\n（你滑朋友圈看到的最近幾篇，還有大家在上面的互動，「你」就是你自己。聊天時自然想得起來就好，不用主動逐條提起。）\n${lines.join('\n')}\n`;
+    const personaNote = distinctPersonaNote(otherPersonaNames, userName, '朋友圈裡');
+    return `\n### 【最近的朋友圈】\n（你滑朋友圈看到的最近幾篇，還有大家在上面的互動，「你」就是你自己。聊天時自然想得起來就好，不用主動逐條提起。）${personaNote ? `\n${personaNote}` : ''}\n${lines.join('\n')}\n`;
 }
 
 /** chatPrompts 用：讀池子、套登記的朋友關係。還沒登記（例如測試環境）就回空字串。 */

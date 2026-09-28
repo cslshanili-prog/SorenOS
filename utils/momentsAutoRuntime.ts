@@ -1,8 +1,10 @@
-import type { APIConfig, CharacterProfile, MomentPost, NPCProfile, UserProfile } from '../types';
+import type { APIConfig, CharacterProfile, GroupProfile, MomentPost, NPCProfile, UserProfile } from '../types';
 import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMomentsSettings, canAutoPost } from './momentsSettings';
-import { actorDisplayName, actorFor, buildFriendGraph, canViewMoment, USER_ID } from './momentsPool';
+import { actorDisplayName, actorFor, buildFriendGraph, canViewMoment, type FriendGraph } from './momentsPool';
+import { buildPersonaKnowledge } from './momentsPersona';
+import { resolveUserProfileForChar } from './userPersona';
 import { addMomentComment, toggleMomentLike } from './momentsStore';
 import {
     buildBatchCommentPrompt, enqueueJobs, nextPostDueAt, parseBatchComments, planAuthorReply, planReactions,
@@ -23,6 +25,16 @@ export interface MomentsRuntimeContext {
     npcs: NPCProfile[];
     userProfile: UserProfile;
     apiConfig: APIConfig;
+    /** 身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）。不給就跟以前一樣。 */
+    userProfileBase?: UserProfile;
+    groups?: GroupProfile[];
+}
+
+function graphFor(ctx: MomentsRuntimeContext): FriendGraph {
+    const knowledge = ctx.userProfileBase
+        ? buildPersonaKnowledge(ctx.userProfileBase, ctx.characters, ctx.groups || [], ctx.npcs.map(n => n.id))
+        : undefined;
+    return buildFriendGraph(ctx.characters, ctx.npcs, knowledge);
 }
 
 const RETRY_LATER_MS = 30 * 60_000;
@@ -32,7 +44,7 @@ const RETRY_LATER_MS = 30 * 60_000;
 export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeContext): number {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
     if ([settings.likeProbability, settings.commentProbability, settings.npcLikeProbability, settings.npcCommentProbability].every(p => p <= 0)) return 0;
-    const graph = buildFriendGraph(ctx.characters, ctx.npcs);
+    const graph = graphFor(ctx);
     const jobs = planReactions({
         post, graph, settings, now: Date.now(),
         candidates: [
@@ -93,7 +105,7 @@ async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
 async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<void> {
     const post = await DB.getMomentPost(job.postId);
     if (!post) return;
-    const graph = buildFriendGraph(ctx.characters, ctx.npcs);
+    const graph = graphFor(ctx);
     const userName = ctx.userProfile.name || '用戶';
     const canAct = (id: string) => canViewMoment(id, post, graph) && !!actorFor(id, ctx.characters, ctx.npcs, userName);
 
@@ -112,12 +124,18 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
             const npc = ctx.npcs.find(n => n.id === id);
             // 挑講個性、說話方式的句子，不再只截開頭（見 utils/momentsVoice.ts）
             const brief = char ? characterVoice(char) : npc ? npcVoice(npc) : '';
-            const relation = relationToAuthor({ commenterId: id, authorId: post.author.id, characters: ctx.characters, npcs: ctx.npcs });
+            // 你用別的身份發的：對它來說是群裡見過的人或陌生人，不套它跟主身份的關係
+            const personaRel = post.author.kind === 'user' && graph.personaRelation ? graph.personaRelation(id, post.author.personaKey) : 'main';
+            const relation = personaRel === 'seen' ? '在群裡見過，不熟'
+                : personaRel === 'stranger' ? '不認識的人'
+                : relationToAuthor({ commenterId: id, authorId: post.author.id, characters: ctx.characters, npcs: ctx.npcs });
             return { id, name: nameOf(id), brief, relation };
         });
-        const authorName = post.author.id === USER_ID ? userName : actorDisplayName(post.author, ctx.characters, ctx.npcs, userName);
-        const thread = post.comments.map(c => `${actorDisplayName(c.actor, ctx.characters, ctx.npcs, userName)}: ${c.content}`).join('\n');
-        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName });
+        const authorName = actorDisplayName(post.author, ctx.characters, ctx.npcs, userName, graph);
+        const thread = post.comments.map(c => `${actorDisplayName(c.actor, ctx.characters, ctx.npcs, userName, graph)}: ${c.content}`).join('\n');
+        // 你發的貼文：提示詞裡的「用戶」就是發文的那個身份
+        const promptUserName = post.author.kind === 'user' ? authorName : userName;
+        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName });
         // 一批人一起留言只打一次：用全局 API（通常比角色專屬的主對話模型便宜）
         const response = await fetch(`${ctx.apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
@@ -152,6 +170,8 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         const target = post.comments.find(c => c.id === job.replyTo);
         if (!char || !target || post.author.id !== char.id) return;
         if (post.comments.some(c => c.replyTo === target.id && c.actor.id === char.id)) return;
-        await replyAsAuthor({ char, post, userComment: target, userName, apiConfig: ctx.apiConfig, characters: ctx.characters, npcs: ctx.npcs });
+        // 你的留言用你留言時那個身份的名字（graph 會換），userName 是作者認識的那個你
+        const knownName = ctx.userProfileBase ? resolveUserProfileForChar(ctx.userProfileBase, char).name || userName : userName;
+        await replyAsAuthor({ char, post, userComment: target, userName: knownName, apiConfig: ctx.apiConfig, characters: ctx.characters, npcs: ctx.npcs, graph });
     }
 }
