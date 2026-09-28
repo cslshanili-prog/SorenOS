@@ -1,23 +1,22 @@
 import type { CharacterProfile, GroupProfile, MomentPost, UserProfile } from '../types';
 import type { PersonaKnowledge } from './momentsPool';
-import { globalPersonaKey, personaKeyForChar, personaKeyForGroup, personaNameForKey } from './userPersona';
+import { personaKeyForChar, personaKeyForGroup, personaKeyForNpc, personaNameForKey, type NpcPersonaRef } from './userPersona';
 
 /**
  * 朋友圈的身份資料（多身份隔離 2a，見 plans/multi-persona-isolation-design.md）：
  * - 角色的主身份＝它私聊那條線綁的身份卡（personaKeyForChar）。
  * - 見過的身份＝它所在的群的群身份，跟主身份不同的那些（群友，不是朋友）。
- * - NPC 還沒有「認識的身份」欄位（2c 才加），先當成認識全域默認的你。
+ * - NPC 的主身份：手動指定的「認識的身份」，沒指定就從它關係清單裡的角色推（personaKeyForNpc）。
  */
 export function buildPersonaKnowledge(
     profileBase: UserProfile,
     characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>>,
     groups: Array<Pick<GroupProfile, 'id' | 'members'>>,
-    npcIds: Iterable<string> = [],
+    npcs: NpcPersonaRef[] = [],
 ): PersonaKnowledge {
     const main = new Map<string, string>();
     for (const c of characters) main.set(c.id, personaKeyForChar(profileBase, c));
-    const fallback = globalPersonaKey(profileBase);
-    for (const id of npcIds) if (!main.has(id)) main.set(id, fallback);
+    for (const n of npcs) if (!main.has(n.id)) main.set(n.id, personaKeyForNpc(profileBase, n, characters));
 
     const seen = new Map<string, Set<string>>();
     for (const g of groups) {

@@ -56,7 +56,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     }, [reload]);
     // 同一世界裡不同身份卡是不同的人：TA 只把它認識的那張當成你，其他身份用各自的名字
     const graph = useMemo(
-        () => buildFriendGraph(characters, npcs, buildPersonaKnowledge(userProfileBase, characters, groups, npcs.map(n => n.id))),
+        () => buildFriendGraph(characters, npcs, buildPersonaKnowledge(userProfileBase, characters, groups, npcs)),
         [characters, npcs, userProfileBase, groups],
     );
     const posts = useMemo(() => momentFeedFor(char.id, pool, graph), [pool, char.id, graph]);

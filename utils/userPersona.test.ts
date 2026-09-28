@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, globalPersonaKey, groupPersonaSource, personaKeyForChar, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, globalPersonaKey, groupPersonaSource, npcPersonaSource, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -225,5 +225,24 @@ describe('群身份 · 沒指定時用成員多數認識的', () => {
         expect(personaKeyForGroup(pinned, { id: 'g', members: ['A', 'A2'] }, chars)).toBe('p2');
         expect(groupPersonaSource(pinned, { id: 'g', members: ['A', 'A2'] }, chars)).toBe('group');
         expect(personaKeyForGroup(pinned, { id: 'h', members: ['A', 'A2'] }, chars)).toBe('p1');
+    });
+});
+
+describe('NPC 認識的身份', () => {
+    const profile: UserProfile = { ...baseProfile, perWorldPersonaIds: { fog: 'p1' }, perCharPersonaIds: { B: 'p2' } };
+    const chars = [{ id: 'A', groupId: 'fog' }, { id: 'A2', groupId: 'fog' }, { id: 'B' }];
+    it('手動指定優先；卡被刪了就回到自動', () => {
+        expect(personaKeyForNpc(profile, { id: 'n', knownPersonaId: 'p2', relationships: [{ targetId: 'A' }] }, chars)).toBe('p2');
+        expect(npcPersonaSource(profile, { id: 'n', knownPersonaId: 'p2' }, chars)).toBe('npc');
+        expect(personaKeyForNpc(profile, { id: 'n', knownPersonaId: 'gone', relationships: [{ targetId: 'A' }] }, chars)).toBe('p1');
+    });
+    it('自動：關係清單裡的角色大多認識的；同一個角色多段關係只算一次；user 不算', () => {
+        const npc = { id: 'n', relationships: [{ targetId: 'B' }, { targetId: 'B' }, { targetId: 'A' }, { targetId: 'A2' }, { targetId: 'user' }] };
+        expect(personaKeyForNpc(profile, npc, chars)).toBe('p1');
+        expect(npcPersonaSource(profile, npc, chars)).toBe('inferred');
+    });
+    it('推不出來：全域默認', () => {
+        expect(personaKeyForNpc(profile, { id: 'n', relationships: [{ targetId: 'user' }] }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
+        expect(npcPersonaSource(profile, { id: 'n' }, chars)).toBe('global');
     });
 });

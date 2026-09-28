@@ -62,3 +62,22 @@ describe('NPC 檔案塊', () => {
         expect(note).toContain('NPC 不能用 PRIVATE');
     });
 });
+
+describe('NPC 認識的你不是群裡的你（多身份 2c）', () => {
+    it('關係標成對它認識的那個人，並說明群裡的你是另一個人', () => {
+        const block = buildNpcMemberBlock({
+            npc: npc('n1', '房東', { relationships: [{ id: 'r1', targetId: 'user', description: '租客' }] }),
+            userName: '阿澈', knownUserName: '小星', others: [],
+        });
+        expect(block).toContain('對「小星」（你私下認識的人；不是這裡的「阿澈」');
+        expect(block).toContain('群裡的「阿澈」你不認識');
+    });
+    it('同一個人：照舊', () => {
+        const block = buildNpcMemberBlock({
+            npc: npc('n1', '房東', { relationships: [{ id: 'r1', targetId: 'user', description: '租客' }] }),
+            userName: '小星', knownUserName: '小星', others: [],
+        });
+        expect(block).toContain('對「小星」：租客');
+        expect(block).not.toContain('你不認識');
+    });
+});

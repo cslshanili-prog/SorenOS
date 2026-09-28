@@ -6,6 +6,7 @@
 import type { GroupProfile, NPCProfile } from '../../types';
 import { formatWorldbookSection, resolveWorldbookEntries, type WorldbookScanMessage } from '../worldbook';
 import { buildNpcMemoryBlock } from '../npcMemory';
+import { userRelationLabel } from '../personaSpeaker';
 
 export interface Speaker { id: string; name: string }
 
@@ -43,12 +44,16 @@ export function buildNpcMemberBlock(params: {
     scanMessages?: WorldbookScanMessage[];
     /** 旁觀模式：用戶不在場，但 NPC 跟用戶的關係照樣成立 */
     userLurking?: boolean;
+    /** NPC 認識的那個你的名字（多身份：可能不是群裡的你）；不給就當是同一個人 */
+    knownUserName?: string;
 }): string {
     const { npc, userName, others, scanMessages = [], userLurking } = params;
+    const knownUserName = params.knownUserName || userName;
+    const distinct = knownUserName !== userName;
     const relationships = npc.relationships
         .filter(r => r.description?.trim() && (r.targetId === 'user' || others.some(o => o.id === r.targetId)))
         .map(r => r.targetId === 'user'
-            ? `  · 對「${userName}」${userLurking ? '（此刻不在群裡）' : ''}：${r.description.trim()}`
+            ? `  · 對${userRelationLabel(knownUserName, userName)}${userLurking && !distinct ? '（此刻不在群裡）' : ''}：${r.description.trim()}`
             : `  · 對「${others.find(o => o.id === r.targetId)?.name}」：${r.description.trim()}`);
     const worldbook = formatWorldbookSection(
         resolveWorldbookEntries(npc.mountedWorldbooks || [], scanMessages, npc.name, userName),
@@ -61,6 +66,7 @@ export function buildNpcMemberBlock(params: {
         npc.description?.trim() ? `- 設定：\n${npc.description.trim()}` : `- 設定：（沒有更多設定，按名字和常識自然發揮）`,
         npc.worldview?.trim() ? `- 世界觀：\n${npc.worldview.trim()}` : '',
         relationships.length ? `- 關係：\n${relationships.join('\n')}` : `- 關係：跟在場的人沒有特別設定的關係，當普通群友相處。`,
+        distinct ? `- 群裡的「${userName}」你不認識，跟你認識的「${knownUserName}」是兩個不同的人；照普通群友相處，別用你跟「${knownUserName}」的關係對待 TA。` : '',
         worldbook,
         memory,
         `<<< NPC 成員檔案 END >>>`,

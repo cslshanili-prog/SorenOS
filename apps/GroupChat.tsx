@@ -23,7 +23,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, effective
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { globalPersonaKey, groupPersonaSource, personaAvatarForKey, personaKeyForChar, personaKeyForGroup, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from '../utils/userPersona';
+import { globalPersonaKey, groupPersonaSource, personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from '../utils/userPersona';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { distinctGroupPersonaSection, groupPersonaMismatches, makeUserLineLabeler } from '../utils/groupChat/memberPersona';
@@ -1183,6 +1183,7 @@ const GroupChat: React.FC = () => {
                 .join('\n');
             const line = await generateNpcGroupGuestLine({
                 npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
+                knownUserName: npcKnownUserName(npc),
                 recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
             });
             if (!line.trim()) { addToast('NPC 沒接上話', 'error'); return; }
@@ -1496,6 +1497,12 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     };
 
     // NPC 成員的檔案塊（設定 / 關係 / 世界書 / 輕量記憶），見 utils/groupChat/npcMembers.ts
+    // NPC 認識的那個你（手動指定，或從它的關係清單推）；跟群身份同一張卡就回群裡的名字
+    const npcKnownUserName = (npc: NPCProfile) => {
+        const key = personaKeyForNpc(userProfileBase, npc, characters);
+        return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
+    };
+
     const buildNpcBlockFor = (npc: NPCProfile, currentMsgs: Message[], roundSpeakers: Array<{ id: string; name: string }>): string => {
         const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
         return buildNpcMemberBlock({
@@ -1504,6 +1511,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             others: roundSpeakers.filter(sp => sp.id !== npc.id),
             scanMessages: liveGroupMsgs.slice(-20).map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' })),
             userLurking: !!activeGroup?.userLurkMode,
+            knownUserName: npcKnownUserName(npc),
         });
     };
 

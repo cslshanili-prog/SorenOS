@@ -9,6 +9,7 @@ import { ContextBuilder } from './context';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { DB } from './db';
 import { safeResponseJson } from './safeApi';
+import { crossPersonaNote } from './personaSpeaker';
 
 export interface MiniApiConfig {
     baseUrl: string;
@@ -350,7 +351,12 @@ export interface RealConversationResult {
 interface RunRealConversationParams {
     a: CharacterProfile;
     b: CharacterProfile;
+    /** A 私下認識的那個你 */
     user: UserProfile;
+    /** B 私下認識的那個你（多身份：可能是另一張身份卡，見 plans/multi-persona-isolation-design.md）；不給就跟 A 同一個 */
+    userB?: UserProfile;
+    /** A、B 認識的是不是同一張身份卡；不是的話兩邊各加一句「那是不同的人」 */
+    samePersona?: boolean;
     api: MiniApiConfig;
     /** A 對 B 的當前好感 */
     affinityA: number;
@@ -380,13 +386,17 @@ export async function runRealConversation(
     p: RunRealConversationParams,
 ): Promise<RealConversationResult> {
     const { a, b, user, api, affinityA, affinityB } = p;
+    const userB = p.userB || user;
+    const distinct = p.samePersona === false;
+    const noteForA = distinct ? `\n${crossPersonaNote(user.name, b.name, userB.name)}` : '';
+    const noteForB = distinct ? `\n${crossPersonaNote(userB.name, a.name, user.name)}` : '';
     // 默認 1 個往返 = A 發一次 + B 回一次 = 正好 2 次 LLM 調用（好感變化折進各自回覆，不再額外調用）
     const rounds = Math.max(1, Math.min(8, p.rounds ?? 1));
 
     const ctxA = await buildSpeakerContext(a, user, b.name);
-    const ctxB = await buildSpeakerContext(b, user, a.name);
+    const ctxB = await buildSpeakerContext(b, userB, a.name);
     const recentA = await recentContextText(a, a.name, user.name);
-    const recentB = await recentContextText(b, b.name, user.name);
+    const recentB = await recentContextText(b, b.name, userB.name);
 
     // transcript: 用名字標註，餵給兩邊的 prompt
     const turns: { speaker: 'A' | 'B'; text: string }[] = [];
@@ -438,7 +448,7 @@ ${recentA}
 
 ### [人際關係 · 私聊「${b.name}」]
 你是「${a.name}」。你正在用手機和「${b.name}」私聊，這是你日常的社交往來。
-⚠️ 分清人：「${b.name}」是**另一個獨立的人**，**不是**用戶「${user.name}」。上面那段只是你和「${user.name}」的背景；別把「${b.name}」當成「${user.name}」，也別把只屬於「${user.name}」的稱呼、暱稱、記憶、關係硬套到「${b.name}」身上。${
+⚠️ 分清人：「${b.name}」是**另一個獨立的人**，**不是**用戶「${user.name}」。上面那段只是你和「${user.name}」的背景；別把「${b.name}」當成「${user.name}」，也別把只屬於「${user.name}」的稱呼、暱稱、記憶、關係硬套到「${b.name}」身上。${noteForA}${
             p.bNote ? `
 
 【機主對「${b.name}」的備註 —— 這是已確立的事實/關係背景，必須當作真實情況嚴格遵守，不得無視或與之矛盾】：
@@ -492,12 +502,12 @@ ${labeled() || '（還沒開始，由你起頭）'}
         // ---- B 回 ----
         const bPrompt = `${ctxB}
 
-### [你和用戶「${user.name}」的私聊背景（僅供參考，不是這場對話）]
+### [你和用戶「${userB.name}」的私聊背景（僅供參考，不是這場對話）]
 ${recentB}
 
 ### [人際關係 · 「${a.name}」私聊你]
 你是「${b.name}」。「${a.name}」正在用手機私聊你。
-⚠️ 分清人：「${a.name}」是**另一個獨立的人**，**不是**用戶「${user.name}」。上面那段只是你和「${user.name}」的背景；別把「${a.name}」當成「${user.name}」，也別把只屬於「${user.name}」的稱呼、暱稱、記憶、關係硬套到「${a.name}」身上。${
+⚠️ 分清人：「${a.name}」是**另一個獨立的人**，**不是**用戶「${userB.name}」。上面那段只是你和「${userB.name}」的背景；別把「${a.name}」當成「${userB.name}」，也別把只屬於「${userB.name}」的稱呼、暱稱、記憶、關係硬套到「${a.name}」身上。${noteForB}${
             p.aNote ? `
 
 【機主對「${a.name}」的備註 —— 這是已確立的事實/關係背景，必須當作真實情況嚴格遵守，不得無視或與之矛盾】：

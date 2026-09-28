@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { UserProfile } from '../types';
 import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
+import { crossPersonaNote } from './personaSpeaker';
 import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
 
 const base: UserProfile = {
@@ -28,5 +29,14 @@ describe('distinctPersonaNote', () => {
     it('都是同一個人：不加', () => {
         expect(distinctPersonaNote(['小星'], '小星', '群裡')).toBe('');
         expect(distinctPersonaNote([], '小星', '群裡')).toBe('');
+    });
+});
+
+describe('角色對聊：兩邊認識的你不同', () => {
+    it('同一個人不加；不同就說清楚', () => {
+        expect(crossPersonaNote('小星', 'B', '小星')).toBe('');
+        const note = crossPersonaNote('小星', 'B', '阿澈');
+        expect(note).toContain('你私下認識的「小星」跟「B」私下認識的「阿澈」是兩個不同的人');
+        expect(note).toContain('別主動提起「阿澈」');
     });
 });
