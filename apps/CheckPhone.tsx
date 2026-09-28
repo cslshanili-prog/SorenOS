@@ -277,7 +277,7 @@ const CheckPhone: React.FC = () => {
     // 下面所有原本讀 userProfile 的地方（生成偷看內容用的提示詞、關係變動卡片……）都改吃
     // 這份，而不是全域 userProfile——查 A 的手機和查 B 的手機，「你」可以是不同的身份卡。
     const checkPhoneUserProfile = useMemo(
-        () => (targetChar ? resolveUserProfileForChar(userProfileBase, targetChar.id) : userProfile),
+        () => (targetChar ? resolveUserProfileForChar(userProfileBase, targetChar) : userProfile),
         [targetChar, userProfileBase, userProfile],
     );
     const [isLoading, setIsLoading] = useState(false);

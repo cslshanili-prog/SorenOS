@@ -31,6 +31,7 @@ const IdentitySwitcher: React.FC<{ subtitle?: string }> = ({ subtitle }) => {
     const activeId = userProfileBase.activePersonaId;
     const pinnedChats = Object.keys(userProfileBase.perCharPersonaIds || {}).length;
     const pinnedGroups = Object.keys(userProfileBase.perGroupPersonaIds || {}).length;
+    const pinnedWorlds = Object.keys(userProfileBase.perWorldPersonaIds || {}).length;
 
     const choose = (id: string | undefined) => {
         setActivePersonaId(id);
@@ -107,13 +108,11 @@ const IdentitySwitcher: React.FC<{ subtitle?: string }> = ({ subtitle }) => {
                             <Plus size={14} weight="bold" />
                             新增身份
                         </button>
-                        {(pinnedChats > 0 || pinnedGroups > 0) && (
+                        {(pinnedWorlds > 0 || pinnedChats > 0 || pinnedGroups > 0) && (
                             <p className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 text-[10px] leading-relaxed text-slate-400">
                                 這裡換的是預設身份。已單獨指定身份的
-                                {pinnedChats > 0 && ` ${pinnedChats} 個私聊`}
-                                {pinnedChats > 0 && pinnedGroups > 0 && '、'}
-                                {pinnedGroups > 0 && ` ${pinnedGroups} 個群聊`}
-                                不會跟著換，要改去個人檔案的「分角色與群聊身份」。
+                                {[pinnedWorlds > 0 && ` ${pinnedWorlds} 個世界`, pinnedChats > 0 && ` ${pinnedChats} 個私聊`, pinnedGroups > 0 && ` ${pinnedGroups} 個群聊`].filter(Boolean).join('、')}
+                                不會跟著換，要改去個人檔案的「分世界、角色與群聊身份」。
                             </p>
                         )}
                     </div>

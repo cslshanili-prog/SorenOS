@@ -26,6 +26,7 @@ import { isBlobRef } from '../../utils/blobRef';
 import { useLocalDateKey } from '../../hooks/useLocalDateKey';
 import { resolveCharTimeZone } from '../../utils/timezone';
 import { trackEvent } from '../../utils/analytics';
+import { resolveUserProfileForChar } from '../../utils/userPersona';
 
 interface Props {
   charId: string;
@@ -59,12 +60,14 @@ const toPlaylistSong = (s: Song): CharPlaylistSong => ({
 });
 
 const CharVisitPage: React.FC<Props> = ({ charId, onBack, onOpenPlayer }) => {
-  const { characters, updateCharacter, userProfile, apiConfig, addToast } = useOS();
+  const { characters, updateCharacter, userProfile: globalUserProfile, userProfileBase, apiConfig, addToast } = useOS();
   const {
     cfg, playSong,
     current, playing, togglePlay, nextSong, prevSong,
   } = useMusic();
   const char = useMemo(() => characters.find(c => c.id === charId), [characters, charId]);
+  // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+  const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
   const charDateKey = useLocalDateKey(resolveCharTimeZone(char));
 
   const [initializing, setInitializing] = useState(false);

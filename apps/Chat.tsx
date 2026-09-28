@@ -315,7 +315,7 @@ const Chat: React.FC = () => {
     // 除非這個角色沒有單獨指定。下面所有原本讀 userProfile 的地方（AI 提示詞/氣泡頭像/
     // 主動消息打髒快照……）只要是「這個聊天窗口裡的你」，都改吃這份，而不是全域 userProfile。
     const chatUserProfile = useMemo(
-        () => (char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile),
+        () => (char ? resolveUserProfileForChar(userProfileBase, char) : userProfile),
         [char, userProfileBase, userProfile],
     );
     const memoryRepairRound = useMemo(() => {

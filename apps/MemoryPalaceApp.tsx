@@ -670,7 +670,7 @@ export default function MemoryPalaceApp() {
     // 「picker 選人頁」觸發的追平（handleToggleAutoArchiveFromPicker/runAutoArchiveCatchUp）
     // 走的是別的角色，那兩處單獨按各自的 charId 解析，不用這份。
     const memoryPalaceUserProfile = useMemo(
-        () => (char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile),
+        () => (char ? resolveUserProfileForChar(userProfileBase, char) : userProfile),
         [char, userProfileBase, userProfile],
     );
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 選角色頁的分組篩選
@@ -1711,7 +1711,7 @@ export default function MemoryPalaceApp() {
                 // processNewMessages 忽略首個參數（內部直接從 DB 加載），傳 [] 即可
                 // 這條追平走的是 picker 選人頁傳進來的 charId，不一定是當前打開的 activeCharacterId，
                 // 所以單獨按 charId 解析身份卡，不用上面按 activeCharacterId 算的 memoryPalaceUserProfile。
-                const result = await processNewMessages([], charId, charName, mpEmb, mpLLM, resolveUserProfileForChar(userProfileBase, charId).name, true);
+                const result = await processNewMessages([], charId, charName, mpEmb, mpLLM, resolveUserProfileForChar(userProfileBase, characters.find(c => c.id === charId) || charId).name, true);
 
                 // 軟跳過：緩衝區沒到閾值 / 熱區還沒被擠出 / 已有任務在跑 —— 不是 palace 失敗
                 if (result?.skipReason) {

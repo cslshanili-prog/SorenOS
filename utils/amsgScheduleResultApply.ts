@@ -13,6 +13,7 @@ import { announceScheduleChanges, applyScheduleChangeDirectives } from './schedu
 import { parseScheduleChangeResult } from './amsgScheduleResult';
 import { markAmsgStateDirty } from './amsgStateSync';
 import type { AmsgResultContext } from './amsgResults';
+import { resolveUserProfileForChar } from './userPersona';
 
 const HEADER = '[amsg2:schedule-change]';
 
@@ -47,7 +48,7 @@ export const applyScheduleChangeResult = async (
             DB.getGroups().catch(() => undefined),
         ]);
         if (userProfile && groups) {
-            markAmsgStateDirty({ char, userProfile, groups });
+            markAmsgStateDirty({ char, userProfile: resolveUserProfileForChar(userProfile, char), groups });
         } else {
             // 這兩樣是拼 fire_pack 的必需材料，編不出來，所以這一輪只能不打髒。
             // 後果要說清楚：本地的表已經改好了，雲端那份還留著舊安排，下一次主動消息

@@ -142,7 +142,7 @@ const DateApp: React.FC = () => {
     // 見面跟隨「個人檔案 → 分角色身份指定」——見面跟私聊/查手機/記憶宮殿是同一種
     // "你與這個角色的關係"，不單獨開一套指定入口，避免同一個角色在不同場景裡認出不同的你。
     const dateUserProfile = useMemo(
-        () => char ? resolveUserProfileForChar(userProfileBase, char.id) : userProfile,
+        () => char ? resolveUserProfileForChar(userProfileBase, char) : userProfile,
         [char, userProfileBase, userProfile],
     );
     const historyGroups = useMemo(
@@ -155,7 +155,7 @@ const DateApp: React.FC = () => {
     // 內容也不會被角色到點又提一遍。快照裡的消息在上傳時從 DB 重讀，打髒本身很便宜。
     const markDateTurnDirty = (target = char) => {
         if (!target) return;
-        markAmsgStateDirty({ char: target, userProfile: resolveUserProfileForChar(userProfileBase, target.id), groups, realtimeConfig });
+        markAmsgStateDirty({ char: target, userProfile: resolveUserProfileForChar(userProfileBase, target), groups, realtimeConfig });
     };
 
     const loadRecentDateMessages = async (charId: string, limit = DATE_SESSION_MESSAGE_LIMIT) => {
@@ -352,7 +352,7 @@ const DateApp: React.FC = () => {
                 char: c,
                 // 這裡不能用上面的 dateUserProfile：c 是剛傳入的目標角色，setActiveCharacterId(c.id)
                 // 還沒被 React 提交，char/dateUserProfile 這一輪渲染仍是切換前的舊值。
-                userProfile: resolveUserProfileForChar(userProfileBase, c.id),
+                userProfile: resolveUserProfileForChar(userProfileBase, c),
                 allMsgs: preparedMsgs,
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
@@ -382,7 +382,7 @@ const DateApp: React.FC = () => {
         if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM.baseUrl) return;
 
         // charForHook 未必等於當前渲染的 char（回調可能在切換角色後才跑完），按它自己的 id 單獨解析
-        const hookUserName = resolveUserProfileForChar(userProfileBase, charForHook.id).name;
+        const hookUserName = resolveUserProfileForChar(userProfileBase, charForHook).name;
         const recentMsgs = await DB.getRecentMessagesByCharId(charForHook.id, 50);
         try {
             const pipelineResult = await processNewMessagesWithAutoArchive(

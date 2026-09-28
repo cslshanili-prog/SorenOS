@@ -32,6 +32,7 @@ import {
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { createQixiChatMessagePair } from '../utils/qixiChatCard';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // ============================================================
 // 情人節立繪 Sprite 映射 (佔位 emoji，等圖片整理好後替換為圖床URL)
@@ -346,7 +347,7 @@ interface ValentineSessionProps {
 }
 
 export const ValentineSession: React.FC<ValentineSessionProps> = ({ charId, onClose }) => {
-    const { characters, activeCharacterId, apiConfig, userProfile, addToast, virtualTime, updateCharacter, groups, realtimeConfig } = useOS();
+    const { userProfileBase, characters, activeCharacterId, apiConfig, userProfile, addToast, virtualTime, updateCharacter, groups, realtimeConfig } = useOS();
 
     // 角色選擇
     const [selectedCharId, setSelectedCharId] = useState<string>(charId || activeCharacterId || '');
@@ -528,6 +529,7 @@ export const ValentineSession: React.FC<ValentineSessionProps> = ({ charId, onCl
             }).join('\n');
 
             await injectMemoryPalace(c, undefined, '情人節 我們在一起的回憶');
+            const userProfile = resolveUserProfileForChar(userProfileBase, c); // 照這個角色的身份綁定（見 utils/userPersona.ts）
             const baseContext = ContextBuilder.buildCoreContext(c, userProfile, true);
 
             // 根據角色獲取可用表情列表

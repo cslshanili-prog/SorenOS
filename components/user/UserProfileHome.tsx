@@ -6,6 +6,7 @@ import RealBalancePanel from '../bank/RealBalancePanel';
 import LifeRecordPanel from '../lifeRecord/LifeRecordPanel';
 import PerCharAvatarPicker from './PerCharAvatarPicker';
 import PerCharPersonaPicker from './PerCharPersonaPicker';
+import PerWorldPersonaPicker from './PerWorldPersonaPicker';
 import PerGroupPersonaPicker from './PerGroupPersonaPicker';
 import UserPersonaEditor from './UserPersonaEditor';
 import MomentsInteractionSettingsPanel from './MomentsInteractionSettingsPanel';
@@ -41,6 +42,7 @@ const UserProfileHome: React.FC = () => {
     const moments = normalizeMomentsSettings(userProfileBase.momentsSettings);
     const pinnedChats = Object.keys(userProfileBase.perCharPersonaIds || {}).length;
     const pinnedGroups = Object.keys(userProfileBase.perGroupPersonaIds || {}).length;
+    const pinnedWorlds = Object.keys(userProfileBase.perWorldPersonaIds || {}).length;
     const pinnedAvatars = Object.keys(userProfileBase.perCharAvatars || {}).length;
     const activePersonaId = userProfileBase.activePersonaId;
 
@@ -73,12 +75,14 @@ const UserProfileHome: React.FC = () => {
                     <button onClick={() => setView('home')} className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 active:scale-90 transition-transform" aria-label="返回">
                         <CaretLeft size={20} className="text-slate-600" />
                     </button>
-                    <h1 className="text-lg font-bold text-slate-800">分角色與群聊身份</h1>
+                    <h1 className="text-lg font-bold text-slate-800">分世界、角色與群聊身份</h1>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-10 space-y-5">
                     <p className="text-[11px] leading-relaxed text-slate-400 px-1">
-                        在這裡指定過的私聊／群聊，會固定用那張身份卡或頭像，不跟著頁首切換的預設身份走。
+                        在這裡指定過的世界／私聊／群聊，會固定用那張身份卡或頭像，不跟著頁首切換的預設身份走。優先順序：角色自己指定 ＞ 所在世界 ＞ 頁首的預設身份。
                     </p>
+                    {/* 分世界身份指定：世界＝神經鏈接的角色分組，整組一次指定 */}
+                    <PerWorldPersonaPicker />
                     {/* 分角色身份指定：給某個角色單獨綁一張身份卡，不跟著全域切換走 */}
                     <PerCharPersonaPicker />
                     {/* 群聊身份指定：跟分角色身份指定同一個概念，鍵換成 groupId */}
@@ -150,11 +154,11 @@ const UserProfileHome: React.FC = () => {
                         <button onClick={() => open('perChat')} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 rounded-b-[1.75rem]">
                             <span className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0"><IdentificationCard size={20} /></span>
                             <div className="min-w-0 flex-1">
-                                <div className="text-sm font-bold text-slate-700">分角色與群聊身份</div>
+                                <div className="text-sm font-bold text-slate-700">分世界、角色與群聊身份</div>
                                 <div className="text-[11px] text-slate-400">
-                                    {pinnedChats + pinnedGroups + pinnedAvatars === 0
-                                        ? '指定某個私聊／群聊固定用哪張身份卡、哪個頭像'
-                                        : [pinnedChats && `${pinnedChats} 個私聊指定了身份`, pinnedGroups && `${pinnedGroups} 個群聊指定了身份`, pinnedAvatars && `${pinnedAvatars} 個私聊換了頭像`].filter(Boolean).join('、')}
+                                    {pinnedWorlds + pinnedChats + pinnedGroups + pinnedAvatars === 0
+                                        ? '指定某個世界／私聊／群聊固定用哪張身份卡、哪個頭像'
+                                        : [pinnedWorlds && `${pinnedWorlds} 個世界指定了身份`, pinnedChats && `${pinnedChats} 個私聊指定了身份`, pinnedGroups && `${pinnedGroups} 個群聊指定了身份`, pinnedAvatars && `${pinnedAvatars} 個私聊換了頭像`].filter(Boolean).join('、')}
                                 </div>
                             </div>
                             <CaretRight size={16} className="text-slate-300 shrink-0" />

@@ -21,6 +21,7 @@ import { addLocalDays, getLocalDateKey } from '../utils/localDate';
 import { roundMoney, sumMoney } from '../utils/format';
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { trackEvent } from '../utils/analytics';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 const INITIAL_STATE: BankFullState = {
     config: {
@@ -58,7 +59,7 @@ const INITIAL_STATE: BankFullState = {
 };
 
 const BankApp: React.FC = () => {
-    const { closeApp, characters, addToast, apiConfig, userProfile } = useOS();
+    const { userProfileBase, closeApp, characters, addToast, apiConfig, userProfile } = useOS();
     const localDateKey = useLocalDateKey();
     const [state, setState] = useState<BankFullState>(INITIAL_STATE);
     const [transactions, setTransactions] = useState<BankTransaction[]>([]);
@@ -523,6 +524,7 @@ const BankApp: React.FC = () => {
             const pool = availableChars.length > 0 ? availableChars : characters;
             if (pool.length === 0) { addToast('沒有可用角色', 'error'); return; }
             const randomChar = pool[Math.floor(Math.random() * pool.length)];
+            const userProfile = resolveUserProfileForChar(userProfileBase, randomChar); // 照這個角色的身份綁定（見 utils/userPersona.ts）
 
             // 2. Build Context
             await injectMemoryPalace(randomChar);

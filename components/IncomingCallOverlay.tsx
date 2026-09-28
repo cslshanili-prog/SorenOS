@@ -56,7 +56,7 @@ const IncomingCallOverlay: React.FC = () => {
         await setCallStatus(current.messageId, status);
         const char = characters.find(c => c.id === current.charId);
         if (status === 'declined' && char) {
-            const userName = resolveUserProfileForChar(userProfileBase, char.id).name || '你';
+            const userName = resolveUserProfileForChar(userProfileBase, char).name || '你';
             await DB.saveMessage({
                 charId: char.id, role: 'system', type: 'text',
                 content: buildCharCallDeclinedNote(userName, char.chatNickname?.trim() || char.name, current.mode),

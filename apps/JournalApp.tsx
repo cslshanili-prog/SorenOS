@@ -1,6 +1,6 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, DiaryEntry, StickerData, DiaryPage, MemoryFragment, type JournalAppearance } from '../types';
@@ -18,6 +18,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { trackEvent } from '../utils/analytics';
 import JournalAppearanceButton, { JournalAppearanceStyle } from '../components/journal/JournalAppearanceEditor';
 import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
@@ -69,7 +70,7 @@ const getLocalDateStr = () => {
 };
 
 const JournalApp: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, memoryPalaceConfig, characterGroups, theme } = useOS();
+    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, updateCharacter, memoryPalaceConfig, characterGroups, theme } = useOS();
     // 預覽草稿只活在當前 JournalApp 會話裡，不寫 theme/localStorage。狀態放在
     // App 頂層，才能在選擇頁、列表頁與書寫頁之間切換時繼續預覽同一套 CSS。
     const [previewJournalAppearance, setPreviewJournalAppearance] = useState<JournalAppearance | undefined>();
@@ -89,6 +90,8 @@ const JournalApp: React.FC = () => {
 
     const [mode, setMode] = useState<'select' | 'calendar' | 'write'>('select');
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [selectedChar, userProfileBase, globalUserProfile]);
     const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 選日記本頁的分組篩選
     const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);

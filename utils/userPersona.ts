@@ -1,4 +1,4 @@
-import { UserProfile } from '../types';
+import type { CharacterProfile, UserProfile } from '../types';
 
 /**
  * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
@@ -60,9 +60,13 @@ function applyPersonaOverride(
 }
 
 /**
- * 分角色身份指定的全站唯一解析口徑：私聊（Chat.tsx）、查手機（CheckPhone.tsx）、記憶宮殿
- * 手動重新歸檔這三處目前接了這個函數，其餘畫面仍讀全域默認（applyActivePersona），是刻意
- * 分批留下的範圍邊界，不是遺漏——全部畫面接完是明顯更大的一次改動。
+ * 分角色／分世界身份指定的全站唯一解析口徑。所有「替某一個角色」生成或顯示的地方都走這裡：
+ * 私聊、查手機、見面、通話、日記、小屋、夢境、學習、行程、記帳、手帳外的單角色活動、寫歌、
+ * 節日活動、小小窩、神經鏈接，以及 OSContext 背景替角色生成（主動消息、臨時會話、拉黑冷靜期）。
+ * 還讀全域默認的是多角色同場的地方（彼方、家園、人生模擬、遊戲、朋友圈……）：不同世界的角色可能
+ * 同場，該用哪張身份屬於「同世界多身份隔離」的規則，另外設計（見 plans/soren-roadmap.md）。
+ *
+ * 要吃到世界預設，得傳角色本身（帶 groupId）；只傳 charId 就只看分角色指定。
  *
  * 優先級（從高到低）：
  *   1. perCharPersonaIds[charId] 指向一張還在的身份卡 → 用這張卡的 name/avatar/bio，不疊
@@ -71,13 +75,41 @@ function applyPersonaOverride(
  *   2. perCharPersonaIds[charId] === REAL_IDENTITY_PERSONA_ID → 強制真實身份，不看全域默認，
  *      但仍然吃 perCharAvatars（這是先於身份卡存在的機制，語義是"這個聊天單獨換個頭像"，
  *      跟"要不要用身份卡"是兩件事，不能因為強制真實身份就把它蓋掉）；
- *   3. 都沒設置 → 走全域默認（activePersonaId），同樣再疊一層 perCharAvatars。
+ *   3. 角色所在的世界（分組）在 perWorldPersonaIds 有指定 → 同 1／2 的規則（身份卡不疊頭像，真實身份疊）；
+ *   4. 都沒設置 → 走全域默認（activePersonaId），同樣再疊一層 perCharAvatars。
  */
-export function resolveUserProfileForChar(profileBase: UserProfile, charId: string): UserProfile {
-    const { profile: resolved, matchedPersona } = applyPersonaOverride(profileBase, profileBase.perCharPersonaIds?.[charId]);
+export function resolveUserProfileForChar(profileBase: UserProfile, char: CharRef): UserProfile {
+    const charId = typeof char === 'string' ? char : char.id;
+    const { profile: resolved, matchedPersona } = applyPersonaOverride(profileBase, effectivePersonaOverride(profileBase, char));
     if (matchedPersona) return resolved;
     const avatarOverride = profileBase.perCharAvatars?.[charId];
     return avatarOverride ? { ...resolved, avatar: avatarOverride } : resolved;
+}
+
+/**
+ * 傳角色本身（帶 groupId）才吃得到「世界預設身份」；只傳 charId 的舊調用點照舊只看分角色指定。
+ * 世界 = 神經鏈接的角色分組（CharacterGroup），一個角色只在一個分組裡。
+ */
+export type CharRef = string | Pick<CharacterProfile, 'id' | 'groupId'>;
+
+/**
+ * 這個角色生效的是哪一層指定：角色自己指定 > 所在世界（分組）的預設 > 全域默認。
+ * 設定頁拿它標示「這個角色現在跟著誰走」。
+ */
+export function personaOverrideSource(profileBase: UserProfile, char: CharRef): 'char' | 'world' | 'global' {
+    const charId = typeof char === 'string' ? char : char.id;
+    if (profileBase.perCharPersonaIds?.[charId]) return 'char';
+    const groupId = typeof char === 'string' ? undefined : char.groupId;
+    if (groupId && profileBase.perWorldPersonaIds?.[groupId]) return 'world';
+    return 'global';
+}
+
+function effectivePersonaOverride(profileBase: UserProfile, char: CharRef): string | undefined {
+    const charId = typeof char === 'string' ? char : char.id;
+    const own = profileBase.perCharPersonaIds?.[charId];
+    if (own) return own;
+    const groupId = typeof char === 'string' ? undefined : char.groupId;
+    return groupId ? profileBase.perWorldPersonaIds?.[groupId] : undefined;
 }
 
 /**

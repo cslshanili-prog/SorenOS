@@ -15,6 +15,7 @@ import { anniversaryCharIds, anniversaryCharNames, nextOccurrenceDate } from '..
 import { useLocalDateKey } from '../hooks/useLocalDateKey';
 import { trackEvent } from '../utils/analytics';
 import TokenImg from '../components/os/TokenImg';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
@@ -79,7 +80,7 @@ const THEMES: Record<ThemeMode, any> = {
 };
 
 const ScheduleApp: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, characterGroups } = useOS();
+    const { userProfileBase, closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, characterGroups } = useOS();
     const localDateKey = useLocalDateKey();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
@@ -141,6 +142,7 @@ const ScheduleApp: React.FC = () => {
             addToast('任務已完成', 'success');
             return;
         }
+        const userProfile = resolveUserProfileForChar(userProfileBase, supervisor); // 照這個角色的身份綁定（見 utils/userPersona.ts）
 
         // FEEDBACK: Show loading state immediately
         // Note: The caller handles setting processingTaskIds, but we can also add a toast
@@ -226,6 +228,7 @@ const ScheduleApp: React.FC = () => {
         // 跟「讓 TA 記住這一天」的聊天注入（utils/anniversary.ts 的 buildAnniversaryInjection）是兩回事，不衝突。
         const char = characters.find(c => c.id === anniversaryCharIds(anni)[0]);
         if (!char || !apiConfig.apiKey) return;
+        const userProfile = resolveUserProfileForChar(userProfileBase, char); // 照這個角色的身份綁定（見 utils/userPersona.ts）
 
         // Check cache (24h)
         if (anni.aiThought && anni.lastThoughtGeneratedAt && (Date.now() - anni.lastThoughtGeneratedAt < 24 * 60 * 60 * 1000)) {

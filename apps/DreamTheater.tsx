@@ -1,5 +1,5 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, CharacterBuff, UserProfile } from '../types';
@@ -15,6 +15,7 @@ import { trackEvent } from '../utils/analytics';
 import {
     CaretLeft, MoonStars, ArrowClockwise, X, Eye, Sparkle, Lock, Question, Trash,
 } from '@phosphor-icons/react';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // ============================================================
 //  Dream Theater · 夢境演出系統
@@ -573,9 +574,11 @@ const isSameDay = (a: number, b: number): boolean => {
 const DREAM_DAILY_TYPE_CAP = 3;
 
 const DreamTheater: React.FC<{ char: CharacterProfile; onExit: () => void }> = ({ char, onExit }) => {
-    const { apiConfig, userProfile, updateCharacter, addToast } = useOS();
+    const { apiConfig, userProfile: globalUserProfile, userProfileBase, updateCharacter, addToast } = useOS();
 
     const [phase, setPhase] = useState<Phase>('idle');
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
     const [script, setScript] = useState<DreamScript | null>(null);
     const [revealed, setRevealed] = useState(1);   // 已浮現的碎片數（拼貼累積，純輕觸推進）
     // 僅本地測試：強制指定原型（null = 讓模型自動選）

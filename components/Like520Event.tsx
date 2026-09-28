@@ -26,6 +26,7 @@ import {
     Like520CallBResult,
     Like520TucaoKey,
 } from '../utils/like520/prompts';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // ============================================================
 // 日期判定 / 持久化 key
@@ -3110,8 +3111,10 @@ interface SessionProps {
 type SessionMode = 'fresh' | 'replay' | 'skip-to-letter';
 
 export const Like520Session: React.FC<SessionProps> = ({ charId, onClose }) => {
-    const { characters, userProfile, apiConfig, updateCharacter, addToast } = useOS();
+    const { characters, userProfile: globalUserProfile, userProfileBase, apiConfig, updateCharacter, addToast } = useOS();
     const char = characters.find(c => c.id === charId);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
 
     // 已有完成記錄？拿出來判斷要不要彈回放選擇卡
     const existingRecord = char?.specialMomentRecords?.[LIKE520_RECORD_KEY];

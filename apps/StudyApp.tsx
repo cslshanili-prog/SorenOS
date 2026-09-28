@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { StudyCourse, StudyChapter, CharacterProfile, Message, UserProfile, APIConfig, StudyTutorPreset, QuizQuestion, QuizSession, QuizQuestionNote } from '../types';
@@ -12,6 +12,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import TokenImg from '../components/os/TokenImg';
 import { trackEvent } from '../utils/analytics';
 import { extractPdfText, isPdfFile } from '../utils/pdfText';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 type KatexLike = {
     renderToString: (latex: string, options: any) => string;
@@ -305,11 +306,13 @@ const BlackboardRenderer: React.FC<{ text: string, isTyping?: boolean, katexRend
 };
 
 const StudyApp: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile, updateCharacter, characterGroups } = useOS();
+    const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, updateCharacter, characterGroups } = useOS();
     const [mode, setMode] = useState<'bookshelf' | 'classroom' | 'quiz' | 'quiz_review' | 'practice_book'>('bookshelf');
     const [courses, setCourses] = useState<StudyCourse[]>([]);
     const [activeCourse, setActiveCourse] = useState<StudyCourse | null>(null);
     const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [selectedChar, userProfileBase, globalUserProfile]);
     const [tutorGroupId, setTutorGroupId] = useState<string>(GROUP_FILTER_ALL); // 書架頁「當前助教」的分組篩選
     
     // Classroom State

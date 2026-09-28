@@ -3723,6 +3723,12 @@ export interface UserProfile {
      */
     perCharPersonaIds?: Record<string, string>;
     /**
+     * 世界預設身份（檔案 App「分世界身份指定」）：神經鏈接的角色分組 id（CharacterGroup.id）→
+     * 身份卡 id，或 REAL_IDENTITY_PERSONA_ID。分組裡的角色沒在 perCharPersonaIds 單獨指定時用這張；
+     * 優先級：角色自己指定 > 世界預設 > 全域默認。解析同樣走 resolveUserProfileForChar()（要傳角色本身）。
+     */
+    perWorldPersonaIds?: Record<string, string>;
+    /**
      * 群聊身份指定（檔案 App「分角色身份指定」）：groupId → 身份卡 id，或
      * utils/userPersona.ts 的 REAL_IDENTITY_PERSONA_ID。跟 perCharPersonaIds 是兩個
      * 獨立的 map（群聊沒有 perCharAvatars 那層——群聊頭像本來就一直用整體默認，不因為

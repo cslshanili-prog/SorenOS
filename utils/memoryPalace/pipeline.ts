@@ -122,6 +122,7 @@ import {
     getReliableMemoryPalaceHighWaterMark,
     setReliableMemoryPalaceHighWaterMark,
 } from './highWaterMark';
+import { resolveUserProfileForChar } from '../userPersona';
 
 // ─── 輕量 LLM 配置類型 ───────────────────────────────
 
@@ -1367,7 +1368,7 @@ export async function injectMemoryPalace(
         // 而不是回退成「用戶房間」。
         let resolvedUserName = userName;
         if (!resolvedUserName) {
-            try { resolvedUserName = (await DB.getUserProfile())?.name || undefined; } catch {}
+            try { const up = await DB.getUserProfile(); resolvedUserName = up ? resolveUserProfileForChar(up, char).name || undefined : undefined; } catch {}
         }
 
         // 門牌（常駐語義層）：純 IDB 讀 + 格式化，不調 LLM。
@@ -1754,7 +1755,9 @@ async function extractAndStoreMemories(
         try {
             const chars = await DB.getAllCharacters();
             const charProfile = chars.find(c => c.id === charId);
-            const userProfile = await DB.getUserProfile();
+            const rawUserProfile = await DB.getUserProfile();
+            // 照這個角色的身份綁定（角色自己指定 > 世界預設 > 全域默認）
+            const userProfile = rawUserProfile ? resolveUserProfileForChar(rawUserProfile, charProfile || charId) : rawUserProfile;
 
             // 5a. 精簡角色檔案（姓名、設定、世界觀）
             if (charProfile) {

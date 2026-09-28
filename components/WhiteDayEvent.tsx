@@ -22,6 +22,7 @@ import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import TokenImg from './os/TokenImg';
 import { dataUrlToBlob, isImageValue, putImageBlob, resolveRefToDataUrl } from '../utils/blobRef';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 // ============================================================
 // 美術資產配置（用戶填入實際 PNG URL 後生效）
@@ -482,7 +483,7 @@ interface WhiteDaySessionProps {
 }
 
 export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClose }) => {
-    const { characters, activeCharacterId, apiConfig, userProfile, addToast, virtualTime, updateCharacter } = useOS();
+    const { userProfileBase, characters, activeCharacterId, apiConfig, userProfile, addToast, virtualTime, updateCharacter } = useOS();
 
     const [selectedCharId, setSelectedCharId] = useState<string>(charId || activeCharacterId || '');
 
@@ -654,6 +655,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
                 .join('\n');
 
             await injectMemoryPalace(c, undefined, '白色情人節 回顧我們的關係');
+            const userProfile = resolveUserProfileForChar(userProfileBase, c); // 照這個角色的身份綁定（見 utils/userPersona.ts）
             const baseContext = ContextBuilder.buildCoreContext(c, userProfile, true);
             const availableEmotions = getAvailableEmotions(c);
 

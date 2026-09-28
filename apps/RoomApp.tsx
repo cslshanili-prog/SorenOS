@@ -28,6 +28,7 @@ import { trackEvent } from '../utils/analytics';
 import { normalizeBuiltInRoomTemplateAssetsInPlace, toPortableBuiltinRoomAsset } from '../utils/roomTemplateAssets';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareText } from '../utils/pngShare';
+import { resolveUserProfileForChar } from '../utils/userPersona';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
@@ -311,7 +312,7 @@ const renderNotebookContent = (text: string) => {
 };
 
 const RoomApp: React.FC = () => {
-    const { closeApp, openApp, characters, characterGroups, activeCharacterId, setActiveCharacterId, updateCharacter, apiConfig, addToast, userProfile } = useOS();
+    const { closeApp, openApp, characters, characterGroups, activeCharacterId, setActiveCharacterId, updateCharacter, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase } = useOS();
 
     // 桌面主題的「進小屋意圖」：惰性讀取（不清空，consume 在下方 effect），首幀就落到
     // 目標視圖，避免閃一下 select 頁。真正的應用（進房間/開夢境/切角色）在 effect 裡做。
@@ -412,6 +413,8 @@ const RoomApp: React.FC = () => {
     const customItemInputRef = useRef<HTMLInputElement>(null);
 
     const char = characters.find(c => c.id === activeCharacterId);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
+    const userProfile = useMemo(() => (char ? resolveUserProfileForChar(userProfileBase, char) : globalUserProfile), [char, userProfileBase, globalUserProfile]);
 
     // chibi 立繪 / 牆 / 地板都可能是 blobref 令牌，先解析成可直接渲染的 url（objectURL / http / data）。
     // ⚠️ 這三個是 hook，必須放在 select/pixelHome 的 early-return **之前**無條件調用——
