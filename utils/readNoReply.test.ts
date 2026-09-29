@@ -14,7 +14,7 @@ describe('classifyScheduleSlot', () => {
         expect(classifyScheduleSlot({ activity: '睡覺' })).toBe('sleep');
         expect(classifyScheduleSlot({ activity: '午睡', emoji: '😴' })).toBe('sleep');
         expect(classifyScheduleSlot({ activity: '开会' })).toBe('busy');
-        expect(classifyScheduleSlot({ activity: '上課', description: '微積分' })).toBe('busy');
+        expect(classifyScheduleSlot({ activity: '上課', description: '微積分' } as any)).toBe('busy');
         expect(classifyScheduleSlot({ activity: 'Team meeting' })).toBe('busy');
     });
 
@@ -24,6 +24,9 @@ describe('classifyScheduleSlot', () => {
         expect(classifyScheduleSlot({ activity: '今天不忙，在家追劇' })).toBeNull();
         expect(classifyScheduleSlot({ activity: '去幫忙搬家' })).toBeNull();
         expect(classifyScheduleSlot({ activity: '散步' })).toBeNull();
+        // 描述裡提到睡覺／忙不算：常是在講別的事
+        expect(classifyScheduleSlot({ activity: '在咖啡廳看書', description: '昨晚沒睡好，有點想睡' } as any)).toBeNull();
+        expect(classifyScheduleSlot({ activity: '散步', description: '忙了一整天，出來透氣' } as any)).toBeNull();
         expect(classifyScheduleSlot(null)).toBeNull();
     });
 });

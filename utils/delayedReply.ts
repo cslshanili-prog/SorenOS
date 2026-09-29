@@ -26,18 +26,28 @@ export function normalizeDelayedReply(raw: Partial<DelayedReplySettings> | undef
     return { enabled: raw?.enabled === true, minMinutes: min, maxMinutes: max };
 }
 
+export type ReplyDelayContext = { slotKind: 'sleep' | 'busy' | null; recentlyActive: boolean };
+
+/**
+ * 落在用戶設的範圍裡哪一段（0～1）。各段互相重疊，同一個狀態也不會每次都擠在同一頭：
+ * 睡覺 → 後四成；在忙 → 後六成五；空閒 → 前七成五；正聊得起勁又空閒 → 前三成五。
+ * （以前是睡覺最後兩成、在忙後半，一被判成睡覺就次次壓線。）
+ */
+export function replyDelayBand(context: ReplyDelayContext): [number, number] {
+    return context.slotKind === 'sleep' ? [0.6, 1]
+        : context.slotKind === 'busy' ? [0.35, 1]
+        : context.recentlyActive ? [0, 0.35]
+        : [0, 0.75];
+}
+
 /** 這次要等多久（毫秒）。用戶設的是範圍，落在範圍裡哪一段看角色此刻的狀態。 */
 export function computeReplyDelayMs(
     settings: DelayedReplySettings,
-    context: { slotKind: 'sleep' | 'busy' | null; recentlyActive: boolean },
+    context: ReplyDelayContext,
     rand: number = Math.random(),
 ): number {
     const { minMinutes, maxMinutes } = normalizeDelayedReply(settings);
-    // 範圍內的哪一段：睡覺 → 最後兩成；在忙 → 後半；空閒 → 前六成；正聊得起勁又空閒 → 前兩成五
-    const [lo, hi] = context.slotKind === 'sleep' ? [0.8, 1]
-        : context.slotKind === 'busy' ? [0.5, 1]
-        : context.recentlyActive ? [0, 0.25]
-        : [0, 0.6];
+    const [lo, hi] = replyDelayBand(context);
     const r = Math.min(1, Math.max(0, rand));
     const minutes = minMinutes + (maxMinutes - minMinutes) * (lo + (hi - lo) * r);
     return Math.max(10_000, Math.round(minutes * 60_000));

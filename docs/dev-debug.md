@@ -1,6 +1,6 @@
 # Dev Debug 調試子系統
 
-開發分支專用的"工具箱"：一個懸浮按鈕 + 面板，放一堆**只在開發分支顯示**的調試開關，外加一套可選的「分類捕獲」日誌——打開**總開關**「記錄日誌」後會露出並排的類型 checkbox（目前 `api` 普通聊天 / `amsg` 主動消息收發鏈路 / `lifecycle` 前後台 / `memory-palace` 記憶召回），勾哪類抓哪類。面板走極簡：類型並排、無逐條說明（看不懂就別用）。正式分支（main / master）默認整個隱藏，用戶看不到也不會誤觸。
+開發分支專用的"工具箱"：一個懸浮按鈕 + 面板，放一堆**只在開發分支顯示**的調試開關，外加一套可選的「分類捕獲」日誌——打開**總開關**「記錄日誌」後會露出並排的類型 checkbox（目前 `api` 普通聊天 / `amsg` 主動消息收發鏈路 / `lifecycle` 前後台 / `memory-palace` 記憶召回 / `delayed-reply` 延遲自動回覆），勾哪類抓哪類。面板走極簡：類型並排、無逐條說明（看不懂就別用）。正式分支（main / master）默認整個隱藏，用戶看不到也不會誤觸。
 
 這份文檔講清楚它怎麼運作，以及**怎麼往裡加新開關 / 加一類捕獲日誌**——照著步驟抄就行。
 
@@ -63,6 +63,7 @@ isDevDebugAvailable()  // utils/devDebug.ts
 | 捕獲類 `api` | `utils/safeApi.ts`（調 `appendDevDebugApiLog`，普通聊天直發 + Character 的記憶精煉/歸檔/導入/批量總結/印象生成，凡走 `safeFetchJson` 的 chat completions 都算） |
 | 捕獲類 `amsg` | `utils/activeMsgRuntime.ts`（模塊頂 `makeDebugLogger('amsg', …)` + `activeMsgTrace` 鏡像） |
 | 捕獲類 `lifecycle` | `utils/devDebug.ts` 自帶的 `installDevDebugLifecycleCapture()`（`App.tsx` 啟動時掛一次，監聽器常駐、抓不抓走門禁） |
+| 捕獲類 `delayed-reply` | `utils/delayedReplyRuntime.ts`（每次排程：時段、判成的狀態、落在範圍哪段、幾分鐘後）、`utils/delayedReplyCloud.ts`（交給雲端、到點本地回） |
 | 總開關 `captureEnabled` | `utils/devDebug.ts` 的 `isCaptureEnabled()` 閘門——關掉時所有捕獲類都不抓 |
 
 ---
