@@ -1191,6 +1191,22 @@ export const useChatAI = ({
                 return insertAmsg2TaskContextBlock(messages, block, payload.volatileTailIndex);
             };
 
+            // 心聲/好感度裡設了「每幾輪對話」節奏的條目：用戶每觸發一次回覆算一輪，本地路徑
+            // 和即時對話（雲端）都算——以前只接本地，開了即時對話的人計數一格都不走，
+            // 「還差 N 輪」卡住不動、新條目連括號都不出來。雲端那條只在 POST 被收下時算，
+            // 沒發出去的不算。重新生成仍在客戶端跑（worker 不管心聲），fire-and-forget。
+            // API 故意不跟主回覆共用 effectiveApi：心聲/好感度走「情緒/意識流 API」（通常配便宜
+            // 模型），主回覆才走角色專屬對話模型（通常更貴），兩筆帳混一起用戶的 token 會燒很快。
+            const tickCustomMeterTurns = () => {
+                const meterApi = resolveCharacterMeterApi(char, apiConfig);
+                void checkCustomMeterAutoUpdate('text', char, userProfile, meterApi, char.innerVoices || [], { tickTurns: true })
+                    .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
+                    .catch(e => console.warn('[CustomMeter] 心聲按輪自動更新失敗:', e));
+                void checkCustomMeterAutoUpdate('number', char, userProfile, meterApi, char.affinities || [], { tickTurns: true })
+                    .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
+                    .catch(e => console.warn('[CustomMeter] 好感度按輪自動更新失敗:', e));
+            };
+
             // ─── 即時對話（主動消息 2.0 雲端生成）分支 ───
             // 這一輪的上下文 + 任務一個 POST 上雲，雲端跑完走推送回來（收件箱同一條管線入庫），
             // 客戶端發完那一刻就自由了。
@@ -1249,6 +1265,7 @@ export const useChatAI = ({
                 if (instantChatResult.ok) {
                     // 這次 POST 已經把權威的那份 fire_pack 傳上去了，收尾不必再打髒重傳一遍。
                     instantChatAccepted = true;
+                    tickCustomMeterTurns();
                     // 202 只說明雲端收下了，不說明角色真的讀到過這些回執：那一輪可能空輸出被
                     // 判 skip-push，也可能 fire 重試打光標 failed。所以這裡只記帳不銷帳，等回覆
                     // 真的落庫那一刻（activeMsgRuntime 認末段到齊）再調
@@ -1324,19 +1341,8 @@ export const useChatAI = ({
             // 主請求即將發出 → 立即並行發射情緒評估（錯峰延遲已按用戶要求取消，見定義處註釋）。
             fireLocalEmotionEval?.();
 
-            // 心聲/好感度裡設了「每幾輪對話」節奏的條目，本地路徑每發一次請求算一輪——
-            // 到這裡說明 instantChatRoute 已經在上面 return 過了，走的一定是本地路徑，
-            // 跟雲端即時對話共用同一份節奏計數會因為「客戶端看不見 worker 何時真的跑」而
-            // 數不準，所以這條節奏暫時只接本機聊天。fire-and-forget，不影響主回覆。
-            // API 故意不跟主回覆共用 effectiveApi：心聲/好感度走「情緒/意識流 API」（通常配便宜
-            // 模型），主回覆才走角色專屬對話模型（通常更貴），兩筆帳混一起用戶的 token 會燒很快。
-            const meterApi = resolveCharacterMeterApi(char, apiConfig);
-            void checkCustomMeterAutoUpdate('text', char, userProfile, meterApi, char.innerVoices || [], { tickTurns: true })
-                .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
-                .catch(e => console.warn('[CustomMeter] 心聲按輪自動更新失敗:', e));
-            void checkCustomMeterAutoUpdate('number', char, userProfile, meterApi, char.affinities || [], { tickTurns: true })
-                .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
-                .catch(e => console.warn('[CustomMeter] 好感度按輪自動更新失敗:', e));
+            // 本地路徑：主請求即將發出，算一輪（雲端那條在上面送出成功時已經算過了）。
+            tickCustomMeterTurns();
 
             // 同角色活躍會話租約：本地 fetch 路徑本輪真實消息已落庫、模型請求即將發出，
             // 啟動心跳告訴 worker「正在和這個角色聊」——到點的 expire AI 任務據此 skip，

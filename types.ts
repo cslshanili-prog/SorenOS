@@ -2894,7 +2894,7 @@ export interface CharacterCustomMeter {
   /**
    * 自動更新節奏；不設置＝保持純手動（現狀默認），只能自己點「重新生成」。
    * - {mode:'hours', interval: N} 每隔 N 小時自動重新生成一次（"一天一更"＝N=24）
-   * - {mode:'turns', interval: N} 每隔 N 輪對話（角色回覆計數，僅本機聊天路徑）自動重新生成一次
+   * - {mode:'turns', interval: N} 每隔 N 輪對話（用戶每觸發一次回覆算一輪，本機聊天和即時對話都算）自動重新生成一次
    */
   autoUpdate?: { mode: 'hours' | 'turns'; interval: number };
   /** mode='turns' 時：距上次自動觸發已經過去幾輪角色回覆；達到 autoUpdate.interval 時觸發並清零。 */
