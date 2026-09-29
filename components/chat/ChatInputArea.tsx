@@ -477,6 +477,25 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     // 順序固定成三頁：第一頁 8 個常用操作，第二頁 8 個（含主動消息系兩個、HTML/思考展示、
     // 協同/記憶鏈接/收藏、裝扮），其餘擠第三頁。白框/提示音已並進"裝扮"（fine-tune 打開的
     // 同一個 ChatDecorationPanel，只是預選的 tab 不同），這裡不再重複擺一個入口。
+    // 「幫我回覆」開著時跟「記憶歸檔」對調：幫我回覆放第一頁第五格，記憶歸檔挪到第二頁第一格；
+    // 沒開就沒有這顆，記憶歸檔留在原位，第一頁不空格。
+    const archiveTile = (
+        <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            {acnh ? <AcnhActionTile kind="archive" /> : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-400 border-indigo-100'}`}>
+                <BookOpenText className="w-6 h-6" weight="bold" />
+            </div>)}
+            <span className="text-xs font-bold">{isSummarizing ? '歸檔中...' : '記憶歸檔'}</span>
+        </button>
+    );
+    const replyDraftsTile = (
+        <button key="reply-drafts" onClick={() => onPanelAction('reply-drafts')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#e0a526]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-500 border-amber-100'}`}>
+                <Lightbulb className="w-6 h-6" weight="fill" />
+            </div>
+            <span className="text-xs font-bold">幫我回覆</span>
+        </button>
+    );
     const actionTiles = [
         <button key="transfer" onClick={() => onPanelAction('transfer')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (
@@ -504,13 +523,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </div>)}
             <span className="text-xs font-bold">購物中心</span>
         </button>,
-        <button key="archive" onClick={() => onPanelAction('archive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            {acnh ? <AcnhActionTile kind="archive" /> : (
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-400 border-indigo-100'}`}>
-                <BookOpenText className="w-6 h-6" weight="bold" />
-            </div>)}
-            <span className="text-xs font-bold">{isSummarizing ? '歸檔中...' : '記憶歸檔'}</span>
-        </button>,
+        ...(replyDraftsEnabled ? [replyDraftsTile] : [archiveTile]),
         <button key="reroll" onClick={onReroll} disabled={!canReroll} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${canReroll ? (isDiscordStyle ? 'text-slate-200' : 'text-slate-600') : 'text-slate-300 opacity-50'}`}>
             {acnh ? <AcnhActionTile kind="regenerate" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${canReroll ? (isDiscordStyle ? 'bg-slate-800 text-emerald-300 border-emerald-400/20' : 'bg-emerald-50 text-emerald-400 border-emerald-100') : (isDiscordStyle ? 'bg-slate-800 text-slate-600 border-white/10' : 'bg-slate-50 text-slate-300 border-slate-100')}`}>
@@ -531,13 +544,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <GearSix className="w-6 h-6" weight="bold" /></div>)}
             <span className="text-xs font-bold">設置</span>
         </button>,
-        ...(replyDraftsEnabled ? [
-        <button key="reply-drafts" onClick={() => onPanelAction('reply-drafts')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${acnh ? 'bg-white/70 border-[#e6dab4] text-[#e0a526]' : isDiscordStyle ? 'bg-slate-800 text-amber-300 border-amber-400/20' : 'bg-amber-50 text-amber-500 border-amber-100'}`}>
-                <Lightbulb className="w-6 h-6" weight="fill" />
-            </div>
-            <span className="text-xs font-bold">幫我回覆</span>
-        </button>] : []),
+        ...(replyDraftsEnabled ? [archiveTile] : []),
         <button key="proactive" onClick={() => onPanelAction('proactive')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform relative ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="proactive" /> : (
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isProactiveActive ? (isDiscordStyle ? 'bg-violet-500/15 text-violet-300 border-violet-400/30' : 'bg-violet-50 text-violet-500 border-violet-200') : (isDiscordStyle ? 'bg-slate-800 text-slate-400 border-white/10' : 'bg-slate-50 text-slate-400 border-slate-100')}`}>
