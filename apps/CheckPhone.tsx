@@ -4039,8 +4039,10 @@ ${olderText}
                     {activeAppId === 'social' && renderMoments()}
                     {activeAppId === 'aiagent' && renderAiAgent()}
                     {activeAppId === 'ai_session' && renderAiSession()}
+                    {/* 全屏蓋在查手機上面：頂部讓出狀態列，不然「餘額管理」的返回鍵會疊在狀態列底下點不到 */}
                     {activeAppId === 'balance' && targetChar && (
-                        <div className="absolute inset-0 w-full h-full bg-slate-50 overflow-y-auto no-scrollbar overscroll-contain z-[60]">
+                        <div className="absolute inset-0 w-full h-full bg-slate-50 overflow-y-auto no-scrollbar overscroll-contain z-[60]"
+                            style={{ paddingTop: 'var(--safe-top)' }}>
                             <RealBalancePanel
                                 state={realBalanceState}
                                 onCommit={next => updateCharacter(targetChar.id, (cur) => ({

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
     attachCloudToDelayedReply, cancelDelayedReply, computeReplyDelayMs, getPendingDelayedReply,
-    listOverdueCloudDelayedReplies, normalizeDelayedReply, scheduleDelayedReply, settleCloudDelayedReply,
+    listOverdueCloudDelayedReplies, normalizeDelayedReply, replyDelayBand, scheduleDelayedReply, settleCloudDelayedReply,
     takeDueDelayedReplies,
 } from './delayedReply';
 
@@ -18,15 +18,24 @@ describe('normalizeDelayedReply', () => {
 describe('computeReplyDelayMs', () => {
     const minutes = (ms: number) => ms / 60_000;
 
-    it('睡覺落在範圍最後兩成，在忙落在後半', () => {
-        expect(minutes(computeReplyDelayMs(settings, { slotKind: 'sleep', recentlyActive: false }, 0))).toBe(49);
-        expect(minutes(computeReplyDelayMs(settings, { slotKind: 'busy', recentlyActive: true }, 0))).toBe(31);
+    it('睡覺落在後四成，在忙落在後六成五（不會次次壓線）', () => {
+        expect(minutes(computeReplyDelayMs(settings, { slotKind: 'sleep', recentlyActive: false }, 0))).toBe(37);
+        expect(minutes(computeReplyDelayMs(settings, { slotKind: 'busy', recentlyActive: true }, 0))).toBe(22);
         expect(minutes(computeReplyDelayMs(settings, { slotKind: 'busy', recentlyActive: false }, 1))).toBe(61);
     });
 
     it('空閒時偏前段，正聊得起勁更快', () => {
-        expect(minutes(computeReplyDelayMs(settings, { slotKind: null, recentlyActive: false }, 1))).toBe(37);
-        expect(minutes(computeReplyDelayMs(settings, { slotKind: null, recentlyActive: true }, 1))).toBe(16);
+        expect(minutes(computeReplyDelayMs(settings, { slotKind: null, recentlyActive: false }, 1))).toBe(46);
+        expect(minutes(computeReplyDelayMs(settings, { slotKind: null, recentlyActive: true }, 1))).toBe(22);
+    });
+
+    it('各段互相重疊：同一個時間點，睡覺、在忙、空閒都可能抽到', () => {
+        const at = (ctx: Parameters<typeof replyDelayBand>[0]) => replyDelayBand(ctx);
+        const sleep = at({ slotKind: 'sleep', recentlyActive: false });
+        const busy = at({ slotKind: 'busy', recentlyActive: false });
+        const free = at({ slotKind: null, recentlyActive: false });
+        expect(sleep[0]).toBeLessThan(free[1]);
+        expect(busy[0]).toBeLessThan(free[1]);
     });
 
     it('至少等 10 秒', () => {

@@ -38,10 +38,14 @@ const SLEEP_FP_KEYS = SLEEP_FALSE_POSITIVES.map(k => scriptKey(k));
 const BUSY_KEYS = BUSY_KEYWORDS.map(k => scriptKey(k.toLowerCase()));
 const BUSY_FP_KEYS = BUSY_FALSE_POSITIVES.map(k => scriptKey(k));
 
-/** 日程時段是睡覺、在忙，還是都不是。只看活動名、描述和 emoji，不看內心獨白（獨白常提到別的事）。 */
-export function classifyScheduleSlot(slot: Pick<ScheduleSlot, 'activity' | 'description' | 'emoji'> | null | undefined): 'sleep' | 'busy' | null {
+/**
+ * 日程時段是睡覺、在忙，還是都不是。只看活動名和 emoji：描述、內心獨白常提到別的事
+ * （「昨晚沒睡好」「有點想睡」「忙完了」），拿來判斷會把醒著、有空的時段誤判成睡覺或在忙。
+ * 延遲自動回覆和已讀不回共用這個判斷。
+ */
+export function classifyScheduleSlot(slot: Pick<ScheduleSlot, 'activity' | 'emoji'> | null | undefined): 'sleep' | 'busy' | null {
     if (!slot) return null;
-    let blob = scriptKey(`${slot.activity || ''} ${slot.description || ''} ${slot.emoji || ''}`.toLowerCase());
+    let blob = scriptKey(`${slot.activity || ''} ${slot.emoji || ''}`.toLowerCase());
     for (const fp of SLEEP_FP_KEYS) blob = blob.split(fp).join(' ');
     if (SLEEP_KEYS.some(k => blob.includes(k))) return 'sleep';
     for (const fp of BUSY_FP_KEYS) blob = blob.split(fp).join(' ');

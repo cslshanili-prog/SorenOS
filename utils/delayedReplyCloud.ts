@@ -9,6 +9,9 @@ import {
     listOverdueCloudDelayedReplies, takeDelayedReply, takeDueDelayedReplies, type PendingDelayedReply,
 } from './delayedReply';
 import { getReadNoReplyDecision } from './readNoReplyRuntime';
+import { makeDebugLogger } from './devDebug';
+
+const log = makeDebugLogger('delayed-reply', '延遲自動回覆');
 
 /**
  * 延遲自動回覆 × 主動消息 2.0：把「到點回覆」也交一份給雲端，App 關著也回得來、有推播。
@@ -83,6 +86,7 @@ export async function handoffDelayedReplyToCloud(params: {
             cancelCloudTask(result.uuid);
             return;
         }
+        log.info('交給雲端', { char: char.name, sendAt: new Date(sendAt).toISOString() });
         // 打包之後才落庫的訊息（連發的第二則）補傳一次
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
     } catch (e) {
@@ -100,8 +104,15 @@ export function cancelDelayedReplyEverywhere(charId: string): void {
 
 /** 到點、該由本地回的角色（交了雲端但本地搶先的，順手取消雲端那條）。 */
 export function takeDueDelayedRepliesForLocal(visible: boolean): string[] {
-    return takeDueDelayedReplies(Date.now(), { visible }).map(({ charId, entry }) => {
+    const now = Date.now();
+    return takeDueDelayedReplies(now, { visible }).map(({ charId, entry }) => {
         if (entry.cloud) cancelCloudTask(entry.cloud.uuid);
+        log.info('到點，本地回', {
+            charId,
+            scheduledMinutes: Math.round((entry.dueAt - entry.scheduledAt) / 6000) / 10,
+            lateSeconds: Math.round((now - entry.dueAt) / 1000),
+            cloud: entry.cloud ? '本地搶先，取消雲端那條' : '沒交雲端',
+        });
         return charId;
     });
 }

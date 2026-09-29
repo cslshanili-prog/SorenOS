@@ -6,7 +6,7 @@
 // 其餘存儲 / 脫敏 / 限容 / 導出邏輯全部通用，不用改。
 // 分類按「來源通道」切：api = 普通聊天直發模型；amsg = 主動消息 2.0 的收發鏈路（推送落庫、雲端回合 trace）；
 // lifecycle = 頁面前後台/網絡狀態變化（排查「請求等著等著就 NetworkError」時跟 api 類對時間線）。
-export type DevDebugCaptureCategory = 'api' | 'amsg' | 'lifecycle' | 'memory-palace';
+export type DevDebugCaptureCategory = 'api' | 'amsg' | 'lifecycle' | 'memory-palace' | 'delayed-reply';
 
 export interface DevDebugCaptureCategoryMeta {
     key: DevDebugCaptureCategory;
@@ -36,6 +36,11 @@ export const DEV_DEBUG_CAPTURE_CATEGORIES: DevDebugCaptureCategoryMeta[] = [
         key: 'memory-palace',
         title: '記憶',
         detail: '記憶召回管線 Trace：入口、版本、開關快照、耗時與結果；不記錄聊天原文和 API Key。',
+    },
+    {
+        key: 'delayed-reply',
+        title: '延遲回覆',
+        detail: '延遲自動回覆每次排程：日程時段、判成睡覺／在忙／空閒、是不是正聊著、落在範圍哪一段、排在幾分鐘後；到點由誰回。不記錄聊天內容。',
     },
 ];
 
