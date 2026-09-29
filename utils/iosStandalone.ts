@@ -223,6 +223,24 @@ export const installIOSStandaloneWorkaround = () => {
         event.preventDefault();
     };
 
+    // 鍵盤開著切去別的 App 再回來：iOS 回前台時鍵盤已經收了，卻不一定補發 visualViewport 的
+    // resize，高度和 ios-keyboard-open 就卡在鍵盤態——下面一大塊白、外層滑動被上面那條攔掉，
+    // 得把鍵盤叫出來再收一次才恢復。所以切走時先把輸入框失焦（回來本來就不會自動彈鍵盤），
+    // 回前台再階梯式重算幾次：剛回來那一下 visualViewport 可能還報舊高度，晚一點才對。
+    const RESUME_RESYNC_DELAYS_MS = [60, 250, 600, 1200];
+    const resyncAfterResume = () => {
+        setViewportVars();
+        for (const delay of RESUME_RESYNC_DELAYS_MS) window.setTimeout(setViewportVars, delay);
+    };
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+            const active = document.activeElement;
+            if (isTextEntryElement(active)) active.blur();
+            return;
+        }
+        resyncAfterResume();
+    };
+
     window.addEventListener('resize', handleSafeAreaChange);
     window.addEventListener('orientationchange', handleSafeAreaChange);
     window.visualViewport?.addEventListener('resize', handleViewportChange);
@@ -231,6 +249,8 @@ export const installIOSStandaloneWorkaround = () => {
         document.addEventListener('focusin', handleFocusIn);
         document.addEventListener('focusout', handleFocusOut);
         document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pageshow', resyncAfterResume);
     }
     setViewportVars();
 

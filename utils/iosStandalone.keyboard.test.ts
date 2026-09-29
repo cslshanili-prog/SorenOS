@@ -134,6 +134,35 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
         expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
     });
 
+    // 迴歸守衛：鍵盤開著切去別的 App 再回來，iOS 已經把鍵盤收了卻沒補發 resize。
+    // 舊實現高度和標記一直卡在鍵盤態：下面一塊白、外層滑動被攔，得再叫一次鍵盤才恢復。
+    it('鍵盤開著切走再回來、沒有 resize → 回前台後恢復無鍵盤態', async () => {
+        vi.useFakeTimers();
+        try {
+            await install();
+            const textarea = focusTextarea();
+            textarea.focus();
+            emitViewportResize(SCREEN_H - KEYBOARD_H);
+            expect(inKeyboardMode()).toBe(true);
+
+            let visibility: DocumentVisibilityState = 'hidden';
+            Object.defineProperty(document, 'visibilityState', { get: () => visibility, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            expect(document.activeElement).not.toBe(textarea);
+
+            // 回前台：可視區其實已經恢復，但一開始還報舊高度，事件也沒來
+            visibility = 'visible';
+            document.dispatchEvent(new Event('visibilitychange'));
+            visualViewport.height = SCREEN_H;
+            vi.advanceTimersByTime(1500);
+
+            expect(inKeyboardMode()).toBe(false);
+            expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('鍵盤動畫期可視高度報髒值 → 退化成無鍵盤態，不把佈局撐崩', async () => {
         await install();
         focusTextarea();
