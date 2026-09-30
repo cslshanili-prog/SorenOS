@@ -29,6 +29,7 @@ import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById, getCharRefs } from './charNameRegistry';
 import { getMomentsContextForChar } from './momentsContext';
+import { buildRealBalanceBlock } from './realBalancePrompt';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { formatRelativeAge } from './groupChat/relativeTime';
@@ -672,6 +673,8 @@ ${groupLogStr}\n`;
         // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
         volatileState += momentsText;
+        // 你的錢包（utils/realBalancePrompt.ts）：餘額會隨轉帳變，放易變段；從沒建過錢包的角色是空字串
+        volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);
         volatileState += anniversaryText;
         // 相識天數每天在變，放易變段；主動消息模板到點才渲染，天數會過期，只給起點日期
         if (char.acquaintanceStartDate) {
