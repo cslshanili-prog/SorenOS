@@ -191,7 +191,7 @@ NPC 維持**獨立的資料表**，不併進角色清單。理由：全專案有
 **落地實況（#34）**
 
 - **NPC 入群不進 `members`**：放在 `GroupProfile.npcMemberIds`。`members` 有十幾處背景邏輯在讀（話題盒卡片發進成員私聊、主動消息打髒、私聊 prompt 的「近期群聊」、記憶宮殿…），全都假設是角色；NPC 只在群聊生成這條路上被當成員。禁言沿用 `mutedMemberIds`。群設定「NPC 成員」可以加、移除、禁言，沒有人數下限。
-- **生成**（`utils/groupChat/npcMembers.ts`）：導演模式在角色檔案塊後面接 NPC 檔案塊（設定、世界觀、跟用戶／在場成員的關係、掛載世界書按關鍵字觸發、輕量記憶），導演指令多一段「NPC 成員」說明；輪詢模式 NPC 排在角色們後面輪流，用 NPC 自己配的 API（`resolveNpcApi`，沒配用群聊那組），指令換成 NPC 版（不教 PRIVATE／退群、跟用戶的關係以檔案為準）。派發層 `npcIds`：NPC 寫了 PRIVATE 直接丟掉。
+- **生成**（`utils/groupChat/npcMembers.ts`）：導演模式在角色檔案塊後面接 NPC 檔案塊（設定、世界觀、跟用戶／在場成員的關係、掛載世界書按關鍵字觸發、輕量記憶），導演指令多一段「NPC 成員」說明；輪詢模式（後改名「各自發言模式」：順序每輪隨機、分兩波，角色用自己的對話模型，見 `utils/groupChat/waves.ts`）NPC 跟角色一起分波，用 NPC 自己配的 API（`resolveNpcApi`，沒配用群聊那組），指令換成 NPC 版（不教 PRIVATE／退群、跟用戶的關係以檔案為準）。派發層 `npcIds`：NPC 寫了 PRIVATE 直接丟掉。
 - **名字**：群歷史、成員時間線、引用、話題盒整理、角色私聊裡的「近期群聊」都認得 NPC 的名字（`buildSpeakerDirectory`；OSContext 的名字註冊表也登記 NPC）。
 - **旁觀 = 原本的「隱身圍觀」**（`userLurkMode`），群設定裡改叫「旁觀（我不在這個群裡）」。開著時輸入框上面多一條旁觀欄：點成員頭像選「代打」，輸入框發出的就存成那位成員說的（`role: assistant`、`metadata.puppeted`，進群歷史、時間線、記憶），介面上名字旁有「代打」小標；「劇情方向」只管下一輪（`buildPlotDirectionNote`，按 ▶ 後清掉）；▶ 讓大家繼續聊。沒選代打時發的消息照舊只留在用戶螢幕上。
 - **輕量記憶**（`utils/npcMemory.ts`、`utils/npcMemoryRuntime.ts`）：`NPCProfile.memory`，NPC 第一人稱條列，整段重寫、約 800 字上限。

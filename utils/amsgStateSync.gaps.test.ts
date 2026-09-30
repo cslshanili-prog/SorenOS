@@ -153,7 +153,7 @@ describe('其餘打髒入口接線', () => {
     for (const [start, end] of [
       ['const handleSendMessage = async', 'const handleImageFile'],
       ['const createNextGroupTopicBox', 'const runGroupTopicArchive'],
-      ['const triggerDirector = async', '// 輪詢模式'],
+      ['const triggerDirector = async', '// 各自發言模式'],
       ['const triggerRoundRobin = async', '// 觸發入口'],
     ] as const) {
       expect(sliceBetween(src, start, end), `${start} 裡少了對成員打髒`).toContain('markGroupMembersDirty(');
