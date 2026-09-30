@@ -13,6 +13,7 @@ import {
 } from './applyAssistantPostProcessing';
 import { drainPendingDiaries } from './pendingDiary';
 import { applyEmotionEvalRaw } from './emotionApply';
+import { ledgerCallbacksFromRegistry } from './realBalanceLedger';
 import { CHAT_GEN_EVENTS, announceChatGen, announceEmotionDone } from './chatGenEvents';
 import { processNewMessagesWithAutoArchive } from './memoryPalace/autoArchive';
 import { loadMusicHooks } from '../context/MusicContext';
@@ -666,6 +667,10 @@ const processInboxMessageWithPostProcessing = async (
     emojis,
     categories,
     realtimeConfig,
+    // 轉帳／代付／送禮動兩邊的 Real Balance：跟前台聊天同一組（utils/realBalanceLedger.ts）。
+    // 以前這條路沒接，角色在雲端收下你的轉帳，卡片顯示「已收款」、角色的銀行卻沒入帳。
+    // 重試時副作用不重放（prepareInboxRetry），不會重複入帳；原轉帳被標成已收後也找不到第二筆待收的。
+    ...ledgerCallbacksFromRegistry(char, userProfile.name),
     // 雲端回覆裡的發照片（worker 以 soren_tag 送回）要靠它才生得出來；沒配就照舊剝掉不生
     imageGenConfig: apiConfig.imageGenConfig,
     // 日程改動按「角色說這句話的那一刻」判，不是按現在——這條可能在收件箱裡躺了一夜，

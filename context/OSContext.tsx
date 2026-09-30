@@ -25,6 +25,7 @@ import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/
 import { ProactiveChat } from '../utils/proactiveChat';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { tickCustomMeterTurnsForChar } from '../utils/customMeterGenerator';
+import { makeTransferLedgerCallbacks, registerRealBalanceWriters } from '../utils/realBalanceLedger';
 import { VRScheduler, type VRSessionOutcome } from '../utils/vrWorld/scheduler';
 import { runVRSession } from '../utils/vrWorld/runSession';
 import { allowsAutomaticVR } from '../utils/vrWorld/participation';
@@ -2554,6 +2555,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const blockTag = extractBlockUser(aiContent);
               aiContent = blockTag.cleanedText;
               const blockUserReq = blockTag.block && char.allowCharBlockUser && !char.chatBlock ? blockTag.block : null;
+              // 轉帳（角色主動轉、收下／退回你的轉帳）：這條路不走 parseAndExecuteActions，單獨結算，
+              // 不然標籤被 sanitize 剝掉，角色嘴上說收了、錢卻沒動（見 utils/realBalanceLedger.ts）
+              aiContent = await ChatParser.settleTransferCommands(aiContent, charId, makeTransferLedgerCallbacks({
+                  char,
+                  userName: userForChar(char).name || '你',
+                  writers: {
+                      updateCharacter: (id, updates) => { void updateCharacterRef.current(id, updates); },
+                      updateUserProfile: (updates) => { void updateUserProfileRef.current(updates); },
+                  },
+              }));
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
@@ -3858,6 +3869,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       await updateUserProfile(prev => ({ personas: [...(prev.personas || []), persona] }));
       return persona;
   };
+
+  // 轉帳／代付／送禮動兩邊 Real Balance 的寫入口，註冊給不在 React 裡的雲端回覆沖刷用
+  // （utils/realBalanceLedger.ts）。走 ref 拿最新的兩個函數，免得寫入時帶著舊的 userProfile 打髒。
+  const updateUserProfileRef = useRef(updateUserProfile);
+  updateUserProfileRef.current = updateUserProfile;
+  useEffect(() => {
+      registerRealBalanceWriters({
+          updateCharacter: (id, updates) => { void updateCharacterRef.current(id, updates); },
+          updateUserProfile: (updates) => { void updateUserProfileRef.current(updates); },
+      });
+      return () => registerRealBalanceWriters(null);
+  }, []);
 
   const updateUserPersona = async (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => {
       await updateUserProfile(prev => ({

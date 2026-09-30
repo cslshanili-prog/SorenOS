@@ -8,7 +8,7 @@ import { KeepAlive } from '../utils/keepAlive';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { ContextBuilder } from '../utils/context';
 import { ChatParser } from '../utils/chatParser';
-import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
+import { makeTransferLedgerCallbacks } from '../utils/realBalanceLedger';
 // 思考鏈 / HTML / MCD / memoryPalace 注入已下沉到 chatRequestPayload；這裡不再直接調用
 import { useMusic, loadMusicHooks } from '../context/MusicContext';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
@@ -1948,11 +1948,6 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
-            // onCharTransferSend 同一輪回復裡可能被連續調用好幾次（角色一口氣發了不止一筆
-            // 轉帳）；char.phoneState.realBalance 是這一輪拿到手時的快照，整輪期間不會跟著
-            // 前一筆轉帳的扣款更新。這個變量在每筆轉帳後手動往前滾，讓同一輪內的後一筆
-            // 轉帳查到的是「已經扣過前一筆」的餘額，不會拿同一份起始餘額重複通過檢查。
-            let charRealBalanceSnapshot: ReturnType<typeof ensureRealBalanceState> | undefined;
             await applyAssistantPostProcessing(sarReply.canonical, {
                 char,
                 userProfile,
@@ -1960,70 +1955,8 @@ export const useChatAI = ({
                 categories,
                 realtimeConfig,
                 imageGenConfig: apiConfig.imageGenConfig,
-                // 角色退回用戶發起的轉帳時退款回 Real Balance——錢在 Chat.tsx 的 onTransfer
-                // 發送那一刻就已經扣走了。只在這條前台路徑傳，主動消息 2.0 的 push 路徑上
-                // TRANSFER_RETURN 標籤本來就傳不到 chatParser（worker 側已知缺口），傳了也白傳。
-                onUserTransferReturned: async (amount: number) => {
-                    updateUserProfile(prev => {
-                        const result = applyRealBalanceDelta(ensureRealBalanceState(prev.realBalance), amount, `${char.name} 退回了轉帳`);
-                        return result.ok ? { realBalance: result.state } : {};
-                    });
-                },
-                // 角色收下用戶發起的轉帳：這筆錢這時才真的到帳角色，記入角色自己的 Real Balance
-                // （跟用戶側 apps/Chat.tsx 的 handleResolveTransfer 'accepted' 分支對稱）。
-                onUserTransferAccepted: async (amount: number) => {
-                    updateCharacter(char.id, previous => {
-                        const result = applyRealBalanceDelta(ensureRealBalanceState(previous.phoneState?.realBalance), amount, `收到${userProfile.name}的轉帳`);
-                        if (!result.ok) return {};
-                        return { phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state } };
-                    });
-                },
-                // 角色主動發起轉帳：發送即結清，先從角色 Real Balance 扣款；扣不出來返回 false，
-                // chatParser 會攔下這筆轉帳不落卡（跟用戶側發起轉帳時的餘額檢查對稱）。
-                //
-                // 檢查結果必須同步算出來再 return——不能像 onUserTransferAccepted 那樣把 ok
-                // 塞進 updateCharacter 的函數式 updater 裡再讀出來：updater 傳給 setState 後
-                // 何時真的執行是 React 調度決定的，不保證在 updateCharacter() 這行返回前跑完
-                // （尤其是從 await 鏈後半段調用時）。踩過的坑：updater 沒來得及跑，ok 停在
-                // 初始值 false，導致明明有餘額也被判定「不足」而攔下整筆轉帳。
-                // 所以直接拿這一輪拿到手的 char（本次渲染的快照，夠新）同步算好 ok/result，
-                // updateCharacter 只管照著算好的結果落庫，不再依賴 updater 的執行時機。
-                onCharTransferSend: async (amount: number) => {
-                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
-                    const result = applyRealBalanceDelta(before, -amount, `轉帳給${userProfile.name}`);
-                    if (!result.ok) return false;
-                    charRealBalanceSnapshot = result.state;
-                    updateCharacter(char.id, previous => ({
-                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
-                    }));
-                    return true;
-                },
-                // 角色支付購物中心「外賣代付請求」：單向支出（角色替用戶付了這頓錢），不是轉帳，
-                // 所以只扣角色自己的 Real Balance，沒有對應的用戶入帳。跟 onCharTransferSend 共用
-                // 同一份 charRealBalanceSnapshot——一輪回復裡角色可能既轉帳又付了筆代付，兩邊
-                // 得算在同一份"從這輪開始算起"的餘額上，不能各自拿同一份起始快照重複通過檢查。
-                onCharDaifuAccept: async (amount: number) => {
-                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
-                    const result = applyRealBalanceDelta(before, -amount, `代付給${userProfile.name}的外賣`);
-                    if (!result.ok) return false;
-                    charRealBalanceSnapshot = result.state;
-                    updateCharacter(char.id, previous => ({
-                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
-                    }));
-                    return true;
-                },
-                // 角色主動送用戶一份購物中心禮物/外賣：跟 onCharTransferSend 對稱的「發送即結清」，
-                // 也共用同一份 charRealBalanceSnapshot（同一輪回復裡角色可能轉帳/代付/送禮齊上）。
-                onCharGiftSend: async (amount: number) => {
-                    const before = charRealBalanceSnapshot ?? ensureRealBalanceState(char.phoneState?.realBalance);
-                    const result = applyRealBalanceDelta(before, -amount, `送給${userProfile.name}的禮物`);
-                    if (!result.ok) return false;
-                    charRealBalanceSnapshot = result.state;
-                    updateCharacter(char.id, previous => ({
-                        phoneState: { ...previous.phoneState, records: previous.phoneState?.records || [], realBalance: result.state },
-                    }));
-                    return true;
-                },
+                // 轉帳／代付／送禮動兩邊的 Real Balance：跟雲端回覆、背景延遲回覆共用同一組（utils/realBalanceLedger.ts）
+                ...makeTransferLedgerCallbacks({ char, userName: userProfile.name, writers: { updateCharacter, updateUserProfile } }),
                 groups,
                 contextMsgs,
                 fullMessages,

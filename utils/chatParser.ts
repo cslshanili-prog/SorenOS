@@ -130,6 +130,121 @@ const resolveFrozenSongSnapshot = async (
 // 後綴）已併入 transferFormat, 測試見 utils/chatParser.transfer.test.ts。
 
 export const ChatParser = {
+    /**
+     * 轉帳標籤結算：`[[ACTION:TRANSFER…]]`（角色主動轉帳）、`TRANSFER_ACCEPT` / `TRANSFER_RETURN`
+     * （角色收下 / 退回用戶的轉帳），連同模仿歷史日誌的口語形態（utils/transferFormat.ts）。
+     * 落卡、標記原轉帳狀態、補回執，並透過回調動兩邊的 Real Balance（回調怎麼寫見
+     * utils/realBalanceLedger.ts）。返回剝掉這些標籤後的正文。
+     *
+     * parseAndExecuteActions 裡原樣調用；背景延遲回覆那條路（OSContext 的 runProactive）
+     * 不走 parseAndExecuteActions，單獨調這個，才不會「角色收下了轉帳卻沒入帳」。
+     */
+    settleTransferCommands: async (
+        content: string,
+        charId: string,
+        opts: {
+            messageTimestamp?: number;
+            /** 落庫方式；不傳就是 DB.saveMessage（帶上 messageTimestamp） */
+            persist?: (msg: Parameters<typeof DB.saveMessage>[0]) => Promise<unknown>;
+            onUserTransferReturned?: (amount: number) => Promise<void> | void;
+            onUserTransferAccepted?: (amount: number) => Promise<void> | void;
+            onCharTransferSend?: (amount: number) => Promise<boolean>;
+        } = {},
+    ): Promise<string> => {
+        const { messageTimestamp, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend } = opts;
+        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+            ...msg,
+            ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
+        }));
+
+        // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一筆待處理的轉帳。
+        // 找最近一條 user 發出、還沒被收/退、且不是回執卡本身的轉帳，標記狀態並補一張回執小卡。
+        //
+        // 找不到待處理轉帳時**不落回執**：老實現會照樣落一張，渲染成「xx已收款」
+        // (MessageItem.tsx TransferCard)，等於角色能憑空聲明自己收了一筆用戶從沒發過的錢。
+        // 老註釋寫的「至少 user 能看到反饋」意圖是防靜默失敗，但代價是假帳——角色那句話
+        // 照常顯示，用戶看到的最多是句廢話，比看到一筆不存在的收款好。
+        const resolveUserTransfer = async (action: 'accepted' | 'returned') => {
+            let amount: string | number | undefined;
+            let refId: number | undefined;
+            try {
+                const all = await DB.getMessagesByCharId(charId, true);
+                const pendings = all.filter(
+                    x => x.type === 'transfer' && x.role === 'user' && !x.metadata?.receipt
+                        && (!x.metadata?.status || x.metadata.status === 'pending'),
+                );
+                // 角色收的是**它說這句話那一刻**看得到的那筆。主動消息補收會把「生成」和「重放」
+                // 拉開幾小時：用戶早上又轉了 1000，按「最新一筆待收」結算就會讓角色半夜那句
+                // 「這五塊我收下啦」把早上那 1000 給收了。所以先在原始發送時刻之前的待收裡取最新，
+                // 一筆都沒有再退回老行為（並留一行日誌說明這次是按最新一筆結的）。
+                let pending = messageTimestamp != null
+                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
+                    : undefined;
+                if (!pending) {
+                    if (messageTimestamp != null && pendings.length > 0) {
+                        console.warn(
+                            '[Transfer] 這條消息發出時並沒有待收的轉帳，退回按最新一筆結算:',
+                            { charId, messageTimestamp, pendingCount: pendings.length },
+                        );
+                    }
+                    pending = pendings[pendings.length - 1];
+                }
+                if (pending) {
+                    amount = pending.metadata?.amount;
+                    refId = pending.id;
+                    await DB.updateMessageMetadata(pending.id, (prev) => ({ ...(prev || {}), status: action, resolvedAt: Date.now() }));
+                }
+            } catch (e) {
+                console.warn('[Transfer] 查待處理轉帳失敗，跳過回執:', e);
+                return;
+            }
+            if (refId === undefined) {
+                console.warn(`[Transfer] 角色想${action === 'accepted' ? '收下' : '退回'}轉帳，但沒有待處理的用戶轉帳，已忽略`);
+                return;
+            }
+            await persist({
+                charId, role: 'assistant', type: 'transfer',
+                content: action === 'accepted' ? '[已收款]' : '[已退回]',
+                metadata: { receipt: action, amount, ref: refId },
+            });
+            // 退回：錢在用戶發送那一刻就已經從 Real Balance 扣走了，角色退回等於這筆錢
+            // 沒真的花出去，得退款回去。收下：錢這時才真的到帳角色，記入角色的 Real Balance。
+            const numericAmount = Number(amount);
+            if (Number.isFinite(numericAmount) && numericAmount > 0) {
+                if (action === 'returned' && onUserTransferReturned) {
+                    await onUserTransferReturned(numericAmount);
+                } else if (action === 'accepted' && onUserTransferAccepted) {
+                    await onUserTransferAccepted(numericAmount);
+                }
+            }
+        };
+
+        // TRANSFER — 規範標籤 + 模仿歷史日誌的口語形態一起解析，見 utils/transferFormat.ts。
+        // 按出現順序執行，保住角色「先轉帳再說謝謝」這類語序意圖。
+        const { text: transferCleanedText, events: transferEvents, consumed: transferConsumed } = extractTransferCommands(content);
+        if (transferConsumed > 0) content = transferCleanedText;
+        for (const ev of transferEvents) {
+            if (ev.kind === 'send') {
+                // 發送即結清：先從角色 Real Balance 扣款，扣不出來就不落卡（等於這句「轉給你」
+                // 沒真的發生）。不傳檢查回調則維持老行為，直接落卡。
+                const sendAmount = Number(ev.amount);
+                const ok = onCharTransferSend && Number.isFinite(sendAmount) && sendAmount > 0
+                    ? await onCharTransferSend(sendAmount)
+                    : true;
+                if (!ok) {
+                    console.warn('[Transfer] 角色 Real Balance 不足，跳過這筆主動轉帳:', { charId, amount: ev.amount });
+                    continue;
+                }
+                // role 固定 'assistant' —— 方向不由文本決定，文本里的方向信息只在
+                // transferFormat 裡做過校驗（偽造的已被丟棄）。
+                await persist({ charId, role: 'assistant', type: 'transfer', content: '[轉帳]', metadata: { amount: ev.amount, status: 'pending' } });
+            } else {
+                await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
+            }
+        }
+        return content;
+    },
+
     // Return cleaned content and perform side effects
     parseAndExecuteActions: async (
         aiContent: string,
@@ -176,17 +291,15 @@ export const ChatParser = {
          * 得還回去。'accepted' 分支不用回調：錢已經在發送時結清，收下不再改動餘額。
          * 不傳就靜默不退款（舊調用方 / 用不到 Real Balance 的場景）。
          *
-         * 只在前台實時聊天路徑傳（useChatAI.ts）：TRANSFER_ACCEPT/TRANSFER_RETURN 這兩個
-         * 標籤沒被 worker 的 SIDE_EFFECT_TAGS 收錄，主動消息 2.0 的 push 路徑上會被當成
-         * 普通文本剝掉，根本傳不到這裡、這個回調在那條路徑上永遠不會被調用（worker 側的
-         * 已知缺口，見 worker/instant-push/src/classifier.ts 的 transfer_accept/return 註釋）。
+         * 前台聊天、雲端回覆沖刷、背景延遲回覆三條路都傳同一組（utils/realBalanceLedger.ts）；
+         * 雲端那條靠 worker 把收/退歸一成 transfer_accept/return directive 帶回來再拼回標籤。
          */
         onUserTransferReturned?: (amount: number) => Promise<void> | void,
         /**
          * 角色收下用戶發起的轉帳（resolveUserTransfer 的 'accepted' 分支）時調用，
          * 把這筆錢記入角色自己的 Real Balance（跟 onUserTransferReturned 是同一枚硬幣的
-         * 兩面：退回款回用戶，收下入帳角色）。不傳就靜默不入帳。同樣只在前台路徑有意義，
-         * 原因見 onUserTransferReturned 的註釋。
+         * 兩面：退回款回用戶，收下入帳角色）。不傳就靜默不入帳。三條路怎麼傳見
+         * onUserTransferReturned 的註釋。
          */
         onUserTransferAccepted?: (amount: number) => Promise<void> | void,
         /**
@@ -293,91 +406,11 @@ export const ChatParser = {
             }
         }
 
-        // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一筆待處理的轉帳。
-        // 找最近一條 user 發出、還沒被收/退、且不是回執卡本身的轉帳，標記狀態並補一張回執小卡。
-        //
-        // 找不到待處理轉帳時**不落回執**：老實現會照樣落一張，渲染成「xx已收款」
-        // (MessageItem.tsx TransferCard)，等於角色能憑空聲明自己收了一筆用戶從沒發過的錢。
-        // 老註釋寫的「至少 user 能看到反饋」意圖是防靜默失敗，但代價是假帳——角色那句話
-        // 照常顯示，用戶看到的最多是句廢話，比看到一筆不存在的收款好。
-        const resolveUserTransfer = async (action: 'accepted' | 'returned') => {
-            let amount: string | number | undefined;
-            let refId: number | undefined;
-            try {
-                const all = await DB.getMessagesByCharId(charId, true);
-                const pendings = all.filter(
-                    x => x.type === 'transfer' && x.role === 'user' && !x.metadata?.receipt
-                        && (!x.metadata?.status || x.metadata.status === 'pending'),
-                );
-                // 角色收的是**它說這句話那一刻**看得到的那筆。主動消息補收會把「生成」和「重放」
-                // 拉開幾小時：用戶早上又轉了 1000，按「最新一筆待收」結算就會讓角色半夜那句
-                // 「這五塊我收下啦」把早上那 1000 給收了。所以先在原始發送時刻之前的待收裡取最新，
-                // 一筆都沒有再退回老行為（並留一行日誌說明這次是按最新一筆結的）。
-                let pending = messageTimestamp != null
-                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
-                    : undefined;
-                if (!pending) {
-                    if (messageTimestamp != null && pendings.length > 0) {
-                        console.warn(
-                            '[Transfer] 這條消息發出時並沒有待收的轉帳，退回按最新一筆結算:',
-                            { charId, messageTimestamp, pendingCount: pendings.length },
-                        );
-                    }
-                    pending = pendings[pendings.length - 1];
-                }
-                if (pending) {
-                    amount = pending.metadata?.amount;
-                    refId = pending.id;
-                    await DB.updateMessageMetadata(pending.id, (prev) => ({ ...(prev || {}), status: action, resolvedAt: Date.now() }));
-                }
-            } catch (e) {
-                console.warn('[Transfer] 查待處理轉帳失敗，跳過回執:', e);
-                return;
-            }
-            if (refId === undefined) {
-                console.warn(`[Transfer] 角色想${action === 'accepted' ? '收下' : '退回'}轉帳，但沒有待處理的用戶轉帳，已忽略`);
-                return;
-            }
-            await persist({
-                charId, role: 'assistant', type: 'transfer',
-                content: action === 'accepted' ? '[已收款]' : '[已退回]',
-                metadata: { receipt: action, amount, ref: refId },
-            });
-            // 退回：錢在用戶發送那一刻就已經從 Real Balance 扣走了，角色退回等於這筆錢
-            // 沒真的花出去，得退款回去。收下：錢這時才真的到帳角色，記入角色的 Real Balance。
-            const numericAmount = Number(amount);
-            if (Number.isFinite(numericAmount) && numericAmount > 0) {
-                if (action === 'returned' && onUserTransferReturned) {
-                    await onUserTransferReturned(numericAmount);
-                } else if (action === 'accepted' && onUserTransferAccepted) {
-                    await onUserTransferAccepted(numericAmount);
-                }
-            }
-        };
-
-        // TRANSFER — 規範標籤 + 模仿歷史日誌的口語形態一起解析，見 utils/transferFormat.ts。
-        // 按出現順序執行，保住角色「先轉帳再說謝謝」這類語序意圖。
-        const { text: transferCleanedText, events: transferEvents, consumed: transferConsumed } = extractTransferCommands(content);
-        if (transferConsumed > 0) content = transferCleanedText;
-        for (const ev of transferEvents) {
-            if (ev.kind === 'send') {
-                // 發送即結清：先從角色 Real Balance 扣款，扣不出來就不落卡（等於這句「轉給你」
-                // 沒真的發生）。不傳檢查回調則維持老行為，直接落卡。
-                const sendAmount = Number(ev.amount);
-                const ok = onCharTransferSend && Number.isFinite(sendAmount) && sendAmount > 0
-                    ? await onCharTransferSend(sendAmount)
-                    : true;
-                if (!ok) {
-                    console.warn('[Transfer] 角色 Real Balance 不足，跳過這筆主動轉帳:', { charId, amount: ev.amount });
-                    continue;
-                }
-                // role 固定 'assistant' —— 方向不由文本決定，文本里的方向信息只在
-                // transferFormat 裡做過校驗（偽造的已被丟棄）。
-                await persist({ charId, role: 'assistant', type: 'transfer', content: '[轉帳]', metadata: { amount: ev.amount, status: 'pending' } });
-            } else {
-                await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
-            }
-        }
+        // TRANSFER / TRANSFER_ACCEPT / TRANSFER_RETURN：見 ChatParser.settleTransferCommands。
+        // 抽出去是因為背景延遲回覆那條路（OSContext）不走這個大函數，也得能單獨結算轉帳。
+        content = await ChatParser.settleTransferCommands(content, charId, {
+            messageTimestamp, persist, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend,
+        });
 
         // MALL DAIFU — 角色對「外賣代付請求」支付或拒絕。跟 resolveUserTransfer 結構相同：
         // 找最近一條 user 發出、還 pending 的 mall_order(mode=daifu)，標記狀態。跟轉帳不同的是
