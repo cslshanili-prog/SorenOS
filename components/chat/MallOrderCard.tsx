@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatMoney } from '../../utils/realBalance';
 import type { Message } from '../../types';
 
 export interface MallOrderItem {
@@ -83,10 +84,10 @@ const MallOrderCard: React.FC<{
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="text-[12px] font-bold text-slate-700 truncate">{item.name}</div>
-                            <div className="text-[10px] text-slate-400">數量 {item.qty} · 單價 ¥{item.price.toFixed(2)}</div>
+                            <div className="text-[10px] text-slate-400">數量 {item.qty} · 單價 {formatMoney(item.price)}</div>
                             {item.detail && <div className="text-[10px] text-slate-400 truncate">{item.detail}</div>}
                         </div>
-                        <div className="text-[12px] font-bold text-slate-700 shrink-0">¥{(item.price * item.qty).toFixed(2)}</div>
+                        <div className="text-[12px] font-bold text-slate-700 shrink-0">{formatMoney(item.price * item.qty)}</div>
                     </div>
                 ))}
                 {meta.note && (
@@ -99,7 +100,7 @@ const MallOrderCard: React.FC<{
 
             <div className="px-4 py-2.5 border-t border-slate-50 flex items-center justify-between">
                 <span className="text-[11px] text-slate-400">合計</span>
-                <span className="text-[15px] font-bold text-slate-800">¥{(meta.total ?? items.reduce((s, i) => s + i.price * i.qty, 0)).toFixed(2)}</span>
+                <span className="text-[15px] font-bold text-slate-800">{formatMoney(meta.total ?? items.reduce((s, i) => s + i.price * i.qty, 0))}</span>
             </div>
 
             {status === 'pending' && (

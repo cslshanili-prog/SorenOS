@@ -27,7 +27,7 @@ import { isDevDebugAvailable } from '../utils/devDebug';
 import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl, getBlobForRef, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../utils/imageGeneration';
 import { resolveUserProfileForChar } from '../utils/userPersona';
-import { ensureRealBalanceState, applyRealBalanceDelta } from '../utils/realBalance';
+import { ensureRealBalanceState, applyRealBalanceDelta, formatMoney, MONEY_SYMBOL } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { resolveLifeRecordCard } from '../utils/lifeRecords';
 import { isMcdConfigured } from '../utils/mcdMcpClient';
@@ -1986,7 +1986,7 @@ const Chat: React.FC = () => {
             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
-        const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
+        const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
             charId: char.id,
@@ -2001,7 +2001,7 @@ const Chat: React.FC = () => {
     // 用戶在菜單卡某條單品上點 💭 → 立即把這條扔給角色讓 ta 評價 (候選狀態, 不進購物車)
     const handleMcdCandidate = useCallback(async (item: import('../components/chat/McdCard').McdCartItem) => {
         if (!char || !item) return;
-        const priceStr = typeof item.price === 'number' ? ` ¥${item.price}` : (typeof item.price === 'string' && item.price ? ` ¥${item.price}` : '');
+        const priceStr = typeof item.price === 'number' ? ` ${MONEY_SYMBOL}${item.price}` : (typeof item.price === 'string' && item.price ? ` ${MONEY_SYMBOL}${item.price}` : '');
         const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
             charId: char.id,
@@ -2055,7 +2055,7 @@ const Chat: React.FC = () => {
             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
-        const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
+        const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const where = ctx.orderType === 2
             ? `外送至 ${ctx.addressLabel || ctx.addressId}`
             : `到店取餐 (${ctx.storeName || ctx.storeCode})`;
@@ -2082,7 +2082,7 @@ const Chat: React.FC = () => {
             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
-        const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
+        const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
             charId: char.id,
@@ -2096,7 +2096,7 @@ const Chat: React.FC = () => {
 
     const handleLuckinCandidate = useCallback(async (item: import('../components/chat/LuckinCard').LuckinCartItem) => {
         if (!char || !item) return;
-        const priceStr = (typeof item.price === 'number' || (typeof item.price === 'string' && item.price)) ? ` ¥${item.price}` : '';
+        const priceStr = (typeof item.price === 'number' || (typeof item.price === 'string' && item.price)) ? ` ${MONEY_SYMBOL}${item.price}` : '';
         const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
             charId: char.id,
@@ -2145,7 +2145,7 @@ const Chat: React.FC = () => {
             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
             return s + (isFinite(p) ? p * c.qty : 0);
         }, 0);
-        const totalStr = total > 0 ? ` 共¥${total.toFixed(2)}` : '';
+        const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `到店自提 (${ctx.storeName || ctx.deptId}) · ${summary}${totalStr}`;
         await DB.saveMessage({
             charId: char.id,

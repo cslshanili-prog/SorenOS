@@ -9,8 +9,9 @@
  * 餘額一變 updateCharacter 就會把雲端快照打髒重傳，數字本身不會過期太久。
  */
 import type { RealBalanceState } from '../types';
+import { formatMoney } from './realBalance';
 
-const money = (n: number) => `¥${n.toFixed(2)}`;
+const money = formatMoney;
 const signed = (n: number) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n))}`;
 
 export function buildRealBalanceBlock(state: RealBalanceState | undefined, recentCount = 3): string {
