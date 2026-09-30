@@ -10,7 +10,7 @@ import PerWorldPersonaPicker from './PerWorldPersonaPicker';
 import PerGroupPersonaPicker from './PerGroupPersonaPicker';
 import UserPersonaEditor from './UserPersonaEditor';
 import MomentsInteractionSettingsPanel from './MomentsInteractionSettingsPanel';
-import { ensureRealBalanceState } from '../../utils/realBalance';
+import { ensureRealBalanceState, formatMoney } from '../../utils/realBalance';
 import { normalizeMomentsSettings } from '../../utils/momentsSettings';
 import { trackEvent } from '../../utils/analytics';
 
@@ -133,7 +133,7 @@ const UserProfileHome: React.FC = () => {
                             <div className="text-[10px] font-bold text-sky-400 tracking-widest uppercase">Real Balance</div>
                             <div className="text-[11px] text-sky-500">{realBalanceState.cards.length} 張銀行卡</div>
                         </div>
-                        <div className="text-2xl font-black text-slate-800 mt-1">¥{realBalanceState.balance.toFixed(2)}</div>
+                        <div className="text-2xl font-black text-slate-800 mt-1">{formatMoney(realBalanceState.balance)}</div>
                         <div className="text-[11px] text-sky-500 mt-2 flex items-center justify-between">
                             <span>餘額管理 · 銀行卡與流水</span>
                             <span className="font-bold">查看 ›</span>

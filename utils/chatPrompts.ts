@@ -30,6 +30,7 @@ import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById, getCharRefs } from './charNameRegistry';
 import { getMomentsContextForChar } from './momentsContext';
 import { buildRealBalanceBlock } from './realBalancePrompt';
+import { formatMoney } from './realBalance';
 import { getLocalDateKey } from './localDate';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { formatRelativeAge } from './groupChat/relativeTime';
@@ -1500,7 +1501,7 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                         const items: any[] = meta.mcdCartItems;
                         const lines = items.map((c: any) => {
                             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
-                            const priceStr = isFinite(p) && p > 0 ? ` ¥${p.toFixed(2)}` : '';
+                            const priceStr = isFinite(p) && p > 0 ? ` ${formatMoney(p)}` : '';
                             const codeStr = c.code ? ` (code:${c.code})` : '';
                             return `  - ${c.name}${priceStr} ×${c.qty}${codeStr}`;
                         }).join('\n');
@@ -1508,12 +1509,12 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                             const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
                             return s + (isFinite(p) ? p * c.qty : 0);
                         }, 0);
-                        const totalStr = total > 0 ? `\n  合計: ¥${total.toFixed(2)}` : '';
+                        const totalStr = total > 0 ? `\n  合計: ${formatMoney(total)}` : '';
                         content = `${timeStr} [${userName}在菜單上選了下面的商品發給你, 等你回應:]\n${lines}${totalStr}\n(${userName}的意圖: 想看看你的意見, 比如熱量怎樣、要不要換搭配, 或者直接幫 ta 下單。請按你的人設自然回應, 別照搬我的描述。)`;
                     } else if (meta.mcdCardKind === 'candidate' && meta.mcdCandidate) {
                         const c: any = meta.mcdCandidate;
                         const p = typeof c.price === 'string' ? parseFloat(c.price) : (typeof c.price === 'number' ? c.price : 0);
-                        const priceStr = isFinite(p) && p > 0 ? ` ¥${p.toFixed(2)}` : '';
+                        const priceStr = isFinite(p) && p > 0 ? ` ${formatMoney(p)}` : '';
                         const codeStr = c.code ? ` (code:${c.code})` : '';
                         content = `${timeStr} [${userName}在菜單上看到了「${c.name}」${priceStr}${codeStr}, 還沒決定要不要點, 想先聽聽你的意見]\n(請按你的人設自然回一兩句: 推薦 / 勸阻 / 調侃 / 建議搭配 / 提一下熱量 都行。這只是候選, 別直接調下單工具, 等 ta 真說"那就這個"或者一併選完再下手。)`;
                     } else if (meta.mcdToolName) {

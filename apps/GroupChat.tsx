@@ -34,6 +34,7 @@ import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs } from '../utils/groupChat/npcMembers';
 import { resolveNpcApi } from '../utils/npcMemory';
 import { resolveCharacterChatApi } from '../utils/characterApi';
+import { MONEY_SYMBOL } from '../utils/realBalance';
 import { planGroupWaves } from '../utils/groupChat/waves';
 import { refreshNpcMemoryFromGroups } from '../utils/npcMemoryRuntime';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
@@ -89,7 +90,7 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
         return (
             <div className={`px-3 py-2 rounded-xl border text-[11px] flex items-center gap-2 ${claimed ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                 <span>🧧</span>
-                <span>{meta.claimantName} {claimed ? '領取了' : '退回了'} {meta.senderName} 的紅包{claimed && meta.amount != null ? ` ¥${meta.amount}` : ''}</span>
+                <span>{meta.claimantName} {claimed ? '領取了' : '退回了'} {meta.senderName} 的紅包{claimed && meta.amount != null ? ` ${MONEY_SYMBOL}${meta.amount}` : ''}</span>
             </div>
         );
     }
@@ -1277,7 +1278,7 @@ const GroupChat: React.FC = () => {
                 content: outcome.action === 'claimed' ? '[領取紅包]' : '[退回紅包]',
                 metadata: { ...receipt, personaKey: groupPersonaKey },
             });
-            addToast(outcome.action === 'claimed' ? `你搶到了 ¥${outcome.amount}` : '已退回紅包', 'success');
+            addToast(outcome.action === 'claimed' ? `你搶到了 ${MONEY_SYMBOL}${outcome.amount}` : '已退回紅包', 'success');
             trackEvent('领取或退回群红包', { action });
         }
         await refreshMessages(activeGroup.id);
@@ -3070,7 +3071,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                 <div className="text-4xl mb-1">🧧</div>
                                 <div className="font-bold text-slate-800">{senderName} 的{meta.packetType === 'lucky' ? '拼手氣' : '專屬'}紅包</div>
                                 <div className="text-xs text-slate-400 mt-1">「{meta.note}」</div>
-                                <div className="text-2xl font-black text-orange-500 mt-2">¥{meta.totalAmount}</div>
+                                <div className="text-2xl font-black text-orange-500 mt-2">{MONEY_SYMBOL}{meta.totalAmount}</div>
                                 {meta.packetType === 'lucky' && (
                                     <div className="text-[10px] text-slate-400 mt-1">共 {meta.shares} 份 · 已領 {meta.claims.length} 份{status === 'expired' ? ' · 已過期' : ''}</div>
                                 )}
@@ -3090,7 +3091,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                                     <div className="text-xs font-bold text-slate-700 truncate">{nameOf(c.claimantId)}</div>
                                                     <div className="text-[9px] text-slate-400">{new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                 </div>
-                                                <div className="text-sm font-black text-orange-500">¥{c.amount}</div>
+                                                <div className="text-sm font-black text-orange-500">{MONEY_SYMBOL}{c.amount}</div>
                                             </div>
                                         );
                                     })}

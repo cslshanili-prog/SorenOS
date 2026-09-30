@@ -20,15 +20,15 @@ describe('buildRealBalanceBlock', () => {
             ],
         });
         expect(text).toContain('【你的錢包】');
-        expect(text).toContain('錢包（Real Balance）餘額：¥62.00');
-        expect(text).toContain('銀行卡：NS BANK 尾號 0099 ¥1000000.00');
-        expect(text).toContain('最近的流水：送給小柔的禮物 −¥58.00、收到小柔的轉帳 +¥20.00、轉出帳戶 −¥9900.00');
+        expect(text).toContain('錢包（Real Balance）餘額：$62.00');
+        expect(text).toContain('銀行卡：NS BANK 尾號 0099 $1000000.00');
+        expect(text).toContain('最近的流水：送給小柔的禮物 −$58.00、收到小柔的轉帳 +$20.00、轉出帳戶 −$9900.00');
         expect(text).not.toContain('初始餘額');
     });
 
     it('沒有卡就不寫銀行卡那行', () => {
         const text = buildRealBalanceBlock({ balance: 10000, cards: [], transactions: [tx('初始餘額', 10000, 1)] });
         expect(text).not.toContain('銀行卡');
-        expect(text).toContain('初始餘額 +¥10000.00');
+        expect(text).toContain('初始餘額 +$10000.00');
     });
 });

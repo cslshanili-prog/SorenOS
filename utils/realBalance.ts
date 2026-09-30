@@ -3,6 +3,14 @@
 import type { BankCard, RealBalanceState, RealBalanceTransaction } from '../types';
 import { roundMoney } from './format';
 
+/**
+ * 錢包這一套（Real Balance、銀行卡、聊天轉帳、購物中心）顯示用的貨幣符號，只在這裡定義一次。
+ * 麥當勞／瑞幸這類真實的大陸服務、API 計費說明不跟這個走，照舊是人民幣。
+ */
+export const MONEY_SYMBOL = '$';
+/** 金額顯示成「$12.30」 */
+export const formatMoney = (n: number): string => `${MONEY_SYMBOL}${n.toFixed(2)}`;
+
 /** 首次打開「主頁」欄時的種子餘額；ensureRealBalanceState 只在從沒初始化過時用它建號。 */
 export const REAL_BALANCE_SEED = 10000;
 
@@ -73,7 +81,7 @@ export function transferCardToBalance(state: RealBalanceState, cardId: string, a
     const nextCards = state.cards.map(c => c.id === cardId ? { ...c, balance: roundMoney(c.balance - amt) } : c);
     const nextBalance = roundMoney(state.balance + amt);
     const next = pushTx({ ...state, cards: nextCards }, nextBalance, {
-        label: '轉入帳戶', amount: amt, detail: `${card.name} 轉入帳戶 ¥${amt.toFixed(2)}`, cardId,
+        label: '轉入帳戶', amount: amt, detail: `${card.name} 轉入帳戶 ${formatMoney(amt)}`, cardId,
     });
     return { state: next, ok: true };
 }
@@ -88,7 +96,7 @@ export function transferBalanceToCard(state: RealBalanceState, cardId: string, a
     const nextCards = state.cards.map(c => c.id === cardId ? { ...c, balance: roundMoney(c.balance + amt) } : c);
     const nextBalance = roundMoney(state.balance - amt);
     const next = pushTx({ ...state, cards: nextCards }, nextBalance, {
-        label: '轉出帳戶', amount: -amt, detail: `${card.name} 轉出帳戶 ¥${amt.toFixed(2)}`, cardId,
+        label: '轉出帳戶', amount: -amt, detail: `${card.name} 轉出帳戶 ${formatMoney(amt)}`, cardId,
     });
     return { state: next, ok: true };
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatMoney } from '../../utils/realBalance';
 import { DB } from '../../utils/db';
 import Modal from '../os/Modal';
 import type { MallCategory, MallProduct, MallKind, APIConfig, ApiPreset } from '../../types';
@@ -368,7 +369,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                                         <div className="px-2 py-1.5 flex-1 flex flex-col gap-0.5">
                                             <div className="text-[11px] font-bold text-slate-700 truncate">{p.name}</div>
                                             <div className="text-[9px] text-slate-400 truncate">{category?.name || ''}</div>
-                                            <div className="text-[11px] font-bold text-rose-500">¥{p.price.toFixed(2)}</div>
+                                            <div className="text-[11px] font-bold text-rose-500">{formatMoney(p.price)}</div>
                                         </div>
                                         <div className="flex items-center gap-1 px-2 pb-2">
                                             <button onClick={() => handleAddToCart(p.id)} className="flex-1 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-bold active:scale-95 transition-transform">
@@ -401,14 +402,14 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                                     <button onClick={() => handleRemoveFromCart(l.productId)} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center active:scale-90"><Minus size={10} weight="bold" /></button>
                                     <span className="w-4 text-center text-[11px] font-bold">{l.qty}</span>
                                     <button onClick={() => handleAddToCart(l.productId)} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center active:scale-90"><Plus size={10} weight="bold" /></button>
-                                    <span className="w-14 text-right text-[11px] font-bold text-slate-700">¥{(l.product.price * l.qty).toFixed(2)}</span>
+                                    <span className="w-14 text-right text-[11px] font-bold text-slate-700">{formatMoney(l.product.price * l.qty)}</span>
                                 </div>
                             ))}
                         </div>
                     )}
                     <div className="flex items-center justify-between text-[12px]">
                         <span className="text-slate-400">合計</span>
-                        <span className="font-bold text-slate-800">¥{total.toFixed(2)}</span>
+                        <span className="font-bold text-slate-800">{formatMoney(total)}</span>
                     </div>
                     <textarea
                         value={note} onChange={e => setNote(e.target.value)}

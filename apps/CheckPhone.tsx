@@ -24,7 +24,7 @@ import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
-import { ensureRealBalanceState } from '../utils/realBalance';
+import { ensureRealBalanceState, formatMoney } from '../utils/realBalance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
 import TrajectoryHome from '../components/trajectory/TrajectoryHome';
 import TrajectoryAlbum from '../components/trajectory/TrajectoryAlbum';
@@ -2332,7 +2332,7 @@ ${olderText}
     const contactCount = contacts.filter(c => !isUserName(c.name)).length;
     const contactsSub = contactCount ? `${contactCount} 位聯繫人` : 'tap to scan';
     const aiSub = aiSessions.length ? `${aiSessions.length} 段對話 · TA 的小手機` : 'tap to peek';
-    const realBalanceSub = `¥${realBalanceState.balance.toFixed(2)} · ${realBalanceState.cards.length} 張銀行卡`;
+    const realBalanceSub = `${formatMoney(realBalanceState.balance)} · ${realBalanceState.cards.length} 張銀行卡`;
 
     // pseudo screen-time + weather (decorative, deterministic per char)
     const seed = charName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);

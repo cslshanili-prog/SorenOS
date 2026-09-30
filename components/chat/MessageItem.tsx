@@ -1,4 +1,5 @@
 import { effectiveCallStatus } from '../../utils/charCall';
+import { MONEY_SYMBOL } from '../../utils/realBalance';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
 
 
@@ -1066,7 +1067,7 @@ const TransferCard: React.FC<{
                         {actor}{accepted ? '已收款' : '退回了轉帳'}
                     </div>
                     {amount !== undefined && (
-                        <div className="text-[10px] text-slate-400">₩ {amount}</div>
+                        <div className="text-[10px] text-slate-400">{MONEY_SYMBOL}{amount}</div>
                     )}
                 </div>
             </div>
@@ -1100,7 +1101,7 @@ const TransferCard: React.FC<{
                         <div className="p-2 bg-white/20 rounded-full"><SullyPayMark className="w-5 h-5" /></div>
                         <span className="font-medium text-white/90">Sully Pay</span>
                     </div>
-                    <div className="text-2xl font-bold tracking-tight mb-1">₩ {amount}</div>
+                    <div className="text-2xl font-bold tracking-tight mb-1">{MONEY_SYMBOL}{amount}</div>
                     {note ? (
                         <div className="text-[11px] text-white/80 truncate mb-0.5">{note}</div>
                     ) : null}
@@ -1127,7 +1128,7 @@ const TransferCard: React.FC<{
                                 <span className="text-sm font-medium text-white/90">Sully Pay 轉帳</span>
                             </div>
                             <div className="text-[11px] text-white/70 mb-1">{isUser ? `你向${charName}轉帳` : `${charName}向你轉帳`}</div>
-                            <div className="text-4xl font-bold tracking-tight">₩ {amount}</div>
+                            <div className="text-4xl font-bold tracking-tight">{MONEY_SYMBOL}{amount}</div>
                         </div>
 
                         {/* 詳情區 */}

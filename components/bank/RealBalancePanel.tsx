@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Modal from '../os/Modal';
 import { BankCard, RealBalanceState } from '../../types';
 import {
-    createBankCard, deleteBankCard, transferCardToBalance, transferBalanceToCard,
+    createBankCard, deleteBankCard, transferCardToBalance, transferBalanceToCard, formatMoney,
 } from '../../utils/realBalance';
 import {
     CaretLeft, ArrowDown, ArrowUp, Trash, CreditCard, Plus,
@@ -99,7 +99,7 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
                     <div className="text-[10px] font-bold text-sky-400 tracking-widest uppercase">Real Balance</div>
                     <div className="text-[11px] text-sky-500">{state.cards.length} 張銀行卡</div>
                 </div>
-                <div className="text-2xl font-black text-slate-800 mt-1">¥{state.balance.toFixed(2)}</div>
+                <div className="text-2xl font-black text-slate-800 mt-1">{formatMoney(state.balance)}</div>
                 <div className="text-[11px] text-sky-500 mt-2">紅包、轉帳與餘額支付默認使用這裡</div>
                 <div className="flex items-center gap-2 mt-3">
                     <button onClick={() => openTransferModal('in')} className="flex-1 py-2 rounded-full bg-white text-sky-600 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform border border-sky-100">
@@ -149,7 +149,7 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
                                     <div className="flex items-end justify-between mt-3">
                                         <div>
                                             <div className="text-[8px] uppercase" style={{ color: style.sub }}>{card.name}</div>
-                                            <div className="text-sm font-bold" style={{ color: style.text }}>¥{card.balance.toFixed(2)}</div>
+                                            <div className="text-sm font-bold" style={{ color: style.text }}>{formatMoney(card.balance)}</div>
                                         </div>
                                         <span className="text-[9px] font-bold" style={{ color: style.sub }}>{CARD_LABELS[card.color]}</span>
                                     </div>
@@ -165,7 +165,7 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
                 <div className="bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,70,120,0.18)] border border-slate-100 p-4 space-y-3">
                     <div>
                         <div className="text-[10px] text-slate-400">當前銀行卡餘額</div>
-                        <div className="text-xl font-black text-slate-800 mt-0.5">¥{selectedCard.balance.toFixed(2)}</div>
+                        <div className="text-xl font-black text-slate-800 mt-0.5">{formatMoney(selectedCard.balance)}</div>
                         <div className="text-[10px] text-slate-400 mt-0.5">{selectedCard.name} · **** **** **** {selectedCard.lastFour}</div>
                     </div>
                     <div className="flex gap-2">
@@ -206,9 +206,9 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
                                 </div>
                                 <div className="text-right shrink-0">
                                     <div className={`text-xs font-bold ${positive ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                        {positive ? '+' : ''}¥{tx.amount.toFixed(2)}
+                                        {positive ? '+' : '-'}{formatMoney(Math.abs(tx.amount))}
                                     </div>
-                                    <div className="text-[10px] text-slate-400">餘 ¥{tx.balanceAfter.toFixed(2)}</div>
+                                    <div className="text-[10px] text-slate-400">餘 {formatMoney(tx.balanceAfter)}</div>
                                 </div>
                             </div>
                         );
@@ -273,8 +273,8 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
                             </div>
                             <p className="text-[10px] text-slate-400">
                                 {transferModal.mode === 'in'
-                                    ? `這張卡當前餘額 ¥${(card?.balance ?? 0).toFixed(2)}`
-                                    : `Real Balance 當前餘額 ¥${state.balance.toFixed(2)}`}
+                                    ? `這張卡當前餘額 ${formatMoney(card?.balance ?? 0)}`
+                                    : `Real Balance 當前餘額 ${formatMoney(state.balance)}`}
                             </p>
                         </div>
                     );
