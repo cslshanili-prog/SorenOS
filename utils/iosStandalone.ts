@@ -93,6 +93,13 @@ const isTextEntryElement = (target: EventTarget | null): target is HTMLElement =
     return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 };
 
+// 鍵盤能開著的前提：焦點在輸入框上（或在 iframe 裡——HTML 卡片裡的輸入框，外層只看得到 iframe）。
+const focusMayHoldKeyboard = (): boolean => {
+    if (typeof document === 'undefined') return false;
+    const active = document.activeElement;
+    return isTextEntryElement(active) || active?.tagName === 'IFRAME';
+};
+
 const setViewportVars = () => {
     if (typeof document === 'undefined') return;
     const shouldStabilizeHeight = isIOSStandaloneWebApp();
@@ -116,7 +123,10 @@ const setViewportVars = () => {
         // 鍵盤態判據用「可視高度變矮」而非 obscuredHeight：iOS 26 起 standalone 會把 layout viewport 也一起縮，
         // innerHeight 跟著變矮，obscuredHeight 算出來是 0 而失效。viewportHeight > 150 是對 iOS 偶發髒值的護欄——
         // 鍵盤動畫期 visualViewport 偶爾報錯值，此時退化成「無鍵盤態」，寧可不避讓也不要把佈局撐崩成滿屏白。
-        keyboardOpen = viewportHeight > 150 && viewportHeight < stableStandaloneHeight - 100;
+        // 另加一道：焦點不在輸入框上就不可能開著鍵盤。鍵盤開著切去別的 App 再回來，iOS 會一直
+        // 報著鍵盤還在時那個矮高度、也不補發 resize，直到下次鍵盤開關才更新——只看可視區的話，
+        // 回來就卡在鍵盤態（下方一塊白、外層滑動被攔）。切走時已經讓輸入框失焦，這裡據此認出來。
+        keyboardOpen = viewportHeight > 150 && viewportHeight < stableStandaloneHeight - 100 && focusMayHoldKeyboard();
         // 鍵盤態：app 高度收到當前可視區（home 條已被鍵盤蓋，不再疊加 safe）；無鍵盤態：基線 + safe（底部給 home 條留位）。
         fullAppHeight = keyboardOpen ? viewportHeight : stableStandaloneHeight + bottomSafeInset;
         // standalone 下鍵盤避讓改由「app 高度跟隨可視區」統一處理，keyboard-inset 置 0，避免 CallApp 等再疊一層 padding。
@@ -132,7 +142,7 @@ const setViewportVars = () => {
         // innerHeight 會跟著縮，obscuredHeight ≈ 0（走無鍵盤分支，佈局自行迴流，什麼都不用做）；
         // 若不迴流而是縮小可視區/頂起整頁，obscuredHeight > 120，進入鍵盤分支統一避讓。
         const obscuredHeight = Math.max(0, innerHeight - viewportHeight - viewportOffsetTop);
-        keyboardOpen = obscuredHeight > 120;
+        keyboardOpen = obscuredHeight > 120 && focusMayHoldKeyboard();
         // 鍵盤避讓統一用「app 高度跟隨可視區」，不再靠 keyboard-inset 讓各 App 自己疊 padding。
         keyboardInset = 0;
         if (keyboardOpen) {

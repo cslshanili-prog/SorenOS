@@ -19,7 +19,7 @@ import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { applyForcedReadNoReply } from '../utils/readNoReplyRuntime';
 import { cancelDelayedReplyEverywhere } from '../utils/delayedReplyCloud';
-import { checkCustomMeterAutoUpdate } from '../utils/customMeterGenerator';
+import { tickCustomMeterTurnsForChar } from '../utils/customMeterGenerator';
 import type { DigestResult } from '../utils/memoryPalace';
 // 麥當勞: useChatAI 現在只讀 McdMiniApp 當前快照注入 system prompt + 給 LLM 一個
 // UI 鉤子工具 propose_cart_items。MCP 實際調用都在 McdMiniApp 組件內做, useChatAI
@@ -1191,20 +1191,14 @@ export const useChatAI = ({
                 return insertAmsg2TaskContextBlock(messages, block, payload.volatileTailIndex);
             };
 
-            // 心聲/好感度裡設了「每幾輪對話」節奏的條目：用戶每觸發一次回覆算一輪，本地路徑
-            // 和即時對話（雲端）都算——以前只接本地，開了即時對話的人計數一格都不走，
+            // 心聲/好感度裡設了「每幾輪對話」節奏的條目：用戶每觸發一次回覆算一輪，本地路徑、
+            // 即時對話（雲端）、背景延遲回覆（OSContext）都算——以前只接本地，開了即時對話的人計數一格都不走，
             // 「還差 N 輪」卡住不動、新條目連括號都不出來。雲端那條只在 POST 被收下時算，
             // 沒發出去的不算。重新生成仍在客戶端跑（worker 不管心聲），fire-and-forget。
             // API 故意不跟主回覆共用 effectiveApi：心聲/好感度走「情緒/意識流 API」（通常配便宜
             // 模型），主回覆才走角色專屬對話模型（通常更貴），兩筆帳混一起用戶的 token 會燒很快。
             const tickCustomMeterTurns = () => {
-                const meterApi = resolveCharacterMeterApi(char, apiConfig);
-                void checkCustomMeterAutoUpdate('text', char, userProfile, meterApi, char.innerVoices || [], { tickTurns: true })
-                    .then(next => { if (next) updateCharacter(char.id, { innerVoices: next }); })
-                    .catch(e => console.warn('[CustomMeter] 心聲按輪自動更新失敗:', e));
-                void checkCustomMeterAutoUpdate('number', char, userProfile, meterApi, char.affinities || [], { tickTurns: true })
-                    .then(next => { if (next) updateCharacter(char.id, { affinities: next }); })
-                    .catch(e => console.warn('[CustomMeter] 好感度按輪自動更新失敗:', e));
+                tickCustomMeterTurnsForChar(char, userProfile, resolveCharacterMeterApi(char, apiConfig), updateCharacter);
             };
 
             // ─── 即時對話（主動消息 2.0 雲端生成）分支 ───

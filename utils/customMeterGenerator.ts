@@ -163,3 +163,22 @@ export async function checkCustomMeterAutoUpdate(
   const byId = new Map(refreshed.map(e => [e.id, e]));
   return ticked.map(e => byId.get(e.id) || e);
 }
+
+/**
+ * 角色回了一輪 → 心聲、好感度兩組都按「每幾輪對話」推進一格，到期的順手重新生成。
+ * 所有會讓角色回話的路徑（本機聊天、即時對話、背景延遲回覆）都調這一個，別各寫一份。
+ * fire-and-forget：不 await，失敗只 warn，不影響回覆本身。
+ */
+export function tickCustomMeterTurnsForChar(
+  char: CharacterProfile,
+  user: UserProfile,
+  apiConfig: ApiConfig,
+  update: (charId: string, patch: Partial<CharacterProfile>) => void,
+): void {
+  void checkCustomMeterAutoUpdate('text', char, user, apiConfig, char.innerVoices || [], { tickTurns: true })
+    .then(next => { if (next) update(char.id, { innerVoices: next }); })
+    .catch(e => console.warn('[CustomMeter] 心聲按輪自動更新失敗:', e));
+  void checkCustomMeterAutoUpdate('number', char, user, apiConfig, char.affinities || [], { tickTurns: true })
+    .then(next => { if (next) update(char.id, { affinities: next }); })
+    .catch(e => console.warn('[CustomMeter] 好感度按輪自動更新失敗:', e));
+}

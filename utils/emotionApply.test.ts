@@ -9,7 +9,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const saveCharacter = vi.fn(async (_char: any) => {});
-vi.mock('./db', () => ({ DB: { saveCharacter: (c: any) => saveCharacter(c) } }));
+let storedCharacters: any[] = [];
+vi.mock('./db', () => ({ DB: {
+    saveCharacter: (c: any) => saveCharacter(c),
+    getAllCharacters: async () => storedCharacters,
+} }));
 
 import { parseEmotionEvalOutput, applyEmotionEvalRaw, extractAssistantText } from './emotionApply';
 
@@ -32,6 +36,7 @@ const VALID = {
 
 beforeEach(() => {
     saveCharacter.mockClear();
+    storedCharacters = [];
 });
 
 describe('parseEmotionEvalOutput — 正常形態', () => {
@@ -180,6 +185,17 @@ describe('applyEmotionEvalRaw — 落庫語義', () => {
         expect(saved.activeBuffs.length).toBe(2);
         expect(saved.activeBuffs[0].name).toBe('buff_x');
         expect(saved.activeBuffs[1].label).toBe('only_name');
+    });
+
+    // 迴歸守衛：評估跑的幾十秒裡，心聲/好感度的輪數計數已經寫進庫了。
+    // 舊實現拿這一輪開頭的快照整份存回去，計數被蓋回舊值，重開 App 就「一格都沒走」。
+    it('落庫以庫裡最新的角色為底，只換 buff，不蓋掉評估期間別處寫進去的欄位', async () => {
+        const snapshot = makeChar({ innerVoices: [{ id: 'v1', turnsSinceAutoUpdate: 2 }] });
+        storedCharacters = [{ ...snapshot, innerVoices: [{ id: 'v1', turnsSinceAutoUpdate: 3 }] }];
+        await applyEmotionEvalRaw(JSON.stringify(VALID), snapshot);
+        const saved = saveCharacter.mock.calls[0][0];
+        expect(saved.innerVoices[0].turnsSinceAutoUpdate).toBe(3);
+        expect(saved.activeBuffs[0].label).toBe('焦慮');
     });
 
     it('解析徹底失敗 → null 且不動 DB', async () => {
