@@ -196,11 +196,12 @@ export function vrScenePersonaKey(
 }
 
 /** NPC：id、關係清單（推測它屬於哪個世界用）、手動指定的認識的身份。 */
-export type NpcPersonaRef = { id: string; relationships?: Array<{ targetId: string }>; knownPersonaId?: string };
+export type NpcPersonaRef = { id: string; relationships?: Array<{ targetId: string }>; knownPersonaId?: string; groupId?: string };
 
 /**
- * 這個 NPC 認識的是哪一個你：手動指定的（還有效的話）> 關係清單裡的角色大多認識的 > 全域默認。
- * NPC 沒有分組，只能從它跟誰有關係推它屬於哪個世界。
+ * 這個 NPC 認識的是哪一個你：手動指定的（還有效的話）> 它所在世界（分組）的預設身份 >
+ * 關係清單裡的角色大多認識的 > 全域默認。跟角色同一個順序：自己的指定 > 世界 > 其他。
+ * 沒分組的 NPC 只能從它跟誰有關係推它屬於哪個世界。
  */
 export function personaKeyForNpc(
     profileBase: UserProfile,
@@ -209,17 +210,20 @@ export function personaKeyForNpc(
 ): string {
     const override = validOverride(profileBase, npc.knownPersonaId);
     if (override) return override;
+    const world = npc.groupId ? validOverride(profileBase, profileBase.perWorldPersonaIds?.[npc.groupId]) : undefined;
+    if (world) return world;
     const related = [...new Set((npc.relationships || []).map(r => r.targetId).filter(id => id && id !== 'user'))];
     return majorityMemberKey(profileBase, related, characters);
 }
 
-/** NPC 認識的身份是怎麼來的（編輯頁標示用）：手動指定、從關係推的、還是全域默認。 */
+/** NPC 認識的身份是怎麼來的（編輯頁標示用）：手動指定、跟著世界預設、從關係推的、還是全域默認。 */
 export function npcPersonaSource(
     profileBase: UserProfile,
     npc: NpcPersonaRef,
     characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>> = [],
-): 'npc' | 'inferred' | 'global' {
+): 'npc' | 'world' | 'inferred' | 'global' {
     if (validOverride(profileBase, npc.knownPersonaId)) return 'npc';
+    if (npc.groupId && validOverride(profileBase, profileBase.perWorldPersonaIds?.[npc.groupId])) return 'world';
     return personaKeyForNpc(profileBase, npc, characters) === globalPersonaKey(profileBase) ? 'global' : 'inferred';
 }
 

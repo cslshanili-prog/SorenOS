@@ -3707,6 +3707,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           DB.saveCharacter(next);
           return next;
       }));
+      // NPC 跟主角共用分組：組內的 NPC 一起回到未分組
+      setNpcs(prev => prev.map(n => {
+          if (n.groupId !== id) return n;
+          const next = { ...n, groupId: undefined };
+          DB.saveNPC(next);
+          return next;
+      }));
       await DB.deleteCharacterGroup(id);
       setCharacterGroups(prev => prev.filter(g => g.id !== id));
   };
