@@ -2154,7 +2154,7 @@ ${isInitialGeneration ? `
                                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                     className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
                                 />
-                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 個角色</span>
+                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 個角色{npcs.some(n => n.groupId === g.id) ? ` · ${npcs.filter(n => n.groupId === g.id).length} 個 NPC` : ''}</span>
                                 <button
                                     onClick={() => { deleteCharacterGroup(g.id); addToast(`分組「${g.name}」已刪除，組內角色回到未分組`, 'info'); }}
                                     className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
@@ -2165,7 +2165,7 @@ ${isInitialGeneration ? `
                         ))}
                     </div>
                 )}
-                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除分組不會刪除角色，組內角色會回到「未分組」。給角色指派分組：進入角色的「設定」頁。</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除分組不會刪除角色或 NPC，組內的都會回到「未分組」。給角色指派分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派。</p>
             </div>
         </Modal>
 

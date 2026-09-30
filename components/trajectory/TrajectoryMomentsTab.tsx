@@ -6,7 +6,7 @@ import { useOS } from '../../context/OSContext';
 import {
     actorDisplayName, buildFriendGraph, displayLikeCount, momentFeedFor, visibleComments, visibleLikes,
 } from '../../utils/momentsPool';
-import { deleteMomentPost, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
+import { deleteMomentComment, deleteMomentPost, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
 import { generateCharacterMoment } from '../../utils/momentsGenerate';
 import { commentAsCharacter } from '../../utils/momentsReply';
 import { trackEvent } from '../../utils/analytics';
@@ -77,7 +77,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const [syncingToChat, setSyncingToChat] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-    useEffect(() => { setConfirmDeleteOpen(false); }, [detailPost?.id]);
+    // 刪 TA 自己的留言：點一下垃圾桶先變成「刪除？」，再點一下才刪，免得手滑
+    const [confirmCommentId, setConfirmCommentId] = useState<string | null>(null);
+    useEffect(() => { setConfirmDeleteOpen(false); setConfirmCommentId(null); }, [detailPost?.id]);
 
     const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -221,8 +223,19 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         }
     };
 
-    // 這個角色看得到的讚和留言（微信式：只看得到自己朋友的）
-    const renderInteractions = (post: MomentPost, className: string) => {
+    const handleDeleteOwnComment = async (post: MomentPost, commentId: string) => {
+        setConfirmCommentId(null);
+        try {
+            await deleteMomentComment(post.id, commentId);
+        } catch (e) {
+            console.warn('[Trajectory] 刪除角色留言失敗:', e);
+            addToast('刪除失敗，稍後再試', 'error');
+        }
+    };
+
+    // 這個角色看得到的讚和留言（微信式：只看得到自己朋友的）。
+    // allowDelete：詳情裡 TA 自己留的那幾條可以刪（只有 TA 自己的，別人的不給動）；列表卡片整張可點，不放。
+    const renderInteractions = (post: MomentPost, className: string, allowDelete = false) => {
         const likeCount = displayLikeCount(char.id, post, graph);
         const comments = visibleComments(char.id, post, graph);
         if (likeCount === 0 && comments.length === 0) return null;
@@ -238,10 +251,25 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                 {comments.map(c => {
                     const target = c.replyTo ? post.comments.find(x => x.id === c.replyTo) : undefined;
                     return (
-                        <div key={c.id} className="text-[11px] text-white/60 break-words">
-                            <span className="font-bold" style={{ color: '#a78bfa' }}>{nameOf(c.actor)}</span>
-                            {target && <><span className="text-white/35"> 回覆 </span><span className="font-bold" style={{ color: '#a78bfa' }}>{nameOf(target.actor)}</span></>}
-                            ：{c.content}
+                        <div key={c.id} className="text-[11px] text-white/60 break-words flex items-start gap-1.5">
+                            <div className="flex-1 min-w-0">
+                                <span className="font-bold" style={{ color: '#a78bfa' }}>{nameOf(c.actor)}</span>
+                                {target && <><span className="text-white/35"> 回覆 </span><span className="font-bold" style={{ color: '#a78bfa' }}>{nameOf(target.actor)}</span></>}
+                                ：{c.content}
+                            </div>
+                            {allowDelete && c.actor.kind === 'character' && c.actor.id === char.id && (
+                                confirmCommentId === c.id ? (
+                                    <button onClick={() => void handleDeleteOwnComment(post, c.id)}
+                                        className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md text-rose-300 bg-rose-500/15 active:scale-95 transition">
+                                        刪除？
+                                    </button>
+                                ) : (
+                                    <button onClick={() => setConfirmCommentId(c.id)} aria-label="刪除這條留言"
+                                        className="shrink-0 mt-0.5 text-white/30 hover:text-rose-300 active:scale-90 transition">
+                                        <Trash size={12} />
+                                    </button>
+                                )
+                            )}
                         </div>
                     );
                 })}
@@ -350,7 +378,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                             <div className="text-[13px] leading-relaxed text-white/90 whitespace-pre-wrap break-words">{detailPost.content}</div>
                             <div className="text-[11px] text-white/40 mt-1.5">{formatTimestamp(detailPost.createdAt)}</div>
                         </div>
-                        {renderInteractions(detailPost, 'mx-5 mb-2')}
+                        {renderInteractions(detailPost, 'mx-5 mb-2', true)}
                         {(() => {
                             const own = detailPost.author.id === char.id;
                             const synced = !!syncedIdFor(detailPost);

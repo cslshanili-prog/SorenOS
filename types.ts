@@ -3527,6 +3527,11 @@ export interface NPCProfile {
     name: string;
     /** 頭像，跟角色頭像一樣可以是 blob-ref token / url / dataURL。 */
     avatar: string;
+    /**
+     * 所在的世界（神經鏈接的分組，跟角色共用同一套 CharacterGroup）。不設 = 未分組。
+     * 分組被刪時清掉；指向已刪分組的一律當未分組。身份解析會吃這個世界的預設身份（personaKeyForNpc）。
+     */
+    groupId?: string;
     /** 性格與背景描述，注入進群聊/查手機/見面劇情的人設裡。 */
     description: string;
     relationships: NPCRelationship[];

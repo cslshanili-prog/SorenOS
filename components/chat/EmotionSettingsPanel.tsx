@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CharacterProfile, ApiPreset, APIConfig } from '../../types';
 import { isScheduleFeatureOn } from '../../utils/scheduleGenerator';
+import ApiConnectionTest from './ApiConnectionTest';
 
 interface EmotionSettingsPanelProps {
     char: CharacterProfile;
@@ -156,6 +157,14 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                     />
                 </div>
+
+                {url.trim() ? (
+                    <ApiConnectionTest url={url} apiKey={key} model={model} />
+                ) : (
+                    <div className="text-[11px] text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
+                        URL 留空時用的是主 API，要測請到系統設置測主 API。
+                    </div>
+                )}
 
                 <button
                     onClick={handleSave}

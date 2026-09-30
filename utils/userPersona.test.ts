@@ -244,6 +244,16 @@ describe('NPC 認識的身份', () => {
     it('推不出來：全域默認', () => {
         expect(personaKeyForNpc(profile, { id: 'n', relationships: [{ targetId: 'user' }] }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
         expect(npcPersonaSource(profile, { id: 'n' }, chars)).toBe('global');
+    });    it('NPC 分到某個世界：跟著那個世界的預設，比從關係推的優先；手動指定仍然最優先', () => {
+        const npc = { id: 'n', groupId: 'fog', relationships: [{ targetId: 'B' }] };
+        expect(personaKeyForNpc(profile, npc, chars)).toBe('p1');
+        expect(npcPersonaSource(profile, npc, chars)).toBe('world');
+        expect(personaKeyForNpc(profile, { ...npc, knownPersonaId: 'p2' }, chars)).toBe('p2');
+    });
+    it('NPC 所在世界沒有預設：照舊從關係推', () => {
+        const npc = { id: 'n', groupId: 'other', relationships: [{ targetId: 'B' }] };
+        expect(personaKeyForNpc(profile, npc, chars)).toBe('p2');
+        expect(npcPersonaSource(profile, npc, chars)).toBe('inferred');
     });
 });
 

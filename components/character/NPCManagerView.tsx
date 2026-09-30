@@ -14,6 +14,7 @@ import { useOS } from '../../context/OSContext';
 import { NPC_MEMORY_MAX_CHARS, resolveNpcApi } from '../../utils/npcMemory';
 import { refreshNpcMemoryFromGroups } from '../../utils/npcMemoryRuntime';
 import { npcPersonaSource, personaKeyForNpc, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
+import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from './CharacterGroupFilter';
 
 interface NPCManagerViewProps {
     npcs: NPCProfile[];
@@ -36,6 +37,22 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
     const editingNpc = npcs.find(n => n.id === editingId) || null;
+    // 分組跟主角共用同一套（分組＝世界）；展開狀態跟主角分開記，兩邊各開各的
+    const { characterGroups } = useOS();
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
+        try {
+            const arr = JSON.parse(localStorage.getItem('os_npc_groups_expanded') || 'null');
+            if (Array.isArray(arr)) return arr;
+        } catch {}
+        return [GROUP_FILTER_UNGROUPED];
+    });
+    const toggleGroupExpanded = (id: string) => {
+        setExpandedGroups(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+            try { localStorage.setItem('os_npc_groups_expanded', JSON.stringify(next)); } catch {}
+            return next;
+        });
+    };
 
     const handleAdd = async () => {
         const npc = await addNPC();
@@ -63,6 +80,32 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
             />
         );
     }
+
+    const renderNpcCard = (npc: NPCProfile) => (
+        <div
+            key={npc.id}
+            onClick={() => { setEditingId(npc.id); setView('detail'); }}
+            className="flex items-center gap-3 bg-white rounded-2xl p-3 shadow-sm border border-slate-100 cursor-pointer active:scale-[0.99] transition-transform"
+        >
+            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100">
+                <TokenImg value={npc.avatar} className="w-full h-full object-cover" alt={npc.name} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <div className="text-sm font-bold text-slate-700 truncate">{npc.name || '未命名 NPC'}</div>
+                <div className="text-[11px] text-slate-400 truncate">
+                    {npc.relationships.length > 0 ? `${npc.relationships.length} 段關係` : '暫無關係設定'}
+                </div>
+            </div>
+            <button
+                onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(npc.id); }}
+                className="shrink-0 p-2 text-slate-300 hover:text-red-400"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+            </button>
+        </div>
+    );
 
     return (
         <div className="flex flex-col h-full animate-fade-in relative"
@@ -94,31 +137,39 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
                         還沒有 NPC——點下面「+ 新增 NPC」建一個
                     </div>
                 )}
-                {npcs.map(npc => (
-                    <div
-                        key={npc.id}
-                        onClick={() => { setEditingId(npc.id); setView('detail'); }}
-                        className="flex items-center gap-3 bg-white rounded-2xl p-3 shadow-sm border border-slate-100 cursor-pointer active:scale-[0.99] transition-transform"
-                    >
-                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100">
-                            <TokenImg value={npc.avatar} className="w-full h-full object-cover" alt={npc.name} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="text-sm font-bold text-slate-700 truncate">{npc.name || '未命名 NPC'}</div>
-                            <div className="text-[11px] text-slate-400 truncate">
-                                {npc.relationships.length > 0 ? `${npc.relationships.length} 段關係` : '暫無關係設定'}
+                {characterGroups.length === 0 ? npcs.map(renderNpcCard) : (() => {
+                    // 建過分組 → 跟主角列表一樣按組摺疊；沒建過就是原來的平鋪列表
+                    const knownGroupIds = new Set(characterGroups.map(g => g.id));
+                    const sections = [
+                        ...sortCharacterGroups(characterGroups).map(g => ({ id: g.id, name: g.name, list: npcs.filter(n => n.groupId === g.id) })),
+                        // groupId 指向已刪分組的也歸到未分組，不會憑空消失
+                        { id: GROUP_FILTER_UNGROUPED, name: '未分組', list: npcs.filter(n => !n.groupId || !knownGroupIds.has(n.groupId)) },
+                    ].filter(sec => sec.list.length > 0 || sec.id !== GROUP_FILTER_UNGROUPED);
+                    return sections.map(sec => {
+                        const expanded = expandedGroups.includes(sec.id);
+                        return (
+                            <div key={sec.id} className="shrink-0">
+                                <button onClick={() => toggleGroupExpanded(sec.id)}
+                                    className={`w-full h-14 flex items-center gap-3 px-5 rounded-2xl bg-white border transition-colors active:scale-[0.99] ${expanded ? 'border-violet-200' : 'border-slate-100 hover:border-violet-200'} shadow-[0_2px_10px_rgba(140,120,200,0.07)]`}>
+                                    <svg viewBox="0 0 12 12" className={`w-3 h-3 text-violet-400 transition-transform ${expanded ? '' : '-rotate-90'}`}>
+                                        <path d="M2 4l4 5 4-5z" fill="currentColor" />
+                                    </svg>
+                                    <span className="text-base font-bold text-slate-700 tracking-wide truncate">{sec.name}</span>
+                                    <span className="min-w-[26px] px-2 py-0.5 rounded-full bg-violet-100/70 text-[12px] text-violet-500 text-center font-medium tabular-nums">{sec.list.length}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 ml-auto text-slate-300 transition-transform ${expanded ? 'rotate-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                                </button>
+                                {expanded && (
+                                    <div className="flex flex-col gap-3 mt-3">
+                                        {sec.list.map(renderNpcCard)}
+                                        {sec.list.length === 0 && (
+                                            <div className="text-xs text-violet-300 px-3 pb-1">這組還沒有 NPC——在 NPC 編輯頁裡指派</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(npc.id); }}
-                            className="shrink-0 p-2 text-slate-300 hover:text-red-400"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                            </svg>
-                        </button>
-                    </div>
-                ))}
+                        );
+                    });
+                })()}
                 <button onClick={handleAdd} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     新增 NPC
@@ -173,7 +224,8 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [testingConnection, setTestingConnection] = useState(false);
     const [testConnectionResult, setTestConnectionResult] = useState<string | null>(null);
     // 輕量記憶：自動整理可能在編輯頁開著時寫進來，沒在打字就跟著更新
-    const { groups, apiConfig, userProfile, userProfileBase, npcs, addToast } = useOS();
+    const { groups, apiConfig, userProfile, userProfileBase, npcs, addToast, characterGroups, createCharacterGroup } = useOS();
+    const [groupDraft, setGroupDraft] = useState<string | null>(null);
     // 多身份：這個 NPC 認識的是哪一個你（手動指定，或從關係清單推）；「跟用戶的關係」說的就是這張卡
     const personas = userProfileBase.personas || [];
     const knownKey = personaKeyForNpc(userProfileBase, npc, characters);
@@ -360,6 +412,43 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 </div>
 
                 <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">分組</label>
+                    <div className="flex gap-2 items-center">
+                        <select
+                            value={npc.groupId && characterGroups.some(g => g.id === npc.groupId) ? npc.groupId : ''}
+                            onChange={e => onChange({ groupId: e.target.value || undefined })}
+                            className="flex-1 bg-white border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none appearance-none"
+                        >
+                            <option value="">未分組</option>
+                            {sortCharacterGroups(characterGroups).map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                        </select>
+                        {groupDraft === null ? (
+                            <button onClick={() => setGroupDraft('')} className="px-3 py-2.5 rounded-xl bg-white border border-slate-200/60 text-xs text-slate-500 active:scale-95 transition-transform shrink-0">＋新建</button>
+                        ) : (
+                            <input
+                                autoFocus
+                                value={groupDraft}
+                                onChange={e => setGroupDraft(e.target.value)}
+                                onBlur={async () => {
+                                    const groupName = groupDraft.trim();
+                                    setGroupDraft(null);
+                                    if (!groupName) return;
+                                    // 同名分組直接指派進去，不重複建
+                                    const group = characterGroups.find(g => g.name === groupName) || await createCharacterGroup(groupName);
+                                    if (group) onChange({ groupId: group.id });
+                                }}
+                                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                placeholder="分組名，回車確認"
+                                className="w-36 px-3 py-2.5 rounded-xl bg-white border border-slate-200/60 text-xs text-slate-700 outline-none shrink-0"
+                            />
+                        )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 pl-1 leading-relaxed">跟主角共用同一套分組，也就是 TA 所在的世界；那個世界設了預設身份的話，TA 認識的就是那張卡。</p>
+                </div>
+
+                <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">性格與背景描述</label>
                     <textarea
                         value={description}
@@ -390,7 +479,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                             })}
                         </div>
                         <p className="text-[10px] text-slate-400 mt-1.5 pl-1 leading-relaxed">
-                            {knownSource === 'npc' ? `TA 認識的是「${knownName}」。` : knownSource === 'inferred' ? `自動：從 TA 的關係推測，認識的是「${knownName}」。` : `自動：推不出來，用全域默認「${knownName}」。`}
+                            {knownSource === 'npc' ? `TA 認識的是「${knownName}」。` : knownSource === 'world' ? `自動：跟著 TA 所在世界的預設，認識的是「${knownName}」。` : knownSource === 'inferred' ? `自動：從 TA 的關係推測，認識的是「${knownName}」。` : `自動：推不出來，用全域默認「${knownName}」。`}
                             下面「跟用戶的關係」說的就是這個人；群聊、朋友圈裡你用別的身份出現時，TA 會當成不認識的人。
                         </p>
                     </div>
