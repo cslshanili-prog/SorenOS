@@ -75,6 +75,7 @@ const emitViewportResize = (height: number) => {
 const focusTextarea = () => {
     const textarea = document.createElement('textarea');
     document.body.appendChild(textarea);
+    textarea.focus();
     textarea.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     return textarea;
 };
@@ -141,7 +142,6 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
         try {
             await install();
             const textarea = focusTextarea();
-            textarea.focus();
             emitViewportResize(SCREEN_H - KEYBOARD_H);
             expect(inKeyboardMode()).toBe(true);
 
@@ -150,11 +150,38 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
             document.dispatchEvent(new Event('visibilitychange'));
             expect(document.activeElement).not.toBe(textarea);
 
-            // 回前台：可視區其實已經恢復，但一開始還報舊高度，事件也沒來
+            // 回前台：鍵盤已經收了，但 iOS 一直報著鍵盤還在時的矮高度，resize 也沒來
             visibility = 'visible';
             document.dispatchEvent(new Event('visibilitychange'));
-            visualViewport.height = SCREEN_H;
             vi.advanceTimersByTime(1500);
+            expect(visualViewport.height).toBe(SCREEN_H - KEYBOARD_H);
+
+            expect(inKeyboardMode()).toBe(false);
+            expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('可視區報矮但焦點不在輸入框上 → 不進鍵盤態（鍵盤不可能開著）', async () => {
+        await install();
+        emitViewportResize(SCREEN_H - KEYBOARD_H);
+
+        expect(inKeyboardMode()).toBe(false);
+        expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
+    });
+
+    it('輸入框失焦、iOS 沒補發 resize → 失焦後的兜底重算就退出鍵盤態', async () => {
+        vi.useFakeTimers();
+        try {
+            await install();
+            const textarea = focusTextarea();
+            emitViewportResize(SCREEN_H - KEYBOARD_H);
+            expect(inKeyboardMode()).toBe(true);
+
+            textarea.blur();
+            textarea.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+            vi.advanceTimersByTime(300);
 
             expect(inKeyboardMode()).toBe(false);
             expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);

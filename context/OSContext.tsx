@@ -24,6 +24,7 @@ import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPreset
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
+import { tickCustomMeterTurnsForChar } from '../utils/customMeterGenerator';
 import { VRScheduler, type VRSessionOutcome } from '../utils/vrWorld/scheduler';
 import { runVRSession } from '../utils/vrWorld/runSession';
 import { allowsAutomaticVR } from '../utils/vrWorld/participation';
@@ -2787,6 +2788,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
 
               if (offset > 0) {
+                  // 延遲自動回覆在背景回了用戶：跟聊天頁裡回的一樣算一輪，心聲/好感度的輪數照走。
+                  // 主動找人（proactive）不是回覆用戶，不算。
+                  if (isReply) {
+                      tickCustomMeterTurnsForChar(char, userForChar(char), resolveCharacterMeterApi(char, currentApiConfig), (id, patch) => updateCharacterRef.current(id, patch));
+                  }
                   const previewSource = savedPreviewChunks.join(' ').trim();
                   const preview = previewSource.replace(/\s+/g, ' ').trim().slice(0, 120)
                       || `${char.name} sent a proactive message`;

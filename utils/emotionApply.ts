@@ -341,6 +341,16 @@ export function extractAssistantText(message: any): string {
     return '';
 }
 
+/** 庫裡這個角色現在的樣子；讀不到（已刪、存儲忙）就退回傳進來的那份，至少 buff 還能落。 */
+const readLatestCharacter = async (charData: CharacterProfile): Promise<CharacterProfile> => {
+    try {
+        const all = await DB.getAllCharacters();
+        return all.find(c => c.id === charData.id) ?? charData;
+    } catch {
+        return charData;
+    }
+};
+
 /**
  * 解析情緒評估 raw 文本並落地 buff. 返回 innerState (意識流) 或 null.
  * - 解析失敗 → 返回 null, 不動 buff.
@@ -398,10 +408,15 @@ export async function applyEmotionEvalRaw(
 
         // buffs 數組在場 → 完整更新 (數組為空 = 模型主動清空, 尊重).
         // buffs 缺失但 injection 在場 (搶救場景) → 保留舊 buffs, 只換 injection.
-        const sanitizedBuffs = hasBuffArray ? sanitizeBuffs(result.buffs) : (charData.activeBuffs || []);
-        const buffInjection = hasInjection ? result.injection! : (hasBuffArray ? '' : (charData.buffInjection || ''));
+        // 落庫前重讀一次最新的角色：charData 是這一輪開頭的快照，評估要跑幾十秒，
+        // 這期間別的地方可能已經寫過角色（心聲/好感度的輪數計數、關係、任務……）。
+        // 拿舊快照整份存回去會把那些改動悄悄蓋掉——心聲「還差 N 輪」重開 App 就退回原數，
+        // 就是這樣來的。這裡只該動 buff 兩個字段，其餘一律以庫裡現在的為準。
+        const latest = await readLatestCharacter(charData);
+        const sanitizedBuffs = hasBuffArray ? sanitizeBuffs(result.buffs) : (latest.activeBuffs || []);
+        const buffInjection = hasInjection ? result.injection! : (hasBuffArray ? '' : (latest.buffInjection || ''));
         const updated: CharacterProfile = {
-            ...charData,
+            ...latest,
             activeBuffs: sanitizedBuffs,
             buffInjection,
         };
