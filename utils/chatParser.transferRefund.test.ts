@@ -187,3 +187,33 @@ describe('[[ACTION:TRANSFER:N]] 角色主動轉帳 · 發送前扣款檢查', ()
         }));
     });
 });
+
+// 背景延遲回覆（OSContext 的 runProactive）不走 parseAndExecuteActions，單獨調 settleTransferCommands。
+// 以前那條路直接把標籤剝掉：角色嘴上說收了，原轉帳還掛著待收、角色的帳戶也沒入帳。
+describe('ChatParser.settleTransferCommands（背景路徑單獨結算）', () => {
+    beforeEach(() => {
+        getMessagesByCharId.mockReset();
+        updateMessageMetadata.mockClear();
+        saveMessage.mockClear();
+    });
+
+    it('收下：原轉帳標成已收、落回執、入帳回調拿到金額，正文剝掉標籤', async () => {
+        getMessagesByCharId.mockResolvedValue([
+            { id: 7, type: 'transfer', role: 'user', timestamp: 1000, metadata: { amount: 20, status: 'pending' } },
+        ]);
+        const onUserTransferAccepted = vi.fn();
+        const text = await ChatParser.settleTransferCommands('謝啦 [[ACTION:TRANSFER_ACCEPT]]', 'char-1', { onUserTransferAccepted });
+
+        expect(text).toBe('謝啦');
+        expect(updateMessageMetadata).toHaveBeenCalledWith(7, expect.any(Function));
+        expect(saveMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'transfer', metadata: expect.objectContaining({ receipt: 'accepted', ref: 7 }) }));
+        expect(onUserTransferAccepted).toHaveBeenCalledWith(20);
+    });
+
+    it('沒有轉帳標籤：正文原樣返回、什麼都不動', async () => {
+        const text = await ChatParser.settleTransferCommands('今天好累', 'char-1', {});
+        expect(text).toBe('今天好累');
+        expect(saveMessage).not.toHaveBeenCalled();
+        expect(getMessagesByCharId).not.toHaveBeenCalled();
+    });
+});
