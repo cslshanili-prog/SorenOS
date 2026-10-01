@@ -548,6 +548,8 @@ export interface CharacterBuff {
 
 // 實時上下文配置 - 讓AI角色感知真實世界
 export interface RealtimeConfig {
+  /** 節假日感知（設置 → 實時感知），見 utils/userHolidays.ts */
+  userHolidays?: import('./utils/userHolidays').UserHolidayConfig;
   // 天氣配置
   weatherEnabled: boolean;
   weatherApiKey: string;  // OpenWeatherMap API Key（可選；留空走免 key 的 Open-Meteo）

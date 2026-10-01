@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
 import { applyActivePersona, resolveUserProfileForChar } from '../utils/userPersona';
+import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../utils/userHolidays';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
@@ -988,6 +989,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [apiPresets, setApiPresets] = useState<ApiPreset[]>([]);
   const [realtimeConfig, setRealtimeConfig] = useState<RealtimeConfig>(defaultRealtimeConfig);
+  // 節假日感知：ContextBuilder 只讀備好的日曆，這裡開機、切回前台、每小時預熱一次今年的
+  useEffect(() => {
+    const refresh = () => {
+      if (realtimeConfig.userHolidays?.enabled) {
+        void getUserHolidayReminder({ ...realtimeConfig.userHolidays, timeZone: deviceTimeZone() }, browserHolidayCache).catch(() => {});
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 60 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [realtimeConfig.userHolidays]);
   const [memoryPalaceConfig, setMemoryPalaceConfig] = useState<MemoryPalaceGlobalConfig>(() => {
     try {
       const saved = localStorage.getItem('os_memory_palace_config');

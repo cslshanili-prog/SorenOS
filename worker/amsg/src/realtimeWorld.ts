@@ -25,6 +25,7 @@ import {
   type WeatherData,
 } from '../../../utils/realtimeWorldCore';
 import type { AmsgToolConfig } from '../../../utils/amsgToolPack';
+import { getUserHolidayReminder } from '../../../utils/userHolidays';
 
 /** 兩份快照都放全局命名空間：天氣按城市、熱榜按時段，本來就是所有角色共用一份。 */
 export const AMSG_WEATHER_SNAPSHOT_KEY = 'world_weather';
@@ -191,7 +192,9 @@ const loadHotNews = async (
  * 注意這裡不給「當前時間」那一行：時間由 fire_pack 自己的 AMSG_SLOT_CURRENT_TIME 填，
  * 兩邊都出就是一份提示詞兩個鍾。
  */
-export const buildRealtimeWorldBlock = async (args: {
+export type RealtimeWorldArgs = {
+  /** 用戶名字（fire_pack 的 targetName），只拿來拼節假日那句，不送去任何資料源。 */
+  userName?: string;
   toolConfig: AmsgToolConfig;
   /** 角色的時間感知開關（tool_pack 帶上來的）：關掉就連今日節日一起不給。 */
   timeAwarenessEnabled: boolean;
@@ -202,7 +205,25 @@ export const buildRealtimeWorldBlock = async (args: {
   globalRows: StateRow[];
   globalNamespace: string;
   writeState?: WriteState;
-}): Promise<string> => {
+};
+
+/**
+ * 節假日感知（utils/userHolidays.ts）的雲端那一半：到點照用戶設備時區算「今天」、取日曆
+ * （緩存在 amsg:global，各國各年一份），回傳一句話或空字串。由調用方插進「互動對象 (User)」段，
+ * 不放進天氣熱搜那塊——那塊講的是外面的世界，這句講的是用戶本人。
+ */
+export const buildUserHolidayBlock = async (args: RealtimeWorldArgs): Promise<string> => {
+  const { toolConfig: cfg, nowMs, globalRows } = args;
+  if (!args.timeAwarenessEnabled || !cfg.userHolidays?.timeZone) return '';
+  return getUserHolidayReminder(cfg.userHolidays, {
+    async read(key) {
+      try { return JSON.parse(globalRows.find(row => row.key === key)?.value || 'null'); } catch { return null; }
+    },
+    async write(key, data) { await args.writeState?.(args.globalNamespace, [{ key, value: JSON.stringify(data) }]); },
+  }, nowMs, args.userName).catch(() => '');
+};
+
+export const buildRealtimeWorldBlock = async (args: RealtimeWorldArgs): Promise<string> => {
   const { toolConfig: cfg, nowMs, globalRows } = args;
 
   const specialDates = args.timeAwarenessEnabled ? checkSpecialDates(args.tzId, nowMs) : [];

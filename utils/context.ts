@@ -14,13 +14,16 @@ import {
 import { formatDialogueExamplesBlock, shouldIncludeDialogueExamples } from './dialogueExamples';
 import { buildTriggeredLinesPrompt, formatSignatureLinesBlock, latestUserText } from './fixedLines';
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
+import { getCachedUserHolidayReminder, type UserHolidayConfig } from './userHolidays';
 
 /**
  * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
  * 性別/自定義設定/其他補充是新加的深度字段，選填，留空就不佔提示詞篇幅。
  */
-function formatUserProfileBlock(user: UserProfile): string {
+function formatUserProfileBlock(user: UserProfile, holidayLine = ''): string {
     let block = `### 互動對象 (User)\n`;
+    // 節假日感知（utils/userHolidays.ts）：用戶那邊今天放假／補班才有這一行，緊跟標題，雲端插的位置也是這裡
+    if (holidayLine) block += `- ${holidayLine}\n`;
     block += `- 名字: ${user.name}\n`;
     if (user.gender) block += `- 性別: ${user.gender}\n`;
     block += `- 設定/備註: ${user.bio || '無'}\n`;
@@ -156,6 +159,10 @@ export const ContextBuilder = {
              * 不傳就一直附上（見面、通話、各種小 App），跟以前範例寫在人設裡一樣。
              */
             totalMessages?: number;
+            /** 這份 prompt 交給 Worker 到點／即時生成：用戶假日那行由 Worker 照當天補，這裡不烤進去。 */
+            skipUserHoliday?: boolean;
+            /** 不傳就讀 localStorage 裡的實時感知設定。 */
+            userHolidays?: UserHolidayConfig;
         },
         layout?: {
             /**
@@ -223,7 +230,11 @@ export const ContextBuilder = {
         // 3. 用戶畫像 (User Profile)
         // 群聊場景下：用戶畫像已在共享場景塊頂部，這裡跳過避免重複
         if (!groupOptions?.skipUserProfile) {
-            context += formatUserProfileBlock(user);
+            // 跟時間感知同一個開關：角色關了時間感知、見面純架空（skipTimeAwareness）都不給
+            const holidayLine = char.timeAwarenessEnabled !== false && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday
+                ? getCachedUserHolidayReminder(user.name, timeOptions?.userHolidays)
+                : '';
+            context += formatUserProfileBlock(user, holidayLine);
         }
 
         // 4. [NEW] 印象檔案 (Private Impression)

@@ -122,7 +122,8 @@ import {
   type AmsgToolConfig,
   type AmsgToolPack,
 } from '../../../utils/amsgToolPack';
-import { buildRealtimeWorldBlock } from './realtimeWorld';
+import { buildRealtimeWorldBlock, buildUserHolidayBlock, type RealtimeWorldArgs } from './realtimeWorld';
+import { insertUserHolidayInProfile, USER_PROFILE_HEADING } from '../../../utils/userHolidays';
 import { handleSelfUpdate } from './selfUpdate';
 import { handleCronTriggerRead, handleCronTriggerWrite, isCronTriggerAuthFailure } from './cronTrigger';
 import {
@@ -2146,15 +2147,21 @@ export const amsgHooks = {
 
     // 「外面的世界此刻什麼樣」：今日節日 + 實時天氣 + 熱搜，到點現拉現填。
     // 拉不到 / 超時都只是返回空串，那一段整個消失，這次觸發照常往下走。
-    const realtimeWorldBlock = await buildRealtimeWorldBlock({
+    // 節假日感知那句（用戶所在地今天放假／補班）同一批參數一起拉，但插在「互動對象 (User)」段，
+    // 不混進這塊——這塊講外面的世界，那句講用戶本人。
+    const worldArgs: RealtimeWorldArgs = {
       toolConfig,
+      userName: pack.targetName,
       timeAwarenessEnabled: toolPack.timeAwarenessEnabled,
       tzId: pack.tzId,
       nowMs: ctx.now.getTime(),
       globalRows,
       globalNamespace: AMSG_GLOBAL_NAMESPACE,
       writeState: ctx.writeState,
-    });
+    };
+    const [realtimeWorldBlock, userHoliday] = await Promise.all([
+      buildRealtimeWorldBlock(worldArgs), buildUserHolidayBlock(worldArgs),
+    ]);
 
     // MCP 說明塊 / 「給自己排下一條」說明塊：兩條路都要，只是掛的位置不同
     // （主動消息接在渲染好的 prompt 後面，即時對話拼進末尾追加的那個 system 塊）。
@@ -2235,6 +2242,18 @@ export const amsgHooks = {
         ...pack.chat!.messages.map((m) => ({ role: m.role, content: m.content })),
         ...(timelyBlock ? [{ role: 'system' as const, content: timelyBlock }] : []),
       ];
+      // 客戶端打包即時對話時沒把假日那句烤進去（skipUserHoliday），這裡照當天補進用戶資料段；
+      // 找不到那段（舊版客戶端）就單獨補一條。
+      if (userHoliday) {
+        const profileIndex = instantMessages.findIndex((m) => m.role === 'system'
+          && typeof m.content === 'string' && m.content.includes(USER_PROFILE_HEADING));
+        if (profileIndex >= 0) {
+          const profile = instantMessages[profileIndex];
+          instantMessages[profileIndex] = { ...profile, content: insertUserHolidayInProfile(profile.content as string, userHoliday) };
+        } else {
+          instantMessages.push({ role: 'system' as const, content: `### 互動對象資訊補充\n${userHoliday}` });
+        }
+      }
 
       // 情緒評估（副 API）：跟主生成**並行**跑，等 onLLMOutput 收尾時 await——那時
       // 多半早就跑完了，等於零額外延遲。掛了返回 null，主回覆照發。
@@ -2282,7 +2301,7 @@ export const amsgHooks = {
 
     // fire_pack v3：「本次任務」指令隨任務 metadata 走，這裡填槽。
     // MCP 塊拼在渲染好的 prompt 之後（同一條 user 消息）。
-    const prompt = renderFirePack(pack, ctx.now.getTime(), taskMeta.amsgTaskInstruction as string, {
+    const prompt = insertUserHolidayInProfile(renderFirePack(pack, ctx.now.getTime(), taskMeta.amsgTaskInstruction as string, {
       maxUnansweredSends,
       selfLog,
       taskListBlock,
@@ -2290,7 +2309,7 @@ export const amsgHooks = {
       // 「此刻在做什麼」裡的鐘點跟今日節日同一個開關：關掉時間感知的角色不該從日程塊
       // 讀到「23:00」——那正是這個開關要擋的東西。日程內容本身照給。
       includeClock: toolPack.timeAwarenessEnabled,
-    }) + mcpBlock + scheduleBlock;
+    }), userHoliday) + mcpBlock + scheduleBlock;
     return {
       messages: [{ role: 'user' as const, content: prompt }],
       ...common,

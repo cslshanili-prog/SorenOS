@@ -37,6 +37,7 @@ import {
     type NewsItem,
 } from './realtimeWorldCore';
 import { getLocalDateKey } from './localDate';
+import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder, type UserHolidayConfig } from './userHolidays';
 import { lookupAnyScript } from './scriptKey';
 
 // 兩份環境無關葉子，amsg worker 共用同一份，這裡的 Manager 方法委託過去；
@@ -52,6 +53,8 @@ export {
 } from './realtimeWorldCore';
 
 export interface RealtimeConfig {
+    /** 節假日感知（設置 → 實時感知），見 utils/userHolidays.ts */
+    userHolidays?: UserHolidayConfig;
     // 天氣配置
     weatherEnabled: boolean;
     weatherApiKey: string;  // OpenWeatherMap API Key（可選；留空走免 key 的 Open-Meteo）
@@ -454,6 +457,14 @@ export const RealtimeContextManager = {
 
         return fullContext;
     },
+
+    /** 備好用戶所在地今年的日曆並回傳今天那一句（沒有就空字串）。日期跟設備時區走。 */
+    getUserHoliday: (config: RealtimeConfig, userName?: string): Promise<string> => getUserHolidayReminder(
+        config.userHolidays ? { ...config.userHolidays, timeZone: deviceTimeZone() } : undefined,
+        browserHolidayCache,
+        Date.now(),
+        userName,
+    ),
 
     /**
      * 清除緩存
