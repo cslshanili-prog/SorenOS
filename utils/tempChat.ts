@@ -69,12 +69,16 @@ export const TEMP_CHAT_HISTORY_PREFIX = '（臨時會話）';
 
 // ── 角色被拉黑時自己傳話的節奏 ──────────────────────────────────────────
 
+const MINUTE = 60_000;
 const HOUR = 3600_000;
 
-/** 用戶剛拉黑角色：第一次試著傳話在 1–4 小時後。 */
-export const firstTempAttemptAt = (since: number, random: () => number = Math.random) => since + Math.round((1 + 3 * random()) * HOUR);
-/** 之後每次隔 3–8 小時（今天用完了就等到隔天，照樣用這個間隔，到點再數一次）。 */
-export const nextTempAttemptAt = (now: number, random: () => number = Math.random) => now + Math.round((3 + 5 * random()) * HOUR);
+/**
+ * 用戶剛拉黑角色：第一次試著傳話在 10–30 分鐘後。原本是 1–4 小時，太久了——拉黑的人氣半天
+ * 也期待半天，對面卻像升天了一樣安靜，測試的人都以為壞了。
+ */
+export const firstTempAttemptAt = (since: number, random: () => number = Math.random) => since + Math.round((10 + 20 * random()) * MINUTE);
+/** 之後每次隔 2–4 小時（今天用完了就等到隔天，照樣用這個間隔，到點再數一次）。 */
+export const nextTempAttemptAt = (now: number, random: () => number = Math.random) => now + Math.round((2 + 2 * random()) * HOUR);
 
 // ── 提示詞 ────────────────────────────────────────────────────────────
 
@@ -98,8 +102,10 @@ export function buildTempChatPrompt(params: {
     maxChars: number;
     /** 這次是回對方剛傳的那句 */
     replying: boolean;
+    /** 被拉黑後角色第一次自己開口：這次不准沉默 */
+    firstAttempt?: boolean;
 }): string {
-    const { char, userName, before, thread, rejected, remaining, maxChars, replying } = params;
+    const { char, userName, before, thread, rejected, remaining, maxChars, replying, firstAttempt } = params;
     const name = userName.trim() || '對方';
     const block = char.chatBlock;
     const rules = `臨時會話是拉黑期間唯一的窄管道：雙方每天各只有幾次機會，每次最多 ${maxChars} 字。你今天還剩 ${remaining} 次（這次算一次）。挑最想說的講，一句話就好。`;
@@ -122,8 +128,10 @@ ${rules}
 
 ${shared}
 
-${replying ? `${name}剛在臨時會話回了你一句。` : '你現在拿起手機，想透過臨時會話傳話給對方。'}照你的性格和你們的關係決定要說什麼——道歉、解釋、賭氣、想念都可以，也可以這次什麼都不說。
-只輸出一個 JSON：{"message": "要傳的話，${maxChars} 字以內；不想說就留空"}`;
+${replying ? `${name}剛在臨時會話回了你一句。` : '你現在拿起手機，想透過臨時會話傳話給對方。'}照你的性格和你們的關係決定要說什麼——道歉、解釋、賭氣、想念都可以${firstAttempt
+    ? '。這是你被拉黑後第一次開口，一定要說點什麼，哪怕只有幾個字，不能留空。'
+    : '，也可以這次什麼都不說。'}
+只輸出一個 JSON：{"message": "要傳的話，${maxChars} 字以內${firstAttempt ? '' : '；不想說就留空'}"}`;
 }
 
 /** 解析角色的輸出；解析不出 JSON 時把整段當成要說的話（去掉引號）。 */

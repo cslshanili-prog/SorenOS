@@ -35,10 +35,10 @@ describe('臨時會話上限', () => {
 
 describe('角色傳話的節奏', () => {
     it('第一次 1–4 小時後，之後隔 3–8 小時', () => {
-        expect(firstTempAttemptAt(0, () => 0)).toBe(1 * H);
-        expect(firstTempAttemptAt(0, () => 1)).toBe(4 * H);
-        expect(nextTempAttemptAt(0, () => 0)).toBe(3 * H);
-        expect(nextTempAttemptAt(0, () => 1)).toBe(8 * H);
+        expect(firstTempAttemptAt(0, () => 0)).toBe(10 * 60_000);
+        expect(firstTempAttemptAt(0, () => 1)).toBe(30 * 60_000);
+        expect(nextTempAttemptAt(0, () => 0)).toBe(2 * H);
+        expect(nextTempAttemptAt(0, () => 1)).toBe(4 * H);
     });
 });
 
@@ -57,6 +57,16 @@ describe('提示詞與解析', () => {
         expect(p).toContain('把你（Sully）拉黑了');
         expect(p).not.toContain('"unblock"');
         expect(p).toContain('50 字以內');
+    });
+
+    it('被拉黑後第一次自己開口：不准留空；之後才可以沉默', () => {
+        const char = { name: 'Sully', chatBlock: { by: 'user' as const, since: 0 } };
+        const first = buildTempChatPrompt({ ...base, replying: false, firstAttempt: true, char });
+        expect(first).toContain('一定要說點什麼');
+        expect(first).not.toContain('不想說就留空');
+        const later = buildTempChatPrompt({ ...base, replying: false, char });
+        expect(later).toContain('也可以這次什麼都不說');
+        expect(later).toContain('不想說就留空');
     });
 
     it('JSON 照讀、截到上限；不是 JSON 就把整段當成話', () => {
