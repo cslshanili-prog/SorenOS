@@ -47,6 +47,8 @@ export interface AmsgToolPack {
  */
 export interface AmsgToolConfig extends AgenticToolRealtimeConfig {
   v: 1;
+  /** 節假日感知：timeZone 是同步這一刻的設備時區（Worker 照它算用戶的「今天」，不用角色時區）。 */
+  userHolidays?: RealtimeConfig['userHolidays'];
   /** 搜索 / Notion / 飛書都經它轉發；worker 端用 setProxyWorkerUrlOverride 注入。 */
   proxyWorkerUrl: string;
   /**
@@ -132,6 +134,7 @@ export const buildToolConfig = (
     v: 1,
     proxyWorkerUrl: getProxyWorkerUrl(),
     weatherEnabled: !!rc?.weatherEnabled,
+    ...(rc?.userHolidays ? { userHolidays: { ...rc.userHolidays, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } } : {}),
     ...(rc?.weatherCity ? { weatherCity: rc.weatherCity } : {}),
     ...(rc?.weatherApiKey ? { weatherApiKey: rc.weatherApiKey } : {}),
     newsEnabled: !!rc?.newsEnabled,

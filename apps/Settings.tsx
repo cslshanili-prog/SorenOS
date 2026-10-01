@@ -5,6 +5,8 @@ import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
+import UserHolidaySettings from '../components/settings/UserHolidaySettings';
+import type { UserHolidayConfig } from '../utils/userHolidays';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
@@ -673,6 +675,7 @@ const Settings: React.FC = () => {
   }, [showRealtimeModal]);
 
   // 實時感知配置的本地狀態
+  const [rtUserHolidays, setRtUserHolidays] = useState<UserHolidayConfig>(() => realtimeConfig.userHolidays || { enabled: false, countryCode: '' });
   const [rtWeatherEnabled, setRtWeatherEnabled] = useState(realtimeConfig.weatherEnabled);
   const [rtWeatherKey, setRtWeatherKey] = useState(realtimeConfig.weatherApiKey);
   const [rtWeatherCity, setRtWeatherCity] = useState(realtimeConfig.weatherCity);
@@ -1772,7 +1775,9 @@ const Settings: React.FC = () => {
 
   // 保存實時感知配置
   const handleSaveRealtimeConfig = () => {
+      if (rtUserHolidays.enabled && !rtUserHolidays.countryCode) { addToast('請選擇你生活的國家／地區，或關掉節假日感知', 'error'); return; }
       const updates = {
+          userHolidays: { ...rtUserHolidays, introChoice: rtUserHolidays.enabled ? 'configured' as const : 'declined' as const },
           weatherEnabled: rtWeatherEnabled,
           weatherApiKey: rtWeatherKey,
           weatherCity: rtWeatherCity,
@@ -4169,6 +4174,7 @@ const Settings: React.FC = () => {
           footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
       >
           <div className="space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
+              <UserHolidaySettings value={rtUserHolidays} onChange={setRtUserHolidays} />
               {/* 天氣配置 */}
               <div className="bg-emerald-50/50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">

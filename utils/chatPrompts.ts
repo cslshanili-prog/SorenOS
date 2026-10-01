@@ -344,6 +344,17 @@ export const ChatPrompts = {
         const totalMessages = char.dialogueExamples?.trim()
             ? await DB.countMessagesByCharId(char.id).catch(() => undefined)
             : undefined;
+        // 節假日感知：ContextBuilder 只讀備好的日曆，這裡先等它備好（有逾時，失敗就當今天沒有）。
+        // 交給 Worker 生成的兩條路由 Worker 照當天補，這裡不烤。
+        const holidayConfig = (realtimeConfig || defaultRealtimeConfig).userHolidays;
+        const skipUserHoliday = forFirePack || timelyByWorker;
+        if (!skipUserHoliday && char.timeAwarenessEnabled !== false && holidayConfig?.enabled) {
+            // 平常 OSContext 早就預熱好了，這裡幾乎是即時返回；最多等 1.5 秒，不拖慢送出
+            await Promise.race([
+                RealtimeContextManager.getUserHoliday(realtimeConfig || defaultRealtimeConfig, userProfile.name).catch(() => ''),
+                new Promise(resolve => setTimeout(resolve, 1500)),
+            ]);
+        }
         const coreT0 = performance.now();
         let baseSystemPrompt = ContextBuilder.buildCoreContext(
             char,
@@ -351,7 +362,7 @@ export const ChatPrompts = {
             true,
             undefined,
             undefined,
-            { worldbookMessages: currentMsgs, totalMessages },
+            { worldbookMessages: currentMsgs, totalMessages, skipUserHoliday, userHolidays: holidayConfig },
             { deferVolatile: true },
         );
         timings.buildCoreContext = Math.round(performance.now() - coreT0);
