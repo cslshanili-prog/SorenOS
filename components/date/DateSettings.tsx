@@ -237,8 +237,11 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     };
 
     return (
-        <div className="h-full w-full bg-slate-50 flex flex-col">
-            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 bg-white shrink-0 z-20">
+        <div className="h-full w-full bg-slate-50 flex flex-col" data-date-settings>
+            {/* 鍵盤彈起時把底部保存列收起來，可視區全讓給正在編輯的欄位（見下面的捲動區註釋） */}
+            <style>{`body.ios-keyboard-open [data-date-settings] [data-date-settings-savebar] { display: none; }`}</style>
+            {/* 頁首讓出狀態列：全螢幕 PWA 下返回箭頭會跟時間疊在一起、點不到 */}
+            <div className="min-h-16 flex items-center justify-between px-4 pb-2 border-b border-slate-200 bg-white shrink-0 z-20" style={{ paddingTop: 'max(0.5rem, var(--safe-top))' }}>
                 <button onClick={onBack} className="p-2 -ml-2 text-slate-600 active:scale-95 transition-transform">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                 </button>
@@ -246,8 +249,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <div className="w-8"></div>
             </div>
             
-            {/* Live Preview Area */}
-            <div className="h-64 bg-black relative overflow-hidden shrink-0 border-b border-slate-200">
+            <div className="flex-1 overflow-y-auto p-5 space-y-8 pb-20">
+                {/* Live Preview Area：放進捲動區跟著內容走。以前它固定在頂部佔 256px，鍵盤一彈起
+                    可編輯的地方只剩一行字高，根本改不了文字。 */}
+                <div className="-mx-5 -mt-5 h-64 bg-black relative overflow-hidden shrink-0 border-b border-slate-200">
                     <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: dateBackgroundUrl ? `url("${dateBackgroundUrl}")` : 'none' }}></div>
                     <div className="absolute inset-0 flex items-end justify-center pointer-events-none">
                         <TokenImg
@@ -259,9 +264,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         />
                     </div>
                     <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">預覽 (Preview)</div>
-            </div>
+                </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-8 pb-20">
                 <Section title="立繪位置調整">
                     <div className="space-y-6">
                         <div>
@@ -622,7 +626,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 </div>
             )}
 
-            <div className="p-4 border-t border-slate-200 bg-white/90 backdrop-blur-sm sticky bottom-0 z-20">
+            <div data-date-settings-savebar className="p-4 border-t border-slate-200 bg-white/90 backdrop-blur-sm sticky bottom-0 z-20" style={{ paddingBottom: 'max(1rem, var(--safe-bottom))' }}>
                 <button onClick={handleSaveSettings} className="w-full py-3 bg-primary text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-transform">
                     保存當前佈置
                 </button>
