@@ -1,5 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import { GearSix } from '@phosphor-icons/react';
+import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
@@ -4631,15 +4631,19 @@ const Chat: React.FC = () => {
                     </button>
                 )}
                 {isUserBlockingChar(char) && !selectionMode ? (
-                    <div className="shrink-0 flex items-center justify-center gap-3 border-t border-slate-200 bg-white/90 px-4 py-4 text-[13px] text-slate-500" style={{ paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}>
-                        <span>你已把 {char.chatNickname?.trim() || char.name} 拉黑</span>
-                        <button onClick={openTempChat} className="relative rounded-full bg-slate-100 px-3 py-1 text-[12px] font-bold text-slate-600 active:scale-95">
+                    <div className="shrink-0 flex items-center justify-center gap-2 border-t border-slate-200 bg-white/90 px-3 py-4 text-[13px] text-slate-500" style={{ paddingBottom: 'calc(var(--safe-bottom) + 1rem)' }}>
+                        <span className="min-w-0 truncate">你已把 {char.chatNickname?.trim() || char.name} 拉黑</span>
+                        <button onClick={openTempChat} className="relative shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[12px] font-bold text-slate-600 active:scale-95">
                             臨時會話
                             {tempChatInfo.unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label="有新訊息" />}
                         </button>
-                        <button onClick={() => handleChatBlockAction('unblock')} className="rounded-full bg-slate-800 px-3 py-1 text-[12px] font-bold text-white active:scale-95">解除拉黑</button>
-                        {/* 拉黑時輸入列（連同「+」）整條換成這條，設定得留個門：臨時會話的模型壞了也要能進去換 */}
-                        <button onClick={() => setModalType('chat-settings')} aria-label="聊天設定" className="rounded-full bg-slate-100 p-1.5 text-slate-500 active:scale-95">
+                        <button onClick={() => handleChatBlockAction('unblock')} className="shrink-0 rounded-full bg-slate-800 px-3 py-1 text-[12px] font-bold text-white active:scale-95">解除拉黑</button>
+                        {/* 拉黑時輸入列（連同「+」）整條換成這條，常用的兩個得留門：日程/心聲照常看，
+                            聊天設定照常改（臨時會話的模型壞了也要能進去換） */}
+                        <button onClick={() => setModalType('schedule')} aria-label="日程/情緒" className="shrink-0 rounded-full bg-slate-100 p-1.5 text-slate-500 active:scale-95">
+                            <CalendarBlank className="w-4 h-4" weight="bold" />
+                        </button>
+                        <button onClick={() => setModalType('chat-settings')} aria-label="聊天設定" className="shrink-0 rounded-full bg-slate-100 p-1.5 text-slate-500 active:scale-95">
                             <GearSix className="w-4 h-4" weight="bold" />
                         </button>
                     </div>
