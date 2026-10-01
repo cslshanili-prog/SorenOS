@@ -1,4 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
+import { GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
@@ -4637,6 +4638,10 @@ const Chat: React.FC = () => {
                             {tempChatInfo.unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" aria-label="有新訊息" />}
                         </button>
                         <button onClick={() => handleChatBlockAction('unblock')} className="rounded-full bg-slate-800 px-3 py-1 text-[12px] font-bold text-white active:scale-95">解除拉黑</button>
+                        {/* 拉黑時輸入列（連同「+」）整條換成這條，設定得留個門：臨時會話的模型壞了也要能進去換 */}
+                        <button onClick={() => setModalType('chat-settings')} aria-label="聊天設定" className="rounded-full bg-slate-100 p-1.5 text-slate-500 active:scale-95">
+                            <GearSix className="w-4 h-4" weight="bold" />
+                        </button>
                     </div>
                 ) : (
                 <ChatInputArea
