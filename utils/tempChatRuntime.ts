@@ -7,7 +7,7 @@ import { normalizeMessageContent } from './messageFormat';
 import { getLocalDateKey } from './localDate';
 import { nowInTimeZone, resolveCharTimeZone } from './timezone';
 import {
-    buildTempChatPrompt, charCount, isTempChatMessage, normalizeTempChatLimits, parseTempChatReply, tempChatRemaining,
+    buildTempChatPrompt, charCount, isTempChatMessage, normalizeTempChatLimits, parseTempChatReply, tempChatMetaOf, tempChatRemaining,
     tempChatThread, type TempChatMeta,
 } from './tempChat';
 
@@ -81,8 +81,10 @@ export async function generateCharTempMessage(params: {
         ? state.recent.filter(m => m.timestamp >= block.since && m.role === 'user' && !isTempChatMessage(m)).slice(-10)
             .map(m => lineOf(m, char.name, userName)).join('\n')
         : undefined;
+    // 被用戶拉黑、這段拉黑期間還沒自己開過口：第一次不准沉默（不然拉黑的人等半天什麼都沒有）
+    const firstAttempt = block.by === 'user' && !replying && !state.thread.some(m => tempChatMetaOf(m)?.from === 'char');
     const prompt = buildTempChatPrompt({
-        char, userName, before, thread, rejected, remaining: state.charRemaining, maxChars: state.limits.maxChars, replying,
+        char, userName, before, thread, rejected, remaining: state.charRemaining, maxChars: state.limits.maxChars, replying, firstAttempt,
     });
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',

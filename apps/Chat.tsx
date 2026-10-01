@@ -2513,12 +2513,26 @@ const Chat: React.FC = () => {
                 ? blockNotes.forcedUnblock(char.name, userName, since, now)
                 : blockNotes.userUnblocked(userName, char.name, since, now);
             await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: note });
+            // 你主動解除：角色馬上回一句（等角色資料真的變成沒拉黑才觸發，見下面的 effect）。
+            // 強制解除（角色拉黑你、你按救援）不算——那是劇情卡住時用的，不替角色接話。
+            if (action === 'unblock') unblockReactionRef.current = char.id;
             updateCharacter(char.id, patch);
             addToast('已解除拉黑', 'success');
         }
         trackEvent('私聊拉黑', { action });
         await reloadMessages(visibleCountRef.current);
     };
+
+    // 你解除拉黑後角色馬上回一句：解除那一刻 char 還是舊的（仍在拉黑中），這時觸發會被
+    // triggerAI 的拉黑閘擋下，所以記著角色 id，等 char.chatBlock 真的沒了再觸發一輪正常回覆。
+    // 歷史裡剛落的「你解除了對 X 的拉黑」系統提示，角色看得到，自然知道要回什麼。
+    const unblockReactionRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!char || char.chatBlock || unblockReactionRef.current !== char.id) return;
+        unblockReactionRef.current = null;
+        if (isTyping) return;
+        void DB.getRecentMessagesByCharId(char.id, 200).then(msgs => triggerAI(msgs));
+    }, [char?.id, char?.chatBlock]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /** 角色（拉黑的那方）在臨時會話裡決定解除。 */
     const handleCharUnblockFromTempChat = async () => {
