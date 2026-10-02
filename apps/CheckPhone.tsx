@@ -24,7 +24,8 @@ import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
-import { ensureRealBalanceState, formatMoney } from '../utils/realBalance';
+import { ensureRealBalanceState } from '../utils/realBalance';
+import { computeNetWorth, formatMoneyDisplay } from '../utils/finance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
 import TrajectoryHome from '../components/trajectory/TrajectoryHome';
 import TrajectoryAlbum from '../components/trajectory/TrajectoryAlbum';
@@ -2332,7 +2333,7 @@ ${olderText}
     const contactCount = contacts.filter(c => !isUserName(c.name)).length;
     const contactsSub = contactCount ? `${contactCount} 位聯繫人` : 'tap to scan';
     const aiSub = aiSessions.length ? `${aiSessions.length} 段對話 · TA 的小手機` : 'tap to peek';
-    const realBalanceSub = `${formatMoney(realBalanceState.balance)} · ${realBalanceState.cards.length} 張銀行卡`;
+    const realBalanceSub = `Net Worth ${formatMoneyDisplay(computeNetWorth(realBalanceState).netWorth)} · 現金 ${formatMoneyDisplay(realBalanceState.balance)}`;
 
     // pseudo screen-time + weather (decorative, deterministic per char)
     const seed = charName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -4041,16 +4042,19 @@ ${olderText}
                     {activeAppId === 'ai_session' && renderAiSession()}
                     {/* 全屏蓋在查手機上面：頂部讓出狀態列，不然「餘額管理」的返回鍵會疊在狀態列底下點不到 */}
                     {activeAppId === 'balance' && targetChar && (
-                        <div className="absolute inset-0 w-full h-full bg-slate-50 overflow-y-auto no-scrollbar overscroll-contain z-[60]"
+                        <div className="absolute inset-0 w-full h-full bg-slate-50 z-[60] flex flex-col"
                             style={{ paddingTop: 'var(--safe-top)' }}>
-                            <RealBalancePanel
-                                state={realBalanceState}
-                                onCommit={next => updateCharacter(targetChar.id, (cur) => ({
-                                    phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], realBalance: next },
-                                }))}
-                                onBack={() => setActiveAppId('home')}
-                                addToast={addToast}
-                            />
+                            {/* 捲動放裡層：內容往上捲時不會鑽到狀態列底下 */}
+                            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain" data-finance-scroll>
+                                <RealBalancePanel
+                                    state={realBalanceState}
+                                    onCommit={next => updateCharacter(targetChar.id, (cur) => ({
+                                        phoneState: { ...cur.phoneState, records: cur.phoneState?.records || [], realBalance: next },
+                                    }))}
+                                    onBack={() => setActiveAppId('home')}
+                                    addToast={addToast}
+                                />
+                            </div>
                         </div>
                     )}
                     {activeAppId === 'trajectory' && targetChar && (

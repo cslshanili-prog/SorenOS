@@ -3850,12 +3850,126 @@ export interface RealBalanceTransaction {
     balanceAfter: number;
     /** 關聯的銀行卡（轉入/轉出帳戶時才有） */
     cardId?: string;
+    /**
+     * 這筆動的是哪個帳戶：undefined / 'cash' = 現金（Real Balance），其他 = 銀行卡 id。
+     * 不是現金的那幾筆，balanceAfter 是那張卡結算後的餘額。舊流水沒有這欄，一律當現金。
+     */
+    accountId?: string;
+    /** 分類（流水頁顯示用），舊流水沒有 */
+    category?: FinanceFlowCategory;
+    /**
+     * 怎麼來的：manual = 流水頁手動 ＋；auto = 固定收支自動補記；ai = AI 生成的過去紀錄（**不動餘額**）；
+     * 沒有 = 聊天聯動／互轉等系統記帳。見 plans/finance-wallet-design.md。
+     */
+    source?: 'manual' | 'auto' | 'ai';
+}
+
+export type FinanceFlowCategory =
+    | 'salary' | 'income' | 'food' | 'shopping' | 'transport' | 'housing' | 'bills'
+    | 'entertainment' | 'medical' | 'education' | 'social' | 'investment' | 'loan'
+    | 'transfer' | 'other';
+
+/** 每月固定日自動入帳／扣款（收入、定投、收租、交租、還款共用）。 */
+export interface FinanceRecurring {
+    /** 每月幾號（1–31；當月沒有這天就算月底） */
+    dayOfMonth: number;
+    /** 進出哪個帳戶：'cash' 或銀行卡 id */
+    accountId: string;
+    /** 最近一次自動記帳的月份 YYYY-MM；建立時設成「這個月已處理」，從下個到期日開始 */
+    lastPostedMonth?: string;
+}
+
+export interface FinanceIncomeItem {
+    id: string;
+    name: string;
+    kind: 'salary' | 'business' | 'yield' | 'other';
+    /** 每月金額（固定）或大約金額（不固定） */
+    amount: number;
+    /** 有 = 每月固定入帳；沒有 = 不固定，不自動記帳 */
+    recurring?: FinanceRecurring;
+    note?: string;
+}
+
+export interface FinanceInvestmentItem {
+    id: string;
+    name: string;
+    kind: 'stock' | 'fund' | 'gold' | 'collectible' | 'crypto' | 'other';
+    /** 投入成本 */
+    cost: number;
+    /** 現值（算 Net Worth 用這個） */
+    value: number;
+    /** 定投：每月扣多少，扣了 cost 與 value 都加上去 */
+    contribution?: FinanceRecurring & { amount: number };
+    note?: string;
+}
+
+export interface FinanceLease {
+    monthlyRent: number;
+    deposit?: number;
+    /** 租約到期 YYYY-MM-DD */
+    leaseEnd?: string;
+    /** 每月收租／交租 */
+    recurring?: FinanceRecurring;
+}
+
+export interface FinancePropertyItem {
+    id: string;
+    name: string;
+    /** own-live 自有自住；own-rent 自有出租（收租）；renting 租屋（交租） */
+    mode: 'own-live' | 'own-rent' | 'renting';
+    /** 自有時的價值；租屋不算 */
+    value?: number;
+    lease?: FinanceLease;
+    note?: string;
+}
+
+export interface FinanceVehicleItem {
+    id: string;
+    kind: 'car' | 'motorcycle' | 'bicycle' | 'aircraft' | 'boat' | 'other';
+    model: string;
+    value: number;
+    note?: string;
+}
+
+export interface FinanceLiabilityItem {
+    id: string;
+    name: string;
+    kind: 'loan' | 'mortgage' | 'student' | 'credit' | 'other';
+    /** 尚欠金額（正數） */
+    owed: number;
+    /** 每月還款；有 recurring 才會自動扣 */
+    monthlyPayment?: number;
+    /** 剩幾期（不填 = 不限期，還到 owed 歸零為止） */
+    remainingTerms?: number;
+    /** 信用卡額度 */
+    creditLimit?: number;
+    recurring?: FinanceRecurring;
+    note?: string;
+}
+
+export interface FinanceOtherItem {
+    id: string;
+    name: string;
+    value: number;
+    note?: string;
+}
+
+/** 錢包的「總覽」那幾塊（現金、銀行卡仍在 RealBalanceState 本身）。 */
+export interface FinanceBook {
+    incomes: FinanceIncomeItem[];
+    investments: FinanceInvestmentItem[];
+    properties: FinancePropertyItem[];
+    vehicles: FinanceVehicleItem[];
+    liabilities: FinanceLiabilityItem[];
+    others: FinanceOtherItem[];
 }
 
 export interface RealBalanceState {
     balance: number;
     cards: BankCard[];
     transactions: RealBalanceTransaction[];
+    /** 總覽的各 block（2026-10 起）；舊錢包沒有，讀的時候用 utils/finance.ts 的 financeBook() 補空 */
+    finance?: FinanceBook;
 }
 
 /**

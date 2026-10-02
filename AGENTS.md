@@ -24,6 +24,7 @@
 | **彼方 · 信號墜落處（跨用戶接龍詩）** | [`docs/signal-poetry.md`](./docs/signal-poetry.md) | 改彼方(VRWorld)「信號墜落處」房間：跨實例合寫現代詩、複用漂流瓶後端、`po_poems`/`po_poem_lines` 表與 `/poem/*` 端點、兩層容錯解析、併發安全前必讀 |
 | **捏人器 PSD 導入 / 部件投影層** | [`docs/char-creator-psd-import.md`](./docs/char-creator-psd-import.md) | 改捏人器素材管線、部件陰影（正片疊底預轉）、PSD 圖層組約定前必讀 |
 | **QQ捏人工坊（神經鏈接手辦櫃）** | [`docs/chibi-studio.md`](./docs/chibi-studio.md) | 改小小窩/彼方/520 三處 Q 版形象、捏人器 savedState 還原、`chibiStudio` 字段前必讀 |
+| **銀行（Net Worth＋流水）** | [`plans/finance-wallet-design.md`](./plans/finance-wallet-design.md) | 改查手機／用戶的「餘額管理」、各 block（收入、投資、房產、負債…）、流水、固定收支自動補記或角色【你的錢包】前必讀；純邏輯在 `utils/finance.ts`，AI 生成的流水不動餘額 |
 | **用戶所在地節假日感知** | [`docs/user-holidays.md`](./docs/user-holidays.md) | 改設置 → 實時感知 → 節假日感知、各國資料源（台灣是 Soren 自己接的）、用戶資料段那行假日提醒或雲端到點補這行前必讀；日期跟用戶設備時區走，不跟角色 |
 | **角色自定義時區** | [`docs/character-timezone.md`](./docs/character-timezone.md) | **寫任何跟時間有關的代碼前先掃一眼**：prompt 裡的「現在是」、角色作息/夜間判斷、日期 key、界面上的鐘。分清「角色那邊幾點」和「用戶自己的時間」，別自己手搓時差。文末列了還沒接時區的幾處（主動消息 + 幾塊界面上的鐘），**正式發版前記得過一遍** |
 | **通用 MCP 工具服務器** | [`docs/mcp-client.md`](./docs/mcp-client.md)（開發者）、[`docs/mcp-user-guide.md`](./docs/mcp-user-guide.md)（用戶教程，設置「?」彈窗跳轉的就是它，改接入行為要同步） | 改用戶自配 MCP 接入（設置板塊、握手/session、工具循環、`?target=` 代理約定、worker/mcp-proxy）或排查「工具連不上/角色不調工具」前必讀；主動消息 2.0 的後台 MCP 路徑（配置上雲 / fire 時注入 / worker 直連執行）也在這份 |

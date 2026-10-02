@@ -1,4 +1,4 @@
-// Real Balance 錢包 —— Chat 主頁「主頁」欄的模擬錢包：一個總餘額 + 若干張可互轉的銀行卡 + 一條共用流水。
+// Real Balance 錢包 —— 現金（總餘額）+ 若干張可互轉的銀行卡 + 一條共用流水；總覽的各 block 與 Net Worth 在 utils/finance.ts。
 // 跟 utils/db.ts 的 BankTransaction（舊「存錢罐」經營遊戲的帳本）是兩套完全獨立的系統，字段名故意不撞。
 import type { BankCard, RealBalanceState, RealBalanceTransaction } from '../types';
 import { roundMoney } from './format';
@@ -11,27 +11,21 @@ export const MONEY_SYMBOL = '$';
 /** 金額顯示成「$12.30」 */
 export const formatMoney = (n: number): string => `${MONEY_SYMBOL}${n.toFixed(2)}`;
 
-/** 首次打開「主頁」欄時的種子餘額；ensureRealBalanceState 只在從沒初始化過時用它建號。 */
-export const REAL_BALANCE_SEED = 10000;
+/**
+ * 新錢包的起始餘額。2026-10 起改成 0（以前是 10000），要多少錢自己加或讓 AI 生成，
+ * 見 plans/finance-wallet-design.md。已經建過帳戶的不受影響。
+ */
+export const REAL_BALANCE_SEED = 0;
 
 export type RealBalanceResult = { state: RealBalanceState; ok: true } | { state: RealBalanceState; ok: false; reason: string };
 
 let txSeq = 0;
 const makeTxId = (): string => `rbtx-${Date.now()}-${(txSeq++).toString(36)}`;
 
-/** 已經初始化過就原樣返回；沒有就生成種子狀態（不落庫，調用方負責持久化）。 */
+/** 已經初始化過就原樣返回；沒有就生成空錢包（不落庫，調用方負責持久化）。 */
 export function ensureRealBalanceState(state: RealBalanceState | undefined): RealBalanceState {
     if (state) return state;
-    const now = Date.now();
-    const seedTx: RealBalanceTransaction = {
-        id: makeTxId(),
-        label: '初始餘額',
-        amount: REAL_BALANCE_SEED,
-        detail: '系統自動創建餘額帳戶',
-        timestamp: now,
-        balanceAfter: REAL_BALANCE_SEED,
-    };
-    return { balance: REAL_BALANCE_SEED, cards: [], transactions: [seedTx] };
+    return { balance: REAL_BALANCE_SEED, cards: [], transactions: [] };
 }
 
 const pushTx = (
@@ -81,7 +75,7 @@ export function transferCardToBalance(state: RealBalanceState, cardId: string, a
     const nextCards = state.cards.map(c => c.id === cardId ? { ...c, balance: roundMoney(c.balance - amt) } : c);
     const nextBalance = roundMoney(state.balance + amt);
     const next = pushTx({ ...state, cards: nextCards }, nextBalance, {
-        label: '轉入帳戶', amount: amt, detail: `${card.name} 轉入帳戶 ${formatMoney(amt)}`, cardId,
+        label: '轉入帳戶', amount: amt, detail: `${card.name} 轉入帳戶 ${formatMoney(amt)}`, cardId, category: 'transfer',
     });
     return { state: next, ok: true };
 }
@@ -92,11 +86,11 @@ export function transferBalanceToCard(state: RealBalanceState, cardId: string, a
     if (!(amt > 0)) return { state, ok: false, reason: '金額必須大於 0' };
     const card = state.cards.find(c => c.id === cardId);
     if (!card) return { state, ok: false, reason: '這張卡不存在' };
-    if (state.balance < amt) return { state, ok: false, reason: 'Real Balance 餘額不足' };
+    if (state.balance < amt) return { state, ok: false, reason: '現金不夠' };
     const nextCards = state.cards.map(c => c.id === cardId ? { ...c, balance: roundMoney(c.balance + amt) } : c);
     const nextBalance = roundMoney(state.balance - amt);
     const next = pushTx({ ...state, cards: nextCards }, nextBalance, {
-        label: '轉出帳戶', amount: -amt, detail: `${card.name} 轉出帳戶 ${formatMoney(amt)}`, cardId,
+        label: '轉出帳戶', amount: -amt, detail: `${card.name} 轉出帳戶 ${formatMoney(amt)}`, cardId, category: 'transfer',
     });
     return { state: next, ok: true };
 }
@@ -114,6 +108,7 @@ export function applyRealBalanceDelta(
     const amt = roundMoney(delta);
     if (amt === 0) return { state, ok: false, reason: '金額不能為 0' };
     const nextBalance = roundMoney(state.balance + amt);
-    if (nextBalance < 0) return { state, ok: false, reason: 'Real Balance 餘額不足' };
+    // 聊天轉帳、紅包、購物會看到這句：新錢包從 0 開始，直接告訴人去哪補錢
+    if (nextBalance < 0) return { state, ok: false, reason: '現金不夠：到 Real Balance 的「流水」記一筆收入，或從銀行卡轉入' };
     return { state: pushTx(state, nextBalance, { label, amount: amt, detail }), ok: true };
 }
