@@ -27,6 +27,7 @@ import { ProactiveChat } from '../utils/proactiveChat';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { tickCustomMeterTurnsForChar } from '../utils/customMeterGenerator';
 import { makeTransferLedgerCallbacks, registerRealBalanceWriters } from '../utils/realBalanceLedger';
+import { hasDueRecurring, settleRecurring } from '../utils/financeRecurring';
 import { VRScheduler, type VRSessionOutcome } from '../utils/vrWorld/scheduler';
 import { runVRSession } from '../utils/vrWorld/runSession';
 import { allowsAutomaticVR } from '../utils/vrWorld/participation';
@@ -3895,6 +3896,39 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       });
       return () => registerRealBalanceWriters(null);
   }, []);
+
+  // 銀行的固定收支自動補記（utils/financeRecurring.ts）：App 沒開時沒人到點記帳，所以開機、
+  // 切回前台、每小時把過了的發薪日／扣款日補上。用戶和每個開過錢包的角色都跑；先用當下快照
+  // 判斷有沒有到期的，有才走函數式更新（拿最新狀態再算一次，補記是冪等的，記過的月份不會重記）。
+  useEffect(() => {
+      if (!isDataLoaded) return;
+      const settleAll = () => {
+          const now = new Date();
+          if (hasDueRecurring(userProfileBaseRef.current.realBalance, now)) {
+              void updateUserProfileRef.current(prev => {
+                  if (!prev.realBalance) return {};
+                  const r = settleRecurring(prev.realBalance, now);
+                  return r.changed ? { realBalance: r.state } : {};
+              });
+          }
+          for (const c of charactersRef.current) {
+              if (!hasDueRecurring(c.phoneState?.realBalance, now)) continue;
+              void updateCharacterRef.current(c.id, prev => {
+                  const wallet = prev.phoneState?.realBalance;
+                  if (!wallet) return {};
+                  const r = settleRecurring(wallet, now);
+                  return r.changed
+                      ? { phoneState: { ...prev.phoneState, records: prev.phoneState?.records || [], realBalance: r.state } }
+                      : {};
+              });
+          }
+      };
+      settleAll();
+      const timer = setInterval(settleAll, 60 * 60 * 1000);
+      const onVisible = () => { if (document.visibilityState === 'visible') settleAll(); };
+      document.addEventListener('visibilitychange', onVisible);
+      return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [isDataLoaded]);
 
   const updateUserPersona = async (id: string, updates: Partial<Omit<UserPersona, 'id' | 'createdAt'>>) => {
       await updateUserProfile(prev => ({
