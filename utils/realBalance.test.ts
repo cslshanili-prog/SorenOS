@@ -3,7 +3,6 @@ import {
     REAL_BALANCE_SEED,
     ensureRealBalanceState,
     createBankCard,
-    deleteBankCard,
     transferCardToBalance,
     transferBalanceToCard,
     applyRealBalanceDelta,
@@ -23,7 +22,7 @@ describe('ensureRealBalanceState', () => {
     });
 });
 
-describe('createBankCard / deleteBankCard', () => {
+describe('createBankCard', () => {
     const base: RealBalanceState = { balance: 10000, cards: [], transactions: [] };
 
     it('開卡不影響 Real Balance 餘額，也不落流水', () => {
@@ -45,24 +44,6 @@ describe('createBankCard / deleteBankCard', () => {
         expect(next.cards[0].balance).toBe(0);
     });
 
-    it('刪卡：卡里有餘額時拒絕', () => {
-        const withCard = createBankCard(base, { name: 'x', lastFour: '1', initialBalance: 100, color: 'gold' });
-        const result = deleteBankCard(withCard, withCard.cards[0].id);
-        expect(result.ok).toBe(false);
-        expect(withCard.cards).toHaveLength(1);
-    });
-
-    it('刪卡：餘額為 0 時成功移除', () => {
-        const withCard = createBankCard(base, { name: 'x', lastFour: '1', initialBalance: 0, color: 'gold' });
-        const result = deleteBankCard(withCard, withCard.cards[0].id);
-        expect(result.ok).toBe(true);
-        expect(result.state.cards).toHaveLength(0);
-    });
-
-    it('刪除不存在的卡返回失敗', () => {
-        const result = deleteBankCard(base, 'nope');
-        expect(result.ok).toBe(false);
-    });
 });
 
 describe('transferCardToBalance / transferBalanceToCard', () => {

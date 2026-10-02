@@ -57,14 +57,6 @@ export function createBankCard(
     return { ...state, cards: [...state.cards, card] };
 }
 
-/** 刪卡：卡里還有錢不讓刪——錢不能就這麼憑空消失，得先轉出帳戶清零。 */
-export function deleteBankCard(state: RealBalanceState, cardId: string): RealBalanceResult {
-    const card = state.cards.find(c => c.id === cardId);
-    if (!card) return { state, ok: false, reason: '這張卡不存在' };
-    if (card.balance > 0) return { state, ok: false, reason: '這張卡還有餘額，請先轉出帳戶再刪除' };
-    return { state: { ...state, cards: state.cards.filter(c => c.id !== cardId) }, ok: true };
-}
-
 /** 銀行卡 → Real Balance（卡的「轉入帳戶」）。 */
 export function transferCardToBalance(state: RealBalanceState, cardId: string, amount: number): RealBalanceResult {
     const amt = roundMoney(amount);

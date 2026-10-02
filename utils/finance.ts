@@ -13,7 +13,8 @@ import type {
 } from '../types';
 import { roundMoney, sumMoney } from './format';
 import { getLocalDateKey } from './localDate';
-import { MONEY_SYMBOL } from './realBalance';
+import { MONEY_SYMBOL, transferCardToBalance } from './realBalance';
+import type { BankCard } from '../types';
 
 export const CASH_ACCOUNT = 'cash';
 
@@ -84,6 +85,57 @@ export const flowAccountId = (tx: RealBalanceTransaction): string => tx.accountI
 /** 現金 ↔ 銀行卡的互轉：只是錢換個口袋，不算收入支出。 */
 export const isInternalTransfer = (tx: RealBalanceTransaction): boolean =>
     tx.category === 'transfer' || (!!tx.cardId && !tx.accountId && (tx.label === '轉入帳戶' || tx.label === '轉出帳戶'));
+
+// ── 銀行卡：編輯與刪除 ───────────────────────────────
+
+/** 改卡的名稱、尾號、配色、餘額（打錯了直接修，不記流水，跟編輯其他 block 一樣）。 */
+export function updateBankCard(state: RealBalanceState, cardId: string, patch: Partial<Pick<BankCard, 'name' | 'lastFour' | 'color' | 'balance'>>): RealBalanceState {
+    return {
+        ...state,
+        cards: state.cards.map(c => c.id !== cardId ? c : {
+            ...c,
+            ...(patch.name !== undefined ? { name: patch.name.trim() || c.name } : {}),
+            ...(patch.lastFour !== undefined ? { lastFour: patch.lastFour.replace(/\D/g, '').padStart(4, '0').slice(-4) } : {}),
+            ...(patch.color ? { color: patch.color } : {}),
+            ...(patch.balance !== undefined ? { balance: Math.max(0, roundMoney(patch.balance)) } : {}),
+        }),
+    };
+}
+
+/** 把所有指到某個帳戶的固定收支改指到另一個（刪卡時改走現金，免得之後每月都記「扣款失敗」）。 */
+function reassignRecurringAccount(state: RealBalanceState, from: string, to: string): RealBalanceState {
+    if (!state.finance) return state;
+    const fix = <T extends { accountId: string } | undefined>(rec: T): T => (rec && rec.accountId === from ? { ...rec, accountId: to } : rec);
+    const book = financeBook(state);
+    return {
+        ...state,
+        finance: {
+            ...book,
+            incomes: book.incomes.map(i => ({ ...i, recurring: fix(i.recurring) })),
+            expenses: book.expenses.map(e => ({ ...e, recurring: fix(e.recurring) })),
+            investments: book.investments.map(i => ({ ...i, contribution: fix(i.contribution) })),
+            properties: book.properties.map(p => (p.lease ? { ...p, lease: { ...p.lease, recurring: fix(p.lease.recurring) } } : p)),
+            liabilities: book.liabilities.map(l => ({ ...l, recurring: fix(l.recurring) })),
+        },
+    };
+}
+
+/**
+ * 刪卡。卡裡還有錢時兩種刪法：to-cash 先把餘額轉進現金（記一筆互轉）再刪；discard 連錢一起刪掉。
+ * 指到這張卡的固定收支一律改走現金。
+ */
+export function removeBankCard(state: RealBalanceState, cardId: string, mode: 'to-cash' | 'discard'): FinanceResult {
+    const card = state.cards.find(c => c.id === cardId);
+    if (!card) return { state, ok: false, reason: '這張卡不存在' };
+    let next = state;
+    if (mode === 'to-cash' && card.balance > 0) {
+        const moved = transferCardToBalance(next, cardId, card.balance);
+        if (!moved.ok) return { state, ok: false, reason: moved.reason };
+        next = moved.state;
+    }
+    next = { ...next, cards: next.cards.filter(c => c.id !== cardId) };
+    return { state: reassignRecurringAccount(next, cardId, CASH_ACCOUNT), ok: true };
+}
 
 // ── Net Worth 與每月摘要 ─────────────────────────────
 

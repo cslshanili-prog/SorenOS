@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import Modal from '../os/Modal';
 import type { BankCard, RealBalanceState } from '../../types';
 import {
-    createBankCard, deleteBankCard, transferCardToBalance, transferBalanceToCard,
+    createBankCard, transferCardToBalance, transferBalanceToCard,
 } from '../../utils/realBalance';
-import { formatMoneyDisplay as formatMoney } from '../../utils/finance';
-import { ArrowDown, ArrowUp, Trash, CreditCard, Wallet, Bank } from '@phosphor-icons/react';
+import { formatMoneyDisplay as formatMoney, removeBankCard, updateBankCard } from '../../utils/finance';
+import { ArrowDown, ArrowUp, Trash, CreditCard, Wallet, Bank, PencilSimple } from '@phosphor-icons/react';
 import { BlockShell } from './FinanceBlockShell';
 
 const CARD_STYLES: Record<BankCard['color'], { bg: string; text: string; sub: string }> = {
@@ -35,27 +35,48 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
     const [transferModal, setTransferModal] = useState<{ mode: 'in' | 'out'; cardId: string } | null>(null);
     const [transferAmount, setTransferAmount] = useState('');
     const [confirmDeleteCardId, setConfirmDeleteCardId] = useState<string | null>(null);
+    /** 有值 = 「新增銀行卡」那個彈窗正在編輯這張卡 */
+    const [editingCardId, setEditingCardId] = useState<string | null>(null);
 
     const selectedCard = state.cards.find(c => c.id === selectedCardId) || null;
     const cardsTotal = state.cards.reduce((sum, c) => sum + c.balance, 0);
 
-    const handleCreateCard = () => {
-        const initial = parseFloat(newCardBalance) || 0;
-        const next = createBankCard(state, { name: newCardName, lastFour: newCardLastFour, initialBalance: initial, color: newCardColor });
-        onCommit(next);
-        setSelectedCardId(next.cards[next.cards.length - 1].id);
-        setShowAddCard(false);
+    const resetCardForm = () => {
         setNewCardName('儲蓄卡'); setNewCardLastFour(''); setNewCardBalance(''); setNewCardColor('graphite');
-        addToast('已添加銀行卡', 'success');
+        setEditingCardId(null);
+    };
+    const openAddCard = () => { resetCardForm(); setShowAddCard(true); };
+    const openEditCard = (cardId: string) => {
+        const card = state.cards.find(c => c.id === cardId);
+        if (!card) return;
+        setNewCardName(card.name); setNewCardLastFour(card.lastFour); setNewCardBalance(String(card.balance)); setNewCardColor(card.color);
+        setEditingCardId(cardId);
+        setShowAddCard(true);
     };
 
-    const handleDeleteCard = (cardId: string) => {
-        const result = deleteBankCard(state, cardId);
+    const handleSaveCard = () => {
+        const balance = parseFloat(newCardBalance.replace(/,/g, '')) || 0;
+        if (editingCardId) {
+            // 打錯了直接改：名稱、尾號、配色、餘額都能動，不記流水
+            onCommit(updateBankCard(state, editingCardId, { name: newCardName, lastFour: newCardLastFour, color: newCardColor, balance }));
+            addToast('已更新銀行卡', 'success');
+        } else {
+            const next = createBankCard(state, { name: newCardName, lastFour: newCardLastFour, initialBalance: balance, color: newCardColor });
+            onCommit(next);
+            setSelectedCardId(next.cards[next.cards.length - 1].id);
+            addToast('已添加銀行卡', 'success');
+        }
+        setShowAddCard(false);
+        resetCardForm();
+    };
+
+    const handleDeleteCard = (cardId: string, mode: 'to-cash' | 'discard') => {
+        const result = removeBankCard(state, cardId, mode);
         setConfirmDeleteCardId(null);
         if (!result.ok) { addToast(result.reason, 'error'); return; }
         onCommit(result.state);
         if (selectedCardId === cardId) setSelectedCardId(result.state.cards[0]?.id ?? null);
-        addToast('已刪除銀行卡', 'success');
+        addToast(mode === 'to-cash' ? '已刪除，餘額轉進了現金' : '已刪除銀行卡', 'success');
     };
 
     const openTransferModal = (mode: 'in' | 'out', cardId?: string) => {
@@ -102,7 +123,7 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
             </BlockShell>
 
             {/* 銀行 */}
-            <BlockShell icon={<Bank size={16} weight="fill" />} title="銀行" total={cardsTotal} onAdd={() => setShowAddCard(true)}>
+            <BlockShell icon={<Bank size={16} weight="fill" />} title="銀行" total={cardsTotal} onAdd={openAddCard}>
                 {state.cards.length === 0 ? (
                     <div className="px-4 pb-4 text-[11px] text-slate-400">還沒有銀行卡</div>
                 ) : (
@@ -141,6 +162,9 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
                                 <button onClick={() => openTransferModal('out', selectedCard.id)} className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform">
                                     <ArrowUp size={13} weight="bold" /> 從現金存入
                                 </button>
+                                <button onClick={() => openEditCard(selectedCard.id)} className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform" aria-label="編輯這張卡">
+                                    <PencilSimple size={13} weight="bold" />
+                                </button>
                                 <button onClick={() => setConfirmDeleteCardId(selectedCard.id)} className="py-2 px-3 rounded-xl bg-rose-50 text-rose-500 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform" aria-label="刪除這張卡">
                                     <Trash size={13} weight="bold" />
                                 </button>
@@ -151,8 +175,8 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
             </BlockShell>
 
             {/* 新增銀行卡 */}
-            <Modal isOpen={showAddCard} title="新增銀行卡" onClose={() => setShowAddCard(false)}
-                footer={<button onClick={handleCreateCard} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">添加銀行卡</button>}>
+            <Modal isOpen={showAddCard} title={editingCardId ? '編輯銀行卡' : '新增銀行卡'} onClose={() => { setShowAddCard(false); resetCardForm(); }}
+                footer={<button onClick={handleSaveCard} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">{editingCardId ? '保存' : '添加銀行卡'}</button>}>
                 <div className="space-y-4">
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 block mb-1">卡片名稱</label>
@@ -167,7 +191,7 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
                         </div>
                         <div>
                             <div className="flex items-center justify-between mb-1">
-                                <label className="text-[10px] font-bold text-slate-400">初始餘額</label>
+                                <label className="text-[10px] font-bold text-slate-400">{editingCardId ? '餘額' : '初始餘額'}</label>
                                 <span className="text-[9px] text-slate-300">不能為負</span>
                             </div>
                             <input value={newCardBalance} onChange={e => setNewCardBalance(e.target.value)} placeholder="0" inputMode="decimal"
@@ -219,18 +243,33 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
                 })()}
             </Modal>
 
-            {/* 刪除銀行卡確認 */}
-            <Modal isOpen={!!confirmDeleteCardId} title="刪除這張銀行卡？" onClose={() => setConfirmDeleteCardId(null)}
-                footer={
-                    <div className="flex gap-3 w-full">
-                        <button onClick={() => setConfirmDeleteCardId(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">取消</button>
-                        <button onClick={() => confirmDeleteCardId && handleDeleteCard(confirmDeleteCardId)} className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">刪除</button>
-                    </div>
-                }>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                    卡裡沒有餘額才能刪除。刪除後這張卡的流水仍會保留。
-                </p>
-            </Modal>
+            {/* 刪除銀行卡確認：卡裡還有錢就讓人選錢怎麼處理 */}
+            {(() => {
+                const card = state.cards.find(c => c.id === confirmDeleteCardId);
+                const hasMoney = !!card && card.balance > 0;
+                return (
+                    <Modal isOpen={!!confirmDeleteCardId} title="刪除這張銀行卡？" onClose={() => setConfirmDeleteCardId(null)}
+                        footer={hasMoney ? (
+                            <div className="flex flex-col gap-2 w-full">
+                                <button onClick={() => confirmDeleteCardId && handleDeleteCard(confirmDeleteCardId, 'to-cash')} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">餘額轉到現金再刪</button>
+                                <button onClick={() => confirmDeleteCardId && handleDeleteCard(confirmDeleteCardId, 'discard')} className="w-full py-3 bg-rose-50 text-rose-500 font-bold rounded-2xl active:scale-95 transition-transform">連錢一起刪掉</button>
+                                <button onClick={() => setConfirmDeleteCardId(null)} className="w-full py-2.5 text-slate-400 text-sm font-bold">取消</button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-3 w-full">
+                                <button onClick={() => setConfirmDeleteCardId(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">取消</button>
+                                <button onClick={() => confirmDeleteCardId && handleDeleteCard(confirmDeleteCardId, 'discard')} className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-2xl active:scale-95 transition-transform">刪除</button>
+                            </div>
+                        )}>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                            {hasMoney
+                                ? `「${card!.name}」裡還有 ${formatMoney(card!.balance)}。可以先轉進現金再刪，或連錢一起刪掉（只是打錯的卡就選這個）。`
+                                : '刪除後這張卡的流水仍會保留。'}
+                            {' '}設定成入帳／扣款到這張卡的固定收支，會改成走現金。
+                        </p>
+                    </Modal>
+                );
+            })()}
         </>
     );
 };
