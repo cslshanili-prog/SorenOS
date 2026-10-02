@@ -2269,7 +2269,8 @@ const Chat: React.FC = () => {
         if (!targetChar || isScheduleGenerating) return;
         setIsScheduleGenerating(true);
         try {
-            const result = await generateDailyScheduleForChar(targetChar, chatUserProfile, apiConfig, forceRegenerate);
+            // 日程跟心聲/好感度同一組：「日程/情緒」面板的情緒/意識流 API，沒填才落回全域主 API
+            const result = await generateDailyScheduleForChar(targetChar, chatUserProfile, resolveCharacterMeterApi(targetChar, apiConfig), forceRegenerate);
             if (result) {
                 setScheduleData(result);
                 // 跨天后台重新生成也要刷雲端：不刷的話角色到點照著昨天的作息表說話
@@ -2293,7 +2294,7 @@ const Chat: React.FC = () => {
         if (!isScheduleFeatureOn(updatedChar)) return;
         setIsScheduleGenerating(true);
         try {
-            const result = await generateDailyScheduleForChar(updatedChar, chatUserProfile, apiConfig, true);
+            const result = await generateDailyScheduleForChar(updatedChar, chatUserProfile, resolveCharacterMeterApi(updatedChar, apiConfig), true);
             if (result) setScheduleData(result);
         } catch (e) {
             console.error('[Schedule] Regeneration after style change failed:', e);

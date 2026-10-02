@@ -12,7 +12,7 @@ export function resolveCharacterChatApi(char: CharacterProfile, apiConfig: Resol
 }
 
 /**
- * 「日程/情緒」面板裡心聲/好感度生成用的 API：情緒/意識流 API（emotionConfig.api）> 全局
+ * 「日程/情緒」面板裡的生成用的 API（當日日程、心聲/好感度、已讀不回判斷）：情緒/意識流 API（emotionConfig.api）> 全局
  * apiConfig。故意不跟 resolveCharacterChatApi 一樣落到角色專屬 chatApi——那通常配的是主
  * 對話用的貴模型，情緒/意識流 API 才是用戶專門配來跑這類輔助生成的便宜模型，兩筆帳不能混。
  */

@@ -65,7 +65,8 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         原版情緒 buff 就在這裡。與日程<b>強制同步</b>：日程開 → 自動啟用；日程關 → 一起停。
                     </p>
                     <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                        ⚙️ 下方不填 = 自動用主 API。想細膩點就填個 <b>Claude 系列</b>模型。
+                        ⚙️ 下方不填 = 自動用主 API。想細膩點就填個 <b>Claude 系列</b>模型。<br/>
+                        這組 API 也用來生成<b>當日日程</b>、心聲與好感度。
                     </p>
                 </div>
             </div>
