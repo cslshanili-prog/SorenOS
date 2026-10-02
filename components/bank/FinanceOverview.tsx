@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { RealBalanceState } from '../../types';
 import {
     INCOME_KIND_LABELS, INVESTMENT_KIND_LABELS, LIABILITY_KIND_LABELS, PROPERTY_MODE_LABELS, VEHICLE_KIND_LABELS,
-    accountLabel, computeNetWorth, financeBook, formatMoneyDisplay, monthlySummary, removeFinanceItem, rentalIncomes,
+    accountLabel, computeNetWorth, financeBook, formatMoneyDisplay, linkedFixedOut, monthlySummary, removeFinanceItem, rentalIncomes,
     upsertFinanceItem, type FinanceBlockKey,
 } from '../../utils/finance';
 import { Briefcase, ChartLineUp, House, Car, HandCoins, Package, Receipt } from '@phosphor-icons/react';
@@ -36,6 +36,8 @@ const FinanceOverview: React.FC<Props> = ({ state, onCommit, addToast }) => {
     const nw = computeNetWorth(state);
     const month = monthlySummary(state);
     const rentals = rentalIncomes(state);
+    const linkedOut = linkedFixedOut(state);
+    const LINKED_BADGE = { properties: '房產', investments: '投資', liabilities: '負債' } as const;
 
     const save = (target: FinanceEditTarget) => {
         if (!target.item) return;
@@ -83,13 +85,24 @@ const FinanceOverview: React.FC<Props> = ({ state, onCommit, addToast }) => {
             </BlockShell>
 
             {/* 固定支出 */}
-            <BlockShell icon={<Receipt size={16} weight="fill" />} title="固定支出" total={book.expenses.reduce((sum, e) => sum + e.amount, 0)} onAdd={() => setEditing({ block: 'expenses' })}>
-                {book.expenses.length === 0 && <EmptyRow text="生活費、電話費這類每月都要付的" />}
+            {/* 小計＝大卡的「月固定支出」：自己的項目＋從房產（租屋）、投資（定投）、負債（還款）帶過來的唯讀列 */}
+            <BlockShell icon={<Receipt size={16} weight="fill" />} title="固定支出" total={month.fixedOut} onAdd={() => setEditing({ block: 'expenses' })}>
+                {book.expenses.length === 0 && linkedOut.length === 0 && <EmptyRow text="生活費、電話費這類每月都要付的" />}
                 {book.expenses.map(it => (
                     <BlockRow key={it.id} title={it.name}
                         sub={it.recurring ? `${day(it.recurring.dayOfMonth)}從${accountLabel(state, it.recurring.accountId)}扣` : (it.note || '手動付')}
                         amount={it.amount} amountSub="每月" tone="muted"
                         onClick={() => setEditing({ block: 'expenses', item: it })} />
+                ))}
+                {linkedOut.map(r => (
+                    <BlockRow key={`${r.block}-${r.itemId}`} title={r.name} badge={LINKED_BADGE[r.block]}
+                        sub={[day(r.dayOfMonth), `從${BLOCK_TITLES[r.block]}帶過來`].filter(Boolean).join(' · ')}
+                        amount={r.amount} amountSub="每月" tone="muted"
+                        onClick={() => {
+                            const b = book[r.block] as Array<{ id: string }>;
+                            const it = b.find(x => x.id === r.itemId);
+                            if (it) setEditing({ block: r.block, item: it } as FinanceEditTarget);
+                        }} />
                 ))}
             </BlockShell>
 

@@ -179,6 +179,29 @@ export interface MonthlySummary {
     fixedOut: number;
 }
 
+/**
+ * 固定支出 block 裡由其他 block 帶出來的那幾列（租屋的房租、定投、每月還款），唯讀，改要去原本那塊改。
+ * 跟收入 block 的收租一樣：總覽大卡的「月固定支出」和這塊的小計用同一份清單算，兩邊數字一定對得上。
+ */
+export interface LinkedOutRow {
+    block: 'properties' | 'investments' | 'liabilities';
+    itemId: string;
+    name: string;
+    amount: number;
+    dayOfMonth?: number;
+}
+export function linkedFixedOut(state: RealBalanceState): LinkedOutRow[] {
+    const book = financeBook(state);
+    return [
+        ...book.properties.filter(p => p.mode === 'renting' && (p.lease?.monthlyRent || 0) > 0)
+            .map(p => ({ block: 'properties' as const, itemId: p.id, name: `房租：${p.name}`, amount: p.lease!.monthlyRent, dayOfMonth: p.lease!.recurring?.dayOfMonth })),
+        ...book.investments.filter(i => (i.contribution?.amount || 0) > 0)
+            .map(i => ({ block: 'investments' as const, itemId: i.id, name: `定投：${i.name}`, amount: i.contribution!.amount, dayOfMonth: i.contribution!.dayOfMonth })),
+        ...book.liabilities.filter(l => (l.monthlyPayment || 0) > 0 && l.owed > 0)
+            .map(l => ({ block: 'liabilities' as const, itemId: l.id, name: `還款：${l.name}`, amount: l.monthlyPayment!, dayOfMonth: l.recurring?.dayOfMonth })),
+    ];
+}
+
 export function monthlySummary(state: RealBalanceState): MonthlySummary {
     const book = financeBook(state);
     const income = sumMoney([
@@ -187,9 +210,7 @@ export function monthlySummary(state: RealBalanceState): MonthlySummary {
     ]);
     const fixedOut = sumMoney([
         ...book.expenses.map(e => e.amount),
-        ...book.properties.filter(p => p.mode === 'renting').map(p => p.lease?.monthlyRent || 0),
-        ...book.investments.map(i => i.contribution?.amount || 0),
-        ...book.liabilities.map(l => l.monthlyPayment || 0),
+        ...linkedFixedOut(state).map(r => r.amount),
     ]);
     return { income, fixedOut };
 }

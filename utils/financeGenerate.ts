@@ -55,7 +55,7 @@ export function buildOverviewPrompt(ownerName: string): string {
 
 必填：cash（身上現金）、cards（1–3 張銀行卡）、incomes（至少一項）。其他沒有就給空陣列，不要硬湊。
 固定收支（薪資、生活費、房租、定投、還款）請給每月幾號 dayOfMonth；account 寫 "cash" 或 "card1"、"card2"（cards 的第幾張）。
-expenses 放每月固定要付的生活費、電話費、保險、訂閱等，至少一項生活費，免得只進不出。
+expenses 放每月固定要付的生活費、電話費、保險、訂閱等，至少一項生活費，免得只進不出。**房租寫在 properties（mode: renting）、定投寫在 investments（monthly）、還款寫在 liabilities（monthlyPayment），不要在 expenses 再寫一次**，系統會自動把它們算進每月固定支出。
 
 只回傳這個形狀的 JSON（不要多餘文字）：
 {
@@ -111,7 +111,12 @@ export function parseOverview(json: unknown, now: Date = new Date()): GeneratedO
             id: makeFinanceId('inc'), name: text(x.name), kind: pick(x.kind, INCOME_KIND_LABELS, 'other'), amount: money(x.amount),
             recurring: x.fixed === false ? undefined : rec(x), note: note(x),
         })),
-        expenses: arr(o.expenses).filter(x => text(x.name) && money(x.amount) > 0).map(x => ({
+        // 模型偶爾會把房租／定投／還款在 expenses 又寫一次，跟對應那塊重複算；有對應那塊的就丟掉這條
+        expenses: arr(o.expenses).filter(x => text(x.name) && money(x.amount) > 0)
+            .filter(x => !(/房租|租金/.test(text(x.name)) && arr(o.properties).some(p => p.mode === 'renting' && money(p.monthlyRent) > 0)))
+            .filter(x => !(/定投|定期定額/.test(text(x.name)) && arr(o.investments).some(i => money(i.monthly) > 0)))
+            .filter(x => !(/還款|貸款|房貸|學貸|卡費/.test(text(x.name)) && arr(o.liabilities).some(l => money(l.monthlyPayment) > 0)))
+            .map(x => ({
             id: makeFinanceId('exp'), name: text(x.name), amount: money(x.amount), recurring: rec(x), note: note(x),
         })),
         investments: arr(o.investments).filter(x => text(x.name)).map(x => {

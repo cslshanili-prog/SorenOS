@@ -10,6 +10,7 @@ import {
     financeBook,
     flowMonths,
     flowTotals,
+    linkedFixedOut,
     monthlySummary,
     recurringStartMonth,
     removeBankCard,
@@ -63,6 +64,14 @@ describe('總覽的 block', () => {
         const s = filled();
         expect(rentalIncomes(s)).toEqual([{ propertyId: 'p1', name: '出租：老家公寓', amount: 15000, dayOfMonth: undefined }]);
         expect(monthlySummary(s)).toEqual({ income: 45000, fixedOut: 22000 });
+        // 固定支出 block 的小計 = 自己的項目 + 帶過來的房租／定投／還款 = 大卡的「月固定支出」
+        const linked = linkedFixedOut(s);
+        expect(linked.map(r => [r.block, r.name, r.amount])).toEqual([
+            ['properties', '房租：學校旁套房', 9000],
+            ['investments', '定投：全球指數', 2000],
+            ['liabilities', '還款：學貸', 3000],
+        ]);
+        expect(8000 + linked.reduce((a, r) => a + r.amount, 0)).toBe(monthlySummary(s).fixedOut);
     });
 });
 

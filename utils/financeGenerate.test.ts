@@ -115,3 +115,15 @@ describe('用戶那邊的設定', () => {
         expect(ctx).not.toContain('自定義設定');
     });
 });
+
+describe('AI 把房租等重複寫進固定支出', () => {
+    it('有對應的房產／定投／還款時，expenses 裡同名的那條丟掉；沒有對應的照留', () => {
+        const gen = parseOverview({
+            cash: 100,
+            expenses: [{ name: '生活費', amount: 1200 }, { name: '房租', amount: 1500 }, { name: '基金定投', amount: 300 }, { name: '學貸還款', amount: 200 }],
+            properties: [{ name: '套房', mode: 'renting', monthlyRent: 1500 }],
+            investments: [{ name: 'ETF', kind: 'fund', cost: 1000, value: 1000, monthly: 300 }],
+        }, now)!;
+        expect(gen.finance.expenses.map(e => e.name)).toEqual(['生活費', '學貸還款']);
+    });
+});
