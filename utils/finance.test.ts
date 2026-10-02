@@ -12,7 +12,9 @@ import {
     flowTotals,
     monthlySummary,
     recurringStartMonth,
+    removeBankCard,
     removeFinanceItem,
+    updateBankCard,
     rentalIncomes,
     upsertFinanceItem,
     withRecurringStart,
@@ -139,5 +141,43 @@ describe('流水頁的篩選與合計', () => {
         expect(filterFlows(s, { accountId: 'cash' }).map(t => t.label)).not.toContain('午餐');
         expect(flowTotals(filterFlows(s, {}))).toEqual({ income: 500, expense: 30 });
         expect(flowMonths(s, new Date(2026, 9, 2))[0] >= '2026-10').toBe(true);
+    });
+});
+
+describe('銀行卡：編輯與刪除', () => {
+    const withCard = () => {
+        let s = createBankCard(wallet(100), { name: '薪轉', lastFour: '1234', initialBalance: 500, color: 'gold' });
+        const cardId = s.cards[0].id;
+        s = upsertFinanceItem(s, 'incomes', { id: 'i', name: '月薪', kind: 'salary', amount: 1, recurring: { dayOfMonth: 25, accountId: cardId, lastPostedMonth: '2026-09' } });
+        s = upsertFinanceItem(s, 'liabilities', { id: 'l', name: '卡費', kind: 'credit', owed: 9, monthlyPayment: 1, recurring: { dayOfMonth: 1, accountId: cardId } });
+        return { s, cardId };
+    };
+
+    it('打錯了直接改名稱、尾號、配色、餘額（不記流水，餘額不給負）', () => {
+        const { s, cardId } = withCard();
+        const next = updateBankCard(s, cardId, { name: '  ', lastFour: '98', color: 'silver', balance: -5 });
+        expect(next.cards[0]).toMatchObject({ name: '薪轉', lastFour: '0098', color: 'silver', balance: 0 });
+        expect(next.transactions).toHaveLength(0);
+        expect(updateBankCard(s, cardId, { balance: 1234.567 }).cards[0].balance).toBe(1234.57);
+    });
+
+    it('有錢的卡也能刪：轉到現金再刪，記一筆互轉；固定收支改走現金', () => {
+        const { s, cardId } = withCard();
+        const r = removeBankCard(s, cardId, 'to-cash');
+        expect(r.ok).toBe(true);
+        expect(r.state.cards).toHaveLength(0);
+        expect(r.state.balance).toBe(600);
+        expect(r.state.transactions.at(-1)).toMatchObject({ label: '轉入帳戶', amount: 500, category: 'transfer' });
+        expect(financeBook(r.state).incomes[0].recurring).toEqual({ dayOfMonth: 25, accountId: 'cash', lastPostedMonth: '2026-09' });
+        expect(financeBook(r.state).liabilities[0].recurring?.accountId).toBe('cash');
+    });
+
+    it('連錢一起刪：現金不變、不記流水；卡不存在就失敗', () => {
+        const { s, cardId } = withCard();
+        const r = removeBankCard(s, cardId, 'discard');
+        expect(r.state.balance).toBe(100);
+        expect(r.state.cards).toHaveLength(0);
+        expect(r.state.transactions).toHaveLength(0);
+        expect(removeBankCard(s, 'nope', 'discard').ok).toBe(false);
     });
 });
