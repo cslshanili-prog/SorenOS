@@ -12,6 +12,7 @@ import { buildToolConfig, parseToolConfig } from './amsgToolPack';
 import { defaultRealtimeConfig } from './realtimeContext';
 import { buildUserHolidayBlock } from '../worker/amsg/src/realtimeWorld';
 import { ContextBuilder } from './context';
+import type { RealtimeConfig } from '../types';
 
 const china: UserHolidayConfig = { enabled: true, countryCode: 'CN', timeZone: 'Asia/Shanghai' };
 const taiwan: UserHolidayConfig = { enabled: true, countryCode: 'TW', timeZone: 'Asia/Taipei' };
@@ -30,7 +31,7 @@ function taiwanYear(year: number, special: Record<string, { isHoliday: boolean; 
     for (let d = new Date(Date.UTC(year, 0, 1)); d.getUTCFullYear() === year; d.setUTCDate(d.getUTCDate() + 1)) {
         const key = d.toISOString().slice(0, 10).replace(/-/g, '');
         const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
-        rows.push({ date: key, week: week[d.getUTCDay()], isHoliday: weekend, description: '', ...special[key] });
+        rows.push({ date: key, week: week[d.getUTCDay()], isHoliday: special[key]?.isHoliday ?? weekend, description: special[key]?.description ?? '' });
     }
     return rows;
 }
@@ -121,15 +122,15 @@ describe('用戶所在地節假日（上游搬來的部分）', () => {
     });
 
     it('雲端工具包帶上國家地區，時區用同步這一刻的設備時區', () => {
-        const pack = buildToolConfig({ ...defaultRealtimeConfig, userHolidays: { enabled: true, countryCode: 'TW' } });
+        const pack = buildToolConfig({ ...defaultRealtimeConfig, userHolidays: { enabled: true, countryCode: 'TW' } } as RealtimeConfig);
         expect(parseToolConfig(JSON.stringify(pack))?.userHolidays)
             .toEqual({ enabled: true, countryCode: 'TW', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
-        expect(buildToolConfig(defaultRealtimeConfig).userHolidays).toBeUndefined();
+        expect(buildToolConfig(defaultRealtimeConfig as RealtimeConfig).userHolidays).toBeUndefined();
     });
 
     it('Worker 那一半：時間感知關了不給，照用戶時區不照角色時區', async () => {
         const args = {
-            toolConfig: { ...buildToolConfig(defaultRealtimeConfig), userHolidays: china },
+            toolConfig: { ...buildToolConfig(defaultRealtimeConfig as RealtimeConfig), userHolidays: china },
             nowMs: Date.parse('2026-09-24T17:00Z'), tzId: 'America/New_York',
             globalRows: [], globalNamespace: 'amsg:global', timeAwarenessEnabled: true, userName: '小桃',
         };

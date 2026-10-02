@@ -10,7 +10,8 @@ import PerWorldPersonaPicker from './PerWorldPersonaPicker';
 import PerGroupPersonaPicker from './PerGroupPersonaPicker';
 import UserPersonaEditor from './UserPersonaEditor';
 import MomentsInteractionSettingsPanel from './MomentsInteractionSettingsPanel';
-import { ensureRealBalanceState, formatMoney } from '../../utils/realBalance';
+import { ensureRealBalanceState } from '../../utils/realBalance';
+import { computeNetWorth, formatMoneyDisplay } from '../../utils/finance';
 import { normalizeMomentsSettings } from '../../utils/momentsSettings';
 import { trackEvent } from '../../utils/analytics';
 
@@ -23,7 +24,7 @@ const cardClass = 'bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,
  * 身份切換在外層 header（IdentitySwitcher），這裡不再放身份卡面板。
  *
  * - 底部 Tab：我的檔案／生活記錄。
- * - 我的檔案：目前身份的名片、Real Balance、朋友圈互動、分角色與群聊身份（三塊收進二級頁，點了才開）。
+ * - 我的檔案：目前身份的名片、Real Balance（Net Worth）、朋友圈互動、分角色與群聊身份（三塊收進二級頁，點了才開）。
  * - 二級頁（餘額管理／朋友圈互動／分角色與群聊身份）打開時底部 Tab 收起，返回鍵回到這裡。
  */
 const UserProfileHome: React.FC = () => {
@@ -131,11 +132,12 @@ const UserProfileHome: React.FC = () => {
                     >
                         <div className="flex items-center justify-between">
                             <div className="text-[10px] font-bold text-sky-400 tracking-widest uppercase">Real Balance</div>
-                            <div className="text-[11px] text-sky-500">{realBalanceState.cards.length} 張銀行卡</div>
+                            <div className="text-[11px] text-sky-500">現金 {formatMoneyDisplay(realBalanceState.balance)}</div>
                         </div>
-                        <div className="text-2xl font-black text-slate-800 mt-1">{formatMoney(realBalanceState.balance)}</div>
+                        <div className="text-[10px] text-sky-400 mt-1.5">Net Worth</div>
+                        <div className="text-2xl font-black text-slate-800 tabular-nums">{formatMoneyDisplay(computeNetWorth(realBalanceState).netWorth)}</div>
                         <div className="text-[11px] text-sky-500 mt-2 flex items-center justify-between">
-                            <span>餘額管理 · 銀行卡與流水</span>
+                            <span>餘額管理 · 總覽與流水</span>
                             <span className="font-bold">查看 ›</span>
                         </div>
                     </button>

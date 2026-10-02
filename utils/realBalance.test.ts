@@ -11,14 +11,10 @@ import {
 import type { RealBalanceState } from '../types';
 
 describe('ensureRealBalanceState', () => {
-    it('未初始化時生成種子狀態：餘額 = 種子值，帶一條"初始餘額"流水', () => {
+    it('未初始化時生成空錢包：餘額 0，沒有流水', () => {
         const state = ensureRealBalanceState(undefined);
-        expect(state.balance).toBe(REAL_BALANCE_SEED);
-        expect(state.cards).toEqual([]);
-        expect(state.transactions).toHaveLength(1);
-        expect(state.transactions[0].label).toBe('初始餘額');
-        expect(state.transactions[0].amount).toBe(REAL_BALANCE_SEED);
-        expect(state.transactions[0].balanceAfter).toBe(REAL_BALANCE_SEED);
+        expect(REAL_BALANCE_SEED).toBe(0);
+        expect(state).toEqual({ balance: 0, cards: [], transactions: [] });
     });
 
     it('已經有狀態時原樣返回，不重新生成', () => {
@@ -28,7 +24,7 @@ describe('ensureRealBalanceState', () => {
 });
 
 describe('createBankCard / deleteBankCard', () => {
-    const base = ensureRealBalanceState(undefined);
+    const base: RealBalanceState = { balance: 10000, cards: [], transactions: [] };
 
     it('開卡不影響 Real Balance 餘額，也不落流水', () => {
         const next = createBankCard(base, { name: '儲蓄卡', lastFour: '1234', initialBalance: 1000, color: 'graphite' });
@@ -70,7 +66,7 @@ describe('createBankCard / deleteBankCard', () => {
 });
 
 describe('transferCardToBalance / transferBalanceToCard', () => {
-    const withCard = createBankCard(ensureRealBalanceState(undefined), { name: '儲蓄卡', lastFour: '1234', initialBalance: 500, color: 'graphite' });
+    const withCard = createBankCard({ balance: 10000, cards: [], transactions: [] }, { name: '儲蓄卡', lastFour: '1234', initialBalance: 500, color: 'graphite' });
     const cardId = withCard.cards[0].id;
 
     it('轉入帳戶：卡減、Real Balance 加，落一條"轉入帳戶"流水', () => {
@@ -116,7 +112,7 @@ describe('transferCardToBalance / transferBalanceToCard', () => {
 });
 
 describe('applyRealBalanceDelta', () => {
-    const base = ensureRealBalanceState(undefined);
+    const base: RealBalanceState = { balance: 10000, cards: [], transactions: [] };
 
     it('正數入帳，落帶正確 label/detail 的流水', () => {
         const result = applyRealBalanceDelta(base, 500, '收到 小夏 的轉帳', '來自私聊');
