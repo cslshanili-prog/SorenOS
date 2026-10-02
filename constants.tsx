@@ -93,7 +93,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   // { id: AppID.Browser, name: '瀏覽器', icon: 'Browser', color: 'blue' }, // Hidden
   { id: AppID.Date, name: '見面', icon: 'Date', color: 'pink' },
   { id: AppID.User, name: '檔案', icon: 'User', color: 'blue' },
-  { id: AppID.Bank, name: '存錢罐', icon: 'Bank', color: 'lime' }, // Hidden
+  { id: AppID.Bank, name: '銀行', icon: 'Bank', color: 'lime' }, // 2026-10 取代存錢罐：用戶自己的錢包（Net Worth＋流水）
   { id: AppID.Journal, name: '交換日記', icon: 'Journal', color: 'amber' },
   // { id: AppID.Handbook, name: '手帳', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
   { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },

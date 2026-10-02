@@ -132,7 +132,7 @@ const GRID_CARDS: { id: AppID; cn: string; en: string }[] = [
     { id: AppID.CheckPhone, cn: '查手機', en: 'PHONE' },
     { id: AppID.Date, cn: '見面', en: 'CONTACTS' },
     { id: AppID.VRWorld, cn: '彼方', en: 'KANATA' },
-    { id: AppID.Bank, cn: '存錢罐', en: 'PIGGYBANK' },
+    { id: AppID.Bank, cn: '銀行', en: 'BANK' },
     { id: AppID.Schedule, cn: '日程', en: 'SCHEDULE' },
     { id: AppID.Settings, cn: '設置', en: 'SETTINGS' },
 ];

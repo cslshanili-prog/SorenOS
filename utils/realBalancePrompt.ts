@@ -52,6 +52,7 @@ function financeLines(state: RealBalanceState): string[] {
 
     const fixed: string[] = [];
     for (const it of book.incomes) if (it.recurring) fixed.push(`${it.recurring.dayOfMonth} 號${it.kind === 'salary' ? '發薪' : '入帳'}（${it.name} ${fmt(it.amount)}，進${accountLabel(state, it.recurring.accountId)}）`);
+    for (const e of book.expenses) if (e.recurring) fixed.push(`${e.recurring.dayOfMonth} 號扣${e.name} ${fmt(e.amount)}`);
     for (const p of book.properties) {
         const rec = p.lease?.recurring;
         if (!rec || p.mode === 'own-live') continue;

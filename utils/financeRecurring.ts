@@ -42,7 +42,7 @@ export function dueMonths(rec: FinanceRecurring, now: Date): Array<{ month: stri
     return out.slice(-MAX_CATCH_UP_MONTHS);
 }
 
-type Kind = 'income' | 'rentIn' | 'rentOut' | 'invest' | 'repay';
+type Kind = 'income' | 'expense' | 'rentIn' | 'rentOut' | 'invest' | 'repay';
 
 interface DueEvent {
     kind: Kind;
@@ -65,6 +65,9 @@ function collectEvents(book: FinanceBook, now: Date): DueEvent[] {
     };
     for (const it of book.incomes) {
         push(it.recurring, { kind: 'income', itemId: it.id, name: it.name, amount: it.amount, category: it.kind === 'salary' ? 'salary' : 'income' });
+    }
+    for (const it of book.expenses) {
+        push(it.recurring, { kind: 'expense', itemId: it.id, name: it.name, amount: -it.amount, category: 'bills' });
     }
     for (const it of book.investments) {
         if (it.contribution) push(it.contribution, { kind: 'invest', itemId: it.id, name: it.name, amount: -it.contribution.amount, category: 'investment' });
@@ -91,6 +94,7 @@ function collectEvents(book: FinanceBook, now: Date): DueEvent[] {
 
 const LABEL: Record<Kind, (name: string) => string> = {
     income: n => n,
+    expense: n => n,
     rentIn: n => `收租：${n}`,
     rentOut: n => `房租：${n}`,
     invest: n => `定投：${n}`,
@@ -159,6 +163,7 @@ export function settleRecurring(state: RealBalanceState, now: Date = new Date())
     book = {
         ...book,
         incomes: book.incomes.map(it => ({ ...it, recurring: bump(it.recurring, `income:${it.id}`) })),
+        expenses: book.expenses.map(it => ({ ...it, recurring: bump(it.recurring, `expense:${it.id}`) })),
         investments: book.investments.map(it => {
             const inv = investments.get(it.id)!;
             return { ...inv, contribution: bump(it.contribution, `invest:${it.id}`) };

@@ -12,6 +12,7 @@ import UserPersonaEditor from './UserPersonaEditor';
 import MomentsInteractionSettingsPanel from './MomentsInteractionSettingsPanel';
 import { ensureRealBalanceState } from '../../utils/realBalance';
 import { computeNetWorth, formatMoneyDisplay } from '../../utils/finance';
+import { buildUserOwnerContext } from '../../utils/financeGenerate';
 import { normalizeMomentsSettings } from '../../utils/momentsSettings';
 import { trackEvent } from '../../utils/analytics';
 
@@ -28,7 +29,7 @@ const cardClass = 'bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,
  * - 二級頁（餘額管理／朋友圈互動／分角色與群聊身份）打開時底部 Tab 收起，返回鍵回到這裡。
  */
 const UserProfileHome: React.FC = () => {
-    const { userProfile, userProfileBase, updateUserProfile, addToast } = useOS();
+    const { userProfile, userProfileBase, updateUserProfile, addToast, apiConfig } = useOS();
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
     const [view, setView] = useState<ProfileView>('home');
     const [editingCurrent, setEditingCurrent] = useState(false);
@@ -60,6 +61,7 @@ const UserProfileHome: React.FC = () => {
                     onCommit={next => updateUserProfile({ realBalance: next })}
                     onBack={() => setView('home')}
                     addToast={addToast}
+                    ai={{ ownerName: userProfile.name, system: () => buildUserOwnerContext(userProfile), api: apiConfig }}
                 />
             </div>
         );

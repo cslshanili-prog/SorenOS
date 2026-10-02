@@ -30,12 +30,13 @@ function filled(): RealBalanceState {
     s = upsertFinanceItem(s, 'vehicles', { id: 'c1', kind: 'motorcycle', model: 'Gogoro', value: 40000 });
     s = upsertFinanceItem(s, 'liabilities', { id: 'l1', name: '學貸', kind: 'student', owed: 180000, monthlyPayment: 3000 });
     s = upsertFinanceItem(s, 'others', { id: 'o1', name: '鋼筆', value: 2100 });
+    s = upsertFinanceItem(s, 'expenses', { id: 'e1', name: '生活費', amount: 8000 });
     return s;
 }
 
 describe('總覽的 block', () => {
     it('舊錢包沒有 finance：各 block 補空', () => {
-        expect(financeBook(wallet())).toEqual({ incomes: [], investments: [], properties: [], vehicles: [], liabilities: [], others: [] });
+        expect(financeBook(wallet())).toEqual({ incomes: [], expenses: [], investments: [], properties: [], vehicles: [], liabilities: [], others: [] });
     });
 
     it('同 id 覆蓋、不同 id 追加、刪除只動那一塊', () => {
@@ -56,10 +57,10 @@ describe('總覽的 block', () => {
         expect(computeNetWorth(wallet(0)).netWorth).toBe(0);
     });
 
-    it('月收入含收租；月固定支出 = 交租＋定投＋還款', () => {
+    it('月收入含收租；月固定支出 = 固定支出＋交租＋定投＋還款', () => {
         const s = filled();
         expect(rentalIncomes(s)).toEqual([{ propertyId: 'p1', name: '出租：老家公寓', amount: 15000, dayOfMonth: undefined }]);
-        expect(monthlySummary(s)).toEqual({ income: 45000, fixedOut: 14000 });
+        expect(monthlySummary(s)).toEqual({ income: 45000, fixedOut: 22000 });
     });
 });
 

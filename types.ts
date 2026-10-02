@@ -3890,6 +3890,15 @@ export interface FinanceIncomeItem {
     note?: string;
 }
 
+/** 每月固定支出（生活費、電話費、保險…）；有 recurring 才會自動扣。 */
+export interface FinanceExpenseItem {
+    id: string;
+    name: string;
+    amount: number;
+    recurring?: FinanceRecurring;
+    note?: string;
+}
+
 export interface FinanceInvestmentItem {
     id: string;
     name: string;
@@ -3957,6 +3966,8 @@ export interface FinanceOtherItem {
 /** 錢包的「總覽」那幾塊（現金、銀行卡仍在 RealBalanceState 本身）。 */
 export interface FinanceBook {
     incomes: FinanceIncomeItem[];
+    /** 2026-10 第三批加的；舊資料沒有，financeBook() 補空 */
+    expenses: FinanceExpenseItem[];
     investments: FinanceInvestmentItem[];
     properties: FinancePropertyItem[];
     vehicles: FinanceVehicleItem[];

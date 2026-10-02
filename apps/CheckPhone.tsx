@@ -4053,6 +4053,11 @@ ${olderText}
                                     }))}
                                     onBack={() => setActiveAppId('home')}
                                     addToast={addToast}
+                                    ai={{
+                                        ownerName: targetChar.name,
+                                        system: () => ContextBuilder.buildRoleSettingsContext(targetChar, { skipMemories: true }),
+                                        api: effectiveApiConfig,
+                                    }}
                                 />
                             </div>
                         </div>
