@@ -85,6 +85,11 @@ const CashCardsBlocks: React.FC<Props> = ({ state, onCommit, addToast }) => {
             <BlockShell icon={<Wallet size={16} weight="fill" />} title="現金" total={state.balance}>
                 <div className="px-4 pb-4">
                     <div className="text-[11px] text-slate-400">聊天轉帳、紅包、購物、外賣都從這裡進出</div>
+                    {state.balance <= 0 && (
+                        <div className="mt-2 text-[11px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                            現金是 0，聊天裡轉帳、發紅包、買東西會失敗。先到「流水」按右上角 ＋ 記一筆收入，或從銀行卡轉進來。
+                        </div>
+                    )}
                     <div className="flex items-center gap-2 mt-3">
                         <button onClick={() => openTransferModal('in')} className="flex-1 py-2 rounded-full bg-sky-50 text-sky-600 text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform">
                             <ArrowDown size={14} weight="bold" /> 從卡轉入

@@ -86,7 +86,7 @@ export function transferBalanceToCard(state: RealBalanceState, cardId: string, a
     if (!(amt > 0)) return { state, ok: false, reason: '金額必須大於 0' };
     const card = state.cards.find(c => c.id === cardId);
     if (!card) return { state, ok: false, reason: '這張卡不存在' };
-    if (state.balance < amt) return { state, ok: false, reason: 'Real Balance 餘額不足' };
+    if (state.balance < amt) return { state, ok: false, reason: '現金不夠' };
     const nextCards = state.cards.map(c => c.id === cardId ? { ...c, balance: roundMoney(c.balance + amt) } : c);
     const nextBalance = roundMoney(state.balance - amt);
     const next = pushTx({ ...state, cards: nextCards }, nextBalance, {
@@ -108,6 +108,7 @@ export function applyRealBalanceDelta(
     const amt = roundMoney(delta);
     if (amt === 0) return { state, ok: false, reason: '金額不能為 0' };
     const nextBalance = roundMoney(state.balance + amt);
-    if (nextBalance < 0) return { state, ok: false, reason: 'Real Balance 餘額不足' };
+    // 聊天轉帳、紅包、購物會看到這句：新錢包從 0 開始，直接告訴人去哪補錢
+    if (nextBalance < 0) return { state, ok: false, reason: '現金不夠：到 Real Balance 的「流水」記一筆收入，或從銀行卡轉入' };
     return { state: pushTx(state, nextBalance, { label, amount: amt, detail }), ok: true };
 }
