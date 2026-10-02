@@ -49,7 +49,7 @@
 | 5 | NPC：群聊（含旁觀、代為發言）+ 輕量記憶 | 已完成（#34）：A 群聊 + B 輕量記憶；發文／點讚／留言留給第 6 項 |
 | 6 | 單一貼文池（先出設計文件） | 進行中（設計文件已定案：[`plans/moments-pool-design.md`](./moments-pool-design.md)；第一批：池子＋兩個入口＋Dock 朋友圈＋查手機 Memo，#36；第二批：自動發文與互動＋私聊裡的最近朋友圈，#40） |
 | 7 | 生圖補生成（路線一） | 本機這段：照片佔位卡＋補生成，#31；雲端那段：Soren 自己的 Worker（待用戶重新部署後驗證） |
-| 8 | 銀行改版：Net Worth 總覽＋流水，取代存錢罐 | 進行中（設計文件：[`plans/finance-wallet-design.md`](./finance-wallet-design.md)；分三批：資料與介面（#74）→ 固定收支自動補記＋【你的錢包】擴充 → AI 生成＋存錢罐換銀行） |
+| 8 | 銀行改版：Net Worth 總覽＋流水，取代存錢罐 | 已完成（設計文件：[`plans/finance-wallet-design.md`](./finance-wallet-design.md)；資料與介面 #74 → 固定收支自動補記＋【你的錢包】擴充 #75 → AI 生成＋固定支出＋存錢罐換銀行） |
 
 ## 各項設計決定
 

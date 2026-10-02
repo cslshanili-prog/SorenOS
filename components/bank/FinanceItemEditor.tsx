@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../os/Modal';
 import type {
-    FinanceIncomeItem, FinanceInvestmentItem, FinanceLiabilityItem, FinanceOtherItem, FinancePropertyItem,
+    FinanceExpenseItem, FinanceIncomeItem, FinanceInvestmentItem, FinanceLiabilityItem, FinanceOtherItem, FinancePropertyItem,
     FinanceRecurring, FinanceVehicleItem, RealBalanceState,
 } from '../../types';
 import {
@@ -11,6 +11,7 @@ import {
 
 export type FinanceEditTarget =
     | { block: 'incomes'; item?: FinanceIncomeItem }
+    | { block: 'expenses'; item?: FinanceExpenseItem }
     | { block: 'investments'; item?: FinanceInvestmentItem }
     | { block: 'properties'; item?: FinancePropertyItem }
     | { block: 'vehicles'; item?: FinanceVehicleItem }
@@ -18,7 +19,7 @@ export type FinanceEditTarget =
     | { block: 'others'; item?: FinanceOtherItem };
 
 export const BLOCK_TITLES: Record<FinanceBlockKey, string> = {
-    incomes: '收入', investments: '投資', properties: '房產', vehicles: '交通工具', liabilities: '負債', others: '其他',
+    incomes: '收入', expenses: '固定支出', investments: '投資', properties: '房產', vehicles: '交通工具', liabilities: '負債', others: '其他',
 };
 
 const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm';
@@ -136,6 +137,11 @@ const FinanceItemEditor: React.FC<Props> = ({ target, state, onSave, onDelete, o
                 onSave({ block: 'incomes', item: { id, name: txt('name'), kind: f.kind as FinanceIncomeItem['kind'], amount: num(f.amount), recurring: recurringOf(target.item?.recurring), note } });
                 return;
             }
+            case 'expenses': {
+                if (!txt('name')) return;
+                onSave({ block: 'expenses', item: { id, name: txt('name'), amount: num(f.amount), recurring: recurringOf(target.item?.recurring), note } });
+                return;
+            }
             case 'investments': {
                 if (!txt('name')) return;
                 const prev = target.item?.contribution;
@@ -209,6 +215,13 @@ const FinanceItemEditor: React.FC<Props> = ({ target, state, onSave, onDelete, o
                 <Field label="類型"><Chips value={f.kind as FinanceIncomeItem['kind']} options={INCOME_KIND_LABELS} onChange={set('kind')} /></Field>
                 {moneyField('amount', auto ? '每月金額' : '大約金額')}
                 {recurring('每月固定入帳', '到了那天自動記一筆收入（打開 App 時補記）', '入帳到')}
+            </>;
+            break;
+        case 'expenses':
+            body = <>
+                {nameField('生活費、電話費、保險、訂閱…')}
+                {moneyField('amount', '每月金額')}
+                {recurring('每月固定扣款', '到了那天自動扣一筆（打開 App 時補記）', '從哪扣')}
             </>;
             break;
         case 'investments':

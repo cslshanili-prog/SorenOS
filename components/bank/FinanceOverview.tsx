@@ -5,7 +5,7 @@ import {
     accountLabel, computeNetWorth, financeBook, formatMoneyDisplay, monthlySummary, removeFinanceItem, rentalIncomes,
     upsertFinanceItem, type FinanceBlockKey,
 } from '../../utils/finance';
-import { Briefcase, ChartLineUp, House, Car, HandCoins, Package } from '@phosphor-icons/react';
+import { Briefcase, ChartLineUp, House, Car, HandCoins, Package, Receipt } from '@phosphor-icons/react';
 import CashCardsBlocks from './CashCardsBlocks';
 import { BlockRow, BlockShell, EmptyRow } from './FinanceBlockShell';
 import FinanceItemEditor, { BLOCK_TITLES, type FinanceEditTarget } from './FinanceItemEditor';
@@ -13,7 +13,7 @@ import { trackEvent } from '../../utils/analytics';
 
 /** 埋點用的區塊名：寫死的簡體字面量（見 docs/analytics.md），不從畫面文字轉 */
 const BLOCK_ANALYTICS: Record<FinanceBlockKey, string> = {
-    incomes: '收入', investments: '投资', properties: '房产', vehicles: '交通工具', liabilities: '负债', others: '其他',
+    incomes: '收入', expenses: '固定支出', investments: '投资', properties: '房产', vehicles: '交通工具', liabilities: '负债', others: '其他',
 };
 
 interface Props {
@@ -79,6 +79,17 @@ const FinanceOverview: React.FC<Props> = ({ state, onCommit, addToast }) => {
                 {rentals.map(r => (
                     <BlockRow key={r.propertyId} title={r.name} sub={[day(r.dayOfMonth), '從房產帶過來'].filter(Boolean).join(' · ')} amount={r.amount} amountSub="每月" badge="房產"
                         onClick={() => { const p = book.properties.find(x => x.id === r.propertyId); if (p) setEditing({ block: 'properties', item: p }); }} />
+                ))}
+            </BlockShell>
+
+            {/* 固定支出 */}
+            <BlockShell icon={<Receipt size={16} weight="fill" />} title="固定支出" total={book.expenses.reduce((sum, e) => sum + e.amount, 0)} onAdd={() => setEditing({ block: 'expenses' })}>
+                {book.expenses.length === 0 && <EmptyRow text="生活費、電話費這類每月都要付的" />}
+                {book.expenses.map(it => (
+                    <BlockRow key={it.id} title={it.name}
+                        sub={it.recurring ? `${day(it.recurring.dayOfMonth)}從${accountLabel(state, it.recurring.accountId)}扣` : (it.note || '手動付')}
+                        amount={it.amount} amountSub="每月" tone="muted"
+                        onClick={() => setEditing({ block: 'expenses', item: it })} />
                 ))}
             </BlockShell>
 

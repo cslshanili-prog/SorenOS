@@ -83,6 +83,15 @@ describe('自動補記', () => {
         expect(financeBook(r.state).liabilities[0].recurring?.lastPostedMonth).toBe('2026-10');
     });
 
+    it('固定支出：到了那天從帳戶扣', () => {
+        let s = wallet(10000);
+        s = upsertFinanceItem(s, 'expenses', { id: 'e', name: '生活費', amount: 6000, recurring: { dayOfMonth: 1, accountId: 'cash', lastPostedMonth: '2026-09' } });
+        const r = settleRecurring(s, at(2026, 10, 2));
+        expect(r.state.balance).toBe(4000);
+        expect(r.state.transactions[0]).toMatchObject({ label: '生活費', amount: -6000, category: 'bills', source: 'auto' });
+        expect(financeBook(r.state).expenses[0].recurring?.lastPostedMonth).toBe('2026-10');
+    });
+
     it('定投：從帳戶扣，成本和現值一起加', () => {
         let s = wallet(10000);
         s = upsertFinanceItem(s, 'investments', { id: 'v', name: '全球指數', kind: 'fund', cost: 1000, value: 1200, contribution: { amount: 500, dayOfMonth: 5, accountId: 'cash', lastPostedMonth: '2026-08' } });

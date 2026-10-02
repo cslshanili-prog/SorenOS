@@ -26,7 +26,7 @@ export function formatMoneyDisplay(n: number): string {
 }
 
 export const EMPTY_FINANCE_BOOK: FinanceBook = {
-    incomes: [], investments: [], properties: [], vehicles: [], liabilities: [], others: [],
+    incomes: [], expenses: [], investments: [], properties: [], vehicles: [], liabilities: [], others: [],
 };
 
 /** 舊錢包沒有 finance，或少了某一塊：一律補空陣列，調用方不用到處判空。 */
@@ -34,6 +34,7 @@ export function financeBook(state: RealBalanceState): FinanceBook {
     const f = state.finance;
     return {
         incomes: f?.incomes || [],
+        expenses: f?.expenses || [],
         investments: f?.investments || [],
         properties: f?.properties || [],
         vehicles: f?.vehicles || [],
@@ -122,7 +123,7 @@ export function rentalIncomes(state: RealBalanceState): Array<{ propertyId: stri
 export interface MonthlySummary {
     /** 收入 block 全部（固定＋不固定的大約金額）＋收租 */
     income: number;
-    /** 交租＋定投＋每月還款 */
+    /** 固定支出＋交租＋定投＋每月還款 */
     fixedOut: number;
 }
 
@@ -133,6 +134,7 @@ export function monthlySummary(state: RealBalanceState): MonthlySummary {
         ...rentalIncomes(state).map(r => r.amount),
     ]);
     const fixedOut = sumMoney([
+        ...book.expenses.map(e => e.amount),
         ...book.properties.filter(p => p.mode === 'renting').map(p => p.lease?.monthlyRent || 0),
         ...book.investments.map(i => i.contribution?.amount || 0),
         ...book.liabilities.map(l => l.monthlyPayment || 0),

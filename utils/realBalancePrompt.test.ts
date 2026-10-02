@@ -41,6 +41,7 @@ describe('buildRealBalanceBlock · 總覽那幾塊', () => {
             ...base,
             finance: {
                 incomes: [{ id: 'i', name: '助教月薪', kind: 'salary', amount: 32000, recurring: { dayOfMonth: 25, accountId: 'cash' } }],
+                expenses: [],
                 investments: [],
                 properties: [
                     { id: 'p', name: '學校旁套房', mode: 'renting', lease: { monthlyRent: 9000, recurring: { dayOfMonth: 27, accountId: 'cash' } } },
