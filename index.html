@@ -199,6 +199,10 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+      /* 鍵盤開著時輸入框可以自己捲（見 utils/iosStandalone.ts allowTouchMoveWhileKeyboardOpen），捲到底別把整頁帶著跑 */
+      textarea {
+        overscroll-behavior: contain;
+      }
       /* 默認細滾動條：蓋掉瀏覽器又粗又灰的原生滾動條（.no-scrollbar 仍可隱藏） */
       *::-webkit-scrollbar {
         width: 6px;
