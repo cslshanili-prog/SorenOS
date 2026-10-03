@@ -93,6 +93,19 @@ const isTextEntryElement = (target: EventTarget | null): target is HTMLElement =
     return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 };
 
+/**
+ * 鍵盤開著時哪些 touchmove 放行：可滾區（消息列表等 .overflow-y-auto）內部，以及**輸入框本身**。
+ * 輸入框以前沒放行：多行輸入框（例如見面那個固定高度的）字一多，鍵盤開著時框裡滑不動、拖不動選取，
+ * 得收鍵盤才看得到超出的字。輸入框捲到底時往外層連帶捲的問題交給 index.html 的
+ * `textarea { overscroll-behavior: contain }`。
+ */
+export const allowTouchMoveWhileKeyboardOpen = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element)) return false;
+    if (target.closest('.overflow-y-auto')) return true;
+    const entry = target.closest('textarea, [contenteditable=""], [contenteditable="true"]');
+    return !!entry;
+};
+
 // 鍵盤能開著的前提：焦點在輸入框上（或在 iframe 裡——HTML 卡片裡的輸入框，外層只看得到 iframe）。
 const focusMayHoldKeyboard = (): boolean => {
     if (typeof document === 'undefined') return false;
@@ -224,12 +237,11 @@ export const installIOSStandaloneWorkaround = () => {
         window.setTimeout(setViewportVars, 180);
     };
 
-    // 鍵盤彈出時鎖死外層滾動：只放行可滾區（消息列表等 .overflow-y-auto）內部滾動，其餘 touchmove 一律攔掉。
+    // 鍵盤彈出時鎖死外層滾動：只放行可滾區與輸入框本身（見 allowTouchMoveWhileKeyboardOpen），其餘 touchmove 一律攔掉。
     // 不鎖的話 iOS 會在輸入框聚焦時隨手勢把整頁頂飛（visualViewport.offsetTop 漂移、露出底層色塊、閃爍）。
     const handleTouchMove = (event: TouchEvent) => {
         if (!document.body.classList.contains('ios-keyboard-open')) return;
-        const target = event.target as Element | null;
-        if (target?.closest('.overflow-y-auto')) return;
+        if (allowTouchMoveWhileKeyboardOpen(event.target)) return;
         event.preventDefault();
     };
 

@@ -228,6 +228,14 @@ const DateSession: React.FC<DateSessionProps> = ({
     
     // Interaction State
     const [input, setInput] = useState('');
+    // 輸入框跟著字數長高：先歸零量 scrollHeight，再設回去；上限交給 max-h-36，超過就在框裡捲
+    const inputRef = useRef<HTMLTextAreaElement>(null);
+    useEffect(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+    }, [input]);
     const [showInputBox, setShowInputBox] = useState(false);
     const [isTyping, setIsTyping] = useState(false); // Waiting for API
     const [isShowingOpening, setIsShowingOpening] = useState(!initialState); // True until first user interaction
@@ -1370,8 +1378,8 @@ const DateSession: React.FC<DateSessionProps> = ({
                     </div>
                 )}
                 {showInputBox && (
-                    <div className={`w-[90%] min-w-0 max-w-lg backdrop-blur-xl rounded-2xl p-2 flex gap-2 shadow-2xl animate-fade-in mb-8 pointer-events-auto ${char.dateLightReading ? 'bg-stone-100 border border-stone-300' : 'bg-white/10 border border-white/20'}`} onClick={(e) => e.stopPropagation()}>
-                        <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={isTyping ? "等待回應..." : "輸入對話..."} disabled={isTyping} className={`min-w-0 flex-1 bg-transparent px-3 sm:px-4 py-3 outline-none font-light resize-none h-14 no-scrollbar leading-tight ${char.dateLightReading ? 'text-stone-800 placeholder:text-stone-400' : 'text-white placeholder:text-white/30'}`} autoFocus />
+                    <div className={`w-[90%] min-w-0 max-w-lg backdrop-blur-xl rounded-2xl p-2 flex items-end gap-2 shadow-2xl animate-fade-in mb-8 pointer-events-auto ${char.dateLightReading ? 'bg-stone-100 border border-stone-300' : 'bg-white/10 border border-white/20'}`} onClick={(e) => e.stopPropagation()}>
+                        <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder={isTyping ? "等待回應..." : "輸入對話..."} disabled={isTyping} rows={1} className={`min-w-0 flex-1 bg-transparent px-3 sm:px-4 py-3 outline-none font-light resize-none min-h-[3.5rem] max-h-36 overflow-y-auto overscroll-contain no-scrollbar leading-tight select-text ${char.dateLightReading ? 'text-stone-800 placeholder:text-stone-400' : 'text-white placeholder:text-white/30'}`} autoFocus />
                         {(() => {
                             const retryText = pendingRetryText || getPendingReplyText(messages);
                             const canRetry = !input.trim() && !isTyping && !!retryText;

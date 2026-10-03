@@ -199,3 +199,19 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
         expect(appHeight()).toBe(`${SCREEN_H + SAFE_BOTTOM}px`);
     });
 });
+
+describe('鍵盤開著時哪些滑動放行', () => {
+    it('可滾區與輸入框本身放行，其他攔掉', async () => {
+        const { allowTouchMoveWhileKeyboardOpen } = await import('./iosStandalone');
+        document.body.innerHTML = `
+            <div class="overflow-y-auto"><p id="inList">消息</p></div>
+            <div class="select-none"><textarea id="ta"></textarea></div>
+            <div contenteditable="true"><span id="inEditable">字</span></div>
+            <div id="plain">背景</div>`;
+        expect(allowTouchMoveWhileKeyboardOpen(document.getElementById('inList'))).toBe(true);
+        expect(allowTouchMoveWhileKeyboardOpen(document.getElementById('ta'))).toBe(true);
+        expect(allowTouchMoveWhileKeyboardOpen(document.getElementById('inEditable'))).toBe(true);
+        expect(allowTouchMoveWhileKeyboardOpen(document.getElementById('plain'))).toBe(false);
+        expect(allowTouchMoveWhileKeyboardOpen(null)).toBe(false);
+    });
+});
