@@ -110,6 +110,14 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    // 輸入框跟著字數長高（到 max-h-32 約五行為止，再多在框裡捲）。以前固定一行高，
+    // 字一多只能在一行裡上下捲，鍵盤開著時又被外層的滑動鎖攔住（見 utils/iosStandalone.ts）。
+    useEffect(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+    }, [input]);
     const sendButtonRef = useRef<HTMLButtonElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const replyDraftsRef = useRef<HTMLDivElement>(null);
@@ -769,9 +777,8 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             enterKeyHint={enterToSend ? 'send' : 'enter'}
                             autoCorrect="on"
                             autoCapitalize="sentences"
-                            className={`sully-chat-textarea flex-1 min-w-0 bg-transparent px-4 py-3 ${useIOSStandaloneInputFix ? 'text-[16px]' : 'text-[15px]'} resize-none max-h-24 no-scrollbar ${isDiscordStyle ? 'text-white placeholder:text-slate-500' : isPixelStyle ? 'text-[#6a4c35] placeholder:text-[#9b8677]' : ''}`}
+                            className={`sully-chat-textarea flex-1 min-w-0 bg-transparent px-4 py-3 ${useIOSStandaloneInputFix ? 'text-[16px]' : 'text-[15px]'} resize-none max-h-32 overflow-y-auto overscroll-contain no-scrollbar ${isDiscordStyle ? 'text-white placeholder:text-slate-500' : isPixelStyle ? 'text-[#6a4c35] placeholder:text-[#9b8677]' : ''}`}
                             placeholder="Message..."
-                            style={{ height: 'auto' }}
                         />
                         <button onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')} className={`p-2 shrink-0 ${isDiscordStyle ? 'text-slate-400 hover:text-sky-300' : isPixelStyle ? 'text-[#8f674a] hover:text-[#a16207]' : 'text-slate-400 hover:text-primary'}`}>
                             <Smiley className="w-6 h-6" weight="regular" />
