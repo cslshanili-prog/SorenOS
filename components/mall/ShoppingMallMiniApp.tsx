@@ -41,13 +41,21 @@ export interface MallSendOrderInput {
     orderId?: string;
     /** 付款時間＝配送起算點；代付還沒付就沒有 */
     paidAt?: number;
+    /** 收件的角色（gift）；桌面入口靠它知道卡片要寫進誰的私聊 */
+    recipientCharId?: string;
 }
 
 interface ShoppingMallMiniAppProps {
     open: boolean;
     onClose: () => void;
-    charId: string;
-    charName: string;
+    /**
+     * 從私聊「＋」進來時是那個角色：預設買給 TA、可以請 TA 代付、有手動模擬卡，結帳後回聊天。
+     * 從桌面進來（2026-10 第三批）不傳：給誰從「自己＋recipients」裡挑，沒有代付，結帳後留在訂單頁。
+     */
+    charId?: string;
+    charName?: string;
+    /** 桌面入口能送的角色（已經濾掉拉黑中的） */
+    recipients?: { id: string; name: string }[];
     /** 用戶自己的 Real Balance 餘額（結帳從這裡扣） */
     userBalance: number;
     /** 落卡＋扣款；回 false 表示沒成功（例如餘額不夠），這邊就不留訂單 */
@@ -60,7 +68,8 @@ interface ShoppingMallMiniAppProps {
 
 type Tab = 'home' | 'cart' | 'orders' | 'me';
 
-const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charId, charName, userBalance, onSendOrder, addToast, apiConfig, apiPresets }) => {
+const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charId, charName, recipients, userBalance, onSendOrder, addToast, apiConfig, apiPresets }) => {
+    const standalone = !charId;
     const [kind, setKind] = useState<MallKind>('food');
     const [tab, setTab] = useState<Tab>('home');
     const [categories, setCategories] = useState<MallCategory[]>([]);
@@ -70,7 +79,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     const [activeCat, setActiveCat] = useState<Record<MallKind, string>>({ food: CAT_ALL, shop: CAT_ALL });
     const [query, setQuery] = useState('');
     const [carts, setCarts] = useState<Record<MallKind, MallCartLine[]>>({ shop: [], food: [] });
-    const [recipient, setRecipient] = useState<CartRecipient>('char');
+    const [recipient, setRecipient] = useState<CartRecipient>(charId || 'user');
     const [payer, setPayer] = useState<CartPayer>('user');
     const [note, setNote] = useState('');
     const [busy, setBusy] = useState(false);
@@ -79,6 +88,15 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     const [showPlus, setShowPlus] = useState(false);
     const [showCats, setShowCats] = useState(false);
     const [now, setNow] = useState(() => Date.now());
+
+    // 聊天入口換了角色就把收件人重設成那個角色
+    useEffect(() => { setRecipient(charId || 'user'); setPayer('user'); }, [charId]);
+    const recipientOptions = useMemo(() => charId
+        ? [{ value: charId, label: `給 ${charName || 'TA'}` }, { value: 'user', label: '給自己' }]
+        : [{ value: 'user', label: '自己' }, ...(recipients || []).map(r => ({ value: r.id, label: r.name }))],
+    [charId, charName, recipients]);
+    const activeRecipient = recipientOptions.some(o => o.value === recipient) ? recipient : 'user';
+    const nameOf = (id: string) => (id === charId ? charName : recipients?.find(r => r.id === id)?.name) || 'TA';
 
     const [mallApi, setMallApiState] = useState<APIConfig | null>(() => getMallApi());
     useEffect(() => {
@@ -238,28 +256,36 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     // ─── 結帳：先存訂單（代付結算要靠 orderId 找回它），落卡失敗就把訂單刪掉 ───
     const checkout = async () => {
         if (cartLines.length === 0 || busy) return;
-        const daifu = recipient === 'user' && payer === 'char';
+        const toChar = activeRecipient !== 'user' ? activeRecipient : null;
+        const daifu = !toChar && payer === 'char' && !!charId;
+        const orderCharId = toChar ?? charId;
         const items: MallOrderItem[] = cartLines.map(l => ({
             name: l.product.name, price: l.product.price, qty: l.qty, emoji: l.product.emoji, shop: l.product.shop,
         }));
         const paidAt = daifu ? undefined : Date.now();
         const order = createMallOrder({
             kind, items: items.map(({ name, price, qty, emoji, shop }) => ({ name, price, qty, emoji, shop })), note,
-            buyer: 'user', recipient: recipient === 'char' ? 'char' : 'user', payer: daifu ? 'char' : 'user',
-            charId, charName, paidAt, createdAt: paidAt,
+            buyer: 'user', recipient: toChar ? 'char' : 'user', payer: daifu ? 'char' : 'user',
+            charId: orderCharId, charName: orderCharId ? nameOf(orderCharId) : undefined, paidAt, createdAt: paidAt,
         });
         setBusy(true);
         try {
             await DB.saveMallOrder(order);
             const ok = await onSendOrder({
-                mallKind: kind, mode: daifu ? 'daifu' : recipient === 'char' ? 'gift' : 'self',
-                items, note: order.note, total: order.total, orderId: order.id, paidAt,
+                mallKind: kind, mode: daifu ? 'daifu' : toChar ? 'gift' : 'self',
+                items, note: order.note, total: order.total, orderId: order.id, paidAt, recipientCharId: toChar ?? undefined,
             });
             if (!ok) { await DB.deleteMallOrder(order.id); return; }
             setOrders(prev => [...prev, order]);
             setCarts(prev => ({ ...prev, [kind]: [] }));
             setNote('');
-            onClose();
+            // 聊天入口回聊天看卡片和角色的反應；桌面入口留在購物中心看訂單
+            if (standalone) {
+                setTab('orders');
+                addToast(toChar ? `已下單，卡片送進和${nameOf(toChar)}的聊天` : '已下單', 'success');
+            } else {
+                onClose();
+            }
         } catch (e) {
             console.warn('[Mall] 結帳失敗:', e);
             addToast('結帳失敗，稍後再試', 'error');
@@ -269,6 +295,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     };
 
     const manualCard = async (input: { name: string; price: number; note: string }) => {
+        if (!charId) return;
         const paidAt = Date.now();
         const items: MallOrderItem[] = [{ name: input.name, price: input.price, qty: 1, emoji: kind === 'food' ? '🍽️' : '🎁' }];
         const order = createMallOrder({
@@ -337,7 +364,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             {/* Header */}
             <div className="shrink-0 bg-white border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center gap-2 px-3 py-2.5">
-                    <button onClick={onClose} className="p-1.5 rounded-full active:bg-slate-100" aria-label="返回聊天">
+                    <button onClick={onClose} className="p-1.5 rounded-full active:bg-slate-100" aria-label={standalone ? '返回' : '返回聊天'}>
                         <CaretLeft size={22} className="text-slate-800" />
                     </button>
                     <div className="text-[16px] font-black text-slate-900 flex-1 min-w-0 truncate">購物中心</div>
@@ -383,14 +410,17 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                     <MallHome kind={kind} categories={kindCats} products={kindProducts} activeCat={cat} query={query}
                         cartQty={cartQty} onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne} />
                 ) : tab === 'cart' ? (
-                    <MallCart kind={kind} charName={charName} lines={cartLines} total={total} balance={userBalance}
-                        recipient={recipient} payer={payer} note={note} busy={busy}
+                    <MallCart kind={kind} lines={cartLines} total={total} balance={userBalance}
+                        recipientOptions={recipientOptions} recipient={activeRecipient}
+                        recipientName={activeRecipient !== 'user' ? nameOf(activeRecipient) : undefined}
+                        daifuName={charId ? charName || 'TA' : undefined} standalone={standalone}
+                        payer={payer} note={note} busy={busy}
                         onRecipient={setRecipient} onPayer={setPayer} onNote={setNote}
                         onInc={incOne} onDec={decOne} onCheckout={checkout} onBrowse={() => setTab('home')} />
                 ) : tab === 'orders' ? (
                     <MallOrders orders={kindOrders} now={now} onDelete={deleteOrder} />
                 ) : (
-                    <MallMe kind={kind} charName={charName} balance={userBalance}
+                    <MallMe kind={kind} manualCharName={charId ? charName || 'TA' : undefined} balance={userBalance}
                         favorites={kindProducts.filter(p => p.favorite)} cartQty={cartQty}
                         onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne}
                         mallApi={mallApi} chatApi={apiConfig} apiPresets={apiPresets}

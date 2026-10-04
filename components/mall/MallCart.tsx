@@ -5,19 +5,27 @@ import { formatMoney } from '../../utils/realBalance';
 import type { MallCartLine } from '../../utils/shoppingMall';
 import { EmojiTile, Segmented, inputCls, primaryBtn } from './MallParts';
 
-export type CartRecipient = 'char' | 'user';
 export type CartPayer = 'user' | 'char';
+/** 收件人：'user'＝自己，其他是角色 id */
+export type CartRecipient = string;
 
 interface Props {
     kind: MallKind;
-    charName: string;
     lines: (MallCartLine & { product: MallProduct })[];
     total: number;
     balance: number;
+    /** 「給誰」的選項：聊天入口是「給 TA／給自己」，桌面入口是「自己＋每個角色」 */
+    recipientOptions: { value: CartRecipient; label: string }[];
     recipient: CartRecipient;
+    /** 收件人是角色時的名字（文案用） */
+    recipientName?: string;
+    /** 能請誰代付（只有聊天入口有：要有人在對話裡回你） */
+    daifuName?: string;
     payer: CartPayer;
     note: string;
     busy: boolean;
+    /** 桌面入口：結帳後留在購物中心，卡片寫進那個角色的私聊 */
+    standalone: boolean;
     onRecipient: (r: CartRecipient) => void;
     onPayer: (p: CartPayer) => void;
     onNote: (v: string) => void;
@@ -29,7 +37,7 @@ interface Props {
 
 /** Cart：購物、外賣各一車（跟頂部切換走）；給誰、誰付、留言、結帳。 */
 const MallCart: React.FC<Props> = ({
-    kind, charName, lines, total, balance, recipient, payer, note, busy,
+    kind, lines, total, balance, recipientOptions, recipient, recipientName, daifuName, payer, note, busy, standalone,
     onRecipient, onPayer, onNote, onInc, onDec, onCheckout, onBrowse,
 }) => {
     if (lines.length === 0) {
@@ -41,11 +49,20 @@ const MallCart: React.FC<Props> = ({
             </div>
         );
     }
-    const daifu = recipient === 'user' && payer === 'char';
+    const toSelf = recipient === 'user';
+    const daifu = toSelf && payer === 'char' && !!daifuName;
     const short = !daifu && total > balance;
-    const notePlaceholder = recipient === 'char'
-        ? `想對${charName}說的話（會顯示在卡片上）`
-        : daifu ? `跟${charName}說一聲為什麼要TA付 XD` : '備註（會顯示在卡片上）';
+    const notePlaceholder = !toSelf
+        ? `想對${recipientName || 'TA'}說的話（會顯示在卡片上）`
+        : daifu ? `跟${daifuName}說一聲為什麼要TA付 XD` : '備註（選填）';
+    const arrival = kind === 'food' ? '約 40 分鐘送達' : '明天 14:00 送達';
+    const footnote = daifu
+        ? `會在聊天裡發一張代付請求，${daifuName}付了才開始配送`
+        : !toSelf
+            ? (standalone
+                ? `扣你的餘額，卡片會出現在和${recipientName}的聊天裡，下次聊天TA就看到了；${arrival}`
+                : `扣你的餘額，聊天裡會彈一張卡片；${arrival}`)
+            : (standalone ? `扣你的餘額，只記一筆訂單；${arrival}` : `扣你的餘額，聊天裡會彈一張卡片；${arrival}`);
 
     return (
         <div className="space-y-4 pt-3">
@@ -68,13 +85,23 @@ const MallCart: React.FC<Props> = ({
 
             <div className="space-y-2">
                 <div className="text-[12px] font-bold text-slate-500 px-1">給誰</div>
-                <Segmented value={recipient} onChange={onRecipient}
-                    options={[{ value: 'char', label: `給 ${charName}` }, { value: 'user', label: '給自己' }]} />
-                {recipient === 'user' && (
+                {recipientOptions.length <= 2 ? (
+                    <Segmented value={recipient} onChange={onRecipient} options={recipientOptions} />
+                ) : (
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4">
+                        {recipientOptions.map(o => (
+                            <button key={o.value} onClick={() => onRecipient(o.value)}
+                                className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-bold transition-colors ${recipient === o.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-500'}`}>
+                                {o.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                {toSelf && daifuName && (
                     <>
                         <div className="text-[12px] font-bold text-slate-500 px-1 pt-1">誰付錢</div>
                         <Segmented value={payer} onChange={onPayer}
-                            options={[{ value: 'user', label: '我付' }, { value: 'char', label: `請 ${charName} 付` }]} />
+                            options={[{ value: 'user', label: '我付' }, { value: 'char', label: `請 ${daifuName} 付` }]} />
                     </>
                 )}
             </div>
@@ -94,13 +121,9 @@ const MallCart: React.FC<Props> = ({
             </div>
 
             <button disabled={busy || short} onClick={onCheckout} className={primaryBtn}>
-                {daifu ? `請 ${charName} 付 ${formatMoney(total)}` : `結帳 ${formatMoney(total)}`}
+                {daifu ? `請 ${daifuName} 付 ${formatMoney(total)}` : `結帳 ${formatMoney(total)}`}
             </button>
-            <div className="text-[11px] text-slate-400 text-center leading-relaxed pb-2">
-                {daifu
-                    ? `會在聊天裡發一張代付請求，${charName}付了才開始配送`
-                    : `扣你的餘額，聊天裡會彈一張卡片；${kind === 'food' ? '約 40 分鐘送達' : '明天 14:00 送達'}`}
-            </div>
+            <div className="text-[11px] text-slate-400 text-center leading-relaxed pb-2">{footnote}</div>
         </div>
     );
 };

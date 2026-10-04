@@ -7,7 +7,8 @@ import { ProductRow, SectionTitle, inputCls, primaryBtn, secondaryBtn } from './
 
 interface Props {
     kind: MallKind;
-    charName: string;
+    /** 手動模擬「TA 買給我的」卡片的角色；桌面入口沒有（不知道要發去哪個聊天），整行不顯示 */
+    manualCharName?: string;
     balance: number;
     favorites: MallProduct[];
     cartQty: (productId: string) => number;
@@ -25,7 +26,7 @@ interface Props {
 
 /** Me：收藏、AI 補貨用的 API、資料導入導出、手動模擬「TA 買給我的」卡片。 */
 const MallMe: React.FC<Props> = ({
-    kind, charName, balance, favorites, cartQty, onOpen, onAdd,
+    kind, manualCharName, balance, favorites, cartQty, onOpen, onAdd,
     mallApi, chatApi, apiPresets, onPickApi, onExport, onImport, onManualCard,
 }) => {
     const [showApi, setShowApi] = useState(false);
@@ -52,7 +53,9 @@ const MallMe: React.FC<Props> = ({
             <div className="rounded-3xl bg-white border border-slate-100 divide-y divide-slate-50">
                 <MenuRow icon={<Sparkle size={16} />} title="AI 補貨用哪個 API" sub={apiLabel} onClick={() => setShowApi(true)} />
                 <MenuRow icon={<Database size={16} />} title="資料導入導出" sub="分類、商品、訂單" onClick={() => setShowData(true)} />
-                <MenuRow icon={<PencilSimple size={16} />} title={`模擬一張「${charName} 買給我的」卡片`} sub="手動填，不扣任何人的錢" onClick={() => setShowManual(true)} />
+                {manualCharName && (
+                    <MenuRow icon={<PencilSimple size={16} />} title={`模擬一張「${manualCharName} 買給我的」卡片`} sub="手動填，不扣任何人的錢" onClick={() => setShowManual(true)} />
+                )}
             </div>
             <div className="text-[11px] text-slate-400 leading-relaxed px-1 pt-3">
                 外賣付款後約 8 分鐘開始配送、40 分鐘送達；購物 2 小時出貨、隔天 14:00 送達。純照時間推進。
@@ -81,7 +84,7 @@ const MallMe: React.FC<Props> = ({
                 </div>
             </Modal>
 
-            <Modal isOpen={showManual} title={`${charName} 買給我的`} onClose={() => setShowManual(false)}
+            <Modal isOpen={showManual && !!manualCharName} title={`${manualCharName} 買給我的`} onClose={() => setShowManual(false)}
                 footer={<button className={primaryBtn} disabled={!manual.name.trim()}
                     onClick={() => { onManualCard({ name: manual.name.trim(), price: parseFloat(manual.price) || 0, note: manual.note.trim() }); setManual({ name: '', price: '', note: '' }); setShowManual(false); }}>
                     彈一張卡片</button>}>
@@ -89,7 +92,7 @@ const MallMe: React.FC<Props> = ({
                     <input value={manual.name} onChange={e => setManual(m => ({ ...m, name: e.target.value }))} placeholder="商品名，不在商品庫也行" className={inputCls} autoFocus />
                     <input value={manual.price} onChange={e => setManual(m => ({ ...m, price: e.target.value }))} placeholder="金額（美金）" inputMode="decimal" className={inputCls} />
                     <input value={manual.note} onChange={e => setManual(m => ({ ...m, note: e.target.value }))} placeholder="留言（選填）" className={inputCls} />
-                    <div className="text-[11px] text-slate-400 leading-relaxed">純擺設，不扣任何人的錢，{charName}也不會因此回話。會進訂單、照時間配送。現在的{kind === 'food' ? '外賣' : '購物'}模式決定它算哪一種。</div>
+                    <div className="text-[11px] text-slate-400 leading-relaxed">純擺設，不扣任何人的錢，{manualCharName}也不會因此回話。會進訂單、照時間配送。現在的{kind === 'food' ? '外賣' : '購物'}模式決定它算哪一種。</div>
                 </div>
             </Modal>
         </div>

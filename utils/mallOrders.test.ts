@@ -88,3 +88,23 @@ describe('訂單', () => {
         expect(orderParties(o)).toEqual({ from: '你', to: '你', payer: 'Sully' });
     });
 });
+
+describe('桌面入口小工具', () => {
+    it('mallRecipientsFrom 濾掉拉黑中的與沒名字的', async () => {
+        const { mallRecipientsFrom } = await import('./mallOrders');
+        expect(mallRecipientsFrom([
+            { id: 'a', name: 'Sully' },
+            { id: 'b', name: '小夏', chatBlock: { by: 'char' } },
+            { id: 'c', name: '  ' },
+            { id: 'd', name: ' 阿澤 ' },
+        ])).toEqual([{ id: 'a', name: 'Sully' }, { id: 'd', name: '阿澤' }]);
+    });
+
+    it('mallSpendLabel', async () => {
+        const { mallSpendLabel } = await import('./mallOrders');
+        expect(mallSpendLabel('food', 'Sully')).toBe('為Sully點了外賣');
+        expect(mallSpendLabel('shop', 'Sully')).toBe('送給Sully的禮物');
+        expect(mallSpendLabel('food')).toBe('給自己點外賣');
+        expect(mallSpendLabel('shop')).toBe('購物');
+    });
+});
