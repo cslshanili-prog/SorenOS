@@ -1303,7 +1303,10 @@ const resolveInboxPersistTimestampForMessage = async (
   const persistTimestamp = resolveInboxPersistTimestamp(message.sentAt || message.receivedAt, now);
   if (persistTimestamp === undefined) return undefined;
   try {
-    const recent = await DB.getRecentMessagesByCharId(message.charId, 200);
+    // includeProcessed：「本地最晚一則」不管記憶宮殿處理過沒有。以前帶著水位過濾，聊天全被
+    // 記憶宮殿處理過時這裡讀到空的、latest=0，補收的舊訊息就照當初的 sentAt 落庫，id 最新、
+    // 時間戳卻是兩個月前，排在聊天最後面（2026-10-05 回報：角色說「系統提示 72 天沒聯絡」）。
+    const recent = await DB.getRecentMessagesByCharId(message.charId, 200, true);
     // 取最大值而不是最後一條：本地消息按自增 id 排，時間戳本來就可能不是單調的。
     const latest = recent.reduce(
       (max, m) => (typeof m.timestamp === 'number' && m.timestamp > max ? m.timestamp : max),

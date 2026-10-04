@@ -654,8 +654,13 @@ export const DatePrompts = {
         const dateTimeOn = isDateTimeAwarenessOn(char);
         const timeStr = getRealTimeStr(charTz);
         const selected = selectCharacterContextMessages(allMsgs, char);
-        const lastMsg = allMsgs[allMsgs.length - 1];
-        const gapHint = getTimeGapHint(lastMsg?.timestamp, charTz);
+        // 取時間戳最晚的那則，不是排最後的那則：訊息照自增 id 排，時間戳不一定單調（雲端補收的舊訊息
+        // 會帶著當初的送出時間落在最後面），只看最後一則會把兩個月前那則當成「上次互動」。
+        const lastTs = allMsgs.reduce<number | undefined>(
+            (max, m) => (typeof m.timestamp === 'number' && (max === undefined || m.timestamp > max) ? m.timestamp : max),
+            undefined,
+        );
+        const gapHint = getTimeGapHint(lastTs, charTz);
 
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             selected,
