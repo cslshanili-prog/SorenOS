@@ -465,6 +465,22 @@ describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
     expect(r.directives).toEqual([{ type: 'soren_tag', raw: '[[ACTION:NO_REPLY|[會議中] 稍後回]]' }]);
   });
 
+  it('購物中心：送禮、替你付、拒付也原樣送回（以前被剝掉，雲端的「幫你點了」不會發生）', () => {
+    const r = classifyLLMOutput([
+      '幫你點了，趁熱喝',
+      '[[ACTION:GIFT|item=燕麥拿鐵|kind=food|qty=1|price=6.5|note=別熬太晚]]',
+      '[[ACTION:DAIFU_ACCEPT]]',
+      '[[ACTION:DAIFU_DECLINE|reason=說好的減肥呢]]',
+    ].join('\n'));
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('幫你點了，趁熱喝');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[ACTION:GIFT|item=燕麥拿鐵|kind=food|qty=1|price=6.5|note=別熬太晚]]' },
+      { type: 'soren_tag', raw: '[[ACTION:DAIFU_ACCEPT]]' },
+      { type: 'soren_tag', raw: '[[ACTION:DAIFU_DECLINE|reason=說好的減肥呢]]' },
+    ]);
+  });
+
   it('不誤認別的 ACTION（POKE 照舊、CALLBACK 不算來電）', () => {
     const r = classifyLLMOutput('[[ACTION:POKE]]\n[[ACTION:CALLBACK|x]]');
     if (r.kind !== 'finish') throw new Error('expected finish');

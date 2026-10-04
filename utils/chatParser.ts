@@ -1,10 +1,12 @@
 
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig } from '../types';
+import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig, MallProduct } from '../types';
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
 import { extractMallOrderCommands } from './mallOrderFormat';
+import { resolveGiftOrders } from './mallCharOrder';
+import { createMallOrder } from './mallOrders';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
 import { createPendingPhoto, fulfillPendingPhoto } from './pendingPhoto';
@@ -246,6 +248,158 @@ export const ChatParser = {
     },
 
     // Return cleaned content and perform side effects
+    /**
+     * 購物中心標籤結算（2026-10 第二批，見 plans/mall-redesign.md）：
+     * - `[[ACTION:GIFT…]]` 角色送你外賣／禮物：對目錄、同一則回覆合成一張單，扣角色的錢、
+     *   落卡、記一筆訂單（配送照付款時間算）。
+     * - `[[ACTION:DAIFU_ACCEPT]]` / `DAIFU_DECLINE`：角色替你付／拒絕代付請求。
+     * - 順手把你送角色的最新一份禮物標成「已收下」。
+     *
+     * parseAndExecuteActions 裡原樣調用；背景延遲回覆、主動訊息那條路（OSContext 的 runProactive）
+     * 不走 parseAndExecuteActions，單獨調這個——以前那條路只結算轉帳，角色在主動訊息裡說
+     * 「幫你點了」，標籤被剝掉什麼都沒發生。返回剝掉這些標籤後的正文。
+     */
+    settleMallCommands: async (
+        content: string,
+        charId: string,
+        opts: {
+            charName?: string;
+            messageTimestamp?: number;
+            persist?: (msg: Parameters<typeof DB.saveMessage>[0]) => Promise<unknown>;
+            onCharDaifuAccept?: (amount: number) => Promise<boolean>;
+            onCharGiftSend?: (amount: number) => Promise<boolean>;
+        } = {},
+    ): Promise<string> => {
+        const { charName, messageTimestamp, onCharDaifuAccept, onCharGiftSend } = opts;
+        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+            ...msg,
+            ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
+        }));
+
+        // DAIFU — 角色對「外賣代付請求」支付或拒絕。跟 resolveUserTransfer 結構相同：
+        // 找最近一條 user 發出、還 pending 的 mall_order(mode=daifu)，標記狀態。跟轉帳不同的是
+        // 這不是兩方帳本的轉移，是角色單方面的支出（角色替用戶付了這頓飯），所以只更新原卡
+        // 自己的 status，不另外落一張回執小卡——MallOrderCard 本身就靠 status 字段切換四種展示。
+        const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
+            let amount: number | undefined;
+            let refId: number | undefined;
+            let orderId: string | undefined;
+            try {
+                const all = await DB.getMessagesByCharId(charId, true);
+                const pendings = all.filter(
+                    x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
+                );
+                // 跟 resolveUserTransfer 同一個理由：按「這句話說出口那一刻」看得到的最新一筆結算，
+                // 離線補收拉開生成/重放的時間差時不會讓半夜那句話結了早上才發的請求。
+                let pending = messageTimestamp != null
+                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
+                    : undefined;
+                if (!pending) {
+                    if (messageTimestamp != null && pendings.length > 0) {
+                        console.warn('[MallDaifu] 這條消息發出時並沒有待處理的代付請求，按最新一筆結算:', { charId, messageTimestamp, pendingCount: pendings.length });
+                    }
+                    pending = pendings[pendings.length - 1];
+                }
+                if (pending) {
+                    amount = Number(pending.metadata?.total);
+                    refId = pending.id;
+                    orderId = typeof pending.metadata?.orderId === 'string' ? pending.metadata.orderId : undefined;
+                }
+            } catch (e) {
+                console.warn('[MallDaifu] 查待處理代付請求失敗，跳過:', e);
+                return;
+            }
+            if (refId === undefined) {
+                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒絕'}代付請求，但沒有待處理的請求，已忽略`);
+                return;
+            }
+            let finalAction = action;
+            let finalReason = action === 'declined' ? reason : undefined;
+            if (action === 'accepted' && Number.isFinite(amount) && (amount as number) > 0 && onCharDaifuAccept) {
+                const ok = await onCharDaifuAccept(amount as number);
+                if (!ok) {
+                    finalAction = 'declined';
+                    finalReason = '餘額不夠，付不出這筆錢';
+                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付請求自動改判拒絕:', { charId, amount });
+                }
+            }
+            // 付款那一刻＝配送起算點（卡片和訂單頁都照它算進度，見 utils/mallOrders.ts）
+            const resolvedAt = messageTimestamp ?? Date.now();
+            await DB.updateMessageMetadata(refId, (prev) => ({
+                ...(prev || {}),
+                status: finalAction,
+                ...(finalReason ? { declineReason: finalReason } : {}),
+                ...(finalAction === 'accepted' ? { paidAt: resolvedAt } : {}),
+                resolvedAt: Date.now(),
+            }));
+            if (orderId) {
+                try {
+                    const order = await DB.getMallOrder(orderId);
+                    if (order && !order.paidAt && !order.cancelledAt) {
+                        await DB.saveMallOrder(finalAction === 'accepted' ? { ...order, paidAt: resolvedAt } : { ...order, cancelledAt: resolvedAt });
+                    }
+                } catch (e) {
+                    console.warn('[MallDaifu] 同步訂單失敗，卡片照樣結算:', e);
+                }
+            }
+        };
+
+        const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
+        if (mallOrderConsumed > 0) content = mallCleanedText;
+
+        // GIFT：同一則回覆裡的多個 GIFT 按外賣／購物各合成一張單；對得上目錄的照目錄的價格、emoji、店鋪
+        const giftEvents = mallOrderEvents.filter(ev => ev.kind === 'send');
+        if (giftEvents.length > 0) {
+            let catalog: MallProduct[] = [];
+            try { catalog = await DB.getAllMallProducts(); } catch (e) { console.warn('[Mall] 讀目錄失敗，照角色寫的價格:', e); }
+            for (const order of resolveGiftOrders(giftEvents, catalog)) {
+                const ok = onCharGiftSend ? await onCharGiftSend(order.total) : true;
+                if (!ok) {
+                    console.warn('[Mall] 角色 Real Balance 不足，跳過這份主動送出的禮物:', { charId, items: order.items.map(i => i.name), total: order.total });
+                    continue;
+                }
+                const paidAt = messageTimestamp ?? Date.now();
+                const record = createMallOrder({
+                    kind: order.kind, items: order.items, note: order.note,
+                    buyer: 'char', recipient: 'user', payer: 'char', charId, charName, paidAt, createdAt: paidAt,
+                });
+                try { await DB.saveMallOrder(record); } catch (e) { console.warn('[Mall] 記訂單失敗，卡片照發:', e); }
+                await persist({
+                    charId, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]',
+                    metadata: {
+                        mallKind: order.kind, mode: 'gift', items: order.items, total: order.total, note: order.note,
+                        status: 'sent', orderId: record.id, paidAt,
+                    },
+                });
+            }
+        }
+        for (const ev of mallOrderEvents) {
+            if (ev.kind === 'accept' || ev.kind === 'decline') {
+                await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
+            }
+        }
+
+        // MALL GIFT ACK — 用戶送的禮物是「發送即結清」，沒有 accept 步驟，但完全沒反饋不好；
+        // 角色這一輪既然生成了回覆，就說明已經看到了這份禮物，順手標一個 acknowledged，
+        // 讓 MallOrderCard 在"已送出"旁邊多顯示一句"TA已收下"。不用教模型專門喊一個標籤——
+        // 這是純擺設確認，說不說都不影響結算，沒必要為這個引入"想做≠做了"的標籤遺忘風險；
+        // 直接按"角色這輪說話了 = 已經看到最新一條歷史"這個必然成立的事實來標記，更穩。
+        // 只標最新一條：老的已經錯過時機，不用倒著一次性全標。
+        try {
+            const allMsgs = await DB.getMessagesByCharId(charId, true);
+            const unacked = allMsgs
+                .filter(x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'gift' && x.metadata?.status === 'sent' && !x.metadata?.acknowledged)
+                .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+            if (unacked[0]) {
+                await DB.updateMessageMetadata(unacked[0].id, (prev) => ({ ...(prev || {}), acknowledged: true }));
+            }
+        } catch (e) {
+            console.warn('[Mall] 標記禮物已讀失敗，跳過:', e);
+        }
+
+        return content;
+    },
+
     parseAndExecuteActions: async (
         aiContent: string,
         charId: string,
@@ -412,113 +566,10 @@ export const ChatParser = {
             messageTimestamp, persist, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend,
         });
 
-        // MALL DAIFU — 角色對「外賣代付請求」支付或拒絕。跟 resolveUserTransfer 結構相同：
-        // 找最近一條 user 發出、還 pending 的 mall_order(mode=daifu)，標記狀態。跟轉帳不同的是
-        // 這不是兩方帳本的轉移，是角色單方面的支出（角色替用戶付了這頓飯），所以只更新原卡
-        // 自己的 status，不另外落一張回執小卡——MallOrderCard 本身就靠 status 字段切換四種展示。
-        const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
-            let amount: number | undefined;
-            let refId: number | undefined;
-            let orderId: string | undefined;
-            try {
-                const all = await DB.getMessagesByCharId(charId, true);
-                const pendings = all.filter(
-                    x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
-                );
-                // 跟 resolveUserTransfer 同一個理由：按「這句話說出口那一刻」看得到的最新一筆結算，
-                // 離線補收拉開生成/重放的時間差時不會讓半夜那句話結了早上才發的請求。
-                let pending = messageTimestamp != null
-                    ? [...pendings].reverse().find(x => (x.timestamp ?? 0) <= messageTimestamp)
-                    : undefined;
-                if (!pending) {
-                    if (messageTimestamp != null && pendings.length > 0) {
-                        console.warn('[MallDaifu] 這條消息發出時並沒有待處理的代付請求，按最新一筆結算:', { charId, messageTimestamp, pendingCount: pendings.length });
-                    }
-                    pending = pendings[pendings.length - 1];
-                }
-                if (pending) {
-                    amount = Number(pending.metadata?.total);
-                    refId = pending.id;
-                    orderId = typeof pending.metadata?.orderId === 'string' ? pending.metadata.orderId : undefined;
-                }
-            } catch (e) {
-                console.warn('[MallDaifu] 查待處理代付請求失敗，跳過:', e);
-                return;
-            }
-            if (refId === undefined) {
-                console.warn(`[MallDaifu] 角色想${action === 'accepted' ? '支付' : '拒絕'}代付請求，但沒有待處理的請求，已忽略`);
-                return;
-            }
-            let finalAction = action;
-            let finalReason = action === 'declined' ? reason : undefined;
-            if (action === 'accepted' && Number.isFinite(amount) && (amount as number) > 0 && onCharDaifuAccept) {
-                const ok = await onCharDaifuAccept(amount as number);
-                if (!ok) {
-                    finalAction = 'declined';
-                    finalReason = '餘額不夠，付不出這筆錢';
-                    console.warn('[MallDaifu] 角色 Real Balance 不足，代付請求自動改判拒絕:', { charId, amount });
-                }
-            }
-            // 付款那一刻＝配送起算點（卡片和訂單頁都照它算進度，見 utils/mallOrders.ts）
-            const resolvedAt = messageTimestamp ?? Date.now();
-            await DB.updateMessageMetadata(refId, (prev) => ({
-                ...(prev || {}),
-                status: finalAction,
-                ...(finalReason ? { declineReason: finalReason } : {}),
-                ...(finalAction === 'accepted' ? { paidAt: resolvedAt } : {}),
-                resolvedAt: Date.now(),
-            }));
-            if (orderId) {
-                try {
-                    const order = await DB.getMallOrder(orderId);
-                    if (order && !order.paidAt && !order.cancelledAt) {
-                        await DB.saveMallOrder(finalAction === 'accepted' ? { ...order, paidAt: resolvedAt } : { ...order, cancelledAt: resolvedAt });
-                    }
-                } catch (e) {
-                    console.warn('[MallDaifu] 同步訂單失敗，卡片照樣結算:', e);
-                }
-            }
-        };
-
-        // MALL — 購物中心的 GIFT send / DAIFU accept-decline，見 utils/mallOrderFormat.ts。
-        const { text: mallCleanedText, events: mallOrderEvents, consumed: mallOrderConsumed } = extractMallOrderCommands(content);
-        if (mallOrderConsumed > 0) content = mallCleanedText;
-        for (const ev of mallOrderEvents) {
-            if (ev.kind === 'send') {
-                const price = Number(ev.price);
-                const ok = onCharGiftSend && Number.isFinite(price) && price > 0
-                    ? await onCharGiftSend(price)
-                    : true;
-                if (!ok) {
-                    console.warn('[Mall] 角色 Real Balance 不足，跳過這份主動送出的禮物:', { charId, item: ev.item, price: ev.price });
-                    continue;
-                }
-                await persist({
-                    charId, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]',
-                    metadata: { mode: 'gift', items: [{ name: ev.item, price, qty: 1 }], total: price, note: ev.note, status: 'sent' },
-                });
-            } else {
-                await resolveMallDaifu(ev.kind === 'accept' ? 'accepted' : 'declined', ev.kind === 'decline' ? ev.reason : undefined);
-            }
-        }
-
-        // MALL GIFT ACK — 用戶送的禮物是「發送即結清」，沒有 accept 步驟，但完全沒反饋不好；
-        // 角色這一輪既然生成了回覆，就說明已經看到了這份禮物，順手標一個 acknowledged，
-        // 讓 MallOrderCard 在"已送出"旁邊多顯示一句"TA已收下"。不用教模型專門喊一個標籤——
-        // 這是純擺設確認，說不說都不影響結算，沒必要為這個引入"想做≠做了"的標籤遺忘風險；
-        // 直接按"角色這輪說話了 = 已經看到最新一條歷史"這個必然成立的事實來標記，更穩。
-        // 只標最新一條：老的已經錯過時機，不用倒著一次性全標。
-        try {
-            const allMsgs = await DB.getMessagesByCharId(charId, true);
-            const unacked = allMsgs
-                .filter(x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'gift' && x.metadata?.status === 'sent' && !x.metadata?.acknowledged)
-                .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
-            if (unacked[0]) {
-                await DB.updateMessageMetadata(unacked[0].id, (prev) => ({ ...(prev || {}), acknowledged: true }));
-            }
-        } catch (e) {
-            console.warn('[Mall] 標記禮物已讀失敗，跳過:', e);
-        }
+        // MALL — 購物中心的 GIFT（角色送你）／DAIFU（角色替你付）：見 ChatParser.settleMallCommands。
+        content = await ChatParser.settleMallCommands(content, charId, {
+            charName, messageTimestamp, persist, onCharDaifuAccept, onCharGiftSend,
+        });
 
         // MUSIC_ACTION — char 對 user 正在聽的歌表態（只處理第一次出現，每條消息最多一次插卡）
         // 支持的格式（後兩種是為了讓 char 自己挑歌單 / 新建歌單）：

@@ -2570,16 +2570,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const blockTag = extractBlockUser(aiContent);
               aiContent = blockTag.cleanedText;
               const blockUserReq = blockTag.block && char.allowCharBlockUser && !char.chatBlock ? blockTag.block : null;
-              // 轉帳（角色主動轉、收下／退回你的轉帳）：這條路不走 parseAndExecuteActions，單獨結算，
-              // 不然標籤被 sanitize 剝掉，角色嘴上說收了、錢卻沒動（見 utils/realBalanceLedger.ts）
-              aiContent = await ChatParser.settleTransferCommands(aiContent, charId, makeTransferLedgerCallbacks({
+              // 轉帳（角色主動轉、收下／退回你的轉帳）、購物中心（角色送你外賣禮物、替你付代付請求）：
+              // 這條路不走 parseAndExecuteActions，單獨結算，不然標籤被 sanitize 剝掉，角色嘴上說
+              // 收了／幫你點了，錢和卡片卻都沒動（見 utils/realBalanceLedger.ts、plans/mall-redesign.md）。
+              // 同一組回調共用一份「這一輪起算」的餘額快照，又轉帳又送禮不會拿同一份餘額過兩次檢查。
+              const ledger = makeTransferLedgerCallbacks({
                   char,
                   userName: userForChar(char).name || '你',
                   writers: {
                       updateCharacter: (id, updates) => { void updateCharacterRef.current(id, updates); },
                       updateUserProfile: (updates) => { void updateUserProfileRef.current(updates); },
                   },
-              }));
+              });
+              aiContent = await ChatParser.settleTransferCommands(aiContent, charId, ledger);
+              aiContent = await ChatParser.settleMallCommands(aiContent, charId, {
+                  charName: char.name,
+                  onCharDaifuAccept: ledger.onCharDaifuAccept,
+                  onCharGiftSend: ledger.onCharGiftSend,
+              });
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;

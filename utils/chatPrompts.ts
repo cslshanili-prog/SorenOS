@@ -13,6 +13,7 @@ import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixi
 import { normalizeMessageContent, stickerNameFromUrl, theaterWhenPhrase } from './messageFormat';
 import { formatTransferRecord } from './transferFormat';
 import { formatMallOrderRecord } from './mallOrderFormat';
+import { buildMallPicksBlock, mallRecordEta } from './mallCharOrder';
 import { computeCurrentListening, getCurrentSlot } from './charMusicSchedule';
 import { getCharLyricSnippet } from './charLyricCache';
 import { MusicCfg, loadMusicCfgStandalone } from '../context/MusicContext';
@@ -575,6 +576,18 @@ ${groupLogStr}\n`;
             }
         })();
 
+        // 10. 購物中心今天的推薦（utils/mallCharOrder.ts）：跟購物中心 Home 的「推薦」同一批。
+        //     fire_pack 也帶：推薦按天換，晚一點發也還是能下單的東西；對不上目錄時照角色寫的價格。
+        const mallPromise: Promise<string> = (async () => {
+            try {
+                const [products, categories] = await Promise.all([DB.getAllMallProducts(), DB.getAllMallCategories()]);
+                return buildMallPicksBlock(products, categories);
+            } catch (e) {
+                console.error('Failed to inject mall picks:', e);
+                return '';
+            }
+        })();
+
         // 9. 最近的朋友圈（單一貼文池，utils/momentsContext.ts）：fire_pack 不帶，到點渲染時早就不是那幾篇了
         const momentsPromise: Promise<string> = forFirePack ? Promise.resolve('') : getMomentsContextForChar(char.id, userProfile.name)
             .catch(e => {
@@ -582,7 +595,7 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText] =
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -593,6 +606,7 @@ ${groupLogStr}\n`;
                 timed('lifeRecord', lifeRecordPromise),
                 timed('anniversary', anniversaryPromise),
                 timed('moments', momentsPromise),
+                timed('mallPicks', mallPromise),
             ]);
 
         // ── 拼接：易變的進 volatileState，穩定的進 baseSystemPrompt ──
@@ -687,6 +701,8 @@ ${groupLogStr}\n`;
         volatileState += momentsText;
         // 你的錢包（utils/realBalancePrompt.ts）：餘額會隨轉帳變，放易變段；從沒建過錢包的角色是空字串
         volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);
+        // 購物中心今天的推薦：讓角色知道有什麼能點、多少錢（下單語法在「可用動作」）
+        volatileState += mallPicksText;
         volatileState += anniversaryText;
         // 相識天數每天在變，放易變段；主動消息模板到點才渲染，天數會過期，只給起點日期
         if (char.acquaintanceStartDate) {
@@ -808,8 +824,10 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
    - 回戳用戶: \`[[ACTION:POKE]]\`
    - 轉帳: 必須使用且只使用 \`[[ACTION:TRANSFER|to=user|amount=100]]\`（to 固定寫 user，金額只寫數字）；不要寫成 \`[系統: 你向某人轉帳 100]\` 等系統日誌文本。
    - **處理用戶轉帳**: 當歷史裡出現 \`[[記錄:TRANSFER|to=char|...|status=待處理]]\`（用戶轉給你、還沒處理）時，你可以決定收下或退回。收下: \`[[ACTION:TRANSFER_ACCEPT]]\`；退回: \`[[ACTION:TRANSFER_RETURN]]\`。請結合人設和情境自然選擇（比如害羞地退回、開心地收下），並配上一句話。
-   - **主動送禮物/點外賣**: 如果你想給用戶送一份小禮物或點個外賣（購物中心那套系統），單獨起一行輸出: \`[[ACTION:GIFT|item=禮物或菜品名|price=數字|note=可選備註]]\`（item/price 必填，price 只寫數字；note 選填）。這筆錢從你自己的 Real Balance 裡出，量力而為、別亂花，符合你的性格和當下情境就好；如果你手頭緊（餘額不夠），系統會靜默攔下這份禮物，別在正文裡硬湊一句"錢包空了"之類的圓場話——正常往下接話就行。
-   - **處理外賣代付請求**: 當歷史裡出現 \`[[記錄:MALL|...|mode=daifu|...|status=待處理]]\`（用戶在購物中心發起的外賣代付請求，想讓你幫TA付這頓錢）時，你可以決定支付或拒絕。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒絕: \`[[ACTION:DAIFU_DECLINE|reason=簡短原因]]\`（reason 選填，比如"說好的減肥呢"）。請結合人設、當下關係和這筆錢是否值當自然選擇，並配上一句話。購物中心的其它卡片（用戶送你的禮物/給你點的外賣、\`mode=self\` 是用戶給自己買的、你送用戶的）都是已經發生的既成事實，純粹讓你知道，不用你處理。
+   - **幫用戶點外賣／買東西（購物中心）**: 錢從你自己的 Real Balance 出。單獨起一行輸出 \`[[ACTION:GIFT|item=品名|kind=food|qty=1|price=單價|note=想對TA說的話]]\`（kind：外賣寫 food、購物寫 shop；price 只寫數字，照「今天的推薦」裡的價格，清單外的照美國日常行情；qty、note 選填；同一則裡寫好幾個 GIFT 會合成一張單）。送出後真的會配送：外賣約 40 分鐘到、購物隔天 14:00 到，歷史記錄裡的 \`eta\` 就是預計送達時間。
+     - 什麼時候適合：TA 說餓了、還沒吃飯、加班熬夜、生病不舒服、心情不好、天氣變冷變熱、值得慶祝的日子、或你單純想給驚喜——符合你的性格和你們的關係就好，量力而為。
+     - **【重要】說到就要做到**：你在回覆裡說了「幫你點」「給你叫了外賣」「買給你」，就必須在同一則回覆裡真的輸出 GIFT，不能只是嘴上說說；沒打算真的下單就別這麼說。錢不夠時系統會靜默攔下，別在正文裡硬湊「錢包空了」之類的圓場話，正常往下接話就行。
+   - **處理代付請求**: 當歷史裡出現 \`[[記錄:MALL|...|mode=daifu|...|status=待處理]]\`（用戶在購物中心發起的代付請求，外賣或購物都有，想讓你幫TA付這筆錢；你付了才開始配送）時，你可以決定支付或拒絕。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒絕: \`[[ACTION:DAIFU_DECLINE|reason=簡短原因]]\`（reason 選填，比如"說好的減肥呢"）。請結合人設、當下關係和這筆錢是否值當自然選擇，並配上一句話。購物中心的其它卡片（用戶送你的禮物/給你點的外賣、\`mode=self\` 是用戶給自己買的、你送用戶的）都是已經發生的既成事實，純粹讓你知道，不用你處理。
    - **【重要】\`[[記錄:...]]\` 是系統日誌**: 歷史裡以 \`[[記錄:\` 開頭的標籤是已經發生的事實（誰轉給誰、什麼狀態；購物中心卡片什麼狀態），只供你瞭解，**嚴禁**在回覆裡照抄輸出。你要做動作時只能用 \`[[ACTION:...]]\`。
    - 調取記憶: \`[[RECALL: YYYY-MM]]\`，請注意，當用戶提及具體某個月份時，或者當你想仔細想某個月份的事情時，歡迎你隨時使該動作
    - **添加紀念日**: 如果你覺得今天是個值得紀念的日子（或者你們約定了某天），你可以**主動**將它添加到用戶的日曆中。單獨起一行輸出: \`[[ACTION:ADD_EVENT | 標題(Title) | YYYY-MM-DD]]\`。
@@ -1384,6 +1402,8 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                         items: Array.isArray(mMeta.items) ? mMeta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
                         amount: Number(mMeta.total) || 0,
                         status: mMeta.status === 'pending' || mMeta.status === 'accepted' || mMeta.status === 'declined' ? mMeta.status : 'sent',
+                        // 預計送達時間（角色時區）；角色才接得上「外賣到了嗎」
+                        eta: mMeta.mode === 'manual' ? undefined : mallRecordEta(mMeta, m.timestamp, charTz),
                     })}`;
                 }
                 else if (m.type === 'social_card') {
