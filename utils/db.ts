@@ -12,7 +12,7 @@ import {
     LifeRecord, MedPlan, LifeRecordSettings, CharacterGroup, NPCProfile, MomentPost,
     VRWorldNovel, VRLibraryCategory, VRNovelAnnotation, CustomCreatorPart, VRMusicRoomState, VRGuestbookState, VRScript, VRStagedPlay, VRLetter,
     WorldProfile, WorldEpisode, StoryTheaterEntry, StoryTheaterPreset, StoryTheaterMask,
-    MallCategory, MallProduct
+    MallCategory, MallProduct, MallOrder
 } from '../types';
 import { exportPostOfficeLocal, importPostOfficeLocal } from './vrWorld/postOffice';
 import { exportSignalLocal, importSignalLocal } from './vrWorld/signal';
@@ -36,7 +36,8 @@ const DB_NAME = 'AetherOS_Data';
 // v73：購物中心（商品/外賣目錄）——用戶自己維護的商品庫，獨立於全局設置導入導出，
 //      不進 exportSettings/importSettings 的打包範圍（見 utils/shoppingMall.ts）。
 // v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
-const DB_VERSION = 74;
+// v75：購物中心訂單 mall_orders（配送狀態照付款時間算，不存，見 plans/mall-redesign.md）。
+const DB_VERSION = 75;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
@@ -98,6 +99,7 @@ const STORE_STORY_THEATER_PRESETS = 'story_theater_presets'; // 糯米機原生�
 const STORE_STORY_THEATER_MASKS = 'story_theater_masks'; // 劇場原創人物面具
 const STORE_MALL_CATEGORIES = 'mall_categories';     // 購物中心·分類（購物/外賣各自一套，用 kind 區分）
 const STORE_MALL_PRODUCTS = 'mall_products';          // 購物中心·商品/外賣條目
+const STORE_MALL_ORDERS = 'mall_orders';              // 購物中心·訂單（v75）
 
 // API 調用記錄：保留近 5 天，超期丟棄；再加一個硬上限防止異常情況撐爆
 const API_CALL_LOG_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -503,6 +505,7 @@ export const openDB = (): Promise<IDBDatabase> => {
       // ─── 購物中心（商品/外賣目錄）v73 ───────────────
       createStore(STORE_MALL_CATEGORIES, { keyPath: 'id' });
       createStore(STORE_MALL_PRODUCTS, { keyPath: 'id' });
+      createStore(STORE_MALL_ORDERS, { keyPath: 'id' }); // v75
     };
   });
 
@@ -3355,6 +3358,44 @@ export const DB = {
       const db = await openDB();
       const transaction = db.transaction(STORE_MALL_PRODUCTS, 'readwrite');
       transaction.objectStore(STORE_MALL_PRODUCTS).delete(id);
+  },
+
+  getAllMallOrders: async (): Promise<MallOrder[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_ORDERS)) return [];
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_ORDERS, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_ORDERS).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  getMallOrder: async (id: string): Promise<MallOrder | null> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_MALL_ORDERS)) return null;
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_ORDERS, 'readonly');
+          const request = transaction.objectStore(STORE_MALL_ORDERS).get(id);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveMallOrder: async (order: MallOrder): Promise<void> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_MALL_ORDERS, 'readwrite');
+          transaction.objectStore(STORE_MALL_ORDERS).put(order);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+      });
+  },
+
+  deleteMallOrder: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_MALL_ORDERS, 'readwrite');
+      transaction.objectStore(STORE_MALL_ORDERS).delete(id);
   },
 
   // ── LifeSim (模擬人生) ────────────────────────────────────

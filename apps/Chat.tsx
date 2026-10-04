@@ -1718,35 +1718,39 @@ const Chat: React.FC = () => {
         setModalType('none');
     };
 
-    // 購物中心 mini-app 送出訂單卡片：
-    // - gift（送給TA / 為TA點單 / 發小票）：跟轉帳一樣發送即結清，先扣用戶 Real Balance，
-    //   再走 handleSendText 正常觸發角色的一輪回復（角色收到禮物/外賣該有反應）。
-    // - daifu（外賣代付請求）：先不動餘額——真正付不付款要看角色收到請求後的選擇，那條走
-    //   utils/chatParser.ts 的 AI 收發（跟 TRANSFER_ACCEPT/RETURN 同一個位置，還沒接，接了才會
-    //   真的扣角色的 Real Balance），這裡只負責把待處理卡片發出去、觸發角色這輪回復。
-    // - manual（「TA主動給我買/點外賣」手動模擬卡）：純擺設，角色沒有真的做這件事、也不用回覆，
-    //   直接落庫成 role:'assistant' 的既成事實，不走 handleSendText（不觸發 AI 生成）。
-    const handleSendMallOrder = async (order: import('../components/mall/ShoppingMallMiniApp').MallSendOrderInput) => {
-        if (!char) return;
+    // 購物中心送出訂單卡片（2026-10 改版，見 plans/mall-redesign.md）：
+    // - gift（買給 TA）/ self（買給自己）：發送即結清，先扣用戶 Real Balance，再走 handleSendText
+    //   正常觸發角色這一輪回覆（收到禮物、看到你給自己點了東西都該有反應）。
+    // - daifu（買給自己、請 TA 付）：先不動錢，付不付看角色回覆裡的 DAIFU_ACCEPT/DECLINE
+    //   （utils/chatParser.ts 結算，扣角色的 Real Balance，同步 mall_orders 的付款時間）。
+    // - manual（「TA 買給我的」手動模擬卡）：純擺設，直接落庫成 role:'assistant' 的既成事實，
+    //   不走 handleSendText（不觸發 AI 生成）。
+    // 回 false＝沒送出（例如餘額不夠），購物中心那邊就把剛存的訂單刪掉。
+    const handleSendMallOrder = async (order: import('../components/mall/ShoppingMallMiniApp').MallSendOrderInput): Promise<boolean> => {
+        if (!char) return false;
         const metadata = {
             mallKind: order.mallKind, mode: order.mode, items: order.items, note: order.note,
-            total: order.total, title: order.title,
+            total: order.total, orderId: order.orderId, paidAt: order.paidAt,
             status: order.mode === 'daifu' ? 'pending' as const : 'sent' as const,
         };
         if (order.mode === 'manual') {
             await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]', metadata });
             await reloadMessages(visibleCountRef.current);
             trackEvent('购物中心手动模拟卡', { mallKind: order.mallKind });
-            return;
+            return true;
         }
-        if (order.mode === 'gift') {
+        if (order.mode === 'gift' || order.mode === 'self') {
             const current = ensureRealBalanceState(userProfileBase.realBalance);
-            const result = applyRealBalanceDelta(current, -order.total, order.title || (order.mallKind === 'food' ? `為${char.name}點了外賣` : `送給${char.name}的購物禮物`));
-            if (!result.ok) { addToast(result.reason, 'error'); return; }
+            const label = order.mode === 'self'
+                ? (order.mallKind === 'food' ? '給自己點外賣' : '購物')
+                : (order.mallKind === 'food' ? `為${char.name}點了外賣` : `送給${char.name}的禮物`);
+            const result = applyRealBalanceDelta(current, -order.total, label);
+            if (!result.ok) { addToast(result.reason, 'error'); return false; }
             updateUserProfile({ realBalance: result.state });
         }
         handleSendText('[購物中心卡片]', 'mall_order', metadata);
         trackEvent('购物中心发送订单卡片', { mallKind: order.mallKind, mode: order.mode });
+        return true;
     };
 
     // 用戶點「生活記錄」代記卡選擇確認 / 否決：
@@ -4881,7 +4885,9 @@ const Chat: React.FC = () => {
             <ShoppingMallMiniApp
                 open={mallOpen}
                 onClose={() => setMallOpen(false)}
+                charId={char?.id || ''}
                 charName={char?.name || ''}
+                userBalance={ensureRealBalanceState(userProfileBase.realBalance).balance}
                 onSendOrder={handleSendMallOrder}
                 addToast={addToast}
                 apiConfig={apiConfig}

@@ -3,12 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const getMessagesByCharId = vi.fn();
 const updateMessageMetadata = vi.fn(async (_id: number, _updater: (prev: any) => any) => {});
 const saveMessage = vi.fn(async () => 1);
+const getMallOrder = vi.fn(async (_id: string): Promise<any> => null);
+const saveMallOrder = vi.fn(async (_o: any) => {});
 
 vi.mock('./db', () => ({
     DB: {
         getMessagesByCharId: (...args: any[]) => getMessagesByCharId(...args),
         updateMessageMetadata: (...args: any[]) => updateMessageMetadata(...args),
         saveMessage: (...args: any[]) => saveMessage(...args),
+        getMallOrder: (...args: any[]) => getMallOrder(...(args as [string])),
+        saveMallOrder: (...args: any[]) => saveMallOrder(...(args as [any])),
     },
 }));
 
@@ -21,6 +25,45 @@ describe('購物中心「外賣代付請求」AI 收發', () => {
         getMessagesByCharId.mockReset();
         updateMessageMetadata.mockClear();
         saveMessage.mockClear();
+        getMallOrder.mockReset();
+        getMallOrder.mockResolvedValue(null);
+        saveMallOrder.mockClear();
+    });
+
+    it('付了：卡片記 paidAt（＝這句話的時間），對應訂單也補上付款時間', async () => {
+        getMessagesByCharId.mockResolvedValue([
+            { id: 7, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 20, status: 'pending', orderId: 'mallorder-1' } },
+        ]);
+        getMallOrder.mockResolvedValue({ id: 'mallorder-1', kind: 'food', total: 20 });
+        await ChatParser.parseAndExecuteActions(
+            '好啦我付。[[ACTION:DAIFU_ACCEPT]]', 'char-1', '小夏', noopToast,
+            undefined, undefined, 5000, undefined, undefined, undefined, undefined, undefined, undefined,
+            vi.fn().mockResolvedValue(true),
+        );
+        const updater = updateMessageMetadata.mock.calls[0][1];
+        expect(updater({})).toMatchObject({ status: 'accepted', paidAt: 5000 });
+        expect(getMallOrder).toHaveBeenCalledWith('mallorder-1');
+        expect(saveMallOrder).toHaveBeenCalledWith(expect.objectContaining({ id: 'mallorder-1', paidAt: 5000 }));
+    });
+
+    it('拒絕：訂單記成取消；已經結算過的訂單不再動', async () => {
+        getMessagesByCharId.mockResolvedValue([
+            { id: 8, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 20, status: 'pending', orderId: 'mallorder-2' } },
+        ]);
+        getMallOrder.mockResolvedValue({ id: 'mallorder-2', kind: 'shop', total: 20 });
+        await ChatParser.parseAndExecuteActions(
+            '不要。[[ACTION:DAIFU_DECLINE]]', 'char-1', '小夏', noopToast,
+            undefined, undefined, 6000,
+        );
+        expect(saveMallOrder).toHaveBeenCalledWith(expect.objectContaining({ id: 'mallorder-2', cancelledAt: 6000 }));
+
+        saveMallOrder.mockClear();
+        getMallOrder.mockResolvedValue({ id: 'mallorder-2', kind: 'shop', total: 20, cancelledAt: 6000 });
+        getMessagesByCharId.mockResolvedValue([
+            { id: 9, type: 'mall_order', role: 'user', timestamp: 1000, metadata: { mode: 'daifu', total: 20, status: 'pending', orderId: 'mallorder-2' } },
+        ]);
+        await ChatParser.parseAndExecuteActions('[[ACTION:DAIFU_DECLINE]]', 'char-1', '小夏', noopToast, undefined, undefined, 7000);
+        expect(saveMallOrder).not.toHaveBeenCalled();
     });
 
     it('[[ACTION:DAIFU_ACCEPT]]：找到待處理請求，調用 onCharDaifuAccept 並把狀態改成 accepted', async () => {
