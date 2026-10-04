@@ -92,6 +92,12 @@ const ACNH_ICON_MAP: Partial<Record<AppID, React.ReactNode>> = {
     <path d="M45 47 Q50 51 55 47" stroke={BROWN} strokeWidth="2.4" fill="none" strokeLinecap="round" />
     <rect x="34" y="62" width="32" height="5" rx="2.5" fill={BROWN} /><rect x="38" y="71" width="24" height="5" rx="2.5" fill="#B7A98C" />
   </>),
+  // 購物中心：奶油色購物袋＋棕色提把，袋口一顆黃色愛心
+  [AppID.Mall]: draw([20, 18, 80, 86], <>
+    <path d="M38 36 C38 22 62 22 62 36" stroke={BROWN} strokeWidth="5" fill="none" strokeLinecap="round" />
+    <path d="M24 36 H76 L80 80 C80 84 77 86 73 86 H27 C23 86 20 84 20 80Z" fill={CREAM} />
+    <path d="M50 70 C42 64 39 59 42 55 C45 51 49 53 50 56 C51 53 55 51 58 55 C61 59 58 64 50 70Z" fill="#F7CD67" />
+  </>),
   [AppID.Bank]: draw([20, 27, 80, 87], <>
     <path d="M37 35 Q50 27 63 35 C77 46 80 67 69 79 C61 87 39 87 31 79 C20 67 23 46 37 35Z" fill={CREAM} />
     <path d="M41 31 L59 31 L55 40 L45 40Z" fill={BROWN} />

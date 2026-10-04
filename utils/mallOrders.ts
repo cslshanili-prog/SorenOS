@@ -160,3 +160,17 @@ export function mallOrderTitle(
     if (o.buyer === 'user') return food ? `你給${charName}點了外賣` : `你送給${charName}的禮物`;
     return food ? `${charName}給你點了外賣` : `${charName}送你的禮物`;
 }
+
+/**
+ * 桌面入口「給誰」能挑的角色：拉黑中的（不管誰拉黑誰）不列——卡片送不進那個聊天。
+ * 名字用角色卡上的 name，順序照角色列表。
+ */
+export function mallRecipientsFrom(characters: { id: string; name: string; chatBlock?: unknown }[]): { id: string; name: string }[] {
+    return characters.filter(c => !c.chatBlock && c.name?.trim()).map(c => ({ id: c.id, name: c.name.trim() }));
+}
+
+/** 用戶付錢時記進銀行流水的那行字（聊天入口、桌面入口共用）。 */
+export function mallSpendLabel(kind: MallKind, charName?: string): string {
+    if (charName) return kind === 'food' ? `為${charName}點了外賣` : `送給${charName}的禮物`;
+    return kind === 'food' ? '給自己點外賣' : '購物';
+}

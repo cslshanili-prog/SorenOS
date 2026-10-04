@@ -39,6 +39,7 @@ import MessageItem, { ThinkingChainBlock } from '../components/chat/MessageItem'
 import McdMiniApp from '../components/mcd/McdMiniApp';
 import LuckinMiniApp from '../components/luckin/LuckinMiniApp';
 import ShoppingMallMiniApp from '../components/mall/ShoppingMallMiniApp';
+import { mallSpendLabel } from '../utils/mallOrders';
 import LuckinLocationModal from '../components/luckin/LuckinLocationModal';
 import LuckinHelpModal from '../components/luckin/LuckinHelpModal';
 import { PRESET_THEMES, DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
@@ -1741,10 +1742,7 @@ const Chat: React.FC = () => {
         }
         if (order.mode === 'gift' || order.mode === 'self') {
             const current = ensureRealBalanceState(userProfileBase.realBalance);
-            const label = order.mode === 'self'
-                ? (order.mallKind === 'food' ? '給自己點外賣' : '購物')
-                : (order.mallKind === 'food' ? `為${char.name}點了外賣` : `送給${char.name}的禮物`);
-            const result = applyRealBalanceDelta(current, -order.total, label);
+            const result = applyRealBalanceDelta(current, -order.total, mallSpendLabel(order.mallKind, order.mode === 'self' ? undefined : char.name));
             if (!result.ok) { addToast(result.reason, 'error'); return false; }
             updateUserProfile({ realBalance: result.state });
         }

@@ -1,6 +1,6 @@
 # 購物中心改版：全螢幕頁＋訂單配送＋角色會主動下單
 
-2026-10-04 跟 Liora 定案。入口目前只有私聊輸入欄「＋」→「購物中心」（`components/mall/ShoppingMallMiniApp.tsx`），從底部彈窗改成全螢幕頁面。
+2026-10-04 跟 Liora 定案。入口是私聊輸入欄「＋」→「購物中心」和桌面的「購物中心」App（第三批加的），同一個頁面 `components/mall/ShoppingMallMiniApp.tsx`，從底部彈窗改成全螢幕。
 
 ## 現況（改之前）
 
@@ -96,4 +96,8 @@
    - 結算抽成 `ChatParser.settleMallCommands`：前台 `parseAndExecuteActions`、背景 `OSContext.runProactive`（跟轉帳共用一組錢包回調）都走它。角色送的單扣角色的錢、落卡、記一筆 `buyer: 'char'` 的訂單。
    - 雲端：`worker/amsg/src/classifier.ts` 的 `SOREN_PASSTHROUGH_TAG_RE` 加了 GIFT／DAIFU_ACCEPT／DAIFU_DECLINE，原樣送回客戶端重放（客戶端那邊早就帶著錢包回調）。`AMSG_BUNDLE_VERSION` 升到 2026-10-04，用戶要按「更新 Worker」才拿得到。
    - 提示詞：「可用動作」的 GIFT 改成新語法，加上什麼時候適合、「說到就要做到」；代付不再只說外賣。
-3. 主畫面 App 入口＋給誰點。
+3. 主畫面 App 入口＋給誰點。（已完成）
+   - `AppID.Mall`（桌面圖示「購物中心」，動森主題有自己的購物袋圖示，其他主題用 Phosphor 的 ShoppingBag），`apps/MallApp.tsx` 包同一個 `ShoppingMallMiniApp`，不傳 `charId` 就是桌面模式。
+   - 給誰：自己＋角色列表（`mallRecipientsFrom`：拉黑中的不列，卡片送不進那個聊天）。沒有代付、沒有手動模擬卡。
+   - 給角色：扣用戶的錢、以用戶訊息把卡片寫進那個角色的私聊（不觸發回覆）；給自己：只記訂單。結帳後留在訂單頁。
+   - 銀行流水那行字兩個入口共用 `mallSpendLabel`。

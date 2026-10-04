@@ -22,6 +22,7 @@ import {
   Globe,
   PenNib,
   PiggyBank,
+  ShoppingBag,
   Compass,
   Camera,
   Sparkle,
@@ -62,6 +63,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Worldbook: ({ className }) => <Globe className={className} weight="regular" />,
   Novel: ({ className }) => <PenNib className={className} weight="regular" />,
   Bank: ({ className }) => <PiggyBank className={className} weight="regular" />,
+  Mall: ({ className }) => <ShoppingBag className={className} weight="regular" />,
   XhsFreeRoam: ({ className }) => <Compass className={className} weight="regular" />,
   XhsStock: ({ className }) => <Camera className={className} weight="regular" />,
   SpecialMoments: ({ className }) => <Sparkle className={className} weight="regular" />,
@@ -94,6 +96,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Date, name: '見面', icon: 'Date', color: 'pink' },
   { id: AppID.User, name: '檔案', icon: 'User', color: 'blue' },
   { id: AppID.Bank, name: '銀行', icon: 'Bank', color: 'lime' }, // 2026-10 取代存錢罐：用戶自己的錢包（Net Worth＋流水）
+  { id: AppID.Mall, name: '購物中心', icon: 'Mall', color: 'slate' }, // 2026-10：私聊「＋」以外的入口，可以給自己或任一角色買
   { id: AppID.Journal, name: '交換日記', icon: 'Journal', color: 'amber' },
   // { id: AppID.Handbook, name: '手帳', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
   { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },
