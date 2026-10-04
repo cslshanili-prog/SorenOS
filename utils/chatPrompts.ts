@@ -1273,14 +1273,16 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
         let timeGapHint = "";
         if (historySlice.length >= 2) {
             const currentMsg = historySlice[historySlice.length - 1];
-            // Skip proactive hint messages when computing time gap — find last REAL message
+            // 「上一則」取時間戳最晚的那則真實訊息，不是排在前面的那一則：視窗照自增 id 排，
+            // 時間戳不一定單調——雲端補收的舊訊息會帶著當初的送出時間落在最後面（2026-10-05
+            // 回報：角色說「系統提示我們 72 天沒聯絡」，72 天正是那則補收訊息的舊時間戳）。
+            // 主動訊息的隱藏提示、和緊跟在提示後面的主動回覆照舊不算。
             let lastRealMsg: Message | undefined;
             for (let i = historySlice.length - 2; i >= 0; i--) {
                 const m = historySlice[i];
-                if (!m.metadata?.proactiveHint && !(m.role === 'assistant' && i > 0 && historySlice[i - 1]?.metadata?.proactiveHint)) {
-                    lastRealMsg = m;
-                    break;
-                }
+                if (m.metadata?.proactiveHint || (m.role === 'assistant' && i > 0 && historySlice[i - 1]?.metadata?.proactiveHint)) continue;
+                if (typeof m.timestamp !== 'number' || m.timestamp > currentMsg.timestamp) continue;
+                if (!lastRealMsg || m.timestamp > lastRealMsg.timestamp) lastRealMsg = m;
             }
             // 時間感知強化開關：默認開啟（undefined 視為 true），顯式關掉後不再注入「距離上次聊天多久」提示
             if (lastRealMsg && currentMsg && char.timeAwarenessEnabled !== false) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
