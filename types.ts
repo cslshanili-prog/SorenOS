@@ -4010,7 +4010,42 @@ export interface MallProduct {
     emoji: string;
     /** 商品/外賣詳情頁裡的說明文字 */
     detail?: string;
+    /** 店鋪／品牌（2026-10 改版起）：商品列表上的一行小字，不分店鋪頁 */
+    shop?: string;
+    /** 列表上那一行短說明；沒有就退回 detail */
+    summary?: string;
+    /** 收藏（「我」裡的收藏清單） */
+    favorite?: boolean;
     createdAt: number;
+}
+
+/**
+ * 購物中心的一筆訂單（v75 mall_orders，見 plans/mall-redesign.md）。配送狀態不存，
+ * 全照 paidAt 算（utils/mallOrders.ts 的 mallOrderProgress），不跑後台。
+ * items 是下單那一刻的快照，商品庫之後怎麼改都不影響。
+ */
+export interface MallOrder {
+    id: string;
+    kind: MallKind;
+    items: { name: string; price: number; qty: number; emoji?: string; shop?: string }[];
+    total: number;
+    /** 給收件人的留言 */
+    note?: string;
+    /** 誰下的單：用戶自己，或角色主動送 */
+    buyer: 'user' | 'char';
+    /** 收件人：用戶自己，或某個角色 */
+    recipient: 'user' | 'char';
+    /** 誰付錢：代付請求是角色付 */
+    payer: 'user' | 'char';
+    /** 牽涉到的角色（給 TA、TA 送的、請 TA 付）；完全給自己、跟角色無關的單沒有 */
+    charId?: string;
+    /** 下單當下的角色名快照（角色之後改名或刪了，訂單照樣看得懂） */
+    charName?: string;
+    createdAt: number;
+    /** 付款時間＝配送起算點；代付還沒付就沒有 */
+    paidAt?: number;
+    /** 代付被拒＝取消 */
+    cancelledAt?: number;
 }
 
 /** 身份卡/真實身份的性別選項，純展示 + 會發給 AI，跟 SimGender（彼方小人）是兩套獨立的枚舉。 */

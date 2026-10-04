@@ -809,7 +809,7 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
    - 轉帳: 必須使用且只使用 \`[[ACTION:TRANSFER|to=user|amount=100]]\`（to 固定寫 user，金額只寫數字）；不要寫成 \`[系統: 你向某人轉帳 100]\` 等系統日誌文本。
    - **處理用戶轉帳**: 當歷史裡出現 \`[[記錄:TRANSFER|to=char|...|status=待處理]]\`（用戶轉給你、還沒處理）時，你可以決定收下或退回。收下: \`[[ACTION:TRANSFER_ACCEPT]]\`；退回: \`[[ACTION:TRANSFER_RETURN]]\`。請結合人設和情境自然選擇（比如害羞地退回、開心地收下），並配上一句話。
    - **主動送禮物/點外賣**: 如果你想給用戶送一份小禮物或點個外賣（購物中心那套系統），單獨起一行輸出: \`[[ACTION:GIFT|item=禮物或菜品名|price=數字|note=可選備註]]\`（item/price 必填，price 只寫數字；note 選填）。這筆錢從你自己的 Real Balance 裡出，量力而為、別亂花，符合你的性格和當下情境就好；如果你手頭緊（餘額不夠），系統會靜默攔下這份禮物，別在正文裡硬湊一句"錢包空了"之類的圓場話——正常往下接話就行。
-   - **處理外賣代付請求**: 當歷史裡出現 \`[[記錄:MALL|...|mode=daifu|...|status=待處理]]\`（用戶在購物中心發起的外賣代付請求，想讓你幫TA付這頓錢）時，你可以決定支付或拒絕。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒絕: \`[[ACTION:DAIFU_DECLINE|reason=簡短原因]]\`（reason 選填，比如"說好的減肥呢"）。請結合人設、當下關係和這筆錢是否值當自然選擇，並配上一句話。購物中心的其它卡片（用戶送的禮物/點的外賣/對方主動買的）都是已經發生的既成事實，純粹讓你知道，不用你處理。
+   - **處理外賣代付請求**: 當歷史裡出現 \`[[記錄:MALL|...|mode=daifu|...|status=待處理]]\`（用戶在購物中心發起的外賣代付請求，想讓你幫TA付這頓錢）時，你可以決定支付或拒絕。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒絕: \`[[ACTION:DAIFU_DECLINE|reason=簡短原因]]\`（reason 選填，比如"說好的減肥呢"）。請結合人設、當下關係和這筆錢是否值當自然選擇，並配上一句話。購物中心的其它卡片（用戶送你的禮物/給你點的外賣、\`mode=self\` 是用戶給自己買的、你送用戶的）都是已經發生的既成事實，純粹讓你知道，不用你處理。
    - **【重要】\`[[記錄:...]]\` 是系統日誌**: 歷史裡以 \`[[記錄:\` 開頭的標籤是已經發生的事實（誰轉給誰、什麼狀態；購物中心卡片什麼狀態），只供你瞭解，**嚴禁**在回覆裡照抄輸出。你要做動作時只能用 \`[[ACTION:...]]\`。
    - 調取記憶: \`[[RECALL: YYYY-MM]]\`，請注意，當用戶提及具體某個月份時，或者當你想仔細想某個月份的事情時，歡迎你隨時使該動作
    - **添加紀念日**: 如果你覺得今天是個值得紀念的日子（或者你們約定了某天），你可以**主動**將它添加到用戶的日曆中。單獨起一行輸出: \`[[ACTION:ADD_EVENT | 標題(Title) | YYYY-MM-DD]]\`。
@@ -1380,7 +1380,7 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                     const mMeta = m.metadata || {};
                     content = `${timeStr} ${formatMallOrderRecord({
                         kind: mMeta.mallKind === 'food' ? 'food' : 'shop',
-                        mode: mMeta.mode === 'daifu' ? 'daifu' : mMeta.mode === 'manual' ? 'manual' : 'gift',
+                        mode: mMeta.mode === 'daifu' || mMeta.mode === 'manual' || mMeta.mode === 'self' ? mMeta.mode : 'gift',
                         items: Array.isArray(mMeta.items) ? mMeta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
                         amount: Number(mMeta.total) || 0,
                         status: mMeta.status === 'pending' || mMeta.status === 'accepted' || mMeta.status === 'declined' ? mMeta.status : 'sent',

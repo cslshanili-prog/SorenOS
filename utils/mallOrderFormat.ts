@@ -20,7 +20,8 @@ export type MallOrderAiEvent =
 
 export interface MallRecordInput {
     kind: 'shop' | 'food';
-    mode: 'gift' | 'daifu' | 'manual';
+    /** gift＝買給對方；self＝用戶買給自己、自己付；daifu＝用戶買給自己、請角色付；manual＝手動模擬的「角色買給用戶」 */
+    mode: 'gift' | 'self' | 'daifu' | 'manual';
     items: { name: string; qty: number }[];
     amount: number;
     status: 'sent' | 'pending' | 'accepted' | 'declined';

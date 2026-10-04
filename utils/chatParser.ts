@@ -419,6 +419,7 @@ export const ChatParser = {
         const resolveMallDaifu = async (action: 'accepted' | 'declined', reason?: string) => {
             let amount: number | undefined;
             let refId: number | undefined;
+            let orderId: string | undefined;
             try {
                 const all = await DB.getMessagesByCharId(charId, true);
                 const pendings = all.filter(
@@ -438,6 +439,7 @@ export const ChatParser = {
                 if (pending) {
                     amount = Number(pending.metadata?.total);
                     refId = pending.id;
+                    orderId = typeof pending.metadata?.orderId === 'string' ? pending.metadata.orderId : undefined;
                 }
             } catch (e) {
                 console.warn('[MallDaifu] 查待處理代付請求失敗，跳過:', e);
@@ -457,12 +459,25 @@ export const ChatParser = {
                     console.warn('[MallDaifu] 角色 Real Balance 不足，代付請求自動改判拒絕:', { charId, amount });
                 }
             }
+            // 付款那一刻＝配送起算點（卡片和訂單頁都照它算進度，見 utils/mallOrders.ts）
+            const resolvedAt = messageTimestamp ?? Date.now();
             await DB.updateMessageMetadata(refId, (prev) => ({
                 ...(prev || {}),
                 status: finalAction,
                 ...(finalReason ? { declineReason: finalReason } : {}),
+                ...(finalAction === 'accepted' ? { paidAt: resolvedAt } : {}),
                 resolvedAt: Date.now(),
             }));
+            if (orderId) {
+                try {
+                    const order = await DB.getMallOrder(orderId);
+                    if (order && !order.paidAt && !order.cancelledAt) {
+                        await DB.saveMallOrder(finalAction === 'accepted' ? { ...order, paidAt: resolvedAt } : { ...order, cancelledAt: resolvedAt });
+                    }
+                } catch (e) {
+                    console.warn('[MallDaifu] 同步訂單失敗，卡片照樣結算:', e);
+                }
+            }
         };
 
         // MALL — 購物中心的 GIFT send / DAIFU accept-decline，見 utils/mallOrderFormat.ts。

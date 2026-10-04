@@ -1,224 +1,300 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { formatMoney } from '../../utils/realBalance';
-import { DB } from '../../utils/db';
+import { ArrowClockwise, CaretLeft, House, MagnifyingGlass, Plus, Receipt, ShoppingCart, User, X } from '@phosphor-icons/react';
 import Modal from '../os/Modal';
-import type { MallCategory, MallProduct, MallKind, APIConfig, ApiPreset } from '../../types';
+import { DB } from '../../utils/db';
+import type { APIConfig, ApiPreset, MallCategory, MallKind, MallOrder, MallProduct } from '../../types';
 import {
-    buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
-    resolveCartLines, cartTotal, addToCart, removeFromCart, MallCartLine,
-    buildMallRestockPrompt, parseMallRestockItems,
+    MALL_CATALOG_VERSION, MALL_CATALOG_VERSION_KEY, addToCart, cartCount, cartTotal, createMallCategory,
+    createMallProduct, planMallCatalogUpgrade, removeFromCart, resolveCartLines, type MallCartLine,
 } from '../../utils/shoppingMall';
-import { getMallApi, setMallApi, resolveMallApi } from '../../utils/mallApi';
-import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
+import { buildMallRestockPrompt, parseMallRestockBlocks } from '../../utils/mallRestock';
+import { createMallOrder, sortMallOrders } from '../../utils/mallOrders';
+import { getMallApi, resolveMallApi, setMallApi } from '../../utils/mallApi';
+import { extractContent, safeResponseJson } from '../../utils/safeApi';
 import { shareOrDownloadFile } from '../../utils/shareExport';
+import { trackEvent } from '../../utils/analytics';
 import type { MallOrderItem } from '../chat/MallOrderCard';
-import {
-    CaretLeft, Plus, Minus, Trash, ShoppingCart, PaperPlaneTilt, Gift, PencilSimple,
-} from '@phosphor-icons/react';
+import { Segmented, primaryBtn, secondaryBtn } from './MallParts';
+import MallHome, { CAT_ALL, CAT_PICKS } from './MallHome';
+import MallCart, { type CartPayer, type CartRecipient } from './MallCart';
+import MallOrders from './MallOrders';
+import MallMe from './MallMe';
+import MallProductSheet, { type ProductDraft, type ProductSheetTarget } from './MallProductSheet';
+import MallCategoryManager from './MallCategoryManager';
 
+/**
+ * 購物中心（2026-10 改版：全螢幕頁＋訂單配送，見 plans/mall-redesign.md）。
+ *
+ * mode：
+ * - gift：用戶付錢買給角色
+ * - self：用戶付錢買給自己
+ * - daifu：買給自己、請角色付（角色在回覆裡 DAIFU_ACCEPT／DECLINE）
+ * - manual：手動模擬「角色買給我的」，不動錢、不觸發回覆
+ */
 export interface MallSendOrderInput {
     mallKind: MallKind;
-    mode: 'gift' | 'daifu' | 'manual';
+    mode: 'gift' | 'self' | 'daifu' | 'manual';
     items: MallOrderItem[];
     note?: string;
     total: number;
-    title?: string;
+    /** 對應 mall_orders 裡那一筆；卡片和代付結算靠它找回訂單 */
+    orderId?: string;
+    /** 付款時間＝配送起算點；代付還沒付就沒有 */
+    paidAt?: number;
 }
 
 interface ShoppingMallMiniAppProps {
     open: boolean;
     onClose: () => void;
+    charId: string;
     charName: string;
-    onSendOrder: (order: MallSendOrderInput) => void;
+    /** 用戶自己的 Real Balance 餘額（結帳從這裡扣） */
+    userBalance: number;
+    /** 落卡＋扣款；回 false 表示沒成功（例如餘額不夠），這邊就不留訂單 */
+    onSendOrder: (order: MallSendOrderInput) => Promise<boolean> | boolean;
     addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
-    /** 聊天默認 API，購物中心沒有獨立配置時跟隨這個。 */
+    /** 聊天預設 API，購物中心沒有獨立配置時跟隨這個。 */
     apiConfig: APIConfig;
     apiPresets: ApiPreset[];
 }
 
-const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charName, onSendOrder, addToast, apiConfig, apiPresets }) => {
-    const [tab, setTab] = useState<MallKind>('shop');
+type Tab = 'home' | 'cart' | 'orders' | 'me';
+
+const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charId, charName, userBalance, onSendOrder, addToast, apiConfig, apiPresets }) => {
+    const [kind, setKind] = useState<MallKind>('food');
+    const [tab, setTab] = useState<Tab>('home');
     const [categories, setCategories] = useState<MallCategory[]>([]);
     const [products, setProducts] = useState<MallProduct[]>([]);
+    const [orders, setOrders] = useState<MallOrder[]>([]);
     const [loaded, setLoaded] = useState(false);
-    const [activeCategoryId, setActiveCategoryId] = useState<string>('all');
+    const [activeCat, setActiveCat] = useState<Record<MallKind, string>>({ food: CAT_ALL, shop: CAT_ALL });
+    const [query, setQuery] = useState('');
     const [carts, setCarts] = useState<Record<MallKind, MallCartLine[]>>({ shop: [], food: [] });
+    const [recipient, setRecipient] = useState<CartRecipient>('char');
+    const [payer, setPayer] = useState<CartPayer>('user');
     const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [restocking, setRestocking] = useState(false);
+    const [sheet, setSheet] = useState<ProductSheetTarget | null>(null);
+    const [showPlus, setShowPlus] = useState(false);
+    const [showCats, setShowCats] = useState(false);
+    const [now, setNow] = useState(() => Date.now());
 
-    const [showAddCategory, setShowAddCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
-
-    const [showManage, setShowManage] = useState(false);
-
-    const [showAddProduct, setShowAddProduct] = useState(false);
-    const [newProductName, setNewProductName] = useState('');
-    const [newProductPrice, setNewProductPrice] = useState('');
-    const [newProductEmoji, setNewProductEmoji] = useState('');
-    const [newProductDetail, setNewProductDetail] = useState('');
-
-    const [showManualCard, setShowManualCard] = useState(false);
-    const [manualName, setManualName] = useState('');
-    const [manualPrice, setManualPrice] = useState('');
-    const [manualNote, setManualNote] = useState('');
-
-    // 獨立 API（AI 補貨用，null = 跟隨聊天默認），跟 utils/checkPhoneApi.ts 同一個路數。
-    const [mallApiConfig, setMallApiConfigState] = useState<APIConfig | null>(() => getMallApi());
+    const [mallApi, setMallApiState] = useState<APIConfig | null>(() => getMallApi());
     useEffect(() => {
-        const sync = () => setMallApiConfigState(getMallApi());
+        const sync = () => setMallApiState(getMallApi());
         window.addEventListener('mall-api-changed', sync);
         return () => window.removeEventListener('mall-api-changed', sync);
     }, []);
-    const effectiveApiConfig = resolveMallApi(mallApiConfig, apiConfig);
-    const [showApiModal, setShowApiModal] = useState(false);
-    const [restocking, setRestocking] = useState(false);
 
-    // 本地導入導出（數據）
-    const [showDataModal, setShowDataModal] = useState(false);
-    const importInputRef = React.useRef<HTMLInputElement>(null);
-
-    // 首次打開才拉取；某個 kind 還沒有分類時現場生成默認分類 + 種子商品並落庫，
-    // 不在每次打開都重複播種（categories 非空就說明種過了）。
+    // 目錄只在第一次打開時讀＋搬遷；訂單每次打開都重讀（代付在聊天裡結算會改到它）
     useEffect(() => {
-        if (!open || loaded) return;
+        if (!open) return;
+        DB.getAllMallOrders().then(setOrders).catch(e => console.warn('[Mall] 讀訂單失敗:', e));
+        if (loaded) return;
         (async () => {
             let [cats, prods] = await Promise.all([DB.getAllMallCategories(), DB.getAllMallProducts()]);
-            const missingKinds: MallKind[] = (['shop', 'food'] as MallKind[]).filter(k => !cats.some(c => c.kind === k));
-            if (missingKinds.length > 0) {
-                const newCats: MallCategory[] = [];
-                const newProds: MallProduct[] = [];
-                for (const k of missingKinds) {
-                    const seededCats = buildDefaultCategories(k);
-                    const seededProds = buildSeedProducts(k, seededCats);
-                    newCats.push(...seededCats);
-                    newProds.push(...seededProds);
-                }
+            let version = 0;
+            try { version = Number(localStorage.getItem(MALL_CATALOG_VERSION_KEY)) || 0; } catch { /* 無痕模式 */ }
+            if (version < MALL_CATALOG_VERSION) {
+                const plan = planMallCatalogUpgrade(cats, prods);
                 await Promise.all([
-                    ...newCats.map(c => DB.saveMallCategory(c)),
-                    ...newProds.map(p => DB.saveMallProduct(p)),
+                    ...plan.deleteProductIds.map(id => DB.deleteMallProduct(id)),
+                    ...plan.deleteCategoryIds.map(id => DB.deleteMallCategory(id)),
+                    ...plan.addCategories.map(c => DB.saveMallCategory(c)),
+                    ...plan.addProducts.map(p => DB.saveMallProduct(p)),
                 ]);
-                cats = [...cats, ...newCats];
-                prods = [...prods, ...newProds];
+                const delP = new Set(plan.deleteProductIds);
+                const delC = new Set(plan.deleteCategoryIds);
+                cats = [...cats.filter(c => !delC.has(c.id)), ...plan.addCategories];
+                prods = [...prods.filter(p => !delP.has(p.id)), ...plan.addProducts];
+                try { localStorage.setItem(MALL_CATALOG_VERSION_KEY, String(MALL_CATALOG_VERSION)); } catch { /* 無痕模式 */ }
             }
             setCategories(cats);
             setProducts(prods);
             setLoaded(true);
-        })();
+        })().catch(e => { console.warn('[Mall] 讀目錄失敗:', e); setLoaded(true); });
     }, [open, loaded]);
 
-    const tabCategories = useMemo(
-        () => categories.filter(c => c.kind === tab).sort((a, b) => a.order - b.order),
-        [categories, tab],
-    );
-    const tabProducts = useMemo(() => products.filter(p => p.kind === tab), [products, tab]);
-    const visibleProducts = useMemo(
-        () => activeCategoryId === 'all' ? tabProducts : tabProducts.filter(p => p.categoryId === activeCategoryId),
-        [tabProducts, activeCategoryId],
-    );
-    const cart = carts[tab];
-    const cartLines = useMemo(() => resolveCartLines(cart, tabProducts), [cart, tabProducts]);
-    const total = useMemo(() => cartTotal(cart, tabProducts), [cart, tabProducts]);
+    // 配送狀態照時間推進：頁面開著時每 15 秒刷新一次「現在」
+    useEffect(() => {
+        if (!open) return;
+        setNow(Date.now());
+        const t = window.setInterval(() => setNow(Date.now()), 15_000);
+        return () => window.clearInterval(t);
+    }, [open]);
 
-    const switchTab = (next: MallKind) => { setTab(next); setActiveCategoryId('all'); };
+    const kindCats = useMemo(() => categories.filter(c => c.kind === kind).sort((a, b) => a.order - b.order), [categories, kind]);
+    const kindProducts = useMemo(() => {
+        const order = new Map(kindCats.map((c, i) => [c.id, i] as const));
+        return products.filter(p => p.kind === kind && order.has(p.categoryId))
+            .sort((a, b) => (order.get(a.categoryId)! - order.get(b.categoryId)!) || a.createdAt - b.createdAt);
+    }, [products, kind, kindCats]);
+    const cart = carts[kind];
+    const cartLines = useMemo(() => resolveCartLines(cart, kindProducts), [cart, kindProducts]);
+    const total = useMemo(() => cartTotal(cart, kindProducts), [cart, kindProducts]);
+    const kindOrders = useMemo(() => sortMallOrders(orders.filter(o => o.kind === kind)), [orders, kind]);
+    const cat = kindCats.some(c => c.id === activeCat[kind]) || activeCat[kind] === CAT_PICKS ? activeCat[kind] : CAT_ALL;
+    const cartQty = (id: string) => cart.find(l => l.productId === id)?.qty ?? 0;
 
-    const handleAddToCart = (productId: string) => setCarts(prev => ({ ...prev, [tab]: addToCart(prev[tab], productId) }));
-    const handleRemoveFromCart = (productId: string) => setCarts(prev => ({ ...prev, [tab]: removeFromCart(prev[tab], productId) }));
+    const addOne = (p: MallProduct) => setCarts(prev => ({ ...prev, [p.kind]: addToCart(prev[p.kind], p.id) }));
+    const decOne = (id: string) => setCarts(prev => ({ ...prev, [kind]: removeFromCart(prev[kind], id) }));
+    const incOne = (id: string) => setCarts(prev => ({ ...prev, [kind]: addToCart(prev[kind], id) }));
 
-    const handleCreateCategory = async () => {
-        const order = tabCategories.length;
-        const cat = createMallCategory(tab, newCategoryName, order);
-        await DB.saveMallCategory(cat);
-        setCategories(prev => [...prev, cat]);
-        setActiveCategoryId(cat.id);
-        setNewCategoryName('');
-        setShowAddCategory(false);
-        addToast('已新增分類', 'success');
+    // ─── 商品 ───
+    const saveProduct = async (existing: MallProduct | null, d: ProductDraft) => {
+        const price = parseFloat(d.price);
+        const fields = { name: d.name, price, emoji: d.emoji, detail: d.detail, shop: d.shop, summary: d.summary };
+        const fresh = createMallProduct(kind, d.categoryId, fields);
+        const next: MallProduct = existing
+            ? { ...existing, ...fresh, id: existing.id, createdAt: existing.createdAt, favorite: existing.favorite }
+            : fresh;
+        await DB.saveMallProduct(next);
+        setProducts(prev => existing ? prev.map(p => p.id === next.id ? next : p) : [...prev, next]);
+        setSheet(existing ? { mode: 'view', product: next } : null);
+        addToast(existing ? '已儲存' : '已新增', 'success');
+    };
+    const deleteProduct = async (p: MallProduct) => {
+        await DB.deleteMallProduct(p.id);
+        setProducts(prev => prev.filter(x => x.id !== p.id));
+        setCarts(prev => ({ shop: prev.shop.filter(l => l.productId !== p.id), food: prev.food.filter(l => l.productId !== p.id) }));
+        setSheet(null);
+        addToast('已刪除', 'success');
+    };
+    const toggleFavorite = async (p: MallProduct) => {
+        const next = { ...p, favorite: !p.favorite };
+        await DB.saveMallProduct(next);
+        setProducts(prev => prev.map(x => x.id === p.id ? next : x));
+        setSheet(s => (s && s.mode === 'view' && s.product.id === p.id ? { mode: 'view', product: next } : s));
     };
 
-    const handleDeleteCategory = async (id: string) => {
-        const hasProducts = products.some(p => p.categoryId === id);
-        if (hasProducts) { addToast('分類裡還有商品，先清空或移走再刪除', 'error'); return; }
-        await DB.deleteMallCategory(id);
-        setCategories(prev => prev.filter(c => c.id !== id));
-        if (activeCategoryId === id) setActiveCategoryId('all');
-        addToast('已刪除分類', 'success');
+    // ─── 分類 ───
+    const createCategory = async (name: string) => {
+        const c = createMallCategory(kind, name, kindCats.reduce((m, x) => Math.max(m, x.order + 1), 0));
+        await DB.saveMallCategory(c);
+        setCategories(prev => [...prev, c]);
+    };
+    const renameCategory = async (c: MallCategory, name: string) => {
+        const next = { ...c, name };
+        await DB.saveMallCategory(next);
+        setCategories(prev => prev.map(x => x.id === c.id ? next : x));
+    };
+    const moveCategory = async (c: MallCategory, dir: -1 | 1) => {
+        const list = [...kindCats];
+        const i = list.findIndex(x => x.id === c.id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= list.length) return;
+        [list[i], list[j]] = [list[j], list[i]];
+        const renumbered = list.map((x, idx) => ({ ...x, order: idx }));
+        await Promise.all(renumbered.map(x => DB.saveMallCategory(x)));
+        const byId = new Map(renumbered.map(x => [x.id, x] as const));
+        setCategories(prev => prev.map(x => byId.get(x.id) ?? x));
+    };
+    const deleteCategory = async (c: MallCategory) => {
+        const inside = products.filter(p => p.categoryId === c.id);
+        await Promise.all([...inside.map(p => DB.deleteMallProduct(p.id)), DB.deleteMallCategory(c.id)]);
+        const gone = new Set(inside.map(p => p.id));
+        setProducts(prev => prev.filter(p => !gone.has(p.id)));
+        setCategories(prev => prev.filter(x => x.id !== c.id));
+        setCarts(prev => ({ shop: prev.shop.filter(l => !gone.has(l.productId)), food: prev.food.filter(l => !gone.has(l.productId)) }));
+        addToast(inside.length ? `已刪除分類和 ${inside.length} 件商品` : '已刪除分類', 'success');
     };
 
-    const handleCreateProduct = async () => {
-        const categoryId = activeCategoryId !== 'all' ? activeCategoryId : tabCategories[0]?.id;
-        if (!categoryId) { addToast('先新增一個分類', 'info'); return; }
-        const price = parseFloat(newProductPrice) || 0;
-        const product = createMallProduct(tab, categoryId, { name: newProductName, price, emoji: newProductEmoji, detail: newProductDetail });
-        await DB.saveMallProduct(product);
-        setProducts(prev => [...prev, product]);
-        setNewProductName(''); setNewProductPrice(''); setNewProductEmoji(''); setNewProductDetail('');
-        setShowAddProduct(false);
-        addToast('已添加商品', 'success');
-    };
-
-    const handleDeleteProduct = async (id: string) => {
-        await DB.deleteMallProduct(id);
-        setProducts(prev => prev.filter(p => p.id !== id));
-        setCarts(prev => ({ shop: prev.shop.filter(l => l.productId !== id), food: prev.food.filter(l => l.productId !== id) }));
-        addToast('已刪除商品', 'success');
-    };
-
-    // AI 補貨：照 apps/CheckPhone.tsx handleGenerate 的骨架——prompt（帶防重複提示）→
-    // 裸 fetch chat/completions → extractContent/extractJson 容錯解析 → 逐條落庫。
-    // 按當前選中的分類生成；選的是"全部"就用當前 tab 的第一個分類。
-    const handleAiRestock = async () => {
-        if (!effectiveApiConfig?.baseUrl || !effectiveApiConfig?.apiKey) {
-            addToast('先在"API"裡配置好補貨用的 API', 'info');
-            return;
-        }
-        const categoryId = activeCategoryId !== 'all' ? activeCategoryId : tabCategories[0]?.id;
-        const category = tabCategories.find(c => c.id === categoryId);
-        if (!category) { addToast('先新增一個分類', 'info'); return; }
-
+    // ─── ⟳ AI 補貨：選在某個分類就只補那類，否則當前購物／外賣的每個分類都補 ───
+    const restock = async () => {
+        const api = resolveMallApi(mallApi, apiConfig);
+        if (!api?.baseUrl || !api?.apiKey) { addToast('先在 Me → 設定 選好補貨用的 API', 'info'); return; }
+        const targets = kindCats.filter(c => cat === CAT_ALL || cat === CAT_PICKS || c.id === cat);
+        if (targets.length === 0) { addToast('先新增一個分類', 'info'); return; }
         setRestocking(true);
+        const scope = targets.length === 1 && cat !== CAT_ALL && cat !== CAT_PICKS ? '单一分类' : '全部分类';
+        let ok = false;
         try {
-            const existingInCategory = tabProducts.filter(p => p.categoryId === category.id);
-            const prompt = buildMallRestockPrompt(tab, category.name, existingInCategory);
-            const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const prompt = buildMallRestockPrompt(kind, targets.map(c => ({
+                category: c, existingNames: kindProducts.filter(p => p.categoryId === c.id).map(p => p.name),
+            })));
+            const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiConfig.apiKey}` },
-                body: JSON.stringify({
-                    model: effectiveApiConfig.model,
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.9,
-                }),
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
+                body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
             });
             if (!response.ok) throw new Error(`API Error ${response.status}`);
-            const data = await safeResponseJson(response);
-            const content = extractContent(data);
-            const json = extractJson(content) || [];
-            const newProducts = parseMallRestockItems(tab, category.id, json);
-            if (newProducts.length === 0) { addToast('這次沒解析出商品，換個分類再試試', 'error'); return; }
-            await Promise.all(newProducts.map(p => DB.saveMallProduct(p)));
-            setProducts(prev => [...prev, ...newProducts]);
-            addToast(`補了 ${newProducts.length} 件商品`, 'success');
+            const content = extractContent(await safeResponseJson(response));
+            const fresh = parseMallRestockBlocks(content, kind, kindCats, products);
+            if (fresh.length === 0) { addToast('這次沒解析出商品，再按一次試試', 'error'); return; }
+            await Promise.all(fresh.map(p => DB.saveMallProduct(p)));
+            setProducts(prev => [...prev, ...fresh]);
+            addToast(`補了 ${fresh.length} 件`, 'success');
+            ok = true;
         } catch (e) {
             console.warn('[Mall] AI 補貨失敗:', e);
             addToast('補貨失敗，稍後再試', 'error');
         } finally {
             setRestocking(false);
+            trackEvent('购物中心AI补货', { 范围: scope, 结果: ok ? '成功' : '失败' });
         }
     };
 
-    // 本地導入導出：跟世界書 apps/WorldbookApp.tsx 的按分類導出同一個路數，獨立於全局設置的
-    // 導入導出——只導出/導入購物中心自己的分類+商品，不影響別的東西。落盤統一走
-    // shareOrDownloadFile（原生分享 / Web 分享 / 瀏覽器下載三級兜底），不直接碰 anchor.download。
-    const handleExportCatalog = async () => {
-        const payload = {
-            exportedAt: Date.now(),
-            categories: categories.map(({ id, kind, name, order }) => ({ id, kind, name, order })),
-            products: products.map(({ id, kind, categoryId, name, price, emoji, detail }) => ({ id, kind, categoryId, name, price, emoji, detail })),
-        };
+    // ─── 結帳：先存訂單（代付結算要靠 orderId 找回它），落卡失敗就把訂單刪掉 ───
+    const checkout = async () => {
+        if (cartLines.length === 0 || busy) return;
+        const daifu = recipient === 'user' && payer === 'char';
+        const items: MallOrderItem[] = cartLines.map(l => ({
+            name: l.product.name, price: l.product.price, qty: l.qty, emoji: l.product.emoji, shop: l.product.shop,
+        }));
+        const paidAt = daifu ? undefined : Date.now();
+        const order = createMallOrder({
+            kind, items: items.map(({ name, price, qty, emoji, shop }) => ({ name, price, qty, emoji, shop })), note,
+            buyer: 'user', recipient: recipient === 'char' ? 'char' : 'user', payer: daifu ? 'char' : 'user',
+            charId, charName, paidAt, createdAt: paidAt,
+        });
+        setBusy(true);
+        try {
+            await DB.saveMallOrder(order);
+            const ok = await onSendOrder({
+                mallKind: kind, mode: daifu ? 'daifu' : recipient === 'char' ? 'gift' : 'self',
+                items, note: order.note, total: order.total, orderId: order.id, paidAt,
+            });
+            if (!ok) { await DB.deleteMallOrder(order.id); return; }
+            setOrders(prev => [...prev, order]);
+            setCarts(prev => ({ ...prev, [kind]: [] }));
+            setNote('');
+            onClose();
+        } catch (e) {
+            console.warn('[Mall] 結帳失敗:', e);
+            addToast('結帳失敗，稍後再試', 'error');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const manualCard = async (input: { name: string; price: number; note: string }) => {
+        const paidAt = Date.now();
+        const items: MallOrderItem[] = [{ name: input.name, price: input.price, qty: 1, emoji: kind === 'food' ? '🍽️' : '🎁' }];
+        const order = createMallOrder({
+            kind, items, note: input.note, buyer: 'char', recipient: 'user', payer: 'char', charId, charName, paidAt, createdAt: paidAt,
+        });
+        await DB.saveMallOrder(order);
+        const ok = await onSendOrder({ mallKind: kind, mode: 'manual', items, note: order.note, total: order.total, orderId: order.id, paidAt });
+        if (!ok) { await DB.deleteMallOrder(order.id); return; }
+        setOrders(prev => [...prev, order]);
+        onClose();
+    };
+
+    const deleteOrder = async (o: MallOrder) => {
+        await DB.deleteMallOrder(o.id);
+        setOrders(prev => prev.filter(x => x.id !== o.id));
+        addToast('已刪除訂單紀錄', 'success');
+    };
+
+    // ─── 資料導入導出（只管購物中心自己的東西，不進全局備份）───
+    const exportData = async () => {
         try {
             await shareOrDownloadFile({
-                content: JSON.stringify(payload, null, 2),
+                content: JSON.stringify({ exportedAt: Date.now(), version: 2, categories, products, orders }, null, 2),
                 fileName: `購物中心-${new Date().toISOString().slice(0, 10)}.json`,
                 mimeType: 'application/json',
-                shareTitle: '購物中心數據',
+                shareTitle: '購物中心資料',
             });
             addToast('已導出', 'success');
         } catch (e) {
@@ -226,311 +302,143 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             addToast('導出失敗', 'error');
         }
     };
-
-    const handleImportFile = async (file: File) => {
+    const importData = async (file: File) => {
         try {
-            const text = await file.text();
-            const parsed = JSON.parse(text);
-            const importedCategories: MallCategory[] = Array.isArray(parsed?.categories) ? parsed.categories : [];
-            const importedProducts: MallProduct[] = Array.isArray(parsed?.products) ? parsed.products : [];
-            if (importedCategories.length === 0 && importedProducts.length === 0) {
-                addToast('這個文件裡沒有可導入的內容', 'error');
-                return;
-            }
-            // id 衝突（比如重複導入同一份）就跳過已存在的，不覆蓋本地已有數據。
-            const existingCatIds = new Set(categories.map(c => c.id));
-            const existingProdIds = new Set(products.map(p => p.id));
-            const catsToAdd = importedCategories.filter(c => c?.id && c?.kind && c?.name && !existingCatIds.has(c.id));
-            const prodsToAdd = importedProducts.filter(p => p?.id && p?.kind && p?.categoryId && p?.name && !existingProdIds.has(p.id));
-            await Promise.all([
-                ...catsToAdd.map(c => DB.saveMallCategory(c)),
-                ...prodsToAdd.map(p => DB.saveMallProduct(p)),
-            ]);
-            setCategories(prev => [...prev, ...catsToAdd]);
-            setProducts(prev => [...prev, ...prodsToAdd]);
-            addToast(`已導入 ${catsToAdd.length} 個分類、${prodsToAdd.length} 件商品`, 'success');
+            const parsed = JSON.parse(await file.text());
+            const isKind = (k: unknown) => k === 'shop' || k === 'food';
+            const catIds = new Set(categories.map(c => c.id));
+            const prodIds = new Set(products.map(p => p.id));
+            const orderIds = new Set(orders.map(o => o.id));
+            const cats: MallCategory[] = (Array.isArray(parsed?.categories) ? parsed.categories : [])
+                .filter((c: any) => c?.id && isKind(c?.kind) && c?.name && !catIds.has(c.id));
+            const prods: MallProduct[] = (Array.isArray(parsed?.products) ? parsed.products : [])
+                .filter((p: any) => p?.id && isKind(p?.kind) && p?.categoryId && p?.name && !prodIds.has(p.id));
+            const ords: MallOrder[] = (Array.isArray(parsed?.orders) ? parsed.orders : [])
+                .filter((o: any) => o?.id && isKind(o?.kind) && Array.isArray(o?.items) && !orderIds.has(o.id));
+            if (cats.length + prods.length + ords.length === 0) { addToast('沒有可導入的新內容', 'info'); return; }
+            await Promise.all([...cats.map(c => DB.saveMallCategory(c)), ...prods.map(p => DB.saveMallProduct(p)), ...ords.map(o => DB.saveMallOrder(o))]);
+            setCategories(prev => [...prev, ...cats]);
+            setProducts(prev => [...prev, ...prods]);
+            setOrders(prev => [...prev, ...ords]);
+            addToast(`已導入 ${cats.length} 個分類、${prods.length} 件商品、${ords.length} 筆訂單`, 'success');
         } catch (e) {
             console.warn('[Mall] 導入失敗:', e);
-            addToast('文件格式不對，導入失敗', 'error');
+            addToast('檔案格式不對，導入失敗', 'error');
         }
-    };
-
-    const cartAsOrderItems = (): MallOrderItem[] => cartLines.map(l => ({
-        name: l.product.name, price: l.product.price, qty: l.qty, emoji: l.product.emoji, detail: l.product.detail,
-    }));
-
-    const clearCartAndNote = () => { setCarts(prev => ({ ...prev, [tab]: [] })); setNote(''); };
-
-    const handleSendGift = () => {
-        if (cartLines.length === 0) { addToast('購物車還是空的', 'info'); return; }
-        onSendOrder({ mallKind: tab, mode: 'gift', items: cartAsOrderItems(), note: note.trim() || undefined, total });
-        clearCartAndNote();
-        onClose();
-    };
-
-    const handleSendReceipt = () => {
-        if (cartLines.length === 0) { addToast('購物車還是空的', 'info'); return; }
-        onSendOrder({
-            mallKind: tab, mode: 'gift', items: cartAsOrderItems(), note: note.trim() || undefined, total,
-            title: tab === 'food' ? '你的外賣小票' : '你的購物小票',
-        });
-        clearCartAndNote();
-        onClose();
-    };
-
-    const handleSendDaifuRequest = () => {
-        if (cartLines.length === 0) { addToast('外賣籃還是空的', 'info'); return; }
-        onSendOrder({ mallKind: tab, mode: 'daifu', items: cartAsOrderItems(), note: note.trim() || undefined, total });
-        clearCartAndNote();
-        onClose();
-    };
-
-    const handleSendManual = () => {
-        const price = parseFloat(manualPrice) || 0;
-        if (!manualName.trim()) { addToast('先填商品名', 'info'); return; }
-        onSendOrder({
-            mallKind: tab, mode: 'manual', total: price,
-            items: [{ name: manualName.trim(), price, qty: 1, emoji: tab === 'food' ? '🍽️' : '🎁' }],
-            note: manualNote.trim() || undefined,
-        });
-        setManualName(''); setManualPrice(''); setManualNote('');
-        setShowManualCard(false);
-        onClose();
     };
 
     if (!open) return null;
 
+    const switchKind = (k: MallKind) => { setKind(k); setQuery(''); };
+    const totalInCarts = cartCount(cart);
+
     return (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end justify-center" style={{ paddingBottom: 'var(--safe-bottom)' }} onClick={onClose}>
-            <div className="w-full max-w-md h-[88vh] bg-slate-50 rounded-t-[1.75rem] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                {/* Header */}
-                <div className="shrink-0 bg-white border-b border-slate-100">
-                    <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                        <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-xl bg-rose-100 flex items-center justify-center text-sm">🛍️</div>
-                            <span className="text-[15px] font-bold text-slate-800">購物中心</span>
-                            <button onClick={onClose} className="text-[11px] text-slate-400 px-1.5 py-0.5 rounded-full border border-slate-200">關</button>
+        <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="shrink-0 bg-white border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                    <button onClick={onClose} className="p-1.5 rounded-full active:bg-slate-100" aria-label="返回聊天">
+                        <CaretLeft size={22} className="text-slate-800" />
+                    </button>
+                    <div className="text-[16px] font-black text-slate-900 flex-1 min-w-0 truncate">購物中心</div>
+                    <div className="w-[118px] shrink-0">
+                        <Segmented size="sm" value={kind} onChange={switchKind} options={[{ value: 'shop', label: '購物' }, { value: 'food', label: '外賣' }]} />
+                    </div>
+                    {tab === 'home' && (
+                        <button onClick={restock} disabled={restocking} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-700 active:bg-slate-100 disabled:opacity-60" aria-label="AI 補貨">
+                            <ArrowClockwise size={19} weight="bold" className={restocking ? 'animate-spin' : ''} />
+                        </button>
+                    )}
+                </div>
+                {tab === 'home' && (
+                    <>
+                        <div className="px-4 pb-2">
+                            <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3.5 py-2">
+                                <MagnifyingGlass size={15} className="text-slate-400 shrink-0" />
+                                <input value={query} onChange={e => setQuery(e.target.value)} placeholder={`搜尋${kind === 'food' ? '外賣' : '商品'}、品牌`}
+                                    className="flex-1 min-w-0 bg-transparent text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none" />
+                                {query && <button onClick={() => setQuery('')} className="text-slate-400" aria-label="清除"><X size={14} weight="bold" /></button>}
+                            </div>
                         </div>
-                        <div className="flex bg-slate-100 rounded-full p-0.5">
-                            {(['shop', 'food'] as MallKind[]).map(k => (
-                                <button key={k} onClick={() => switchTab(k)}
-                                    className={`px-3 py-1 rounded-full text-[12px] font-bold transition-colors ${tab === k ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>
-                                    {k === 'shop' ? '購物' : '外賣'}
+                        <div className="flex items-center gap-1.5 px-4 pb-2.5 overflow-x-auto no-scrollbar">
+                            {[{ id: CAT_ALL, name: '全部' }, { id: CAT_PICKS, name: '推薦' }, ...kindCats].map(c => (
+                                <button key={c.id} onClick={() => { setActiveCat(prev => ({ ...prev, [kind]: c.id })); setQuery(''); }}
+                                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-colors ${cat === c.id && !query ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    {c.name}
                                 </button>
                             ))}
-                        </div>
-                        <button onClick={onClose} className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50">✕</button>
-                    </div>
-
-                    {/* 分類行 */}
-                    <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto no-scrollbar">
-                        <button onClick={() => setActiveCategoryId('all')}
-                            className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold ${activeCategoryId === 'all' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                            全部
-                        </button>
-                        {tabCategories.map(c => (
-                            <button key={c.id} onClick={() => setActiveCategoryId(c.id)}
-                                className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold ${activeCategoryId === c.id ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                                {c.name}
+                            <button onClick={() => setShowPlus(true)} className="shrink-0 w-8 h-8 rounded-full border border-dashed border-slate-300 text-slate-500 flex items-center justify-center" aria-label="新增商品或管理分類">
+                                <Plus size={13} weight="bold" />
                             </button>
-                        ))}
-                        <button onClick={() => setShowAddCategory(true)} className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold bg-slate-50 text-slate-400 border border-dashed border-slate-200">
-                            +分類
-                        </button>
-                    </div>
-
-                    {/* 工具欄 */}
-                    <div className="flex items-center gap-4 px-4 pb-2.5 text-[11px] text-slate-400">
-                        <button onClick={() => setShowApiModal(true)}>API</button>
-                        <button onClick={() => setShowDataModal(true)}>數據</button>
-                        <button onClick={handleAiRestock} disabled={restocking} className="text-rose-400 font-bold disabled:opacity-50">
-                            {restocking ? '補貨中…' : '✦ AI補貨'}
-                        </button>
-                        <button onClick={() => setShowManage(true)}>管理</button>
-                        <button onClick={() => setShowAddProduct(true)} className="ml-auto text-rose-500 font-bold flex items-center gap-1">
-                            <Plus size={12} weight="bold" /> 加商品
-                        </button>
-                    </div>
-                </div>
-
-                {/* 商品網格 */}
-                <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-3">
-                    {!loaded ? (
-                        <div className="text-center text-xs text-slate-400 py-10">加載中…</div>
-                    ) : visibleProducts.length === 0 ? (
-                        <div className="text-center text-xs text-slate-400 py-10">這個分類還沒有商品</div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-2.5">
-                            {visibleProducts.map(p => {
-                                const category = categories.find(c => c.id === p.categoryId);
-                                return (
-                                    <div key={p.id} className="rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-orange-50 overflow-hidden flex flex-col">
-                                        <div className="aspect-square flex items-center justify-center text-3xl bg-white/60">{p.emoji}</div>
-                                        <div className="px-2 py-1.5 flex-1 flex flex-col gap-0.5">
-                                            <div className="text-[11px] font-bold text-slate-700 truncate">{p.name}</div>
-                                            <div className="text-[9px] text-slate-400 truncate">{category?.name || ''}</div>
-                                            <div className="text-[11px] font-bold text-rose-500">{formatMoney(p.price)}</div>
-                                        </div>
-                                        <div className="flex items-center gap-1 px-2 pb-2">
-                                            <button onClick={() => handleAddToCart(p.id)} className="flex-1 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-bold active:scale-95 transition-transform">
-                                                + 加入
-                                            </button>
-                                            <button onClick={() => handleDeleteProduct(p.id)} className="w-6 h-6 rounded-full flex items-center justify-center text-rose-300 active:scale-90">
-                                                <Trash size={13} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
                         </div>
-                    )}
-                </div>
-
-                {/* 購物車 / 外賣籃 */}
-                <div className="shrink-0 bg-white border-t border-slate-100 px-4 pt-3 pb-3 space-y-2.5 max-h-[42%] overflow-y-auto no-scrollbar">
-                    <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-700">
-                        <ShoppingCart size={14} weight="bold" /> {tab === 'food' ? '外賣籃' : '購物車'}
-                    </div>
-                    {cartLines.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-slate-200 py-4 text-center text-[11px] text-slate-400">還沒有選擇</div>
-                    ) : (
-                        <div className="space-y-1.5">
-                            {cartLines.map(l => (
-                                <div key={l.productId} className="flex items-center gap-2">
-                                    <span className="text-base shrink-0">{l.product.emoji}</span>
-                                    <span className="flex-1 min-w-0 text-[11px] text-slate-600 truncate">{l.product.name}</span>
-                                    <button onClick={() => handleRemoveFromCart(l.productId)} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center active:scale-90"><Minus size={10} weight="bold" /></button>
-                                    <span className="w-4 text-center text-[11px] font-bold">{l.qty}</span>
-                                    <button onClick={() => handleAddToCart(l.productId)} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center active:scale-90"><Plus size={10} weight="bold" /></button>
-                                    <span className="w-14 text-right text-[11px] font-bold text-slate-700">{formatMoney(l.product.price * l.qty)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="flex items-center justify-between text-[12px]">
-                        <span className="text-slate-400">合計</span>
-                        <span className="font-bold text-slate-800">{formatMoney(total)}</span>
-                    </div>
-                    <textarea
-                        value={note} onChange={e => setNote(e.target.value)}
-                        placeholder="包裝、原因、想說的話…（會顯示在卡片裡）"
-                        rows={1}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[11px] resize-none"
-                    />
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleSendReceipt} className="flex-1 py-2.5 rounded-full bg-slate-100 text-slate-600 text-[12px] font-bold active:scale-95 transition-transform">
-                            發小票卡片
-                        </button>
-                        <button onClick={handleSendGift} className="flex-[1.4] py-2.5 rounded-full bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[12px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform">
-                            <Gift size={14} weight="bold" /> {tab === 'food' ? '為TA點單' : '送給TA'}
-                        </button>
-                    </div>
-                    {tab === 'food' && (
-                        <button onClick={handleSendDaifuRequest} className="w-full py-2.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 text-[12px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-transform">
-                            <PaperPlaneTilt size={14} weight="bold" /> 發起代付請求
-                        </button>
-                    )}
-
-                    <div className="pt-1.5 border-t border-slate-50">
-                        <div className="text-[10px] text-slate-400 mb-1.5">{charName} 主動給我{tab === 'food' ? '點外賣' : '買東西'}（手動模擬，不在商品庫也行）</div>
-                        <button onClick={() => setShowManualCard(true)} className="w-full py-2 rounded-xl bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform">
-                            <PencilSimple size={12} weight="bold" /> 彈一張{charName}買給我的卡片
-                        </button>
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
 
-            {/* 新增分類 */}
-            <Modal isOpen={showAddCategory} title="新增分類" onClose={() => setShowAddCategory(false)}
-                footer={<button onClick={handleCreateCategory} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">添加分類</button>}>
-                <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="分類名稱"
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" autoFocus />
-            </Modal>
+            {/* 內容 */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar px-4">
+                {!loaded ? (
+                    <div className="text-center text-xs text-slate-400 py-14">載入中…</div>
+                ) : tab === 'home' ? (
+                    <MallHome kind={kind} categories={kindCats} products={kindProducts} activeCat={cat} query={query}
+                        cartQty={cartQty} onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne} />
+                ) : tab === 'cart' ? (
+                    <MallCart kind={kind} charName={charName} lines={cartLines} total={total} balance={userBalance}
+                        recipient={recipient} payer={payer} note={note} busy={busy}
+                        onRecipient={setRecipient} onPayer={setPayer} onNote={setNote}
+                        onInc={incOne} onDec={decOne} onCheckout={checkout} onBrowse={() => setTab('home')} />
+                ) : tab === 'orders' ? (
+                    <MallOrders orders={kindOrders} now={now} onDelete={deleteOrder} />
+                ) : (
+                    <MallMe kind={kind} charName={charName} balance={userBalance}
+                        favorites={kindProducts.filter(p => p.favorite)} cartQty={cartQty}
+                        onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne}
+                        mallApi={mallApi} chatApi={apiConfig} apiPresets={apiPresets}
+                        onPickApi={(config, label) => { setMallApi(config); setMallApiState(config); addToast(`補貨改用「${label}」`, 'success'); }}
+                        onExport={exportData} onImport={importData} onManualCard={manualCard} />
+                )}
+                <div className="h-4" />
+            </div>
 
-            {/* 新增商品 */}
-            <Modal isOpen={showAddProduct} title={`新增${tab === 'food' ? '外賣' : '商品'}`} onClose={() => setShowAddProduct(false)}
-                footer={<button onClick={handleCreateProduct} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">添加</button>}>
-                <div className="space-y-3">
-                    <input value={newProductName} onChange={e => setNewProductName(e.target.value)} placeholder="商品名稱"
-                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" autoFocus />
-                    <div className="grid grid-cols-2 gap-3">
-                        <input value={newProductPrice} onChange={e => setNewProductPrice(e.target.value)} placeholder="價格" inputMode="decimal"
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                        <input value={newProductEmoji} onChange={e => setNewProductEmoji(e.target.value)} placeholder="圖標 emoji"
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                    </div>
-                    <textarea value={newProductDetail} onChange={e => setNewProductDetail(e.target.value)} placeholder="詳情頁說明（選填）" rows={2}
-                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm resize-none" />
-                    <div className="text-[10px] text-slate-400">會加進當前選中的分類{activeCategoryId === 'all' ? `（當前是"全部"，默認加進第一個分類）` : ''}</div>
-                </div>
-            </Modal>
-
-            {/* 分類管理 */}
-            <Modal isOpen={showManage} title="管理分類" onClose={() => setShowManage(false)}>
-                <div className="space-y-2">
-                    {tabCategories.length === 0 && <div className="text-center text-xs text-slate-400 py-4">還沒有分類</div>}
-                    {tabCategories.map(c => (
-                        <div key={c.id} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl">
-                            <span className="text-sm text-slate-700">{c.name}</span>
-                            <button onClick={() => handleDeleteCategory(c.id)} className="text-rose-400 active:scale-90"><Trash size={15} /></button>
-                        </div>
-                    ))}
-                </div>
-            </Modal>
-
-            {/* TA 主動給我買/點外賣：手動模擬卡 */}
-            <Modal isOpen={showManualCard} title={`${charName}主動給我買的`} onClose={() => setShowManualCard(false)}
-                footer={<button onClick={handleSendManual} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">彈購買卡片</button>}>
-                <div className="space-y-3">
-                    <input value={manualName} onChange={e => setManualName(e.target.value)} placeholder="商品名，可不在商品庫"
-                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" autoFocus />
-                    <input value={manualPrice} onChange={e => setManualPrice(e.target.value)} placeholder="金額" inputMode="decimal"
-                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                    <input value={manualNote} onChange={e => setManualNote(e.target.value)} placeholder="備註"
-                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                    <div className="text-[10px] text-slate-400">純擺設卡片，不會動 Real Balance——如果想要真的花{charName}的錢，用「發起代付請求」那條走 AI 流程。</div>
-                </div>
-            </Modal>
-
-            {/* AI 補貨用的 API：獨立配置，不填就跟隨聊天默認 */}
-            <Modal isOpen={showApiModal} title="AI 補貨用哪個 API" onClose={() => setShowApiModal(false)}>
-                <div className="space-y-2">
-                    <button onClick={() => { setMallApi(null); setMallApiConfigState(null); addToast('已改為跟隨聊天默認', 'success'); }}
-                        className={`w-full rounded-2xl border p-3 text-left transition ${!mallApiConfig ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
-                        <div className="text-[12px] font-bold text-slate-800">跟隨聊天默認</div>
-                        <div className="text-[10px] text-slate-400 truncate">{apiConfig?.model || '未配置'}</div>
-                        {!mallApiConfig && <div className="text-[10px] font-bold text-rose-500 mt-0.5">✓ 使用中</div>}
+            {/* Tab bar */}
+            <div className="shrink-0 bg-white border-t border-slate-100 flex" style={{ paddingBottom: 'var(--safe-bottom)' }}>
+                {([
+                    { id: 'home', label: 'Home', Icon: House },
+                    { id: 'cart', label: 'Cart', Icon: ShoppingCart },
+                    { id: 'orders', label: 'Orders', Icon: Receipt },
+                    { id: 'me', label: 'Me', Icon: User },
+                ] as const).map(({ id, label, Icon }) => (
+                    <button key={id} onClick={() => setTab(id)} className={`flex-1 flex flex-col items-center gap-0.5 pt-2 pb-1.5 ${tab === id ? 'text-slate-900' : 'text-slate-400'}`}>
+                        <span className="relative">
+                            <Icon size={22} weight={tab === id ? 'fill' : 'regular'} />
+                            {id === 'cart' && totalInCarts > 0 && (
+                                <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-slate-900 text-white text-[9px] font-bold flex items-center justify-center tabular-nums border border-white">{totalInCarts}</span>
+                            )}
+                        </span>
+                        <span className="text-[10px] font-bold tracking-wide">{label}</span>
                     </button>
-                    {apiPresets.length === 0 ? (
-                        <p className="px-1 text-[10.5px] leading-relaxed text-slate-400">"設置"裡還沒有保存的 API 預設。先保存預設，這裡就能單獨選擇。</p>
-                    ) : apiPresets.map(preset => {
-                        const active = mallApiConfig?.baseUrl === preset.config.baseUrl && mallApiConfig?.model === preset.config.model && mallApiConfig?.apiKey === preset.config.apiKey;
-                        return (
-                            <button key={preset.id} onClick={() => { setMallApi(preset.config); setMallApiConfigState(preset.config); addToast(`已切換到「${preset.name}」`, 'success'); }}
-                                className={`w-full rounded-2xl border p-3 text-left transition ${active ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}>
-                                <div className="text-[12px] font-bold text-slate-800 truncate">{preset.name}</div>
-                                <div className="text-[10px] text-slate-400 truncate">{preset.config.model || '未配置'}</div>
-                                {active && <div className="text-[10px] font-bold text-rose-500 mt-0.5">✓ 使用中</div>}
-                            </button>
-                        );
-                    })}
+                ))}
+            </div>
+
+            <MallProductSheet target={sheet} kind={kind} categories={kindCats}
+                inCart={sheet?.mode === 'view' ? cartQty(sheet.product.id) : 0}
+                onClose={() => setSheet(null)}
+                onAddToCart={p => { addOne(p); addToast(`已加入：${p.name}`, 'success'); }}
+                onToggleFavorite={toggleFavorite} onSave={saveProduct} onDelete={deleteProduct} />
+
+            <Modal isOpen={showPlus} title={kind === 'food' ? '外賣' : '購物'} onClose={() => setShowPlus(false)}>
+                <div className="space-y-2.5">
+                    <button className={primaryBtn} onClick={() => { setShowPlus(false); setSheet({ mode: 'create', categoryId: cat !== CAT_ALL && cat !== CAT_PICKS ? cat : undefined }); }}>
+                        新增{kind === 'food' ? '品項' : '商品'}
+                    </button>
+                    <button className={secondaryBtn} onClick={() => { setShowPlus(false); setShowCats(true); }}>管理分類</button>
                 </div>
             </Modal>
 
-            {/* 本地導入導出：只管購物中心自己的分類+商品，獨立於全局設置的導入導出 */}
-            <Modal isOpen={showDataModal} title="購物中心數據" onClose={() => setShowDataModal(false)}>
-                <div className="space-y-3">
-                    <button onClick={handleExportCatalog} className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl active:scale-95 transition-transform">
-                        導出全部分類+商品
-                    </button>
-                    <button onClick={() => importInputRef.current?.click()} className="w-full py-3 bg-slate-800 text-white font-bold rounded-2xl active:scale-95 transition-transform">
-                        導入 JSON 文件
-                    </button>
-                    <input ref={importInputRef} type="file" accept="application/json" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }} />
-                    <div className="text-[10px] text-slate-400 leading-relaxed">跟帳號的整體設置導入導出是兩回事——這裡只導出/導入購物中心自己的分類和商品，不影響其它任何東西。重複導入同一份不會覆蓋已有數據（按 id 跳過已存在的）。</div>
-                </div>
-            </Modal>
+            <MallCategoryManager open={showCats} kind={kind} categories={kindCats}
+                productCount={id => products.filter(p => p.categoryId === id).length}
+                onClose={() => setShowCats(false)} onRename={renameCategory} onMove={moveCategory}
+                onDelete={deleteCategory} onCreate={createCategory} />
         </div>
     );
 };

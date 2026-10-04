@@ -152,7 +152,7 @@ export function normalizeMessageContent(
         const meta = msg.metadata || {};
         return formatMallOrderRecord({
             kind: meta.mallKind === 'food' ? 'food' : 'shop',
-            mode: meta.mode === 'daifu' ? 'daifu' : meta.mode === 'manual' ? 'manual' : 'gift',
+            mode: meta.mode === 'daifu' || meta.mode === 'manual' || meta.mode === 'self' ? meta.mode : 'gift',
             items: Array.isArray(meta.items) ? meta.items.map((i: any) => ({ name: String(i?.name || ''), qty: Number(i?.qty) || 1 })) : [],
             amount: Number(meta.total) || 0,
             status: meta.status === 'pending' || meta.status === 'accepted' || meta.status === 'declined' ? meta.status : 'sent',
