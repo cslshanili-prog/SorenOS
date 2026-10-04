@@ -7,7 +7,7 @@ describe('記憶日期與距今時間', () => {
     it('舊記憶標註距今天數', () => {
         const memoryDate = new Date(2026, 6, 1, 23, 30, 0).getTime();
         expect(formatMemoryDateWithDistance(memoryDate, now))
-            .toBe('2026年7月1日（距今約27天）');
+            .toBe('2026年7月1日（約27天前的事）');
     });
 
     it('同一日不受時分影響', () => {
