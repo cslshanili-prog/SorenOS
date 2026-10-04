@@ -63,7 +63,7 @@
 ### 角色主動下單
 
 1. 私聊易變段加一段【購物中心】：今天的推薦（跟 Home 的「推薦」同一批，按日期輪換，外賣、購物各幾樣，名稱＋價格），加一條硬規則：**說了要幫對方點／買／送，就在同一則回覆裡真的下單，不要只是說說**；並舉什麼時候適合（對方說餓、加班、生病、心情差、紀念日…）。
-2. GIFT 擴充：`[[ACTION:GIFT|item=名稱|kind=food或shop|qty=1|note=]]`，`item` 對得上目錄就自動帶價格和 emoji，`price` 可以省略；對不上目錄就要有 price。舊寫法照收。
+2. GIFT 擴充：`[[ACTION:GIFT|item=名稱|kind=food或shop|qty=1|price=單價|note=]]`，`item` 對得上目錄就照目錄的價格、emoji、店鋪（角色寫的價格不算數），`price` 可以省略；對不上目錄就要有 price，沒有就丟掉。舊寫法照收。
 3. 背景路徑（主動訊息、延遲回覆）也結算 GIFT／代付，不再吃掉。雲端 Worker 也認 GIFT（要升 bundle 版本）。
 
 ### 資料搬遷
@@ -91,5 +91,9 @@
    - 介面：`components/mall/`（`ShoppingMallMiniApp.tsx` 是殼，Home／Cart／Orders／Me、商品抽屜、分類管理各一個檔）。
    - 結帳先存訂單再落卡，落卡失敗（餘額不夠）就刪訂單；卡片 metadata 帶 `orderId`、`paidAt`。代付在 `utils/chatParser.ts` 結算時給卡片補 `paidAt`、同步訂單的付款或取消。
    - 「發小票卡片」拿掉了：「給自己」取代它。手動模擬卡搬到 Me。
-2. 角色主動下單：【購物中心】提示詞段、GIFT 擴充、背景與雲端路徑結算、記錄行帶配送狀態。
+2. 角色主動下單：【購物中心】提示詞段、GIFT 擴充、背景與雲端路徑結算、記錄行帶配送狀態。（已完成）
+   - `utils/mallCharOrder.ts`：品名對目錄（完全相同 → 去空白 → 互相包含）、同一則回覆按外賣／購物合單、記錄行的 `eta`（按角色時區，給絕對時間不給「配送中」，主動消息模板晚發也不會過期）、私聊易變段「購物中心 · 今天的推薦」（跟 Home 的推薦同一批，fire_pack 也帶）。
+   - 結算抽成 `ChatParser.settleMallCommands`：前台 `parseAndExecuteActions`、背景 `OSContext.runProactive`（跟轉帳共用一組錢包回調）都走它。角色送的單扣角色的錢、落卡、記一筆 `buyer: 'char'` 的訂單。
+   - 雲端：`worker/amsg/src/classifier.ts` 的 `SOREN_PASSTHROUGH_TAG_RE` 加了 GIFT／DAIFU_ACCEPT／DAIFU_DECLINE，原樣送回客戶端重放（客戶端那邊早就帶著錢包回調）。`AMSG_BUNDLE_VERSION` 升到 2026-10-04，用戶要按「更新 Worker」才拿得到。
+   - 提示詞：「可用動作」的 GIFT 改成新語法，加上什麼時候適合、「說到就要做到」；代付不再只說外賣。
 3. 主畫面 App 入口＋給誰點。

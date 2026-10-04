@@ -182,7 +182,8 @@ interface SideEffectSpec {
 }
 
 /**
- * Soren 自己加的動作標籤：發照片、改關係、由角色決定已讀不回、線下邀約、主動來電。
+ * Soren 自己加的動作標籤：發照片、改關係、由角色決定已讀不回、線下邀約、主動來電、
+ * 購物中心送禮與代付（GIFT／DAIFU_*，客戶端 utils/chatParser.ts 的 settleMallCommands 結算）。
  *
  * 這些標籤的解析（別名、全形標點、欄位）和執行都在客戶端（utils/chatParser.ts、
  * utils/chatRelationship.ts、utils/readNoReply.ts、utils/dateInvite.ts、utils/charCall.ts），
@@ -190,7 +191,7 @@ interface SideEffectSpec {
  * `[[ACTION:…]]` 連原文一起剝掉，雲端生成的回覆裡這些功能就全部消失。
  * 名字清單要跟客戶端那幾份正則認的別名一致。
  */
-export const SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
+export const SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
 
 const SIDE_EFFECT_TAGS: SideEffectSpec[] = [
   {

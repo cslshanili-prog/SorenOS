@@ -7629,7 +7629,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-10-02";
+var AMSG_BUNDLE_VERSION = "2026-10-04";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -13580,7 +13580,7 @@ var DATA_TAGS = [
     toArgs: () => ({})
   }
 ];
-var SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
+var SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
 var SIDE_EFFECT_TAGS = [
   {
     re: SOREN_PASSTHROUGH_TAG_RE,
