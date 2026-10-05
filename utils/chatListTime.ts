@@ -20,3 +20,28 @@ export function formatChatListTimestamp(timestamp: number, now: number = Date.no
     if (msg.getFullYear() === cur.getFullYear()) return `${msg.getMonth() + 1}/${msg.getDate()}`;
     return `${msg.getFullYear()}/${msg.getMonth() + 1}/${msg.getDate()}`;
 }
+
+const SHORT_WEEKDAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+
+/** 兩個時間戳在用戶設備時區是不是同一天（聊天視窗日期分隔、氣泡分組用）。 */
+export function isSameLocalDay(a: number, b: number): boolean {
+    const x = new Date(a);
+    const y = new Date(b);
+    return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
+}
+
+/**
+ * 聊天視窗裡一天一次的日期分隔（像 LINE）：今天、昨天，其他「9/28（週一）」，跨年加年份。
+ * 跟氣泡上的鐘點一樣照用戶設備時區，不照角色時區（見 docs/character-timezone.md）。
+ */
+export function formatChatDateDivider(timestamp: number, now: number = Date.now()): string {
+    const msg = new Date(timestamp);
+    const cur = new Date(now);
+    const msgDay = new Date(msg.getFullYear(), msg.getMonth(), msg.getDate()).getTime();
+    const curDay = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate()).getTime();
+    const deltaDays = Math.round((curDay - msgDay) / (24 * 60 * 60 * 1000));
+    if (deltaDays === 0) return '今天';
+    if (deltaDays === 1) return '昨天';
+    const md = `${msg.getMonth() + 1}/${msg.getDate()}（${SHORT_WEEKDAYS[msg.getDay()]}）`;
+    return msg.getFullYear() === cur.getFullYear() ? md : `${msg.getFullYear()}/${md}`;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatChatListTimestamp } from './chatListTime';
+import { formatChatListTimestamp, formatChatDateDivider, isSameLocalDay } from './chatListTime';
 
 // 固定"現在" = 2026-09-14（週一）14:30:00 本地時間，逐一驗證各檔位。
 const NOW = new Date(2026, 8, 14, 14, 30, 0).getTime();
@@ -33,5 +33,19 @@ describe('formatChatListTimestamp', () => {
     it('未來時間戳（時鐘漂移等）當作今天處理，不報負數天數', () => {
         const t = new Date(2026, 8, 14, 23, 0, 0).getTime();
         expect(formatChatListTimestamp(t, NOW)).toBe('23:00');
+    });
+});
+
+describe('formatChatDateDivider / isSameLocalDay', () => {
+    const now = new Date(2026, 9, 5, 9, 40).getTime(); // 2026/10/5 週一
+    it('今天、昨天、同年月日加星期、跨年加年份', () => {
+        expect(formatChatDateDivider(new Date(2026, 9, 5, 0, 1).getTime(), now)).toBe('今天');
+        expect(formatChatDateDivider(new Date(2026, 9, 4, 23, 59).getTime(), now)).toBe('昨天');
+        expect(formatChatDateDivider(new Date(2026, 8, 28, 11, 25).getTime(), now)).toBe('9/28（週一）');
+        expect(formatChatDateDivider(new Date(2025, 11, 31, 8).getTime(), now)).toBe('2025/12/31（週三）');
+    });
+    it('跨午夜不算同一天', () => {
+        expect(isSameLocalDay(new Date(2026, 8, 28, 23, 59).getTime(), new Date(2026, 8, 29, 0, 2).getTime())).toBe(false);
+        expect(isSameLocalDay(new Date(2026, 8, 29, 0, 2).getTime(), new Date(2026, 8, 29, 23, 0).getTime())).toBe(true);
     });
 });

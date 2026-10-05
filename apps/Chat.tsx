@@ -36,6 +36,8 @@ import { isMcdActivatedInMessages, MCD_ACTIVATE_TRIGGER, MCD_DEACTIVATE_TRIGGER 
 import { isLuckinConfigured } from '../utils/luckinMcpClient';
 import { isLuckinActivatedInMessages, LUCKIN_ACTIVATE_TRIGGER, LUCKIN_DEACTIVATE_TRIGGER } from '../utils/luckinToolBridge';
 import MessageItem, { ThinkingChainBlock } from '../components/chat/MessageItem';
+import ChatDateDivider from '../components/chat/ChatDateDivider';
+import { isSameLocalDay } from '../utils/chatListTime';
 import McdMiniApp from '../components/mcd/McdMiniApp';
 import LuckinMiniApp from '../components/luckin/LuckinMiniApp';
 import ShoppingMallMiniApp from '../components/mall/ShoppingMallMiniApp';
@@ -4388,12 +4390,16 @@ const Chat: React.FC = () => {
                     const prevMessage = i > 0 ? renderedMessages[i - 1] : null;
                     const nextMessage = i < renderedMessages.length - 1 ? renderedMessages[i + 1] : null;
                     const messageGroupGapMs = 30 * 60 * 1000;
+                    // 換日就插一條日期分隔（像 LINE），氣泡分組也在這裡斷開
+                    const startsNewDay = !prevMessage || !isSameLocalDay(prevMessage.timestamp, m.timestamp);
                     const breaksWithPrevious =
                         !prevMessage ||
+                        startsNewDay ||
                         prevMessage.role !== m.role ||
                         Math.abs(m.timestamp - prevMessage.timestamp) > messageGroupGapMs;
                     const breaksWithNext =
                         !nextMessage ||
+                        !isSameLocalDay(m.timestamp, nextMessage.timestamp) ||
                         nextMessage.role !== m.role ||
                         Math.abs(nextMessage.timestamp - m.timestamp) > messageGroupGapMs;
                     const suppressEntranceAnimation = streamPreviewHandoverIdsRef.current.has(m.id);
@@ -4408,8 +4414,9 @@ const Chat: React.FC = () => {
                     const showToolTrace = !!toolTraceText
                         && !(pushMessageId && (nextMessage?.metadata as any)?.activeMsg2?.messageId === pushMessageId);
                     return (
+                        <React.Fragment key={m.id || i}>
+                        {startsNewDay && <ChatDateDivider timestamp={m.timestamp} />}
                         <div
-                            key={m.id || i}
                             id={`chat-msg-${m.id}`}
                             className={[
                                 flashMsgId === m.id ? 'ring-2 ring-yellow-300 bg-yellow-50/40 rounded-2xl mx-2' : '',
@@ -4482,6 +4489,7 @@ const Chat: React.FC = () => {
                             </div>
                         )}
                         </div>
+                        </React.Fragment>
                     );
                 })}
                 {windowedFocusMsgId !== null && (
