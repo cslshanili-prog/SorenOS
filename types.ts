@@ -2902,6 +2902,11 @@ export interface CharacterCustomMeter {
   autoUpdate?: { mode: 'hours' | 'turns'; interval: number };
   /** mode='turns' 時：距上次自動觸發已經過去幾輪角色回覆；達到 autoUpdate.interval 時觸發並清零。 */
   turnsSinceAutoUpdate?: number;
+  /**
+   * 帶進聊天：勾了就放進私聊易變段，角色自己知道（utils/customMeterContext.ts）。
+   * 好感度只帶 statusNote 那句，不帶數字。不設＝只給用戶看。
+   */
+  shareWithChar?: boolean;
 }
 
 export interface CharacterProfile {

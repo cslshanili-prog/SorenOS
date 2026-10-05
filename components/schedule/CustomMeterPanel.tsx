@@ -11,7 +11,8 @@ interface CustomMeterPanelProps {
     description: string;
     entries: CharacterCustomMeter[];
     onChange: (entries: CharacterCustomMeter[]) => void;
-    onGenerate: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
+    /** 傳整條 entry：生成時要接著上一次的結果寫 */
+    onGenerate: (entry: CharacterCustomMeter) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     emptyHint: string;
 }
 
@@ -53,12 +54,14 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
     const [newPrompt, setNewPrompt] = useState('');
     const [newAutoMode, setNewAutoMode] = useState<AutoMode>('manual');
     const [newAutoInterval, setNewAutoInterval] = useState('24');
+    const [newShare, setNewShare] = useState(false);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editPrompt, setEditPrompt] = useState('');
     const [editAutoMode, setEditAutoMode] = useState<AutoMode>('manual');
     const [editAutoInterval, setEditAutoInterval] = useState('24');
+    const [editShare, setEditShare] = useState(false);
 
     const entriesRef = useRef(entries);
     useEffect(() => { entriesRef.current = entries; }, [entries]);
@@ -66,7 +69,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
     const regenerate = async (entry: CharacterCustomMeter) => {
         setBusyId(entry.id);
         try {
-            const patch = await onGenerate({ title: entry.title, prompt: entry.prompt });
+            const patch = await onGenerate(entry);
             if (patch === null) return;
             onChange(entriesRef.current.map(e => e.id === entry.id ? { ...e, ...patch, updatedAt: Date.now() } : e));
         } finally {
@@ -79,8 +82,9 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         const prompt = newPrompt.trim();
         if (!title || !prompt) return;
         const autoUpdate = formToAutoUpdate(newAutoMode, newAutoInterval);
-        const entry: CharacterCustomMeter = { id: genId(), title, prompt, color: randomPastelHex(), autoUpdate };
+        const entry: CharacterCustomMeter = { id: genId(), title, prompt, color: randomPastelHex(), autoUpdate, ...(newShare ? { shareWithChar: true } : {}) };
         setAdding(false);
+        setNewShare(false);
         setNewTitle('');
         setNewPrompt('');
         setNewAutoMode('manual');
@@ -100,6 +104,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         const form = autoUpdateToForm(entry.autoUpdate);
         setEditAutoMode(form.mode);
         setEditAutoInterval(form.interval);
+        setEditShare(!!entry.shareWithChar);
     };
 
     const saveEdit = () => {
@@ -108,7 +113,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         if (!title || !prompt || !editingId) { setEditingId(null); return; }
         const autoUpdate = formToAutoUpdate(editAutoMode, editAutoInterval);
         onChange(entriesRef.current.map(e => e.id === editingId
-            ? { ...e, title, prompt, autoUpdate, ...(autoUpdate?.mode === 'turns' ? {} : { turnsSinceAutoUpdate: undefined }) }
+            ? { ...e, title, prompt, autoUpdate, shareWithChar: editShare || undefined, ...(autoUpdate?.mode === 'turns' ? {} : { turnsSinceAutoUpdate: undefined }) }
             : e));
         setEditingId(null);
     };
@@ -149,6 +154,19 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         </div>
     );
 
+    /** 「帶進聊天」開關，加號表單和編輯表單共用。 */
+    const renderShareControl = (value: boolean, setValue: (v: boolean) => void) => (
+        <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={value} onChange={e => setValue(e.target.checked)} className="mt-0.5 accent-pink-500" />
+            <span className="text-[11px] text-slate-600 leading-snug">
+                帶進聊天
+                <span className="block text-[10px] text-slate-400">
+                    {kind === 'text' ? '角色自己知道心裡在想什麼，會影響說話的語氣' : '只帶那句狀態心聲，不帶數字；角色知道自己現在的狀態'}
+                </span>
+            </span>
+        </label>
+    );
+
     return (
         <div className="space-y-3">
             <div>
@@ -186,6 +204,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                     className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                                 />
                                 {renderAutoUpdateControl(editAutoMode, setEditAutoMode, editAutoInterval, setEditAutoInterval)}
+                                {renderShareControl(editShare, setEditShare)}
                                 <div className="flex gap-2">
                                     <button onClick={saveEdit} className="flex-1 py-1.5 bg-pink-500 text-white text-[11px] font-bold rounded-lg active:scale-95 transition-transform">保存</button>
                                     <button onClick={() => setEditingId(null)} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">取消</button>
@@ -235,6 +254,9 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                         </div>
                                     </div>
                                 )}
+                                {entry.shareWithChar && (
+                                    <div className="text-[9px] font-bold mt-1.5" style={{ color: entry.color }}>💬 已帶進聊天{kind === 'number' ? '（只帶狀態，不帶數字）' : ''}</div>
+                                )}
                                 {entry.autoUpdate && (
                                     <div className="text-[9px] font-bold mt-1.5" style={{ color: entry.color }}>
                                         {entry.autoUpdate.mode === 'hours'
@@ -266,11 +288,12 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                         className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                     />
                     {renderAutoUpdateControl(newAutoMode, setNewAutoMode, newAutoInterval, setNewAutoInterval)}
+                    {renderShareControl(newShare, setNewShare)}
                     <div className="flex gap-2">
                         <button onClick={handleAdd} disabled={!newTitle.trim() || !newPrompt.trim()} className="flex-1 py-1.5 bg-pink-500 text-white text-[11px] font-bold rounded-lg active:scale-95 transition-transform disabled:opacity-40">
                             生成
                         </button>
-                        <button onClick={() => { setAdding(false); setNewTitle(''); setNewPrompt(''); setNewAutoMode('manual'); setNewAutoInterval('24'); }} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">
+                        <button onClick={() => { setAdding(false); setNewTitle(''); setNewPrompt(''); setNewAutoMode('manual'); setNewAutoInterval('24'); setNewShare(false); }} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">
                             取消
                         </button>
                     </div>

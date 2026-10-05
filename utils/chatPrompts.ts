@@ -42,6 +42,7 @@ import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
 import { buildCharCallCooldownNote, buildCharCallPrompt, formatCharCallRecord } from './charCall';
 import { buildBlockUserPrompt, charBlockPeriods, isRejectedByBlock, REJECTED_HISTORY_PREFIX } from './chatBlock';
 import { isTempChatMessage, TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
+import { buildInnerStateBlock } from './customMeterContext';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -703,6 +704,8 @@ ${groupLogStr}\n`;
         volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);
         // 購物中心今天的推薦：讓角色知道有什麼能點、多少錢（下單語法在「可用動作」）
         volatileState += mallPicksText;
+        // 日程/情緒裡勾了「帶進聊天」的心聲、好感度（只帶狀態那句，不帶數字）；fire_pack 不寫「幾小時前」，到點會過期
+        volatileState += buildInnerStateBlock(char.innerVoices, char.affinities, { withAge: !forFirePack });
         volatileState += anniversaryText;
         // 相識天數每天在變，放易變段；主動消息模板到點才渲染，天數會過期，只給起點日期
         if (char.acquaintanceStartDate) {
