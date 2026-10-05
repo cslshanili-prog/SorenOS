@@ -111,3 +111,7 @@
 - **精品**：全部國際名牌與精品（Hermès、Chanel、Cartier、Rolex、La Mer、Bang & Olufsen…按分類挑），價格照專櫃行情，幾百到幾萬美元都行；外賣走米其林、名廚、頂級食材、名酒。
 
 只換提示詞裡品牌和價位那幾行（`utils/mallRestock.ts` 的 `styleLines`），格式和解析不變；已上架的不動。統計在 `购物中心AI补货` 多一個 `风格` 屬性。
+
+## 推薦換一批（2026-10-05）
+
+「推薦」標題右邊加 ↻「換一批」。按一下就換今天的下一批（`utils/shoppingMall.ts` 的 `pickMallRecommendations`）：先從上一批沒出現過的商品裡挑，不夠才回頭補。次數存 `localStorage` 的 `mall_picks_round`，只算今天、購物外賣分開，換一天歸零回到每日那一批。私聊「購物中心 · 今天的推薦」也讀同一個次數，角色看到的還是你畫面上那一批的前 6 件。

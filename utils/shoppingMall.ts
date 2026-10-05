@@ -277,6 +277,54 @@ export function pickDailyRecommendations(products: MallProduct[], dateKey: strin
     return out;
 }
 
+/** 「推薦」一批幾件；角色看到的是同一批的前幾件。 */
+export const MALL_PICKS_SIZE = 10;
+const PICKS_ROUND_KEY = 'mall_picks_round';
+const MAX_PICKS_ROUND = 50;
+
+/**
+ * 推薦頁 ↻「換一批」按了幾次（2026-10-05）：只算今天、購物和外賣分開數，換一天自動歸零。
+ * 存這台裝置的 localStorage，聊天組提示詞時也讀它，角色看到的跟你看到的還是同一批。
+ */
+export function getMallPicksRound(kind: MallKind, dateKey: string = localDateKey()): number {
+    try {
+        const raw = JSON.parse(localStorage.getItem(PICKS_ROUND_KEY) || 'null');
+        if (!raw || raw.date !== dateKey) return 0;
+        const n = Number(raw[kind]);
+        return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), MAX_PICKS_ROUND) : 0;
+    } catch {
+        return 0;
+    }
+}
+
+export function bumpMallPicksRound(kind: MallKind, dateKey: string = localDateKey()): number {
+    const next = Math.min(getMallPicksRound(kind, dateKey) + 1, MAX_PICKS_ROUND);
+    try {
+        const raw = JSON.parse(localStorage.getItem(PICKS_ROUND_KEY) || 'null');
+        const base = raw && raw.date === dateKey ? raw : { date: dateKey };
+        localStorage.setItem(PICKS_ROUND_KEY, JSON.stringify({ ...base, [kind]: next }));
+    } catch { /* 無痕模式：這次照樣換，只是記不住 */ }
+    return next;
+}
+
+/**
+ * 今天第 round 批推薦（round 0 就是 pickDailyRecommendations 那一批）。每換一批都先從上一批沒出現過的
+ * 商品裡挑，不夠才回頭補，所以按 ↻ 盡量是一整批新的。整條鏈一律按 MALL_PICKS_SIZE 算再截，
+ * 角色那邊取前 6 件也是你畫面上那一批的前 6 件。
+ */
+export function pickMallRecommendations(products: MallProduct[], dateKey: string, round = 0, limit = MALL_PICKS_SIZE): MallProduct[] {
+    let batch = pickDailyRecommendations(products, dateKey, MALL_PICKS_SIZE);
+    for (let r = 1; r <= Math.min(round, MAX_PICKS_ROUND); r++) {
+        const key = `${dateKey}#${r}`;
+        const shown = new Set(batch.map(p => p.id));
+        const fresh = pickDailyRecommendations(products.filter(p => !shown.has(p.id)), key, MALL_PICKS_SIZE);
+        batch = fresh.length >= MALL_PICKS_SIZE
+            ? fresh
+            : [...fresh, ...pickDailyRecommendations(products.filter(p => shown.has(p.id)), key, MALL_PICKS_SIZE - fresh.length)];
+    }
+    return batch.slice(0, limit);
+}
+
 // ─── 購物車（購物、外賣各一車，狀態是頁面上的臨時 state，不落庫）───
 
 export interface MallCartLine {
