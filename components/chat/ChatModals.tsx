@@ -172,9 +172,9 @@ interface ChatModalsProps {
     onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
     onChatBlockAction?: (action: ChatBlockAction) => void;
     onSaveInnerVoices?: (entries: CharacterCustomMeter[]) => void;
-    onGenerateInnerVoice?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
+    onGenerateInnerVoice?: (entry: CharacterCustomMeter) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     onSaveAffinities?: (entries: CharacterCustomMeter[]) => void;
-    onGenerateAffinity?: (entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
+    onGenerateAffinity?: (entry: CharacterCustomMeter) => Promise<Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote'>> | null>;
     onClearBuffs?: () => void;
 }
 

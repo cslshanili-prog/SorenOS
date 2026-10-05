@@ -11,6 +11,7 @@ import { safeResponseJson, extractContent } from './safeApi';
 import { loadCharacterContextRange } from './chatContextRange';
 import { formatChatHistoryForSchedule } from './scheduleGenerator';
 import { DB } from './db';
+import { buildPreviousMeterNote } from './customMeterContext';
 import { isCustomMeterHoursDue, tickCustomMeterTurns } from './customMeterAutoUpdate';
 
 interface ApiConfig {
@@ -61,21 +62,26 @@ async function callCustomMeterApi(apiConfig: ApiConfig, char: CharacterProfile, 
   }
 }
 
+/** 生成時要的欄位：標題、提示詞，加上一次的結果（有的話接著寫，見 utils/customMeterContext.ts）。 */
+export type CustomMeterGenInput = Pick<CharacterCustomMeter, 'title' | 'prompt'>
+  & Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote' | 'updatedAt'>>;
+
 /** 生成一段心聲正文（第一人稱內心獨白，用戶自定義標題 + 提示詞驅動）。 */
 export async function generateInnerVoiceContent(
   char: CharacterProfile,
   user: UserProfile,
   apiConfig: ApiConfig,
-  entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>,
+  entry: CustomMeterGenInput,
 ): Promise<string | null> {
   const contextBlock = await buildPersonaAndHistoryBlock(char, user);
+  const previous = buildPreviousMeterNote('text', entry);
   const prompt = `${contextBlock}
 ## Task: 生成一段心聲——「${entry.title}」
 
 以${char.name}第一人稱寫一段內心獨白短文（3-6 句話，不要分點、不要加標題、不要用引號包起來），主題和角度按下面這條用戶給的提示詞來：
 
 ${entry.prompt}
-
+${previous ? `\n${previous}\n` : ''}
 只輸出獨白正文本身，不要任何前後綴說明。`;
   const content = await callCustomMeterApi(apiConfig, char, prompt, `生成心聲：${entry.title}`);
   return content ? content.trim() : null;
@@ -86,16 +92,17 @@ export async function generateAffinityValue(
   char: CharacterProfile,
   user: UserProfile,
   apiConfig: ApiConfig,
-  entry: Pick<CharacterCustomMeter, 'title' | 'prompt'>,
+  entry: CustomMeterGenInput,
 ): Promise<{ value: number; note: string } | null> {
   const contextBlock = await buildPersonaAndHistoryBlock(char, user);
+  const previous = buildPreviousMeterNote('number', entry);
   const prompt = `${contextBlock}
 ## Task: 評估一個好感度數值——「${entry.title}」
 
 按下面這條用戶給的提示詞，結合以上人設與最近對話，給出一個 0-100 的整數分數，分數含義、評分角度按提示詞來：
 
 ${entry.prompt}
-
+${previous ? `\n${previous}\n` : ''}
 同時以${char.name}的第一人稱語氣，寫一句此刻的心聲——像一句貼合這個分數當下心理狀態的內心獨白，不要出現"分數""好感度"這幾個字本身，不要用引號包起來。
 
 只按下面這個格式輸出，不要任何多餘文字或標題：
