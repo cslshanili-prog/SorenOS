@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
     resolveCartLines, cartTotal, addToCart, removeFromCart, clearCartLine,
-    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, cartCount, productBlurb,
+    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, pickMallRecommendations, getMallPicksRound, bumpMallPicksRound, cartCount, productBlurb,
 } from './shoppingMall';
 import type { MallCategory, MallProduct } from '../types';
 
@@ -193,6 +193,33 @@ describe('搜尋、推薦、小工具', () => {
         expect(a.map(p => p.id)).toEqual(b.map(p => p.id));
         expect(new Set(a.map(p => p.categoryId)).size).toBe(3);
         expect(pickDailyRecommendations(items, '2026-10-04', 99)).toHaveLength(5);
+    });
+
+    it('換一批：round 0 跟原本一樣、換了盡量全新、角色取前幾件是同一批的前綴', () => {
+        const many = Array.from({ length: 30 }, (_, i) => ({ ...base, id: `p${i}`, categoryId: `c${i % 6}`, name: `品${i}` }));
+        const day = '2026-10-05';
+        expect(pickMallRecommendations(many, day, 0).map(p => p.id)).toEqual(pickDailyRecommendations(many, day, 10).map(p => p.id));
+        const r0 = pickMallRecommendations(many, day, 0);
+        const r1 = pickMallRecommendations(many, day, 1);
+        expect(r1).toHaveLength(10);
+        expect(r1.filter(p => r0.some(q => q.id === p.id))).toHaveLength(0);
+        expect(pickMallRecommendations(many, day, 1, 6).map(p => p.id)).toEqual(r1.slice(0, 6).map(p => p.id));
+        // 商品不夠一整批新的：先放沒出現過的，再回頭補滿
+        const r1few = pickMallRecommendations(many.slice(0, 12), day, 1);
+        expect(r1few).toHaveLength(10);
+        expect(new Set(r1few.map(p => p.id)).size).toBe(10);
+    });
+
+    it('換一批次數：只算今天、購物外賣分開、換天歸零', () => {
+        localStorage.removeItem('mall_picks_round');
+        expect(getMallPicksRound('food', '2026-10-05')).toBe(0);
+        expect(bumpMallPicksRound('food', '2026-10-05')).toBe(1);
+        expect(bumpMallPicksRound('food', '2026-10-05')).toBe(2);
+        expect(getMallPicksRound('shop', '2026-10-05')).toBe(0);
+        expect(getMallPicksRound('food', '2026-10-06')).toBe(0);
+        expect(bumpMallPicksRound('shop', '2026-10-06')).toBe(1);
+        expect(getMallPicksRound('food', '2026-10-06')).toBe(0);
+        localStorage.removeItem('mall_picks_round');
     });
 
     it('cartCount 加總數量；productBlurb 沒有說明就退回詳情', () => {

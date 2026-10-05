@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { ArrowClockwise } from '@phosphor-icons/react';
 import type { MallCategory, MallKind, MallProduct } from '../../types';
-import { localDateKey, pickDailyRecommendations, searchMallProducts } from '../../utils/shoppingMall';
+import { bumpMallPicksRound, getMallPicksRound, localDateKey, pickMallRecommendations, searchMallProducts } from '../../utils/shoppingMall';
 import { ProductRow, SectionTitle } from './MallParts';
 
 /** 分類列的兩個特殊值 */
@@ -21,7 +22,19 @@ interface Props {
 /** Home：全部（按分類分段）／推薦（今日輪換）／單一分類；有搜尋字就跨分類搜。 */
 const MallHome: React.FC<Props> = ({ kind, categories, products, activeCat, query, cartQty, onOpen, onAdd }) => {
     const row = (p: MallProduct) => <ProductRow key={p.id} product={p} inCart={cartQty(p.id)} onOpen={() => onOpen(p)} onAdd={() => onAdd(p)} />;
-    const picks = useMemo(() => pickDailyRecommendations(products, localDateKey(), 10), [products]);
+    // ↻ 換一批：次數記在 localStorage（聊天組提示詞也讀），這裡只靠 bump 觸發重算
+    const [bump, setBump] = useState(0);
+    const [spinning, setSpinning] = useState(false);
+    const picks = useMemo(() => {
+        const day = localDateKey();
+        return pickMallRecommendations(products, day, getMallPicksRound(kind, day));
+    }, [products, kind, bump]); // eslint-disable-line react-hooks/exhaustive-deps
+    const refreshPicks = () => {
+        bumpMallPicksRound(kind);
+        setBump(b => b + 1);
+        setSpinning(true);
+        window.setTimeout(() => setSpinning(false), 450);
+    };
 
     if (query.trim()) {
         const hits = searchMallProducts(products, query);
@@ -36,7 +49,12 @@ const MallHome: React.FC<Props> = ({ kind, categories, products, activeCat, quer
     if (activeCat === CAT_PICKS) {
         return (
             <div>
-                <SectionTitle>今日推薦 · 每天換一批</SectionTitle>
+                <SectionTitle right={picks.length > 0 && (
+                    <button onClick={refreshPicks} aria-label="換一批推薦"
+                        className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-500 active:bg-slate-100">
+                        <ArrowClockwise size={13} weight="bold" className={spinning ? 'animate-spin' : ''} />換一批
+                    </button>
+                )}>今日推薦 · 每天換一批</SectionTitle>
                 {picks.length === 0 ? <Empty text="還沒有商品，按右上角 ⟳ 讓 AI 補貨" /> : picks.map(row)}
             </div>
         );
