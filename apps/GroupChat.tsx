@@ -2,6 +2,8 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniver
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
+import ChatDateDivider from '../components/chat/ChatDateDivider';
+import { isSameLocalDay } from '../utils/chatListTime';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
@@ -2288,15 +2290,19 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         && other.role === m.role
                         && other.charId === m.charId
                         && !!other.metadata?.puppeted === !!m.metadata?.puppeted;
-                    const isFirstInGroup = !sameSpeaker(prevMessage)
+                    // 換日就插一條日期分隔（像 LINE），氣泡分組也在這裡斷開
+                    const startsNewDay = !prevMessage || !isSameLocalDay(prevMessage.timestamp, m.timestamp);
+                    const isFirstInGroup = startsNewDay || !sameSpeaker(prevMessage)
                         || Math.abs(m.timestamp - prevMessage!.timestamp) > messageGroupGapMs;
                     const isLastInGroup = !sameSpeaker(nextMessage)
+                        || !isSameLocalDay(m.timestamp, nextMessage!.timestamp)
                         || Math.abs(nextMessage!.timestamp - m.timestamp) > messageGroupGapMs;
                     const memberTheme = memberBubbleThemes.get(m.charId);
 
                     return (
+                        <React.Fragment key={m.id || i}>
+                        {startsNewDay && <ChatDateDivider timestamp={m.timestamp} />}
                         <GroupMessageItem
-                            key={m.id || i}
                             msg={m}
                             isUser={isUser}
                             char={char}
@@ -2323,6 +2329,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={osTheme.chatShowTimestamp}
                         />
+                        </React.Fragment>
                     );
                 })}
                 {isTyping && (
