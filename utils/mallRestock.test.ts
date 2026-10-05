@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildMallRestockPrompt, parseMallRestockBlocks, parsePrice, matchCategory } from './mallRestock';
+import { buildMallRestockPrompt, parseMallRestockBlocks, parsePrice, matchCategory, getMallRestockStyle, setMallRestockStyle } from './mallRestock';
 import type { MallCategory, MallProduct } from '../types';
 
 const cats: MallCategory[] = [
@@ -26,6 +26,28 @@ describe('buildMallRestockPrompt', () => {
     it('分類多的時候每類少一點', () => {
         const many = Array.from({ length: 6 }, (_, i) => ({ category: { id: `x${i}`, kind: 'shop' as const, name: `分類${i}`, order: i }, existingNames: [] }));
         expect(buildMallRestockPrompt('shop', many)).toContain('3 到 4');
+    });
+
+    it('補貨風格：日常不提精品、精品全走名牌和專櫃行情、混搭只穿插', () => {
+        const input = [{ category: cats[2], existingNames: [] }];
+        const daily = buildMallRestockPrompt('shop', input);
+        expect(daily).toBe(buildMallRestockPrompt('shop', input, 'daily'));
+        expect(daily).toContain('日常行情');
+        expect(daily).not.toContain('Hermès');
+
+        const luxury = buildMallRestockPrompt('shop', input, 'luxury');
+        expect(luxury).toContain('全部走國際知名品牌與精品');
+        expect(luxury).toContain('Bang & Olufsen');
+        expect(luxury).toContain('專櫃行情');
+        expect(luxury).not.toContain('日常行情');
+
+        const mixed = buildMallRestockPrompt('shop', input, 'mixed');
+        expect(mixed).toContain('穿插 1 到 2 樣');
+        expect(mixed).toContain('日常行情');
+
+        const food = buildMallRestockPrompt('food', [{ category: cats[0], existingNames: [] }], 'luxury');
+        expect(food).toContain('米其林');
+        expect(food).not.toContain('外送價');
     });
 });
 
@@ -88,5 +110,18 @@ describe('小工具', () => {
         expect(matchCategory(' 甜 點 ', cats)?.id).toBe('c2');
         expect(matchCategory('電腦電器類', cats)?.id).toBe('c3');
         expect(matchCategory('', cats)).toBeNull();
+    });
+});
+
+describe('補貨風格偏好', () => {
+    it('預設日常、存得住、日常就清掉 key', () => {
+        localStorage.removeItem('mall_restock_style');
+        expect(getMallRestockStyle()).toBe('daily');
+        setMallRestockStyle('luxury');
+        expect(getMallRestockStyle()).toBe('luxury');
+        localStorage.setItem('mall_restock_style', 'weird');
+        expect(getMallRestockStyle()).toBe('daily');
+        setMallRestockStyle('daily');
+        expect(localStorage.getItem('mall_restock_style')).toBeNull();
     });
 });

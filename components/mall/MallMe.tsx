@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { CaretRight, Database, Heart, PencilSimple, Sparkle } from '@phosphor-icons/react';
+import { CaretRight, Database, Diamond, Heart, PencilSimple, Sparkle } from '@phosphor-icons/react';
 import Modal from '../os/Modal';
 import type { APIConfig, ApiPreset, MallKind, MallProduct } from '../../types';
 import { formatMoney } from '../../utils/realBalance';
+import { MALL_RESTOCK_STYLES, MALL_RESTOCK_STYLE_LABELS, type MallRestockStyle } from '../../utils/mallRestock';
 import { ProductRow, SectionTitle, inputCls, primaryBtn, secondaryBtn } from './MallParts';
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
     chatApi: APIConfig;
     apiPresets: ApiPreset[];
     onPickApi: (config: APIConfig | null, label: string) => void;
+    restockStyle: MallRestockStyle;
+    onPickStyle: (style: MallRestockStyle) => void;
     onExport: () => void;
     onImport: (file: File) => void;
     onManualCard: (input: { name: string; price: number; note: string }) => void;
@@ -27,9 +30,10 @@ interface Props {
 /** Me：收藏、AI 補貨用的 API、資料導入導出、手動模擬「TA 買給我的」卡片。 */
 const MallMe: React.FC<Props> = ({
     kind, manualCharName, balance, favorites, cartQty, onOpen, onAdd,
-    mallApi, chatApi, apiPresets, onPickApi, onExport, onImport, onManualCard,
+    mallApi, chatApi, apiPresets, onPickApi, restockStyle, onPickStyle, onExport, onImport, onManualCard,
 }) => {
     const [showApi, setShowApi] = useState(false);
+    const [showStyle, setShowStyle] = useState(false);
     const [showData, setShowData] = useState(false);
     const [showManual, setShowManual] = useState(false);
     const [manual, setManual] = useState({ name: '', price: '', note: '' });
@@ -52,6 +56,7 @@ const MallMe: React.FC<Props> = ({
             <SectionTitle>設定</SectionTitle>
             <div className="rounded-3xl bg-white border border-slate-100 divide-y divide-slate-50">
                 <MenuRow icon={<Sparkle size={16} />} title="AI 補貨用哪個 API" sub={apiLabel} onClick={() => setShowApi(true)} />
+                <MenuRow icon={<Diamond size={16} />} title="AI 補貨風格" sub={`${MALL_RESTOCK_STYLE_LABELS[restockStyle]} · ${STYLE_SUBS[restockStyle]}`} onClick={() => setShowStyle(true)} />
                 <MenuRow icon={<Database size={16} />} title="資料導入導出" sub="分類、商品、訂單" onClick={() => setShowData(true)} />
                 {manualCharName && (
                     <MenuRow icon={<PencilSimple size={16} />} title={`模擬一張「${manualCharName} 買給我的」卡片`} sub="手動填，不扣任何人的錢" onClick={() => setShowManual(true)} />
@@ -71,6 +76,16 @@ const MallMe: React.FC<Props> = ({
                             active={!!mallApi && mallApi.baseUrl === preset.config.baseUrl && mallApi.model === preset.config.model && mallApi.apiKey === preset.config.apiKey}
                             title={preset.name} sub={preset.config.model || '未設定'} onClick={() => onPickApi(preset.config, preset.name)} />
                     ))}
+                </div>
+            </Modal>
+
+            <Modal isOpen={showStyle} title="AI 補貨風格" onClose={() => setShowStyle(false)}>
+                <div className="space-y-2">
+                    {MALL_RESTOCK_STYLES.map(style => (
+                        <ApiOption key={style} active={restockStyle === style} title={MALL_RESTOCK_STYLE_LABELS[style]} sub={STYLE_SUBS[style]}
+                            onClick={() => onPickStyle(style)} />
+                    ))}
+                    <p className="px-1 text-[11px] leading-relaxed text-slate-400">只影響之後按 ⟳ 補進來的商品，已經上架的不動。購物、外賣都照這個走。</p>
                 </div>
             </Modal>
 
@@ -97,6 +112,12 @@ const MallMe: React.FC<Props> = ({
             </Modal>
         </div>
     );
+};
+
+const STYLE_SUBS: Record<MallRestockStyle, string> = {
+    daily: '日常品牌、日常價位',
+    mixed: '日常為主，每類穿插一兩樣名牌',
+    luxury: '全部國際名牌與精品，照專櫃行情',
 };
 
 const MenuRow: React.FC<{ icon: React.ReactNode; title: string; sub: string; onClick: () => void }> = ({ icon, title, sub, onClick }) => (

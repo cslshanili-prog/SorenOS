@@ -14,7 +14,61 @@ export interface RestockCategoryInput {
 
 const MAX_EXISTING_LISTED = 30;
 
-export function buildMallRestockPrompt(kind: MallKind, inputs: RestockCategoryInput[]): string {
+/**
+ * ⟳ 補貨的風格（2026-10-05 用戶回饋：「反正現實買不起，在虛擬世界過過癮」）。
+ * - daily：日常品牌、日常價位（改版時的預設）
+ * - mixed：日常為主，每個分類穿插一兩樣名牌精品
+ * - luxury：全走國際名牌與精品，價格照真實精品行情
+ * 存在這台裝置的 localStorage，跟「補貨用哪個 API」同一類偏好。
+ */
+export type MallRestockStyle = 'daily' | 'mixed' | 'luxury';
+export const MALL_RESTOCK_STYLES: MallRestockStyle[] = ['daily', 'mixed', 'luxury'];
+export const MALL_RESTOCK_STYLE_LABELS: Record<MallRestockStyle, string> = { daily: '日常', mixed: '混搭', luxury: '精品' };
+const RESTOCK_STYLE_KEY = 'mall_restock_style';
+
+export function getMallRestockStyle(): MallRestockStyle {
+    try {
+        const v = localStorage.getItem(RESTOCK_STYLE_KEY);
+        return v === 'mixed' || v === 'luxury' ? v : 'daily';
+    } catch {
+        return 'daily';
+    }
+}
+
+export function setMallRestockStyle(style: MallRestockStyle): void {
+    try {
+        if (style === 'daily') localStorage.removeItem(RESTOCK_STYLE_KEY);
+        else localStorage.setItem(RESTOCK_STYLE_KEY, style);
+    } catch { /* 無痕模式 */ }
+}
+
+/** 品牌與價位那幾行，照風格換。 */
+function styleLines(food: boolean, style: MallRestockStyle): string[] {
+    if (style === 'luxury') {
+        return [
+            food
+                ? '- 全部走高級路線：米其林星級餐廳、名廚餐廳、頂級日料與牛排館、精品甜點與巧克力（例如 Ladurée、Pierre Hermé、Godiva）、香檳名酒（例如 Dom Pérignon、Krug）、高級超市與進口食材，用真實存在的餐廳和品牌。'
+                : '- 全部走國際知名品牌與精品：例如 Hermès、Chanel、Louis Vuitton、Dior、Cartier、Tiffany & Co.、Rolex、Gucci、Prada、Bottega Veneta、Loewe、La Mer、Diptyque、Bang & Olufsen、Leica、Montblanc，按分類挑合適的品牌，盡量是該品牌真實存在的經典款或當季款。',
+            `- 價格是美元，照真實的${food ? '高級餐廳與精品' : '精品專櫃'}行情，從幾百到幾萬美元都可以，不要壓低，只寫數字，例如 ${food ? '380' : '10900'}。`,
+            `- [詳情] 寫${food ? '份量、主要食材與產地、主廚或酒莊、口味、溫度或保存方式' : '經典款名、材質、工藝、尺寸規格、配色，像專櫃商品頁那樣具體'}，不要寫推薦理由或系統解釋。`,
+        ];
+    }
+    const base = [
+        `- 價格是美元，照美國當地的日常行情${food ? '（外送價）' : ''}，只寫數字，例如 6.5。`,
+        `- [詳情] 寫${food ? '份量、主要食材、口味、溫度或保存方式' : '商品本身的材質、規格、用途、質感、適用場景'}，不要寫推薦理由或系統解釋。`,
+    ];
+    if (style === 'mixed') {
+        return [
+            food
+                ? '- 以日常外送為主；每個分類穿插 1 樣高級款（米其林餐廳、名廚餐廳、精品甜點、香檳名酒這類），高級款照真實行情定價。'
+                : '- 以日常品牌為主；每個分類穿插 1 到 2 樣國際名牌或精品（例如 Hermès、Chanel、Cartier、Dior、Rolex、La Mer 這類，按分類挑合適的），精品照真實專櫃行情定價。',
+            ...base,
+        ];
+    }
+    return base;
+}
+
+export function buildMallRestockPrompt(kind: MallKind, inputs: RestockCategoryInput[], style: MallRestockStyle = 'daily'): string {
     const food = kind === 'food';
     const range = inputs.length > 4 ? '3 到 4' : '3 到 6';
     const catLines = inputs.map(({ category }) => {
@@ -35,8 +89,7 @@ export function buildMallRestockPrompt(kind: MallKind, inputs: RestockCategoryIn
         `- 必須按以下 ${inputs.length} 個分類推薦，每個分類 ${range} 條：`,
         catLines,
         `- ${food ? '品項名稱、餐廳或品牌' : '商品名稱、店鋪或品牌'}、價格、說明和詳情都要具體，像真實可${food ? '外送' : '購買'}的${food ? '品項' : '商品'}；可以用真實存在的品牌。`,
-        `- 價格是美元，照美國當地的日常行情${food ? '（外送價）' : ''}，只寫數字，例如 6.5。`,
-        `- [詳情] 寫${food ? '份量、主要食材、口味、溫度或保存方式' : '商品本身的材質、規格、用途、質感、適用場景'}，不要寫推薦理由或系統解釋。`,
+        ...styleLines(food, style),
         '- [說明] 是列表上的一行短說明，15 字以內。',
         '- [圖標] 用單個直觀、美觀、和商品強相關的 emoji 或符號。',
         '- 全部用繁體中文（品牌名可以保留原文）。',

@@ -7,7 +7,7 @@ import {
     MALL_CATALOG_VERSION, MALL_CATALOG_VERSION_KEY, addToCart, cartCount, cartTotal, createMallCategory,
     createMallProduct, planMallCatalogUpgrade, removeFromCart, resolveCartLines, type MallCartLine,
 } from '../../utils/shoppingMall';
-import { buildMallRestockPrompt, parseMallRestockBlocks } from '../../utils/mallRestock';
+import { MALL_RESTOCK_STYLE_LABELS, buildMallRestockPrompt, getMallRestockStyle, parseMallRestockBlocks, setMallRestockStyle, type MallRestockStyle } from '../../utils/mallRestock';
 import { createMallOrder, sortMallOrders } from '../../utils/mallOrders';
 import { getMallApi, resolveMallApi, setMallApi } from '../../utils/mallApi';
 import { extractContent, safeResponseJson } from '../../utils/safeApi';
@@ -20,6 +20,9 @@ import MallCart, { type CartPayer, type CartRecipient } from './MallCart';
 import MallOrders from './MallOrders';
 import MallMe from './MallMe';
 import MallProductSheet, { type ProductDraft, type ProductSheetTarget } from './MallProductSheet';
+
+/** 統計屬性用簡體固定枚舉（見 docs/analytics.md）。 */
+const RESTOCK_STYLE_EVENT: Record<MallRestockStyle, '日常' | '混搭' | '精品'> = { daily: '日常', mixed: '混搭', luxury: '精品' };
 import MallCategoryManager from './MallCategoryManager';
 
 /**
@@ -99,6 +102,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
     const nameOf = (id: string) => (id === charId ? charName : recipients?.find(r => r.id === id)?.name) || 'TA';
 
     const [mallApi, setMallApiState] = useState<APIConfig | null>(() => getMallApi());
+    const [restockStyle, setRestockStyle] = useState<MallRestockStyle>(() => getMallRestockStyle());
     useEffect(() => {
         const sync = () => setMallApiState(getMallApi());
         window.addEventListener('mall-api-changed', sync);
@@ -230,7 +234,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
         try {
             const prompt = buildMallRestockPrompt(kind, targets.map(c => ({
                 category: c, existingNames: kindProducts.filter(p => p.categoryId === c.id).map(p => p.name),
-            })));
+            })), restockStyle);
             const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
@@ -249,7 +253,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             addToast('補貨失敗，稍後再試', 'error');
         } finally {
             setRestocking(false);
-            trackEvent('购物中心AI补货', { 范围: scope, 结果: ok ? '成功' : '失败' });
+            trackEvent('购物中心AI补货', { 范围: scope, 结果: ok ? '成功' : '失败', 风格: RESTOCK_STYLE_EVENT[restockStyle] });
         }
     };
 
@@ -425,6 +429,8 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                         onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne}
                         mallApi={mallApi} chatApi={apiConfig} apiPresets={apiPresets}
                         onPickApi={(config, label) => { setMallApi(config); setMallApiState(config); addToast(`補貨改用「${label}」`, 'success'); }}
+                        restockStyle={restockStyle}
+                        onPickStyle={style => { setMallRestockStyle(style); setRestockStyle(style); addToast(`補貨風格改成「${MALL_RESTOCK_STYLE_LABELS[style]}」`, 'success'); }}
                         onExport={exportData} onImport={importData} onManualCard={manualCard} />
                 )}
                 <div className="h-4" />

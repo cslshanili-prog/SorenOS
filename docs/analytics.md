@@ -899,7 +899,7 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 
 - 购物中心发送订单卡片 —— mallKind（shop / food）、mode（gift 买给角色 / self 买给自己 / daifu 请角色付）
 - 购物中心手动模拟卡 —— mallKind（shop / food）
-- 购物中心AI补货 —— 范围（全部分类 / 单一分类）、结果（成功 / 失败）
+- 购物中心AI补货 —— 范围（全部分类 / 单一分类）、结果（成功 / 失败）、风格（日常 / 混搭 / 精品）
 - 购物中心桌面下单 —— mallKind（shop / food）、给谁（自己 / 角色）（桌面入口，2026-10 第三批）
 
 **神经链接**
