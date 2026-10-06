@@ -1,6 +1,6 @@
 import type { ImageGenApiConfig, Message } from '../types';
 import { DB } from './db';
-import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from './imageGeneration';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage, imageGenRecord } from './imageGeneration';
 import { migrateDataUrlToRef } from './blobRef';
 import { getLocalDateKey } from './localDate';
 
@@ -118,12 +118,15 @@ export async function fulfillPendingPhoto(messageId: number, config: ImageGenApi
             const charProfile = chars.find(c => c.id === message.charId);
             const prompt = charProfile ? buildCharacterImagePrompt(charProfile, meta.description) : meta.description;
             const referenceBlob = charProfile ? await resolveCharacterReferenceImage(charProfile, { description: meta.description }) : null;
-            const { dataUrl } = await generateImage(config, prompt, referenceBlob || undefined);
-            const storedContent = await migrateDataUrlToRef(dataUrl);
+            const result = await generateImage(config, prompt, referenceBlob || undefined);
+            const storedContent = await migrateDataUrlToRef(result.dataUrl);
             const { pendingPhoto: _done, ...rest } = message.metadata || {};
             await DB.replaceMessageFields(messageId, {
                 type: 'image', content: storedContent,
-                metadata: { ...rest, aiGenerated: true, imagePrompt: meta.description },
+                metadata: {
+                    ...rest, aiGenerated: true, imagePrompt: meta.description,
+                    imageGen: imageGenRecord(charProfile?.imageGenCharConfig, !!referenceBlob, result),
+                },
             });
             untrackPendingPhoto(messageId);
             // 相冊是消息的附帶記錄：寫不進去不影響已經換好的聊天訊息
