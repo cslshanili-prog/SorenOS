@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
     resolveCartLines, cartTotal, addToCart, removeFromCart, clearCartLine,
-    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, pickMallRecommendations, getMallPicksRound, bumpMallPicksRound, cartCount, productBlurb,
+    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, pickMallRecommendations, buildMallPicks, MALL_MIN_ROTATING, getMallPicksRound, isMallWishlistShared, setMallWishlistShared, bumpMallPicksRound, cartCount, productBlurb,
 } from './shoppingMall';
 import type { MallCategory, MallProduct } from '../types';
 
@@ -208,6 +208,32 @@ describe('搜尋、推薦、小工具', () => {
         const r1few = pickMallRecommendations(many.slice(0, 12), day, 1);
         expect(r1few).toHaveLength(10);
         expect(new Set(r1few.map(p => p.id)).size).toBe(10);
+    });
+
+    it('📌 釘選：固定在前、不進輪換；輪換那段少幾件但至少留幾件', () => {
+        const many = Array.from({ length: 30 }, (_, i) => ({ ...base, id: `p${i}`, categoryId: `c${i % 6}`, name: `品${i}`, createdAt: i }));
+        const withPins = many.map((p, i) => (i === 7 || i === 3 ? { ...p, pinned: true } : p));
+        const day = '2026-10-06';
+        const { pinned, rotating } = buildMallPicks(withPins, day, 0);
+        expect(pinned.map(p => p.id)).toEqual(['p3', 'p7']);
+        expect(rotating).toHaveLength(8);
+        expect(rotating.some(p => p.pinned)).toBe(false);
+        // 換一批時釘選的還在
+        expect(buildMallPicks(withPins, day, 3).pinned.map(p => p.id)).toEqual(['p3', 'p7']);
+        // 釘很多件：輪換至少留 MALL_MIN_ROTATING 件
+        const lotsPinned = many.map((p, i) => (i < 12 ? { ...p, pinned: true } : p));
+        expect(buildMallPicks(lotsPinned, day, 0).rotating).toHaveLength(MALL_MIN_ROTATING);
+        // 沒釘就跟原本一樣
+        expect(buildMallPicks(many, day, 0).rotating.map(p => p.id)).toEqual(pickMallRecommendations(many, day, 0).map(p => p.id));
+    });
+
+    it('願望清單開關：預設開、關掉記得住、再開清掉 key', () => {
+        localStorage.removeItem('mall_wishlist_shared');
+        expect(isMallWishlistShared()).toBe(true);
+        setMallWishlistShared(false);
+        expect(isMallWishlistShared()).toBe(false);
+        setMallWishlistShared(true);
+        expect(localStorage.getItem('mall_wishlist_shared')).toBeNull();
     });
 
     it('換一批次數：只算今天、購物外賣分開、換天歸零', () => {

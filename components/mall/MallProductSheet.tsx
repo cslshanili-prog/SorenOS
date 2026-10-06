@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Heart, X } from '@phosphor-icons/react';
+import { Heart, PushPin, X } from '@phosphor-icons/react';
 import type { MallCategory, MallKind, MallProduct } from '../../types';
 import { formatMoney } from '../../utils/realBalance';
 import { EmojiTile, inputCls, primaryBtn } from './MallParts';
@@ -16,6 +16,7 @@ interface Props {
     onClose: () => void;
     onAddToCart: (product: MallProduct) => void;
     onToggleFavorite: (product: MallProduct) => void;
+    onTogglePinned: (product: MallProduct) => void;
     onSave: (product: MallProduct | null, draft: ProductDraft) => void;
     onDelete: (product: MallProduct) => void;
 }
@@ -28,6 +29,8 @@ export interface ProductDraft {
     summary: string;
     detail: string;
     categoryId: string;
+    /** 新增時就放進推薦（編輯時不動，詳情頁的 📌 管） */
+    pinned?: boolean;
 }
 
 const draftFrom = (p: MallProduct): ProductDraft => ({
@@ -35,7 +38,7 @@ const draftFrom = (p: MallProduct): ProductDraft => ({
 });
 
 /** 商品詳情（底部抽屜）：看、收藏、加入購物車；點「編輯」切成表單。新增商品也用同一張表單。 */
-const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, onClose, onAddToCart, onToggleFavorite, onSave, onDelete }) => {
+const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, onClose, onAddToCart, onToggleFavorite, onTogglePinned, onSave, onDelete }) => {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<ProductDraft | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -45,7 +48,7 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
         if (!target) { setEditing(false); setDraft(null); return; }
         if (target.mode === 'create') {
             setEditing(true);
-            setDraft({ name: '', shop: '', price: '', emoji: '', summary: '', detail: '', categoryId: target.categoryId || categories[0]?.id || '' });
+            setDraft({ name: '', shop: '', price: '', emoji: '', summary: '', detail: '', categoryId: target.categoryId || categories[0]?.id || '', pinned: true });
         } else {
             setEditing(false);
             setDraft(draftFrom(target.product));
@@ -96,6 +99,11 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
                                     aria-label={product.favorite ? '取消收藏' : '收藏'}>
                                     <Heart size={20} weight={product.favorite ? 'fill' : 'regular'} />
                                 </button>
+                                <button onClick={() => onTogglePinned(product)}
+                                    className={`w-14 shrink-0 rounded-2xl border flex items-center justify-center active:scale-95 transition-transform ${product.pinned ? 'border-slate-900 text-slate-900' : 'border-slate-200 text-slate-400'}`}
+                                    aria-label={product.pinned ? '從推薦拿掉' : '放進推薦'}>
+                                    <PushPin size={20} weight={product.pinned ? 'fill' : 'regular'} />
+                                </button>
                                 <button onClick={() => onAddToCart(product)} className={primaryBtn}>
                                     加入購物車{inCart > 0 ? `（已有 ${inCart}）` : ''}
                                 </button>
@@ -118,6 +126,12 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
                             <input value={draft.summary} onChange={e => set({ summary: e.target.value })} placeholder="一行短說明（列表上顯示，選填）" className={inputCls} />
                             <textarea value={draft.detail} onChange={e => set({ detail: e.target.value })} placeholder="詳情：材質、規格、份量…（選填）" rows={3}
                                 className={`${inputCls} resize-none`} />
+                            {!product && (
+                                <label className="flex items-center gap-2 px-1 text-[12px] text-slate-600 select-none">
+                                    <input type="checkbox" checked={!!draft.pinned} onChange={e => set({ pinned: e.target.checked })} />
+                                    📌 放進推薦（固定在推薦最上面，角色也看得到）
+                                </label>
+                            )}
                             <button disabled={!canSave} onClick={() => onSave(product, draft)} className={primaryBtn}>儲存</button>
                             {product && (
                                 confirmDelete ? (

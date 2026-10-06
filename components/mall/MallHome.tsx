@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowClockwise } from '@phosphor-icons/react';
 import type { MallCategory, MallKind, MallProduct } from '../../types';
-import { bumpMallPicksRound, getMallPicksRound, localDateKey, pickMallRecommendations, searchMallProducts } from '../../utils/shoppingMall';
+import { bumpMallPicksRound, buildMallPicks, getMallPicksRound, localDateKey, searchMallProducts } from '../../utils/shoppingMall';
 import { ProductRow, SectionTitle } from './MallParts';
 
 /** 分類列的兩個特殊值 */
@@ -27,7 +27,7 @@ const MallHome: React.FC<Props> = ({ kind, categories, products, activeCat, quer
     const [spinning, setSpinning] = useState(false);
     const picks = useMemo(() => {
         const day = localDateKey();
-        return pickMallRecommendations(products, day, getMallPicksRound(kind, day));
+        return buildMallPicks(products, day, getMallPicksRound(kind, day));
     }, [products, kind, bump]); // eslint-disable-line react-hooks/exhaustive-deps
     const refreshPicks = () => {
         bumpMallPicksRound(kind);
@@ -49,13 +49,24 @@ const MallHome: React.FC<Props> = ({ kind, categories, products, activeCat, quer
     if (activeCat === CAT_PICKS) {
         return (
             <div>
-                <SectionTitle right={picks.length > 0 && (
+                {picks.pinned.length > 0 && (
+                    <>
+                        <SectionTitle>📌 你放進推薦的 · 不會被換掉</SectionTitle>
+                        {picks.pinned.map(row)}
+                    </>
+                )}
+                <SectionTitle right={picks.rotating.length > 0 && (
                     <button onClick={refreshPicks} aria-label="換一批推薦"
                         className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-500 active:bg-slate-100">
                         <ArrowClockwise size={13} weight="bold" className={spinning ? 'animate-spin' : ''} />換一批
                     </button>
                 )}>今日推薦 · 每天換一批</SectionTitle>
-                {picks.length === 0 ? <Empty text="還沒有商品，按右上角 ⟳ 讓 AI 補貨" /> : picks.map(row)}
+                {picks.rotating.length === 0
+                    ? <Empty text={picks.pinned.length ? '其他商品都已經放進推薦了' : '還沒有商品，按右上角 ⟳ 讓 AI 補貨'} />
+                    : picks.rotating.map(row)}
+                {picks.pinned.length === 0 && picks.rotating.length > 0 && (
+                    <div className="text-[11px] text-slate-400 text-center py-3">想要的東西刷不到？點商品進詳情按 📌，就會固定放在推薦最上面</div>
+                )}
             </div>
         );
     }

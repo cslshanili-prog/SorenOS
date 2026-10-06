@@ -25,12 +25,15 @@ interface Props {
     onExport: () => void;
     onImport: (file: File) => void;
     onManualCard: (input: { name: string; price: number; note: string }) => void;
+    /** 收藏當願望清單給角色看 */
+    wishlistShared: boolean;
+    onToggleWishlistShared: () => void;
 }
 
 /** Me：收藏、AI 補貨用的 API、資料導入導出、手動模擬「TA 買給我的」卡片。 */
 const MallMe: React.FC<Props> = ({
     kind, manualCharName, balance, favorites, cartQty, onOpen, onAdd,
-    mallApi, chatApi, apiPresets, onPickApi, restockStyle, onPickStyle, onExport, onImport, onManualCard,
+    mallApi, chatApi, apiPresets, onPickApi, restockStyle, onPickStyle, onExport, onImport, onManualCard, wishlistShared, onToggleWishlistShared,
 }) => {
     const [showApi, setShowApi] = useState(false);
     const [showStyle, setShowStyle] = useState(false);
@@ -48,7 +51,18 @@ const MallMe: React.FC<Props> = ({
                 <div className="text-[11px] text-white/50 mt-0.5">結帳從這裡扣，跟「銀行」的現金是同一份</div>
             </div>
 
-            <SectionTitle>收藏 · {kind === 'food' ? '外賣' : '購物'}</SectionTitle>
+            <SectionTitle right={
+                <button onClick={onToggleWishlistShared} role="switch" aria-checked={wishlistShared} aria-label="讓角色看到收藏"
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                    讓角色看到
+                    <span className={`w-8 h-5 rounded-full p-0.5 flex items-center transition-colors ${wishlistShared ? 'bg-slate-900' : 'bg-slate-300'}`}>
+                        <span className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${wishlistShared ? 'translate-x-3' : ''}`} />
+                    </span>
+                </button>
+            }>收藏 · 願望清單 · {kind === 'food' ? '外賣' : '購物'}</SectionTitle>
+            <div className="text-[11px] text-slate-400 leading-relaxed -mt-0.5 mb-1">
+                {wishlistShared ? '角色聊天時看得到你收藏了什麼，想送你東西時可能會從這裡挑。' : '只有你自己看得到。'}
+            </div>
             {favorites.length === 0 ? (
                 <div className="flex items-center gap-2 text-[12px] text-slate-400 py-3"><Heart size={14} /> 在商品詳情點愛心就會收進來</div>
             ) : favorites.map(p => <ProductRow key={p.id} product={p} inCart={cartQty(p.id)} onOpen={() => onOpen(p)} onAdd={() => onAdd(p)} />)}

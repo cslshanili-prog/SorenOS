@@ -5,7 +5,7 @@ import { DB } from '../../utils/db';
 import type { APIConfig, ApiPreset, MallCategory, MallKind, MallOrder, MallProduct } from '../../types';
 import {
     MALL_CATALOG_VERSION, MALL_CATALOG_VERSION_KEY, addToCart, cartCount, cartTotal, createMallCategory,
-    createMallProduct, planMallCatalogUpgrade, removeFromCart, resolveCartLines, type MallCartLine,
+    createMallProduct, isMallWishlistShared, planMallCatalogUpgrade, setMallWishlistShared, removeFromCart, resolveCartLines, type MallCartLine,
 } from '../../utils/shoppingMall';
 import { MALL_RESTOCK_STYLE_LABELS, buildMallRestockPrompt, getMallRestockStyle, parseMallRestockBlocks, setMallRestockStyle, type MallRestockStyle } from '../../utils/mallRestock';
 import { createMallOrder, sortMallOrders } from '../../utils/mallOrders';
@@ -103,6 +103,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
 
     const [mallApi, setMallApiState] = useState<APIConfig | null>(() => getMallApi());
     const [restockStyle, setRestockStyle] = useState<MallRestockStyle>(() => getMallRestockStyle());
+    const [wishlistShared, setWishlistShared] = useState(() => isMallWishlistShared());
     useEffect(() => {
         const sync = () => setMallApiState(getMallApi());
         window.addEventListener('mall-api-changed', sync);
@@ -170,7 +171,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
         const fresh = createMallProduct(kind, d.categoryId, fields);
         const next: MallProduct = existing
             ? { ...existing, ...fresh, id: existing.id, createdAt: existing.createdAt, favorite: existing.favorite }
-            : fresh;
+            : { ...fresh, ...(d.pinned ? { pinned: true } : {}) };
         await DB.saveMallProduct(next);
         setProducts(prev => existing ? prev.map(p => p.id === next.id ? next : p) : [...prev, next]);
         setSheet(existing ? { mode: 'view', product: next } : null);
@@ -182,6 +183,13 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
         setCarts(prev => ({ shop: prev.shop.filter(l => l.productId !== p.id), food: prev.food.filter(l => l.productId !== p.id) }));
         setSheet(null);
         addToast('已刪除', 'success');
+    };
+    const togglePinned = async (p: MallProduct) => {
+        const next = { ...p, pinned: !p.pinned || undefined };
+        await DB.saveMallProduct(next);
+        setProducts(prev => prev.map(x => x.id === p.id ? next : x));
+        setSheet(s => (s && s.mode === 'view' && s.product.id === p.id ? { mode: 'view', product: next } : s));
+        addToast(next.pinned ? '已放進推薦，角色也看得到' : '已從推薦拿掉', 'success');
     };
     const toggleFavorite = async (p: MallProduct) => {
         const next = { ...p, favorite: !p.favorite };
@@ -429,6 +437,13 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                         onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne}
                         mallApi={mallApi} chatApi={apiConfig} apiPresets={apiPresets}
                         onPickApi={(config, label) => { setMallApi(config); setMallApiState(config); addToast(`補貨改用「${label}」`, 'success'); }}
+                        wishlistShared={wishlistShared}
+                        onToggleWishlistShared={() => {
+                            const next = !wishlistShared;
+                            setMallWishlistShared(next);
+                            setWishlistShared(next);
+                            addToast(next ? '角色看得到你的收藏了' : '收藏只有你自己看得到', 'success');
+                        }}
                         restockStyle={restockStyle}
                         onPickStyle={style => { setMallRestockStyle(style); setRestockStyle(style); addToast(`補貨風格改成「${MALL_RESTOCK_STYLE_LABELS[style]}」`, 'success'); }}
                         onExport={exportData} onImport={importData} onManualCard={manualCard} />
@@ -460,7 +475,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                 inCart={sheet?.mode === 'view' ? cartQty(sheet.product.id) : 0}
                 onClose={() => setSheet(null)}
                 onAddToCart={p => { addOne(p); addToast(`已加入：${p.name}`, 'success'); }}
-                onToggleFavorite={toggleFavorite} onSave={saveProduct} onDelete={deleteProduct} />
+                onToggleFavorite={toggleFavorite} onTogglePinned={togglePinned} onSave={saveProduct} onDelete={deleteProduct} />
 
             <Modal isOpen={showPlus} title={kind === 'food' ? '外賣' : '購物'} onClose={() => setShowPlus(false)}>
                 <div className="space-y-2.5">
