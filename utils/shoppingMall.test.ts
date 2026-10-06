@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildDefaultCategories, buildSeedProducts, createMallCategory, createMallProduct,
     resolveCartLines, cartTotal, addToCart, removeFromCart, clearCartLine,
-    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, pickMallRecommendations, buildMallPicks, MALL_MIN_ROTATING, getMallPicksRound, bumpMallPicksRound, cartCount, productBlurb,
+    DEFAULT_MALL_CATEGORIES, planMallCatalogUpgrade, searchMallProducts, pickDailyRecommendations, pickMallRecommendations, buildMallPicks, MALL_MIN_ROTATING, getMallPicksRound, isMallWishlistShared, setMallWishlistShared, bumpMallPicksRound, cartCount, productBlurb,
 } from './shoppingMall';
 import type { MallCategory, MallProduct } from '../types';
 
@@ -225,6 +225,15 @@ describe('搜尋、推薦、小工具', () => {
         expect(buildMallPicks(lotsPinned, day, 0).rotating).toHaveLength(MALL_MIN_ROTATING);
         // 沒釘就跟原本一樣
         expect(buildMallPicks(many, day, 0).rotating.map(p => p.id)).toEqual(pickMallRecommendations(many, day, 0).map(p => p.id));
+    });
+
+    it('願望清單開關：預設開、關掉記得住、再開清掉 key', () => {
+        localStorage.removeItem('mall_wishlist_shared');
+        expect(isMallWishlistShared()).toBe(true);
+        setMallWishlistShared(false);
+        expect(isMallWishlistShared()).toBe(false);
+        setMallWishlistShared(true);
+        expect(localStorage.getItem('mall_wishlist_shared')).toBeNull();
     });
 
     it('換一批次數：只算今天、購物外賣分開、換天歸零', () => {

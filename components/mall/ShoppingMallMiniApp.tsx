@@ -5,7 +5,7 @@ import { DB } from '../../utils/db';
 import type { APIConfig, ApiPreset, MallCategory, MallKind, MallOrder, MallProduct } from '../../types';
 import {
     MALL_CATALOG_VERSION, MALL_CATALOG_VERSION_KEY, addToCart, cartCount, cartTotal, createMallCategory,
-    createMallProduct, planMallCatalogUpgrade, removeFromCart, resolveCartLines, type MallCartLine,
+    createMallProduct, isMallWishlistShared, planMallCatalogUpgrade, setMallWishlistShared, removeFromCart, resolveCartLines, type MallCartLine,
 } from '../../utils/shoppingMall';
 import { MALL_RESTOCK_STYLE_LABELS, buildMallRestockPrompt, getMallRestockStyle, parseMallRestockBlocks, setMallRestockStyle, type MallRestockStyle } from '../../utils/mallRestock';
 import { createMallOrder, sortMallOrders } from '../../utils/mallOrders';
@@ -103,6 +103,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
 
     const [mallApi, setMallApiState] = useState<APIConfig | null>(() => getMallApi());
     const [restockStyle, setRestockStyle] = useState<MallRestockStyle>(() => getMallRestockStyle());
+    const [wishlistShared, setWishlistShared] = useState(() => isMallWishlistShared());
     useEffect(() => {
         const sync = () => setMallApiState(getMallApi());
         window.addEventListener('mall-api-changed', sync);
@@ -436,6 +437,13 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                         onOpen={p => setSheet({ mode: 'view', product: p })} onAdd={addOne}
                         mallApi={mallApi} chatApi={apiConfig} apiPresets={apiPresets}
                         onPickApi={(config, label) => { setMallApi(config); setMallApiState(config); addToast(`補貨改用「${label}」`, 'success'); }}
+                        wishlistShared={wishlistShared}
+                        onToggleWishlistShared={() => {
+                            const next = !wishlistShared;
+                            setMallWishlistShared(next);
+                            setWishlistShared(next);
+                            addToast(next ? '角色看得到你的收藏了' : '收藏只有你自己看得到', 'success');
+                        }}
                         restockStyle={restockStyle}
                         onPickStyle={style => { setMallRestockStyle(style); setRestockStyle(style); addToast(`補貨風格改成「${MALL_RESTOCK_STYLE_LABELS[style]}」`, 'success'); }}
                         onExport={exportData} onImport={importData} onManualCard={manualCard} />

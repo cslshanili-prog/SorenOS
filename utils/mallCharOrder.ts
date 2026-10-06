@@ -1,7 +1,7 @@
 import type { MallCategory, MallKind, MallProduct } from '../types';
 import type { MallOrderAiEvent } from './mallOrderFormat';
 import { mallOrderProgress } from './mallOrders';
-import { buildMallPicks, getMallPicksRound, localDateKey } from './shoppingMall';
+import { buildMallPicks, getMallPicksRound, isMallWishlistShared, localDateKey } from './shoppingMall';
 import { formatMoney } from './realBalance';
 import { nowInTimeZone } from './timezone';
 
@@ -110,8 +110,20 @@ const pickLine = (p: MallProduct) => `${p.name}${p.shop ? `（${p.shop}）` : ''
  * 分類被刪掉的商品不算（購物中心裡也看不到）。目錄是空的就整段不給。
  */
 const MAX_PINNED_FOR_CHAR = 10;
+/** 願望清單每類最多列幾件（照收藏的先後，最新的在前） */
+const MAX_WISHLIST_FOR_CHAR = 8;
 
-export function buildMallPicksBlock(products: MallProduct[], categories: MallCategory[], perKind = 6, dateKey: string = localDateKey()): string {
+/**
+ * 另外：用戶開著「讓角色看到收藏」時（預設開），多一行「對方的願望清單」——用戶收藏的商品，
+ * 角色送禮可以從這裡挑。wishlistShared 只給單測傳，平常讀 localStorage。
+ */
+export function buildMallPicksBlock(
+    products: MallProduct[],
+    categories: MallCategory[],
+    perKind = 6,
+    dateKey: string = localDateKey(),
+    wishlistShared: boolean = isMallWishlistShared(),
+): string {
     const liveCats = new Set(categories.map(c => c.id));
     const live = products.filter(p => liveCats.has(p.categoryId));
     const picksFor = (kind: MallKind): MallProduct[] => {
@@ -122,10 +134,20 @@ export function buildMallPicksBlock(products: MallProduct[], categories: MallCat
     };
     const food = picksFor('food');
     const shop = picksFor('shop');
-    if (food.length === 0 && shop.length === 0) return '';
+    const wishFor = (kind: MallKind): MallProduct[] => wishlistShared
+        ? live.filter(p => p.kind === kind && p.favorite).sort((a, b) => b.createdAt - a.createdAt).slice(0, MAX_WISHLIST_FOR_CHAR)
+        : [];
+    const wishFood = wishFor('food');
+    const wishShop = wishFor('shop');
+    if (food.length === 0 && shop.length === 0 && wishFood.length === 0 && wishShop.length === 0) return '';
     const lines = ['', '### 購物中心 · 今天的推薦'];
     if (food.length) lines.push(`外賣（kind=food）：${food.map(pickLine).join('、')}`);
     if (shop.length) lines.push(`購物（kind=shop）：${shop.map(pickLine).join('、')}`);
+    if (wishFood.length || wishShop.length) {
+        lines.push('對方的願望清單（對方在購物中心收藏的，想要但不一定買了；送禮時可以從這裡挑，不用每次都送）：');
+        if (wishFood.length) lines.push(`- 外賣（kind=food）：${wishFood.map(pickLine).join('、')}`);
+        if (wishShop.length) lines.push(`- 購物（kind=shop）：${wishShop.map(pickLine).join('、')}`);
+    }
     lines.push('清單外的也能點，價格照美國日常行情寫。怎麼下單見「可用動作」裡的 GIFT。', '');
     return lines.join('\n');
 }

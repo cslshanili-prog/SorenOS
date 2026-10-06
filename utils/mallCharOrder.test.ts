@@ -69,6 +69,15 @@ describe('buildMallPicksBlock', () => {
         expect(buildMallPicksBlock([], cats)).toBe('');
     });
 
+    it('願望清單：開著就列出收藏的、關掉不列；只有收藏也會給這一段', () => {
+        const withFav = catalog.map(p => (p.id === 'c' ? { ...p, favorite: true } : p));
+        const shared = buildMallPicksBlock(withFav, cats, 6, '2026-10-06', true);
+        expect(shared).toContain('對方的願望清單');
+        expect(shared).toContain('- 購物（kind=shop）：AirPods Pro 2$249.00');
+        expect(buildMallPicksBlock(withFav, cats, 6, '2026-10-06', false)).not.toContain('願望清單');
+        expect(buildMallPicksBlock(catalog, cats, 6, '2026-10-06', true)).not.toContain('願望清單');
+    });
+
     it('📌 釘選的一定給、排在最前面，就算超出每類件數', () => {
         const many = Array.from({ length: 12 }, (_, i) => prod(`f${i}`, 'food', `外賣${i}`, 10 + i));
         const pinnedLast = { ...many[11], pinned: true };

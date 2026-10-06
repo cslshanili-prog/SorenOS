@@ -325,6 +325,25 @@ export function pickMallRecommendations(products: MallProduct[], dateKey: string
     return batch.slice(0, limit);
 }
 
+/**
+ * 收藏當「願望清單」給角色看（2026-10-06）：角色私聊的購物中心那段會列出用戶收藏的，
+ * 送禮可以從裡面挑。預設開；關掉就只是用戶自己的收藏。存這台裝置的 localStorage。
+ */
+const WISHLIST_SHARE_KEY = 'mall_wishlist_shared';
+export function isMallWishlistShared(): boolean {
+    try {
+        return localStorage.getItem(WISHLIST_SHARE_KEY) !== '0';
+    } catch {
+        return true;
+    }
+}
+export function setMallWishlistShared(shared: boolean): void {
+    try {
+        if (shared) localStorage.removeItem(WISHLIST_SHARE_KEY);
+        else localStorage.setItem(WISHLIST_SHARE_KEY, '0');
+    } catch { /* 無痕模式 */ }
+}
+
 /** 釘了很多件時，輪換的那一段至少還留幾件（不然「換一批」就沒東西可換）。 */
 export const MALL_MIN_ROTATING = 4;
 
