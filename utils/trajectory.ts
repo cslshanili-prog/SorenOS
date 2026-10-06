@@ -134,10 +134,18 @@ export function buildTrajectoryOotdPrompt(roleSettingsBlock: string, existing?: 
         `- bottoms：下裝的具體描述（如"米白亞麻褲"）\n` +
         `- shoes：鞋子的具體描述\n` +
         `- accessories：配飾，0-3 項的數組（可以是空數組）\n` +
-        `- imagePrompt：給 AI 生圖用的一段英文畫面描述，統一走"站在穿衣鏡前用手機自拍"這個路子——地點是全身鏡前，手裡舉著手機在拍這身穿搭，構圖半身或全身都行，視線不一定看鏡頭（可以低頭看手機屏幕、側臉、看別處），偶爾可以讓舉著的手機或手臂擋住部分臉，營造真實生活感的鏡子自拍；背景光線/氛圍也要跟當下是白天還是深夜對上，不要寫成跟時間矛盾的場景。但站姿、鏡頭遠近、身體朝向、手機遮臉與否這些細節每次都要不一樣，不要寫成同一個姿勢，不要出現角色的真實姓名\n\n` +
+        `- imagePrompt：給 AI 生圖用的一段英文畫面描述，統一走"站在穿衣鏡前用手機自拍"這個路子——地點是全身鏡前，手裡舉著手機在拍這身穿搭，營造真實生活感的鏡子自拍；背景光線/氛圍也要跟當下是白天還是深夜對上，不要寫成跟時間矛盾的場景。` +
+        `臉一定要露出來、看得清楚（會拿參考圖鎖臉，臉被擋住或太小就認不出是誰）：手機拿在胸口或側邊，不要擋住臉；可以側一點、可以不看鏡頭，但五官要看得到。構圖以半身到七分身為主，要拍全身時人要佔滿畫面高度。` +
+        `人物的性別、年齡照上面的角色設定寫，五官長相不用描述（交給參考圖）。站姿、鏡頭遠近、身體朝向這些細節每次都要不一樣，不要寫成同一個姿勢，不要出現角色的真實姓名\n\n` +
         `**JSON 字段類型硬約束**：只能返回下面這個形狀的 JSON 對象，colors/accessories 必須是字符串數組，其餘字段必須是字符串：\n` +
-        `{ "style": "休閒", "colors": ["米白色", "杏色"], "tops": "杏色亞麻襯衫", "bottoms": "米白亞麻褲", "shoes": "小白鞋", "accessories": ["帆布包"], "imagePrompt": "a young woman in a beige linen shirt..." }`;
+        `{ "style": "休閒", "colors": ["米白色", "杏色"], "tops": "杏色亞麻襯衫", "bottoms": "米白亞麻褲", "shoes": "小白鞋", "accessories": ["帆布包"], "imagePrompt": "a person in a beige linen shirt taking a mirror selfie, face clearly visible..." }`;
 }
+
+/**
+ * OOTD 帶參考圖生成時固定加在最後的臉部要求（2026-10-06：全身鏡子自拍、手機遮臉，臉一小或被擋住就鎖不住）。
+ * 舊貼文存的描述可能寫了遮臉，所以明說「以這段為準」，⟳ 重生舊的也吃得到。
+ */
+export const OOTD_FACE_NOTE = '[臉部要求] 臉要清楚露出、五官看得到，跟參考圖是同一個人；不要被手機、手臂或頭髮擋住臉，臉不要小到看不清（全身照時人要佔滿畫面高度）。描述裡如果寫了遮臉，以這段為準。';
 
 /** 把 AI 返回的鬆散 JSON 對象過濾/糾錯成 TrajectoryOotdDraft；字段不完整（缺 imagePrompt 等）時返回 null。 */
 export function parseTrajectoryOotdDraft(json: unknown): TrajectoryOotdDraft | null {

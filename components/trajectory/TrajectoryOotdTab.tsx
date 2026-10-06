@@ -4,6 +4,7 @@ import ImagePromptEditor from '../chat/ImagePromptEditor';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
 import TokenImg from '../os/TokenImg';
 import {
+    OOTD_FACE_NOTE,
     buildTrajectoryOotdPrompt, createTrajectoryOotdPost, groupTrajectoryOotdByDate, parseTrajectoryOotdDraft,
 } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
@@ -15,6 +16,9 @@ import { DB } from '../../utils/db';
 import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
 import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
+
+/** 帶參考圖時加上 OOTD 的臉部要求；沒帶參考圖（角色沒開）就不加，免得要求一張沒有的臉。 */
+const withOotdFaceNote = (prompt: string, withReference: boolean) => (withReference ? `${prompt}\n${OOTD_FACE_NOTE}` : prompt);
 import { resolveCharTimeZone, nowInTimeZone } from '../../utils/timezone';
 
 interface Props {
@@ -102,8 +106,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             const draft = parseTrajectoryOotdDraft(extractJson(extractContent(data)));
             if (!draft) { addToast('這次沒解析出穿搭內容，再試一次', 'error'); return; }
 
-            const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
+            const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, draft.imagePrompt), !!referenceBlob);
             const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(dataUrl);
 
@@ -129,8 +133,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
         setRegeneratingPhoto(true);
         try {
             const promptText = description || post.imagePrompt;
-            const imagePrompt = buildCharacterImagePrompt(char, promptText);
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
+            const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, promptText), !!referenceBlob);
             const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
             const image = await migrateDataUrlToRef(result.dataUrl);
             const patch = { image, imagePrompt: promptText };
