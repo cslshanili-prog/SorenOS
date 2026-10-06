@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, ChatCircle, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, ChatCircle, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, PencilSimple, Sparkle, Trash, X } from '@phosphor-icons/react';
 import type { CharacterProfile, ImageGenApiConfig, MomentActor, MomentPost } from '../../types';
 import TokenImg from '../os/TokenImg';
+import ImagePromptEditor from '../chat/ImagePromptEditor';
 import { useOS } from '../../context/OSContext';
 import {
     actorDisplayName, buildFriendGraph, displayLikeCount, momentFeedFor, visibleComments, visibleLikes,
 } from '../../utils/momentsPool';
-import { deleteMomentComment, deleteMomentPost, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
+import { deleteMomentComment, deleteMomentPost, editMomentComment, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
 import { generateCharacterMoment } from '../../utils/momentsGenerate';
 import { commentAsCharacter } from '../../utils/momentsReply';
 import { trackEvent } from '../../utils/analytics';
@@ -39,6 +40,8 @@ const formatTimestamp = (ts: number): string => {
     return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
+const HINT_EN = '生成這張照片時用的描述（英文也可以直接改中文）。生成時還會自動加上：專屬生圖設定的人物特徵、生圖 API 的補充提示詞，帶參考圖時再加一段鎖臉要求。';
+
 const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, apiConfig, imageGenConfig, addToast }) => {
     const { characters, npcs, userProfileBase, groups, updateCharacter, apiConfig: osApiConfig } = useOS();
     const [liking, setLiking] = useState(false);
@@ -47,6 +50,10 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const [generating, setGenerating] = useState(false);
     const [pool, setPool] = useState<MomentPost[]>([]);
     const [detailId, setDetailId] = useState<string | null>(null);
+    // ✎ 編輯：TA 自己的貼文正文、TA 自己的留言（2026-10-06）
+    const [editingPost, setEditingPost] = useState<string | null>(null);
+    const [editingComment, setEditingComment] = useState<{ id: string; text: string } | null>(null);
+    const [editingPhotoPrompt, setEditingPhotoPrompt] = useState(false);
 
     const reload = useCallback(() => { DB.getAllMomentPosts().then(setPool).catch(() => setPool([])); }, []);
     useEffect(() => {
@@ -62,7 +69,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const posts = useMemo(() => momentFeedFor(char.id, pool, graph), [pool, char.id, graph]);
     const ownPosts = useMemo(() => posts.filter(p => p.author.id === char.id), [posts, char.id]);
     const detailPost = posts.find(p => p.id === detailId) || null;
-    const setDetailPost = (post: MomentPost | null) => setDetailId(post?.id || null);
+    const setDetailPost = (post: MomentPost | null) => { setDetailId(post?.id || null); setEditingPost(null); setEditingComment(null); setEditingPhotoPrompt(false); };
     const knownUser = useMemo(() => resolveUserProfileForChar(userProfileBase, char), [userProfileBase, char]);
     const userName = knownUser.name || '用戶';
     const nameOf = (actor: MomentActor) => actorDisplayName(actor, characters, npcs, userName, graph);
@@ -117,21 +124,25 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
 
     // 只重生成照片，文案/點贊/評論原樣不動——複用生成當下存下來的 imagePrompt，
     // 保證新照片還是貼合文案描述的場景，不會圖文不符。
-    const handleRegeneratePhoto = async (post: MomentPost) => {
+    // overrides 來自「✎ 改照片描述」：改過的描述存回 imagePrompt，之後 ⟳ 就照新的跑
+    const handleRegeneratePhoto = async (post: MomentPost, overrides?: { description: string; forceReference: boolean }) => {
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
             addToast('先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
         try {
-            const imagePrompt = buildCharacterImagePrompt(char, post.imagePrompt || post.content);
-            const referenceBlob = await resolveCharacterReferenceImage(char, { description: post.content });
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
-            const image = await migrateDataUrlToRef(dataUrl);
+            const description = overrides?.description || post.imagePrompt || post.content;
+            const imagePrompt = buildCharacterImagePrompt(char, description);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { description: post.content, forceReference: overrides?.forceReference });
+            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const image = await migrateDataUrlToRef(result.dataUrl);
             const old = post.images[0];
-            await updateMomentPostFields(post.id, { images: [image, ...post.images.slice(1)] });
+            await updateMomentPostFields(post.id, { images: [image, ...post.images.slice(1)], ...(overrides ? { imagePrompt: description } : {}) });
             if (old) void deleteBlobRefIfUnreferenced(old);
-            addToast('照片已重新生成', 'success');
+            setEditingPhotoPrompt(false);
+            if (referenceBlob && !result.referenceUsed) addToast(`參考圖沒送成功，這張沒鎖臉${result.referenceError ? `：${result.referenceError.slice(0, 60)}` : ''}`, 'error');
+            else addToast('照片已重新生成', 'success');
         } catch (e) {
             console.warn('[Trajectory] Moments 照片重新生成失敗:', e);
             addToast('生成失敗，稍後再試', 'error');
@@ -223,6 +234,31 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         }
     };
 
+    const handleSavePostText = async (post: MomentPost, text: string) => {
+        const next = text.trim();
+        if (!next) { addToast('內容不能是空的', 'info'); return; }
+        try {
+            if (next !== post.content) await updateMomentPostFields(post.id, { content: next });
+            setEditingPost(null);
+        } catch (e) {
+            console.warn('[Trajectory] 改朋友圈內容失敗:', e);
+            addToast('儲存失敗，稍後再試', 'error');
+        }
+    };
+
+    const handleSaveOwnComment = async (post: MomentPost) => {
+        if (!editingComment) return;
+        const next = editingComment.text.trim();
+        if (!next) { addToast('留言不能是空的', 'info'); return; }
+        try {
+            await editMomentComment(post.id, editingComment.id, next);
+            setEditingComment(null);
+        } catch (e) {
+            console.warn('[Trajectory] 改角色留言失敗:', e);
+            addToast('儲存失敗，稍後再試', 'error');
+        }
+    };
+
     const handleDeleteOwnComment = async (post: MomentPost, commentId: string) => {
         setConfirmCommentId(null);
         try {
@@ -250,6 +286,20 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                 )}
                 {comments.map(c => {
                     const target = c.replyTo ? post.comments.find(x => x.id === c.replyTo) : undefined;
+                    const mine = allowDelete && c.actor.kind === 'character' && c.actor.id === char.id;
+                    if (mine && editingComment?.id === c.id) {
+                        return (
+                            <div key={c.id} className="flex flex-col gap-1.5">
+                                <textarea value={editingComment.text} onChange={e => setEditingComment({ id: c.id, text: e.target.value })} rows={2} autoFocus
+                                    className="w-full rounded-lg px-2 py-1.5 text-[11px] leading-relaxed text-white/90 resize-none outline-none"
+                                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(167,139,250,0.35)' }} />
+                                <div className="flex justify-end gap-1.5">
+                                    <button onClick={() => setEditingComment(null)} className="text-[10px] font-bold px-2 py-0.5 rounded-md text-white/50 bg-white/5">取消</button>
+                                    <button onClick={() => void handleSaveOwnComment(post)} className="text-[10px] font-bold px-2 py-0.5 rounded-md text-violet-200 bg-violet-500/25">儲存</button>
+                                </div>
+                            </div>
+                        );
+                    }
                     return (
                         <div key={c.id} className="text-[11px] text-white/60 break-words flex items-start gap-1.5">
                             <div className="flex-1 min-w-0">
@@ -257,7 +307,13 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                                 {target && <><span className="text-white/35"> 回覆 </span><span className="font-bold" style={{ color: '#a78bfa' }}>{nameOf(target.actor)}</span></>}
                                 ：{c.content}
                             </div>
-                            {allowDelete && c.actor.kind === 'character' && c.actor.id === char.id && (
+                            {mine && confirmCommentId !== c.id && (
+                                <button onClick={() => { setConfirmCommentId(null); setEditingComment({ id: c.id, text: c.content }); }} aria-label="編輯這條留言"
+                                    className="shrink-0 mt-0.5 text-white/30 hover:text-violet-300 active:scale-90 transition">
+                                    <PencilSimple size={12} />
+                                </button>
+                            )}
+                            {mine && (
                                 confirmCommentId === c.id ? (
                                     <button onClick={() => void handleDeleteOwnComment(post, c.id)}
                                         className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md text-rose-300 bg-rose-500/15 active:scale-95 transition">
@@ -342,7 +398,25 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
                                 <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
                             </button>}
+                            {detailPost.images.length > 0 && <button onClick={() => setEditingPhotoPrompt(true)} disabled={regeneratingPhoto} aria-label="改照片描述"
+                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
+                                <PencilSimple size={14} weight="bold" />
+                            </button>}
                         </div>}
+                        {editingPhotoPrompt && detailPost.author.id === char.id && (
+                            <ImagePromptEditor
+                                key={detailPost.id}
+                                placement="fixed"
+                                title="照片描述"
+                                hint={HINT_EN}
+                                initialDescription={detailPost.imagePrompt || detailPost.content}
+                                referenceAvailable={!!(char.imageGenCharConfig?.referenceEnabled && char.imageGenCharConfig.referenceImage)}
+                                defaultForceReference={false}
+                                busy={regeneratingPhoto}
+                                onCancel={() => setEditingPhotoPrompt(false)}
+                                onSubmit={(description, forceReference) => void handleRegeneratePhoto(detailPost, { description, forceReference })}
+                            />
+                        )}
                         {confirmDeleteOpen && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
                                 <div className="text-center">
@@ -374,8 +448,28 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                             </div>
                         )}
                         <div className="px-5 pt-4 pb-2">
-                            <div className="text-[12px] font-bold mb-1" style={{ color: '#a78bfa' }}>{nameOf(detailPost.author)}</div>
-                            <div className="text-[13px] leading-relaxed text-white/90 whitespace-pre-wrap break-words">{detailPost.content}</div>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="text-[12px] font-bold" style={{ color: '#a78bfa' }}>{nameOf(detailPost.author)}</div>
+                                {detailPost.author.id === char.id && editingPost === null && (
+                                    <button onClick={() => setEditingPost(detailPost.content)} aria-label="編輯這條朋友圈"
+                                        className="text-white/35 hover:text-violet-300 active:scale-90 transition">
+                                        <PencilSimple size={14} weight="bold" />
+                                    </button>
+                                )}
+                            </div>
+                            {editingPost !== null && detailPost.author.id === char.id ? (
+                                <div className="flex flex-col gap-2">
+                                    <textarea value={editingPost} onChange={e => setEditingPost(e.target.value)} rows={4} autoFocus
+                                        className="w-full rounded-xl px-3 py-2 text-[13px] leading-relaxed text-white/90 resize-none outline-none"
+                                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.35)' }} />
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => setEditingPost(null)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white/55 bg-white/5">取消</button>
+                                        <button onClick={() => void handleSavePostText(detailPost, editingPost)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-violet-100 bg-violet-500/30">儲存</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-[13px] leading-relaxed text-white/90 whitespace-pre-wrap break-words">{detailPost.content}</div>
+                            )}
                             <div className="text-[11px] text-white/40 mt-1.5">{formatTimestamp(detailPost.createdAt)}</div>
                         </div>
                         {renderInteractions(detailPost, 'mx-5 mb-2', true)}

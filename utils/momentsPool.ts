@@ -195,6 +195,13 @@ export function removeCommentFrom(post: MomentPost, commentId: string): MomentPo
     return { ...post, comments: post.comments.filter(c => c.id !== commentId) };
 }
 
+/** 改一條留言的文字（查手機裡改角色自己的留言，2026-10-06）；空字串不改，時間、回覆對象不動。 */
+export function editCommentIn(post: MomentPost, commentId: string, content: string): MomentPost {
+    const text = content.trim();
+    if (!text) return post;
+    return { ...post, comments: post.comments.map(c => (c.id === commentId ? { ...c, content: text } : c)) };
+}
+
 // ── 搬遷：軌跡 Moments → 貼文池 ──────────────────────────────────────
 
 /** 搬遷來的貼文 id 固定由舊 id 推出來，重跑不會重複。 */
