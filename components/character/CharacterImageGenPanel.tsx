@@ -46,7 +46,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-700 truncate">{charName} · 專屬生圖設定</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">只影響這個角色，不會改動角色卡正文。（參考圖／臉部鎖定目前只有本機聊天生效，主動消息 2.0 的雲端生成對話暫不支援。）</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">只影響這個角色，不會改動角色卡正文。主動消息、雲端回覆裡發的照片也會帶參考圖（照片是回到這台裝置才生成的）。</p>
                     </div>
                     <button
                         onClick={() => patch({ referenceEnabled: !referenceEnabled })}
@@ -87,7 +87,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 mb-4">
                     <div className="min-w-0 flex-1 pr-3">
                         <p className="text-xs font-bold text-slate-700">非自拍照不使用參考圖</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">預設開啟；合照、他拍、風景或物件圖僅使用文字提示詞生成。</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">預設開啟；描述裡沒有人、只有風景或物件的圖只用文字生成。自拍、合照、穿搭、表情這類有人在畫面裡的照樣帶參考圖。</p>
                     </div>
                     <button
                         onClick={() => patch({ nonSelfieSkipsReference: !nonSelfieSkipsReference })}

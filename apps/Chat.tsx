@@ -26,7 +26,7 @@ import { extractWebpageContent, detectFirstUrl, detectXhsShortUrl, extractXhsSha
 import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
 import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl, getBlobForRef, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
-import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../utils/imageGeneration';
+import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage, imageGenRecord } from '../utils/imageGeneration';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState, applyRealBalanceDelta, formatMoney, MONEY_SYMBOL } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
@@ -2933,9 +2933,11 @@ const Chat: React.FC = () => {
 
     // 只對角色自己生成的圖（SEND_PHOTO 落的 metadata.imagePrompt）有意義——用戶自己發的照片沒有
     // 畫面描述可重跑。複用當時存下的 imagePrompt，保證新圖還是同一個場景描述，不會圖文不符。
-    const handleRegenerateImage = async (msg: Message) => {
+    // overrides 來自圖片預覽的「✎ 改提示詞」：改過的描述會存回 imagePrompt，之後 ⟳ 就照新的跑；
+    // forceReference 是「這次一定帶參考圖」，跳過非自拍判斷。
+    const handleRegenerateImage = async (msg: Message, overrides?: { description?: string; forceReference?: boolean }) => {
         if (!char) return;
-        const description = typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '';
+        const description = (overrides?.description ?? (typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '')).trim();
         if (!description) { addToast('這張圖片沒有可重新生成的描述', 'error'); return; }
         const imageGenConfig = apiConfig.imageGenConfig;
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
@@ -2945,15 +2947,18 @@ const Chat: React.FC = () => {
         setRegeneratingImageId(msg.id);
         try {
             const prompt = buildCharacterImagePrompt(char, description);
-            const referenceBlob = await resolveCharacterReferenceImage(char, { description });
-            const { dataUrl } = await generateImage(imageGenConfig, prompt, referenceBlob || undefined);
-            const nextContent = await migrateDataUrlToRef(dataUrl);
+            const referenceBlob = await resolveCharacterReferenceImage(char, { description, forceReference: overrides?.forceReference });
+            const result = await generateImage(imageGenConfig, prompt, referenceBlob || undefined);
+            const nextContent = await migrateDataUrlToRef(result.dataUrl);
             const oldContent = msg.content;
-            await DB.updateMessage(msg.id, nextContent);
-            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: nextContent } : m));
-            setSelectedMessage(prev => prev && prev.id === msg.id ? { ...prev, content: nextContent } : prev);
+            const imageGen = imageGenRecord(char.imageGenCharConfig, !!referenceBlob, result);
+            const nextMetadata = { ...(msg.metadata || {}), imagePrompt: description, imageGen };
+            await DB.replaceMessageFields(msg.id, { content: nextContent, metadata: nextMetadata });
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: nextContent, metadata: nextMetadata } : m));
+            setSelectedMessage(prev => prev && prev.id === msg.id ? { ...prev, content: nextContent, metadata: nextMetadata } : prev);
             void deleteBlobRefIfUnreferenced(oldContent);
-            addToast('圖片已重新生成', 'success');
+            if (imageGen.reference === 'fallback') addToast(`參考圖沒送成功，這張沒鎖臉${imageGen.error ? `：${imageGen.error.slice(0, 60)}` : ''}`, 'error');
+            else addToast('圖片已重新生成', 'success');
         } catch (error) {
             console.warn('[Chat] 圖片重新生成失敗', error);
             addToast('生成失敗，稍後再試', 'error');

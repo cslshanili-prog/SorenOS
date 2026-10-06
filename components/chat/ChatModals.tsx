@@ -1,6 +1,8 @@
 
 import React, { useRef, useState } from 'react';
-import { ArrowsClockwise, DownloadSimple, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, DownloadSimple, PencilSimple, X } from '@phosphor-icons/react';
+import ImagePromptEditor from './ImagePromptEditor';
+import { describeImageGenRecord } from '../../utils/imageGeneration';
 import Modal from '../os/Modal';
 import TokenImg from '../os/TokenImg';
 import { CharacterProfile, Message, EmojiCategory, DailySchedule, ScheduleSlot, ApiPreset, APIConfig } from '../../types';
@@ -96,7 +98,7 @@ interface ChatModalsProps {
     onToggleMessageFavorite?: () => void;
     messageFavorited?: boolean;
     onDownloadImage?: (msg: Message) => void;
-    onRegenerateImage?: (msg: Message) => void;
+    onRegenerateImage?: (msg: Message, overrides?: { description?: string; forceReference?: boolean }) => void | Promise<void>;
     regeneratingImageId?: number | null;
     onDeleteEmoji: () => void;
     onDeleteCategory: () => void;
@@ -295,6 +297,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
     const [historyPage, setHistoryPage] = useState(0);
     const [historySearch, setHistorySearch] = useState('');
+    // 圖片預覽裡「✎ 改提示詞」的抽屜開著沒
+    const [editingImagePrompt, setEditingImagePrompt] = useState(false);
     const longPressTimerRef = useRef<number | null>(null);
     const longPressTriggeredRef = useRef(false);
     const HISTORY_PAGE_SIZE = 50;
@@ -1041,10 +1045,10 @@ const ChatModals: React.FC<ChatModalsProps> = ({
 
             {/* 圖片全屏放大預覽（點圖片本身打開，跟長按的"消息操作"菜單分開） */}
             {modalType === 'image-zoom' && selectedMessage?.type === 'image' && selectedMessage.content && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85" onClick={() => setModalType('none')}>
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85" onClick={() => { setEditingImagePrompt(false); setModalType('none'); }}>
                     <button
                         type="button"
-                        onClick={() => setModalType('none')}
+                        onClick={() => { setEditingImagePrompt(false); setModalType('none'); }}
                         aria-label="關閉"
                         className="absolute z-10 w-10 h-10 grid place-items-center rounded-full bg-white/10 text-white"
                         style={{ top: 'max(16px, env(safe-area-inset-top))', right: 16 }}
@@ -1063,6 +1067,17 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 <ArrowsClockwise size={18} weight="bold" className={regeneratingImageId === selectedMessage.id ? 'animate-spin' : ''} />
                             </button>
                         )}
+                        {onRegenerateImage && selectedMessage.role === 'assistant' && typeof selectedMessage.metadata?.imagePrompt === 'string' && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setEditingImagePrompt(true); }}
+                                disabled={regeneratingImageId === selectedMessage.id}
+                                aria-label="改提示詞"
+                                className="w-10 h-10 grid place-items-center rounded-full bg-white/10 text-white disabled:opacity-50"
+                            >
+                                <PencilSimple size={18} weight="bold" />
+                            </button>
+                        )}
                         {onDownloadImage && (
                             <button
                                 type="button"
@@ -1075,6 +1090,27 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         )}
                     </div>
                     <TokenImg value={selectedMessage.content} alt="" className="max-w-full max-h-full object-contain" onClick={(event) => event.stopPropagation()} />
+                    {!editingImagePrompt && selectedMessage.role === 'assistant' && describeImageGenRecord(selectedMessage.metadata?.imageGen) && (
+                        <div className="absolute inset-x-4 z-10 text-center" style={{ bottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+                            <span className="inline-block max-w-full rounded-2xl bg-black/60 px-3 py-1.5 text-[11px] leading-relaxed text-white/85" onClick={(event) => event.stopPropagation()}>
+                                {describeImageGenRecord(selectedMessage.metadata?.imageGen)}
+                            </span>
+                        </div>
+                    )}
+                    {editingImagePrompt && onRegenerateImage && typeof selectedMessage.metadata?.imagePrompt === 'string' && (
+                        <ImagePromptEditor
+                            key={selectedMessage.id}
+                            initialDescription={selectedMessage.metadata.imagePrompt}
+                            referenceAvailable={!!(activeCharacter?.imageGenCharConfig?.referenceEnabled && activeCharacter.imageGenCharConfig.referenceImage)}
+                            defaultForceReference={selectedMessage.metadata?.imageGen?.reference === 'skipped'}
+                            busy={regeneratingImageId === selectedMessage.id}
+                            onCancel={() => setEditingImagePrompt(false)}
+                            onSubmit={async (description, forceReference) => {
+                                await onRegenerateImage(selectedMessage, { description, forceReference });
+                                setEditingImagePrompt(false);
+                            }}
+                        />
+                    )}
                 </div>
             )}
 

@@ -8,6 +8,41 @@ import { getBlobForRef } from './blobRef';
 
 export interface GeneratedImage {
   dataUrl: string;
+  /** 這張真的是帶著參考圖（/images/edits）生成的 */
+  referenceUsed?: boolean;
+  /** 帶了參考圖但 /images/edits 失敗、退回純文字時的原因（HTTP 狀態＋前 200 字） */
+  referenceError?: string;
+}
+
+/**
+ * 這張圖跟參考圖的關係，記在訊息 metadata.imageGen 上（2026-10-06：用戶反映不鎖臉，
+ * 以前退回純文字是靜默的，誰也看不出來）：
+ * - locked：帶參考圖生成成功
+ * - fallback：想帶，但參考圖接口失敗，退回純文字（error 是原因）
+ * - skipped：開了參考圖，但這段描述被判成「非自拍」沒帶
+ * - off：沒開參考圖或沒上傳
+ */
+export type ImageReferenceStatus = 'locked' | 'fallback' | 'skipped' | 'off';
+
+export interface ImageGenRecord {
+  reference: ImageReferenceStatus;
+  error?: string;
+  at: number;
+}
+
+export function imageGenRecord(
+  cfg: CharacterProfile['imageGenCharConfig'] | undefined,
+  hadReference: boolean,
+  result: Pick<GeneratedImage, 'referenceUsed' | 'referenceError'>,
+  now: number = Date.now(),
+): ImageGenRecord {
+  if (hadReference) {
+    return result.referenceUsed
+      ? { reference: 'locked', at: now }
+      : { reference: 'fallback', error: result.referenceError, at: now };
+  }
+  const configured = !!(cfg?.referenceEnabled && cfg.referenceImage);
+  return { reference: configured ? 'skipped' : 'off', at: now };
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -35,19 +70,30 @@ export function buildCharacterImagePrompt(char: Pick<CharacterProfile, 'imageGen
 }
 
 /**
- * 輕量啟發式：中文描述裡出現強烈暗示"這張圖不是角色本人獨照"的關鍵詞（合照/風景/物件……），
- * 判定為非自拍。只服務於「非自拍照不使用參考圖」這個開關，不追求精確——猜錯了頂多是該帶參考圖
- * 沒帶（退化成純文字生成）或不該帶帶了（生圖引擎會自己按提示詞忽略不合理的參考細節），
- * 不是錯誤行為。FaceCropModal 等場景生成的英文 imagePrompt（OOTD/Moments）不吃這個關鍵詞表，
+ * 輕量啟發式：這段描述畫面裡有沒有角色本人。只服務於「非自拍照不使用參考圖」這個開關。
+ * FaceCropModal 等場景生成的英文 imagePrompt（OOTD/Moments）不吃這個關鍵詞表，
  * 調用方應該改傳 forceSelfie，見 resolveCharacterReferenceImage。
+ *
+ * 2026-10-06 改：以前只要出現場景詞（咖啡、手機、花、天空、一起、合照……）就判成非自拍，
+ * 「在咖啡廳拿著手機自拍」「我們的合照」這種畫面裡明明有人的也一起不帶參考圖，臉當然不像。
+ * 現在先看有沒有「人在畫面裡」的詞，有就帶；沒有才看是不是純場景／物件。
+ * 合照、一起也算人在畫面裡（角色本人就在照片裡）。
  */
+const PERSON_IN_FRAME_KEYWORDS = [
+  '自拍', '本人', '鏡頭', '鏡子', '對鏡', '鏡中', '臉', '五官', '表情', '笑', '眼神', '眨眼', '嘟嘴',
+  '比耶', '比心', '穿', '換上', '造型', '髮', '妝', '半身', '全身', '上半身', '特寫', '大頭',
+  '姿勢', '側臉', '回眸', '合照', '合影', '一起', '兩個人', '我們', '他拍', '抓拍', '偷拍',
+  'selfie', 'portrait', 'face', 'smil', 'wearing', 'outfit',
+];
 const NON_SELFIE_KEYWORDS = [
-  '合照', '一起', '風景', '夜景', '天空', '街景', '街道', '建築', '美食', '食物', '菜', '咖啡',
+  '風景', '夜景', '天空', '街景', '街道', '建築', '美食', '食物', '菜', '咖啡',
   '書桌', '窗外', '背影', '寵物', '貓', '狗', '手機', '電腦', '物件', '靜物', '花', '植物', '風光',
 ];
 export function looksLikeSelfieDescription(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return true;
+  const lower = trimmed.toLowerCase();
+  if (PERSON_IN_FRAME_KEYWORDS.some(kw => lower.includes(kw))) return true;
   return !NON_SELFIE_KEYWORDS.some(kw => trimmed.includes(kw));
 }
 
@@ -59,9 +105,10 @@ export function looksLikeSelfieDescription(text: string): boolean {
  */
 export function shouldUseCharacterReference(
   cfg: CharacterProfile['imageGenCharConfig'] | undefined,
-  options: { description?: string; forceSelfie?: boolean } = {},
+  options: { description?: string; forceSelfie?: boolean; forceReference?: boolean } = {},
 ): boolean {
   if (!cfg?.referenceEnabled || !cfg.referenceImage) return false;
+  if (options.forceReference) return true;
   const skipsNonSelfie = cfg.nonSelfieSkipsReference ?? true;
   if (!skipsNonSelfie) return true;
   if (options.forceSelfie || options.description === undefined) return true;
@@ -136,7 +183,7 @@ export async function cropReferenceImage(
  */
 export async function resolveCharacterReferenceImage(
   char: Pick<CharacterProfile, 'imageGenCharConfig'>,
-  options: { description?: string; forceSelfie?: boolean } = {},
+  options: { description?: string; forceSelfie?: boolean; forceReference?: boolean } = {},
 ): Promise<Blob | null> {
   const cfg = char.imageGenCharConfig;
   if (!shouldUseCharacterReference(cfg, options)) return null;
@@ -220,9 +267,22 @@ export async function generateImage(
       headers: { 'Authorization': `Bearer ${config.apiKey || 'sk-none'}` },
       body: form,
     });
-    return await parseImageResponse(response);
+    return { ...(await parseImageResponse(response)), referenceUsed: true };
   } catch (e) {
+    // 退回純文字照樣出圖，但原因要留下來：以前這裡是靜默的，用戶只看到「臉不像」
+    const referenceError = (e instanceof Error ? e.message : String(e)).slice(0, 200);
     console.warn('[ImageGeneration] 帶參考圖的 /images/edits 失敗，退回純文字生成:', e);
-    return generateTextOnly();
+    return { ...(await generateTextOnly()), referenceUsed: false, referenceError };
+  }
+}
+
+/** 圖片預覽底下那行：這張有沒有鎖臉、為什麼沒有。舊訊息沒有記錄就是空字串。 */
+export function describeImageGenRecord(record: Partial<ImageGenRecord> | undefined): string {
+  switch (record?.reference) {
+    case 'locked': return '🔒 這張有帶參考圖鎖臉';
+    case 'fallback': return `⚠️ 這張沒鎖臉：參考圖接口失敗，退回純文字生成${record.error ? `（${record.error.slice(0, 120)}）` : ''}`;
+    case 'skipped': return '這張被判斷成非自拍，沒帶參考圖。要鎖臉可以按 ✎ 勾「這次一定帶參考圖」';
+    case 'off': return '這個角色沒開參考圖，只照文字生成';
+    default: return '';
   }
 }
