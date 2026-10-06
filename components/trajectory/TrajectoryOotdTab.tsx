@@ -14,6 +14,7 @@ import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { DB } from '../../utils/db';
 import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import { getDailyScheduleForChar } from '../../utils/dailySchedule';
+import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { resolveCharTimeZone, nowInTimeZone } from '../../utils/timezone';
 
 interface Props {
@@ -181,15 +182,15 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                 post.shoes ? `鞋履：${post.shoes}` : null,
                 post.accessories.length ? `配飾：${post.accessories.join('、')}` : null,
             ].filter(Boolean).join('\n');
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const { id: messageId, updated } = await upsertChatCard(post.syncedMessageId, char.id, {
+                role: 'assistant', type: 'phone_card',
                 content: `[你手機的 OOTD App] ${post.style} · ${post.tops || post.bottoms || '今天的穿搭'}`,
                 metadata: { phoneCard: { app: 'OOTD', title: `${post.style} 穿搭`, detail: detailLines, image: post.image } },
-            } as any);
+            });
             const next = posts.map(p => p.id === post.id ? { ...p, syncedMessageId: messageId } : p);
             onCommit(next);
             setDetailPost(prev => prev && prev.id === post.id ? { ...prev, syncedMessageId: messageId } : prev);
-            addToast('已同步到私聊', 'success');
+            addToast(syncToastText(updated), 'success');
         } catch (e) {
             console.warn('[Trajectory] OOTD 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -340,11 +341,11 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                                     <span className="text-white/85 text-right">{value}</span>
                                 </div>
                             ))}
-                            <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat || !!detailPost.syncedMessageId}
+                            <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat}
                                 className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                                 style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
                                 <PaperPlaneTilt size={15} weight="bold" />
-                                {detailPost.syncedMessageId ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步到私聊')}
+                                {syncButtonLabel(!!detailPost.syncedMessageId, syncingToChat)}
                             </button>
                         </div>
                     </div>

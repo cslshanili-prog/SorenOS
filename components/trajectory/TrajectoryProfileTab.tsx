@@ -4,6 +4,7 @@ import type { CharacterProfile, CharacterTrajectoryProfile, TrajectoryArchiveDoc
 import { buildTrajectoryProfilePrompt, groupTrajectoryChecklistByBatch, parseTrajectoryProfile, toggleTrajectoryChecklistItem } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent, extractJson } from '../../utils/safeApi';
+import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { DB } from '../../utils/db';
 
 type ProfileSubTab = 'archives' | 'objective' | 'checklist';
@@ -79,13 +80,13 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         if (!profile) return;
         setSyncingId(doc.id);
         try {
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const { id: messageId, updated } = await upsertChatCard(doc.syncedMessageId, char.id, {
+                role: 'assistant', type: 'phone_card',
                 content: `[你手機的 軌跡 App · Archives] ${doc.title}`,
                 metadata: { phoneCard: { app: '軌跡 · Archives', title: doc.title, value: doc.category, detail: doc.content } },
-            } as any);
+            });
             onCommit({ ...profile, archives: profile.archives.map(d => d.id === doc.id ? { ...d, syncedMessageId: messageId } : d) });
-            addToast('已同步到私聊', 'success');
+            addToast(syncToastText(updated), 'success');
         } catch (e) {
             console.warn('[Trajectory] Profile Archives 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -98,13 +99,13 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         if (!profile) return;
         setSyncingId(obj.id);
         try {
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const { id: messageId, updated } = await upsertChatCard(obj.syncedMessageId, char.id, {
+                role: 'assistant', type: 'phone_card',
                 content: `[你手機的 軌跡 App · Objective] ${obj.title}（進度 ${obj.progress}%）`,
                 metadata: { phoneCard: { app: '軌跡 · Objective', title: obj.title, value: `進度 ${obj.progress}%`, detail: obj.detail } },
-            } as any);
+            });
             onCommit({ ...profile, objectives: profile.objectives.map(o => o.id === obj.id ? { ...o, syncedMessageId: messageId } : o) });
-            addToast('已同步到私聊', 'success');
+            addToast(syncToastText(updated), 'success');
         } catch (e) {
             console.warn('[Trajectory] Profile Objective 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -117,13 +118,13 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         if (!profile) return;
         setSyncingId(item.id);
         try {
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const { id: messageId, updated } = await upsertChatCard(item.syncedMessageId, char.id, {
+                role: 'assistant', type: 'phone_card',
                 content: `[你手機的 軌跡 App · Checklist] ${item.title}`,
                 metadata: { phoneCard: { app: '軌跡 · Checklist', title: item.title, value: item.dueLabel, detail: item.done ? '已完成' : '待完成' } },
-            } as any);
+            });
             onCommit({ ...profile, checklist: profile.checklist.map(c => c.id === item.id ? { ...c, syncedMessageId: messageId } : c) });
-            addToast('已同步到私聊', 'success');
+            addToast(syncToastText(updated), 'success');
         } catch (e) {
             console.warn('[Trajectory] Profile Checklist 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -214,11 +215,11 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                 </div>
                             ) : (
                                 <div className="mt-3 flex items-center gap-2">
-                                    <button onClick={() => void handleSyncArchive(doc)} disabled={syncingId === doc.id || !!doc.syncedMessageId}
+                                    <button onClick={() => void handleSyncArchive(doc)} disabled={syncingId === doc.id}
                                         className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
                                         style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
                                         <PaperPlaneTilt size={13} weight="bold" />
-                                        {doc.syncedMessageId ? '已同步到私聊' : (syncingId === doc.id ? '同步中…' : '同步到私聊')}
+                                        {syncButtonLabel(!!doc.syncedMessageId, syncingId === doc.id)}
                                     </button>
                                     <button onClick={() => setPendingDeleteId(doc.id)} aria-label="刪除" title="刪除"
                                         className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)', color: '#fca5a5' }}>
@@ -258,11 +259,11 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                             </div>
                         ) : (
                             <div className="mt-3 flex items-center gap-2">
-                                <button onClick={() => void handleSyncObjective(obj)} disabled={syncingId === obj.id || !!obj.syncedMessageId}
+                                <button onClick={() => void handleSyncObjective(obj)} disabled={syncingId === obj.id}
                                     className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
                                     style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
                                     <PaperPlaneTilt size={13} weight="bold" />
-                                    {obj.syncedMessageId ? '已同步到私聊' : (syncingId === obj.id ? '同步中…' : '同步到私聊')}
+                                    {syncButtonLabel(!!obj.syncedMessageId, syncingId === obj.id)}
                                 </button>
                                 <button onClick={() => setPendingDeleteId(obj.id)} aria-label="刪除" title="刪除"
                                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(244,63,94,0.12)', color: '#fca5a5' }}>
@@ -302,8 +303,8 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                                                     </div>
                                                 </div>
                                             </button>
-                                            <button onClick={() => void handleSyncChecklistItem(item)} disabled={syncingId === item.id || !!item.syncedMessageId}
-                                                aria-label="同步到私聊" title={item.syncedMessageId ? '已同步到私聊' : '同步到私聊'}
+                                            <button onClick={() => void handleSyncChecklistItem(item)} disabled={syncingId === item.id}
+                                                aria-label="同步到私聊" title={syncButtonLabel(!!item.syncedMessageId, false)}
                                                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-60"
                                                 style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd' }}>
                                                 {syncingId === item.id

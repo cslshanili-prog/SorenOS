@@ -17,6 +17,7 @@ import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { processImage } from '../../utils/file';
 import { DB } from '../../utils/db';
 import { buildPersonaKnowledge } from '../../utils/momentsPersona';
+import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { personaAvatarForKey, resolveUserProfileForChar } from '../../utils/userPersona';
 
 /**
@@ -191,17 +192,17 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                 ...visibleComments(char.id, post, graph).map(c => `${nameOf(c.actor)}：${c.content}`),
             ].filter(Boolean).join('\n');
             const authorName = nameOf(post.author);
-            const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'phone_card',
+            const { id: messageId, updated } = await upsertChatCard(syncedIdFor(post), char.id, {
+                role: 'assistant', type: 'phone_card',
                 content: own
                     ? `[你手機的 Moments App] ${post.content}`
                     : `[你手機的 Moments App] 你在朋友圈看到${authorName}發的：${post.content}`,
                 metadata: { phoneCard: { app: 'Moments', title: own ? '一條朋友圈' : `${authorName}的朋友圈`, detail: detailLines, image: post.images[0] } },
-            } as any);
+            });
             await updateMomentPostFields(post.id, own
                 ? { syncedMessageId: messageId }
                 : { syncedMessageIds: { ...(post.syncedMessageIds || {}), [char.id]: messageId } });
-            addToast('已同步到私聊', 'success');
+            addToast(syncToastText(updated), 'success');
         } catch (e) {
             console.warn('[Trajectory] Moments 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -495,9 +496,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                                             </button>
                                         </div>
                                     )}
-                                    <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat || synced} className={btn} style={soft}>
+                                    <button onClick={() => void handleSyncToChat(detailPost)} disabled={syncingToChat} className={btn} style={soft}>
                                         <PaperPlaneTilt size={15} weight="bold" />
-                                        {synced ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步這條到私聊')}
+                                        {syncButtonLabel(synced, syncingToChat, '同步這條到私聊')}
                                     </button>
                                     {own && (
                                         <button onClick={() => setConfirmDeleteOpen(true)} className={btn}

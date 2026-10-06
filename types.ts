@@ -1100,6 +1100,8 @@ export interface TrajectoryJourneyEntry {
     story: string;
     /** 「同步到私聊」寫入的 DB 消息 id（角色自己那份）；有值＝已同步，按鈕據此置灰防重複發送。 */
     syncedMessageId?: number;
+    /** 一起見面的其他角色私聊裡那張卡（charId → messageId），再同步時就地更新，不重發 */
+    participantSyncedIds?: Record<string, number>;
     createdAt: number;
 }
 
