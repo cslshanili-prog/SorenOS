@@ -201,14 +201,20 @@ export interface TrajectoryMomentDraft {
  * 拿 imagePrompt 去跑生圖管線。roleSettingsBlock 同 Profile/OOTD，
  * 傳 ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true })。
  */
-export function buildTrajectoryMomentsPrompt(roleSettingsBlock: string, existing?: Array<Pick<TrajectoryMomentPost, 'content'>>): string {
+export function buildTrajectoryMomentsPrompt(
+    roleSettingsBlock: string,
+    existing?: Array<Pick<TrajectoryMomentPost, 'content'>>,
+    options: { privacyNote?: string } = {},
+): string {
     let antiRepeat = '';
     if (existing && existing.length) {
         const recent = existing.slice(0, 5).map(p => p.content.slice(0, 20));
         antiRepeat = `\n\n最近發過這些內容了，這次換個不一樣的場景/心情：${recent.join('、')}`;
     }
+    const privacy = options.privacyNote ? `\n\n${options.privacyNote}` : '';
     return `依照上面這份角色設定，自由發揮生成這個角色此刻發的一條朋友圈動態，越貼合TA的人設/生活場景越好，` +
-        `第一人稱語氣，像真的在發朋友圈。${antiRepeat}\n\n` +
+        `上面有「此刻」（時間、正在做的事、最近發生的事）的話，要合時合景，接得上最近的日子，` +
+        `第一人稱語氣，像真的在發朋友圈。${antiRepeat}${privacy}\n\n` +
         `生成：\n` +
         `- content：動態正文（1-3 句話，口語化，可以帶點情緒/心情）\n` +
         `- likes：這條動態收到的點贊數，10-500 之間的整數，符合這條內容的分量\n` +

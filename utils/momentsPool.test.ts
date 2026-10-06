@@ -135,3 +135,14 @@ describe('搬遷', () => {
         expect(pendingMigrations(chars, new Set(['mig-t1', 'mig-t2']))).toEqual([]);
     });
 });
+
+describe('editCommentIn（查手機改角色自己的留言）', () => {
+    it('只改那一條的文字，空字串不改', async () => {
+        const { editCommentIn } = await import('./momentsPool');
+        const post: any = { id: 'p', comments: [{ id: 'a', content: '舊的', at: 1, actor: { kind: 'character', id: 'c' } }, { id: 'b', content: '別人的', at: 2, actor: { kind: 'user', id: 'u' } }] };
+        const next = editCommentIn(post, 'a', '  新的  ');
+        expect(next.comments.map((c: any) => c.content)).toEqual(['新的', '別人的']);
+        expect(next.comments[0].at).toBe(1);
+        expect(editCommentIn(post, 'a', '   ')).toBe(post);
+    });
+});

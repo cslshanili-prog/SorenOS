@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowsClockwise, CalendarBlank, CircleNotch, DownloadSimple, PaperPlaneTilt, Sparkle, Trash, X } from '@phosphor-icons/react';
+import { ArrowsClockwise, CalendarBlank, CircleNotch, DownloadSimple, PaperPlaneTilt, PencilSimple, Sparkle, Trash, X } from '@phosphor-icons/react';
+import ImagePromptEditor from '../chat/ImagePromptEditor';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
 import TokenImg from '../os/TokenImg';
 import {
@@ -66,6 +67,9 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     const [savingPhoto, setSavingPhoto] = useState(false);
     const [syncingToChat, setSyncingToChat] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [editingPhotoPrompt, setEditingPhotoPrompt] = useState(false);
+    // 換一張、關掉詳情時收起「改照片描述」抽屜
+    useEffect(() => { setEditingPhotoPrompt(false); }, [detailPost?.id]);
 
     useEffect(() => { setConfirmDeleteOpen(false); }, [detailPost?.id]);
 
@@ -115,22 +119,27 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
 
     // 只重生成照片，文案（風格/配色/上下裝等）原樣不動——複用生成當下存下來的 imagePrompt，
     // 保證新照片還是貼合這身穿搭的文字描述，不會圖文不符。
-    const handleRegeneratePhoto = async (post: TrajectoryOotdPost) => {
+    // description 來自「✎ 改照片描述」：改過的存回 imagePrompt，之後 ⟳ 就照新的跑
+    const handleRegeneratePhoto = async (post: TrajectoryOotdPost, description?: string) => {
         if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
             addToast('先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
         try {
-            const imagePrompt = buildCharacterImagePrompt(char, post.imagePrompt);
+            const promptText = description || post.imagePrompt;
+            const imagePrompt = buildCharacterImagePrompt(char, promptText);
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
-            const image = await migrateDataUrlToRef(dataUrl);
-            const next = posts.map(p => p.id === post.id ? { ...p, image } : p);
+            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const image = await migrateDataUrlToRef(result.dataUrl);
+            const patch = { image, imagePrompt: promptText };
+            const next = posts.map(p => p.id === post.id ? { ...p, ...patch } : p);
             onCommit(next);
-            setDetailPost(prev => prev && prev.id === post.id ? { ...prev, image } : prev);
+            setDetailPost(prev => prev && prev.id === post.id ? { ...prev, ...patch } : prev);
             void deleteBlobRefIfUnreferenced(post.image);
-            addToast('照片已重新生成', 'success');
+            setEditingPhotoPrompt(false);
+            if (referenceBlob && !result.referenceUsed) addToast(`參考圖沒送成功，這張沒鎖臉${result.referenceError ? `：${result.referenceError.slice(0, 60)}` : ''}`, 'error');
+            else addToast('照片已重新生成', 'success');
         } catch (e) {
             console.warn('[Trajectory] OOTD 照片重新生成失敗:', e);
             addToast('生成失敗，稍後再試', 'error');
@@ -267,11 +276,29 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
                                 <ArrowsClockwise size={14} weight="bold" className={regeneratingPhoto ? 'animate-spin' : ''} />
                             </button>
+                            <button onClick={() => setEditingPhotoPrompt(true)} disabled={regeneratingPhoto} aria-label="改照片描述"
+                                className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white/80 disabled:opacity-50">
+                                <PencilSimple size={14} weight="bold" />
+                            </button>
                             <button onClick={() => setConfirmDeleteOpen(true)} aria-label="刪除"
                                 className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-rose-200">
                                 <Trash size={14} weight="bold" />
                             </button>
                         </div>
+                        {editingPhotoPrompt && (
+                            <ImagePromptEditor
+                                key={detailPost.id}
+                                placement="fixed"
+                                title="照片描述"
+                                hint="生成這套穿搭照片時用的描述（英文也可以直接改中文）。生成時還會自動加上：專屬生圖設定的人物特徵、生圖 API 的補充提示詞；OOTD 一律帶參考圖鎖臉。"
+                                initialDescription={detailPost.imagePrompt}
+                                referenceAvailable={false}
+                                defaultForceReference={false}
+                                busy={regeneratingPhoto}
+                                onCancel={() => setEditingPhotoPrompt(false)}
+                                onSubmit={description => void handleRegeneratePhoto(detailPost, description)}
+                            />
+                        )}
                         {confirmDeleteOpen && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[2rem]" style={{ background: 'rgba(10,8,15,0.94)' }}>
                                 <div className="text-center">

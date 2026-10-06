@@ -144,7 +144,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
             for (const char of posters) {
                 try {
                     const recent = (posts || []).filter(p => p.author.id === char.id).slice(0, 5);
-                    await generateCharacterMoment({ char, apiConfig, recent });
+                    await generateCharacterMoment({ char, apiConfig, recent, userProfileBase });
                     ok += 1;
                 } catch (e) {
                     console.warn(`[Moments] ${char.name} 發文失敗`, e);

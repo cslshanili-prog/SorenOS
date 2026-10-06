@@ -1,7 +1,7 @@
 import type { CharacterProfile, MomentActor, MomentComment, MomentPost, MomentVisibility } from '../types';
 import { DB } from './db';
 import { deleteBlobRefIfUnreferenced } from './blobRef';
-import { addCommentTo, pendingMigrations, removeCommentFrom, toggleLikeOn } from './momentsPool';
+import { addCommentTo, editCommentIn, pendingMigrations, removeCommentFrom, toggleLikeOn } from './momentsPool';
 import { dropJobsForPost } from './momentsAuto';
 
 /**
@@ -68,6 +68,11 @@ export async function addMomentComment(
 
 export async function deleteMomentComment(postId: string, commentId: string): Promise<void> {
     await DB.updateMomentPost(postId, prev => removeCommentFrom(prev, commentId));
+    announce();
+}
+
+export async function editMomentComment(postId: string, commentId: string, content: string): Promise<void> {
+    await DB.updateMomentPost(postId, prev => editCommentIn(prev, commentId, content));
     announce();
 }
 

@@ -92,7 +92,7 @@ async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
         const recent = (await DB.getAllMomentPosts()).filter(p => p.author.id === posterId).slice(0, 5);
         const char = ctx.characters.find(c => c.id === posterId);
         const npc = char ? undefined : ctx.npcs.find(n => n.id === posterId);
-        if (char) await generateCharacterMoment({ char, apiConfig: ctx.apiConfig, recent, source: 'auto' });
+        if (char) await generateCharacterMoment({ char, apiConfig: ctx.apiConfig, recent, source: 'auto', userProfileBase: ctx.userProfileBase });
         else if (npc) await generateNpcMoment({ npc, apiConfig: ctx.apiConfig, recent, source: 'auto' });
     } catch (e) {
         console.warn('[Moments] 自動發文失敗，30 分鐘後再試', posterId, e);
