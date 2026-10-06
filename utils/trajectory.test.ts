@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     buildTrajectoryProfilePrompt, parseTrajectoryProfile, toggleTrajectoryChecklistItem, groupTrajectoryChecklistByBatch,
     createTrajectoryArchiveDoc, createTrajectoryObjective, createTrajectoryChecklistItem,
-    buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate,
+    buildTrajectoryOotdPrompt, parseTrajectoryOotdDraft, createTrajectoryOotdPost, groupTrajectoryOotdByDate, OOTD_FACE_NOTE,
     buildTrajectoryMomentsPrompt, parseTrajectoryMomentDraft, createTrajectoryMomentPost,
     buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry,
 } from './trajectory';
@@ -144,6 +144,20 @@ describe('buildTrajectoryOotdPrompt', () => {
         const prompt = buildTrajectoryOotdPrompt('角色設定塊');
         expect(prompt).toContain('穿衣鏡前用手機自拍');
         expect(prompt).toContain('每次都要不一樣');
+    });
+
+    it('2026-10-06：臉要露出來、不叫手機遮臉，範例不寫死性別', () => {
+        const prompt = buildTrajectoryOotdPrompt('角色設定塊');
+        expect(prompt).toContain('臉一定要露出來');
+        expect(prompt).toContain('不要擋住臉');
+        expect(prompt).not.toContain('擋住部分臉，營造');
+        expect(prompt).not.toContain('a young woman');
+        expect(prompt).toContain('性別、年齡照上面的角色設定寫');
+    });
+
+    it('OOTD_FACE_NOTE 說清楚以臉部要求為準', () => {
+        expect(OOTD_FACE_NOTE).toContain('跟參考圖是同一個人');
+        expect(OOTD_FACE_NOTE).toContain('以這段為準');
     });
 
     it('不傳 timeContext 時不出現時間相關提示', () => {
