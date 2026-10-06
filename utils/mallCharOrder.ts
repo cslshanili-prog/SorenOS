@@ -1,7 +1,7 @@
 import type { MallCategory, MallKind, MallProduct } from '../types';
 import type { MallOrderAiEvent } from './mallOrderFormat';
 import { mallOrderProgress } from './mallOrders';
-import { getMallPicksRound, localDateKey, pickMallRecommendations } from './shoppingMall';
+import { buildMallPicks, getMallPicksRound, localDateKey } from './shoppingMall';
 import { formatMoney } from './realBalance';
 import { nowInTimeZone } from './timezone';
 
@@ -109,11 +109,19 @@ const pickLine = (p: MallProduct) => `${p.name}${p.shop ? `（${p.shop}）` : ''
  * 私聊易變段「今天的推薦」：外賣、購物各幾樣，跟購物中心 Home 的「推薦」同一批（同一天同一個結果，按過 ↻ 就跟著換）。
  * 分類被刪掉的商品不算（購物中心裡也看不到）。目錄是空的就整段不給。
  */
+const MAX_PINNED_FOR_CHAR = 10;
+
 export function buildMallPicksBlock(products: MallProduct[], categories: MallCategory[], perKind = 6, dateKey: string = localDateKey()): string {
     const liveCats = new Set(categories.map(c => c.id));
     const live = products.filter(p => liveCats.has(p.categoryId));
-    const food = pickMallRecommendations(live.filter(p => p.kind === 'food'), dateKey, getMallPicksRound('food', dateKey), perKind);
-    const shop = pickMallRecommendations(live.filter(p => p.kind === 'shop'), dateKey, getMallPicksRound('shop', dateKey), perKind);
+    const picksFor = (kind: MallKind): MallProduct[] => {
+        const { pinned, rotating } = buildMallPicks(live.filter(p => p.kind === kind), dateKey, getMallPicksRound(kind, dateKey));
+        // 📌 釘選的一定給（最多 MAX_PINNED_FOR_CHAR 件，免得提示詞被撐爆），輪換的補到 perKind 件
+        const keep = pinned.slice(0, MAX_PINNED_FOR_CHAR);
+        return [...keep, ...rotating.slice(0, Math.max(0, perKind - keep.length))];
+    };
+    const food = picksFor('food');
+    const shop = picksFor('shop');
     if (food.length === 0 && shop.length === 0) return '';
     const lines = ['', '### 購物中心 · 今天的推薦'];
     if (food.length) lines.push(`外賣（kind=food）：${food.map(pickLine).join('、')}`);

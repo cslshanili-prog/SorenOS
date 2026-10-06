@@ -4022,6 +4022,8 @@ export interface MallProduct {
     summary?: string;
     /** 收藏（「我」裡的收藏清單） */
     favorite?: boolean;
+    /** 📌 放進推薦（2026-10-06）：固定排在「推薦」最上面、不跟著每日輪換走，角色私聊裡也一定看得到 */
+    pinned?: boolean;
     createdAt: number;
 }
 

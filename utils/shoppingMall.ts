@@ -325,6 +325,25 @@ export function pickMallRecommendations(products: MallProduct[], dateKey: string
     return batch.slice(0, limit);
 }
 
+/** 釘了很多件時，輪換的那一段至少還留幾件（不然「換一批」就沒東西可換）。 */
+export const MALL_MIN_ROTATING = 4;
+
+/**
+ * 「推薦」頁要顯示的：📌 釘選的（用戶自己放進來的，照加入順序、不輪換）＋ 今天輪換的那一批。
+ * 釘了幾件，輪換那段就少幾件，但至少留 MALL_MIN_ROTATING 件。輪換只從沒釘的商品裡挑。
+ */
+export function buildMallPicks(
+    products: MallProduct[],
+    dateKey: string,
+    round = 0,
+    total = MALL_PICKS_SIZE,
+): { pinned: MallProduct[]; rotating: MallProduct[] } {
+    const pinned = products.filter(p => p.pinned).sort((a, b) => a.createdAt - b.createdAt);
+    const rest = products.filter(p => !p.pinned);
+    const rotating = pickMallRecommendations(rest, dateKey, round, Math.max(MALL_MIN_ROTATING, total - pinned.length));
+    return { pinned, rotating };
+}
+
 // ─── 購物車（購物、外賣各一車，狀態是頁面上的臨時 state，不落庫）───
 
 export interface MallCartLine {
