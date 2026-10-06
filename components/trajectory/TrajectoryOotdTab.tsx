@@ -253,7 +253,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                             {g.posts.map(p => (
                                 <button key={p.id} onClick={() => setDetailPost(p)} className="text-left">
                                     <div className="aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10">
-                                        <TokenImg value={p.image} alt="" className="w-full h-full object-cover" />
+                                        {/* 生圖多半是直的（2:3），方格縮圖貼頂裁，頭才不會被切掉 */}
+                                        <TokenImg value={p.image} alt="" className="w-full h-full object-cover object-top" />
                                     </div>
                                     <div className="text-[9px] text-white/40 mt-1">{formatTime(p.timestamp)}</div>
                                 </button>
@@ -322,8 +323,9 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                                 </div>
                             </div>
                         )}
-                        <div className="aspect-[4/5] bg-white/5">
-                            <TokenImg value={detailPost.image} alt="" className="w-full h-full object-cover" />
+                        {/* 詳情照原圖比例整張顯示，不裁（以前固定 4:5 置中裁，2:3 的圖頭被切掉） */}
+                        <div className="bg-white/5">
+                            <TokenImg value={detailPost.image} alt="" className="block w-full h-auto" />
                         </div>
                         <div className="px-5 pt-4 pb-2">
                             <div className="text-[10px] tracking-[0.2em] text-white/40 uppercase">Outfit of the Day</div>

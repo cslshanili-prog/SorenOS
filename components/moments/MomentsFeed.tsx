@@ -228,7 +228,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
                                     <div className={`mt-3 grid gap-1.5 ${post.images.length === 1 ? 'grid-cols-1 max-w-[75%]' : post.images.length === 4 ? 'grid-cols-2 max-w-[70%]' : 'grid-cols-3'}`}>
                                         {post.images.map((img, i) => (
                                             <button key={i} onClick={() => setViewer(img)} className={post.images.length === 1 ? '' : 'aspect-square'}>
-                                                <TokenImg value={img} className={`w-full ${post.images.length === 1 ? 'max-h-72 object-cover rounded-2xl' : 'h-full object-cover rounded-lg'} bg-slate-100`} alt="" />
+                                                <TokenImg value={img} className={`w-full ${post.images.length === 1 ? 'max-h-72 object-cover object-top rounded-2xl' : 'h-full object-cover object-top rounded-lg'} bg-slate-100`} alt="" />
                                             </button>
                                         ))}
                                     </div>
@@ -551,7 +551,7 @@ const MomentComposer: React.FC<{
                 <div className="grid grid-cols-3 gap-1.5">
                     {images.map((img, i) => (
                         <div key={`${img}-${i}`} className="relative aspect-square">
-                            <TokenImg value={img} className="w-full h-full object-cover rounded-lg bg-slate-100" alt="" />
+                            <TokenImg value={img} className="w-full h-full object-cover object-top rounded-lg bg-slate-100" alt="" />
                             <button onClick={() => setImages(prev => prev.filter((_, j) => j !== i))} aria-label="移除這張"
                                 className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center"><X size={11} /></button>
                         </div>
