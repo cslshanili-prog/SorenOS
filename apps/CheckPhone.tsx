@@ -38,6 +38,7 @@ import {
 } from '@phosphor-icons/react';
 import { includesAnyScript } from '../utils/scriptKey';
 import { rememberNpcPhoneChat } from '../utils/npcMemoryRuntime';
+import { syncButtonLabel, upsertChatCard } from '../utils/chatCardSync';
 import { resolveBriefPersona } from '../utils/briefPersona';
 
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
@@ -2266,23 +2267,15 @@ ${olderText}
     const syncEvidenceRecordToChat = async (record: PhoneEvidence) => {
         if (!targetChar) return;
         try {
-            if (record.systemMessageId) {
-                const existing = await DB.getMessageById(record.systemMessageId);
-                if (existing) {
-                    addToast('這條記錄已經同步到私聊', 'info');
-                    setEvidenceMenu(null);
-                    return;
-                }
-            }
+            // 再同步：私聊裡那張還在就換成記錄的最新內容（編輯過的也帶得過去），刪了才重發
             const app = record.type === 'chat' ? '聊天軟件' : appLabel(record.type);
             const card = buildPhoneEvidenceChatCard(record, app);
-            const messageId = await DB.saveMessage({
-                charId: targetChar.id,
+            const { id: messageId, updated } = await upsertChatCard(record.systemMessageId, targetChar.id, {
                 role: 'assistant',
                 type: 'phone_card',
                 content: card.content,
                 metadata: card.metadata,
-            } as any);
+            });
             updateCharacter(targetChar.id, (current) => ({
                 phoneState: {
                     ...current.phoneState,
@@ -2298,7 +2291,7 @@ ${olderText}
                 setSelectedChatRecord({ ...selectedChatRecord, systemMessageId: messageId });
             }
             setEvidenceMenu(null);
-            addToast('已把這條查手機記錄同步到私聊', 'success');
+            addToast(updated ? '已更新私聊裡那張卡片' : '已把這條查手機記錄同步到私聊', 'success');
             trackEvent('事后同步查手机记录到私聊', { kind: record.type });
         } catch (error: any) {
             addToast(error?.message || '同步失敗，請重試', 'error');
@@ -2599,9 +2592,9 @@ ${olderText}
                         className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-white/80 bg-white/[0.04] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
                         <PencilSimple size={15} weight="bold" /> 編輯這條記錄
                     </button>
-                    <button onClick={() => void syncEvidenceRecordToChat(r)} disabled={!!r.systemMessageId}
+                    <button onClick={() => void syncEvidenceRecordToChat(r)}
                         className="w-full mt-2 py-3 rounded-2xl text-[12px] font-semibold text-sky-100 bg-sky-400/10 border border-sky-300/20 active:scale-[0.99] transition flex items-center justify-center gap-2 disabled:text-white/30 disabled:bg-white/[0.03] disabled:border-white/[0.06]">
-                        <PaperPlaneTilt size={15} weight="bold" /> {r.systemMessageId ? '已同步到私聊' : '同步這條到私聊'}
+                        <PaperPlaneTilt size={15} weight="bold" /> {syncButtonLabel(!!r.systemMessageId, false, '同步這條到私聊')}
                     </button>
                     <button onClick={() => askConfirm({
                         title: '刪除這條記錄？', desc: '刪除「' + r.title + '」後無法恢復。', confirmLabel: '刪除', danger: true,
@@ -4142,9 +4135,8 @@ ${olderText}
                             )}
                             <button
                                 onClick={() => void syncEvidenceRecordToChat(evidenceMenu.record)}
-                                disabled={!!evidenceMenu.record.systemMessageId}
                                 className="w-full px-4 py-3.5 text-left text-[14px] text-sky-300 active:bg-white/5 transition flex items-center gap-3 disabled:text-white/30 border-t border-white/10"
-                            ><PaperPlaneTilt size={17} /> {evidenceMenu.record.systemMessageId ? '已同步到私聊' : '同步到私聊'}</button>
+                            ><PaperPlaneTilt size={17} /> {syncButtonLabel(!!evidenceMenu.record.systemMessageId, false)}</button>
                             <button onClick={() => {
                                 const record = evidenceMenu.record;
                                 setEvidenceMenu(null);

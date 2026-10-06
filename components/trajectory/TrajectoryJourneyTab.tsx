@@ -4,6 +4,7 @@ import type { CharacterProfile, NPCProfile, TrajectoryJourneyEntry } from '../..
 import { buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
+import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { DB } from '../../utils/db';
 
 interface Props {
@@ -102,18 +103,24 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     const handleSyncToChat = async (entry: TrajectoryJourneyEntry) => {
         setSyncingToChat(true);
         try {
-            const buildMessage = (charId: string) => DB.saveMessage({
-                charId, role: 'assistant', type: 'phone_card',
+            const card = {
+                role: 'assistant' as const, type: 'phone_card' as const,
                 content: `[你手機的軌跡 App] ${entry.story}`,
                 metadata: { phoneCard: { app: '軌跡', title: `${entry.kind} · ${entry.location || entry.time || '一段行程'}`, value: entry.participantNames.join('、') || undefined, detail: entry.story } },
-            } as any);
-            const messageId = await buildMessage(char.id);
-            await Promise.all((entry.participantCharIds || []).map(id => buildMessage(id)));
-            const next = entries.map(e => e.id === entry.id ? { ...e, syncedMessageId: messageId } : e);
+            };
+            // 再同步：每個人私聊裡那張還在就就地更新，刪了才重發
+            const own = await upsertChatCard(entry.syncedMessageId, char.id, card);
+            const participantSyncedIds: Record<string, number> = { ...(entry.participantSyncedIds || {}) };
+            for (const id of entry.participantCharIds || []) {
+                participantSyncedIds[id] = (await upsertChatCard(entry.participantSyncedIds?.[id], id, card)).id;
+            }
+            const patch = { syncedMessageId: own.id, participantSyncedIds };
+            const next = entries.map(e => e.id === entry.id ? { ...e, ...patch } : e);
             onCommit(next);
-            setDetailEntry(prev => prev && prev.id === entry.id ? { ...prev, syncedMessageId: messageId } : prev);
+            setDetailEntry(prev => prev && prev.id === entry.id ? { ...prev, ...patch } : prev);
             const others = entry.participantCharIds?.length || 0;
-            addToast(others ? `已同步到私聊（含見面的 ${others} 位角色）` : '已同步到私聊', 'success');
+            const base = syncToastText(own.updated);
+            addToast(others ? `${base}（含見面的 ${others} 位角色）` : base, 'success');
         } catch (e) {
             console.warn('[Trajectory] Journey 同步私聊失敗:', e);
             addToast('同步失敗，稍後再試', 'error');
@@ -267,11 +274,11 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
                             <div>見面對象：{detailEntry.participantNames.join('、') || '獨自一人'}</div>
                         </div>
                         <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-white/85">{detailEntry.story}</p>
-                        <button onClick={() => void handleSyncToChat(detailEntry)} disabled={syncingToChat || !!detailEntry.syncedMessageId}
+                        <button onClick={() => void handleSyncToChat(detailEntry)} disabled={syncingToChat}
                             className="w-full mt-4 py-3 rounded-2xl text-[12px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                             style={{ background: 'rgba(167,139,250,0.14)', color: '#c4b5fd', border: '1px solid rgba(167,139,250,0.25)' }}>
                             <PaperPlaneTilt size={15} weight="bold" />
-                            {detailEntry.syncedMessageId ? '已同步到私聊' : (syncingToChat ? '同步中…' : '同步到私聊')}
+                            {syncButtonLabel(!!detailEntry.syncedMessageId, syncingToChat)}
                         </button>
                     </div>
                 </div>
