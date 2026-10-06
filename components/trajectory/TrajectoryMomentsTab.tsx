@@ -370,7 +370,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                             {post.content && <div className="text-[13px] leading-relaxed mt-0.5 text-white/85 whitespace-pre-wrap break-words">{post.content}</div>}
                             {post.images.length > 0 && (
                                 <div className="mt-2 block w-32 aspect-square rounded-lg overflow-hidden bg-white/5 relative">
-                                    <TokenImg value={post.images[0]} alt="" className="w-full h-full object-cover" />
+                                    <TokenImg value={post.images[0]} alt="" className="w-full h-full object-cover object-top" />
                                     {post.images.length > 1 && <span className="absolute bottom-1 right-1 px-1.5 rounded bg-black/50 text-[10px]">+{post.images.length - 1}</span>}
                                 </div>
                             )}
@@ -437,14 +437,14 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
                             </div>
                         )}
                         {detailPost.images.length > 0 ? (
-                            <div className="aspect-[4/5] bg-white/5">
-                                <TokenImg value={detailPost.images[0]} alt="" className="w-full h-full object-cover" />
+                            <div className="bg-white/5">
+                                <TokenImg value={detailPost.images[0]} alt="" className="block w-full h-auto" />
                             </div>
                         ) : <div className="h-12" />}
                         {detailPost.images.length > 1 && (
                             <div className="grid grid-cols-4 gap-1 px-5 pt-2">
                                 {detailPost.images.slice(1).map((img, i) => (
-                                    <TokenImg key={i} value={img} alt="" className="aspect-square w-full object-cover rounded-md bg-white/5" />
+                                    <TokenImg key={i} value={img} alt="" className="aspect-square w-full object-cover object-top rounded-md bg-white/5" />
                                 ))}
                             </div>
                         )}
