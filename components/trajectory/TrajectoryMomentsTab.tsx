@@ -102,7 +102,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         setGenerating(true);
         try {
             await generateCharacterMoment({
-                char, apiConfig: osApiConfig, api: apiConfig, imageGenConfig, requireImage: true,
+                char, apiConfig: osApiConfig, api: apiConfig, imageGenConfig, requireImage: true, userProfileBase,
                 recent: ownPosts.map(p => ({ content: p.content })),
             });
             trackEvent('角色视角生成一条朋友圈');

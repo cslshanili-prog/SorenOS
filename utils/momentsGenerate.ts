@@ -1,4 +1,11 @@
-import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost, NPCProfile } from '../types';
+import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost, NPCProfile, UserProfile } from '../types';
+import { nowInTimeZone, resolveCharTimeZone } from './timezone';
+import { isScheduleFeatureOn } from './scheduleFeature';
+import { getDailyScheduleForChar } from './dailySchedule';
+import { resolveScheduleSlots } from './scheduleInjection';
+import { loadCharacterContextRange } from './chatContextRange';
+import { formatChatHistoryForSchedule } from './scheduleGenerator';
+import { resolveUserProfileForChar } from './userPersona';
 import { resolveNpcApi } from './npcMemory';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
@@ -16,6 +23,55 @@ import { createMomentPost } from './momentsStore';
 export const canGenerateMomentImage = (config: ImageGenApiConfig | undefined): config is ImageGenApiConfig =>
     !!(config?.charImageGenEnabled && config?.baseUrl && config?.model);
 
+/** 給朋友圈看的最近聊天，取最後幾則就好：要的是「最近發生了什麼」，不是整段對話 */
+export const MOMENT_CHAT_TAIL = 16;
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * 發朋友圈前的「此刻」段（2026-10-06）：現在幾點（角色那邊的時間）、正在做什麼（今天日程的當前時段）、
+ * 最近跟用戶聊了什麼。純拼字串，各段沒有就不寫；全空回傳空字串。
+ */
+export function buildMomentContextBlock(parts: { now?: Date; activity?: string; chatBlock?: string }): string {
+    const lines: string[] = [];
+    if (parts.now) {
+        const d = parts.now;
+        lines.push(`現在是 ${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} 星期${WEEKDAYS[d.getDay()]} ${pad2(d.getHours())}:${pad2(d.getMinutes())}（你所在地的時間）。`);
+    }
+    if (parts.activity) lines.push(`照你今天的日程，你這個時段正在：${parts.activity}。`);
+    const chat = parts.chatBlock?.trim();
+    if (!lines.length && !chat) return '';
+    return ['', '## 此刻', ...lines, ...(chat ? ['', chat] : []), ''].join('\n');
+}
+
+/** 發朋友圈的「公開」提醒：最近的聊天是私下的，貼文是大家都看得到的。有給聊天記錄時才加。 */
+export const MOMENT_PRIVACY_NOTE = '朋友圈是公開的，你的朋友、認識的人都看得到。可以呼應最近發生的事和你現在的狀態、心情，但只發你願意讓大家看到的那一面：不要引用你們私聊的原話，不要寫出對方的隱私或你們之間私密的事。';
+
+async function loadMomentContext(char: CharacterProfile, userProfileBase?: UserProfile): Promise<{ block: string; hasChat: boolean }> {
+    const timeAware = char.timeAwarenessEnabled !== false;
+    const now = timeAware ? nowInTimeZone(resolveCharTimeZone(char)) : undefined;
+    let activity: string | undefined;
+    if (isScheduleFeatureOn(char)) {
+        try {
+            const schedule = await getDailyScheduleForChar(char);
+            // 關掉時間感知的角色不給「現在」，但日程照樣有自己的總開關——拿用戶設備時間判斷當前時段
+            activity = resolveScheduleSlots(schedule, now ?? new Date()).current?.activity;
+        } catch (e) {
+            console.warn('[Moments] 讀日程失敗，這次不帶', e);
+        }
+    }
+    let chatBlock = '';
+    if (userProfileBase) {
+        try {
+            const messages = (await loadCharacterContextRange(char)).messages.slice(-MOMENT_CHAT_TAIL);
+            chatBlock = formatChatHistoryForSchedule(messages, char, resolveUserProfileForChar(userProfileBase, char));
+        } catch (e) {
+            console.warn('[Moments] 讀最近聊天失敗，這次不帶', e);
+        }
+    }
+    return { block: buildMomentContextBlock({ now, activity, chatBlock }), hasChat: !!chatBlock.trim() };
+}
+
 export async function generateCharacterMoment(params: {
     char: CharacterProfile;
     apiConfig: APIConfig;
@@ -28,6 +84,8 @@ export async function generateCharacterMoment(params: {
     /** 一定要配圖（軌跡 Moments 的生成）；不要求時生圖沒設定就發純文字 */
     requireImage?: boolean;
     source?: MomentPost['source'];
+    /** 給了就帶上最近跟（這個角色眼中的）用戶聊的幾則；不給就只帶時間和日程 */
+    userProfileBase?: UserProfile;
 }): Promise<MomentPost> {
     const { char, apiConfig, recent, requireImage, source = 'manual' } = params;
     const api = params.api?.baseUrl ? params.api : resolveCharacterChatApi(char, apiConfig);
@@ -36,13 +94,20 @@ export async function generateCharacterMoment(params: {
     const withImage = canGenerateMomentImage(imageGenConfig);
     if (requireImage && !withImage) throw new Error('先在設置裡開啟並配置好生圖 API');
 
-    const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
+    // 2026-10-06：以前 skipMemories、也不給時間和聊天，發的朋友圈跟你們之間發生的事接不上。
+    // 現在帶記憶摘要（月度＋當月日度）、角色那邊的現在時間、當前日程時段、最近幾則聊天。
+    const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char);
+    const moment = await loadMomentContext(char, params.userProfileBase);
+    const systemBlock = `${roleSettingsBlock}${moment.block}`;
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
             model: api.model,
-            messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: buildTrajectoryMomentsPrompt(roleSettingsBlock, recent) }],
+            messages: [
+                { role: 'system', content: systemBlock },
+                { role: 'user', content: buildTrajectoryMomentsPrompt(systemBlock, recent, { privacyNote: moment.hasChat ? MOMENT_PRIVACY_NOTE : undefined }) },
+            ],
             temperature: 0.95,
         }),
     });
