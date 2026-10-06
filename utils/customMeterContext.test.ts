@@ -21,6 +21,8 @@ describe('buildPreviousMeterNote', () => {
         expect(note).toContain('72 分');
         expect(note).toContain('「想見他」');
         expect(note).toContain('小幅變動');
+        expect(note).toContain('可以往上也可以往下');
+        expect(note).toContain('吵架');
     });
 });
 

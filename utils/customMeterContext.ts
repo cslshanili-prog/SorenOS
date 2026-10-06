@@ -28,7 +28,9 @@ export function buildPreviousMeterNote(kind: 'text' | 'number', entry: MeterSnap
     const note = entry.statusNote?.trim();
     return [
         `上一次的評估${ageOf(entry.updatedAt, now)}：${entry.value} 分${note ? `，那時的心聲是「${note}」` : ''}。`,
-        '這次是延續，不是重新打分：以上一次為基礎，按這之後的對話調整。沒發生什麼特別的事就只小幅變動（幾分以內），有明確的大事才大幅升降。',
+        '這次是延續，不是重新打分：以上一次為基礎，按這之後的對話調整。',
+        '分數可以往上也可以往下，不是只能加：方向照這個條目的意思和最近發生的事來判斷（拿好感來說，聊得開心、被在乎就加；吵架、被冷落、失望就減）。',
+        '沒發生什麼特別的事就維持或只小幅變動（幾分以內），有明確的大事才大幅升降。',
     ].join('\n');
 }
 
