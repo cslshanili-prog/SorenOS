@@ -3,6 +3,7 @@ import { Minus, Plus, ShoppingCart } from '@phosphor-icons/react';
 import type { MallKind, MallProduct } from '../../types';
 import { formatMoney } from '../../utils/realBalance';
 import type { MallCartLine } from '../../utils/shoppingMall';
+import { FOOD_DELIVER_MIN, SHOP_DELIVER_HOUR } from '../../utils/mallOrders';
 import { EmojiTile, Segmented, inputCls, primaryBtn } from './MallParts';
 
 export type CartPayer = 'user' | 'char';
@@ -55,7 +56,7 @@ const MallCart: React.FC<Props> = ({
     const notePlaceholder = !toSelf
         ? `想對${recipientName || 'TA'}說的話（會顯示在卡片上）`
         : daifu ? `跟${daifuName}說一聲為什麼要TA付 XD` : '備註（選填）';
-    const arrival = kind === 'food' ? '約 40 分鐘送達' : '明天 14:00 送達';
+    const arrival = kind === 'food' ? `約 ${FOOD_DELIVER_MIN} 分鐘送達` : `明天 ${SHOP_DELIVER_HOUR}:00 送達`;
     const footnote = daifu
         ? `會在聊天裡發一張代付請求，${daifuName}付了才開始配送`
         : !toSelf

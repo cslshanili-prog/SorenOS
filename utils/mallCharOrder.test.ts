@@ -43,8 +43,8 @@ describe('resolveGiftOrders', () => {
 
 describe('ETA', () => {
     const paid = new Date(2026, 9, 4, 14, 0).getTime();
-    it('外賣 40 分鐘、購物隔天 14:00；沒開時區就是設備時間', () => {
-        expect(mallRecordEta({ mallKind: 'food', status: 'sent', paidAt: paid }, undefined)).toBe('10/4 14:40');
+    it('外賣 20 分鐘、購物隔天 14:00；沒開時區就是設備時間', () => {
+        expect(mallRecordEta({ mallKind: 'food', status: 'sent', paidAt: paid }, undefined)).toBe('10/4 14:20');
         expect(mallRecordEta({ mallKind: 'shop', status: 'accepted' }, paid)).toBe('10/5 14:00');
     });
     it('還沒付、被拒的不帶', () => {

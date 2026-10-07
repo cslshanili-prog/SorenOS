@@ -3,14 +3,14 @@ import { makeMallId } from './shoppingMall';
 
 /**
  * 購物中心訂單與配送（見 plans/mall-redesign.md）。配送狀態全照付款時間算，不存、不跑後台：
- * - 外賣：付款即「已下單」→ 8 分鐘商家接單、開始配送 → 40 分鐘送達。
+ * - 外賣：付款即「已下單」→ 5 分鐘商家接單、開始配送 → 20 分鐘送達（2026-10-07 從 8／40 縮短，用戶嫌等太久）。
  * - 購物：付款即「已下單」→ 2 小時出貨 → 隔天 14:00 送達（照用戶設備時區）。
  * 代付請求在角色付錢之前沒有 paidAt，顯示「等 TA 付款」；被拒就是取消。
  */
 
 const MIN = 60_000;
-export const FOOD_ACCEPT_MIN = 8;
-export const FOOD_DELIVER_MIN = 40;
+export const FOOD_ACCEPT_MIN = 5;
+export const FOOD_DELIVER_MIN = 20;
 export const SHOP_SHIP_MIN = 120;
 export const SHOP_DELIVER_HOUR = 14;
 
