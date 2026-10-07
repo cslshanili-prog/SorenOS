@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Trash } from '@phosphor-icons/react';
 import { Row, Toggle } from './ChatSettingsControls';
 import { DEFAULT_AUTO_REPLY } from '../../utils/readNoReply';
+import { nowInTimeZone, tzShortLabel } from '../../utils/timezone';
 import type { QuietHoursSlot, ReadNoReplySettings } from '../../types';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -19,10 +20,20 @@ const inputClass = 'w-full rounded-xl bg-slate-50 border border-slate-100 px-3.5
  * 聊天設定頁 Scenario 裡的「已讀不回」：總開關打開後展開細項（參考 CsyPhone 的設定樣子，不求一致）。
  * 只改草稿，存檔跟著聊天設定頁的「完成」。判斷邏輯見 utils/readNoReply.ts。
  */
+/** 角色開了自定義時區時那行「以 TA 那邊的時間計算（洛杉磯 · 現在 10:12）」 */
+const charClockNote = (tz: string): string => {
+    const now = nowInTimeZone(tz);
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `以 TA 那邊的時間計算（${tzShortLabel(tz)} · 現在 ${hh}:${mm}），直接填 TA 當地的時間就好，不用換算。`;
+};
+
 const ReadNoReplySettingsPanel: React.FC<{
     value: ReadNoReplySettings;
     onChange: (next: ReadNoReplySettings) => void;
-}> = ({ value, onChange }) => {
+    /** 角色的自定義時區（resolveCharTimeZone）；判斷本來就照它算，這裡只是把它寫出來 */
+    charTimeZone?: string;
+}> = ({ value, onChange, charTimeZone }) => {
     const set = (patch: Partial<ReadNoReplySettings>) => onChange({ ...value, ...patch });
     const slots = value.quietSlots || [];
     const setSlot = (id: string, patch: Partial<QuietHoursSlot>) =>
@@ -73,6 +84,7 @@ const ReadNoReplySettingsPanel: React.FC<{
                         <div className="min-w-0 flex-1">
                             <div className="text-[15px] font-bold text-slate-800">不回訊時段</div>
                             <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">在這些時段內，角色強制已讀不回（會疊加日程一起判定）。結束早於開始表示跨夜。</div>
+                            {charTimeZone && <div className="mt-1 text-[11px] leading-relaxed font-medium text-primary/80">{charClockNote(charTimeZone)}</div>}
                         </div>
                         <button
                             type="button"

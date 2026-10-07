@@ -5,6 +5,8 @@ import { ApiPreset, APIConfig, CharacterProfile } from '../../types';
 import { normalizeApiBaseUrl, normalizeApiCredential } from '../../utils/apiConfigNormalize';
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
+import { ProactiveChat } from '../../utils/proactiveChat';
+import { formatProactiveRange, normalizeProactiveRange } from '../../utils/proactiveTiming';
 
 interface ProactiveSettingsModalProps {
     isOpen: boolean;
@@ -27,12 +29,27 @@ const INTERVAL_OPTIONS = [
     { label: '24 小時', value: 1440 },
 ];
 
+const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
+    <button
+        onClick={onToggle}
+        aria-label={label}
+        aria-pressed={on}
+        className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${on ? 'bg-violet-500' : 'bg-slate-200'}`}
+    >
+        <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${on ? 'translate-x-5' : 'translate-x-0'}`} />
+    </button>
+);
+
 const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
     isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets, onAddApiPreset
 }) => {
     const saved = char.proactiveConfig;
     const [enabled, setEnabled] = useState(saved?.enabled ?? false);
     const [interval, setInterval_] = useState(saved?.intervalMinutes ?? 60);
+    // 最長間隔：等於最短就是固定間隔
+    const [maxInterval, setMaxInterval] = useState(saved?.maxIntervalMinutes ?? saved?.intervalMinutes ?? 60);
+    const [followChat, setFollowChat] = useState(saved?.followChat !== false);
+    const [skipWhenAsleep, setSkipWhenAsleep] = useState(!!saved?.skipWhenAsleep);
     const [useSecondaryApi, setUseSecondaryApi] = useState(saved?.useSecondaryApi ?? false);
     const [secUrl, setSecUrl] = useState(saved?.secondaryApi?.baseUrl ?? '');
     const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
@@ -54,6 +71,9 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
             const s = char.proactiveConfig;
             setEnabled(s?.enabled ?? false);
             setInterval_(s?.intervalMinutes ?? 60);
+            setMaxInterval(s?.maxIntervalMinutes ?? s?.intervalMinutes ?? 60);
+            setFollowChat(s?.followChat !== false);
+            setSkipWhenAsleep(!!s?.skipWhenAsleep);
             setUseSecondaryApi(s?.useSecondaryApi ?? false);
             setSecUrl(s?.secondaryApi?.baseUrl ?? '');
             setSecKey(s?.secondaryApi?.apiKey ?? '');
@@ -66,9 +86,13 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
     }, [isOpen, char.id]);
 
     const handleSave = () => {
+        const range = normalizeProactiveRange(interval, maxInterval);
         onSave({
             enabled,
-            intervalMinutes: interval,
+            intervalMinutes: range.minMinutes,
+            ...(range.maxMinutes > range.minMinutes ? { maxIntervalMinutes: range.maxMinutes } : {}),
+            followChat,
+            skipWhenAsleep,
             useSecondaryApi: useSecondaryApi && !!secUrl,
             secondaryApi: useSecondaryApi && secUrl ? {
                 baseUrl: secUrl,
@@ -78,6 +102,17 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         });
         onClose();
     };
+
+    const nextDueAt = isOpen && isProactiveActive ? ProactiveChat.getNextDueAt(char.id) : null;
+    const nextDueLabel = nextDueAt
+        ? new Date(nextDueAt).toLocaleString('zh-TW', {
+            ...(new Date(nextDueAt).toDateString() !== new Date().toDateString() ? { month: 'numeric', day: 'numeric' } : {}),
+            hour: '2-digit', minute: '2-digit', hour12: false,
+        })
+        : '';
+    const effectiveMax = Math.max(interval, maxInterval);
+    const charLabel = char.chatNickname?.trim() || char.name;
+    const rangeLabel = formatProactiveRange(interval, effectiveMax);
 
     const handleStop = () => {
         onStop();
@@ -170,7 +205,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
             <div className="space-y-5">
                 {/* Description */}
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    開啟後，{char.name} 會按照設定的間隔主動給你發消息，就像真人一樣隨手發來一條。
+                    開啟後，{charLabel} 會按照設定的間隔主動給你發消息，就像真人一樣隨手發來一條。想讓 TA 現在就主動說一句：最後一則是 TA 說的時候，按聊天頁右上角的閃電。
                 </p>
 
                 {/* Enable Toggle */}
@@ -188,7 +223,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 {isProactiveActive && (
                     <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 rounded-xl border border-violet-100">
                         <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-                        <span className="text-xs text-violet-600 font-medium">主動消息進行中</span>
+                        <span className="text-xs text-violet-600 font-medium">主動消息進行中{nextDueLabel ? ` · 下一次約 ${nextDueLabel}` : ''}</span>
                     </div>
                 )}
 
@@ -201,7 +236,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                 {INTERVAL_OPTIONS.map(opt => (
                                     <button
                                         key={opt.value}
-                                        onClick={() => setInterval_(opt.value)}
+                                        onClick={() => { setInterval_(opt.value); if (maxInterval < opt.value) setMaxInterval(opt.value); }}
                                         className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${interval === opt.value
                                             ? 'bg-violet-500 text-white shadow-md'
                                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -211,6 +246,50 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* 時間彈性：隨機放寬到哪 */}
+                        <div>
+                            <label className="text-sm font-bold text-slate-700 block mb-2">隨機放寬到</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[{ label: '不放寬', value: interval }, ...INTERVAL_OPTIONS.filter(opt => opt.value > interval)].map(opt => (
+                                    <button
+                                        key={opt.label}
+                                        onClick={() => setMaxInterval(opt.value)}
+                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${effectiveMax === opt.value
+                                            ? 'bg-violet-500 text-white shadow-md'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
+                                {effectiveMax > interval
+                                    ? `每次在 ${rangeLabel}之間隨機抽一個時間，不會像鬧鐘一樣準點。`
+                                    : `固定每 ${rangeLabel}一次。`}
+                            </p>
+                        </div>
+
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <div className="text-sm font-bold text-slate-700">從最後一次聊天起算</div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
+                                    你們剛聊過就先不發，等安靜下來滿 {formatProactiveRange(interval)}才開口；關掉則從上一次主動消息起算，聊得正熱也可能插進來。
+                                </p>
+                            </div>
+                            <Switch on={followChat} onToggle={() => setFollowChat(v => !v)} label="從最後一次聊天起算" />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <div className="text-sm font-bold text-slate-700">{charLabel} 睡覺時不發</div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
+                                    照 {charLabel} 當天的日程判斷（要開著日程），睡著時先不發，醒來後再發。
+                                </p>
+                            </div>
+                            <Switch on={skipWhenAsleep} onToggle={() => setSkipWhenAsleep(v => !v)} label="睡覺時不發" />
                         </div>
 
                         {/* Secondary API Toggle */}

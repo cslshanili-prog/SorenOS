@@ -3315,7 +3315,13 @@ export interface CharacterProfile {
   // 主動消息配置
   proactiveConfig?: {
     enabled: boolean;
-    intervalMinutes: number; // 30, 60, 120, 240, etc.
+    intervalMinutes: number; // 30, 60, 120, 240, etc.（範圍模式下是最短間隔）
+    /** 範圍模式的最長間隔：每次在 intervalMinutes～maxIntervalMinutes 之間隨機抽。沒有或不大於最短就是固定間隔。 */
+    maxIntervalMinutes?: number;
+    /** 從最後一次聊天起算（預設開，undefined 視為 true）：剛聊過不到最短間隔就先不發，從最後一則訊息起再抽一次。 */
+    followChat?: boolean;
+    /** TA 睡覺時不發（預設關）：按當天日程判斷，睡著就先不發，半小時後再看，醒來才發。 */
+    skipWhenAsleep?: boolean;
     useSecondaryApi?: boolean;
     secondaryApi?: {
       baseUrl: string;

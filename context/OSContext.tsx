@@ -52,7 +52,11 @@ import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, endChatBlock, extractBlockUser, is
 import { runCharBlockReconsider } from '../utils/chatBlockRuntime';
 import { generateCharTempMessage } from '../utils/tempChatRuntime';
 import { nextTempAttemptAt, TEMP_CHAT_CHANGED_EVENT } from '../utils/tempChat';
-import { extractNoReplyDirective } from '../utils/readNoReply';
+import { classifyScheduleSlot, extractNoReplyDirective } from '../utils/readNoReply';
+import { followChatDeferral } from '../utils/proactiveTiming';
+import { getDailyScheduleForChar } from '../utils/dailySchedule';
+import { getScheduleWallClock } from '../utils/scheduleTime';
+import { getCurrentSlot } from '../utils/charMusicSchedule';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from '../utils/dateInvite';
 import { retryPendingPhotos } from '../utils/pendingPhoto';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type IncomingCharCallDetail } from '../utils/charCall';
@@ -508,6 +512,9 @@ interface OSContextType {
   openGroupChat: (groupId: string) => void;
   consumePendingGroupChat: () => void;
 }
+
+/** 主動消息「TA 睡覺時不發」：睡著時隔多久再看一次 */
+const PROACTIVE_ASLEEP_RECHECK_MS = 30 * 60_000;
 
 const PREVIOUS_DEFAULT_WALLPAPER = [
   'radial-gradient(120% 85% at 12% 0%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 58%)',
@@ -2358,6 +2365,38 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               drainQueuedProactive();
               console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 正在通話 (CallApp active)`);
               return;
+          }
+
+          // 主動消息的時間彈性（utils/proactiveTiming.ts）。到點這一刻調度層已經抽好下一次了，
+          // 這兩種情況改成延後：
+          // - 從最後一次聊天起算（預設開）：你們剛聊過，不到最短間隔就先不發，從最後一則訊息起再抽；
+          // - TA 睡覺時不發（預設關）：當天日程這格是睡覺，半小時後再看一次，醒來才發。
+          const proactiveSchedule = isReply ? null : ProactiveChat.getSchedule(charId);
+          if (proactiveSchedule && char.proactiveConfig) {
+              const timing = char.proactiveConfig;
+              if (timing.followChat !== false) {
+                  const recentForGap = await DB.getRecentMessagesByCharId(charId, 30, true).catch(() => [] as Message[]);
+                  const lastReal = [...recentForGap].reverse().find(m =>
+                      (m.role === 'user' || m.role === 'assistant') && !m.metadata?.proactiveHint && !m.metadata?.hidden);
+                  const deferTo = followChatDeferral(
+                      lastReal?.timestamp, Date.now(), proactiveSchedule.intervalMs, proactiveSchedule.maxIntervalMs);
+                  if (deferTo) {
+                      ProactiveChat.deferUntil(charId, deferTo);
+                      drainQueuedProactive();
+                      console.log(`🔕 [Proactive/Global] Deferred for ${char.name}: 剛聊過，延到 ${new Date(deferTo).toLocaleTimeString()}`);
+                      return;
+                  }
+              }
+              if (timing.skipWhenAsleep && isScheduleFeatureOn(char)) {
+                  const wall = getScheduleWallClock(char);
+                  const daySchedule = await getDailyScheduleForChar(char).catch(() => null);
+                  if (classifyScheduleSlot(getCurrentSlot(daySchedule, wall)) === 'sleep') {
+                      ProactiveChat.deferUntil(charId, Date.now() + PROACTIVE_ASLEEP_RECHECK_MS);
+                      drainQueuedProactive();
+                      console.log(`🔕 [Proactive/Global] Deferred for ${char.name}: 睡覺中`);
+                      return;
+                  }
+              }
           }
 
           // 生效憑據優先級：角色開了「使用副 API」→ 那份副 API；否則 → 角色自己的對話模型

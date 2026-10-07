@@ -615,7 +615,7 @@ export const useChatAI = ({
     const triggerAI = async (
         currentMsgs: Message[],
         overrideApiConfig?: { baseUrl: string; apiKey: string; model: string },
-        opts?: { skipEmotionInjection?: boolean },
+        opts?: { skipEmotionInjection?: boolean; nudge?: boolean },
     ) => {
         if (isTyping || !char) return;
         // 私聊拉黑中（見 utils/chatBlock.ts）：不管誰拉黑誰，這一輪都不生成
@@ -630,7 +630,8 @@ export const useChatAI = ({
         // 聊天設定 ·「已讀不回」：命中不回訊時段、或日程忙碌／睡覺（且沒交給角色決定）時，
         // 這一輪不發主回覆請求，只落自動回覆＋旁白（見 utils/readNoReplyRuntime.ts）。
         // 放在 API 檢查之前：強制不回本來就用不到主回覆的 API。
-        if (char.readNoReply?.enabled) {
+        // 閃電「讓 TA 主動說一句」（opts.nudge）是角色自己開口，沒有要回的訊息，已讀不回不適用。
+        if (char.readNoReply?.enabled && !opts?.nudge) {
             const outcome = await applyForcedReadNoReply(char, resolveCharacterMeterApi(char, apiConfig), currentMsgs)
                 .catch((e) => { console.warn('[已讀不回] 判斷失敗，照常回覆', e); return null; });
             if (outcome) {
@@ -2148,9 +2149,9 @@ export const useChatAI = ({
     // NOTE: The actual proactive trigger handler is registered globally in OSContext
     // so it works even when Chat is not open. These are just start/stop helpers.
 
-    const startProactiveChat = (intervalMinutes: number) => {
+    const startProactiveChat = (intervalMinutes: number, maxIntervalMinutes?: number) => {
         if (!char) return;
-        ProactiveChat.start(char.id, intervalMinutes);
+        ProactiveChat.start(char.id, intervalMinutes, maxIntervalMinutes);
     };
 
     const stopProactiveChat = () => {

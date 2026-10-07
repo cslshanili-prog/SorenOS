@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { buildManualNudgeHint, formatProactiveRange, resolveManualTriggerMode } from '../utils/proactiveTiming';
+import { ProactiveChat } from '../utils/proactiveChat';
+import { ChatPrompts } from '../utils/chatPrompts';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
@@ -1812,6 +1815,30 @@ const Chat: React.FC = () => {
         triggerAI(messages);
     };
     manualTriggerRef.current = handleManualTrigger;
+
+    // 右上角閃電／空輸入按送出：最後一則是角色自己說的（或還沒聊過），就不是「回覆」，
+    // 而是讓 TA 主動再說一句——塞一條隱藏提示告訴 TA 對方還沒回，並把主動消息的計時重新起算
+    // （utils/proactiveTiming.ts）。自動回覆、延遲回覆到點這些路徑仍走 handleManualTrigger。
+    const handleLightning = async () => {
+        if (!char || isTyping) return;
+        const { mode, lastCharMessageAt, lastUserMessageAt } = resolveManualTriggerMode(messages);
+        if (mode === 'reply' || char.chatBlock) { handleManualTrigger(); return; }
+        autoReply.cancel();
+        const now = Date.now();
+        await DB.saveMessage({
+            charId: char.id,
+            role: 'user',
+            type: 'text',
+            content: buildManualNudgeHint({
+                userName: chatUserProfile.name || '對方',
+                timeStr: ChatPrompts.formatDate(now, resolveCharTimeZone(char)),
+                now, lastCharMessageAt, lastUserMessageAt,
+            }),
+            metadata: { proactiveHint: true, hidden: true },
+        });
+        ProactiveChat.markFired(char.id);
+        triggerAI(messages, undefined, { nudge: true });
+    };
 
     const handleReroll = async () => {
         if (isTyping || messages.length === 0) return;
@@ -4217,7 +4244,7 @@ const Chat: React.FC = () => {
                 lastTokenUsage={lastTokenUsage}
                 tokenBreakdown={tokenBreakdown}
                 onClose={handleChatClose}
-                onTriggerAI={handleManualTrigger}
+                onTriggerAI={handleLightning}
                 hideTrigger={inputPreferences.sendButtonGenerates}
                 onShowCharsPanel={() => setShowPanel('chars')}
                 onDeleteBuff={(buffId) => {
@@ -4683,7 +4710,7 @@ const Chat: React.FC = () => {
                     isTyping={isTyping} selectionMode={selectionMode}
                     showPanel={showPanel} setShowPanel={setShowPanel}
                     onSend={handleSendCallback}
-                    onGenerate={handleManualTrigger}
+                    onGenerate={handleLightning}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}
                     autoReplyEnabled={inputPreferences.autoReply}
@@ -4740,7 +4767,7 @@ const Chat: React.FC = () => {
                     onSave={(config) => {
                         updateCharacter(char.id, { proactiveConfig: config });
                         if (config.enabled) {
-                            startProactiveChat(config.intervalMinutes);
+                            startProactiveChat(config.intervalMinutes, config.maxIntervalMinutes);
                             // 界面只給 7 個檔，但這個值是從持久化狀態讀回來的——導入的備份、
                             // 老版本寫進去的都可能是任意整數。收斂到寫死的檔位，其餘歸 custom。
                             trackEvent('启动主动消息', {
@@ -4750,7 +4777,9 @@ const Chat: React.FC = () => {
                                     '没设',
                                 ),
                             });
-                            addToast(`已啟動主動消息，每 ${config.intervalMinutes >= 60 ? formatHours(config.intervalMinutes) + ' 小時' : config.intervalMinutes + ' 分鐘'}發送一次`, 'success');
+                            addToast(config.maxIntervalMinutes && config.maxIntervalMinutes > config.intervalMinutes
+                                ? `已啟動主動消息，每 ${formatProactiveRange(config.intervalMinutes, config.maxIntervalMinutes)}之間隨機發一次`
+                                : `已啟動主動消息，每 ${config.intervalMinutes >= 60 ? formatHours(config.intervalMinutes) + ' 小時' : config.intervalMinutes + ' 分鐘'}發送一次`, 'success');
                         } else {
                             stopProactiveChat();
                             addToast('已關閉主動消息', 'info');
