@@ -4,6 +4,7 @@ import Modal from '../os/Modal';
 import type { APIConfig, ApiPreset, MallKind, MallProduct } from '../../types';
 import { formatMoney } from '../../utils/realBalance';
 import { MALL_RESTOCK_STYLES, MALL_RESTOCK_STYLE_LABELS, type MallRestockStyle } from '../../utils/mallRestock';
+import { FOOD_ACCEPT_MIN, FOOD_DELIVER_MIN, SHOP_DELIVER_HOUR } from '../../utils/mallOrders';
 import { ProductRow, SectionTitle, inputCls, primaryBtn, secondaryBtn } from './MallParts';
 
 interface Props {
@@ -77,7 +78,7 @@ const MallMe: React.FC<Props> = ({
                 )}
             </div>
             <div className="text-[11px] text-slate-400 leading-relaxed px-1 pt-3">
-                外賣付款後約 8 分鐘開始配送、40 分鐘送達；購物 2 小時出貨、隔天 14:00 送達。純照時間推進。
+                外賣付款後約 {FOOD_ACCEPT_MIN} 分鐘開始配送、{FOOD_DELIVER_MIN} 分鐘送達；購物 2 小時出貨、隔天 {SHOP_DELIVER_HOUR}:00 送達。純照時間推進。
             </div>
 
             <Modal isOpen={showApi} title="AI 補貨用哪個 API" onClose={() => setShowApi(false)}>

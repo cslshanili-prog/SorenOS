@@ -8,11 +8,11 @@ const MIN = 60_000;
 const at = (y: number, mo: number, d: number, h: number, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
 
 describe('配送時間', () => {
-    it('外賣：8 分鐘接單配送、40 分鐘送達', () => {
+    it('外賣：5 分鐘接單配送、20 分鐘送達', () => {
         const paid = at(2026, 10, 4, 12, 0);
         const plan = mallDeliveryPlan('food', paid);
-        expect(plan.dispatchAt - paid).toBe(8 * MIN);
-        expect(plan.deliveredAt - paid).toBe(40 * MIN);
+        expect(plan.dispatchAt - paid).toBe(5 * MIN);
+        expect(plan.deliveredAt - paid).toBe(20 * MIN);
     });
 
     it('購物：2 小時出貨、隔天 14:00 送達；深夜下單出貨不晚於送達', () => {
@@ -31,9 +31,11 @@ describe('mallOrderProgress', () => {
 
     it('按時間推進：已下單 → 配送中 → 已送達', () => {
         expect(mallOrderProgress(order, paid + 1 * MIN).stage).toBe('placed');
-        expect(mallOrderProgress(order, paid + 8 * MIN).stage).toBe('on-the-way');
-        expect(mallOrderProgress(order, paid + 8 * MIN).label).toBe('配送中');
-        const done = mallOrderProgress(order, paid + 40 * MIN);
+        expect(mallOrderProgress(order, paid + 4 * MIN).stage).toBe('placed');
+        expect(mallOrderProgress(order, paid + 5 * MIN).stage).toBe('on-the-way');
+        expect(mallOrderProgress(order, paid + 5 * MIN).label).toBe('配送中');
+        expect(mallOrderProgress(order, paid + 19 * MIN).stage).toBe('on-the-way');
+        const done = mallOrderProgress(order, paid + 20 * MIN);
         expect(done.stage).toBe('delivered');
         expect(done.steps.every(s => s.done)).toBe(true);
     });
@@ -48,15 +50,15 @@ describe('mallOrderProgress', () => {
     });
 
     it('nextProgressChangeAt 指向下一個節點，送達後是 null', () => {
-        expect(nextProgressChangeAt(order, paid)).toBe(paid + 8 * MIN);
-        expect(nextProgressChangeAt(order, paid + 10 * MIN)).toBe(paid + 40 * MIN);
-        expect(nextProgressChangeAt(order, paid + 41 * MIN)).toBeNull();
+        expect(nextProgressChangeAt(order, paid)).toBe(paid + 5 * MIN);
+        expect(nextProgressChangeAt(order, paid + 10 * MIN)).toBe(paid + 20 * MIN);
+        expect(nextProgressChangeAt(order, paid + 21 * MIN)).toBeNull();
         expect(nextProgressChangeAt({ kind: 'food' })).toBeNull();
     });
 
     it('progressLine 的幾種說法', () => {
-        expect(progressLine(order, paid + 10 * MIN)).toBe('配送中 · 約 12:40 送達');
-        expect(progressLine(order, paid + 50 * MIN)).toBe('已送達 12:40');
+        expect(progressLine(order, paid + 10 * MIN)).toBe('配送中 · 約 12:20 送達');
+        expect(progressLine(order, paid + 50 * MIN)).toBe('已送達 12:20');
         expect(progressLine({ kind: 'food' }, paid, 'Sully')).toBe('等Sully付款');
         expect(progressLine({ kind: 'shop', paidAt: paid }, paid + MIN)).toBe('已下單 · 約 10/5 14:00 送達');
     });
