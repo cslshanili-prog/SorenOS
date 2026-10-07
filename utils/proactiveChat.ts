@@ -23,10 +23,13 @@ import {
   startHeartbeat,
   stopHeartbeat,
 } from './proactivePushConfig';
+import { rollProactiveDelayMs } from './proactiveTiming';
 
 export interface ProactiveSchedule {
   charId: string;
-  intervalMs: number; // must be multiple of 30 * 60 * 1000
+  intervalMs: number; // must be multiple of 30 * 60 * 1000 — 範圍模式下是最短間隔
+  /** 範圍模式的最長間隔（2026-10-08）；沒有就是固定間隔。每次觸發後在 [intervalMs, maxIntervalMs] 裡抽下一次。 */
+  maxIntervalMs?: number;
 }
 
 type ProactiveScheduleMap = Record<string, ProactiveSchedule>;
@@ -34,6 +37,11 @@ type LastFireMap = Record<string, number>;
 
 const STORAGE_KEY = 'proactive_schedules';
 const LAST_FIRE_KEY = 'proactive_last_fire_map';
+/**
+ * 每個角色下一次該觸發的時刻。範圍間隔每次抽的值、「從最後一次聊天起算」延後的時刻都記在這。
+ * 舊數據沒有這一項時退回「上次觸發＋間隔」。
+ */
+const NEXT_DUE_KEY = 'proactive_next_due_map';
 const LEGACY_STORAGE_KEY = 'proactive_schedule';
 const LEGACY_LAST_FIRE_KEY = 'proactive_last_fire';
 
@@ -115,6 +123,60 @@ function removeLastFireTime(charId: string) {
   saveLastFireTimes(lastFireMap);
 }
 
+function loadNextDueMap(): LastFireMap {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(NEXT_DUE_KEY) || '{}') as LastFireMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function setNextDue(charId: string, ts: number | null) {
+  const map = loadNextDueMap();
+  if (ts === null) delete map[charId];
+  else map[charId] = ts;
+  if (Object.keys(map).length === 0) localStorage.removeItem(NEXT_DUE_KEY);
+  else localStorage.setItem(NEXT_DUE_KEY, JSON.stringify(map));
+}
+
+/** 這個角色下一次該觸發的時刻；還沒起算（lastFire 為 0 且沒有 nextDue）是 0。 */
+function getDueAt(schedule: ProactiveSchedule): number {
+  const next = loadNextDueMap()[schedule.charId];
+  if (next && next > 0) return next;
+  const lastFire = getLastFireTime(schedule.charId);
+  return lastFire > 0 ? lastFire + schedule.intervalMs : 0;
+}
+
+/** 從 now 起抽下一次的時刻並記下來。 */
+function rollNextDue(schedule: ProactiveSchedule, now: number): number {
+  const due = now + rollProactiveDelayMs(schedule.intervalMs, schedule.maxIntervalMs);
+  setNextDue(schedule.charId, due);
+  return due;
+}
+
+/**
+ * 雲端推送加速：Worker 的 /subscribe 把 next_fire_at 設成「現在＋intervalMs」，之後按同一個間隔重複。
+ * 所以每次重抽下一次時間就重新登記一次，間隔填「離下次還有多久」，Worker 那邊不用改。
+ * 至少 5 分鐘：頁面死了、心跳還沒過期的那段時間，Worker 會照這個間隔一直推，別推得太密。
+ */
+const WORKER_MIN_WAKE_MS = 5 * 60_000;
+function syncWorkerWake(charId: string, dueAt: number) {
+  if (!isPushConfigReady(loadPushConfig())) return;
+  void registerScheduleOnWorker(charId, Math.max(WORKER_MIN_WAKE_MS, dueAt - Date.now()));
+}
+
+/** 觸發一次：記觸發時間、抽下一次、重新登記雲端喚醒，然後跑主動消息。 */
+function fireNow(schedule: ProactiveSchedule, now: number) {
+  setLastFireTime(schedule.charId, now);
+  const due = rollNextDue(schedule, now);
+  syncWorkerWake(schedule.charId, due);
+  void triggerCallback?.(schedule.charId);
+}
+
+/** 提前一分鐘內的喚醒也算到點：Worker cron、SW 計時都有幾十秒的誤差。 */
+const DUE_TOLERANCE_MS = 60_000;
+
 function postToSW(msg: any) {
   if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
   navigator.serviceWorker.controller.postMessage(msg);
@@ -163,9 +225,16 @@ function handleSWMessage(e: MessageEvent) {
     return;
   }
 
-  setLastFireTime(charId, now);
+  // SW 的 setInterval 和 Worker 推送只是鬧鐘，不跟 nextDue 對齊（範圍間隔、跟著聊天延後之後
+  // 更對不上）：還沒到點就只重新對一下精確計時器。
+  const due = getDueAt(schedule);
+  if (due > 0 && now < due - DUE_TOLERANCE_MS) {
+    schedulePreciseTimer();
+    return;
+  }
+
+  fireNow(schedule, now);
   schedulePreciseTimer();
-  void triggerCallback(charId);
 }
 
 /** Check all schedules and fire any that are overdue. */
@@ -176,14 +245,11 @@ function checkOverdueSchedules() {
   const now = Date.now();
 
   for (const schedule of schedules) {
-    const lastFire = getLastFireTime(schedule.charId);
-    const elapsed = now - lastFire;
-
-    if (lastFire > 0 && elapsed >= schedule.intervalMs) {
-      console.log(`[ProactiveChat] Main-thread trigger: ${schedule.charId}, ${Math.round(elapsed / 60000)}min elapsed`);
-      setLastFireTime(schedule.charId, now);
+    const due = getDueAt(schedule);
+    if (due > 0 && now >= due) {
+      console.log(`[ProactiveChat] Main-thread trigger: ${schedule.charId}, ${Math.round((now - due) / 60000)}min past due`);
       syncSchedulesToSW();
-      void triggerCallback(schedule.charId);
+      fireNow(schedule, now);
     }
   }
 
@@ -211,9 +277,7 @@ function schedulePreciseTimer() {
   const now = Date.now();
   let nextDue = Infinity;
   for (const schedule of schedules) {
-    const lastFire = getLastFireTime(schedule.charId);
-    const base = lastFire > 0 ? lastFire : now;
-    const due = base + schedule.intervalMs;
+    const due = getDueAt(schedule) || now + schedule.intervalMs;
     if (due < nextDue) nextDue = due;
   }
   if (!Number.isFinite(nextDue)) return;
@@ -299,23 +363,31 @@ export const ProactiveChat = {
   /**
    * Start or update one character's proactive schedule.
    */
-  start(charId: string, intervalMinutes: number) {
+  start(charId: string, intervalMinutes: number, maxIntervalMinutes?: number) {
     const clamped = Math.max(30, Math.round(intervalMinutes / 30) * 30);
     const intervalMs = clamped * 60 * 1000;
+    const maxClamped = typeof maxIntervalMinutes === 'number'
+      ? Math.max(clamped, Math.round(maxIntervalMinutes / 30) * 30)
+      : clamped;
+    const schedule: ProactiveSchedule = maxClamped > clamped
+      ? { charId, intervalMs, maxIntervalMs: maxClamped * 60 * 1000 }
+      : { charId, intervalMs };
     const schedules = loadSchedules();
-    schedules[charId] = { charId, intervalMs };
+    schedules[charId] = schedule;
     saveSchedules(schedules);
-    setLastFireTime(charId, Date.now());
+    const now = Date.now();
+    setLastFireTime(charId, now);
+    const due = rollNextDue(schedule, now);
     syncSchedulesToSW();
     attachListeners();
 
     // Cloud accelerator — fire-and-forget; if not configured, this no-ops.
     if (isPushConfigReady(loadPushConfig())) {
-      void registerScheduleOnWorker(charId, intervalMs);
+      syncWorkerWake(charId, due);
       startHeartbeat();
     }
 
-    console.log(`[ProactiveChat] Started: ${charId}, every ${clamped}min`);
+    console.log(`[ProactiveChat] Started: ${charId}, every ${clamped}${maxClamped > clamped ? `~${maxClamped}` : ''}min`);
   },
 
   /**
@@ -326,6 +398,7 @@ export const ProactiveChat = {
     delete schedules[charId];
     saveSchedules(schedules);
     removeLastFireTime(charId);
+    setNextDue(charId, null);
     syncSchedulesToSW();
 
     if (isPushConfigReady(loadPushConfig())) {
@@ -359,10 +432,38 @@ export const ProactiveChat = {
     // the heartbeat loop.
     if (isPushConfigReady(loadPushConfig())) {
       for (const schedule of schedules) {
-        void registerScheduleOnWorker(schedule.charId, schedule.intervalMs);
+        syncWorkerWake(schedule.charId, getDueAt(schedule) || Date.now() + schedule.intervalMs);
       }
       startHeartbeat();
     }
+  },
+
+  /**
+   * 「從最後一次聊天起算」、角色在睡覺時：這次先不發，下一次改到 ts。
+   * 觸發那一刻已經抽過一次下一次的時間，這裡覆蓋掉。
+   */
+  deferUntil(charId: string, ts: number) {
+    if (!loadSchedules()[charId]) return;
+    setNextDue(charId, ts);
+    syncWorkerWake(charId, ts);
+    schedulePreciseTimer();
+  },
+
+  /** 閃電讓角色主動說了一句：算作剛觸發過，從現在重抽下一次，免得幾分鐘後又自動冒一條。 */
+  markFired(charId: string) {
+    const schedule = loadSchedules()[charId];
+    if (!schedule) return;
+    const now = Date.now();
+    setLastFireTime(charId, now);
+    syncWorkerWake(charId, rollNextDue(schedule, now));
+    schedulePreciseTimer();
+  },
+
+  /** 下一次預計觸發的時刻（設置頁顯示用）；沒開是 null。 */
+  getNextDueAt(charId: string): number | null {
+    const schedule = loadSchedules()[charId];
+    if (!schedule) return null;
+    return getDueAt(schedule) || null;
   },
 
   /** Check if proactive is active for a given character */

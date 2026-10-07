@@ -243,7 +243,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
                         <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
-                            <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} />
+                            <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} charTimeZone={resolveCharTimeZone(char)} />
                             <DelayedReplySettingsPanel value={delayedReply} onChange={setDelayedReply} />
                             <Row label="允許角色主動打電話／視訊" hint="開啟後，角色偶爾會自己打給你（語音或視訊，由角色決定）。你開著 App 時會跳出來電畫面，沒開著就記成未接來電，可以回撥。打過一次後一小時內不會再打">
                                 <Toggle on={charCall} onToggle={() => setCharCall(v => !v)} label="允許角色主動打電話／視訊" />
