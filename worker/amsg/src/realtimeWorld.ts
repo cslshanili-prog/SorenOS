@@ -18,7 +18,7 @@ import {
   getHotNewsSlot,
   pickRandomNews,
   renderRealtimeWorldBlock,
-  resolveHotNewsPlatforms,
+  DEFAULT_HOTNEWS_PLATFORMS,
   sameHotNewsPlatforms,
   REALTIME_NEWS_PICK_COUNT,
   type NewsItem,
@@ -26,6 +26,7 @@ import {
 } from '../../../utils/realtimeWorldCore';
 import type { AmsgToolConfig } from '../../../utils/amsgToolPack';
 import { getUserHolidayReminder } from '../../../utils/userHolidays';
+import { fetchNewsFeeds, interleaveNews, newsSelectionIds, resolveNewsSelection } from '../../../utils/newsFeeds';
 
 /** 兩份快照都放全局命名空間：天氣按城市、熱榜按時段，本來就是所有角色共用一份。 */
 export const AMSG_WEATHER_SNAPSHOT_KEY = 'world_weather';
@@ -148,14 +149,18 @@ const loadWeather = async (
   return null;
 };
 
-/** 熱榜：同一時段 + 同一批平台複用快照，換時段才真去拉。 */
+/**
+ * 熱榜＋國際／台灣新聞 RSS：同一時段 + 同一批來源複用快照，換時段才真去拉。
+ * 快照的 platforms 存的是來源集（熱榜平台 key ＋ `feed:` 前綴的 RSS key），換勾選就作廢。
+ */
 const loadHotNews = async (
   cfg: AmsgToolConfig,
   nowMs: number,
   globalRows: StateRow[],
   pendingWrites: Array<{ key: string; value: string }>,
 ): Promise<NewsItem[]> => {
-  const platforms = resolveHotNewsPlatforms(cfg.newsPlatforms);
+  const selection = resolveNewsSelection(cfg.newsPlatforms, cfg.newsFeeds, DEFAULT_HOTNEWS_PLATFORMS);
+  const platforms = newsSelectionIds(selection);
   const slot = getHotNewsSlot({ tz: HOTNEWS_SLOT_TZ, now: new Date(nowMs) });
 
   const snap = parseSnapshot<HotNewsSnapshot>(globalRows, AMSG_HOTNEWS_SNAPSHOT_KEY,
@@ -166,7 +171,11 @@ const loadHotNews = async (
     return snap.items;
   }
 
-  const fresh = await fetchHotNews(platforms, 12, HOTNEWS_KEEP);
+  const [feedItems, hotItems] = await Promise.all([
+    selection.feeds.length > 0 ? fetchNewsFeeds(selection.feeds, { total: HOTNEWS_KEEP }) : Promise.resolve([] as NewsItem[]),
+    selection.platforms.length > 0 ? fetchHotNews(selection.platforms, 12, HOTNEWS_KEEP) : Promise.resolve([] as NewsItem[]),
+  ]);
+  const fresh = interleaveNews([feedItems, hotItems]).slice(0, HOTNEWS_KEEP);
   if (fresh.length > 0) {
     pendingWrites.push({
       key: AMSG_HOTNEWS_SNAPSHOT_KEY,

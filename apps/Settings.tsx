@@ -12,6 +12,7 @@ import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyti
 import Modal from '../components/os/Modal';
 import ImageGenSettingsPanel from '../components/settings/ImageGenSettingsPanel';
 import { NotionManager, FeishuManager, RealtimeContextManager, fetchOwmWeather, fetchOpenMeteoWeather } from '../utils/realtimeContext';
+import { NEWS_FEED_SOURCES, resolveNewsFeeds } from '../utils/newsFeeds';
 import { XhsMcpClient } from '../utils/xhsMcpClient';
 import { resolveXhsDeploymentMode } from '../utils/xhsMcpConfig';
 import { getMcdToken, setMcdToken as saveMcdToken, isMcdEnabled, setMcdEnabled as saveMcdEnabled, testMcdConnection, resetMcdSession } from '../utils/mcdMcpClient';
@@ -682,6 +683,7 @@ const Settings: React.FC = () => {
   const [rtNewsEnabled, setRtNewsEnabled] = useState(realtimeConfig.newsEnabled);
   const [rtNewsApiKey, setRtNewsApiKey] = useState(realtimeConfig.newsApiKey || '');
   const [rtNewsPlatforms, setRtNewsPlatforms] = useState<string[]>(realtimeConfig.newsPlatforms || ['weibo', 'zhihu', 'baidu', 'bilibili', 'douyin']);
+  const [rtNewsFeeds, setRtNewsFeeds] = useState<string[]>(() => resolveNewsFeeds(realtimeConfig.newsFeeds));
   const [rtNotionEnabled, setRtNotionEnabled] = useState(realtimeConfig.notionEnabled);
   const [rtNotionKey, setRtNotionKey] = useState(realtimeConfig.notionApiKey);
   const [rtNotionDbId, setRtNotionDbId] = useState(realtimeConfig.notionDatabaseId);
@@ -1784,6 +1786,7 @@ const Settings: React.FC = () => {
           newsEnabled: rtNewsEnabled,
           newsApiKey: rtNewsApiKey,
           newsPlatforms: rtNewsPlatforms,
+          newsFeeds: rtNewsFeeds,
           notionEnabled: rtNotionEnabled,
           notionApiKey: rtNotionKey,
           notionDatabaseId: rtNotionDbId,
@@ -4216,7 +4219,29 @@ const Settings: React.FC = () => {
                   </div>
                   {rtNewsEnabled && (
                       <div className="space-y-2">
-                          <p className="text-xs text-blue-600/70">默認主源：中文多平台熱榜（免鑑權，聊天時角色會自動捕捉熱點）。選擇要關注的平台：</p>
+                          <p className="text-xs text-blue-600/70">國際／台灣新聞（聊天時角色會自動捕捉熱點）：</p>
+                          {(['tw', 'intl_zh', 'intl_en'] as const).map(group => (
+                              <div key={group} className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-slate-400 w-full">{group === 'tw' ? '台灣' : group === 'intl_zh' ? '國際（中文）' : '國際（英文）'}</span>
+                                  {NEWS_FEED_SOURCES.filter(f => f.group === group).map(f => {
+                                      const active = rtNewsFeeds.includes(f.key);
+                                      return (
+                                          <button
+                                              key={f.key}
+                                              type="button"
+                                              onClick={() => setRtNewsFeeds(prev => prev.includes(f.key) ? prev.filter(k => k !== f.key) : [...prev, f.key])}
+                                              className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors active:scale-95 ${active ? 'bg-blue-500 text-white shadow-sm' : 'bg-white/80 text-slate-500 border border-blue-200'}`}
+                                          >
+                                              {f.label}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          ))}
+                          <p className="text-[10px] text-slate-400 leading-relaxed">
+                              新聞網站的 RSS 瀏覽器讀不到，由你的「主動消息 2.0」Worker 代抓（裝過的記得按一次「更新 Worker」）。沒有 Worker 時改用維基百科的「新聞動態」，一天幾條國際大事。
+                          </p>
+                          <p className="text-xs text-blue-600/70 pt-1 border-t border-blue-200/50">中文熱榜（免鑑權，可以一個都不選）：</p>
                           <div className="flex flex-wrap gap-1.5">
                               {HOTNEWS_PLATFORM_OPTIONS.map(p => {
                                   const active = rtNewsPlatforms.includes(p.key);
@@ -4232,8 +4257,8 @@ const Settings: React.FC = () => {
                                   );
                               })}
                           </div>
-                          {rtNewsPlatforms.length === 0 && (
-                              <p className="text-[10px] text-rose-500/80">未選任何平台時會回落到 Brave / Hacker News。</p>
+                          {rtNewsPlatforms.length === 0 && rtNewsFeeds.length === 0 && (
+                              <p className="text-[10px] text-rose-500/80">兩邊都沒選時，會用內置的中文熱榜（微博、知乎、百度、B站、抖音）。</p>
                           )}
                           <details className="border-t border-blue-200/50 pt-2 mt-1 group">
                               <summary className="text-[10px] font-bold text-slate-400 uppercase cursor-pointer select-none list-none flex items-center gap-1.5">

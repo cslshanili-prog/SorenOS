@@ -185,6 +185,7 @@ import { buildTickReport, readOverdueTasks, recordTickOutcome, type TickReportDb
 import type { ActiveMsg2TaskRecord } from '../../../types';
 import { createHybridPushTransport, isFcmConfigured, type NativeFcmEnv } from './nativeFcm';
 import { configureSkipDiagnostics, isDebugFlagOn, logSkipDiagnostic } from './skipDiagnostics';
+import { fetchNewsFeeds } from '../../../utils/newsFeeds';
 
 interface Env extends NativeFcmEnv {
   AMSG_MASTER_KEY: string;
@@ -3357,6 +3358,8 @@ export default {
           // 正常，而門牌永遠不更新。報的是**這份代碼有沒有**，不是版本號：自更新永遠由
           // 舊代碼執行，版本號對上了不代表新邏輯真的在跑。
           backgroundJobs: true,
+          // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
+          newsFeeds: true,
           workerVersion: AMSG_BUNDLE_VERSION,
         },
       });
@@ -3486,6 +3489,30 @@ export default {
           error: { code: 'TICK_REPORT_FAILED', message: cause.message ? `${cause.name}: ${cause.message}` : cause.name },
         });
       }
+    }
+
+    // 國際／台灣新聞 RSS 代抓（utils/newsFeeds.ts）：瀏覽器讀不到大部分新聞網站的 RSS（沒開 CORS），
+    // App 透過這台 Worker 拿。只抓登記過的來源（?keys= 是 key 不是網址），不是開放代理；
+    // 跟其它端點同一道門：配了共享密鑰就必須帶對。
+    if (pathname.endsWith('/news-feeds')) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+      if (method !== 'GET') {
+        return jsonWithCors(405, {
+          success: false,
+          error: { code: 'METHOD_NOT_ALLOWED', message: '/news-feeds 只接受 GET' },
+        });
+      }
+      const token = env.AMSG_SERVER_TOKEN?.trim() ?? '';
+      const clientToken = request.headers.get('X-Client-Token') ?? '';
+      if (token && (!clientToken || !(await constantTimeEqual(clientToken, token)))) {
+        return jsonWithCors(401, {
+          success: false,
+          error: { code: 'INVALID_CLIENT_TOKEN', message: '共享密鑰無效或缺失' },
+        });
+      }
+      const keys = (new URL(request.url).searchParams.get('keys') || '').split(',').map((k) => k.trim()).filter(Boolean);
+      const items = keys.length > 0 ? await fetchNewsFeeds(keys) : [];
+      return jsonWithCors(200, { success: true, data: { items } });
     }
 
     // 即時對話：一個請求把「傳雲端狀態 + 建任務」串完，回 202 之後立刻起一跳。

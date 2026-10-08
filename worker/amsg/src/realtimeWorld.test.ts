@@ -174,7 +174,7 @@ describe('天氣快照', () => {
 describe('熱榜快照', () => {
     it('同時段同平台 → 複用，不發請求', async () => {
         const out = await run({
-            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'] }),
+            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'], newsFeeds: [] }),
             // 上海 12-25 12:00 落在 slot 3（午後）
             globalRows: [hotNewsSnapshot('2026-12-25#3', ['weibo'], ['某某官宣'])],
         });
@@ -189,7 +189,7 @@ describe('熱榜快照', () => {
         const writeState = vi.fn().mockResolvedValue({});
 
         const out = await run({
-            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['zhihu'] }),
+            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['zhihu'], newsFeeds: [] }),
             globalRows: [hotNewsSnapshot('2026-12-25#3', ['weibo'], ['舊的'])],
             writeState,
         });
@@ -201,7 +201,7 @@ describe('熱榜快照', () => {
 
     it('拉不到 → 退回上個時段的，不留空段', async () => {
         const out = await run({
-            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'] }),
+            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'], newsFeeds: [] }),
             globalRows: [hotNewsSnapshot('2026-12-25#2', ['weibo'], ['上個時段的'])],
         });
         expect(out).toContain('上個時段的');
@@ -209,11 +209,48 @@ describe('熱榜快照', () => {
 
     it('拉不到且快照是隔天的 → 整段不說熱搜（那不叫「最近發生的事」了）', async () => {
         const out = await run({
-            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'] }),
+            toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'], newsFeeds: [] }),
             globalRows: [hotNewsSnapshot('2026-12-23#3', ['weibo'], ['前天的'], NOW - 30 * 60 * 60_000)],
             timeAwarenessEnabled: false,
         });
         expect(out).toBe('');
+    });
+});
+
+describe('國際／台灣新聞 RSS', () => {
+    const RSS = (title: string) => `<rss><channel><item><title>${title}</title><link>https://n/${encodeURIComponent(title)}</link></item></channel></rss>`;
+
+    it('老設定沒有 newsFeeds → 預設 RSS 跟中文熱榜一起拉、輪流排', async () => {
+        fetchMock.mockImplementation(async (url: string) => {
+            if (url.includes('news.orz.ai')) return new Response(JSON.stringify({ data: [{ title: '熱搜一', url: 'https://x' }] }), { status: 200 });
+            if (url.includes('zhongwen/trad')) return new Response(RSS('BBC 頭條'), { status: 200 });
+            return new Response('nope', { status: 404 });
+        });
+        const writeState = vi.fn().mockResolvedValue({});
+        const out = await run({ toolConfig: cfg({ newsEnabled: true, newsPlatforms: ['weibo'] }), writeState });
+        expect(out).toContain('BBC 頭條（BBC 中文）');
+        expect(out).toContain('熱搜一（微博）');
+        const saved = JSON.parse(writeState.mock.calls[0][1].find((e: any) => e.key === AMSG_HOTNEWS_SNAPSHOT_KEY).value);
+        expect(saved.platforms).toEqual(['weibo', 'feed:cna', 'feed:pts', 'feed:bbc_zh', 'feed:dw_zh']);
+    });
+
+    it('熱榜平台留空、只選 RSS → 不拉中文熱榜', async () => {
+        fetchMock.mockImplementation(async (url: string) => {
+            if (url.includes('news.orz.ai')) throw new Error('不該拉熱榜');
+            return new Response(RSS('Guardian 頭條'), { status: 200 });
+        });
+        const out = await run({ toolConfig: cfg({ newsEnabled: true, newsPlatforms: [], newsFeeds: ['guardian'] }) });
+        expect(out).toContain('Guardian 頭條（The Guardian）');
+        expect(fetchMock.mock.calls.every(([u]) => !String(u).includes('news.orz.ai'))).toBe(true);
+    });
+
+    it('同時段、同來源集的快照照樣複用', async () => {
+        const out = await run({
+            toolConfig: cfg({ newsEnabled: true, newsPlatforms: [], newsFeeds: ['guardian'] }),
+            globalRows: [hotNewsSnapshot('2026-12-25#3', ['feed:guardian'], ['快照裡的'])],
+        });
+        expect(out).toContain('快照裡的');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });
 
@@ -222,7 +259,7 @@ describe('全拉掛也不斷鏈', () => {
         const out = await run({
             toolConfig: cfg({
                 weatherEnabled: true, weatherCity: '上海', weatherApiKey: 'k',
-                newsEnabled: true, newsPlatforms: ['weibo'],
+                newsEnabled: true, newsPlatforms: ['weibo'], newsFeeds: [],
             }),
             timeAwarenessEnabled: false,
         });

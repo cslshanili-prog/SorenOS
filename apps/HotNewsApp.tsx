@@ -38,10 +38,7 @@ const HotNewsApp: React.FC = () => {
         trackEvent('手动刷新热点日报');
         try {
             const { id, date, slot, label } = RealtimeContextManager.getHotNewsSlot();
-            const platforms = (realtimeConfig.newsPlatforms && realtimeConfig.newsPlatforms.length > 0)
-                ? realtimeConfig.newsPlatforms
-                : RealtimeContextManager.DEFAULT_HOTNEWS_PLATFORMS;
-            const items = await RealtimeContextManager.fetchHotNews(platforms);
+            const { items, sourceIds: platforms } = await RealtimeContextManager.fetchNewsPool(realtimeConfig);
             if (items.length > 0) {
                 const fresh: HotNewsSnapshot = { id, date, slot, slotLabel: label, items, platforms, fetchedAt: Date.now() };
                 await DB.saveHotNewsSnapshot(fresh);
@@ -176,7 +173,7 @@ const HotNewsApp: React.FC = () => {
 
                 {snapshot && (
                     <p className="text-center text-[10px] text-stone-400 mt-6 tracking-wide">
-                        — 數據來自 hot_news（news.orz.ai）多平台熱榜 · 每天 6 個時段自動更新 · 點右上角可手動真·刷新 —
+                        — 國際／台灣新聞經你的主動消息 2.0 Worker 代抓（沒有 Worker 時改用維基百科新聞動態），中文熱榜來自 hot_news · 每天 6 個時段自動更新 · 點右上角可手動刷新 —
                     </p>
                 )}
             </div>

@@ -7629,7 +7629,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-10-04";
+var AMSG_BUNDLE_VERSION = "2026-10-08";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -9974,6 +9974,153 @@ async function getUserHolidayReminder(config, cache, now = Date.now(), userName)
   return renderUserHoliday(config, date, days.get(date) || [], userName);
 }
 
+// utils/newsFeeds.ts
+var NEWS_FEED_SOURCES = [
+  {
+    key: "cna",
+    label: "\u4E2D\u592E\u793E",
+    group: "tw",
+    urls: [
+      "https://feeds.feedburner.com/rsscna/politics",
+      "https://feeds.feedburner.com/rsscna/intworld",
+      "https://feeds.feedburner.com/rsscna/lifehealth"
+    ]
+  },
+  { key: "pts", label: "\u516C\u8996\u65B0\u805E", group: "tw", urls: ["https://news.pts.org.tw/xml/newsfeed.xml"] },
+  { key: "ltn", label: "\u81EA\u7531\u6642\u5831", group: "tw", urls: ["https://news.ltn.com.tw/rss/all.xml"] },
+  { key: "bbc_zh", label: "BBC \u4E2D\u6587", group: "intl_zh", urls: ["https://feeds.bbci.co.uk/zhongwen/trad/rss.xml"] },
+  { key: "dw_zh", label: "\u5FB7\u570B\u4E4B\u8072", group: "intl_zh", urls: ["https://rss.dw.com/rdf/rss-chi-all"] },
+  { key: "rfi_zh", label: "\u6CD5\u5EE3", group: "intl_zh", urls: ["https://www.rfi.fr/tw/rss"] },
+  { key: "bbc_world", label: "BBC World", group: "intl_en", urls: ["https://feeds.bbci.co.uk/news/world/rss.xml"] },
+  { key: "guardian", label: "The Guardian", group: "intl_en", urls: ["https://www.theguardian.com/world/rss"] },
+  { key: "npr", label: "NPR", group: "intl_en", urls: ["https://feeds.npr.org/1004/rss.xml"] },
+  { key: "aljazeera", label: "Al Jazeera", group: "intl_en", urls: ["https://www.aljazeera.com/xml/rss/all.xml"] }
+];
+var DEFAULT_NEWS_FEEDS = ["cna", "pts", "bbc_zh", "dw_zh"];
+var SOURCE_BY_KEY = new Map(NEWS_FEED_SOURCES.map((s) => [s.key, s]));
+function resolveNewsFeeds(feeds) {
+  if (!Array.isArray(feeds)) return [...DEFAULT_NEWS_FEEDS];
+  return feeds.filter((k, i) => SOURCE_BY_KEY.has(k) && feeds.indexOf(k) === i);
+}
+function resolveNewsSelection(platforms, feeds, defaultPlatforms) {
+  const f = resolveNewsFeeds(feeds);
+  const p = platforms && platforms.length > 0 ? platforms : f.length > 0 ? [] : defaultPlatforms;
+  return { platforms: p, feeds: f };
+}
+var newsSelectionIds = (sel) => [...sel.platforms, ...sel.feeds.map((k) => `feed:${k}`)];
+var ENTITY = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+function decodeEntities(s) {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, code) => {
+    if (code[0] === "#") {
+      const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n < 1114112 ? String.fromCodePoint(n) : m;
+    }
+    return ENTITY[code.toLowerCase()] ?? m;
+  });
+}
+var unwrapCdata = (s) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+function cleanText(raw) {
+  const once = decodeEntities(unwrapCdata(raw).replace(/<[^>]+>/g, " "));
+  return once.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+var tagContent = (block, names) => {
+  for (const name of names) {
+    const m = block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i"));
+    if (m && m[1].trim()) return m[1];
+  }
+  return void 0;
+};
+var atomLink = (block) => {
+  const links = block.match(/<link\b[^>]*\/?>/gi) || [];
+  let fallback;
+  for (const l of links) {
+    const href = l.match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!href) continue;
+    const rel = l.match(/rel\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!rel || rel === "alternate") return href;
+    fallback ??= href;
+  }
+  return fallback;
+};
+var DESC_MAX = 140;
+function parseFeedItems(xml) {
+  const blocks = String(xml ?? "").match(/<(item|entry)\b[^>]*>[\s\S]*?<\/\1>/gi) || [];
+  const out = [];
+  for (const block of blocks) {
+    const title = cleanText(tagContent(block, ["title"]) ?? "");
+    if (!title) continue;
+    const linkText = tagContent(block, ["link"]);
+    const url = (linkText ? cleanText(linkText) : "") || atomLink(block) || cleanText(tagContent(block, ["guid"]) ?? "") || void 0;
+    const descRaw = tagContent(block, ["description", "summary", "content:encoded", "content"]);
+    let desc = descRaw ? cleanText(descRaw) : "";
+    if (desc === title) desc = "";
+    if (desc.length > DESC_MAX) desc = `${desc.slice(0, DESC_MAX)}\u2026`;
+    const dateRaw = tagContent(block, ["pubDate", "dc:date", "published", "updated"]);
+    const ts = dateRaw ? Date.parse(cleanText(dateRaw)) : NaN;
+    out.push({
+      title,
+      ...url && /^https?:\/\//i.test(url) ? { url } : {},
+      ...desc ? { desc } : {},
+      ...Number.isFinite(ts) ? { publishedAt: ts } : {}
+    });
+  }
+  return out;
+}
+var NEWS_FEED_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1e3;
+var FEED_TIMEOUT_MS = 6e3;
+async function fetchFeedText(url, fetchImpl) {
+  const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(FEED_TIMEOUT_MS) : void 0;
+  const res = await fetchImpl(url, {
+    headers: {
+      "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5",
+      "User-Agent": "Mozilla/5.0 (compatible; SorenOS-News/1.0)"
+    },
+    redirect: "follow",
+    signal
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+async function fetchNewsFeeds(keys, opts = {}) {
+  const fetchImpl = opts.fetchImpl ?? ((u, i) => fetch(u, i));
+  const perSource = opts.perSource ?? 8;
+  const now = opts.now ?? Date.now();
+  const sources = resolveNewsFeeds(keys).map((k) => SOURCE_BY_KEY.get(k)).filter(Boolean);
+  const perSourceItems = await Promise.all(sources.map(async (src) => {
+    const lists = await Promise.all(src.urls.map((u) => fetchFeedText(u, fetchImpl).then(parseFeedItems).catch((e) => {
+      console.warn(`[news-feeds] ${src.label} ${u} \u6293\u4E0D\u5230\uFF1A`, e?.message || e);
+      return [];
+    })));
+    const seen = /* @__PURE__ */ new Set();
+    const merged = [];
+    const longest = Math.max(0, ...lists.map((l) => l.length));
+    for (let i = 0; i < longest; i++) {
+      for (const l of lists) {
+        const it = l[i];
+        if (!it || seen.has(it.title)) continue;
+        if (it.publishedAt && now - it.publishedAt > NEWS_FEED_MAX_AGE_MS) continue;
+        seen.add(it.title);
+        merged.push(it);
+      }
+    }
+    return merged.slice(0, perSource).map((it) => ({
+      title: it.title,
+      source: src.label,
+      ...it.url ? { url: it.url } : {},
+      ...it.desc ? { desc: it.desc } : {}
+    }));
+  }));
+  return interleaveNews(perSourceItems).slice(0, opts.total ?? 60);
+}
+function interleaveNews(groups) {
+  const out = [];
+  const longest = Math.max(0, ...groups.map((g) => g.length));
+  for (let i = 0; i < longest; i++) {
+    for (const g of groups) if (g[i]) out.push(g[i]);
+  }
+  return out;
+}
+
 // worker/amsg/src/realtimeWorld.ts
 var AMSG_WEATHER_SNAPSHOT_KEY = "world_weather";
 var AMSG_HOTNEWS_SNAPSHOT_KEY = "world_hotnews";
@@ -10038,7 +10185,8 @@ var loadWeather = async (cfg, nowMs, globalRows, pendingWrites) => {
   return null;
 };
 var loadHotNews = async (cfg, nowMs, globalRows, pendingWrites) => {
-  const platforms = resolveHotNewsPlatforms(cfg.newsPlatforms);
+  const selection = resolveNewsSelection(cfg.newsPlatforms, cfg.newsFeeds, DEFAULT_HOTNEWS_PLATFORMS);
+  const platforms = newsSelectionIds(selection);
   const slot = getHotNewsSlot({ tz: HOTNEWS_SLOT_TZ, now: new Date(nowMs) });
   const snap = parseSnapshot(
     globalRows,
@@ -10049,7 +10197,11 @@ var loadHotNews = async (cfg, nowMs, globalRows, pendingWrites) => {
     console.log("[amsg:world] \u71B1\u699C\u547D\u4E2D\u5FEB\u7167", { slot: slot.id, count: snap.items.length });
     return snap.items;
   }
-  const fresh = await fetchHotNews(platforms, 12, HOTNEWS_KEEP);
+  const [feedItems, hotItems] = await Promise.all([
+    selection.feeds.length > 0 ? fetchNewsFeeds(selection.feeds, { total: HOTNEWS_KEEP }) : Promise.resolve([]),
+    selection.platforms.length > 0 ? fetchHotNews(selection.platforms, 12, HOTNEWS_KEEP) : Promise.resolve([])
+  ]);
+  const fresh = interleaveNews([feedItems, hotItems]).slice(0, HOTNEWS_KEEP);
   if (fresh.length > 0) {
     pendingWrites.push({
       key: AMSG_HOTNEWS_SNAPSHOT_KEY,
@@ -16094,6 +16246,8 @@ var src_default = {
           // 正常，而門牌永遠不更新。報的是**這份代碼有沒有**，不是版本號：自更新永遠由
           // 舊代碼執行，版本號對上了不代表新邏輯真的在跑。
           backgroundJobs: true,
+          // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
+          newsFeeds: true,
           workerVersion: AMSG_BUNDLE_VERSION
         }
       });
@@ -16204,6 +16358,26 @@ var src_default = {
           error: { code: "TICK_REPORT_FAILED", message: cause.message ? `${cause.name}: ${cause.message}` : cause.name }
         });
       }
+    }
+    if (pathname.endsWith("/news-feeds")) {
+      if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+      if (method !== "GET") {
+        return jsonWithCors(405, {
+          success: false,
+          error: { code: "METHOD_NOT_ALLOWED", message: "/news-feeds \u53EA\u63A5\u53D7 GET" }
+        });
+      }
+      const token = env.AMSG_SERVER_TOKEN?.trim() ?? "";
+      const clientToken = request.headers.get("X-Client-Token") ?? "";
+      if (token && (!clientToken || !await constantTimeEqual2(clientToken, token))) {
+        return jsonWithCors(401, {
+          success: false,
+          error: { code: "INVALID_CLIENT_TOKEN", message: "\u5171\u4EAB\u5BC6\u9470\u7121\u6548\u6216\u7F3A\u5931" }
+        });
+      }
+      const keys = (new URL(request.url).searchParams.get("keys") || "").split(",").map((k) => k.trim()).filter(Boolean);
+      const items = keys.length > 0 ? await fetchNewsFeeds(keys) : [];
+      return jsonWithCors(200, { success: true, data: { items } });
     }
     if (pathname.endsWith("/instant-chat")) {
       if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });

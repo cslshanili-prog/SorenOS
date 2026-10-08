@@ -60,6 +60,8 @@ export interface AmsgToolConfig extends AgenticToolRealtimeConfig {
   weatherApiKey?: string;
   /** 熱榜要拉哪幾個平台（繼承來的 newsEnabled 管開關）。留空 worker 用內置默認。 */
   newsPlatforms?: string[];
+  /** 國際／台灣新聞 RSS 的 key（utils/newsFeeds.ts）。沒有這個欄位用預設，空陣列就是不要。 */
+  newsFeeds?: string[];
   /** 上雲這份比工具側多一個 cookie（lite 模式的登錄態），並且兩個開關字段是必填。 */
   xhsMcpConfig?: {
     enabled: boolean;
@@ -140,6 +142,7 @@ export const buildToolConfig = (
     newsEnabled: !!rc?.newsEnabled,
     ...(rc?.newsApiKey ? { newsApiKey: rc.newsApiKey } : {}),
     ...(rc?.newsPlatforms?.length ? { newsPlatforms: rc.newsPlatforms } : {}),
+    ...(Array.isArray(rc?.newsFeeds) ? { newsFeeds: rc!.newsFeeds } : {}),
     notionEnabled: !!rc?.notionEnabled,
     ...(rc?.notionApiKey ? { notionApiKey: rc.notionApiKey } : {}),
     ...(rc?.notionDatabaseId ? { notionDatabaseId: rc.notionDatabaseId } : {}),
