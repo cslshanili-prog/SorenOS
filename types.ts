@@ -560,6 +560,7 @@ export interface RealtimeConfig {
   newsEnabled: boolean;
   newsApiKey?: string;
   newsPlatforms?: string[];  // hot_news 熱榜平台 key 列表（默認主源，免鑑權），留空用內置默認
+  newsFeeds?: string[];      // 國際／台灣新聞 RSS key（utils/newsFeeds.ts），由主動消息 2.0 Worker 代抓；沒設過用預設，[] 表示不要
 
   // Notion 配置
   notionEnabled: boolean;

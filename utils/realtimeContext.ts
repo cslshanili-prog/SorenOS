@@ -39,6 +39,8 @@ import {
 import { getLocalDateKey } from './localDate';
 import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder, type UserHolidayConfig } from './userHolidays';
 import { lookupAnyScript } from './scriptKey';
+import { fetchWikipediaNews, interleaveNews, newsSelectionIds, resolveNewsSelection } from './newsFeeds';
+import { fetchNewsFeedsViaWorker } from './newsFeedsClient';
 
 // 兩份環境無關葉子，amsg worker 共用同一份，這裡的 Manager 方法委託過去；
 // 類型與常量原樣 re-export，既有 import 路徑不用改：
@@ -64,6 +66,7 @@ export interface RealtimeConfig {
     newsEnabled: boolean;
     newsApiKey?: string;    // 可選，Brave Search 回落源用
     newsPlatforms?: string[]; // hot_news 熱榜平台 key（默認主源，免鑑權），留空用內置默認
+    newsFeeds?: string[];     // 國際／台灣新聞 RSS key（utils/newsFeeds.ts），沒設過用預設，[] 表示不要
 
     // Notion 配置
     notionEnabled: boolean;
@@ -185,6 +188,27 @@ export const RealtimeContextManager = {
         return final;
     },
 
+    /**
+     * 這次要拉的整池新聞：中文熱榜（勾了才拉）＋國際／台灣新聞 RSS（經用戶自己的主動消息 2.0
+     * Worker 代抓；沒有 Worker 或 Worker 太舊就退回維基百科新聞動態）。兩組輪流排。
+     * sourceIds 是快照比對用的來源集（見 utils/newsFeeds.ts 的 newsSelectionIds）。
+     */
+    fetchNewsPool: async (config: RealtimeConfig): Promise<{ items: NewsItem[]; sourceIds: string[] }> => {
+        const selection = resolveNewsSelection(config.newsPlatforms, config.newsFeeds, DEFAULT_HOTNEWS_PLATFORMS);
+        const [feedItems, hotItems] = await Promise.all([
+            selection.feeds.length > 0
+                ? fetchNewsFeedsViaWorker(selection.feeds).then(async (viaWorker) => {
+                    if (viaWorker !== null) return viaWorker;
+                    const wiki = await fetchWikipediaNews();
+                    if (wiki.length > 0) console.log(`%c[news-feeds] 沒有可用的 Worker，改用維基百科新聞動態（${wiki.length} 條）`, 'color:#d97706');
+                    return wiki;
+                })
+                : Promise.resolve([] as NewsItem[]),
+            selection.platforms.length > 0 ? RealtimeContextManager.fetchHotNews(selection.platforms) : Promise.resolve([] as NewsItem[]),
+        ]);
+        return { items: interleaveNews([feedItems, hotItems]), sourceIds: newsSelectionIds(selection) };
+    },
+
     // 一天分 6 段（每 4 小時）：0-4 凌晨 / 4-8 清晨 / 8-12 上午 / 12-16 午後 / 16-20 傍晚 / 20-24 夜間。
     getHotNewsSlot: (d: Date = new Date()) => getHotNewsSlotCore({ now: d }),
 
@@ -198,7 +222,7 @@ export const RealtimeContextManager = {
      */
     getSlottedHotNews: async (config: RealtimeConfig): Promise<NewsItem[]> => {
         const { id, date, slot, label } = RealtimeContextManager.getHotNewsSlot();
-        const platforms = resolveHotNewsPlatforms(config.newsPlatforms);
+        const platforms = newsSelectionIds(resolveNewsSelection(config.newsPlatforms, config.newsFeeds, DEFAULT_HOTNEWS_PLATFORMS));
 
         // 1. 命中本時段快照（平台一致）→ 複用
         try {
@@ -216,7 +240,7 @@ export const RealtimeContextManager = {
 
         const job = (async (): Promise<NewsItem[]> => {
             console.log(`%c[hot_news] 觸發今日${label}拉取…`, 'color:#2563eb;font-weight:bold');
-            const items = await RealtimeContextManager.fetchHotNews(platforms);
+            const { items } = await RealtimeContextManager.fetchNewsPool(config);
             if (items.length > 0) {
                 try {
                     await DB.saveHotNewsSnapshot({ id, date, slot, slotLabel: label, items, platforms, fetchedAt: Date.now() });

@@ -37,6 +37,8 @@
   - 分類器（`worker/amsg/src/classifier.ts`）加了 `soren_tag` 直通指令：`SEND_PHOTO`、`RELATIONSHIP`、`NO_REPLY`、`DATE_INVITE`、`CALL`（含各自的別名與全形標點，`SOREN_PASSTHROUGH_TAG_RE`）整段原樣隨推播送回客戶端，客戶端 `reconstructDirectiveTags` 拼回原標籤，交給跟本機生成同一份的後處理。雲端回覆裡的發照片會落佔位卡、在手機上生成（收件箱那條路現在也帶上 `imageGenConfig`）。
   - 雲端延遲回覆的任務帶 `metadata.amsgDelayedReply`，Worker 把它當回覆（`isReplyLikeFire`）：不算每日主動次數、不受每日上限擋、不佔連發額度。
 - 順手修正：已讀不回標籤的自動回覆內容帶一層中括號（「[會議中] 稍後回」）時，客戶端和 Worker 都認得。
+- **國際／台灣新聞 RSS 代抓**（2026-10-08）：新聞熱點原本只有 hot_news 的中文熱榜。Worker 加了 `GET /news-feeds?keys=…`（只抓 `utils/newsFeeds.ts` 登記過的來源，不是開放代理），到點生成時也直接在伺服器上抓。`AMSG_BUNDLE_VERSION` 推到 `2026-10-08`。說明見 [`docs/realtime-news.md`](../docs/realtime-news.md)。
+- **主代理 Worker（`worker/index.js`）還是上游作者的公共實例**（`utils/proxyWorker.ts` 的 `DEFAULT_PROXY_WORKER`）：搜尋、WebDAV／GitHub 備份代理、Notion、飛書、讀網址、音樂都走它。Soren 自己的只有上面這台主動消息 2.0 Worker（每人一台）。新功能要伺服器代勞時優先放主動消息 2.0 Worker，別往上游那台加東西。
 
 ## 開發順序
 
