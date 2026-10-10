@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildManualNudgeHint, followChatDeferral, formatGapZh, formatProactiveRange,
-    normalizeProactiveRange, resolveManualTriggerMode, rollProactiveDelayMs,
+    normalizeProactiveRange, proactiveStopIndex, resolveManualTriggerMode, rollProactiveDelayMs,
+    PROACTIVE_INTERVAL_STOPS,
 } from './proactiveTiming';
 
 const MIN = 60_000;
@@ -9,9 +10,18 @@ const HOUR = 60 * MIN;
 
 describe('normalizeProactiveRange', () => {
     it('最短收斂到 30 分鐘倍數，最長不小於最短', () => {
-        expect(normalizeProactiveRange(10)).toEqual({ minMinutes: 30, maxMinutes: 30 });
-        expect(normalizeProactiveRange(70, 50)).toEqual({ minMinutes: 60, maxMinutes: 60 });
+        expect(normalizeProactiveRange(10)).toEqual({ minMinutes: 15, maxMinutes: 15 });
+        expect(normalizeProactiveRange(47, 30)).toEqual({ minMinutes: 45, maxMinutes: 45 });
         expect(normalizeProactiveRange(60, 180)).toEqual({ minMinutes: 60, maxMinutes: 180 });
+        expect(normalizeProactiveRange(100, 5000)).toEqual({ minMinutes: 105, maxMinutes: 1440 });
+    });
+    it('刻度前密後疏，舊的固定檔位都在刻度上', () => {
+        expect(PROACTIVE_INTERVAL_STOPS.slice(0, 3)).toEqual([15, 20, 25]);
+        expect(PROACTIVE_INTERVAL_STOPS).toContain(75);
+        expect(PROACTIVE_INTERVAL_STOPS).toContain(210);
+        expect(PROACTIVE_INTERVAL_STOPS).not.toContain(225);
+        for (const m of [30, 60, 120, 240, 480, 720, 1440]) expect(PROACTIVE_INTERVAL_STOPS[proactiveStopIndex(m)]).toBe(m);
+        expect(PROACTIVE_INTERVAL_STOPS.length).toBe(44);
     });
 });
 
@@ -51,6 +61,9 @@ describe('formatProactiveRange / formatGapZh', () => {
         expect(formatProactiveRange(60, 180)).toBe('1～3 小時');
         expect(formatProactiveRange(30, 120)).toBe('30 分鐘～2 小時');
         expect(formatProactiveRange(90, 240)).toBe('1.5～4 小時');
+        expect(formatProactiveRange(45, 180)).toBe('45 分鐘～3 小時');
+        expect(formatProactiveRange(75, 195)).toBe('1 小時 15 分～3 小時 15 分');
+        expect(formatProactiveRange(105)).toBe('1 小時 45 分');
     });
     it('間隔文案', () => {
         expect(formatGapZh(12 * MIN)).toBe('12分鐘');

@@ -23,11 +23,11 @@ import {
   startHeartbeat,
   stopHeartbeat,
 } from './proactivePushConfig';
-import { rollProactiveDelayMs } from './proactiveTiming';
+import { normalizeProactiveRange, rollProactiveDelayMs } from './proactiveTiming';
 
 export interface ProactiveSchedule {
   charId: string;
-  intervalMs: number; // must be multiple of 30 * 60 * 1000 — 範圍模式下是最短間隔
+  intervalMs: number; // 落在設置頁拉桿的刻度上（PROACTIVE_INTERVAL_STOPS，15 分鐘起）— 範圍模式下是最短間隔
   /** 範圍模式的最長間隔（2026-10-08）；沒有就是固定間隔。每次觸發後在 [intervalMs, maxIntervalMs] 裡抽下一次。 */
   maxIntervalMs?: number;
 }
@@ -364,11 +364,8 @@ export const ProactiveChat = {
    * Start or update one character's proactive schedule.
    */
   start(charId: string, intervalMinutes: number, maxIntervalMinutes?: number) {
-    const clamped = Math.max(30, Math.round(intervalMinutes / 30) * 30);
+    const { minMinutes: clamped, maxMinutes: maxClamped } = normalizeProactiveRange(intervalMinutes, maxIntervalMinutes);
     const intervalMs = clamped * 60 * 1000;
-    const maxClamped = typeof maxIntervalMinutes === 'number'
-      ? Math.max(clamped, Math.round(maxIntervalMinutes / 30) * 30)
-      : clamped;
     const schedule: ProactiveSchedule = maxClamped > clamped
       ? { charId, intervalMs, maxIntervalMs: maxClamped * 60 * 1000 }
       : { charId, intervalMs };

@@ -6,7 +6,8 @@ import { normalizeApiBaseUrl, normalizeApiCredential } from '../../utils/apiConf
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { ProactiveChat } from '../../utils/proactiveChat';
-import { formatProactiveRange, normalizeProactiveRange } from '../../utils/proactiveTiming';
+import { formatProactiveRange, normalizeProactiveRange, proactiveStopIndex, PROACTIVE_INTERVAL_STOPS } from '../../utils/proactiveTiming';
+import IntervalRangeSlider from './IntervalRangeSlider';
 
 interface ProactiveSettingsModalProps {
     isOpen: boolean;
@@ -18,16 +19,6 @@ interface ProactiveSettingsModalProps {
     apiPresets: ApiPreset[];
     onAddApiPreset: (name: string, config: APIConfig) => void;
 }
-
-const INTERVAL_OPTIONS = [
-    { label: '30 分鐘', value: 30 },
-    { label: '1 小時', value: 60 },
-    { label: '2 小時', value: 120 },
-    { label: '4 小時', value: 240 },
-    { label: '8 小時', value: 480 },
-    { label: '12 小時', value: 720 },
-    { label: '24 小時', value: 1440 },
-];
 
 const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
     <button
@@ -45,9 +36,10 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
 }) => {
     const saved = char.proactiveConfig;
     const [enabled, setEnabled] = useState(saved?.enabled ?? false);
-    const [interval, setInterval_] = useState(saved?.intervalMinutes ?? 60);
+    const initialRange = normalizeProactiveRange(saved?.intervalMinutes ?? 60, saved?.maxIntervalMinutes);
+    const [interval, setInterval_] = useState(initialRange.minMinutes);
     // 最長間隔：等於最短就是固定間隔
-    const [maxInterval, setMaxInterval] = useState(saved?.maxIntervalMinutes ?? saved?.intervalMinutes ?? 60);
+    const [maxInterval, setMaxInterval] = useState(initialRange.maxMinutes);
     const [followChat, setFollowChat] = useState(saved?.followChat !== false);
     const [skipWhenAsleep, setSkipWhenAsleep] = useState(!!saved?.skipWhenAsleep);
     const [useSecondaryApi, setUseSecondaryApi] = useState(saved?.useSecondaryApi ?? false);
@@ -70,8 +62,9 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         if (isOpen) {
             const s = char.proactiveConfig;
             setEnabled(s?.enabled ?? false);
-            setInterval_(s?.intervalMinutes ?? 60);
-            setMaxInterval(s?.maxIntervalMinutes ?? s?.intervalMinutes ?? 60);
+            const r = normalizeProactiveRange(s?.intervalMinutes ?? 60, s?.maxIntervalMinutes);
+            setInterval_(r.minMinutes);
+            setMaxInterval(r.maxMinutes);
             setFollowChat(s?.followChat !== false);
             setSkipWhenAsleep(!!s?.skipWhenAsleep);
             setUseSecondaryApi(s?.useSecondaryApi ?? false);
@@ -231,44 +224,19 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                 {enabled && (
                     <>
                         <div>
-                            <label className="text-sm font-bold text-slate-700 block mb-2">發送間隔</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {INTERVAL_OPTIONS.map(opt => (
-                                    <button
-                                        key={opt.value}
-                                        onClick={() => { setInterval_(opt.value); if (maxInterval < opt.value) setMaxInterval(opt.value); }}
-                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${interval === opt.value
-                                            ? 'bg-violet-500 text-white shadow-md'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
+                            <div className="flex items-baseline justify-between mb-2">
+                                <label className="text-sm font-bold text-slate-700">發送間隔</label>
+                                <span className="text-xs font-bold text-violet-600">{effectiveMax > interval ? rangeLabel : `固定 ${rangeLabel}`}</span>
                             </div>
-                        </div>
-
-                        {/* 時間彈性：隨機放寬到哪 */}
-                        <div>
-                            <label className="text-sm font-bold text-slate-700 block mb-2">隨機放寬到</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[{ label: '不放寬', value: interval }, ...INTERVAL_OPTIONS.filter(opt => opt.value > interval)].map(opt => (
-                                    <button
-                                        key={opt.label}
-                                        onClick={() => setMaxInterval(opt.value)}
-                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${effectiveMax === opt.value
-                                            ? 'bg-violet-500 text-white shadow-md'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <IntervalRangeSlider
+                                minIdx={proactiveStopIndex(interval)}
+                                maxIdx={proactiveStopIndex(effectiveMax)}
+                                onChange={(a, b) => { setInterval_(PROACTIVE_INTERVAL_STOPS[a]); setMaxInterval(PROACTIVE_INTERVAL_STOPS[b]); }}
+                            />
                             <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
                                 {effectiveMax > interval
-                                    ? `每次在 ${rangeLabel}之間隨機抽一個時間，不會像鬧鐘一樣準點。`
-                                    : `固定每 ${rangeLabel}一次。`}
+                                    ? `每次在 ${rangeLabel}之間隨機抽一個時間，不會像鬧鐘一樣準點。兩個圓點疊在一起就是固定間隔。`
+                                    : `固定每 ${rangeLabel}一次。把右邊的圓點往右拉，就會在範圍裡隨機。`}
                             </p>
                         </div>
 
