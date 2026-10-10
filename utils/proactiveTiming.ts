@@ -9,14 +9,41 @@
  * 計時本身在 utils/proactiveChat.ts，這裡只放能單測的純邏輯。
  */
 
-export const PROACTIVE_STEP_MINUTES = 30;
 const MINUTE = 60_000;
 
-/** 最短收斂到 30 分鐘的整數倍（至少 30）；最長不得小於最短，沒給就是固定間隔。 */
+/**
+ * 設置頁雙頭拉桿的刻度（2026-10-10，取代上游那排固定格子）：前密後疏，
+ * 短的間隔能細調、長的也拉得到底。15 分鐘起跳——每次主動消息都是一次 API 請求。
+ *   15 分～1 小時每 5 分、1～3 小時每 15 分、3～8 小時每 30 分、8～24 小時每 1 小時。
+ * 舊設定（30／60／120…1440）都落在刻度上，不用搬。
+ */
+export const PROACTIVE_INTERVAL_STOPS: number[] = (() => {
+    const out: number[] = [];
+    for (let m = 15; m <= 60; m += 5) out.push(m);
+    for (let m = 75; m <= 180; m += 15) out.push(m);
+    for (let m = 210; m <= 480; m += 30) out.push(m);
+    for (let m = 540; m <= 1440; m += 60) out.push(m);
+    return out;
+})();
+export const PROACTIVE_MIN_MINUTES = PROACTIVE_INTERVAL_STOPS[0];
+export const PROACTIVE_MAX_MINUTES = PROACTIVE_INTERVAL_STOPS[PROACTIVE_INTERVAL_STOPS.length - 1];
+
+/** 最接近的刻度序號（導入的備份、老版本寫進去的任意整數都收斂到刻度上）。 */
+export function proactiveStopIndex(minutes: number): number {
+    if (!Number.isFinite(minutes)) return PROACTIVE_INTERVAL_STOPS.indexOf(60);
+    let best = 0;
+    for (let i = 1; i < PROACTIVE_INTERVAL_STOPS.length; i++) {
+        if (Math.abs(PROACTIVE_INTERVAL_STOPS[i] - minutes) < Math.abs(PROACTIVE_INTERVAL_STOPS[best] - minutes)) best = i;
+    }
+    return best;
+}
+
+/** 最短、最長都收斂到刻度上；最長不得小於最短，沒給就是固定間隔。 */
 export function normalizeProactiveRange(minMinutes: number, maxMinutes?: number): { minMinutes: number; maxMinutes: number } {
-    const snap = (v: number) => Math.max(PROACTIVE_STEP_MINUTES, Math.round(v / PROACTIVE_STEP_MINUTES) * PROACTIVE_STEP_MINUTES);
-    const min = snap(Number.isFinite(minMinutes) ? minMinutes : 60);
-    const max = typeof maxMinutes === 'number' && Number.isFinite(maxMinutes) ? Math.max(min, snap(maxMinutes)) : min;
+    const min = PROACTIVE_INTERVAL_STOPS[proactiveStopIndex(Number.isFinite(minMinutes) ? minMinutes : 60)];
+    const max = typeof maxMinutes === 'number' && Number.isFinite(maxMinutes)
+        ? Math.max(min, PROACTIVE_INTERVAL_STOPS[proactiveStopIndex(maxMinutes)])
+        : min;
     return { minMinutes: min, maxMinutes: max };
 }
 
@@ -44,17 +71,23 @@ export function followChatDeferral(
     return lastActivityAt + rollProactiveDelayMs(minMs, maxMs, rand);
 }
 
-const hoursLabel = (minutes: number) => {
-    const h = minutes / 60;
-    return Number.isInteger(h) ? String(h) : h.toFixed(1);
+/** 整點或半點的小時數（2、1.5）；不是的話 null。 */
+const plainHours = (minutes: number): string | null =>
+    minutes >= 60 && minutes % 30 === 0 ? String(minutes / 60) : null;
+
+const oneDuration = (m: number): string => {
+    if (m < 60) return `${m} 分鐘`;
+    const h = plainHours(m);
+    return h ? `${h} 小時` : `${Math.floor(m / 60)} 小時 ${m % 60} 分`;
 };
 
-/** 「30 分鐘」「2 小時」「1～3 小時」「30 分鐘～2 小時」 */
+/** 「30 分鐘」「2 小時」「1～3 小時」「45 分鐘～2 小時」「1 小時 15 分～3 小時」 */
 export function formatProactiveRange(minMinutes: number, maxMinutes?: number): string {
-    const one = (m: number) => (m < 60 ? `${m} 分鐘` : `${hoursLabel(m)} 小時`);
-    if (!maxMinutes || maxMinutes <= minMinutes) return one(minMinutes);
-    if (minMinutes >= 60) return `${hoursLabel(minMinutes)}～${hoursLabel(maxMinutes)} 小時`;
-    return `${one(minMinutes)}～${one(maxMinutes)}`;
+    if (!maxMinutes || maxMinutes <= minMinutes) return oneDuration(minMinutes);
+    const a = plainHours(minMinutes);
+    const b = plainHours(maxMinutes);
+    if (a && b) return `${a}～${b} 小時`;
+    return `${oneDuration(minMinutes)}～${oneDuration(maxMinutes)}`;
 }
 
 /** 「12分鐘」「3小時5分鐘」「2天4小時」，跟主動消息原本的寫法一致。 */

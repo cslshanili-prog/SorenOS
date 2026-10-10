@@ -98,7 +98,6 @@ import type { ReplyDraftState } from '../components/chat/ReplyDraftStrip';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, AMSG_INSTANT_CHAT_PENDING_LS_KEY, getInstantChatPending } from '../utils/amsgInstantChat';
 import { formatAmsgToolTrace } from '../utils/amsgToolTrace';
-import { formatHours } from '../utils/format';
 import { resolveSARModuleSpeechSource } from '../utils/vrWorld/sarModuleRuntime';
 import {
     VOICE_FAVORITES_CHANGED_EVENT,
@@ -4768,8 +4767,8 @@ const Chat: React.FC = () => {
                         updateCharacter(char.id, { proactiveConfig: config });
                         if (config.enabled) {
                             startProactiveChat(config.intervalMinutes, config.maxIntervalMinutes);
-                            // 界面只給 7 個檔，但這個值是從持久化狀態讀回來的——導入的備份、
-                            // 老版本寫進去的都可能是任意整數。收斂到寫死的檔位，其餘歸 custom。
+                            // 界面是拉桿（44 個刻度），統計只分舊的 7 個檔位，其餘歸 custom；導入的備份、
+                            // 老版本寫進去的任意整數也一樣歸 custom（屬性只能是固定枚舉）。
                             trackEvent('启动主动消息', {
                                 intervalMinutes: presetOrCustom(
                                     String(config.intervalMinutes),
@@ -4779,7 +4778,7 @@ const Chat: React.FC = () => {
                             });
                             addToast(config.maxIntervalMinutes && config.maxIntervalMinutes > config.intervalMinutes
                                 ? `已啟動主動消息，每 ${formatProactiveRange(config.intervalMinutes, config.maxIntervalMinutes)}之間隨機發一次`
-                                : `已啟動主動消息，每 ${config.intervalMinutes >= 60 ? formatHours(config.intervalMinutes) + ' 小時' : config.intervalMinutes + ' 分鐘'}發送一次`, 'success');
+                                : `已啟動主動消息，每 ${formatProactiveRange(config.intervalMinutes)}發送一次`, 'success');
                         } else {
                             stopProactiveChat();
                             addToast('已關閉主動消息', 'info');
