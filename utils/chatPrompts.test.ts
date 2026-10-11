@@ -147,3 +147,16 @@ describe('score_card 兜底：沒被認領的卡片', () => {
         expect(payload).not.toContain('AAAA');
     });
 });
+
+describe('行為規範不替角色決定感情深淺', () => {
+    it('開頭說明規則只管說話方式；例子不再默認你們很親', async () => {
+        const { stable } = await ChatPrompts.buildSystemPromptParts(
+            { id: 'c1', name: '小角色', systemPrompt: '冷淡的新同事' } as any, { name: '小星' } as any, [], [], [], [],
+        );
+        expect(stable).toContain('你對 小星 有多少感情、熟到什麼程度、想不想靠近，由你的角色設定、你們的關係和一起經歷過的事決定');
+        expect(stable).toContain('還不熟的就照不熟的分寸');
+        expect(stable).toContain('或者根本沒特別注意到');
+        expect(stable).not.toContain('想表達在乎');
+        expect(stable).not.toContain('就注意到、就在意');
+    });
+});
