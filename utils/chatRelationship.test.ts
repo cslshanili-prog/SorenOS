@@ -62,3 +62,20 @@ describe('acquaintanceDays', () => {
         expect(buildAcquaintanceLine('2026-09-01', '2026-09-23', 'Lilly')).toContain('第 23 天');
     });
 });
+
+describe('buildRelationshipPrompt · 角色自主改關係', () => {
+    it('「你認為的關係」空著時告訴角色可以自己定義；已有就不提', () => {
+        expect(buildRelationshipPrompt({ allowCharChangeRelationship: true }, 'Lilly')).toContain('你還沒寫下過你認為你們是什麼關係');
+        const set = buildRelationshipPrompt({ allowCharChangeRelationship: true, charViewRelationship: '同事' }, 'Lilly');
+        expect(set).toContain('你認為你們的關係是：同事');
+        expect(set).not.toContain('你還沒寫下過');
+    });
+    it('不再要求只在重大轉折才用', () => {
+        const p = buildRelationshipPrompt({ allowCharChangeRelationship: true }, 'Lilly');
+        expect(p).toContain('不必等到什麼重大轉折');
+        expect(p).not.toContain('平常不要寫');
+    });
+    it('沒開自主改關係就不教標籤', () => {
+        expect(buildRelationshipPrompt({ charViewRelationship: '同事' }, 'Lilly')).not.toContain('ACTION:RELATIONSHIP');
+    });
+});

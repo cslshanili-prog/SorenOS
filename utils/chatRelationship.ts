@@ -48,8 +48,11 @@ export function buildRelationshipPrompt(char: RelationshipFields, userName: stri
     if (userNickname) lines.push(`- 你稱呼${userName}為「${userNickname}」。`);
     if (userView) lines.push(`- ${userName}認為你們的關係是：${userView}`);
     if (charView) lines.push(`- 你認為你們的關係是：${charView}`);
+    // 2026-10-11 放寬：以前寫「只在真正的轉折點才用，平常不要寫」，模型聽話到幾乎從不用；
+    // 「你認為的關係」空著時也沒告訴它這格可以由它來填。同一個說法重寫不會落地（見後處理），不怕刷屏。
     if (char.allowCharChangeRelationship) {
-        lines.push(`- 如果劇情發展讓你真心覺得你們的關係變了，可以在回覆最後另起一行寫 [[ACTION:RELATIONSHIP|新的關係]]，更新「你認為的關係」（${RELATIONSHIP_MAX_LENGTH} 字以內，例如：曖昧對象、冷戰中的戀人）。關係不會因為一兩句話就改變，只在真正的轉折點才用，平常不要寫。`);
+        if (!charView) lines.push(`- 你還沒寫下過你認為你們是什麼關係。等你說得出來了，可以自己定義它。`);
+        lines.push(`- 覺得你們的關係有了變化（變近、變遠、變得說不清）時，在回覆最後另起一行寫 [[ACTION:RELATIONSHIP|新的關係]]，更新「你認為的關係」（${RELATIONSHIP_MAX_LENGTH} 字以內，例如：還算聊得來的同事、曖昧對象、冷戰中的戀人）。不必等到什麼重大轉折，但沒變就不用寫。`);
     }
     if (lines.length === 0) return '';
     return `\n### 你們之間的稱呼與關係\n${lines.join('\n')}\n`;
