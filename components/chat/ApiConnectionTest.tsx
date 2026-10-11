@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { safeResponseJson, extractContent } from '../../utils/safeApi';
+import { testChatModel } from '../../utils/apiConnectionTest';
 
 interface ApiConnectionTestProps {
     url: string;
@@ -23,20 +23,7 @@ const ApiConnectionTest: React.FC<ApiConnectionTestProps> = ({ url, apiKey, mode
         setTesting(true);
         setTestResult(null);
         try {
-            const res = await fetch(`${url.trim().replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey.trim()}` },
-                body: JSON.stringify({ model: model.trim(), messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5 }),
-            });
-            if (res.ok) {
-                const reply = extractContent(await safeResponseJson(res));
-                setTestResult(`✅ 連接成功 — 模型回覆: "${reply.slice(0, 30)}"`);
-            } else {
-                const text = await res.text().catch(() => '');
-                setTestResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
-            }
-        } catch (err: any) {
-            setTestResult(`❌ 連接失敗: ${err?.message || err}`);
+            setTestResult((await testChatModel({ baseUrl: url, apiKey, model })).message);
         } finally {
             setTesting(false);
         }

@@ -5,6 +5,7 @@ import { ApiPreset, APIConfig, CharacterProfile } from '../../types';
 import { normalizeApiBaseUrl, normalizeApiCredential } from '../../utils/apiConfigNormalize';
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
+import { testChatModel } from '../../utils/apiConnectionTest';
 import { ProactiveChat } from '../../utils/proactiveChat';
 import { formatProactiveRange, normalizeProactiveRange, proactiveStopIndex, PROACTIVE_INTERVAL_STOPS } from '../../utils/proactiveTiming';
 import IntervalRangeSlider from './IntervalRangeSlider';
@@ -17,7 +18,6 @@ interface ProactiveSettingsModalProps {
     onSave: (config: NonNullable<CharacterProfile['proactiveConfig']>) => void;
     onStop: () => void;
     apiPresets: ApiPreset[];
-    onAddApiPreset: (name: string, config: APIConfig) => void;
 }
 
 const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
@@ -32,7 +32,7 @@ const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = (
 );
 
 const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
-    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets, onAddApiPreset
+    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets
 }) => {
     const saved = char.proactiveConfig;
     const [enabled, setEnabled] = useState(saved?.enabled ?? false);
@@ -47,8 +47,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
     const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
     const [secModel, setSecModel] = useState(saved?.secondaryApi?.model ?? '');
     const [showApiSection, setShowApiSection] = useState(saved?.useSecondaryApi ?? false);
-    const [showSavePreset, setShowSavePreset] = useState(false);
-    const [newPresetName, setNewPresetName] = useState('');
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [showModelModal, setShowModelModal] = useState(false);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -72,8 +70,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
             setSecKey(s?.secondaryApi?.apiKey ?? '');
             setSecModel(s?.secondaryApi?.model ?? '');
             setShowApiSection(s?.useSecondaryApi ?? false);
-            setShowSavePreset(false);
-            setNewPresetName('');
             setTestConnectionResult(null);
         }
     }, [isOpen, char.id]);
@@ -120,13 +116,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         setTestConnectionResult(null);
     };
 
-    const handleSavePreset = () => {
-        if (!newPresetName.trim()) return;
-        onAddApiPreset(newPresetName.trim(), { baseUrl: secUrl, apiKey: secKey, model: secModel });
-        setNewPresetName('');
-        setShowSavePreset(false);
-    };
-
     const fetchModels = async () => {
         const baseUrl = normalizeApiBaseUrl(secUrl);
         const key = normalizeApiCredential(secKey);
@@ -156,24 +145,12 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         }
     };
 
+    // 真的用選的模型說一句話（utils/apiConnectionTest.ts）；以前只問模型清單，模型掛了也報成功
     const handleTestConnection = async () => {
-        const baseUrl = normalizeApiBaseUrl(secUrl);
-        if (!baseUrl) return;
         setTestingConnection(true);
         setTestConnectionResult(null);
         try {
-            const response = await fetch(`${baseUrl}/models`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
-            });
-            if (response.ok) {
-                setTestConnectionResult('✅ 連接成功');
-            } else {
-                const text = await response.text().catch(() => '');
-                setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
-            }
-        } catch (error: any) {
-            setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
+            setTestConnectionResult((await testChatModel({ baseUrl: secUrl, apiKey: secKey, model: secModel })).message);
         } finally {
             setTestingConnection(false);
         }
@@ -314,30 +291,8 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                         >
                                             {testingConnection ? '測試中...' : '🧪 測試連接'}
                                         </button>
-                                        <button
-                                            onClick={() => setShowSavePreset(v => !v)}
-                                            className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
-                                        >
-                                            保存為預設
-                                        </button>
                                     </div>
-                                    {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
-                                    {showSavePreset && (
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={newPresetName}
-                                                onChange={e => setNewPresetName(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                                placeholder="預設名稱..."
-                                                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                                                autoFocus
-                                            />
-                                            <button onClick={handleSavePreset} className="px-4 py-2 bg-violet-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform">
-                                                保存
-                                            </button>
-                                        </div>
-                                    )}
+                                    {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
                                 </div>
                             )}
                         </div>

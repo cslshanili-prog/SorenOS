@@ -12,6 +12,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { testChatModel } from '../utils/apiConnectionTest';
 import { creatorPartToBlobRefs, loadCreatorPartsForRender } from '../utils/creatorPartsBlob';
 import { CharacterProfile, SpecialMomentRecord } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
@@ -3614,26 +3615,7 @@ const Like520InlineApiSetup: React.FC<{ onDone: () => void; onBack: () => void }
         setTesting(true);
         setTestResult(null);
         try {
-            const res = await fetch(`${localUrl.trim().replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localKey.trim()}` },
-                body: JSON.stringify({
-                    model: localModel.trim(),
-                    messages: [{ role: 'user', content: 'Hi' }],
-                    max_tokens: 5,
-                    stream: localStream,
-                }),
-            });
-            if (res.ok) {
-                const data = await safeResponseJson(res);
-                const reply = data.choices?.[0]?.message?.content || '';
-                setTestResult(`✅ 連接成功 — 模型回覆: "${reply.slice(0, 30)}"`);
-            } else {
-                const text = await res.text().catch(() => '');
-                setTestResult(`❌ HTTP ${res.status}: ${text.slice(0, 100)}`);
-            }
-        } catch (err: any) {
-            setTestResult(`❌ 連接失敗: ${err.message}`);
+            setTestResult((await testChatModel({ baseUrl: localUrl, apiKey: localKey, model: localModel }, { stream: localStream })).message);
         } finally {
             setTesting(false);
         }

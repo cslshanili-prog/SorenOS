@@ -2,6 +2,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { testChatModel } from '../utils/apiConnectionTest';
 import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile } from '../types';
 import { ContextBuilder } from '../utils/context';
 import Modal from '../components/os/Modal';
@@ -283,6 +284,9 @@ const CheckPhone: React.FC = () => {
         [targetChar, userProfileBase, userProfile],
     );
     const [isLoading, setIsLoading] = useState(false);
+    // 聯繫人對話：用戶冒充對方打的那句（送出到機主回完之前先顯示出來）
+    const [contactInput, setContactInput] = useState('');
+    const [pendingContactLine, setPendingContactLine] = useState<{ contactId: string; text: string } | null>(null);
     const [page, setPage] = useState(0); // 0 = home, 1 = custom apps
     const [selectPage, setSelectPage] = useState(0); // Target Device 選人界面的翻頁（每頁 6 人）
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 選人界面的分組篩選
@@ -540,29 +544,7 @@ const CheckPhone: React.FC = () => {
         setTestingPhoneApi(true);
         setPhoneApiTestResult(null);
         try {
-            const response = await fetch(`${config.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey || 'sk-none'}`,
-                },
-                body: JSON.stringify({
-                    model: config.model,
-                    messages: [{ role: 'user', content: 'Hi' }],
-                    max_tokens: 5,
-                    stream: false,
-                }),
-            });
-            if (!response.ok) {
-                const detail = await response.text().catch(() => '');
-                setPhoneApiTestResult(`HTTP ${response.status}${detail ? `：${detail.slice(0, 80)}` : ''}`);
-                return;
-            }
-            const data = await safeResponseJson(response);
-            const reply = extractContent(data) || '';
-            setPhoneApiTestResult(`連接成功${reply ? ` · ${reply.slice(0, 24)}` : ''}`);
-        } catch (error: any) {
-            setPhoneApiTestResult(`連接失敗：${error?.message || '網絡錯誤'}`);
+            setPhoneApiTestResult((await testChatModel(config)).message);
         } finally {
             setTestingPhoneApi(false);
         }
@@ -1935,7 +1917,8 @@ ${olderText}
     };
 
     // P1：真角色雙向對話（A 發 B 回，雙 LLM，鏡像到 B）
-    const handleRealConversation = async (contact: PhoneContact) => {
+    // replyAsContact：用戶冒充 B 說的話（「以對方身份回 TA」）——記成 B 說的、同步到 B 那邊，只讓 A 回
+    const handleRealConversation = async (contact: PhoneContact, replyAsContact?: string) => {
         if (!targetChar || !effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
         const b = characters.find(c => c.id === contact.linkedCharId);
         if (!b) { addToast('該聯繫人未綁定真實角色', 'error'); return; }
@@ -1960,8 +1943,10 @@ ${olderText}
                 aNote: bToA?.note, bNote: contact.note,
                 bLearned: contact.learned, aLearned: bToA?.learned,
                 aSummary: topicText(contact.topicBox), bSummary: topicText(bToA?.topicBox),
+                aReplyTo: replyAsContact,
             });
             if (!result.aDetail.trim()) { addToast('對方沒有回應…', 'error'); return; }
+            const aReplied = parseTranscript(result.aDetail).slice(-1)[0]?.isMe === true;
             // 把歸檔段拼回去，存「完整原文」給用戶看（上下文用的是壓縮版，互不影響）
             const aFull = serializeTurns([...archivedALines, ...parseTranscript(result.aDetail)]);
             const bFull = flipTranscript(aFull);
@@ -1971,7 +1956,9 @@ ${olderText}
             await commitConversationSide(b, targetChar.name, targetChar.id, bFull, result.bDelta, bToA?.note, result.bLearnedNew, contact.identity);
             // 聊滿 100 條 → 各自第一人稱總結歸檔進話題盒
             await maybeArchiveConversation(contact, b, aFull);
-            addToast(`${targetChar.name} 和 ${b.name} 聊了一會兒`, 'success');
+            addToast(replyAsContact
+                ? (aReplied ? `${targetChar.name} 回你了` : `${targetChar.name} 沒回，再試一次`)
+                : `${targetChar.name} 和 ${b.name} 聊了一會兒`, aReplied || !replyAsContact ? 'success' : 'error');
         } catch (e) {
             console.error(e);
             addToast('真實對話生成失敗', 'error');
@@ -1981,7 +1968,8 @@ ${olderText}
     };
 
     // 與虛構 NPC 的對話（機主腦補，單 LLM，純虛構、不鏡像）
-    const handleNpcConversation = async (contact: PhoneContact) => {
+    // replyAsContact：用戶冒充這個 NPC 說的話（「以對方身份回 TA」）——只讓機主回這一句
+    const handleNpcConversation = async (contact: PhoneContact, replyAsContact?: string) => {
         if (!targetChar) return;
         // 綁定了「神經鏈接 → NPC」分頁裡某個 NPC 的聯繫人：優先用這個 NPC 自己配的專屬 API
         // （神經鏈接 NPC 編輯頁「AI 模型」選了「自定義」才會有），沒配就跟查手機共用設定一樣。
@@ -2011,9 +1999,11 @@ ${olderText}
             const { detail, learnedNew } = await runNpcConversation({
                 host: targetChar, user: checkPhoneUserProfile, api: npcEffectiveApi as any,
                 npcName: contact.name, identity: contact.identity, note: effectiveNote,
-                learned: contact.learned, rounds: 4, existingDetail: existing?.detail,
+                learned: contact.learned, existingDetail: existing?.detail,
+                hostReplyTo: replyAsContact,
             });
             if (!detail.trim()) { addToast('對方沒有回應', 'error'); return; }
+            const hostReplied = parseTranscript(detail).slice(-1)[0]?.isMe === true;
             // 綁定了 NPC 的：這段新對話併進 NPC 的記憶（背景跑，不擋畫面）
             if (linkedNpc) {
                 const prev = existing?.detail || '';
@@ -2048,7 +2038,8 @@ ${olderText}
                     : cur.phoneState?.contacts;
                 return { phoneState: { ...cur.phoneState, records: next, ...(contactsNext ? { contacts: contactsNext } : {}) } };
             });
-            addToast(pushToChat ? '偷看到一段對話 · 已同步私聊' : '偷看到一段對話', 'success');
+            if (replyAsContact) addToast(hostReplied ? `${targetChar.name} 回你了` : `${targetChar.name} 沒回，再試一次`, hostReplied ? 'success' : 'error');
+            else addToast(pushToChat ? '偷看到一段對話 · 已同步私聊' : '偷看到一段對話', 'success');
         } catch (e) {
             console.error(e);
             addToast('對話生成失敗', 'error');
@@ -3243,7 +3234,7 @@ ${olderText}
                     {parsed.length === 0 && !isLoading && (
                         <div className="flex flex-col items-center justify-center h-full gap-2.5 text-white/30">
                             <ChatCircleDots size={42} weight="light" />
-                            <span className="text-[12px] tracking-wide">{isReal ? '還沒聊過 · 在下面發起對話' : '還沒偷看過 · 下面偷看一段'}</span>
+                            <span className="text-[12px] tracking-wide">還沒聊過 · 讓他們開始聊，或冒充對方先開口</span>
                         </div>
                     )}
                     {hidden > 0 && (
@@ -3274,6 +3265,14 @@ ${olderText}
                             {m.isMe && <TokenImg value={targetChar.avatar} alt="" className="w-7 h-7 rounded-xl object-cover shrink-0" />}
                         </div>
                     );})}
+                    {isLoading && pendingContactLine?.contactId === c.id && (
+                        <div className="flex items-end gap-2 justify-start">
+                            {av
+                                ? <TokenImg value={av} alt="" className="w-7 h-7 rounded-xl object-cover shrink-0" />
+                                : <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[11px] text-white shrink-0" style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)` }}>{c.name[0]}</div>}
+                            <div className="px-3.5 py-2.5 rounded-2xl max-w-[76%] text-[13px] leading-relaxed break-words bg-white/[0.07] text-white/90 border border-white/[0.06] rounded-bl-md whitespace-pre-wrap">{pendingContactLine.text}</div>
+                        </div>
+                    )}
                     {isLoading && (
                         <div className="flex justify-center py-3">
                             <div className="flex gap-1.5">
@@ -3286,7 +3285,7 @@ ${olderText}
                     <div ref={contactEndRef} />
                 </div>
 
-                {/* 底部：多選時＝刪除選中條；否則＝發起/偷看對話（像聊天輸入區） */}
+                {/* 底部：多選時＝刪除選中條；否則＝讓他們接著聊／冒充對方回 TA（像智能體） */}
                 <div className="shrink-0 w-full p-4 pb-6">
                     {msgSelectMode ? (
                         <div className="flex gap-2">
@@ -3309,17 +3308,38 @@ ${olderText}
                                 <Trash size={16} weight="bold" /> 刪除選中 {selectedMsgIdx.length || ''}
                             </button>
                         </div>
-                    ) : isReal ? (
-                        <button onClick={() => handleRealConversation(c)} disabled={isLoading}
-                            className="w-full py-3 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.99] transition flex items-center justify-center gap-2"
-                            style={{ background: `linear-gradient(135deg, ${accent}, ${accent}bb)` }}>
-                            <PaperPlaneTilt size={16} weight="fill" /> {rec ? '繼續真實對話（雙方同步）' : '發起真實對話（A 發 B 回）'}
-                        </button>
                     ) : (
-                        <button onClick={() => handleNpcConversation(c)} disabled={isLoading}
-                            className="w-full py-3 rounded-2xl text-[13px] font-semibold text-white/90 bg-white/[0.06] border border-white/[0.08] active:scale-[0.99] transition flex items-center justify-center gap-2">
-                            <ChatCircleDots size={16} weight="fill" /> {rec ? '偷看後續對話' : '偷看對話'}
-                        </button>
+                        // 像智能體那樣：按一下看他們再聊一來一回；或者自己冒充對方回 TA
+                        <div className="space-y-2">
+                            <button onClick={() => (isReal ? handleRealConversation(c) : handleNpcConversation(c))} disabled={isLoading}
+                                className="w-full py-2.5 rounded-2xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5 active:scale-[0.99] transition disabled:opacity-40"
+                                style={{ background: `${accent}1a`, border: `1px dashed ${accent}66`, color: accent }}>
+                                <Sparkle size={14} weight="fill" /> {rec ? '讓他們接著聊' : '讓他們開始聊'}
+                            </button>
+                            <div className="flex items-end gap-2">
+                                <textarea value={contactInput} onChange={e => setContactInput(e.target.value)} rows={1}
+                                    placeholder={`以「${contactDisplayName(c)}」身份回 ${targetChar.name}…`}
+                                    className="flex-1 resize-none rounded-2xl px-3.5 py-2.5 text-[13px] max-h-24 no-scrollbar focus:outline-none bg-white/[0.06] text-white placeholder:text-white/30 border border-white/[0.08]" />
+                                <button disabled={isLoading || !contactInput.trim()} aria-label="以對方身份送出"
+                                    onClick={async () => {
+                                        const text = contactInput.trim();
+                                        if (!text) return;
+                                        setContactInput('');
+                                        setPendingContactLine({ contactId: c.id, text });
+                                        try {
+                                            if (isReal) await handleRealConversation(c, text);
+                                            else await handleNpcConversation(c, text);
+                                        } finally {
+                                            setPendingContactLine(null);
+                                        }
+                                    }}
+                                    className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 disabled:opacity-30 active:scale-90 transition text-white"
+                                    style={{ background: accent }}>
+                                    {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <PaperPlaneTilt size={17} weight="fill" />}
+                                </button>
+                            </div>
+                            {isReal && <p className="text-[10px] text-white/30 text-center">你冒充 TA 說的話，也會出現在 TA 自己的手機裡</p>}
+                        </div>
                     )}
                 </div>
 
@@ -3973,7 +3993,7 @@ ${olderText}
                                 {testingPhoneApi ? '測試中…' : '測試連接'}
                             </button>
                             {phoneApiTestResult && (
-                                <div className={`mt-2 rounded-xl px-2.5 py-2 text-[10.5px] leading-relaxed ${phoneApiTestResult.startsWith('連接成功') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                <div className={`mt-2 rounded-xl px-2.5 py-2 text-[10.5px] leading-relaxed ${phoneApiTestResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                                     {phoneApiTestResult}
                                 </div>
                             )}

@@ -33,6 +33,7 @@ import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
 import { trackEvent } from '../../utils/analytics';
+import { testChatModel } from '../../utils/apiConnectionTest';
 import {
   applyRemoteTaskDelta,
   applyScheduledTask,
@@ -66,7 +67,6 @@ interface ActiveMsg2SettingsModalProps {
   groups: GroupProfile[];
   realtimeConfig: RealtimeConfig;
   apiPresets: ApiPreset[];
-  onAddApiPreset: (name: string, config: APIConfig) => void;
   /**
    * 落盤任務清單與角色級設置。
    *
@@ -113,7 +113,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   groups,
   realtimeConfig,
   apiPresets,
-  onAddApiPreset,
   onSave,
   addToast,
 }) => {
@@ -140,8 +139,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [secUrl, setSecUrl] = useState(saved?.secondaryApi?.baseUrl ?? '');
   const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
   const [secModel, setSecModel] = useState(saved?.secondaryApi?.model ?? '');
-  const [showSavePreset, setShowSavePreset] = useState(false);
-  const [newPresetName, setNewPresetName] = useState('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showModelModal, setShowModelModal] = useState(false);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -187,8 +184,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setSecUrl(config?.secondaryApi?.baseUrl ?? '');
     setSecKey(config?.secondaryApi?.apiKey ?? '');
     setSecModel(config?.secondaryApi?.model ?? '');
-    setShowSavePreset(false);
-    setNewPresetName('');
     setTestConnectionResult(null);
 
     const editing = editingTaskUuid ? list.find((t) => t.taskUuid === editingTaskUuid) : undefined;
@@ -316,13 +311,6 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     setTestConnectionResult(null);
   };
 
-  const handleSavePreset = () => {
-    if (!newPresetName.trim()) return;
-    onAddApiPreset(newPresetName.trim(), { baseUrl: secUrl, apiKey: secKey, model: secModel });
-    setNewPresetName('');
-    setShowSavePreset(false);
-  };
-
   const fetchModels = async () => {
     const baseUrl = normalizeApiBaseUrl(secUrl);
     const key = normalizeApiCredential(secKey);
@@ -352,24 +340,12 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     }
   };
 
+  // 真的用選的模型說一句話（utils/apiConnectionTest.ts）；以前只問模型清單，模型掛了也報成功
   const handleTestConnection = async () => {
-    const baseUrl = normalizeApiBaseUrl(secUrl);
-    if (!baseUrl) return;
     setTestingConnection(true);
     setTestConnectionResult(null);
     try {
-      const response = await fetch(`${baseUrl}/models`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        setTestConnectionResult('✅ 連接成功');
-      } else {
-        const text = await response.text().catch(() => '');
-        setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
-      }
-    } catch (error: any) {
-      setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
+      setTestConnectionResult((await testChatModel({ baseUrl: secUrl, apiKey: secKey, model: secModel })).message);
     } finally {
       setTestingConnection(false);
     }
@@ -1023,30 +999,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                     >
                       {testingConnection ? '測試中...' : '🧪 測試連接'}
                     </button>
-                    <button
-                      onClick={() => setShowSavePreset((v) => !v)}
-                      className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
-                    >
-                      保存為預設
-                    </button>
                   </div>
-                  {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
-                  {showSavePreset && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newPresetName}
-                        onChange={(event) => setNewPresetName(event.target.value)}
-                        onKeyDown={(event) => event.key === 'Enter' && handleSavePreset()}
-                        placeholder="預設名稱..."
-                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                        autoFocus
-                      />
-                      <button onClick={handleSavePreset} className="px-4 py-2 bg-fuchsia-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform">
-                        保存
-                      </button>
-                    </div>
-                  )}
+                  {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
                 </div>
               ) : null}
             </div>

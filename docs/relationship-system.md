@@ -37,7 +37,8 @@
 | **聯繫人骨架** | 聯繫人模型 + 生成時注入真實角色名單做 **real/npc 甄別** + 通訊錄 UI（好感條 / 備註 / 手動加刪拉黑 / 虛構約束開關）+ 掃描通訊錄 | `CheckPhone.handleGenerate('chat'\|'contacts')`、`renderContactsList` / `renderContactDetail` |
 | **虛構約束** | `allowFictionalContacts` 關掉後，生成只取真實角色、丟棄所有 NPC —— TA 只和神經鏈接裡的角色來往 | `CheckPhone.toggleAllowFictional`、`handleGenerate` 的 `fictionRule` |
 | **真角色雙向對話** | **雙 LLM**：A 用 A 的 context 發、B 用 **B 自己的 context + 記憶宮殿(query=A 名) + B 的 contextLimit** 回。默認 **1 個往返 = A 發 1 次 + B 回 1 次 = 正好 2 次 LLM 調用**（`rounds` 可調）。好感變化折進各自回覆末尾的 `[[Δ:+N]]`，解析後剝掉，**不再額外調用**。鏡像進 B 的 `records`；**B 私聊僅當 B 自己 `sendToChat !== false`** 才寫。好感 -100..100，跌破 -60 角色自動刪友、升過 +60 自動加回，變動播報進機主私聊 | `utils/relationshipChat.ts:runRealConversation`、`CheckPhone.handleRealConversation` / `commitConversationSide` |
-| **虛構 NPC 對話** | 機主按人設腦補出不存在的人，單 LLM 分飾兩角生成聊天腳本（不鏡像、不涉及真實角色） | `utils/relationshipChat.ts:runNpcConversation`、`CheckPhone.handleNpcConversation` |
+| **虛構 NPC 對話** | 機主按人設腦補出不存在的人，單 LLM 分飾兩角生成聊天腳本（不鏡像、不涉及真實角色）。**一次一來回**（2026-10-11 起，原本一次 4 來回）；上下文跟真角色同一套輸入契約（`buildSpeakerContext`：核心上下文＋記憶宮殿 query＝NPC 名＋最近和用戶的私聊背景），綁了神經鏈接 NPC 的再加上 NPC 的人設、關係、輕量記憶 | `utils/relationshipChat.ts:runNpcConversation`、`CheckPhone.handleNpcConversation` |
+| **讓他們接著聊／以對方身份回 TA**（2026-10-11，照智能體的玩法） | 聯繫人對話頁底部：「讓他們接著聊」按一次跑一來回（真角色＝A 發 B 回；NPC＝一來回）；輸入框「以『對方』身份回 TA」＝**用戶冒充聯繫人**打一句，記成對方說的，只讓機主回（真角色傳 `aReplyTo`，跳過 B 那一步；NPC 傳 `hostReplyTo`，模型順手替 NPC 編的下一句丟掉）。**冒充真角色的話照常鏡像進 B 的手機**（B 會記得「自己說過」），頁面上有一行提示 | `runRealConversation({ aReplyTo })`、`runNpcConversation({ hostReplyTo })`、`CheckPhone.renderContactDetail` 底部 |
 | **用戶刪好友 → char 知情** | 用戶在查手機裡手動刪好友/拉黑時，往機主私聊落一張 **`phone_card` 關係變動卡片**（`kind:'relationship'`，💔/🚫）：聊天裡渲染成卡片、`content` 又帶進角色上下文，讓角色察覺「是用戶乾的」。角色自身的好感驅動增刪則照常自發發生 | `CheckPhone.handleSetContactStatus`、`MessageItem.tsx` phone_card `relationship` 分支 |
 | **真實時間感知** | 當前真實日期/星期/時段/時間統一在 `ContextBuilder.buildCoreContext` 注入，受 `char.timeAwarenessEnabled` 控制（**默認開**）。所有走 buildCoreContext 的路徑（私聊/查手機/人際關係/通話/約會…）都有時間觀念；關掉則全部不注入。同一段裡還跟著一句分寸框定：時間是背景，話題聊到哪兒由對話本身決定（這句話在 `utils/timeFramingNote.ts`，即時對話在雲端補時間時引的是同一份）。跟著一起收的還有另外兩塊會報鐘點的注入：天氣塊的 `includeTime`、日程塊的 `includeClock`，免得關掉之後鍾從旁邊漏出去。主動消息的排程清單不收——那是角色自己排的待辦，看不見就會重複排同一件事 | `utils/context.ts` buildCoreContext「當前時間」塊 |
 
@@ -74,7 +75,7 @@ A 發起 / NPC 推進的 prompt 裡給了一份**具體動機清單**（好奇�
 - **鏡像一致**：A 存完整 `aFull` 後 `bFull = flipTranscript(aFull)` 給 B，兩邊原文一致；`archivedThru` 雙方同步推進。
 - **用戶可改**：話題盒在資料抽屜「備註」下面，**長按某條記憶 → 改寫 / 刪除**（`topicEdit` + `Modal`）。刪一條 = 角色忘掉那段總結（原文仍在，但不再進上下文）。`topicText` 進上下文時默認只取最近 10 條防膨脹。
 - **優雅降級**：不滿 100 條時 `archivedThru=0`、`topicBox` 空 → `existingDetail=整段`、無總結塊，行為與歷史完全一致。
-- **NPC 暫未接**：`runNpcConversation` 仍喂整段（單視角），後續可同法接入。
+- **NPC 暫未接話題盒**：`runNpcConversation` 仍喂整段腳本（單視角），後續可同法接入；記憶宮殿與最近私聊背景已經接上（見上表）。
 
 ## 真假甄別怎麼做的
 

@@ -154,7 +154,7 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
-    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, addApiPreset, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
+    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
     // 從 Chat 主頁（消息/聯繫人 tab）點進來的私聊，返回鍵回 Chat 主頁而不是無腦回桌面；
     // 別的入口（角色卡「發消息」、伴侶桌面皮膚的「對話」按鈕等）沒設這個，行為不變。
@@ -4188,7 +4188,6 @@ const Chat: React.FC = () => {
                 vectorizeResult={vectorizeResult}
                 onForceVectorize={handleForceVectorize}
                 apiPresets={apiPresets}
-                onAddApiPreset={addApiPreset}
                 onSaveEmotion={(config) => {
                     // API 同步到所有角色，enabled 僅寫到當前角色
                     syncEmotionApiToAllCharacters(config.api);
@@ -4762,7 +4761,6 @@ const Chat: React.FC = () => {
                     char={char}
                     isProactiveActive={isProactiveActive}
                     apiPresets={apiPresets}
-                    onAddApiPreset={addApiPreset}
                     onSave={(config) => {
                         updateCharacter(char.id, { proactiveConfig: config });
                         if (config.enabled) {
@@ -4803,7 +4801,6 @@ const Chat: React.FC = () => {
                     groups={groups}
                     realtimeConfig={realtimeConfig}
                     apiPresets={apiPresets}
-                    onAddApiPreset={addApiPreset}
                     // updater 形態：merge 在 setCharacters 的函數式 updater 裡發生，
                     // 拿到的 prev 是最新排隊後的狀態，不會被面板的渲染時快照蓋掉
                     // （角色在聊天裡用工具排的任務就是這麼丟的）。
