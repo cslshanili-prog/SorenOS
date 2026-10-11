@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowsClockwise, PencilSimple, Trash } from '@phosphor-icons/react';
 import { CharacterCustomMeter } from '../../types';
+import { convertMeterValue, formatMeterValue } from '../../utils/customMeterContext';
 
 interface CustomMeterPanelProps {
-    /** 'text' = 心聲（一段正文）；'number' = 好感度（0-100 數值條） */
+    /** 'text' = 心聲（一段正文）；'number' = 好感度（數值條，0～100 或雙向 -100～100） */
     kind: 'text' | 'number';
     heading: string;
     icon: string;
@@ -33,6 +34,10 @@ function hslToHex(h: number, s: number, l: number): string {
 const genId = () => `cm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 type AutoMode = 'manual' | 'hours' | 'turns';
+type MeterRangeForm = 'bipolar' | 'unipolar';
+
+/** 雙向條的負分顏色：偏冷，跟條目本身的粉嫩色一眼分得出正負 */
+const NEGATIVE_COLOR = '#8ea6d6';
 
 /** entry.autoUpdate ↔ 表單裡的 (mode, interval 字符串) 互轉，manual 就是沒有 autoUpdate。 */
 function autoUpdateToForm(au?: CharacterCustomMeter['autoUpdate']): { mode: AutoMode; interval: string } {
@@ -55,6 +60,8 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
     const [newAutoMode, setNewAutoMode] = useState<AutoMode>('manual');
     const [newAutoInterval, setNewAutoInterval] = useState('24');
     const [newShare, setNewShare] = useState(false);
+    // 新增的好感度預設雙向（2026-10-11）；舊條目沒設 range，照舊 0～100
+    const [newRange, setNewRange] = useState<MeterRangeForm>('bipolar');
     const [busyId, setBusyId] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
@@ -62,6 +69,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
     const [editAutoMode, setEditAutoMode] = useState<AutoMode>('manual');
     const [editAutoInterval, setEditAutoInterval] = useState('24');
     const [editShare, setEditShare] = useState(false);
+    const [editRange, setEditRange] = useState<MeterRangeForm>('unipolar');
 
     const entriesRef = useRef(entries);
     useEffect(() => { entriesRef.current = entries; }, [entries]);
@@ -82,13 +90,18 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         const prompt = newPrompt.trim();
         if (!title || !prompt) return;
         const autoUpdate = formToAutoUpdate(newAutoMode, newAutoInterval);
-        const entry: CharacterCustomMeter = { id: genId(), title, prompt, color: randomPastelHex(), autoUpdate, ...(newShare ? { shareWithChar: true } : {}) };
+        const entry: CharacterCustomMeter = {
+            id: genId(), title, prompt, color: randomPastelHex(), autoUpdate,
+            ...(newShare ? { shareWithChar: true } : {}),
+            ...(kind === 'number' && newRange === 'bipolar' ? { range: 'bipolar' as const } : {}),
+        };
         setAdding(false);
         setNewShare(false);
         setNewTitle('');
         setNewPrompt('');
         setNewAutoMode('manual');
         setNewAutoInterval('24');
+        setNewRange('bipolar');
         onChange([...entriesRef.current, entry]);
         await regenerate(entry);
     };
@@ -105,6 +118,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         setEditAutoMode(form.mode);
         setEditAutoInterval(form.interval);
         setEditShare(!!entry.shareWithChar);
+        setEditRange(entry.range === 'bipolar' ? 'bipolar' : 'unipolar');
     };
 
     const saveEdit = () => {
@@ -112,9 +126,16 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
         const prompt = editPrompt.trim();
         if (!title || !prompt || !editingId) { setEditingId(null); return; }
         const autoUpdate = formToAutoUpdate(editAutoMode, editAutoInterval);
-        onChange(entriesRef.current.map(e => e.id === editingId
-            ? { ...e, title, prompt, autoUpdate, shareWithChar: editShare || undefined, ...(autoUpdate?.mode === 'turns' ? {} : { turnsSinceAutoUpdate: undefined }) }
-            : e));
+        onChange(entriesRef.current.map(e => {
+            if (e.id !== editingId) return e;
+            // 切換範圍時把分數換算過去（50 → 0、85 → 70），意思不變
+            const range = kind === 'number' && editRange === 'bipolar' ? 'bipolar' as const : undefined;
+            const value = kind === 'number' ? convertMeterValue(e.value, e.range, range) : e.value;
+            return {
+                ...e, title, prompt, autoUpdate, shareWithChar: editShare || undefined, range, value,
+                ...(autoUpdate?.mode === 'turns' ? {} : { turnsSinceAutoUpdate: undefined }),
+            };
+        }));
         setEditingId(null);
     };
 
@@ -151,6 +172,29 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                     <span className="text-[11px] text-slate-500">{mode === 'hours' ? '小時自動重新生成一次（填 24 即一天一更）' : '輪對話（角色回覆計數）自動重新生成一次'}</span>
                 </div>
             )}
+        </div>
+    );
+
+    /** 好感度的範圍（雙向／單向），加號表單和編輯表單共用；心聲沒有這個。 */
+    const renderRangeControl = (value: MeterRangeForm, setValue: (v: MeterRangeForm) => void) => kind === 'number' && (
+        <div>
+            <div className="text-[10px] font-bold text-slate-400 mb-1">範圍</div>
+            <div className="flex gap-1.5">
+                {([
+                    ['bipolar', '雙向 -100～100'],
+                    ['unipolar', '單向 0～100'],
+                ] as [MeterRangeForm, string][]).map(([r, label]) => (
+                    <button
+                        key={r}
+                        type="button"
+                        onClick={() => setValue(r)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${value === r ? 'bg-pink-500 text-white' : 'bg-slate-100 text-slate-500'}`}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">{value === 'bipolar' ? '0 是中立，負數是反感、失望；可以掉到負的' : '0 到 100，最低就是 0'}</div>
         </div>
     );
 
@@ -203,6 +247,7 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                     rows={2}
                                     className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                                 />
+                                {renderRangeControl(editRange, setEditRange)}
                                 {renderAutoUpdateControl(editAutoMode, setEditAutoMode, editAutoInterval, setEditAutoInterval)}
                                 {renderShareControl(editShare, setEditShare)}
                                 <div className="flex gap-2">
@@ -243,14 +288,29 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                                                 {busyId === entry.id ? '生成中…' : entry.statusNote}
                                             </div>
                                         )}
-                                        <div className="h-2 w-full rounded-full bg-white/70 overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full transition-all"
-                                                style={{ width: `${Math.max(0, Math.min(100, entry.value ?? 0))}%`, backgroundColor: entry.color }}
-                                            />
-                                        </div>
+                                        {entry.range === 'bipolar' ? (
+                                            // 雙向：0 在正中間，正的往右（條目顏色）、負的往左（冷色）
+                                            <div className="relative h-2 w-full rounded-full bg-white/70 overflow-hidden">
+                                                <div
+                                                    className="absolute top-0 h-full transition-all"
+                                                    style={(entry.value ?? 0) >= 0
+                                                        ? { left: '50%', width: `${Math.min(100, entry.value ?? 0) / 2}%`, backgroundColor: entry.color, borderRadius: '0 9999px 9999px 0' }
+                                                        : { right: '50%', width: `${Math.min(100, -(entry.value ?? 0)) / 2}%`, backgroundColor: NEGATIVE_COLOR, borderRadius: '9999px 0 0 9999px' }}
+                                                />
+                                                <div className="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-slate-400/60" />
+                                            </div>
+                                        ) : (
+                                            <div className="h-2 w-full rounded-full bg-white/70 overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full transition-all"
+                                                    style={{ width: `${Math.max(0, Math.min(100, entry.value ?? 0))}%`, backgroundColor: entry.color }}
+                                                />
+                                            </div>
+                                        )}
                                         <div className="text-[10px] text-slate-500 mt-1 text-right">
-                                            {entry.value ?? (busyId === entry.id ? '生成中…' : '未評估')}{typeof entry.value === 'number' ? ' / 100' : ''}
+                                            {typeof entry.value === 'number'
+                                                ? `${formatMeterValue(entry.value, entry)}${entry.range === 'bipolar' ? '（-100～100）' : ' / 100'}`
+                                                : (busyId === entry.id ? '生成中…' : '未評估')}
                                         </div>
                                     </div>
                                 )}
@@ -287,13 +347,14 @@ const CustomMeterPanel: React.FC<CustomMeterPanelProps> = ({
                         rows={2}
                         className="w-full bg-white/70 border border-slate-200/60 rounded-xl px-3 py-2 text-xs resize-none focus:bg-white transition-all"
                     />
+                    {renderRangeControl(newRange, setNewRange)}
                     {renderAutoUpdateControl(newAutoMode, setNewAutoMode, newAutoInterval, setNewAutoInterval)}
                     {renderShareControl(newShare, setNewShare)}
                     <div className="flex gap-2">
                         <button onClick={handleAdd} disabled={!newTitle.trim() || !newPrompt.trim()} className="flex-1 py-1.5 bg-pink-500 text-white text-[11px] font-bold rounded-lg active:scale-95 transition-transform disabled:opacity-40">
                             生成
                         </button>
-                        <button onClick={() => { setAdding(false); setNewTitle(''); setNewPrompt(''); setNewAutoMode('manual'); setNewAutoInterval('24'); setNewShare(false); }} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">
+                        <button onClick={() => { setAdding(false); setNewTitle(''); setNewPrompt(''); setNewAutoMode('manual'); setNewAutoInterval('24'); setNewShare(false); setNewRange('bipolar'); }} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg active:scale-95 transition-transform">
                             取消
                         </button>
                     </div>

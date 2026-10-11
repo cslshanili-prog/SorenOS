@@ -1,6 +1,6 @@
 /**
  * 「日程/情緒」面板裡用戶自定義的心聲 / 好感度條目——按用戶自己填的標題 + 提示詞，
- * 調用角色當前生效的 API 生成一段心聲短文，或刷新一個 0-100 的好感度數值。
+ * 調用角色當前生效的 API 生成一段心聲短文，或刷新一個好感度數值（0～100 或雙向 -100～100）。
  *
  * 複用日程生成同一套"人設上下文 + 最近聊天記錄"拼 prompt 的方式（utils/scheduleGenerator.ts），
  * 只是任務更單一，不走完整的記憶宮殿注入。
@@ -11,7 +11,7 @@ import { safeResponseJson, extractContent } from './safeApi';
 import { loadCharacterContextRange } from './chatContextRange';
 import { formatChatHistoryForSchedule } from './scheduleGenerator';
 import { DB } from './db';
-import { buildPreviousMeterNote } from './customMeterContext';
+import { buildPreviousMeterNote, clampMeterValue, meterRange } from './customMeterContext';
 import { isCustomMeterHoursDue, tickCustomMeterTurns } from './customMeterAutoUpdate';
 
 interface ApiConfig {
@@ -64,7 +64,7 @@ async function callCustomMeterApi(apiConfig: ApiConfig, char: CharacterProfile, 
 
 /** 生成時要的欄位：標題、提示詞，加上一次的結果（有的話接著寫，見 utils/customMeterContext.ts）。 */
 export type CustomMeterGenInput = Pick<CharacterCustomMeter, 'title' | 'prompt'>
-  & Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote' | 'updatedAt'>>;
+  & Partial<Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote' | 'updatedAt' | 'range'>>;
 
 /** 生成一段心聲正文（第一人稱內心獨白，用戶自定義標題 + 提示詞驅動）。 */
 export async function generateInnerVoiceContent(
@@ -87,7 +87,10 @@ ${previous ? `\n${previous}\n` : ''}
   return content ? content.trim() : null;
 }
 
-/** 生成/刷新一個 0-100 的好感度數值 + 一句第一人稱狀態心聲（用戶自定義標題 + 提示詞驅動）。 */
+/**
+ * 生成/刷新一個好感度數值 + 一句第一人稱狀態心聲（用戶自定義標題 + 提示詞驅動）。
+ * 範圍看條目：0～100，或雙向 -100～100（0 中立、負數是反感／厭惡，見 meterRange）。
+ */
 export async function generateAffinityValue(
   char: CharacterProfile,
   user: UserProfile,
@@ -96,17 +99,22 @@ export async function generateAffinityValue(
 ): Promise<{ value: number; note: string } | null> {
   const contextBlock = await buildPersonaAndHistoryBlock(char, user);
   const previous = buildPreviousMeterNote('number', entry);
+  const { min, max } = meterRange(entry);
+  const bipolar = entry.range === 'bipolar';
+  const scaleNote = bipolar
+    ? `分數範圍是 -100 到 100：0 是中立／普通，正數越大越正面（喜歡、信任、在意），負數越小越負面（反感、失望、厭惡）。照實際狀況給，該是負數就給負數，不要因為怕難看而硬拉回正數。`
+    : `分數範圍是 0 到 100。`;
   const prompt = `${contextBlock}
 ## Task: 評估一個好感度數值——「${entry.title}」
 
-按下面這條用戶給的提示詞，結合以上人設與最近對話，給出一個 0-100 的整數分數，分數含義、評分角度按提示詞來：
+按下面這條用戶給的提示詞，結合以上人設與最近對話，給出一個 ${min} 到 ${max} 的整數分數，分數含義、評分角度按提示詞來。${scaleNote}
 
 ${entry.prompt}
 ${previous ? `\n${previous}\n` : ''}
-同時以${char.name}的第一人稱語氣，寫一句此刻的心聲——像一句貼合這個分數當下心理狀態的內心獨白，不要出現"分數""好感度"這幾個字本身，不要用引號包起來。
+同時以${char.name}的第一人稱語氣，寫一句此刻的心聲——像一句貼合這個分數當下心理狀態的內心獨白${bipolar ? '（負分就寫出那份反感或失望，不要粉飾）' : ''}，不要出現"分數""好感度"這幾個字本身，不要用引號包起來。
 
 只按下面這個格式輸出，不要任何多餘文字或標題：
-第一行：分數（0-100 的整數，不要百分號不要標點）
+第一行：分數（${min} 到 ${max} 的整數，${bipolar ? '負數帶負號，' : ''}不要百分號不要其他標點）
 第二行：那句心聲（一句話，20 字以內）`;
   const content = await callCustomMeterApi(apiConfig, char, prompt, `評估好感度：${entry.title}`);
   if (!content) return null;
@@ -115,7 +123,7 @@ ${previous ? `\n${previous}\n` : ''}
   if (!match) return null;
   const num = Math.round(parseFloat(match[0]));
   if (Number.isNaN(num)) return null;
-  const value = Math.max(0, Math.min(100, num));
+  const value = clampMeterValue(num, entry);
   const note = (lines[1] || '').replace(/^[“"'「]|[”"'」]$/g, '').trim();
   return { value, note };
 }
