@@ -2895,8 +2895,13 @@ export interface CharacterCustomMeter {
   content?: string;
   /** 數值旁的一句第一人稱狀態說明（kind='number' 好感度專屬），跟數值同一次生成更新 */
   statusNote?: string;
-  /** 好感度數值 0-100（kind='number' 時使用） */
+  /** 好感度數值（kind='number' 時使用）；範圍看 range：0～100 或 -100～100 */
   value?: number;
+  /**
+   * 好感度的範圍（2026-10-11）：'bipolar' = -100～100（0 是中立，負數是反感）；
+   * 不設 = 舊的 0～100。新增的條目預設雙向；舊條目在編輯裡切換時分數會換算（utils/customMeterContext.ts）。
+   */
+  range?: 'bipolar';
   /**
    * 自動更新節奏；不設置＝保持純手動（現狀默認），只能自己點「重新生成」。
    * - {mode:'hours', interval: N} 每隔 N 小時自動重新生成一次（"一天一更"＝N=24）

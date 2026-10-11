@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildInnerStateBlock, buildPreviousMeterNote } from './customMeterContext';
+import {
+    buildInnerStateBlock, buildPreviousMeterNote, clampMeterValue, convertMeterValue, formatMeterValue, meterRange,
+} from './customMeterContext';
 import type { CharacterCustomMeter } from '../types';
 
 const now = new Date(2026, 9, 5, 14, 0).getTime();
@@ -23,6 +25,36 @@ describe('buildPreviousMeterNote', () => {
         expect(note).toContain('小幅變動');
         expect(note).toContain('可以往上也可以往下');
         expect(note).toContain('吵架');
+        expect(note).toContain('範圍 0～100');
+    });
+    it('雙向的條目把範圍寫給模型看，負分照寫', () => {
+        const note = buildPreviousMeterNote('number', { value: -35, range: 'bipolar', updatedAt: now - 60_000 }, now);
+        expect(note).toContain('-35 分（範圍 -100～100）');
+    });
+});
+
+describe('好感度範圍', () => {
+    it('雙向 -100～100，不設就是舊的 0～100；超出範圍收回來', () => {
+        expect(meterRange({ range: 'bipolar' })).toEqual({ min: -100, max: 100 });
+        expect(meterRange({})).toEqual({ min: 0, max: 100 });
+        expect(clampMeterValue(-40, {})).toBe(0);
+        expect(clampMeterValue(-40.4, { range: 'bipolar' })).toBe(-40);
+        expect(clampMeterValue(-180, { range: 'bipolar' })).toBe(-100);
+        expect(clampMeterValue(130, { range: 'bipolar' })).toBe(100);
+    });
+    it('切換範圍時換算分數：50 → 0、85 → 70、20 → -60，換回去還原', () => {
+        expect(convertMeterValue(50, undefined, 'bipolar')).toBe(0);
+        expect(convertMeterValue(85, undefined, 'bipolar')).toBe(70);
+        expect(convertMeterValue(20, undefined, 'bipolar')).toBe(-60);
+        expect(convertMeterValue(-60, 'bipolar', undefined)).toBe(20);
+        expect(convertMeterValue(70, 'bipolar', 'bipolar')).toBe(70);
+        expect(convertMeterValue(undefined, undefined, 'bipolar')).toBeUndefined();
+    });
+    it('雙向的正分帶 + 號', () => {
+        expect(formatMeterValue(30, { range: 'bipolar' })).toBe('+30');
+        expect(formatMeterValue(-30, { range: 'bipolar' })).toBe('-30');
+        expect(formatMeterValue(0, { range: 'bipolar' })).toBe('0');
+        expect(formatMeterValue(30, {})).toBe('30');
     });
 });
 

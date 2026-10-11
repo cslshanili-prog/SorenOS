@@ -8,7 +8,31 @@ import { formatRelativeAge } from './groupChat/relativeTime';
  *    好感度只帶那句狀態心聲，不帶數字——給數字角色很容易出戲說「我對你好感 85」。
  */
 
-type MeterSnapshot = Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote' | 'updatedAt'>;
+type MeterSnapshot = Pick<CharacterCustomMeter, 'content' | 'value' | 'statusNote' | 'updatedAt'> & Partial<Pick<CharacterCustomMeter, 'range'>>;
+
+/**
+ * 好感度的範圍（2026-10-11）：舊的 0～100，或雙向 -100～100（0 是中立、負數是反感）。
+ */
+export const meterRange = (entry: Pick<CharacterCustomMeter, 'range'>): { min: number; max: number } =>
+    entry.range === 'bipolar' ? { min: -100, max: 100 } : { min: 0, max: 100 };
+
+export const clampMeterValue = (value: number, entry: Pick<CharacterCustomMeter, 'range'>): number => {
+    const { min, max } = meterRange(entry);
+    return Math.max(min, Math.min(max, Math.round(value)));
+};
+
+/**
+ * 切換範圍時把分數換算過去，意思不變（Liora 選的 A 方案）：
+ * 0～100 的 50 是「普通」→ 雙向的 0；85 → 70；20 → -60。反過來也一樣。
+ */
+export function convertMeterValue(value: number | undefined, from: CharacterCustomMeter['range'], to: CharacterCustomMeter['range']): number | undefined {
+    if (typeof value !== 'number' || from === to) return value;
+    return to === 'bipolar' ? Math.round(value * 2 - 100) : Math.round((value + 100) / 2);
+}
+
+/** 分數給人看的寫法：雙向的正數帶「+」。 */
+export const formatMeterValue = (value: number, entry: Pick<CharacterCustomMeter, 'range'>): string =>
+    entry.range === 'bipolar' && value > 0 ? `+${value}` : String(value);
 
 const ageOf = (ts: number | undefined, now: number) => (ts ? `（${formatRelativeAge(ts, now)}）` : '');
 
@@ -27,7 +51,7 @@ export function buildPreviousMeterNote(kind: 'text' | 'number', entry: MeterSnap
     if (typeof entry.value !== 'number') return '';
     const note = entry.statusNote?.trim();
     return [
-        `上一次的評估${ageOf(entry.updatedAt, now)}：${entry.value} 分${note ? `，那時的心聲是「${note}」` : ''}。`,
+        `上一次的評估${ageOf(entry.updatedAt, now)}：${entry.value} 分（範圍 ${meterRange(entry).min}～${meterRange(entry).max}）${note ? `，那時的心聲是「${note}」` : ''}。`,
         '這次是延續，不是重新打分：以上一次為基礎，按這之後的對話調整。',
         '分數可以往上也可以往下，不是只能加：方向照這個條目的意思和最近發生的事來判斷（拿好感來說，聊得開心、被在乎就加；吵架、被冷落、失望就減）。',
         '沒發生什麼特別的事就維持或只小幅變動（幾分以內），有明確的大事才大幅升降。',
