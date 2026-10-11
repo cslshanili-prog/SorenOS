@@ -22,7 +22,6 @@ interface NPCManagerViewProps {
     characters: CharacterProfile[];
     worldbooks: Worldbook[];
     apiPresets: ApiPreset[];
-    addApiPreset: (name: string, config: APIConfig) => void;
     addNPC: () => Promise<NPCProfile>;
     updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
     deleteNPC: (id: string) => Promise<void>;

@@ -169,7 +169,6 @@ interface ChatModalsProps {
     onForceVectorize?: () => void;
     // Emotion (embedded under schedule modal, synced on/off with scheduleStyle)
     apiPresets?: ApiPreset[];
-    onAddApiPreset?: (name: string, config: APIConfig) => void;
     onSaveEmotion?: (config: NonNullable<CharacterProfile['emotionConfig']>) => void;
     onSaveChatApi?: (config: CharacterProfile['chatApi']) => void;
     onChatBlockAction?: (action: ChatBlockAction) => void;
@@ -291,7 +290,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     isScheduleFeatureEnabled, onToggleScheduleFeature,
     isMemoryPalaceEnabled, isVectorizing, vectorizePendingCount, vectorizeProgress,
     retainRecentForVectorize, setRetainRecentForVectorize, vectorizeResult, onForceVectorize,
-    apiPresets, onAddApiPreset, onSaveEmotion, onClearBuffs, onSaveChatApi, onChatBlockAction,
+    apiPresets, onSaveEmotion, onClearBuffs, onSaveChatApi, onChatBlockAction,
     onSaveInnerVoices, onGenerateInnerVoice, onSaveAffinities, onGenerateAffinity,
 }) => {
     const [visibilitySelection, setVisibilitySelection] = useState<Set<string>>(new Set());
@@ -420,7 +419,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             <ChatApiSettingsPanel
                                 char={activeCharacter}
                                 apiPresets={apiPresets || []}
-                                addApiPreset={onAddApiPreset || (() => {})}
                                 onSave={onSaveChatApi}
                             />
                         </ChatSettingsSection>
@@ -1389,13 +1387,12 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     )}
 
                     {/* 情緒 / 意識流 API — 與日程強制同步；預設一多這塊會很長，收合起來放最下面 */}
-                    {activeCharacter && apiPresets && onAddApiPreset && onSaveEmotion && (
+                    {activeCharacter && apiPresets && onSaveEmotion && (
                         <div className="mt-4 pt-4 border-t border-slate-100">
                             <ChatSettingsSection title="情緒 / 意識流 API" summary="副 API 配置與我的預設">
                                 <EmotionSettingsPanel
                                     char={activeCharacter}
                                     apiPresets={apiPresets}
-                                    addApiPreset={onAddApiPreset}
                                     onSave={onSaveEmotion}
                                 />
                             </ChatSettingsSection>

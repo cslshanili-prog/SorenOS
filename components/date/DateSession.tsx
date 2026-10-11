@@ -204,7 +204,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     onDeleteMessages,
     onSettings
 }) => {
-    const { addToast, registerBackHandler, apiConfig, updateCharacter, apiPresets, addApiPreset } = useOS();
+    const { addToast, registerBackHandler, apiConfig, updateCharacter, apiPresets } = useOS();
     
     // Core VN State
     const [isNovelMode, setIsNovelMode] = useState(false);
@@ -1413,7 +1413,6 @@ const DateSession: React.FC<DateSessionProps> = ({
                         <ChatApiSettingsPanel
                             char={char}
                             apiPresets={apiPresets || []}
-                            addApiPreset={addApiPreset}
                             onSave={(chatApi) => {
                                 updateCharacter(char.id, { chatApi });
                                 addToast(chatApi?.baseUrl ? `已換成 ${chatApi.model || '自訂模型'}` : '已改回跟隨全域 API', 'success');

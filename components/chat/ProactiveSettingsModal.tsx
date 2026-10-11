@@ -18,7 +18,6 @@ interface ProactiveSettingsModalProps {
     onSave: (config: NonNullable<CharacterProfile['proactiveConfig']>) => void;
     onStop: () => void;
     apiPresets: ApiPreset[];
-    onAddApiPreset: (name: string, config: APIConfig) => void;
 }
 
 const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
@@ -33,7 +32,7 @@ const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = (
 );
 
 const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
-    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets, onAddApiPreset
+    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets
 }) => {
     const saved = char.proactiveConfig;
     const [enabled, setEnabled] = useState(saved?.enabled ?? false);
@@ -48,8 +47,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
     const [secKey, setSecKey] = useState(saved?.secondaryApi?.apiKey ?? '');
     const [secModel, setSecModel] = useState(saved?.secondaryApi?.model ?? '');
     const [showApiSection, setShowApiSection] = useState(saved?.useSecondaryApi ?? false);
-    const [showSavePreset, setShowSavePreset] = useState(false);
-    const [newPresetName, setNewPresetName] = useState('');
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [showModelModal, setShowModelModal] = useState(false);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -73,8 +70,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
             setSecKey(s?.secondaryApi?.apiKey ?? '');
             setSecModel(s?.secondaryApi?.model ?? '');
             setShowApiSection(s?.useSecondaryApi ?? false);
-            setShowSavePreset(false);
-            setNewPresetName('');
             setTestConnectionResult(null);
         }
     }, [isOpen, char.id]);
@@ -119,13 +114,6 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         setSecKey(preset.config.apiKey);
         setSecModel(preset.config.model);
         setTestConnectionResult(null);
-    };
-
-    const handleSavePreset = () => {
-        if (!newPresetName.trim()) return;
-        onAddApiPreset(newPresetName.trim(), { baseUrl: secUrl, apiKey: secKey, model: secModel });
-        setNewPresetName('');
-        setShowSavePreset(false);
     };
 
     const fetchModels = async () => {
@@ -303,30 +291,8 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                         >
                                             {testingConnection ? '測試中...' : '🧪 測試連接'}
                                         </button>
-                                        <button
-                                            onClick={() => setShowSavePreset(v => !v)}
-                                            className="flex-1 py-2 bg-white text-slate-600 text-xs font-bold rounded-xl border border-slate-200 active:scale-95 transition-transform"
-                                        >
-                                            保存為預設
-                                        </button>
                                     </div>
                                     {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
-                                    {showSavePreset && (
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={newPresetName}
-                                                onChange={e => setNewPresetName(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                                placeholder="預設名稱..."
-                                                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                                                autoFocus
-                                            />
-                                            <button onClick={handleSavePreset} className="px-4 py-2 bg-violet-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform">
-                                                保存
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>

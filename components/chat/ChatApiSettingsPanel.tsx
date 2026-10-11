@@ -6,19 +6,16 @@ import ApiConnectionTest from './ApiConnectionTest';
 interface ChatApiSettingsPanelProps {
     char: CharacterProfile;
     apiPresets: ApiPreset[];
-    addApiPreset: (name: string, config: APIConfig) => void;
     onSave: (config: CharacterProfile['chatApi']) => void;
 }
 
 const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
-    char, apiPresets, addApiPreset, onSave
+    char, apiPresets, onSave
 }) => {
     const [mode, setMode] = useState<'global' | 'custom'>('global');
     const [url, setUrl] = useState('');
     const [key, setKey] = useState('');
     const [model, setModel] = useState('');
-    const [showSavePreset, setShowSavePreset] = useState(false);
-    const [newPresetName, setNewPresetName] = useState('');
     const [dirty, setDirty] = useState(false);
 
     // Sync form state from character
@@ -28,8 +25,6 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
         setUrl(api?.baseUrl ?? '');
         setKey(api?.apiKey ?? '');
         setModel(api?.model ?? '');
-        setShowSavePreset(false);
-        setNewPresetName('');
         setDirty(false);
     }, [char.id]);
 
@@ -39,13 +34,6 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
         setModel(preset.config.model);
         setMode('custom');
         setDirty(true);
-    };
-
-    const handleSavePreset = () => {
-        if (!newPresetName.trim()) return;
-        addApiPreset(newPresetName.trim(), { baseUrl: url, apiKey: key, model });
-        setNewPresetName('');
-        setShowSavePreset(false);
     };
 
     const handleSave = () => {
@@ -108,33 +96,8 @@ const ChatApiSettingsPanel: React.FC<ChatApiSettingsPanelProps> = ({
 
                     <div className="flex items-center justify-between mb-0.5">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">角色專屬 API 配置</label>
-                        <button
-                            onClick={() => setShowSavePreset(!showSavePreset)}
-                            className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
-                        >
-                            保存為預設
-                        </button>
                     </div>
 
-                    {showSavePreset && (
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newPresetName}
-                                onChange={e => setNewPresetName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                placeholder="預設名稱..."
-                                className="flex-1 bg-white/50 border border-slate-200/60 rounded-xl px-3 py-2 text-sm focus:bg-white transition-all"
-                                autoFocus
-                            />
-                            <button
-                                onClick={handleSavePreset}
-                                className="px-4 py-2 bg-pink-500 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform"
-                            >
-                                保存
-                            </button>
-                        </div>
-                    )}
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">URL</label>

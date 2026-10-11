@@ -103,7 +103,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, addApiPreset } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -1215,7 +1215,6 @@ ${isInitialGeneration ? `
                characters={characters}
                worldbooks={worldbooks}
                apiPresets={apiPresets}
-               addApiPreset={addApiPreset}
                addNPC={addNPC}
                updateNPC={updateNPC}
                deleteNPC={deleteNPC}
