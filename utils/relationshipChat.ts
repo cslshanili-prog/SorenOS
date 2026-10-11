@@ -376,6 +376,11 @@ interface RunRealConversationParams {
     aSummary?: string;
     /** B 的聊天話題盒 */
     bSummary?: string;
+    /**
+     * 用戶冒充 B 說的話（查手機「以對方身份回 TA」）。給了就先把這句記成 B 說的，
+     * 然後只跑 A 回這一句（1 次 LLM），B 那一步不跑。
+     */
+    aReplyTo?: string;
 }
 
 /**
@@ -391,7 +396,8 @@ export async function runRealConversation(
     const noteForA = distinct ? `\n${crossPersonaNote(user.name, b.name, userB.name)}` : '';
     const noteForB = distinct ? `\n${crossPersonaNote(userB.name, a.name, user.name)}` : '';
     // 默認 1 個往返 = A 發一次 + B 回一次 = 正好 2 次 LLM 調用（好感變化折進各自回覆，不再額外調用）
-    const rounds = Math.max(1, Math.min(8, p.rounds ?? 1));
+    const replyTo = p.aReplyTo?.trim() || '';
+    const rounds = replyTo ? 1 : Math.max(1, Math.min(8, p.rounds ?? 1));
 
     const ctxA = await buildSpeakerContext(a, user, b.name);
     const ctxB = await buildSpeakerContext(b, userB, a.name);
@@ -408,6 +414,9 @@ export async function runRealConversation(
             turns.push({ speaker: seg.isMe ? 'A' : 'B', text: seg.text });
         }
     }
+
+    // 用戶冒充 B 剛說的那句：先記成 B 的話，A 接著回
+    if (replyTo) turns.push({ speaker: 'B', text: replyTo });
 
     const labeled = () =>
         turns.length
@@ -472,7 +481,9 @@ ${labeled() || '（還沒開始，由你起頭）'}
 """
 
 要求：
-- 你是一個**完整、獨立的人格**，有自己的生活、立場和情緒。這條消息是**你主動發的**，一定**事出有因**。先想清楚這次的動機——可以是其中一種或幾種，也可以是別的：
+${replyTo ? `- 你是一個**完整、獨立的人格**，有自己的生活、立場和情緒。「${b.name}」剛發來最後那段話，你要**回覆 TA**：基於你自己的處境與態度去回應，別一味迎合、也別無故敵對，回應裡可以帶上你自己的目的（反問、打聽、提條件、迴避…）。
+- 行為要前後一致、合乎動機，別莫名其妙地自我矛盾或忽冷忽熱。
+` : `- 你是一個**完整、獨立的人格**，有自己的生活、立場和情緒。這條消息是**你主動發的**，一定**事出有因**。先想清楚這次的動機——可以是其中一種或幾種，也可以是別的：
   · 好奇「怎麼會有 ${b.name} 這麼個聯繫人」、想弄明白你倆是什麼關係；
   · 單純寒暄水聊、維繫關係；
   · 有具體的事要問 / 求助 / 約下一次；
@@ -480,11 +491,11 @@ ${labeled() || '（還沒開始，由你起頭）'}
   · 報備近況、表達在意，或者表達不滿、對峙。
   帶著這個動機去說，讓人能感到你「為什麼現在找 TA」。
 - 既然是你主動開口，就**貫徹你的目的、保持前後一致**：別莫名其妙地自我矛盾，別明明是自己找上門卻突然卑微討好、低聲下氣或反過來陰陽怪氣。該硬氣就硬氣，該客氣就客氣，但都要合乎你的人設與動機。
-- 始終保持「${a.name}」的人設、語氣、說話習慣，**別 OOC**。
+`}- 始終保持「${a.name}」的人設、語氣、說話習慣，**別 OOC**。
 - 依據你們的真實關係（見上方備註）和好感度自然地聊；**不要憑空製造敵意、陰陽怪氣、攻擊或狗血衝突**——除非你的人設、備註或明顯的負好感確實如此。好感為正或中性時就正常、友好地交流。
 - 緊扣已有對話的話題往下接，別跳戲、別把對方當成別人。
 
-任務：以「${a.name}」的身份，發給「${b.name}」接下來的消息（3-6 句、可連發幾條，IM 風格，信息量夠）。
+任務：以「${a.name}」的身份，${replyTo ? `回覆「${b.name}」剛說的話` : `發給「${b.name}」接下來的消息`}（3-6 句、可連發幾條，IM 風格，信息量夠）。
 只輸出消息正文，不要加「${a.name}:」之類前綴，不要解釋、不要旁白。
 然後另起一行，用 [[Δ:+N]] 標註說完這段後你對 TA 的好感變化（N 為 -20~20 的整數，沒變化寫 [[Δ:0]]）。
 如果這次交流讓你對「${b.name}」**有了新的認識**（TA 是誰、什麼身份、在意什麼、透露了什麼關鍵信息——記住這些只是 TA 自己說的、**未必是真的**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有新認識就別寫這一行。`;
@@ -498,6 +509,8 @@ ${labeled() || '（還沒開始，由你起頭）'}
         aDelta += aParsed.delta;
         if (aParsed.learned) aLearnedNew = appendLearned(aLearnedNew, aParsed.learned);
         if (aParsed.text) turns.push({ speaker: 'A', text: aParsed.text });
+        // 用戶冒充 B 的那一輪：B 已經「說過」了，只要 A 回這一句
+        if (replyTo) break;
 
         // ---- B 回 ----
         const bPrompt = `${ctxB}
@@ -588,6 +601,11 @@ interface RunNpcConversationParams {
     learned?: string;
     rounds?: number;
     existingDetail?: string;
+    /**
+     * 用戶冒充這個 NPC 說的話（查手機「以對方身份回 TA」）。給了就先記成對方說的，
+     * 只生成機主回這一句，不替 NPC 往下編。
+     */
+    hostReplyTo?: string;
 }
 
 /**
@@ -599,10 +617,16 @@ export async function runNpcConversation(
     params: RunNpcConversationParams,
 ): Promise<{ detail: string; learnedNew: string }> {
     // 以前漏進腳本的思考過程先洗掉，不再帶進續寫（見 cleanTranscriptLeaks）
-    const p = params.existingDetail ? { ...params, existingDetail: cleanTranscriptLeaks(params.existingDetail) } : params;
-    const rounds = Math.max(1, Math.min(8, p.rounds ?? 4));
-    const hostLastTs = await lastUserInteractionTs(p.host.id);
-    const ctxHost = ContextBuilder.buildCoreContext(p.host, p.user, true, undefined, undefined, { lastInteractionTs: hostLastTs });
+    const cleaned = params.existingDetail ? cleanTranscriptLeaks(params.existingDetail) : '';
+    const replyTo = params.hostReplyTo?.trim() || '';
+    // 用戶冒充 NPC 剛說的那句先接到腳本尾巴，機主接著回
+    const baseDetail = replyTo ? serializeTurns([...parseTranscript(cleaned), { isMe: false, text: replyTo }]) : cleaned;
+    const p = { ...params, existingDetail: baseDetail || undefined };
+    // 一次一輪（2026-10-11）：按一下看他們聊一來一回，方便隨時插話
+    const rounds = Math.max(1, Math.min(8, p.rounds ?? 1));
+    // 跟真角色對話同一套輸入契約：核心上下文＋記憶宮殿（query＝對方名字）＋最近和用戶的聊天背景
+    const ctxHost = await buildSpeakerContext(p.host, p.user, p.npcName);
+    const recentHost = await recentContextText(p.host, p.host.name, p.user.name);
 
     // 續寫時算出「下一句該誰說」，並提示模型從對的那一方接（避免一直自說自話繁殖 host 的話）
     const exTurns = parseTranscript(p.existingDetail || '');
@@ -615,6 +639,9 @@ export async function runNpcConversation(
         : '';
 
     const prompt = `${ctxHost}
+
+### [你和用戶「${p.user.name}」的私聊背景（僅供參考，不是這場對話）]
+${recentHost}
 
 ### [人際關係 · 與虛構聯繫人的聊天]
 你是「${p.host.name}」。你正在用手機和「${p.npcName}」私聊。
@@ -641,10 +668,12 @@ ${p.learned}` : ''
 
 ${p.existingDetail ? `已經聊了：\n"""\n${p.existingDetail}\n"""\n請接著往下聊。${turnHint}` : '現在開始這段對話。'}
 
-任務：生成你（${p.host.name}）和「${p.npcName}」接下來 ${rounds} 個來回的對話，信息量要夠。
+${replyTo ? `任務：「${p.npcName}」剛發來最後那段話，只寫**你（${p.host.name}）對這段的回覆**（3-6 句、可連發幾條，IM 風格），不要替「${p.npcName}」往下寫。
+格式（**嚴格遵守**）：
+- 每一行都以「我:」開頭，"我:" 代表你（${p.host.name}）。` : `任務：生成你（${p.host.name}）和「${p.npcName}」接下來 ${rounds} 個來回的對話，信息量要夠。
 格式（**嚴格遵守**）：
 - 每一行都必須以「我:」或「對方:」開頭；"我:" 代表你（${p.host.name}），"對方:" 代表「${p.npcName}」。
-- 你和「${p.npcName}」**輪流說話、一來一回**；別一個人連說好幾輪、別寫成獨白。
+- 你和「${p.npcName}」**輪流說話、一來一回**；別一個人連說好幾輪、別寫成獨白。`}
 只輸出對話行，不要解釋、不要旁白、不要重複已有內容。
 如果這次讓你對「${p.npcName}」有了新的設定/認識（身份、性格、在意的事…），在最末尾另起一行用 [[瞭解:一句話]] 記下來，方便下次保持一致；沒有就別寫。`;
 
@@ -663,7 +692,12 @@ ${p.existingDetail ? `已經聊了：\n"""\n${p.existingDetail}\n"""\n請接著�
     }).trim();
     // 關鍵：新內容**單獨解析**，無前綴的首行歸給「該說話的下一方」(nextIsMe)，
     // 不再繼承上一句的說話人——否則上一句是 host 時，整段續寫會全被算成 host（“繁殖 char 的話”）。
-    const newTurns = parseTranscript(out, nextIsMe);
+    let newTurns = parseTranscript(out, nextIsMe);
+    // 回覆模式只收機主的話：模型順手替 NPC 編的下一句丟掉
+    if (replyTo) {
+        const firstOther = newTurns.findIndex(t => !t.isMe);
+        if (firstOther >= 0) newTurns = newTurns.slice(0, firstOther);
+    }
     const detail = serializeTurns([...exTurns, ...newTurns]);
     return { detail, learnedNew };
 }

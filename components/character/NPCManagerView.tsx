@@ -9,6 +9,7 @@ import { COMMON_TIMEZONES } from '../../utils/timezone';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '../../utils/apiConfigNormalize';
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
+import { testChatModel } from '../../utils/apiConnectionTest';
 import Modal from '../os/Modal';
 import { useOS } from '../../context/OSContext';
 import { NPC_MEMORY_MAX_CHARS, resolveNpcApi } from '../../utils/npcMemory';
@@ -31,7 +32,7 @@ interface NPCManagerViewProps {
 
 const genId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, worldbooks, apiPresets, addApiPreset, addNPC, updateNPC, deleteNPC, onSwitchTab, closeApp }) => {
+const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, worldbooks, apiPresets, addNPC, updateNPC, deleteNPC, onSwitchTab, closeApp }) => {
     const [view, setView] = useState<'list' | 'detail'>('list');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -73,7 +74,6 @@ const NPCManagerView: React.FC<NPCManagerViewProps> = ({ npcs, characters, world
                 characters={characters}
                 worldbooks={worldbooks}
                 apiPresets={apiPresets}
-                addApiPreset={addApiPreset}
                 onChange={(updates) => updateNPC(editingNpc.id, updates)}
                 onBack={() => { setView('list'); setEditingId(null); }}
                 onDelete={() => setDeleteConfirmId(editingNpc.id)}
@@ -198,13 +198,12 @@ interface NPCDetailViewProps {
     characters: CharacterProfile[];
     worldbooks: Worldbook[];
     apiPresets: ApiPreset[];
-    addApiPreset: (name: string, config: APIConfig) => void;
     onChange: (updates: Partial<NPCProfile>) => void;
     onBack: () => void;
     onDelete: () => void;
 }
 
-const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldbooks, apiPresets, addApiPreset, onChange, onBack, onDelete }) => {
+const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldbooks, apiPresets, onChange, onBack, onDelete }) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const [name, setName] = useState(npc.name);
     const [description, setDescription] = useState(npc.description);
@@ -214,8 +213,6 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
     const [apiUrl, setApiUrl] = useState(npc.chatApi?.baseUrl || '');
     const [apiKey, setApiKey] = useState(npc.chatApi?.apiKey || '');
     const [apiModel, setApiModel] = useState(npc.chatApi?.model || '');
-    const [showSavePreset, setShowSavePreset] = useState(false);
-    const [newPresetName, setNewPresetName] = useState('');
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [showModelModal, setShowModelModal] = useState(false);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -265,8 +262,6 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
         setApiUrl(npc.chatApi?.baseUrl || '');
         setApiKey(npc.chatApi?.apiKey || '');
         setApiModel(npc.chatApi?.model || '');
-        setShowSavePreset(false);
-        setNewPresetName('');
         setTestConnectionResult(null);
     }, [npc.id]);
 
@@ -280,13 +275,6 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
         setApiModel(preset.config.model);
         setApiMode('custom');
         saveApiConfig('custom', preset.config.baseUrl, preset.config.apiKey, preset.config.model);
-    };
-
-    const handleSavePreset = () => {
-        if (!newPresetName.trim()) return;
-        addApiPreset(newPresetName.trim(), { baseUrl: apiUrl, apiKey, model: apiModel });
-        setNewPresetName('');
-        setShowSavePreset(false);
     };
 
     const fetchModels = async () => {
@@ -318,24 +306,12 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
         }
     };
 
+    // 真的用選的模型說一句話（utils/apiConnectionTest.ts）；以前只問模型清單，模型掛了也報成功
     const handleTestConnection = async () => {
-        const baseUrl = normalizeApiBaseUrl(apiUrl);
-        if (!baseUrl) return;
         setTestingConnection(true);
         setTestConnectionResult(null);
         try {
-            const response = await fetch(`${baseUrl}/models`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${normalizeApiCredential(apiKey)}`, 'Content-Type': 'application/json' },
-            });
-            if (response.ok) {
-                setTestConnectionResult('✅ 連接成功');
-            } else {
-                const text = await response.text().catch(() => '');
-                setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
-            }
-        } catch (error: any) {
-            setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
+            setTestConnectionResult((await testChatModel({ baseUrl: apiUrl, apiKey, model: apiModel })).message);
         } finally {
             setTestingConnection(false);
         }
@@ -715,30 +691,15 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                                 >
                                     {testingConnection ? '測試中...' : '🧪 測試連接'}
                                 </button>
+                                {/* 存成「我的預設」改到系統設置做；這裡只管這個 NPC 自己用哪個模型（2026-10-11） */}
                                 <button
-                                    onClick={() => setShowSavePreset(v => !v)}
-                                    className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl active:scale-95 transition-transform"
+                                    onClick={() => { saveApiConfig('custom'); addToast(apiUrl.trim() ? `已保存 ${name || 'NPC'} 的模型設定` : '網址是空的，改回跟隨預設', 'success'); }}
+                                    className="flex-1 py-2 bg-violet-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform"
                                 >
-                                    保存為預設
+                                    保存
                                 </button>
                             </div>
-                            {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
-                            {showSavePreset && (
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={newPresetName}
-                                        onChange={e => setNewPresetName(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-                                        placeholder="預設名稱..."
-                                        className="flex-1 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs"
-                                        autoFocus
-                                    />
-                                    <button onClick={handleSavePreset} className="px-4 py-2 bg-pink-500 text-white text-xs font-bold rounded-xl active:scale-95 transition-transform">
-                                        保存
-                                    </button>
-                                </div>
-                            )}
+                            {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
                         </div>
                     )}
                 </div>

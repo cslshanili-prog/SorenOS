@@ -33,6 +33,7 @@ import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
 import { trackEvent } from '../../utils/analytics';
+import { testChatModel } from '../../utils/apiConnectionTest';
 import {
   applyRemoteTaskDelta,
   applyScheduledTask,
@@ -352,24 +353,12 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     }
   };
 
+  // 真的用選的模型說一句話（utils/apiConnectionTest.ts）；以前只問模型清單，模型掛了也報成功
   const handleTestConnection = async () => {
-    const baseUrl = normalizeApiBaseUrl(secUrl);
-    if (!baseUrl) return;
     setTestingConnection(true);
     setTestConnectionResult(null);
     try {
-      const response = await fetch(`${baseUrl}/models`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        setTestConnectionResult('✅ 連接成功');
-      } else {
-        const text = await response.text().catch(() => '');
-        setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
-      }
-    } catch (error: any) {
-      setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
+      setTestConnectionResult((await testChatModel({ baseUrl: secUrl, apiKey: secKey, model: secModel })).message);
     } finally {
       setTestingConnection(false);
     }
@@ -1030,7 +1019,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                       保存為預設
                     </button>
                   </div>
-                  {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
+                  {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
                   {showSavePreset && (
                     <div className="flex gap-2">
                       <input

@@ -5,6 +5,7 @@ import { ApiPreset, APIConfig, CharacterProfile } from '../../types';
 import { normalizeApiBaseUrl, normalizeApiCredential } from '../../utils/apiConfigNormalize';
 import { extractModelIds } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
+import { testChatModel } from '../../utils/apiConnectionTest';
 import { ProactiveChat } from '../../utils/proactiveChat';
 import { formatProactiveRange, normalizeProactiveRange, proactiveStopIndex, PROACTIVE_INTERVAL_STOPS } from '../../utils/proactiveTiming';
 import IntervalRangeSlider from './IntervalRangeSlider';
@@ -156,24 +157,12 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         }
     };
 
+    // 真的用選的模型說一句話（utils/apiConnectionTest.ts）；以前只問模型清單，模型掛了也報成功
     const handleTestConnection = async () => {
-        const baseUrl = normalizeApiBaseUrl(secUrl);
-        if (!baseUrl) return;
         setTestingConnection(true);
         setTestConnectionResult(null);
         try {
-            const response = await fetch(`${baseUrl}/models`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${normalizeApiCredential(secKey)}`, 'Content-Type': 'application/json' },
-            });
-            if (response.ok) {
-                setTestConnectionResult('✅ 連接成功');
-            } else {
-                const text = await response.text().catch(() => '');
-                setTestConnectionResult(`❌ HTTP ${response.status}${text ? `：${text.slice(0, 100)}` : ''}`);
-            }
-        } catch (error: any) {
-            setTestConnectionResult(`❌ 連接失敗${error?.message ? `：${error.message}` : ''}`);
+            setTestConnectionResult((await testChatModel({ baseUrl: secUrl, apiKey: secKey, model: secModel })).message);
         } finally {
             setTestingConnection(false);
         }
@@ -321,7 +310,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                             保存為預設
                                         </button>
                                     </div>
-                                    {testConnectionResult && <p className="text-[10px] text-slate-500">{testConnectionResult}</p>}
+                                    {testConnectionResult && <p className={`text-[10px] leading-relaxed break-all ${testConnectionResult.startsWith('✅') ? 'text-emerald-600' : 'text-rose-500'}`}>{testConnectionResult}</p>}
                                     {showSavePreset && (
                                         <div className="flex gap-2">
                                             <input

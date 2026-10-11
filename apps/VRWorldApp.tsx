@@ -25,6 +25,7 @@ const DinosaurGarden = React.lazy(() => import('./vrWorld/dinosaur/DinosaurGarde
 import { CreatorIframe, type ChibiResult } from '../components/Like520Event';
 import { useMusic, type Song } from '../context/MusicContext';
 import { DB } from '../utils/db';
+import { testChatModel } from '../utils/apiConnectionTest';
 import { LibraryView, NovelPreferenceModal } from './vrWorld/VRLibrary';
 import { VRActivityPicker, VRActivityRestrictions } from './vrWorld/VRActivityPicker';
 import type { VRSARActivity } from '../types';
@@ -3993,15 +3994,7 @@ const VRApiSettings: React.FC<{ apiPresets: ApiPreset[]; chatApi: APIConfig; add
         const cfg = effective;
         if (!cfg?.baseUrl) { setTestResult('當前沒有可用的 API'); return; }
         setTesting(true); setTestResult(null);
-        try {
-            const res = await fetch(`${cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey || 'sk-none'}` },
-                body: JSON.stringify({ model: cfg.model, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 5, stream: false }),
-            });
-            if (res.ok) { const d = await safeResponseJson(res); const r = d.choices?.[0]?.message?.content || ''; setTestResult(`連接成功 — 模型回覆:"${r.slice(0, 24)}"`); }
-            else { const t = await res.text().catch(() => ''); setTestResult(`HTTP ${res.status}: ${t.slice(0, 80)}`); }
-        } catch (e: any) { setTestResult(`連接失敗: ${e.message}`); } finally { setTesting(false); }
+        try { setTestResult((await testChatModel(cfg)).message); } finally { setTesting(false); }
     };
 
     // 手機上沒有控制台，「界面全關了記錄還在漲」這類問題光靠截圖說不清。
@@ -4043,7 +4036,7 @@ const VRApiSettings: React.FC<{ apiPresets: ApiPreset[]; chatApi: APIConfig; add
                     style={{ background: 'rgba(120,180,255,.16)', color: '#bcd4ff', border: '1px solid rgba(140,180,255,.3)' }}>
                     {testing ? '測試中…' : '測試連接'}
                 </button>
-                {testResult && <div className={`mt-2 text-[10.5px] px-2.5 py-1.5 rounded-lg leading-snug ${testResult.startsWith('連接成功') ? 'text-emerald-300' : 'text-rose-300'}`} style={{ background: 'rgba(0,0,0,.25)' }}>{testResult}</div>}
+                {testResult && <div className={`mt-2 text-[10.5px] px-2.5 py-1.5 rounded-lg leading-snug ${testResult.startsWith('✅') ? 'text-emerald-300' : 'text-rose-300'}`} style={{ background: 'rgba(0,0,0,.25)' }}>{testResult}</div>}
             </div>
 
             {/* 選擇 API */}
