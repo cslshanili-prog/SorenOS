@@ -642,6 +642,19 @@ const buildDateHistory = (
 };
 
 export type DateOpeningMode = 'approach' | 'invite';
+/** 從角色的見面邀請卡赴約時的約定（utils/dateInvite.ts 的 place / plan）。 */
+export interface DateMeetup { place?: string; plan?: string }
+
+/** 赴約開場：把約好的地點和要做的事寫明，開場直接接上這個約。兩欄都空就不寫。 */
+const buildMeetupLine = (meetup: DateMeetup | undefined, charName: string, uname: string, invite: boolean): string => {
+    const place = meetup?.place?.trim();
+    const plan = meetup?.plan?.trim();
+    if (!place && !plan) return '';
+    const what = [place ? `地點是「${place}」` : '', plan ? `打算「${plan}」` : ''].filter(Boolean).join('，');
+    return invite
+        ? `\n這次見面是赴${charName}自己發出的邀約：${what}。${uname}已經答應了；寫${charName}怎麼來接${uname}、或怎麼一起往那裡去。\n`
+        : `\n這次見面是赴${charName}自己發出的邀約：${what}。${uname}已經答應、正往那裡去；${charName}此刻在約好的地方（或正在趕過去），寫${charName}在那裡的樣子。\n`;
+};
 
 export const DatePrompts = {
     getTimeGapHint,
@@ -659,6 +672,8 @@ export const DatePrompts = {
         useVisionDescriptions?: boolean;
         /** 開場方式：'approach' = 用戶悄悄靠近（默認）；'invite' = 角色主動來找用戶（2026-10-12，參考上游 c523c752）。 */
         openingMode?: DateOpeningMode;
+        /** 從邀請卡赴約時帶上約定的地點和要做的事。 */
+        meetup?: DateMeetup;
     }): { messages: ApiMessage[] } => {
         const { char, userProfile, allMsgs, emojis } = input;
         const invite = input.openingMode === 'invite';
@@ -711,7 +726,7 @@ ${invite
 請用**第三人稱**描寫一段話：寫${char.name}自己的到來、動作和必要的開場台詞，停在留給${uname}回應的地方。${uname}怎麼反應、答不答應、說什麼，都留給${uname}自己寫。`
     : `你現在並不在和用戶直接對話。用戶正在悄悄靠近你所在的地點。
 請用**第三人稱**描寫一段話。
-描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？`}
+描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？`}${buildMeetupLine(input.meetup, char.name, uname, invite)}
 
 ### 邏輯檢查
 1. **上下文連貫性**: 參考 [最近記錄]（注意消息來源標籤：[聊天]是文字聊天、[約會]是面對面、[通話]是語音通話）。如果有 [TIME SKIP] 且間隔很久，開啟新場景；如果是 [SCENE CONTINUATION]，說明剛剛還在聊天，**必須**自然銜接最近的聊天話題和情緒狀態，不要無視之前的對話內容。

@@ -47,6 +47,7 @@ import { isAnalyticsRequestUrl, trackEvent, shouldReportSnapshot, trackDataScale
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync, collectSARFeatureFlags } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
+import type { DateMeetup } from '../utils/datePrompts';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, endChatBlock, extractBlockUser, isChatBlocked, isReconsiderDue, postponeReconsider, startChatBlock, type ChatBlockChangeDetail } from '../utils/chatBlock';
 import { runCharBlockReconsider } from '../utils/chatBlockRuntime';
@@ -500,7 +501,9 @@ interface OSContextType {
 
   // 從聊天「見面」按鈕跳進見面：攜帶目標角色，DateApp 掛載時自動進入該角色的見面流程
   dateAutoStartCharId: string | null;
-  openDateWithChar: (charId: string) => void;
+  /** 從角色的見面邀請卡赴約時帶過來的約定（地點／要做什麼）；一般從「見面」按鈕進來是 null。 */
+  dateAutoStartMeetup: DateMeetup | null;
+  openDateWithChar: (charId: string, meetup?: DateMeetup) => void;
   consumeDateAutoStart: () => void;
   /** 角色來電被接聽、或從未接來電卡回撥：CallApp 掛載時直接接通這個角色（incomingReason 有值 = 角色打來的）。 */
   callAutoStart: { charId: string; mode: 'voice' | 'video'; incomingReason?: string } | null;
@@ -1057,6 +1060,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [suspendedCall, setSuspendedCall] = useState<{ charId: string; charName: string; charAvatar?: string; startedAt: number; bubbles?: any[]; sessionId?: string; elapsedSeconds?: number; voiceLang?: string; pendingAvatarTouches?: AvatarTouchRecord[] } | null>(null);
   // 聊天「見面」按鈕 → 見面：記錄目標角色，DateApp 掛載後消費一次並自動進入見面
   const [dateAutoStartCharId, setDateAutoStartCharId] = useState<string | null>(null);
+  const [dateAutoStartMeetup, setDateAutoStartMeetup] = useState<DateMeetup | null>(null);
   const [callAutoStart, setCallAutoStart] = useState<{ charId: string; mode: 'voice' | 'video'; incomingReason?: string } | null>(null);
   const [pendingGroupChatId, setPendingGroupChatId] = useState<string | null>(null);
 
@@ -5811,12 +5815,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const openApp = (appId: AppID) => setActiveApp(appId);
   const closeApp = () => setActiveApp(AppID.Launcher);
   // 從聊天直接進入某角色的見面：切換當前角色 + 標記自動進入 + 打開見面 App
-  const openDateWithChar = (charId: string) => {
+  const openDateWithChar = (charId: string, meetup?: DateMeetup) => {
     setActiveCharacterId(charId);
+    setDateAutoStartMeetup(meetup || null);
     setDateAutoStartCharId(charId);
     setActiveApp(AppID.Date);
   };
-  const consumeDateAutoStart = () => setDateAutoStartCharId(null);
+  const consumeDateAutoStart = () => { setDateAutoStartCharId(null); setDateAutoStartMeetup(null); };
   const openCallWithChar = (charId: string, mode: 'voice' | 'video', incomingReason?: string) => {
     setActiveCharacterId(charId);
     setCallAutoStart({ charId, mode, ...(incomingReason !== undefined ? { incomingReason } : {}) });
@@ -5966,6 +5971,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     resumeCall,
     clearSuspendedCall,
     dateAutoStartCharId,
+    dateAutoStartMeetup,
     openDateWithChar,
     consumeDateAutoStart,
     callAutoStart,

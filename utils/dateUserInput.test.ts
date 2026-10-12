@@ -76,3 +76,24 @@ describe('開場方式：讓 ta 來找我', () => {
         expect(userPrompt('approach')).toContain('用戶正在悄悄靠近你所在的地點');
     });
 });
+
+describe('赴約開場：帶上約好的地點和要做的事', () => {
+    const char = { id: 'c1', name: '小白', systemPrompt: '你是小白', memories: [] } as unknown as CharacterProfile;
+    const user = { name: '阿明' } as UserProfile;
+    const peek = (opts: Partial<Parameters<typeof DatePrompts.buildPeekPayload>[0]>) => String(DatePrompts.buildPeekPayload({
+        char, userProfile: user, allMsgs: [], emojis: [], ...opts,
+    }).messages[1].content);
+
+    it('我走過去：角色在約好的地方，用戶正往那裡去', () => {
+        const p = peek({ meetup: { place: '河堤公園', plan: '傍晚散步' } });
+        expect(p).toContain('這次見面是赴小白自己發出的邀約：地點是「河堤公園」，打算「傍晚散步」');
+        expect(p).toContain('阿明已經答應、正往那裡去');
+    });
+    it('讓 ta 來找我：寫角色怎麼來接', () => {
+        expect(peek({ meetup: { place: '河堤公園', plan: '' }, openingMode: 'invite' })).toContain('寫小白怎麼來接阿明');
+    });
+    it('沒有約定（一般從見面按鈕進來）就不寫', () => {
+        expect(peek({})).not.toContain('赴小白自己發出的邀約');
+        expect(peek({ meetup: { place: ' ', plan: '' } })).not.toContain('赴小白自己發出的邀約');
+    });
+});
