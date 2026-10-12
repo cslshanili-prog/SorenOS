@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
-import { DatePrompts, ApiMessage } from '../utils/datePrompts';
+import { DatePrompts, type DateOpeningMode, ApiMessage } from '../utils/datePrompts';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
 import type { PipelineResult } from '../utils/memoryPalace/pipeline';
 import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPalace';
@@ -132,6 +132,13 @@ const DateApp: React.FC = () => {
     const [dateLoadLimit, setDateLoadLimit] = useState(DATE_SESSION_MESSAGE_LIMIT);
     const [dateHistoryReachedEnd, setDateHistoryReachedEnd] = useState(false);
     const [hasSavedOpening, setHasSavedOpening] = useState(false);
+    // 開場方式：我走過去／讓 ta 來找我（2026-10-12）。記住上次選的。
+    const [openingMode, setOpeningMode] = useState<DateOpeningMode>(() => {
+        try { return localStorage.getItem('soren-date-opening-mode-v1') === 'invite' ? 'invite' : 'approach'; }
+        catch { return 'approach'; }
+    });
+    // 切換開場方式時舊的感知請求晚回來不能蓋掉新的
+    const peekRequestRef = useRef(0);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -318,7 +325,7 @@ const DateApp: React.FC = () => {
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
-                    metadata: { source: 'date', isOpening: true } // Added Flag
+                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}) } // Added Flag
                 });
                 setHasSavedOpening(true);
             } catch (e) {
@@ -336,7 +343,12 @@ const DateApp: React.FC = () => {
     };
 
     // --- Peek (Generation) Logic ---
-    const startPeek = async (c: CharacterProfile) => {
+    const startPeek = async (c: CharacterProfile, selectedOpening: DateOpeningMode = openingMode) => {
+        const requestId = ++peekRequestRef.current;
+        if (selectedOpening !== openingMode) {
+            setOpeningMode(selectedOpening);
+            try { localStorage.setItem('soren-date-opening-mode-v1', selectedOpening); } catch { /* localStorage may be unavailable */ }
+        }
         setActiveCharacterId(c.id);
         setMode('peek');
         setPeekLoading(true);
@@ -356,14 +368,15 @@ const DateApp: React.FC = () => {
                 allMsgs: preparedMsgs,
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
+                openingMode: selectedOpening,
             });
             const content = await callLLM(messages, apiConfig.temperature ?? 0.85);
-            setPeekStatus(content);
+            if (requestId === peekRequestRef.current) setPeekStatus(content);
 
         } catch (e: any) {
-            setPeekStatus(`(無法感知狀態: ${e.message})`);
+            if (requestId === peekRequestRef.current) setPeekStatus(`(無法感知狀態: ${e.message})`);
         } finally {
-            setPeekLoading(false);
+            if (requestId === peekRequestRef.current) setPeekLoading(false);
         }
     };
 
@@ -532,17 +545,19 @@ const DateApp: React.FC = () => {
         // 新消息也不帶 isOpening，閱讀模式會從上一次見面的開場開始切片，表現為
         // 「新見面只有立繪模式是新劇情，閱讀模式全是舊劇情」。
         if (lastMsg.metadata?.isOpening === true) {
+            const rerollOpening: DateOpeningMode = lastMsg.metadata?.dateOpeningMode === 'invite' ? 'invite' : 'approach';
             const { messages } = DatePrompts.buildPeekPayload({
                 char,
                 userProfile: dateUserProfile,
                 allMsgs: preparedValidMsgs,
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
+                openingMode: rerollOpening,
             });
             const content = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
             await DB.deleteMessage(lastMsg.id);
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true } });
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}) } });
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 閱讀模式空會話時頂部渲染的開場 & 退出快照裡的 peekStatus 同步成新開場
@@ -1079,9 +1094,23 @@ const DateApp: React.FC = () => {
                 <div className="pt-24 flex flex-col items-center z-10 shrink-0">
                      <div className="text-xs font-mono text-neutral-500 mb-2 tracking-[0.2em] font-medium">{virtualTime.day.toUpperCase()} {formatTime()}</div>
                      <h2 className="text-4xl font-light text-white tracking-[0.3em] uppercase">{char.name}</h2>
+                     <div className="mt-6 grid grid-cols-2 rounded-full border border-neutral-800 bg-neutral-950 p-1 text-[11px] tracking-wider" role="radiogroup" aria-label="開場方式" data-testid="date-opening-mode">
+                         {([['approach', '我走過去'], ['invite', '讓 ta 來找我']] as const).map(([value, label]) => (
+                             <button
+                                 key={value}
+                                 role="radio"
+                                 aria-checked={openingMode === value}
+                                 disabled={peekLoading}
+                                 onClick={() => { if (openingMode !== value) startPeek(char, value); }}
+                                 className={`rounded-full px-4 py-1.5 transition disabled:opacity-50 ${openingMode === value ? 'bg-white text-black font-bold' : 'text-neutral-500 hover:text-neutral-300'}`}
+                             >
+                                 {label}
+                             </button>
+                         ))}
+                     </div>
                 </div>
                 {peekLoading && (
-                    <div className="flex-1 flex flex-col items-center justify-center -mt-20 z-10"><div className="w-12 h-[1px] bg-neutral-800 mb-12"></div><div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white to-transparent animate-pulse mb-6"></div><p className="text-sm font-light text-neutral-500 italic tracking-widest">正在感知...</p></div>
+                    <div className="flex-1 flex flex-col items-center justify-center -mt-20 z-10"><div className="w-12 h-[1px] bg-neutral-800 mb-12"></div><div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white to-transparent animate-pulse mb-6"></div><p className="text-sm font-light text-neutral-500 italic tracking-widest">{openingMode === 'invite' ? `${char.name} 正在過來...` : '正在感知...'}</p></div>
                 )}
                 {!peekLoading && peekStatus && (
                     <div className="flex-1 min-h-0 flex flex-col px-8 pb-10 z-10 animate-fade-in">
@@ -1089,7 +1118,7 @@ const DateApp: React.FC = () => {
                         <div className="shrink-0 flex flex-col items-center gap-6">
                              <div className="w-full flex gap-3">
                                  {/* 修改這裡：調用 handleEnterSession 確保開場白被保存 */}
-                                 <button onClick={handleEnterSession} className="flex-1 h-14 bg-white text-black rounded-full font-bold tracking-[0.1em] text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95 transition-transform hover:bg-neutral-200">走過去 (Approach)</button>
+                                 <button onClick={handleEnterSession} className="flex-1 h-14 bg-white text-black rounded-full font-bold tracking-[0.1em] text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95 transition-transform hover:bg-neutral-200">{openingMode === 'invite' ? '回應 ta (Meet)' : '走過去 (Approach)'}</button>
                                  <button onClick={() => { trackEvent('重新感知一次角色状态'); startPeek(char); }} className="w-14 h-14 bg-neutral-800 text-white rounded-full flex items-center justify-center border border-neutral-700 shadow-lg active:scale-90 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                              </div>
                              <div className="flex flex-col items-center gap-3 text-[10px] text-neutral-600 font-medium tracking-wider"><button onClick={() => { setPreviousMode('peek'); setMode('settings'); trackEvent('打开见面设置面板', { from: 'peek' }); }} className="hover:text-neutral-400 transition-colors">佈置場景 / 設定立繪</button><button onClick={handleBack} className="hover:text-neutral-400 transition-colors">悄悄離開</button></div>

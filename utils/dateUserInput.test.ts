@@ -56,3 +56,23 @@ describe('見面提示詞接上分界', () => {
         expect(last.startsWith('【說出口的】「好。」\n【旁白】但我其實一點也不餓')).toBe(true);
     });
 });
+
+describe('開場方式：讓 ta 來找我', () => {
+    const char = { id: 'c1', name: '小白', systemPrompt: '你是小白', memories: [] } as unknown as CharacterProfile;
+    const user = { name: '阿明' } as UserProfile;
+    const userPrompt = (openingMode?: 'approach' | 'invite') => String(DatePrompts.buildPeekPayload({
+        char, userProfile: user, allMsgs: [], emojis: [], openingMode,
+    }).messages[1].content);
+
+    it('invite：角色主動來見用戶，停在留給用戶回應的地方，不代寫用戶反應', () => {
+        const p = userPrompt('invite');
+        expect(p).toContain('由你主動以合理的方式去見阿明');
+        expect(p).toContain('停在留給阿明回應的地方');
+        expect(p).toContain('都留給阿明自己寫');
+        expect(p).not.toContain('用戶正在悄悄靠近');
+    });
+    it('默認／approach 照舊是用戶悄悄靠近', () => {
+        expect(userPrompt()).toContain('用戶正在悄悄靠近你所在的地點');
+        expect(userPrompt('approach')).toContain('用戶正在悄悄靠近你所在的地點');
+    });
+});

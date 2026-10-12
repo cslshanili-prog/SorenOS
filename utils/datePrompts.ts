@@ -641,6 +641,8 @@ const buildDateHistory = (
     return apiMessages;
 };
 
+export type DateOpeningMode = 'approach' | 'invite';
+
 export const DatePrompts = {
     getTimeGapHint,
 
@@ -655,8 +657,12 @@ export const DatePrompts = {
         allMsgs: Message[];
         emojis: Emoji[];
         useVisionDescriptions?: boolean;
+        /** 開場方式：'approach' = 用戶悄悄靠近（默認）；'invite' = 角色主動來找用戶（2026-10-12，參考上游 c523c752）。 */
+        openingMode?: DateOpeningMode;
     }): { messages: ApiMessage[] } => {
         const { char, userProfile, allMsgs, emojis } = input;
+        const invite = input.openingMode === 'invite';
+        const uname = userProfile?.name || '對方';
         const charTz = resolveCharTimeZone(char);
         const dateTimeOn = isDateTimeAwarenessOn(char);
         const timeStr = getRealTimeStr(charTz);
@@ -700,9 +706,12 @@ export const DatePrompts = {
 ${dateTimeOn ? `當前時間: ${timeStr}\n` : ''}時間上下文: ${gapHint}
 
 ### 任務
-你現在並不在和用戶直接對話。用戶正在悄悄靠近你所在的地點。
+${invite
+    ? `由你主動以合理的方式去見${uname}。根據最近記錄裡的地點、約定、你們的關係和你自己的動機，寫出你怎麼走近、來到${uname}面前；如果你們本來就在一起，就從當下的場景自然靠近、開口，不另外編一次到訪。不知道的地點或安排不要當成已知事實。
+請用**第三人稱**描寫一段話：寫${char.name}自己的到來、動作和必要的開場台詞，停在留給${uname}回應的地方。${uname}怎麼反應、答不答應、說什麼，都留給${uname}自己寫。`
+    : `你現在並不在和用戶直接對話。用戶正在悄悄靠近你所在的地點。
 請用**第三人稱**描寫一段話。
-描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？
+描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？`}
 
 ### 邏輯檢查
 1. **上下文連貫性**: 參考 [最近記錄]（注意消息來源標籤：[聊天]是文字聊天、[約會]是面對面、[通話]是語音通話）。如果有 [TIME SKIP] 且間隔很久，開啟新場景；如果是 [SCENE CONTINUATION]，說明剛剛還在聊天，**必須**自然銜接最近的聊天話題和情緒狀態，不要無視之前的對話內容。
