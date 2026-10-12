@@ -1,7 +1,7 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Microphone, SpeakerHigh, SpeakerSlash, PhoneDisconnect, Translate, Gear, Clock, CaretLeft, CaretRight, Phone, VideoCamera, VideoCameraSlash, Cube, FolderOpen, FileZip, Moon, Sun, Check } from '@phosphor-icons/react';
+import { Microphone, SpeakerHigh, SpeakerSlash, PhoneDisconnect, Translate, Gear, Clock, CaretLeft, CaretRight, Phone, VideoCamera, VideoCameraSlash, Cube, FolderOpen, FileZip, Moon, Sun, Check, ArrowsOutSimple, ArrowsInSimple } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { extractContent, safeFetchJson } from '../utils/safeApi';
 import { minimaxFetch } from '../utils/minimaxEndpoint';
@@ -598,6 +598,16 @@ const CallApp: React.FC = () => {
   const [videoCallLayout, setVideoCallLayout] = useState<VideoCallLayout>(loadVideoCallLayout);
   const [userCameraPreviewSize, setUserCameraPreviewSize] = useState<UserCameraPreviewSize>(loadUserCameraPreviewSize);
   const [videoTranscriptExpanded, setVideoTranscriptExpanded] = useState(false);
+  // 語音通話「放大對話」（2026-10-12）：大頭像收成一行，對話區吃滿整個畫面。記在本機。
+  const [voiceTranscriptEnlarged, setVoiceTranscriptEnlarged] = useState(() => {
+    try { return localStorage.getItem('sully-call-transcript-enlarged-v1') === '1'; }
+    catch { return false; }
+  });
+  const toggleVoiceTranscriptEnlarged = () => setVoiceTranscriptEnlarged(prev => {
+    const next = !prev;
+    try { localStorage.setItem('sully-call-transcript-enlarged-v1', next ? '1' : '0'); } catch { /* localStorage may be unavailable */ }
+    return next;
+  });
   // Keep one audio element alive across role picker / history / active call views.
   // iOS media permission can be element-scoped, so remounting a JSX audio node after
   // the user taps “接通” would throw away the element that was just unlocked.
@@ -831,9 +841,6 @@ const CallApp: React.FC = () => {
     sessionBlobUrlsRef.current.forEach(u => { try { URL.revokeObjectURL(u); } catch { /* ignore */ } });
     sessionBlobUrlsRef.current.clear();
   };
-  const longPressTimerRef = useRef<number | null>(null);
-  const callLongPressTriggeredRef = useRef(false);
-  const callTouchStartPos = useRef({ x: 0, y: 0 });
   const idleNudgeCountRef = useRef(0);
   // VRM 模型的自定義表情名（加載時由畫布回傳），餵給基礎版主模型或高質量導演。
   const vrmExpressionsRef = useRef<string[]>([]);
@@ -1207,7 +1214,7 @@ const CallApp: React.FC = () => {
     return raw;
   }, [selectedChar?.bubbleStyle, customThemes]);
   const callScrollableRef = useRef<HTMLDivElement | null>(null);
-  const draftInputRef = useRef<HTMLInputElement | null>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
   // 輸入面板默認展開，但「進入通話」時不能自動聚焦輸入框——移動端一聚焦就彈
   // 鍵盤、把整個界面往上頂（用戶反饋的「一進通話就飛上去」）。只在用戶後續
   // 手動展開面板時才聚焦，初次掛載跳過。
@@ -1469,6 +1476,13 @@ const CallApp: React.FC = () => {
     if (!inputPanelMountedRef.current) { inputPanelMountedRef.current = true; return; }
     if (showInputPanel) draftInputRef.current?.focus();
   }, [showInputPanel]);
+  // 輸入框跟著內容長高（最多約 6 行，再多就在框裡捲），送出清空後縮回一行。
+  useEffect(() => {
+    const el = draftInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
+  }, [draftInput, showInputPanel]);
   const stopPlayback = () => {
     clearSilentSpeechTimer();
     clearPerformanceCueTimers();
@@ -3420,55 +3434,35 @@ ${sentencePlan}`;
           {recordDetail.transcript.map(item => (
             <div
               key={item.id}
-              onContextMenu={(event) => {
-                if (item.role !== 'assistant') return;
-                event.preventDefault();
-                void openCallVoiceFavorite(item, recordDetail.characterId, recordDetail.characterName);
-              }}
-              onTouchStart={(event) => {
-                if (item.role !== 'assistant') return;
-                callLongPressTriggeredRef.current = false;
-                callTouchStartPos.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
-                longPressTimerRef.current = window.setTimeout(() => {
-                  callLongPressTriggeredRef.current = true;
-                  void openCallVoiceFavorite(item, recordDetail.characterId, recordDetail.characterName);
-                }, 450);
-              }}
-              onTouchMove={(event) => {
-                if (!longPressTimerRef.current) return;
-                const dx = Math.abs(event.touches[0].clientX - callTouchStartPos.current.x);
-                const dy = Math.abs(event.touches[0].clientY - callTouchStartPos.current.y);
-                if (dx > 10 || dy > 10) {
-                  window.clearTimeout(longPressTimerRef.current);
-                  longPressTimerRef.current = null;
-                }
-              }}
-              onTouchEnd={() => {
-                if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-              }}
               className={`rounded-2xl px-3.5 py-2.5 border border-white/10 backdrop-blur-md ${item.role === 'user' ? 'bg-white/[0.07] ml-6' : 'bg-white/[0.03] mr-6'}`}
             >
               <div className="text-[10px] text-white/45">{item.role === 'user' ? '你' : recordDetail.characterName} · {item.time}</div>
               {item.role === 'user' && <CallSnapshotImage imageRef={item.cameraSnapshotRef} expired={item.cameraSnapshotExpired} />}
-              <div className="text-sm mt-1 leading-relaxed">{(() => {
+              <div className="text-sm mt-1 select-text whitespace-pre-wrap leading-relaxed">{(() => {
                 if (item.role !== 'assistant') return item.text;
                 const { display, voiceText } = extractVoiceTag(item.text);
                 const cleanVoice = stripTtsMarkupForDisplay(voiceText, apiConfig);
                 return <>{renderAssistantLine(display, accentColor)}{cleanVoice && <div className="mt-1 text-[10px] text-white/40 italic">{cleanVoice}</div>}</>;
               })()}</div>
               {item.role === 'assistant' && (
-                <button
-                  onClick={() => {
-                    if (callLongPressTriggeredRef.current) { callLongPressTriggeredRef.current = false; return; }
-                    void handlePlayBubbleAudio(item);
-                    trackEvent('播放通话记录里的语音');
-                  }}
-                  disabled={!!generatingAudioBubbleId}
-                  className="mt-2 text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/60 transition hover:bg-white/15 disabled:opacity-40"
-                >
-                  {generatingAudioBubbleId === item.id ? '生成語音…' : item.audioUrl ? '重播語音' : '播放語音'}
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      void handlePlayBubbleAudio(item);
+                      trackEvent('播放通话记录里的语音');
+                    }}
+                    disabled={!!generatingAudioBubbleId}
+                    className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/60 transition hover:bg-white/15 disabled:opacity-40"
+                  >
+                    {generatingAudioBubbleId === item.id ? '生成語音…' : item.audioUrl ? '重播語音' : '播放語音'}
+                  </button>
+                  <button
+                    onClick={() => { void openCallVoiceFavorite(item, recordDetail.characterId, recordDetail.characterName); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/60 transition hover:bg-white/15"
+                  >
+                    收藏語音
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -3578,10 +3572,10 @@ ${sentencePlan}`;
           <span style={{ color: accentColor }}>✦</span>
         </div>
         {/* name block */}
-        <div className={`${callMode === 'video' ? 'pt-3' : 'pt-7'} text-center`}>
-          {callMode !== 'video' && <div className="text-sm" style={{ color: `${accentColor}cc`, textShadow: `0 0 12px ${accentColor}` }}>❀</div>}
-          <h1 className={`font-serif leading-none tracking-wide text-white ${callMode === 'video' ? 'text-[1.55rem]' : 'mt-0.5 text-[2.6rem]'}`} style={{ textShadow: `0 0 26px ${accentColor}aa, 0 0 6px ${accentColor}66` }}>{selectedChar?.name || '未選擇'}</h1>
-          {callMode === 'video' ? (
+        <div className={`${callMode === 'video' || voiceTranscriptEnlarged ? 'pt-3' : 'pt-7'} text-center`}>
+          {callMode !== 'video' && !voiceTranscriptEnlarged && <div className="text-sm" style={{ color: `${accentColor}cc`, textShadow: `0 0 12px ${accentColor}` }}>❀</div>}
+          <h1 className={`font-serif leading-none tracking-wide text-white ${callMode === 'video' || voiceTranscriptEnlarged ? 'text-[1.55rem]' : 'mt-0.5 text-[2.6rem]'}`} style={{ textShadow: `0 0 26px ${accentColor}aa, 0 0 6px ${accentColor}66` }}>{selectedChar?.name || '未選擇'}</h1>
+          {callMode === 'video' || voiceTranscriptEnlarged ? (
             <div className="mt-1 flex items-center justify-center gap-2 text-[8px] tracking-[0.18em] text-white/48">
               <span>{connSub}</span><span style={{ color: accentColor }}>◆</span><span className="tabular-nums text-[13px] font-light" style={{ color: accentColor }}>{formatDuration(elapsedSeconds)}</span>
             </div>
@@ -3703,10 +3697,12 @@ ${sentencePlan}`;
           )}
         </div>
       ) : (
-      <div className="sully-call-hero pt-3 pb-1 flex flex-col items-center justify-center">
+      <div className={voiceTranscriptEnlarged
+        ? 'sully-call-hero px-6 pt-1 pb-2 flex items-center gap-3'
+        : 'sully-call-hero pt-3 pb-1 flex flex-col items-center justify-center'}>
         <button
           type="button"
-          className="relative h-40 w-40 touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className={`relative ${voiceTranscriptEnlarged ? 'h-11 w-11 shrink-0' : 'h-40 w-40'} touch-none select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white/70`}
           aria-label={`戳戳${selectedChar?.name || '對方'}`}
           onPointerDown={handleVoiceAvatarPointerDown}
           onPointerMove={handleVoiceAvatarPointerMove}
@@ -3727,7 +3723,7 @@ ${sentencePlan}`;
             <div className={`absolute inset-0 rounded-full border ${displayCallState === 'speaking' ? 'animate-ping' : 'opacity-40'}`} style={{ borderColor: `${accentColor}66` }} />
             {selectedChar?.avatar
               ? <TokenImg value={selectedChar.avatar} alt={selectedChar.name} draggable={false} className="relative z-10 h-full w-full rounded-full object-cover" style={{ boxShadow: `0 0 30px ${accentColor}55` }} />
-              : <div className="relative z-10 flex h-full w-full items-center justify-center rounded-full text-4xl font-serif" style={{ backgroundColor: `${accentColor}55` }}>{selectedChar?.name?.[0] || '角'}</div>}
+              : <div className={`relative z-10 flex h-full w-full items-center justify-center rounded-full ${voiceTranscriptEnlarged ? 'text-base' : 'text-4xl'} font-serif`} style={{ backgroundColor: `${accentColor}55` }}>{selectedChar?.name?.[0] || '角'}</div>}
             <AvatarTouchFeedback
               characterName={selectedChar?.name || '對方'}
               accentColor={accentColor}
@@ -3737,8 +3733,8 @@ ${sentencePlan}`;
           </div>
         </button>
         {/* analyzing status + waveform */}
-        <div className="mt-5 flex flex-col items-center gap-2">
-          <div className="text-center leading-tight">
+        <div className={voiceTranscriptEnlarged ? 'flex min-w-0 flex-1 items-center justify-between gap-3' : 'mt-5 flex flex-col items-center gap-2'}>
+          <div className={voiceTranscriptEnlarged ? 'min-w-0 leading-tight' : 'text-center leading-tight'}>
             <div className="text-sm text-white/85">{analyzeLabel.cn}{waveActive ? '…' : ''}</div>
             <div className="text-[9px] tracking-[0.3em] text-white/35 mt-0.5">{analyzeLabel.en}</div>
           </div>
@@ -3784,6 +3780,20 @@ ${sentencePlan}`;
             <button onClick={() => setVideoTranscriptExpanded(false)} className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[9px] text-white/48 backdrop-blur">收成字幕</button>
           </div>
         )}
+        {callMode === 'voice' && (
+          <div className="sticky top-0 z-10 -mx-1 -mb-2 flex justify-end pointer-events-none">
+            <button
+              type="button"
+              onClick={toggleVoiceTranscriptEnlarged}
+              aria-pressed={voiceTranscriptEnlarged}
+              data-testid="call-transcript-enlarge"
+              className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[9px] text-white/55 backdrop-blur active:scale-95"
+            >
+              {voiceTranscriptEnlarged ? <ArrowsInSimple size={11} weight="bold" /> : <ArrowsOutSimple size={11} weight="bold" />}
+              {voiceTranscriptEnlarged ? '縮小對話' : '放大對話'}
+            </button>
+          </div>
+        )}
         {!bubbles.length && (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <p className="text-base text-white/85">電話已接通</p>
@@ -3801,37 +3811,12 @@ ${sentencePlan}`;
           const fromBottom = bubbles.length - 1 - index;
           const isLatest = fromBottom === 0;
           const line = bubble.text.trim();
-          const opacity = Math.max(0.35, 1 - fromBottom * 0.16);
-          const sizeClass = isLatest ? 'text-[15px]' : fromBottom === 1 ? 'text-sm' : 'text-xs';
+          // 放大對話時每則一樣清楚、一樣大，方便往回讀和圈選；平常保留越舊越淡的字幕感。
+          const opacity = voiceTranscriptEnlarged && callMode === 'voice' ? 1 : Math.max(0.35, 1 - fromBottom * 0.16);
+          const sizeClass = voiceTranscriptEnlarged && callMode === 'voice' ? 'text-[15px]' : isLatest ? 'text-[15px]' : fromBottom === 1 ? 'text-sm' : 'text-xs';
           return (
           <div
             key={bubble.id}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              if (bubble.role === 'assistant') void openCallVoiceFavorite(bubble);
-              else startEditBubble(bubble);
-            }}
-            onTouchStart={(e) => {
-              callLongPressTriggeredRef.current = false;
-              callTouchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-              longPressTimerRef.current = window.setTimeout(() => {
-                callLongPressTriggeredRef.current = true;
-                if (bubble.role === 'assistant') void openCallVoiceFavorite(bubble);
-                else startEditBubble(bubble);
-              }, 450);
-            }}
-            onTouchMove={(e) => {
-              if (!longPressTimerRef.current) return;
-              const dx = Math.abs(e.touches[0].clientX - callTouchStartPos.current.x);
-              const dy = Math.abs(e.touches[0].clientY - callTouchStartPos.current.y);
-              if (dx > 10 || dy > 10) {
-                window.clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-              }
-            }}
-            onTouchEnd={() => {
-              if (longPressTimerRef.current) { window.clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-            }}
             style={{ opacity }}
             className={`px-1 py-1 ${bubble.role === 'user' ? 'text-right' : ''}`}
           >
@@ -3839,9 +3824,12 @@ ${sentencePlan}`;
               {bubble.role !== 'user' && <span className="text-[8px]" style={{ color: accentColor }}>◍</span>}
               <span style={bubble.role !== 'user' ? { color: `${accentColor}dd` } : undefined}>{bubble.role === 'user' ? '你' : selectedChar?.name}</span>
               <span>· {bubble.time}</span>
+              {bubble.role === 'user' && (
+                <button type="button" onClick={() => startEditBubble(bubble)} className="ml-1 rounded-full px-1.5 text-white/40 underline-offset-2 hover:text-white/70 active:scale-95">編輯</button>
+              )}
             </div>
             {bubble.role === 'user' && <CallSnapshotImage imageRef={bubble.cameraSnapshotRef} expired={bubble.cameraSnapshotExpired} compact />}
-            <div className={`${sizeClass} whitespace-pre-wrap leading-relaxed ${bubble.role === 'user' ? 'inline-block text-left text-white/90 bg-white/[0.06] border border-white/10 rounded-2xl rounded-tr-sm px-3 py-1.5' : 'text-white/95'}`}>
+            <div className={`${sizeClass} select-text whitespace-pre-wrap leading-relaxed ${bubble.role === 'user' ? 'inline-block text-left text-white/90 bg-white/[0.06] border border-white/10 rounded-2xl rounded-tr-sm px-3 py-1.5' : 'text-white/95'}`}>
               {bubble.role === 'assistant' ? (() => {
                 const { display, voiceText } = extractVoiceTag(line || bubble.text);
                 const cleanVoice = stripTtsMarkupForDisplay(voiceText, apiConfig);
@@ -3860,16 +3848,14 @@ ${sentencePlan}`;
             {bubble.role === 'assistant' && (
               <div className="mt-2 flex gap-2 flex-wrap">
                 <button
-                  onClick={() => {
-                    if (callLongPressTriggeredRef.current) { callLongPressTriggeredRef.current = false; return; }
-                    void handlePlayBubbleAudio(bubble);
-                  }}
+                  onClick={() => { void handlePlayBubbleAudio(bubble); }}
                   disabled={!!generatingAudioBubbleId}
                   className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15 disabled:opacity-40"
                 >
                   {generatingAudioBubbleId === bubble.id ? '生成語音…' : bubble.audioUrl ? '重播語音' : '播放語音'}
                 </button>
                 {bubble.audioUrl && <button onClick={() => handleDownloadCallAudio(bubble.audioUrl, bubble.timestamp)} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15">下載</button>}
+                <button onClick={() => { void openCallVoiceFavorite(bubble); }} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15">收藏語音</button>
                 {isLatest && <button onClick={() => handleRerollAssistant(bubble)} disabled={!!rerollingBubbleId} className="text-xs px-2.5 py-1 rounded-full bg-white/8 border border-white/15 text-white/70 transition hover:bg-white/15 disabled:opacity-40">{rerollingBubbleId === bubble.id ? '換一種說法…' : '換個說法'}</button>}
               </div>
             )}
@@ -3880,7 +3866,7 @@ ${sentencePlan}`;
       )}
       {showInputPanel && (
         <div className={`shrink-0 ${callMode === 'video' ? 'px-3 pb-1.5' : 'px-4 pb-2'}`}>
-          <div className={`${callMode === 'video' ? 'rounded-[1.15rem] p-1.5' : 'rounded-2xl p-2'} border border-white/12 bg-black/30 backdrop-blur-md flex gap-2 items-center`} style={{ boxShadow: `inset 0 0 20px ${accentColor}1f` }}>
+          <div className={`${callMode === 'video' ? 'rounded-[1.15rem] p-1.5' : 'rounded-2xl p-2'} border border-white/12 bg-black/30 backdrop-blur-md flex gap-2 items-end`} style={{ boxShadow: `inset 0 0 20px ${accentColor}1f` }}>
             {sttSupported && (
               <button
                 onClick={toggleStt}
@@ -3892,11 +3878,17 @@ ${sentencePlan}`;
                 <Microphone size={18} weight="fill" className={isListening ? 'text-white animate-pulse' : 'text-white/70'} />
               </button>
             )}
-            <input
+            <textarea
               ref={draftInputRef}
+              rows={1}
               value={draftInput}
               onChange={(e) => setDraftInput(e.target.value)}
-              className="flex-1 min-w-0 bg-transparent px-2 text-sm outline-none placeholder:text-white/35"
+              onKeyDown={(e) => {
+                // Enter 照常換行（手機鍵盤習慣）；桌面上 Ctrl/⌘ + Enter 直接送出
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !sendingBusy) { e.preventDefault(); void handleTurn(); }
+              }}
+              data-testid="call-draft-input"
+              className="flex-1 min-w-0 resize-none self-center bg-transparent px-2 py-1.5 text-sm leading-relaxed outline-none no-scrollbar overflow-y-auto placeholder:text-white/35"
               placeholder={isListening ? '在聽你說……' : sendingBusy ? `${selectedChar?.name || '對方'}正在想……` : pendingCallRetryText ? '上次回覆中斷，可直接重試' : `想對${selectedChar?.name || '對方'}說什麼？`}
             />
             <button onClick={handleTurn} disabled={sendingBusy} className="keep-white shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition active:scale-95" style={{ backgroundColor: accentColor, boxShadow: `0 0 16px ${accentColor}66` }}>{sendingBusy ? '…' : '發送'}</button>
