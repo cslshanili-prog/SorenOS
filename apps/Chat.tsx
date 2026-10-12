@@ -1787,7 +1787,9 @@ const Chat: React.FC = () => {
         });
         markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
         if (action === 'accepted') {
-            openDateWithChar(char.id);
+            // 赴約：把約好的地點和要做的事帶進見面開場（utils/datePrompts.ts buildPeekPayload 的 meetup）
+            const invite = msg.metadata?.dateInvite;
+            openDateWithChar(char.id, { place: invite?.place || '', plan: invite?.plan || '' });
             return;
         }
         await reloadMessages(visibleCountRef.current);

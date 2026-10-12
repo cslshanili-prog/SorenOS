@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
-import { DatePrompts, type DateOpeningMode, ApiMessage } from '../utils/datePrompts';
+import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
 import type { PipelineResult } from '../utils/memoryPalace/pipeline';
 import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPalace';
@@ -45,8 +45,14 @@ import {
     type DateHistoryView,
 } from '../utils/dateHistory';
 
+/** 上次自己選的開場方式（赴約那次臨時用的「我走過去」不算）。 */
+const loadRememberedOpening = (): DateOpeningMode => {
+    try { return localStorage.getItem('soren-date-opening-mode-v1') === 'invite' ? 'invite' : 'approach'; }
+    catch { return 'approach'; }
+};
+
 const DateApp: React.FC = () => {
-    const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, dateAutoStartMeetup, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
 
     // 是否由聊天「見面」按鈕進入：為真時，退出見面流程回到聊天而非見面選擇頁/桌面。
     // 用本地 state（而非 context）承載：DateApp 切走即卸載，標記隨之消失，不會洩漏到
@@ -133,12 +139,11 @@ const DateApp: React.FC = () => {
     const [dateHistoryReachedEnd, setDateHistoryReachedEnd] = useState(false);
     const [hasSavedOpening, setHasSavedOpening] = useState(false);
     // 開場方式：我走過去／讓 ta 來找我（2026-10-12）。記住上次選的。
-    const [openingMode, setOpeningMode] = useState<DateOpeningMode>(() => {
-        try { return localStorage.getItem('soren-date-opening-mode-v1') === 'invite' ? 'invite' : 'approach'; }
-        catch { return 'approach'; }
-    });
+    const [openingMode, setOpeningMode] = useState<DateOpeningMode>(loadRememberedOpening);
     // 切換開場方式時舊的感知請求晚回來不能蓋掉新的
     const peekRequestRef = useRef(0);
+    // 從角色的見面邀請卡赴約時帶過來的約定；這一次見面的開場都照它寫，換角色就清掉
+    const [peekMeetup, setPeekMeetup] = useState<DateMeetup | null>(null);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -261,11 +266,13 @@ const DateApp: React.FC = () => {
     };
 
     // --- Resume / Start Logic ---
-    const handleCharClick = (c: CharacterProfile) => {
+    // 赴約進來（帶 meetup）時這一次固定「我走過去」：角色在約好的地方、你赴約。只用這一次，不改你記住的偏好。
+    const handleCharClick = (c: CharacterProfile, meetup: DateMeetup | null = null) => {
+        setPeekMeetup(meetup);
         if (c.savedDateState) {
             setPendingSessionChar(c);
         } else {
-            startPeek(c);
+            startPeek(c, meetup ? 'approach' : loadRememberedOpening(), meetup, !meetup);
         }
     };
 
@@ -274,10 +281,11 @@ const DateApp: React.FC = () => {
     useEffect(() => {
         if (!dateAutoStartCharId) return;
         const target = characters.find(c => c.id === dateAutoStartCharId);
+        const meetup = dateAutoStartMeetup;
         consumeDateAutoStart();
         setCameFromChat(true);
         setMeetSurface('companion');
-        if (target) handleCharClick(target);
+        if (target) handleCharClick(target, meetup);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dateAutoStartCharId]);
 
@@ -307,7 +315,7 @@ const DateApp: React.FC = () => {
         updateCharacter(pendingSessionChar.id, { savedDateState: undefined });
         trackEvent('选择见面存档处理方式', { choice: 'new' });
         trackEvent('见面存档选重新开始');
-        startPeek(pendingSessionChar);
+        startPeek(pendingSessionChar, peekMeetup ? 'approach' : loadRememberedOpening(), peekMeetup, !peekMeetup);
         setPendingSessionChar(null);
     };
 
@@ -325,7 +333,7 @@ const DateApp: React.FC = () => {
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
-                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}) } // Added Flag
+                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}) } // Added Flag
                 });
                 setHasSavedOpening(true);
             } catch (e) {
@@ -343,11 +351,18 @@ const DateApp: React.FC = () => {
     };
 
     // --- Peek (Generation) Logic ---
-    const startPeek = async (c: CharacterProfile, selectedOpening: DateOpeningMode = openingMode) => {
+    const startPeek = async (
+        c: CharacterProfile,
+        selectedOpening: DateOpeningMode = openingMode,
+        meetup: DateMeetup | null = peekMeetup,
+        rememberOpening = true,
+    ) => {
         const requestId = ++peekRequestRef.current;
         if (selectedOpening !== openingMode) {
             setOpeningMode(selectedOpening);
-            try { localStorage.setItem('soren-date-opening-mode-v1', selectedOpening); } catch { /* localStorage may be unavailable */ }
+            if (rememberOpening) {
+                try { localStorage.setItem('soren-date-opening-mode-v1', selectedOpening); } catch { /* localStorage may be unavailable */ }
+            }
         }
         setActiveCharacterId(c.id);
         setMode('peek');
@@ -369,6 +384,7 @@ const DateApp: React.FC = () => {
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
                 openingMode: selectedOpening,
+                meetup: meetup || undefined,
             });
             const content = await callLLM(messages, apiConfig.temperature ?? 0.85);
             if (requestId === peekRequestRef.current) setPeekStatus(content);
@@ -553,11 +569,12 @@ const DateApp: React.FC = () => {
                 emojis,
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
                 openingMode: rerollOpening,
+                meetup: lastMsg.metadata?.dateMeetup,
             });
             const content = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
             await DB.deleteMessage(lastMsg.id);
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}) } });
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}) } });
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 閱讀模式空會話時頂部渲染的開場 & 退出快照裡的 peekStatus 同步成新開場
