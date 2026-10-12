@@ -18,6 +18,7 @@
  * prompt（peek 舊版手搓 mapper 的問題即在此，已統一修掉）。
  */
 
+import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig, DateObservation, DateObserveConfig, DateObserveCustomField } from '../types';
 import { buildBlockedMeetingNote } from './chatBlock';
 import { ContextBuilder } from './context';
@@ -194,19 +195,19 @@ const buildPovBlock = (config: DateStyleConfig | undefined, charName: string, us
         case 'third-name':
             return `### 敘事人稱（必須嚴格遵守）
 敘述行使用**第三人稱**：稱呼你自己為「${charName}」，稱呼對方為「${uname}」。敘述裡不要出現"我""你"。
-示例：${charName}看向${uname}，伸手替${uname}攏了攏被風吹亂的頭髮。
+示例：${charName}看向${uname}，把手邊的書合上。
 （台詞引號內不受限，正常說話即可。上方風格示例中的人稱僅為格式示意，一律以本節為準。）
 `;
         case 'third-you':
             return `### 敘事人稱（必須嚴格遵守）
 敘述行中稱呼你自己為「${charName}」（第三人稱），稱呼對方為"你"。敘述裡不要用"我"指代自己。
-示例：${charName}看向你，伸手替你攏了攏被風吹亂的頭髮。
+示例：${charName}看向你，把手邊的書合上。
 （台詞引號內不受限，正常說話即可。上方風格示例中的人稱僅為格式示意，一律以本節為準。）
 `;
         case 'first-you':
             return `### 敘事人稱（必須嚴格遵守）
 敘述行使用**第一人稱**：稱呼你自己為"我"，稱呼對方為"你"。不要在敘述裡用自己的名字指代自己。
-示例：我看向你，伸手替你攏了攏被風吹亂的頭髮。
+示例：我看向你，把手邊的書合上。
 （上方風格示例中的人稱僅為格式示意，一律以本節為準。）
 `;
         default:
@@ -600,7 +601,8 @@ ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUI
 
 ${preset.block}
 
-${digBlock}${povBlock}${extraBlock}### 場景上下文
+${digBlock}${povBlock}${extraBlock}${buildDateInputPerceptionRule(userName || '對方')}
+### 場景上下文
 ${timeLine}- **Location**: 你們現在**面對面**。
 - **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。
 ${buildBlockedMeetingNote(char, userName)}${observeBlock}`;
@@ -621,7 +623,12 @@ const buildDateHistory = (
 ): ApiMessage[] => {
     const selected = selectCharacterContextMessages(allMsgs, char);
     const pendingId = allMsgs[allMsgs.length - 1]?.id;
-    const historyForBuild = selected.filter(message => message.id !== pendingId);
+    // 見面裡用戶以前說的話也按引號標好「說出口的／旁白」（utils/dateUserInput.ts）；私聊、通話的不動
+    const historyForBuild = selected
+        .filter(message => message.id !== pendingId)
+        .map(message => (message.role === 'user' && message.type === 'text' && message.metadata?.source === 'date' && typeof message.content === 'string'
+            ? { ...message, content: formatDateUserInput(message.content) }
+            : message));
     const { apiMessages } = ChatPrompts.buildMessageHistory(
         historyForBuild,
         Math.max(1, historyForBuild.length),
@@ -748,12 +755,13 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
             : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。依然嚴格遵守 VN 格式：每一行以 [emotion] 開頭並逐行切換情緒，敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`;
 
         // 固定台詞：對方這句踩中了就這一輪原樣說出，跟每輪的註記放在一起、緊貼開口（見 utils/fixedLines.ts）
-        const fixedLineNote = buildTriggeredLinesPrompt(char, userText, userProfile?.name || '用戶');
+        // 只拿說出口的部分去比對：旁白裡寫到的字不算「對方說了」
+        const fixedLineNote = buildTriggeredLinesPrompt(char, spokenPartOfDateInput(userText), userProfile?.name || '用戶');
         return {
             messages: [
                 { role: 'system', content: systemPrompt },
                 ...historyMsgs,
-                { role: 'user', content: `${userText}\n\n${note}${fixedLineNote ? `\n${fixedLineNote}` : ''}` },
+                { role: 'user', content: `${formatDateUserInput(userText)}\n\n${note}${fixedLineNote ? `\n${fixedLineNote}` : ''}` },
             ],
         };
     },
