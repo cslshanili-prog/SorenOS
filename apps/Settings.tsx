@@ -38,6 +38,7 @@ import { syncAmsgLlmCredentials, syncAmsgToolConfig, syncAmsgToolConfigAndPrompt
 import { ActiveMsgClient } from '../utils/activeMsgClient';
 import VersionInfo from '../components/settings/VersionInfo';
 import { isPushVapidReady } from '../utils/pushVapid';
+import ErrorLogModal from '../components/settings/ErrorLogModal';
 import ApiCallLogModal from '../components/settings/ApiCallLogModal';
 import StorageUsagePanel from '../components/settings/StorageUsagePanel';
 import McpConnectionConsole from '../components/settings/McpConnectionConsole';
@@ -496,6 +497,7 @@ const Settings: React.FC = () => {
       characters, groups, userProfile,
       cloudBackupConfig, updateCloudBackupConfig,
       cloudBackupToWebDAV, cloudRestoreFromWebDAV, listCloudBackups,
+      systemLogs,
   } = useOS();
   
   const [localKey, setLocalKey] = useState(apiConfig.apiKey);
@@ -569,6 +571,7 @@ const Settings: React.FC = () => {
   const [resetCloudFailure, setResetCloudFailure] = useState<{ workerUrl: string; detail: string } | null>(null);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [showApiCallLog, setShowApiCallLog] = useState(false);
+  const [showErrorLog, setShowErrorLog] = useState(false);
   const [showRealtimeModal, setShowRealtimeModal] = useState(false);
   const [showMcpModal, setShowMcpModal] = useState(false);
   const [showMcpHelp, setShowMcpHelp] = useState(false);
@@ -2771,6 +2774,26 @@ const Settings: React.FC = () => {
             </svg>
         </button>
 
+        {/* 錯誤記錄入口 — 頂端紅膠囊的歷史，本機留 7 天（utils/systemLogStore.ts） */}
+        <button
+            type="button"
+            onClick={() => setShowErrorLog(true)}
+            className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+        >
+            <div className="p-2 bg-rose-100/60 rounded-xl text-rose-500 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-slate-600 tracking-wider">錯誤記錄</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">頂端紅色提示的歷史 · 本機保留 7 天{(systemLogs?.length ?? 0) > 0 ? ` · ${systemLogs.length} 筆` : ''}</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-300 shrink-0">
+                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+            </svg>
+        </button>
+
         {/* 其他 API 區域 — 非 LLM 類（語音、寫歌等），不會跟隨預設切換 */}
         <SettingsSection
             title="其他 API"
@@ -4045,6 +4068,8 @@ const Settings: React.FC = () => {
 
       {/* API 調用記錄頁面 */}
       <ApiCallLogModal isOpen={showApiCallLog} onClose={() => setShowApiCallLog(false)} />
+      {/* 錯誤記錄（頂端紅膠囊的歷史） */}
+      <ErrorLogModal isOpen={showErrorLog} onClose={() => setShowErrorLog(false)} />
 
       {/* Preset Name Modal */}
       <Modal isOpen={showPresetModal} title="新建預設" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">新建</button>}>
