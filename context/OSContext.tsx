@@ -47,6 +47,7 @@ import { isAnalyticsRequestUrl, trackEvent, shouldReportSnapshot, trackDataScale
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import { collectAppearance, collectCharSettings, collectDataScale, collectFeatureFlagsAsync, collectSARFeatureFlags } from '../utils/analyticsSnapshot';
 import { normalizeApiConfig, normalizeApiPreset } from '../utils/apiConfigNormalize';
+import { appendSystemLog, loadSystemLogs, markAllSystemLogsRead, saveSystemLogs } from '../utils/systemLogStore';
 import type { DateMeetup } from '../utils/datePrompts';
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from '../utils/chatRelationship';
 import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, endChatBlock, extractBlockUser, isChatBlocked, isReconsiderDue, postponeReconsider, startChatBlock, type ChatBlockChangeDetail } from '../utils/chatBlock';
@@ -487,7 +488,10 @@ interface OSContextType {
 
   // Logs
   systemLogs: SystemLog[];
-  clearLogs: () => void;
+  /** 紅膠囊「標為已讀」：收起提示、不刪記錄 */
+  markLogsRead: () => void;
+  /** 設置 → 錯誤記錄裡的「全部刪除」 */
+  deleteAllLogs: () => void;
 
   // Navigation Logic
   registerBackHandler: (handler: () => boolean) => () => void; // Returns unregister function
@@ -1036,7 +1040,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [proactiveComposingChars, setProactiveComposingChars] = useState<Record<string, true>>({});
   
   // LOGS
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  // 存在本機、留 7 天（utils/systemLogStore.ts）；上次打開 App 留下的當已讀，不會一開機就跳紅膠囊
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>(() => loadSystemLogs());
   
   // Sys Operation Status
   const [sysOperation, setSysOperation] = useState<{ status: 'idle' | 'processing', message: string, progress: number }>({ status: 'idle', message: '', progress: 0 });
@@ -1356,23 +1361,23 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                   reqSummary = `\n--- Request ---\nmodel: ${j.model}\ntemperature: ${j.temperature} | top_p: ${j.top_p} | reasoning_effort: ${j.reasoning_effort} | thinking: ${j.thinking ? 'on' : 'off'}\ntools(${toolNames.length}): ${toolNames.join(', ')}\nmessages(${(j.messages || []).length}) roles: ${roles}`;
                               }
                           } catch { /* 解析不了就算了 */ }
-                          setSystemLogs(prev => [{
+                          setSystemLogs(prev => appendSystemLog(prev, {
                               id: `log-${Date.now()}`,
                               timestamp: Date.now(),
                               type: 'network',
                               source: 'API Request',
                               message: `HTTP ${response.status} Error`,
                               detail: `URL: ${urlStr}\nResponse: ${text.substring(0, 500)}${reqSummary}`
-                          }, ...prev.slice(0, 49)]); // Keep last 50
+                          }));
                       } catch (e) {
-                          setSystemLogs(prev => [{
+                          setSystemLogs(prev => appendSystemLog(prev, {
                               id: `log-${Date.now()}`,
                               timestamp: Date.now(),
                               type: 'network',
                               source: 'API Request',
                               message: `HTTP ${response.status} (Unreadable Body)`,
                               detail: `URL: ${urlStr}`
-                          }, ...prev.slice(0, 49)]);
+                          }));
                       }
                   }
               }
@@ -1401,14 +1406,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       requestPurpose: requestMeta?.purpose,
                       recentSuccessfulSameRequest: recentSuccess,
                   }, { startedAt: fetchStartedAtPerf });
-                  setSystemLogs(prev => [{
+                  setSystemLogs(prev => appendSystemLog(prev, {
                       id: logId,
                       timestamp: Date.now(),
                       type: 'network',
                       source: 'Network',
                       message: err.message || 'Fetch Failed',
                       detail: baseDetail,
-                  }, ...prev.slice(0, 49)]);
+                  }));
 
                   // 複檢走 originalFetch，否則它自己失敗會再寫一條日誌滾雪球。
                   if (shouldProbeReachability(classifyFetchFailure({ url: urlStr, error: err }))) {
@@ -1461,18 +1466,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               .filter(Boolean)
               .join('\n');
           if (msg.includes('Warning:')) return;
-          setSystemLogs(prev => [{
+          setSystemLogs(prev => appendSystemLog(prev, {
               id: `log-${Date.now()}-${Math.random()}`,
               timestamp: Date.now(),
               type: 'error',
               source: 'Application',
               message: msg.substring(0, 100),
               detail: stacks || msg
-          }, ...prev.slice(0, 49)]);
+          }));
       };
   }, []);
 
-  const clearLogs = () => setSystemLogs([]);
+  // 紅膠囊的「標為已讀」：只收起提示，記錄留著；真要刪到設置 → 錯誤記錄
+  const markLogsRead = () => setSystemLogs(prev => markAllSystemLogsRead(prev));
+  const deleteAllLogs = () => setSystemLogs([]);
+  useEffect(() => {
+      const timer = window.setTimeout(() => saveSystemLogs(systemLogs), 800);
+      return () => window.clearTimeout(timer);
+  }, [systemLogs]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -5963,7 +5974,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     resetSystem,
     sysOperation,
     systemLogs,
-    clearLogs,
+    markLogsRead,
+    deleteAllLogs,
     registerBackHandler,
     handleBack,
     suspendedCall,

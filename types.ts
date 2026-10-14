@@ -50,6 +50,12 @@ export interface SystemLog {
     source: string;
     message: string;
     detail?: string;
+    /** 同一個錯誤短時間內重複發生合併成一筆時的次數（utils/systemLogStore.ts）；沒有就是 1 次 */
+    count?: number;
+    /** 合併時第一次發生的時間；timestamp 是最近一次 */
+    firstAt?: number;
+    /** 看過了（標為已讀）：紅膠囊只算沒讀過的，記錄留著到設置裡翻 */
+    read?: boolean;
 }
 
 export interface AppConfig {

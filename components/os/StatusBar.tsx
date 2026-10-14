@@ -1,9 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import Modal from './Modal';
 import { resolveStatusBarMode } from '../../utils/iosStandalone';
 import { NETWORK_SELF_CHECK_STEPS } from '../../utils/networkFailureDiagnosis';
+import { unreadSystemLogs } from '../../utils/systemLogStore';
+import SystemLogList from './SystemLogList';
 
 // TypeScript definition for Web Battery API
 interface BatteryManager extends EventTarget {
@@ -18,7 +20,7 @@ interface NavigatorWithBattery extends Navigator {
 }
 
 const StatusBar: React.FC = () => {
-  const { virtualTime, theme, systemLogs, clearLogs } = useOS();
+  const { virtualTime, theme, systemLogs: allSystemLogs, markLogsRead } = useOS();
   const [batteryLevel, setBatteryLevel] = useState<number>(100);
   const [isCharging, setIsCharging] = useState<boolean>(false);
   const [showLogModal, setShowLogModal] = useState(false);
@@ -60,6 +62,8 @@ const StatusBar: React.FC = () => {
     initBattery();
   }, []);
 
+  // 紅膠囊只看還沒讀過的；標為已讀後記錄留著，到設置 → 錯誤記錄翻（utils/systemLogStore.ts）
+  const systemLogs = useMemo(() => unreadSystemLogs(allSystemLogs), [allSystemLogs]);
   const hasError = systemLogs.length > 0;
   const hasIndexedDbBackingStoreError = systemLogs.some(log => {
     const text = `${log.message} ${log.detail || ''}`.toLowerCase();
@@ -141,7 +145,7 @@ const StatusBar: React.FC = () => {
           footer={
               <div className="flex gap-2 w-full">
                   <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(systemLogs, null, 2)); }} className="flex-1 py-3 bg-slate-100 font-bold rounded-xl text-slate-600">複製 JSON</button>
-                  <button onClick={clearLogs} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-200">清空日誌</button>
+                  <button onClick={() => { markLogsRead(); setShowLogModal(false); }} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-200">標為已讀</button>
               </div>
           }
       >
@@ -160,25 +164,8 @@ const StatusBar: React.FC = () => {
                   <div className="mt-2 opacity-80">日誌裡的「初判」和「連通性複檢」兩行已經替你縮小了範圍，先看那兩行再動手。</div>
               </details>
           )}
-          <div className="h-64 bg-slate-900 rounded-xl p-3 overflow-y-auto font-mono text-[10px] space-y-2 no-scrollbar shadow-inner">
-              {systemLogs.length === 0 ? (
-                  <div className="text-slate-500 text-center mt-20">系統運行正常，暫無錯誤日誌。</div>
-              ) : (
-                  systemLogs.map(log => (
-                      <div key={log.id} className="border-b border-white/10 pb-2 mb-2 last:border-0 last:mb-0 last:pb-0">
-                          <div className="flex justify-between items-start text-white/50 mb-1">
-                              <span>[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                              <span className={`uppercase font-bold ${log.type === 'error' ? 'text-red-400' : 'text-orange-400'}`}>{log.type}</span>
-                          </div>
-                          <div className="text-white font-bold mb-1 break-words">{log.message}</div>
-                          {log.detail && (
-                              <pre className="text-slate-400 whitespace-pre-wrap break-all bg-black/30 p-2 rounded">{log.detail}</pre>
-                          )}
-                          <div className="text-white/30 text-right mt-1">Src: {log.source}</div>
-                      </div>
-                  ))
-              )}
-          </div>
+          <SystemLogList logs={systemLogs} emptyText="系統運行正常，暫無錯誤日誌。" />
+          <p className="mt-2 text-[10px] text-slate-400 leading-relaxed">標為已讀只是收起紅色提示，記錄會在本機留 7 天，到「設置 → 錯誤記錄」可以往回翻。</p>
       </Modal>
     </>
   );
