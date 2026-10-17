@@ -1270,8 +1270,7 @@ const WorldView: React.FC<{
         setRerollTarget(null); setRerollDir('');
     };
 
-    // 手動把某角色最新一拍補發到「和 ta 的聊天」（保底）：重 roll 後不會自動注入 world_card，
-    // 刪掉舊卡片想換上新觀測、或當時漏注入時，點這裡補一張進上下文與記憶。
+    // 手動補發漏掉的觀測卡片；重演會自動原地同步已有卡片。
     const injectBeatToChat = async (charId: string) => {
         if (!latest) { addToast('還沒有可發送的觀測', 'error'); return; }
         const beat = latest.beats.find(b => b.charId === charId);
@@ -1466,7 +1465,7 @@ const WorldView: React.FC<{
                     <div className="w-full max-w-[320px] rounded-2xl bg-[#f7f3ea] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="px-4 pt-4 pb-3">
                             <div className="text-[14px] font-black text-stone-800 flex items-center gap-1.5"><Sparkle size={15} weight="fill" className="text-violet-500" />重演 {rerollTarget.charName} 這一段</div>
-                            <p className="text-[10.5px] text-stone-400 mt-1.5 leading-relaxed">會重新生成 ta 這一輪的演繹。可以給個大致方向（選填），留空就完全重寫。</p>
+                            <p className="text-[10.5px] text-stone-400 mt-1.5 leading-relaxed">會替換 ta 這一輪的劇情、發出的私信與群消息、伏筆及關係變化，並同步聊天裡的觀測卡片。其他人的這一段保持原樣。可以給個重寫方向（選填）。</p>
                             <textarea value={rerollDir} onChange={e => setRerollDir(e.target.value)} rows={3}
                                 className="mt-2.5 w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-[12px] text-stone-800 focus:outline-none focus:border-violet-300 resize-none"
                                 placeholder="比如：讓 ta 這次主動去找 XX 攤牌 / 心情寫得更低落些 / 別提工作的事…" />
