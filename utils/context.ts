@@ -1,11 +1,12 @@
 
-import { CharacterProfile, UserProfile, DailySchedule } from '../types';
+import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
 import { isScheduleFeatureOn } from './scheduleFeature';
 import { buildScheduleInjection as buildScheduleInjectionText } from './scheduleInjection';
 import { TIME_FRAMING_CONVERSATIONAL } from './timeFramingNote';
 import { resolveCharTimeZone, nowInTimeZone, tzAwarenessNote, interactionGapNote } from './timezone';
 import {
+    expandWorldbookMacros,
     formatWorldbookSection,
     resolveWorldbookEntries,
     splitWorldbookSections,
@@ -492,19 +493,19 @@ export const ContextBuilder = {
             return { text: '', sharedWorldbookIds, worldviewIsShared };
         }
 
-        // 1. 找出共享的世界書（被 2+ 角色掛載，按 id 計）
-        const wbCount = new Map<string, { count: number; entry: { id: string; title: string; content: string; category?: string } }>();
+        // 1. 找出共享的世界書（被 2+ 角色掛載，按 id 計），順帶記下是誰掛的
+        const wbMounts = new Map<string, { memberNames: string[]; entry: MountedWorldbook }>();
         for (const m of members) {
             for (const wb of (m.mountedWorldbooks || [])) {
                 if (!wb.id) continue;
-                const existing = wbCount.get(wb.id);
-                if (existing) existing.count += 1;
-                else wbCount.set(wb.id, { count: 1, entry: wb });
+                const existing = wbMounts.get(wb.id);
+                if (existing) existing.memberNames.push(m.name);
+                else wbMounts.set(wb.id, { memberNames: [m.name], entry: wb });
             }
         }
-        const sharedBooks: { id: string; title: string; content: string; category?: string }[] = [];
-        wbCount.forEach((v, id) => {
-            if (v.count >= 2) {
+        const sharedBooks: MountedWorldbook[] = [];
+        wbMounts.forEach((v, id) => {
+            if (v.memberNames.length >= 2) {
                 sharedWorldbookIds.add(id);
                 sharedBooks.push(v.entry);
             }
@@ -528,7 +529,12 @@ export const ContextBuilder = {
             text += `### 共有世界觀 (Shared World Settings)\n${members[0].worldview!.trim()}\n\n`;
         }
 
-        const resolvedSharedBooks = resolveWorldbookEntries(sharedBooks, worldbookMessages, '', user.name);
+        // 共有條目只寫一次，{{char}} 換成掛了這條的幾位成員（「阿澈、小白」）
+        const resolvedSharedBooks = resolveWorldbookEntries(sharedBooks, worldbookMessages, '', user.name)
+            .map(entry => ({
+                ...entry,
+                content: expandWorldbookMacros(entry.content, wbMounts.get(entry.book.id)?.memberNames.join('、') || '', ''),
+            }));
         text += formatWorldbookSection(resolvedSharedBooks, '共有擴展設定集 (Shared Worldbooks)');
 
         return { text, sharedWorldbookIds, worldviewIsShared };

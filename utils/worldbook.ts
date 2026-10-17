@@ -211,6 +211,18 @@ export const resolveWorldbookEntries = (
     .filter(entry => entry.content.trim())
     .sort((a, b) => a.order - b.order);
 
+/**
+ * 只取「聊天記錄指定深度」的條目，交給 injectWorldbookDepthEntries 插進對話。
+ * buildCoreContext 不渲染這類條目，有多輪對話的入口（私聊 / 見面 / 通話）要自己插。
+ */
+export const resolveWorldbookDepthEntries = (
+    books: WorldbookLike[] = [],
+    messages: WorldbookScanMessage[] = [],
+    charName = '',
+    userName = '',
+): ResolvedWorldbookEntry[] => resolveWorldbookEntries(books, messages, charName, userName)
+    .filter(entry => entry.position === 4);
+
 export const splitWorldbookSections = (entries: ResolvedWorldbookEntry[]): WorldbookSystemSections => ({
     beforeCharacter: entries.filter(entry => entry.position === 0),
     afterCharacter: entries.filter(entry => entry.position === 1),
