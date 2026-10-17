@@ -23,8 +23,18 @@
 - 刪除按顯式選中的 ID 集合執行，不按同名分類刪除角色自帶條目。
 - 世界書庫與緩存任何一步失敗，全事務回滾。已修改角色在提交後標記雲端提示詞待刷新。
 
+## 注入到提示詞
+
+- 「角色設定前 / 後」「作者註釋頂部 / 底部」「示例消息前 / 後」由 `ContextBuilder.buildCoreContext` 寫進 system prompt，所有拼角色設定的入口都會帶上。
+- 「聊天記錄指定深度」的條目不進 system prompt，要由有多輪對話的入口自己插進消息數組：`resolveWorldbookDepthEntries` 取條目，`injectWorldbookDepthEntries` 按深度插入。深度從對話末尾往回數，本輪用戶消息算最後一條，深度 0 放在它之後。目前接了私聊、見面（開場感知和會話）、通話三處；其餘入口是單次生成或把歷史壓成了文字，這類條目在那裡不生效。
+- 群聊裡，兩個及以上成員都掛了的條目只在開頭的「共有擴展設定集」寫一次，不分位置平鋪，`{{char}}` 換成掛了它的幾位成員名；只有一個成員掛的條目按位置寫進那個成員的檔案。群聊的歷史是壓成文字的，「聊天記錄指定深度」在只掛一人的條目上不生效。
+- 關鍵詞觸發的條目靠調用方給 `buildCoreContext` 傳 `worldbookMessages`（最近的對話）來掃，不傳就永遠不觸發。新增帶對話上下文的入口時兩件事都要接上。
+- API 調用記錄的「本次發送統計」按 `##` / `###` 標題給提示詞分段，世界書段裡條目自帶的標題不切段，靠的是 `formatWorldbookSection` 的收尾格式（每條以 `---` 結束，整段末尾多一個空行）。改這個格式要同步改 `utils/apiCallLog.ts` 的 `findBlockHeaders`。
+
 ## 驗證
 
 `utils/worldbookPersistence.test.ts` 覆蓋多角色、部分掛載、常駐／關鍵詞往返、輔助關鍵詞條件、同名但不同 ID 的獨立條目、整組刪除和事務回滾。
 
 `scripts/test-worldbook-cowork.mjs` 用真實 OSContext、世界書 App、神經鏈接和 IndexedDB 驗證保存重啟、整組改名、取消刪除、整組刪除及當前角色解除掛載。
+
+`utils/datePrompts.test.ts` 的「見面裡的世界書」覆蓋見面兩條路的深度插入和關鍵詞觸發；`utils/apiCallLog.test.ts` 覆蓋帶小標題的世界書段完整成段；`utils/groupSharedScene.test.ts` 覆蓋群聊共有條目的 `{{char}}` 替換。

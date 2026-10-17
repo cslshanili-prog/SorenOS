@@ -6,7 +6,9 @@
  *
  * 與聊天側注入面的差異（刻意為之，不是漏配）：
  *   - 注入：ContextBuilder.buildCoreContext 全量（人設 / 世界書 / 印象 / 記憶 /
- *     記憶宮殿召回 / 情緒 buff）+ 當前虛擬時間。
+ *     記憶宮殿召回 / 情緒 buff）+ 當前虛擬時間。世界書和聊天同一套規則：關鍵詞條目掃
+ *     最近的歷史和本輪輸入來觸發，「聊天記錄指定深度」的條目按深度插進對話
+ *     （見 withWorldbookDepthEntries）。
  *   - 不注入：聊天 App 行為規範（IM 氣泡 / 表情包 / 語音 / 引用 / 轉帳 / 小紅書 /
  *     日記等工具塊）——這些是線上聊天專屬指令，面對面場景裡輸出會破壞 VN 格式。
  *   - 不注入：實時天氣 / 新聞、群聊背景、Notion / 飛書日記標題——見面是高沉浸短會話，
@@ -28,6 +30,7 @@ import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { getVoicePromptOverride } from './ttsProvider';
 import { selectCharacterContextMessages } from './chatContextRange';
 import { buildTriggeredLinesPrompt } from './fixedLines';
+import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries, type WorldbookScanMessage } from './worldbook';
 
 export type ApiMessage = { role: string; content: any };
 
@@ -575,6 +578,21 @@ const flattenHistoryToText = (apiMessages: ApiMessage[]): string =>
     }).join('\n');
 
 /**
+ * 把「聊天記錄指定深度」的世界書條目插進對話，規則與聊天側（chatRequestPayload）一致：
+ * 深度從對話末尾往回數，深度 0 放在最後，深度 N 插在倒數第 N 條消息之前。
+ * 其餘位置的條目由 buildCoreContext 放進 system prompt，這裡只管深度條目。
+ */
+const withWorldbookDepthEntries = (
+    conversation: ApiMessage[],
+    char: CharacterProfile,
+    userName: string,
+    scanMessages: WorldbookScanMessage[],
+): ApiMessage[] => injectWorldbookDepthEntries(
+    conversation,
+    resolveWorldbookDepthEntries(char.mountedWorldbooks || [], scanMessages, char.name, userName),
+);
+
+/**
  * VN 模式系統提示（send 與 reroll 共用同一份，避免兩處手抄漂移）。
  * reroll 的差異只體現在末尾 user 消息的 System Note 裡，不在這裡分叉。
  * 風格 / 人稱 / 自定義補充按 char.dateStyleConfig 動態拼裝。
@@ -704,7 +722,10 @@ export const DatePrompts = {
         // 線下時間感知關掉 → 抑制 buildCoreContext 的時間注入，讓見面真正脫離現實時間線（純架空）
         // conversational 不給：peek 是「用戶還沒走過去」的第三人稱鏡頭，時間塊末尾那句
         // 語境框定說的是「對方還在跟你說話」，跟這裡的框定正好相反（見下面的 peekInstructions）。
-        const baseContext = ContextBuilder.buildCoreContext(char, userProfile, false, undefined, undefined, { skipTimeAwareness: !isDateTimeAwarenessOn(char) });
+        const baseContext = ContextBuilder.buildCoreContext(char, userProfile, false, undefined, undefined, {
+            skipTimeAwareness: !isDateTimeAwarenessOn(char),
+            worldbookMessages: apiMessages,
+        });
 
         // 文風預設也作用於開場感知；人稱（pov）刻意不作用——peek 的設計就是
         // 第三人稱旁觀鏡頭（用戶還沒"走過去"），人稱指令只影響 session 內敘述
@@ -734,10 +755,12 @@ ${invite
 ${char.chatBlock ? `${buildBlockedMeetingNote(char, userProfile?.name || '')}` : ''}3. **描寫風格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「觀測協議」輸出觀測塊，再開始描寫內容（描寫本身不要加任何前綴）。' : '不要輸出任何前綴，直接輸出描寫內容。'}
 ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlock(char)}` : ''}`;
 
+        // 歷史已經壓進這一條 user 消息裡，深度條目就以它為準：深度 0 在它之後，其餘在它之前
+        const peekMsg: ApiMessage = { role: 'user', content: `[最近記錄 (Previous Context)]:${recentMsgs}${contextSeparator}${peekInstructions}\n\n(Start sensing...)` };
         return {
             messages: [
                 { role: 'system', content: baseContext },
-                { role: 'user', content: `[最近記錄 (Previous Context)]:${recentMsgs}${contextSeparator}${peekInstructions}\n\n(Start sensing...)` },
+                ...withWorldbookDepthEntries([peekMsg], char, userProfile?.name || '', apiMessages),
             ],
         };
     },
@@ -766,9 +789,16 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
             input.useVisionDescriptions === true,
         );
 
+        // 世界書關鍵詞掃描：歷史 + 本輪輸入原文（不帶下面的 System Note，免得格式指令裡的字眼誤觸發）
+        const worldbookScan: WorldbookScanMessage[] = [...historyMsgs, { role: 'user', content: userText }];
+
         // 向量召回掛到 char.memoryPalaceInjection，buildCoreContext 會讀取
         await injectMemoryPalace(char, allMsgs, undefined, userProfile?.name);
-        const systemPrompt = ContextBuilder.buildCoreContext(char, userProfile, true, undefined, undefined, { skipTimeAwareness: !isDateTimeAwarenessOn(char), conversational: true })
+        const systemPrompt = ContextBuilder.buildCoreContext(char, userProfile, true, undefined, undefined, {
+            skipTimeAwareness: !isDateTimeAwarenessOn(char),
+            conversational: true,
+            worldbookMessages: worldbookScan,
+        })
             + buildVNModeBlock(char, userProfile?.name || '')
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
@@ -784,8 +814,12 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
         return {
             messages: [
                 { role: 'system', content: systemPrompt },
-                ...historyMsgs,
-                { role: 'user', content: `${formatDateUserInput(userText)}\n\n${note}${fixedLineNote ? `\n${fixedLineNote}` : ''}` },
+                ...withWorldbookDepthEntries(
+                    [...historyMsgs, { role: 'user', content: `${formatDateUserInput(userText)}\n\n${note}${fixedLineNote ? `\n${fixedLineNote}` : ''}` }],
+                    char,
+                    userProfile?.name || '',
+                    worldbookScan,
+                ),
             ],
         };
     },
