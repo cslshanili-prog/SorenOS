@@ -1869,6 +1869,8 @@ export interface WorldCharBeat {
 export interface WorldEpisode {
     /** Read-time observation ordinal; does not replace round used by historical message references. */
     observationNumber?: number;
+    /** 本輪關係變化之前的快照，供重演恢復數值和標籤。 */
+    relationshipsBefore?: WorldRelationship[];
     id: string;
     worldId: string;
     /** 第幾輪（= 演繹完成後的 storyClock） */

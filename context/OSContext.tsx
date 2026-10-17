@@ -3118,7 +3118,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           try {
               const world = await DB.getWorld(d.worldId);
               if (!world) return;
-              await rerollWorldCharBeat({
+              const result = await rerollWorldCharBeat({
                   world,
                   characters: charactersRef.current,
                   apiConfig: apiConfigRef.current,
@@ -3131,6 +3131,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   charId: d.charId,
                   direction: d.direction,
               });
+              // 重演會原地替換聊天裡的觀測卡片：刷新聊天、打髒雲端快照，並告訴用戶結果（上游 2026-09-20）
+              if (result.ok) {
+                  setLastMsgTimestamp(Date.now());
+                  const char = charactersRef.current.find(c => c.id === d.charId);
+                  if (char) markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+                  addToast('重演已保存，劇情、私信、羈絆和伏筆已同步', 'success');
+              } else {
+                  addToast(result.reason === 'not-latest' ? '已有新的觀測，請刷新後重演最新一段' : result.reason === 'archived' ? '這一段已結卷歸檔，不能單獨重演' : '重演未保存，原記錄已保留，請重試', 'error');
+              }
           } catch (err) {
               console.error('[WorldHome] reroll error', err);
           }

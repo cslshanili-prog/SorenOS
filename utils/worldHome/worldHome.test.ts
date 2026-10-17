@@ -264,6 +264,15 @@ describe('真實時間（跟現實早/中/晚/凌晨同步，錯過當天可補�
         expect(realObserveTarget(w2, at('2026-06-16T08:00:00'))).toEqual({ dayKey: '2026-06-16', seg: 0 }); // 天亮進新一天
     });
 
+    it('天亮後先補剛過去的凌晨，然後才到早上，跨月也成立', () => {
+        for (const [previous, today] of [['2026-06-15', '2026-06-16'], ['2026-06-30', '2026-07-01']]) {
+            const w = mkWorld({ timeMode: 'real', realClock: { dayKey: previous, seg: 2 } });
+            expect(realObserveTarget(w, at(today + 'T15:44:00'))).toEqual({ dayKey: previous, seg: 3 });
+            w.realClock = { dayKey: previous, seg: 3 };
+            expect(realObserveTarget(w, at(today + 'T15:44:00'))).toEqual({ dayKey: today, seg: 0 });
+        }
+    });
+
     it('隔天沒補的丟掉 → 直接跳到今天最早一段', () => {
         const w = mkWorld({ timeMode: 'real', realClock: { dayKey: '2026-06-13', seg: 1 } });
         expect(realObserveTarget(w, at('2026-06-15T20:00:00'))).toEqual({ dayKey: '2026-06-15', seg: 0 });
