@@ -31,7 +31,7 @@ import { getDailyScheduleForChar } from '../dailySchedule';
 import {
     worldTimeLabel, buildWorldSystemAddendum, buildWorldCharTurn, buildNpcTurn,
     parseCharBeat, parseNpcScene, realObserveTarget, formatRealClock, migrateWorldDaySegs,
-    alignCharToWorldClock,
+    alignCharToWorldClock, realNowSeg, worldNow,
 } from './prompts';
 import { ensureThreads, applyBeatToThreads, applyNpcGroupLines, applyNpcDms, npcInboxes } from './threads';
 import { shouldCloseChapter, summarizeChapter, SIM_CHAPTER_CLOCKS } from './chapters';
@@ -331,6 +331,60 @@ function worldUserFor(
     return { user, note: notes.length ? `\n${notes.join('\n')}` : '' };
 }
 
+/**
+ * NPC 世界引擎（角色之後跑）：回應本輪角色發來的私聊、給本輪動態點贊/評論、群裡冒泡。
+ * 觀測和整段重演共用。直接改 world（線程、動態互動），回傳這一段的 NPC 群像和鉤子；沒有 NPC 或失敗時回空。
+ */
+async function runNpcStage(args: {
+    world: WorldProfile;
+    members: CharacterProfile[];
+    round: number;
+    storyTime: string;
+    lastSummary?: string;
+    chapterAtmosphere?: string;
+    beats: WorldCharBeat[];
+    api: { apiKey?: string; model: string };
+    baseUrl: string;
+}): Promise<{ npcScene: string | undefined; npcHooks: string[] }> {
+    const { world, members, round, storyTime, lastSummary, chapterAtmosphere, beats, api, baseUrl } = args;
+    if (world.npcs.length === 0) return { npcScene: undefined, npcHooks: [] };
+    let npcScene: string | undefined;
+    let npcHooks: string[] = [];
+    try {
+        // 喂這一輪角色剛發的動態，讓 NPC + 路人當輪就點贊評論
+        const recentPostsForNpc = beats.flatMap(b =>
+            (b.phone?.posts || []).map((post, idx) => ({ ref: `${round}_${b.charId}_${idx}`, name: b.charName, post }))
+        ).slice(0, 12);
+        const npcData = await safeFetchJson(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey || 'sk-none'}` },
+            body: JSON.stringify({
+                model: api.model,
+                messages: [{ role: 'user', content: buildNpcTurn({ world, members, storyTime, lastSummary, chapterAtmosphere, inboxes: npcInboxes(world), recentPosts: recentPostsForNpc }) }],
+                temperature: 0.9, stream: false,
+            }),
+        }, 2, 0, { appName: '家園', purpose: `NPC世界引擎 · ${world.name}` });
+        const parsed = parseNpcScene(npcData.choices?.[0]?.message?.content || '');
+        npcScene = parsed.scene || undefined;
+        npcHooks = parsed.hooks;
+        // 群聊冒泡 + 回覆成員私信（落線程，角色下一輪接住）
+        applyNpcGroupLines(world, parsed.groupLines, round, storyTime);
+        applyNpcDms(world, parsed.dms, members, round, storyTime);
+        // 動態的點贊/評論（NPC + 路人）回填
+        if (parsed.feedReactions.length > 0) {
+            world.feedReactions = { ...(world.feedReactions || {}) };
+            for (const r of parsed.feedReactions) world.feedReactions[r.ref] = { likes: r.likes, comments: r.comments };
+        }
+    } catch (e) {
+        console.warn('[WorldHome] NPC engine failed:', e);
+    }
+    dispatch('world-beat-done', { worldId: world.id, stage: 'npc', done: members.length, total: members.length });
+    return { npcScene, npcHooks };
+}
+
+/** 真實時間下、同一時段再觀測一次時加在每個角色這一輪的說明。 */
+const SAME_SEGMENT_NOTE = '\n\n這一時段剛才已經演過一段（見上面的紀事），現在是同一時段稍晚一點：接著剛才的進展往下過，不要重演同樣的事，也不要跳到下一個時段。';
+
 export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpisodeResult> {
     const { characters, apiConfig, userProfile, groups, realtimeConfig, memoryPalaceConfig, trigger } = deps;
     const worldId = deps.world.id;
@@ -358,11 +412,22 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
         if (!api.baseUrl) return { ok: false, reason: 'no-api' };
         const baseUrl = api.baseUrl.replace(/\/+$/, '');
 
-        // real 模式：演的那一段跟著真實時鍾走，且只能補當天錯過的段；已追上現實就沒東西可演
-        const realTarget = world.timeMode !== 'sim' ? realObserveTarget(world) : null;
-        if (world.timeMode !== 'sim' && !realTarget) return { ok: false, reason: 'caught-up' };
+        // real 模式：演的那一段跟著真實時鍾走，補當天錯過的段。
+        // 已追上現實時：自動 tick 照舊不演；用戶手動觀測就接著演「同一時段稍後」（2026-10-21 解除一天四次的限制）。
+        let realTarget = world.timeMode !== 'sim' ? realObserveTarget(world) : null;
+        let sameSegmentAgain = false;
+        if (world.timeMode !== 'sim' && !realTarget) {
+            if (trigger !== 'observe') return { ok: false, reason: 'caught-up' };
+            const now = realNowSeg(worldNow(world));
+            realTarget = world.realClock && world.realClock.dayKey <= now.dayKey ? world.realClock : now;
+            sameSegmentAgain = true;
+        }
 
-        const storyTime = realTarget ? formatRealClock(realTarget) : worldTimeLabel(world);
+        const baseLabel = realTarget ? formatRealClock(realTarget) : worldTimeLabel(world);
+        // 同一時段第幾次觀測：標籤上帶一個序號，畫面上分得清、重演按 round 對得上
+        const storyTime = sameSegmentAgain
+            ? `${baseLabel} · 第${lastEpisodes.filter(e => e.storyTime === baseLabel || e.storyTime.startsWith(`${baseLabel} · `)).length + 1}次`
+            : baseLabel;
         const round = world.storyClock + 1;
         // sim 模式不進記憶/聊天——演繹攢在家園裡，靠每 20 天的結卷總結沉澱
         const entersMemory = world.timeMode !== 'sim' && world.injectToChat !== false;
@@ -442,7 +507,8 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
                     directive: directive ? { impulseText: directive.impulseText, text: directive.text } : undefined,
                     priorChapter,
                     userName: charUser.user.name || '',
-                }) + buildOwnWorldHistory(world, lastEpisodes, char.id);
+                }) + buildOwnWorldHistory(world, lastEpisodes, char.id)
+                    + (sameSegmentAgain ? SAME_SEGMENT_NOTE : '');
                 if (directive) consumedDirectiveIds.push(directive.id);
 
                 const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
@@ -473,37 +539,9 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
         if (!anyCharOk) return { ok: false, reason: 'all-beats-failed' };
 
         // ── 2.5 NPC 世界引擎（角色之後跑）：回應本輪角色發來的私聊、給本輪動態點贊/評論、群裡冒泡 ──
-        if (world.npcs.length > 0) {
-            try {
-                // 喂這一輪角色剛發的動態，讓 NPC + 路人當輪就點贊評論
-                const recentPostsForNpc = beats.flatMap(b =>
-                    (b.phone?.posts || []).map((post, idx) => ({ ref: `${round}_${b.charId}_${idx}`, name: b.charName, post }))
-                ).slice(0, 12);
-                const npcData = await safeFetchJson(`${baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey || 'sk-none'}` },
-                    body: JSON.stringify({
-                        model: api.model,
-                        messages: [{ role: 'user', content: buildNpcTurn({ world, members, storyTime, lastSummary, chapterAtmosphere: latestChapter?.atmosphere, inboxes: npcInboxes(world), recentPosts: recentPostsForNpc }) }],
-                        temperature: 0.9, stream: false,
-                    }),
-                }, 2, 0, { appName: '家園', purpose: `NPC世界引擎 · ${world.name}` });
-                const parsed = parseNpcScene(npcData.choices?.[0]?.message?.content || '');
-                npcScene = parsed.scene || undefined;
-                npcHooks = parsed.hooks;
-                // 群聊冒泡 + 回覆成員私信（落線程，角色下一輪接住）
-                applyNpcGroupLines(world, parsed.groupLines, round, storyTime);
-                applyNpcDms(world, parsed.dms, members, round, storyTime);
-                // 動態的點贊/評論（NPC + 路人）回填
-                if (parsed.feedReactions.length > 0) {
-                    world.feedReactions = { ...(world.feedReactions || {}) };
-                    for (const r of parsed.feedReactions) world.feedReactions[r.ref] = { likes: r.likes, comments: r.comments };
-                }
-            } catch (e) {
-                console.warn('[WorldHome] NPC engine failed:', e);
-            }
-            dispatch('world-beat-done', { worldId: world.id, stage: 'npc', done: members.length, total: members.length });
-        }
+        ({ npcScene, npcHooks } = await runNpcStage({
+            world, members, round, storyTime, lastSummary, chapterAtmosphere: latestChapter?.atmosphere, beats, api, baseUrl,
+        }));
 
         // ── 3. 落庫：episode + 關係回填 + 劇情時鐘推進 ──
         // 成功的角色照常保留；沒演出來的記下 charId，UI 提示用戶可單獨重 roll
@@ -756,6 +794,159 @@ export async function rerollWorldCharBeat(
         return { ok: true, episode: updatedEp };
     } catch (err) {
         console.error('[WorldHome] reroll error:', err);
+        return { ok: false, reason: 'error' };
+    } finally {
+        running.delete(worldId);
+        dispatch('world-episode-end', { worldId });
+    }
+}
+
+/**
+ * 整段重演（2026-10-21）：最新一段所有角色一起重來，不用一個一個點。
+ * 先把這一段留下的東西全撤掉（角色和 NPC 的私信、群消息、伏筆、動態互動，關係回到這段之前），
+ * 再照觀測的鏈式順序重演一遍——後面的角色看到的是前面角色的「新版本」，不是作廢的舊版；NPC 也重跑。
+ * 正文、副作用和每個人聊天裡的觀測卡片同一個事務提交（DB.replaceWorldEpisode）；全部角色都失敗就什麼都不動。
+ * 跟單人重演一樣只能重演最新一段、已結卷歸檔的不行。
+ */
+export async function rerollWorldEpisodeAll(
+    deps: WorldEpisodeDeps & { episodeId: string; direction?: string },
+): Promise<WorldEpisodeResult> {
+    const { characters, apiConfig, userProfile, groups, realtimeConfig, episodeId, direction } = deps;
+    const worldId = deps.world.id;
+    if (running.has(worldId)) return { ok: false, reason: 'busy' };
+    running.add(worldId);
+    try {
+        const storedWorld = await DB.getWorld(worldId);
+        if (!storedWorld) return { ok: false, reason: 'no-world' };
+        const world = structuredClone(storedWorld);
+        const members = world.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean) as CharacterProfile[];
+        if (members.length === 0) return { ok: false, reason: 'no-members' };
+        const memberNames = members.map(m => m.name);
+        const worldHomeApi = readWorldHomeApiOverride();
+        const api = world.api?.baseUrl ? world.api : (worldHomeApi || apiConfig);
+        if (!api.baseUrl) return { ok: false, reason: 'no-api' };
+        const baseUrl = api.baseUrl.replace(/\/+$/, '');
+
+        const episodes = await DB.getWorldEpisodes(world.id, 30);
+        const episode = episodes.find(e => e.id === episodeId);
+        if (!episode) return { ok: false, reason: 'no-episode' };
+        if (episodes[0]?.id !== episode.id) return { ok: false, reason: 'not-latest' };
+        if (world.timeMode === 'sim' && episode.round <= (world.simSummarizedClock || 0)) return { ok: false, reason: 'archived' };
+        const { round, storyTime } = episode;
+
+        // 這一段之前的關係：有快照照快照，舊存檔照已知 delta 反推
+        let relationshipsBefore = episode.relationshipsBefore;
+        if (!relationshipsBefore) {
+            const baseline = structuredClone(world);
+            for (const oldBeat of episode.beats) rollbackWorldBeat(baseline, episode, oldBeat.charId, members);
+            relationshipsBefore = baseline.relationships.map(r => ({ ...r }));
+        }
+        // 撤掉這一段留下的一切（角色和 NPC 都算），關係回到這段之前
+        const inEpisode = (m: { round?: number; storyTime?: string }) => m.round === round && m.storyTime === storyTime;
+        for (const thread of world.threads || []) thread.messages = thread.messages.filter(m => !inEpisode(m));
+        world.seeds = (world.seeds || []).filter(seed => !inEpisode(seed));
+        world.relationships = relationshipsBefore.map(r => ({ ...r }));
+        if (world.feedReactions) {
+            world.feedReactions = Object.fromEntries(Object.entries(world.feedReactions).filter(([k]) => !k.startsWith(`${round}_`)));
+        }
+        ensureThreads(world);
+
+        dispatch('world-episode-start', { worldId: world.id, worldName: world.name, storyTime, total: members.length });
+        const previousEpisodes = episodes.slice(1);
+        const prevEp = previousEpisodes[0];
+        const sinceClock = world.simSummarizedClock || 0;
+        const summarySource = world.timeMode === 'sim' ? previousEpisodes.filter(e => e.round > sinceClock) : previousEpisodes;
+        const lastSummary = summarySource.length > 0 ? summarySource.slice(0, 2).reverse().map(e => e.summary).join('\n') : undefined;
+        const latestChapter = (world.chapters || [])[(world.chapters?.length || 0) - 1];
+        const personaBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+        const sameSegmentAgain = / · 第\d+次$/.test(storyTime);
+
+        const beats: WorldCharBeat[] = [];
+        for (let i = 0; i < members.length; i++) {
+            const char = members[i];
+            try {
+                const others = memberNames.filter(n => n !== char.name);
+                const recallQueryHint = others.length > 0
+                    ? `此刻在「${world.name}」共同生活的人：${others.join('、')}。\n我對${others.join('、')}的印象、我和${others.join('、')}之間的關係與過往。`
+                    : undefined;
+                const charUser = worldUserFor(personaBase, char, members, userProfile);
+                // 把這一段的舊觀測卡片拿掉，免得角色把作廢的版本當成已經發生的事
+                const historyMsgs = (await loadCharacterContextMessages(char)).filter(m => {
+                    const meta = m.metadata as WorldCardMeta | undefined;
+                    return !(meta?.worldId === world.id && meta.round === round && meta.storyTime === storyTime);
+                });
+                const worldChar = alignCharToWorldClock(world, char);
+                const payload = await buildChatRequestPayload({
+                    char: worldChar, userProfile: charUser.user, groups, emojis: [], categories: [],
+                    historyMsgs, contextLimit: Math.max(1, historyMsgs.length), realtimeConfig, recallQueryHint,
+                    recallEntryPoint: 'world_home',
+                    stripImages: true,
+                });
+                const systemPrompt = payload.systemPrompt
+                    + buildWorldSystemAddendum(world, char, charUser.user.name || '') + charUser.note
+                    + await buildFullDayScheduleBlock(world, worldChar);
+                const priorChapter = (world.timeMode === 'sim' && latestChapter)
+                    ? { atmosphere: latestChapter.atmosphere, charPerspective: latestChapter.perspectives.find(p => p.charId === char.id)?.text }
+                    : undefined;
+                let turn = buildWorldCharTurn({
+                    world, char, members, storyTime, round, lastSummary,
+                    npcScene: prevEp?.npcScene, npcHooks: prevEp?.npcHooks || [], beatsSoFar: beats,
+                    recentPosts: collectRecentPosts(prevEp?.beats || [], beats),
+                    exposures: buildExposures(world, char.id, char.name),
+                    priorChapter, userName: charUser.user.name || '',
+                }) + buildOwnWorldHistory(world, previousEpisodes, char.id)
+                    + (sameSegmentAgain ? SAME_SEGMENT_NOTE : '');
+                turn += '\n\n本輪正在重演：這一時段所有人原來的劇情、備忘和發言都已作廢，不得把舊版本當作已經發生的經歷；以此前有效紀事和本次重寫方向繼續。';
+                if (direction && direction.trim()) {
+                    turn += `\n\n## 重寫方向（用戶希望這一段整體往這個方向重演，請據此給出全新的一拍）\n${direction.trim()}`;
+                }
+                const data = await safeFetchJson(`${baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey || 'sk-none'}` },
+                    body: JSON.stringify({
+                        model: api.model,
+                        messages: [{ role: 'system', content: systemPrompt }, ...payload.cleanedApiMessages, { role: 'user', content: turn }],
+                        temperature: 0.95, stream: false,
+                    }),
+                }, 2, 0, { appName: '家園', charId: char.id, charName: char.name, purpose: `整段重演 · ${world.name}` });
+                const beat = parseCharBeat(data.choices?.[0]?.message?.content || '', char, memberNames, world.npcs.map(n => n.name));
+                dropDuplicatePosts(beat, collectRecentPosts(prevEp?.beats || [], beats));
+                beats.push(beat);
+                applyBeatToThreads(world, beat, members, round, storyTime);
+                collectSeeds(world, beat, round, storyTime);
+            } catch (e) {
+                console.error(`[WorldHome] full reroll beat failed for ${char.name}:`, e);
+            }
+            dispatch('world-beat-done', { worldId: world.id, stage: 'char', charId: char.id, charName: char.name, done: i + 1, total: members.length });
+        }
+        // 全部失敗：什麼都沒寫，原本那一段原封不動
+        if (beats.length === 0) return { ok: false, reason: 'all-beats-failed' };
+
+        const { npcScene, npcHooks } = await runNpcStage({
+            world, members, round, storyTime, lastSummary, chapterAtmosphere: latestChapter?.atmosphere, beats, api, baseUrl,
+        });
+        applyRelationshipDeltas(world, beats, members);
+
+        const okIds = new Set(beats.map(b => b.charId));
+        const failedCharIds = members.filter(m => !okIds.has(m.id)).map(m => m.id);
+        const updatedEp: WorldEpisode = {
+            ...episode,
+            relationshipsBefore,
+            npcScene,
+            npcHooks: npcHooks.length > 0 ? npcHooks : undefined,
+            beats,
+            failedCharIds: failedCharIds.length > 0 ? failedCharIds : undefined,
+            summary: buildSummary(storyTime, beats, npcHooks),
+        };
+        await DB.replaceWorldEpisode(world, updatedEp, members.map(m => m.id), beats.map(beat => ({
+            charId: beat.charId,
+            content: buildCardContent(world, storyTime, beat),
+            metadata: buildWorldCardMeta(world, beat, round, storyTime),
+        })), world.timeMode !== 'sim' && world.injectToChat !== false, storedWorld, episode);
+        dispatch('world-episode-done', { worldId: world.id, episodeId: updatedEp.id, storyTime, round });
+        return { ok: true, episode: updatedEp };
+    } catch (err) {
+        console.error('[WorldHome] full reroll error:', err);
         return { ok: false, reason: 'error' };
     } finally {
         running.delete(worldId);

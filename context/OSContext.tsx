@@ -34,7 +34,7 @@ import { allowsAutomaticVR } from '../utils/vrWorld/participation';
 import { logVRApiCall } from '../utils/vrWorld/vrApi';
 import { VR_DEFAULT_INTERVAL_MIN } from '../utils/vrWorld/constants';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
-import { runWorldEpisode, rerollWorldCharBeat } from '../utils/worldHome/engine';
+import { runWorldEpisode, rerollWorldCharBeat, rerollWorldEpisodeAll } from '../utils/worldHome/engine';
 import { migrateWorldDaySegs } from '../utils/worldHome/prompts';
 import { ChatParser } from '../utils/chatParser';
 import { safeFetchJson } from '../utils/safeApi';
@@ -3145,6 +3145,41 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
       window.addEventListener('world-reroll-request', onRerollRequest as EventListener);
+      // 整段重演（家園 WorldView 派發 world-reroll-all-request，帶 worldId/episodeId/direction）
+      const onRerollAllRequest = async (e: Event) => {
+          const d = (e as CustomEvent).detail || {};
+          if (!d.worldId || !userProfileRef.current) return;
+          try {
+              const world = await DB.getWorld(d.worldId);
+              if (!world) return;
+              const result = await rerollWorldEpisodeAll({
+                  world,
+                  characters: charactersRef.current,
+                  apiConfig: apiConfigRef.current,
+                  userProfile: userProfileRef.current,
+                  groups: groupsRef.current,
+                  realtimeConfig: realtimeConfigRef.current,
+                  memoryPalaceConfig: memoryPalaceConfigRef.current,
+                  trigger: 'observe',
+                  episodeId: d.episodeId,
+                  direction: d.direction,
+              });
+              if (result.ok) {
+                  setLastMsgTimestamp(Date.now());
+                  for (const id of world.memberIds) {
+                      const char = charactersRef.current.find(c => c.id === id);
+                      if (char) markAmsgStateDirty({ char, userProfile: userProfileRef.current, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+                  }
+                  const failed = result.episode?.failedCharIds?.length || 0;
+                  addToast(failed > 0 ? `重演已保存，有 ${failed} 個角色沒演出來，可以單獨重新生成` : '整段重演已保存，劇情、私信、羈絆和伏筆已同步', failed > 0 ? 'info' : 'success');
+              } else {
+                  addToast(result.reason === 'not-latest' ? '已有新的觀測，請刷新後重演最新一段' : result.reason === 'archived' ? '這一段已結卷歸檔，不能重演' : '重演未保存，原記錄已保留，請重試', 'error');
+              }
+          } catch (err) {
+              console.error('[WorldHome] reroll-all error', err);
+          }
+      };
+      window.addEventListener('world-reroll-all-request', onRerollAllRequest as EventListener);
       // 調度表存 localStorage 不隨備份遷移，按 IndexedDB 裡的世界配置對帳
       void DB.getWorlds()
           .then(async worlds => {
@@ -3170,6 +3205,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           VRScheduler.onTrigger(() => {});
           WorldScheduler.onTrigger(() => {});
           window.removeEventListener('world-reroll-request', onRerollRequest as EventListener);
+          window.removeEventListener('world-reroll-all-request', onRerollAllRequest as EventListener);
       };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDataLoaded]);

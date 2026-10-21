@@ -119,11 +119,14 @@ const MODE_INFO: Record<WorldHomeMode, { name: string; short: string; desc: stri
     heavy: { name: '重度 · 無你世界', short: '無你世界', desc: '你不存在（或只是透明的幽靈）。角色之間自行生活，演繹中完全無視你。', badge: 'bg-rose-400/90 text-rose-950' },
 };
 
+/** 重演對話框的「所有人」：整段重演（utils/worldHome/engine.ts rerollWorldEpisodeAll）。 */
+const REROLL_ALL = '__all__';
+
 const TIME_MODE_INFO: Record<WorldTimeMode, { name: string; short: string; desc: string; hint: string; badge: string }> = {
     real: {
         name: '真實時間', short: '真實時間',
         desc: '早/中/晚/凌晨跟著現實時鍾走，演繹寫回各角色的聊天與記憶，和你平時的聊天連成一體。',
-        hint: '適合「真實系角色」——只能補當天錯過的段，過了今天就補不回來；卡片自然不會刷屏。',
+        hint: '適合「真實系角色」——只能補當天錯過的段，過了今天就補不回來；跟上現實之後還想看，手動觀測會接著演同一時段稍後的事。',
         badge: 'bg-emerald-400/90 text-emerald-950',
     },
     sim: {
@@ -1248,21 +1251,30 @@ const WorldView: React.FC<{
     const observe = () => {
         if (isWorldRunning(world.id)) { addToast('這一輪還在演繹中', 'error'); return; }
         if (members.length === 0) { addToast('這個世界還沒有住進角色', 'error'); return; }
-        // 真實時間：跟著現實早/中/晚走，已追上現實就先等等（過去錯過的當天可補、隔天補不了）
-        if (world.timeMode !== 'sim' && !realObserveTarget(world)) {
-            addToast('已經跟上現實時間啦——等過了這一段（早/中/晚/凌晨）再來觀測', 'info');
-            return;
-        }
+        // 真實時間：跟著現實早/中/晚走；已追上現實時手動觀測照樣可以，接著演同一時段稍後（2026-10-21 起不限次數）
+        const caughtUp = world.timeMode !== 'sim' && !realObserveTarget(world);
         setProgress({ done: 0, total: members.length });
         WorldScheduler.triggerNow(world.id);
         trackEvent('触发一轮世界观测');
-        addToast(world.timeMode === 'sim' ? '觀測開始——世界推進一段（早/中/晚/凌晨），可以先去做別的' : '觀測開始——演繹現實中剛過去的這一段，可以先去做別的', 'success');
+        addToast(
+            world.timeMode === 'sim' ? '觀測開始——世界推進一段（早/中/晚/凌晨），可以先去做別的'
+                : caughtUp ? '觀測開始——這一段已經看過，接著看同一時段稍後的發展，可以先去做別的'
+                    : '觀測開始——演繹現實中剛過去的這一段，可以先去做別的',
+            'success',
+        );
     };
 
     // 單個角色重 roll（僅對最新一輪）：派發事件給 OSContext 用完整 deps 重演這一拍
     const doReroll = (charId: string, charName: string, direction: string) => {
         if (isWorldRunning(world.id)) { addToast('還在演繹中，稍等', 'error'); return; }
         if (!latest) { addToast('還沒有可重演的一輪', 'error'); return; }
+        if (charId === REROLL_ALL) {
+            setProgress({ done: 0, total: members.length });
+            window.dispatchEvent(new CustomEvent('world-reroll-all-request', { detail: { worldId: world.id, episodeId: latest.id, direction: direction.trim() || undefined } }));
+            addToast('正在重演這一段（所有人）…', 'success');
+            setRerollTarget(null); setRerollDir('');
+            return;
+        }
         setProgress({ done: 0, total: 1, charName });
         window.dispatchEvent(new CustomEvent('world-reroll-request', { detail: { worldId: world.id, charId, episodeId: latest.id, direction: direction.trim() || undefined } }));
         trackEvent('重演某个角色这一段');
@@ -1465,7 +1477,9 @@ const WorldView: React.FC<{
                     <div className="w-full max-w-[320px] rounded-2xl bg-[#f7f3ea] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="px-4 pt-4 pb-3">
                             <div className="text-[14px] font-black text-stone-800 flex items-center gap-1.5"><Sparkle size={15} weight="fill" className="text-violet-500" />重演 {rerollTarget.charName} 這一段</div>
-                            <p className="text-[10.5px] text-stone-400 mt-1.5 leading-relaxed">會替換 ta 這一輪的劇情、發出的私信與群消息、伏筆及關係變化，並同步聊天裡的觀測卡片。其他人的這一段保持原樣。可以給個重寫方向（選填）。</p>
+                            <p className="text-[10.5px] text-stone-400 mt-1.5 leading-relaxed">{rerollTarget.charId === REROLL_ALL
+                                ? `所有人這一段照觀測的順序重新演一遍（後面的人看到的是前面的人的新版本），NPC 也重跑；劇情、私信與群消息、伏筆、關係變化和聊天裡的觀測卡片都會換掉。大約會調用 ${members.length}+1 次 API。可以給個重寫方向（選填）。`
+                                : '會替換 ta 這一輪的劇情、發出的私信與群消息、伏筆及關係變化，並同步聊天裡的觀測卡片。其他人的這一段保持原樣。可以給個重寫方向（選填）。'}</p>
                             <textarea value={rerollDir} onChange={e => setRerollDir(e.target.value)} rows={3}
                                 className="mt-2.5 w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-[12px] text-stone-800 focus:outline-none focus:border-violet-300 resize-none"
                                 placeholder="比如：讓 ta 這次主動去找 XX 攤牌 / 心情寫得更低落些 / 別提工作的事…" />
@@ -1624,7 +1638,16 @@ const WorldView: React.FC<{
 
                 {/* ── 鄰里：各家小屋（去串門） ── */}
                 <div>
-                    <div className={`text-[10px] font-black tracking-[0.25em] uppercase px-1 mb-2 flex items-center gap-1.5 ${t.textLabel}`}><House size={11} weight="fill" />鄰里 · 去串門</div>
+                    <div className={`text-[10px] font-black tracking-[0.25em] uppercase px-1 mb-2 flex items-center gap-1.5 ${t.textLabel}`}>
+                        <House size={11} weight="fill" />鄰里 · 去串門
+                        {/* 整段重演：最新一段所有人一起重來（2026-10-21） */}
+                        {latest && latest.beats.length > 0 && !progress && (
+                            <button onClick={() => { setRerollDir(''); setRerollTarget({ charId: REROLL_ALL, charName: '所有人' }); }}
+                                className={`ml-auto normal-case tracking-normal flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border ${t.chip} active:scale-95 transition-transform`}>
+                                <Sparkle size={11} weight="fill" className="text-violet-500" />全部重演這一段
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-2.5">
                         {visitHouses.map(({ house, residents }) => {
                             const open = openHouseId === house.id;

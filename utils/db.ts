@@ -3035,6 +3035,65 @@ export const DB = {
       });
   },
 
+  /**
+   * 整段重演的提交（2026-10-21）：世界、這一段、每個成員聊天裡這一段的觀測卡片同一個事務。
+   * cards 裡有的人：更新或補上卡片；成員裡沒在 cards 的人（這次重演失敗）：把這一段的舊卡片刪掉，
+   * 免得聊天裡留著已作廢的版本。請求期間世界或這一段被改過就放棄（跟 replaceWorldBeat 同一套檢查）。
+   */
+  replaceWorldEpisode: async (
+      world: WorldProfile, episode: WorldEpisode, memberIds: string[],
+      cards: { charId: string; content: string; metadata: Message['metadata'] }[],
+      insertIfMissing: boolean,
+      expectedWorld: WorldProfile, expectedEpisode: WorldEpisode,
+  ): Promise<void> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_WORLDS, STORE_WORLD_EPISODES, STORE_MESSAGES], 'readwrite');
+          const worlds = tx.objectStore(STORE_WORLDS);
+          const episodes = tx.objectStore(STORE_WORLD_EPISODES);
+          const messages = tx.objectStore(STORE_MESSAGES);
+          let failure: Error | undefined;
+          const abort = () => { failure = new Error('重演期間家園記錄已變化，請重新重演'); tx.abort(); };
+          const request = worlds.get(world.id);
+          request.onsuccess = () => {
+              const current = request.result as WorldProfile | undefined;
+              const fields = ['storyClock', 'threads', 'seeds', 'relationships', 'feedReactions'] as const;
+              if (!current || fields.some(key => JSON.stringify(current[key]) !== JSON.stringify(expectedWorld[key]))) { abort(); return; }
+              worlds.put({ ...current, threads: world.threads, seeds: world.seeds, relationships: world.relationships, feedReactions: world.feedReactions, updatedAt: Date.now() });
+          };
+          const epRequest = episodes.get(episode.id);
+          epRequest.onsuccess = () => {
+              if (!epRequest.result || JSON.stringify(epRequest.result.beats) !== JSON.stringify(expectedEpisode.beats)) { abort(); return; }
+              const { observationNumber: _display, ...stored } = episode;
+              episodes.put(stored);
+          };
+          const cardByChar = new Map(cards.map(card => [card.charId, card]));
+          for (const charId of memberIds) {
+              const card = cardByChar.get(charId);
+              let found = false;
+              const cursorRequest = messages.index('charId').openCursor(IDBKeyRange.only(charId));
+              cursorRequest.onsuccess = () => {
+                  const cursor = cursorRequest.result;
+                  if (cursor) {
+                      const message = cursor.value as Message;
+                      const meta = message.metadata as any;
+                      if (message.type === 'world_card' && meta?.worldId === world.id && meta.round === episode.round && meta.storyTime === episode.storyTime) {
+                          found = true;
+                          if (card) cursor.update({ ...message, content: card.content, metadata: card.metadata });
+                          else cursor.delete();
+                      }
+                      cursor.continue();
+                  } else if (!found && card && insertIfMissing) {
+                      messages.add({ charId, role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
+                  }
+              };
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(failure || tx.error);
+          tx.onabort = () => reject(failure || tx.error || new Error('重演保存失敗'));
+      });
+  },
+
   saveWorldEpisode: async (episode: WorldEpisode): Promise<void> => {
       const db = await openDB();
       const tx = db.transaction(STORE_WORLD_EPISODES, 'readwrite');
