@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DB } from '../db';
-import { applyRelationshipDeltas, buildOwnWorldHistory, rollbackWorldBeat, rerollWorldCharBeat } from './engine';
+import { applyRelationshipDeltas, buildOwnWorldHistory, rollbackWorldBeat, rerollWorldCharBeat, rerollWorldEpisodeAll, runWorldEpisode } from './engine';
+import { formatRealClock, realNowSeg, worldNow } from './prompts';
 import { applyBeatToThreads } from './threads';
 import type { WorldProfile, WorldEpisode, WorldCharBeat } from '../../types';
 
@@ -107,5 +108,76 @@ describe('家園重演', () => {
         expect(saved.threads!.flatMap(t => t.messages).map(m => m.text)).toEqual(['新私信']);
         expect(saved.relationships[0]).toMatchObject({ value: 95, label: '新標籤' });
         expect(saved.seeds!.some(s => s.text === '新伏筆')).toBe(true);
+    });
+
+    it('整段重演：所有人照順序重來，後面的人看得到前面的新版本；舊消息、伏筆、卡片全換掉', async () => {
+        const w = world('reroll-all'), ep = episode(w.id);
+        const a = beat('甲舊');
+        const b = { ...beat('乙舊'), charId: 'b', charName: '乙', phone: { dms: [{ to: '甲', lines: ['乙舊私信'] }] }, relationshipDeltas: [] };
+        ep.beats = [a, b];
+        applyBeatToThreads(w, a, members, 1, ep.storyTime);
+        applyBeatToThreads(w, b, members, 1, ep.storyTime);
+        w.seeds = [{ id: 's', charId: 'a', charName: '甲', text: '舊伏筆', hideFrom: [], round: 1, storyTime: ep.storyTime, status: 'pending' }];
+        await DB.saveWorld(w); await DB.saveWorldEpisode(ep);
+        for (const id of ['a', 'b']) {
+            await DB.saveMessage({ charId: id, role: 'assistant', type: 'world_card', content: '舊卡片', metadata: { worldId: w.id, round: 1, storyTime: ep.storyTime } as any });
+        }
+        const turns: string[] = [];
+        vi.mocked(safeFetchJson).mockImplementation(async (_url: any, init: any) => {
+            const msgs = JSON.parse(init.body).messages;
+            turns.push(msgs[msgs.length - 1].content);
+            const who = turns.length === 1 ? '甲' : '乙';
+            return { choices: [{ message: { content: JSON.stringify({ narrative: `${who}新劇情`, location: '家', mood: '開心', phone: { group: [`${who}新群消息`] } }) } }] };
+        });
+        const result = await rerollWorldEpisodeAll({ world: w, characters: members as any, apiConfig: { baseUrl: 'https://test.invalid', model: 'test' } as any, userProfile: { name: '我' } as any, groups: [], trigger: 'observe', episodeId: ep.id, direction: '大家都下雨天在家' });
+        expect(result.ok).toBe(true);
+        expect(turns).toHaveLength(2);
+        expect(turns[0]).toContain('大家都下雨天在家');
+        expect(turns[0]).not.toContain('乙舊私信');
+        expect(turns[1]).toContain('甲新');
+        const savedEp = (await DB.getWorldEpisodes(w.id))[0];
+        expect(savedEp.beats.map(x => x.narrative)).toEqual(['甲新劇情', '乙新劇情']);
+        const saved = (await DB.getWorld(w.id))!;
+        const texts = saved.threads!.flatMap(t => t.messages).map(m => m.text);
+        expect(texts).toEqual(expect.arrayContaining(['甲新群消息', '乙新群消息']));
+        expect(texts.some(t => t.includes('舊'))).toBe(false);
+        expect(saved.seeds).toEqual([]);
+        expect(saved.relationships[0]).toMatchObject({ value: 98, label: '朋友' });
+        for (const id of ['a', 'b']) {
+            const cards = (await DB.getMessagesByCharId(id, true)).filter(m => (m.metadata as any)?.worldId === w.id);
+            expect(cards).toHaveLength(1);
+            expect(cards[0].content).not.toBe('舊卡片');
+        }
+    });
+    it('整段重演全部失敗時什麼都不動', async () => {
+        const w = world('reroll-all-fail'), ep = episode(w.id);
+        applyBeatToThreads(w, beat(), members, 1, ep.storyTime);
+        await DB.saveWorld(w); await DB.saveWorldEpisode(ep);
+        vi.mocked(safeFetchJson).mockRejectedValue(new Error('down'));
+        const result = await rerollWorldEpisodeAll({ world: w, characters: members as any, apiConfig: { baseUrl: 'https://test.invalid', model: 'test' } as any, userProfile: { name: '我' } as any, groups: [], trigger: 'observe', episodeId: ep.id });
+        expect(result).toMatchObject({ ok: false, reason: 'all-beats-failed' });
+        expect((await DB.getWorldEpisodes(w.id))[0].beats[0].narrative).toBe('舊劇情');
+        expect((await DB.getWorld(w.id))!.threads!.flatMap(t => t.messages).map(m => m.text)).toEqual(['舊劇情']);
+    });
+
+    it('真實時間已追上現實：手動觀測接著演同一時段稍後（標籤帶第幾次），自動 tick 照舊不演', async () => {
+        const w: WorldProfile = { ...world('same-seg'), timeMode: 'real', injectToChat: false };
+        w.realClock = realNowSeg(worldNow(w));
+        const label = formatRealClock(w.realClock);
+        await DB.saveWorld(w);
+        await DB.saveWorldEpisode({ ...episode(w.id), storyTime: label, createdAt: Date.now() - 1000 });
+        const deps = { world: w, characters: members as any, apiConfig: { baseUrl: 'https://test.invalid', model: 'test' } as any, userProfile: { name: '我' } as any, groups: [] };
+        expect(await runWorldEpisode({ ...deps, trigger: 'tick' })).toMatchObject({ ok: false, reason: 'caught-up' });
+        const turns: string[] = [];
+        vi.mocked(safeFetchJson).mockImplementation(async (_url: any, init: any) => {
+            const msgs = JSON.parse(init.body).messages;
+            turns.push(msgs[msgs.length - 1].content);
+            return { choices: [{ message: { content: JSON.stringify({ narrative: '稍後的事', location: '家', mood: '平靜' }) } }] };
+        });
+        const result = await runWorldEpisode({ ...deps, trigger: 'observe' });
+        expect(result.ok).toBe(true);
+        expect(result.episode?.storyTime).toBe(`${label} · 第2次`);
+        expect(turns[0]).toContain('同一時段稍晚一點');
+        expect((await DB.getWorld(w.id))!.realClock).toEqual(w.realClock);
     });
 });
