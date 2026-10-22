@@ -513,7 +513,10 @@ const WorldbookApp: React.FC = () => {
                                     }}
                                     className="w-full text-sm text-slate-700 bg-slate-50/80 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
                                 >
-                                    {(Object.entries(WORLDBOOK_POSITION_LABELS) as [string, string][]).map(([value, label]) => (
+                                    {(Object.entries(WORLDBOOK_POSITION_LABELS) as [string, string][])
+                                        // outlet 只給從 ST 導入的條目顯示，自己選了也不會生效
+                                        .filter(([value]) => value !== '7' || tempPosition === 7)
+                                        .map(([value, label]) => (
                                         <option key={value} value={value}>
                                             {label}{value === '1' ? '（默認 · 舊版位置）' : ''}
                                         </option>

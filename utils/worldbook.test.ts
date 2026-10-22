@@ -6,6 +6,7 @@ import {
     parseStandardWorldbook,
     resolveWorldbookEntries,
     serializeStandardWorldbook,
+    splitWorldbookKeywords,
     splitWorldbookSections,
     toMountedWorldbook,
     upsertMountedWorldbooks,
@@ -196,5 +197,63 @@ describe('mounted worldbook synchronization', () => {
         expect(retried.map(entry => entry.id)).toEqual(['existing', 'generated-1', 'generated-2']);
         expect(retried.filter(entry => entry.category === '學院')).toHaveLength(2);
         expect(resolveWorldbookEntries(retried, [{ content: '我們去鐘樓看看' }]).map(entry => entry.book.id)).toEqual(['generated-1', 'generated-2', 'existing']);
+    });
+});
+
+describe('SillyTavern alignment', () => {
+    const scan = (text: string) => [{ role: 'user', content: text }];
+    const keyed = (key: string[], extra: Partial<MountedWorldbook> = {}) => book({ constant: false, key, ...extra });
+
+    it('treats CJK neighbours as word boundaries when whole-word matching is on, like ST', () => {
+        const entry = keyed(['學院'], { matchWholeWords: true });
+        expect(isWorldbookEntryActive(entry, scan('我去學院了'))).toBe(true);
+        const english = keyed(['cat'], { matchWholeWords: true });
+        expect(isWorldbookEntryActive(english, scan('a category'))).toBe(false);
+        expect(isWorldbookEntryActive(english, scan('the Cat sat'))).toBe(true);
+        expect(isWorldbookEntryActive(keyed(['cat'], { matchWholeWords: true, caseSensitive: true }), scan('the Cat sat'))).toBe(false);
+        expect(isWorldbookEntryActive(keyed(['black cat'], { matchWholeWords: true }), scan('a black category'))).toBe(true);
+    });
+
+    it('matches /regex/flags keywords and ignores invalid ones as plain text', () => {
+        expect(isWorldbookEntryActive(keyed(['/貓|狗/']), scan('家裡有隻狗'))).toBe(true);
+        expect(isWorldbookEntryActive(keyed(['/moon/i']), scan('MOON'))).toBe(true);
+        expect(isWorldbookEntryActive(keyed(['/moon/']), scan('MOON'))).toBe(false);
+        // g flag would make repeated test() calls flip; it is dropped
+        const global = keyed(['/月/g']);
+        expect(isWorldbookEntryActive(global, scan('月亮'))).toBe(true);
+        expect(isWorldbookEntryActive(global, scan('月亮'))).toBe(true);
+        expect(isWorldbookEntryActive(keyed(['/[/']), scan('/[/'))).toBe(true);
+    });
+
+    it('keeps regex keywords containing commas whole when splitting editor input', () => {
+        expect(splitWorldbookKeywords('/a{1,3}/i, 月亮，故鄉\n/x/')).toEqual(['/a{1,3}/i', '月亮', '故鄉', '/x/']);
+        expect(splitWorldbookKeywords('/未閉合, 月亮')).toEqual(['/未閉合', '月亮']);
+    });
+
+    it('imports outlet entries without injecting them', () => {
+        const [imported] = parseStandardWorldbook(JSON.stringify({
+            entries: { 0: { uid: 0, content: 'outlet 內容', position: 7, constant: true, outletName: 'scene' } },
+        }), 'ST', 1);
+        expect(imported.position).toBe(7);
+        expect(resolveWorldbookEntries([imported], [], '阿澈', '小雨')).toHaveLength(0);
+    });
+
+    it('round-trips ST-only fields and keys exported entries by uid', () => {
+        const json = JSON.stringify({
+            entries: {
+                3: { uid: 3, displayIndex: 0, comment: '甲', content: '甲', key: ['甲'], sticky: 2, group: '天氣', extensions: { foo: 1 }, title: '協同雜欄位' },
+                1: { uid: 1, displayIndex: 1, comment: '乙', content: '乙', key: ['乙'], cooldown: 3 },
+            },
+        });
+        const imported = parseStandardWorldbook(json, 'ST', 1);
+        expect(imported.map(entry => entry.title)).toEqual(['甲', '乙']);
+        expect(imported[0].stExtra).toEqual({ sticky: 2, group: '天氣', extensions: { foo: 1 } });
+        expect(toMountedWorldbook(imported[0])).not.toHaveProperty('stExtra');
+
+        const raw = JSON.parse(serializeStandardWorldbook(imported));
+        expect(Object.keys(raw.entries).sort()).toEqual(['1', '3']);
+        expect(raw.entries['3']).toMatchObject({ uid: 3, displayIndex: 0, sticky: 2, group: '天氣', comment: '甲' });
+        expect(raw.entries['3']).not.toHaveProperty('title');
+        expect(raw.entries['1']).toMatchObject({ uid: 1, displayIndex: 1, cooldown: 3 });
     });
 });
