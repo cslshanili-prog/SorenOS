@@ -1275,7 +1275,8 @@ export interface DreamLog {
     script?: DreamScript;   // 完整快照 → 可原樣重看
 }
 
-export type WorldbookPosition = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+/** 0–6 同 SillyTavern；7 是 ST 的 outlet，只在 ST 裡靠 {{outlet::名稱}} 引用，Soren 不注入。 */
+export type WorldbookPosition = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type WorldbookDepthRole = 0 | 1 | 2;
 export type WorldbookSelectiveLogic = 0 | 1 | 2 | 3;
 
@@ -1299,6 +1300,11 @@ export interface WorldbookEntryConfig {
     caseSensitive?: boolean | null;
     matchWholeWords?: boolean | null;
     sourceUid?: number;
+    /**
+     * 從 SillyTavern 導入、Soren 還沒用上的欄位（sticky、group、遞迴開關…），原名原值
+     * 保存，導出時寫回去，來回導不丟。只收 ST 認得的欄位名，不掛到角色緩存上。
+     */
+    stExtra?: Record<string, unknown>;
 }
 
 export interface MountedWorldbook extends WorldbookEntryConfig {

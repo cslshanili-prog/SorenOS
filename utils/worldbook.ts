@@ -38,6 +38,7 @@ export const WORLDBOOK_POSITION_LABELS: Record<WorldbookPosition, string> = {
     4: '聊天記錄指定深度',
     5: '示例消息前',
     6: '示例消息後',
+    7: 'Outlet（不自動注入）',
 };
 
 export const WORLDBOOK_POSITION_DESCRIPTIONS: Record<WorldbookPosition, string> = {
@@ -48,6 +49,7 @@ export const WORLDBOOK_POSITION_DESCRIPTIONS: Record<WorldbookPosition, string> 
     4: '適合臨時狀態、近期事件或強提醒；按深度和角色插入聊天記錄。',
     5: '適合放閱讀示例對話前需要先知道的說明。',
     6: '適合放示例對話結束後的補充說明。',
+    7: '從 SillyTavern 導入的 outlet 條目：在 ST 裡要用 {{outlet::名稱}} 手動引用，Soren 沒有這個寫法，所以不會進提示詞，保留只是為了導出時不丟。',
 };
 
 export const WORLDBOOK_ROLE_LABELS: Record<WorldbookDepthRole, string> = {
@@ -66,9 +68,29 @@ const asStringArray = (value: unknown): string[] => {
     return value.map(item => String(item).trim()).filter(Boolean);
 };
 
-export const splitWorldbookKeywords = (value: string): string[] => (
-    value.split(/[,，\n]/).map(item => item.trim()).filter(Boolean)
-);
+/**
+ * 按逗號、換行拆關鍵詞；`/a{1,3}/` 這種裡面帶逗號的正則關鍵詞整條保留，
+ * 不然 ST 導入的條目在編輯器裡打開再保存，正則就被拆壞了。
+ */
+export const splitWorldbookKeywords = (value: string): string[] => {
+    const pieces = value.split(/([,，\n])/);
+    const keywords: string[] = [];
+    for (let i = 0; i < pieces.length; i += 2) {
+        let keyword = pieces[i];
+        if (keyword.trim().startsWith('/') && !parseWorldbookKeyRegex(keyword.trim())) {
+            for (let j = i + 2; j < pieces.length; j += 2) {
+                const joined = pieces.slice(i, j + 1).join('');
+                if (parseWorldbookKeyRegex(joined.trim())) {
+                    keyword = joined;
+                    i = j;
+                    break;
+                }
+            }
+        }
+        keywords.push(keyword.trim());
+    }
+    return keywords.filter(Boolean);
+};
 
 export const toMountedWorldbook = (book: Worldbook): MountedWorldbook => ({
     id: book.id,
@@ -110,6 +132,22 @@ export const upsertMountedWorldbooks = (
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/**
+ * 關鍵詞寫成 `/pattern/flags` 就按正則匹配，規則照 SillyTavern 的 parseRegexFromString：
+ * 中間有沒轉義的 `/` 或語法錯就當普通文字。g / y 會讓 test() 帶狀態，去掉。
+ */
+export const parseWorldbookKeyRegex = (keyword: string): RegExp | null => {
+    const match = keyword.match(/^\/([\w\W]+?)\/([gimsuy]*)$/);
+    if (!match) return null;
+    const [, pattern, flags] = match;
+    if (/(^|[^\\])\//.test(pattern)) return null;
+    try {
+        return new RegExp(pattern.replace(/\\\//g, '/'), flags.replace(/[gy]/g, ''));
+    } catch {
+        return null;
+    }
+};
+
 const keywordMatches = (
     text: string,
     keyword: string,
@@ -117,14 +155,17 @@ const keywordMatches = (
     wholeWords: boolean,
 ): boolean => {
     if (!keyword) return false;
-    if (!wholeWords) {
-        return caseSensitive
-            ? text.includes(keyword)
-            : text.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
-    }
-    const flags = caseSensitive ? 'u' : 'iu';
-    const escaped = escapeRegExp(keyword);
-    return new RegExp(`(^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, flags).test(text);
+    // 正則關鍵詞自帶大小寫 flag，不受下面兩個開關影響（同 ST）
+    const regex = parseWorldbookKeyRegex(keyword);
+    if (regex) return regex.test(text);
+
+    const haystack = caseSensitive ? text : text.toLocaleLowerCase();
+    const needle = caseSensitive ? keyword : keyword.toLocaleLowerCase();
+    // 多個詞的關鍵詞直接找整串；單詞才看邊界
+    if (!wholeWords || /\s/.test(needle)) return haystack.includes(needle);
+    // 邊界跟 ST 一樣用 \W：只有英文字母、數字、底線算「詞內」，中日文前後緊貼的字都算邊界，
+    // 所以中文關鍵詞開了完整詞匹配照樣能中。
+    return new RegExp(`(?:^|\\W)${escapeRegExp(needle)}(?:$|\\W)`).test(haystack);
 };
 
 const messageText = (message: WorldbookScanMessage): string => {
@@ -208,7 +249,8 @@ export const resolveWorldbookEntries = (
         position: book.position ?? 1,
         order: Number.isFinite(book.order) ? Number(book.order) : 100,
     }))
-    .filter(entry => entry.content.trim())
+    // outlet（7）只在 ST 裡被巨集引用，不自動注入
+    .filter(entry => entry.position !== 7 && entry.content.trim())
     .sort((a, b) => a.order - b.order);
 
 /**
@@ -294,7 +336,9 @@ export const serializeStandardWorldbook = (books: WorldbookLike[]): string => {
         const primary = book.key || [];
         const secondary = book.keysecondary || [];
         const position = book.position ?? 1;
-        entries[String(index)] = {
+        // ST 用 entries[uid] 找條目，鍵必須等於 uid，不然在 ST 裡改不了、刪不掉
+        entries[String(uid)] = {
+            ...(book.stExtra || {}),
             uid,
             key: [...primary],
             keysecondary: [...secondary],
@@ -320,6 +364,31 @@ export const serializeStandardWorldbook = (books: WorldbookLike[]): string => {
     return JSON.stringify({ entries }, null, 2);
 };
 
+/**
+ * SillyTavern 條目裡 Soren 還不處理的欄位（名字照 ST 的 newWorldInfoEntryDefinition）。
+ * 只收這張表裡的，免得把別處（比如協同生成）帶進來的雜欄位寫進導出文件。
+ */
+const ST_PASSTHROUGH_FIELDS = [
+    'vectorized', 'addMemo', 'ignoreBudget', 'excludeRecursion', 'preventRecursion',
+    'matchPersonaDescription', 'matchCharacterDescription', 'matchCharacterPersonality',
+    'matchCharacterDepthPrompt', 'matchScenario', 'matchCreatorNotes', 'delayUntilRecursion',
+    'outletName', 'group', 'groupOverride', 'groupWeight', 'useGroupScoring', 'automationId',
+    'sticky', 'cooldown', 'delay', 'characterFilter', 'triggers', 'extensions',
+] as const;
+
+const displayIndexOf = (value: any, fallback: number): number => {
+    const index = value?.displayIndex;
+    return typeof index === 'number' && Number.isFinite(index) ? index : fallback;
+};
+
+const pickStExtra = (value: Record<string, unknown>): Record<string, unknown> | undefined => {
+    const extra: Record<string, unknown> = {};
+    for (const field of ST_PASSTHROUGH_FIELDS) {
+        if (value[field] !== undefined) extra[field] = value[field];
+    }
+    return Object.keys(extra).length > 0 ? extra : undefined;
+};
+
 export const parseStandardWorldbook = (
     rawText: string,
     category: string,
@@ -329,14 +398,19 @@ export const parseStandardWorldbook = (
     if (!parsed || typeof parsed !== 'object' || !parsed.entries || typeof parsed.entries !== 'object') {
         throw new Error('不是受支持的標準世界書文件：缺少 entries');
     }
-    const rawEntries = Array.isArray(parsed.entries)
+    // 鍵是 uid（ST 和新版導出都這樣），對象按數字鍵排序；有 displayIndex 就照它還原列表順序
+    const rawEntries = (Array.isArray(parsed.entries)
         ? parsed.entries
-        : Object.values(parsed.entries);
+        : Object.values(parsed.entries)
+    ).map((value: any, index: number) => ({ value, index }))
+        .sort((a: any, b: any) => displayIndexOf(a.value, a.index) - displayIndexOf(b.value, b.index))
+        .map((item: any) => item.value);
 
     const books = rawEntries.flatMap((value: any, index: number): Worldbook[] => {
         if (!value || typeof value !== 'object' || typeof value.content !== 'string') return [];
         const uid = Number.isFinite(Number(value.uid)) ? Number(value.uid) : index;
-        const position = clamp(value.position, 0, 6, 1) as WorldbookPosition;
+        const position = clamp(value.position, 0, 7, 1) as WorldbookPosition;
+        const stExtra = pickStExtra(value);
         const rawRole = value.role == null ? null : clamp(value.role, 0, 2, 0) as WorldbookDepthRole;
         return [{
             id: `wb-${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
@@ -361,6 +435,7 @@ export const parseStandardWorldbook = (
             caseSensitive: value.caseSensitive == null ? null : value.caseSensitive === true,
             matchWholeWords: value.matchWholeWords == null ? null : value.matchWholeWords === true,
             sourceUid: uid,
+            ...(stExtra ? { stExtra } : {}),
         }];
     });
 
