@@ -2878,6 +2878,8 @@ export interface DateStory {
   summaries?: DateStorySummary[];
   /** 自動總結做到哪一則訊息（含）；之後的才算新的 */
   summarizedThroughId?: number;
+  /** 完結時寫的整場總結 */
+  finalSummary?: { text: string; createdAt: number; palaceAt?: number };
 }
 
 /** 線下故事的一段總結（utils/dateSummary.ts） */

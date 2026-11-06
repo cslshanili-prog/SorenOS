@@ -10,6 +10,7 @@ import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
+import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import type { DateStory } from '../types';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
@@ -164,6 +165,11 @@ const DateApp: React.FC = () => {
     // 「發現進度」彈窗：進行中的那場、是否在問「要結束這段嗎」
     const [pendingStory, setPendingStory] = useState<DateStory | null>(null);
     const [confirmEndStory, setConfirmEndStory] = useState(false);
+    // 完結故事：正在寫整場總結時擋住按鈕；會話裡的「完結故事」確認窗
+    const [finishingStory, setFinishingStory] = useState(false);
+    const [showFinishModal, setShowFinishModal] = useState(false);
+    // 會話卸載時會把手上的角色資料連存檔寫回庫；完結後離開要擋掉，不然進行中的故事又被寫回去
+    const suppressSessionSaveRef = useRef(false);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -369,6 +375,7 @@ const DateApp: React.FC = () => {
         // 哨兵會殘留到下次進見面被檢出並清理（見掛載時的自愈 effect）。
         armDateResumeAttempt(pendingSessionChar.id);
         setActiveCharacterId(pendingSessionChar.id);
+        suppressSessionSaveRef.current = false;
         setMode('session');
         setPendingSessionChar(null);
         addToast('已恢復上次進度', 'success');
@@ -376,19 +383,55 @@ const DateApp: React.FC = () => {
         trackEvent('恢复上次见面进度');
     };
 
-    // 結束進行中的故事、開新的一場（總結、進記憶宮殿見第 2 輪後面兩項）
-    const handleStartNewSession = async () => {
-        if (!pendingSessionChar) return;
-        // 新會話沒有恢復快照可重放，撤銷任何殘留哨兵。
-        clearDateResumeAttempt();
+    const palaceToast = (outcome: DatePalaceOutcome) => {
+        if (outcome === 'stored') addToast('整場總結已送進記憶宮殿', 'success');
+        else if (outcome === 'duplicate') addToast('記憶宮殿裡已經有很像的記憶，整場總結不重複存', 'info');
+        else if (outcome === 'busy') addToast('記憶宮殿正在整理別的，整場總結之後可以在見面記錄裡再送', 'info');
+        else if (outcome === 'error') addToast('整場總結沒送進記憶宮殿，之後可以在見面記錄裡再送', 'error');
+    };
+
+    /** 完結一場故事；withSummary 就先寫整場總結（失敗就不完結，回 false） */
+    const finishStory = async (c: CharacterProfile, story: DateStory, withSummary: boolean, entry: '开新故事' | '见面菜单'): Promise<boolean> => {
+        setFinishingStory(true);
+        try {
+            if (withSummary) {
+                const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', 2000);
+                const done = await finishDateStoryWithSummary({
+                    char: c, story, userName: resolveUserProfileForChar(userProfileBase, c).name,
+                    api: resolveCharacterChatApi(c, apiConfig), messages: msgs,
+                    palace: resolveDatePalaceConfig(c, memoryPalaceConfig, apiConfig),
+                });
+                updateCharacter(c.id, done.charPatch);
+                addToast(`「${dateStoryLabel(done.story)}」完結了`, 'success');
+                palaceToast(done.palace);
+            } else {
+                const done = await completeDateStory(story);
+                updateCharacter(c.id, done.charPatch);
+            }
+            trackEvent('完结线下故事', { 方式: withSummary ? '完结并总结' : '直接结束', 入口: entry });
+            if (activeStoryRef.current?.id === story.id) setActiveStory(null);
+            return true;
+        } catch (e: any) {
+            addToast(`整場總結沒寫成（${e?.message || '未知錯誤'}），故事還沒完結：可以重試，或直接結束`, 'error');
+            return false;
+        } finally {
+            setFinishingStory(false);
+        }
+    };
+
+    // 結束進行中的故事、開新的一場
+    const handleStartNewSession = async (withSummary = false) => {
+        if (!pendingSessionChar || finishingStory) return;
         const story = await ensureStoryFor(pendingSessionChar);
         // 轉舊存檔時大綱已搬進那場故事；感知用的角色要跟著改，免得新故事的開場還讀到舊大綱
         let nextChar: CharacterProfile = story && !pendingSessionChar.activeDateStoryId ? { ...pendingSessionChar, dateScenario: undefined } : pendingSessionChar;
         if (story) {
-            const done = await completeDateStory(story);
-            updateCharacter(pendingSessionChar.id, done.charPatch);
-            nextChar = { ...nextChar, ...done.charPatch };
+            if (!(await finishStory(pendingSessionChar, story, withSummary, '开新故事'))) return;
+            // 新會話沒有恢復快照可重放，撤銷任何殘留哨兵。
+            clearDateResumeAttempt();
+            nextChar = { ...nextChar, activeDateStoryId: undefined, savedDateState: undefined };
         } else {
+            clearDateResumeAttempt();
             updateCharacter(pendingSessionChar.id, { savedDateState: undefined });
             nextChar = { ...nextChar, savedDateState: undefined };
         }
@@ -435,6 +478,7 @@ const DateApp: React.FC = () => {
         }
 
         // 2. 切換模式並刷新數據
+        suppressSessionSaveRef.current = false;
         setMode('session');
         trackEvent('走过去开始见面会话');
         await loadDateMessages(DATE_SESSION_MESSAGE_LIMIT);
@@ -867,6 +911,19 @@ const DateApp: React.FC = () => {
         trackEvent('编辑见面记录里的一条消息');
     };
 
+    const handleFinishFromSession = async (withSummary: boolean) => {
+        const story = activeStoryRef.current;
+        if (!char || !story || finishingStory) return;
+        suppressSessionSaveRef.current = true;
+        if (!(await finishStory(char, story, withSummary, '见面菜单'))) { suppressSessionSaveRef.current = false; return; }
+        setShowFinishModal(false);
+        clearDateResumeAttempt();
+        if (cameFromChat) { returnToChat(); return; }
+        setMode('select');
+        setPeekStatus('');
+        setHasSavedOpening(false);
+    };
+
     const onExitSession = (finalState: DateState) => {
         // 用戶主動保存並退出 = 乾淨退出，撤銷恢復哨兵。
         clearDateResumeAttempt();
@@ -887,6 +944,46 @@ const DateApp: React.FC = () => {
         setPreviousMode('select');
         setMode('settings');
         trackEvent('打开见面设置面板', { from: 'select' });
+    };
+
+    // 見面記錄裡補寫／補送整場總結（直接結束的故事、或當時宮殿在忙）
+    const [historyStoryBusy, setHistoryStoryBusy] = useState<string | null>(null);
+    const refreshHistoryStory = async (id: string) => {
+        const fresh = await DB.getDateStory(id);
+        if (fresh) setHistoryStories(list => list.map(item => (item.id === id ? fresh : item)));
+        return fresh;
+    };
+    const sendFinalForHistory = async (story: DateStory, quietIfUnset = false) => {
+        if (!char) return;
+        const palace = resolveDatePalaceConfig(char, memoryPalaceConfig, apiConfig);
+        if (!palace) { if (!quietIfUnset) addToast('這個角色沒開記憶宮殿，或還沒設 Embedding', 'info'); return; }
+        setHistoryStoryBusy(story.id);
+        try {
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 2000);
+            const last = msgs.filter(m => m.metadata?.dateStoryId === story.id).sort((a, b) => a.id - b.id).pop();
+            palaceToast(await sendDateFinalToPalace({ char, story, config: palace, happenedAt: last?.timestamp ?? story.completedAt ?? Date.now() }));
+            await refreshHistoryStory(story.id);
+        } finally {
+            setHistoryStoryBusy(null);
+        }
+    };
+    const writeFinalForHistory = async (story: DateStory) => {
+        if (!char) return;
+        setHistoryStoryBusy(story.id);
+        let written: DateStory | null = null;
+        try {
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 2000);
+            written = await writeDateFinalSummary({ char, story, userName: dateUserProfile?.name || '', api: resolveCharacterChatApi(char, apiConfig), messages: msgs });
+            await refreshHistoryStory(story.id);
+            if (!written?.finalSummary) addToast('這場沒有內容可以總結', 'info');
+            else addToast('整場總結寫好了', 'success');
+        } catch (e: any) {
+            addToast(`整場總結沒寫成（${e?.message || '未知錯誤'}）`, 'error');
+        } finally {
+            setHistoryStoryBusy(null);
+        }
+        // 照總結設定：「手動」以外寫好就順手送
+        if (written?.finalSummary && resolveDateSummaryConfig(char).palaceMode !== 'manual') await sendFinalForHistory(written, true);
     };
 
     const renameHistoryStory = async (story: DateStory) => {
@@ -1126,11 +1223,18 @@ const DateApp: React.FC = () => {
                 )}
 
                 <Modal isOpen={!!pendingSessionChar} title={confirmEndStory ? '結束這段故事？' : '發現進度'} onClose={() => { setPendingSessionChar(null); setConfirmEndStory(false); if (cameFromChat) returnToChat(); }} footer={confirmEndStory
-                    ? <div className="flex gap-3 w-full"><button onClick={() => setConfirmEndStory(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">取消</button><button onClick={handleStartNewSession} className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-bold">直接結束</button></div>
+                    ? <div className="flex flex-col gap-2 w-full">
+                        <button onClick={() => void handleStartNewSession(true)} disabled={finishingStory} className="w-full py-3 bg-slate-800 text-white rounded-2xl font-bold disabled:opacity-60">{finishingStory ? '正在寫整場總結…' : '完結並總結'}</button>
+                        <div className="flex gap-2">
+                            <button onClick={() => setConfirmEndStory(false)} disabled={finishingStory} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold disabled:opacity-60">取消</button>
+                            <button onClick={() => void handleStartNewSession(false)} disabled={finishingStory} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold disabled:opacity-60">直接結束</button>
+                        </div>
+                    </div>
                     : <div className="flex gap-3 w-full"><button onClick={() => setConfirmEndStory(true)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">開始新的故事</button><button onClick={handleResumeSession} className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-bold shadow-lg shadow-green-200">繼續上次</button></div>}>
                     {confirmEndStory ? (
                         <div className="text-center text-slate-500 text-sm py-4 leading-relaxed">
                             {pendingSessionChar?.name}和你的「{pendingStory ? dateStoryLabel(pendingStory) : '上一段見面'}」會收進已完結，之後在見面記錄的「按故事」裡回看。
+                            <span className="block text-xs text-slate-400 mt-2">「完結並總結」會寫一份整場的回顧，照總結設定送進記憶宮殿。</span>
                         </div>
                     ) : (
                         <div className="text-center text-slate-500 text-sm py-4">
@@ -1223,6 +1327,28 @@ const DateApp: React.FC = () => {
                                     className="shrink-0 text-[11px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full disabled:opacity-40"
                                 >導出{historyView === 'date' ? '當天' : historyView === 'story' ? '這場' : '本次'}</button>
                             </div>
+                            {historyView === 'story' && group.story && (group.story.finalSummary || group.story.status === 'completed') && (
+                                <div className="px-4 py-3 border-b border-slate-100 bg-amber-50/40" data-date-final-summary>
+                                    {group.story.finalSummary ? (
+                                        <details>
+                                            <summary className="cursor-pointer text-[11px] font-bold text-amber-700 select-none">整場總結</summary>
+                                            <p className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{group.story.finalSummary.text}</p>
+                                        </details>
+                                    ) : (
+                                        <div className="text-[11px] text-slate-400">這場是直接結束的，還沒有整場總結。</div>
+                                    )}
+                                    <div className="flex justify-end gap-3 mt-2">
+                                        {!group.story.finalSummary && (
+                                            <button onClick={(event) => { event.stopPropagation(); void writeFinalForHistory(group.story!); }} disabled={!!historyStoryBusy}
+                                                className="text-[11px] font-bold text-amber-700 disabled:opacity-40">{historyStoryBusy === group.story.id ? '正在寫…' : '寫整場總結'}</button>
+                                        )}
+                                        {group.story.finalSummary && (group.story.finalSummary.palaceAt
+                                            ? <span className="text-[10px] font-bold text-emerald-500">✓ 已在記憶宮殿</span>
+                                            : <button onClick={(event) => { event.stopPropagation(); void sendFinalForHistory(group.story!); }} disabled={!!historyStoryBusy}
+                                                className="text-[11px] font-bold text-blue-500 disabled:opacity-40">{historyStoryBusy === group.story.id ? '送出中…' : '送進記憶宮殿'}</button>)}
+                                    </div>
+                                </div>
+                            )}
                             <div className="p-4 space-y-4">
                                 {group.messages.map(m => {
                                     const text = (m.content || '').replace(/\[.*?\]/g, '').trim();
@@ -1391,7 +1517,24 @@ const DateApp: React.FC = () => {
                     onLoadMoreHistory={handleLoadMoreDateHistory}
                     historyLoadLimit={dateLoadLimit}
                     historyReachedEnd={dateHistoryReachedEnd}
+                    onFinishStory={activeStory ? () => setShowFinishModal(true) : undefined}
+                    suppressAutoSaveRef={suppressSessionSaveRef}
                 />
+
+                <Modal isOpen={showFinishModal} title="完結這場故事？" onClose={() => { if (!finishingStory) setShowFinishModal(false); }} footer={
+                    <div className="flex flex-col gap-2 w-full">
+                        <button onClick={() => void handleFinishFromSession(true)} disabled={finishingStory} className="w-full py-3 bg-slate-800 text-white rounded-2xl font-bold disabled:opacity-60">{finishingStory ? '正在寫整場總結…' : '完結並總結'}</button>
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowFinishModal(false)} disabled={finishingStory} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold disabled:opacity-60">取消</button>
+                            <button onClick={() => void handleFinishFromSession(false)} disabled={finishingStory} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold disabled:opacity-60">直接完結</button>
+                        </div>
+                    </div>
+                }>
+                    <div className="text-center text-slate-500 text-sm py-2 leading-relaxed">
+                        「{activeStory ? dateStoryLabel(activeStory) : ''}」會收進已完結，下次見面就是新的故事。
+                        <span className="block text-xs text-slate-400 mt-2">「完結並總結」會寫一份整場的回顧，照總結設定送進記憶宮殿。</span>
+                    </div>
+                </Modal>
 
                 {/* 記憶整理中 — 頂部浮動膠囊（與聊天側外觀一致） */}
                 {memoryPalaceStatus && (
