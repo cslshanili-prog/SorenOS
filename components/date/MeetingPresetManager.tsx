@@ -17,6 +17,7 @@ const SLOT_LABELS: Record<MeetingPresetSlot, string> = {
     dialogueExamples: '對話示例',
     chatHistory: '聊天記錄',
     memory: 'Soren · 記憶',
+    recap: 'Soren · 前情提要',
     time: 'Soren · 時間',
     emotion: 'Soren · 情緒',
     voice: 'Soren · 語氣標籤',

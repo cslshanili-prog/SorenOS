@@ -325,7 +325,7 @@ const withWorldbookDepthEntries = (
  * reroll 的差異只體現在末尾 user 消息的 System Note 裡，不在這裡分叉。
  * 風格 / 人稱 / 自定義補充按 char.dateStyleConfig 動態拼裝。
  */
-const buildMeetingProseBlock = (char: CharacterProfile, userName: string): string => {
+const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap = ''): string => {
     const dateTimeOn = isDateTimeAwarenessOn(char);
     const timeLine = dateTimeOn ? `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char))}。\n` : '';
     const styleConfig = char.dateStyleConfig;
@@ -345,7 +345,7 @@ ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUI
 ${preset.block}
 
 ${digBlock}${povBlock}${extraBlock}${buildDateInputPerceptionRule(userName || '對方')}
-${buildScenarioBlock(char, userName)}${buildLengthLine(char)}### 場景上下文
+${buildScenarioBlock(char, userName)}${recap}${buildLengthLine(char)}### 場景上下文
 ${timeLine}- **Location**: 你們現在**面對面**。
 - **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。
 ${buildBlockedMeetingNote(char, userName)}`;
@@ -503,6 +503,8 @@ ${extraBlock ? `\n${extraBlock}` : ''}`;
         userText: string;
         variant: 'send' | 'reroll';
         useVisionDescriptions?: boolean;
+        /** 這場故事的前情提要（utils/dateSummary.ts 的 buildDateRecap） */
+        recap?: string;
     }): Promise<{ messages: ApiMessage[] }> => {
         const { char, userProfile, allMsgs, emojis, userText, variant } = input;
 
@@ -524,7 +526,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}`;
             conversational: true,
             worldbookMessages: worldbookScan,
         })
-            + buildMeetingProseBlock(char, userProfile?.name || '')
+            + buildMeetingProseBlock(char, userProfile?.name || '', input.recap || '')
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
         // 每輪輪換的聚焦線索：把注意力推向不同的具體方向，相鄰回覆天然有差異

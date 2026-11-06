@@ -190,6 +190,15 @@
 一次，仍失敗則整次不入庫並保留輸入，避免出現“前幾批成功、後幾批丟失”
 的半份搬家。
 
+#### 見面線下故事的總結
+
+見面原文照一般管線進宮殿；另外，線下故事的總結可以送進宮殿（`importDateStorySummary`，
+`utils/memoryPalace/pipeline.ts`，呼叫端在 `utils/dateSummaryPalace.ts`）。總結已經是整理過的敘事，
+不再叫模型提取：一段總結＝一條記憶（分段總結進客廳、importance 6；完結的大總結進臥室、importance 8），
+`createdAt` 取那段劇情最後一則訊息的時間，標籤帶「見面」「線下故事」和故事名。照外部搬家那條路
+向量化（照常去重）→ 建鏈 → 鞏固，不碰聊天水位線；跟一般整理共用角色鎖，撞上回 `lock` 由呼叫端之後再送。
+預設只有完結時送，免得跟原文提取出來的記憶重複。設計見 `plans/offline-date-redesign.md`。
+
 ### 三、檢索邏輯（Retrieval Pipeline）
 
 **查詢源清洗（querySanitizer.ts）**：query 構建前先過 `sanitizeQuerySourceMessages`——圖片/表情包/語音消息整條剔除（圖片 content 是幾萬字符的 base64 data URI，進 embedding 批量請求會把 token 總量頂爆，硅基流動直接 400 code 20015），卡片類消息經 `normalizeMessageContent` 翻成可讀文本，文本里的 data URI 也一律剝離。入庫管線的 `isMessageSemanticallyRelevant` 是同一口徑。

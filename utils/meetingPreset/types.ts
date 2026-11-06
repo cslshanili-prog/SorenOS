@@ -16,7 +16,7 @@ export type MeetingStSlot =
     | 'chatHistory';
 
 /** Soren 自己的佔位：預設沒放的，組裝時補在聊天記錄前面。 */
-export type MeetingSorenSlot = 'memory' | 'time' | 'emotion' | 'voice' | 'length' | 'soren';
+export type MeetingSorenSlot = 'memory' | 'recap' | 'time' | 'emotion' | 'voice' | 'length' | 'soren';
 
 export type MeetingPresetSlot = MeetingStSlot | MeetingSorenSlot;
 

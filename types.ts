@@ -2874,6 +2874,49 @@ export interface DateStory {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
+  /** 這場的對話總結紀錄（舊 → 新），也是前情提要的來源 */
+  summaries?: DateStorySummary[];
+  /** 自動總結做到哪一則訊息（含）；之後的才算新的 */
+  summarizedThroughId?: number;
+}
+
+/** 線下故事的一段總結（utils/dateSummary.ts） */
+export interface DateStorySummary {
+  id: string;
+  text: string;
+  /** 涵蓋的訊息範圍（訊息 id，含頭尾） */
+  fromMessageId: number;
+  toMessageId: number;
+  messageCount: number;
+  createdAt: number;
+  /** auto：自動；all：立即總結；range：選範圍 */
+  kind: 'auto' | 'all' | 'range';
+  /** 送進記憶宮殿的時間 */
+  palaceAt?: number;
+}
+
+/** 見面的對話總結設定（跟著角色走） */
+export interface DateSummaryConfig {
+  /** 自動總結，預設開 */
+  auto?: boolean;
+  /** 按角色回覆輪數，或每天固定時間 */
+  trigger?: 'rounds' | 'daily';
+  /** 幾輪總結一次，預設 10 */
+  rounds?: number;
+  /** 每天幾點（HH:MM，用戶設備的時間） */
+  dailyTime?: string;
+  /** 總結要求；沒填用內建的 */
+  prompt?: string;
+  /** 什麼時候送進記憶宮殿：每次總結都送／只有完結時送（預設）／手動 */
+  palaceMode?: 'each' | 'final' | 'manual';
+}
+
+/** 另存的總結要求（date_summary_presets 表），所有角色共用 */
+export interface DateSummaryPreset {
+  id: string;
+  name: string;
+  prompt: string;
+  createdAt: number;
 }
 
 export interface DateLineColors {
@@ -3112,6 +3155,8 @@ export interface CharacterProfile {
   customDateSprites?: string[]; // User-added custom emotion names for date mode (per-character)
   dateLightReading?: boolean;   // Light reading mode for novel/text view in date
   dateReadingShowAvatars?: boolean; // Show both participants' avatars beside messages in date reading mode
+  /** 見面的對話總結設定 */
+  dateSummaryConfig?: DateSummaryConfig;
   /** 進行中的線下故事（date_stories 表的 id）；完結或還沒開始就是空的 */
   activeDateStoryId?: string;
   /** 見面畫面美化（見 docs/date-appearance.md）；沒設的項目照原本的樣子 */
@@ -4807,6 +4852,8 @@ export interface FullBackupData {
     meetingPresets?: import('./utils/meetingPreset/types').MeetingPresetRecord[];
     /** 見面的線下故事（date_stories 表） */
     dateStories?: DateStory[];
+    /** 見面的總結要求預設（date_summary_presets 表） */
+    dateSummaryPresets?: DateSummaryPreset[];
     storyTheaterMasks?: StoryTheaterMask[];
     customThemes?: ChatTheme[];
     savedEmojis?: Emoji[]; 

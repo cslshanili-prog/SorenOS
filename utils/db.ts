@@ -1,7 +1,7 @@
 import { toMountedWorldbook } from './worldbook';
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
 import type { MeetingPresetRecord } from './meetingPreset/types';
-import type { DateStory } from '../types';
+import type { DateStory, DateSummaryPreset } from '../types';
 
 
 
@@ -39,7 +39,7 @@ const DB_NAME = 'AetherOS_Data';
 //      不進 exportSettings/importSettings 的打包範圍（見 utils/shoppingMall.ts）。
 // v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
 // v75：購物中心訂單 mall_orders（配送狀態照付款時間算，不存，見 plans/mall-redesign.md）。
-const DB_VERSION = 77;
+const DB_VERSION = 78;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
@@ -100,6 +100,7 @@ const STORE_STORY_THEATERS = 'story_theaters';       // 見面·劇情條目（�
 const STORE_STORY_THEATER_PRESETS = 'story_theater_presets'; // 糯米機原生劇情預設
 const STORE_MEETING_PRESETS = 'meeting_presets'; // 見面自訂預設（從 ST 匯入），見 utils/meetingPreset/
 const STORE_DATE_STORIES = 'date_stories'; // 見面的線下故事，見 utils/dateStory.ts
+const STORE_DATE_SUMMARY_PRESETS = 'date_summary_presets'; // 見面總結要求預設，見 utils/dateSummary.ts
 const STORE_STORY_THEATER_MASKS = 'story_theater_masks'; // 劇場原創人物面具
 const STORE_MALL_CATEGORIES = 'mall_categories';     // 購物中心·分類（購物/外賣各自一套，用 kind 區分）
 const STORE_MALL_PRODUCTS = 'mall_products';          // 購物中心·商品/外賣條目
@@ -392,6 +393,8 @@ export const openDB = (): Promise<IDBDatabase> => {
       createStore(STORE_MEETING_PRESETS, { keyPath: 'id' });
       // v77: 見面的線下故事
       createStore(STORE_DATE_STORIES, { keyPath: 'id' });
+      // v78: 見面總結要求預設
+      createStore(STORE_DATE_SUMMARY_PRESETS, { keyPath: 'id' });
       createStore(STORE_STORY_THEATER_MASKS, { keyPath: 'id' });
 
       createStore(STORE_HOTNEWS, { keyPath: 'id' });
@@ -2613,6 +2616,38 @@ export const DB = {
       });
   },
 
+  getDateSummaryPresets: async (): Promise<DateSummaryPreset[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_DATE_SUMMARY_PRESETS)) return [];
+      return new Promise((resolve, reject) => {
+          const request = db.transaction(STORE_DATE_SUMMARY_PRESETS, 'readonly').objectStore(STORE_DATE_SUMMARY_PRESETS).getAll();
+          request.onsuccess = () => resolve(((request.result || []) as DateSummaryPreset[]).sort((a, b) => a.createdAt - b.createdAt));
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  saveDateSummaryPreset: async (preset: DateSummaryPreset): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_DATE_SUMMARY_PRESETS, 'readwrite');
+      transaction.objectStore(STORE_DATE_SUMMARY_PRESETS).put(preset);
+      return new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error || new Error('saveDateSummaryPreset aborted'));
+      });
+  },
+
+  deleteDateSummaryPreset: async (id: string): Promise<void> => {
+      const db = await openDB();
+      const transaction = db.transaction(STORE_DATE_SUMMARY_PRESETS, 'readwrite');
+      transaction.objectStore(STORE_DATE_SUMMARY_PRESETS).delete(id);
+      return new Promise((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error || new Error('deleteDateSummaryPreset aborted'));
+      });
+  },
+
   getMeetingPresets: async (): Promise<MeetingPresetRecord[]> => {
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_MEETING_PRESETS)) return [];
@@ -3737,7 +3772,7 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories] = await Promise.all([
+      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
           getAllFromStore(STORE_NPCS),
@@ -3795,6 +3830,7 @@ export const DB = {
           getAllFromStore(STORE_LIFE_SETTINGS),
           getAllFromStore(STORE_MEETING_PRESETS),
           getAllFromStore(STORE_DATE_STORIES),
+          getAllFromStore(STORE_DATE_SUMMARY_PRESETS),
       ]);
 
       const userProfile = userProfiles.length > 0 ? {
@@ -3827,6 +3863,7 @@ export const DB = {
           lifeRecordSettings,
           meetingPresets,
           dateStories,
+          dateSummaryPresets,
           hotNewsSnapshots,
           vrNovels,
           vrAnnotations,
@@ -3871,7 +3908,7 @@ export const DB = {
           STORE_CHARACTERS, STORE_CHAR_GROUPS, STORE_NPCS, STORE_MOMENT_POSTS, STORE_MESSAGES, STORE_THEMES, STORE_EMOJIS, STORE_EMOJI_CATEGORIES,
           STORE_ASSETS, STORE_GALLERY, STORE_USER, STORE_DIARIES,
           STORE_TASKS, STORE_ANNIVERSARIES, STORE_ROOM_TODOS, STORE_ROOM_NOTES,
-          STORE_GROUPS, STORE_JOURNAL_STICKERS, STORE_SOCIAL_POSTS, STORE_COURSES, STORE_GAMES, STORE_WORLDBOOKS, STORE_STORY_THEATERS, STORE_STORY_THEATER_PRESETS, STORE_STORY_THEATER_MASKS, STORE_MEETING_PRESETS, STORE_DATE_STORIES, STORE_NOVELS, STORE_SONGS,
+          STORE_GROUPS, STORE_JOURNAL_STICKERS, STORE_SOCIAL_POSTS, STORE_COURSES, STORE_GAMES, STORE_WORLDBOOKS, STORE_STORY_THEATERS, STORE_STORY_THEATER_PRESETS, STORE_STORY_THEATER_MASKS, STORE_MEETING_PRESETS, STORE_DATE_STORIES, STORE_DATE_SUMMARY_PRESETS, STORE_NOVELS, STORE_SONGS,
           STORE_BANK_TX, STORE_BANK_DATA,
           STORE_XHS_ACTIVITIES, STORE_XHS_OWNED_POSTS, STORE_XHS_STOCK,
           STORE_QUIZZES,
@@ -3977,6 +4014,7 @@ export const DB = {
           data.lifeRecordSettings !== undefined,
           data.meetingPresets !== undefined,
           data.dateStories !== undefined,
+          data.dateSummaryPresets !== undefined,
           data.hotNewsSnapshots !== undefined,
           data.vrNovels !== undefined,
           data.vrAnnotations !== undefined,
@@ -4486,6 +4524,11 @@ export const DB = {
           await clearAndAdd(STORE_DATE_STORIES, data.dateStories, '線下故事', false);
           data.dateStories = undefined as any;
       }, data.dateStories?.length || 0);
+
+      await runSection('見面總結預設', data.dateSummaryPresets !== undefined, async () => {
+          await clearAndAdd(STORE_DATE_SUMMARY_PRESETS, data.dateSummaryPresets, '見面總結預設', false);
+          data.dateSummaryPresets = undefined as any;
+      }, data.dateSummaryPresets?.length || 0);
 
       // 熱點快照（全角色共享緩存）
       await runSection('熱點快照', data.hotNewsSnapshots !== undefined, async () => {

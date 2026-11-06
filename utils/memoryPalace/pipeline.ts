@@ -2288,6 +2288,83 @@ export interface ExternalMemoryImportResult {
     error?: 'lock' | 'empty' | 'no_memories' | string;
 }
 
+export interface DateStorySummaryImportResult {
+    stored: number;
+    skipped: number;
+    error?: 'lock' | 'empty' | string;
+}
+
+/**
+ * 見面線下故事的總結送進記憶宮殿（見 plans/offline-date-redesign.md「對話總結」）。
+ *
+ * 總結本身已經是整理過的敘事，不再叫模型提取：一份總結就是一條記憶，照外部搬家那條路
+ * 向量化 → 建鏈 → 鞏固。跟外部搬家一樣不碰聊天水位線（總結沒有對應的 Message ID 要推進）。
+ * 跟一般整理共用同一把角色鎖，撞上就回 'lock'，由呼叫的人之後再送。
+ */
+export async function importDateStorySummary(
+    input: {
+        charId: string;
+        content: string;
+        /** 這段劇情發生的時間（取總結範圍最後一則訊息），記憶按這個時間排 */
+        happenedAt: number;
+        /** 整場故事的大總結比分段的重要一點 */
+        final?: boolean;
+        tags?: string[];
+    },
+    embeddingConfig: EmbeddingConfig,
+    llmConfig: LightLLMConfig,
+): Promise<DateStorySummaryImportResult> {
+    const content = input.content.trim();
+    if (!content) return { stored: 0, skipped: 0, error: 'empty' };
+    if (processingLocks.has(input.charId)) return { stored: 0, skipped: 0, error: 'lock' };
+    processingLocks.add(input.charId);
+    try {
+        const existingBefore = await MemoryNodeDB.getByCharId(input.charId);
+        try {
+            if (await checkModelConsistency(input.charId, embeddingConfig.model) === 'mismatch') {
+                await rebuildAllVectors(input.charId, embeddingConfig, getRemoteVectorConfig());
+            }
+        } catch (error: any) {
+            console.warn(`🏰 [DateSummary] 模型一致性檢查失敗（繼續寫入）: ${error?.message || error}`);
+        }
+        const node: MemoryNode = {
+            id: `mn_date_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            charId: input.charId,
+            content,
+            room: input.final ? 'bedroom' : 'living_room',
+            tags: ['見面', '線下故事', ...(input.tags || [])].filter((tag, index, all) => tag && all.indexOf(tag) === index),
+            importance: input.final ? 8 : 6,
+            mood: 'neutral',
+            embedded: false,
+            createdAt: input.happenedAt,
+            lastAccessedAt: input.happenedAt,
+            accessCount: 0,
+            pinnedUntil: null,
+            eventBoxId: null,
+            origin: 'extraction',
+        };
+        const result = await vectorizeAndStore([node], embeddingConfig, getRemoteVectorConfig(), { skipDedup: false });
+        if (result.stored > 0) {
+            const justStored = (await MemoryNodeDB.getByCharId(input.charId)).filter(item => item.id === node.id);
+            try {
+                await buildLinks(justStored, existingBefore, llmConfig);
+            } catch (error: any) {
+                console.warn(`🏰 [DateSummary] 建立關聯失敗，記憶已寫入: ${error?.message || error}`);
+            }
+            try {
+                await runConsolidation(input.charId, getRemoteVectorConfig());
+            } catch (error: any) {
+                console.warn(`🏰 [DateSummary] 鞏固失敗，記憶已寫入: ${error?.message || error}`);
+            }
+        }
+        return { stored: result.stored, skipped: result.skipped };
+    } catch (error: any) {
+        return { stored: 0, skipped: 0, error: error?.message || String(error) };
+    } finally {
+        processingLocks.delete(input.charId);
+    }
+}
+
 /**
  * 把其它應用/設備導出的原始記憶文字直接遷入當前角色的記憶宮殿。
  *

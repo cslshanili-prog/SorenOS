@@ -7,6 +7,7 @@
  * - 角色描述：你的身份（名字、備註、核心指令）
  * - 場景：見面設定的劇情大綱
  * - 回應字數：預設有讀字數的 getglobalvar（名字含「字數」「總」）就蓋過去，沒有才用 Soren 的佔位
+ * - 前情提要：這場故事的總結（Soren 自己的佔位，預設沒放就補在聊天記錄前）
  * - 角色設定：內在認知
  * - 世界書·後：世界觀＋世界書「角色設定後」「作者註釋頂部／底部」
  * - 對話示例：世界書「示例前／後」＋對話範例＋招牌台詞
@@ -54,6 +55,8 @@ export const buildMeetingPresetPayload = async (input: {
     userText: string;
     useVisionDescriptions?: boolean;
     model?: string;
+    /** 這場故事的前情提要 */
+    recap?: string;
 }): Promise<MeetingPresetPayload> => {
     const { preset, char, userProfile, allMsgs, emojis, userText } = input;
     const userName = userProfile?.name || '';
@@ -79,6 +82,7 @@ export const buildMeetingPresetPayload = async (input: {
         scenario: scenarioText(char, userName),
         personaDescription: sections.userProfile,
         memory: join(sections.roomPlates, sections.memoryBank, sections.memoryPalace),
+        recap: input.recap || '',
         emotion: sections.emotionBuff,
         time: sections.timeAwareness,
         // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
