@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { CharacterProfile, Message, DateState, UserProfile } from '../../types';
 import Modal from '../../components/os/Modal';
 import { useOS } from '../../context/OSContext';
@@ -25,6 +25,7 @@ import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel
 import { trackEvent } from '../../utils/analytics';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import DecorationFrame from './DecorationFrame';
+import { buildDateAppearanceCss, resolveDateBackdrop, scopeDateCss } from '../../utils/dateAppearance';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
 import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
 import type { MeetingRegexScript } from '../../utils/meetingPreset/types';
@@ -132,6 +133,14 @@ const DateSession: React.FC<DateSessionProps> = ({
     // 背景字段存的是原始值（令牌 / data: / 外鏈），渲染這一刻才解析成能喂 CSS 的 url
     const bgImageUrl = useBlobRefUrl(char.dateBackground || '');
     const light = !!char.dateLightReading;
+    const appearance = char.dateAppearance;
+    const backdrop = resolveDateBackdrop(appearance, light);
+    // 字級／字色在前、用戶自訂 CSS 在後，用戶寫的能蓋過去
+    const appearanceCss = useMemo(
+        () => [buildDateAppearanceCss(appearance, light), scopeDateCss(appearance?.customCss)].filter(Boolean).join('\n'),
+        [appearance, light],
+    );
+    const decorationDarkCard = light && appearance?.decorationDarkCard === true;
 
     // Interaction State
     const [input, setInput] = useState('');
@@ -550,11 +559,14 @@ const DateSession: React.FC<DateSessionProps> = ({
 
     return (
         <div className={`h-full w-full relative overflow-hidden font-sans select-none ${light ? 'bg-[#faf8f5]' : 'bg-black'}`} onClick={() => { if (showMenu) closeMenu(); }}>
+            {appearanceCss && <style>{appearanceCss}</style>}
+            {/* .date-root 只包見面畫面本身；設定、換模型、彈窗放在外面，用戶自訂 CSS 碰不到 */}
+            <div className={`date-root ${light ? 'date-theme-light' : 'date-theme-dark'} absolute inset-0 overflow-hidden ${light ? 'bg-[#faf8f5]' : 'bg-black'}`}>
 
             {/* Background Layer */}
             <div
-                className="absolute inset-0 bg-cover bg-center blur-xl opacity-30"
-                style={{ backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : 'none' }}
+                className={`date-background absolute inset-0 bg-cover bg-center ${backdrop.backgroundBlur ? 'blur-xl' : ''}`}
+                style={{ backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : 'none', opacity: backdrop.backgroundOpacity }}
             ></div>
 
             {/* Menu Layer — 繼續按鈕單獨在左；菜單 / 輸入上下疊在最右列。
@@ -657,7 +669,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             </div>
 
             {/* Reading View */}
-            <div ref={novelScrollRef} className={`absolute inset-0 z-20 overflow-y-auto no-scrollbar pt-24 pb-32 px-8 mask-image-gradient overscroll-contain ${light ? 'bg-[#faf8f5]/90' : 'bg-black/80 backdrop-blur-sm'}`} onClick={(e) => { e.stopPropagation(); if (showMenu) { closeMenu(); return; } setShowInputBox(true); }}>
+            <div ref={novelScrollRef} className={`date-reading absolute inset-0 z-20 overflow-y-auto no-scrollbar pt-24 pb-32 px-8 mask-image-gradient overscroll-contain ${backdrop.overlayColor ? '' : light ? 'bg-[#faf8f5]/90' : 'bg-black/80 backdrop-blur-sm'}`} style={backdrop.overlayColor ? { backgroundColor: backdrop.overlayColor } : undefined} onClick={(e) => { e.stopPropagation(); if (showMenu) { closeMenu(); return; } setShowInputBox(true); }}>
                 <div className="min-h-full flex flex-col justify-end">
                     <div className="max-w-2xl mx-auto w-full animate-fade-in space-y-6">
                         {isBatchSelectMode && (
@@ -677,7 +689,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                             </div>
                         )}
                         {sessionMessages.length === 0 && peekStatus && (
-                            <div className={`italic text-center text-sm mb-8 px-4 ${light ? 'text-stone-400' : 'text-slate-200/50'}`}>
+                            <div className={`date-opening italic text-center text-sm mb-8 px-4 ${light ? 'text-stone-400' : 'text-slate-200/50'}`}>
                                 {parseDateBody(peekStatus).map((line, idx) => <p key={idx} className="whitespace-pre-wrap leading-relaxed tracking-wide my-2">{line.text}</p>)}
                             </div>
                         )}
@@ -712,7 +724,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                         {visibleSessionMessages.map((msg) => (
                             <div
                                 key={msg.id}
-                                className={`group relative rounded-xl transition-colors -mx-4 px-4 py-2 ${isBatchSelectMode ? 'pl-10' : ''} ${light ? 'active:bg-stone-100' : 'active:bg-white/5'}`}
+                                className={`date-message ${msg.role === 'user' ? 'date-message-user' : 'date-message-ai'} group relative rounded-xl transition-colors -mx-4 px-4 py-2 ${isBatchSelectMode ? 'pl-10' : ''} ${light ? 'active:bg-stone-100' : 'active:bg-white/5'}`}
                                 onClick={(e) => {
                                     if (!isBatchSelectMode) return;
                                     e.stopPropagation();
@@ -739,8 +751,8 @@ const DateSession: React.FC<DateSessionProps> = ({
                                     return (
                                     <div className="flex min-w-0 items-start justify-end gap-3">
                                         <p
-                                            className={`min-w-0 flex-1 whitespace-pre-wrap font-serif text-[16px] text-right leading-loose tracking-wide italic pr-4 ${light ? 'text-stone-400 border-r-2 border-stone-300/50' : 'text-slate-400 border-r-2 border-slate-600/50'}`}
-                                        >{cleanUserTextForDisplay(presetRegex ? cleanDisplayText(presetDisplay(shown, REGEX_PLACEMENT.userInput, msg.id)) : shown)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
+                                            className={`date-line-user min-w-0 flex-1 whitespace-pre-wrap font-serif text-[16px] text-right leading-loose tracking-wide italic pr-4 ${light ? 'text-stone-400 border-r-2 border-stone-300/50' : 'text-slate-400 border-r-2 border-slate-600/50'}`}
+                                        >{cleanUserTextForDisplay(presetRegex ? cleanDisplayText(presetDisplay(shown, REGEX_PLACEMENT.userInput, msg.id)) : shown)} <span className="date-line-name text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
                                         {char.dateReadingShowAvatars && (
                                             <ReadingAvatar
                                                 // userProfile 傳進來時已經按角色分身份卡解析過（resolveUserProfileForChar），
@@ -767,7 +779,11 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         )}
                                         <div className="min-w-0 flex-1">
                                             {parts.map((part, partIdx) => part.type === 'html'
-                                                ? <DecorationFrame key={`html-${partIdx}`} html={part.html} light={light} />
+                                                ? (
+                                                    <div key={`html-${partIdx}`} className={`date-decoration-card ${decorationDarkCard ? 'rounded-2xl bg-[#1c1b22] px-3 py-px my-3' : ''}`}>
+                                                        <DecorationFrame html={part.html} light={light && !decorationDarkCard} />
+                                                    </div>
+                                                )
                                                 : parseDateBody(presetRegex ? cleanDisplayText(part.text) : part.text).map((line, idx) => {
                                             const lineKey = partIdx === 0 ? `${msg.id}-${idx}` : `${msg.id}-${partIdx}-${idx}`;
                                             const canVoice = voiceEnabled && line.isDialogue && !!line.spoken && !isOpeningMsg;
@@ -794,7 +810,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                 >
                                                     <p
                                                         // 台詞深、旁白淺一階，一眼分得出誰在說話；class 名是之後畫面美化自訂 CSS 的鉤子
-                                                        className={`${line.isDialogue ? 'date-line-dialogue' : 'date-line-narration'} flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 border-l-2 ${light
+                                                        className={`date-line ${line.isDialogue ? 'date-line-dialogue' : 'date-line-narration'} flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 border-l-2 ${light
                                                             ? `border-stone-200 ${line.isDialogue ? 'text-stone-800' : 'text-stone-500'}`
                                                             : `drop-shadow-md border-white/10 ${line.isDialogue ? 'text-slate-100' : 'text-slate-400'}`}`}
                                                     >{line.text}</p>
@@ -859,8 +875,8 @@ const DateSession: React.FC<DateSessionProps> = ({
                     </div>
                 )}
                 {showInputBox && (
-                    <div className={`w-[90%] min-w-0 max-w-lg backdrop-blur-xl rounded-2xl p-2 flex items-end gap-2 shadow-2xl animate-fade-in mb-8 pointer-events-auto ${light ? 'bg-stone-100 border border-stone-300' : 'bg-white/10 border border-white/20'}`} onClick={(e) => e.stopPropagation()}>
-                        <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder={isTyping ? "等待回應..." : "輸入對話..."} disabled={isTyping} rows={1} className={`min-w-0 flex-1 bg-transparent px-3 sm:px-4 py-3 outline-none font-light resize-none min-h-[3.5rem] max-h-36 overflow-y-auto overscroll-contain no-scrollbar leading-tight select-text ${light ? 'text-stone-800 placeholder:text-stone-400' : 'text-white placeholder:text-white/30'}`} autoFocus />
+                    <div className={`date-input-bar w-[90%] min-w-0 max-w-lg backdrop-blur-xl rounded-2xl p-2 flex items-end gap-2 shadow-2xl animate-fade-in mb-8 pointer-events-auto ${light ? 'bg-stone-100 border border-stone-300' : 'bg-white/10 border border-white/20'}`} onClick={(e) => e.stopPropagation()}>
+                        <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder={isTyping ? "等待回應..." : "輸入對話..."} disabled={isTyping} rows={1} className={`date-input min-w-0 flex-1 bg-transparent px-3 sm:px-4 py-3 outline-none font-light resize-none min-h-[3.5rem] max-h-36 overflow-y-auto overscroll-contain no-scrollbar leading-tight select-text ${light ? 'text-stone-800 placeholder:text-stone-400' : 'text-white placeholder:text-white/30'}`} autoFocus />
                         {(() => {
                             const retryText = pendingRetryText || getPendingReplyText(messages);
                             const canRetry = !input.trim() && !isTyping && !!retryText;
@@ -876,6 +892,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                         })()}
                     </div>
                 )}
+            </div>
             </div>
 
             {/* 換模型：跟聊天設定的「對話模型」同一個面板、同一個欄位，存了下一句就用新的 */}

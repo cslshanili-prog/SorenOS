@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
 //     （寫端漏改的話，用戶新設的背景又變成幾 MB 的 data URL 塞在角色行裡）。
 const settingsSource = readFileSync(path.resolve(__dirname, '../components/date/DateSettings.tsx'), 'utf8');
 const sessionSource = readFileSync(path.resolve(__dirname, '../components/date/DateSession.tsx'), 'utf8');
+// 縮略圖和預覽在「畫面美化」那塊
+const appearanceSource = readFileSync(path.resolve(__dirname, '../components/date/DateAppearanceSettings.tsx'), 'utf8');
 const checkPhoneSource = readFileSync(path.resolve(__dirname, '../apps/CheckPhone.tsx'), 'utf8');
 const personaSimSource = readFileSync(path.resolve(__dirname, '../apps/PersonaSim.tsx'), 'utf8');
 
@@ -25,10 +27,13 @@ describe('見面背景的 blobref 讀寫路徑', () => {
     expect(sessionSource).toContain('backgroundImage: bgImageUrl ?');
     expect(settingsSource).not.toContain('url(${char.dateBackground})');
     expect(sessionSource).not.toContain('url(${char.dateBackground})');
+    expect(appearanceSource).toContain("const bgUrl = useBlobRefUrl(char.dateBackground || '');");
+    expect(appearanceSource).not.toContain('url(${char.dateBackground})');
   });
 
   it('見面設定頁的背景縮略圖走 TokenImg，不是裸 <img>', () => {
-    expect(settingsSource).toContain('<TokenImg value={char.dateBackground}');
+    expect(appearanceSource).toContain('<TokenImg value={char.dateBackground}');
+    expect(appearanceSource).not.toContain('<img src={char.dateBackground}');
     expect(settingsSource).not.toContain('<img src={char.dateBackground}');
   });
 

@@ -7,7 +7,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_SHIM = `<script>(function(){function mk(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}['localStorage','sessionStorage'].forEach(function(n){try{window[n].getItem('__probe')}catch(e){try{Object.defineProperty(window,n,{value:mk(),configurable:true})}catch(_){}}})})();</script>`;
 
-const RESIZE_SCRIPT = `<script>(function(){function post(){var b=document.body,h=Math.max(document.documentElement.scrollHeight,b?b.scrollHeight:0);parent.postMessage({sorenDecorationHeight:h},'*')}try{new ResizeObserver(post).observe(document.documentElement)}catch(e){}window.addEventListener('load',post);setTimeout(post,50);setTimeout(post,600);setTimeout(post,2000)})();</script>`;
+// 量的是內容本身多高（body 和各子元素的底），不是 documentElement.scrollHeight——後者至少等於 iframe 自己的高度，
+// 卡片只會長高、縮不回來，矮卡片下面就多一塊空白。
+const RESIZE_SCRIPT = `<script>(function(){function measure(){var b=document.body;if(!b)return 0;var h=b.getBoundingClientRect().height;for(var i=0;i<b.children.length;i++){var el=b.children[i],cs=getComputedStyle(el);if(cs.position==='fixed')continue;var bottom=el.getBoundingClientRect().bottom+(parseFloat(cs.marginBottom)||0);if(bottom>h)h=bottom}return h}function post(){parent.postMessage({sorenDecorationHeight:measure()},'*')}try{var ro=new ResizeObserver(post);ro.observe(document.documentElement);if(document.body)ro.observe(document.body)}catch(e){}window.addEventListener('load',post);setTimeout(post,50);setTimeout(post,600);setTimeout(post,2000)})();</script>`;
 
 const MAX_HEIGHT = 4000;
 

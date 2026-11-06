@@ -13,7 +13,7 @@ describe('用戶反饋迴歸保護', () => {
         const inputLayer = source.slice(source.indexOf('{/* Input Layer */}'), source.indexOf('{/* Settings Overlay */}'));
 
         expect(inputLayer).toContain('w-[90%] min-w-0 max-w-lg');
-        expect(inputLayer).toContain('className={`min-w-0 flex-1');
+        expect(inputLayer).toContain('className={`date-input min-w-0 flex-1');
         expect(inputLayer).toContain('className="shrink-0 px-4 sm:px-6');
     });
 

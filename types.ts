@@ -2856,6 +2856,26 @@ export interface CharacterCustomMeter {
   shareWithChar?: boolean;
 }
 
+export interface DateLineColors {
+  dialogue?: string;
+  narration?: string;
+}
+
+export interface DateAppearance {
+  /** 底圖上的遮罩濃度 0–100；沒設就是原本的樣子（底圖淡淡地糊在後面） */
+  backgroundDim?: number;
+  /** 底圖要不要糊掉，預設要 */
+  backgroundBlur?: boolean;
+  /** 角色正文字級（px），用戶輸入小兩級 */
+  fontSize?: number;
+  /** 字色，深淺兩套各記各的 */
+  colors?: { light?: DateLineColors; dark?: DateLineColors };
+  /** 淺色模式下裝飾卡片墊深色底（照 ST 深色主題做的裝飾在淺底上字會變淡） */
+  decorationDarkCard?: boolean;
+  /** 自訂 CSS，套用前自動限定在 .date-root 裡 */
+  customCss?: string;
+}
+
 export interface CharacterProfile {
   id: string;
   name: string;
@@ -3072,6 +3092,8 @@ export interface CharacterProfile {
   customDateSprites?: string[]; // User-added custom emotion names for date mode (per-character)
   dateLightReading?: boolean;   // Light reading mode for novel/text view in date
   dateReadingShowAvatars?: boolean; // Show both participants' avatars beside messages in date reading mode
+  /** 見面畫面美化（見 docs/date-appearance.md）；沒設的項目照原本的樣子 */
+  dateAppearance?: DateAppearance;
   dateSkinSets?: SkinSet[];     // Multiple skin sets（角色立繪，神經鏈接 → 形象；桌面陪伴 / 節日活動用）
   activeSkinSetId?: string;     // Currently active skin set ID
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
