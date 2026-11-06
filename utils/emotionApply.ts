@@ -2,6 +2,7 @@ import { DB } from './db';
 import type { CharacterProfile, CharacterBuff } from '../types';
 import { landAmbientEventFromEval } from './roomAmbient';
 import { CHAT_GEN_EVENTS } from './chatGenEvents';
+import { settleBuffs } from './emotionDecay';
 
 // 情緒評估失敗的用戶可見信號（OSContext 監聽彈 toast）。本函數是本地 / instant(worker)
 // 兩條路徑的共用落點，在這裡派發能覆蓋「worker 推回的 raw 解析全滅」這類雲端失敗。
@@ -413,12 +414,15 @@ export async function applyEmotionEvalRaw(
         // 拿舊快照整份存回去會把那些改動悄悄蓋掉——心聲「還差 N 輪」重開 App 就退回原數，
         // 就是這樣來的。這裡只該動 buff 兩個字段，其餘一律以庫裡現在的為準。
         const latest = await readLatestCharacter(charData);
-        const sanitizedBuffs = hasBuffArray ? sanitizeBuffs(result.buffs) : (latest.activeBuffs || []);
+        // 褪色（utils/emotionDecay.ts）：沿用沒變的情緒原本的時間、去掉已淡掉的、最多留 12 條
+        const sanitizedBuffs = hasBuffArray ? settleBuffs(latest.activeBuffs, sanitizeBuffs(result.buffs)) : (latest.activeBuffs || []);
         const buffInjection = hasInjection ? result.injection! : (hasBuffArray ? '' : (latest.buffInjection || ''));
+        const buffInjectionAt = hasInjection ? Date.now() : latest.buffInjectionAt;
         const updated: CharacterProfile = {
             ...latest,
             activeBuffs: sanitizedBuffs,
             buffInjection,
+            buffInjectionAt,
         };
         await DB.saveCharacter(updated);
 
@@ -426,7 +430,7 @@ export async function applyEmotionEvalRaw(
         // —— 避開 saveCharacter 未等事務提交 / instant flush 下 DB 重讀偶發拿舊值的競態.
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('emotion-updated', {
-                detail: { charId: charData.id, buffs: sanitizedBuffs, buffInjection },
+                detail: { charId: charData.id, buffs: sanitizedBuffs, buffInjection, buffInjectionAt },
             }));
         }
         console.log('🎭 [Emotion] Updated buffs:', sanitizedBuffs.map((b) => b.label).join(', ') || 'none');

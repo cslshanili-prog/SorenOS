@@ -35,6 +35,7 @@
 | `.date-background` | 底圖 |
 | `.date-reading` | 閱讀區（可捲動那塊，遮罩也在這） |
 | `.date-opening` | 還沒開始對話時顯示的開場 |
+| `.date-emotion-line` | 左上角那行當下情緒（點開看完整列表） |
 | `.date-message`（＋`-ai`／`-user`） | 一則訊息 |
 | `.date-line` | 角色正文的每一行；台詞再帶 `.date-line-dialogue`，旁白帶 `.date-line-narration` |
 | `.date-line-user` / `.date-line-name` | 你說的話／後面那個名字 |

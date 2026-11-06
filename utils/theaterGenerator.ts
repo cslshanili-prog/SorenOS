@@ -16,6 +16,7 @@
  * 緩存進 slot.theater，可反覆重看，不重複燒 token。
  */
 
+import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, SlotTheater, TheaterLine } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
@@ -60,8 +61,9 @@ function buildTheaterPrompt(
     const backdropBlock = backdrop
         ? `\n\n這個時段，「${char.name}」心裡盤旋的念頭大致是這樣（作為情緒底色，別照抄，要化進行為裡）：\n${backdrop}`
         : '';
-    const buffBlock = (isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection)
-        ? `\n\n${char.buffInjection}`
+    const emotionInjection = buildEmotionInjection(char);
+    const buffBlock = (isScheduleFeatureOn(char) && char.emotionConfig?.enabled && emotionInjection)
+        ? `\n\n${emotionInjection}`
         : '';
 
     // 「私底下的一面」是這段戲好不好看的關鍵：趁沒人時 ta 最真實、最放鬆、甚至有點蠢有點怪的樣子，

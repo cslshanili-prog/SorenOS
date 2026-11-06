@@ -2115,7 +2115,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 更糟: 之後任一 updateCharacter 會拿舊內存合併寫回 DB, 把後台剛生成的 buff 抹掉.
       // 這裡無條件按事件 charId 更新內存 (DB 已由 applyEmotionEvalRaw 寫好), 順帶堵住反向覆蓋.
       const buffSyncHandler = (e: Event) => {
-          const detail = (e as CustomEvent).detail as { charId?: string; buffs?: unknown; buffInjection?: unknown };
+          const detail = (e as CustomEvent).detail as { charId?: string; buffs?: unknown; buffInjection?: unknown; buffInjectionAt?: unknown };
           const charId = detail?.charId;
           if (!charId) return;
           // 內存同步 + 雲端快照打髒合成一步。打髒放這裡的理由:
@@ -2128,10 +2128,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const syncBuffIntoMemory = (
               nextBuffs: CharacterProfile['activeBuffs'],
               nextInjection: string | undefined,
+              nextInjectionAt?: number,
           ) => {
               setCharacters(prev => prev.map(c => {
                   if (c.id !== charId) return c;
-                  const next = normalizeCharacterImpression({ ...c, activeBuffs: nextBuffs, buffInjection: nextInjection });
+                  // buffInjectionAt 也要跟上：記憶體裡少了它，下一次 updateCharacter 存回去就把「總結寫於多久前」弄丟了
+                  const next = normalizeCharacterImpression({ ...c, activeBuffs: nextBuffs, buffInjection: nextInjection, buffInjectionAt: nextInjectionAt ?? c.buffInjectionAt });
                   markAmsgStateDirty({
                       char: next,
                       userProfile: userForChar(next),
@@ -2145,6 +2147,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               syncBuffIntoMemory(
                   detail.buffs as CharacterProfile['activeBuffs'],
                   typeof detail.buffInjection === 'string' ? detail.buffInjection : '',
+                  typeof detail.buffInjectionAt === 'number' ? detail.buffInjectionAt : undefined,
               );
               return;
           }
@@ -2152,7 +2155,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           DB.getAllCharacters().then(all => {
               const updated = all.find(c => c.id === charId);
               if (!updated) return;
-              syncBuffIntoMemory(updated.activeBuffs, updated.buffInjection);
+              syncBuffIntoMemory(updated.activeBuffs, updated.buffInjection, updated.buffInjectionAt);
           }).catch(() => {});
       };
 

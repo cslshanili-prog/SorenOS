@@ -4248,10 +4248,9 @@ const Chat: React.FC = () => {
                 hideTrigger={inputPreferences.sendButtonGenerates}
                 onShowCharsPanel={() => setShowPanel('chars')}
                 onDeleteBuff={(buffId) => {
-                    const currentBuffs = char.activeBuffs || [];
-                    const newBuffs = currentBuffs.filter(b => b.id !== buffId);
-                    const newInjection = '';
-                    updateCharacter(char.id, { activeBuffs: newBuffs, buffInjection: newInjection });
+                    // 只拿掉這一條：當下情緒總結留著，提示詞那行「此刻還在的情緒」會跟著少掉它（utils/emotionDecay.ts）
+                    const newBuffs = (char.activeBuffs || []).filter(b => b.id !== buffId);
+                    updateCharacter(char.id, newBuffs.length ? { activeBuffs: newBuffs } : { activeBuffs: [], buffInjection: '' });
                     addToast('已刪除該情緒狀態', 'info');
                 }}
                 headerStyle={osTheme.chatHeaderStyle}

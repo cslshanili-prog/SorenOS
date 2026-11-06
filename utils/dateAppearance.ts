@@ -29,6 +29,7 @@ export const DATE_CSS_HOOKS: { selector: string; label: string }[] = [
     { selector: '.date-background', label: '底圖' },
     { selector: '.date-reading', label: '閱讀區（可捲動那塊，遮罩也在這）' },
     { selector: '.date-opening', label: '開場（還沒開始對話時那段）' },
+    { selector: '.date-emotion-line', label: '左上角那行當下情緒' },
     { selector: '.date-message / .date-message-ai / .date-message-user', label: '一則訊息' },
     { selector: '.date-line', label: '角色正文的每一行' },
     { selector: '.date-line-dialogue / .date-line-narration', label: '台詞／旁白' },

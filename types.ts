@@ -551,6 +551,8 @@ export interface CharacterBuff {
   emoji?: string;
   color?: string;    // hex, e.g. '#f87171'
   description?: string;  // 用戶可讀的簡短說明（給用戶看的，不是給AI的）
+  /** 這個強度是什麼時候定的（ms）；從這時起照 utils/emotionDecay.ts 的半衰期褪色。舊資料沒有就不褪 */
+  since?: number;
 }
 
 // 實時上下文配置 - 讓AI角色感知真實世界
@@ -3411,6 +3413,8 @@ export interface CharacterProfile {
   activeMsg2Config?: ActiveMsg2CharacterConfig;
   activeBuffs?: CharacterBuff[];
   buffInjection?: string;   // 注入到systemPrompt的敘事型情緒底色描述
+  /** buffInjection（當下情緒總結）是什麼時候寫的（ms） */
+  buffInjectionAt?: number;
   emotionConfig?: {
     enabled: boolean;
     api?: {
