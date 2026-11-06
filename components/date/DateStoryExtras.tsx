@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { CharacterProfile } from '../../types';
+import type { CharacterProfile, DateStory } from '../../types';
+import { patchDateStory } from '../../utils/dateStory';
 import { describeLength } from '../../utils/dateExtras';
 
 // 見面設定裡的劇情大綱、開場白、回應字數三塊。內建規則和自訂預設都吃這三項：
@@ -13,6 +14,8 @@ interface Props {
     updateCharacter: (id: string, patch: Partial<CharacterProfile>) => void;
     addToast: (message: string, type?: 'success' | 'error' | 'info') => void;
     Section: React.FC<{ title: string; defaultOpen?: boolean; children: React.ReactNode }>;
+    /** 進行中的故事：有的話大綱改的是這場的，沒有就是下一場的 */
+    story?: DateStory | null;
 }
 
 const makeGreetingId = () => `dg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -21,22 +24,25 @@ const toNumber = (value: string): number | undefined => {
     return value.trim() && Number.isFinite(n) && n > 0 ? n : undefined;
 };
 
-const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Section }) => {
-    const [scenario, setScenario] = useState(char.dateScenario || '');
+const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Section, story }) => {
+    const savedScenario = story ? (story.scenario || '') : (char.dateScenario || '');
+    const [scenario, setScenario] = useState(savedScenario);
     const [greetings, setGreetings] = useState<Greeting[]>(char.dateGreetings || []);
     const [minDraft, setMinDraft] = useState(char.dateResponseLength?.min ? String(char.dateResponseLength.min) : '');
     const [maxDraft, setMaxDraft] = useState(char.dateResponseLength?.max ? String(char.dateResponseLength.max) : '');
     useEffect(() => {
-        setScenario(char.dateScenario || '');
         setGreetings(char.dateGreetings || []);
         setMinDraft(char.dateResponseLength?.min ? String(char.dateResponseLength.min) : '');
         setMaxDraft(char.dateResponseLength?.max ? String(char.dateResponseLength.max) : '');
     }, [char.id]);
+    // 換了故事（開新的、完結）就跟著換
+    useEffect(() => { setScenario(savedScenario); }, [char.id, story?.id]);
 
     const saveScenario = () => {
         const trimmed = scenario.trim();
-        if (trimmed === (char.dateScenario || '')) return;
-        updateCharacter(char.id, { dateScenario: trimmed || undefined });
+        if (trimmed === savedScenario) return;
+        if (story) void patchDateStory(story.id, { scenario: trimmed || undefined });
+        else updateCharacter(char.id, { dateScenario: trimmed || undefined });
         addToast(trimmed ? '劇情大綱已保存' : '劇情大綱已清空', 'success');
     };
 
@@ -72,7 +78,10 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
     return (
         <>
             <Section title="劇情大綱 (Scenario)">
-                <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">這次見面想往哪走：地點、背景、正在發生的事。角色會照著方向寫，細節自己發揮。用自訂預設時填進預設的「場景」位置。</p>
+                <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">
+                    {story ? '這場故事' : '下一場故事'}想往哪走：地點、背景、正在發生的事。角色會照著方向寫，細節自己發揮。用自訂預設時填進預設的「場景」位置。
+                    {!story && ' 開新故事時會帶進那場故事裡。'}
+                </p>
                 <textarea
                     value={scenario}
                     onChange={e => setScenario(e.target.value)}

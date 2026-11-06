@@ -8,6 +8,8 @@ import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
+import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
+import type { DateStory } from '../types';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import type { MeetingPresetGeneration, MeetingPresetRecord } from '../utils/meetingPreset/types';
@@ -48,6 +50,7 @@ import {
     type DateHistoryGroup,
     type DateHistorySortOrder,
     type DateHistoryView,
+    DATE_HISTORY_VIEW_LABEL,
 } from '../utils/dateHistory';
 
 /** 上次自己選的開場方式（赴約那次臨時用的「我走過去」不算）。 */
@@ -122,6 +125,7 @@ const DateApp: React.FC = () => {
     // History State
     const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
     const [historyView, setHistoryView] = useState<DateHistoryView>('encounter');
+    const [historyStories, setHistoryStories] = useState<DateStory[]>([]);
     const [historySortOrder, setHistorySortOrder] = useState<DateHistorySortOrder>('newest');
     const [historyLoadLimit, setHistoryLoadLimit] = useState(DATE_HISTORY_MESSAGE_LIMIT);
     const [historyReachedEnd, setHistoryReachedEnd] = useState(false);
@@ -151,6 +155,13 @@ const DateApp: React.FC = () => {
     const [peekMeetup, setPeekMeetup] = useState<DateMeetup | null>(null);
     // 用開場白庫開場時，這次挑到的是哪一條（重新感知就換一條）
     const [peekGreetingId, setPeekGreetingId] = useState<string | undefined>(undefined);
+    // 這個角色進行中的線下故事（見 utils/dateStory.ts）；ref 給存訊息時讀最新的
+    const [activeStory, setActiveStoryState] = useState<DateStory | null>(null);
+    const activeStoryRef = useRef<DateStory | null>(null);
+    const setActiveStory = (story: DateStory | null) => { activeStoryRef.current = story; setActiveStoryState(story); };
+    // 「發現進度」彈窗：進行中的那場、是否在問「要結束這段嗎」
+    const [pendingStory, setPendingStory] = useState<DateStory | null>(null);
+    const [confirmEndStory, setConfirmEndStory] = useState(false);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -182,8 +193,8 @@ const DateApp: React.FC = () => {
         [char, userProfileBase, userProfile],
     );
     const historyGroups = useMemo(
-        () => buildDateHistoryGroups(historyMessages, historyView, historySortOrder),
-        [historyMessages, historyView, historySortOrder],
+        () => buildDateHistoryGroups(historyMessages, historyView, historySortOrder, historyStories),
+        [historyMessages, historyView, historySortOrder, historyStories],
     );
 
     // 見面消息和普通聊天共用同一份歷史，也就是主動消息 2.0 雲端快照（fire_pack）的素材。
@@ -293,11 +304,23 @@ const DateApp: React.FC = () => {
         return content;
     };
 
+    useEffect(() => {
+        let cancelled = false;
+        const load = () => { loadActiveDateStory(char).then(story => { if (!cancelled) setActiveStory(story); }).catch(() => {}); };
+        load();
+        window.addEventListener(DATE_STORY_UPDATED_EVENT, load);
+        return () => { cancelled = true; window.removeEventListener(DATE_STORY_UPDATED_EVENT, load); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [char?.id, char?.activeDateStoryId]);
+
     // --- Resume / Start Logic ---
     // 赴約進來（帶 meetup）時這一次固定「我走過去」：角色在約好的地方、你赴約。只用這一次，不改你記住的偏好。
-    const handleCharClick = (c: CharacterProfile, meetup: DateMeetup | null = null) => {
+    const handleCharClick = async (c: CharacterProfile, meetup: DateMeetup | null = null) => {
         setPeekMeetup(meetup);
-        if (c.savedDateState) {
+        const ongoing = await loadActiveDateStory(c).catch(() => null);
+        if (c.savedDateState || ongoing) {
+            setPendingStory(ongoing);
+            setConfirmEndStory(false);
             setPendingSessionChar(c);
         } else {
             startPeek(c, meetup ? 'approach' : loadRememberedOpening(), meetup, !meetup);
@@ -323,8 +346,21 @@ const DateApp: React.FC = () => {
         openApp(AppID.Chat);
     };
 
-    const handleResumeSession = () => {
+    /** 舊版的存檔還沒有故事：先轉一場出來（見 migrateLegacyDateStory） */
+    const ensureStoryFor = async (c: CharacterProfile): Promise<DateStory | null> => {
+        const existing = await loadActiveDateStory(c).catch(() => null);
+        if (existing) return existing;
+        const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', 400).catch(() => [] as Message[]);
+        const migrated = await migrateLegacyDateStory(c, dateMsgs).catch(() => null);
+        if (!migrated) return null;
+        updateCharacter(c.id, migrated.charPatch);
+        return migrated.story;
+    };
+
+    const handleResumeSession = async () => {
         if (!pendingSessionChar) return;
+        const story = await ensureStoryFor(pendingSessionChar);
+        setActiveStory(story);
         // 恢復嘗試開始前先武裝崩潰哨兵：若這份重快照在 iOS 上把內容進程撐崩，
         // 哨兵會殘留到下次進見面被檢出並清理（見掛載時的自愈 effect）。
         armDateResumeAttempt(pendingSessionChar.id);
@@ -336,15 +372,28 @@ const DateApp: React.FC = () => {
         trackEvent('恢复上次见面进度');
     };
 
-    const handleStartNewSession = () => {
+    // 結束進行中的故事、開新的一場（總結、進記憶宮殿見第 2 輪後面兩項）
+    const handleStartNewSession = async () => {
         if (!pendingSessionChar) return;
         // 新會話沒有恢復快照可重放，撤銷任何殘留哨兵。
         clearDateResumeAttempt();
-        updateCharacter(pendingSessionChar.id, { savedDateState: undefined });
+        const story = await ensureStoryFor(pendingSessionChar);
+        // 轉舊存檔時大綱已搬進那場故事；感知用的角色要跟著改，免得新故事的開場還讀到舊大綱
+        let nextChar: CharacterProfile = story && !pendingSessionChar.activeDateStoryId ? { ...pendingSessionChar, dateScenario: undefined } : pendingSessionChar;
+        if (story) {
+            const done = await completeDateStory(story);
+            updateCharacter(pendingSessionChar.id, done.charPatch);
+            nextChar = { ...nextChar, ...done.charPatch };
+        } else {
+            updateCharacter(pendingSessionChar.id, { savedDateState: undefined });
+            nextChar = { ...nextChar, savedDateState: undefined };
+        }
+        setActiveStory(null);
         trackEvent('选择见面存档处理方式', { choice: 'new' });
         trackEvent('见面存档选重新开始');
-        startPeek(pendingSessionChar, peekMeetup ? 'approach' : loadRememberedOpening(), peekMeetup, !peekMeetup);
+        startPeek(nextChar, peekMeetup ? 'approach' : loadRememberedOpening(), peekMeetup, !peekMeetup);
         setPendingSessionChar(null);
+        setConfirmEndStory(false);
     };
 
     // --- 關鍵修復: 進入 Session 時立即歸檔開場白 ---
@@ -356,12 +405,21 @@ const DateApp: React.FC = () => {
         // UPDATE: 添加 isOpening 標記，用於區分新會話
         if (peekStatus && !hasSavedOpening) {
             try {
+                // 新的開場就是新的一場故事
+                // 手上那份要是跟角色記的對不上（例如剛完結、非同步讀到舊的），一律當沒有
+                let story = activeStoryRef.current && activeStoryRef.current.id === char.activeDateStoryId ? activeStoryRef.current : null;
+                if (!story) {
+                    const started = await startDateStory(char);
+                    updateCharacter(char.id, started.charPatch);
+                    story = started.story;
+                    setActiveStory(story);
+                }
                 await DB.saveMessage({
                     charId: char.id,
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
-                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}), ...(peekGreetingId ? { dateGreetingId: peekGreetingId } : {}) } // Added Flag
+                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}), ...(peekGreetingId ? { dateGreetingId: peekGreetingId } : {}), ...storyTag(story) } // Added Flag
                 });
                 setHasSavedOpening(true);
             } catch (e) {
@@ -497,6 +555,8 @@ const DateApp: React.FC = () => {
         if (!char) throw new Error("No char");
         const sarModulePlan = getSARModuleRuntimePlan(char, dateUserProfile);
         const preset = await loadPresetFor(char);
+        // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
+        const storyChar = withStoryScenario(char, activeStoryRef.current);
         const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
         // 預設的正則：兩個「只…」都沒勾的，改的是存下來的原文（同 ST）
         const storedText = preset && kind !== 'continue'
@@ -522,7 +582,7 @@ const DateApp: React.FC = () => {
                 role: 'user',
                 type: 'text',
                 content: storedText,
-                metadata: { source: 'date', ...(isContinueTurn ? { meetingContinue: true } : {}) },
+                metadata: { source: 'date', ...(isContinueTurn ? { meetingContinue: true } : {}), ...storyTag(activeStoryRef.current) },
             });
             markDateTurnDirty(char);
         }
@@ -542,8 +602,8 @@ const DateApp: React.FC = () => {
             : storedText;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
-            : { ...(await DatePrompts.buildSessionPayload({ char, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision })), generation: undefined };
         const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85, generation);
         const parsed = parseSARModuleReply(preset
             ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
@@ -564,7 +624,7 @@ const DateApp: React.FC = () => {
             : undefined;
 
         // 3. Save AI Response
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}) } });
+        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         if (sarModulePlan.character) {
             updateCharacter(char.id, previous => ({
                 vrState: { ...(previous.vrState || { enabled: false, intervalMinutes: 120 }), sarModule: advanceSARModuleAfterReply(previous.vrState?.sarModule, sarModulePlan.character) },
@@ -621,7 +681,7 @@ const DateApp: React.FC = () => {
                 return content;
             }
             const { messages } = DatePrompts.buildPeekPayload({
-                char,
+                char: withStoryScenario(char, activeStoryRef.current),
                 userProfile: dateUserProfile,
                 allMsgs: preparedValidMsgs,
                 emojis,
@@ -632,7 +692,7 @@ const DateApp: React.FC = () => {
             const content = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
             await DB.deleteMessage(lastMsg.id);
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}) } });
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}), ...(lastMsg.metadata?.dateStoryId ? { dateStoryId: lastMsg.metadata.dateStoryId } : {}) } });
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 閱讀模式空會話時頂部渲染的開場 & 退出快照裡的 peekStatus 同步成新開場
@@ -652,14 +712,16 @@ const DateApp: React.FC = () => {
         // validMsgs（全來源）的尾巴不是這條 date user，直接傳進去會把那條聊天消息當成
         // 「待重發的最後一條」砍掉，同時 date user 又被追加一次（丟一條、重一條）。
         const preset = await loadPresetFor(char);
+        // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
+        const storyChar = withStoryScenario(char, activeStoryRef.current);
         const rerollMsgs = trimHistoryThrough(preparedValidMsgs, lastUserMsg.id);
         const rerollText = lastUserMsg.metadata?.meetingContinue === true
             ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
             : lastUserMsg.content;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
-            : { ...(await DatePrompts.buildSessionPayload({ char, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision })), generation: undefined };
         // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線（用預設時照預設的溫度）。
         const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
         const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);
@@ -684,7 +746,7 @@ const DateApp: React.FC = () => {
 
         // 生成成功後才刪舊回覆：以前先刪後調 API，請求一失敗上一條劇情就永久消失
         await DB.deleteMessage(lastMsg.id);
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}) } });
+        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         markDateTurnDirty(char);
         trackEvent('重掷见面回复', { 目标: '回复' });
 
@@ -793,12 +855,22 @@ const DateApp: React.FC = () => {
         trackEvent('打开见面设置面板', { from: 'select' });
     };
 
+    const renameHistoryStory = async (story: DateStory) => {
+        const next = window.prompt('故事名字（留空就用開始日期）', story.title || '');
+        if (next === null) return;
+        const saved = await patchDateStory(story.id, { title: next.trim() || undefined });
+        if (saved) setHistoryStories(list => list.map(item => (item.id === saved.id ? saved : item)));
+    };
+
     const openHistory = async (c: CharacterProfile) => {
         setActiveCharacterId(c.id);
         // 見面歷史按 source=date 獨立讀取，不受聊天側記憶宮殿高水位影響。
         const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', DATE_HISTORY_MESSAGE_LIMIT);
         setHistoryMessages(msgs);
-        setHistoryView('encounter');
+        const stories = await DB.getDateStories(c.id).catch(() => [] as DateStory[]);
+        setHistoryStories(stories);
+        // 有故事就先看故事
+        setHistoryView(stories.length ? 'story' : 'encounter');
         setHistorySortOrder('newest');
         setHistoryLoadLimit(DATE_HISTORY_MESSAGE_LIMIT);
         setHistoryReachedEnd(msgs.length < DATE_HISTORY_MESSAGE_LIMIT);
@@ -834,7 +906,7 @@ const DateApp: React.FC = () => {
                 shareTitle: `${char.name}的見面記錄`,
             });
             addToast(result === 'shared' ? '已打開分享面板' : '見面記錄已導出', 'success');
-            trackEvent('导出见面记录', { 范围: scope, 整理方式: historyView === 'encounter' ? '按次' : '按日期' });
+            trackEvent('导出见面记录', { 范围: scope, 整理方式: DATE_HISTORY_VIEW_LABEL[historyView] });
         } catch (error) {
             console.error('Export Date History Error', error);
             addToast('見面記錄導出失敗', 'error');
@@ -849,14 +921,14 @@ const DateApp: React.FC = () => {
         try {
             // 導出屬於用戶主動操作，可以完整掃描該角色消息索引；只收集 source=date，避免把圖片聊天讀進內存。
             const allDateMessages = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', Number.MAX_SAFE_INTEGER);
-            const allGroups = buildDateHistoryGroups(allDateMessages, historyView, historySortOrder);
+            const allGroups = buildDateHistoryGroups(allDateMessages, historyView, historySortOrder, historyStories);
             if (allGroups.length === 0) {
                 addToast('暫無可導出的見面記錄', 'info');
                 return;
             }
             const result = await shareOrDownloadFile({
                 content: formatDateHistoryExport(char.name, allGroups, historyView),
-                fileName: makeDateHistoryFileName(char.name, `全部_${historyView === 'encounter' ? '按次' : '按日期'}`),
+                fileName: makeDateHistoryFileName(char.name, `全部_${DATE_HISTORY_VIEW_LABEL[historyView]}`),
                 mimeType: 'text/plain;charset=utf-8',
                 shareTitle: `${char.name}的全部見面記錄`,
             });
@@ -990,8 +1062,8 @@ const DateApp: React.FC = () => {
                                                 <div className="w-[70px] h-[70px] rounded-full overflow-hidden" style={{ boxShadow: `0 0 18px ${th.avGlow}` }}>
                                                     <TokenImg value={c.avatar} className="w-full h-full object-cover" alt={c.name} />
                                                 </div>
-                                                {c.savedDateState && (
-                                                    <div title="有存檔" className="absolute bottom-0 right-1.5 w-[22px] h-[22px] rounded-full flex items-center justify-center" style={{ background: '#fbbf24', boxShadow: '0 1px 5px rgba(180,120,20,0.4)' }}>
+                                                {(c.savedDateState || c.activeDateStoryId) && (
+                                                    <div title="有進行中的故事" className="absolute bottom-0 right-1.5 w-[22px] h-[22px] rounded-full flex items-center justify-center" style={{ background: '#fbbf24', boxShadow: '0 1px 5px rgba(180,120,20,0.4)' }}>
                                                         <Sparkle size={12} weight="fill" className="text-white" />
                                                     </div>
                                                 )}
@@ -1019,8 +1091,19 @@ const DateApp: React.FC = () => {
                     </div>
                 )}
 
-                <Modal isOpen={!!pendingSessionChar} title="發現進度" onClose={() => { setPendingSessionChar(null); if (cameFromChat) returnToChat(); }} footer={<div className="flex gap-3 w-full"><button onClick={handleStartNewSession} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">新的見面</button><button onClick={handleResumeSession} className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-bold shadow-lg shadow-green-200">繼續上次</button></div>}>
-                    <div className="text-center text-slate-500 text-sm py-4">檢測到 {pendingSessionChar?.name} 有未結束的見面。<br/><span className="text-xs text-slate-400 mt-2 block">(存檔時間: {pendingSessionChar?.savedDateState?.timestamp ? new Date(pendingSessionChar.savedDateState.timestamp).toLocaleString() : 'Unknown'})</span></div>
+                <Modal isOpen={!!pendingSessionChar} title={confirmEndStory ? '結束這段故事？' : '發現進度'} onClose={() => { setPendingSessionChar(null); setConfirmEndStory(false); if (cameFromChat) returnToChat(); }} footer={confirmEndStory
+                    ? <div className="flex gap-3 w-full"><button onClick={() => setConfirmEndStory(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">取消</button><button onClick={handleStartNewSession} className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-bold">直接結束</button></div>
+                    : <div className="flex gap-3 w-full"><button onClick={() => setConfirmEndStory(true)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">開始新的故事</button><button onClick={handleResumeSession} className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-bold shadow-lg shadow-green-200">繼續上次</button></div>}>
+                    {confirmEndStory ? (
+                        <div className="text-center text-slate-500 text-sm py-4 leading-relaxed">
+                            {pendingSessionChar?.name}和你的「{pendingStory ? dateStoryLabel(pendingStory) : '上一段見面'}」會收進已完結，之後在見面記錄的「按故事」裡回看。
+                        </div>
+                    ) : (
+                        <div className="text-center text-slate-500 text-sm py-4">
+                            {pendingSessionChar?.name}有一段還沒結束的故事{pendingStory ? `「${dateStoryLabel(pendingStory)}」` : ''}。
+                            {pendingSessionChar?.savedDateState?.timestamp && <span className="text-xs text-slate-400 mt-2 block">(存檔時間: {new Date(pendingSessionChar.savedDateState.timestamp).toLocaleString()})</span>}
+                        </div>
+                    )}
                 </Modal>
             </div>
         );
@@ -1046,6 +1129,12 @@ const DateApp: React.FC = () => {
                     </div>
                     <div className="px-4 pb-3 flex items-center gap-2">
                         <div className="flex-1 p-1 rounded-xl bg-slate-100 flex">
+                            {historyStories.length > 0 && (
+                                <button
+                                    onClick={() => setHistoryView('story')}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'story' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
+                                >按故事</button>
+                            )}
                             <button
                                 onClick={() => setHistoryView('encounter')}
                                 className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${historyView === 'encounter' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
@@ -1069,24 +1158,36 @@ const DateApp: React.FC = () => {
                         <div key={group.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                             <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex gap-3 justify-between items-center">
                                 <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-600 tracking-wide truncate">
-                                        {historyView === 'encounter' ? formatDateHistoryTime(group.startAt, true) : formatDateHistoryDate(group.startAt)}
+                                    <div className="text-xs font-bold text-slate-600 tracking-wide truncate flex items-center gap-2">
+                                        {group.story && historyView === 'story' ? (
+                                            <>
+                                                <span className="truncate">{dateStoryLabel(group.story)}</span>
+                                                <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full ${group.story.status === 'ongoing' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>{group.story.status === 'ongoing' ? '進行中' : '已完結'}</span>
+                                            </>
+                                        ) : historyView === 'date' ? formatDateHistoryDate(group.startAt) : formatDateHistoryTime(group.startAt, true)}
                                     </div>
                                     <div className="text-[10px] text-slate-400 mt-1">
-                                        {historyView === 'encounter'
+                                        {historyView === 'story'
+                                            ? (group.story
+                                                ? `${formatDateHistoryTime(group.startAt, true)} 起${group.story.completedAt ? ` · ${formatDateHistoryTime(group.story.completedAt, true)} 完結` : ''}`
+                                                : (group.hasOpeningAnchor ? '故事功能之前的見面' : '舊記錄 · 按日期兼容整理'))
+                                            : historyView === 'encounter'
                                             ? (group.hasOpeningAnchor ? '一次完整見面' : '舊記錄 · 按日期兼容整理')
                                             : (group.encounterCount > 0 ? `${group.encounterCount} 次開場` : '舊記錄')}
                                         {' · '}{group.messages.length} 句
+                                        {group.story && historyView === 'story' && (
+                                            <button onClick={(event) => { event.stopPropagation(); void renameHistoryStory(group.story!); }} className="ml-2 text-blue-500 font-bold">改名</button>
+                                        )}
                                     </div>
                                 </div>
                                 <button
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        exportHistoryGroups([group], `${historyView === 'encounter' ? '本次' : '當天'}_${group.dateKey}`);
+                                        exportHistoryGroups([group], `${historyView === 'date' ? '當天' : historyView === 'story' ? '這場' : '本次'}_${group.dateKey}`);
                                     }}
                                     disabled={historyBusy}
                                     className="shrink-0 text-[11px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full disabled:opacity-40"
-                                >導出{historyView === 'encounter' ? '本次' : '當天'}</button>
+                                >導出{historyView === 'date' ? '當天' : historyView === 'story' ? '這場' : '本次'}</button>
                             </div>
                             <div className="p-4 space-y-4">
                                 {group.messages.map(m => {
