@@ -6,6 +6,10 @@ import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
+import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
+import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
+import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
+import type { MeetingPresetGeneration, MeetingPresetRecord } from '../utils/meetingPreset/types';
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
 import type { PipelineResult } from '../utils/memoryPalace/pipeline';
 import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPalace';
@@ -151,6 +155,23 @@ const DateApp: React.FC = () => {
     const [editContent, setEditContent] = useState('');
 
     const char = characters.find(c => c.id === activeCharacterId);
+
+    // 這個角色選的自訂預設（見面設定 → 預設）。預設在別處被改過會發事件，這裡重讀。
+    const [activePreset, setActivePreset] = useState<MeetingPresetRecord | null>(null);
+    const presetId = char?.dateMeetingPresetId;
+    useEffect(() => {
+        let cancelled = false;
+        const load = () => {
+            if (!presetId) { setActivePreset(null); return; }
+            DB.getMeetingPreset(presetId).then(record => { if (!cancelled) setActivePreset(record || null); }).catch(() => {});
+        };
+        load();
+        window.addEventListener(MEETING_PRESET_UPDATED_EVENT, load);
+        return () => { cancelled = true; window.removeEventListener(MEETING_PRESET_UPDATED_EVENT, load); };
+    }, [presetId]);
+    /** 送出前從庫裡拿最新的：設定頁剛改的開關這一輪就要生效 */
+    const loadPresetFor = async (c: CharacterProfile): Promise<MeetingPresetRecord | null> =>
+        c.dateMeetingPresetId ? (await DB.getMeetingPreset(c.dateMeetingPresetId).catch(() => undefined)) || null : null;
     // 見面跟隨「個人檔案 → 分角色身份指定」——見面跟私聊/查手機/記憶宮殿是同一種
     // "你與這個角色的關係"，不單獨開一套指定入口，避免同一個角色在不同場景裡認出不同的你。
     const dateUserProfile = useMemo(
@@ -240,7 +261,7 @@ const DateApp: React.FC = () => {
 
     // peek / send / reroll 共用的 LLM 調用（提示詞構建統一在 utils/datePrompts.ts）
     // 見面跟私聊用同一個模型：角色設了專屬「對話模型」就用它，沒設才落到全局 API
-    const callLLM = async (messages: ApiMessage[], temperature: number): Promise<string> => {
+    const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<string> => {
         const chatApi = char ? resolveCharacterChatApi(char, apiConfig) : apiConfig;
         const response = await fetch(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
@@ -248,11 +269,15 @@ const DateApp: React.FC = () => {
             body: JSON.stringify({
                 model: chatApi.model,
                 messages,
-                temperature,
+                // 用自訂預設時，生成參數照預設（沒填的項目照舊）
+                temperature: generation?.temperature ?? temperature,
+                ...(generation?.topP !== undefined ? { top_p: generation.topP } : {}),
+                ...(generation?.frequencyPenalty ? { frequency_penalty: generation.frequencyPenalty } : {}),
+                ...(generation?.presencePenalty ? { presence_penalty: generation.presencePenalty } : {}),
                 // max_tokens 是 Claude 原生 API 的必填字段；缺了它，糯米機/Csy 等
                 // OpenAI→Claude 中轉會被上游打回，再包成 502 / bad_response_status_code。
-                // 與私聊 (useChatAI.ts) 對齊，統一帶 8000。
-                max_tokens: 8000,
+                // 與私聊 (useChatAI.ts) 對齊，統一帶 8000（預設有填就照預設）。
+                max_tokens: generation?.maxTokens || 8000,
                 stream: apiConfig.stream ?? false,
             })
         });
@@ -456,13 +481,19 @@ const DateApp: React.FC = () => {
     const handleSendMessage = async (text: string, kind?: 'continue'): Promise<string> => {
         if (!char) throw new Error("No char");
         const sarModulePlan = getSARModuleRuntimePlan(char, dateUserProfile);
+        const preset = await loadPresetFor(char);
+        const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
+        // 預設的正則：兩個「只…」都沒勾的，改的是存下來的原文（同 ST）
+        const storedText = preset && kind !== 'continue'
+            ? applyRegexScripts(text, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.userInput, stage: 'store', env: regexEnv })
+            : text;
 
         // 重發場景：如果 DB 裡最後一條已經是這條 user 消息（上一輪發送後 API 失敗 / 網絡抖動等），
         // 就跳過重複落庫，直接走 API。與 chat app 行為對齊，讓用戶按發送鍵即可重新觸發 LLM。
         const recentCheck = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 1);
         const isRetry = recentCheck.length > 0
             && recentCheck[0].role === 'user'
-            && recentCheck[0].content === text
+            && recentCheck[0].content === storedText
             && recentCheck[0].metadata?.source === 'date';
         // API 中斷後的重試只會帶回顯示文本；從已落庫標記恢復“繼續”的完整語義。
         const isContinueTurn = kind === 'continue'
@@ -475,7 +506,7 @@ const DateApp: React.FC = () => {
                 charId: char.id,
                 role: 'user',
                 type: 'text',
-                content: text,
+                content: storedText,
                 metadata: { source: 'date', ...(isContinueTurn ? { meetingContinue: true } : {}) },
             });
             markDateTurnDirty(char);
@@ -493,18 +524,15 @@ const DateApp: React.FC = () => {
         const emojis = await DB.getEmojis();
         const modelText = isContinueTurn
             ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
-            : text;
-        const { messages } = await DatePrompts.buildSessionPayload({
-            char,
-            userProfile: dateUserProfile,
-            allMsgs: preparedAllMsgs,
-            emojis,
-            userText: modelText,
-            variant: 'send',
-            useVisionDescriptions: apiConfig.visionApi?.enabled === true,
-        });
-        const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85);
-        const parsed = parseSARModuleReply(rawContent, sarModulePlan);
+            : storedText;
+        const useVision = apiConfig.visionApi?.enabled === true;
+        const { messages, generation } = preset
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
+            : { ...(await DatePrompts.buildSessionPayload({ char, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision })), generation: undefined };
+        const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85, generation);
+        const parsed = parseSARModuleReply(preset
+            ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
+            : rawContent, sarModulePlan);
         const sarModuleEvents = createSARModuleEventMeta(sarModulePlan);
         const userSurface = sarModulePlan.user?.phase === 'active' && parsed.userSurface
             ? createSARModuleSurfaceMeta(sarModulePlan.user, parsed.userSurface)
@@ -593,19 +621,22 @@ const DateApp: React.FC = () => {
         // 歷史裁到被重擲的那一輪為止：見面回覆之後用戶又在普通聊天裡發過消息時，
         // validMsgs（全來源）的尾巴不是這條 date user，直接傳進去會把那條聊天消息當成
         // 「待重發的最後一條」砍掉，同時 date user 又被追加一次（丟一條、重一條）。
-        const { messages } = await DatePrompts.buildSessionPayload({
-            char,
-            userProfile: dateUserProfile,
-            allMsgs: trimHistoryThrough(preparedValidMsgs, lastUserMsg.id),
-            emojis,
-            userText: lastUserMsg.content,
-            variant: 'reroll',
-            useVisionDescriptions: apiConfig.visionApi?.enabled === true,
-        });
-        // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線。
-        const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
+        const preset = await loadPresetFor(char);
+        const rerollMsgs = trimHistoryThrough(preparedValidMsgs, lastUserMsg.id);
+        const rerollText = lastUserMsg.metadata?.meetingContinue === true
+            ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
+            : lastUserMsg.content;
+        const useVision = apiConfig.visionApi?.enabled === true;
+        const { messages, generation } = preset
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
+            : { ...(await DatePrompts.buildSessionPayload({ char, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision })), generation: undefined };
+        // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線（用預設時照預設的溫度）。
+        const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
         const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);
-        const parsed = parseSARModuleReply(rawContent, sarPlan);
+        const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
+        const parsed = parseSARModuleReply(preset
+            ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
+            : rawContent, sarPlan);
         const sarModuleEvents = createSARModuleEventMeta(sarPlan);
         const userSurface = sarPlan.user?.phase === 'active' && parsed.userSurface
             ? createSARModuleSurfaceMeta(sarPlan.user, parsed.userSurface)
@@ -1168,6 +1199,7 @@ const DateApp: React.FC = () => {
                     messages={dateMessages}
                     peekStatus={peekStatus}
                     initialState={char.savedDateState}
+                    presetRegex={activePreset?.doc.regexScripts}
                     onSendMessage={handleSendMessage}
                     onReroll={handleReroll}
                     onExit={onExitSession}

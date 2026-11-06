@@ -33,6 +33,42 @@ function formatUserProfileBlock(user: UserProfile, holidayLine = ''): string {
     return block + `\n`;
 }
 
+/** buildCoreContext 的各段（每段自帶結尾換行，沒有就是空字串）。 */
+export interface CoreContextSections {
+    worldbookBeforeCharacter: string;
+    header: string;
+    identity: string;
+    timeAwareness: string;
+    selfInsights: string;
+    worldview: string;
+    worldbookAfterCharacter: string;
+    worldbookBeforeExamples: string;
+    dialogueExamples: string;
+    signatureLines: string;
+    worldbookAfterExamples: string;
+    userProfile: string;
+    impression: string;
+    roomPlates: string;
+    memoryBank: string;
+    memoryPalace: string;
+    emotionBuff: string;
+    worldbookAuthorsNoteTop: string;
+    worldbookAuthorsNoteBottom: string;
+    antiFiller: string;
+    triggeredLines: string;
+}
+
+/** buildCoreContext 接各段的順序 */
+export const CORE_SECTION_ORDER: Array<keyof CoreContextSections> = [
+    'worldbookBeforeCharacter', 'header', 'identity', 'timeAwareness', 'selfInsights', 'worldview',
+    'worldbookAfterCharacter', 'worldbookBeforeExamples', 'dialogueExamples', 'signatureLines', 'worldbookAfterExamples',
+    'userProfile', 'impression', 'roomPlates', 'memoryBank', 'memoryPalace', 'emotionBuff',
+    'worldbookAuthorsNoteTop', 'worldbookAuthorsNoteBottom', 'antiFiller', 'triggeredLines',
+];
+
+const emptyCoreSections = (): CoreContextSections =>
+    Object.fromEntries(CORE_SECTION_ORDER.map(key => [key, ''])) as unknown as CoreContextSections;
+
 /**
  * Memory Central
  * 負責統一構建所有 App 共用的基礎角色上下文 (System Prompt)。
@@ -126,16 +162,7 @@ export const ContextBuilder = {
         return context;
     },
 
-    /**
-     * 構建核心人設上下文
-     * @param char 角色檔案
-     * @param user 用戶檔案
-     * @param includeDetailedMemories 是否包含激活月份的詳細 Log (默認 true)
-     * @param memoryPalaceContext 外部注入的記憶宮殿文本（優先級低於 char.memoryPalaceInjection）
-     * @param groupOptions 群聊場景下的去重選項：避免和 buildGroupSharedScene 產出的共享塊重複
-     * @returns 標準化的 Markdown 格式 System Prompt
-     */
-    buildCoreContext: (
+    buildCoreSections: (
         char: CharacterProfile,
         user: UserProfile,
         includeDetailedMemories: boolean = true,
@@ -174,7 +201,7 @@ export const ContextBuilder = {
              */
             deferVolatile?: boolean;
         },
-    ): string => {
+    ): CoreContextSections => {
         const skipBookIds = groupOptions?.skipWorldbookIds;
         const filteredBooks = (char.mountedWorldbooks || []).filter(wb => !skipBookIds || !skipBookIds.has(wb.id));
         const worldbookSections = splitWorldbookSections(resolveWorldbookEntries(
@@ -184,49 +211,51 @@ export const ContextBuilder = {
             user.name,
         ));
 
-        let context = formatWorldbookSection(worldbookSections.beforeCharacter, '世界書 · 角色設定前');
-        context += `${groupOptions?.headerOverride ?? '[System: Roleplay Configuration]'}\n\n`;
+        const sections = emptyCoreSections();
+        sections.worldbookBeforeCharacter = formatWorldbookSection(worldbookSections.beforeCharacter, '世界書 · 角色設定前');
+        sections.header = `${groupOptions?.headerOverride ?? '[System: Roleplay Configuration]'}\n\n`;
 
         // 1. 核心身份 (Identity)
-        context += `### 你的身份 (Character)\n`;
-        context += `- 名字: ${char.name}\n`;
+        let identity = `### 你的身份 (Character)\n`;
+        identity += `- 名字: ${char.name}\n`;
         // Change: Explicitly label description as User Note to avoid literal interpretation
-        context += `- 用戶備註/愛稱 (User Note/Nickname): ${char.description || '無'}\n`;
-        context += `  (注意: 這個備註是用戶對你的稱呼或印象，可能包含比喻。如果備註內容（如“快樂小狗”）與你的核心設定衝突，請以核心設定為準，不要真的扮演成動物，除非核心設定裡寫了你是動物。)\n`;
-        context += `- 核心性格/指令:\n${char.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}\n\n`;
+        identity += `- 用戶備註/愛稱 (User Note/Nickname): ${char.description || '無'}\n`;
+        identity += `  (注意: 這個備註是用戶對你的稱呼或印象，可能包含比喻。如果備註內容（如“快樂小狗”）與你的核心設定衝突，請以核心設定為準，不要真的扮演成動物，除非核心設定裡寫了你是動物。)\n`;
+        identity += `- 核心性格/指令:\n${char.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}\n\n`;
+        sections.identity = identity;
 
         // 1a. 真實時間感知 (Time Awareness) — 跟隨 timeAwarenessEnabled 設置，默認開啟。
         // 統一在 buildCoreContext 注入，讓所有調用方（私聊/查手機/人際關係/通話/約會…）都知道"現在"。
         // deferVolatile 時不在這裡輸出（時間精確到分鐘、每輪都變，會打斷 prompt 前綴緩存），
         // 改由調用方經 buildVolatileCoreState 放到消息數組末尾。
         if (!layout?.deferVolatile) {
-            context += ContextBuilder.buildTimeAwarenessBlock(char, timeOptions);
+            sections.timeAwareness = ContextBuilder.buildTimeAwarenessBlock(char, timeOptions);
         }
 
         // 1b. 自我領悟詞條 (Self Insights) — 消化過程中反芻產生的常駐自我認知
         // 像情緒底色一樣影響角色的行為和感受，注入在角色設定緊下方
         if (char.selfInsights && char.selfInsights.length > 0) {
-            context += `### 內在認知 (Self Insights)\n`;
-            context += `以下是你在獨處反思中逐漸想明白的事，它們已經成為你的一部分：\n`;
+            let insights = `### 內在認知 (Self Insights)\n`;
+            insights += `以下是你在獨處反思中逐漸想明白的事，它們已經成為你的一部分：\n`;
             char.selfInsights.forEach(insight => {
-                context += `- ${insight}\n`;
+                insights += `- ${insight}\n`;
             });
-            context += `\n`;
+            sections.selfInsights = `${insights}\n`;
         }
 
         // 2. 世界觀 (Worldview) - New Centralized Logic
         if (char.worldview && char.worldview.trim() && !groupOptions?.skipWorldview) {
-            context += `### 世界觀與設定 (World Settings)\n${char.worldview}\n\n`;
+            sections.worldview = `### 世界觀與設定 (World Settings)\n${char.worldview}\n\n`;
         }
 
-        context += formatWorldbookSection(worldbookSections.afterCharacter, '擴展設定集 (Worldbooks)');
-        context += formatWorldbookSection(worldbookSections.beforeExamples, '世界書 · 示例消息前');
+        sections.worldbookAfterCharacter = formatWorldbookSection(worldbookSections.afterCharacter, '擴展設定集 (Worldbooks)');
+        sections.worldbookBeforeExamples = formatWorldbookSection(worldbookSections.beforeExamples, '世界書 · 示例消息前');
         if (shouldIncludeDialogueExamples(char, timeOptions?.totalMessages)) {
-            context += formatDialogueExamplesBlock(char.dialogueExamples, char.name, user.name, !!char.fixedLines?.length);
+            sections.dialogueExamples = formatDialogueExamplesBlock(char.dialogueExamples, char.name, user.name, !!char.fixedLines?.length);
         }
         // 招牌台詞（固定台詞裡沒填「對方說」的）：不受範例門檻影響，一直都在（見 utils/fixedLines.ts）
-        context += formatSignatureLinesBlock(char.fixedLines, char.name, user.name);
-        context += formatWorldbookSection(worldbookSections.afterExamples, '世界書 · 示例消息後');
+        sections.signatureLines = formatSignatureLinesBlock(char.fixedLines, char.name, user.name);
+        sections.worldbookAfterExamples = formatWorldbookSection(worldbookSections.afterExamples, '世界書 · 示例消息後');
 
         // 3. 用戶畫像 (User Profile)
         // 群聊場景下：用戶畫像已在共享場景塊頂部，這裡跳過避免重複
@@ -235,25 +264,26 @@ export const ContextBuilder = {
             const holidayLine = char.timeAwarenessEnabled !== false && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday
                 ? getCachedUserHolidayReminder(user.name, timeOptions?.userHolidays)
                 : '';
-            context += formatUserProfileBlock(user, holidayLine);
+            sections.userProfile = formatUserProfileBlock(user, holidayLine);
         }
 
         // 4. [NEW] 印象檔案 (Private Impression)
         // 這是角色對用戶的私密看法，只有角色知道
         const imp = normalizeUserImpression(char.impression);
         if (imp) {
-            context += `### [私密檔案: 我眼中的${user.name}] (Private Impression)\n`;
-            context += `(注意：以下內容是你內心對TA的真實看法，不要直接告訴用戶，但要基於這些看法來決定你的態度。)\n`;
-            context += `- 核心評價: ${imp.personality_core.summary}\n`;
-            context += `- 互動模式: ${imp.personality_core.interaction_style}\n`;
-            context += `- 我觀察到的特質: ${imp.personality_core.observed_traits.join(', ')}\n`;
-            context += `- TA的喜好: ${imp.value_map.likes.join(', ')}\n`;
-            if (imp.behavior_profile.emotion_summary) context += `- TA的情緒模式: ${imp.behavior_profile.emotion_summary}\n`;
-            if (imp.emotion_schema.triggers.positive.length) context += `- 正向觸發點（什麼會讓ta開心）: ${imp.emotion_schema.triggers.positive.join(', ')}\n`;
-            context += `- 情緒雷區（負向觸發）: ${imp.emotion_schema.triggers.negative.join(', ')}\n`;
-            if (imp.emotion_schema.stress_signals.length) context += `- 壓力信號（ta狀態不對的徵兆）: ${imp.emotion_schema.stress_signals.join(', ')}\n`;
-            context += `- 舒適區: ${imp.emotion_schema.comfort_zone}\n`;
-            context += `- 最近觀察到的變化: ${imp.observed_changes ? imp.observed_changes.map(c => typeof c === 'string' ? c : (c as any)?.description ? `[${(c as any).period}] ${(c as any).description}` : JSON.stringify(c)).join('; ') : '無'}\n\n`;
+            let impression = `### [私密檔案: 我眼中的${user.name}] (Private Impression)\n`;
+            impression += `(注意：以下內容是你內心對TA的真實看法，不要直接告訴用戶，但要基於這些看法來決定你的態度。)\n`;
+            impression += `- 核心評價: ${imp.personality_core.summary}\n`;
+            impression += `- 互動模式: ${imp.personality_core.interaction_style}\n`;
+            impression += `- 我觀察到的特質: ${imp.personality_core.observed_traits.join(', ')}\n`;
+            impression += `- TA的喜好: ${imp.value_map.likes.join(', ')}\n`;
+            if (imp.behavior_profile.emotion_summary) impression += `- TA的情緒模式: ${imp.behavior_profile.emotion_summary}\n`;
+            if (imp.emotion_schema.triggers.positive.length) impression += `- 正向觸發點（什麼會讓ta開心）: ${imp.emotion_schema.triggers.positive.join(', ')}\n`;
+            impression += `- 情緒雷區（負向觸發）: ${imp.emotion_schema.triggers.negative.join(', ')}\n`;
+            if (imp.emotion_schema.stress_signals.length) impression += `- 壓力信號（ta狀態不對的徵兆）: ${imp.emotion_schema.stress_signals.join(', ')}\n`;
+            impression += `- 舒適區: ${imp.emotion_schema.comfort_zone}\n`;
+            impression += `- 最近觀察到的變化: ${imp.observed_changes ? imp.observed_changes.map(c => typeof c === 'string' ? c : (c as any)?.description ? `[${(c as any).period}] ${(c as any).description}` : JSON.stringify(c)).join('; ') : '無'}\n\n`;
+            sections.impression = impression;
         }
 
         // 4b. 底色認知（記憶宮殿門牌）— 常駐語義層
@@ -261,11 +291,10 @@ export const ContextBuilder = {
         // 必須用 memoryPalaceEnabled 把關，理由同下方 5b：注入字段會被 saveCharacter
         // 持久化，宮殿關閉後 injectMemoryPalace 不再刷新它，不校驗就會注入殘留。
         if (char.memoryPalaceEnabled && char.roomPlatesInjection && char.roomPlatesInjection.trim()) {
-            context += `${char.roomPlatesInjection}\n`;
+            sections.roomPlates = `${char.roomPlatesInjection}\n`;
         }
 
         // 5. 記憶庫 (Memory Bank)
-        context += `### 記憶系統 (Memory Bank)\n`;
         let memoryContent = "";
 
         // 5a. 長期核心記憶 (Refined Memories)
@@ -316,7 +345,7 @@ export const ContextBuilder = {
         if (!memoryContent) {
             memoryContent = "(暫無特定記憶，請基於當前對話互動)";
         }
-        context += `${memoryContent}\n\n`;
+        sections.memoryBank = `### 記憶系統 (Memory Bank)\n${memoryContent}\n\n`;
 
         // 5b. 記憶宮殿 (Memory Palace) — 向量檢索結果
         // 僅在 includeDetailedMemories 時注入，與詳細日誌同級
@@ -329,7 +358,7 @@ export const ContextBuilder = {
         if (!layout?.deferVolatile && includeDetailedMemories && char.memoryPalaceEnabled) {
             const mpContext = char.memoryPalaceInjection || memoryPalaceContext;
             if (mpContext && mpContext.trim()) {
-                context += `${mpContext}\n\n`;
+                sections.memoryPalace = `${mpContext}\n\n`;
             }
         }
 
@@ -338,13 +367,13 @@ export const ContextBuilder = {
         // 總開關關閉時完全跳過，防止殘留 buff 繼續汙染 prompt
         // deferVolatile：buff 每輪情緒評估後都可能變 → 移交 buildVolatileCoreState。
         if (!layout?.deferVolatile && isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection) {
-            context += `${char.buffInjection}\n\n`;
+            sections.emotionBuff = `${char.buffInjection}\n\n`;
             console.log(`🎭 [Context] Buff injected for ${char.name}:\n`, char.buffInjection);
             console.log(`🎭 [Context] Active buffs:`, JSON.stringify(char.activeBuffs || [], null, 2));
         }
 
-        context += formatWorldbookSection(worldbookSections.authorsNoteTop, '世界書 · 作者註釋頂部');
-        context += formatWorldbookSection(worldbookSections.authorsNoteBottom, '世界書 · 作者註釋底部');
+        sections.worldbookAuthorsNoteTop = formatWorldbookSection(worldbookSections.authorsNoteTop, '世界書 · 作者註釋頂部');
+        sections.worldbookAuthorsNoteBottom = formatWorldbookSection(worldbookSections.authorsNoteBottom, '世界書 · 作者註釋底部');
 
         // 7. 表達底線 (Anti-Filler) —— 全 App 通用的精簡版防套話提示。
         // 模型八股（空泛感慨、萬能句式）是"沒話找話"時的填充物，這裡只做正向引導
@@ -352,8 +381,71 @@ export const ContextBuilder = {
         // 完整方法版在 datePrompts 的 DIG_DEEPER_BLOCK（見面模式專用，可按角色開關）。
         // 群聊流（groupOptions）跳過：多成員場景會重複注入 N 份，群聊側暫不接入。
         if (!groupOptions) {
-            context += `### 表達底線 (Anti-Filler)\n當你覺得"沒什麼可說"的時候，不要用空泛的感慨、萬能句式或華麗排比去填充——那是沒話找話，對方一眼就能看出來。素材永遠比你以為的多：對方的用詞、ta 怎麼說的、ta 沒說的部分、此刻的情境、你們的過去、你心裡閃過的念頭——挑一兩條往深處走就夠了。寧可一個具體的小細節，不要一句誰都能說的話。\n\n`;
+            sections.antiFiller = `### 表達底線 (Anti-Filler)\n當你覺得"沒什麼可說"的時候，不要用空泛的感慨、萬能句式或華麗排比去填充——那是沒話找話，對方一眼就能看出來。素材永遠比你以為的多：對方的用詞、ta 怎麼說的、ta 沒說的部分、此刻的情境、你們的過去、你心裡閃過的念頭——挑一兩條往深處走就夠了。寧可一個具體的小細節，不要一句誰都能說的話。\n\n`;
         }
+
+        // 固定台詞被對方最新一句觸發：放在角色塊最後。私聊（deferVolatile）改放易變段尾，
+        // 見面、通話由調用方自己放到更靠近開口的位置（它們不傳 worldbookMessages）。
+        if (timeOptions?.conversational && !layout?.deferVolatile && timeOptions.worldbookMessages?.length) {
+            const triggered = buildTriggeredLinesPrompt(char, latestUserText(timeOptions.worldbookMessages as any), user.name);
+            if (triggered) sections.triggeredLines = `\n${triggered}\n\n`;
+        }
+
+        return sections;
+    },
+
+    /**
+     * 構建核心人設上下文：buildCoreSections 的各段照 CORE_SECTION_ORDER 接起來。
+     * 見面的自訂預設模式（utils/meetingPresetSession.ts）直接拿各段分別放進預設的佔位。
+     * @param char 角色檔案
+     * @param user 用戶檔案
+     * @param includeDetailedMemories 是否包含激活月份的詳細 Log (默認 true)
+     * @param memoryPalaceContext 外部注入的記憶宮殿文本（優先級低於 char.memoryPalaceInjection）
+     * @param groupOptions 群聊場景下的去重選項：避免和 buildGroupSharedScene 產出的共享塊重複
+     * @returns 標準化的 Markdown 格式 System Prompt
+     */
+    buildCoreContext: (
+        char: CharacterProfile,
+        user: UserProfile,
+        includeDetailedMemories: boolean = true,
+        memoryPalaceContext?: string,
+        groupOptions?: {
+            skipUserProfile?: boolean;
+            skipWorldview?: boolean;
+            skipWorldbookIds?: Set<string>;
+            headerOverride?: string;
+        },
+        timeOptions?: {
+            /** 傳入「最後一次和用戶互動的時間戳」→ 統一注入「距離上次聯繫多久」（受 timeAwarenessEnabled 控制）。 */
+            lastInteractionTs?: number;
+            /** 抑制整段時間感知（當前時間/時差/距上次聯繫）。見面純架空（dateTimeAwarenessEnabled=false）時用。 */
+            skipTimeAwareness?: boolean;
+            /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
+            conversational?: boolean;
+            /** Recent messages used to activate keyword-based worldbook entries. */
+            worldbookMessages?: WorldbookScanMessage[];
+            /**
+             * 這段對話總共幾則（私聊／群聊傳）。用來判斷對話範例還要不要附上，見 utils/dialogueExamples.ts；
+             * 不傳就一直附上（見面、通話、各種小 App），跟以前範例寫在人設裡一樣。
+             */
+            totalMessages?: number;
+            /** 這份 prompt 交給 Worker 到點／即時生成：用戶假日那行由 Worker 照當天補，這裡不烤進去。 */
+            skipUserHoliday?: boolean;
+            /** 不傳就讀 localStorage 裡的實時感知設定。 */
+            userHolidays?: UserHolidayConfig;
+        },
+        layout?: {
+            /**
+             * 把「每輪/每分鐘都會變」的三塊（當前時間、記憶宮殿召回、情緒 buff）從本函數輸出裡
+             * 摘出去，由調用方通過 buildVolatileCoreState 拿到後放到消息數組末尾。
+             * 目的：讓 system prompt 前綴穩定，吃到中轉的 prompt 前綴緩存（TTFT 直降）。
+             * 只有聊天主路徑（chatPrompts.buildSystemPromptParts）用；其他 App 不傳，行為不變。
+             */
+            deferVolatile?: boolean;
+        },
+    ): string => {
+        const sections = ContextBuilder.buildCoreSections(char, user, includeDetailedMemories, memoryPalaceContext, groupOptions, timeOptions, layout);
+        const context = CORE_SECTION_ORDER.filter(key => key !== 'triggeredLines').map(key => sections[key]).join('');
 
         // Debug: warn about missing context sections
         const missing: string[] = [];
@@ -369,14 +461,7 @@ export const ContextBuilder = {
             console.log(`✅ [Context] All fields present | context_chars=${context.length}`);
         }
 
-        // 固定台詞被對方最新一句觸發：放在角色塊最後。私聊（deferVolatile）改放易變段尾，
-        // 見面、通話由調用方自己放到更靠近開口的位置（它們不傳 worldbookMessages）。
-        if (timeOptions?.conversational && !layout?.deferVolatile && timeOptions.worldbookMessages?.length) {
-            const triggered = buildTriggeredLinesPrompt(char, latestUserText(timeOptions.worldbookMessages as any), user.name);
-            if (triggered) context += `\n${triggered}\n\n`;
-        }
-
-        return context;
+        return context + sections.triggeredLines;
     },
 
     /**

@@ -24,6 +24,10 @@ import { MEETING_CONTINUE_DISPLAY_TEXT } from '../../utils/meetingContinue';
 import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel, voiceLanguagePromptLabel } from '../../utils/voiceLanguage';
 import { trackEvent } from '../../utils/analytics';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
+import DecorationFrame from './DecorationFrame';
+import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
+import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
+import type { MeetingRegexScript } from '../../utils/meetingPreset/types';
 
 // 用戶輸入的顯示：去掉方括號標記（跟以前一樣），其餘原樣
 const cleanUserTextForDisplay = (text: string) => text.replace(/\[.*?\]/g, '').trim();
@@ -52,6 +56,8 @@ interface DateSessionProps {
     historyLoadLimit?: number;
     /** 庫裡的見面記錄是否已經取完。 */
     historyReachedEnd?: boolean;
+    /** 用自訂預設時，預設的正則：顯示前跑「只改顯示」的那些，HTML 結果放進沙盒 iframe */
+    presetRegex?: MeetingRegexScript[];
 }
 
 // Long replies can expand into many DOM lines. Keeping a smaller reading window
@@ -119,6 +125,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     onEditMessage,
     onDeleteMessage,
     onDeleteMessages,
+    presetRegex,
 }) => {
     const { addToast, registerBackHandler, apiConfig, updateCharacter, apiPresets } = useOS();
 
@@ -346,6 +353,16 @@ const DateSession: React.FC<DateSessionProps> = ({
         // Fallback: If no opening found (legacy data), show all
         return messages;
     }, [messages]);
+
+    // 正則的 depth 從最後一則往回數，最後一則是 0
+    const depthById = React.useMemo(
+        () => new Map(sessionMessages.map((m, i) => [m.id, sessionMessages.length - 1 - i])),
+        [sessionMessages],
+    );
+    const displayEnv = { charName: char.name, userName: userProfile.name, vars: {}, globalVars: {} };
+    const presetDisplay = (text: string, placement: number, msgId: number): string => (presetRegex?.length
+        ? applyRegexScripts(text, presetRegex, { placement, stage: 'display', depth: depthById.get(msgId), env: displayEnv })
+        : text);
 
     const visibleSessionMessages = React.useMemo(() => {
         return sessionMessages.slice(-novelVisibleCount);
@@ -723,7 +740,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                     <div className="flex min-w-0 items-start justify-end gap-3">
                                         <p
                                             className={`min-w-0 flex-1 whitespace-pre-wrap font-serif text-[16px] text-right leading-loose tracking-wide italic pr-4 ${light ? 'text-stone-400 border-r-2 border-stone-300/50' : 'text-slate-400 border-r-2 border-slate-600/50'}`}
-                                        >{cleanUserTextForDisplay(shown)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
+                                        >{cleanUserTextForDisplay(presetRegex ? cleanDisplayText(presetDisplay(shown, REGEX_PLACEMENT.userInput, msg.id)) : shown)} <span className="text-[10px] uppercase font-sans not-italic ml-2 opacity-50">{userProfile.name}</span></p>
                                         {char.dateReadingShowAvatars && (
                                             <ReadingAvatar
                                                 // userProfile 傳進來時已經按角色分身份卡解析過（resolveUserProfileForChar），
@@ -740,14 +757,19 @@ const DateSession: React.FC<DateSessionProps> = ({
                                     const sarRevealed = sarTruthMessageIds.has(msg.id);
                                     const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
                                     const isOpeningMsg = msg.metadata?.isOpening === true;
+                                    const parts: DisplaySegment[] = presetRegex
+                                        ? splitDisplaySegments(presetDisplay(shown || '', REGEX_PLACEMENT.aiOutput, msg.id))
+                                        : [{ type: 'text', text: shown || '' }];
                                     return (
                                     <div className="flex min-w-0 items-start gap-3">
                                         {char.dateReadingShowAvatars && (
                                             <ReadingAvatar src={char.avatar} name={char.name} light={light} />
                                         )}
                                         <div className="min-w-0 flex-1">
-                                            {parseDateBody(shown || '').map((line, idx) => {
-                                            const lineKey = `${msg.id}-${idx}`;
+                                            {parts.map((part, partIdx) => part.type === 'html'
+                                                ? <DecorationFrame key={`html-${partIdx}`} html={part.html} light={light} />
+                                                : parseDateBody(presetRegex ? cleanDisplayText(part.text) : part.text).map((line, idx) => {
+                                            const lineKey = partIdx === 0 ? `${msg.id}-${idx}` : `${msg.id}-${partIdx}-${idx}`;
                                             const canVoice = voiceEnabled && line.isDialogue && !!line.spoken && !isOpeningMsg;
                                             const voiceTarget: DateVoiceFavoriteTarget = {
                                                 sourceKey: `${char.id}:${lineKey}`,
@@ -757,7 +779,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             };
                                             return (
                                                 <div
-                                                    key={idx}
+                                                    key={`${partIdx}-${idx}`}
                                                     className="flex items-start gap-1 mb-4 last:mb-0"
                                                     onClick={(e) => {
                                                         if (!voiceFavoriteLongPressTriggered.current) return;
@@ -806,7 +828,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                     )}
                                                 </div>
                                             );
-                                            })}
+                                            }))}
                                         </div>
                                     </div>
                                     ); })()}

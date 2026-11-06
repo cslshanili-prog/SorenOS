@@ -3075,6 +3075,8 @@ export interface CharacterProfile {
   dateSkinSets?: SkinSet[];     // Multiple skin sets（角色立繪，神經鏈接 → 形象；桌面陪伴 / 節日活動用）
   activeSkinSetId?: string;     // Currently active skin set ID
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
+  /** 見面用的自訂預設（meeting_presets 表的 id）；不設就是內建規則。見 plans/offline-date-redesign.md */
+  dateMeetingPresetId?: string;
 
   savedDateState?: DateState;
   specialMomentRecords?: Record<string, SpecialMomentRecord>;
@@ -4749,6 +4751,8 @@ export interface FullBackupData {
     messages?: Message[];
     storyTheaters?: StoryTheaterEntry[];
     storyTheaterPresets?: StoryTheaterPreset[];
+    /** 見面自訂預設（meeting_presets 表） */
+    meetingPresets?: import('./utils/meetingPreset/types').MeetingPresetRecord[];
     storyTheaterMasks?: StoryTheaterMask[];
     customThemes?: ChatTheme[];
     savedEmojis?: Emoji[]; 
