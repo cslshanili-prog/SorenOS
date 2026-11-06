@@ -21,6 +21,7 @@
  */
 
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
+import { buildLengthLine, buildScenarioBlock } from './dateExtras';
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig } from '../types';
 import { buildBlockedMeetingNote } from './chatBlock';
 import { ContextBuilder } from './context';
@@ -344,7 +345,7 @@ ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUI
 ${preset.block}
 
 ${digBlock}${povBlock}${extraBlock}${buildDateInputPerceptionRule(userName || '對方')}
-### 場景上下文
+${buildScenarioBlock(char, userName)}${buildLengthLine(char)}### 場景上下文
 ${timeLine}- **Location**: 你們現在**面對面**。
 - **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。
 ${buildBlockedMeetingNote(char, userName)}`;
@@ -471,7 +472,7 @@ ${invite
 請用**第三人稱**描寫一段話：寫${char.name}自己的到來、動作和必要的開場台詞，停在留給${uname}回應的地方。${uname}怎麼反應、答不答應、說什麼，都留給${uname}自己寫。`
     : `你現在並不在和用戶直接對話。用戶正在悄悄靠近你所在的地點。
 請用**第三人稱**描寫一段話。
-描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？`}${buildMeetupLine(input.meetup, char.name, uname, invite)}
+描述：${char.name} 此時此刻正在做什麼？周圍環境是怎樣的？狀態如何？`}${buildMeetupLine(input.meetup, char.name, uname, invite)}${buildScenarioBlock(char, uname) ? `\n${buildScenarioBlock(char, uname)}` : ''}
 
 ### 邏輯檢查
 1. **上下文連貫性**: 參考 [最近記錄]（注意消息來源標籤：[聊天]是文字聊天、[約會]是面對面、[通話]是語音通話）。如果有 [TIME SKIP] 且間隔很久，開啟新場景；如果是 [SCENE CONTINUATION]，說明剛剛還在聊天，**必須**自然銜接最近的聊天話題和情緒狀態，不要無視之前的對話內容。

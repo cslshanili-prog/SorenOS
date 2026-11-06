@@ -3077,6 +3077,14 @@ export interface CharacterProfile {
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
   /** 見面用的自訂預設（meeting_presets 表的 id）；不設就是內建規則。見 plans/offline-date-redesign.md */
   dateMeetingPresetId?: string;
+  /** 見面的開場白庫（ST 的 first_mes + alternate_greetings）；可用 {{char}}、{{user}} */
+  dateGreetings?: { id: string; text: string }[];
+  /** 開場怎麼來：模型寫（預設）或從開場白庫挑 */
+  dateOpeningSource?: 'generate' | 'greeting';
+  /** 當前劇情大綱（ST 的 scenario）；不填就讓模型自己跑 */
+  dateScenario?: string;
+  /** 見面回應字數；兩個都不填就不限 */
+  dateResponseLength?: { min?: number; max?: number };
 
   savedDateState?: DateState;
   specialMomentRecords?: Record<string, SpecialMomentRecord>;
