@@ -48,7 +48,7 @@ export const resolveTtsProvider = (apiConfig?: Pick<APIConfig, 'ttsProvider'> | 
  *
  * 三個鍵：
  *   - 'minimax' / 'fishaudio' / 'elevenlabs'：聊天 + 電話共用，按當前服務商注入。
- *   - 'dateVoice'：見面（DateApp）專用的 [v:xxx] 語音情緒規則，與服務商無關、單獨一份。
+ *   - 'dateVoice'：見面（DateApp）專用的台詞語氣標籤規則，與服務商無關、單獨一份。
  */
 export type VoicePromptKey = TtsProvider | 'dateVoice';
 

@@ -21,6 +21,7 @@ import { updateStoredMemoryNode } from '../utils/memoryPalace/vectorStore';
 import { MemoryNodeDB } from '../utils/memoryPalace/db';
 import { applyLinkedArchiveDeletion, LINKED_ARCHIVE_DELETED, type LinkedArchiveDeletionDetail } from '../utils/memoryPalace/linkedArchiveDeletion';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
+import CharacterSpriteManager, { CharacterSpritePanel } from '../components/character/CharacterSpriteManager';
 import TokenImg from '../components/os/TokenImg';
 import { resolveBlobRefsDeep, migrateDataUrlToRef } from '../utils/blobRef';
 import { characterLaunch } from '../utils/characterLaunch';
@@ -131,6 +132,7 @@ const Character: React.FC = () => {
   const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : 'identity');
   // QQ捏人工坊（手辦櫃）全屏覆蓋層
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
+  const [showSpriteManager, setShowSpriteManager] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(() => launchIntent?.charId || null);
   const [formData, setFormData] = useState<CharacterProfile | null>(null);
   // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
@@ -1384,7 +1386,7 @@ ${isInitialGeneration ? `
                        <button onClick={() => { setDetailTab('memory'); trackEvent('切换角色详情标签页', { tab: 'memory' }); }} className={`pb-2 transition-colors relative ${detailTab === 'memory' ? 'text-slate-800' : ''}`}>記憶 ({(formData.memories || []).length}){detailTab === 'memory' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
                        <button onClick={() => { setDetailTab('impression'); trackEvent('切换角色详情标签页', { tab: 'impression' }); }} className={`pb-2 transition-colors relative ${detailTab === 'impression' ? 'text-slate-800' : ''}`}>印象{detailTab === 'impression' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
                        <button onClick={() => { setDetailTab('plates'); trackEvent('切换角色详情标签页', { tab: 'plates' }); }} className={`pb-2 transition-colors relative ${detailTab === 'plates' ? 'text-slate-800' : ''}`}>門牌{detailTab === 'plates' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
-                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>手辦{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
+                       <button onClick={() => { setDetailTab('chibi'); trackEvent('切换角色详情标签页', { tab: 'chibi' }); }} className={`pb-2 transition-colors relative ${detailTab === 'chibi' ? 'text-slate-800' : ''}`}>形象{detailTab === 'chibi' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
                    </div>
                  </div>
                </div>
@@ -1908,7 +1910,10 @@ ${isInitialGeneration ? `
                    )}
 
                    {detailTab === 'chibi' && formData.id && (
-                       <ChibiShelfPanel charId={formData.id} onOpen={() => { setShowChibiStudio(true); trackEvent('打开QQ捏人工坊'); }} />
+                       <div className="space-y-4">
+                           <ChibiShelfPanel charId={formData.id} onOpen={() => { setShowChibiStudio(true); trackEvent('打开QQ捏人工坊'); }} />
+                           <CharacterSpritePanel charId={formData.id} onOpen={() => setShowSpriteManager(true)} />
+                       </div>
                    )}
 
                    {detailTab === 'plates' && formData.id && (
@@ -1925,6 +1930,18 @@ ${isInitialGeneration ? `
                charId={formData.id}
                onClose={() => {
                    setShowChibiStudio(false);
+                   const latest = characters.find(c => c.id === formData.id);
+                   if (latest) setFormData(latest);
+               }}
+           />
+       )}
+
+       {/* 角色立繪：跟工坊一樣直接寫庫，關閉時把最新角色數據拉回 formData */}
+       {showSpriteManager && formData && (
+           <CharacterSpriteManager
+               charId={formData.id}
+               onClose={() => {
+                   setShowSpriteManager(false);
                    const latest = characters.find(c => c.id === formData.id);
                    if (latest) setFormData(latest);
                }}

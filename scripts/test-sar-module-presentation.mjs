@@ -14,8 +14,7 @@ await context.route('**/*', route => {
 const url = `${process.env.SAR_QA_URL || 'http://127.0.0.1:5173'}/test/fixtures/sar-module-presentation.html`;
 const shot = name => page.screenshot({ path: `${out}/${name}.png`, animations: 'disabled' });
 const ready = () => page.waitForFunction(() => window.moduleQA?.os.characters.some(char => char.id === 'qa-sar-presentation'));
-const waitText = text => page.waitForFunction(text => document.querySelector('[data-sar-gal-text]')?.textContent.trim() === text, text);
-const switchMode = async name => { await page.getByRole('button', { name: '打開見面菜單', exact: true }).click(); await page.getByRole('button', { name, exact: true }).click(); };
+const bodyHas = text => page.waitForFunction(text => document.body.innerText.includes(text), text);
 const snapshot = () => page.evaluate(async () => {
     const { DB } = await import('/utils/db.ts');
     return { characters: (await DB.getAllCharacters()).filter(char => char.id.startsWith('qa-sar-presentation')).map(char => ({ id: char.id, module: char.vrState?.sarModule })),
@@ -46,27 +45,20 @@ try {
     await monitor.getByRole('button', { name: '提前結束凱恩的模塊', exact: true }).waitFor();
     assert.equal(await monitor.locator('li').count(), 3);
     assert((await monitor.innerText()).includes('剩 5 輪'));
-    await waitText('“哼。”'); await shot('gal-surface-monitor-390');
+    await bodyHas('才不是。'); await shot('reading-surface-monitor-390');
     await page.getByRole('button', { name: '收起模塊懸浮窗', exact: true }).click();
-    // Repeated surface line: the second original sentence, not the first.
-    await page.getByRole('button', { name: '查看原台詞', exact: true }).click(); await waitText('“再見。”');
-    await shot('gal-truth-390');
     const saved = await snapshot();
-    await switchMode('閱讀模式');
-    assert.equal(await page.getByRole('button', { name: '查看原台詞', exact: true }).count(), 2);
-    assert((await page.locator('body').innerText()).includes('早安，凡人。'));
+    // 見面只剩閱讀視圖：每條帶模塊表層的消息各一個切換鈕，互不影響
     const readingToggles = page.getByRole('button', { name: '查看原台詞', exact: true });
+    assert.equal(await readingToggles.count(), 2);
+    assert((await page.locator('body').innerText()).includes('早安，凡人。'));
     await readingToggles.last().click();
-    assert((await page.locator('body').innerText()).includes('再見。'));
-    await readingToggles.first().click();
-    assert((await page.locator('body').innerText()).includes('早上好。'));
+    await bodyHas('再見。');
+    await page.getByRole('button', { name: '查看原台詞', exact: true }).first().click();
+    await bodyHas('早上好。');
     await shot('reading-truth-390');
-    // Modes own their state. GAL remains original, then change it without touching reading.
-    await switchMode('立繪模式'); await waitText('“再見。”');
-    await page.getByRole('button', { name: '顯示汙染台詞', exact: true }).click(); await waitText('“哼。”');
-    await switchMode('閱讀模式'); assert.equal(await page.getByRole('button', { name: '顯示汙染台詞', exact: true }).count(), 2);
+    assert.equal(await page.getByRole('button', { name: '顯示汙染台詞', exact: true }).count(), 2);
     assert.deepEqual((await snapshot()).messages, saved.messages, 'display toggles never change stored messages');
-    await switchMode('立繪模式');
     await page.getByRole('button', { name: '展開模塊懸浮窗', exact: true }).click();
     await monitor.getByRole('button', { name: '提前結束凱恩的模塊', exact: true }).click();
     await page.waitForFunction(() => window.moduleQA.os.characters.find(char => char.id === 'qa-sar-presentation').vrState.sarModule.phase === 'afterglow');
@@ -94,10 +86,10 @@ try {
     await shot('monitor-320');
     const panelBounds = await monitor.boundingBox();
     assert(panelBounds.x >= 0 && panelBounds.x + panelBounds.width <= 320 && panelBounds.y + panelBounds.height <= 568);
-    await page.goto(`${url}?legacy`); await ready(); await waitText('“哼。”');
+    await page.goto(url); await ready(); await bodyHas('才不是。');
     await page.getByRole('button', { name: '收起模塊懸浮窗', exact: true }).click();
-    await page.getByRole('button', { name: '查看原台詞', exact: true }).click(); await waitText('“再見。”');
-    await shot('legacy-resume-truth-320');
+    await page.getByRole('button', { name: '查看原台詞', exact: true }).last().click(); await bodyHas('再見。');
+    await shot('resume-truth-320');
     const reloaded = await snapshot();
     assert.equal(reloaded.characters.find(char => char.id === 'qa-sar-presentation').module.afterglowTurns, 3);
     assert.equal(reloaded.user.afterglowTurns, 3);
@@ -118,7 +110,7 @@ try {
     await monitor.waitFor(); assert.equal(await monitor.locator('li').count(), 1);
     await shot('reinstalled-monitor');
     assert.deepEqual(errors, []); assert.deepEqual(modelCalls, []);
-    writeFileSync(`${out}/report.json`, JSON.stringify({ targets: 3, independentModes: true, originalResume: true, persistedEarlyEnd: true, inFlightGuard: true, errors, modelCalls }, null, 2));
-    console.log('SAR presentation passed: both Date modes and targets, repeat-line mapping, legacy resume, draggable monitor, early end and persistence.');
+    writeFileSync(`${out}/report.json`, JSON.stringify({ targets: 3, readingToggles: true, resume: true, persistedEarlyEnd: true, inFlightGuard: true, errors, modelCalls }, null, 2));
+    console.log('SAR presentation passed: reading view toggles for both targets, resume, draggable monitor, early end and persistence.');
 } catch (error) { await shot('failure'); console.error((await page.locator('body').innerText()).slice(-1800)); throw error; }
 finally { await browser.close(); }

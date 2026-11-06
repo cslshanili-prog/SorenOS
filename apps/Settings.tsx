@@ -2996,7 +2996,7 @@ const Settings: React.FC = () => {
                                 ['minimax', 'MiniMax 語音指南', localVoicePromptMinimax, setLocalVoicePromptMinimax, VOICE_ACTING_GUIDE, '聊天 + 電話 · MiniMax 引擎時生效'] as const,
                                 ['fishaudio', '魚聲 Fish 語音指南', localVoicePromptFish, setLocalVoicePromptFish, FISH_VOICE_ACTING_GUIDE, '聊天 + 電話 · 魚聲引擎時生效'] as const,
                                 ['elevenlabs', 'ElevenLabs 語音指南', localVoicePromptElevenLabs, setLocalVoicePromptElevenLabs, getElevenLabsVoiceActingGuide(localElevenLabsModel), '聊天 + 電話 · ElevenLabs 引擎時生效；默認模板隨模型變化'] as const,
-                                ['dateVoice', '見面（約會）語音情緒', localVoicePromptDate, setLocalVoicePromptDate, DATE_VOICE_GUIDE, '見面專用 [v:xxx] 規則 · 角色開了見面語音時生效，與引擎無關'] as const,
+                                ['dateVoice', '見面（約會）語氣標籤', localVoicePromptDate, setLocalVoicePromptDate, DATE_VOICE_GUIDE, '見面專用：台詞開頭的英文語氣標籤 · 角色開了見面語音時生效，與引擎無關'] as const,
                             ]).map(([key, title, value, setValue, def, hint]) => {
                                 const active = localTtsProvider === key;
                                 const usingDefault = !value.trim();

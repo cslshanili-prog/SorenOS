@@ -128,7 +128,7 @@ const FISH_CUE_SYNONYMS: Record<string, string> = {
  * 順序：精確支持集 → 精確同義詞 → 自然語言短語包含匹配（"very excited"→excited、
  * "gentle and warm"→soft、"laughing nervously"→laughing）。
  */
-const normalizeFishCue = (inner: string): string => {
+export const normalizeFishCue = (inner: string): string => {
   const key = (inner || '').trim().toLowerCase().replace(/\s+/g, ' ');
   if (!key) return '';
   if (FISH_SUPPORTED_CUES.has(key)) return key;

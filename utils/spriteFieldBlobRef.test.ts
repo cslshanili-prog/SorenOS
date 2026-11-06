@@ -56,8 +56,8 @@ describe('立繪字段的 blobref 渲染路徑', () => {
   });
 });
 
-describe('見面場景佈置（DateSettings）的立繪縮略圖', () => {
-  const source = readFileSync(path.join(repoRoot, 'components/date/DateSettings.tsx'), 'utf8');
+describe('角色立繪（神經鏈接 → 形象，CharacterSpriteManager）的縮略圖', () => {
+  const source = readFileSync(path.join(repoRoot, 'components/character/CharacterSpriteManager.tsx'), 'utf8');
 
   it('基礎情緒 / 自定義情緒的格子走 TokenImg', () => {
     expect(source).toContain('<TokenImg value={sprites[key]}');
@@ -70,8 +70,8 @@ describe('見面場景佈置（DateSettings）的立繪縮略圖', () => {
   });
 });
 
-describe('見面場景佈置（DateSettings）的立繪上傳寫端', () => {
-  const source = readFileSync(path.join(repoRoot, 'components/date/DateSettings.tsx'), 'utf8');
+describe('角色立繪（神經鏈接 → 形象，CharacterSpriteManager）的上傳寫端', () => {
+  const source = readFileSync(path.join(repoRoot, 'components/character/CharacterSpriteManager.tsx'), 'utf8');
 
   it('上傳立繪存的是令牌，不是 base64', () => {
     expect(source).toContain('const ref = await putImageBlob(blob);');
@@ -90,8 +90,10 @@ describe('見面場景佈置（DateSettings）的立繪上傳寫端', () => {
     // processImageToBlob(file) 不傳參是同一套；給立繪補上 skipCompression 會把
     // 用戶的圖從「壓過」變成「原圖直存」，體積翻幾倍。
     expect(source).toContain('const blob = await processImageToBlob(file);');
-    // 背景那一條仍然保原畫質，兩條別串了。
-    expect(source).toContain('await processImageToBlob(file, { skipCompression: true })');
+    expect(source).not.toContain('{ skipCompression');
+    // 背景（現在在見面設定頁）仍然保原畫質，兩條別串了。
+    expect(readFileSync(path.join(repoRoot, 'components/date/DateSettings.tsx'), 'utf8'))
+      .toContain('await processImageToBlob(file, { skipCompression: true })');
   });
 
   it('圖床 URL 入口照舊寫外鏈（外鏈不是本機資源，不該令牌化）', () => {

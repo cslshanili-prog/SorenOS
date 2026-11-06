@@ -4,11 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 // 角色的見面背景（characters.dateBackground）存的是 `blobref:` 令牌（見 utils/blobRef.ts），
 // 二進制在 IndexedDB 裡。令牌直接塞進裸 <img src> / CSS url() 就是一張裂圖，所以：
-//   · 場景佈置頁的預覽底圖和縮略圖分別走 useBlobRefUrl / TokenImg；
+//   · 見面畫面的底圖走 useBlobRefUrl，見面設定頁的縮略圖走 TokenImg；
 //   · 查手機的桌面底圖、以 TA 的身份體驗（PersonaSim）的外殼底圖也各自先解析再拼 url()；
 //   · 上傳時用 processImageToBlob + putImageBlob 產出令牌，別再寫回 base64
 //     （寫端漏改的話，用戶新設的背景又變成幾 MB 的 data URL 塞在角色行裡）。
 const settingsSource = readFileSync(path.resolve(__dirname, '../components/date/DateSettings.tsx'), 'utf8');
+const sessionSource = readFileSync(path.resolve(__dirname, '../components/date/DateSession.tsx'), 'utf8');
 const checkPhoneSource = readFileSync(path.resolve(__dirname, '../apps/CheckPhone.tsx'), 'utf8');
 const personaSimSource = readFileSync(path.resolve(__dirname, '../apps/PersonaSim.tsx'), 'utf8');
 
@@ -19,13 +20,14 @@ describe('見面背景的 blobref 讀寫路徑', () => {
     expect(settingsSource).not.toContain('updateCharacter(char.id, { dateBackground: base64 });');
   });
 
-  it('場景佈置頁的預覽底圖先用 useBlobRefUrl 解析再拼進 CSS url()', () => {
-    expect(settingsSource).toContain('const dateBackgroundUrl = useBlobRefUrl(char.dateBackground);');
-    expect(settingsSource).toContain('backgroundImage: dateBackgroundUrl ?');
+  it('見面畫面的底圖先用 useBlobRefUrl 解析再拼進 CSS url()', () => {
+    expect(sessionSource).toContain("const bgImageUrl = useBlobRefUrl(char.dateBackground || '');");
+    expect(sessionSource).toContain('backgroundImage: bgImageUrl ?');
     expect(settingsSource).not.toContain('url(${char.dateBackground})');
+    expect(sessionSource).not.toContain('url(${char.dateBackground})');
   });
 
-  it('場景佈置頁的背景縮略圖走 TokenImg，不是裸 <img>', () => {
+  it('見面設定頁的背景縮略圖走 TokenImg，不是裸 <img>', () => {
     expect(settingsSource).toContain('<TokenImg value={char.dateBackground}');
     expect(settingsSource).not.toContain('<img src={char.dateBackground}');
   });

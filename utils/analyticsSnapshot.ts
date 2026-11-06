@@ -211,7 +211,6 @@ export function collectCharSettings(
         角色小红书: anyOn(x => x.xhsEnabled),
         隐藏系统日志: anyOn(x => x.hideSystemLogs),
         见面轻阅读: anyOn(x => x.dateLightReading),
-        观测协议: anyOn(x => x.dateObserve?.enabled),
         彼方自主登入: anyOn(x => x.vrState?.enabled),
         提示音绑白框: anyOn(x => x.chatSoundBound),
         // ── 开关：默认开的，问有没有人特意关掉 ──
@@ -228,7 +227,6 @@ export function collectCharSettings(
         原文读取策略: c.contextRangeMode ?? 'manual',
         见面写作风格: c.dateStyleConfig?.style ?? 'cinematic',
         见面叙事人称: c.dateStyleConfig?.pov ?? '没设',
-        观测HUD样式: c.dateObserve?.style ?? 'hologram',
         // 定时消息是多任务清单（一个角色可以同时挂多个不同模式的任务），没有角色级的
         // 单一模式/频率可报；这里报任务规模，模式/频率构成在「排程定时消息」事件里按次记录。
         //
