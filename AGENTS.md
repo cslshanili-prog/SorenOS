@@ -21,7 +21,6 @@
 | **記憶系統** | [`docs/memory-system-overview.md`](./docs/memory-system-overview.md) | 涉及長期記憶、月度總結、向量化記憶宮殿、情感空間。改記憶相關邏輯前必讀 |
 | **查手機 · 人際關係系統** | [`docs/relationship-system.md`](./docs/relationship-system.md) | 改「查手機」聊天/通訊錄、角色聯繫人/好感、真假甄別、真角色雙向對話、虛構 NPC 約束前必讀 |
 | **見面改版 · 線下故事＋自訂預設** | [`plans/offline-date-redesign.md`](./plans/offline-date-redesign.md) | 改見面一般模式（線下故事、ST 預設匯入／巨集／正則、裝飾 iframe、劇情大綱、開場白、總結、完結、情緒褪色、關閉線上、畫面美化、語音標籤）前必讀；GAL／立繪／OBSERVE 在這次改版拿掉，匯入的預設不轉繁體 |
-| **見面 · 觀測協議 OBSERVE** | [`docs/date-observe.md`](./docs/date-observe.md) | 改見面（DateApp）的角色觀測面板：提示詞注入、掉格式解析容錯（兩層）、全息 HUD 渲染前必讀 |
 | **彼方 · 信號墜落處（跨用戶接龍詩）** | [`docs/signal-poetry.md`](./docs/signal-poetry.md) | 改彼方(VRWorld)「信號墜落處」房間：跨實例合寫現代詩、複用漂流瓶後端、`po_poems`/`po_poem_lines` 表與 `/poem/*` 端點、兩層容錯解析、併發安全前必讀 |
 | **捏人器 PSD 導入 / 部件投影層** | [`docs/char-creator-psd-import.md`](./docs/char-creator-psd-import.md) | 改捏人器素材管線、部件陰影（正片疊底預轉）、PSD 圖層組約定前必讀 |
 | **QQ捏人工坊（神經鏈接手辦櫃）** | [`docs/chibi-studio.md`](./docs/chibi-studio.md) | 改小小窩/彼方/520 三處 Q 版形象、捏人器 savedState 還原、`chibiStudio` 字段前必讀 |

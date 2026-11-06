@@ -14,14 +14,7 @@ function Harness() {
     const [showDate, setShowDate] = useState(true);
     useEffect(() => { (window as any).moduleQA = { os, setShowDate }; });
     useEffect(() => { if (char) void DB.getRecentMessagesByCharId(char.id, 50).then(setMessages); }, [char?.id]);
-    const initialState = useMemo(() => {
-        const message = messages.at(-1);
-        if (!message) return undefined;
-        const raw: string = new URLSearchParams(location.search).has('legacy') ? message.content : message.metadata?.sarModuleSurface?.surface || message.content;
-        const batch = raw.split('\n').filter(Boolean).map(text => ({ text, emotion: 'normal' }));
-        return { dialogueBatch: batch, dialogueQueue: batch.slice(2), currentText: batch[1].text, currentSpriteKey: 'normal',
-            isNovelMode: new URLSearchParams(location.search).has('reading'), timestamp: 1, peekStatus: '' } as DateState;
-    }, [messages]);
+    const initialState = useMemo(() => (messages.length ? { timestamp: 1, peekStatus: '' } as DateState : undefined), [messages]);
     return <>
         <div style={{ position: 'absolute', inset: 0, isolation: 'isolate' }}>
             {char && initialState && showDate ? <DateSession char={char} userProfile={os.userProfile} messages={messages} initialState={initialState}
