@@ -5,13 +5,13 @@ import { CharacterProfile, DateStyleConfig } from '../../types';
 import { resolveUserProfileForChar } from '../../utils/userPersona';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
-import TokenImg from '../os/TokenImg';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
 import { DB } from '../../utils/db';
 import { deleteMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
 import DateStoryExtras from './DateStoryExtras';
+import DateAppearanceSettings from './DateAppearanceSettings';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -263,18 +263,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
                 <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} />
 
-                <Section title="背景 (Background)">
-                    <div 
-                        onClick={triggerUpload}
-                        className="aspect-video bg-slate-200 rounded-xl overflow-hidden relative border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-primary group"
-                    >
-                        {char.dateBackground ? (
-                            <>
-                                <TokenImg value={char.dateBackground} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-xs font-bold">更換背景</span></div>
-                            </>
-                        ) : <span className="text-slate-400 text-xs">+ 上傳背景圖</span>}
-                    </div>
+                <Section title="畫面美化 (Appearance)">
+                    <DateAppearanceSettings char={char} updateCharacter={updateCharacter} addToast={addToast} onPickBackground={triggerUpload} />
                 </Section>
                 
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
