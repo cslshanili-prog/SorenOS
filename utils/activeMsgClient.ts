@@ -1,3 +1,4 @@
+import { isDateOfflinePaused } from './dateOffline';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { ReiClient } from '@rei-standard/amsg-client';
 import {
@@ -904,7 +905,8 @@ export const buildFirePack = async (
     builtAt: Date.now(),
     // 角色級 2.0 開關隨包上雲：關著的角色即便走即時對話（全局開關是另一顆），雲端
     // fire 也不給排程能力——本地的 amsg2ToolsInjected 閘門在雲端的對應物就是它。
-    selfScheduleEnabled: isAmsg2EnabledForChar(char),
+    // 線下故事進行中關了線上功能也不給（utils/dateOffline.ts）
+    selfScheduleEnabled: isAmsg2EnabledForChar(char) && !isDateOfflinePaused(char),
     // 私聊拉黑中（不管誰拉黑誰，見 utils/chatBlock.ts）：Soren Worker 到點直接跳過，不花 token、不推播。
     // 舊 Worker 不認這個欄位，客戶端收件時還有一道（activeMsgRuntime 的 chat-blocked 吞掉）。
     ...(char.chatBlock ? { chatBlocked: true } : {}),

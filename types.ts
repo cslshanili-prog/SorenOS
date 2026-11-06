@@ -3161,6 +3161,10 @@ export interface CharacterProfile {
   dateReadingShowAvatars?: boolean; // Show both participants' avatars beside messages in date reading mode
   /** 見面的對話總結設定 */
   dateSummaryConfig?: DateSummaryConfig;
+  /** 故事進行中關閉線上功能（主動消息、定時消息），見 utils/dateOffline.ts */
+  dateOfflineMode?: boolean;
+  /** 正在暫停：何時開始、先取消掉的主動消息任務（恢復時照原樣排回去）；resuming＝有幾條還沒排回去，下次再試 */
+  dateOfflinePause?: { since: number; tasks: ActiveMsg2TaskRecord[]; resuming?: boolean };
   /** 進行中的線下故事（date_stories 表的 id）；完結或還沒開始就是空的 */
   activeDateStoryId?: string;
   /** 見面畫面美化（見 docs/date-appearance.md）；沒設的項目照原本的樣子 */
