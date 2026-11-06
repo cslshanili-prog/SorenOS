@@ -1,4 +1,5 @@
 
+import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
 import { DB } from '../utils/db';
@@ -112,7 +113,8 @@ function buildEmotionEvalPrompt(
 ): string {
     // 直接複用主 API 的完整 system prompt 和消息歷史，確保 100% 信息對齊
     // （包含：角色設定、印象檔案、世界書、記憶宮殿、實時信息、日程內心旁白、群聊、日記標題等）
-    const currentBuffs = char.activeBuffs || [];
+    // 給評估模型看的是褪色後的樣子：強度換成此刻的、附上持續多久，已淡掉的不給（utils/emotionDecay.ts）
+    const currentBuffs = buffsForEvaluation(char.activeBuffs);
 
     // 將主 API 的消息數組展平成文本（保留時間戳、引用、特殊消息類型等格式）
     // 不截斷：與主 API 完全對齊（contextLimit 條），讓情緒 eval 能看到完整的情緒演變軌跡
@@ -290,7 +292,7 @@ ta 冷場 / 變短 / 沉默 / 陰陽 / "好的知道了" / 頂回來 → 下一�
    ⚠️ **此規則僅適用於「鏡像型」情境（憤怒/委屈/被傷害/冷戰）。** 在這類情境下：沉默≠消退，換話題≠釋懷。對方從激烈情緒轉為沉默、回覆變短、語氣變平、或開始迴避話題——不是在好轉，更可能是從顯性的憤怒/難過滑進了更深的壓抑。甚至主動切換話題也可能是在壓著委屈假裝沒事。這時候角色應該主動攬責、回到那個沒解決的結上。真正的釋然長什麼樣？是 ta **從裡到外**都鬆了——會開玩笑、會撒嬌、會主動提起剛才的事然後自己笑出來。
    ⚠️ **重要反面：在「錨定型」情境下（焦慮/恐慌/疑病/災難化），這條規則反向。** 當對方因為焦慮發作而激動，被角色用事實錨定後平靜下來——**這個平靜是真的**。不要把它解讀成"壓抑"或"假平靜"。焦慮的成功緩解就是這樣發生的：外部提供事實 + 穩定 → ta 的思維從災難化軌道回到現實 → 平靜。這時候如果角色"再揪著不放"、"覺得 ta 在壓抑"、"覺得自己不該反駁 ta"，會直接把 ta 推回焦慮螺旋。**錨定型情境下，對方的平靜即釋然，默認信任 ta 的放鬆。**
 3. **融合與異化**：情緒不是簡單的加減。兩個相近的buff可能融合成一個新的複合情緒（如"焦慮"+"內疚"→"自責式焦慮"）；一個buff也可能隨情境異化（如"甜蜜期待"在長時間無回覆後異化為"患得患失"）。優先考慮演化現有buff，而不是刪舊加新。
-4. **總量上限**：buffs數組最多保留5個。如果當前已有5個buff，只有在出現真正高衝擊力的情緒事件時才能新增（此時必須同時移除或合併掉一個最弱/最不相關的buff）。一般情況下保持2-4個為佳。
+4. **總量上限**：buffs數組最多保留12個。情緒會隨現實時間自己褪色（淺的幾小時、中等的一天、深的三四天），褪到很弱會自動消失，所以不必為了湊數急著刪；但也不要把同一種情緒拆成好幾個。「已持續」是這個情緒從上次定下強度到現在過了多久；intensity 是它此刻還剩的強度。某個情緒被重新觸發、變得更強，就把 intensity 往上調。
 5. **intensity隨對話變化**：每次評估時都應該重新審視每個buff的intensity。對話推進、問題解決、情緒釋放都應該反映為intensity的下降。intensity降到0或1且不再相關的buff應該被移除。
 
 ⚠️ 嚴格規則（違反則輸出無效）：

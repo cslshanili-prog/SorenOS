@@ -1,4 +1,5 @@
 
+import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
 import { isScheduleFeatureOn } from './scheduleFeature';
@@ -366,8 +367,10 @@ export const ContextBuilder = {
         // 放在角色設定之後，使所有調用 ContextBuilder 的 App 都能感知情緒狀態
         // 總開關關閉時完全跳過，防止殘留 buff 繼續汙染 prompt
         // deferVolatile：buff 每輪情緒評估後都可能變 → 移交 buildVolatileCoreState。
-        if (!layout?.deferVolatile && isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection) {
-            sections.emotionBuff = `${char.buffInjection}\n\n`;
+        // 情緒會褪色：總結後面補一行此刻還剩什麼；全部淡掉就不帶（utils/emotionDecay.ts）
+        const emotionInjection = buildEmotionInjection(char);
+        if (!layout?.deferVolatile && isScheduleFeatureOn(char) && char.emotionConfig?.enabled && emotionInjection) {
+            sections.emotionBuff = `${emotionInjection}\n\n`;
             console.log(`🎭 [Context] Buff injected for ${char.name}:\n`, char.buffInjection);
             console.log(`🎭 [Context] Active buffs:`, JSON.stringify(char.activeBuffs || [], null, 2));
         }
@@ -536,8 +539,9 @@ export const ContextBuilder = {
             }
         }
 
-        if (isScheduleFeatureOn(char) && char.emotionConfig?.enabled && char.buffInjection) {
-            context += `${char.buffInjection}\n\n`;
+        const emotionInjection = buildEmotionInjection(char);
+        if (isScheduleFeatureOn(char) && char.emotionConfig?.enabled && emotionInjection) {
+            context += `${emotionInjection}\n\n`;
             console.log(`🎭 [Context] Buff injected for ${char.name}:\n`, char.buffInjection);
             console.log(`🎭 [Context] Active buffs:`, JSON.stringify(char.activeBuffs || [], null, 2));
         }

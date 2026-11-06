@@ -25,6 +25,8 @@ import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel
 import { trackEvent } from '../../utils/analytics';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import DecorationFrame from './DecorationFrame';
+import EmotionStatusPanel from '../chat/EmotionStatusPanel';
+import { liveBuffs } from '../../utils/emotionDecay';
 import { buildDateAppearanceCss, resolveDateBackdrop, scopeDateCss } from '../../utils/dateAppearance';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
 import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
@@ -147,6 +149,8 @@ const DateSession: React.FC<DateSessionProps> = ({
         [appearance, light],
     );
     const decorationDarkCard = light && appearance?.decorationDarkCard === true;
+    const [showEmotion, setShowEmotion] = useState(false);
+    const emotionNow = liveBuffs(char.activeBuffs);
 
     // Interaction State
     const [input, setInput] = useState('');
@@ -576,6 +580,17 @@ const DateSession: React.FC<DateSessionProps> = ({
                 style={{ backgroundImage: bgImageUrl ? `url(${bgImageUrl})` : 'none', opacity: backdrop.backgroundOpacity }}
             ></div>
 
+            {/* 當下情緒：一行小字，點開看完整列表（情緒會褪色，見 utils/emotionDecay.ts） */}
+            {char.emotionConfig?.enabled && emotionNow.length > 0 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); setShowEmotion(true); }}
+                    className={`date-emotion-line absolute top-0 left-0 z-[90] mt-14 ml-4 max-w-[45%] truncate rounded-full px-3 py-1 text-[11px] backdrop-blur-md border ${light ? 'bg-white/70 border-stone-200 text-stone-500' : 'bg-black/30 border-white/15 text-white/70'}`}
+                    aria-label="看當下情緒"
+                >
+                    {emotionNow.slice(0, 3).map(buff => `${buff.emoji || ''}${buff.label}`).join(' · ')}
+                </button>
+            )}
+
             {/* Menu Layer — 繼續按鈕單獨在左；菜單 / 輸入上下疊在最右列。
                 這樣第二行的輸入按鈕貼右，不會壓住批量操作欄的中間區域。 */}
             <div className="absolute top-0 right-0 p-4 pt-12 z-[100] flex flex-col items-end gap-2 pointer-events-auto">
@@ -950,6 +965,10 @@ const DateSession: React.FC<DateSessionProps> = ({
                 onToggle={() => void toggleDateVoiceFavorite()}
                 onClose={() => { if (!voiceFavoriteBusy) setVoiceFavoriteTarget(null); }}
             />
+
+            <Modal isOpen={showEmotion} title={`${char.name}此刻的情緒`} onClose={() => setShowEmotion(false)}>
+                <EmotionStatusPanel char={char} alwaysShow onClearBuffs={() => { updateCharacter(char.id, { activeBuffs: [], buffInjection: '' }); setShowEmotion(false); addToast('情緒狀態已重置', 'info'); }} />
+            </Modal>
 
             {/* Exit Modal */}
             <Modal isOpen={showExitModal} title="暫時離開?" onClose={() => setShowExitModal(false)} footer={<div className="flex gap-3 w-full"><button onClick={() => setShowExitModal(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">留在這裡</button><button onClick={handleExitClick} className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-bold">保存並退出</button></div>}>

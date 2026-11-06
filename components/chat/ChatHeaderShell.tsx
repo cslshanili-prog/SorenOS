@@ -1,3 +1,4 @@
+import { liveBuffs } from '../../utils/emotionDecay';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretLeft, Lightning, Stop } from '@phosphor-icons/react';
@@ -94,7 +95,8 @@ const ChatHeaderShell: React.FC<ChatHeaderShellProps> = ({
     chromeStyle = 'soft',
     acnh = false,
 }) => {
-    const buffs: CharacterBuff[] = hideBuffs ? [] : (activeCharacter.activeBuffs || []);
+    // 已經淡掉的情緒不顯示（utils/emotionDecay.ts）
+    const buffs: CharacterBuff[] = hideBuffs ? [] : liveBuffs(activeCharacter.activeBuffs);
     const [openBuff, setOpenBuff] = useState<CharacterBuff | null>(null);
     const [isBuffListExpanded, setIsBuffListExpanded] = useState(false);
     const [confirmDeleteBuff, setConfirmDeleteBuff] = useState<CharacterBuff | null>(null);
