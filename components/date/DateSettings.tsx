@@ -11,6 +11,7 @@ import { DB } from '../../utils/db';
 import { deleteMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
+import DateStoryExtras from './DateStoryExtras';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -259,6 +260,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         <p className="text-[10px] text-slate-300 mt-1">點別處會自動保存；這段會照原樣用上，比上面的風格優先。</p>
                     </div>
                 </Section>
+
+                <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} />
 
                 <Section title="背景 (Background)">
                     <div 

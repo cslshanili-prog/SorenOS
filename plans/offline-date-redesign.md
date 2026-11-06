@@ -117,7 +117,19 @@
 | `utils/meetingPreset/store.ts` | `meeting_presets` 表（DB v76，進完整備份）；改了發 `soren-meeting-preset-updated` |
 | `components/date/MeetingPresetManager.tsx` | 管理頁：分組開關、條目內容、變數、正則開關、生成參數 |
 
-角色選哪份記在 `dateMeetingPresetId`；沒選或選的那份被刪掉就是內建規則。開場（感知）目前還是內建的寫法，等「開場白」那項再接。生成參數照預設送（`top_p`、懲罰值、`max_tokens`），溫度經 `samplingParamCompat` 照模型封頂（Claude 最高 1）。
+角色選哪份記在 `dateMeetingPresetId`；沒選或選的那份被刪掉就是內建規則。開場（感知）由模型寫時還是內建的寫法，不走預設；要用自己寫的開場就用下面的開場白庫。生成參數照預設送（`top_p`、懲罰值、`max_tokens`），溫度經 `samplingParamCompat` 照模型封頂（Claude 最高 1）。
+
+## 劇情大綱、開場白、回應字數的實作（已做）
+
+小工具都在 `utils/dateExtras.ts`，設定頁那三塊在 `components/date/DateStoryExtras.tsx`。
+
+| 項目 | 存在哪 | 怎麼用 |
+|------|--------|--------|
+| 劇情大綱 | `dateScenario` | 內建模式：見面正文在「場景上下文」前加一段「當前劇情大綱」，感知頁開場也帶。預設模式：填「場景」佔位，`{{scenario}}` 也讀它；`{{char}}`／`{{user}}` 先換好（ST 也是先展開角色卡欄位）。線下故事物件還沒做，先跟著角色存，第 2 輪搬進故事 |
+| 開場白庫 | `dateGreetings`（`{id, text}[]`）、`dateOpeningSource` | 選「用開場白」又有寫，感知頁就隨機挑一條，不叫模型；重新感知換一條不一樣的。赴約（帶 meetup）那次還是讓模型寫，才接得上邀約。感知頁和設定頁都能切，記在角色上；開場白刪光就退回模型寫 |
+| 回應字數 | `dateResponseLength`（`{min?, max?}`） | 內建模式在大綱後加一句「這一輪正文大約 …」。預設模式：預設裡名字有「字數／字数」又有「總／总」的全域變數（日月西的 `字数总要求`）直接蓋成「800–1200 字」這種寫法，蓋到了就不另外補；沒有這種變數才由 Soren 的「回應字數」佔位說一句。`单段落字数` 是每段長度，意思不同，不動，照預設變數頁填的 |
+
+開場白、大綱裡的巨集只換 `{{char}}`／`{{user}}`（走同一個巨集引擎，認不得的原樣留著）。
 
 ## 參考檔案
 

@@ -7,6 +7,7 @@ import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
+import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import type { MeetingPresetGeneration, MeetingPresetRecord } from '../utils/meetingPreset/types';
@@ -148,6 +149,8 @@ const DateApp: React.FC = () => {
     const peekRequestRef = useRef(0);
     // 從角色的見面邀請卡赴約時帶過來的約定；這一次見面的開場都照它寫，換角色就清掉
     const [peekMeetup, setPeekMeetup] = useState<DateMeetup | null>(null);
+    // 用開場白庫開場時，這次挑到的是哪一條（重新感知就換一條）
+    const [peekGreetingId, setPeekGreetingId] = useState<string | undefined>(undefined);
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -358,7 +361,7 @@ const DateApp: React.FC = () => {
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
-                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}) } // Added Flag
+                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}), ...(peekGreetingId ? { dateGreetingId: peekGreetingId } : {}) } // Added Flag
                 });
                 setHasSavedOpening(true);
             } catch (e) {
@@ -381,6 +384,7 @@ const DateApp: React.FC = () => {
         selectedOpening: DateOpeningMode = openingMode,
         meetup: DateMeetup | null = peekMeetup,
         rememberOpening = true,
+        sourceOverride?: 'generate' | 'greeting',
     ) => {
         const requestId = ++peekRequestRef.current;
         if (selectedOpening !== openingMode) {
@@ -395,6 +399,17 @@ const DateApp: React.FC = () => {
         setPeekStatus('');
         setHasSavedOpening(false);
         trackEvent('进入见面感知页');
+
+        // 開場白庫：選了「用開場白」又有寫，就直接用，不叫模型（赴約那次照舊讓模型寫，才接得上邀約）
+        const source = sourceOverride ?? c.dateOpeningSource;
+        const greeting = source === 'greeting' && !meetup ? pickGreeting(c.dateGreetings || [], peekGreetingId) : undefined;
+        if (greeting) {
+            setPeekGreetingId(greeting.id);
+            setPeekStatus(expandGreeting(greeting.text, c.name, resolveUserProfileForChar(userProfileBase, c).name));
+            setPeekLoading(false);
+            return;
+        }
+        setPeekGreetingId(undefined);
 
         try {
             const msgs = await loadCharacterContextMessages(c);
@@ -590,6 +605,21 @@ const DateApp: React.FC = () => {
         // 「新見面只有立繪模式是新劇情，閱讀模式全是舊劇情」。
         if (lastMsg.metadata?.isOpening === true) {
             const rerollOpening: DateOpeningMode = lastMsg.metadata?.dateOpeningMode === 'invite' ? 'invite' : 'approach';
+            // 這段開場是從開場白庫挑的：重擲就換一條開場白，不叫模型
+            const previousGreetingId: string | undefined = lastMsg.metadata?.dateGreetingId;
+            const nextGreeting = previousGreetingId ? pickGreeting(char.dateGreetings || [], previousGreetingId) : undefined;
+            if (nextGreeting) {
+                const content = expandGreeting(nextGreeting.text, char.name, dateUserProfile.name);
+                await DB.deleteMessage(lastMsg.id);
+                await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { ...lastMsg.metadata, dateGreetingId: nextGreeting.id } });
+                markDateTurnDirty(char);
+                trackEvent('重掷见面回复', { 目标: '开场白' });
+                setPeekGreetingId(nextGreeting.id);
+                setPeekStatus(content);
+                const freshMsgs = await DB.getMessagesByCharId(char.id, true);
+                setDateMessages(freshMsgs.filter(m => m.metadata?.source === 'date').sort((a,b) => a.timestamp - b.timestamp));
+                return content;
+            }
             const { messages } = DatePrompts.buildPeekPayload({
                 char,
                 userProfile: dateUserProfile,
@@ -1157,6 +1187,22 @@ const DateApp: React.FC = () => {
                          ))}
                      </div>
                 </div>
+                {(char.dateGreetings || []).some(g => g.text.trim()) && !peekMeetup && (
+                    <div className="relative z-10 flex justify-center -mt-1 mb-2">
+                        <div role="radiogroup" aria-label="開場怎麼來" className="flex rounded-full border border-neutral-800 bg-neutral-900/80 p-1 text-xs">
+                            {([['generate', '模型寫開場'], ['greeting', '用開場白']] as const).map(([value, label]) => {
+                                const active = (char.dateOpeningSource || 'generate') === value;
+                                return (
+                                    <button key={value} type="button" role="radio" aria-checked={active} disabled={peekLoading}
+                                        onClick={() => { if (active) return; updateCharacter(char.id, { dateOpeningSource: value }); startPeek(char, openingMode, peekMeetup, true, value); }}
+                                        className={`rounded-full px-4 py-1.5 transition disabled:opacity-50 ${active ? 'bg-white text-black font-bold' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 {peekLoading && (
                     <div className="flex-1 flex flex-col items-center justify-center -mt-20 z-10"><div className="w-12 h-[1px] bg-neutral-800 mb-12"></div><div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white to-transparent animate-pulse mb-6"></div><p className="text-sm font-light text-neutral-500 italic tracking-widest">{openingMode === 'invite' ? `${char.name} 正在過來...` : '正在感知...'}</p></div>
                 )}

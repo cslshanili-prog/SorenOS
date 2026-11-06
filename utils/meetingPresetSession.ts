@@ -5,6 +5,8 @@
  * 佔位怎麼填（ContextBuilder.buildCoreSections 的各段）：
  * - 世界書·前：世界書「角色設定前」
  * - 角色描述：你的身份（名字、備註、核心指令）
+ * - 場景：見面設定的劇情大綱
+ * - 回應字數：預設有讀字數的 getglobalvar（名字含「字數」「總」）就蓋過去，沒有才用 Soren 的佔位
  * - 角色設定：內在認知
  * - 世界書·後：世界觀＋世界書「角色設定後」「作者註釋頂部／底部」
  * - 對話示例：世界書「示例前／後」＋對話範例＋招牌台詞
@@ -25,6 +27,7 @@ import { buildTriggeredLinesPrompt } from './fixedLines';
 import { spokenPartOfDateInput } from './dateUserInput';
 import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries, type WorldbookScanMessage } from './worldbook';
 import { assembleMeetingPreset } from './meetingPreset/assemble';
+import { buildLengthLine, presetLengthGlobals, scenarioText } from './dateExtras';
 import type { MeetingPresetDoc, MeetingPresetGeneration, MeetingPresetSlot } from './meetingPreset/types';
 
 const join = (...parts: string[]) => parts.filter(part => part && part.trim()).map(part => part.trim()).join('\n\n');
@@ -65,6 +68,7 @@ export const buildMeetingPresetPayload = async (input: {
         worldbookMessages: scan,
     });
 
+    const lengthGlobals = presetLengthGlobals(preset.globalVars, char);
     const fixedLines = buildTriggeredLinesPrompt(char, spokenPartOfDateInput(userText), userName || '用戶');
     const slots: Partial<Record<MeetingPresetSlot, string>> = {
         worldInfoBefore: sections.worldbookBeforeCharacter,
@@ -72,10 +76,13 @@ export const buildMeetingPresetPayload = async (input: {
         charPersonality: sections.selfInsights,
         worldInfoAfter: join(sections.worldview, sections.worldbookAfterCharacter, sections.worldbookAuthorsNoteTop, sections.worldbookAuthorsNoteBottom),
         dialogueExamples: join(sections.worldbookBeforeExamples, sections.dialogueExamples, sections.signatureLines, sections.worldbookAfterExamples),
+        scenario: scenarioText(char, userName),
         personaDescription: sections.userProfile,
         memory: join(sections.roomPlates, sections.memoryBank, sections.memoryPalace),
         emotion: sections.emotionBuff,
         time: sections.timeAwareness,
+        // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
+        length: lengthGlobals.mapped ? '' : buildLengthLine(char),
         voice: char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : '',
         soren: join(sections.impression, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines),
     };
@@ -97,11 +104,13 @@ export const buildMeetingPresetPayload = async (input: {
         doc: preset,
         slots,
         history: presetHistory,
+        globalVars: lengthGlobals.overrides,
         env: {
             charName: char.name,
             userName,
             charDescription: slots.charDescription,
             charPersonality: slots.charPersonality,
+            scenario: slots.scenario,
             persona: slots.personaDescription,
             mesExamples: slots.dialogueExamples,
             lastMessage: presetHistory[presetHistory.length - 1]?.content,
