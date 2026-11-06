@@ -14,6 +14,7 @@ import DateStoryExtras from './DateStoryExtras';
 import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateStory';
 import type { DateStory } from '../../types';
 import DateAppearanceSettings from './DateAppearanceSettings';
+import DateSummarySettings from './DateSummarySettings';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -274,6 +275,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 </Section>
 
                 <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} story={story} />
+
+                <DateSummarySettings char={char} story={story} Section={Section} />
 
                 <Section title="畫面美化 (Appearance)">
                     <DateAppearanceSettings char={char} updateCharacter={updateCharacter} addToast={addToast} onPickBackground={triggerUpload} />

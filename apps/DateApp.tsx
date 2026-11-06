@@ -8,6 +8,8 @@ import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
+import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
+import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import type { DateStory } from '../types';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
@@ -361,6 +363,8 @@ const DateApp: React.FC = () => {
         if (!pendingSessionChar) return;
         const story = await ensureStoryFor(pendingSessionChar);
         setActiveStory(story);
+        // 每天定時總結：頁面關著時錯過的那次，進來補
+        void maybeAutoSummarize(pendingSessionChar);
         // 恢復嘗試開始前先武裝崩潰哨兵：若這份重快照在 iOS 上把內容進程撐崩，
         // 哨兵會殘留到下次進見面被檢出並清理（見掛載時的自愈 effect）。
         armDateResumeAttempt(pendingSessionChar.id);
@@ -550,6 +554,32 @@ const DateApp: React.FC = () => {
         }
     }, [memoryPalaceConfig, apiConfig, userProfileBase, updateCharacter, addToast]);
 
+    // 自動總結：每輪回覆之後、進見面時檢查（見 utils/dateSummary.ts）。在背景跑，不擋對話
+    const maybeAutoSummarize = async (charForRun: CharacterProfile) => {
+        const story = activeStoryRef.current;
+        if (!story || story.charId !== charForRun.id) return;
+        const live = charactersRef.current.find(c => c.id === charForRun.id) || charForRun;
+        const config = resolveDateSummaryConfig(live);
+        try {
+            const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(live.id, 'date', 600);
+            if (!shouldAutoSummarize(config, story, dateMsgs)) return;
+            const done = await runDateSummary({
+                char: live, story, userName: resolveUserProfileForChar(userProfileBase, live).name,
+                api: resolveCharacterChatApi(live, apiConfig), messages: dateMsgs, kind: 'auto',
+            });
+            if (!done) return;
+            if (activeStoryRef.current?.id === done.story.id) setActiveStory(done.story);
+            if (config.palaceMode === 'each') {
+                const palace = resolveDatePalaceConfig(live, memoryPalaceConfig, apiConfig);
+                const last = dateMsgs.find(m => m.id === done.summary.toMessageId);
+                if (palace) await sendDateSummaryToPalace({ char: live, story: done.story, summary: done.summary, happenedAt: last?.timestamp ?? Date.now(), config: palace });
+            }
+        } catch (e: any) {
+            console.error('[DateSummary] 自動總結失敗', e?.message || e);
+            addToast('自動總結沒成功，下一輪會再試', 'info');
+        }
+    };
+
     // --- Session API Logic ---
     const handleSendMessage = async (text: string, kind?: 'continue'): Promise<string> => {
         if (!char) throw new Error("No char");
@@ -557,6 +587,7 @@ const DateApp: React.FC = () => {
         const preset = await loadPresetFor(char);
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
         const storyChar = withStoryScenario(char, activeStoryRef.current);
+        const recap = buildDateRecap(activeStoryRef.current);
         const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
         // 預設的正則：兩個「只…」都沒勾的，改的是存下來的原文（同 ST）
         const storedText = preset && kind !== 'continue'
@@ -602,8 +633,8 @@ const DateApp: React.FC = () => {
             : storedText;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
-            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision, recap })), generation: undefined };
         const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85, generation);
         const parsed = parseSARModuleReply(preset
             ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
@@ -642,6 +673,7 @@ const DateApp: React.FC = () => {
 
         // Memory Palace 後台流程（不阻塞返回，與聊天側一致）
         runMemoryPalacePostHook(char);
+        void maybeAutoSummarize(char);
 
         return parsed.assistantSurface || parsed.canonical;
     };
@@ -714,14 +746,15 @@ const DateApp: React.FC = () => {
         const preset = await loadPresetFor(char);
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
         const storyChar = withStoryScenario(char, activeStoryRef.current);
+        const recap = buildDateRecap(activeStoryRef.current);
         const rerollMsgs = trimHistoryThrough(preparedValidMsgs, lastUserMsg.id);
         const rerollText = lastUserMsg.metadata?.meetingContinue === true
             ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
             : lastUserMsg.content;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model })
-            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision, recap })), generation: undefined };
         // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線（用預設時照預設的溫度）。
         const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
         const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);
@@ -755,6 +788,7 @@ const DateApp: React.FC = () => {
 
         // Memory Palace 後台流程（Reroll 也算一輪新輸出）
         runMemoryPalacePostHook(char);
+        void maybeAutoSummarize(char);
 
         return parsed.assistantSurface || parsed.canonical;
     };

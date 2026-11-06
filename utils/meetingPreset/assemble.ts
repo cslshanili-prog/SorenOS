@@ -36,7 +36,7 @@ export interface AssembleResult {
     vars: Record<string, string>;
 }
 
-const SOREN_SLOT_ORDER: MeetingSorenSlot[] = ['soren', 'memory', 'emotion', 'time', 'length', 'voice'];
+const SOREN_SLOT_ORDER: MeetingSorenSlot[] = ['soren', 'memory', 'recap', 'emotion', 'time', 'length', 'voice'];
 
 const formatSlot = (doc: MeetingPresetDoc, slot: MeetingPresetSlot, content: string, env: MacroEnv): string => {
     if (!content.trim()) return '';
