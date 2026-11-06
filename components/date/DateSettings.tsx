@@ -11,6 +11,8 @@ import { deleteMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_E
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
 import DateStoryExtras from './DateStoryExtras';
+import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateStory';
+import type { DateStory } from '../../types';
 import DateAppearanceSettings from './DateAppearanceSettings';
 
 interface DateSettingsProps {
@@ -68,6 +70,16 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         window.addEventListener(MEETING_PRESET_UPDATED_EVENT, load);
         return () => window.removeEventListener(MEETING_PRESET_UPDATED_EVENT, load);
     }, []);
+    // 進行中的故事（劇情大綱跟著故事走）
+    const [story, setStory] = useState<DateStory | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        const load = () => { loadActiveDateStory(char).then(next => { if (!cancelled) setStory(next); }).catch(() => {}); };
+        load();
+        window.addEventListener(DATE_STORY_UPDATED_EVENT, load);
+        return () => { cancelled = true; window.removeEventListener(DATE_STORY_UPDATED_EVENT, load); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [char.id, char.activeDateStoryId]);
     const activePresetId = presets.some(p => p.id === char.dateMeetingPresetId) ? char.dateMeetingPresetId : undefined;
     const handlePresetFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -261,7 +273,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </Section>
 
-                <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} />
+                <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} story={story} />
 
                 <Section title="畫面美化 (Appearance)">
                     <DateAppearanceSettings char={char} updateCharacter={updateCharacter} addToast={addToast} onPickBackground={triggerUpload} />

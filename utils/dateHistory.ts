@@ -1,6 +1,7 @@
-import type { Message } from '../types';
+import type { DateStory, Message } from '../types';
+import { dateStoryLabel, messageBelongsToStory } from './dateStory';
 
-export type DateHistoryView = 'encounter' | 'date';
+export type DateHistoryView = 'encounter' | 'date' | 'story';
 export type DateHistorySortOrder = 'newest' | 'oldest';
 
 export interface DateHistoryGroup {
@@ -13,6 +14,8 @@ export interface DateHistoryGroup {
     encounterCount: number;
     /** 舊記錄可能沒有 isOpening，UI 用它提示這是兼容分組。 */
     hasOpeningAnchor: boolean;
+    /** 按故事查看時，這組是哪一場（沒有就是故事功能之前的舊見面） */
+    story?: DateStory;
 }
 
 const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -113,14 +116,50 @@ export function groupDateMessagesByDate(messages: Message[]): DateHistoryGroup[]
     }));
 }
 
+/**
+ * 按線下故事分組：屬於某場故事的訊息歸到那場；故事功能之前、沒轉成故事的舊見面照「按次」切。
+ * 只會出現在已讀進來的訊息裡有的故事（一句都沒讀到的就不顯示）。
+ */
+export function groupDateMessagesByStory(messages: Message[], stories: DateStory[]): DateHistoryGroup[] {
+    const ordered = sortMessagesChronologically(messages);
+    const byStory = new Map<string, Message[]>();
+    const rest: Message[] = [];
+    for (const message of ordered) {
+        const story = stories.find(candidate => messageBelongsToStory(message, candidate));
+        if (!story) { rest.push(message); continue; }
+        const bucket = byStory.get(story.id) || [];
+        bucket.push(message);
+        byStory.set(story.id, bucket);
+    }
+    const storyGroups: DateHistoryGroup[] = stories
+        .filter(story => byStory.has(story.id))
+        .map(story => {
+            const bucket = byStory.get(story.id)!;
+            return {
+                id: `story-${story.id}`,
+                dateKey: getLocalDateKey(bucket[0].timestamp),
+                startAt: bucket[0].timestamp,
+                endAt: bucket[bucket.length - 1].timestamp,
+                messages: bucket,
+                encounterCount: 1,
+                hasOpeningAnchor: bucket.some(message => message.metadata?.isOpening === true),
+                story,
+            };
+        });
+    return [...storyGroups, ...splitDateEncounters(rest)].sort((a, b) => a.startAt - b.startAt);
+}
+
 export function buildDateHistoryGroups(
     messages: Message[],
     view: DateHistoryView,
     sortOrder: DateHistorySortOrder,
+    stories: DateStory[] = [],
 ): DateHistoryGroup[] {
     const groups = view === 'encounter'
         ? splitDateEncounters(messages)
-        : groupDateMessagesByDate(messages);
+        : view === 'story'
+            ? groupDateMessagesByStory(messages, stories)
+            : groupDateMessagesByDate(messages);
     return sortOrder === 'newest' ? groups.reverse() : groups;
 }
 
@@ -136,6 +175,8 @@ const exportedContent = (message: Message): string => {
     return message.content?.trim() || '(無內容)';
 };
 
+export const DATE_HISTORY_VIEW_LABEL: Record<DateHistoryView, '按次' | '按日期' | '按故事'> = { encounter: '按次', date: '按日期', story: '按故事' };
+
 export function formatDateHistoryExport(
     characterName: string,
     groups: DateHistoryGroup[],
@@ -143,15 +184,17 @@ export function formatDateHistoryExport(
 ): string {
     const lines: string[] = [
         `見面記錄 · ${characterName}`,
-        `整理方式：${view === 'encounter' ? '按次' : '按日期'}`,
+        `整理方式：${DATE_HISTORY_VIEW_LABEL[view]}`,
         `導出時間：${formatDateHistoryTime(Date.now(), true)}`,
         '',
     ];
 
     groups.forEach((group, index) => {
-        const heading = view === 'encounter'
-            ? `第 ${index + 1} 段 · ${formatDateHistoryTime(group.startAt, true)}`
-            : formatDateHistoryDate(group.startAt);
+        const heading = view === 'date'
+            ? formatDateHistoryDate(group.startAt)
+            : group.story
+                ? `${dateStoryLabel(group.story)}（${group.story.status === 'completed' ? '已完結' : '進行中'}） · ${formatDateHistoryTime(group.startAt, true)}`
+                : `第 ${index + 1} 段 · ${formatDateHistoryTime(group.startAt, true)}`;
         lines.push(`===== ${heading} =====`);
         for (const message of group.messages) {
             const speaker = message.role === 'user'

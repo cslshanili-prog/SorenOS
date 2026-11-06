@@ -2856,6 +2856,26 @@ export interface CharacterCustomMeter {
   shareWithChar?: boolean;
 }
 
+/**
+ * 見面的一場「線下故事」（date_stories 表，見 utils/dateStory.ts）。每個角色同時只有一場進行中，
+ * 記在 CharacterProfile.activeDateStoryId。屬於這場的見面訊息在 metadata.dateStoryId 記著它的 id
+ * （舊存檔轉過來的那場，轉的時候補標）。
+ */
+export interface DateStory {
+  id: string;
+  charId: string;
+  status: 'ongoing' | 'completed';
+  /** 用戶取的名字；沒取就顯示開始日期 */
+  title?: string;
+  /** 這場故事的劇情大綱 */
+  scenario?: string;
+  /** 舊存檔轉過來的：從這則開場起（只是記錄，歸屬看訊息上的 dateStoryId） */
+  legacyFromMessageId?: number;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+
 export interface DateLineColors {
   dialogue?: string;
   narration?: string;
@@ -3092,6 +3112,8 @@ export interface CharacterProfile {
   customDateSprites?: string[]; // User-added custom emotion names for date mode (per-character)
   dateLightReading?: boolean;   // Light reading mode for novel/text view in date
   dateReadingShowAvatars?: boolean; // Show both participants' avatars beside messages in date reading mode
+  /** 進行中的線下故事（date_stories 表的 id）；完結或還沒開始就是空的 */
+  activeDateStoryId?: string;
   /** 見面畫面美化（見 docs/date-appearance.md）；沒設的項目照原本的樣子 */
   dateAppearance?: DateAppearance;
   dateSkinSets?: SkinSet[];     // Multiple skin sets（角色立繪，神經鏈接 → 形象；桌面陪伴 / 節日活動用）
@@ -3103,7 +3125,7 @@ export interface CharacterProfile {
   dateGreetings?: { id: string; text: string }[];
   /** 開場怎麼來：模型寫（預設）或從開場白庫挑 */
   dateOpeningSource?: 'generate' | 'greeting';
-  /** 當前劇情大綱（ST 的 scenario）；不填就讓模型自己跑 */
+  /** 下一場故事的劇情大綱（ST 的 scenario）：開新故事時搬進 DateStory.scenario 並清掉；進行中的故事改自己的 */
   dateScenario?: string;
   /** 見面回應字數；兩個都不填就不限 */
   dateResponseLength?: { min?: number; max?: number };
@@ -4783,6 +4805,8 @@ export interface FullBackupData {
     storyTheaterPresets?: StoryTheaterPreset[];
     /** 見面自訂預設（meeting_presets 表） */
     meetingPresets?: import('./utils/meetingPreset/types').MeetingPresetRecord[];
+    /** 見面的線下故事（date_stories 表） */
+    dateStories?: DateStory[];
     storyTheaterMasks?: StoryTheaterMask[];
     customThemes?: ChatTheme[];
     savedEmojis?: Emoji[]; 
