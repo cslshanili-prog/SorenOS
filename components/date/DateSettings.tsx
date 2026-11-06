@@ -7,6 +7,10 @@ import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
+import { DB } from '../../utils/db';
+import { deleteMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
+import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
+import MeetingPresetManager from './MeetingPresetManager';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -52,6 +56,40 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
 
     const triggerUpload = () => fileInputRef.current?.click();
 
+    // 自訂預設：所有角色共用一份清單，這個角色選哪份記在 dateMeetingPresetId
+    const presetInputRef = useRef<HTMLInputElement>(null);
+    const [presets, setPresets] = useState<MeetingPresetRecord[]>([]);
+    const [managingPresetId, setManagingPresetId] = useState<string | null>(null);
+    const [importing, setImporting] = useState(false);
+    useEffect(() => {
+        const load = () => { DB.getMeetingPresets().then(setPresets).catch(() => setPresets([])); };
+        load();
+        window.addEventListener(MEETING_PRESET_UPDATED_EVENT, load);
+        return () => window.removeEventListener(MEETING_PRESET_UPDATED_EVENT, load);
+    }, []);
+    const activePresetId = presets.some(p => p.id === char.dateMeetingPresetId) ? char.dateMeetingPresetId : undefined;
+    const handlePresetFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (presetInputRef.current) presetInputRef.current.value = '';
+        if (!file) return;
+        setImporting(true);
+        try {
+            const record = await importStPresetFile(await file.text(), file.name);
+            updateCharacter(char.id, { dateMeetingPresetId: record.id });
+            addToast(`已匯入「${record.name}」，${char.name}的見面改用這份預設`, 'success');
+        } catch (err: any) {
+            addToast(err?.message || '匯入失敗', 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+    const handleDeletePreset = async (preset: MeetingPresetRecord) => {
+        if (!window.confirm(`刪除預設「${preset.name}」？用這份預設的角色會改回內建規則。`)) return;
+        await deleteMeetingPresetRecord(preset.id);
+        if (char.dateMeetingPresetId === preset.id) updateCharacter(char.id, { dateMeetingPresetId: undefined });
+        addToast('已刪除', 'success');
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -82,6 +120,37 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
             
             <div className="flex-1 overflow-y-auto p-5 space-y-8" style={{ paddingBottom: 'calc(var(--safe-bottom) + 2rem)' }}>
                 <p className="text-[11px] text-slate-400 leading-relaxed">角色立繪搬到了「神經鏈接 → 形象」，桌面陪伴和節日活動照常使用。</p>
+
+                <Section title="預設 (Preset)" defaultOpen>
+                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用，選哪一份是每個角色自己的。</p>
+                    <div className="space-y-2">
+                        <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${!activePresetId ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
+                            <span className={`text-sm font-bold ${!activePresetId ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
+                            <span className="text-[11px] text-slate-400">下面的文風與敘事</span>
+                        </button>
+                        {presets.map(preset => {
+                            const active = activePresetId === preset.id;
+                            return (
+                                <div key={preset.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
+                                    <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: preset.id })} className="flex-1 min-w-0 text-left">
+                                        <div className={`text-sm font-bold truncate ${active ? 'text-primary' : 'text-slate-600'}`}>{preset.name}</div>
+                                        <div className="text-[11px] text-slate-400">開 {preset.doc.prompts.filter(p => p.enabled).length} / {preset.doc.prompts.length} 條 · 正則 {preset.doc.regexScripts.length}</div>
+                                    </button>
+                                    <button onClick={() => setManagingPresetId(preset.id)} className="px-3 py-1.5 rounded-lg bg-white text-xs font-bold text-slate-600 border border-slate-200 active:scale-95">管理</button>
+                                    <button onClick={() => void handleDeletePreset(preset)} aria-label={`刪除 ${preset.name}`} className="p-1.5 text-slate-300 hover:text-red-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button onClick={() => presetInputRef.current?.click()} disabled={importing}
+                        className="mt-3 w-full py-2.5 border border-dashed border-primary/40 text-primary text-sm font-bold rounded-xl active:scale-95 disabled:opacity-50">
+                        {importing ? '匯入中…' : '+ 匯入 SillyTavern 預設（.json）'}
+                    </button>
+                    <input type="file" ref={presetInputRef} className="hidden" accept=".json,application/json" onChange={handlePresetFile} />
+                </Section>
 
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100">
                     <div className="flex items-center justify-between gap-4 p-4">
@@ -118,7 +187,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                     </div>
                 </section>
 
-                <Section title="文風與敘事 (Writing Style)">
+                <Section title={activePresetId ? '文風與敘事（用自訂預設時不生效）' : '文風與敘事 (Writing Style)'}>
                     <p className="text-[11px] text-slate-400 mt-1 mb-4">調整見面時 AI 的寫作風格與敘事人稱，修改後從下一條回覆開始生效。</p>
 
                     {/* 寫作風格 */}
@@ -208,6 +277,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
 
+            {managingPresetId && <MeetingPresetManager presetId={managingPresetId} onClose={() => setManagingPresetId(null)} />}
         </div>
     );
 };

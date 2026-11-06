@@ -356,7 +356,7 @@ ${buildBlockedMeetingNote(char, userName)}`;
  * 2. 複用 ChatPrompts.buildMessageHistory 壓縮各類卡片。
  * 3. 排除最後一條（待重發的 user msg），由調用方單獨追加帶 System Note 的版本。
  */
-const buildDateHistory = (
+export const buildDateHistory = (
     allMsgs: Message[],
     char: CharacterProfile,
     userProfile: UserProfile | null | undefined,

@@ -98,10 +98,26 @@
 
 | 輪 | 內容 |
 |---|---|
-| 1 | 線下故事物件、預設引擎（ST 匯入、巨集、功能型正則）、拿掉 GAL／立繪／OBSERVE（第一個 PR，已做）、三類裝飾、劇情大綱、開場白、回應字數、語音標籤新寫法（第一個 PR，已做）、畫面美化 |
+| 1 | 線下故事物件、預設引擎（ST 匯入、巨集、正則，已做）、拿掉 GAL／立繪／OBSERVE（已做）、三類裝飾（已做）、劇情大綱、開場白、回應字數、語音標籤新寫法（已做）、畫面美化（含裝飾卡片底色：照 ST 深色主題做的裝飾在淺色閱讀模式下字會變淡） |
 | 2 | 對話總結、完結故事、接記憶宮殿 |
 | 3 | 情緒褪色與條數（私聊一起）、關閉線上功能（含雲端暫停） |
 | 4 | 時間模式、拍下這一刻（含用戶鎖臉） |
+
+## 預設引擎的實作（已做）
+
+| 檔案 | 做什麼 |
+|---|---|
+| `utils/meetingPreset/types.ts` | 資料結構，欄位意思照 ST Chat Completion 預設 |
+| `utils/meetingPreset/stImport.ts` | ST 預設 → Soren：`prompt_order` 取 100001（沒有就 100000），佔位變 slot，`injection_position = 1` 變 `inChat`，`extensions.regex_scripts`、`baibaiToolkit` 的分組、`{{getglobalvar}}` 用到的名字一起收。酒館助手腳本不收 |
+| `utils/meetingPreset/macros.ts` | 巨集子集，規則照 ST 新版巨集引擎；認不得的原樣保留（預設裡的輸出模板 `{{YYYY/MM/DD…}}` 靠這條） |
+| `utils/meetingPreset/regex.ts` | 正則三個時機：落庫（兩個「只…」都沒勾）、送出（只改送出）、顯示（只改顯示），depth 從最後一則往回數 |
+| `utils/meetingPreset/assemble.ts` | 照 ST 的順序拼 messages；巨集跑兩遍模擬 ST 變數跨輪保留；插入聊天記錄的條目照 ST 的排法 |
+| `utils/meetingPreset/display.ts` + `components/date/DecorationFrame.tsx` | 顯示正則的結果切成文字段和 HTML 段；HTML 進 `sandbox="allow-scripts"`（不給 same-origin）的 iframe，附記憶體版 localStorage 替身，高度用 postMessage 回報 |
+| `utils/meetingPresetSession.ts` | 預設模式的送出內容：`ContextBuilder.buildCoreSections` 拆出的各段填進佔位（對應表在檔頭），內建模式的格式規則不帶 |
+| `utils/meetingPreset/store.ts` | `meeting_presets` 表（DB v76，進完整備份）；改了發 `soren-meeting-preset-updated` |
+| `components/date/MeetingPresetManager.tsx` | 管理頁：分組開關、條目內容、變數、正則開關、生成參數 |
+
+角色選哪份記在 `dateMeetingPresetId`；沒選或選的那份被刪掉就是內建規則。開場（感知）目前還是內建的寫法，等「開場白」那項再接。生成參數照預設送（`top_p`、懲罰值、`max_tokens`），溫度經 `samplingParamCompat` 照模型封頂（Claude 最高 1）。
 
 ## 參考檔案
 
