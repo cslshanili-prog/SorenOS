@@ -771,7 +771,10 @@ const DateSession: React.FC<DateSessionProps> = ({
                                                     onContextMenu={canVoice ? (e) => { e.preventDefault(); e.stopPropagation(); void openDateVoiceFavorite(voiceTarget); } : undefined}
                                                 >
                                                     <p
-                                                        className={`flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 ${light ? 'text-stone-700 border-l-2 border-stone-200' : 'text-slate-200 drop-shadow-md border-l-2 border-white/10'}`}
+                                                        // 台詞深、旁白淺一階，一眼分得出誰在說話；class 名是之後畫面美化自訂 CSS 的鉤子
+                                                        className={`${line.isDialogue ? 'date-line-dialogue' : 'date-line-narration'} flex-1 whitespace-pre-wrap font-serif text-[18px] text-justify leading-loose tracking-wide pl-4 border-l-2 ${light
+                                                            ? `border-stone-200 ${line.isDialogue ? 'text-stone-800' : 'text-stone-500'}`
+                                                            : `drop-shadow-md border-white/10 ${line.isDialogue ? 'text-slate-100' : 'text-slate-400'}`}`}
                                                     >{line.text}</p>
                                                     {/* Voice button: only for dialogue lines, not opening */}
                                                     {canVoice && (
