@@ -162,7 +162,7 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
                     <span className="text-[11px] text-slate-500 font-bold">自動總結</span>
                     <button type="button" role="switch" aria-checked={config.auto} aria-label="自動總結" onClick={() => patchConfig({ auto: !config.auto })}
                         className={`w-11 h-6 shrink-0 rounded-full transition-colors relative ${config.auto ? 'bg-primary' : 'bg-slate-200'}`}>
-                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${config.auto ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        <div className={`absolute left-0 top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${config.auto ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                 </div>
                 {config.auto && (

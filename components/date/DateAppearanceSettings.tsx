@@ -30,7 +30,7 @@ const Row: React.FC<{ label: string; hint?: string; children: React.ReactNode }>
 const Switch: React.FC<{ on: boolean; label: string; onChange: (next: boolean) => void }> = ({ on, label, onChange }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
         className={`w-11 h-6 shrink-0 rounded-full transition-colors relative ${on ? 'bg-primary' : 'bg-slate-200'}`}>
-        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        <div className={`absolute left-0 top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`} />
     </button>
 );
 

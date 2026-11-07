@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
 import { saveMeetingPresetDoc } from '../../utils/meetingPreset/store';
+import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor';
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
@@ -30,7 +31,7 @@ type Tab = 'prompts' | 'vars' | 'regex' | 'params';
 const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onToggle}
         className={`w-10 h-6 shrink-0 rounded-full transition-colors relative ${on ? 'bg-primary' : 'bg-slate-200'}`}>
-        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+        <span className={`absolute left-0 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
     </button>
 );
 
@@ -41,6 +42,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
     const [tab, setTab] = useState<Tab>('prompts');
     const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
     const [editing, setEditing] = useState<MeetingPresetPrompt | null>(null);
+    const [editingRegexId, setEditingRegexId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const latest = useRef<{ record: MeetingPresetRecord | null; doc: MeetingPresetDoc | null }>({ record: null, doc: null });
@@ -64,9 +66,10 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
     const close = () => { void flush(); onClose(); };
     useEffect(() => registerBackHandler(() => {
         if (editing) { setEditing(null); return true; }
+        if (editingRegexId) { setEditingRegexId(null); return true; }
         close();
         return true;
-    }), [registerBackHandler, editing]);
+    }), [registerBackHandler, editing, editingRegexId]);
 
     const update = (next: MeetingPresetDoc) => {
         setDoc(next);
@@ -187,19 +190,22 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                         {doc.regexScripts.length === 0 && <p className="p-4 text-sm text-slate-400">這份預設沒有內嵌正則。</p>}
                         {doc.regexScripts.map(script => (
                             <div key={script.id} className="flex items-center gap-3 px-4 py-2.5">
-                                <div className="flex-1 min-w-0">
+                                <button type="button" onClick={() => setEditingRegexId(script.id)} className="flex-1 min-w-0 text-left">
                                     <div className={`text-[13px] truncate ${script.disabled ? 'text-slate-400' : 'text-slate-700'}`}>{script.scriptName}</div>
                                     <div className="text-[10px] text-slate-300">
                                         {[script.placement.includes(1) ? '用戶輸入' : '', script.placement.includes(2) ? 'AI 輸出' : ''].filter(Boolean).join('、') || '其它'}
                                         {' · '}{script.markdownOnly && script.promptOnly ? '只改顯示和送出' : script.markdownOnly ? '只改顯示' : script.promptOnly ? '只改送出' : '改存下的原文'}
                                     </div>
-                                </div>
+                                </button>
                                 <Switch on={!script.disabled} label={`切換 ${script.scriptName}`}
                                     onToggle={() => update({ ...doc, regexScripts: doc.regexScripts.map(r => (r.id === script.id ? { ...r, disabled: !r.disabled } : r)) })} />
                             </div>
                         ))}
+                        <button type="button" onClick={() => { const created = newMeetingRegexScript(); update({ ...doc, regexScripts: [...doc.regexScripts, created] }); setEditingRegexId(created.id); }}
+                            className="w-full px-4 py-3 text-left text-sm font-bold text-primary active:bg-slate-50">+ 新增正則</button>
                     </div>
                 )}
+                {tab === 'regex' && <p className="text-[11px] text-slate-400 leading-relaxed px-1 mt-3">點一條就能改。正則照這個順序一條接一條跑。</p>}
 
                 {tab === 'params' && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4">
@@ -218,6 +224,19 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                     </div>
                 )}
             </div>
+
+            {editingRegexId && (() => {
+                const script = doc.regexScripts.find(r => r.id === editingRegexId);
+                if (!script) return null;
+                return (
+                    <MeetingRegexEditor
+                        script={script}
+                        onChange={next => update({ ...doc, regexScripts: doc.regexScripts.map(r => (r.id === next.id ? next : r)) })}
+                        onDelete={() => { update({ ...doc, regexScripts: doc.regexScripts.filter(r => r.id !== script.id) }); setEditingRegexId(null); }}
+                        onClose={() => setEditingRegexId(null)}
+                    />
+                );
+            })()}
 
             {editing && (
                 <div className="fixed inset-0 z-[310] bg-black/40 flex items-end sm:items-center justify-center" onClick={() => setEditing(null)}>
