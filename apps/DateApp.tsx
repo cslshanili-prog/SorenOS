@@ -990,9 +990,9 @@ const DateApp: React.FC = () => {
                     id: `img-${Date.now()}-${Math.random()}`, charId: char.id, url: stored, timestamp: Date.now(),
                     sourceMessageId: messageId, sender: 'char', origin: 'date_moment', savedDate: getLocalDateKey(new Date()),
                 });
-            } catch (e) { console.warn('[DateMoment] 存相簿失敗', e); }
+            } catch (e) { console.warn('[DateMoment] 存資料庫失敗', e); }
             await loadDateMessages();
-            addToast(`拍好了，也存進相簿了（${describeMomentLock(result.lock, result.lockError)}）`, 'success');
+            addToast(`拍好了，也存進資料庫了（${describeMomentLock(result.lock, result.lockError)}）`, 'success');
             trackEvent('拍下见面这一刻', { 锁脸: result.lock === 'both' ? '两张' : result.lock === 'none' ? '没锁' : '一张' });
         } catch (e: any) {
             addToast(`照片沒拍成：${e?.message || '未知錯誤'}`, 'error');

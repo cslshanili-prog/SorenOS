@@ -1762,6 +1762,29 @@ export const DB = {
       });
   },
 
+  /** 改資料庫裡一張圖的描述、分配這類欄位：讀最新的再合併，免得蓋掉點評之類別處寫的 */
+  updateGalleryImage: async (id: string, patch: Partial<Omit<GalleryImage, 'id'>>): Promise<GalleryImage | null> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const transaction = db.transaction(STORE_GALLERY, 'readwrite');
+          const store = transaction.objectStore(STORE_GALLERY);
+          let saved: GalleryImage | null = null;
+          const req = store.get(id);
+          req.onsuccess = () => {
+              const current = req.result as GalleryImage | undefined;
+              if (!current) return;
+              saved = { ...current, ...patch, id };
+              for (const key of Object.keys(saved) as (keyof GalleryImage)[]) {
+                  if (saved[key] === undefined) delete saved[key];
+              }
+              store.put(saved);
+          };
+          transaction.oncomplete = () => resolve(saved);
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error || new Error('updateGalleryImage aborted'));
+      });
+  },
+
   updateGalleryImageReview: async (id: string, review: string): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_GALLERY, 'readwrite');

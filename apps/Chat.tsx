@@ -1495,10 +1495,10 @@ const Chat: React.FC = () => {
                     savedDate: localDateKey,
                     chatContext: imageChatContext || undefined,
                 });
-                addToast('圖片已保存至相冊', 'info');
+                addToast('圖片已存進資料庫', 'info');
             } catch (err) {
                 console.warn('[Chat] 圖片存相冊失敗，消息照常發送', err);
-                addToast('圖片沒能存進相冊，消息照常發送', 'error');
+                addToast('圖片沒能存進資料庫，消息照常發送', 'error');
             }
         }
 
