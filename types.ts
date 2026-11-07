@@ -2882,6 +2882,18 @@ export interface DateStory {
   summarizedThroughId?: number;
   /** 完結時寫的整場總結 */
   finalSummary?: { text: string; createdAt: number; palaceAt?: number };
+  /** 這場故事的時間（utils/dateStoryTime.ts）；沒設就是真實＋流動 */
+  time?: DateStoryTime;
+}
+
+/** 見面線下故事的時間設定：真實／自定義 × 流動／靜止 */
+export interface DateStoryTime {
+  source: 'real' | 'custom';
+  flow: 'flowing' | 'frozen';
+  /** 自定義的起點：角色那邊的牆上時間 'YYYY-MM-DDTHH:mm' */
+  customStart?: string;
+  /** 從現實的哪一刻起算（流動用它算經過多久；真實＋靜止就定格在這一刻） */
+  anchorAt?: number;
 }
 
 /** 線下故事的一段總結（utils/dateSummary.ts） */
@@ -3161,6 +3173,8 @@ export interface CharacterProfile {
   dateReadingShowAvatars?: boolean; // Show both participants' avatars beside messages in date reading mode
   /** 見面的對話總結設定 */
   dateSummaryConfig?: DateSummaryConfig;
+  /** 下一場故事的時間設定（開新故事時帶進 DateStory.time），見 utils/dateStoryTime.ts */
+  dateNextStoryTime?: DateStoryTime;
   /** 故事進行中關閉線上功能（主動消息、定時消息），見 utils/dateOffline.ts */
   dateOfflineMode?: boolean;
   /** 正在暫停：何時開始、先取消掉的主動消息任務（恢復時照原樣排回去）；resuming＝有幾條還沒排回去，下次再試 */

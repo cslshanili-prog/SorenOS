@@ -20,6 +20,7 @@
  * prompt（peek 舊版手搓 mapper 的問題即在此，已統一修掉）。
  */
 
+import { applyClockToHistory, describeClockNote, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { buildLengthLine, buildScenarioBlock } from './dateExtras';
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig } from '../types';
@@ -50,11 +51,11 @@ export const DATE_VOICE_GUIDE = `4. **台詞的語氣標籤**：台詞會被朗�
  * 不要從 OSContext 的 virtualTime 取——那個名字唬人，實際也是每秒同步的真實
  * 時間，但只有"星期 + 時:分"，缺日期，而且沒必要讓 prompt 構建依賴 React 狀態。
  */
-const getRealTimeStr = (tz?: string): string => {
-    // formatDate 自己會按 tz 折算，所以這裡要喂真實時刻。
+const getRealTimeStr = (tz?: string, at: number = Date.now()): string => {
+    // formatDate 自己會按 tz 折算，所以這裡要喂真實時刻（故事時鐘換算過的也是絕對時刻）。
     // nowInTimeZone 返回的 Date 是「本地 getter 讀出來正好是角色牆上時間」的形式，
     // 它的絕對時間戳已經被挪過一次——再交給 formatDate 就會多減一個時差。
-    const realNow = Date.now();
+    const realNow = at;
     const wallClock = nowInTimeZone(tz, new Date(realNow));
     const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
     return `${ChatPrompts.formatDate(realNow, tz)} ${days[wallClock.getDay()]}`;
@@ -325,9 +326,12 @@ const withWorldbookDepthEntries = (
  * reroll 的差異只體現在末尾 user 消息的 System Note 裡，不在這裡分叉。
  * 風格 / 人稱 / 自定義補充按 char.dateStyleConfig 動態拼裝。
  */
-const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap = ''): string => {
+const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap = '', clock: DateClock | null = null): string => {
     const dateTimeOn = isDateTimeAwarenessOn(char);
-    const timeLine = dateTimeOn ? `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char))}。\n` : '';
+    const timeLine = !dateTimeOn ? ''
+        : clock
+            ? `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char), clock.now)}。${describeClockNote(clock)}\n`
+            : `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char))}。\n`;
     const styleConfig = char.dateStyleConfig;
     const preset = getStylePreset(styleConfig);
     const povBlock = buildPovBlock(styleConfig, char.name, userName);
@@ -363,7 +367,12 @@ export const buildDateHistory = (
     userProfile: UserProfile | null | undefined,
     emojis: Emoji[],
     useVisionDescriptions: boolean = false,
+    /** 故事時鐘（utils/dateStoryTime.ts）：這場故事的訊息時間換成故事裡的 */
+    clock: DateClock | null = null,
 ): ApiMessage[] => {
+    const timed = applyClockToHistory(allMsgs, char, clock);
+    allMsgs = timed.messages;
+    char = timed.char;
     const selected = selectCharacterContextMessages(allMsgs, char);
     const pendingId = allMsgs[allMsgs.length - 1]?.id;
     // 見面裡用戶以前說的話也按引號標好「說出口的／旁白」（utils/dateUserInput.ts）；私聊、通話的不動
@@ -417,13 +426,20 @@ export const DatePrompts = {
         openingMode?: DateOpeningMode;
         /** 從邀請卡赴約時帶上約定的地點和要做的事。 */
         meetup?: DateMeetup;
+        /** 故事時鐘（utils/dateStoryTime.ts）；真實＋流動是 null */
+        clock?: DateClock | null;
     }): { messages: ApiMessage[] } => {
-        const { char, userProfile, allMsgs, emojis } = input;
+        const clock = input.clock ?? null;
+        // 故事時鐘：這場的訊息時間換成故事裡的，「距離上次多久」不算（兩把尺混著算是亂的）
+        const timed = applyClockToHistory(input.allMsgs, input.char, clock);
+        const { userProfile, emojis } = input;
+        const char = timed.char;
+        const allMsgs = timed.messages;
         const invite = input.openingMode === 'invite';
         const uname = userProfile?.name || '對方';
         const charTz = resolveCharTimeZone(char);
         const dateTimeOn = isDateTimeAwarenessOn(char);
-        const timeStr = getRealTimeStr(charTz);
+        const timeStr = getRealTimeStr(charTz, clock?.now);
         const selected = selectCharacterContextMessages(allMsgs, char);
         // 取時間戳最晚的那則，不是排最後的那則：訊息照自增 id 排，時間戳不一定單調（雲端補收的舊訊息
         // 會帶著當初的送出時間落在最後面），只看最後一則會把兩個月前那則當成「上次互動」。
@@ -431,6 +447,7 @@ export const DatePrompts = {
             (max, m) => (typeof m.timestamp === 'number' && (max === undefined || m.timestamp > max) ? m.timestamp : max),
             undefined,
         );
+        // 故事時鐘不是現實的話，下面的分隔線和「時間上下文」都不用它（兩把尺混著算是亂的）
         const gapHint = getTimeGapHint(lastTs, charTz);
 
         const { apiMessages } = ChatPrompts.buildMessageHistory(
@@ -448,7 +465,7 @@ export const DatePrompts = {
         // conversational 不給：peek 是「用戶還沒走過去」的第三人稱鏡頭，時間塊末尾那句
         // 語境框定說的是「對方還在跟你說話」，跟這裡的框定正好相反（見下面的 peekInstructions）。
         const baseContext = ContextBuilder.buildCoreContext(char, userProfile, false, undefined, undefined, {
-            skipTimeAwareness: !isDateTimeAwarenessOn(char),
+            skipTimeAwareness: !isDateTimeAwarenessOn(char) || !!clock,
             worldbookMessages: apiMessages,
         });
 
@@ -458,13 +475,15 @@ export const DatePrompts = {
         const extraBlock = buildExtraStyleBlock(char.dateStyleConfig);
 
         // 根據時間間隔選擇合適的分隔符
-        const contextSeparator = gapHint
+        const contextSeparator = clock
+            ? `\n\n--- [故事裡的時間：${timeStr}] ---\n\n`
+            : gapHint
             ? `\n\n--- [TIME SKIP: ${gapHint}] ---\n\n`
             : `\n\n--- [SCENE CONTINUATION: 剛剛還在聊天，現在來到了面對面的場景] ---\n\n`;
 
         const peekInstructions = `
 ### 場景：感知 (Sense Presence)
-${dateTimeOn ? `當前時間: ${timeStr}\n` : ''}時間上下文: ${gapHint}
+${dateTimeOn ? `當前時間: ${timeStr}${clock ? `（${describeClockNote(clock) || '故事裡的時間'}）` : ''}\n` : ''}${clock ? '' : `時間上下文: ${gapHint}`}
 
 ### 任務
 ${invite
@@ -505,15 +524,19 @@ ${extraBlock ? `\n${extraBlock}` : ''}`;
         useVisionDescriptions?: boolean;
         /** 這場故事的前情提要（utils/dateSummary.ts 的 buildDateRecap） */
         recap?: string;
+        /** 故事時鐘（utils/dateStoryTime.ts）；真實＋流動是 null */
+        clock?: DateClock | null;
     }): Promise<{ messages: ApiMessage[] }> => {
         const { char, userProfile, allMsgs, emojis, userText, variant } = input;
 
+        const clock = input.clock ?? null;
         const historyMsgs = buildDateHistory(
             allMsgs,
             char,
             userProfile,
             emojis,
             input.useVisionDescriptions === true,
+            clock,
         );
 
         // 世界書關鍵詞掃描：歷史 + 本輪輸入原文（不帶下面的 System Note，免得格式指令裡的字眼誤觸發）
@@ -521,12 +544,13 @@ ${extraBlock ? `\n${extraBlock}` : ''}`;
 
         // 向量召回掛到 char.memoryPalaceInjection，buildCoreContext 會讀取
         await injectMemoryPalace(char, allMsgs, undefined, userProfile?.name);
+        // 故事時鐘不是現實的話，核心上下文那段現實時間不帶，改由下面散文塊的 Time 那行說
         const systemPrompt = ContextBuilder.buildCoreContext(char, userProfile, true, undefined, undefined, {
-            skipTimeAwareness: !isDateTimeAwarenessOn(char),
+            skipTimeAwareness: !isDateTimeAwarenessOn(char) || !!clock,
             conversational: true,
             worldbookMessages: worldbookScan,
         })
-            + buildMeetingProseBlock(char, userProfile?.name || '', input.recap || '')
+            + buildMeetingProseBlock(char, userProfile?.name || '', input.recap || '', clock)
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
         // 每輪輪換的聚焦線索：把注意力推向不同的具體方向，相鄰回覆天然有差異

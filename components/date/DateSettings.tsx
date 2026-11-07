@@ -15,6 +15,7 @@ import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateS
 import type { DateStory } from '../../types';
 import DateAppearanceSettings from './DateAppearanceSettings';
 import DateSummarySettings from './DateSummarySettings';
+import DateStoryTimeSettings from './DateStoryTimeSettings';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -300,6 +301,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 </Section>
 
                 <DateStoryExtras char={char} updateCharacter={updateCharacter} addToast={addToast} Section={Section} story={story} />
+
+                <DateStoryTimeSettings char={char} story={story} updateCharacter={updateCharacter} addToast={addToast} Section={Section} />
 
                 <DateSummarySettings char={char} story={story} Section={Section} />
 

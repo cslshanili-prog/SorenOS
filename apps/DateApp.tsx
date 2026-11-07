@@ -10,6 +10,7 @@ import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
+import { makeDateClock } from '../utils/dateStoryTime';
 import { isDateOfflinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
@@ -563,6 +564,8 @@ const DateApp: React.FC = () => {
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
                 openingMode: selectedOpening,
                 meetup: meetup || undefined,
+                // 新故事的開場：時間照「下一場故事」的設定
+                clock: makeDateClock(c, null),
             });
             const content = await callLLM(messages, apiConfig.temperature ?? 0.85);
             if (requestId === peekRequestRef.current) setPeekStatus(content);
@@ -664,6 +667,8 @@ const DateApp: React.FC = () => {
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
         const storyChar = withStoryScenario(char, activeStoryRef.current);
         const recap = buildDateRecap(activeStoryRef.current);
+        // 這場故事的時間（真實＋流動是 null，照原本走）
+        const clock = makeDateClock(char, activeStoryRef.current);
         const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
         // 預設的正則：兩個「只…」都沒勾的，改的是存下來的原文（同 ST）
         const storedText = preset && kind !== 'continue'
@@ -709,8 +714,8 @@ const DateApp: React.FC = () => {
             : storedText;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap })
-            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision, recap })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap, clock })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision, recap, clock })), generation: undefined };
         const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85, generation);
         const parsed = parseSARModuleReply(preset
             ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
@@ -796,6 +801,7 @@ const DateApp: React.FC = () => {
                 useVisionDescriptions: apiConfig.visionApi?.enabled === true,
                 openingMode: rerollOpening,
                 meetup: lastMsg.metadata?.dateMeetup,
+                clock: makeDateClock(char, activeStoryRef.current),
             });
             const content = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
@@ -823,14 +829,16 @@ const DateApp: React.FC = () => {
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
         const storyChar = withStoryScenario(char, activeStoryRef.current);
         const recap = buildDateRecap(activeStoryRef.current);
+        // 這場故事的時間（真實＋流動是 null，照原本走）
+        const clock = makeDateClock(char, activeStoryRef.current);
         const rerollMsgs = trimHistoryThrough(preparedValidMsgs, lastUserMsg.id);
         const rerollText = lastUserMsg.metadata?.meetingContinue === true
             ? buildInPersonContinueInstruction(dateUserProfile?.name, char.name)
             : lastUserMsg.content;
         const useVision = apiConfig.visionApi?.enabled === true;
         const { messages, generation } = preset
-            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap })
-            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision, recap })), generation: undefined };
+            ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap, clock })
+            : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision, recap, clock })), generation: undefined };
         // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線（用預設時照預設的溫度）。
         const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
         const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);

@@ -10,6 +10,7 @@
 
 import type { CharacterProfile, DateStory, Message } from '../types';
 import { DB } from './db';
+import { startStoryTime } from './dateStoryTime';
 
 export const DATE_STORY_UPDATED_EVENT = 'soren-date-story-updated';
 
@@ -56,6 +57,7 @@ export const buildNewDateStory = (char: CharacterProfile, now = Date.now(), extr
     charId: char.id,
     status: 'ongoing',
     ...(char.dateScenario?.trim() ? { scenario: char.dateScenario.trim() } : {}),
+    ...(startStoryTime(char.dateNextStoryTime, now) ? { time: startStoryTime(char.dateNextStoryTime, now) } : {}),
     createdAt: now,
     updatedAt: now,
     ...extra,
@@ -69,7 +71,7 @@ export const startDateStory = async (char: CharacterProfile, extra: Partial<Date
     const story = buildNewDateStory(char, Date.now(), extra);
     await DB.saveDateStory(story);
     notify();
-    return { story, charPatch: { activeDateStoryId: story.id, dateScenario: undefined } };
+    return { story, charPatch: { activeDateStoryId: story.id, dateScenario: undefined, dateNextStoryTime: undefined } };
 };
 
 /** 完結：故事標成已完結，回傳要寫回角色的欄位（清掉 activeDateStoryId 和存檔） */
