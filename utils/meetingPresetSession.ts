@@ -17,6 +17,7 @@
  * 內建模式的格式規則、文風預設、「說出口／旁白」標記、表達底線都不帶——這些交給預設自己決定。
  */
 
+import { describeClockNote, formatStoryClock, type DateClock } from './dateStoryTime';
 import type { CharacterProfile, Emoji, Message, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { buildDateHistory, DATE_VOICE_GUIDE, type ApiMessage } from './datePrompts';
@@ -57,16 +58,19 @@ export const buildMeetingPresetPayload = async (input: {
     model?: string;
     /** 這場故事的前情提要 */
     recap?: string;
+    /** 故事時鐘（utils/dateStoryTime.ts）；真實＋流動是 null */
+    clock?: DateClock | null;
 }): Promise<MeetingPresetPayload> => {
     const { preset, char, userProfile, allMsgs, emojis, userText } = input;
     const userName = userProfile?.name || '';
 
-    const history = buildDateHistory(allMsgs, char, userProfile, emojis, input.useVisionDescriptions === true);
+    const clock = input.clock ?? null;
+    const history = buildDateHistory(allMsgs, char, userProfile, emojis, input.useVisionDescriptions === true, clock);
     const scan: WorldbookScanMessage[] = [...history, { role: 'user', content: userText }];
 
     await injectMemoryPalace(char, allMsgs, undefined, userName);
     const sections = ContextBuilder.buildCoreSections(char, userProfile, true, undefined, undefined, {
-        skipTimeAwareness: char.dateTimeAwarenessEnabled === false,
+        skipTimeAwareness: char.dateTimeAwarenessEnabled === false || !!clock,
         conversational: true,
         worldbookMessages: scan,
     });
@@ -84,7 +88,10 @@ export const buildMeetingPresetPayload = async (input: {
         memory: join(sections.roomPlates, sections.memoryBank, sections.memoryPalace),
         recap: input.recap || '',
         emotion: sections.emotionBuff,
-        time: sections.timeAwareness,
+        // 故事時鐘不是現實的話，換成故事裡的時間（照角色時區）
+        time: clock
+            ? (char.dateTimeAwarenessEnabled === false ? '' : `當前時間（故事裡）：${formatStoryClock(clock, resolveCharTimeZone(char))}。${describeClockNote(clock)}`)
+            : sections.timeAwareness,
         // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
         length: lengthGlobals.mapped ? '' : buildLengthLine(char),
         voice: char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : '',
@@ -123,6 +130,7 @@ export const buildMeetingPresetPayload = async (input: {
             input: userText,
             model: input.model,
             timeZone: resolveCharTimeZone(char),
+            ...(clock ? { now: new Date(clock.now) } : {}),
         },
     });
 
