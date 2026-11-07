@@ -88,6 +88,7 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
         document.body.className = '';
         document.body.innerHTML = '';
         document.documentElement.removeAttribute('style');
+        document.documentElement.removeAttribute('data-ios-status-bar-contained');
         setupIOSStandalone();
     });
 
@@ -103,6 +104,35 @@ describe('iOS 全屏 PWA 鍵盤態', () => {
 
     // 迴歸守衛：輸入框拿到焦點不等於鍵盤彈出來了。設備上鍵盤彈不出來時（外接鍵盤、輸入法異常），
     // 舊實現照樣掛標記，外殼鋪到那 34px 溢出區、輸入欄又收掉讓位間隙，輸入條整條沉出屏幕。
+    it('contain 的零安全區不回退 44px，延遲縮小的視口重新建立高度基線', async () => {
+        document.documentElement.setAttribute('data-ios-status-bar-contained', '');
+        vi.mocked(window.getComputedStyle).mockReturnValue({ paddingTop: '0px', paddingBottom: '0px' } as CSSStyleDeclaration);
+        await install();
+        expect(document.documentElement.style.getPropertyValue('--standalone-safe-area-top')).toBe('0px');
+        emitViewportResize(SCREEN_H - 62);
+        expect(appHeight()).toBe(`${SCREEN_H - 62}px`);
+        expect(inKeyboardMode()).toBe(false);
+        focusTextarea();
+        emitViewportResize(SCREEN_H - 62 - KEYBOARD_H);
+        expect(inKeyboardMode()).toBe(true);
+        expect(appHeight()).toBe(`${SCREEN_H - 62 - KEYBOARD_H}px`);
+        emitViewportResize(SCREEN_H - 62);
+        expect(inKeyboardMode()).toBe(false);
+        expect(appHeight()).toBe(`${SCREEN_H - 62}px`);
+    });
+
+    it('contain 只觸發 visualViewport resize 時也丟掉啟動前讀到的 cover 安全區', async () => {
+        document.documentElement.setAttribute('data-ios-status-bar-contained', '');
+        await install();
+        vi.mocked(window.getComputedStyle).mockReturnValue({ paddingTop: '0px', paddingBottom: '0px' } as CSSStyleDeclaration);
+        emitViewportResize(SCREEN_H);
+        expect(document.documentElement.style.getPropertyValue('--standalone-safe-area-top')).toBe('0px');
+        emitViewportResize(SCREEN_H - 62);
+        expect(document.documentElement.style.getPropertyValue('--standalone-safe-area-top')).toBe('0px');
+        expect(document.documentElement.style.getPropertyValue('--standalone-safe-area-bottom')).toBe('0px');
+        expect(appHeight()).toBe(`${SCREEN_H - 62}px`);
+    });
+
     it('焦點進來但可視區沒變矮 → 不進鍵盤態，高度不動', async () => {
         await install();
         focusTextarea();

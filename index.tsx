@@ -7,6 +7,7 @@ import { KeepAlive } from './utils/keepAlive';
 import { ProactiveChat } from './utils/proactiveChat';
 import { VRScheduler } from './utils/vrWorld/scheduler';
 import { installIOSStandaloneWorkaround } from './utils/iosStandalone';
+import { installIOSStatusBarEdge } from './utils/iosStatusBarEdge';
 import { installWakeListener } from './utils/proactivePushConfig';
 import { initAnalytics } from './utils/analytics';
 import { Capacitor } from '@capacitor/core';
@@ -31,7 +32,9 @@ KeepAlive.init().then(() => {
   installWakeListener();
 });
 
+const disposeIOSStatusBarEdge = installIOSStatusBarEdge();
 installIOSStandaloneWorkaround();
+if (import.meta.hot) import.meta.hot.dispose(disposeIOSStatusBarEdge);
 
 // 使用統計。構建時沒配 VITE_UMAMI_* 就整個不生效，自部署實例默認如此。
 // 用戶關掉開關、或瀏覽器開了 DNT，同樣在這裡就返回，連腳本都不會掛上去。

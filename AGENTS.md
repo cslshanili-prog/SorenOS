@@ -30,6 +30,7 @@
 | **購物中心** | [`plans/mall-redesign.md`](./plans/mall-redesign.md) | 改購物中心（私聊「＋」和桌面兩個入口、同一個全螢幕頁）、預設商品與搬遷、訂單與配送進度、AI 補貨提示詞、聊天裡的購物卡片，或角色主動下單（`[[ACTION:GIFT]]`、代付）前必讀；配送狀態只照付款時間算，不存 |
 | **新聞熱點（中文熱榜＋國際／台灣新聞）** | [`docs/realtime-news.md`](./docs/realtime-news.md) | 改新聞來源、RSS 代抓（主動消息 2.0 Worker 的 `/news-feeds`）、維基百科退路或勾選語意前必讀；RSS 不走上游的主代理 Worker |
 | **用戶所在地節假日感知** | [`docs/user-holidays.md`](./docs/user-holidays.md) | 改設置 → 實時感知 → 節假日感知、各國資料源（台灣是 Soren 自己接的）、用戶資料段那行假日提醒或雲端到點補這行前必讀；日期跟用戶設備時區走，不跟角色 |
+| **iOS 27 主螢幕頂端霧玻璃／狀態列底色** | [`docs/ios-status-bar-edge.md`](./docs/ios-status-bar-edge.md) | 改頂端取色、viewport 或 iOS 門禁前必讀；從上游移植：主螢幕 standalone 時改成 `viewport-fit=contain`，零安全區不回退 44px，非同步高度縮小要重建基線；狀態列接的是代表色，不是桌布貫穿 |
 | **角色自定義時區** | [`docs/character-timezone.md`](./docs/character-timezone.md) | **寫任何跟時間有關的代碼前先掃一眼**：prompt 裡的「現在是」、角色作息/夜間判斷、日期 key、界面上的鐘。分清「角色那邊幾點」和「用戶自己的時間」，別自己手搓時差。文末列了還沒接時區的幾處（主動消息 + 幾塊界面上的鐘），**正式發版前記得過一遍** |
 | **通用 MCP 工具服務器** | [`docs/mcp-client.md`](./docs/mcp-client.md)（開發者）、[`docs/mcp-user-guide.md`](./docs/mcp-user-guide.md)（用戶教程，設置「?」彈窗跳轉的就是它，改接入行為要同步） | 改用戶自配 MCP 接入（設置板塊、握手/session、工具循環、`?target=` 代理約定、worker/mcp-proxy）或排查「工具連不上/角色不調工具」前必讀；主動消息 2.0 的後台 MCP 路徑（配置上雲 / fire 時注入 / worker 直連執行）也在這份 |
 | **主動消息 2.0 · 即時對話** | [`plans/amsg2-instant-chat.md`](./plans/amsg2-instant-chat.md)（設計與取捨）、[`plans/amsg2-instant-chat-contract.md`](./plans/amsg2-instant-chat-contract.md)(端點/信封/fire_pack v7 契約) | 改「聊天在用戶自己的 CF Worker 上生成」這條路（`POST /instant-chat`、`utils/amsgInstantChat.ts`、fire_pack 的 `chat` 段、chat_outbox 補收、「正在輸入」超時）前必讀 |

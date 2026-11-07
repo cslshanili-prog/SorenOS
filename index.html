@@ -250,6 +250,12 @@
       .sully-chat-inputbar {
         transition: padding-bottom 0.18s ease-out;
       }
+      /* iOS 27 頂端霧玻璃（utils/iosStatusBarEdge.ts）：contain 時 WebKit 會把外殼的底色延伸進系統狀態列，
+         改用畫面頂端的代表色，別把外殼備用的粉色漸變延伸上去。 */
+      html[data-ios-status-bar-contained] .sully-phone-shell {
+        background: var(--ios-status-bar-color, #0f1115);
+      }
+
       body.ios-keyboard-open .sully-shell-content {
         bottom: 0 !important;
       }
