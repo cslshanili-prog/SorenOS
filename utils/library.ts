@@ -9,19 +9,21 @@ import type { CharacterGroup, CharacterProfile, GalleryImage, LibraryAccess } fr
 
 export const LIBRARY_DESCRIPTION_MAX = 500;
 
-export type LibrarySource = 'chat_char' | 'chat_user' | 'date_moment' | 'upload';
+export type LibrarySource = 'chat_char' | 'chat_user' | 'date_moment' | 'upload' | 'generated';
 
 export const LIBRARY_SOURCE_LABEL: Record<LibrarySource, string> = {
     chat_char: '角色傳的',
     chat_user: '你傳的',
     date_moment: '見面拍的',
     upload: '你上傳的',
+    generated: '在這裡生成的',
 };
 
-export const LIBRARY_SOURCES: LibrarySource[] = ['chat_char', 'chat_user', 'date_moment', 'upload'];
+export const LIBRARY_SOURCES: LibrarySource[] = ['chat_char', 'chat_user', 'date_moment', 'upload', 'generated'];
 
 export const librarySourceOf = (image: GalleryImage): LibrarySource => {
     if (image.origin === 'upload') return 'upload';
+    if (image.origin === 'generated') return 'generated';
     if (image.origin === 'date_moment') return 'date_moment';
     return image.sender === 'char' ? 'chat_char' : 'chat_user';
 };

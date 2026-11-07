@@ -8,11 +8,12 @@ import ConfirmDialog from '../components/os/ConfirmDialog';
 import TokenImg from '../components/os/TokenImg';
 import LibraryAccessPicker from '../components/library/LibraryAccessPicker';
 import LibraryDescribeButton from '../components/library/LibraryDescribeButton';
+import LibraryGenerateView from '../components/library/LibraryGenerateView';
 import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
 import { blobToDataUrl, putImageBlob } from '../utils/blobRef';
 import { getLocalDateKey } from '../utils/localDate';
-import { Star, UploadSimple, NotePencil } from '@phosphor-icons/react';
+import { Star, UploadSimple, NotePencil, MagicWand } from '@phosphor-icons/react';
 import {
     CONTENT_FAVORITES_CHANGED_EVENT,
     getContentFavoriteById,
@@ -42,7 +43,7 @@ const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、
  */
 const Gallery: React.FC = () => {
     const { closeApp, characters, characterGroups, apiConfig, addToast } = useOS();
-    const [view, setView] = useState<'grid' | 'detail' | 'upload'>('grid');
+    const [view, setView] = useState<'grid' | 'detail' | 'upload' | 'generate'>('grid');
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loaded, setLoaded] = useState(false);
     const [filter, setFilter] = useState<LibraryFilter>({ source: 'all' });
@@ -84,6 +85,10 @@ const Gallery: React.FC = () => {
             case 'chat_char': return `${name} 在私聊傳給你的`;
             case 'chat_user': return `你在私聊傳給 ${name} 的`;
             case 'date_moment': return `和 ${name} 見面時拍的`;
+            case 'generated': {
+                const who = (image.generation?.subjects || []).map(key => (key === 'user' ? '你' : charName(key))).filter(Boolean);
+                return `在資料庫生成的${who.length ? `（${who.join('、')}）` : ''}`;
+            }
             default: return '你上傳的';
         }
     };
@@ -93,6 +98,7 @@ const Gallery: React.FC = () => {
         if (source === 'chat_char') return `${charName(image.charId) || 'TA'} 傳的`;
         if (source === 'date_moment') return '見面';
         if (source === 'upload') return '上傳';
+        if (source === 'generated') return '生成';
         return null;
     };
 
@@ -169,6 +175,7 @@ const Gallery: React.FC = () => {
     const handleBack = () => {
         if (view === 'detail') leaveDetail();
         else if (view === 'upload') { setUpload(null); setView('grid'); }
+        else if (view === 'generate') setView('grid');
         else closeApp();
     };
 
@@ -394,7 +401,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-slate-300">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-14 w-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
                         <span className="text-sm">{!loaded ? '讀取中…' : images.length ? '這樣篩沒有照片' : '還沒有照片'}</span>
-                        {loaded && !images.length && <span className="max-w-[16rem] text-center text-[11px] leading-relaxed text-slate-400">私聊、見面裡傳的照片會自動放進來；右上角也能自己上傳。</span>}
+                        {loaded && !images.length && <span className="max-w-[16rem] text-center text-[11px] leading-relaxed text-slate-400">私聊、見面裡傳的照片會自動放進來；右上角也能自己上傳或生成。</span>}
                     </div>
                 ) : (
                     <div className="grid grid-cols-3 gap-1">
@@ -566,12 +573,17 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         <button onClick={handleBack} aria-label="返回" className="-ml-2 rounded-full p-2 transition-transform hover:bg-black/5 active:scale-90">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <h1 className="ml-2 text-lg font-semibold tracking-tight text-slate-800">{view === 'upload' ? '上傳到資料庫' : '資料庫'}</h1>
+                        <h1 className="ml-2 text-lg font-semibold tracking-tight text-slate-800">{view === 'upload' ? '上傳到資料庫' : view === 'generate' ? '在資料庫生成' : '資料庫'}</h1>
                         {view === 'grid' && <span className="ml-2 font-mono text-xs text-slate-400">{images.length}</span>}
                         {view === 'grid' && (
-                            <button onClick={() => fileInputRef.current?.click()} className="ml-auto flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1.5 text-[12px] font-bold text-white active:scale-95">
-                                <UploadSimple size={14} weight="bold" />上傳
-                            </button>
+                            <div className="ml-auto flex items-center gap-1.5">
+                                <button onClick={() => setView('generate')} className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-bold text-slate-700 active:scale-95">
+                                    <MagicWand size={14} weight="bold" />生成
+                                </button>
+                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1.5 text-[12px] font-bold text-white active:scale-95">
+                                    <UploadSimple size={14} weight="bold" />上傳
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -580,6 +592,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             {view === 'grid' && renderGrid()}
             {view === 'detail' && renderDetail()}
             {view === 'upload' && renderUpload()}
+            {view === 'generate' && <LibraryGenerateView onSaved={() => { setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
         </div>
     );
 };

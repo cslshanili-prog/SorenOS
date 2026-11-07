@@ -4192,6 +4192,8 @@ export interface XhsStockImage {
 }
 
 /** 資料庫的一張圖給誰用：所有角色共用、某幾個世界（神經鏈接分組）的角色、或指定幾個角色 */
+export type LibraryGenKind = 'solo' | 'group' | 'object' | 'scenery';
+
 export type LibraryAccess =
     | { mode: 'all' }
     | { mode: 'worlds'; worldIds: string[] }
@@ -4209,8 +4211,10 @@ export interface GalleryImage {
      * 相冊詳情頁的"讓角色點評這張照片"功能只對 'user' 的圖有意義，char 的圖要跳過。 */
     sender?: 'user' | 'char';
     /** 從哪裡來的；缺省＝聊天（用戶傳的或角色傳的）。'date_moment'＝見面「拍下這一刻」、
-     * 'upload'＝在資料庫自己上傳的（這種沒有來源角色，charId 是空字串） */
-    origin?: 'date_moment' | 'upload';
+     * 'upload'＝在資料庫自己上傳的、'generated'＝在資料庫生成的（這兩種 charId 是空字串） */
+    origin?: 'date_moment' | 'upload' | 'generated';
+    /** 在資料庫生成的：當時的類型、送出去的提示詞、照片裡有誰（角色 id，'user'＝你）、鎖了幾張臉 */
+    generation?: { kind: LibraryGenKind; prompt: string; subjects: string[]; locked: number; wanted: number };
     /** 寫給角色看的描述：角色「知道」這張圖，靠的就是這段（plans/asset-library-design.md） */
     description?: string;
     /** 誰能用；沒寫＝原本那個角色（charId），舊相簿的圖都是這樣 */
