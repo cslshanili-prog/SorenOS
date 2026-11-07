@@ -61,8 +61,47 @@ export const contentFromDateRaw = (raw: string, regexScripts?: MeetingRegexScrip
 /** 字數：不算空白 */
 export const countDateChars = (text: string): number => text.replace(/\s+/g, '').length;
 
-export const DATE_REROLL_REASONS = ['角色 OOC', '忘了前文', '搞錯事情', '太短', '太長', '重複前文', '沒照預設的格式'] as const;
 export const DATE_REROLL_NOTE_MAX = 500;
+
+/** 重新生成「我的預設」：常用的說明存起來，點一下就填進輸入框（localStorage，跟著備份和鏡像走） */
+export interface DateRerollPreset { id: string; name: string; text: string }
+export const DATE_REROLL_PRESETS_KEY = 'date_reroll_presets';
+export const DATE_REROLL_PRESET_NAME_MAX = 20;
+
+export const loadDateRerollPresets = (): DateRerollPreset[] => {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(DATE_REROLL_PRESETS_KEY) || '[]');
+        return Array.isArray(parsed)
+            ? parsed.filter(p => p && typeof p.id === 'string' && typeof p.text === 'string' && p.text.trim())
+                .map(p => ({ id: p.id, name: String(p.name || '').trim() || p.text.trim().slice(0, 8), text: p.text }))
+            : [];
+    } catch {
+        return [];
+    }
+};
+
+const savePresets = (presets: DateRerollPreset[]) => {
+    try { localStorage.setItem(DATE_REROLL_PRESETS_KEY, JSON.stringify(presets)); } catch { /* 存不了就算了 */ }
+};
+
+/** 名字沒寫就拿說明的前 8 個字 */
+export const addDateRerollPreset = (presets: DateRerollPreset[], name: string, text: string): DateRerollPreset[] => {
+    const body = text.trim().slice(0, DATE_REROLL_NOTE_MAX);
+    if (!body) return presets;
+    const next = [...presets, {
+        id: `rr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: name.trim().slice(0, DATE_REROLL_PRESET_NAME_MAX) || body.slice(0, 8),
+        text: body,
+    }];
+    savePresets(next);
+    return next;
+};
+
+export const removeDateRerollPreset = (presets: DateRerollPreset[], id: string): DateRerollPreset[] => {
+    const next = presets.filter(p => p.id !== id);
+    savePresets(next);
+    return next;
+};
 
 /** 重新生成的說明插在最後；尾巴是 assistant 預填的話放在它前面，預填才接得上 */
 export const appendDateRerollNote = (messages: ApiMessage[], note: string): ApiMessage[] => {

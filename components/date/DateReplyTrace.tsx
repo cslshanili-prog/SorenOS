@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import type { Message } from '../../types';
-import { countDateChars, DATE_REROLL_NOTE_MAX, DATE_REROLL_REASONS } from '../../utils/dateReply';
+import {
+    addDateRerollPreset,
+    countDateChars,
+    DATE_REROLL_NOTE_MAX,
+    DATE_REROLL_PRESET_NAME_MAX,
+    loadDateRerollPresets,
+    removeDateRerollPreset,
+    type DateRerollPreset,
+} from '../../utils/dateReply';
 
 /**
  * 見面回覆看得到「有沒有照預設在跑」（utils/dateReply.ts）：
  * - DateReplyTags：每則回覆上面一行 #第幾則 · 字數 · 時間 · 用的預設，有思考過程／原文就多兩顆可展開的
  * - DateLiveReply：開了串流時，生成中邊到邊顯示思考和正文
- * - DateRerollSheet：重新生成前可以寫一句哪裡不滿意
+ * - DateRerollSheet：重新生成前可以寫一句哪裡不滿意；常用的可以存成「我的預設」
  */
 
 const formatTime = (ts: number) => {
@@ -67,21 +75,61 @@ export const DateLiveReply: React.FC<{ live: { text: string; reasoning: string }
 
 export const DateRerollSheet: React.FC<{ onCancel: () => void; onReroll: (note?: string) => void }> = ({ onCancel, onReroll }) => {
     const [note, setNote] = useState('');
-    const addReason = (reason: string) => setNote(prev => (prev.includes(reason) ? prev : `${prev ? `${prev.trimEnd()}、` : ''}${reason}`));
+    const [presets, setPresets] = useState<DateRerollPreset[]>(() => loadDateRerollPresets());
+    const [naming, setNaming] = useState<string | null>(null);
+    const [managing, setManaging] = useState(false);
+    const saveCurrent = () => {
+        if (naming === null) return;
+        setPresets(prev => addDateRerollPreset(prev, naming, note));
+        setNaming(null);
+    };
     return (
         <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/40" onClick={onCancel}>
             <div className="w-full max-w-md rounded-t-3xl bg-white p-5 text-slate-700" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()}>
                 <h3 className="text-base font-bold">重新生成</h3>
                 <p className="mt-1 text-[12px] leading-relaxed text-slate-400">可以說一下上一版哪裡不滿意、這次想要怎樣。留空就直接重 Roll。</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                    {DATE_REROLL_REASONS.map(reason => (
-                        <button key={reason} type="button" onClick={() => addReason(reason)}
-                            className="rounded-full border border-slate-200 px-3 py-1 text-[12px] text-slate-600 active:bg-slate-50">{reason}</button>
-                    ))}
-                </div>
-                <textarea value={note} onChange={e => setNote(e.target.value.slice(0, DATE_REROLL_NOTE_MAX))} rows={3}
+
+                {presets.length > 0 && (
+                    <div className="mt-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-400">我的預設</span>
+                            <button type="button" onClick={() => setManaging(prev => !prev)} className="text-[12px] font-bold text-slate-500">{managing ? '完成' : '管理'}</button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {presets.map(preset => (
+                                <span key={preset.id} className="inline-flex items-center rounded-full border border-slate-200">
+                                    <button type="button" disabled={managing} onClick={() => setNote(preset.text)} title={preset.text}
+                                        className="max-w-[12rem] truncate px-3 py-1 text-[12px] text-slate-600 active:bg-slate-50 disabled:opacity-60">{preset.name}</button>
+                                    {managing && (
+                                        <button type="button" aria-label={`刪除 ${preset.name}`} onClick={() => setPresets(prev => removeDateRerollPreset(prev, preset.id))}
+                                            className="pr-2.5 text-[13px] leading-none text-red-400">×</button>
+                                    )}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <textarea value={note} onChange={e => setNote(e.target.value.slice(0, DATE_REROLL_NOTE_MAX))} rows={4}
                     placeholder="例：太短了，也沒照預設輸出標題卡片"
-                    className="mt-3 w-full resize-none rounded-2xl border border-slate-200 px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-slate-400" />
+                    className="mt-4 w-full resize-none rounded-2xl border border-slate-200 px-3 py-2 text-[13px] leading-relaxed outline-none focus:border-slate-400" />
+
+                {naming === null ? (
+                    <div className="mt-1 flex justify-end">
+                        <button type="button" disabled={!note.trim()} onClick={() => setNaming('')}
+                            className="text-[12px] font-bold text-slate-500 disabled:opacity-40">+ 存為預設</button>
+                    </div>
+                ) : (
+                    <div className="mt-2 flex items-center gap-2">
+                        <input value={naming} autoFocus onChange={e => setNaming(e.target.value.slice(0, DATE_REROLL_PRESET_NAME_MAX))}
+                            onKeyDown={e => { if (e.key === 'Enter') saveCurrent(); }}
+                            placeholder="取個名字（留空用說明開頭）"
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-[12px] outline-none focus:border-slate-400" />
+                        <button type="button" onClick={() => setNaming(null)} className="text-[12px] text-slate-400">取消</button>
+                        <button type="button" onClick={saveCurrent} className="rounded-xl bg-slate-800 px-3 py-1.5 text-[12px] font-bold text-white">存</button>
+                    </div>
+                )}
+
                 <div className="mt-3 grid grid-cols-[auto_1fr_1fr] gap-2">
                     <button type="button" onClick={onCancel} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-[13px] font-bold text-slate-500">取消</button>
                     <button type="button" onClick={() => onReroll()} className="rounded-2xl border border-slate-300 py-2.5 text-[13px] font-bold text-slate-700">直接重 Roll</button>

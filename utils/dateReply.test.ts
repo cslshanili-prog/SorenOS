@@ -44,3 +44,16 @@ describe('見面回覆 · 原文與思考', () => {
         expect(appendDateRerollNote(base, '  ')).toBe(base);
     });
 });
+
+describe('重新生成 · 我的預設', () => {
+    it('存、讀、刪；名字沒寫用說明開頭，空說明不存', async () => {
+        const { addDateRerollPreset, loadDateRerollPresets, removeDateRerollPreset } = await import('./dateReply');
+        localStorage.removeItem('date_reroll_presets');
+        let list = addDateRerollPreset([], '', '請照預設輸出標題卡片和思維鏈');
+        list = addDateRerollPreset(list, 'UI', '補上 UI 結構');
+        expect(addDateRerollPreset(list, 'x', '  ')).toBe(list);
+        expect(loadDateRerollPresets().map(p => p.name)).toEqual(['請照預設輸出標題', 'UI']);
+        list = removeDateRerollPreset(list, list[0].id);
+        expect(loadDateRerollPresets().map(p => p.text)).toEqual(['補上 UI 結構']);
+    });
+});

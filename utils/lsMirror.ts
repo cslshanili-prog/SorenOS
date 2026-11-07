@@ -40,6 +40,7 @@ export const MIRRORED_KEYS: readonly string[] = [
     'chat_archive_prompts',
     'chat_active_archive_prompt_id',
     'character_refine_prompts',
+    'date_reroll_presets',               // 見面重新生成「我的預設」說明
     'character_active_refine_prompt_id',
     'os_last_active_char_id',
 ];
