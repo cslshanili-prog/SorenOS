@@ -1846,7 +1846,7 @@ const DateApp: React.FC = () => {
                     {typeof editTargetMsg?.metadata?.dateRaw === 'string' && (
                         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">這是模型回來的完整原文（思考過程、結構標籤都在）。存檔後照目前的預設重新整理顯示。</p>
                     )}
-                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className={`w-full ${typeof editTargetMsg?.metadata?.dateRaw === 'string' ? 'h-[50vh]' : 'h-32'} bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed`} />
+                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className={`w-full ${typeof editTargetMsg?.metadata?.dateRaw === 'string' ? 'h-[46vh]' : 'h-[50vh]'} min-h-[12rem] bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed`} />
                 </Modal>
             </>
         );
