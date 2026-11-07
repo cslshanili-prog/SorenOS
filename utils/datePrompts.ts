@@ -408,6 +408,29 @@ const buildMeetupLine = (meetup: DateMeetup | undefined, charName: string, uname
         : `\n這次見面是赴${charName}自己發出的邀約：${what}。${uname}已經答應、正往那裡去；${charName}此刻在約好的地方（或正在趕過去），寫${charName}在那裡的樣子。\n`;
 };
 
+/**
+ * 用自訂預設時，開場也照預設跑（buildMeetingPresetPayload）：這段當成這一輪的「用戶輸入」送，
+ * 只講這一則是開場、誰怎麼出場；文風、格式、結構都交給預設。
+ */
+export const buildDateOpeningInstruction = (input: {
+    charName: string;
+    userName: string;
+    openingMode?: DateOpeningMode;
+    meetup?: DateMeetup;
+}): string => {
+    const uname = input.userName || '對方';
+    const invite = input.openingMode === 'invite';
+    const task = invite
+        ? `由${input.charName}主動以合理的方式去見${uname}：寫${input.charName}怎麼來到${uname}面前、開口說什麼，停在留給${uname}回應的地方。${uname}怎麼反應、說什麼，都不要替${uname}寫。`
+        : `${uname}正要走近${input.charName}所在的地方：寫${input.charName}此刻在做什麼、周圍的環境和狀態，停在${uname}出現之前或剛出現的時候，不要替${uname}說話或做決定。`;
+    return [
+        '（這一則是這場見面的開場，不是回覆。）',
+        task,
+        buildMeetupLine(input.meetup, input.charName, uname, invite).trim(),
+        '照預設要求的格式和結構輸出。',
+    ].filter(Boolean).join('\n');
+};
+
 export const DatePrompts = {
     getTimeGapHint,
 

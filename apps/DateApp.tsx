@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
-import { DatePrompts, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
+import { DatePrompts, buildDateOpeningInstruction, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
@@ -19,7 +19,8 @@ import { resolveCharTimeZone } from '../utils/timezone';
 import { isDateOfflinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
-import type { DateStory } from '../types';
+import type { DateStory, UserProfile } from '../types';
+import { cleanDisplayText } from '../utils/meetingPreset/display';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import type { MeetingPresetGeneration, MeetingPresetRecord } from '../utils/meetingPreset/types';
@@ -131,6 +132,8 @@ const DateApp: React.FC = () => {
     };
 
     const [peekStatus, setPeekStatus] = useState<string>('');
+    // 開場用預設生成時的原文、思考、預設名（utils/dateReply.ts），存開場那則時一起寫進 metadata
+    const [peekMeta, setPeekMeta] = useState<Record<string, string> | undefined>(undefined);
     const [peekLoading, setPeekLoading] = useState(false);
     
     // History State
@@ -332,6 +335,34 @@ const DateApp: React.FC = () => {
     const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<string> =>
         (await callLLMReply(messages, temperature, generation)).content;
 
+    /**
+     * 角色選了自訂預設：開場也照預設跑（以前開場一律走內建的感知提示詞，預設要的格式、結構都不會出現）。
+     * 開場指示當成這一輪的用戶輸入；歷史照原樣（尾巴補一則佔位，buildDateHistory 會把它當成本輪拿掉）。
+     */
+    const generatePresetOpening = async (input: {
+        preset: MeetingPresetRecord;
+        char: CharacterProfile;
+        userProfile: UserProfile;
+        msgs: Message[];
+        openingMode: DateOpeningMode;
+        meetup?: DateMeetup;
+        clock: ReturnType<typeof makeDateClock>;
+        temperature: number;
+    }): Promise<{ content: string; meta: Record<string, string> }> => {
+        const instruction = buildDateOpeningInstruction({ charName: input.char.name, userName: input.userProfile.name, openingMode: input.openingMode, meetup: input.meetup });
+        const pending = { id: -1, charId: input.char.id, role: 'user', type: 'text', content: instruction, timestamp: Date.now(), metadata: { source: 'date' } } as Message;
+        const emojis = await DB.getEmojis();
+        const { messages, generation } = await buildMeetingPresetPayload({
+            preset: input.preset.doc, char: input.char, userProfile: input.userProfile, allMsgs: [...input.msgs, pending], emojis,
+            userText: instruction, useVisionDescriptions: apiConfig.visionApi?.enabled === true,
+            model: resolveCharacterChatApi(input.char, apiConfig).model, clock: input.clock,
+        });
+        const reply = await callLLMReply(messages, input.temperature, generation);
+        const env = { charName: input.char.name, userName: input.userProfile.name || '', vars: {}, globalVars: {} };
+        const content = applyRegexScripts(reply.content, input.preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env });
+        return { content, meta: dateReplyMeta(reply, content, input.preset.doc.name) };
+    };
+
     useEffect(() => {
         let cancelled = false;
         const load = () => { loadActiveDateStory(char).then(story => { if (!cancelled) setActiveStory(story); }).catch(() => {}); };
@@ -517,7 +548,7 @@ const DateApp: React.FC = () => {
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
-                    metadata: { source: 'date', isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}), ...(peekGreetingId ? { dateGreetingId: peekGreetingId } : {}), ...storyTag(story) } // Added Flag
+                    metadata: { source: 'date', ...(peekMeta || {}), isOpening: true, ...(openingMode === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(peekMeetup ? { dateMeetup: peekMeetup } : {}), ...(peekGreetingId ? { dateGreetingId: peekGreetingId } : {}), ...storyTag(story) } // Added Flag
                 });
                 setHasSavedOpening(true);
             } catch (e) {
@@ -567,10 +598,21 @@ const DateApp: React.FC = () => {
             return;
         }
         setPeekGreetingId(undefined);
+        setPeekMeta(undefined);
 
         try {
             const msgs = await loadCharacterContextMessages(c);
             const preparedMsgs = await materializeVisionDescriptions(msgs, apiConfig.visionApi);
+            const preset = await loadPresetFor(c);
+            if (preset) {
+                const opening = await generatePresetOpening({
+                    preset, char: c, userProfile: resolveUserProfileForChar(userProfileBase, c), msgs: preparedMsgs,
+                    openingMode: selectedOpening, meetup: meetup || undefined, clock: makeDateClock(c, null),
+                    temperature: apiConfig.temperature ?? 0.85,
+                });
+                if (requestId === peekRequestRef.current) { setPeekStatus(opening.content); setPeekMeta(opening.meta); }
+                return;
+            }
             const emojis = await DB.getEmojis();
             const { messages } = DatePrompts.buildPeekPayload({
                 char: c,
@@ -814,7 +856,13 @@ const DateApp: React.FC = () => {
                 setDateMessages(freshMsgs.filter(m => m.metadata?.source === 'date').sort((a,b) => a.timestamp - b.timestamp));
                 return content;
             }
-            const { messages } = DatePrompts.buildPeekPayload({
+            const openingPreset = await loadPresetFor(char);
+            const presetOpening = openingPreset ? await generatePresetOpening({
+                preset: openingPreset, char: withStoryScenario(char, activeStoryRef.current), userProfile: dateUserProfile, msgs: preparedValidMsgs,
+                openingMode: rerollOpening, meetup: lastMsg.metadata?.dateMeetup, clock: makeDateClock(char, activeStoryRef.current),
+                temperature: Math.max(apiConfig.temperature ?? 0.85, 0.9),
+            }) : null;
+            const { messages } = presetOpening ? { messages: [] as ApiMessage[] } : DatePrompts.buildPeekPayload({
                 char: withStoryScenario(char, activeStoryRef.current),
                 userProfile: dateUserProfile,
                 allMsgs: preparedValidMsgs,
@@ -824,10 +872,10 @@ const DateApp: React.FC = () => {
                 meetup: lastMsg.metadata?.dateMeetup,
                 clock: makeDateClock(char, activeStoryRef.current),
             });
-            const content = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
+            const content = presetOpening ? presetOpening.content : await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
             await DB.deleteMessage(lastMsg.id);
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}), ...(lastMsg.metadata?.dateStoryId ? { dateStoryId: lastMsg.metadata.dateStoryId } : {}) } });
+            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', ...(presetOpening?.meta || {}), isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}), ...(lastMsg.metadata?.dateStoryId ? { dateStoryId: lastMsg.metadata.dateStoryId } : {}) } });
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 閱讀模式空會話時頂部渲染的開場 & 退出快照裡的 peekStatus 同步成新開場
@@ -1587,7 +1635,7 @@ const DateApp: React.FC = () => {
                 )}
                 {!peekLoading && peekStatus && (
                     <div className="flex-1 min-h-0 flex flex-col px-8 pb-10 z-10 animate-fade-in">
-                        <div className="flex-1 overflow-y-auto no-scrollbar mb-8 mask-image-gradient pt-8"><div className="min-h-full flex flex-col justify-center"><p className="text-neutral-300 text-[15px] leading-8 tracking-wide text-justify font-light select-none whitespace-pre-wrap">{peekStatus}</p></div></div>
+                        <div className="flex-1 overflow-y-auto no-scrollbar mb-8 mask-image-gradient pt-8"><div className="min-h-full flex flex-col justify-center"><p className="text-neutral-300 text-[15px] leading-8 tracking-wide text-justify font-light select-none whitespace-pre-wrap">{activePreset ? cleanDisplayText(peekStatus) : peekStatus}</p></div></div>
                         <div className="shrink-0 flex flex-col items-center gap-6">
                              <div className="w-full flex gap-3">
                                  {/* 修改這裡：調用 handleEnterSession 確保開場白被保存 */}
