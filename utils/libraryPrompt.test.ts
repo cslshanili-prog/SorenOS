@@ -56,3 +56,11 @@ describe('資料庫 · 角色手邊的照片', () => {
         expect([...text.matchAll(SEND_SAVED_PHOTO_RE)].map(m => m[1])).toEqual(['ab12', '#cd34']);
     });
 });
+
+describe('資料庫 · 文件不當照片', () => {
+    it('歸檔的文件就算有描述也不列、也找不回', () => {
+        const doc = img({ id: 'doc', kind: 'file', description: '企劃書', access: { mode: 'all' } });
+        expect(pickCharLibraryPhotos([doc], soren)).toEqual([]);
+        expect(resolveLibraryPhotoCode([doc], soren, libraryPhotoCode('doc'))).toBeNull();
+    });
+});
