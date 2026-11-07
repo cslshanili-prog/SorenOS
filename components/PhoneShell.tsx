@@ -984,7 +984,7 @@ const PhoneShell: React.FC = () => {
   const shellPadsSafeArea = shellHandlesSafeArea(activeApp);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 text-slate-900 font-sans select-none overscroll-none">
+    <div className="sully-phone-shell relative w-full h-full overflow-hidden bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200 text-slate-900 font-sans select-none overscroll-none">
        {/* Optimized Background Layer */}
        {/* 壁紙底層：進 App 時只柔和虛化/壓暗作背景，不再做縮放「過場」——
           進 App 的過渡感統一交給 App 容器的淡入（見下方 animate-fade-in 包裹層）。 */}

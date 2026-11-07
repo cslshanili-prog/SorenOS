@@ -15,8 +15,11 @@ export const readSafeAreaInsets = (): { top: number; bottom: number } => {
     if (typeof document === 'undefined' || !document.body) {
         return { top: cachedTopInset ?? 0, bottom: cachedBottomInset ?? 0 };
     }
-    // 兩邊都已鎖定有效值，直接用緩存，不再插探針重排。
-    if (cachedTopInset !== null && cachedBottomInset !== null) {
+    const containedStatusBar = document.documentElement.hasAttribute('data-ios-status-bar-contained');
+    // contain（utils/iosStatusBarEdge.ts）剛切過去時，env 還是 cover 的舊值，要等 WebKit 重排完才變 0。
+    // contain 只認穩定下來的 0/0 才快取；一般 cover 照原本的規則。
+    if (cachedTopInset !== null && cachedBottomInset !== null &&
+        (!containedStatusBar || (cachedTopInset === 0 && cachedBottomInset === 0))) {
         return { top: cachedTopInset, bottom: cachedBottomInset };
     }
 
@@ -36,8 +39,14 @@ export const readSafeAreaInsets = (): { top: number; bottom: number } => {
     document.body.removeChild(probe);
 
     // 各邊只在讀到非 0 時鎖定；仍為 0 的邊保持未緩存，下次事件繼續探測，讀到真值再鎖。
-    if (cachedTopInset === null && top > 0) cachedTopInset = top;
-    if (cachedBottomInset === null && bottom > 0) cachedBottomInset = bottom;
+    // contain 時 0 就是真值，照讀到的存。
+    if (containedStatusBar) {
+        cachedTopInset = top;
+        cachedBottomInset = bottom;
+    } else {
+        if (cachedTopInset === null && top > 0) cachedTopInset = top;
+        if (cachedBottomInset === null && bottom > 0) cachedBottomInset = bottom;
+    }
 
     return { top: cachedTopInset ?? top, bottom: cachedBottomInset ?? bottom };
 };
@@ -119,10 +128,19 @@ const setViewportVars = () => {
     const innerHeight = Math.round(window.innerHeight);
     const viewportHeight = Math.round(window.visualViewport?.height || innerHeight);
     const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop || 0);
+    const containedStatusBar = document.documentElement.hasAttribute('data-ios-status-bar-contained');
+    // iOS 改 viewport-fit 之後可能只發 visualViewport 的 resize、不發 window.resize：
+    // 先丟掉 cover 時快取的 62/34px 安全區，再量 contain 之後的可視區。
+    if (containedStatusBar && stableStandaloneHeight && viewportHeight > 150 &&
+        viewportHeight !== stableStandaloneHeight && Math.abs(stableStandaloneHeight - viewportHeight) < 100) {
+        cachedTopInset = null;
+        cachedBottomInset = null;
+    }
     // 單次探針讀取上下安全區。頂部 env 偶發返回 0，探測不到時退回 44px（約狀態欄/劉海高度），避免頂欄內容懟進劉海。
+    // contain 時頂部 0 是正常的（內容本來就從狀態列下面開始），不能再補 44px。
     const safeInsets = shouldStabilizeHeight ? readSafeAreaInsets() : { top: 0, bottom: 0 };
     const bottomSafeInset = safeInsets.bottom;
-    const topSafeInset = shouldStabilizeHeight ? (safeInsets.top > 0 ? safeInsets.top : 44) : 0;
+    const topSafeInset = shouldStabilizeHeight ? (safeInsets.top > 0 ? safeInsets.top : containedStatusBar ? 0 : 44) : 0;
 
     let fullAppHeight: number;
     let keyboardInset: number;
@@ -130,7 +148,9 @@ const setViewportVars = () => {
 
     if (shouldStabilizeHeight) {
         // 全屏 PWA 沒有地址欄，可視高度只在軟鍵盤彈出時變矮。基線取「見過的最大可視高度」。
-        if (!stableStandaloneHeight || viewportHeight > stableStandaloneHeight) {
+        // 改 viewport-fit 在手機上是非同步生效的（874 → 812）：不到鍵盤門檻的小幅縮小也要換掉 cover 的舊基線。
+        if (!stableStandaloneHeight || viewportHeight > stableStandaloneHeight ||
+            (containedStatusBar && viewportHeight > 150 && stableStandaloneHeight - viewportHeight < 100)) {
             stableStandaloneHeight = viewportHeight;
         }
         // 鍵盤態判據用「可視高度變矮」而非 obscuredHeight：iOS 26 起 standalone 會把 layout viewport 也一起縮，
@@ -282,7 +302,9 @@ export const installIOSStandaloneWorkaround = () => {
         const RETRY_DELAYS_MS = [120, 500, 1500, 3000];
         for (const delay of RETRY_DELAYS_MS) {
             window.setTimeout(() => {
-                if (cachedTopInset !== null && cachedBottomInset !== null) return; // 兩邊都已鎖定，無需再試
+                const containedStatusBar = document.documentElement.hasAttribute('data-ios-status-bar-contained');
+                if (cachedTopInset !== null && cachedBottomInset !== null &&
+                    (!containedStatusBar || (cachedTopInset === 0 && cachedBottomInset === 0))) return; // 兩邊都已鎖定，無需再試
                 setViewportVars();
             }, delay);
         }
