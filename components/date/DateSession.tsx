@@ -755,7 +755,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                         )}
                         {sessionMessages.length === 0 && peekStatus && (
                             <div className={`date-opening italic text-center text-sm mb-8 px-4 ${light ? 'text-stone-400' : 'text-slate-200/50'}`}>
-                                {parseDateBody(peekStatus).map((line, idx) => <p key={idx} className="whitespace-pre-wrap leading-relaxed tracking-wide my-2">{line.text}</p>)}
+                                {parseDateBody(presetRegex ? cleanDisplayText(peekStatus) : peekStatus).map((line, idx) => <p key={idx} className="whitespace-pre-wrap leading-relaxed tracking-wide my-2">{line.text}</p>)}
                             </div>
                         )}
                         {(hiddenNovelMessageCount > 0 || !historyReachedEnd) && (
@@ -853,7 +853,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             <ReadingAvatar src={char.avatar} name={char.name} light={light} />
                                         )}
                                         <div className="min-w-0 flex-1">
-                                            {!isOpeningMsg && <DateReplyTags msg={msg} index={(messageOrdinal.get(msg.id) ?? 0) + 1} light={light} />}
+                                            <DateReplyTags msg={msg} index={(messageOrdinal.get(msg.id) ?? 0) + 1} light={light} />
                                             {parts.map((part, partIdx) => part.type === 'html'
                                                 ? (
                                                     <div key={`html-${partIdx}`} className={`date-decoration-card ${decorationDarkCard ? 'rounded-2xl bg-[#1c1b22] px-3 py-px my-3' : ''}`}>
