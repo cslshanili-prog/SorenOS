@@ -5055,6 +5055,8 @@ export interface FullBackupData {
     chatArchivePrompts?: any;
     chatActiveArchivePromptId?: string;
     characterRefinePrompts?: any;
+    /** 見面重新生成「我的預設」說明（localStorage date_reroll_presets） */
+    dateRerollPresets?: any;
     characterActiveRefinePromptId?: string;
 
     // 其它 UI / 偏好
