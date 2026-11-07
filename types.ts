@@ -3790,6 +3790,8 @@ export interface UserProfile {
     customSetting?: string;
     /** 真實身份的其他補充：兜底的自由文本欄位，會發給 AI */
     otherDetails?: string;
+    /** 生圖用的參考圖（鎖臉）和外觀提示詞，結構跟角色的 imageGenCharConfig 一樣；見面「拍下這一刻」用。身份卡各有各的 */
+    imageGenConfig?: CharacterProfile['imageGenCharConfig'];
     /** 分角色聊天頭像（檔案 App 設置）：charId → 頭像（http(s) URL 或 data:image）。
      *  私聊裡「你」的頭像取 perCharAvatars[charId] || avatar（上面的整體頭像作宏觀默認）；
      *  群聊/其他場合仍用整體頭像。刪角色留下的孤兒鍵無害，讀取端永遠按當前 charId 取。 */
@@ -4143,6 +4145,8 @@ export interface UserPersona {
     customSetting?: string;
     /** 其他補充：兜底的自由文本欄位，會發給 AI */
     otherDetails?: string;
+    /** 這張身份卡的長相（生圖參考圖＋外觀提示詞）；同一世界裡不同身份卡是不同的人，不跟真實身份共用 */
+    imageGenConfig?: CharacterProfile['imageGenCharConfig'];
     createdAt: number;
     updatedAt: number;
 }
@@ -4198,6 +4202,8 @@ export interface GalleryImage {
      * 'char' 是角色自己生成發出的（SEND_PHOTO），沒有"用戶發的照片"這個前提，
      * 相冊詳情頁的"讓角色點評這張照片"功能只對 'user' 的圖有意義，char 的圖要跳過。 */
     sender?: 'user' | 'char';
+    /** 從哪裡生成的；缺省＝聊天（用戶傳的或角色傳的）。'date_moment'＝見面「拍下這一刻」 */
+    origin?: 'date_moment';
     review?: string;
     reviewTimestamp?: number;
     savedDate?: string; // YYYY-MM-DD format

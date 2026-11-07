@@ -10,6 +10,8 @@ export interface GeneratedImage {
   dataUrl: string;
   /** 這張真的是帶著參考圖（/images/edits）生成的 */
   referenceUsed?: boolean;
+  /** 實際鎖上的參考圖張數（多張參考圖那條路才有；退到只送第一張就是 1） */
+  referenceCount?: number;
   /** 帶了參考圖但 /images/edits 失敗、退回純文字時的原因（HTTP 狀態＋前 200 字） */
   referenceError?: string;
 }
@@ -230,7 +232,8 @@ async function parseImageResponse(response: Response): Promise<GeneratedImage> {
 export async function generateImage(
   config: Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality' | 'extraPrompt'>,
   prompt: string,
-  referenceImageBlob?: Blob,
+  /** 一張，或多張（見面「拍下這一刻」同時鎖兩個人：第一張是角色、第二張是用戶） */
+  referenceImageBlob?: Blob | Blob[],
 ): Promise<GeneratedImage> {
   const baseUrl = (config.baseUrl || '').replace(/\/+$/, '');
   if (!baseUrl || !config.model) throw new Error('生圖 API 未配置完整（URL / Model 缺失）');
@@ -249,25 +252,46 @@ export async function generateImage(
     return parseImageResponse(response);
   };
 
-  if (!referenceImageBlob) return generateTextOnly();
+  const references = (Array.isArray(referenceImageBlob) ? referenceImageBlob : [referenceImageBlob]).filter((blob): blob is Blob => !!blob);
+  if (!references.length) return generateTextOnly();
 
   // 光傳參考圖很多生圖引擎只當成弱風格參考，臉型/五官比例照樣會飄；顯式用文字提要求
   // 「照著參考圖的臉」，實測能明顯收緊一致性。只加在帶參考圖這條路，不影響純文字生成。
   const referencePrompt = `${fullPrompt}\n\n[參考圖約束] 人物的臉型、五官比例、膚色、髮型需與所附參考圖保持高度一致，不要更改容貌特徵；只按提示詞調整場景、姿勢、服裝、表情等其餘部分。`;
 
-  try {
+  const model = config.model;
+  const postEdits = async (blobs: Blob[], prompt: string): Promise<GeneratedImage> => {
     const form = new FormData();
-    form.append('model', config.model);
-    form.append('prompt', referencePrompt);
+    form.append('model', model);
+    form.append('prompt', prompt);
     form.append('n', '1');
     if (config.size) form.append('size', config.size);
-    form.append('image', referenceImageBlob, 'reference.png');
+    // 多張照 OpenAI 的寫法用 image[]；只有一張時保持原本的 image（老的中轉站只認這個）
+    if (blobs.length === 1) form.append('image', blobs[0], 'reference.png');
+    else blobs.forEach((blob, i) => form.append('image[]', blob, `reference-${i + 1}.png`));
     const response = await fetch(`${baseUrl}/images/edits`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${config.apiKey || 'sk-none'}` },
       body: form,
     });
-    return { ...(await parseImageResponse(response)), referenceUsed: true };
+    return { ...(await parseImageResponse(response)), referenceUsed: true, referenceCount: blobs.length };
+  };
+
+  // 多張：先一起送；這家不收多張（欄位名不認、模型不支援都算）就退成只送第一張，再不行才純文字
+  let multiError: string | undefined;
+  if (references.length > 1) {
+    const multiPrompt = `${fullPrompt}\n\n[參考圖約束] 畫面裡的人依序對應所附的參考圖（第 1 張、第 2 張……），每個人的臉型、五官比例、膚色、髮型都要與自己那張參考圖保持高度一致，不要互換、不要更改容貌特徵；只按提示詞調整場景、姿勢、服裝、表情等其餘部分。`;
+    try {
+      return await postEdits(references, multiPrompt);
+    } catch (e) {
+      multiError = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+      console.warn('[ImageGeneration] 多張參考圖的 /images/edits 失敗，改成只送第一張:', e);
+    }
+  }
+
+  try {
+    const single = await postEdits([references[0]], referencePrompt);
+    return multiError ? { ...single, referenceError: `多張參考圖不支援，只鎖了第一張（${multiError}）` } : single;
   } catch (e) {
     // 退回純文字照樣出圖，但原因要留下來：以前這裡是靜默的，用戶只看到「臉不像」
     const referenceError = (e instanceof Error ? e.message : String(e)).slice(0, 200);

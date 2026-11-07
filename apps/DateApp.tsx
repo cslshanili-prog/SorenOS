@@ -10,7 +10,11 @@ import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
-import { makeDateClock } from '../utils/dateStoryTime';
+import { formatStoryClock, makeDateClock } from '../utils/dateStoryTime';
+import { canCaptureDateMoment, captureDateMoment, describeMomentLock } from '../utils/dateMoment';
+import { migrateDataUrlToRef } from '../utils/blobRef';
+import { getLocalDateKey } from '../utils/localDate';
+import { resolveCharTimeZone } from '../utils/timezone';
 import { isDateOfflinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
@@ -762,8 +766,10 @@ const DateApp: React.FC = () => {
     const handleReroll = async (): Promise<string> => {
         if (!char || dateMessages.length === 0) throw new Error("No context");
 
-        const lastMsg = dateMessages[dateMessages.length - 1];
-        if (lastMsg.role !== 'assistant') throw new Error("Cannot reroll user message");
+        // 拍下這一刻的照片不算一輪回覆：重擲的是它前面那則
+        const rerollable = dateMessages.filter(m => !m.metadata?.dateMoment);
+        const lastMsg = rerollable[rerollable.length - 1];
+        if (!lastMsg || lastMsg.role !== 'assistant') throw new Error("Cannot reroll user message");
 
         // Keep the old reply until the replacement request succeeds.
         const allMsgs = await loadCharacterContextMessages(char);
@@ -949,6 +955,50 @@ const DateApp: React.FC = () => {
         setHistoryEditMsg(null);
         addToast('已修改', 'success');
         trackEvent('编辑见面记录里的一条消息');
+    };
+
+    // 拍下這一刻（utils/dateMoment.ts）：只有用戶自己按
+    const [capturingMoment, setCapturingMoment] = useState(false);
+    const handleCaptureMoment = async () => {
+        if (!char || capturingMoment) return;
+        const imageConfig = apiConfig.imageGenConfig;
+        if (!canCaptureDateMoment(imageConfig)) { addToast('先到「系統設置 → 生圖 API」填好，並打開「開啟角色生圖」', 'info'); return; }
+        setCapturingMoment(true);
+        addToast('喀嚓——照片洗出來要一點時間', 'info');
+        try {
+            const story = activeStoryRef.current;
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 200);
+            const clock = makeDateClock(char, story);
+            const result = await captureDateMoment({
+                char, user: dateUserProfile, story, messages: msgs,
+                chatApi: resolveCharacterChatApi(char, apiConfig), imageConfig,
+                timeText: clock ? formatStoryClock(clock, resolveCharTimeZone(char)) : undefined,
+            });
+            const stored = await migrateDataUrlToRef(result.dataUrl);
+            const messageId = await DB.saveMessage({
+                charId: char.id, role: 'assistant', type: 'image', content: stored,
+                metadata: {
+                    source: 'date', dateMoment: true, aiGenerated: true,
+                    imagePrompt: result.scene, visionDescription: result.scene,
+                    momentLock: result.lock, ...(result.lockError ? { momentLockError: result.lockError } : {}),
+                    ...storyTag(story),
+                },
+            });
+            // 相簿是附帶記錄：存不進去不影響見面記錄裡那張
+            try {
+                await DB.saveGalleryImage({
+                    id: `img-${Date.now()}-${Math.random()}`, charId: char.id, url: stored, timestamp: Date.now(),
+                    sourceMessageId: messageId, sender: 'char', origin: 'date_moment', savedDate: getLocalDateKey(new Date()),
+                });
+            } catch (e) { console.warn('[DateMoment] 存相簿失敗', e); }
+            await loadDateMessages();
+            addToast(`拍好了，也存進相簿了（${describeMomentLock(result.lock, result.lockError)}）`, 'success');
+            trackEvent('拍下见面这一刻', { 锁脸: result.lock === 'both' ? '两张' : result.lock === 'none' ? '没锁' : '一张' });
+        } catch (e: any) {
+            addToast(`照片沒拍成：${e?.message || '未知錯誤'}`, 'error');
+        } finally {
+            setCapturingMoment(false);
+        }
     };
 
     const handleFinishFromSession = async (withSummary: boolean) => {
@@ -1559,6 +1609,8 @@ const DateApp: React.FC = () => {
                     historyReachedEnd={dateHistoryReachedEnd}
                     onFinishStory={activeStory ? () => setShowFinishModal(true) : undefined}
                     suppressAutoSaveRef={suppressSessionSaveRef}
+                    onCaptureMoment={handleCaptureMoment}
+                    capturingMoment={capturingMoment}
                 />
 
                 <Modal isOpen={showFinishModal} title="完結這場故事？" onClose={() => { if (!finishingStory) setShowFinishModal(false); }} footer={

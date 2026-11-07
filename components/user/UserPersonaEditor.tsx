@@ -5,7 +5,8 @@ import { processImage } from '../../utils/file';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import TokenImg from '../os/TokenImg';
 import { trackEvent } from '../../utils/analytics';
-import type { UserGender } from '../../types';
+import type { CharacterProfile, UserGender } from '../../types';
+import CharacterImageGenPanel from '../character/CharacterImageGenPanel';
 
 const GENDER_OPTIONS: UserGender[] = ['男', '女', '保密', '二次元', '其他'];
 
@@ -18,7 +19,7 @@ export type UserPersonaEditTarget = 'new' | 'real' | string;
  * （見 utils/userPersona.ts）。切換「目前身份」在 IdentitySwitcher 的下拉選單裡。
  */
 const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () => void }> = ({ target, onClose }) => {
-    const { userProfileBase, updateUserProfile, addUserPersona, updateUserPersona, deleteUserPersona, addToast } = useOS();
+    const { userProfileBase, updateUserProfile, addUserPersona, updateUserPersona, deleteUserPersona, addToast, apiConfig } = useOS();
     const personas = userProfileBase.personas || [];
     const editingId = target;
 
@@ -29,9 +30,12 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
     const [draftGender, setDraftGender] = useState<UserGender | ''>('');
     const [draftCustomSetting, setDraftCustomSetting] = useState('');
     const [draftOtherDetails, setDraftOtherDetails] = useState('');
+    // 長相（生圖參考圖＋外觀提示詞），見面「拍下這一刻」用
+    const [draftImageGen, setDraftImageGen] = useState<CharacterProfile['imageGenCharConfig']>(undefined);
     const uploadRef = useRef<HTMLInputElement>(null);
 
-    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string }) => {
+    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig'] }) => {
+        setDraftImageGen(source.imageGenConfig);
         setDraftName(source.name);
         setDraftBio(source.bio);
         setDraftAvatar(source.avatar);
@@ -92,6 +96,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
             gender: draftGender || undefined,
             customSetting: draftCustomSetting.trim() || undefined,
             otherDetails: draftOtherDetails.trim() || undefined,
+            imageGenConfig: draftImageGen && (draftImageGen.referenceImage || draftImageGen.characterPrompt?.trim()) ? draftImageGen : undefined,
         };
         if (editingId === 'real') {
             updateUserProfile(fields);
@@ -203,6 +208,16 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                             className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
                     </div>
+                </div>
+
+                <div className="mt-5">
+                    <CharacterImageGenPanel
+                        subject="user"
+                        charName={draftName.trim() || (editingId === 'real' ? '你' : '這張身份卡')}
+                        value={draftImageGen}
+                        onChange={setDraftImageGen}
+                        globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
+                    />
                 </div>
 
                 {editingId !== 'new' && editingId !== 'real' && (

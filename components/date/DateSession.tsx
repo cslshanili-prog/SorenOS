@@ -27,6 +27,7 @@ import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import DecorationFrame from './DecorationFrame';
 import EmotionStatusPanel from '../chat/EmotionStatusPanel';
 import { liveBuffs } from '../../utils/emotionDecay';
+import { describeMomentLock } from '../../utils/dateMoment';
 import { buildDateAppearanceCss, resolveDateBackdrop, scopeDateCss } from '../../utils/dateAppearance';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
 import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
@@ -65,6 +66,9 @@ interface DateSessionProps {
     onFinishStory?: () => void;
     /** 設成 true 就不再自動存檔：故事完結後離開會話，別把舊的角色資料（含存檔、進行中的故事）寫回去 */
     suppressAutoSaveRef?: React.MutableRefObject<boolean>;
+    /** 拍下這一刻（utils/dateMoment.ts） */
+    onCaptureMoment?: () => void;
+    capturingMoment?: boolean;
 }
 
 // Long replies can expand into many DOM lines. Keeping a smaller reading window
@@ -135,6 +139,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     presetRegex,
     onFinishStory,
     suppressAutoSaveRef,
+    onCaptureMoment,
+    capturingMoment,
 }) => {
     const { addToast, registerBackHandler, apiConfig, updateCharacter, apiPresets } = useOS();
 
@@ -682,6 +688,13 @@ const DateSession: React.FC<DateSessionProps> = ({
                             見面設定
                         </button>
 
+                        {onCaptureMoment && (
+                            <button onClick={() => { closeMenu(); onCaptureMoment(); }} disabled={capturingMoment} className={`${menuButton} disabled:opacity-50`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" /></svg>
+                                {capturingMoment ? '洗照片中…' : '拍下這一刻'}
+                            </button>
+                        )}
+
                         {onFinishStory && (
                             <button onClick={() => { closeMenu(); onFinishStory(); }} className={menuButton}>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>
@@ -793,7 +806,17 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             />
                                         )}
                                     </div>
-                                    ); })() : (() => {
+                                    ); })() : msg.type === 'image' ? (
+                                    // 拍下這一刻的照片（utils/dateMoment.ts）：不算一輪回覆，不給重擲／語音
+                                    <figure className="date-photo my-2">
+                                        <TokenImg value={msg.content} alt="拍下這一刻" className={`w-full rounded-xl object-cover shadow-lg ${light ? 'ring-1 ring-stone-200' : 'ring-1 ring-white/10'}`} />
+                                        {msg.metadata?.dateMoment && (
+                                            <figcaption className={`mt-1.5 text-[10px] text-center ${light ? 'text-stone-400' : 'text-white/40'}`}>
+                                                {describeMomentLock(msg.metadata.momentLock, msg.metadata.momentLockError)}
+                                            </figcaption>
+                                        )}
+                                    </figure>
+                                    ) : (() => {
                                     const sarSurface = getSARSurface(msg);
                                     const sarRevealed = sarTruthMessageIds.has(msg.id);
                                     const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;

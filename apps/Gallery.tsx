@@ -21,6 +21,10 @@ const Gallery: React.FC = () => {
     const [view, setView] = useState<'albums' | 'grid' | 'detail'>('albums');
     const [activeCharId, setActiveCharId] = useState<string | null>(null);
     const [images, setImages] = useState<GalleryImage[]>([]);
+    // 分類：角色傳的／你傳的／其它地方生成的（見面「拍下這一刻」這類，看 origin）
+    const [category, setCategory] = useState<'all' | 'char' | 'user' | 'other'>('all');
+    const categoryOf = (img: GalleryImage): 'char' | 'user' | 'other' => (img.origin ? 'other' : img.sender === 'char' ? 'char' : 'user');
+    const shownImages = category === 'all' ? images : images.filter(img => categoryOf(img) === category);
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
     const [isReviewing, setIsReviewing] = useState(false);
     const [showChatContext, setShowChatContext] = useState(false);
@@ -56,6 +60,7 @@ const Gallery: React.FC = () => {
 
     const handleCharClick = (id: string) => {
         setActiveCharId(id);
+        setCategory('all');
         setView('grid');
         trackEvent('打开角色相册');
     };
@@ -335,19 +340,34 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
     const renderGrid = () => (
         <div className="flex-1 overflow-y-auto p-1.5 animate-fade-in">
-            {images.length === 0 ? (
+            {images.length > 0 && (
+                <div role="radiogroup" aria-label="照片分類" className="flex gap-1.5 px-1 pb-2 pt-0.5 overflow-x-auto no-scrollbar">
+                    {([['all', '全部'], ['char', '角色傳的'], ['user', '你傳的'], ['other', '其它地方生成的']] as const).map(([value, label]) => {
+                        const count = value === 'all' ? images.length : images.filter(img => categoryOf(img) === value).length;
+                        return (
+                            <button key={value} role="radio" aria-checked={category === value} onClick={() => setCategory(value)}
+                                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold border transition ${category === value ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                {label}{count ? ` ${count}` : ''}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+            {shownImages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3 py-20">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-14 h-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                    <span className="text-sm">還沒有照片</span>
+                    <span className="text-sm">{images.length ? '這一類還沒有照片' : '還沒有照片'}</span>
                 </div>
             ) : (
                 <div className="grid grid-cols-3 gap-1">
-                    {images.map(img => (
+                    {shownImages.map(img => (
                         <div key={img.id} onClick={() => handleImageClick(img)} className="aspect-square bg-slate-100 relative cursor-pointer overflow-hidden rounded-sm">
                             {/* 相冊圖存的是 blobref 令牌（見 utils/blobRef.ts），TokenImg 會解析成 objectURL；
                                 舊的 base64 / http 圖原樣透傳，兩種都顯示得出來 */}
                             <TokenImg value={img.url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
-                            {img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 發的</div>}
+                            {img.origin === 'date_moment'
+                                ? <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">見面</div>
+                                : img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 發的</div>}
                             {img.review && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white shadow-sm"></div>}
                             {img.savedDate && <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3"><span className="text-[8px] text-white/80 font-mono">{img.savedDate}</span></div>}
                         </div>
