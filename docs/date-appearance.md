@@ -40,6 +40,7 @@
 | `.date-line` | 角色正文的每一行；台詞再帶 `.date-line-dialogue`，旁白帶 `.date-line-narration` |
 | `.date-line-user` / `.date-line-name` | 你說的話／後面那個名字 |
 | `.date-decoration-card` | 裝飾卡片外框 |
+| `.date-photo` | 拍下這一刻的照片（`figure`，圖片下面一行鎖臉說明） |
 | `.date-input-bar` / `.date-input` | 輸入框外殼／輸入框 |
 
 原本的底色、遮罩是 Tailwind class 或 inline style，要蓋得加 `!important`。

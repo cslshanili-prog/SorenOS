@@ -36,6 +36,7 @@ export const DATE_CSS_HOOKS: { selector: string; label: string }[] = [
     { selector: '.date-line-user', label: '你說的話' },
     { selector: '.date-line-name', label: '你那行後面的名字' },
     { selector: '.date-decoration-card', label: '裝飾卡片外框（裡面是獨立頁面，CSS 管不到）' },
+    { selector: '.date-photo', label: '拍下這一刻的照片' },
     { selector: '.date-input-bar / .date-input', label: '輸入框外殼／輸入框' },
 ];
 

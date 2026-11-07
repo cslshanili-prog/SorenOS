@@ -49,7 +49,8 @@ export const resolveDateSummaryConfig = (char: CharacterProfile): Required<Omit<
 /** 這場故事的訊息（照順序，只留有字的） */
 export const storyMessages = (messages: Message[], story: DateStory): Message[] =>
     messages
-        .filter(message => messageBelongsToStory(message, story) && (message.role === 'user' || message.role === 'assistant') && (message.content || '').trim())
+        // 照片（拍下這一刻）這類不是文字的不算：內容是圖片令牌，餵給模型沒有意義
+        .filter(message => messageBelongsToStory(message, story) && (message.role === 'user' || message.role === 'assistant') && (message.type || 'text') === 'text' && (message.content || '').trim())
         .sort((a, b) => a.id - b.id);
 
 export const unsummarizedMessages = (messages: Message[], story: DateStory): Message[] =>

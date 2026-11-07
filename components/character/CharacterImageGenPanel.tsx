@@ -12,9 +12,12 @@ interface CharacterImageGenPanelProps {
     onChange: (value: CharacterProfile['imageGenCharConfig']) => void;
     /** 系統設置 → 生圖API 的總開關（開啟角色生圖）現在是否打開；關著的話這裡只能先配置，實際生圖要等總開關打開。 */
     globalImageGenEnabled: boolean;
+    /** 'user'：身份卡用（見面「拍下這一刻」鎖你的臉），文案換成你、拿掉只跟角色傳照片有關的選項 */
+    subject?: 'character' | 'user';
 }
 
-const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange, globalImageGenEnabled }) => {
+const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange, globalImageGenEnabled, subject = 'character' }) => {
+    const isUser = subject === 'user';
     const fileRef = useRef<HTMLInputElement>(null);
     const [showFaceCrop, setShowFaceCrop] = useState(false);
     const referenceImageUrl = useBlobRefUrl(value?.referenceImage);
@@ -32,7 +35,8 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
         const blob = await processImageToBlob(file, { skipCompression: true });
         const ref = await putImageBlob(blob);
         // 換了一張新參考圖，舊的臉部選區不再對得上，一併清掉，逼用戶重選一次。
-        patch({ referenceImage: ref, referenceFaceBox: undefined });
+        // 身份卡那邊沒有別的地方用到「先傳圖、晚點再開」，傳了就直接開
+        patch({ referenceImage: ref, referenceFaceBox: undefined, ...(isUser ? { referenceEnabled: true } : {}) });
     };
 
     const handleSaveFaceBox = (box: FaceBox) => {
@@ -45,8 +49,10 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-700 truncate">{charName} · 專屬生圖設定</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">只影響這個角色，不會改動角色卡正文。主動消息、雲端回覆裡發的照片也會帶參考圖（照片是回到這台裝置才生成的）。</p>
+                        <p className="text-sm font-bold text-slate-700 truncate">{charName} · {isUser ? '你的長相' : '專屬生圖設定'}</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{isUser
+                            ? '見面「拍下這一刻」拍到你的時候用。每張身份卡各管各的：這張卡沒設，拍出來就不會鎖你的臉。'
+                            : '只影響這個角色，不會改動角色卡正文。主動消息、雲端回覆裡發的照片也會帶參考圖（照片是回到這台裝置才生成的）。'}</p>
                     </div>
                     <button
                         onClick={() => patch({ referenceEnabled: !referenceEnabled })}
@@ -68,7 +74,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 )}
 
                 <div className="mb-4">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">專屬人物特徵提示詞</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">{isUser ? '外觀提示詞' : '專屬人物特徵提示詞'}</label>
                     <textarea
                         value={value?.characterPrompt || ''}
                         onChange={e => patch({ characterPrompt: e.target.value })}
@@ -76,7 +82,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                         rows={3}
                         className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5 text-xs resize-none focus:bg-white transition-all"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">生成該角色圖片時自動追加。</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">{isUser ? '拍到你的時候自動追加。' : '生成該角色圖片時自動追加。'}</p>
                     {referenceEnabled && (
                         <p className="text-[10px] text-amber-600 mt-1 leading-relaxed">
                             已開啟參考圖：這裡如果寫了具體的臉型／五官／膚色描述，容易跟參考圖「打架」——多數生圖引擎在文字和圖片衝突時會優先服從文字，反而蓋掉參考圖的鎖臉效果。建議臉部細節交給參考圖，這裡只寫氣質、穿衣偏好等非外貌設定。
@@ -84,7 +90,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                     )}
                 </div>
 
-                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 mb-4">
+                {!isUser && <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 mb-4">
                     <div className="min-w-0 flex-1 pr-3">
                         <p className="text-xs font-bold text-slate-700">非自拍照不使用參考圖</p>
                         <p className="text-[10px] text-slate-500 mt-0.5">預設開啟；描述裡沒有人、只有風景或物件的圖只用文字生成。自拍、合照、穿搭、表情這類有人在畫面裡的照樣帶參考圖。</p>
@@ -95,7 +101,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                     >
                         <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${nonSelfieSkipsReference ? 'translate-x-4' : ''}`} />
                     </button>
-                </div>
+                </div>}
 
                 {referenceImageUrl && (
                     <div className="mb-3 rounded-xl overflow-hidden border border-slate-200" style={{ aspectRatio: '1 / 1', maxWidth: 120 }}>

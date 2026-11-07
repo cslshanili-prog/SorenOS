@@ -2,7 +2,7 @@ import type { CharacterProfile, UserProfile } from '../types';
 
 /**
  * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
- * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails 這幾個"外顯裝扮"字段，其餘字段
+ * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails/imageGenConfig 這幾個"外顯裝扮"字段，其餘字段
  * （vrState/perCharAvatars/personas 本身……）不變。這是全站唯一的口徑——所有讀
  * userProfile.name/avatar/bio 等字段的地方讀到的都已經是這份套用結果，好感度/記憶/關係仍然
  * 認的是同一個人，不因為換了身份卡而分開算。
@@ -20,6 +20,8 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         gender: persona.gender,
         customSetting: persona.customSetting,
         otherDetails: persona.otherDetails,
+        // 長相也跟著卡走：卡沒設就是沒有，不能拿真實身份那張臉去拍另一個人
+        imageGenConfig: persona.imageGenConfig,
     };
 }
 
@@ -51,6 +53,7 @@ function applyPersonaOverride(
                 gender: persona.gender,
                 customSetting: persona.customSetting,
                 otherDetails: persona.otherDetails,
+                imageGenConfig: persona.imageGenConfig,
             },
             matchedPersona: true,
         };
