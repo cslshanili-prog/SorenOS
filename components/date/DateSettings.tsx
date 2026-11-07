@@ -137,11 +137,12 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <p className="text-[11px] text-slate-400 leading-relaxed">角色立繪搬到了「神經鏈接 → 形象」，桌面陪伴和節日活動照常使用。</p>
 
                 <Section title="預設 (Preset)" defaultOpen>
-                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用，選哪一份是每個角色自己的。</p>
+                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用，選哪一份是每個角色自己的；點一下就換成那份，一次只跑標著「使用中」的那份，剛匯入的會自動選上。</p>
                     <div className="space-y-2">
                         <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${!activePresetId ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
                             <span className={`text-sm font-bold ${!activePresetId ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
+                            {!activePresetId && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
                             <span className="text-[11px] text-slate-400">下面的文風與敘事</span>
                         </button>
                         {presets.map(preset => {
@@ -149,7 +150,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             return (
                                 <div key={preset.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
                                     <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: preset.id })} className="flex-1 min-w-0 text-left">
-                                        <div className={`text-sm font-bold truncate ${active ? 'text-primary' : 'text-slate-600'}`}>{preset.name}</div>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className={`text-sm font-bold truncate ${active ? 'text-primary' : 'text-slate-600'}`}>{preset.name}</span>
+                                            {active && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
+                                        </div>
                                         <div className="text-[11px] text-slate-400">開 {preset.doc.prompts.filter(p => p.enabled).length} / {preset.doc.prompts.length} 條 · 正則 {preset.doc.regexScripts.length}</div>
                                     </button>
                                     <button onClick={() => setManagingPresetId(preset.id)} className="px-3 py-1.5 rounded-lg bg-white text-xs font-bold text-slate-600 border border-slate-200 active:scale-95">管理</button>
