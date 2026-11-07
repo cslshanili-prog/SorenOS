@@ -1,4 +1,5 @@
 
+import { isDateOfflinePaused } from '../utils/dateOffline';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
@@ -1930,6 +1931,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       || suspendedCallRef.current?.charId === char.id) continue;
                   const dueMessages = await DB.getDueScheduledMessages(char.id);
                   if (cancelled) return;
+                  // 線下故事進行中關了線上功能（utils/dateOffline.ts）：到點的定時消息直接丟，不留到完結才一口氣冒出來
+                  if (dueMessages.length > 0 && isDateOfflinePaused(char)) {
+                      for (const msg of dueMessages) await DB.deleteScheduledMessage(msg.id);
+                      continue;
+                  }
                   if (dueMessages.length > 0) {
                       for (const msg of dueMessages) {
                           await DB.saveMessage({

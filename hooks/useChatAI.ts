@@ -1,4 +1,5 @@
 
+import { isDateOfflinePaused } from '../utils/dateOffline';
 import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
@@ -1072,7 +1073,8 @@ export const useChatAI = ({
             // 主動消息 2.0 的工具本輪會不會注入：thinking 門要先知道這件事（工具在下面才真正
             // 拼進 tools，但參數取捨必須現在就定）。角色級開關關掉的不注入——否則被用戶顯式
             // 關掉的功能會被角色一次工具調用重新打開。
-            const amsg2ToolsInjected = isAmsg2EnabledForChar(char) && await isAmsg2GlobalReady();
+            // 線下故事進行中關了線上功能也不給（utils/dateOffline.ts）
+            const amsg2ToolsInjected = isAmsg2EnabledForChar(char) && !isDateOfflinePaused(char) && await isAmsg2GlobalReady();
             if (shouldSendThinkingParams({
                 thinkingActive: !!payload.flags.thinkingActive,
                 legacyToolModeActive: !!toolModeActive,

@@ -1,3 +1,4 @@
+import { isDateOfflinePaused } from '../../utils/dateOffline';
 import React, { useEffect, useState } from 'react';
 import Modal from '../os/Modal';
 import {
@@ -149,6 +150,8 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
   const [globalReady, setGlobalReady] = useState(false);
   const [pushSummary, setPushSummary] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 線下故事進行中關了線上功能：任務先停著，這段時間不讓改（utils/dateOffline.ts）
+  const offlinePaused = isDateOfflinePaused(char);
   // editingTaskUuid=null → 新建；非 null → 編輯該任務（保存時 replaceTaskUuid）。
   const [editingTaskUuid, setEditingTaskUuid] = useState<string | null>(null);
   const [expirePolicy, setExpirePolicy] = useState<ActiveMsg2ExpirePolicy>('expire');
@@ -683,7 +686,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl active:scale-95 transition-transform">
             取消
           </button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={isSubmitting || (offlinePaused && enabled)} className="flex-1 py-3 bg-fuchsia-500 text-white font-bold rounded-2xl active:scale-95 transition-transform disabled:opacity-50">
             {isSubmitting ? '保存中...' : !enabled ? '關閉 2.0' : (editingTaskUuid ? '保存修改' : '新建任務')}
           </button>
         </>
@@ -706,6 +709,12 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
+
+        {offlinePaused && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+            {char.name}正在線下故事裡，見面設定開了「故事進行中關閉線上功能」：主動消息先停著{char.dateOfflinePause?.tasks.length ? `（${char.dateOfflinePause.tasks.length} 條先取消了）` : ''}，故事完結後會自動排回去。這段時間這裡不能改任務。
+          </div>
+        )}
 
         {/* 關著的時候面板下面整塊都是空的，不說一句的話，用戶看不出這個開關是按角色算的，
             也不知道打開它能換來什麼。 */}

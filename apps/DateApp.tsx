@@ -10,6 +10,7 @@ import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
+import { isDateOfflinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import type { DateStory } from '../types';
@@ -320,6 +321,37 @@ const DateApp: React.FC = () => {
         return () => { cancelled = true; window.removeEventListener(DATE_STORY_UPDATED_EVENT, load); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [char?.id, char?.activeDateStoryId]);
+
+    // 故事進行中關閉線上功能（utils/dateOffline.ts）：故事開始／完結、開關切換之後，把主動消息停下或排回去。
+    // 同一個角色同時只跑一次；排回去失敗的（resuming）這次掛載只再試一次，免得網路壞時每次重繪都打一輪。
+    const offlineSyncRef = useRef<Set<string>>(new Set());
+    const offlineRetriedRef = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        for (const c of characters) {
+            const shouldPause = isDateOfflinePaused(c);
+            const pause = c.dateOfflinePause;
+            const needsPause = shouldPause && (!pause || pause.resuming);
+            const needsResume = !shouldPause && !!pause;
+            if ((!needsPause && !needsResume) || offlineSyncRef.current.has(c.id)) continue;
+            const retryKey = `${c.id}:${pause?.since ?? 0}`;
+            if (needsResume && pause?.resuming) {
+                if (offlineRetriedRef.current.has(retryKey)) continue;
+                offlineRetriedRef.current.add(retryKey);
+            }
+            offlineSyncRef.current.add(c.id);
+            const run = needsPause
+                ? pauseAmsgForStory(c, updateCharacter).then(r => {
+                    if (r.paused) addToast(`${c.name}的 ${r.paused} 條主動消息先停下來了，故事完結後排回去`, 'info');
+                    if (r.failed) addToast(`有 ${r.failed} 條主動消息沒停成，到點可能還是會響`, 'error');
+                })
+                : resumeAmsgAfterStory(c, updateCharacter, { userProfile: resolveUserProfileForChar(userProfileBase, c), groups, realtimeConfig, apiConfig }).then(r => {
+                    if (r.restored) addToast(`${c.name}的 ${r.restored} 條主動消息排回去了`, 'success');
+                    if (r.failed) addToast(`有 ${r.failed} 條主動消息還沒排回去，下次打開見面再試`, 'error');
+                });
+            run.catch(e => console.error('[DateOffline] 同步失敗', e)).finally(() => { offlineSyncRef.current.delete(c.id); });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [characters]);
 
     // --- Resume / Start Logic ---
     // 赴約進來（帶 meetup）時這一次固定「我走過去」：角色在約好的地方、你赴約。只用這一次，不改你記住的偏好。

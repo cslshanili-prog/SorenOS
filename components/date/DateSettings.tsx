@@ -183,6 +183,31 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateLightReading ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                         </button>
                     </div>
+                    <div className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase">故事進行中關閉線上功能</h3>
+                                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">有一場故事還沒完結時，{char.name}不傳主動消息、不排定時消息；完結後自動恢復，先停下的主動消息照原樣排回去。朋友圈照常。</p>
+                            </div>
+                            <button
+                                onClick={() => updateCharacter(char.id, { dateOfflineMode: !char.dateOfflineMode })}
+                                type="button"
+                                role="switch"
+                                aria-checked={!!char.dateOfflineMode}
+                                aria-label="切換故事進行中關閉線上功能"
+                                className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${char.dateOfflineMode ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateOfflineMode ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                        {char.dateOfflineMode && (
+                            <p className="text-[10px] mt-2 text-slate-400" data-date-offline-status>
+                                {char.dateOfflinePause
+                                    ? `暫停中${char.dateOfflinePause.tasks.length ? `：${char.dateOfflinePause.tasks.length} 條主動消息先停著，完結後排回去` : ''}${char.dateOfflinePause.resuming ? '（有幾條還沒排回去，下次打開見面再試）' : ''}`
+                                    : char.activeDateStoryId ? '正在暫停…' : '現在沒有進行中的故事，開始一場就會生效。'}
+                            </p>
+                        )}
+                    </div>
                     <div className="flex items-center justify-between gap-4 p-4">
                         <div className="min-w-0">
                             <h3 className="text-xs font-bold text-slate-400 uppercase">閱讀模式顯示頭像</h3>

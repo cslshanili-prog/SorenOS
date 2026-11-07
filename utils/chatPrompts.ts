@@ -1,3 +1,4 @@
+import { isDateOfflinePaused } from './dateOffline';
 import { sarPublicContext } from './vrWorld/kanataPublicContext';
 import { kanataTitleContext } from './vrWorld/kanataTitle';
 import { selectCharacterContextMessages } from './chatContextRange';
@@ -781,8 +782,10 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
         //   selfScheduleEnabled 同源（都走 isAmsg2EnabledForChar）；
         // - 即時對話但角色 2.0 關著：雲端不給排程能力，本地標籤是唯一的定時手段 → 照教；
         // - 本地生成：worker 不參與 → 照教。
+        // 線下故事進行中關了線上功能：也不教（utils/dateOffline.ts）
         const scheduleMessageTagEnabled = !forFirePack
-            && !(timelyByWorker && isAmsg2EnabledForChar(char));
+            && !(timelyByWorker && isAmsg2EnabledForChar(char))
+            && !isDateOfflinePaused(char);
         const imageGenCfg = promptOptions?.imageGenConfig;
         const photoSendEnabled = !!(
             imageGenCfg?.charImageGenEnabled && imageGenCfg?.charImageSendEnabled
