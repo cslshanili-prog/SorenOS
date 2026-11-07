@@ -110,7 +110,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Worldbook, name: '世界書', icon: 'Worldbook', color: 'indigo' },
   { id: AppID.HotNews, name: '熱點', icon: 'HotNews', color: 'red' },
   { id: AppID.FAQ, name: '使用幫助', icon: 'FAQ', color: 'indigo' },
-  { id: AppID.Gallery, name: '相冊', icon: 'Gallery', color: 'orange' },
+  { id: AppID.Gallery, name: '資料庫', icon: 'Gallery', color: 'orange' },
   { id: AppID.XhsFreeRoam, name: '自由活動', icon: 'XhsFreeRoam', color: 'rose' },
   { id: AppID.XhsStock, name: '小紅書圖庫', icon: 'XhsStock', color: 'red' },
   { id: AppID.ThemeMaker, name: '氣泡工坊', icon: 'ThemeMaker', color: 'purple' },

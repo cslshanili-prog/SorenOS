@@ -1,6 +1,6 @@
 # 資料庫（相簿改版）設計
 
-> 狀態：設計稿，還沒動工。提議來自 Liora（2026-11-07）：相簿改成「資料庫」——除了 Soren 生成的圖，也能自己上傳現成的圖、寫描述、直接在這裡生成照片，分配給角色用；協同工作做出來的文件也能歸檔進來。
+> 狀態：第一批已做（2026-11-07）：資料庫畫面、描述、分配、上傳。第二批起還沒動。提議來自 Liora（2026-11-07）：相簿改成「資料庫」——除了 Soren 生成的圖，也能自己上傳現成的圖、寫描述、直接在這裡生成照片，分配給角色用；協同工作做出來的文件也能歸檔進來。
 
 ## 現況
 
@@ -20,38 +20,37 @@
 
 ## 資料結構
 
-新表 `library_items`（進完整備份；二進制照舊放 `blob_assets`，這張表只存令牌和描述）：
+**沿用相簿那張 `gallery` 表（`GalleryImage`），不另開新表**。原本設計稿寫的是新表 `library_items`，動工時改了：這張表已經接好完整備份、內容收藏（`contentFavorites` 按 id 回指）、存儲優化，還在圖片清理（`utils/blobGc.ts`）的引用面清單裡——另開新表得每條路重接一次，漏掉 GC 那條，只存在資料庫裡的上傳圖會被當成孤兒刪掉。所以也不用搬遷：舊圖原地不動，新欄位缺省就是舊行為。
+
+`GalleryImage` 加的欄位（`types.ts`）：
 
 ```ts
-interface LibraryItem {
-  id: string;
-  kind: 'image' | 'file';
-  blobRef: string;              // 圖片或文件本體
-  title?: string;
-  /** 寫給角色看的描述（角色「知道」這張圖，靠的就是這段） */
-  description?: string;
-  source: 'chat_user' | 'chat_char' | 'date_moment' | 'upload' | 'generated' | 'collab_file';
-  /** 從哪來的（聊天訊息、見面故事、協同視窗），回溯用 */
-  sourceCharId?: string;
-  sourceMessageId?: number;
-  /** 誰能用：所有角色共用、某幾個世界的角色、或指定幾個角色 */
-  access: { mode: 'all' } | { mode: 'worlds'; worldIds: string[] } | { mode: 'chars'; charIds: string[] };
-  /** 生成的圖：當時的提示詞、鎖了幾張臉 */
-  generation?: { prompt: string; lock?: string };
-  /** 文件：檔名、類型、大小 */
-  file?: { name: string; mime: string; size: number };
-  createdAt: number;
-  updatedAt: number;
+type LibraryAccess =
+  | { mode: 'all' }                              // 所有角色共用（之後新加的角色也算）
+  | { mode: 'worlds'; worldIds: string[] }       // 世界＝神經鏈接分組（CharacterGroup，角色的 groupId）
+  | { mode: 'chars'; charIds: string[] };        // 指定角色
+
+interface GalleryImage {
+  // …原本的 charId / url / sender / origin / review / chatContext…
+  origin?: 'date_moment' | 'upload';             // 'upload'＝在資料庫自己上傳的，charId 是空字串
+  description?: string;                          // 寫給角色看的描述，最多 500 字
+  access?: LibraryAccess;                        // 沒寫＝原本那個角色（charId）
 }
 ```
 
-**舊相簿搬過來**：第一次打開時把 `gallery_images` 逐張轉成 `LibraryItem`（`source` 照 `sender`／`origin` 換、`access` 是原本那個角色），舊表留著不刪、不再寫；相簿詳情頁的「讓角色點評」照樣能用（點評記在 item 上）。
+純邏輯在 `utils/library.ts`：
+- `librarySourceOf`：來源五種裡的四種（角色傳的／你傳的／見面拍的／你上傳的），第三批加「在這裡生成的」
+- `resolveLibraryAccess`：沒寫分配的舊圖＝`{ mode: 'chars', charIds: [charId] }`；上傳的沒有來源角色，沒寫就是沒人能用（上傳時一定會寫，預設共用）
+- `canCharUseLibraryImage`：第二批「角色知道有這張圖」就照它挑
+- 改描述、分配走 `DB.updateGalleryImage`：讀最新那行再合併，不會蓋掉同時寫進去的點評
+
+之後再加的欄位（第三、四批）：生成記錄 `generation { prompt, lock }`、文件 `kind: 'file'` ＋ `file { name, mime, size }`；「拿來當生圖參考」還沒定，到時候也加在這張表上。
 
 ## 畫面
 
-- **瀏覽**：上面兩個分頁「照片」「文件」，照片再按來源篩（角色傳的／你傳的／見面拍的／上傳的／在這裡生成的），也能按角色篩（看某個角色能用哪些）
-- **單張**：大圖、描述（可改）、分配給誰（所有角色共用／照世界／勾選角色）、來源、刪除
-- **上傳**：選圖 → 寫描述 → 分配
+- **瀏覽**：所有照片放一起（不再按角色分相冊），按來源篩（角色傳的／你傳的／見面拍的／你上傳的；第三批加在這裡生成的），也能按角色篩「誰能用」（看某個角色能用哪些，含共用和照世界的）。「文件」分頁第四批再加
+- **單張**：大圖、來源那行、描述（離開輸入框就存）、誰能用（改了立刻存）、收藏、刪除（只刪資料庫這筆，聊天／見面記錄裡那張不動）；你在私聊傳給角色的照片照舊有「讓 TA 點評」和當時的對話
+- **上傳**：右上角「上傳」→ 選圖（壓到長邊 2048）→ 寫描述 → 分配（預設所有角色共用）→ 存進資料庫
 - **在這裡生成**：寫提示詞 → 選類型（獨照／合照／物品／風景）→ 選角色（獨照選一個、合照選兩個以上，用各自的參考圖鎖臉，你用身份卡的長相）→ 生成後先預覽，滿意才存
 - **協同文件櫃**：每個文件多一顆「歸檔到資料庫」，複製一份進來；資料庫裡可以打開、下載、分配
 
@@ -65,7 +64,7 @@ interface LibraryItem {
 
 | 批 | 內容 |
 |---|---|
-| 1 | `library_items` 表、舊相簿搬遷、資料庫畫面（瀏覽、上傳、描述、分配）；相簿 App 換成資料庫 |
+| 1 ✅ | 相簿表加描述／分配、資料庫畫面（瀏覽、篩選、上傳、描述、分配）；App 改名資料庫 |
 | 2 | 角色知道＋`SEND_SAVED_PHOTO` |
 | 3 | 在資料庫裡生成（獨照／合照／物品／風景） |
 | 4 | 協同文件歸檔 |

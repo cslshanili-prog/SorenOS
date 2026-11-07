@@ -1,13 +1,17 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { GalleryImage, CharacterProfile } from '../types';
+import { GalleryImage, LibraryAccess } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import TokenImg from '../components/os/TokenImg';
+import LibraryAccessPicker from '../components/library/LibraryAccessPicker';
 import { trackEvent } from '../utils/analytics';
-import { Star } from '@phosphor-icons/react';
+import { processImageToBlob } from '../utils/file';
+import { putImageBlob } from '../utils/blobRef';
+import { getLocalDateKey } from '../utils/localDate';
+import { Star, UploadSimple, NotePencil } from '@phosphor-icons/react';
 import {
     CONTENT_FAVORITES_CHANGED_EVENT,
     getContentFavoriteById,
@@ -15,59 +19,109 @@ import {
     removeContentFavoriteById,
     saveGalleryImageContentFavorite,
 } from '../utils/contentFavorites';
+import {
+    LIBRARY_DESCRIPTION_MAX,
+    LIBRARY_SOURCES,
+    LIBRARY_SOURCE_LABEL,
+    LibraryFilter,
+    describeLibraryAccess,
+    filterLibraryImages,
+    isLibraryAccessEmpty,
+    librarySourceOf,
+    makeLibraryImageId,
+    normalizeLibraryDescription,
+    resolveLibraryAccess,
+} from '../utils/library';
 
+const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。角色「知道」這張圖，靠的就是這段。';
+
+/**
+ * 資料庫（原本的相簿）：所有照片放在一起，按來源、按「哪個角色能用」篩；
+ * 每張可以寫描述、分配給誰；也能自己上傳現成的圖。設計見 plans/asset-library-design.md。
+ */
 const Gallery: React.FC = () => {
-    const { closeApp, characters, apiConfig, addToast } = useOS();
-    const [view, setView] = useState<'albums' | 'grid' | 'detail'>('albums');
-    const [activeCharId, setActiveCharId] = useState<string | null>(null);
+    const { closeApp, characters, characterGroups, apiConfig, addToast } = useOS();
+    const [view, setView] = useState<'grid' | 'detail' | 'upload'>('grid');
     const [images, setImages] = useState<GalleryImage[]>([]);
-    // 分類：角色傳的／你傳的／其它地方生成的（見面「拍下這一刻」這類，看 origin）
-    const [category, setCategory] = useState<'all' | 'char' | 'user' | 'other'>('all');
-    const categoryOf = (img: GalleryImage): 'char' | 'user' | 'other' => (img.origin ? 'other' : img.sender === 'char' ? 'char' : 'user');
-    const shownImages = category === 'all' ? images : images.filter(img => categoryOf(img) === category);
+    const [loaded, setLoaded] = useState(false);
+    const [filter, setFilter] = useState<LibraryFilter>({ source: 'all' });
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
     const [isReviewing, setIsReviewing] = useState(false);
     const [showChatContext, setShowChatContext] = useState(false);
     const [imageFavorited, setImageFavorited] = useState(false);
-
-    // Long-press delete state
-    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [descriptionDraft, setDescriptionDraft] = useState('');
+    const [savedHint, setSavedHint] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; variant: 'danger' | 'warning' | 'info'; onConfirm: () => void; } | null>(null);
 
-    // Album image counts
-    const [albumCounts, setAlbumCounts] = useState<Record<string, number>>({});
+    // 上傳
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [upload, setUpload] = useState<{ blob: Blob; previewUrl: string; description: string; access: LibraryAccess } | null>(null);
+    const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-        // Load image counts for all characters
-        const loadCounts = async () => {
-            const counts: Record<string, number> = {};
-            for (const char of characters) {
-                const imgs = await DB.getGalleryImages(char.id);
-                counts[char.id] = imgs.length;
-            }
-            setAlbumCounts(counts);
-        };
-        if (view === 'albums') loadCounts();
-    }, [characters, view]);
+    const reload = useCallback(async () => {
+        const all = await DB.getGalleryImages().catch(() => [] as GalleryImage[]);
+        setImages(all.sort((a, b) => b.timestamp - a.timestamp));
+        setLoaded(true);
+    }, []);
 
-    useEffect(() => {
-        if (activeCharId) {
-            DB.getGalleryImages(activeCharId).then(imgs => {
-                setImages(imgs.sort((a, b) => b.timestamp - a.timestamp));
-            });
+    useEffect(() => { void reload(); }, [reload]);
+    useEffect(() => () => { if (upload) URL.revokeObjectURL(upload.previewUrl); }, [upload?.previewUrl]);
+
+    const shownImages = useMemo(() => filterLibraryImages(images, filter, characters), [images, filter, characters]);
+    const sourceCounts = useMemo(() => {
+        const base = filter.charId ? filterLibraryImages(images, { source: 'all', charId: filter.charId }, characters) : images;
+        const counts: Record<string, number> = { all: base.length };
+        for (const image of base) counts[librarySourceOf(image)] = (counts[librarySourceOf(image)] || 0) + 1;
+        return counts;
+    }, [images, filter.charId, characters]);
+
+    const charName = (id?: string) => characters.find(c => c.id === id)?.name;
+
+    const sourceLine = (image: GalleryImage): string => {
+        const name = charName(image.charId) || '已刪除的角色';
+        switch (librarySourceOf(image)) {
+            case 'chat_char': return `${name} 在私聊傳給你的`;
+            case 'chat_user': return `你在私聊傳給 ${name} 的`;
+            case 'date_moment': return `和 ${name} 見面時拍的`;
+            default: return '你上傳的';
         }
-    }, [activeCharId]);
-
-    const handleCharClick = (id: string) => {
-        setActiveCharId(id);
-        setCategory('all');
-        setView('grid');
-        trackEvent('打开角色相册');
     };
 
-    const handleImageClick = (img: GalleryImage) => {
+    const tileBadge = (image: GalleryImage): string | null => {
+        const source = librarySourceOf(image);
+        if (source === 'chat_char') return `${charName(image.charId) || 'TA'} 傳的`;
+        if (source === 'date_moment') return '見面';
+        if (source === 'upload') return '上傳';
+        return null;
+    };
+
+    const openDetail = (img: GalleryImage) => {
         setSelectedImage(img);
+        setDescriptionDraft(img.description || '');
+        setShowChatContext(false);
+        setSavedHint(false);
         setView('detail');
+    };
+
+    const patchSelected = async (patch: Partial<GalleryImage>) => {
+        if (!selectedImage) return;
+        try {
+            const saved = await DB.updateGalleryImage(selectedImage.id, patch);
+            if (!saved) throw new Error('找不到這張圖');
+            setSelectedImage(saved);
+            setImages(prev => prev.map(img => (img.id === saved.id ? saved : img)));
+            setSavedHint(true);
+            window.setTimeout(() => setSavedHint(false), 1500);
+        } catch (error: any) {
+            addToast(`沒存成：${error?.message || '未知錯誤'}`, 'error');
+        }
+    };
+
+    const commitDescription = () => {
+        if (!selectedImage) return;
+        const next = normalizeLibraryDescription(descriptionDraft);
+        if (next === (selectedImage.description || undefined)) return;
+        void patchSelected({ description: next });
     };
 
     const refreshSelectedFavorite = useCallback(async () => {
@@ -95,8 +149,7 @@ const Gallery: React.FC = () => {
                 addToast('已取消收藏圖片', 'info');
                 return;
             }
-            const charName = characters.find(character => character.id === selectedImage.charId)?.name || '未知角色';
-            await saveGalleryImageContentFavorite(selectedImage, charName);
+            await saveGalleryImageContentFavorite(selectedImage, charName(selectedImage.charId) || '資料庫');
             setImageFavorited(true);
             addToast('已收藏圖片（僅保存引用）', 'success');
             trackEvent('收藏相册图片');
@@ -106,49 +159,26 @@ const Gallery: React.FC = () => {
         }
     };
 
+    const leaveDetail = () => {
+        commitDescription();
+        setView('grid');
+        setSelectedImage(null);
+    };
+
     const handleBack = () => {
-        if (view === 'detail') { setView('grid'); setShowChatContext(false); }
-        else if (view === 'grid') { setView('albums'); setActiveCharId(null); }
+        if (view === 'detail') leaveDetail();
+        else if (view === 'upload') { setUpload(null); setView('grid'); }
         else closeApp();
     };
 
-    // Long-press handlers for album deletion
-    const handleAlbumPressStart = useCallback((charId: string) => {
-        longPressTimer.current = setTimeout(() => {
-            const char = characters.find(c => c.id === charId);
-            setConfirmDialog({
-                isOpen: true,
-                title: '刪除相冊',
-                message: `確定要刪除「${char?.name || ''}」的所有照片嗎？此操作無法撤銷。`,
-                variant: 'danger',
-                onConfirm: async () => {
-                    const imgs = await DB.getGalleryImages(charId);
-                    for (const img of imgs) {
-                        await DB.deleteGalleryImage(img.id);
-                    }
-                    setAlbumCounts(prev => ({ ...prev, [charId]: 0 }));
-                    addToast('相冊已清空', 'success');
-                    trackEvent('清空一个角色的相册');
-                    setConfirmDialog(null);
-                }
-            });
-        }, 600);
-    }, [characters, addToast]);
-
-    const handleAlbumPressEnd = useCallback(() => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    }, []);
-
-    // Delete single image
-    const handleDeleteImage = async () => {
+    const handleDeleteImage = () => {
         if (!selectedImage) return;
         setConfirmDialog({
             isOpen: true,
             title: '刪除照片',
-            message: '確定要刪除這張照片嗎？',
+            message: librarySourceOf(selectedImage).startsWith('chat') || librarySourceOf(selectedImage) === 'date_moment'
+                ? '從資料庫刪掉這張？聊天／見面記錄裡的那張不受影響。'
+                : '確定要刪除這張照片嗎？',
             variant: 'danger',
             onConfirm: async () => {
                 await DB.deleteGalleryImage(selectedImage.id);
@@ -162,19 +192,67 @@ const Gallery: React.FC = () => {
         });
     };
 
+    // ---------- 上傳 ----------
+
+    const handlePickFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const blob = await processImageToBlob(file, { maxWidth: 2048, quality: 0.9 });
+            setUpload({ blob, previewUrl: URL.createObjectURL(blob), description: '', access: { mode: 'all' } });
+            setView('upload');
+        } catch (error: any) {
+            addToast(error?.message || '圖片讀不出來', 'error');
+        }
+    };
+
+    const handleSaveUpload = async () => {
+        if (!upload || uploading) return;
+        setUploading(true);
+        try {
+            const url = await putImageBlob(upload.blob);
+            const image: GalleryImage = {
+                id: makeLibraryImageId(),
+                charId: '',
+                url,
+                timestamp: Date.now(),
+                sender: 'user',
+                origin: 'upload',
+                access: upload.access,
+                savedDate: getLocalDateKey(new Date()),
+                ...(normalizeLibraryDescription(upload.description) ? { description: normalizeLibraryDescription(upload.description) } : {}),
+            };
+            await DB.saveGalleryImage(image);
+            trackEvent('上传到资料库', { 分配: upload.access.mode === 'all' ? '共用' : upload.access.mode === 'worlds' ? '按世界' : '指定角色', 描述: image.description ? '有' : '没有' });
+            setUpload(null);
+            setFilter({ source: 'all' });
+            await reload();
+            setView('grid');
+            addToast('存進資料庫了', 'success');
+        } catch (error: any) {
+            addToast(`沒存成：${error?.message || '未知錯誤'}`, 'error');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // ---------- 讓角色點評（你在私聊傳給角色的照片才有） ----------
+
+    const reviewer = selectedImage && librarySourceOf(selectedImage) === 'chat_user'
+        ? characters.find(c => c.id === selectedImage.charId)
+        : undefined;
+
     const handleReview = async () => {
-        if (!selectedImage || !activeCharId || !apiConfig.apiKey) {
+        if (!selectedImage || !reviewer || !apiConfig.apiKey) {
             addToast('缺少配置或圖片信息', 'error');
             return;
         }
-
-        const char = characters.find(c => c.id === activeCharId);
-        if (!char) return;
+        const char = reviewer;
 
         setIsReviewing(true);
         trackEvent('让角色点评这张照片');
         try {
-            // Build context-aware prompt
             const chatContextStr = selectedImage.chatContext?.length
                 ? `\n\nContext: This photo was shared during a conversation. Here's what was being discussed:\n${selectedImage.chatContext.join('\n')}\n\nIMPORTANT: Your comment should feel natural given the conversation context above. Do NOT say things that contradict or are completely unrelated to what was being talked about.`
                 : '';
@@ -196,12 +274,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         role: 'user',
                         content: [
                             { type: 'text', text: "Look at this photo I sent you." },
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: selectedImage.url
-                                }
-                            }
+                            { type: 'image_url', image_url: { url: selectedImage.url } }
                         ]
                     }
                 ],
@@ -229,7 +302,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     }
                 } catch (e) {
                     const text = await response.text();
-                    if(text) errorMsg = text.slice(0, 100);
+                    if (text) errorMsg = text.slice(0, 100);
                 }
                 throw new Error(errorMsg);
             }
@@ -270,236 +343,228 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
         }
     };
 
-    // --- Sub-Components ---
+    // ---------- 畫面 ----------
 
-    const [imgStatus, setImgStatus] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
-
-    const getCharGradient = (name: string): string => {
-        const gradients = [
-            'linear-gradient(to bottom right, #fb7185, #ec4899)',
-            'linear-gradient(to bottom right, #a78bfa, #8b5cf6)',
-            'linear-gradient(to bottom right, #60a5fa, #6366f1)',
-            'linear-gradient(to bottom right, #22d3ee, #14b8a6)',
-            'linear-gradient(to bottom right, #34d399, #22c55e)',
-            'linear-gradient(to bottom right, #fbbf24, #f97316)',
-            'linear-gradient(to bottom right, #f87171, #f43f5e)',
-            'linear-gradient(to bottom right, #e879f9, #ec4899)',
-        ];
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-        return gradients[Math.abs(hash) % gradients.length];
-    };
-
-    const renderAlbums = () => (
-        <div className="grid grid-cols-2 gap-5 p-5 animate-fade-in">
-            {characters.map(char => {
-                const count = albumCounts[char.id] || 0;
-                const status = imgStatus[char.id] || 'loading';
-                return (
-                    <button
-                        key={char.id}
-                        onClick={() => handleCharClick(char.id)}
-                        onTouchStart={() => handleAlbumPressStart(char.id)}
-                        onTouchEnd={handleAlbumPressEnd}
-                        onTouchCancel={handleAlbumPressEnd}
-                        onMouseDown={() => handleAlbumPressStart(char.id)}
-                        onMouseUp={handleAlbumPressEnd}
-                        onMouseLeave={handleAlbumPressEnd}
-                        className="flex flex-col gap-2.5 group active:scale-95 transition-all"
-                    >
-                        {/* Use w-full + padding-bottom hack for aspect ratio (better mobile compat than aspect-square) */}
-                        <div className="w-full relative rounded-3xl shadow-md overflow-hidden border border-white/60" style={{ paddingBottom: '100%', backgroundImage: getCharGradient(char.name), backgroundColor: '#94a3b8' }}>
-                            {/* Always-visible fallback: character initial + name color bg */}
-                            <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-white/60 text-5xl font-bold select-none drop-shadow-md">{char.name.charAt(0)}</span>
-                            </div>
-                            {/* Image layer - hidden until loaded to prevent blank rectangles on mobile */}
-                            {status !== 'error' && (
-                                <TokenImg
-                                    value={char.avatar}
-                                    alt={char.name}
-                                    className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300 group-hover:scale-105 ${status === 'loaded' ? 'opacity-90 group-hover:opacity-100' : 'opacity-0'}`}
-                                    loading="lazy"
-                                    decoding="async"
-                                    onLoad={() => setImgStatus(prev => ({ ...prev, [char.id]: 'loaded' }))}
-                                    onError={() => setImgStatus(prev => ({ ...prev, [char.id]: 'error' }))}
-                                />
-                            )}
-                            <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
-                            <div className="absolute bottom-0 left-0 right-0 z-30 px-3 pb-2.5 pt-6 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-between">
-                                <span className="text-white text-sm font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">{char.name}</span>
-                                {count > 0 && <span className="text-white/90 text-[10px] font-mono bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">{count}</span>}
-                            </div>
-                        </div>
+    const renderFilters = () => (
+        <div className="shrink-0 space-y-2 border-b border-slate-100 bg-white/70 px-3 pb-2.5 pt-2">
+            <div role="radiogroup" aria-label="來源" className="no-scrollbar flex gap-1.5 overflow-x-auto">
+                {([['all', '全部'], ...LIBRARY_SOURCES.map(source => [source, LIBRARY_SOURCE_LABEL[source]])] as [LibraryFilter['source'], string][]).map(([value, label]) => {
+                    const count = sourceCounts[value] || 0;
+                    const on = filter.source === value;
+                    return (
+                        <button key={value} role="radio" aria-checked={on} onClick={() => setFilter(prev => ({ ...prev, source: value }))}
+                            className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-bold transition ${on ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-white text-slate-500'}`}>
+                            {label}{count ? ` ${count}` : ''}
+                        </button>
+                    );
+                })}
+            </div>
+            {characters.length > 0 && (
+                <div role="radiogroup" aria-label="哪個角色能用" className="no-scrollbar flex items-center gap-2 overflow-x-auto">
+                    <span className="shrink-0 text-[10px] font-bold text-slate-400">誰能用</span>
+                    <button role="radio" aria-checked={!filter.charId} onClick={() => setFilter(prev => ({ ...prev, charId: undefined }))}
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${!filter.charId ? 'bg-slate-200 text-slate-700' : 'text-slate-400'}`}>
+                        不限
                     </button>
-                );
-            })}
-            {characters.length === 0 && <div className="col-span-2 text-center text-slate-400 py-16 text-xs">暫無角色相冊</div>}
-        </div>
-    );
-
-    const renderGrid = () => (
-        <div className="flex-1 overflow-y-auto p-1.5 animate-fade-in">
-            {images.length > 0 && (
-                <div role="radiogroup" aria-label="照片分類" className="flex gap-1.5 px-1 pb-2 pt-0.5 overflow-x-auto no-scrollbar">
-                    {([['all', '全部'], ['char', '角色傳的'], ['user', '你傳的'], ['other', '其它地方生成的']] as const).map(([value, label]) => {
-                        const count = value === 'all' ? images.length : images.filter(img => categoryOf(img) === value).length;
+                    {characters.map(char => {
+                        const on = filter.charId === char.id;
                         return (
-                            <button key={value} role="radio" aria-checked={category === value} onClick={() => setCategory(value)}
-                                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold border transition ${category === value ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                {label}{count ? ` ${count}` : ''}
+                            <button key={char.id} role="radio" aria-checked={on} aria-label={char.name} title={char.name}
+                                onClick={() => setFilter(prev => ({ ...prev, charId: on ? undefined : char.id }))}
+                                className={`flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 transition ${on ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'}`}>
+                                <span className="relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-[9px] font-bold text-slate-500">
+                                    {char.name.charAt(0)}
+                                    {char.avatar && <TokenImg value={char.avatar} alt="" className="absolute inset-0 h-full w-full object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />}
+                                </span>
+                                <span className="max-w-[5rem] truncate text-[11px] font-bold">{char.name}</span>
                             </button>
                         );
                     })}
                 </div>
             )}
-            {shownImages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3 py-20">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-14 h-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                    <span className="text-sm">{images.length ? '這一類還沒有照片' : '還沒有照片'}</span>
-                </div>
-            ) : (
-                <div className="grid grid-cols-3 gap-1">
-                    {shownImages.map(img => (
-                        <div key={img.id} onClick={() => handleImageClick(img)} className="aspect-square bg-slate-100 relative cursor-pointer overflow-hidden rounded-sm">
-                            {/* 相冊圖存的是 blobref 令牌（見 utils/blobRef.ts），TokenImg 會解析成 objectURL；
-                                舊的 base64 / http 圖原樣透傳，兩種都顯示得出來 */}
-                            <TokenImg value={img.url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
-                            {img.origin === 'date_moment'
-                                ? <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">見面</div>
-                                : img.sender === 'char' && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-black/50 text-white text-[8px] font-bold tracking-wide">TA 發的</div>}
-                            {img.review && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-white shadow-sm"></div>}
-                            {img.savedDate && <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3"><span className="text-[8px] text-white/80 font-mono">{img.savedDate}</span></div>}
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 
-    const renderDetail = () => selectedImage && (
-        <div className="flex flex-col h-full bg-black relative animate-fade-in">
-            {/* Header */}
-            <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-50 pointer-events-none" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
-                <button onClick={() => setView('grid')} className="text-white bg-black/40 backdrop-blur-md p-2 rounded-full pointer-events-auto active:scale-95 transition-transform hover:bg-black/60 border border-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-                </button>
-                <div className="flex items-center gap-2 pointer-events-auto">
-                    <button onClick={() => void handleToggleImageFavorite()} className={`text-white backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform border border-white/10 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏圖片' : '收藏圖片'}>
-                        <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
-                    </button>
-                    <button onClick={handleDeleteImage} className="text-white bg-black/40 backdrop-blur-md p-2 rounded-full active:scale-95 transition-transform hover:bg-red-600/60 border border-white/10">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* Date badge */}
-            {selectedImage.savedDate && (
-                <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: 'max(4rem, calc(var(--safe-top) + 0.5rem))' }}>
-                    <span className="text-[10px] text-white/60 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full font-mono">{selectedImage.savedDate}</span>
-                </div>
-            )}
-
-            {/* Main Image */}
-            <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-black relative overflow-hidden">
-                <TokenImg
-                    value={selectedImage.url}
-                    className="max-w-full max-h-full object-contain"
-                    alt="Detail"
-                />
-            </div>
-
-            {/* Review & Context Section —— "讓 TA 點評照片" 建立在"用戶發了張照片給角色看"這個前提上，
-                角色自己生成發出的圖（sender === 'char'）沒有這個前提，跳過整個區塊 */}
-            {selectedImage.sender !== 'char' && (
-            <div className="shrink-0 w-full bg-[#161616] border-t border-white/10 z-40 pb-safe">
-                {selectedImage.review ? (
-                    <div className="p-5 animate-slide-up">
-                        <div className="flex items-start gap-3 mb-3">
-                            <TokenImg value={characters.find(c => c.id === activeCharId)?.avatar} className="w-9 h-9 rounded-full border border-white/20 object-cover shadow-sm" />
-                            <div className="flex-1">
-                                <div className="text-xs font-bold text-white/50 mb-1.5 uppercase tracking-wide">{characters.find(c => c.id === activeCharId)?.name} 的點評</div>
-                                <p className="text-[15px] text-white/90 leading-relaxed font-light select-text">"{selectedImage.review}"</p>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center border-t border-white/5 pt-2 mt-2">
-                            {selectedImage.chatContext && selectedImage.chatContext.length > 0 && (
-                                <button onClick={() => setShowChatContext(!showChatContext)} className="text-[10px] text-white/30 hover:text-white/60 transition-colors flex items-center gap-1 px-2 py-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
-                                    {showChatContext ? '收起對話' : '當時的對話'}
-                                </button>
-                            )}
-                            <button onClick={handleReview} disabled={isReviewing} className="text-[10px] text-white/40 hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 ml-auto">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
-                                {isReviewing ? 'Thinking...' : '重新生成'}
-                            </button>
-                        </div>
-                        {/* Chat context expandable */}
-                        {showChatContext && selectedImage.chatContext && (
-                            <div className="mt-3 bg-white/5 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto">
-                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照時的對話記錄</div>
-                                {selectedImage.chatContext.map((line, i) => (
-                                    <div key={i} className="text-[11px] text-white/50 leading-relaxed">{line}</div>
-                                ))}
-                            </div>
-                        )}
+    const renderGrid = () => (
+        <>
+            {renderFilters()}
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5 animate-fade-in">
+                {shownImages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-14 w-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+                        <span className="text-sm">{!loaded ? '讀取中…' : images.length ? '這樣篩沒有照片' : '還沒有照片'}</span>
+                        {loaded && !images.length && <span className="max-w-[16rem] text-center text-[11px] leading-relaxed text-slate-400">私聊、見面裡傳的照片會自動放進來；右上角也能自己上傳。</span>}
                     </div>
                 ) : (
-                    <div className="p-5 flex flex-col items-center gap-3">
-                        <button
-                            onClick={handleReview}
-                            disabled={isReviewing}
-                            className="bg-white text-black px-6 py-3 rounded-full text-sm font-bold shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-95 transition-transform flex items-center gap-2 hover:bg-slate-200"
-                        >
-                            {isReviewing ? (
-                                <><div className="w-4 h-4 border-2 border-slate-300 border-t-black rounded-full animate-spin"></div> 正在思考...</>
-                            ) : (
-                                <>讓 TA 點評照片</>
-                            )}
-                        </button>
-                        {selectedImage.chatContext && selectedImage.chatContext.length > 0 && (
-                            <button onClick={() => setShowChatContext(!showChatContext)} className="text-[10px] text-white/30 hover:text-white/50 transition-colors">
-                                {showChatContext ? '收起對話記錄' : '查看當時的對話'}
-                            </button>
-                        )}
-                        {showChatContext && selectedImage.chatContext && (
-                            <div className="w-full bg-white/5 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto">
-                                <div className="text-[9px] text-white/30 uppercase tracking-wider mb-2 font-bold">拍照時的對話記錄</div>
-                                {selectedImage.chatContext.map((line, i) => (
-                                    <div key={i} className="text-[11px] text-white/50 leading-relaxed">{line}</div>
-                                ))}
-                            </div>
-                        )}
+                    <div className="grid grid-cols-3 gap-1">
+                        {shownImages.map(img => {
+                            const badge = tileBadge(img);
+                            return (
+                                <button key={img.id} onClick={() => openDetail(img)} className="relative aspect-square overflow-hidden rounded-sm bg-slate-100">
+                                    {/* 圖存的是 blobref 令牌，TokenImg 解析成 objectURL；舊的 base64 / http 圖原樣透傳 */}
+                                    <TokenImg value={img.url} className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" loading="lazy" />
+                                    {badge && <div className="absolute left-1.5 top-1.5 max-w-[85%] truncate rounded-full bg-black/50 px-1.5 py-0.5 text-[8px] font-bold tracking-wide text-white">{badge}</div>}
+                                    {img.review && <div className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary shadow-sm ring-2 ring-white"></div>}
+                                    <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between bg-gradient-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3">
+                                        <span className="font-mono text-[8px] text-white/80">{img.savedDate || ''}</span>
+                                        {img.description && <NotePencil size={10} weight="bold" className="text-white/90" aria-label="有描述" />}
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
             </div>
+        </>
+    );
+
+    const renderReview = () => reviewer && selectedImage && (
+        <section className="space-y-2">
+            <h3 className="text-[11px] font-bold text-slate-400">{reviewer.name} 怎麼說</h3>
+            {selectedImage.review ? (
+                <div className="rounded-2xl bg-slate-50 p-3">
+                    <div className="flex items-start gap-2.5">
+                        <TokenImg value={reviewer.avatar} className="h-8 w-8 rounded-full object-cover" />
+                        <p className="flex-1 select-text text-[14px] leading-relaxed text-slate-700">「{selectedImage.review}」</p>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                        <button onClick={handleReview} disabled={isReviewing} className="px-2 py-1 text-[11px] font-bold text-slate-400 hover:text-primary">
+                            {isReviewing ? '想一下…' : '重新生成'}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <button onClick={handleReview} disabled={isReviewing}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-2.5 text-[13px] font-bold text-slate-600 active:scale-[0.98]">
+                    {isReviewing ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600"></span>正在思考…</> : <>讓 TA 點評照片</>}
+                </button>
             )}
+            {selectedImage.chatContext && selectedImage.chatContext.length > 0 && (
+                <>
+                    <button onClick={() => setShowChatContext(!showChatContext)} className="text-[11px] text-slate-400 hover:text-slate-600">
+                        {showChatContext ? '收起當時的對話' : '查看當時的對話'}
+                    </button>
+                    {showChatContext && (
+                        <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-xl bg-slate-50 p-3">
+                            {selectedImage.chatContext.map((line, i) => (
+                                <div key={i} className="text-[11px] leading-relaxed text-slate-500">{line}</div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+        </section>
+    );
+
+    const renderDetail = () => {
+        if (!selectedImage) return null;
+        const access = resolveLibraryAccess(selectedImage);
+        return (
+            <div className="relative flex h-full flex-col bg-black animate-fade-in">
+                <div className="pointer-events-none absolute left-0 top-0 z-50 flex w-full items-start justify-between p-4" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
+                    <button onClick={leaveDetail} aria-label="返回" className="pointer-events-auto rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur-md transition-transform hover:bg-black/60 active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-6 w-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                    </button>
+                    <div className="pointer-events-auto flex items-center gap-2">
+                        <button onClick={() => void handleToggleImageFavorite()} className={`rounded-full border border-white/10 p-2 text-white backdrop-blur-md transition-transform active:scale-95 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏圖片' : '收藏圖片'}>
+                            <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
+                        </button>
+                        <button onClick={handleDeleteImage} aria-label="刪除照片" className="rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur-md transition-transform hover:bg-red-600/60 active:scale-95">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="relative flex h-[46%] w-full shrink-0 items-center justify-center overflow-hidden bg-black" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <TokenImg value={selectedImage.url} className="max-h-full max-w-full object-contain" alt={selectedImage.description || '照片'} />
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto rounded-t-3xl bg-white px-5 pb-8 pt-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-[12px] text-slate-500">{sourceLine(selectedImage)}{selectedImage.savedDate ? ` · ${selectedImage.savedDate}` : ''}</p>
+                        <span className={`shrink-0 text-[11px] font-bold text-emerald-500 transition-opacity ${savedHint ? 'opacity-100' : 'opacity-0'}`}>已儲存</span>
+                    </div>
+
+                    <section className="space-y-1.5">
+                        <h3 className="text-[11px] font-bold text-slate-400">描述</h3>
+                        <textarea
+                            value={descriptionDraft}
+                            onChange={event => setDescriptionDraft(event.target.value.slice(0, LIBRARY_DESCRIPTION_MAX))}
+                            onBlur={commitDescription}
+                            rows={3}
+                            placeholder={DESCRIPTION_HINT}
+                            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] leading-relaxed text-slate-700 outline-none focus:border-slate-400"
+                        />
+                        <div className="text-right font-mono text-[10px] text-slate-300">{descriptionDraft.length}/{LIBRARY_DESCRIPTION_MAX}</div>
+                    </section>
+
+                    <section className="space-y-2">
+                        <div className="flex items-baseline justify-between">
+                            <h3 className="text-[11px] font-bold text-slate-400">誰能用</h3>
+                            <span className="text-[11px] text-slate-400">{describeLibraryAccess(access, characters, characterGroups)}</span>
+                        </div>
+                        <LibraryAccessPicker value={access} onChange={next => void patchSelected({ access: next })} characters={characters} worlds={characterGroups} />
+                        {isLibraryAccessEmpty(access) && <p className="text-[11px] text-amber-600">現在沒有角色能用這張。</p>}
+                    </section>
+
+                    {renderReview()}
+                </div>
+            </div>
+        );
+    };
+
+    const renderUpload = () => upload && (
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-10 pt-4 animate-fade-in">
+            <div className="flex max-h-[40vh] items-center justify-center overflow-hidden rounded-2xl bg-slate-900">
+                <img src={upload.previewUrl} alt="要上傳的圖" className="max-h-[40vh] max-w-full object-contain" />
+            </div>
+            <button onClick={() => fileInputRef.current?.click()} className="text-[12px] font-bold text-slate-400 underline-offset-2 hover:underline">換一張</button>
+            <section className="space-y-1.5">
+                <h3 className="text-[11px] font-bold text-slate-400">描述</h3>
+                <textarea
+                    value={upload.description}
+                    onChange={event => setUpload(prev => prev && { ...prev, description: event.target.value.slice(0, LIBRARY_DESCRIPTION_MAX) })}
+                    rows={3}
+                    placeholder={DESCRIPTION_HINT}
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] leading-relaxed text-slate-700 outline-none focus:border-slate-400"
+                />
+            </section>
+            <section className="space-y-2">
+                <h3 className="text-[11px] font-bold text-slate-400">誰能用</h3>
+                <LibraryAccessPicker value={upload.access} onChange={next => setUpload(prev => prev && { ...prev, access: next })} characters={characters} worlds={characterGroups} />
+            </section>
+            <button onClick={handleSaveUpload} disabled={uploading}
+                className="w-full rounded-2xl bg-slate-800 py-3 text-[14px] font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50">
+                {uploading ? '存進去中…' : '存進資料庫'}
+            </button>
         </div>
     );
 
     return (
-        <div className="h-full w-full bg-slate-50 flex flex-col font-light relative">
+        <div className="relative flex h-full w-full flex-col bg-slate-50 font-light">
             <ConfirmDialog isOpen={!!confirmDialog} title={confirmDialog?.title || ''} message={confirmDialog?.message || ''} variant={confirmDialog?.variant} confirmText="確認" onConfirm={confirmDialog?.onConfirm || (() => setConfirmDialog(null))} onCancel={() => setConfirmDialog(null)} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickFile} />
 
-            {/* Header */}
             {view !== 'detail' && (
-                <div className="bg-white/80 backdrop-blur-xl border-b border-slate-100/60 shrink-0 z-10 sticky top-0" style={{ paddingTop: 'var(--safe-top)' }}>
-                    <div className="h-16 flex items-center px-4">
-                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100/60 bg-white/80 backdrop-blur-xl" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <div className="flex h-16 items-center px-4">
+                        <button onClick={handleBack} aria-label="返回" className="-ml-2 rounded-full p-2 transition-transform hover:bg-black/5 active:scale-90">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <h1 className="text-lg font-semibold text-slate-800 ml-2 tracking-tight">
-                            {view === 'albums' ? '相冊' : characters.find(c => c.id === activeCharId)?.name || '相冊'}
-                        </h1>
-                        {view === 'grid' && <span className="text-xs text-slate-400 ml-2 font-mono">{images.length}</span>}
+                        <h1 className="ml-2 text-lg font-semibold tracking-tight text-slate-800">{view === 'upload' ? '上傳到資料庫' : '資料庫'}</h1>
+                        {view === 'grid' && <span className="ml-2 font-mono text-xs text-slate-400">{images.length}</span>}
+                        {view === 'grid' && (
+                            <button onClick={() => fileInputRef.current?.click()} className="ml-auto flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1.5 text-[12px] font-bold text-white active:scale-95">
+                                <UploadSimple size={14} weight="bold" />上傳
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
 
-            {view === 'albums' && <div className="flex-1 overflow-y-auto min-h-0">{renderAlbums()}</div>}
             {view === 'grid' && renderGrid()}
             {view === 'detail' && renderDetail()}
+            {view === 'upload' && renderUpload()}
         </div>
     );
 };
