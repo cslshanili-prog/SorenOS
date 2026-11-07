@@ -27,7 +27,8 @@ import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArc
 import type { PipelineResult } from '../utils/memoryPalace/pipeline';
 import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPalace';
 import { getRoomLabel } from '../utils/memoryPalace/types';
-import { safeResponseJson, extractContent } from '../utils/safeApi';
+import { safeFetchJson } from '../utils/safeApi';
+import { appendDateRerollNote, contentFromDateRaw, dateReplyMeta, readDateReply, type DateReply } from '../utils/dateReply';
 import Modal from '../components/os/Modal';
 import TokenImg from '../components/os/TokenImg';
 import DateSession from '../components/date/DateSession';
@@ -290,34 +291,46 @@ const DateApp: React.FC = () => {
 
     // peek / send / reroll 共用的 LLM 調用（提示詞構建統一在 utils/datePrompts.ts）
     // 見面跟私聊用同一個模型：角色設了專屬「對話模型」就用它，沒設才落到全局 API
-    const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<string> => {
+    // 生成中的那一則（開了串流才有）：正文和原生思考邊到邊顯示，收完就清掉
+    const [liveReply, setLiveReply] = useState<{ text: string; reasoning: string } | null>(null);
+    const callLLMReply = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<DateReply> => {
         const chatApi = char ? resolveCharacterChatApi(char, apiConfig) : apiConfig;
-        const response = await fetch(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatApi.apiKey}` },
-            body: JSON.stringify({
-                model: chatApi.model,
-                messages,
-                // 用自訂預設時，生成參數照預設（沒填的項目照舊）
-                temperature: generation?.temperature ?? temperature,
-                ...(generation?.topP !== undefined ? { top_p: generation.topP } : {}),
-                ...(generation?.frequencyPenalty ? { frequency_penalty: generation.frequencyPenalty } : {}),
-                ...(generation?.presencePenalty ? { presence_penalty: generation.presencePenalty } : {}),
-                // max_tokens 是 Claude 原生 API 的必填字段；缺了它，糯米機/Csy 等
-                // OpenAI→Claude 中轉會被上游打回，再包成 502 / bad_response_status_code。
-                // 與私聊 (useChatAI.ts) 對齊，統一帶 8000（預設有填就照預設）。
-                max_tokens: generation?.maxTokens || 8000,
-                stream: apiConfig.stream ?? false,
-            })
-        });
-        if (!response.ok) throw new Error(`API Error ${response.status}`);
-        const data = await safeResponseJson(response);
-        // 思考型渠道會把正文塞進 reasoning_content、content 留空——直接取 content
-        // 會拿到空串且不報錯：感知頁黑屏卡死（無按鈕可退），會話裡則落庫空消息。
-        const content = extractContent(data);
-        if (!content) throw new Error('模型返回了空回覆，請重試或檢查渠道/模型設置');
-        return content;
+        const stream = apiConfig.stream ?? false;
+        setLiveReply(null);
+        try {
+            const data = await safeFetchJson(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatApi.apiKey}` },
+                body: JSON.stringify({
+                    model: chatApi.model,
+                    messages,
+                    // 用自訂預設時，生成參數照預設（沒填的項目照舊）
+                    temperature: generation?.temperature ?? temperature,
+                    ...(generation?.topP !== undefined ? { top_p: generation.topP } : {}),
+                    ...(generation?.frequencyPenalty ? { frequency_penalty: generation.frequencyPenalty } : {}),
+                    ...(generation?.presencePenalty ? { presence_penalty: generation.presencePenalty } : {}),
+                    // max_tokens 是 Claude 原生 API 的必填字段；缺了它，糯米機/Csy 等
+                    // OpenAI→Claude 中轉會被上游打回，再包成 502 / bad_response_status_code。
+                    // 與私聊 (useChatAI.ts) 對齊，統一帶 8000（預設有填就照預設）。
+                    max_tokens: generation?.maxTokens || 8000,
+                    stream,
+                })
+            }, 0, 0, { appName: '見面', charId: char?.id, charName: char?.name, purpose: '見面回覆' }, stream ? {
+                onDelta: (_delta, full) => setLiveReply(prev => ({ text: full, reasoning: prev?.reasoning || '' })),
+                onReasoningDelta: (_delta, full) => setLiveReply(prev => ({ text: prev?.text || '', reasoning: full })),
+            } : undefined);
+            // 思考型渠道會把正文塞進 reasoning_content、content 留空——直接取 content
+            // 會拿到空串且不報錯：感知頁黑屏卡死（無按鈕可退），會話裡則落庫空消息。
+            // 原文和原生思考另外留著（utils/dateReply.ts），畫面上看得到預設有沒有在跑
+            const reply = readDateReply(data);
+            if (!reply.content) throw new Error('模型返回了空回覆，請重試或檢查渠道/模型設置');
+            return reply;
+        } finally {
+            setLiveReply(null);
+        }
     };
+    const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<string> =>
+        (await callLLMReply(messages, temperature, generation)).content;
 
     useEffect(() => {
         let cancelled = false;
@@ -721,7 +734,8 @@ const DateApp: React.FC = () => {
         const { messages, generation } = preset
             ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap, clock })
             : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: preparedAllMsgs, emojis, userText: modelText, variant: 'send', useVisionDescriptions: useVision, recap, clock })), generation: undefined };
-        const rawContent = await callLLM(messages, apiConfig.temperature ?? 0.85, generation);
+        const reply = await callLLMReply(messages, apiConfig.temperature ?? 0.85, generation);
+        const rawContent = reply.content;
         const parsed = parseSARModuleReply(preset
             ? applyRegexScripts(rawContent, preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env: regexEnv })
             : rawContent, sarModulePlan);
@@ -741,7 +755,7 @@ const DateApp: React.FC = () => {
             : undefined;
 
         // 3. Save AI Response
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         if (sarModulePlan.character) {
             updateCharacter(char.id, previous => ({
                 vrState: { ...(previous.vrState || { enabled: false, intervalMinutes: 120 }), sarModule: advanceSARModuleAfterReply(previous.vrState?.sarModule, sarModulePlan.character) },
@@ -764,7 +778,7 @@ const DateApp: React.FC = () => {
         return parsed.assistantSurface || parsed.canonical;
     };
 
-    const handleReroll = async (): Promise<string> => {
+    const handleReroll = async (rerollNote?: string): Promise<string> => {
         if (!char || dateMessages.length === 0) throw new Error("No context");
 
         // 拍下這一刻的照片不算一輪回覆：重擲的是它前面那則
@@ -847,7 +861,8 @@ const DateApp: React.FC = () => {
             ? await buildMeetingPresetPayload({ preset: preset.doc, char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: rerollText, useVisionDescriptions: useVision, model: resolveCharacterChatApi(char, apiConfig).model, recap, clock })
             : { ...(await DatePrompts.buildSessionPayload({ char: storyChar, userProfile: dateUserProfile, allMsgs: rerollMsgs, emojis, userText: lastUserMsg.content, variant: 'reroll', useVisionDescriptions: useVision, recap, clock })), generation: undefined };
         // Reroll 略調高溫度求多樣性，但絕不低於用戶配置的基線（用預設時照預設的溫度）。
-        const rawContent = await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
+        const reply = await callLLMReply(rerollNote ? appendDateRerollNote(messages, rerollNote) : messages, Math.max(apiConfig.temperature ?? 0.85, 0.9), generation);
+        const rawContent = reply.content;
         const sarPlan = getSARModuleRuntimePlan(char, dateUserProfile);
         const regexEnv = { charName: char.name, userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
         const parsed = parseSARModuleReply(preset
@@ -870,9 +885,9 @@ const DateApp: React.FC = () => {
 
         // 生成成功後才刪舊回覆：以前先刪後調 API，請求一失敗上一條劇情就永久消失
         await DB.deleteMessage(lastMsg.id);
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         markDateTurnDirty(char);
-        trackEvent('重掷见面回复', { 目标: '回复' });
+        trackEvent('重掷见面回复', { 目标: '回复', 附说明: rerollNote?.trim() ? '有' : '没有' });
 
         // Sync
         setDateMessages(await loadRecentDateMessages(char.id));
@@ -905,8 +920,19 @@ const DateApp: React.FC = () => {
 
     const confirmEditMessage = async () => {
         if (!editTargetMsg) return;
-        await DB.updateMessage(editTargetMsg.id, editContent);
-        setDateMessages(prev => prev.map(m => m.id === editTargetMsg.id ? { ...m, content: editContent } : m));
+        const rawEdit = typeof editTargetMsg.metadata?.dateRaw === 'string';
+        if (rawEdit) {
+            // 改的是模型原文（含思維鏈、結構標籤）：存回原文，正文照收到回覆時那套換出來
+            const preset = char ? await loadPresetFor(char) : null;
+            const env = { charName: char?.name || '', userName: dateUserProfile?.name || '', vars: {}, globalVars: {} };
+            const content = contentFromDateRaw(editContent, preset?.doc.regexScripts, env);
+            await DB.updateMessage(editTargetMsg.id, content);
+            await DB.updateMessageMetadata(editTargetMsg.id, prev => ({ ...(prev || {}), dateRaw: editContent }));
+            setDateMessages(prev => prev.map(m => m.id === editTargetMsg.id ? { ...m, content, metadata: { ...(m.metadata || {}), dateRaw: editContent } } : m));
+        } else {
+            await DB.updateMessage(editTargetMsg.id, editContent);
+            setDateMessages(prev => prev.map(m => m.id === editTargetMsg.id ? { ...m, content: editContent } : m));
+        }
         markDateTurnDirty();
         setIsEditModalOpen(false);
         setEditTargetMsg(null);
@@ -1602,7 +1628,9 @@ const DateApp: React.FC = () => {
                     onSendMessage={handleSendMessage}
                     onReroll={handleReroll}
                     onExit={onExitSession}
-                    onEditMessage={(msg) => { setEditTargetMsg(msg); setEditContent(msg.content); setIsEditModalOpen(true); }}
+                    onEditMessage={(msg) => { setEditTargetMsg(msg); setEditContent(typeof msg.metadata?.dateRaw === 'string' ? msg.metadata.dateRaw : msg.content); setIsEditModalOpen(true); }}
+                    liveReply={liveReply}
+                    presetName={activePreset?.doc.name}
                     onDeleteMessage={handleDeleteMessage}
                     onDeleteMessages={handleDeleteMessages}
                     onSettings={() => {}} // Removed parent state change, DateSession handles it internally now
@@ -1767,7 +1795,10 @@ const DateApp: React.FC = () => {
 
                 {/* Global Message Edit Modal for Session Mode */}
                 <Modal isOpen={isEditModalOpen} title="編輯內容" onClose={() => setIsEditModalOpen(false)} footer={<><button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl">取消</button><button onClick={confirmEditMessage} className="flex-1 py-3 bg-primary text-white font-bold rounded-2xl">保存</button></>}>
-                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="w-full h-32 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed" />
+                    {typeof editTargetMsg?.metadata?.dateRaw === 'string' && (
+                        <p className="mb-2 text-[11px] leading-relaxed text-slate-400">這是模型回來的完整原文（思考過程、結構標籤都在）。存檔後照目前的預設重新整理顯示。</p>
+                    )}
+                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className={`w-full ${typeof editTargetMsg?.metadata?.dateRaw === 'string' ? 'h-[50vh]' : 'h-32'} bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed`} />
                 </Modal>
             </>
         );

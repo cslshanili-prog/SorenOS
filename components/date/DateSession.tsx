@@ -25,6 +25,7 @@ import { VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguageLabel
 import { trackEvent } from '../../utils/analytics';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import DecorationFrame from './DecorationFrame';
+import { DateLiveReply, DateReplyTags, DateRerollSheet } from './DateReplyTrace';
 import EmotionStatusPanel from '../chat/EmotionStatusPanel';
 import { liveBuffs } from '../../utils/emotionDecay';
 import { describeMomentLock } from '../../utils/dateMoment';
@@ -48,7 +49,12 @@ interface DateSessionProps {
     peekStatus: string;  // Initial text from the Peek phase
     initialState?: DateState; // Resume state
     onSendMessage: (text: string, kind?: 'continue') => Promise<string>; // Returns AI content
-    onReroll: () => Promise<string>;
+    /** note：使用者寫的重新生成說明（附說明重 Roll） */
+    onReroll: (note?: string) => Promise<string>;
+    /** 生成中的那一則（開了串流才有） */
+    liveReply?: { text: string; reasoning: string } | null;
+    /** 這個角色現在用的自訂預設（沒用就是內建規則） */
+    presetName?: string;
     onExit: (currentState: DateState) => void;
     onEditMessage: (msg: Message) => void;
     onDeleteMessage: (msg: Message) => void;
@@ -132,6 +138,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     peekStatus,
     onSendMessage,
     onReroll,
+    liveReply,
+    presetName,
     onExit,
     onEditMessage,
     onDeleteMessage,
@@ -393,6 +401,8 @@ const DateSession: React.FC<DateSessionProps> = ({
         return sessionMessages.slice(-novelVisibleCount);
     }, [sessionMessages, novelVisibleCount]);
     const hiddenNovelMessageCount = Math.max(0, sessionMessages.length - visibleSessionMessages.length);
+    // 每則是這段見面記錄的第幾則（標籤列的 #）
+    const messageOrdinal = React.useMemo(() => new Map(sessionMessages.map((m, i) => [m.id, i] as const)), [sessionMessages]);
 
     useEffect(() => {
         setNovelVisibleCount(NOVEL_MESSAGE_WINDOW_SIZE);
@@ -404,6 +414,14 @@ const DateSession: React.FC<DateSessionProps> = ({
             novelScrollRef.current.scrollTop = novelScrollRef.current.scrollHeight;
         }
     }, [visibleSessionMessages.length, showInputBox]);
+
+    // 串流中：使用者沒往上翻的話跟著捲到底，看得到正在寫的那段
+    const liveLength = (liveReply?.text.length || 0) + (liveReply?.reasoning.length || 0);
+    useEffect(() => {
+        const el = novelScrollRef.current;
+        if (!el || !liveLength) return;
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < 240) el.scrollTop = el.scrollHeight;
+    }, [liveLength]);
 
     const closeMenu = () => { setShowMenu(false); setShowVoiceLangPicker(false); };
 
@@ -436,11 +454,13 @@ const DateSession: React.FC<DateSessionProps> = ({
     const handleSend = () => { void submitTurn(); };
     const handleContinue = () => { void submitTurn('continue'); };
 
-    const handleRerollClick = async () => {
+    const [showRerollSheet, setShowRerollSheet] = useState(false);
+    const handleRerollClick = async (note?: string) => {
         if (isTyping) return;
+        setShowRerollSheet(false);
         setIsTyping(true);
         try {
-            await onReroll();
+            await onReroll(note);
         } catch(e: any) {
             // 父級 handleReroll 只拋不提示；這裡不給反饋的話，點了「重新生成」沒動靜用戶會以為沒點上
             addToast(`重新生成失敗: ${e?.message || '未知錯誤'}`, 'error');
@@ -631,8 +651,11 @@ const DateSession: React.FC<DateSessionProps> = ({
 
                 {showMenu && (
                     <div className="flex flex-col items-end gap-1.5 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="date-preset-label max-w-[14rem] truncate rounded-full bg-black/40 px-3 py-1 text-[10px] font-bold text-white/80 backdrop-blur-md" title={presetName || '內建規則'}>
+                            預設：{presetName || '內建規則'}
+                        </div>
                         {!isTyping && canReroll && (
-                            <button onClick={() => { closeMenu(); handleRerollClick(); }} className={menuButton}>
+                            <button onClick={() => { closeMenu(); setShowRerollSheet(true); }} className={menuButton}>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                                 重新生成
                             </button>
@@ -830,6 +853,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                             <ReadingAvatar src={char.avatar} name={char.name} light={light} />
                                         )}
                                         <div className="min-w-0 flex-1">
+                                            {!isOpeningMsg && <DateReplyTags msg={msg} index={(messageOrdinal.get(msg.id) ?? 0) + 1} light={light} />}
                                             {parts.map((part, partIdx) => part.type === 'html'
                                                 ? (
                                                     <div key={`html-${partIdx}`} className={`date-decoration-card ${decorationDarkCard ? 'rounded-2xl bg-[#1c1b22] px-3 py-px my-3' : ''}`}>
@@ -912,13 +936,16 @@ const DateSession: React.FC<DateSessionProps> = ({
                                 )}
                             </div>
                         ))}
+                        {isTyping && liveReply && (liveReply.text || liveReply.reasoning) && <DateLiveReply live={liveReply} light={light} />}
                     </div>
                 </div>
             </div>
 
+            {showRerollSheet && <DateRerollSheet onCancel={() => setShowRerollSheet(false)} onReroll={note => void handleRerollClick(note)} />}
+
             {/* Input Layer */}
             <div className={`absolute inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none transition-all duration-300 ${isTyping || showInputBox ? 'opacity-100' : 'opacity-0'}`}>
-                {isTyping && (
+                {isTyping && !(liveReply && (liveReply.text || liveReply.reasoning)) && (
                     <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-auto">
                         <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 shadow-2xl animate-pulse flex items-center gap-3">
                              <div className="flex gap-1.5"><div className="w-2 h-2 bg-white rounded-full animate-bounce"></div><div className="w-2 h-2 bg-white rounded-full animate-bounce delay-75"></div><div className="w-2 h-2 bg-white rounded-full animate-bounce delay-150"></div></div>

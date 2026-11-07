@@ -41,6 +41,8 @@
 | `.date-line-user` / `.date-line-name` | 你說的話／後面那個名字 |
 | `.date-decoration-card` | 裝飾卡片外框 |
 | `.date-photo` | 拍下這一刻的照片（`figure`，圖片下面一行鎖臉說明） |
+| `.date-reply-tags` / `.date-reply-trace` | 回覆上面那行 #／字數／時間／預設，和展開的思考過程、原文 |
+| `.date-live-reply` | 開了串流時，生成中那一塊 |
 | `.date-input-bar` / `.date-input` | 輸入框外殼／輸入框 |
 
 原本的底色、遮罩是 Tailwind class 或 inline style，要蓋得加 `!important`。
