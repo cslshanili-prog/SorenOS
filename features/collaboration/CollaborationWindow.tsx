@@ -31,6 +31,7 @@ import TokenImg from '../../components/os/TokenImg';
 import { bucketFewCount, trackEvent } from '../../utils/analytics';
 import { processImageToBlob } from '../../utils/file';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
+import { archiveCollaborationFile } from '../../utils/libraryArchive';
 import { describeImageWithVisionApi } from '../../utils/visionApi';
 import { loadCollaborationChatHistory, selectCollaborationTransfer } from './chatBridge';
 import {
@@ -1408,7 +1409,9 @@ const CollaborationFileLibrary: React.FC<{
   onClose: () => void;
   onOpen: (file: CollaborationLibraryFile) => void;
   onDelete: (file: CollaborationLibraryFile) => void;
-}> = ({ open, files, loading, onClose, onOpen, onDelete }) => {
+  /** 複製一份到資料庫（可安裝作品不給歸檔：它們在這裡安裝才有意義） */
+  onArchive: (file: CollaborationLibraryFile) => void;
+}> = ({ open, files, loading, onClose, onOpen, onDelete, onArchive }) => {
   const [query, setQuery] = useState('');
   const [actionFile, setActionFile] = useState<CollaborationLibraryFile | null>(null);
   useEffect(() => {
@@ -1475,6 +1478,9 @@ const CollaborationFileLibrary: React.FC<{
               <p className="truncate text-[12px] font-semibold text-slate-700">{actionFile.name}</p>
               <p className="mt-1 text-[10px] text-slate-400">刪除後，聊天裡已經發出的同一文件或作品也將無法再次打開。</p>
             </div>
+            {actionFile.kind !== 'installable' && (
+              <button type="button" onClick={() => { const file = actionFile; setActionFile(null); onArchive(file); }} className="flex w-full items-center justify-center gap-2 border-b border-slate-100 px-4 py-4 text-[13px] font-semibold text-slate-700 active:bg-slate-50"><Archive size={17} />歸檔到資料庫</button>
+            )}
             <button type="button" onClick={() => { const file = actionFile; setActionFile(null); onDelete(file); }} className="flex w-full items-center justify-center gap-2 px-4 py-4 text-[13px] font-semibold text-rose-600 active:bg-rose-50"><Trash size={17} />刪除這項內容</button>
             <button type="button" onClick={() => setActionFile(null)} className="w-full border-t border-slate-100 px-4 py-3.5 text-[12px] font-semibold text-slate-500 active:bg-slate-50">取消</button>
           </div>
@@ -2132,6 +2138,25 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
       if (result !== 'cancelled') trackEvent('打开协同文件', { 方式: result === 'shared' ? '分享' : '下载' });
     } catch (error: any) {
       notify(error?.message || '無法分享或導出這個文件', 'error');
+    }
+  };
+
+  // 歸檔到資料庫：複製一份，協同這邊原樣不動（utils/libraryArchive.ts）
+  const archiveLibraryFile = async (file: CollaborationLibraryFile) => {
+    try {
+      const result = await archiveCollaborationFile({
+        charId: character.id,
+        file,
+        loadBlob: () => CollaborationStore.getAsset(file.assetId),
+      });
+      if (result.status === 'exists') {
+        notify('這份已經在資料庫裡了', 'info');
+        return;
+      }
+      trackEvent('归档协同文件到资料库', { 类型: result.image.kind === 'file' ? '文件' : '图片' });
+      notify('已歸檔到資料庫', 'success');
+    } catch (error: any) {
+      notify(`沒歸檔成：${error?.message || '未知錯誤'}`, 'error');
     }
   };
 
@@ -2804,6 +2829,7 @@ const CollaborationWindow: React.FC<CollaborationWindowProps> = ({
         onClose={() => setLibraryOpen(false)}
         onOpen={file => void openAttachment(file)}
         onDelete={file => void deleteLibraryFile(file)}
+        onArchive={file => void archiveLibraryFile(file)}
       />
 
       {settingsOpen && (

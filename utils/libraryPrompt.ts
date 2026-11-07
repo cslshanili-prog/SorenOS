@@ -10,7 +10,7 @@
  */
 
 import type { CharacterProfile, GalleryImage } from '../types';
-import { canCharUseLibraryImage, librarySourceOf } from './library';
+import { canCharUseLibraryImage, isLibraryFile, librarySourceOf } from './library';
 
 export const LIBRARY_PROMPT_LIMIT = 20;
 export const LIBRARY_PROMPT_DESCRIPTION_MAX = 60;
@@ -36,7 +36,7 @@ export const pickCharLibraryPhotos = (
     limit = LIBRARY_PROMPT_LIMIT,
 ): GalleryImage[] =>
     images
-        .filter(image => (image.description || '').trim() && image.url && canCharUseLibraryImage(image, char))
+        .filter(image => !isLibraryFile(image) && (image.description || '').trim() && image.url && canCharUseLibraryImage(image, char))
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, limit);
 
@@ -78,5 +78,5 @@ export const resolveLibraryPhotoCode = (
     if (!wanted) return null;
     return [...images]
         .sort((a, b) => b.timestamp - a.timestamp)
-        .find(image => image.url && libraryPhotoCode(image.id) === wanted && canCharUseLibraryImage(image, char)) || null;
+        .find(image => !isLibraryFile(image) && image.url && libraryPhotoCode(image.id) === wanted && canCharUseLibraryImage(image, char)) || null;
 };

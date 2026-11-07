@@ -4211,8 +4211,13 @@ export interface GalleryImage {
      * 相冊詳情頁的"讓角色點評這張照片"功能只對 'user' 的圖有意義，char 的圖要跳過。 */
     sender?: 'user' | 'char';
     /** 從哪裡來的；缺省＝聊天（用戶傳的或角色傳的）。'date_moment'＝見面「拍下這一刻」、
-     * 'upload'＝在資料庫自己上傳的、'generated'＝在資料庫生成的（這兩種 charId 是空字串） */
-    origin?: 'date_moment' | 'upload' | 'generated';
+     * 'upload'＝在資料庫自己上傳的、'generated'＝在資料庫生成的（這兩種 charId 是空字串）、
+     * 'collab'＝從協同文件櫃歸檔過來的（charId 是那個協同窗口的角色） */
+    origin?: 'date_moment' | 'upload' | 'generated' | 'collab';
+    /** 照片還是文件；沒寫＝照片。文件不進照片格子、也不列給角色當照片傳 */
+    kind?: 'image' | 'file';
+    /** 文件（或從協同歸檔的圖）：檔名、類型、大小；collabAssetId 認「這份已經歸檔過」 */
+    file?: { name: string; mime: string; size: number; collabAssetId?: string; sessionTitle?: string };
     /** 在資料庫生成的：當時的類型、送出去的提示詞、照片裡有誰（角色 id，'user'＝你）、鎖了幾張臉 */
     generation?: { kind: LibraryGenKind; prompt: string; subjects: string[]; locked: number; wanted: number };
     /** 寫給角色看的描述：角色「知道」這張圖，靠的就是這段（plans/asset-library-design.md） */

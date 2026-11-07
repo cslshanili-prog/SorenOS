@@ -9,7 +9,7 @@ import type { CharacterGroup, CharacterProfile, GalleryImage, LibraryAccess } fr
 
 export const LIBRARY_DESCRIPTION_MAX = 500;
 
-export type LibrarySource = 'chat_char' | 'chat_user' | 'date_moment' | 'upload' | 'generated';
+export type LibrarySource = 'chat_char' | 'chat_user' | 'date_moment' | 'upload' | 'generated' | 'collab';
 
 export const LIBRARY_SOURCE_LABEL: Record<LibrarySource, string> = {
     chat_char: '角色傳的',
@@ -17,16 +17,21 @@ export const LIBRARY_SOURCE_LABEL: Record<LibrarySource, string> = {
     date_moment: '見面拍的',
     upload: '你上傳的',
     generated: '在這裡生成的',
+    collab: '協同歸檔的',
 };
 
-export const LIBRARY_SOURCES: LibrarySource[] = ['chat_char', 'chat_user', 'date_moment', 'upload', 'generated'];
+export const LIBRARY_SOURCES: LibrarySource[] = ['chat_char', 'chat_user', 'date_moment', 'upload', 'generated', 'collab'];
 
 export const librarySourceOf = (image: GalleryImage): LibrarySource => {
     if (image.origin === 'upload') return 'upload';
     if (image.origin === 'generated') return 'generated';
+    if (image.origin === 'collab') return 'collab';
     if (image.origin === 'date_moment') return 'date_moment';
     return image.sender === 'char' ? 'chat_char' : 'chat_user';
 };
+
+/** 文件（協同歸檔的文檔之類）：不進照片格子、不列給角色當照片傳 */
+export const isLibraryFile = (image: GalleryImage): boolean => image.kind === 'file';
 
 /** 這張圖現在給誰用（沒寫的舊圖＝原本那個角色） */
 export const resolveLibraryAccess = (image: GalleryImage): LibraryAccess => {

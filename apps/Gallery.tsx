@@ -11,9 +11,11 @@ import LibraryDescribeButton from '../components/library/LibraryDescribeButton';
 import LibraryGenerateView from '../components/library/LibraryGenerateView';
 import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
-import { blobToDataUrl, putImageBlob } from '../utils/blobRef';
+import { blobToDataUrl, getBlobForRef, putImageBlob } from '../utils/blobRef';
+import { shareOrDownloadBlob } from '../utils/shareExport';
+import { formatLibraryFileSize } from '../utils/libraryArchive';
 import { getLocalDateKey } from '../utils/localDate';
-import { Star, UploadSimple, NotePencil, MagicWand } from '@phosphor-icons/react';
+import { Star, UploadSimple, NotePencil, MagicWand, FileText, FilePdf, DownloadSimple } from '@phosphor-icons/react';
 import {
     CONTENT_FAVORITES_CHANGED_EVENT,
     getContentFavoriteById,
@@ -28,6 +30,7 @@ import {
     LibraryFilter,
     describeLibraryAccess,
     filterLibraryImages,
+    isLibraryFile,
     isLibraryAccessEmpty,
     librarySourceOf,
     makeLibraryImageId,
@@ -47,6 +50,8 @@ const Gallery: React.FC = () => {
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loaded, setLoaded] = useState(false);
     const [filter, setFilter] = useState<LibraryFilter>({ source: 'all' });
+    // 照片／文件（協同歸檔的文檔）兩個分頁
+    const [tab, setTab] = useState<'photos' | 'files'>('photos');
     const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
     const [isReviewing, setIsReviewing] = useState(false);
     const [showChatContext, setShowChatContext] = useState(false);
@@ -69,13 +74,16 @@ const Gallery: React.FC = () => {
     useEffect(() => { void reload(); }, [reload]);
     useEffect(() => () => { if (upload) URL.revokeObjectURL(upload.previewUrl); }, [upload?.previewUrl]);
 
-    const shownImages = useMemo(() => filterLibraryImages(images, filter, characters), [images, filter, characters]);
+    const photos = useMemo(() => images.filter(image => !isLibraryFile(image)), [images]);
+    const files = useMemo(() => images.filter(isLibraryFile), [images]);
+    const shownImages = useMemo(() => filterLibraryImages(photos, filter, characters), [photos, filter, characters]);
+    const shownFiles = useMemo(() => filterLibraryImages(files, { source: 'all', charId: filter.charId }, characters), [files, filter.charId, characters]);
     const sourceCounts = useMemo(() => {
-        const base = filter.charId ? filterLibraryImages(images, { source: 'all', charId: filter.charId }, characters) : images;
+        const base = filter.charId ? filterLibraryImages(photos, { source: 'all', charId: filter.charId }, characters) : photos;
         const counts: Record<string, number> = { all: base.length };
         for (const image of base) counts[librarySourceOf(image)] = (counts[librarySourceOf(image)] || 0) + 1;
         return counts;
-    }, [images, filter.charId, characters]);
+    }, [photos, filter.charId, characters]);
 
     const charName = (id?: string) => characters.find(c => c.id === id)?.name;
 
@@ -89,6 +97,7 @@ const Gallery: React.FC = () => {
                 const who = (image.generation?.subjects || []).map(key => (key === 'user' ? '你' : charName(key))).filter(Boolean);
                 return `在資料庫生成的${who.length ? `（${who.join('、')}）` : ''}`;
             }
+            case 'collab': return `${name} 的協同工作${image.file?.sessionTitle ? `「${image.file.sessionTitle}」` : ''}歸檔的`;
             default: return '你上傳的';
         }
     };
@@ -99,6 +108,7 @@ const Gallery: React.FC = () => {
         if (source === 'date_moment') return '見面';
         if (source === 'upload') return '上傳';
         if (source === 'generated') return '生成';
+        if (source === 'collab') return '協同';
         return null;
     };
 
@@ -181,10 +191,13 @@ const Gallery: React.FC = () => {
 
     const handleDeleteImage = () => {
         if (!selectedImage) return;
+        const source = librarySourceOf(selectedImage);
         setConfirmDialog({
             isOpen: true,
-            title: '刪除照片',
-            message: librarySourceOf(selectedImage).startsWith('chat') || librarySourceOf(selectedImage) === 'date_moment'
+            title: isLibraryFile(selectedImage) ? '刪除文件' : '刪除照片',
+            message: source === 'collab'
+                ? '從資料庫刪掉這份？協同文件櫃裡那份不受影響。'
+                : source.startsWith('chat') || source === 'date_moment'
                 ? '從資料庫刪掉這張？聊天／見面記錄裡的那張不受影響。'
                 : '確定要刪除這張照片嗎？',
             variant: 'danger',
@@ -193,11 +206,25 @@ const Gallery: React.FC = () => {
                 setImages(prev => prev.filter(img => img.id !== selectedImage.id));
                 setView('grid');
                 setSelectedImage(null);
-                addToast('照片已刪除', 'success');
+                addToast(isLibraryFile(selectedImage) ? '文件已刪除' : '照片已刪除', 'success');
                 trackEvent('删除一张照片');
                 setConfirmDialog(null);
             }
         });
+    };
+
+    // 文件：交給系統分享面板，不支援就下載
+    const handleOpenFile = async () => {
+        if (!selectedImage) return;
+        try {
+            const blob = await getBlobForRef(selectedImage.url);
+            if (!blob) throw new Error('文件已經不存在');
+            const result = await shareOrDownloadBlob({ blob, fileName: selectedImage.file?.name || '文件', shareTitle: selectedImage.file?.name || '文件' });
+            if (result === 'shared') addToast('已打開系統分享面板', 'success');
+            else if (result === 'downloaded') addToast('文件已下載', 'success');
+        } catch (error: any) {
+            addToast(`打不開：${error?.message || '未知錯誤'}`, 'error');
+        }
     };
 
     // ---------- 上傳 ----------
@@ -353,9 +380,9 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
     // ---------- 畫面 ----------
 
-    const renderFilters = () => (
+    const renderFilters = (withSource = true) => (
         <div className="shrink-0 space-y-2 border-b border-slate-100 bg-white/70 px-3 pb-2.5 pt-2">
-            <div role="radiogroup" aria-label="來源" className="no-scrollbar flex gap-1.5 overflow-x-auto">
+            {withSource && <div role="radiogroup" aria-label="來源" className="no-scrollbar flex gap-1.5 overflow-x-auto">
                 {([['all', '全部'], ...LIBRARY_SOURCES.map(source => [source, LIBRARY_SOURCE_LABEL[source]])] as [LibraryFilter['source'], string][]).map(([value, label]) => {
                     const count = sourceCounts[value] || 0;
                     const on = filter.source === value;
@@ -366,7 +393,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         </button>
                     );
                 })}
-            </div>
+            </div>}
             {characters.length > 0 && (
                 <div role="radiogroup" aria-label="哪個角色能用" className="no-scrollbar flex items-center gap-2 overflow-x-auto">
                     <span className="shrink-0 text-[10px] font-bold text-slate-400">誰能用</span>
@@ -393,15 +420,65 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
         </div>
     );
 
+    const renderTabs = () => (
+        <div role="tablist" aria-label="照片或文件" className="shrink-0 bg-white/70 px-3 pt-2">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                {([['photos', '照片', photos.length], ['files', '文件', files.length]] as const).map(([value, label, count]) => (
+                    <button key={value} role="tab" aria-selected={tab === value} onClick={() => setTab(value)}
+                        className={`rounded-lg py-1.5 text-[12px] font-bold transition ${tab === value ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}>
+                        {label}{count ? <span className="ml-1 font-mono text-[10px] opacity-60">{count}</span> : null}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    const renderFiles = () => (
+        <div className="min-h-0 flex-1 overflow-y-auto animate-fade-in">
+            {shownFiles.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-8 py-20 text-center">
+                    <FileText size={40} weight="duotone" className="text-slate-300" />
+                    <span className="text-sm text-slate-400">{files.length ? '這樣篩沒有文件' : '還沒有文件'}</span>
+                    {!files.length && <span className="text-[11px] leading-relaxed text-slate-400">在協同工作的文件櫃長按一份文件，選「歸檔到資料庫」就會放進來。</span>}
+                </div>
+            ) : (
+                <div className="bg-white">
+                    {shownFiles.map(item => (
+                        <button key={item.id} onClick={() => openDetail(item)} className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left active:bg-slate-50">
+                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-500">
+                                {/pdf/i.test(item.file?.mime || '') ? <FilePdf size={20} weight="duotone" /> : <FileText size={20} weight="duotone" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-semibold text-slate-700">{item.file?.name || '未命名文件'}</span>
+                                <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+                                    {[charName(item.charId), item.file?.sessionTitle, formatLibraryFileSize(item.file?.size || 0), item.savedDate].filter(Boolean).join(' · ')}
+                                </span>
+                            </span>
+                            {item.description && <NotePencil size={14} className="shrink-0 text-slate-300" aria-label="有描述" />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
     const renderGrid = () => (
         <>
+            {renderTabs()}
+            {tab === 'files' ? (
+                <>
+                    {characters.length > 0 && renderFilters(false)}
+                    {renderFiles()}
+                </>
+            ) : (
+            <>
             {renderFilters()}
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 animate-fade-in">
                 {shownImages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-slate-300">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-14 w-14 opacity-40"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                        <span className="text-sm">{!loaded ? '讀取中…' : images.length ? '這樣篩沒有照片' : '還沒有照片'}</span>
-                        {loaded && !images.length && <span className="max-w-[16rem] text-center text-[11px] leading-relaxed text-slate-400">私聊、見面裡傳的照片會自動放進來；右上角也能自己上傳或生成。</span>}
+                        <span className="text-sm">{!loaded ? '讀取中…' : photos.length ? '這樣篩沒有照片' : '還沒有照片'}</span>
+                        {loaded && !photos.length && <span className="max-w-[16rem] text-center text-[11px] leading-relaxed text-slate-400">私聊、見面裡傳的照片會自動放進來；右上角也能自己上傳或生成。</span>}
                     </div>
                 ) : (
                     <div className="grid grid-cols-3 gap-1">
@@ -423,6 +500,8 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     </div>
                 )}
             </div>
+            </>
+            )}
         </>
     );
 
@@ -467,6 +546,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
     const renderDetail = () => {
         if (!selectedImage) return null;
         const access = resolveLibraryAccess(selectedImage);
+        const isFile = isLibraryFile(selectedImage);
         return (
             <div className="relative flex h-full flex-col bg-black animate-fade-in">
                 <div className="pointer-events-none absolute left-0 top-0 z-50 flex w-full items-start justify-between p-4" style={{ paddingTop: 'max(1rem, var(--safe-top))' }}>
@@ -474,17 +554,30 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-6 w-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                     </button>
                     <div className="pointer-events-auto flex items-center gap-2">
-                        <button onClick={() => void handleToggleImageFavorite()} className={`rounded-full border border-white/10 p-2 text-white backdrop-blur-md transition-transform active:scale-95 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏圖片' : '收藏圖片'}>
-                            <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
-                        </button>
-                        <button onClick={handleDeleteImage} aria-label="刪除照片" className="rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur-md transition-transform hover:bg-red-600/60 active:scale-95">
+                        {!isFile && (
+                            <button onClick={() => void handleToggleImageFavorite()} className={`rounded-full border border-white/10 p-2 text-white backdrop-blur-md transition-transform active:scale-95 ${imageFavorited ? 'bg-amber-500/80' : 'bg-black/40 hover:bg-black/60'}`} aria-label={imageFavorited ? '取消收藏圖片' : '收藏圖片'}>
+                                <Star size={20} weight={imageFavorited ? 'fill' : 'regular'} />
+                            </button>
+                        )}
+                        <button onClick={handleDeleteImage} aria-label={isFile ? '刪除文件' : '刪除照片'} className="rounded-full border border-white/10 bg-black/40 p-2 text-white backdrop-blur-md transition-transform hover:bg-red-600/60 active:scale-95">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                         </button>
                     </div>
                 </div>
 
                 <div className="relative flex h-[46%] w-full shrink-0 items-center justify-center overflow-hidden bg-black" style={{ paddingTop: 'var(--safe-top)' }}>
-                    <TokenImg value={selectedImage.url} className="max-h-full max-w-full object-contain" alt={selectedImage.description || '照片'} />
+                    {isFile ? (
+                        <div className="flex flex-col items-center gap-3 px-8 text-center text-white">
+                            {/pdf/i.test(selectedImage.file?.mime || '') ? <FilePdf size={56} weight="duotone" className="text-white/70" /> : <FileText size={56} weight="duotone" className="text-white/70" />}
+                            <p className="max-w-full break-all text-[15px] font-semibold">{selectedImage.file?.name || '未命名文件'}</p>
+                            <p className="text-[11px] text-white/50">{formatLibraryFileSize(selectedImage.file?.size || 0)}</p>
+                            <button onClick={() => void handleOpenFile()} className="mt-1 flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13px] font-bold text-slate-800 active:scale-95">
+                                <DownloadSimple size={15} weight="bold" />打開／下載
+                            </button>
+                        </div>
+                    ) : (
+                        <TokenImg value={selectedImage.url} className="max-h-full max-w-full object-contain" alt={selectedImage.description || '照片'} />
+                    )}
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto rounded-t-3xl bg-white px-5 pb-8 pt-5">
@@ -495,19 +588,21 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
 
                     <section className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                            <h3 className="shrink-0 text-[11px] font-bold text-slate-400">描述</h3>
-                            <LibraryDescribeButton
-                                getImageUrl={() => selectedImage.url}
-                                current={descriptionDraft}
-                                onChange={text => { setDescriptionDraft(text); void patchSelected({ description: normalizeLibraryDescription(text) }); }}
-                            />
+                            <h3 className="shrink-0 text-[11px] font-bold text-slate-400">{isFile ? '備註' : '描述'}</h3>
+                            {!isFile && (
+                                <LibraryDescribeButton
+                                    getImageUrl={() => selectedImage.url}
+                                    current={descriptionDraft}
+                                    onChange={text => { setDescriptionDraft(text); void patchSelected({ description: normalizeLibraryDescription(text) }); }}
+                                />
+                            )}
                         </div>
                         <textarea
                             value={descriptionDraft}
                             onChange={event => setDescriptionDraft(event.target.value.slice(0, LIBRARY_DESCRIPTION_MAX))}
                             onBlur={commitDescription}
                             rows={3}
-                            placeholder={DESCRIPTION_HINT}
+                            placeholder={isFile ? '這份文件是什麼、什麼時候用得上' : DESCRIPTION_HINT}
                             className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] leading-relaxed text-slate-700 outline-none focus:border-slate-400"
                         />
                         <div className="text-right font-mono text-[10px] text-slate-300">{descriptionDraft.length}/{LIBRARY_DESCRIPTION_MAX}</div>
@@ -519,7 +614,8 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                             <span className="text-[11px] text-slate-400">{describeLibraryAccess(access, characters, characterGroups)}</span>
                         </div>
                         <LibraryAccessPicker value={access} onChange={next => void patchSelected({ access: next })} characters={characters} worlds={characterGroups} />
-                        {isLibraryAccessEmpty(access) && <p className="text-[11px] text-amber-600">現在沒有角色能用這張。</p>}
+                        {isLibraryAccessEmpty(access) && <p className="text-[11px] text-amber-600">現在沒有角色能用這{isFile ? '份' : '張'}。</p>}
+                        {isFile && <p className="text-[11px] leading-relaxed text-slate-400">文件現在只是收在這裡，角色在私聊還不會讀資料庫的文件；要角色傳文件，照舊用協同的文件櫃。</p>}
                     </section>
 
                     {renderReview()}
