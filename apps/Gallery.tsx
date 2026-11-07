@@ -33,7 +33,7 @@ import {
     resolveLibraryAccess,
 } from '../utils/library';
 
-const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。角色「知道」這張圖，靠的就是這段。';
+const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。有描述的照片，分配到的角色才知道它在、能傳給你。';
 
 /**
  * 資料庫（原本的相簿）：所有照片放在一起，按來源、按「哪個角色能用」篩；

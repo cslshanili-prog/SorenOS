@@ -897,6 +897,7 @@ export const useChatAI = ({
                 thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                 visionApiConfig: apiConfig.visionApi,
                 imageGenConfig: apiConfig.imageGenConfig,
+                libraryPhotos: true,
                 mcdMiniSnap: mcdMiniOpen ? mcdMiniSnap : undefined,
                 luckinMiniSnap: luckinMiniOpen ? luckinMiniSnap : undefined,
                 luckinChat: luckinChatOn ? luckinChatRef?.current : undefined,
