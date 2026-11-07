@@ -7,9 +7,10 @@ import { safeResponseJson } from '../utils/safeApi';
 import ConfirmDialog from '../components/os/ConfirmDialog';
 import TokenImg from '../components/os/TokenImg';
 import LibraryAccessPicker from '../components/library/LibraryAccessPicker';
+import LibraryDescribeButton from '../components/library/LibraryDescribeButton';
 import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
-import { putImageBlob } from '../utils/blobRef';
+import { blobToDataUrl, putImageBlob } from '../utils/blobRef';
 import { getLocalDateKey } from '../utils/localDate';
 import { Star, UploadSimple, NotePencil } from '@phosphor-icons/react';
 import {
@@ -33,7 +34,7 @@ import {
     resolveLibraryAccess,
 } from '../utils/library';
 
-const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。角色「知道」這張圖，靠的就是這段。';
+const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。有描述的照片，分配到的角色才知道它在、能傳給你。';
 
 /**
  * 資料庫（原本的相簿）：所有照片放在一起，按來源、按「哪個角色能用」篩；
@@ -486,7 +487,14 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                     </div>
 
                     <section className="space-y-1.5">
-                        <h3 className="text-[11px] font-bold text-slate-400">描述</h3>
+                        <div className="flex items-center justify-between gap-2">
+                            <h3 className="shrink-0 text-[11px] font-bold text-slate-400">描述</h3>
+                            <LibraryDescribeButton
+                                getImageUrl={() => selectedImage.url}
+                                current={descriptionDraft}
+                                onChange={text => { setDescriptionDraft(text); void patchSelected({ description: normalizeLibraryDescription(text) }); }}
+                            />
+                        </div>
                         <textarea
                             value={descriptionDraft}
                             onChange={event => setDescriptionDraft(event.target.value.slice(0, LIBRARY_DESCRIPTION_MAX))}
@@ -520,7 +528,14 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             </div>
             <button onClick={() => fileInputRef.current?.click()} className="text-[12px] font-bold text-slate-400 underline-offset-2 hover:underline">換一張</button>
             <section className="space-y-1.5">
-                <h3 className="text-[11px] font-bold text-slate-400">描述</h3>
+                <div className="flex items-center justify-between gap-2">
+                    <h3 className="shrink-0 text-[11px] font-bold text-slate-400">描述</h3>
+                    <LibraryDescribeButton
+                        getImageUrl={() => blobToDataUrl(upload.blob)}
+                        current={upload.description}
+                        onChange={text => setUpload(prev => prev && { ...prev, description: text })}
+                    />
+                </div>
                 <textarea
                     value={upload.description}
                     onChange={event => setUpload(prev => prev && { ...prev, description: event.target.value.slice(0, LIBRARY_DESCRIPTION_MAX) })}

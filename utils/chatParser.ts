@@ -1,4 +1,5 @@
 
+import { SEND_SAVED_PHOTO_RE, resolveLibraryPhotoCode } from './libraryPrompt';
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig, MallProduct } from '../types';
@@ -243,6 +244,47 @@ export const ChatParser = {
             } else {
                 await resolveUserTransfer(ev.kind === 'accept' ? 'accepted' : 'returned');
             }
+        }
+        return content;
+    },
+
+    /**
+     * `[[ACTION:SEND_SAVED_PHOTO|編號]]`：角色傳資料庫裡現成的照片（utils/libraryPrompt.ts）。
+     * 照編號找回那張，原樣落一條圖片訊息，不生成、不花錢；編號對不上（列表外、已刪、不再分配給它）就不發。
+     * 抽出來是因為背景延遲回覆那條路（OSContext）不走 parseAndExecuteActions，也得能單獨處理。
+     */
+    settleSavedPhotoCommands: async (
+        content: string,
+        charId: string,
+        opts: {
+            messageTimestamp?: number;
+            persist?: (msg: Parameters<typeof DB.saveMessage>[0]) => Promise<unknown>;
+        } = {},
+    ): Promise<string> => {
+        const matches = [...content.matchAll(SEND_SAVED_PHOTO_RE)];
+        if (!matches.length) return content;
+        for (const m of matches) content = content.replace(m[0], '').trim();
+        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+            ...msg, ...(opts.messageTimestamp ? { timestamp: opts.messageTimestamp } : {}),
+        } as Parameters<typeof DB.saveMessage>[0]));
+        try {
+            const [char, libraryImages] = await Promise.all([DB.getCharacter(charId), DB.getGalleryImages()]);
+            const sent = new Set<string>();
+            for (const m of matches) {
+                const photo = char ? resolveLibraryPhotoCode(libraryImages, char, m[1]) : null;
+                if (!photo) {
+                    console.warn('[ChatParser] 角色想傳資料庫的照片，但編號對不上，已跳過', { charId, code: m[1] });
+                    continue;
+                }
+                if (sent.has(photo.id)) continue;
+                sent.add(photo.id);
+                await persist({
+                    charId, role: 'assistant', type: 'image', content: photo.url,
+                    metadata: { savedPhoto: { libraryImageId: photo.id }, ...(photo.description ? { visionDescription: photo.description } : {}) },
+                });
+            }
+        } catch (error) {
+            console.warn('[ChatParser] 傳資料庫照片失敗:', error);
         }
         return content;
     },
@@ -559,6 +601,9 @@ export const ChatParser = {
                 console.warn('[ChatParser] 角色想發圖，但生圖未開啟/未配置完整，已忽略標籤', { charId });
             }
         }
+
+        // SEND_SAVED_PHOTO — 角色傳資料庫裡現成的照片：見 ChatParser.settleSavedPhotoCommands
+        content = await ChatParser.settleSavedPhotoCommands(content, charId, { persist });
 
         // TRANSFER / TRANSFER_ACCEPT / TRANSFER_RETURN：見 ChatParser.settleTransferCommands。
         // 抽出去是因為背景延遲回覆那條路（OSContext）不走這個大函數，也得能單獨結算轉帳。

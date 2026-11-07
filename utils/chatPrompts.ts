@@ -46,6 +46,7 @@ import { isTempChatMessage, TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
 import { buildInnerStateBlock } from './customMeterContext';
 import { FOOD_DELIVER_MIN } from './mallOrders';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
+import { buildLibraryPhotoBlock, pickCharLibraryPhotos } from './libraryPrompt';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -190,6 +191,12 @@ export interface PromptBuildOptions {
      * 故意不傳，避免雲端 worker 生成的正文裡出現一個客戶端接不住的標籤。
      */
     imageGenConfig?: ImageGenApiConfig;
+    /**
+     * 帶「你手邊的照片」（資料庫裡分配給這個角色的照片）並教 `[[ACTION:SEND_SAVED_PHOTO|編號]]`。
+     * 只有會處理這個標籤的路徑傳：私聊前台（applyAssistantPostProcessing → parseAndExecuteActions）
+     * 和背景延遲回覆（OSContext，單獨調 settleSavedPhotoCommands）。協同、彼方這些借用私聊提示詞的不傳。
+     */
+    libraryPhotos?: boolean;
 }
 
 export const ChatPrompts = {
@@ -706,6 +713,16 @@ ${groupLogStr}\n`;
         volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);
         // 購物中心今天的推薦：讓角色知道有什麼能點、多少錢（下單語法在「可用動作」）
         volatileState += mallPicksText;
+        // 資料庫裡分配給這個角色的照片（utils/libraryPrompt.ts）：新照片隨時會進來，放易變段。
+        // 雲端兩條路（fire_pack、即時對話）先不帶——worker 接不住 SEND_SAVED_PHOTO
+        if (promptOptions?.libraryPhotos && !forFirePack && !timelyByWorker) {
+            try {
+                const libraryImages = await DB.getGalleryImages();
+                volatileState += buildLibraryPhotoBlock(pickCharLibraryPhotos(libraryImages, char), char.id, userProfile.name);
+            } catch (error) {
+                console.warn('[ChatPrompts] 讀資料庫照片失敗，這輪不帶', error);
+            }
+        }
         // 日程/情緒裡勾了「帶進聊天」的心聲、好感度（只帶狀態那句，不帶數字）；fire_pack 不寫「幾小時前」，到點會過期
         volatileState += buildInnerStateBlock(char.innerVoices, char.affinities, { withAge: !forFirePack });
         volatileState += anniversaryText;

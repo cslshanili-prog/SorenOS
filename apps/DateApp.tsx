@@ -1,3 +1,4 @@
+import { normalizeLibraryDescription } from '../utils/library';
 import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
@@ -989,6 +990,7 @@ const DateApp: React.FC = () => {
                 await DB.saveGalleryImage({
                     id: `img-${Date.now()}-${Math.random()}`, charId: char.id, url: stored, timestamp: Date.now(),
                     sourceMessageId: messageId, sender: 'char', origin: 'date_moment', savedDate: getLocalDateKey(new Date()),
+                    ...(normalizeLibraryDescription(result.scene) ? { description: normalizeLibraryDescription(result.scene) } : {}),
                 });
             } catch (e) { console.warn('[DateMoment] 存資料庫失敗', e); }
             await loadDateMessages();

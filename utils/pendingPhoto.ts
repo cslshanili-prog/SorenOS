@@ -1,3 +1,4 @@
+import { normalizeLibraryDescription } from './library';
 import type { ImageGenApiConfig, Message } from '../types';
 import { DB } from './db';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage, imageGenRecord } from './imageGeneration';
@@ -135,6 +136,8 @@ export async function fulfillPendingPhoto(messageId: number, config: ImageGenApi
                     id: `img-${Date.now()}-${Math.random()}`,
                     charId: message.charId, url: storedContent, timestamp: Date.now(),
                     sourceMessageId: messageId, sender: 'char',
+                    // 角色自己寫的畫面描述直接當資料庫描述：之後它「知道」手邊有這張、能再傳（utils/libraryPrompt.ts）
+                    ...(normalizeLibraryDescription(meta.description) ? { description: normalizeLibraryDescription(meta.description) } : {}),
                     savedDate: getLocalDateKey(new Date()),
                 });
             } catch (galleryError) {

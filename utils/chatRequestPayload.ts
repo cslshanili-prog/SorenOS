@@ -99,6 +99,8 @@ export interface BuildChatPayloadInput {
     visionApiConfig?: VisionApiConfig;
     /** 生圖 API 配置；開著角色自主發圖時才會教 [[ACTION:SEND_PHOTO|...]]，見 chatPrompts.ts PromptBuildOptions。 */
     imageGenConfig?: ImageGenApiConfig;
+    /** 帶「你手邊的照片」（資料庫）；只有會處理 SEND_SAVED_PHOTO 的私聊路徑傳 true，見 utils/libraryPrompt.ts */
+    libraryPhotos?: boolean;
     mcdMiniSnap?: McdMiniAppSnapshot;
     luckinMiniSnap?: LuckinMiniAppSnapshot;
     /** 瑞幸聊天點單模式 (點"瑞一杯"激活, 角色直接調真實工具) */
@@ -336,10 +338,11 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         !!isListeningTogether,
         musicCfg,
         recentTrackSwitch,
-        (input.timelyByWorker || returningFromMode || input.imageGenConfig) ? {
+        (input.timelyByWorker || returningFromMode || input.imageGenConfig || input.libraryPhotos) ? {
             timelyByWorker: input.timelyByWorker === true,
             returningFromMode: returningFromMode || undefined,
             imageGenConfig: input.imageGenConfig,
+            libraryPhotos: input.libraryPhotos === true,
         } : undefined,
     );
     let systemPrompt = parts.stable;

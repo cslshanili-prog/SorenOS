@@ -2539,6 +2539,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                   thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                   visionApiConfig: currentApiConfig.visionApi,
+                  libraryPhotos: true,
               });
               const systemPrompt = payload.systemPrompt;
               const apiMessages = payload.cleanedApiMessages;
@@ -2651,6 +2652,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   onCharDaifuAccept: ledger.onCharDaifuAccept,
                   onCharGiftSend: ledger.onCharGiftSend,
               });
+              // 資料庫的現成照片（SEND_SAVED_PHOTO）：同理，不單獨處理就被 sanitize 剝掉
+              aiContent = await ChatParser.settleSavedPhotoCommands(aiContent, charId);
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
