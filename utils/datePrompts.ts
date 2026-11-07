@@ -447,7 +447,8 @@ export const DatePrompts = {
             (max, m) => (typeof m.timestamp === 'number' && (max === undefined || m.timestamp > max) ? m.timestamp : max),
             undefined,
         );
-        const gapHint = clock ? '' : getTimeGapHint(lastTs, charTz);
+        // 故事時鐘不是現實的話，下面的分隔線和「時間上下文」都不用它（兩把尺混著算是亂的）
+        const gapHint = getTimeGapHint(lastTs, charTz);
 
         const { apiMessages } = ChatPrompts.buildMessageHistory(
             selected,
