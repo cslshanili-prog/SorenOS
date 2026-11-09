@@ -5,6 +5,8 @@
  */
 
 import { DB } from '../db';
+import type { DateStyleConfig } from '../../types';
+import { buildBuiltinMeetingPresetDoc } from './builtin';
 import { duplicatePresetDoc } from './edit';
 import { parseStPreset } from './stImport';
 import type { MeetingPresetDoc, MeetingPresetRecord } from './types';
@@ -46,4 +48,14 @@ export const duplicateMeetingPresetRecord = async (record: MeetingPresetRecord):
     await DB.saveMeetingPreset(copy);
     notify();
     return copy;
+};
+
+/** 內建規則複製成一份自訂預設（文風、人稱、深挖照這個角色現在的設定先開好） */
+export const copyBuiltinMeetingPreset = async (config?: DateStyleConfig): Promise<MeetingPresetRecord> => {
+    const doc = duplicatePresetDoc(buildBuiltinMeetingPresetDoc(config));
+    const now = Date.now();
+    const record: MeetingPresetRecord = { id: makeId(), name: doc.name, doc, createdAt: now, updatedAt: now };
+    await DB.saveMeetingPreset(record);
+    notify();
+    return record;
 };
