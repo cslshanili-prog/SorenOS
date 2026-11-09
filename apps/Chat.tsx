@@ -9,7 +9,7 @@ import { ProactiveChat } from '../utils/proactiveChat';
 import { ChatPrompts } from '../utils/chatPrompts';
 import { isVisibleChatMessage } from '../utils/chatMessageVisibility';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot } from '../types';
+import { AppID, Message, MessageType, MemoryFragment, Emoji, EmojiCategory, DailySchedule, ScheduleSlot, GalleryImage } from '../types';
 import { processImage, processImageToBlob } from '../utils/file';
 import { safeResponseJson, extractContent } from '../utils/safeApi';
 import { buildChatFineTuneCss, mergeChatFineTune } from '../utils/chatFineTuneCss';
@@ -96,6 +96,9 @@ import { trackEvent, noteMessageSent, presetOrCustom } from '../utils/analytics'
 import { generateReplyDrafts } from '../utils/replyDrafts';
 import type { ReplyDraftState } from '../components/chat/ReplyDraftStrip';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
+import LibraryPickerSheet from '../components/library/LibraryPickerSheet';
+import { isLibraryFile } from '../utils/library';
+import { libraryFileMessageContent, libraryFileMessageMetadata, libraryPhotoMessageMetadata } from '../utils/libraryShare';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, AMSG_INSTANT_CHAT_PENDING_LS_KEY, getInstantChatPending } from '../utils/amsgInstantChat';
 import { formatAmsgToolTrace } from '../utils/amsgToolTrace';
 import { resolveSARModuleSpeechSource } from '../utils/vrWorld/sarModuleRuntime';
@@ -1482,7 +1485,8 @@ const Chat: React.FC = () => {
 
         const savedUserMsgId = await DB.saveMessage(msgPayload);
 
-        if (type === 'image') {
+        // 從資料庫挑的照片（utils/libraryShare.ts）本來就在資料庫裡，不再多存一張
+        if (type === 'image' && !metadata?.libraryImageId) {
             // 相冊是消息的附帶記錄：保留來源消息引用供收藏/去重使用，但相冊寫入失敗
             // 不能阻斷已經落庫的聊天消息。
             try {
@@ -1648,7 +1652,7 @@ const Chat: React.FC = () => {
         const finish = autoReply.beginSend(char?.id || null);
         try {
             const sent = await sendText(customContent, customType, metadata);
-            const replyable = sent === true && (!customType || ['text', 'image', 'emoji'].includes(customType));
+            const replyable = sent === true && (!customType || ['text', 'image', 'emoji', 'library_file'].includes(customType));
             finish(replyable);
             // 延遲自動回覆：排好這個角色什麼時候回（已經排著的不動），到點由下面的監聽或 OSContext 背景生成接手
             // 開了主動消息 2.0 的角色再交一份給雲端，App 關著也回得來（見 utils/delayedReplyCloud.ts）
@@ -1891,7 +1895,7 @@ const Chat: React.FC = () => {
         if ([
             'transfer', 'archive', 'settings', 'fine-tune',
             'meetup', 'proactive', 'active-msg-2', 'schedule', 'mcd-request', 'luckin-request', 'mall-open',
-            'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration',
+            'html-mode-toggle', 'html-mode-settings', 'thinking-settings', 'favorites', 'collaboration', 'library',
             // 獨立小功能：點一下就是用了一次，跟「打開某個面板」同一性質。
             // send-emoji / select-category 這些是「挑哪一個」，不進名單。
             'poke', 'emoji-import', 'add-category', 'mcd-end', 'luckin-end', 'reply-drafts',
@@ -1965,6 +1969,10 @@ const Chat: React.FC = () => {
             case 'mall-open':
                 setMallOpen(true);
                 break;
+            case 'library':
+                setShowPanel('none');
+                setLibraryPickerOpen(true);
+                break;
         }
     };
 
@@ -1973,6 +1981,17 @@ const Chat: React.FC = () => {
     const [mcdAppOpen, setMcdAppOpen] = useState(false);
     // 購物中心 mini-app：跟麥當勞小程序同構的本地 mini-app 殼，見 components/mall/ShoppingMallMiniApp.tsx
     const [mallOpen, setMallOpen] = useState(false);
+    // 從資料庫挑照片／文件發給角色（utils/libraryShare.ts）
+    const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+    const handleSendFromLibrary = async (item: GalleryImage) => {
+        setLibraryPickerOpen(false);
+        try {
+            if (isLibraryFile(item)) await handleSendText(libraryFileMessageContent(item), 'library_file', libraryFileMessageMetadata(item));
+            else await handleSendText(item.url, 'image', libraryPhotoMessageMetadata(item));
+        } catch (error: any) {
+            addToast(`沒發出去：${error?.message || '未知錯誤'}`, 'error');
+        }
+    };
     // mcdMiniAppRef 聲明在文件靠前 (傳給 useChatAI), 這裡僅佔位
     const mcdConfiguredFlag = useMemo(() => isMcdConfigured(), [showPanel, mcdActivated]);
 
@@ -4917,6 +4936,10 @@ const Chat: React.FC = () => {
                 onStateChange={handleMcdMiniAppStateChange}
                 onConfirmOrder={handleMcdAppConfirm}
             />
+
+            {libraryPickerOpen && char && (
+                <LibraryPickerSheet charName={char.name} onPick={item => { void handleSendFromLibrary(item); }} onClose={() => setLibraryPickerOpen(false)} />
+            )}
 
             {/* 購物中心 mini-app */}
             <ShoppingMallMiniApp

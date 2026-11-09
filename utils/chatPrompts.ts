@@ -47,6 +47,7 @@ import { buildInnerStateBlock } from './customMeterContext';
 import { FOOD_DELIVER_MIN } from './mallOrders';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 import { buildLibraryPhotoBlock, pickCharLibraryPhotos } from './libraryPrompt';
+import { formatLibraryFileRecord } from './libraryShare';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -1393,6 +1394,10 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                 else if (m.type === 'collaboration_file') {
                     const fileName = String(m.metadata?.fileName || m.content || '未命名文件');
                     content = `${timeStr} [你在聊天界面向用戶交付了協同文件：《${fileName}》]`;
+                }
+                else if (m.type === 'library_file') {
+                    // 從資料庫發進來的文件（utils/libraryShare.ts）：角色只看得到檔名、類型、大小和備註
+                    content = `${timeStr} ${formatLibraryFileRecord(m.metadata?.libraryFile, userProfile.name)}`;
                 }
                 else if (m.type === 'transfer') {
                     // 統一記錄形態 [[記錄:TRANSFER|to=|amount=|status=]] —— 跟輸出語法

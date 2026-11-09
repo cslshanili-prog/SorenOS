@@ -21,6 +21,7 @@ import TokenImg from '../os/TokenImg';
 import { SARSpeechSwitch } from '../sar/SARSpeechSwitch';
 import McdCard from './McdCard';
 import MallOrderCard from './MallOrderCard';
+import LibraryFileCard from './LibraryFileCard';
 import HtmlCard from './HtmlCard';
 import LuckinCard from './LuckinCard';
 import LuckinCheckoutCard from './LuckinCheckoutCard';
@@ -3463,6 +3464,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'life_card') {
         return <LifeRecordCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveLifeRecord={onResolveLifeRecord} />;
+    }
+
+    if (m.type === 'library_file') {
+        return <LibraryFileCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} onToggleSelect={onToggleSelect} />;
     }
 
     if (m.type === 'collaboration_file') {

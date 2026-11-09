@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -523,6 +523,13 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <Image className="w-6 h-6" weight="bold" />
             </div>)}
             <span className="text-xs font-bold">相冊</span>
+        </button>,
+        <button key="library" onClick={() => onPanelAction('library')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+            {acnh ? <AcnhActionTile kind="image" /> : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-indigo-300 border-indigo-400/20' : 'bg-indigo-50 text-indigo-400 border-indigo-100'}`}>
+                <Archive className="w-6 h-6" weight="bold" />
+            </div>)}
+            <span className="text-xs font-bold">資料庫</span>
         </button>,
         <button key="mall-open" onClick={() => onPanelAction('mall-open')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
             {acnh ? <AcnhActionTile kind="transfer" /> : (

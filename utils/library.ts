@@ -91,3 +91,11 @@ export const filterLibraryImages = (
 };
 
 export const makeLibraryImageId = () => `img-${Date.now()}-${Math.random()}`;
+
+/** 文件大小給人看的寫法 */
+export const formatLibraryFileSize = (size: number): string => {
+    if (!Number.isFinite(size) || size <= 0) return '';
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+};

@@ -11,6 +11,7 @@
  * 抽到這裡後單點維護。
  */
 
+import { formatLibraryFileRecord } from './libraryShare';
 import { formatDateInviteRecord } from './dateInvite';
 import { formatCharCallRecord } from './charCall';
 import type { Message, Emoji } from '../types';
@@ -145,6 +146,8 @@ export function normalizeMessageContent(
     if (type === 'date_invite') return formatDateInviteRecord(msg.metadata?.dateInvite);
     if (type === 'char_call') return formatCharCallRecord(msg.metadata?.charCall);
     if (type === 'photo_pending') return '[照片傳送中]';
+    // 從資料庫發進來的文件（utils/libraryShare.ts）：跟私聊歷史同一行
+    if (type === 'library_file') return formatLibraryFileRecord(msg.metadata?.libraryFile, userName);
 
     if (type === 'mall_order') {
         // 跟轉帳一樣是全鏈路一副面孔：私聊歷史 (chatPrompts.buildMessageHistory) 與
