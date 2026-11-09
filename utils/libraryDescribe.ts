@@ -3,9 +3,9 @@
  * 所以要客觀、具體、短，不猜人物身分。模型從 API 預設裡挑一個（要能看圖），選過的記在本機。
  */
 
-import type { APIConfig, ApiPreset } from '../types';
+import type { APIConfig, ApiPreset, GalleryImage } from '../types';
 import { safeFetchJson, extractContent } from './safeApi';
-import { LIBRARY_DESCRIPTION_MAX } from './library';
+import { isLibraryFile, LIBRARY_DESCRIPTION_MAX } from './library';
 
 export const LIBRARY_DESCRIBE_PROMPT = `替這張照片寫一段簡短的描述，會存進照片資料庫；之後角色只能靠這段文字知道照片拍了什麼。
 要求：
@@ -78,4 +78,59 @@ export const loadLibraryDescribeChoice = (): string | null => {
 
 export const saveLibraryDescribeChoice = (id: string) => {
     try { localStorage.setItem(STORAGE_KEY, id); } catch { /* 存不了就每次重選 */ }
+};
+
+// ─── 批次 AI 寫：把還沒描述的照片一張張補上 ───────────────────────────────
+//
+// 舊相簿的圖、你在私聊傳的圖沒有描述，角色就「不知道」它們（utils/libraryPrompt.ts 只列有描述的），
+// 一張張點太累，所以有這顆。照片一張一張送（每張一次看圖請求），寫好就存；
+// 某張失敗記下來接著跑，連續失敗太多次多半是模型不會看圖、或 Key 有問題，就停下來別白花錢。
+
+
+/** 還沒描述的照片（文件不算），新的在前 */
+export const pickUndescribedPhotos = (images: GalleryImage[]): GalleryImage[] =>
+    images
+        .filter(image => !isLibraryFile(image) && !!image.url && !(image.description || '').trim())
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+/** 連續失敗這麼多張就停 */
+export const BATCH_DESCRIBE_MAX_CONSECUTIVE_FAILURES = 3;
+
+export interface BatchDescribeProgress { done: number; total: number; succeeded: number; failed: number }
+
+export interface BatchDescribeResult extends BatchDescribeProgress {
+    /** 為什麼停：跑完、被取消、連續失敗太多 */
+    stoppedBy: 'finished' | 'cancelled' | 'failures';
+    lastError?: string;
+}
+
+export const runBatchDescribe = async (
+    images: GalleryImage[],
+    deps: {
+        describe: (image: GalleryImage) => Promise<string>;
+        save: (image: GalleryImage, description: string) => Promise<void>;
+        onProgress?: (progress: BatchDescribeProgress) => void;
+        isCancelled?: () => boolean;
+    },
+): Promise<BatchDescribeResult> => {
+    const progress: BatchDescribeProgress = { done: 0, total: images.length, succeeded: 0, failed: 0 };
+    let streak = 0;
+    let lastError: string | undefined;
+    for (const image of images) {
+        if (deps.isCancelled?.()) return { ...progress, stoppedBy: 'cancelled', lastError };
+        try {
+            const text = await deps.describe(image);
+            await deps.save(image, text);
+            progress.succeeded++;
+            streak = 0;
+        } catch (error: any) {
+            progress.failed++;
+            streak++;
+            lastError = error?.message || '未知錯誤';
+        }
+        progress.done++;
+        deps.onProgress?.({ ...progress });
+        if (streak >= BATCH_DESCRIBE_MAX_CONSECUTIVE_FAILURES) return { ...progress, stoppedBy: 'failures', lastError };
+    }
+    return { ...progress, stoppedBy: 'finished', lastError };
 };

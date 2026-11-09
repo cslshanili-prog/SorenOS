@@ -10,13 +10,15 @@ import TokenImg from '../components/os/TokenImg';
 import LibraryAccessPicker from '../components/library/LibraryAccessPicker';
 import LibraryDescribeButton from '../components/library/LibraryDescribeButton';
 import LibraryGenerateView from '../components/library/LibraryGenerateView';
+import LibraryBatchDescribeSheet from '../components/library/LibraryBatchDescribeSheet';
+import { pickUndescribedPhotos } from '../utils/libraryDescribe';
 import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
 import { blobToDataUrl, getBlobForRef, putImageBlob } from '../utils/blobRef';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { formatLibraryFileSize } from '../utils/libraryArchive';
 import { getLocalDateKey } from '../utils/localDate';
-import { Star, UploadSimple, NotePencil, MagicWand, FileText, FilePdf, DownloadSimple } from '@phosphor-icons/react';
+import { Star, UploadSimple, NotePencil, MagicWand, FileText, FilePdf, DownloadSimple, Sparkle } from '@phosphor-icons/react';
 import {
     CONTENT_FAVORITES_CHANGED_EVENT,
     getContentFavoriteById,
@@ -81,6 +83,14 @@ const Gallery: React.FC = () => {
     const photos = useMemo(() => images.filter(image => !isLibraryFile(image)), [images]);
     const files = useMemo(() => images.filter(isLibraryFile), [images]);
     const shownImages = useMemo(() => filterLibraryImages(photos, filter, characters), [photos, filter, characters]);
+    // 批次 AI 寫：照目前的篩選，還沒描述的照片
+    const undescribedShown = useMemo(() => pickUndescribedPhotos(shownImages), [shownImages]);
+    const [batchDescribing, setBatchDescribing] = useState(false);
+    const saveBatchDescription = async (image: GalleryImage, description: string) => {
+        const saved = await DB.updateGalleryImage(image.id, { description: normalizeLibraryDescription(description) });
+        if (!saved) throw new Error('找不到這張圖');
+        setImages(prev => prev.map(img => (img.id === saved.id ? saved : img)));
+    };
     const shownFiles = useMemo(() => filterLibraryImages(files, { source: 'all', charId: filter.charId }, characters), [files, filter.charId, characters]);
     const sourceCounts = useMemo(() => {
         const base = filter.charId ? filterLibraryImages(photos, { source: 'all', charId: filter.charId }, characters) : photos;
@@ -480,6 +490,15 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             ) : (
             <>
             {renderFilters()}
+            {undescribedShown.length > 0 && (
+                <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-amber-50/70 px-3 py-2">
+                    <span className="min-w-0 flex-1 text-[11px] leading-snug text-amber-700">{undescribedShown.length} 張還沒描述，角色看不到它們</span>
+                    <button type="button" onClick={() => setBatchDescribing(true)}
+                        className="flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm active:scale-95">
+                        <Sparkle size={12} weight="fill" />批次 AI 寫
+                    </button>
+                </div>
+            )}
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 animate-fade-in">
                 {shownImages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-slate-300">
@@ -693,6 +712,16 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             )}
 
             {view === 'grid' && renderGrid()}
+            {batchDescribing && (
+                <LibraryBatchDescribeSheet
+                    photos={undescribedShown}
+                    save={saveBatchDescription}
+                    onClose={result => {
+                        setBatchDescribing(false);
+                        if (result?.succeeded) markLibraryChanged();
+                    }}
+                />
+            )}
             {view === 'detail' && renderDetail()}
             {view === 'upload' && renderUpload()}
             {view === 'generate' && <LibraryGenerateView onSaved={() => { markLibraryChanged(); setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
