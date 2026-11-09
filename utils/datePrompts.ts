@@ -190,7 +190,7 @@ const getStylePreset = (config?: DateStyleConfig): DateStylePreset =>
  * 敘事人稱塊。pov 未設置時返回空串（不注入，沿用模型默認寫法）。
  * 放在風格塊之後：風格示例裡的人稱只是格式示意，以本節為準（塊內已註明）。
  */
-const buildPovBlock = (config: DateStyleConfig | undefined, charName: string, userName: string): string => {
+export const buildPovBlock = (config: DateStyleConfig | undefined, charName: string, userName: string): string => {
     const uname = userName || '對方';
     switch (config?.pov) {
         case 'third-name':
@@ -237,7 +237,7 @@ ${extra}
 
 const isDigDeeperOn = (config?: DateStyleConfig): boolean => config?.digDeeper !== false;
 
-const DIG_DEEPER_BLOCK = `### 💎 素材永遠比你以為的多（深挖，別填充）
+export const DIG_DEEPER_BLOCK = `### 💎 素材永遠比你以為的多（深挖，別填充）
 對方哪怕隨口一句話，都至少藏著這些可以接的線：
 1. **ta的用詞**——為什麼是這個詞？換個人不會這麼說。
 2. **ta怎麼說的**——語速、音量、說話時手在幹什麼、眼睛看哪。
@@ -321,6 +321,29 @@ const withWorldbookDepthEntries = (
     resolveWorldbookDepthEntries(char.mountedWorldbooks || [], scanMessages, char.name, userName),
 );
 
+// 內建規則的固定段落：內建模式拼散文塊、「內建規則」預設（utils/meetingPreset/builtin.ts）都從這裡拿，
+// 改一處兩邊一起變。
+
+export const DATE_PROSE_INTRO = `### [面對面見面 · 散文敘事]
+你正在與用戶進行**面對面**的互動。這不是聊天，是一場真實的見面。用小說式的散文寫，旁白、動作和台詞交織。`;
+
+export const DATE_FORMAT_RULES = `### 格式
+1. **台詞單獨成行**：同一行裡不要既寫動作又寫台詞。
+2. **台詞用引號**：說出口的話用「」或 "" 包起來；動作和敘述直接寫，不加引號。
+3. **不加任何前綴**：不要在行首標情緒、標說話人。`;
+
+export const DATE_SCENE_LINES = `- **Location**: 你們現在**面對面**。
+- **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。`;
+
+/** 每輪貼在用戶這句後面的提醒；focusHint 空就不帶線索 */
+export const buildDateTurnNote = (variant: 'send' | 'reroll', voice: boolean, focusHint: string): string => {
+    const focusLine = focusHint ? ` 本輪線索：${focusHint}。` : '';
+    const voiceTag = voice ? '、開頭帶英文語氣標籤' : '';
+    return variant === 'send'
+        ? `(System Note: 台詞單獨成行、用引號包起來${voiceTag}。敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`
+        : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。台詞依然單獨成行、用引號包起來${voiceTag}；敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`;
+};
+
 /**
  * 見面系統提示（send 與 reroll 共用同一份，避免兩處手抄漂移）。
  * reroll 的差異只體現在末尾 user 消息的 System Note 裡，不在這裡分叉。
@@ -337,21 +360,16 @@ const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap 
     const povBlock = buildPovBlock(styleConfig, char.name, userName);
     const extraBlock = buildExtraStyleBlock(styleConfig);
     const digBlock = isDigDeeperOn(styleConfig) ? `${DIG_DEEPER_BLOCK}\n` : '';
-    return `### [面對面見面 · 散文敘事]
-你正在與用戶進行**面對面**的互動。這不是聊天，是一場真實的見面。用小說式的散文寫，旁白、動作和台詞交織。
+    return `${DATE_PROSE_INTRO}
 
-### 格式
-1. **台詞單獨成行**：同一行裡不要既寫動作又寫台詞。
-2. **台詞用引號**：說出口的話用「」或 "" 包起來；動作和敘述直接寫，不加引號。
-3. **不加任何前綴**：不要在行首標情緒、標說話人。
+${DATE_FORMAT_RULES}
 ${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : ''}
 
 ${preset.block}
 
 ${digBlock}${povBlock}${extraBlock}${buildDateInputPerceptionRule(userName || '對方')}
 ${buildScenarioBlock(char, userName)}${recap}${buildLengthLine(char)}### 場景上下文
-${timeLine}- **Location**: 你們現在**面對面**。
-- **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。
+${timeLine}${DATE_SCENE_LINES}
 ${buildBlockedMeetingNote(char, userName)}`;
 };
 
@@ -577,10 +595,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}`;
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
         // 每輪輪換的聚焦線索：把注意力推向不同的具體方向，相鄰回覆天然有差異
-        const focusLine = isDigDeeperOn(char.dateStyleConfig) ? ` 本輪線索：${pickFocusHint()}。` : '';
-        const note = variant === 'send'
-            ? `(System Note: 台詞單獨成行、用引號包起來${char.dateVoiceEnabled ? '、開頭帶英文語氣標籤' : ''}。敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`
-            : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。台詞依然單獨成行、用引號包起來${char.dateVoiceEnabled ? '、開頭帶英文語氣標籤' : ''}；敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`;
+        const note = buildDateTurnNote(variant, !!char.dateVoiceEnabled, isDigDeeperOn(char.dateStyleConfig) ? pickFocusHint() : '');
 
         // 固定台詞：對方這句踩中了就這一輪原樣說出，跟每輪的註記放在一起、緊貼開口（見 utils/fixedLines.ts）
         // 只拿說出口的部分去比對：旁白裡寫到的字不算「對方說了」

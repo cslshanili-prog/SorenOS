@@ -6,7 +6,7 @@ import { settleBuffs } from './emotionDecay';
 
 // 情緒評估失敗的用戶可見信號（OSContext 監聽彈 toast）。本函數是本地 / instant(worker)
 // 兩條路徑的共用落點，在這裡派發能覆蓋「worker 推回的 raw 解析全滅」這類雲端失敗。
-const announceEmotionFailed = (charData: CharacterProfile, reason: string): void => {
+export const announceEmotionFailed = (charData: CharacterProfile, reason: string): void => {
     try {
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(CHAT_GEN_EVENTS.emotionFailed, {
@@ -360,6 +360,30 @@ const readLatestCharacter = async (charData: CharacterProfile): Promise<Characte
  * - changed=true 但 buffs / injection 雙缺失 (格式爛到只搶救出 innerState) → 不清空已有
  *   buff 狀態, 只返回 innerState —— 解析半殘不該把角色現有情緒底色抹掉.
  */
+/** 情緒的三個欄位：私聊存在角色身上，「線下情緒獨立」時見面另存一份在故事上（utils/dateEmotion.ts） */
+export interface EmotionState {
+    activeBuffs: CharacterBuff[];
+    buffInjection: string;
+    buffInjectionAt?: number;
+}
+
+/**
+ * 評估結果 + 現在的情緒 → 新的情緒；沒變化（changed=false 或兩個載荷都沒拿到）回 null。
+ * buffs 數組在場 → 完整更新（數組為空 = 模型主動清空，尊重）；buffs 缺失但 injection 在場（搶救場景）
+ * → 保留舊 buffs，只換 injection。褪色見 utils/emotionDecay.ts：沿用沒變的情緒原本的時間、去掉已淡掉的、最多留 12 條。
+ */
+export function settleEmotionEval(result: EmotionEvalResult, current: Partial<EmotionState>, now = Date.now()): EmotionState | null {
+    if (!result.changed) return null;
+    const hasBuffArray = Array.isArray(result.buffs);
+    const hasInjection = typeof result.injection === 'string' && !!result.injection.trim();
+    if (!hasBuffArray && !hasInjection) return null;
+    return {
+        activeBuffs: hasBuffArray ? settleBuffs(current.activeBuffs, sanitizeBuffs(result.buffs)) : (current.activeBuffs || []),
+        buffInjection: hasInjection ? result.injection! : (hasBuffArray ? '' : (current.buffInjection || '')),
+        buffInjectionAt: hasInjection ? now : current.buffInjectionAt,
+    };
+}
+
 export async function applyEmotionEvalRaw(
     rawText: string,
     charData: CharacterProfile,
@@ -414,10 +438,8 @@ export async function applyEmotionEvalRaw(
         // 拿舊快照整份存回去會把那些改動悄悄蓋掉——心聲「還差 N 輪」重開 App 就退回原數，
         // 就是這樣來的。這裡只該動 buff 兩個字段，其餘一律以庫裡現在的為準。
         const latest = await readLatestCharacter(charData);
-        // 褪色（utils/emotionDecay.ts）：沿用沒變的情緒原本的時間、去掉已淡掉的、最多留 12 條
-        const sanitizedBuffs = hasBuffArray ? settleBuffs(latest.activeBuffs, sanitizeBuffs(result.buffs)) : (latest.activeBuffs || []);
-        const buffInjection = hasInjection ? result.injection! : (hasBuffArray ? '' : (latest.buffInjection || ''));
-        const buffInjectionAt = hasInjection ? Date.now() : latest.buffInjectionAt;
+        const settled = settleEmotionEval(result, latest)!;
+        const { activeBuffs: sanitizedBuffs, buffInjection, buffInjectionAt } = settled;
         const updated: CharacterProfile = {
             ...latest,
             activeBuffs: sanitizedBuffs,

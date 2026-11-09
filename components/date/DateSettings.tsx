@@ -7,11 +7,12 @@ import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
 import { DB } from '../../utils/db';
-import { deleteMeetingPresetRecord, duplicateMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
+import { copyBuiltinMeetingPreset, deleteMeetingPresetRecord, duplicateMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
 import { buildStPreset, stPresetFileName } from '../../utils/meetingPreset/stExport';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
+import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import DateStoryExtras from './DateStoryExtras';
 import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateStory';
 import type { DateStory } from '../../types';
@@ -67,7 +68,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const presetInputRef = useRef<HTMLInputElement>(null);
     const [presets, setPresets] = useState<MeetingPresetRecord[]>([]);
     const [managingPresetId, setManagingPresetId] = useState<string | null>(null);
-    const [presetMenu, setPresetMenu] = useState<MeetingPresetRecord | null>(null);
+    const [presetMenu, setPresetMenu] = useState<MeetingPresetRecord | 'builtin' | null>(null);
     const [importing, setImporting] = useState(false);
     useEffect(() => {
         const load = () => { DB.getMeetingPresets().then(setPresets).catch(() => setPresets([])); };
@@ -110,6 +111,10 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const handleDuplicatePreset = async (preset: MeetingPresetRecord) => {
         const copy = await duplicateMeetingPresetRecord(preset);
         addToast(`已複製成「${copy.name}」`, 'success');
+    };
+    const handleCopyBuiltin = async () => {
+        const copy = await copyBuiltinMeetingPreset(char.dateStyleConfig);
+        addToast(`已複製成「${copy.name}」，點一下就能換成它`, 'success');
     };
     const handleExportPreset = async (preset: MeetingPresetRecord) => {
         try {
@@ -155,12 +160,16 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <Section title="預設 (Preset)" defaultOpen>
                     <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用，選哪一份是每個角色自己的；點一下就換成那份，一次只跑標著「使用中」的那份，剛匯入的會自動選上。</p>
                     <div className="space-y-2">
-                        <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${!activePresetId ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
-                            <span className={`text-sm font-bold ${!activePresetId ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
-                            {!activePresetId && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
-                            <span className="text-[11px] text-slate-400">下面的文風與敘事</span>
-                        </button>
+                        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${!activePresetId ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
+                            <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })} className="flex-1 min-w-0 flex items-center gap-3 text-left">
+                                <span className={`text-sm font-bold ${!activePresetId ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
+                                {!activePresetId && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
+                                <span className="text-[11px] text-slate-400 truncate">下面的文風與敘事</span>
+                            </button>
+                            <button onClick={() => setPresetMenu('builtin')} aria-label="內建規則 的更多操作" className="p-1.5 text-slate-400 active:scale-95">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+                            </button>
+                        </div>
                         {presets.map(preset => {
                             const active = activePresetId === preset.id;
                             return (
@@ -227,6 +236,27 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                     ? `暫停中${char.dateOfflinePause.tasks.length ? `：${char.dateOfflinePause.tasks.length} 條主動消息先停著，完結後排回去` : ''}${char.dateOfflinePause.resuming ? '（有幾條還沒排回去，下次打開見面再試）' : ''}`
                                     : char.activeDateStoryId ? '正在暫停…' : '現在沒有進行中的故事，開始一場就會生效。'}
                             </p>
+                        )}
+                    </div>
+                    <div className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase">線下情緒獨立</h3>
+                                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">開著時見面的情緒跟著這場故事走：開場帶著私聊當下的情緒進來，之後每則見面回覆都評估一次、只寫進這場故事，私聊那份不受影響。關著就跟私聊共用一份。</p>
+                            </div>
+                            <button
+                                onClick={() => updateCharacter(char.id, { dateEmotionIndependent: !char.dateEmotionIndependent })}
+                                type="button"
+                                role="switch"
+                                aria-checked={!!char.dateEmotionIndependent}
+                                aria-label="切換線下情緒獨立"
+                                className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${char.dateEmotionIndependent ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute left-0 top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateEmotionIndependent ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                        {char.dateEmotionIndependent && !(char.emotionConfig?.enabled && isScheduleFeatureOn(char)) && (
+                            <p className="text-[10px] mt-2 text-amber-600">{char.name}的情緒系統還沒開（私聊設定 →「日程與情緒 Buff」），見面不會評估情緒。</p>
                         )}
                     </div>
                     <div className="flex items-center justify-between gap-4 p-4">
@@ -336,8 +366,14 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
             {presetMenu && (
                 <div className="fixed inset-0 z-[300] bg-black/40 flex items-end sm:items-center justify-center" onClick={() => setPresetMenu(null)}>
                     <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-2" style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.5rem)' }} onClick={e => e.stopPropagation()}>
-                        <div className="px-4 py-3 text-xs text-slate-400 truncate">{presetMenu.name}</div>
-                        {([
+                        {presetMenu === 'builtin' ? (
+                            <p className="px-4 py-3 text-xs text-slate-400 leading-relaxed">內建規則不能直接改。複製出來是一份一般的自訂預設，文風、人稱、深挖照{char.name}現在的設定先開好，可以自己增刪條目、改內容、匯出。</p>
+                        ) : (
+                            <div className="px-4 py-3 text-xs text-slate-400 truncate">{presetMenu.name}</div>
+                        )}
+                        {(presetMenu === 'builtin' ? [
+                            ['複製成自訂預設', () => handleCopyBuiltin(), 'text-slate-700'],
+                        ] as const : [
                             ['複製一份', () => handleDuplicatePreset(presetMenu), 'text-slate-700'],
                             ['匯出（SillyTavern .json）', () => handleExportPreset(presetMenu), 'text-slate-700'],
                             ['刪除', () => handleDeletePreset(presetMenu), 'text-red-500'],

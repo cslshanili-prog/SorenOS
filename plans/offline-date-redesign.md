@@ -117,6 +117,7 @@
 | `utils/meetingPresetSession.ts` | 預設模式的送出內容：`ContextBuilder.buildCoreSections` 拆出的各段填進佔位（對應表在檔頭），內建模式的格式規則不帶 |
 | `utils/meetingPreset/store.ts` | `meeting_presets` 表（DB v76，進完整備份）；改了發 `soren-meeting-preset-updated`；複製一份 |
 | `utils/meetingPreset/edit.ts` | 管理頁的編輯動作（純函式）：條目新增／刪除／上下移、正則上下移、複製 |
+| `utils/meetingPreset/builtin.ts` | 內建規則寫成一份預設（給用戶複製出來調）；文字跟內建模式同一份來源（`datePrompts.ts` 的 `DATE_PROSE_INTRO` 這些常數） |
 | `utils/meetingPreset/stExport.ts` | Soren → ST 預設（`stImport.ts` 反過來），外加整份 doc 和指紋 |
 | `components/date/MeetingPresetManager.tsx` | 管理頁：分組開關、條目內容與增刪排序、變數、正則（編輯、排序）、生成參數 |
 
@@ -180,7 +181,7 @@
 - **評估模型看到的**：已淡掉的不給，強度換成此刻的，附「已持續」多久；規則從「最多 5 個、最好 2–4 個」改成最多 12 個、會自己褪、被重新觸發就把強度往上調
 - **提示詞**：照舊帶評估寫的「當下情緒總結」（`buffInjection`，記 `buffInjectionAt`），後面補一行「這段寫於 N 小時前，此刻還在的情緒：…（最強的 6 條）；沒列出來的都淡掉了」。全部淡掉就整段不帶。時間刻度到小時，免得提示詞每分鐘都變、提示詞快取失效
 - **畫面**：私聊設定和見面共用 `EmotionStatusPanel`：強度條是此刻還剩多少、每條可刪（只刪那條，不再整段清掉總結）、當下情緒總結可直接改、「重置情緒狀態」清空。私聊頂欄只顯示沒淡掉的。見面畫面左上角一行小字（`.date-emotion-line`），點開是同一個面板
-- **沒做**：「線下情緒獨立」（見面另存一份情緒）。見面現在不跑情緒評估、只讀私聊那份，要獨立得先讓見面也跑評估，之後再說
+- **線下情緒獨立**：後來做了，見下面「線下情緒獨立的實作」
 
 ## 關閉線上功能的實作（已做）
 
@@ -242,3 +243,20 @@ Liora 測試時發現：用了預設，畫面上只有正文，看不出預設�
 ## 參考檔案
 
 拿到的真實預設：「日月西 v1.1」（522 條目、啟用 217、133 個變數、28 條正則、8 個酒館助手腳本）。第一輪做完要用它驗證：開關條目、變數拼接、功能型正則、三類裝飾都正常。
+
+## 內建規則可以複製成預設（已做）
+
+- 見面設定「內建規則」那列也有「⋯」→ 複製成自訂預設。複製出來是一份一般的預設（`utils/meetingPreset/builtin.ts` 產生），能增刪條目、改內容、匯出
+- 條目照內建模式的順序：角色與記憶（佔位）→ 見面框架（散文敘事、格式、語氣標籤、聽得到／看得到什麼、場景上下文）→ 文風（五種都在，只開角色現在選的）→ 敘事人稱（三種，只開選的，全關＝不指定）→ 深挖、額外要求、每輪提醒 → 大綱、前情提要、字數、聊天記錄
+- 名字寫成 `{{char}}`／`{{user}}`，所有角色都能用；每輪提醒插在最後（深度 0），線索用 `{{random::…}}` 每輪抽一條，深挖關掉就換成不帶線索那條
+- 文字跟內建模式同一份來源：散文塊裡寫死的段落抽成 `DATE_PROSE_INTRO`、`DATE_FORMAT_RULES`、`DATE_SCENE_LINES`、`buildDateTurnNote`，內建模式照樣拼，輸出不變
+- **沒做**：內建模式本身改走預設引擎。內建模式還是 `DatePrompts.buildSessionPayload`（一份 system prompt），一堆入口一致性、字數、時鐘的測試鎖在這個結構上；複製出來的那份是起點，不回頭影響內建模式。要整條換掉等複製版用一陣子、確定沒落差再說
+
+## 線下情緒獨立的實作（已做）
+
+- **開關**：見面設定「線下情緒獨立」（`CharacterProfile.dateEmotionIndependent`），跟著角色走。情緒系統本身沒開（私聊設定「日程與情緒 Buff」）時設定頁會提醒，見面不評估
+- **存哪**：`DateStory.emotion`（`activeBuffs`／`buffInjection`／`buffInjectionAt`，跟角色身上的同一個形狀）。故事還沒有自己那份（剛開、剛打開開關）就讀私聊此刻那份；見面第一則回覆評估完、或在面板裡動過，故事就有自己那份，之後各走各的。開新故事重新從私聊接；關掉開關故事那份留著不用
+- **誰讀**：`withStoryEmotion`（`utils/dateEmotion.ts`）在 DateApp 組角色時換上故事那份，內建、預設、開場三條路的提示詞都讀它；見面畫面的情緒小字、面板也讀它，面板裡刪條、改總結、重置寫回故事（`EmotionStatusPanel` 多一個 `onUpdate`）
+- **評估**：每則見面回覆（含重擲）落庫後跑一次 `evaluateEmotionBackground`，同一套提示詞、情緒 API、褪色（`settleEmotionEval` 從 `applyEmotionEvalRaw` 抽出來共用）。系統提示是這輪送出去開頭連續的 system，對話是其餘的再接上這則回覆（預填拿掉）。結果只寫進故事：不動私聊那份、不出小屋動態（`ambient: false`）、不寫內心獨白緩存；API 調用記錄的 App 名是「見面」
+- **沒做**：故事完結時把見面的情緒帶回私聊。現在完結後私聊還是自己那份
+

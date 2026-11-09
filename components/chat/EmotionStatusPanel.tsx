@@ -10,6 +10,8 @@ interface EmotionStatusPanelProps {
     onClearBuffs: () => void;
     /** 見面裡用：不看日程開關，有情緒就顯示 */
     alwaysShow?: boolean;
+    /** 改動寫去哪：見面「線下情緒獨立」時寫進故事；沒給就寫角色 */
+    onUpdate?: (patch: Partial<Pick<CharacterProfile, 'activeBuffs' | 'buffInjection' | 'buffInjectionAt'>>) => void;
 }
 
 const HOUR = 3_600_000;
@@ -19,8 +21,9 @@ const agoText = (ms: number) => ms < HOUR ? '剛剛' : ms < 48 * HOUR ? `${Math.
  * 「當前情緒狀態」：私聊設定和見面共用。情緒會褪色（utils/emotionDecay.ts），強度條是此刻還剩多少；
  * 每條可刪、當下情緒總結可改、可整個重置。
  */
-const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBuffs, alwaysShow }) => {
+const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBuffs, alwaysShow, onUpdate }) => {
     const { updateCharacter, addToast } = useOS();
+    const apply = onUpdate ?? ((patch: Partial<CharacterProfile>) => updateCharacter(char.id, patch));
     // 每分鐘重算一次強度條
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(t); }, []);
@@ -34,12 +37,12 @@ const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBu
     const saveSummary = () => {
         const next = summaryDraft.trim();
         if (next === (char.buffInjection || '').trim()) return;
-        updateCharacter(char.id, { buffInjection: next, buffInjectionAt: Date.now() });
+        apply({ buffInjection: next, buffInjectionAt: Date.now() });
         addToast(next ? '當下情緒總結已修改' : '當下情緒總結已清空', 'success');
     };
     const removeBuff = (id: string) => {
         const next = stored.filter(buff => buff.id !== id);
-        updateCharacter(char.id, next.length ? { activeBuffs: next } : { activeBuffs: [], buffInjection: '' });
+        apply(next.length ? { activeBuffs: next } : { activeBuffs: [], buffInjection: '' });
     };
 
     if (buffs.length === 0 && !scheduleOn && !alwaysShow && !char.buffInjection) return null;

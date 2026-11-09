@@ -2884,6 +2884,8 @@ export interface DateStory {
   finalSummary?: { text: string; createdAt: number; palaceAt?: number };
   /** 這場故事的時間（utils/dateStoryTime.ts）；沒設就是真實＋流動 */
   time?: DateStoryTime;
+  /** 「線下情緒獨立」時這場故事自己的情緒（utils/dateEmotion.ts）；沒有就從私聊那份接 */
+  emotion?: { activeBuffs: CharacterBuff[]; buffInjection: string; buffInjectionAt?: number };
 }
 
 /** 見面線下故事的時間設定：真實／自定義 × 流動／靜止 */
@@ -3188,6 +3190,8 @@ export interface CharacterProfile {
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
   /** 見面用的自訂預設（meeting_presets 表的 id）；不設就是內建規則。見 plans/offline-date-redesign.md */
   dateMeetingPresetId?: string;
+  /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
+  dateEmotionIndependent?: boolean;
   /** 見面的開場白庫（ST 的 first_mes + alternate_greetings）；可用 {{char}}、{{user}} */
   dateGreetings?: { id: string; text: string }[];
   /** 開場怎麼來：模型寫（預設）或從開場白庫挑 */

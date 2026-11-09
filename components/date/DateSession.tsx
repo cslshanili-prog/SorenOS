@@ -33,6 +33,7 @@ import { buildDateAppearanceCss, resolveDateBackdrop, scopeDateCss } from '../..
 import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
 import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
 import type { MeetingRegexScript } from '../../utils/meetingPreset/types';
+import type { EmotionState } from '../../utils/emotionApply';
 
 // 用戶輸入的顯示：去掉方括號標記（跟以前一樣），其餘原樣
 const cleanUserTextForDisplay = (text: string) => text.replace(/\[.*?\]/g, '').trim();
@@ -70,6 +71,10 @@ interface DateSessionProps {
     presetRegex?: MeetingRegexScript[];
     /** 有進行中的故事才給：選單多一顆「完結故事」 */
     onFinishStory?: () => void;
+    /** 線下情緒獨立時這場故事的情緒（utils/dateEmotion.ts）；沒給就讀角色身上私聊那份 */
+    emotion?: EmotionState | null;
+    /** 面板裡刪條、改總結、重置寫回故事那份；沒給就寫角色 */
+    onEmotionChange?: (patch: Partial<EmotionState>) => void;
     /** 設成 true 就不再自動存檔：故事完結後離開會話，別把舊的角色資料（含存檔、進行中的故事）寫回去 */
     suppressAutoSaveRef?: React.MutableRefObject<boolean>;
     /** 拍下這一刻（utils/dateMoment.ts） */
@@ -146,6 +151,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     onDeleteMessages,
     presetRegex,
     onFinishStory,
+    emotion,
+    onEmotionChange,
     suppressAutoSaveRef,
     onCaptureMoment,
     capturingMoment,
@@ -164,7 +171,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     );
     const decorationDarkCard = light && appearance?.decorationDarkCard === true;
     const [showEmotion, setShowEmotion] = useState(false);
-    const emotionNow = liveBuffs(char.activeBuffs);
+    const emotionChar = emotion ? { ...char, ...emotion } : char;
+    const emotionNow = liveBuffs(emotionChar.activeBuffs);
 
     // Interaction State
     const [input, setInput] = useState('');
@@ -1016,8 +1024,13 @@ const DateSession: React.FC<DateSessionProps> = ({
                 onClose={() => { if (!voiceFavoriteBusy) setVoiceFavoriteTarget(null); }}
             />
 
-            <Modal isOpen={showEmotion} title={`${char.name}此刻的情緒`} onClose={() => setShowEmotion(false)}>
-                <EmotionStatusPanel char={char} alwaysShow onClearBuffs={() => { updateCharacter(char.id, { activeBuffs: [], buffInjection: '' }); setShowEmotion(false); addToast('情緒狀態已重置', 'info'); }} />
+            <Modal isOpen={showEmotion} title={`${char.name}此刻的情緒${emotion ? '（這場故事）' : ''}`} onClose={() => setShowEmotion(false)}>
+                <EmotionStatusPanel char={emotionChar} alwaysShow onUpdate={onEmotionChange} onClearBuffs={() => {
+                    const cleared = { activeBuffs: [], buffInjection: '' };
+                    if (onEmotionChange) onEmotionChange(cleared); else updateCharacter(char.id, cleared);
+                    setShowEmotion(false);
+                    addToast('情緒狀態已重置', 'info');
+                }} />
             </Modal>
 
             {/* Exit Modal */}
