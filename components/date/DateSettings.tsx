@@ -7,7 +7,9 @@ import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
 import { DATE_STYLE_PRESETS } from '../../utils/datePrompts';
 import { DB } from '../../utils/db';
-import { deleteMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
+import { deleteMeetingPresetRecord, duplicateMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT } from '../../utils/meetingPreset/store';
+import { buildStPreset, stPresetFileName } from '../../utils/meetingPreset/stExport';
+import { shareOrDownloadFile } from '../../utils/shareExport';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
 import DateStoryExtras from './DateStoryExtras';
@@ -65,6 +67,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
     const presetInputRef = useRef<HTMLInputElement>(null);
     const [presets, setPresets] = useState<MeetingPresetRecord[]>([]);
     const [managingPresetId, setManagingPresetId] = useState<string | null>(null);
+    const [presetMenu, setPresetMenu] = useState<MeetingPresetRecord | null>(null);
     const [importing, setImporting] = useState(false);
     useEffect(() => {
         const load = () => { DB.getMeetingPresets().then(setPresets).catch(() => setPresets([])); };
@@ -103,6 +106,19 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         await deleteMeetingPresetRecord(preset.id);
         if (char.dateMeetingPresetId === preset.id) updateCharacter(char.id, { dateMeetingPresetId: undefined });
         addToast('已刪除', 'success');
+    };
+    const handleDuplicatePreset = async (preset: MeetingPresetRecord) => {
+        const copy = await duplicateMeetingPresetRecord(preset);
+        addToast(`已複製成「${copy.name}」`, 'success');
+    };
+    const handleExportPreset = async (preset: MeetingPresetRecord) => {
+        try {
+            const content = JSON.stringify(buildStPreset(preset.doc), null, 2);
+            const result = await shareOrDownloadFile({ content, fileName: stPresetFileName(preset.doc), mimeType: 'application/json', shareTitle: preset.name });
+            if (result === 'downloaded') addToast('已匯出', 'success');
+        } catch (err: any) {
+            addToast(err?.message || '匯出失敗', 'error');
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,8 +173,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                         <div className="text-[11px] text-slate-400">開 {preset.doc.prompts.filter(p => p.enabled).length} / {preset.doc.prompts.length} 條 · 正則 {preset.doc.regexScripts.length}</div>
                                     </button>
                                     <button onClick={() => setManagingPresetId(preset.id)} className="px-3 py-1.5 rounded-lg bg-white text-xs font-bold text-slate-600 border border-slate-200 active:scale-95">管理</button>
-                                    <button onClick={() => void handleDeletePreset(preset)} aria-label={`刪除 ${preset.name}`} className="p-1.5 text-slate-300 hover:text-red-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                    <button onClick={() => setPresetMenu(preset)} aria-label={`${preset.name} 的更多操作`} className="p-1.5 text-slate-400 active:scale-95">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
                                     </button>
                                 </div>
                             );
@@ -317,6 +333,22 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
 
+            {presetMenu && (
+                <div className="fixed inset-0 z-[300] bg-black/40 flex items-end sm:items-center justify-center" onClick={() => setPresetMenu(null)}>
+                    <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-2" style={{ paddingBottom: 'calc(var(--safe-bottom) + 0.5rem)' }} onClick={e => e.stopPropagation()}>
+                        <div className="px-4 py-3 text-xs text-slate-400 truncate">{presetMenu.name}</div>
+                        {([
+                            ['複製一份', () => handleDuplicatePreset(presetMenu), 'text-slate-700'],
+                            ['匯出（SillyTavern .json）', () => handleExportPreset(presetMenu), 'text-slate-700'],
+                            ['刪除', () => handleDeletePreset(presetMenu), 'text-red-500'],
+                        ] as const).map(([label, action, color]) => (
+                            <button key={label} onClick={() => { const target = action; setPresetMenu(null); void target(); }}
+                                className={`w-full px-4 py-3 text-left text-sm font-bold rounded-xl active:bg-slate-50 ${color}`}>{label}</button>
+                        ))}
+                        <button onClick={() => setPresetMenu(null)} className="w-full px-4 py-3 text-sm text-slate-400 rounded-xl active:bg-slate-50">取消</button>
+                    </div>
+                </div>
+            )}
             {managingPresetId && <MeetingPresetManager presetId={managingPresetId} onClose={() => setManagingPresetId(null)} />}
         </div>
     );

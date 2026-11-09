@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
 import { saveMeetingPresetDoc } from '../../utils/meetingPreset/store';
+import { addPrompt, canDeletePrompt, movePrompt, moveRegexScript, removePrompt, sectionPromptIds, UNGROUPED_SECTION_ID } from '../../utils/meetingPreset/edit';
 import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor';
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
-// 正則開關、生成參數。改了 600ms 後存一次，存了就發事件讓開著的見面畫面重讀。
+// 正則開關、生成參數。條目能新增、刪除（資料佔位只能關）、排序；正則能排序。
+// 改了 600ms 後存一次，存了就發事件讓開著的見面畫面重讀。
 
 const SLOT_LABELS: Record<MeetingPresetSlot, string> = {
     worldInfoBefore: '世界書（前）',
@@ -35,6 +37,17 @@ const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = (
     </button>
 );
 
+const MoveButtons: React.FC<{ label: string; first: boolean; last: boolean; onMove: (direction: -1 | 1) => void }> = ({ label, first, last, onMove }) => (
+    <div className="flex shrink-0 gap-1">
+        {([[-1, '上移', 'm4.5 15.75 7.5-7.5 7.5 7.5'], [1, '下移', 'm19.5 8.25-7.5 7.5-7.5-7.5']] as const).map(([direction, word, path]) => (
+            <button key={word} type="button" aria-label={`${word} ${label}`} disabled={direction === -1 ? first : last} onClick={() => onMove(direction)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 active:scale-95 disabled:opacity-30">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d={path} /></svg>
+            </button>
+        ))}
+    </div>
+);
+
 const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> = ({ presetId, onClose }) => {
     const { addToast, registerBackHandler } = useOS();
     const [record, setRecord] = useState<MeetingPresetRecord | null>(null);
@@ -44,6 +57,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
     const [editing, setEditing] = useState<MeetingPresetPrompt | null>(null);
     const [editingRegexId, setEditingRegexId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
+    const [sorting, setSorting] = useState(false);
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const latest = useRef<{ record: MeetingPresetRecord | null; doc: MeetingPresetDoc | null }>({ record: null, doc: null });
     latest.current = { record, doc };
@@ -92,7 +106,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
             return { id: g.id, name: g.name, prompts };
         });
         const rest = doc.prompts.filter(p => !grouped.has(p.id));
-        if (rest.length) out.push({ id: '__rest__', name: doc.groups.length ? '未分組' : '全部條目', prompts: rest });
+        if (rest.length || !doc.groups.length) out.push({ id: UNGROUPED_SECTION_ID, name: doc.groups.length ? '未分組' : '全部條目', prompts: rest });
         const q = query.trim().toLowerCase();
         return q ? out.map(s => ({ ...s, prompts: s.prompts.filter(p => p.name.toLowerCase().includes(q)) })).filter(s => s.prompts.length) : out;
     }, [doc, query]);
@@ -102,7 +116,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
     }
 
     const tabButton = (id: Tab, label: string) => (
-        <button key={id} onClick={() => setTab(id)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${tab === id ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>{label}</button>
+        <button key={id} onClick={() => { setTab(id); setSorting(false); }} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${tab === id ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>{label}</button>
     );
     const enabledCount = doc.prompts.filter(p => p.enabled).length;
     const genField = (key: keyof MeetingPresetDoc['generation'], label: string, step: string) => (
@@ -136,10 +150,15 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
             <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ paddingBottom: 'calc(var(--safe-bottom) + 2rem)' }}>
                 {tab === 'prompts' && (
                     <>
-                        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜尋條目名稱"
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary/30" />
+                        <div className="flex gap-2">
+                            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜尋條目名稱" disabled={sorting}
+                                className="flex-1 min-w-0 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50" />
+                            <button type="button" onClick={() => { setSorting(v => !v); setQuery(''); }}
+                                className={`shrink-0 px-4 rounded-xl text-sm font-bold border ${sorting ? 'bg-primary text-white border-primary' : 'bg-white text-slate-600 border-slate-200'}`}>{sorting ? '完成' : '排序'}</button>
+                        </div>
                         {sections.map(section => {
                             const open = openGroups.has(section.id) || !!query.trim() || sections.length === 1;
+                            const order = sorting ? sectionPromptIds(doc, section.id) : [];
                             const on = section.prompts.filter(p => p.enabled).length;
                             return (
                                 <div key={section.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -152,21 +171,27 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                                         <div className="border-t border-slate-100 divide-y divide-slate-50">
                                             {section.prompts.map(p => (
                                                 <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                                                    <button onClick={() => setEditing(p)} className="flex-1 min-w-0 text-left">
+                                                    <button onClick={() => { if (!sorting) setEditing(p); }} className="flex-1 min-w-0 text-left">
                                                         <div className={`text-[13px] truncate ${p.enabled ? 'text-slate-700' : 'text-slate-400'}`}>{p.name}</div>
                                                         <div className="text-[10px] text-slate-300 truncate">
                                                             {p.slot ? `資料佔位 · ${SLOT_LABELS[p.slot]}` : `${p.role}${p.inChat ? ` · 插在倒數第 ${p.inChat.depth} 則` : ''}${p.content.trim() ? '' : ' · 空白'}`}
                                                         </div>
                                                     </button>
-                                                    <Switch on={p.enabled} onToggle={() => patchPrompt(p.id, { enabled: !p.enabled })} label={`切換 ${p.name}`} />
+                                                    {sorting
+                                                        ? <MoveButtons label={p.name} first={order[0] === p.id} last={order[order.length - 1] === p.id} onMove={direction => update(movePrompt(doc, p.id, direction))} />
+                                                        : <Switch on={p.enabled} onToggle={() => patchPrompt(p.id, { enabled: !p.enabled })} label={`切換 ${p.name}`} />}
                                                 </div>
                                             ))}
+                                            {!sorting && !query.trim() && (
+                                                <button type="button" onClick={() => { const added = addPrompt(doc, section.id); update(added.doc); setEditing(added.prompt); }}
+                                                    className="w-full px-4 py-2.5 text-left text-[13px] font-bold text-primary active:bg-slate-50">+ 新增條目</button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
                             );
                         })}
-                        <p className="text-[11px] text-slate-400 leading-relaxed px-1">條目照預設的順序送出。Soren 的記憶、情緒、時間、語氣標籤這些，預設裡沒放的會補在聊天記錄前面。</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed px-1">條目照這裡的順序送出，按「排序」可以上下移（分組內移動）。聊天記錄、角色描述這類資料佔位只能關、不能刪。Soren 的記憶、情緒、時間、語氣標籤這些，預設裡沒放的會補在聊天記錄前面。</p>
                     </>
                 )}
 
@@ -188,24 +213,32 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                 {tab === 'regex' && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
                         {doc.regexScripts.length === 0 && <p className="p-4 text-sm text-slate-400">這份預設沒有內嵌正則。</p>}
-                        {doc.regexScripts.map(script => (
+                        {doc.regexScripts.length > 1 && (
+                            <div className="flex justify-end px-3 py-2">
+                                <button type="button" onClick={() => setSorting(v => !v)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${sorting ? 'bg-primary text-white border-primary' : 'bg-white text-slate-500 border-slate-200'}`}>{sorting ? '完成' : '排序'}</button>
+                            </div>
+                        )}
+                        {doc.regexScripts.map((script, index) => (
                             <div key={script.id} className="flex items-center gap-3 px-4 py-2.5">
-                                <button type="button" onClick={() => setEditingRegexId(script.id)} className="flex-1 min-w-0 text-left">
+                                <button type="button" onClick={() => { if (!sorting) setEditingRegexId(script.id); }} className="flex-1 min-w-0 text-left">
                                     <div className={`text-[13px] truncate ${script.disabled ? 'text-slate-400' : 'text-slate-700'}`}>{script.scriptName}</div>
                                     <div className="text-[10px] text-slate-300">
                                         {[script.placement.includes(1) ? '用戶輸入' : '', script.placement.includes(2) ? 'AI 輸出' : ''].filter(Boolean).join('、') || '其它'}
                                         {' · '}{script.markdownOnly && script.promptOnly ? '只改顯示和送出' : script.markdownOnly ? '只改顯示' : script.promptOnly ? '只改送出' : '改存下的原文'}
                                     </div>
                                 </button>
-                                <Switch on={!script.disabled} label={`切換 ${script.scriptName}`}
-                                    onToggle={() => update({ ...doc, regexScripts: doc.regexScripts.map(r => (r.id === script.id ? { ...r, disabled: !r.disabled } : r)) })} />
+                                {sorting
+                                    ? <MoveButtons label={script.scriptName} first={index === 0} last={index === doc.regexScripts.length - 1} onMove={direction => update(moveRegexScript(doc, script.id, direction))} />
+                                    : <Switch on={!script.disabled} label={`切換 ${script.scriptName}`}
+                                        onToggle={() => update({ ...doc, regexScripts: doc.regexScripts.map(r => (r.id === script.id ? { ...r, disabled: !r.disabled } : r)) })} />}
                             </div>
                         ))}
-                        <button type="button" onClick={() => { const created = newMeetingRegexScript(); update({ ...doc, regexScripts: [...doc.regexScripts, created] }); setEditingRegexId(created.id); }}
-                            className="w-full px-4 py-3 text-left text-sm font-bold text-primary active:bg-slate-50">+ 新增正則</button>
+                        {!sorting && <button type="button" onClick={() => { const created = newMeetingRegexScript(); update({ ...doc, regexScripts: [...doc.regexScripts, created] }); setEditingRegexId(created.id); }}
+                            className="w-full px-4 py-3 text-left text-sm font-bold text-primary active:bg-slate-50">+ 新增正則</button>}
                     </div>
                 )}
-                {tab === 'regex' && <p className="text-[11px] text-slate-400 leading-relaxed px-1 mt-3">點一條就能改。正則照這個順序一條接一條跑。</p>}
+                {tab === 'regex' && <p className="text-[11px] text-slate-400 leading-relaxed px-1 mt-3">點一條就能改。正則照這個順序一條接一條跑，按「排序」可以上下移。</p>}
 
                 {tab === 'params' && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4">
@@ -257,10 +290,35 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                                                 className={`px-3 py-1.5 rounded-full text-xs font-bold ${editing.role === role ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>{role}</button>
                                         ))}
                                     </div>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                        <span className="text-slate-400">位置</span>
+                                        {([['order', '照順序'], ['chat', '插進聊天記錄']] as const).map(([mode, label]) => {
+                                            const active = mode === 'chat' ? !!editing.inChat : !editing.inChat;
+                                            return (
+                                                <button key={mode} type="button" onClick={() => {
+                                                    const inChat = mode === 'chat' ? (editing.inChat || { depth: 4, order: 100 }) : undefined;
+                                                    setEditing({ ...editing, inChat }); patchPrompt(editing.id, { inChat });
+                                                }} className={`px-3 py-1.5 rounded-full font-bold ${active ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>{label}</button>
+                                            );
+                                        })}
+                                        {editing.inChat && (
+                                            <label className="flex items-center gap-1 text-slate-500">倒數第
+                                                <input type="number" min={0} value={editing.inChat.depth} aria-label="插入深度"
+                                                    onChange={e => { const inChat = { ...editing.inChat!, depth: Math.max(0, Math.floor(Number(e.target.value) || 0)) }; setEditing({ ...editing, inChat }); patchPrompt(editing.id, { inChat }); }}
+                                                    className="w-14 px-2 py-1 bg-slate-100 rounded-lg text-center outline-none" />則
+                                            </label>
+                                        )}
+                                    </div>
                                     <textarea value={editing.content} rows={14}
                                         onChange={e => { setEditing({ ...editing, content: e.target.value }); patchPrompt(editing.id, { content: e.target.value }); }}
                                         className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-mono leading-relaxed outline-none resize-y select-text" />
                                 </>
+                            )}
+                            {canDeletePrompt(editing) && (
+                                <button type="button" onClick={() => {
+                                    if (!window.confirm(`刪除條目「${editing.name}」？`)) return;
+                                    update(removePrompt(doc, editing.id)); setEditing(null);
+                                }} className="w-full py-2.5 rounded-xl bg-red-50 text-red-500 text-sm font-bold active:scale-95">刪除這個條目</button>
                             )}
                         </div>
                     </div>

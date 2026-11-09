@@ -14,6 +14,7 @@ import type {
     MeetingRegexScript,
     MeetingStSlot,
 } from './types';
+import { readEmbeddedSorenDoc } from './stExport';
 
 const ST_MARKERS: Record<string, MeetingStSlot> = {
     worldInfoBefore: 'worldInfoBefore',
@@ -128,6 +129,12 @@ export const parseStPreset = (rawText: string, fileName = ''): MeetingPresetDoc 
         throw new Error('看起來不是 SillyTavern 的對話補全（Chat Completion）預設：缺少 prompts');
     }
 
+    const baseName = fileName.replace(/\.json$/i, '').trim();
+
+    // Soren 匯出、沒在酒館改過的檔：整份還原（變數的值、Soren 佔位都在）
+    const embedded = readEmbeddedSorenDoc(data);
+    if (embedded) return { ...embedded, name: baseName || embedded.name || '匯入的預設' };
+
     const byId = new Map<string, any>();
     for (const raw of data.prompts) {
         if (raw && typeof raw.identifier === 'string') byId.set(raw.identifier, raw);
@@ -153,7 +160,6 @@ export const parseStPreset = (rawText: string, fileName = ''): MeetingPresetDoc 
     const globalVars: Record<string, string> = {};
     for (const name of collectGlobalVarNames(prompts)) globalVars[name] = '';
 
-    const baseName = fileName.replace(/\.json$/i, '').trim();
     return {
         schema: 'soren.meeting-preset',
         version: 1,
