@@ -23,6 +23,7 @@
 import { applyClockToHistory, describeClockNote, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { buildLengthLine, buildScenarioBlock } from './dateExtras';
+import { buildObserveBlock, isObserveOn } from './dateObserve';
 import { CharacterProfile, UserProfile, Message, Emoji, DateStyleConfig } from '../types';
 import { buildBlockedMeetingNote } from './chatBlock';
 import { ContextBuilder } from './context';
@@ -370,7 +371,7 @@ ${preset.block}
 ${digBlock}${povBlock}${extraBlock}${buildDateInputPerceptionRule(userName || '對方')}
 ${buildScenarioBlock(char, userName)}${recap}${buildLengthLine(char)}### 場景上下文
 ${timeLine}${DATE_SCENE_LINES}
-${buildBlockedMeetingNote(char, userName)}`;
+${buildBlockedMeetingNote(char, userName)}${isObserveOn(char) ? buildObserveBlock(char) : ''}`;
 };
 
 /**
@@ -537,8 +538,8 @@ ${invite
 ### 邏輯檢查
 1. **上下文連貫性**: 參考 [最近記錄]（注意消息來源標籤：[聊天]是文字聊天、[約會]是面對面、[通話]是語音通話）。如果有 [TIME SKIP] 且間隔很久，開啟新場景；如果是 [SCENE CONTINUATION]，說明剛剛還在聊天，**必須**自然銜接最近的聊天話題和情緒狀態，不要無視之前的對話內容。
 2. **狀態一致性**: ${gapHint.includes('天') ? '如果間隔了很多天，可能在發呆、忙碌或者有點落寞。' : '根據最近的聊天內容和情緒來決定當前狀態。如果剛聊完，角色的狀態應該與聊天內容相呼應。'}
-${char.chatBlock ? `${buildBlockedMeetingNote(char, userProfile?.name || '')}` : ''}3. **描寫風格**: ${preset.peekHint}。不要輸出任何前綴，直接輸出描寫內容。
-${extraBlock ? `\n${extraBlock}` : ''}`;
+${char.chatBlock ? `${buildBlockedMeetingNote(char, userProfile?.name || '')}` : ''}3. **描寫風格**: ${preset.peekHint}。${isObserveOn(char) ? '先按下方「觀測協議」輸出觀測塊，再開始描寫內容（描寫本身不要加任何前綴）。' : '不要輸出任何前綴，直接輸出描寫內容。'}
+${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlock(char)}` : ''}`;
 
         // 歷史已經壓進這一條 user 消息裡，深度條目就以它為準：深度 0 在它之後，其餘在它之前
         const peekMsg: ApiMessage = { role: 'user', content: `[最近記錄 (Previous Context)]:${recentMsgs}${contextSeparator}${peekInstructions}\n\n(Start sensing...)` };
