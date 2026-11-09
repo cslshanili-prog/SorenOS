@@ -5,6 +5,7 @@
  */
 
 import { DB } from '../db';
+import { duplicatePresetDoc } from './edit';
 import { parseStPreset } from './stImport';
 import type { MeetingPresetDoc, MeetingPresetRecord } from './types';
 
@@ -35,4 +36,14 @@ export const saveMeetingPresetDoc = async (record: MeetingPresetRecord, doc: Mee
 export const deleteMeetingPresetRecord = async (id: string): Promise<void> => {
     await DB.deleteMeetingPreset(id);
     notify();
+};
+
+/** 複製一份：新 id、名字加「（副本）」，原本那份不動 */
+export const duplicateMeetingPresetRecord = async (record: MeetingPresetRecord): Promise<MeetingPresetRecord> => {
+    const doc = duplicatePresetDoc(record.doc);
+    const now = Date.now();
+    const copy: MeetingPresetRecord = { id: makeId(), name: doc.name, sourceFileName: record.sourceFileName, doc, createdAt: now, updatedAt: now };
+    await DB.saveMeetingPreset(copy);
+    notify();
+    return copy;
 };

@@ -115,8 +115,10 @@
 | `utils/meetingPreset/assemble.ts` | 照 ST 的順序拼 messages；巨集跑兩遍模擬 ST 變數跨輪保留；插入聊天記錄的條目照 ST 的排法 |
 | `utils/meetingPreset/display.ts` + `components/date/DecorationFrame.tsx` | 顯示正則的結果切成文字段和 HTML 段；HTML 進 `sandbox="allow-scripts"`（不給 same-origin）的 iframe，附記憶體版 localStorage 替身，高度用 postMessage 回報 |
 | `utils/meetingPresetSession.ts` | 預設模式的送出內容：`ContextBuilder.buildCoreSections` 拆出的各段填進佔位（對應表在檔頭），內建模式的格式規則不帶 |
-| `utils/meetingPreset/store.ts` | `meeting_presets` 表（DB v76，進完整備份）；改了發 `soren-meeting-preset-updated` |
-| `components/date/MeetingPresetManager.tsx` | 管理頁：分組開關、條目內容、變數、正則開關、生成參數 |
+| `utils/meetingPreset/store.ts` | `meeting_presets` 表（DB v76，進完整備份）；改了發 `soren-meeting-preset-updated`；複製一份 |
+| `utils/meetingPreset/edit.ts` | 管理頁的編輯動作（純函式）：條目新增／刪除／上下移、正則上下移、複製 |
+| `utils/meetingPreset/stExport.ts` | Soren → ST 預設（`stImport.ts` 反過來），外加整份 doc 和指紋 |
+| `components/date/MeetingPresetManager.tsx` | 管理頁：分組開關、條目內容與增刪排序、變數、正則（編輯、排序）、生成參數 |
 
 角色選哪份記在 `dateMeetingPresetId`；沒選或選的那份被刪掉就是內建規則。開場（感知）由模型寫時還是內建的寫法，不走預設；要用自己寫的開場就用下面的開場白庫。生成參數照預設送（`top_p`、懲罰值、`max_tokens`），溫度經 `samplingParamCompat` 照模型封頂（Claude 最高 1）。
 
@@ -228,7 +230,14 @@ Liora 測試時發現：用了預設，畫面上只有正文，看不出預設�
 
 ## 預設的正則可以改（已做）
 
-預設管理頁的「正則」分頁以前只能開關。現在點一條就打開 `components/date/MeetingRegexEditor.tsx`：名稱、查找（`/正則/旗標`，寫錯會標紅、不生效）、替換（`$1`、`{{match}}`、可寫 HTML）、從捕獲內容刪掉的字、作用在（用戶輸入／AI 輸出）、什麼時候改（改存下的原文／只改顯示／只改送出／顯示和送出，對應 ST 的 `markdownOnly`、`promptOnly`）、最小／最大深度、編輯後也跑；下面有試跑框，貼一段回覆看結果（不管開關，照這條本身跑）。也能新增、刪除。欄位照 ST，不自創。順序照清單，還不能拖動排序。
+預設管理頁的「正則」分頁以前只能開關。現在點一條就打開 `components/date/MeetingRegexEditor.tsx`：名稱、查找（`/正則/旗標`，寫錯會標紅、不生效）、替換（`$1`、`{{match}}`、可寫 HTML）、從捕獲內容刪掉的字、作用在（用戶輸入／AI 輸出）、什麼時候改（改存下的原文／只改顯示／只改送出／顯示和送出，對應 ST 的 `markdownOnly`、`promptOnly`）、最小／最大深度、編輯後也跑；下面有試跑框，貼一段回覆看結果（不管開關，照這條本身跑）。也能新增、刪除。欄位照 ST，不自創。順序照清單，按「排序」上下移。
+
+## 條目增刪排序、複製、匯出（已做）
+
+- **條目**：每個分組（或「全部條目」）最下面有「+ 新增條目」，新條目接在那區最後一個後面，但不越過聊天記錄（要送在聊天記錄後面就用排序移）。編輯單多了「位置」：照順序／插進聊天記錄＋倒數第幾則（ST 的 `injection_position = 1`、`injection_depth`）。一般條目能刪；資料佔位（聊天記錄、角色描述、Soren 的佔位）只能關、不能刪
+- **排序**：條目和正則分頁都有「排序」，進去後每列換成上下箭頭。條目只跟同一區的鄰居換位置，`doc.prompts`（送出順序）和分組的 `promptIds`（畫面順序）一起換，兩邊不會走樣；分組本身不跨區移動
+- **複製**：設定頁每份預設右邊的「⋯」→ 複製一份（新 id，名字加「（副本）」），想改又怕改壞就先複製
+- **匯出**：同一個選單 → 匯出成 ST 的 .json，丟回酒館能直接用（條目、順序、開關、插入深度、生成參數、預填、`wi_format` 這些、內嵌正則、`baibaiToolkit` 分組都照 ST 欄位寫）。Soren 自己的佔位酒館沒有，寫成空白條目。另外整份 doc 原樣放在 `extensions.soren_meeting_preset`，連同 prompts／prompt_order／regex_scripts 的指紋：匯回 Soren 時指紋對得上就整份還原（變數的值也在）；在酒館改過、對不上，就照一般 ST 檔讀，不拿舊的蓋掉酒館裡的修改
 
 ## 參考檔案
 
