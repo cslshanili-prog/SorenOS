@@ -20,7 +20,8 @@
 | **彼方 · 活動選擇與自動範圍** | [`docs/kanata-activities.md`](./docs/kanata-activities.md) | 改房間/SAR 隨機選取、手動子玩法路由或高級排除設置前必讀；自動全禁用不得回退，手動可繞過 |
 | **記憶系統** | [`docs/memory-system-overview.md`](./docs/memory-system-overview.md) | 涉及長期記憶、月度總結、向量化記憶宮殿、情感空間。改記憶相關邏輯前必讀 |
 | **查手機 · 人際關係系統** | [`docs/relationship-system.md`](./docs/relationship-system.md) | 改「查手機」聊天/通訊錄、角色聯繫人/好感、真假甄別、真角色雙向對話、虛構 NPC 約束前必讀 |
-| **見面改版 · 線下故事＋自訂預設** | [`plans/offline-date-redesign.md`](./plans/offline-date-redesign.md) | 改見面一般模式（線下故事、ST 預設匯入／巨集／正則、裝飾 iframe、劇情大綱、開場白、總結、完結、情緒褪色、關閉線上、畫面美化、語音標籤）前必讀；GAL／立繪／OBSERVE 在這次改版拿掉，匯入的預設不轉繁體 |
+| **見面改版 · 線下故事＋自訂預設** | [`plans/offline-date-redesign.md`](./plans/offline-date-redesign.md) | 改見面一般模式（線下故事、ST 預設匯入／巨集／正則、裝飾 iframe、劇情大綱、開場白、總結、完結、情緒褪色、關閉線上、畫面美化、語音標籤）前必讀；GAL／立繪在這次改版拿掉，匯入的預設不轉繁體 |
+| **見面 · 觀測協議 OBSERVE** | [`docs/date-observe.md`](./docs/date-observe.md) | 改見面的角色觀測卡片前必讀：提示詞注入、掉格式解析容錯（兩層）、卡片渲染；只在內建規則下生效，舊訊息的觀測塊不管開不開都要剝掉 |
 | **資料庫（相簿改版）** | [`plans/asset-library-design.md`](./plans/asset-library-design.md) | 改資料庫（原本的相簿）、角色傳照片（現場生成的 `SEND_PHOTO`、資料庫現成的 `SEND_SAVED_PHOTO`）、上傳與描述、分配給角色、協同文件歸檔前必讀；沿用 `gallery` 表加欄位、不另開新表，純邏輯在 `utils/library.ts`、角色那頭在 `utils/libraryPrompt.ts`；四批都做完了 |
 | **見面 · 畫面美化** | [`docs/date-appearance.md`](./docs/date-appearance.md) | 改見面的底圖遮罩、字級、深淺兩套字色、裝飾卡片底色、自訂 CSS 或加 class 鉤子前必讀；自訂 CSS 一律過 `scopeDateCss` 限定在 `.date-root`，設定頁和彈窗不能放進 `.date-root` |
 | **彼方 · 信號墜落處（跨用戶接龍詩）** | [`docs/signal-poetry.md`](./docs/signal-poetry.md) | 改彼方(VRWorld)「信號墜落處」房間：跨實例合寫現代詩、複用漂流瓶後端、`po_poems`/`po_poem_lines` 表與 `/poem/*` 端點、兩層容錯解析、併發安全前必讀 |

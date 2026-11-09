@@ -42,6 +42,7 @@
 | `.date-decoration-card` | 裝飾卡片外框 |
 | `.date-photo` | 拍下這一刻的照片（`figure`，圖片下面一行鎖臉說明） |
 | `.date-reply-tags` / `.date-reply-trace` | 回覆上面那行 #／字數／時間／預設，和展開的思考過程、原文 |
+| `.date-observe-card` | 觀測協議開著時每則回覆上方的觀測卡片（只在內建規則下出現，見 `docs/date-observe.md`） |
 | `.date-live-reply` | 開了串流時，生成中那一塊 |
 | `.date-input-bar` / `.date-input` | 輸入框外殼／輸入框 |
 

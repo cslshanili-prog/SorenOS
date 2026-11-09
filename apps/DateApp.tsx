@@ -8,6 +8,8 @@ import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, buildDateOpeningInstruction, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
+import { extractObservation, hasObservation, isObserveActive } from '../utils/dateObserve';
+import ObserveHUD from '../components/date/ObserveHUD';
 import { dateEmotionState, patchDateEmotion, runDateEmotionEval, withStoryEmotion } from '../utils/dateEmotion';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
@@ -1640,7 +1642,15 @@ const DateApp: React.FC = () => {
                 )}
                 {!peekLoading && peekStatus && (
                     <div className="flex-1 min-h-0 flex flex-col px-8 pb-10 z-10 animate-fade-in">
-                        <div className="flex-1 overflow-y-auto no-scrollbar mb-8 mask-image-gradient pt-8"><div className="min-h-full flex flex-col justify-center"><p className="text-neutral-300 text-[15px] leading-8 tracking-wide text-justify font-light select-none whitespace-pre-wrap">{activePreset ? cleanDisplayText(peekStatus) : peekStatus}</p></div></div>
+                        <div className="flex-1 overflow-y-auto no-scrollbar mb-8 mask-image-gradient pt-8"><div className="min-h-full flex flex-col justify-center">{(() => {
+                            // 觀測協議只在內建規則下顯示卡片；觀測塊不管開不開都先剝掉
+                            const observeActive = isObserveActive(char, !!activePreset);
+                            const { observation, rest } = extractObservation(peekStatus, { lenient: observeActive, custom: char.dateObserve?.custom });
+                            return <>
+                                {observeActive && hasObservation(observation) && <div className="mb-6"><ObserveHUD observation={observation} variant="card" charName={char.name} config={char.dateObserve} /></div>}
+                                <p className="text-neutral-300 text-[15px] leading-8 tracking-wide text-justify font-light select-none whitespace-pre-wrap">{activePreset ? cleanDisplayText(rest) : rest}</p>
+                            </>;
+                        })()}</div></div>
                         <div className="shrink-0 flex flex-col items-center gap-6">
                              <div className="w-full flex gap-3">
                                  {/* 修改這裡：調用 handleEnterSession 確保開場白被保存 */}

@@ -34,6 +34,8 @@ import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/re
 import { cleanDisplayText, splitDisplaySegments, type DisplaySegment } from '../../utils/meetingPreset/display';
 import type { MeetingRegexScript } from '../../utils/meetingPreset/types';
 import type { EmotionState } from '../../utils/emotionApply';
+import { extractObservation, hasObservation, isObserveActive } from '../../utils/dateObserve';
+import ObserveHUD from './ObserveHUD';
 
 // 用戶輸入的顯示：去掉方括號標記（跟以前一樣），其餘原樣
 const cleanUserTextForDisplay = (text: string) => text.replace(/\[.*?\]/g, '').trim();
@@ -401,6 +403,12 @@ const DateSession: React.FC<DateSessionProps> = ({
         [sessionMessages],
     );
     const displayEnv = { charName: char.name, userName: userProfile.name, vars: {}, globalVars: {} };
+    // 觀測協議（utils/dateObserve.ts）：只在內建規則下顯示卡片；不管開不開，正文裡的觀測塊都先剝掉
+    const observeActive = isObserveActive(char, !!presetName);
+    const splitObserve = (text: string) => extractObservation(text || '', { lenient: observeActive, custom: char.dateObserve?.custom });
+    const observeCard = (observation: ReturnType<typeof splitObserve>['observation']) => (observeActive && hasObservation(observation)
+        ? <div className="date-observe-card mb-3"><ObserveHUD observation={observation} variant="card" charName={char.name} config={char.dateObserve} /></div>
+        : null);
     const presetDisplay = (text: string, placement: number, msgId: number): string => (presetRegex?.length
         ? applyRegexScripts(text, presetRegex, { placement, stage: 'display', depth: depthById.get(msgId), env: displayEnv })
         : text);
@@ -761,11 +769,15 @@ const DateSession: React.FC<DateSessionProps> = ({
                                 </div>
                             </div>
                         )}
-                        {sessionMessages.length === 0 && peekStatus && (
-                            <div className={`date-opening italic text-center text-sm mb-8 px-4 ${light ? 'text-stone-400' : 'text-slate-200/50'}`}>
-                                {parseDateBody(presetRegex ? cleanDisplayText(peekStatus) : peekStatus).map((line, idx) => <p key={idx} className="whitespace-pre-wrap leading-relaxed tracking-wide my-2">{line.text}</p>)}
-                            </div>
-                        )}
+                        {sessionMessages.length === 0 && peekStatus && (() => {
+                            const { observation, rest } = splitObserve(peekStatus);
+                            return (
+                                <div className={`date-opening italic text-center text-sm mb-8 px-4 ${light ? 'text-stone-400' : 'text-slate-200/50'}`}>
+                                    {observeCard(observation)}
+                                    {parseDateBody(presetRegex ? cleanDisplayText(rest) : rest).map((line, idx) => <p key={idx} className="whitespace-pre-wrap leading-relaxed tracking-wide my-2">{line.text}</p>)}
+                                </div>
+                            );
+                        })()}
                         {(hiddenNovelMessageCount > 0 || !historyReachedEnd) && (
                             <div className="flex justify-center">
                                 <button
@@ -850,7 +862,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                     ) : (() => {
                                     const sarSurface = getSARSurface(msg);
                                     const sarRevealed = sarTruthMessageIds.has(msg.id);
-                                    const shown = sarSurface && !sarRevealed ? sarSurface : msg.content;
+                                    const { observation, rest: shown } = splitObserve(sarSurface && !sarRevealed ? sarSurface : msg.content);
                                     const isOpeningMsg = msg.metadata?.isOpening === true;
                                     const parts: DisplaySegment[] = presetRegex
                                         ? splitDisplaySegments(presetDisplay(shown || '', REGEX_PLACEMENT.aiOutput, msg.id))
@@ -862,6 +874,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         )}
                                         <div className="min-w-0 flex-1">
                                             <DateReplyTags msg={msg} index={(messageOrdinal.get(msg.id) ?? 0) + 1} light={light} />
+                                            {observeCard(observation)}
                                             {parts.map((part, partIdx) => part.type === 'html'
                                                 ? (
                                                     <div key={`html-${partIdx}`} className={`date-decoration-card ${decorationDarkCard ? 'rounded-2xl bg-[#1c1b22] px-3 py-px my-3' : ''}`}>
@@ -1052,7 +1065,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                         if (selectedMessage) {
                             const clean = selectedMessage.role === 'user'
                                 ? cleanUserTextForDisplay(selectedMessage.content || '')
-                                : parseDateBody(selectedMessage.content || '').map(line => line.text).join('\n');
+                                : parseDateBody(splitObserve(selectedMessage.content || '').rest).map(line => line.text).join('\n');
                             navigator.clipboard.writeText(clean).then(() => addToast('已複製', 'success')).catch(() => addToast('複製失敗', 'error'));
                         }
                         setModalType('none');

@@ -15,7 +15,7 @@
 | GAL 模式 | 整段拿掉，連同 `[emotion]` 立繪表情標籤。見面只剩小說（閱讀）模式 |
 | 立繪 | 見面不再用，但桌面陪伴、白色情人節／情人節／七夕活動、視訊通話的靜態立繪還在用：管理介面搬到「神經鏈接 → 形象 → 角色立繪」（`components/character/CharacterSpriteManager.tsx`），資料欄位不動 |
 | 場景背景 | 留著，併進新的「畫面美化」 |
-| 觀測面板 OBSERVE | 拿掉（提示詞注入、HUD、`ObserveSettings` 一起） |
+| 觀測面板 OBSERVE | 先拿掉了，後來改回成開關、只在內建規則下生效（見 [`docs/date-observe.md`](../docs/date-observe.md)） |
 | 語音 | 留著，標籤改寫法，見下 |
 | 預設 | 見面可選「內建」或自己的預設；內建規則也改寫成一份預設，跟匯入的 ST 預設走同一套引擎，用戶可複製一份再調 |
 | ST 匯入 | 讀 `prompts`／`prompt_order`／生成參數／`assistant_prefill`、預設內嵌正則 `extensions.regex_scripts`；分組開關介面可參考 `extensions.baibaiToolkit.presetPromptGroups` |

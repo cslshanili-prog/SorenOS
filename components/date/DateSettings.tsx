@@ -12,6 +12,7 @@ import { buildStPreset, stPresetFileName } from '../../utils/meetingPreset/stExp
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
+import ObserveSettings from './ObserveSettings';
 import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import DateStoryExtras from './DateStoryExtras';
 import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateStory';
@@ -276,6 +277,8 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         </button>
                     </div>
                 </section>
+
+                <ObserveSettings char={char} usingCustomPreset={!!activePresetId} />
 
                 <Section title={activePresetId ? '文風與敘事（用自訂預設時不生效）' : '文風與敘事 (Writing Style)'}>
                     <p className="text-[11px] text-slate-400 mt-1 mb-4">調整見面時 AI 的寫作風格與敘事人稱，修改後從下一條回覆開始生效。</p>

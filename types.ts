@@ -2295,6 +2295,63 @@ export interface SongSheet {
  * 見面「繼續上次」的存檔。閱讀視圖直接從庫裡讀消息，存檔只剩開場白和時間。
  * 舊版存檔還帶著 dialogueQueue / currentSpriteKey / observation 等立繪模式的欄位，讀到了不用管。
  */
+/**
+ * 「觀測協議 OBSERVE」結構化觀測數據：開啟後由 LLM 在正文最前面輸出一段
+ * ⟦OBSERVE⟧ 塊，前端解析成這四個維度，渲染成可獨立查看的全息 HUD。
+ * 所有字段可缺省——模型偶爾漏寫某項時不應讓面板崩掉。
+ */
+export interface DateObservation {
+    /** 時間：結合場景的當前時刻（不一定等於系統時間） */
+    time?: string;
+    /** 地點：角色此刻所在的具體地點 */
+    place?: string;
+    /** 狀態：角色的身心狀態 */
+    state?: string;
+    /** 細節：正在發生的動作 / 微小細節 */
+    detail?: string;
+    /** 用戶追加的自定義維度的值，按 DateObserveCustomField.id 存 */
+    extra?: Record<string, string>;
+}
+
+/**
+ * 觀測協議追加的自定義維度（在 時間/地點/狀態/細節 之外另開一格）。
+ * label 同時是「線格式字段名」和「HUD 標籤」——解析時按 label 匹配回該維度。
+ */
+export interface DateObserveCustomField {
+    id: string;        // 穩定 id，作為 DateObservation.extra 的 key
+    label: string;     // 字段名 / HUD 標籤（如「天氣」「穿著」）
+    hint?: string;     // 生成提示：這一格寫什麼
+    enabled?: boolean; // 默認 true
+}
+
+/** 觀測協議 OBSERVE 的 HUD 視覺樣式 id */
+export type DateObserveStyleId = 'hologram' | 'ink' | 'neon' | 'crystal' | 'terminal';
+
+/**
+ * 觀測協議單個維度的自定義：顯示標籤 + 生成提示 + 是否啟用。任一項留空即回落默認。
+ * 注意：自定義 label 只影響 HUD 展示——注入提示詞時字段名始終用固定中文 key
+ * （時間/地點/狀態/細節），保證解析穩定，用戶改名不會讓 extractObservation 失配。
+ */
+export interface DateObserveFieldConfig {
+    /** HUD 上顯示的標籤（僅展示用，不參與解析） */
+    label?: string;
+    /** 注入提示詞：這個維度具體要生成什麼內容 */
+    hint?: string;
+    /** 是否啟用該維度（默認 true）。關掉則不注入提示、HUD 也不渲染該行。 */
+    enabled?: boolean;
+}
+
+/** 觀測協議 OBSERVE 的 per-character 配置 */
+export interface DateObserveConfig {
+    enabled?: boolean;
+    /** HUD 視覺樣式，默認 hologram */
+    style?: DateObserveStyleId;
+    /** 四個維度的標籤 / 提示自定義；不填回落默認值 */
+    fields?: Partial<Record<keyof DateObservation, DateObserveFieldConfig>>;
+    /** 用戶追加的自定義維度（在四個默認維度之外） */
+    custom?: DateObserveCustomField[];
+}
+
 export interface DateState {
     timestamp: number;
     peekStatus: string;
@@ -3188,6 +3245,8 @@ export interface CharacterProfile {
   dateSkinSets?: SkinSet[];     // Multiple skin sets（角色立繪，神經鏈接 → 形象；桌面陪伴 / 節日活動用）
   activeSkinSetId?: string;     // Currently active skin set ID
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
+  /** 觀測協議 OBSERVE：開啟後每條回覆注入「時間/地點/狀態/細節」結構化觀測，渲染成觀測卡片（樣式/字段可自定義）；只在內建規則下生效，見 docs/date-observe.md */
+  dateObserve?: DateObserveConfig;
   /** 見面用的自訂預設（meeting_presets 表的 id）；不設就是內建規則。見 plans/offline-date-redesign.md */
   dateMeetingPresetId?: string;
   /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
