@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
 import { GalleryImage, LibraryAccess } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
 import ConfirmDialog from '../components/os/ConfirmDialog';
@@ -45,7 +46,10 @@ const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、
  * 每張可以寫描述、分配給誰；也能自己上傳現成的圖。設計見 plans/asset-library-design.md。
  */
 const Gallery: React.FC = () => {
-    const { closeApp, characters, characterGroups, apiConfig, addToast } = useOS();
+    const { closeApp, characters, characterGroups, apiConfig, addToast, userProfileBase, groups, realtimeConfig } = useOS();
+    // 角色手邊的照片也烤在主動消息的 fire_pack 裡（utils/libraryPrompt.ts）：描述、分配、增刪都讓雲端那份跟著刷新。
+    // 門在 markAmsgStateDirty 裡，沒開主動消息的角色自己會被篩掉
+    const markLibraryChanged = () => markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
     const [view, setView] = useState<'grid' | 'detail' | 'upload' | 'generate'>('grid');
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loaded, setLoaded] = useState(false);
@@ -127,6 +131,7 @@ const Gallery: React.FC = () => {
             if (!saved) throw new Error('找不到這張圖');
             setSelectedImage(saved);
             setImages(prev => prev.map(img => (img.id === saved.id ? saved : img)));
+            markLibraryChanged();
             setSavedHint(true);
             window.setTimeout(() => setSavedHint(false), 1500);
         } catch (error: any) {
@@ -204,6 +209,7 @@ const Gallery: React.FC = () => {
             onConfirm: async () => {
                 await DB.deleteGalleryImage(selectedImage.id);
                 setImages(prev => prev.filter(img => img.id !== selectedImage.id));
+                markLibraryChanged();
                 setView('grid');
                 setSelectedImage(null);
                 addToast(isLibraryFile(selectedImage) ? '文件已刪除' : '照片已刪除', 'success');
@@ -259,6 +265,7 @@ const Gallery: React.FC = () => {
                 ...(normalizeLibraryDescription(upload.description) ? { description: normalizeLibraryDescription(upload.description) } : {}),
             };
             await DB.saveGalleryImage(image);
+            markLibraryChanged();
             trackEvent('上传到资料库', { 分配: upload.access.mode === 'all' ? '共用' : upload.access.mode === 'worlds' ? '按世界' : '指定角色', 描述: image.description ? '有' : '没有' });
             setUpload(null);
             setFilter({ source: 'all' });
@@ -688,7 +695,7 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             {view === 'grid' && renderGrid()}
             {view === 'detail' && renderDetail()}
             {view === 'upload' && renderUpload()}
-            {view === 'generate' && <LibraryGenerateView onSaved={() => { setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
+            {view === 'generate' && <LibraryGenerateView onSaved={() => { markLibraryChanged(); setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
         </div>
     );
 };

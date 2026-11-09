@@ -70,7 +70,9 @@ interface GalleryImage {
 3. **當成自己的照片傳**：`[[ACTION:SEND_SAVED_PHOTO|編號]]`，`ChatParser.settleSavedPhotoCommands` 照編號找回那張，原樣落一條 `type: 'image'` 的訊息（`metadata.savedPhoto.libraryImageId`、`visionDescription`＝描述），不生成、不花錢、臉不會飄。編號對不上（列表外、刪了、不再分配給它）就不發、留日誌；同一則寫兩次同一張只發一次。跟 `SEND_PHOTO` 並存：想要新的畫面還是現場生成，這個不需要生圖 API
 4. **編號**：從圖的 id 算出來（FNV-1a 取 4 位 36 進位），不是列表順序——提示詞送出到回覆解析之間資料庫多了一張也對得上
 5. **哪些路徑帶**：`PromptBuildOptions.libraryPhotos`（`buildChatRequestPayload` 的 `libraryPhotos`）傳 true 的才帶，現在是私聊前台（`useChatAI` → `applyAssistantPostProcessing` → `parseAndExecuteActions`）和背景延遲回覆（OSContext，單獨調 `settleSavedPhotoCommands`）。協同、彼方這些借用私聊提示詞的入口不傳
-6. **雲端先不帶**：fire_pack 和即時對話（`timelyByWorker`）都不帶，worker 的透傳清單（`SOREN_PASSTHROUGH_TAG_RE`）也還沒加這個標籤。要接得在 worker 側先放行標籤，客戶端沖刷時再走 `settleSavedPhotoCommands`
+6. **雲端也帶**（2026-11-09）：fire_pack（`activeMsgClient.ts` 打包時傳 `libraryPhotos: true`）和即時對話（`timelyByWorker`）都帶「你手邊的照片」。worker 的透傳清單（`SOREN_PASSTHROUGH_TAG_RE`）放行 `SEND_SAVED_PHOTO`，以 `soren_tag` 原樣送回，收件時跟本機回覆走同一份後處理（`applyAssistantPostProcessing` → `parseAndExecuteActions` → `settleSavedPhotoCommands`）。`AMSG_BUNDLE_VERSION` 推到 2026-11-09：舊 Worker 會把標籤剝掉，設定頁會提示重新部署
+   - fire_pack 裡是打包那一刻的清單：編號從 id 算，到點才傳也對得上；那段時間被刪掉、或不再分配給它的，收件時找不到就不發
+   - 資料庫改了描述、分配，或上傳、生成、刪除，都會對所有開了主動消息的角色打髒（`markAmsgStateDirtyForAll`），雲端那份跟著刷新
 
 ## 分批
 

@@ -458,6 +458,20 @@ describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
     ]);
   });
 
+  it('資料庫的照片：SEND_SAVED_PHOTO 原樣送回（全形標點、# 都認），不被當成 SEND_PHOTO 拆壞', () => {
+    const r = classifyLLMOutput([
+      '給你看這張',
+      '[[ACTION:SEND_SAVED_PHOTO|ab12]]',
+      '[[ACTION：SEND_SAVED_PHOTO｜#cd34 ]]',
+    ].join('\n'));
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('給你看這張');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[ACTION:SEND_SAVED_PHOTO|ab12]]' },
+      { type: 'soren_tag', raw: '[[ACTION：SEND_SAVED_PHOTO｜#cd34 ]]' },
+    ]);
+  });
+
   it('整則只有已讀不回標籤：正文空、標籤照樣送回', () => {
     const r = classifyLLMOutput('[[ACTION:NO_REPLY|[會議中] 稍後回]]');
     if (r.kind !== 'finish') throw new Error('expected finish');
