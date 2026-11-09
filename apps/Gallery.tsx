@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
+import { markAmsgStateDirtyForAll } from '../utils/amsgStateSync';
 import { GalleryImage, LibraryAccess } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
 import ConfirmDialog from '../components/os/ConfirmDialog';
@@ -9,13 +10,15 @@ import TokenImg from '../components/os/TokenImg';
 import LibraryAccessPicker from '../components/library/LibraryAccessPicker';
 import LibraryDescribeButton from '../components/library/LibraryDescribeButton';
 import LibraryGenerateView from '../components/library/LibraryGenerateView';
+import LibraryBatchDescribeSheet from '../components/library/LibraryBatchDescribeSheet';
+import { pickUndescribedPhotos } from '../utils/libraryDescribe';
 import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
 import { blobToDataUrl, getBlobForRef, putImageBlob } from '../utils/blobRef';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { formatLibraryFileSize } from '../utils/libraryArchive';
 import { getLocalDateKey } from '../utils/localDate';
-import { Star, UploadSimple, NotePencil, MagicWand, FileText, FilePdf, DownloadSimple } from '@phosphor-icons/react';
+import { Star, UploadSimple, NotePencil, MagicWand, FileText, FilePdf, DownloadSimple, Sparkle } from '@phosphor-icons/react';
 import {
     CONTENT_FAVORITES_CHANGED_EVENT,
     getContentFavoriteById,
@@ -45,7 +48,10 @@ const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、
  * 每張可以寫描述、分配給誰；也能自己上傳現成的圖。設計見 plans/asset-library-design.md。
  */
 const Gallery: React.FC = () => {
-    const { closeApp, characters, characterGroups, apiConfig, addToast } = useOS();
+    const { closeApp, characters, characterGroups, apiConfig, addToast, userProfileBase, groups, realtimeConfig } = useOS();
+    // 角色手邊的照片也烤在主動消息的 fire_pack 裡（utils/libraryPrompt.ts）：描述、分配、增刪都讓雲端那份跟著刷新。
+    // 門在 markAmsgStateDirty 裡，沒開主動消息的角色自己會被篩掉
+    const markLibraryChanged = () => markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
     const [view, setView] = useState<'grid' | 'detail' | 'upload' | 'generate'>('grid');
     const [images, setImages] = useState<GalleryImage[]>([]);
     const [loaded, setLoaded] = useState(false);
@@ -77,6 +83,14 @@ const Gallery: React.FC = () => {
     const photos = useMemo(() => images.filter(image => !isLibraryFile(image)), [images]);
     const files = useMemo(() => images.filter(isLibraryFile), [images]);
     const shownImages = useMemo(() => filterLibraryImages(photos, filter, characters), [photos, filter, characters]);
+    // 批次 AI 寫：照目前的篩選，還沒描述的照片
+    const undescribedShown = useMemo(() => pickUndescribedPhotos(shownImages), [shownImages]);
+    const [batchDescribing, setBatchDescribing] = useState(false);
+    const saveBatchDescription = async (image: GalleryImage, description: string) => {
+        const saved = await DB.updateGalleryImage(image.id, { description: normalizeLibraryDescription(description) });
+        if (!saved) throw new Error('找不到這張圖');
+        setImages(prev => prev.map(img => (img.id === saved.id ? saved : img)));
+    };
     const shownFiles = useMemo(() => filterLibraryImages(files, { source: 'all', charId: filter.charId }, characters), [files, filter.charId, characters]);
     const sourceCounts = useMemo(() => {
         const base = filter.charId ? filterLibraryImages(photos, { source: 'all', charId: filter.charId }, characters) : photos;
@@ -127,6 +141,7 @@ const Gallery: React.FC = () => {
             if (!saved) throw new Error('找不到這張圖');
             setSelectedImage(saved);
             setImages(prev => prev.map(img => (img.id === saved.id ? saved : img)));
+            markLibraryChanged();
             setSavedHint(true);
             window.setTimeout(() => setSavedHint(false), 1500);
         } catch (error: any) {
@@ -204,6 +219,7 @@ const Gallery: React.FC = () => {
             onConfirm: async () => {
                 await DB.deleteGalleryImage(selectedImage.id);
                 setImages(prev => prev.filter(img => img.id !== selectedImage.id));
+                markLibraryChanged();
                 setView('grid');
                 setSelectedImage(null);
                 addToast(isLibraryFile(selectedImage) ? '文件已刪除' : '照片已刪除', 'success');
@@ -259,6 +275,7 @@ const Gallery: React.FC = () => {
                 ...(normalizeLibraryDescription(upload.description) ? { description: normalizeLibraryDescription(upload.description) } : {}),
             };
             await DB.saveGalleryImage(image);
+            markLibraryChanged();
             trackEvent('上传到资料库', { 分配: upload.access.mode === 'all' ? '共用' : upload.access.mode === 'worlds' ? '按世界' : '指定角色', 描述: image.description ? '有' : '没有' });
             setUpload(null);
             setFilter({ source: 'all' });
@@ -473,6 +490,15 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             ) : (
             <>
             {renderFilters()}
+            {undescribedShown.length > 0 && (
+                <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-amber-50/70 px-3 py-2">
+                    <span className="min-w-0 flex-1 text-[11px] leading-snug text-amber-700">{undescribedShown.length} 張還沒描述，角色看不到它們</span>
+                    <button type="button" onClick={() => setBatchDescribing(true)}
+                        className="flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm active:scale-95">
+                        <Sparkle size={12} weight="fill" />批次 AI 寫
+                    </button>
+                </div>
+            )}
             <div className="min-h-0 flex-1 overflow-y-auto p-1.5 animate-fade-in">
                 {shownImages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 py-20 text-slate-300">
@@ -686,9 +712,19 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             )}
 
             {view === 'grid' && renderGrid()}
+            {batchDescribing && (
+                <LibraryBatchDescribeSheet
+                    photos={undescribedShown}
+                    save={saveBatchDescription}
+                    onClose={result => {
+                        setBatchDescribing(false);
+                        if (result?.succeeded) markLibraryChanged();
+                    }}
+                />
+            )}
             {view === 'detail' && renderDetail()}
             {view === 'upload' && renderUpload()}
-            {view === 'generate' && <LibraryGenerateView onSaved={() => { setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
+            {view === 'generate' && <LibraryGenerateView onSaved={() => { markLibraryChanged(); setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
         </div>
     );
 };

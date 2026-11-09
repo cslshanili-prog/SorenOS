@@ -47,6 +47,7 @@ import { buildInnerStateBlock } from './customMeterContext';
 import { FOOD_DELIVER_MIN } from './mallOrders';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 import { buildLibraryPhotoBlock, pickCharLibraryPhotos } from './libraryPrompt';
+import { formatLibraryFileRecord } from './libraryShare';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -193,8 +194,9 @@ export interface PromptBuildOptions {
     imageGenConfig?: ImageGenApiConfig;
     /**
      * 帶「你手邊的照片」（資料庫裡分配給這個角色的照片）並教 `[[ACTION:SEND_SAVED_PHOTO|編號]]`。
-     * 只有會處理這個標籤的路徑傳：私聊前台（applyAssistantPostProcessing → parseAndExecuteActions）
-     * 和背景延遲回覆（OSContext，單獨調 settleSavedPhotoCommands）。協同、彼方這些借用私聊提示詞的不傳。
+     * 只有會處理這個標籤的路徑傳：私聊前台（applyAssistantPostProcessing → parseAndExecuteActions）、
+     * 背景延遲回覆（OSContext，單獨調 settleSavedPhotoCommands），以及雲端兩條路：即時對話和 fire_pack
+     * （worker 以 soren_tag 原樣送回，收件時同樣走 applyAssistantPostProcessing）。協同、彼方這些借用私聊提示詞的不傳。
      */
     libraryPhotos?: boolean;
 }
@@ -714,8 +716,9 @@ ${groupLogStr}\n`;
         // 購物中心今天的推薦：讓角色知道有什麼能點、多少錢（下單語法在「可用動作」）
         volatileState += mallPicksText;
         // 資料庫裡分配給這個角色的照片（utils/libraryPrompt.ts）：新照片隨時會進來，放易變段。
-        // 雲端兩條路（fire_pack、即時對話）先不帶——worker 接不住 SEND_SAVED_PHOTO
-        if (promptOptions?.libraryPhotos && !forFirePack && !timelyByWorker) {
+        // 雲端兩條路（fire_pack、即時對話）也帶：worker 把 SEND_SAVED_PHOTO 原樣送回，客戶端收件時照編號找回那張。
+        // fire_pack 裡是打包那一刻的清單；編號從圖的 id 算，到點才傳也對得上，刪了的找不到就不發
+        if (promptOptions?.libraryPhotos) {
             try {
                 const libraryImages = await DB.getGalleryImages();
                 volatileState += buildLibraryPhotoBlock(pickCharLibraryPhotos(libraryImages, char), char.id, userProfile.name);
@@ -1391,6 +1394,10 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                 else if (m.type === 'collaboration_file') {
                     const fileName = String(m.metadata?.fileName || m.content || '未命名文件');
                     content = `${timeStr} [你在聊天界面向用戶交付了協同文件：《${fileName}》]`;
+                }
+                else if (m.type === 'library_file') {
+                    // 從資料庫發進來的文件（utils/libraryShare.ts）：角色只看得到檔名、類型、大小和備註
+                    content = `${timeStr} ${formatLibraryFileRecord(m.metadata?.libraryFile, userProfile.name)}`;
                 }
                 else if (m.type === 'transfer') {
                     // 統一記錄形態 [[記錄:TRANSFER|to=|amount=|status=]] —— 跟輸出語法

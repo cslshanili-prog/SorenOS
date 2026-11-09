@@ -806,7 +806,8 @@ export const buildFirePack = async (
     undefined,
     // 模板是現在打好、到點才渲染的，凡是「打包這一刻」的狀態都不烤進去。
     // 具體拿掉哪些塊、到點由誰補，見 ChatPrompts.PromptBuildOptions 上的表。
-    { forFirePack: true },
+    // 資料庫的照片清單照帶（utils/libraryPrompt.ts）：角色到點也能傳一張現成的
+    { forFirePack: true, libraryPhotos: true },
   );
   const recentTranscript = templateStub ? '' : ChatPrompts.buildMessageHistory(
     recentMessages,

@@ -1,6 +1,6 @@
 # 資料庫（相簿改版）設計
 
-> 狀態：四批都做完了（2026-11-07）：資料庫畫面、描述、分配、上傳；角色知道手邊的照片、能原樣傳出去；在資料庫裡生成；協同文件歸檔。提議來自 Liora（2026-11-07）：相簿改成「資料庫」——除了 Soren 生成的圖，也能自己上傳現成的圖、寫描述、直接在這裡生成照片，分配給角色用；協同工作做出來的文件也能歸檔進來。
+> 狀態：四批都做完了（2026-11-07）：資料庫畫面、描述、分配、上傳；角色知道手邊的照片、能原樣傳出去；在資料庫裡生成；協同文件歸檔。之後補了（2026-11-09）：雲端也能傳、批次 AI 寫、從私聊挑資料庫的照片／文件發給角色。還沒做：角色讀文件內容、拿資料庫的圖當生圖參考、協同／彼方這些入口帶照片。提議來自 Liora（2026-11-07）：相簿改成「資料庫」——除了 Soren 生成的圖，也能自己上傳現成的圖、寫描述、直接在這裡生成照片，分配給角色用；協同工作做出來的文件也能歸檔進來。
 
 ## 現況
 
@@ -51,6 +51,7 @@ interface GalleryImage {
 - **瀏覽**：所有照片放一起（不再按角色分相冊），按來源篩（角色傳的／你傳的／見面拍的／你上傳的／在這裡生成的），也能按角色篩「誰能用」（看某個角色能用哪些，含共用和照世界的）。「文件」分頁第四批再加
 - **單張**：大圖、來源那行、描述（離開輸入框就存）、誰能用（改了立刻存）、收藏、刪除（只刪資料庫這筆，聊天／見面記錄裡那張不動）；你在私聊傳給角色的照片照舊有「讓 TA 點評」和當時的對話
 - **AI 寫描述**：描述欄右上角「AI 寫」，選一個 API（主 API 或任一 API 預設，要能看圖；選過的記在本機）看圖寫一到三句客觀描述，直接換掉欄位裡的字；原本有字的話旁邊留一顆「還原」。單張和上傳兩處都有（`utils/libraryDescribe.ts`、`components/library/LibraryDescribeButton.tsx`）
+- **批次 AI 寫**（2026-11-09）：照片分頁篩選列下面，照目前的篩選有沒描述的照片就出現一條「N 張還沒描述，角色看不到它們」＋「批次 AI 寫」。選一個 API（跟單張那顆共用記住的選擇）→ 一張張看圖寫、寫好就存，有進度、能中途停；某張失敗記下來接著跑，連續 3 張失敗就停（多半是模型不會看圖），跑完說寫好幾張、幾張沒成。純邏輯 `pickUndescribedPhotos`／`runBatchDescribe`（`utils/libraryDescribe.ts`），畫面 `components/library/LibraryBatchDescribeSheet.tsx`
 - **上傳**：右上角「上傳」→ 選圖（壓到長邊 2048）→ 寫描述 → 分配（預設所有角色共用）→ 存進資料庫
 - **在這裡生成**（右上角「生成」，`utils/libraryGenerate.ts`、`components/library/LibraryGenerateView.tsx`）：選類型（獨照／合照／物品／風景）→ 選人（獨照一個、合照兩到八個，「你」也算一個）→ 寫想拍什麼 → 生成 → 先看預覽，滿意了寫描述、選誰能用再存（`origin: 'generated'`，`generation` 記類型、送出去的提示詞、照片裡有誰、鎖了幾張臉）；不滿意就重新生成，沒存的不留
   - 每個人一行「人物一：長相；長相照第 N 張參考圖」，有參考圖的照順序一起送（不看「非自拍不帶參考圖」那個開關）；生圖服務不收多張就只鎖第一張，再不行純文字，預覽下面會說鎖了幾張
@@ -60,6 +61,9 @@ interface GalleryImage {
   - 只要生圖 API 填了網址和模型就能用，不需要開「角色生圖」開關
 - **協同文件櫃**（`utils/libraryArchive.ts`）：文件櫃長按一份文件 → 「歸檔到資料庫」（可安裝作品不給，它們在協同裡安裝才有意義），複製一份 Blob 進 `blob_assets`，協同那邊原樣不動、刪了也不影響這份。圖片歸成照片、其他歸成文件（`kind: 'file'`），`origin: 'collab'`，`file` 記檔名、類型、大小、協同的 assetId（同一份只歸一次）和窗口標題；預設給那個協同角色
 - **文件分頁**：資料庫上面「照片／文件」兩個分頁，文件一行一份，也能按「誰能用」篩；單份詳情有「打開／下載」（走系統分享，不支援就下載）、備註、誰能用、刪除。文件不進照片格子、不列給角色當照片傳；角色在私聊讀資料庫的文件還沒做，分配先存著
+- **從資料庫發給角色**（2026-11-09，`utils/libraryShare.ts`、`components/library/LibraryPickerSheet.tsx`）：私聊「＋」多一格「資料庫」，照片／文件兩個分頁，點一下選中、下面「發給 TA」。你發的不受「誰能用」限制（那是角色手邊有什麼，你自己的東西想發什麼都行）
+  - 照片：發成一般的用戶圖片訊息，內容沿用資料庫那張的令牌（同一份 Blob），metadata 記 `libraryImageId`，`sendText` 看到它就不再往資料庫多存一張；有描述的放進 `visionDescription`（開了看圖改用文字描述的人省一次請求）
+  - 文件：新的訊息類型 `library_file`，卡片樣子跟協同文件一樣、底下寫「資料庫 · 文件」，點了打開／下載；令牌放 `metadata.libraryFile.ref`（圖片清理整行掃，資料庫那筆刪了卡片照樣打得開）。角色看到的是一行 `formatLibraryFileRecord`：檔名、類型、大小、備註，說明還打不開內容；私聊歷史和總結器（`normalizeMessageContent`）同一行。發文件跟發圖一樣會觸發回覆
 
 ## 角色怎麼用
 
@@ -70,7 +74,9 @@ interface GalleryImage {
 3. **當成自己的照片傳**：`[[ACTION:SEND_SAVED_PHOTO|編號]]`，`ChatParser.settleSavedPhotoCommands` 照編號找回那張，原樣落一條 `type: 'image'` 的訊息（`metadata.savedPhoto.libraryImageId`、`visionDescription`＝描述），不生成、不花錢、臉不會飄。編號對不上（列表外、刪了、不再分配給它）就不發、留日誌；同一則寫兩次同一張只發一次。跟 `SEND_PHOTO` 並存：想要新的畫面還是現場生成，這個不需要生圖 API
 4. **編號**：從圖的 id 算出來（FNV-1a 取 4 位 36 進位），不是列表順序——提示詞送出到回覆解析之間資料庫多了一張也對得上
 5. **哪些路徑帶**：`PromptBuildOptions.libraryPhotos`（`buildChatRequestPayload` 的 `libraryPhotos`）傳 true 的才帶，現在是私聊前台（`useChatAI` → `applyAssistantPostProcessing` → `parseAndExecuteActions`）和背景延遲回覆（OSContext，單獨調 `settleSavedPhotoCommands`）。協同、彼方這些借用私聊提示詞的入口不傳
-6. **雲端先不帶**：fire_pack 和即時對話（`timelyByWorker`）都不帶，worker 的透傳清單（`SOREN_PASSTHROUGH_TAG_RE`）也還沒加這個標籤。要接得在 worker 側先放行標籤，客戶端沖刷時再走 `settleSavedPhotoCommands`
+6. **雲端也帶**（2026-11-09）：fire_pack（`activeMsgClient.ts` 打包時傳 `libraryPhotos: true`）和即時對話（`timelyByWorker`）都帶「你手邊的照片」。worker 的透傳清單（`SOREN_PASSTHROUGH_TAG_RE`）放行 `SEND_SAVED_PHOTO`，以 `soren_tag` 原樣送回，收件時跟本機回覆走同一份後處理（`applyAssistantPostProcessing` → `parseAndExecuteActions` → `settleSavedPhotoCommands`）。`AMSG_BUNDLE_VERSION` 推到 2026-11-09：舊 Worker 會把標籤剝掉，設定頁會提示重新部署
+   - fire_pack 裡是打包那一刻的清單：編號從 id 算，到點才傳也對得上；那段時間被刪掉、或不再分配給它的，收件時找不到就不發
+   - 資料庫改了描述、分配，或上傳、生成、刪除，都會對所有開了主動消息的角色打髒（`markAmsgStateDirtyForAll`），雲端那份跟著刷新
 
 ## 分批
 

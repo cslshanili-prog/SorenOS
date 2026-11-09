@@ -55,10 +55,5 @@ export const archiveCollaborationFile = async (input: {
     return { status: 'archived', image };
 };
 
-/** 檔案大小給人看 */
-export const formatLibraryFileSize = (size: number): string => {
-    if (!Number.isFinite(size) || size <= 0) return '';
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
-    return `${(size / 1024 / 1024).toFixed(1)} MB`;
-};
+/** 搬到 utils/library.ts（純函式，聊天的文件卡片也用）；這裡照舊匯出 */
+export { formatLibraryFileSize } from './library';

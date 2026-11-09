@@ -4,7 +4,7 @@ import { DB } from './db';
 import { libraryPhotoCode } from './libraryPrompt';
 
 // 「你手邊的照片」只在會處理 SEND_SAVED_PHOTO 的私聊路徑帶（libraryPhotos: true），
-// 雲端兩條路（fire_pack、即時對話）和沒開的入口都不帶。放易變段，新照片進來不弄髒穩定段快取。
+// 雲端兩條路（fire_pack、即時對話）也帶（worker 原樣送回標籤），沒開的入口不帶。放易變段，新照片進來不弄髒穩定段快取。
 const char = { id: 'char-lib', name: 'Soren', groupId: 'w-lib' } as any;
 const userProfile = { name: '小星' } as any;
 
@@ -29,10 +29,15 @@ describe('私聊提示詞 · 你手邊的照片', () => {
         expect(parts.stable).not.toContain('你手邊的照片');
     });
 
-    it('沒開、fire_pack、即時對話都不帶', async () => {
-        for (const options of [undefined, { libraryPhotos: true, forFirePack: true }, { libraryPhotos: true, timelyByWorker: true }]) {
+    it('沒開的入口不帶', async () => {
+        const parts = await build(undefined);
+        expect(parts.volatileState + parts.stable).not.toContain('SEND_SAVED_PHOTO');
+    });
+
+    it('雲端兩條路（fire_pack、即時對話）開了也帶', async () => {
+        for (const options of [{ libraryPhotos: true, forFirePack: true }, { libraryPhotos: true, timelyByWorker: true }]) {
             const parts = await build(options);
-            expect(parts.volatileState + parts.stable).not.toContain('SEND_SAVED_PHOTO');
+            expect(parts.volatileState).toContain(`- ${libraryPhotoCode('lib-shared')}｜陽台的咖啡杯`);
         }
     });
 });

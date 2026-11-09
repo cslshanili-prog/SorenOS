@@ -6,7 +6,8 @@
  * - 角色輸出 `[[ACTION:SEND_SAVED_PHOTO|編號]]` → chatParser 照編號找回那張圖，直接落一條圖片訊息
  *   （不重新生成、不花錢、臉不會飄）；編號對不上就不發、留日誌
  * - 編號從圖的 id 算出來（不是列表順序），提示詞和解析之間資料庫多了一張也對得上
- * - 雲端（fire_pack／即時對話）先不帶，worker 那邊接不住這個標籤
+ * - 雲端（fire_pack／即時對話）也帶：worker 的透傳清單（SOREN_PASSTHROUGH_TAG_RE）放行這個標籤，
+ *   收件時跟本機回覆走同一份後處理（AMSG_BUNDLE_VERSION 2026-11-09 起；舊 Worker 會把標籤剝掉，設定頁會提示更新）
  */
 
 import type { CharacterProfile, GalleryImage } from '../types';
