@@ -365,14 +365,19 @@ export async function evaluateEmotionBackground(
     userProfile: UserProfile,
     mainSystemPrompt: string,
     apiMessages: Array<{ role: string; content: any }>,
-    api: { baseUrl: string; apiKey: string; model: string; stream?: boolean }
+    api: { baseUrl: string; apiKey: string; model: string; stream?: boolean },
+    /**
+     * 見面「線下情緒獨立」用（utils/dateEmotion.ts）：結果不落到角色身上、改由 applyRaw 落；
+     * ambient=false 不要小屋動態（那會落進私聊）；appName 是 API 調用記錄裡的名字
+     */
+    options: { applyRaw?: (raw: string) => Promise<string | null>; ambient?: boolean; appName?: string } = {},
 ): Promise<string | null> {
     // 全局橫幅「xx 正在感受…」（ChatBroadcast）。這裡是所有本地評估路徑的匯聚點
     // （主鏈路 fire & forget / OSContext 主動消息），在函數級
     // start/finally 派發一次即可全覆蓋；即時對話的 worker 評估另行點燈。
     announceChatGen(CHAT_GEN_EVENTS.emotionStart, { charId: charData.id, charName: charData.name });
     try {
-        const ambientSection = shouldRequestAmbient(charData.id) ? buildAmbientEvalSection(charData) : '';
+        const ambientSection = options.ambient !== false && shouldRequestAmbient(charData.id) ? buildAmbientEvalSection(charData) : '';
         const prompt = buildEmotionEvalPrompt(charData, userProfile, mainSystemPrompt, apiMessages, true, ambientSection);
 
         const baseUrl = api.baseUrl.replace(/\/+$/, '');
@@ -389,7 +394,7 @@ export async function evaluateEmotionBackground(
             // injection+innerState 很長, 會被截斷成半截 JSON → buff 靜默丟失.
             max_tokens: 8000,
         };
-        const evalMeta = { appName: '消息', charId: charData.id, charName: charData.name, purpose: '情緒評估' };
+        const evalMeta = { appName: options.appName || '消息', charId: charData.id, charName: charData.name, purpose: '情緒評估' };
         let data: any;
         try {
             data = await safeFetchJson(`${baseUrl}/chat/completions`, {
@@ -436,7 +441,7 @@ export async function evaluateEmotionBackground(
             });
             return null;
         }
-        return await applyEmotionEvalRaw(raw, charData);
+        return await (options.applyRaw ? options.applyRaw(raw) : applyEmotionEvalRaw(raw, charData));
     } catch (e: any) {
         console.warn('🎭 [Emotion] Evaluation failed:', e.message);
         announceChatGen(CHAT_GEN_EVENTS.emotionFailed, {

@@ -12,6 +12,7 @@ import { buildStPreset, stPresetFileName } from '../../utils/meetingPreset/stExp
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import MeetingPresetManager from './MeetingPresetManager';
+import { isScheduleFeatureOn } from '../../utils/scheduleFeature';
 import DateStoryExtras from './DateStoryExtras';
 import { DATE_STORY_UPDATED_EVENT, loadActiveDateStory } from '../../utils/dateStory';
 import type { DateStory } from '../../types';
@@ -235,6 +236,27 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                                     ? `暫停中${char.dateOfflinePause.tasks.length ? `：${char.dateOfflinePause.tasks.length} 條主動消息先停著，完結後排回去` : ''}${char.dateOfflinePause.resuming ? '（有幾條還沒排回去，下次打開見面再試）' : ''}`
                                     : char.activeDateStoryId ? '正在暫停…' : '現在沒有進行中的故事，開始一場就會生效。'}
                             </p>
+                        )}
+                    </div>
+                    <div className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase">線下情緒獨立</h3>
+                                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">開著時見面的情緒跟著這場故事走：開場帶著私聊當下的情緒進來，之後每則見面回覆都評估一次、只寫進這場故事，私聊那份不受影響。關著就跟私聊共用一份。</p>
+                            </div>
+                            <button
+                                onClick={() => updateCharacter(char.id, { dateEmotionIndependent: !char.dateEmotionIndependent })}
+                                type="button"
+                                role="switch"
+                                aria-checked={!!char.dateEmotionIndependent}
+                                aria-label="切換線下情緒獨立"
+                                className={`w-12 h-7 shrink-0 rounded-full transition-colors relative ${char.dateEmotionIndependent ? 'bg-primary' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute left-0 top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${char.dateEmotionIndependent ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </button>
+                        </div>
+                        {char.dateEmotionIndependent && !(char.emotionConfig?.enabled && isScheduleFeatureOn(char)) && (
+                            <p className="text-[10px] mt-2 text-amber-600">{char.name}的情緒系統還沒開（私聊設定 →「日程與情緒 Buff」），見面不會評估情緒。</p>
                         )}
                     </div>
                     <div className="flex items-center justify-between gap-4 p-4">

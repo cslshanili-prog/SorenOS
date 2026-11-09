@@ -8,6 +8,7 @@ import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
 import { DatePrompts, buildDateOpeningInstruction, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
+import { dateEmotionState, patchDateEmotion, runDateEmotionEval, withStoryEmotion } from '../utils/dateEmotion';
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
@@ -725,7 +726,7 @@ const DateApp: React.FC = () => {
         const sarModulePlan = getSARModuleRuntimePlan(char, dateUserProfile);
         const preset = await loadPresetFor(char);
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
-        const storyChar = withStoryScenario(char, activeStoryRef.current);
+        const storyChar = withStoryEmotion(withStoryScenario(char, activeStoryRef.current), activeStoryRef.current);
         const recap = buildDateRecap(activeStoryRef.current);
         // 這場故事的時間（真實＋流動是 null，照原本走）
         const clock = makeDateClock(char, activeStoryRef.current);
@@ -798,6 +799,8 @@ const DateApp: React.FC = () => {
 
         // 3. Save AI Response
         await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        // 線下情緒獨立：這則回覆落庫後評估一次，結果只寫進這場故事（utils/dateEmotion.ts）
+        void runDateEmotionEval({ char, story: activeStoryRef.current, userProfile: dateUserProfile, messages, reply: parsed.canonical, apiConfig }).catch(() => {});
         if (sarModulePlan.character) {
             updateCharacter(char.id, previous => ({
                 vrState: { ...(previous.vrState || { enabled: false, intervalMinutes: 120 }), sarModule: advanceSARModuleAfterReply(previous.vrState?.sarModule, sarModulePlan.character) },
@@ -858,12 +861,12 @@ const DateApp: React.FC = () => {
             }
             const openingPreset = await loadPresetFor(char);
             const presetOpening = openingPreset ? await generatePresetOpening({
-                preset: openingPreset, char: withStoryScenario(char, activeStoryRef.current), userProfile: dateUserProfile, msgs: preparedValidMsgs,
+                preset: openingPreset, char: withStoryEmotion(withStoryScenario(char, activeStoryRef.current), activeStoryRef.current), userProfile: dateUserProfile, msgs: preparedValidMsgs,
                 openingMode: rerollOpening, meetup: lastMsg.metadata?.dateMeetup, clock: makeDateClock(char, activeStoryRef.current),
                 temperature: Math.max(apiConfig.temperature ?? 0.85, 0.9),
             }) : null;
             const { messages } = presetOpening ? { messages: [] as ApiMessage[] } : DatePrompts.buildPeekPayload({
-                char: withStoryScenario(char, activeStoryRef.current),
+                char: withStoryEmotion(withStoryScenario(char, activeStoryRef.current), activeStoryRef.current),
                 userProfile: dateUserProfile,
                 allMsgs: preparedValidMsgs,
                 emojis,
@@ -896,7 +899,7 @@ const DateApp: React.FC = () => {
         // 「待重發的最後一條」砍掉，同時 date user 又被追加一次（丟一條、重一條）。
         const preset = await loadPresetFor(char);
         // 這場故事的劇情大綱（提示詞讀 char.dateScenario）
-        const storyChar = withStoryScenario(char, activeStoryRef.current);
+        const storyChar = withStoryEmotion(withStoryScenario(char, activeStoryRef.current), activeStoryRef.current);
         const recap = buildDateRecap(activeStoryRef.current);
         // 這場故事的時間（真實＋流動是 null，照原本走）
         const clock = makeDateClock(char, activeStoryRef.current);
@@ -934,6 +937,8 @@ const DateApp: React.FC = () => {
         // 生成成功後才刪舊回覆：以前先刪後調 API，請求一失敗上一條劇情就永久消失
         await DB.deleteMessage(lastMsg.id);
         await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        // 線下情緒獨立：這則回覆落庫後評估一次，結果只寫進這場故事（utils/dateEmotion.ts）
+        void runDateEmotionEval({ char, story: activeStoryRef.current, userProfile: dateUserProfile, messages, reply: parsed.canonical, apiConfig }).catch(() => {});
         markDateTurnDirty(char);
         trackEvent('重掷见面回复', { 目标: '回复', 附说明: rerollNote?.trim() ? '有' : '没有' });
 
@@ -1686,6 +1691,8 @@ const DateApp: React.FC = () => {
                     historyLoadLimit={dateLoadLimit}
                     historyReachedEnd={dateHistoryReachedEnd}
                     onFinishStory={activeStory ? () => setShowFinishModal(true) : undefined}
+                    emotion={dateEmotionState(char, activeStory)}
+                    onEmotionChange={activeStory && dateEmotionState(char, activeStory) ? patch => { void patchDateEmotion(char, activeStory.id, patch); } : undefined}
                     suppressAutoSaveRef={suppressSessionSaveRef}
                     onCaptureMoment={handleCaptureMoment}
                     capturingMoment={capturingMoment}
