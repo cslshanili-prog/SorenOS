@@ -1,5 +1,5 @@
 import { SAR_CHANGELOG } from '../utils/sarUpdate';
-import { SOREN_CHANGELOG_ENTRIES } from '../utils/sorenChangelog';
+import { FAQ_TARGET_CHANGELOG_LIST, SOREN_CHANGELOG_ENTRIES } from '../utils/sorenChangelog';
 
 import React, { useEffect, useState } from 'react';
 import { useOS } from '../context/OSContext';
@@ -240,6 +240,7 @@ const FAQApp: React.FC = () => {
             const target = sessionStorage.getItem(FAQ_TARGET_SECTION_KEY);
             if (target) {
                 sessionStorage.removeItem(FAQ_TARGET_SECTION_KEY);
+                if (target === FAQ_TARGET_CHANGELOG_LIST) { setTab('changelog'); return; }
                 const entry = CHANGELOG_ENTRIES.find(e => e.id === target);
                 if (entry) {
                     setTab('changelog');

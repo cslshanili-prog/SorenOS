@@ -15,6 +15,9 @@ export interface SorenChangelogEntry {
     accent: string;
 }
 
+/** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
+export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
+
 export const CHANGELOG_SOREN_2026_11_10 = 'changelog-soren-2026-11-10';
 export const CHANGELOG_SOREN_2026_11_09 = 'changelog-soren-2026-11-09';
 export const CHANGELOG_SOREN_2026_10_22 = 'changelog-soren-2026-10-22';
