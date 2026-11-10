@@ -88,10 +88,45 @@ describe('桌面網格 · 搬動', () => {
         expect(cross.layout.pages[0].items.find(i => i.id === 'c')).toMatchObject({ x: 0, y: 0 });
     });
 
-    it('蓋到大小不同的、出界的：不動', () => {
-        expect(moveItem(base(), 'a', 'p1', 1, 3)).toMatchObject({ ok: false, reason: 'occupied' });
+    it('出界的：不動', () => {
         expect(moveItem(base(), 'w', 'p1', 3, 0)).toMatchObject({ ok: false, reason: 'out-of-bounds' });
-        expect(moveItem(base(), 'w', 'p1', 1, 0)).toMatchObject({ ok: false, reason: 'occupied' });
+    });
+
+    it('蓋到大小不同的：放下去，蓋到的往下擠（連鎖）', () => {
+        // 2×2 的 w 拖到最上面 (1,0)：蓋到 b，b 往下擠到 w 下面
+        const r = moveItem(base(), 'w', 'p1', 1, 0);
+        expect(r.ok).toBe(true);
+        const items = r.layout.pages[0].items;
+        expect(items.find(i => i.id === 'w')).toMatchObject({ x: 1, y: 0 });
+        expect(items.find(i => i.id === 'a')).toMatchObject({ x: 0, y: 0 });
+        expect(items.find(i => i.id === 'b')).toMatchObject({ x: 1, y: 2 });
+        // app 丟到 2×2 的中間：小組件往下擠
+        const r2 = moveItem(base(), 'a', 'p1', 1, 3);
+        expect(r2.layout.pages[0].items.find(i => i.id === 'a')).toMatchObject({ x: 1, y: 3 });
+        expect(r2.layout.pages[0].items.find(i => i.id === 'w')).toMatchObject({ x: 0, y: 4 });
+    });
+
+    it('擠到最底還放不下：先找這頁的空位，沒有就搬到下一頁', () => {
+        // 一整頁塞滿 4×2 三塊，再把另一頁的 4×2 拖到最上面
+        const full: LauncherLayout = { version: 1, pages: [
+            { id: 'p1', items: [0, 2, 4].map(y => ({ id: `w${y}`, kind: 'widget' as const, widget: 'clock' as const, x: 0, y, w: 4, h: 2 })) },
+            { id: 'p2', items: [{ id: 'n', kind: 'widget', widget: 'clock', x: 0, y: 0, w: 4, h: 2 }] },
+        ] };
+        // 剛好對齊一樣大的是交換
+        expect(moveItem(full, 'n', 'p1', 0, 0).layout.pages[1].items[0].id).toBe('w0');
+        // 錯開一列：蓋到兩塊，往下擠，最後兩塊塞不下搬到下一頁
+        const r = moveItem(full, 'n', 'p1', 0, 1);
+        expect(r).toMatchObject({ ok: true, overflowed: 2 });
+        expect(r.layout.pages[0].items.map(i => [i.id, i.y])).toEqual([['n', 1], ['w0', 3]]);
+        expect(r.layout.pages[1].items.map(i => [i.id, i.y])).toEqual([['w2', 0], ['w4', 2]]);
+        // 這頁還有空位的話，擠出去的先放這頁
+        const roomy: LauncherLayout = { version: 1, pages: [{ id: 'p1', items: [
+            { id: 'a', kind: 'app', appId: 'chat', x: 0, y: 5 },
+            { id: 'w', kind: 'widget', widget: 'clock', x: 0, y: 0, w: 4, h: 2 },
+        ] }] };
+        const r2 = moveItem(roomy, 'w', 'p1', 0, 4);
+        expect(r2).toMatchObject({ ok: true, overflowed: 0 });
+        expect(r2.layout.pages[0].items.find(i => i.id === 'a')).toMatchObject({ x: 0, y: 0 });
     });
 });
 

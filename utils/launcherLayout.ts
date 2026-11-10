@@ -233,11 +233,39 @@ export const normalizeLayout = (layout: LauncherLayout | undefined | null, avail
 
 // ─── 編輯動作 ────────────────────────────────────────────────────────────
 
-export type MoveResult = { layout: LauncherLayout; ok: true } | { layout: LauncherLayout; ok: false; reason: 'out-of-bounds' | 'occupied' };
+export type MoveResult =
+    | { layout: LauncherLayout; ok: true; /** 被擠下去、這頁塞不下、搬到別頁的有幾個 */ overflowed?: number }
+    | { layout: LauncherLayout; ok: false; reason: 'out-of-bounds' | 'occupied' };
+
+/**
+ * 把放下去的東西蓋到的那些往下擠：由上往下一個一個看，跟已經定位的重疊就往下挪一列，直到不重疊（會連鎖往下推）。
+ * 擠到超出最後一列的，先在這頁找空位，這頁沒有就往後面的頁放（再沒有就加一頁）。
+ */
+const pushDown = (pages: LauncherPage[], pageIndex: number, placed: LauncherItem): { pages: LauncherPage[]; overflowed: number } => {
+    const page = pages[pageIndex];
+    const settled: LauncherItem[] = [placed];
+    const overflow: LauncherItem[] = [];
+    const rest = page.items.filter(i => i.id !== placed.id).sort((a, b) => a.y - b.y || a.x - b.x);
+    for (const item of rest) {
+        let y = item.y;
+        const size = itemSize(item);
+        while (settled.some(other => overlaps(rect(other), { x: item.x, y, ...size }))) y += 1;
+        if (y + size.h > GRID_ROWS) overflow.push(item);
+        else settled.push(y === item.y ? item : { ...item, y });
+    }
+    let next = pages.map((p, i) => (i === pageIndex ? { ...p, items: settled } : p));
+    let overflowed = 0;
+    for (const item of overflow) {
+        const placedAt = placeAnywhere(next, pageIndex, spot => ({ ...item, ...spot }), itemSize(item));
+        if (placedAt.pageId !== page.id) overflowed += 1;
+        next = placedAt.pages;
+    }
+    return { pages: next, overflowed };
+};
 
 /**
  * 把一個東西移到某頁的 (x, y)（左上角）。目標範圍空著就放；正好蓋住一個一樣大、左上角也對齊的東西就交換；
- * 其他情況放不下，原樣不動。
+ * 其他情況放下去，蓋到的往下擠（pushDown）。只有出界才放不下。
  */
 export const moveItem = (layout: LauncherLayout, itemId: string, toPageId: string, x: number, y: number): MoveResult => {
     const fromPage = layout.pages.find(page => page.items.some(item => item.id === itemId));
@@ -265,7 +293,15 @@ export const moveItem = (layout: LauncherLayout, itemId: string, toPageId: strin
     const other = blockers[0];
     const otherSize = itemSize(other);
     const swappable = blockers.length === 1 && other.x === x && other.y === y && otherSize.w === size.w && otherSize.h === size.h;
-    if (!swappable) return { layout, ok: false, reason: 'occupied' };
+    if (!swappable) {
+        // 先從原本那頁拿掉，再放到目標，蓋到的往下擠
+        const lifted = layout.pages.map(page => (page.id === fromPage.id ? { ...page, items: page.items.filter(i => i.id !== itemId) } : page));
+        const targetIndex = lifted.findIndex(page => page.id === toPageId);
+        const placed = { ...item, x, y };
+        lifted[targetIndex] = { ...lifted[targetIndex], items: [...lifted[targetIndex].items, placed] };
+        const pushed = pushDown(lifted, targetIndex, placed);
+        return { ok: true, layout: { ...layout, pages: pushed.pages }, overflowed: pushed.overflowed };
+    }
     return {
         ok: true,
         layout: {

@@ -20,7 +20,7 @@ import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import {
-    BUILTIN_WIDGETS, GRID_COLS, GRID_ROWS, addCustomWidget, addPage, addWidget, buildLegacyLayout, cellFromPoint, countCustomWidgetsOf, hasWidget, inBounds,
+    BUILTIN_WIDGETS, GRID_COLS, GRID_ROWS, addCustomWidget, addPage, addWidget, buildLegacyLayout, cellFromPoint, countCustomWidgetsOf, hasWidget, inBounds, itemsInArea,
     moveItem, normalizeLayout, patchWidget, removeCustomWidgetsOf, removePage, removeWidget, resizeWidget, sizeLabel,
     type BuiltinWidgetType, type LauncherItem, type LauncherLayout, type LauncherWidgetItem, type WidgetSize,
 } from '../utils/launcherLayout';
@@ -486,7 +486,8 @@ let _lastPageIndex = 0;
 const isWidget = (item: LauncherItem): item is LauncherWidgetItem => item.kind === 'widget';
 
 /** 拖到哪一格：預覽框的位置、能不能放 */
-interface DropPreview { pageId: string; x: number; y: number; w: number; h: number; ok: boolean }
+/** push：放下去會把蓋到的往下擠 */
+interface DropPreview { pageId: string; x: number; y: number; w: number; h: number; ok: boolean; push?: boolean }
 
 // --- Main Launcher ---
 
@@ -525,9 +526,21 @@ const Launcher: React.FC = () => {
       grabCellY?: number;
       lastTarget?: string;
       targetElement?: HTMLElement;
+      /** 按下去的時候已經在整理中 */
+      editMode?: boolean;
       preview?: DropPreview | null;
   } | null>(null);
   const suppressLayoutClickUntil = useRef(0);
+  const launcherRootRef = useRef<HTMLDivElement>(null);
+  // 抓起東西之後擋掉捲動：React 的 onTouchMove 是 passive 的，preventDefault 沒用，只能自己掛非 passive 的。
+  // 不抓的時候不擋，整理中照樣能左右滑頁。
+  useEffect(() => {
+      const root = launcherRootRef.current;
+      if (!root) return;
+      const onTouchMove = (event: TouchEvent) => { if (layoutPointer.current?.active && event.cancelable) event.preventDefault(); };
+      root.addEventListener('touchmove', onTouchMove, { passive: false });
+      return () => root.removeEventListener('touchmove', onTouchMove);
+  }, [theme.skin]); // 手遊風、電子寵物、觸感陪伴換掉整個桌面，換回來要重掛
   const layoutPageTurnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutPageTurnDirection = useRef<-1 | 0 | 1>(0);
 
@@ -704,7 +717,9 @@ const Launcher: React.FC = () => {
 
   // --- Mouse Drag Handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
-      if (!scrollContainerRef.current || layoutEditing) return;
+      if (!scrollContainerRef.current) return;
+      // 整理中按在 app／小組件上是要拖它；按在空白處照樣能滑頁
+      if (layoutEditing && (e.target as HTMLElement).closest('[data-launcher-item],[data-launcher-control]')) return;
       isDragging.current = true;
       dragMoved.current = 0;
       startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
@@ -715,7 +730,7 @@ const Launcher: React.FC = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-      if (layoutEditing || !isDragging.current || !scrollContainerRef.current) return;
+      if (!isDragging.current || !scrollContainerRef.current) return;
       e.preventDefault();
       const x = e.pageX - scrollContainerRef.current.offsetLeft;
       const walk = (x - startX.current);
@@ -848,11 +863,19 @@ const Launcher: React.FC = () => {
       const kind = item.dataset.launcherKind;
       if (!key || !kind) return;
       clearLayoutPressTimer();
-      layoutPointer.current = { pointerId: e.pointerId, key, kind, x: e.clientX, y: e.clientY, active: layoutEditing, element: item };
+      layoutPointer.current = { pointerId: e.pointerId, key, kind, x: e.clientX, y: e.clientY, active: false, element: item, editMode: layoutEditing };
       if (layoutEditing) {
-          // 整理中：先不抓起來，移動超過一點才算拖；沒動就是點一下（打開小組件的設定）
-          launcherRoot.setPointerCapture(e.pointerId);
-          e.preventDefault();
+          // 整理中：手指按住不動一下（180ms）才抓起來，按下去馬上滑就是翻頁（按在 app 上也能滑）；
+          // 抓起來之後的 touchmove 由 useEffect 那個非 passive 的監聽擋掉捲動。沒動就放開是點一下（打開小組件的設定）。
+          // 滑鼠不會捲頁，直接抓。
+          const arm = () => {
+              const pointer = layoutPointer.current;
+              if (!pointer || pointer.pointerId !== e.pointerId) return;
+              pointer.active = true;
+              try { launcherRoot.setPointerCapture(e.pointerId); } catch { /* 指標已經沒了 */ }
+          };
+          if (e.pointerType === 'mouse') { arm(); e.preventDefault(); return; }
+          layoutPressTimer.current = setTimeout(arm, 180);
           return;
       }
       layoutPressTimer.current = setTimeout(() => {
@@ -881,8 +904,14 @@ const Launcher: React.FC = () => {
       const y = Math.max(0, Math.min(GRID_ROWS - size.h, cell.y - (pointer.grabCellY || 0)));
       const prev = pointer.preview;
       if (prev && prev.pageId === pageId && prev.x === x && prev.y === y) return;
-      const ok = inBounds(x, y, size) && moveItem(layoutRef.current, pointer.key, pageId, x, y).ok;
-      const next = { pageId, x, y, ...size, ok };
+      const result = inBounds(x, y, size) ? moveItem(layoutRef.current, pointer.key, pageId, x, y) : null;
+      const ok = !!result?.ok;
+      // 蓋到東西、又不是一樣大的交換：放下去會往下擠
+      const targetPage = layoutRef.current.pages.find(p => p.id === pageId);
+      const blockers = targetPage ? itemsInArea(targetPage, { x, y, ...size }, pointer.key) : [];
+      const swap = blockers.length === 1 && blockers[0].x === x && blockers[0].y === y
+          && (isWidget(blockers[0]) ? blockers[0].w : 1) === size.w && (isWidget(blockers[0]) ? blockers[0].h : 1) === size.h;
+      const next = { pageId, x, y, ...size, ok, push: ok && blockers.length > 0 && !swap };
       pointer.preview = next;
       setDropPreview(next);
   };
@@ -936,13 +965,18 @@ const Launcher: React.FC = () => {
       if (e && pointer && pointer.pointerId !== e.pointerId) return;
       clearLayoutPressTimer();
       clearLayoutPageTurn();
+      if (pointer && !pointer.active && pointer.editMode && e?.type === 'pointerup' && Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) < 9) {
+          // 整理中很快點一下（還沒抓起來就放開）：小組件打開設定
+          const tapped = layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
+          if (tapped && isWidget(tapped)) setSettingsItemId(tapped.id);
+      }
       if (pointer?.active) {
           suppressLayoutClickUntil.current = Date.now() + 500;
           pointer.element.style.pointerEvents = '';
           pointer.element.classList.remove('launcher-dragging');
           pointer.ghost?.remove();
           pointer.targetElement?.classList.remove('launcher-drop-target');
-          if (!pointer.ghost && e) {
+          if (!pointer.ghost && e?.type === 'pointerup') {
               // 整理中點一下：小組件打開設定
               const tapped = layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
               if (tapped && isWidget(tapped)) setSettingsItemId(tapped.id);
@@ -950,7 +984,10 @@ const Launcher: React.FC = () => {
               const preview = pointer.preview;
               if (preview?.ok) {
                   const result = moveItem(layoutRef.current, pointer.key, preview.pageId, preview.x, preview.y);
-                  if (result.ok && result.layout !== layoutRef.current) commitLayout(result.layout);
+                  if (result.ok && result.layout !== layoutRef.current) {
+                      commitLayout(result.layout);
+                      if (result.overflowed) addToast(`這頁擠不下，${result.overflowed} 個移到後面的頁了`, 'info');
+                  }
               }
           } else if (pointer.kind === 'dock') {
               if (pointer.lastTarget) reorderDock(pointer.key, pointer.lastTarget);
@@ -1215,6 +1252,7 @@ const Launcher: React.FC = () => {
 
   return (
     <div
+      ref={launcherRootRef}
       className="h-full w-full flex flex-col relative z-10 overflow-hidden font-sans select-none"
       onPointerDown={handleLayoutPointerDown}
       onPointerMove={handleLayoutPointerMove}
@@ -1226,7 +1264,7 @@ const Launcher: React.FC = () => {
     >
       <style>{`
         .launcher-edit-item {
-          touch-action: none;
+          touch-action: pan-x;
           cursor: grab;
           transition: transform 180ms cubic-bezier(.2,.75,.25,1), opacity 150ms ease, filter 150ms ease;
           will-change: transform;
@@ -1257,7 +1295,7 @@ const Launcher: React.FC = () => {
 
       {layoutEditing && (
           <div className="absolute top-[calc(var(--safe-top)+0.65rem)] left-3 right-3 z-50 flex items-center gap-1.5 rounded-full px-2.5 py-1.5" style={editBar} data-launcher-control>
-              <span className="min-w-0 flex-1 truncate pl-1 text-[10px] font-semibold tracking-wide">拖到空格放下，一樣大的會交換</span>
+              <span className="min-w-0 flex-1 truncate pl-1 text-[10px] font-semibold tracking-wide">拖到哪放哪，蓋到的會往下擠</span>
               <button onClick={() => { measureGridCell(); setAddSheetOpen(true); }} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">＋小組件</button>
               <button onClick={handleAddPage} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">＋頁面</button>
               <button onClick={finishLayoutEditing} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white text-[#4b4136] active:scale-95">完成</button>
@@ -1285,7 +1323,8 @@ const Launcher: React.FC = () => {
             scrollBehavior: 'smooth',
             overscrollBehaviorX: 'contain',
             overscrollBehaviorY: 'none',
-            touchAction: layoutEditing ? 'none' : 'pan-x pan-y',
+            // 整理中只能左右滑頁；按在 app／小組件上也能滑，按住不動一下才是抓起來拖（見 handleLayoutPointerDown）
+            touchAction: layoutEditing ? 'pan-x' : 'pan-x pan-y',
             willChange: 'scroll-position',
             contain: 'layout paint',
             transform: 'translateZ(0)',
@@ -1332,8 +1371,8 @@ const Launcher: React.FC = () => {
                             style={{
                                 gridColumn: `${dropPreview.x + 1} / span ${dropPreview.w}`,
                                 gridRow: `${dropPreview.y + 1} / span ${dropPreview.h}`,
-                                border: `2px dashed ${dropPreview.ok ? 'rgba(255,255,255,0.75)' : 'rgba(248,113,113,0.85)'}`,
-                                background: dropPreview.ok ? 'rgba(255,255,255,0.14)' : 'rgba(248,113,113,0.12)',
+                                border: `2px dashed ${!dropPreview.ok ? 'rgba(248,113,113,0.85)' : dropPreview.push ? 'rgba(253,224,71,0.9)' : 'rgba(255,255,255,0.75)'}`,
+                                background: !dropPreview.ok ? 'rgba(248,113,113,0.12)' : dropPreview.push ? 'rgba(253,224,71,0.14)' : 'rgba(255,255,255,0.14)',
                             }}
                           />
                       )}
