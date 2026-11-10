@@ -176,7 +176,8 @@ describe('tracker 标签', () => {
 
         const tag = appended[0].attrs['data-tag'];
         expect(tag).toBe(APP_VERSION.split(' ')[0]);
-        expect(tag).toMatch(/^v[\d.]+$/);
+        // Soren 自己的版本線是 S 開頭（S1.0；之前上游是 v3.x），見 utils/buildInfo.ts
+        expect(tag).toMatch(/^S[\d.]+$/);
     });
 
     it('不挂 data-auto-track —— 挂了性能指标整个不启动', async () => {

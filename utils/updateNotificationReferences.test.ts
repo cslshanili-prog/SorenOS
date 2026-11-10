@@ -8,7 +8,18 @@ describe('Live2D update notification references', () => {
     expect(source).toContain('CollaborationUpdatePopup');
     expect(source).toContain("UPDATE_NOTIFICATION_KEY_2026_08_30 = 'sullyos_update_2026_08_30_collaboration_seen'");
     expect(source).toContain('點輸入框左側的 <b>＋</b>');
-    expect(source.indexOf('UPDATE_NOTIFICATION_KEY_2026_08_30, render')).toBeLessThan(source.indexOf('NETWORK_TRANSIT_NOTICE_KEY_2026_08, render'));
+  });
+
+  it('2026-11-10 起只彈 Soren 自己那則，上游的舊提醒都拿下來；點了打開更新日誌清單', () => {
+    const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
+    const queue = source.slice(source.indexOf('const UPDATE_QUEUE'), source.indexOf('];', source.indexOf('const UPDATE_QUEUE')));
+    expect(queue).toContain('UPDATE_NOTIFICATION_KEY_SOREN_2026_11_10, render');
+    for (const old of ['SAR_UPDATE_KEY, render', 'NETWORK_TRANSIT_NOTICE_KEY_2026_08, render', 'UPDATE_NOTIFICATION_KEY_2026_08_10, render', 'UPDATE_NOTIFICATION_KEY_2026_08_30, render']) {
+      expect(queue).not.toContain(old);
+    }
+    expect(source).toContain('sessionStorage.setItem(FAQ_TARGET_SECTION_KEY, FAQ_TARGET_CHANGELOG_LIST)');
+    const faqSource = readFileSync(path.resolve(__dirname, '../apps/FAQApp.tsx'), 'utf8');
+    expect(faqSource).toContain("if (target === FAQ_TARGET_CHANGELOG_LIST) { setTab('changelog'); return; }");
   });
 
   it('links the handbook collaboration entry to its detailed release note', () => {
