@@ -7,7 +7,7 @@ import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl } from '../utils/blobRef';
 import { DB } from '../utils/db';
 import { isChatPreviewMessage } from '../utils/chatMessageVisibility';
-import { CharacterProfile, Anniversary, AppID, DailySchedule } from '../types';
+import { CharacterProfile, Anniversary, AppID, DailySchedule, type OSTheme } from '../types';
 import { anniversaryCharNames, nextOccurrenceDate } from '../utils/anniversary';
 import { ScheduleHomeWidget, ScheduleFullscreenViewer } from '../components/schedule/ScheduleHomeWidget';
 import NowPlayingSquareWidget from '../components/os/NowPlayingSquareWidget';
@@ -20,10 +20,19 @@ import { trackEvent } from '../utils/analytics';
 import { processImageToBlob } from '../utils/file';
 import { putImageBlob } from '../utils/blobRef';
 import {
-    BUILTIN_WIDGETS, GRID_COLS, GRID_ROWS, addPage, addWidget, buildLegacyLayout, cellFromPoint, hasWidget, inBounds, itemsInArea,
-    moveItem, normalizeLayout, patchWidget, removePage, removeWidget, resizeWidget, sizeLabel,
+    BUILTIN_WIDGETS, GRID_COLS, GRID_ROWS, addCustomWidget, addPage, addWidget, buildLegacyLayout, cellFromPoint, countCustomWidgetsOf, hasWidget, inBounds,
+    moveItem, normalizeLayout, patchWidget, removeCustomWidgetsOf, removePage, removeWidget, resizeWidget, sizeLabel,
     type BuiltinWidgetType, type LauncherItem, type LauncherLayout, type LauncherWidgetItem, type WidgetSize,
 } from '../utils/launcherLayout';
+import {
+    WIDGET_FILE_EXT, buildWidgetFile, makeTemplateId, parseWidgetFile, type CustomWidgetTemplate,
+} from '../utils/customWidget';
+import { dataUrlToBlob, resolveRefToDataUrl } from '../utils/blobRef';
+import { shareOrDownloadFile } from '../utils/shareExport';
+import { safeShareFileName } from '../utils/pngShare';
+import CustomWidgetFrame from '../components/launcher/CustomWidgetFrame';
+import CustomWidgetSettings from '../components/launcher/CustomWidgetSettings';
+import CustomWidgetEditor from '../components/launcher/CustomWidgetEditor';
 
 const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'));
 
@@ -481,7 +490,7 @@ interface DropPreview { pageId: string; x: number; y: number; w: number; h: numb
 // --- Main Launcher ---
 
 const Launcher: React.FC = () => {
-  const { openApp, characters, activeCharacterId, setActiveCharacterId, theme, updateTheme, lastMsgTimestamp, isDataLoaded, unreadMessages, addToast } = useOS();
+  const { openApp, characters, activeCharacterId, setActiveCharacterId, theme, updateTheme, lastMsgTimestamp, isDataLoaded, unreadMessages, addToast, userProfile } = useOS();
 
   // Local state for widget data to prevent context trashing
   const [widgetChar, setWidgetChar] = useState<CharacterProfile | null>(null);
@@ -495,6 +504,10 @@ const Launcher: React.FC = () => {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [settingsItemId, setSettingsItemId] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const widgetFileInputRef = useRef<HTMLInputElement>(null);
+  /** 自訂小組件編輯器：null 關著；initial 是要改的模板（新建是 null）；placeAfterSave 存好順手放上桌面 */
+  const [editorState, setEditorState] = useState<{ initial: CustomWidgetTemplate | null; placeAfterSave?: boolean } | null>(null);
+  const [gridCell, setGridCell] = useState({ w: 76, h: 88 });
   const layoutPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutPointer = useRef<{
       pointerId: number;
@@ -580,11 +593,16 @@ const Launcher: React.FC = () => {
       layoutRef.current = next;
       setLayout(next);
   }, [layoutEditing, resolveLayout]);
-  const commitLayout = useCallback((next: LauncherLayout) => {
+  /** extra：同一次要一起寫的主題欄位。updateTheme 是拿當下的 theme 合併，連著呼叫兩次後一次會蓋掉前一次 */
+  const commitLayout = useCallback((next: LauncherLayout, extra?: Partial<OSTheme>) => {
       layoutRef.current = next;
       setLayout(next);
-      void updateTheme({ launcherLayout: next });
+      void updateTheme({ ...extra, launcherLayout: next });
   }, [updateTheme]);
+
+  // 自訂小組件的模板（utils/customWidget.ts）
+  const customTemplates = useMemo(() => theme.launcherCustomWidgets || [], [theme.launcherCustomWidgets]);
+  const customTemplatesById = useMemo(() => new Map(customTemplates.map(t => [t.id, t])), [customTemplates]);
 
   const dockAppsConfig = useMemo(() => {
       return launcherDockOrder.map(id => appsById.get(id)).filter(Boolean) as typeof INSTALLED_APPS;
@@ -989,6 +1007,95 @@ const Launcher: React.FC = () => {
       }
   };
 
+  // --- 自訂小組件 ---
+  /** 桌面一格實際多大：編輯器預覽照這個比例畫 */
+  const measureGridCell = () => {
+      const grid = scrollContainerRef.current?.querySelectorAll<HTMLElement>('[data-launcher-grid]')[activePageIndexRef.current];
+      const rect = grid?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+          setGridCell({ w: (rect.width - 8 * (GRID_COLS - 1)) / GRID_COLS, h: (rect.height - 12 * (GRID_ROWS - 1)) / GRID_ROWS });
+      }
+  };
+  const openEditor = (initial: CustomWidgetTemplate | null, placeAfterSave = false) => {
+      measureGridCell();
+      setAddSheetOpen(false);
+      setSettingsItemId(null);
+      setEditorState({ initial, placeAfterSave });
+  };
+  const placeCustomWidget = (template: CustomWidgetTemplate, extra?: Partial<OSTheme>) => {
+      const size = { w: template.w, h: template.h };
+      const result = addCustomWidget(layoutRef.current, activePageIndexRef.current, template.id, size);
+      commitLayout(result.layout, extra);
+      setAddSheetOpen(false);
+      const pageIndex = result.layout.pages.findIndex(p => p.id === result.pageId);
+      if (pageIndex >= 0 && pageIndex !== activePageIndexRef.current) scrollToPage(pageIndex);
+      trackEvent('桌面新增小组件', { 类型: 'custom', 尺寸: sizeLabel(size) });
+  };
+  const saveTemplate = (template: CustomWidgetTemplate) => {
+      const exists = customTemplates.some(t => t.id === template.id);
+      const next = exists ? customTemplates.map(t => (t.id === template.id ? template : t)) : [...customTemplates, template];
+      if (!exists) trackEvent('新建桌面自订小组件');
+      if (editorState?.placeAfterSave && !exists) placeCustomWidget(template, { launcherCustomWidgets: next });
+      else void updateTheme({ launcherCustomWidgets: next });
+      setEditorState(null);
+      addToast(exists ? '模板存好了，桌面上用它的都會更新' : '小組件做好了', 'success');
+  };
+  const deleteTemplate = (template: CustomWidgetTemplate) => {
+      const used = countCustomWidgetsOf(layoutRef.current, template.id);
+      if (!window.confirm(used ? `刪掉「${template.name}」？桌面上用它的 ${used} 份也會一起拿掉。` : `刪掉「${template.name}」？`)) return;
+      const next = customTemplates.filter(t => t.id !== template.id);
+      if (used) commitLayout(removeCustomWidgetsOf(layoutRef.current, template.id), { launcherCustomWidgets: next });
+      else void updateTheme({ launcherCustomWidgets: next });
+  };
+  const exportTemplate = async (template: CustomWidgetTemplate) => {
+      try {
+          const imageData: Record<string, string> = {};
+          for (const key of template.imageKeys) {
+              const ref = template.images[key];
+              if (ref) imageData[key] = await resolveRefToDataUrl(ref);
+          }
+          await shareOrDownloadFile({
+              content: JSON.stringify(buildWidgetFile(template, imageData), null, 2),
+              fileName: `${safeShareFileName(template.name)}${WIDGET_FILE_EXT}`,
+              mimeType: 'application/json',
+          });
+          trackEvent('导出桌面小组件文件');
+      } catch (error: any) {
+          addToast(error?.message || '匯出失敗', 'error');
+      }
+  };
+  const handleImportWidgetFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > 20 * 1024 * 1024) { addToast('檔案太大了（超過 20 MB）', 'error'); return; }
+      const parsed = parseWidgetFile(await file.text());
+      if (!parsed.ok) { addToast(parsed.error, 'error'); return; }
+      const images: Record<string, string> = {};
+      for (const [key, dataUrl] of Object.entries(parsed.file.imageData)) {
+          try { images[key] = await putImageBlob(dataUrlToBlob(dataUrl)); } catch { /* 壞掉的圖就當沒帶 */ }
+      }
+      const now = Date.now();
+      const template: CustomWidgetTemplate = { ...parsed.file.template, images, id: makeTemplateId(), createdAt: now, updatedAt: now };
+      void updateTheme({ launcherCustomWidgets: [...customTemplates, template] });
+      trackEvent('导入桌面小组件文件');
+      const missing = template.imageKeys.filter(k => !images[k]).length;
+      const notes = [...parsed.file.notes, missing ? `有 ${missing} 張圖要自己選（放上桌面後點它，或編輯模板）` : ''].filter(Boolean);
+      addToast(`匯入了「${template.name}」${notes.length ? `：${notes.join('；')}` : ''}`, 'success');
+  };
+  /** 小組件裡點了 data-open／widget.open：chat 進綁定角色的聊天，其他只認桌面上有的 App */
+  const handleCustomOpen = (target: string, char: CharacterProfile | null) => {
+      if (layoutEditing) return;
+      if (target === 'chat') {
+          if (!char) { openApp(AppID.ChatHub); return; }
+          setActiveCharacterId(char.id);
+          openApp(AppID.Chat);
+          return;
+      }
+      const app = appsById.get(target);
+      if (app) openApp(app.id as AppID);
+  };
+
   const contentColor = theme.contentColor || '#ffffff';
   const acnh = theme.skin === 'animalcrossing'; // 動森彩蛋：Dock 換奶油木質底
   const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
@@ -1052,6 +1159,32 @@ const Launcher: React.FC = () => {
               return <CalendarWidget contentColor={contentColor} openApp={(id: string) => { if (!layoutEditing) openApp(id as AppID); }} anniversaries={anniversaries} acnh={acnh} paper={paper} />;
           case 'events':
               return <EventsWidget contentColor={contentColor} anniversaries={anniversaries} characters={characters} rows={item.h} acnh={acnh} paper={paper} />;
+          case 'custom': {
+              const template = item.templateId ? customTemplatesById.get(item.templateId) : undefined;
+              if (!template) {
+                  return (
+                      <div className="grid h-full w-full place-items-center rounded-2xl border border-dashed text-center text-[10px] opacity-60" style={{ color: contentColor, borderColor: contentColor }}>
+                          模板不見了
+                      </div>
+                  );
+              }
+              const char = (item.charId && characters.find(c => c.id === item.charId)) || widgetChar;
+              return (
+                  <CustomWidgetFrame
+                    template={template}
+                    size={item}
+                    values={item.values}
+                    images={item.images}
+                    char={char}
+                    unread={char ? unreadMessages[char.id] || 0 : 0}
+                    lastMsgTimestamp={lastMsgTimestamp}
+                    userName={userProfile?.name}
+                    contentColor={contentColor}
+                    interactive={!layoutEditing}
+                    onOpen={target => handleCustomOpen(target, char)}
+                  />
+              );
+          }
           default:
               return null;
       }
@@ -1173,7 +1306,7 @@ const Launcher: React.FC = () => {
                                     type="button"
                                     data-launcher-control
                                     onClick={() => handleRemoveWidget(item.id)}
-                                    aria-label={`移除${BUILTIN_WIDGETS[item.widget]?.name || '小組件'}`}
+                                    aria-label={`移除${item.widget === 'custom' ? customTemplatesById.get(item.templateId || '')?.name || '自訂小組件' : BUILTIN_WIDGETS[item.widget]?.name || '小組件'}`}
                                     className="absolute -left-1.5 -top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-[#4b4136]/85 text-[14px] font-bold leading-none text-white shadow active:scale-90"
                                   >−</button>
                               )}
@@ -1301,21 +1434,65 @@ const Launcher: React.FC = () => {
                           );
                       })}
                   </div>
-                  <p className="mt-4 text-[10px] leading-relaxed text-[#3f362c]/45">自己寫 HTML／CSS 的小組件、匯入小組件檔，下一批就來。</p>
+                  <div className="mt-5 flex items-center justify-between">
+                      <h4 className="text-[13px] font-bold">自訂小組件</h4>
+                      <div className="flex gap-1.5">
+                          <button type="button" onClick={() => widgetFileInputRef.current?.click()} className="rounded-full border border-[#3f362c]/15 bg-white px-3 py-1 text-[11px] font-bold active:scale-95">匯入檔案</button>
+                          <button type="button" onClick={() => openEditor(null, true)} className="rounded-full bg-[#4b4136] px-3 py-1 text-[11px] font-bold text-white active:scale-95">＋新建</button>
+                      </div>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-[#3f362c]/55">自己寫 HTML／CSS，或匯入 <code className="font-mono">{WIDGET_FILE_EXT}</code> 小組件檔。</p>
+                  <div className="mt-2.5 space-y-2">
+                      {customTemplates.length === 0 && (
+                          <div className="rounded-2xl border border-dashed border-[#3f362c]/20 px-3.5 py-4 text-center text-[11px] text-[#3f362c]/45">還沒有自訂小組件</div>
+                      )}
+                      {customTemplates.map(template => {
+                          const used = countCustomWidgetsOf(layout, template.id);
+                          return (
+                              <div key={template.id} className="rounded-2xl bg-[#3f362c]/[0.04] px-3.5 py-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                      <span className="min-w-0 truncate text-[13px] font-bold">{template.name}</span>
+                                      <span className="shrink-0 text-[10px] tabular-nums text-[#3f362c]/45">{sizeLabel(template)}{used ? ` · 桌面上 ${used} 份` : ''}</span>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                      <button type="button" onClick={() => placeCustomWidget(template)} className="rounded-full bg-[#4b4136] px-3 py-1 text-[11px] font-bold text-white active:scale-95">放上桌面</button>
+                                      <button type="button" onClick={() => openEditor(template)} className="rounded-full border border-[#3f362c]/15 bg-white px-3 py-1 text-[11px] font-bold active:scale-95">編輯</button>
+                                      <button type="button" onClick={() => exportTemplate(template)} className="rounded-full border border-[#3f362c]/15 bg-white px-3 py-1 text-[11px] font-bold active:scale-95">匯出</button>
+                                      <button type="button" onClick={() => deleteTemplate(template)} className="rounded-full px-2.5 py-1 text-[11px] font-bold text-red-400 active:scale-95">刪除</button>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
               </div>
           </div>
       )}
 
+      {/* 自訂小組件這一份的設定 */}
+      {settingsItem && settingsItem.widget === 'custom' && customTemplatesById.get(settingsItem.templateId || '') && (
+          <CustomWidgetSettings
+            item={settingsItem}
+            template={customTemplatesById.get(settingsItem.templateId || '')!}
+            characters={characters}
+            onResize={size => handleResizeWidget(settingsItem.id, size)}
+            onPatch={patch => commitLayout(patchWidget(layoutRef.current, settingsItem.id, patch))}
+            onEditTemplate={() => openEditor(customTemplatesById.get(settingsItem.templateId || '') || null)}
+            onRemove={() => handleRemoveWidget(settingsItem.id)}
+            onClose={() => setSettingsItemId(null)}
+            notify={addToast}
+          />
+      )}
+
       {/* 小組件設定（整理中點一下小組件） */}
-      {settingsItem && (
+      {settingsItem && (settingsItem.widget !== 'custom' || !customTemplatesById.get(settingsItem.templateId || '')) && (
           <div className="absolute inset-0 z-[60] flex items-end bg-black/30" data-launcher-control onClick={() => setSettingsItemId(null)}>
               <div className="w-full rounded-t-3xl bg-[#fffdf8] px-5 pt-4 text-[#3f362c]" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()}>
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#3f362c]/15" />
-                  <h3 className="text-[15px] font-bold">{BUILTIN_WIDGETS[settingsItem.widget]?.name || '小組件'}</h3>
+                  <h3 className="text-[15px] font-bold">{settingsItem.widget === 'custom' ? '模板不見了' : BUILTIN_WIDGETS[settingsItem.widget]?.name || '小組件'}</h3>
                   <div className="mt-3">
                       <div className="text-[11px] font-bold text-[#3f362c]/55">尺寸（寬×高）</div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {BUILTIN_WIDGETS[settingsItem.widget]?.sizes.map(size => {
+                          {settingsItem.widget !== 'custom' && BUILTIN_WIDGETS[settingsItem.widget]?.sizes.map(size => {
                               const current = size.w === settingsItem.w && size.h === settingsItem.h;
                               return (
                                   <button key={sizeLabel(size)} type="button" onClick={() => handleResizeWidget(settingsItem.id, size)}
@@ -1348,6 +1525,21 @@ const Launcher: React.FC = () => {
           </div>
       )}
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickImage} />
+      <input ref={widgetFileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportWidgetFile} />
+
+      {editorState && (
+          <CustomWidgetEditor
+            initial={editorState.initial}
+            cell={gridCell}
+            previewChar={widgetChar}
+            userName={userProfile?.name}
+            contentColor={contentColor}
+            onSave={saveTemplate}
+            onClose={() => setEditorState(null)}
+            onExport={exportTemplate}
+            notify={addToast}
+          />
+      )}
 
       <ScheduleFullscreenViewer
           open={scheduleViewerOpen}

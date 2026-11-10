@@ -14,6 +14,9 @@ export const GRID_ROWS = 6;
 /** 內建小組件 */
 export type BuiltinWidgetType = 'clock' | 'character' | 'schedule' | 'music' | 'image' | 'calendar' | 'events';
 
+/** 桌面上的小組件：內建的，或用戶自己做／匯入的（utils/customWidget.ts） */
+export type LauncherWidgetType = BuiltinWidgetType | 'custom';
+
 export interface WidgetSize { w: number; h: number }
 
 export interface LauncherAppItem {
@@ -27,7 +30,7 @@ export interface LauncherAppItem {
 export interface LauncherWidgetItem {
     id: string;
     kind: 'widget';
-    widget: BuiltinWidgetType;
+    widget: LauncherWidgetType;
     x: number;
     y: number;
     w: number;
@@ -35,6 +38,11 @@ export interface LauncherWidgetItem {
     /** 圖片小組件：圖（blobref 令牌）、要不要外框 */
     image?: string;
     frame?: boolean;
+    /** 自訂小組件：用哪個模板（OSTheme.launcherCustomWidgets）、這一份填的欄位、換掉的圖（鍵 → 令牌）、綁的角色（沒綁跟著目前角色） */
+    templateId?: string;
+    values?: Record<string, string>;
+    images?: Record<string, string>;
+    charId?: string;
 }
 
 export type LauncherItem = LauncherAppItem | LauncherWidgetItem;
@@ -196,11 +204,13 @@ export const normalizeLayout = (layout: LauncherLayout | undefined | null, avail
             if (raw.kind === 'app') {
                 if (!available.has(raw.appId) || seenApps.has(raw.appId)) continue;
                 seenApps.add(raw.appId);
+            } else if (raw.kind === 'widget' && raw.widget === 'custom') {
+                if (typeof raw.templateId !== 'string' || !raw.templateId) continue;
             } else if (raw.kind === 'widget') {
-                const spec = BUILTIN_WIDGETS[raw.widget];
+                const spec = BUILTIN_WIDGETS[raw.widget as BuiltinWidgetType];
                 if (!spec) continue;
-                if (!spec.multiple && seenSingle.has(raw.widget)) continue;
-                seenSingle.add(raw.widget);
+                if (!spec.multiple && seenSingle.has(raw.widget as BuiltinWidgetType)) continue;
+                seenSingle.add(raw.widget as BuiltinWidgetType);
             } else continue;
             const item = { ...raw } as LauncherItem;
             const fits = inBounds(item.x, item.y, itemSize(item)) && !kept.some(other => overlaps(rect(other), rect(item)));
@@ -278,6 +288,25 @@ export const addWidget = (layout: LauncherLayout, pageIndex: number, widgetType:
     return { layout: { ...layout, pages: placed.pages }, pageId: placed.pageId, item: final };
 };
 
+/** 放一份自訂小組件：模板的預設尺寸，位置規則跟 addWidget 一樣 */
+export const addCustomWidget = (layout: LauncherLayout, pageIndex: number, templateId: string, size: WidgetSize): { layout: LauncherLayout; pageId: string; item: LauncherWidgetItem } => {
+    const item: LauncherWidgetItem = { id: makeId('w_custom'), kind: 'widget', widget: 'custom', templateId, x: 0, y: 0, ...size };
+    const placed = placeAnywhere(layout.pages, pageIndex, spot => ({ ...item, ...spot }), size);
+    const final = placed.pages.find(p => p.id === placed.pageId)!.items.find(i => i.id === item.id) as LauncherWidgetItem;
+    return { layout: { ...layout, pages: placed.pages }, pageId: placed.pageId, item: final };
+};
+
+/** 刪模板時，桌面上用這個模板的每一份也一起拿掉 */
+export const removeCustomWidgetsOf = (layout: LauncherLayout, templateId: string): LauncherLayout => ({
+    ...layout,
+    pages: layout.pages.map(page => (page.items.some(i => i.kind === 'widget' && i.templateId === templateId)
+        ? { ...page, items: page.items.filter(i => !(i.kind === 'widget' && i.widget === 'custom' && i.templateId === templateId)) }
+        : page)),
+});
+
+export const countCustomWidgetsOf = (layout: LauncherLayout, templateId: string) =>
+    layout.pages.reduce((n, page) => n + page.items.filter(i => i.kind === 'widget' && i.widget === 'custom' && i.templateId === templateId).length, 0);
+
 /** 這一頁有沒有這種（只能放一個的）小組件 */
 export const hasWidget = (layout: LauncherLayout, widgetType: BuiltinWidgetType) =>
     layout.pages.some(page => page.items.some(item => item.kind === 'widget' && item.widget === widgetType));
@@ -290,7 +319,7 @@ export const removeWidget = (layout: LauncherLayout, itemId: string): LauncherLa
         : page)),
 });
 
-export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame'>>): LauncherLayout => ({
+export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame' | 'values' | 'images' | 'charId'>>): LauncherLayout => ({
     ...layout,
     pages: layout.pages.map(page => (page.items.some(i => i.id === itemId)
         ? { ...page, items: page.items.map(i => (i.id === itemId && i.kind === 'widget' ? { ...i, ...patch } : i)) }

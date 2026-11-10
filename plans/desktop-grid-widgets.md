@@ -1,6 +1,6 @@
 # 桌面網格與小組件
 
-> 狀態：第 1 批做完（2026-11-10）：統一網格、自由拖放與跨頁、加頁刪頁、內建小組件可增刪換尺寸、圖片小組件不再有白框。第 2 批（自訂小組件、匯入匯出）未開始。
+> 狀態：兩批都做完（2026-11-10）。第 1 批：統一網格、自由拖放與跨頁、加頁刪頁、內建小組件可增刪換尺寸、圖片小組件不再有白框。第 2 批：自訂小組件（HTML／CSS／圖片／欄位／綁角色）、沙盒 iframe、匯入匯出 `.widget.json`。
 > 提議來自 Liora（2026-11-10）：桌面 app 位置太死（第 1、2 頁寫死，第 3 頁以後只有兩排），小組件只有外觀訂製裡三個圖片位，去背 PNG 還有白框。
 
 ## 已定案
@@ -54,13 +54,44 @@ type LauncherItem =
 - 空白頁中間有「刪除這一頁」；只有空頁能刪、至少留一頁
 - 「＋小組件」放到目前這一頁，放不下往後找，都不行就加一頁；只能放一個的已經在桌面上就灰掉
 
-## 第 2 批：自訂小組件（未做）
+## 第 2 批：自訂小組件
 
-- 編輯器：名字、HTML、CSS、圖片素材（上傳後取名，`{{img:名字}}` 或格式裡的 `{{img1}}`）、可填寫欄位（新增鍵；text／color／select，之後可加 number、textarea）、尺寸
-- 佔位符：`{{time}}`、`{{date}}`、`{{weekday}}`、`{{user}}`；綁角色後 `{{char}}`、`{{char.avatar}}`、`{{char.lastMessage}}`、`{{char.unread}}`、`{{char.mood}}`；欄位值也能用 `{{鍵}}`
-- 沙盒 iframe（`sandbox="allow-scripts"`，不給 same-origin，跟見面的裝飾卡片同一套）；提供 `widget` 物件：`getState(key)`（讀欄位值，async）、少量互動（例如 `data-open="chat"` 打開 App）
-- 模板存一份，放上桌面的每一份記自己的欄位值和綁的角色
-- 匯入匯出 `.widget.json`；跟著完整備份走
+純邏輯在 `utils/customWidget.ts`（匯入匯出、佔位符、組 srcdoc），畫面 `components/launcher/CustomWidgetFrame.tsx`，
+編輯器 `CustomWidgetEditor.tsx`，這一份的設定 `CustomWidgetSettings.tsx`。
+
+**模板和每一份分開存**
+- 模板：`OSTheme.launcherCustomWidgets`（名字、HTML、CSS、預設尺寸、`imageKeys`＋模板自帶的圖、欄位定義）。圖片是 blobref 令牌，跟著主題走所以完整備份、圖片清理都掃得到
+- 放上桌面的每一份：`launcherLayout` 裡 `widget: 'custom'` 的格子，記 `templateId`、`values`（這一份填的欄位）、`images`（這一份換掉的圖）、`charId`（沒綁就跟著目前角色）
+- 改模板，桌面上用它的每一份都跟著變；刪模板會問，用它的那幾份一起拿掉。模板不見了的格子顯示「模板不見了」，點它可以移除
+- 尺寸：1×1、1×2、2×1、2×2、4×1、4×2、4×3、4×4，每一份可以自己換
+
+**入口**：整理模式「＋小組件」最下面一塊「自訂小組件」：新建（存好直接放上桌面）、匯入檔案；每個模板有放上桌面、編輯、匯出、刪除。整理中點一下某一份：尺寸、綁定角色、欄位、換圖、編輯模板、移除。
+
+**佔位符**（HTML 和 CSS 都能用，見 `BUILTIN_PLACEHOLDERS`）
+- `{{time}}`、`{{date}}`、`{{weekday}}`：用戶設備的時間（跟桌面的鐘一樣，不跟角色時區）。寫在 HTML 文字裡的會換成 `<span data-soren-live>`，自己每 10 秒走一次；屬性、`<script>`、`<style>` 裡的是組出來那一刻的值
+- `{{user}}`；`{{char}}`、`{{char.avatar}}`、`{{char.lastMessage}}`、`{{char.unread}}`、`{{char.mood}}`（情緒取 `activeBuffs[0]` 的 emoji＋名字）
+- 欄位 `{{鍵}}`（這一份填的 → 模板預設 → 空）；圖片 `{{鍵}}` 或 `{{img:鍵}}`，還沒選圖給 1×1 透明圖，不出破圖示
+- 不認得的 `{{…}}` 原樣留著。值依位置跳脫：文字和屬性做 HTML 跳脫、`<script>` 裡做 JS 字串跳脫、CSS 只擋 `</style>`
+- 內建的鍵（還有 `char.*`、`img:*`）不能拿來當欄位或圖片的鍵
+
+**沙盒**
+- `sandbox="allow-scripts"`，不給 same-origin、top-navigation、popups：讀不到 Soren 的資料、跳不走頁面。localStorage 用 `utils/sandboxShims.ts` 的記憶體替身（見面裝飾卡片也搬過來共用）
+- 沙盒讀不到 Soren 的 blob，圖片（模板的、這一份的、角色頭像）先轉成 data URL 再填進去；編輯器和設定頁上傳的圖壓到 1000px 寬
+- iframe 裡先跑的腳本提供 `widget`：`getState(key)`（async，跟匯入格式一樣，沒值回 `null`）、`getAll()`、`open(target)`、`size`
+- **iframe 不吃指標事件**：桌面照常滑頁、長按整理、拖動。不在整理中時上面蓋一層透明的，點一下把座標 postMessage 進去，裡面 `elementFromPoint` 派一個 click，碰到 `data-open` 就回報。所以只有「點一下」：小組件裡的拖曳、捲動、輸入框不會動
+- `data-open="chat"` 或 `widget.open('chat')` 打開綁定角色的聊天；填 App 代號（`constants.tsx` 的 id）就開那個 App，其他值不理。只認點完 1.5 秒內的，程式不能一載入就把人帶走
+- 連結點了不跳（攔掉 `a[href]` 的 click）。遠端圖片、字型還是載得到，跟見面的裝飾卡片一樣
+- **毛玻璃**：iframe 裡的 `backdrop-filter` 模糊不到外面的桌布。尾段腳本看最外層元素：有 `backdrop-filter` 而且幾乎蓋滿小組件，就把濾鏡和圓角回報出來，外層那個 div 代為套上（只收 `blur()` 這類寫法的字串）。範例的「frosted」靠這個才有效果
+
+**匯入匯出**
+- 匯入：`parseWidgetFile`，壞檔給中文原因；重複或不能用的鍵略過、沒選項的 select 變一行字、認不得的尺寸用 4×2，略過的東西在 toast 裡說。檔案裡沒帶圖的話提醒要自己選
+- 匯出：`buildWidgetFile`，`type: custom_widget_template`、`version: 2`；尺寸剛好是 2×2／4×2／4×4 寫 small／medium／large，其他寫 `"1x2"`。模板自帶的圖轉成 data URL 放在 `images`（鍵 → data URL，範例格式沒有這欄，別的 app 不認也不影響）；每一份自己換的圖不帶
+- 欄位多帶一個 `default`（範例格式沒有，讀的時候也收 `defaultValue`）
+
+### 還沒做的
+
+- 小組件自己存狀態（`widget.setState`）：會讓每一點都重寫一次主題，等真的有人要做待辦清單再說
+- 欄位類型只有一行字、多行字、顏色、選項、數字
 
 ### 要相容的匯入格式（Liora 給的範例）
 
